@@ -1,0 +1,1243 @@
+#include "wiz8/regions.h"
+#ifdef WIZ8_RUNTIME_TESTS
+#include "runtime_instrumentation.h"
+#include "wiz8/local_code/Gameloop.h"
+#include <string.h>
+#endif
+#include "wiz8/local_screens/AutomapScreen.h"
+#include "wiz8/local_screens/CreditsScreen.h"
+#include "wiz8/local_screens/MGSButtons.h"
+#include "wiz8/local_screens/MGSSpellCasting.h"
+#include "wiz8/local_screens/MGSFormation.h"
+#include "wiz8/local_screens/MGSKeyboard.h"
+#include "wiz8/local_screens/MGSPartyMovement.h"
+#include "wiz8/local_screens/MGSPortraits.h"
+#include "wiz8/local_screens/MGSSpellIcons.h"
+#include "wiz8/local_screens/MGSUseItemSelect.h"
+#include "wiz8/local_screens/MainGameScreen.h"
+#include "wiz8/local_screens/NPCInteractionSubscreen.h"
+#include "wiz8/local_screens/MainMenuScreen.h"
+#include "wiz8/local_screens/RCSCommon.h"
+#include "wiz8/local_screens/RCSItemsPage.h"
+#include "wiz8/local_screens/ReviewCharacterScreen.h"
+#include "wiz8/cursor.h"
+#include "wiz8/layouts/screen_state.h"
+#include "wiz8/local_screens/Screens.h"
+#include "wiz8/local_code/Configuration.h"
+#include "wiz8/local_code/ButtonSound.h"
+#include "wiz8/local_code/Strings.h"
+#include "wiz8/local_code/character_events.h"
+#include "wiz8/utility.h"
+#include "wiz8/sr_api.h"
+#include "input.h"
+#include "timer.h"
+
+#include <new>
+#include <wchar.h>
+#include "wiz8/local_screens/IntroScreen.h"
+
+enum { W8_SCREEN_WIDTH = 640, W8_SCREEN_HEIGHT = 480, W8_HELP_MARGIN = 2 };
+enum { W8_REGION_MODE_MASK = 0xf };
+
+/* The retail catalog contains 51 statically declared sets and 313 statically
+   declared regions.  Dynamically constructed controls append after that
+   catalog; region zero is the template copied into each appended record. */
+// GLOBAL: WIZ8 0x00617b18
+unsigned int g_region_set_count = 51;
+// GLOBAL: WIZ8 0x0061f238
+W8RegionSet g_region_sets[300] = {
+    {0, 0, 0},     {0, 1, 6},     {0, 8, 8},     {0, 9, 9},     {0, 10, 17},   {0, 18, 25},
+    {0, 26, 33},   {0, 34, 39},   {0, 40, 45},   {0, 46, 51},   {0, 52, 57},   {0, 58, 63},
+    {0, 64, 69},   {0, 70, 75},   {0, 76, 81},   {0, 34, 81},   {0, 90, 97},   {0, 90, 97},
+    {0, 98, 98},   {0, 99, 100},  {0, 82, 89},   {0, 82, 85},   {0, 101, 115}, {0, 116, 129},
+    {0, 130, 138}, {0, 139, 155}, {0, 156, 160}, {0, 161, 179}, {0, 200, 201}, {0, 302, 302},
+    {0, 303, 303}, {0, 304, 304}, {0, 305, 305}, {0, 306, 306}, {0, 307, 307}, {0, 308, 308},
+    {0, 309, 309}, {0, 310, 310}, {0, 180, 193}, {0, 194, 199}, {0, 205, 230}, {0, 231, 243},
+    {0, 244, 263}, {0, 264, 280}, {0, 281, 286}, {0, 287, 291}, {0, 292, 299}, {0, 300, 300},
+    {0, 301, 301}, {0, 0, 0},     {0, 0, 0}};
+// GLOBAL: WIZ8 0x00617b1c
+unsigned int g_region_count = 313;
+/* The last catalog region reports every event as handled. Retail's linker
+   folded this body into ScreenLifecycleSuccess, which compiles to the same
+   bytes. */
+// bool-byte-ok: W8RegionCallback result
+static unsigned char ConsumeRegionInput(const InputAtom*, W8Region*)
+{
+    return 1;
+}
+
+// GLOBAL: WIZ8 0x00620048
+W8Region g_regions[1500] = {
+
+    {0x00000001, 0, 0, 0, 0, 0, 0, false, 0, -1, 0},
+    {0x00000001, 174, 138, 467, 182, MainMenuIntroduction, 0, false, 0, -1, 0},
+    {0x00000001, 140, 187, 501, 231, MainMenuNewGame, 0, false, 0, -1, 0},
+
+    {0x00000001, 204, 235, 436, 279, MainMenuLoadGame, 0, false, 0, -1, 0},
+    {0x00000001, 239, 284, 403, 328, MainMenuCredits, 0, false, 0, -1, 0},
+    {0x00000001, 234, 335, 408, 379, MainMenuOptions, 0, false, 0, -1, 0},
+
+    {0x00000001, 279, 423, 364, 467, MainMenuExit, 0, false, 0, -1, 0},
+    {0x00000001, 286, 382, 351, 402, IntroScreenRegionEvent, 0, false, 0, -1, 0},
+    {0x00000001, 0, 0, 639, 479, CreditsBackgroundRegionEvent, 0, false, 0, 0, 0},
+
+    {0x00000001, 0, 0, 0, 0, DialogueTranscriptRegionEvent, 0, false, 0, -1, 0},
+    {0x00000001, 24, 68, 42, 85, PartyCombatActionRegionEvent, 0, false, 0, -1, 0},
+    {0x00000001, 595, 68, 613, 85, PartyCombatActionRegionEvent, 1, false, 0, -1, 0},
+
+    {0x00000001, 24, 153, 42, 170, PartyCombatActionRegionEvent, 2, false, 0, -1, 0},
+    {0x00000001, 595, 153, 613, 170, PartyCombatActionRegionEvent, 3, false, 0, -1, 0},
+    {0x00000001, 24, 238, 42, 255, PartyCombatActionRegionEvent, 4, false, 0, -1, 0},
+
+    {0x00000001, 595, 238, 613, 255, PartyCombatActionRegionEvent, 5, false, 0, -1, 0},
+    {0x00000001, 24, 323, 42, 340, PartyCombatActionRegionEvent, 6, false, 0, -1, 0},
+    {0x00000001, 595, 323, 613, 340, PartyCombatActionRegionEvent, 7, false, 0, -1, 0},
+
+    {0x00000001, 0, 0, 0, 0, PortraitControlRegionEvent, 0, true, 0, 1984, 0},
+    {0x00000001, 0, 0, 0, 0, PortraitControlRegionEvent, 1, true, 0, 1984, 0},
+    {0x00000001, 0, 0, 0, 0, PortraitControlRegionEvent, 2, true, 0, 1984, 0},
+
+    {0x00000001, 0, 0, 0, 0, PortraitControlRegionEvent, 3, true, 0, 1984, 0},
+    {0x00000001, 0, 0, 0, 0, PortraitControlRegionEvent, 4, true, 0, 1984, 0},
+    {0x00000001, 0, 0, 0, 0, PortraitControlRegionEvent, 5, true, 0, 1984, 0},
+
+    {0x00000001, 0, 0, 0, 0, PortraitControlRegionEvent, 6, true, 0, 1984, 0},
+    {0x00000001, 0, 0, 0, 0, PortraitControlRegionEvent, 7, true, 0, 1984, 0},
+    {0x00000001, 0, 0, 0, 0, ConditionButtonRegionEvent, 0, true, 0, 1985, 0},
+
+    {0x00000001, 0, 0, 0, 0, ConditionButtonRegionEvent, 1, true, 0, 1985, 0},
+    {0x00000001, 0, 0, 0, 0, ConditionButtonRegionEvent, 2, true, 0, 1985, 0},
+    {0x00000001, 0, 0, 0, 0, ConditionButtonRegionEvent, 3, true, 0, 1985, 0},
+
+    {0x00000001, 0, 0, 0, 0, ConditionButtonRegionEvent, 4, true, 0, 1985, 0},
+    {0x00000001, 0, 0, 0, 0, ConditionButtonRegionEvent, 5, true, 0, 1985, 0},
+    {0x00000001, 0, 0, 0, 0, ConditionButtonRegionEvent, 6, true, 0, 1985, 0},
+
+    {0x00000001, 0, 0, 0, 0, ConditionButtonRegionEvent, 7, true, 0, 1985, 0},
+    {0x00000002, 32, 27, 8, 0, PortraitConditionOrbRegionEvent, 0, true, 0, 25, 0},
+    {0x00000002, 95, 27, 8, 0, PortraitEnchantmentOrbRegionEvent, 0, true, 0, 26, 0},
+
+    {0x00000001, 23, 18, 104, 89, PortraitSelectRegionEvent, 0, false, 0, -1, 0},
+    {0x00000001, 21, 91, 105, 101, TextBoxMuteRegionEvent, 0, false, 0, -1, 0},
+    {0x00000001, 4, 42, 19, 90, PortraitAssaySidebarRegionEvent, 0, true, 0, 28, 0},
+
+    {0x00000001, 109, 42, 123, 90, PortraitOverlayHoverRegionEvent, 0, true, 0, 24, 0},
+    {0x00000002, 608, 27, 8, 0, PortraitConditionOrbRegionEvent, 1, true, 0, 25, 0},
+    {0x00000002, 544, 27, 8, 0, PortraitEnchantmentOrbRegionEvent, 1, true, 0, 26, 0},
+
+    {0x00000001, 535, 18, 616, 89, PortraitSelectRegionEvent, 1, false, 0, -1, 0},
+    {0x00000001, 539, 91, 612, 101, TextBoxMuteRegionEvent, 1, false, 0, -1, 0},
+    {0x00000001, 621, 42, 635, 90, PortraitAssaySidebarRegionEvent, 1, true, 0, 28, 0},
+
+    {0x00000001, 517, 42, 531, 90, PortraitOverlayHoverRegionEvent, 1, true, 0, 24, 0},
+    {0x00000002, 32, 112, 8, 0, PortraitConditionOrbRegionEvent, 2, true, 0, 25, 0},
+    {0x00000002, 95, 112, 8, 0, PortraitEnchantmentOrbRegionEvent, 2, true, 0, 26, 0},
+
+    {0x00000001, 23, 103, 104, 174, PortraitSelectRegionEvent, 2, false, 0, -1, 0},
+    {0x00000001, 21, 176, 105, 186, TextBoxMuteRegionEvent, 2, false, 0, -1, 0},
+    {0x00000001, 4, 125, 19, 173, PortraitAssaySidebarRegionEvent, 2, true, 0, 28, 0},
+
+    {0x00000001, 109, 125, 123, 173, PortraitOverlayHoverRegionEvent, 2, true, 0, 24, 0},
+    {0x00000002, 608, 112, 8, 0, PortraitConditionOrbRegionEvent, 3, true, 0, 25, 0},
+    {0x00000002, 544, 112, 8, 0, PortraitEnchantmentOrbRegionEvent, 3, true, 0, 26, 0},
+
+    {0x00000001, 535, 103, 616, 174, PortraitSelectRegionEvent, 3, false, 0, -1, 0},
+    {0x00000001, 539, 176, 612, 186, TextBoxMuteRegionEvent, 3, false, 0, -1, 0},
+    {0x00000001, 621, 125, 635, 173, PortraitAssaySidebarRegionEvent, 3, true, 0, 28, 0},
+
+    {0x00000001, 517, 125, 531, 173, PortraitOverlayHoverRegionEvent, 3, true, 0, 24, 0},
+    {0x00000002, 32, 198, 8, 0, PortraitConditionOrbRegionEvent, 4, true, 0, 25, 0},
+    {0x00000002, 95, 198, 8, 0, PortraitEnchantmentOrbRegionEvent, 4, true, 0, 26, 0},
+
+    {0x00000001, 23, 189, 104, 255, PortraitSelectRegionEvent, 4, false, 0, -1, 0},
+    {0x00000001, 21, 261, 105, 271, TextBoxMuteRegionEvent, 4, false, 0, -1, 0},
+    {0x00000001, 4, 210, 19, 258, PortraitAssaySidebarRegionEvent, 4, true, 0, 28, 0},
+
+    {0x00000001, 109, 210, 123, 258, PortraitOverlayHoverRegionEvent, 4, true, 0, 24, 0},
+    {0x00000002, 608, 198, 8, 0, PortraitConditionOrbRegionEvent, 5, true, 0, 25, 0},
+    {0x00000002, 544, 198, 8, 0, PortraitEnchantmentOrbRegionEvent, 5, true, 0, 26, 0},
+
+    {0x00000001, 535, 189, 616, 255, PortraitSelectRegionEvent, 5, false, 0, -1, 0},
+    {0x00000001, 539, 261, 612, 271, TextBoxMuteRegionEvent, 5, false, 0, -1, 0},
+    {0x00000001, 621, 210, 635, 258, PortraitAssaySidebarRegionEvent, 5, true, 0, 28, 0},
+
+    {0x00000001, 517, 210, 531, 258, PortraitOverlayHoverRegionEvent, 5, true, 0, 24, 0},
+    {0x00000002, 32, 283, 8, 0, PortraitConditionOrbRegionEvent, 6, true, 0, 25, 0},
+    {0x00000002, 95, 283, 8, 0, PortraitEnchantmentOrbRegionEvent, 6, true, 0, 26, 0},
+
+    {0x00000001, 23, 274, 104, 344, PortraitSelectRegionEvent, 6, false, 0, -1, 0},
+    {0x00000001, 21, 346, 105, 356, TextBoxMuteRegionEvent, 6, false, 0, -1, 0},
+    {0x00000001, 4, 295, 19, 343, PortraitAssaySidebarRegionEvent, 6, true, 0, 28, 0},
+
+    {0x00000001, 109, 295, 123, 343, PortraitOverlayHoverRegionEvent, 6, true, 0, 24, 0},
+    {0x00000002, 608, 283, 8, 0, PortraitConditionOrbRegionEvent, 7, true, 0, 25, 0},
+    {0x00000002, 544, 283, 8, 0, PortraitEnchantmentOrbRegionEvent, 7, true, 0, 26, 0},
+
+    {0x00000001, 535, 274, 616, 344, PortraitSelectRegionEvent, 7, false, 0, -1, 0},
+    {0x00000001, 539, 346, 612, 356, TextBoxMuteRegionEvent, 7, false, 0, -1, 0},
+    {0x00000001, 621, 295, 635, 343, PortraitAssaySidebarRegionEvent, 7, true, 0, 28, 0},
+
+    {0x00000001, 517, 295, 531, 343, PortraitOverlayHoverRegionEvent, 7, true, 0, 24, 0},
+    {0x00000001, 457, 363, 472, 378, TextBoxScrollUpRegionEvent, 0, false, 0, -1, 0},
+    {0x00000001, 457, 429, 472, 444, TextBoxScrollDownRegionEvent, 0, false, 0, -1, 0},
+    {0x00000001, 461, 379, 468, 428, TextBoxScrollThumbRegionEvent, 0, false, 0, -1, 0},
+    {0x00000001, 166, 362, 456, 445, TextBoxBodyRegionEvent, 0, false, 0, -1, 0},
+    {0x00000001, 140, 362, 163, 377, TextBoxChannelTabRegionEvent, 0, true, 0, 33, 0},
+    {0x00000001, 140, 383, 163, 398, TextBoxChannelTabRegionEvent, 1, true, 0, 34, 0},
+    {0x00000001, 140, 404, 163, 419, TextBoxChannelTabRegionEvent, 3, true, 0, 35, 0},
+    {0x00000001, 128, 358, 511, 450, TextBoxMuteRegionEvent, 0, false, 0, -1, 0},
+
+    {0x00000001, 0, 18, 21, 102, PortraitSelectRegionEvent, 0, true, 0, -1, 0},
+    {0x00000001, 617, 18, 639, 102, PortraitSelectRegionEvent, 1, true, 0, -1, 0},
+    {0x00000001, 0, 103, 21, 187, PortraitSelectRegionEvent, 2, true, 0, -1, 0},
+
+    {0x00000001, 617, 103, 639, 187, PortraitSelectRegionEvent, 3, true, 0, -1, 0},
+    {0x00000001, 0, 188, 21, 272, PortraitSelectRegionEvent, 4, true, 0, -1, 0},
+    {0x00000001, 617, 188, 639, 272, PortraitSelectRegionEvent, 5, true, 0, -1, 0},
+
+    {0x00000001, 0, 273, 21, 357, PortraitSelectRegionEvent, 6, true, 0, -1, 0},
+    {0x00000001, 617, 273, 639, 357, PortraitSelectRegionEvent, 7, true, 0, -1, 0},
+    {0x00000002, 75, 402, 46, 0, RadarMapButtonRegionEvent, 0, true, 0, 31, 0},
+
+    {0x00000002, 564, 402, 40, 0, FormationBoardRegionEvent, 0, true, 0, 32, 0},
+    {0x00000001, 512, 358, 617, 450, TextBoxMuteRegionEvent, 0, false, 0, -1, 0},
+    {0x00000001, 0, 0, 0, 0, MainScreenControlRegionEvent, 9, false, 0, -1, 0},
+
+    {0x00000001, 0, 0, 0, 0, MainScreenControlRegionEvent, 10, false, 0, -1, 0},
+    {0x00000001, 0, 0, 0, 0, MainScreenControlRegionEvent, 11, false, 0, -1, 0},
+    {0x00000001, 0, 0, 0, 0, MainScreenControlRegionEvent, 12, false, 0, -1, 0},
+
+    {0x00000001, 0, 0, 0, 0, MainScreenControlRegionEvent, 13, false, 0, -1, 0},
+    {0x00000001, 0, 0, 0, 0, MainScreenControlRegionEvent, 14, false, 0, -1, 0},
+    {0x00000001, 0, 0, 0, 0, MainScreenControlRegionEvent, 15, false, 0, -1, 0},
+
+    {0x00000001, 0, 0, 0, 0, MainScreenControlRegionEvent, 16, false, 0, -1, 0},
+    {0x00000001, 0, 0, 0, 0, MainScreenControlRegionEvent, 17, false, 0, -1, 0},
+    {0x00000001, 0, 0, 0, 0, MainScreenControlRegionEvent, 18, false, 0, -1, 0},
+
+    {0x00000001, 0, 0, 0, 0, MainScreenControlRegionEvent, 19, false, 0, -1, 0},
+    {0x00000001, 0, 0, 0, 0, MainScreenControlRegionEvent, 20, false, 0, -1, 0},
+    {0x00000001, 0, 0, 0, 0, MainScreenControlRegionEvent, 21, false, 0, -1, 0},
+
+    {0x00000001, 0, 0, 0, 0, MainScreenControlRegionEvent, 22, false, 0, -1, 0},
+    {0x00000001, 0, 0, 0, 0, MainScreenControlRegionEvent, 23, false, 0, -1, 0},
+    {0x00000001, 0, 0, 0, 0, MainScreenControlRegionEvent, 24, false, 0, -1, 0},
+
+    {0x00000001, 0, 0, 0, 0, MainScreenControlRegionEvent, 25, false, 0, -1, 0},
+    {0x00000001, 0, 0, 0, 0, MainScreenControlRegionEvent, 26, false, 0, -1, 0},
+    {0x00000001, 0, 0, 0, 0, MainScreenControlRegionEvent, 27, false, 0, -1, 0},
+
+    {0x00000001, 0, 0, 0, 0, MainScreenControlRegionEvent, 28, false, 0, -1, 0},
+    {0x00000001, 0, 0, 0, 0, MainScreenControlRegionEvent, 29, false, 0, -1, 0},
+    {0x00000001, 0, 0, 0, 0, MainScreenControlRegionEvent, 30, false, 0, -1, 0},
+
+    {0x00000001, 0, 0, 0, 0, MainScreenControlRegionEvent, 31, false, 0, -1, 0},
+    {0x00000001, 0, 0, 0, 0, MainScreenControlRegionEvent, 32, false, 0, -1, 0},
+    {0x00000001, 0, 0, 0, 0, MainScreenControlRegionEvent, 33, false, 0, -1, 0},
+
+    {0x00000001, 0, 0, 0, 0, MainScreenControlRegionEvent, 34, false, 0, -1, 0},
+    {0x00000001, 0, 0, 0, 0, MainScreenControlRegionEvent, 35, false, 0, -1, 0},
+    {0x00000001, 0, 0, 0, 0, MainScreenControlRegionEvent, 36, false, 0, -1, 0},
+
+    {0x00000001, 0, 0, 0, 0, MainScreenControlRegionEvent, 37, false, 0, 0, 0},
+    {0x00000001, 0, 0, 0, 0, MainScreenControlRegionEvent, 1, false, 0, -1, 0},
+    {0x00000001, 0, 0, 0, 0, MainScreenControlRegionEvent, 2, false, 0, -1, 0},
+
+    {0x00000001, 0, 0, 0, 0, MainScreenControlRegionEvent, 3, false, 0, -1, 0},
+    {0x00000001, 0, 0, 0, 0, MainScreenControlRegionEvent, 4, false, 0, -1, 0},
+    {0x00000001, 0, 0, 0, 0, MainScreenControlRegionEvent, 5, false, 0, -1, 0},
+
+    {0x00000001, 0, 0, 0, 0, MainScreenControlRegionEvent, 6, false, 0, -1, 0},
+    {0x00000001, 0, 0, 0, 0, MainScreenControlRegionEvent, 7, false, 0, -1, 0},
+    {0x00000001, 0, 0, 0, 0, MainScreenControlRegionEvent, 8, false, 0, -1, 0},
+
+    {0x00000001, 0, 0, 0, 0, MainScreenControlRegionEvent, 39, false, 0, 0, 0},
+    {0x00000001, 0, 0, 0, 0, SpellRealmButtonRegionEvent, 0, true, 0, -1, 0},
+    {0x00000001, 0, 0, 0, 0, SpellRealmButtonRegionEvent, 1, true, 0, -1, 0},
+
+    {0x00000001, 0, 0, 0, 0, SpellRealmButtonRegionEvent, 2, true, 0, -1, 0},
+    {0x00000001, 0, 0, 0, 0, SpellRealmButtonRegionEvent, 3, true, 0, -1, 0},
+    {0x00000001, 0, 0, 0, 0, SpellRealmButtonRegionEvent, 4, true, 0, -1, 0},
+
+    {0x00000001, 0, 0, 0, 0, SpellRealmButtonRegionEvent, 5, true, 0, -1, 0},
+    {0x00000002, 0, 0, 0, 0, SpellPowerPipRegionEvent, 0, true, 0, 46, 0},
+    {0x00000002, 0, 0, 0, 0, SpellPowerPipRegionEvent, 1, true, 0, 47, 0},
+
+    {0x00000002, 0, 0, 0, 0, SpellPowerPipRegionEvent, 2, true, 0, 48, 0},
+    {0x00000002, 0, 0, 0, 0, SpellPowerPipRegionEvent, 3, true, 0, 49, 0},
+    {0x00000002, 0, 0, 0, 0, SpellPowerPipRegionEvent, 4, true, 0, 50, 0},
+
+    {0x00000002, 0, 0, 0, 0, SpellPowerPipRegionEvent, 5, true, 0, 51, 0},
+    {0x00000002, 0, 0, 0, 0, SpellPowerPipRegionEvent, 6, true, 0, 52, 0},
+    {0x00000002, 0, 0, 0, 0, SpellPowerPipRegionEvent, 7, true, 0, 53, 0},
+
+    {0x00000002, 0, 0, 0, 0, SpellPowerPipRegionEvent, 8, true, 0, 54, 0},
+    {0x00000001, 0, 0, 0, 0, IgnoreSpellCastingInput, 0, true, 0, 55, 0},
+    {0x00000001, 0, 0, 0, 0, SpellPowerPipRegionEvent, 10, true, 0, 17, 0},
+
+    {0x00000001, 0, 0, 0, 0, UseItemSelectScrollRegionEvent, 0, true, 0, 96, 0},
+    {0x00000001, 0, 0, 0, 0, UseItemSelectScrollRegionEvent, 1, true, 0, 97, 0},
+    {0x00000001, 0, 0, 0, 0, UseItemSelectControlRegionEvent, 0, true, 0, 98, 0},
+
+    {0x00000001, 0, 0, 0, 0, UseItemSelectControlRegionEvent, 3, true, 0, 99, 0},
+    {0x00000001, 0, 0, 0, 0, UseItemSelectControlRegionEvent, 8, true, 0, 17, 0},
+    {0x00000001, 0, 0, 0, 0, FormationCellRegionEvent, 0, false, 0, -1, 0},
+
+    {0x00000001, 0, 0, 0, 0, FormationCellRegionEvent, 1, false, 0, -1, 0},
+    {0x00000001, 0, 0, 0, 0, FormationCellRegionEvent, 2, false, 0, -1, 0},
+    {0x00000001, 0, 0, 0, 0, FormationCellRegionEvent, 3, false, 0, -1, 0},
+
+    {0x00000001, 0, 0, 0, 0, FormationCellRegionEvent, 4, false, 0, -1, 0},
+    {0x00000001, 0, 0, 0, 0, FormationCellRegionEvent, 5, false, 0, -1, 0},
+    {0x00000001, 0, 0, 0, 0, FormationCellRegionEvent, 6, false, 0, -1, 0},
+
+    {0x00000001, 0, 0, 0, 0, FormationCellRegionEvent, 7, false, 0, -1, 0},
+    {0x00000001, 0, 0, 0, 0, FormationCellRegionEvent, 8, false, 0, -1, 0},
+    {0x00000001, 0, 0, 0, 0, FormationCellRegionEvent, 9, false, 0, -1, 0},
+
+    {0x00000001, 0, 0, 0, 0, FormationCellRegionEvent, 10, false, 0, -1, 0},
+    {0x00000001, 0, 0, 0, 0, FormationCellRegionEvent, 11, false, 0, -1, 0},
+    {0x00000001, 0, 0, 0, 0, FormationCellRegionEvent, 12, false, 0, -1, 0},
+
+    {0x00000001, 0, 0, 0, 0, FormationCellRegionEvent, 13, false, 0, -1, 0},
+    {0x00000001, 0, 0, 0, 0, FormationCellRegionEvent, 14, false, 0, -1, 0},
+    {0x00000001, 0, 0, 0, 0, FormationActionRegionEvent, 0, true, 0, 1981, 0},
+
+    {0x00000001, 0, 0, 0, 0, FormationActionRegionEvent, 1, true, 0, 1982, 0},
+    {0x00000001, 0, 0, 0, 0, FormationActionRegionEvent, 2, true, 0, 1983, 0},
+    {0x00000001, 214, 60, 427, 303, FormationBackgroundRegionEvent, 0, false, 0, -1, 0},
+
+    {0x00000001, 0, 0, 0, 0, KeyboardMenuRowRegionEvent, 0, true, 0, -1, 0},
+    {0x00000001, 0, 0, 0, 0, KeyboardMenuRowRegionEvent, 1, true, 0, -1, 0},
+    {0x00000001, 0, 0, 0, 0, KeyboardMenuRowRegionEvent, 2, true, 0, -1, 0},
+
+    {0x00000001, 0, 0, 0, 0, KeyboardMenuRowRegionEvent, 3, true, 0, -1, 0},
+    {0x00000001, 0, 0, 0, 0, KeyboardMenuRowRegionEvent, 4, true, 0, -1, 0},
+    {0x00000001, 0, 0, 0, 0, KeyboardMenuRowRegionEvent, 5, true, 0, -1, 0},
+
+    {0x00000001, 0, 0, 0, 0, KeyboardMenuRowRegionEvent, 6, true, 0, -1, 0},
+    {0x00000001, 0, 0, 0, 0, KeyboardMenuRowRegionEvent, 7, true, 0, -1, 0},
+    {0x00000001, 0, 0, 0, 0, KeyboardMenuRowRegionEvent, 8, true, 0, -1, 0},
+
+    {0x00000001, 0, 0, 0, 0, KeyboardMenuRowRegionEvent, 9, true, 0, -1, 0},
+    {0x00000001, 0, 0, 0, 0, KeyboardMenuRowRegionEvent, 10, true, 0, -1, 0},
+    {0x00000001, 0, 0, 0, 0, KeyboardMenuRowRegionEvent, 11, true, 0, -1, 0},
+
+    {0x00000001, 0, 0, 0, 0, KeyboardMenuRowRegionEvent, 12, true, 0, -1, 0},
+    {0x00000001, 0, 0, 0, 0, KeyboardMenuBackgroundRegionEvent, 0, false, 0, -1, 0},
+    {0x00000001, 0, 0, 0, 0, SubMenuRowRegionEvent, 0, true, 0, -1, 0},
+
+    {0x00000001, 0, 0, 0, 0, SubMenuRowRegionEvent, 1, true, 0, -1, 0},
+    {0x00000001, 0, 0, 0, 0, SubMenuRowRegionEvent, 2, true, 0, -1, 0},
+    {0x00000001, 0, 0, 0, 0, SubMenuRowRegionEvent, 3, true, 0, -1, 0},
+
+    {0x00000001, 0, 0, 0, 0, SubMenuRowRegionEvent, 4, true, 0, -1, 0},
+    {0x00000001, 0, 0, 0, 0, SubMenuBackgroundRegionEvent, 0, false, 0, -1, 0},
+    {0x00000001, 0, 0, 0, 0, FreeTurnButtonRegionEvent, 0, true, 0, 37, 0},
+
+    {0x00000001, 0, 0, 0, 0, FreeTurnButtonRegionEvent, 1, true, 0, 38, 0},
+    {0x00000001, 0, 0, 0, 0, PartyEffectIconRegionEvent, 11, true, 0, -1, 0},
+    {0x00000001, 0, 0, 0, 0, PartyEffectIconRegionEvent, 10, true, 0, -1, 0},
+
+    {0x00000001, 0, 0, 0, 0, PartyEffectIconRegionEvent, 9, true, 0, -1, 0},
+    {0x00000001, 0, 0, 0, 0, PartyEffectIconRegionEvent, 8, true, 0, -1, 0},
+    {0x00000001, 0, 0, 0, 0, PartyEffectIconRegionEvent, 7, true, 0, -1, 0},
+
+    {0x00000001, 0, 0, 0, 0, PartyEffectIconRegionEvent, 6, true, 0, -1, 0},
+    {0x00000001, 0, 0, 0, 0, PartyEffectIconRegionEvent, 5, true, 0, -1, 0},
+    {0x00000001, 0, 0, 0, 0, PartyEffectIconRegionEvent, 4, true, 0, -1, 0},
+
+    {0x00000001, 0, 0, 0, 0, PartyEffectIconRegionEvent, 3, true, 0, -1, 0},
+    {0x00000001, 0, 0, 0, 0, PartyEffectIconRegionEvent, 2, true, 0, -1, 0},
+    {0x00000001, 0, 0, 0, 0, PartyEffectIconRegionEvent, 1, true, 0, -1, 0},
+
+    {0x00000001, 0, 0, 0, 0, PartyEffectIconRegionEvent, 0, true, 0, -1, 0},
+    {0x00000001, 0, 0, 0, 0, CombatLeftEffectIconRegionEvent, 0, true, 0, -1, 0},
+    {0x00000001, 0, 0, 0, 0, CombatLeftEffectIconRegionEvent, 1, true, 0, -1, 0},
+
+    {0x00000001, 0, 0, 0, 0, CombatLeftEffectIconRegionEvent, 2, true, 0, -1, 0},
+    {0x00000001, 0, 0, 0, 0, CombatLeftEffectIconRegionEvent, 3, true, 0, -1, 0},
+    {0x00000001, 0, 0, 0, 0, CombatLeftEffectIconRegionEvent, 4, true, 0, -1, 0},
+
+    {0x00000001, 0, 0, 0, 0, CombatLeftEffectIconRegionEvent, 5, true, 0, -1, 0},
+    {0x00000001, 0, 0, 0, 0, CombatLeftEffectIconRegionEvent, 6, true, 0, -1, 0},
+    {0x00000001, 0, 0, 0, 0, CombatLeftEffectIconRegionEvent, 7, true, 0, -1, 0},
+
+    {0x00000001, 0, 0, 0, 0, CombatLeftEffectIconRegionEvent, 8, true, 0, -1, 0},
+    {0x00000001, 0, 0, 0, 0, CombatRightEffectIconRegionEvent, 5, true, 0, -1, 0},
+    {0x00000001, 0, 0, 0, 0, CombatRightEffectIconRegionEvent, 4, true, 0, -1, 0},
+
+    {0x00000001, 0, 0, 0, 0, CombatRightEffectIconRegionEvent, 3, true, 0, -1, 0},
+    {0x00000001, 0, 0, 0, 0, CombatRightEffectIconRegionEvent, 2, true, 0, -1, 0},
+    {0x00000001, 0, 0, 0, 0, CombatRightEffectIconRegionEvent, 1, true, 0, -1, 0},
+
+    {0x00000001, 0, 0, 0, 0, CombatRightEffectIconRegionEvent, 0, true, 0, -1, 0},
+    {0x00000001, 0, 0, 0, 0, MonsterListRegionEvent, 0, true, 0, 36, 0},
+    {0x00000001, 0, 0, 0, 0, WorldViewRegionEvent, 0, false, 0, 23, 0},
+
+    {0x00000001, 0, 0, 0, 0, CampLevelUpButtonRegionEvent, 0, true, 0, 1984, 0},
+    {0x00000001, 0, 0, 0, 0, CampDismissButtonRegionEvent, 0, true, 0, 2387, 0},
+    {0x00000001, 164, 12, 254, 84, CampDismissPortraitRegionEvent, 0, true, 0, 2368, 0},
+
+    {0x00000001, 0, 0, 0, 0, CampPortraitSlotRegionEvent, 0, false, 0, -1, 0},
+    {0x00000001, 0, 0, 0, 0, CampPortraitSlotRegionEvent, 1, false, 0, -1, 0},
+    {0x00000001, 0, 0, 0, 0, CampPortraitSlotRegionEvent, 2, false, 0, -1, 0},
+
+    {0x00000001, 0, 0, 0, 0, CampPortraitSlotRegionEvent, 3, false, 0, -1, 0},
+    {0x00000001, 0, 0, 0, 0, CampPortraitSlotRegionEvent, 4, false, 0, -1, 0},
+    {0x00000001, 0, 0, 0, 0, CampPortraitSlotRegionEvent, 5, false, 0, -1, 0},
+
+    {0x00000001, 0, 0, 0, 0, CampPortraitSlotRegionEvent, 6, false, 0, -1, 0},
+    {0x00000001, 0, 0, 0, 0, CampPortraitSlotRegionEvent, 7, false, 0, -1, 0},
+    {0x00000001, 106, 96, 302, 109, CampOpenCharacterScreenRegionEvent, 0, true, 0, 2362, 0},
+
+    {0x00000001, 106, 124, 302, 133, CampProfessionHistoryRegionEvent, 0, true, 0, 2363, 0},
+    {0x00000001, 0, 0, 0, 0, BackpackRegionHandler, 0, true, 0, -1, 0},
+    {0x00000001, 0, 0, 0, 0, BackpackRegionHandler, 1, true, 0, -1, 0},
+
+    {0x00000001, 0, 0, 0, 0, BackpackRegionHandler, 2, true, 0, -1, 0},
+    {0x00000001, 0, 0, 0, 0, BackpackRegionHandler, 3, true, 0, -1, 0},
+    {0x00000001, 0, 0, 0, 0, BackpackRegionHandler, 4, true, 0, -1, 0},
+
+    {0x00000001, 0, 0, 0, 0, BackpackRegionHandler, 5, true, 0, -1, 0},
+    {0x00000001, 0, 0, 0, 0, BackpackRegionHandler, 6, true, 0, -1, 0},
+    {0x00000001, 0, 0, 0, 0, BackpackRegionHandler, 7, true, 0, -1, 0},
+
+    {0x00000001, 0, 0, 0, 0, EquipSlotRegionHandler, 0, true, 0, -1, 0},
+    {0x00000001, 0, 0, 0, 0, EquipSlotRegionHandler, 1, true, 0, -1, 0},
+    {0x00000001, 0, 0, 0, 0, EquipSlotRegionHandler, 2, true, 0, -1, 0},
+
+    {0x00000001, 0, 0, 0, 0, EquipSlotRegionHandler, 3, true, 0, -1, 0},
+    {0x00000001, 0, 0, 0, 0, EquipSlotRegionHandler, 4, true, 0, -1, 0},
+    {0x00000001, 0, 0, 0, 0, EquipSlotRegionHandler, 5, true, 0, -1, 0},
+
+    {0x00000001, 0, 0, 0, 0, EquipSlotRegionHandler, 6, true, 0, -1, 0},
+    {0x00000001, 0, 0, 0, 0, EquipSlotRegionHandler, 7, true, 0, -1, 0},
+    {0x00000001, 0, 0, 0, 0, EquipSlotRegionHandler, 8, true, 0, -1, 0},
+
+    {0x00000001, 0, 0, 0, 0, EquipSlotRegionHandler, 9, true, 0, -1, 0},
+    {0x00000001, 0, 0, 0, 0, EquipSlotRegionHandler, 10, true, 0, -1, 0},
+    {0x00000001, 0, 0, 0, 0, EquipSlotRegionHandler, 11, true, 0, -1, 0},
+
+    {0x00000001, 0, 0, 0, 0, ItemPoolRegionHandler, 0, true, 0, -1, 0},
+    {0x00000001, 0, 0, 0, 0, ItemPoolRegionHandler, 1, true, 0, -1, 0},
+    {0x00000001, 0, 0, 0, 0, ItemPoolRegionHandler, 2, true, 0, -1, 0},
+
+    {0x00000001, 0, 0, 0, 0, ItemPoolRegionHandler, 3, true, 0, -1, 0},
+    {0x00000001, 0, 0, 0, 0, ItemPoolRegionHandler, 4, true, 0, -1, 0},
+    {0x00000001, 0, 0, 0, 0, ItemPoolRegionHandler, 5, true, 0, -1, 0},
+
+    {0x00000001, 0, 0, 0, 0, ItemPoolRegionHandler, 6, true, 0, -1, 0},
+    {0x00000001, 0, 0, 0, 0, ItemPoolRegionHandler, 7, true, 0, -1, 0},
+    {0x00000001, 0, 0, 0, 0, RealmTabRegionHandler, 0, true, 0, 2378, 0},
+
+    {0x00000001, 0, 0, 0, 0, RealmTabRegionHandler, 1, true, 0, 2379, 0},
+    {0x00000001, 0, 0, 0, 0, RealmTabRegionHandler, 2, true, 0, 2380, 0},
+    {0x00000001, 0, 0, 0, 0, RealmTabRegionHandler, 3, true, 0, 2381, 0},
+
+    {0x00000001, 0, 0, 0, 0, RealmTabRegionHandler, 4, true, 0, 2382, 0},
+    {0x00000001, 0, 0, 0, 0, RealmTabRegionHandler, 5, true, 0, 2383, 0},
+    {0x00000001, 0, 0, 0, 0, RealmTabRegionHandler, 6, true, 0, 2384, 0},
+
+    {0x00000001, 0, 0, 0, 0, PanelTabRegionHandler, 0, true, 0, 2385, 0},
+    {0x00000001, 0, 0, 0, 0, PanelTabRegionHandler, 1, true, 0, 2386, 0},
+    {0x00000001, 0, 0, 0, 0, SpellListRegionHandler, 0, false, 0, -1, 0},
+
+    {0x00000001, 0, 0, 0, 0, SpellListRegionHandler, 1, false, 0, -1, 0},
+    {0x00000001, 0, 0, 0, 0, SpellListRegionHandler, 2, false, 0, -1, 0},
+    {0x00000001, 0, 0, 0, 0, SpellListRegionHandler, 3, false, 0, -1, 0},
+
+    {0x00000001, 0, 0, 0, 0, SpellListRegionHandler, 4, false, 0, -1, 0},
+    {0x00000001, 0, 0, 0, 0, SpellListRegionHandler, 5, false, 0, -1, 0},
+    {0x00000001, 0, 0, 0, 0, CampPageButtonRegionEvent, 0, true, 0, 2364, 0},
+
+    {0x00000001, 0, 0, 0, 0, CampPageButtonRegionEvent, 1, true, 0, 2367, 0},
+    {0x00000001, 0, 0, 0, 0, CampPageButtonRegionEvent, 2, true, 0, 2366, 0},
+    {0x00000001, 0, 0, 0, 0, CampPageButtonRegionEvent, 3, true, 0, 2365, 0},
+
+    {0x00000001, 0, 0, 0, 0, CampPageButtonRegionEvent, 4, true, 0, 2368, 0},
+    {0x00000001, 0, 0, 0, 0, CampItemActionRegionEvent, 0, true, 0, 2369, 0},
+    {0x00000001, 0, 0, 0, 0, CampItemActionRegionEvent, 1, true, 0, 2370, 0},
+
+    {0x00000001, 0, 0, 0, 0, CampItemActionRegionEvent, 2, true, 0, 2371, 0},
+    {0x00000001, 0, 0, 0, 0, CampItemActionRegionEvent, 3, true, 0, 2372, 0},
+    {0x00000001, 0, 0, 0, 0, CampItemActionRegionEvent, 4, true, 0, 2373, 0},
+
+    {0x00000001, 0, 0, 0, 0, CampItemActionRegionEvent, 5, true, 0, 2374, 0},
+    {0x00000001, 0, 0, 0, 0, CampItemActionRegionEvent, 6, true, 0, 2375, 0},
+    {0x00000001, 0, 0, 0, 0, CampItemActionRegionEvent, 7, true, 0, 2376, 0},
+
+    {0x00000001, 0, 0, 639, 479, AutomapBackgroundRegionEvent, 0, false, 0, -1, 0},
+    {0x00000001, 0, 0, 639, 479, IntroScreenRegionEvent, 0, false, 0, -1, 0},
+    {0x00000001, 0, 0, 0, 0, PartyPortraitEventRegionEvent, 0, false, 0, -1, 0},
+
+    {0x00000001, 0, 0, 0, 0, PartyPortraitEventRegionEvent, 1, false, 0, -1, 0},
+    {0x00000001, 0, 0, 0, 0, PartyPortraitEventRegionEvent, 2, false, 0, -1, 0},
+    {0x00000001, 0, 0, 0, 0, PartyPortraitEventRegionEvent, 3, false, 0, -1, 0},
+
+    {0x00000001, 0, 0, 0, 0, PartyPortraitEventRegionEvent, 4, false, 0, -1, 0},
+    {0x00000001, 0, 0, 0, 0, PartyPortraitEventRegionEvent, 5, false, 0, -1, 0},
+    {0x00000001, 0, 0, 0, 0, PartyPortraitEventRegionEvent, 6, false, 0, -1, 0},
+
+    {0x00000001, 0, 0, 0, 0, PartyPortraitEventRegionEvent, 7, false, 0, -1, 0},
+    {0x00000001, 0, 0, 0, 0, NpcQuoteBubbleRegionEvent, 0, false, 0, -1, 0},
+    {0x00000001, 0, 0, 0, 0, CombatBarRegionEvent, 0, false, 0, -1, 0},
+    {0x00000001, 0, 0, 0, 0, ConsumeRegionInput, 0, false, 0, -1, 0},
+};
+// GLOBAL: WIZ8 0x00689B3C
+unsigned int g_current_region_index;
+// GLOBAL: WIZ8 0x00689B40
+wchar_t* g_default_help_text;
+// GLOBAL: WIZ8 0x00689B44
+unsigned int g_captured_region_index;
+// GLOBAL: WIZ8 0x00689B4C
+unsigned int g_hover_region_index;
+// GLOBAL: WIZ8 0x00689B50
+bool g_region_help_force_enabled;
+
+// GLOBAL: WIZ8 0x00689B32
+bool g_dev_mode;
+
+// FUNCTION: WIZ8 0x004f27a0
+void SetRegionHelpDelay(int delay_ms)
+{
+    if (delay_ms == 0) {
+        delay_ms = g_settings.tooltip_delay_ms;
+    }
+    g_region_help_delay = delay_ms;
+}
+
+// FUNCTION: WIZ8 0x004F27C0
+void SetRegionHelpForceEnabled(bool enabled)
+{
+    g_region_help_force_enabled = enabled;
+}
+
+// FUNCTION: WIZ8 0x004F27D0
+void EnableRegionHelpFlag(W8Region* region)
+{
+    region->help_enabled = true;
+}
+
+// FUNCTION: WIZ8 0x004F27E0
+void DisableRegionHelpFlag(W8Region* region)
+{
+    region->help_enabled = false;
+}
+
+// FUNCTION: WIZ8 0x004f1220
+void ReleaseDefaultHelpText(void)
+{
+    if (g_default_help_text != 0) {
+        delete[] g_default_help_text;
+    }
+}
+
+static bool FindEnabledRegionAtPoint(unsigned short x, unsigned short y, unsigned int* found_region)
+{
+    for (unsigned int set_index = 0; set_index < g_region_set_count; ++set_index) {
+        W8RegionSet* set = &g_region_sets[set_index];
+        if (set->enabled != 1 || set->first_region > set->last_region) {
+            continue;
+        }
+        for (unsigned int region_index = set->first_region; region_index <= set->last_region;
+             ++region_index) {
+            if (RegionContainsPoint(region_index, x, y)) {
+                *found_region = region_index;
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
+/* Dispatch one mouse-position event through the enabled region sets. A forced
+   modal region bypasses hit testing; otherwise the first containing region
+   receives leave/enter transitions, hover help timing, and the ordinary
+   position callback as one transaction. */
+// FUNCTION: WIZ8 0x004f1360
+unsigned int UpdateRegionMousePosition(int x, int y)
+{
+    InputAtom event;
+    unsigned int region_index;
+
+    event.uiTimeStamp = GetClock();
+    event.usKeyState = gfAltState | gfCtrlState | gfShiftState;
+    event.usEvent = MOUSE_POS;
+    event.uiParam = (static_cast<unsigned int>(static_cast<unsigned short>(y)) << 16) |
+                    static_cast<unsigned short>(x);
+
+    if (g_captured_region_index != 0) {
+        W8Region* forced = &g_regions[g_captured_region_index];
+        forced->callback(&event, forced);
+        return g_current_region_index;
+    }
+
+    if (FindEnabledRegionAtPoint(static_cast<unsigned short>(x), static_cast<unsigned short>(y),
+                                 &region_index)) {
+        W8Region* region = &g_regions[region_index];
+        unsigned int previous_index = g_hover_region_index;
+        g_current_region_index = region_index;
+        if (previous_index != 0 && previous_index != region_index) {
+            W8Region* previous = &g_regions[previous_index];
+            previous->flags = (previous->flags & 0xff0f) | W8_REGION_MOUSE_LEAVE;
+            previous->callback(&event, previous);
+            if ((previous->flags & W8_REGION_HELP_SHOWN) != 0) {
+                VideoRemoveToolTip();
+                previous->flags &= ~W8_REGION_HELP_SHOWN;
+            }
+            PlayButtonSound(1);
+            g_region_help_delay = static_cast<unsigned short>(g_settings.tooltip_delay_ms);
+            previous->flags &= ~W8_REGION_MOUSE_STATE_MASK;
+            SetRegionHelpForceEnabled(false);
+        }
+        if (previous_index != region_index) {
+            region->flags |= W8_REGION_MOUSE_ENTER;
+            SetRegionHelpText(FormatWideString(L"Region %d", region_index));
+        }
+        region->callback(&event, region);
+        if (g_current_region_index != previous_index) {
+            if (region->help_enabled &&
+                (g_settings.tooltips_enabled || g_region_help_force_enabled)) {
+                g_region_help_clock = SetCountdownClock(g_region_help_delay);
+            }
+            PlayButtonSound(0);
+        }
+        region->flags &= ~W8_REGION_MOUSE_TRANSITION_MASK;
+        g_hover_region_index = g_current_region_index;
+        return g_current_region_index;
+    }
+
+    g_current_region_index = 0;
+    if (g_hover_region_index != 0) {
+        unsigned int previous_index = g_hover_region_index;
+        W8Region* previous = &g_regions[previous_index];
+        previous->flags = (previous->flags & 0xff0f) | W8_REGION_MOUSE_LEAVE;
+        previous->callback(&event, previous);
+        if ((previous->flags & W8_REGION_HELP_SHOWN) != 0) {
+            VideoRemoveToolTip();
+            previous->flags &= ~W8_REGION_HELP_SHOWN;
+        }
+        PlayButtonSound(1);
+        g_region_help_delay = static_cast<unsigned short>(g_settings.tooltip_delay_ms);
+        SetRegionHelpForceEnabled(false);
+        previous->flags &= ~W8_REGION_MOUSE_STATE_MASK;
+    }
+    g_hover_region_index = g_current_region_index;
+    return g_current_region_index;
+}
+
+/* Find the first enabled region containing the mouse position.  Moving to a
+   different region also sends the old region its leave transition and drops
+   any help box it still owns. */
+// FUNCTION: WIZ8 0x004f16f0
+unsigned int FindRegionAtPoint(unsigned short x, unsigned short y)
+{
+    InputAtom event;
+    unsigned int region_index;
+
+    event.uiTimeStamp = GetClock();
+    event.usKeyState = gfAltState | gfCtrlState | gfShiftState;
+    event.usEvent = MOUSE_POS;
+    event.uiParam = (static_cast<unsigned int>(y) << 16) | x;
+
+    if (g_captured_region_index != 0) {
+        return g_captured_region_index;
+    }
+
+    if (FindEnabledRegionAtPoint(x, y, &region_index)) {
+        if (g_hover_region_index != 0 && g_hover_region_index != region_index) {
+            W8Region* previous = &g_regions[g_hover_region_index];
+            previous->flags = (previous->flags & 0xff0f) | W8_REGION_MOUSE_LEAVE;
+            previous->callback(&event, previous);
+            if ((previous->flags & W8_REGION_HELP_SHOWN) != 0) {
+                VideoRemoveToolTip();
+                previous->flags &= ~W8_REGION_HELP_SHOWN;
+            }
+            g_region_help_delay = static_cast<unsigned short>(g_settings.tooltip_delay_ms);
+            previous->flags &= ~W8_REGION_MOUSE_STATE_MASK;
+            SetRegionHelpForceEnabled(false);
+            g_hover_region_index = 0;
+            g_current_region_index = 0;
+        }
+        return region_index;
+    }
+
+    if (g_hover_region_index != 0 &&
+        (g_regions[g_hover_region_index].flags & W8_REGION_HELP_SHOWN) != 0) {
+        unsigned int previous_index = g_hover_region_index;
+        VideoRemoveToolTip();
+        g_regions[previous_index].flags &= ~W8_REGION_HELP_SHOWN;
+    }
+    return 0;
+}
+
+/* Route one queued input atom to the forced region, the current hot region,
+   or the first enabled region under the event's mouse position. Retail carries
+   three copies of the dispatch tail (0x004F1B41 for the region-set scan,
+   0x004F1C4C and 0x004F1D34 for the current and captured regions); each runs
+   the callback, plays the optional sound and returns the callback result. */
+// FUNCTION: WIZ8 0x004f1910
+unsigned char DispatchRegionInput(const InputAtom* event)
+{
+    unsigned int region_index = g_captured_region_index;
+    int sound_id = -1;
+    unsigned short x = static_cast<unsigned short>(event->uiParam) + g_cursor_hotspot_x;
+    unsigned short y = static_cast<unsigned short>(event->uiParam >> 16) + g_cursor_hotspot_y;
+#ifdef WIZ8_RUNTIME_TESTS
+    if (event->usEvent == MOUSE_POS || event->usEvent == LEFT_BUTTON_DOWN ||
+        event->usEvent == LEFT_BUTTON_UP || event->usEvent == RIGHT_BUTTON_DOWN ||
+        event->usEvent == RIGHT_BUTTON_UP) {
+        RuntimeObserve(RUNTIME_MOUSE_DISPATCH, event->usEvent,
+                       static_cast<unsigned long>(x) | (static_cast<unsigned long>(y) << 16),
+                       g_current_screen_state.id);
+    }
+#endif
+
+    if (region_index != 0) {
+        goto dispatch;
+    }
+
+    region_index = g_current_region_index;
+    if (region_index != 0 && RegionContainsPoint(region_index, x, y)) {
+        goto dispatch;
+    }
+
+    if (FindEnabledRegionAtPoint(x, y, &region_index)) {
+        goto dispatch;
+    }
+    return 0;
+
+dispatch:
+    W8Region* region = &g_regions[region_index];
+    if (region->help_enabled && (g_settings.tooltips_enabled || g_region_help_force_enabled) &&
+        event->usEvent != MOUSE_POS) {
+        if ((region->flags & W8_REGION_HELP_SHOWN) != 0) {
+            VideoRemoveToolTip();
+            region->flags &= ~W8_REGION_HELP_SHOWN;
+        }
+        if (region->help_enabled && (g_settings.tooltips_enabled || g_region_help_force_enabled)) {
+            g_region_help_clock = SetCountdownClock(g_region_help_delay);
+        }
+    }
+
+    switch (event->usEvent) {
+    case LEFT_BUTTON_DOWN:
+    case RIGHT_BUTTON_DOWN:
+        sound_id = 2;
+        break;
+    case LEFT_BUTTON_UP:
+        if ((g_regions[g_current_region_index].flags & W8_REGION_LEFT_BUTTON_HELD) != 0) {
+            sound_id = 3;
+        }
+        break;
+    case RIGHT_BUTTON_UP:
+        if ((g_regions[g_current_region_index].flags & W8_REGION_RIGHT_BUTTON_HELD) != 0) {
+            sound_id = 3;
+        }
+        break;
+    }
+
+#ifdef WIZ8_RUNTIME_TESTS
+    unsigned long callback_address = 0;
+    memcpy(&callback_address, &region->callback, sizeof(callback_address));
+    RuntimeObserve(RUNTIME_REGION_ACTIVATED, region_index, callback_address, region->callback_id);
+#endif
+    unsigned char handled = region->callback(event, region);
+    if (sound_id != -1) {
+        PlayButtonSound(sound_id);
+    }
+    return handled;
+}
+
+/* Raises the help box for one region, taking a stale one down first. The
+   selected text comes either from the region's indexed notice entry or the
+   shared fallback, and the final position is clamped inside the 640x480
+   screen before the region records ownership of the box. */
+// FUNCTION: WIZ8 0x004f2650
+void ShowRegionHelp(unsigned int region_index)
+{
+    W8Region* region;
+    unsigned int mode;
+    wchar_t* text;
+    POINT anchor;
+    int width;
+    int height;
+
+    if (!g_settings.tooltips_enabled && !g_region_help_force_enabled) {
+        return;
+    }
+    region = &g_regions[region_index];
+    mode = region->flags & W8_REGION_MODE_MASK;
+    if (mode != 1 && mode != 2 && (region->flags & W8_REGION_HELP_SHOWN) != 0) {
+        VideoRemoveToolTip();
+        region->flags &= ~W8_REGION_HELP_SHOWN;
+    }
+    if ((region->flags & W8_REGION_HELP_SHOWN) != 0) {
+        return;
+    }
+    if (region->help_text_id == -1) {
+        text = g_default_help_text;
+        if (text == 0) {
+            return;
+        }
+    } else {
+        text = gppStringList[region->help_text_id];
+    }
+    VideoToolTip(text);
+    width = g_help_box_width + W8_HELP_MARGIN;
+    height = g_help_box_height + W8_HELP_MARGIN;
+    SGPMouseGetPos(&anchor);
+    anchor.y -= height;
+    if (anchor.x < 0) {
+        anchor.x = W8_HELP_MARGIN;
+    }
+    if (anchor.x + width > W8_SCREEN_WIDTH - 1) {
+        anchor.x = W8_SCREEN_WIDTH - width;
+    }
+    if (anchor.y < 0) {
+        anchor.y = W8_HELP_MARGIN;
+    }
+    if (anchor.y + height > W8_SCREEN_HEIGHT - 1) {
+        anchor.y = W8_SCREEN_HEIGHT - height;
+    }
+    VideoPositionToolTip(anchor.x, anchor.y);
+    region->flags |= W8_REGION_HELP_SHOWN;
+}
+
+/* Force one region to the front of modal dispatch. If another region owned
+   that role, send its ordinary mouse-leave callback first and release any
+   transition object it still owns. */
+// FUNCTION: WIZ8 0x004f2040
+void ActivateDialogRegion(unsigned int region_index)
+{
+    if (region_index >= g_region_count) {
+        srAssertFail("uiRegionIndex < guiRegionCount",
+                     "C:\\Projects\\Wizardry 8\\Local Code\\RegionManager.cpp", 0x1d6, 0);
+    }
+
+    g_captured_region_index = region_index;
+    g_current_region_index = region_index;
+    if (g_hover_region_index == region_index) {
+        return;
+    }
+
+    if (g_hover_region_index != 0) {
+        InputAtom event;
+        event.uiTimeStamp = GetClock();
+        event.usKeyState = gfAltState | gfCtrlState | gfShiftState;
+        event.usEvent = MOUSE_POS;
+
+        W8Region* previous = &g_regions[g_hover_region_index];
+        previous->flags = (previous->flags & 0xff0f) | W8_REGION_MOUSE_LEAVE;
+        previous->callback(&event, previous);
+        unsigned int previous_index = g_hover_region_index;
+        if ((g_regions[previous_index].flags & W8_REGION_HELP_SHOWN) != 0) {
+            VideoRemoveToolTip();
+            g_regions[previous_index].flags &= ~W8_REGION_HELP_SHOWN;
+        }
+        g_region_help_delay = static_cast<unsigned short>(g_settings.tooltip_delay_ms);
+        g_regions[g_hover_region_index].flags &= ~W8_REGION_MOUSE_STATE_MASK;
+        SetRegionHelpForceEnabled(false);
+        g_hover_region_index = 0;
+    }
+    g_regions[g_captured_region_index].flags &= ~W8_REGION_MOUSE_STATE_MASK;
+}
+
+// FUNCTION: WIZ8 0x004f21b0
+unsigned char ClearActiveRegionIfMatches(unsigned int region_index)
+{
+    if (g_captured_region_index == region_index) {
+        g_captured_region_index = 0;
+        g_current_region_index = 0;
+        return 1;
+    }
+    return 0;
+}
+
+// FUNCTION: WIZ8 0x004f21d0
+unsigned int GetForcedRegion(void)
+{
+    return g_captured_region_index;
+}
+
+// FUNCTION: WIZ8 0x004f21e0
+void RegionSetEnable(unsigned int region_set_index)
+{
+    if (region_set_index >= g_region_set_count) {
+        srAssertFail("uiRegionSetIndex < guiRegsetCount",
+                     "C:\\Projects\\Wizardry 8\\Local Code\\RegionManager.cpp", 0x22b, 0);
+    }
+    g_region_sets[region_set_index].enabled = 1;
+}
+
+// FUNCTION: WIZ8 0x004f2220
+void RegionSetDisable(unsigned int region_set_index)
+{
+    if (region_set_index >= g_region_set_count) {
+        srAssertFail("uiRegionSetIndex < guiRegsetCount",
+                     "C:\\Projects\\Wizardry 8\\Local Code\\RegionManager.cpp", 0x234, 0);
+    }
+    g_region_sets[region_set_index].enabled = 0;
+}
+
+// FUNCTION: WIZ8 0x004f2260
+void EnableRegionSetInput(unsigned int region_set_index)
+{
+    unsigned int region_index;
+    W8Region* region;
+
+    if (region_set_index >= g_region_set_count) {
+        srAssertFail("uiRegionSetIndex < guiRegsetCount",
+                     "C:\\Projects\\Wizardry 8\\Local Code\\RegionManager.cpp", 0x23f, 0);
+    }
+    region_index = g_region_sets[region_set_index].first_region;
+    if (region_index <= g_region_sets[region_set_index].last_region) {
+        region = &g_regions[region_index];
+        do {
+            if (region_index >= g_region_count) {
+                srAssertFail("uiRegionIndex < guiRegionCount",
+                             "C:\\Projects\\Wizardry 8\\Local Code\\RegionManager.cpp", 0x259, 0);
+            }
+            region->flags &= 0xfff3;
+            ++region_index;
+            ++region;
+        } while (region_index <= g_region_sets[region_set_index].last_region);
+    }
+}
+
+// FUNCTION: WIZ8 0x004f22f0
+void DisableRegionSetInput(unsigned int region_set_index)
+{
+    unsigned int region_index;
+    unsigned int last_region;
+
+    if (region_set_index >= g_region_set_count) {
+        srAssertFail("uiRegionSetIndex < guiRegsetCount",
+                     "C:\\Projects\\Wizardry 8\\Local Code\\RegionManager.cpp", 0x24d, 0);
+    }
+    region_index = g_region_sets[region_set_index].first_region;
+    if (region_index <= g_region_sets[region_set_index].last_region) {
+        do {
+            if (region_index >= g_region_count) {
+                srAssertFail("uiRegionIndex < guiRegionCount",
+                             "C:\\Projects\\Wizardry 8\\Local Code\\RegionManager.cpp", 0x262, 0);
+            }
+            last_region = g_region_sets[region_set_index].last_region;
+            g_regions[region_index].flags =
+                (g_regions[region_index].flags & 0xfff3) | W8_REGION_INPUT_DISABLED;
+            ++region_index;
+        } while (region_index <= last_region);
+    }
+}
+
+// FUNCTION: WIZ8 0x004f2380
+void EnableRegionInput(unsigned int region_index)
+{
+    if (region_index >= g_region_count) {
+        srAssertFail("uiRegionIndex < guiRegionCount",
+                     "C:\\Projects\\Wizardry 8\\Local Code\\RegionManager.cpp", 0x259, 0);
+    }
+    g_regions[region_index].flags &= 0xfff3;
+}
+
+// FUNCTION: WIZ8 0x004f23d0
+void DisableRegionInput(unsigned int region_index)
+{
+    if (region_index >= g_region_count) {
+        srAssertFail("uiRegionIndex < guiRegionCount",
+                     "C:\\Projects\\Wizardry 8\\Local Code\\RegionManager.cpp", 0x262, 0);
+    }
+    unsigned int flags = g_regions[region_index].flags;
+    flags &= 0xfff3;
+    flags |= W8_REGION_INPUT_DISABLED;
+    g_regions[region_index].flags = flags;
+}
+
+// FUNCTION: WIZ8 0x004f2420
+void SetRegionBounds(unsigned int region_index, unsigned short x1, unsigned short y1,
+                     unsigned short x2, unsigned short y2)
+{
+    if (region_index >= g_region_count) {
+        srAssertFail("uiRegionIndex < guiRegionCount",
+                     "C:\\Projects\\Wizardry 8\\Local Code\\RegionManager.cpp", 0x27d, 0);
+    }
+    g_regions[region_index].x1 = x1;
+    g_regions[region_index].y1 = y1;
+    g_regions[region_index].x2 = x2;
+    g_regions[region_index].y2 = y2;
+}
+
+// FUNCTION: WIZ8 0x004f2490
+bool RegionContainsPoint(unsigned int region_index, unsigned short x, unsigned short y)
+{
+    W8Region* region;
+
+    if (region_index >= g_region_count) {
+        srAssertFail("uiRegionIndex < guiRegionCount",
+                     "C:\\Projects\\Wizardry 8\\Local Code\\RegionManager.cpp", 0x2a4, 0);
+    }
+    region = &g_regions[region_index];
+    switch (region->flags & W8_REGION_MODE_MASK) {
+    case W8_REGION_RECTANGLE:
+        if (x >= region->x1 && x <= region->x2 && y >= region->y1 && y <= region->y2) {
+            return true;
+        }
+        break;
+    case W8_REGION_CIRCLE: {
+        short delta_x = x - region->x1;
+        short delta_y = y - region->y1;
+        if (delta_x * delta_x + delta_y * delta_y <= region->x2 * region->x2) {
+            return true;
+        }
+        break;
+    }
+    }
+    return false;
+}
+
+// FUNCTION: WIZ8 0x004f2550
+bool RegionHasFlags(unsigned int region_index, unsigned int flags)
+{
+    bool has_flags;
+
+    if (region_index >= g_region_count) {
+        srAssertFail("uiRegionIndex < guiRegionCount",
+                     "C:\\Projects\\Wizardry 8\\Local Code\\RegionManager.cpp", 0x2c6, 0);
+    }
+    has_flags = (g_regions[region_index].flags & flags) != 0;
+    return has_flags;
+}
+
+// FUNCTION: WIZ8 0x004f25a0
+void UpdateRegionHelp(void)
+{
+    if (g_captured_region_index == 0) {
+        if (g_current_region_index != 0 && g_regions[g_current_region_index].help_enabled &&
+            (g_settings.tooltips_enabled || g_region_help_force_enabled) &&
+            ClockIsTicking(g_region_help_clock) == 0) {
+            ShowRegionHelp(g_current_region_index);
+        }
+    } else if (g_regions[g_captured_region_index].help_enabled &&
+               (g_settings.tooltips_enabled || g_region_help_force_enabled) &&
+               ClockIsTicking(g_region_help_clock) == 0) {
+        ShowRegionHelp(g_captured_region_index);
+    }
+}
+
+// FUNCTION: WIZ8 0x004f2750
+void SetRegionHelpText(const wchar_t* text)
+{
+    ReleaseDefaultHelpText();
+    if (text != 0) {
+        g_default_help_text = new wchar_t[wcslen(text) + 1];
+        wcscpy(g_default_help_text, text);
+    } else {
+        g_default_help_text = 0;
+    }
+}
+
+// FUNCTION: WIZ8 0x004f27f0
+void ResetRegionHelp(bool delayed)
+{
+    unsigned int region_index = g_current_region_index;
+
+    VideoRemoveToolTip();
+    g_regions[region_index].flags &= 0xfffffdff;
+    if (!delayed) {
+        ShowRegionHelp(g_current_region_index);
+    } else if (g_regions[g_current_region_index].help_enabled &&
+               (g_settings.tooltips_enabled || g_region_help_force_enabled)) {
+        g_region_help_clock = SetCountdownClock(g_region_help_delay);
+    }
+}
+
+// FUNCTION: WIZ8 0x004f2880
+unsigned int CreateRegionSet(void)
+{
+    unsigned int region_set_index = g_region_set_count++;
+
+    if (g_region_set_count > 300) {
+        srAssertFail("guiRegsetCount <= REGSET_LIMIT",
+                     "C:\\Projects\\Wizardry 8\\Local Code\\RegionManager.cpp", 0x487, 0);
+    }
+    g_region_sets[region_set_index].enabled = 0;
+    g_region_sets[region_set_index].first_region = g_region_count;
+    g_region_sets[region_set_index].last_region = 0;
+    return region_set_index;
+}
+
+// FUNCTION: WIZ8 0x004f28e0
+void ResetRegionSet(unsigned int region_set_index)
+{
+    if (region_set_index >= g_region_set_count) {
+        srAssertFail("uiRegionSet < guiRegsetCount",
+                     "C:\\Projects\\Wizardry 8\\Local Code\\RegionManager.cpp", 0x4a0, 0);
+    }
+    g_region_sets[region_set_index].last_region = 0;
+}
+
+// FUNCTION: WIZ8 0x004f2920
+unsigned int AddRegionToSet(unsigned int region_set_index)
+{
+    unsigned int region_index;
+
+    if (region_set_index >= g_region_set_count) {
+        srAssertFail("uiRegionSet < guiRegsetCount",
+                     "C:\\Projects\\Wizardry 8\\Local Code\\RegionManager.cpp", 0x4b7, 0);
+    }
+    if (g_region_sets[region_set_index].last_region == 0) {
+        region_index = g_region_sets[region_set_index].first_region;
+    } else {
+        region_index = g_region_sets[region_set_index].last_region + 1;
+    }
+    g_region_sets[region_set_index].last_region = region_index;
+    if (region_index == g_region_count) {
+        ++g_region_count;
+        if (g_region_count > 1500) {
+            srAssertFail("guiRegionCount <= REGION_LIMIT",
+                         "C:\\Projects\\Wizardry 8\\Local Code\\RegionManager.cpp", 0x4c7, 0);
+        }
+        g_regions[region_index] = g_regions[0];
+    }
+    return region_index;
+}
+
+// FUNCTION: WIZ8 0x004f29c0
+void SetRegionCallback(unsigned int region_index, W8RegionCallback callback,
+                       unsigned short callback_id)
+{
+    if (region_index > g_region_count) {
+        srAssertFail("uiRegionIndex <= guiRegionCount",
+                     "C:\\Projects\\Wizardry 8\\Local Code\\RegionManager.cpp", 0x4df, 0);
+    }
+    g_regions[region_index].callback = callback;
+    g_regions[region_index].callback_id = callback_id;
+}
+
+// FUNCTION: WIZ8 0x004f2a10
+void SetRegionOwner(unsigned int region_index, Controls* owner)
+{
+    g_regions[region_index].owner = owner;
+}
+
+// FUNCTION: WIZ8 0x004f2a30
+void SetRegionHelp(unsigned int region_index, bool enabled, int help_text_id)
+{
+    if (region_index > g_region_count) {
+        srAssertFail("uiRegionIndex <= guiRegionCount",
+                     "C:\\Projects\\Wizardry 8\\Local Code\\RegionManager.cpp", 0x506, 0);
+    }
+    g_regions[region_index].help_enabled = enabled;
+    g_regions[region_index].help_text_id = help_text_id;
+}
+
+/* Send the current hot region a mouse-leave transition at the live cursor
+   position, then relinquish its help and hover state. */
+// FUNCTION: WIZ8 0x004f2a80
+void ClearHotRegion(void)
+{
+    POINT mouse;
+    InputAtom event;
+
+    SGPMouseGetPos(&mouse);
+    event.uiTimeStamp = GetClock();
+    event.usKeyState = gfAltState | gfCtrlState | gfShiftState;
+    event.usEvent = MOUSE_POS;
+    event.uiParam =
+        (static_cast<unsigned int>(mouse.y) << 16) | (static_cast<unsigned int>(mouse.x) & 0xffff);
+
+    if (g_current_region_index != 0) {
+        W8Region* region = &g_regions[g_current_region_index];
+        unsigned int mode = region->flags & W8_REGION_MODE_MASK;
+        if (mode == 1 || mode == 2) {
+            region->flags = (region->flags & 0xff0f) | W8_REGION_MOUSE_LEAVE;
+            region->callback(&event, region);
+            unsigned int region_index = g_current_region_index;
+            if ((g_regions[region_index].flags & W8_REGION_HELP_SHOWN) != 0) {
+                VideoRemoveToolTip();
+                g_regions[region_index].flags &= ~W8_REGION_HELP_SHOWN;
+            }
+            g_region_help_delay = static_cast<unsigned short>(g_settings.tooltip_delay_ms);
+            SetRegionHelpForceEnabled(false);
+            g_regions[g_current_region_index].flags &= ~W8_REGION_MOUSE_STATE_MASK;
+            g_current_region_index = 0;
+        }
+    }
+}
+
+// FUNCTION: WIZ8 0x004f2bb0
+void EnableRegionHelp(unsigned int region_index)
+{
+    if (region_index > g_region_count) {
+        srAssertFail("uiRegionIndex <= guiRegionCount",
+                     "C:\\Projects\\Wizardry 8\\Local Code\\RegionManager.cpp", 0x558, 0);
+    }
+    g_regions[region_index].help_enabled = true;
+}
+
+// FUNCTION: WIZ8 0x004f2bf0
+void DisableRegionHelp(unsigned int region_index)
+{
+    if (region_index > g_region_count) {
+        srAssertFail("uiRegionIndex <= guiRegionCount",
+                     "C:\\Projects\\Wizardry 8\\Local Code\\RegionManager.cpp", 0x55f, 0);
+    }
+    g_regions[region_index].help_enabled = false;
+}
+
+/* Drops every region back to its resting state. The three tracked regions are
+   released first - each only if it still carries bit 0x200 - then every region
+   set is disabled and every region keeps only its low two flag bits. The three
+   trackers are cleared last, and the fourth field is reseeded from the
+   settings word rather than zeroed. */
+// FUNCTION: WIZ8 0x004f1240
+void ResetRegions(void)
+{
+    unsigned int index;
+    W8RegionSet* set;
+    W8Region* region;
+    unsigned int remaining;
+
+    index = g_current_region_index;
+    if (g_current_region_index != 0 &&
+        (g_regions[g_current_region_index].flags & W8_REGION_HELP_SHOWN) != 0) {
+        VideoRemoveToolTip();
+        g_regions[index].flags &= ~W8_REGION_HELP_SHOWN;
+    }
+    index = g_hover_region_index;
+    if (g_hover_region_index != 0 &&
+        (g_regions[g_hover_region_index].flags & W8_REGION_HELP_SHOWN) != 0) {
+        VideoRemoveToolTip();
+        g_regions[index].flags &= ~W8_REGION_HELP_SHOWN;
+    }
+    index = g_captured_region_index;
+    if (g_captured_region_index != 0 &&
+        (g_regions[g_captured_region_index].flags & W8_REGION_HELP_SHOWN) != 0) {
+        VideoRemoveToolTip();
+        g_regions[index].flags &= ~W8_REGION_HELP_SHOWN;
+    }
+    if (g_region_set_count != 0) {
+        set = g_region_sets;
+        remaining = g_region_set_count;
+        do {
+            set->enabled = 0;
+            ++set;
+            --remaining;
+        } while (remaining != 0);
+    }
+    if (g_region_count != 0) {
+        region = g_regions;
+        remaining = g_region_count;
+        do {
+            region->flags &= 3;
+            ++region;
+            --remaining;
+        } while (remaining != 0);
+    }
+    g_current_region_index = 0;
+    g_hover_region_index = 0;
+    g_captured_region_index = 0;
+    SetRegionHelpForceEnabled(false);
+    g_region_help_delay = static_cast<unsigned short>(g_settings.tooltip_delay_ms);
+}

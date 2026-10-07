@@ -1,0 +1,123 @@
+#include "wiz8/level_specific_code/Rift1.h"
+#include "wiz8/3d_code/IList.h"
+#include "wiz8/engine_code/Monster.h"
+#include "wiz8/engine_code/World.h"
+#include "wiz8/fact_state.h"
+#include "wiz8/level_specific_code/MasterFunctionList.h"
+#include "wiz8/location_variables.h"
+#include "wiz8/local_code/MonsterGroup.h"
+#include "wiz8/local_code/MonsterManager.h"
+#include "wiz8/local_screens/MainGameScreen.h"
+#include "wiz8/local_screens/NPCInteractionSubscreen.h"
+#include "surrender/srMath.h"
+
+#define RIFT1_CPP "C:\\Projects\\Wizardry 8\\Level Specific Code\\Rift1.cpp"
+
+/* Level Specific Code\Rift1.cpp (level 0x15).
+
+   Attribution evidence: 0x004DAFD0 passes this file's path string to
+   MonsterGetIndexByLocationID. The level-0x15 block in
+   InitializeLevelMasterFunctions registers the surrounding cluster
+   (Fireantspawn, Sexspawn, Hotstuff, Gate, AshLock, TimeDorado). */
+
+/* "Sexspawn": on the first activation after fact 0x15f, mark the
+   Al-Sedexus swap, remove the original Al-Sedexus (species 0xd9) and spawn
+   the replacement (species 0x22b) at the Sexspawn entity if it is not already
+   in the level. Returns false unless the swap runs, so the trigger stays
+   armed until it does. */
+// FUNCTION: WIZ8 0x004DAFD0
+bool Rift1Sexspawn(Trigger* pTrigger)
+{
+    srVector3T<float> position;
+    W8MonsterInfo* monster_info;
+
+    if (GetFact(W8_FACT_TEMPLAR) != 0) {
+        if (GetLocationVarIDByName("AlSedexusSwapped") == -1) {
+            CreateLocationVar("AlSedexusSwapped", 1);
+            monster_info = FindMonsterInfoBySpecies(0xd9);
+            if (monster_info != 0) {
+                RemoveMonster(
+                    MonsterGetIndexByLocationID(0x42, RIFT1_CPP, monster_info->location_id, true),
+                    true);
+            }
+            monster_info = FindMonsterInfoBySpecies(0x22b);
+            if (monster_info == 0 && FindEntityByName("Sexspawn", &position, 0, 0)) {
+                SpawnMonsters(0x22b, 1, &position, 0, true, false, false);
+            }
+            return true;
+        }
+    }
+    return false;
+}
+
+/* "Hotstuff": until fact 0x326, spawn the lava lord (0x175) at the Hotstuff
+   entity, give it the MoveLavalord movement script and begin the scripted
+   world action. */
+// FUNCTION: WIZ8 0x004DB090
+bool Rift1Hotstuff(Trigger* pTrigger)
+{
+    srVector3T<float> position;
+    W8MonsterGroup* group;
+    W8Monster* monster;
+
+    if (GetFact(W8_FACT_LAVALORD_DIE) == 0) {
+        if (FindEntityByName("Hotstuff", &position, 0, 0)) {
+            group = SpawnMonsters(0x175, 1, &position, 0, true, false, false);
+            if (group != 0) {
+                monster = GetMonsterByLocationID(IListGetAt(group->monsters, 0));
+                if (monster != 0 && monster->SetScript("MoveLavalord.MSF", true)) {
+                    BeginScriptedWorldAction();
+                }
+            }
+        }
+    }
+    return true;
+}
+
+/* "Fireantspawn": spawn a hostile group of six fire ants (0x12b) at the
+   Fireantspawn entity. */
+// FUNCTION: WIZ8 0x004DB120
+bool Rift1Fireantspawn(Trigger* pTrigger)
+{
+    srVector3T<float> position;
+
+    if (FindEntityByName("Fireantspawn", &position, 0, 0)) {
+        SpawnMonsters(0x12b, 6, &position, 1, false, false, false);
+    }
+    return true;
+}
+
+/* "Gate": raise fact 0x1c4. */
+// FUNCTION: WIZ8 0x004DB160
+bool Rift1Gate(Trigger* pTrigger)
+{
+    SetFact(W8_FACT_RIFT_RAFE_CAGE_OPEN, 1, false);
+    return true;
+}
+
+/* "AshLock": spawn one hostile monster 0x222 at the NP_Hotstuff3 entity. */
+// FUNCTION: WIZ8 0x004DB180
+bool Rift1AshLock(Trigger* pTrigger)
+{
+    srVector3T<float> position;
+
+    if (FindEntityByName("NP_Hotstuff3", &position, 0, 0)) {
+        SpawnMonsters(0x222, 1, &position, 1, true, false, false);
+    }
+    return true;
+}
+
+/* "TimeDorado": give every existing monster group of species 0xfc a fresh
+   member. */
+// FUNCTION: WIZ8 0x004DB1C0
+bool Rift1TimeDorado(Trigger* pTrigger)
+{
+    W8MonsterGroup* previous;
+
+    previous = FindNextExistingMonsterByID(0xfc, 0);
+    while (previous != 0) {
+        GiveBirthToMonster(previous);
+        previous = FindNextExistingMonsterByID(0xfc, previous);
+    }
+    return true;
+}

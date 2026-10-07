@@ -1,0 +1,57 @@
+#ifndef WIZ8_LAYOUTS_SCREEN_STATE_H
+#define WIZ8_LAYOUTS_SCREEN_STATE_H
+
+enum W8ScreenId {
+    W8_SCREEN_NONE = -1,
+    W8_SCREEN_INTRO = 0,
+    W8_SCREEN_MAIN_MENU = 1,
+    W8_SCREEN_GAME_START_ROUTER = 2,
+    W8_SCREEN_CHARACTER = 3,
+    W8_SCREEN_PLEASE_WAIT = 4,
+    W8_SCREEN_PARTY_SELECTION = 5,
+    W8_SCREEN_CAMP = 6,
+    W8_SCREEN_MAIN_GAME = 7,
+    W8_SCREEN_AUTOMAP = 8,
+    W8_SCREEN_CREDITS = 9,
+    W8_SCREEN_OPTIONS = 10,
+    W8_SCREEN_JOURNAL = 11,
+    W8_SCREEN_EXIT = 12,
+    W8_SCREEN_COUNT = 13
+};
+
+struct W8ScreenStateHandlers {
+    unsigned char (*initialize)(void);
+    unsigned char (*enter)(void);
+    void (*frame)(void);
+    unsigned char (*leave)(int leaving); /* 0 = suspend, 1 = discard */
+    unsigned char (*finalize)(void);
+};
+
+static_assert(sizeof(W8ScreenStateHandlers) == 0x14, "W8ScreenStateHandlers_size");
+
+/* The current and pending screen records begin at the two globals whose first
+   dwords the reviewed setters address directly. One storage object preserves
+   that identity instead of mirroring the id into a synthetic runtime record. */
+/* The five leading dwords and the name are what lifecycle record 4's entry
+   handler reads out of this record to fill its own descriptor; the four bytes
+   before the name and everything past it stay positional, and the name's bound
+   is the record's end rather than a proved one. */
+/* 0x10 payload, discriminated by id/mode: a character handoff for the camp and
+   review-character transitions, the save screenshot the Please Wait screen's
+   mode 2 hands to SaveGame. */
+struct W8ScreenStateRuntime {
+    W8ScreenId id;     /* 0x00 */
+    int mode;          /* 0x04 */
+    int parameter;     /* 0x08 */
+    int parameter_2;   /* 0x0c */
+    void* parameter_3; /* 0x10: destination screen interprets by id and mode */
+    /* 0x14: identifying PC for camp entry (gpIdentifyingPC); null when
+       camp opens without an identify/use-item handoff. Not the entry mode —
+       that lives on W8CampScreenState::item_action. */
+    struct W8Character* parameter_4;
+    char name[0x80]; /* 0x18 */
+};
+
+static_assert(sizeof(W8ScreenStateRuntime) == 0x98, "W8ScreenStateRuntime_must_be_0x98");
+
+#endif

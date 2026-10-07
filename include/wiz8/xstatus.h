@@ -1,0 +1,199 @@
+#ifndef WIZ8_XSTATUS_H
+#define WIZ8_XSTATUS_H
+
+#include "timer.h"
+#include <stddef.h>
+
+#include "wiz8/3d_code/PList.h"
+#include "wiz8/layouts/gameplay_databases.h"
+#include "wiz8/layouts/item_instance.h"
+#include "wiz8/layouts/targeting.h"
+#include "wiz8/local_code/FormationAndFacing.h"
+#include "wiz8/local_code/MonsterManager.h"
+
+struct W8MonsterGroup;
+struct W8WorldItem;
+
+struct W8CharacterEventQueue;
+class W8GameTimer;
+
+#pragma pack(push, 1)
+struct W8XStatus {
+    W8MonsterManagerEntry monster_manager_entries[8]; /* 0x000: 0x006836B8 */
+    unsigned int uiItemsInDatabase;                   /* 0x8c0: 0x00683F78 */
+    unsigned int uiItemTablesInDatabase;              /* 0x8c4 */
+    unsigned int uiItemTableCategories;               /* 0x8c8 */
+    unsigned int uiMonstersInDatabase;                /* 0x8cc */
+    unsigned int uiNpcsInDatabase;                    /* 0x8d0 */
+    unsigned int uiFactsInDatabase;                   /* 0x8d4 */
+    unsigned int uiLevelsInDatabase;                  /* 0x8d8 */
+    bool fCombatMode;                                 /* 0x8dc: 0x00683F94 */
+    bool fSpellCastMode;                              /* 0x8dd: 0x00683F95 */
+    bool fItemSelectMode;                             /* 0x8de: 0x00683F96 */
+    bool fNpcDialogueMode;                            /* 0x8df: 0x00683F97 */
+    bool fLockInteractMode;                           /* 0x8e0: 0x00683F98 */
+    bool fTrapInteractMode;                           /* 0x8e1: 0x00683F99 */
+    bool fReviewCharacterMode;                        /* 0x8e2: 0x00683F9A */
+    bool fCampMode;                                   /* 0x8e3: 0x00683F9B */
+    bool fLockInteract;                               /* 0x8e4: lock session; admits lock spells */
+    bool fTrapInteract;                               /* 0x8e5: trap session; admits trap spells */
+    /* 0x026: dialogue NPC state needs re-syncing once the frame settles. */
+    bool dialogue_sync_pending;
+    /* 0x027: re-check level-up notices when the UI is idle again. */
+    bool level_up_notice;
+    bool fEncumbranceDirty;   /* 0x8e8: pending party-weight recalc */
+    int active_monster_count; /* 0x8e9 */
+    /* 0x8ed: active in-combat monsters with DISP_HOSTILE, recomputed by
+       RecountCombatMonsters; nonzero starts combat and blocks ending it.
+       Retail compares it unsigned (JA/JBE/SETA), never signed. */
+    unsigned int hostile_monster_count;
+    int item_manager_pending;              /* 0x8f1 */
+    W8PList* plsMonsterList;               /* 0x8f5: 0x00683FAD */
+    W8PList* plsMonsterGroupList;          /* 0x8f9: 0x00683FB1 */
+    W8PList* plsItemList;                  /* 0x8fd */
+    W8PList* plsUnbornMonsterList;         /* 0x901 */
+    W8PList* plsMonsterGroupEncounterList; /* 0x905 */
+    unsigned char unknown_049[4];
+    bool fSurprisePossible; /* 0x90d: 0x00683FC5 */
+    /* 0x90e: set when surprise starts with no character engaged; phase 1 waits
+       only while this is clear. */
+    bool surprise_unengaged;
+    /* 0x90f: uiTurnsElapsed deadline the phase-1 hold compares against. */
+    unsigned int surprise_deadline_turns;
+    /* 0x913: 0 = fade in, 1 = hold, 2 = fade out / resolve. */
+    unsigned short surprise_phase;
+    bool fPartyMovementUi;      /* 0x915: 0x00683FCD; region set 0x1c / panels */
+    bool fPartyMovementMode;    /* 0x916: 0x00683FCE */
+    float flPartyMoveDistLimit; /* 0x917 */
+    /* 0x91b: accumulated party movement distance; the combat movement update
+       converts it into the remaining percentage displayed by the panel. */
+    float party_move_distance;
+    /* 0x91f: 0x00683FD7. InitializeGameplayRuntimeObjects stores the queue
+       here; a standalone BSS pointer at this address is the same member. */
+    W8CharacterEventQueue* character_event_queue;
+    int iCurrentCursor;          /* 0x923 */
+    int current_cursor_frame;    /* 0x927 */
+    TIMER current_cursor_time;   /* 0x92b */
+    W8TargetNeed iTargetingMode; /* 0x92f: 0x00683FE7 */
+    /* 0x933: the formation screen's edit buffer - MGSFormation snapshots the
+       live formation here on open, edits the copy, and either reconciles it
+       back or diffs it against live on accept. */
+    W8PartyFormationState edited_formation;
+    W8GrowableVector<int> target_markers;     /* 0x9b7: 0x0068406F */
+    srVector3T<float> target_position;        /* 0x9c7: 0x0068407F */
+    W8CombatSlot shared_target;               /* 0x9d3: 0x0068408B */
+    W8ActionDetailBlock shared_action_detail; /* 0x9f3: 0x006840AB */
+    int picked_monster;                       /* 0x9fb: 0x006840B3 */
+    int picked_group;                         /* 0x9ff: 0x006840B7 */
+    /* 0xa03: one-shot latch set when the combat/party panels refresh; the next
+       UpdateMonsterSight pass consumes and clears it. */
+    bool sight_refresh_pending;
+    bool world_update_blocked; /* 0xa04: 0x006840BC */
+    /* 0xa05: user-pause latch set by ToggleMainGamePause alongside
+       PauseMainGameWorld; cleared by the resume paths. */
+    bool world_paused;
+    unsigned short review_character_slot;        /* 0xa06: 0x006840BE */
+    int held_item_source;                        /* 0xa08: 0x006840C0 */
+    unsigned char held_item_origin;              /* 0xa0c: 0x006840C4 */
+    unsigned short held_item_slot;               /* 0xa0d: 0x006840C5 */
+    W8MonsterRecord* monster_record_cache[1000]; /* 0xa0f: 0x006840C7 */
+    W8GameTimer* gameplay_timer;                 /* 0x19af: 0x00685067 */
+    bool save_notice_shown;                      /* 0x19b3: 0x0068506B */
+    bool npc_combat_notice_pending;              /* 0x19b4: 0x0068506C */
+    bool deferred_skill_notices;                 /* 0x19b5: 0x0068506D */
+    /* 0x19b6: a container offered more than one item, so the item-choice
+       dialog is pending; blocks the magic-effects tick until it opens. */
+    bool item_pick_pending;
+    /* 0x19b7: raised by BeginNpcScriptedScene until EndScriptedPortraitPick;
+       gates the dialogue-cursor and NPC-script input paths. */
+    bool scripted_scene;
+    /* 0x19b8: which Assay dialog tab is shown - set selects the profession
+       icons/button, clear selects the race side. */
+    bool assay_professions_tab;
+    bool item_drag_active;              /* 0x19b9: 0x00685071 */
+    W8ItemInstance* dragged_item;       /* 0x19ba: 0x00685072 */
+    unsigned char dragged_item_origin;  /* 0x19be: 0x00685076 */
+    signed char dragged_character_slot; /* 0x19bf: 0x00685077 */
+    TIMER spell_cooldown_clocks[14];    /* 0x19c0: 0x00685078 */
+    TIMER combat_countdown;             /* 0x19f8: 0x006850B0 */
+    unsigned char combat_difficulty;    /* 0x19fc: 0x006850B4 */
+    bool party_moving;                  /* 0x19fd: 0x006850B5 */
+    int saved_encounter_budget;         /* 0x19fe: 0x006850B6 */
+    int mipe_cube_serial;               /* 0x1a02: 0x006850BA */
+    int hostile_group_count;            /* 0x1a06: 0x006850BE */
+};
+#pragma pack(pop)
+
+static_assert(offsetof(W8XStatus, monster_manager_entries) == 0x0, "W8XStatus_entries_offset");
+static_assert(offsetof(W8XStatus, uiItemsInDatabase) == 0x8c0, "W8XStatus_items_offset");
+static_assert(offsetof(W8XStatus, uiMonstersInDatabase) == 0x8cc, "W8XStatus_monster_count_offset");
+static_assert(offsetof(W8XStatus, fCombatMode) == 0x8dc, "W8XStatus_combat_mode_offset");
+static_assert(offsetof(W8XStatus, fCampMode) == 0x8e3, "W8XStatus_camp_mode_offset");
+static_assert(offsetof(W8XStatus, plsMonsterList) == 0x8f5, "W8XStatus_monster_list_offset");
+static_assert(offsetof(W8XStatus, plsMonsterGroupList) == 0x8f9,
+              "W8XStatus_monster_group_list_offset");
+static_assert(offsetof(W8XStatus, plsItemList) == 0x8fd, "W8XStatus_item_list_offset");
+static_assert(offsetof(W8XStatus, plsUnbornMonsterList) == 0x901,
+              "W8XStatus_unborn_monster_list_offset");
+static_assert(offsetof(W8XStatus, fSurprisePossible) == 0x90d,
+              "W8XStatus_surprise_possible_offset");
+static_assert(offsetof(W8XStatus, surprise_unengaged) == 0x90e,
+              "W8XStatus_surprise_unengaged_offset");
+static_assert(offsetof(W8XStatus, surprise_deadline_turns) == 0x90f,
+              "W8XStatus_surprise_deadline_turns_offset");
+static_assert(offsetof(W8XStatus, surprise_phase) == 0x913, "W8XStatus_surprise_phase_offset");
+static_assert(offsetof(W8XStatus, fPartyMovementUi) == 0x915, "W8XStatus_party_movement_ui_offset");
+static_assert(offsetof(W8XStatus, fPartyMovementMode) == 0x916,
+              "W8XStatus_party_movement_mode_offset");
+static_assert(offsetof(W8XStatus, flPartyMoveDistLimit) == 0x917,
+              "W8XStatus_party_movement_limit_offset");
+static_assert(offsetof(W8XStatus, character_event_queue) == 0x91f,
+              "W8XStatus_character_event_queue_offset");
+static_assert(offsetof(W8XStatus, iCurrentCursor) == 0x923, "W8XStatus_cursor_offset");
+static_assert(offsetof(W8XStatus, iTargetingMode) == 0x92f, "W8XStatus_targeting_mode_offset");
+static_assert(offsetof(W8XStatus, edited_formation) == 0x933, "W8XStatus_edited_formation_offset");
+static_assert(offsetof(W8XStatus, target_markers) == 0x9b7, "W8XStatus_target_markers_offset");
+static_assert(offsetof(W8XStatus, target_position) == 0x9c7, "W8XStatus_target_position_offset");
+static_assert(offsetof(W8XStatus, monster_record_cache) == 0xa0f,
+              "W8XStatus_monster_record_cache_offset");
+static_assert(offsetof(W8XStatus, gameplay_timer) == 0x19af, "W8XStatus_timer_offset");
+static_assert(offsetof(W8XStatus, spell_cooldown_clocks) == 0x19c0,
+              "W8XStatus_spell_cooldown_clocks_offset");
+static_assert(offsetof(W8XStatus, hostile_group_count) == 0x1a06,
+              "W8XStatus_hostile_group_count_offset");
+static_assert(sizeof(W8XStatus) == 0x1a0a, "W8XStatus_size");
+
+extern W8XStatus gXStatus;
+
+/* Drop any item drag in progress; the camp, use-item and main-game paths
+   all reset the four drag fields together. */
+inline void ClearItemDrag(void)
+{
+    gXStatus.item_drag_active = false;
+    gXStatus.dragged_item = 0;
+    gXStatus.dragged_item_origin = W8_ITEM_ORIGIN_NONE;
+    gXStatus.dragged_character_slot = -1;
+}
+
+/* Typed element access for the homogeneous gXStatus lists. */
+inline W8MonsterInfo* GetMonsterListEntry(int index)
+{
+    return static_cast<W8MonsterInfo*>(PLGet(gXStatus.plsMonsterList, index));
+}
+
+inline W8MonsterInfo* GetUnbornMonsterEntry(int index)
+{
+    return static_cast<W8MonsterInfo*>(PLGet(gXStatus.plsUnbornMonsterList, index));
+}
+
+inline W8WorldItem* GetWorldItemListEntry(int index)
+{
+    return static_cast<W8WorldItem*>(PLGet(gXStatus.plsItemList, index));
+}
+
+inline W8MonsterGroup* GetMonsterGroupEncounter(int index)
+{
+    return static_cast<W8MonsterGroup*>(PLGet(gXStatus.plsMonsterGroupEncounterList, index));
+}
+
+#endif

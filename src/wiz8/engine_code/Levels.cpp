@@ -1,0 +1,783 @@
+#include "wiz8/engine_code/stModelInstance.h"
+#include "wiz8/engine_code/3dapi.h"
+#include "LibraryDataBase.h"
+#include "wiz8/engine_code/GameData.h"
+#include "wiz8/level_specific_code/MasterFunctionList.h"
+#include "wiz8/local_code/ItemManager.h"
+#include "wiz8/local_code/Sight.h"
+#include "wiz8/engine_code/AmbientSound.h"
+#include "wiz8/monster_generators.h"
+#include "wiz8/engine_code/Environment.h"
+#include "wiz8/engine_code/Video2.h"
+#include <cmath>
+#include "wiz8/xstatus.h"
+#include <cstdio>
+#include <cstring>
+
+#include "wiz8/layouts/combat_state.h"
+#include "wiz8/local_code/Combat.h"
+#include "surrender/srClipPlane.h"
+#include "wiz8/engine_code/GDCamera.h"
+#include "wiz8/world_cursor.h"
+#include "wiz8/engine_code/Levels.h"
+#include "wiz8/startup_world.h"
+#include "wiz8/local_code/Search.h"
+#include "wiz8/engine_code/ReadLevel.h"
+#include "wiz8/engine_code/Trigger.hpp"
+#include "wiz8/engine_code/World.h"
+#include "wiz8/engine_code/3d.h"
+#include "wiz8/engine_code/Level.h"
+#include "wiz8/engine_code/Prop.h"
+#include "wiz8/engine_code/materials.h"
+#include "wiz8/engine_code/stMeshModel.h"
+#include "wiz8/layouts/game_status.h"
+#include "wiz8/layouts/screen_state.h"
+#include "wiz8/local_screens/Screens.h"
+#include "wiz8/fact_state.h"
+#include "wiz8/local_code/MonsterGroup.h"
+#include "wiz8/local_code/MonsterManager.h"
+#include "wiz8/local_code/LoadSaveGame.h"
+#include "wiz8/local_code/NPCManager.h"
+#include "wiz8/monster_runtime.h"
+#include "wiz8/music_playlist.h"
+#include "wiz8/local_code/SpellEffect.h"
+#include "wiz8/sr_api.h"
+#include "wiz8/local_code/Targeting.h"
+#include "surrender/srCamera.h"
+#include "surrender/srCore.h"
+#include "surrender/srNode.h"
+#include "surrender/srLight.h"
+#include "surrender/srModelInstance.h"
+#include "surrender/srScene.h"
+
+#include "FileMan.h"
+#include "wiz8/local_screens/AutomapScreen.h"
+#include "wiz8/local_screens/MainGameScreen.h"
+#include "wiz8/local_screens/NPCInteractionSubscreen.h"
+#include "wiz8/local_code/GameplayMods.h"
+
+#define LEVELS_CPP "C:\\Projects\\Wizardry 8\\Engine Code\\Levels.cpp"
+
+// GLOBAL: WIZ8 0x00604478
+W8LevelFolderRecord g_level_folders[W8_LEVEL_COUNT] = {
+    {"Arnika", "Arnika2", "ARN", 1, 3, 2},
+    {"Ascension", "Ascension", "ASC", 0, 3, 12},
+    {"Bayjin", "Bayjin1", "BA1", -1, 3, 8},
+    {"Bayjin", "Bayjin2", "BA2", -1, 3, 8},
+    {"Circle", "Circle", "CIR", 10, 3, 14},
+    {"Marten", "Marten1", "MR1", -1, 3, 5},
+    {"Marten", "Marten2", "MR2", 0, 3, 5},
+    {"MountainPass", "MountainPass", "MNT", 2, 3, 6},
+    {"Monastery", "Monastery1", "MO1", 0, 3, 1},
+    {"Monastery", "Monastery2", "MO2", 0, 3, 1},
+    {"MtGigas", "MtGigasWaterCaves", "MGW", -1, 3, 15},
+    {"MtGigas", "MtGigasBelowCaves", "MGB", -1, 3, 11},
+    {"MtGigas", "MtGigas1", "MG1", -1, 3, 11},
+    {"MtGigas", "MtGigas2", "MG2", -1, 3, 11},
+    {"MtGigas", "MtGigasOuter", "MGO", 0, 3, 11},
+    {"MtGigas", "MtGigasTop", "MGT", 0, 3, 11},
+    {"Camp", "Camp", "CMP", 7, 3, 13},
+    {"Rapax", "RapaxCellar", "RAC", 1, 3, 9},
+    {"Rapax", "RapaxMainFloor", "RAM", 1, 3, 9},
+    {"Rapax", "RapaxUpperFloor", "RAU", 1, 3, 9},
+    {"Rapax", "RapaxExterior", "RAE", 1, 3, 9},
+    {"Rift", "Rift1", "RIF", 3, 3, 10},
+    {"SeaCaves", "SeaCave1", "SC1", 0, 3, 7},
+    {"SeaCaves", "SeaCave2", "SC2", 0, 3, 7},
+    {"Swamp", "Swamp", "SWM", -1, 3, 4},
+    {"Trynnie", "Trynnie1", "TY1", -1, 3, 3},
+    {"Trynnie", "Trynnie2", "TY2", -1, 3, 3},
+    {"ConnectiveTissue", "Arnika_Trynton", "CT1", 0, 3, 16},
+    {"ConnectiveTissue", "Trynton_Swamp", "CT2", 0, 3, 0},
+    {"ConnectiveTissue2", "SouthEastWilderness", "CT3", 0, 3, 17},
+    {"ConnectiveTissue", "Rift_Peak", "CT4", 0, 3, 0},
+    {"ConnectiveTissue2", "NorthEastWilderness", "CT5", 0, 3, 0},
+    {"ConnectiveTissue", "NorthWilderness", "CT6", 0, 3, 0},
+    {"ConnectiveTissue", "Arnika_StarterDungeon", "CT7", 0, 3, 0},
+    {"ConnectiveTissue", "Peak_RapaxCastle", "CT8", 0, 3, 0},
+    {"Footsteps", "Footsteps", "FS1", 0, 3, 0},
+    {"SavantTower", "SavantTower", "SAV", -1, 3, 2},
+    {"Trynnie", "Ratkin", "RTK", -1, 3, 3},
+    {"Camp", "CampNoRapax", "CNR", 7, 3, 0},
+    {"Dungeon", "Dungeon", "DUN", -1, 3, 0},
+    {"Spare14", "Spare14", "SPE", 0, -1, 0},
+    {"Spare15", "Spare15", "SPF", 0, -1, 0},
+    {"Spare16", "Spare16", "SPG", 0, -1, 0},
+    {"Spare17", "Spare17", "SPH", 0, -1, 0},
+    {"Spare18", "Spare18", "SPI", 0, -1, 0},
+    {"Spare19", "Spare19", "SPJ", 0, -1, 0},
+    {"Spare20", "Spare20", "SPK", 0, -1, 0},
+};
+
+/* The sky index of the world currently held in g_secondary_world, or -1 when no
+   sky is loaded. Every retail access is a byte access. */
+// GLOBAL: WIZ8 0x00604470
+static signed char g_loaded_sky_index = -1;
+/* The CD volume number of the drive the game-data path finder last matched. */
+// GLOBAL: WIZ8 0x00604474
+static int g_cd_index = -1;
+// GLOBAL: WIZ8 0x00659738
+W8MaterialMapper g_material_mapper;
+
+// FUNCTION: WIZ8 0x0042b720
+int GetLevelCdNumber(int level)
+{
+    return g_level_folders[level].cd_number;
+}
+
+// FUNCTION: WIZ8 0x0042b6f0
+bool IsLevelCdMissing(int level)
+{
+    return FindGameDataPath(gzCdDirectory, g_level_folders[level].cd_number) == 0;
+}
+
+/* Scan every logical drive for the CD whose volume label is WIZ8_<cd_number>,
+   write its root path into the caller's buffer and report whether it was
+   found. Only a CD-ROM drive is considered, and the volume query temporarily
+   suppresses the system's error dialog for a missing disc. */
+// FUNCTION: WIZ8 0x0042B590
+unsigned char FindGameDataPath(char* path, int cd_number)
+{
+    char expected_label[32];
+    char volume_name[32];
+    char drives[512];
+    DWORD length;
+    bool found = false;
+
+    length = GetLogicalDriveStringsA(sizeof(drives), drives);
+    if (length == 0) {
+        return 0;
+    }
+    for (DWORD index = 0; index < length; ++index) {
+        char drive[4];
+
+        if (drives[index] == '\0') {
+            continue;
+        }
+        drive[0] = drives[index];
+        drive[1] = drives[index + 1];
+        drive[2] = drives[index + 2];
+        drive[3] = '\0';
+        index += 2;
+
+        if (GetDriveTypeA(drive) != DRIVE_CDROM) {
+            continue;
+        }
+        strcpy(path, drive);
+        sprintf(expected_label, "WIZ8_%d", cd_number);
+
+        UINT previous_mode = SetErrorMode(1);
+        if (GetVolumeInformationA(path, volume_name, 32, 0, 0, 0, 0, 0) != 0 &&
+            _stricmp(expected_label, volume_name) == 0) {
+            found = true;
+            g_cd_index = cd_number;
+        }
+        SetErrorMode(previous_mode);
+        if (found) {
+            return 1;
+        }
+    }
+    return 0;
+}
+
+// FUNCTION: WIZ8 0x0042b740
+char GetLevelBand(int saved_level)
+{
+    int level = NormalizeMasterFunctionValue(saved_level);
+    /* `<= 0x2f` is the retail bound: it admits the first test-level slot, one
+       past the W8_LEVEL_COUNT-entry table. */
+    if (level >= 0 && level <= 0x2f) {
+        return g_level_folders[level].level_band;
+    }
+    return 0;
+}
+
+/* Start the saved level's music playlist. Formats a path from the level's
+   name, falls back to Adventure.MPL when no level-specific playlist exists. */
+// FUNCTION: WIZ8 0x0042b770
+void StartLevelMusic(int fade, int replace_current)
+{
+    char path[260];
+    const char* level_name = g_level_folders[g_status.current_level].level_name;
+
+    sprintf(path, "Data\\Music\\%s.MPL", level_name);
+    if (FileExists(path)) {
+        sprintf(path, "%s.MPL", level_name);
+        StartMusicResource(path, fade, replace_current);
+    } else {
+        StartMusicResource("Adventure.MPL", fade, replace_current);
+    }
+    ServiceMusicPlaylist();
+}
+
+// FUNCTION: WIZ8 0x0042b3e0
+void UnloadSkyWorld(void)
+{
+    W8World* world = GetSecondaryWorld();
+    if (world != 0) {
+        ForwardDestroyWorld(world);
+        SetSecondaryWorld(0);
+        g_loaded_sky_index = 0xff;
+        ResetEnvironment();
+    }
+}
+
+// The original bounds-checks only the upper end, so a negative level_id reads
+// before the table. Reproduced as-is; GetLevelFolderName checks both ends.
+// FUNCTION: WIZ8 0x0042b500
+unsigned char GetLevelLocationCode(int level_id, char* location_code)
+{
+    if (level_id >= W8_LEVEL_COUNT) {
+        return 0;
+    }
+    if (!location_code) {
+        return 0;
+    }
+    strcpy(location_code, g_level_folders[level_id].location_code);
+    return 1;
+}
+
+static int LevelFindIDByLocationCode(const char* location_code)
+{
+    int level_id;
+
+    for (level_id = 0; level_id < W8_LEVEL_COUNT; level_id++) {
+        if (_stricmp(g_level_folders[level_id].location_code, location_code) == 0) {
+            return level_id;
+        }
+    }
+    return -1;
+}
+
+// FUNCTION: WIZ8 0x0042b410
+int FindLevelIdByLocationCode(const char* location_code)
+{
+    W8LevelInfo info;
+    int level_id;
+
+    if (!location_code) {
+        return -1;
+    }
+    level_id = LevelFindIDByLocationCode(location_code);
+    if (level_id == -1) {
+        return level_id;
+    }
+    if (level_id >= 57) {
+        return -1;
+    }
+    if (level_id < W8_LEVEL_COUNT) {
+        if (strlen(g_level_folders[level_id].folder_name) == 0 ||
+            strlen(g_level_folders[level_id].level_name) == 0) {
+            return -1;
+        }
+    }
+    if (!LevelBuildInfoByID(level_id, &info)) {
+        return -1;
+    }
+    return level_id;
+}
+
+// FUNCTION: WIZ8 0x0042b550
+const char* GetLevelFolderName(int level_id)
+{
+    if (level_id >= W8_LEVEL_COUNT || level_id < 0) {
+        return 0;
+    }
+    return g_level_folders[level_id].folder_name;
+}
+
+// FUNCTION: WIZ8 0x0042b580
+int GetLoadedLevelID(void)
+{
+    return g_status.current_level;
+}
+/* Retail shares the no-op stub at 0x004023A0 across arities; this typed
+   overload is called with the sky world and two zero arguments. */
+void NoOp(W8World* world, int first, int second)
+{
+    (void)world;
+    (void)first;
+    (void)second;
+}
+
+/* Load or replace the sky world for a level. A level whose sky index already
+   matches the world held in g_secondary_world reuses it; a level with no sky
+   (-1) only tears the previous one down. The replacement sky receives the
+   animated-cloud material: its cloud meshes are marked for the renderer's
+   control bits and every CloudsN prop's mesh chain is rebound to it. */
+// FUNCTION: WIZ8 0x0042B020
+unsigned char LoadSkyWorld(int level, W8LevelInfo* info)
+{
+    signed char sky_index;
+    W8LevelInfo local_info;
+    W8World* sky_world;
+
+    if (level < W8_LEVEL_COUNT) {
+        sky_index = g_level_folders[level].sky_index;
+    } else {
+        sky_index = 0;
+    }
+    if (sky_index == g_loaded_sky_index) {
+        return 1;
+    }
+    if (info == 0) {
+        if (!LevelBuildInfoByID(level, &local_info)) {
+            return 0;
+        }
+        info = &local_info;
+    }
+    if (GetSecondaryWorld() != 0) {
+        ForwardDestroyWorld(GetSecondaryWorld());
+        SetSecondaryWorld(0);
+        g_loaded_sky_index = 0xff;
+        ResetEnvironment();
+    }
+    if (sky_index == -1) {
+        return 1;
+    }
+    sky_world = CreateWorld();
+    g_secondary_world = sky_world;
+    if (sky_world == 0) {
+        return 0;
+    }
+    if (!LoadWorld(sky_world, info->sky_file_name, info->sky_folder, info->sky_bitmap_folder,
+                   false)) {
+        return 0;
+    }
+
+    srVector3T<double> position;
+    position.SetZero();
+    static_cast<srNode*>(sky_world->camera)->setLocation(position);
+
+    stMaterial* material = new stMaterial;
+    if (material == 0) {
+        srAssertFail("pMat", LEVELS_CPP, 899, 0);
+    }
+    material->setName("AnimatedCloudMaterial");
+    material->autoRelease();
+    srVector4T<float> colour;
+    colour.Set(1.0f, 1.0f, 1.0f, 1.0f);
+    material->setAmbient(colour);
+    colour.Set(0.0f, 0.0f, 0.0f, 0.0f);
+    material->setDiffuse(colour);
+    material->setSpecular(colour);
+    material->parms.shininess = 1.0f;
+    material->parms.diffuse.w = 1.0f;
+    material->parms.emissive = 0.0f;
+    material->dirty = 1;
+    material->m_surface_flags = 0;
+    material->setMapper(&g_material_mapper);
+
+    for (srNode* node = sky_world->level->first_child_; node != 0; node = node->next_sibling_) {
+        if (node->getClassID() == stModelInstance::CLASS_ID) {
+            srModelInstance* instance = static_cast<srModelInstance*>(node);
+            srMeshModel* mesh = static_cast<srMeshModel*>(instance->getModel());
+
+            mesh->enable(srMeshModel::CONTROL_SKIP_AUTO_SPHERE); /* CONTROL_SKIP_AUTO_SPHERE */
+            mesh->enable(srMeshModel::CONTROL_SKIP_AUTO_BOX);    /* CONTROL_SKIP_AUTO_BOX */
+        }
+    }
+
+    for (int index = 1; index < 9; ++index) {
+        char prop_name[28];
+
+        sprintf(prop_name, "Clouds0%d", index);
+        W8Prop* prop = FindPropByName(sky_world, prop_name);
+        if (prop != 0) {
+            srModelInstance* instance = prop->ToggleRepAnimation(0);
+
+            if (instance != 0) {
+                for (stMeshModel* mesh = static_cast<stMeshModel*>(instance->getModel()); mesh != 0;
+                     mesh = mesh->next) {
+                    mesh->setMaterial(material, 0, srMeshModel::SIDE_FRONT);
+                }
+            }
+        }
+    }
+
+    SetWorldSceneMeshShaderLowBits(GetSecondaryWorld(), 0);
+    SetWorldSceneMeshShaderBit3(GetSecondaryWorld(), 1);
+    NoOp(sky_world, 0, 0);
+    WorldRemoveLight(sky_world, sky_world->camera_light);
+    sky_world->camera_light = 0;
+    g_loaded_sky_index = sky_index;
+    return 1;
+}
+
+// GLOBAL: WIZ8 0x00605820
+unsigned short g_level_name_indices[W8_LEVEL_COUNT] = {
+    0x6f7, 0x6f8, 0x6f9, 0x6fa, 0x6fb, 0x6fd, 0x6fc, 0x6fe, 0x6ff, 0x700, 0x701, 0x719,
+    0x702, 0x703, 0x704, 0x705, 0x706, 0x707, 0x708, 0x709, 0x70a, 0x70b, 0x70c, 0x719,
+    0x70d, 0x70e, 0x70f, 0x710, 0x719, 0x711, 0x719, 0x712, 0x713, 0x714, 0x719, 0x715,
+    0x716, 0x717, 0x706, 0x718, 0x719, 0x719, 0x719, 0x719, 0x719, 0x719, 0x719,
+};
+
+// GLOBAL: WIZ8 0x00659756
+bool g_level_status_loading;
+
+// GLOBAL: WIZ8 0x00603ac8
+float g_default_world_height = 1000.0f;
+
+// GLOBAL: WIZ8 0x005ebfdc
+const float g_position_height_epsilon = 2500.0f;
+
+// GLOBAL: WIZ8 0x00603ad0
+unsigned char g_environment_load_flag = 1;
+
+// GLOBAL: WIZ8 0x0065ba70
+bool g_camera_path_active;
+
+// GLOBAL: WIZ8 0x0068f0fd
+bool g_mipe_trigger_display;
+
+// GLOBAL: WIZ8 0x006059E0
+static char g_ambient_sound_filename[] = "SCF";
+// GLOBAL: WIZ8 0x00605880
+const char* g_sky_names[] = {
+    "DefaultSky", "RapaxSky", "MountainPassSky", "RiftSky1",  "TrynnieSky1", "TrynnieSky2",
+    "RatkinSky1", "CampSky",  "BluffSky1",       "BluffSky2", "CircleSky",
+};
+
+/* Resolve a database level number into all level and sky resource paths. The
+   regular forty-seven levels use the database row directly; the ten test
+   slots synthesize level1..level9 and DefaultLevel. A missing LVL file is
+   valid only when both its OCT and PVL replacements exist. */
+// FUNCTION: WIZ8 0x0042A370
+bool LevelBuildInfoByID(int level, W8LevelInfo* info)
+{
+    char oct_path[1020];
+    char pvl_path[1020];
+
+    if (static_cast<unsigned int>(level) >= 57) {
+        srAssertFail("ulLevel < TEST_LEVEL_COUNT",
+                     "C:\\Projects\\Wizardry 8\\Engine Code\\Levels.cpp", 237, 0);
+    }
+
+    if (level < W8_LEVEL_COUNT) {
+        sprintf(info->level_folder, "%s\\%s", "Levels", g_level_folders[level].folder_name);
+        sprintf(info->level_file_name, "%s.%s", g_level_folders[level].level_name, "LVL");
+        if (g_level_folders[level].sky_index == -1) {
+            info->sky_file_name[0] = '\0';
+        } else {
+            sprintf(info->sky_file_name, "%s.%s", g_sky_names[g_level_folders[level].sky_index],
+                    "LVL");
+        }
+    } else {
+        sprintf(info->level_folder, "%s\\Test", "Levels");
+        if (level == 56) {
+            sprintf(info->level_file_name, "DefaultLevel.%s", "LVL");
+            sprintf(info->sky_file_name, "%s.%s", g_sky_names[0], "LVL");
+        } else {
+            char test_level = static_cast<char>(level + 2);
+            sprintf(info->level_file_name, "level%c.%s", test_level, "LVL");
+            sprintf(info->sky_file_name, "sky%c.%s", test_level, "LVL");
+        }
+    }
+
+    strcpy(info->sky_folder, info->level_folder);
+    sprintf(info->level_bitmap_folder, "%s\\Bitmaps", info->level_folder);
+    sprintf(info->sky_bitmap_folder, "%s\\Bitmaps", info->sky_folder);
+    sprintf(info->level_path, "%s\\%s", info->level_folder, info->level_file_name);
+
+    strcpy(oct_path, info->level_path);
+    strcpy(oct_path + strlen(oct_path) - 3, "oct");
+    strcpy(pvl_path, info->level_path);
+    strcpy(pvl_path + strlen(pvl_path) - 3, "pvl");
+    if (!FileExists(info->level_path) && (!FileExists(oct_path) || !FileExists(pvl_path))) {
+        return false;
+    }
+
+    sprintf(info->sky_path, "%s\\%s", info->sky_folder, info->sky_file_name);
+    if (level < W8_LEVEL_COUNT) {
+        if (g_level_folders[level].sky_index != -1 && !FileExists(info->sky_path)) {
+            sprintf(info->sky_folder, "%s\\Test", "Levels");
+            sprintf(info->sky_file_name, "%s.%s", g_sky_names[0], "LVL");
+            sprintf(info->sky_bitmap_folder, "%s\\Bitmaps", info->sky_folder);
+            sprintf(info->sky_path, "%s\\%s", info->sky_folder, info->sky_file_name);
+            if (!FileExists(info->sky_path)) {
+                return false;
+            }
+        }
+    } else if (!FileExists(info->sky_path)) {
+        info->sky_file_name[0] = '\0';
+    }
+    return true;
+}
+
+/* Build the complete live level around the current world. The subordinate
+   loaders remain in their original units; this body owns their ordering,
+   rollback boundary, entry positioning, first-visit work and final renderer
+   publication. */
+// FUNCTION: WIZ8 0x0042A6F0
+unsigned char LoadLevel(int requested_level, int entrance, bool restoring_game)
+{
+    int level = NormalizeMasterFunctionValue(requested_level);
+    W8LevelInfo level_info;
+    int previous_level;
+    bool first_visit = false;
+    char path[260];
+    char music_path[260];
+
+    if (level >= 57) {
+        srAssertFail("iLevel < TEST_LEVEL_COUNT",
+                     "C:\\Projects\\Wizardry 8\\Engine Code\\Levels.cpp", 385, 0);
+    }
+    if (!LevelBuildInfoByID(level, &level_info)) {
+        return 0;
+    }
+
+    DisableSky();
+    if (GetWorld() != 0) {
+        ForwardDestroyWorld(GetWorld());
+        SetCurrentWorld(0);
+    }
+    ReleaseRetainedMaterials();
+    InvalidateRendererTextureCache();
+    SetCurrentWorld(CreateWorld());
+
+    previous_level = g_status.current_level;
+    g_status.current_level = level;
+    sprintf(music_path, "Data\\Music\\%s.MPL", g_level_folders[level].level_name);
+    if (FileExists(music_path)) {
+        sprintf(music_path, "%s.MPL", g_level_folders[g_status.current_level].level_name);
+        StartMusicResource(music_path, 1, 1);
+    } else {
+        StartMusicResource("Adventure.MPL", 1, 1);
+    }
+    ServiceMusicPlaylist();
+
+    if (!LoadSkyWorld(level, &level_info)) {
+        return 0;
+    }
+    InitializeMonsterManagerState();
+    InitializeItemManagerState();
+    ResetNextTriggerId();
+    if (!ForwardLoadWorld(GetWorld(), level_info.level_file_name, level_info.level_folder,
+                          level_info.level_bitmap_folder, true)) {
+        /* This is the complete canonical rollback here: restore the level ID.
+           The already-installed replacement world is not destroyed. */
+        g_status.current_level = previous_level;
+        return 0;
+    }
+
+    SetSkyNodeVisible(false);
+    ResetAutomapView();
+    if (!LoadLevelStatus("Saves\\CurrentGame.SAV", level)) {
+        BuildLevelStatusPath(path, level);
+        g_level_status_loading = true;
+        LoadLevelStatus(path, level);
+        g_level_status_loading = false;
+    }
+
+    if (!restoring_game && entrance != -1) {
+        Trigger* trigger = 0;
+
+        if (level < W8_LEVEL_COUNT) {
+            char trigger_name[8];
+            sprintf(trigger_name, "%3s%02d", g_level_folders[level].location_code, entrance);
+            trigger = FindTriggerByName(trigger_name);
+        }
+        if (trigger != 0 && ((trigger->flags & W8_TRIGGER_POSITIONED) != 0)) {
+            srVector3T<float> trigger_position;
+            srVector3T<float> position;
+
+            trigger->GetPosition(&trigger_position);
+            position = trigger_position;
+            position.y = SettlePositionToGround(&trigger_position, 0) + g_default_world_height;
+            if (fabs(position.y - trigger_position.y) > g_position_height_epsilon) {
+                position.y = trigger_position.y;
+            }
+            SetWorldScenePosition(GetWorld(), &position);
+
+            if (trigger->trigger_kind == 2) {
+                srVector3T<float> axis;
+                srMatrix3T<float> rotation;
+
+                axis = trigger->direction;
+                rotation.SetIdentity();
+                if (trigger->angle != 0.0f) {
+                    rotation.RotateAroundAxis(sin(trigger->angle), cos(trigger->angle), axis);
+                }
+                ApplyCameraRotation(&rotation);
+            }
+        } else {
+            srVector3T<float> position;
+
+            position.Set(0.0f, g_default_world_height, 0.0f);
+            SetWorldScenePosition(GetWorld(), &position);
+        }
+    } else {
+        RestoreWorldCameraState(GetWorld(), GetSecondaryWorld(), &g_status.pending_move_location);
+    }
+
+    if (level < W8_LEVEL_COUNT && !g_status.level_progress[level].visited) {
+        ResetMonsterGroupTurnState();
+        RebindMonsterGroupScripts();
+        g_status.level_progress[level].visited = true;
+        first_visit = true;
+    }
+
+    sprintf(path, "%s\\%s.%s", level_info.level_folder, level_info.level_file_name,
+            g_ambient_sound_filename);
+    ReadAmbientSoundListFile(path);
+    if (!g_environment_load_flag) {
+        ResetCurrentEnvironment();
+    }
+    g_camera_path_active = false;
+    InitializeLevelEnvironment();
+    InitializeLevelMasterFunctions(level);
+    RebindNpcLevelTriggers();
+    SetWorldCursorNodesVisible(g_mipe_trigger_display);
+    RebuildPartyEffectBlock();
+
+    if (!restoring_game) {
+        if (level < W8_LEVEL_COUNT) {
+            ResetNpcBindingsForParty();
+            ClearPendingNpcLevelFlags();
+            ReleaseNpcMonsterBindings();
+            RecordLevelEntryDialogueState();
+            gXStatus.combat_countdown = 0;
+        }
+        if (g_status.greeting_pending &&
+            (GetFact(W8_FACT_IMPORT_UMPANI) || GetFact(W8_FACT_IMPORT_TRANG))) {
+            DespawnAllActiveMonsterGroups();
+        } else {
+            UpdateRandomEncounterBudget(first_visit);
+        }
+        if (!first_visit) {
+            ResetAndRefreshAllSight();
+            AgeAllMonsterSight();
+        }
+        g_spell_effects.RemoveAllAndDelete();
+    } else {
+        W8SpellEffectEntry* effect = FindMonsterControlSpellEffect();
+
+        if (effect != 0) {
+            SpawnLureEffects(effect, effect->definition.duration_scale, &effect->target);
+        }
+    }
+
+    if (first_visit) {
+        InitializeMonsterRuntimeStats();
+        RebuildAllWorldItemInstances();
+    }
+    MarkRendererReady();
+    UpdateWorldMeshAfterLoad();
+    ReleaseReadMeshScratch();
+    return 1;
+}
+
+// FUNCTION: WIZ8 0x0042ACE0
+unsigned char UnloadLevel(const char* save_directory)
+{
+    if (gXStatus.fCombatMode) {
+        EndCombat(true);
+    }
+
+    if (g_status.current_level < W8_LEVEL_COUNT) {
+        g_status.level_progress[g_status.current_level].sight_clock = g_status.world_clock;
+    }
+
+    if (g_world_cleanup_flag) {
+        RenderFrame();
+    }
+
+    ReleaseMarkedNpcBindings();
+    if (strcmp(save_directory, "") != 0) {
+        SaveLevelStatus("Saves\\CurrentGame.SAV");
+    }
+
+    if (g_world_cleanup_flag) {
+        RenderFrame();
+    }
+
+    if (gXStatus.plsMonsterList != 0) {
+        if (ReleaseItemLists() == 0) {
+            return 0;
+        }
+        if (g_world_cleanup_flag) {
+            RenderFrame();
+        }
+        if (ShutdownMonsterManager() == 0) {
+            return 0;
+        }
+        if (g_world_cleanup_flag) {
+            RenderFrame();
+        }
+        if (ScreenLifecycleSuccess() == 0) {
+            return 0;
+        }
+        if (g_world_cleanup_flag) {
+            RenderFrame();
+        }
+    }
+
+    ReleaseWorldCursorNodes();
+    ClearSearchables();
+    if (g_world_cleanup_flag) {
+        RenderFrame();
+    }
+
+    ReleaseWorldCursor();
+    DisableSky();
+    W8World* world = GetWorld();
+    if (world != 0) {
+        ForwardDestroyWorld(world);
+        SetCurrentWorld(0);
+    }
+    ReleaseRetainedMaterials();
+
+    if (g_world_cleanup_flag) {
+        RenderFrame();
+    }
+
+    DisableSky();
+    g_status.current_level = -1;
+    ReleaseEnvironmentObjects();
+    g_runtime_world_scale = 500.0f;
+    ClearActiveWorldCursorNode();
+
+    srRegistry* registry = srCore.getRegistry();
+    srRegistry::ClassNode* node = srClientSupport<srClipPlane, 0x1500>::sGetClassNode();
+    srClass* clip_plane = static_cast<srClass*>(registry->find(node, 0, 0));
+
+    while (clip_plane != 0) {
+        srClass* next = static_cast<srClass*>(
+            registry->find(srClientSupport<srClipPlane, 0x1500>::sGetClassNode(), 0, clip_plane));
+        clip_plane->release();
+        clip_plane = next;
+    }
+    return 1;
+}
+
+/* Unload the current level and load `level` at `entrance`. When the request
+   re-enters the current level through the -1 entrance sentinel, the camera's
+   saved yaw/pitch records and position are put back after the load; every
+   other request is a plain unload+load. */
+// FUNCTION: WIZ8 0x0042AF60
+unsigned char ReloadLevelPreservingCamera(int level, int entrance)
+{
+    W8CameraAngleRecord saved_angle;
+    W8CameraAngleRecord saved_pitch;
+    srVector3T<float> saved_position;
+    bool restore = false;
+
+    if (entrance == -1 && level == g_status.current_level) {
+        GetCameraOrientation(saved_angle, saved_pitch);
+        WorldGetCameraLocationOrZero(GetWorld(), &saved_position);
+        restore = true;
+    }
+    if (g_status.current_level != -1) {
+        if (UnloadLevel("Saves") == 0) {
+            return 0;
+        }
+    }
+    if (LoadLevel(level, entrance, false) == 0) {
+        return 0;
+    }
+    if (restore) {
+        RestoreWorldCameraOrientation(saved_angle, saved_pitch, GetWorld());
+        SetWorldScenePosition(GetWorld(), &saved_position);
+    }
+    return 1;
+}

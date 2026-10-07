@@ -1,0 +1,36 @@
+#pragma once
+
+#include "wiz8/engine_code/game_timer.h"
+
+/* The 0x28-byte timer-derived helper constructed by GDCamera. Its original
+   name is not exposed; the vtable address remains the stable identity. */
+// VTABLE: WIZ8 0x005ebcfc
+class W8IntervalGate : public W8GameTimer {
+public:
+    W8IntervalGate(); /* 0x0043A4E0 */
+    W8IntervalGate(float duration, bool raw_time, bool one_shot);
+    /* 0x0043A500 */
+    void Arm();                          /* 0x0043A530 */
+    unsigned int PollElapsedIntervals(); /* 0x0043A5D0 */
+    bool IsFinished() const
+    {
+        return m_finished;
+    }
+    /* Every waiter polls an unfinished gate before testing it again; the
+       level scripts and the camera's manual-input hold expand this body. */
+    bool PollFinished()
+    {
+        if (!IsFinished()) {
+            PollElapsedIntervals();
+        }
+        return IsFinished();
+    }
+    BOOLEAN Load(int handle);
+    BOOLEAN Save(int handle);
+
+private:
+    bool m_finished; /* 0x024 */
+    unsigned char m_padding_025[3];
+};
+
+static_assert(sizeof(W8IntervalGate) == 0x28, "W8IntervalGate_must_be_0x28");

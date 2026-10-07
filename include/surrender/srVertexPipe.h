@@ -1,0 +1,234 @@
+#pragma once
+
+#include "srCore.h"
+#include "srFlags.h"
+#include "srMath.h"
+#include "srVertexProcessor.h"
+
+class srMaterialIFace;
+class srVP;
+
+#pragma pack(push, 4)
+class SR_DLL_EXPORT srVertexPipe {
+    friend class W8GroundShadowMapper;
+
+public:
+    struct Input {
+        unsigned long record_count;
+        unsigned long vertex_count;
+        const unsigned long* active_vertices;
+        int direct_vertex_indices;
+        const srVector3T<float>* positions;
+        const srVector3T<float>* normals;
+        srVector3T<float> eye_center;
+        float eye_radius;
+        const srMatrix4T<float>* model_view;
+        const srMatrix4T<float>* normal_matrix;
+        srVertexArray* vertex_arrays;
+        unsigned long exclusion_mask;
+        srVector4T<float> ambient_light;
+        const void* records;
+        srVertexProcessor** processors;
+        unsigned long processor_count;
+        float environment_minimum;
+        float environment_maximum;
+        float environment_scale;
+        float environment_inverse_scale;
+    };
+
+    SR_DLL_IMPORT srVertexPipe();
+    SR_DLL_IMPORT ~srVertexPipe();
+#if !defined(SURRENDER_BUILD)
+    SR_DLL_IMPORT srVertexPipe& operator=(const srVertexPipe& other);
+#endif
+
+    SR_DLL_IMPORT void applyDiffuseLight(const srVector4T<float>& light);
+    SR_DLL_IMPORT void applyDiffuseLight(const float* values, const srVector4T<float>& light);
+    SR_DLL_IMPORT void applyFog(const float* values);
+    SR_DLL_IMPORT void copyDiffuseToSpecular();
+    SR_DLL_IMPORT void copySpecularToDiffuse();
+    // FUNCTION: SURRENDER 0x1002C310
+    inline void disableChannel(srVertexProcessor::e_channel channel)
+    {
+        channel_mask &= ~(1u << channel);
+    }
+    // FUNCTION: SURRENDER 0x1002C330
+    inline void enableChannel(srVertexProcessor::e_channel channel)
+    {
+        channel_mask |= 1u << channel;
+    }
+    SR_DLL_IMPORT const unsigned long* getAVT() const;
+    SR_DLL_IMPORT float* getAlpha();
+    SR_DLL_IMPORT srFlags<srVertexProcessor::e_channel> getChannelMask() const;
+    SR_DLL_IMPORT const float* getDepthCue();
+    SR_DLL_IMPORT srVector4T<float>* getDiffuse();
+    SR_DLL_IMPORT unsigned long getExclusionMask() const;
+    SR_DLL_IMPORT void getEyeSpaceBoundingSphere(srVector3T<float>& center, float& radius) const;
+    SR_DLL_IMPORT const srVector3T<float>* getEyeSpaceDir();
+    SR_DLL_IMPORT const float* getEyeSpaceDist();
+    SR_DLL_IMPORT const srVector4T<float>* getEyeSpaceLocation();
+    const srVector3T<float>* getEyeSpaceNormal();
+    SR_DLL_IMPORT const float* getEyeSpaceZDist();
+    SR_DLL_IMPORT float* getFog();
+    SR_DLL_IMPORT const srVertexProcessor::MaterialInfo& getMaterialInfo() const;
+    SR_DLL_IMPORT float* getQ(unsigned long index, int create);
+    srVector2T<float>* getST(unsigned long index, int create);
+    static SR_DLL_IMPORT srFlags<srVertexProcessor::e_channel>
+    getShaderDisableMask(const srShader& shader);
+    static SR_DLL_IMPORT srFlags<srVertexProcessor::e_channel>
+    getShaderDisableMask(const srShader* shader, const unsigned long* channels,
+                         unsigned long channel_count);
+    SR_DLL_IMPORT srVector4T<float>* getSpecular();
+    SR_DLL_IMPORT void* getUserArray(unsigned long index);
+    unsigned long getVertexCount() const;
+    int isChannelAvailable(srVertexProcessor::e_channel channel) const;
+    SR_DLL_IMPORT void process(const Input& input);
+    SR_DLL_IMPORT void swapDiffuseAndSpecular();
+    SR_DLL_IMPORT int testEyeSpaceBounds(const srVector3T<float>& center, float radius) const;
+
+    /* Per-record render state from Input::records. flags: bit0 vertex colors present, bit1 indexed
+       specular into diffuse, bit2 indexed specular into specular, bit3 indexed alpha, bits4/5
+       indexed ST0/ST1, bit6 per-vertex material table. channels is the shader's channel-disable
+       mask; color_source.format selects the ARGB/vector3/vector4 source for color_source.colors. */
+    struct Record {
+        enum {
+            HAS_COLORS = 0x01u,
+            HAS_DIFFUSE_MULTIPLIERS = 0x02u,
+            HAS_SPECULAR_MULTIPLIERS = 0x04u,
+            HAS_ALPHA = 0x08u,
+            HAS_TEXCOORD0 = 0x10u,
+            HAS_TEXCOORD1 = 0x20u,
+            HAS_VERTEX_MATERIALS = 0x40u
+        };
+        unsigned long flags;
+        unsigned long channels;
+        srMaterialIFace* material;
+        struct ColorSource {
+            enum e_format { FORMAT_ARGB = 0, FORMAT_VECTOR3 = 1, FORMAT_VECTOR4 = 2 };
+            const void* colors;
+            e_format format;
+
+            void copyDiffuseColors(srVector4T<float>* destination, const unsigned long* indices,
+                                   unsigned long count) const;
+        };
+        ColorSource color_source;
+        const srVector4T<float>* spec_for_diffuse;
+        const srVector4T<float>* spec_for_specular;
+        const float* alpha_source;
+        const srVector2T<float>* st_source[2];
+        srMaterialIFace* const* materials;
+        void* user[12];
+    };
+
+private:
+    /* srMaterial::postProcess blends diffuse/specular/alpha through the batch
+       scratch, setup stages and batch state; the SDK friended it. */
+    friend class srMaterial;
+    /* srLight::process and srLight::isActive read the batch scratch, channel
+       masks and lazy-setup flags the same way; the SDK friended it too. */
+    friend class srLight;
+    SR_DLL_IMPORT void finishDiffuseAlpha();
+    SR_DLL_IMPORT void finishSpecularFog();
+    SR_DLL_IMPORT void processVertexBuffer();
+    static SR_DLL_IMPORT unsigned long scanChangeIndexed(const unsigned long* first,
+                                                         unsigned long first_count,
+                                                         const unsigned long* second,
+                                                         unsigned long second_count);
+    SR_DLL_IMPORT void setMaterial(srMaterialIFace* material);
+    SR_DLL_IMPORT void setupAlpha();
+    SR_DLL_IMPORT void setupDepthCue();
+    SR_DLL_IMPORT void setupDiffuse();
+    SR_DLL_IMPORT void setupEyeSpaceDirAndDist();
+    SR_DLL_IMPORT void setupEyeSpaceNormal();
+    SR_DLL_IMPORT void setupEyeSpaceZDist();
+    SR_DLL_IMPORT void setupFog();
+    SR_DLL_IMPORT void setupQ(unsigned long index);
+    SR_DLL_IMPORT void setupST(unsigned long index);
+    SR_DLL_IMPORT void setupSpecular();
+
+    friend class srEnvironmentMapper;
+    friend class srLight;
+
+    struct Scratch {
+        enum {
+            READY_EYE_DIRECTION = 0x01u,
+            READY_EYE_DISTANCE = 0x02u,
+            READY_EYE_Z_DISTANCE = 0x04u,
+            READY_EYE_NORMALS = 0x08u,
+            READY_DEPTH_CUE = 0x10u
+        };
+        srVector3T<float> dir[0x40];
+        srVector3T<float> normals[0x40];
+        float dist[0x40];
+        float z_dist[0x40];
+        float depth_cue[0x40];
+        float alpha[0x40];
+        float fog[0x40];
+        unsigned long flags;
+    };
+
+    static_assert(sizeof(Scratch) == 0xb04, "Scratch_must_be_0xb04");
+
+    Scratch* scratch;                              /* 0x00 */
+    srVertexProcessor** processor_heap;            /* 0x04 */
+    unsigned long processor_heap_capacity;         /* 0x08 */
+    unsigned long channel_mask;                    /* 0x0c */
+    unsigned long lazy_setup_mask;                 /* 0x10 */
+    srVertexProcessor::MaterialInfo material_info; /* 0x14 through 0x67 */
+    srMaterialIFace* material;                     /* 0x68 */
+    const Input* input;                            /* 0x6c */
+    const unsigned long* avt;                      /* 0x70 */
+    const Record* current_record;                  /* 0x74 */
+    srVertexArray* vertex_array;                   /* 0x78 */
+    srVector4T<float>* eye_space_locations;        /* 0x7c */
+    unsigned long batch_base;                      /* 0x80 */
+    unsigned long sub_batch_offset;                /* 0x84 */
+    unsigned long vertex_count;                    /* 0x88 */
+    unsigned long batch_count;                     /* 0x8c */
+    unsigned long active_processor_count;          /* 0x90 */
+    srVertexProcessor** active_processors;         /* 0x94 */
+    srVP* vector_processor;                        /* 0x98 */
+};
+#pragma pack(pop)
+
+static_assert(sizeof(srVertexPipe) == 0x9c, "srVertexPipe_must_be_0x9c");
+static_assert(sizeof(srVertexPipe::Record) == 0x5c, "srVertexPipe_Record_must_be_0x5c");
+static_assert(sizeof(srVertexPipe::Input) == 0x64, "srVertexPipe_Input_must_be_0x64");
+
+// FUNCTION: SURRENDER 0x1002C4B0 SYMBOL
+// RECOMP: ?getVertexCount@srVertexPipe@@QBEKXZ
+inline unsigned long srVertexPipe::getVertexCount() const
+{
+    return vertex_count;
+}
+
+// FUNCTION: SURRENDER 0x1002C4E0 SYMBOL
+// RECOMP: ?isChannelAvailable@srVertexPipe@@QBEHW4e_channel@srVertexProcessor@@@Z
+inline int srVertexPipe::isChannelAvailable(srVertexProcessor::e_channel channel) const
+{
+    return ((1u << channel) & channel_mask) != 0;
+}
+
+// FUNCTION: SURRENDER 0x1002C5C0 SYMBOL
+// RECOMP: ?getEyeSpaceNormal@srVertexPipe@@QAEPBV?$srVector3T@M@@XZ
+inline const srVector3T<float>* srVertexPipe::getEyeSpaceNormal()
+{
+    Scratch* scratch = this->scratch;
+    if ((scratch->flags & srVertexPipe::Scratch::READY_EYE_NORMALS) == 0) {
+        setupEyeSpaceNormal();
+    }
+    return scratch->normals + sub_batch_offset;
+}
+
+// FUNCTION: SURRENDER 0x1002C780 SYMBOL
+// RECOMP: ?getST@srVertexPipe@@QAEPAV?$srVector2T@M@@KH@Z
+inline srVector2T<float>* srVertexPipe::getST(unsigned long index, int create)
+{
+    srCore.getStatisticsManager()->statistics.texture_coordinate_operations += vertex_count;
+    if ((create == 0) &&
+        ((lazy_setup_mask & (1 << (index + srVertexProcessor::CHANNEL_ST0))) == 0)) {
+        setupST(index);
+    }
+    lazy_setup_mask |= 1 << (index + srVertexProcessor::CHANNEL_ST0);
+    return (&vertex_array->st0)[index] + batch_base + sub_batch_offset;
+}

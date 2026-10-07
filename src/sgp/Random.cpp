@@ -1,0 +1,70 @@
+/* Modified for the Wizardry 8 reconstruction: 2026-10-03, 2026-10-06, 2026-10-07.
+   Distributed under the accompanying SFI Source Code license agreement. */
+#include "Random.h"
+
+#ifdef PRERANDOM_GENERATOR
+
+UINT32 guiPreRandomIndex = 0;
+UINT32 guiPreRandomNums[MAX_PREGENERATED_NUMS];
+
+#endif
+
+// FUNCTION: WIZ8 0x0040ef80
+void InitializeRandom()
+{
+    // Seed the random-number generator with current time so that
+    // the numbers will be different every time we run.
+    srand((unsigned)time(NULL));
+#ifdef PRERANDOM_GENERATOR
+    //Pregenerate all of the random numbers.
+    for (guiPreRandomIndex = 0; guiPreRandomIndex < MAX_PREGENERATED_NUMS; guiPreRandomIndex++) {
+        guiPreRandomNums[guiPreRandomIndex] = rand();
+    }
+    guiPreRandomIndex = 0;
+#endif
+}
+
+// Returns a pseudo-random integer between 0 and uiRange
+// FUNCTION: WIZ8 0x0040efa0
+UINT32 Random(UINT32 uiRange)
+{
+    // Always return 0, if no range given (it's not an error)
+
+    if (uiRange == 0)
+        return (0);
+    return rand() * uiRange / RAND_MAX % uiRange;
+}
+
+// FUNCTION: WIZ8 0x0040efe0
+BOOLEAN Chance(UINT32 uiChance)
+{
+    return (BOOLEAN)(Random(100) < uiChance);
+}
+
+#ifdef PRERANDOM_GENERATOR
+
+UINT32 PreRandom(UINT32 uiRange)
+{
+    UINT32 uiNum;
+    if (!uiRange)
+        return 0;
+    //Extract the current pregenerated number
+    uiNum = guiPreRandomNums[guiPreRandomIndex] * uiRange / RAND_MAX % uiRange;
+    //Replace the current pregenerated number with a new one.
+
+    //This was removed in the name of optimization.  Uncomment if you hate recycling.
+    //guiPreRandomNums[ guiPreRandomIndex ] = rand();
+
+    //Go to the next index.
+    guiPreRandomIndex++;
+    if (guiPreRandomIndex >= (UINT32)MAX_PREGENERATED_NUMS)
+        guiPreRandomIndex = 0;
+    return uiNum;
+}
+
+BOOLEAN PreChance(UINT32 uiChance)
+{
+    return (BOOLEAN)(PreRandom(100) < uiChance);
+}
+
+#endif

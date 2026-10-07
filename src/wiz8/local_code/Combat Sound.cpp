@@ -1,0 +1,293 @@
+#include "wiz8/virtual_file.h"
+#include "wiz8/local_code/CombatSound.h"
+#include "wiz8/local_code/Configuration.h"
+#include "wiz8/local_code/MonsterManager.h"
+#include "wiz8/local_code/PC_Item.h"
+#include "wiz8/engine_code/Missile.h"
+#include "wiz8/layouts/combat_state.h"
+#include "wiz8/layouts/game_status.h"
+#include "wiz8/layouts/gameplay_databases.h"
+#include "wiz8/layouts/item_tables.h"
+#include "wiz8/sr_api.h"
+#include "wiz8/utility.h"
+#include "FileMan.h"
+#include "random.h"
+#include "soundman.h"
+
+#include <ctype.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+#define COMBAT_SOUND_CPP "C:\\Projects\\Wizardry 8\\Local Code\\Combat Sound.cpp"
+
+// GLOBAL: WIZ8 0x0068DD90
+static char* g_weapon_attack_sounds[38];
+// GLOBAL: WIZ8 0x0068D850
+static char* g_material_impact_sounds[28][12];
+
+/* Play one combat sound under Data\Sound\Combat\.  When the name carries more
+   than one recorded variant a random 1..n digit is appended onto the caller's
+   buffer before the .wav path is built; callers only reach that branch with
+   writable names.  A positive volume is scaled by the configured effects
+   level; zero and below play at the default.  With the flag set the handle is
+   registered on the combat state so the service can poll SoundIsPlaying. */
+// FUNCTION: WIZ8 0x005499D0
+void PlayCombatSound(char* sound_name, unsigned int variant_count, bool store_handle, int volume)
+{
+    SOUNDPARMS parms;
+    char zSoundFileName[100];
+    unsigned int handle;
+
+    if (variant_count > 1) {
+        strcat(sound_name, FormatString("%d", Random(variant_count) + 1));
+    }
+    sprintf(zSoundFileName, "Data\\Sound\\Combat\\%s.wav", sound_name);
+    if (!FileExists(zSoundFileName)) {
+        srAssertFail("FileExists(zSoundFileName)", COMBAT_SOUND_CPP, 104,
+                     FormatString("CombatSound: ERROR - Sound file %s not found", zSoundFileName));
+    }
+    if (volume > 0) {
+        memset(&parms, 0xff, sizeof(parms));
+        parms.uiVolume = static_cast<unsigned int>(g_settings.sound_effects_volume * volume) / 127;
+        handle = SoundPlay(zSoundFileName, &parms);
+    } else {
+        handle = SoundPlay(zSoundFileName, 0);
+    }
+    if (handle != 0xffffffff && g_combat_state != 0 && store_handle) {
+        g_combat_state->hit_sound = handle;
+        g_combat_state->hit_sound_active = true;
+    }
+}
+
+static void TrimHitSoundLine(char* line)
+{
+    char* comment = strchr(line, '*');
+    size_t length;
+
+    if (comment) {
+        *comment = '\0';
+    }
+    length = strlen(line);
+    while (length && isspace(static_cast<unsigned char>(line[length - 1]))) {
+        line[--length] = '\0';
+    }
+}
+
+static char* DuplicateHitSound(const char* source)
+{
+    char* copy = static_cast<char*>(malloc(strlen(source) + 1));
+    if (copy) {
+        strcpy(copy, source);
+    }
+    return copy;
+}
+
+/* Local Code\\Combat Sound.cpp reads the attack list followed by twelve
+   material columns of up to twenty-eight impact sounds.  A hash line advances
+   the material column; an asterisk starts an inline comment. */
+// FUNCTION: WIZ8 0x00549b00
+unsigned char LoadHitSoundDatabase(void)
+{
+    char path[] = "Data\\Databases\\HitSounds.txt";
+    char line[256];
+    int handle;
+    int row = 0;
+    int column = -1;
+    unsigned char more = 1;
+
+    memset(g_weapon_attack_sounds, 0, sizeof(g_weapon_attack_sounds));
+    memset(g_material_impact_sounds, 0, sizeof(g_material_impact_sounds));
+    handle = FileOpen(path, 0x41, 0);
+    if (!handle) {
+        return 0;
+    }
+    while (row < 38 && more) {
+        char* marker;
+        ReadTextLine(handle, line, sizeof(line), &more);
+        TrimHitSoundLine(line);
+        marker = strchr(line, '#');
+        if (marker) {
+            *marker = '\0';
+            TrimHitSoundLine(line);
+        }
+        if (line[0]) {
+            g_weapon_attack_sounds[row++] = DuplicateHitSound(line);
+        }
+    }
+    if (row != 38) {
+        srAssertFail("(iRow == WPNSND_NUM_WEAPONS)", COMBAT_SOUND_CPP, 0xe3,
+                     "Error reading the Attack Sounds portion of HitSounds.txt!");
+    }
+    row = 0;
+    while (more) {
+        ReadTextLine(handle, line, sizeof(line), &more);
+        if (strchr(line, '#')) {
+            ++column;
+            row = 0;
+            continue;
+        }
+        TrimHitSoundLine(line);
+        if (!line[0]) {
+            continue;
+        }
+        if (row < 0 || row >= 28) {
+            srAssertFail("(iRow >= 0) && (iRow < WPNSND_NUM_IMPACTS)", COMBAT_SOUND_CPP, 0xfe,
+                         "Error in HITSOUNDS.TXT file, bad row counter value");
+        }
+        if (column < 0 || column >= 12) {
+            srAssertFail("(iColumn >= 0) && (iColumn < MATSND_NUM_SOUNDS)", COMBAT_SOUND_CPP, 0xff,
+                         "Error in HITSOUNDS.TXT file, bad column counter value");
+        }
+        g_material_impact_sounds[row++][column] = DuplicateHitSound(line);
+    }
+    FileClose(handle);
+    // Several impact materials intentionally provide one catch-all sound rather than one
+    // entry per weapon class.  The retail loader accepts EOF after any valid final entry.
+    return 1;
+}
+
+/* Free the two string tables populated by LoadHitSoundDatabase. */
+// FUNCTION: WIZ8 0x00549e50
+void ReleaseHitSoundDatabase(void)
+{
+    int row;
+    int column;
+
+    for (row = 0; row < 38; ++row) {
+        if (g_weapon_attack_sounds[row]) {
+            free(g_weapon_attack_sounds[row]);
+            g_weapon_attack_sounds[row] = 0;
+        }
+    }
+    for (column = 0; column < 12; ++column) {
+        for (row = 0; row < 28; ++row) {
+            if (g_material_impact_sounds[row][column]) {
+                free(g_material_impact_sounds[row][column]);
+                g_material_impact_sounds[row][column] = 0;
+            }
+        }
+    }
+}
+
+/* Look up a weapon-class/target-material impact sound. Missing
+   weapon-specific entries inherit weapon class zero; out-of-range indices use
+   the retail "HIT" fallback. The buffer comes back writable because
+   PlayCombatSound may append a variant digit. */
+// FUNCTION: WIZ8 0x00549EB0
+char* GetMaterialImpactSound(int weapon_class, int target_material)
+{
+    if (weapon_class < 0 || weapon_class >= 28 || target_material < 0 || target_material >= 12) {
+        return const_cast<char*>("HIT");
+    }
+    char* sound = g_material_impact_sounds[weapon_class][target_material];
+    if (sound == 0) {
+        sound = g_material_impact_sounds[0][target_material];
+    }
+    return sound;
+}
+
+/* The equipment slot covering one armour-class hit location, then the item
+   worn there (-1 when that location is bare).  The inlined copies share the
+   line-168 assertion. */
+static int PCItemInACSlot(const W8Character* character, int hit_location)
+{
+    W8EquipSlot slot = W8_EQUIP_SLOT_HEAD;
+
+    switch (hit_location) {
+    case 0:
+        slot = W8_EQUIP_SLOT_HEAD;
+        break;
+    case 1:
+        slot = W8_EQUIP_SLOT_TORSO;
+        break;
+    case 2:
+        slot = W8_EQUIP_SLOT_LEGS;
+        break;
+    case 3:
+        slot = W8_EQUIP_SLOT_HANDS;
+        break;
+    case 4:
+        slot = W8_EQUIP_SLOT_FEET;
+        break;
+    default:
+        srAssertFail("FALSE", COMBAT_SOUND_CPP, 168, "PCItemInACSlot: ERROR - Invalid AC location");
+    }
+    return character->EquippedItem[slot].iItemNo;
+}
+
+// FUNCTION: WIZ8 0x00549EF0
+void MakePCAttackSound(W8CombatCharacterRow* row, const W8HandAttack* hand_attack, W8AttackMode,
+                       bool store_handle, int volume)
+{
+    int weapon_class;
+
+    if (hand_attack->uiHolds == HOLDS_NOTHING) {
+        weapon_class = 9;
+    } else {
+        weapon_class = g_item_records[row->weapon_item_id].weapon_sound_class;
+        if (weapon_class < 0 || weapon_class >= 38) {
+            return;
+        }
+    }
+    PlayCombatSound(g_weapon_attack_sounds[weapon_class], 1, store_handle, volume);
+}
+
+static int GetCombatTargetMaterial(W8CombatSlot* target, int hit_location, int assertion_line)
+{
+    int target_material = -1;
+    if (target->iType == W8_TARGET_KIND_CHARACTER) {
+        const W8Character* character = &g_status.buffers.Char[target->iChar];
+        int item = PCItemInACSlot(character, hit_location);
+        target_material = item == -1 ? 0 : g_item_records[item].material;
+    } else if (target->iType == W8_TARGET_KIND_MONSTER) {
+        const W8MonsterRecord* record = GetMonsterDataByLocationID(target->iMonsterID);
+        target_material = record == 0 ? 0 : record->material;
+    } else {
+        srAssertFail("FALSE", COMBAT_SOUND_CPP, assertion_line,
+                     "MakePCHitSound : Unknown target type");
+    }
+    return target_material;
+}
+
+// FUNCTION: WIZ8 0x00549F50
+void MakePCMeleeHitSound(int iChar, const W8HandAttack* hand_attack, W8CombatSlot* target,
+                         int hit_location, int volume)
+{
+    int weapon_class;
+
+    if (hand_attack->uiHolds == HOLDS_NOTHING) {
+        weapon_class = 9;
+    } else {
+        weapon_class =
+            g_item_records[g_combat_state->characters[iChar].paired_item_id].weapon_sound_class;
+    }
+    int target_material = GetCombatTargetMaterial(target, hit_location, 415);
+    PlayCombatSound(GetMaterialImpactSound(weapon_class, target_material), 1, true, volume);
+}
+
+// FUNCTION: WIZ8 0x0054A0E0
+void MakePCHitSound(W8Missile* missile, W8CombatSlot* target, int hit_location, int volume)
+{
+    int weapon_class = g_missile_table[missile->missile_table_index].weapon_sound_class;
+
+    int target_material = GetCombatTargetMaterial(target, hit_location, 465);
+    PlayCombatSound(GetMaterialImpactSound(weapon_class, target_material), 1, true, volume);
+}
+
+// FUNCTION: WIZ8 0x0054A270
+void MakeMonsterHitSound(const W8MonsterAttack* attack, W8CombatSlot* target, int hit_location,
+                         int volume)
+{
+    int weapon_class;
+
+    if (attack == 0) {
+        return;
+    }
+    if (target == 0) {
+        return;
+    }
+    weapon_class = attack->weapon_class;
+    int target_material = GetCombatTargetMaterial(target, hit_location, 504);
+    PlayCombatSound(GetMaterialImpactSound(weapon_class, target_material), 1, true, volume);
+}

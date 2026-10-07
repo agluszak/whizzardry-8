@@ -1,0 +1,289 @@
+#include "wiz8/engine_code/game_timer.h"
+#include "wiz8/engine_code/GameTimeAccumulator.h"
+#include "wiz8/float_constants.h"
+#include "wiz8/virtual_file.h"
+#include "wiz8/layouts/game_status.h"
+
+/* The game-timer unit: a small timer object over one shared, reference-counted
+   srTimer-derived singleton. The image names neither the unit nor the classes -
+   the assertion anchors only bound this code to the gap between
+   Engine Code\Octree.cpp and Engine Code\BitArray.cpp - so both classes carry
+   address-qualified positional names and the file name is descriptive.
+
+   The globals live at 0x006598B8..0x006598D2 and are declared, not defined:
+   their addresses in the original data segment are the authority. */
+
+// GLOBAL: WIZ8 0x006598B8
+srTimer* g_shared_timer_base;
+// GLOBAL: WIZ8 0x006598C0
+static srTimer* g_shared_timer;
+// GLOBAL: WIZ8 0x006598C4
+int g_shared_timer_pause_base;
+// GLOBAL: WIZ8 0x006598C8
+int g_shared_timer_pause_time;
+// GLOBAL: WIZ8 0x006598CC
+static int g_shared_timer_refs;
+// GLOBAL: WIZ8 0x006598D0
+bool g_shared_timer_paused;
+// GLOBAL: WIZ8 0x006598D1
+bool g_shared_timer_flag0;
+// GLOBAL: WIZ8 0x006598D2
+bool g_level_motion_resume_pending;
+
+// GLOBAL: WIZ8 0x005ec0a8
+const float g_float_ten_thousand = 10000.0f;
+
+// FUNCTION: WIZ8 0x00439bc0
+void PauseSharedGameTimers(void)
+{
+    g_shared_timer_paused = true;
+    if (g_shared_timer == 0) {
+        return;
+    }
+
+    g_shared_timer_pause_time =
+        g_shared_timer->getUTime(srTimer::TIMER_READ_DEFAULT) - g_shared_timer_pause_base;
+
+    if (g_game_time_accumulator != 0 && !g_game_time_accumulator->m_flags.paused) {
+        g_game_time_accumulator->m_flags.paused = true;
+        g_game_time_accumulator->m_start =
+            g_game_time_accumulator->ReadClock() - g_game_time_accumulator->m_start;
+    }
+}
+
+// FUNCTION: WIZ8 0x00439ca0
+void ResumeSharedGameTimers(void)
+{
+    g_shared_timer_paused = false;
+    g_shared_timer_flag0 = false;
+    if (g_shared_timer != 0) {
+        g_shared_timer_pause_base =
+            g_shared_timer->getUTime(srTimer::TIMER_READ_DEFAULT) - g_shared_timer_pause_time;
+        g_shared_timer_pause_time = 0;
+    }
+
+    W8GameTimeAccumulator* timer = g_game_time_accumulator;
+    if (timer != 0) {
+        timer->m_flags.paused = false;
+        int sample = timer->ReadClock();
+        float duration = timer->m_duration_scale * timer->m_duration_seconds * g_float_ten_thousand;
+        int start = sample - timer->m_start;
+        timer->m_start = start;
+        timer->m_duration = static_cast<int>(duration);
+        timer->m_end = start + timer->m_duration;
+    }
+}
+
+// VTABLE: WIZ8 0x005ec0a4
+// class W8GameTimer
+
+// FUNCTION: WIZ8 0x00439a00
+W8GameTimer::~W8GameTimer()
+{
+    srTimer* shared = m_shared;
+
+    if (shared == g_shared_timer) {
+        if (--g_shared_timer_refs <= 0) {
+            if (g_shared_timer != 0) {
+                delete g_shared_timer;
+            }
+            g_shared_timer = 0;
+            g_shared_timer_base = 0;
+            g_shared_timer_refs = 0;
+        }
+    } else if (shared != 0) {
+        delete shared;
+    }
+    m_shared = 0;
+}
+
+// FUNCTION: WIZ8 0x00439a60
+int W8GameTimer::GetTime()
+{
+    return ReadClock();
+}
+
+static void EnsureSharedGameTimer()
+{
+    if (g_shared_timer == 0) {
+        g_shared_timer_paused = false;
+        g_shared_timer_flag0 = false;
+        g_level_motion_resume_pending = false;
+
+        srTimer* timer = new srTimer(0, 0, 1);
+
+        g_shared_timer = timer;
+        g_shared_timer_base = timer;
+        /* Retail dereferences the allocation without a null check. */
+        timer->m_units_per_interval = 10000;
+        {
+            double frequency;
+
+            if (timer->m_frequency != 0.0) {
+                frequency = static_cast<double>(timer->m_frequency);
+            } else {
+                frequency = 1.0;
+            }
+            timer->m_units_per_tick = 10000.0 / frequency;
+        }
+        g_shared_timer_refs = 0;
+        g_shared_timer_pause_base = 0;
+        g_shared_timer_pause_time = 0;
+    }
+}
+
+// FUNCTION: WIZ8 0x00439550
+W8GameTimer::W8GameTimer()
+{
+    Flags initial_flags = {false, false, 0, false, false, 0, 0};
+    m_clock_mode = W8_TIMER_CLOCK_SHARED;
+    m_flags = initial_flags;
+    m_shared = 0;
+    m_start = 0;
+    m_end = 0;
+    m_duration_seconds = 0;
+    m_duration_scale = 1.0f;
+
+    EnsureSharedGameTimer();
+    m_shared = g_shared_timer;
+    ++g_shared_timer_refs;
+
+    m_start = ReadClock();
+    m_end = m_start + 10000;
+    m_duration_seconds = 1.0f;
+    m_duration = 10000;
+}
+
+/* The startup status object uses the duration-bearing constructor at
+   0x004397F0.  It differs from the default constructor only in the raw-time
+   flag and in converting seconds to the timer's 1/10000-second units. */
+// FUNCTION: WIZ8 0x004397f0
+W8GameTimer::W8GameTimer(float duration, unsigned char raw_time)
+{
+    Flags initial_flags = {false, false, 0, false, false, 0, 0};
+    m_clock_mode = W8_TIMER_CLOCK_SHARED;
+    m_flags = initial_flags;
+    m_flags.raw_time = raw_time != 0;
+    m_shared = 0;
+    m_start = 0;
+    m_end = 0;
+    m_duration_seconds = 0;
+    m_duration_scale = 1.0f;
+
+    EnsureSharedGameTimer();
+    m_shared = g_shared_timer;
+    ++g_shared_timer_refs;
+    m_start = ReadClock();
+    m_duration_seconds = duration;
+    m_duration = static_cast<int>(duration * 10000.0f);
+    m_end = m_start + m_duration;
+}
+
+// FUNCTION: WIZ8 0x00439b80
+void W8GameTimer::SetDuration(float duration)
+{
+    if (duration > 0.0f) {
+        m_duration_seconds = duration;
+    }
+    m_duration = static_cast<int>(m_duration_scale * m_duration_seconds * 10000.0f);
+    m_end = m_start + m_duration;
+}
+
+// FUNCTION: WIZ8 0x00439ad0
+void W8GameTimer::SetMode(W8TimerClock mode)
+{
+    m_clock_mode = mode;
+    Restart();
+}
+
+// FUNCTION: WIZ8 0x00439d80
+void W8GameTimer::Restart()
+{
+    m_start = ReadClock();
+    m_end = m_start + m_duration;
+}
+
+// FUNCTION: WIZ8 0x00439e20
+void W8GameTimer::SetDurationScale(float scale)
+{
+    m_duration_scale = scale;
+    if (scale < 0.5f) {
+        m_flags.slow_scale = true;
+    }
+    float progress = GetProgress();
+    m_duration = static_cast<int>(m_duration_seconds * m_duration_scale * 10000.0f);
+    SetProgress(progress);
+}
+
+// FUNCTION: WIZ8 0x00439fe0
+void W8GameTimer::ResetDurationScale()
+{
+    m_flags.slow_scale = false;
+    m_duration_scale = 1.0f;
+    float progress = GetProgress();
+    m_duration = static_cast<int>(m_duration_seconds * m_duration_scale * 10000.0f);
+    SetProgress(progress);
+}
+
+// FUNCTION: WIZ8 0x0043a190
+float W8GameTimer::GetProgress()
+{
+    int sample = ReadClock();
+    int start = m_start;
+    int end = m_end;
+    float progress = static_cast<unsigned int>(sample - start) /
+                     static_cast<float>(static_cast<unsigned int>(end - start));
+    int completed = static_cast<int>(progress);
+
+    if (completed != 0 && completed > 0) {
+        m_start = (completed - 1) * m_duration + end;
+        m_end = m_start + m_duration;
+    }
+
+    if (!m_flags.paused && (!g_shared_timer_paused || m_flags.raw_time) && !g_shared_timer_flag0 &&
+        (!g_level_motion_resume_pending || m_flags.raw_time)) {
+        return progress;
+    }
+    return 0.0f;
+}
+
+// FUNCTION: WIZ8 0x0043a290
+void W8GameTimer::SetProgress(float progress)
+{
+    int sample = ReadClock();
+    m_start = sample - static_cast<int>(static_cast<unsigned int>(m_duration) * progress);
+    m_end = m_start + m_duration;
+}
+
+// FUNCTION: WIZ8 0x0043a330
+BOOLEAN W8GameTimer::Load(int handle)
+{
+    float progress;
+    // Retail performs both reads and combines their results with bitwise OR.
+    BOOLEAN loaded = FileRead(handle, &progress, sizeof(progress), 0);
+    loaded |= FileRead(handle, &m_duration_scale, sizeof(m_duration_scale), 0);
+    if (loaded != 0) {
+        m_duration = static_cast<int>(m_duration_seconds * m_duration_scale * 10000.0f);
+        m_end = m_start + m_duration;
+        unsigned int sample = ReadClock();
+        unsigned int elapsed =
+            static_cast<unsigned int>(static_cast<unsigned int>(m_duration) * progress);
+        m_start = sample < elapsed ? 0 : sample - elapsed;
+        m_end = m_start + m_duration;
+    }
+    return loaded;
+}
+
+// FUNCTION: WIZ8 0x0043a440
+float W8GameTimer::GetElapsedSeconds()
+{
+    int sample = ReadClock();
+    return (static_cast<unsigned int>(sample - m_start) /
+            static_cast<float>(static_cast<unsigned int>(m_end - m_start))) *
+           m_duration_seconds;
+}
+
+W8GameTimer* CreateGameTimer(float duration, unsigned char raw_time)
+{
+    return new W8GameTimer(duration, raw_time);
+}

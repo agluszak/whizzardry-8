@@ -1,0 +1,63 @@
+#ifndef WIZ8_CURSOR_H
+#define WIZ8_CURSOR_H
+
+#include "Types.h"
+#include "input.h"
+#include "wiz8/engine_code/Video2.h"
+#include "surrender/srMath.h"
+
+class srModelInstance;
+class srScene;
+
+extern srModelInstance* g_cursor_node;
+extern srScene* g_cursor_scene;
+unsigned char InitializeMouseCursorScene(void);
+
+class srTextureIFace;
+
+BOOLEAN SetMouseCursorFromVideoObject(UINT32 video_object, UINT16 region, INT16 offset_x,
+                                      INT16 offset_y);
+void BlitToMouseCursor(UINT32 video_object, UINT16 region, UINT16 x, UINT16 y);
+void RefreshMouseCursorTexture(void);
+BOOLEAN ResizeMouseCursorSurface(int width, int height);      /* 0x00427c90 */
+void SetMouseCursorHotspot(short hotspot_x, short hotspot_y); /* 0x00427f00 */
+void SetMouseCursorTexture(srTextureIFace* texture);          /* 0x00429170 */
+void SyncSystemCursor(void);                                  /* 0x00428340 */
+
+/* Indices into the 17-slot main-game cursor table that SetTargetCursor takes.
+   The parameter stays int because retail mangles it as `H`. Only slots with
+   recovered meaning are named. */
+enum {
+    W8_CURSOR_NONE = -1,
+    W8_CURSOR_VALID_TARGET = 6,
+    W8_CURSOR_INVALID_TARGET = 7,
+    W8_CURSOR_TEXT_INPUT = 8,
+    W8_CURSOR_MAP_LOAD = 9
+};
+
+extern int g_cursor_width;
+extern int g_cursor_height;
+extern int g_cursor_hotspot_x;
+extern int g_cursor_hotspot_y;
+
+/* 0x00428580 and 0x004285A0: the packed atom mouse position projected into
+   screen space by the current cursor hotspot. */
+int GetAtomCursorX(const InputAtom* atom);
+int GetAtomCursorY(const InputAtom* atom);
+
+void PositionMouseCursor(int x, int y, bool reset_tick);
+/* 0x00428220: milliseconds since PositionMouseCursor last stamped the move
+   tick. */
+unsigned int GetMillisecondsSinceCursorMove(void);
+/* 0x00428520: whether the current cursor hotspot is inside the inclusive
+   rectangle (left, top, right, bottom). */
+bool IsCursorInRectangle(int left, int top, int right, int bottom);
+unsigned char GetCursorPositionInViewport(srVector3T<float>* position);
+/* 0x004282F0: the tracked cursor position in pixel-scale units
+   (hotspot + size scaled by g_scale_x/g_scale_y), z left zero. */
+void GetCursorScaledPosition(srVector3T<float>* position);
+void UpdateHeldItemCursor(void);
+void ClearHeldItemDisplay(void);
+void SetItemCursor(int overlay_video_object); /* 0x0055F160 */
+
+#endif

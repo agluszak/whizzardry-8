@@ -1,0 +1,12 @@
+/build*/
+/vendor/
+/.wiz8-work/
+/.venv/
+__pycache__/
+*.obj
+*.lib
+*.pdb
+*.ilk
+*.map
+*.log
+.DS_Store

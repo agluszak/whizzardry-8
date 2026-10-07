@@ -1,0 +1,440 @@
+#include "wiz8/local_screens/MainGameScreen.h"
+#include "wiz8/layouts/game_status.h"
+#include "wiz8/local_code/MonsterManager.h"
+#include "wiz8/layouts/screen_state.h"
+#include "wiz8/local_code/Gameloop.h"
+#include "wiz8/local_screens/ReviewCharacterScreen.h"
+#include "wiz8/local_screens/Screens.h"
+#include "wiz8/local_code/Configuration.h"
+#include "wiz8/local_screens/CharacterScreen.h"
+#include "wiz8/local_screens/PartySelectionScreen.h"
+#include "wiz8/local_screens/MGSPortraits.h"
+#include "wiz8/local_screens/MGSTextBox.h"
+#include "wiz8/local_screens/RCSCommon.h"
+#include "wiz8/notices.h"
+#include "wiz8/xstatus.h"
+#include "wiz8/cursor.h"
+#include "wiz8/item_video_object_vector.h"
+#include "wiz8/video_object_catalog.h"
+#include "wiz8/dialog_code/DialogBase.h"
+#include "wiz8/dialog_code/DialogTextArea.h"
+#include "wiz8/local_code/Controls.h"
+#include "wiz8/engine_code/stTextureAnim.h"
+#include "wiz8/fonts.h"
+#include "wiz8/regions.h"
+#include "wiz8/sr_api.h"
+#include "wiz8/utility.h"
+#include "wiz8/wiz8_windows.h"
+#include "Container.h"
+#include "timer.h"
+
+#include <string.h>
+
+/* Query whether scrolling is possible, or scroll and invalidate the transcript. */
+// FUNCTION: WIZ8 0x0055EBB0
+bool W8NpcDialogueTextController::HandleScrollDownCommand(bool check_only)
+{
+    if (text_area.ScrollDown(check_only)) {
+        if (!check_only) {
+            Invalidate(0);
+        }
+        return true;
+    }
+    return false;
+}
+
+// FUNCTION: WIZ8 0x0055EBE0
+bool W8NpcDialogueTextController::HandleScrollUpCommand(bool check_only)
+{
+    if (text_area.ScrollUp(check_only)) {
+        if (!check_only) {
+            Invalidate(0);
+        }
+        return true;
+    }
+    return false;
+}
+
+/* Return the requested screen id, falling back to the state at the top of the
+   return stack when there is no explicit pending state. */
+// FUNCTION: WIZ8 0x0055EC10
+W8ScreenId GetPendingScreenState(void)
+{
+    W8ScreenStateRuntime state;
+
+    if (g_pending_screen_state.id != W8_SCREEN_NONE) {
+        return g_pending_screen_state.id;
+    }
+    if (PeekStack(g_screen_return_stack, &state)) {
+        return state.id;
+    }
+    return W8_SCREEN_NONE;
+}
+
+// FUNCTION: WIZ8 0x0055ec50
+void SetPendingScreenState(W8ScreenId value)
+{
+    g_pending_screen_state.id = value;
+}
+
+// FUNCTION: WIZ8 0x0055ec60
+void RequestScreenTransition(void)
+{
+    g_screen_return_requested = true;
+}
+
+// FUNCTION: WIZ8 0x0055EC70
+bool IsScreenTransitionPending(void)
+{
+    if (g_pending_screen_state.id == W8_SCREEN_NONE && !g_screen_return_requested) {
+        return false;
+    }
+    return true;
+}
+
+/* Route one redraw bit to the active camp or main-game screen state. The slot
+   travels as an int: the body only ever reads its low byte for the shift. */
+// FUNCTION: WIZ8 0x0055EE30
+void RequestPartySlotRedraw(int bit)
+{
+    if (g_current_screen_state.id == W8_SCREEN_CAMP) {
+        g_camp_screen->redraw_flags |= W8_CAMP_REDRAW_PORTRAIT;
+    } else if (g_current_screen_state.id == W8_SCREEN_MAIN_GAME) {
+        RequestRedraw(1 << (bit & 31));
+    }
+}
+
+/* Refresh one party slot's on-screen presentation for the active screen:
+   character and party-selection forward into their own helpers; camp marks
+   the review panels dirty; main game redraws the portrait overlay. */
+// FUNCTION: WIZ8 0x0055EC90
+void RefreshPartySlotDisplay(unsigned int party_slot)
+{
+    unsigned int top;
+    bool overlay_ready;
+    bool highlighted;
+
+    switch (g_current_screen_state.id) {
+    case W8_SCREEN_CHARACTER:
+        RefreshCharacterScreenPartySlot(party_slot);
+        return;
+    case W8_SCREEN_PLEASE_WAIT:
+        break;
+    case W8_SCREEN_PARTY_SELECTION:
+        RefreshPartySelectionPortrait(party_slot);
+        break;
+    case W8_SCREEN_CAMP:
+        if (giReviewCharSlot == static_cast<int>(party_slot) &&
+            g_camp_screen->header_mode == W8_CAMP_HEADER_SUMMARY) {
+            if (g_camp_screen->portrait_hovered[0] != 0) {
+                g_camp_screen->redraw_flags |= W8_CAMP_REDRAW_PORTRAIT;
+                return;
+            }
+            g_camp_screen->redraw_flags |= W8_CAMP_REDRAW_PORTRAIT;
+            RedrawRcsLevelUpPanel();
+            RedrawRcsDismissPanel();
+            return;
+        }
+        break;
+    case W8_SCREEN_MAIN_GAME:
+        if (g_level_block->main_ui_mode == W8_MAIN_UI_MODE_PORTRAITS ||
+            g_level_block->portrait_refresh_pending[party_slot] != 0) {
+            switch (party_slot) {
+            case 0:
+            case 1:
+                top = 0x12;
+                break;
+            case 2:
+            case 3:
+                top = 0x67;
+                break;
+            case 4:
+            case 5:
+                top = 0xbc;
+                break;
+            case 6:
+            case 7:
+                top = 0x111;
+                break;
+            default:
+                top = party_slot;
+                break;
+            }
+            overlay_ready =
+                PreparePartyPortraitOverlay(party_slot, (party_slot & 1) << 9 | 0x14, top);
+            highlighted = false;
+            if (party_slot == static_cast<unsigned int>(g_level_block->highlight_override) ||
+                party_slot ==
+                    static_cast<unsigned int>(g_level_block->formation_highlight_party_slot) ||
+                party_slot == static_cast<unsigned int>(g_level_block->held_item_display)) {
+                highlighted = true;
+            }
+            RedrawPartyPortraitOverlay(party_slot, highlighted, overlay_ready,
+                                       g_level_block->portrait_refresh_pending[party_slot] == 0);
+            gXStatus.monster_manager_entries[party_slot].combat_portrait_dirty = true;
+            InvalidatePortraitControl(party_slot);
+            return;
+        }
+        break;
+    default:
+        break;
+    }
+}
+
+/* Text-input mode installs cursor id 8. Lives here because the address sits
+   in the Screens translation unit. */
+// FUNCTION: WIZ8 0x0055EF80
+int GetTextInputCursor(void)
+{
+    return W8_CURSOR_TEXT_INPUT;
+}
+
+/* Install a named cursor, or restore the held-item / default cursor when the
+   caller passes W8_CURSOR_NONE (-1). Unchanged ids are ignored; a new id resets
+   the frame and applies through ApplyCurrentCursor. */
+// FUNCTION: WIZ8 0x0055EE70
+void SetTargetCursor(int cursor)
+{
+    if (cursor == gXStatus.iCurrentCursor) {
+        return;
+    }
+    if (cursor == -1) {
+        UpdateHeldItemCursor();
+    } else {
+        gXStatus.iCurrentCursor = cursor;
+        gXStatus.current_cursor_frame = 0;
+        ApplyCurrentCursor();
+    }
+}
+
+// FUNCTION: WIZ8 0x0055ef90
+void UpdateHeldItemCursor(void)
+{
+    int object;
+
+    if ((g_current_screen_state.id == W8_SCREEN_MAIN_GAME ||
+         g_current_screen_state.id == W8_SCREEN_CAMP) &&
+        g_status.item_in_cursor) {
+        if (g_status.item_in_hand.iItemNo != -1) {
+            g_status.item_in_cursor = true;
+            object = g_item_video_objects.GetOrCreateVideoObject(g_status.item_in_hand.iItemNo);
+            SetMouseCursorFromVideoObject(GetCatalogVideoObjectHandle(object, 0),
+                                          GetCatalogVideoObjectYOffset(object), 0, 0);
+            BlitToMouseCursor(GetCatalogVideoObjectHandle(0, 0), GetCatalogVideoObjectYOffset(0), 0,
+                              0);
+            RefreshMouseCursorTexture();
+            gXStatus.iCurrentCursor = W8_CURSOR_INVALID_TARGET;
+            return;
+        }
+    } else if (gXStatus.iCurrentCursor != W8_CURSOR_NONE) {
+        SetMouseCursorFromVideoObject(GetCatalogVideoObjectHandle(0, 0),
+                                      GetCatalogVideoObjectYOffset(0), 0, 0);
+        RefreshMouseCursorTexture();
+        gXStatus.iCurrentCursor = W8_CURSOR_NONE;
+        gXStatus.current_cursor_frame = 0;
+        gXStatus.current_cursor_time = 0;
+    }
+}
+
+/* Drive the mouse cursor from gXStatus.iCurrentCursor against the main-game
+   resource-slot table: resize, install the slot's texture anim, select the
+   current frame, and refresh the hotspot. Multi-frame cursors also arm the
+   animation countdown. */
+// FUNCTION: WIZ8 0x0055F080
+void ApplyCurrentCursor(void)
+{
+    if (gXStatus.iCurrentCursor == W8_CURSOR_NONE) {
+        srAssertFail("gXStatus.iCurrentCursor != -1",
+                     "C:\\Projects\\Wizardry 8\\Local Screens\\Screens.cpp", 0x18d, 0);
+    }
+    if (g_main_game_resource_slots[gXStatus.iCurrentCursor].object != 0) {
+        ResizeMouseCursorSurface(g_main_game_resource_slots[gXStatus.iCurrentCursor].size_x,
+                                 g_main_game_resource_slots[gXStatus.iCurrentCursor].size_y);
+        SetMouseCursorTexture(g_main_game_resource_slots[gXStatus.iCurrentCursor].object);
+        g_main_game_resource_slots[gXStatus.iCurrentCursor].object->SetFrame(
+            gXStatus.current_cursor_frame);
+        SetMouseCursorHotspot(g_main_game_resource_slots[gXStatus.iCurrentCursor].hotspot_x,
+                              g_main_game_resource_slots[gXStatus.iCurrentCursor].hotspot_y);
+    }
+    if (g_main_game_resource_slots[gXStatus.iCurrentCursor].frame_count > 1) {
+        gXStatus.current_cursor_time = SetCountdownClock(0xfa);
+    }
+}
+
+/* Empty the item-in-hand record and restore the normal cursor. The held item is
+   the 0x0c-byte record at g_status.item_in_hand; the
+   byte directly before it is item_in_cursor. */
+// FUNCTION: WIZ8 0x0055f1e0
+void ClearHeldItemDisplay(void)
+{
+    memset(&g_status.item_in_hand, 0, sizeof(g_status.item_in_hand));
+    g_status.item_in_cursor = false;
+    g_status.item_in_hand.iItemNo = -1;
+
+    if (gXStatus.iCurrentCursor != W8_CURSOR_NONE) {
+        SetMouseCursorFromVideoObject(GetCatalogVideoObjectHandle(0, 0),
+                                      GetCatalogVideoObjectYOffset(0), 0, 0);
+        RefreshMouseCursorTexture();
+        gXStatus.iCurrentCursor = W8_CURSOR_NONE;
+        gXStatus.current_cursor_frame = 0;
+        gXStatus.current_cursor_time = 0;
+    }
+}
+
+/* Inline text colors selected by party order for skill and level-up notices. */
+
+// GLOBAL: WIZ8 0x00647ccc
+static unsigned char g_party_order_text_colors[8] = {7, 4, 6, 2, 5, 8, 9, 3};
+
+// FUNCTION: WIZ8 0x0055F2B0
+unsigned char GetPartyOrderTextColor(signed char party_order)
+{
+    return g_party_order_text_colors[party_order];
+}
+
+/* Draw the held item as the cursor, then blit the supplied catalog video
+   object over it. A negative held item id leaves the cursor unchanged. */
+// FUNCTION: WIZ8 0x0055F160
+void SetItemCursor(int overlay_video_object)
+{
+    int object;
+    unsigned short y_offset;
+    unsigned int handle;
+
+    if (g_status.item_in_hand.iItemNo != -1) {
+        g_status.item_in_cursor = true;
+        object = g_item_video_objects.GetOrCreateVideoObject(g_status.item_in_hand.iItemNo);
+        y_offset = GetCatalogVideoObjectYOffset(object);
+        handle = GetCatalogVideoObjectHandle(object, 0);
+        SetMouseCursorFromVideoObject(handle, y_offset, 0, 0);
+        y_offset = GetCatalogVideoObjectYOffset(overlay_video_object);
+        handle = GetCatalogVideoObjectHandle(overlay_video_object, 0);
+        BlitToMouseCursor(handle, y_offset, 0, 0);
+        RefreshMouseCursorTexture();
+        gXStatus.iCurrentCursor = W8_CURSOR_INVALID_TARGET;
+    }
+}
+
+/* Dispatch one already-built notice line to the camp or main-game dialog. */
+// FUNCTION: WIZ8 0x0055F260
+void ShowNoticeLine(wchar_t* text, W8DialogDestroyCallback callback, bool confirmation, bool cancel)
+{
+    switch (g_current_screen_state.id) {
+    case W8_SCREEN_CAMP:
+        ShowCampNoticeLine(text, callback, confirmation, cancel);
+        break;
+    case W8_SCREEN_MAIN_GAME:
+        ShowMainGameNoticeLine(text, callback, confirmation, cancel);
+        break;
+    default:
+        break;
+    }
+}
+
+/* Default the live main-game level block after ResetMainGameScreenState: clear
+   selection and text-box state, arm the timers, size the text regions, and
+   reset message storage. */
+// FUNCTION: WIZ8 0x0055F2C0
+void InitializeMainGameLevelBlock(void)
+{
+    W8MainUiMode previous_mode;
+    int slot;
+
+    if (g_current_screen_state.id == W8_SCREEN_MAIN_GAME && g_level_block != 0) {
+        g_level_block->redraw_flags = static_cast<unsigned int>(-1);
+    }
+    g_level_block->transition_pending = false;
+    g_level_block->camera_mode = 7;
+    g_level_block->message_box_pending = IsMessageBoxActive();
+    g_level_block->portrait_strip_dirty = false;
+    g_level_block->flag3 = false;
+    g_level_block->value_194 = -1;
+    g_level_block->highlight_override = -1;
+    g_level_block->condition_hover_party_slot = -1;
+    g_level_block->enchantment_hover_party_slot = -1;
+    g_level_block->name_hover_party_slot = -1;
+    g_level_block->vitals_hover_party_slot = -1;
+    g_level_block->assay_hover_party_slot = -1;
+    g_level_block->combat_action_hover_party_slot = -1;
+    g_level_block->portrait_assay_hover_mode = 0;
+    g_level_block->formation_highlight_party_slot = -1;
+    g_level_block->held_item_display = -1;
+    g_level_block->highlight_row = -1;
+    g_level_block->highlight_graphic = 0;
+    g_level_block->value_198 = 0x35;
+    g_level_block->portrait_overlay_party_slot = -1;
+    g_level_block->condition_orb_party_slot = -1;
+    g_level_block->enchantment_orb_party_slot = -1;
+    g_level_block->condition_highlight_party_slot = -1;
+    g_level_block->text_content_region = CurrentTextLineHasContent() ? 0x57 : -1;
+    g_level_block->dialogue_content_region = CurrentDialogueLineHasContent() ? 0x5a : -1;
+    g_level_block->world_update_flags = 0;
+    g_level_block->camera_motion_flags = 0;
+    g_level_block->highlighted_item = -1;
+    g_level_block->selected_item = -1;
+    g_level_block->clock = GetClock();
+    g_level_block->portrait_flash = 0;
+    for (slot = 0; slot < 8; ++slot) {
+        g_level_block->portrait_refresh_pending[slot] = 0;
+        g_level_block->portrait_refresh_image[slot] = 0;
+        g_level_block->portrait_refresh_mode[slot] = 0;
+    }
+    g_level_block->combat_end_notification = -1;
+    previous_mode = g_settings.main_ui_mode;
+    g_settings.main_ui_mode = W8_MAIN_UI_MODE_NONE;
+    ApplyMainGameModeFlag(previous_mode, true);
+    g_level_block->character_update_timer = SetCountdownClock(0);
+    g_level_block->world_update_timer = SetCountdownClock(0);
+    g_level_block->countdown0 = SetCountdownClock(60000);
+    g_level_block->countdown1 = SetCountdownClock(0);
+    g_level_block->countdown2 = SetCountdownClock(0xfa);
+    g_level_block->flag4 = true;
+    g_level_block->text_box_visible = true;
+    g_level_block->dialogue_text_input_open = false;
+    g_level_block->mipe_editing = false;
+    g_level_block->dialogue_text_input = 0;
+    g_level_block->value_278 = 0;
+    g_level_block->tick = GetTickCount();
+    g_level_block->group_list_rows = 0;
+    g_level_block->group_list_width = 0;
+    DisableRegionInput(0xe5);
+    g_level_block->action_group = -1;
+    g_level_block->value_2ac = 0;
+    g_level_block->value_2b4 = 0;
+    g_level_block->value_2b0 = 0;
+    g_level_block->text_lines[4 + g_status.text_line_cursor] = FindStoppedTextLine();
+    g_level_block->refresh_combat_panel = 1;
+    g_level_block->combat_panel_timer = SetCountdownClock(0);
+    g_level_block->refresh_party_panel = 1;
+    g_level_block->text_scroll_drag_idle = 1;
+    SetTextBoxRegionBounds(0xa8, 0x16e, 0x1c4, 0x1ba);
+    for (int line = 0; line < 12; ++line) {
+        g_level_block->text_lines[line] = 0;
+    }
+    for (int slot_index = 0; slot_index < 4; ++slot_index) {
+        g_level_block->hovered_text_lines[slot_index] = -1;
+        g_level_block->selected_text_lines[slot_index] = -1;
+    }
+    g_level_block->unknown_2e4[0] = 0;
+    g_level_block->text_box_font = g_wiz_text_font_secondary;
+    g_level_block->palette = g_wiz_text_font_secondary_palette;
+    g_level_block->selection_kind = W8_ACTION_NONE;
+    g_level_block->pending_action = -1;
+    g_level_block->selection_settled = false;
+    g_level_block->tooltip_since = 0;
+    g_level_block->tooltip_pending = false;
+    g_level_block->tooltip_subject = -1;
+    g_level_block->tooltip_kind = -1;
+    g_level_block->countdown3 = SetCountdownClock(0);
+    g_level_block->combat_slot = -1;
+    g_level_block->keyboard_menu_open = false;
+    g_level_block->hover_combat_slot = -1;
+    g_level_block->cursor_grace = 0;
+    g_level_block->countdown4 = SetCountdownClock(0);
+    g_level_block->portrait_right_hold_armed = false;
+    g_level_block->formation_board_alternate = 0;
+    g_level_block->radar_map_alternate = 0;
+    g_level_block->review_transition_active = false;
+    g_level_block->countdown5 = SetCountdownClock(0);
+    ResetMessageStorage();
+}

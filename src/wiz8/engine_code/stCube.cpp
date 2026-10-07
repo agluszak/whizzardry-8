@@ -1,0 +1,909 @@
+#include "wiz8/xstatus.h"
+#include "wiz8/world_cursor.h"
+#include "wiz8/engine_code/World.h"
+#include "wiz8/engine_code/Monster.h"
+#include "wiz8/engine_code/GDCamera.h"
+#include "wiz8/3d_code/PList.h"
+#include "wiz8/engine_code/Environment.h"
+#include "wiz8/engine_code/Video2.h"
+#include "wiz8/local_screens/MainGameScreen.h"
+#include "wiz8/local_screens/mipe.h"
+#include "wiz8/engine_code/stParticle.h"
+#include "wiz8/engine_code/stCube.h"
+#include "wiz8/engine_code/stMeshModel.h"
+#include "wiz8/engine_code/stModelInstance.h"
+#include "wiz8/engine_code/Octree.h"
+#include "wiz8/fonts.h"
+#include "wiz8/local_code/Controls.h"
+#include "wiz8/sr_api.h"
+#include "wiz8/utility.h"
+#include "wiz8/vector.h"
+#include "wiz8/geometry.h"
+#include "surrender/srNode.h"
+#include "surrender/srCamera.h"
+#include "surrender/srModeler.h"
+#include "surrender/srMaterial.h"
+#include "surrender/srColorSurface.h"
+#include "surrender/srTextureMap.h"
+#include "surrender/srPixelConvert.h"
+#include "surrender/srFilter.h"
+#include "Font.h"
+
+#include <math.h>
+#include <new>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <wchar.h>
+#include "wiz8/engine_code/GameData.h"
+#include "wiz8/engine_code/PolyPick.h"
+#include "wiz8/local_screens/CharacterScreen.h"
+#include "FileMan.h"
+
+#define ST_CUBE_CPP "C:\\Projects\\Wizardry 8\\Engine Code\\stCube.cpp"
+
+/* Copy the node's world location out; the searchable position resolver treats
+   a missing node chain as unresolvable. */
+// FUNCTION: WIZ8 0x0048d050
+unsigned char W8WorldCursorNode::GetLocation(srVector3T<float>* position)
+{
+    if (node != 0) {
+        node->getLocation(*position);
+        return 1;
+    }
+    return 0;
+}
+
+/* The cursor's node table is a real W8GrowableVector object: its static
+   initializer at 0x0048D020 constructs it with capacity five and its
+   destructor is run through atexit. */
+// GLOBAL: WIZ8 0x0065ba58
+W8GrowableVector<W8WorldCursorNode*> g_world_cursor_nodes(5);
+
+/* The double selection range at 0x005ECAC8: node distances below it select the
+   node. Read as 75000.0, not the zero a float view would give. */
+// GLOBAL: WIZ8 0x005ecac8
+const double g_cube_effect_max_distance = 75000.0;
+
+// GLOBAL: WIZ8 0x0060a9b0
+static int g_cursor_node_index = -1;
+
+// GLOBAL: WIZ8 0x005ebf50
+const double g_world_cursor_scale = 0.002;
+
+/* 0x0048D070 is a bare JMP to CreateWorldCursorCube: a tail-jump thunk
+   with no distinct source entity. */
+
+/* Build the numbered cube the world cursor table holds: a 500-unit modeller
+   cube, a translucent white material, and a 32x32 texture the label painter
+   later fills. */
+
+// FUNCTION: WIZ8 0x0048d080
+W8WorldCursorNode* CreateWorldCursorCube(void)
+{
+    srModeler modeller;
+    srModeler::Polygon polygon(4);
+    stMeshModel* model = new stMeshModel(0, 0);
+    stModelInstance* instance = new stModelInstance(0);
+    W8WorldCursorNode* entry = new W8WorldCursorNode;
+    /* Polygon(4) already heap-allocates the modelled vertices; these four
+       stack Vertices are constructed and unused, matching retail. */
+    srModeler::Vertex unused[4];
+    (void)unused;
+    srModeler::Vertex* vertices = polygon.vertices;
+
+    vertices[0].uv[0].Set(1.0f, 1.0f);
+    vertices[1].uv[0].Set(0.0f, 1.0f);
+    vertices[2].uv[0].SetZero();
+    vertices[3].uv[0].Set(1.0f, 0.0f);
+
+    srVector3T<float> npp(-0.5f, 1.0f, 0.5f);
+    srVector3T<float> ppp(0.5f, 1.0f, 0.5f);
+    srVector3T<float> ppn(0.5f, 1.0f, -0.5f);
+    srVector3T<float> npn(-0.5f, 1.0f, -0.5f);
+    srVector3T<float> nnn(-0.5f, 0.0f, -0.5f);
+    srVector3T<float> pnp(0.5f, 0.0f, 0.5f);
+    srVector3T<float> nnp(-0.5f, 0.0f, 0.5f);
+    srVector3T<float> pnn(0.5f, 0.0f, -0.5f);
+
+    vertices[0].position = npp;
+    vertices[1].position = ppp;
+    vertices[2].position = ppn;
+    vertices[3].position = npn;
+    modeller.addPolygon(polygon);
+
+    vertices[0].position = nnn;
+    vertices[1].position = nnp;
+    vertices[2].position = npp;
+    vertices[3].position = npn;
+    modeller.addPolygon(polygon);
+
+    vertices[0].position = nnp;
+    vertices[1].position = pnp;
+    vertices[2].position = ppp;
+    vertices[3].position = npp;
+    modeller.addPolygon(polygon);
+
+    vertices[0].position = pnp;
+    vertices[1].position = pnn;
+    vertices[2].position = ppn;
+    vertices[3].position = ppp;
+    modeller.addPolygon(polygon);
+
+    vertices[0].position = pnn;
+    vertices[1].position = nnn;
+    vertices[2].position = npn;
+    vertices[3].position = ppn;
+    modeller.addPolygon(polygon);
+
+    vertices[0].position = pnn;
+    vertices[1].position = pnp;
+    vertices[2].position = nnp;
+    vertices[3].position = nnn;
+    modeller.addPolygon(polygon);
+
+    srMaterial* material = SR_NEW(srMaterial);
+    material->setName("Cube Number Material");
+    material->autoRelease();
+
+    srVector4T<float> colour;
+    colour = 1.0f;
+    material->setAmbient(colour);
+    colour = 1.0f;
+    material->setEmissive(colour);
+    colour = 1.0f;
+    material->setDiffuse(colour);
+    colour = 0.0f;
+    material->setSpecular(colour);
+    material->parms.diffuse.w = 0.35f;
+    material->parms.shininess = 1.0f;
+    material->dirty = 1;
+    modeller.setMaterial(material, 0, srMeshModel::SIDE_FRONT);
+
+    srShader shader;
+    shader.value = 0x0100c5b3; /* packed srShader: LEQUAL, color write, dst 1-srcA, fog, modulate */
+    modeller.setShader(shader, 0);
+
+    W8ColorSurface* surface =
+        SR_NEW(W8ColorSurface)(srPixelConvert::SURFACE_ARGB1555, 0x20UL, 0x20UL);
+    if (surface == 0) {
+        srAssertFail("psrSurface", ST_CUBE_CPP, 0xac, 0);
+    }
+    surface->autoRelease();
+
+    unsigned long pixel;
+    unsigned char* bytes =
+        reinterpret_cast<unsigned char*>(&pixel); // reinterpret-ok: packed colour storage
+    bytes[3] = static_cast<unsigned char>(srFloatToInt(255.0));
+    bytes[2] = static_cast<unsigned char>(srFloatToInt(0.0));
+    bytes[1] = static_cast<unsigned char>(srFloatToInt(0.0));
+    bytes[0] = static_cast<unsigned char>(srFloatToInt(127.5));
+    surface->fill(pixel);
+    surface->setFilter(&srBoxFilter);
+
+    srTextureMap* texture = SR_NEW(srTextureMap)(static_cast<srColorSurfaceIFace*>(0));
+    texture->autoRelease();
+    texture->setSurfacePtr(surface);
+    texture->setMipmap(srTextureIFace::MIPMAP_NONE);
+
+    srVector3T<float> scale(500.0f, 500.0f, 500.0f);
+    modeller.scale(scale);
+    modeller.convert(*model, 1);
+    model->setTexture(texture, 0, 0);
+
+    model->setDirty(srMeshModel::DIRTY_TRI_MESH);
+    model->setDirty(srMeshModel::DIRTY_BOUNDS);
+
+    srVector3T<float> minimum;
+    srVector3T<float> maximum;
+    model->getBoundingBox(minimum, maximum);
+    model->autoRelease();
+    model->setName("stCube");
+    instance->setModel(model);
+    entry->node = instance;
+
+    for (int index = 0; index < 3; ++index) {
+        SetWorldCursorNodeParameter(entry, index, 0);
+    }
+
+    unsigned long packed;
+    PackColourToLong(&packed, 1.0, 0.0, 0.0, 0.5);
+    SetWorldCursorNodeColor(entry, packed);
+    DrawWorldCursorNodeLabel(entry);
+    entry->pUserdata = 0;
+    entry->userdata_size = 0;
+    entry->name[0] = 0;
+
+    g_world_cursor_nodes.Add(entry);
+    return entry;
+}
+
+// FUNCTION: WIZ8 0x0048da80
+void DestroyWorldCursorCube(W8WorldCursorNode* entry)
+{
+    if (entry != 0) {
+        if (entry->pUserdata != 0) {
+            free(entry->pUserdata);
+            entry->pUserdata = 0;
+        }
+        entry->userdata_size = 0;
+        entry->node->setParent(0, 1);
+        entry->node->release();
+        g_world_cursor_nodes.Remove(entry);
+        delete entry;
+    }
+}
+
+// FUNCTION: WIZ8 0x0048dbf0
+void MoveWorldCursorNode(W8WorldCursorNode* entry, srVector3T<float>* position)
+{
+    if (position == 0) {
+        srAssertFail("vPos", ST_CUBE_CPP, 0x101, 0);
+    }
+    if (entry == 0) {
+        srAssertFail("pCube", ST_CUBE_CPP, 0x102, 0);
+    }
+    srVector3T<float> location = *position;
+    if (entry == 0) {
+        srAssertFail("pCube", ST_CUBE_CPP, 0x10b, 0);
+    }
+    if (entry->node != 0) {
+        entry->node->setLocation(srVector3T<double>(static_cast<double>(location.x),
+                                                    static_cast<double>(location.y),
+                                                    static_cast<double>(location.z)));
+    }
+}
+
+// FUNCTION: WIZ8 0x0048dca0
+void RefreshWorldCursorNodeLabel(W8WorldCursorNode* entry)
+{
+    DrawWorldCursorNodeLabel(entry);
+}
+
+/* Paint the three cube parameters onto the model's first texture using the menu
+   small font. */
+// FUNCTION: WIZ8 0x0048dcb0
+void DrawWorldCursorNodeLabel(W8WorldCursorNode* entry)
+{
+    if (entry != 0) {
+        stModelInstance* instance = static_cast<stModelInstance*>(entry->node);
+        if (instance == 0) {
+            srAssertFail("pstModelInstance", ST_CUBE_CPP, 0x124, 0);
+        }
+        stMeshModel* mesh = static_cast<stMeshModel*>(instance->getModel());
+        if (mesh == 0) {
+            srAssertFail("pstMeshModel", ST_CUBE_CPP, 0x127, 0);
+        }
+        srTextureMap* texture = static_cast<srTextureMap*>(mesh->getTexture(0, 0));
+        if (texture == 0) {
+            srAssertFail("psrTexture", ST_CUBE_CPP, 0x12a, 0);
+        }
+        srColorSurfaceIFace* surface = texture->getSurfacePtr();
+        surface->fill(entry->color);
+        unsigned char* data = static_cast<unsigned char*>(surface->getDataPtr());
+        if (data == 0) {
+            srAssertFail("pBuffer", ST_CUBE_CPP, 0x130, 0);
+        }
+        SaveFontSettings();
+        SetFontDestBuffer(FontDestBuffer, 0, 0, surface->getWidth(), surface->getHeight(),
+                          static_cast<unsigned char>(FontDestWrap));
+        SetFont(g_smfnt_font);
+        SetFontObjectPalette16BPP(g_smfnt_font, g_font_palette_smfnt);
+        for (int index = 0; index < 3; ++index) {
+            wchar_t text[20];
+            swprintf(text, g_format_d, entry->parameters[index]);
+            gprintf_buffer(data, surface->getPitch(), g_smfnt_font, 0,
+                           GetFontHeight(g_smfnt_font) * index, text);
+        }
+        texture->invalidate();
+        RestoreFontSettings();
+    }
+}
+
+// FUNCTION: WIZ8 0x0048de40
+void ScaleWorldCursorNodeX(W8WorldCursorNode* entry, double scale)
+{
+    srVector3T<float> factors(static_cast<float>(scale), 1.0f, 1.0f);
+    if (entry != 0) {
+        stMeshModel* model =
+            static_cast<stMeshModel*>(static_cast<stModelInstance*>(entry->node)->getModel());
+        if (model != 0) {
+            model->scale(factors);
+        }
+    }
+}
+
+// FUNCTION: WIZ8 0x0048de90
+void ScaleWorldCursorNodeY(W8WorldCursorNode* entry, double scale)
+{
+    srVector3T<float> factors(1.0f, static_cast<float>(scale), 1.0f);
+    if (entry != 0) {
+        stMeshModel* model =
+            static_cast<stMeshModel*>(static_cast<stModelInstance*>(entry->node)->getModel());
+        if (model != 0) {
+            model->scale(factors);
+        }
+    }
+}
+
+// FUNCTION: WIZ8 0x0048dee0
+void ScaleWorldCursorNodeZ(W8WorldCursorNode* entry, double scale)
+{
+    srVector3T<float> factors(1.0f, 1.0f, static_cast<float>(scale));
+    if (entry != 0) {
+        stMeshModel* model =
+            static_cast<stMeshModel*>(static_cast<stModelInstance*>(entry->node)->getModel());
+        if (model != 0) {
+            model->scale(factors);
+        }
+    }
+}
+
+/* Debug wireframe box: project the eight corners of a world-aligned bounding
+   box through the world camera, bail if any corner is off-screen, then paint
+   the twelve edges into the primary GERD's back buffer. */
+// FUNCTION: WIZ8 0x0048DF30
+void DrawWorldBox(W8World* world, srVector3T<float> minimum, srVector3T<float> maximum,
+                  unsigned long color)
+{
+    if (world == 0) {
+        return;
+    }
+
+    srVector3T<float> corners[8];
+    corners[0].Set(minimum.x, minimum.y, minimum.z);
+    corners[1].Set(minimum.x, minimum.y, maximum.z);
+    corners[2].Set(maximum.x, minimum.y, maximum.z);
+    corners[3].Set(maximum.x, minimum.y, minimum.z);
+    corners[4].Set(minimum.x, maximum.y, minimum.z);
+    corners[5].Set(minimum.x, maximum.y, maximum.z);
+    corners[6].Set(maximum.x, maximum.y, maximum.z);
+    corners[7].Set(maximum.x, maximum.y, minimum.z);
+
+    srVector2T<float> viewport_minimum;
+    srVector2T<float> viewport_maximum;
+    GetScaledViewportBounds(&viewport_minimum, &viewport_maximum);
+    float viewport_width = viewport_maximum.x - viewport_minimum.x;
+    float viewport_height = viewport_maximum.y - viewport_minimum.y;
+
+    long screen[8][2];
+    for (int index = 0; index < 8; ++index) {
+        srVector3T<float> projected;
+        srVector3T<double> position(corners[index].x, corners[index].y, corners[index].z);
+        if (world->camera->project(projected, position) ==
+            static_cast<srCamera::e_projectionResult>(-1)) {
+            return;
+        }
+        screen[index][0] =
+            static_cast<long>((projected.x * viewport_width + viewport_minimum.x) * 640.0f);
+        screen[index][1] =
+            static_cast<long>((projected.y * viewport_height + viewport_minimum.y) * 480.0f);
+        if (screen[index][0] < 0 || screen[index][0] > 640 || screen[index][1] < 0 ||
+            screen[index][1] > 480) {
+            return;
+        }
+    }
+
+    DrawBufferLine(screen[0][0], screen[0][1], screen[1][0], screen[1][1], &color);
+    DrawBufferLine(screen[1][0], screen[1][1], screen[2][0], screen[2][1], &color);
+    DrawBufferLine(screen[2][0], screen[2][1], screen[3][0], screen[3][1], &color);
+    DrawBufferLine(screen[3][0], screen[3][1], screen[0][0], screen[0][1], &color);
+    DrawBufferLine(screen[4][0], screen[4][1], screen[5][0], screen[5][1], &color);
+    DrawBufferLine(screen[5][0], screen[5][1], screen[6][0], screen[6][1], &color);
+    DrawBufferLine(screen[6][0], screen[6][1], screen[7][0], screen[7][1], &color);
+    DrawBufferLine(screen[7][0], screen[7][1], screen[4][0], screen[4][1], &color);
+    DrawBufferLine(screen[0][0], screen[0][1], screen[4][0], screen[4][1], &color);
+    DrawBufferLine(screen[1][0], screen[1][1], screen[5][0], screen[5][1], &color);
+    DrawBufferLine(screen[2][0], screen[2][1], screen[6][0], screen[6][1], &color);
+    DrawBufferLine(screen[3][0], screen[3][1], screen[7][0], screen[7][1], &color);
+}
+
+/* The three label parameters double as generic per-node parameters; the world
+   cursor and the master-function table index into them by slot. */
+// FUNCTION: WIZ8 0x0048E2B0
+int GetWorldCursorNodeParameter(W8WorldCursorNode* entry, int index)
+{
+    if (entry != 0) {
+        return entry->parameters[index];
+    }
+    return -1;
+}
+
+/* Set a parameter and retire the userdata scratch - the handlers lazily
+   allocate it again on the next visit. */
+// FUNCTION: WIZ8 0x0048E2D0
+void SetWorldCursorNodeParameter(W8WorldCursorNode* entry, int index, int value)
+{
+    if (entry != 0) {
+        entry->parameters[index] = value;
+        if (entry->pUserdata != 0) {
+            free(entry->pUserdata);
+            entry->pUserdata = 0;
+        }
+        entry->userdata_size = 0;
+    }
+}
+
+/* Nearest cursor node to the world camera that is bound to the current pick
+   model instance. The screen-point parameters are carried but unused - the
+   pick is purely camera-distance based. */
+// FUNCTION: WIZ8 0x0048e310
+W8WorldCursorNode* FindNearestWorldCursorNode(int x, int y)
+{
+    float nearest = 999999.0f;
+    W8WorldCursorNode* result = 0;
+    int count = g_world_cursor_nodes.GetCount();
+
+    for (int index = 0; index < count; ++index) {
+        W8WorldCursorNode* entry = *g_world_cursor_nodes.GetAt(index);
+        if (entry != 0 && entry->node != 0 && entry->node == GetPickedModelInstance()) {
+            srVector3T<double> camera;
+            g_world->camera->getLocation(camera);
+            srVector3T<double> node;
+            entry->node->getLocation(node);
+            float distance = static_cast<float>((node - camera).Length());
+            if (distance < nearest) {
+                nearest = distance;
+                result = entry;
+            }
+        }
+    }
+    return result;
+}
+
+// FUNCTION: WIZ8 0x0048e3e0
+W8WorldCursorNode* PickWorldCursorNodeAtScreenPoint(int x, int y)
+{
+    return FindNearestWorldCursorNode(x, y);
+}
+
+/* Store the packed fill colour and repaint the cube parameters. */
+// FUNCTION: WIZ8 0x0048e400
+void SetWorldCursorNodeColor(W8WorldCursorNode* entry, unsigned long color)
+{
+    entry->color = color;
+    DrawWorldCursorNodeLabel(entry);
+}
+
+/* Pack the RGB components at full alpha and repaint. */
+// FUNCTION: WIZ8 0x0048E420
+void SetWorldCursorNodeColorComponents(W8WorldCursorNode* entry, float red, float green, float blue)
+{
+    unsigned long packed;
+    SetWorldCursorNodeColor(entry, *PackColourToLong(&packed, 1.0, red, green, blue));
+}
+
+// FUNCTION: WIZ8 0x0048e470
+unsigned int LoadWorldCursorNodeStates(int handle)
+{
+    int version;
+    unsigned int count;
+    unsigned int index;
+    bool success = true;
+
+    if (!FileRead(handle, &version, 4, 0)) {
+        return 0;
+    }
+    if (version == 0x21122112) {
+        version = 1;
+    }
+    if (!FileRead(handle, &count, 4, 0)) {
+        return 0;
+    }
+
+    for (index = 0; index < count; ++index) {
+        W8WorldCursorNode* cube = 0;
+        bool temporary = false;
+
+        if (version < 2) {
+            cube = GetWorldCursorNode(index);
+        } else {
+            char name[0x20];
+            int cube_index;
+
+            FileRead(handle, name, sizeof(name), 0);
+            for (cube_index = 0; cube_index < g_world_cursor_nodes.GetCount(); ++cube_index) {
+                W8WorldCursorNode* candidate = *g_world_cursor_nodes.GetAt(cube_index);
+                if (strcmp(candidate->name, name) == 0) {
+                    cube = candidate;
+                    break;
+                }
+            }
+            if (cube == 0) {
+                cube = new W8WorldCursorNode;
+                temporary = true;
+            }
+        }
+
+        if (success && FileRead(handle, &cube->userdata_size, 4, 0)) {
+            success = true;
+        } else {
+            success = false;
+        }
+        if (cube->userdata_size != 0) {
+            cube->pUserdata = malloc(cube->userdata_size);
+            if (cube->pUserdata == 0) {
+                srAssertFail("pCube->pUserdata", ST_CUBE_CPP, 0x3c8, 0);
+            }
+            memset(cube->pUserdata, 0, cube->userdata_size);
+            if (success && FileRead(handle, cube->pUserdata, cube->userdata_size, 0)) {
+                success = true;
+            } else {
+                success = false;
+            }
+        }
+        if (temporary && cube != 0) {
+            if (cube->pUserdata != 0) {
+                free(cube->pUserdata);
+                cube->pUserdata = 0;
+            }
+            cube->userdata_size = 0;
+            delete cube;
+        }
+    }
+    return count;
+}
+
+// FUNCTION: WIZ8 0x0048e6d0
+unsigned char SaveWorldCursorNodeStates(int handle)
+{
+    bool ok = true;
+    int version = 2;
+    unsigned int count;
+    unsigned int index;
+    W8WorldCursorNode* node;
+
+    if (!FileWrite(handle, &version, 4, 0)) {
+        return 0;
+    }
+    count = g_world_cursor_nodes.GetCount();
+    if (!FileWrite(handle, &count, 4, 0)) {
+        return 0;
+    }
+    for (index = 0; index < count && ok; ++index) {
+        node = *g_world_cursor_nodes.GetAt(index);
+        ok = FileWrite(handle, node->name, sizeof(node->name), 0) &&
+             FileWrite(handle, &node->userdata_size, 4, 0);
+        if (node->userdata_size != 0) {
+            ok = ok && FileWrite(handle, node->pUserdata, node->userdata_size, 0);
+        }
+    }
+    return ok;
+}
+
+// FUNCTION: WIZ8 0x0048e7b0
+unsigned int LoadWorldCursorNodes(int handle)
+{
+    int version;
+    unsigned int count;
+    unsigned int index;
+    bool success = true;
+
+    if (!FileRead(handle, &version, 4, 0)) {
+        return 0;
+    }
+    if (static_cast<unsigned int>(version) == 0xdeadd00d) {
+        version = 1;
+    } else if (version > 2) {
+        FileRead(handle, &gXStatus.mipe_cube_serial, 4, 0);
+    } else {
+        gXStatus.mipe_cube_serial = 100;
+    }
+    if (!FileRead(handle, &count, 4, 0)) {
+        return 0;
+    }
+
+    for (index = 0; index < count; ++index) {
+        W8WorldCursorNode* cube = CreateWorldCursorCube();
+        srVector3T<float> minimum;
+        srVector3T<float> maximum;
+        srVector3T<float> location;
+        int component;
+
+        if (version >= 2) {
+            FileRead(handle, cube->name, 0x20, 0);
+            if (cube->name[0] == 0) {
+                sprintf(cube->name, "Cube%3.3d", gXStatus.mipe_cube_serial++);
+            }
+        } else {
+            sprintf(cube->name, "Cube%d", index);
+        }
+        for (component = 0; component < 3; ++component) {
+            if (success && FileRead(handle, &cube->parameters[component], 4, 0)) {
+                success = true;
+            } else {
+                success = false;
+            }
+        }
+        for (component = 0; component < 3; ++component) {
+            if (success && FileRead(handle, &(&minimum.x)[component], 4, 0)) {
+                success = true;
+            } else {
+                success = false;
+            }
+        }
+        for (component = 0; component < 3; ++component) {
+            if (success && FileRead(handle, &(&maximum.x)[component], 4, 0)) {
+                success = true;
+            } else {
+                success = false;
+            }
+        }
+
+        srVector3T<float> scale((maximum.x - minimum.x) * static_cast<float>(g_world_cursor_scale),
+                                (maximum.y - minimum.y) * static_cast<float>(g_world_cursor_scale),
+                                (maximum.z - minimum.z) * static_cast<float>(g_world_cursor_scale));
+        if (cube != 0) {
+            stModelInstance* instance = static_cast<stModelInstance*>(cube->node);
+            if (instance != 0) {
+                stMeshModel* model = static_cast<stMeshModel*>(instance->getModel());
+                if (model != 0) {
+                    model->scale(scale);
+                }
+            }
+        }
+
+        for (component = 0; component < 3; ++component) {
+            if (success && FileRead(handle, &(&location.x)[component], 4, 0)) {
+                success = true;
+            } else {
+                success = false;
+            }
+        }
+        if (cube == 0) {
+            srAssertFail("pCube", ST_CUBE_CPP, 0x10b, 0);
+        }
+        if (cube->node != 0) {
+            srVector3T<double> node_location(static_cast<double>(location.x),
+                                             static_cast<double>(location.y),
+                                             static_cast<double>(location.z));
+            cube->node->setLocation(node_location);
+        }
+        if (success && FileRead(handle, &cube->value_08, 4, 0)) {
+            success = true;
+        } else {
+            success = false;
+        }
+        DrawWorldCursorNodeLabel(cube);
+    }
+    return count;
+}
+
+// FUNCTION: WIZ8 0x0048ead0
+unsigned char SaveWorldCursorNodes(int handle)
+{
+    bool ok = true;
+    int version = 3;
+    unsigned int count;
+    unsigned int index;
+    int component;
+    srVector3T<float> location;
+    W8WorldCursorNode* node;
+    srNode::BoundInfo bounds;
+
+    if (!FileWrite(handle, &version, 4, 0)) {
+        return 0;
+    }
+    FileWrite(handle, &gXStatus.mipe_cube_serial, 4, 0);
+    count = g_world_cursor_nodes.GetCount();
+    if (!FileWrite(handle, &count, 4, 0)) {
+        return 0;
+    }
+    for (index = 0; index < count && ok; ++index) {
+        node = *g_world_cursor_nodes.GetAt(index);
+        FileWrite(handle, node->name, sizeof(node->name), 0);
+        for (component = 0; component < 3 && ok; ++component) {
+            ok = FileWrite(handle, &node->parameters[component], 4, 0);
+        }
+        node->node->getLocalBounds(bounds);
+        location = node->node->getLocation();
+        ok = ok && FileWrite(handle, &bounds.minimum.x, 4, 0) &&
+             FileWrite(handle, &bounds.minimum.y, 4, 0) &&
+             FileWrite(handle, &bounds.minimum.z, 4, 0) &&
+             FileWrite(handle, &bounds.maximum.x, 4, 0) &&
+             FileWrite(handle, &bounds.maximum.y, 4, 0) &&
+             FileWrite(handle, &bounds.maximum.z, 4, 0) && FileWrite(handle, &location.x, 4, 0) &&
+             FileWrite(handle, &location.y, 4, 0) && FileWrite(handle, &location.z, 4, 0) &&
+             FileWrite(handle, &node->value_08, 4, 0);
+    }
+    return ok;
+}
+
+// FUNCTION: WIZ8 0x0048ED00
+int GetWorldCursorNodeCount(void)
+{
+    return g_world_cursor_nodes.GetCount();
+}
+
+// FUNCTION: WIZ8 0x0048ED10
+W8WorldCursorNode* GetWorldCursorNode(int index)
+{
+    return *g_world_cursor_nodes.GetAt(index);
+}
+
+/* Attach or detach the node's scene node under the world's dynamic scene. */
+// FUNCTION: WIZ8 0x0048ED30
+void AttachWorldCursorNode(W8WorldCursorNode* entry, bool attached)
+{
+    if (entry != 0) {
+        if (attached) {
+            entry->node->setParent(g_world->dynamic_scene, 1);
+            return;
+        }
+        entry->node->setParent(0, 1);
+    }
+}
+
+/* Copy `name` into the node's fixed 0x20-byte label field, always leaving a
+   terminator. */
+// FUNCTION: WIZ8 0x0048F110
+void SetWorldCursorNodeName(W8WorldCursorNode* entry, const char* name)
+{
+    strncpy(entry->name, name, 0x20);
+    entry->name[0x1f] = 0;
+}
+
+/* Reparent the world's cursor-attached nodes onto the dynamic scene, or
+   detach them when hidden. Levels.cpp drives this from the world-cursor
+   flag. */
+// FUNCTION: WIZ8 0x0048ED70
+void SetWorldCursorNodesVisible(bool visible)
+{
+    unsigned int count = g_world_cursor_nodes.GetCount();
+
+    for (unsigned int index = 0; index < count; ++index) {
+        W8WorldCursorNode* entry = *g_world_cursor_nodes.GetAt(index);
+
+        if (entry != 0) {
+            srNode* parent = 0;
+            if (visible) {
+                parent = g_world->dynamic_scene;
+            }
+            entry->node->setParent(parent, 1);
+        }
+    }
+}
+
+/* Answer the next table node after `after` whose world-space bounds contain
+   `point`; a null `after` starts the walk at the head of the table. When
+   `after` is the last entry the walk answers null immediately. */
+// FUNCTION: WIZ8 0x0048EDD0
+W8WorldCursorNode* FindWorldCursorNodeAtPoint(W8WorldCursorNode* after, srVector3T<float>* point)
+{
+    unsigned int index = 0;
+    unsigned int count = g_world_cursor_nodes.GetCount();
+
+    if (after != 0) {
+        for (unsigned int i = 0; i < count; ++i) {
+            if (*g_world_cursor_nodes.GetAt(i) == after) {
+                index = i + 1;
+                if (i == count - 1) {
+                    return 0;
+                }
+            }
+        }
+    }
+    while (index < count) {
+        W8WorldCursorNode* entry = *g_world_cursor_nodes.GetAt(index);
+        if (entry->node != 0) {
+            srNode::BoundInfo bounds;
+            entry->node->getLocalBounds(bounds);
+            srVector3T<double> location = entry->node->getLocation();
+            bounds.minimum.x += static_cast<float>(location.x);
+            bounds.minimum.y += static_cast<float>(location.y);
+            bounds.minimum.z += static_cast<float>(location.z);
+            bounds.maximum.x += static_cast<float>(location.x);
+            bounds.maximum.y += static_cast<float>(location.y);
+            bounds.maximum.z += static_cast<float>(location.z);
+            if (PointInsideBounds(point, &bounds.minimum, &bounds.maximum)) {
+                return entry;
+            }
+        }
+        ++index;
+    }
+    return 0;
+}
+
+/* Copy the node's userdata pointer and size into the caller's slots; either
+   out pointer may be null. */
+// FUNCTION: WIZ8 0x0048EF00
+void GetWorldCursorNodeUserdata(W8WorldCursorNode* entry, char** buffer, int* size)
+{
+    if (entry != 0) {
+        if (buffer != 0) {
+            *buffer = static_cast<char*>(entry->pUserdata);
+        }
+        if (size != 0) {
+            *size = entry->userdata_size;
+        }
+    } else {
+        if (buffer != 0) {
+            *buffer = 0;
+        }
+        if (size != 0) {
+            *size = 0;
+        }
+    }
+}
+
+/* Allocate the node's userdata scratch, or release it when `size` is zero.
+   Retail overwrites an existing allocation without freeing it first. */
+// FUNCTION: WIZ8 0x0048EF40
+void SetWorldCursorNodeUserdataSize(W8WorldCursorNode* entry, int size)
+{
+    if (entry != 0) {
+        if (size != 0) {
+            entry->pUserdata = malloc(size);
+            if (entry->pUserdata == 0) {
+                srAssertFail("pCube->pUserdata", ST_CUBE_CPP, 0x3c8, 0);
+            }
+            memset(entry->pUserdata, 0, size);
+        } else {
+            if (entry->pUserdata != 0) {
+                free(entry->pUserdata);
+                entry->pUserdata = 0;
+            }
+        }
+        entry->userdata_size = size;
+    }
+}
+
+/* Select the cursor node nearest the camera within the selection distance,
+   remembering it for the next call. Answers whether one was close enough.
+   Retail loads entry->node->getLocation() before TEST ESI,ESI on both the
+   cached-index path and the table scan; there is no separate node null
+   check. Keep that load order. */
+// FUNCTION: WIZ8 0x0048EFC0
+bool SelectWorldCursorNode(void)
+{
+    if (g_world != 0 && g_world->camera != 0) {
+        srVector3T<float> camera_position;
+        srVector3T<double> camera_location;
+
+        GetCameraPosition(&camera_position);
+        camera_location.SetFromFloat(&camera_position);
+        int selected = g_cursor_node_index;
+        if (selected >= 0 && selected < g_world_cursor_nodes.GetCount()) {
+            W8WorldCursorNode* entry = g_world_cursor_nodes[selected];
+            srVector3T<double> target = entry->node->getLocation();
+
+            if (entry != 0) {
+                srVector3T<double> delta = target;
+
+                delta -= camera_location;
+                if (delta.Length() < g_cube_effect_max_distance) {
+                    return true;
+                }
+            }
+        }
+        int count = g_world_cursor_nodes.GetCount();
+        for (int index = 0; index < count; ++index) {
+            W8WorldCursorNode* entry = g_world_cursor_nodes[index];
+            srVector3T<double> target = entry->node->getLocation();
+
+            if (entry != 0) {
+                srVector3T<double> delta = target;
+
+                delta -= camera_location;
+                if (delta.Length() < g_cube_effect_max_distance) {
+                    g_cursor_node_index = index;
+                    return true;
+                }
+            }
+        }
+    }
+    return false;
+}
+
+/* Release every node the cursor table still holds: free its scratch buffer,
+   detach and release its scene node, drop it from the table and run its own
+   destructor. A null head with a nonzero count spins, as in retail. */
+// FUNCTION: WIZ8 0x0048DB30
+void ReleaseWorldCursorNodes(void)
+{
+    while (g_world_cursor_nodes.GetCount() != 0) {
+        W8WorldCursorNode* entry = g_world_cursor_nodes[0];
+
+        DestroyWorldCursorCube(entry);
+    }
+}

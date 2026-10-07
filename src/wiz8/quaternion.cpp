@@ -1,0 +1,41 @@
+#include "wiz8/geometry.h"
+
+/* Original translation unit is not established by the surrounding source anchors. */
+// FUNCTION: WIZ8 0x0044eca0
+W8Quaternion* W8Quaternion::SetFromMatrix(const srMatrix3T<float>& matrix)
+{
+    const float* m = &matrix.vectors[0].x;
+    srVector4T<float> temp;
+    double root;
+    double scale;
+    float trace;
+    int i;
+    int j;
+    int k;
+
+    trace = m[4] + m[0] + m[8];
+    if (0.0 < trace) {
+        root = sqrt(trace + 1.0);
+        w = static_cast<float>(root * 0.5);
+        scale = 0.5 / root;
+        v.Set(static_cast<float>((m[7] - m[5]) * scale), static_cast<float>((m[2] - m[6]) * scale),
+              static_cast<float>((m[3] - m[1]) * scale));
+        return this;
+    }
+
+    i = m[0] < m[4];
+    if (m[i * 4] < m[8]) {
+        i = 2;
+    }
+    j = (i + 1) % 3;
+    k = (j + 1) % 3;
+    root = sqrt(m[i * 4] - (m[k * 4] + m[j * 4]) + 1.0);
+    (&temp.x)[i] = static_cast<float>(root * 0.5);
+    scale = 0.5 / root;
+    temp.w = static_cast<float>((m[k * 3 + j] - m[j * 3 + k]) * scale);
+    (&temp.x)[j] = static_cast<float>((m[i * 3 + j] + m[j * 3 + i]) * scale);
+    (&temp.x)[k] = static_cast<float>((m[i * 3 + k] + m[k * 3 + i]) * scale);
+    w = temp.w;
+    v = temp.xyz();
+    return this;
+}

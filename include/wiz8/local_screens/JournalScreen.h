@@ -1,0 +1,58 @@
+#pragma once
+
+extern wchar_t g_default_level[];
+#include "wiz8/fact_state.h"
+#include "wiz8/layouts/screen_state.h"
+#include "wiz8/vector.h"
+
+#include "wiz8/local_code/TextBuffer.h"
+#include "wiz8/local_code/TextControl.h"
+#include "wiz8/local_code/Controls.h"
+
+class W8JournalPanel : public Controls, public W8TextControl::Listener {
+public:
+    explicit W8JournalPanel(unsigned int* region_set);
+    virtual ~W8JournalPanel();
+    virtual void Redraw() override;
+    virtual void OnPrimary(W8TextControl* control) override;
+    void Refresh();
+
+    W8TextControl* m_next;
+    W8TextControl* m_previous;
+    W8TextControl* m_close;
+    W8TextControl* m_mode;
+    W8TextBuffer* m_page_text;
+    unsigned char m_alternate_mode;
+    unsigned char m_pad_065[3];
+};
+
+static_assert(sizeof(W8JournalPanel) == 0x68, "W8JournalPanel_size");
+W8_ASSERT_BASE_END(W8JournalPanel, W8TextControl::Listener, m_next, 0x4c);
+
+struct W8JournalEntry {
+    int level;
+    W8FactId fact;
+    int alternate_text;
+};
+static_assert(sizeof(W8JournalEntry) == 0x0c, "W8JournalEntry_size");
+
+/* The fact journal, created lazily by the initializer below and
+   appended to whenever a fact changes. */
+extern W8GrowableVector<W8JournalEntry>* g_fact_journal_entries;
+/* The "%d / %d" current-over-max format shared by journal pages
+   and debug stat readouts. */
+extern wchar_t g_journal_page_format[];
+void InitializeFactJournal(void);
+/* Append one changed fact to the journal and, unless notices are
+   suppressed, post the fact's own journal entry. */
+void RecordFactChangeForJournal(W8FactId fact_id);
+/* Write the entry count, a format dword and each journal entry
+   into the open JRNL chunk. */
+void SaveFactJournal(int file);
+unsigned char JournalScreenInitialize(void);
+unsigned char JournalScreenEnter(void);
+void JournalScreenFrame(void);
+unsigned char JournalScreenLeave(int leaving);
+unsigned char JournalScreenFinalize(void);
+/* Load the fact journal vector from the JRNL section. */
+void LoadJournalEntries(unsigned int file);

@@ -1,0 +1,488 @@
+#include "wiz8/character_skills.h"
+#include "wiz8/layouts/gameplay_databases.h"
+#include "wiz8/local_code/Widget.h"
+#include "wiz8/local_code/RangeControl.h"
+#include "wiz8/local_screens/CharacterScreen.h"
+#include "wiz8/local_screens/ReviewCharacterScreen.h"
+#include "wiz8/local_screens/MainGameScreen.h"
+
+#include "wiz8/cursor.h"
+#include "wiz8/local_code/ButtonSound.h"
+#include "wiz8/local_code/Strings.h"
+#include "wiz8/local_code/Magic.h"
+#include "wiz8/local_code/MagicEffects.h"
+#include "wiz8/layouts/screen_state.h"
+#include "wiz8/fonts.h"
+#include "wiz8/sr_api.h"
+#include "wiz8/utility.h"
+#include "wiz8/video_object_catalog.h"
+#include "Font.h"
+
+#include <new>
+#include <wchar.h>
+
+// GLOBAL: WIZ8 0x0069c534
+static unsigned int g_character_spells_region_set;
+// GLOBAL: WIZ8 0x0069c538
+static unsigned int g_character_spell_list_region_sets[6];
+
+// GLOBAL: WIZ8 0x00648c90
+W8SpellRealmAnimation g_spell_realm_animations[6] = {{486, 22, 3}, {487, 18, 8},  {488, 14, 8},
+                                                     {489, 21, 1}, {490, 16, 14}, {491, 24, 11}};
+
+/* Each realm owns a range panel. Its range callback is the existing
+   W8RangeListener subobject at +0x34, not a second widget base. */
+// VTABLE: WIZ8 0x005ef614 W8Widget
+// VTABLE: WIZ8 0x005ef610 W8RangeListener
+class W8CharacterSpellList : public W8Widget, public W8RangeListener {
+public:
+    W8CharacterSpellList(Controls* owner, int x, int y, W8CharacterSpellEntry* entries,
+                         unsigned int* region_set);
+    virtual ~W8CharacterSpellList() override;
+    virtual void Redraw(bool force) override;
+    virtual void OnMouseEnter(int event) override;
+    virtual void OnMouseLeave(int event) override;
+    virtual void OnMouseMove(int event) override;
+    virtual void AdjustValue(int steps) override;
+    virtual void OnLeftButtonDown(int event) override;
+    virtual void OnRightButtonDown(int event) override;
+    virtual void OnLeftButtonUp(int event) override;
+    virtual void OnRightButtonUp(int event) override;
+    virtual void OnRangeChanged(W8RangeControl* range) override;
+    void SetEntryCount(int count);
+
+private:
+    int GetMouseEntry();
+
+public:
+    W8RangeControl* m_range;
+    W8CharacterSpellEntry* m_entries;
+    int m_first_entry;
+    int m_entry_count;
+    int m_hovered_entry;
+    int m_scroll_offset;
+    W8CharacterSpellListListener* m_listener;
+    unsigned int* m_region_set;
+    int m_x;
+    int m_y;
+};
+static_assert(sizeof(W8CharacterSpellList) == 0x60, "W8CharacterSpellList_size");
+W8_ASSERT_BASE_END(W8CharacterSpellList, W8RangeListener, m_range, 0x34);
+
+W8CharacterSpellList::W8CharacterSpellList(Controls* owner, int x, int y,
+                                           W8CharacterSpellEntry* entries, unsigned int* region_set)
+    : W8Widget(owner, 0xffffffff, x + 0x1a, y + 0x19, x + 0xb4, y + 0x79), m_range(0),
+      m_entries(entries), m_hovered_entry(-1), m_scroll_offset(0), m_listener(0),
+      m_region_set(region_set), m_x(x), m_y(y)
+{
+}
+
+// FUNCTION: WIZ8 0x005c7da0
+W8CharacterSpellList::~W8CharacterSpellList()
+{
+    delete m_range;
+}
+
+// FUNCTION: WIZ8 0x005c7e10
+void W8CharacterSpellList::SetEntryCount(int count)
+{
+    if (!m_range) {
+        m_range = new W8RangeControl(m_pPanel->m_bounds.left + m_x + 0xb8,
+                                     m_pPanel->m_bounds.top + m_y + 0x1a,
+                                     m_pPanel->m_bounds.left + m_x + 0xca,
+                                     m_pPanel->m_bounds.top + m_y + 0x78, m_region_set);
+        m_range->m_listener = this;
+    }
+    m_range->Invalidate(0);
+    m_range->SetEnabled(true);
+    m_entry_count = count;
+    if (count > 7) {
+        m_range->SetRange(0, count - 7);
+        m_range->SetRangeEnabled(true);
+    } else {
+        m_range->SetRangeEnabled(false);
+    }
+}
+
+// FUNCTION: WIZ8 0x005c7ef0
+void W8CharacterSpellList::Redraw(bool force)
+{
+    if (m_active && (m_dirty || force)) {
+        int left = m_left + m_pPanel->m_bounds.left;
+        int top = m_top + m_pPanel->m_bounds.top;
+        int right = m_right + m_pPanel->m_bounds.left;
+        int bottom = m_bottom + m_pPanel->m_bounds.top;
+        InvalidateRegion(left, top, right, bottom, 0);
+        BlitCatalogSurfaceRectTo16BPP(FRAME_BUFFER, left, top, right, bottom, 0x1b6, 0, 0);
+        int y = top + 1;
+        SetFont(g_wiz_text_font_secondary);
+        SetFontObjectPalette16BPP(g_wiz_text_font_secondary, g_wiz_text_font_secondary_palette);
+        SetObjectShade(g_wiz_text_font_secondary_object, 4);
+        for (int index = m_first_entry + m_scroll_offset;
+             index < m_first_entry + m_scroll_offset + 7; ++index) {
+            if (index >= m_first_entry + m_entry_count)
+                break;
+            if (!m_entries[index].fSelectable) {
+                SetObjectShade(g_wiz_text_font_secondary_object, 6);
+            } else if (m_entries[index].selected) {
+                SetFontObjectPalette16BPP(g_wiz_text_font_secondary,
+                                          g_font_state_palettes[W8_FONT_PALETTE_BLUE]);
+            } else if (index == m_hovered_entry) {
+                SetFontObjectPalette16BPP(g_wiz_text_font_secondary,
+                                          g_font_state_palettes[W8_FONT_PALETTE_YELLOW]);
+            }
+            gprintf(left + 2, y, g_format_s, g_spell_records[m_entries[index].spell].display_name);
+            wchar_t cost[6];
+            wcscpy(cost, FormatWideString(
+                             g_format_d, g_spell_records[m_entries[index].spell].spell_point_cost));
+            gprintf(right - StringPixLength(cost, g_wiz_text_font_secondary) - 2, y, g_format_s,
+                    cost);
+            y += 13;
+            SetFontObjectPalette16BPP(g_wiz_text_font_secondary, g_wiz_text_font_secondary_palette);
+            SetObjectShade(g_wiz_text_font_secondary_object, 4);
+        }
+        m_range->Invalidate(0);
+        m_dirty = false;
+    }
+}
+
+/* Shared with other widget classes at 0x004F58C0. */
+void W8CharacterSpellList::OnMouseEnter(int)
+{
+    PushButtonSoundScheme(0, true);
+}
+
+// FUNCTION: WIZ8 0x005c8100
+void W8CharacterSpellList::OnMouseLeave(int event)
+{
+    m_hovered_entry = -1;
+    Invalidate(static_cast<unsigned char>(event));
+}
+
+/* Shared hit test; the callers retain their distinct > and >= bounds. */
+int W8CharacterSpellList::GetMouseEntry()
+{
+    POINT mouse;
+    SGPMouseGetPos(&mouse);
+    return (mouse.y - m_pPanel->m_bounds.top - m_top) / 13 + m_scroll_offset + m_first_entry;
+}
+
+// FUNCTION: WIZ8 0x005c8120
+void W8CharacterSpellList::OnMouseMove(int)
+{
+    int entry = GetMouseEntry();
+    if (entry > m_first_entry + m_entry_count)
+        entry = -1;
+    if (entry != m_hovered_entry) {
+        m_hovered_entry = entry;
+        Invalidate(false);
+    }
+}
+
+// FUNCTION: WIZ8 0x005c8190
+void W8CharacterSpellList::OnLeftButtonDown(int)
+{
+    int entry = GetMouseEntry();
+    if (entry >= m_first_entry + m_entry_count) {
+        PushButtonSoundScheme(0, true);
+    }
+}
+
+/* Folded with OnLeftButtonDown at 0x005C8190. */
+void W8CharacterSpellList::OnRightButtonDown(int)
+{
+    int entry = GetMouseEntry();
+    if (entry >= m_first_entry + m_entry_count) {
+        PushButtonSoundScheme(0, true);
+    }
+}
+
+// FUNCTION: WIZ8 0x005c81f0
+void W8CharacterSpellList::OnLeftButtonUp(int event)
+{
+    int entry = GetMouseEntry();
+    if (entry >= m_first_entry + m_entry_count) {
+        PushButtonSoundScheme(0, true);
+        return;
+    }
+    if (m_entries[entry].fSelectable) {
+        Invalidate(static_cast<unsigned char>(event));
+        if (m_listener)
+            m_listener->SelectSpell(entry);
+    }
+}
+
+// FUNCTION: WIZ8 0x005c8280
+void W8CharacterSpellList::OnRightButtonUp(int)
+{
+    int entry = GetMouseEntry();
+    if (entry >= m_first_entry + m_entry_count) {
+        PushButtonSoundScheme(0, true);
+        return;
+    }
+    if (m_listener)
+        m_listener->ShowSpellInfo(entry);
+}
+
+// FUNCTION: WIZ8 0x005c82f0
+void W8CharacterSpellList::AdjustValue(int steps)
+{
+    m_range->AdjustValue(steps);
+}
+
+// FUNCTION: WIZ8 0x005c8330
+void W8CharacterSpellList::OnRangeChanged(W8RangeControl* range)
+{
+    m_scroll_offset = range->m_value;
+    Invalidate(false);
+}
+
+// FUNCTION: WIZ8 0x005c83d0
+void W8CharacterSpellsPage::SetCharacter(W8Character* character,
+                                         W8CharacterCreationState* creation_state, int mode)
+{
+    W8CharacterPage::SetCharacter(character, creation_state, mode);
+    AcquireRegionSet(&g_character_spells_region_set);
+    for (int realm = 0; realm < W8_SPELL_REALM_COUNT; ++realm) {
+        m_realms[realm] =
+            new W8CharacterSpellList(this, (realm % 2) * 215 + 13, (realm / 2) * 130 + 8,
+                                     m_SpellData, &g_character_spell_list_region_sets[realm]);
+        m_realms[realm]->m_listener = this;
+    }
+}
+
+// FUNCTION: WIZ8 0x005C8530
+void W8CharacterSpellsPage::Activate()
+{
+    EnableRegionSet(true);
+    UpdateSpellLists();
+    for (int realm = 0; realm < W8_SPELL_REALM_COUNT; ++realm) {
+        m_realms[realm]->m_range->EnableRegionSet(true);
+    }
+    m_dirty = true;
+    m_prepared = true;
+}
+
+// FUNCTION: WIZ8 0x005c8570
+void W8CharacterSpellsPage::Deactivate()
+{
+    EnableRegionSet(false);
+    for (int realm = 0; realm < W8_SPELL_REALM_COUNT; ++realm) {
+        m_realms[realm]->m_range->EnableRegionSet(false);
+    }
+}
+
+/* Drop every pending pick: clear the per-entry selected flags, return the
+   creation-state spell selections, and repaint. */
+// FUNCTION: WIZ8 0x005C8730
+void W8CharacterSpellsPage::Accept()
+{
+    for (int index = 0; index < 0x72; ++index) {
+        m_SpellData[index].selected = false;
+    }
+    ResetSpellSelections(m_character, m_creation_state);
+    Invalidate(0);
+    m_dirty = true;
+    m_screen->UpdateNavigation(this);
+}
+
+/* Rebuilds each realm's list from the character's spell_learned states: pass
+   one collects the known (-1) and pending (2) spells as selectable entries,
+   pass two appends the learnable (1) spells greyed out. */
+/* Repaint the spell-point instructions and pool, the six realm headings and
+   values, then the animated realm icons and their range controls. */
+// FUNCTION: WIZ8 0x005C88C0
+void W8CharacterSpellsPage::Redraw()
+{
+    bool redraw = m_fEnabled && m_fDirty;
+    W8TextBuffer text;
+    W8ControlsRect bounds;
+
+    W8CharacterPage::Redraw();
+    text.SetLayoutMode(g_W8TextBufferAlignMiddle | g_W8TextBufferAlignCenter);
+    if (m_prepared) {
+        bounds.left = 4;
+        bounds.top = 0xec;
+        bounds.right = 0xc2;
+        bounds.bottom = 0x173;
+        text.RenderString(&bounds,
+                          gppStringList[m_creation_state->spell_points_total == 0 ? 0xeb : 0xea],
+                          g_wiz_text_font_secondary, true, FRAME_BUFFER);
+
+        bounds.top = 0x173;
+        bounds.bottom = 0x18a;
+        bounds.right = 0x8f;
+        text.RenderString(&bounds, gppStringList[0xf4], g_wiz_text_font_secondary, true,
+                          FRAME_BUFFER);
+        m_prepared = false;
+    }
+
+    if (m_dirty) {
+        bounds.left = 0x8f;
+        bounds.top = 0x173;
+        bounds.right = 0xbf;
+        bounds.bottom = 0x18a;
+        DrawCatalogImage(FRAME_BUFFER, 0x107, 0, 5, 0x8f, 0x173, VO_BLT_SRCTRANSPARENCY, 0);
+        text.SetLayoutBounds(&bounds, true, true);
+        text.RenderString(FormatWideString(g_format_d_slash_d,
+                                           m_creation_state->spell_points_remaining,
+                                           m_creation_state->spell_points_total),
+                          g_options_detail_font, true, FRAME_BUFFER);
+        m_dirty = false;
+    }
+
+    if (redraw) {
+        for (int realm = 0; realm < W8_SPELL_REALM_COUNT; ++realm) {
+            if (m_realms[realm]->m_entry_count == 0) {
+                continue;
+            }
+            text.SetLayoutMode(g_W8TextBufferAlignLeft | g_W8TextBufferAlignMiddle);
+            bounds.left = m_bounds.left + 0x29 + (realm % 2) * 0xd7;
+            bounds.top = m_bounds.top + 0x0f + (realm / 2) * 0x82;
+            bounds.right = bounds.left + 0x3c;
+            bounds.bottom = bounds.top + 0x0e;
+            text.SetLayoutBounds(&bounds, true, true);
+            text.SetFontStateIndex(1);
+            text.RenderString(FormatWideString(g_format_s0, gppStringList[0xf2]),
+                              g_wiz_text_font_secondary, false, FRAME_BUFFER);
+            text.SetFontStateIndex(-1);
+            text.SetLayoutMode(g_W8TextBufferAlignRight | g_W8TextBufferAlignMiddle);
+            text.RenderString(
+                FormatWideString(g_format_d,
+                                 m_character->skills[W8_SKILL_FIRE_MAGIC + realm].points),
+                g_wiz_text_font_secondary, false, FRAME_BUFFER);
+
+            text.SetLayoutMode(g_W8TextBufferAlignLeft | g_W8TextBufferAlignMiddle);
+            bounds.left += 0x58;
+            bounds.right = bounds.left + 0x53;
+            text.SetLayoutBounds(&bounds, true, true);
+            text.SetFontStateIndex(1);
+            text.RenderString(FormatWideString(g_format_s0, gppStringList[0xf3]),
+                              g_wiz_text_font_secondary, false, FRAME_BUFFER);
+            text.SetFontStateIndex(-1);
+            text.SetLayoutMode(g_W8TextBufferAlignRight | g_W8TextBufferAlignMiddle);
+            text.RenderString(FormatWideString(g_format_d_slash_d,
+                                               GetCharacterRealmSpellPoints(
+                                                   m_character, static_cast<W8SpellRealm>(realm)),
+                                               m_character->sp_max[realm]),
+                              g_wiz_text_font_secondary, false, FRAME_BUFFER);
+        }
+    }
+
+    int elapsed = static_cast<int>(anim_timer.GetProgress());
+    if (elapsed > 0 || redraw) {
+        for (int realm = 0; realm < W8_SPELL_REALM_COUNT; ++realm) {
+            const W8SpellRealmAnimation& animation = g_spell_realm_animations[realm];
+            if (m_realms[realm]->m_entry_count != 0 && elapsed != 0) {
+                m_animation_frames[realm] =
+                    (m_animation_frames[realm] + elapsed) % animation.frame_count;
+            }
+            if (!m_screen->HasDialog() || realm < 2) {
+                DrawCatalogImageAndInvalidate(
+                    FRAME_BUFFER, animation.image, 0, m_animation_frames[realm],
+                    m_bounds.left + 0x0f + (realm % 2) * 0xd7,
+                    m_bounds.top + 0x0a + (realm / 2) * 0x82, VO_BLT_SRCTRANSPARENCY, 0);
+            }
+        }
+    }
+    for (int realm = 0; realm < W8_SPELL_REALM_COUNT; ++realm) {
+        m_realms[realm]->m_range->Redraw();
+    }
+}
+
+// FUNCTION: WIZ8 0x005c87a0
+void W8CharacterSpellsPage::Refresh()
+{
+    UpdateSpellLists();
+}
+
+// FUNCTION: WIZ8 0x005c85a0
+void W8CharacterSpellsPage::UpdateSpellLists()
+{
+    int entry = 0;
+    for (int realm = 0; realm < W8_SPELL_REALM_COUNT; ++realm) {
+        m_animation_frames[realm] = g_spell_realm_animations[realm].initial_frame;
+        int first = entry;
+        for (char pass = 0; pass < 2; ++pass) {
+            for (unsigned int spell = 0; spell < 0x72; ++spell) {
+                if (g_spell_records[spell].realm == realm) {
+                    switch (m_character->spell_learned[spell]) {
+                    case -1:
+                    case 2:
+                        if (pass == 0) {
+                            m_SpellData[entry].realm = static_cast<W8SpellRealm>(realm);
+                            m_SpellData[entry].spell = spell;
+                            m_SpellData[entry].fSelectable = true;
+                            m_SpellData[entry].selected = m_character->spell_learned[spell] == 2;
+                            ++entry;
+                        }
+                        break;
+                    case 1:
+                        if (pass == 1) {
+                            m_SpellData[entry].realm = static_cast<W8SpellRealm>(realm);
+                            m_SpellData[entry].spell = spell;
+                            m_SpellData[entry].fSelectable = false;
+                            m_SpellData[entry].selected = false;
+                            ++entry;
+                        }
+                        break;
+                    }
+                }
+            }
+        }
+        m_realms[realm]->m_first_entry = first;
+        m_realms[realm]->SetEntryCount(entry - first);
+    }
+}
+
+// FUNCTION: WIZ8 0x005c8770
+void W8CharacterSpellsPage::GetNavigationState(bool* next_enabled, bool* exit_enabled)
+{
+    *next_enabled = 1;
+    *exit_enabled = m_creation_state->spell_points_remaining < m_creation_state->spell_points_total;
+}
+
+/* Retail emits this with the W8CharacterSpellListListener-adjusted `this`
+   (page + 0x70): the slot is only ever dispatched through that base. */
+// FUNCTION: WIZ8 0x005c87b0
+void W8CharacterSpellsPage::SelectSpell(unsigned int uiSelected)
+{
+    if (!m_SpellData[uiSelected].fSelectable) {
+        srAssertFail("m_SpellData[uiSelected].fSelectable",
+                     "C:\\Projects\\Wizardry 8\\Local Screens\\CGSSpellsPage.cpp", 0x252, 0);
+    }
+    if (m_SpellData[uiSelected].selected) {
+        m_SpellData[uiSelected].selected = false;
+        DeselectCreationSpell(m_character, m_creation_state, m_SpellData[uiSelected].spell);
+    } else {
+        if (m_creation_state->spell_points_remaining == 0) {
+            for (unsigned int index = 0; index < 0x72; ++index) {
+                if (m_SpellData[index].selected &&
+                    (index != m_last_selected || m_creation_state->spell_points_total == 1)) {
+                    m_SpellData[index].selected = false;
+                    DeselectCreationSpell(m_character, m_creation_state, m_SpellData[index].spell);
+                    break;
+                }
+            }
+        }
+        m_SpellData[uiSelected].selected = true;
+        SelectCreationSpell(m_character, m_creation_state, m_SpellData[uiSelected].spell);
+        m_last_selected = uiSelected;
+    }
+    UpdateSpellLists();
+    m_dirty = true;
+    m_screen->UpdateNavigation(this);
+    Invalidate(0);
+}
+
+// FUNCTION: WIZ8 0x005c88a0
+void W8CharacterSpellsPage::ShowSpellInfo(unsigned int entry)
+{
+    m_screen->ShowSpellInfo(m_SpellData[entry].spell);
+}
+
+// FUNCTION: WIZ8 0x005C8DE0
+W8CharacterSpellsPage* CreateCharacterSpellsPage()
+{
+    return new W8CharacterSpellsPage();
+}

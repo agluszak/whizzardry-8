@@ -1,0 +1,460 @@
+#include <windows.h>
+#include "wiz8/engine_code/Item.h"
+
+#include <math.h>
+#include <stdio.h>
+#include <string.h>
+
+#include "DEBUG.H"
+#include "FileMan.h"
+#include "Random.h"
+#include "sgp.h"
+#include "input.h"
+#include "surrender/srCamera.h"
+#include "surrender/srNode.h"
+#include "wiz8/engine_code/3d.h"
+#include "wiz8/engine_code/3dapi.h"
+#include "wiz8/engine_code/ReadLevel.h"
+#include "wiz8/engine_code/ReadMesh.h"
+#include "wiz8/engine_code/Trigger.hpp"
+#include "wiz8/engine_code/Video2.h"
+#include "wiz8/engine_code/World.h"
+#include "wiz8/engine_code/stModelInstance.h"
+#include "wiz8/sr_api.h"
+#include "wiz8/utility.h"
+#include "timer.h"
+
+#define ITEM_CPP "C:\\Projects\\Wizardry 8\\Engine Code\\Item.cpp"
+
+// VTABLE: WIZ8 0x005ECD78 W8Item
+// class W8Item
+
+// FUNCTION: WIZ8 0x0049F440
+W8Item::~W8Item()
+{
+    delete m_pRep;
+}
+
+/* Detach the item's mesh from the world graph. The world parameter is asserted
+   even though the body needs no field from it. */
+// FUNCTION: WIZ8 0x0049fa30
+void W8Item::DetachMesh(W8World* world)
+{
+    srNode* mesh;
+
+    if (world == 0) {
+        srAssertFail("pWorld", "C:\\Projects\\Wizardry 8\\Engine Code\\Item.cpp", 0x24a, 0);
+    }
+    mesh = static_cast<W8ItemRep*>(m_pRep)->m_psrMesh;
+    if (mesh == 0) {
+        srAssertFail("psrMesh", "C:\\Projects\\Wizardry 8\\Engine Code\\Item.cpp", 0x24f, 0);
+    }
+    mesh->setFlag(srNode::FLAG_DISABLE);
+    mesh->setParent(0, 0);
+}
+
+/* Copy the representation's float transform onto its SurRender node. The
+   location is widened because the exported node setter takes doubles. */
+// FUNCTION: WIZ8 0x0049faa0
+void W8Item::ApplyRepTransform()
+{
+    srVector3T<float> location;
+    srVector3T<double> widened;
+    srMatrix3T<float> rotation;
+    srNode* mesh;
+
+    if (static_cast<W8ItemRep*>(m_pRep)->m_psrMesh == 0) {
+        srAssertFail("m_pRep->m_psrMesh", "C:\\Projects\\Wizardry 8\\Engine Code\\Item.cpp", 0x266,
+                     0);
+    }
+    mesh = static_cast<W8ItemRep*>(m_pRep)->m_psrMesh;
+    m_pRep->GetLocation(&location);
+    widened.SetFromFloat(&location);
+    mesh->setLocation(widened);
+    m_pRep->GetRotation(&rotation);
+    mesh->setRotation(rotation);
+}
+
+// FUNCTION: WIZ8 0x0049F900
+void W8Item::AttachMesh(W8World* world)
+{
+    srNode* mesh;
+    srNode* child;
+    srVector3T<float> location;
+    srVector3T<double> widened;
+    srMatrix3T<float> rotation;
+
+    if (world == 0) {
+        srAssertFail("pWorld", "C:\\Projects\\Wizardry 8\\Engine Code\\Item.cpp", 0x211, 0);
+    }
+    if ((static_cast<W8ItemRep*>(m_pRep)->flags & W8_ITEM_ENTITY_MESH_LOADED) == 0) {
+        return;
+    }
+    mesh = static_cast<W8ItemRep*>(m_pRep)->m_psrMesh;
+    if (mesh == 0) {
+        srAssertFail("psrMesh", "C:\\Projects\\Wizardry 8\\Engine Code\\Item.cpp", 0x219, 0);
+    }
+    if (mesh->first_child_ == 0) {
+        mesh->clearFlag(srNode::FLAG_DISABLE);
+    }
+    mesh->setParent(world->dynamic_scene, 0);
+    m_pRep->GetLocation(&location);
+    m_pRep->GetRotation(&rotation);
+    child = mesh->first_child_;
+    if (child == 0) {
+        widened.SetFromFloat(&location);
+        mesh->setLocation(widened);
+        mesh->setRotation(rotation);
+        return;
+    }
+    do {
+        widened.SetFromFloat(&location);
+        child->setLocation(widened);
+        child->setRotation(rotation);
+        child = child->next_sibling_;
+    } while (child != 0);
+}
+
+// FUNCTION: WIZ8 0x0049fb20
+srNode* W8Item::GetMesh()
+{
+    return static_cast<W8ItemRep*>(m_pRep)->m_psrMesh;
+}
+
+// FUNCTION: WIZ8 0x0049F310
+unsigned int W8ItemRep::SetFlags(unsigned int mask, bool enabled)
+{
+    if (enabled) {
+        flags |= mask;
+    } else {
+        flags &= ~mask;
+    }
+    return flags;
+}
+
+// FUNCTION: WIZ8 0x0049F720
+void W8Item::SetLocation(const srVector3T<float>* location)
+{
+    m_pRep->SetLocation(location);
+}
+
+// FUNCTION: WIZ8 0x004A0050
+bool W8Item::IsRadarBlipLit()
+{
+    return ClockIsTicking(countdown) != 0;
+}
+
+// VTABLE: WIZ8 0x005ECD70 W8ItemRep
+// class W8ItemRep
+
+/* Inlined into both item construction paths. Retail leaves the mesh pointer
+   and bounds untouched until ReadFromFile; do not initialize them here. */
+W8ItemRep::W8ItemRep()
+{
+    flags = 0;
+    pulse_level = static_cast<float>(Random(20) * 0.05);
+    flags |= W8_ITEM_ENTITY_PULSE_INCREASING;
+}
+
+// FUNCTION: WIZ8 0x0049F120
+W8ItemRep::~W8ItemRep()
+{
+    if (m_psrMesh != 0) {
+        m_psrMesh->release();
+    }
+}
+
+// FUNCTION: WIZ8 0x0049F170
+bool W8ItemRep::ReadFromFile(W8ReadLevelInfo* info, W8Item* item, bool anonymous_mesh)
+{
+    const char* bitmap_folder = info->bitmap_folder;
+    srModelInstance* mesh = 0;
+    if (info == 0 || info->hFile == 0 || item == 0) {
+        srAssertFail("pInfo && pInfo->hFile && pItem", ITEM_CPP, 0x7e, 0);
+    }
+
+    info->bitmap_folder = "Data\\Items3D\\Bitmaps";
+    bool success =
+        ReadSingleLevelMesh(info, &mesh, 0, 0, anonymous_mesh ? 0 : info->mesh_filename, true) != 0;
+    if (!success || mesh == 0) {
+        srAssertFail("fSuccess && psrMesh", ITEM_CPP, 0x8c, 0);
+    }
+    mesh->setName("ItemRep::ReadFromFile");
+    static_cast<stModelInstance*>(mesh)->render_flags |= stModelInstance::RENDER_SHADOW;
+    SetModelInstanceChainExclusionMask(mesh, 4);
+    info->bitmap_folder = bitmap_folder;
+    flags |= W8_ITEM_ENTITY_MESH_LOADED;
+    m_psrMesh = mesh;
+    RefreshBounds();
+    return success;
+}
+
+// FUNCTION: WIZ8 0x0049F2B0
+void W8ItemRep::RefreshBounds()
+{
+    m_psrMesh->getModel()->getBoundingBox(bounds_minimum, bounds_maximum);
+    bounds_radius = static_cast<float>((bounds_maximum - bounds_minimum).Length() * 0.5);
+}
+
+// FUNCTION: WIZ8 0x0049F350
+W8Item::W8Item()
+{
+    trigger = 0;
+    kind = 2;
+    m_pRep = new W8ItemRep;
+    id = AllocateGrObjectId();
+    countdown = SetCountdownClock(0);
+}
+
+// FUNCTION: WIZ8 0x0049F4A0
+bool LoadItemFromFile(const W8ReadLevelInfo* context, const char* name, W8Item** output,
+                      bool anonymous_mesh)
+{
+    W8Item* item = 0;
+    if (name == 0 || output == 0) {
+        srAssertFail("pacName && ppItem", ITEM_CPP, 0x11a, 0);
+    }
+    char filename[52];
+    sprintf(filename, "%s\\%s.itm", "Data\\Items3D", name);
+    HWFILE file = FileOpen(filename, FILE_ACCESS_READ | FILE_OPEN_EXISTING, 0);
+    if (file == 0) {
+        ShutdownWithErrorBox(
+            reinterpret_cast< // reinterpret-ok: SGP String returns unsigned text bytes
+                const char*>(String("Couldn't load %s", filename)));
+        return false;
+    }
+
+    W8ReadLevelInfo info;
+    info.world = context->world;
+    info.hFile = file;
+    info.bitmap_folder = context->bitmap_folder;
+    char* mesh_name = new char[1024];
+    strcpy(mesh_name, name);
+    info.mesh_filename = mesh_name;
+    unsigned char version;
+    bool success = false;
+    if (FileRead(file, &version, 1, 0) && version == 2 &&
+        ReadItemFromFile(&info, &item, anonymous_mesh)) {
+        *output = item;
+        success = true;
+    }
+    FileClose(file);
+    delete[] mesh_name;
+    return success;
+}
+
+/* On failure retail leaves the output alone and does not delete the allocated
+   item. This is not an owning smart-pointer factory. */
+// FUNCTION: WIZ8 0x0049F5D0
+bool ReadItemFromFile(W8ReadLevelInfo* info, W8Item** output, bool anonymous_mesh)
+{
+    if (info == 0) {
+        srAssertFail("pInfo", ITEM_CPP, 0x15d, 0);
+    }
+    W8Item* item = new W8Item;
+    if (item == 0) {
+        srAssertFail("pItem", ITEM_CPP, 0x161, 0);
+    }
+    bool success = static_cast<W8ItemRep*>(item->m_pRep)->ReadFromFile(info, item, anonymous_mesh);
+    if (success) {
+        *output = item;
+    }
+    return success;
+}
+
+// FUNCTION: WIZ8 0x0049F730
+void W8Item::UpdateAnimation()
+{
+    if (m_pRep == 0) {
+        srAssertFail("m_pRep", ITEM_CPP, 0x1ca, 0);
+    }
+    W8ItemRep* rep = static_cast<W8ItemRep*>(m_pRep);
+    if ((rep->flags & W8_ITEM_ENTITY_MESH_LOADED) == 0) {
+        return;
+    }
+    if ((rep->flags & W8_ITEM_ENTITY_ROTATE) != 0 && gfKeyState[VK_CONTROL] == 0) {
+        srMatrix3T<float> rotation;
+        m_pRep->GetRotation(&rotation);
+        double cosine = cos(-0.1963495375);
+        double sine = sin(-0.1963495375);
+        rotation.RotateAboutY(sine, cosine);
+        srNode* mesh = rep->m_psrMesh;
+        m_pRep->SetRotation(&rotation);
+        if (mesh->first_child_ == 0) {
+            mesh->setRotation(rotation);
+        } else {
+            for (srNode* child = mesh->first_child_; child != 0; child = child->next_sibling_) {
+                child->setRotation(rotation);
+            }
+        }
+    }
+
+    rep = static_cast<W8ItemRep*>(m_pRep);
+    if ((rep->flags & W8_ITEM_ENTITY_PULSE) != 0) {
+        if ((rep->flags & W8_ITEM_ENTITY_PULSE_INCREASING) != 0) {
+            rep->pulse_level += 0.05f;
+            if (rep->pulse_level >= 1.0f) {
+                rep->pulse_level = 1.0f;
+                rep->flags &= ~W8_ITEM_ENTITY_PULSE_INCREASING;
+            }
+        } else {
+            rep->pulse_level -= 0.05f;
+            if (rep->pulse_level <= 0.25f) {
+                rep->pulse_level = 0.25f;
+                rep->flags |= W8_ITEM_ENTITY_PULSE_INCREASING;
+            }
+        }
+        SetHighlight(true);
+    }
+}
+
+// FUNCTION: WIZ8 0x0049FB30
+unsigned char W8Item::GetCachedLocalBounds(srVector3T<float>* lower, srVector3T<float>* upper)
+{
+    W8ItemRep* rep = static_cast<W8ItemRep*>(m_pRep);
+    *lower = rep->bounds_minimum;
+    *upper = rep->bounds_maximum;
+    return true;
+}
+
+// FUNCTION: WIZ8 0x0049FB80
+bool W8Item::GetBoundsRadius(float* radius)
+{
+    *radius = static_cast<W8ItemRep*>(m_pRep)->bounds_radius;
+    return true;
+}
+
+/* Raise the representation location by two thirds of the cached local height.
+   Searchables, the automap, and the inlined selection test all use this point. */
+static const float g_item_bounds_vertical_factor = 0.66f;
+
+// FUNCTION: WIZ8 0x0049FBA0
+unsigned char W8Item::GetSearchPosition(srVector3T<float>* location)
+{
+    srVector3T<float> lower;
+    srVector3T<float> upper;
+
+    if (GetCachedLocalBounds(&lower, &upper) == 0) {
+        return 0;
+    }
+    m_pRep->GetLocation(location);
+    location->y += (upper.y - lower.y) * g_item_bounds_vertical_factor;
+    return 1;
+}
+
+// FUNCTION: WIZ8 0x0049FBF0
+void W8Item::SetYaw(float angle)
+{
+    srMatrix3T<float> rotation;
+    rotation.SetIdentity();
+    double yaw = NormalizeAngle(angle);
+    if (yaw != 0.0) {
+        double cosine = cos(yaw);
+        double sine = sin(yaw);
+        rotation.RotateAboutY(sine, cosine);
+    }
+    srNode* mesh = static_cast<W8ItemRep*>(m_pRep)->m_psrMesh;
+    m_pRep->SetRotation(&rotation);
+    if (mesh->first_child_ == 0) {
+        mesh->setRotation(rotation);
+    } else {
+        for (srNode* child = mesh->first_child_; child != 0; child = child->next_sibling_) {
+            child->setRotation(rotation);
+        }
+    }
+}
+
+/* The receiver is the item, not its representation. Blue takes precedence
+   over green, and retail does not multiply either colour by pulse_level. */
+// FUNCTION: WIZ8 0x0049FDB0
+void W8Item::SetHighlight(bool enabled)
+{
+    W8ItemRep* rep = static_cast<W8ItemRep*>(m_pRep);
+    float green = 0.0f;
+    float blue = 0.0f;
+    float alpha = 0.0f;
+    if (enabled) {
+        if ((rep->flags & W8_ITEM_ENTITY_HIGHLIGHT_BLUE) != 0) {
+            blue = 1.0f;
+            alpha = 1.0f;
+        } else if ((rep->flags & W8_ITEM_ENTITY_HIGHLIGHT_GREEN) != 0) {
+            green = 1.0f;
+            alpha = 1.0f;
+        }
+    }
+    rep->highlight_colour.x = 0.0f;
+    rep->highlight_colour.y = green;
+    rep->highlight_colour.z = blue;
+    rep->highlight_colour.w = alpha;
+}
+
+// FUNCTION: WIZ8 0x0049FF40
+bool W8Item::IsSelected()
+{
+    srModelInstance* selected = GetPickedModelInstance();
+    srVector3T<float> location;
+    /* The selection-point helper is inlined here even though its result is
+       not used by the final mesh-identity test. */
+    GetSearchPosition(&location);
+    return selected == static_cast<W8ItemRep*>(m_pRep)->m_psrMesh;
+}
+
+// FUNCTION: WIZ8 0x0049FFA0
+float W8Item::DistanceToCamera(W8World* world)
+{
+    srVector3T<float> lower;
+    srVector3T<float> upper;
+    if (!GetCachedLocalBounds(&lower, &upper)) {
+        return -1.0f;
+    }
+    srVector3T<double> camera = world->camera->getLocation();
+    srVector3T<float> camera_location;
+    camera_location.SetFromDouble(&camera);
+    srVector3T<float> center = m_pRep->location;
+    /* Unlike the selection-point helper, retail offsets Z by half the Z
+       extent here, not Y by 0.66 of the Y extent. */
+    center.z += (upper.z - lower.z) * 0.5f;
+    return (camera_location - center).Length();
+}
+
+// FUNCTION: WIZ8 0x004A0030
+void W8Item::LightRadarBlip()
+{
+    countdown = SetCountdownClock(10000);
+}
+
+/* Fire the item's trigger with no source and report its action state. States
+   1 and 4 propagate; a finished trigger, a missing trigger or a missing item
+   collapse to 1/0. */
+// FUNCTION: WIZ8 0x004A0070
+unsigned char RunItemTrigger(W8Item* item)
+{
+    Trigger* trigger;
+
+    if (item == 0) {
+        return 0;
+    }
+    trigger = item->trigger;
+    if (trigger == 0) {
+        return 1;
+    }
+    trigger->Run(-1);
+    if (trigger->action_state == 1 || trigger->action_state == 4) {
+        return trigger->action_state;
+    }
+    return 1;
+}
+
+// FUNCTION: WIZ8 0x004A00C0
+bool GetItemWorldBounds(W8Item* item, srVector3T<float>* lower, srVector3T<float>* upper)
+{
+    if (item == 0) {
+        return false;
+    }
+    item->GetCachedLocalBounds(lower, upper);
+    srVector3T<float> location;
+    item->m_pRep->GetLocation(&location);
+    *lower += location;
+    *upper += location;
+    return true;
+}

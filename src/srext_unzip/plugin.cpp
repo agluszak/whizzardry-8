@@ -1,0 +1,390 @@
+#include <stdlib.h>
+#include <string.h>
+#include <new>
+
+#include "surrender/srConfig.h"
+#include "surrender/srCore.h"
+#include "surrender/srIStreamOpener.h"
+#include "surrender/srPlugin.h"
+#include "surrender/srString.h"
+#include "surrender/srStringTable.h"
+
+extern "C" {
+#include "unzip.h"
+#include "windll/structs.h"
+
+void WINAPI Wiz_NoPrinting(int disabled);
+}
+
+extern "C" int WINAPI srWizUnzipToMemory(char* archive, char* member, LPUSERFUNCTIONS callbacks,
+                                         UzpBuffer* result, int case_insensitive);
+
+class srOwnedBinIMStream : public srBinIMStream {
+public:
+    srOwnedBinIMStream(void* allocation, unsigned long size) : srBinIMStream(allocation, size)
+    {
+        allocation_ = allocation;
+    }
+
+    virtual ~srOwnedBinIMStream();
+
+private:
+    void* allocation_;
+};
+
+static_assert((sizeof(srOwnedBinIMStream) == 0x2c), "srOwnedBinIMStream_must_be_0x2c");
+
+/* Empty initialization and checked release. */
+void srInlineString::init()
+{
+    inline_[0] = '\0';
+    data_ = inline_;
+    size_ = 1;
+}
+
+void srInlineString::release()
+{
+    if (data_ != inline_) {
+        srHeap.free(data_);
+    }
+    init();
+}
+
+// FUNCTION: SREXT_UNZIP 0x10010D50
+srInlineString::srInlineString(const srInlineString& source, long begin, long end)
+{
+    init();
+    char* temporary = static_cast<char*>(srHeap.allocate(end - begin + 2));
+    strncpy(temporary, source.data_ + begin, end - begin);
+    temporary[end - begin] = '\0';
+
+    operator=(temporary);
+    srHeap.free(temporary);
+}
+
+// FUNCTION: SREXT_UNZIP 0x10010E30
+srInlineString::srInlineString(const char* source)
+{
+    init();
+    if (source != 0) {
+        operator=(source);
+    }
+}
+
+class srZipAdapter;
+
+struct srZipCallbacks : USERFUNCTIONS {
+    srZipAdapter* adapter;
+};
+
+static_assert((sizeof(srZipCallbacks) == 0x30), "srZipCallbacks_must_be_0x30");
+
+class srZipAdapter {
+public:
+    srZipAdapter();
+    ~srZipAdapter();
+
+    srBinIStream* openMember(char* archive, char* member);
+    void noteCallback(char* destination)
+    {
+        strcpy(destination, archive_path_.data_);
+        ++callback_count_;
+    }
+    void setArchivePath(const char* path)
+    {
+        archive_path_ = path;
+    }
+
+private:
+    srInlineString archive_path_;
+    srZipCallbacks* callbacks_;
+    unsigned long callback_state_10_;
+    unsigned long callback_state_14_;
+    unsigned long callback_count_;
+    int case_insensitive_;
+};
+
+static_assert((sizeof(srZipAdapter) == 0x20), "srZipAdapter_must_be_0x20");
+
+class srZipOpener : public srIStreamOpener::Opener {
+public:
+    virtual srBinIStream* open(const char* path);
+    virtual const char* getDescription() const;
+
+private:
+    srBinIStream* openArchivePath(srInlineString path);
+
+    srZipAdapter adapter_;
+};
+
+static_assert((sizeof(srZipOpener) == 0x24), "srZipOpener_must_be_0x24");
+
+class srUnzipPlugin : public srPlugin {
+public:
+    srUnzipPlugin()
+    {
+        opener_ = new srZipOpener;
+        srIStreamOpener* stream_opener = srCore.getIStreamOpener();
+        stream_opener->addStreamType(opener_, "zip");
+    }
+
+    virtual ~srUnzipPlugin();
+
+    virtual const char* getDescription() const;
+
+private:
+    srZipOpener* opener_;
+};
+
+// FUNCTION: SREXT_UNZIP 0x100106B0
+srBinIStream* srZipOpener::open(const char* path)
+{
+    srInlineString requested;
+    if (path != 0) {
+        requested = path;
+    }
+    srInlineString extension;
+    extension = ".zip";
+
+    if (strstr(requested.data(), extension.data()) != 0) {
+        return openArchivePath(requested);
+    }
+
+    srStringTable search_paths;
+    search_paths.addSeparatedStrings(srConfig.get("ZIP_PATH"), ";", 1);
+    for (long index = 0; index < search_paths.getCount(); ++index) {
+        srInlineString prefix;
+        char* search_path = search_paths.getString(index);
+        if (search_path != 0) {
+            prefix = search_path;
+        }
+
+        long begin = 0;
+        long end = static_cast<long>(prefix.size()) - 1;
+        while (begin < end && prefix.data()[begin] == ' ') {
+            ++begin;
+        }
+        if (begin != 0) {
+            prefix = begin == end ? srInlineString("") : srInlineString(prefix, begin, end);
+        }
+
+        for (end = static_cast<long>(prefix.size()) - 2; end >= 0 && prefix.data()[end] == ' ';
+             --end) {
+        }
+        if (end != static_cast<long>(prefix.size()) - 2) {
+            prefix = end < 0 ? srInlineString("") : srInlineString(prefix, 0, end + 1);
+        }
+
+        srInlineString candidate = prefix + requested;
+        srBinIStream* stream = openArchivePath(candidate);
+        if (stream != 0) {
+            return stream;
+        }
+    }
+    return 0;
+}
+
+// FUNCTION: SREXT_UNZIP 0x10010A60
+srBinIStream* srZipOpener::openArchivePath(srInlineString path)
+{
+    srInlineString separator_text;
+    separator_text = "@";
+    const char* separator = strstr(path.data(), separator_text.data());
+    if (separator != 0) {
+        const unsigned long prefix_length = static_cast<unsigned long>(separator - path.data());
+        srInlineString prefix_text(path, 0, static_cast<long>(prefix_length));
+        adapter_.setArchivePath(prefix_text.data());
+        path.erasePrefix(prefix_length + 1);
+    }
+
+    srInlineString extension_text;
+    extension_text = ".zip";
+    const char* extension = strstr(path.data(), extension_text.data());
+    if (extension == 0) {
+        return 0;
+    }
+
+    const long extension_offset = static_cast<long>(extension - path.data());
+    const long member_begin = extension_offset + 5;
+    srInlineString member(path, member_begin, static_cast<long>(path.size() - 1));
+    srInlineString archive(path, 0, extension_offset + 4);
+    return adapter_.openMember(archive.data(), member.data());
+}
+
+srInlineString::srInlineString(const srInlineString& source)
+{
+    init();
+    if (source.data_ != 0 && *source.data_ != '\0') {
+        size_ = strlen(source.data_) + 1;
+        data_ = static_cast<char*>(srHeap.allocate(size_));
+        strcpy(data_, source.data_);
+    }
+}
+
+srInlineString& srInlineString::operator=(const srInlineString& source)
+{
+    return operator=(source.data_);
+}
+
+// FUNCTION: SREXT_UNZIP 0x10010F60
+srInlineString::~srInlineString()
+{
+    release();
+}
+
+// FUNCTION: SREXT_UNZIP 0x10010F90
+srInlineString& srInlineString::operator=(const char* source)
+{
+    release();
+    if (source == 0 || *source == '\0') {
+        return *this;
+    }
+
+    size_ = strlen(source) + 1;
+    data_ = static_cast<char*>(srHeap.allocate(size_));
+    strcpy(data_, source);
+    return *this;
+}
+
+// FUNCTION: SREXT_UNZIP 0x100115C0
+static int WINAPI discardPrintOrService(char*, unsigned long)
+{
+    return 0;
+}
+
+// FUNCTION: SREXT_UNZIP 0x100115D0
+static int WINAPI discardReplace(char*)
+{
+    return 0;
+}
+
+// FUNCTION: SREXT_UNZIP 0x100115E0
+static void WINAPI discardMessage(unsigned long, unsigned long, unsigned, unsigned, unsigned,
+                                  unsigned, unsigned, unsigned, char, char*, char*, unsigned long,
+                                  char)
+{
+}
+
+// Password callback: records the current archive path and counts the callback so ambiguous multi-member results can be rejected.
+// FUNCTION: SREXT_UNZIP 0x100115F0
+static int WINAPI noteArchive(char* destination, int, const char*, const char*,
+                              srZipAdapter* adapter)
+{
+    adapter->noteCallback(destination);
+    return 0;
+}
+
+// FUNCTION: SREXT_UNZIP 0x10010EB0
+srZipAdapter::srZipAdapter()
+{
+    Wiz_NoPrinting(1);
+    callbacks_ = new srZipCallbacks;
+    memset(callbacks_, 0, sizeof(*callbacks_));
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wcast-function-type-mismatch"
+    /* reinterpret-ok: the password slot also passes the adapter. */
+    callbacks_->password = reinterpret_cast<DLLPASSWORD*>(noteArchive);
+    callbacks_->print = discardPrintOrService;
+    callbacks_->sound = 0;
+    callbacks_->replace = discardReplace;
+    callbacks_->SendApplicationMessage = discardMessage;
+    /* reinterpret-ok: the service slot reuses the print body. */
+    callbacks_->ServCallBk = reinterpret_cast<DLLSERVICE*>(discardPrintOrService);
+#pragma clang diagnostic pop
+    callbacks_->adapter = this;
+}
+
+// FUNCTION: SREXT_UNZIP 0x10011020
+srZipAdapter::~srZipAdapter()
+{
+    delete callbacks_;
+}
+
+// FUNCTION: SREXT_UNZIP 0x10011060
+srBinIStream* srZipAdapter::openMember(char* archive, char* member)
+{
+    UzpBuffer result;
+
+    case_insensitive_ = 0;
+    if (srConfig.exists("ZIP_CASE_INSENSITIVE") && srConfig.getBool("ZIP_CASE_INSENSITIVE")) {
+        case_insensitive_ = 1;
+    }
+
+    callback_count_ = 0;
+    srWizUnzipToMemory(archive, member, callbacks_, &result, case_insensitive_);
+
+    if (callback_count_ < 2) {
+        srBinIStream* stream = 0;
+        if (result.strlength != 0 && result.strptr != 0) {
+            stream = new srOwnedBinIMStream(result.strptr, result.strlength);
+        }
+        return stream;
+    }
+    return 0;
+}
+
+// FUNCTION: SREXT_UNZIP 0x10011200
+const char* srZipOpener::getDescription() const
+{
+    return "SurRender .zip opener";
+}
+
+// FUNCTION: SREXT_UNZIP 0x10011210
+const char* srUnzipPlugin::getDescription() const
+{
+    return "SurRender unzip plug-in";
+}
+
+// FUNCTION: SREXT_UNZIP 0x100112A0
+srUnzipPlugin::~srUnzipPlugin()
+{
+    srCore.getIStreamOpener();
+    delete opener_;
+}
+
+// FUNCTION: SREXT_UNZIP 0x10011350
+srOwnedBinIMStream::~srOwnedBinIMStream()
+{
+    free(allocation_);
+}
+
+// FUNCTION: SREXT_UNZIP 0x100113C0
+srInlineString::srInlineString()
+{
+    init();
+}
+
+srInlineString& srInlineString::operator+=(const char* suffix)
+{
+    if (suffix == 0 || *suffix == '\0') {
+        return *this;
+    }
+    const unsigned long combined_size = size_ + strlen(suffix);
+    char* combined = static_cast<char*>(srHeap.allocate(combined_size));
+    strcpy(combined, data_);
+    strcpy(combined + size_ - 1, suffix);
+    release();
+    size_ = combined_size;
+    data_ = combined;
+    return *this;
+}
+
+// FUNCTION: SREXT_UNZIP 0x100113D0
+srInlineString operator+(const srInlineString& left, const srInlineString& right)
+{
+    srInlineString result(left);
+    result += right.data();
+    return result;
+}
+
+// FUNCTION: SREXT_UNZIP 0x10011190
+extern "C" srPlugin* __cdecl srInitPlugin()
+{
+    return new srUnzipPlugin;
+}
+
+// FUNCTION: SREXT_UNZIP 0x10011630
+extern "C" unsigned long __cdecl srGetLibraryVersion()
+{
+    return 0x012A0209UL;
+}

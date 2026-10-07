@@ -1,0 +1,82 @@
+#pragma once
+
+#include "wiz8/difficulty.h"
+#include "wiz8/layouts/main_game_screen.h"
+
+enum W8CameraRotationMode {
+    W8_CAMERA_ROTATION_SELECTED_CHARACTER = 0,
+    W8_CAMERA_ROTATION_ALL_TARGETS = 1,
+    W8_CAMERA_ROTATION_DISABLED = 2
+};
+
+enum W8CameraRotationStyle { W8_CAMERA_ROTATION_SNAP = 0, W8_CAMERA_ROTATION_SMOOTH = 1 };
+
+void LoadGameConfiguration(void);
+bool SaveGameConfiguration(void);
+/* Bodies live in music_playlist.cpp (address-interleaved with that fragment). */
+void SetMusicVolume(unsigned char volume);
+bool IsMusicMuted(void);
+void SetMusicMuted(unsigned char muted);
+
+/* The persisted configuration block. */
+
+#pragma pack(push, 1)
+struct W8GameSettings {
+    unsigned char field_000;
+    unsigned char numeric_hit_points;
+    unsigned char unknown_002[0x4];
+    /* Mirrors W8LevelRuntimeBlock::main_ui_mode. ApplyMainGameModeFlag
+       writes both together; NONE is the transient park Screens uses while it
+       re-raises panels on main-game enter. */
+    W8MainUiMode main_ui_mode;
+    unsigned char continuous_combat;
+    unsigned char auto_advance_character;
+    bool tooltips_enabled;
+    W8Difficulty difficulty;
+    unsigned int text_display_delay_ms;
+    int combat_delay_ms;
+    int continuous_combat_start_delay_ms;
+    W8CameraRotationMode camera_rotation_mode;
+    W8CameraRotationStyle camera_rotation_style;
+    int tooltip_delay_ms;
+    unsigned char formation_action_panel_preference;
+    unsigned char formation_radar_map_preference;
+    unsigned char formation_board_preference;
+    unsigned char portraits_action_panel_preference;
+    unsigned char unknown_02d[0x1];
+    unsigned char sound_effects_volume;
+    unsigned char music_volume;
+    unsigned char voice_volume;
+    unsigned char footstep_volume;
+    unsigned char muted_sound_effects_volume;
+    unsigned char muted_music_volume;
+    unsigned char muted_voice_volume;
+    unsigned char field_035;
+    unsigned char invert_mouse_y;
+    float monster_movement_speed;
+    unsigned char field_03b;
+    float gamma;
+    unsigned char pc_confirmations; /* options string 0x823 */
+    unsigned char mouselook_toggle;
+    unsigned char pc_subtitles; /* options string 0x824 */
+    unsigned char mouselook_smoothing;
+    unsigned char verbose_combat_messages;
+    unsigned char auto_save;
+    bool intro_seen;
+    unsigned char field_047;
+    unsigned char monster_shadows;           /* options string 0x818 */
+    unsigned char smooth_monster_animations; /* options string 0x819 */
+    unsigned char smooth_world_animations;   /* options string 0x81a */
+    unsigned char skill_increase_messages;
+    unsigned char ctrl_right_click_info;
+    unsigned char autoswap_weapons;
+    unsigned char autotarget_spells;
+    unsigned char autoscroll_combat_messages;
+    unsigned char simplified_npc_interaction;
+    unsigned char unknown_051[0x53];
+};
+#pragma pack(pop)
+
+static_assert(sizeof(W8GameSettings) == 0xa4, "W8GameSettings_must_be_0xa4");
+
+extern W8GameSettings g_settings;

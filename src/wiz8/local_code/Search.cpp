@@ -1,0 +1,399 @@
+#include "wiz8/fonts.h"
+#include "wiz8/local_code/Search.h"
+#include "wiz8/integer_constants.h"
+
+#include <stdio.h>
+
+#include "wiz8/character_event_queue.h"
+#include "wiz8/character_skills.h"
+#include "wiz8/engine_code/Camera.h"
+#include "wiz8/engine_code/Environment.h"
+#include "wiz8/engine_code/GameData.h"
+#include "wiz8/engine_code/Item.h"
+#include "wiz8/engine_code/Levels.h"
+#include "wiz8/engine_code/Octree.h"
+#include "wiz8/engine_code/Prop.h"
+#include "wiz8/engine_code/Trigger.hpp"
+#include "wiz8/engine_code/World.h"
+#include "wiz8/engine_code/quad.h"
+#include "wiz8/engine_code/stCube.h"
+#include "wiz8/engine_code/PolyPick.h"
+#include "wiz8/float_constants.h"
+#include "wiz8/item_spawning.h"
+#include "wiz8/layouts/character.h"
+#include "wiz8/layouts/combat_state.h"
+#include "wiz8/layouts/game_status.h"
+#include "wiz8/level_specific_code/MasterFunctionList.h"
+#include "wiz8/local_code/ConditionsAndEnchantments.h"
+#include "wiz8/local_code/PC_Item.h"
+#include "wiz8/local_code/Strings.h"
+#include "wiz8/local_code/character_events.h"
+#include "wiz8/local_screens/MGSTextBox.h"
+#include "wiz8/local_screens/ReviewCharacterScreen.h"
+#include "wiz8/local_screens/MainGameScreen.h"
+#include "wiz8/notices.h"
+#include "wiz8/string_database.h"
+#include "wiz8/utility.h"
+#include "wiz8/xstatus.h"
+#include "wiz8/sr_api.h"
+#include "random.h"
+#include "timer.h"
+
+/* Local Code\search.cpp. The assertion in RegisterSearchableTrigger at source
+   line 337 establishes the original translation unit. */
+
+// GLOBAL: WIZ8 0x00689fa8
+W8Vector<W8Searchable*> g_searchables(5);
+// GLOBAL: WIZ8 0x00689fb8
+W8SearchableView g_search_view;
+// GLOBAL: WIZ8 0x00689fcc
+TIMER g_search_pulse_clock;
+
+/* 10000.0: the unit search radius PickBestSearcher scales by score, and the
+   collector's outer range gate. */
+// GLOBAL: WIZ8 0x0061a364
+float g_search_radius = 10000.0f;
+// GLOBAL: WIZ8 0x0061a368
+float g_search_cone_angle = 3.1415925f;
+
+/* The view's own constructor: seeds the cursor ahead of the first element and
+   builds the item vector with capacity five. */
+// FUNCTION: WIZ8 0x00517900
+W8SearchableView::W8SearchableView() : cursor(-1), items() {}
+
+/* Searchable was detected: items shed their hidden flag and become findable,
+   triggers run; either way the record leaves the registry. */
+// FUNCTION: WIZ8 0x00516ad0
+void W8Searchable::Reveal()
+{
+    if (world_item != 0) {
+        if (!ItemHasFlags(world_item, W8_WORLD_ITEM_HIDDEN)) {
+            return;
+        }
+        SetItemFlags(world_item, W8_WORLD_ITEM_HIDDEN, false);
+        SetItemFlags(world_item, W8_WORLD_ITEM_RADAR_BLIP_LIT, true);
+        SetItemAndEntityFlags(world_item, W8_ITEM_ENTITY_HIGHLIGHT_BLUE, false);
+    } else {
+        if (trigger == 0) {
+            return;
+        }
+        trigger->Run(-1);
+        trigger->flags |= W8_TRIGGER_SEARCHED;
+    }
+    g_searchables.Remove(this);
+    delete this;
+}
+
+/* Refill the view with the registered searchables inside the search radius
+   that either face the party or have a clear line of sight. Returns null when
+   nothing qualified. */
+// FUNCTION: WIZ8 0x00516ba0
+W8SearchableView* CollectSearchablesInView(void)
+{
+    int total = g_searchables.GetCount();
+    srVector3T<float> camera;
+    GetCameraPosition(&camera);
+    g_search_view.items.Clear();
+    g_search_view.cursor = -1;
+    for (int index = 0; index < total; ++index) {
+        W8Searchable* searchable = *g_searchables.GetAt(index);
+        srVector3T<float> position;
+        searchable->GetPosition(&position);
+        srVector3T<float> delta = camera - position;
+        if (delta.Length() < g_search_radius) {
+            if (searchable->world_item == 0 && searchable->trigger != 0) {
+                g_search_view.items.Add(searchable);
+            } else {
+                float half_cone = g_search_cone_angle * g_float_half;
+                srVector3T<float> from = camera;
+                srVector3T<float> to = position;
+                float yaw = GetCameraYawRadians();
+                float heading = GetHeadingAngle(&from, &to);
+                float ahead = NormalizeAngle(yaw - heading);
+                float behind = NormalizeAngle(heading - yaw);
+                if ((half_cone <= ahead && half_cone <= behind) || g_octree == 0 ||
+                    !g_octree->HasLineOfSight(&camera, &position, true)) {
+                    continue;
+                }
+                g_search_view.items.Add(searchable);
+            }
+        }
+    }
+    return g_search_view.items.GetCount() != 0 ? &g_search_view : 0;
+}
+
+/* Register one searchable world item. The item pointer lands in the record's
+   first slot, which is what distinguishes the item entries from the trigger
+   entries registered by the sibling below. */
+// FUNCTION: WIZ8 0x00516e20
+void RegisterSearchableWorldItem(W8WorldItem* item)
+{
+    W8Searchable* searchable = new W8Searchable;
+    if (searchable == 0) {
+        srAssertFail("pSearchable", "C:\\Projects\\Wizardry 8\\Local Code\\search.cpp", 0x125, 0);
+    }
+    searchable->world_item = item;
+    g_searchables.Add(searchable);
+}
+
+// FUNCTION: WIZ8 0x00516f00
+void RegisterSearchableTrigger(Trigger* trigger)
+{
+    W8Searchable* searchable = new W8Searchable;
+    if (searchable == 0) {
+        srAssertFail("pSearchable", "C:\\Projects\\Wizardry 8\\Local Code\\search.cpp", 0x151, 0);
+    }
+    searchable->trigger = trigger;
+    g_searchables.Add(searchable);
+}
+
+// FUNCTION: WIZ8 0x00516fe0
+void UnregisterSearchableTrigger(Trigger* trigger)
+{
+    for (int index = 0; index < g_searchables.GetCount(); ++index) {
+        W8Searchable* searchable = *g_searchables.GetAt(index);
+        if (searchable->trigger == trigger) {
+            g_searchables.Remove(searchable);
+            delete searchable;
+            return;
+        }
+    }
+}
+
+/* Resolve this searchable's world position: the item's rep midpoint when it
+   has a live owner, the recorded position otherwise; cursor-node and prop
+   searchables resolve through their own objects. */
+// FUNCTION: WIZ8 0x00517080
+void W8Searchable::GetPosition(srVector3T<float>* position)
+{
+    position->SetZero();
+    if (world_item != 0) {
+        if (world_item->p3D != 0) {
+            world_item->p3D->GetSearchPosition(position);
+            return;
+        }
+        position->Set(world_item->position.x, world_item->position.y + g_octree_cell_scale,
+                      world_item->position.z);
+        return;
+    }
+    if (cursor_node != 0) {
+        if (cursor_node->GetLocation(position) == 0) {
+            *position = 3.4028235e+38f;
+        }
+        return;
+    }
+    if (trigger != 0) {
+        W8Prop* prop = trigger->GetProp();
+        if (prop != 0) {
+            srVector3T<float> minimum;
+            srVector3T<float> maximum;
+            prop->PlayRepAnimation(&minimum, &maximum);
+            position->Set((minimum.x + maximum.x) * g_double_half,
+                          (minimum.y + maximum.y) * g_double_half,
+                          (minimum.z + maximum.z) * g_double_half);
+        }
+    }
+}
+
+// FUNCTION: WIZ8 0x005171b0
+void ClearSearchables()
+{
+    g_searchables.Clear();
+}
+
+/* The 500ms search sweep: while nothing is interacting or surprising the
+   party, walk the in-view searchables, pick the best searcher for each, queue
+   the found event and turn the camera toward the find. */
+// FUNCTION: WIZ8 0x005171c0
+void RunSearchPulse(void)
+{
+    if (ClockIsTicking(g_search_pulse_clock) == 0) {
+        g_search_pulse_clock = SetCountdownClock(500);
+        if (GetEnvironmentFlag() != 0 && !gXStatus.world_update_blocked &&
+            !gXStatus.fSurprisePossible && !gXStatus.fLockInteractMode && !gXStatus.fLockInteract &&
+            !gXStatus.fTrapInteractMode && !gXStatus.fTrapInteract) {
+            if ((g_level_data->flags & W8_LEVEL_FLAG_FAST_MOVEMENT) != 0 &&
+                g_status.search_mode != 0) {
+                ShowNotice(W8_FONT_PALETTE_BEIGE, gppStringList[W8_NOTICE_SEARCH_SPECIAL_LEVEL]);
+            }
+            W8SearchableView* view = CollectSearchablesInView();
+            bool found = false;
+            if (view != 0) {
+                for (;;) {
+                    ++view->cursor;
+                    if (view->items.GetCount() <= view->cursor) {
+                        --view->cursor;
+                        break;
+                    }
+                    W8Searchable* searchable = *view->items.GetAt(view->cursor);
+                    if (searchable == 0) {
+                        break;
+                    }
+                    int slot = searchable->PickBestSearcher();
+                    if (slot != -1) {
+                        W8Character* character = &g_status.buffers.Char[slot];
+                        if (searchable->world_item == 0) {
+                            if (searchable->trigger == 0) {
+                                QueueCharacterEvent(character, g_effect16, 0, g_effect_argument0,
+                                                    g_character_event_full_volume);
+                                found = true;
+                            } else {
+                                QueueCharacterEvent(character, g_effect16, 0, g_effect_argument0,
+                                                    g_character_event_full_volume);
+                                int message = searchable->trigger->m_lData1;
+                                found = true;
+                                if (message >= 0) {
+                                    const char* folder = GetLevelFolderName(GetLoadedLevelID());
+                                    if (folder == 0) {
+                                        folder = "Test";
+                                    }
+                                    char path[512];
+                                    sprintf(path, "Data\\Messages\\%s.msg", folder);
+                                    wchar_t text[0x7ce];
+                                    if (GetStringFromStringDatabase(path, message, text, 0, 0) !=
+                                        0) {
+                                        ShowString(text);
+                                    }
+                                }
+                            }
+                        } else {
+                            PartyAttemptsToIdentifyItem(&searchable->world_item->item, 0);
+                            unsigned int event_type = g_search_found_item_event;
+                            if (Random(2) != 0) {
+                                event_type = g_search_found_item_event_alt;
+                            }
+                            W8CharacterEvent* event =
+                                new W8CharacterEvent(character, event_type, 0, g_effect_argument0,
+                                                     g_character_event_full_volume);
+                            if (searchable->world_item != 0) {
+                                event->item = searchable->world_item->item;
+                            }
+                            if (event != 0) {
+                                gXStatus.character_event_queue->QueueEntry(event);
+                            }
+                        }
+                        srVector3T<float> position;
+                        searchable->GetPosition(&position);
+                        ResetInactiveLevelDataVectors();
+                        PointCameraAtTarget(&position, true, true);
+                        searchable->Reveal();
+                    }
+                }
+            }
+            if (g_status.search_mode == 0 ||
+                (g_level_data->flags & W8_LEVEL_FLAG_FAST_MOVEMENT) != 0) {
+                /* Retail scans the party for a live member carrying the
+                   Scouting skill and then discards the result. */
+                for (int slot = 0; slot < W8_PARTY_SLOT_COUNT; ++slot) {
+                    W8Character* character = &g_status.buffers.Char[slot];
+                    if (g_status.buffers.XChar[slot].fOccupied && character->hp_current != 0 &&
+                        character->highest_condition < W8_CONDITION_TURNCOAT &&
+                        character->skills[W8_SKILL_SCOUTING].level != 0) {
+                        break;
+                    }
+                }
+            }
+            if (g_status.search_mode != 0 &&
+                (g_level_data->flags & W8_LEVEL_FLAG_FAST_MOVEMENT) == 0 && !found &&
+                Random(100) == 0) {
+                ApplyItemEffectToRandomCharacter(g_container_event, -1, 0,
+                                                 g_character_event_no_flags);
+            }
+        }
+    }
+}
+
+/* Pick the best searching party member for this searchable: eligible members
+   score their Scouting skill (halved, quartered in the special level state)
+   plus a Senses-derived bonus; the detect-secrets party effect instead
+   force-picks random eligible members without practicing the skill. The pick
+   must also reach this searchable's position. */
+// FUNCTION: WIZ8 0x00517560
+int W8Searchable::PickBestSearcher()
+{
+    unsigned int best_score = 0;
+    int best_slot = -1;
+    bool earned = false;
+    for (int slot = 0; slot < W8_PARTY_SLOT_COUNT; ++slot) {
+        W8Character* character = &g_status.buffers.Char[slot];
+        if (!g_status.buffers.XChar[slot].fOccupied || character->hp_current == 0 ||
+            character->highest_condition >= W8_CONDITION_TURNCOAT) {
+            continue;
+        }
+        if (CharacterHasTrait(character, W8_TRAIT_SEARCH) || g_status.search_mode != 0) {
+            unsigned int level = character->skills[W8_SKILL_SCOUTING].level;
+            unsigned int base = level >> 1;
+            if ((g_level_data->flags & W8_LEVEL_FLAG_FAST_MOVEMENT) != 0) {
+                base = level >> 2;
+            }
+            unsigned int score = 0;
+            if (base != 0 || (g_status.search_mode != 0 &&
+                              (g_level_data->flags & W8_LEVEL_FLAG_FAST_MOVEMENT) == 0)) {
+                unsigned int attribute = character->attributes[W8_ATTRIBUTE_SENSES].effective;
+                if (attribute < 0x33) {
+                    score = base + attribute / 5;
+                } else if (attribute < 0x51) {
+                    score = base + 10 + (attribute - 0x32) / 3;
+                } else if (attribute < 0x5b) {
+                    score = base - 0x3c + attribute;
+                } else if (attribute < 100) {
+                    score = base - 0x96 + attribute * 2;
+                } else if (attribute < 0x65) {
+                    score = base + 0x32;
+                } else {
+                    score = base + 0x32 + (attribute * 10 - 1000) / 0x19;
+                }
+            }
+            if (score > 99) {
+                score = 100;
+            }
+            if (best_score < score) {
+                earned = true;
+                best_score = score;
+                best_slot = slot;
+            }
+        }
+        if (g_status.party_modifiers.detect_secrets != 0) {
+            if (best_slot != -1 && Random(2) == 0) {
+                continue;
+            }
+            best_score = 100;
+            earned = false;
+            best_slot = slot;
+        }
+    }
+    float range = best_score * g_search_radius * g_movement_speed_step;
+    srVector3T<float> camera;
+    GetCameraPosition(&camera);
+    srVector3T<float> position;
+    GetPosition(&position);
+    srVector3T<float> delta = camera - position;
+    if (delta.Length() < range) {
+        if (earned) {
+            PracticeCharacterSkill(&g_status.buffers.Char[best_slot], W8_SKILL_SCOUTING, 5, false);
+        }
+        return best_slot;
+    }
+    return -1;
+}
+
+/* Toggle the party's search mode: leaving it posts the off notice, entering it
+   posts the on notice and arms the 500ms pulse that sweeps the searchable
+   registry; combat blocks the toggle outright. */
+// FUNCTION: WIZ8 0x00517780
+void ToggleSearchMode(void)
+{
+    if (g_status.search_mode != 0) {
+        g_status.search_mode = 0;
+        ShowNotice(W8_FONT_PALETTE_BEIGE, gppStringList[W8_NOTICE_SEARCH_MODE_OFF]);
+        return;
+    }
+    if (!gXStatus.fCombatMode) {
+        g_status.search_mode = 1;
+        ShowNotice(W8_FONT_PALETTE_BEIGE, gppStringList[W8_NOTICE_SEARCH_MODE_ON]);
+        g_search_pulse_clock = SetCountdownClock(0x1f4);
+        ClearActiveWorldCursorNode();
+    } else {
+        ShowNotice(W8_FONT_PALETTE_BEIGE, gppStringList[W8_NOTICE_SEARCH_BLOCKED_COMBAT]);
+    }
+}

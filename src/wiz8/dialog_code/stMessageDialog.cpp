@@ -1,0 +1,393 @@
+#include "wiz8/dialog_code/DialogButton.h"
+#include "wiz8/dialog_code/MessageDialogBase.h"
+#include "wiz8/sgp_text.h"
+#include "wiz8/dialog_code/DialogInterface.h"
+#include "wiz8/dialog_code/ButtonUserData.h"
+#include "wiz8/sr_api.h"
+#include "wiz8/cursor.h"
+#include "wiz8/utility.h"
+
+#include "english.h"
+#include "mousesystem_macros.h"
+#include "Button System.h"
+#include "Font.h"
+
+#include <ctype.h>
+#include <stdlib.h>
+#include <wchar.h>
+
+/* Dialog Code\stMessageDialog.cpp. SetMessage and WrapMessage assert this
+   unit (lines 131 and 213); the two button callbacks are proven by their
+   call-site strings (lines 615 and 652). The adjacent constructor,
+   destructor, draw and input bodies are the surrounding attribution gaps
+   placed with them provisionally. */
+
+/* Dialog Code. The shared dialog base at vtable 0x005EF8B0. Its lifetime
+   bodies are what every derived dialog runs before and after its own. */
+
+// FUNCTION: WIZ8 0x005d25b0
+W8MessageDialogBase::W8MessageDialogBase()
+    : accepted(false), is_open(true), m_edge_image(-1), m_message_button(-1), m_confirm_button(-1),
+      m_confirm_image(-1), m_cancel_button(-1), m_cancel_image(-1), m_lines(0), m_line_count(0)
+{
+}
+
+/* A virtual called from a destructor has a fixed dynamic type, so the
+   compiler dispatches it directly; that direct call is slot 2. */
+
+// FUNCTION: WIZ8 0x005d2610
+W8MessageDialogBase::~W8MessageDialogBase()
+{
+    DestroyControls();
+}
+
+// FUNCTION: WIZ8 0x005d2660
+void W8MessageDialogBase::Draw()
+{
+    int y;
+    unsigned int index;
+
+    W8DialogBase::Draw();
+    DrawButton(m_message_button);
+    if (!m_show_confirm && !allow_cancel) {
+        y = m_y + m_height / 2 - (GetFontHeight(g_dialog_interface_font) * m_line_count >> 1);
+    } else {
+        y = m_y + (m_height - 0x21) / 2 -
+            (GetFontHeight(g_dialog_interface_font) * m_line_count >> 1);
+    }
+    if (m_lines) {
+        SaveFontSettings();
+        SetFont(g_dialog_interface_font);
+        SetFontForeground(g_dialog_font_foreground);
+        SetFontBackground(g_dialog_font_background);
+        for (index = 0; index < m_line_count; ++index) {
+            wchar_t* line = m_lines[index];
+            short width = StringPixLengthArg(g_dialog_interface_font, wcslen(line), line);
+            gprintf(m_x + (m_width - width) / 2, y, line);
+            y += GetFontHeight(g_dialog_interface_font);
+        }
+        RestoreFontSettings();
+    }
+    if (m_show_confirm) {
+        if (m_confirm_button != -1) {
+            DrawButton(m_confirm_button);
+        }
+        if (allow_cancel && m_cancel_button != -1) {
+            DrawButton(m_cancel_button);
+        }
+    }
+}
+
+// FUNCTION: WIZ8 0x005d2800
+void W8MessageDialogBase::SetMessage(const wchar_t* message, int line_count,
+                                     unsigned short characters_per_line, bool confirmation,
+                                     bool cancel, bool size_to_message, bool wrap_message,
+                                     int maximum_width, int maximum_height)
+{
+    /* 0x005D2950 compares the line counter unsigned; the signed compare in
+       this function is the width clamp at 0x005D295E, and `width` carries it. */
+    unsigned int index;
+
+    if (!message) {
+        srAssertFail("pMessage", "C:\\Projects\\Wizardry 8\\Dialog Code\\stMessageDialog.cpp", 0x83,
+                     0);
+    }
+    if (m_lines) {
+        for (index = 0; index < m_line_count; ++index) {
+            free(m_lines[index]);
+        }
+        free(m_lines);
+        m_lines = 0;
+    }
+    if (line_count == 1 && wrap_message) {
+        line_count = WrapMessage(message);
+    } else {
+        m_lines = static_cast<wchar_t**>(malloc(line_count * sizeof(wchar_t*)));
+        for (index = 0; index < static_cast<unsigned int>(line_count); ++index) {
+            m_lines[index] = static_cast<wchar_t*>(
+                malloc(characters_per_line * sizeof(wchar_t) + sizeof(wchar_t)));
+            wcscpy(m_lines[index], message);
+            message += characters_per_line;
+        }
+    }
+    m_line_count = line_count;
+    m_show_confirm = confirmation;
+    allow_cancel = cancel;
+    if (size_to_message) {
+        /* 0x005D295E clamps the width with a signed compare. */
+        int width = 0;
+        int height;
+
+        for (index = 0; index < m_line_count; ++index) {
+            short line_width = StringPixLength(m_lines[index], g_dialog_interface_font);
+            if (width < line_width) {
+                width = line_width;
+            }
+        }
+        width = width * 5 / 4;
+        if (width < 0xaa) {
+            width = 0xaa;
+        }
+        GetFontHeight(g_dialog_interface_font);
+        height = GetFontHeight(g_dialog_interface_font) * m_line_count + 0x1e;
+        if (m_show_confirm || allow_cancel) {
+            height = GetFontHeight(g_dialog_interface_font) * m_line_count + 0x3f;
+        }
+        if (height < GetFontHeight(g_dialog_interface_font) * 7) {
+            height = GetFontHeight(g_dialog_interface_font) * 7;
+        }
+        if (maximum_width && maximum_width < width) {
+            width = maximum_width;
+        }
+        if (maximum_height && maximum_height < height) {
+            height = maximum_height;
+        }
+        SetClientExtent(width, height);
+    }
+}
+
+// FUNCTION: WIZ8 0x005d2a50
+unsigned int W8MessageDialogBase::WrapMessage(const wchar_t* message)
+{
+    wchar_t lines[32][256];
+    wchar_t* remaining;
+    wchar_t* line;
+    unsigned int line_index = 0;
+    unsigned int words_on_line = 0;
+    /* 0x005D2BE8 sign-extends the word width into EAX, adds the running total and
+       bounds it against m_width with JBE at 0x005D2BF2, so the running total is
+       the unsigned operand. */
+    unsigned int line_width = 0;
+    int space_width = StringPixLength(const_cast<wchar_t*>(L" "), g_dialog_interface_font);
+    unsigned int maximum_width = static_cast<unsigned int>(m_width) + 0xf;
+    unsigned int index;
+
+    remaining = new wchar_t[wcslen(message) + 1];
+    if (!remaining) {
+        srAssertFail("pRemainingText", "C:\\Projects\\Wizardry 8\\Dialog Code\\stMessageDialog.cpp",
+                     0xd5, 0);
+    }
+    wcscpy(remaining, message);
+    for (index = 0; index < 32; ++index) {
+        wcscpy(lines[index], L"");
+    }
+
+    line = lines[0];
+    size_t word_length = wcscspn(remaining, L" ");
+    while (remaining[word_length] != L'\0') {
+        remaining[word_length] = L'\0';
+        int word_width = StringPixLength(remaining, g_dialog_interface_font);
+        if (line_width + word_width > maximum_width) {
+            if (words_on_line != 0) {
+                ++line_index;
+                line = lines[line_index];
+                wcscpy(line, remaining);
+                line_width = word_width;
+                words_on_line = 1;
+            } else {
+                wcscat(line, remaining);
+                line_width += space_width + word_width;
+                ++words_on_line;
+            }
+        } else {
+            if (words_on_line != 0) {
+                wcscat(line, L" ");
+            }
+            wcscat(line, remaining);
+            line_width += space_width + word_width;
+            ++words_on_line;
+        }
+        remaining += word_length + 1;
+        word_length = wcscspn(remaining, L" ");
+    }
+
+    int word_width = StringPixLength(remaining, g_dialog_interface_font);
+    if (line_width + word_width > static_cast<unsigned int>(m_width)) {
+        ++line_index;
+        wcscpy(lines[line_index], remaining);
+    } else {
+        wcscat(lines[line_index], L" ");
+        wcscat(lines[line_index], remaining);
+    }
+
+    unsigned int count = line_index + 1;
+    m_lines = static_cast<wchar_t**>(malloc(count * sizeof(wchar_t*)));
+    for (index = 0; index < count; ++index) {
+        m_lines[index] =
+            static_cast<wchar_t*>(malloc((wcslen(lines[index]) + 1) * sizeof(wchar_t)));
+        wcscpy(m_lines[index], lines[index]);
+    }
+    return count;
+}
+
+// FUNCTION: WIZ8 0x005d2cb0
+void W8MessageDialogBase::SetClientExtent(int width, int height)
+{
+    int old_width = m_width;
+    int old_height = m_height;
+
+    SetExtent(width, height);
+    SetOrigin(m_x + (old_width - width) / 2, m_y + (old_height - height) / 2);
+}
+
+// FUNCTION: WIZ8 0x005d2d00
+int W8MessageDialogBase::CreateControls()
+{
+    W8DialogBase::CreateControls();
+    if (m_edge_image == -1) {
+        m_edge_image = LoadGenericButtonImages(0, Wiz8ToSgpText("Data\\Dialogs\\DialogEdge.STI"), 0,
+                                               Wiz8ToSgpText("Data\\Dialogs\\DialogEdge.STI"), 0,
+                                               Wiz8ToSgpText(m_background_path),
+                                               static_cast<short>(m_background_flags), 0, 0);
+        if (m_edge_image == -1) {
+            return m_error = 3;
+        }
+    }
+    m_message_button = CreateTextButton(
+        0, g_dialog_interface_font, g_dialog_font_foreground, g_dialog_font_background,
+        m_edge_image, static_cast<short>(m_x + 9), static_cast<short>(m_y + 9),
+        static_cast<short>(m_width - 0x12), static_cast<short>(m_height - 0x12),
+        BUTTON_NO_TOGGLE | BUTTON_IGNORE_CLICKS, MSYS_PRIORITY_HIGHEST - 1, BUTTON_NO_CALLBACK,
+        BUTTON_NO_CALLBACK);
+
+    m_confirm_image =
+        LoadButtonImage(Wiz8ToSgpText("Data\\Dialogs\\DialogConfirmation.STI"), 3, 0, 1, 2, 2);
+    if (m_confirm_image != -1) {
+        m_confirm_button =
+            QuickCreateButton(m_confirm_image, 0, 0, BUTTON_NO_TOGGLE, MSYS_PRIORITY_HIGHEST,
+                              MessageDialogConfirmCallback, MessageDialogConfirmCallback);
+    }
+    m_cancel_image =
+        LoadButtonImage(Wiz8ToSgpText("Data\\Dialogs\\DialogConfirmation.STI"), 7, 4, 5, 6, 6);
+    if (m_cancel_image != -1) {
+        m_cancel_button =
+            QuickCreateButton(m_cancel_image, 0, 0, BUTTON_NO_TOGGLE, MSYS_PRIORITY_HIGHEST,
+                              MessageDialogCancelCallback, MessageDialogCancelCallback);
+    }
+    if (m_confirm_button != -1 && m_cancel_button != -1) {
+        int button_width;
+        int button_y;
+        int button_x;
+
+        SetButtonUserDataPointer(m_confirm_button, this);
+        SetButtonUserDataPointer(m_cancel_button, this);
+        button_width = GetButtonWidth(m_confirm_button);
+        button_y = m_y + m_height - GetButtonHeight(m_confirm_button) - 0xf;
+        if (allow_cancel) {
+            button_x = m_x + (m_width - button_width * 3) / 2;
+        } else {
+            button_x = m_x + (m_width - button_width) / 2;
+        }
+        SetButtonPosition(m_confirm_button, button_x, button_y);
+        SetButtonPosition(m_cancel_button, m_x + m_width / 2 + GetButtonWidth(m_confirm_button) / 2,
+                          GetButtonY(m_confirm_button));
+        return 0;
+    }
+    DestroyControls();
+    return m_error = 6;
+}
+
+// FUNCTION: WIZ8 0x005d2f40
+void W8MessageDialogBase::DestroyControls()
+{
+    unsigned int index;
+
+    W8DialogBase::DestroyControls();
+    ReleaseDialogBorderImage(m_edge_image);
+    ReleaseDialogButtonHandle(m_message_button);
+    ReleaseDialogButtonHandle(m_confirm_button);
+    ReleaseDialogButtonHandle(m_cancel_button);
+    ReleaseDialogButtonImage(m_confirm_image);
+    ReleaseDialogButtonImage(m_cancel_image);
+    if (m_lines) {
+        for (index = 0; index < m_line_count; ++index) {
+            free(m_lines[index]);
+        }
+        free(m_lines);
+        m_lines = 0;
+    }
+}
+
+// FUNCTION: WIZ8 0x005d3020
+bool W8MessageDialogBase::HandleInput(const InputAtom* input)
+{
+    if (input->usEvent != KEY_DOWN) {
+        return is_open;
+    }
+
+    if (allow_cancel) {
+        int key = toupper(input->usParam);
+        if (key == ESC) {
+            accepted = false;
+            is_open = false;
+            return false;
+        }
+        if (key != '\r') {
+            return is_open;
+        }
+    }
+
+    accepted = true;
+    is_open = false;
+    return false;
+}
+
+// FUNCTION: WIZ8 0x005d3080
+bool W8MessageDialogBase::ProcessInput()
+{
+    POINT mouse;
+    InputAtom input;
+
+    SGPMouseGetPos(&mouse);
+    MSYS_SGP_Mouse_Handler_Hook(MOUSE_POS, mouse.x, mouse.y, gfLeftButtonState, gfRightButtonState);
+
+    while (DequeueEvent(&input)) {
+        if (!DispatchDialogMouseInput(input.usEvent, mouse.x, mouse.y)) {
+            return HandleInput(&input);
+        }
+    }
+
+    return is_open;
+}
+
+// FUNCTION: WIZ8 0x005d32c0
+void MessageDialogConfirmCallback(GUI_BUTTON* button, int reason)
+{
+    W8MessageDialogBase* dialog = GetButtonUserDataPointer<W8MessageDialogBase>(button);
+    if (!dialog) {
+        srAssertFail("pDialog", "C:\\Projects\\Wizardry 8\\Dialog Code\\stMessageDialog.cpp", 0x267,
+                     0);
+    }
+    if (!(reason & MSYS_CALLBACK_REASON_LBUTTON_DWN) &&
+        (reason & MSYS_CALLBACK_REASON_LBUTTON_UP)) {
+        if (button->uiFlags & BUTTON_CLICKED_ON) {
+            dialog->accepted = true;
+            dialog->is_open = false;
+            button->uiFlags &= ~BUTTON_CLICKED_ON;
+            dialog->m_dirty_flags |= W8_DIALOG_DIRTY_REDRAW;
+        }
+    } else if (UpdateDialogArrowState(button, reason)) {
+        dialog->m_dirty_flags |= W8_DIALOG_DIRTY_REDRAW;
+    }
+}
+
+// FUNCTION: WIZ8 0x005d3370
+void MessageDialogCancelCallback(GUI_BUTTON* button, int reason)
+{
+    W8MessageDialogBase* dialog = GetButtonUserDataPointer<W8MessageDialogBase>(button);
+    if (!dialog) {
+        srAssertFail("pDialog", "C:\\Projects\\Wizardry 8\\Dialog Code\\stMessageDialog.cpp", 0x28c,
+                     0);
+    }
+    if (!(reason & MSYS_CALLBACK_REASON_LBUTTON_DWN) &&
+        (reason & MSYS_CALLBACK_REASON_LBUTTON_UP)) {
+        if (button->uiFlags & BUTTON_CLICKED_ON) {
+            dialog->accepted = false;
+            dialog->is_open = false;
+            button->uiFlags &= ~BUTTON_CLICKED_ON;
+            dialog->m_dirty_flags |= W8_DIALOG_DIRTY_REDRAW;
+        }
+    } else if (UpdateDialogArrowState(button, reason)) {
+        dialog->m_dirty_flags |= W8_DIALOG_DIRTY_REDRAW;
+    }
+}

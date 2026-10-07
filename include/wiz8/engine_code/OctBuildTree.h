@@ -1,0 +1,110 @@
+#ifndef WIZ8_ENGINE_CODE_OCT_BUILD_TREE_H
+#define WIZ8_ENGINE_CODE_OCT_BUILD_TREE_H
+
+#include "wiz8/engine_code/OctPreTree.h"
+#include "wiz8/geometry.h"
+
+struct W8OctBuildLink {
+    void* surface; /* region polygons and GD surfaces share the build links */
+    W8OctBuildLink* next;
+};
+
+class OctPreTree;
+
+struct W8OctBuildLinkLists {
+    W8OctBuildLinkLists();
+    W8OctBuildLink* GetNewLink(void* surface);
+
+    unsigned short m_usCurrent;
+    unsigned short unknown_02;
+    W8OctBuildLink* m_apLinkLists[100];
+    unsigned short m_ausLinkCounts[100];
+};
+
+struct W8OctBuildNode {
+    W8OctBuildNode();
+    ~W8OctBuildNode();
+
+    unsigned char RearrangeNodePolys(short current_depth, short target_depth);
+    int CollectLinkedSurfaces(short current_depth, short target_depth, short mode);
+    int CollectSurfaceArray(short mode);
+    unsigned long ConvertToOctPreTree(unsigned short depth, OctPreTree* tree);
+
+    union {
+        W8OctBuildNode* children[8];
+        W8OctBuildLink* links[8];
+        void** surface_arrays[8]; /* elements follow the insert mode */
+        unsigned short* region_arrays[8];
+    };
+    unsigned long padding_20;
+    unsigned long padding_24;
+    unsigned short region;
+    unsigned short leaf_kind;
+    unsigned short provisional_region;
+    unsigned short positional;
+};
+
+/* A zero-storage node variant with independently evidenced behavior: its
+   constructor at 0x004AF760 increments the live-node counter after invoking
+   the ordinary node constructor.  Its original spelling and source owner are
+   still unresolved. */
+struct W8CountedOctBuildNode : W8OctBuildNode {
+    W8CountedOctBuildNode();
+    ~W8CountedOctBuildNode();
+};
+
+/* Original owner: Engine Code\OctBuildTree.cpp. The original class spelling
+   is unknown. Non-polymorphic like runtime W8Octree: neither the
+   constructor at 0x00446390 nor the destructor at 0x004466D0 stores a vptr;
+   the vtables emitted near this TU belong to vector/template material, not to
+   this type. */
+struct W8OctBuildTree {
+    W8OctBuildTree(float leaf_size, srVector3T<float>* minimum, srVector3T<float>* maximum,
+                   unsigned short item_limit, short extent_mode);
+    ~W8OctBuildTree();
+
+    unsigned char InsertSurface(W8GDSurface* surface, unsigned long mode);
+    unsigned char InsertSurfaceRecursive(W8OctSpatialState* working, W8GDSurface* surface,
+                                         srVector3T<float>* plane_point, unsigned long mode);
+    int CollectObjectsAlongSegment(W8GDSurface*** results, const srVector3T<float>* origin,
+                                   const srVector3T<float>* delta, float half_angle, float extent,
+                                   unsigned short kind);
+    /* Append `payload` to the node's `kind` link list, growing the tail and
+       raising the leaf counter plus the tree's deepest-list watermark. */
+    void AppendLink(W8OctBuildNode* node, void* payload, short kind);
+    /* Recursive box descent for the segment collect: classify the state's box
+       against `bounds` (six floats: min then max), then collect the leaf,
+       descend the octants, or skip the node entirely. */
+    int CollectRecursive(W8OctSpatialState* state, const srVector3T<float>* bounds, short kind);
+    /* Leaf collector: walks the per-kind link lists and appends qualifying
+       surfaces to the shared scratch array, deduplicating by pointer or by
+       the 0x2000 flag mark. */
+    int CollectLeaf(W8OctBuildNode* node, short depth, short kind);
+    /* Box-vs-bounds classification: 2 when the box sits fully inside bounds,
+       1 on a partial overlap, 0 when disjoint. `leaf` early-outs the corner
+       scan at the bottom octree level. */
+    int ClassifyBoxBounds(const srVector3T<float>* box, const srVector3T<float>* bounds, bool leaf);
+
+    W8OctSpatialState spatial;
+    W8OctBuildLinkLists* link_lists;
+    unsigned long leaf_polygon_count;
+    unsigned long gd_surface_count;
+    unsigned long leaf_count;
+    unsigned short max_leaf_regions;
+    unsigned short unknown_ae;
+    unsigned long region_assignments;
+    bool use_owned_nodes;
+    unsigned char unknown_b5[3];
+    unsigned long deepest_link_list;
+};
+
+static_assert(sizeof(W8OctBuildLink) == 8, "W8OctBuildLink_must_be_8");
+static_assert(sizeof(W8OctBuildLinkLists) == 0x25c, "W8OctBuildLinkLists_must_be_0x25c");
+static_assert(sizeof(W8OctBuildNode) == 0x30, "W8OctBuildNode00446330_must_be_0x30");
+static_assert(sizeof(W8CountedOctBuildNode) == 0x30, "W8CountedOctBuildNode004AF760_must_be_0x30");
+static_assert(sizeof(W8OctBuildTree) == 0xbc, "W8OctBuildTree_must_be_0xbc");
+
+extern const float g_octree_cell_extent_scale;
+extern W8GDSurface** g_oct_build_scratch;
+
+#endif

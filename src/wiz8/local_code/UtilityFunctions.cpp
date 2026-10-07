@@ -1,0 +1,811 @@
+#include "wiz8/utility.h"
+#include "wiz8/sgp_text.h"
+#include "wiz8/xstatus.h"
+#include "wiz8/layouts/character.h"
+#include "wiz8/character_skills.h"
+#include "wiz8/local_code/CharGeneration.h"
+#include "wiz8/local_code/Combat.h"
+#include "wiz8/local_code/CombatAttack.h"
+#include "wiz8/local_code/GameplayCode.h"
+#include "wiz8/local_code/GameplayMods.h"
+#include "wiz8/local_code/HealthStaminaMana.h"
+#include "wiz8/local_code/Magic.h"
+#include "wiz8/local_code/MagicEffects.h"
+#include "wiz8/local_code/party_encumbrance.h"
+#include "wiz8/local_code/UtilityFunctions.h"
+#include "wiz8/local_screens/CharacterScreen.h"
+#include "wiz8/layouts/combat_state.h"
+#include "wiz8/local_code/Strings.h"
+#include "wiz8/local_code/MonsterManager.h"
+#include "wiz8/layouts/screen_state.h"
+#include "wiz8/local_screens/OptionsScreen.h"
+#include "wiz8/fonts.h"
+#include "wiz8/sr_api.h"
+#include "wiz8/cursor.h"
+#include "wiz8/engine_code/Video2.h"
+#include "Button System.h"
+#include "input.h"
+#include "DEBUG.H"
+#include "random.h"
+
+#include <stdarg.h>
+#include <ctype.h>
+#include <float.h>
+#include <stdio.h>
+#include <string.h>
+#include <wchar.h>
+#include <stdlib.h>
+#include "wiz8/layouts/game_status.h"
+
+// GLOBAL: WIZ8 0x0068c0a4
+static int g_message_box_state;
+// GLOBAL: WIZ8 0x0061a548
+static short g_message_box_background_image = -1;
+// GLOBAL: WIZ8 0x0061a54c
+static int g_message_box_background_button = -1;
+// GLOBAL: WIZ8 0x0061a550
+static int g_message_box_accept_button = -1;
+// GLOBAL: WIZ8 0x0061a554
+static int g_message_box_cancel_button = -1;
+// GLOBAL: WIZ8 0x0061a558
+static int g_message_box_accept_image = -1;
+// GLOBAL: WIZ8 0x0061a55c
+static int g_message_box_cancel_image = -1;
+// GLOBAL: WIZ8 0x0068c0a0
+void (*g_message_box_callback)(void);
+// GLOBAL: WIZ8 0x0068c0a8
+static int g_message_box_font;
+// GLOBAL: WIZ8 0x0068c0ac
+static unsigned int g_message_box_shade;
+// GLOBAL: WIZ8 0x0068c0b0
+static bool g_message_box_accepted;
+// GLOBAL: WIZ8 0x0068BFD0
+static char g_format_string_buffer[200];
+// GLOBAL: WIZ8 0x00689FD0
+static wchar_t g_wide_string_buffer[4096];
+
+// FUNCTION: WIZ8 0x00517950
+void SetDice(W8Dice* dice, unsigned char count, unsigned char sides, short base)
+{
+    dice->count = count;
+    dice->sides = sides;
+    dice->base = base;
+}
+
+// FUNCTION: WIZ8 0x00517970
+int RollDice(const W8Dice* dice)
+{
+    unsigned int roll;
+    int result = dice->base;
+
+    for (roll = 0; roll < dice->count; ++roll) {
+        result += Random(dice->sides) + 1;
+    }
+    return result;
+}
+
+int RollDice(const W8Dice* dice, unsigned int rolls)
+{
+    int result = 0;
+    while (rolls != 0) {
+        result += RollDice(dice);
+        --rolls;
+    }
+    return result;
+}
+
+// FUNCTION: WIZ8 0x005179b0
+int IntegerPower(int base, unsigned int exponent)
+{
+    int result;
+
+    for (result = 1; exponent > 0; --exponent) {
+        result *= base;
+    }
+    return result;
+}
+
+// FUNCTION: WIZ8 0x005179d0
+void ClampInteger(int* value, int minimum, int maximum)
+{
+    int current = *value;
+
+    if (current > maximum) {
+        *value = maximum;
+    } else if (current < minimum) {
+        *value = minimum;
+    }
+}
+
+// FUNCTION: WIZ8 0x005179f0
+void ClampUnsignedInteger(unsigned int* value, unsigned int minimum, unsigned int maximum)
+{
+    if (*value > maximum) {
+        *value = maximum;
+    } else if (*value < minimum) {
+        *value = minimum;
+    }
+}
+
+// FUNCTION: WIZ8 0x00517a10
+int CompareUnsignedDescending(const void* first, const void* second)
+{
+    unsigned int left = *static_cast<const unsigned int*>(first);
+    unsigned int right = *static_cast<const unsigned int*>(second);
+
+    if (left > right) {
+        return -1;
+    }
+    if (left < right) {
+        return 1;
+    }
+    return 0;
+}
+
+// FUNCTION: WIZ8 0x00517a30
+int CompareSignedAscending(const void* first, const void* second)
+{
+    int left = *static_cast<const int*>(first);
+    int right = *static_cast<const int*>(second);
+
+    if (left < right) {
+        return -1;
+    }
+    if (left > right) {
+        return 1;
+    }
+    return 0;
+}
+
+// FUNCTION: WIZ8 0x00517a50
+int CompareSignedDescending(const void* first, const void* second)
+{
+    int left = *static_cast<const int*>(first);
+    int right = *static_cast<const int*>(second);
+
+    if (left > right) {
+        return -1;
+    }
+    if (left < right) {
+        return 1;
+    }
+    return 0;
+}
+
+// FUNCTION: WIZ8 0x00517a70
+char* FormatString(const char* format, ...)
+{
+    va_list arguments;
+
+    va_start(arguments, format);
+    vsprintf(g_format_string_buffer, format, arguments);
+    return g_format_string_buffer;
+}
+
+// FUNCTION: WIZ8 0x00517a90
+wchar_t* FormatWideString(const wchar_t* format, ...)
+{
+    va_list arguments;
+
+    va_start(arguments, format);
+    vswprintf(g_wide_string_buffer, format, arguments);
+    return g_wide_string_buffer;
+}
+
+// FUNCTION: WIZ8 0x00517ab0
+wchar_t* ConvertStringToWide(const char* string)
+{
+    swprintf(g_wide_string_buffer, g_combat_log_format, string);
+    return g_wide_string_buffer;
+}
+
+// FUNCTION: WIZ8 0x00517ad0
+char* ConvertWideStringToString(const wchar_t* string)
+{
+    sprintf(reinterpret_cast<char*>(g_wide_string_buffer), "%ls", string);
+    return reinterpret_cast<char*>(g_wide_string_buffer);
+}
+
+// FUNCTION: WIZ8 0x00517af0
+wchar_t* FormatUnsignedIntegerWithCommas(wchar_t* output, unsigned int value)
+{
+    bool first_group = true;
+    wchar_t group[10];
+    unsigned int divisor;
+    int exponent;
+
+    wcscpy(output, &g_empty_wide_string);
+    exponent = 9;
+    do {
+        unsigned int threshold;
+
+        divisor = IntegerPower(10, exponent);
+        threshold = exponent > 0 ? divisor : 0;
+
+        if (value >= threshold) {
+            unsigned int group_value;
+
+            if (!first_group) {
+                wcscat(output, L",");
+            }
+            group_value = value / divisor;
+            swprintf(group, first_group ? g_format_d : L"%03d", group_value);
+            wcscat(output, group);
+            value -= divisor * group_value;
+            first_group = false;
+        } else if (!first_group) {
+            wcscat(output, L",000");
+        }
+        exponent -= 3;
+    } while (exponent >= 0);
+    return output;
+}
+
+// FUNCTION: WIZ8 0x00517bd0
+char* TitleCaseString(char* string)
+{
+    bool capitalize = true;
+    char* cursor = string;
+
+    while (*cursor != '\0') {
+        if (capitalize) {
+            *cursor = static_cast<char>(toupper(*cursor));
+        } else {
+            *cursor = static_cast<char>(tolower(*cursor));
+        }
+
+        switch (*cursor) {
+        case ' ':
+        case '&':
+        case '\'':
+        case '(':
+        case '*':
+        case '-':
+        case '.':
+        case '2':
+        case '?':
+            capitalize = true;
+            break;
+        default:
+            capitalize = false;
+            break;
+        }
+        ++cursor;
+    }
+    return string;
+}
+
+// FUNCTION: WIZ8 0x00517c60
+float NormalizeAngle(float angle)
+{
+    if (!_finite(angle)) {
+        srAssertFail("_finite(flAngle)",
+                     "C:\\Projects\\Wizardry 8\\Local Code\\UtilityFunctions.cpp", 0x13b, 0);
+    }
+
+    angle += 6.2831852;
+    while (angle < 0.0f) {
+        angle += 6.2831852f;
+    }
+    while (angle >= 6.2831852f) {
+        angle -= 6.2831852f;
+    }
+    return angle;
+}
+
+// FUNCTION: WIZ8 0x00517ce0
+float ShortestAngleDistance(float first, float second)
+{
+    float forward = NormalizeAngle(first - second);
+    float backward = NormalizeAngle(second - first);
+
+    return forward < backward ? forward : backward;
+}
+
+// FUNCTION: WIZ8 0x00517e20
+void UnionScreenRects(const W8ScreenRect* first, const W8ScreenRect* second, W8ScreenRect* result)
+{
+    result->left = first->left < second->left ? first->left : second->left;
+    result->top = first->top < second->top ? first->top : second->top;
+    result->right = first->right > second->right ? first->right : second->right;
+    result->bottom = first->bottom > second->bottom ? first->bottom : second->bottom;
+}
+
+// FUNCTION: WIZ8 0x00517e70
+bool ScreenPointInRect(const W8ScreenRect* rect, const POINT* point)
+{
+    if (rect != 0 && point != 0 && point->x >= rect->left && point->x < rect->right &&
+        point->y >= rect->top && point->y < rect->bottom) {
+        return true;
+    }
+    return false;
+}
+
+// FUNCTION: WIZ8 0x00517ea0
+void StripMonsterNameSuffix(wchar_t* name)
+{
+    wchar_t* suffix = wcschr(name, L'#');
+
+    if (suffix != 0) {
+        *suffix = L'\0';
+    }
+}
+
+// FUNCTION: WIZ8 0x00517ec0
+unsigned int CharacterPointerToPartySlot(const W8Character* character)
+{
+    unsigned int slot;
+    const W8Character* party_character;
+
+    if (!character->fInParty) {
+        srAssertFail("pPC->fInParty", "C:\\Projects\\Wizardry 8\\Local Code\\UtilityFunctions.cpp",
+                     0x1c8, "PCPtrToPCSlot: ERROR - called for non-party character");
+    }
+
+    party_character = g_status.buffers.Char;
+    for (slot = 0; slot < 8; ++slot, ++party_character) {
+        if (character == party_character) {
+            return slot;
+        }
+    }
+
+    srAssertFail("FALSE", "C:\\Projects\\Wizardry 8\\Local Code\\UtilityFunctions.cpp", 0x1d1,
+                 FormatString("PCPtrToPCSlot: ERROR - no match on ptr %d", character));
+    return 0;
+}
+
+// FUNCTION: WIZ8 0x00517f30
+bool IsPartyCharacterPointer(const W8Character* character)
+{
+    W8Character* party_character = g_status.buffers.Char;
+    unsigned int slot;
+
+    for (slot = 0; slot < 8; ++slot, ++party_character) {
+        if (character == party_character) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+// FUNCTION: WIZ8 0x00517f60
+void AdjustByteByPercent(unsigned char* value, unsigned int percent)
+{
+    *value = static_cast<unsigned char>(((percent + 100) * *value + 50) / 100);
+}
+
+// FUNCTION: WIZ8 0x00517f90
+void AdjustIntegerByPercent(unsigned int* value, unsigned int percent)
+{
+    *value += *value * percent / 100;
+}
+
+// FUNCTION: WIZ8 0x00517FB0
+unsigned int GetRandomPartySlots(int require_primary, int require_secondary,
+                                 unsigned int excluded_slot, unsigned int* selected,
+                                 unsigned int count, bool skip_first_two)
+{
+    int claimed[8];
+    unsigned int eligible[8];
+    unsigned int found = 0;
+    unsigned int returned = 0;
+    unsigned int slot;
+    bool relaxed;
+    int index;
+
+    for (index = 0; index < 8; ++index) {
+        claimed[index] = 0;
+    }
+    if (count != 0) {
+        for (relaxed = false; !relaxed;) {
+            for (slot = skip_first_two ? 2u : 0u; slot < 8; ++slot) {
+                W8Character* character = &g_status.buffers.Char[slot];
+                if (g_status.buffers.XChar[slot].fOccupied && slot != excluded_slot &&
+                    claimed[slot] == 0 && (character->hp_current != 0 || require_primary == 2) &&
+                    (character->highest_condition < W8_CONDITION_DEAD || require_secondary == 2)) {
+                    eligible[found] = slot;
+                    ++found;
+                    claimed[slot] = 1;
+                }
+            }
+            if (found >= count) {
+                break;
+            }
+            if (require_secondary == 1) {
+                require_secondary = 2;
+            } else if (require_primary == 1) {
+                require_primary = 2;
+            } else {
+                relaxed = true;
+            }
+        }
+        if (found > count) {
+            for (index = 0; index < 8; ++index) {
+                claimed[index] = 0;
+            }
+            while (returned < count && found != 0) {
+                unsigned int pick = Random(found);
+                while (claimed[pick] != 0 && pick < 8) {
+                    ++pick;
+                }
+                if (pick >= 8) {
+                    break;
+                }
+                selected[returned] = eligible[pick];
+                ++returned;
+                claimed[pick] = 1;
+                --found;
+            }
+            return returned;
+        }
+    }
+    memcpy(selected, eligible, found * 4);
+    return found;
+}
+
+// FUNCTION: WIZ8 0x00518150
+int GetRandomCharacter(int require_primary, int require_secondary, int excluded_slot,
+                       signed char excluded_gender)
+{
+    int skip;
+    unsigned int slot;
+    unsigned int scanned;
+    bool matched;
+    W8Character* character;
+
+retry:
+    skip = Random(8);
+    scanned = 0;
+    slot = 0;
+    do {
+        matched = false;
+        if (g_status.buffers.XChar[slot].fOccupied && static_cast<int>(slot) != excluded_slot) {
+            character = &g_status.buffers.Char[slot];
+            if ((character->hp_current > 0 && character->highest_condition < W8_CONDITION_DEAD) ||
+                require_primary == 2) {
+                if (excluded_gender == -1 || excluded_gender != character->gender) {
+                    if (character->highest_condition < W8_CONDITION_ASLEEP ||
+                        require_secondary == 2) {
+                        matched = true;
+                        if (skip == 0) {
+                            return slot;
+                        }
+                        skip--;
+                        scanned = 0;
+                    }
+                }
+            }
+        }
+        slot++;
+        if (slot == 8) {
+            slot = 0;
+        }
+        scanned++;
+    } while (scanned <= 8);
+
+    if (matched) {
+        return slot;
+    }
+    if (require_secondary == 1) {
+        require_secondary = 2;
+        goto retry;
+    }
+    if (require_primary == 1) {
+        require_primary = 2;
+        goto retry;
+    }
+    return -1;
+}
+
+// FUNCTION: WIZ8 0x00518230
+int GetNextCharacter(int require_primary, int require_secondary, int previous_slot)
+{
+    int start_slot = (previous_slot + 1) % 8;
+    W8Character* characters = g_status.buffers.Char;
+    W8PartySlotRow* rows = g_status.buffers.XChar;
+    int slot;
+    unsigned int scanned;
+
+retry:
+    slot = start_slot;
+    scanned = 0;
+
+    do {
+        if (rows[slot].fOccupied) {
+            W8Character* character = &characters[slot];
+
+            if ((character->hp_current > 0 && character->highest_condition < W8_CONDITION_DEAD) ||
+                require_primary == 2) {
+                if (character->highest_condition < W8_CONDITION_ASLEEP || require_secondary == 2) {
+                    return slot;
+                }
+            }
+        }
+        ++slot;
+        if (slot == 8) {
+            slot = 0;
+        }
+        ++scanned;
+    } while (scanned <= 8);
+
+    if (require_secondary == 1) {
+        require_secondary = 2;
+        goto retry;
+    }
+    if (require_primary == 1) {
+        require_primary = 2;
+        goto retry;
+    }
+    return -1;
+}
+
+// FUNCTION: WIZ8 0x005182e0
+void FormatDebugMessage(int channel, const char* format, ...)
+{
+    char message[200];
+    va_list arguments;
+
+    (void)channel;
+    va_start(arguments, format);
+    vsprintf(message, format, arguments);
+}
+
+// FUNCTION: WIZ8 0x00518310
+int RPCPtrToPCSlot(const W8MonsterManagerEntry* rpc)
+{
+    int slot = 0;
+
+    for (const W8MonsterManagerEntry* current = gXStatus.monster_manager_entries;
+         current < &gXStatus.monster_manager_entries[8]; ++current) {
+        if (rpc == current) {
+            return slot;
+        }
+        ++slot;
+    }
+    srAssertFail("FALSE", "C:\\Projects\\Wizardry 8\\Local Code\\UtilityFunctions.cpp", 0x385,
+                 FormatString("RPCPtrToPCSlot: ERROR - no match on ptr %d", rpc));
+    return 0;
+}
+
+// FUNCTION: WIZ8 0x005184b0
+void FreeStringTable(void)
+{
+    if (gppStringList != 0) {
+        for (int index = 0; index < giStringListLen; ++index) {
+            if (gppStringList[index] != 0) {
+                free(gppStringList[index]);
+            }
+        }
+        free(gppStringList);
+        gppStringList = 0;
+        giStringListLen = 0;
+    }
+}
+
+// FUNCTION: WIZ8 0x00518510
+bool CreateMessageBox(wchar_t* text, int font, unsigned int shade, bool has_accept, bool has_cancel,
+                      void (*callback)(void))
+{
+    SGPRect rect;
+    char filename[32];
+    if (g_message_box_state != 0) {
+        return false;
+    }
+    unsigned short height = 0x58;
+    if (has_accept || has_cancel) {
+        height = 0x6c;
+    }
+    unsigned short width = StringPixLength(text, font) + 10;
+    if (width > 0x258) {
+        width = 0x258;
+    } else if (width < 0x64) {
+        width = 0x78;
+    }
+    g_message_box_background_image = LoadGenericButtonImages(
+        0, Wiz8ToSgpText(DEFAULT_GENERIC_BUTTON_OFF), 0, Wiz8ToSgpText(DEFAULT_GENERIC_BUTTON_ON),
+        0, Wiz8ToSgpText("Data\\Dialogs\\DialogBackground.STI"), 0, 0, 0);
+    int yloc = (0x1e0 - height) / 2;
+    g_message_box_background_button = CreateTextButton(
+        text, static_cast<unsigned short>(font), 0xff, 0, g_message_box_background_image,
+        (0x280 - width) / 2, yloc, width, height, 4, 0x7d, 0, MessageBoxAcceptClickCallback);
+    if (g_message_box_background_button < 0) {
+        return false;
+    }
+    SpecifyButtonMultiColorFont(g_message_box_background_button, 1);
+    if (has_accept) {
+        strcpy(filename, "Data\\Message Box\\Ok.sti");
+        g_message_box_accept_image = LoadButtonImage(Wiz8ToSgpText(filename), 0, 1, 2, 3, 4);
+        if (g_message_box_accept_image < 0) {
+            return false;
+        }
+        g_message_box_accept_button = QuickCreateButton(
+            g_message_box_accept_image, 0x131 - (has_cancel ? 0x1e : 0), yloc + 0x46, 4, 0x7e,
+            MessageBoxAcceptMoveCallback, MessageBoxAcceptClickCallback);
+        if (g_message_box_accept_button < 0) {
+            return false;
+        }
+    } else {
+        g_message_box_accept_button = -1;
+    }
+    if (has_cancel) {
+        strcpy(filename, "Data\\Message Box\\Cancel.sti");
+        g_message_box_cancel_image = LoadButtonImage(Wiz8ToSgpText(filename), 0, 1, 2, 3, 4);
+        if (g_message_box_cancel_image < 0) {
+            return false;
+        }
+        g_message_box_cancel_button = QuickCreateButton(
+            g_message_box_cancel_image, 0x131 + (has_accept ? 0x1e : 0), yloc + 0x46, 4, 0x7e,
+            MessageBoxCancelMoveCallback, MessageBoxCancelClickCallback);
+        if (g_message_box_cancel_button < 0) {
+            return false;
+        }
+    } else {
+        g_message_box_cancel_button = -1;
+    }
+    if (has_accept || has_cancel) {
+        DisableButton(g_message_box_background_button);
+    }
+    g_message_box_font = font;
+    g_message_box_shade = shade;
+    g_message_box_state = 2;
+    g_message_box_callback = callback;
+    GetButtonArea(g_message_box_background_button, &rect);
+    InvalidateRegion(rect.iLeft, rect.iTop, rect.iRight, rect.iBottom, 0x11);
+    return true;
+}
+
+static void ReleaseMessageBoxControls()
+{
+    SGPRect rect;
+    if (g_message_box_accept_button != -1) {
+        RemoveButton(g_message_box_accept_button);
+        UnloadButtonImage(g_message_box_accept_image);
+    }
+    if (g_message_box_cancel_button != -1) {
+        RemoveButton(g_message_box_cancel_button);
+        UnloadButtonImage(g_message_box_cancel_image);
+    }
+    if (g_message_box_background_button != -1) {
+        GetButtonArea(g_message_box_background_button, &rect);
+        ClearSurfaceRect(rect.iLeft, rect.iTop, rect.iRight, rect.iBottom);
+        InvalidateRegion(rect.iLeft, rect.iTop, rect.iRight, rect.iBottom, 1);
+        RemoveButton(g_message_box_background_button);
+    }
+    if (g_message_box_background_image != -1) {
+        UnloadGenericButtonImage(g_message_box_background_image);
+        g_message_box_background_image = -1;
+    }
+}
+
+/* Force-dismiss an open message box (state 2 -> 3): remove the buttons and
+   images, clear and invalidate the background rect, and drop the accepted
+   latch so RenderMessageBox never fires the callback. */
+// FUNCTION: WIZ8 0x005187E0
+void CloseMessageBox(void)
+{
+    if (g_message_box_state == 2) {
+        ReleaseMessageBoxControls();
+        g_message_box_state = 3;
+        g_message_box_accepted = false;
+    }
+}
+
+// FUNCTION: WIZ8 0x005188c0
+void MessageBoxAcceptMoveCallback(GUI_BUTTON* button, INT32 reason)
+{
+    if (reason & (MSYS_CALLBACK_REASON_GAIN_MOUSE | MSYS_CALLBACK_REASON_LOST_MOUSE)) {
+        SGPRect rect;
+        GetButtonArea(g_message_box_accept_button, &rect);
+        InvalidateRegion(rect.iLeft, rect.iTop, rect.iRight, rect.iBottom, 1);
+    }
+}
+
+// FUNCTION: WIZ8 0x00518900
+void MessageBoxAcceptClickCallback(GUI_BUTTON* button, INT32 reason)
+{
+    if (reason & MSYS_CALLBACK_REASON_LBUTTON_DWN) {
+        button->uiFlags |= BUTTON_CLICKED_ON;
+    } else if (reason & MSYS_CALLBACK_REASON_LBUTTON_UP) {
+        if (button->uiFlags & BUTTON_CLICKED_ON) {
+            g_message_box_state = 1;
+            g_message_box_accepted = true;
+        }
+    }
+}
+
+// FUNCTION: WIZ8 0x00518930
+void MessageBoxCancelMoveCallback(GUI_BUTTON* button, INT32 reason)
+{
+    if (reason & (MSYS_CALLBACK_REASON_GAIN_MOUSE | MSYS_CALLBACK_REASON_LOST_MOUSE)) {
+        SGPRect rect;
+        GetButtonArea(g_message_box_cancel_button, &rect);
+        InvalidateRegion(rect.iLeft, rect.iTop, rect.iRight, rect.iBottom, 1);
+    }
+}
+
+// FUNCTION: WIZ8 0x00518970
+void MessageBoxCancelClickCallback(GUI_BUTTON* button, INT32 reason)
+{
+    if (reason & MSYS_CALLBACK_REASON_LBUTTON_DWN) {
+        button->uiFlags |= BUTTON_CLICKED_ON;
+    } else if (reason & MSYS_CALLBACK_REASON_LBUTTON_UP) {
+        if (button->uiFlags & BUTTON_CLICKED_ON) {
+            g_message_box_state = 1;
+            g_message_box_accepted = false;
+        }
+    }
+}
+
+// FUNCTION: WIZ8 0x00518b20
+bool IsMessageBoxActive(void)
+{
+    return g_message_box_state != 0;
+}
+
+// FUNCTION: WIZ8 0x005189b0
+void RenderMessageBox(void)
+{
+    if (g_message_box_state == 1) {
+        ReleaseMessageBoxControls();
+        g_message_box_state = 3;
+    } else if (g_message_box_state == 2) {
+        HVOBJECT font;
+        if (g_message_box_font == g_large_font) {
+            font = g_large_font_object;
+        } else if (g_message_box_font == g_small_font) {
+            font = g_small_font_object;
+        } else if (g_message_box_font == g_small_font_secondary) {
+            font = g_small_font_secondary_object;
+        } else if (g_message_box_font == g_wiz_text_font) {
+            font = g_wiz_text_font_object;
+        } else {
+            font = g_wiz_text_font_secondary_object;
+        }
+        SetObjectShade(font, g_message_box_shade);
+        MarkButtonsDirty();
+        RenderButtons();
+    } else if (g_message_box_state == 3) {
+        g_message_box_state = 0;
+        if (g_message_box_accepted && g_message_box_callback != 0) {
+            void (*callback)(void) = g_message_box_callback;
+            g_message_box_callback = 0;
+            callback();
+        }
+    }
+}
+
+// FUNCTION: WIZ8 0x00518b30
+void ProcessMessageBoxInput(void)
+{
+    POINT point;
+    InputAtom input;
+    SGPMouseGetPos(&point);
+    MSYS_SGP_Mouse_Handler_Hook(MOUSE_POS, point.x, point.y, gfLeftButtonState, gfRightButtonState);
+    while (DequeueEvent(&input) == 1) {
+        switch (input.usEvent) {
+        case LEFT_BUTTON_DOWN:
+        case LEFT_BUTTON_UP:
+        case RIGHT_BUTTON_DOWN:
+        case RIGHT_BUTTON_UP:
+            MSYS_SGP_Mouse_Handler_Hook(input.usEvent, point.x, point.y, gfLeftButtonState,
+                                        gfRightButtonState);
+            break;
+        case KEY_DOWN:
+            switch (toupper(input.usParam)) {
+            case '\r':
+            case ' ':
+            case 'Y':
+                g_message_box_state = 1;
+                g_message_box_accepted = true;
+                break;
+            case 27:
+            case 'N':
+                g_message_box_accepted = g_message_box_cancel_button == -1;
+                g_message_box_state = 1;
+                break;
+            }
+            break;
+        }
+    }
+}

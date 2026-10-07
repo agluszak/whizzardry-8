@@ -1,0 +1,907 @@
+#include "wiz8/engine_code/stTextureFile.h"
+#include "wiz8/engine_code/stModelInstance.h"
+#include "wiz8/engine_code/materials.h"
+#include "wiz8/engine_code/stTextureAnim.h"
+#include "wiz8/float_constants.h"
+#include "wiz8/engine_code/stMeshModel.h"
+#include "surrender/srCore.h"
+#include "surrender/srGERD.h"
+#include "surrender/srMaterial.h"
+#include "surrender/srNode.h"
+#include "surrender/srHeap.h"
+#include "surrender/srTriMeshPipeline.h"
+#include "surrender/srVectorProcessor.h"
+#include "wiz8/engine_code/Octree.h"
+#include "wiz8/engine_code/Video2.h"
+#include "wiz8/sr_api.h"
+
+#include <math.h>
+#include <new>
+#include <string.h>
+
+#define ST_MODEL_INSTANCE_CPP "C:\\Projects\\Wizardry 8\\Engine Code\\stModelInstance.cpp"
+
+extern srVector3T<float> g_environment_offset;
+extern float g_monster_light_scale;
+
+/* Scratch vertex store shared by every highlight shell submission; grown
+   on demand and kept between frames. */
+// GLOBAL: WIZ8 0x0065A148
+static srHeapBuffer<srVector3T<float> >* g_vertex_scratch;
+
+// VTABLE: WIZ8 0x005ec89c srClassSupport<srModelInstance, class srNode, 0, 4352>
+// VTABLE: WIZ8 0x005ec88c srModel::Client
+// class srClassSupport<stModelInstance2D, class srModelInstance, 0, 65541>
+/* Find the animated texture assigned to polygons whose runtime name begins
+   with "mouth". Damage-stage instances use the stage-specific texture table;
+   ordinary instances use the mesh's active polygon texture table. */
+// FUNCTION: WIZ8 0x00481080
+stTextureAnim* stModelInstance::FindMouthTexture()
+{
+    stMeshModel* mesh = static_cast<stMeshModel*>(getModel());
+
+    if (damage_stage == -1) {
+        while (mesh != 0) {
+            srPtr<srTextureIFace>* textures = mesh->getPolyTexture(0, 0, 0);
+
+            if (textures != 0) {
+                for (int polygon = 0; polygon < mesh->polygon_count; ++polygon) {
+                    srTextureIFace* texture = textures[polygon].get();
+
+                    if (texture != 0 && texture->getClassID() == stTextureAnim::CLASS_ID &&
+                        _strnicmp(texture->getName(), "mouth", 5) == 0) {
+                        return static_cast<stTextureAnim*>(texture);
+                    }
+                }
+            }
+            mesh = mesh->next;
+        }
+    } else {
+        while (mesh != 0) {
+            srPtr<srTextureIFace>* textures =
+                mesh->GetTextureTable(damage_stage_tables.data[damage_stage]);
+
+            if (textures != 0) {
+                for (int polygon = 0; polygon < mesh->polygon_count; ++polygon) {
+                    srTextureIFace* texture = textures[polygon].get();
+
+                    if (texture != 0 && texture->getClassID() == stTextureAnim::CLASS_ID &&
+                        _strnicmp(texture->getName(), "mouth", 5) == 0) {
+                        return static_cast<stTextureAnim*>(texture);
+                    }
+                }
+            }
+            mesh = mesh->next;
+        }
+    }
+    return 0;
+}
+
+// FUNCTION: WIZ8 0x00480790
+int stModelInstance::FindDamageStage(const char* name)
+{
+    stMeshModel* mesh = static_cast<stMeshModel*>(getModel());
+    return mesh->FindSkinTable(name);
+}
+
+/* Add a stage by cloning the first stage's table across the complete linked
+   mesh chain. The instance stores the table id shared by that chain. */
+// FUNCTION: WIZ8 0x00480560
+int stModelInstance::AddDamageStage(const char* name)
+{
+    stMeshModel* mesh = static_cast<stMeshModel*>(getModel());
+
+    if (mesh->FindSkinTable(name) != -1) {
+        return -1;
+    }
+
+    int stage = damage_stage_tables.capacity;
+    damage_stage_tables.setCapacity(stage + 1, 1);
+
+    int base_table = stage > 0 ? damage_stage_tables.data[0] : -1;
+    damage_stage_tables.data[stage] = mesh->CreateSkinTable(name, base_table);
+    for (mesh = mesh->next; mesh != 0; mesh = mesh->next) {
+        mesh->CreateSkinTable(name, base_table);
+    }
+    return stage;
+}
+
+// FUNCTION: WIZ8 0x00480670
+int stModelInstance::AddExistingDamageStage(const char* name)
+{
+    stMeshModel* mesh = static_cast<stMeshModel*>(getModel());
+    int table = mesh->FindSkinTable(name);
+
+    if (table == -1) {
+        return -1;
+    }
+
+    int stage = damage_stage_tables.capacity;
+    damage_stage_tables.setCapacity(stage + 1, 1);
+    damage_stage_tables.data[stage] = table;
+    return stage;
+}
+
+// FUNCTION: WIZ8 0x004807b0
+unsigned char stModelInstance::ReplaceDamageStageTexture(int stage, const char* old_name,
+                                                         srTextureIFace* replacement)
+{
+    stMeshModel* mesh = static_cast<stMeshModel*>(getModel());
+    bool replaced = false;
+
+    if (replacement != 0) {
+        if (replacement->getClassID() == stTextureAnim::CLASS_ID) {
+            static_cast<stTextureAnim*>(replacement)->Prepare();
+        }
+        replacement->getClassID();
+    }
+
+    for (; mesh != 0; mesh = mesh->next) {
+        srPtr<srTextureIFace>* textures = mesh->GetTextureTable(damage_stage_tables.data[stage]);
+        if (textures == 0) {
+            continue;
+        }
+
+        for (int polygon = 0; polygon < mesh->polygon_count; ++polygon) {
+            srTextureIFace* texture = textures[polygon].get();
+            if (texture == 0 || (texture->getClassID() != stTextureFile::CLASS_ID &&
+                                 texture->getClassID() != stTextureAnim::CLASS_ID)) {
+                continue;
+            }
+
+            if (_stricmp(texture->getName(), old_name) == 0) {
+                replaced = true;
+                while (polygon < mesh->polygon_count && textures[polygon].get() == texture) {
+                    textures[polygon] = replacement;
+                    ++polygon;
+                }
+            } else {
+                while (polygon < mesh->polygon_count && textures[polygon].get() == texture) {
+                    ++polygon;
+                }
+            }
+            --polygon;
+        }
+    }
+    return replaced;
+}
+
+/* Retail's Video2, dialogue and radar callers all call this one emitted body,
+   which precedes the rest of the stModelInstance2D lifecycle family. It is an
+   ordinary stModelInstance.cpp definition, not a header/template emission. */
+// FUNCTION: WIZ8 0x0047F0F0
+stModelInstance2D::stModelInstance2D(srNode* parent)
+    : srClassSupport<stModelInstance2D, srModelInstance, false, 0x10005>(static_cast<srNode*>(0))
+{
+    render_state.display_state = 0;
+    render_state.width = 0;
+    render_state.height = 0;
+    render_state.position_x = 0;
+    render_state.position_y = 0;
+    overlay_scene_flag = 0;
+    render_state.glow_enabled = false;
+    render_state.render_depth = 2000;
+    glow_color_base = 0;
+    glow_color_peak = 0;
+    m_pGlowMaterial = 0;
+    if (parent != 0) {
+        setParent(parent, 1);
+    }
+}
+
+// FUNCTION: WIZ8 0x0047F410
+stModelInstance2D::~stModelInstance2D()
+{
+    if (glow_color_base != 0) {
+        srHeap.free(glow_color_base);
+    }
+    if (glow_color_peak != 0) {
+        srHeap.free(glow_color_peak);
+    }
+    if (m_pGlowMaterial != 0) {
+        m_pGlowMaterial->release();
+    }
+}
+
+/* Deliberately not a whole srVector4T<float> assignment. Retail
+   copies the 2D fields around the parent/state work and leaves the upper two
+   bytes of state untouched; GrCycle's separate whole-block copy is a
+   different operation. */
+// FUNCTION: WIZ8 0x0047F290
+stModelInstance2D& stModelInstance2D::operator=(const stModelInstance2D& other)
+{
+    srModelInstance::operator=(other);
+    render_state.display_state = other.render_state.display_state;
+    render_state.width = other.render_state.width;
+    render_state.height = other.render_state.height;
+    render_state.position_x = other.render_state.position_x;
+    render_state.position_y = other.render_state.position_y;
+    overlay_scene_flag = other.overlay_scene_flag;
+    if (other.parent_ != 0) {
+        setParent(other.parent_, 1);
+    }
+    render_state.glow_enabled = other.render_state.glow_enabled;
+    render_state.render_depth = other.render_state.render_depth;
+    if (other.glow_color_base != 0) {
+        glow_color_base =
+            static_cast<srVector4T<float>*>(srHeap.allocate(sizeof(srVector4T<float>)));
+        *glow_color_base = *other.glow_color_base;
+    }
+    if (other.glow_color_peak != 0) {
+        glow_color_peak =
+            static_cast<srVector4T<float>*>(srHeap.allocate(sizeof(srVector4T<float>)));
+        *glow_color_peak = *other.glow_color_peak;
+    }
+    return *this;
+}
+
+// FUNCTION: WIZ8 0x0047F3A0
+void stModelInstance2D::SetModel(srModel* model)
+{
+    setModel(model);
+    if (model != 0) {
+        /* Retail enables the auto-sphere and auto-box skip flags separately. */
+        static_cast<srMeshModel*>(model)->enable(srMeshModel::CONTROL_SKIP_AUTO_SPHERE);
+        static_cast<srMeshModel*>(model)->enable(srMeshModel::CONTROL_SKIP_AUTO_BOX);
+    }
+}
+
+static void ApplyModelViewMatrix(srModelInstance* instance, srGERD* renderer, float align_angle,
+                                 const srVector3T<float>& align_axis)
+{
+    if ((instance->alignment_flags.value & 1) == 0) {
+        instance->applyWorldSpaceMatrix(*renderer);
+    } else {
+        srMatrix4T<float> view;
+        srVector3T<double> world_location;
+        srVector3T<double> world_scale;
+        srVector4T<float> transformed_location;
+        srVector3T<float> translation;
+        float basis_x;
+        float basis_y;
+        float basis_z;
+
+        renderer->matrixMode(srGERD::MATRIX_MODELVIEW);
+        renderer->pushMatrix();
+        renderer->getMatrix(srGERD::MATRIX_MODELVIEW, view);
+        world_location = instance->getWorldSpaceLocation();
+        world_scale = instance->getWorldSpaceScale();
+
+        srVector3T<float> location;
+        location = world_location;
+        transformed_location = view.Transform(location);
+
+        srVector3T<float> column_x(view.vectors[0].x, view.vectors[1].x, view.vectors[2].x);
+        srVector3T<float> column_y(view.vectors[0].y, view.vectors[1].y, view.vectors[2].y);
+        srVector3T<float> column_z(view.vectors[0].z, view.vectors[1].z, view.vectors[2].z);
+        basis_x = column_x.Length();
+        basis_y = column_y.Length();
+        basis_z = column_z.Length();
+
+        float determinant = Det3(view.vectors[0].x, view.vectors[0].y, view.vectors[0].z,
+                                 view.vectors[1].x, view.vectors[1].y, view.vectors[1].z,
+                                 view.vectors[2].x, view.vectors[2].y, view.vectors[2].z);
+        if (determinant > g_double_zero) {
+            basis_x = -basis_x;
+            basis_y = -basis_y;
+            basis_z = -basis_z;
+        }
+
+        renderer->loadIdentity();
+        translation = transformed_location.xyz();
+        renderer->translate(translation);
+        if (align_angle != g_float_zero) {
+            renderer->rotate(align_angle, align_axis);
+        }
+        renderer->scale(world_scale.x * basis_x, world_scale.y * basis_y,
+                        -(world_scale.z * basis_z));
+    }
+}
+
+/* Render the instance through SurRender's detached TriMesh value. Aligned
+   instances retain their screen-facing orientation while preserving the
+   current view matrix's translation, scale and handedness. The optional glow
+   path clones the mesh material once, oscillates between the two configured
+   emissive colors, and overrides only this draw's material and first shader. */
+// FUNCTION: WIZ8 0x00480920
+void stModelInstance2D::process(const ProcessInfo& info, e_processType)
+{
+    srMeshModel::TriMesh mesh;
+    srGERD* renderer = info.renderer;
+
+    ApplyModelViewMatrix(this, renderer, align_angle, align_axis);
+
+    srMeshModel* model = static_cast<srMeshModel*>(getModel());
+    model->getTriMesh(mesh);
+
+    if (render_state.glow_enabled) {
+        if (m_pGlowMaterial == 0) {
+            m_pGlowMaterial = new stMaterial;
+            if (m_pGlowMaterial == 0) {
+                srAssertFail("m_pGlowMaterial", ST_MODEL_INSTANCE_CPP, 926, 0);
+            }
+            if (mesh.materials[0][0] != 0) {
+                *m_pGlowMaterial = *mesh.materials[0][0];
+            }
+            if (m_pGlowMaterial == 0) {
+                goto render_mesh;
+            }
+        }
+
+        float glow_weight = static_cast<float>(
+            fabs(sin(((GetTickCount() % render_state.render_depth) /
+                      static_cast<double>(static_cast<int>(render_state.render_depth))) *
+                     g_camera_angle_period)));
+        float base_weight = g_float_one - glow_weight;
+        srVector4T<float> emissive;
+        emissive.x = glow_color_base->x * base_weight + glow_color_peak->x * glow_weight;
+        emissive.y = glow_color_base->y * base_weight + glow_color_peak->y * glow_weight;
+        emissive.z = glow_color_base->z * base_weight + glow_color_peak->z * glow_weight;
+        emissive.w = g_float_one;
+        m_pGlowMaterial->setEmissive(emissive);
+        mesh.materials[0][0] = m_pGlowMaterial;
+        mesh.shaders[0].value = (mesh.shaders[0].value & ~srShader::MASK_GRADIENT_MODULATE) |
+                                srShader::MASK_GRADIENT_ADD;
+    }
+
+render_mesh:
+    model->renderTriMesh(*renderer, mesh);
+    renderer->popMatrix();
+}
+
+/* Disabling the glow releases the retained glow material; the render-state
+   byte at 0x0d is the glow pass's enable flag. */
+// FUNCTION: WIZ8 0x00480EB0
+void stModelInstance2D::SetGlowEnabled(bool enable)
+{
+    if (!enable && m_pGlowMaterial != 0) {
+        m_pGlowMaterial->release();
+        m_pGlowMaterial = 0;
+    }
+    render_state.glow_enabled = enable;
+}
+
+/* Scaled 2D extent used by the tooltip and cursor placement code. A unit
+   scale returns the stored screen extent directly; otherwise the matching
+   axis scale from the node is applied and truncated. */
+// FUNCTION: WIZ8 0x00480EF0
+unsigned short stModelInstance2D::GetScaledWidth()
+{
+    srVector3T<double> scale = getScale();
+    float scale_z = static_cast<float>(scale.z);
+    if (scale.x == 1.0f && scale.y == 1.0f && scale_z == 1.0f) {
+        return render_state.width;
+    }
+    return static_cast<unsigned short>(render_state.width * scale.x);
+}
+
+// FUNCTION: WIZ8 0x00480F70
+unsigned short stModelInstance2D::GetScaledHeight()
+{
+    srVector3T<double> scale = getScale();
+    float scale_y = static_cast<float>(scale.y);
+    float scale_z = static_cast<float>(scale.z);
+    if (scale.x == 1.0f && scale_y == 1.0f && scale_z == 1.0f) {
+        return render_state.height;
+    }
+    return static_cast<unsigned short>(render_state.height * scale_z);
+}
+
+/* Lazily allocate the two glow-color vectors and copy the supplied pair; the
+   process pass blends between them into the material's emissive term. */
+// FUNCTION: WIZ8 0x00480FF0
+void stModelInstance2D::SetGlowColors(srVector4T<float>* first, srVector4T<float>* second)
+{
+    if (glow_color_base == 0) {
+        glow_color_base =
+            static_cast<srVector4T<float>*>(srHeap.allocate(sizeof(srVector4T<float>)));
+    }
+    *glow_color_base = *first;
+    if (glow_color_peak == 0) {
+        glow_color_peak =
+            static_cast<srVector4T<float>*>(srHeap.allocate(sizeof(srVector4T<float>)));
+    }
+    *glow_color_peak = *second;
+}
+
+// FUNCTION: WIZ8 0x00481E30
+srClass* stModelInstance2D::vInstance()
+{
+    return new stModelInstance2D(0);
+}
+
+// FUNCTION: WIZ8 0x00481DD0
+srClass* stModelInstance::vInstance()
+{
+    return new stModelInstance(0);
+}
+
+// FUNCTION: WIZ8 0x0047EC80
+stModelInstance::stModelInstance(srNode* parent)
+    : srClassSupport<stModelInstance, srModelInstance, false, 0x10004>(static_cast<srNode*>(0))
+{
+    highlight_colour.Set(0.0f, 0.0f, 0.0f, 0.0f);
+    render_flags = 0;
+    mesh_index = -1;
+    frame_index = 0;
+    highlight_pass_mode = 0;
+    if (parent != 0) {
+        setParent(parent, 1);
+    }
+    damage_stage = -1;
+    highlight_material = 0;
+    light_scale = 1.0f;
+    diffuse_scale_enabled = false;
+    diffuse_scale = 0.0f;
+    emissive_override_enabled = false;
+    emissive_override = 0.0f;
+    frame_interpolation = 0.0f;
+}
+
+// FUNCTION: WIZ8 0x0047EDF0
+stModelInstance& stModelInstance::operator=(const stModelInstance& other)
+{
+    srModelInstance::operator=(other);
+    highlight_colour.Set(0.0f, 0.0f, 0.0f, 0.0f);
+    render_flags = other.render_flags;
+    mesh_index = other.mesh_index;
+    frame_index = other.frame_index;
+
+    damage_stage_tables = other.damage_stage_tables;
+    damage_stage = other.damage_stage;
+    highlight_pass_mode = other.highlight_pass_mode;
+    highlight_material = 0;
+    light_scale = other.light_scale;
+    diffuse_scale = 0.0f;
+    diffuse_scale_enabled = false;
+    emissive_override_enabled = other.emissive_override_enabled;
+    emissive_override = other.emissive_override;
+    frame_interpolation = 0.0f;
+    return *this;
+}
+
+/* Retail touches the incoming model's class id before delegating to the
+   srModel::Client base setter. */
+// FUNCTION: WIZ8 0x0047F0C0
+void stModelInstance::setModel(srModel* model)
+{
+    if (model != 0) {
+        model->getClassID();
+    }
+    srModelInstance::setModel(model);
+}
+
+// FUNCTION: WIZ8 0x0047EF70
+stModelInstance::~stModelInstance()
+{
+    if (highlight_material != 0) {
+        highlight_material->release();
+    }
+}
+
+/* Apply the instance transform for the render pass. Unaligned instances take
+   the ordinary world-space matrix; aligned instances rebuild the model-view
+   matrix from the camera basis so the model stays screen-facing while
+   inheriting the view's translation, scale and handedness. */
+// FUNCTION: WIZ8 0x0047F560
+void stModelInstance::process(const ProcessInfo& info, e_processType)
+{
+    srGERD* renderer = info.renderer;
+
+    ApplyModelViewMatrix(this, renderer, align_angle, align_axis);
+
+    if (exclusion_mask != 0) {
+        unsigned long previous_mask = renderer->getExclusionMask();
+        renderer->setExclusionMask(exclusion_mask | previous_mask);
+        RenderMeshes(*renderer);
+        renderer->setExclusionMask(previous_mask);
+        renderer->popMatrix();
+        return;
+    }
+    RenderMeshes(*renderer);
+    renderer->popMatrix();
+}
+
+/* Submit the instance's linked mesh chain. Pass one fills a detached TriMesh
+   per model — animated vertex buffers when the model requests them, the
+   damage-stage texture/active-polygon tables, the lazily built highlight
+   material or the global material overrides — and pushes each mesh through
+   RenderTriMeshWithEquations. When the highlight RGBA is configured
+   the chain is submitted again inflated along its normals into a shared
+   scratch buffer with reversed winding, skipping the linked "blank" skin. */
+// FUNCTION: WIZ8 0x0047F930
+void stModelInstance::RenderMeshes(srGERD& renderer)
+{
+    srMeshModel::TriMesh mesh;
+    mesh.control_flags = 0;
+
+    stMeshModel* model = static_cast<stMeshModel*>(getModel());
+    stMeshModel* first_model = model;
+
+    srVector3T<float> center;
+    float radius;
+    model->getBoundingSphere(center, radius);
+    if (((model->render_control.value & 0x20) == 0) &&
+        (renderer.testBoundingSphere(center, radius) == srGERD::VISIBILITY_OUTSIDE)) {
+        return;
+    }
+    if (((model->render_control.value & 0x10) == 0) && (model->vertex_location_count >= 8)) {
+        srVector3T<float> minimum;
+        srVector3T<float> maximum;
+        model->getBoundingBox(minimum, maximum);
+        if (renderer.testBoundingBox(minimum, maximum) == srGERD::VISIBILITY_OUTSIDE) {
+            return;
+        }
+    }
+
+    // c-style-cast-ok: the pick key is an opaque void* token
+    SetPickKey((render_flags & RENDER_NO_PICK) != 0 ? (void*)0 : (void*)this);
+
+    srVector4T<float> ambient;
+    renderer.getAmbientLight(ambient);
+    srVector3T<float> ambient_color;
+    ambient_color = ambient.xyz();
+
+    srVector4T<float> light;
+    if (!model->vertex_lighting_ready) {
+        light.w = 1.0f;
+        light.x =
+            (ambient_color.x * light_scale.x + g_environment_offset.x) * g_monster_light_scale;
+        light.y =
+            (ambient_color.y * light_scale.y + g_environment_offset.y) * g_monster_light_scale;
+        light.z =
+            (ambient_color.z * light_scale.z + g_environment_offset.z) * g_monster_light_scale;
+    } else {
+        light.Set(0.0f, 0.0f, 0.0f, 0.0f);
+    }
+    renderer.setAmbientLight(light);
+
+    if (highlight_colour.x != g_float_zero || highlight_colour.y != g_float_zero ||
+        highlight_colour.z != g_float_zero || highlight_colour.w != g_float_zero) {
+        if (highlight_material == 0) {
+            highlight_material = new srMaterial;
+            srVector4T<float> zero;
+            zero.Set(0.0f, 0.0f, 0.0f, 0.0f);
+            highlight_material->setAmbient(zero);
+            highlight_material->setDiffuse(zero);
+            highlight_material->setSpecular(zero);
+            highlight_material->setOpacity(0.35);
+        }
+        highlight_material->setEmissive(highlight_colour);
+    }
+
+    bool first_pass = true;
+    srNode* child = this;
+    while (model != 0) {
+        model->SetAmbientColor(ambient_color);
+        model->getTriMesh(mesh);
+        if ((render_flags & RENDER_SHADOW) != 0 && first_pass) {
+            RenderShadow(renderer, mesh);
+        }
+
+        srVector3T<float>* poly_normals;
+        if ((model->flags & W8_MESH_HAS_FRAME_STORAGE) != 0) {
+            mesh.positions = model->GetVertexLocations(frame_index, true, frame_interpolation);
+            mesh.normals = model->GetVertexNormals(frame_index, true);
+            poly_normals = model->GetPolygonNormals(frame_index, true);
+        } else {
+            poly_normals = 0;
+        }
+
+        if (g_render_untextured) {
+            mesh.shaders[0].value &= 0xffff73ff;
+            mesh.poly_shaders[0] = 0;
+            mesh.poly_textures[0][0] = 0;
+            mesh.poly_uv[0] = 0;
+            mesh.texcoords[0][0] = 0;
+        }
+        if (g_render_unlit) {
+            mesh.dig[0] = 0;
+        }
+        srPtr<srTextureIFace>*(*poly_textures)[2] = mesh.poly_textures;
+        if (poly_textures != 0 && mesh.active_polygons == 0) {
+            long active_count;
+            unsigned long* active;
+            if (damage_stage >= 0) {
+                mesh.poly_textures[0][0] =
+                    model->GetTextureTable(damage_stage_tables.data[damage_stage]);
+                active = model->GetActivePolygons(&active_count,
+                                                  damage_stage_tables.data[damage_stage], true);
+            } else {
+                active = model->GetActivePolygons(&active_count, -1, true);
+            }
+            if (active != 0) {
+                mesh.active_polygons = active;
+                mesh.active_polygon_count = active_count;
+            }
+        }
+
+        if (((highlight_colour.x == g_float_zero) && (highlight_colour.y == g_float_zero) &&
+             (highlight_colour.z == g_float_zero) && (highlight_colour.w == g_float_zero)) ||
+            (highlight_pass_mode != 1)) {
+            if (diffuse_scale_enabled) {
+                g_material_diffuse_scale = diffuse_scale;
+                mesh.shaders[0].value = (mesh.shaders[0].value & 0xffffd7bf) | 0x44a0;
+                mesh.control_flags |= (1UL << srMeshModel::CONTROL_SORTED_RENDERING);
+                g_material_diffuse_scale_enabled = true;
+            }
+            if (emissive_override_enabled) {
+                g_material_emissive_override = emissive_override;
+                g_material_emissive_override_enabled = true;
+            }
+        } else {
+            mesh.vertex_materials[0][0] = 0;
+            mesh.materials[0][0] = highlight_material;
+        }
+
+        if ((render_flags & RENDER_NO_PICK) != 0 && !renderer.isPickStackEmpty()) {
+            srGERD::Pick pick;
+            renderer.popPick(pick);
+            model->RenderTriMeshWithEquations(renderer, mesh, poly_normals);
+            renderer.pushPick(pick);
+        } else {
+            model->RenderTriMeshWithEquations(renderer, mesh, poly_normals);
+        }
+
+        first_pass = false;
+        srNode* previous = child;
+        if (child == 0 || child->testFlag(FLAG_TERMINATE) == 0) {
+            model = model->next;
+            if (previous != 0) {
+                child = previous->first_child_;
+            }
+        } else {
+            model = 0;
+        }
+        if (diffuse_scale_enabled) {
+            g_material_diffuse_scale_enabled = false;
+        }
+        if (emissive_override_enabled) {
+            g_material_emissive_override_enabled = false;
+        }
+    }
+
+    if (highlight_colour.x != g_float_zero || highlight_colour.y != g_float_zero ||
+        highlight_colour.z != g_float_zero || highlight_colour.w != g_float_zero) {
+        model = static_cast<stMeshModel*>(getModel());
+        if (highlight_pass_mode == 0) {
+            renderer.setWinding(srGERD::WINDING_POSITIONAL_1);
+        }
+        while (model != 0) {
+            model->getTriMesh(mesh);
+            if (((model->flags & W8_MESH_SORTED_RENDERING) == 0) || (model == first_model)) {
+                if (mesh.poly_textures[0][0] != 0 ||
+                    ((mesh.textures[0][0] != 0) &&
+                     (_strnicmp("blank", mesh.textures[0][0]->getName(), 5) != 0))) {
+                    if (g_vertex_scratch == 0) {
+                        g_vertex_scratch = new srHeapBuffer<srVector3T<float> >;
+                    }
+                    /* Retail expresses the scratch grow as vertex_count*3
+                       floats but stores it as the vec3 element capacity. */
+                    unsigned long needed = mesh.vertex_count * 3 * sizeof(float);
+                    if (g_vertex_scratch->capacity < needed) {
+                        g_vertex_scratch->setCapacity(needed, 0);
+                    }
+
+                    const srVector3T<float>* poly_normals = 0;
+                    if ((model->flags & W8_MESH_HAS_FRAME_STORAGE) != 0) {
+                        mesh.dig[0] =
+                            model->GetVertexLocations(frame_index, true, frame_interpolation);
+                        mesh.dig[1] = model->GetVertexNormals(frame_index, true);
+                        poly_normals = model->GetPolygonNormals(frame_index, true);
+                    }
+                    srPtr<srTextureIFace>*(*poly_textures)[2] = mesh.poly_textures;
+                    if (poly_textures != 0 && mesh.active_polygons == 0) {
+                        long active_count;
+                        unsigned long* active;
+                        if (damage_stage >= 0) {
+                            active = model->GetActivePolygons(
+                                &active_count, damage_stage_tables.data[damage_stage], true);
+                        } else {
+                            active = model->GetActivePolygons(&active_count, -1, true);
+                        }
+                        if (active != 0) {
+                            mesh.active_polygons = active;
+                            mesh.active_polygon_count = active_count;
+                        }
+                    }
+
+                    mesh.materials[0][0] = highlight_material;
+                    mesh.shaders[1].value = (mesh.shaders[0].value & 0xffff5cb7) | 0x40a0;
+                    mesh.poly_shaders[1] = 0;
+                    mesh.poly_textures[0][1] = 0;
+                    mesh.vertex_materials[0][1] = 0;
+                    mesh.poly_uv[1] = 0;
+
+                    double factor = g_double_one / getScale().y * g_double_fifteen_and_five_eighths;
+                    float expand = static_cast<float>(
+                        (radius * getScale().y * g_double_one_thousandth + g_double_one) * factor);
+                    srVector3T<float> offsets;
+                    offsets = expand;
+
+                    if (mesh.vertex_count != 0) {
+                        if (offsets.x == g_float_zero && offsets.y == g_float_zero &&
+                            offsets.z == g_float_zero) {
+                            if (mesh.vertex_count * 3 != 0) {
+                                srVectorProcessor::copy(
+                                    // reinterpret-ok: dword view of the vec3 scratch buffer.
+                                    reinterpret_cast<SRDWORD*>(g_vertex_scratch->data), 0,
+                                    mesh.vertex_count * 3);
+                            }
+                        } else {
+                            srVectorProcessor::mul(g_vertex_scratch->data, offsets, mesh.normals,
+                                                   mesh.vertex_count);
+                        }
+                    }
+                    if (mesh.vertex_count * 3 != 0) {
+                        srVectorProcessor::add(
+                            // reinterpret-ok: float lanes of the vec3 scratch buffer.
+                            reinterpret_cast<float*>(g_vertex_scratch->data),
+                            reinterpret_cast<const float*>(g_vertex_scratch->data),
+                            // reinterpret-ok: float lanes of the mesh positions.
+                            reinterpret_cast<const float*>(mesh.positions), mesh.vertex_count * 3);
+                    }
+                    mesh.positions = g_vertex_scratch->data;
+                    mesh.control_flags |= (1UL << srMeshModel::CONTROL_SORTED_RENDERING);
+
+                    if ((render_flags & RENDER_NO_PICK) != 0 && !renderer.isPickStackEmpty()) {
+                        srGERD::Pick pick;
+                        renderer.popPick(pick);
+                        model->RenderTriMeshWithEquations(renderer, mesh, poly_normals);
+                        renderer.pushPick(pick);
+                    } else {
+                        model->RenderTriMeshWithEquations(renderer, mesh, poly_normals);
+                    }
+                }
+            }
+
+            srNode* previous = child;
+            if (child != 0 && child->testFlag(FLAG_TERMINATE) != 0) {
+                break;
+            }
+            model = model->next;
+            if (previous != 0) {
+                child = previous->first_child_;
+            }
+        }
+        if (highlight_pass_mode == 0) {
+            renderer.setWinding(srGERD::WINDING_POSITIONAL_0);
+        }
+    }
+    renderer.setAmbientLight(ambient);
+}
+
+// GLOBAL: WIZ8 0x005EC8E0
+const float g_shadow_extrusion_pitch_scale = 1.0f / 1500.0f;
+
+/* Shared shadow-quad mesh built on first use: two upright triangles on a
+   500-unit ground span, lit by a dedicated material so the extruded shadow
+   pass submits through the ordinary TriMesh pipeline. */
+// GLOBAL: WIZ8 0x0065A14C
+static srMeshModel::TriMesh* g_shadow_mesh;
+
+// FUNCTION: WIZ8 0x004813F0
+static void BuildShadowMesh()
+{
+    stMaterial* material = SR_NEW(stMaterial)();
+    srShader shader;
+    shader.value = 0x44b3;
+    if (g_shadow_mesh == 0) {
+        g_shadow_mesh = new srMeshModel::TriMesh;
+        if (g_shadow_mesh != 0) {
+            if (material != 0) {
+                srVector4T<float> color;
+                color.Set(1.0f, 1.0f, 1.0f, 1.0f);
+                material->setAmbient(color);
+                color.Set(0.0f, 0.0f, 0.0f, 0.0f);
+                material->setSpecular(color);
+                material->parms.shininess = 1.0f;
+                material->dirty = 1;
+                color.Set(0.0f, 0.0f, 0.0f, 0.0f);
+                material->setEmissive(color);
+                color.Set(1.0f, 1.0f, 1.0f, 0.0f);
+                material->setDiffuse(color);
+                material->m_surface_flags = 0;
+            }
+            srVector3i* triangles = static_cast<srVector3i*>(srHeap.allocate(6 * sizeof(long)));
+            g_shadow_mesh->poly_vertices = triangles;
+            triangles[0].x = 0;
+            triangles[0].y = 1;
+            triangles[0].z = 2;
+            triangles[1].x = 3;
+            triangles[1].y = 4;
+            triangles[1].z = 5;
+            srVector3T<float>* positions = static_cast<srVector3T<float>*>(srHeap.allocate(0x48));
+            g_shadow_mesh->positions = positions;
+            positions[0].Set(-250.0f, 250.0f, 0.0f);
+            positions[1].Set(0.0f, -250.0f, 0.0f);
+            positions[2].Set(250.0f, 250.0f, 0.0f);
+            positions[3].Set(0.0f, 250.0f, -250.0f);
+            positions[4].Set(0.0f, -250.0f, 0.0f);
+            positions[5].Set(0.0f, 250.0f, 250.0f);
+            g_shadow_mesh->normals = 0;
+            g_shadow_mesh->control_flags = 0;
+            g_shadow_mesh->control_flags |= (1UL << srMeshModel::CONTROL_SKIP_AUTO_BOX);
+            g_shadow_mesh->control_flags |= (1UL << srMeshModel::CONTROL_SKIP_AUTO_SPHERE);
+            g_shadow_mesh->control_flags |= (1UL << srMeshModel::CONTROL_NO_FRONT_CULL);
+            g_shadow_mesh->polygon_count = 2;
+            g_shadow_mesh->vertex_count = 6;
+            g_shadow_mesh->bounds_maximum = 500.0f;
+            g_shadow_mesh->bounds_minimum.SetZero();
+            g_shadow_mesh->bounds_center = 250.0f;
+            g_shadow_mesh->bounds_radius = 250.0f;
+            g_shadow_mesh->pass_count = 1;
+            g_shadow_mesh->shaders[0] = shader;
+            g_shadow_mesh->poly_equations = 0;
+            g_shadow_mesh->texcoords[0][0] = 0;
+            g_shadow_mesh->materials[0][0] = material;
+            g_shadow_mesh->textures[0][0] = 0;
+            g_shadow_mesh->poly_shaders[0] = 0;
+            g_shadow_mesh->poly_uv[0] = 0;
+            g_shadow_mesh->active_polygons = 0;
+            g_shadow_mesh->dcg[0] = 0;
+            g_shadow_mesh->dig[0] = 0;
+            g_shadow_mesh->scg[0] = 0;
+            g_shadow_mesh->sort_bias = 0.0f;
+        }
+    }
+}
+
+/* Submit the shared shadow-quad mesh extruded over the source mesh's height:
+   front-cull the pass, translate to the mesh's mid-height, scale the unit
+   quad by a clamped pitch factor, then feed the pipeline slots directly. */
+// FUNCTION: WIZ8 0x004811D0
+void stModelInstance::RenderShadow(srGERD& renderer, srMeshModel::TriMesh& mesh)
+{
+    if (g_shadow_mesh == 0) {
+        BuildShadowMesh();
+        if (g_shadow_mesh == 0) {
+            return;
+        }
+    }
+    float height = mesh.bounds_maximum.y - mesh.bounds_minimum.y;
+    renderer.pushEnable();
+    renderer.setCullMode(srGERD::CULL_NONE);
+    if (!renderer.isEnabled(srGERD::ENABLE_SORTED_RENDERING)) {
+        renderer.toggle(srGERD::ENABLE_SORTED_RENDERING);
+    }
+    renderer.matrixMode(srGERD::MATRIX_MODELVIEW);
+    renderer.pushMatrix();
+    renderer.translate(0.0, height * g_float_half, 0.0);
+    height *= g_shadow_extrusion_pitch_scale;
+    if (height < g_float_half) {
+        height = g_float_half;
+    }
+    double scale = height;
+    renderer.scale(scale, scale, scale);
+
+    srTriMeshPipeline* pipeline = srTriMeshPipeline::Get(&renderer);
+    pipeline->triangle_count = g_shadow_mesh->polygon_count;
+    pipeline->triangles = g_shadow_mesh->poly_vertices;
+    pipeline->vertex_count = g_shadow_mesh->vertex_count;
+    pipeline->positions = g_shadow_mesh->positions;
+    pipeline->vertex_extras = g_shadow_mesh->normals;
+    pipeline->current_record->flags = 0;
+    pipeline->current_pass->shaders = 0;
+    pipeline->current_pass->texture_tables[0] = 0;
+    pipeline->current_pass->texture_tables[1] = 0;
+    pipeline->material = g_shadow_mesh->materials[0][0];
+    pipeline->current_record->material = pipeline->material;
+    pipeline->SetFlags(g_shadow_mesh->shaders[0]);
+    pipeline->current_record = &pipeline->records[++pipeline->slot_count];
+    pipeline->current_pass = &pipeline->passes[pipeline->slot_count];
+    pipeline->current_record->flags = 0;
+    pipeline->current_record->disable_mask = 0;
+    pipeline->current_record->material = pipeline->material;
+    pipeline->current_pass->textures[0] = pipeline->texture0;
+    pipeline->current_pass->textures[1] = pipeline->texture1;
+    pipeline->current_pass->shader.value = pipeline->shader.value;
+    pipeline->current_pass->texture_tables[0] = 0;
+    pipeline->current_pass->texture_tables[1] = 0;
+    pipeline->current_pass->shaders = 0;
+    pipeline->current_pass->texcoords = 0;
+    pipeline->current_pass->poly_uv = 0;
+    pipeline->FlushIfCurrent();
+    renderer.popMatrix();
+    renderer.popEnable();
+}

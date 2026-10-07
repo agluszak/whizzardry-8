@@ -1,0 +1,1444 @@
+#include "wiz8/spell_ids.h"
+#include "wiz8/sgp_text.h"
+#include "wiz8/local_screens/MGSPortraits.h"
+#include "wiz8/local_screens/MainGameScreen.h"
+#include "wiz8/local_screens/NPCInteractionSubscreen.h"
+#include "wiz8/local_screens/PartySelectionScreen.h"
+#include "wiz8/local_screens/Screens.h"
+#include "wiz8/layouts/screen_state.h"
+#include "wiz8/local_code/Gameloop.h"
+#include "wiz8/local_code/NPCScripting.h"
+#include "wiz8/local_code/Strings.h"
+#include "wiz8/local_code/TextControl.h"
+#include "wiz8/local_code/GameplayCode.h"
+#include "wiz8/local_code/Targeting.h"
+#include "wiz8/local_code/Combat.h"
+#include "wiz8/local_code/UtilityFunctions.h"
+#include "wiz8/local_code/Configuration.h"
+#include "wiz8/local_code/HealthStaminaMana.h"
+#include "wiz8/layouts/combat_state.h"
+#include "wiz8/layouts/character.h"
+#include "wiz8/layouts/game_status.h"
+#include "wiz8/layouts/item_tables.h"
+#include "wiz8/local_code/Controls.h"
+#include "wiz8/local_screens/CharacterScreen.h"
+#include "wiz8/fonts.h"
+#include "wiz8/item_video_object_vector.h"
+#include "wiz8/regions.h"
+#include "wiz8/sr_api.h"
+#include "wiz8/video_object_catalog.h"
+#include "wiz8/local_screens/ReviewCharacterScreen.h"
+#include "wiz8/xstatus.h"
+#include "wiz8/local_code/TextBuffer.h"
+#include "wiz8/local_code/character_events.h"
+#include "wiz8/engine_code/Video2.h"
+#include "wiz8/utility.h"
+#include "Font.h"
+#include "himage.h"
+#include "input.h"
+#include "line.h"
+#include "timer.h"
+#include "vobject.h"
+#include "vsurface.h"
+
+static void DrawDamageSplatOverlay(unsigned int party_slot);
+void DrawPortraitEffectIcon(unsigned int party_slot);
+
+/* Dead-character portrait catalog ids, two per race - the small
+   party-strip image at [race][0] and the large header portrait at [race][1]. */
+// GLOBAL: WIZ8 0x006488D0
+int g_dead_portrait_catalog_ids[W8_RACE_COUNT][2] = {
+    {20, 31}, {20, 31}, {20, 31}, {20, 31}, {20, 31}, {20, 31}, {23, 34}, {21, 32},
+    {22, 33}, {25, 36}, {24, 35}, {27, 38}, {26, 37}, {28, 39}, {29, 40}, {30, 41},
+};
+
+/* Empty-hand catalog ids when a primary hand slot is bare. Each race
+   stores the right-hand id at +0 and the left-hand id at +4 (retail also reaches
+   the left id through 0x00649DD8). */
+// GLOBAL: WIZ8 0x00649DD4
+int g_empty_hand_catalog_ids[32] = {
+    103, 102, 103, 102, 103, 102, 103, 102, 103, 102, 105, 104, 109, 108, 109, 108,
+    107, 106, 107, 106, 107, 106, 107, 106, 109, 108, 103, 102, 109, 108, 111, 110,
+};
+
+// GLOBAL: WIZ8 0x0069B940
+static Controls* g_portrait_panel; /* gpLevelButtonsPanel */
+// GLOBAL: WIZ8 0x0061AA9C
+char s_spell_sound_format[] = "Data\\Spells\\Sounds\\%s.wav";
+// GLOBAL: WIZ8 0x0064C664
+char s_general_magic_sound[] = "Data\\Spells\\Sounds\\GeneralMagic.wav";
+
+// GLOBAL: WIZ8 0x0069B920
+static W8TextControl* g_portrait_controls[8]; /* gpLevelButtons[uiSlot] */
+
+// GLOBAL: WIZ8 0x0069B900
+static W8ConditionButton* g_condition_buttons[8];
+// GLOBAL: WIZ8 0x0069B944
+static Controls* g_condition_buttons_panel;
+/* Party slot the level-up portrait button opens; -1 while idle. */
+// GLOBAL: WIZ8 0x0069B948
+static int giLevelUpChar;
+
+static void OnLevelButtonActivate(void);
+
+/* Refresh cached HP/stamina/spell portrait bar widths; dirty + redraw when
+   any slot's displayed fraction (or numeric HP) changes. */
+// FUNCTION: WIZ8 0x0059A3A0
+void SyncPartyPortraitVitalsBars(void)
+{
+    int slot;
+
+    for (slot = 0; slot < 8; ++slot) {
+        W8MonsterManagerEntry* entry = &gXStatus.monster_manager_entries[slot];
+        unsigned int hp_bar = 0;
+        unsigned int stamina_bar = 0;
+        unsigned int spell_bar = 0;
+        W8Character* character;
+
+        if (!g_status.buffers.XChar[slot].fOccupied) {
+            continue;
+        }
+
+        character = &g_status.buffers.Char[slot];
+        if (character->hp_current == 0) {
+            hp_bar = 0;
+            stamina_bar = 0;
+        } else {
+            unsigned int stamina;
+            int left;
+            int total;
+
+            hp_bar = (character->hp_current * 0x2d) / static_cast<unsigned int>(character->uiHPMax);
+            if (hp_bar == 0) {
+                hp_bar = 1;
+            }
+
+            stamina = character->stamina;
+            stamina_bar = ((static_cast<int>(stamina) < 0 ? 0 : stamina) * 0x2d) /
+                          static_cast<unsigned int>(character->uiStaminaMax);
+            if (stamina_bar == 0 && stamina != 0) {
+                stamina_bar = 1;
+            }
+
+            if (SumCharacterSpellPoints(character) == 0) {
+                spell_bar = 0;
+            } else {
+                left = SumCharacterSpellPointsLeft(character);
+                if (left < 0) {
+                    left = 0;
+                } else {
+                    left = SumCharacterSpellPointsLeft(character);
+                }
+                total = SumCharacterSpellPoints(character);
+                spell_bar =
+                    (static_cast<unsigned int>(left) * 0x2d) / static_cast<unsigned int>(total);
+                if (spell_bar == 0 && SumCharacterSpellPointsLeft(character) != 0) {
+                    spell_bar = 1;
+                }
+            }
+
+            if (hp_bar != static_cast<unsigned int>(entry->cached_hp_bar) ||
+                stamina_bar != static_cast<unsigned int>(entry->cached_stamina_bar) ||
+                spell_bar != static_cast<unsigned int>(entry->cached_spell_bar) ||
+                (g_settings.numeric_hit_points != 0 &&
+                 static_cast<int>(character->hp_current) != entry->cached_hp)) {
+                entry->portrait_stats_dirty = true;
+                RequestRedraw(W8_MAIN_REDRAW_FRAME);
+            }
+        }
+
+        entry->cached_hp_bar = static_cast<int>(hp_bar);
+        entry->cached_stamina_bar = static_cast<int>(stamina_bar);
+        entry->cached_spell_bar = static_cast<int>(spell_bar);
+        entry->cached_hp = static_cast<int>(character->hp_current);
+    }
+}
+
+/* Open the slot's floating damage-number splat on a fresh hit, or accumulate
+   into it while one is already up: the death variant runs the longer
+   0x92-catalog animation when the character's hit points are gone, a forced
+   portrait refresh defers the frame to -1, and a still-playing effect icon
+   defers it likewise. */
+// FUNCTION: WIZ8 0x0059AC40
+void RecordCharacterDamage(int party_slot, unsigned int amount)
+{
+    bool splat_started = false;
+
+    if (gXStatus.fSurprisePossible) {
+        return;
+    }
+    W8MonsterManagerEntry* entry = &gXStatus.monster_manager_entries[party_slot];
+    if (!entry->damage_splat_active) {
+        entry->damage_splat_amount = amount;
+        entry->damage_splat_active = true;
+        if (Random(2) == 0) {
+            entry->damage_splat_catalog = 0x90;
+        } else {
+            entry->damage_splat_catalog = 0x91;
+        }
+        if (g_status.buffers.Char[party_slot].hp_current == 0) {
+            entry->damage_splat_death_variant = true;
+            entry->damage_splat_end_frame = 0x1e;
+        } else {
+            entry->damage_splat_death_variant = false;
+            entry->damage_splat_end_frame = 8;
+        }
+        entry->damage_splat_frame = 0;
+        splat_started = true;
+        if (g_settings.main_ui_mode != W8_MAIN_UI_MODE_PORTRAITS &&
+            g_level_block->portrait_refresh_pending[party_slot] == 0) {
+            RefreshSelectedPartyPortrait(party_slot);
+            entry->auto_portrait_refresh = true;
+            entry->damage_splat_frame = -1;
+        }
+    } else {
+        entry->damage_splat_amount += amount;
+        entry->damage_splat_frame = 0;
+        if (g_status.buffers.Char[party_slot].hp_current == 0 &&
+            !entry->damage_splat_death_variant) {
+            entry->damage_splat_death_variant = true;
+            entry->damage_splat_end_frame = 0x1e;
+        }
+    }
+    if (!entry->keyboard_menu_open) {
+        RequestRedraw(1u << party_slot);
+    }
+    if (entry->effect_icon_active && splat_started) {
+        entry->damage_splat_frame = -1;
+        return;
+    }
+    entry->portrait_fx_clock = SetCountdownClock(100);
+}
+
+/* Draw the slot's floating damage-number splat over the portrait: the picked
+   (or death-variant) catalog image at the current frame plus the running
+   damage total in bold text for the first six frames. Frame -1 means the
+   splat is deferred behind a portrait refresh or a still-playing effect
+   icon. */
+// FUNCTION: WIZ8 0x0059ADD0
+static void DrawDamageSplatOverlay(unsigned int party_slot)
+{
+    W8MonsterManagerEntry* entry = &gXStatus.monster_manager_entries[party_slot];
+    int frame = entry->damage_splat_frame;
+    int top = 0;
+
+    if (frame != -1) {
+        int left = ((party_slot & 1) != 0 ? 0x1ff : 0) + 0x16;
+        switch (party_slot >> 1) {
+        case 0:
+            top = 0x12;
+            break;
+        case 1:
+            top = 0x67;
+            break;
+        case 2:
+            top = 0xbc;
+            break;
+        case 3:
+            top = 0x111;
+            break;
+        }
+        unsigned int object =
+            !entry->damage_splat_death_variant ? entry->damage_splat_catalog : 0x92;
+        DrawCatalogImage(FRAME_BUFFER, object, 0, static_cast<short>(frame), left, top,
+                         VO_BLT_SRCTRANSPARENCY, 0);
+        if (entry->damage_splat_frame < 6) {
+            W8ControlsRect bounds;
+            bounds.left = left;
+            bounds.top = top + 4;
+            bounds.right = left + 0x52;
+            bounds.bottom = top + 0x4c;
+            W8TextBuffer splat_text(&bounds, 0, 0, 0, 4);
+            splat_text.RenderString(FormatWideString(g_format_d, entry->damage_splat_amount),
+                                    g_wiz_text_bold_font, false, FRAME_BUFFER);
+        }
+        if (gXStatus.fCombatMode) {
+            entry->combat_portrait_dirty = true;
+        }
+    }
+}
+
+/* Draw the in-flight spell/condition effect icon over the slot's portrait.
+   frame -1 is the deferred-start state and draws nothing; the icon is skipped
+   while a pending portrait refresh sits under another overlay (the settings
+   mode parked off PORTRAITS with the slot's refresh flag set). */
+// FUNCTION: WIZ8 0x0059B0F0
+void DrawPortraitEffectIcon(unsigned int party_slot)
+{
+    int image = gXStatus.monster_manager_entries[party_slot].effect_icon_frame;
+    int top = 0;
+    if (image != -1) {
+        switch (party_slot >> 1) {
+        case 0:
+            top = 0x12;
+            break;
+        case 1:
+            top = 0x67;
+            break;
+        case 2:
+            top = 0xbc;
+            break;
+        case 3:
+            top = 0x111;
+        }
+        if (g_settings.main_ui_mode == W8_MAIN_UI_MODE_PORTRAITS ||
+            g_level_block->portrait_refresh_pending[party_slot] != 0) {
+            DrawCatalogImageAndInvalidate(
+                FRAME_BUFFER, gXStatus.monster_manager_entries[party_slot].effect_icon_catalog, 0,
+                image, (party_slot & 1) << 9 | 0x17, top, VO_BLT_SRCTRANSPARENCY, 0);
+        }
+    }
+}
+
+/* Advance the per-slot portrait FX counters on a 100ms clock and request a
+   redraw when a visible slot's animation frame advances. */
+// FUNCTION: WIZ8 0x0059B1A0
+void TickPartyPortraitFx(void)
+{
+    unsigned char slot;
+
+    for (slot = 0; slot < 8; ++slot) {
+        W8MonsterManagerEntry* entry = &gXStatus.monster_manager_entries[slot];
+        bool clock_expired;
+        bool dirty = false;
+
+        if (!g_status.buffers.XChar[slot].fOccupied) {
+            continue;
+        }
+
+        clock_expired = ClockIsTicking(entry->portrait_fx_clock) == 0;
+        if (entry->damage_splat_active) {
+            if (clock_expired) {
+                ++entry->damage_splat_frame;
+                dirty = true;
+            }
+            if (entry->damage_splat_frame == entry->damage_splat_end_frame) {
+                entry->damage_splat_active = false;
+                entry->damage_splat_death_variant = false;
+            } else if (entry->damage_splat_death_variant && entry->damage_splat_frame == 0xd &&
+                       !entry->dead_portrait_revealed) {
+                entry->dead_portrait_revealed = true;
+            }
+        }
+        if (entry->effect_icon_active) {
+            if (clock_expired) {
+                ++entry->effect_icon_frame;
+                dirty = true;
+            }
+            if (entry->effect_icon_frame == entry->effect_icon_end_frame) {
+                entry->effect_icon_active = false;
+            }
+        }
+        if (clock_expired) {
+            entry->portrait_fx_clock = SetCountdownClock(100);
+        }
+        if (dirty && !entry->keyboard_menu_open) {
+            RequestRedraw(1u << (slot & 0x1f));
+        }
+    }
+}
+
+/* Clear each occupied slot's damage-splat and effect-icon portrait overlays
+   and rearm the shared FX clock; the main-game screen leave runs it so a
+   pending animation does not survive the screen transition. */
+// FUNCTION: WIZ8 0x0059B270
+void ResetPartyPortraitFx(void)
+{
+    unsigned char slot;
+
+    for (slot = 0; slot < 8; ++slot) {
+        W8MonsterManagerEntry* entry = &gXStatus.monster_manager_entries[slot];
+
+        if (!g_status.buffers.XChar[slot].fOccupied) {
+            continue;
+        }
+        entry->effect_icon_active = false;
+        entry->effect_icon_frame = -1;
+        entry->effect_icon_catalog = -1;
+        entry->damage_splat_active = false;
+        entry->damage_splat_death_variant = false;
+        entry->dead_portrait_revealed = false;
+        entry->damage_splat_frame = -1;
+        entry->portrait_fx_clock = SetCountdownClock(0);
+    }
+}
+
+/* Draw each occupied, living and eligible party slot's combat portrait in the
+   side strip once the slot's dirty flag is raised: the normal frame, or the
+   alternate while the slot is the hovered combat slot, then the can't-act
+   badge or the party-member target marker. The slot currently acting is drawn
+   by the action panel instead. */
+// FUNCTION: WIZ8 0x0059B720
+void RedrawCombatPortraits(void)
+{
+    int portrait_x;
+    int badge_x;
+    int row_y;
+    int portrait_image;
+    int slot;
+
+    for (slot = 0; slot < 8; ++slot) {
+        W8PartySlotRow* party_row = &g_status.buffers.XChar[slot];
+        W8MonsterManagerEntry* entry = &gXStatus.monster_manager_entries[slot];
+        W8CombatCharacterRow* combat_row = &g_combat_state->characters[slot];
+
+        if (!CanPartySlotParticipate(slot) || combat_row->portrait_image == -1 ||
+            !entry->combat_portrait_dirty || slot == g_level_block->combat_slot) {
+            continue;
+        }
+        if ((slot & 1) == 0) {
+            portrait_x = 0x19;
+            badge_x = 0x19;
+        } else {
+            portrait_x = 0x253;
+            badge_x = 0x25b;
+        }
+        row_y = (slot >> 1) * 0x55;
+        if (g_settings.main_ui_mode != W8_MAIN_UI_MODE_PORTRAITS &&
+            g_level_block->portrait_refresh_pending[slot] == 0) {
+            ClearSurfaceRect(portrait_x, row_y + 0x37, portrait_x + 0x14, row_y + 0x58);
+            InvalidateRegion(portrait_x, row_y + 0x37, portrait_x + 0x14, row_y + 0x58, 0);
+        }
+        if (g_level_block->combat_action_hover_party_slot == -1 ||
+            g_level_block->combat_action_hover_party_slot != slot) {
+            portrait_image = combat_row->portrait_image;
+        } else {
+            portrait_image = combat_row->portrait_image_alternate;
+        }
+        DrawCatalogImageAndInvalidate(FRAME_BUFFER, 0x8a, 0, portrait_image, portrait_x,
+                                      row_y + 0x44, VO_BLT_SRCTRANSPARENCY, 0);
+        if (!CharacterCanSwitchTo(slot, W8_TARGETING_CONTEXT_IN_COMBAT, false, false)) {
+            DrawCatalogImageAndInvalidate(FRAME_BUFFER, 0x8b, 0, 0, badge_x, row_y + 0x37,
+                                          VO_BLT_SRCTRANSPARENCY, 0);
+        } else if (party_row->target_in_combat.iType == W8_TARGET_KIND_CHARACTER) {
+            DrawCatalogImageAndInvalidate(
+                FRAME_BUFFER, 0x8c, 0,
+                g_status.buffers.XChar[party_row->target_in_combat.iChar].party_order_index,
+                badge_x, row_y + 0x38, VO_BLT_SRCTRANSPARENCY, 0);
+        }
+        entry->combat_portrait_dirty = false;
+    }
+}
+
+/* Toggle numeric hit-point display on the party portraits and invalidate all
+   eight slot masks so the new mode repaints everywhere. */
+// FUNCTION: WIZ8 0x0059AA30
+void ToggleNumericHitPoints(void)
+{
+    g_settings.numeric_hit_points = g_settings.numeric_hit_points == 0;
+    for (unsigned int slot = 0; slot < 8; slot++) {
+        RequestRedraw(1u << slot);
+    }
+}
+
+/* The slot's anchor positions for the keyboard menu and portrait band: the
+   panel corner, the band's two x edges (their order swaps with the column),
+   the grid row and the column pixel. 'adjust' applies the compact-display
+   shift used when the party display is a single column. */
+// FUNCTION: WIZ8 0x0059AA60
+void GetPartySlotMenuAnchor(int party_slot, int* menu_x, int* menu_y, int* band_menu_edge,
+                            int* band_portrait_edge, int* grid_row, int* column_x, int adjust)
+{
+    switch (party_slot) {
+    case 0:
+        *grid_row = 1;
+        *column_x = 0;
+        *menu_x = 0;
+        *menu_y = 0x12;
+        *band_menu_edge = *menu_x + 2;
+        *band_portrait_edge = *menu_x + 0x69;
+        break;
+    case 1:
+        *grid_row = 2;
+        *column_x = 0x200;
+        *menu_x = 0x200;
+        *menu_y = 0x12;
+        *band_menu_edge = *menu_x + 0x6b;
+        *band_portrait_edge = *menu_x;
+        break;
+    case 2:
+        *grid_row = 5;
+        *column_x = 0;
+        *menu_x = 0;
+        *menu_y = 0x67;
+        *band_menu_edge = *menu_x + 2;
+        *band_portrait_edge = *menu_x + 0x69;
+        break;
+    case 3:
+        *grid_row = 6;
+        *column_x = 0x200;
+        *menu_x = 0x200;
+        *menu_y = 0x67;
+        *band_menu_edge = *menu_x + 0x6b;
+        *band_portrait_edge = *menu_x;
+        break;
+    case 4:
+        *grid_row = 9;
+        *column_x = 0;
+        *menu_x = 0;
+        *menu_y = 0xbc;
+        *band_menu_edge = *menu_x + 2;
+        *band_portrait_edge = *menu_x + 0x69;
+        break;
+    case 5:
+        *grid_row = 10;
+        *column_x = 0x200;
+        *menu_x = 0x200;
+        *menu_y = 0xbc;
+        *band_menu_edge = *menu_x + 0x6b;
+        *band_portrait_edge = *menu_x;
+        break;
+    case 6:
+        *grid_row = 0xd;
+        *column_x = 0;
+        *menu_x = 0;
+        *menu_y = 0x111;
+        *band_menu_edge = *menu_x + 2;
+        *band_portrait_edge = *menu_x + 0x69;
+        break;
+    case 7:
+        *grid_row = 0xe;
+        *column_x = 0x200;
+        *menu_x = 0x200;
+        *menu_y = 0x111;
+        *band_menu_edge = *menu_x + 0x6b;
+        *band_portrait_edge = *menu_x;
+        break;
+    default:
+        break;
+    }
+    if (adjust != 0 && g_settings.main_ui_mode != W8_MAIN_UI_MODE_PORTRAITS &&
+        static_cast<unsigned int>(g_settings.main_ui_mode) <=
+            static_cast<unsigned int>(W8_MAIN_UI_MODE_RADAR)) {
+        if ((party_slot & 1) == 0) {
+            *menu_x -= 0x69;
+            *band_menu_edge = -1;
+            *band_portrait_edge -= 0x69;
+            --*grid_row;
+            *column_x = 0;
+        } else {
+            *menu_x = 0x269;
+            *band_menu_edge = -1;
+            *band_portrait_edge = 0x269;
+            ++*grid_row;
+            *column_x = 0x269;
+        }
+    }
+}
+
+/* Repaint one party slot's HP, stamina and optional spell-point bars beside
+   the portrait, including numeric HP text when that option is enabled. */
+// FUNCTION: WIZ8 0x0059A540
+void RedrawPartyPortraitBars(unsigned int party_slot, bool slot_enabled)
+{
+    W8MonsterManagerEntry* entry = &gXStatus.monster_manager_entries[party_slot];
+    W8Character* character = &g_status.buffers.Char[party_slot];
+    int menu_x;
+    int menu_y;
+    int band_menu_edge;
+    int band_portrait_edge;
+    int grid_row;
+    int column_x;
+    int bar_y;
+    int hp_bar_x;
+    unsigned int stamina_bar_x;
+    unsigned int spell_bar_x;
+    int hp_catalog;
+    int stamina_catalog;
+    int spell_catalog;
+    unsigned int numeric_hp_mode;
+    UINT32 pitch;
+
+    if (character->hp_current != 0) {
+        GetPartySlotMenuAnchor(party_slot, &menu_x, &menu_y, &band_menu_edge, &band_portrait_edge,
+                               &grid_row, &column_x, slot_enabled);
+        if (g_settings.numeric_hit_points != 0) {
+            bar_y = 0x11;
+            hp_bar_x = 3;
+            stamina_bar_x = 9;
+            spell_bar_x = 0xf;
+            hp_catalog = 0x52;
+            stamina_catalog = 0x53;
+            spell_catalog = 0x54;
+        } else {
+            bar_y = 0x17;
+            hp_bar_x = 6;
+            stamina_bar_x = 10;
+            spell_bar_x = 0xe;
+            hp_catalog = 0x4f;
+            stamina_catalog = 0x50;
+            spell_catalog = 0x51;
+        }
+        numeric_hp_mode = g_settings.numeric_hit_points != 0;
+
+        DrawCatalogImage(FRAME_BUFFER, hp_catalog, 0, 0, band_portrait_edge + hp_bar_x,
+                         bar_y + menu_y, VO_BLT_SRCTRANSPARENCY, 0);
+        ShadeStatusBarGap(0x2d - entry->cached_hp_bar, hp_bar_x + band_portrait_edge,
+                          bar_y - numeric_hp_mode + menu_y);
+
+        DrawCatalogImage(FRAME_BUFFER, stamina_catalog, 0, 0, band_portrait_edge + stamina_bar_x,
+                         bar_y + menu_y, VO_BLT_SRCTRANSPARENCY, 0);
+        ShadeStatusBarGap(0x2d - entry->cached_stamina_bar, stamina_bar_x + band_portrait_edge,
+                          bar_y - numeric_hp_mode + menu_y);
+
+        if (SumCharacterSpellPoints(character) != 0) {
+            DrawCatalogImage(FRAME_BUFFER, spell_catalog, 0, 0, band_portrait_edge + spell_bar_x,
+                             bar_y + menu_y, VO_BLT_SRCTRANSPARENCY, 0);
+            ShadeStatusBarGap(0x2d - entry->cached_spell_bar, spell_bar_x + band_portrait_edge,
+                              bar_y - numeric_hp_mode + menu_y);
+        }
+
+        InvalidateRegion(band_portrait_edge, bar_y + menu_y, band_portrait_edge + 0x18,
+                         bar_y + menu_y + 0x2d, 0);
+        if (g_settings.numeric_hit_points != 0) {
+            W8TextBuffer text;
+            W8ControlsRect bounds;
+
+            bounds.left = band_portrait_edge + 2;
+            bounds.right = band_portrait_edge + 0x14;
+            bounds.top = menu_y + 0x3e;
+            bounds.bottom = menu_y + 0x46;
+            text.SetLayoutMode(g_W8TextBufferAlignMiddle | g_W8TextBufferAlignCenter);
+            text.SetLayoutBounds(&bounds, true, true);
+            SetFontObjectPalette16BPP(g_smfnt_font, g_font_palette_smfnt);
+            text.SetText(FormatWideString(g_format_d, character->hp_current), g_smfnt_font);
+            InvalidateRegion(bounds.left, bounds.top + 1, bounds.right, bounds.bottom, 0);
+            ColorFillVideoSurfaceArea(FRAME_BUFFER, bounds.left, bounds.top + 1, bounds.right,
+                                      bounds.bottom, 0x8000);
+            text.RenderToTarget(0, false, FRAME_BUFFER);
+        }
+    }
+
+    entry->portrait_stats_dirty = false;
+}
+
+// FUNCTION: WIZ8 0x0059AF40
+void StageMonsterCastIcon(unsigned int party_slot, W8SpellRealm realm, bool alternate, int spell_id)
+{
+    if (g_current_screen_state.id != W8_SCREEN_MAIN_GAME) {
+        return;
+    }
+    W8MonsterManagerEntry* entry = &gXStatus.monster_manager_entries[party_slot];
+    entry->effect_icon_active = true;
+    entry->effect_icon_frame = 0;
+    int catalog;
+    switch (realm) {
+    case 0:
+        catalog = 0xac - (alternate);
+        break;
+    case 1:
+        catalog = 0xae - (alternate);
+        break;
+    case 2:
+        catalog = 0xb0 - (alternate);
+        break;
+    case 3:
+        catalog = 0xb2 - (alternate);
+        break;
+    case 4:
+        catalog = 0xb4 - (alternate);
+        break;
+    case 5:
+        catalog = 0xb6 - (alternate);
+        break;
+    default:
+        catalog = 0xaa;
+    }
+    entry->effect_icon_catalog = catalog;
+    entry->effect_icon_end_frame = GetCatalogVideoObject(catalog, 0, 0)->usNumberOfObjects;
+    char* sound = spell_id != W8_SPELL_NONE && g_spell_records[spell_id].sound_name[0] != 0
+                      ? FormatString(s_spell_sound_format, g_spell_records[spell_id].sound_name)
+                      : s_general_magic_sound;
+    SoundPlay(sound, 0);
+    if (g_settings.main_ui_mode != W8_MAIN_UI_MODE_PORTRAITS &&
+        g_level_block->portrait_refresh_pending[party_slot] == 0) {
+        RefreshSelectedPartyPortrait(party_slot);
+        entry->auto_portrait_refresh = true;
+        entry->effect_icon_frame = -1;
+    }
+    if (!entry->keyboard_menu_open) {
+        RequestRedraw(1 << (party_slot & 0x1f));
+    }
+    if (!entry->damage_splat_active) {
+        entry->portrait_fx_clock = SetCountdownClock(100);
+        return;
+    }
+    entry->effect_icon_frame = -1;
+}
+
+// FUNCTION: WIZ8 0x005993A0
+bool PreparePartyPortraitOverlay(unsigned int party_slot, unsigned int left, unsigned int top)
+{
+    if (gXStatus.fNpcDialogueMode && (party_slot & 1) != 0 &&
+        IsPortraitObscuredByNpcDialogue(party_slot)) {
+        return false;
+    }
+    if ((g_level_block == 0 ||
+         (g_settings.main_ui_mode != W8_MAIN_UI_MODE_FORMATION &&
+          g_settings.main_ui_mode != W8_MAIN_UI_MODE_RADAR) ||
+         g_level_block->portrait_refresh_pending[party_slot] != 0) &&
+        g_status.buffers.XChar[party_slot].fOccupied) {
+        W8Character* character = &g_status.buffers.Char[party_slot];
+        if (character->hp_current != 0) {
+            int portrait = character->portrait_index;
+            unsigned int flags = VO_BLT_SRCTRANSPARENCY;
+            if ((g_portrait_descriptors[portrait].render_mode == 1 && (party_slot & 1) == 0) ||
+                (g_portrait_descriptors[portrait].render_mode == 2 && (party_slot & 1) != 0)) {
+                flags = VO_BLT_SRCTRANSPARENCY | VO_BLT_MIRROR_Y;
+            }
+            if (BlitPartyPortraitAnimation(portrait, left, top, flags, party_slot, false) &&
+                ((gXStatus.fCombatMode && g_combat_state->characters[party_slot].dead) ||
+                 gXStatus.fSurprisePossible ||
+                 character->highest_condition == W8_CONDITION_MISSING)) {
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
+/* Repaint one party-slot portrait band: frame, live or dead portrait, item
+   hands, HP/stamina chrome, labels, condition/enchantment icons, and any
+   active overlay callees for that slot. */
+// FUNCTION: WIZ8 0x005994C0
+void RedrawPartyPortraitOverlay(unsigned int party_slot, bool highlighted, bool overlay_ready,
+                                bool slot_enabled)
+{
+    int menu_x;
+    int menu_y;
+    int band_menu_edge;
+    int band_portrait_edge;
+    int grid_row;
+    int column_x;
+    W8Character* character;
+    W8PartySlotRow* party_row;
+    W8MonsterManagerEntry* entry;
+    unsigned int portrait_flags;
+    int portrait_catalog;
+    int left_condition_x;
+    int right_condition_x;
+    int condition_frame;
+    int enchantment_frame;
+    wchar_t text[64];
+    short text_width;
+    unsigned int text_shade;
+    int main_hand_item_id;
+    int off_hand_item_id;
+    bool show_off_hand_row;
+    unsigned short hp_bar_frame;
+
+    if (gXStatus.fNpcDialogueMode && (party_slot & 1) != 0) {
+        IsPortraitObscuredByNpcDialogue(party_slot);
+    }
+
+    GetPartySlotMenuAnchor(party_slot, &menu_x, &menu_y, &band_menu_edge, &band_portrait_edge,
+                           &grid_row, &column_x, slot_enabled);
+
+    party_row = &g_status.buffers.XChar[party_slot];
+    character = &g_status.buffers.Char[party_slot];
+    entry = &gXStatus.monster_manager_entries[party_slot];
+
+    if (!party_row->fOccupied) {
+        DrawCatalogImage(FRAME_BUFFER, 0x31, 0, 0, menu_x + 0x14, menu_y, VO_BLT_SRCTRANSPARENCY,
+                         0);
+    }
+
+    if (overlay_ready) {
+        if (!party_row->fOccupied) {
+            portrait_catalog = 0x34;
+            portrait_flags = VO_BLT_SRCTRANSPARENCY;
+            DrawCatalogImage(FRAME_BUFFER, portrait_catalog, 0, 0, menu_x + 0x14, menu_y,
+                             portrait_flags, 0);
+        } else if (character->hp_current == 0 &&
+                   (!entry->damage_splat_death_variant || entry->dead_portrait_revealed)) {
+            portrait_catalog = g_dead_portrait_catalog_ids[character->iRace][1];
+            portrait_flags = (party_slot & 1) == 0 ? VO_BLT_SRCTRANSPARENCY
+                                                   : VO_BLT_SRCTRANSPARENCY | VO_BLT_MIRROR_Y;
+            DrawCatalogImage(FRAME_BUFFER, portrait_catalog, 0, 0, menu_x + 0x14, menu_y,
+                             portrait_flags, 0);
+        } else {
+            portrait_catalog = character->portrait_index;
+            portrait_flags = VO_BLT_SRCTRANSPARENCY;
+            if ((g_portrait_descriptors[portrait_catalog].render_mode == 1 &&
+                 (party_slot & 1) == 0) ||
+                (g_portrait_descriptors[portrait_catalog].render_mode == 2 &&
+                 (party_slot & 1) != 0)) {
+                portrait_flags = VO_BLT_SRCTRANSPARENCY | VO_BLT_MIRROR_Y;
+            }
+            RenderPartyPortrait(portrait_catalog, menu_x + 0x14, menu_y, portrait_flags, 1,
+                                party_slot);
+        }
+        DrawCatalogImage(FRAME_BUFFER, 0x82, 0, static_cast<short>(grid_row), column_x, menu_y,
+                         VO_BLT_SRCTRANSPARENCY, 0);
+    }
+
+    DrawCatalogImage(FRAME_BUFFER, 0x82, 0, 0x10, menu_x + 0x17, menu_y, VO_BLT_SRCTRANSPARENCY, 0);
+
+    if (party_row->fOccupied) {
+        if (overlay_ready) {
+            if (g_settings.main_ui_mode == W8_MAIN_UI_MODE_PORTRAITS ||
+                g_level_block->portrait_refresh_pending[party_slot] != 0) {
+                main_hand_item_id = character->EquippedItem[W8_EQUIP_SLOT_PRIMARY_WEAPON].iItemNo;
+                if (main_hand_item_id == -1 ||
+                    (g_item_records[main_hand_item_id].flags & W8_ITEM_FLAG_TWO_HANDED) == 0) {
+                    show_off_hand_row = false;
+                    hp_bar_frame = 0;
+                } else {
+                    show_off_hand_row = true;
+                    hp_bar_frame = 2;
+                }
+                DrawCatalogImage(FRAME_BUFFER, 0x80, 0, static_cast<short>(hp_bar_frame),
+                                 band_menu_edge, menu_y, VO_BLT_SRCTRANSPARENCY, 0);
+
+                if (main_hand_item_id == -1) {
+                    DrawCatalogImage(
+                        FRAME_BUFFER, g_empty_hand_catalog_ids[character->iRace * W8_RACE_DWARF], 0,
+                        0, band_menu_edge + 4, menu_y + 0x17, VO_BLT_SRCTRANSPARENCY, 0);
+                } else {
+                    DrawCatalogImage(FRAME_BUFFER,
+                                     g_item_video_objects.GetOrCreateVideoObject(main_hand_item_id),
+                                     0, 2, band_menu_edge + 3, menu_y + 0x17,
+                                     VO_BLT_SRCTRANSPARENCY, 0);
+                    if (character->EquippedItem[W8_EQUIP_SLOT_PRIMARY_WEAPON].stack_count != 0) {
+                        swprintf(
+                            text, g_format_d,
+                            static_cast<int>(
+                                character->EquippedItem[W8_EQUIP_SLOT_PRIMARY_WEAPON].stack_count));
+                        SetFont(g_smfnt_font);
+                        SetFontObjectPalette16BPP(g_smfnt_font, g_font_palette_smfnt);
+                        text_width = StringPixLength(text, g_smfnt_font);
+                        gprintf((band_menu_edge - (text_width + 1) / 2) + 8, menu_y + 0x26,
+                                Wiz8ToSgpWideText(g_format_s), text);
+                    }
+                }
+
+                if (!show_off_hand_row) {
+                    off_hand_item_id =
+                        character->EquippedItem[W8_EQUIP_SLOT_SECONDARY_WEAPON].iItemNo;
+                    if (off_hand_item_id == -1) {
+                        DrawCatalogImage(
+                            FRAME_BUFFER,
+                            g_empty_hand_catalog_ids[character->iRace * W8_RACE_DWARF + 1], 0, 0,
+                            band_menu_edge + 4, menu_y + 0x2f, VO_BLT_SRCTRANSPARENCY, 0);
+                    } else {
+                        DrawCatalogImage(
+                            FRAME_BUFFER,
+                            g_item_video_objects.GetOrCreateVideoObject(off_hand_item_id), 0, 2,
+                            band_menu_edge + 3, menu_y + 0x2f, VO_BLT_SRCTRANSPARENCY, 0);
+                        if (character->EquippedItem[W8_EQUIP_SLOT_SECONDARY_WEAPON].stack_count !=
+                            0) {
+                            swprintf(text, g_format_d,
+                                     static_cast<int>(
+                                         character->EquippedItem[W8_EQUIP_SLOT_SECONDARY_WEAPON]
+                                             .stack_count));
+                            SetFont(g_smfnt_font);
+                            SetFontObjectPalette16BPP(g_smfnt_font, g_font_palette_smfnt);
+                            text_width = StringPixLength(text, g_smfnt_font);
+                            gprintf((band_menu_edge - (text_width + 1) / 2) + 0xb, menu_y + 0x3e,
+                                    Wiz8ToSgpWideText(g_format_s), text);
+                        }
+                    }
+                }
+            }
+
+            hp_bar_frame = g_settings.numeric_hit_points == 0 ? 1 : 3;
+            DrawCatalogImage(FRAME_BUFFER, 0x80, 0, static_cast<short>(hp_bar_frame),
+                             band_portrait_edge, menu_y, VO_BLT_SRCTRANSPARENCY, 0);
+            RedrawPartyPortraitBars(party_slot, slot_enabled);
+
+            SetFont(g_smfnt_font);
+            if (g_settings.main_ui_mode == W8_MAIN_UI_MODE_PORTRAITS ||
+                g_level_block->portrait_refresh_pending[party_slot] != 0) {
+                swprintf(text, g_format_d, character->armor_class_average);
+                if (g_current_screen_state.id == W8_SCREEN_MAIN_GAME) {
+                    unsigned short* palette = g_font_palette_smfnt;
+                    if (character->load_category != 0) {
+                        palette = g_font_state_palettes
+                            [g_load_category_palettes[character->load_category]];
+                    }
+                    SetFontObjectPalette16BPP(g_smfnt_font, palette);
+                }
+                text_width = StringPixLength(text, g_smfnt_font);
+                gprintf((0xd - text_width) / 2 + 3 + band_menu_edge, menu_y + 3,
+                        Wiz8ToSgpWideText(g_format_s), text);
+            }
+
+            wcscpy(text, gppStringList[g_profession_name_message_ids[character->iProfession + 16]]);
+            if (g_current_screen_state.id == W8_SCREEN_MAIN_GAME) {
+                SetFontObjectPalette16BPP(g_smfnt_font,
+                                          g_font_state_palettes[party_row->party_order_index]);
+            }
+            text_width = StringPixLength(text, g_smfnt_font);
+            gprintf((0x12 - text_width) / 2 + 2 + band_portrait_edge, menu_y + 3,
+                    Wiz8ToSgpWideText(g_format_s), text);
+
+            SetFont(g_wiz_text_font_secondary);
+            if (g_current_screen_state.id != W8_SCREEN_MAIN_GAME ||
+                (SetFontObjectPalette16BPP(g_wiz_text_font_secondary,
+                                           g_wiz_text_font_secondary_palette),
+                 g_current_screen_state.id != W8_SCREEN_MAIN_GAME) ||
+                (text_shade = 1,
+                 g_level_block->name_hover_party_slot != static_cast<int>(party_slot))) {
+                text_shade = 4;
+            }
+            SetObjectShade(g_wiz_text_font_secondary_object, text_shade);
+            text_width = StringPixLength(character->name, g_wiz_text_font_secondary);
+            gprintf((0x54 - text_width) / 2 + 0x15 + menu_x, menu_y + 0x49,
+                    Wiz8ToSgpWideText(g_format_s), character->name);
+            SetObjectShade(g_wiz_text_font_secondary_object, 4);
+
+            if (gXStatus.fCombatMode) {
+                entry->combat_portrait_dirty = true;
+            }
+            g_condition_buttons[party_slot]->Invalidate(false);
+        }
+
+        if (g_current_screen_state.id == W8_SCREEN_MAIN_GAME &&
+            (g_settings.main_ui_mode == W8_MAIN_UI_MODE_FORMATION ||
+             g_settings.main_ui_mode == W8_MAIN_UI_MODE_RADAR) &&
+            g_level_block->portrait_refresh_pending[party_slot] == 0) {
+            int highlight_x;
+            int highlight_y;
+            int highlight_catalog;
+
+            if (!highlighted || gfLeftButtonState != 0 || g_level_block->portrait_flash != 0) {
+                if (g_status.selected_character != static_cast<int>(party_slot)) {
+                    goto draw_condition_icons;
+                }
+                highlight_x = band_portrait_edge + 1;
+                highlight_catalog = 0x5f;
+                highlight_y = menu_y + 2;
+            } else {
+                highlight_x = band_portrait_edge + 1;
+                highlight_catalog = 0x5e;
+                highlight_y = menu_y + 2;
+            }
+            DrawCatalogImage(FRAME_BUFFER, highlight_catalog, 0, 0, highlight_x, highlight_y,
+                             VO_BLT_SRCTRANSPARENCY, 0);
+        } else {
+            int highlight_x;
+            int highlight_y;
+            int highlight_catalog;
+
+            highlight_y = menu_y;
+            if (!highlighted || (gfLeftButtonState != 0 && !gXStatus.fReviewCharacterMode) ||
+                (g_current_screen_state.id == W8_SCREEN_MAIN_GAME &&
+                 g_level_block->portrait_flash != 0)) {
+                if (g_status.selected_character != static_cast<int>(party_slot)) {
+                    goto draw_condition_icons;
+                }
+                highlight_x = menu_x + 0x17;
+                highlight_catalog = 0x33;
+            } else {
+                highlight_x = menu_x + 0x17;
+                highlight_catalog = 0x32;
+            }
+            DrawCatalogImage(FRAME_BUFFER, highlight_catalog, 0, 0, highlight_x, highlight_y,
+                             VO_BLT_SRCTRANSPARENCY, 0);
+        }
+    }
+
+draw_condition_icons:
+    if ((party_slot & 1) == 0) {
+        left_condition_x = menu_x + 0x19;
+        right_condition_x = menu_x + 0x58;
+        condition_frame = 0x2f;
+        enchantment_frame = 0x30;
+    } else {
+        right_condition_x = menu_x + 0x19;
+        left_condition_x = menu_x + 0x58;
+        enchantment_frame = 0x2f;
+        condition_frame = 0x30;
+    }
+
+    if (character->highest_condition != W8_CONDITION_NONE) {
+        condition_frame = static_cast<int>(character->highest_condition) + 0xb6;
+    }
+    DrawCatalogImage(FRAME_BUFFER, condition_frame, 0, 0, left_condition_x, menu_y + 3,
+                     VO_BLT_SRCTRANSPARENCY, 0);
+
+    if (character->enchantment_top != W8_ENCHANTMENT_NONE) {
+        enchantment_frame = character->enchantment_top + 0xc9;
+    }
+    DrawCatalogImage(FRAME_BUFFER, enchantment_frame, 0, 0, right_condition_x, menu_y + 3,
+                     VO_BLT_SRCTRANSPARENCY, 0);
+
+    if (party_row->fOccupied && g_current_screen_state.id == W8_SCREEN_MAIN_GAME) {
+        if (g_level_block->condition_hover_party_slot == static_cast<int>(party_slot)) {
+            DrawCatalogImage(FRAME_BUFFER, 0x60, 0, 0, left_condition_x - 1, menu_y + 2,
+                             VO_BLT_SRCTRANSPARENCY, 0);
+        } else if (character->highest_condition != W8_CONDITION_NONE) {
+            DrawCatalogImage(FRAME_BUFFER, 0x61, 0, 0, left_condition_x - 1, menu_y + 2,
+                             VO_BLT_SRCTRANSPARENCY, 0);
+        }
+
+        if (g_level_block->enchantment_hover_party_slot == static_cast<int>(party_slot)) {
+            DrawCatalogImage(FRAME_BUFFER, 0x60, 0, 0, right_condition_x - 1, menu_y + 2,
+                             VO_BLT_SRCTRANSPARENCY, 0);
+        } else if (character->highest_condition != W8_CONDITION_NONE) {
+            DrawCatalogImage(FRAME_BUFFER, 0x61, 0, 0, right_condition_x - 1, menu_y + 2,
+                             VO_BLT_SRCTRANSPARENCY, 0);
+        }
+
+        if (g_level_block->name_hover_party_slot == static_cast<int>(party_slot) &&
+            (g_settings.main_ui_mode == W8_MAIN_UI_MODE_PORTRAITS ||
+             g_level_block->portrait_refresh_pending[party_slot] != 0)) {
+            DrawCatalogImage(FRAME_BUFFER, 0x62, 0, 0, menu_x + 0x13, menu_y + 0x48,
+                             VO_BLT_SRCTRANSPARENCY, 0);
+        }
+
+        if ((g_settings.main_ui_mode == W8_MAIN_UI_MODE_PORTRAITS ||
+             g_level_block->portrait_refresh_pending[party_slot] != 0) &&
+            g_level_block->assay_hover_party_slot == static_cast<int>(party_slot)) {
+            int assay_y;
+            int assay_catalog;
+
+            if (g_level_block->portrait_assay_hover_mode == 1) {
+                assay_y = menu_y + 0x15;
+                assay_catalog = 99;
+            } else if (g_level_block->portrait_assay_hover_mode == 2) {
+                assay_y = menu_y + 0x2d;
+                assay_catalog = 99;
+            } else if (g_level_block->portrait_assay_hover_mode == 3) {
+                assay_y = menu_y + 0x15;
+                assay_catalog = 0x73;
+            } else {
+                goto portrait_fx;
+            }
+            DrawCatalogImage(FRAME_BUFFER, assay_catalog, 0, 0, band_menu_edge + 1, assay_y,
+                             VO_BLT_SRCTRANSPARENCY, 0);
+        }
+    }
+
+portrait_fx:
+    if (entry->damage_splat_active) {
+        DrawDamageSplatOverlay(party_slot);
+    }
+    if (entry->effect_icon_active) {
+        DrawPortraitEffectIcon(party_slot);
+    }
+
+    if (g_level_block->vitals_hover_party_slot == static_cast<int>(party_slot)) {
+        int hp_overlay_y;
+        int hp_overlay_x;
+        int hp_overlay_catalog;
+
+        if (g_settings.numeric_hit_points == 0) {
+            hp_overlay_y = menu_y + 0x15;
+            hp_overlay_x = band_portrait_edge + 3;
+            hp_overlay_catalog = 100;
+        } else {
+            hp_overlay_y = menu_y + 0xe;
+            hp_overlay_catalog = 0x65;
+            hp_overlay_x = band_portrait_edge;
+        }
+        DrawCatalogImage(FRAME_BUFFER, hp_overlay_catalog, 0, 0, hp_overlay_x, hp_overlay_y,
+                         VO_BLT_SRCTRANSPARENCY, 0);
+    }
+
+    if (!gXStatus.fCombatMode && party_slot < 8 && party_row->fOccupied) {
+        g_portrait_controls[party_slot]->Invalidate(false);
+    }
+
+    if (g_level_block->portrait_overlay_party_slot == static_cast<int>(party_slot)) {
+        DrawPortraitConditionOverlay(g_level_block->portrait_overlay_party_slot);
+    }
+    if (g_level_block->condition_orb_party_slot == static_cast<int>(party_slot)) {
+        DrawPortraitEnchantmentOverlay(g_level_block->condition_orb_party_slot);
+    }
+    if (g_level_block->enchantment_orb_party_slot == static_cast<int>(party_slot)) {
+        DrawPortraitVitalsOverlay(g_level_block->enchantment_orb_party_slot);
+    }
+    if (g_level_block->condition_highlight_party_slot == static_cast<int>(party_slot)) {
+        DrawPortraitStatusOverlay(g_level_block->condition_highlight_party_slot);
+    }
+
+    if (g_settings.main_ui_mode != W8_MAIN_UI_MODE_PORTRAITS &&
+        g_level_block->portrait_refresh_pending[party_slot] != 0 &&
+        (g_level_block->condition_highlight_party_slot != -1 ||
+         g_level_block->portrait_overlay_party_slot != -1)) {
+        RefreshTrackedPortraitOverlay();
+    }
+
+    if (overlay_ready && gXStatus.fNpcDialogueMode &&
+        g_npc_interaction_state->dialogue_layout == W8_DIALOGUE_LAYOUT_TRANSCRIPT &&
+        !g_npc_interaction_state->scripted_dialogue &&
+        !g_npc_interaction_state->dialogue_panel_hidden &&
+        g_npc_interaction_state->script_busy == 0 &&
+        g_npc_interaction_state->dialogue_hidden == 0 && !gXStatus.scripted_scene) {
+        SetNpcDialoguePanelVisible(1);
+    }
+}
+
+// FUNCTION: WIZ8 0x0059A110
+void ShadeStatusBarGap(int length, int left, int top)
+{
+    if (length != 0) {
+        int rows = (g_settings.numeric_hit_points != 0 ? 2 : 0) + 3;
+        unsigned int pitch;
+        char* screen = static_cast<char*>(LockPrimarySurface(&pitch));
+        while (rows != 0) {
+            short color = Get16BPPColor(0x10101);
+            LineDraw(1, left, top, left, top + length, color, screen);
+            ++left;
+            --rows;
+        }
+        UnlockPrimarySurface();
+    }
+}
+
+// FUNCTION: WIZ8 0x0059BAD0
+void ReleasePortraitControls(void)
+{
+    DisablePortraitControls();
+    DestroyControlPanel(g_portrait_panel);
+    DestroyTextControls(g_portrait_controls, 8);
+}
+
+// FUNCTION: WIZ8 0x0059BF70
+void ReleaseConditionButtons(void)
+{
+    DestroyControlPanel(g_condition_buttons_panel);
+    for (int slot = 0; slot < 8; ++slot) {
+        if (g_condition_buttons[slot] != 0) {
+            delete g_condition_buttons[slot];
+            g_condition_buttons[slot] = 0;
+        }
+    }
+}
+
+/* Drop the condition-icon highlight: every dismissal path clears the slot,
+   removes the overlay and redraws the portrait panel and portraits. */
+static void ClearConditionHighlight(void)
+{
+    g_level_block->condition_highlight_party_slot = -1;
+    DismissHighlightOverlay();
+    RequestRedraw(W8_MAIN_REDRAW_PORTRAIT_PANEL);
+    RequestRedraw(W8_MAIN_REDRAW_PORTRAITS);
+}
+
+// FUNCTION: WIZ8 0x0059BB40
+void DisablePortraitControls(void)
+{
+    RegionSetDisable(5);
+    for (int slot = 0; slot < 8; ++slot) {
+        g_portrait_controls[slot]->SetActive(false);
+    }
+}
+
+// FUNCTION: WIZ8 0x0059C030
+void DisableConditionButtons(void)
+{
+    RegionSetDisable(6);
+    g_condition_buttons_panel->SetEnabled(false);
+    if (g_level_block->condition_highlight_party_slot != -1) {
+        ClearConditionHighlight();
+    }
+}
+
+// FUNCTION: WIZ8 0x0059BFC0
+void EnableConditionButtons(void)
+{
+    if (g_settings.main_ui_mode == W8_MAIN_UI_MODE_PORTRAITS) {
+        srAssertFail("gConfig.uiCurrentLayout != LAYOUT_NORMAL",
+                     "C:\\Projects\\Wizardry 8\\Local Screens\\MGSPortraits.cpp", 0xa0c, 0);
+    }
+    RegionSetEnable(6);
+    g_condition_buttons_panel->SetEnabled(true);
+    for (int slot = 0; slot < 8; ++slot) {
+        g_condition_buttons[slot]->SetEnabled(true);
+    }
+    g_condition_buttons_panel->Invalidate(0);
+}
+
+// FUNCTION: WIZ8 0x0059BB70
+void EnablePortraitAdvanceRegions(void)
+{
+    RegionSetEnable(5);
+    for (int party_slot = 0; party_slot < 8; ++party_slot) {
+        if (!IsCharacterReadyToAdvance(party_slot) ||
+            g_status.buffers.XChar[party_slot].portrait_advance == 0) {
+            DisableRegionInput(party_slot + 0x12);
+        } else {
+            EnableRegionInput(party_slot + 0x12);
+        }
+    }
+}
+
+// FUNCTION: WIZ8 0x0059BBD0
+void InvalidatePortraitControl(unsigned int party_slot)
+{
+    if (party_slot < 8 && g_status.buffers.XChar[party_slot].fOccupied) {
+        g_portrait_controls[party_slot]->Invalidate(false);
+    }
+}
+
+// FUNCTION: WIZ8 0x0059BC00
+void InvalidatePortraitPanel(void)
+{
+    g_portrait_panel->Invalidate(0);
+}
+
+// FUNCTION: WIZ8 0x0059BC10
+void UpdatePortraitAdvanceButtons(void)
+{
+    int slot;
+    W8TextControl** control;
+
+    for (slot = 0, control = g_portrait_controls; control < &g_portrait_controls[8];
+         ++slot, ++control) {
+        if (IsCharacterReadyToAdvance(slot) && !gXStatus.fNpcDialogueMode &&
+            g_status.buffers.XChar[slot].portrait_advance != 0) {
+            if (!(*control)->m_active) {
+                (*control)->SetActive(true);
+                InvalidatePortraitPanel();
+            }
+        } else if ((*control)->m_active) {
+            (*control)->SetActive(false);
+        }
+    }
+    g_portrait_panel->Redraw();
+}
+
+// FUNCTION: WIZ8 0x0059BCA0
+static void OnLevelButtonActivate(void)
+{
+    int slot = giLevelUpChar;
+
+    if (slot == -1 || slot >= 8) {
+        return;
+    }
+    if (!g_status.buffers.XChar[slot].fOccupied) {
+        srAssertFail("fCHAR_OCCUPIED(giLevelUpChar)",
+                     "C:\\Projects\\Wizardry 8\\Local Screens\\MGSPortraits.cpp", 0x988, 0);
+    }
+    g_pending_screen_state.parameter_3 = &g_status.buffers.Char[slot];
+    g_pending_screen_state.mode = 2;
+    SetPendingScreenState(W8_SCREEN_CHARACTER);
+}
+
+// FUNCTION: WIZ8 0x0059B940
+void CreateLevelButtons(void)
+{
+    unsigned int uiSlot;
+
+    g_portrait_panel = 0;
+    for (uiSlot = 0; uiSlot < 8; ++uiSlot) {
+        g_portrait_controls[uiSlot] = 0;
+    }
+
+    g_portrait_panel = new Controls(0, 0, 0x280, 0x1e0, -1, 0, -1);
+    if (g_portrait_panel == 0) {
+        srAssertFail("gpLevelButtonsPanel",
+                     "C:\\Projects\\Wizardry 8\\Local Screens\\MGSPortraits.cpp", 0x8e0, 0);
+    }
+
+    for (uiSlot = 0; uiSlot < 8; ++uiSlot) {
+        unsigned int column_x = (uiSlot & 1) != 0 ? 0x23b : 0;
+        int row_y = (uiSlot >> 1) * 0x55;
+        g_portrait_controls[uiSlot] =
+            new W8TextControl(g_portrait_panel, uiSlot + 0x12, column_x + 0x19, row_y + 0x46,
+                              column_x + 0x2b, row_y + 0x58, 0xa7, 0, 0, 2, 1, 4, 3);
+        g_portrait_controls[uiSlot]->m_primaryActivationCallback = OnLevelButtonActivate;
+        if (g_portrait_controls[uiSlot] == 0) {
+            srAssertFail("gpLevelButtons[uiSlot]",
+                         "C:\\Projects\\Wizardry 8\\Local Screens\\MGSPortraits.cpp", 0x8f7, 0);
+        }
+    }
+
+    giLevelUpChar = -1;
+    g_portrait_panel->SetEnabled(true);
+    for (uiSlot = 0; uiSlot < 8; ++uiSlot) {
+        g_portrait_controls[uiSlot]->SetActive(false);
+    }
+}
+
+// FUNCTION: WIZ8 0x00599210
+void W8ConditionButton::Redraw(bool full_redraw)
+{
+    bool dirty = m_dirty;
+    int left;
+    int top;
+
+    W8TextControl::Redraw(full_redraw);
+    if (!m_active) {
+        return;
+    }
+    if (m_pPanel == 0) {
+        return;
+    }
+    if (!full_redraw && !dirty) {
+        return;
+    }
+    GetTextOrigin(&left, &top);
+    left += 2;
+    top += 2;
+    if (m_condition == 0) {
+        DrawCatalogImageAndInvalidate(FRAME_BUFFER, m_image_object + 0xb6, 0, 0, left, top,
+                                      VO_BLT_SRCTRANSPARENCY, 0);
+    } else if (m_condition == 1) {
+        DrawCatalogImageAndInvalidate(FRAME_BUFFER, m_image_object + 0xc9, 0, 0, left, top,
+                                      VO_BLT_SRCTRANSPARENCY, 0);
+    }
+}
+
+// FUNCTION: WIZ8 0x005992E0
+void W8ConditionButton::OnMouseLeave(int event)
+{
+    W8TextControl::OnMouseLeave(event);
+    if (g_level_block->condition_highlight_party_slot != -1) {
+        ClearConditionHighlight();
+    }
+}
+
+// FUNCTION: WIZ8 0x00599330
+void W8ConditionButton::OnLeftButtonDown(int event)
+{
+    W8TextControl::OnLeftButtonDown(event);
+    g_level_block->condition_highlight_party_slot = m_ui_slot;
+    RequestRedraw(W8_MAIN_REDRAW_PORTRAIT_PANEL);
+}
+
+// FUNCTION: WIZ8 0x00599360
+void W8ConditionButton::OnLeftButtonUp(int event)
+{
+    W8TextControl::OnLeftButtonUp(event);
+    ClearConditionHighlight();
+}
+
+// FUNCTION: WIZ8 0x0059BDB0
+void CreateConditionButtons(void)
+{
+    unsigned int uiSlot;
+
+    g_condition_buttons_panel = 0;
+    for (uiSlot = 0; uiSlot < 8; ++uiSlot) {
+        g_condition_buttons[uiSlot] = 0;
+    }
+
+    g_condition_buttons_panel = new Controls(0, 0, 0x280, 0x1e0, -1, 0, -1);
+    if (g_condition_buttons_panel == 0) {
+        srAssertFail("gpConditionButtonsPanel",
+                     "C:\\Projects\\Wizardry 8\\Local Screens\\MGSPortraits.cpp", 0x9db, 0);
+    }
+
+    for (uiSlot = 0; uiSlot < 8; ++uiSlot) {
+        unsigned int column_x = (uiSlot & 1) != 0 ? 0x23f : 0;
+        int row_y = (uiSlot >> 1) * 0x55;
+        g_condition_buttons[uiSlot] = new W8ConditionButton(
+            g_condition_buttons_panel, uiSlot + 0x1a, column_x + 0x17, row_y + 0x13,
+            column_x + 0x2a, row_y + 0x26, 0xa8, 0, 0, 0, 1, 1, -1, uiSlot);
+        if (g_condition_buttons[uiSlot] == 0) {
+            srAssertFail("gpConditionButtons[uiSlot]",
+                         "C:\\Projects\\Wizardry 8\\Local Screens\\MGSPortraits.cpp", 0x9ec, 0);
+        }
+    }
+
+    DisableConditionButtons();
+}
+
+// FUNCTION: WIZ8 0x0059BD20
+unsigned char PortraitControlRegionEvent(const InputAtom* event, W8Region* region)
+{
+    W8TextControl* control = g_portrait_controls[region->callback_id];
+    if (control == 0) {
+        return 0;
+    }
+    switch (event->usEvent) {
+    case LEFT_BUTTON_DOWN:
+        control->OnLeftButtonDown(0);
+        region->flags |= W8_REGION_LEFT_BUTTON_HELD;
+        return 1;
+    case LEFT_BUTTON_UP:
+        if ((region->flags & W8_REGION_LEFT_BUTTON_HELD) != 0) {
+            giLevelUpChar = region->callback_id;
+            control->OnLeftButtonUp(0);
+            region->flags &= ~W8_REGION_LEFT_BUTTON_HELD;
+        }
+        return 1;
+    case MOUSE_POS:
+        if ((region->flags & W8_REGION_MOUSE_LEAVE) != 0) {
+            giLevelUpChar = -1;
+            control->OnMouseLeave(0);
+            return 1;
+        }
+        if ((region->flags & W8_REGION_MOUSE_ENTER) != 0) {
+            control->OnMouseEnter(0);
+            return 1;
+        }
+        break;
+    }
+    return 0;
+}
+
+// FUNCTION: WIZ8 0x0059C080
+void UpdateConditionButtons(void)
+{
+    int image;
+    int slot;
+
+    for (slot = 0; slot < 8; ++slot) {
+        W8ConditionButton* button = g_condition_buttons[slot];
+        W8MonsterManagerEntry* entry = &gXStatus.monster_manager_entries[slot];
+        image = 0;
+        if (g_status.buffers.XChar[slot].fOccupied &&
+            g_level_block->portrait_refresh_pending[slot] == 0 && !entry->keyboard_menu_open) {
+            image = g_status.buffers.Char[slot].highest_condition;
+            if (image == 0) {
+                image = g_status.buffers.Char[slot].enchantment_top;
+                if (image != 0) {
+                    if (button->m_image_object != image) {
+                        button->m_image_object = image;
+                        button->Invalidate(false);
+                    }
+                    if (button->m_condition != 1) {
+                        button->m_condition = 1;
+                        button->Invalidate(false);
+                    }
+                }
+            } else {
+                if (button->m_image_object != image) {
+                    button->m_image_object = image;
+                    button->Invalidate(false);
+                }
+                if (button->m_condition != 0) {
+                    button->m_condition = 0;
+                    button->Invalidate(false);
+                }
+            }
+        }
+        if (image == 0) {
+            if (button->m_active) {
+                button->SetActive(false);
+                button->Invalidate(false);
+                if (g_level_block->portrait_refresh_pending[slot] == 0 &&
+                    !entry->keyboard_menu_open) {
+                    ClearSurfaceRect(button->m_left + g_condition_buttons_panel->m_bounds.left,
+                                     button->m_top + g_condition_buttons_panel->m_bounds.top,
+                                     button->m_right + g_condition_buttons_panel->m_bounds.left,
+                                     button->m_bottom + g_condition_buttons_panel->m_bounds.top);
+                }
+                if (g_level_block->condition_highlight_party_slot == slot) {
+                    ClearConditionHighlight();
+                }
+            }
+        } else if (!button->m_active) {
+            button->SetActive(true);
+            button->Invalidate(false);
+        }
+    }
+    g_condition_buttons_panel->Redraw();
+}
+
+// FUNCTION: WIZ8 0x0059C260
+unsigned char ConditionButtonRegionEvent(const InputAtom* event, W8Region* region)
+{
+    switch (event->usEvent) {
+    case LEFT_BUTTON_DOWN:
+    case LEFT_BUTTON_UP:
+    case MOUSE_POS:
+        return DispatchButtonRegionEvent(event, region, g_condition_buttons[region->callback_id]);
+    default:
+        return 0;
+    }
+}

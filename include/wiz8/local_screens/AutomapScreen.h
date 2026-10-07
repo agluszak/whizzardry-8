@@ -1,0 +1,70 @@
+#pragma once
+
+extern float g_automap_grid_cell_size;
+
+#include "input.h"
+#include "wiz8/geometry.h"
+#include "wiz8/layouts/main_game_screen.h"
+
+#include "surrender/srMath.h"
+#include "wiz8/vector.h"
+
+/* One map note. The text is separately malloc-owned and holds at most 39
+   characters plus the terminator. */
+struct W8AutomapNote {
+    srVector2T<float> position;
+    int layer;
+    wchar_t* text;
+};
+static_assert(sizeof(W8AutomapNote) == 0x10, "W8AutomapNote_size");
+
+extern W8Vector<W8AutomapNote*>* g_automap_notes;
+extern W8MainUiMode g_ui_mode_current;
+extern W8MainUiMode g_ui_mode_saved;
+void SetCurrentAutomapUiMode(W8MainUiMode value);
+void SetSavedAutomapUiMode(W8MainUiMode value);
+
+class W8DialogButton;
+extern W8DialogButton** g_automap_buttons;
+extern int g_automap_zoom_mode;
+
+extern bool g_mipe_menu_active;
+extern bool g_mipe_active;
+
+bool HasAutomapLayer(int layer);
+void RestoreAutomapCameraPosition(void);
+bool CanUseCurrentAutomapTool(void);
+
+/* Recompute the automap's visible world bounds from lit cells. */
+void UpdateAutomapBounds(void);
+/* When the automap dirty flag is set, light a batch of pending
+   visited cells through the table-1 vertex lights, then clear the flag once
+   the batch finds nothing left. */
+void RefreshDirtyAutomap(void);
+/* Pack `position` into a cell key, mark it visited if known, and
+   return 1 only when that mark was newly set (retry one cell higher on miss). */
+bool AutomapHasCellAt(const srVector3T<float>* position);
+
+void ResetAutomapView(void);
+bool SaveAutomapNotes(int handle);
+bool LoadAutomapNotes(int handle);
+unsigned char GetAutomapPositionUnderCursor(srVector3T<float>* position);
+void SetAutomapToolCursor(int tool);
+W8AutomapNote* FindAutomapNoteUnderCursor(void);
+void CreateAutomapMarkerSprites(void);
+void RenderAutomapMarkers(void);
+void CreateAutomapButtons(void);
+
+unsigned char ReadAutomapNodes(int hFile);
+unsigned char AutomapScreenInitialize(void);
+unsigned char AutomapScreenEnter(void);
+void AutomapScreenFrame(void);
+unsigned char AutomapScreenLeave(int leaving);
+unsigned char AutomapScreenFinalize(void);
+/* Full-screen dismiss: left-up after a held press leaves the automap. */
+unsigned char AutomapBackgroundRegionEvent(const InputAtom* event, struct W8Region* region);
+float GetAutomapGridCellSize(void);
+void SetAutomapGridCellSize(float value);
+/* Packs a world position into an automap cell key. */
+unsigned int AutomapNodeKey(const srVector3T<float>* position);
+bool AutomapLevelIsLarge(void);

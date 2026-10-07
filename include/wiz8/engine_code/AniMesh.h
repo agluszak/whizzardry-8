@@ -1,0 +1,71 @@
+#ifndef WIZ8_ENGINE_CODE_ANI_MESH_H
+#define WIZ8_ENGINE_CODE_ANI_MESH_H
+
+#include <stddef.h>
+
+#include "surrender/srMath.h"
+#include "wiz8/3d_code/PList.h"
+
+class stModelInstance;
+struct W8ReadLevelInfo;
+struct W8World;
+
+/* Engine Code\AniMesh.cpp. The class name and string members are
+   assertion-backed. Construction, copying, unloading, and frame lookup prove
+   the remaining storage roles. */
+struct W8AniMesh {
+    struct State {
+        bool loaded : 1;
+        bool frame_count_loaded : 1;
+        bool radius_loaded : 1;
+        bool keep_loaded : 1;
+        bool cache_protected : 1;
+        bool single_instance : 1;
+        unsigned char reserved : 2;
+    };
+
+    State flags;                      /* 0x00: runtime cache state, not a disk byte */
+    unsigned char frame_count;        /* 0x01 */
+    stModelInstance** meshes;         /* 0x04: ppsrMeshes */
+    srVector3T<float> bounds_minimum; /* 0x08 */
+    srVector3T<float> bounds_maximum; /* 0x14 */
+    float radius;                     /* 0x20 */
+    unsigned int loaded_bytes;        /* 0x24 */
+    signed char list_index;           /* 0x28 */
+    char* bitmap_directory;           /* 0x2c: strBitmapDir */
+    char* filename;                   /* 0x30: strFilename */
+    int file_offset;                  /* 0x34 */
+    W8World* world;                   /* 0x38 */
+    int last_used;                    /* 0x3c */
+}; /* 0x40 */
+
+static_assert(sizeof(W8AniMesh::State) == 1, "W8AniMesh_state_size");
+static_assert(offsetof(W8AniMesh, frame_count) == 1, "W8AniMesh_frame_count_offset");
+static_assert(sizeof(W8AniMesh) == 0x40, "W8AniMesh_minimum_size_must_be_0x40");
+
+extern int g_animesh_cache_stamp;
+extern int g_animesh_cache_bytes;
+extern int g_animesh_cache_limit;
+extern int g_animesh_cache_secondary_limit;
+extern W8PList g_animesh_cache_list;
+
+void InitializeAniMeshCache(int primary_limit, int secondary_limit);
+void FreeAniMeshCache(void);
+W8AniMesh* CreateAniMesh();
+W8AniMesh* CopyAniMesh(const W8AniMesh* other);
+float GetAniMeshFrameRadius(W8AniMesh* mesh, unsigned char frame);
+unsigned char GetAniMeshBounds(W8AniMesh* mesh, srVector3T<float>* minimum,
+                               srVector3T<float>* maximum);
+unsigned char LoadAniMesh(int file, W8AniMesh* mesh, bool load_all);
+unsigned char LoadAniMeshFromInfo(W8ReadLevelInfo* info, W8AniMesh* mesh, unsigned char load_all);
+unsigned char UnloadAniMesh(W8AniMesh* mesh, bool force);
+stModelInstance* GetAniMeshFrame(W8AniMesh* mesh, unsigned char frame);
+void DestroyAniMesh(W8AniMesh* mesh);
+unsigned char AniMeshValue(W8AniMesh* mesh);
+bool AniMeshRadius(W8AniMesh* mesh, float* radius);
+/* Two parameters, not three: the retail body reads its flag from the second
+   stack slot, and GrCycle's 0x004A7470 pushes exactly the pair. */
+void SetAniMeshCacheProtected(W8AniMesh* mesh, bool enabled);
+void EnforceAniMeshMemoryLimit(W8AniMesh* current);
+
+#endif

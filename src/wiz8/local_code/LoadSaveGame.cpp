@@ -1,0 +1,2369 @@
+#include "wiz8/compat/debug_heap.h"
+#include "wiz8/engine_code/AmbientSound.h"
+#include "wiz8/local_code/Sight.h"
+#include "wiz8/engine_code/GameData.h"
+#include "wiz8/local_code/ItemManager.h"
+#include "wiz8/local_code/MonsterGroup.h"
+#include "wiz8/monster_generators.h"
+#include "wiz8/engine_code/World.h"
+#include "wiz8/engine_code/Trigger.hpp"
+#include "wiz8/engine_code/Levels.h"
+#include "wiz8/engine_code/stParticle.h"
+#include "wiz8/local_code/GameplayDatabase.h"
+#include "wiz8/local_code/LoadSaveGame.h"
+#include "wiz8/local_screens/OptionsScreen.h"
+#include "wiz8/local_code/Search.h"
+#include "wiz8/local_code/Configuration.h"
+#include "wiz8/3d_code/IList.h"
+#include "wiz8/3d_code/PList.h"
+#include "wiz8/engine_code/Navigator.h"
+#include "wiz8/engine_code/Monster.h"
+#include "wiz8/engine_code/stScript.h"
+#include "wiz8/layouts/combat_state.h"
+#include "wiz8/local_code/Combat.h"
+#include "wiz8/local_code/CombatAttack.h"
+#include "wiz8/local_code/CombatRange.h"
+#include "wiz8/xstatus.h"
+#include "wiz8/local_code/Strings.h"
+#include "wiz8/notices.h"
+#include "wiz8/chunk.h"
+#include "wiz8/local_code/MonsterManager.h"
+#include "wiz8/local_code/MagicEffects.h"
+#include "wiz8/local_code/MonsterGenerator.h"
+#include "wiz8/sr_api.h"
+#include "wiz8/save_game.h"
+#include "wiz8/layouts/screen_state.h"
+#include "wiz8/local_code/Gameloop.h"
+#include "wiz8/fonts.h"
+#include "wiz8/utility.h"
+#include "wiz8/virtual_file.h"
+
+/* GETFILESTRUCT is library layout and comes from the vendored SGP header rather
+   than being restated: the 0x44-dword clear the body below opens with is exactly
+   its 272 bytes. */
+#include "FileMan.h"
+#include "wiz8/local_code/PC_Item.h"
+#include "wiz8/local_screens/AutomapScreen.h"
+#include "wiz8/engine_code/stCube.h"
+#include "wiz8/engine_code/Video2.h"
+#include "surrender/srColorSurface.h"
+#include "wiz8/world_cursor.h"
+#include "wiz8/engine_code/stLight.hpp"
+#include "wiz8/engine_code/Spells.h"
+#include "wiz8/local_code/UtilityFunctions.h"
+#include "wiz8/local_code/FormationAndFacing.h"
+#include "wiz8/local_code/GameplayInit.h"
+#include "wiz8/float_constants.h"
+#include "wiz8/engine_code/game_timer.h"
+#include "wiz8/engine_code/Video2.h"
+#include "surrender/srColorSurface.h"
+#include "wiz8/location_variables.h"
+#include "wiz8/fact_state.h"
+#include "wiz8/level_specific_code/MasterFunctionList.h"
+#include "wiz8/cursor.h"
+#include "wiz8/local_code/Factions.h"
+#include "wiz8/local_code/NPCManager.h"
+#include "wiz8/local_screens/JournalScreen.h"
+#include "wiz8/local_code/ConditionsAndEnchantments.h"
+#include "wiz8/engine_code/stScript.h"
+#include "surrender/srTypeRegistry.h"
+
+#include "timer.h"
+
+#include <windows.h>
+
+#include <errno.h>
+#include <io.h>
+#include <malloc.h>
+#include <stdio.h>
+#include <string.h>
+#include <sys/stat.h>
+#include "wiz8/layouts/game_status.h"
+#include "wiz8/local_code/SpellEffect.h"
+#include "wiz8/character_event_queue.h"
+#include "wiz8/local_screens/MainGameScreen.h"
+#include "wiz8/local_screens/NPCInteractionSubscreen.h"
+#include "wiz8/npc_interaction.h"
+#include "soundman.h"
+#include "timer.h"
+#include "wiz8/engine_code/Octree.h"
+#include "wiz8/local_screens/MGSTextBox.h"
+#include "wiz8/local_code/NPCManager.h"
+#include "wiz8/local_code/Factions.h"
+#include "wiz8/local_screens/JournalScreen.h"
+#include "wiz8/cursor.h"
+#include "wiz8/local_code/ConditionsAndEnchantments.h"
+
+/* The attribute word this gate tests is a Windows attribute word, so the two
+   constants come from windows.h and are not restated here. Ghidra labels the
+   pair with the vendored SFI release's SGP names, which number those bits
+   differently; take the labels as belonging to that release rather than to this
+   image. Read as Windows attributes the tests say "is a directory" and "is not
+   read-only", which is what a function that verifies save directories asks. */
+
+/* 0x004F8130, ItemManager.cpp line 998: asserts the item is non-null, then
+   reports whether the flag word at +0x29 has any of the caller's bits set. */
+/* Set to 1 by LoadLevel around its restore call at
+   0x005135D0 and cleared immediately after, and read only from the save and
+   load paths. It gates the bit-3 clear below. The meaning is not established
+   beyond "a level restore is in progress", so the name stays positional. */
+
+#define LOADSAVEGAME_CPP "C:\\Projects\\Wizardry 8\\Local Code\\LoadSaveGame.cpp"
+
+/* The fixed 0x314-byte header every save begins with. Only the fields
+   LoadStatusHeader forwards are established; the rest is read and kept. */
+struct W8StatusHeader {
+    float version;
+    int next_group_id;
+    int next_monster_location_id;
+    int next_world_item_id;
+    int next_trigger_id;
+    unsigned char status_block[0x100];
+    unsigned char unknown_114[0x200];
+};
+
+static_assert(sizeof(W8StatusHeader) == 0x314, "W8StatusHeader_must_be_0x314");
+
+/* Same-unit bodies SaveGame reaches before their definitions. */
+void ReadSaveChunks(W8Chunk* source, W8Chunk* destination);
+void SaveGlobalStatus(W8Chunk* chunks, W8GlobalStatus* status);
+
+static bool SaveMonsterRecord(W8Chunk* chunks, unsigned int index);
+
+/* 0x0061A134/0x0061A138: the two XOR masks SaveGame applies to the file's
+   creation-time pair before it lands in the status block. */
+// GLOBAL: WIZ8 0x0061A134
+static unsigned int g_save_filetime_xor_low = 0x6b24e9f0;
+// GLOBAL: WIZ8 0x0061A138
+static unsigned int g_save_filetime_xor_high = 0xe77c28c1;
+
+/* FileWrite, FileExists, FileClearAttributes and FILE_IS_READONLY come from the
+   vendored SGP FileMan.h already on this target's include path, so they are not
+   restated here. */
+
+/* 0x0068517C selects where characters live, and flags is a per-slot byte
+   consulted only when it is set. The failure notice comes out of the shared
+   notice array, and 0x00683678 is passed alongside; neither is established
+   beyond that, so both keep positional names. */
+
+/* Build the loose character/NPC path in the two forms used by the save code.
+   The first accepts an already formatted filename or wildcard; the second
+   appends the canonical CHR extension to a character's wide name first.  When
+   characters are being supplied by an archive, a flagged slot or the external
+   character sentinel keeps the caller's name unqualified. */
+// FUNCTION: WIZ8 0x00514fa0
+void BuildCharacterFilePath(char* destination, const char* filename, int slot)
+{
+    char directory[260];
+
+    if (!g_status.game_started) {
+        strcpy(directory, slot == -1 ? "Saves\\Characters" : "Saves\\NPCs");
+        sprintf(destination, "%s\\%s", directory, filename);
+        return;
+    }
+    if (slot != -1 && !g_status.flags[slot]) {
+        sprintf(destination, "%s\\%s", "Saves\\NPCs", filename);
+        return;
+    }
+    strcpy(destination, filename);
+}
+
+// FUNCTION: WIZ8 0x00514ec0
+void BuildCharacterPath(char* destination, const wchar_t* name, int slot)
+{
+    char filename[16];
+    char directory[260];
+
+    sprintf(filename, "%ls.%s", name, "CHR");
+    if (!g_status.game_started) {
+        strcpy(directory, slot == -1 ? "Saves\\Characters" : "Saves\\NPCs");
+    } else if (slot == -1 || g_status.flags[slot]) {
+        strcpy(destination, filename);
+        return;
+    } else {
+        strcpy(directory, "Saves\\NPCs");
+    }
+    sprintf(destination, "%s\\%s", directory, filename);
+}
+
+/* Loads one character record, either from a loose file under Saves\Characters
+   or Saves\NPCs, or through LoadCharacterFromCurrentGame when 0x0068517C says
+   characters are not loose. The two spellings of the path share one sprintf:
+   the branch that already has a directory literal jumps into the arm that
+   formats one, which is what writing the call in both arms compiles to.
+   The record is cleared before the read, and the read is two calls: a four-byte
+   length and then that many bytes. A short or failed second read leaves the
+   record cleared and reports failure, and the file is closed either way. */
+// FUNCTION: WIZ8 0x005152b0
+bool LoadCharacter(const char* name, W8Character* character, int slot, bool report_failure)
+{
+    char path[60];
+    char directory[260];
+    unsigned int size;
+    unsigned int transferred;
+    bool loaded = false;
+    int handle;
+
+    if (g_status.game_started) {
+        if (slot != -1 && g_status.flags[slot] == 0) {
+            sprintf(path, "%s\\%s", "Saves\\NPCs", name);
+        } else {
+            strcpy(path, name);
+        }
+    } else {
+        strcpy(directory, slot != -1 ? "Saves\\NPCs" : "Saves\\Characters");
+        sprintf(path, "%s\\%s", directory, name);
+    }
+
+    if (g_status.game_started && (slot == -1 || g_status.flags[slot] != 0)) {
+        loaded = LoadCharacterFromCurrentGame(path, character);
+    } else {
+        handle = FileOpen(path, 1, 0);
+        if (handle != 0) {
+            memset(character, 0, sizeof(W8Character));
+            if (FileRead(handle, &size, 4, &transferred) &&
+                FileRead(handle, character, size, &transferred)) {
+                loaded = true;
+            }
+            FileClose(handle);
+            /* The same read-only repair VerifyDataSubdirs makes, for the one errno
+               that means exactly that. */
+            if (_access(path, 2) != 0 && errno == EACCES) {
+                _chmod(path, _S_IREAD | _S_IWRITE);
+            }
+        }
+    }
+    if (loaded) {
+        return true;
+    }
+    if (report_failure) {
+        CreateMessageBox(FormatWideString(gppStringList[W8_NOTICE_CHARACTER_LOAD_FAILED], name),
+                         g_small_font, 1, true, false, 0);
+    }
+    return false;
+}
+
+// FUNCTION: WIZ8 0x00511df0
+void FillCurrentSaveSlot(W8SaveSlot* slot)
+{
+    slot->name[0] = 0;
+    slot->level_id = GetLoadedLevelID();
+    slot->game_time_ms = g_status.game_time_ms;
+    slot->game_time_days = g_status.game_time_days;
+    slot->iron_man = g_status.iron_man;
+    GetLocalTime(&slot->timestamp);
+    CaptureSaveScreenshot(&slot->screenshot);
+    slot->version_major = 1;
+    slot->version_minor = 2;
+    slot->version_patch = 4;
+}
+
+// FUNCTION: WIZ8 0x00511e70
+bool EnumerateSaveSlots(W8GrowableVector<W8SaveSlot*>* slots)
+{
+    W8Chunk chunks;
+    WIN32_FIND_DATAA find_data;
+    char path[260];
+    W8GlobalStatus status;
+
+    sprintf(path, "%s\\*.%s", "Saves", g_save_extension);
+    int first = slots->GetCount();
+    memset(&find_data, 0, sizeof(find_data));
+    HANDLE search = FindFirstFileA(path, &find_data);
+    if (search != INVALID_HANDLE_VALUE) {
+        do {
+            sprintf(path, "%s\\%s", "Saves", find_data.cFileName);
+            if (strcmp(path, "Saves\\CurrentGame.SAV") != 0 && strlen(find_data.cFileName) < 64 &&
+                chunks.OpenRead(path)) {
+                W8SaveSlot* slot = new W8SaveSlot;
+                slot->screenshot.capture_result = 0;
+                slot->version_major = 1;
+                slot->version_minor = 0;
+                slot->version_patch = 0;
+                int count = chunks.ChunkCount();
+                for (int index = 0; index < count; ++index) {
+                    chunks.OpenChunk(0, 0);
+                    if (!chunks.CurrentChunkAtEnd()) {
+                        switch (chunks.CurrentChunkId()) {
+                        case 0x41545347:
+                            AllocateStatusBuffers(&status.buffers);
+                            LoadGameStatus(&chunks, &status);
+                            FreeStatusBuffers(&status.buffers);
+                            slot->dev_flagged = status.dev_flagged;
+                            break;
+                        case 0x52455647:
+                            chunks.Read(&slot->version_major, 4, 0);
+                            chunks.Read(&slot->version_minor, 4, 0);
+                            chunks.Read(&slot->version_patch, 4, 0);
+                            break;
+                        case 0x544f4853:
+                            chunks.Read(&slot->screenshot, 0x2588, 0);
+                            break;
+                        }
+                    }
+                    chunks.SkipCurrentChunk();
+                    chunks.ReleaseCurrentChunk();
+                }
+                chunks.Close();
+                if (!status.flag && !status.endgame_started) {
+                    char* extension = strrchr(find_data.cFileName, '.');
+                    if (extension != 0) {
+                        *extension = 0;
+                    }
+                    find_data.cFileName[63] = 0;
+                    swprintf(slot->name, L"%hs", find_data.cFileName);
+                    FileTimeToLocalFileTime(&find_data.ftLastWriteTime, &slot->local_write_time);
+                    FileTimeToSystemTime(&slot->local_write_time, &slot->timestamp);
+                    slot->level_id = status.current_level;
+                    slot->game_time_ms = status.game_time_ms;
+                    slot->iron_man = status.iron_man;
+                    slot->game_time_days = status.game_time_days;
+                    int position;
+                    for (position = first; position < slots->GetCount(); ++position) {
+                        if (CompareSGPFileTimes(&slot->local_write_time,
+                                                &(*slots->GetAt(position))->local_write_time) > 0) {
+                            break;
+                        }
+                    }
+                    slots->InsertAt(position, slot);
+                }
+            }
+        } while (FindNextFileA(search, &find_data));
+    }
+    FindClose(search);
+    return true;
+}
+
+/* Open one save slot and read only its game-status chunk. Startup needs the
+   saved level before it commits to the full load, so every other top-level
+   chunk is skipped and released without being materialized. */
+// FUNCTION: WIZ8 0x00512290
+int GetSaveGameLevel(const char* slot_name)
+{
+    W8Chunk chunks;
+    char path[260];
+    W8GlobalStatus status;
+    int count;
+    int index;
+
+    sprintf(path, "%s\\%s.%s", "Saves", slot_name, g_save_extension);
+    if (chunks.OpenRead(path)) {
+        count = chunks.ChunkCount();
+        for (index = 0; index < count; ++index) {
+            chunks.OpenChunk(0, 0);
+            if (!chunks.CurrentChunkAtEnd() && chunks.CurrentChunkId() == 0x41545347) {
+                AllocateStatusBuffers(&status.buffers);
+                LoadGameStatus(&chunks, &status);
+                FreeStatusBuffers(&status.buffers);
+                chunks.Close();
+                return status.current_level;
+            }
+            chunks.SkipCurrentChunk();
+            chunks.ReleaseCurrentChunk();
+        }
+        chunks.Close();
+    }
+    return 0;
+}
+
+/* Write one whole save file: the live status block, the version triple, the
+   SHOT screenshot (rendered through an offscreen surface when the caller did
+   not supply one), then the TEXT, TVAR, NPCI, NPCT, NPCF, FATA, JRNL and HYPN
+   sections, and the header last. Before any of that the live state is folded
+   into the status block: the camera position goes to pending_move_location,
+   every shown message line snapshots whether its countdown was still ticking,
+   the gameplay timer restarts, ungrouped monsters are destroyed, the master
+   functions save, and an iron-man game additionally stores the file's creation
+   time XOR-masked by the two data constants. A save of anything but
+   CurrentGame first absorbs the loose character chunks from
+   Saves\CurrentGame.SAV through ReadSaveChunks. The NPCI section is the only
+   writer whose failure aborts the whole save; a failed header write leaves the
+   file open and returns zero. */
+// FUNCTION: WIZ8 0x005123F0
+bool SaveGame(const char* name, W8SaveScreenshot* screenshot)
+{
+    W8Chunk chunks;
+    W8Chunk current_game;
+    W8ScreenRect bounds;
+    SGP_FILETIME creation_time;
+    SGP_FILETIME access_time;
+    SGP_FILETIME write_time;
+    srColorSurface* surface;
+    char path[260];
+    bool generated;
+    short cursor;
+    int saved;
+    int version_major;
+    int version_minor;
+    int version_patch;
+    int region;
+    unsigned int index;
+
+    sprintf(path, "%s\\%s.%s", "Saves", name, g_save_extension);
+    if (_access(path, 2) != 0 && errno == EACCES) {
+        _chmod(path, _S_IREAD | _S_IWRITE);
+    }
+    if (!chunks.OpenWrite(path)) {
+        return false;
+    }
+    if (_stricmp(name, "CurrentGame") != 0 &&
+        current_game.OpenRead("Saves\\CurrentGame.SAV") != 0) {
+        ReadSaveChunks(&current_game, &chunks);
+        current_game.Close();
+    }
+    GetWorldCameraState(GetWorld(), &g_status.pending_move_location);
+    for (region = 0; region != 4; ++region) {
+        for (index = 0; index < g_status.text_box_lines_shown[region]; ++index) {
+            g_message_storage[region][index].saved_remaining_ms =
+                ClockIsTicking(g_message_storage[region][index].clock);
+        }
+    }
+    gXStatus.gameplay_timer->Restart();
+    DestroyUngroupedMonsters();
+    SaveMasterFunctions();
+    g_status.buffers.save_version = 1.1f;
+    g_status.difficulty = g_settings.difficulty;
+    if (g_status.iron_man) {
+        GetFileManFileTime(chunks.m_hFile, &creation_time, &access_time, &write_time);
+        g_status.save_filetime_xor[0] = creation_time.dwLowDateTime ^ g_save_filetime_xor_low;
+        g_status.save_filetime_xor[1] = creation_time.dwHighDateTime ^ g_save_filetime_xor_high;
+    }
+    cursor = g_status.text_line_cursor;
+    if (cursor == 2) {
+        saved = 2;
+        cursor = 2;
+        g_status.text_line_cursor = 0;
+        static_cast<void>(saved);
+    }
+    SaveGlobalStatus(&chunks, &g_status);
+    g_status.text_line_cursor = cursor;
+    chunks.OpenChunk(0x52455647, 0); /* GVER */
+    version_major = 1;
+    version_minor = 2;
+    version_patch = 4;
+    chunks.Write(&version_major, 4, 0);
+    chunks.Write(&version_minor, 4, 0);
+    chunks.Write(&version_patch, 4, 0);
+    chunks.ReleaseCurrentChunk();
+    generated = screenshot == 0;
+    if (generated) {
+        screenshot = new W8SaveScreenshot;
+        screenshot->version = 1.0f;
+        bounds.left = 0;
+        bounds.top = 0;
+        bounds.right = 0x280;
+        bounds.bottom = 0x1e0;
+        surface = new W8ColorSurface(srPixelConvert::SURFACE_ARGB1555, screenshot->pixels, 0x50,
+                                     0x3c, 0xa0);
+        SetRendererAutoFlipEnabled(false);
+        screenshot->capture_result = RenderWorldToSurface(surface, &bounds, true);
+        RenderFrame();
+        SetRendererAutoFlipEnabled(true);
+        surface->release();
+    }
+    chunks.OpenChunk(0x544f4853, 0); /* SHOT */
+    chunks.Write(screenshot, 0x2588, 0);
+    chunks.ReleaseCurrentChunk();
+    if (generated) {
+        delete screenshot;
+    }
+    chunks.OpenChunk(0x54584554, 0); /* TEXT */
+    SaveMessageStorage(chunks.m_hFile);
+    chunks.ReleaseCurrentChunk();
+    if (g_location_variable_values.GetCount() != 0) {
+        chunks.OpenChunk(0x52415654, 0); /* TVAR */
+        SaveLocationVariables(chunks.m_hFile);
+        chunks.ReleaseCurrentChunk();
+    }
+    chunks.OpenChunk(0x4943504e, 0); /* NPCI */
+    if (SaveNpcDialogueTranscript(chunks.m_hFile) == 0) {
+        chunks.ReleaseCurrentChunk();
+        return false;
+    }
+    chunks.ReleaseCurrentChunk();
+    chunks.OpenChunk(0x5443504e, 0); /* NPCT */
+    SaveNpcStates(&chunks);
+    chunks.ReleaseCurrentChunk();
+    chunks.OpenChunk(0x4643504e, 0); /* NPCF */
+    SaveFactState(chunks.m_hFile);
+    chunks.ReleaseCurrentChunk();
+    chunks.OpenChunk(0x41544146, 0); /* FATA */
+    SaveFactionState(chunks.m_hFile);
+    chunks.ReleaseCurrentChunk();
+    chunks.OpenChunk(0x4c4e524a, 0); /* JRNL */
+    SaveFactJournal(chunks.m_hFile);
+    chunks.ReleaseCurrentChunk();
+    if (FindMonsterControlSpellEffect() != 0) {
+        chunks.OpenChunk(0x4e505948, 0); /* HYPN */
+        SaveMonsterControlSpellEffect(&chunks);
+        chunks.ReleaseCurrentChunk();
+    }
+    if (!SaveStatusHeader(&chunks)) {
+        return false;
+    }
+    chunks.Close();
+    return true;
+}
+
+/* Build the level-specific status path the save code falls back to when the
+   current-game save has no matching level section. The regular levels use the
+   database row's own folder and level names and level 56 is the shared default
+   test level. The binary is explicit here: CMP ESI,0x39 branches
+   at level < 57, CMP ESI,0x38 handles 56, and every other level indexes the
+   table at 0x00604478 with stride 0x6B. That table has 47 entries, so levels
+   47-55 read the adjacent rdata, even though LevelBuildInfoByID treats those
+   ten slots as test levels. The recovered units disagree exactly as retail
+   does; no non-OOB branch exists at the call site. */
+// FUNCTION: WIZ8 0x00512e80
+void BuildLevelStatusPath(char* path, unsigned int level)
+{
+    W8LevelInfo info;
+
+    if (!LevelBuildInfoByID(level, &info)) {
+        srAssertFail("LevelFilesExist(ulLevel, &LevelName)",
+                     "C:\\Projects\\Wizardry 8\\Local Code\\LoadSaveGame.cpp", 870, 0);
+    }
+    *strchr(info.level_file_name, '.') = '\0';
+    if (level < 57) {
+        if (level == 56) {
+            sprintf(path, "%s\\Test\\DefaultLevel.%s", "Levels", "STS");
+        } else {
+            sprintf(path, "%s\\%s\\%s.%s", "Levels", g_level_folders[level].folder_name,
+                    g_level_folders[level].level_name, "STS");
+        }
+    } else {
+        sprintf(path, "%s\\Test\\Level%c.%s", "Levels", level - 56, "STS");
+    }
+}
+
+/* Reads and validates the header, then publishes the four counts and the block
+   it carries. The version gate is an equality test against 2.0f held in .rdata,
+   not a range, so a save written by any other version is refused outright.
+   Each count is published first and only then corrected, rather than being
+   tested before the store: the canonical writes all four globals, loads 1 once,
+   and revisits each that turned out to be zero. */
+// FUNCTION: WIZ8 0x00513090
+bool LoadStatusHeader(W8Chunk* chunk)
+{
+    unsigned int transferred;
+    W8StatusHeader header;
+
+    InitializeMonsterManagerState();
+    InitializeItemManagerState();
+    ResetNextTriggerId();
+    if (!chunk->Read(&header, sizeof(header), &transferred)) {
+        return false;
+    }
+    if (header.version != 2.0f) {
+        return false;
+    }
+    g_status.next_group_id = header.next_group_id;
+    g_status.next_monster_location_id = header.next_monster_location_id;
+    g_status.next_world_item_id = header.next_world_item_id;
+    g_status.next_trigger_id = header.next_trigger_id;
+    if (header.next_group_id == 0) {
+        g_status.next_group_id = 1;
+    }
+    if (header.next_monster_location_id == 0) {
+        g_status.next_monster_location_id = 1;
+    }
+    if (header.next_world_item_id == 0) {
+        g_status.next_world_item_id = 1;
+    }
+    if (header.next_trigger_id == 0) {
+        g_status.next_trigger_id = 1;
+    }
+    memcpy(g_status.status_header_prefix, header.status_block, sizeof(header.status_block));
+    return true;
+}
+
+/* Persist the current game status to one path. An existing current-game save
+   that holds more than half its bytes in already-consumed level sections is
+   first rolled into a CleanUp save and renamed into place; any other existing
+   file is reopened for append. A fresh path is created outright. */
+// FUNCTION: WIZ8 0x00513160
+bool SaveLevelStatus(const char* path)
+{
+    W8Chunk chunk;
+    bool opened;
+    bool result = false;
+
+    if (!chunk.OpenReadWrite(const_cast<char*>(path))) {
+        opened = chunk.OpenWrite(const_cast<char*>(path));
+    } else {
+        unsigned int empty_percent;
+
+        MeasureLevelStatusChunks(&chunk, g_status.current_level, &empty_percent);
+        chunk.Close();
+        if (empty_percent > 0x32 && _stricmp(path, "Saves\\CurrentGame.SAV") == 0) {
+            SaveGame("CleanUp", 0);
+            FileDelete("Saves\\CurrentGame.SAV");
+            rename("Saves\\CleanUp.SAV", "Saves\\CurrentGame.SAV");
+            return false;
+        }
+        opened = chunk.OpenAppend(const_cast<char*>(path));
+    }
+    if (opened) {
+        result = SaveStatusHeader(&chunk);
+        chunk.Close();
+    }
+    return result;
+}
+
+/* Serialize the complete per-level group. LVLS is a grouped chunk: its level
+   id leads a sequence of ordinary child chunks. The restore path deliberately
+   writes the four transient sections only; an ordinary save writes the live
+   automation, trigger, prop, cube, generator, lock, ambient, particle and
+   light sections. */
+// FUNCTION: WIZ8 0x00513260
+bool SaveStatusHeader(W8Chunk* chunks)
+{
+    W8StatusHeader header;
+    unsigned int count;
+    unsigned int index;
+
+    DestroyUngroupedMonsters();
+    chunks->OpenChunk(0x534c564c, 0); /* LVLS */
+    chunks->OpenGroup();
+    chunks->Write(&g_status.current_level, sizeof(g_status.current_level), 0);
+
+    chunks->OpenChunk(0x54415453, 0); /* STAT */
+    memset(&header, 0, sizeof(header));
+    header.version = 2.0f;
+    header.next_group_id = g_status.next_group_id;
+    header.next_monster_location_id = g_status.next_monster_location_id;
+    header.next_world_item_id = g_status.next_world_item_id;
+    header.next_trigger_id = g_status.next_trigger_id;
+    memcpy(header.status_block, g_status.status_header_prefix, sizeof(header.status_block));
+    if (!chunks->Write(&header, sizeof(header), &count)) {
+        chunks->ReleaseCurrentChunk();
+    }
+    chunks->ReleaseCurrentChunk();
+
+    chunks->OpenChunk(0x534e4f4d, 0); /* MONS */
+    SaveMonsterStatus(chunks);
+    chunks->ReleaseCurrentChunk();
+
+    chunks->OpenChunk(0x4d455449, 0); /* ITEM */
+    count = PLLength(gXStatus.plsItemList);
+    chunks->Write(&count, sizeof(count), 0);
+    for (index = 0; index < count; ++index) {
+        if (!SaveItemFile(chunks->m_hFile, ItemInfo(index))) {
+            chunks->ReleaseCurrentChunk();
+            break;
+        }
+    }
+    chunks->ReleaseCurrentChunk();
+
+    if (g_level_status_loading) {
+        chunks->OpenChunk(0x45425543, 0); /* CUBE */
+        SaveWorldCursorNodes(chunks->m_hFile);
+        SaveWorldCursorNodeStates(chunks->m_hFile);
+        chunks->ReleaseCurrentChunk();
+
+        chunks->OpenChunk(0x474e4f4d, 0); /* MONG */
+        SaveEncounterState(chunks->m_hFile);
+        chunks->ReleaseCurrentChunk();
+
+        chunks->OpenChunk(0x4b434f4c, 0); /* LOCK */
+        SaveTriggerRuntimeStates(g_world, chunks->m_hFile, g_level_status_loading);
+        chunks->ReleaseCurrentChunk();
+
+        chunks->OpenChunk(0x53455254, 0); /* TRES */
+        SaveTriggerActionData(g_world, chunks->m_hFile);
+        chunks->ReleaseCurrentChunk();
+        if (g_level_status_loading) {
+            chunks->ReleaseGroup();
+            chunks->ReleaseCurrentChunk();
+            return true;
+        }
+    }
+
+    chunks->OpenChunk(0x4f545541, 0); /* AUTO */
+    SaveAutomapNotes(chunks->m_hFile);
+    chunks->ReleaseCurrentChunk();
+
+    if (g_world->triggers->GetCount() != 0) {
+        chunks->OpenChunk(0x47495254, 0); /* TRIG */
+        SaveWorldTriggers(g_world, chunks->m_hFile);
+        chunks->ReleaseCurrentChunk();
+    }
+
+    chunks->OpenChunk(0x54535041, 0); /* APST */
+    SaveWorldProps(g_world, chunks->m_hFile);
+    chunks->ReleaseCurrentChunk();
+
+    chunks->OpenChunk(0x53425543, 0); /* CUBS */
+    SaveWorldCursorNodeStates(chunks->m_hFile);
+    chunks->ReleaseCurrentChunk();
+
+    chunks->OpenChunk(0x534e474d, 0); /* MGNS */
+    SaveMonsterGenerators(chunks->m_hFile);
+    chunks->ReleaseCurrentChunk();
+
+    chunks->OpenChunk(0x534b434c, 0); /* LCKS */
+    SaveTriggerRuntimeStates(g_world, chunks->m_hFile, g_level_status_loading);
+    chunks->ReleaseCurrentChunk();
+
+    chunks->OpenChunk(0x53424d41, 0); /* AMBS */
+    SaveAmbientSoundList(chunks->m_hFile);
+    chunks->ReleaseCurrentChunk();
+
+    chunks->OpenChunk(0x54524150, 0); /* PART */
+    SaveParticleStates(chunks->m_hFile);
+    chunks->ReleaseCurrentChunk();
+
+    chunks->OpenChunk(0x5448474c, 0); /* LGHT */
+    SaveLightStates(chunks->m_hFile);
+    chunks->ReleaseCurrentChunk();
+
+    chunks->ReleaseGroup();
+    chunks->ReleaseCurrentChunk();
+    return true;
+}
+
+/* MONS chunk: the group and monster totals, then every group's 0x12b-byte
+   record restamped to save version 3 with an "encountered" byte, then every
+   monster record. A missing group or a failed monster record releases the
+   chunk and fails the section. */
+// FUNCTION: WIZ8 0x005145a0
+bool SaveMonsterStatus(W8Chunk* chunks)
+{
+    unsigned int group_count;
+    unsigned int monster_count;
+    unsigned int index;
+    unsigned int record_size;
+    W8MonsterGroup* group;
+
+    group_count =
+        PLLength(gXStatus.plsMonsterGroupList) + PLLength(gXStatus.plsMonsterGroupEncounterList);
+    monster_count = PLLength(gXStatus.plsMonsterList) + PLLength(gXStatus.plsUnbornMonsterList);
+    chunks->Write(&group_count, 4, 0);
+    chunks->Write(&monster_count, 4, 0);
+    for (index = 0; index < group_count; ++index) {
+        if (index < PLLength(gXStatus.plsMonsterGroupList)) {
+            unsigned char encountered;
+
+            group = GetMonsterGroupByListIndex(index);
+            if (group == 0) {
+                goto fail;
+            }
+            group->version = 3;
+            record_size = 0x12b;
+            chunks->Write(&record_size, 4, 0);
+            chunks->Write(group, record_size, 0);
+            encountered = PListIndexOf(gXStatus.plsMonsterGroupEncounterList, group) != -1;
+            chunks->Write(&encountered, 1, 0);
+        } else {
+            unsigned char encountered;
+
+            group =
+                GetMonsterGroupByListIndex(index - PLLength(gXStatus.plsMonsterGroupList) + 0x2710);
+            if (group == 0) {
+                goto fail;
+            }
+            group->version = 3;
+            record_size = 0x12b;
+            chunks->Write(&record_size, 4, 0);
+            chunks->Write(group, record_size, 0);
+            encountered = PListIndexOf(gXStatus.plsMonsterGroupEncounterList, group) != -1;
+            chunks->Write(&encountered, 1, 0);
+        }
+    }
+    for (index = 0; index < monster_count; ++index) {
+        if (index < PLLength(gXStatus.plsMonsterList)) {
+            if (!SaveMonsterRecord(chunks, index)) {
+                goto fail;
+            }
+        } else {
+            if (!SaveMonsterRecord(chunks, index - PLLength(gXStatus.plsMonsterList) + 0x2710)) {
+                goto fail;
+            }
+        }
+    }
+    return true;
+
+fail:
+    chunks->ReleaseCurrentChunk();
+    return false;
+}
+
+/* One monster's save record: the version-7 tag, the 0x425-byte W8MonsterInfo
+   with position/angle refreshed while the entry is live, then the optional
+   script name and pending conditions, the unborn flag, the navigator movement
+   state and the order/patrol fields the loader reads back in record-version
+   order. */
+// FUNCTION: WIZ8 0x005147a0
+static bool SaveMonsterRecord(W8Chunk* chunks, unsigned int index)
+{
+    char script_name[0x40] = {0};
+    memcpy(script_name, &g_empty_ambient_name, sizeof(g_empty_ambient_name));
+    W8MonsterScriptCommand script_wait = MONSCR_NONE;
+    int script_line = -1;
+    unsigned char has_script = 0;
+    unsigned int record_version = 7;
+    unsigned int record_size;
+    int queue_count;
+    int point_count;
+    int i;
+    int component;
+    float patrol_value;
+    unsigned char unborn;
+    unsigned char value;
+    bool script_flag;
+    srVector3T<float> location;
+    srVector3T<float> point;
+    W8MonsterInfo* info;
+    W8Monster* monster;
+
+    info = MonsterGetScriptPartByLocationIndex(index);
+    chunks->Write(&record_version, 4, 0);
+    if (info->fActive) {
+        MonsterGetLocation(info->p3D, &location);
+        location.y = SettlePositionToGround(&location, 0);
+        info->position = location;
+        info->derived = MonsterGetYaw(info->p3D);
+    }
+    record_size = sizeof(*info);
+    chunks->Write(&record_size, 4, 0);
+    chunks->Write(info, record_size, 0);
+    if (info->p3D->script == 0) {
+        chunks->Write(&has_script, 1, 0);
+    } else {
+        has_script = 1;
+        chunks->Write(&has_script, 1, 0);
+        memset(script_name, 0, sizeof(script_name));
+        strcpy(script_name, info->p3D->script != 0 ? info->p3D->script->getName() : 0);
+        script_wait = info->p3D->script_wait;
+        script_line = info->p3D->script_line;
+        chunks->Write(script_name, 0x40, 0);
+        chunks->Write(&script_wait, 4, 0);
+        chunks->Write(&script_line, 4, 0);
+        queue_count = info->p3D->script_conditions.GetCount();
+        chunks->Write(&queue_count, 4, 0);
+        for (i = 0; i < queue_count; ++i) {
+            script_flag = *info->p3D->script_conditions.GetAt(i);
+            chunks->Write(&script_flag, 1, 0);
+        }
+    }
+    unborn = PListIndexOf(gXStatus.plsUnbornMonsterList, info) != -1;
+    chunks->Write(&unborn, 1, 0);
+    monster = info->p3D;
+    monster->SaveMovementState(chunks->m_hFile);
+    script_flag = monster->defining_orders;
+    chunks->Write(&script_flag, 1, 0);
+    value = monster->order_mode;
+    chunks->Write(&value, 1, 0);
+    script_flag = monster->orders_finished;
+    chunks->Write(&script_flag, 1, 0);
+    script_flag = monster->deaf;
+    chunks->Write(&script_flag, 1, 0);
+    patrol_value = monster->patrol_distance;
+    chunks->Write(&patrol_value, 4, 0);
+    patrol_value = monster->patrol_variation;
+    chunks->Write(&patrol_value, 4, 0);
+    value = monster->patrol_index;
+    chunks->Write(&value, 1, 0);
+    point_count = monster->vector.GetCount();
+    chunks->Write(&point_count, 4, 0);
+    for (i = 0; i < point_count; ++i) {
+        point = *monster->vector.GetAt(i);
+        for (component = 0; component < 3; ++component) {
+            chunks->Write(&point.x + component, 4, 0);
+        }
+    }
+    point.Set(monster->direction_x, monster->direction_y, monster->direction_z);
+    for (component = 0; component < 3; ++component) {
+        chunks->Write(&point.x + component, 4, 0);
+    }
+    script_flag = monster->face_party;
+    chunks->Write(&script_flag, 1, 0);
+    script_flag = monster->stay_home;
+    chunks->Write(&script_flag, 1, 0);
+    return true;
+}
+
+/* Open a per-level status file and hand it to the section reader. A file that
+   cannot be opened reports failure without touching the live status. */
+// FUNCTION: WIZ8 0x005135d0
+bool LoadLevelStatus(const char* path, int level)
+{
+    W8Chunk chunk;
+    bool result = false;
+
+    if (chunk.OpenRead(const_cast<char*>(path))) {
+        result = LoadItemStatus(&chunk, level);
+        chunk.Close();
+    }
+    return result;
+}
+
+/* Walk one status file's top-level chunks and apply the saved section for the
+   requested level. A section at the file's end carries no payload and is skipped; a non-matching
+   section is released without walking its children. On a save load the level's
+   shipped status is folded in first, so baseline state exists under the saved
+   overrides. The chunk ids dispatch as a flat chain; LOCK and LCKS share the
+   trigger-state loader. */
+// FUNCTION: WIZ8 0x00513650
+bool LoadItemStatus(W8Chunk* chunk, int level)
+{
+    unsigned int file_level;
+    W8Chunk* stream = chunk;
+    bool result = false;
+    int outer_count = stream->ChunkCount();
+    unsigned int index;
+
+    for (int outer = 0; outer < outer_count; ++outer) {
+        if (result) {
+            return result;
+        }
+        stream->OpenChunk(0, 0);
+        if (stream->CurrentChunkId() == 0x534c564c) { /* LVLS */
+            if (stream->CurrentChunkAtEnd() != 0) {
+                stream->OpenGroup();
+                stream->Read(&file_level, 4, 0);
+                stream->SkipCurrentChunk();
+            } else {
+                stream->OpenGroup();
+                stream->Read(&file_level, 4, 0);
+                if (level == static_cast<int>(file_level)) {
+                    if (!g_level_status_loading) {
+                        LoadDefaultLevelStatus(level);
+                    }
+                    result = true;
+                    for (int inner = stream->ChunkCount(); inner > 0; --inner) {
+                        stream->OpenChunk(0, 0);
+                        if (stream->CurrentChunkAtEnd() == 0) {
+                            unsigned long chunk_id = stream->CurrentChunkId();
+
+                            if (chunk_id == 0x54415453) { /* STAT */
+                                LoadStatusHeader(stream);
+                            } else if (chunk_id == 0x534e4f4d) { /* MONS */
+                                unsigned int group_count;
+                                unsigned int monster_count;
+
+                                stream->Read(&group_count, 4, 0);
+                                stream->Read(&monster_count, 4, 0);
+                                for (index = 0; index < group_count; ++index) {
+                                    if (!LoadMonsterGroup(stream)) {
+                                        goto chunk_done;
+                                    }
+                                }
+                                for (index = 0; index < monster_count; ++index) {
+                                    if (!LoadMonster(stream)) {
+                                        goto chunk_done;
+                                    }
+                                }
+                                ReapplyMonsterGroupFormations();
+                                RepairMonsterGroupLeaderLinks();
+                                ApplyDefaultMonsterGroupSounds();
+                            } else if (chunk_id == 0x4d455449) { /* ITEM */
+                                unsigned int item_count;
+
+                                stream->Read(&item_count, 4, 0);
+                                for (index = 0; index < item_count; ++index) {
+                                    if (LoadItem(stream->m_hFile, true) == 0) {
+                                        break;
+                                    }
+                                }
+                            } else if (chunk_id == 0x45425543) { /* CUBE */
+                                if (!g_level_status_loading) {
+                                    ReleaseWorldCursorNodes();
+                                }
+                                LoadWorldCursorNodes(stream->m_hFile);
+                                if (g_level_status_loading) {
+                                    LoadWorldCursorNodeStates(stream->m_hFile);
+                                }
+                            } else if (chunk_id == 0x474e4f4d) { /* MONG */
+                                if (!g_level_status_loading) {
+                                    DestroyMonsterGenerators();
+                                }
+                                MonGen::LoadAll(stream->m_hFile);
+                            } else if (chunk_id == 0x4b434f4c || /* LOCK */
+                                       chunk_id == 0x534b434c) { /* LCKS */
+                                LoadTriggerRuntimeStates(stream->m_hFile);
+                            } else if (chunk_id == 0x53455254) { /* TRES */
+                                LoadTriggerActionData(stream->m_hFile);
+                            } else if (chunk_id == 0x4f545541) { /* AUTO */
+                                LoadAutomapNotes(stream->m_hFile);
+                            } else if (chunk_id == 0x47495254) { /* TRIG */
+                                LoadWorldTriggers(g_world, stream->m_hFile);
+                            } else if (chunk_id == 0x54535041) { /* APST */
+                                LoadWorldProps(g_world, stream->m_hFile);
+                            } else if (chunk_id == 0x53425543) { /* CUBS */
+                                LoadWorldCursorNodeStates(stream->m_hFile);
+                            } else if (chunk_id == 0x534e474d) { /* MGNS */
+                                LoadMonsterGenerators(stream->m_hFile);
+                            } else if (chunk_id == 0x53424d41) { /* AMBS */
+                                LoadAmbientSoundList(stream->m_hFile);
+                            } else if (chunk_id == 0x54524150) { /* PART */
+                                LoadParticleStates(stream->m_hFile);
+                            } else if (chunk_id == 0x5448474c) { /* LGHT */
+                                LoadLightStates(stream->m_hFile);
+                            }
+                        }
+                    chunk_done:
+                        stream->SkipCurrentChunk();
+                        stream->ReleaseCurrentChunk();
+                    }
+                }
+            }
+            stream->ReleaseGroup();
+        }
+        stream->SkipCurrentChunk();
+        stream->ReleaseCurrentChunk();
+    }
+    return result;
+}
+
+/* Fold the shipped per-level status file into the live state - the baseline a
+   save's section is layered over. The path build is the same table walk
+   BuildLevelStatusPath spells out, but the basename search starts four
+   characters into the file name and the file itself is opened and walked here.
+   Only the persistent-state chunks are taken: cursor nodes, generators and
+   both trigger-state records. The level number the LVLS group carries is read
+   and discarded; the file is already level-specific. */
+// FUNCTION: WIZ8 0x005139c0
+bool LoadDefaultLevelStatus(unsigned int level)
+{
+    W8Chunk chunk;
+    W8LevelInfo info;
+    char path[260];
+    int file_level;
+    int count;
+
+    if (!LevelBuildInfoByID(level, &info)) {
+        srAssertFail("LevelFilesExist(ulLevel, &LevelName)",
+                     "C:\\Projects\\Wizardry 8\\Local Code\\LoadSaveGame.cpp", 0x366, 0);
+    }
+    *strchr(info.level_file_name + 4, '.') = '\0';
+    if (level < 0x39) {
+        if (level == 0x38) {
+            sprintf(path, "%s\\Test\\DefaultLevel.%s", "Levels", "STS");
+        } else {
+            sprintf(path, "%s\\%s\\%s.%s", "Levels", g_level_folders[level].folder_name,
+                    g_level_folders[level].level_name, "STS");
+        }
+    } else {
+        sprintf(path, "%s\\Test\\Level%c.%s", "Levels", level - 0x38, "STS");
+    }
+    if (chunk.OpenRead(path)) {
+        chunk.OpenChunk(0, 0);
+        chunk.OpenGroup();
+        chunk.Read(&file_level, 4, 0);
+        for (count = chunk.ChunkCount(); count > 0; --count) {
+            chunk.OpenChunk(0, 0);
+            if (chunk.CurrentChunkAtEnd() == 0) {
+                unsigned long chunk_id = chunk.CurrentChunkId();
+
+                switch (chunk_id) {
+                case 0x4b434f4c: /* LOCK */
+                    LoadTriggerRuntimeStates(chunk.m_hFile);
+                    break;
+                case 0x45425543: /* CUBE */
+                    LoadWorldCursorNodes(chunk.m_hFile);
+                    break;
+                case 0x474e4f4d: /* MONG */
+                    MonGen::LoadAll(chunk.m_hFile);
+                    break;
+                case 0x53455254: /* TRES */
+                    LoadTriggerActionData(chunk.m_hFile);
+                    break;
+                }
+            }
+            chunk.SkipCurrentChunk();
+            chunk.ReleaseCurrentChunk();
+        }
+        chunk.ReleaseGroup();
+        chunk.SkipCurrentChunk();
+        chunk.ReleaseCurrentChunk();
+        chunk.Close();
+        return true;
+    }
+    return false;
+}
+
+/* Reads one saved monster group and files it under the species or the encounter
+   list. The record's own size leads it, and the assertion that bounds it names
+   the record: uiSize <= sizeof(*pMonsterGroup), at line 1517 of this unit.
+   A record whose database entry is marked deleted is read and then dropped: it
+   is neither listed nor given a monster list, and the function still reports
+   success. */
+// FUNCTION: WIZ8 0x00513c20
+bool LoadMonsterGroup(W8Chunk* chunk)
+{
+    unsigned int record_size;
+    W8MonsterGroup* group;
+    W8MonsterRecord* record;
+    W8Chunk* stream;
+    int index;
+    char is_encounter = 0;
+
+    group = static_cast<W8MonsterGroup*>(malloc(sizeof(W8MonsterGroup)));
+    if (group == 0) {
+        return false;
+    }
+    memset(group, 0, sizeof(W8MonsterGroup));
+    stream = chunk;
+    stream->Read(&record_size, 4, 0);
+    if (record_size > sizeof(W8MonsterGroup)) {
+        srAssertFail("uiSize <= sizeof(*pMonsterGroup)", LOADSAVEGAME_CPP, 0x5ed, 0);
+    }
+    stream->Read(group, record_size, 0);
+    if (group->version >= 2) {
+        stream->Read(&is_encounter, 1, 0);
+    }
+    if (group->version < 3) {
+        group->forced_neutral = false;
+    }
+    record = MonsterDBFromSpecies(group->monster_id);
+    if (record == 0) {
+        free(group);
+        return false;
+    }
+    if (record->deleted == 0) {
+        group->monsters = ILCreate();
+        if (group->monsters == 0) {
+            free(group);
+            return false;
+        }
+        group->member_count = 0;
+        group->active_member_count = 0;
+        group->members_active = false;
+        group->fInCombat = false;
+        if (is_encounter) {
+            index = PLAdoptAppend(gXStatus.plsMonsterGroupEncounterList, group);
+        } else {
+            index = PLAdoptAppend(gXStatus.plsMonsterGroupList, group);
+        }
+        if (index == -1) {
+            free(group);
+            return false;
+        }
+        ActivateGroupMembers(group, W8_MONSTER_LOAD_ALL_CYCLES);
+        if (group->encounter_registered && group->leader_group_id == 0) {
+            RegisterActiveEncounterGroup(group);
+        }
+    }
+    return true;
+}
+
+/* One saved monster entry: a version dword, the uiSize-prefixed
+   W8MonsterInfo record, then the script block, the unborn-list flag, the
+   navigator movement state and - for newer records - the order, patrol and
+   facing fields. The monster is adopted into the live or unborn list,
+   rejoined to its group, activated, given back its condition and effect
+   visuals and its script, then dropped again if its database record was
+   deleted and started dying when the record says it is dead. */
+// FUNCTION: WIZ8 0x00513d80
+bool LoadMonster(W8Chunk* chunk)
+{
+    W8MonsterInfo* monster_info;
+    W8MonsterRecord* record;
+    W8MonsterGroup* monster_group;
+    W8Monster* monster;
+    W8PList* plist;
+    W8GrowableVector<bool> script_conditions;
+    srVector3T<float> read_point;
+    srVector3T<float> point;
+    char script_name[0x40];
+    unsigned int record_version;
+    unsigned int record_size;
+    unsigned int transferred;
+    W8MonsterScriptCommand script_wait;
+    int script_line;
+    int queue_count;
+    int point_count;
+    int list_index;
+    int index;
+    int component;
+    unsigned char unborn = 0;
+    unsigned char has_script;
+    unsigned char value;
+    bool script_flag;
+    float patrol_value;
+
+    sprintf(script_name, "");
+    chunk->Read(&record_version, 4, 0);
+    monster_info = static_cast<W8MonsterInfo*>(malloc(sizeof(W8MonsterInfo)));
+    if (monster_info == 0) {
+        return false;
+    }
+    memset(monster_info, 0, sizeof(W8MonsterInfo));
+    chunk->Read(&record_size, 4, 0);
+    if (record_size > sizeof(W8MonsterInfo)) {
+        srAssertFail("uiSize <= sizeof(*pMonsterInfo)", LOADSAVEGAME_CPP, 0x65e, 0);
+    }
+    chunk->Read(monster_info, record_size, 0);
+    chunk->Read(&has_script, 1, 0);
+    if (has_script != 0) {
+        chunk->Read(script_name, 0x40, &transferred);
+        chunk->Read(&script_wait, 4, &transferred);
+        chunk->Read(&script_line, 4, &transferred);
+        chunk->Read(&queue_count, 4, 0);
+        for (index = 0; index < queue_count; ++index) {
+            chunk->Read(&script_flag, 1, 0);
+            script_conditions.Add(script_flag);
+        }
+    }
+    monster_info->fActive = false;
+    monster_info->p3D = 0;
+    monster_info->fInCombat = false;
+    monster_info->pCombat = 0;
+    if (record_version >= 5) {
+        chunk->Read(&unborn, 1, 0);
+    }
+    plist = gXStatus.plsMonsterList;
+    if (unborn != 0) {
+        plist = gXStatus.plsUnbornMonsterList;
+    }
+    list_index = PLAdoptAppend(plist, monster_info);
+    if (list_index == -1) {
+        free(monster_info);
+        return false;
+    }
+    record = MonsterDBFromSpecies(monster_info->monster_species);
+    if (record == 0) {
+        free(monster_info);
+        return false;
+    }
+    if (record->deleted == 0) {
+        monster_group = GetMonsterGroupByListIndex(GetMonsterGroupIndexByID(
+            0x698, LOADSAVEGAME_CPP, monster_info->monster_group_id, true));
+        if (monster_group == 0) {
+            free(monster_info);
+            return false;
+        }
+        IListAdd(monster_group->monsters, monster_info->location_id);
+        if (static_cast<unsigned int>(monster_group->leader_location_id) ==
+                WIZ8_DEBUG_UNINITIALIZED_HEAP_PATTERN ||
+            static_cast<unsigned int>(monster_group->leader_location_id) <
+                static_cast<unsigned int>(monster_info->location_id)) {
+            monster_group->leader_location_id = monster_info->location_id;
+        }
+        ++monster_group->member_count;
+        RequestRedrawParty();
+        if (monster_info->highest_condition < W8_CONDITION_TURNCOAT) {
+            ++monster_group->active_member_count;
+        }
+    }
+    ActivateMonster(monster_info, W8_MONSTER_LOAD_ALL_CYCLES);
+    ActivateMonsterInWorld(monster_info);
+    monster = monster_info->p3D;
+    if (monster_info->highest_condition != W8_CONDITION_NONE) {
+        for (index = 0; index < W8_CONDITION_COUNT; ++index) {
+            if (monster_info->uiCondition[index] != 0) {
+                SetMonsterSpellIcon(monster, static_cast<W8MonsterSpellIconId>(index - 1), true);
+            }
+        }
+    }
+    for (index = 0; index < 8; ++index) {
+        if (monster_info->enchantments[index].turns != 0) {
+            SetMonsterSpellIcon(monster, static_cast<W8MonsterSpellIconId>(index + 0x10), true);
+        }
+    }
+    for (index = 0; index < 12; ++index) {
+        if (monster_info->effect_slots[index].duration != 0) {
+            SetMonsterSpellIcon(
+                monster,
+                g_effect_visual_table[monster_info->effect_slots[index].effect_id].monster_icon,
+                true);
+        }
+    }
+    if (monster_info->charm_strength > 0) {
+        SetMonsterSpellIcon(monster, SPELL_ICON_CHARMED, true);
+    }
+    if (monster_info->summoned != W8_MONSTER_SUMMON_NONE) {
+        SetMonsterSpellIcon(monster, SPELL_ICON_SUMMONED, true);
+    }
+    if (record_version >= 2) {
+        monster->LoadMovementState(chunk->m_hFile);
+    }
+    if (record_version >= 3) {
+        chunk->Read(&script_flag, 1, 0);
+        monster->defining_orders = script_flag;
+        chunk->Read(&value, 1, 0);
+        monster->order_mode = value;
+        chunk->Read(&script_flag, 1, 0);
+        monster->orders_finished = script_flag;
+        chunk->Read(&script_flag, 1, 0);
+        monster->deaf = script_flag;
+        chunk->Read(&patrol_value, 4, 0);
+        monster->patrol_distance = patrol_value;
+        chunk->Read(&patrol_value, 4, 0);
+        monster->patrol_variation = patrol_value;
+        chunk->Read(&value, 1, 0);
+        monster->patrol_index = value;
+        chunk->Read(&point_count, 4, 0);
+        for (index = 0; index < point_count; ++index) {
+            for (component = 0; component < 3; ++component) {
+                chunk->Read(&read_point.x + component, 4, 0);
+            }
+            point = read_point;
+            monster->vector.Add(point);
+        }
+        if (record_version >= 4) {
+            for (component = 0; component < 3; ++component) {
+                chunk->Read(&read_point.x + component, 4, 0);
+            }
+            point = read_point;
+            monster->direction_x = point.x;
+            monster->direction_y = point.y;
+            monster->direction_z = point.z;
+        }
+        if (record_version >= 6) {
+            chunk->Read(&script_flag, 1, 0);
+            monster->face_party = script_flag;
+        }
+        if (record_version >= 7) {
+            chunk->Read(&script_flag, 1, 0);
+            monster->stay_home = script_flag;
+        }
+        monster_info->ai_mode |= W8_MONSTER_AI_REAPPLY_MODE;
+    }
+    if (script_name[0] != '\0') {
+        monster_info->ai_mode |= W8_MONSTER_AI_RESTORE_SCRIPT;
+        monster->SetScript(script_name, false);
+        monster->script_wait = script_wait;
+        monster->script_line = script_line;
+        while (script_conditions.GetCount() != 0) {
+            monster->script_conditions.Add(*script_conditions.GetAt(0));
+            script_conditions.RemoveAt(0);
+        }
+    }
+    if (record->deleted != 0) {
+        RemoveMonster(list_index, true);
+    } else if (monster_info->hp_current == 0) {
+        MonsterStartsDying(monster_info, true);
+    }
+    return true;
+}
+
+/* Write the MONS section: the group and monster counts, then every group
+   record followed by the flag that says whether the group is also on the
+   encounter list, then every monster record through SaveMonster. Live list
+   indices come first; the encounter groups and the unborn monsters are the
+   same records under indices biased by 10000. A null group or a failed
+   monster write abandons the section by releasing the current chunk. */
+
+/* Write one monster's record inside the open MONS section: the version and
+   record-size words, the W8MonsterInfo image, then the script state, the
+   unborn flag, the navigator movement state and the version-3 order/patrol
+   fields, mirroring the layout LoadMonster reads back. The script name is
+   seeded from the shared empty-name word before the copy the way the ambient
+   and spell code seed theirs. */
+
+/* Tear down the live session before a new-game or save load replaces it:
+   unload the current level, empty queued character events and spell effects,
+   and reset the main-game screen and gameplay status blocks. */
+// FUNCTION: WIZ8 0x00512c40
+void ResetLiveSessionForLoad(void)
+{
+    if (g_status.current_level != -1) {
+        UnloadLevel("");
+        SoundEmptyCache();
+    }
+    if (gXStatus.character_event_queue != 0) {
+        gXStatus.character_event_queue->DestroyAllEvents();
+    }
+    ResetMainGameScreenState();
+    ClearNpcMessageQueue();
+    ResetMainScreenStateBlock();
+    g_spell_effects.RemoveAllAndDelete();
+    ReleaseAllTriggers();
+    ResetGameplayStatusBlock();
+}
+
+/* Makes sure the three save directories exist and are writable before anything
+   is written to them. The names are a table of fixed 60-byte slots terminated
+   by an empty one rather than a count, which is why the walk asks strlen and
+   not an index: the canonical steps a cursor by 0x3C and re-runs the inlined
+   strlen at the bottom of the loop.
+   The empty fourth slot is initialized from a string literal, not zeroed in
+   place, so it is spelled as one here. */
+// FUNCTION: WIZ8 0x00512d00
+bool VerifyDataSubdirs(void)
+{
+    char directories[4][60] = {"Saves", "Saves\\Characters", "Saves\\NPCs", ""};
+    char* directory;
+    unsigned int attributes;
+
+    for (directory = directories[0]; strlen(directory) != 0; directory += 60) {
+        if (!DirectoryExists(directory) && !MakeFileManDirectory(directory)) {
+            return false;
+        }
+        /* A read-only directory left behind by an earlier install is repaired
+           rather than reported, but only for the one errno that means exactly
+           that. */
+        if (_access(directory, 2) != 0 && errno == EACCES) {
+            _chmod(directory, _S_IREAD | _S_IWRITE);
+        }
+        attributes = FileGetAttributes(directory);
+        if (attributes == 0xffffffff) {
+            return false;
+        }
+        if (!(attributes & FILE_ATTRIBUTE_DIRECTORY)) {
+            return false;
+        }
+        if (attributes & FILE_ATTRIBUTE_READONLY) {
+            return false;
+        }
+    }
+    return true;
+}
+
+/* Walks the item's sibling chain and writes each record whole. Two reads go
+   through the head of the chain instead of the item being written: the
+   representation flags copied into the current record are read from the head's
+   rep, and the bit-3 clear lands on the head rather than the cursor. */
+// FUNCTION: WIZ8 0x00514be0
+bool SaveItemFile(int handle, W8WorldItem* item_info)
+{
+    W8WorldItem* item = item_info;
+    unsigned int bytes_written;
+
+    while (item != 0) {
+        item->saved_marker = 1;
+        if (item->fActive) {
+            srVector3T<float> position;
+            item->p3D->m_pRep->GetLocation(&position);
+            item->position = position;
+            item->entity_flags = static_cast<W8ItemRep*>(item_info->p3D->m_pRep)->flags;
+        }
+        if (g_level_status_loading) {
+            item_info->entity_flags &= ~W8_ITEM_ENTITY_RADAR_SEEN;
+        }
+        if (!FileWrite(handle, item, sizeof(W8WorldItem), &bytes_written)) {
+            return false;
+        }
+        item = item->next;
+    }
+    return true;
+}
+
+/* Reads the same chain back. Each record carries its predecessor's next
+   pointer as a file-resident flag: a non-null value only means another record
+   follows, and the real link is rebuilt here. Every failure after the first
+   allocation abandons the partial chain, which the original does too. */
+// FUNCTION: WIZ8 0x00514c80
+W8WorldItem* LoadItem(int handle, bool add_to_list)
+{
+    W8WorldItem* previous = 0;
+    W8WorldItem* first = 0;
+    W8WorldItem* item;
+    unsigned int done;
+
+    item = static_cast<W8WorldItem*>(malloc(sizeof(W8WorldItem)));
+    while (item != 0) {
+        if (first == 0) {
+            first = item;
+        }
+        if (!FileRead(handle, item, sizeof(W8WorldItem), &done)) {
+            return 0;
+        }
+        item->sector_id = -2;
+        item->fActive = false;
+        item->p3D = 0;
+        if (ItemHasFlags(item, W8_WORLD_ITEM_HIDDEN)) {
+            RegisterSearchableWorldItem(item);
+        }
+        if (previous != 0) {
+            previous->next = item;
+        } else if (add_to_list && PLAdoptAppend(gXStatus.plsItemList, item) == -1) {
+            return 0;
+        }
+        if (g_level_status_loading) {
+            item->entity_flags &= ~W8_ITEM_ENTITY_RADAR_SEEN;
+        }
+        previous = item;
+        if (item->next == 0) {
+            return first;
+        }
+        item = static_cast<W8WorldItem*>(malloc(sizeof(W8WorldItem)));
+    }
+    return 0;
+}
+
+/* Reports whether any save exists other than the autosave. The main menu stores
+   this and greys its second item out when it is clear, which is what makes the
+   continue entry unavailable on a fresh install. */
+// FUNCTION: WIZ8 0x00512fb0
+bool SaveGameExists(void)
+{
+    GETFILESTRUCT find;
+    char path[260];
+    bool found;
+
+    found = false;
+    memset(&find, 0, sizeof(find));
+    sprintf(path, "%s\\*.%s", "Saves", g_save_extension);
+    if (GetFileFirst(path, &find)) {
+        sprintf(path, "%s\\%s", "Saves", find.zFileName);
+        if (strcmp(path, "Saves\\CurrentGame.SAV") != 0 || GetFileNext(&find)) {
+            found = true;
+        }
+    }
+    GetFileClose(&find);
+    return found;
+}
+
+/* Writes one character record back to Saves\\Characters or Saves\\NPCs. The
+   file name is the character's own wide name with a CHR extension, and the
+   record is written as a four-byte length followed by that many bytes, which is
+   the pair LoadCharacter reads back.
+
+   The two directory spellings do not share a sprintf the way LoadCharacter's do:
+   with characters loose, the NPC path is copied whole because the name already
+   carries no directory, while the other two arms format one. An existing
+   read-only file has its attribute cleared first, and a failure to clear it is
+   treated exactly like a failure to open.
+
+   Failure reporting has two shapes. With report_failure set the caller gets the
+   save-failed notice and the continuation is dropped; without it the
+   continuation runs instead. Either way the answer is failure. */
+// FUNCTION: WIZ8 0x00515090
+bool SaveCharacter(W8Character* character, int slot, bool report_failure,
+                   void (*continuation)(void))
+{
+    char file_name[16];
+    char path[260];
+    char directory[260];
+    bool saved = true;
+    unsigned int size;
+    unsigned int transferred;
+    int handle;
+
+    character->record_version = 1;
+    sprintf(file_name, "%ls.%s", character->name, "CHR");
+    if (!g_status.game_started) {
+        strcpy(directory, slot != -1 ? "Saves\\NPCs" : "Saves\\Characters");
+        sprintf(path, "%s\\%s", directory, file_name);
+    } else if (slot == -1 || g_status.flags[slot] != 0) {
+        strcpy(path, file_name);
+    } else {
+        sprintf(path, "%s\\%s", "Saves\\NPCs", file_name);
+    }
+
+    if (!g_status.game_started) {
+        if (FileExists(path) && (FileGetAttributes(path) & FILE_IS_READONLY) != 0 &&
+            FileClearAttributes(path) == 0) {
+            saved = false;
+        } else {
+            handle = FileOpen(path, 0x22, 0);
+            if (handle == 0) {
+                saved = false;
+            } else {
+                size = sizeof(W8Character);
+                if (FileWrite(handle, &size, 4, &transferred) == 0 ||
+                    FileWrite(handle, character, sizeof(W8Character), &transferred) == 0) {
+                    saved = false;
+                }
+                FileClose(handle);
+            }
+        }
+    } else {
+        saved = SaveCharacterToCurrentGame(path, slot, character);
+    }
+    if (saved) {
+        return true;
+    }
+    if (report_failure) {
+        CreateMessageBox(
+            FormatWideString(gppStringList[W8_NOTICE_CHARACTER_SAVE_FAILED], character->name),
+            g_small_font, 1, true, false, continuation);
+        return false;
+    }
+    if (continuation != 0) {
+        continuation();
+    }
+    return false;
+}
+
+/* The two chunk tags the walk recognises, as the four-character codes the
+   comparison spells them. */
+enum { W8_SAVE_TAG_CHAR = 0x52414843, W8_SAVE_TAG_LVLS = 0x534c564c };
+
+/* Find a live CHAR chunk in Saves\\CurrentGame.SAV whose 64-byte name matches
+   and mark it consumed so a later append can supersede it. */
+// FUNCTION: WIZ8 0x005154a0
+bool MarkCurrentGameCharacterChunkConsumed(const char* path)
+{
+    W8Chunk chunk;
+    char name[64];
+    bool found = false;
+    int index;
+    int count;
+
+    if (chunk.OpenReadWrite(const_cast<char*>("Saves\\CurrentGame.SAV")) != 0) {
+        count = chunk.ChunkCount();
+        for (index = 0; index < count && !found; ++index) {
+            chunk.OpenChunk(0, 0);
+            if (chunk.CurrentChunkAtEnd() == 0 && chunk.CurrentChunkId() == W8_SAVE_TAG_CHAR) {
+                chunk.Read(name, 0x40, 0);
+                if (_stricmp(name, path) == 0) {
+                    chunk.SetCurrentChunkAtEnd();
+                    found = true;
+                }
+            }
+        }
+        chunk.Close();
+    }
+    return found ? 1 : 0;
+}
+
+/* Append one character record to Saves\\CurrentGame.SAV. Retail writes the
+   64-byte name, size and body without opening a CHAR chunk header first; the
+   matching load walk still keys on CHAR tags produced by other writers. */
+// FUNCTION: WIZ8 0x005155b0
+bool SaveCharacterToCurrentGame(const char* path, int /*slot*/, W8Character* character)
+{
+    W8Chunk chunk;
+    char name[64];
+    unsigned int size;
+
+    MarkCurrentGameCharacterChunkConsumed(path);
+    strncpy(name, path, 0x3f);
+    name[0x3f] = 0;
+    if (chunk.OpenAppend(const_cast<char*>("Saves\\CurrentGame.SAV")) != 0) {
+        chunk.Write(name, 0x40, 0);
+        size = W8_CHARACTER_SERIALIZED_SIZE;
+        chunk.Write(&size, 4, 0);
+        chunk.Write(character, size, 0);
+        chunk.Close();
+        return true;
+    }
+    return false;
+}
+
+/* Load one character record from a CHAR chunk in Saves\\CurrentGame.SAV. */
+// FUNCTION: WIZ8 0x005156c0
+bool LoadCharacterFromCurrentGame(const char* path, W8Character* character)
+{
+    W8Chunk chunk;
+    char name[64];
+    bool found = false;
+    unsigned int size;
+    int index;
+    int count;
+
+    if (chunk.OpenRead(const_cast<char*>("Saves\\CurrentGame.SAV")) != 0) {
+        count = chunk.ChunkCount();
+        for (index = 0; index < count && !found; ++index) {
+            chunk.OpenChunk(0, 0);
+            if (chunk.CurrentChunkAtEnd() == 0 && chunk.CurrentChunkId() == W8_SAVE_TAG_CHAR) {
+                chunk.Read(name, 0x40, 0);
+                if (_stricmp(name, path) == 0) {
+                    memset(character, 0, sizeof(W8Character));
+                    chunk.Read(&size, 4, 0);
+                    if (size > W8_CHARACTER_SERIALIZED_SIZE) {
+                        srAssertFail("uiSize <= sizeof(*pPC)", LOADSAVEGAME_CPP, 0xba2, 0);
+                    }
+                    chunk.Read(character, size, 0);
+                    found = true;
+                }
+            }
+        }
+        chunk.Close();
+    }
+    return found ? 1 : 0;
+}
+
+/* Render the world into the slot's embedded 80x60 ARGB1555 pixel buffer.
+   Option 4 is suppressed so the HUD does not bleed into the thumbnail, the
+   full frame is re-rendered afterwards to restore the screen. */
+// FUNCTION: WIZ8 0x00515840
+void CaptureSaveScreenshot(W8SaveScreenshot* screenshot)
+{
+    W8ScreenRect rect;
+    srColorSurface* surface;
+
+    screenshot->version = 1.0f;
+    rect.top = 0;
+    rect.left = 0;
+    rect.right = 640;
+    rect.bottom = 480;
+    surface =
+        new srColorSurface(srPixelConvert::SURFACE_ARGB1555, screenshot->pixels, 0x50, 0x3c, 0xa0);
+    SetRendererAutoFlipEnabled(false);
+    screenshot->capture_result = RenderWorldToSurface(surface, &rect, true);
+    RenderFrame();
+    SetRendererAutoFlipEnabled(true);
+    surface->release();
+}
+
+/* Save-slot bookkeeping from the same established
+   Local Code\LoadSaveGame.cpp translation unit. */
+
+// GLOBAL: WIZ8 0x00689f98
+bool g_save_pending;
+
+/* 0x0061A144, the save-file extension. It sits in writable .data with 16
+   reference sites across 10 functions rather than in .rdata with the format
+   literals, so it is a mutable character array rather than a string literal;
+   this build initialises it to "SAV". */
+/* 0x0061A134/0x0061A138: the mask pair SaveGame XORs the iron-man save file's
+   creation FILETIME with before storing it in the status block. */
+
+// GLOBAL: WIZ8 0x0061A144
+char g_save_extension[] = "SAV";
+
+/* Delete both files a current game occupies: the slot the current save name
+   selects, and the fixed CurrentGame file. Each delete is preceded by the same
+   read-only repair the rest of this unit makes - EACCES from _access is the one
+   errno that means the file is there but not writable. */
+// FUNCTION: WIZ8 0x00515920
+void DeleteCurrentSaveFiles(void)
+{
+    char path[260];
+
+    sprintf(path, "%s\\%s.%s", "Saves", ConvertWideStringToString(GetLastSaveName()),
+            g_save_extension);
+    if (_access(path, 2) != 0 && errno == EACCES) {
+        _chmod(path, _S_IREAD | _S_IWRITE);
+    }
+    FileDelete(path);
+    if (_access("Saves\\CurrentGame.SAV", 2) != 0 && errno == EACCES) {
+        _chmod("Saves\\CurrentGame.SAV", _S_IREAD | _S_IWRITE);
+    }
+    FileDelete("Saves\\CurrentGame.SAV");
+}
+
+/* Two gates with no established meaning beyond their position in the chain, so
+   both keep positional names. Both are zero in the shipped image. */
+
+/* gXStatus.fCombatMode and gXStatus.fCampMode reach this unit through
+   xstatus.h. */
+/* Byte-sized, not int: the refusal below returns through `mov al,1` and the
+   save arm returns this result unchanged, so both share one byte register. */
+
+/* Declining an autosave is reported as success. Iron Man saves overwrite the
+   current slot rather than the fixed AutoSave slot. */
+// FUNCTION: WIZ8 0x005159e0
+bool AutoSaveIfAllowed(bool forced)
+{
+    char name[64];
+
+    gXStatus.save_notice_shown = false;
+    if (g_status.world_cursor_gate == 0 && !AnyMonsterDying() &&
+        ((g_settings.auto_save != 0 && !forced) || g_status.iron_man) && !gXStatus.fCombatMode &&
+        !IsSightRangeOverridden() && CanInterruptLevelMovement() && !gXStatus.fNpcDialogueMode &&
+        !gXStatus.fCampMode) {
+        strcpy(name, g_status.iron_man ? ConvertWideStringToString(GetLastSaveName()) : "AutoSave");
+        return SaveGame(name, 0);
+    }
+    return true;
+}
+
+/* Take the pending-save flag and clear it in one go, so the caller that reads
+   it is the only one that sees it. */
+// FUNCTION: WIZ8 0x00515910
+bool TakePendingSaveFlag(void)
+{
+    bool pending = g_save_pending;
+
+    g_save_pending = false;
+    return pending;
+}
+
+/* Whether one save slot's file is on disk. The path is built into a MAX_PATH
+   buffer from the saves directory, the slot name and the extension. */
+// FUNCTION: WIZ8 0x00512f70
+unsigned char SaveSlotFileExists(const char* slot_name)
+{
+    char path[260];
+
+    sprintf(path, "%s\\%s.%s", "Saves", slot_name, g_save_extension);
+    return FileExists(path);
+}
+
+/* Note that the save could not be written. The notice is only shown on the
+   screen that owns saving, but the flag is raised either way. */
+// FUNCTION: WIZ8 0x00515ac0
+void ReportSaveFailed(bool quiet)
+{
+    if (!quiet || g_status.iron_man) {
+        gXStatus.save_notice_shown = true;
+        if (g_current_screen_state.id == W8_SCREEN_MAIN_GAME) {
+            ShowNotice(W8_FONT_PALETTE_BEIGE, gppStringList[0x783]);
+        }
+    }
+}
+
+/* Deferred main-game autosave. The first eligible frame after the gameplay
+   timer elapses raises the notice and restarts the timer; the next eligible
+   frame clears that flag and calls SaveGame. Iron Man overwrites the current
+   slot name the same way AutoSaveIfAllowed does. Declining the second-pass
+   gates is reported as success so the success notice still posts. */
+// FUNCTION: WIZ8 0x00515b00
+void ProcessMainGameAutoSave(void)
+{
+    char name[64];
+    bool saved;
+
+    if (g_status.world_cursor_gate != 0) {
+        return;
+    }
+    if (AnyMonsterDying()) {
+        return;
+    }
+    if (g_settings.auto_save == 0 && !g_status.iron_man) {
+        return;
+    }
+    if (gXStatus.fCombatMode) {
+        return;
+    }
+    if (IsSightRangeOverridden()) {
+        return;
+    }
+    if (!CanInterruptLevelMovement()) {
+        return;
+    }
+    if (gXStatus.fNpcDialogueMode) {
+        return;
+    }
+    if (gXStatus.fCampMode) {
+        return;
+    }
+    if (!gXStatus.save_notice_shown) {
+        if (gXStatus.gameplay_timer->GetProgress() <= g_float_one) {
+            return;
+        }
+        gXStatus.save_notice_shown = true;
+        if (g_current_screen_state.id == W8_SCREEN_MAIN_GAME) {
+            ShowNotice(W8_FONT_PALETTE_BEIGE, gppStringList[0x783]);
+        }
+        gXStatus.gameplay_timer->Restart();
+        return;
+    }
+    gXStatus.save_notice_shown = false;
+    if (g_status.world_cursor_gate == 0 && !AnyMonsterDying() &&
+        (g_settings.auto_save != 0 || g_status.iron_man) && !gXStatus.fCombatMode &&
+        !IsSightRangeOverridden() && CanInterruptLevelMovement() && !gXStatus.fNpcDialogueMode &&
+        !gXStatus.fCampMode) {
+        if (g_status.iron_man) {
+            strcpy(name, ConvertWideStringToString(GetLastSaveName()));
+        } else {
+            strcpy(name, "AutoSave");
+        }
+        saved = SaveGame(name, 0);
+    } else {
+        saved = true;
+    }
+    if (g_current_screen_state.id != W8_SCREEN_MAIN_GAME) {
+        return;
+    }
+    if (!saved) {
+        ShowNotice(W8_FONT_PALETTE_BEIGE, gppStringList[0x785]);
+        return;
+    }
+    ShowNotice(W8_FONT_PALETTE_BEIGE, gppStringList[0x784]);
+}
+
+/* Serialize the live monster-control effect into the open HYPN chunk. The
+   pointer-list vectors and the trailing result are deliberately skipped; the
+   loader rebuilds them. The assertion names the local pLure and belongs to
+   this unit at source line 3507. */
+// FUNCTION: WIZ8 0x00516580
+void SaveMonsterControlSpellEffect(W8Chunk* chunks)
+{
+    W8SpellEffectEntry* lure = FindMonsterControlSpellEffect();
+
+    if (lure == 0) {
+        srAssertFail("pLure", LOADSAVEGAME_CPP, 0xdb3, 0);
+    }
+    chunks->Write(&lure->kind, 4, 0);
+    chunks->Write(&lure->turns_remaining, 4, 0);
+    chunks->Write(&lure->Source, sizeof(lure->Source), 0);
+    chunks->Write(&lure->target, sizeof(lure->target), 0);
+    chunks->Write(&lure->OrigSource, sizeof(lure->OrigSource), 0);
+    chunks->Write(&lure->OrigTarget, sizeof(lure->OrigTarget), 0);
+    chunks->Write(&lure->recast, 1, 0);
+    chunks->Write(&lure->sustained, 1, 0);
+    chunks->Write(&lure->missiles_pending, 1, 0);
+    chunks->Write(&lure->targets_resolved, 1, 0);
+    chunks->Write(&lure->definition, sizeof(lure->definition), 0);
+}
+
+/* Choose the numbered quick-save slot that the next quick save should write.
+   A missing slot wins immediately; when all three exist, replace the one with
+   the oldest modification time. */
+// FUNCTION: WIZ8 0x00516670
+bool SelectQuickSaveSlotForWrite(char* slot_name)
+{
+    SGP_FILETIME creation_time;
+    SGP_FILETIME access_time;
+    SGP_FILETIME write_time;
+    SGP_FILETIME oldest_write_time;
+    int write_slot = 1;
+    int slot;
+    int handle;
+
+    for (slot = 1; slot <= 3; ++slot) {
+        sprintf(slot_name, "%s\\%s %d.%s", "Saves", "Quick", slot, g_save_extension);
+        handle = FileOpen(slot_name, 1, 0);
+        if (!handle) {
+            write_slot = slot;
+            break;
+        }
+        GetFileManFileTime(handle, &creation_time, &access_time, &write_time);
+        FileClose(handle);
+        if (slot > 1) {
+            if (CompareSGPFileTimes(&write_time, &oldest_write_time) < 0) {
+                oldest_write_time = write_time;
+                write_slot = slot;
+            }
+        } else {
+            oldest_write_time = write_time;
+        }
+    }
+    sprintf(slot_name, "%s %d", "Quick", write_slot);
+    return true;
+}
+
+/* Select the newest numbered quick save for command-line startup. The three
+   candidates are real save files named Quick 1 through Quick 3; the unnumbered
+   Quick slot is accepted only when none of those files exists. */
+// FUNCTION: WIZ8 0x00516740
+bool FindStartupQuickSave(char* slot_name)
+{
+    int newest_slot = 0;
+    SGP_FILETIME creation_time;
+    SGP_FILETIME access_time;
+    SGP_FILETIME write_time;
+    SGP_FILETIME newest_write_time;
+    char path[260];
+    int slot;
+    int handle;
+
+    for (slot = 1; slot <= 3; ++slot) {
+        sprintf(slot_name, "%s\\%s %d.%s", "Saves", "Quick", slot, g_save_extension);
+        handle = FileOpen(slot_name, 1, 0);
+        if (handle) {
+            GetFileManFileTime(handle, &creation_time, &access_time, &write_time);
+            FileClose(handle);
+            if (slot > 1) {
+                if (CompareSGPFileTimes(&write_time, &newest_write_time) > 0) {
+                    newest_write_time = write_time;
+                    newest_slot = slot;
+                }
+            } else {
+                newest_write_time = write_time;
+                newest_slot = slot;
+            }
+        }
+    }
+    if (newest_slot > 0) {
+        sprintf(slot_name, "%s %d", "Quick", newest_slot);
+        return true;
+    }
+    sprintf(path, "%s\\%s.%s", "Saves", "Quick", g_save_extension);
+    if (FileExists(path)) {
+        strcpy(slot_name, "Quick");
+        return true;
+    }
+    return false;
+}
+
+/* Walk every chunk of a saved game. Character chunks are read straight in; a
+   level chunk is read only for the level the party is actually on, and one for
+   any other level is rewound and read as a character chunk instead. */
+// FUNCTION: WIZ8 0x00514d50
+void ReadSaveChunks(W8Chunk* source, W8Chunk* destination)
+{
+    int remaining = source->ChunkCount();
+
+    if (remaining > 0) {
+        int level;
+        unsigned int tag;
+
+        do {
+            source->OpenChunk(0, 0);
+            if (!source->CurrentChunkAtEnd()) {
+                tag = source->CurrentChunkId();
+                if (tag == W8_SAVE_TAG_CHAR) {
+                    destination->CopyCurrentChunkFrom(source);
+                } else if (tag == W8_SAVE_TAG_LVLS) {
+                    source->OpenGroup();
+                    source->Read(&level, 4, 0);
+                    if (level != g_status.current_level) {
+                        source->RewindCurrentChunk();
+                        destination->CopyCurrentChunkFrom(source);
+                    }
+                    source->ReleaseGroup();
+                }
+            }
+            source->SkipCurrentChunk();
+            source->ReleaseCurrentChunk();
+            --remaining;
+        } while (remaining != 0);
+    }
+}
+
+/* Walk every top-level chunk of an already-open save. A matching LVLS section
+   is marked consumed in place, and the caller receives the percentage of the
+   file that sits in at-end sections, which is what decides whether the save
+   is rolled into CleanUp. Retail wraps the percentage in an unguarded DIV, so
+   a zero total would trap there as well. */
+// FUNCTION: WIZ8 0x00514df0
+bool MeasureLevelStatusChunks(W8Chunk* chunk, int level, unsigned int* empty_percent)
+{
+    bool found = false;
+    unsigned int total = 0;
+    unsigned int empty_total = 0;
+    int remaining = chunk->ChunkCount();
+
+    if (remaining > 0) {
+        do {
+            chunk->OpenChunk(0, 0);
+            total += chunk->CurrentChunkExtent();
+            if (chunk->CurrentChunkAtEnd() != 0) {
+                empty_total += chunk->CurrentChunkExtent();
+            } else if (chunk->CurrentChunkId() == 0x534c564c) { /* LVLS */
+                int stored_level;
+
+                chunk->OpenGroup();
+                chunk->Read(&stored_level, 4, 0);
+                if (stored_level == level) {
+                    found = true;
+                    chunk->SetCurrentChunkAtEnd();
+                }
+                chunk->SkipCurrentChunk();
+                chunk->ReleaseGroup();
+            }
+            chunk->SkipCurrentChunk();
+            chunk->ReleaseCurrentChunk();
+            --remaining;
+        } while (remaining != 0);
+    }
+    if (empty_percent != 0) {
+        /* The binary divides by the accumulated extent with no
+           zero test; an empty chunk file reaches this unsigned DIV. */
+        *empty_percent = empty_total * 100 / total;
+    }
+    return found;
+}
+
+/* Read the complete GSTA payload and its two eight-record collections. The
+   pointers at the head of the fixed block are process ownership, so they are
+   preserved across the serialized read. Old status blocks get the one retail
+   compatibility migration retained by this build. Character records repair
+   the pre-v2 profession field, while live global party rows rebuild or clear
+   every transient pointer rather than trusting saved addresses. */
+// FUNCTION: WIZ8 0x00515cf0
+void LoadGameStatus(W8Chunk* chunks, W8GlobalStatus* status)
+{
+    W8Character* characters = status->buffers.Char;
+    W8PartySlotRow* party_rows = status->buffers.XChar;
+    unsigned int size;
+    unsigned int slot;
+
+    if (characters == 0) {
+        srAssertFail("pStatus->Char != NULL", LOADSAVEGAME_CPP, 0xcc6, 0);
+    }
+    if (party_rows == 0) {
+        srAssertFail("pStatus->XChar != NULL", LOADSAVEGAME_CPP, 0xcc7, 0);
+    }
+
+    memset(status, 0, sizeof(*status));
+    chunks->Read(&size, sizeof(size), 0);
+    if (size > sizeof(*status)) {
+        srAssertFail("uiSize <= sizeof(*pStatus)", LOADSAVEGAME_CPP, 0xccd, 0);
+    }
+    chunks->Read(status, size, 0);
+
+    if (status->buffers.save_version < 1.1f) {
+        for (slot = 0; slot != 3; ++slot) {
+            status->text_box_lines_used[slot] = status->legacy_text_box_lines[0][slot];
+            status->text_box_lines_shown[slot] = status->legacy_text_box_lines[1][slot];
+        }
+        status->text_box_lines_used[3] = 0;
+        status->text_box_lines_shown[3] = 0;
+    }
+
+    status->buffers.Char = characters;
+    status->buffers.XChar = party_rows;
+
+    W8Character* character = characters;
+    for (slot = 0; slot != 8; ++slot, ++character) {
+        memset(character, 0, sizeof(*character));
+        chunks->Read(&size, sizeof(size), 0);
+        if (size > sizeof(*character)) {
+            srAssertFail("uiSize <= sizeof(*&pStatus->Char[uiChar])", LOADSAVEGAME_CPP, 0xce4, 0);
+        }
+        chunks->Read(character, size, 0);
+        if (character->record_version < 2 &&
+            character->original_profession == W8_PROFESSION_FIGHTER &&
+            character->profession_levels[W8_PROFESSION_FIGHTER] == 0) {
+            character->original_profession = character->iProfession;
+        }
+    }
+
+    W8PartySlotRow* party_row = party_rows;
+    for (slot = 0; slot != 8; ++slot, ++party_row) {
+        memset(party_row, 0, sizeof(W8PartySlotRow));
+        chunks->Read(&size, sizeof(size), 0);
+        if (size > sizeof(W8PartySlotRow)) {
+            srAssertFail("uiSize <= sizeof(*&pStatus->XChar[uiChar])", LOADSAVEGAME_CPP, 0xcf2, 0);
+        }
+        chunks->Read(party_row, size, 0);
+
+        if (status == &g_status) {
+            W8ItemInstance* item = 0;
+            signed char origin = static_cast<signed char>(party_row->item_origin);
+            short item_slot = static_cast<short>(party_row->item_slot);
+            if (party_row->fOccupied && party_row->pending_action == W8_ACTION_USE_ITEM &&
+                origin != -1 && item_slot != -1) {
+                item = FindCharacterItemAt(slot, static_cast<unsigned char>(origin),
+                                           static_cast<unsigned short>(item_slot));
+            }
+            party_row->pending_action_detail.item_use.item = item;
+            party_row->action_detail1.item_use.item = 0;
+            party_row->spell_target.pPCItem = 0;
+            party_row->item_target.pPCItem = 0;
+            party_row->breath_target.pPCItem = 0;
+        }
+    }
+    RebuildPartyStatus(&status->formation);
+}
+
+/* Write the global status as one GSTA chunk. The two pointed-to collections
+   follow the fixed status object in record-sized pieces so each record remains
+   an independently sized save field. */
+// FUNCTION: WIZ8 0x00515fa0
+void SaveGlobalStatus(W8Chunk* chunks, W8GlobalStatus* status)
+{
+    unsigned int size;
+    unsigned int slot;
+
+    chunks->OpenChunk(0x41545347, 0);
+    size = sizeof(*status);
+    chunks->Write(&size, sizeof(size), 0);
+    chunks->Write(status, size, 0);
+    for (slot = 0; slot != 8; ++slot) {
+        size = sizeof(W8Character);
+        chunks->Write(&size, sizeof(size), 0);
+        chunks->Write(&status->buffers.Char[slot], size, 0);
+    }
+    for (slot = 0; slot != 8; ++slot) {
+        size = sizeof(W8PartySlotRow);
+        chunks->Write(&size, sizeof(size), 0);
+        chunks->Write(&status->buffers.XChar[slot], size, 0);
+    }
+    chunks->ReleaseCurrentChunk();
+}
+
+/* Collect one level's saved world items out of the fixed current-save file.
+   The LVLS groups are walked for a matching level number; every ITEM record
+   inside is loaded and appended to the caller's vector. The scan stops once
+   the level's group has been processed. */
+// FUNCTION: WIZ8 0x00516070
+bool LoadSavedLevelItems(int level, W8GrowableVector<W8WorldItem*>* items)
+{
+    W8Chunk chunk;
+    unsigned int file_level;
+    unsigned int item_count;
+    unsigned int index;
+    int inner;
+    int outer_count;
+    int outer;
+    bool found = false;
+
+    if (chunk.OpenRead(const_cast<char*>("Saves\\CurrentGame.SAV")) == 0) {
+        return false;
+    }
+    outer_count = chunk.ChunkCount();
+    for (outer = 0; outer < outer_count; ++outer) {
+        if (found) {
+            break;
+        }
+        chunk.OpenChunk(0, 0);
+        if (chunk.CurrentChunkId() == 0x534c564c) { /* LVLS */
+            if (chunk.CurrentChunkAtEnd() != 0) {
+                chunk.OpenGroup();
+                chunk.Read(&file_level, 4, 0);
+                chunk.SkipCurrentChunk();
+            } else {
+                chunk.OpenGroup();
+                chunk.Read(&file_level, 4, 0);
+                if (level == static_cast<int>(file_level)) {
+                    found = true;
+                    for (inner = chunk.ChunkCount(); inner > 0; --inner) {
+                        chunk.OpenChunk(0, 0);
+                        if (chunk.CurrentChunkAtEnd() == 0 &&
+                            chunk.CurrentChunkId() == 0x4d455449) { /* ITEM */
+                            chunk.Read(&item_count, 4, 0);
+                            for (index = 0; index < item_count; ++index) {
+                                W8WorldItem* item = LoadItem(chunk.m_hFile, false);
+
+                                if (item != 0) {
+                                    items->Add(item);
+                                }
+                            }
+                        }
+                        chunk.SkipCurrentChunk();
+                        chunk.ReleaseCurrentChunk();
+                    }
+                }
+            }
+            chunk.ReleaseGroup();
+        }
+        chunk.SkipCurrentChunk();
+        chunk.ReleaseCurrentChunk();
+    }
+    chunk.Close();
+    return found;
+}
+
+/* Pick a free autosave slot for the ending sequence: "Ending", then
+   "Ending1" through "Ending20" until Saves\<name>.<ext> does not exist.
+   Writes the chosen bare name into `name`; returns 0 when all twenty-one
+   slots are taken. */
+// FUNCTION: WIZ8 0x00516890
+bool FindFreeEndingSaveName(char* name)
+{
+    char path[260];
+    int index;
+
+    strcpy(name, "Ending");
+    sprintf(path, "%s\\%s.%s", "Saves", name, g_save_extension);
+    if (FileExists(path) == 0) {
+        return true;
+    }
+    for (index = 1; index <= 20; ++index) {
+        sprintf(name, "%s%d", "Ending", index);
+        sprintf(path, "%s\\%s.%s", "Saves", name, g_save_extension);
+        if (FileExists(path) == 0) {
+            return true;
+        }
+    }
+    return false;
+}
+
+/* Write a full save slot: repair the target's read-only bit, fold the running
+   CurrentGame sections forward unless this save is CurrentGame itself, refresh
+   the camera anchor and per-box countdown snapshots, then emit the GVER
+   version triple, the SHOT screenshot, TEXT message storage, the optional TVAR
+   location variables, and the NPCI/NPCT/NPCF/FATA/JRNL chain before
+   SaveStatusHeader appends the level sections. The transcript writer declining
+   NPCI ends the chain early. */
+
+/* Load a save slot: tear down the live session the way
+   ResetLiveSessionForLoad does, copy the slot over Saves\CurrentGame.SAV, then
+   dispatch each chunk to its section loader. Afterward the four
+   message-storage countdown clocks are re-armed from the snapshots the save
+   recorded, the gameplay timer restarts, the held-item cursor is restored,
+   and the loaded items are normalized. */
+// FUNCTION: WIZ8 0x00512920
+bool LoadGame(const char* slot_name)
+{
+    W8Chunk chunks;
+    char path[260];
+    int count;
+    int index;
+    int box;
+
+    ResetLiveSessionForLoad();
+    sprintf(path, "%s\\%s.%s", "Saves", slot_name, g_save_extension);
+    if (_access("Saves\\CurrentGame.SAV", 2) != 0 && errno == EACCES) {
+        _chmod("Saves\\CurrentGame.SAV", _S_IREAD | _S_IWRITE);
+    }
+    FileDelete("Saves\\CurrentGame.SAV");
+    FileCopy(path, "Saves\\CurrentGame.SAV", 0);
+    if (_access("Saves\\CurrentGame.SAV", 2) != 0 && errno == EACCES) {
+        _chmod("Saves\\CurrentGame.SAV", _S_IREAD | _S_IWRITE);
+    }
+    if (chunks.OpenRead(const_cast<char*>("Saves\\CurrentGame.SAV")) == 0) {
+        return false;
+    }
+    count = chunks.ChunkCount();
+    for (index = 0; index < count; ++index) {
+        chunks.OpenChunk(0, 0);
+        if (!chunks.CurrentChunkAtEnd()) {
+            switch (chunks.CurrentChunkId()) {
+            case 0x41545347: /* GSTA */
+                LoadGameStatus(&chunks, &g_status);
+                break;
+            case 0x54584554: /* TEXT */
+                LoadMessageStorage(chunks.m_hFile);
+                break;
+            case 0x52415654: /* TVAR */
+                LoadLocationVariables(chunks.m_hFile);
+                break;
+            case 0x4943504e: /* NPCI */
+                LoadNpcDialogueTranscript(chunks.m_hFile);
+                break;
+            case 0x5443504e: /* NPCT */
+                LoadNpcStates(&chunks);
+                break;
+            case 0x4643504e: /* NPCF */
+                LoadFactState(chunks.m_hFile);
+                break;
+            case 0x41544146: /* FATA */
+                LoadFactionState(chunks.m_hFile);
+                break;
+            case 0x4c4e524a: /* JRNL */
+                LoadJournalEntries(chunks.m_hFile);
+                break;
+            case 0x4e505948: /* HYPN */
+                LoadMonsterControlSpellEffect(&chunks);
+                break;
+            }
+        }
+        chunks.SkipCurrentChunk();
+        chunks.ReleaseCurrentChunk();
+    }
+    chunks.Close();
+    for (box = 0; box < 4; ++box) {
+        /* 0x00512BA6 tests the member unsigned, so this loop has its own
+           unsigned counter rather than the function's signed `index`. */
+        for (unsigned int line = 0; line < g_status.text_box_lines_shown[box]; ++line) {
+            g_message_storage[box][line].clock =
+                SetCountdownClock(g_message_storage[box][line].saved_remaining_ms);
+        }
+    }
+    gXStatus.gameplay_timer->Restart();
+    ResetMainGameScreenState();
+    if (g_status.item_in_hand.iItemNo == -1) {
+        ClearHeldItemDisplay();
+    } else {
+        SetItemCursor(0);
+    }
+    SanitizeLoadedItems();
+    return true;
+}
+
+/* Render the world onto an 80x60 ARGB1555 surface backed by the record's
+   pixel store. Renderer option 4 is suppressed while RenderWorldToSurface captures
+   the frame, then RenderFrame repaints the real front buffer before the
+   option is restored. */
+
+/* Read the HYPN record: one live spell-effect entry for the monster-control
+   effect, rebuilt through the entry constructor and pushed onto
+   g_spell_effects. */
+// FUNCTION: WIZ8 0x00516310
+void LoadMonsterControlSpellEffect(W8Chunk* chunks)
+{
+    W8SpellEffectEntry* effect = new W8SpellEffectEntry;
+
+    chunks->Read(&effect->kind, 4, 0);
+    chunks->Read(&effect->turns_remaining, 4, 0);
+    chunks->Read(&effect->Source, 0x34, 0);
+    chunks->Read(&effect->target, 0x20, 0);
+    chunks->Read(&effect->OrigSource, 0x34, 0);
+    chunks->Read(&effect->OrigTarget, 0x20, 0);
+    chunks->Read(&effect->recast, 1, 0);
+    chunks->Read(&effect->sustained, 1, 0);
+    chunks->Read(&effect->missiles_pending, 1, 0);
+    chunks->Read(&effect->targets_resolved, 1, 0);
+    chunks->Read(&effect->definition, sizeof(effect->definition), 0);
+    AddSpellEffect(effect);
+}
+
+/* Write the monster-control spell effect as the HYPN record: the same fields
+   the loader reads, none of the runtime vectors or result state. */
+
+/* The byte-vector Grow LoadMonster's script-condition copy emits; the linker
+   kept this unit's instance for AddItem as well. */
+
+/* The remove-and-delete emission LoadGame calls while ResetLiveSessionForLoad
+   inlines it is instantiated explicitly in vector.cpp. */

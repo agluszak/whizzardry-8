@@ -1,0 +1,136 @@
+#include "vsurface.h"
+#include "wiz8/local_code/ControlsRect.h"
+#include "wiz8/local_code/TextBuffer.h"
+#include "wiz8/dialog_code/DialogTextEntry.h"
+#include "wiz8/engine_code/Video2.h"
+#include "wiz8/layouts/screen_state.h"
+#include "wiz8/fonts.h"
+#include "wiz8/utility.h"
+#include "Font.h"
+#include "wiz8/local_screens/MainGameScreen.h"
+#include "wiz8/local_screens/NPCInteractionSubscreen.h"
+#include "wiz8/local_screens/OptionsScreen.h"
+
+/* Retail initializer 0x005D1010 copies the Controls layout constant. */
+// GLOBAL: WIZ8 0x0069c5d0
+unsigned int g_dialog_text_layout_mask = g_W8TextBufferNoWrap;
+
+// FUNCTION: WIZ8 0x005d1050
+W8DialogTextEntry::W8DialogTextEntry(const wchar_t* prefix, const wchar_t* text,
+                                     unsigned int prefix_palette, unsigned int text_palette,
+                                     const W8ControlsRect* bounds, int font, unsigned char category,
+                                     unsigned int layout_mode, unsigned char shorten)
+{
+    m_prefix_palette = prefix_palette;
+    m_font = font;
+    m_lineCount = 0;
+    m_geometryDirty = true;
+    m_text_palette = text_palette;
+    m_selected = false;
+    m_entry_highlighted = false;
+    m_marked = false;
+    m_category = category;
+    SetLayoutBounds(bounds, true, true);
+    SetLayoutMode(layout_mode);
+    m_shorten_mask = shorten;
+    m_prefix_length = prefix ? wcslen(prefix) + 2 : 0;
+    m_buffer = new wchar_t[wcslen(text) + m_prefix_length + 1];
+    if (m_prefix_length != 0) {
+        wcscpy(m_buffer, prefix);
+        wcscat(m_buffer, L": ");
+    } else {
+        wcscpy(m_buffer, &g_empty_wide_string);
+    }
+    wcscat(m_buffer, text);
+    UpdateLayout();
+}
+
+int W8DialogTextEntry::DrawLine(wchar_t* line, size_t span, int prefix_remaining, int y)
+{
+    int x = GetHorizontalPosition(StringPixLength(line, m_font));
+    if (prefix_remaining > 0) {
+        if (prefix_remaining < static_cast<int>(span)) {
+            wchar_t saved = line[prefix_remaining];
+            line[prefix_remaining] = L'\0';
+            gprintf(x, y, L"%s", line);
+            x += StringPixLength(line, m_font);
+            line[prefix_remaining] = saved;
+            if (!m_selected) {
+                SetFontObjectPalette16BPP(m_font, m_text_palette < 15
+                                                      ? g_font_state_palettes[m_text_palette]
+                                                      : g_wiz_text_font_secondary_palette);
+            }
+            line += prefix_remaining;
+            span -= prefix_remaining;
+        }
+        prefix_remaining -= span;
+    }
+    gprintf(x, y, L"%s", line);
+    return prefix_remaining;
+}
+
+// FUNCTION: WIZ8 0x005d1170
+void W8DialogTextEntry::Draw(bool force)
+{
+    int width = m_layoutBounds.right - m_layoutBounds.left;
+    int prefix_remaining = m_prefix_length;
+    if (m_buffer == 0 || (!force && !m_geometryDirty)) {
+        return;
+    }
+    wchar_t* copy = new wchar_t[wcslen(m_buffer) + 5];
+    wcscpy(copy, m_buffer);
+    if (m_shorten_mask) {
+        ShortenTextToWidth(copy, m_buffer, width - 5, m_font);
+    }
+    SetFont(m_font);
+    unsigned short* palette = g_font_state_palettes[W8_FONT_PALETTE_YELLOW];
+    if (!m_entry_highlighted) {
+        if (m_marked) {
+            palette = g_font_state_palettes[W8_FONT_PALETTE_GREEN];
+        } else if (m_selected) {
+            palette = g_font_state_palettes[W8_FONT_PALETTE_WHITE];
+        } else {
+            palette = g_wiz_text_font_secondary_palette;
+            if (m_prefix_length == 0) {
+                if (m_text_palette < 15) {
+                    palette = g_font_state_palettes[m_text_palette];
+                }
+            } else if (m_prefix_palette < 15) {
+                palette = g_font_state_palettes[m_prefix_palette];
+            }
+        }
+    }
+    SetFontObjectPalette16BPP(m_font, palette);
+    SetFontDestBuffer(FRAME_BUFFER, m_pendingBounds.left, m_pendingBounds.top,
+                      m_pendingBounds.right, m_pendingBounds.bottom, 0);
+    int y = GetVerticalPosition();
+    wchar_t* line = copy;
+    size_t span = wcscspn(line, g_W8LineBreakCharacters);
+    while (line[span] != L'\0') {
+        line[span] = L'\0';
+        prefix_remaining = DrawLine(line, span, prefix_remaining, y);
+        y += GetLineHeight();
+        line[span] = L'\n';
+        if (m_layoutBounds.bottom <= y) {
+            goto done;
+        }
+        line += span + 1;
+        span = wcscspn(line, g_W8LineBreakCharacters);
+    }
+    DrawLine(line, span, prefix_remaining, y);
+done:
+    InvalidateRegion(m_layoutBounds.left, m_layoutBounds.top, m_layoutBounds.right,
+                     m_layoutBounds.bottom, 0);
+    SetFontDestBuffer(FRAME_BUFFER, 0, 0, 640, 480, 0);
+    m_geometryDirty = false;
+    delete[] copy;
+}
+
+// FUNCTION: WIZ8 0x005d14b0
+void W8DialogTextEntry::SetSelected(bool selected)
+{
+    if (m_selected != selected) {
+        m_selected = selected;
+        m_geometryDirty = true;
+    }
+}

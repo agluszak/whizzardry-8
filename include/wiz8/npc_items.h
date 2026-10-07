@@ -1,0 +1,38 @@
+#ifndef WIZ8_NPC_ITEMS_H
+#define WIZ8_NPC_ITEMS_H
+
+#include "wiz8/npc_trade_price.h"
+#include "wiz8/layouts/npc_state.h"
+
+/* NPC stock and trade interface. The implementing source, src/wiz8/
+   npc_items.cpp, sits in an unresolved-fragment gap, so original-TU ownership
+   of these declarations is provisional until the fragment is attributed. */
+
+int AddNpcItem(W8NpcState* npc, int item_id, unsigned int quantity);
+int AddNpcItemFromInstance(W8NpcState* npc, const W8ItemInstance* item, char quantity);
+int AddNpcItemWithDelay(W8NpcState* npc, int item_id, unsigned int quantity, int delay);
+char RateItemIdentifyDifficulty(W8NpcState* npc, int item_id);
+int RestockNpcItems(W8NpcState* npc);
+void ClearNpcItems(W8NpcState* npc);
+void SortNpcItems(W8NpcState* npc);
+unsigned char PopulateNpcStock(W8NpcState* npc);
+unsigned char MaintainNpcStock(W8NpcState* npc, bool force);
+void MatureNpcDelayedItems(W8NpcState* npc);
+void RestockNpcInventory(W8NpcState* npc); /* 0x0055BCC0 */
+W8NpcItemEntry* GetNpcItemAt(W8NpcState* npc, int index);
+unsigned int GetNpcItemCount(W8NpcState* npc);
+bool NpcAcceptsTradeItem(W8NpcState* npc, W8ItemInstance* item);
+bool NpcAcceptsTradeItemClass(W8NpcState* npc, W8ItemInstance* item); /* 0x0055B290 */
+int CalculateNpcTradeStackPrice(W8NpcState* npc, int item_id, W8TradePriceKind price_kind,
+                                unsigned char stack_count, bool identified);
+unsigned char ConsumeNpcItemQuantity(W8NpcState* npc, int index, unsigned char quantity);
+/* 0x0055B730: move a sold/given party item into NPC stock, paying party gold
+   unless suppressed (the item being a dialogue topic the NPC wants). */
+unsigned char SellItemToNpc(W8NpcState* npc, W8ItemInstance* item, unsigned char quantity,
+                            bool suppress_payment);
+/* 0x0055B7E0: the stock mutation a completed trade applies for one slot. */
+void DecayNpcInventory(W8NpcState* npc);
+bool CompleteNpcItemPurchase(W8NpcState* npc, int index, unsigned char quantity, bool no_payment,
+                             int* remaining_out);
+
+#endif

@@ -1,0 +1,245 @@
+#ifndef WIZ8_GEOMETRY_H
+#define WIZ8_GEOMETRY_H
+
+#include "surrender/srMath.h"
+#include "wiz8/float_constants.h"
+
+#include <math.h>
+
+/* Physical-surface masks recovered from retail collision/build consumers.
+   WALKABLE/PATHFINDING also agree with Cosmic Forge's face editor. */
+enum W8GDSurfaceFlags {
+    W8_GD_SURFACE_AXIS_MASK = 0x00000003u,
+    W8_GD_SURFACE_WALKABLE = 0x00000004u,
+    W8_GD_SURFACE_COLLISION_PROCESSED = 0x00000008u,
+    W8_GD_SURFACE_CONDITIONAL_DISABLED = 0x00000010u,
+    W8_GD_SURFACE_EXPLICIT_SLOPE = 0x00000020u,
+    W8_GD_SURFACE_PATHFINDING = 0x00000040u,
+    W8_GD_SURFACE_CROSSING = 0x00000080u,
+    W8_GD_SURFACE_PROP_GEOMETRY = 0x00000800u,
+    W8_GD_SURFACE_ENVIRONMENT = 0x00001000u,
+    W8_GD_SURFACE_QUERY_VISITED = 0x00002000u,
+    W8_GD_SURFACE_SKIP_FILTERED_TRACE = 0x00008000u,
+    W8_GD_SURFACE_CROSSING_MASK = W8_GD_SURFACE_CROSSING | W8_GD_SURFACE_ENVIRONMENT,
+    W8_GD_SURFACE_INACTIVE_MASK =
+        W8_GD_SURFACE_COLLISION_PROCESSED | W8_GD_SURFACE_CONDITIONAL_DISABLED
+};
+
+/* Axis-aligned minimum/maximum box used by Wizardry's runtime/build geometry.
+   The region builder stores counted 0x18-byte arrays of these and the octree
+   consumes one complete pair through AddCollidablePropBounds. Original source
+   spelling is not recovered. */
+struct W8BoundingBox {
+    srVector3T<float> minimum;
+    srVector3T<float> maximum;
+};
+
+static_assert(sizeof(W8BoundingBox) == 0x18, "W8BoundingBox_must_be_0x18");
+
+/* Plane equation record n·p + w = 0: a unit normal plus the signed origin
+   distance. The canonical coefficient quad shared by GD surfaces, build-time
+   region polygons and frustum culling volumes. */
+struct W8Plane {
+    srVector3T<float> normal;
+    float w;
+};
+
+static_assert(sizeof(W8Plane) == 0x10, "W8Plane_must_be_0x10");
+
+struct W8GDSurface {
+    unsigned int flags;
+    unsigned int index;
+    /* ENVIRONMENT selects the environment table; other crossing faces select triggers. */
+    int trigger_index;
+    int edge_link[3];
+    int vertex_indices[3];
+    /* The region word at +0x32 belongs to W8OctRegionPolygon, not this
+       surface. */
+    W8Plane plane;
+    float distance;
+    /* Hit plane ProbePropsAlongMotion fills for ResolveCollision. */
+    W8Plane* hit_plane;
+    unsigned char footstep_surface;  /* W8FootstepSurface selector */
+    unsigned char footstep_material; /* W8FootstepMaterial selector */
+    unsigned char positional[2];
+    float contact_margin;
+    unsigned int chance;
+    float slope; /* face slope; generated surfaces derive it from plane.normal.y */
+
+    /* The plane's unit normal. */
+    const srVector3T<float>* Normal() const
+    {
+        return &plane.normal;
+    }
+
+    /* 0x0041CF90: segment-vs-surface test used by env motion. On a hit `from`
+       advances to the contact point and `hit_distance` gets the travelled
+       length; distance takes the surface's updated limit. */
+    bool TestSegment(srVector3T<float>* from, const srVector3T<float>* direction,
+                     float* hit_distance, srVector3T<float>* vertices);
+    /* 0x0041D9D0: shrink `limit` to the remaining in-plane distance against
+       the nearest triangle edge; fails when no edge improves it. */
+    bool ClampHitToEdge(const srVector3T<float>* point, const srVector3T<float>* vertices,
+                        float* limit);
+    /* 0x0041DC10: collision response for a hit surface; `origin` is advanced
+       to `hit_point` and `direction` is bent along the contact plane. */
+    bool ResolveCollision(srVector3T<float>* origin, const srVector3T<float>* hit_point,
+                          srVector3T<float>* direction, int collision_index);
+    /* 0x0041E8E0: whether moving `from` to `to` pushes this surface's
+       centroid away from surface `surface_index`'s centroid. */
+    bool CentroidsDiverging(int surface_index, const srVector3T<float>* from,
+                            const srVector3T<float>* to);
+    /* 0x0041EA90: environment response for a walkable contact surface;
+       adjusts `direction` and the active environ record. */
+    bool ApplyEnvironContact(srVector3T<float>* direction);
+};
+
+static_assert(sizeof(W8GDSurface) == 0x4c, "W8GDSurface_must_be_0x4c");
+
+/* Newell cyclic normal plus centroid plane distance. Independent TUs:
+   GDFileIO BuildTrianglePlane 0x00449A40 and 3d BuildPlaneFromPoints
+   0x0046D660. Retail instruction streams match after register renaming in
+   the Newell and distance loops; the three-point copy lowers as unrolled
+   vector assignment in one TU and a component countdown in the other.
+   Counted fors are the authored form. No Wiz8 COMDAT. */
+inline void SetPlaneFromThreePoints(W8Plane* plane, const srVector3T<float>* first,
+                                    const srVector3T<float>* second, const srVector3T<float>* third)
+{
+    srVector3T<float> vertices[3];
+    vertices[0] = *first;
+    vertices[1] = *second;
+    vertices[2] = *third;
+
+    plane->normal.SetZero();
+    plane->w = 0.0f;
+
+    for (int index = 0; index < 3; ++index) {
+        const srVector3T<float>& current = vertices[index];
+        const srVector3T<float>& next = vertices[(index + 1) % 3];
+        const srVector3T<float>& previous = vertices[(index + 2) % 3];
+        plane->normal.x += current.y * (next.z - previous.z);
+        plane->normal.y += current.z * (next.x - previous.x);
+        plane->normal.z += current.x * (next.y - previous.y);
+    }
+
+    srVector3T<float> normal(plane->normal);
+    float scale = g_float_one / normal.Length();
+    plane->normal.x *= scale;
+    plane->normal.y *= scale;
+    plane->normal.z *= scale;
+
+    float distances[3];
+    for (int vertex_index = 0; vertex_index < 3; ++vertex_index) {
+        distances[vertex_index] = plane->normal.x * vertices[vertex_index].x +
+                                  plane->normal.y * vertices[vertex_index].y +
+                                  plane->normal.z * vertices[vertex_index].z;
+    }
+    plane->w = (distances[0] + distances[1] + distances[2]) * g_float_negative_one_third;
+}
+
+/* Signed plane distance n·p + w. Independent TUs: 3d.cpp PointInsideFrustum
+   0x0046D880 and stLight ContainsPoint 0x0049E460. No Wiz8 COMDAT. */
+inline float SignedPlaneDistance(const W8Plane& plane, const srVector3T<float>& point)
+{
+    return plane.normal.x * point.x + plane.normal.y * point.y + plane.normal.z * point.z + plane.w;
+}
+
+/* Rotation keyframes interpolate through a quaternion: the scalar term is
+   first and the imaginary part shares the srVector3T operators. Retail
+   callers share the out-of-line matrix conversion at 0x0044ECA0. */
+class W8Quaternion {
+public:
+    W8Quaternion* SetFromMatrix(const srMatrix3T<float>& matrix); /* 0x0044ECA0 */
+    /* Short-arc slerp between two keyframe rotations expanded back into a
+       rotation matrix: the copy of `to` is sign-fixed so the dot stays
+       positive, a near-coincident pair falls back to a linear blend, and the
+       normalized quaternion is written out through the 2/norm^2 expansion.
+       Prop 0x0044C830 and PathAIApply 0x004AA520 inline the same sequence. */
+    static void InterpolateRotation(const srMatrix3T<float>& from, const srMatrix3T<float>& to,
+                                    double amount, srMatrix3T<float>* rotation);
+
+    float w;
+    srVector3T<float> v;
+};
+
+inline void W8Quaternion::InterpolateRotation(const srMatrix3T<float>& from,
+                                              const srMatrix3T<float>& to, double amount,
+                                              srMatrix3T<float>* rotation)
+{
+    W8Quaternion first;
+    W8Quaternion second;
+    W8Quaternion adjusted;
+    double dot;
+    double b;
+    double angle;
+    double sine;
+    double w;
+    double x;
+    double y;
+    double z;
+    double scale;
+    double sx;
+    double sy;
+    double sz;
+    double xx;
+    double xy;
+    double xz;
+    double yy;
+    double yz;
+    double zz;
+    double xw;
+    double yw;
+    double zw;
+
+    first.SetFromMatrix(from);
+    second.SetFromMatrix(to);
+    adjusted = second;
+    dot = first.w * second.w + first.v.x * second.v.x + first.v.y * second.v.y +
+          first.v.z * second.v.z;
+    if (dot < g_double_zero) {
+        dot = -dot;
+        adjusted.v = -adjusted.v;
+        adjusted.w = -adjusted.w;
+    }
+    if (g_double_one - dot <= g_slerp_epsilon) {
+        dot = g_double_one - amount;
+        b = amount;
+    } else {
+        angle = acos(dot);
+        sine = sin(angle);
+        dot = sin((g_double_one - amount) * angle) / sine;
+        b = sin(angle * amount) / sine;
+    }
+    adjusted.v = dot * first.v + b * adjusted.v;
+    w = first.w * dot + adjusted.w * b;
+    x = adjusted.v.x;
+    y = adjusted.v.y;
+    z = adjusted.v.z;
+    scale = g_quaternion_matrix_normalization / (w * w + x * x + y * y + z * z);
+    sx = scale * x;
+    sy = scale * y;
+    sz = scale * z;
+    xw = sx * w;
+    yw = sy * w;
+    zw = sz * w;
+    xx = sx * x;
+    xy = sx * y;
+    xz = sx * z;
+    yy = sy * y;
+    yz = sy * z;
+    zz = sz * z;
+    rotation->vectors[0].x = static_cast<float>(g_double_one - (yy + zz));
+    rotation->vectors[1].x = static_cast<float>(xy + zw);
+    rotation->vectors[2].x = static_cast<float>(xz - yw);
+    rotation->vectors[0].y = static_cast<float>(xy - zw);
+    rotation->vectors[1].y = static_cast<float>(g_double_one - (xx + zz));
+    rotation->vectors[2].y = static_cast<float>(yz + xw);
+    rotation->vectors[0].z = static_cast<float>(xz + yw);
+    rotation->vectors[1].z = static_cast<float>(yz - xw);
+    rotation->vectors[2].z = static_cast<float>(g_double_one - (xx + yy));
+}
+
+void ClassifySurfacePlane(const srVector3T<float>* vertices, W8GDSurface* surface);
+void BuildTrianglePlane(W8Plane* plane, const srVector3T<float>* first,
+                        const srVector3T<float>* second, const srVector3T<float>* third);
+#endif

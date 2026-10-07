@@ -1,0 +1,240 @@
+#include "wiz8/dialog_code/StatInfoDialogs.h"
+#include "wiz8/dialog_code/MonsterInfoDialog.h"
+#include "Font.h"
+#include "wiz8/layouts/character.h"
+#include "wiz8/local_code/UtilityFunctions.h"
+#include "wiz8/local_screens/CharacterScreen.h"
+#include "wiz8/local_screens/MainGameScreen.h"
+#include "wiz8/dialog_code/DialogInterface.h"
+#include "wiz8/engine_code/Video2.h"
+#include "wiz8/fonts.h"
+#include "wiz8/local_code/Strings.h"
+#include "wiz8/layouts/screen_state.h"
+#include "wiz8/utility.h"
+#include "wiz8/local_screens/Screens.h"
+#include "wiz8/sr_api.h"
+#include "wiz8/video_object_catalog.h"
+#include "wiz8/local_screens/OptionsScreen.h"
+
+/* Dialog Code\StatInfoDialogs.cpp. Two attribute-info dialogs whose
+   constructors are the same body twice over: the canonical pair differs only
+   in its vtable, its two lookup tables and its assertion line. Both are named
+   by their own assertion, which also supplies the parameter name uiIndex and
+   pins ATTR_COUNT to seven - the same seven attributes W8Character carries.
+   The shared base holds the scroll bar, close button and text area every
+   info dialog in this family reuses; its own vtable is emitted retail even
+   though it is only ever a base subobject. */
+
+// STRING: WIZ8 0x006501D8
+#define STAT_INFO_DIALOGS_CPP "C:\\Projects\\Wizardry 8\\Dialog Code\\StatInfoDialogs.cpp"
+
+enum { ATTR_COUNT = 7 };
+enum { SKILL_COUNT = 0x29 };
+
+// GLOBAL: WIZ8 0x0061e4fc
+static unsigned short g_attr_table0[8] = {
+    0x6a0, 0x6a1, 0x6a2, 0x6a3, 0x6a4, 0x6a5, 0x6a6, 0,
+};
+// GLOBAL: WIZ8 0x0061e50c
+unsigned short g_attr_table1[18] = {
+    0x6a7, 0x6a8, 0x6a9, 0x6aa, 0x6ab, 0,     0x30b, 0x30c, 0x30d,
+    0x30e, 0x30f, 0x310, 0x311, 0x312, 0x313, 0x314, 0x315, 0x316,
+};
+
+// FUNCTION: WIZ8 0x005df880
+W8StatInfoDialogBase::W8StatInfoDialogBase()
+{
+    SetOrigin(0x9c, 0x69);
+    SetExtent(0x14a, 0x10e);
+    SetBackground(g_info_dialog_background, 0);
+}
+
+// FUNCTION: WIZ8 0x005DF940
+W8StatInfoDialogBase::~W8StatInfoDialogBase()
+{
+    W8StatInfoDialogBase::DestroyControls();
+}
+
+// FUNCTION: WIZ8 0x005df9d0
+int W8StatInfoDialogBase::CreateControls()
+{
+    W8DialogBase::CreateControls();
+    if (!PopulateText()) {
+        m_error = 7;
+        return 7;
+    }
+
+    W8DialogScrollBar::Resources resources;
+    resources.arrows_path = "Data\\Main Interface\\main_scroll.sti";
+    resources.track_path = g_info_dialog_background;
+    resources.track_frame = 1;
+    resources.on_scroll = ScrollCallback;
+    scrollbar.CreateControls(&resources);
+    scrollbar.SetLayout(m_x + 299, m_y + 0x26, textarea.GetTotalLineCount(), 0,
+                        textarea.GetLineHeight(), 0xb9);
+    scrollbar.m_owner = this;
+
+    CreateCloseButton(button, 0x11a, 0xe6);
+    return 0;
+}
+
+// FUNCTION: WIZ8 0x005dfac0
+void W8StatInfoDialogBase::DestroyControls()
+{
+    scrollbar.DestroyControls();
+    W8DialogBase::DestroyControls();
+}
+
+// FUNCTION: WIZ8 0x005dfae0
+void W8StatInfoDialogBase::Draw()
+{
+    if ((m_dirty_flags & W8_DIALOG_DIRTY_REDRAW) != 0) {
+        if (!m_initialized) {
+            CreateControls();
+        }
+        textarea.m_dirty = true;
+        scrollbar.m_dirty = true;
+        button.m_dirty = true;
+        W8DialogBase::Draw();
+        DrawTitle();
+    }
+    textarea.Draw(false);
+    scrollbar.Draw(false);
+    button.Draw();
+}
+
+// FUNCTION: WIZ8 0x005dfb40
+void W8StatInfoDialogBase::DrawTitle()
+{
+    SetFont(g_wiz_text_font_secondary);
+    SetFontObjectPalette16BPP(g_wiz_text_font_secondary, g_wiz_text_font_secondary_palette);
+    wchar_t* title = gppStringList[m_title_id];
+    INT16 width = StringPixLength(title, g_wiz_text_font_secondary);
+    gprintf(m_x + 0xe + (0x112 - width) / 2, m_y + 0x11, g_format_s, title);
+}
+
+void W8StatInfoDialogBase::OnRightButtonUp()
+{
+    if (m_right_button_down) {
+        m_keep_open = false;
+    }
+}
+
+// FUNCTION: WIZ8 0x005dfbb0
+void W8StatInfoDialogBase::OnMouseWheel(int delta)
+{
+    if (delta > 0) {
+        for (int step = 0; step < delta; ++step) {
+            scrollbar.ScrollUp();
+        }
+    } else if (delta < 0) {
+        for (int step = 0; step < -delta; ++step) {
+            scrollbar.ScrollDown();
+        }
+    }
+}
+
+// FUNCTION: WIZ8 0x005dfbf0
+void W8StatInfoDialogBase::ScrollCallback(W8DialogScrollBar* scroll_bar, int first_visible_entry)
+{
+    W8StatInfoDialogBase* dialog = static_cast<W8StatInfoDialogBase*>(scroll_bar->m_owner);
+    if (dialog != 0) {
+        dialog->ScrollTextArea(dialog->textarea, first_visible_entry, 0x11, 0x26, 0x10e, 0xb9);
+    }
+}
+
+// FUNCTION: WIZ8 0x005dfdb0
+bool W8StatInfoDialogBase::PopulateText()
+{
+    W8ControlsRect bounds;
+    bounds.left = m_x + 0x11;
+    bounds.top = m_y + 0x26;
+    bounds.right = m_x + 0x11f;
+    bounds.bottom = m_y + 0xdf;
+    textarea.Configure(&bounds, g_wiz_text_font_secondary, 0);
+    textarea.SetEntrySpacing(0);
+    textarea.AddEntry(gppStringList[0x155], gppStringList[m_detail_id], 10, 0xf, 0);
+    textarea.AddEntry(0, &g_empty_wide_string, 10, 0xf, 0);
+    return true;
+}
+
+// FUNCTION: WIZ8 0x005dfc70
+W8AttributeInfoDialog::W8AttributeInfoDialog(W8Attribute uiIndex)
+{
+    if (static_cast<unsigned int>(uiIndex) >= ATTR_COUNT) {
+        srAssertFail("uiIndex < ATTR_COUNT", STAT_INFO_DIALOGS_CPP, 204, 0);
+    }
+    m_uiIndex = uiIndex;
+    m_title_id = g_character_description_first_ids[uiIndex];
+    m_detail_id = g_attr_table0[uiIndex];
+}
+
+// FUNCTION: WIZ8 0x005dfd20
+W8AttributeInfoDialog::~W8AttributeInfoDialog()
+{
+    W8StatInfoDialogBase::DestroyControls();
+}
+
+// FUNCTION: WIZ8 0x005dfe40
+W8SkillInfoDialog::W8SkillInfoDialog(W8Skill skill, bool first, bool second, bool bonus)
+{
+    if (static_cast<unsigned int>(skill) >= SKILL_COUNT) {
+        srAssertFail("uiIndex < SKILL_COUNT", STAT_INFO_DIALOGS_CPP, 227, 0);
+    }
+    m_skill = skill;
+    m_title_id = g_character_skill_name_ids[skill];
+    m_detail_id = g_character_skill_name_ids[skill + 0x2a];
+    m_first = first;
+    m_second = second;
+    m_bonus = bonus;
+}
+
+// FUNCTION: WIZ8 0x005dff10
+W8SkillInfoDialog::~W8SkillInfoDialog()
+{
+    W8StatInfoDialogBase::DestroyControls();
+}
+
+// FUNCTION: WIZ8 0x005dffa0
+bool W8SkillInfoDialog::PopulateText()
+{
+    W8StatInfoDialogBase::PopulateText();
+    textarea.AddEntry(gppStringList[0x156], &g_empty_wide_string, 10, 0xf, 0);
+    W8SkillAttributes* skill = &g_skill_attributes[m_skill];
+    textarea.AddEntry(0, gppStringList[g_character_description_first_ids[skill->attribute_1]], 10,
+                      0xf, 0);
+    if (skill->attribute_1 != skill->attribute_2) {
+        textarea.AddEntry(0, gppStringList[g_character_description_first_ids[skill->attribute_2]],
+                          10, 0xf, 0);
+    }
+    if (m_first) {
+        textarea.AddEntry(0, &g_empty_wide_string, 10, 0xf, 0);
+        textarea.AddEntry(0, gppStringList[0x157], 10, 5, 0);
+    }
+    if (m_second) {
+        textarea.AddEntry(0, &g_empty_wide_string, 10, 0xf, 0);
+        textarea.AddEntry(0, gppStringList[0x158], 10, 0xb, 0);
+    }
+    if (m_bonus) {
+        textarea.AddEntry(0, &g_empty_wide_string, 10, 0xf, 0);
+        textarea.AddEntry(0, FormatWideString(gppStringList[0x159], 0x19), 10, 3, 0);
+    }
+    return true;
+}
+
+// FUNCTION: WIZ8 0x005e0180
+W8SecondaryAttributeInfoDialog::W8SecondaryAttributeInfoDialog(unsigned int uiIndex)
+{
+    if (uiIndex >= ATTR_COUNT) {
+        srAssertFail("uiIndex < ATTR_COUNT", STAT_INFO_DIALOGS_CPP, 278, 0);
+    }
+    m_uiIndex = uiIndex;
+    m_title_id = g_character_description_first_ids[16 + uiIndex];
+    m_detail_id = g_attr_table1[uiIndex];
+}
+
+// FUNCTION: WIZ8 0x005e0230
+W8SecondaryAttributeInfoDialog::~W8SecondaryAttributeInfoDialog()
+{
+    W8StatInfoDialogBase::DestroyControls();
+}

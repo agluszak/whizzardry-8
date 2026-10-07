@@ -1,0 +1,141 @@
+#include "wiz8/music_playlist.h"
+#include "wiz8/cursor.h"
+#include "wiz8/local_code/LoadSaveGame.h"
+#include "wiz8/local_code/PC_Item.h"
+#include "wiz8/engine_code/Octree.h"
+#include "wiz8/engine_code/Spells.h"
+#include "wiz8/local_code/GameplayDatabase.h"
+#include "wiz8/local_code/MonsterManager.h"
+#include "wiz8/layouts/game_status.h"
+#include "wiz8/local_code/Configuration.h"
+#include "wiz8/local_screens/MGSTextBox.h"
+#include "wiz8/monster_runtime.h"
+#include "wiz8/monster_generators.h"
+#include "wiz8/utility.h"
+#include "wiz8/layouts/screen_state.h"
+#include "wiz8/local_code/Gameloop.h"
+#include "wiz8/game_init.h"
+#include "wiz8/local_screens/Screens.h"
+#include "wiz8/fonts.h"
+#include "wiz8/regions.h"
+#include "wiz8/engine_code/Video2.h"
+#include "wiz8/local_code/Strings.h"
+#include "wiz8/local_code/CombatSound.h"
+#include "wiz8/local_code/GameplayInit.h"
+#include "wiz8/engine_code/Missile.h"
+#include "LibraryDataBase.h"
+#include "wiz8/sound_man.h"
+#include "Button System.h"
+#include "Container.h"
+#include "shading.h"
+#include "sgp.h"
+
+#include <string.h>
+#include <stdlib.h>
+
+/* Original translation unit is not established by the Arnika/Gameloop source anchors. */
+
+/*
+ * The data bring-up gate InitializeStandardGamingPlatform calls last. It stamps the version
+ * string, opens the archives and string data, then walks every database
+ * loader in turn, abandoning the sequence the moment one fails. Its callees
+ * are mostly unidentified and carry address-derived names; the ones already
+ * recovered elsewhere keep theirs.
+ */
+
+// FUNCTION: WIZ8 0x004e2f40
+unsigned char InitializeGame(void)
+{
+    char version[64];
+    void* buffer;
+    UINT32 count;
+    bool ok;
+
+    version[0] = '\0';
+    strcat(version, "Wizardry 8 ");
+    strcat(version, FormatString("v%d.%d.%d", 1, 2, 4));
+    strcat(version, FormatString(" (build %d)", 0xdb));
+    strcat(version, FormatString(" %s", "2001/12/24 15:36"));
+    InitializeFileDatabase();
+    LoadPatchSlfArchives("Patches");
+    LoadLocalizedStrings(gzStringDataOverride ? gzStringDataOverride
+                                              : "Data\\Strings\\StringData.DAT");
+    buffer = LockPrimarySurface(&count);
+    memset(buffer, 0, count * 0x1e0);
+    UnlockPrimarySurface();
+    LoadGameConfiguration();
+    g_current_screen_state.id = W8_SCREEN_NONE;
+    g_pending_screen_state.id = W8_SCREEN_NONE;
+    g_screen_return_stack = CreateStack(5, sizeof(W8ScreenStateRuntime));
+    if (!g_screen_return_stack) {
+        return 0;
+    }
+    for (int screen = 0; screen < W8_SCREEN_COUNT; ++screen) {
+        if (!g_screen_handlers[screen].initialize()) {
+            return 0;
+        }
+    }
+    SetShadeTablePercent((FLOAT)0.66);
+    BuildShadeTable();
+    if (!InitializeMenuFonts()) {
+        return 0;
+    }
+    InitButtonSystem();
+    InitializeRegionHelpState();
+    if (g_settings.tooltips_enabled) {
+        EnableMouseFastHelp();
+    } else {
+        DisableMouseFastHelp();
+    }
+    SetFastHelpDelay(static_cast<unsigned short>(g_settings.tooltip_delay_ms));
+    ResetGameStatus(false);
+    InitializeGameplayRuntimeObjects();
+    UpdateHeldItemCursor();
+    if (!VerifyDataSubdirs()) {
+        return 0;
+    }
+    if (!InitializeItemDatabase()) {
+        return 0;
+    }
+    if (!InitializeItemTables()) {
+        return 0;
+    }
+    if (!LoadMonsterDatabase(0)) {
+        return 0;
+    }
+    if (!InitializeNpcDatabase()) {
+        return 0;
+    }
+    if (!InitializeFactDatabase()) {
+        return 0;
+    }
+    if (!InitializeLevelDatabase()) {
+        return 0;
+    }
+    InitializeItemVideoObjects();
+    ConfigureSoundCache();
+    SetPendingScreenState(W8_SCREEN_INTRO);
+    g_status.current_level = -1;
+    if (gfLoadAtStartup && FindStartupQuickSave(g_pending_screen_state.name)) {
+        g_pending_screen_state.mode = 1;
+        g_pending_screen_state.parameter = GetSaveGameLevel(g_pending_screen_state.name);
+        SetPendingScreenState(W8_SCREEN_PLEASE_WAIT);
+    }
+    InitializeEncounterTables();
+    if (!LoadMissileDatabase()) {
+        ShutdownWithErrorBox("Could not load missile database!");
+    }
+    if (!InitializeSpellDatabase()) {
+        ShutdownWithErrorBox("Could not load spell database!");
+    }
+    if (!LoadHitSoundDatabase()) {
+        ShutdownWithErrorBox("Could not load hit sound database!");
+    }
+    memset(g_message_storage, 0, sizeof(g_message_storage));
+    if (!InitializeMusicPlaylist()) {
+        return 0;
+    }
+    ok = static_cast<unsigned char>(0x4000000 < GetTotalPhysicalMemory());
+    g_texture_cache_enabled = ok;
+    return 1;
+}

@@ -1,0 +1,619 @@
+#ifndef WIZ8_LAYOUTS_GAMEPLAY_DATABASES_H
+#define WIZ8_LAYOUTS_GAMEPLAY_DATABASES_H
+
+#include "wiz8/attack_modes.h"
+#include "wiz8/spell_ids.h"
+#include "wiz8/fact_state.h"
+#include <stddef.h>
+
+#include "wiz8/layouts/plist.h"
+#include "wiz8/dice.h"
+#include <wchar.h>
+
+/*
+ * The on-disk gameplay records. Everything here is a file format read by
+ * seeking to a record index and fixed stride, so the sizes are part of the
+ * format rather than incidental layout.
+ */
+
+/* The fifteen professions, in the game's fixed class order. A character's
+   current and original profession are one of these and index the
+   per-profession tables; a generated character carries NONE until the player
+   picks one. The NPC character block stores the same value. */
+enum W8Profession {
+    W8_PROFESSION_FIGHTER = 0,
+    W8_PROFESSION_LORD = 1,
+    W8_PROFESSION_VALKYRIE = 2,
+    W8_PROFESSION_RANGER = 3,
+    W8_PROFESSION_SAMURAI = 4,
+    W8_PROFESSION_NINJA = 5,
+    W8_PROFESSION_MONK = 6,
+    W8_PROFESSION_ROGUE = 7,
+    W8_PROFESSION_GADGETEER = 8,
+    W8_PROFESSION_BARD = 9,
+    W8_PROFESSION_PRIEST = 10,
+    W8_PROFESSION_ALCHEMIST = 11,
+    W8_PROFESSION_BISHOP = 12,
+    W8_PROFESSION_PSIONIC = 13,
+    W8_PROFESSION_MAGE = 14,
+    W8_PROFESSION_COUNT = 15,
+    W8_PROFESSION_NONE = -1
+};
+
+/* Race labels 644..659 in StringData.DAT. The first eleven are selectable
+   player races; all sixteen occur
+   in the race tables and NPC character records. NONE is an unselected race. */
+enum W8Race {
+    W8_RACE_NONE = -1,
+    W8_RACE_HUMAN = 0,
+    W8_RACE_ELF = 1,
+    W8_RACE_DWARF = 2,
+    W8_RACE_GNOME = 3,
+    W8_RACE_HOBBIT = 4,
+    W8_RACE_FAERIE = 5,
+    W8_RACE_LIZARDMAN = 6,
+    W8_RACE_DRACON = 7,
+    W8_RACE_FELPURR = 8,
+    W8_RACE_RAWULF = 9,
+    W8_RACE_MOOK = 10,
+    W8_RACE_TRYNNIE = 11,
+    W8_RACE_T_RANG = 12,
+    W8_RACE_UMPANI = 13,
+    W8_RACE_RAPAX = 14,
+    W8_RACE_ANDROID = 15,
+    W8_RACE_PLAYABLE_COUNT = 11,
+    W8_RACE_COUNT = 16
+};
+
+static_assert(sizeof(W8Race) == 4, "W8Race_storage");
+
+/* A character's sex. Zero is male and one is female, which is what the quote
+   lookup, the item record's sex mask and the female-only profession all agree
+   on. A character or template that has not been assigned one carries UNSET. */
+enum W8Gender {
+    W8_GENDER_MALE = 0,
+    W8_GENDER_FEMALE = 1,
+    W8_GENDER_COUNT = 2,
+    W8_GENDER_UNSET = -1
+};
+
+#pragma pack(push, 1)
+
+enum { W8_MAX_MONSTER_ATTACKS = 3 };
+
+/* One of a monster's three attacks. Monster.cpp walks the array with a
+   0x22-byte stride and copies the missile-launch fields below into its local
+   attack block. */
+struct W8MonsterAttack {
+    unsigned char fHasAttack; /* 0x00 */
+    /* 0x01: indexes the announcement verb table; must not be
+       MON_WEAPON_NAME_UNARMED. */
+    unsigned char ubWeaponNameIndex;
+    /* 0x02: the weapon type; the announcement reports "weapon type is NONE"
+       when it is zero. */
+    unsigned char weapon_type;
+    unsigned char range_category; /* 0x03 */
+    /* 0x04: the attack's innate attack-score value; the monster score formula
+       adds it alongside the modifier hit bonus and re-reads it inside the
+       surprise repick penalty. */
+    unsigned char attack_score;
+    unsigned char missile_values[W8_ATTACK_EFFECT_COUNT]; /* 0x05 */
+    unsigned short attack_modes;                          /* 0x15 */
+    /* 0x17: the attack's damage dice, packed; the missile path copies it
+       into the attack block and the melee path rolls it. */
+    W8Dice damage_dice;
+    unsigned char missile_magnitude;
+    /* 0x1c: the attack's weapon class, handed signed to BlockedForSpecialReason
+       the way a character's weapon_sound_class is. */
+    signed char weapon_class;
+    signed char missile_type; /* 0x1d */
+    unsigned char unknown_1e[4];
+}; /* 0x22 */
+
+enum W8SpellRealm {
+    W8_SPELL_REALM_NONE = -1,
+    W8_SPELL_REALM_FIRE = 0,
+    W8_SPELL_REALM_WATER = 1,
+    W8_SPELL_REALM_AIR = 2,
+    W8_SPELL_REALM_EARTH = 3,
+    W8_SPELL_REALM_MENTAL = 4,
+    W8_SPELL_REALM_DIVINE = 5,
+    W8_SPELL_REALM_COUNT = 6
+};
+
+/* Power-pip selection and the cast loop share this signed dword domain. */
+enum W8SpellPowerClass {
+    W8_SPELL_POWER_CLASS_NONE = -1,
+    W8_SPELL_POWER_SELECTABLE = 0,
+    W8_SPELL_POWER_REPEAT_OUT_OF_COMBAT = 1,
+    W8_SPELL_POWER_MAXIMUM = 2,
+    W8_SPELL_POWER_FIXED = 3
+};
+
+/* The five situations a spell record can admit, numbered by the switch in
+   SpellUsableNow. A spell usable at any time imposes no condition; the other
+   four admit exactly one of combat, the field, camping, or a lock/trap
+   interaction. */
+enum W8SpellUsage {
+    W8_SPELL_USABLE_ANY_TIME = 0,
+    W8_SPELL_USABLE_IN_COMBAT = 1,
+    W8_SPELL_USABLE_OUT_OF_COMBAT = 2,
+    W8_SPELL_USABLE_WHILE_CAMPED = 3,
+    W8_SPELL_USABLE_ON_LOCK_OR_TRAP = 4,
+    W8_SPELL_USAGE_COUNT = 5
+};
+
+/* The range bands an attack or spell works at, and the one value that means it
+   has no range at all. CalcRangeDistance is the one place the band and a
+   world distance are related. */
+enum W8RangeCategory {
+    W8_RANGE_NONE = -1,
+    W8_RANGE_TOUCH = 0,
+    W8_RANGE_SHORT = 1,
+    W8_RANGE_LONG = 2,
+    W8_RANGE_EXTREME = 3
+};
+
+/* Which spellbooks a profession may draw on, and which a spell belongs to. The
+   four flags live apart in the record rather than as one mask, so the mask is
+   built from them wherever the profession table is tested. */
+enum {
+    W8_SPELLBOOK_NONE = 0,
+    W8_SPELLBOOK_WIZARDRY = 1,
+    W8_SPELLBOOK_DIVINITY = 2,
+    W8_SPELLBOOK_ALCHEMY = 4,
+    W8_SPELLBOOK_PSIONICS = 8
+};
+
+/* Who or what a spell is cast on. The eleven values are the spell record's
+   target_type domain; the interface names them through string ids 798-808,
+   which give "Caster", "One Ally", "Party", "One Enemy", "Enemy Group",
+   "Cone", "Radius", "All Enemies", "Point" and "Adventuring" twice over - the
+   two adventuring kinds are the carried item (Identify Item) and the lock or
+   trap (Knock Knock, Divine Trap). This is not the targeting-need domain
+   GetTargetNeededForSpellFriendly maps these onto. */
+enum W8SpellTargetType {
+    W8_TARGET_TYPE_NONE = -1,
+    W8_TARGET_TYPE_CASTER = 0,
+    W8_TARGET_TYPE_ALLY = 1,
+    W8_TARGET_TYPE_PARTY = 2,
+    W8_TARGET_TYPE_ENEMY = 3,
+    W8_TARGET_TYPE_ENEMY_GROUP = 4,
+    W8_TARGET_TYPE_CONE = 5,
+    W8_TARGET_TYPE_RADIUS = 6,
+    W8_TARGET_TYPE_ALL_ENEMIES = 7,
+    W8_TARGET_TYPE_POINT = 8,
+    W8_TARGET_TYPE_ITEM = 9,
+    W8_TARGET_TYPE_LOCK_OR_TRAP = 10,
+    W8_TARGET_TYPE_COUNT = 11
+};
+
+/* One spell, as the database holds it at run time. */
+struct W8SpellRuntimeRecord {
+    char database_name[64]; /* 0x000 */
+    unsigned char unknown_040[4];
+    /* 0x044: base duration the spell-info dialog prints. */
+    int duration;
+    unsigned char alchemy_spell; /* 0x048 */
+    int spell_point_cost;        /* 0x049: per power level */
+    /* 0x04d: per-level duration added to duration on the same line. */
+    int duration_per_level;
+    W8Dice effect_dice; /* 0x051 */
+    unsigned char unknown_055;
+    int spell_level;              /* 0x056: zero through seven */
+    unsigned char wizardry_spell; /* 0x05a */
+    char resource_name[64];       /* 0x05b: visual/MLS resource basename */
+    wchar_t display_name[64];     /* 0x09b */
+    unsigned char unknown_11b[4];
+    unsigned char divinity_spell; /* 0x11f */
+    unsigned char psionics_spell; /* 0x120 */
+    float effect_radius;          /* 0x121 */
+    unsigned char unknown_125;
+    /* 0x126: a monster may cast the spell at all. MonsterOKToCastSpell reports
+       a spell without it by name and asserts. */
+    unsigned char monster_castable;
+    /* 0x127: radius added per power level; PopulateSpellTargetMarkers scales
+       the pair as (radius_per_level * power + effect_radius) * 500. */
+    float radius_per_level;
+    /* 0x12b: the power class the spell-casting view copies into
+       iSpellPowerClass (asserted not BAD_INDEX). It selects how
+       power pips work: 2 prices a max cast, 3 is a fixed-cost spell, and
+       SpellInfoDialog shows the alternate caption for 3. */
+    W8SpellPowerClass power_class;
+    /* 0x12f: the range category a monster casting this spell needs. */
+    W8RangeCategory range_category;
+    W8SpellRealm realm;            /* 0x133 */
+    W8SpellTargetType target_type; /* 0x137 */
+    /* 0x13b: when the spell may be cast. SpellUsableNow switches on it and its
+       assertion calls it uiSpellUsableWhen with a SPELL_USAGE_COUNT of five. */
+    W8SpellUsage usable_when;
+    /* 0x13f: the spell has to be aimed before it can be cast. */
+    unsigned char needs_aim;
+    /* 0x140: the MissileTables.dbs row index the cast fires its effect
+       through when missile_delivered is set. */
+    int missile_index;
+    /* 0x144: the spell's effect is delivered by a missile in flight, so its
+       queued effect stays alive until the missile lands. Set for the ten
+       projectile spells - Frost, Heal Wounds, Make Wounds, Sleep, Stamina,
+       Terror, Noxious Fumes, Crush, Return to Portal and the monster Special
+       Attack Cone. */
+    unsigned char missile_delivered;
+    unsigned char unknown_145[2];
+    /* 0x147: SpellInfoDialog prints the effect-dice line when this is set. */
+    int show_effect_dice;
+    char sound_name[0x74]; /* 0x14b: relative to Data\Spells\Sounds */
+}; /* 0x1bf */
+static_assert(sizeof(W8SpellRuntimeRecord) == 0x1bf, "W8SpellRuntimeRecord_size");
+static_assert(offsetof(W8SpellRuntimeRecord, duration) == 0x044, "W8SpellRuntimeRecord_duration");
+static_assert(offsetof(W8SpellRuntimeRecord, duration_per_level) == 0x04d,
+              "W8SpellRuntimeRecord_duration_per_level");
+static_assert(offsetof(W8SpellRuntimeRecord, show_effect_dice) == 0x147,
+              "W8SpellRuntimeRecord_show_effect_dice");
+
+struct W8FactDatabaseRecord {
+    W8FactId identifier;      /* 0x000 */
+    char symbolic_name[0x32]; /* 0x004 .. 0x035 */
+    /* 0x036: the journal shades this fact's text when its value is true. */
+    unsigned char highlight_when_true;
+    /* 0x037: the visibility level the journal entry needs. */
+    signed char visibility;
+    /* 0x038 and 0x100: the alternate and normal journal descriptions, wide,
+       selected by the fact's current value. */
+    wchar_t alternate_description[0x64];
+    wchar_t description[0x6c];
+}; /* 0x1d8 */
+
+static_assert(sizeof(W8FactDatabaseRecord) == 0x1d8, "W8FactDatabaseRecord_size_must_be_0x1d8");
+
+/* One optional NPC stock-rule entry appended after its database record: an
+   item id, the configured quantity and a keep flag. The NPC restocks only
+   while holding no more than half the quantity, and tops up by the shortfall. */
+struct W8NpcItemStockRule {
+    int item_id;              /* 0x00: Items.dbs index */
+    unsigned char quantity;   /* 0x04: configured stock quantity */
+    unsigned char persistent; /* 0x05: retain and replenish this item */
+}; /* 0x06 */
+
+/* The RPC-character block a record with has_group carries; it is expanded
+   into a W8Character when the NPC joins. */
+struct W8NpcCharacterTemplate {
+    wchar_t name[10];       /* 0x000, record 0x0c4 */
+    wchar_t name_part_2[6]; /* 0x014, record 0x0d8 */
+    unsigned char unknown_01a[0x44];
+    W8Profession
+        profession;     /* 0x064, record 0x128: index into profession_levels[W8_PROFESSION_COUNT] */
+    W8Race race;        /* 0x068, record 0x12c */
+    int table_value;    /* 0x06c, record 0x130 */
+    unsigned int level; /* 0x070, record 0x134: starting profession level */
+    int attributes[7];  /* 0x074, record 0x138: W8CharacterAttribute::value per attribute */
+    int skills[0x29];   /* 0x090, record 0x154: W8CharacterSkill::value_02 per skill */
+    unsigned char
+        spells[0x72]; /* 0x134, record 0x1f8: one flag per learnable spell, indexed from one */
+    unsigned short equipment_present[12]; /* 0x1a6, record 0x26a: zero leaves the slot empty */
+    unsigned short equipment_ids[12];     /* 0x1be, record 0x282: Items.dbs index, 0xffff empty */
+    unsigned short backpack_present[8];   /* 0x1d6, record 0x29a */
+    unsigned short backpack_ids[8];       /* 0x1e6, record 0x2aa */
+    signed char gender; /* 0x1f6, record 0x2ba: copied into the character's own sex field */
+    short wanted_item_ids[3];
+    unsigned char unknown_1fd[9];
+}; /* 0x206, record 0x0c4..0x2c9 */
+
+static_assert(sizeof(W8NpcCharacterTemplate) == 0x206, "W8NpcCharacterTemplate_size_must_be_0x206");
+
+/* One Data\Databases\NPC.DBS record. */
+struct W8NpcDatabaseRecord {
+    unsigned short
+        version; /* 0x000: two in the corpus; the rule tail loads only when this exceeds 1 */
+    /* 0x002: trade-pool stock count; CreateNpcRuntimeNode copies it into the
+       runtime state's trade_pool. */
+    short trade_pool;
+    /* 0x004: the wide source name the level-entry rebinding prefixes with an
+       underscore to build the NPC's trigger name. */
+    wchar_t source_name[0x28];
+    /* 0x054: monster-bound NPC: no standalone runtime node is created, its
+       state comes through the monster binding, and releasing the binding
+       marks it unavailable. */
+    unsigned char monster_bound;
+    /* 0x055: the NPC's stock is released only while this is set. */
+    unsigned char owns_stock;
+    /* 0x056: merchant: still opens dialogue when the disposition band is
+       hostile, and item drops go through the trade transcript layout. */
+    unsigned char merchant;
+    /* 0x057: the NPC carries an RPC character and can join a monster group,
+       which is what makes the group index on its runtime state meaningful. */
+    unsigned char has_group;
+    /* 0x058: the NPC's kind. Kind twenty refuses to trade. */
+    int kind;
+    /* 0x05c: the disposition byte CreateNpcRuntimeNode starts the state with. */
+    unsigned char disposition;
+    /* 0x05d/0x05e: the signed scales the charm and talk interactions fold into
+       the disposition shift; the sub-one path negates the /5 quotient. */
+    signed char charm_scale;
+    signed char talk_scale;
+    /* 0x05f: the faction the NPC belongs to; zero leaves GetNpcDisposition on
+       the record's own disposition byte. */
+    unsigned char faction;
+    /* 0x060: one bit per named-person alias the NPC answers to; read as one
+       dword by FindNpcNameOrPlaceQuote. */
+    unsigned int name_alias_mask;
+    /* 0x064: one-based index into g_item_tables selecting the record's item
+       table, copied into the runtime state. */
+    int item_table_id;
+    /* 0x068: one bit per service the NPC offers. */
+    unsigned int service_flags;
+    unsigned char unknown_06c[2];
+    /* 0x06e: an allied faction; while a front-rank party member's bound NPC
+       belongs to it, GetNpcDisposition pins this NPC's answer at fifty. The
+       compare sign-extends it. */
+    signed char allied_faction;
+    /* 0x06f: the minimum average party level before this NPC's group can be
+       invited. */
+    unsigned char min_party_level;
+    /* 0x070/0x074: the level this NPC restores its binding at and the
+       FindEntityByName key the restore moves its monster to - the default
+       pair copied into the runtime state's pending restore. */
+    char restore_level;
+    unsigned char unknown_071[3];
+    char restore_entity_name[0x29];
+    /* 0x09d: set when the record carries no appended item-stock
+       rules; the load path reads them only while this is clear. */
+    unsigned char no_item_stock;
+    /* 0x09e: what the NPC is called, unless a fact substitutes another name.
+       The wide RPC-character name at 0x0c4 bounds the string extent. */
+    char display_name[0x26];
+    W8NpcCharacterTemplate character; /* 0x0c4 */
+    W8PList* item_stock_rules;        /* 0x2ca: W8NpcItemStockRule* elements */
+    /* 0x2ce/0x2d2: the trade price factors. CalculateTradeStackPrice adds the
+       bargained adjustment to buy_price_factor when the NPC buys from the
+       party and subtracts it from sell_price_factor when the party buys. */
+    float buy_price_factor;
+    float sell_price_factor;
+    /* 0x2d6: one accepted trade-item class per bit. */
+    unsigned int trade_item_class_mask;
+    unsigned char unknown_2da[0x10];
+    /* 0x2ea: voice-script NPC: picks the VOC_ script/sound prefix over NPC_
+       and gates the normal dialogue paths. */
+    unsigned char voice_script;
+    /* 0x2eb: the purse the NPC carries; the party gets it when the NPC's
+       monster dies. */
+    int gold;
+    unsigned char combat_script_notice_enabled;       /* 0x2ef: hostile-NPC combat notice */
+    unsigned char allow_dismissed_departure_dialogue; /* 0x2f0: permits dismissed-NPC dialogue */
+    unsigned char unknown_2f1[0x18];
+}; /* 0x309 */
+
+static_assert(sizeof(W8NpcDatabaseRecord) == 0x309, "W8NpcDatabaseRecord_size_must_be_0x309");
+static_assert(offsetof(W8NpcDatabaseRecord, combat_script_notice_enabled) == 0x2ef,
+              "W8NpcDatabaseRecord_combat_script_notice_offset");
+static_assert(offsetof(W8NpcDatabaseRecord, allow_dismissed_departure_dialogue) == 0x2f0,
+              "W8NpcDatabaseRecord_dialogue_departure_script_offset");
+
+/* One Data\Databases\LEVELS.DBS record. The loader retains the disk row;
+   all 60 canonical rows begin with a terminated UTF-16 display name. */
+struct W8LevelDatabaseRecord {
+    wchar_t display_name[30];
+    /* 0x3c..0x50: the per-level random-encounter budget parameters, all five
+       read by UpdateRandomEncounterBudget and the sixth by the culling pass. */
+    int maximum_random_encounters; /* 0x3c */
+    int minimum_random_encounters; /* 0x40 */
+    int maximum_encounter_budget;  /* 0x44 */
+    int minimum_encounter_budget;  /* 0x48 */
+    int encounter_budget_period;   /* 0x4c: elapsed-time divisor */
+    int encounter_culling_seconds; /* 0x50 */
+    /* 0x54: float divisor the surprise transition uses when scaling game time
+       and monster-generator duration. */
+    float gameplay_time_scale;
+    unsigned char unknown_058[0x80];
+}; /* 0xd8 */
+
+static_assert(offsetof(W8LevelDatabaseRecord, maximum_random_encounters) == 0x3c,
+              "W8LevelDatabaseRecord_encounter_budget_offset");
+static_assert(sizeof(W8LevelDatabaseRecord) == 0xd8, "W8LevelDatabaseRecord_size_must_be_0xd8");
+static_assert(offsetof(W8LevelDatabaseRecord, gameplay_time_scale) == 0x54,
+              "W8LevelDatabaseRecord_gameplay_time_scale_offset");
+
+/* The one monster record whose alternate name is used in place of its own. */
+enum { W8_MONSTER_RECORD_ALTERNATE_NAME = 397 };
+
+/* One slot of W8MonsterRecord::treasure. type selects direct item (0) or
+   item-table (1) drops; the entry only fires when count is nonzero and a
+   Random(100) roll stays under chance. */
+struct W8MonsterTreasureEntry {
+    unsigned char type;     /* 0x00 */
+    short count;            /* 0x01: nonzero gates the slot */
+    unsigned short item_id; /* 0x03: item id, or table id when type is 1 */
+    unsigned char chance;   /* 0x05 */
+    W8Dice dice;            /* 0x06: rolled once for the drop count */
+};
+static_assert(sizeof(W8MonsterTreasureEntry) == 10, "W8MonsterTreasureEntry_must_be_10");
+
+struct W8MonsterTreasureBlock {
+    W8MonsterTreasureEntry slots[8]; /* 0x00 */
+    W8Dice gold_dice;                /* 0x50: rolled once into AddPartyGold */
+};
+static_assert(sizeof(W8MonsterTreasureBlock) == 0x54, "W8MonsterTreasureBlock_must_be_0x54");
+
+#pragma pack(push, 1)
+struct W8EncounterCompanionRecord {
+    short species;
+    unsigned char chance;
+};
+#pragma pack(pop)
+static_assert(sizeof(W8EncounterCompanionRecord) == 3, "W8EncounterCompanionRecord_size");
+
+/* Packed database flag byte. */
+enum W8MonsterRecordFlag {
+    W8_MONSTER_FLAG_NPC = 0x01,
+    W8_MONSTER_FLAG_VULNERABLE_FROM_BEHIND = 0x02,
+    W8_MONSTER_FLAG_BODYGUARD = 0x04,
+    W8_MONSTER_FLAG_ALTERNATE_NAME = 0x10
+};
+
+struct W8MonsterRecord {
+    wchar_t name0[24]; /* 0x000: suffix after '#' removed at load */
+    wchar_t name1[24]; /* 0x030: suffix after '#' removed at load */
+    wchar_t name2[24]; /* 0x060: suffix after '#' removed at load */
+    wchar_t name3[24]; /* 0x090: suffix after '#' removed at load */
+    /* Cosmic Forge's Monster Editor exposes this byte as 'Can open doors'. */
+    unsigned char can_open_doors;
+    /* 0x0c1: rolled by the group-attack summon to size the spawned group. */
+    W8Dice group_size_dice;
+    W8EncounterCompanionRecord companions[2];
+    /* 0x0cb: the monster's kind. The alchemy-casting rule admits kinds four,
+       five and thirteen and no others, which is the only body that reads it. */
+    unsigned char kind;
+    /* 0x0cc: selects this monster's row in the name-prefix table, the same
+       table a character indexes by sex. */
+    unsigned char name_group;
+    /* 0x0cd: the NPC record index this monster is bound to, fed to
+       GetNpcStateByKind and compared against W8NpcState::name_style; 0xfa
+       marks a record with no bound NPC. */
+    unsigned char npc_kind;
+    /* 0x0ce: signed stamina regeneration rate (Monster Editor: ST Regen). */
+    signed char stamina_regeneration;
+    /* 0x0cf: the monster's own percentage reduction on incoming damage. */
+    unsigned char damage_reduction;
+    /* 0x0d0: W8MonsterRecordFlag mask; retain the serialized byte width. */
+    unsigned char flags;
+    unsigned char attribute_values[5]; /* 0x0d1 */
+    W8Dice hit_points;                 /* 0x0d6: rolled into uiHPMax/hp_current */
+    W8Dice stamina_dice;               /* 0x0da: initializes maximum and current stamina */
+    unsigned char unknown_0de[2];
+    /* 0x0e0/0x0e1: the percentage chances the AI casts a spell or flees each
+       round; a monster with a usable attack ignores them and always tries. */
+    unsigned char spell_chance;
+    unsigned char flee_chance;
+    /* 0x0e2: the percentage chance the AI advances on the party each round;
+       zero falls back to the behavior byte at +0x1c0. */
+    unsigned char advance_chance;
+    /* 0x0e3: Special attack selector; indexes the effect rows used by
+       GroupAttacks.cpp and the corresponding display-name table. */
+    unsigned char special_attack_kind;
+    unsigned char initiative; /* 0x0e4: Monster Editor Initiative */
+    /* 0x0e5/0x0e6: attacks and swings per round. */
+    unsigned char attacks_per_round;
+    unsigned char swings_per_round;
+    /* 0x0e7: the monster's three attacks, named by the Combat Range.cpp
+       assertions pMonsterDB->Attack[uiAttack].fHasAttack and uiAttack <
+       MAX_MONSTER_ATTACKS, which is what bounds the array at three. */
+    W8MonsterAttack attacks[W8_MAX_MONSTER_ATTACKS]; /* 0x0e7 */
+    /* 0x14d: the ten spells the AI may cast, zero for none. */
+    unsigned char spells[10];
+    unsigned char attack_body_part_chances[5];
+    unsigned char special_attack_cooldown;
+    signed char evasion;
+    /* 0x15e: Monster Editor Constitution selector; chooses the body-specific
+       hit-location label row. */
+    unsigned char constitution;
+    /* 0x15f: the percentage of hits that land on each of the seven monster
+       hit locations; the total is reported when it falls short of 100. */
+    unsigned char hit_location_chances[7];
+    /* 0x166/0x16d: the monster's armour per hit location and per attack mode,
+       the terms TargetArmorClassAtLocation subtracts on top of evasion. */
+    signed char armor_class_by_location[7];
+    signed char armor_class_by_attack_mode[9];
+    /* 0x176: the monster's own resistance per realm, read alongside the
+       gameplay-modifier bonus wherever a character would read
+       W8CharacterResistance::total. */
+    unsigned char resistances[6];
+    /* 0x17c: hit points gained (or lost, when negative) per game minute. */
+    signed char hp_regeneration;
+    unsigned char unknown_17d[4];
+    unsigned int experience; /* 0x181: base experience value */
+    unsigned char unknown_185[2];
+    short record_id;       /* 0x187: equals the zero-based database index */
+    char cycle_name[0x30]; /* 0x189: GrCycle lookup key */
+    /* 0x1b9: prefer ranged actions instead of closing/backing off. */
+    unsigned char prefer_ranged_actions;
+    float combat_move_range; /* 0x1ba: designer-facing combat movement range */
+    /* 0x1be: blocks the DEAD condition. */
+    unsigned char instant_death_immune;
+    /* 0x1bf/0x1c0: the Monster Editor's Combat Behaviour and Combat Morale selectors. */
+    unsigned char combat_behavior;
+    unsigned char combat_morale;
+    /* 0x1c1: the MIPE monster list only admits records carrying -1 here, and
+       stores the value itself as the selected monster index. */
+    short editor_index;
+    /* Cosmic Forge's Remains column consumes this as a narrow item-model
+       name. The canonical rows contain creaturegoo, plantgoo or an empty
+       string. It precedes the treasure entries rather than belonging to them. */
+    char remains_model_name[0x30];
+    /* 0x1f3: the monster's treasure table. DropMonsterLoot fires each slot
+       whose count is nonzero once Random(100) stays under its chance, rolling
+       the slot dice for the drop count; type 0 creates the item id directly,
+       type 1 feeds the id to GenerateItemsFromTable. The gold dice lands in
+       AddPartyGold. */
+    W8MonsterTreasureBlock treasure;
+    unsigned char attack_multiple_targets;
+    /* 0x248: Monster Editor camouflage rating. */
+    unsigned char camouflage0;
+    unsigned char camouflage1;
+    /* 0x24a: the monster cannot be targeted at all. Every sweep that gathers
+       candidates drops it before any other test. */
+    unsigned char untargetable;
+    unsigned char unknown_24b[4];
+    /* 0x24f: effective/combat monster level used by attack, resistance,
+       spell and effect formulas. Distinct from the displayed level at 0x251. */
+    unsigned char effective_level;
+    unsigned char unknown_250;
+    /* 0x251: monster level shown by MonsterInfo and related UI. */
+    unsigned char display_level;
+    unsigned char unknown_252;
+    int model_index;           /* 0x253 */
+    int alternate_model_index; /* 0x257: alternate selected value */
+    int hostility_radius;      /* 0x25b: Minimal Neutrality Distance / Hostility Radius */
+    int faction_id;            /* 0x25f: W8Faction value, domain 0..20 */
+    int material;              /* 0x263: Monster Editor Material selector */
+    unsigned char deleted;     /* 0x267: LoadMonsterGroup skips the record */
+    unsigned char significant_kill;
+    unsigned char unknown_269;
+    /* 0x26a: unborn monsters enter the birth/encounter lists before acting. */
+    unsigned char unborn;
+    unsigned int experience_override; /* 0x26b: nonzero experience override */
+    /* 0x26f: the spell-point budget the monster casts out of, before its own
+       runtime bonus. Zero is a data error the power-level chooser reports by
+       name. */
+    int sp_budget;
+    unsigned char unknown_273[0x24];
+}; /* 0x297 */
+
+static_assert(sizeof(W8MonsterRecord) == 0x297, "W8MonsterRecord_size_must_be_0x297");
+static_assert(offsetof(W8MonsterRecord, flags) == 0xd0, "W8MonsterRecord_flags_offset");
+static_assert(offsetof(W8MonsterRecord, stamina_dice) == 0xda,
+              "W8MonsterRecord_stamina_dice_offset");
+static_assert(offsetof(W8MonsterRecord, remains_model_name) == 0x1c3,
+              "W8MonsterRecord_remains_model_name_offset");
+static_assert(offsetof(W8MonsterRecord, treasure) == 0x1f3, "W8MonsterRecord_treasure_offset");
+static_assert(offsetof(W8MonsterRecord, treasure.gold_dice) == 0x243,
+              "W8MonsterRecord_gold_dice_offset");
+static_assert(offsetof(W8MonsterRecord, attack_body_part_chances) == 0x157,
+              "W8MonsterRecord_attack_body_part_chances");
+static_assert(offsetof(W8MonsterRecord, effective_level) == 0x24f,
+              "W8MonsterRecord_effective_level");
+static_assert(offsetof(W8MonsterRecord, display_level) == 0x251, "W8MonsterRecord_display_level");
+
+#pragma pack(pop)
+
+/* Data\Databases race table rows the resistance recalculation reads. A
+   resistance_index of -1 terminates a race's list; an adjustment above
+   W8_RACE_ADJUSTMENT_ATTRIBUTE_BIAS names a character attribute instead of a
+   flat amount. */
+struct W8RaceResistanceAdjustment {
+    int resistance_index;
+    int adjustment_or_attribute;
+}; /* 0x08 */
+
+struct W8RaceResistanceProfile {
+    W8RaceResistanceAdjustment adjustments[6];
+}; /* 0x30 */
+
+/* Runtime roots for the database records described above. GameplayDatabase.cpp
+   owns their storage; consumers reach it through this one declaration surface
+   instead of the gameplay-boundary quarantine. */
+extern W8FactDatabaseRecord* g_fact_records;
+extern W8LevelDatabaseRecord* g_level_records;
+extern W8NpcDatabaseRecord* g_npc_records;
+extern W8SpellRuntimeRecord* g_spell_records;
+extern unsigned int g_spell_database_version;
+
+#endif

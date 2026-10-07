@@ -1,0 +1,455 @@
+#include "wiz8/engine_code/BitArray.h"
+#include "wiz8/sr_api.h"
+
+#include "FileMan.h"
+#include "surrender/srHuffman.h"
+
+#include <new>
+#include <stdlib.h>
+#include <string.h>
+
+#define BITARRAY_CPP "C:\\Projects\\Wizardry 8\\Engine Code\\BitArray.cpp"
+
+/* The word count is computed through a floating divide rather than a shift,
+   which is why every sizing path in here goes through ftol. */
+#define W8_WHOLE_WORDS(bits) ((int)((bits) / 32.0f))
+
+/* How much slack SetAndGrow leaves beyond the bit that overflowed. */
+enum { W8_BITARRAY_GROWTH_SLACK = 100 };
+
+// FUNCTION: WIZ8 0x0043acc0
+BitArray::BitArray(unsigned int new_bit_count)
+{
+    int whole_words;
+
+    bit_count = new_bit_count;
+    whole_words = W8_WHOLE_WORDS(new_bit_count);
+    cursor_base = new_bit_count - whole_words * W8_BITS_PER_WORD;
+    word_count = whole_words + 1;
+    tail_mask = 0;
+    for (cursor_bit = 0; static_cast<unsigned int>(cursor_bit) < cursor_base; ++cursor_bit) {
+        tail_mask |= 1 << cursor_bit;
+    }
+
+    cursor_base = 0;
+    cursor_bit = 0;
+    cursor_word = 0;
+    set_count = 0;
+    puiIndex = static_cast<unsigned int*>(malloc(word_count * sizeof(unsigned int)));
+    if (puiIndex == 0) {
+        srAssertFail("puiIndex", BITARRAY_CPP, 59, "BitArray: Couldn't allocate bit index.");
+    }
+    memset(puiIndex, 0, word_count * sizeof(unsigned int));
+}
+
+// FUNCTION: WIZ8 0x0043ada0
+void BitArray::SetSize(unsigned int new_bit_count)
+{
+    int whole_words;
+    unsigned int spill;
+    unsigned int index;
+
+    cursor_base = 0;
+    cursor_bit = 0;
+    cursor_word = 0;
+
+    if (bit_count != new_bit_count) {
+        whole_words = W8_WHOLE_WORDS(new_bit_count);
+        spill = new_bit_count - whole_words * W8_BITS_PER_WORD;
+        cursor_base = spill;
+        word_count = whole_words + 1;
+        tail_mask = 0;
+        cursor_bit = 0;
+        while (static_cast<unsigned int>(cursor_bit) < spill) {
+            tail_mask |= 1 << cursor_bit;
+            ++cursor_bit;
+        }
+
+        if (puiIndex != 0) {
+            free(puiIndex);
+        }
+        puiIndex = 0;
+        if (new_bit_count != 0) {
+            puiIndex = static_cast<unsigned int*>(malloc(word_count * sizeof(unsigned int)));
+            if (puiIndex == 0) {
+                srAssertFail("puiIndex", BITARRAY_CPP, 89,
+                             "BitArray: Couldn't allocate bit index.");
+            }
+        }
+        bit_count = new_bit_count;
+    }
+
+    memset(puiIndex, 0, word_count * sizeof(unsigned int));
+}
+
+// FUNCTION: WIZ8 0x0043ad90
+BitArray::~BitArray()
+{
+    free(puiIndex);
+}
+
+// FUNCTION: WIZ8 0x0043ae80
+void BitArray::CopyFrom(BitArray& other)
+{
+    SetSize(other.bit_count);
+    memcpy(puiIndex, other.puiIndex, word_count * sizeof(unsigned int));
+    set_count = other.set_count;
+}
+
+/* Packed Huffman payload used by the octree alpha-bit and prop-sun-bit
+   arrays. Magic 0xDEADD00D frames the bit count, the packed size, and a
+   trailing copy of the magic. An allocation failure after SetSize still
+   recounts and answers success, matching retail. */
+// FUNCTION: WIZ8 0x0043aec0
+unsigned char BitArray::Load(int handle)
+{
+    unsigned int magic;
+    unsigned int packed_size;
+    void* packed;
+    unsigned int file_bit_count;
+    unsigned long* decoded;
+    unsigned long remaining;
+    unsigned long* cursor;
+
+    if (FileRead(handle, &magic, 4, 0) == 0 || magic != 0xdeadd00d) {
+        return 0;
+    }
+    if (FileRead(handle, &file_bit_count, 4, 0) == 0 || file_bit_count == 0) {
+        return 0;
+    }
+    SetSize(file_bit_count);
+    if (FileRead(handle, &packed_size, 4, 0) == 0) {
+        return 0;
+    }
+    packed = operator new(packed_size);
+    if (packed != 0) {
+        if (FileRead(handle, packed, packed_size, 0) == 0) {
+            operator delete(packed);
+            return 0;
+        }
+
+        decoded = 0;
+        {
+            srBinIMStream stream(packed, packed_size);
+            {
+                srHuffman::BitIStream bits(stream);
+                srHuffman::Decompressor decoder(bits);
+                remaining = decoder.getDataCount();
+                if (remaining != 0) {
+                    decoded = static_cast<unsigned long*>(operator new(remaining * 4));
+                    if (remaining > 0)
+                        cursor = decoded;
+                    while (remaining > 0) {
+                        *cursor = decoder.decompressSymbol();
+                        ++cursor;
+                        --remaining;
+                    }
+                }
+            }
+            memcpy(puiIndex, decoded, word_count * sizeof(unsigned int));
+            delete decoded;
+            operator delete(packed);
+            magic = 0;
+            if (FileRead(handle, &magic, 4, 0) == 0 || magic != 0xdeadd00d) {
+                return 0;
+            }
+        }
+    }
+
+    set_count = 0;
+    if (NextSetBit(true) != 0) {
+        do {
+            ++set_count;
+        } while (NextSetBit(false) != 0);
+    }
+    return 1;
+}
+
+/* Packed Huffman payload used by the octree alpha-bit and prop-sun-bit
+   arrays. Sampler is destroyed as its srArray and srHashTable members
+   rather than the imported ~Sampler; codes are looked up through the
+   Compressor hash prefix and written with BitOStream::put. */
+// FUNCTION: WIZ8 0x0043b0e0
+unsigned char BitArray::Save(int handle)
+{
+    unsigned int magic;
+    unsigned long packed_size;
+    unsigned int* words;
+    unsigned int remaining;
+    unsigned int count;
+
+    magic = 0xdeadd00d;
+    if (word_count == 0) {
+        return 0;
+    }
+
+    if (FileWrite(handle, &magic, 4, 0) == 0) {
+        return 0;
+    }
+    if (FileWrite(handle, &bit_count, 4, 0) == 0) {
+        return 0;
+    }
+
+    srBinOMStream stream;
+    {
+        srHuffman::BitOStream bits(stream);
+        srHuffman::Sampler sampler;
+        count = word_count;
+        words = puiIndex;
+        if (count > 0) {
+            remaining = count;
+            do {
+                sampler.insert(*words);
+                ++words;
+                --remaining;
+            } while (remaining != 0);
+        }
+
+        srHuffman::Compressor compressor(sampler);
+        bits.put(compressor.num_symbols, 32);
+        bits.put(compressor.code_width, 6);
+        bits.put(count, 32);
+        compressor.storeSymbolTable(bits);
+        if (count > 0) {
+            words = puiIndex;
+            remaining = count;
+            do {
+                compressor.compressSymbol(bits, *words);
+                ++words;
+                --remaining;
+            } while (remaining != 0);
+        }
+    }
+
+    packed_size = stream.getSize();
+    if (FileWrite(handle, &packed_size, 4, 0) == 0) {
+        return 0;
+    }
+    if (FileWrite(handle, stream.getPtr(), packed_size, 0) == 0) {
+        return 0;
+    }
+    if (FileWrite(handle, &magic, 4, 0) == 0) {
+        return 0;
+    }
+    return 1;
+}
+
+// FUNCTION: WIZ8 0x0043b390
+bool BitArray::Set(unsigned int bit)
+{
+    unsigned int mask;
+    unsigned int* word;
+
+    if (bit > bit_count) {
+        return false;
+    }
+    mask = 1 << (bit & 0x1f);
+    word = &puiIndex[bit >> 5];
+    if ((mask & *word) != 0) {
+        return true;
+    }
+    ++set_count;
+    *word |= mask;
+    return false;
+}
+
+// FUNCTION: WIZ8 0x0043b3d0
+bool BitArray::SetAndGrow(unsigned int bit)
+{
+    if (bit > bit_count) {
+        Grow(bit + W8_BITARRAY_GROWTH_SLACK, bit + W8_BITARRAY_GROWTH_SLACK);
+    }
+    return Set(bit);
+}
+
+// FUNCTION: WIZ8 0x0043b420
+bool BitArray::SetAll()
+{
+    unsigned int index;
+
+    for (index = 0; index < word_count; ++index) {
+        puiIndex[index] = 0xffffffff;
+    }
+    set_count = bit_count;
+    return true;
+}
+
+// FUNCTION: WIZ8 0x0043b450
+bool BitArray::Clear(unsigned int bit)
+{
+    unsigned int mask;
+    unsigned int* word;
+
+    if (bit <= bit_count) {
+        word = &puiIndex[bit >> 5];
+        mask = 1 << (bit & 0x1f);
+        if ((mask & *word) != 0) {
+            *word &= ~mask;
+            --set_count;
+            return true;
+        }
+    }
+    return false;
+}
+
+// FUNCTION: WIZ8 0x0043b490
+void BitArray::ClearAll()
+{
+    memset(puiIndex, 0, word_count * sizeof(unsigned int));
+    set_count = 0;
+    cursor_base = 0;
+    cursor_bit = 0;
+    cursor_word = 0;
+}
+
+// FUNCTION: WIZ8 0x0043b620
+bool BitArray::Test(unsigned int bit)
+{
+    if (bit > bit_count) {
+        return false;
+    }
+    return (puiIndex[bit >> 5] & (1 << (bit & 0x1f))) != 0;
+}
+
+// FUNCTION: WIZ8 0x0043b4c0
+bool BitArray::IntersectWith(BitArray& other)
+{
+    unsigned int shared = other.word_count;
+    unsigned int index;
+
+    if (word_count < other.word_count) {
+        shared = word_count;
+    }
+    for (index = 0; index < shared; ++index) {
+        puiIndex[index] &= other.puiIndex[index];
+    }
+    return true;
+}
+
+// FUNCTION: WIZ8 0x0043b510
+bool BitArray::UnionWith(BitArray& other)
+{
+    unsigned int shared = other.word_count;
+    unsigned int index;
+
+    if (word_count < other.word_count) {
+        shared = word_count;
+    }
+    for (index = 0; index < shared; ++index) {
+        puiIndex[index] |= other.puiIndex[index];
+    }
+    return true;
+}
+
+/* Become the complement of another array. The last word is masked back to
+   whichever of the two arrays ends sooner, so the bits past the end do not
+   come up; the count can only be derived when the two are the same length. */
+// FUNCTION: WIZ8 0x0043b560
+void BitArray::SetToComplementOf(BitArray& other)
+{
+    unsigned int shared;
+    unsigned int last_mask;
+    unsigned int index;
+
+    ClearAll();
+
+    shared = word_count;
+    if (other.word_count <= word_count) {
+        shared = other.word_count;
+    }
+    if (bit_count < other.bit_count) {
+        last_mask = tail_mask;
+    } else {
+        last_mask = other.tail_mask;
+    }
+
+    for (index = 0; index < shared; ++index) {
+        puiIndex[index] = ~other.puiIndex[index];
+    }
+    puiIndex[index - 1] &= last_mask;
+
+    if (bit_count == other.bit_count) {
+        set_count = bit_count - other.set_count;
+    }
+}
+
+// FUNCTION: WIZ8 0x0043b5f0
+int BitArray::CountSetBits()
+{
+    set_count = 0;
+    int bit = NextSetBit(true);
+    while (bit != 0) {
+        ++set_count;
+        bit = NextSetBit(false);
+    }
+    return set_count;
+}
+
+// FUNCTION: WIZ8 0x0043b660
+int BitArray::NextSetBit(bool restart)
+{
+    if (restart) {
+        if (puiIndex == 0) {
+            return -1;
+        }
+        cursor_base = 0;
+        cursor_bit = 0;
+        cursor_word = 0;
+    }
+
+    while (cursor_base < bit_count) {
+        if (puiIndex[cursor_word] != 0) {
+            while (static_cast<unsigned int>(cursor_bit) < W8_BITS_PER_WORD) {
+                if ((puiIndex[cursor_word] & (1 << (cursor_bit & 0x1f))) != 0) {
+                    ++cursor_bit;
+                    return cursor_base + cursor_bit;
+                }
+                ++cursor_bit;
+            }
+        }
+        cursor_bit = 0;
+        cursor_base += W8_BITS_PER_WORD;
+        ++cursor_word;
+    }
+
+    cursor_base = 0;
+    cursor_bit = 0;
+    cursor_word = 0;
+    return 0;
+}
+
+// FUNCTION: WIZ8 0x0043b700
+void BitArray::Grow(unsigned int wanted_bits, unsigned int new_bit_count)
+{
+    unsigned int spill;
+    unsigned int new_word_count;
+    unsigned int index;
+    unsigned int* pulNewArray;
+
+    if (bit_count >= wanted_bits) {
+        return;
+    }
+
+    spill = wanted_bits - W8_WHOLE_WORDS(wanted_bits) * W8_BITS_PER_WORD;
+    new_word_count = W8_WHOLE_WORDS(wanted_bits) + 1;
+    tail_mask = 0;
+    for (index = 0; index < spill; ++index) {
+        tail_mask |= 1 << index;
+    }
+
+    pulNewArray = static_cast<unsigned int*>(malloc(new_word_count * sizeof(unsigned int)));
+    if (pulNewArray == 0) {
+        srAssertFail("pulNewArray", BITARRAY_CPP, 741,
+                     "BitArray Expansion: Couldn't allocate bit index.");
+    }
+    memset(pulNewArray, 0, new_word_count * sizeof(unsigned int));
+
+    if (puiIndex != 0) {
+        memcpy(pulNewArray, puiIndex, word_count * sizeof(unsigned int));
+        free(puiIndex);
+        new_word_count = 0;
+    }
+    word_count = new_word_count;
+    puiIndex = pulNewArray;
+    bit_count = new_bit_count;
+}

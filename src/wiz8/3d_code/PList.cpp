@@ -1,0 +1,219 @@
+#include "wiz8/3d_code/PList.h"
+#include "wiz8/sr_api.h"
+
+#include <stdlib.h>
+
+#define PLIST_CPP "C:\\Projects\\Wizardry 8\\3D Code\\PList.cpp"
+
+/* 3D Code\PList.cpp. The parameter names ppl and pEntry come from the canonical
+   assertions at lines 540 and 541. This is a different container from
+   W8GrowableVector: the element array is at +0x00 and the iNumUsed at +0x08, with
+   no vptr, and the accessors are free functions rather than methods. */
+
+// FUNCTION: WIZ8 0x005e22c0
+W8PList* PLCreate(void)
+{
+    W8PList* ppl;
+
+    ppl = static_cast<W8PList*>(malloc(sizeof(W8PList)));
+    if (!ppl) {
+        srAssertFail("ppl", PLIST_CPP, 0x37, 0);
+    }
+    ppl->iNumUsed = 0;
+    ppl->data = 0;
+
+    if (!PListInit(ppl)) {
+        free(ppl);
+        return 0;
+    }
+    return ppl;
+}
+
+// FUNCTION: WIZ8 0x005e2370
+unsigned char PListInit(W8PList* ppl)
+{
+    bool created;
+
+    if (!ppl) {
+        srAssertFail("ppl", PLIST_CPP, 0x56, 0);
+    }
+    if (ppl->iNumUsed != 0) {
+        srAssertFail("ppl->iNumUsed==0", PLIST_CPP, 0x58, 0);
+    }
+    if (ppl->data) {
+        free(ppl->data);
+    }
+    ppl->data = static_cast<void**>(malloc(10 * sizeof(void*)));
+    created = ppl->data != 0;
+    ppl->capacity = 10;
+    ppl->iNumUsed = 0;
+    return created;
+}
+
+// FUNCTION: WIZ8 0x005e23e0
+unsigned char PLDestroy(W8PList* ppl)
+{
+    if (!ppl) {
+        srAssertFail("ppl", PLIST_CPP, 0x77, 0);
+    }
+    PListFreeData(ppl);
+    free(ppl);
+    return 1;
+}
+
+// FUNCTION: WIZ8 0x005e2440
+unsigned char PListFreeData(W8PList* ppl)
+{
+    if (!ppl) {
+        srAssertFail("ppl", PLIST_CPP, 0x8e, 0);
+    }
+    if (ppl->data) {
+        free(ppl->data);
+        ppl->data = 0;
+    }
+    return 1;
+}
+
+/* Descriptive name for the shared five-slot storage growth operation. */
+static void GrowPListStorage(W8PList* ppl)
+{
+    if (!ppl) {
+        srAssertFail("ppl", PLIST_CPP, 0x1d6, 0);
+    }
+    void** pTemp = static_cast<void**>(malloc((ppl->capacity + 5) * sizeof(void*)));
+    if (!pTemp) {
+        srAssertFail("pTemp", PLIST_CPP, 0x1d9, 0);
+    }
+    for (int index = 0; index < ppl->iNumUsed; ++index) {
+        pTemp[index] = ppl->data[index];
+    }
+    free(ppl->data);
+    ppl->data = pTemp;
+    ppl->capacity += 5;
+}
+
+// FUNCTION: WIZ8 0x005e2480
+int PLAdoptAppend(W8PList* ppl, void* pEntry)
+{
+    if (ppl->iNumUsed >= ppl->capacity) {
+        GrowPListStorage(ppl);
+    }
+    ppl->data[ppl->iNumUsed] = pEntry;
+    ++ppl->iNumUsed;
+    return ppl->iNumUsed - 1;
+}
+
+// FUNCTION: WIZ8 0x005e2530
+int PListInsert(W8PList* ppl, int position, void* pEntry)
+{
+    int index;
+
+    if (!ppl) {
+        srAssertFail("ppl", PLIST_CPP, 0xc1, 0);
+    }
+    if (position > ppl->iNumUsed) {
+        return PLAdoptAppend(ppl, pEntry);
+    }
+    if (ppl->iNumUsed >= ppl->capacity) {
+        GrowPListStorage(ppl);
+    }
+    for (index = ppl->iNumUsed; index > position; --index) {
+        ppl->data[index] = ppl->data[index - 1];
+    }
+    ppl->data[position] = pEntry;
+    ++ppl->iNumUsed;
+    return position;
+}
+
+// FUNCTION: WIZ8 0x005e26b0
+void PListClear(W8PList* ppl)
+{
+    if (!ppl) {
+        srAssertFail("ppl", PLIST_CPP, 0x15a, 0);
+    }
+    ppl->iNumUsed = 0;
+}
+
+// FUNCTION: WIZ8 0x005e26e0
+void* PListRemove(W8PList* ppl, void* pEntry)
+{
+    int index;
+
+    if (!ppl) {
+        srAssertFail("ppl", PLIST_CPP, 0x16f, 0);
+    }
+    for (index = 0; index < ppl->iNumUsed; ++index) {
+        if (ppl->data[index] == pEntry) {
+            return PLRemoveAt(ppl, index);
+        }
+    }
+    return 0;
+}
+
+// FUNCTION: WIZ8 0x005e27c0
+void* PLRemoveAt(W8PList* ppl, int position)
+{
+    void* entry;
+    int index;
+
+    if (!ppl) {
+        srAssertFail("ppl", PLIST_CPP, 0x18a, 0);
+    }
+    if (position >= ppl->iNumUsed) {
+        srAssertFail("iPosition < ppl->iNumUsed", PLIST_CPP, 0x18b, 0);
+    }
+    entry = ppl->data[position];
+    for (index = position; index < ppl->iNumUsed - 1; ++index) {
+        ppl->data[index] = ppl->data[index + 1];
+    }
+    --ppl->iNumUsed;
+    if (static_cast<double>(ppl->iNumUsed) / ppl->capacity < 0.5 && !ppl) {
+        srAssertFail("ppl", PLIST_CPP, 0x1f8, 0);
+    }
+    return entry;
+}
+
+// FUNCTION: WIZ8 0x005e2870
+void* PLGet(W8PList* ppl, int index)
+{
+    if (ppl && index < ppl->iNumUsed) {
+        return ppl->data[index];
+    }
+    return 0;
+}
+
+// FUNCTION: WIZ8 0x005e2890
+int PListIndexOf(W8PList* ppl, void* pEntry)
+{
+    int count;
+    int index;
+
+    if (!ppl) {
+        srAssertFail("ppl", PLIST_CPP, 0x21c, 0);
+    }
+    if (!pEntry) {
+        srAssertFail("pEntry", PLIST_CPP, 0x21d, 0);
+    }
+    count = ppl->iNumUsed;
+    for (index = 0; index < count; ++index) {
+        if (ppl->data[index] == pEntry) {
+            goto done;
+        }
+    }
+    index = -1;
+
+done:
+    return index;
+}
+
+/* Retail ICF folds this ordinary PList.cpp function with ILLength. The retained
+   retail body is the IList.cpp emission at 0x005e2c70. PLLength remains a
+   separate typed source function with no retail address marker; the /OPT:NOICF
+   comparison build may therefore report call-target differences. */
+unsigned int PLLength(W8PList* ppl)
+{
+    if (!ppl) {
+        return 0;
+    }
+    return ppl->iNumUsed;
+}

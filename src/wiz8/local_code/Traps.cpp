@@ -1,0 +1,369 @@
+#include <windows.h>
+#include "wiz8/fonts.h"
+#include "wiz8/local_code/Traps.h"
+#include "wiz8/integer_constants.h"
+#include "wiz8/engine_code/Trigger.hpp"
+#include "wiz8/engine_code/GDCamera.h"
+#include "wiz8/engine_code/Prop.h"
+#include "wiz8/engine_code/Octree.h"
+#include "wiz8/engine_code/GameData.h"
+#include "wiz8/engine_code/Navigator.h"
+#include "wiz8/engine_code/Spells.h"
+#include "wiz8/engine_code/World.h"
+#include "wiz8/engine_code/Levels.h"
+#include "wiz8/engine_code/3dapi.h"
+#include "input.h"
+#include "wiz8/startup_world.h"
+#include "wiz8/local_code/Magic.h"
+#include "wiz8/local_code/Targeting.h"
+#include "wiz8/local_code/character_events.h"
+#include "wiz8/layouts/game_status.h"
+#include "wiz8/layouts/character.h"
+#include "wiz8/layouts/combat_state.h"
+#include "wiz8/local_screens/MainGameScreen.h"
+#include "wiz8/local_screens/CharacterScreen.h"
+#include "wiz8/local_screens/MGSTextBox.h"
+#include "wiz8/vector.h"
+#include "wiz8/utility.h"
+#include "wiz8/float_constants.h"
+#include "wiz8/string_database.h"
+#include "wiz8/local_code/Strings.h"
+#include "wiz8/sr_api.h"
+#include "FileMan.h"
+#include "random.h"
+#include <ctype.h>
+#include <stdio.h>
+#include <string.h>
+
+#define TRAPS_CPP "C:\\Projects\\Wizardry 8\\Local Code\\Traps.cpp"
+
+// GLOBAL: WIZ8 0x0069ca68
+static char g_record_mode_line[0x1000];
+// GLOBAL: WIZ8 0x0069da6c
+static bool g_record_mode_active;
+// GLOBAL: WIZ8 0x0069da68
+static int g_record_mode_value;
+// GLOBAL: WIZ8 0x0069da70
+static int g_record_mode_length;
+
+// GLOBAL: WIZ8 0x00650384
+static char s_record_mode_prompt[] = "Type in your text, then ENTER or ESC.";
+// GLOBAL: WIZ8 0x006503ac
+static char s_record_mode_default_location[] = "tst";
+// GLOBAL: WIZ8 0x006503b0
+static char s_record_mode_orientation_format[] = "%f %f %f %f %f %d\n";
+// GLOBAL: WIZ8 0x006503c4
+static char s_record_mode_position_format[] = "%f %f %f\n";
+// GLOBAL: WIZ8 0x006503d0
+static char s_data_notes_txt[] = "data\\notes.txt";
+// GLOBAL: WIZ8 0x006503e0
+static char s_exiting_record_mode[] = "Exiting record mode.";
+// GLOBAL: WIZ8 0x006503f8
+static char s_error_deleting_log_file[] = "Error deleting log file.";
+// GLOBAL: WIZ8 0x00650414
+static char s_log_file_deleted[] = "Log file deleted.";
+// GLOBAL: WIZ8 0x00650428
+static char s_delete_log[] = "DELETE LOG";
+/* Per-device spell/notice table; TriggerTrapDevice reads
+   the effect spell id at index device + 0xb. */
+// GLOBAL: WIZ8 0x006504E8
+int g_table2[] = {10,  25, 35, 40, 50, 60, 70, 80,  90,  100, 110, 121, 122,
+                  123, 24, 47, 36, 37, 60, 70, 124, 125, 126, 86,  127, 91};
+// GLOBAL: WIZ8 0x00650434
+static unsigned char g_table1[15][8] = {
+    {0, 1, 0, 0, 0, 1, 0, 0}, {0, 1, 0, 1, 0, 0, 0, 0}, {0, 0, 1, 0, 0, 1, 0, 0},
+    {0, 0, 0, 0, 1, 1, 0, 0}, {0, 0, 1, 1, 0, 0, 0, 1}, {1, 1, 0, 0, 1, 0, 0, 0},
+    {0, 0, 1, 0, 1, 0, 1, 0}, {1, 0, 0, 1, 0, 1, 0, 0}, {0, 0, 1, 1, 1, 0, 0, 0},
+    {1, 0, 0, 0, 0, 1, 0, 1}, {0, 1, 1, 0, 0, 0, 0, 1}, {0, 0, 1, 1, 0, 0, 1, 0},
+    {0, 1, 0, 0, 1, 0, 1, 0}, {0, 1, 0, 0, 0, 1, 1, 0}, {1, 0, 0, 0, 0, 1, 1, 0},
+};
+
+/* Record mode appends the current camera position, orientation, level
+   location code and the typed line to data\notes.txt. */
+// FUNCTION: WIZ8 0x005E3280
+void WriteRecordModeEntry(void)
+{
+    W8WorldCameraState state;
+    char location_code[32];
+    char line[1024];
+    HWFILE file;
+    unsigned int length;
+
+    file = FileOpen(s_data_notes_txt, FILE_ACCESS_WRITE | FILE_CREATE_ALWAYS, FALSE);
+    if (file != 0) {
+        FileSeek(file, 0, FILE_SEEK_FROM_END);
+        GetWorldCameraState(GetWorld(), &state);
+        sprintf(line, s_record_mode_position_format, state.position.x, state.position.y,
+                state.position.z);
+        FileWrite(file, line, strlen(line), 0);
+        sprintf(line, s_record_mode_orientation_format, state.pitch[0], state.pitch[1],
+                state.pitch[2], state.pitch[3], state.pitch[4],
+                // reinterpret-ok: raw low byte of the angle record's trailing slot
+                *reinterpret_cast<unsigned int*>(&state.pitch[5]) & 0xff);
+        FileWrite(file, line, strlen(line), 0);
+        sprintf(line, s_record_mode_orientation_format, state.yaw[0], state.yaw[1], state.yaw[2],
+                state.yaw[3], state.yaw[4],
+                // reinterpret-ok: raw low byte of the angle record's trailing slot
+                *reinterpret_cast<unsigned int*>(&state.yaw[5]) & 0xff);
+        FileWrite(file, line, strlen(line), 0);
+        if (GetLevelLocationCode(g_status.current_level, location_code) == 0) {
+            strcpy(location_code, s_record_mode_default_location);
+        }
+        length = strlen(location_code);
+        location_code[length] = '\n';
+        FileWrite(file, location_code, length + 1, 0);
+        length = strlen(g_record_mode_line);
+        g_record_mode_line[length] = '\n';
+        FileWrite(file, g_record_mode_line, length + 1, 0);
+        FileClose(file);
+    }
+    ResetEditorStatusLine(-1);
+}
+
+/* The ENTER-key apply callback: an ordinary line is appended to the log, while
+   "DELETE LOG" removes the file and leaves record mode. */
+// FUNCTION: WIZ8 0x005E34B0
+void ApplyRecordModeLine(void)
+{
+    char message[1024];
+
+    if (_stricmp(g_record_mode_line, s_delete_log) != 0) {
+        WriteRecordModeEntry();
+        return;
+    }
+    if (FileDelete(s_data_notes_txt) == 0) {
+        ResetEditorStatusLine(-1);
+        strcpy(message, s_error_deleting_log_file);
+    } else {
+        ResetEditorStatusLine(-1);
+        strcpy(message, s_log_file_deleted);
+    }
+    ShowNoticef(W8_FONT_PALETTE_PINK, ConvertStringToWide(message));
+    g_record_mode_line[g_record_mode_length] = 0;
+    g_record_mode_length = 0;
+    g_record_mode_active = false;
+    strcpy(message, s_exiting_record_mode);
+    ShowNoticef(W8_FONT_PALETTE_PINK, ConvertStringToWide(message));
+}
+
+/* The per-key prompt callback: clears the status line and shows the record
+   mode prompt while each character is being composed. */
+// FUNCTION: WIZ8 0x005E35A0
+void PromptRecordModeEntry(void)
+{
+    char message[100];
+
+    ResetEditorStatusLine(-1);
+    strcpy(message, s_record_mode_prompt);
+    ShowNoticef(W8_FONT_PALETTE_PINK, ConvertStringToWide(message));
+}
+
+/* Local Code\Traps.cpp. The three bodies at 0x5E35F0-0x5E3730 sit in the
+   attribution gap before the asserted Traps.cpp body at 0x5E3800 (line 148);
+   their placement here is provisional, not proven ownership. */
+
+// FUNCTION: WIZ8 0x005E35F0
+void ClearRecordModeValue(void)
+{
+    g_record_mode_value = 0;
+}
+// FUNCTION: WIZ8 0x005E3600
+bool IsRecordModeActive(void)
+{
+    return g_record_mode_active;
+}
+/* Record-mode key handler: collects a printable line into
+   g_record_mode_line. Returns 1 on ENTER (the caller then runs the
+   apply callback), -1 on ESC, 0 otherwise. */
+// FUNCTION: WIZ8 0x005E3610
+char HandleRecordModeKey(const InputAtom* input, void (*prompt)(void))
+{
+    wchar_t character;
+    char* text;
+
+    if (gfKeyState[VK_CONTROL] != 0) {
+        return 0;
+    }
+    character = static_cast<wchar_t>(toupper(input->usParam));
+    if (input->usEvent != KEY_UP) {
+        return 0;
+    }
+    if (character == 8) {
+        if (g_record_mode_length == 0) {
+            return 0;
+        }
+        --g_record_mode_length;
+        g_record_mode_line[g_record_mode_length] = 0;
+    } else if (character == 0xd) {
+        g_record_mode_line[g_record_mode_length] = 0;
+        g_record_mode_length = 0;
+        g_record_mode_active = false;
+        return 1;
+    } else if (character == 0x1b) {
+        g_record_mode_line[g_record_mode_length] = 0;
+        g_record_mode_length = 0;
+        g_record_mode_active = false;
+        ResetEditorStatusLine(-1);
+        return -1;
+    } else {
+        text = ConvertWideStringToString(&character);
+        if (gfKeyState[VK_SHIFT] == 0 && gfKeyState[0x14] == 0 && *text >= 'A' && *text <= 'Z') {
+            *text += 0x20;
+        }
+        g_record_mode_line[g_record_mode_length] = *text;
+        g_record_mode_line[g_record_mode_length + 1] = 0;
+        ++g_record_mode_length;
+    }
+    if (prompt != 0) {
+        prompt();
+    }
+    ShowNoticef(W8_FONT_PALETTE_TEXT_BOX, ConvertStringToWide(g_record_mode_line));
+    return 0;
+}
+
+// FUNCTION: WIZ8 0x005E3730
+unsigned char GetTable650434Entry(int row, int column)
+{
+    return g_table1[row][column];
+}
+
+/* Per-type device floor for the sprung-trap discharge: the type's entry is
+   subtracted from the trigger's device count before extra targets and power
+   are rolled. */
+// GLOBAL: WIZ8 0x006504AC
+static int g_trap_difficulty[W8_TRAP_TYPE_COUNT] = {1, 1, 2, 2, 3, 3, 3, 4, 5, 5, 5, 6, 6, 7, 7};
+
+/* Roll the trigger's trap type (device_id) on first interaction: rejection-
+   sample the fifteen-row trap table until a type whose per-type difficulty
+   lands within four of the trigger's grade (difficulty, floored at one). */
+// FUNCTION: WIZ8 0x005E3740
+void SelectTrapType(Trigger* trigger)
+{
+    W8LockState* lock_state;
+    int budget;
+    int type;
+
+    lock_state = &trigger->lock_state;
+    if (lock_state == 0) {
+        return;
+    }
+    budget = lock_state->difficulty;
+    if (budget < 1) {
+        budget = 1;
+    }
+    do {
+        type = Random(0xf);
+        lock_state->device_id = type;
+    } while (g_trap_difficulty[type] > budget || g_trap_difficulty[type] + 4 < budget);
+}
+
+// FUNCTION: WIZ8 0x005E3780
+void CompleteTrapDisarm(Trigger* trigger)
+{
+    int type;
+    wchar_t* text;
+
+    trigger->CompleteItemInteraction();
+    type = trigger->lock_state.device_id;
+    if (Random(100) < 40) {
+        ApplyItemEffectToRandomCharacter(g_learn_sound, -1, 0, g_character_event_no_flags);
+    }
+    text = FormatWideString(g_format_s_space_s, gppStringList[g_trap_name_string_ids[type]],
+                            gppStringList[0x7b2]);
+    ShowString(text);
+    trigger->Run(-1);
+}
+
+// FUNCTION: WIZ8 0x005E3800
+static void DischargeTrapSpell(srVector3T<float> point, int spell_id, unsigned int power_level,
+                               int num_targets)
+{
+    int index;
+    int eligible;
+    W8GrowableVector<int> targets;
+    W8CombatSlot target;
+    W8TargetSource source;
+
+    if (num_targets < 1) {
+        srAssertFail("iNumTargets > 0", "C:\\Projects\\Wizardry 8\\Local Code\\Traps.cpp", 0x94, 0);
+    }
+    ResetTargetSource(&source);
+    source.iType = W8_TARGET_SOURCE_INDIRECT;
+    source.point = point;
+    if (GetSpellTargetType(spell_id, false) == W8_TARGET_TYPE_POINT) {
+        target.iType = W8_TARGET_KIND_PLACE;
+        target.point = g_startup_world->GetPosition();
+        CastSpellFromSource(spell_id, &source, &target, power_level, 0, 0, false, 0, 0, 0, 0);
+    } else {
+        ResetCombatSlot(&target);
+        target.iType = W8_TARGET_KIND_PARTY;
+        target.point = g_startup_world->GetPosition();
+        eligible = 0;
+        for (index = 0; index < W8_PARTY_SLOT_COUNT; ++index) {
+            if (CanPartySlotParticipate(index)) {
+                targets.Add(index);
+                ++eligible;
+            }
+        }
+        if (num_targets >= eligible) {
+            num_targets = eligible;
+        }
+        while (targets.GetCount() > num_targets) {
+            index = Random(targets.GetCount());
+            if (*targets.GetAt(index) != g_status.selected_character) {
+                targets.RemoveAt(index);
+            }
+        }
+        CastSpellFromSource(spell_id, &source, &target, power_level, 0, 0, false, 0, 0, &targets,
+                            0);
+    }
+}
+
+// FUNCTION: WIZ8 0x005E3AB0
+void ResolveSprungTrap(Trigger* trigger)
+{
+    int devices;
+    int type;
+    int count;
+    int power;
+    const wchar_t* result;
+    wchar_t* text;
+    srVector3T<float> point;
+    srVector3T<float> camera;
+    srVector3T<float> minimum;
+    srVector3T<float> maximum;
+
+    devices = trigger->lock_state.difficulty;
+    ClampInteger(&devices, 1, 7);
+    type = trigger->lock_state.device_id;
+    if (Random(2) == 0) {
+        trigger->CompleteItemInteraction();
+        result = gppStringList[0x7b3];
+    } else {
+        result = gppStringList[0x7b4];
+    }
+    text =
+        FormatWideString(g_format_s_space_s, gppStringList[g_trap_name_string_ids[type]], result);
+    ShowString(text);
+    count = devices - static_cast<int>(Random(devices / 2));
+    power = 4;
+    if (devices > g_trap_difficulty[type]) {
+        devices -= g_trap_difficulty[type];
+        power = devices + 4;
+        if (power > 7) {
+            count += static_cast<int>(Random(devices - 3));
+            power = 7;
+        }
+    }
+    W8Prop* prop = trigger->GetProp();
+    if (prop == 0) {
+        GetCameraForwardPoint(1000.0f, &point);
+    } else {
+        prop->PlayRepAnimation(&minimum, &maximum);
+        point.Set((minimum.x + maximum.x) * g_double_half, (minimum.y + maximum.y) * g_double_half,
+                  (minimum.z + maximum.z) * g_double_half);
+    }
+    GetCameraPosition(&camera);
+    g_octree->TraceLineOfSight(&camera, &point, true, -3, -3, true, 0);
+    DischargeTrapSpell(point, g_table2[type + 11], power, count);
+}

@@ -1,0 +1,106 @@
+#pragma once
+
+#include "srColorSurfaceIFace.h"
+#include "srPalette.h"
+
+// VTABLE: SURRENDER 0x100773A0
+// class srClassSupport<srColorSurface, srColorSurfaceIFace, 0, 12560>
+
+// VTABLE: SURRENDER 0x100772D0 srColorSurface
+class SR_DLL_EXPORT srColorSurface
+    : public srClassSupport<srColorSurface, srColorSurfaceIFace, 0, 0x3110> {
+public:
+    SR_DLL_IMPORT srColorSurface(const srPixelConvert::PixelFormat& format, unsigned long width,
+                                 unsigned long height);
+    SR_DLL_IMPORT srColorSurface(srPixelConvert::e_surfaceType type, unsigned long width,
+                                 unsigned long height);
+    SR_DLL_IMPORT srColorSurface(const srPixelConvert::PixelFormat& format, void* data,
+                                 unsigned long width, unsigned long height, unsigned long pitch);
+    SR_DLL_IMPORT srColorSurface(srPixelConvert::e_surfaceType type, void* data,
+                                 unsigned long width, unsigned long height, unsigned long pitch);
+
+    SR_DLL_IMPORT srColorSurface& operator=(const srColorSurface& other);
+
+    static SR_DLL_IMPORT const char* sGetClassName();
+
+    virtual SR_DLL_IMPORT void dump(std::ostream& stream) override;
+    virtual SR_DLL_IMPORT srClass* vInstance() override;
+
+    virtual SR_DLL_IMPORT unsigned long getPixelRaw(long x, long y) override;
+    virtual SR_DLL_IMPORT void setPixelRaw(long x, long y, unsigned long pixel) override;
+    virtual SR_DLL_IMPORT void getPixels(unsigned long* pixels, const srVector2i* positions,
+                                         long count) override;
+    virtual SR_DLL_IMPORT void setPixels(const unsigned long* pixels, const srVector2i* positions,
+                                         long count) override;
+    virtual SR_DLL_IMPORT void getPixelsRaw(void* pixels, const srVector2i* positions,
+                                            long count) override;
+    virtual SR_DLL_IMPORT void setPixelsRaw(const void* pixels, const srVector2i* positions,
+                                            long count) override;
+    virtual SR_DLL_IMPORT void getPixelColumn(unsigned long* pixels, long x, long y_start,
+                                              long y_end) override;
+    virtual SR_DLL_IMPORT void setPixelColumn(const unsigned long* pixels, long x, long y_start,
+                                              long y_end) override;
+    virtual SR_DLL_IMPORT srPalette* getPalette() override;
+    virtual SR_DLL_IMPORT void setPalette(srPalette* palette) override;
+    virtual SR_DLL_IMPORT void* getDataPtr() override;
+    virtual SR_DLL_IMPORT long getDataSize() override;
+    virtual SR_DLL_IMPORT int resize(long width, long height) override;
+    virtual SR_DLL_IMPORT int rescale(long width, long height) override;
+    virtual SR_DLL_IMPORT int changePixelFormat(const srPixelConvert::PixelFormat& format,
+                                                int preserve) override;
+    virtual SR_DLL_IMPORT void fill(unsigned long pixel) override;
+    virtual SR_DLL_IMPORT void setHLine(long y, long x_start, long x_end,
+                                        unsigned long pixel) override;
+    virtual SR_DLL_IMPORT void setVLine(long x, long y_start, long y_end,
+                                        unsigned long pixel) override;
+    virtual SR_DLL_IMPORT void blit(long x, long y, srColorSurfaceIFace& source, long source_x,
+                                    long source_y, long width, long height) override;
+    virtual SR_DLL_IMPORT void swapPixelRows(long x0, long y0, long x1, long y1,
+                                             long count) override;
+    virtual SR_DLL_IMPORT void flipRectangle(const Rectangle& rectangle) override;
+    virtual SR_DLL_IMPORT void getPixelRow(unsigned long* pixels, long y, long x_start,
+                                           long x_end) override;
+    virtual SR_DLL_IMPORT void setPixelRow(const unsigned long* pixels, long y, long x_start,
+                                           long x_end) override;
+    virtual SR_DLL_IMPORT void getPixelRowRaw(void* pixels, long y, long x_start,
+                                              long x_end) override;
+    virtual SR_DLL_IMPORT void setPixelRowRaw(const void* pixels, long y, long x_start,
+                                              long x_end) override;
+
+    SR_DLL_IMPORT srPixelConvert::ConversionFunc getPixelReadFunc() const;
+    SR_DLL_IMPORT srPixelConvert::ConversionFunc getPixelWriteFunc() const;
+    SR_DLL_IMPORT void setPixelReadFunc(srPixelConvert::ConversionFunc function);
+    SR_DLL_IMPORT void setPixelWriteFunc(srPixelConvert::ConversionFunc function);
+
+protected:
+    virtual SR_DLL_IMPORT ~srColorSurface() override;
+
+private:
+    virtual SR_DLL_IMPORT void copyNoScaling(srColorSurfaceIFace& source) override;
+    virtual SR_DLL_IMPORT void scaleFast(srColorSurfaceIFace& source) override;
+
+    SR_DLL_IMPORT void allocData();
+    SR_DLL_IMPORT void freeData();
+    SR_DLL_IMPORT void init(const srPixelConvert::PixelFormat& format, unsigned long width,
+                            unsigned long height, unsigned long pitch);
+    SR_DLL_IMPORT unsigned char* getAddress(long x, long y);
+    SR_DLL_IMPORT void convertToARGB8888(unsigned long* pixels, const void* source,
+                                         unsigned long count);
+    SR_DLL_IMPORT void convertFromARGB8888(void* pixels, const unsigned long* source,
+                                           unsigned long count);
+    SR_DLL_IMPORT void reversePixels(void* pixels, unsigned long count);
+    SR_DLL_IMPORT int isCompatible(srColorSurfaceIFace& source);
+
+    srPixelConvert::ConversionFunc pixel_write;
+    srPixelConvert::ConversionFunc pixel_read;
+    srPtr<srPalette> palette;
+    enum { BORROWED_DATA = 0x01u };
+    unsigned long surface_flags;
+    long data_size;
+    void* data;
+};
+
+static_assert((sizeof(srColorSurface) == 0x5c), "srColorSurface_must_be_0x5c");
+
+/* Wizardry's client-side srColorSurface. */
+typedef srClientSupport<srColorSurface, 0x3110> W8ColorSurface;

@@ -1,0 +1,890 @@
+#include "wiz8/conditions.h"
+#include "wiz8/local_code/PartyImport.h"
+#include "wiz8/local_code/GameplayInit.h"
+#include "wiz8/learned_spells.h"
+
+#include "wiz8/layouts/character.h"
+#include "wiz8/character_skills.h"
+#include "wiz8/local_code/CharGeneration.h"
+#include "wiz8/local_code/Combat.h"
+#include "wiz8/local_code/CombatAttack.h"
+#include "wiz8/local_code/ConditionsAndEnchantments.h"
+#include "wiz8/local_code/GameplayCode.h"
+#include "wiz8/local_code/GameplayInit.h"
+#include "wiz8/local_code/GameplayMods.h"
+#include "wiz8/local_code/HealthStaminaMana.h"
+#include "wiz8/local_code/Magic.h"
+#include "wiz8/local_code/MagicEffects.h"
+#include "wiz8/local_code/party_encumbrance.h"
+#include "wiz8/local_code/PC_Item.h"
+#include "wiz8/local_code/UtilityFunctions.h"
+#include "wiz8/dialog_code/ProfRaceInfoDialog.h"
+#include "wiz8/layouts/gameplay_databases.h"
+#include "wiz8/layouts/item_tables.h"
+#include "wiz8/local_code/CharGeneration.h"
+#include "wiz8/local_code/Combat.h"
+#include "wiz8/local_code/GameplayCode.h"
+#include "wiz8/local_code/GameplayInit.h"
+#include "wiz8/local_code/GameplayMods.h"
+#include "wiz8/local_code/PC_Item.h"
+#include "wiz8/local_code/Magic.h"
+#include "wiz8/local_code/MagicEffects.h"
+#include "wiz8/sr_api.h"
+#include "wiz8/utility.h"
+#include "wiz8/xstatus.h"
+
+#include "random.h"
+#include "FileMan.h"
+
+#include <string.h>
+#include <wchar.h>
+
+/* Retail Local Code\Party Import.cpp: converts imported Wizardry 7
+   characters into the Wizardry 8 layout. */
+
+#define PARTY_IMPORT_CPP "C:\\Projects\\Wizardry 8\\Local Code\\Party Import.cpp"
+
+/* The three bonus attributes each profession grants on top of the imported
+   values. */
+// GLOBAL: WIZ8 0x00614FC8
+static int g_profession_primary_attributes[15][3] = {
+    {W8_ATTRIBUTE_STRENGTH, W8_ATTRIBUTE_DEXTERITY, W8_ATTRIBUTE_VITALITY},
+    {W8_ATTRIBUTE_STRENGTH, W8_ATTRIBUTE_DEXTERITY, W8_ATTRIBUTE_PIETY},
+    {W8_ATTRIBUTE_VITALITY, W8_ATTRIBUTE_STRENGTH, W8_ATTRIBUTE_PIETY},
+    {W8_ATTRIBUTE_DEXTERITY, W8_ATTRIBUTE_INTELLIGENCE, W8_ATTRIBUTE_SENSES},
+    {W8_ATTRIBUTE_DEXTERITY, W8_ATTRIBUTE_SPEED, W8_ATTRIBUTE_INTELLIGENCE},
+    {W8_ATTRIBUTE_DEXTERITY, W8_ATTRIBUTE_SPEED, W8_ATTRIBUTE_INTELLIGENCE},
+    {W8_ATTRIBUTE_SPEED, W8_ATTRIBUTE_DEXTERITY, W8_ATTRIBUTE_SENSES},
+    {W8_ATTRIBUTE_DEXTERITY, W8_ATTRIBUTE_SPEED, W8_ATTRIBUTE_SENSES},
+    {W8_ATTRIBUTE_DEXTERITY, W8_ATTRIBUTE_SENSES, W8_ATTRIBUTE_INTELLIGENCE},
+    {W8_ATTRIBUTE_DEXTERITY, W8_ATTRIBUTE_INTELLIGENCE, W8_ATTRIBUTE_SENSES},
+    {W8_ATTRIBUTE_PIETY, W8_ATTRIBUTE_INTELLIGENCE, W8_ATTRIBUTE_VITALITY},
+    {W8_ATTRIBUTE_INTELLIGENCE, W8_ATTRIBUTE_DEXTERITY, W8_ATTRIBUTE_PIETY},
+    {W8_ATTRIBUTE_INTELLIGENCE, W8_ATTRIBUTE_DEXTERITY, W8_ATTRIBUTE_PIETY},
+    {W8_ATTRIBUTE_INTELLIGENCE, W8_ATTRIBUTE_SENSES, W8_ATTRIBUTE_PIETY},
+    {W8_ATTRIBUTE_INTELLIGENCE, W8_ATTRIBUTE_DEXTERITY, W8_ATTRIBUTE_PIETY},
+};
+
+/* The starting spells LearnSpell grants each profession on import. */
+// GLOBAL: WIZ8 0x0062A5F8
+static int g_profession_starting_spells[15][6] = {
+    {0, 0, 0, 0, 0, 0},   {6, 2, 0, 0, 0, 0},     {6, 13, 0, 0, 0, 0},  {6, 1, 0, 0, 0, 0},
+    {5, 12, 0, 0, 0, 0},  {1, 7, 0, 0, 0, 0},     {6, 10, 0, 0, 0, 0},  {0, 0, 0, 0, 0, 0},
+    {0, 0, 0, 0, 0, 0},   {0, 0, 0, 0, 0, 0},     {6, 2, 13, 11, 0, 0}, {6, 1, 7, 12, 0, 0},
+    {6, 12, 5, 11, 0, 0}, {10, 12, 11, 14, 0, 0}, {5, 12, 14, 4, 0, 0},
+};
+
+/* The item database index whose legacy item number matches the imported
+   one, or -1 when no record carries it. */
+static int FindItemByLegacyNumber(short item_number)
+{
+    unsigned int index = 0;
+    while (index < gXStatus.uiItemsInDatabase) {
+        if (g_item_records[index].legacy_item_number == item_number) {
+            return index;
+        }
+        ++index;
+    }
+    return -1;
+}
+
+/* The Wizardry 7 import file state filled by the loader below: the record
+   count, whether the save carries an ending selector, that selector's two
+   nibbles decoded, the ninety-six flag bits and the character records. */
+// GLOBAL: WIZ8 0x0068DE48
+int g_import_character_count;
+
+// GLOBAL: WIZ8 0x0068DE4C
+bool g_import_ending_record;
+
+// GLOBAL: WIZ8 0x0068DE50
+int g_wiz7_ending;
+
+// GLOBAL: WIZ8 0x0068DE54
+int g_import_difficulty;
+
+// GLOBAL: WIZ8 0x0068DE58
+unsigned char g_import_flags[0x60];
+
+// GLOBAL: WIZ8 0x0068DEB8
+W8Wiz7Character g_imported_characters[6];
+
+/* Load a Wizardry 7 save for import: a 0x34c-byte header (two record-skip
+   counts at 0x2cc/0x2ce, the flag bitmask at 0x200), thirty-two skipped
+   0x100-byte blocks, the 0x4c-byte party block whose last short is the
+   character count and whose first marks the ending selector, five skipped
+   sections, then the character records. Every record must carry the previous
+   one's tag byte. On success the ending and difficulty nibbles decode from
+   the shared tag and the flag bits unpack into g_import_flags. */
+// FUNCTION: WIZ8 0x00558D00
+unsigned char LoadWizardry7ImportFile(char* path)
+{
+    unsigned int bytes_read;
+    unsigned char header[0x34c];
+    short party_block[0x26];
+    unsigned char skipped_section_1[0x80];
+    unsigned char skipped_section_2[0x90];
+    unsigned char skipped_section_3[0x68];
+    unsigned char skipped_section_4[0x14a];
+    unsigned char skipped_section_5[0x344];
+    unsigned char skipped_section_6[0x42];
+    HWFILE file;
+    int index;
+
+    short record_skip;
+    short bank_skip;
+
+    file = FileOpen(path, FILE_ACCESS_READ, 0);
+    if (file == 0) {
+        return 0;
+    }
+    if (FileRead(file, header, 0x34c, &bytes_read) != 0) {
+        // reinterpret-ok: raw serialized file image; unaligned header short
+        record_skip = *reinterpret_cast<short*>(&header[0x2cc]);
+        // reinterpret-ok: raw serialized file image; unaligned header short
+        bank_skip = *reinterpret_cast<short*>(&header[0x2ce]);
+        if (FileSeek(file, record_skip * 6, FILE_SEEK_FROM_CURRENT) != 0 &&
+            FileSeek(file, bank_skip * 8, FILE_SEEK_FROM_CURRENT) != 0) {
+            for (index = 0; index < 0x20; ++index) {
+                if (FileSeek(file, 0x100, FILE_SEEK_FROM_CURRENT) == 0) {
+                    goto fail;
+                }
+            }
+            if (FileRead(file, party_block, 0x4c, &bytes_read) != 0 && party_block[0x25] != 0 &&
+                party_block[0x25] < 7 &&
+                FileRead(file, skipped_section_1, 0x80, &bytes_read) != 0 &&
+                FileRead(file, skipped_section_2, 0x90, &bytes_read) != 0 &&
+                FileRead(file, skipped_section_3, 0x68, &bytes_read) != 0 &&
+                FileRead(file, skipped_section_4, 0x14a, &bytes_read) != 0 &&
+                FileRead(file, skipped_section_5, 0x344, &bytes_read) != 0 &&
+                FileRead(file, skipped_section_6, 0x42, &bytes_read) != 0 &&
+                FileSeek(file, 100, FILE_SEEK_FROM_CURRENT) != 0) {
+                for (index = 0; index < party_block[0x25]; ++index) {
+                    if (FileRead(file, &g_imported_characters[index],
+                                 sizeof(g_imported_characters[index]), &bytes_read) == 0) {
+                        goto fail;
+                    }
+                    if (index != 0 && g_imported_characters[index].party_tag !=
+                                          g_imported_characters[index - 1].party_tag) {
+                        goto fail;
+                    }
+                }
+                FileClose(file);
+                g_import_character_count = party_block[0x25];
+                g_import_ending_record = party_block[0] == -1;
+                if (g_import_ending_record) {
+                    switch (g_imported_characters[0].party_tag & 0xf0) {
+                    case 0x10:
+                        g_wiz7_ending = 0;
+                        break;
+                    case 0x20:
+                        g_wiz7_ending = 1;
+                        break;
+                    case 0x40:
+                        g_wiz7_ending = 2;
+                        break;
+                    case 0x80:
+                        g_wiz7_ending = 3;
+                        break;
+                    default:
+                        return 0;
+                    }
+                } else {
+                    g_wiz7_ending = -1;
+                }
+                switch (g_imported_characters[0].party_tag & 0xf) {
+                case 1:
+                    g_import_difficulty = 0;
+                    break;
+                case 2:
+                    g_import_difficulty = 1;
+                    break;
+                case 4:
+                    g_import_difficulty = 2;
+                    break;
+                default:
+                    g_import_difficulty = -1;
+                }
+                for (index = 0; index < 0x60; ++index) {
+                    g_import_flags[index] = (header[0x200 + (index >> 3)] >> (index & 7)) & 1;
+                }
+                return 1;
+            }
+        }
+    }
+fail:
+    FileClose(file);
+    return 0;
+}
+
+/* Apply the loaded Wizardry 7 import: reset the run, seed the party gold,
+   mark the imported-party path and convert each record into a regular member.
+   Reports 1 when the file does not load or a slot cannot take the character,
+   2 when the ending selector holds the value three, 0 otherwise. */
+// FUNCTION: WIZ8 0x00558C40
+unsigned char ImportWizardry7Party(char* path)
+{
+    W8Character scratch;
+    int index;
+
+    if (LoadWizardry7ImportFile(path) == 0) {
+        return 1;
+    }
+    ResetForNewGame();
+    g_status.party_gold = 2500;
+    g_status.skip_loose_character_check = 1;
+    if (g_import_character_count < 7) {
+        for (index = 0; index < g_import_character_count; ++index) {
+            ImportWizardry7Character(&scratch, &g_imported_characters[index]);
+            if (AddCharacterToParty(&scratch, -1) == -1) {
+                return 1;
+            }
+        }
+        return (g_wiz7_ending != 3) - 1 & 2;
+    }
+    return 1;
+}
+
+// FUNCTION: WIZ8 0x005590B0
+void ImportWizardry7Character(W8Character* character, W8Wiz7Character* imported)
+{
+    W8Profession profession;
+    unsigned int level;
+    unsigned int skill_id;
+    int status;
+
+    memset(character, 0, sizeof(W8Character));
+    swprintf(character->name, g_combat_log_format, TitleCaseString(imported->name));
+    wcscpy(character->name_part_2, character->name);
+    character->iRace = static_cast<W8Race>(imported->race);
+    character->gender = static_cast<W8Gender>(imported->gender);
+    switch (imported->profession) {
+    default:
+        profession = W8_PROFESSION_FIGHTER;
+        break;
+    case 1:
+        profession = W8_PROFESSION_MAGE;
+        break;
+    case 2:
+        profession = W8_PROFESSION_PRIEST;
+        break;
+    case 3:
+        profession = W8_PROFESSION_ROGUE;
+        break;
+    case 4:
+        profession = W8_PROFESSION_RANGER;
+        break;
+    case 5:
+        profession = W8_PROFESSION_ALCHEMIST;
+        break;
+    case 6:
+        profession = W8_PROFESSION_BARD;
+        break;
+    case 7:
+        profession = W8_PROFESSION_PSIONIC;
+        break;
+    case 8:
+        profession = W8_PROFESSION_VALKYRIE;
+        break;
+    case 9:
+        profession = W8_PROFESSION_BISHOP;
+        break;
+    case 10:
+        profession = W8_PROFESSION_LORD;
+        break;
+    case 11:
+        profession = W8_PROFESSION_SAMURAI;
+        break;
+    case 12:
+        profession = W8_PROFESSION_MONK;
+        break;
+    case 13:
+        profession = W8_PROFESSION_NINJA;
+        break;
+    }
+    character->iProfession = profession;
+    CalcCharacterTableValue(character);
+    level = static_cast<unsigned short>(imported->level);
+    if (imported->level > 0) {
+        level = 1;
+    }
+    AdvanceCharacterToLevel(character, level);
+    character->experience = 13000;
+    character->kill_count = imported->kill_count;
+    character->death_count = imported->deaths - 1;
+    character->profession_levels[character->iProfession] = character->uiExpLevel;
+    character->original_profession = character->iProfession;
+    character->level_band_base = 0;
+    status = imported->status;
+    if (status == 2 || status == 3) {
+        character->uiCondition[W8_CONDITION_DEAD] = W8_CONDITION_INDEFINITE;
+        character->highest_condition = W8_CONDITION_DEAD;
+    } else {
+        character->highest_condition = W8_CONDITION_NONE;
+    }
+    character->enchantment_top = W8_ENCHANTMENT_NONE;
+    ConvertAttribute(character, imported);
+    GrantStartingSpells(character, imported);
+    for (skill_id = 0; skill_id < W8_SKILL_COUNT; ++skill_id) {
+        character->skills[skill_id].active = false;
+        character->skills[skill_id].points =
+            ConvertSkill(static_cast<W8Skill>(skill_id), character, imported);
+    }
+    RefreshCharacterSkillAvailability(character);
+    ImportEquipment(character, imported);
+    DeriveCharacterPersonality(character);
+    EnsureUniquePartyVoice(character);
+    CalcCharacterLevelBand(character);
+    RecalculateCharacterDerivedStats(character);
+    character->stamina = character->uiStaminaMax;
+    character->hp_current = character->uiHPMax;
+    for (skill_id = 0; skill_id < 6; ++skill_id) {
+        character->iSPLeft[skill_id] = character->sp_max[skill_id];
+    }
+}
+
+// FUNCTION: WIZ8 0x005592D0
+void ConvertAttribute(W8Character* character, const W8Wiz7Character* imported)
+{
+    unsigned int imported_values[7] = {0};
+    int mapped;
+    int i;
+    int total = 0;
+    int average;
+    int points;
+    int added;
+    int spins;
+    unsigned int add;
+    unsigned int cap;
+    unsigned int pick;
+    int removed;
+
+    for (i = 0; i < 8; ++i) {
+        if (i != 6 && i != 7) {
+            switch (i) {
+            case 0:
+                mapped = 0;
+                break;
+            case 1:
+                mapped = 1;
+                break;
+            case 2:
+                mapped = 2;
+                break;
+            case 3:
+                mapped = 3;
+                break;
+            case 4:
+                mapped = 4;
+                break;
+            case 5:
+                mapped = 5;
+                break;
+            case 6:
+                break;
+            default:
+                srAssertFail("FALSE", PARTY_IMPORT_CPP, 0x462,
+                             "ConvertAttribute: ERROR - Invalid attribute");
+            }
+            imported_values[mapped] = imported->attributes[i];
+            switch (i) {
+            case 0:
+                mapped = 0;
+                break;
+            case 1:
+                mapped = 1;
+                break;
+            case 2:
+                mapped = 2;
+                break;
+            case 3:
+                mapped = 3;
+                break;
+            case 4:
+                mapped = 4;
+                break;
+            case 5:
+                mapped = 5;
+                break;
+            case 6:
+                break;
+            default:
+                srAssertFail("FALSE", PARTY_IMPORT_CPP, 0x462,
+                             "ConvertAttribute: ERROR - Invalid attribute");
+            }
+            total += imported_values[mapped];
+        }
+    }
+    average = total / 6;
+    for (i = 0; i < 3; ++i) {
+        imported_values[g_profession_primary_attributes[character->iProfession][i]] += 0x28;
+    }
+    for (i = 0; i < 7; ++i) {
+        character->attributes[i].base = g_race_attribute_minimums[character->iRace].values[i];
+    }
+    points = 0;
+    for (i = 0; i < 7; ++i) {
+        if (character->attributes[i].base <
+            static_cast<unsigned int>(
+                g_profession_attribute_minimums[character->iProfession].values[i])) {
+            int deficit = g_profession_attribute_minimums[character->iProfession].values[i] -
+                          character->attributes[i].base;
+            character->attributes[i].base += deficit;
+            points += deficit;
+        }
+    }
+    points = 0x46 - points;
+    if (-1 < points) {
+        added = 0;
+        for (i = 0; i < 7; ++i) {
+            add = (points * imported_values[i]) / (total + average + 0x78);
+            cap = 100 - character->attributes[i].base;
+            if (cap <= add) {
+                add = cap;
+            }
+            added += add;
+            character->attributes[i].base += add;
+        }
+        points -= added;
+        spins = points * 3;
+        for (i = 0; i < spins; ++i) {
+            Random(7);
+            if (character->attributes[i].base < 100) {
+                --points;
+                spins -= 3;
+                character->attributes[i].base += 1;
+                if (points == 0) {
+                    return;
+                }
+            }
+        }
+        return;
+    }
+    removed = 0;
+    if (0 < -points) {
+        do {
+            pick = Random(7);
+            if (g_profession_attribute_minimums[character->iProfession].values[pick] != 0 &&
+                static_cast<unsigned int>(
+                    g_race_attribute_minimums[character->iRace].values[pick]) <
+                    character->attributes[pick].base) {
+                ++removed;
+                character->attributes[pick].base -= 1;
+            }
+        } while (removed < -points);
+    }
+    character->attribute_point_deficit = points;
+    character->level_band_base = 1;
+}
+
+// FUNCTION: WIZ8 0x005595D0
+void GrantStartingSpells(W8Character* character, const W8Wiz7Character*)
+{
+    W8LearnedSpellState scratch;
+    char count;
+    int offset;
+    int i;
+
+    for (i = 0; i < 0x72; ++i) {
+        character->spell_learned[i] = 0;
+    }
+    offset = g_profession_magic_level_offsets[character->iProfession];
+    if (offset < 0 && -0xff < offset) {
+        count = 2;
+    } else {
+        if (offset != 0) {
+            return;
+        }
+        count = 4;
+    }
+    for (i = 0; i < 6; ++i) {
+        LearnSpell(character, g_profession_starting_spells[character->iProfession][i], false);
+        --count;
+        if (count == 0) {
+            break;
+        }
+    }
+    BuildLearnedSpellState(&scratch, character);
+}
+
+// FUNCTION: WIZ8 0x00559650
+void ImportEquipment(W8Character* character, const W8Wiz7Character* imported)
+{
+    W8ItemInstance item;
+    /* The worthiest imported items: band 0 keeps the two most valuable finds
+       (value above 3000), band 1 the next three (above 1000). */
+    W8Wiz7Item candidates[2][20];
+    W8Wiz7Item empty_item;
+    int maximum[2];
+    int counts[2];
+    const W8Wiz7Item* source;
+    const W8Wiz7Item* entry;
+    int slot;
+    int index;
+    int best_index;
+    int best_value;
+    int item_index;
+    int price;
+    int give;
+    int item_id;
+    W8EquipSlot equip_slot;
+    W8Profession profession;
+
+    memset(&empty_item, 0, sizeof(empty_item));
+    counts[0] = 0;
+    counts[1] = 0;
+    EmptyAllCarriedItems(character);
+    for (slot = 0; slot < 2; ++slot) {
+        source = imported->items[slot];
+        for (index = 0; index < 10; ++index) {
+            if (source->item_number != 0) {
+                item_index = FindItemByLegacyNumber(source->item_number);
+                if (item_index != -1) {
+                    if (item_index != 0x128) {
+                        if (g_item_records[item_index].unidentified_name_index == 0x84 ||
+                            4999 < static_cast<int>(g_item_records[item_index].value)) {
+                            source++;
+                            continue;
+                        }
+                        if (2999 < static_cast<int>(g_item_records[item_index].value)) {
+                            candidates[0][counts[0]] = *source;
+                            ++counts[0];
+                            source++;
+                            continue;
+                        }
+                        if (999 < static_cast<int>(g_item_records[item_index].value)) {
+                            candidates[1][counts[1]] = *source;
+                            ++counts[1];
+                            source++;
+                            continue;
+                        }
+                    }
+                    ReplaceOrCreateItem(&item, item_index, true, true, true);
+                    if (g_item_records[item_index].binds_on_equip == 0) {
+                        StoreItemWithCharacterOrParty(character, &item, false, false,
+                                                      static_cast<unsigned int>(slot == 0));
+                    } else {
+                        AddItemToCharacter(character, &item, false, false, false);
+                    }
+                }
+            }
+            source++;
+        }
+    }
+    maximum[0] = 1;
+    if (counts[0] < 2) {
+        maximum[0] = counts[0];
+    }
+    maximum[1] = 2;
+    if (counts[1] < 3) {
+        maximum[1] = counts[1];
+    }
+    for (slot = 0; slot < 2; ++slot) {
+        while (0 < maximum[slot]) {
+            best_value = 0;
+            best_index = -1;
+            for (index = 0; index < counts[slot]; ++index) {
+                entry = &candidates[slot][index];
+                if (0 < entry->item_number) {
+                    item_index = FindItemByLegacyNumber(entry->item_number);
+                    price = g_item_records[item_index].value;
+                    if (!ItemHasHiddenProperties(item_index)) {
+                        price /= 2;
+                    }
+                    if (best_value < price) {
+                        best_value = g_item_records[item_index].value;
+                        best_index = index;
+                    }
+                }
+            }
+            if (best_index != -1) {
+                item_index = FindItemByLegacyNumber(candidates[slot][best_index].item_number);
+                ReplaceOrCreateItem(&item, item_index, true, true, true);
+                if (g_item_records[item_index].binds_on_equip == 0) {
+                    StoreItemWithCharacterOrParty(character, &item, false, false, true);
+                } else {
+                    AddItemToCharacter(character, &item, false, false, false);
+                }
+                --maximum[slot];
+                candidates[slot][best_index] = empty_item;
+            }
+        }
+    }
+    profession = W8_PROFESSION_COUNT;
+    if (character->iRace != W8_RACE_FAERIE) {
+        profession = character->iProfession;
+    }
+    for (slot = 0; slot < 6; ++slot) {
+        item_id = g_starting_equipment[profession][slot];
+        if (item_id != -1) {
+            ReplaceOrCreateItem(&item, item_id, true, true, true);
+            equip_slot = GetItemDefaultEquipSlot(item_id);
+            if (equip_slot == W8_EQUIP_SLOT_NONE) {
+                if (!FindCharacterItemByDatabaseKind(
+                        character, g_item_records[item_id].unidentified_name_index, 0, 2)) {
+                    AddItemToCharacter(character, &item, true, false, false);
+                }
+            } else {
+                if (equip_slot == W8_EQUIP_SLOT_PRIMARY_WEAPON &&
+                    (g_item_records[item_id].flags & W8_ITEM_FLAG_OFF_HAND_ALLOWED) != 0) {
+                    equip_slot = W8_EQUIP_SLOT_SECONDARY_WEAPON;
+                }
+                if (character->EquippedItem[equip_slot].iItemNo == -1) {
+                    AddItemToCharacter(character, &item, true, false, false);
+                }
+            }
+        }
+    }
+    give = -1;
+    if (character->EquippedItem[W8_EQUIP_SLOT_PRIMARY_WEAPON].iItemNo == -1) {
+        if (character->iProfession == W8_PROFESSION_FIGHTER) {
+            if (character->skills[W8_SKILL_SWORD].level < character->skills[W8_SKILL_AXE].level) {
+                give = 0x12;
+            } else {
+                give = 7;
+            }
+        } else if (character->iProfession == W8_PROFESSION_PRIEST) {
+            if (character->skills[W8_SKILL_MACE_FLAIL].level <=
+                character->skills[W8_SKILL_STAFF_WAND].level) {
+                give = 0x52;
+            } else {
+                give = 0x16;
+            }
+        }
+        if (give != -1) {
+            ReplaceOrCreateItem(&item, give, true, true, true);
+            AddItemToCharacter(character, &item, true, false, false);
+        }
+    }
+    RebuildEquipmentAndDerivedStats(character);
+}
+
+/* Retail fell through the failed assert and read `imported->skills` by
+   whatever `mapped` held; the recovery keeps that read. */
+// FUNCTION: WIZ8 0x00559BC0
+unsigned int ConvertSkill(W8Skill skill_id, W8Character* character, const W8Wiz7Character* imported)
+{
+    int mapped;
+    unsigned int unlocks;
+    unsigned int roll;
+    unsigned int base_value;
+    bool routed = false;
+    int i;
+
+    if (g_skill_attributes[skill_id].import_policy == W8_SKILL_IMPORT_PROFESSION) {
+        if (g_profession_skill_availability[skill_id][character->iProfession] != 1) {
+            return 0;
+        }
+    } else if (g_skill_attributes[skill_id].import_policy == W8_SKILL_IMPORT_DISABLED) {
+        return 0;
+    }
+    switch (skill_id) {
+    case W8_SKILL_SWORD:
+        mapped = 1;
+        break;
+    case W8_SKILL_AXE:
+        mapped = 2;
+        break;
+    case W8_SKILL_POLEARM:
+    case W8_SKILL_STAFF_WAND:
+        mapped = 4;
+        break;
+    case W8_SKILL_MACE_FLAIL:
+        mapped = 3;
+        break;
+    case W8_SKILL_DAGGER:
+        mapped = 0;
+        break;
+    case W8_SKILL_SHIELD:
+        mapped = 8;
+        break;
+    case W8_SKILL_MODERN_WEAPONS:
+        mapped = 0x12;
+        break;
+    case W8_SKILL_BOW:
+        mapped = 7;
+        break;
+    case W8_SKILL_MARTIAL_ARTS:
+        mapped = 0x10;
+        break;
+    case W8_SKILL_LOCKS_TRAPS:
+        mapped = 0x11;
+        break;
+    case W8_SKILL_STEALTH:
+        mapped = 0xd;
+        break;
+    case W8_SKILL_MUSIC:
+        mapped = 0xf;
+        break;
+    case W8_SKILL_PICKPOCKET:
+        mapped = 9;
+        break;
+    case W8_SKILL_SCOUTING:
+        mapped = 0xc;
+        break;
+    case W8_SKILL_CRITICAL_STRIKE:
+        mapped = 0x21;
+        break;
+    case W8_SKILL_MYTHOLOGY:
+        mapped = 0x19;
+        break;
+    case W8_SKILL_COMMUNICATION:
+        mapped = 0x1c;
+        break;
+    case W8_SKILL_SPELLBOOK_WIZARDRY:
+        mapped = 0x20;
+        break;
+    case W8_SKILL_SPELLBOOK_DIVINITY:
+        mapped = 0x1e;
+        break;
+    case W8_SKILL_SPELLBOOK_ALCHEMY:
+        mapped = 0x1d;
+        break;
+    case W8_SKILL_SPELLBOOK_PSIONICS:
+        mapped = 0x1f;
+        break;
+    case W8_SKILL_THROWING_SLING:
+    case W8_SKILL_CLOSE_COMBAT:
+    case W8_SKILL_RANGED_COMBAT:
+    case W8_SKILL_DUAL_WEAPONS:
+    case W8_SKILL_ARTIFACTS:
+    case W8_SKILL_ENGINEERING:
+    case W8_SKILL_FIRE_MAGIC:
+    case W8_SKILL_WATER_MAGIC:
+    case W8_SKILL_AIR_MAGIC:
+    case W8_SKILL_EARTH_MAGIC:
+    case W8_SKILL_MENTAL_MAGIC:
+    case W8_SKILL_DIVINE_MAGIC:
+        routed = true;
+        switch (skill_id) {
+        case W8_SKILL_THROWING_SLING:
+            base_value = imported->skills[5];
+            if (base_value <= imported->skills[6]) {
+                base_value = imported->skills[6];
+            }
+            break;
+        case W8_SKILL_CLOSE_COMBAT:
+            base_value = imported->skills[0];
+            for (i = 1; i < 5; ++i) {
+                if (base_value <= imported->skills[i]) {
+                    base_value = imported->skills[i];
+                }
+            }
+            for (i = 8; i < 10; ++i) {
+                if (base_value <= imported->skills[i]) {
+                    base_value = imported->skills[i];
+                }
+            }
+            if (100 < base_value) {
+                base_value = 100;
+            }
+            break;
+        case W8_SKILL_RANGED_COMBAT:
+            base_value = imported->skills[7];
+            if (base_value <= imported->skills[6]) {
+                base_value = imported->skills[6];
+            }
+            if (base_value <= imported->skills[5]) {
+                base_value = imported->skills[5];
+            }
+            if (100 < base_value) {
+                base_value = 100;
+            }
+            break;
+        case W8_SKILL_DUAL_WEAPONS:
+            if (g_profession_skill_availability[0x12][character->iProfession] != 1) {
+                base_value = 0;
+                break;
+            }
+            base_value = imported->skills[0];
+            for (i = 1; i < 5; ++i) {
+                if (base_value <= imported->skills[i]) {
+                    base_value = imported->skills[i];
+                }
+            }
+            if (100 < base_value) {
+                base_value = 100;
+            }
+            if (g_profession_bonus_skills[character->iProfession] != 0x12) {
+                for (i = 0; i < 4 && g_profession_skills[character->iProfession][i] != 0x12; ++i) {
+                }
+                if (i == 4 || 3 < i) {
+                    base_value >>= 1;
+                }
+            }
+            break;
+        case W8_SKILL_ARTIFACTS:
+            base_value =
+                (static_cast<unsigned int>(imported->skills[0x1b] + imported->skills[0x18] * 4) *
+                 0x14) /
+                100;
+            break;
+        case W8_SKILL_ENGINEERING:
+        case W8_SKILL_POWER_CAST:
+        case W8_SKILL_IRON_SKIN:
+            base_value = 0;
+            break;
+        case W8_SKILL_FIRE_MAGIC:
+        case W8_SKILL_WATER_MAGIC:
+        case W8_SKILL_AIR_MAGIC:
+        case W8_SKILL_EARTH_MAGIC:
+        case W8_SKILL_MENTAL_MAGIC:
+        case W8_SKILL_DIVINE_MAGIC:
+            unlocks = character->skill_unlocks[skill_id];
+            if (unlocks == 0) {
+                base_value = 0;
+                break;
+            }
+            if (imported->profession == 5 || imported->profession == '\r' ||
+                imported->profession == 4) {
+                base_value = imported->skills[0x1d];
+            } else {
+                base_value = imported->skills[0xe];
+            }
+            if (unlocks < 3) {
+                base_value = ((unlocks + 1) * base_value) / 3;
+            }
+            if (100 < base_value) {
+                base_value = 100;
+            }
+            break;
+        default:
+            srAssertFail("FALSE", PARTY_IMPORT_CPP, 0x56c,
+                         "ConvertSkill: ERROR - Invalid NEW skill");
+            break;
+        }
+        break;
+    default:
+        srAssertFail("FALSE", PARTY_IMPORT_CPP, 0x4b3, "ConvertSkill: ERROR - Invalid skill");
+        break;
+    }
+    if (!routed) {
+        base_value = imported->skills[mapped];
+        if (0x17 < static_cast<unsigned int>(skill_id) &&
+            static_cast<unsigned int>(skill_id) < W8_SKILL_FIRE_MAGIC) {
+            if (character->iProfession == W8_PROFESSION_BISHOP &&
+                (skill_id == W8_SKILL_SPELLBOOK_ALCHEMY ||
+                 skill_id == W8_SKILL_SPELLBOOK_PSIONICS) &&
+                base_value == 0) {
+                base_value =
+                    (static_cast<unsigned int>(imported->skills[0x20] + imported->skills[0x1e])) /
+                    2;
+            }
+            unlocks = 0;
+            for (i = 0x1c; i < 0x22; ++i) {
+                unlocks += character->skill_unlocks[i];
+            }
+            if (unlocks == 0) {
+                roll = Random(5);
+                base_value /= roll + 5;
+            } else if (unlocks < 5) {
+                base_value = (unlocks * base_value) / 5;
+            }
+        }
+    }
+    unlocks = (base_value * 2) / 10;
+    if (0x14 < unlocks) {
+        unlocks = 0x14;
+    }
+    return unlocks;
+}

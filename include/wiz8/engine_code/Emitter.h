@@ -1,0 +1,60 @@
+#ifndef WIZ8_ENGINE_CODE_EMITTER_H
+#define WIZ8_ENGINE_CODE_EMITTER_H
+
+#include "wiz8/engine_code/AnimRep.hpp"
+
+struct W8AniMesh;
+struct W8AnimObj;
+class srModelInstance;
+
+/*
+ * The emitter record Engine Code\Missile.cpp and Engine Code\Spells.cpp both
+ * hang their visuals off. The two files carry the pointer at different
+ * offsets - a missile at 0x1dc, a spell at 0x1e0 - but reach identical fields
+ * through it, and the four accessors on each side are the same bodies one
+ * offset apart, which is what makes it one record rather than two.
+ */
+
+/* The 0x005ED058 table adds three pure emitter operations to the two-slot
+   AnimRep hierarchy.  Concrete missile and spell hosts supply those slots. */
+class W8EmitterHost : public W8AnimRep {
+public:
+    W8EmitterHost();
+    W8EmitterHost(const W8EmitterHost& other);
+    /* All three are chars: neither override widens them, and both
+       0x004A8360 and 0x004A7470 push the containing dword unextended. */
+    virtual srModelInstance* SetCycleFrameLod(signed char cycle, signed char frame,
+                                              signed char lod) = 0;
+    virtual unsigned int ApplyEmitterSetting(signed char emitter) = 0;
+    /* Not a stop: both overrides tail-return AnimObjEntry's result,
+       and GrCycle's 0x004A7470 hands that result straight to
+       SetAniMeshCacheProtected, which types it. */
+    virtual W8AniMesh* GetEmitterAniMesh(signed char emitter) = 0;
+
+    /* 0x6c: the host is live; the spell side checks it before starting. */
+    /* 0x98: the level of detail, named by GrCycle.cpp's own
+       "bLOD >= 0 && bLOD < NUM_LODS" assertion and written 0, 1 or 2 by the
+       selector at 0x004A7BE0. It doubles as the AnimObj list index, which is
+       what makes one animation list per LOD. */
+    signed char m_bLOD;
+    unsigned char padding_099[3];
+    /* Two LOD switch distances, scaled by the detail slider before they
+       are compared. 0x004A7BE0 reads both with fmul, which types them. */
+    float lod_near;
+    float lod_far;
+    /* W8GrCycle itself reads these inherited bytes as the common selected
+       cycle/subcycle and pending cycle. Missile and Spell use current_cycle
+       for the same role; there is no separate Monster view. Only +0xa6 stays
+       positional until behavior outside Monster establishes its meaning. */
+    signed char current_cycle;    /* 0xa4 */
+    signed char current_subcycle; /* 0xa5 */
+    /* 0xa6: a forced subcycle pick; -1 means none, consumed once
+       by the cycle-selection path then reset. */
+    signed char forced_subcycle;
+    signed char pending_cycle; /* 0xa7 */
+    float animation_radius;    /* 0xa8: filled by GetAnimationRadius */
+}; /* 0xac */
+
+static_assert(sizeof(W8EmitterHost) == 0xac, "W8EmitterHost_size_must_be_0xac");
+
+#endif

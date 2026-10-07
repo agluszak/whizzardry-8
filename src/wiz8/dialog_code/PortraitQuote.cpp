@@ -1,0 +1,711 @@
+#include "wiz8/wiz8_windows.h"
+
+#include "Types.h"
+#include "Font.h"
+#include "himage.h"
+#include "vobject.h"
+#include "vobject_blitters.h"
+#include "vsurface.h"
+#include "wiz8/dialog_code/DialogInterface.h"
+#include "wiz8/dialog_code/PortraitQuote.h"
+#include "wiz8/engine_code/Video2.h"
+#include "wiz8/fonts.h"
+#include "wiz8/local_screens/OptionsScreen.h"
+
+#include <stdlib.h>
+#include <string.h>
+#include <wchar.h>
+
+enum {
+    WRAPPED_TEXT_LEFT = 0x01,
+    WRAPPED_TEXT_CENTER = 0x02,
+    WRAPPED_TEXT_RIGHT = 0x04,
+    WRAPPED_TEXT_SHADOW_RECT = 0x08,
+    WRAPPED_TEXT_INVALIDATE = 0x10,
+    WRAPPED_TEXT_MEASURE_ONLY = 0x20
+};
+
+enum { QUOTE_BUBBLE_FLAT_BACKGROUND = 1 };
+
+/* The NPC quote bubble record, allocated with operator new inside
+   LayoutPortraitQuoteBubble. Offset 0 is the rendered text surface; 0x0c and
+   0x10 are the popup background surface and border object the bubble is
+   composited from. The byte at 0x14 is set once those two resources exist;
+   the byte at 0x15 is set once the whole bubble has been created. */
+struct W8PortraitQuoteBubble {
+    UINT32 surface;
+    unsigned short width;
+    unsigned short height;
+    unsigned char background_index;
+    unsigned char object_index;
+    UINT32 background_surface;
+    UINT32 object;
+    bool has_resources;
+    bool created;
+    UINT32 flags; /* bit 0 selects the flat fill */
+    wchar_t* text;
+    UINT32 palette;
+};
+
+static_assert(sizeof(W8PortraitQuoteBubble) == 0x24, "W8PortraitQuoteBubble_size");
+
+// GLOBAL: WIZ8 0x0069C598
+static W8PortraitQuoteBubble* g_portrait_quotes[10];
+// GLOBAL: WIZ8 0x0069C5C0
+static W8PortraitQuoteBubble* g_current_portrait_quote;
+
+/* The bubble artwork file tables, indexed by the edge and background selector
+   arguments of LayoutPortraitQuoteBubble. */
+// GLOBAL: WIZ8 0x0064f550
+static const char* g_quote_bubble_edges[] = {
+    "data\\NPC Interaction\\npc_PopUp_edge.sti",
+};
+// GLOBAL: WIZ8 0x0064f554
+static const char* g_quote_bubble_backgrounds[] = {
+    "data\\NPC Interaction\\npc_popup_back.pcx",
+};
+
+/* Flags staged for the next laid-out bubble; LayoutPortraitQuoteBubble copies
+   them into the record and clears the staging value. Bit 0 selects the flat
+   white fill instead of the background artwork. */
+// GLOBAL: WIZ8 0x0069c5c8
+static unsigned int g_quote_bubble_flags;
+
+static int MeasureWrappedText(int x, int y, unsigned int wrap_width, int line_spacing, int font,
+                              int alternate_font, const wchar_t* text, int, int, int,
+                              unsigned int* out_edge);
+int DrawWrappedText(int x, int y, unsigned int wrap_width, int line_spacing, int font,
+                    unsigned char colour, const wchar_t* text, int background, int dirty,
+                    int flags);
+
+// FUNCTION: WIZ8 0x005d0590
+static int DrawWrappedTextLine(UINT16* text, int x, int top, int width, int font,
+                               unsigned char foreground, unsigned char background, bool dirty,
+                               unsigned int flags)
+{
+    short draw_x = static_cast<short>(x);
+    short draw_y = static_cast<short>(top);
+
+    if (flags & WRAPPED_TEXT_MEASURE_ONLY) {
+        return 1;
+    }
+    if (flags == 0) {
+        flags = WRAPPED_TEXT_LEFT;
+    }
+    if (flags & WRAPPED_TEXT_LEFT) {
+        draw_x = static_cast<short>(x);
+        draw_y = static_cast<short>(top);
+    } else if (flags & WRAPPED_TEXT_CENTER) {
+        VarFindFontCenterCoordinates(static_cast<short>(x), static_cast<short>(top),
+                                     static_cast<short>(width), GetFontHeight(font), font, &draw_x,
+                                     &draw_y, text);
+    } else if (flags & WRAPPED_TEXT_RIGHT) {
+        VarFindFontRightCoordinates(static_cast<short>(x), static_cast<short>(top),
+                                    static_cast<short>(width), GetFontHeight(font), font, &draw_x,
+                                    &draw_y, text);
+    }
+
+    SetFont(font);
+    SetFontForeground(foreground);
+    SetFontBackground(background);
+    if (flags & WRAPPED_TEXT_SHADOW_RECT) {
+        ShadowVideoSurfaceRect(0xfffffff2, static_cast<unsigned short>(draw_x - 1),
+                               static_cast<unsigned short>(draw_y - 1),
+                               static_cast<unsigned short>(draw_x - 1) +
+                                   static_cast<unsigned short>(StringPixLength(text, font)) + 1,
+                               static_cast<unsigned short>(draw_y - 1) + GetFontHeight(font) + 1);
+    }
+    if (dirty) {
+        gprintfDirty(draw_x, draw_y, text);
+    }
+    mprintf(draw_x, draw_y, text);
+    if (flags & WRAPPED_TEXT_MEASURE_ONLY) {
+        SetFontShadow(2);
+    }
+    if (flags & WRAPPED_TEXT_INVALIDATE) {
+        InvalidateRegion(draw_x, draw_y, draw_x + StringPixLength(text, font),
+                         draw_y + GetFontHeight(font), 0);
+    }
+    return 1;
+}
+
+static void RenderWrappedTextLine(UINT16* text, int x, int top, int width, int font,
+                                  unsigned char foreground, unsigned char background, bool dirty,
+                                  unsigned int flags)
+{
+    if (flags & WRAPPED_TEXT_MEASURE_ONLY) {
+        SetFontShadow(0);
+    }
+    DrawWrappedTextLine(text, x, top, width, font, foreground, background, dirty, flags);
+    if (flags & WRAPPED_TEXT_MEASURE_ONLY) {
+        SetFontShadow(2);
+    }
+}
+
+// FUNCTION: WIZ8 0x005d0770
+int DrawWrappedText(int x, int y, unsigned int wrap_width, int line_spacing, int font,
+                    unsigned char colour, const wchar_t* text, int background, int dirty, int flags)
+{
+    wchar_t line[0x80];
+    wchar_t word[0x40];
+    unsigned int position = 0;
+    unsigned int word_length = 0;
+    unsigned int line_width = 0;
+    unsigned int remaining_width = wrap_width;
+    unsigned char active_colour = colour;
+    int draw_x = x;
+    int draw_y = y;
+    int active_font = font;
+    int line_count = 1;
+    short section = 1;
+    bool alternate = false;
+
+    memset(line, 0, sizeof(line));
+    memset(word, 0, sizeof(word));
+    GetFontHeight(font);
+
+    for (;;) {
+        wchar_t ch = text[position];
+        if (ch != L' ' && ch != L'\0') {
+            word[word_length++] = ch;
+        } else if ((word[0] < 0xb2 || word[0] > 0xb5) && word[0] != L'\n') {
+            word[word_length] = L'\0';
+            unsigned int word_width = StringPixLength(word, active_font);
+            word[word_length++] = L' ';
+            word[word_length] = L'\0';
+            if ((wrap_width & 0xffff) < word_width + line_width) {
+                RenderWrappedTextLine(line, draw_x, draw_y, remaining_width, active_font,
+                                      active_colour, static_cast<unsigned char>(background),
+                                      section != 0, flags);
+                draw_y += GetFontHeight(active_font) + (line_spacing & 0xff);
+                ++line_count;
+                wcscpy(line, word);
+                line_width = StringPixLength(line, active_font);
+                remaining_width = wrap_width;
+                draw_x = x;
+            } else {
+                line_width += StringPixLength(word, active_font);
+                wcscat(line, word);
+            }
+            word_length = 0;
+        } else {
+            if (word[0] == L'\n') {
+                RenderWrappedTextLine(line, draw_x, draw_y, remaining_width, active_font,
+                                      active_colour, static_cast<unsigned char>(background),
+                                      section != 0, flags);
+                draw_y += GetFontHeight(active_font) + (line_spacing & 0xff);
+                ++line_count;
+                memset(line, 0, sizeof(line));
+                memset(word, 0, sizeof(word));
+                word_length = 0;
+                line_width = 0;
+                remaining_width = wrap_width;
+                draw_x = x;
+            } else if (word[0] == 0xb2) {
+                RenderWrappedTextLine(line, draw_x, draw_y, remaining_width, active_font,
+                                      active_colour, static_cast<unsigned char>(background),
+                                      section != 0, flags);
+                if (alternate) {
+                    int span = StringPixLength(line, active_font);
+                    remaining_width -= line_width;
+                    memset(line, 0, sizeof(line));
+                    memset(word, 0, sizeof(word));
+                    alternate = false;
+                    word_length = 0;
+                    draw_x += span;
+                    active_font = font;
+                } else {
+                    int span = StringPixLength(line, active_font);
+                    active_font = g_font12point1;
+                    remaining_width -= line_width;
+                    memset(line, 0, sizeof(line));
+                    memset(word, 0, sizeof(word));
+                    SetFontShadow(0);
+                    alternate = true;
+                    word_length = 0;
+                    draw_x += span;
+                }
+            } else if (word[0] == 0xb3) {
+                if (section == 2) {
+                    RenderWrappedTextLine(line, draw_x, draw_y, remaining_width, active_font,
+                                          active_colour, static_cast<unsigned char>(background),
+                                          true, flags);
+                    section = 1;
+                    draw_y += GetFontHeight(active_font) + (line_spacing & 0xff);
+                    ++line_count;
+                    memset(line, 0, sizeof(line));
+                    word_length = 0;
+                    memset(word, 0, sizeof(word));
+                    line_width = 0;
+                    draw_x = x;
+                } else {
+                    section = 2;
+                    memset(word, 0, sizeof(word));
+                    word_length = 0;
+                    memset(line, 0, sizeof(line));
+                    line_width = 0;
+                }
+            } else if (word[0] == 0xb4 || word[0] == 0xb5) {
+                RenderWrappedTextLine(line, draw_x, draw_y, remaining_width, active_font,
+                                      active_colour, static_cast<unsigned char>(background),
+                                      section != 0, flags);
+                if (word[0] == 0xb4 && word[1] != L' ' && word[1] < 0x100) {
+                    active_colour = static_cast<unsigned char>(word[1]);
+                }
+                int span = StringPixLength(line, active_font);
+                remaining_width -= line_width;
+                bool restore_colour = word[0] == 0xb5;
+                memset(line, 0, sizeof(line));
+                memset(word, 0, sizeof(word));
+                if (restore_colour) {
+                    active_colour = colour;
+                }
+                word_length = 0;
+                draw_x += span;
+            }
+        }
+
+        ++position;
+        if (ch == L'\0') {
+            wcscat(line, &g_empty_wide_string);
+            RenderWrappedTextLine(line, draw_x, draw_y, remaining_width, active_font, active_colour,
+                                  static_cast<unsigned char>(background), section != 0, flags);
+            return (GetFontHeight(font) + (line_spacing & 0xff)) * line_count;
+        }
+    }
+}
+
+// FUNCTION: WIZ8 0x005d0050
+static int MeasureWrappedText(int x, int y, unsigned int wrap_width, int line_spacing, int font,
+                              int alternate_font, const wchar_t* text, int, int, int,
+                              unsigned int* out_edge)
+{
+    wchar_t line[0x140];
+    wchar_t word[0x140];
+    unsigned int position = 0;
+    unsigned int word_length = 0;
+    unsigned int line_width = 0;
+    int line_count = 1;
+    short section = 1;
+    bool alternate = false;
+    int active_font = font;
+
+    memset(line, 0, sizeof(line));
+    memset(word, 0, sizeof(word));
+    GetFontHeight(font);
+
+    for (;;) {
+        wchar_t ch = text[position];
+        if (ch != L' ' && ch != L'\0') {
+            if (ch == L'\n') {
+                GetFontHeight(active_font);
+                if (line_count == 1 && out_edge != 0) {
+                    *out_edge = 0xffffffff;
+                }
+                ++line_count;
+                memset(line, 0, sizeof(line));
+                memset(word, 0, sizeof(word));
+                line_width = 0;
+                word_length = 0;
+            } else {
+                word[word_length++] = ch;
+            }
+        } else if ((word[0] < 0xb2 || word[0] > 0xb5) && word[0] != L'\n') {
+            word[word_length] = L'\0';
+            unsigned int word_width = StringPixLength(word, active_font);
+            word[word_length++] = L' ';
+            word[word_length] = L'\0';
+            unsigned int next_width = word_width + line_width;
+            if ((wrap_width & 0xffff) < next_width) {
+                GetFontHeight(active_font);
+                if (line_count == 1 && out_edge != 0) {
+                    *out_edge = next_width;
+                }
+                ++line_count;
+                wcscpy(line, word);
+                line_width = StringPixLength(line, active_font);
+            } else {
+                line_width += StringPixLength(word, active_font);
+                wcscat(line, word);
+            }
+            word_length = 0;
+        } else {
+            switch (word[0]) {
+            case L'\n':
+                GetFontHeight(active_font);
+                if (line_count == 1 && out_edge != 0) {
+                    *out_edge = 0xffffffff;
+                }
+                ++line_count;
+                memset(line, 0, sizeof(line));
+                memset(word, 0, sizeof(word));
+                line_width = 0;
+                word_length = 0;
+                break;
+            case 0xb2:
+                if (alternate) {
+                    StringPixLength(line, active_font);
+                    memset(line, 0, sizeof(line));
+                    memset(word, 0, sizeof(word));
+                    alternate = false;
+                    word_length = 0;
+                    active_font = font;
+                } else {
+                    StringPixLength(line, active_font);
+                    active_font = g_font12point1;
+                    memset(line, 0, sizeof(line));
+                    memset(word, 0, sizeof(word));
+                    SetFontShadow(0);
+                    alternate = true;
+                    word_length = 0;
+                }
+                break;
+            case 0xb3:
+                if (section == 2) {
+                    GetFontHeight(active_font);
+                    if (line_count == 1 && out_edge != 0) {
+                        *out_edge = 0xffffffff;
+                    }
+                    ++line_count;
+                    line_width = 0;
+                    section = 1;
+                } else {
+                    section = 2;
+                    line_width = 0;
+                }
+                memset(line, 0, sizeof(line));
+                memset(word, 0, sizeof(word));
+                word_length = 0;
+                break;
+            case 0xb4:
+            case 0xb5:
+                StringPixLength(line, active_font);
+                memset(line, 0, sizeof(line));
+                memset(word, 0, sizeof(word));
+                word_length = 0;
+                break;
+            }
+        }
+
+        ++position;
+        if (ch == L'\0') {
+            return (GetFontHeight(font) + (line_spacing & 0xff)) * line_count;
+        }
+    }
+}
+
+// FUNCTION: WIZ8 0x005cf620
+unsigned char DrawPortraitQuoteBubble(int quote_handle, short x, short y, unsigned int surface)
+{
+    W8PortraitQuoteBubble* bubble;
+    unsigned int blt_flags;
+
+    if (quote_handle == -1) {
+        return 0;
+    }
+    bubble = g_portrait_quotes[quote_handle];
+    if (bubble == 0) {
+        return 0;
+    }
+    if ((bubble->flags & QUOTE_BUBBLE_FLAT_BACKGROUND) == 0) {
+        blt_flags = VS_BLT_FAST;
+    } else {
+        blt_flags = VS_BLT_FAST | VS_BLT_USECOLORKEY;
+    }
+    g_current_portrait_quote = bubble;
+    BltVideoSurface(surface, bubble->surface, 0, x, y, blt_flags, 0);
+    if (surface == 0xfffffff2) {
+        InvalidateRegion(x, y, static_cast<short>(x + bubble->width),
+                         static_cast<short>(y + bubble->height), 0);
+    }
+    return 1;
+}
+
+static short MeasurePortraitQuoteLine(wchar_t* text)
+{
+    short width = 0;
+    size_t remaining = wcslen(text);
+    if (static_cast<int>(remaining) > 0) {
+        do {
+            wchar_t ch = *text;
+            if ((static_cast<unsigned short>(ch) < 0xb2 ||
+                 static_cast<unsigned short>(ch) > 0xb5) &&
+                static_cast<unsigned short>(ch) > 10) {
+                width += StringPixLengthArg(g_font12point1, 1, text);
+            }
+            ++text;
+        } while (--remaining != 0);
+    }
+    return width;
+}
+
+// FUNCTION: WIZ8 0x005cf6c0
+int LayoutPortraitQuoteBubble(int quote_handle, unsigned char background_index,
+                              unsigned char edge_index, const wchar_t* text, unsigned int max_width,
+                              int margin_x, int margin_top, int margin_bottom,
+                              unsigned short* out_width, unsigned short* out_height,
+                              unsigned int font_palette)
+{
+    W8PortraitQuoteBubble* bubble;
+    VSURFACE_DESC surface_desc;
+    VSURFACE_DESC text_desc;
+    VOBJECT_DESC object_desc;
+    wchar_t line[0x800];
+    const wchar_t* read;
+    size_t remaining;
+    int position;
+    short line_width;
+    int index;
+    unsigned int max_line;
+    unsigned int right_edge;
+    int text_height;
+    unsigned int height;
+    int width_px;
+    int height_px;
+    /* Retail left these unset on the nonzero-background/no-palette path and
+       still consumed them; the recovery keeps that read. */
+    unsigned char colour;
+    bool foreground;
+    unsigned short count;
+    unsigned short x;
+    unsigned short y;
+    UINT16 fill;
+    UINT16* pixels;
+    UINT8* source;
+    UINT32 pitch;
+    UINT32 source_pitch;
+    HVOBJECT object;
+    HVSURFACE source_surface;
+    SGPRect rect;
+
+    if (static_cast<unsigned short>(max_width) >= 0x280) {
+        return -1;
+    }
+    if (static_cast<unsigned short>(max_width) <= 0xa) {
+        max_width = 10;
+    }
+    if (quote_handle == -1) {
+        bubble = new W8PortraitQuoteBubble;
+        g_current_portrait_quote = bubble;
+        surface_desc.fCreateFlags = VSURFACE_CREATE_FROMFILE | VSURFACE_SYSTEM_MEM_USAGE;
+        strcpy(surface_desc.ImageFile, g_quote_bubble_backgrounds[background_index]);
+        if (!AddVideoSurface(&surface_desc, &bubble->background_surface)) {
+            delete bubble;
+            return -1;
+        }
+        object_desc.fCreateFlags = VOBJECT_CREATE_FROMFILE;
+        strcpy(object_desc.ImageFile, g_quote_bubble_edges[edge_index]);
+        if (!AddVideoObject(&object_desc, &g_current_portrait_quote->object)) {
+            delete bubble;
+            return -1;
+        }
+        g_current_portrait_quote->has_resources = true;
+        g_current_portrait_quote->background_index = background_index;
+        g_current_portrait_quote->object_index = edge_index;
+    } else {
+        bubble = g_portrait_quotes[quote_handle];
+        g_current_portrait_quote = bubble;
+        if (background_index != bubble->background_index || edge_index != bubble->object_index ||
+            !bubble->has_resources) {
+            if (bubble != 0 && bubble->has_resources) {
+                DeleteVideoSurfaceFromIndex(bubble->background_surface);
+                DeleteVideoObjectFromIndex(g_current_portrait_quote->object);
+                g_current_portrait_quote->has_resources = false;
+            }
+            surface_desc.fCreateFlags = VSURFACE_CREATE_FROMFILE | VSURFACE_SYSTEM_MEM_USAGE;
+            strcpy(surface_desc.ImageFile, g_quote_bubble_backgrounds[background_index]);
+            if (!AddVideoSurface(&surface_desc, &g_current_portrait_quote->background_surface)) {
+                return -1;
+            }
+            object_desc.fCreateFlags = VOBJECT_CREATE_FROMFILE;
+            strcpy(object_desc.ImageFile, g_quote_bubble_edges[edge_index]);
+            if (!AddVideoObject(&object_desc, &g_current_portrait_quote->object)) {
+                return -1;
+            }
+            g_current_portrait_quote->has_resources = true;
+            g_current_portrait_quote->background_index = background_index;
+            g_current_portrait_quote->object_index = edge_index;
+        }
+    }
+    g_current_portrait_quote->text = static_cast<wchar_t*>(malloc(wcslen(text) * 2 + 2));
+    wcscpy(g_current_portrait_quote->text, text);
+    g_current_portrait_quote->flags = g_quote_bubble_flags;
+    position = 0;
+    g_quote_bubble_flags = 0;
+    max_line = 0xffffffff;
+    remaining = wcslen(text);
+    memset(line, 0, sizeof(line));
+    if (remaining > 0) {
+        read = text;
+        do {
+            if (*read != L'\n') {
+                line[position] = *read;
+                ++position;
+            } else {
+                line_width = MeasurePortraitQuoteLine(line);
+                if (line_width > static_cast<int>(max_line)) {
+                    max_line = line_width;
+                }
+                position = 0;
+                memset(line, 0, sizeof(line));
+            }
+            ++read;
+        } while (--remaining != 0);
+    }
+    line_width = MeasurePortraitQuoteLine(line);
+    if (line_width > static_cast<int>(max_line)) {
+        max_line = line_width;
+    }
+    if (static_cast<int>(max_line & 0xffff) < static_cast<int>((max_width & 0xffff) - 0x18)) {
+        max_width = max_line + 0x18;
+        ++max_line;
+    } else {
+        max_line = (max_width - margin_x) - 0x17;
+        right_edge = 0xffffffff;
+        MeasureWrappedText(0, 0, max_line, 2, g_font12point1, 0xd0, text, 0, 0, 1, &right_edge);
+        if (right_edge != 0xffffffff && static_cast<int>(right_edge - (max_line & 0xffff)) < 0x14) {
+            max_line = right_edge;
+            max_width = right_edge + 0x18;
+        }
+    }
+    text_height = MeasureWrappedText(0, 0, max_line, 2, g_font12point1, 0xd0, text, 0, 0, 1, 0);
+    height = text_height + margin_top + 0x18 + margin_bottom;
+    max_width = max_width + margin_x * 2;
+    if (static_cast<unsigned short>(max_width) >= 0x15e) {
+        max_width = 0x15d;
+    }
+    if (static_cast<unsigned short>(height) < 200) {
+        memset(&text_desc, 0, sizeof(text_desc));
+        text_desc.fCreateFlags = VSURFACE_CREATE_DEFAULT | VSURFACE_SYSTEM_MEM_USAGE;
+        text_desc.usWidth = static_cast<unsigned short>(max_width);
+        text_desc.usHeight = static_cast<unsigned short>(height);
+        text_desc.ubBitDepth = 0x10;
+        if (!AddVideoSurface(&text_desc, &bubble->surface)) {
+            return 0;
+        }
+        bubble->palette = font_palette;
+        bubble->created = true;
+        bubble->width = static_cast<unsigned short>(max_width);
+        bubble->height = static_cast<unsigned short>(height);
+        rect.iLeft = 0;
+        rect.iTop = 0;
+        width_px = max_width & 0xffff;
+        height_px = height & 0xffff;
+        *out_width = static_cast<unsigned short>(max_width);
+        *out_height = static_cast<unsigned short>(height);
+        rect.iRight = width_px;
+        rect.iBottom = height_px;
+        if (bubble->flags & QUOTE_BUBBLE_FLAT_BACKGROUND) {
+            SetVideoSurfaceTransparency(bubble->surface, 0xffff);
+            pixels = reinterpret_cast<UINT16*>( // reinterpret-ok: raw locked pixel memory
+                LockVideoSurface(bubble->surface, &pitch));
+            fill = Get16BPPColor(0xffff);
+            count = static_cast<unsigned short>(height * max_width);
+            for (x = 0; x < count; ++x) {
+                pixels[x] = fill;
+            }
+            UnLockVideoSurface(bubble->surface);
+        } else {
+            GetVideoSurface(&source_surface, bubble->background_surface);
+            pixels = reinterpret_cast<UINT16*>( // reinterpret-ok: raw locked pixel memory
+                LockVideoSurface(bubble->surface, &pitch));
+            source = LockVideoSurface(bubble->background_surface, &source_pitch);
+            Blt8BPPDataSubTo16BPPBuffer(pixels, pitch, source_surface, source, source_pitch, 0, 0,
+                                        &rect);
+            UnLockVideoSurface(bubble->background_surface);
+            UnLockVideoSurface(bubble->surface);
+        }
+        GetVideoObject(&object, bubble->object);
+        for (x = 0x10; static_cast<int>(x) < width_px - 0x10; x = x + 0x10) {
+            BltVideoObject(bubble->surface, object, 1, x, 0, 2, 0);
+            BltVideoObject(bubble->surface, object, 6, x, height_px - 0x10, 2, 0);
+        }
+        for (y = 0x10; static_cast<int>(y) < height_px - 0x10; y = y + 0x10) {
+            BltVideoObject(bubble->surface, object, 3, 0, y, 2, 0);
+            BltVideoObject(bubble->surface, object, 4, width_px - 8, y, 2, 0);
+        }
+        BltVideoObject(bubble->surface, object, 0, 0, 0, 2, 0);
+        BltVideoObject(bubble->surface, object, 2, width_px - 0x10, 0, 2, 0);
+        BltVideoObject(bubble->surface, object, 5, 0, height_px - 0x10, 2, 0);
+        BltVideoObject(bubble->surface, object, 7, width_px - 0x10, height_px - 0x10, 2, 0);
+        if (background_index == 0) {
+            colour = 0xd0;
+            foreground = false;
+        }
+        if (bubble->palette != 0xffffffff) {
+            colour = static_cast<unsigned char>(bubble->palette);
+        }
+        SetFont(g_font12point1);
+        SetFontForeground(foreground);
+        SetFontDestBuffer(bubble->surface, 0, 0, width_px, height_px, 0);
+        DrawWrappedText(margin_x + 0xc, margin_top + 0xc, max_line, 2, g_font12point1, colour, text,
+                        0, 0, 1);
+        SetFontDestBuffer(FRAME_BUFFER, 0, 0, 0x280, 0x1e0, 0);
+        SetFontForeground(2);
+        if (quote_handle == -1 && bubble != 0) {
+            for (index = 0; index < 10; ++index) {
+                if (g_portrait_quotes[index] == 0) {
+                    g_portrait_quotes[index] = bubble;
+                    if (index != -1) {
+                        g_current_portrait_quote = bubble;
+                    }
+                    return index;
+                }
+            }
+            return -1;
+        }
+        if (quote_handle == -1) {
+            return -1;
+        }
+        if (g_portrait_quotes[quote_handle] != 0) {
+            g_current_portrait_quote = g_portrait_quotes[quote_handle];
+        }
+        return quote_handle;
+    }
+    if (quote_handle != -1) {
+        return -1;
+    }
+    delete bubble;
+    return -1;
+}
+
+// FUNCTION: WIZ8 0x005cffa0
+unsigned char ReleasePortraitQuoteBubble(int quote_handle)
+{
+    W8PortraitQuoteBubble* quote;
+
+    if (quote_handle != -1 && (quote = g_portrait_quotes[quote_handle]) != 0 &&
+        (g_current_portrait_quote = quote) != 0) {
+        if (g_current_portrait_quote->created) {
+            for (int index = 0; index < 10; ++index) {
+                if (g_portrait_quotes[index] == quote) {
+                    g_portrait_quotes[index] = 0;
+                    index = 10;
+                }
+            }
+            DeleteVideoSurfaceFromIndex(quote->surface);
+            free(g_current_portrait_quote->text);
+            if (g_current_portrait_quote != 0 && g_current_portrait_quote->has_resources) {
+                DeleteVideoSurfaceFromIndex(g_current_portrait_quote->background_surface);
+                DeleteVideoObjectFromIndex(g_current_portrait_quote->object);
+                g_current_portrait_quote->has_resources = false;
+            }
+            delete g_current_portrait_quote;
+            g_current_portrait_quote = 0;
+        }
+        return 1;
+    }
+    return 0;
+}
+
+// FUNCTION: WIZ8 0x005d0750
+const wchar_t* GetPortraitQuoteText(int quote_handle)
+{
+    W8PortraitQuoteBubble* quote;
+
+    if (quote_handle != -1 && (quote = g_portrait_quotes[quote_handle]) != 0) {
+        g_current_portrait_quote = quote;
+        return quote->text;
+    }
+    return 0;
+}

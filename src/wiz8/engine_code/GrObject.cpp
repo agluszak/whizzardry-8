@@ -1,0 +1,120 @@
+#include "wiz8/sr_api.h"
+#include "wiz8/vector.h"
+#include "wiz8/engine_code/GrObject.h"
+#include "wiz8/engine_code/PathAI.h"
+#include "wiz8/engine_code/SoundEvent.h"
+
+#include <stdlib.h>
+
+#define GROBJECT_CPP "C:\\Projects\\Wizardry 8\\Engine Code\\GrObject.cpp"
+
+// FUNCTION: WIZ8 0x004b6900
+W8GrObject::W8GrObject() : kind(0), id(-1), m_pAI(0), m_plsSoundEvents(0) {}
+
+/* Nothing is shared with the source. The AI record goes through the tagged
+   dispatcher, and each sound event is rebuilt from the four leading values and
+   the wave name rather than pointer-copied - so the copy owns its own events
+   and its own name storage.
+
+   The representation at +0x14 is the exception: it is neither copied nor
+   cleared. Whatever the allocation held stays, because the caller that copies a
+   W8GrObject is the one that owns the representation. */
+// FUNCTION: WIZ8 0x004b69a0
+W8GrObject::W8GrObject(const W8GrObject& other)
+{
+    kind = other.kind;
+    id = other.id;
+    if (other.m_pAI != 0) {
+        m_pAI = CloneAIRecord(other.m_pAI);
+    } else {
+        m_pAI = 0;
+    }
+    if (other.m_plsSoundEvents != 0) {
+        int count;
+        int index;
+
+        m_plsSoundEvents = new W8Vector<W8SoundEvent*>();
+        if (m_plsSoundEvents == 0) {
+            srAssertFail("m_plsSoundEvents", GROBJECT_CPP, 0x42, 0);
+        }
+        count = other.m_plsSoundEvents->GetCount();
+        for (index = 0; index < count; ++index) {
+            W8SoundEvent* pse = *other.m_plsSoundEvents->GetAt(index);
+
+            m_plsSoundEvents->Add(CreateSoundEvent(pse->kind, pse->cycle, pse->frame, pse->subcycle,
+                                                   pse->m_pacWaveName, false));
+        }
+    } else {
+        m_plsSoundEvents = 0;
+    }
+}
+
+/* The sound events are owned outright and destroyed here, the list with them.
+   The AI record is released with plain free rather than through either PathAI
+   helper, which is asymmetric with the tagged clone the copy constructor uses
+   but is what the body does. */
+/* The vtable's deleting-destructor slot holds 0x004B6920, a second emission
+   whose destructor body is inlined rather than shared with the standalone
+   0x004B6B60 below. */
+
+// FUNCTION: WIZ8 0x004b6b60
+W8GrObject::~W8GrObject()
+{
+    if (m_pAI != 0) {
+        free(m_pAI);
+    }
+    if (m_plsSoundEvents != 0) {
+        int count = m_plsSoundEvents->GetCount();
+        int index;
+
+        for (index = 0; index < count; ++index) {
+            delete *m_plsSoundEvents->GetAt(index);
+        }
+        delete m_plsSoundEvents;
+    }
+}
+
+// VTABLE: WIZ8 0x005ed098
+// class W8GrowableVector<W8SoundEvent*>
+// VTABLE: WIZ8 0x005ed094
+// class W8Vector<W8SoundEvent*>
+/* Creates the list on first use and appends one event to it. Only one argument
+   reaches this from its three call sites, each of which builds the event with
+   0x004D57A0 immediately before the call - the same pointer is both the thing
+   null-checked on entry and the thing stored, which is why the decompiler
+   splits it into two parameters.
+
+   Add's own result is discarded: the growth-failure path and the success path
+   both leave this returning the same value, and only a null event returns
+   zero. Preserved as found. */
+// FUNCTION: WIZ8 0x004b6bd0
+unsigned char W8GrObject::AddSoundEvent(W8SoundEvent* pse)
+{
+    if (!pse) {
+        return 0;
+    }
+    if (!m_plsSoundEvents) {
+        m_plsSoundEvents = new W8Vector<W8SoundEvent*>();
+        if (!m_plsSoundEvents) {
+            srAssertFail("m_plsSoundEvents", GROBJECT_CPP, 0x8b, 0);
+        }
+    }
+    m_plsSoundEvents->Add(pse);
+    return 1;
+}
+
+// GLOBAL: WIZ8 0x0060dfac
+static int g_gr_object_id_counter = 1;
+
+// FUNCTION: WIZ8 0x004B6D10
+int AllocateGrObjectId(void)
+{
+    ++g_gr_object_id_counter;
+    return g_gr_object_id_counter;
+}
+
+// FUNCTION: WIZ8 0x004B6D20
+void ResetGrObjectIdCounter(void)
+{
+    g_gr_object_id_counter = 1;
+}
