@@ -6,13 +6,13 @@
 	Rewritten mostly by Kris Morness
 ***********************************************************************************************/
 
-#include "types.h"
+#include "Types.h"
 #include <windows.h>
 #include <stdio.h>
 #include <memory.h>
-#include "debug.h"
+#include "DEBUG.H"
 #include "input.h"
-#include "memman.h"
+#include "MemMan.h"
 #include "english.h"
 #include "vobject.h"
 #include "vobject_blitters.h"
@@ -20,7 +20,7 @@
 #include "Button System.h"
 #include "line.h"
 #include <stdarg.h>
-#include "video2.h"
+#include "Video2.h"
 
 //ATE: Added to let Wiz default creating mouse regions with no cursor, JA2 default to a cursor ( first one )
 #define MSYS_STARTING_CURSORVAL MSYS_NO_CURSOR

@@ -9,10 +9,10 @@
 #include <ddraw.h>
 #include <process.h>
 
-#include "Debug.h"
+#include "DEBUG.H"
 #include "Types.h"
 #include "DirectDraw Calls.h"
-#include "VSurface.h"
+#include "vsurface.h"
 #include "Mutex Manager.h"
 
 #define BUFFER_READY 0x00

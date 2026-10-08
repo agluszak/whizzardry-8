@@ -1,7 +1,7 @@
 /* Modified for the Wizardry 8 reconstruction: 2026-10-03, 2026-10-06, 2026-10-07.
    Distributed under the accompanying SFI Source Code license agreement. */
 // font.c
-#include "types.h"
+#include "Types.h"
 #include <stdio.h>
 #include <stdarg.h>
 #include <malloc.h>
@@ -10,12 +10,12 @@
 #include <wchar.h>
 #include "sgp.h"
 #include "pcx.h"
-#include "memman.h"
-#include "fileman.h"
+#include "MemMan.h"
+#include "FileMan.h"
 #include "Font.h"
-#include "Debug.h"
+#include "DEBUG.H"
 
-#include "video2.h"
+#include "Video2.h"
 
 #include "himage.h"
 #include "vobject.h"

@@ -92,7 +92,7 @@
 #include "wiz8/wiz8_windows.h"
 #include "wiz8/world_cursor.h"
 #include "wiz8/local_code/MonsterGroup.h"
-#include "font.h"
+#include "Font.h"
 #include "FileMan.h"
 #include "input.h"
 #include "timer.h"

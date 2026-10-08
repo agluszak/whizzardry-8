@@ -52,7 +52,7 @@
 #include "wiz8/virtual_file.h"
 #include "wiz8/xstatus.h"
 #include "wiz8/save_game.h"
-#include "Random.h"
+#include "random.h"
 #include "DEBUG.H"
 #include "FileMan.h"
 #include "surrender/srCamera.h"

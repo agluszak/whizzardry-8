@@ -1,11 +1,12 @@
 
 #include "surrender/srVariableTimer.h"
+#include "surrender/srStreamFlags.h"
 
 #include <ostream>
 
 // FUNCTION: SURRENDER 0x100632C0
 srVariableTimer::srVariableTimer(int force_system_timer, int unused, int save_calibration,
-                                 float multiplier, unsigned long step_size)
+                                 float multiplier, w8_ulong step_size)
     : srTimer(force_system_timer, unused, save_calibration)
 {
     m_multiplier = multiplier;
@@ -64,7 +65,11 @@ srVariableTimer& srVariableTimer::operator=(const srTimer& other)
     /* Retail skips m_seconds_per_tick, m_units_per_tick and m_cpu_count
        (0x830..0x843); the destination keeps its own values. */
     m_read_tick = other.m_read_tick;
+#if defined(WIZ8_NATIVE)
+    m_kernel32 = 0;
+#else
     m_kernel32 = other.m_kernel32 == 0 ? 0 : LoadLibraryA("kernel32");
+#endif
     for (index = 0; index < 0xd; ++index) {
         m_cpu_vendor[index] = other.m_cpu_vendor[index];
     }
@@ -111,7 +116,7 @@ int srVariableTimer::reset(int force_system_timer, int unused, int save_calibrat
 }
 
 // FUNCTION: SURRENDER 0x10063990
-int srVariableTimer::reset(float multiplier, unsigned long step_size, int force_system_timer,
+int srVariableTimer::reset(float multiplier, w8_ulong step_size, int force_system_timer,
                            int unused, int save_calibration)
 {
     if (!srTimer::reset(force_system_timer, unused, save_calibration))
@@ -153,7 +158,7 @@ void srVariableTimer::setTime(float time)
 
 /* Does not recompute m_step_ticks. */
 // FUNCTION: SURRENDER 0x10063B90
-int srVariableTimer::stepBegin(unsigned long step_size)
+int srVariableTimer::stepBegin(w8_ulong step_size)
 {
     if ((m_pause.lo == 0 && m_pause.hi == 0) && m_stepping == 0) {
         m_stepping = 1;
@@ -168,11 +173,11 @@ int srVariableTimer::stepBegin(unsigned long step_size)
 }
 
 // FUNCTION: SURRENDER 0x10063C00
-unsigned long srVariableTimer::stepEnd()
+w8_ulong srVariableTimer::stepEnd()
 {
     srQuadWord now;
     srQuadWord delta;
-    unsigned long result;
+    w8_ulong result;
 
     if (m_stepping == 0)
         return 0;
@@ -195,7 +200,7 @@ int srVariableTimer::pause()
 }
 
 // FUNCTION: SURRENDER 0x10063DE0
-unsigned long srVariableTimer::resume()
+w8_ulong srVariableTimer::resume()
 {
     if (m_stepping != 0)
         return 0;
@@ -203,7 +208,7 @@ unsigned long srVariableTimer::resume()
 }
 
 // FUNCTION: SURRENDER 0x10063E00
-unsigned long srVariableTimer::getUTime(e_timerReadControl control)
+w8_ulong srVariableTimer::getUTime(e_timerReadControl control)
 {
     srQuadWord delta;
     unsigned __int64 scaled;
@@ -217,7 +222,7 @@ unsigned long srVariableTimer::getUTime(e_timerReadControl control)
         add = scaled;
         m_scaled_tick += add;
     }
-    return (unsigned long)((m_scaled_tick - m_scaled_base) * m_units_per_tick);
+    return (w8_ulong)((m_scaled_tick - m_scaled_base) * m_units_per_tick);
 }
 
 // FUNCTION: SURRENDER 0x10063EE0
@@ -252,26 +257,26 @@ void srVariableTimer::resetMultiplier()
 }
 
 // FUNCTION: SURRENDER 0x10063FB0
-void srVariableTimer::stepBack(unsigned long steps)
+void srVariableTimer::stepBack(w8_ulong steps)
 {
     m_scaled_tick = m_scaled_tick - m_step_ticks * static_cast<unsigned int>(steps);
 }
 
 // FUNCTION: SURRENDER 0x10063FE0
-void srVariableTimer::stepForward(unsigned long steps)
+void srVariableTimer::stepForward(w8_ulong steps)
 {
     m_scaled_tick += m_step_ticks * static_cast<unsigned int>(steps);
 }
 
 // FUNCTION: SURRENDER 0x10064010
-unsigned long srVariableTimer::getMsTime(e_timerReadControl control)
+w8_ulong srVariableTimer::getMsTime(e_timerReadControl control)
 {
     getUTime(control);
     return (((m_scaled_tick - m_scaled_base) * 1000u) / m_frequency).lo;
 }
 
 // FUNCTION: SURRENDER 0x10064070
-unsigned long srVariableTimer::getUTime(srQuadWord& out, e_timerReadControl control)
+w8_ulong srVariableTimer::getUTime(srQuadWord& out, e_timerReadControl control)
 {
     getUTime(control);
     unsigned __int64 units = (unsigned __int64)((m_scaled_tick - m_scaled_base) * m_units_per_tick);
@@ -288,7 +293,7 @@ char* srVariableTimer::getAscTime(char* buffer, e_timerReadControl control)
 }
 
 // FUNCTION: SURRENDER 0x10064150
-unsigned long srVariableTimer::getRawTime(e_timerReadControl control)
+w8_ulong srVariableTimer::getRawTime(e_timerReadControl control)
 {
     getUTime(control);
     return m_scaled_tick.lo - m_scaled_base.lo;
@@ -297,7 +302,7 @@ unsigned long srVariableTimer::getRawTime(e_timerReadControl control)
 /* Stores the absolute m_scaled_tick to out while returning the low dword of m_scaled_tick -
    m_scaled_base. */
 // FUNCTION: SURRENDER 0x10064190
-unsigned long srVariableTimer::getRawTime(srQuadWord& out, e_timerReadControl control)
+w8_ulong srVariableTimer::getRawTime(srQuadWord& out, e_timerReadControl control)
 {
     getUTime(control);
     out = m_scaled_tick;
@@ -305,7 +310,7 @@ unsigned long srVariableTimer::getRawTime(srQuadWord& out, e_timerReadControl co
 }
 
 // FUNCTION: SURRENDER 0x100641E0
-unsigned long srVariableTimer::getBaseMsTime(e_timerReadControl control)
+w8_ulong srVariableTimer::getBaseMsTime(e_timerReadControl control)
 {
     return srTimer::getMsTime(control);
 }
@@ -317,13 +322,13 @@ double srVariableTimer::getBaseTime(e_timerReadControl control)
 }
 
 // FUNCTION: SURRENDER 0x10064200
-unsigned long srVariableTimer::getBaseUTime(e_timerReadControl control)
+w8_ulong srVariableTimer::getBaseUTime(e_timerReadControl control)
 {
     return srTimer::getUTime(control);
 }
 
 // FUNCTION: SURRENDER 0x10064210
-unsigned long srVariableTimer::getBaseUTime(srQuadWord& out, e_timerReadControl control)
+w8_ulong srVariableTimer::getBaseUTime(srQuadWord& out, e_timerReadControl control)
 {
     return srTimer::getUTime(out, control);
 }
@@ -335,13 +340,13 @@ char* srVariableTimer::getBaseAscTime(char* buffer, e_timerReadControl control)
 }
 
 // FUNCTION: SURRENDER 0x10064250
-unsigned long srVariableTimer::getBaseRawTime(e_timerReadControl control)
+w8_ulong srVariableTimer::getBaseRawTime(e_timerReadControl control)
 {
     return srTimer::getRawTime(control);
 }
 
 // FUNCTION: SURRENDER 0x100642A0
-unsigned long srVariableTimer::getBaseRawTime(srQuadWord& out, e_timerReadControl control)
+w8_ulong srVariableTimer::getBaseRawTime(srQuadWord& out, e_timerReadControl control)
 {
     return srTimer::getRawTime(out, control);
 }
@@ -361,11 +366,11 @@ std::ostream& operator<<(std::ostream& stream, const srVariableTimer& timer)
         stream << timer.m_step_size;
         break;
     case 3: {
-        long flags = stream.flags();
-        stream.flags((flags & ~0x1000) | 0x2000);
+        w8_long flags = srGetStreamFlags(stream);
+        srSetStreamFlags(stream, (flags & ~0x1000) | 0x2000);
         stream.width(3);
         stream << timer.m_multiplier;
-        stream.flags(stream.flags() | (flags & 0x7fff));
+        srSetStreamFlags(stream, srGetStreamFlags(stream) | (flags & 0x7fff));
     } break;
     }
     stream.width(mode);

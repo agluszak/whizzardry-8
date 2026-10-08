@@ -1,4 +1,5 @@
 #include "surrender/srModel.h"
+#include "surrender/srStreamFlags.h"
 
 #include "surrender/srCore.h"
 
@@ -89,13 +90,13 @@ srModel::~srModel() {}
 void srModel::dump(std::ostream& stream)
 {
     srClass::dump(stream);
-    long flags = stream.flags();
-    stream.flags((flags & 0xfffffe7fL) | 0x40);
+    w8_long flags = srGetStreamFlags(stream);
+    srSetStreamFlags(stream, (flags & 0xfffffe7fL) | 0x40);
     if (first_client != 0) {
         stream.width(0x20);
         stream << "  First client: " << first_client << '\n';
     }
-    stream.flags(flags & 0x7fff);
+    srSetStreamFlags(stream, flags & 0x7fff);
 }
 
 // FUNCTION: SURRENDER 0x1003C440

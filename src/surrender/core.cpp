@@ -4,6 +4,7 @@
 #include <string.h>
 
 #include "surrender/srCore.h"
+#include "surrender/srStreamFlags.h"
 #include "surrender/srBinIAsyncStream.h"
 #include "surrender/srColorSurface.h"
 #include "surrender/srConfig.h"
@@ -129,7 +130,7 @@ srGlobalRecycler* srCore::getGlobalRecycler() const
 }
 
 // FUNCTION: SURRENDER 0x100156D0
-unsigned long srCore::getUniqueID()
+w8_ulong srCore::getUniqueID()
 {
     return next_unique_id++;
 }
@@ -367,8 +368,8 @@ void srCore::reset()
 // FUNCTION: SURRENDER 0x10015CF0
 void srCore::dump(std::ostream& stream)
 {
-    long flags = stream.flags();
-    stream.flags((flags & ~0x180L) | 0x40);
+    w8_long flags = srGetStreamFlags(stream);
+    srSetStreamFlags(stream, (flags & ~0x180L) | 0x40);
     stream << '\n' << copyright_ << '\n';
     stream.width(0x18);
     stream << "Build time: " << getBuildTime() << '\n';
@@ -396,7 +397,7 @@ void srCore::dump(std::ostream& stream)
         stream << "Vector Processor: " << srVectorProcessor::vp->getName();
         srStreamPrintf(stream, " (API version %d.%02d)\n", 1, 0x19);
     }
-    stream.flags(flags & 0x7fff);
+    srSetStreamFlags(stream, flags & 0x7fff);
 }
 
 // GLOBAL: SURRENDER 0x100A4778

@@ -12,9 +12,9 @@
 #include "soundman.h"
 #include "FileMan.h"
 #include "LibraryDataBase.h"
-#include "debug.h"
+#include "DEBUG.H"
 #include "MemMan.h"
-#include "mss.h"
+#include "Mss.h"
 #include "random.h"
 
 // Uncomment this to disable the startup of sound hardware

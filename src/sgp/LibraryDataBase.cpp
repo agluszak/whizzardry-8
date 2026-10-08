@@ -7,9 +7,9 @@
 #include "MemMan.h"
 #include "stdio.h"
 #include "WCheck.h"
-#include "Debug.h"
+#include "DEBUG.H"
 
-#include "video2.h"
+#include "Video2.h"
 
 //NUMBER_OF_LIBRARIES
 // We link it as an .obj file

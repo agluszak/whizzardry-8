@@ -1,4 +1,5 @@
 #include "surrender/srCamera.h"
+#include "surrender/srStreamFlags.h"
 
 #include "surrender/srCore.h"
 #include "surrender/srGERD.h"
@@ -311,8 +312,8 @@ void srCamera::flipHorizontal()
 void srCamera::dump(std::ostream& stream)
 {
     srNode::dump(stream);
-    long flags = stream.flags();
-    stream.flags((flags & 0xfffffe7fL) | 0x40);
+    w8_long flags = srGetStreamFlags(stream);
+    srSetStreamFlags(stream, (flags & 0xfffffe7fL) | 0x40);
     stream.width(0x20);
     stream << "Control flags: ";
     if (this->flags.value == 0) {
@@ -321,7 +322,7 @@ void srCamera::dump(std::ostream& stream)
         stream << '[';
         int first = 1;
         const char* names = flag_names;
-        for (unsigned long bit = 0; bit < 0x20; ++bit) {
+        for (w8_ulong bit = 0; bit < 0x20; ++bit) {
             if ((this->flags.value & (1UL << bit)) != 0) {
                 if (first == 0) {
                     stream << ',';
@@ -369,7 +370,7 @@ void srCamera::dump(std::ostream& stream)
     float far_scale;
     getEnvironmentScale(near_scale, far_scale);
     stream << "  Environment Scale (near,far): " << near_scale << ',' << far_scale << '\n';
-    stream.flags(flags & 0x7fff);
+    srSetStreamFlags(stream, flags & 0x7fff);
 }
 
 // FUNCTION: SURRENDER 0x10048E30

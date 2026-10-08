@@ -1,4 +1,5 @@
 #include "surrender/srModelInstance.h"
+#include "surrender/srStreamFlags.h"
 
 #include "surrender/srCore.h"
 #include "surrender/srDebug.h"
@@ -136,7 +137,7 @@ void srModelInstance::process(const ProcessInfo& info, e_processType type)
                         -((float)world_scale.z * length_z));
     }
     if (exclusion_mask != 0) {
-        unsigned long mask = renderer->getExclusionMask();
+        w8_ulong mask = renderer->getExclusionMask();
         renderer->setExclusionMask(mask | exclusion_mask);
         getModel()->render(*renderer);
         renderer->setExclusionMask(mask);
@@ -151,8 +152,8 @@ void srModelInstance::process(const ProcessInfo& info, e_processType type)
 void srModelInstance::dump(std::ostream& stream)
 {
     srNode::dump(stream);
-    long flags = stream.flags();
-    stream.flags((flags & 0xfffffe7fL) | 0x40);
+    w8_long flags = srGetStreamFlags(stream);
+    srSetStreamFlags(stream, (flags & 0xfffffe7fL) | 0x40);
     stream.width(0x20);
     stream << "  Is aligned: " << srBoolToString(alignment_flags.value & 1) << '\n';
     if ((alignment_flags.value & 1) != 0) {
@@ -167,7 +168,7 @@ void srModelInstance::dump(std::ostream& stream)
     stream << (getModel() != 0 ? getModel()->getName() : "none") << '\n';
     stream.width(0x20);
     stream << "  Exclusion mask: " << exclusion_mask << '\n';
-    stream.flags(flags & 0x7fff);
+    srSetStreamFlags(stream, flags & 0x7fff);
 }
 
 // FUNCTION: SURRENDER 0x1004FF40
@@ -189,7 +190,7 @@ int srModelInstance::isAligned() const
 }
 
 // FUNCTION: SURRENDER 0x10050000
-unsigned long srModelInstance::getExclusionMask() const
+w8_ulong srModelInstance::getExclusionMask() const
 {
     return exclusion_mask;
 }
@@ -225,7 +226,7 @@ void srModelInstance::setAlignAxis(srVector3T<float> axis)
 }
 
 // FUNCTION: SURRENDER 0x1004FFF0
-void srModelInstance::setExclusionMask(unsigned long mask)
+void srModelInstance::setExclusionMask(w8_ulong mask)
 {
     exclusion_mask = mask;
 }

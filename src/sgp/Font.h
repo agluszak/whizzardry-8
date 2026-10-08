@@ -3,7 +3,7 @@
 #ifndef __FONT_H_
 #define __FONT_H_
 
-#include "types.h"
+#include "Types.h"
 #include "himage.h"
 #include "vobject.h"
 

@@ -14,7 +14,7 @@
 #include "wiz8/cursor.h"
 #include "wiz8/xstatus.h"
 #include "timer.h"
-#include "font.h"
+#include "Font.h"
 #include "FileMan.h"
 #include "wiz8/local_code/Controls.h"
 #include "wiz8/local_screens/AutomapScreen.h"

@@ -1,27 +1,34 @@
 #include "surrender/srTimer.h"
 
 #include <ctype.h>
-#include <mmsystem.h>
 #include <ostream>
 #include <stdio.h>
 #include <string.h>
+
+#if defined(WIZ8_NATIVE)
+#include <chrono>
+#include <sys/utsname.h>
+#include <thread>
+#else
+#include <mmsystem.h>
 #include <windows.h>
 
 typedef BOOL(__stdcall* QueryFrequency)(LARGE_INTEGER*);
+#endif
 
 /* reset()'s persistence record: the registry round-trip pairs CPU identity
    with the measured tick frequency and the read hook.  calibrate() fills the
    CPUID side when the stored signature does not describe the running CPU. */
 struct srTimerConfig {
-    long use_stored;               /* +0x00 */
-    long unused;                   /* +0x04 */
-    long save;                     /* +0x08 */
-    long cpuid_support;            /* +0x0c */
-    long cpu_count;                /* +0x10 */
+    w8_long use_stored;               /* +0x00 */
+    w8_long unused;                   /* +0x04 */
+    w8_long save;                     /* +0x08 */
+    w8_long cpuid_support;            /* +0x0c */
+    w8_long cpu_count;                /* +0x10 */
     char cpu_vendor[0x10];         /* +0x14 */
-    unsigned long cpu_max_id;      /* +0x24 */
-    unsigned long cpu_signature;   /* +0x28 */
-    unsigned long cpu_features;    /* +0x2c */
+    w8_ulong cpu_max_id;      /* +0x24 */
+    w8_ulong cpu_signature;   /* +0x28 */
+    w8_ulong cpu_features;    /* +0x2c */
     char os_ident[0x400];          /* +0x30 */
     char cpu_ident[0x400];         /* +0x430 */
     srQuadWord frequency;          /* +0x830 */
@@ -71,10 +78,10 @@ const char* srTimer::RegCpuFeatures = "hrfeat";
 const char* srTimer::RegCpuVariance = "hrvariance";
 
 // GLOBAL: SURRENDER 0x10077608
-const unsigned long srTimer::CPU_Model_Mask = 0x3fff;
+const w8_ulong srTimer::CPU_Model_Mask = 0x3fff;
 
 // GLOBAL: SURRENDER 0x1007760C
-const unsigned long srTimer::CPU_Features_Mask = 0x800011;
+const w8_ulong srTimer::CPU_Features_Mask = 0x800011;
 
 // GLOBAL: SURRENDER 0x100A8A30
 char srTimer::RegKeyName[0x400];
@@ -119,7 +126,11 @@ srTimer::srTimer(const srTimer& other)
     m_pause = other.m_pause;
     m_units_per_interval = other.m_units_per_interval;
     m_read_tick = other.m_read_tick;
+#if defined(WIZ8_NATIVE)
+    m_kernel32 = 0;
+#else
     m_kernel32 = other.m_kernel32 == 0 ? 0 : LoadLibraryA("kernel32");
+#endif
     for (index = 0; index < 0xd; ++index) {
         m_cpu_vendor[index] = other.m_cpu_vendor[index];
     }
@@ -147,7 +158,11 @@ srTimer& srTimer::operator=(const srTimer& other)
     m_pause = other.m_pause;
     m_units_per_interval = other.m_units_per_interval;
     m_read_tick = other.m_read_tick;
+#if defined(WIZ8_NATIVE)
+    m_kernel32 = 0;
+#else
     m_kernel32 = other.m_kernel32 == 0 ? 0 : LoadLibraryA("kernel32");
+#endif
     for (index = 0; index < 0xd; ++index) {
         m_cpu_vendor[index] = other.m_cpu_vendor[index];
     }
@@ -160,6 +175,48 @@ srTimer& srTimer::operator=(const srTimer& other)
 // FUNCTION: SURRENDER 0x10060F80
 srTimer::~srTimer() {}
 
+#if defined(WIZ8_NATIVE)
+/* Native ticks are microseconds of the monotonic clock. */
+int __stdcall srTimer::getTick(srQuadWord* out)
+{
+    *out = (unsigned __int64)std::chrono::duration_cast<std::chrono::microseconds>(
+               std::chrono::steady_clock::now().time_since_epoch())
+               .count();
+    return 1;
+}
+
+int __stdcall srTimer::RDTSC(srQuadWord* out)
+{
+    return getTick(out);
+}
+
+int srTimer::getCPUIDSupport() const
+{
+    return 0;
+}
+
+int srTimer::reset(int, int, int)
+{
+    m_cpu_count = std::thread::hardware_concurrency();
+    struct utsname name;
+    if (uname(&name) == 0) {
+        snprintf(m_cpu_ident, sizeof(m_cpu_ident), "%s", name.machine);
+    } else {
+        strcpy(m_cpu_ident, "unknown");
+    }
+    memset(m_cpu_vendor, 0, sizeof(m_cpu_vendor));
+    m_cpu_max_id = 0;
+    m_cpu_signature = 0;
+    m_cpu_features = 0;
+    m_read_tick = getTick;
+    m_frequency.lo = 1000000;
+    m_frequency.hi = 0;
+    m_seconds_per_tick = 1.0 / m_frequency;
+    m_units_per_tick = m_units_per_interval * m_seconds_per_tick;
+    strcpy(m_ident, "std::chrono::steady_clock");
+    return m_read_tick(&m_base);
+}
+#else
 // FUNCTION: SURRENDER 0x10061060
 int __stdcall srTimer::getTick(srQuadWord* out)
 {
@@ -318,7 +375,7 @@ int srTimer::reset(int force_system_timer, int, int save_calibration)
         strcpy(m_cpu_ident, m_cpu_vendor);
         strcat(m_cpu_ident, " ");
         if (memcmp(m_cpu_vendor, "CyrixInstead", 0xc) == 0) {
-            unsigned long model = m_cpu_signature & 0xfff0;
+            w8_ulong model = m_cpu_signature & 0xfff0;
             if (model == 0x540) {
                 strcat(m_cpu_ident, "(MediaGX/MMX)");
             } else if (model == 0x600) {
@@ -335,7 +392,7 @@ int srTimer::reset(int force_system_timer, int, int save_calibration)
                 strcat(m_cpu_ident, "(unknown version)");
             }
         } else if (memcmp(m_cpu_vendor, "CentaurHauls", 0xc) == 0) {
-            unsigned long model = m_cpu_signature & 0xfff0;
+            w8_ulong model = m_cpu_signature & 0xfff0;
             if (model == 0x590) {
                 strcat(m_cpu_ident, "WinChip 3");
             } else if (model == 0x580) {
@@ -348,7 +405,7 @@ int srTimer::reset(int force_system_timer, int, int save_calibration)
         } else if (memcmp(m_cpu_vendor, "RiseRiseRise", 0xc) == 0) {
             strcat(m_cpu_ident, "mP6");
         } else if (memcmp(m_cpu_vendor, "AuthenticAMD", 0xc) == 0) {
-            unsigned long model = m_cpu_signature & 0xfff0;
+            w8_ulong model = m_cpu_signature & 0xfff0;
             if (model == 0x610) {
                 strcat(m_cpu_ident, "K7(tm)");
             } else if ((m_cpu_signature & 0xf00) == 0x600) {
@@ -472,9 +529,9 @@ int calibrate(srTimerConfig* config)
     if (config->read_tick != 0) {
         return 0;
     }
-    unsigned long max_id = 0;
-    unsigned long signature = 0;
-    unsigned long features = 0;
+    w8_ulong max_id = 0;
+    w8_ulong signature = 0;
+    w8_ulong features = 0;
     char vendor[0x10];
     if (config->use_stored == 0) {
         __asm {
@@ -514,8 +571,8 @@ int calibrate(srTimerConfig* config)
             (__int64)(config->frequency * 0.01 * (srTimer::cpuFreqVariancePct & 0xffff));
         SetPriorityClass(GetCurrentProcess(), REALTIME_PRIORITY_CLASS);
         SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_TIME_CRITICAL);
-        unsigned long edge = timeGetTime();
-        unsigned long now;
+        w8_ulong edge = timeGetTime();
+        w8_ulong now;
         do {
             now = timeGetTime();
         } while (now == edge);
@@ -546,8 +603,8 @@ int calibrate(srTimerConfig* config)
     if ((config->frequency.lo | config->frequency.hi) == 0) {
         SetPriorityClass(GetCurrentProcess(), REALTIME_PRIORITY_CLASS);
         SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_TIME_CRITICAL);
-        unsigned long edge = timeGetTime();
-        unsigned long now;
+        w8_ulong edge = timeGetTime();
+        w8_ulong now;
         do {
             now = timeGetTime();
         } while (now == edge);
@@ -573,6 +630,7 @@ int calibrate(srTimerConfig* config)
     }
     return 0;
 }
+#endif
 
 // FUNCTION: SURRENDER 0x10062230
 void srTimer::getFreq(srQuadWord& out) const
@@ -582,13 +640,13 @@ void srTimer::getFreq(srQuadWord& out) const
 }
 
 // FUNCTION: SURRENDER 0x10062250
-unsigned long srTimer::getUnits() const
+w8_ulong srTimer::getUnits() const
 {
     return m_units_per_interval;
 }
 
 // FUNCTION: SURRENDER 0x10062260
-void srTimer::setUnits(unsigned long units)
+void srTimer::setUnits(w8_ulong units)
 {
     m_units_per_interval = units;
     if (m_frequency == 0.0) {
@@ -629,13 +687,13 @@ unsigned short srTimer::getCPUStepping() const
 }
 
 // FUNCTION: SURRENDER 0x10062390
-int srTimer::getFeature(long feature) const
+int srTimer::getFeature(w8_long feature) const
 {
     return (m_cpu_features & (1 << feature)) != 0;
 }
 
 // FUNCTION: SURRENDER 0x100623E0
-unsigned long srTimer::getRawTime(e_timerReadControl control)
+w8_ulong srTimer::getRawTime(e_timerReadControl control)
 {
     if (control == TIMER_READ_DEFAULT) {
         m_read_tick(&m_tick);
@@ -644,7 +702,7 @@ unsigned long srTimer::getRawTime(e_timerReadControl control)
 }
 
 // FUNCTION: SURRENDER 0x10062430
-unsigned long srTimer::getRawTime(srQuadWord& out, e_timerReadControl control)
+w8_ulong srTimer::getRawTime(srQuadWord& out, e_timerReadControl control)
 {
     if (control == TIMER_READ_DEFAULT) {
         m_read_tick(&m_tick);
@@ -654,7 +712,7 @@ unsigned long srTimer::getRawTime(srQuadWord& out, e_timerReadControl control)
 }
 
 // FUNCTION: SURRENDER 0x100625A0
-char* srTimer::getStorage(char* buffer, unsigned long size)
+char* srTimer::getStorage(char* buffer, w8_ulong size)
 {
     memset(buffer, 0, size);
     if (RegKeyBase == (void*)0x80000001) {
@@ -670,7 +728,7 @@ char* srTimer::getStorage(char* buffer, unsigned long size)
     } else if (RegKeyBase == (void*)0x80000004) {
         strcpy(buffer, "hkpd");
     } else {
-        sprintf(buffer, "0x%08X", (unsigned int)RegKeyBase);
+        sprintf(buffer, "0x%08X", (unsigned int)(size_t)RegKeyBase);
     }
     strcat(buffer, ":");
     strncat(buffer, RegKeyName, size - 5);
@@ -691,6 +749,18 @@ int srTimer::isPaused() const
     return 0;
 }
 
+#if defined(WIZ8_NATIVE)
+/* The calibration cache lived in the Windows registry; the native clock needs none. */
+int srTimer::store()
+{
+    return 0;
+}
+
+int srTimer::retrieve()
+{
+    return 0;
+}
+#else
 // FUNCTION: SURRENDER 0x10062960
 int srTimer::store()
 {
@@ -785,6 +855,8 @@ int srTimer::retrieve()
     return ok;
 }
 
+#endif
+
 // FUNCTION: SURRENDER 0x10062D20
 int srTimer::pause()
 {
@@ -796,7 +868,7 @@ int srTimer::pause()
 }
 
 // FUNCTION: SURRENDER 0x10062D50
-unsigned long srTimer::resume()
+w8_ulong srTimer::resume()
 {
     srQuadWord delta = {0, 0};
     if ((m_pause.lo | m_pause.hi) == 0) {
@@ -811,7 +883,7 @@ unsigned long srTimer::resume()
 }
 
 // FUNCTION: SURRENDER 0x10062DF0
-unsigned long srTimer::getMsTime(e_timerReadControl control)
+w8_ulong srTimer::getMsTime(e_timerReadControl control)
 {
     getUTime(control);
     return (((m_tick - m_base) * 1000u) / m_frequency).lo;
@@ -827,16 +899,16 @@ double srTimer::getTime(e_timerReadControl control)
 }
 
 // FUNCTION: SURRENDER 0x10062EC0
-unsigned long srTimer::getUTime(e_timerReadControl control)
+w8_ulong srTimer::getUTime(e_timerReadControl control)
 {
     if (control == TIMER_READ_DEFAULT) {
         m_read_tick(&m_tick);
     }
-    return (unsigned long)((m_tick - m_base) * m_units_per_tick);
+    return (w8_ulong)((m_tick - m_base) * m_units_per_tick);
 }
 
 // FUNCTION: SURRENDER 0x10062F40
-unsigned long srTimer::getUTime(srQuadWord& out, e_timerReadControl control)
+w8_ulong srTimer::getUTime(srQuadWord& out, e_timerReadControl control)
 {
     if (control == TIMER_READ_DEFAULT) {
         m_read_tick(&m_tick);
@@ -862,10 +934,10 @@ char* srTimer::getAscTime(char* buffer, srQuadWord ticks)
     *buffer = '\0';
     float seconds = (float)((ticks.lo + ticks.hi * 4294967296.0) / m_units_per_interval);
     if (seconds >= 3600.0f) {
-        long hours = (long)(seconds / 3600.0f);
+        w8_long hours = (w8_long)(seconds / 3600.0f);
         seconds -= (float)(hours * 0xe10);
         if (hours < 1000) {
-            sprintf(buffer + strlen(buffer), "%03lu:", hours);
+            sprintf(buffer + strlen(buffer), "%03lu:", (unsigned long)hours);
         } else {
             strcat(buffer, "###:");
         }
@@ -873,9 +945,9 @@ char* srTimer::getAscTime(char* buffer, srQuadWord ticks)
         strcat(buffer, "000:");
     }
     if (seconds >= 60.0f) {
-        long minutes = (long)(seconds / 60.0f);
+        w8_long minutes = (w8_long)(seconds / 60.0f);
         seconds -= (float)(minutes * 0x3c);
-        sprintf(buffer + strlen(buffer), "%02lu:", minutes);
+        sprintf(buffer + strlen(buffer), "%02lu:", (unsigned long)minutes);
     } else {
         strcat(buffer, "00:");
     }
@@ -943,6 +1015,16 @@ const char* srTimer::getOsIdent() const
     if (osThreadState != -1) {
         return osIdent;
     }
+#if defined(WIZ8_NATIVE)
+    osThreadState = 1;
+    struct utsname name;
+    if (uname(&name) == 0) {
+        snprintf(osIdent, sizeof(osIdent), "%s %s", name.sysname, name.release);
+    } else {
+        strcpy(osIdent, "unknown");
+    }
+    return osIdent;
+#else
     osThreadState = 1;
     OSVERSIONINFOA info;
     info.dwOSVersionInfoSize = 0x94;
@@ -992,6 +1074,7 @@ const char* srTimer::getOsIdent() const
             static_cast<unsigned int>(info.dwBuildNumber & 0xffff));
     osThreadState = 0;
     return osIdent;
+#endif
 }
 
 /* The stream's width field doubles as the print-mode selector: 1 prints the

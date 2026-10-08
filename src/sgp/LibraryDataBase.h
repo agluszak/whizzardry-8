@@ -134,7 +134,7 @@ typedef struct {
     UINT32 uiLength;
     UINT8 ubState;
     UINT8 ubReserved;
-    FILETIME sFileTime;
+    SGP_FILETIME sFileTime;
     UINT16 usReserved2;
 } DIRENTRY;
 

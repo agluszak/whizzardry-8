@@ -1,4 +1,5 @@
 #include "surrender/srBounder.h"
+#include "surrender/srStreamFlags.h"
 
 #include "surrender/srCore.h"
 #include "surrender/srGERD.h"
@@ -221,8 +222,8 @@ void srBounder::getChildBoundingBox(srNode* node)
 void srBounder::dump(std::ostream& stream)
 {
     srNode::dump(stream);
-    long flags = stream.flags();
-    stream.flags((flags & 0xfffffe7fL) | 0x40);
+    w8_long flags = srGetStreamFlags(stream);
+    srSetStreamFlags(stream, (flags & 0xfffffe7fL) | 0x40);
     stream.width(0x20);
     stream << "  Bound mode: ";
     stream << (bound_mode == 1 ? "static\n" : "dynamic\n");
@@ -249,5 +250,5 @@ void srBounder::dump(std::ostream& stream)
         stream.width(0x20);
         stream << "  Bounding sphere radius: " << bounds.radius << '\n';
     }
-    stream.flags(flags & 0x7fff);
+    srSetStreamFlags(stream, flags & 0x7fff);
 }

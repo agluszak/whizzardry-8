@@ -24,7 +24,7 @@
 #include "FileMan.h"
 #include "MemMan.h"
 #include "DbMan.h"
-#include "Debug.h"
+#include "DEBUG.H"
 #include "RegInst.h"
 #include "Container.h"
 #include "LibraryDataBase.h"

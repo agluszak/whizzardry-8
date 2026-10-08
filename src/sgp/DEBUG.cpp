@@ -1,6 +1,6 @@
 /* Modified for the Wizardry 8 reconstruction: 2026-10-03, 2026-10-06, 2026-10-07.
    Distributed under the accompanying SFI Source Code license agreement. */
-#include "VObject.h"
+#include "vobject.h"
 
 // JA2
 // Filename :	debug.c
@@ -13,12 +13,14 @@
 // use the code to write text, because the header switches on the define
 #define SGP_DEBUG
 
-#include "types.h"
-#include <windows.h>
+#include "Types.h"
+#include "compat/kernel32.h"
+#if !defined(WIZ8_NATIVE)
 #include <ddeml.h>
+#endif
 #include <stdio.h>
 #include <stdlib.h>
-#include "debug.h"
+#include "DEBUG.H"
 #include "WCheck.h"
 #include "TopicIDs.h"
 #include "TopicOps.h"
@@ -28,7 +30,7 @@
 
 // CJC added
 #ifndef _NO_DEBUG_TXT
-#include "fileman.h"
+#include "FileMan.h"
 #endif
 
 #ifdef __cplusplus
@@ -221,7 +223,11 @@ void DbgTopicRegistration(UINT8 ubCmd, UINT16* usTopicID, CHAR8* zMessage)
 
 void RemoveDebugText(void)
 {
+#if defined(WIZ8_NATIVE)
+    remove(gpcDebugLogFileName);
+#else
     DeleteFile(gpcDebugLogFileName);
+#endif
 }
 // DbgClearAllTopics
 // Parameter List :
@@ -247,7 +253,7 @@ void DbgClearAllTopics(void)
 // Modification history :
 //		xxnov96:HJH		-> creation
 
-void DbgMessageReal(UINT16 uiTopicId, UINT8 uiCommand, UINT8 uiDebugLevel, CHAR* strMessage)
+void DbgMessageReal(UINT16 uiTopicId, UINT8 uiCommand, UINT8 uiDebugLevel, CHAR8* strMessage)
 {
 #ifndef _NO_DEBUG_TXT
     FILE* OutFile;
