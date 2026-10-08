@@ -1,0 +1,478 @@
+/* Native implementations of the Microsoft CRT extensions and two-byte wide
+   string functions declared in compat/native.h. */
+#include <errno.h>
+#include <limits.h>
+#include <unistd.h>
+#include <wctype.h>
+
+#include <string>
+
+namespace {
+std::string narrow(const wchar_t* text)
+{
+    std::string result;
+    for (; *text != 0; ++text) {
+        result += *text < 0x100 ? (char)*text : '?';
+    }
+    return result;
+}
+
+wchar_t lower(wchar_t character)
+{
+    return (wchar_t)towlower((wint_t)(unsigned short)character);
+}
+
+/* Appends to a caller-sized buffer, as Microsoft's swprintf does. */
+struct Output {
+    wchar_t* buffer;
+    int length;
+
+    void put(wchar_t character)
+    {
+        buffer[length++] = character;
+    }
+
+    void pad(int count, wchar_t character)
+    {
+        for (; count > 0; --count) {
+            put(character);
+        }
+    }
+
+    void ascii(const char* text)
+    {
+        for (; *text != 0; ++text) {
+            put((wchar_t)(unsigned char)*text);
+        }
+    }
+};
+} // namespace
+
+extern "C" {
+
+char* w8_strupr(char* text)
+{
+    for (char* cursor = text; *cursor != 0; ++cursor) {
+        *cursor = (char)toupper((unsigned char)*cursor);
+    }
+    return text;
+}
+
+char* w8_strlwr(char* text)
+{
+    for (char* cursor = text; *cursor != 0; ++cursor) {
+        *cursor = (char)tolower((unsigned char)*cursor);
+    }
+    return text;
+}
+
+int w8_access(const char* path, int mode)
+{
+    /* Microsoft modes: 0 exists, 2 write, 4 read, 6 both. */
+    int native = F_OK;
+    if ((mode & 2) != 0) {
+        native |= W_OK;
+    }
+    if ((mode & 4) != 0) {
+        native |= R_OK;
+    }
+    return access(path, native);
+}
+
+int w8_chmod(const char* path, int mode)
+{
+    struct stat status;
+    if (stat(path, &status) != 0) {
+        return -1;
+    }
+    mode_t permissions = status.st_mode & 07777;
+    if ((mode & S_IWUSR) != 0) {
+        permissions |= S_IWUSR;
+    } else {
+        permissions &= ~(S_IWUSR | S_IWGRP | S_IWOTH);
+    }
+    return chmod(path, permissions);
+}
+
+int w8_chdir(const char* path)
+{
+    return chdir(path);
+}
+
+char* w8_getcwd(char* buffer, int size)
+{
+    return getcwd(buffer, size);
+}
+
+void w8_splitpath(const char* path, char* drive, char* directory, char* name, char* extension)
+{
+    if (drive != 0) {
+        drive[0] = 0;
+    }
+    const char* separator = 0;
+    for (const char* cursor = path; *cursor != 0; ++cursor) {
+        if (*cursor == '/' || *cursor == '\\') {
+            separator = cursor;
+        }
+    }
+    const char* base = separator != 0 ? separator + 1 : path;
+    if (directory != 0) {
+        const size_t length = (size_t)(base - path);
+        memcpy(directory, path, length);
+        directory[length] = 0;
+    }
+    const char* dot = strrchr(base, '.');
+    if (dot == 0) {
+        dot = base + strlen(base);
+    }
+    if (name != 0) {
+        memcpy(name, base, (size_t)(dot - base));
+        name[dot - base] = 0;
+    }
+    if (extension != 0) {
+        strcpy(extension, dot);
+    }
+}
+
+size_t w8_wcslen(const wchar_t* text)
+{
+    size_t length = 0;
+    while (text[length] != 0) {
+        ++length;
+    }
+    return length;
+}
+
+wchar_t* w8_wcscpy(wchar_t* destination, const wchar_t* source)
+{
+    wchar_t* cursor = destination;
+    while ((*cursor++ = *source++) != 0) {
+    }
+    return destination;
+}
+
+wchar_t* w8_wcsncpy(wchar_t* destination, const wchar_t* source, size_t count)
+{
+    size_t index = 0;
+    for (; index < count && source[index] != 0; ++index) {
+        destination[index] = source[index];
+    }
+    for (; index < count; ++index) {
+        destination[index] = 0;
+    }
+    return destination;
+}
+
+wchar_t* w8_wcscat(wchar_t* destination, const wchar_t* source)
+{
+    w8_wcscpy(destination + w8_wcslen(destination), source);
+    return destination;
+}
+
+wchar_t* w8_wcsncat(wchar_t* destination, const wchar_t* source, size_t count)
+{
+    wchar_t* end = destination + w8_wcslen(destination);
+    size_t index = 0;
+    for (; index < count && source[index] != 0; ++index) {
+        end[index] = source[index];
+    }
+    end[index] = 0;
+    return destination;
+}
+
+int w8_wcsncmp(const wchar_t* first, const wchar_t* second, size_t count)
+{
+    for (size_t index = 0; index < count; ++index) {
+        const unsigned short a = (unsigned short)first[index];
+        const unsigned short b = (unsigned short)second[index];
+        if (a != b || a == 0) {
+            return a < b ? -1 : a > b ? 1 : 0;
+        }
+    }
+    return 0;
+}
+
+int w8_wcscmp(const wchar_t* first, const wchar_t* second)
+{
+    return w8_wcsncmp(first, second, (size_t)-1);
+}
+
+int w8_wcsnicmp(const wchar_t* first, const wchar_t* second, size_t count)
+{
+    for (size_t index = 0; index < count; ++index) {
+        const unsigned short a = (unsigned short)lower(first[index]);
+        const unsigned short b = (unsigned short)lower(second[index]);
+        if (a != b || a == 0) {
+            return a < b ? -1 : a > b ? 1 : 0;
+        }
+    }
+    return 0;
+}
+
+int w8_wcsicmp(const wchar_t* first, const wchar_t* second)
+{
+    return w8_wcsnicmp(first, second, (size_t)-1);
+}
+
+wchar_t* w8_wcschr(const wchar_t* text, wchar_t character)
+{
+    for (;; ++text) {
+        if (*text == character) {
+            return const_cast<wchar_t*>(text);
+        }
+        if (*text == 0) {
+            return 0;
+        }
+    }
+}
+
+wchar_t* w8_wcsrchr(const wchar_t* text, wchar_t character)
+{
+    const wchar_t* found = 0;
+    for (;; ++text) {
+        if (*text == character) {
+            found = text;
+        }
+        if (*text == 0) {
+            return const_cast<wchar_t*>(found);
+        }
+    }
+}
+
+wchar_t* w8_wcsstr(const wchar_t* text, const wchar_t* pattern)
+{
+    const size_t length = w8_wcslen(pattern);
+    for (; *text != 0; ++text) {
+        if (w8_wcsncmp(text, pattern, length) == 0) {
+            return const_cast<wchar_t*>(text);
+        }
+    }
+    return length == 0 ? const_cast<wchar_t*>(text) : 0;
+}
+
+size_t w8_wcscspn(const wchar_t* text, const wchar_t* reject)
+{
+    size_t length = 0;
+    while (text[length] != 0 && w8_wcschr(reject, text[length]) == 0) {
+        ++length;
+    }
+    return length;
+}
+
+size_t w8_wcsspn(const wchar_t* text, const wchar_t* accept)
+{
+    size_t length = 0;
+    while (text[length] != 0 && w8_wcschr(accept, text[length]) != 0) {
+        ++length;
+    }
+    return length;
+}
+
+/* Microsoft's two-argument wcstok keeps its position in static state. */
+wchar_t* w8_wcstok(wchar_t* text, const wchar_t* delimiters)
+{
+    static wchar_t* next = 0;
+    if (text == 0) {
+        text = next;
+    }
+    if (text == 0) {
+        return 0;
+    }
+    text += w8_wcsspn(text, delimiters);
+    if (*text == 0) {
+        next = 0;
+        return 0;
+    }
+    wchar_t* end = text + w8_wcscspn(text, delimiters);
+    if (*end != 0) {
+        *end = 0;
+        next = end + 1;
+    } else {
+        next = 0;
+    }
+    return text;
+}
+
+wchar_t* w8_wcsdup(const wchar_t* text)
+{
+    const size_t size = (w8_wcslen(text) + 1) * sizeof(wchar_t);
+    wchar_t* copy = static_cast<wchar_t*>(malloc(size));
+    if (copy != 0) {
+        memcpy(copy, text, size);
+    }
+    return copy;
+}
+
+int w8_wtoi(const wchar_t* text)
+{
+    return atoi(narrow(text).c_str());
+}
+
+int w8_vswprintf(wchar_t* buffer, const wchar_t* format, va_list arguments)
+{
+    Output out = {buffer, 0};
+    for (const wchar_t* cursor = format; *cursor != 0; ++cursor) {
+        if (*cursor != L'%') {
+            out.put(*cursor);
+            continue;
+        }
+        if (cursor[1] == L'%') {
+            out.put(L'%');
+            ++cursor;
+            continue;
+        }
+        /* Collect flags, width and precision into a narrow spec. */
+        std::string spec = "%";
+        ++cursor;
+        bool left = false;
+        while (*cursor != 0 && wcschr(L"-+ #0", *cursor) != 0) {
+            left |= *cursor == L'-';
+            spec += (char)*cursor++;
+        }
+        int width = -1;
+        if (*cursor == L'*') {
+            width = va_arg(arguments, int);
+            if (width < 0) {
+                left = true;
+                width = -width;
+            }
+            spec += std::to_string(width);
+            ++cursor;
+        } else {
+            while (*cursor >= L'0' && *cursor <= L'9') {
+                width = (width < 0 ? 0 : width * 10) + (*cursor - L'0');
+                spec += (char)*cursor++;
+            }
+        }
+        int precision = -1;
+        if (*cursor == L'.') {
+            spec += '.';
+            ++cursor;
+            precision = 0;
+            if (*cursor == L'*') {
+                precision = va_arg(arguments, int);
+                spec += std::to_string(precision);
+                ++cursor;
+            } else {
+                while (*cursor >= L'0' && *cursor <= L'9') {
+                    precision = precision * 10 + (*cursor - L'0');
+                    spec += (char)*cursor++;
+                }
+            }
+        }
+        /* Length: h, l, ll, I64, w. long is 32 bits on Windows. */
+        enum { DEFAULT, SHORT, LONG64, NARROW, WIDE } size = DEFAULT;
+        for (;;) {
+            if (*cursor == L'h') {
+                size = SHORT;
+                ++cursor;
+            } else if (*cursor == L'l' && cursor[1] == L'l') {
+                size = LONG64;
+                cursor += 2;
+            } else if (*cursor == L'l' || *cursor == L'w') {
+                size = size == DEFAULT ? WIDE : size;
+                ++cursor;
+            } else if (*cursor == L'I' && cursor[1] == L'6' && cursor[2] == L'4') {
+                size = LONG64;
+                cursor += 3;
+            } else {
+                break;
+            }
+        }
+        const wchar_t conversion = *cursor;
+        if (conversion == 0) {
+            break;
+        }
+        if (conversion == L's' || conversion == L'S') {
+            /* In the wide family %s is wide and %S narrow; h/l override. */
+            const bool narrow_text = conversion == L'S' ? size != WIDE : size == SHORT;
+            const void* argument = va_arg(arguments, const void*);
+            int length;
+            if (argument == 0) {
+                argument = narrow_text ? (const void*)"(null)" : (const void*)L"(null)";
+            }
+            if (narrow_text) {
+                length = (int)strlen(static_cast<const char*>(argument));
+            } else {
+                length = (int)w8_wcslen(static_cast<const wchar_t*>(argument));
+            }
+            if (precision >= 0 && precision < length) {
+                length = precision;
+            }
+            if (!left) {
+                out.pad(width - length, L' ');
+            }
+            for (int index = 0; index < length; ++index) {
+                out.put(narrow_text ? (wchar_t)(unsigned char)static_cast<const char*>(argument)[index]
+                                    : static_cast<const wchar_t*>(argument)[index]);
+            }
+            if (left) {
+                out.pad(width - length, L' ');
+            }
+            continue;
+        }
+        if (conversion == L'c' || conversion == L'C') {
+            const wchar_t character = (wchar_t)va_arg(arguments, int);
+            if (!left) {
+                out.pad(width - 1, L' ');
+            }
+            out.put(conversion == L'C' || size == SHORT ? (wchar_t)(unsigned char)character
+                                                         : character);
+            if (left) {
+                out.pad(width - 1, L' ');
+            }
+            continue;
+        }
+        char text[512];
+        switch (conversion) {
+        case L'd':
+        case L'i':
+        case L'u':
+        case L'x':
+        case L'X':
+        case L'o':
+            if (size == LONG64) {
+                spec += "ll";
+                spec += (char)conversion;
+                snprintf(text, sizeof(text), spec.c_str(), va_arg(arguments, long long));
+            } else {
+                int value = va_arg(arguments, int);
+                if (size == SHORT) {
+                    value = conversion == L'd' || conversion == L'i' ? (short)value
+                                                                    : (unsigned short)value;
+                }
+                spec += (char)conversion;
+                snprintf(text, sizeof(text), spec.c_str(), value);
+            }
+            break;
+        case L'e':
+        case L'E':
+        case L'f':
+        case L'g':
+        case L'G':
+            spec += (char)conversion;
+            snprintf(text, sizeof(text), spec.c_str(), va_arg(arguments, double));
+            break;
+        case L'p':
+            snprintf(text, sizeof(text), "%p", va_arg(arguments, void*));
+            break;
+        default:
+            snprintf(text, sizeof(text), "%%%c", (char)conversion);
+            break;
+        }
+        out.ascii(text);
+    }
+    out.put(0);
+    return out.length - 1;
+}
+
+int w8_swprintf(wchar_t* buffer, const wchar_t* format, ...)
+{
+    va_list arguments;
+    va_start(arguments, format);
+    const int length = w8_vswprintf(buffer, format, arguments);
+    va_end(arguments);
+    return length;
+}
+
+} // extern "C"

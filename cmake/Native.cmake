@@ -28,6 +28,12 @@ target_compile_options(wiz8_native_settings INTERFACE
     # architecture, wrapping integer arithmetic and type punning through
     # pointer casts.
     -fsigned-char -fwrapv -fno-strict-aliasing
+    # Two-byte wchar_t as on Windows; compat/native.h routes wide-string calls
+    # to implementations for that width.
+    -fshort-wchar
+    # LLVM rewrites wide strlen loops into wcslen calls, and glibc's wcslen
+    # reads four-byte characters.
+    -fno-builtin-wcslen
     # Retail was built without RTTI (/GR-); several interfaces have no key function.
     $<$<COMPILE_LANGUAGE:CXX>:-fno-rtti>
 )
@@ -39,6 +45,15 @@ target_include_directories(wiz8_native_settings INTERFACE
 )
 target_link_libraries(wiz8_native_settings INTERFACE Threads::Threads ${CMAKE_DL_LIBS})
 
+# Microsoft CRT extensions and two-byte wide strings (compat/native.h).
+add_library(wiz8_compat STATIC src/compat/native_crt.cpp)
+target_compile_options(wiz8_compat PRIVATE
+    "SHELL:-include ${PROJECT_SOURCE_DIR}/include/wiz8/compat/compiler.h"
+    -fsigned-char -fshort-wchar -fno-builtin-wcslen)
+target_compile_definitions(wiz8_compat PRIVATE WIZ8_NATIVE)
+target_include_directories(wiz8_compat PRIVATE "${PROJECT_SOURCE_DIR}/include/wiz8")
+target_link_libraries(wiz8_native_settings INTERFACE wiz8_compat)
+
 add_subdirectory(src/surrender)
 add_subdirectory(src/sgp)
 
@@ -46,6 +61,15 @@ enable_testing()
 add_executable(native_compression_test tests/native/compression_test.cpp)
 target_link_libraries(native_compression_test PRIVATE WIZ8_SGP)
 add_test(NAME native_compression COMMAND native_compression_test)
+
+add_executable(native_crt_test tests/native/crt_test.cpp)
+target_link_libraries(native_crt_test PRIVATE wiz8_native_settings)
+add_test(NAME native_crt COMMAND native_crt_test)
+
+# glibc's wide-string functions assume four-byte wchar_t; no native binary
+# may import them.
+add_test(NAME native_no_glibc_wide_strings
+    COMMAND sh -c "! nm -u $<TARGET_FILE:SURRENDER> $<TARGET_FILE:native_crt_test> | grep -E ' U (wcs|wmem|swprintf|vswprintf|wprintf)'")
 
 # srGERD on the SDL3 GPU device; needs a display and a Vulkan driver.
 add_executable(srdd_spike tests/native/srdd_spike.cpp)
