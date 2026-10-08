@@ -46,6 +46,7 @@
 #include <cmath>
 #include <io.h>
 #include <new>
+#include "compat/platform.h"
 
 #define MATERIALS_CPP "C:\\Projects\\Wizardry 8\\Engine Code\\materials.cpp"
 
@@ -288,9 +289,9 @@ char W8Octree::BuildPreprocessedFiles(const char* level_path)
                 if (_access(line, 2) != 0) {
                     _chmod(line, 0x180);
                 }
-                DeleteFileA(line);
+                W8DeleteFile(line);
             }
-            move_pvl = MoveFileA("NewLevel.lvl", line);
+            move_pvl = W8MoveFile("NewLevel.lvl", line);
             sprintf(line, "%s.rlk", stem);
             if (FileExists(line) != 0) {
                 ReportStartupMessage(
@@ -302,9 +303,9 @@ char W8Octree::BuildPreprocessedFiles(const char* level_path)
                 if (_access(line, 2) != 0) {
                     _chmod(line, 0x180);
                 }
-                DeleteFileA(line);
+                W8DeleteFile(line);
             }
-            move_oct = MoveFileA("NewLevel.oct", line);
+            move_oct = W8MoveFile("NewLevel.oct", line);
             result =
                 built & static_cast<unsigned char>(move_pvl) & static_cast<unsigned char>(move_oct);
             if (result == 0) {

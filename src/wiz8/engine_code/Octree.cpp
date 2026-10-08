@@ -61,6 +61,7 @@
 #include <math.h>
 #include <time.h>
 #include "surrender/srModelInstance.h"
+#include "compat/platform.h"
 
 #define OCTREE_CPP "C:\\Projects\\Wizardry 8\\Engine Code\\Octree.cpp"
 
@@ -1466,7 +1467,7 @@ void W8Octree::BuildRegionLinks(bool rebuild_all)
             if (_access(point_path, 2) != 0) {
                 _chmod(point_path, 0x180);
             }
-            DeleteFileA(point_path);
+            W8DeleteFile(point_path);
         }
         delete[] m_sample_points;
         m_sample_points = 0;

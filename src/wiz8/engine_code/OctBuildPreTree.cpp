@@ -12,6 +12,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include "compat/kernel32.h"
+#include "compat/platform.h"
 // GLOBAL: WIZ8 0x0065be60
 int g_build_node_instances;
 // GLOBAL: WIZ8 0x0065be58
@@ -582,7 +583,7 @@ unsigned short OctBuildPreTree::LoadRegionFile(const char* stem, srVector3T<floa
     spatial.m_region_id_bound = 0;
     char path[1024];
     sprintf(path, "%s.cub", stem);
-    HANDLE file = CreateFileA(path, GENERIC_READ, 0, 0, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, 0);
+    HANDLE file = W8CreateFile(path, GENERIC_READ, 0, 0, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, 0);
     if (file == 0 || file == (HANDLE)-1) {
         ReportBuildStatus(6, "\nWARNING: Could not find and\\or open region file.\n\n");
         return 0;
@@ -590,7 +591,7 @@ unsigned short OctBuildPreTree::LoadRegionFile(const char* stem, srVector3T<floa
     ReportBuildStatus(6, "\nReading Region File...\n");
     DWORD read;
     int count;
-    unsigned char ok = ReadFile(file, &count, 4, &read, 0) & 1;
+    unsigned char ok = W8ReadFile(file, &count, 4, &read, 0) & 1;
     if (ok == 0) {
         return 0;
     }
@@ -599,7 +600,7 @@ unsigned short OctBuildPreTree::LoadRegionFile(const char* stem, srVector3T<floa
             ReportBuildStatus(7, "Wrong version for .cub file--get new plug-in!\n");
             return 0;
         }
-        ok &= ReadFile(file, &count, 4, &read, 0);
+        ok &= W8ReadFile(file, &count, 4, &read, 0);
         if (ok == 0) {
             return 0;
         }
@@ -621,7 +622,7 @@ unsigned short OctBuildPreTree::LoadRegionFile(const char* stem, srVector3T<floa
     bool outside = false;
     for (unsigned short region = 1; region < spatial.m_region_id_bound; ++region) {
         W8CubRegionRecord record;
-        ok &= ReadFile(file, &record, 0x6a, &read, 0);
+        ok &= W8ReadFile(file, &record, 0x6a, &read, 0);
         if (ok == 0) {
             return 0;
         }
@@ -654,7 +655,7 @@ unsigned short OctBuildPreTree::LoadRegionFile(const char* stem, srVector3T<floa
         SortFrustumCorners(&volume->m_points[1]);
         BuildFrustumPlanes(&volume->m_points[1], volume->m_planes);
     }
-    CloseHandle(file);
+    W8CloseHandle(file);
     ReportBuildStatus(6, path);
     spatial.m_region_count = spatial.m_region_id_bound;
     return spatial.m_region_id_bound;

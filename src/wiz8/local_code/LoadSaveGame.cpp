@@ -92,6 +92,7 @@
 #include "wiz8/local_screens/JournalScreen.h"
 #include "wiz8/cursor.h"
 #include "wiz8/local_code/ConditionsAndEnchantments.h"
+#include "compat/platform.h"
 
 /* The attribute word this gate tests is a Windows attribute word, so the two
    constants come from windows.h and are not restated here. Ghidra labels the
@@ -268,7 +269,7 @@ bool EnumerateSaveSlots(W8GrowableVector<W8SaveSlot*>* slots)
     sprintf(path, "%s\\*.%s", "Saves", g_save_extension);
     int first = slots->GetCount();
     memset(&find_data, 0, sizeof(find_data));
-    HANDLE search = FindFirstFileA(path, &find_data);
+    HANDLE search = W8FindFirstFile(path, &find_data);
     if (search != INVALID_HANDLE_VALUE) {
         do {
             sprintf(path, "%s\\%s", "Saves", find_data.cFileName);
@@ -311,8 +312,8 @@ bool EnumerateSaveSlots(W8GrowableVector<W8SaveSlot*>* slots)
                     }
                     find_data.cFileName[63] = 0;
                     swprintf(slot->name, L"%hs", find_data.cFileName);
-                    FileTimeToLocalFileTime(&find_data.ftLastWriteTime, &slot->local_write_time);
-                    FileTimeToSystemTime(&slot->local_write_time, &slot->timestamp);
+                    W8FileTimeToLocalFileTime(&find_data.ftLastWriteTime, &slot->local_write_time);
+                    W8FileTimeToSystemTime(&slot->local_write_time, &slot->timestamp);
                     slot->level_id = status.current_level;
                     slot->game_time_ms = status.game_time_ms;
                     slot->iron_man = status.iron_man;
@@ -327,9 +328,9 @@ bool EnumerateSaveSlots(W8GrowableVector<W8SaveSlot*>* slots)
                     slots->InsertAt(position, slot);
                 }
             }
-        } while (FindNextFileA(search, &find_data));
+        } while (W8FindNextFile(search, &find_data));
     }
-    FindClose(search);
+    W8FindClose(search);
     return true;
 }
 

@@ -315,7 +315,8 @@ def pass_rename(entries, files, dry_run):
                       for base in ('src/sgp', 'src/wiz8', 'include/wiz8')
                       for d, _, names in os.walk(os.path.join(ROOT, base))
                       for n in names if n.endswith(('.cpp', '.c', '.h', '.H', '.hpp', '.inc'))]
-    skip = set(load_rules().get('rename_skip', [])) | set(load_rules()['platform_units'])
+    rules = load_rules()
+    skip = set(rules.get('rename_skip', [])) | set(rules['platform_units']) | set(rules.get('vendor_headers', []))
     for path in sorted(paths):
         if path in skip:
             continue
@@ -327,7 +328,11 @@ def pass_rename(entries, files, dry_run):
                 tokens[index] = renames[token]
                 changed = True
         if changed:
-            write(path, ''.join(tokens), dry_run)
+            result = ''.join(tokens)
+            include = load_rules().get('rename_include')
+            if include:
+                result = add_include(result, include)
+            write(path, result, dry_run)
             print(f'{path}: renamed')
 
 

@@ -25,6 +25,7 @@
 #include "TopicIDs.h"
 #include "TopicOps.h"
 #include "WizShare.h"
+#include "compat/platform.h"
 
 //Kris addition
 
@@ -226,7 +227,7 @@ void RemoveDebugText(void)
 #if defined(WIZ8_NATIVE)
     remove(gpcDebugLogFileName);
 #else
-    DeleteFile(gpcDebugLogFileName);
+    W8DeleteFile(gpcDebugLogFileName);
 #endif
 }
 // DbgClearAllTopics

@@ -55,6 +55,7 @@
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/local_screens/NPCInteractionSubscreen.h"
 #include "wiz8/local_code/GameplayMods.h"
+#include "compat/platform.h"
 
 #define LEVELS_CPP "C:\\Projects\\Wizardry 8\\Engine Code\\Levels.cpp"
 
@@ -160,14 +161,14 @@ unsigned char FindGameDataPath(char* path, int cd_number)
         drive[3] = '\0';
         index += 2;
 
-        if (GetDriveTypeA(drive) != DRIVE_CDROM) {
+        if (W8GetDriveType(drive) != DRIVE_CDROM) {
             continue;
         }
         strcpy(path, drive);
         sprintf(expected_label, "WIZ8_%d", cd_number);
 
         UINT previous_mode = SetErrorMode(1);
-        if (GetVolumeInformationA(path, volume_name, 32, 0, 0, 0, 0, 0) != 0 &&
+        if (W8GetVolumeInformation(path, volume_name, 32, 0, 0, 0, 0, 0) != 0 &&
             _stricmp(expected_label, volume_name) == 0) {
             found = true;
             g_cd_index = cd_number;

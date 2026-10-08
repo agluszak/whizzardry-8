@@ -10,6 +10,7 @@
 #include "DEBUG.H"
 
 #include "Video2.h"
+#include "compat/platform.h"
 
 //NUMBER_OF_LIBRARIES
 // We link it as an .obj file
@@ -40,9 +41,9 @@ static void MapSlfArchive(int library_id)
         return;
     }
 
-    mapping = CreateFileMappingA(library->hLibraryHandle, NULL, PAGE_READONLY, 0, 0, NULL);
+    mapping = W8CreateFileMapping(library->hLibraryHandle, NULL, PAGE_READONLY, 0, 0, NULL);
     if (mapping != NULL) {
-        view = MapViewOfFile(mapping, FILE_MAP_READ, 0, 0, 0);
+        view = W8MapViewOfFile(mapping, FILE_MAP_READ, 0, 0, 0);
         if (view != NULL) {
             library->hFileMapping = mapping;
             library->pFileMapping = view;
@@ -167,7 +168,7 @@ BOOLEAN ShutDownFileDatabase()
     for (sLoop1 = 0; sLoop1 < gFileDataBase.RealFiles.iNumFilesOpen; sLoop1++) {
         FastDebugMsg(
             String("ShutDownFileDatabase( ):  ERROR:  real file id still exists, wasnt closed"));
-        CloseHandle(gFileDataBase.RealFiles.pRealFilesOpen[sLoop1].hRealFileHandle);
+        W8CloseHandle(gFileDataBase.RealFiles.pRealFilesOpen[sLoop1].hRealFileHandle);
     }
 
     //Free up the memory used for the real files array for the opened files
@@ -192,7 +193,7 @@ BOOLEAN InitializeLibrary(STR pLibraryName, LibraryHeaderStruct* pLibHeader, BOO
     CHAR8 zTempPath[SGPFILENAME_LEN];
 
     //open the library for reading ( if it exists )
-    hFile = CreateFile(pLibraryName, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING,
+    hFile = W8CreateFile(pLibraryName, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING,
                        FILE_FLAG_SEQUENTIAL_SCAN, NULL);
     if (hFile == INVALID_HANDLE_VALUE) {
         //if it failed finding the file on the hard drive, and the file can be on the cdrom
@@ -201,10 +202,10 @@ BOOLEAN InitializeLibrary(STR pLibraryName, LibraryHeaderStruct* pLibHeader, BOO
             sprintf(zTempPath, "%s%s", gzCdDirectory, pLibraryName);
 
             //look on the cdrom
-            hFile = CreateFile(zTempPath, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING,
+            hFile = W8CreateFile(zTempPath, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING,
                                FILE_FLAG_SEQUENTIAL_SCAN, NULL);
             if (hFile == INVALID_HANDLE_VALUE) {
-                UINT32 uiLastError = GetLastError();
+                UINT32 uiLastError = W8GetLastError();
                 char zString[1024];
                 FormatMessage(FORMAT_MESSAGE_FROM_SYSTEM, 0, uiLastError, 0, zString, 1024, NULL);
 
@@ -218,7 +219,7 @@ BOOLEAN InitializeLibrary(STR pLibraryName, LibraryHeaderStruct* pLibHeader, BOO
     }
 
     // Read in the library header ( at the begining of the library )
-    if (!ReadFile(hFile, &LibFileHeader, sizeof(LIBHEADER), (LPDWORD)&uiNumBytesRead, NULL))
+    if (!W8ReadFile(hFile, &LibFileHeader, sizeof(LIBHEADER), (LPDWORD)&uiNumBytesRead, NULL))
         return (FALSE);
 
     if (uiNumBytesRead != sizeof(LIBHEADER)) {
@@ -227,14 +228,14 @@ BOOLEAN InitializeLibrary(STR pLibraryName, LibraryHeaderStruct* pLibHeader, BOO
     }
 
     //place the file pointer at the begining of the file headers ( they are at the end of the file )
-    SetFilePointer(hFile, -(LibFileHeader.iEntries * (INT32)sizeof(DIRENTRY)), NULL, FILE_END);
+    W8SetFilePointer(hFile, -(LibFileHeader.iEntries * (INT32)sizeof(DIRENTRY)), NULL, FILE_END);
 
     //loop through the library and determine the number of files that are FILE_OK
     //ie.  so we dont load the old or deleted files
     usNumEntries = 0;
     for (uiLoop = 0; uiLoop < (UINT32)LibFileHeader.iEntries; uiLoop++) {
         //read in the file header
-        if (!ReadFile(hFile, &DirEntry, sizeof(DIRENTRY), (LPDWORD)&uiNumBytesRead, NULL))
+        if (!W8ReadFile(hFile, &DirEntry, sizeof(DIRENTRY), (LPDWORD)&uiNumBytesRead, NULL))
             return (FALSE);
 
         if (DirEntry.ubState == FILE_OK)
@@ -245,13 +246,13 @@ BOOLEAN InitializeLibrary(STR pLibraryName, LibraryHeaderStruct* pLibHeader, BOO
     pLibHeader->pFileHeader = (FileHeaderStruct*)MemAlloc(sizeof(FileHeaderStruct) * usNumEntries);
 
     //place the file pointer at the begining of the file headers ( they are at the end of the file )
-    SetFilePointer(hFile, -(LibFileHeader.iEntries * (INT32)sizeof(DIRENTRY)), NULL, FILE_END);
+    W8SetFilePointer(hFile, -(LibFileHeader.iEntries * (INT32)sizeof(DIRENTRY)), NULL, FILE_END);
 
     //loop through all the entries
     uiCount = 0;
     for (uiLoop = 0; uiLoop < (UINT32)LibFileHeader.iEntries; uiLoop++) {
         //read in the file header
-        if (!ReadFile(hFile, &DirEntry, sizeof(DIRENTRY), (LPDWORD)&uiNumBytesRead, NULL))
+        if (!W8ReadFile(hFile, &DirEntry, sizeof(DIRENTRY), (LPDWORD)&uiNumBytesRead, NULL))
             return (FALSE);
 
         if (DirEntry.ubState == FILE_OK) {
@@ -330,15 +331,15 @@ HANDLE OpenLibraryStream(HWFILE file)
     HANDLE handle;
     CHAR8 path[SGPFILENAME_LEN];
 
-    handle = CreateFile(gGameLibaries[library_id].sLibraryName, GENERIC_READ, FILE_SHARE_READ, NULL,
+    handle = W8CreateFile(gGameLibaries[library_id].sLibraryName, GENERIC_READ, FILE_SHARE_READ, NULL,
                         OPEN_EXISTING, FILE_FLAG_SEQUENTIAL_SCAN, NULL);
     if (handle == INVALID_HANDLE_VALUE) {
         if (gGameLibaries[library_id].fOnCDrom) {
             sprintf(path, "%s%s", gzCdDirectory, gGameLibaries[library_id].sLibraryName);
-            handle = CreateFile(path, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING,
+            handle = W8CreateFile(path, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING,
                                 FILE_FLAG_SEQUENTIAL_SCAN, NULL);
             if (handle == INVALID_HANDLE_VALUE) {
-                UINT32 uiLastError = GetLastError();
+                UINT32 uiLastError = W8GetLastError();
                 char zString[1024];
                 FormatMessage(FORMAT_MESSAGE_FROM_SYSTEM, 0, uiLastError, 0, zString, 1024, NULL);
 
@@ -348,7 +349,7 @@ HANDLE OpenLibraryStream(HWFILE file)
             return INVALID_HANDLE_VALUE;
         }
     }
-    SetFilePointer(
+    W8SetFilePointer(
         handle, gFileDataBase.pLibraries[library_id].pOpenFiles[file_id].pFileHeader->uiFileOffset,
         NULL, FILE_BEGIN);
     return handle;
@@ -383,9 +384,9 @@ BOOLEAN LoadDataFromLibrary(INT16 sLibraryID, UINT32 uiFileNum, PTR pData, UINT3
                uiBytesToRead);
         uiNumBytesRead = uiBytesToRead;
     } else {
-        SetFilePointer(hLibraryFile, 0, NULL, FILE_CURRENT);
-        SetFilePointer(hLibraryFile, uiOffsetInLibrary + uiCurPos, NULL, FILE_BEGIN);
-        if (!ReadFile(hLibraryFile, pData, uiBytesToRead, (LPDWORD)&uiNumBytesRead, NULL))
+        W8SetFilePointer(hLibraryFile, 0, NULL, FILE_CURRENT);
+        W8SetFilePointer(hLibraryFile, uiOffsetInLibrary + uiCurPos, NULL, FILE_BEGIN);
+        if (!W8ReadFile(hLibraryFile, pData, uiBytesToRead, (LPDWORD)&uiNumBytesRead, NULL))
             return FALSE;
         if (uiBytesToRead != uiNumBytesRead)
             return FALSE;
@@ -604,18 +605,18 @@ HWFILE OpenFileFromLibrary(STR pName)
 
             //Save the current file position in the library
             gFileDataBase.pLibraries[sLibraryID].pOpenFiles[uiFileNum].uiActualPositionInLibrary =
-                SetFilePointer(gFileDataBase.pLibraries[sLibraryID].hLibraryHandle, 0, NULL,
+                W8SetFilePointer(gFileDataBase.pLibraries[sLibraryID].hLibraryHandle, 0, NULL,
                                FILE_CURRENT);
 
             //Set the file position in the library to the begining of the 'file' in the library
-            uiNewFilePosition = SetFilePointer(gFileDataBase.pLibraries[sLibraryID].hLibraryHandle,
+            uiNewFilePosition = W8SetFilePointer(gFileDataBase.pLibraries[sLibraryID].hLibraryHandle,
                                                gFileDataBase.pLibraries[sLibraryID]
                                                    .pOpenFiles[uiFileNum]
                                                    .pFileHeader->uiFileOffset,
                                                NULL, FILE_BEGIN);
 
             uiNewFilePosition =
-                GetFileSize(gFileDataBase.pLibraries[sLibraryID].hLibraryHandle, NULL);
+                W8GetFileSize(gFileDataBase.pLibraries[sLibraryID].hLibraryHandle, NULL);
 
         } else {
             // Failed to find the file in a library
@@ -726,7 +727,7 @@ BOOLEAN CloseLibraryFile(INT16 sLibraryID, UINT32 uiFileID)
             gFileDataBase.pLibraries[sLibraryID].pOpenFiles[uiFileID].pFileHeader = NULL;
 
             //reset the libraries file pointer to the positon it was in prior to opening the current file
-            SetFilePointer(
+            W8SetFilePointer(
                 gFileDataBase.pLibraries[sLibraryID].hLibraryHandle,
                 gFileDataBase.pLibraries[sLibraryID].pOpenFiles[uiFileID].uiActualPositionInLibrary,
                 NULL, FILE_CURRENT);
@@ -846,13 +847,13 @@ BOOLEAN CloseLibrary(INT16 sLibraryID)
     //set that the library isnt open
     gFileDataBase.pLibraries[sLibraryID].fLibraryOpen = FALSE;
     if (gFileDataBase.pLibraries[sLibraryID].hFileMapping) {
-        UnmapViewOfFile(gFileDataBase.pLibraries[sLibraryID].pFileMapping);
-        CloseHandle(gFileDataBase.pLibraries[sLibraryID].hFileMapping);
+        W8UnmapViewOfFile(gFileDataBase.pLibraries[sLibraryID].pFileMapping);
+        W8CloseHandle(gFileDataBase.pLibraries[sLibraryID].hFileMapping);
         gFileDataBase.pLibraries[sLibraryID].hFileMapping = NULL;
     }
 
     //close the file ( note libraries are to be closed by the Windows close function )
-    CloseHandle(gFileDataBase.pLibraries[sLibraryID].hLibraryHandle);
+    W8CloseHandle(gFileDataBase.pLibraries[sLibraryID].hLibraryHandle);
 
     return (TRUE);
 }
@@ -925,10 +926,10 @@ BOOLEAN GetLibraryFileTime(INT16 sLibraryID, UINT32 uiFileNum, SGP_FILETIME* pLa
 
     //WIZ8: memory-mapped libraries resolve file times through the mapped view, not this path
     if (gFileDataBase.pLibraries[sLibraryID].hFileMapping == NULL) {
-        SetFilePointer(gFileDataBase.pLibraries[sLibraryID].hLibraryHandle, 0, NULL, FILE_BEGIN);
+        W8SetFilePointer(gFileDataBase.pLibraries[sLibraryID].hLibraryHandle, 0, NULL, FILE_BEGIN);
 
         // Read in the library header ( at the begining of the library )
-        if (ReadFile(gFileDataBase.pLibraries[sLibraryID].hLibraryHandle, &LibFileHeader,
+        if (W8ReadFile(gFileDataBase.pLibraries[sLibraryID].hLibraryHandle, &LibFileHeader,
                      sizeof(LIBHEADER), (LPDWORD)&uiNumBytesRead, NULL) &&
             uiNumBytesRead == sizeof(LIBHEADER)) {
             //If the file number is greater then the number in the lirary, return false
@@ -940,11 +941,11 @@ BOOLEAN GetLibraryFileTime(INT16 sLibraryID, UINT32 uiFileNum, SGP_FILETIME* pLa
                     iFilePos = -(LibFileHeader.iEntries * (INT32)sizeof(DIRENTRY));
 
                     //set the file pointer to the right location
-                    SetFilePointer(gFileDataBase.pLibraries[sLibraryID].hLibraryHandle, iFilePos,
+                    W8SetFilePointer(gFileDataBase.pLibraries[sLibraryID].hLibraryHandle, iFilePos,
                                    NULL, FILE_END);
 
                     // Read in the library header ( at the begining of the library )
-                    if (ReadFile(gFileDataBase.pLibraries[sLibraryID].hLibraryHandle, pAllEntries,
+                    if (W8ReadFile(gFileDataBase.pLibraries[sLibraryID].hLibraryHandle, pAllEntries,
                                  (sizeof(DIRENTRY) * LibFileHeader.iEntries),
                                  (LPDWORD)&uiNumBytesRead, NULL) &&
                         uiNumBytesRead == (sizeof(DIRENTRY) * LibFileHeader.iEntries)) {

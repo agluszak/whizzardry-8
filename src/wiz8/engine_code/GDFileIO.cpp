@@ -27,6 +27,7 @@
 #include "wiz8/wiz8_windows.h"
 #include <new>
 #include "wiz8/engine_code/3d.h"
+#include "compat/platform.h"
 
 // GLOBAL: WIZ8 0x005ec1a8
 const float g_float_negative_one_third = -0.3333333432674408f;
@@ -61,7 +62,7 @@ const float g_path_endpoint_scale = 0.9900000095367432f;
 // FUNCTION: WIZ8 0x00447570
 W8GameData* ReadGameData(const char* path, bool secondary)
 {
-    HANDLE file = CreateFileA(path, GENERIC_READ, 0, 0, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, 0);
+    HANDLE file = W8CreateFile(path, GENERIC_READ, 0, 0, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, 0);
     W8GameData* game_data;
     unsigned char got_polygons;
     unsigned char got_vertices;
@@ -78,7 +79,7 @@ W8GameData* ReadGameData(const char* path, bool secondary)
     if (got_vertices == 0 && got_polygons == 0) {
         ReportBuildStatus(7, "ReadGameData: No polygons or vertices in GameData!\n");
     }
-    CloseHandle(file);
+    W8CloseHandle(file);
     return game_data;
 }
 
@@ -137,8 +138,8 @@ unsigned char W8GameData::ReadWGDList(HANDLE file, int poly_type)
     if (poly_type < 0 || 2 < poly_type) {
         ReportBuildStatus(7, "ReadWGDList: Invalid poly type.\n");
     }
-    success = ReadFile(file, &vertex_count, 4, &bytes_read, 0) & 1;
-    success &= ReadFile(file, &face_count, 4, &bytes_read, 0);
+    success = W8ReadFile(file, &vertex_count, 4, &bytes_read, 0) & 1;
+    success &= W8ReadFile(file, &face_count, 4, &bytes_read, 0);
     if (success == 0) {
         srAssertFail("fSuccess", "C:\\Projects\\Wizardry 8\\Engine Code\\GDFileIO.cpp", 0xe5,
                      "Error reading counts from WGD file.");
@@ -198,7 +199,7 @@ unsigned char W8GameData::ReadWGDList(HANDLE file, int poly_type)
                 name_index = 0;
                 while (index < m_iNumVertices + vertex_count) {
                     srVector3T<float> vertex;
-                    success &= ReadFile(file, &vertex, 0xc, &bytes_read, 0);
+                    success &= W8ReadFile(file, &vertex, 0xc, &bytes_read, 0);
                     if (success == 0) {
                         srAssertFail("fSuccess",
                                      "C:\\Projects\\Wizardry 8\\Engine Code\\GDFileIO.cpp", 0x120,
@@ -237,15 +238,15 @@ unsigned char W8GameData::ReadWGDList(HANDLE file, int poly_type)
                     W8GDFaceHeader header;
                     W8GDFaceData data;
                     W8GDExtendedFace extended;
-                    success = ReadFile(file, &header, 0x1c, &bytes_read, 0);
+                    success = W8ReadFile(file, &header, 0x1c, &bytes_read, 0);
                     if (header.version != 2) {
                         srAssertFail("(tfFace.iVersion == 2 )",
                                      "C:\\Projects\\Wizardry 8\\Engine Code\\GDFileIO.cpp", 0x142,
                                      "Wrong version of WGD data--Get new plugin.");
                     }
-                    success &= ReadFile(file, &data, 0x18, &bytes_read, 0);
+                    success &= W8ReadFile(file, &data, 0x18, &bytes_read, 0);
                     if (poly_type != 0) {
-                        success &= ReadFile(file, &extended, 0x44, &bytes_read, 0);
+                        success &= W8ReadFile(file, &extended, 0x44, &bytes_read, 0);
                     }
                     if (success == 0) {
                         srAssertFail("fSuccess",
@@ -314,12 +315,12 @@ unsigned char W8GameData::ReadWGDList(HANDLE file, int poly_type)
                     }
                     ++index;
                 }
-                ReadFile(file, &bounds[1].x, 4, &bytes_read, 0);
-                ReadFile(file, &bounds[1].y, 4, &bytes_read, 0);
-                ReadFile(file, &bounds[1].z, 4, &bytes_read, 0);
-                ReadFile(file, &bounds[0].x, 4, &bytes_read, 0);
-                ReadFile(file, &bounds[0].y, 4, &bytes_read, 0);
-                ReadFile(file, &bounds[0].z, 4, &bytes_read, 0);
+                W8ReadFile(file, &bounds[1].x, 4, &bytes_read, 0);
+                W8ReadFile(file, &bounds[1].y, 4, &bytes_read, 0);
+                W8ReadFile(file, &bounds[1].z, 4, &bytes_read, 0);
+                W8ReadFile(file, &bounds[0].x, 4, &bytes_read, 0);
+                W8ReadFile(file, &bounds[0].y, 4, &bytes_read, 0);
+                W8ReadFile(file, &bounds[0].z, 4, &bytes_read, 0);
                 for (index = 0; index < 3; ++index) {
                     (&bounds[1].x)[index] = (&bounds[1].x)[index] * g_world_scale;
                     (&bounds[0].x)[index] *= g_world_scale;
