@@ -1008,7 +1008,7 @@ void ReportStartupMessage(const char* message)
         ClearSurfaceRect(0, 400, 0x27f, 0x1df);
         index = 0x191;
         for (top = 0; top < 6; ++top) {
-            gprintfDirty(1, index, const_cast<UINT16*>(L"%s"), g_status_lines[top]);
+            gprintfDirty(1, index, const_cast<CHAR16*>(L"%s"), g_status_lines[top]);
             index += 0xd;
         }
         InvalidateRegion(0, 400, 0x27f, 0x1df, 4);
@@ -1016,7 +1016,7 @@ void ReportStartupMessage(const char* message)
         index = (g_status_cursor - 1) * 0xd;
         top = index + 400;
         ClearSurfaceRect(0, top, 0x27f, g_status_cursor * 0xd + 400);
-        gprintfDirty(1, index + 0x191, const_cast<UINT16*>(L"%s"), line);
+        gprintfDirty(1, index + 0x191, const_cast<CHAR16*>(L"%s"), line);
         InvalidateRegion(0, top, 0x27f, g_status_cursor * 0xd + 400, 4);
     }
     g_status_scroll = scroll;

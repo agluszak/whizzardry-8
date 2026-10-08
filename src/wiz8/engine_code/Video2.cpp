@@ -3254,7 +3254,7 @@ srModelInstance* Video2DRectToPolygon(const W8ControlsRect* rect, void* source, 
    tooltip objects and positions them above the cursor. Only one tooltip is
    alive at a time. */
 // FUNCTION: WIZ8 0x00429290
-void VideoToolTip(UINT16* text)
+void VideoToolTip(CHAR16* text)
 {
     if (g_screen_transition_object_count != 0) {
         return;

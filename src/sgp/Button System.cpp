@@ -1095,7 +1095,7 @@ void SetButtonPosition(INT32 iButtonID, INT16 x, INT16 y)
 
 //Creates a generic button with text on it.
 // FUNCTION: WIZ8 0x0040d350
-INT32 CreateTextButton(UINT16* string, UINT32 uiFont, INT16 sForeColor, INT16 sShadowColor,
+INT32 CreateTextButton(CHAR16* string, UINT32 uiFont, INT16 sForeColor, INT16 sShadowColor,
                        INT16 GenImg, INT16 xloc, INT16 yloc, INT16 w, INT16 h, INT32 Type,
                        INT16 Priority, GUI_CALLBACK MoveCallback, GUI_CALLBACK ClickCallback)
 {
@@ -1354,7 +1354,7 @@ INT32 QuickCreateButton(UINT32 Image, INT16 xloc, INT16 yloc, INT32 Type, INT16 
 
 //New functions
 // FUNCTION: WIZ8 0x0040d850
-void SpecifyButtonText(INT32 iButtonID, UINT16* string)
+void SpecifyButtonText(INT32 iButtonID, CHAR16* string)
 {
     GUI_BUTTON* b;
 
@@ -1408,7 +1408,7 @@ void SpecifyButtonTextOffsets(INT32 iButtonID, INT8 bTextXOffset, INT8 bTextYOff
 //	SetButtonFastHelpText
 //	Set the text that will be displayed as the FastHelp
 // FUNCTION: WIZ8 0x0040d910
-void SetButtonFastHelpText(INT32 iButton, UINT16* Text)
+void SetButtonFastHelpText(INT32 iButton, CHAR16* Text)
 {
     GUI_BUTTON* b;
     if (iButton < 0 || iButton > MAX_BUTTONS)

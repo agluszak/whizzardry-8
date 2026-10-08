@@ -6,6 +6,7 @@
 #include "wiz8/engine_code/stHash.hpp"
 #include "wiz8/geometry.h"
 #include "wiz8/vector.h"
+#include "Types.h"
 
 class GDProp;
 class W8Prop;

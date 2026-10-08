@@ -129,7 +129,7 @@ static int DrawWrappedTextLine(UINT16* text, int x, int top, int width, int font
     return 1;
 }
 
-static void RenderWrappedTextLine(UINT16* text, int x, int top, int width, int font,
+static void RenderWrappedTextLine(CHAR16* text, int x, int top, int width, int font,
                                   unsigned char foreground, unsigned char background, bool dirty,
                                   unsigned int flags)
 {

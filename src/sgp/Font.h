@@ -81,13 +81,13 @@ UINT16* GetFontObjectPalette16BPP(INT32 iFont);
 void DestroyEnglishTransTable(void);
 
 extern HVOBJECT GetFontObject(INT32 iFont);
-extern UINT32 gprintf(INT32 x, INT32 y, UINT16* pFontString, ...);
-extern UINT32 gprintfDirty(INT32 x, INT32 y, UINT16* pFontString, ...);
-extern UINT32 mprintf(INT32 x, INT32 y, UINT16* pFontString, ...);
+extern UINT32 gprintf(INT32 x, INT32 y, CHAR16* pFontString, ...);
+extern UINT32 gprintfDirty(INT32 x, INT32 y, CHAR16* pFontString, ...);
+extern UINT32 mprintf(INT32 x, INT32 y, CHAR16* pFontString, ...);
 extern UINT32 gprintf_buffer(UINT8* pDestBuf, UINT32 uiDestPitchBYTES, UINT32 FontType, INT32 x,
-                             INT32 y, UINT16* pFontString, ...);
+                             INT32 y, CHAR16* pFontString, ...);
 extern UINT32 mprintf_buffer(UINT8* pDestBuf, UINT32 uiDestPitchBYTES, UINT32 FontType, INT32 x,
-                             INT32 y, UINT16* pFontString, ...);
+                             INT32 y, CHAR16* pFontString, ...);
 
 // Function for displaying coded test. Since it's slower to do this, it's separate from  the normal fuctions
 #define FONT_CODE_BEGINCOLOR 180
@@ -108,9 +108,9 @@ extern FontTranslationTable* CreateEnglishTransTable();
 extern INT16 GetIndex(UINT16 siChar);
 extern UINT32 GetWidth(HVOBJECT hSrcVObject, INT16 ssIndex);
 
-extern INT16 StringPixLengthArg(INT32 usUseFont, UINT32 uiCharCount, UINT16* pFontString, ...);
-extern INT16 StringPixLength(UINT16* string, INT32 UseFont);
-extern INT16 StringNPixLength(UINT16* string, UINT32 uiMaxCount, INT32 UseFont);
+extern INT16 StringPixLengthArg(INT32 usUseFont, UINT32 uiCharCount, CHAR16* pFontString, ...);
+extern INT16 StringPixLength(CHAR16* string, INT32 UseFont);
+extern INT16 StringNPixLength(CHAR16* string, UINT32 uiMaxCount, INT32 UseFont);
 extern void SaveFontSettings(void);
 extern void RestoreFontSettings(void);
 
@@ -120,9 +120,9 @@ void VarFindFontRightCoordinates(INT16 sLeft, INT16 sTop, INT16 sWidth, INT16 sH
 void VarFindFontCenterCoordinates(INT16 sLeft, INT16 sTop, INT16 sWidth, INT16 sHeight,
                                   INT32 iFontIndex, INT16* psNewX, INT16* psNewY,
                                   UINT16* pFontString, ...);
-void FindFontRightCoordinates(INT16 sLeft, INT16 sTop, INT16 sWidth, INT16 sHeight, UINT16* pStr,
+void FindFontRightCoordinates(INT16 sLeft, INT16 sTop, INT16 sWidth, INT16 sHeight, CHAR16* pStr,
                               INT32 iFontIndex, INT16* psNewX, INT16* psNewY);
-void FindFontCenterCoordinates(INT16 sLeft, INT16 sTop, INT16 sWidth, INT16 sHeight, UINT16* pStr,
+void FindFontCenterCoordinates(INT16 sLeft, INT16 sTop, INT16 sWidth, INT16 sHeight, CHAR16* pStr,
                                INT32 iFontIndex, INT16* psNewX, INT16* psNewY);
 
 //extern FontBase *LoadFontFile(UINT8 *pFileName);

@@ -8,6 +8,7 @@
 
 #include "Button System.h"
 #include "input.h"
+#include "compat/kernel32.h"
 
 struct W8WorldItem;
 struct W8ItemInstance;

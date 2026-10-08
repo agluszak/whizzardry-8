@@ -302,7 +302,7 @@ UINT32 GetWidth(HVOBJECT hSrcVObject, INT16 ssIndex)
 //    'uiCharCount' specifies how many characters of the string are counted.
 
 // FUNCTION: WIZ8 0x00406ea0
-INT16 StringPixLengthArg(INT32 usUseFont, UINT32 uiCharCount, UINT16* pFontString, ...)
+INT16 StringPixLengthArg(INT32 usUseFont, UINT32 uiCharCount, CHAR16* pFontString, ...)
 {
     va_list argptr;
     wchar_t string[512];
@@ -333,7 +333,7 @@ INT16 StringPixLengthArg(INT32 usUseFont, UINT32 uiCharCount, UINT16* pFontStrin
 //  Created on:     12/1/99
 
 // FUNCTION: WIZ8 0x00406f90
-INT16 StringNPixLength(UINT16* string, UINT32 uiMaxCount, INT32 UseFont)
+INT16 StringNPixLength(CHAR16* string, UINT32 uiMaxCount, INT32 UseFont)
 {
     UINT32 Cur, uiCharCount;
     UINT16 *curletter, transletter;
@@ -353,7 +353,7 @@ INT16 StringNPixLength(UINT16* string, UINT32 uiMaxCount, INT32 UseFont)
 //	Returns the length of a string in pixels, depending on the font given.
 
 // FUNCTION: WIZ8 0x00407010
-INT16 StringPixLength(UINT16* string, INT32 UseFont)
+INT16 StringPixLength(CHAR16* string, INT32 UseFont)
 {
     UINT32 Cur;
     UINT16 *curletter, transletter;
@@ -506,7 +506,7 @@ BOOLEAN SetFontDestBuffer(UINT32 DestBuffer, INT32 x1, INT32 y1, INT32 x2, INT32
 // than 512 word-characters. Uses monochrome font color settings
 
 // FUNCTION: WIZ8 0x00407260
-UINT32 mprintf(INT32 x, INT32 y, UINT16* pFontString, ...)
+UINT32 mprintf(INT32 x, INT32 y, CHAR16* pFontString, ...)
 {
     INT32 destx, desty;
     UINT16 *curletter, transletter;
@@ -587,7 +587,7 @@ void VarFindFontCenterCoordinates(INT16 sLeft, INT16 sTop, INT16 sWidth, INT16 s
     FindFontCenterCoordinates(sLeft, sTop, sWidth, sHeight, string, iFontIndex, psNewX, psNewY);
 }
 
-void FindFontRightCoordinates(INT16 sLeft, INT16 sTop, INT16 sWidth, INT16 sHeight, UINT16* pStr,
+void FindFontRightCoordinates(INT16 sLeft, INT16 sTop, INT16 sWidth, INT16 sHeight, CHAR16* pStr,
                               INT32 iFontIndex, INT16* psNewX, INT16* psNewY)
 {
     INT16 xp, yp;
@@ -600,7 +600,7 @@ void FindFontRightCoordinates(INT16 sLeft, INT16 sTop, INT16 sWidth, INT16 sHeig
     *psNewY = yp;
 }
 
-void FindFontCenterCoordinates(INT16 sLeft, INT16 sTop, INT16 sWidth, INT16 sHeight, UINT16* pStr,
+void FindFontCenterCoordinates(INT16 sLeft, INT16 sTop, INT16 sWidth, INT16 sHeight, CHAR16* pStr,
                                INT32 iFontIndex, INT16* psNewX, INT16* psNewY)
 {
     INT16 xp, yp;
@@ -620,7 +620,7 @@ void FindFontCenterCoordinates(INT16 sLeft, INT16 sTop, INT16 sWidth, INT16 sHei
 // than 512 word-characters.
 
 // FUNCTION: WIZ8 0x00407650
-UINT32 gprintf(INT32 x, INT32 y, UINT16* pFontString, ...)
+UINT32 gprintf(INT32 x, INT32 y, CHAR16* pFontString, ...)
 {
     INT32 destx, desty;
     UINT16 *curletter, transletter;
@@ -672,7 +672,7 @@ UINT32 gprintf(INT32 x, INT32 y, UINT16* pFontString, ...)
 }
 
 // FUNCTION: WIZ8 0x004077d0
-UINT32 gprintfDirty(INT32 x, INT32 y, UINT16* pFontString, ...)
+UINT32 gprintfDirty(INT32 x, INT32 y, CHAR16* pFontString, ...)
 {
     INT32 destx, desty;
     UINT16 *curletter, transletter;
@@ -734,7 +734,7 @@ UINT32 gprintfDirty(INT32 x, INT32 y, UINT16* pFontString, ...)
 
 // FUNCTION: WIZ8 0x00407a10
 UINT32 gprintf_buffer(UINT8* pDestBuf, UINT32 uiDestPitchBYTES, UINT32 FontType, INT32 x, INT32 y,
-                      UINT16* pFontString, ...)
+                      CHAR16* pFontString, ...)
 {
     INT32 destx, desty;
     UINT16 *curletter, transletter;
@@ -780,7 +780,7 @@ UINT32 gprintf_buffer(UINT8* pDestBuf, UINT32 uiDestPitchBYTES, UINT32 FontType,
 
 // FUNCTION: WIZ8 0x00407b80
 UINT32 mprintf_buffer(UINT8* pDestBuf, UINT32 uiDestPitchBYTES, UINT32 FontType, INT32 x, INT32 y,
-                      UINT16* pFontString, ...)
+                      CHAR16* pFontString, ...)
 {
     INT32 destx, desty;
     UINT16 *curletter, transletter;

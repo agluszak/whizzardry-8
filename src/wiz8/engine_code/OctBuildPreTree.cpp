@@ -11,6 +11,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include "compat/kernel32.h"
 // GLOBAL: WIZ8 0x0065be60
 int g_build_node_instances;
 // GLOBAL: WIZ8 0x0065be58

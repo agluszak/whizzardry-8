@@ -8,6 +8,7 @@
 #include "wiz8/3d_code/PList.h"
 #include "input.h"
 #include "wiz8/engine_code/stCube.h"
+#include "compat/kernel32.h"
 
 class Trigger;
 class W8Monster;

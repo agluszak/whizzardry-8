@@ -3335,7 +3335,7 @@ render_world:
                 unsigned char frame = monster->m_pRep->subcycle;
                 const char* cycle = g_cycle_names[monster->Query(W8_MONSTER_QUERY_CYCLE)].name;
                 unsigned char subcycles = static_cast<unsigned char>(monster->GetNumSubCycles());
-                gprintfDirty(0x122, 0x159, const_cast<UINT16*>(L"%2d/%2d %hs"), frame, subcycles,
+                gprintfDirty(0x122, 0x159, const_cast<CHAR16*>(L"%2d/%2d %hs"), frame, subcycles,
                              cycle);
             }
         }
