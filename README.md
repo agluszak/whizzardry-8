@@ -39,3 +39,17 @@ to generate the existing SurRender assertion import library.
 Running the game requires installed Wizardry 8 assets and its other runtime
 DLLs. Third-party sources retain their own licenses, including the SGP license
 in `src/sgp/SFI Source Code license agreement.txt`.
+
+## Launching on Linux
+
+Run `./run.sh` from any directory. It loads the repository's `.env`, copies
+the rebuilt `Wiz8.exe` and `sr.dll` from `build-clang/launch` into the existing
+`build/run-clang` asset directory, and launches through UMU/GE-Proton. It activates
+the game window so keyboard input reaches the game. Requires `xdotool`, a working
+graphical session, and `WIZ8_UMU_RUN` and `WIZ8_WINE_PREFIX` in `.env`.
+
+For Docker outputs, use `WIZ8_BUILD_DIR="$PWD/build-clang/docker" ./run.sh`.
+`WIZ8_RUN_DIR` can select another directory containing the installed game assets.
+Additional arguments are passed to the EXE, for example `./run.sh /NOSOUND`.
+Launcher output is saved to the game directory's `diagnostics/launch.log`.
+The script stages existing binaries; rebuild them first after source changes.

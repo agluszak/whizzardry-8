@@ -1943,10 +1943,12 @@ void __cdecl writeL8MMX(const srPixelConvert::ConversionInfo& info)
 // FUNCTION: SURRENDER 0x1000B6A0
 void __cdecl writeRGB565MMX(const srPixelConvert::ConversionInfo& info)
 {
-    unsigned __int64 maskRB = 0x00f800f800f800f8;
-    unsigned __int64 maskG = 0x0000fc000000fc00;
-    unsigned __int64 maskReplicate = 0x001f001f001f001f;
-    unsigned __int64 maskPacked = 0xf800f800f800f800;
+    // Keep the masks out of the stack frame: Clang's alignment of local
+    // 64-bit values uses ESI as a frame base, which this assembly overwrites.
+    static const unsigned __int64 maskRB = 0x00f800f800f800f8;
+    static const unsigned __int64 maskG = 0x0000fc000000fc00;
+    static const unsigned __int64 maskReplicate = 0x001f001f001f001f;
+    static const unsigned __int64 maskPacked = 0xf800f800f800f800;
     void* dest = info.dest;
     const void* source = info.source;
     unsigned long count = info.count;
