@@ -60,7 +60,11 @@
 extern "C" {
 #endif
 
-/* Narrow CRT extensions. */
+/* Narrow CRT extensions and path-aware file entry points. */
+FILE* w8_fopen(const char* path, const char* mode);
+int w8_rename(const char* source, const char* destination);
+/* Kept explicit: a remove macro would also rewrite C++ member names. */
+int w8_remove(const char* path);
 char* w8_strupr(char* text);
 char* w8_strlwr(char* text);
 int w8_access(const char* path, int mode);
@@ -94,6 +98,9 @@ int w8_vswprintf(wchar_t* buffer, const wchar_t* format, va_list arguments);
 #ifdef __cplusplus
 }
 #endif
+
+#define fopen w8_fopen
+#define rename w8_rename
 
 #define _strupr w8_strupr
 #define strupr w8_strupr

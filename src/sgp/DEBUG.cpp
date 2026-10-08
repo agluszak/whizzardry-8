@@ -225,7 +225,7 @@ void DbgTopicRegistration(UINT8 ubCmd, UINT16* usTopicID, CHAR8* zMessage)
 void RemoveDebugText(void)
 {
 #if defined(WIZ8_NATIVE)
-    remove(gpcDebugLogFileName);
+    w8_remove(gpcDebugLogFileName);
 #else
     W8DeleteFile(gpcDebugLogFileName);
 #endif

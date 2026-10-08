@@ -15,7 +15,9 @@ class
 #endif
     srBinOStream : public virtual srBinStream {
 public:
-#if !defined(SURRENDER_BUILD)
+    /* The DLL build uses compiler-generated special members. Native clients use
+       the same members; the Windows import declarations remain unchanged. */
+#if !defined(SURRENDER_BUILD) && !defined(WIZ8_NATIVE)
     SR_DLL_IMPORT srBinOStream();
     SR_DLL_IMPORT srBinOStream(const srBinOStream& stream);
     virtual SR_DLL_IMPORT ~srBinOStream() override;

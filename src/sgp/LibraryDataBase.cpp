@@ -24,13 +24,21 @@ INT16 gsCurrentLibrary = -1;
 // GLOBAL: WIZ8 0x006e0fa0
 CHAR8 gzCdDirectory[SGPFILENAME_LEN];
 
+#if defined(WIZ8_NATIVE)
+INT CompareFileNames(const void* arg1, const void* arg2);
+#else
 INT CompareFileNames(CHAR8** arg1, FileHeaderStruct** arg2);
+#endif
 BOOLEAN GetFileHeaderFromLibrary(INT16 sLibraryID, STR pstrFileName,
                                  FileHeaderStruct** pFileHeader);
 HWFILE CreateLibraryFileHandle(INT16 sLibraryID, UINT32 uiFileNum);
 BOOLEAN CheckIfFileIsAlreadyOpen(STR pFileName, INT16 sLibraryID);
 
+#if defined(WIZ8_NATIVE)
+INT32 CompareDirEntryFileNames(const void* arg1, const void* arg2);
+#else
 INT32 CompareDirEntryFileNames(CHAR8* arg1[], DIRENTRY** arg2);
+#endif
 static void MapSlfArchive(int library_id)
 {
     LibraryHeaderStruct* library = &gFileDataBase.pLibraries[library_id];
@@ -508,7 +516,11 @@ BOOLEAN GetFileHeaderFromLibrary(INT16 sLibraryID, STR pstrFileName, FileHeaderS
 //	CompareFileNames() gets called by the binary search function.
 
 // FUNCTION: WIZ8 0x00413360
+#if defined(WIZ8_NATIVE)
+INT CompareFileNames(const void* arg1, const void* arg2)
+#else
 INT CompareFileNames(CHAR8* arg1[], FileHeaderStruct** arg2)
+#endif
 {
     CHAR8 sSearchKey[FILENAME_SIZE];
     CHAR8 sFileNameWithPath[FILENAME_SIZE];
@@ -516,7 +528,7 @@ INT CompareFileNames(CHAR8* arg1[], FileHeaderStruct** arg2)
 
     TempFileHeader = (FileHeaderStruct*)arg2;
 
-    sprintf(sSearchKey, "%s", arg1);
+    sprintf(sSearchKey, "%s", (const CHAR8*)arg1);
 
     sprintf(sFileNameWithPath, "%s%s", gFileDataBase.pLibraries[gsCurrentLibrary].sLibraryPath,
             TempFileHeader->pFileName);
@@ -979,7 +991,11 @@ BOOLEAN GetLibraryFileTime(INT16 sLibraryID, UINT32 uiFileNum, SGP_FILETIME* pLa
 //	CompareFileNames() gets called by the binary search function.
 
 // FUNCTION: WIZ8 0x00413d00
+#if defined(WIZ8_NATIVE)
+INT32 CompareDirEntryFileNames(const void* arg1, const void* arg2)
+#else
 INT32 CompareDirEntryFileNames(CHAR8* arg1[], DIRENTRY** arg2)
+#endif
 {
     CHAR8 sSearchKey[FILENAME_SIZE];
     CHAR8 sFileNameWithPath[FILENAME_SIZE];
@@ -987,7 +1003,7 @@ INT32 CompareDirEntryFileNames(CHAR8* arg1[], DIRENTRY** arg2)
 
     TempDirEntry = (DIRENTRY*)arg2;
 
-    sprintf(sSearchKey, "%s", arg1);
+    sprintf(sSearchKey, "%s", (const CHAR8*)arg1);
 
     sprintf(sFileNameWithPath, "%s", TempDirEntry->sFileName);
 
