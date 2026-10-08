@@ -66,49 +66,14 @@ char* w8_strlwr(char* text)
     return text;
 }
 
-int w8_access(const char* path, int mode)
-{
-    /* Microsoft modes: 0 exists, 2 write, 4 read, 6 both. */
-    int native = F_OK;
-    if ((mode & 2) != 0) {
-        native |= W_OK;
-    }
-    if ((mode & 4) != 0) {
-        native |= R_OK;
-    }
-    return access(path, native);
-}
-
-int w8_chmod(const char* path, int mode)
-{
-    struct stat status;
-    if (stat(path, &status) != 0) {
-        return -1;
-    }
-    mode_t permissions = status.st_mode & 07777;
-    if ((mode & S_IWUSR) != 0) {
-        permissions |= S_IWUSR;
-    } else {
-        permissions &= ~(S_IWUSR | S_IWGRP | S_IWOTH);
-    }
-    return chmod(path, permissions);
-}
-
-int w8_chdir(const char* path)
-{
-    return chdir(path);
-}
-
-char* w8_getcwd(char* buffer, int size)
-{
-    return getcwd(buffer, size);
-}
-
 void w8_splitpath(const char* path, char* drive, char* directory, char* name, char* extension)
 {
+    const bool has_drive = path[0] != 0 && path[1] == ':';
     if (drive != 0) {
-        drive[0] = 0;
+        if (has_drive) { drive[0] = path[0]; drive[1] = ':'; drive[2] = 0; }
+        else drive[0] = 0;
     }
+    if (has_drive) path += 2;
     const char* separator = 0;
     for (const char* cursor = path; *cursor != 0; ++cursor) {
         if (*cursor == '/' || *cursor == '\\') {

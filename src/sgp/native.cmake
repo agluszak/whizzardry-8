@@ -1,5 +1,8 @@
 # Native SGP. Units join this list as their Windows dependencies are replaced.
 add_library(WIZ8_SGP STATIC
+    FileMan.cpp
+    LibraryDataBase.cpp
+    WizLibs.cpp
     Compression.cpp
     DEBUG.cpp
     MemMan.cpp

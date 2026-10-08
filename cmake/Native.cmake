@@ -45,13 +45,25 @@ target_include_directories(wiz8_native_settings INTERFACE
 )
 target_link_libraries(wiz8_native_settings INTERFACE Threads::Threads ${CMAKE_DL_LIBS})
 
-# Microsoft CRT extensions and two-byte wide strings (compat/native.h).
-add_library(wiz8_compat STATIC src/compat/native_crt.cpp)
+# One process-wide owner for roots, file handles and CRT compatibility. Sharing
+# this library avoids separate overlay state in the game and SurRender on macOS.
+add_library(wiz8_compat SHARED
+    src/compat/native_crt.cpp
+    src/compat/platform_paths.cpp
+    src/compat/platform_crt.cpp
+    src/compat/platform_files.cpp
+    src/compat/platform_system.cpp
+)
 target_compile_options(wiz8_compat PRIVATE
     "SHELL:-include ${PROJECT_SOURCE_DIR}/include/wiz8/compat/compiler.h"
     -fsigned-char -fshort-wchar -fno-builtin-wcslen)
 target_compile_definitions(wiz8_compat PRIVATE WIZ8_NATIVE)
 target_include_directories(wiz8_compat PRIVATE "${PROJECT_SOURCE_DIR}/include/wiz8")
+target_link_libraries(wiz8_compat PRIVATE Threads::Threads)
+if(NOT APPLE)
+    target_link_options(wiz8_compat PRIVATE -Wl,--no-undefined)
+endif()
+target_include_directories(wiz8_native_settings INTERFACE "${PROJECT_SOURCE_DIR}/src/compat")
 target_link_libraries(wiz8_native_settings INTERFACE wiz8_compat)
 
 add_subdirectory(src/surrender)
@@ -61,6 +73,10 @@ enable_testing()
 add_executable(native_compression_test tests/native/compression_test.cpp)
 target_link_libraries(native_compression_test PRIVATE WIZ8_SGP)
 add_test(NAME native_compression COMMAND native_compression_test)
+
+add_executable(native_files_test tests/native/files_test.cpp)
+target_link_libraries(native_files_test PRIVATE WIZ8_SGP SURRENDER)
+add_test(NAME native_files COMMAND native_files_test)
 
 add_executable(native_crt_test tests/native/crt_test.cpp)
 target_link_libraries(native_crt_test PRIVATE wiz8_native_settings)
@@ -78,7 +94,7 @@ add_test(NAME native_blitters COMMAND native_blitter_test
 # glibc's wide-string functions assume four-byte wchar_t; no native binary
 # may import them.
 add_test(NAME native_no_glibc_wide_strings
-    COMMAND sh -c "! nm -u $<TARGET_FILE:SURRENDER> $<TARGET_FILE:native_crt_test> | grep -E ' U (wcs|wmem|swprintf|vswprintf|wprintf)'")
+    COMMAND sh -c "! nm -u $<TARGET_FILE:wiz8_compat> $<TARGET_FILE:SURRENDER> $<TARGET_FILE:native_crt_test> | grep -E ' U (wcs|wmem|swprintf|vswprintf|wprintf)'")
 
 # srGERD on the SDL3 GPU device; needs a display and a Vulkan driver.
 add_executable(srdd_spike tests/native/srdd_spike.cpp)
