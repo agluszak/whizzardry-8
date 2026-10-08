@@ -66,6 +66,10 @@ add_executable(native_crt_test tests/native/crt_test.cpp)
 target_link_libraries(native_crt_test PRIVATE wiz8_native_settings)
 add_test(NAME native_crt COMMAND native_crt_test)
 
+add_executable(native_pointer_test tests/native/pointer_test.cpp)
+target_link_libraries(native_pointer_test PRIVATE wiz8_native_settings)
+add_test(NAME native_pointer COMMAND native_pointer_test)
+
 # glibc's wide-string functions assume four-byte wchar_t; no native binary
 # may import them.
 add_test(NAME native_no_glibc_wide_strings
