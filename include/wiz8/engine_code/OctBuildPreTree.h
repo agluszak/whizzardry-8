@@ -52,7 +52,7 @@ struct W8OctRegionPolygon {
     bool ContainsPoint(const srVector3T<float>* bounds) const;
 };
 
-static_assert(sizeof(W8OctRegionPolygon) == 0x74, "W8OctRegionPolygon_must_be_0x74");
+W8_ABI_ASSERT(sizeof(W8OctRegionPolygon) == 0x74, "W8OctRegionPolygon_must_be_0x74");
 
 extern int g_build_node_instances;
 extern w8_ulong g_poly_list_count;
@@ -155,7 +155,7 @@ struct OctBuildPreTree : W8OctBuildTree {
     w8_ulong unknown_13c;
 };
 
-static_assert(sizeof(OctBuildPreTree) == 0x140, "OctBuildPreTree_must_be_0x140");
+W8_ABI_ASSERT(sizeof(OctBuildPreTree) == 0x140, "OctBuildPreTree_must_be_0x140");
 
 int GetBuildNodeInstanceCount(void);
 

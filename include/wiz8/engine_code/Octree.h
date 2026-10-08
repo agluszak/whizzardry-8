@@ -591,7 +591,7 @@ public:
     unsigned char m_padding_29a[2];
 };
 
-static_assert(sizeof(W8Octree) == 0x29c, "W8Octree_must_be_0x29c");
+W8_ABI_ASSERT(sizeof(W8Octree) == 0x29c, "W8Octree_must_be_0x29c");
 
 class OctPreTree : public W8Octree {
 public:
@@ -660,7 +660,7 @@ public:
     char PropFramesDiffer(W8LevelFileAnimObj* anim, unsigned short first, unsigned short last);
 };
 
-static_assert(sizeof(OctPreTree) == 0x3bc, "OctPreTree_must_be_0x3bc");
+W8_ABI_ASSERT(sizeof(OctPreTree) == 0x3bc, "OctPreTree_must_be_0x3bc");
 
 extern W8Octree* g_octree;
 extern OctPreTree* g_oct_pre_tree;
@@ -671,7 +671,7 @@ extern bool g_octree_disabled;
 
 bool __stdcall IsNavigatorAtTarget(W8NavigatorMovementState* movement);
 
-static_assert(sizeof(W8Octree) == 0x29c, "W8Octree_must_be_0x29c");
+W8_ABI_ASSERT(sizeof(W8Octree) == 0x29c, "W8Octree_must_be_0x29c");
 
 extern unsigned int* g_octree_storage_;
 extern w8_ulong* g_octree_state;

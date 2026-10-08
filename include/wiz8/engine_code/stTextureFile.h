@@ -107,4 +107,4 @@ private:
     unsigned char padding_65[3];
 };
 
-static_assert(sizeof(stTextureFile) == 0x68, "stTextureFile_must_be_0x68");
+W8_ABI_ASSERT(sizeof(stTextureFile) == 0x68, "stTextureFile_must_be_0x68");

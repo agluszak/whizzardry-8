@@ -779,7 +779,7 @@ public:
     bool reverse;
 };
 
-static_assert(sizeof(W8TriggerShakeEvent) == 0x44, "W8TriggerShakeEvent_must_be_0x44");
+W8_ABI_ASSERT(sizeof(W8TriggerShakeEvent) == 0x44, "W8TriggerShakeEvent_must_be_0x44");
 
 // VTABLE: WIZ8 0x005ec140
 // class W8TriggerShakeEvent

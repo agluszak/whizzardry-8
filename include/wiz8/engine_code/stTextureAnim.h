@@ -54,4 +54,4 @@ public:
     bool running;
 };
 
-static_assert(sizeof(stTextureAnim) == 0x7c, "stTextureAnim_size_must_be_0x7c");
+W8_ABI_ASSERT(sizeof(stTextureAnim) == 0x7c, "stTextureAnim_size_must_be_0x7c");

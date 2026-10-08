@@ -74,9 +74,9 @@ public:
     float frame_interpolation;
 };
 
-static_assert(offsetof(stModelInstance, highlight_colour) == 0x164,
+W8_ABI_ASSERT(offsetof(stModelInstance, highlight_colour) == 0x164,
               "stModelInstance_render_state_offset");
-static_assert(sizeof(stModelInstance) == 0x1b0, "stModelInstance_size_must_be_0x1b0");
+W8_ABI_ASSERT(sizeof(stModelInstance) == 0x1b0, "stModelInstance_size_must_be_0x1b0");
 
 /* Concrete 2D model instance. Slot 5 and the secondary slot-0 adjustor are
    SYNTHETIC compiler-generated deleting destructors; no source body owns
@@ -134,6 +134,6 @@ public:
     virtual ~stModelInstance2D() override; /* 0x0047F410 */
 };
 
-static_assert(offsetof(stModelInstance2D, render_state) == 0x164,
+W8_ABI_ASSERT(offsetof(stModelInstance2D, render_state) == 0x164,
               "stModelInstance2D_render_state_offset");
-static_assert(sizeof(stModelInstance2D) == 0x180, "stModelInstance2D_must_be_0x180");
+W8_ABI_ASSERT(sizeof(stModelInstance2D) == 0x180, "stModelInstance2D_must_be_0x180");

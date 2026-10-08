@@ -146,7 +146,7 @@ public:
     unsigned char padding_27c[4];
 };
 
-static_assert(sizeof(stParticle) == 0x280, "stParticle_size_must_be_0x280");
+W8_ABI_ASSERT(sizeof(stParticle) == 0x280, "stParticle_size_must_be_0x280");
 
 stParticle* FindRegisteredParticle(const char* name);
 void SaveParticleStates(unsigned int handle);

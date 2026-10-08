@@ -54,7 +54,7 @@ public:
     w8_ulong polygons[0x1e];
 };
 
-static_assert(sizeof(W8GroundShadowMapper) == 0x98, "W8GroundShadowMapper004D6180_must_be_0x98");
+W8_ABI_ASSERT(sizeof(W8GroundShadowMapper) == 0x98, "W8GroundShadowMapper004D6180_must_be_0x98");
 
 // GLOBAL: WIZ8 0x00683430
 static W8GroundShadowMapper g_ground_shadow_material_parameters;

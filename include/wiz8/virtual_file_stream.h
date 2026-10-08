@@ -32,7 +32,7 @@ private:
     int m_hFile; /* 0x08; vtordisp at 0x0c; virtual srBinStream at 0x10 */
 };
 
-static_assert(sizeof(W8VirtualFileBinIStream) == 0x20, "W8VirtualFileBinIStream_size_must_be_0x20");
+W8_ABI_ASSERT(sizeof(W8VirtualFileBinIStream) == 0x20, "W8VirtualFileBinIStream_size_must_be_0x20");
 
 class W8VirtualFileStreamOpener : public srIStreamOpener::Opener {
 public:

@@ -47,7 +47,7 @@ struct W8PortraitQuoteBubble {
     UINT32 palette;
 };
 
-static_assert(sizeof(W8PortraitQuoteBubble) == 0x24, "W8PortraitQuoteBubble_size");
+W8_ABI_ASSERT(sizeof(W8PortraitQuoteBubble) == 0x24, "W8PortraitQuoteBubble_size");
 
 // GLOBAL: WIZ8 0x0069C598
 static W8PortraitQuoteBubble* g_portrait_quotes[10];

@@ -128,7 +128,7 @@ public:
     W8GrowableVector<unsigned char>* skin_blanking_checked;
 };
 
-static_assert(sizeof(stMeshModel) == 0x464, "stMeshModel_size_must_be_0x464");
+W8_ABI_ASSERT(sizeof(stMeshModel) == 0x464, "stMeshModel_size_must_be_0x464");
 
 /* Every mesh model whose frame storage has been initialized. */
 extern W8GrowableVector<stMeshModel*> g_mesh_models; /* 0x00659CB8 */

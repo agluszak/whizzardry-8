@@ -84,7 +84,7 @@ static_assert(offsetof(W8MessageStorageDiskRecord, serialized_entries_18_bits) =
 static_assert(offsetof(W8MessageStorageDiskRecord, trailing_bytes) == 0x1c,
               "W8MessageStorageDiskRecord_trailing_offset");
 static_assert(sizeof(w8_ulong) == 4, "W8MessageStorageDiskRecord_requires_32_bit_words");
-static_assert(sizeof(W8PList*) == sizeof(w8_ulong),
+W8_ABI_ASSERT(sizeof(W8PList*) == sizeof(w8_ulong),
               "W8MessageStorageDiskRecord_requires_32_bit_live_pointers");
 
 // GLOBAL: WIZ8 0x0069b7b8

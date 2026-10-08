@@ -50,9 +50,9 @@ struct W8PreProp {
     GDPreProp* pStopMeshes;
 };
 
-static_assert(sizeof(W8PreProp) == 0x48, "W8PreProp_must_be_0x48");
+W8_ABI_ASSERT(sizeof(W8PreProp) == 0x48, "W8PreProp_must_be_0x48");
 static_assert(offsetof(W8PreProp, num_stop_meshes) == 0x40, "W8PreProp_num_stop_meshes_40");
-static_assert(offsetof(W8PreProp, pStopMeshes) == 0x44, "W8PreProp_pStopMeshes");
+W8_ABI_ASSERT(offsetof(W8PreProp, pStopMeshes) == 0x44, "W8PreProp_pStopMeshes");
 
 struct W8NavigatorMovementState;
 
@@ -135,7 +135,7 @@ private:
     W8Monster* monster;
 };
 
-static_assert(sizeof(W8PathParameters) == 0x58, "W8PathParameters_must_be_0x58");
+W8_ABI_ASSERT(sizeof(W8PathParameters) == 0x58, "W8PathParameters_must_be_0x58");
 struct W8NavigatorAttachment;
 
 /* OctPath.cpp's two compact graph records. Surface zero and edge zero are
@@ -292,8 +292,8 @@ struct W8PathHeapHandle {
 };
 
 static_assert(sizeof(W8PathHeapEntry) == 8, "W8PathHeapEntry_must_be_8");
-static_assert(sizeof(W8PathHeap) == 0x10, "W8PathHeap_must_be_0x10");
-static_assert(sizeof(W8PathHeapHandle) == 8, "W8PathHeapHandle_must_be_8");
+W8_ABI_ASSERT(sizeof(W8PathHeap) == 0x10, "W8PathHeap_must_be_0x10");
+W8_ABI_ASSERT(sizeof(W8PathHeapHandle) == 8, "W8PathHeapHandle_must_be_8");
 
 static_assert(sizeof(W8PathSearchNode) == 0x2c, "W8PathSearchNode_must_be_0x2c");
 
@@ -572,7 +572,7 @@ public:
     unsigned char m_padding_23d[3];
 };
 
-static_assert(sizeof(W8PathingService) == 0x240, "W8PathingService_must_be_0x240");
+W8_ABI_ASSERT(sizeof(W8PathingService) == 0x240, "W8PathingService_must_be_0x240");
 
 /* The 8-byte record InsertConditionalNodes hangs on the cond map under a
    (frame << 16 | preprop index + 1) key: the node's serialized flag word
@@ -595,7 +595,7 @@ struct W8PrePathNode {
     W8PrePathNode* next;      /* 0x0c: allocation order, same-cell runs */
 };
 
-static_assert(sizeof(W8PrePathNode) == 0x10, "W8PrePathNode_must_be_0x10");
+W8_ABI_ASSERT(sizeof(W8PrePathNode) == 0x10, "W8PrePathNode_must_be_0x10");
 
 enum { W8_PREPATH_NODES_PER_CHUNK = 1000 };
 
@@ -644,11 +644,11 @@ public:
     unsigned int min_component_percent;
 };
 
-static_assert(sizeof(PrePathing) == 0x1204, "PrePathing_must_be_0x1204");
-static_assert(offsetof(PrePathing, path_node_list) == 0x240, "PrePathing_path_node_list_240");
-static_assert(offsetof(PrePathing, node_chunks) == 0x258, "PrePathing_node_chunks_258");
-static_assert(offsetof(PrePathing, chunk_index) == 0x11f8, "PrePathing_chunk_index_11f8");
-static_assert(offsetof(PrePathing, min_component_percent) == 0x1200,
+W8_ABI_ASSERT(sizeof(PrePathing) == 0x1204, "PrePathing_must_be_0x1204");
+W8_ABI_ASSERT(offsetof(PrePathing, path_node_list) == 0x240, "PrePathing_path_node_list_240");
+W8_ABI_ASSERT(offsetof(PrePathing, node_chunks) == 0x258, "PrePathing_node_chunks_258");
+W8_ABI_ASSERT(offsetof(PrePathing, chunk_index) == 0x11f8, "PrePathing_chunk_index_11f8");
+W8_ABI_ASSERT(offsetof(PrePathing, min_component_percent) == 0x1200,
               "PrePathing_min_component_percent_1200");
 
 /* Move an integer path cell one compass step; directions outside the

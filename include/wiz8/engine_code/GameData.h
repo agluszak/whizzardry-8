@@ -335,7 +335,7 @@ struct W8GameData {
                          char skip_flag, int mode); /* 0x0041C330 */
 };
 
-static_assert(sizeof(W8GameData) == 0x8c, "W8GameData_must_be_0x8c");
+W8_ABI_ASSERT(sizeof(W8GameData) == 0x8c, "W8GameData_must_be_0x8c");
 
 static_assert(offsetof(W8LevelDataRecord, primary_contact_prop_id) == 0x04,
               "W8LevelDataRecord_primary_contact_prop_id");
@@ -345,7 +345,7 @@ static_assert(offsetof(W8LevelDataRecord, contact_normal) == 0xac,
               "W8LevelDataRecord_contact_normal_ac");
 static_assert(offsetof(W8LevelDataRecord, contact_normal_scale) == 0xb8,
               "W8LevelDataRecord_contact_normal_scale");
-static_assert(sizeof(W8LevelDataRecord) == 0xf4, "W8LevelDataRecord_must_be_0xf4");
+W8_ABI_ASSERT(sizeof(W8LevelDataRecord) == 0xf4, "W8LevelDataRecord_must_be_0xf4");
 
 extern W8LevelDataRecord* g_level_data;
 /* Companion pointer cleared alongside g_level_data on level

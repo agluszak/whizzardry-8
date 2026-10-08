@@ -79,5 +79,5 @@ public:
     int texture_update_flags;
 };
 
-static_assert((sizeof(stTexture2D) == 0x6c), "stTexture2D_must_be_0x6c");
-static_assert((sizeof(stSurface2D) == 0x198), "stSurface2D_must_be_0x198");
+W8_ABI_ASSERT((sizeof(stTexture2D) == 0x6c), "stTexture2D_must_be_0x6c");
+W8_ABI_ASSERT((sizeof(stSurface2D) == 0x198), "stSurface2D_must_be_0x198");

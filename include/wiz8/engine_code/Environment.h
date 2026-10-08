@@ -35,7 +35,7 @@ public:
     float scroll_v;              /* 0x18 */
 };
 
-static_assert(sizeof(W8MaterialMapper) == 0x1c, "W8MaterialMapper00482010_must_be_0x1c");
+W8_ABI_ASSERT(sizeof(W8MaterialMapper) == 0x1c, "W8MaterialMapper00482010_must_be_0x1c");
 
 /* ABS 0x0065AD78: the three light-direction words as one colour triple.
    Produced from the day-phase colour table and consumed as fog-vector

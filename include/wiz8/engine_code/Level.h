@@ -23,4 +23,4 @@ public:
     w8_ulong m_submitted_polygons;    /* 0x13c; submitted polygon count */
 };
 
-static_assert(sizeof(stLevel) == 0x140, "stLevel_must_be_0x140");
+W8_ABI_ASSERT(sizeof(stLevel) == 0x140, "stLevel_must_be_0x140");

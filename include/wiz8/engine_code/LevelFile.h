@@ -87,7 +87,7 @@ struct W8LevelFileMesh {
 };
 
 static_assert(sizeof(srVector3T<float>) == 0xc, "Level mesh position record size");
-static_assert(offsetof(W8LevelFileMesh, pstVertices) == 0x4c, "Level mesh position pointer offset");
+W8_ABI_ASSERT(offsetof(W8LevelFileMesh, pstVertices) == 0x4c, "Level mesh position pointer offset");
 
 /* The 0x3c-byte serialized block covering stParametricLightDefinition fields
    flags through subcycle_max: the runtime object's first 8 bytes

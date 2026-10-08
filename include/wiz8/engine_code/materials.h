@@ -48,7 +48,7 @@ public:
     int m_surface_flags; /* 0x78 */
 };
 
-static_assert((sizeof(stMaterial) == 0x7C), "stMaterial_must_be_0x7c");
+W8_ABI_ASSERT((sizeof(stMaterial) == 0x7C), "stMaterial_must_be_0x7c");
 
 #pragma pack(push, 1)
 

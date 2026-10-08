@@ -98,11 +98,11 @@ struct W8OctBuildTree {
     w8_ulong deepest_link_list;
 };
 
-static_assert(sizeof(W8OctBuildLink) == 8, "W8OctBuildLink_must_be_8");
-static_assert(sizeof(W8OctBuildLinkLists) == 0x25c, "W8OctBuildLinkLists_must_be_0x25c");
-static_assert(sizeof(W8OctBuildNode) == 0x30, "W8OctBuildNode00446330_must_be_0x30");
-static_assert(sizeof(W8CountedOctBuildNode) == 0x30, "W8CountedOctBuildNode004AF760_must_be_0x30");
-static_assert(sizeof(W8OctBuildTree) == 0xbc, "W8OctBuildTree_must_be_0xbc");
+W8_ABI_ASSERT(sizeof(W8OctBuildLink) == 8, "W8OctBuildLink_must_be_8");
+W8_ABI_ASSERT(sizeof(W8OctBuildLinkLists) == 0x25c, "W8OctBuildLinkLists_must_be_0x25c");
+W8_ABI_ASSERT(sizeof(W8OctBuildNode) == 0x30, "W8OctBuildNode00446330_must_be_0x30");
+W8_ABI_ASSERT(sizeof(W8CountedOctBuildNode) == 0x30, "W8CountedOctBuildNode004AF760_must_be_0x30");
+W8_ABI_ASSERT(sizeof(W8OctBuildTree) == 0xbc, "W8OctBuildTree_must_be_0xbc");
 
 extern const float g_octree_cell_extent_scale;
 extern W8GDSurface** g_oct_build_scratch;

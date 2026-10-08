@@ -37,7 +37,7 @@ public:
     char** m_pLinkStrings;
 };
 
-static_assert(sizeof(OctPrePathLog) == 0x20, "OctPrePathLog_must_be_0x20");
+W8_ABI_ASSERT(sizeof(OctPrePathLog) == 0x20, "OctPrePathLog_must_be_0x20");
 
 // FUNCTION: WIZ8 0x004CCE00
 OctPrePathLog::OctPrePathLog(float scale, const W8BoundingBox* bounds)
