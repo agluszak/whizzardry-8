@@ -44,7 +44,9 @@
 #include <cstdio>
 #include <cstring>
 #include <cmath>
+#if !defined(WIZ8_NATIVE)
 #include <io.h>
+#endif
 #include <new>
 #include "compat/platform.h"
 

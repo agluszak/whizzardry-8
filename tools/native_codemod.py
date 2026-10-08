@@ -133,6 +133,20 @@ def pass_include_edits(files, dry_run):
         if result != text:
             write(path, result, dry_run)
             print(f'{path}: include edits')
+    for path, names in sorted(rules.get('legacy_includes', {}).items()):
+        if files and path not in files:
+            continue
+        text = read(path)
+        result = text
+        for name in names:
+            pattern = re.compile(r'^[ \t]*#[ \t]*include[ \t]*[<"]' + re.escape(name) + r'[>"][^\n]*\n', re.M)
+            # Match the whole wrapper first so this pass is idempotent.
+            pattern = re.compile(r'#if !defined\(WIZ8_NATIVE\)\n' + pattern.pattern + r'#endif\n|' + pattern.pattern, re.M)
+            result = pattern.sub(lambda m: m.group(0) if m.group(0).startswith('#if') else
+                                 '#if !defined(WIZ8_NATIVE)\n' + m.group(0) + '#endif\n', result)
+        if result != text:
+            write(path, result, dry_run)
+            print(f'{path}: legacy includes guarded')
 
 
 def pass_includes(entries, files, dry_run):

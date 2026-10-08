@@ -2,7 +2,9 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#if !defined(WIZ8_NATIVE)
 #include <io.h>
+#endif
 #include <sys/stat.h>
 
 #include "surrender/srCamera.h"

@@ -210,5 +210,23 @@
     "src/sgp/zlib-1.0.4/zlib.h",
     "src/sgp/zlib-1.0.4/zconf.h"
   ],
-  "rename_include": "compat/platform.h"
+  "rename_include": "compat/platform.h",
+  "legacy_includes": {
+    "src/sgp/FileMan.cpp": [
+      "direct.h",
+      "io.h"
+    ],
+    "src/sgp/RegInst.h": [
+      "tchar.h"
+    ],
+    "src/wiz8/engine_code/Octree.cpp": [
+      "io.h"
+    ],
+    "src/wiz8/engine_code/materials.cpp": [
+      "io.h"
+    ],
+    "src/wiz8/local_code/LoadSaveGame.cpp": [
+      "io.h"
+    ]
+  }
 }

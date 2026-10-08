@@ -22,7 +22,9 @@
 //**************************************************************************
 
 #include "compat/kernel32.h"
+#if !defined(WIZ8_NATIVE)
 #include <tchar.h>
+#endif
 #include <assert.h>
 
 #include "Types.h"

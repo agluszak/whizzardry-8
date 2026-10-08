@@ -18,7 +18,9 @@
 #include <stdlib.h>
 #include <malloc.h>
 #include <stdio.h>
+#if !defined(WIZ8_NATIVE)
 #include <direct.h>
+#endif
 
 #include "compat/kernel32.h"
 #include "FileMan.h"
@@ -28,7 +30,9 @@
 #include "RegInst.h"
 #include "Container.h"
 #include "LibraryDataBase.h"
+#if !defined(WIZ8_NATIVE)
 #include "io.h"
+#endif
 #include "compat/platform.h"
 //				Defines
 

@@ -72,7 +72,9 @@
 
 #include "wiz8/wiz8_windows.h"
 #include <errno.h>
+#if !defined(WIZ8_NATIVE)
 #include <io.h>
+#endif
 #include <malloc.h>
 #include <stdio.h>
 #include <string.h>
