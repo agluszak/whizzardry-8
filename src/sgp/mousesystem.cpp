@@ -946,7 +946,7 @@ void MSYS_ReleaseMouse(MOUSE_REGION* region)
 */
 
 // FUNCTION: WIZ8 0x0040c040
-void SetRegionFastHelpText(MOUSE_REGION* region, UINT16* szText)
+void SetRegionFastHelpText(MOUSE_REGION* region, CHAR16* szText)
 {
     Assert(region);
 

@@ -160,20 +160,19 @@ def pass_includes(entries, files, dry_run):
 
 # --- wide-params ----------------------------------------------------------
 
-NOT_VIABLE = re.compile(r"candidate function not viable: no known conversion from '(?:const )?wchar_t[^']*' "
+NOT_VIABLE = re.compile(r"candidate function not viable: no known conversion from '(?:const )?(?:CHAR16|wchar_t)[^']*'(?: \(aka [^)]*\))? "
                         r"to '(?:const )?(?:UINT16|unsigned short) \*'[^;]* for (\d+)\w\w argument")
 
 
 def split_params(text, start):
     """Return (end, [(param_start, param_end)]) for the parameter list opening at start."""
-    depth, index, spans, begin = 0, start, [], start + 1
-    while index < len(text):
-        char = text[index]
-        if char in '([{<':
-            depth += 1 if char != '<' else 0
-            if char == '(' and depth == 1:
-                begin = index + 1
-        elif char in ')]}':
+    depth, spans, begin = 0, [], start + 1
+    for token in TOKEN.finditer(text, start):
+        char = token.group(0)
+        index = token.start()
+        if char in ('(', '[', '{'):
+            depth += 1
+        elif char in (')', ']', '}'):
             depth -= 1
             if depth == 0:
                 spans.append((begin, index))
@@ -181,25 +180,10 @@ def split_params(text, start):
         elif char == ',' and depth == 1:
             spans.append((begin, index))
             begin = index + 1
-        index += 1
-    return index, spans
+    return len(text), spans
 
 
-def pass_wide_params(entries, files, dry_run):
-    targets = collections.defaultdict(set)
-    for entry in entries:
-        if entry['kind'] != 'note':
-            continue
-        match = NOT_VIABLE.search(entry['message'])
-        if not match:
-            continue
-        path = relative(entry['file'])
-        if not is_project_file(path):
-            continue
-        line = read(path).split('\n')[entry['line'] - 1]
-        name = re.search(r'(\w+)\s*\(', line[entry['col'] - 1:])
-        if name:
-            targets[name.group(1)].add(int(match.group(1)) - 1)
+def rewrite_wide_params(targets, files, dry_run):
     if not targets:
         return
     paths = files or [os.path.relpath(os.path.join(d, n), ROOT)
@@ -209,6 +193,8 @@ def pass_wide_params(entries, files, dry_run):
     declaration = re.compile(r'(?m)^[ \t]*(?:extern\s+)?(?:static\s+)?[\w:<>\*\s]+?\b(' +
                              '|'.join(map(re.escape, targets)) + r')\s*\(')
     for path in sorted(paths):
+        if not is_project_file(path):
+            continue
         text = read(path)
         result = text
         offset = 0
@@ -228,6 +214,24 @@ def pass_wide_params(entries, files, dry_run):
         if result != text:
             write(path, result, dry_run)
             print(f'{path}: CHAR16 parameters')
+
+
+def pass_wide_params(entries, files, dry_run):
+    targets = collections.defaultdict(set)
+    for entry in entries:
+        if entry['kind'] != 'note':
+            continue
+        match = NOT_VIABLE.search(entry['message'])
+        if not match:
+            continue
+        path = relative(entry['file'])
+        if not is_project_file(path):
+            continue
+        line = read(path).split('\n')[entry['line'] - 1]
+        name = re.search(r'(\w+)\s*\(', line[entry['col'] - 1:])
+        if name:
+            targets[name.group(1)].add(int(match.group(1)) - 1)
+    rewrite_wide_params(targets, files, dry_run)
 
 
 # --- wide-vars ----------------------------------------------------------
@@ -277,6 +281,7 @@ def pass_wide_vars(entries, files, dry_run):
         elif assign_from_uint16.search(entry['message']):
             assignments[relative(entry['file'])].append(('rhs', entry['line'], entry['col']))
     members = set()
+    parameters = collections.defaultdict(set)
     for path, items in sorted(assignments.items()):
         if not is_project_file(path) or (files and path not in files):
             continue
@@ -314,17 +319,38 @@ def pass_wide_vars(entries, files, dry_run):
             _, spans = split_params(result, open_paren)
             if argument >= len(spans):
                 continue
-            name = argument_name(result[spans[argument][0]:spans[argument][1]])
+            begin, end = spans[argument]
+            expression = result[begin:end]
+            # Cast targets are string types only when the diagnostic says so.
+            fixed = re.sub(r'\b(?:UINT16|unsigned short)\b(?=\s*\*)', 'CHAR16', expression)
+            if fixed != expression:
+                result = result[:begin] + fixed + result[end:]
+                changed = True
+                continue
+            name = argument_name(expression)
             if name is None:
                 continue
             function_start = max(result.rfind('\n{', 0, call), 0)
             result, local = retype(result, function_start, call, name)
             changed |= local
             if not local:
-                members.add(name)
+                # A parameter belongs to the enclosing function, rather than
+                # to every declaration with the same variable name in the tree.
+                signature = re.search(r'(\w+)\s*\(([^{};]*)\)\s*$', result[:function_start])
+                if signature:
+                    _, params = split_params(result, signature.start() + signature.group(0).find('('))
+                    for index, (begin, end) in enumerate(params):
+                        if re.search(r'\b' + re.escape(name) + r'\s*$', result[begin:end]):
+                            parameters[signature.group(1)].add(index)
+                            break
+                    else:
+                        members.add(name)
+                else:
+                    members.add(name)
         if changed:
             write(path, result, dry_run)
             print(f'{path}: CHAR16 locals')
+    rewrite_wide_params(parameters, files, dry_run)
     if not members:
         return
     for base in ('src/sgp', 'include/wiz8', 'src/wiz8'):

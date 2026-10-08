@@ -116,10 +116,10 @@ extern void RestoreFontSettings(void);
 
 void VarFindFontRightCoordinates(INT16 sLeft, INT16 sTop, INT16 sWidth, INT16 sHeight,
                                  INT32 iFontIndex, INT16* psNewX, INT16* psNewY,
-                                 UINT16* pFontString, ...);
+                                 CHAR16* pFontString, ...);
 void VarFindFontCenterCoordinates(INT16 sLeft, INT16 sTop, INT16 sWidth, INT16 sHeight,
                                   INT32 iFontIndex, INT16* psNewX, INT16* psNewY,
-                                  UINT16* pFontString, ...);
+                                  CHAR16* pFontString, ...);
 void FindFontRightCoordinates(INT16 sLeft, INT16 sTop, INT16 sWidth, INT16 sHeight, CHAR16* pStr,
                               INT32 iFontIndex, INT16* psNewX, INT16* psNewY);
 void FindFontCenterCoordinates(INT16 sLeft, INT16 sTop, INT16 sWidth, INT16 sHeight, CHAR16* pStr,

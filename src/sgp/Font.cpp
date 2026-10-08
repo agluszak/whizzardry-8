@@ -560,7 +560,7 @@ UINT32 mprintf(INT32 x, INT32 y, CHAR16* pFontString, ...)
 // FUNCTION: WIZ8 0x00407420
 void VarFindFontRightCoordinates(INT16 sLeft, INT16 sTop, INT16 sWidth, INT16 sHeight,
                                  INT32 iFontIndex, INT16* psNewX, INT16* psNewY,
-                                 UINT16* pFontString, ...)
+                                 CHAR16* pFontString, ...)
 {
     wchar_t string[512];
     va_list argptr;
@@ -575,7 +575,7 @@ void VarFindFontRightCoordinates(INT16 sLeft, INT16 sTop, INT16 sWidth, INT16 sH
 // FUNCTION: WIZ8 0x00407530
 void VarFindFontCenterCoordinates(INT16 sLeft, INT16 sTop, INT16 sWidth, INT16 sHeight,
                                   INT32 iFontIndex, INT16* psNewX, INT16* psNewY,
-                                  UINT16* pFontString, ...)
+                                  CHAR16* pFontString, ...)
 {
     wchar_t string[512];
     va_list argptr;

@@ -79,7 +79,7 @@ int DrawWrappedText(int x, int y, unsigned int wrap_width, int line_spacing, int
                     int flags);
 
 // FUNCTION: WIZ8 0x005d0590
-static int DrawWrappedTextLine(UINT16* text, int x, int top, int width, int font,
+static int DrawWrappedTextLine(CHAR16* text, int x, int top, int width, int font,
                                unsigned char foreground, unsigned char background, bool dirty,
                                unsigned int flags)
 {

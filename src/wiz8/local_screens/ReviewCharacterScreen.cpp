@@ -390,7 +390,7 @@ void DrawCampResistances(void)
     width = StringPixLengthArg(
         g_wiz_text_font_secondary, wcslen(text),
         reinterpret_cast< // reinterpret-ok: SGP's historical UINT16 text ABI stores wchar_t data
-            UINT16*>(text));
+            CHAR16*>(text));
     gprintf((0x134 - width) / 2 + 0x144, 0x1e, text);
     for (index = 0; index < 6; ++index) {
         animation = &g_spell_realm_animations[index];

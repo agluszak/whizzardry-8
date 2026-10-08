@@ -191,7 +191,7 @@ INT32 MSYS_GrabMouse(MOUSE_REGION* region);
 void MSYS_ReleaseMouse(MOUSE_REGION* region);
 // This function will force a re-evaluation of mous regions
 // Usually used to force change of mouse cursor if panels switch, etc
-void SetRegionFastHelpText(MOUSE_REGION* region, UINT16* szText);
+void SetRegionFastHelpText(MOUSE_REGION* region, CHAR16* szText);
 
 // Now also used by Wizardry -- DB
 void DisplayFastHelp(MOUSE_REGION* region);
