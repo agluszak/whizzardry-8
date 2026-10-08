@@ -1074,6 +1074,9 @@ static RuntimeWorldRenderData ObserveWorldRenderState()
     data.viewport[3] = g_viewport.bottom;
     data.renderer_size[0] = g_gerd->getWidth();
     data.renderer_size[1] = g_gerd->getHeight();
+    srGERD::Statistics statistics;
+    g_gerd->getStatistics(statistics);
+    data.draw_calls = statistics.draw_calls;
     srVector3T<float> camera;
     GetCameraPosition(&camera);
     data.camera[0] = camera.x;
@@ -1193,7 +1196,7 @@ void RenderFrame(void)
             ResolvePickedProp(g_world);
         }
 #ifdef WIZ8_RUNTIME_TESTS
-        RuntimeObserveWorld(RUNTIME_WORLD_RENDER_END, world_observation);
+        RuntimeObserveWorld(RUNTIME_WORLD_RENDER_END, ObserveWorldRenderState());
 #endif
     }
 
@@ -1518,9 +1521,9 @@ BOOLEAN BlitVideoObjectToColorSurface(UINT32 video_object, UINT16 region,
     if (!GetVideoObjectETRLEProperties(object, &properties, region)) {
         return FALSE;
     }
-    return BltVideoObjectToBuffer(static_cast<UINT16*>(destination->getDataPtr()),
-                                  destination->getPitch(), object, region, x, y,
-                                  VO_BLT_SRCTRANSPARENCY, 0);
+    BltVideoObjectToBuffer(static_cast<UINT16*>(destination->getDataPtr()), destination->getPitch(),
+                           object, region, x, y, VO_BLT_SRCTRANSPARENCY, 0);
+    return TRUE;
 }
 
 /* Same blit as BlitVideoObjectToColorSurface with an already-resolved handle.
@@ -3397,7 +3400,7 @@ stTextureAnim* VideoVObjectToTextureAnim(HVOBJECT object, unsigned short start_f
         return 0;
     }
 
-    stTextureAnim* animation = SR_NEW(stTextureAnim)();
+    stTextureAnim* animation = new stTextureAnim;
     animation->autoRelease();
     animation->setName("VideoVObjecttoTextureAnim");
     animation->setMipmapBias(-8.0f);
@@ -3619,7 +3622,7 @@ srNode* MakePosterQuad(srTextureIFace* texture, float width, float height, bool 
     srFilter* filter = srCore.getFilter();
     srPixelConvert::mapPixelFormat(srPixelConvert::SURFACE_ARGB4444, format);
 
-    stMeshModel* model = SR_NEW(stMeshModel)(0, 0);
+    stMeshModel* model = new stMeshModel(0, 0);
     if (model == 0) {
         return 0;
     }
@@ -3647,7 +3650,7 @@ srNode* MakePosterQuad(srTextureIFace* texture, float width, float height, bool 
     model->setTexture(texture, 0, 0);
     model->setShader(shader, 0);
 
-    stModelInstance* instance = SR_NEW(stModelInstance)(static_cast<srNode*>(0));
+    stModelInstance* instance = new stModelInstance(static_cast<srNode*>(0));
     instance->setName("VideoMakePoster");
     if (instance != 0) {
         instance->setModel(model);

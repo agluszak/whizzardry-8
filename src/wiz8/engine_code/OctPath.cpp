@@ -59,7 +59,7 @@
 // GLOBAL: WIZ8 0x005ebc30
 const double g_double_one = 1.0;
 // GLOBAL: WIZ8 0x005ec020
-const float g_path_overlap_tolerance = 0.0f;
+const double g_path_overlap_tolerance = 250.0;
 // GLOBAL: WIZ8 0x005ec368
 const double g_waypoint_edge_offset = 25.00000037252903;
 // GLOBAL: WIZ8 0x005ec378
@@ -85,9 +85,9 @@ const float g_path_gap_penalty_scale = 0.5099999904632568f;
 // GLOBAL: WIZ8 0x005ec3c0
 const float g_float_one_million = 1000000.0f;
 // GLOBAL: WIZ8 0x005ec3c8
-const float g_path_blocking_alignment_upper_bound = -107374184.0f;
+const double g_path_blocking_alignment_upper_bound = 0.9;
 // GLOBAL: WIZ8 0x005ec3d0
-const float g_path_blocking_alignment_lower_bound = -107374184.0f;
+const double g_path_blocking_alignment_lower_bound = -0.9;
 // GLOBAL: WIZ8 0x005ed2e0
 const double g_obstacle_slide_side_threshold = 0.2;
 // GLOBAL: WIZ8 0x005ed2e8
@@ -180,7 +180,7 @@ void W8PathHeapHandle::DeleteRoot(W8PathSearchNode* node)
     } else {
         root_node = heap->Delete().node;
     }
-    node->flags |= W8_PATH_SEARCH_EXPANDED;
+    node->flags |= W8_PATH_SEARCH_CLOSED;
 }
 
 /* Write the path hash serialization and its five conditional tables. Counts
@@ -2255,8 +2255,8 @@ unsigned short W8PathingService::PlanMovement(W8NavigatorMovementState* movement
                 existing->path_cost = path_cost;
                 existing->parent_node = static_cast<unsigned short>(best_node);
                 UpdateSearchNodeScore(existing_index, &target, existing->clearance, radius);
-                if ((existing->flags & 0x0400) != 0) {
-                    existing->flags &= 0xfbff;
+                if ((existing->flags & W8_PATH_SEARCH_CLOSED) != 0) {
+                    existing->flags &= ~W8_PATH_SEARCH_CLOSED;
                     entry.node = existing->node_index;
                     entry.priority = static_cast<unsigned int>(existing->score);
                     heap->Insert(&entry);
@@ -3354,7 +3354,8 @@ W8PathingService::W8PathingService()
 }
 
 /* Take the octree's own minimum/maximum bounds pair and level name. The span is the vertical extent
-   of that box scaled, and the cell count is that span plus one. */
+   of that box scaled down to one height unit; the cell count is how many of those units fit in
+   1.25 grid cells, plus one, and bounds the vertical band the height lookups accept. */
 // FUNCTION: WIZ8 0x00458a50
 void W8PathingService::ConfigureForLevel(int size, float grid_scale, float path_clearance,
                                          const srVector3T<float>* bounds, const char* name)
@@ -3365,7 +3366,7 @@ void W8PathingService::ConfigureForLevel(int size, float grid_scale, float path_
     level_bounds.minimum = bounds[0];
     level_bounds.maximum = bounds[1];
     span = (level_bounds.maximum.y - level_bounds.minimum.y) * g_path_span_scale;
-    cell_count = static_cast<short>(static_cast<int>(span)) + 1;
+    cell_count = static_cast<short>(static_cast<int>(grid_scale * 1.25f / span) + 1);
     level_name = name;
 }
 
