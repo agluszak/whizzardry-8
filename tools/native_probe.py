@@ -22,7 +22,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 # Keep in step with cmake/Native.cmake.
 FLAGS = [
     '-x', 'c++', '-std=c++17', '-fsyntax-only', '-w', '-ferror-limit=0',
-    '-fsigned-char', '-fwrapv', '-fno-strict-aliasing', '-fshort-wchar',
+    '-fsigned-char', '-fwrapv', '-fno-strict-aliasing', '-fshort-wchar', '-fno-builtin-wcslen',
     '-DWIZ8_NATIVE', '-DNDEBUG',
     '-include', 'include/wiz8/compat/compiler.h',
     '-Iinclude', '-Iinclude/wiz8', '-Iinclude/wiz8/engine_code', '-Isrc/sgp',
