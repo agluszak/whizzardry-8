@@ -2606,7 +2606,7 @@ void ApplyCharmToMonsterTarget(W8SpellEffectEntry* effect)
     W8MonsterRecord* monster;
     unsigned int magnitude;
     const wchar_t* notice;
-    const unsigned short* name;
+    const CHAR16* name;
     wchar_t* formatted;
 
     target = &effect->target;

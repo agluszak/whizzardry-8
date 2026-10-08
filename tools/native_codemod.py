@@ -264,7 +264,44 @@ def pass_wide_vars(entries, files, dry_run):
             if match:
                 by_file[relative(entry['file'])].append((entry['line'], entry['col'], int(match.group(1)) - 1))
                 break
+    # Assignments: a UINT16 pointer receiving wide text, or wide text
+    # receiving a (UINT16*) cast.
+    assign_to_uint16 = re.compile(r"assigning to '(?:const )?(?:UINT16|unsigned short) \*'.* from .*(?:CHAR16|wchar_t)")
+    assign_from_uint16 = re.compile(r"assigning to '(?:const )?(?:CHAR16|wchar_t) \*'.* from '(?:const )?(?:UINT16|unsigned short) \*'")
+    assignments = collections.defaultdict(list)
+    for entry in entries:
+        if entry['kind'] != 'error':
+            continue
+        if assign_to_uint16.search(entry['message']):
+            assignments[relative(entry['file'])].append(('lhs', entry['line'], entry['col']))
+        elif assign_from_uint16.search(entry['message']):
+            assignments[relative(entry['file'])].append(('rhs', entry['line'], entry['col']))
     members = set()
+    for path, items in sorted(assignments.items()):
+        if not is_project_file(path) or (files and path not in files):
+            continue
+        text = read(path)
+        result = text
+        for side, line, col in items:
+            lines = result.split('\n')
+            statement_start = sum(len(current) + 1 for current in lines[:line - 1])
+            statement_end = result.find(';', statement_start)
+            statement = result[statement_start:statement_end]
+            if side == 'rhs':
+                fixed = re.sub(r'\(\s*(const\s+)?UINT16\s*\*\s*\)', lambda m: f'({m.group(1) or ""}CHAR16*)', statement)
+                result = result[:statement_start] + fixed + result[statement_end:]
+                continue
+            lhs = statement.split('=')[0]
+            name = argument_name(lhs)
+            if name is None:
+                continue
+            function_start = max(result.rfind('\n{', 0, statement_start), 0)
+            result, local = retype(result, function_start, statement_start, name)
+            if not local:
+                members.add(name)
+        if result != text:
+            write(path, result, dry_run)
+            print(f'{path}: CHAR16 assignments')
     for path, calls in sorted(by_file.items()):
         if not is_project_file(path) or (files and path not in files):
             continue

@@ -336,7 +336,7 @@ INT16 StringPixLengthArg(INT32 usUseFont, UINT32 uiCharCount, CHAR16* pFontStrin
 INT16 StringNPixLength(CHAR16* string, UINT32 uiMaxCount, INT32 UseFont)
 {
     UINT32 Cur, uiCharCount;
-    UINT16 *curletter, transletter;
+    CHAR16 *curletter, transletter;
 
     Cur = 0;
     uiCharCount = 0;
@@ -356,7 +356,7 @@ INT16 StringNPixLength(CHAR16* string, UINT32 uiMaxCount, INT32 UseFont)
 INT16 StringPixLength(CHAR16* string, INT32 UseFont)
 {
     UINT32 Cur;
-    UINT16 *curletter, transletter;
+    CHAR16 *curletter, transletter;
 
     if (string == NULL) {
         return (0);
@@ -509,7 +509,7 @@ BOOLEAN SetFontDestBuffer(UINT32 DestBuffer, INT32 x1, INT32 y1, INT32 x2, INT32
 UINT32 mprintf(INT32 x, INT32 y, CHAR16* pFontString, ...)
 {
     INT32 destx, desty;
-    UINT16 *curletter, transletter;
+    CHAR16 *curletter, transletter;
     va_list argptr;
     wchar_t string[512];
     UINT32 uiDestPitchBYTES;
@@ -623,7 +623,7 @@ void FindFontCenterCoordinates(INT16 sLeft, INT16 sTop, INT16 sWidth, INT16 sHei
 UINT32 gprintf(INT32 x, INT32 y, CHAR16* pFontString, ...)
 {
     INT32 destx, desty;
-    UINT16 *curletter, transletter;
+    CHAR16 *curletter, transletter;
     va_list argptr;
     wchar_t string[512];
     UINT32 uiDestPitchBYTES;
@@ -675,7 +675,7 @@ UINT32 gprintf(INT32 x, INT32 y, CHAR16* pFontString, ...)
 UINT32 gprintfDirty(INT32 x, INT32 y, CHAR16* pFontString, ...)
 {
     INT32 destx, desty;
-    UINT16 *curletter, transletter;
+    CHAR16 *curletter, transletter;
     va_list argptr;
     wchar_t string[512];
     UINT32 uiDestPitchBYTES;
@@ -737,7 +737,7 @@ UINT32 gprintf_buffer(UINT8* pDestBuf, UINT32 uiDestPitchBYTES, UINT32 FontType,
                       CHAR16* pFontString, ...)
 {
     INT32 destx, desty;
-    UINT16 *curletter, transletter;
+    CHAR16 *curletter, transletter;
     va_list argptr;
     wchar_t string[512];
 
@@ -783,7 +783,7 @@ UINT32 mprintf_buffer(UINT8* pDestBuf, UINT32 uiDestPitchBYTES, UINT32 FontType,
                       CHAR16* pFontString, ...)
 {
     INT32 destx, desty;
-    UINT16 *curletter, transletter;
+    CHAR16 *curletter, transletter;
     va_list argptr;
     wchar_t string[512];
 
