@@ -50,7 +50,7 @@ W8MainGameScreen* g_main_game_screen;
    its first word is a wide-character count, and its entries word preserves
    the original 32-bit list-pointer bits. */
 struct W8MessageStorageDiskRecord {
-    unsigned long character_count;
+    w8_ulong character_count;
     unsigned char font_palette;
     unsigned char highlight_color;
     unsigned char highlight_start;
@@ -59,7 +59,7 @@ struct W8MessageStorageDiskRecord {
     UINT32 saved_remaining_ms;
     int link;
     int length;
-    unsigned long serialized_entries_18_bits;
+    w8_ulong serialized_entries_18_bits;
     unsigned char trailing_bytes[8];
 };
 
@@ -83,8 +83,8 @@ static_assert(offsetof(W8MessageStorageDiskRecord, serialized_entries_18_bits) =
               "W8MessageStorageDiskRecord_entries_bits_offset");
 static_assert(offsetof(W8MessageStorageDiskRecord, trailing_bytes) == 0x1c,
               "W8MessageStorageDiskRecord_trailing_offset");
-static_assert(sizeof(unsigned long) == 4, "W8MessageStorageDiskRecord_requires_32_bit_words");
-static_assert(sizeof(W8PList*) == sizeof(unsigned long),
+static_assert(sizeof(w8_ulong) == 4, "W8MessageStorageDiskRecord_requires_32_bit_words");
+static_assert(sizeof(W8PList*) == sizeof(w8_ulong),
               "W8MessageStorageDiskRecord_requires_32_bit_live_pointers");
 
 // GLOBAL: WIZ8 0x0069b7b8
@@ -465,7 +465,7 @@ unsigned char SaveMessageStorage(int file)
             live_record = &g_message_storage[region][index];
             disk_record.character_count =
                 live_record->wString != 0
-                    ? static_cast<unsigned long>(wcslen(live_record->wString) + 1)
+                    ? static_cast<w8_ulong>(wcslen(live_record->wString) + 1)
                     : 0;
             disk_record.font_palette = live_record->font_palette;
             disk_record.highlight_color = live_record->highlight_color;

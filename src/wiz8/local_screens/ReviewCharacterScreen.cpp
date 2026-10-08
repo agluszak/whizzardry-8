@@ -110,7 +110,7 @@ bool g_camp_character_pending;
 // GLOBAL: WIZ8 0x0069c108
 unsigned int g_camp_item_region_set;
 // GLOBAL: WIZ8 0x0069c10c
-unsigned long g_fade_tick_base;
+w8_ulong g_fade_tick_base;
 // GLOBAL: WIZ8 0x0069c110
 void (*g_fade_callback)(void);
 // GLOBAL: WIZ8 0x0069c114
@@ -2615,7 +2615,7 @@ unsigned char UpdateScreenFade(void)
     if (!g_level_block->review_transition_done) {
         return 0;
     }
-    unsigned long elapsed = GetTickCount() - g_fade_tick_base;
+    w8_ulong elapsed = GetTickCount() - g_fade_tick_base;
     if (g_fade_duration < elapsed) {
         g_level_block->review_transition_done = false;
         if (g_fade_out == 0) {

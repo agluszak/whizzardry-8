@@ -130,7 +130,7 @@ public:
     unsigned int update_flags;
     /* Index pairs, two per still-active particle, rebuilt whenever
        update_flags carries bit 1. */
-    unsigned long* active_triangles;
+    w8_ulong* active_triangles;
     /* Last accepted particle-integration tick. */
     unsigned int last_integration_tick;
     /* Emission schedule tick. */

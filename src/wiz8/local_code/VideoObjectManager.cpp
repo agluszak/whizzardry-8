@@ -1059,7 +1059,7 @@ unsigned char BlitCatalogSurfaceRectTo16BPP(UINT32 target, int left, int top, in
 /* Lock the pixel buffer of a surface-backed catalog frame. ETRLE video-object
    entries have no lockable surface and return null. */
 // FUNCTION: WIZ8 0x005498a0
-void* LockCatalogFrameSurface(unsigned int object, unsigned int frame, long* pitch)
+void* LockCatalogFrameSurface(unsigned int object, unsigned int frame, w8_long* pitch)
 {
     unsigned int surface;
 

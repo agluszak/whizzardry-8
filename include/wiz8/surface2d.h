@@ -16,7 +16,7 @@ public:
     stTexture2D();
     virtual ~stTexture2D() override;
     virtual srClass* vInstance() override;
-    virtual unsigned long getTextureFrameHandle() override;
+    virtual w8_ulong getTextureFrameHandle() override;
     virtual void getMipmapData(MultiRequest& request) override;
     virtual void getMipmapLevelPartial(PartialRequest& request) override;
     virtual void invalidate() override;
@@ -29,7 +29,7 @@ public:
     int top;                      /* 0x58 */
     int right;                    /* 0x5c */
     int bottom;                   /* 0x60 */
-    unsigned long frame_handle;   /* 0x64 */
+    w8_ulong frame_handle;   /* 0x64 */
     srColorSurfaceIFace* surface; /* 0x68 */
 };
 
@@ -57,7 +57,7 @@ public:
     void enableTextureUpdateFlags(unsigned int flag);
     void setAlphaTestEnabled(bool enabled);
     void invalidateTiles();
-    void updateRectangle(srGERD* renderer, void* pixels, long pitch, int left, int top, int right,
+    void updateRectangle(srGERD* renderer, void* pixels, w8_long pitch, int left, int top, int right,
                          int bottom);
 
     srColorSurfaceIFace* source_surface; /* 0x138 */

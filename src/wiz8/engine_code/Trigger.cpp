@@ -990,7 +990,7 @@ bool Trigger::HasActorWithinRadius(float radius, bool include_party)
         srVector3T<float> lower;
         srVector3T<float> upper;
         srVector3T<float> extent;
-        unsigned long* locations = 0;
+        w8_ulong* locations = 0;
         extent.Set(radius, radius, radius);
         lower = center - extent;
         upper = center + extent;

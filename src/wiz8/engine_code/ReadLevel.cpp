@@ -79,7 +79,7 @@ void stLevel::process(const ProcessInfo& info, e_processType)
     srGERD& renderer = *info.renderer;
     applyWorldSpaceMatrix(renderer);
 
-    unsigned long old_exclusion_mask = 0;
+    w8_ulong old_exclusion_mask = 0;
     if (m_render_exclusion_mask != 0) {
         old_exclusion_mask = renderer.getExclusionMask();
         renderer.setExclusionMask(m_render_exclusion_mask | old_exclusion_mask);
@@ -137,8 +137,8 @@ void stLevel::process(const ProcessInfo& info, e_processType)
             }
             srPtr<srTextureIFace>*(*poly_textures)[2] = mesh.poly_textures;
             if (poly_textures != 0 && mesh.active_polygons == 0) {
-                long active_count;
-                unsigned long* active = model->GetActivePolygons(&active_count, -1, false);
+                w8_long active_count;
+                w8_ulong* active = model->GetActivePolygons(&active_count, -1, false);
                 if (active != 0) {
                     mesh.active_polygons = active;
                     mesh.active_polygon_count = active_count;

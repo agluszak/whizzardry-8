@@ -70,7 +70,7 @@ struct W8MaterialRecord {
     W8TextureAnimationMode animation_mode; /* 0x10d */
     int animation_frame;                   /* 0x10e */
     float animation_rate;                  /* 0x112 */
-    unsigned long surface_flags;           /* 0x116 */
+    w8_ulong surface_flags;           /* 0x116 */
     float texture_modes[4];                /* 0x11a */
 };
 

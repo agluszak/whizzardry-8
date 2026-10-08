@@ -2173,7 +2173,7 @@ void PartySelectionScreenFrame(void)
 // FUNCTION: WIZ8 0x005c3800
 void GameStartRouterFrame(void)
 {
-    unsigned long code;
+    w8_ulong code;
 
     RequestScreenTransition();
     if (!g_status.skip_loose_character_check) {

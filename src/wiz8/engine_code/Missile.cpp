@@ -953,7 +953,7 @@ W8Missile::W8Missile(const W8Missile& other)
 /* Mode-keyed query over the representation's emitter/cycle state; used by the
    missile script handlers. */
 // FUNCTION: WIZ8 0x004A4640
-unsigned long W8Missile::GetAnimationState(int mode)
+w8_ulong W8Missile::GetAnimationState(int mode)
 {
     switch (mode) {
     case 0:

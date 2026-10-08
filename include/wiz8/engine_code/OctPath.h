@@ -131,7 +131,7 @@ private:
     bool blocked;
     unsigned char padding_4a[2];
     unsigned int nearby_count;
-    unsigned long* nearby_locations;
+    w8_ulong* nearby_locations;
     W8Monster* monster;
 };
 
@@ -511,7 +511,7 @@ public:
     unsigned char m_padding_08d[3];
     unsigned int planner_location;
     unsigned int m_path_candidate_count;
-    unsigned long* m_path_candidates;
+    w8_ulong* m_path_candidates;
     bool explicit_target; /* 0x9c */
     unsigned char m_padding_09d[3];
     unsigned int m_waypoint_neighbor_mask; /* 0xa0 */

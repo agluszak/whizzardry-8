@@ -95,7 +95,7 @@ public:
     void GetForwardPoint(float distance, srVector3T<float>* output); /* 0x00478CE0 */
     void SetManualControlActive(bool enabled);                       /* 0x00478E00 */
 
-    unsigned long m_orientation_flags;
+    w8_ulong m_orientation_flags;
     float m_yaw;                        /* 0x004 */
     float m_pitch;                      /* 0x008 */
     srMatrix3T<float> m_pitch_rotation; /* 0x00c */

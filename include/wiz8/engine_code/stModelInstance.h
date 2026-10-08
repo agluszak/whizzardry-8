@@ -54,13 +54,13 @@ public:
     virtual ~stModelInstance() override; /* 0x0047EF70 */
 
 public:
-    unsigned long overlay_scene_flag;
+    w8_ulong overlay_scene_flag;
     srVector4T<float> highlight_colour;
     /* Lazily built highlight material; RenderMeshes fills it from the
        render-state RGBA and installs it as the pass material. */
     srMaterial* highlight_material;
-    unsigned long render_flags;
-    long mesh_index;
+    w8_ulong render_flags;
+    w8_long mesh_index;
     unsigned int frame_index;
     int damage_stage;
     srHeapBuffer<int> damage_stage_tables;
@@ -121,12 +121,12 @@ public:
         glow_color_peak = 0;
         m_pGlowMaterial = 0;
     }
-    void setRenderDepth(unsigned long depth)
+    void setRenderDepth(w8_ulong depth)
     {
         render_state.render_depth = depth;
     }
 
-    unsigned long overlay_scene_flag;
+    w8_ulong overlay_scene_flag;
     W8ModelInstance2DRenderState render_state;
     srVector4T<float>* glow_color_base;
     srVector4T<float>* glow_color_peak;

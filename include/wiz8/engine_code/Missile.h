@@ -96,7 +96,7 @@ public:
        the hit to Combat Attack.cpp or leave it for the combat engine. */
     virtual bool OnCollision(W8Navigator* other) override; /* 0x004A4720 */
 
-    unsigned long GetAnimationState(int mode);
+    w8_ulong GetAnimationState(int mode);
     void DetonateMissileSpell();
     void DestroyMissile();          /* 0x004A4180 */
     void AnnounceCollisionTarget(); /* 0x004A4AC0 */

@@ -318,7 +318,7 @@ struct W8GameData {
 
     /* Loop the buffered prop ids through TestProp and return the id of the
        last prop that reported a hit, or -1. */
-    int TestPropSurfaces(int count, unsigned long* ids, W8OctreeTrace* trace, char skip_flag,
+    int TestPropSurfaces(int count, w8_ulong* ids, W8OctreeTrace* trace, char skip_flag,
                          char gate); /* 0x0041C0D0 */
     /* Ray-test one collidable prop: swaps the prop's surface/vertex arrays
        into this context, traces in prop-local space through the prop's
@@ -331,7 +331,7 @@ struct W8GameData {
        trace_flag4_gate, flag and mode filters apply; a closer hit stores index
        into last_hit_surface, the contact into the record's end and the distance
        into hit_limit. */
-    bool TestTraceResult(int count, unsigned long* surface_ids, W8OctreeTrace* trace,
+    bool TestTraceResult(int count, w8_ulong* surface_ids, W8OctreeTrace* trace,
                          char skip_flag, int mode); /* 0x0041C330 */
 };
 

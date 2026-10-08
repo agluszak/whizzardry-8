@@ -88,8 +88,8 @@ void W8NormalTexcoordMapper::process(srVertexPipe& pipe)
 {
     const srVector3T<float>* normals;
     srVector2T<float>* coordinates;
-    unsigned long count;
-    unsigned long index;
+    w8_ulong count;
+    w8_ulong index;
 
     if (!pipe.isChannelAvailable(srVertexProcessor::CHANNEL_ST0)) {
         return;
@@ -1135,7 +1135,7 @@ static int BuildRegionPolygons(W8LevelFile* level, W8OctPreTreeGeometry* geometr
     int degenerate_count;
     int ordinal;
     int last_percent;
-    unsigned long axis;
+    w8_ulong axis;
     float largest;
     float length;
     float offset;

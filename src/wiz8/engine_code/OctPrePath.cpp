@@ -559,7 +559,7 @@ unsigned char PrePathing::CreateAutomapNodes(W8LevelFile* level)
     ReportStartupMessage(message);
     sprintf(message, "  %d Total Automap Nodes.\n", level->num_automap_nodes);
     ReportBuildStatus(6, message);
-    level->automap_nodes = static_cast<unsigned long*>(malloc(level->num_automap_nodes << 2));
+    level->automap_nodes = static_cast<w8_ulong*>(malloc(level->num_automap_nodes << 2));
     if (level->automap_nodes == 0) {
         level->num_automap_nodes = 0;
     } else {

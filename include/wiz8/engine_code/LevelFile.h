@@ -614,7 +614,7 @@ struct W8LevelFile {
     /* PrePathing::CreateAutomapNodes fills these with the sorted automap
        cell keys; LevelFile.cpp writes them after the named positions. */
     int num_automap_nodes;
-    unsigned long* automap_nodes; /* num_automap_nodes * 4 */
+    w8_ulong* automap_nodes; /* num_automap_nodes * 4 */
     unsigned char unknown_6b9[4];
     int read_end_position; /* FileGetPos result on read */
     int num_switch_triggers;

@@ -114,7 +114,7 @@ extern bool g_fog_enabled;
 /* 1/duration while the lighting transition body at 0x00484300 runs, zero when
    idle: UpdateEnvironment hands off to that body while it is not zero. */
 extern float g_environment_transition_rate;
-extern unsigned long g_environment_transition_tick;
+extern w8_ulong g_environment_transition_tick;
 /* Last day phase the light direction was published from. */
 extern int g_last_light_phase;
 /* Last day phase the world's environment colour was refreshed from. */
