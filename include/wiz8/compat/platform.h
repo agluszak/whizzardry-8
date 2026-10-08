@@ -19,6 +19,7 @@ typedef FILETIME* LPFILETIME;
 typedef SYSTEMTIME* LPSYSTEMTIME;
 typedef MSG* LPMSG;
 typedef DWORD LCID;
+typedef void (CALLBACK* TIMERPROC)(HWND, UINT, UINT_PTR, DWORD);
 
 typedef struct _WIN32_FIND_DATAA {
     DWORD dwFileAttributes;
@@ -128,6 +129,8 @@ BOOL W8PeekMessage(LPMSG message, HWND window, UINT first, UINT last, UINT remov
 BOOL W8GetMessage(LPMSG message, HWND window, UINT first, UINT last);
 BOOL W8TranslateMessage(const MSG* message);
 LRESULT W8DispatchMessage(const MSG* message);
+UINT_PTR W8SetTimer(HWND window, UINT_PTR id, UINT interval, TIMERPROC callback);
+BOOL W8KillTimer(HWND window, UINT_PTR id);
 #else
 /* The Windows lanes name the Win32 functions directly, so code is unchanged. */
 #define W8CloseHandle CloseHandle
@@ -157,6 +160,8 @@ LRESULT W8DispatchMessage(const MSG* message);
 #define W8GetMessage GetMessageA
 #define W8TranslateMessage TranslateMessage
 #define W8DispatchMessage DispatchMessageA
+#define W8SetTimer SetTimer
+#define W8KillTimer KillTimer
 #define W8GetFileAttributes GetFileAttributesA
 #define W8GetFileSize GetFileSize
 #define W8GetFileTime GetFileTime

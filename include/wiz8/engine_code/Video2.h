@@ -6,6 +6,9 @@
 #define WIZ8_VIDEO2_H
 
 #include "wiz8/wiz8_windows.h"
+#if defined(WIZ8_NATIVE)
+struct IDirectDrawSurface2;
+#endif
 #if !defined(WIZ8_NATIVE)
 #include <ddraw.h>
 #include <process.h>
@@ -283,9 +286,8 @@ void ResetTransientRenderScenes(void);
 void ClearVideoDirtyBlocks(void); /* 0x00423150 */
 void RenderScene(srScene* scene, srCamera* camera, const int* viewport, bool preserve_fog);
 void RenderFrame(void);
-#if !defined(WIZ8_NATIVE)
+/* The native presentation shell also owns this opaque surface entry point. */
 IDirectDrawSurface2* BeginVideoPresentation(void);
-#endif
 unsigned char FinishVideoPresentation(void);
 void PublishLightDirection(const EnvironmentColour* direction);
 void GetWorldColour(EnvironmentColour* colour); /* 0x00427290 */

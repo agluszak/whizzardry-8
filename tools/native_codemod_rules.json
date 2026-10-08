@@ -127,7 +127,9 @@
     "SetErrorMode": "W8SetErrorMode",
     "GetLocalTime": "W8GetLocalTime",
     "WaitMessage": "W8WaitMessage",
-    "TranslateMessage": "W8TranslateMessage"
+    "TranslateMessage": "W8TranslateMessage",
+    "SetTimer": "W8SetTimer",
+    "KillTimer": "W8KillTimer"
   },
   "rename_skip": [
     "include/wiz8/compat/platform.h",

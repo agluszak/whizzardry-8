@@ -9,6 +9,9 @@
 #include <stdio.h>
 #include <time.h>
 #include <unistd.h>
+#ifdef __cplusplus
+#include <type_traits>
+#endif
 
 typedef uint32_t DWORD;
 typedef DWORD* LPDWORD;
@@ -17,6 +20,8 @@ typedef uint32_t ULONG;
 typedef uint64_t ULONGLONG;
 typedef int INT;
 typedef unsigned int UINT;
+typedef uintptr_t UINT_PTR;
+#define CALLBACK __stdcall
 typedef int BOOL;
 typedef char CHAR;
 typedef char TCHAR;
@@ -100,11 +105,11 @@ typedef struct tagMSG {
    with the same result type as the conditional expression. */
 #ifndef NOMINMAX
 #ifdef __cplusplus
-template <class A, class B> inline auto max(A a, B b) -> decltype(a > b ? a : b)
+template <class A, class B> inline auto max(A a, B b) -> typename std::remove_reference<decltype(a > b ? a : b)>::type
 {
     return a > b ? a : b;
 }
-template <class A, class B> inline auto min(A a, B b) -> decltype(a < b ? a : b)
+template <class A, class B> inline auto min(A a, B b) -> typename std::remove_reference<decltype(a < b ? a : b)>::type
 {
     return a < b ? a : b;
 }
