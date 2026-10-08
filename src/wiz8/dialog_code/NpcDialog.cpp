@@ -1,5 +1,5 @@
 #include "wiz8/dialog_code/DialogInterface.h"
-#include <windows.h>
+#include "wiz8/wiz8_windows.h"
 #include "vsurface.h"
 #include "wiz8/dialog_code/NpcDialog.h"
 #include "wiz8/engine_code/Video2.h"

@@ -23,9 +23,7 @@
 
 #include "Types.h"
 
-#if !defined(WIZ8_NATIVE)
-#include "Windows.h"
-#endif
+#include "compat/kernel32.h"
 
 //**************************************************************************
 //
@@ -70,15 +68,7 @@
 #define FILE_ATTRIBUTES_TEMPORARY FILE_ATTRIBUTE_TEMPORARY
 #define FILE_ATTRIBUTES_DIRECTORY FILE_ATTRIBUTE_DIRECTORY
 
-#if defined(WIZ8_NATIVE)
-/* Win32 FILETIME layout: 100 ns intervals since 1601, as stored in SLF directories. */
-typedef struct {
-    UINT32 dwLowDateTime;
-    UINT32 dwHighDateTime;
-} SGP_FILETIME;
-#else
 typedef FILETIME SGP_FILETIME;
-#endif
 
 //**************************************************************************
 //

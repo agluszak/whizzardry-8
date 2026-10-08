@@ -1,4 +1,4 @@
-#include <windows.h>
+#include "wiz8/wiz8_windows.h"
 #include "wiz8/cursor.h"
 #include "Font.h"
 #include "input.h"

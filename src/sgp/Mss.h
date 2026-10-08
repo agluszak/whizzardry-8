@@ -261,7 +261,7 @@ extern "C" {
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wpragma-pack-suspicious-include"
 #endif
-#include <windows.h>
+#include "compat/kernel32.h"
 #include <mmsystem.h>
 #if defined(__clang__)
 #pragma clang diagnostic pop

@@ -16,7 +16,7 @@
 
 #include "FileMan.h"
 
-#include <windows.h>
+#include "wiz8/wiz8_windows.h"
 #include <new>
 #include <stdlib.h>
 #include <string.h>

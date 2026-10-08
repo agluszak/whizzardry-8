@@ -1,4 +1,4 @@
-#include <windows.h>
+#include "wiz8/wiz8_windows.h"
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>

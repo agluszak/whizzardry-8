@@ -11,8 +11,7 @@
  * _BinkSetVolume@8 entry, rather than 1.5J's _BinkSetVolume@12 entry.
  */
 
-#include <windows.h>
-
+#include "wiz8/wiz8_windows.h"
 typedef w8_long S32;
 typedef w8_ulong U32;
 

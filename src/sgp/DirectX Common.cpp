@@ -7,7 +7,7 @@
 #include "Types.h"
 #include <ddraw.h>
 #include "DirectX Common.h"
-#include <windows.h>
+#include "compat/kernel32.h"
 #include "DEBUG.H"
 
 // GLOBAL: WIZ8 0x005ebb78

@@ -3,8 +3,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
-#include <windows.h>
-
+#include "wiz8/wiz8_windows.h"
 #include "wiz8/utility.h"
 #include "wiz8/geometry.h"
 #include "wiz8/3d_code/IList.h"

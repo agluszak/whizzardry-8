@@ -88,7 +88,7 @@
 #include "wiz8/music_playlist.h"
 #include "wiz8/layouts/npc_state.h"
 #include "wiz8/local_code/NPCScripting.h"
-#include <windows.h>
+#include "wiz8/wiz8_windows.h"
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>

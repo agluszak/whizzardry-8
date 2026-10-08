@@ -5,13 +5,17 @@
 #ifndef WIZ8_VIDEO2_H
 #define WIZ8_VIDEO2_H
 
-#include <windows.h>
+#include "wiz8/wiz8_windows.h"
+#if !defined(WIZ8_NATIVE)
 #include <ddraw.h>
 #include <process.h>
+#endif
 
 #include "DEBUG.H"
 #include "Types.h"
+#if !defined(WIZ8_NATIVE)
 #include "DirectDraw Calls.h"
+#endif
 #include "vsurface.h"
 #include "Mutex Manager.h"
 
@@ -33,8 +37,10 @@ extern void SuspendVideoManager(void);
 extern BOOLEAN RestoreVideoManager(void);
 extern void GetCurrentVideoSettings(UINT16* usWidth, UINT16* usHeight, UINT8* ubBitDepth);
 extern void InvalidateRegion(INT32 iLeft, INT32 iTop, INT32 iRight, INT32 iBottom, UINT32 uiFlags);
+#if !defined(WIZ8_NATIVE) /* DirectDraw presentation; the native lane presents through SDL */
 extern LPDIRECTDRAW2 GetDirectDraw2Object(void);
 extern LPDIRECTDRAWSURFACE2 GetFrameBufferObject(void);
+#endif
 extern PTR LockPrimarySurface(UINT32* uiPitch);
 extern void UnlockPrimarySurface(void);
 extern PTR LockMouseBuffer(UINT32* uiPitch);
@@ -218,15 +224,19 @@ extern bool g_texture_cache_enabled;
 extern srGERD* g_gerd;
 /* Secondary renderer device preferred by the offscreen world-render path. */
 extern srGERD* g_secondary_gerd;
+#if !defined(WIZ8_NATIVE)
 extern LPDIRECTDRAWSURFACE2 g_primary_surface;
+#endif
 extern stSurface2D* g_surface_node;
 extern srMaterial* g_blit_material;
 extern srColorSurface* g_mouse_surface;
 extern srNode* g_surface_nodes[0x12c0];
 extern unsigned char g_block[0x12c0];
+#if !defined(WIZ8_NATIVE)
 extern IDirectDraw2* g_direct_draw2;
 extern IDirectDrawSurface* g_video_primary_surface1;
 extern IDirectDrawSurface2* g_video_primary_surface2;
+#endif
 extern srModelInstance* g_current_model_instance;
 extern int g_renderer_mode;
 extern int g_overlay_render_mode;
@@ -273,7 +283,9 @@ void ResetTransientRenderScenes(void);
 void ClearVideoDirtyBlocks(void); /* 0x00423150 */
 void RenderScene(srScene* scene, srCamera* camera, const int* viewport, bool preserve_fog);
 void RenderFrame(void);
+#if !defined(WIZ8_NATIVE)
 IDirectDrawSurface2* BeginVideoPresentation(void);
+#endif
 unsigned char FinishVideoPresentation(void);
 void PublishLightDirection(const EnvironmentColour* direction);
 void GetWorldColour(EnvironmentColour* colour); /* 0x00427290 */

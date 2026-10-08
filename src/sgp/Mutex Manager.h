@@ -3,7 +3,9 @@
 #ifndef __MUTEX_
 #define __MUTEX_
 
+#if !defined(WIZ8_NATIVE)
 #include <process.h>
+#endif
 #include "Types.h"
 
 extern BOOLEAN InitializeMutexManager(void);

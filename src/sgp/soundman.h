@@ -4,7 +4,15 @@
 #define __SOUNDMAN_
 
 #include "Types.h"
-#include "Mss.h"
+
+/* The Miles handles in this interface, declared as MSS.H declares them so the
+   game does not depend on the Miles headers; soundman.cpp includes MSS.H. */
+#ifndef MSS_VERSION
+typedef struct _DIG_DRIVER* HDIGDRIVER;
+typedef struct _SAMPLE* HSAMPLE;
+typedef struct _STREAM* HSTREAM;
+typedef struct h3DPOBJECT* H3DSAMPLE;
+#endif
 
 #ifdef __cplusplus
 extern "C" {

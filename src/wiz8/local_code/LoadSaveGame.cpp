@@ -70,8 +70,7 @@
 
 #include "timer.h"
 
-#include <windows.h>
-
+#include "wiz8/wiz8_windows.h"
 #include <errno.h>
 #include <io.h>
 #include <malloc.h>

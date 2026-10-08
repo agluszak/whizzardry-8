@@ -1,5 +1,4 @@
-#include <windows.h>
-
+#include "wiz8/wiz8_windows.h"
 #include <math.h>
 #include <stdlib.h>
 #include <string.h>

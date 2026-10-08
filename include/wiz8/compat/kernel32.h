@@ -1,14 +1,64 @@
 #pragma once
 
-/* Native implementations of the few kernel32/winmm services that the game and
-   SGP call in hundreds of places and that have exact portable equivalents:
-   millisecond tick counts, sleeping and debugger output.  Window, file,
-   graphics and audio APIs are replaced at their use sites instead. */
+/* The Win32 subset the native lane provides: the plain data types that game
+   structures and signatures use, and the few kernel32/winmm services with
+   exact portable equivalents (tick counts, sleeping, debugger output).
+   Window, file, graphics and audio APIs are replaced at their use sites. */
 #if defined(WIZ8_NATIVE)
 #include <stdint.h>
 #include <stdio.h>
 #include <time.h>
 #include <unistd.h>
+
+typedef uint32_t DWORD;
+typedef DWORD* LPDWORD;
+typedef int32_t LONG;
+typedef uint32_t ULONG;
+typedef int INT;
+typedef unsigned int UINT;
+typedef int BOOL;
+typedef char CHAR;
+typedef char* LPSTR;
+typedef const char* LPCSTR;
+typedef void* LPVOID;
+typedef int32_t HRESULT;
+typedef uintptr_t WPARAM;
+typedef intptr_t LPARAM;
+typedef intptr_t LRESULT;
+typedef void* HANDLE;
+typedef struct HWND__* HWND;
+typedef struct HINSTANCE__* HINSTANCE;
+typedef HINSTANCE HMODULE;
+typedef struct HDC__* HDC;
+#define INVALID_HANDLE_VALUE ((HANDLE)(intptr_t)-1)
+#define MAX_PATH 260
+
+typedef struct tagRECT {
+    LONG left;
+    LONG top;
+    LONG right;
+    LONG bottom;
+} RECT, *LPRECT;
+
+typedef struct tagPOINT {
+    LONG x;
+    LONG y;
+} POINT;
+
+/* 100 ns intervals since 1601, as stored in save games and SLF directories. */
+typedef struct _FILETIME {
+    DWORD dwLowDateTime;
+    DWORD dwHighDateTime;
+} FILETIME;
+
+typedef struct tagMSG {
+    HWND hwnd;
+    UINT message;
+    WPARAM wParam;
+    LPARAM lParam;
+    DWORD time;
+    POINT pt;
+} MSG;
 
 inline uint32_t GetTickCount()
 {

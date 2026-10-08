@@ -36,7 +36,7 @@
 #include <math.h>
 #include <new>
 #include <stdlib.h>
-#include <windows.h>
+#include "wiz8/wiz8_windows.h"
 #include "wiz8/engine_code/GameData.h"
 #include "wiz8/geometry.h"
 #include "wiz8/local_code/Configuration.h"

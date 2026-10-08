@@ -20,7 +20,7 @@
 #include <stdio.h>
 #include <direct.h>
 
-#include "windows.h"
+#include "compat/kernel32.h"
 #include "FileMan.h"
 #include "MemMan.h"
 #include "DbMan.h"

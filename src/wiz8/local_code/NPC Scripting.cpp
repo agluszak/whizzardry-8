@@ -73,7 +73,7 @@
 
 #include "FileMan.h"
 
-#include <windows.h>
+#include "wiz8/wiz8_windows.h"
 #include <stdio.h>
 #include <string.h>
 #include <wchar.h>

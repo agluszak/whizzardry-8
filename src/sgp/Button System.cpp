@@ -7,7 +7,7 @@
 ***********************************************************************************************/
 
 #include "Types.h"
-#include <windows.h>
+#include "compat/kernel32.h"
 #include <stdio.h>
 #include <memory.h>
 #include "DEBUG.H"

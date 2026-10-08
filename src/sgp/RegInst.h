@@ -21,7 +21,7 @@
 //
 //**************************************************************************
 
-#include <windows.h>
+#include "compat/kernel32.h"
 #include <tchar.h>
 #include <assert.h>
 

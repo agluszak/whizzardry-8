@@ -19,7 +19,7 @@
 #include <stdlib.h>
 #include <malloc.h>
 #include <stdio.h>
-#include "windows.h"
+#include "compat/kernel32.h"
 #include "MemMan.h"
 #include "DEBUG.H"
 #include "Container.h"

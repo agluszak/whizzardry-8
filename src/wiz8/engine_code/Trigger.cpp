@@ -61,8 +61,7 @@
 #include "surrender/srScene.h"
 #include "wiz8/local_code/character_events.h"
 
-#include <windows.h>
-
+#include "wiz8/wiz8_windows.h"
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>

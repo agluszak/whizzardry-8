@@ -10,7 +10,7 @@
 #include "surrender/srHeap.h"
 
 #include <math.h>
-#include <windows.h>
+#include "wiz8/wiz8_windows.h"
 #include <stdlib.h>
 
 #define PATH_AI_CPP "C:\\Projects\\Wizardry 8\\Engine Code\\PathAI.CPP"

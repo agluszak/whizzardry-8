@@ -1,7 +1,7 @@
 /* Modified for the Wizardry 8 reconstruction: 2026-10-03, 2026-10-04, 2026-10-06, 2026-10-07.
    Distributed under the accompanying SFI Source Code license agreement. */
 #include "Types.h"
-#include <windows.h>
+#include "compat/kernel32.h"
 #include <windowsx.h>
 #include <stdio.h>
 #include <stdarg.h>

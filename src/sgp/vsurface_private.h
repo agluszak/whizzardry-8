@@ -3,7 +3,7 @@
 #ifndef __VSURFACE_PRIVATE_
 #define __VSURFACE_PRIVATE_
 
-#include <windows.h>
+#include "compat/kernel32.h"
 #include <ddraw.h>
 #include "vsurface.h"
 

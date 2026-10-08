@@ -24,7 +24,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <windows.h>
+#include "wiz8/wiz8_windows.h"
 #include <new>
 #include "wiz8/engine_code/3d.h"
 

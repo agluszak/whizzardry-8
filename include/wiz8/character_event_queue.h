@@ -2,7 +2,7 @@
 #define WIZ8_CHARACTER_EVENT_QUEUE_H
 
 #include "timer.h"
-#include <windows.h>
+#include "wiz8/wiz8_windows.h"
 
 #include "wiz8/layouts/item_instance.h"
 #include "wiz8/integer_constants.h"
