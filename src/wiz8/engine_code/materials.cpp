@@ -1949,11 +1949,11 @@ void W8Octree::OctBuildOptions(char* stem)
             while (DequeueEvent(&atom) == 0) {
                 RenderFrame();
                 RenderFrame();
-                WaitMessage();
-                if (PeekMessageA(&message, (HWND)0, 0, 0, 0) != 0 &&
-                    GetMessageA(&message, (HWND)0, 0, 0) != 0) {
-                    TranslateMessage(&message);
-                    DispatchMessageA(&message);
+                W8WaitMessage();
+                if (W8PeekMessage(&message, (HWND)0, 0, 0, 0) != 0 &&
+                    W8GetMessage(&message, (HWND)0, 0, 0) != 0) {
+                    W8TranslateMessage(&message);
+                    W8DispatchMessage(&message);
                 }
             }
             if (atom.usEvent != KEY_DOWN) {

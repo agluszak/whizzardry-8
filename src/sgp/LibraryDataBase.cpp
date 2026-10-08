@@ -207,7 +207,7 @@ BOOLEAN InitializeLibrary(STR pLibraryName, LibraryHeaderStruct* pLibHeader, BOO
             if (hFile == INVALID_HANDLE_VALUE) {
                 UINT32 uiLastError = W8GetLastError();
                 char zString[1024];
-                FormatMessage(FORMAT_MESSAGE_FROM_SYSTEM, 0, uiLastError, 0, zString, 1024, NULL);
+                W8FormatMessage(FORMAT_MESSAGE_FROM_SYSTEM, 0, uiLastError, 0, zString, 1024, NULL);
 
                 return (FALSE);
             } else
@@ -341,7 +341,7 @@ HANDLE OpenLibraryStream(HWFILE file)
             if (handle == INVALID_HANDLE_VALUE) {
                 UINT32 uiLastError = W8GetLastError();
                 char zString[1024];
-                FormatMessage(FORMAT_MESSAGE_FROM_SYSTEM, 0, uiLastError, 0, zString, 1024, NULL);
+                W8FormatMessage(FORMAT_MESSAGE_FROM_SYSTEM, 0, uiLastError, 0, zString, 1024, NULL);
 
                 return INVALID_HANDLE_VALUE;
             }

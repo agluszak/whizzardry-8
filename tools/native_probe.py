@@ -52,7 +52,10 @@ def sources(include_platform=False):
 
 
 def check(path):
-    result = subprocess.run(['clang++'] + FLAGS + [path], cwd=ROOT, capture_output=True, text=True,
+    # Match the legacy target definitions: game code suppresses the Win32
+    # min/max macros, whereas SGP uses them.
+    target_flags = ['-DNOMINMAX', '-DWIN32_LEAN_AND_MEAN'] if path.startswith('src/wiz8/') else []
+    result = subprocess.run(['clang++'] + FLAGS + target_flags + [path], cwd=ROOT, capture_output=True, text=True,
                             errors='replace')
     diagnostics = []
     for line in result.stderr.splitlines():

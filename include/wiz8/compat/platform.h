@@ -9,6 +9,7 @@
 #include "compat/kernel32.h"
 
 #if defined(WIZ8_NATIVE)
+#include <stdarg.h>
 typedef const void* LPCVOID;
 typedef LONG* PLONG;
 typedef size_t SIZE_T;
@@ -16,6 +17,8 @@ typedef void* LPSECURITY_ATTRIBUTES;
 typedef void* LPOVERLAPPED;
 typedef FILETIME* LPFILETIME;
 typedef SYSTEMTIME* LPSYSTEMTIME;
+typedef MSG* LPMSG;
+typedef DWORD LCID;
 
 typedef struct _WIN32_FIND_DATAA {
     DWORD dwFileAttributes;
@@ -47,6 +50,8 @@ typedef struct _WIN32_FIND_DATAA {
 #define FILE_ATTRIBUTE_NORMAL 0x00000080u
 #define FILE_ATTRIBUTE_TEMPORARY 0x00000100u
 #define FILE_ATTRIBUTE_OFFLINE 0x00001000u
+#define FILE_ATTRIBUTE_COMPRESSED 0x00000800u
+#define FILE_FLAG_DELETE_ON_CLOSE 0x04000000u
 #define FILE_FLAG_RANDOM_ACCESS 0x10000000u
 #define FILE_FLAG_SEQUENTIAL_SCAN 0x08000000u
 #define FILE_BEGIN 0
@@ -70,6 +75,8 @@ typedef struct _WIN32_FIND_DATAA {
 #define ERROR_ACCESS_DENIED 5
 #define ERROR_NO_MORE_FILES 18
 #define ERROR_ALREADY_EXISTS 183
+#define FORMAT_MESSAGE_FROM_SYSTEM 0x00001000u
+#define LOCALE_SYSTEM_DEFAULT 0x0800
 
 HANDLE W8CreateFile(LPCSTR path, DWORD access, DWORD share, LPSECURITY_ATTRIBUTES security,
                     DWORD disposition, DWORD flags, HANDLE templ);
@@ -104,6 +111,23 @@ UINT W8GetDriveType(LPCSTR root);
 BOOL W8GetDiskFreeSpace(LPCSTR root, LPDWORD sectors_per_cluster, LPDWORD bytes_per_sector,
                         LPDWORD free_clusters, LPDWORD total_clusters);
 DWORD W8GetEnvironmentVariable(LPCSTR name, LPSTR buffer, DWORD size);
+BOOL W8SetEnvironmentVariable(LPCSTR name, LPCSTR value);
+DWORD W8GetModuleFileName(HMODULE module, LPSTR buffer, DWORD size);
+DWORD W8GetLogicalDriveStrings(DWORD size, LPSTR buffer);
+UINT W8SetErrorMode(UINT mode);
+void W8GetLocalTime(LPSYSTEMTIME time);
+int W8GetDateFormat(LCID locale, DWORD flags, const SYSTEMTIME* date, LPCSTR format,
+                    LPSTR buffer, int size);
+DWORD W8FormatMessage(DWORD flags, LPCVOID source, DWORD message, DWORD language,
+                       LPSTR buffer, DWORD size, va_list* arguments);
+
+/* The shell implements these through SDL. Shared game code retains its
+   existing wait/peek/dispatch protocol until that shell is ported. */
+BOOL W8WaitMessage(void);
+BOOL W8PeekMessage(LPMSG message, HWND window, UINT first, UINT last, UINT remove);
+BOOL W8GetMessage(LPMSG message, HWND window, UINT first, UINT last);
+BOOL W8TranslateMessage(const MSG* message);
+LRESULT W8DispatchMessage(const MSG* message);
 #else
 /* The Windows lanes name the Win32 functions directly, so code is unchanged. */
 #define W8CloseHandle CloseHandle
@@ -121,6 +145,18 @@ DWORD W8GetEnvironmentVariable(LPCSTR name, LPSTR buffer, DWORD size);
 #define W8GetDiskFreeSpace GetDiskFreeSpaceA
 #define W8GetDriveType GetDriveTypeA
 #define W8GetEnvironmentVariable GetEnvironmentVariableA
+#define W8SetEnvironmentVariable SetEnvironmentVariableA
+#define W8GetModuleFileName GetModuleFileNameA
+#define W8GetLogicalDriveStrings GetLogicalDriveStringsA
+#define W8SetErrorMode SetErrorMode
+#define W8GetLocalTime GetLocalTime
+#define W8GetDateFormat GetDateFormatA
+#define W8FormatMessage FormatMessageA
+#define W8WaitMessage WaitMessage
+#define W8PeekMessage PeekMessageA
+#define W8GetMessage GetMessageA
+#define W8TranslateMessage TranslateMessage
+#define W8DispatchMessage DispatchMessageA
 #define W8GetFileAttributes GetFileAttributesA
 #define W8GetFileSize GetFileSize
 #define W8GetFileTime GetFileTime

@@ -1411,10 +1411,10 @@ void W8Octree::BuildRegionLinks(bool rebuild_all)
                     continue;
                 }
                 MSG message;
-                if (PeekMessageA(&message, 0, 0, 0, 0) != 0 &&
-                    GetMessageA(&message, 0, 0, 0) != 0) {
-                    TranslateMessage(&message);
-                    DispatchMessageA(&message);
+                if (W8PeekMessage(&message, 0, 0, 0, 0) != 0 &&
+                    W8GetMessage(&message, 0, 0, 0) != 0) {
+                    W8TranslateMessage(&message);
+                    W8DispatchMessage(&message);
                     InputAtom input;
                     if (DequeueEvent(&input) != 0 && input.usEvent == KEY_DOWN) {
                         if (input.usParam == VK_RETURN) {

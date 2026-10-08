@@ -253,7 +253,7 @@ void FillCurrentSaveSlot(W8SaveSlot* slot)
     slot->game_time_ms = g_status.game_time_ms;
     slot->game_time_days = g_status.game_time_days;
     slot->iron_man = g_status.iron_man;
-    GetLocalTime(&slot->timestamp);
+    W8GetLocalTime(&slot->timestamp);
     CaptureSaveScreenshot(&slot->screenshot);
     slot->version_major = 1;
     slot->version_minor = 2;

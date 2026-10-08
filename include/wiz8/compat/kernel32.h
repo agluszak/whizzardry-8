@@ -14,10 +14,13 @@ typedef uint32_t DWORD;
 typedef DWORD* LPDWORD;
 typedef int32_t LONG;
 typedef uint32_t ULONG;
+typedef uint64_t ULONGLONG;
 typedef int INT;
 typedef unsigned int UINT;
 typedef int BOOL;
 typedef char CHAR;
+typedef char TCHAR;
+#define _T(text) text
 typedef char* LPSTR;
 typedef const char* LPCSTR;
 typedef void* LPVOID;

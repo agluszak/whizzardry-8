@@ -145,7 +145,7 @@ unsigned char FindGameDataPath(char* path, int cd_number)
     DWORD length;
     bool found = false;
 
-    length = GetLogicalDriveStringsA(sizeof(drives), drives);
+    length = W8GetLogicalDriveStrings(sizeof(drives), drives);
     if (length == 0) {
         return 0;
     }
@@ -167,13 +167,13 @@ unsigned char FindGameDataPath(char* path, int cd_number)
         strcpy(path, drive);
         sprintf(expected_label, "WIZ8_%d", cd_number);
 
-        UINT previous_mode = SetErrorMode(1);
+        UINT previous_mode = W8SetErrorMode(1);
         if (W8GetVolumeInformation(path, volume_name, 32, 0, 0, 0, 0, 0) != 0 &&
             _stricmp(expected_label, volume_name) == 0) {
             found = true;
             g_cd_index = cd_number;
         }
-        SetErrorMode(previous_mode);
+        W8SetErrorMode(previous_mode);
         if (found) {
             return 1;
         }

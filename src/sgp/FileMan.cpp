@@ -324,7 +324,7 @@ HWFILE FileOpen(STR strFilename, UINT32 uiOptions, BOOLEAN fDeleteOnClose)
         if (hRealFile == INVALID_HANDLE_VALUE) {
             UINT32 uiLastError = W8GetLastError();
             char zString[1024];
-            FormatMessage(FORMAT_MESSAGE_FROM_SYSTEM, 0, uiLastError, 0, zString, 1024, NULL);
+            W8FormatMessage(FORMAT_MESSAGE_FROM_SYSTEM, 0, uiLastError, 0, zString, 1024, NULL);
 
             return (0);
         }
@@ -414,7 +414,7 @@ BOOLEAN FileRead(HWFILE hFile, PTR pDest, UINT32 uiBytesToRead, UINT32* puiBytes
             if (dwNumBytesToRead != dwNumBytesRead) {
                 UINT32 uiLastError = W8GetLastError();
                 char zString[1024];
-                FormatMessage(FORMAT_MESSAGE_FROM_SYSTEM, 0, uiLastError, 0, zString, 1024, NULL);
+                W8FormatMessage(FORMAT_MESSAGE_FROM_SYSTEM, 0, uiLastError, 0, zString, 1024, NULL);
 
                 fRet = FALSE;
             }
@@ -726,7 +726,7 @@ BOOLEAN GetExecutableDirectory(STRING512 pcDirectory)
     SGPFILENAME ModuleFilename;
     UINT32 cnt;
 
-    if (GetModuleFileName(NULL, ModuleFilename, sizeof(ModuleFilename)) == 0) {
+    if (W8GetModuleFileName(NULL, ModuleFilename, sizeof(ModuleFilename)) == 0) {
         return (FALSE);
     }
 
@@ -1064,7 +1064,7 @@ BOOLEAN AddSubdirectoryToPath(CHAR8* subdirectory)
         if (W8GetEnvironmentVariable("PATH", environment, 0x208)) {
             strcat(environment, ";");
             strcat(environment, path);
-            SetEnvironmentVariableA("PATH", environment);
+            W8SetEnvironmentVariable("PATH", environment);
             return TRUE;
         }
     }

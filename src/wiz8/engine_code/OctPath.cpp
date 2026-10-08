@@ -56,6 +56,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include "compat/platform.h"
 // GLOBAL: WIZ8 0x005ebc30
 const double g_double_one = 1.0;
 // GLOBAL: WIZ8 0x005ec020
@@ -6021,11 +6022,11 @@ unsigned int W8PathingService::EditWaypointLinkFlags(const char* title, unsigned
             do {
                 RenderFrame();
                 RenderFrame();
-                WaitMessage();
-                if (PeekMessageA(&message, (HWND)0, 0, 0, 0) != 0 &&
-                    GetMessageA(&message, (HWND)0, 0, 0) != 0) {
-                    TranslateMessage(&message);
-                    DispatchMessageA(&message);
+                W8WaitMessage();
+                if (W8PeekMessage(&message, (HWND)0, 0, 0, 0) != 0 &&
+                    W8GetMessage(&message, (HWND)0, 0, 0) != 0) {
+                    W8TranslateMessage(&message);
+                    W8DispatchMessage(&message);
                 }
             } while (DequeueEvent(&atom) == 0);
         }
