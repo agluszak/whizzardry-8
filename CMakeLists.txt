@@ -29,3 +29,10 @@ include(cmake/ProductSupport.cmake)
 add_subdirectory(src/sgp)
 add_subdirectory(src/surrender)
 add_subdirectory(src/wiz8)
+
+# Optional oracle harness; production legacy targets keep their original code.
+option(WIZ8_BUILD_LEGACY_BLITTER_TEST "Build the assembly blitter capture harness" OFF)
+if(WIZ8_BUILD_LEGACY_BLITTER_TEST)
+    add_executable(legacy_blitter_test tests/native/blitter_test.cpp)
+    target_link_libraries(legacy_blitter_test PRIVATE WIZ8_SGP wiz8_compile_settings)
+endif()

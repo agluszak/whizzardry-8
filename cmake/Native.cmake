@@ -70,6 +70,11 @@ add_executable(native_pointer_test tests/native/pointer_test.cpp)
 target_link_libraries(native_pointer_test PRIVATE wiz8_native_settings)
 add_test(NAME native_pointer COMMAND native_pointer_test)
 
+add_executable(native_blitter_test tests/native/blitter_test.cpp)
+target_link_libraries(native_blitter_test PRIVATE WIZ8_SGP)
+add_test(NAME native_blitters COMMAND native_blitter_test
+    "${PROJECT_SOURCE_DIR}/tests/native/blitters_legacy.txt")
+
 # glibc's wide-string functions assume four-byte wchar_t; no native binary
 # may import them.
 add_test(NAME native_no_glibc_wide_strings

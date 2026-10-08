@@ -3,6 +3,7 @@ add_library(WIZ8_SGP STATIC
     Compression.cpp
     DEBUG.cpp
     MemMan.cpp
+    vobject_blitters.cpp
 )
 set_source_files_properties(DEBUG.cpp PROPERTIES COMPILE_DEFINITIONS _NO_DEBUG_TXT)
 target_include_directories(WIZ8_SGP PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
