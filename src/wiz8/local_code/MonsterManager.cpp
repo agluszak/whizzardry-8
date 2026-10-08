@@ -284,15 +284,29 @@ void ActivateMonster(W8MonsterInfo* monster_info, W8MonsterActivationMode mode)
     context.directory = "Data\\Monsters";
 
     if (mode == W8_MONSTER_LOAD_ALL_CYCLES) {
+#if defined(WIZ8_NATIVE)
+        W8Monster* monster = monster_info->p3D;
+        success = MonsterReadAllCycles(&context, record->cycle_name, &monster, 1,
+                                       monster_info->location_id);
+        monster_info->p3D = monster;
+#else
         success = MonsterReadAllCycles(&context, record->cycle_name, &monster_info->p3D, 1,
                                        monster_info->location_id);
+#endif
         if (!success) {
             srAssertFail("fSuccess", MONSTER_MANAGER_CPP, 0x20a,
                          "ActivateMonster: ERROR - MonsterReadAllCycles failed");
         }
     } else if (mode == W8_MONSTER_LOAD_STARTUP_CYCLE) {
+#if defined(WIZ8_NATIVE)
+        W8Monster* monster = monster_info->p3D;
+        success = MonsterReadAllCycles(&context, record->cycle_name, &monster, 0,
+                                       monster_info->location_id);
+        monster_info->p3D = monster;
+#else
         success = MonsterReadAllCycles(&context, record->cycle_name, &monster_info->p3D, 0,
                                        monster_info->location_id);
+#endif
         if (!success) {
             srAssertFail("fSuccess", MONSTER_MANAGER_CPP, 0x20f,
                          "ActivateMonster: ERROR - MonsterReadAllCycles failed");

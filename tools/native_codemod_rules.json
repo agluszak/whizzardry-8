@@ -248,5 +248,16 @@
     "src/wiz8/local_code/LoadSaveGame.cpp": [
       "io.h"
     ]
+  },
+  "pointer_bits": {
+    "src/wiz8/dialog_code/DialogFactoryDialogs.cpp": [
+      "button"
+    ],
+    "src/wiz8/engine_code/ReadMesh.cpp": [
+      "materials[face.material_index]"
+    ],
+    "src/wiz8/engine_code/materials.cpp": [
+      "texture_path[0] == '\\0' ? \"F\" : \"T\""
+    ]
   }
 }

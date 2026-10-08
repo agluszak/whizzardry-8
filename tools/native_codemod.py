@@ -17,6 +17,9 @@ Passes:
                Win32 calls become the portable wrappers of compat/platform.h.
   abi-asserts  static_assert -> W8_ABI_ASSERT for layout checks that fail
                natively (in-memory objects; raw I/O records are fixed instead).
+  pointer-bits Preserve explicit low-bit pointer arithmetic/formatting by
+               passing through a pointer-sized integer before narrowing.
+               Never use this for a slot that must round-trip a pointer.
 
 Usage: native_codemod.py PASS [--probe FILE] [--dry-run] [FILE...]
 """
@@ -415,6 +418,42 @@ def pass_rename(entries, files, dry_run):
 
 # --- abi-asserts ----------------------------------------------------------
 
+def pass_pointer_bits(entries, files, dry_run):
+    reviewed = load_rules().get('pointer_bits', {})
+    hits = collections.defaultdict(set)
+    for entry in entries:
+        if entry['kind'] == 'error' and re.match(r"cast from pointer to smaller type '(?:int|unsigned int)' loses information", entry['message']):
+            path = relative(entry['file'])
+            if path in reviewed and is_project_file(path) and (not files or path in files):
+                hits[path].add((entry['line'], entry['col']))
+    for path, locations in sorted(hits.items()):
+        text = read(path)
+        edits = {}
+        lines = text.splitlines(keepends=True)
+        for line, col in locations:
+            offset = sum(map(len, lines[:line - 1])) + col - 1
+            begin = text.rfind('reinterpret_cast<', 0, offset + len('reinterpret_cast<'))
+            if begin < 0:
+                continue
+            close = text.find('>', begin)
+            target = text[begin + len('reinterpret_cast<'):close]
+            # Keep comments before the target with the outer conversion.
+            target_tokens = ''.join(t for t in TOKEN.findall(target) if not t.startswith(('//', '/*'))).strip()
+            if target_tokens not in ('int', 'unsigned int'):
+                continue
+            opening = text.find('(', close)
+            end, _ = split_params(text, opening)
+            expression = text[opening:end + 1]
+            if expression[1:-1].strip() not in reviewed[path]:
+                continue
+            edits[(begin, end + 1)] = 'static_cast<' + target + '>(reinterpret_cast<w8_ulong_ptr>' + expression + ')'
+        result = text
+        for (begin, end), replacement in sorted(edits.items(), reverse=True):
+            result = result[:begin] + replacement + result[end:]
+        if result != text:
+            write(path, result, dry_run)
+            print(f'{path}: explicit low pointer bits')
+
 def pass_abi_asserts(entries, files, dry_run):
     raw_io = set(load_rules().get('raw_io_records', []))
     hits = collections.defaultdict(set)
@@ -450,6 +489,7 @@ PASSES = {
     'wide-vars': pass_wide_vars,
     'rename': pass_rename,
     'abi-asserts': pass_abi_asserts,
+    'pointer-bits': pass_pointer_bits,
 }
 
 

@@ -572,7 +572,7 @@ BuildSingleLevelMesh(int face_count, W8ReadMeshFace* faces, int vertex_count, in
         for (int corner = 0; corner < 3; ++corner) {
             int original_vertex = face.vertices[corner];
             unsigned int key =
-                (reinterpret_cast<unsigned int>(materials[face.material_index]) & 0xfff) |
+                (static_cast<unsigned int>(reinterpret_cast<w8_ulong_ptr>(materials[face.material_index])) & 0xfff) |
                 (original_vertex << 12);
             int vertex = vertex_indices[type].Lookup(&key) - 1;
             if (vertex == -1) {

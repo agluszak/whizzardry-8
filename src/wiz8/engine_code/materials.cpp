@@ -2177,8 +2177,8 @@ unsigned char LoadMaterial(const char* bitmap_folder, const W8MaterialRecord* so
             source->emission, source->emission, static_cast<int>(source->surface_flags),
             /* Retail passes the string's address for %c, so the name ends in
                that address's low byte. */
-            reinterpret_cast<int>( // reinterpret-ok: retail formats the pointer
-                texture_path[0] == '\0' ? "F" : "T"));
+            static_cast<int>(reinterpret_cast<w8_ulong_ptr>( // reinterpret-ok: retail formats the pointer
+                texture_path[0] == '\0' ? "F" : "T")));
 
     {
         srRegistry* registry = srCore.getRegistry();
