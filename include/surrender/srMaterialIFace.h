@@ -13,12 +13,12 @@ class __declspec(novtable) SR_DLL_IMPORT SR_DLL_EXPORT srMaterialIFace
 public:
     static const char* sGetClassName();
 
-#if !defined(SURRENDER_BUILD)
+#if !defined(SURRENDER_BUILD) && !defined(WIZ8_NATIVE)
     srMaterialIFace();
     virtual ~srMaterialIFace();
 #endif
 
-#if !defined(SURRENDER_BUILD)
+#if !defined(SURRENDER_BUILD) && !defined(WIZ8_NATIVE)
     srMaterialIFace& operator=(const srMaterialIFace& other);
 #endif
 

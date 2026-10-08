@@ -30,7 +30,7 @@ public:
 
     srCamera(srNode* parent = 0);
 
-#if !defined(SURRENDER_BUILD)
+#if !defined(SURRENDER_BUILD) && !defined(WIZ8_NATIVE)
     srCamera& operator=(const srCamera& other);
     virtual ~srCamera() override;
 #endif

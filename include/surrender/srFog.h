@@ -14,11 +14,11 @@ public:
     typedef srClientSupport<srFog, 0x1210> ClientType;
 
     SR_DLL_IMPORT srFog(srNode* parent = 0);
-#if !defined(SURRENDER_BUILD)
+#if !defined(SURRENDER_BUILD) && !defined(WIZ8_NATIVE)
     SR_DLL_IMPORT srFog(const srFog& other);
 #endif
 
-#if !defined(SURRENDER_BUILD)
+#if !defined(SURRENDER_BUILD) && !defined(WIZ8_NATIVE)
     SR_DLL_IMPORT srFog& operator=(const srFog& other);
 #endif
 

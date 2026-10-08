@@ -60,7 +60,7 @@ typedef unsigned short wchar_t;
    matching and clang-cl lanes; native LP64/arm64 objects legitimately differ.
    On-disk and wire formats use plain static_assert, which every lane checks. */
 #if defined(WIZ8_NATIVE)
-#define W8_ABI_ASSERT(condition, message) static_assert(true, message)
+#define W8_ABI_ASSERT(condition, message) static_assert(1, message)
 #else
 #define W8_ABI_ASSERT(condition, message) static_assert(condition, message)
 #endif

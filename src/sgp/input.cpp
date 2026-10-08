@@ -2,7 +2,11 @@
    Distributed under the accompanying SFI Source Code license agreement. */
 #include "Types.h"
 #include "compat/kernel32.h"
+#if !defined(WIZ8_NATIVE)
 #include <zmouse.h>
+#else
+#include "compat/platform.h"
+#endif
 #include <stdio.h>
 #include <memory.h>
 #include "DEBUG.H"
@@ -16,6 +20,10 @@
 
 #include "sgp.h"
 
+#if defined(WIZ8_NATIVE)
+#define SGPMouseGetPos W8GetMousePosition
+#define ClipCursor W8ClipCursor
+#endif
 #undef GetCursorPos
 #define GetCursorPos SGPMouseGetPos
 
@@ -87,10 +95,13 @@ BOOLEAN gfSGPInputReceived = FALSE;
 // This is the WIN95 hook specific data and defines used to handle the keyboard and
 // mouse hook
 
+#if !defined(WIZ8_NATIVE)
 // GLOBAL: WIZ8 0x006f04fc
 HHOOK ghKeyboardHook;
 // GLOBAL: WIZ8 0x006f050c
 HHOOK ghMouseHook;
+
+#endif
 
 // If the following pointer is non NULL then input characters are redirected to
 // the related string
@@ -109,6 +120,7 @@ void AdjustMouseForWindowOrigin(void);
 
 // These are the hook functions for both keyboard and mouse
 
+#if !defined(WIZ8_NATIVE)
 // FUNCTION: WIZ8 0x00401b30
 LRESULT CALLBACK KeyboardHandler(int Code, WPARAM wParam, LPARAM lParam)
 {
@@ -213,6 +225,8 @@ LRESULT CALLBACK MouseHandler(int Code, WPARAM wParam, LPARAM lParam)
     return (TRUE);
 }
 
+#endif
+
 // FUNCTION: WIZ8 0x00401ea0
 BOOLEAN InitializeInputManager(void)
 {
@@ -248,6 +262,7 @@ BOOLEAN InitializeInputManager(void)
     gfCurrentStringInputState = FALSE;
     gpCurrentStringDescriptor = NULL;
     // Activate the hook functions for both keyboard and Mouse
+#if !defined(WIZ8_NATIVE)
     ghKeyboardHook = SetWindowsHookEx(WH_KEYBOARD, (HOOKPROC)KeyboardHandler, (HINSTANCE)0,
                                       GetCurrentThreadId());
     DbgMessage(TOPIC_INPUT, DBG_LEVEL_2, String("Set keyboard hook returned %d", ghKeyboardHook));
@@ -255,6 +270,7 @@ BOOLEAN InitializeInputManager(void)
     ghMouseHook =
         SetWindowsHookEx(WH_MOUSE, (HOOKPROC)MouseHandler, (HINSTANCE)0, GetCurrentThreadId());
     DbgMessage(TOPIC_INPUT, DBG_LEVEL_2, String("Set mouse hook returned %d", ghMouseHook));
+#endif
     return TRUE;
 }
 
@@ -263,8 +279,10 @@ void ShutdownInputManager(void)
 { // There's very little to do when shutting down the input manager. In the future, this is where the keyboard and
     // mouse hooks will be destroyed
     UnRegisterDebugTopic(TOPIC_INPUT, "Input Manager");
+#if !defined(WIZ8_NATIVE)
     UnhookWindowsHookEx(ghKeyboardHook);
     UnhookWindowsHookEx(ghMouseHook);
+#endif
 }
 
 // FUNCTION: WIZ8 0x00401f90
@@ -430,7 +448,11 @@ void KeyChange(UINT32 key, UINT32 flags, UINT8 pressed)
         return;
     }
     if ((short)key == 9 && gfAltState != 0) {
+#if defined(WIZ8_NATIVE)
+        W8MinimizeWindow(ghWindow);
+#else
         ShowWindow(ghWindow, 6);
+#endif
         gfKeyState[0x12] = 0;
         gfAltState = 0;
     }

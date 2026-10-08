@@ -74,7 +74,7 @@ public:
 
         SR_DLL_IMPORT Sampler();
 
-#if !defined(SURRENDER_BUILD)
+#if !defined(SURRENDER_BUILD) && !defined(WIZ8_NATIVE)
         SR_DLL_IMPORT ~Sampler();
 #endif
         SR_DLL_IMPORT void insert(w8_ulong symbol);

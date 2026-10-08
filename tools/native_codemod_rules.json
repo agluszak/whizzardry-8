@@ -8,8 +8,7 @@
     "src/sgp/DirectX Common.cpp": "PR 6 surfaces (DirectDraw)",
     "src/sgp/vsurface.cpp": "PR 6 surfaces (DirectDraw)",
     "src/wiz8/engine_code/Video2.cpp": "PR 6 presentation (DirectDraw, Win32 window)",
-    "src/sgp/sgp.cpp": "PR 6 application shell (WinMain, message loop)",
-    "src/sgp/input.cpp": "PR 6 input (window messages)"
+    "src/sgp/sgp.cpp": "PR 6 application shell (WinMain, message loop)"
   },
   "includes": {
     "DWORD": "compat/kernel32.h",

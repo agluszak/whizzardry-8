@@ -92,6 +92,26 @@ typedef struct _WIN32_FIND_DATAA {
 #define FORMAT_MESSAGE_FROM_SYSTEM 0x00001000u
 #define LOCALE_SYSTEM_DEFAULT 0x0800
 
+/* Message values used by the recovered game loop and native SDL bridge. */
+#define WM_QUIT 0x0012
+#define WM_CLOSE 0x0010
+#define WM_SIZE 0x0005
+#define WM_ACTIVATEAPP 0x001C
+#define WM_KEYDOWN 0x0100
+#define WM_KEYUP 0x0101
+#define WM_SYSKEYDOWN 0x0104
+#define WM_SYSKEYUP 0x0105
+#define WM_TIMER 0x0113
+#define WM_MOUSEMOVE 0x0200
+#define WM_LBUTTONDOWN 0x0201
+#define WM_LBUTTONUP 0x0202
+#define WM_RBUTTONDOWN 0x0204
+#define WM_RBUTTONUP 0x0205
+#define WM_MOUSEWHEEL 0x020A
+#define PM_NOREMOVE 0
+#define PM_REMOVE 1
+#define WHEEL_DELTA 120
+
 HANDLE W8CreateFile(LPCSTR path, DWORD access, DWORD share, LPSECURITY_ATTRIBUTES security,
                     DWORD disposition, DWORD flags, HANDLE templ);
 BOOL W8ReadFile(HANDLE file, LPVOID buffer, DWORD size, LPDWORD read, LPOVERLAPPED overlapped);
@@ -144,6 +164,10 @@ BOOL W8TranslateMessage(const MSG* message);
 LRESULT W8DispatchMessage(const MSG* message);
 UINT_PTR W8SetTimer(HWND window, UINT_PTR id, UINT interval, TIMERPROC callback);
 BOOL W8KillTimer(HWND window, UINT_PTR id);
+/* SDL input uses game-client coordinates, matching SGPMouseGetPos. */
+void W8GetMousePosition(POINT* point);
+BOOL W8ClipCursor(const RECT* rect);
+BOOL W8MinimizeWindow(HWND window);
 #else
 /* The Windows lanes name the Win32 functions directly, so code is unchanged. */
 #define W8CloseHandle CloseHandle

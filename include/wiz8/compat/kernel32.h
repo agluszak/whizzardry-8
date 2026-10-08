@@ -100,6 +100,9 @@ typedef struct tagMSG {
 #define VK_INSERT 0x2D
 #define VK_DELETE 0x2E
 
+#define LOWORD(value) ((uint16_t)((uintptr_t)(value) & 0xffffu))
+#define HIWORD(value) ((uint16_t)(((uintptr_t)(value) >> 16) & 0xffffu))
+
 /* windows.h defines min and max unless NOMINMAX is set; SGP relies on them.
    As macros they would break the C++ library headers, so C++ gets templates
    with the same result type as the conditional expression. */

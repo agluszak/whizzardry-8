@@ -17,8 +17,13 @@ public:
 
     operator double() const
     {
+#if defined(WIZ8_NATIVE)
+        /* The word pair is only four-byte aligned, including in srTimer. */
+        const unsigned __int64 bits = (static_cast<unsigned __int64>(hi) << 32) | lo;
+#else
         // reinterpret-ok: deliberate bit reinterpretation of the pair as one qword
         const unsigned __int64 bits = *reinterpret_cast<const unsigned __int64*>(this);
+#endif
         return static_cast<unsigned int>(bits >> 32) * 4294967296.0 +
                static_cast<unsigned int>(bits);
     }

@@ -21,7 +21,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 # Keep in step with cmake/Native.cmake.
 FLAGS = [
-    '-x', 'c++', '-std=c++17', '-fsyntax-only', '-w', '-ferror-limit=0',
+    '-fsyntax-only', '-w', '-ferror-limit=0',
     '-fsigned-char', '-fwrapv', '-fno-strict-aliasing', '-fshort-wchar', '-fno-builtin-wcslen',
     '-DWIZ8_NATIVE', '-DNDEBUG',
     '-include', 'include/wiz8/compat/compiler.h',
@@ -55,7 +55,8 @@ def check(path):
     # Match the legacy target definitions: game code suppresses the Win32
     # min/max macros, whereas SGP uses them.
     target_flags = ['-DNOMINMAX', '-DWIN32_LEAN_AND_MEAN'] if path.startswith('src/wiz8/') else []
-    result = subprocess.run(['clang++'] + FLAGS + target_flags + [path], cwd=ROOT, capture_output=True, text=True,
+    language_flags = ['-x', 'c', '-std=gnu17'] if path.endswith('.c') else ['-x', 'c++', '-std=c++17', '-fno-rtti']
+    result = subprocess.run(['clang++'] + language_flags + FLAGS + target_flags + [path], cwd=ROOT, capture_output=True, text=True,
                             errors='replace')
     diagnostics = []
     for line in result.stderr.splitlines():

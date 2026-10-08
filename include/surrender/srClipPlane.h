@@ -12,7 +12,7 @@ class SR_DLL_IMPORT SR_DLL_EXPORT srClipPlane
 public:
     typedef srClientSupport<srClipPlane, 0x1500> ClientType;
 
-#if !defined(SURRENDER_BUILD)
+#if !defined(SURRENDER_BUILD) && !defined(WIZ8_NATIVE)
     srClipPlane& operator=(const srClipPlane& other);
     virtual ~srClipPlane() override;
 #endif
