@@ -1,6 +1,11 @@
 # Reconstructed Wizardry SGP project. The released SFI project is the source
 # ancestor; this list records the object contributions present in Wizardry.
 
+if(WIZ8_NATIVE)
+    include(native.cmake)
+    return()
+endif()
+
 add_library(WIZ8_SGP STATIC
     sgp.cpp
     input.cpp
@@ -42,6 +47,8 @@ target_compile_options(WIZ8_SGP PRIVATE
 )
 target_compile_options(WIZ8_SGP PRIVATE "$<$<CXX_COMPILER_ID:MSVC>:/G5>" /MD)
 target_include_directories(WIZ8_SGP PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
+# Headers of the zlib 1.0.4 release that WIZ8_ZLIB_1_0_4 compiles.
+target_include_directories(WIZ8_SGP PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/zlib-1.0.4")
 target_include_directories(WIZ8_SGP PRIVATE
     "${PROJECT_SOURCE_DIR}/include"
     "${PROJECT_SOURCE_DIR}/include/wiz8"

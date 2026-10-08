@@ -1,4 +1,4 @@
-add_library(wiz8_surrender_objects OBJECT
+set(SURRENDER_SOURCES
     bounder.cpp
     camera.cpp
     clipplane.cpp
@@ -56,6 +56,13 @@ add_library(wiz8_surrender_objects OBJECT
     window_out.cpp
     vector_processor.cpp
 )
+
+if(WIZ8_NATIVE)
+    include(native.cmake)
+    return()
+endif()
+
+add_library(wiz8_surrender_objects OBJECT ${SURRENDER_SOURCES})
 target_compile_definitions(wiz8_surrender_objects PRIVATE SURRENDER_BUILD)
 target_compile_options(wiz8_surrender_objects PRIVATE
     "$<$<CXX_COMPILER_ID:MSVC>:/GX->")

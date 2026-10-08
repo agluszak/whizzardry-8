@@ -4,7 +4,13 @@ if(NOT DEFINED CMAKE_BUILD_TYPE)
 endif()
 project(whizzardry8 LANGUAGES C CXX)
 
-if(NOT MSVC OR (NOT MSVC_VERSION EQUAL 1200 AND NOT CMAKE_CXX_COMPILER_ID STREQUAL "Clang"))
+# The native lane builds for Linux and macOS with Clang. The legacy lane
+# reproduces the shipped 32-bit Windows binaries with VC6 or clang-cl.
+if(NOT MSVC)
+    include(cmake/Native.cmake)
+    return()
+endif()
+if(NOT MSVC_VERSION EQUAL 1200 AND NOT CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
     message(FATAL_ERROR "Use Microsoft Visual C++ 6.0 or clang-cl targeting 32-bit Windows")
 endif()
 enable_language(RC)

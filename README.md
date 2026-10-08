@@ -3,6 +3,23 @@
 Wizardry 8 and SurRender. The build produces `Wiz8.exe` and `sr.dll`.
 JPEG and UnZip plug-in sources remain in the tree but are excluded from the build.
 
+## Native Linux build (in progress)
+
+Any non-MSVC Clang selects the native lane (`cmake/Native.cmake`): 64-bit
+Linux, system zlib and SDL3, no Windows SDK. It currently builds SurRender
+as `libsr.so` with an SDL3 GPU device, and the SGP compression core.
+
+```sh
+sudo apt install clang cmake ninja-build libsdl3-dev zlib1g-dev glslang-tools
+cmake -S . -B build-native -G Ninja -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++
+cmake --build build-native
+(cd build-native && ctest)
+```
+
+`srdd_spike` renders through `srGERD` and needs a display with a Vulkan
+driver. `WIZ8_SRDD_TRACE=1` logs device draws; `WIZ8_GPU_DEBUG=1` enables
+SDL GPU debug mode.
+
 ## Clang in Docker
 
 The image pins the Debian base and package snapshot, LLVM 19, the Microsoft
