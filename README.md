@@ -7,9 +7,11 @@ JPEG and UnZip plug-in sources remain in the tree but are excluded from the buil
 
 Any non-MSVC Clang selects the native lane (`cmake/Native.cmake`): 64-bit
 Linux, system zlib and SDL3, no Windows SDK. It currently builds SurRender
-as `libsr.so` with an SDL3 GPU device, SGP compression/blitters and the recovered
-SLF/file manager. The game still needs its native shell, audio and video ports
-before it can link and run.
+as `libsr.so` with an SDL3 GPU device, the portable SGP core and the recovered
+game code as `libWIZ8_GAME_CORE.a`. SDL keyboard, mouse, focus and timer messages
+feed the recovered SGP input queue and clock. The game still needs its native
+application shell, video surfaces, audio and video decoding before it can link
+and run.
 
 ```sh
 sudo apt install clang cmake ninja-build libsdl3-dev zlib1g-dev glslang-tools
@@ -21,6 +23,11 @@ cmake --build build-native
 `srdd_spike` renders through `srGERD` and needs a display with a Vulkan
 driver. `WIZ8_SRDD_TRACE=1` logs device draws; `WIZ8_GPU_DEBUG=1` enables
 SDL GPU debug mode.
+
+`native_events` uses SDL's dummy video driver and exercises the recovered input
+and string editor without a display. `native_imports` checks renderer contracts
+from a separate client executable. See [native validation](tests/native/README.md)
+for coverage and the remaining link boundary.
 
 File I/O uses a virtual `C:\` rooted at `WIZ8_ASSET_ROOT` (default: startup
 working directory). Reads check `WIZ8_USER_ROOT` first, then installed assets;

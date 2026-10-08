@@ -3,6 +3,49 @@
 Run the configured native lane with `cmake --build build-native` and
 `ctest --test-dir build-native --output-on-failure`.
 
+`native_events` sends SDL events through the native message bridge into the
+recovered SGP `input.cpp` and `timer.cpp`. It checks keys/modifiers, repeated
+keys, extended/numpad keys, string editing, mouse scaling, button repeats and
+double clicks, fractional/flipped wheel input, focus-loss release, message
+filters, queue wrap/full behavior, main-thread callbacks and the game clock.
+Print-screen/video-capture entry points are test recorders, not video ports.
+CTest selects SDL's dummy video driver; this checks event translation and
+dispatch, not interactive window behavior.
+
+The native message APIs run on SDL's main thread after a window is registered
+with `w8_native::attach_window`; detach it before destroying the SDL window.
+Timers use full-width IDs and callbacks execute only during message dispatch.
+Already queued timer callbacks remain dispatchable after cancellation, per
+[KillTimer](https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-killtimer).
+The bridge distinguishes old peeked messages from new arrivals for
+[WaitMessage](https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-waitmessage)
+and follows [SetTimer](https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-settimer)
+interval bounds. Text goes through the recovered key table/string editor;
+SDL text-input/IME support is not implemented.
+
+`native_imports` compiles a separate renderer client and exercises generated
+copy/destructor contracts for cameras, clip planes, fog, materials and Huffman
+sampling, plus the provider's variadic assertion signature. It also checks a
+four-byte-aligned `srQuadWord` conversion. Native clients use the same generated
+members as the library; Windows import declarations remain intact.
+
+`WIZ8_GAME_CORE` compiles the recovered game units except Miles imports, Bink
+and Video2. The SGP archive excludes its application shell, surfaces, sound and
+DirectDraw units. A whole-archive link is still expected to fail at these native
+platform boundaries; building an archive does not prove the game links or runs.
+To inspect the remaining contracts on Linux:
+
+```sh
+clang++ -o build-native/game-link-audit -Wl,--whole-archive \
+    build-native/libWIZ8_GAME_CORE.a build-native/libWIZ8_SGP.a \
+    -Wl,--no-whole-archive -Lbuild-native -lsr -lwiz8_compat -lz -pthread -ldl \
+    > build-native/game-link-audit.log 2>&1
+```
+
+The latest audit has 163 distinct unresolved symbols from those platform
+boundaries, including `main`, and no unresolved SurRender APIs. This is a saved
+link inventory, not a native executable or gameplay check.
+
 `native_pointer` checks an address above 4 GiB through the signed 32-bit button
 userdata adapter and a four-byte raw-record pointer slot, including null and
 repeated-pointer identity.
@@ -91,18 +134,20 @@ and [file-time conversion](https://learn.microsoft.com/en-us/windows/win32/sysin
 The local conversion retains Win32's use of the current timezone/DST bias when
 converting historical file times.
 
-The full native file test, including SurRender, can be built with sanitizers:
+The native file, event and renderer-client tests, including SurRender, can be
+built with sanitizers:
 
 ```sh
 cmake -S . -B build-native-asan -G Ninja \
     -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ \
     -DCMAKE_BUILD_TYPE=RelWithDebInfo \
     -DCMAKE_CXX_FLAGS='-fsanitize=address,undefined -shared-libasan -fno-omit-frame-pointer'
-cmake --build build-native-asan --target native_files_test
+cmake --build build-native-asan --target native_files_test native_events_test native_imports_test
 native_sanitizer_runtime=$(dirname "$(clang++ --print-file-name=libclang_rt.asan-x86_64.so)")
 LD_LIBRARY_PATH="$native_sanitizer_runtime${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" \
     UBSAN_OPTIONS=halt_on_error=1 ASAN_OPTIONS=detect_leaks=1 \
-    build-native-asan/native_files_test
+    ctest --test-dir build-native-asan --output-on-failure \
+    -R '^native_(files|events|imports)$'
 ```
 
 `-shared-libasan` supplies the runtime to the shared libraries while retaining

@@ -7,6 +7,8 @@ if(NOT CMAKE_SIZEOF_VOID_P EQUAL 8)
 endif()
 
 set(WIZ8_NATIVE ON)
+set(CMAKE_C_STANDARD 17)
+set(CMAKE_C_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
@@ -53,13 +55,14 @@ add_library(wiz8_compat SHARED
     src/compat/platform_crt.cpp
     src/compat/platform_files.cpp
     src/compat/platform_system.cpp
+    src/compat/platform_events.cpp
 )
 target_compile_options(wiz8_compat PRIVATE
     "SHELL:-include ${PROJECT_SOURCE_DIR}/include/wiz8/compat/compiler.h"
     -fsigned-char -fshort-wchar -fno-builtin-wcslen)
 target_compile_definitions(wiz8_compat PRIVATE WIZ8_NATIVE)
 target_include_directories(wiz8_compat PRIVATE "${PROJECT_SOURCE_DIR}/include/wiz8")
-target_link_libraries(wiz8_compat PRIVATE Threads::Threads)
+target_link_libraries(wiz8_compat PRIVATE Threads::Threads SDL3::SDL3)
 if(NOT APPLE)
     target_link_options(wiz8_compat PRIVATE -Wl,--no-undefined)
 endif()
@@ -68,6 +71,7 @@ target_link_libraries(wiz8_native_settings INTERFACE wiz8_compat)
 
 add_subdirectory(src/surrender)
 add_subdirectory(src/sgp)
+include("${PROJECT_SOURCE_DIR}/src/wiz8/native.cmake")
 
 enable_testing()
 add_executable(native_compression_test tests/native/compression_test.cpp)
@@ -77,6 +81,15 @@ add_test(NAME native_compression COMMAND native_compression_test)
 add_executable(native_files_test tests/native/files_test.cpp)
 target_link_libraries(native_files_test PRIVATE WIZ8_SGP SURRENDER)
 add_test(NAME native_files COMMAND native_files_test)
+
+add_executable(native_events_test tests/native/events_test.cpp)
+target_link_libraries(native_events_test PRIVATE WIZ8_SGP SDL3::SDL3)
+add_test(NAME native_events COMMAND native_events_test)
+set_tests_properties(native_events PROPERTIES ENVIRONMENT "SDL_VIDEODRIVER=dummy" TIMEOUT 10)
+
+add_executable(native_imports_test tests/native/imports_test.cpp)
+target_link_libraries(native_imports_test PRIVATE SURRENDER wiz8_native_settings)
+add_test(NAME native_imports COMMAND native_imports_test)
 
 add_executable(native_crt_test tests/native/crt_test.cpp)
 target_link_libraries(native_crt_test PRIVATE wiz8_native_settings)
