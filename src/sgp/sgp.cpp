@@ -501,7 +501,9 @@ void SGPExit(void)
 
     fAlreadyExiting = TRUE;
     gfProgramIsRunning = FALSE;
+#if !defined(WIZ8_NATIVE)
     ShutdownSoundManager();
+#endif
 
     // Wizardry only
     if (gfGameInitialized) {
@@ -514,6 +516,10 @@ void SGPExit(void)
         GameloopExit(fUnloadScreens);
     }
 
+#if defined(WIZ8_NATIVE)
+    /* Movie voices belong to the current screen and must leave the engine first. */
+    ShutdownSoundManager();
+#endif
     ShutdownStandardGamingPlatform();
 #if defined(WIZ8_NATIVE)
     W8VideoShowCursor(TRUE);

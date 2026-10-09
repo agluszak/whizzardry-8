@@ -488,7 +488,7 @@ void W8GameData::AddTriggerPlane(const srVector3T<float>* trigger_vertices, Trig
     if (octree != 0) {
         if (m_ppTriggers == 0) {
             g_integrated_trigger_count = 0;
-            m_ppTriggers = static_cast<Trigger**>(malloc(m_iNumTriggers * sizeof(Trigger*) + 4));
+            m_ppTriggers = static_cast<Trigger**>(malloc((m_iNumTriggers + 1) * sizeof(*m_ppTriggers)));
             if (m_ppTriggers == 0) {
                 srAssertFail("m_ppTriggers", "C:\\Projects\\Wizardry 8\\Engine Code\\GDFileIO.cpp",
                              0x256, "AddTriggerPlane: Couldn't allocate trigger array.");
@@ -771,7 +771,7 @@ void W8GameData::AddTriggerPlane(const srVector3T<float>* vertices, float value,
 void W8GameData::CreateGDEnviron(const W8GDSurface* surface, float scale)
 {
     if (m_iNumEnvirons % 10 == 0) {
-        unsigned int size = m_iNumEnvirons * sizeof(W8EnvironRecord*) + 0x28;
+        unsigned int size = (m_iNumEnvirons + 10) * sizeof(*m_ppEnvirons);
         W8EnvironRecord** grown = static_cast<W8EnvironRecord**>(malloc(size));
         if (grown == 0) {
             srAssertFail("ppTempEnvirons", "C:\\Projects\\Wizardry 8\\Engine Code\\GDFileIO.cpp",
@@ -1031,7 +1031,7 @@ W8GameData::W8GameData(int handle, bool secondary)
     }
     if (m_iNumEnvirons == 0) {
         m_iNumEnvirons = 1;
-        m_ppEnvirons = static_cast<W8EnvironRecord**>(malloc(0x28));
+        m_ppEnvirons = static_cast<W8EnvironRecord**>(malloc(10 * sizeof(*m_ppEnvirons)));
         if (m_ppEnvirons == 0) {
             srAssertFail("m_ppEnvirons", "C:\\Projects\\Wizardry 8\\Engine Code\\GDFileIO.cpp",
                          0x441, 0);

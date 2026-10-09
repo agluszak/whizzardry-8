@@ -1176,6 +1176,12 @@ static RuntimeWorldRenderData ObserveWorldRenderState()
 // FUNCTION: WIZ8 0x00426790
 void RenderFrame(void)
 {
+#if defined(WIZ8_NATIVE)
+    /* The movie adapter owns presentation until FinishVideoPresentation. */
+    if (!g_flush_pending) {
+        return;
+    }
+#endif
     EnvironmentColour clear_color;
     srVector3T<float> saved_world_position;
     srVector3T<float> shifted_world_position;

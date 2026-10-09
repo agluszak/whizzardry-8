@@ -144,11 +144,11 @@ bool InitializeItemTables(void)
     }
     if (gXStatus.uiItemTableCategories) {
         g_item_table_category_names =
-            static_cast<char**>(malloc(gXStatus.uiItemTableCategories * 4));
+            static_cast<char**>(malloc(gXStatus.uiItemTableCategories * sizeof(*g_item_table_category_names)));
         if (!g_item_table_category_names) {
             return false;
         }
-        memset(g_item_table_category_names, 0, gXStatus.uiItemTableCategories * 4);
+        memset(g_item_table_category_names, 0, gXStatus.uiItemTableCategories * sizeof(*g_item_table_category_names));
         for (index = 0; index < gXStatus.uiItemTableCategories; ++index) {
             g_item_table_category_names[index] = static_cast<char*>(malloc(0x100));
             FileRead(handle, g_item_table_category_names[index], 0x100, &transferred);

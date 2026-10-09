@@ -3882,13 +3882,13 @@ void W8Octree::Initialize(const W8OctFileHeader* header)
             m_linked_particles = new BitArray(m_ulNumParticles);
             m_visible_particles = new BitArray(m_ulNumParticles);
             m_particles_to_disable = new BitArray(m_ulNumParticles);
-            m_papParticles = static_cast<stParticle**>(malloc(m_ulNumParticles * 4 + 8));
+            m_papParticles = static_cast<stParticle**>(malloc((m_ulNumParticles + 2) * sizeof(*m_papParticles)));
         }
         if (m_ulNumProps != 0) {
             m_linked_props = new BitArray(m_ulNumProps);
             m_visible_props = new BitArray(m_ulNumProps);
             m_props_to_disable = new BitArray(m_ulNumProps);
-            m_papProps = static_cast<W8Prop**>(malloc(m_ulNumProps * 4 + 8));
+            m_papProps = static_cast<W8Prop**>(malloc((m_ulNumProps + 2) * sizeof(*m_papProps)));
         }
 
         m_visited_polygon_bits = new BitArray(header->m_polygon_count);

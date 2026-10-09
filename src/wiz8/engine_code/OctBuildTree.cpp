@@ -172,7 +172,7 @@ W8OctBuildTree::W8OctBuildTree(float leaf_size, srVector3T<float>* minimum,
         spatial.m_cell_size = spatial.m_node_extent * g_octree_cell_extent_scale;
         spatial.m_maximum.Set(minimum->x + spatial.m_extent, minimum->y + spatial.m_extent,
                               minimum->z + spatial.m_extent);
-        g_oct_build_scratch = static_cast<W8GDSurface**>(malloc(40000));
+        g_oct_build_scratch = static_cast<W8GDSurface**>(malloc(10000 * sizeof(*g_oct_build_scratch)));
         spatial.m_polygon_count = 1;
         spatial.m_item_count = 0;
         spatial.m_root = 0;

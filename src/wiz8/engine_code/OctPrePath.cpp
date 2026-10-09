@@ -49,7 +49,7 @@ OctPrePathLog::OctPrePathLog(float scale, const W8BoundingBox* bounds)
         width = static_cast<int>((bounds->maximum.x - bounds->minimum.x) / scale) + 1;
         rows = static_cast<int>((bounds->maximum.z - bounds->minimum.z) / scale) + 1;
         m_minimum = bounds->minimum;
-        m_pPathStrings = static_cast<char**>(malloc(rows << 2));
+        m_pPathStrings = static_cast<char**>(malloc(rows * sizeof(*m_pPathStrings)));
         if (m_pPathStrings == 0) {
             ReportBuildStatus(7, "OctPrePathLog: Could not allocate m_pPathStrings.\n");
             return;
@@ -59,7 +59,7 @@ OctPrePathLog::OctPrePathLog(float scale, const W8BoundingBox* bounds)
             memset(m_pPathStrings[i], ' ', width);
             m_pPathStrings[i][width] = 0;
         }
-        m_pLinkStrings = static_cast<char**>(malloc(rows << 2));
+        m_pLinkStrings = static_cast<char**>(malloc(rows * sizeof(*m_pLinkStrings)));
         if (m_pLinkStrings == 0) {
             ReportBuildStatus(7, "OctPrePathLog: Could not allocate m_pLinkStrings.\n");
             return;
@@ -185,7 +185,7 @@ unsigned char PrePathing::BuildPathList(W8PrePathNode* nodes,
 {
     this->cell_map = cell_map;
     path_log = new OctPrePathLog(grid_scale, &level_bounds);
-    path_node_list = static_cast<W8PrePathNode**>(malloc(path_node_count << 2));
+    path_node_list = static_cast<W8PrePathNode**>(malloc(path_node_count * sizeof(*path_node_list)));
     if (path_node_list == 0) {
         char message[0x100];
         sprintf(message, "BuildPathList: Could not allocate path node list, length %d nodes.\n",
@@ -594,12 +594,12 @@ void W8PathingService::LinkCollideableProps(int lNumProps, W8PreProp* pPreProps,
         m_pPathValues->Insert(&file_path_nodes[i].cell, &file_path_nodes[i].level_flags);
     }
 
-    GDPropCondPaths** ppCondPaths = static_cast<GDPropCondPaths**>(malloc(lNumProps * 4 + 8));
+    GDPropCondPaths** ppCondPaths = static_cast<GDPropCondPaths**>(malloc((lNumProps + 2) * sizeof(*ppCondPaths)));
     if (ppCondPaths == 0) {
         srAssertFail("ppCondPaths", OCTPREPATH_CPP, 1037,
                      "LinkCollideableProps: Couldn't allocate GDPropCondPaths objects.");
     }
-    memset(ppCondPaths, 0, lNumProps * 4 + 8);
+    memset(ppCondPaths, 0, (lNumProps + 2) * sizeof(*ppCondPaths));
 
     int ulOriginalCount = 0;
     for (i = 0; i < lNumProps; ++i) {

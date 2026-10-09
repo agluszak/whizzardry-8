@@ -225,9 +225,7 @@ extern bool g_texture_cache_enabled;
 extern srGERD* g_gerd;
 /* Secondary renderer device preferred by the offscreen world-render path. */
 extern srGERD* g_secondary_gerd;
-#if !defined(WIZ8_NATIVE)
 extern LPDIRECTDRAWSURFACE2 g_primary_surface;
-#endif
 extern stSurface2D* g_surface_node;
 extern srMaterial* g_blit_material;
 extern srColorSurface* g_mouse_surface;

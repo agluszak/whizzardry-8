@@ -551,7 +551,7 @@ OctMeshModel* OctPreTree::CreateSubMeshes(W8OctPreTreeGeometry* geometry)
                             static_cast<int*>(malloc(record->m_polygon_count << 2));
                         if (m_sun_count != 0) {
                             model->m_sun_lights =
-                                static_cast<float**>(malloc(static_cast<int>(m_sun_count) << 2));
+                                static_cast<float**>(malloc(static_cast<int>(m_sun_count) * sizeof(*model->m_sun_lights)));
                             if (model->m_sun_lights == 0) {
                                 ReportBuildStatus(7, "\nCreateSubMeshes: Could not allocate "
                                                      "ppsrSunLights.\n");
