@@ -883,7 +883,9 @@ private:
         SDL_GPUTransferBuffer* transfer = SDL_CreateGPUTransferBuffer(device, &transfer_info);
         char* mapped = static_cast<char*>(SDL_MapGPUTransferBuffer(device, transfer, false));
         size_t offset = 0;
-        memcpy(mapped, vertices.data(), vertex_bytes);
+        if (vertex_bytes != 0) {
+            memcpy(mapped, vertices.data(), vertex_bytes);
+        }
         offset += vertex_bytes;
         for (size_t index = 0; index < uploads.size(); ++index) {
             memcpy(mapped + offset, uploads[index].pixels.data(), uploads[index].pixels.size() * 4);

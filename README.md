@@ -9,9 +9,10 @@ Any non-MSVC Clang selects the native lane (`cmake/Native.cmake`): 64-bit
 Linux, system zlib and SDL3, no Windows SDK. It currently builds SurRender
 as `libsr.so` with an SDL3 GPU device, the portable SGP core and the recovered
 game code as `libWIZ8_GAME_CORE.a`. SDL keyboard, mouse, focus and timer messages
-feed the recovered SGP input queue and clock. The game still needs its native
-application shell, video surfaces, audio and video decoding before it can link
-and run.
+feed the recovered SGP input queue and clock. CPU surfaces now serve the recovered
+surface manager and Video2; the SDL entry point and window procedure compile.
+Audio and movie playback still block the full game link. The graphics harness
+loads retail SLF/STI assets and presents the recovered UI and cursor through SDL GPU.
 
 ```sh
 sudo apt install clang cmake ninja-build libsdl3-dev zlib1g-dev glslang-tools
@@ -27,7 +28,14 @@ SDL GPU debug mode.
 `native_events` uses SDL's dummy video driver and exercises the recovered input
 and string editor without a display. `native_imports` checks renderer contracts
 from a separate client executable. See [native validation](tests/native/README.md)
-for coverage and the remaining link boundary.
+for coverage and the remaining link boundary. With installed assets, run the
+recovered graphics path explicitly:
+
+```sh
+WIZ8_ASSET_ROOT=/path/to/Wizardry8 build-native/native_game_graphics
+```
+
+The harness uses a temporary user overlay and a private 640x480 configuration.
 
 File I/O uses a virtual `C:\` rooted at `WIZ8_ASSET_ROOT` (default: startup
 working directory). Reads check `WIZ8_USER_ROOT` first, then installed assets;

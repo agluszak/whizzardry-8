@@ -5,7 +5,7 @@ Run the configured native lane with `cmake --build build-native` and
 
 `native_events` sends SDL events through the native message bridge into the
 recovered SGP `input.cpp` and `timer.cpp`. It checks keys/modifiers, repeated
-keys, extended/numpad keys, string editing, mouse scaling, button repeats and
+keys, extended/numpad keys, string editing, mouse scaling and immediate warp queries, button repeats and
 double clicks, fractional/flipped wheel input, focus-loss release, message
 filters, queue wrap/full behavior, main-thread callbacks and the game clock.
 Print-screen/video-capture entry points are test recorders, not video ports.
@@ -29,22 +29,83 @@ sampling, plus the provider's variadic assertion signature. It also checks a
 four-byte-aligned `srQuadWord` conversion. Native clients use the same generated
 members as the library; Windows import declarations remain intact.
 
-`WIZ8_GAME_CORE` compiles the recovered game units except Miles imports, Bink
-and Video2. The SGP archive excludes its application shell, surfaces, sound and
-DirectDraw units. A whole-archive link is still expected to fail at these native
-platform boundaries; building an archive does not prove the game links or runs.
+`WIZ8_GAME_CORE` compiles 211 recovered game units, including Video2, except
+Miles imports and Bink. The 31-unit SGP archive includes its recovered shell and
+surface manager plus the CPU surface and SDL window adapters. Sound and the two
+Windows DirectDraw units remain excluded. `WIZ8_NATIVE_SHELL` compiles the actual
+SDL entry point. The full game link still requires audio and movie playback;
+building these archives and entry point does not prove gameplay.
 To inspect the remaining contracts on Linux:
 
 ```sh
-clang++ -o build-native/game-link-audit -Wl,--whole-archive \
+clang++ -o build-native/game-link-audit \
+    build-native/CMakeFiles/WIZ8_NATIVE_SHELL.dir/src/sgp/native/main.cpp.o \
+    -Wl,--whole-archive \
     build-native/libWIZ8_GAME_CORE.a build-native/libWIZ8_SGP.a \
-    -Wl,--no-whole-archive -Lbuild-native -lsr -lwiz8_compat -lz -pthread -ldl \
+    -Wl,--no-whole-archive -Lbuild-native -lsr -lwiz8_compat -lz -pthread -ldl -lSDL3 \
     > build-native/game-link-audit.log 2>&1
 ```
 
-The latest audit has 163 distinct unresolved symbols from those platform
-boundaries, including `main`, and no unresolved SurRender APIs. This is a saved
-link inventory, not a native executable or gameplay check.
+The latest audit has 38 distinct unresolved contracts, all sound-manager or
+Bink playback ownership (including `gfEnableStartup`). Graphics, entry-point and
+SurRender contracts resolve. This is a saved link inventory, not gameplay.
+
+`native_surface_oracle` compares 90 cases at 8/16/32 bpp with Wine DirectDraw:
+fills, source/destination keys, nearest-neighbour stretching, self-overlap and
+canonical clip unions. Pitch and every destination byte, including padding,
+are captured in `surfaces_legacy.txt`. This is a Wine DirectDraw reference,
+separate from the legacy-assembly blitter captures and shipped-renderer parity.
+Regenerate with the same harness:
+
+```sh
+WINSDK_ROOT="$PWD/build-clang/xwin" cmake -S . -B build-clang/legacy-check \
+    -DWIZ8_BUILD_LEGACY_SURFACE_TEST=ON
+WINSDK_ROOT="$PWD/build-clang/xwin" cmake --build build-clang/legacy-check \
+    --target legacy_surface_test
+WINEDEBUG=-all wine build-clang/legacy-check/legacy_surface_test.exe --capture \
+    > build-clang/surfaces_capture.txt
+tr -d '\r' < build-clang/surfaces_capture.txt > tests/native/surfaces_legacy.txt
+```
+
+The native CPU adapter retains row pitch, color-key ranges, palette/clipper
+references and lock state. Host memory survives focus changes. Unsupported
+operations throw explicitly. Native descriptions contain only fields used by
+the recovered callers; they are not serialized COM layouts.
+[Color-key ranges](https://learn.microsoft.com/en-us/windows/win32/api/ddraw/nf-ddraw-idirectdrawsurface7-setcolorkey)
+follow `DDCKEY_COLORSPACE`; clipped stretching was checked against the captures
+and [Wine's implementation](https://github.com/wine-mirror/wine/blob/master/dlls/ddraw/surface.c).
+
+`native_game_graphics` requires installed retail assets and a display/Vulkan
+GPU. It runs the actual SLF/STI readers, recovered surface/object managers,
+Video2 renderer setup, `stSurface2D::DrawTiles` and cursor scene. It uses its own
+temporary overlay and 640x480 video config. The default bottom-interface fixture
+has 58,548 colored pixels; all match CPU RGB555 within eight levels per channel,
+and the cursor contributes 556 GPU pixels in the sampled region.
+
+```sh
+WIZ8_ASSET_ROOT=/path/to/Wizardry8 build-native/native_game_graphics
+# Optional asset and absolute PPM output path:
+WIZ8_ASSET_ROOT=/path/to/Wizardry8 build-native/native_game_graphics \
+    'Data\MAIN INTERFACE\BOTTOM.STI' "$PWD/build-native/game-ui.ppm"
+```
+
+The graphics harness uses `NativeInputWindowProcedure`, a test-only sound-provider
+recorder and startup flag. The full `WindowProcedure` and main compile but need
+the media implementations to link their game lifecycle. This checks real asset
+rendering, not an interactive game or full-shell runtime. The 640x480 client-space
+adapter scales SDL input/warps against actual window dimensions; native Video2
+keeps its logical cursor coordinate calculations.
+
+Surface, file, event and renderer-client tests pass full ASan/UBSan with leak
+detection. The graphics sanitizer run is **not clean**: default ASan flags duplicate
+`srTriMeshPipeline` vtables from the game and renderer. A diagnostic run with
+`detect_odr_violation=1` reaches the matching UI/cursor output but reports shutdown
+leaks in external/unknown modules. Preserve the stricter failure as a follow-up;
+no suppression is required for the four clean tests. Sanitizers also exposed an
+empty-vertex upload passing a null pointer to zero-length `memcpy`; the SDL GPU
+adapter now skips that copy. Linux focused-graphics links use `-z start-stop-gc`
+so unused ASan global-registration sections can be discarded with unused game
+functions while media remains absent.
 
 `native_pointer` checks an address above 4 GiB through the signed 32-bit button
 userdata adapter and a four-byte raw-record pointer slot, including null and
@@ -142,12 +203,12 @@ cmake -S . -B build-native-asan -G Ninja \
     -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ \
     -DCMAKE_BUILD_TYPE=RelWithDebInfo \
     -DCMAKE_CXX_FLAGS='-fsanitize=address,undefined -shared-libasan -fno-omit-frame-pointer'
-cmake --build build-native-asan --target native_files_test native_events_test native_imports_test
+cmake --build build-native-asan --target native_files_test native_events_test native_imports_test native_surface_oracle
 native_sanitizer_runtime=$(dirname "$(clang++ --print-file-name=libclang_rt.asan-x86_64.so)")
 LD_LIBRARY_PATH="$native_sanitizer_runtime${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" \
     UBSAN_OPTIONS=halt_on_error=1 ASAN_OPTIONS=detect_leaks=1 \
     ctest --test-dir build-native-asan --output-on-failure \
-    -R '^native_(files|events|imports)$'
+    -R '^native_(files|events|imports|surface_oracle)$'
 ```
 
 `-shared-libasan` supplies the runtime to the shared libraries while retaining

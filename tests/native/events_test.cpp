@@ -134,6 +134,16 @@ int main()
     CHECK(input().empty());
     CHECK(gusMouseXPos == 320 && gusMouseYPos == 240);
 
+    CHECK(w8_native::warp_mouse(ghWindow, 123, 321));
+    POINT position;
+    W8GetMousePosition(&position);
+    CHECK(position.x == 123 && position.y == 321);
+    CHECK(w8_native::warp_mouse(ghWindow, -10, 600));
+    W8GetMousePosition(&position);
+    CHECK(position.x == 0 && position.y == 479);
+    CHECK(w8_native::warp_mouse(ghWindow, 320, 240));
+    drain_messages();
+
     key(SDL_EVENT_KEY_DOWN, SDLK_A, SDL_KMOD_LSHIFT);
     key(SDL_EVENT_KEY_DOWN, SDLK_A, SDL_KMOD_LSHIFT, true);
     key(SDL_EVENT_KEY_UP, SDLK_A, SDL_KMOD_LSHIFT);

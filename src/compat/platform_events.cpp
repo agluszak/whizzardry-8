@@ -474,6 +474,24 @@ void detach_window(HWND window)
                                  [&](const Window& item) { return window_handle(item) == window; }),
                   windows.end());
 }
+bool warp_mouse(HWND handle, int x, int y)
+{
+    if (!main_thread())
+        return false;
+    Window* window = find_window(handle);
+    if (!window) {
+        w8_set_error(ERROR_INVALID_HANDLE);
+        return false;
+    }
+    int width, height;
+    if (!SDL_GetWindowSize(window->native, &width, &height))
+        return false;
+    window->mouse = {std::clamp(x, 0, window->width - 1),
+                     std::clamp(y, 0, window->height - 1)};
+    SDL_WarpMouseInWindow(window->native, window->mouse.x * float(width) / window->width,
+                         window->mouse.y * float(height) / window->height);
+    return true;
+}
 void post_quit(int code)
 {
     if (main_thread())

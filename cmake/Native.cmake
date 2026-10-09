@@ -73,6 +73,10 @@ add_subdirectory(src/surrender)
 add_subdirectory(src/sgp)
 include("${PROJECT_SOURCE_DIR}/src/wiz8/native.cmake")
 
+# Compile the real entry point while audio/video ports still block final linking.
+add_library(WIZ8_NATIVE_SHELL OBJECT src/sgp/native/main.cpp)
+target_link_libraries(WIZ8_NATIVE_SHELL PRIVATE wiz8_native_settings SDL3::SDL3)
+
 enable_testing()
 add_executable(native_compression_test tests/native/compression_test.cpp)
 target_link_libraries(native_compression_test PRIVATE WIZ8_SGP)
@@ -113,3 +117,18 @@ add_test(NAME native_no_glibc_wide_strings
 add_executable(srdd_spike tests/native/srdd_spike.cpp)
 target_link_libraries(srdd_spike PRIVATE SURRENDER wiz8_native_settings SDL3::SDL3)
 add_test(NAME srdd_spike COMMAND srdd_spike 60)
+
+add_executable(native_surface_oracle tests/native/surface_oracle.cpp)
+target_link_libraries(native_surface_oracle PRIVATE WIZ8_SGP)
+add_test(NAME native_surface_oracle COMMAND native_surface_oracle "${PROJECT_SOURCE_DIR}/tests/native/surfaces_legacy.txt")
+
+add_executable(native_game_graphics tests/native/game_graphics.cpp)
+target_link_libraries(native_game_graphics PRIVATE WIZ8_GAME_CORE WIZ8_SGP WIZ8_GAME_CORE SDL3::SDL3)
+if(APPLE)
+    target_link_options(native_game_graphics PRIVATE -Wl,-dead_strip)
+else()
+    # Discard unused ASan global-registration sections alongside unused game
+    # functions; the harness exercises graphics before the media link exists.
+    target_link_options(native_game_graphics PRIVATE -Wl,--gc-sections -Wl,-z,start-stop-gc)
+endif()
+# Uses installed retail assets, supplied through WIZ8_ASSET_ROOT; run explicitly.
