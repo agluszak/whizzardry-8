@@ -14,7 +14,14 @@ class srMaterialIFace;
 /* Shared lazy singleton behind srTriMeshPipeline::pipe. Wizardry implements it (Engine
    Code\stMeshModel.cpp) and owns an srVertexPipe in it. */
 #pragma pack(push, 4)
+/* The EXE and DLL each implement the methods/vtable, but import one pipe
+   static from the DLL. Native clients must bind their recovered game methods
+   locally instead of interposing on the renderer's implementation. */
+#if defined(WIZ8_NATIVE) && !defined(SURRENDER_BUILD)
+class __attribute__((visibility("hidden"))) srTriMeshPipeline {
+#else
 class srTriMeshPipeline {
+#endif
 public:
     enum { FRUSTUM_CLIPPING = 1u, LIMIT_VERTEX_BATCHES = 2u };
     struct Record {
@@ -122,7 +129,11 @@ protected:
     /* srExit releases the singleton through this protected static. */
     friend SR_DLL_IMPORT int __cdecl srExit(void);
 
+#if defined(WIZ8_NATIVE) && !defined(SURRENDER_BUILD)
+    static __attribute__((visibility("default"))) srTriMeshPipeline* pipe;
+#else
     static SR_DLL_IMPORT srTriMeshPipeline* pipe;
+#endif
 
 private:
     srTriMeshPipeline();

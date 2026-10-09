@@ -1,7 +1,6 @@
 {
   "_comment": "Tables for tools/native_codemod.py; see its docstring.",
   "platform_units": {
-    "src/sgp/soundman.cpp": "PR 4 audio (Miles)",
     "src/wiz8/imports/mss.cpp": "PR 4 audio (Miles)",
     "src/wiz8/engine_code/Bink.cpp": "PR 5 video (Bink)",
     "src/sgp/DirectDraw Calls.cpp": "PR 6 surfaces (DirectDraw)",
