@@ -25,7 +25,7 @@ FLAGS = [
     '-fsigned-char', '-fwrapv', '-fno-strict-aliasing', '-fshort-wchar', '-fno-builtin-wcslen',
     '-DWIZ8_NATIVE', '-DNDEBUG',
     '-include', 'include/wiz8/compat/compiler.h',
-    '-Iinclude', '-Iinclude/wiz8', '-Iinclude/wiz8/engine_code', '-Isrc/sgp',
+    '-Iinclude', '-Iinclude/wiz8', '-Iinclude/wiz8/engine_code', '-Isrc/sgp', '-Isrc/compat',
     '-fno-color-diagnostics', '-fno-caret-diagnostics',
 ]
 

@@ -47,6 +47,8 @@ extern CHAR8 gzErrorMsg[2048];
 
 #if !defined(WIZ8_NATIVE)
 INT32 FAR PASCAL WindowProcedure(HWND window, UINT16 message, WPARAM wparam, LPARAM lparam);
+#else
+LRESULT WindowProcedure(HWND window, UINT message, WPARAM wparam, LPARAM lparam);
 #endif
 BOOLEAN InitializeStandardGamingPlatform(HINSTANCE instance, int show_command);
 void ShutdownStandardGamingPlatform(void);

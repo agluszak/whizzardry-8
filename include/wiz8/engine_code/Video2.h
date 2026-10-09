@@ -7,7 +7,7 @@
 
 #include "wiz8/wiz8_windows.h"
 #if defined(WIZ8_NATIVE)
-struct IDirectDrawSurface2;
+#include "compat/surfaces.h"
 #endif
 #if !defined(WIZ8_NATIVE)
 #include <ddraw.h>
@@ -40,10 +40,8 @@ extern void SuspendVideoManager(void);
 extern BOOLEAN RestoreVideoManager(void);
 extern void GetCurrentVideoSettings(UINT16* usWidth, UINT16* usHeight, UINT8* ubBitDepth);
 extern void InvalidateRegion(INT32 iLeft, INT32 iTop, INT32 iRight, INT32 iBottom, UINT32 uiFlags);
-#if !defined(WIZ8_NATIVE) /* DirectDraw presentation; the native lane presents through SDL */
 extern LPDIRECTDRAW2 GetDirectDraw2Object(void);
 extern LPDIRECTDRAWSURFACE2 GetFrameBufferObject(void);
-#endif
 extern PTR LockPrimarySurface(UINT32* uiPitch);
 extern void UnlockPrimarySurface(void);
 extern PTR LockMouseBuffer(UINT32* uiPitch);

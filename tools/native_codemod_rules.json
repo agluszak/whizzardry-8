@@ -5,10 +5,7 @@
     "src/wiz8/imports/mss.cpp": "PR 4 audio (Miles)",
     "src/wiz8/engine_code/Bink.cpp": "PR 5 video (Bink)",
     "src/sgp/DirectDraw Calls.cpp": "PR 6 surfaces (DirectDraw)",
-    "src/sgp/DirectX Common.cpp": "PR 6 surfaces (DirectDraw)",
-    "src/sgp/vsurface.cpp": "PR 6 surfaces (DirectDraw)",
-    "src/wiz8/engine_code/Video2.cpp": "PR 6 presentation (DirectDraw, Win32 window)",
-    "src/sgp/sgp.cpp": "PR 6 application shell (WinMain, message loop)"
+    "src/sgp/DirectX Common.cpp": "PR 6 surfaces (DirectDraw)"
   },
   "includes": {
     "DWORD": "compat/kernel32.h",

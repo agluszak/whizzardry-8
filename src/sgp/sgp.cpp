@@ -2,7 +2,11 @@
    Distributed under the accompanying SFI Source Code license agreement. */
 #include "Types.h"
 #include "compat/kernel32.h"
+#if !defined(WIZ8_NATIVE)
 #include <windowsx.h>
+#else
+#include "compat/video.h"
+#endif
 #include <stdio.h>
 #include <stdarg.h>
 #include <string.h>
@@ -22,9 +26,10 @@
 #include "wiz8/engine_code/GameData.h"
 
 #include "input.h"
+#if !defined(WIZ8_NATIVE)
 #include <zmouse.h>
-
 #include "dbt.h"
+#endif
 
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
@@ -79,6 +84,7 @@ BOOLEAN gfIgnoreMessages = FALSE;
 // GLOBAL: WIZ8 0x005ff450
 UINT8 gbPixelDepth = PIXEL_DEPTH;
 
+#if !defined(WIZ8_NATIVE)
 // FUNCTION: WIZ8 0x004011e0
 INT32 FAR PASCAL WindowProcedure(HWND hWindow, UINT16 Message, WPARAM wParam, LPARAM lParam)
 {
@@ -253,6 +259,8 @@ INT32 FAR PASCAL WindowProcedure(HWND hWindow, UINT16 Message, WPARAM wParam, LP
     return 0L;
 }
 
+#endif
+
 // FUNCTION: WIZ8 0x00401570
 BOOLEAN InitializeStandardGamingPlatform(HINSTANCE hInstance, int sCommandShow)
 {
@@ -265,7 +273,9 @@ BOOLEAN InitializeStandardGamingPlatform(HINSTANCE hInstance, int sCommandShow)
     InitializeRegistryKeys("Wizardry8", "Wizardry8key");
 
     // For rendering DLLs etc.
+#if !defined(WIZ8_NATIVE)
     AddSubdirectoryToPath("DLL");
+#endif
 
     // Second, read in settings
     GetRuntimeSettings();
@@ -362,7 +372,11 @@ BOOLEAN InitializeStandardGamingPlatform(HINSTANCE hInstance, int sCommandShow)
     }
 
     // Register mouse wheel message
+#if defined(WIZ8_NATIVE)
+    guiMouseWheelMsg = WM_MOUSEWHEEL;
+#else
     guiMouseWheelMsg = RegisterWindowMessage(MSH_MOUSEWHEEL);
+#endif
 
     gfGameInitialized = TRUE;
 
@@ -420,6 +434,7 @@ void ShutdownStandardGamingPlatform(void)
     ShutdownDebugManager();
 }
 
+#if !defined(WIZ8_NATIVE)
 // FUNCTION: WIZ8 0x00401670
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nShowCmd)
 {
@@ -468,6 +483,8 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     return message.wParam;
 }
 
+#endif
+
 //Do not place code in between WinMain and Handled WinMain
 
 // FUNCTION: WIZ8 0x004017f0
@@ -498,17 +515,26 @@ void SGPExit(void)
     }
 
     ShutdownStandardGamingPlatform();
+#if defined(WIZ8_NATIVE)
+    W8VideoShowCursor(TRUE);
+    if (gzErrorMsg[0])
+        fprintf(stderr, "%s\n", gzErrorMsg);
+#else
     ShowCursor(TRUE);
     if (strlen(gzErrorMsg)) {
         MessageBox(NULL, gzErrorMsg, "Error", MB_OK | MB_ICONERROR);
     }
 
+#endif
     VideoDumpMemoryLeaks();
 }
 
 // FUNCTION: WIZ8 0x004018c0
 void GetRuntimeSettings()
 {
+#if defined(WIZ8_NATIVE)
+    gbPixelDepth = W8ReadProfileInt("sgp.ini", "SGP", "PIXEL_DEPTH", PIXEL_DEPTH);
+#else
     // Runtime settings - for now use INI file - later use registry
     STRING512 ExeDir;
     STRING512 INIFile;
@@ -519,6 +545,7 @@ void GetRuntimeSettings()
     sprintf(INIFile, "%s\\sgp.ini", ExeDir);
 
     gbPixelDepth = GetPrivateProfileInt("SGP", "PIXEL_DEPTH", PIXEL_DEPTH, INIFile);
+#endif
 }
 
 // FUNCTION: WIZ8 0x00401920
@@ -528,7 +555,12 @@ void ShutdownWithErrorBox(const CHAR8* pcMessage)
     gzErrorMsg[2047] = '\0';
     gfIgnoreMessages = TRUE;
 
+#if defined(WIZ8_NATIVE)
+    fprintf(stderr, "%s\n", gzErrorMsg);
+    exit(1);
+#else
     exit(0);
+#endif
 }
 
 // FUNCTION: WIZ8 0x00401950

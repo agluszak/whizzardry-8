@@ -48,10 +48,12 @@ typedef struct tagRECT {
     LONG bottom;
 } RECT, *LPRECT;
 
+typedef LRESULT (CALLBACK* WNDPROC)(HWND, UINT, WPARAM, LPARAM);
+
 typedef struct tagPOINT {
     LONG x;
     LONG y;
-} POINT;
+} POINT, *LPPOINT;
 
 /* 100 ns intervals since 1601, as stored in save games and SLF directories. */
 typedef struct _FILETIME {

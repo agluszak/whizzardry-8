@@ -68,7 +68,23 @@
 #include "vsurface.h"
 #include "wiz8/local_code/ControlsRect.h"
 
+#if !defined(WIZ8_NATIVE)
 #include <direct.h>
+#else
+#include "compat/video.h"
+#define GetClientRect W8VideoGetClientRect
+#define GetWindowRect W8VideoGetWindowRect
+#define ClientToScreen W8VideoClientToScreen
+#define GetCursorPos W8GetMousePosition
+#define SetCursorPos(x, y) W8VideoWarpMouse(ghWindow, x, y)
+#define ShowCursor W8VideoShowCursor
+#define ShowWindow W8VideoShowWindow
+#define SetFocus W8VideoRaiseWindow
+#define OpenIcon(window) W8VideoShowWindow(window, 9)
+#define CloseWindow W8VideoCloseWindow
+#define SW_MINIMIZE 6
+#define SW_RESTORE 9
+#endif
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -348,12 +364,13 @@ void ResetVideoFrameState(void)
 unsigned char InitializeVideoManager(HINSTANCE instance, unsigned short show_command,
                                      void* window_proc)
 {
-    MEMORYSTATUS status;
     unsigned int active;
-
+#if !defined(WIZ8_NATIVE)
+    MEMORYSTATUS status;
     memset(&status, 0, sizeof(status));
     status.dwLength = sizeof(status);
     GlobalMemoryStatus(&status);
+#endif
     g_world_pick_enabled = true;
     SetPickedModelInstance(0);
     g_fps_frame_count = 0;
@@ -425,6 +442,11 @@ void ShutdownVideoManager(void)
     ShutdownVideoScenes();
     ShutdownStartupNavigation();
     SuspendVideoManager();
+#if defined(WIZ8_NATIVE)
+    HWND native_window = ghWindow;
+    DDReleaseSurface(&g_primary_surface1, &g_primary_surface);
+    DDReleaseSurface(&g_video_primary_surface1, &g_video_primary_surface2);
+#else
     if (g_primary_surface1) {
         g_primary_surface1->Release();
         g_primary_surface1 = 0;
@@ -441,6 +463,7 @@ void ShutdownVideoManager(void)
         g_direct_draw2->Release();
         g_direct_draw2 = 0;
     }
+#endif
     if (ghWindow) {
         CloseWindow(ghWindow);
         ghWindow = 0;
@@ -462,6 +485,9 @@ void ShutdownVideoManager(void)
     }
     srConfig.removeAll();
     srExit();
+#if defined(WIZ8_NATIVE)
+    W8DestroyGameWindow(native_window);
+#endif
 }
 
 /* Releases the renderer scene graph and 2D objects created by the video
@@ -538,6 +564,10 @@ void Initialize16BitPixelFormatMasks(void)
 // FUNCTION: WIZ8 0x00425ec0
 unsigned char CreateWizardryWindow(void)
 {
+#if defined(WIZ8_NATIVE)
+    ghWindow = W8CreateGameWindow(g_window_proc, g_screen_width, g_screen_height, g_fullscreen != 0);
+    return ghWindow != 0;
+#else
     WNDCLASSA window_class;
     int extent;
     DWORD style;
@@ -591,6 +621,7 @@ unsigned char CreateWizardryWindow(void)
     }
     SetFocus(ghWindow);
     return 1;
+#endif
 }
 
 /* Creates the 640x480 system-memory DirectDraw surface that SurRender uses as
@@ -599,6 +630,22 @@ unsigned char CreateWizardryWindow(void)
 // FUNCTION: WIZ8 0x00426080
 unsigned char InitializePrimaryDirectDrawSurface(void)
 {
+#if defined(WIZ8_NATIVE)
+    DDSURFACEDESC description = {};
+    description.dwSize = sizeof(description);
+    description.dwFlags = DDSD_CAPS | DDSD_HEIGHT | DDSD_WIDTH | DDSD_PIXELFORMAT;
+    description.dwHeight = 480;
+    description.dwWidth = 640;
+    description.ddsCaps.dwCaps = DDSCAPS_OFFSCREENPLAIN | DDSCAPS_SYSTEMMEMORY;
+    description.ddpfPixelFormat.dwSize = sizeof(DDPIXELFORMAT);
+    description.ddpfPixelFormat.dwFlags = DDPF_RGB;
+    description.ddpfPixelFormat.dwRGBBitCount = 16;
+    description.ddpfPixelFormat.dwRBitMask = gusRedMask;
+    description.ddpfPixelFormat.dwGBitMask = gusGreenMask;
+    description.ddpfPixelFormat.dwBBitMask = gusBlueMask;
+    DDCreateSurface(0, &description, &g_primary_surface1, &g_primary_surface);
+    return g_primary_surface != 0;
+#else
     DDSURFACEDESC description;
     HRESULT result;
 
@@ -647,6 +694,7 @@ unsigned char InitializePrimaryDirectDrawSurface(void)
     memset(description.lpSurface, 0, description.lPitch * 480);
     DDUnlockSurface(g_primary_surface, NULL);
     return 1;
+#endif
 }
 
 /* Selects and starts the configured SurRender display driver, binds it to the
@@ -696,7 +744,9 @@ unsigned char InitializeVideoDevice(void)
         fclose(config);
     }
 
+#if !defined(WIZ8_NATIVE)
     _chdir("DLL");
+#endif
     srInit();
     srConfig.set("DD_DIRECTX7", "DisablePrimaryHEL=1 DisableAttachedSecondaryDevices=1 "
                                 "DisableDetachedSecondaryDevices=1 DisableNonDisplayDevices=1");
@@ -705,16 +755,25 @@ unsigned char InitializeVideoDevice(void)
     srStringTable devices;
     sprintf(driver_name, "srDD_%s", device);
     devices.addString(driver_name);
+#if defined(WIZ8_NATIVE)
+    g_gerd = new srGERD(W8CreateNativeRenderDevice(), 0, "SDLGPU");
+#else
     g_gerd = srGERD::loadDevice(devices, 0);
     _chdir("..");
+#endif
     if (!g_gerd) {
         ShutdownWithErrorBox("Video device cannot be started. Please re-run 3DSetup.");
         return 0;
     }
 
     // reinterpret-ok: SurRender takes the window handle as an integer
-    g_gerd->createContext(reinterpret_cast<w8_ulong>(ghWindow));
+#if defined(WIZ8_NATIVE)
+    if (g_gerd->createContext(reinterpret_cast<w8_ulong_ptr>(ghWindow)) != srGERD::ERROR_NONE ||
+        !OpenRendererWindow()) return 0;
+#else
+    g_gerd->createContext(reinterpret_cast<w8_ulong_ptr>(ghWindow));
     OpenRendererWindow();
+#endif
     srAssertSetFunc(AssertFailureHandler);
     if (_strnicmp(sound_provider, "none", 4) == 0) {
         gfEnableStartup = FALSE;
@@ -730,6 +789,14 @@ unsigned char InitializeVideoDevice(void)
 // FUNCTION: WIZ8 0x00422800
 unsigned char OpenRendererWindow(void)
 {
+#if defined(WIZ8_NATIVE)
+    if (!W8ConfigureGameWindow(ghWindow, g_fullscreen != 0, g_screen_width, g_screen_height))
+        return 0;
+    if (g_gerd->openWindow(g_screen_width, g_screen_height) != srGERD::ERROR_NONE)
+        return 0;
+    g_flush_pending = true;
+    return 1;
+#else
     srGERD::e_error error;
     w8_long mode;
     LPSTR error_message;
@@ -773,11 +840,20 @@ unsigned char OpenRendererWindow(void)
     }
     g_flush_pending = true;
     return 1;
+#endif
 }
 
 // FUNCTION: WIZ8 0x00423390
 IDirectDrawSurface2* BeginVideoPresentation(void)
 {
+#if defined(WIZ8_NATIVE)
+    /* CPU movie output shares the native renderer's persistent window. */
+    DDSURFACEDESC description;
+    DDGetSurfaceDescription(g_primary_surface, &description);
+    DDCreateSurface(0, &description, &g_video_primary_surface1, &g_video_primary_surface2);
+    g_flush_pending = false;
+    return g_video_primary_surface2;
+#else
     DDSURFACEDESC description;
 
     if (g_gerd != 0) {
@@ -806,11 +882,18 @@ IDirectDrawSurface2* BeginVideoPresentation(void)
         return 0;
     }
     return g_video_primary_surface2;
+#endif
 }
 
 // FUNCTION: WIZ8 0x004234A0
 unsigned char FinishVideoPresentation(void)
 {
+#if defined(WIZ8_NATIVE)
+    DDReleaseSurface(&g_video_primary_surface1, &g_video_primary_surface2);
+    g_flush_pending = true;
+    InvalidateRegion(0, 0, 640, 480, 0);
+    return 1;
+#else
     if (g_video_primary_surface1 != 0) {
         g_video_primary_surface1->Release();
         g_video_primary_surface1 = 0;
@@ -821,8 +904,9 @@ unsigned char FinishVideoPresentation(void)
     }
     g_direct_draw2->SetCooperativeLevel(NULL, DDSCL_NORMAL);
     // reinterpret-ok: SurRender takes the window handle as an integer
-    g_gerd->createContext(reinterpret_cast<w8_ulong>(ghWindow));
+    g_gerd->createContext(reinterpret_cast<w8_ulong_ptr>(ghWindow));
     return OpenRendererWindow();
+#endif
 }
 
 /* WM_SIZE only rebuilds the SurRender output in windowed mode.  Full-screen
@@ -1373,11 +1457,15 @@ void GetWorldColour(EnvironmentColour* colour)
 // FUNCTION: WIZ8 0x00428e20
 int GetUsedPageFileBytes(void)
 {
+#if defined(WIZ8_NATIVE)
+    return W8UsedPageFileBytes();
+#else
     MEMORYSTATUS status;
     memset(&status, 0, sizeof(status));
     status.dwLength = sizeof(status);
     GlobalMemoryStatus(&status);
     return status.dwTotalPageFile - status.dwAvailPageFile;
+#endif
 }
 
 // FUNCTION: WIZ8 0x00427260
@@ -2213,7 +2301,9 @@ void DrawVideoInspector(int left, unsigned int top)
 {
     DDSURFACEDESC description;
     srGERD::Statistics statistics;
+#if !defined(WIZ8_NATIVE)
     MEMORYSTATUS memory_status;
+#endif
     srVector3T<float> position;
     unsigned int bottom;
     unsigned char* row;
@@ -2260,11 +2350,15 @@ void DrawVideoInspector(int left, unsigned int top)
             gprintfDirty(left, top + 0x5a, L"RM: %dK", g_gerd->getResidentTextureMemUsed() >> 10);
             gprintfDirty(left, top + 0x64, L"TM: %dK", g_gerd->getTextureCacheUsed());
             gprintfDirty(left, top + 0x6e, L"DR: %3d", GetCameraYawAndRotation(0));
+#if defined(WIZ8_NATIVE)
+            gprintfDirty(left, top + 0x78, L"MU: %dK", W8UsedPageFileBytes() >> 10);
+#else
             memset(&memory_status, 0, sizeof(memory_status));
             memory_status.dwLength = sizeof(memory_status);
             GlobalMemoryStatus(&memory_status);
             gprintfDirty(left, top + 0x78, L"MU: %dK",
                          (memory_status.dwTotalPageFile - memory_status.dwAvailPageFile) >> 10);
+#endif
             gprintfDirty(left, top + 0x82, L"MM: %dK",
                          static_cast<unsigned int>(g_decompressed_mesh_bytes) >> 10);
             return;
@@ -2685,6 +2779,9 @@ void SetFullscreenSceneLast(unsigned char value)
 // FUNCTION: WIZ8 0x004298F0
 bool HasEnoughFreeDiskSpace(void)
 {
+#if defined(WIZ8_NATIVE)
+    return W8HasEnoughSaveSpace();
+#else
     FARPROC extended;
     LARGE_INTEGER available;
     LARGE_INTEGER capacity;
@@ -2710,6 +2807,7 @@ bool HasEnoughFreeDiskSpace(void)
                                           free_clusters / 0x400 / 0x400);
     enough = megabytes >= 0x100;
     return enough;
+#endif
 }
 
 // FUNCTION: WIZ8 0x00429AF0
@@ -3376,11 +3474,15 @@ void SetTextureCacheSize(w8_ulong bytes)
 // FUNCTION: WIZ8 0x00428e60
 unsigned int GetTotalPhysicalMemory(void)
 {
+#if defined(WIZ8_NATIVE)
+    return W8TotalPhysicalMemory();
+#else
     MEMORYSTATUS status;
     memset(&status, 0, sizeof(status));
     status.dwLength = sizeof(status);
     GlobalMemoryStatus(&status);
     return status.dwTotalPhys;
+#endif
 }
 
 /* Build an stTextureAnim whose frames are consecutive VObject subimages starting
@@ -3729,7 +3831,7 @@ void SetPickKey(void* key)
 {
     if (g_gerd) {
         g_gerd->setPickKey(
-            reinterpret_cast<w8_ulong>(key)); // reinterpret-ok: opaque pick token
+            reinterpret_cast<w8_ulong_ptr>(key)); // reinterpret-ok: opaque pick token
     }
 }
 
