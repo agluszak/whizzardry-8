@@ -1,3 +1,4 @@
+#include "wiz8/compat/unaligned.h"
 #include "surrender/srModeler.h"
 
 #include "surrender/srDebug.h"
@@ -793,7 +794,7 @@ void srModeler::getAxialBounds(e_axis axis, float& minimum, float& maximum)
             maximum = 0.0f;
             return;
         }
-        float* component = &(&triangles[0].vertices[0].position.x)[axis];
+        w8_unaligned_float* component = &(&triangles[0].vertices[0].position.x)[axis];
         minimum = *component;
         maximum = *component;
         for (w8_ulong index = 0; index < triangle_count; ++index) {
@@ -1058,7 +1059,7 @@ void srModeler::planarMap(w8_long pass, w8_long layer, const MappingInfo& mappin
         Triangle* triangle = &triangles[0];
         for (w8_ulong index = 0; index < triangle_count; ++index) {
             for (int vertex = 0; vertex < 3; ++vertex) {
-                float* position = &triangle->vertices[vertex].position.x;
+                w8_unaligned_float* position = &triangle->vertices[vertex].position.x;
                 triangle->vertices[vertex].uv[pass * 2 + layer].x =
                     (position[mapping.axis_u] - u_minimum) * u_scale + mapping.u_offset;
                 triangle->vertices[vertex].uv[pass * 2 + layer].y =
@@ -1076,7 +1077,7 @@ void srModeler::planarMapAbsolute(w8_long pass, w8_long layer, const MappingInfo
         Triangle* triangle = &triangles[0];
         for (w8_ulong index = 0; index < triangle_count; ++index) {
             for (int vertex = 0; vertex < 3; ++vertex) {
-                float* position = &triangle->vertices[vertex].position.x;
+                w8_unaligned_float* position = &triangle->vertices[vertex].position.x;
                 triangle->vertices[vertex].uv[pass * 2 + layer].x =
                     position[mapping.axis_u] * mapping.u_scale + mapping.u_offset;
                 /* Retail scales v by u_scale too (both fmuls read
@@ -1138,7 +1139,7 @@ void srModeler::cylinderMap(w8_long pass, w8_long layer, const MappingInfo& mapp
     int vertex;
     for (w8_ulong index = 0; index < triangle_count; ++index) {
         for (vertex = 0; vertex < 3; ++vertex) {
-            float* position = &triangle->vertices[vertex].position.x;
+            w8_unaligned_float* position = &triangle->vertices[vertex].position.x;
             srVector2T<float>* uv = &triangle->vertices[vertex].uv[pass * 2 + layer];
             /* fpatan with the third axis in ST(1): atan2(third, second),
                kept at register precision. */

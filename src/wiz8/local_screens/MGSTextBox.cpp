@@ -1,3 +1,4 @@
+#include "wiz8/compat/unaligned.h"
 #include "wiz8/3d_code/PList.h"
 #include "wiz8/3d_code/IList.h"
 #include "wiz8/local_screens/MGSTextBox.h"
@@ -757,7 +758,7 @@ void AppendToLastTextLine(const wchar_t* text, short text_box)
         return;
     }
     text_box = ResolveNoticeTextBox(text_box);
-    unsigned int* lines_used = &g_status.text_box_lines_used[text_box];
+    w8_unaligned_uint* lines_used = &g_status.text_box_lines_used[text_box];
     if (!(*lines_used > 0)) {
         srAssertFail("gStatus.uiTextBoxLinesUsed[iTextBuffer] > 0", MGS_TEXT_BOX_CPP, 0xf92, 0);
     }

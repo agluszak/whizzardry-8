@@ -61,7 +61,11 @@ void srTextureFile::setFileName(const char* file_name)
 {
     invalidate();
     if (this->file_name != 0) {
+#if defined(WIZ8_NATIVE)
+        ::operator delete(this->file_name);
+#else
         delete this->file_name;
+#endif
     }
     if (file_name == 0 || *file_name == 0) {
         this->file_name = 0;

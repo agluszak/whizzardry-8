@@ -266,7 +266,12 @@ void RefreshLevelUpReadyNotices(void)
                         size_t length;
 
                         *ready_flag = 1;
+#if defined(WIZ8_NATIVE)
+                        // The queued message releases this payload with delete[].
+                        text = new wchar_t[0x200];
+#else
                         text = static_cast<wchar_t*>(operator new(0x200 * sizeof(*text)));
+#endif
                         text[0] = L' ';
                         text[1] = 0xb4;
                         text[2] = GetPartyOrderTextColor(
@@ -278,7 +283,11 @@ void RefreshLevelUpReadyNotices(void)
                         text[length + 1] = 0xb5;
                         text[length + 2] = L' ';
                         swprintf(text + length + 3, gppStringList[0x773], text);
+#if defined(WIZ8_NATIVE)
+                        extra = new int;
+#else
                         extra = static_cast<int*>(operator new(sizeof(*extra)));
+#endif
                         *extra = party_slot;
                         W8MessageBoxPayload level_up_payload;
                         level_up_payload.text = text;

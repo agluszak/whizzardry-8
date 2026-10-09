@@ -1,3 +1,4 @@
+#include "wiz8/compat/unaligned.h"
 #include "wiz8/engine_code/AnimRep.hpp"
 #include "wiz8/conditions.h"
 #include "wiz8/monster_cycles.h"
@@ -1109,8 +1110,8 @@ void EndCombat(bool forced_cleanup)
         }
         g_combat_state->experience_pool /= active;
         AwardPartyExperience(g_combat_state->experience_bonus + g_combat_state->experience_pool, 1);
-        int* entry = g_status.status_ints;
-        int* end = entry + 1000;
+        w8_unaligned_int* entry = g_status.status_ints;
+        w8_unaligned_int* end = entry + 1000;
         while (entry < end) {
             if (*entry == 1) {
                 *entry = 2;
@@ -2942,7 +2943,7 @@ int GetConditionInterrupt(W8TargetSource* source)
     int party_slot;
     W8Character* character;
     W8MonsterInfo* monster_info;
-    unsigned int* condition_turns;
+    w8_unaligned_uint* condition_turns;
     bool secondary_flag;
     unsigned int attribute;
     bool moving;

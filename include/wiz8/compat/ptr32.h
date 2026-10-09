@@ -42,7 +42,9 @@ inline uint32_t store(void* pointer)
     return handle;
 }
 
-/* A slot loaded from disk holds a stale retail address; it reads as null. */
+/* Only runtime handles may be resolved here. Loaders must reset disk pointer
+   slots or inspect their raw marker bytes before installing live pointers;
+   a saved word can happen to equal a valid handle in this process. */
 inline void* load(uint32_t handle)
 {
     const Table& t = table();
@@ -71,12 +73,30 @@ public:
         return *this;
     }
 
+    bool hasStoredValue() const
+    {
+        uint32_t value;
+        memcpy(&value, handle_, sizeof(value));
+        return value != 0;
+    }
+
 private:
     /* Bytes, not uint32_t: the slots sit in packed records. */
     unsigned char handle_[4];
 };
 
 #define W8_PTR32(T) W8Ptr32<T>
+
+/* Disk pointer words select following payloads; they must never be resolved
+   through the runtime handle table to decide whether those payloads exist. */
+template <class T> inline bool W8SerializedPointerPresent(const W8Ptr32<T>& slot)
+{
+    return slot.hasStoredValue();
+}
 #else
 #define W8_PTR32(T) T*
+template <class T> inline bool W8SerializedPointerPresent(T* slot)
+{
+    return slot != 0;
+}
 #endif

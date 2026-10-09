@@ -137,6 +137,7 @@
     "STCIHeader",
     "W8Character",
     "W8CombatSlot",
+    "W8ActionDetailBlock",
     "W8ConditionalPathHeader",
     "W8DialogueTranscriptRecord",
     "W8EncounterScriptName",
@@ -196,9 +197,14 @@
     "W8SpellEffectDefinition",
     "W8SpellRuntimeRecord",
     "W8StatusHeader",
+    "W8StatusBuffers",
     "W8TargetSource",
-    "W8Wiz7Character"
+    "W8Wiz7Character",
+    "W8WorldItem"
   ],
+  "raw_io_prefixes": {
+    "W8LevelFileMonster": 34
+  },
   "drop_includes": {
     "src/sgp/shading.cpp": [
       "DirectDraw Calls.h",

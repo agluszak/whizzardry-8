@@ -1,3 +1,4 @@
+#include "wiz8/compat/unaligned.h"
 #include "wiz8/engine_code/AnimRep.hpp"
 #include "wiz8/monster_cycles.h"
 #include "wiz8/conditions.h"
@@ -557,7 +558,7 @@ void SetMonsterCondition(int location_id, W8Condition condition, int duration, i
                                 true);
         }
         if (monster_info->fInCombat && TargetSourceIsCharacter(target, 0) && target->iChar != -1) {
-            int* hate = &monster_info->pCombat->character_hate[target->iChar];
+            w8_unaligned_int* hate = &monster_info->pCombat->character_hate[target->iChar];
             record = GetMonsterDataForInfo(monster_info);
             *hate += (record->effective_level * static_cast<unsigned int>(condition)) / 3;
         }

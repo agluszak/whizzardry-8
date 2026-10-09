@@ -91,6 +91,7 @@ size_t w8_wcsspn(const wchar_t* text, const wchar_t* accept);
 wchar_t* w8_wcstok(wchar_t* text, const wchar_t* delimiters);
 wchar_t* w8_wcsdup(const wchar_t* text);
 int w8_wtoi(const wchar_t* text);
+size_t w8_wcstombs(char* destination, const wchar_t* source, size_t count);
 /* Microsoft swprintf: no buffer size; %s/%c take wide arguments, %S/%hs narrow. */
 int w8_swprintf(wchar_t* buffer, const wchar_t* format, ...);
 int w8_vswprintf(wchar_t* buffer, const wchar_t* format, va_list arguments);
@@ -131,5 +132,6 @@ int w8_vswprintf(wchar_t* buffer, const wchar_t* format, va_list arguments);
 #define wcstok w8_wcstok
 #define _wcsdup w8_wcsdup
 #define _wtoi w8_wtoi
+#define wcstombs w8_wcstombs
 #define swprintf w8_swprintf
 #define vswprintf w8_vswprintf

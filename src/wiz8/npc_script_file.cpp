@@ -63,11 +63,21 @@ unsigned char ReadNpcScriptQuote(int handle, W8NpcScriptQuote* record)
         return 0;
     }
 
+#if defined(WIZ8_NATIVE)
+    const bool has_subquotes = W8SerializedPointerPresent(record->subquotes);
+    record->subquotes = 0;
+    record->entries = 0;
+    if (has_subquotes) {
+#else
     if (record->subquotes != 0) {
+#endif
         FileRead(handle, record, 1, &transferred);
         record->subquotes = static_cast<char**>(malloc(record->subquote_count * sizeof(char*)));
         for (index = 0; index < record->subquote_count; ++index) {
             FileRead(handle, &length, 2, &transferred);
+#if defined(WIZ8_NATIVE)
+            record->subquotes[index] = 0;
+#endif
             if (transferred != 2) {
                 return 0;
             }
@@ -78,7 +88,11 @@ unsigned char ReadNpcScriptQuote(int handle, W8NpcScriptQuote* record)
                 }
                 FileRead(handle, wide, length * 2, &transferred);
                 wide[length] = 0;
+#if defined(WIZ8_NATIVE)
+                wcstombs(record->subquotes[index], wide, length + 1);
+#else
                 sprintf(record->subquotes[index], "%S", wide);
+#endif
             }
         }
     }
@@ -102,6 +116,9 @@ unsigned char ReadNpcScriptQuote(int handle, W8NpcScriptQuote* record)
             return 0;
         }
         disk_sub_count = entry->sub_entry_count;
+#if defined(WIZ8_NATIVE)
+        entry->sub_entries = 0;
+#endif
         if (disk_sub_count != 0) {
             entry->sub_entry_count = 0;
             entry->sub_entries = static_cast<W8NpcQuoteSubEntry*>(malloc(disk_sub_count * sizeof(*entry->sub_entries)));
@@ -116,7 +133,13 @@ unsigned char ReadNpcScriptQuote(int handle, W8NpcScriptQuote* record)
                 if (transferred != 8) {
                     return 0;
                 }
+#if defined(WIZ8_NATIVE)
+                const bool has_text = W8SerializedPointerPresent(sub_entry->text);
+                sub_entry->text = 0;
+                if (has_text) {
+#else
                 if (sub_entry->text != 0) {
+#endif
                     FileRead(handle, &length, 2, &transferred);
                     if (transferred != 2) {
                         return 0;
@@ -165,7 +188,14 @@ W8NpcScriptFile* LoadNpcScriptFile(char* path)
     if (transferred != sizeof(*file)) {
         return 0;
     }
+#if defined(WIZ8_NATIVE)
+    const bool has_name = W8SerializedPointerPresent(file->name);
+    file->name = 0;
+    file->quotes = 0;
+    if (has_name) {
+#else
     if (file->name != 0) {
+#endif
         FileRead(handle, &length, 2, &transferred);
         if (transferred != 2) {
             return 0;

@@ -1465,8 +1465,7 @@ W8WorldItem* LoadItem(int handle, bool add_to_list)
         }
 #if defined(WIZ8_NATIVE)
         // The saved pointer is a chain-presence marker, not a native handle.
-        unsigned int next_marker;
-        memcpy(&next_marker, &item->next, sizeof(next_marker));
+        const bool has_next = W8SerializedPointerPresent(item->next);
         item->next = 0;
 #endif
         item->sector_id = -2;
@@ -1485,7 +1484,7 @@ W8WorldItem* LoadItem(int handle, bool add_to_list)
         }
         previous = item;
 #if defined(WIZ8_NATIVE)
-        if (next_marker == 0) {
+        if (!has_next) {
 #else
         if (item->next == 0) {
 #endif

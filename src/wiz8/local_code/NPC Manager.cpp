@@ -1,3 +1,4 @@
+#include "wiz8/compat/unaligned.h"
 #include "wiz8/engine_code/AnimRep.hpp"
 #include "wiz8/conditions.h"
 #include "wiz8/monster_cycles.h"
@@ -386,7 +387,7 @@ unsigned char g_npc_join_races[5] = {W8_RACE_UMPANI, W8_RACE_T_RANG, W8_RACE_RAP
 bool NpcWantsItem(W8NpcState* npc, W8ItemInstance* item)
 {
     int index;
-    const short* wanted = npc->record->character.wanted_item_ids;
+    const w8_unaligned_short* wanted = npc->record->character.wanted_item_ids;
 
     for (index = 0; index < 3; ++index) {
         int wanted_id = wanted[index] - 1;
@@ -1582,7 +1583,14 @@ void LoadNpcStates(W8Chunk* chunks)
         npc = new W8NpcState;
         chunks->Read(npc, sizeof(*npc), 0);
         npc->items = 0;
+#if defined(WIZ8_NATIVE)
+        // A saved pointer denotes an attached character, not a live handle.
+        const bool has_character = W8SerializedPointerPresent(npc->character);
+        npc->character = 0;
+        if (has_character) {
+#else
         if (npc->character != 0) {
+#endif
             npc->character = new W8Character;
             if (version < 3) {
                 memset(npc->character, 0, sizeof(*npc->character));

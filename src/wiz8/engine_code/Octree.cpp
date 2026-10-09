@@ -1,3 +1,4 @@
+#include "wiz8/compat/unaligned.h"
 #include "wiz8/wiz8_windows.h"
 #include <cstdio>
 #include <cstdlib>
@@ -2836,7 +2837,7 @@ int W8Octree::TraceAgainstProps(const srVector3T<float>* from, srVector3T<float>
         step = walk.step;
         if (walk.count > 0) {
             int major_step = (&step.x)[walk.major_axis];
-            int* major_cell = &cell.x + walk.major_axis;
+            w8_unaligned_int* major_cell = &cell.x + walk.major_axis;
             int count = walk.count;
             error_1 = walk.error1;
             error_0 = walk.error0;
@@ -4968,7 +4969,11 @@ unsigned int W8Octree::FindScatterPositions(const srVector3T<float>* position, f
         }
     }
     if (candidates != 0) {
+#if defined(WIZ8_NATIVE)
+        operator delete(candidates);
+#else
         delete[] candidates;
+#endif
     }
     if (flatten_y && found != 0) {
         for (unsigned int index = 0; index < found; ++index) {
@@ -5144,7 +5149,11 @@ unsigned int W8Octree::FindNavigatorPosition(srVector3T<float>* source, float ya
         } while (ring_upper <= mode);
     }
     if (candidates != 0) {
+#if defined(WIZ8_NATIVE)
+        operator delete(candidates);
+#else
         delete candidates;
+#endif
     }
     if (settle_any_height && 0 < static_cast<int>(found)) {
         srVector3T<float>* out = positions;

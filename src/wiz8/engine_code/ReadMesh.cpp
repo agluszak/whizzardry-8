@@ -1,3 +1,4 @@
+#include "wiz8/compat/unaligned.h"
 #include "wiz8/engine_code/3d.h"
 #include "wiz8/engine_code/ReadMesh.h"
 #include "wiz8/engine_code/ReadLevel.h"
@@ -396,14 +397,14 @@ static W8MeshOrder* ComputeMeshOrder(W8MeshOrderInfo* info, w8_ulong flags)
         }
         for (polygon = 0; polygon < static_cast<w8_ulong>(info->polygon_count); ++polygon) {
             const int* source = &info->polygon_vertices[order->polygons[polygon]].x;
-            int* destination = &remapped[polygon].x;
+            w8_unaligned_int* destination = &remapped[polygon].x;
             for (int corner = 0; corner < 3; ++corner) {
                 destination[corner] = inverse[source[corner]];
             }
         }
         unsigned int used = 0;
         for (polygon = 0; polygon < static_cast<w8_ulong>(info->polygon_count); ++polygon) {
-            const int* corners = &remapped[polygon].x;
+            const w8_unaligned_int* corners = &remapped[polygon].x;
             for (int corner = 0; corner < 3; ++corner) {
                 if (first_use[corners[corner]] == 0) {
                     first_use[corners[corner]] = ++used;

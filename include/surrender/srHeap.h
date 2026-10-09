@@ -3,6 +3,7 @@
 #include <iosfwd>
 #include <string.h>
 #if defined(WIZ8_NATIVE)
+#include <fenv.h>
 #include <math.h>
 #else
 #include <windows.h>
@@ -42,14 +43,21 @@ inline void srZeroMemory(void* destination, w8_long size)
 
 /* Float-to-int through the FPU's current rounding mode (round to nearest, not truncation). */
 #if defined(WIZ8_NATIVE)
-inline w8_long srFloatToInt(float value)
-{
-    return lrintf(value);
-}
-
 inline w8_long srFloatToInt(double value)
 {
-    return lrint(value);
+    const double rounded = rint(value);
+    // Retail FISTP stores a signed dword. LP64 lrint instead has a 64-bit
+    // range and narrowing its integer-indefinite result can produce zero.
+    if (!(rounded >= -2147483648.0 && rounded <= 2147483647.0)) {
+        feraiseexcept(FE_INVALID);
+        return (-2147483647 - 1);
+    }
+    return static_cast<w8_long>(rounded);
+}
+
+inline w8_long srFloatToInt(float value)
+{
+    return srFloatToInt(static_cast<double>(value));
 }
 #else
 inline w8_long srFloatToInt(float value)

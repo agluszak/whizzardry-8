@@ -1,3 +1,4 @@
+#include "wiz8/compat/unaligned.h"
 #include "wiz8/engine_code/stMeshModel.h"
 
 #include "wiz8/float_constants.h"
@@ -311,7 +312,7 @@ const srMeshModel::TriMesh& stMeshModel::getTriMesh()
                         if (scaled.x == scaled.y && scaled.x == scaled.z) {
                             unsigned int bits;
                             // reinterpret-ok: FillDwordBuffer takes the float bit pattern
-                            bits = *reinterpret_cast<unsigned int*>(&scaled.x);
+                            bits = *reinterpret_cast<w8_unaligned_uint*>(&scaled.x);
                             FillDwordBuffer(dig, bits, count * 3);
                         } else {
                             srVectorProcessor::copy(dig, scaled, static_cast<SRDWORD>(count));
@@ -346,7 +347,7 @@ const srMeshModel::TriMesh& stMeshModel::getTriMesh()
                             ambient_color.x == ambient_color.z) {
                             unsigned int bits;
                             // reinterpret-ok: FillDwordBuffer takes the float bit pattern
-                            bits = *reinterpret_cast<unsigned int*>(&ambient_color.x);
+                            bits = *reinterpret_cast<w8_unaligned_uint*>(&ambient_color.x);
                             FillDwordBuffer(dig, bits, count * 3);
                         } else {
                             srVectorProcessor::copy(dig, ambient_color,

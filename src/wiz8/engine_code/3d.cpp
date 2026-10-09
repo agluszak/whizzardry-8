@@ -1,3 +1,4 @@
+#include "wiz8/compat/unaligned.h"
 #include "wiz8/3d_code/PList.h"
 #include "wiz8/engine_code/3d.h"
 #include "wiz8/engine_code/GDCamera.h"
@@ -990,14 +991,14 @@ void BuildPlaneFromPoints(W8Plane* plane, const srVector3T<float>* first,
 bool PointInsideTriangle(const srVector3T<float>* vertices, short axis,
                          const srVector3T<float>* point)
 {
-    const float* p = &point->x;
+    const w8_unaligned_float* p = &point->x;
     short u = static_cast<short>(axis + 1) % 3;
     short v = static_cast<short>(axis + 2) % 3;
     bool inside = false;
 
     for (int i = 0; i < 3; ++i) {
-        const float* first = &vertices[i].x;
-        const float* second = &vertices[(i + 1) % 3].x;
+        const w8_unaligned_float* first = &vertices[i].x;
+        const w8_unaligned_float* second = &vertices[(i + 1) % 3].x;
         if ((first[v] < p[v] && p[v] < second[v]) || (second[v] < p[v] && p[v] < first[v])) {
             if (p[u] <=
                 (p[v] - first[v]) * (second[u] - first[u]) / (second[v] - first[v]) + first[u]) {

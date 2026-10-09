@@ -1,3 +1,4 @@
+#include "wiz8/compat/unaligned.h"
 #include "wiz8/engine_code/OctBuildTree.h"
 #include "wiz8/engine_code/GameData.h"
 #include "wiz8/engine_code/materials.h"
@@ -116,9 +117,9 @@ W8OctBuildTree::W8OctBuildTree(float leaf_size, srVector3T<float>* minimum,
 
     if (minimum != 0 || maximum != 0) {
         float half_leaf = leaf_size * g_float_half;
-        float* source_minimum = &minimum->x;
-        float* source_maximum = &maximum->x;
-        float* stored_minimum = &spatial.m_clipped_minimum.x;
+        w8_unaligned_float* source_minimum = &minimum->x;
+        w8_unaligned_float* source_maximum = &maximum->x;
+        w8_unaligned_float* stored_minimum = &spatial.m_clipped_minimum.x;
         for (int axis = 0; axis != 3; ++axis) {
             source_minimum[axis] -= half_leaf;
             source_maximum[axis] += half_leaf;

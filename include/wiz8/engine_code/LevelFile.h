@@ -171,6 +171,9 @@ struct W8LevelFileMonster {
     int num_mon_path;
     W8LevelFilePathNode* MonPath; /* num_mon_path records */
 };
+// ReadLevelFile transfers only this prefix; MonPath is installed afterwards.
+static_assert(offsetof(W8LevelFileMonster, MonPath) == 0x22,
+              "W8LevelFileMonster_serialized_prefix");
 
 struct W8LevelFileTriggerPosition { /* 0x1c: placement_kind == 1 payload */
     srVector3T<float> position;

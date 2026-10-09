@@ -1,3 +1,4 @@
+#include "wiz8/compat/unaligned.h"
 #include "surrender/srBounder.h"
 #include "surrender/srStreamFlags.h"
 
@@ -195,9 +196,9 @@ void srBounder::getChildBoundingBox(srNode* node)
                 bounds.maximum = corners[0];
             }
             for (int corner = 0; corner != 8; ++corner) {
-                const float* point = &corners[corner].x;
-                float* bound_min = &bounds.minimum.x;
-                float* bound_max = &bounds.maximum.x;
+                const w8_unaligned_float* point = &corners[corner].x;
+                w8_unaligned_float* bound_min = &bounds.minimum.x;
+                w8_unaligned_float* bound_max = &bounds.maximum.x;
                 for (int axis = 0; axis != 3; ++axis) {
                     if (point[axis] < bound_min[axis]) {
                         bound_min[axis] = point[axis];
