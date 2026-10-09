@@ -4,8 +4,9 @@
 #include "surrender/srClipPlane.h"
 #include "surrender/srFog.h"
 #include "surrender/srHuffman.h"
-#include "surrender/srMaterial.h"
 #include "surrender/srLight.h"
+#include "surrender/srMaterial.h"
+#include "surrender/srMemoryAllocator.h"
 #include "surrender/srQuadWord.h"
 #include "wiz8/sr_api.h"
 #include <cstdio>
@@ -51,6 +52,22 @@ int main()
     srAssertSetFunc(assertion);
     CHECK(srInit());
     {
+        srMemoryAllocator allocator;
+        const unsigned sizes[] = {1u, 17u, 257u, 1025u};
+        for (unsigned size : sizes)
+        {
+            void* first = allocator.allocate(3, size, "first allocation");
+            void* second = allocator.allocate(size + 1, "second allocation");
+            CHECK(reinterpret_cast<w8_ulong_ptr>(first) % 32 == 0);
+            CHECK(reinterpret_cast<w8_ulong_ptr>(second) % 32 == 0);
+            CHECK(allocator.getSize(first) == 3 * size && allocator.getSize(second) == size + 1);
+            memset(first, 0xa5, 3 * size);
+            memset(second, 0x5a, size + 1);
+            CHECK(strcmp(allocator.getName(first), "first allocation") == 0);
+            CHECK(strcmp(allocator.getName(second), "second allocation") == 0);
+            allocator.free(first); // Unlink a non-head block, then the head.
+            allocator.free(second);
+        }
         srCamera source, copy;
         source.setViewPlane(2, 3);
         copy = source;
