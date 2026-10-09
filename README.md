@@ -128,6 +128,6 @@ encryption key used by wizardry-8-decomp CI) are configured, CI also runs the
 retail-asset graphics test and Sir-Tech movie decode. If the installed assets
 include a character under `Saves/Characters`, it additionally runs the
 new-game/world and save/load harness. The installer comes from the decomp CI
-input release using the decomp's pinned composite action; only its encrypted
+input release using a minimal local copy of decomp's installer action; only its encrypted
 form is cached. Licensed tests are skipped on fork PRs or when these secrets
 are missing, and CI reports the skip explicitly.
