@@ -10,14 +10,14 @@ class srHuffman {
 public:
     class
 #if defined(SURRENDER_BUILD)
-        __declspec(dllexport)
+
 #endif
         BitIStream {
     public:
-        SR_DLL_IMPORT BitIStream(srBinIStream& stream);
-        SR_DLL_IMPORT w8_ulong get(w8_ulong bits);
-        SR_DLL_IMPORT w8_ulong getBit();
-        SR_DLL_IMPORT void rewind(w8_long bits);
+        BitIStream(srBinIStream& stream);
+        w8_ulong get(w8_ulong bits);
+        w8_ulong getBit();
+        void rewind(w8_long bits);
 
     private:
         BitIStream(const BitIStream& stream);
@@ -36,13 +36,13 @@ public:
 
     class
 #if defined(SURRENDER_BUILD)
-        __declspec(dllexport)
+
 #endif
         BitOStream {
     public:
-        SR_DLL_IMPORT BitOStream(srBinOStream& stream);
-        SR_DLL_IMPORT ~BitOStream();
-        SR_DLL_IMPORT void put(w8_ulong value, w8_ulong bits);
+        BitOStream(srBinOStream& stream);
+        ~BitOStream();
+        void put(w8_ulong value, w8_ulong bits);
 
     private:
         BitOStream(const BitOStream& stream);
@@ -63,7 +63,7 @@ public:
 
     class
 #if defined(SURRENDER_BUILD)
-        __declspec(dllexport)
+
 #endif
         Sampler {
     public:
@@ -72,15 +72,12 @@ public:
             w8_ulong frequency;
         };
 
-        SR_DLL_IMPORT Sampler();
+        Sampler();
 
-#if !defined(SURRENDER_BUILD) && !defined(WIZ8_NATIVE)
-        SR_DLL_IMPORT ~Sampler();
-#endif
-        SR_DLL_IMPORT void insert(w8_ulong symbol);
-        SR_DLL_IMPORT w8_ulong getNumSymbols() const;
-        SR_DLL_IMPORT w8_ulong getSymbolValue(w8_ulong index) const;
-        SR_DLL_IMPORT w8_ulong getSymbolFrequency(w8_ulong index) const;
+        void insert(w8_ulong symbol);
+        w8_ulong getNumSymbols() const;
+        w8_ulong getSymbolValue(w8_ulong index) const;
+        w8_ulong getSymbolFrequency(w8_ulong index) const;
 
     private:
         srHashTable<w8_ulong, int> table;
@@ -90,7 +87,7 @@ public:
 
     class
 #if defined(SURRENDER_BUILD)
-        __declspec(dllexport)
+
 #endif
         Compressor {
     public:
@@ -103,12 +100,12 @@ public:
             Node* children[2];
         };
 
-        SR_DLL_IMPORT Compressor(const Sampler& sampler);
-        SR_DLL_IMPORT ~Compressor();
+        Compressor(const Sampler& sampler);
+        ~Compressor();
 
-        SR_DLL_IMPORT void storeSymbolTable(BitOStream& stream);
-        SR_DLL_IMPORT void buildSymbolTree();
-        SR_DLL_IMPORT void collectSymbols(const Sampler& sampler);
+        void storeSymbolTable(BitOStream& stream);
+        void buildSymbolTree();
+        void collectSymbols(const Sampler& sampler);
 
         // FUNCTION: SURRENDER 0x10001430
         void compressSymbol(BitOStream& stream, w8_ulong symbol)
@@ -138,14 +135,14 @@ public:
 
     class
 #if defined(SURRENDER_BUILD)
-        __declspec(dllexport)
+
 #endif
         Decompressor {
     public:
-        SR_DLL_IMPORT Decompressor(BitIStream& stream);
-        SR_DLL_IMPORT ~Decompressor();
-        SR_DLL_IMPORT w8_ulong decompressSymbol();
-        SR_DLL_IMPORT w8_ulong getDataCount() const;
+        Decompressor(BitIStream& stream);
+        ~Decompressor();
+        w8_ulong decompressSymbol();
+        w8_ulong getDataCount() const;
 
     private:
         struct Symbol {

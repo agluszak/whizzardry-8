@@ -1,17 +1,14 @@
 #pragma once
 
-#if !defined(WIZ8_NATIVE)
-#include <windows.h>
-#endif
 
 #include "srCore.h"
 #include "srPlugin.h"
 
 class
 #if defined(SURRENDER_BUILD)
-    __declspec(dllexport)
+
 #else
-    SR_DLL_IMPORT
+
 #endif
     srExtension {
 public:
@@ -36,11 +33,7 @@ private:
 
     srPlugin* plugin;
     char* name;
-#if defined(WIZ8_NATIVE)
     void* module;
-#else
-    HMODULE module;
-#endif
     srExtension* previous;
     srExtension* next;
 };

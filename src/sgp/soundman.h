@@ -1,12 +1,11 @@
-/* Modified for the Wizardry 8 reconstruction: 2026-10-03, 2026-10-06, 2026-10-07.
+/* Modified for the Wizardry 8 reconstruction: 2026-10-03, 2026-10-06, 2026-10-07, 2026-10-09.
    Distributed under the accompanying SFI Source Code license agreement. */
 #ifndef __SOUNDMAN_
 #define __SOUNDMAN_
 
 #include "Types.h"
 
-/* The Miles handles in this interface, declared as MSS.H declares them so the
-   game does not depend on the Miles headers; soundman.cpp includes MSS.H. */
+/* Opaque handles retained at the audio boundary while callers are migrated. */
 #ifndef MSS_VERSION
 typedef struct _DIG_DRIVER* HDIGDRIVER;
 typedef struct _SAMPLE* HSAMPLE;

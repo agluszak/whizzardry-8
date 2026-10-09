@@ -2,15 +2,8 @@
 
 #include "srArray.h"
 
-#if defined(SURRENDER_BUILD)
-#define SR_STRING_TABLE_API __declspec(dllexport)
-#elif defined(_MSC_VER) && !defined(WIZ8_CLANG_LINT)
-#define SR_STRING_TABLE_API __declspec(dllimport)
-#else
-#define SR_STRING_TABLE_API
-#endif
 
-class SR_STRING_TABLE_API srStringTable {
+class srStringTable {
 public:
     srStringTable();
 
@@ -36,5 +29,3 @@ private:
 };
 
 W8_ABI_ASSERT((sizeof(srStringTable) == 0x0c), "srStringTable_must_be_0x0c");
-
-#undef SR_STRING_TABLE_API

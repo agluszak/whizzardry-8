@@ -4,7 +4,6 @@
    structures and signatures use, and the few kernel32/winmm services with
    exact portable equivalents (tick counts, sleeping, debugger output).
    Window, file, graphics and audio APIs are replaced at their use sites. */
-#if defined(WIZ8_NATIVE)
 #include <stdint.h>
 #include <stdio.h>
 #include <time.h>
@@ -149,6 +148,3 @@ inline void OutputDebugString(const char* text)
 {
     fputs(text, stderr);
 }
-#else
-#include <windows.h>
-#endif

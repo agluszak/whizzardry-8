@@ -23,16 +23,12 @@ typedef srVector3T<float> srVector3;
 typedef srVector4T<float> srVector4;
 typedef srMatrix4T<float> srMatrix4;
 
-/* Retail declares srVP __declspec(novtable), so its own vtable never exists
+/* Retail declares srVP , so its own vtable never exists
    and its base virtuals are never defined. The Itanium ABI has no novtable;
    natively the base virtuals are pure instead. */
-#if defined(WIZ8_NATIVE)
 #define SR_VP_ABSTRACT = 0
-#else
-#define SR_VP_ABSTRACT
-#endif
 
-class __declspec(novtable) srVP {
+class srVP {
 public:
     srVP()
     {

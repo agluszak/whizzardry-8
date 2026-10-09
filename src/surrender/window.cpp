@@ -1,39 +1,34 @@
 #include "surrender/srWindow.h"
 
-#include <windows.h>
+#include <SDL3/SDL.h>
 
-// FUNCTION: SURRENDER 0x100459D0
+/* Native window handles are SDL_Window pointers carried as unsigned long. */
+namespace {
+SDL_Window* nativeWindow(w8_ulong_ptr handle)
+{
+    return reinterpret_cast<SDL_Window*>(handle);
+}
+} // namespace
+
 w8_long srWindow::getWidth(w8_ulong_ptr handle)
 {
-    RECT client;
-    /* reinterpret-ok: Win32 window handle arrives as a raw ulong across the
-       srGERD ABI boundary. */
-    HWND window = reinterpret_cast<HWND>(handle);
-    if (isWindow(handle) == 0) {
+    int width = 0;
+    if (isWindow(handle) == 0 || !SDL_GetWindowSizeInPixels(nativeWindow(handle), &width, 0)) {
         return 0;
     }
-    GetClientRect(window, &client);
-    return client.right;
+    return width;
 }
 
-// FUNCTION: SURRENDER 0x10045A00
 w8_long srWindow::getHeight(w8_ulong_ptr handle)
 {
-    RECT client;
-    /* reinterpret-ok: Win32 window handle arrives as a raw ulong across the
-       srGERD ABI boundary. */
-    HWND window = reinterpret_cast<HWND>(handle);
-    if (isWindow(handle) == 0) {
+    int height = 0;
+    if (isWindow(handle) == 0 || !SDL_GetWindowSizeInPixels(nativeWindow(handle), 0, &height)) {
         return 0;
     }
-    GetClientRect(window, &client);
-    return client.bottom;
+    return height;
 }
 
-// FUNCTION: SURRENDER 0x10045A30
 int srWindow::isWindow(w8_ulong_ptr handle)
 {
-    /* reinterpret-ok: Win32 window handle arrives as a raw ulong across the
-       srGERD ABI boundary. */
-    return IsWindow(reinterpret_cast<HWND>(handle));
+    return handle != 0;
 }

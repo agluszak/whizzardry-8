@@ -8,7 +8,7 @@
 // class srIOManager
 class
 #if defined(SURRENDER_BUILD)
-    __declspec(dllexport)
+
 #endif
     srIOManager {
 public:
@@ -20,23 +20,23 @@ public:
     friend class Exporter;
 
 #if !defined(SURRENDER_BUILD)
-    SR_DLL_IMPORT srIOManager(const srIOManager& manager);
-    SR_DLL_IMPORT srIOManager& operator=(const srIOManager& manager);
+    srIOManager(const srIOManager& manager);
+    srIOManager& operator=(const srIOManager& manager);
 #endif
 
-    SR_DLL_IMPORT void dump();
-    SR_DLL_IMPORT const char* getExtension(const char* path);
+    void dump();
+    const char* getExtension(const char* path);
 
 protected:
-    SR_DLL_IMPORT srIOManager();
-    virtual SR_DLL_IMPORT ~srIOManager();
+    srIOManager();
+    virtual ~srIOManager();
 
-    SR_DLL_IMPORT void addImporter(Importer* importer, const char* extension);
-    SR_DLL_IMPORT void addExporter(Exporter* exporter, const char* extension);
-    SR_DLL_IMPORT Importer* findImporter(const char* extension);
-    SR_DLL_IMPORT Exporter* findExporter(const char* extension);
-    SR_DLL_IMPORT void removeImporter(Importer* importer);
-    SR_DLL_IMPORT void removeExporter(Exporter* exporter);
+    void addImporter(Importer* importer, const char* extension);
+    void addExporter(Exporter* exporter, const char* extension);
+    Importer* findImporter(const char* extension);
+    Exporter* findExporter(const char* extension);
+    void removeImporter(Importer* importer);
+    void removeExporter(Exporter* exporter);
 
 private:
     struct ImporterRegistration {
@@ -184,7 +184,7 @@ private:
 
 class
 #if defined(SURRENDER_BUILD)
-    __declspec(dllexport)
+
 #endif
     srIOManager::Error {
 public:
@@ -194,7 +194,7 @@ public:
     {
         this->description = description;
     }
-    SR_DLL_IMPORT const char* getDescription();
+    const char* getDescription();
 
 private:
     const char* description;
@@ -202,9 +202,9 @@ private:
 
 class
 #if defined(SURRENDER_BUILD)
-    __declspec(dllexport)
+
 #endif
-    __declspec(novtable) srIOManager::Importer {
+    srIOManager::Importer {
 public:
     virtual const char* getTypeName() const = 0;
 
@@ -213,17 +213,17 @@ public:
     virtual ~Importer() {}
 
 protected:
-    SR_DLL_IMPORT void addToImporters(srIOManager* manager, const char* extension);
-    SR_DLL_IMPORT void addToImporters(srIOManager* manager, srIOManager::Importer* importer,
+    void addToImporters(srIOManager* manager, const char* extension);
+    void addToImporters(srIOManager* manager, srIOManager::Importer* importer,
                                       const char* extension);
-    SR_DLL_IMPORT void removeFromImporters(srIOManager* manager);
+    void removeFromImporters(srIOManager* manager);
 };
 
 class
 #if defined(SURRENDER_BUILD)
-    __declspec(dllexport)
+
 #endif
-    __declspec(novtable) srIOManager::Exporter {
+    srIOManager::Exporter {
 public:
     virtual const char* getTypeName() const = 0;
 
@@ -232,10 +232,10 @@ public:
     virtual ~Exporter() {}
 
 protected:
-    SR_DLL_IMPORT void addToExporters(srIOManager* manager, const char* extension);
-    SR_DLL_IMPORT void addToExporters(srIOManager* manager, srIOManager::Exporter* exporter,
+    void addToExporters(srIOManager* manager, const char* extension);
+    void addToExporters(srIOManager* manager, srIOManager::Exporter* exporter,
                                       const char* extension);
-    SR_DLL_IMPORT void removeFromExporters(srIOManager* manager);
+    void removeFromExporters(srIOManager* manager);
 };
 
 W8_ABI_ASSERT(sizeof(srIOManager) == 0x1c, "srIOManager_must_be_0x1c");

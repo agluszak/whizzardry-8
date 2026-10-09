@@ -1,14 +1,10 @@
 #pragma once
 
-/* The Win32 file-system calls the game and SGP make, under W8 names with the
-   Win32 signatures. tools/native_codemod.py (rename pass) points the call
-   sites here. The Windows lanes map the names straight back to Win32; the native lane
-   implements them over POSIX (src/compat/platform_files.cpp), which is where
-   backslash paths and case-insensitive file names are resolved. */
+/* Temporary file/event adapter for callers awaiting native API migration.
+   File operations resolve asset casing and backslash paths. */
 
 #include "compat/kernel32.h"
 
-#if defined(WIZ8_NATIVE)
 #include <stdarg.h>
 typedef const void* LPCVOID;
 typedef LONG* PLONG;
@@ -168,47 +164,3 @@ BOOL W8KillTimer(HWND window, UINT_PTR id);
 void W8GetMousePosition(POINT* point);
 BOOL W8ClipCursor(const RECT* rect);
 BOOL W8MinimizeWindow(HWND window);
-#else
-/* The Windows lanes name the Win32 functions directly, so code is unchanged. */
-#define W8CloseHandle CloseHandle
-#define W8CompareFileTime CompareFileTime
-#define W8CopyFile CopyFileA
-#define W8CreateDirectory CreateDirectoryA
-#define W8CreateFile CreateFileA
-#define W8CreateFileMapping CreateFileMappingA
-#define W8DeleteFile DeleteFileA
-#define W8FileTimeToLocalFileTime FileTimeToLocalFileTime
-#define W8FileTimeToSystemTime FileTimeToSystemTime
-#define W8FindClose FindClose
-#define W8FindFirstFile FindFirstFileA
-#define W8FindNextFile FindNextFileA
-#define W8GetDiskFreeSpace GetDiskFreeSpaceA
-#define W8GetDriveType GetDriveTypeA
-#define W8GetEnvironmentVariable GetEnvironmentVariableA
-#define W8SetEnvironmentVariable SetEnvironmentVariableA
-#define W8GetModuleFileName GetModuleFileNameA
-#define W8GetLogicalDriveStrings GetLogicalDriveStringsA
-#define W8SetErrorMode SetErrorMode
-#define W8GetLocalTime GetLocalTime
-#define W8GetDateFormat GetDateFormatA
-#define W8FormatMessage FormatMessageA
-#define W8WaitMessage WaitMessage
-#define W8PeekMessage PeekMessageA
-#define W8GetMessage GetMessageA
-#define W8TranslateMessage TranslateMessage
-#define W8DispatchMessage DispatchMessageA
-#define W8SetTimer SetTimer
-#define W8KillTimer KillTimer
-#define W8GetFileAttributes GetFileAttributesA
-#define W8GetFileSize GetFileSize
-#define W8GetFileTime GetFileTime
-#define W8GetLastError GetLastError
-#define W8GetVolumeInformation GetVolumeInformationA
-#define W8MapViewOfFile MapViewOfFile
-#define W8MoveFile MoveFileA
-#define W8ReadFile ReadFile
-#define W8SetFileAttributes SetFileAttributesA
-#define W8SetFilePointer SetFilePointer
-#define W8UnmapViewOfFile UnmapViewOfFile
-#define W8WriteFile WriteFile
-#endif

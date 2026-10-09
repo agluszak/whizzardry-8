@@ -1,102 +1,41 @@
 #include "surrender/srCore.h"
-#include "surrender/srDebug.h"
 #include "surrender/srDynamicLibrary.h"
 #include "surrender/srPlugin.h"
 
-#include <stdio.h>
-#include <string.h>
-#include <windows.h>
+#include <dlfcn.h>
+#include <string>
 
-#include "surrender/srString.h"
+#if defined(__APPLE__)
+#define SR_LIBRARY_EXTENSION ".dylib"
+#else
+#define SR_LIBRARY_EXTENSION ".so"
+#endif
 
+/* Native plug-ins are shared objects. Built-in components register directly
+   and do not pass through here. */
 namespace {
-
-/* Canonicalizes the library name: a trailing '.' gets the extension appended, an existing extension
-   is kept, and a missing one becomes ".<extension>". */
-// FUNCTION: SURRENDER 0x10045F80
-srInlineString libraryName(const char* name, const char* extension)
+std::string libraryName(const char* name)
 {
-    srInlineString filename(name);
-    srInlineString needle;
-    needle = ".";
-    w8_long pos = filename.find(needle, 0);
-    w8_long dot = pos;
-    while (pos != -1 && pos < (w8_long)filename.size() - 1) {
-        dot = pos;
-        pos = filename.find(needle, pos + 1);
+    std::string filename(name);
+    const size_t separator = filename.find_last_of("/\\");
+    const size_t dot = filename.rfind('.');
+    if (dot == std::string::npos || (separator != std::string::npos && dot < separator)) {
+        filename += SR_LIBRARY_EXTENSION;
     }
-    needle = "/";
-    pos = filename.find(needle, 0);
-    w8_long slash = pos;
-    while (pos != -1 && pos < (w8_long)filename.size() - 1) {
-        slash = pos;
-        pos = filename.find(needle, pos + 1);
-    }
-    needle = "\\";
-    pos = filename.find(needle, 0);
-    w8_long backslash = pos;
-    while (pos != -1 && pos < (w8_long)filename.size() - 1) {
-        backslash = pos;
-        pos = filename.find(needle, pos + 1);
-    }
-    w8_long separator = slash;
-    if (slash < backslash) {
-        separator = backslash;
-    }
-    if (separator < dot) {
-        if (dot == (w8_long)filename.size() - 2) {
-            srInlineString suffix(extension);
-            return filename + suffix;
-        }
-        return filename;
-    }
-    srInlineString suffix(extension);
-    needle = ".";
-    return filename + needle + suffix;
+    return filename;
 }
 
-char* versionString(const char* name, const char* key, unsigned char*& version_info)
+__attribute__((constructor)) void libraryInit()
 {
-    char* mutable_name = const_cast<char*>(name);
-    DWORD ignored;
-    const DWORD size = GetFileVersionInfoSizeA(mutable_name, &ignored);
-    if (size == 0) {
-        return 0;
-    }
-
-    version_info = new unsigned char[size + 1];
-    if (GetFileVersionInfoA(mutable_name, 0, size, version_info) == 0) {
-        delete[] version_info;
-        version_info = 0;
-        return 0;
-    }
-
-    w8_ulong* translation;
-    unsigned int translation_size;
-    VerQueryValueA(version_info, "\\VarFileInfo\\Translation",
-                   reinterpret_cast<void**>(&translation), &translation_size);
-    *translation = (*translation >> 16) | ((*translation & 0xffff) << 16);
-
-    char query[256];
-    wsprintfA(query, "\\StringFileInfo\\%08lx\\%s", *translation, key);
-
-    char* value;
-    unsigned int value_size;
-    if (VerQueryValueA(version_info, query, reinterpret_cast<void**>(&value), &value_size) == 0) {
-        return 0;
-    }
-    return value;
+    _srLibraryInit();
 }
-
 } // namespace
 
-// FUNCTION: SURRENDER 0x10045780
 srDynamicLibrary::Compatibility srDynamicLibrary::checkCompatibility(const char* name)
 {
     if (name == 0) {
         return COMPATIBILITY_0;
     }
-
     const w8_ulong version = getVersion(name);
     if (version == 0) {
         return COMPATIBILITY_0;
@@ -104,135 +43,44 @@ srDynamicLibrary::Compatibility srDynamicLibrary::checkCompatibility(const char*
     return (version & 0xffffff00) == 0x012a0200 ? COMPATIBILITY_2 : COMPATIBILITY_1;
 }
 
-// FUNCTION: SURRENDER 0x10045990
-extern "C" BOOL WINAPI DllMain(HINSTANCE instance, DWORD reason, LPVOID)
-{
-    switch (reason) {
-    case DLL_PROCESS_ATTACH:
-        DisableThreadLibraryCalls(instance);
-        _srLibraryInit();
-        break;
-    case DLL_PROCESS_DETACH:
-        _srLibraryExit();
-        break;
-    }
-    return TRUE;
-}
-
-// FUNCTION: SURRENDER 0x10045E70
 void* srDynamicLibrary::load(const char* name)
 {
     if (name == 0) {
         return 0;
     }
-
-    const srInlineString filename(libraryName(name, "dll"));
-    if (testDependencies(filename.data()) == 0) {
-        return 0;
-    }
-
-    HMODULE library = LoadLibraryA(filename.data());
-    if (library == 0) {
-        char message[512];
-        sprintf(message, "srDynamicLibrary::load () -- failed to load DLL file '%s'\n",
-                filename.data());
-        srDebugPrintf(0, message);
-    }
-    return library;
+    return dlopen(libraryName(name).c_str(), RTLD_NOW | RTLD_LOCAL);
 }
 
-// FUNCTION: SURRENDER 0x10046250
 int srDynamicLibrary::free(void* library)
 {
     if (library == 0) {
         return 0;
     }
-    return FreeLibrary(static_cast<HMODULE>(library)) != 0;
+    return dlclose(library) == 0;
 }
 
-// FUNCTION: SURRENDER 0x10046270
 void* srDynamicLibrary::getFunction(void* library, const char* function_name)
 {
     if (library == 0 || function_name == 0) {
         return 0;
     }
-    return GetProcAddress(static_cast<HMODULE>(library), function_name);
+    return dlsym(library, function_name);
 }
 
-// FUNCTION: SURRENDER 0x10046290
-int srDynamicLibrary::testDependencies(const char* name)
+int srDynamicLibrary::testDependencies(const char*)
 {
-    const srInlineString filename(libraryName(name, "dll"));
-    if (filename.data() == 0) {
-        return 0;
-    }
-
-    int available = 1;
-    unsigned char* version_info = 0;
-    char* dependencies = versionString(filename.data(), "srDependencies", version_info);
-    if (dependencies != 0) {
-        char* dependency_list = new char[strlen(dependencies) + 1];
-        strcpy(dependency_list, dependencies);
-
-        char* end = dependency_list + strlen(dependency_list);
-        char* token = dependency_list;
-        do {
-            char* split = strpbrk(token, ", ");
-            char* next = end;
-            if (split != 0) {
-                *split = '\0';
-                next = split;
-            }
-            HMODULE library = LoadLibraryExA(token, 0, LOAD_LIBRARY_AS_DATAFILE);
-            if (library == 0) {
-                char message[512];
-                sprintf(message,
-                        "srDynamicLibrary::testDependencies () -- '%s' failed because dependent "
-                        "file '%s' could not be loaded\n",
-                        name, token);
-                srDebugPrintf(0, message);
-            } else {
-                FreeLibrary(library);
-            }
-            available = library != 0;
-            token = next + 1;
-        } while (available && token < end);
-
-        delete[] dependency_list;
-    }
-    delete[] version_info;
-    return available;
+    return 1;
 }
 
-// FUNCTION: SURRENDER 0x10046500
 w8_ulong srDynamicLibrary::getVersion(const char* name)
 {
     void* library = load(name);
-    if (library != 0) {
-        srGetLibraryVersionCdeclFn get_library_version =
-            reinterpret_cast<srGetLibraryVersionCdeclFn>(
-                getFunction(library, "srGetLibraryVersion"));
-        if (get_library_version != 0) {
-            const w8_ulong version = get_library_version();
-            free(library);
-            return version;
-        }
-        free(library);
-    }
-
-    if (name == 0) {
+    if (library == 0) {
         return 0;
     }
-
-    unsigned char* version_info = 0;
-    char* version = versionString(name, "FileVersion", version_info);
-    int major = 0;
-    int minor = 0;
-    int patch = 0;
-    int build = 0;
-    if (version != 0) {
-        sscanf(version, "%d, %d, %d, %d", &major, &minor, &patch, &build);
-    }
-    delete[] version_info;
-    return ((major << 8 | minor) << 8 | patch) << 8 | build;
+    srGetLibraryVersionCdeclFn get_library_version =
+        reinterpret_cast<srGetLibraryVersionCdeclFn>(getFunction(library, "srGetLibraryVersion"));
+    const w8_ulong version = get_library_version != 0 ? get_library_version() : 0;
+    free(library);
+    return version;
 }

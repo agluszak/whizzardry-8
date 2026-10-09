@@ -9,40 +9,34 @@
 // VTABLE: SURRENDER 0x10076FA8 srVertexProcessor
 // VTABLE: SURRENDER 0x10076FB4 srClassSupport<srIlluminator, srNode, 0, 4608>
 // class srFog
-class SR_DLL_EXPORT srFog : public srClassSupport<srFog, srIlluminator, false, 0x1210> {
+class srFog : public srClassSupport<srFog, srIlluminator, false, 0x1210> {
 public:
     typedef srClientSupport<srFog, 0x1210> ClientType;
 
-    SR_DLL_IMPORT srFog(srNode* parent = 0);
-#if !defined(SURRENDER_BUILD) && !defined(WIZ8_NATIVE)
-    SR_DLL_IMPORT srFog(const srFog& other);
-#endif
+    srFog(srNode* parent = 0);
 
-#if !defined(SURRENDER_BUILD) && !defined(WIZ8_NATIVE)
-    SR_DLL_IMPORT srFog& operator=(const srFog& other);
-#endif
 
     // FUNCTION: SURRENDER 0x1004C1A0
     static const char* sGetClassName()
     {
         return "srFog";
     }
-    SR_DLL_IMPORT void setDensity(float density);
-    SR_DLL_IMPORT float getDensity() const;
-    SR_DLL_IMPORT void setRange(double start, double end);
-    SR_DLL_IMPORT void getRange(double& start, double& end);
+    void setDensity(float density);
+    float getDensity() const;
+    void setRange(double start, double end);
+    void getRange(double& start, double& end);
 
-    virtual SR_DLL_IMPORT void dump(std::ostream& stream) override;
-    virtual SR_DLL_IMPORT void verify(srRuntimeClass::e_verify mode) override;
+    virtual void dump(std::ostream& stream) override;
+    virtual void verify(srRuntimeClass::e_verify mode) override;
 
-    virtual SR_DLL_IMPORT ~srFog() override;
+    virtual ~srFog() override;
 
 public:
-    virtual SR_DLL_IMPORT srClass* vInstance() override;
+    virtual srClass* vInstance() override;
 
     using srClassSupport<srFog, srIlluminator, false, 0x1210>::process;
-    virtual SR_DLL_IMPORT int isActive(srVertexPipe& pipe) override;
-    virtual SR_DLL_IMPORT void process(srVertexPipe& pipe) override;
+    virtual int isActive(srVertexPipe& pipe) override;
+    virtual void process(srVertexPipe& pipe) override;
 
     double fog_start; /* 0x150 */
     double fog_end;   /* 0x158 */

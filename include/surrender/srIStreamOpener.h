@@ -2,17 +2,17 @@
 
 #include "srBinFStream.h"
 
-class SR_DLL_EXPORT srIStreamOpener {
+class srIStreamOpener {
 public:
-    class __declspec(novtable) Opener {
+    class Opener {
     public:
         // FUNCTION: SURRENDER 0x10032680
         // RECOMP: ??0Opener@srIStreamOpener@@QAE@XZ
-        SR_DLL_EXPORT Opener() {}
+        Opener() {}
         // FUNCTION: SURRENDER 0x10032690
         // RECOMP: ??1Opener@srIStreamOpener@@UAE@XZ
-        virtual SR_DLL_EXPORT ~Opener() {}
-        SR_DLL_IMPORT Opener& operator=(const Opener& other);
+        virtual ~Opener() {}
+        Opener& operator=(const Opener& other);
 
         virtual srBinIStream* open(const char* path) = 0;
         virtual const char* getDescription() const = 0;
@@ -28,13 +28,13 @@ public:
         first->previous = 0;
         count = 0;
     }
-    SR_DLL_IMPORT ~srIStreamOpener();
+    ~srIStreamOpener();
 #if !defined(SURRENDER_BUILD)
-    SR_DLL_IMPORT srIStreamOpener& operator=(const srIStreamOpener& other);
+    srIStreamOpener& operator=(const srIStreamOpener& other);
 #endif
 
-    SR_DLL_IMPORT void addStreamType(Opener* opener, const char* extension);
-    SR_DLL_IMPORT srBinIStream* open(const char* path);
+    void addStreamType(Opener* opener, const char* extension);
+    srBinIStream* open(const char* path);
 
 private:
     struct StreamType {
@@ -46,9 +46,9 @@ private:
 
     W8_ABI_ASSERT(sizeof(StreamType) == 0x10, "srIStreamOpener_StreamType_must_be_0x10");
 
-    SR_DLL_IMPORT Opener* findOpener(const char* extension);
-    SR_DLL_IMPORT srBinIStream* open(const char* path, const char* extension);
-    SR_DLL_IMPORT void parsePrefix(char** prefix, char** path, const char* input);
+    Opener* findOpener(const char* extension);
+    srBinIStream* open(const char* path, const char* extension);
+    void parsePrefix(char** prefix, char** path, const char* input);
 
     w8_long count;
     StreamType* first;
@@ -60,7 +60,7 @@ W8_ABI_ASSERT(sizeof(srIStreamOpener) == 0x0c, "srIStreamOpener_must_be_0x0c");
 
 /* SR's built-in file opener. */
 // VTABLE: SURRENDER 0x10075520 srFStreamOpener
-class SR_DLL_EXPORT srFStreamOpener : public srIStreamOpener::Opener {
+class srFStreamOpener : public srIStreamOpener::Opener {
 public:
     // FUNCTION: SURRENDER 0x10032440
     // RECOMP: ??0srFStreamOpener@@QAE@XZ

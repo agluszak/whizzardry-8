@@ -68,9 +68,6 @@
 #include "wiz8/local_screens/mipe.h"
 #include "wiz8/engine_code/Video2.h"
 #include "sgp.h"
-#undef S32
-#undef U32
-#include "bink.h"
 #include "wiz8/bink_video.h"
 #include "wiz8/mouth_gap.h"
 #include "FileMan.h"

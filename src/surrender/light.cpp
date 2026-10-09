@@ -49,7 +49,6 @@ srLight::srLight(srNode* parent, e_preset preset)
     }
 }
 
-#if defined(WIZ8_NATIVE)
 /* WIZ8 0x0049D67C..0x0049D6C5 inlines the SDK copy: construct the
    illuminator with parent zero, register a fresh instance, then assign the
    light before copying its members. Compiler-generated copying shares scene
@@ -85,7 +84,6 @@ srLight::srLight(const srLight& other)
       channel_mask(other.channel_mask)
 {
 }
-#endif
 
 // FUNCTION: SURRENDER 0x1004DFB0
 srLight& srLight::operator=(const srLight& other)

@@ -3,7 +3,7 @@
 #include "srHeap.h"
 
 // VTABLE: SURRENDER 0x10076DE4 srMutex
-class SR_DLL_EXPORT srMutex {
+class srMutex {
 public:
     srMutex();
 
@@ -14,11 +14,7 @@ public:
     void releaseAccess();
 
 private:
-#if defined(WIZ8_NATIVE)
     void* handle;
-#else
-    HANDLE handle;
-#endif
     w8_long access_count;
 };
 

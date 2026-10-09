@@ -17,7 +17,7 @@ class srMaterialIFace;
 /* The EXE and DLL each implement the methods/vtable, but import one pipe
    static from the DLL. Native clients must bind their recovered game methods
    locally instead of interposing on the renderer's implementation. */
-#if defined(WIZ8_NATIVE) && !defined(SURRENDER_BUILD)
+#if !defined(SURRENDER_BUILD)
 class __attribute__((visibility("hidden"))) srTriMeshPipeline {
 #else
 class srTriMeshPipeline {
@@ -127,12 +127,12 @@ public:
 
 protected:
     /* srExit releases the singleton through this protected static. */
-    friend SR_DLL_IMPORT int __cdecl srExit(void);
+    friend int __cdecl srExit(void);
 
-#if defined(WIZ8_NATIVE) && !defined(SURRENDER_BUILD)
+#if !defined(SURRENDER_BUILD)
     static __attribute__((visibility("default"))) srTriMeshPipeline* pipe;
 #else
-    static SR_DLL_IMPORT srTriMeshPipeline* pipe;
+    static srTriMeshPipeline* pipe;
 #endif
 
 private:

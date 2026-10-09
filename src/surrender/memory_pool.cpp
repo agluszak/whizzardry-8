@@ -329,14 +329,9 @@ int srMemoryPool::maskArea(const void* memory, w8_long size)
     w8_long old_size = area->size;
     used += size;
     largest_free_dirty = 1;
-#if defined(WIZ8_NATIVE)
     /* Retail stores the absolute pointer minus the entry offset; a 64-bit
        address does not fit, so the native build keeps the pool-relative size. */
     area->size = offset - area->offset;
-#else
-    /* reinterpret-ok: stores the absolute pointer minus the relative entry offset. */
-    area->size = reinterpret_cast<w8_long>(memory) - area->offset;
-#endif
     w8_long end = offset + size;
     if (end < area->offset + old_size) {
         Entry* tail = addEntry(area, area->next);

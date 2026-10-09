@@ -1,14 +1,10 @@
-/* Modified for the Wizardry 8 reconstruction: 2026-10-03, 2026-10-06, 2026-10-07.
+/* Modified for the Wizardry 8 reconstruction: 2026-10-03, 2026-10-06, 2026-10-07, 2026-10-09.
    Distributed under the accompanying SFI Source Code license agreement. */
 #ifndef __VSURFACE_PRIVATE_
 #define __VSURFACE_PRIVATE_
 
 #include "compat/kernel32.h"
-#if defined(WIZ8_NATIVE)
 #include "compat/surfaces.h"
-#else
-#include <ddraw.h>
-#endif
 #include "vsurface.h"
 
 #ifdef __cplusplus

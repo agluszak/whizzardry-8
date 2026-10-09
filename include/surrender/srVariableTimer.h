@@ -5,11 +5,11 @@
 #include "srTimer.h"
 
 class srVariableTimer;
-SR_DLL_IMPORT std::ostream& operator<<(std::ostream& stream, const srVariableTimer& timer);
+std::ostream& operator<<(std::ostream& stream, const srVariableTimer& timer);
 
 // VTABLE: SURRENDER 0x10077668 srVariableTimer
 // class srVariableTimer
-class SR_DLL_IMPORT SR_DLL_EXPORT srVariableTimer : public srTimer {
+class srVariableTimer : public srTimer {
 public:
     srVariableTimer(int force_system_timer = 0, int unused = 0, int save_calibration = 1,
                     float multiplier = 1.0f, w8_ulong step_size = 0x1e);
@@ -61,7 +61,7 @@ private:
     w8_ulong m_step_size; /* 0x890 */
     int m_stepping;            /* 0x894 */
 
-    friend SR_DLL_IMPORT std::ostream& operator<<(std::ostream& stream,
+    friend std::ostream& operator<<(std::ostream& stream,
                                                   const srVariableTimer& timer);
 };
 

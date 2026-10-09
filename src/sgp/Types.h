@@ -1,4 +1,4 @@
-/* Modified for the Wizardry 8 reconstruction: 2026-10-03, 2026-10-04, 2026-10-06, 2026-10-07.
+/* Modified for the Wizardry 8 reconstruction: 2026-10-03, 2026-10-04, 2026-10-06, 2026-10-07, 2026-10-09.
    Distributed under the accompanying SFI Source Code license agreement. */
 #ifndef __TYPES_
 #define __TYPES_
@@ -9,11 +9,6 @@
 #include <wchar.h> // for wide-character strings
 
 // *** SIR-TECH TYPE DEFINITIONS ***
-
-// These two types are defined by VC6 and were causing redefinition
-// problems, but JA2 is compiled with VC5
-
-// HEY WIZARDRY DUDES, JA2 ISN'T THE ONLY PROGRAM WE COMPILE! :-)
 
 typedef unsigned int UINT32;
 typedef int INT32;

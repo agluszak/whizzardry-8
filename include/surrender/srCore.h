@@ -26,33 +26,33 @@ class srVideoManager;
 
 class
 #if defined(SURRENDER_BUILD)
-    __declspec(dllexport)
+
 #endif
     srCore {
 public:
-    SR_DLL_IMPORT srCore();
+    srCore();
 
-    SR_DLL_IMPORT void dump(std::ostream& stream);
-    SR_DLL_IMPORT const char* getBuildTime() const;
-    SR_DLL_IMPORT srSurfaceIOManager* getSurfaceIOManager() const;
-    SR_DLL_IMPORT srIStreamOpener* getIStreamOpener() const;
-    SR_DLL_IMPORT const char* getCopyright() const;
-    SR_DLL_IMPORT const char* getVersion() const;
-    SR_DLL_IMPORT unsigned char getDebugLevel() const;
-    SR_DLL_IMPORT srFileManager* getFileManager() const;
-    SR_DLL_IMPORT srFilter* getFilter() const;
-    SR_DLL_IMPORT srGlobalRecycler* getGlobalRecycler() const;
-    SR_DLL_IMPORT srHierarchyIOManager* getHierarchyIOManager() const;
+    void dump(std::ostream& stream);
+    const char* getBuildTime() const;
+    srSurfaceIOManager* getSurfaceIOManager() const;
+    srIStreamOpener* getIStreamOpener() const;
+    const char* getCopyright() const;
+    const char* getVersion() const;
+    unsigned char getDebugLevel() const;
+    srFileManager* getFileManager() const;
+    srFilter* getFilter() const;
+    srGlobalRecycler* getGlobalRecycler() const;
+    srHierarchyIOManager* getHierarchyIOManager() const;
     // FUNCTION: SURRENDER 0x10015730
     // RECOMP: ?getMaterial@srCore@@QBEPAVsrMaterial@@XZ
     srMaterial* getMaterial() const
     {
         return material;
     }
-    SR_DLL_IMPORT srMemoryAllocator* getMemoryAllocator() const;
-    SR_DLL_IMPORT srModelIOManager* getModelIOManager() const;
-    SR_DLL_IMPORT srPalette* getPalette() const;
-    SR_DLL_IMPORT srNode* getRootNode() const;
+    srMemoryAllocator* getMemoryAllocator() const;
+    srModelIOManager* getModelIOManager() const;
+    srPalette* getPalette() const;
+    srNode* getRootNode() const;
     // FUNCTION: SURRENDER 0x100156A0
     // RECOMP: ?getScheduler@srCore@@QBEPAVsrScheduler@@XZ
     srScheduler* getScheduler() const
@@ -65,22 +65,22 @@ public:
     {
         return statistics_manager;
     }
-    SR_DLL_IMPORT srColorSurfaceIFace* getSurface() const;
-    SR_DLL_IMPORT srTexture* getTexture() const;
+    srColorSurfaceIFace* getSurface() const;
+    srTexture* getTexture() const;
     // FUNCTION: SURRENDER 0x100156C0
     // RECOMP: ?getTimer@srCore@@QBEPAVsrVariableTimer@@XZ
     srVariableTimer* getTimer() const
     {
         return timer;
     }
-    SR_DLL_IMPORT w8_ulong getUniqueID();
-    SR_DLL_IMPORT srVideoManager* getVideoManager() const;
-    SR_DLL_IMPORT int isInitialized() const;
-    SR_DLL_IMPORT void setDebugLevel(unsigned char level);
-    SR_DLL_IMPORT void setFileManager(srFileManager* manager);
-    SR_DLL_IMPORT void setFilter(srFilter* filter);
-    SR_DLL_IMPORT int supportMultiThread();
-    SR_DLL_IMPORT void supportMultiThread(int enabled);
+    w8_ulong getUniqueID();
+    srVideoManager* getVideoManager() const;
+    int isInitialized() const;
+    void setDebugLevel(unsigned char level);
+    void setFileManager(srFileManager* manager);
+    void setFilter(srFilter* filter);
+    int supportMultiThread();
+    void supportMultiThread(int enabled);
 
     // FUNCTION: SURRENDER 0x10015760
     // RECOMP: ?getRegistry@srCore@@QBEPAVsrRegistry@@XZ
@@ -93,12 +93,12 @@ private:
     friend w8_long __cdecl srDebugPrintf(w8_ulong level, const char* format, ...);
     /* srInit/srExit drive library lifecycle: they write the private field
        block and run the private reset() directly. */
-    friend SR_DLL_IMPORT int __cdecl srInit(void);
-    friend SR_DLL_IMPORT int __cdecl srExit(void);
+    friend int __cdecl srInit(void);
+    friend int __cdecl srExit(void);
 
-    SR_DLL_IMPORT void reset();
+    void reset();
 
-    static SR_DLL_IMPORT int initialized;
+    static int initialized;
 
     srScheduler* scheduler;
     srGlobalRecycler* global_recycler;
@@ -129,10 +129,10 @@ private:
 
 W8_ABI_ASSERT(sizeof(srCore) == 0x17c, "srCore_must_be_0x17c");
 
-extern SR_DLL_IMPORT class srCore srCore;
+extern class srCore srCore;
 
-SR_DLL_IMPORT int __cdecl srInit(void);
-SR_DLL_IMPORT int __cdecl srExit(void);
+int __cdecl srInit(void);
+int __cdecl srExit(void);
 
 /* DLL attach/detach hooks called by the library entry wrapper. */
 void __cdecl _srLibraryInit(void);

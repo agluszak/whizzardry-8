@@ -8,21 +8,21 @@ class srDebugVP;
 
 class srVectorProcessor {
 public:
-    static SR_DLL_IMPORT const char* getName();
+    static const char* getName();
     /* startDebug wraps the active processor in an srDebugVP and makes vp
        point at it while debug_active is set; its argument enables the
        wrapper's pointer-alignment counters. endDebug restores the base
        processor and destroys the wrapper. dump prints the wrapper's
        per-command statistics and resetStatistics clears them. */
-    static SR_DLL_IMPORT void startDebug(int check_misalignments);
-    static SR_DLL_IMPORT void endDebug();
-    static SR_DLL_IMPORT void dump(std::ostream& stream);
-    static SR_DLL_IMPORT void resetStatistics();
-    static SR_DLL_IMPORT int load(const char* filename);
-    static SR_DLL_IMPORT void initBaseVP();
-    static SR_DLL_IMPORT w8_long getID(const char* filename);
-    static SR_DLL_IMPORT int loadBest(const char* path);
-    static SR_DLL_IMPORT void release();
+    static void startDebug(int check_misalignments);
+    static void endDebug();
+    static void dump(std::ostream& stream);
+    static void resetStatistics();
+    static int load(const char* filename);
+    static void initBaseVP();
+    static w8_long getID(const char* filename);
+    static int loadBest(const char* path);
+    static void release();
 
     static inline void memcopy(void* destination, const void* source, SRDWORD bytes)
     {
@@ -379,7 +379,7 @@ private:
     friend class srCore;
     static void install(srVP* processor);
     // GLOBAL: SURRENDER 0x100A923C
-    static SR_DLL_IMPORT srVP* vp;
+    static srVP* vp;
     /* vp is the processor clients dispatch through. While debug_active is
        set vp points at debug, the srDebugVP wrapper; otherwise vp and base
        are the same installed processor. module is the srVP_* library handle

@@ -10,7 +10,7 @@
 
 // VTABLE: SURRENDER 0x100770B8 srVertexProcessor
 // VTABLE: SURRENDER 0x100770C4 srLight
-class SR_DLL_IMPORT SR_DLL_EXPORT srLight
+class srLight
     : public srClassSupport<srLight, srIlluminator, false, 0x1220> {
 public:
     enum e_preset { PRESET_DIRECTIONAL = 0, PRESET_POINT = 1, PRESET_SPOT = 2 };
@@ -31,9 +31,7 @@ public:
 
     srLight(srNode* parent = 0, e_preset preset = PRESET_POINT);
 
-#if defined(WIZ8_NATIVE)
     srLight(const srLight& other);
-#endif
 
     srLight& operator=(const srLight& other);
 

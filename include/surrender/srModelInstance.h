@@ -11,12 +11,12 @@
 // VTABLE: SURRENDER 0x10077150 srModel::Client
 // VTABLE: SURRENDER 0x10077160 srClassSupport<srModelInstance, srNode, 0, 4352>
 // class srModelInstance
-class SR_DLL_EXPORT srModelInstance : public srClassSupport<srModelInstance, srNode, 0, 0x1100>,
+class srModelInstance : public srClassSupport<srModelInstance, srNode, 0, 0x1100>,
                                       public srModel::Client {
 public:
-    SR_DLL_IMPORT srModelInstance(srNode* parent = 0);
+    srModelInstance(srNode* parent = 0);
 
-    SR_DLL_IMPORT srModelInstance& operator=(const srModelInstance& other);
+    srModelInstance& operator=(const srModelInstance& other);
 
     // FUNCTION: SURRENDER 0x1004FFE0
     static const char* sGetClassName()
@@ -24,12 +24,12 @@ public:
         return "srModelInstance";
     }
 
-    SR_DLL_IMPORT virtual void dump(std::ostream& stream) override;
-    SR_DLL_IMPORT virtual srClass* vInstance() override;
-    SR_DLL_IMPORT virtual void traverse(TraverseInfo& info) override;
-    SR_DLL_IMPORT virtual void process(const ProcessInfo& info, e_processType type) override;
-    SR_DLL_IMPORT virtual void getLocalBounds(BoundInfo& bounds) override;
-    SR_DLL_IMPORT virtual void updateClient(srModel::Client::e_update update) override;
+    virtual void dump(std::ostream& stream) override;
+    virtual srClass* vInstance() override;
+    virtual void traverse(TraverseInfo& info) override;
+    virtual void process(const ProcessInfo& info, e_processType type) override;
+    virtual void getLocalBounds(BoundInfo& bounds) override;
+    virtual void updateClient(srModel::Client::e_update update) override;
 
     double getAlignAngle() const;
 #if defined(SURRENDER_BUILD)
@@ -80,7 +80,7 @@ public:
 #if defined(SURRENDER_BUILD)
     void setExclusionMask(w8_ulong mask);
 #else
-    SR_DLL_IMPORT void setExclusionMask(w8_ulong mask)
+    void setExclusionMask(w8_ulong mask)
     {
         exclusion_mask = mask;
     }
@@ -89,7 +89,7 @@ public:
     srFlags<int> alignment_flags;
 
 protected:
-    SR_DLL_IMPORT virtual ~srModelInstance() override;
+    virtual ~srModelInstance() override;
 
     srVector3T<float> align_axis;
     float align_angle;

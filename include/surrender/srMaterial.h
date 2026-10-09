@@ -9,7 +9,7 @@
 // class srClassSupport<srMaterial, srMaterialIFace, 0, 8720>
 
 // VTABLE: SURRENDER 0x10075538 srMaterial
-class SR_DLL_IMPORT SR_DLL_EXPORT srMaterial
+class srMaterial
     : public srClassSupport<srMaterial, srMaterialIFace, 0, 0x2210> {
 public:
     /* Bit indices, not masks. */

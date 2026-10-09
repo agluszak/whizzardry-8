@@ -4,7 +4,6 @@
 
 /* The recovered dump code manipulates stream flags with the VC6 <ios> bit
    values.  Natively those bits are translated to the library's fmtflags. */
-#if defined(WIZ8_NATIVE)
 namespace srStreamFlagsDetail {
 struct Bit {
     w8_long msvc;
@@ -44,14 +43,3 @@ inline void srSetStreamFlags(std::ios_base& stream, w8_long flags)
     }
     stream.flags(result);
 }
-#else
-inline w8_long srGetStreamFlags(const std::ios_base& stream)
-{
-    return stream.flags();
-}
-
-inline void srSetStreamFlags(std::ios_base& stream, w8_long flags)
-{
-    stream.flags(flags);
-}
-#endif

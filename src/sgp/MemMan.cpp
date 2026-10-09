@@ -1,4 +1,4 @@
-/* Modified for the Wizardry 8 reconstruction: 2026-10-03, 2026-10-06, 2026-10-07.
+/* Modified for the Wizardry 8 reconstruction: 2026-10-03, 2026-10-06, 2026-10-07, 2026-10-09.
    Distributed under the accompanying SFI Source Code license agreement. */
 // Filename :	MemMan.cpp
 //	Purpose :	function definitions for the memory manager
@@ -10,7 +10,6 @@
 
 #include "Types.h"
 #include "compat/kernel32.h"
-#if defined(WIZ8_NATIVE)
 #if defined(__APPLE__)
 #include <malloc/malloc.h>
 #define _msize malloc_size
@@ -19,7 +18,6 @@
 #define _msize malloc_usable_size
 #endif
 #include <unistd.h>
-#endif
 #include <malloc.h>
 #include <stdlib.h>
 #include <string.h>
@@ -263,7 +261,6 @@ PTR MemReallocReal(PTR ptr, UINT32 uiSize, const char* pcFile, INT32 iLine)
 // FUNCTION: WIZ8 0x00404bd0
 UINT32 MemGetFree(void)
 {
-#if defined(WIZ8_NATIVE)
     /* Retail reports MEMORYSTATUS::dwAvailPhys, a 32-bit byte count. */
     unsigned long long available = (unsigned long long)sysconf(_SC_PAGESIZE);
 #if defined(_SC_AVPHYS_PAGES)
@@ -272,14 +269,6 @@ UINT32 MemGetFree(void)
     available *= (unsigned long long)sysconf(_SC_PHYS_PAGES);
 #endif
     return available > 0xffffffffull ? 0xffffffffu : (UINT32)available;
-#else
-    MEMORYSTATUS ms;
-
-    ms.dwLength = sizeof(MEMORYSTATUS);
-    GlobalMemoryStatus(&ms);
-
-    return (ms.dwAvailPhys);
-#endif
 }
 // MemGetTotalSystem
 // Parameter List :

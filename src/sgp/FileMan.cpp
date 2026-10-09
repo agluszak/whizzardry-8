@@ -1,4 +1,4 @@
-/* Modified for the Wizardry 8 reconstruction: 2026-10-03, 2026-10-06, 2026-10-07.
+/* Modified for the Wizardry 8 reconstruction: 2026-10-03, 2026-10-06, 2026-10-07, 2026-10-09.
    Distributed under the accompanying SFI Source Code license agreement. */
 // Filename :	FileMan.c
 //	Purpose :	function definitions for the memory manager
@@ -18,9 +18,6 @@
 #include <stdlib.h>
 #include <malloc.h>
 #include <stdio.h>
-#if !defined(WIZ8_NATIVE)
-#include <direct.h>
-#endif
 
 #include "compat/kernel32.h"
 #include "FileMan.h"
@@ -30,9 +27,6 @@
 #include "RegInst.h"
 #include "Container.h"
 #include "LibraryDataBase.h"
-#if !defined(WIZ8_NATIVE)
-#include "io.h"
-#endif
 #include "compat/platform.h"
 //				Defines
 

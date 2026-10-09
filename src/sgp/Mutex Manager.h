@@ -1,11 +1,8 @@
-/* Modified for the Wizardry 8 reconstruction: 2026-10-04, 2026-10-06, 2026-10-07.
+/* Modified for the Wizardry 8 reconstruction: 2026-10-04, 2026-10-06, 2026-10-07, 2026-10-09.
    Distributed under the accompanying SFI Source Code license agreement. */
 #ifndef __MUTEX_
 #define __MUTEX_
 
-#if !defined(WIZ8_NATIVE)
-#include <process.h>
-#endif
 #include "Types.h"
 
 extern BOOLEAN InitializeMutexManager(void);

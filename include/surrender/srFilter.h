@@ -4,7 +4,7 @@
 
 // VTABLE: SURRENDER 0x10075310 srFilter
 // class srFilter
-class SR_DLL_IMPORT SR_DLL_EXPORT srFilter {
+class srFilter {
 public:
     /* The reconstruction leaves trivial construction and copying implicit.
        The explicit virtual destructor supplies the modeled destruction interface. */
@@ -20,7 +20,7 @@ public:
 
 // VTABLE: SURRENDER 0x10075350 srBoxFilter
 // class srBoxFilter
-class SR_DLL_IMPORT SR_DLL_EXPORT srBoxFilter : public srFilter {
+class srBoxFilter : public srFilter {
 public:
     virtual const char* getName() const override;
     virtual double getWeight(double value) const override;
@@ -29,7 +29,7 @@ public:
 
 // VTABLE: SURRENDER 0x10075378 srBellFilter
 // class srBellFilter
-class SR_DLL_IMPORT SR_DLL_EXPORT srBellFilter : public srFilter {
+class srBellFilter : public srFilter {
 public:
     virtual const char* getName() const override;
     virtual double getWeight(double value) const override;
@@ -38,7 +38,7 @@ public:
 
 // VTABLE: SURRENDER 0x10075398 srBSplineFilter
 // class srBSplineFilter
-class SR_DLL_IMPORT SR_DLL_EXPORT srBSplineFilter : public srFilter {
+class srBSplineFilter : public srFilter {
 public:
     virtual const char* getName() const override;
     virtual double getWeight(double value) const override;
@@ -47,7 +47,7 @@ public:
 
 // VTABLE: SURRENDER 0x10075388 srTriangleFilter
 // class srTriangleFilter
-class SR_DLL_IMPORT SR_DLL_EXPORT srTriangleFilter : public srFilter {
+class srTriangleFilter : public srFilter {
 public:
     virtual const char* getName() const override;
     virtual double getWeight(double value) const override;
@@ -60,7 +60,7 @@ W8_ABI_ASSERT(sizeof(srBellFilter) == 0x04, "srBellFilter_must_be_0x04");
 W8_ABI_ASSERT(sizeof(srBSplineFilter) == 0x04, "srBSplineFilter_must_be_0x04");
 W8_ABI_ASSERT(sizeof(srTriangleFilter) == 0x04, "srTriangleFilter_must_be_0x04");
 
-extern SR_DLL_IMPORT class srBoxFilter srBoxFilter;
-extern SR_DLL_IMPORT class srBellFilter srBellFilter;
-extern SR_DLL_IMPORT class srBSplineFilter srBSplineFilter;
-extern SR_DLL_IMPORT class srTriangleFilter srTriangleFilter;
+extern class srBoxFilter srBoxFilter;
+extern class srBellFilter srBellFilter;
+extern class srBSplineFilter srBSplineFilter;
+extern class srTriangleFilter srTriangleFilter;

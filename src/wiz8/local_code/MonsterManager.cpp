@@ -284,29 +284,19 @@ void ActivateMonster(W8MonsterInfo* monster_info, W8MonsterActivationMode mode)
     context.directory = "Data\\Monsters";
 
     if (mode == W8_MONSTER_LOAD_ALL_CYCLES) {
-#if defined(WIZ8_NATIVE)
         W8Monster* monster = monster_info->p3D;
         success = MonsterReadAllCycles(&context, record->cycle_name, &monster, 1,
                                        monster_info->location_id);
         monster_info->p3D = monster;
-#else
-        success = MonsterReadAllCycles(&context, record->cycle_name, &monster_info->p3D, 1,
-                                       monster_info->location_id);
-#endif
         if (!success) {
             srAssertFail("fSuccess", MONSTER_MANAGER_CPP, 0x20a,
                          "ActivateMonster: ERROR - MonsterReadAllCycles failed");
         }
     } else if (mode == W8_MONSTER_LOAD_STARTUP_CYCLE) {
-#if defined(WIZ8_NATIVE)
         W8Monster* monster = monster_info->p3D;
         success = MonsterReadAllCycles(&context, record->cycle_name, &monster, 0,
                                        monster_info->location_id);
         monster_info->p3D = monster;
-#else
-        success = MonsterReadAllCycles(&context, record->cycle_name, &monster_info->p3D, 0,
-                                       monster_info->location_id);
-#endif
         if (!success) {
             srAssertFail("fSuccess", MONSTER_MANAGER_CPP, 0x20f,
                          "ActivateMonster: ERROR - MonsterReadAllCycles failed");
@@ -1169,7 +1159,6 @@ unsigned char ShutdownMonsterManager(void)
         return 0;
     }
     gXStatus.plsMonsterGroupEncounterList = 0;
-#if defined(WIZ8_NATIVE)
     // Direct member access retains the packed cache's alignment information.
     for (int index = 0; index < MAX_MONSTERS_IN_DATABASE; ++index) {
         if (gXStatus.monster_record_cache[index] != 0) {
@@ -1177,15 +1166,6 @@ unsigned char ShutdownMonsterManager(void)
             gXStatus.monster_record_cache[index] = 0;
         }
     }
-#else
-    for (slot = gXStatus.monster_record_cache;
-         slot < gXStatus.monster_record_cache + MAX_MONSTERS_IN_DATABASE; ++slot) {
-        if (*slot != 0) {
-            free(*slot);
-            *slot = 0;
-        }
-    }
-#endif
     return 1;
 }
 

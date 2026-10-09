@@ -1,14 +1,7 @@
 #pragma once
 
-#if defined(SURRENDER_BUILD)
-#define SR_DYNAMIC_LIBRARY_API __declspec(dllexport)
-#elif defined(_MSC_VER) && !defined(WIZ8_CLANG_LINT)
-#define SR_DYNAMIC_LIBRARY_API __declspec(dllimport)
-#else
-#define SR_DYNAMIC_LIBRARY_API
-#endif
 
-class SR_DYNAMIC_LIBRARY_API srDynamicLibrary {
+class srDynamicLibrary {
 public:
     enum Compatibility { COMPATIBILITY_0 = 0, COMPATIBILITY_1 = 1, COMPATIBILITY_2 = 2 };
 
@@ -21,5 +14,3 @@ public:
 };
 
 static_assert(sizeof(srDynamicLibrary) == 0x01, "srDynamicLibrary_must_be_stateless");
-
-#undef SR_DYNAMIC_LIBRARY_API

@@ -6,20 +6,20 @@
 
 // VTABLE: SURRENDER 0x100755C8
 // class srFileManager
-class SR_DLL_EXPORT srFileManager {
+class srFileManager {
 public:
-    class SR_DLL_EXPORT Path {
+    class Path {
     public:
 #if !defined(SURRENDER_BUILD)
-        SR_DLL_IMPORT Path& operator=(const Path& other);
+        Path& operator=(const Path& other);
 #endif
 
-        SR_DLL_IMPORT const char* getName() const;
-        SR_DLL_IMPORT Path* getNext() const;
+        const char* getName() const;
+        Path* getNext() const;
 
     protected:
-        SR_DLL_IMPORT Path(const char* name);
-        SR_DLL_IMPORT ~Path();
+        Path(const char* name);
+        ~Path();
 
     private:
         friend class srFileManager;
@@ -29,25 +29,25 @@ public:
         Path* previous;
     };
 
-    SR_DLL_IMPORT srFileManager();
+    srFileManager();
 
 #if !defined(SURRENDER_BUILD)
-    SR_DLL_IMPORT srFileManager(const srFileManager& other);
-    SR_DLL_IMPORT srFileManager& operator=(const srFileManager& other);
+    srFileManager(const srFileManager& other);
+    srFileManager& operator=(const srFileManager& other);
 #endif
-    virtual SR_DLL_IMPORT ~srFileManager();
+    virtual ~srFileManager();
 
-    SR_DLL_IMPORT void addPath(const char* path);
-    SR_DLL_IMPORT void dump(std::ostream& stream);
-    SR_DLL_IMPORT Path* getFirstPath() const;
-    SR_DLL_IMPORT void removePath(const char* path);
-    SR_DLL_IMPORT void setPath(const char* path);
+    void addPath(const char* path);
+    void dump(std::ostream& stream);
+    Path* getFirstPath() const;
+    void removePath(const char* path);
+    void setPath(const char* path);
 
-    virtual SR_DLL_IMPORT void* allocate(const char* path);
-    virtual SR_DLL_IMPORT void free(void* allocation);
-    virtual SR_DLL_IMPORT void load(const char* path, void* destination, w8_ulong size);
-    virtual SR_DLL_IMPORT void save(const char* path, void* source, w8_ulong size);
-    virtual SR_DLL_IMPORT w8_long getSize(const char* path);
+    virtual void* allocate(const char* path);
+    virtual void free(void* allocation);
+    virtual void load(const char* path, void* destination, w8_ulong size);
+    virtual void save(const char* path, void* source, w8_ulong size);
+    virtual w8_long getSize(const char* path);
 
 private:
     Path* first_path;

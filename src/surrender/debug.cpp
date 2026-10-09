@@ -5,11 +5,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#if defined(WIZ8_NATIVE)
 #include <SDL3/SDL.h>
-#else
-#include <windows.h>
-#endif
 
 #include "surrender/srCore.h"
 
@@ -162,7 +158,6 @@ void __cdecl srDefaultAssertFailFunc(const char* expression, const char* source_
                   source_path, line, expression);
     }
     strcat(buffer, "\nSelect 'yes' to trigger the debugger or 'no' to resume program execution.\n");
-#if defined(WIZ8_NATIVE)
     fputs(buffer, stderr);
     const SDL_MessageBoxButtonData buttons[] = {
         {SDL_MESSAGEBOX_BUTTON_RETURNKEY_DEFAULT, 1, "Yes"},
@@ -174,12 +169,6 @@ void __cdecl srDefaultAssertFailFunc(const char* expression, const char* source_
     if (SDL_ShowMessageBox(&box, &choice) && choice == 1) {
         __builtin_debugtrap();
     }
-#else
-    if (MessageBoxA(GetActiveWindow(), buffer, "FATAL: SR Assertion Failed",
-                    MB_YESNO | MB_ICONWARNING) == IDYES) {
-        __asm int 3
-    }
-#endif
 }
 
 /* One shared dummy buffer backs all four provider streams. */

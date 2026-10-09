@@ -65,11 +65,7 @@ srVariableTimer& srVariableTimer::operator=(const srTimer& other)
     /* Retail skips m_seconds_per_tick, m_units_per_tick and m_cpu_count
        (0x830..0x843); the destination keeps its own values. */
     m_read_tick = other.m_read_tick;
-#if defined(WIZ8_NATIVE)
     m_kernel32 = 0;
-#else
-    m_kernel32 = other.m_kernel32 == 0 ? 0 : LoadLibraryA("kernel32");
-#endif
     for (index = 0; index < 0xd; ++index) {
         m_cpu_vendor[index] = other.m_cpu_vendor[index];
     }

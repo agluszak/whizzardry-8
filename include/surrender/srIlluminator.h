@@ -9,21 +9,21 @@
 // VTABLE: SURRENDER 0x10077068 srVertexProcessor
 // VTABLE: SURRENDER 0x10077074 srClassSupport<srIlluminator, srNode, 0, 4608>
 // class srIlluminator
-class SR_DLL_EXPORT srIlluminator : public srClassSupport<srIlluminator, srNode, false, 0x1200>,
+class srIlluminator : public srClassSupport<srIlluminator, srNode, false, 0x1200>,
                                     public srVertexProcessor {
 public:
     using srVertexProcessor::process;
-    SR_DLL_IMPORT srIlluminator(srNode* parent = 0);
+    srIlluminator(srNode* parent = 0);
 
-    SR_DLL_IMPORT srIlluminator& operator=(const srIlluminator& other);
-    static SR_DLL_IMPORT const char* sGetClassName();
-    virtual SR_DLL_IMPORT void traverse(TraverseInfo& info) override;
-    virtual SR_DLL_IMPORT void process(const ProcessInfo& info, e_processType type) override;
-    SR_DLL_IMPORT w8_ulong getGroupMask() const;
-    SR_DLL_IMPORT void setGroupMask(w8_ulong mask);
+    srIlluminator& operator=(const srIlluminator& other);
+    static const char* sGetClassName();
+    virtual void traverse(TraverseInfo& info) override;
+    virtual void process(const ProcessInfo& info, e_processType type) override;
+    w8_ulong getGroupMask() const;
+    void setGroupMask(w8_ulong mask);
 
 #if !defined(SURRENDER_BUILD)
-    virtual SR_DLL_IMPORT ~srIlluminator() override;
+    virtual ~srIlluminator() override;
 #endif
 
     w8_ulong group_mask;       /* 0x13c */

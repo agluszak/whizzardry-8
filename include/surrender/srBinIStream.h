@@ -8,7 +8,7 @@
 // VTABLE: SURRENDER 0x100769FC srBinStream
 // VTABLE: SURRENDER 0x10076A10 srBinIStream
 // class srBinIStream
-class SR_DLL_IMPORT SR_DLL_EXPORT srBinIStream : public virtual srBinStream {
+class srBinIStream : public virtual srBinStream {
 public:
 #if !defined(SURRENDER_BUILD)
     srBinIStream() {}
@@ -34,15 +34,12 @@ private:
 
 srBinIStream& operator>>(srBinIStream& stream, int& value);
 srBinIStream& operator>>(srBinIStream& stream, char& value);
-SR_DLL_IMPORT srBinIStream& operator>>(srBinIStream& stream, unsigned char& value);
+srBinIStream& operator>>(srBinIStream& stream, unsigned char& value);
 srBinIStream& operator>>(srBinIStream& stream, short& value);
-SR_DLL_IMPORT srBinIStream& operator>>(srBinIStream& stream, unsigned short& value);
-#if !defined(WIZ8_NATIVE) /* w8_long is int natively */
-srBinIStream& operator>>(srBinIStream& stream, w8_long& value);
-#endif
-SR_DLL_IMPORT srBinIStream& operator>>(srBinIStream& stream, w8_ulong& value);
+srBinIStream& operator>>(srBinIStream& stream, unsigned short& value);
+srBinIStream& operator>>(srBinIStream& stream, w8_ulong& value);
 srBinIStream& operator>>(srBinIStream& stream, srQuadWord& value);
-SR_DLL_IMPORT srBinIStream& operator>>(srBinIStream& stream, float& value);
+srBinIStream& operator>>(srBinIStream& stream, float& value);
 srBinIStream& operator>>(srBinIStream& stream, double& value);
 srBinIStream& operator>>(srBinIStream& stream, srVector2T<float>& value);
 srBinIStream& operator>>(srBinIStream& stream, srVector2T<double>& value);
@@ -65,9 +62,9 @@ srBinIStream& operator>>(srBinIStream& stream, srMatrix4T<double>& value);
 // VTABLE: SURRENDER 0x10076B94 srBinIStream
 // class srBinIMStream
 #if defined(SURRENDER_BUILD)
-class SR_DLL_EXPORT srBinIMStream
+class srBinIMStream
 #else
-class __declspec(novtable) SR_DLL_IMPORT srBinIMStream
+class srBinIMStream
 #endif
     : public srBinIStream {
 public:

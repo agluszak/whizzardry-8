@@ -11,7 +11,7 @@
 // class srBinFStream
 class
 #if defined(SURRENDER_BUILD)
-    __declspec(dllexport)
+
 #endif
     srBinFStream : public virtual srBinStream {
 public:
@@ -46,7 +46,7 @@ private:
 // class srBinIFStream
 class
 #if defined(SURRENDER_BUILD)
-    __declspec(dllexport)
+
 #endif
     srBinIFStream : public srBinFStream,
                     public srBinIStream {
@@ -71,7 +71,7 @@ private:
 // class srBinIOFStream
 class
 #if defined(SURRENDER_BUILD)
-    __declspec(dllexport)
+
 #endif
     srBinIOFStream : public srBinFStream,
                      public srBinIStream,
@@ -98,7 +98,7 @@ private:
 // class srBinOFStream
 class
 #if defined(SURRENDER_BUILD)
-    __declspec(dllexport)
+
 #endif
     srBinOFStream : public virtual srBinOStream,
                     public virtual srBinFStream {

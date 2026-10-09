@@ -1,6 +1,6 @@
-/* Modified for the Wizardry 8 reconstruction: 2026-10-03, 2026-10-06, 2026-10-07.
+/* Modified for the Wizardry 8 reconstruction: 2026-10-03, 2026-10-06, 2026-10-07, 2026-10-09.
    Distributed under the accompanying SFI Source Code license agreement. */
-#include "DirectDraw Calls.h"
+#include "compat/surfaces.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include "DEBUG.H"
@@ -1108,10 +1108,8 @@ BOOLEAN DeleteVideoSurface(HVSURFACE hVSurface)
     //	DDReleaseClipper( (LPDIRECTDRAWCLIPPER)hVSurface->pClipper );
     //}
 
-#if defined(WIZ8_NATIVE)
     if (hVSurface->pClipper)
         DDReleaseClipper((LPDIRECTDRAWCLIPPER)hVSurface->pClipper);
-#endif
     // Get surface pointer
     lpDDSurface = (LPDIRECTDRAWSURFACE2)hVSurface->pSurfaceData;
 
@@ -1178,11 +1176,7 @@ BOOLEAN SetClipList(HVSURFACE hVSurface, SGPRect* RegionData, UINT16 usNumRegion
     CHECKF(pRgnData);
 
     // Setup header
-#if defined(WIZ8_NATIVE)
     pRgnData->rdh.dwSize = sizeof(RGNDATAHEADER);
-#else
-    pRgnData->rdh.dwSize = sizeof(RGNDATA);
-#endif
     pRgnData->rdh.iType = RDH_RECTANGLES;
     pRgnData->rdh.nCount = usNumRegions;
     pRgnData->rdh.nRgnSize = usNumRegions * sizeof(RECT);
@@ -1198,11 +1192,7 @@ BOOLEAN SetClipList(HVSURFACE hVSurface, SGPRect* RegionData, UINT16 usNumRegion
         aRect.bottom = (UINT32)RegionData[cnt].iBottom;
         aRect.right = (UINT32)RegionData[cnt].iRight;
 
-#if defined(WIZ8_NATIVE)
         memcpy(pRgnData->Buffer + cnt * sizeof(RECT), &aRect, sizeof(RECT));
-#else
-        memcpy(pRgnData + sizeof(RGNDATAHEADER) + (cnt * sizeof(RECT)), &aRect, sizeof(RECT));
-#endif
     }
 
     // Set items into clipper
@@ -1511,9 +1501,7 @@ HVSURFACE CreateVideoSurfaceFromDDSurface(LPDIRECTDRAWSURFACE2 lpDDSurface)
     // Allocate Video Surface struct
     hVSurface = (HVSURFACE)MemAlloc(sizeof(SGPVSurface));
 
-#if defined(WIZ8_NATIVE)
     memset(hVSurface, 0, sizeof(SGPVSurface));
-#endif
     // Set values based on DD Surface given
     DDGetSurfaceDescription(lpDDSurface, &DDSurfaceDesc);
     PixelFormat = DDSurfaceDesc.ddpfPixelFormat;

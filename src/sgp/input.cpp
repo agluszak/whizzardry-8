@@ -1,12 +1,8 @@
-/* Modified for the Wizardry 8 reconstruction: 2026-10-03, 2026-10-04, 2026-10-06, 2026-10-07.
+/* Modified for the Wizardry 8 reconstruction: 2026-10-03, 2026-10-04, 2026-10-06, 2026-10-07, 2026-10-09.
    Distributed under the accompanying SFI Source Code license agreement. */
 #include "Types.h"
 #include "compat/kernel32.h"
-#if !defined(WIZ8_NATIVE)
-#include <zmouse.h>
-#else
 #include "compat/platform.h"
-#endif
 #include <stdio.h>
 #include <memory.h>
 #include "DEBUG.H"
@@ -20,10 +16,8 @@
 
 #include "sgp.h"
 
-#if defined(WIZ8_NATIVE)
 #define SGPMouseGetPos W8GetMousePosition
 #define ClipCursor W8ClipCursor
-#endif
 #undef GetCursorPos
 #define GetCursorPos SGPMouseGetPos
 
@@ -95,13 +89,6 @@ BOOLEAN gfSGPInputReceived = FALSE;
 // This is the WIN95 hook specific data and defines used to handle the keyboard and
 // mouse hook
 
-#if !defined(WIZ8_NATIVE)
-// GLOBAL: WIZ8 0x006f04fc
-HHOOK ghKeyboardHook;
-// GLOBAL: WIZ8 0x006f050c
-HHOOK ghMouseHook;
-
-#endif
 
 // If the following pointer is non NULL then input characters are redirected to
 // the related string
@@ -120,112 +107,6 @@ void AdjustMouseForWindowOrigin(void);
 
 // These are the hook functions for both keyboard and mouse
 
-#if !defined(WIZ8_NATIVE)
-// FUNCTION: WIZ8 0x00401b30
-LRESULT CALLBACK KeyboardHandler(int Code, WPARAM wParam, LPARAM lParam)
-{
-    if ((Code < 0) ||
-        (!gfApplicationActive)) { // Do not handle this message, pass it on to another window
-        return CallNextHookEx(ghKeyboardHook, Code, wParam, lParam);
-    }
-
-    if (lParam & TRANSITION_MASK) { // The key has been released
-        KeyUp(wParam, lParam);
-        //gfSGPInputReceived =  TRUE;
-    } else { // Key was up
-        KeyDown(wParam, lParam);
-        gfSGPInputReceived = TRUE;
-    }
-
-    return TRUE;
-}
-
-// Wizardry mouse hander
-
-// FUNCTION: WIZ8 0x00401c70
-LRESULT CALLBACK MouseHandler(int Code, WPARAM wParam, LPARAM lParam)
-{
-    UINT32 uiParam;
-    UINT32 uiXPos, uiYPos;
-    RECT rcClient;
-    BOOLEAN fOutsideClient = FALSE;
-    // GLOBAL: WIZ8 0x00650dba
-    static BOOLEAN fResizing = FALSE;
-    LRESULT Result;
-
-    uiXPos = (((MOUSEHOOKSTRUCT*)lParam)->pt).x;
-    uiYPos = (((MOUSEHOOKSTRUCT*)lParam)->pt).y;
-
-    if (!VideoIsFullScreen()) {
-        if (wParam == WM_NCLBUTTONDOWN)
-            fResizing = TRUE;
-
-        VideoGetClientRect(&rcClient);
-        if ((uiXPos < (UINT32)rcClient.left) || (uiXPos > (UINT32)rcClient.right) ||
-            (uiYPos < (UINT32)rcClient.top) || (uiYPos > (UINT32)rcClient.bottom))
-            fOutsideClient = TRUE;
-    }
-
-    if ((Code < 0) || (!gfApplicationActive) || fOutsideClient ||
-        fResizing) { // Do not handle this message, pass it on to another window
-        Result = CallNextHookEx(ghMouseHook, Code, wParam, lParam);
-
-        if ((wParam == WM_LBUTTONUP) || (wParam == WM_NCLBUTTONUP))
-            fResizing = FALSE;
-
-        return (Result);
-    }
-
-    switch (wParam) {
-    case WM_LBUTTONUP:
-    case WM_LBUTTONDOWN:
-    case WM_RBUTTONDOWN:
-    case WM_RBUTTONUP:
-    case WM_MOUSEMOVE:
-        if (VideoIsFullScreen()) {
-            gusMouseXPos = (UINT16)(uiXPos);
-            gusMouseYPos = (UINT16)(uiYPos);
-        } else {
-            gusMouseXPos = (UINT16)(uiXPos - rcClient.left);
-            gusMouseYPos = (UINT16)(uiYPos - rcClient.top);
-        }
-        uiParam = (UINT32)gusMouseYPos << 16 | (UINT32)gusMouseXPos;
-        //Set that we have input
-        gfSGPInputReceived = TRUE;
-        break;
-    }
-
-    if (wParam == WM_MOUSEWHEEL) {
-        return (FALSE);
-    }
-
-    switch (wParam) {
-    case WM_LBUTTONDOWN:
-        gfLeftButtonState = TRUE;
-        QueueEvent(LEFT_BUTTON_DOWN, 0, uiParam);
-        break;
-    case WM_LBUTTONUP:
-        gfLeftButtonState = FALSE;
-        QueueEvent(LEFT_BUTTON_UP, 0, uiParam);
-        break;
-    case WM_RBUTTONDOWN:
-        gfRightButtonState = TRUE;
-        QueueEvent(RIGHT_BUTTON_DOWN, 0, uiParam);
-        break;
-    case WM_RBUTTONUP:
-        gfRightButtonState = FALSE;
-        QueueEvent(RIGHT_BUTTON_UP, 0, uiParam);
-        break;
-    case WM_MOUSEMOVE:
-        if (gfTrackMousePos)
-            QueueEvent(MOUSE_POS, 0, uiParam);
-        break;
-    }
-
-    return (TRUE);
-}
-
-#endif
 
 // FUNCTION: WIZ8 0x00401ea0
 BOOLEAN InitializeInputManager(void)
@@ -262,15 +143,6 @@ BOOLEAN InitializeInputManager(void)
     gfCurrentStringInputState = FALSE;
     gpCurrentStringDescriptor = NULL;
     // Activate the hook functions for both keyboard and Mouse
-#if !defined(WIZ8_NATIVE)
-    ghKeyboardHook = SetWindowsHookEx(WH_KEYBOARD, (HOOKPROC)KeyboardHandler, (HINSTANCE)0,
-                                      GetCurrentThreadId());
-    DbgMessage(TOPIC_INPUT, DBG_LEVEL_2, String("Set keyboard hook returned %d", ghKeyboardHook));
-
-    ghMouseHook =
-        SetWindowsHookEx(WH_MOUSE, (HOOKPROC)MouseHandler, (HINSTANCE)0, GetCurrentThreadId());
-    DbgMessage(TOPIC_INPUT, DBG_LEVEL_2, String("Set mouse hook returned %d", ghMouseHook));
-#endif
     return TRUE;
 }
 
@@ -279,10 +151,6 @@ void ShutdownInputManager(void)
 { // There's very little to do when shutting down the input manager. In the future, this is where the keyboard and
     // mouse hooks will be destroyed
     UnRegisterDebugTopic(TOPIC_INPUT, "Input Manager");
-#if !defined(WIZ8_NATIVE)
-    UnhookWindowsHookEx(ghKeyboardHook);
-    UnhookWindowsHookEx(ghMouseHook);
-#endif
 }
 
 // FUNCTION: WIZ8 0x00401f90
@@ -448,11 +316,7 @@ void KeyChange(UINT32 key, UINT32 flags, UINT8 pressed)
         return;
     }
     if ((short)key == 9 && gfAltState != 0) {
-#if defined(WIZ8_NATIVE)
         W8MinimizeWindow(ghWindow);
-#else
-        ShowWindow(ghWindow, 6);
-#endif
         gfKeyState[0x12] = 0;
         gfAltState = 0;
     }

@@ -1276,13 +1276,9 @@ bool W8GameData::TestTraceResult(int count, w8_ulong* surface_ids, W8OctreeTrace
             /* Retail verified at 0x0041C627: the cursor advances
                unconditionally even when `surface_ids` is null, so `++id` on a
                null pointer is the retail behavior rather than a defect. */
-#if defined(WIZ8_NATIVE)
             if (surface_ids != 0) {
                 ++id;
             }
-#else
-            ++id;
-#endif
             ++index;
             --remaining;
         } while (remaining != 0);

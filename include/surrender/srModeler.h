@@ -9,9 +9,9 @@
 
 // VTABLE: SURRENDER 0x10076C88 srModeler
 #if defined(SURRENDER_BUILD)
-class __declspec(dllexport) srModeler {
+class srModeler {
 #else
-class SR_DLL_IMPORT srModeler {
+class srModeler {
 #endif
 public:
     /* Axis selector indexing the position components. */
@@ -19,7 +19,7 @@ public:
 
     struct
 #if defined(SURRENDER_BUILD)
-        __declspec(dllexport)
+
 #endif
         MappingInfo {
         // FUNCTION: SURRENDER 0x10037BD0
@@ -44,7 +44,7 @@ public:
        (pass*2 + layer), and the per-pass weights convert() writes as the DCG alpha. */
     class
 #if defined(SURRENDER_BUILD)
-        __declspec(dllexport)
+
 #endif
         Vertex {
     public:
@@ -66,7 +66,7 @@ public:
 
     class
 #if defined(SURRENDER_BUILD)
-        __declspec(dllexport)
+
 #endif
         Triangle {
     public:
@@ -83,7 +83,7 @@ public:
 
     class
 #if defined(SURRENDER_BUILD)
-        __declspec(dllexport)
+
 #endif
         Polygon {
     public:

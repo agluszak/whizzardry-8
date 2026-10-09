@@ -2,26 +2,11 @@
 
 #include <iosfwd>
 #include <string.h>
-#if defined(WIZ8_NATIVE)
 #include <fenv.h>
 #include <math.h>
-#else
-#include <windows.h>
-#endif
 
 #include "srCriticalSection.h"
 
-#if defined(_MSC_VER) && !defined(SURRENDER_BUILD)
-#define SR_DLL_IMPORT __declspec(dllimport)
-#else
-#define SR_DLL_IMPORT
-#endif
-
-#if defined(SURRENDER_BUILD)
-#define SR_DLL_EXPORT __declspec(dllexport)
-#else
-#define SR_DLL_EXPORT
-#endif
 
 /* Zero fill that pre-aligns the destination to an 8-byte boundary. */
 inline void srZeroMemory(void* destination, w8_long size)
@@ -42,7 +27,6 @@ inline void srZeroMemory(void* destination, w8_long size)
 }
 
 /* Float-to-int through the FPU's current rounding mode (round to nearest, not truncation). */
-#if defined(WIZ8_NATIVE)
 inline w8_long srFloatToInt(double value)
 {
     const double rounded = rint(value);
@@ -59,39 +43,18 @@ inline w8_long srFloatToInt(float value)
 {
     return srFloatToInt(static_cast<double>(value));
 }
-#else
-inline w8_long srFloatToInt(float value)
-{
-    w8_long result;
-    __asm {
-        fld value
-        fistp result
-    }
-    return result;
-}
-
-inline w8_long srFloatToInt(double value)
-{
-    w8_long result;
-    __asm {
-        fld value
-        fistp result
-    }
-    return result;
-}
-#endif
 
 class srHeap {
 public:
-    SR_DLL_IMPORT srHeap();
-    SR_DLL_IMPORT ~srHeap();
+    srHeap();
+    ~srHeap();
 
-    SR_DLL_IMPORT void* allocate(w8_ulong size);
-    SR_DLL_IMPORT void free(void* allocation);
-    SR_DLL_IMPORT void free(void* allocation, unsigned int size);
-    SR_DLL_IMPORT void freeAll();
-    SR_DLL_IMPORT w8_ulong msize(void* allocation);
-    SR_DLL_IMPORT void dump(std::ostream& stream);
+    void* allocate(w8_ulong size);
+    void free(void* allocation);
+    void free(void* allocation, unsigned int size);
+    void freeAll();
+    w8_ulong msize(void* allocation);
+    void dump(std::ostream& stream);
 
 private:
     struct Chunk;
@@ -154,4 +117,4 @@ private:
 
 W8_ABI_ASSERT(sizeof(srHeap) == 0xb4, "srHeap_must_be_0xb4");
 
-extern SR_DLL_IMPORT class srHeap srHeap;
+extern class srHeap srHeap;

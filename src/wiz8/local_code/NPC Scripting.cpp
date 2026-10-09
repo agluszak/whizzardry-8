@@ -6,7 +6,6 @@
 #include "wiz8/bink_video.h"
 #include "wiz8/integer_constants.h"
 
-#include "bink.h"
 #include "cursor.h"
 #include "input.h"
 #include "random.h"

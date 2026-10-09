@@ -6,7 +6,7 @@
 
 class srShader;
 
-SR_DLL_IMPORT std::ostream& operator<<(std::ostream& stream, const srShader& shader);
+std::ostream& operator<<(std::ostream& stream, const srShader& shader);
 
 /* A shader is one 32-bit packed word. The modeler/mesh default 0x0100241b is PASS_LEQUAL, depth and
    color write, DSTBLEND_ZERO, FOG_DISABLE, GRADIENT_MODULATE, SRCBLEND_ONE, TEXTURING_DISABLE,

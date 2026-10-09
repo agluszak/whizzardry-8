@@ -3,7 +3,6 @@
 namespace {
 
 /* Scoped critical-section guard. */
-#if defined(WIZ8_NATIVE)
 class RecyclerAccess {
 public:
     RecyclerAccess(std::recursive_mutex* critical_section) : critical_section_(critical_section)
@@ -19,23 +18,6 @@ public:
 private:
     std::recursive_mutex* critical_section_;
 };
-#else
-class RecyclerAccess {
-public:
-    RecyclerAccess(CRITICAL_SECTION* critical_section) : critical_section_(critical_section)
-    {
-        EnterCriticalSection(critical_section_);
-    }
-
-    ~RecyclerAccess()
-    {
-        LeaveCriticalSection(critical_section_);
-    }
-
-private:
-    CRITICAL_SECTION* critical_section_;
-};
-#endif
 
 } // namespace
 
@@ -88,9 +70,6 @@ void srGlobalRecycler::freeEntry(w8_ulong index)
 srGlobalRecycler::srGlobalRecycler()
 {
     used_mask = 0;
-#if !defined(WIZ8_NATIVE)
-    InitializeCriticalSection(&critical_section.critical_section);
-#endif
     for (w8_ulong index = 0; index < 16; ++index) {
         entries[index].allocation = 0;
         entries[index].size = 0;

@@ -9,31 +9,25 @@
 // class srBinOStream
 class
 #if defined(SURRENDER_BUILD)
-    __declspec(dllexport)
+
 #else
-    __declspec(novtable)
+
 #endif
     srBinOStream : public virtual srBinStream {
 public:
     /* The DLL build uses compiler-generated special members. Native clients use
        the same members; the Windows import declarations remain unchanged. */
-#if !defined(SURRENDER_BUILD) && !defined(WIZ8_NATIVE)
-    SR_DLL_IMPORT srBinOStream();
-    SR_DLL_IMPORT srBinOStream(const srBinOStream& stream);
-    virtual SR_DLL_IMPORT ~srBinOStream() override;
-    SR_DLL_IMPORT srBinOStream& operator=(const srBinOStream& stream);
-#endif
 
-    SR_DLL_IMPORT srBinOStream& putChar(char value);
-    SR_DLL_IMPORT srBinOStream& putDWord(w8_ulong value);
-    SR_DLL_IMPORT srBinOStream& putDouble(double value);
-    SR_DLL_IMPORT srBinOStream& putFloat(float value);
-    SR_DLL_IMPORT srBinOStream& putQWord(srQuadWord value);
-    SR_DLL_IMPORT srBinOStream& putWord(unsigned short value);
-    SR_DLL_IMPORT srBinOStream& write(const void* source, w8_ulong size);
+    srBinOStream& putChar(char value);
+    srBinOStream& putDWord(w8_ulong value);
+    srBinOStream& putDouble(double value);
+    srBinOStream& putFloat(float value);
+    srBinOStream& putQWord(srQuadWord value);
+    srBinOStream& putWord(unsigned short value);
+    srBinOStream& write(const void* source, w8_ulong size);
 
 protected:
-    virtual SR_DLL_IMPORT unsigned short vput(char value);
+    virtual unsigned short vput(char value);
 
 private:
     virtual w8_ulong vwrite(const void* source, w8_ulong size) = 0;
@@ -44,9 +38,9 @@ private:
 // VTABLE: SURRENDER 0x10076BC4 srBinOStream
 // class srBinOMStream
 #if defined(SURRENDER_BUILD)
-class SR_DLL_EXPORT srBinOMStream
+class srBinOMStream
 #else
-class __declspec(novtable) SR_DLL_IMPORT srBinOMStream
+class srBinOMStream
 #endif
     : public srBinOStream {
 public:

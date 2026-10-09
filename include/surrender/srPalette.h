@@ -9,11 +9,11 @@ class srColorSurfaceIFace;
 // class srClassSupport<srPalette, srClass, 1, 10496>
 
 // VTABLE: SURRENDER 0x100753CC srPalette
-class SR_DLL_EXPORT srPalette : public srClassSupport<srPalette, srClass, 1, 0x2900> {
+class srPalette : public srClassSupport<srPalette, srClass, 1, 0x2900> {
 public:
     /* Two-level lookup: lut_rg[(g<<8)|r] selects a palette row, lut_rgb[(row<<8)|b] yields the
        index. */
-    class SR_DLL_EXPORT Quantizer {
+    class Quantizer {
     public:
         Quantizer();
         // FUNCTION: SURRENDER 0x10004B40
@@ -67,7 +67,7 @@ public:
     /* Color sampler. Sampled colors are quantized to sample_bits per channel and accumulated in a
        0x8000-bucket open hash; entries hold the packed color and its total weight, linked through a
        parallel index array. */
-    class SR_DLL_EXPORT Sampler {
+    class Sampler {
     public:
         struct ColorEntry {
             srARGB color;
@@ -119,7 +119,7 @@ public:
     /* Optimal-palette builder; an octree over the sampled 5-5-5 color space. Level arrays hold
        8^level nodes for levels 0-4; level-4 children index the sparse 15-bit leaf-bucket map. Leaf
        bucket nodes own Leaf records {color, weight, error}. */
-    class SR_DLL_EXPORT Optimizer {
+    class Optimizer {
     public:
         struct PaletteInfo {
             const Sampler::ColorEntry* colors; /* 0x00 */
@@ -179,35 +179,35 @@ public:
         W8_ABI_ASSERT(sizeof(LUT) == 0x1810, "OptimizerLUT_must_be_0x1810");
     };
 
-    static SR_DLL_IMPORT const char* sGetClassName();
-    static SR_DLL_IMPORT srPalette* findMatchingPalette(const srARGB* const colors,
+    static const char* sGetClassName();
+    static srPalette* findMatchingPalette(const srARGB* const colors,
                                                         w8_long color_count);
 
-    SR_DLL_IMPORT srPalette(srARGB* colors = 0, w8_long color_count = 1);
+    srPalette(srARGB* colors = 0, w8_long color_count = 1);
 
-    SR_DLL_IMPORT srPalette& operator=(const srPalette& other);
+    srPalette& operator=(const srPalette& other);
 
-    virtual SR_DLL_IMPORT void dump(std::ostream& stream) override;
-    virtual SR_DLL_IMPORT srClass* vInstance() override;
+    virtual void dump(std::ostream& stream) override;
+    virtual srClass* vInstance() override;
 
-    SR_DLL_IMPORT srARGB getColor(w8_long index) const;
-    SR_DLL_IMPORT const srARGB* getPaletteDataPtr();
-    SR_DLL_IMPORT w8_long getPaletteSize() const;
-    SR_DLL_IMPORT int matchPalette(const srARGB* const colors, w8_long color_count) const;
-    SR_DLL_IMPORT unsigned char quantize(const srARGB& color);
-    SR_DLL_IMPORT void quantize(unsigned char* const indices, const srARGB* const colors,
+    srARGB getColor(w8_long index) const;
+    const srARGB* getPaletteDataPtr();
+    w8_long getPaletteSize() const;
+    int matchPalette(const srARGB* const colors, w8_long color_count) const;
+    unsigned char quantize(const srARGB& color);
+    void quantize(unsigned char* const indices, const srARGB* const colors,
                                 w8_long color_count);
-    SR_DLL_IMPORT void releaseQuantizer();
-    SR_DLL_IMPORT void setColor(w8_long index, const srARGB& color);
-    SR_DLL_IMPORT void setColors(w8_long destination_index, const srARGB* const colors,
+    void releaseQuantizer();
+    void setColor(w8_long index, const srARGB& color);
+    void setColors(w8_long destination_index, const srARGB* const colors,
                                  w8_long color_count);
-    SR_DLL_IMPORT void update();
+    void update();
 
 protected:
-    virtual SR_DLL_IMPORT ~srPalette() override;
+    virtual ~srPalette() override;
 
 private:
-    SR_DLL_IMPORT void updateQuantizer();
+    void updateQuantizer();
 
     w8_ulong flags;
     srARGB* colors;

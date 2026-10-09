@@ -1,39 +1,43 @@
 #include "surrender/srMutex.h"
 
-// FUNCTION: SURRENDER 0x10045A40
+#include <mutex>
+
+/* Native srMutex: a recursive mutex like the Win32 mutex object it replaces. */
+namespace {
+std::recursive_mutex* nativeMutex(void* handle)
+{
+    return static_cast<std::recursive_mutex*>(handle);
+}
+} // namespace
+
 srMutex::srMutex()
 {
     access_count = 0;
-    handle = CreateMutexA(0, 0, 0);
+    handle = new std::recursive_mutex;
 }
 
-// FUNCTION: SURRENDER 0x10045A70
 srMutex::~srMutex()
 {
-    WaitForSingleObject(handle, INFINITE);
-    CloseHandle(handle);
+    delete nativeMutex(handle);
 }
 
-// FUNCTION: SURRENDER 0x10045AA0
 int srMutex::accessAvailable()
 {
-    if (WaitForSingleObject(handle, 0) == WAIT_ABANDONED) {
+    if (!nativeMutex(handle)->try_lock()) {
         return 0;
     }
-    ReleaseMutex(handle);
+    nativeMutex(handle)->unlock();
     return 1;
 }
 
-// FUNCTION: SURRENDER 0x10045AD0
 void srMutex::getAccess()
 {
-    WaitForSingleObject(handle, INFINITE);
+    nativeMutex(handle)->lock();
     access_count++;
 }
 
-// FUNCTION: SURRENDER 0x10045AF0
 void srMutex::releaseAccess()
 {
-    ReleaseMutex(handle);
+    nativeMutex(handle)->unlock();
     access_count--;
 }

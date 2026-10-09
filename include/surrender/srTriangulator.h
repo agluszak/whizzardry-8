@@ -2,7 +2,7 @@
 
 #include "srMath.h"
 
-class SR_DLL_EXPORT srTriangulator {
+class srTriangulator {
 public:
     /* Doubly-linked circular vertex list. */
     class CircularList {

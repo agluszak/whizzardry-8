@@ -1,4 +1,4 @@
-/* Modified for the Wizardry 8 reconstruction: 2026-10-03, 2026-10-06, 2026-10-07.
+/* Modified for the Wizardry 8 reconstruction: 2026-10-03, 2026-10-06, 2026-10-07, 2026-10-09.
    Distributed under the accompanying SFI Source Code license agreement. */
 //**************************************************************************
 //
@@ -22,9 +22,6 @@
 //**************************************************************************
 
 #include "compat/kernel32.h"
-#if !defined(WIZ8_NATIVE)
-#include <tchar.h>
-#endif
 #include <assert.h>
 
 #include "Types.h"

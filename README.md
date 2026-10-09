@@ -1,18 +1,23 @@
 # Whizzardry 8
 
-Portable Wizardry 8 and SurRender reconstruction targeting native Linux and macOS.
-The native build uses modern Clang, SDL3 GPU rendering, FFmpeg video decoding,
+Native Wizardry 8 and SurRender for 64-bit Linux and macOS, built with Clang.
+The build uses SDL3 GPU rendering, FFmpeg video decoding,
 miniaudio sound and system zlib. CMake downloads a pinned miniaudio revision.
 Game data comes from an existing retail installation and is not distributed here.
 
 ## Build
 
-On Ubuntu, install the development dependencies:
+On Ubuntu releases that package SDL3, install the development dependencies:
 
 ```sh
 sudo apt install clang cmake ninja-build pkg-config libsdl3-dev zlib1g-dev glslang-tools \
     libavformat-dev libavcodec-dev libavutil-dev libswscale-dev libswresample-dev
 ```
+
+SDL3 3.2+ and FFmpeg 5.1+ are required. On older distributions, install
+supported releases from [SDL](https://github.com/libsdl-org/SDL/releases) and
+[FFmpeg](https://ffmpeg.org/download.html). On macOS, install
+`cmake ninja pkg-config sdl3 zlib ffmpeg glslang` with Homebrew and use Apple Clang.
 
 Configure and build:
 
@@ -35,8 +40,8 @@ WIZ8_ASSET_ROOT=/path/to/Wizardry8 ./run.sh /WINDOW
 
 The launcher accepts an optional `.env` file and passes arguments through to
 the game. It uses `build-native` unless `WIZ8_BUILD_DIR` is specified.
-`SDL_VIDEODRIVER`, `VK_DRIVER_FILES` and `VK_ICD_FILENAMES` override graphics
-defaults. `WIZ8_GPU_DEBUG=1` enables SDL GPU debugging and
+The launcher leaves display and GPU driver selection to SDL and the host.
+`WIZ8_GPU_DEBUG=1` enables SDL GPU debugging and
 `WIZ8_SRDD_TRACE=1` traces SurRender draws.
 
 Game assets and writable saves/configuration are separate. The virtual `C:\`
@@ -76,10 +81,9 @@ format-defined sizes must preserve their serialized layout. `w8_long` and
 pointer slots. Text/CRT boundaries use explicit conversion rather than host
 wide-string routines that expect four-byte `wchar_t`.
 
-The native platform implementations reside in `src/compat/`,
-`src/sgp/native/`, `src/surrender/native/` and the SDL GPU device. This
-repository develops the native implementation; historical Windows
-assembly-equivalence belongs to the separate decompilation repository.
+There is no Windows build, Wine runner, 32-bit target or legacy fallback.
+The platform adapters in `src/compat/` are temporary migration boundaries,
+not a permanent Windows emulation layer. See [remaining native work](NATIVE_WORK.md).
 
 Third-party source licenses, including the SGP license, remain with
 their respective sources.

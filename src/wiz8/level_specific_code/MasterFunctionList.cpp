@@ -220,14 +220,9 @@ unsigned char DispatchWorldCursorNodeCommand(W8MonsterInfo* info, int command, .
     // forward the optional argument slot's address; handlers do not read it.
     va_list arguments;
     va_start(arguments, command);
-#if defined(WIZ8_NATIVE)
     // Only command 4 reads context, from va_arg below. Other handlers ignore
     // the historical address of the optional argument slot.
     context = 0;
-#else
-    // reinterpret-ok: retail passes the optional argument slot as context.
-    context = reinterpret_cast<int>(arguments);
-#endif
     if (IsMipeActive()) {
         va_end(arguments);
         return handled;

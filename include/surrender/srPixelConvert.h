@@ -54,7 +54,7 @@ public:
         PixelFormat() : fourcc(0) {}
 
 #if defined(SURRENDER_BUILD)
-        __declspec(dllexport)
+
 #endif
         void getName(char* const name);
         int isValid() const;
@@ -82,7 +82,7 @@ public:
     typedef void(__cdecl* ConversionFunc)(const ConversionInfo& info);
 
     static e_surfaceType mapPixelFormat(const PixelFormat& format);
-    static SR_DLL_IMPORT void mapPixelFormat(e_surfaceType type, PixelFormat& format);
+    static void mapPixelFormat(e_surfaceType type, PixelFormat& format);
     static void selectFuncs(const PixelFormat& format, ConversionFunc& write, ConversionFunc& read);
 };
 

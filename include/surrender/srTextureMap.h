@@ -8,7 +8,7 @@
 
 // VTABLE: SURRENDER 0x10077578 srTextureMap
 // class srTextureMap
-class SR_DLL_IMPORT SR_DLL_EXPORT srTextureMap
+class srTextureMap
     : public srClassSupport<srTextureMap, srTexture, 0, 0x2111> {
 public:
     srTextureMap(srColorSurfaceIFace* surface = 0);

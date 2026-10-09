@@ -1,15 +1,10 @@
 #ifndef WIZ8_BINK_VIDEO_H
 #define WIZ8_BINK_VIDEO_H
 
-#if defined(WIZ8_NATIVE)
 struct W8NativeVideo;
-#else
-#include "bink.h"
-#endif
 struct IDirectDrawSurface2;
 
-/* First-party owner around the closed Bink middleware handle. Engine
-   Code\Bink.cpp is named by the retained failure path in its surface copy. */
+/* Movie playback backed by FFmpeg. */
 class W8BinkVideo {
 public:
     W8BinkVideo();
@@ -22,11 +17,7 @@ public:
     void SetTarget(IDirectDrawSurface2* target);
 
 private:
-#if defined(WIZ8_NATIVE)
     W8NativeVideo* m_handle;
-#else
-    HBINK m_handle;                /* 0x00 */
-#endif
     unsigned char unknown_04[4];   /* 0x04: constructor clears; scalar type unresolved */
     IDirectDrawSurface2* m_target; /* 0x08 */
 };

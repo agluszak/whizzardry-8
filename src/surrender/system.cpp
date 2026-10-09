@@ -1,132 +1,116 @@
 #include "surrender/srSystem.h"
 
 #include "surrender/srStringTable.h"
+#include "compat/platform.h"
+#include "platform_paths.h"
 
-#include <direct.h>
+#include <dirent.h>
+#include <string>
+#include <fnmatch.h>
+#include <limits.h>
 #include <stdlib.h>
 #include <string.h>
-#include <windows.h>
+#include <sys/stat.h>
+#include <unistd.h>
 
-// FUNCTION: SURRENDER 0x100457B0
 w8_long srSystem::scanFiles(srStringTable& files, const char* path)
 {
     if (path == 0 || *path == '\0') {
         return 0;
     }
-
-    const w8_long last = strlen(path) - 1;
-    w8_long slash;
-    for (slash = last; slash >= 0; --slash) {
-        if (path[slash] == '/') {
-            break;
-        }
+    const char* slash = strrchr(path, '/');
+    const char* backslash = strrchr(path, '\\');
+    if (backslash && (!slash || backslash > slash)) slash = backslash;
+    if (slash == 0) {
+        return scanFiles(files, 0, path);
     }
-    if (slash == last) {
+    if (slash[1] == '\0') {
         return 0;
     }
-    if (slash > 0) {
-        /* The directory keeps its trailing separator. */
-        char directory[MAX_PATH];
-        memcpy(directory, path, slash + 1);
-        directory[slash + 1] = '\0';
-        return scanFiles(files, directory, path + slash + 1);
-    }
-    if (*path == '/') {
-        return scanFiles(files, "/", path + 1);
-    }
-    return scanFiles(files, 0, path);
+    std::string directory(path, slash - path + 1);
+    return scanFiles(files, directory.c_str(), slash + 1);
 }
 
-// FUNCTION: SURRENDER 0x10045B70
 char* srSystem::getCwd(char* path, w8_long size)
 {
-    return _getcwd(path, size);
+    return w8_getcwd(path, size);
 }
 
-// FUNCTION: SURRENDER 0x10045B90
 w8_long srSystem::chDir(const char* path)
 {
-    return _chdir(path);
+    return w8_chdir(path);
 }
 
-// FUNCTION: SURRENDER 0x10045BA0
-w8_long srSystem::scanLibraries(srStringTable& libraries, const char* directory, const char* extension)
+w8_long srSystem::scanLibraries(srStringTable&, const char*, const char*)
 {
-    char pattern[MAX_PATH + 4];
-    strcpy(pattern, extension);
-    strcat(pattern, ".dll");
-
-    srStringTable files;
-    scanFiles(files, directory, pattern);
-    for (w8_long index = 0; index < files.getCount(); ++index) {
-        char* path = files.getString(index);
-        for (w8_long position = strlen(path) - 1; position > 1; --position) {
-            if (path[position] == '.') {
-                path[position] = '\0';
-                break;
-            }
-        }
-        libraries.addString(path);
-    }
-    return files.getCount();
+    /* Device drivers, vector processors and extensions are built in. */
+    return 0;
 }
 
-// FUNCTION: SURRENDER 0x10045CD0
 w8_long srSystem::scanFiles(srStringTable& files, const char* directory, const char* pattern)
 {
     if (pattern == 0) {
         return 0;
     }
-
-    char previous_directory[MAX_PATH];
-    if (directory != 0) {
-        getCwd(previous_directory, MAX_PATH);
-        if (chDir(directory) != 0) {
-            return 0;
-        }
-    }
-
+    std::string base = directory != nullptr ? directory : ".";
+    if (!base.empty() && base.back() != '/' && base.back() != '\\') base += '\\';
+    WIN32_FIND_DATAA entry;
+    HANDLE search = W8FindFirstFile((base + pattern).c_str(), &entry);
+    if (search == INVALID_HANDLE_VALUE) return 0;
     w8_long count = 0;
-    WIN32_FIND_DATAA file;
-    HANDLE search = FindFirstFileA(pattern, &file);
-    if (search != INVALID_HANDLE_VALUE) {
-        do {
-            if ((file.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) == 0) {
-                char absolute_path[MAX_PATH * 2];
-                absolute_path[0] = '\0';
-                fullPath(absolute_path, file.cFileName, MAX_PATH);
-                files.addString(absolute_path);
-                ++count;
-            }
-        } while (FindNextFileA(search, &file));
-        FindClose(search);
-    }
-
-    if (directory != 0) {
-        chDir(previous_directory);
-    }
+    do {
+        if (!(entry.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)) {
+            const std::string full = w8_native::full_path((base + entry.cFileName).c_str());
+            files.addString(full.c_str());
+            ++count;
+        }
+    } while (W8FindNextFile(search, &entry));
+    W8FindClose(search);
     return count;
 }
 
-// FUNCTION: SURRENDER 0x10045DE0
 void srSystem::makePath(char* path, const char* drive, const char* directory, const char* filename,
                         const char* extension)
 {
-    _makepath(path, drive, directory, filename, extension);
+    path[0] = '\0';
+    if (drive != 0 && *drive != '\0') {
+        strcat(path, drive);
+    }
+    if (directory != 0 && *directory != '\0') {
+        strcat(path, directory);
+        const char last = directory[strlen(directory) - 1];
+        if (last != '/' && last != '\\') {
+            strcat(path, "/");
+        }
+    }
+    if (filename != 0) {
+        strcat(path, filename);
+    }
+    if (extension != 0 && *extension != '\0') {
+        if (*extension != '.') {
+            strcat(path, ".");
+        }
+        strcat(path, extension);
+    }
 }
 
-// FUNCTION: SURRENDER 0x10045E10
 char* srSystem::fullPath(char* absolute_path, const char* path, w8_ulong size)
 {
     if (absolute_path == 0) {
-        absolute_path = new char[MAX_PATH];
+        absolute_path = new char[PATH_MAX];
+        size = PATH_MAX;
     }
-    return _fullpath(absolute_path, path, size);
+    const std::string full = w8_native::full_path(path);
+    if (full.empty()) return 0;
+    if (full.size() + 1 > size) {
+        return 0;
+    }
+    strcpy(absolute_path, full.c_str());
+    return absolute_path;
 }
 
-// FUNCTION: SURRENDER 0x10045E40
 void srSystem::splitPath(const char* path, char* drive, char* directory, char* filename,
                          char* extension)
 {
-    _splitpath(path, drive, directory, filename, extension);
+    w8_splitpath(path, drive, directory, filename, extension);
 }

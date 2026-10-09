@@ -1403,13 +1403,11 @@ void stMeshModel::SetAmbientColor(const srVector3T<float>& color)
 
 static inline char CompressNormalByte(float value)
 {
-#if defined(WIZ8_NATIVE)
     // A zero-length normal becomes NaN. MSVC's x87 integer-indefinite result
     // has a zero low byte; express that result without an undefined FP cast.
     if (!_finite(value)) {
         return 0;
     }
-#endif
     return static_cast<char>(value);
 }
 

@@ -9,7 +9,7 @@ class srGERD;
 
 // VTABLE: SURRENDER 0x10076E40 srCamera
 // class srCamera
-class SR_DLL_IMPORT SR_DLL_EXPORT srCamera : public srClassSupport<srCamera, srNode, 0, 0x1400> {
+class srCamera : public srClassSupport<srCamera, srNode, 0, 0x1400> {
 public:
     enum e_project { PROJECT_PERSPECTIVE = 0, PROJECT_ORTHOGRAPHIC = 1 };
 
@@ -30,10 +30,6 @@ public:
 
     srCamera(srNode* parent = 0);
 
-#if !defined(SURRENDER_BUILD) && !defined(WIZ8_NATIVE)
-    srCamera& operator=(const srCamera& other);
-    virtual ~srCamera() override;
-#endif
 
     virtual void dump(std::ostream& stream) override;
     virtual srClass* vInstance() override;

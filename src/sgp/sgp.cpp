@@ -1,12 +1,8 @@
-/* Modified for the Wizardry 8 reconstruction: 2026-10-03, 2026-10-04, 2026-10-06, 2026-10-07.
+/* Modified for the Wizardry 8 reconstruction: 2026-10-03, 2026-10-04, 2026-10-06, 2026-10-07, 2026-10-09.
    Distributed under the accompanying SFI Source Code license agreement. */
 #include "Types.h"
 #include "compat/kernel32.h"
-#if !defined(WIZ8_NATIVE)
-#include <windowsx.h>
-#else
 #include "compat/video.h"
-#endif
 #include <stdio.h>
 #include <stdarg.h>
 #include <string.h>
@@ -26,14 +22,7 @@
 #include "wiz8/engine_code/GameData.h"
 
 #include "input.h"
-#if !defined(WIZ8_NATIVE)
-#include <zmouse.h>
-#include "dbt.h"
-#endif
 
-#ifndef WIN32_LEAN_AND_MEAN
-#define WIN32_LEAN_AND_MEAN
-#endif
 
 // Prototype Declarations
 
@@ -84,182 +73,6 @@ BOOLEAN gfIgnoreMessages = FALSE;
 // GLOBAL: WIZ8 0x005ff450
 UINT8 gbPixelDepth = PIXEL_DEPTH;
 
-#if !defined(WIZ8_NATIVE)
-// FUNCTION: WIZ8 0x004011e0
-INT32 FAR PASCAL WindowProcedure(HWND hWindow, UINT16 Message, WPARAM wParam, LPARAM lParam)
-{
-    // GLOBAL: WIZ8 0x00650db0
-    static int fRestore = FALSE;
-
-    if (gfIgnoreMessages)
-        return (DefWindowProc(hWindow, Message, wParam, lParam));
-
-    // ATE: This is for older win95 or NT 3.51 to get MOUSE_WHEEL Messages
-    if (Message == guiMouseWheelMsg) {
-        QueueEvent(MOUSE_WHEEL, wParam, lParam);
-        return (0L);
-    }
-
-    switch (Message) {
-    case WM_MOUSEWHEEL: {
-        QueueEvent(MOUSE_WHEEL, wParam, lParam);
-        break;
-    }
-
-    case WM_MOUSEMOVE:
-        break;
-
-    case WM_SIZING: {
-        LPRECT lpWindow;
-        INT32 iWidth, iHeight, iX, iY;
-        BOOLEAN fWidthByHeight = FALSE, fHoldRight = FALSE;
-
-        lpWindow = (LPRECT)lParam;
-
-        iWidth = lpWindow->right - lpWindow->left;
-        iHeight = lpWindow->bottom - lpWindow->top;
-        iX = (lpWindow->left + lpWindow->right) / 2;
-        iY = (lpWindow->top + lpWindow->bottom) / 2;
-
-        switch (wParam) {
-        case WMSZ_BOTTOMLEFT:
-            fHoldRight = TRUE;
-        case WMSZ_BOTTOM:
-        case WMSZ_BOTTOMRIGHT:
-            if (iHeight < SCREEN_HEIGHT) {
-                lpWindow->bottom = lpWindow->top + SCREEN_HEIGHT;
-                iHeight = SCREEN_HEIGHT;
-            }
-            fWidthByHeight = TRUE;
-            break;
-
-        case WMSZ_TOPLEFT:
-            fHoldRight = TRUE;
-        case WMSZ_TOP:
-        case WMSZ_TOPRIGHT:
-            if (iHeight < SCREEN_HEIGHT) {
-                lpWindow->top = lpWindow->bottom - SCREEN_HEIGHT;
-                iHeight = SCREEN_HEIGHT;
-            }
-            fWidthByHeight = TRUE;
-            break;
-
-        case WMSZ_LEFT:
-            if (iWidth < SCREEN_WIDTH) {
-                lpWindow->left = lpWindow->right - SCREEN_WIDTH;
-                iWidth = SCREEN_WIDTH;
-            }
-            break;
-
-        case WMSZ_RIGHT:
-            if (iWidth < SCREEN_WIDTH) {
-                lpWindow->right = lpWindow->left + SCREEN_WIDTH;
-                iWidth = SCREEN_WIDTH;
-            }
-        }
-
-        // Calculate width as a factor of height
-        if (fWidthByHeight) {
-            iWidth = iHeight * SCREEN_WIDTH / SCREEN_HEIGHT;
-            //				lpWindow->left = iX - iWidth/2;
-            //				lpWindow->right = iX + iWidth / 2;
-            if (fHoldRight)
-                lpWindow->left = lpWindow->right - iWidth;
-            else
-                lpWindow->right = lpWindow->left + iWidth;
-        } else // Calculate height as a factor of width
-        {
-            iHeight = iWidth * SCREEN_HEIGHT / SCREEN_WIDTH;
-            //				lpWindow->top = iY - iHeight/2;
-            //				lpWindow->bottom = iY + iHeight/2;
-            lpWindow->bottom = lpWindow->top + iHeight;
-        }
-
-    } break;
-
-    case WM_SIZE: {
-        UINT16 nWidth = LOWORD(lParam);  // width of client area
-        UINT16 nHeight = HIWORD(lParam); // height of client area
-
-        if (nWidth && nHeight) {
-            switch (wParam) {
-            case SIZE_MAXIMIZED:
-                VideoFullScreen(TRUE);
-                break;
-
-            case SIZE_RESTORED:
-                VideoResizeWindow();
-                break;
-            }
-        }
-    } break;
-
-    case WM_MOVE: {
-        INT32 xPos = (INT32)LOWORD(lParam); // horizontal position
-        INT32 yPos = (INT32)HIWORD(lParam); // vertical position
-    } break;
-
-    case WM_ACTIVATEAPP:
-        switch (wParam) {
-        case TRUE: // We are restarting DirectDraw
-            if (fRestore == TRUE) {
-                if (!VideoInspectorIsEnabled()) {
-                    RestoreVideoManager();
-                    RestoreVideoSurfaces(); // Restore any video surfaces
-                }
-
-                MoveTimer(TIMER_RESUME);
-                gfApplicationActive = TRUE;
-            }
-            break;
-        case FALSE: // We are suspending direct draw
-            if (!VideoInspectorIsEnabled())
-                SuspendVideoManager();
-            // suspend movement timer, to prevent timer crash if delay becomes long
-            // * it doesn't matter whether the 3-D engine is actually running or not, or if it's even been initialized
-            // * restore is automatic, no need to do anything on reactivation
-            MoveTimer(TIMER_SUSPEND);
-
-            gfApplicationActive = FALSE;
-            fRestore = TRUE;
-            break;
-        }
-        break;
-
-    case WM_CREATE:
-        break;
-
-    case WM_DESTROY:
-        ShutdownStandardGamingPlatform();
-        ShowCursor(TRUE);
-        PostQuitMessage(0);
-        break;
-
-    case WM_SETFOCUS:
-        if (!VideoInspectorIsEnabled())
-            RestoreVideoManager();
-        gfApplicationActive = TRUE;
-        //			RestrictMouseToXYXY(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT);
-
-        break;
-
-    case WM_KILLFOCUS:
-        if (!VideoInspectorIsEnabled())
-            SuspendVideoManager();
-
-        gfApplicationActive = FALSE;
-        FreeMouseCursor();
-        // Set a flag to restore surfaces once a WM_ACTIVEATEAPP is received
-        fRestore = TRUE;
-        break;
-
-    default:
-        return DefWindowProc(hWindow, Message, wParam, lParam);
-    }
-    return 0L;
-}
-
-#endif
 
 // FUNCTION: WIZ8 0x00401570
 BOOLEAN InitializeStandardGamingPlatform(HINSTANCE hInstance, int sCommandShow)
@@ -273,9 +86,6 @@ BOOLEAN InitializeStandardGamingPlatform(HINSTANCE hInstance, int sCommandShow)
     InitializeRegistryKeys("Wizardry8", "Wizardry8key");
 
     // For rendering DLLs etc.
-#if !defined(WIZ8_NATIVE)
-    AddSubdirectoryToPath("DLL");
-#endif
 
     // Second, read in settings
     GetRuntimeSettings();
@@ -372,11 +182,7 @@ BOOLEAN InitializeStandardGamingPlatform(HINSTANCE hInstance, int sCommandShow)
     }
 
     // Register mouse wheel message
-#if defined(WIZ8_NATIVE)
     guiMouseWheelMsg = WM_MOUSEWHEEL;
-#else
-    guiMouseWheelMsg = RegisterWindowMessage(MSH_MOUSEWHEEL);
-#endif
 
     gfGameInitialized = TRUE;
 
@@ -434,56 +240,6 @@ void ShutdownStandardGamingPlatform(void)
     ShutdownDebugManager();
 }
 
-#if !defined(WIZ8_NATIVE)
-// FUNCTION: WIZ8 0x00401670
-int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nShowCmd)
-{
-    MSG message;
-    HWND existing;
-
-    existing = FindWindowExA(NULL, NULL, "Wizardry 8", "Wizardry 8");
-    if (existing) {
-        SetForegroundWindow(existing);
-        ShowWindow(existing, 9);
-        return 0;
-    }
-    ghInstance = hInstance;
-    ProcessCommandLine(lpCmdLine);
-    giStartMem = MemGetFree() >> 10;
-    if (!FileExists(VideoGetConfigFile())) {
-        _spawnl(0, "3DSetup.EXE", "3DSetup.EXE", VideoGetConfigFile(), NULL);
-    }
-    if (!FileExists(VideoGetConfigFile())) {
-        return 0;
-    }
-    if (!CheckCdPresent()) {
-        return 0;
-    }
-    ShowCursor(FALSE);
-    if (!InitializeStandardGamingPlatform(hInstance, nShowCmd)) {
-        return 0;
-    }
-    gfApplicationActive = 1;
-    gfProgramIsRunning = 1;
-    do {
-        if (PeekMessageA(&message, NULL, 0, 0, 0)) {
-            if (GetMessageA(&message, NULL, 0, 0) == 0) {
-                return message.wParam;
-            }
-            TranslateMessage(&message);
-            DispatchMessageA(&message);
-        } else if (gfApplicationActive == 0) {
-            WaitMessage();
-        } else {
-            GameLoop();
-            gfSGPInputReceived = 0;
-        }
-    } while (gfProgramIsRunning);
-    PostQuitMessage(0);
-    return message.wParam;
-}
-
-#endif
 
 //Do not place code in between WinMain and Handled WinMain
 
@@ -501,9 +257,6 @@ void SGPExit(void)
 
     fAlreadyExiting = TRUE;
     gfProgramIsRunning = FALSE;
-#if !defined(WIZ8_NATIVE)
-    ShutdownSoundManager();
-#endif
 
     // Wizardry only
     if (gfGameInitialized) {
@@ -516,42 +269,19 @@ void SGPExit(void)
         GameloopExit(fUnloadScreens);
     }
 
-#if defined(WIZ8_NATIVE)
     /* Movie voices belong to the current screen and must leave the engine first. */
     ShutdownSoundManager();
-#endif
     ShutdownStandardGamingPlatform();
-#if defined(WIZ8_NATIVE)
     W8VideoShowCursor(TRUE);
     if (gzErrorMsg[0])
         fprintf(stderr, "%s\n", gzErrorMsg);
-#else
-    ShowCursor(TRUE);
-    if (strlen(gzErrorMsg)) {
-        MessageBox(NULL, gzErrorMsg, "Error", MB_OK | MB_ICONERROR);
-    }
-
-#endif
     VideoDumpMemoryLeaks();
 }
 
 // FUNCTION: WIZ8 0x004018c0
 void GetRuntimeSettings()
 {
-#if defined(WIZ8_NATIVE)
     gbPixelDepth = W8ReadProfileInt("sgp.ini", "SGP", "PIXEL_DEPTH", PIXEL_DEPTH);
-#else
-    // Runtime settings - for now use INI file - later use registry
-    STRING512 ExeDir;
-    STRING512 INIFile;
-
-    // Get Executable Directory
-    GetExecutableDirectory(ExeDir);
-    // Adjust Current Dir
-    sprintf(INIFile, "%s\\sgp.ini", ExeDir);
-
-    gbPixelDepth = GetPrivateProfileInt("SGP", "PIXEL_DEPTH", PIXEL_DEPTH, INIFile);
-#endif
 }
 
 // FUNCTION: WIZ8 0x00401920
@@ -561,14 +291,10 @@ void ShutdownWithErrorBox(const CHAR8* pcMessage)
     gzErrorMsg[2047] = '\0';
     gfIgnoreMessages = TRUE;
 
-#if defined(WIZ8_NATIVE)
     fprintf(stderr, "%s\n", gzErrorMsg);
     // Release packed-pointer users before exit destroys the native handle table.
     SGPExit();
     exit(1);
-#else
-    exit(0);
-#endif
 }
 
 // FUNCTION: WIZ8 0x00401950
