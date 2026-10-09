@@ -2,6 +2,30 @@
 
 Oct 9, 2026 · @Mietek Pierdzibąk
 
+## Continuation — native run.sh launcher, Oct 9, 2026
+
+`run.sh` now launches `Wiz8Native` directly at `7dc073d4b5cc9fcb4ae9729bbd82040fc16c8958`, using the native build,
+installed assets and a separate writable user directory. Default video is X11
+with the installed Mesa lavapipe ICD. An existing `VK_DRIVER_FILES` or
+`VK_ICD_FILENAMES` selection is honored. The launcher initializes the SDLGPU
+640x480/miniaudio video config only when absent, preserves later video choices,
+and writes output to the user root's `diagnostics/launch.log`. It uses `exec`
+in the foreground, passes extra arguments and preserves the game exit status.
+Build/asset/user paths and SDL/Vulkan selections can be overridden; `.env`
+loading remains available. README documents the current native launcher.
+
+Validation: `bash -n` and `git diff --check` pass. Starting `run.sh /NOSOUND`
+from `/tmp` with a fresh private user overlay displays the Sir-Tech movie,
+creates the expected config/log directory, and exits with status 0 on standard
+window close. Screenshot: `build-native/native-launch.png`. No packages were
+installed and the controlled game/display processes were stopped. This does
+not add physical desktop focus validation.
+
+With this final documentation commit, the stack is **37 commits over main:
+20 upstreamable commits first**, with unchanged `upstream-tip`
+`cc4bba6f8352ccd4cfee0c2312cfc53556343ef4`, followed by 17 native/documentation
+commits. The tracked handoff and parent copy are synchronized.
+
 ## Continuation — native world rendering, Oct 9, 2026
 
 Native world rendering is implemented at `bd26f26a9bbeb9bbcbe0f9cc6260cf164105d8b5`. With this final handoff
