@@ -34,7 +34,7 @@ FetchContent_Declare(miniaudio
 )
 FetchContent_MakeAvailable(miniaudio)
 target_link_libraries(miniaudio PRIVATE Threads::Threads ${CMAKE_DL_LIBS})
-if(NOT APPLE)
+if(UNIX AND NOT APPLE)
     target_link_libraries(miniaudio PRIVATE m)
 endif()
 
@@ -80,7 +80,7 @@ target_compile_options(wiz8_compat PRIVATE
 target_compile_definitions(wiz8_compat PRIVATE WIZ8_NATIVE)
 target_include_directories(wiz8_compat PRIVATE "${PROJECT_SOURCE_DIR}/include/wiz8")
 target_link_libraries(wiz8_compat PRIVATE Threads::Threads SDL3::SDL3)
-if(NOT APPLE)
+if(UNIX AND NOT APPLE)
     target_link_options(wiz8_compat PRIVATE -Wl,--no-undefined)
 endif()
 target_include_directories(wiz8_native_settings INTERFACE "${PROJECT_SOURCE_DIR}/src/compat")
@@ -126,7 +126,7 @@ add_executable(native_save_records_test tests/native/save_records_test.cpp)
 target_link_libraries(native_save_records_test PRIVATE WIZ8_GAME_CORE WIZ8_SGP WIZ8_GAME_CORE SDL3::SDL3)
 if(APPLE)
     target_link_options(native_save_records_test PRIVATE -Wl,-dead_strip)
-else()
+elseif(UNIX)
     target_link_options(native_save_records_test PRIVATE -Wl,--gc-sections -Wl,-z,start-stop-gc)
 endif()
 add_test(NAME native_save_records COMMAND native_save_records_test)
@@ -144,8 +144,10 @@ add_test(NAME native_blitters COMMAND native_blitter_test
 
 # glibc's wide-string functions assume four-byte wchar_t; no native binary
 # may import them.
-add_test(NAME native_no_glibc_wide_strings
-    COMMAND sh -c "! nm -u $<TARGET_FILE:wiz8_compat> $<TARGET_FILE:SURRENDER> $<TARGET_FILE:native_crt_test> | grep -E ' U (wcs|wmem|swprintf|vswprintf|wprintf)'")
+if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    add_test(NAME native_no_glibc_wide_strings
+        COMMAND sh -c "! nm -u $<TARGET_FILE:wiz8_compat> $<TARGET_FILE:SURRENDER> $<TARGET_FILE:native_crt_test> | grep -E ' U (wcs|wmem|swprintf|vswprintf|wprintf)'")
+endif()
 
 add_executable(native_game_graphics tests/native/game_graphics.cpp)
 target_compile_definitions(native_game_graphics PRIVATE
@@ -155,7 +157,7 @@ target_compile_definitions(native_game_graphics PRIVATE
 target_link_libraries(native_game_graphics PRIVATE WIZ8_GAME_CORE WIZ8_SGP WIZ8_GAME_CORE SDL3::SDL3)
 if(APPLE)
     target_link_options(native_game_graphics PRIVATE -Wl,-dead_strip)
-else()
+elseif(UNIX)
     # Discard unused ASan global-registration sections alongside unused game
     # functions in this focused graphics harness.
     target_link_options(native_game_graphics PRIVATE -Wl,--gc-sections -Wl,-z,start-stop-gc)
@@ -179,7 +181,7 @@ target_compile_definitions(native_movie_test PRIVATE
 target_link_libraries(native_movie_test PRIVATE WIZ8_GAME_CORE WIZ8_SGP WIZ8_GAME_CORE SDL3::SDL3)
 if(APPLE)
     target_link_options(native_movie_test PRIVATE -Wl,-dead_strip)
-else()
+elseif(UNIX)
     target_link_options(native_movie_test PRIVATE -Wl,--gc-sections -Wl,-z,start-stop-gc)
 endif()
 add_test(NAME native_movies COMMAND native_movie_test)
