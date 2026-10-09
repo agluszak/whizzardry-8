@@ -462,10 +462,10 @@ void DumpMemoryInfoIntoFile(UINT8* filename, BOOLEAN fAppend)
     //Allocate enough strings and counters for each node.
     pCode = (DUMPFILENAME*)malloc(sizeof(DUMPFILENAME) * guiMemoryNodes);
     memset(pCode, 0, sizeof(DUMPFILENAME) * guiMemoryNodes);
-    puiSize = (UINT32*)malloc(4 * guiMemoryNodes);
-    memset(puiSize, 0, 4 * guiMemoryNodes);
-    puiCounter = (UINT32*)malloc(4 * guiMemoryNodes);
-    memset(puiCounter, 0, 4 * guiMemoryNodes);
+    puiSize = (UINT32*)malloc(sizeof(*puiSize) * guiMemoryNodes);
+    memset(puiSize, 0, sizeof(*puiSize) * guiMemoryNodes);
+    puiCounter = (UINT32*)malloc(sizeof(*puiCounter) * guiMemoryNodes);
+    memset(puiCounter, 0, sizeof(*puiCounter) * guiMemoryNodes);
 
     //Loop through the list and record every unique filename and count them
     uiUniqueID = 0;

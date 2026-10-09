@@ -1693,8 +1693,8 @@ void srGERD::accumAlloc()
 {
     if (getWidth() != 0) {
         if (getHeight() != 0) {
-            accum_buffer = static_cast<AccumPixel*>(srHeap.allocate(getWidth() * getHeight() * 8));
-            w8_ulong* scratch = static_cast<w8_ulong*>(srHeap.allocate(getWidth() * 4));
+            accum_buffer = static_cast<AccumPixel*>(srHeap.allocate(getWidth() * getHeight() * sizeof(*accum_buffer)));
+            w8_ulong* scratch = static_cast<w8_ulong*>(srHeap.allocate(getWidth() * sizeof(*scratch)));
             if (scratch != 0) {
                 accum_scratch = scratch;
                 accumClear();

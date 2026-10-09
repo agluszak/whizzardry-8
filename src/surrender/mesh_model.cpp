@@ -589,7 +589,7 @@ void srMeshModel::calculateVertexNormals()
             }
         } else {
             srVector3T<float>* smooth =
-                (srVector3T<float>*)srHeap.allocate(vertex_location_count * 0xc);
+                (srVector3T<float>*)srHeap.allocate(vertex_location_count * sizeof(*smooth));
             w8_long count = vertex_location_count * 3;
             if (count != 0) {
                 srVectorProcessor::copy((SRDWORD*)smooth, 0, count);

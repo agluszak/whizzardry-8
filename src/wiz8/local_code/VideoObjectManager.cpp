@@ -869,7 +869,7 @@ unsigned short* CopyCatalogImagePalette16BPP(int object, int frame)
     if (!gfVideoObjectsInit) {
         srAssertFail("VideoObjectsInitialized()", VIDEO_OBJECT_MANAGER_CPP, 0xaf, 0);
     }
-    palette = static_cast<unsigned short*>(malloc(0x200));
+    palette = static_cast<unsigned short*>(malloc(0x100 * sizeof(*palette)));
     if (!palette) {
         return 0;
     }

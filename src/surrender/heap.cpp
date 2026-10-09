@@ -108,7 +108,7 @@ srHeap::Block* srHeap::allocateBlock(w8_ulong size)
     Block* block = cached_block;
     ++block_sequence;
     if (block == 0 || block->alloc_size != allocation_size) {
-        block = static_cast<Block*>(malloc(allocation_size + 0x20));
+        block = static_cast<Block*>(malloc(allocation_size + sizeof(Block)));
         if (block == 0) {
             return 0;
         }
@@ -598,20 +598,19 @@ void srMemoryAllocator::setAlignment(e_alignSize alignment)
 // FUNCTION: SURRENDER 0x10036530
 srMemoryAllocator::Block* srMemoryAllocator::align(void* allocation)
 {
-    /* Block headers sit 0x20 bytes below the user pointer; the user address is rounded up to
-       alignment. */
+    /* The header precedes the aligned user address (0x20 bytes on Windows). */
     // reinterpret-ok: block alignment is computed on the raw allocation bits.
     return reinterpret_cast<Block*>(
-        ((reinterpret_cast<w8_ulong_ptr>(allocation) + alignment + 0x1f) &
+        ((reinterpret_cast<w8_ulong_ptr>(allocation) + alignment + sizeof(Block) - 1) &
          ~static_cast<w8_ulong_ptr>(alignment - 1)) -
-        0x20);
+        sizeof(Block));
 }
 
 // FUNCTION: SURRENDER 0x10036570
 void* srMemoryAllocator::allocate(w8_ulong count, w8_ulong size, const char* name)
 {
     w8_ulong requested = count * size;
-    w8_ulong allocation_size = alignment + 0x1f + requested;
+    w8_ulong allocation_size = alignment + sizeof(Block) - 1 + requested;
     if (name != 0) {
         allocation_size += strlen(name) + 1;
     }
@@ -628,7 +627,7 @@ void* srMemoryAllocator::allocate(w8_ulong count, w8_ulong size, const char* nam
         block->name = 0;
     } else {
         // reinterpret-ok: the name string is stored right after the user area.
-        block->name = reinterpret_cast<char*>(block) + 0x20 + requested;
+        block->name = reinterpret_cast<char*>(block) + sizeof(Block) + requested;
         strcpy(block->name, name);
     }
     block->next = first_block;

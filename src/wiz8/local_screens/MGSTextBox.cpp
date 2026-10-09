@@ -526,7 +526,7 @@ unsigned char LoadMessageStorage(int file)
             memcpy(live_record->unknown_1c, disk_record.trailing_bytes,
                    sizeof(live_record->unknown_1c));
             size = disk_record.character_count * 2;
-            text = static_cast<wchar_t*>(malloc(size));
+            text = static_cast<wchar_t*>(malloc(disk_record.character_count * sizeof(*text)));
             live_record->wString = text;
             if (text != 0) {
                 FileRead(file, text, size, 0);
@@ -765,7 +765,7 @@ void AppendToLastTextLine(const wchar_t* text, short text_box)
     if (!(line->wString != 0)) {
         srAssertFail("pTextLine->wString != NULL", MGS_TEXT_BOX_CPP, 0xf94, 0);
     }
-    wchar_t* merged = static_cast<wchar_t*>(operator new((length + wcslen(line->wString)) * 2 + 2));
+    wchar_t* merged = static_cast<wchar_t*>(operator new((length + wcslen(line->wString)) * sizeof(*merged) + sizeof(*merged)));
     wcscpy(merged, line->wString);
     wcscat(merged, text);
     unsigned char channel = line->font_palette;

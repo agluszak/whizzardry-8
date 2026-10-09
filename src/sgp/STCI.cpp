@@ -195,7 +195,8 @@ BOOLEAN STCILoadIndexed(HIMAGE hImage, UINT16 fContents, HWFILE hFile, STCIHeade
             Assert(sizeof(ETRLEObject) == STCI_SUBIMAGE_SIZE);
             hImage->usNumberOfObjects = pHeader->Indexed.usNumberOfSubImages;
             uiFileSectionSize = hImage->usNumberOfObjects * STCI_SUBIMAGE_SIZE;
-            hImage->pETRLEObject = (ETRLEObject*)MemAlloc(uiFileSectionSize);
+            hImage->pETRLEObject = (ETRLEObject*)MemAlloc(
+                hImage->usNumberOfObjects * sizeof(*hImage->pETRLEObject));
             if (hImage->pETRLEObject == NULL) {
                 DbgMessage(TOPIC_HIMAGE, DBG_LEVEL_3, "Out of memory!");
                 FileClose(hFile);

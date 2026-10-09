@@ -671,7 +671,7 @@ void OctBuildPreTree::FindLeafRegions(W8OctBuildNode* node, const W8BoundingBox*
         if ((spatial.m_region_volumes[region].flags & 4) == 0 &&
             BoundsInsideFrustum(&spatial.m_region_volumes[region], bounds)) {
             if (node->region_arrays[1] == 0) {
-                unsigned short* list = static_cast<unsigned short*>(malloc(100));
+                unsigned short* list = static_cast<unsigned short*>(malloc(50 * sizeof(*list)));
                 if (list == 0) {
                     ReportBuildStatus(7, "Could not allocate region list in FindLeafRegions.\n");
                     return;
@@ -816,8 +816,8 @@ unsigned char OctBuildPreTree::AssignPolygonRegions(W8OctPreTreeGeometry* geomet
             do {
                 if (spatial.m_region_volumes[slot].m_polygon_count == 0) {
                     if (region_remap == 0) {
-                        region_remap = static_cast<unsigned short*>(malloc(bound * 2 + 2));
-                        memset(region_remap, 0, bound * 2 + 2);
+                        region_remap = static_cast<unsigned short*>(malloc(bound * sizeof(*region_remap) + sizeof(*region_remap)));
+                        memset(region_remap, 0, bound * sizeof(*region_remap) + sizeof(*region_remap));
                         for (unsigned short id = 0; id < spatial.m_region_count; ++id) {
                             region_remap[id] = id;
                         }
@@ -1033,7 +1033,7 @@ unsigned short OctBuildPreTree::BuildRegions()
     }
 
     w8_ulong level_count = level_counts[spatial.m_leaf_level];
-    m_pulRegPaths = static_cast<w8_ulong*>(malloc(level_count * sizeof(w8_ulong) + 8));
+    m_pulRegPaths = static_cast<w8_ulong*>(malloc(level_count * sizeof(*m_pulRegPaths) + 2 * sizeof(*m_pulRegPaths)));
     if (m_pulRegPaths == 0) {
         srAssertFail("m_pulRegPaths", OCT_BUILD_PRE_TREE_CPP, 0x6f1, 0);
     }
@@ -1691,7 +1691,7 @@ unsigned char OctBuildPreTree::BuildGeometryRegions(const W8LevelFileProp* recor
 {
     if (!finalize) {
         overlap_region_map = new W8HashTable<unsigned short, short>;
-        g_region_id_list = static_cast<unsigned short*>(malloc(10000));
+        g_region_id_list = static_cast<unsigned short*>(malloc(5000 * sizeof(*g_region_id_list)));
         g_region_id_list[0] = 0;
         g_region_id_count = 0;
     }
@@ -1801,11 +1801,11 @@ OctPreTree* OctBuildPreTree::BuildOctPreTree()
     }
 
     tree->m_branches = static_cast<W8OctPreTreeBranch*>(
-        malloc((g_build_node_instances * 9 + 0x12) * sizeof(w8_ulong)));
+        malloc((g_build_node_instances  + 2) * sizeof(*tree->m_branches)));
     if (tree->m_branches == 0) {
         return 0;
     }
-    memset(tree->m_branches, 0, (g_build_node_instances * 9 + 0x12) * sizeof(w8_ulong));
+    memset(tree->m_branches, 0, (g_build_node_instances  + 2) * sizeof(*tree->m_branches));
 
     tree->m_leaves =
         static_cast<W8OctPreTreeLeaf*>(malloc((leaf_count + 2) * sizeof(W8OctPreTreeLeaf)));
@@ -1821,11 +1821,11 @@ OctPreTree* OctBuildPreTree::BuildOctPreTree()
     }
     memset(tree->m_polygon_index_stream, 0, leaf_polygon_count * 2 * sizeof(w8_ulong));
 
-    tree->m_region_index_stream = static_cast<unsigned short*>(malloc(leaf_count * 0x50));
+    tree->m_region_index_stream = static_cast<unsigned short*>(malloc(leaf_count * (40 * sizeof(*tree->m_region_index_stream))));
     if (tree->m_region_index_stream == 0) {
         return 0;
     }
-    memset(tree->m_region_index_stream, 0, leaf_count * 0x50);
+    memset(tree->m_region_index_stream, 0, leaf_count * (40 * sizeof(*tree->m_region_index_stream)));
 
     tree->m_gd_surface_index_stream =
         static_cast<w8_ulong*>(malloc(gd_surface_count * 2 * sizeof(w8_ulong)));

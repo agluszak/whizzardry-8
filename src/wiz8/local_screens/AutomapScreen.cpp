@@ -837,7 +837,7 @@ W8AutomapNote* CreateAutomapNote(const srVector2T<float>* position, int layer, c
         if (note) {
             note->position = *position;
             note->layer = layer;
-            note->text = static_cast<wchar_t*>(malloc(0x50));
+            note->text = static_cast<wchar_t*>(malloc(40 * sizeof(*note->text)));
             wcscpy(note->text, text);
             g_automap_notes->Add(note);
             g_automap_redraw = true;
@@ -1738,7 +1738,7 @@ bool LoadAutomapNotes(int handle)
                           FileRead(handle, &position.y, 4, 0) != 0 &&
                           FileRead(handle, &layer, 4, 0) != 0 &&
                           FileRead(handle, &length, 4, 0) != 0;
-                wchar_t* text = static_cast<wchar_t*>(malloc(length * 2));
+                wchar_t* text = static_cast<wchar_t*>(malloc(length * sizeof(*text)));
                 if (!ok) {
                     return false;
                 }

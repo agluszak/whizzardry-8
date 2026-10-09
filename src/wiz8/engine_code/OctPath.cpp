@@ -600,22 +600,22 @@ unsigned char W8PathingService::ReadPathNodes(int handle)
         srAssertFail("m_pCondPaths", OCTPATH_CPP, 0x903,
                      "ReadPathNodes: Couldn't allocate Conditional Prop array.\n");
     }
-    m_pulCondLookup = static_cast<unsigned int*>(malloc(m_ulNumCondFrames << 2));
+    m_pulCondLookup = static_cast<unsigned int*>(malloc(m_ulNumCondFrames * sizeof(*m_pulCondLookup)));
     if (m_pCondPaths == 0) {
         srAssertFail("m_pCondPaths", OCTPATH_CPP, 0x905,
                      "ReadPathNodes: Couldn't allocate Conditional Lookup array.\n");
     }
-    m_pusCondNodeFrames = static_cast<unsigned short*>(malloc(m_ulNumCondFrames << 1));
+    m_pusCondNodeFrames = static_cast<unsigned short*>(malloc(m_ulNumCondFrames * sizeof(*m_pusCondNodeFrames)));
     if (m_pCondPaths == 0) {
         srAssertFail("m_pCondPaths", OCTPATH_CPP, 0x907,
                      "ReadPathNodes: Couldn't allocate Conditional Frame array.\n");
     }
-    m_pulCondNodeKeys = static_cast<unsigned int*>(malloc(m_ulNumCondNodes << 2));
+    m_pulCondNodeKeys = static_cast<unsigned int*>(malloc(m_ulNumCondNodes * sizeof(*m_pulCondNodeKeys)));
     if (m_pCondPaths == 0) {
         srAssertFail("m_pCondPaths", OCTPATH_CPP, 0x909,
                      "ReadPathNodes: Couldn't allocate Conditional Key array.\n");
     }
-    m_pulCondNodeValues = static_cast<unsigned int*>(malloc(m_ulNumCondNodes << 2));
+    m_pulCondNodeValues = static_cast<unsigned int*>(malloc(m_ulNumCondNodes * sizeof(*m_pulCondNodeValues)));
     if (m_pCondPaths == 0) {
         srAssertFail("m_pCondPaths", OCTPATH_CPP, 0x90b,
                      "ReadPathNodes: Couldn't allocate Conditional Value array.\n");

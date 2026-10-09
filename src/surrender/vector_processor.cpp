@@ -95,8 +95,8 @@ void srVectorProcessor::dump(std::ostream& stream)
     if (used == 0 || total == 0.0) {
         return;
     }
-    SRDWORD* scores = static_cast<SRDWORD*>(operator new(used * 4));
-    int* order = static_cast<int*>(operator new(used * 4));
+    SRDWORD* scores = static_cast<SRDWORD*>(operator new(used * sizeof(*scores)));
+    int* order = static_cast<int*>(operator new(used * sizeof(*order)));
     index = 0;
     for (command = 0; command < 0xa6; ++command) {
         if (debug->call_counts[command] != 0) {

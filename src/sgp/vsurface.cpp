@@ -1955,8 +1955,8 @@ void DumpVSurfaceInfoIntoFile(UINT8* filename, BOOLEAN fAppend)
     pCode = (DUMPFILENAME*)MemAlloc(sizeof(DUMPFILENAME) * guiVSurfaceSize);
     memset(pName, 0, sizeof(DUMPFILENAME) * guiVSurfaceSize);
     memset(pCode, 0, sizeof(DUMPFILENAME) * guiVSurfaceSize);
-    puiCounter = (UINT32*)MemAlloc(4 * guiVSurfaceSize);
-    memset(puiCounter, 0, 4 * guiVSurfaceSize);
+    puiCounter = (UINT32*)MemAlloc(sizeof(*puiCounter) * guiVSurfaceSize);
+    memset(puiCounter, 0, sizeof(*puiCounter) * guiVSurfaceSize);
 
     //Loop through the list and record every unique filename and count them
     uiUniqueID = 0;

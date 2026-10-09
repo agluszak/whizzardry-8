@@ -967,8 +967,8 @@ void DumpVObjectInfoIntoFile(UINT8* filename, BOOLEAN fAppend)
     pCode = (DUMPFILENAME*)MemAlloc(sizeof(DUMPFILENAME) * guiVObjectSize);
     memset(pName, 0, sizeof(DUMPFILENAME) * guiVObjectSize);
     memset(pCode, 0, sizeof(DUMPFILENAME) * guiVObjectSize);
-    puiCounter = (UINT32*)MemAlloc(4 * guiVObjectSize);
-    memset(puiCounter, 0, 4 * guiVObjectSize);
+    puiCounter = (UINT32*)MemAlloc(sizeof(*puiCounter) * guiVObjectSize);
+    memset(puiCounter, 0, sizeof(*puiCounter) * guiVObjectSize);
 
     //Loop through the list and record every unique filename and count them
     uiUniqueID = 0;

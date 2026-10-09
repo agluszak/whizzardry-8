@@ -995,7 +995,8 @@ void srModeler::addPolygon(const Polygon& polygon)
             abs_y += (float)fabs(first_z * second_x - first_x * second_z);
             abs_z += (float)fabs(first_x * second_y - first_y * second_x);
         }
-        srVector2T<float>* points = static_cast<srVector2T<float>*>(srHeap.allocate(count * 8));
+        srVector2T<float>* points = static_cast<srVector2T<float>*>(
+            srHeap.allocate(count * sizeof(*points)));
         if (abs_x <= abs_y) {
             if (abs_y <= abs_z) {
                 for (int index = 0; index < count; ++index) {

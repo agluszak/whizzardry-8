@@ -528,7 +528,7 @@ int LayoutPortraitQuoteBubble(int quote_handle, unsigned char background_index,
             g_current_portrait_quote->object_index = edge_index;
         }
     }
-    g_current_portrait_quote->text = static_cast<wchar_t*>(malloc(wcslen(text) * 2 + 2));
+    g_current_portrait_quote->text = static_cast<wchar_t*>(malloc(wcslen(text) * sizeof(*g_current_portrait_quote->text) + sizeof(*g_current_portrait_quote->text)));
     wcscpy(g_current_portrait_quote->text, text);
     g_current_portrait_quote->flags = g_quote_bubble_flags;
     position = 0;

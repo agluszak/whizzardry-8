@@ -360,7 +360,7 @@ unsigned char LoadKeywordFile(const char* path, W8GrowableVector<W8GrowableVecto
         cursor = line + 11;
         while ((cursor = ParseKeywordToken(cursor, field)) != 0) {
             length = wcslen(field);
-            word = static_cast<wchar_t*>(malloc(length * 2 + 2));
+            word = static_cast<wchar_t*>(malloc(length * sizeof(*word) + sizeof(*word)));
             wcscpy(word, field);
             entry->Add(word);
         }

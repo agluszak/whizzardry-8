@@ -1052,7 +1052,7 @@ bool W8Octree::ReadRegionLinkFile(const char* level_name)
     }
 
     keys = static_cast<unsigned int*>(malloc(count * sizeof(unsigned int)));
-    values = static_cast<unsigned short*>(malloc(count * 2));
+    values = static_cast<unsigned short*>(malloc(count * sizeof(*values)));
     if (keys == 0 || values == 0) {
         FileClose(file);
         free(keys);
@@ -1572,7 +1572,7 @@ BOOLEAN W8Octree::SaveRegionLinks(char* path)
         goto cleanup;
     }
     keys = static_cast<unsigned int*>(malloc(capacity * sizeof(unsigned int)));
-    values = static_cast<unsigned short*>(malloc(capacity * 2));
+    values = static_cast<unsigned short*>(malloc(capacity * sizeof(*values)));
     if (keys == 0 || values == 0) {
         result = 0;
         goto cleanup;
@@ -3272,7 +3272,7 @@ W8Octree::W8Octree(const char* path, W8GameData** game_data)
                 fLoaded = 0;
                 if (fSuccess != 0) {
                     m_polygon_index_stream = static_cast<w8_ulong*>(
-                        malloc(header.m_leaf_polygon_stream_len * 4 + 8));
+                        malloc(header.m_leaf_polygon_stream_len * sizeof(*m_polygon_index_stream) + 2 * sizeof(*m_polygon_index_stream)));
                     if (m_polygon_index_stream == 0) {
                         fLoaded = 0;
                         strcpy(acMessage,
@@ -3312,7 +3312,7 @@ W8Octree::W8Octree(const char* path, W8GameData** game_data)
 
     fSuccess = 0;
     if (fLoaded != 0) {
-        m_aulPolyLookup = static_cast<w8_ulong*>(malloc(header.m_polygon_count * 4 + 8));
+        m_aulPolyLookup = static_cast<w8_ulong*>(malloc(header.m_polygon_count * sizeof(*m_aulPolyLookup) + 2 * sizeof(*m_aulPolyLookup)));
         if (m_aulPolyLookup == 0) {
             fSuccess = 0;
             strcpy(acMessage, "ReadOctFile: Couldn't allocate Poly Lookup table.");
@@ -3326,7 +3326,7 @@ W8Octree::W8Octree(const char* path, W8GameData** game_data)
             if (fLoaded != 0) {
                 if (header.m_region_list_len != 0) {
                     m_region_index_stream =
-                        static_cast<unsigned short*>(malloc(header.m_region_list_len * 2 + 4));
+                        static_cast<unsigned short*>(malloc(header.m_region_list_len * sizeof(*m_region_index_stream) + 2 * sizeof(*m_region_index_stream)));
                     if (m_region_index_stream == 0) {
                         fSuccess = 0;
                         strcpy(acMessage, "ReadOctFile: Couldn't allocate region list.");
@@ -3343,7 +3343,7 @@ W8Octree::W8Octree(const char* path, W8GameData** game_data)
                 if (fLoaded != 0) {
                     if (header.m_gd_surface_stream_len != 0) {
                         m_gd_surface_index_stream = static_cast<w8_ulong*>(
-                            malloc(header.m_gd_surface_stream_len * 4 + 8));
+                            malloc(header.m_gd_surface_stream_len * sizeof(*m_gd_surface_index_stream) + 2 * sizeof(*m_gd_surface_index_stream)));
                         if (m_gd_surface_index_stream == 0) {
                             fSuccess = 0;
                             strcpy(acMessage, "ReadOctFile: Couldn't allocate GD Poly list.");
@@ -3360,7 +3360,7 @@ W8Octree::W8Octree(const char* path, W8GameData** game_data)
                     if (fLoaded != 0) {
                         if (header.m_trigger_count != 0) {
                             m_trigger_indices = static_cast<unsigned short*>(
-                                malloc(header.m_trigger_count * 2 + 4));
+                                malloc(header.m_trigger_count * sizeof(*m_trigger_indices) + 2 * sizeof(*m_trigger_indices)));
                             if (m_trigger_indices == 0) {
                                 fSuccess = 0;
                                 strcpy(acMessage, "ReadOctFile: Couldn't allocate Trigger list.");
@@ -3468,7 +3468,7 @@ W8Octree::W8Octree(const char* path, W8GameData** game_data)
                                         }
                                         if (fLoaded != 0 && m_ulNumParticles != 0) {
                                             m_pusMeshParticleLookup = static_cast<unsigned short*>(
-                                                malloc(m_meshCount * 2 + 2));
+                                                malloc(m_meshCount * sizeof(unsigned short) + sizeof(unsigned short)));
                                             if (m_pusMeshParticleLookup == 0) {
                                                 srAssertFail(
                                                     "m_pusMeshParticleLookup", OCTREE_CPP, 0x191,
@@ -3483,7 +3483,7 @@ W8Octree::W8Octree(const char* path, W8GameData** game_data)
                                             }
                                             g_octree_bytes_read += uiRead;
                                             m_pusMeshParticles = static_cast<unsigned short*>(
-                                                malloc(m_usMeshParticlesLen * 2));
+                                                malloc(m_usMeshParticlesLen * sizeof(*m_pusMeshParticles)));
                                             if (m_pusMeshParticles == 0) {
                                                 srAssertFail(
                                                     "m_pusMeshParticles", OCTREE_CPP, 0x198,
@@ -3499,7 +3499,7 @@ W8Octree::W8Octree(const char* path, W8GameData** game_data)
                                         }
                                         if (fLoaded != 0 && m_ulNumProps != 0) {
                                             m_pusMeshPropLookup = static_cast<unsigned short*>(
-                                                malloc(m_meshCount * 2 + 2));
+                                                malloc(m_meshCount * sizeof(unsigned short) + sizeof(unsigned short)));
                                             if (m_pusMeshPropLookup == 0) {
                                                 srAssertFail(
                                                     "m_pusMeshPropLookup", OCTREE_CPP, 0x1a1,
@@ -3514,7 +3514,7 @@ W8Octree::W8Octree(const char* path, W8GameData** game_data)
                                             }
                                             g_octree_bytes_read += uiRead;
                                             m_pusMeshProps = static_cast<unsigned short*>(
-                                                malloc(m_usMeshPropsLen * 2));
+                                                malloc(m_usMeshPropsLen * sizeof(*m_pusMeshProps)));
                                             if (m_pusMeshProps == 0) {
                                                 srAssertFail(
                                                     "m_pusMeshProps", OCTREE_CPP, 0x1a8,
@@ -3915,7 +3915,7 @@ void W8Octree::Initialize(const W8OctFileHeader* header)
         m_reset_visibility = true;
     }
 
-    m_aulGDObjs = static_cast<w8_ulong*>(malloc(40000));
+    m_aulGDObjs = static_cast<w8_ulong*>(malloc(10000 * sizeof(*m_aulGDObjs)));
     if (m_aulGDObjs == 0) {
         srAssertFail("m_aulGDObjs", "C:\\Projects\\Wizardry 8\\Engine Code\\Octree.cpp", 0x372,
                      "InitOctree: Couldn't allocate m_aulGDObjs.");
@@ -4841,7 +4841,7 @@ unsigned int W8Octree::QueryNearbyLocations(const srVector3T<float>* position, f
     low.Set(position->x - expand, position->y - expand, position->z - expand);
     srVector3T<float> high;
     high.Set(expand + position->x, expand + position->y, expand + position->z);
-    *candidates = static_cast<w8_ulong*>(operator new(0x400));
+    *candidates = static_cast<w8_ulong*>(operator new(0x100 * sizeof(**candidates)));
     return static_cast<unsigned int>(
         QueryObjects(candidates, &low, &high, W8_OCTREE_KIND_LOCATION, -1));
 }

@@ -136,7 +136,7 @@ unsigned char BitArray::Load(int handle)
                 srHuffman::Decompressor decoder(bits);
                 remaining = decoder.getDataCount();
                 if (remaining != 0) {
-                    decoded = static_cast<w8_ulong*>(operator new(remaining * 4));
+                    decoded = static_cast<w8_ulong*>(operator new(remaining * sizeof(*decoded)));
                     if (remaining > 0)
                         cursor = decoded;
                     while (remaining > 0) {

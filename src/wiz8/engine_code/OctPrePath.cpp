@@ -559,7 +559,7 @@ unsigned char PrePathing::CreateAutomapNodes(W8LevelFile* level)
     ReportStartupMessage(message);
     sprintf(message, "  %d Total Automap Nodes.\n", level->num_automap_nodes);
     ReportBuildStatus(6, message);
-    level->automap_nodes = static_cast<w8_ulong*>(malloc(level->num_automap_nodes << 2));
+    level->automap_nodes = static_cast<w8_ulong*>(malloc(level->num_automap_nodes * sizeof(*level->automap_nodes)));
     if (level->automap_nodes == 0) {
         level->num_automap_nodes = 0;
     } else {
@@ -702,27 +702,27 @@ void W8PathingService::LinkCollideableProps(int lNumProps, W8PreProp* pPreProps,
         }
     }
 
-    m_pulCondLookup = static_cast<unsigned int*>(malloc(m_ulNumCondFrames << 2));
+    m_pulCondLookup = static_cast<unsigned int*>(malloc(m_ulNumCondFrames * sizeof(*m_pulCondLookup)));
     if (m_pulCondLookup == 0) {
         srAssertFail("m_pulCondLookup", OCTPREPATH_CPP, 1127, 0);
     }
-    memcpy(m_pulCondLookup, aiLookup + 1, m_ulNumCondFrames << 2);
+    memcpy(m_pulCondLookup, aiLookup + 1, m_ulNumCondFrames * sizeof(*m_pulCondLookup));
 
-    m_pusCondNodeFrames = static_cast<unsigned short*>(malloc(m_ulNumCondFrames << 1));
+    m_pusCondNodeFrames = static_cast<unsigned short*>(malloc(m_ulNumCondFrames * sizeof(*m_pusCondNodeFrames)));
     if (m_pusCondNodeFrames == 0) {
         srAssertFail("m_pusCondNodeFrames", OCTPREPATH_CPP, 1130, 0);
     }
-    memcpy(m_pusCondNodeFrames, ausFrames, m_ulNumCondFrames << 1);
+    memcpy(m_pusCondNodeFrames, ausFrames, m_ulNumCondFrames * sizeof(*m_pusCondNodeFrames));
 
-    m_pulCondNodeKeys = static_cast<unsigned int*>(malloc(m_ulNumCondNodes << 2));
+    m_pulCondNodeKeys = static_cast<unsigned int*>(malloc(m_ulNumCondNodes * sizeof(*m_pulCondNodeKeys)));
     if (m_pulCondNodeKeys == 0) {
         srAssertFail("m_pulCondNodeKeys", OCTPREPATH_CPP, 1134, 0);
     }
-    memcpy(m_pulCondNodeKeys, aulKeys, m_ulNumCondNodes << 2);
+    memcpy(m_pulCondNodeKeys, aulKeys, m_ulNumCondNodes * sizeof(*m_pulCondNodeKeys));
 
-    m_pulCondNodeValues = static_cast<unsigned int*>(malloc(m_ulNumCondNodes << 2));
+    m_pulCondNodeValues = static_cast<unsigned int*>(malloc(m_ulNumCondNodes * sizeof(*m_pulCondNodeValues)));
     if (m_pulCondNodeValues == 0) {
         srAssertFail("m_pulCondNodeValues", OCTPREPATH_CPP, 1137, 0);
     }
-    memcpy(m_pulCondNodeValues, aulValues, m_ulNumCondNodes << 2);
+    memcpy(m_pulCondNodeValues, aulValues, m_ulNumCondNodes * sizeof(*m_pulCondNodeValues));
 }

@@ -498,11 +498,11 @@ static unsigned char PreprocessLevel(int handle, char* stem)
                         --sun_count;
                         if (sun_count != 0) {
                             sun_pool =
-                                static_cast<float*>(malloc(geometry.vertex_count * sun_count * 4));
+                                static_cast<float*>(malloc(geometry.vertex_count * sun_count * sizeof(*sun_pool)));
                             if (sun_pool == 0) {
                                 ReportBuildStatus(7, "Could not allocate pflSunLights!\n");
                             }
-                            memset(sun_pool, 0, geometry.vertex_count * sun_count * 4);
+                            memset(sun_pool, 0, geometry.vertex_count * sun_count * sizeof(*sun_pool));
                             float* run = sun_pool;
                             for (i = 0; i < static_cast<int>(geometry.vertex_count); ++i) {
                                 vertices[i].m_sun_lights = run;

@@ -934,7 +934,8 @@ FontTranslationTable* CreateEnglishTransTable()
 
     pTable = (FontTranslationTable*)MemAlloc(sizeof(FontTranslationTable));
     pTable->usNumberOfSymbols = 252;
-    pTable->DynamicArrayOf16BitValues = (UINT16*)MemAlloc(pTable->usNumberOfSymbols * 2);
+    pTable->DynamicArrayOf16BitValues = (UINT16*)MemAlloc(
+        pTable->usNumberOfSymbols * sizeof(*pTable->DynamicArrayOf16BitValues));
     temp = pTable->DynamicArrayOf16BitValues;
 
     *temp = 'A';

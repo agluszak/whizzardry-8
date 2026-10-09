@@ -21,7 +21,7 @@ static void sortPairs(SortPair* pairs, w8_ulong count)
     if (count <= 1) {
         return;
     }
-    SortPair* scratch = static_cast<SortPair*>(srHeap.allocate(count * 8));
+    SortPair* scratch = static_cast<SortPair*>(srHeap.allocate(count * sizeof(SortPair)));
     w8_ulong counts[0x100];
     SortPair* src = pairs;
     SortPair* dst = scratch;
@@ -69,7 +69,7 @@ static void sortPairs(SortPair* pairs, w8_ulong count)
         dst = swap;
     }
     if (src != pairs) {
-        copyMemory(pairs, src, count * 8);
+        copyMemory(pairs, src, count * sizeof(*pairs));
     }
     srHeap.free(dst);
 }
@@ -772,7 +772,7 @@ void srGERD::Renderer::drawSorted()
             order[index] = index;
         }
         if (count > 1) {
-            SortPair* pairs = static_cast<SortPair*>(srHeap.allocate(count * 8));
+            SortPair* pairs = static_cast<SortPair*>(srHeap.allocate(count * sizeof(SortPair)));
             for (index = 0; index < count; index++) {
                 pairs[index].index = order[index];
                 pairs[index].key = sort_key[index];
@@ -792,7 +792,7 @@ void srGERD::Renderer::drawSorted()
         gerd->setTexture(texture1, 1);
         gerd->setShader(shader);
         /* 0x200 index triples per submission chunk (0x1800 bytes). */
-        srVector3i* batch = static_cast<srVector3i*>(srHeap.allocate(0x1800));
+        srVector3i* batch = static_cast<srVector3i*>(srHeap.allocate(0x200 * sizeof(*batch)));
         if (srVectorProcessor::isEqual(texture_set, texture_set[order[0]], count) != 0) {
             w8_ulong offset = 0;
             do {

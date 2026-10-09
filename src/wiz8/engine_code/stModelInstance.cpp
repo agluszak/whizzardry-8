@@ -925,7 +925,7 @@ static void BuildShadowMesh()
                 material->setDiffuse(color);
                 material->m_surface_flags = 0;
             }
-            srVector3i* triangles = static_cast<srVector3i*>(srHeap.allocate(6 * sizeof(w8_long)));
+            srVector3i* triangles = static_cast<srVector3i*>(srHeap.allocate(2 * sizeof(*triangles)));
             g_shadow_mesh->poly_vertices = triangles;
             triangles[0].x = 0;
             triangles[0].y = 1;
@@ -933,7 +933,8 @@ static void BuildShadowMesh()
             triangles[1].x = 3;
             triangles[1].y = 4;
             triangles[1].z = 5;
-            srVector3T<float>* positions = static_cast<srVector3T<float>*>(srHeap.allocate(0x48));
+            srVector3T<float>* positions = static_cast<srVector3T<float>*>(
+                srHeap.allocate(6 * sizeof(*positions)));
             g_shadow_mesh->positions = positions;
             positions[0].Set(-250.0f, 250.0f, 0.0f);
             positions[1].Set(0.0f, -250.0f, 0.0f);
