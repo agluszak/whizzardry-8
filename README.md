@@ -6,7 +6,8 @@ JPEG and UnZip plug-in sources remain in the tree but are excluded from the buil
 ## Native Linux build (in progress)
 
 Any non-MSVC Clang selects the native lane (`cmake/Native.cmake`): 64-bit
-Linux, SDL3 GPU, system zlib and FFmpeg, with pinned miniaudio source in the tree.
+Linux, SDL3 GPU, system zlib and FFmpeg, with miniaudio downloaded at
+CMake configuration time from a pinned upstream commit.
 It builds `Wiz8Native` and `libsr.so`. The recovered game loop, intro transitions,
 SGP input/surfaces and sound manager run through native adapters. FFmpeg decodes
 Bink video/audio from loose files or bounded SLF streams; movies present through

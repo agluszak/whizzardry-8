@@ -21,6 +21,22 @@ find_package(ZLIB REQUIRED)
 find_package(SDL3 CONFIG REQUIRED)
 find_package(Threads REQUIRED)
 
+# Fetch the exact miniaudio revision previously vendored in third_party/.
+# Do not build or install the upstream examples, codecs or extra audio nodes.
+include(FetchContent)
+set(MINIAUDIO_INSTALL OFF)
+set(MINIAUDIO_NO_EXTRA_NODES ON)
+set(MINIAUDIO_NO_LIBVORBIS ON)
+set(MINIAUDIO_NO_LIBOPUS ON)
+FetchContent_Declare(miniaudio
+    URL https://codeload.github.com/mackron/miniaudio/tar.gz/9634bedb5b5a2ca38c1ee7108a9358a4e233f14d
+)
+FetchContent_MakeAvailable(miniaudio)
+target_link_libraries(miniaudio PRIVATE Threads::Threads ${CMAKE_DL_LIBS})
+if(NOT APPLE)
+    target_link_libraries(miniaudio PRIVATE m)
+endif()
+
 # Settings shared by every native component.
 add_library(wiz8_native_settings INTERFACE)
 target_compile_definitions(wiz8_native_settings INTERFACE WIZ8_NATIVE NDEBUG)

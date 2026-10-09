@@ -42,7 +42,4 @@ target_link_libraries(WIZ8_SGP PUBLIC wiz8_native_settings ZLIB::ZLIB)
 # Allow focused integration executables to link recovered functions before media ports.
 target_compile_options(WIZ8_SGP PRIVATE -ffunction-sections -fdata-sections)
 
-add_library(wiz8_miniaudio STATIC native/miniaudio.c)
-target_include_directories(wiz8_miniaudio PUBLIC "${PROJECT_SOURCE_DIR}/third_party/miniaudio")
-target_link_libraries(wiz8_miniaudio PRIVATE Threads::Threads ${CMAKE_DL_LIBS} m)
-target_link_libraries(WIZ8_SGP PRIVATE wiz8_miniaudio)
+target_link_libraries(WIZ8_SGP PRIVATE miniaudio)
