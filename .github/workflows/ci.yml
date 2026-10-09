@@ -1,0 +1,179 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  # Same licensed input and checksum as wizardry-8-decomp CI.
+  GOG_INSTALLER_NAME: setup_wizardry_8_2001_12_23_(22306).exe
+  GOG_RELEASE_ASSET_NAME: setup_wizardry_8_2001_12_23_.22306.exe
+  GOG_INSTALLER_SHA256: 48e31728ef2615f4e1ee3e34c901feec8ea428a474fc9c7386cc11018311a68d
+  GOG_INPUT_REPO: agluszak/wiz8-ci-inputs
+  GOG_RELEASE_TAG: gog-22306
+  GOG_CACHE_VERSION: v1-aes256cbc-pbkdf2-200000
+  WIZ8_INPUT_DIR: ${{ runner.temp }}/wiz8-inputs
+
+jobs:
+  lint:
+    name: Workflow and scripting lint
+    runs-on: ubuntu-26.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Check script syntax and Python sources
+        run: |
+          set -euo pipefail
+          shellcheck run.sh tools/*.sh
+          python3 -m compileall -q tools
+      - name: Validate GitHub Actions workflow
+        run: |
+          set -euo pipefail
+          curl -fsSL -o "$RUNNER_TEMP/actionlint.tar.gz" \
+            https://github.com/rhysd/actionlint/releases/download/v1.7.12/actionlint_1.7.12_linux_amd64.tar.gz
+          echo "8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8  $RUNNER_TEMP/actionlint.tar.gz" | sha256sum -c -
+          tar -xzf "$RUNNER_TEMP/actionlint.tar.gz" -C "$RUNNER_TEMP" actionlint
+          "$RUNNER_TEMP/actionlint" -color
+
+  native:
+    name: Clang build, analysis, and runtime tests
+    runs-on: ubuntu-26.04
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install native build and headless graphics dependencies
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            clang-21 clang-tidy-21 cmake ninja-build pkg-config \
+            libsdl3-dev zlib1g-dev glslang-tools \
+            libavformat-dev libavcodec-dev libavutil-dev libswscale-dev libswresample-dev \
+            libvulkan1 mesa-vulkan-drivers xvfb xauth innoextract
+          for icd in /usr/share/vulkan/icd.d/lvp_icd.x86_64.json /usr/share/vulkan/icd.d/lvp_icd.json; do
+            if [[ -f "$icd" ]]; then
+              echo "VK_DRIVER_FILES=$icd" >> "$GITHUB_ENV"
+              exit 0
+            fi
+          done
+          echo "Mesa lavapipe Vulkan ICD is missing" >&2
+          exit 1
+
+      - name: Configure with Clang
+        run: |
+          cmake -S . -B build-native -G Ninja \
+            -DCMAKE_C_COMPILER=clang-21 -DCMAKE_CXX_COMPILER=clang++-21 \
+            -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
+
+      - name: Compile game, renderer, and native harnesses
+        run: cmake --build build-native --parallel 2
+
+      - name: Analyze native platform implementations
+        shell: bash
+        run: |
+          set -euo pipefail
+          mapfile -t sources < <(git ls-files \
+            'src/compat/*.cpp' 'src/native/*.cpp' \
+            'src/sgp/native/*.cpp' 'src/surrender/native/*.cpp' \
+            'src/surrender/devices/sdl_gpu/*.cpp')
+          clang-tidy-21 -p build-native --quiet \
+            -checks='-*,clang-analyzer-core.*' \
+            -warnings-as-errors='clang-analyzer-core.*' "${sources[@]}"
+
+      - name: Run headless CTest suite (including Vulkan renderer)
+        run: |
+          set -euo pipefail
+          xvfb-run -a env SDL_VIDEODRIVER=x11 SDL_GPU_DRIVER=vulkan \
+            ctest --test-dir build-native --output-on-failure --parallel 2 --timeout 180
+
+      - name: Check licensed CI input availability
+        id: licensed
+        shell: bash
+        env:
+          INPUTS_TOKEN: ${{ secrets.WIZ8_INPUTS_TOKEN }}
+          CACHE_KEY: ${{ secrets.WIZ8_CACHE_KEY }}
+          TRUSTED_PR: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository }}
+        run: |
+          if [[ "$TRUSTED_PR" == "true" && -n "$INPUTS_TOKEN" && -n "$CACHE_KEY" ]]; then
+            echo 'enabled=true' >> "$GITHUB_OUTPUT"
+          else
+            echo 'enabled=false' >> "$GITHUB_OUTPUT"
+            echo '::notice::Licensed graphics tests require WIZ8_INPUTS_TOKEN and WIZ8_CACHE_KEY in this repository; ordinary runtime tests passed independently.'
+            echo 'Licensed graphics checks not run (missing secrets or untrusted fork PR).' >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      # Reuse the decomp composite action, pinned to a reviewed commit. The
+      # cache holds only encrypted bytes, never licensed plaintext game data.
+      - name: Prepare the decomp installer action workspace
+        if: steps.licensed.outputs.enabled == 'true'
+        run: mkdir -p config
+
+      - name: Download/decrypt shared GOG CI installer
+        if: steps.licensed.outputs.enabled == 'true'
+        uses: agluszak/wizardry-8-decomp/.github/actions/materialize-gog-installer@075cbd0b853c4670e94f6ae4fe48d53b52b5e819
+        with:
+          inputs-token: ${{ secrets.WIZ8_INPUTS_TOKEN }}
+          cache-key: ${{ secrets.WIZ8_CACHE_KEY }}
+
+      - name: Extract retail assets
+        if: steps.licensed.outputs.enabled == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          innoextract --quiet --output-dir "$RUNNER_TEMP/wiz8-retail" \
+            "$WIZ8_INPUT_DIR/$GOG_INSTALLER_NAME"
+          data_dir="$(find "$RUNNER_TEMP/wiz8-retail" -type d -iname Data -print -quit)"
+          test -n "$data_dir"
+          asset_root="$(dirname "$data_dir")"
+          echo "WIZ8_ASSET_ROOT=$asset_root" >> "$GITHUB_ENV"
+
+      - name: Validate real game assets and renderer
+        if: steps.licensed.outputs.enabled == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          xvfb-run -a env SDL_VIDEODRIVER=x11 SDL_GPU_DRIVER=vulkan \
+            timeout 180 build-native/native_game_graphics
+          movie="$(find "$WIZ8_ASSET_ROOT" -type f -iname sirtech.bik -print -quit)"
+          test -n "$movie"
+          timeout 180 build-native/native_movie_test "$movie"
+
+      - name: Exercise real new-game and save/load lifecycle when a character is available
+        if: steps.licensed.outputs.enabled == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          character_dir="$(find "$WIZ8_ASSET_ROOT" -type d -ipath '*/Saves/Characters' -print -quit)"
+          if [[ -z "$character_dir" ]]; then
+            echo '::notice::Installer has no Saves/Characters directory; world harness needs a character fixture.'
+            exit 0
+          fi
+          character="$(find "$character_dir" -maxdepth 1 -type f -iname '*.chr' -print -quit)"
+          if [[ -z "$character" ]]; then
+            echo '::notice::Installer has no character fixture; world harness skipped.'
+            exit 0
+          fi
+          xvfb-run -a env SDL_VIDEODRIVER=x11 SDL_GPU_DRIVER=vulkan \
+            timeout 180 build-native/native_world_graphics "$(basename "$character")" \
+              "$RUNNER_TEMP/world.ppm" save
+
+      - name: Remove decrypted licensed inputs
+        if: always()
+        shell: bash
+        run: |
+          rm -rf "$WIZ8_INPUT_DIR" "$RUNNER_TEMP/wiz8-retail" \
+            "$RUNNER_TEMP/wiz8-gog-download" config/local-inputs.yml
