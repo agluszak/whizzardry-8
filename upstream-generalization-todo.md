@@ -23,7 +23,7 @@ not establish correctness. Keep reviewed exceptions with their reasons.
   non-finite/out-of-range conversions and shutdown sequencing by source family.
 - [x] Validate this batch with native builds, meaningful focused sanitizer
   checks and the existing Windows object oracle. Record untested paths.
-- [ ] Restack shared fixes first, synchronize both handoffs, and push the code
+- [x] Restack shared fixes first, synchronize both handoffs, and push the code
   and completed audit record.
 
 ## Current work

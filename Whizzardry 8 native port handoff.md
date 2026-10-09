@@ -2,6 +2,60 @@
 
 Oct 9, 2026 · @Mietek Pierdzibąk
 
+## Continuation — shared generalization audit, Oct 9, 2026
+
+The persistent queue is `upstream-generalization-todo.md`; confirmed fixes,
+reviewed exceptions and remaining work are in `upstream-generalization-audit.md`.
+The new source inventory covers **763 tracked C/C++ files**, including inactive
+branches, headers, extensions, tests and vendor code. Compiler inventories cover
+**329 native and 315 Windows units**, with zero errors. All **70 protected raw-IO
+records/prefixes agree** in extent and field offsets/widths. These are evidence
+inventories and a reviewed batch, not an exhausted semantic audit.
+
+Shared commit **`a706709c8c89d62b8e2b6b43c90e2b2d5b94233a`** fixes saved NPCT/NSF
+pointer-presence words (including collisions with runtime handles), packed scalar
+pointer alignment, JPEG four-byte pixel access and extension long widths, three
+remaining ordering strides, reviewed raw allocation/release pairs and signed
+32-bit float conversion boundaries. It adds reusable source/layout/comparison
+tools and preserves Windows branches, disk extents and recovered ownership.
+All 89 remaining long tokens were classified as compatibility, host/external
+ABI, formatting or intentional long long cases. Other narrowing remains queued.
+
+Native commit **`664fc7438ec5a81734954b8af1130b1c05e34e1f`** adds the UTF16-to-narrow
+CRT implementation, actual NPCT/NSF loader fixtures, packed AI/vector checks,
+production JPEG row-transfer checks and rounding-mode FISTP comparisons.
+The NSF test caught libc narrow `%S` interpreting the two-byte text as four-byte
+wchar; the loader now uses the native conversion. Save-path/diagnostic narrow
+formatting elsewhere remains a known follow-up. The recovered merged text
+allocation leak and broader lifetime, packed callback, serialization, sentinel
+and shutdown reviews remain explicit in the todo.
+
+Validation: native build and **14/14 tests pass**, syntax probe **246/246 clean**,
+and four focused tests pass **ASan/UBSan with leak detection**. Six old-code
+negative controls fail on the repaired defects. Legacy clang-cl builds, and all
+**299 main non-zlib objects remain exact** against 228fa4c with
+SOURCE_DATE_EPOCH=1791503644. Five extension objects agree after normalizing only
+the anonymous-namespace filename hash caused by the baseline mirror path.
+The fresh world harness renders **38 enabled meshes / 3,394 submitted polygons**,
+160/35 draw calls, 1,525/64 triangles and 131,747 changed / 130,374 restored viewport
+pixels, then exits normally. It uses Xvfb/lavapipe; physical input, VC6/macOS,
+real JPEG decoding, native unzip and every affected gameplay path remain untested.
+Full-world lifetime leaks are not claimed fixed. No packages were installed.
+
+Concurrent Windows libclang parsing stalled on this host; serial parsing of the
+same units completed. The layout tool now serializes that lane and keeps native
+parsing parallel. Evidence uses `generalization-*`, `layout-final-*` and
+`raw-layout-comparison.json` in the ignored build directories.
+
+The restack preserved the exact tree and restored the validated native files.
+With this final documentation commit the stack is **43 commits over main:
+22 upstreamable commits first**, ending at `upstream-tip`
+(`a706709c8c89d62b8e2b6b43c90e2b2d5b94233a`), followed by 21 native/documentation
+commits. Code, tools, audit, regressions and synchronized handoff are published
+to the Whizzardry fork; no decomp upstream PR or push was performed.
+`build-native/upstream-generalization.patch` contains the new shared commit.
+Older hashes and validation snapshots below are historical.
+
 ## Continuation — systematic allocation-size audit, Oct 9, 2026
 
 The complete allocation-width review is recorded in `allocation-size-audit.md`.
