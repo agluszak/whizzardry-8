@@ -2,6 +2,47 @@
 
 Oct 9, 2026 · @Mietek Pierdzibąk
 
+## Continuation — systematic allocation-size audit, Oct 9, 2026
+
+The complete allocation-width review is recorded in `allocation-size-audit.md`.
+The inventory covers **760 tracked C/C++ files**, including headers, inactive
+platform branches, debug code, extension plug-ins, tests and miniaudio. It
+records 729 allocation references (including definitions/declarations), traces
+variable byte counts and distinguishes element widths from file/pixel bytes,
+capacity budgets and alignment padding. `tools/audit_allocations.py` reproduces
+the inventory, including complete multiline expressions.
+
+Shared commit **`0207bc7e89d8fd463b939633ac32a08bd49f84a5`** replaces **99 allocation
+expressions in 37 production files** and associated typed copies/clears. It
+fixes four missed native-width defects: the allocator header (32 -> 48 bytes),
+monster spell icon (8 -> 16), level-file trigger (6 -> 10), and monster combat
+state (339 -> 343). The allocator's name placement and alignment now follow
+its header size. Spare slots and multiplicities remain intact, including four
+UV-pool entries per polygon and 40 ushort slots per leaf. Serialized byte
+widths remain unchanged. Reviewed byte-buffer/format/alignment exceptions are
+listed in the report; this does not establish general ownership, overflow or
+indexing safety.
+
+Validation: native build and **12/12 tests pass**, the game/SGP syntax probe is
+**246/246 clean**, and the allocator/client and UTF16 CRT tests pass ASan/UBSan
+with leak detection. The new allocator regression failed against the old code
+before the fix and passes now; native regression commit is **`ab513f1`**. Legacy
+clang-cl builds and all **299 non-zlib objects remain exact** in instructions,
+relocations and `.rdata` against the existing `228fa4c` baseline with
+`SOURCE_DATE_EPOCH=1791503644`. Evidence logs use the `allocation-*` prefix in
+`build-native`, `build-native-asan` and `build-clang`. VC6/macOS, every debug
+configuration and the three affected gameplay paths were not run separately.
+No packages were installed.
+
+The shared change was restacked ahead of the complete native suffix; comparison
+with the pre-restack tree was empty. With this documentation commit the stack
+is **40 commits over main: 21 upstreamable commits first**, ending at
+`upstream-tip` (`0207bc7e89d8fd463b939633ac32a08bd49f84a5`), followed by 19 native/
+documentation commits. The code, audit/tool, native regression and synchronized
+handoff are published to the Whizzardry fork; no decomp upstream PR or push
+was performed. `build-native/upstream-allocation-sizes.patch` is the generated
+patch for the new shared commit. Older hashes below are historical snapshots.
+
 ## Continuation — native run.sh launcher, Oct 9, 2026
 
 `run.sh` now launches `Wiz8Native` directly at `7dc073d4b5cc9fcb4ae9729bbd82040fc16c8958`, using the native build,
