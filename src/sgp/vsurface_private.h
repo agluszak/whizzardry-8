@@ -3,8 +3,12 @@
 #ifndef __VSURFACE_PRIVATE_
 #define __VSURFACE_PRIVATE_
 
-#include <windows.h>
+#include "compat/kernel32.h"
+#if defined(WIZ8_NATIVE)
+#include "compat/surfaces.h"
+#else
 #include <ddraw.h>
+#endif
 #include "vsurface.h"
 
 #ifdef __cplusplus

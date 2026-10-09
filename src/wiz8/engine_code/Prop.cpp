@@ -36,7 +36,7 @@
 #include <math.h>
 #include <new>
 #include <stdlib.h>
-#include <windows.h>
+#include "wiz8/wiz8_windows.h"
 #include "wiz8/engine_code/GameData.h"
 #include "wiz8/geometry.h"
 #include "wiz8/local_code/Configuration.h"
@@ -1411,7 +1411,7 @@ bool W8PropRepresentation::LoadProp(W8ReadLevelInfo* info, W8Prop* prop)
     unsigned int flag_bits = 0;
     W8AnimObj* animation = 0;
     bool result = false;
-    long fail_line;
+    w8_long fail_line;
 
     if (info == 0 || info->hFile == 0 || prop == 0) {
         srAssertFail("pInfo && pInfo->hFile && pProp", PROP_CPP, 0xae, 0);

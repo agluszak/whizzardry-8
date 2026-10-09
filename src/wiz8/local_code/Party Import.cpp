@@ -1,3 +1,4 @@
+#include "wiz8/compat/unaligned.h"
 #include "wiz8/conditions.h"
 #include "wiz8/local_code/PartyImport.h"
 #include "wiz8/local_code/GameplayInit.h"
@@ -140,9 +141,9 @@ unsigned char LoadWizardry7ImportFile(char* path)
     }
     if (FileRead(file, header, 0x34c, &bytes_read) != 0) {
         // reinterpret-ok: raw serialized file image; unaligned header short
-        record_skip = *reinterpret_cast<short*>(&header[0x2cc]);
+        record_skip = *reinterpret_cast<w8_unaligned_short*>(&header[0x2cc]);
         // reinterpret-ok: raw serialized file image; unaligned header short
-        bank_skip = *reinterpret_cast<short*>(&header[0x2ce]);
+        bank_skip = *reinterpret_cast<w8_unaligned_short*>(&header[0x2ce]);
         if (FileSeek(file, record_skip * 6, FILE_SEEK_FROM_CURRENT) != 0 &&
             FileSeek(file, bank_skip * 8, FILE_SEEK_FROM_CURRENT) != 0) {
             for (index = 0; index < 0x20; ++index) {

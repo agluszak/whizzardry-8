@@ -45,6 +45,23 @@ function(wiz8_add_import_library NAME DEF_FILE)
     endif()
     if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
         find_program(LLVM_DLLTOOL NAMES llvm-dlltool REQUIRED)
+        if(ARG_PRESERVE_C_DECORATION)
+            # dlltool otherwise strips the leading underscore from the DLL
+            # import name, even with --no-leading-underscore. EXPORTAS keeps
+            # the provider's exact name while retaining the caller symbol.
+            set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${import_def}")
+            file(STRINGS "${import_def}" import_lines)
+            set(exact_import_def "${CMAKE_BINARY_DIR}/${target_stem}-exact.def")
+            set(exact_import_contents "")
+            foreach(import_line IN LISTS import_lines)
+                if(import_line MATCHES "^[ \t]*(_[A-Za-z0-9_]+@[0-9]+)[ \t]*$")
+                    set(import_line "    ${CMAKE_MATCH_1} EXPORTAS ${CMAKE_MATCH_1}")
+                endif()
+                string(APPEND exact_import_contents "${import_line}\n")
+            endforeach()
+            file(WRITE "${exact_import_def}" "${exact_import_contents}")
+            set(import_def "${exact_import_def}")
+        endif()
         set(import_command "${LLVM_DLLTOOL}" -m i386 --no-leading-underscore
             -d "${import_def}" -l "${def_library}")
     else()

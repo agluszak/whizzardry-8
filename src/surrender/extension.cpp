@@ -7,7 +7,7 @@
 #include <stdio.h>
 #include <string.h>
 
-long srExtension::count = 0;
+w8_long srExtension::count = 0;
 srExtension* srExtension::firstExt = 0;
 
 // FUNCTION: SURRENDER 0x10013840
@@ -40,7 +40,7 @@ srExtension* srExtension::getNext()
 }
 
 // FUNCTION: SURRENDER 0x100138E0
-long srExtension::getCount()
+w8_long srExtension::getCount()
 {
     return count;
 }
@@ -178,7 +178,11 @@ srExtension* srExtension::load(const char* name, const char* path)
     }
     extension = new srExtension(name);
     extension->plugin = plugin;
+#if defined(WIZ8_NATIVE)
+    extension->module = module;
+#else
     extension->module = static_cast<HMODULE>(module);
+#endif
     srDebugPrintf(5, "srExtension::load() -- SurRender extension '%s' initialized.\n",
                   extension->getName());
     return extension;

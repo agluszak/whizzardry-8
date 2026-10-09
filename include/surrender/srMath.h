@@ -17,7 +17,7 @@ public:
     srVector2T<T>() {}
     srVector2T<T>(T source_0, T source_1) : x(source_0), y(source_1) {}
 
-    void* operator new[](unsigned int size)
+    void* operator new[](size_t size)
     {
         return srHeap.allocate(size);
     }
@@ -82,6 +82,10 @@ public:
     T y;
 };
 
+#ifdef WIZ8_NATIVE
+// Character/location records embed these vectors at unaligned retail offsets.
+#pragma pack(push, 1)
+#endif
 template <class T> class srVector3T {
 public:
     srVector3T<T>();
@@ -92,7 +96,7 @@ public:
         return srVector2T<T>(x, z);
     }
 
-    void* operator new[](unsigned int size)
+    void* operator new[](size_t size)
     {
         return srHeap.allocate(size);
     }
@@ -154,6 +158,10 @@ public:
     T y;
     T z;
 };
+
+#ifdef WIZ8_NATIVE
+#pragma pack(pop)
+#endif
 
 template <class T> srVector3T<T>::srVector3T() {}
 
@@ -410,7 +418,7 @@ public:
         return result;
     }
 
-    void* operator new[](unsigned int size)
+    void* operator new[](size_t size)
     {
         return srHeap.allocate(size);
     }
@@ -1235,7 +1243,7 @@ class srVector3i {
 public:
     srVector3i() {}
 
-    void* operator new[](unsigned int size)
+    void* operator new[](size_t size)
     {
         return srHeap.allocate(size);
     }

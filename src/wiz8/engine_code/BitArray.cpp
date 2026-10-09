@@ -107,9 +107,9 @@ unsigned char BitArray::Load(int handle)
     unsigned int packed_size;
     void* packed;
     unsigned int file_bit_count;
-    unsigned long* decoded;
-    unsigned long remaining;
-    unsigned long* cursor;
+    w8_ulong* decoded;
+    w8_ulong remaining;
+    w8_ulong* cursor;
 
     if (FileRead(handle, &magic, 4, 0) == 0 || magic != 0xdeadd00d) {
         return 0;
@@ -136,7 +136,7 @@ unsigned char BitArray::Load(int handle)
                 srHuffman::Decompressor decoder(bits);
                 remaining = decoder.getDataCount();
                 if (remaining != 0) {
-                    decoded = static_cast<unsigned long*>(operator new(remaining * 4));
+                    decoded = static_cast<w8_ulong*>(operator new(remaining * sizeof(*decoded)));
                     if (remaining > 0)
                         cursor = decoded;
                     while (remaining > 0) {
@@ -147,7 +147,11 @@ unsigned char BitArray::Load(int handle)
                 }
             }
             memcpy(puiIndex, decoded, word_count * sizeof(unsigned int));
+#if defined(WIZ8_NATIVE)
+            operator delete(decoded);
+#else
             delete decoded;
+#endif
             operator delete(packed);
             magic = 0;
             if (FileRead(handle, &magic, 4, 0) == 0 || magic != 0xdeadd00d) {
@@ -173,7 +177,7 @@ unsigned char BitArray::Load(int handle)
 unsigned char BitArray::Save(int handle)
 {
     unsigned int magic;
-    unsigned long packed_size;
+    w8_ulong packed_size;
     unsigned int* words;
     unsigned int remaining;
     unsigned int count;

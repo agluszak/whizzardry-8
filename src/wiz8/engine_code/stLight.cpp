@@ -16,7 +16,7 @@
 
 #include "FileMan.h"
 
-#include <windows.h>
+#include "wiz8/wiz8_windows.h"
 #include <new>
 #include <stdlib.h>
 #include <string.h>
@@ -264,7 +264,7 @@ void stLight::Update()
         return;
     }
 
-    unsigned long ticks = GetTickCount();
+    w8_ulong ticks = GetTickCount();
     W8PathAI* path = path_ai;
     float seconds = ticks * g_float_one_thousandth;
     stParametricLightDefinition* definition =

@@ -1,5 +1,6 @@
 
 #include "surrender/srLight.h"
+#include "surrender/srStreamFlags.h"
 
 #include <math.h>
 #include <ostream>
@@ -48,6 +49,44 @@ srLight::srLight(srNode* parent, e_preset preset)
     }
 }
 
+#if defined(WIZ8_NATIVE)
+/* WIZ8 0x0049D67C..0x0049D6C5 inlines the SDK copy: construct the
+   illuminator with parent zero, register a fresh instance, then assign the
+   light before copying its members. Compiler-generated copying shares scene
+   links and registry ownership, leaving dangling siblings during unload. */
+srLight::srLight(const srLight& other)
+    : srClassSupport<srLight, srIlluminator, false, 0x1220>(other),
+      attenuation_model(other.attenuation_model),
+      near_start(other.near_start),
+      near_end(other.near_end),
+      far_start(other.far_start),
+      far_end(other.far_end),
+      scaled_near_start(other.scaled_near_start),
+      scaled_far_end(other.scaled_far_end),
+      near_attenuation(other.near_attenuation),
+      far_attenuation(other.far_attenuation),
+      opengl_attenuation(other.opengl_attenuation),
+      enable_flags(other.enable_flags),
+      ambient(other.ambient),
+      diffuse(other.diffuse),
+      specular(other.specular),
+      spot_direction(other.spot_direction),
+      spot_angle(other.spot_angle),
+      spot_exponent(other.spot_exponent),
+      intensity(other.intensity),
+      safe_range(other.safe_range),
+      scaled_ambient(other.scaled_ambient),
+      scaled_diffuse(other.scaled_diffuse),
+      scaled_specular(other.scaled_specular),
+      spot_direction_eye(other.spot_direction_eye),
+      spot_cutoff(other.spot_cutoff),
+      attenuation_range(other.attenuation_range),
+      derived_flags(other.derived_flags),
+      channel_mask(other.channel_mask)
+{
+}
+#endif
+
 // FUNCTION: SURRENDER 0x1004DFB0
 srLight& srLight::operator=(const srLight& other)
 {
@@ -81,8 +120,8 @@ static const char* const s_light_flag_names = 0;
 void srLight::dump(std::ostream& stream)
 {
     srNode::dump(stream);
-    long flags = stream.flags();
-    stream.flags((flags & 0xfffffe7fL) | 0x40);
+    w8_long flags = srGetStreamFlags(stream);
+    srSetStreamFlags(stream, (flags & 0xfffffe7fL) | 0x40);
     stream.width(0x20);
     stream << "  Control flags: ";
     if (enable_flags == 0) {
@@ -91,7 +130,7 @@ void srLight::dump(std::ostream& stream)
         stream << '[';
         bool first = true;
         const char* names = s_light_flag_names;
-        for (unsigned long index = 0; index < 0x20; ++index) {
+        for (w8_ulong index = 0; index < 0x20; ++index) {
             if ((enable_flags & (1ul << index)) == 0) {
                 if (names != 0) {
                     while (*names != '\0' && *names != ',') {
@@ -156,7 +195,7 @@ void srLight::dump(std::ostream& stream)
     } else {
         stream << "No attenuation" << '\n';
     }
-    stream.flags(flags & 0x7fff);
+    srSetStreamFlags(stream, flags & 0x7fff);
 }
 
 // FUNCTION: SURRENDER 0x1004D650
@@ -318,7 +357,7 @@ int srLight::isActive(srVertexPipe& pipe)
 // FUNCTION: SURRENDER 0x1004CE00
 void srLight::process(srVertexPipe& pipe)
 {
-    unsigned long channels = channel_mask & pipe.channel_mask;
+    w8_ulong channels = channel_mask & pipe.channel_mask;
     if (channels == 0) {
         return;
     }
@@ -333,7 +372,7 @@ void srLight::process(srVertexPipe& pipe)
        distances, eye-space directions). */
     float raw[0x1c0 + 8];
     // reinterpret-ok: manual 32-byte alignment of raw VP scratch storage.
-    float* work = reinterpret_cast<float*>((reinterpret_cast<unsigned long>(raw) + 0x1f) & ~0x1ful);
+    float* work = reinterpret_cast<float*>((reinterpret_cast<w8_ulong_ptr>(raw) + 0x1f) & ~static_cast<w8_ulong_ptr>(0x1f));
     float* spot_factors = work;
     float* attenuation_bank = work + 0x40;
     float* dots = work + 0x80;

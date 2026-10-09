@@ -28,15 +28,15 @@ public:
     virtual char* getAscTime(char* buffer, e_timerReadControl control);
     char* getAscTime(char* buffer, srQuadWord value);
     virtual int pause();            /* 2 */
-    virtual unsigned long resume(); /* 3 */
+    virtual w8_ulong resume(); /* 3 */
     virtual int reset(int force_system_timer, int unused, int save_calibration);
-    virtual unsigned long getMsTime(e_timerReadControl control); /* 5 */
+    virtual w8_ulong getMsTime(e_timerReadControl control); /* 5 */
     virtual double getTime(e_timerReadControl control);          /* 6 */
     /* Each overload pair is declared in reverse slot order. */
-    virtual unsigned long getUTime(e_timerReadControl control); /* 8 */
-    virtual unsigned long getUTime(srQuadWord& out, e_timerReadControl control);
-    virtual unsigned long getRawTime(e_timerReadControl control); /* 10 */
-    virtual unsigned long getRawTime(srQuadWord& out, e_timerReadControl control);
+    virtual w8_ulong getUTime(e_timerReadControl control); /* 8 */
+    virtual w8_ulong getUTime(srQuadWord& out, e_timerReadControl control);
+    virtual w8_ulong getRawTime(e_timerReadControl control); /* 10 */
+    virtual w8_ulong getRawTime(srQuadWord& out, e_timerReadControl control);
 
     const char* getIdent() const;
     const char* getOsIdent() const;
@@ -48,7 +48,7 @@ public:
     }
     // FUNCTION: SURRENDER 0x10062330
     // RECOMP: ?getCPUCount@srTimer@@QBEKXZ
-    unsigned long getCPUCount() const
+    w8_ulong getCPUCount() const
     {
         return m_cpu_count;
     }
@@ -57,7 +57,7 @@ public:
     unsigned short getCPUModel() const;
     unsigned short getCPUStepping() const;
     enum { CPU_FEATURE_FPU = 0, CPU_FEATURE_RDTSC = 4, CPU_FEATURE_MMX = 23 };
-    int getFeature(long feature) const;
+    int getFeature(w8_long feature) const;
     int getCPUIDSupport() const;
     // FUNCTION: SURRENDER 0x100623B0
     // RECOMP: ?getFPUSupport@srTimer@@QBEHXZ
@@ -84,8 +84,8 @@ public:
     {
         return m_frequency.lo * 1e-06 + m_frequency.hi * 4294.967296;
     }
-    unsigned long getUnits() const;
-    void setUnits(unsigned long units);
+    w8_ulong getUnits() const;
+    void setUnits(w8_ulong units);
     int isPaused() const;
     // FUNCTION: SURRENDER 0x10062750
     // RECOMP: ?fastThreads@srTimer@@QAEHXZ
@@ -99,7 +99,7 @@ public:
     const char* getCPUTypeIdString(e_cpuTypeId type) const;
     /* "<hive>:<path>" names the registry location store()/retrieve() use; a
        null storage selects default_storage. */
-    static char* getStorage(char* buffer, unsigned long size);
+    static char* getStorage(char* buffer, w8_ulong size);
     static void setStorage(char* const storage);
 
     unsigned char unknown_004_[0x4];
@@ -114,13 +114,17 @@ public:
     unsigned char unknown_82c_[0x4];
     double m_seconds_per_tick;     /* 0x830: 1.0 / frequency */
     double m_units_per_tick;       /* 0x838: units / frequency */
-    unsigned long m_cpu_count;     /* 0x840 */
+    w8_ulong m_cpu_count;     /* 0x840 */
     TickReader m_read_tick;        /* 0x844: getTick or RDTSC */
+#if defined(WIZ8_NATIVE)
+    void* m_kernel32; /* unused by the native clock */
+#else
     HMODULE m_kernel32;            /* 0x848: kernel32 handle when QPC is used */
+#endif
     char m_cpu_vendor[0x10];       /* 0x84c: CPUID vendor string */
-    unsigned long m_cpu_max_id;    /* 0x85c: max CPUID input */
-    unsigned long m_cpu_signature; /* 0x860: CPUID EAX */
-    unsigned long m_cpu_features;  /* 0x864: CPUID EDX */
+    w8_ulong m_cpu_max_id;    /* 0x85c: max CPUID input */
+    w8_ulong m_cpu_signature; /* 0x860: CPUID EAX */
+    w8_ulong m_cpu_features;  /* 0x864: CPUID EDX */
 
 protected:
     int retrieve();
@@ -135,8 +139,8 @@ protected:
     static char osIdent[0x400];
     static unsigned short cpuFreqVariancePct;
     static const char* default_storage;
-    static const unsigned long CPU_Model_Mask;
-    static const unsigned long CPU_Features_Mask;
+    static const w8_ulong CPU_Model_Mask;
+    static const w8_ulong CPU_Features_Mask;
     static void* RegKeyBase;
     static char RegKeyName[0x400];
     static const char* RegRoot;
@@ -151,4 +155,4 @@ protected:
 
 SR_DLL_IMPORT std::ostream& operator<<(std::ostream& stream, const srTimer& timer);
 
-static_assert((sizeof(srTimer) == 0x868), "srTimer_must_be_0x868");
+W8_ABI_ASSERT((sizeof(srTimer) == 0x868), "srTimer_must_be_0x868");

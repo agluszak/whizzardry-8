@@ -15,13 +15,13 @@
 //         crashes.  The VOBJECT/VSURFACE lists are now self-maintained and no longer use the
 //				 this crap.  DON'T USE THIS -- NO MATTER WHAT!!!
 
-#include "types.h"
+#include "Types.h"
 #include <stdlib.h>
 #include <malloc.h>
 #include <stdio.h>
-#include "windows.h"
+#include "compat/kernel32.h"
 #include "MemMan.h"
-#include "Debug.h"
+#include "DEBUG.H"
 #include "Container.h"
 // Defines and typedefs
 
@@ -55,7 +55,7 @@ typedef struct OrdHeaderTag {
 
 typedef struct test {
     UINT32 me;
-    long you;
+    w8_long you;
     char* k;
     char* p;
 

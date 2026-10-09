@@ -1311,8 +1311,8 @@ void W8TriggerItemPickerDialog::ScrollItemsToMouse(W8DialogButton* button)
             top = bottom - dialog->m_buttons[10]->GetHeight() + dialog->m_buttons[12]->GetHeight();
         } else {
             bottom = top =
-                reinterpret_cast< // reinterpret-ok: retail uses the button address as the fallback coordinate
-                    int>(button);
+                static_cast< // reinterpret-ok: retail uses the button address as the fallback coordinate
+                    int>(reinterpret_cast<w8_ulong_ptr>(button));
         }
         bottom += dialog->m_buttons[9] != 0 ? dialog->m_buttons[9]->GetHeight() : -1;
         top -= (dialog->m_buttons[10] != 0 ? dialog->m_buttons[10]->GetHeight() : -1) +

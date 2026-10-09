@@ -1,4 +1,4 @@
-#include <windows.h>
+#include "wiz8/wiz8_windows.h"
 #include "wiz8/cursor.h"
 #include "wiz8/sgp_text.h"
 #include "wiz8/engine_code/Video2.h"

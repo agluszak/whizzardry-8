@@ -3,24 +3,24 @@
 #ifndef __SGP_
 #define __SGP_
 
-#include "types.h"
+#include "Types.h"
 #include "timer.h"
-#include "debug.h"
+#include "DEBUG.H"
 
-#include "video2.h"
+#include "Video2.h"
 
 #include "input.h"
-#include "memman.h"
-#include "fileman.h"
-#include "dbman.h"
+#include "MemMan.h"
+#include "FileMan.h"
+#include "DbMan.h"
 #include "soundman.h"
 #include "pcx.h"
 #include "line.h"
-#include "font.h"
+#include "Font.h"
 #include "english.h"
 #include "Mutex Manager.h"
 #include "vobject.h"
-#include "Random.h"
+#include "random.h"
 #include "shading.h"
 
 #ifdef __cplusplus
@@ -45,7 +45,11 @@ extern BOOLEAN gfIgnoreMessages;
 extern UINT32 guiMouseWheelMsg;
 extern CHAR8 gzErrorMsg[2048];
 
+#if !defined(WIZ8_NATIVE)
 INT32 FAR PASCAL WindowProcedure(HWND window, UINT16 message, WPARAM wparam, LPARAM lparam);
+#else
+LRESULT WindowProcedure(HWND window, UINT message, WPARAM wparam, LPARAM lparam);
+#endif
 BOOLEAN InitializeStandardGamingPlatform(HINSTANCE instance, int show_command);
 void ShutdownStandardGamingPlatform(void);
 void ProcessCommandLine(CHAR8* command_line);

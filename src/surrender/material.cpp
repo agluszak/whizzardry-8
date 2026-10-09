@@ -1,6 +1,7 @@
 /* D:\srsdk1x\sources\corelib\srMaterial.cpp */
 
 #include "surrender/srMaterial.h"
+#include "surrender/srStreamFlags.h"
 
 #include "surrender/srCore.h"
 #include "surrender/srDebug.h"
@@ -162,9 +163,9 @@ void srMaterial::preProcess(srVertexPipe& pipe)
 // FUNCTION: SURRENDER 0x10033C90
 void srMaterial::postProcess(srVertexPipe& pipe)
 {
-    unsigned long operations;
-    unsigned long vertex_count;
-    unsigned long blend;
+    w8_ulong operations;
+    w8_ulong vertex_count;
+    w8_ulong blend;
     srVector4T<float>* color;
     float* channel;
 
@@ -295,11 +296,11 @@ void srMaterial::reset()
 // FUNCTION: SURRENDER 0x10033FC0
 void srMaterial::dump(std::ostream& stream)
 {
-    long flags;
+    w8_long flags;
 
     srClass::dump(stream);
-    flags = stream.flags();
-    stream.flags((flags & 0xfffffe7fL) | 0x40);
+    flags = srGetStreamFlags(stream);
+    srSetStreamFlags(stream, (flags & 0xfffffe7fL) | 0x40);
     stream.width(0x20);
     stream << "  Ambient: " << '{' << parms.ambient.x << ',' << parms.ambient.y << ','
            << parms.ambient.z << ',' << parms.ambient.w << '}' << '\n';
@@ -325,7 +326,7 @@ void srMaterial::dump(std::ostream& stream)
         bool first = true;
         const char* names = s_oper_names;
         const char* name = names;
-        for (unsigned long bit = 0; bit < 0x20; ++bit) {
+        for (w8_ulong bit = 0; bit < 0x20; ++bit) {
             if ((operations.value & (1 << bit)) == 0) {
                 if (name != 0) {
                     while (*name != 0 && *name != ',') {
@@ -361,7 +362,7 @@ void srMaterial::dump(std::ostream& stream)
     stream << "  Texture mapper: " << mapper << '\n';
     stream.width(0x20);
     stream << "  Dirty: " << srBoolToString(dirty) << '\n';
-    stream.flags(flags & 0x7fff);
+    srSetStreamFlags(stream, flags & 0x7fff);
 }
 
 // FUNCTION: SURRENDER 0x100343B0

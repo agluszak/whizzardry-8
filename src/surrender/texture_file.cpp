@@ -61,7 +61,11 @@ void srTextureFile::setFileName(const char* file_name)
 {
     invalidate();
     if (this->file_name != 0) {
+#if defined(WIZ8_NATIVE)
+        ::operator delete(this->file_name);
+#else
         delete this->file_name;
+#endif
     }
     if (file_name == 0 || *file_name == 0) {
         this->file_name = 0;
@@ -125,7 +129,7 @@ void srTextureFile::releaseSurface()
 }
 
 // FUNCTION: SURRENDER 0x1005F8A0
-unsigned long srTextureFile::getTextureFrameHandle()
+w8_ulong srTextureFile::getTextureFrameHandle()
 {
     if ((texture_flags_ & (1 << FLAG_GENERATESURFACE_FAILURE)) != 0) {
         return 0;
@@ -163,7 +167,7 @@ void srTextureFile::getMipmapData(MultiRequest& request)
         request.destinations[request.mipmap_level]->copy(*surface);
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wsign-compare"
-        for (long level = request.mipmap_level + 1; level <= request.last_level; ++level) {
+        for (w8_long level = request.mipmap_level + 1; level <= request.last_level; ++level) {
             if (request.destinations[level] != 0 && request.destinations[level - 1] != 0) {
                 request.destinations[level]->copy(*request.destinations[level - 1]);
             }

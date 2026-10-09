@@ -1,5 +1,25 @@
 #pragma once
 
+#if defined(WIZ8_NATIVE)
+#include <mutex>
+
+/* Win32 critical sections are recursive. */
+class srCriticalSection {
+public:
+    void getAccess()
+    {
+        mutex.lock();
+    }
+
+    void releaseAccess()
+    {
+        mutex.unlock();
+    }
+
+private:
+    std::recursive_mutex mutex;
+};
+#else
 #include <windows.h>
 
 class srCriticalSection {
@@ -31,6 +51,7 @@ private:
 };
 
 static_assert(sizeof(srCriticalSection) == 0x18, "srCriticalSection_must_be_0x18");
+#endif
 
 /* Scoped acquisition; the original guard spelling is unknown. */
 class srCriticalSectionAccess {

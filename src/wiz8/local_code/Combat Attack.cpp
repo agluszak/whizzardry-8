@@ -1,3 +1,4 @@
+#include "wiz8/compat/unaligned.h"
 #include "wiz8/engine_code/AnimRep.hpp"
 #include "wiz8/monster_cycles.h"
 #include "wiz8/conditions.h"
@@ -1464,7 +1465,7 @@ void StartMonsterAttackCycle(W8MonsterInfo* monster_info, W8AttackMode action_de
 void ReportCharacterAttackResult(int party_slot, W8SpellEffectResult* report)
 {
     W8MonsterInfo* monster_info;
-    unsigned int* condition_turns;
+    w8_unaligned_uint* condition_turns;
     W8SpellDamageReport* entry;
     unsigned int condition;
 
@@ -2011,7 +2012,7 @@ invalid_target:
 // FUNCTION: WIZ8 0x005412b0
 void ReportMonsterAttackResult(W8MonsterInfo* monster_info, W8SpellEffectResult* report)
 {
-    unsigned int* condition_turns;
+    w8_unaligned_uint* condition_turns;
     W8SpellDamageReport* entry;
     unsigned int condition;
 
@@ -3169,7 +3170,7 @@ void ApplyEffectConditions(W8TargetSource* source, W8CombatSlot* target,
    builders share it, so its asserts report these fixed source lines. */
 static void AppendCombatTargetEntry(W8PList* out_list, W8TargetKind kind, int iChar, int iMonsterID)
 {
-    W8CombatSlot* pTarget = static_cast<W8CombatSlot*>(malloc(0x20));
+    W8CombatSlot* pTarget = static_cast<W8CombatSlot*>(malloc(sizeof(*pTarget)));
     if (pTarget == NULL) {
         srAssertFail("pTarget", COMBAT_ATTACK_CPP, 0x1262, 0);
     }

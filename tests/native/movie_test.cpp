@@ -1,0 +1,214 @@
+#include "../../src/native/movie.h"
+#include "FileMan.h"
+#include "LibraryDataBase.h"
+#include "MemMan.h"
+#include "compat/surfaces.h"
+#include "native/audio_test.h"
+#include "platform_paths.h"
+#include "soundman.h"
+#include "wiz8/bink_video.h"
+#include <cmath>
+#include <cstdio>
+#include <cstring>
+#include <filesystem>
+#include <stdexcept>
+#include <unistd.h>
+#include <vector>
+#define CHECK(x)                                                                                   \
+    do                                                                                             \
+    {                                                                                              \
+        if (!(x))                                                                                  \
+        {                                                                                          \
+            fprintf(stderr, "line %d: %s\n", __LINE__, #x);                                        \
+            return 1;                                                                              \
+        }                                                                                          \
+    } while (0)
+std::vector<unsigned char> read(const char* path)
+{
+    FILE* file = fopen(path, "rb");
+    if (!file)
+        throw std::runtime_error("Missing test fixture");
+    fseek(file, 0, SEEK_END);
+    std::vector<unsigned char> bytes(ftell(file));
+    rewind(file);
+    if (fread(bytes.data(), 1, bytes.size(), file) != bytes.size())
+        throw std::runtime_error("Short fixture");
+    fclose(file);
+    return bytes;
+}
+void write(const std::filesystem::path& path, const std::vector<unsigned char>& bytes)
+{
+    FILE* file = fopen(path.c_str(), "wb");
+    if (!file)
+        throw std::runtime_error("Cannot create fixture");
+    fwrite(bytes.data(), 1, bytes.size(), file);
+    fclose(file);
+}
+struct Temporary
+{
+    std::filesystem::path path;
+    ~Temporary()
+    {
+        std::error_code error;
+        std::filesystem::remove_all(path, error);
+    }
+};
+int main(int argc, char** argv)
+{
+    try
+    {
+        char temporary[] = "/tmp/wiz8-movie-XXXXXX";
+        CHECK(mkdtemp(temporary));
+        Temporary fixture{temporary};
+        auto assets = fixture.path / "assets", user = fixture.path / "user";
+        std::filesystem::create_directories(assets / "Data");
+        std::filesystem::create_directories(user);
+        w8_native::configure_paths({assets.string(), user.string(), {}});
+        auto encoded = read(WIZ8_MOVIE_FIXTURE), golden = read(WIZ8_MOVIE_GOLDEN);
+        write(assets / "Movie.mkv", encoded);
+        LIBHEADER header{};
+        strcpy(header.sLibName, "DATA.SLF");
+        strcpy(header.sPathToLibrary, "Data\\");
+        header.iEntries = header.iUsed = 2;
+        header.iVersion = 0x200;
+        DIRENTRY entries[2]{};
+        strcpy(entries[0].sFileName, "Packed.mkv");
+        entries[0].uiOffset = sizeof(header);
+        entries[0].uiLength = encoded.size();
+        strcpy(entries[1].sFileName, "Truncated.mkv");
+        entries[1].uiOffset = sizeof(header);
+        entries[1].uiLength = 16; // The rest of the valid movie must be inaccessible.
+        std::vector<unsigned char> archive(reinterpret_cast<unsigned char*>(&header),
+                                           reinterpret_cast<unsigned char*>(&header) +
+                                               sizeof(header));
+        archive.insert(archive.end(), encoded.begin(), encoded.end());
+        archive.insert(archive.end(), reinterpret_cast<unsigned char*>(entries),
+                       reinterpret_cast<unsigned char*>(entries) + sizeof(entries));
+        write(assets / "Data" / "DATA.SLF", archive);
+        CHECK(InitializeMemoryManager());
+        CHECK(InitializeFileManager(nullptr));
+        CHECK(InitializeFileDatabase());
+        w8_native::audio_offline_for_test(true);
+        CHECK(InitializeSoundManager());
+        double energy = 0;
+        for (const char* name : {"MOVIE.MKV", "data\\PACKED.mkv"})
+        {
+            W8NativeVideo movie;
+            movie.open(name);
+            unsigned shown = 0;
+            bool done = false;
+            for (int tick = 0; tick < 700; ++tick)
+            {
+                auto result = movie.update(tick / 1000.0);
+                if (result == W8NativeVideo::FrameReady)
+                {
+                    const auto& frame = movie.frame();
+                    CHECK(shown < 5 && frame.width == 32 && frame.height == 24);
+                    CHECK(std::abs(frame.time - shown * 0.1) < 0.000001);
+                    CHECK(std::memcmp(frame.pixels.data(), golden.data() + shown * 1536, 1536) ==
+                          0);
+                    ++shown;
+                }
+                if (result == W8NativeVideo::Done)
+                {
+                    CHECK(tick >= 500);
+                    done = true;
+                    break;
+                }
+                std::vector<float> samples((tick % 10 == 9 ? 45 : 44) * 2);
+                CHECK(w8_native::audio_render_for_test(samples.data(), samples.size() / 2));
+                for (auto value : samples)
+                    energy += value * value;
+            }
+            CHECK(done && shown == 5 && movie.decoded_frames() == 5);
+            CHECK(movie.decoded_audio_frames() == 22050);
+        }
+        CHECK(energy > 10);
+        bool failed = false;
+        try
+        {
+            W8NativeVideo invalid;
+            invalid.open("Data\\Truncated.mkv");
+        }
+        catch (const std::exception&)
+        {
+            failed = true;
+        }
+        CHECK(failed);
+        DDSURFACEDESC description{};
+        description.dwWidth = 640;
+        description.dwHeight = 480;
+        description.ddpfPixelFormat = {sizeof(DDPIXELFORMAT), DDPF_RGB, 16, 0x7c00, 0x3e0, 0x1f, 0};
+        IDirectDrawSurface* first = nullptr;
+        IDirectDrawSurface2* target = nullptr;
+        DDCreateSurface(nullptr, &description, &first, &target);
+        CHECK(target);
+        {
+            W8BinkVideo movie;
+            movie.SetTarget(target);
+            CHECK(movie.Open("Movie.mkv", 0));
+            CHECK(!movie.UpdateFrame());
+            DDLockSurface(target, nullptr, &description, 0, nullptr);
+            for (int y = 0; y < 24; ++y)
+                CHECK(std::memcmp(static_cast<unsigned char*>(description.lpSurface) +
+                                      y * description.lPitch,
+                                  golden.data() + y * 64, 64) == 0);
+            DDUnlockSurface(target, nullptr);
+            CHECK(movie.Open("Data\\Packed.mkv",
+                             0)); // Reopen stops the preceding PCM voice.
+            CHECK(!movie.UpdateFrame());
+            CHECK(!movie.Open("Movie.mkv", 1));
+            CHECK(!movie.Open("missing.bik", 0));
+        }
+        DDReleaseSurface(&first, &target);
+        std::vector<float> silence(8192 * 2);
+        CHECK(w8_native::audio_render_for_test(silence.data(), 8192));
+        double residual = 0;
+        for (size_t i = 4096; i < silence.size(); ++i)
+            residual += silence[i] * silence[i];
+        CHECK(residual == 0);
+        if (argc > 1)
+        {
+            W8NativeVideo retail;
+            retail.open(argv[1]);
+            uint64_t hash = 14695981039346656037ull;
+            unsigned shown = 0;
+            bool done = false;
+            for (int tick = 0; tick < 600000; ++tick)
+            {
+                auto result = retail.update(tick / 1000.0);
+                if (result == W8NativeVideo::FrameReady)
+                {
+                    ++shown;
+                    const auto& frame = retail.frame();
+                    for (auto word : frame.pixels)
+                    {
+                        hash = (hash ^ (word & 255)) * 1099511628211ull;
+                        hash = (hash ^ (word >> 8)) * 1099511628211ull;
+                    }
+                }
+                if (result == W8NativeVideo::Done)
+                {
+                    done = true;
+                    break;
+                }
+                CHECK(w8_native::audio_render_for_test(silence.data(), tick % 10 == 9 ? 45 : 44));
+            }
+            CHECK(done && shown == retail.decoded_frames());
+            printf("retail movie: %u frames, %llu PCM frames, RGB555 FNV64 %016llx\n", shown,
+                   (unsigned long long)retail.decoded_audio_frames(), (unsigned long long)hash);
+        }
+        ShutdownSoundManager();
+        ShutDownFileDatabase();
+        ShutdownFileManager();
+        ShutdownMemoryManager();
+        printf("movie: loose/SLF RGB555 golden frames, timed EOF, PCM audio, "
+               "reopen and bounded failure passed\n");
+        return 0;
+    }
+    catch (const std::exception& failure)
+    {
+        fprintf(stderr, "movie test: %s\n", failure.what());
+        return 1;
+    }
+}

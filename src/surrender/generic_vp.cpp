@@ -1,3 +1,4 @@
+#include "wiz8/compat/unaligned.h"
 #include "surrender/srVP_generic.h"
 
 #include "surrender/srARGB.h"
@@ -625,10 +626,10 @@ void srVP_generic::_minMax(const srVector3* source, srVector3& minimum, srVector
 {
     minimum = source[0];
     maximum = source[0];
-    float* minimum_components = &minimum.x;
-    float* maximum_components = &maximum.x;
+    w8_unaligned_float* minimum_components = &minimum.x;
+    w8_unaligned_float* maximum_components = &maximum.x;
     for (SRDWORD index = 1; index < count; ++index) {
-        const float* components = &source[index].x;
+        const w8_unaligned_float* components = &source[index].x;
         for (int component = 0; component < 3; ++component) {
             if (components[component] >= minimum_components[component]) {
                 if (components[component] > maximum_components[component]) {

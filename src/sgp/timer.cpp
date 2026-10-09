@@ -1,9 +1,10 @@
 /* Modified for the Wizardry 8 reconstruction: 2026-10-03, 2026-10-06, 2026-10-07.
    Distributed under the accompanying SFI Source Code license agreement. */
-#include "types.h"
-#include <windows.h>
-#include "video2.h"
+#include "Types.h"
+#include "compat/kernel32.h"
+#include "Video2.h"
 #include "timer.h"
+#include "compat/platform.h"
 
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
@@ -15,7 +16,7 @@ UINT32 guiStartupTime;
 UINT32 guiCurrentTime;
 
 // FUNCTION: WIZ8 0x00406b70
-void CALLBACK Clock(HWND hWindow, UINT uMessage, UINT idEvent, DWORD dwTime)
+void CALLBACK Clock(HWND hWindow, UINT uMessage, UINT_PTR idEvent, DWORD dwTime)
 {
     guiCurrentTime = GetTickCount();
     if (guiCurrentTime <
@@ -32,7 +33,7 @@ BOOLEAN InitializeClockManager(void)
 
     // Register the start time (use WIN95 API call)
     guiCurrentTime = guiStartupTime = GetTickCount();
-    SetTimer(ghWindow, MAIN_TIMER_ID, 10, (TIMERPROC)Clock);
+    W8SetTimer(ghWindow, MAIN_TIMER_ID, 10, (TIMERPROC)Clock);
 
     return TRUE;
 }
@@ -42,7 +43,7 @@ void ShutdownClockManager(void)
 {
 
     // Make sure we kill the timer
-    KillTimer(ghWindow, MAIN_TIMER_ID);
+    W8KillTimer(ghWindow, MAIN_TIMER_ID);
 }
 
 // FUNCTION: WIZ8 0x00406be0

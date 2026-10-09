@@ -81,14 +81,14 @@
 #include "surrender/srPixelConvert.h"
 #include "surrender/srMaterial.h"
 #include "surrender/srShader.h"
-#include "Random.h"
+#include "random.h"
 #include "Font.h"
 #include "FileMan.h"
 #include "soundman.h"
 #include "wiz8/music_playlist.h"
 #include "wiz8/layouts/npc_state.h"
 #include "wiz8/local_code/NPCScripting.h"
-#include <windows.h>
+#include "wiz8/wiz8_windows.h"
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -963,6 +963,13 @@ W8MonsterCycle ParseMonsterCycleName(const char* name, signed char* subcycle)
 
     if (subcycle != 0) {
         *subcycle = 1;
+#if defined(WIZ8_NATIVE)
+        // Unknown directives and legacy aliases have no matched table row.
+        // Retail's unchecked NONE/COUNT reads depend on adjacent global bytes.
+        if (index == W8_MONSTER_CYCLE_COUNT) {
+            return cycle;
+        }
+#endif
         int suffix = g_cycle_names[cycle].prefix_length;
         if (static_cast<int>(strlen(name)) > suffix && name[suffix] >= '0' && name[suffix] <= '9') {
             /* The retail atoi offset uses the search index even after a fallback. */

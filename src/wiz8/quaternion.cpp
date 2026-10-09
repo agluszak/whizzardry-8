@@ -1,10 +1,11 @@
+#include "wiz8/compat/unaligned.h"
 #include "wiz8/geometry.h"
 
 /* Original translation unit is not established by the surrounding source anchors. */
 // FUNCTION: WIZ8 0x0044eca0
 W8Quaternion* W8Quaternion::SetFromMatrix(const srMatrix3T<float>& matrix)
 {
-    const float* m = &matrix.vectors[0].x;
+    const w8_unaligned_float* m = &matrix.vectors[0].x;
     srVector4T<float> temp;
     double root;
     double scale;

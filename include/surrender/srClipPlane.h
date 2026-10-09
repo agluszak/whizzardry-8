@@ -12,7 +12,7 @@ class SR_DLL_IMPORT SR_DLL_EXPORT srClipPlane
 public:
     typedef srClientSupport<srClipPlane, 0x1500> ClientType;
 
-#if !defined(SURRENDER_BUILD)
+#if !defined(SURRENDER_BUILD) && !defined(WIZ8_NATIVE)
     srClipPlane& operator=(const srClipPlane& other);
     virtual ~srClipPlane() override;
 #endif
@@ -55,4 +55,4 @@ protected:
     e_clip clip_type_;             /* 0x148 */
 };
 
-static_assert(sizeof(srClipPlane) == 0x150, "srClipPlane_must_be_0x150");
+W8_ABI_ASSERT(sizeof(srClipPlane) == 0x150, "srClipPlane_must_be_0x150");

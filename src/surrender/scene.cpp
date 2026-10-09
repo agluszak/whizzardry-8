@@ -1,5 +1,6 @@
 
 #include "surrender/srScene.h"
+#include "surrender/srStreamFlags.h"
 
 #include "surrender/srCamera.h"
 #include "surrender/srCore.h"
@@ -74,10 +75,10 @@ void srScene::process(const ProcessInfo& info, e_processType type)
     srNode** nodes = traversal.nodes.data;
     traversal.entries.ensureIndex(0);
     TraverseInfo::Entry* entries = traversal.entries.data;
-    long node_count = traversal.node_count;
-    long entry_count = traversal.entry_count;
+    w8_long node_count = traversal.node_count;
+    w8_long entry_count = traversal.entry_count;
     srGERD* renderer = info.renderer;
-    unsigned long pick_key = renderer->getPickKey();
+    w8_ulong_ptr pick_key = renderer->getPickKey();
     srVector4T<float> fog_color;
     srVector4T<float> ambient_light;
     renderer->getFogColor(fog_color);
@@ -85,17 +86,17 @@ void srScene::process(const ProcessInfo& info, e_processType type)
     renderer->setFogColor(this->fog_color);
     renderer->setAmbientLight(this->ambient_light);
     ProcessInfo process_info = info;
-    long count = node_count;
+    w8_long count = node_count;
     while (count > 0) {
         (*nodes)->process(process_info, PROCESS_PUSH_GLOBAL);
         --count;
         ++nodes;
     }
-    long remaining = entry_count;
+    w8_long remaining = entry_count;
     while (remaining > 0) {
         if ((enabled.value & 1) != 0) {
             // reinterpret-ok: the pick key is the node pointer itself.
-            renderer->setPickKey(reinterpret_cast<unsigned long>(entries->node));
+            renderer->setPickKey(reinterpret_cast<w8_ulong_ptr>(entries->node));
         }
         entries->node->process(process_info, static_cast<e_processType>(entries->value));
         ++entries;
@@ -160,8 +161,8 @@ void srScene::resetStatistics()
 void srScene::dump(std::ostream& stream)
 {
     srNode::dump(stream);
-    long flags = stream.flags();
-    stream.flags((flags & 0xfffffe7fL) | 0x40);
+    w8_long flags = srGetStreamFlags(stream);
+    srSetStreamFlags(stream, (flags & 0xfffffe7fL) | 0x40);
     stream.width(0x20);
     stream << "  Ambient light: ";
     stream << '{' << ambient_light.x << ',' << ambient_light.y << ',' << ambient_light.z << '}'
@@ -179,7 +180,7 @@ void srScene::dump(std::ostream& stream)
     stream << "  Global calls/sec: " << statistics.node_calls / statistics.elapsed << '\n';
     stream.width(0x20);
     stream << "  Process calls/sec: " << statistics.process_calls / statistics.elapsed << '\n';
-    stream.flags(flags & 0x7fff);
+    srSetStreamFlags(stream, flags & 0x7fff);
 }
 
 // FUNCTION: SURRENDER 0x10056B50

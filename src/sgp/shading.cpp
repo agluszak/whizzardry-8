@@ -1,14 +1,12 @@
 /* Modified for the Wizardry 8 reconstruction: 2026-10-03, 2026-10-06, 2026-10-07.
    Distributed under the accompanying SFI Source Code license agreement. */
-#include "DirectDraw Calls.h"
 #include <stdio.h>
-#include "debug.h"
-#include "video2.h"
+#include "DEBUG.H"
+#include "Video2.h"
 #include "himage.h"
 #include "vobject.h"
 #include "vobject_private.h"
-#include "video_private.h"
-#include "wcheck.h"
+#include "WCheck.h"
 #include "vobject_blitters.h"
 #include "shading.h"
 

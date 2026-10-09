@@ -34,6 +34,58 @@ srHeap::~srHeap()
     delete critical_section;
 }
 
+#if defined(WIZ8_NATIVE)
+/* The pooled allocator packs pointer-bearing 0x20-byte headers in front of
+   each allocation; natively srHeap is a thin layer over malloc that keeps the
+   requested size for msize(). */
+namespace {
+const size_t HEADER_SIZE = 16;
+
+void* nativeAllocate(size_t size)
+{
+    unsigned char* raw = static_cast<unsigned char*>(malloc(size + HEADER_SIZE));
+    if (raw == 0) {
+        return 0;
+    }
+    *reinterpret_cast<size_t*>(raw) = size;
+    return raw + HEADER_SIZE;
+}
+
+unsigned char* nativeHeader(void* allocation)
+{
+    return static_cast<unsigned char*>(allocation) - HEADER_SIZE;
+}
+} // namespace
+
+void srHeap::freeAll() {}
+
+void srHeap::dump(std::ostream&) {}
+
+w8_ulong srHeap::msize(void* allocation)
+{
+    if (allocation == 0) {
+        return 0;
+    }
+    return (w8_ulong)*reinterpret_cast<size_t*>(nativeHeader(allocation));
+}
+
+void* srHeap::allocate(w8_ulong size)
+{
+    return nativeAllocate(size);
+}
+
+void srHeap::free(void* allocation)
+{
+    if (allocation != 0) {
+        ::free(nativeHeader(allocation));
+    }
+}
+
+void srHeap::free(void* allocation, unsigned int)
+{
+    free(allocation);
+}
+#else
 // FUNCTION: SURRENDER 0x10035A90
 void srHeap::freeSystemBlock(void* allocation)
 {
@@ -50,20 +102,21 @@ void srHeap::releaseCachedBlock()
 }
 
 // FUNCTION: SURRENDER 0x10035AC0
-srHeap::Block* srHeap::allocateBlock(unsigned long size)
+srHeap::Block* srHeap::allocateBlock(w8_ulong size)
 {
-    unsigned long allocation_size = size + 0x20;
+    w8_ulong allocation_size = size + 0x20;
     Block* block = cached_block;
     ++block_sequence;
     if (block == 0 || block->alloc_size != allocation_size) {
-        block = static_cast<Block*>(malloc(allocation_size + 0x20));
+        block = static_cast<Block*>(malloc(allocation_size + sizeof(Block)));
         if (block == 0) {
             return 0;
         }
         // reinterpret-ok: block header pointer rounding to the 0x20-aligned
         // allocation payload.
         block->allocation =
-            reinterpret_cast<void*>((reinterpret_cast<unsigned long>(block) + 0x3f) & 0xffffffe0);
+            reinterpret_cast<void*>((reinterpret_cast<w8_ulong_ptr>(block) + 0x3f) &
+                                    ~static_cast<w8_ulong_ptr>(0x1f));
         block->alloc_size = allocation_size;
         ++system_block_count;
     } else {
@@ -135,7 +188,7 @@ void srHeap::freeAll()
 void srHeap::dump(std::ostream& stream)
 {
     srCriticalSectionAccess access(critical_section);
-    unsigned long total = 0;
+    w8_ulong total = 0;
     Block* block;
     for (block = small_blocks; block != 0; block = block->next) {
         srStreamPrintf(stream, "%p  bytes %-8d  (small heap)\n", block->allocation,
@@ -261,7 +314,7 @@ void srHeap::freePooled(void* allocation)
 }
 
 // FUNCTION: SURRENDER 0x10035F80
-void* srHeap::splitFree(Block* block, unsigned long size)
+void* srHeap::splitFree(Block* block, w8_ulong size)
 {
     checkBlock(block);
     Chunk* chunk = block->largest_free_block;
@@ -280,7 +333,7 @@ void* srHeap::splitFree(Block* block, unsigned long size)
         if (chunk->next != 0) {
             chunk->next->previous = carved;
         }
-        unsigned long remaining = chunk->size - size;
+        w8_ulong remaining = chunk->size - size;
         chunk->size = remaining;
         chunk->next = carved;
         block->largest_free_size = remaining;
@@ -304,10 +357,10 @@ void* srHeap::splitFree(Block* block, unsigned long size)
 }
 
 // FUNCTION: SURRENDER 0x10036030
-void* srHeap::allocatePooled(unsigned long size)
+void* srHeap::allocatePooled(w8_ulong size)
 {
     Block* block = partial_blocks;
-    unsigned long needed = (size + 0x1f & 0xffffffe0) + 0x20;
+    w8_ulong needed = (size + 0x1f & 0xffffffe0) + 0x20;
     while (block != 0) {
         if (needed <= block->largest_free_size) {
             break;
@@ -393,7 +446,7 @@ void srHeap::freeSystem(void* allocation)
 }
 
 // FUNCTION: SURRENDER 0x100361D0
-void* srHeap::allocateSystem(unsigned long size)
+void* srHeap::allocateSystem(w8_ulong size)
 {
     Block* block = allocateBlock(size + 0x20);
     if (block == 0) {
@@ -415,7 +468,7 @@ void* srHeap::allocateSystem(unsigned long size)
 }
 
 // FUNCTION: SURRENDER 0x10036220
-unsigned long srHeap::msize(void* allocation)
+w8_ulong srHeap::msize(void* allocation)
 {
     srCriticalSection* lock = critical_section;
     lock->getAccess();
@@ -429,14 +482,14 @@ unsigned long srHeap::msize(void* allocation)
     case 0xfe: {
         // reinterpret-ok: pooled chunks carry their 0x20-byte header
         // immediately before the user pointer.
-        unsigned long size = (reinterpret_cast<Chunk*>(allocation) - 1)->size;
+        w8_ulong size = (reinterpret_cast<Chunk*>(allocation) - 1)->size;
         lock->releaseAccess();
         return size;
     }
     case 0xff: {
         // reinterpret-ok: system allocations carry their block pointer five
         // bytes under the user pointer.
-        unsigned long size =
+        w8_ulong size =
             (*reinterpret_cast<Block**>(static_cast<char*>(allocation) - 5))->alloc_size;
         lock->releaseAccess();
         return size;
@@ -448,7 +501,7 @@ unsigned long srHeap::msize(void* allocation)
 }
 
 // FUNCTION: SURRENDER 0x100362A0
-void* srHeap::allocate(unsigned long size)
+void* srHeap::allocate(w8_ulong size)
 {
     if (size == 0) {
         size = 1;
@@ -457,7 +510,7 @@ void* srHeap::allocate(unsigned long size)
     lock->getAccess();
     void* result;
     if (size < 0x200) {
-        unsigned long index = size >> 4;
+        w8_ulong index = size >> 4;
         char* chunk = static_cast<char*>(small_free_lists[index]);
         if (chunk == 0) {
             if (current_block == 0) {
@@ -521,6 +574,8 @@ void srHeap::free(void* allocation, unsigned int)
     free(allocation);
 }
 
+#endif
+
 // FUNCTION: SURRENDER 0x10036500
 srMemoryAllocator::srMemoryAllocator()
 {
@@ -543,19 +598,19 @@ void srMemoryAllocator::setAlignment(e_alignSize alignment)
 // FUNCTION: SURRENDER 0x10036530
 srMemoryAllocator::Block* srMemoryAllocator::align(void* allocation)
 {
-    /* Block headers sit 0x20 bytes below the user pointer; the user address is rounded up to
-       alignment. */
+    /* The header precedes the aligned user address (0x20 bytes on Windows). */
     // reinterpret-ok: block alignment is computed on the raw allocation bits.
     return reinterpret_cast<Block*>(
-        ((reinterpret_cast<unsigned long>(allocation) + alignment + 0x1f) & ~(alignment - 1)) -
-        0x20);
+        ((reinterpret_cast<w8_ulong_ptr>(allocation) + alignment + sizeof(Block) - 1) &
+         ~static_cast<w8_ulong_ptr>(alignment - 1)) -
+        sizeof(Block));
 }
 
 // FUNCTION: SURRENDER 0x10036570
-void* srMemoryAllocator::allocate(unsigned long count, unsigned long size, const char* name)
+void* srMemoryAllocator::allocate(w8_ulong count, w8_ulong size, const char* name)
 {
-    unsigned long requested = count * size;
-    unsigned long allocation_size = alignment + 0x1f + requested;
+    w8_ulong requested = count * size;
+    w8_ulong allocation_size = alignment + sizeof(Block) - 1 + requested;
     if (name != 0) {
         allocation_size += strlen(name) + 1;
     }
@@ -572,7 +627,7 @@ void* srMemoryAllocator::allocate(unsigned long count, unsigned long size, const
         block->name = 0;
     } else {
         // reinterpret-ok: the name string is stored right after the user area.
-        block->name = reinterpret_cast<char*>(block) + 0x20 + requested;
+        block->name = reinterpret_cast<char*>(block) + sizeof(Block) + requested;
         strcpy(block->name, name);
     }
     block->next = first_block;
@@ -587,13 +642,13 @@ void* srMemoryAllocator::allocate(unsigned long count, unsigned long size, const
 }
 
 // FUNCTION: SURRENDER 0x10036550
-void* srMemoryAllocator::allocate(unsigned long size, const char* name)
+void* srMemoryAllocator::allocate(w8_ulong size, const char* name)
 {
     return allocate(1, size, name);
 }
 
 // FUNCTION: SURRENDER 0x100366F0
-unsigned long srMemoryAllocator::getSize(void* allocation) const
+w8_ulong srMemoryAllocator::getSize(void* allocation) const
 {
     return (static_cast<Block*>(allocation) - 1)->requested_size;
 }
@@ -619,7 +674,7 @@ void srMemoryAllocator::dump() const
     }
     srPrintf("-------------------------------------------------------------------\n");
     srPrintf("Total memory used %d bytes (%d Kb) for %d entries.\n", allocated_bytes,
-             (long)(allocated_bytes + 0x3ff) / 1024, allocation_count);
+             (w8_long)(allocated_bytes + 0x3ff) / 1024, allocation_count);
     srPrintf("Alignment: %d Clear: %s\n", alignment, clear != 0 ? "Yes" : "No");
 }
 

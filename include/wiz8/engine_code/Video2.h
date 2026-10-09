@@ -5,14 +5,21 @@
 #ifndef WIZ8_VIDEO2_H
 #define WIZ8_VIDEO2_H
 
-#include <windows.h>
+#include "wiz8/wiz8_windows.h"
+#if defined(WIZ8_NATIVE)
+#include "compat/surfaces.h"
+#endif
+#if !defined(WIZ8_NATIVE)
 #include <ddraw.h>
 #include <process.h>
+#endif
 
-#include "Debug.h"
+#include "DEBUG.H"
 #include "Types.h"
+#if !defined(WIZ8_NATIVE)
 #include "DirectDraw Calls.h"
-#include "VSurface.h"
+#endif
+#include "vsurface.h"
 #include "Mutex Manager.h"
 
 #define BUFFER_READY 0x00
@@ -57,7 +64,7 @@ void VideoSetConfigFile(const CHAR8* path);
 int VideoDumpMemoryLeaks(void);
 BOOLEAN CheckCdPresent(void);
 void VideoGetClientRect(RECT* rect);
-void VideoToolTip(UINT16* text);
+void VideoToolTip(CHAR16* text);
 extern INT32 g_help_box_width;
 extern INT32 g_help_box_height;
 /* DisplayFastHelp in mousesystem.cpp and the product region code both access
@@ -224,9 +231,11 @@ extern srMaterial* g_blit_material;
 extern srColorSurface* g_mouse_surface;
 extern srNode* g_surface_nodes[0x12c0];
 extern unsigned char g_block[0x12c0];
+#if !defined(WIZ8_NATIVE)
 extern IDirectDraw2* g_direct_draw2;
 extern IDirectDrawSurface* g_video_primary_surface1;
 extern IDirectDrawSurface2* g_video_primary_surface2;
+#endif
 extern srModelInstance* g_current_model_instance;
 extern int g_renderer_mode;
 extern int g_overlay_render_mode;
@@ -249,7 +258,7 @@ extern bool g_world_blacked_out;
 
 void SetResidentTexturePolicy(int policy);
 void SetSurfaceScale(float scale);
-void SetTextureCacheSize(unsigned long bytes);
+void SetTextureCacheSize(w8_ulong bytes);
 void SetSwapInterval(bool enabled);
 unsigned char GetRendererModeByte(void);
 void SetViewport(int left, int top, int right, int bottom);
@@ -263,7 +272,7 @@ void SetAutomapScaledViewport(int left, int top, int right, int bottom);
 /* Read the stored pixel viewport back out in normalized 0..1 scale. */
 void GetScaledViewportBounds(srVector2T<float>* left_top, srVector2T<float>* right_bottom);
 /* Lock the primary GERD buffer and emit one debug wireframe line. */
-void DrawBufferLine(long x0, long y0, long x1, long y1, unsigned long* pixel);
+void DrawBufferLine(w8_long x0, w8_long y0, w8_long x1, w8_long y1, w8_ulong* pixel);
 unsigned char InitializeRendererSceneObjects(void);
 void PurgeInactiveSceneInstances(srScene* scene);
 void ResetVideoFrameState(void);
@@ -273,6 +282,7 @@ void ResetTransientRenderScenes(void);
 void ClearVideoDirtyBlocks(void); /* 0x00423150 */
 void RenderScene(srScene* scene, srCamera* camera, const int* viewport, bool preserve_fog);
 void RenderFrame(void);
+/* The native presentation shell also owns this opaque surface entry point. */
 IDirectDrawSurface2* BeginVideoPresentation(void);
 unsigned char FinishVideoPresentation(void);
 void PublishLightDirection(const EnvironmentColour* direction);
@@ -285,7 +295,7 @@ unsigned char InitializePrimaryDirectDrawSurface(void);
 unsigned char InitializeVideoDevice(void);
 unsigned char OpenRendererWindow(void);
 void InvalidateRendererTextureCache(void);
-void AssertFailureHandler(const char* expression, const char* file, long line, const char* message);
+void AssertFailureHandler(const char* expression, const char* file, w8_long line, const char* message);
 unsigned char DisableCursorScene(void);
 unsigned char EnableCursorScene(void);
 void SetOverlayViewport(const int* value);

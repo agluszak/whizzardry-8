@@ -1,17 +1,112 @@
 /* Modified for the Wizardry 8 reconstruction: 2026-10-03, 2026-10-06, 2026-10-07.
    Distributed under the accompanying SFI Source Code license agreement. */
-#include "DirectDraw Calls.h"
 #include <stdio.h>
-#include "debug.h"
-#include "video2.h" // Wiz8
+#include "DEBUG.H"
+#include "Video2.h" // Wiz8
 #include "himage.h"
 #include "vobject.h"
 #include "vobject_private.h"
-#include "video_private.h"
-#include "wcheck.h"
+#include "WCheck.h"
 #include "vobject.h"
 #include "vobject_blitters.h"
 #include "shading.h"
+#if defined(WIZ8_NATIVE)
+#include <string.h>
+#endif
+
+#if defined(WIZ8_NATIVE)
+namespace {
+// The assembly permits unaligned 16-bit pixels (including in the routines
+// named "8BPP ... Shadow"). Keep byte addressing and word loads explicit.
+UINT16 NativeReadWord(const UINT8* data)
+{
+    UINT16 value;
+    memcpy(&value, data, sizeof(value));
+    return value;
+}
+void NativeWriteWord(UINT8* data, UINT16 value)
+{
+    memcpy(data, &value, sizeof(value));
+}
+
+template <class Opaque, class Transparent>
+void NativeBltETRLE(UINT8* src, UINT8* dest, int height, int step, UINT32 line_skip,
+                   Opaque opaque, Transparent transparent)
+{
+    for (int y = 0; y < height; ++y) {
+        UINT8 control;
+        while ((control = *src++) != 0) {
+            const int count = control & 0x7f;
+            for (int x = 0; x < count; ++x) {
+                if (control & 0x80) {
+                    transparent(dest);
+                } else {
+                    opaque(dest, *src++);
+                }
+                dest += step;
+            }
+        }
+        dest += line_skip;
+    }
+}
+
+template <class Opaque, class Transparent>
+void NativeBltETRLEClip(UINT8* src, UINT8* dest, int top_skip, int left_skip,
+                       int width, int height, int step, UINT32 line_skip,
+                       Opaque opaque, Transparent transparent)
+{
+    while (top_skip-- > 0) {
+        UINT8 control;
+        while ((control = *src++) != 0) {
+            if (!(control & 0x80)) {
+                src += control;
+            }
+        }
+    }
+    for (int y = 0; y < height; ++y) {
+        int skipped = left_skip;
+        int count = 0;
+        UINT8 control = 0;
+        while (skipped > 0) {
+            control = *src++;
+            count = control & 0x7f;
+            const int advance = count < skipped ? count : skipped;
+            if (!(control & 0x80)) {
+                src += advance;
+            }
+            skipped -= advance;
+            count -= advance;
+        }
+        int remaining = width;
+        while (remaining > 0) {
+            if (count == 0) {
+                control = *src++;
+                count = control & 0x7f;
+            }
+            const int visible = count < remaining ? count : remaining;
+            for (int x = 0; x < visible; ++x) {
+                if (control & 0x80) {
+                    transparent(dest);
+                } else {
+                    opaque(dest, *src++);
+                }
+                dest += step;
+            }
+            remaining -= visible;
+            if (!(control & 0x80)) {
+                src += count - visible;
+            }
+            count = 0;
+        }
+        // Retail scans bytes for the first zero after the visible span,
+        // rather than decoding the clipped tail's remaining RLE runs.
+        while (*src++ != 0) {}
+        dest += line_skip;
+    }
+}
+} // namespace
+#endif
+
 
 // GLOBAL: WIZ8 0x00600078
 SGPRect ClippingRect = {0, 0, 640, 480};
@@ -103,6 +198,15 @@ BOOLEAN Blt8BPPDataTo8BPPBufferMonoShadowClip(UINT8* pBuffer, UINT32 uiDestPitch
     LineSkipZ = LineSkip * 2;
     pPal8BPP = hSrcVObject->pShade8;
 
+#if defined(WIZ8_NATIVE)
+    NativeBltETRLEClip(SrcPtr, DestPtr, TopSkip, LeftSkip, BlitLength, BlitHeight, 1, LineSkip,
+        [&](UINT8* dest, UINT8 index) {
+            if (index == 1) { *dest = 0; }
+            else if (index != 0) { *dest = ubForeground; }
+            else if (ubBackground != 0) { *dest = ubBackground; }
+        },
+        [&](UINT8* dest) { if (ubBackground != 0) { *dest = ubBackground; } });
+#else
     __asm {
 
 		mov		esi, SrcPtr
@@ -283,6 +387,7 @@ RSLoop1:
 
 BlitDone:
     }
+#endif
 
     return (TRUE);
 }
@@ -357,6 +462,11 @@ BOOLEAN Blt8BPPDataTo8BPPBufferTransparentClip(UINT16* pBuffer, UINT32 uiDestPit
     LineSkip = (uiDestPitchBYTES - (BlitLength));
     pPal8BPP = hSrcVObject->pShade8;
 
+#if defined(WIZ8_NATIVE)
+    NativeBltETRLEClip(SrcPtr, DestPtr, TopSkip, LeftSkip, BlitLength, BlitHeight, 1, LineSkip,
+        [&](UINT8* dest, UINT8 index) { *dest = pPal8BPP[index]; },
+        [](UINT8*) {});
+#else
     __asm {
 
 		mov		esi, SrcPtr
@@ -549,6 +659,7 @@ RSLoop1:
 
 BlitDone:
     }
+#endif
 
     return (TRUE);
 }
@@ -594,6 +705,11 @@ BOOLEAN Blt8BPPDataTo8BPPBufferTransparent(UINT16* pBuffer, UINT32 uiDestPitchBY
     LineSkip = (uiDestPitchBYTES - (usWidth));
     pPal8BPP = hSrcVObject->pShade8;
 
+#if defined(WIZ8_NATIVE)
+    NativeBltETRLE(SrcPtr, DestPtr, usHeight, 1, LineSkip,
+        [&](UINT8* dest, UINT8 index) { *dest = pPal8BPP[index]; },
+        [](UINT8*) {});
+#else
     __asm {
 
 		mov		esi, SrcPtr
@@ -691,6 +807,7 @@ BlitDoneLine:
 
 BlitDone:
     }
+#endif
 
     return (TRUE);
 }
@@ -737,6 +854,11 @@ BOOLEAN Blt8BPPDataTo8BPPBufferShadow(UINT16* pBuffer, UINT32 uiDestPitchBYTES,
     pPal8BPP = hSrcVObject->pShade8;
     LineSkip = (uiDestPitchBYTES - (usWidth));
 
+#if defined(WIZ8_NATIVE)
+    NativeBltETRLE(SrcPtr, DestPtr, usHeight, 2, LineSkip,
+        [](UINT8* dest, UINT8) { NativeWriteWord(dest, ShadeTable[NativeReadWord(dest)]); },
+        [](UINT8*) {});
+#else
     __asm {
 
 		mov		esi, SrcPtr
@@ -831,6 +953,7 @@ BlitDoneLine:
 
 BlitDone:
     }
+#endif
 
     return (TRUE);
 }
@@ -906,6 +1029,15 @@ BOOLEAN Blt8BPPDataTo8BPPBufferShadowClip(UINT16* pBuffer, UINT32 uiDestPitchBYT
     pPal8BPP = hSrcVObject->pShade8;
     LineSkip = (uiDestPitchBYTES - (BlitLength));
 
+#if defined(WIZ8_NATIVE)
+    NativeBltETRLEClip(SrcPtr, DestPtr, TopSkip, LeftSkip, BlitLength, BlitHeight, 2, LineSkip,
+        [&](UINT8* dest, UINT8) {
+            // Retail reads a word at a byte offset into pShade8. Its caller
+            // must supply destination indices within that palette's storage.
+            NativeWriteWord(dest, NativeReadWord(pPal8BPP + NativeReadWord(dest)));
+        },
+        [](UINT8*) {});
+#else
     __asm {
 
 		mov		esi, SrcPtr
@@ -1098,6 +1230,7 @@ RSLoop1:
 
 BlitDone:
     }
+#endif
 
     return (TRUE);
 }
@@ -1177,6 +1310,16 @@ BOOLEAN Blt8BPPDataTo16BPPBufferMonoShadowClip(UINT16* pBuffer, UINT32 uiDestPit
     DestPtr = (UINT8*)pBuffer + (uiDestPitchBYTES * (iTempY + TopSkip)) + ((iTempX + LeftSkip) * 2);
     LineSkip = (uiDestPitchBYTES - (BlitLength * 2));
 
+#if defined(WIZ8_NATIVE)
+    NativeBltETRLEClip(SrcPtr, DestPtr, TopSkip, LeftSkip, BlitLength, BlitHeight, 2, LineSkip,
+        [&](UINT8* dest, UINT8 index) {
+            if (index == 1) {
+                if (usShadow != 0) { NativeWriteWord(dest, usShadow); }
+            } else if (index != 0) { NativeWriteWord(dest, usForeground); }
+            else if (usBackground != 0) { NativeWriteWord(dest, usBackground); }
+        },
+        [&](UINT8* dest) { if (usBackground != 0) { NativeWriteWord(dest, usBackground); } });
+#else
     __asm {
 
 		mov		esi, SrcPtr
@@ -1363,6 +1506,7 @@ RSLoop1:
 
 BlitDone:
     }
+#endif
 
     return (TRUE);
 }
@@ -1391,6 +1535,26 @@ BOOLEAN Blt16BPPTo16BPP(UINT16* pDest, UINT32 uiDestPitch, UINT16* pSrc, UINT32 
     uiLineSkipDest = uiDestPitch - (uiWidth * 2);
     uiLineSkipSrc = uiSrcPitch - (uiWidth * 2);
 
+#if defined(WIZ8_NATIVE)
+    const UINT8* src = reinterpret_cast<const UINT8*>(pSrcPtr);
+    UINT8* dest = reinterpret_cast<UINT8*>(pDestPtr);
+    for (UINT32 y = 0; y < uiHeight; ++y) {
+        // Match the MOVSB/MOVSW prefix and forward MOVSD groups, including
+        // when the source and destination regions overlap.
+        UINT32 offset = 0;
+        if (uiWidth & 1) {
+            NativeWriteWord(dest, NativeReadWord(src));
+            offset = 2;
+        }
+        for (; offset < uiWidth * 2; offset += 4) {
+            UINT32 value;
+            memcpy(&value, src + offset, sizeof(value));
+            memcpy(dest + offset, &value, sizeof(value));
+        }
+        src += uiSrcPitch;
+        dest += uiDestPitch;
+    }
+#else
     __asm {
 	mov		esi, pSrcPtr
 	mov		edi, pDestPtr
@@ -1431,6 +1595,7 @@ BlitDwords:
 BlitDone:
 
     }
+#endif
 
     return (TRUE);
 }
@@ -1460,6 +1625,19 @@ BOOLEAN Blt16BPPTo16BPPTrans(UINT16* pDest, UINT32 uiDestPitch, UINT16* pSrc, UI
     uiLineSkipDest = uiDestPitch - (uiWidth * 2);
     uiLineSkipSrc = uiSrcPitch - (uiWidth * 2);
 
+#if defined(WIZ8_NATIVE)
+    const UINT8* src = reinterpret_cast<const UINT8*>(pSrcPtr);
+    UINT8* dest = reinterpret_cast<UINT8*>(pDestPtr);
+    for (UINT32 y = 0; y < uiHeight; ++y) {
+        for (UINT32 x = 0; x < uiWidth; ++x) {
+            if (NativeReadWord(src + x * 2) != usTrans) {
+                NativeWriteWord(dest + x * 2, NativeReadWord(src + x * 2));
+            }
+        }
+        src += uiSrcPitch;
+        dest += uiDestPitch;
+    }
+#else
     __asm {
 	mov		esi, pSrcPtr
 	mov		edi, pDestPtr
@@ -1488,6 +1666,7 @@ Blit3:
 	jnz		BlitNewLine
 
     }
+#endif
 
     return (TRUE);
 }
@@ -1557,6 +1736,17 @@ BOOLEAN Blt16BPPTo16BPPMirror(UINT16* pDest, UINT32 uiDestPitch, UINT16* pSrc, U
     uiLineSkipDest = uiDestPitch; //+((BlitLength-1)*2);
     uiLineSkipSrc = uiSrcPitch - (BlitLength * 2);
 
+#if defined(WIZ8_NATIVE)
+    const UINT8* src = reinterpret_cast<const UINT8*>(pSrcPtr);
+    UINT8* dest = reinterpret_cast<UINT8*>(pDestPtr);
+    for (INT32 y = 0; y < BlitHeight; ++y) {
+        for (INT32 x = 0; x < BlitLength; ++x) {
+            NativeWriteWord(dest - x * 2, NativeReadWord(src + x * 2));
+        }
+        src += uiSrcPitch;
+        dest += uiDestPitch;
+    }
+#else
     __asm {
 	mov		esi, pSrcPtr
 	mov		edi, pDestPtr
@@ -1587,6 +1777,7 @@ BlitNTL2:
 	jnz		BlitNewLine
 
     }
+#endif
 
     return (TRUE);
 }
@@ -1615,6 +1806,30 @@ BOOLEAN Blt8BPPTo8BPP(UINT8* pDest, UINT32 uiDestPitch, UINT8* pSrc, UINT32 uiSr
     uiLineSkipDest = uiDestPitch - (uiWidth);
     uiLineSkipSrc = uiSrcPitch - (uiWidth);
 
+#if defined(WIZ8_NATIVE)
+    const UINT8* src = reinterpret_cast<const UINT8*>(pSrcPtr);
+    UINT8* dest = reinterpret_cast<UINT8*>(pDestPtr);
+    for (UINT32 y = 0; y < uiHeight; ++y) {
+        // Match the MOVSB/MOVSW prefix and forward MOVSD groups, including
+        // when the source and destination regions overlap.
+        UINT32 offset = 0;
+        if (uiWidth & 1) {
+            dest[offset] = src[offset];
+            ++offset;
+        }
+        if (uiWidth & 2) {
+            NativeWriteWord(dest + offset, NativeReadWord(src + offset));
+            offset += 2;
+        }
+        for (; offset < uiWidth * 1; offset += 4) {
+            UINT32 value;
+            memcpy(&value, src + offset, sizeof(value));
+            memcpy(dest + offset, &value, sizeof(value));
+        }
+        src += uiSrcPitch;
+        dest += uiDestPitch;
+    }
+#else
     __asm {
 	mov		esi, pSrcPtr
 	mov		edi, pDestPtr
@@ -1650,6 +1865,7 @@ BlitLineDone:
 	jnz		BlitNewLine
 
     }
+#endif
 
     return (TRUE);
 }
@@ -1746,6 +1962,15 @@ BOOLEAN Blt8BPPDataSubTo16BPPBuffer(UINT16* pBuffer, UINT32 uiDestPitchBYTES,
     p16BPPPalette = hSrcVSurface->p16BPPPalette;
     LineSkip = (uiDestPitchBYTES - (BlitLength * 2));
 
+#if defined(WIZ8_NATIVE)
+    for (UINT32 y = 0; y < BlitHeight; ++y) {
+        for (UINT32 x = 0; x < BlitLength; ++x) {
+            NativeWriteWord(DestPtr + x * 2, p16BPPPalette[SrcPtr[x]]);
+        }
+        SrcPtr += uiSrcPitch;
+        DestPtr += uiDestPitchBYTES;
+    }
+#else
     __asm {
 
 		mov		esi, SrcPtr // pointer to current line start address in source
@@ -1781,6 +2006,7 @@ BlitLoop:
 
         //DoneBlit:											// finished blit
     }
+#endif
 
     return (TRUE);
 }
@@ -1851,6 +2077,19 @@ BOOLEAN Blt16BPPBufferPixelateRectWithColor(UINT16* pBuffer, UINT32 uiDestPitchB
     CHECKF(width >= 1);
     CHECKF(height >= 1);
 
+#if defined(WIZ8_NATIVE)
+    UINT8* dest = reinterpret_cast<UINT8*>(DestPtr);
+    for (INT32 y = 0; y < height; ++y) {
+        for (INT32 x = 0; x < width; ++x) {
+            // The first column of each row uses pattern[0][0]. After that
+            // EBX includes the row bits, as in the original instruction loop.
+            if (x == 0 ? Pattern[0][0] : Pattern[y & 7][x & 7]) {
+                NativeWriteWord(dest + x * 2, usColor);
+            }
+        }
+        dest += uiDestPitchBYTES;
+    }
+#else
     __asm {
 		mov		esi, Pattern // Pointer to pixel pattern
 		mov		edi, DestPtr // Pointer to top left of rect area
@@ -1882,6 +2121,7 @@ BlitLine2:
 		dec		height
 		jnz		BlitNewLine
     }
+#endif
 
     return (TRUE);
 }
@@ -1938,6 +2178,11 @@ BOOLEAN Blt8BPPDataTo16BPPBufferShadow(UINT16* pBuffer, UINT32 uiDestPitchBYTES,
     p16BPPPalette = hSrcVObject->pShadeCurrent;
     LineSkip = (uiDestPitchBYTES - (usWidth * 2));
 
+#if defined(WIZ8_NATIVE)
+    NativeBltETRLE(SrcPtr, DestPtr, usHeight, 2, LineSkip,
+        [](UINT8* dest, UINT8) { NativeWriteWord(dest, ShadeTable[NativeReadWord(dest)]); },
+        [](UINT8*) {});
+#else
     __asm {
 
 		mov		esi, SrcPtr
@@ -2032,6 +2277,7 @@ BlitDoneLine:
 
 BlitDone:
     }
+#endif
 
     return (TRUE);
 }
@@ -2080,6 +2326,11 @@ BOOLEAN Blt8BPPDataTo16BPPBufferTransparent(UINT16* pBuffer, UINT32 uiDestPitchB
     p16BPPPalette = hSrcVObject->pShadeCurrent;
     LineSkip = (uiDestPitchBYTES - (usWidth * 2));
 
+#if defined(WIZ8_NATIVE)
+    NativeBltETRLE(SrcPtr, DestPtr, usHeight, 2, LineSkip,
+        [&](UINT8* dest, UINT8 index) { NativeWriteWord(dest, p16BPPPalette[index]); },
+        [](UINT8*) {});
+#else
     __asm {
 
 		mov		esi, SrcPtr
@@ -2175,6 +2426,7 @@ BlitDoneLine:
 
 BlitDone:
     }
+#endif
 
     return (TRUE);
 }
@@ -2227,6 +2479,11 @@ BOOLEAN Blt8BPPDataTo16BPPBufferTransMirror(UINT16* pBuffer, UINT32 uiDestPitchB
     p16BPPPalette = hSrcVObject->pShadeCurrent;
     uiDestSkip = (uiDestPitchBYTES + (usWidth * 2));
 
+#if defined(WIZ8_NATIVE)
+    NativeBltETRLE(SrcPtr, DestPtr, usHeight, -2, uiDestSkip,
+        [&](UINT8* dest, UINT8 index) { NativeWriteWord(dest, p16BPPPalette[index]); },
+        [](UINT8*) {});
+#else
     __asm {
         // esi = pointer to source data
         // edi = pointer to destination buffer
@@ -2335,6 +2592,7 @@ BlitDoneLine:
 
 BlitDone:
     }
+#endif
 
     return (TRUE);
 }
@@ -2409,6 +2667,11 @@ BOOLEAN Blt8BPPDataTo16BPPBufferTransparentClip(UINT16* pBuffer, UINT32 uiDestPi
     p16BPPPalette = hSrcVObject->pShadeCurrent;
     LineSkip = (uiDestPitchBYTES - (BlitLength * 2));
 
+#if defined(WIZ8_NATIVE)
+    NativeBltETRLEClip(SrcPtr, DestPtr, TopSkip, LeftSkip, BlitLength, BlitHeight, 2, LineSkip,
+        [&](UINT8* dest, UINT8 index) { NativeWriteWord(dest, p16BPPPalette[index]); },
+        [](UINT8*) {});
+#else
     __asm {
 
 		mov		esi, SrcPtr
@@ -2609,6 +2872,7 @@ RSLoop1:
 
 BlitDone:
     }
+#endif
 
     return (TRUE);
 }
@@ -2738,6 +3002,11 @@ BOOLEAN Blt8BPPDataTo16BPPBufferShadowClip(UINT16* pBuffer, UINT32 uiDestPitchBY
     p16BPPPalette = hSrcVObject->pShadeCurrent;
     LineSkip = (uiDestPitchBYTES - (BlitLength * 2));
 
+#if defined(WIZ8_NATIVE)
+    NativeBltETRLEClip(SrcPtr, DestPtr, TopSkip, LeftSkip, BlitLength, BlitHeight, 2, LineSkip,
+        [](UINT8* dest, UINT8) { NativeWriteWord(dest, ShadeTable[NativeReadWord(dest)]); },
+        [](UINT8*) {});
+#else
     __asm {
 
 		mov		esi, SrcPtr
@@ -2930,6 +3199,7 @@ RSLoop1:
 
 BlitDone:
     }
+#endif
 
     return (TRUE);
 }
@@ -2976,6 +3246,15 @@ BOOLEAN Blt16BPPBufferShadowRect(UINT16* pBuffer, UINT32 uiDestPitchBYTES, SGPRe
     CHECKF(width >= 1);
     CHECKF(height >= 1);
 
+#if defined(WIZ8_NATIVE)
+    UINT8* dest = reinterpret_cast<UINT8*>(DestPtr);
+    for (INT32 y = 0; y < height; ++y) {
+        for (INT32 x = 0; x < width; ++x) {
+            NativeWriteWord(dest + x * 2, ShadeTable[NativeReadWord(dest + x * 2)]);
+        }
+        dest += uiDestPitchBYTES;
+    }
+#else
     __asm {
 		mov		esi, OFFSET ShadeTable
 		mov		edi, DestPtr
@@ -2998,6 +3277,7 @@ BlitLine:
 		dec		edx
 		jnz		BlitNewLine
     }
+#endif
 
     return (TRUE);
 }
@@ -3045,6 +3325,15 @@ BOOLEAN Blt16BPPBufferShadowRectAlternateTable(UINT16* pBuffer, UINT32 uiDestPit
     CHECKF(width >= 1);
     CHECKF(height >= 1);
 
+#if defined(WIZ8_NATIVE)
+    UINT8* dest = reinterpret_cast<UINT8*>(DestPtr);
+    for (INT32 y = 0; y < height; ++y) {
+        for (INT32 x = 0; x < width; ++x) {
+            NativeWriteWord(dest + x * 2, IntensityTable[NativeReadWord(dest + x * 2)]);
+        }
+        dest += uiDestPitchBYTES;
+    }
+#else
     __asm {
 		mov		esi, OFFSET IntensityTable
 		mov		edi, DestPtr
@@ -3067,6 +3356,7 @@ BlitLine:
 		dec		edx
 		jnz		BlitNewLine
     }
+#endif
 
     return (TRUE);
 }
@@ -3099,6 +3389,15 @@ BOOLEAN FillRect16BPP(UINT16* pBuffer, UINT32 uiDestPitchBYTES, INT32 x1, INT32 
     linelength = x2real - x1real + 1;
     lineskip = uiDestPitchBYTES - (linelength * 2);
 
+#if defined(WIZ8_NATIVE)
+    UINT8* dest = reinterpret_cast<UINT8*>(startoffset);
+    for (UINT32 y = 0; y < lines; ++y) {
+        for (UINT32 x = 0; x < linelength; ++x) {
+            NativeWriteWord(dest + x * 2, color);
+        }
+        dest += uiDestPitchBYTES;
+    }
+#else
     __asm {
 		mov		edi, startoffset
 		mov		ax, color
@@ -3135,5 +3434,6 @@ FillLineEnd:
 		jnz		LineLoop
 
     }
+#endif
     return (TRUE);
 }

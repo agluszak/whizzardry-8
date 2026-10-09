@@ -3,6 +3,9 @@
 #ifndef __DirectDraw_Calls_H__
 #define __DirectDraw_Calls_H__
 
+#if defined(WIZ8_NATIVE)
+#include "compat/surfaces.h"
+#else
 #include "DirectX Common.h"
 #include <ddraw.h>
 
@@ -96,4 +99,5 @@ HRESULT BltDDSurfaceUsingSoftware(LPDIRECTDRAWSURFACE2 pDestSurface, LPRECT pDes
 }
 #endif
 
+#endif // Windows DirectDraw declarations
 #endif // __DirectDraw_Calls_H__

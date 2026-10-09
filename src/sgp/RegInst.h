@@ -21,11 +21,13 @@
 //
 //**************************************************************************
 
-#include <windows.h>
+#include "compat/kernel32.h"
+#if !defined(WIZ8_NATIVE)
 #include <tchar.h>
+#endif
 #include <assert.h>
 
-#include "types.h"
+#include "Types.h"
 
 //**************************************************************************
 //

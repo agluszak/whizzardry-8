@@ -1,4 +1,4 @@
-#include <windows.h>
+#include "wiz8/wiz8_windows.h"
 #include "wiz8/engine_code/Item.h"
 
 #include <math.h>
@@ -7,7 +7,7 @@
 
 #include "DEBUG.H"
 #include "FileMan.h"
-#include "Random.h"
+#include "random.h"
 #include "sgp.h"
 #include "input.h"
 #include "surrender/srCamera.h"

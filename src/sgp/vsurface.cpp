@@ -3,13 +3,13 @@
 #include "DirectDraw Calls.h"
 #include <stdio.h>
 #include <stdlib.h>
-#include "debug.h"
-#include "video2.h"
+#include "DEBUG.H"
+#include "Video2.h"
 #include "himage.h"
 #include "vsurface.h"
 #include "vsurface_private.h"
 #include "video_private.h"
-#include "wcheck.h"
+#include "WCheck.h"
 #include "vobject_blitters.h"
 
 extern void SetClippingRect(SGPRect* clip);
@@ -1108,6 +1108,10 @@ BOOLEAN DeleteVideoSurface(HVSURFACE hVSurface)
     //	DDReleaseClipper( (LPDIRECTDRAWCLIPPER)hVSurface->pClipper );
     //}
 
+#if defined(WIZ8_NATIVE)
+    if (hVSurface->pClipper)
+        DDReleaseClipper((LPDIRECTDRAWCLIPPER)hVSurface->pClipper);
+#endif
     // Get surface pointer
     lpDDSurface = (LPDIRECTDRAWSURFACE2)hVSurface->pSurfaceData;
 
@@ -1174,7 +1178,11 @@ BOOLEAN SetClipList(HVSURFACE hVSurface, SGPRect* RegionData, UINT16 usNumRegion
     CHECKF(pRgnData);
 
     // Setup header
+#if defined(WIZ8_NATIVE)
+    pRgnData->rdh.dwSize = sizeof(RGNDATAHEADER);
+#else
     pRgnData->rdh.dwSize = sizeof(RGNDATA);
+#endif
     pRgnData->rdh.iType = RDH_RECTANGLES;
     pRgnData->rdh.nCount = usNumRegions;
     pRgnData->rdh.nRgnSize = usNumRegions * sizeof(RECT);
@@ -1190,7 +1198,11 @@ BOOLEAN SetClipList(HVSURFACE hVSurface, SGPRect* RegionData, UINT16 usNumRegion
         aRect.bottom = (UINT32)RegionData[cnt].iBottom;
         aRect.right = (UINT32)RegionData[cnt].iRight;
 
+#if defined(WIZ8_NATIVE)
+        memcpy(pRgnData->Buffer + cnt * sizeof(RECT), &aRect, sizeof(RECT));
+#else
         memcpy(pRgnData + sizeof(RGNDATAHEADER) + (cnt * sizeof(RECT)), &aRect, sizeof(RECT));
+#endif
     }
 
     // Set items into clipper
@@ -1499,6 +1511,9 @@ HVSURFACE CreateVideoSurfaceFromDDSurface(LPDIRECTDRAWSURFACE2 lpDDSurface)
     // Allocate Video Surface struct
     hVSurface = (HVSURFACE)MemAlloc(sizeof(SGPVSurface));
 
+#if defined(WIZ8_NATIVE)
+    memset(hVSurface, 0, sizeof(SGPVSurface));
+#endif
     // Set values based on DD Surface given
     DDGetSurfaceDescription(lpDDSurface, &DDSurfaceDesc);
     PixelFormat = DDSurfaceDesc.ddpfPixelFormat;
@@ -1940,8 +1955,8 @@ void DumpVSurfaceInfoIntoFile(UINT8* filename, BOOLEAN fAppend)
     pCode = (DUMPFILENAME*)MemAlloc(sizeof(DUMPFILENAME) * guiVSurfaceSize);
     memset(pName, 0, sizeof(DUMPFILENAME) * guiVSurfaceSize);
     memset(pCode, 0, sizeof(DUMPFILENAME) * guiVSurfaceSize);
-    puiCounter = (UINT32*)MemAlloc(4 * guiVSurfaceSize);
-    memset(puiCounter, 0, 4 * guiVSurfaceSize);
+    puiCounter = (UINT32*)MemAlloc(sizeof(*puiCounter) * guiVSurfaceSize);
+    memset(puiCounter, 0, sizeof(*puiCounter) * guiVSurfaceSize);
 
     //Loop through the list and record every unique filename and count them
     uiUniqueID = 0;

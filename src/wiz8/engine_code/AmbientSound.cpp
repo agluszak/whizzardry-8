@@ -837,7 +837,11 @@ void SaveAmbientSoundList(HWFILE handle)
                     ok = FileWrite(handle, empty_name, sizeof(empty_name), 0);
                 }
             } else if (ok) {
-                ok = FileWrite(handle, sound->pacSoundName, 0x80, 0);
+                // The disk record is fixed width, but live names are strlen + 1
+                // allocations.
+                char name[0x80] = {};
+                strncpy(name, sound->pacSoundName, sizeof(name) - 1);
+                ok = FileWrite(handle, name, sizeof(name), 0);
             }
             if (ok) {
                 ok = FileWrite(handle, &sound->stopped, 1, 0);

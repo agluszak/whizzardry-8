@@ -3,7 +3,7 @@
 
 /* Wizardry's recovered call surface for the SurRender DLL. */
 
-typedef void(__cdecl* srAssertHandler)(const char* expression, const char* source_path, long line,
+typedef void(__cdecl* srAssertHandler)(const char* expression, const char* source_path, w8_long line,
                                        const char* message);
 
 /* These imports are declared once here so every first-party caller sees the
@@ -20,7 +20,13 @@ __declspec(dllimport) void __cdecl srAssertSetFunc(srAssertHandler handler);
  * abi-prototype-ok: the consumer spelling is intentionally fixed-arity while
  * the provider export is variadic (?srAssertFail@@YAXPBD0J0ZZ).
  */
+#if defined(WIZ8_NATIVE)
+/* Native clients link the provider directly, with its variadic signature. */
+void __cdecl srAssertFail(const char* expression, const char* source_path,
+                         w8_long line, const char* message, ...);
+#else
 __declspec(dllimport) void __cdecl srAssertFail(const char* expression, const char* source_path,
-                                                long line, const char* message);
+                                                w8_long line, const char* message);
+#endif
 
 #endif

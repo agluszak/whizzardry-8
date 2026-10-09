@@ -1,4 +1,4 @@
-#include <windows.h>
+#include "wiz8/wiz8_windows.h"
 #include "wiz8/engine_code/Camera.h"
 #include "wiz8/engine_code/Cursor3d.h"
 #include "wiz8/world_cursor.h"

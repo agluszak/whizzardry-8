@@ -8,13 +8,23 @@
 //                    MemAlloc/MemFree, and reporting of any errors
 //				Includes
 
-#include "types.h"
-#include <windows.h>
+#include "Types.h"
+#include "compat/kernel32.h"
+#if defined(WIZ8_NATIVE)
+#if defined(__APPLE__)
+#include <malloc/malloc.h>
+#define _msize malloc_size
+#else
+#include <malloc.h>
+#define _msize malloc_usable_size
+#endif
+#include <unistd.h>
+#endif
 #include <malloc.h>
 #include <stdlib.h>
 #include <string.h>
 #include "MemMan.h"
-#include "Debug.h"
+#include "DEBUG.H"
 #include <stdio.h>
 #ifdef _DEBUG
 #include <crtdbg.h>
@@ -253,12 +263,23 @@ PTR MemReallocReal(PTR ptr, UINT32 uiSize, const char* pcFile, INT32 iLine)
 // FUNCTION: WIZ8 0x00404bd0
 UINT32 MemGetFree(void)
 {
+#if defined(WIZ8_NATIVE)
+    /* Retail reports MEMORYSTATUS::dwAvailPhys, a 32-bit byte count. */
+    unsigned long long available = (unsigned long long)sysconf(_SC_PAGESIZE);
+#if defined(_SC_AVPHYS_PAGES)
+    available *= (unsigned long long)sysconf(_SC_AVPHYS_PAGES);
+#else
+    available *= (unsigned long long)sysconf(_SC_PHYS_PAGES);
+#endif
+    return available > 0xffffffffull ? 0xffffffffu : (UINT32)available;
+#else
     MEMORYSTATUS ms;
 
     ms.dwLength = sizeof(MEMORYSTATUS);
     GlobalMemoryStatus(&ms);
 
     return (ms.dwAvailPhys);
+#endif
 }
 // MemGetTotalSystem
 // Parameter List :
@@ -441,10 +462,10 @@ void DumpMemoryInfoIntoFile(UINT8* filename, BOOLEAN fAppend)
     //Allocate enough strings and counters for each node.
     pCode = (DUMPFILENAME*)malloc(sizeof(DUMPFILENAME) * guiMemoryNodes);
     memset(pCode, 0, sizeof(DUMPFILENAME) * guiMemoryNodes);
-    puiSize = (UINT32*)malloc(4 * guiMemoryNodes);
-    memset(puiSize, 0, 4 * guiMemoryNodes);
-    puiCounter = (UINT32*)malloc(4 * guiMemoryNodes);
-    memset(puiCounter, 0, 4 * guiMemoryNodes);
+    puiSize = (UINT32*)malloc(sizeof(*puiSize) * guiMemoryNodes);
+    memset(puiSize, 0, sizeof(*puiSize) * guiMemoryNodes);
+    puiCounter = (UINT32*)malloc(sizeof(*puiCounter) * guiMemoryNodes);
+    memset(puiCounter, 0, sizeof(*puiCounter) * guiMemoryNodes);
 
     //Loop through the list and record every unique filename and count them
     uiUniqueID = 0;

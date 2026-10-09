@@ -1,3 +1,4 @@
+#include "wiz8/compat/unaligned.h"
 #include "wiz8/engine_code/AnimRep.hpp"
 #include "wiz8/conditions.h"
 #include "wiz8/layouts/gameplay_databases.h"
@@ -1759,7 +1760,7 @@ unsigned int ChooseSpellPowerLevelForTarget(int party_slot, int spell_id, int id
 {
     W8Character* caster = &g_status.buffers.Char[party_slot];
     W8PartySlotRow* row = &g_status.buffers.XChar[party_slot];
-    const unsigned int* conditions = 0;
+    const w8_unaligned_uint* conditions = 0;
     const W8Character* target_character = 0;
     unsigned int power_level;
     unsigned int worst;
@@ -2196,7 +2197,7 @@ bool SpellAffectedTarget(W8Character* character, int spell_id, W8CombatSlot* aim
 {
     unsigned int duration;
     unsigned int index;
-    const unsigned int* conditions;
+    const w8_unaligned_uint* conditions;
     const W8Enchantment* enchantments;
     W8MonsterInfo* monster_info;
     const W8Character* target;

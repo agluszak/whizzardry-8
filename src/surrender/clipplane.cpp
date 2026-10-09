@@ -1,4 +1,5 @@
 #include "surrender/srClipPlane.h"
+#include "surrender/srStreamFlags.h"
 
 #include "surrender/srGERD.h"
 #include "surrender/srTypeRegistry.h"
@@ -65,11 +66,11 @@ void srClipPlane::traverse(TraverseInfo& info)
 // FUNCTION: SURRENDER 0x10049E40
 void srClipPlane::dump(std::ostream& stream)
 {
-    long flags;
+    w8_long flags;
 
     srNode::dump(stream);
-    flags = stream.flags();
-    stream.flags((flags & 0xfffffe7fL) | 0x40);
+    flags = srGetStreamFlags(stream);
+    srSetStreamFlags(stream, (flags & 0xfffffe7fL) | 0x40);
     stream.width(0x20);
     stream << "  Plane equation: ";
     stream << '{' << clip_plane_.x << ',' << clip_plane_.y << ',' << clip_plane_.z << ','
@@ -77,7 +78,7 @@ void srClipPlane::dump(std::ostream& stream)
     stream << '\n';
     stream.width(0x20);
     stream << "  Clip type: " << clip_type_ << '\n';
-    stream.flags(flags & 0x7fff);
+    srSetStreamFlags(stream, flags & 0x7fff);
 }
 
 // FUNCTION: SURRENDER 0x1004A0A0

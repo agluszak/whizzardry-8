@@ -1,3 +1,4 @@
+#include "wiz8/compat/unaligned.h"
 #include "wiz8/spell_ids.h"
 #include "wiz8/engine_code/stMeshModel.h"
 #include "wiz8/local_code/Targeting.h"
@@ -1243,7 +1244,7 @@ static void QueueMonsterAction(W8MonsterInfo* monster_info, W8MonsterActionKind 
                                int action_detail, int attack_index, W8TargetKind target_kind,
                                int target_value)
 {
-    W8MonsterAction* entry = static_cast<W8MonsterAction*>(malloc(0x30));
+    W8MonsterAction* entry = static_cast<W8MonsterAction*>(malloc(sizeof(*entry)));
 
     if (entry == 0) {
         return;
@@ -1373,7 +1374,7 @@ bool MonsterSpellTargetOK(W8MonsterInfo* monster_info, int spell_id, W8CombatSlo
     int hp_max = 0;
     int stat = 0;
     int stat_max = 0;
-    unsigned int* condition_turns = 0;
+    w8_unaligned_uint* condition_turns = 0;
     W8Enchantment* enchantments = 0;
     /* 0x00532EE3 and 0x00532F38 test the marker count signed and 0x00532F89
        compares the index signed. */

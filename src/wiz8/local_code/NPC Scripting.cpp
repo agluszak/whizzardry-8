@@ -73,10 +73,11 @@
 
 #include "FileMan.h"
 
-#include <windows.h>
+#include "wiz8/wiz8_windows.h"
 #include <stdio.h>
 #include <string.h>
 #include <wchar.h>
+#include "compat/platform.h"
 
 struct W8NpcScriptRegionName {
     wchar_t name[50];
@@ -2288,7 +2289,7 @@ void AuditNpcScriptQuotes(void)
     if (file != 0) {
         fclose(file);
     }
-    GetDateFormatA(LOCALE_SYSTEM_DEFAULT, 0, 0, "dddd',' MMMM dd',' yyyy", date, 0x80);
+    W8GetDateFormat(LOCALE_SYSTEM_DEFAULT, 0, 0, "dddd',' MMMM dd',' yyyy", date, 0x80);
     file = fopen("data\\quotereport.txt", "a+t");
     g_status.quote_audit = 1;
     sprintf(pattern, "Data\\NPC Scripts\\*.nsf");

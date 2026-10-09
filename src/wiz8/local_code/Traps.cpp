@@ -1,4 +1,4 @@
-#include <windows.h>
+#include "wiz8/wiz8_windows.h"
 #include "wiz8/fonts.h"
 #include "wiz8/local_code/Traps.h"
 #include "wiz8/integer_constants.h"

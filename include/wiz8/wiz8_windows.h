@@ -3,6 +3,9 @@
 
 /* Windows declarations for the Wizardry target. */
 
+#if defined(WIZ8_NATIVE)
+#include "compat/kernel32.h"
+#else
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
 #endif
@@ -10,5 +13,6 @@
 #define NOMINMAX
 #endif
 #include <windows.h>
+#endif
 
 #endif

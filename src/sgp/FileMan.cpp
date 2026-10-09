@@ -18,17 +18,22 @@
 #include <stdlib.h>
 #include <malloc.h>
 #include <stdio.h>
+#if !defined(WIZ8_NATIVE)
 #include <direct.h>
+#endif
 
-#include "windows.h"
+#include "compat/kernel32.h"
 #include "FileMan.h"
 #include "MemMan.h"
 #include "DbMan.h"
-#include "Debug.h"
+#include "DEBUG.H"
 #include "RegInst.h"
 #include "Container.h"
 #include "LibraryDataBase.h"
+#if !defined(WIZ8_NATIVE)
 #include "io.h"
+#endif
+#include "compat/platform.h"
 //				Defines
 
 #define FILENAME_LENGTH 600
@@ -209,7 +214,7 @@ BOOLEAN FileExistsNoDB(STR strFilename)
 // FUNCTION: WIZ8 0x00404c70
 BOOLEAN FileDelete(STR strFilename)
 {
-    return (DeleteFile(strFilename));
+    return (W8DeleteFile(strFilename));
 }
 // FileOpen
 //		Opens a file.
@@ -256,7 +261,7 @@ HWFILE FileOpen(STR strFilename, UINT32 uiOptions, BOOLEAN fDeleteOnClose)
     //if the file is on the disk
     if (fExists) {
         hRealFile =
-            CreateFile(strFilename, dwAccess, 0, NULL, OPEN_ALWAYS, dwFlagsAndAttributes, NULL);
+            W8CreateFile(strFilename, dwAccess, 0, NULL, OPEN_ALWAYS, dwFlagsAndAttributes, NULL);
 
         if (hRealFile == INVALID_HANDLE_VALUE) {
             return (0);
@@ -315,11 +320,11 @@ HWFILE FileOpen(STR strFilename, UINT32 uiOptions, BOOLEAN fDeleteOnClose)
         }
 
         hRealFile =
-            CreateFile(strFilename, dwAccess, 0, NULL, dwCreationFlags, dwFlagsAndAttributes, NULL);
+            W8CreateFile(strFilename, dwAccess, 0, NULL, dwCreationFlags, dwFlagsAndAttributes, NULL);
         if (hRealFile == INVALID_HANDLE_VALUE) {
-            UINT32 uiLastError = GetLastError();
+            UINT32 uiLastError = W8GetLastError();
             char zString[1024];
-            FormatMessage(FORMAT_MESSAGE_FROM_SYSTEM, 0, uiLastError, 0, zString, 1024, NULL);
+            W8FormatMessage(FORMAT_MESSAGE_FROM_SYSTEM, 0, uiLastError, 0, zString, 1024, NULL);
 
             return (0);
         }
@@ -353,7 +358,7 @@ void FileClose(HWFILE hFile)
         //if its not already closed
         if (gFileDataBase.RealFiles.pRealFilesOpen != NULL &&
             gFileDataBase.RealFiles.pRealFilesOpen[uiFileNum].uiFileID != 0) {
-            CloseHandle(gFileDataBase.RealFiles.pRealFilesOpen[uiFileNum].hRealFileHandle);
+            W8CloseHandle(gFileDataBase.RealFiles.pRealFilesOpen[uiFileNum].hRealFileHandle);
             gFileDataBase.RealFiles.pRealFilesOpen[uiFileNum].uiFileID = 0;
             gFileDataBase.RealFiles.pRealFilesOpen[uiFileNum].hRealFileHandle = 0;
             gFileDataBase.RealFiles.iNumFilesOpen--;
@@ -405,11 +410,11 @@ BOOLEAN FileRead(HWFILE hFile, PTR pDest, UINT32 uiBytesToRead, UINT32* puiBytes
         if (uiFileNum != 0) {
             hRealFile = gFileDataBase.RealFiles.pRealFilesOpen[uiFileNum].hRealFileHandle;
 
-            fRet = ReadFile(hRealFile, pDest, dwNumBytesToRead, &dwNumBytesRead, NULL);
+            fRet = W8ReadFile(hRealFile, pDest, dwNumBytesToRead, &dwNumBytesRead, NULL);
             if (dwNumBytesToRead != dwNumBytesRead) {
-                UINT32 uiLastError = GetLastError();
+                UINT32 uiLastError = W8GetLastError();
                 char zString[1024];
-                FormatMessage(FORMAT_MESSAGE_FROM_SYSTEM, 0, uiLastError, 0, zString, 1024, NULL);
+                W8FormatMessage(FORMAT_MESSAGE_FROM_SYSTEM, 0, uiLastError, 0, zString, 1024, NULL);
 
                 fRet = FALSE;
             }
@@ -470,7 +475,7 @@ BOOLEAN FileWrite(HWFILE hFile, PTR pDest, UINT32 uiBytesToWrite, UINT32* puiByt
         //get the real file handle to the file
         hRealFile = gFileDataBase.RealFiles.pRealFilesOpen[uiFileNum].hRealFileHandle;
 
-        fRet = WriteFile(hRealFile, pDest, dwNumBytesToWrite, &dwNumBytesWritten, NULL);
+        fRet = W8WriteFile(hRealFile, pDest, dwNumBytesToWrite, &dwNumBytesWritten, NULL);
 
         if (dwNumBytesToWrite != dwNumBytesWritten)
             fRet = FALSE;
@@ -550,7 +555,7 @@ BOOLEAN FileSeek(HWFILE hFile, UINT32 uiDistance, UINT8 uiHow)
 
         lDistanceToMove = (LONG)uiDistance;
 
-        if (SetFilePointer(hRealFile, iDistance, NULL, dwMoveMethod) == 0xFFFFFFFF)
+        if (W8SetFilePointer(hRealFile, iDistance, NULL, dwMoveMethod) == 0xFFFFFFFF)
             return (FALSE);
     } else {
         //if the database is initialized
@@ -587,7 +592,7 @@ INT32 FileGetPos(HWFILE hFile)
         //Get the handle to the real file
         hRealFile = gFileDataBase.RealFiles.pRealFilesOpen[uiFileNum].hRealFileHandle;
 
-        uiPositionInFile = SetFilePointer(hRealFile, 0, NULL, FILE_CURRENT);
+        uiPositionInFile = W8SetFilePointer(hRealFile, 0, NULL, FILE_CURRENT);
         if (uiPositionInFile == 0xFFFFFFFF) {
             uiPositionInFile = 0;
         }
@@ -633,7 +638,7 @@ UINT32 FileGetSize(HWFILE hFile)
         //Get the handle to a real file
         hRealHandle = gFileDataBase.RealFiles.pRealFilesOpen[uiFileNum].hRealFileHandle;
 
-        uiFileSize = GetFileSize(hRealHandle, NULL);
+        uiFileSize = W8GetFileSize(hRealHandle, NULL);
     } else {
         //if the library is open
         if (IsLibraryOpened(sLibraryID))
@@ -687,11 +692,11 @@ BOOLEAN DirectoryExists(STRING512 pcDirectory)
     UINT32 uiAttribs;
     DWORD uiLastError;
 
-    uiAttribs = GetFileAttributes(pcDirectory);
+    uiAttribs = W8GetFileAttributes(pcDirectory);
 
     if (uiAttribs == 0xFFFFFFFF) {
         // an error, make sure it's the right error
-        uiLastError = GetLastError();
+        uiLastError = W8GetLastError();
 
         if (uiLastError != ERROR_FILE_NOT_FOUND) {
             FastDebugMsg(
@@ -712,7 +717,7 @@ BOOLEAN DirectoryExists(STRING512 pcDirectory)
 // FUNCTION: WIZ8 0x004051f0
 BOOLEAN MakeFileManDirectory(STRING512 pcDirectory)
 {
-    return CreateDirectory(pcDirectory, NULL);
+    return W8CreateDirectory(pcDirectory, NULL);
 }
 
 // FUNCTION: WIZ8 0x00405200
@@ -721,7 +726,7 @@ BOOLEAN GetExecutableDirectory(STRING512 pcDirectory)
     SGPFILENAME ModuleFilename;
     UINT32 cnt;
 
-    if (GetModuleFileName(NULL, ModuleFilename, sizeof(ModuleFilename)) == 0) {
+    if (W8GetModuleFileName(NULL, ModuleFilename, sizeof(ModuleFilename)) == 0) {
         return (FALSE);
     }
 
@@ -760,7 +765,7 @@ BOOLEAN GetFileFirst(CHAR8* pSpec, GETFILESTRUCT* pGFStruct)
 
     pGFStruct->iFindHandle = iWhich;
 
-    hFindInfoHandle[iWhich] = FindFirstFile(pSpec, &Win32FindInfo[iWhich]);
+    hFindInfoHandle[iWhich] = W8FindFirstFile(pSpec, &Win32FindInfo[iWhich]);
 
     if (hFindInfoHandle[iWhich] == INVALID_HANDLE_VALUE)
         return (FALSE);
@@ -776,7 +781,7 @@ BOOLEAN GetFileNext(GETFILESTRUCT* pGFStruct)
 {
     CHECKF(pGFStruct != NULL);
 
-    if (FindNextFile(hFindInfoHandle[pGFStruct->iFindHandle],
+    if (W8FindNextFile(hFindInfoHandle[pGFStruct->iFindHandle],
                      &Win32FindInfo[pGFStruct->iFindHandle])) {
         W32toSGPFileFind(pGFStruct, &Win32FindInfo[pGFStruct->iFindHandle]);
         return (TRUE);
@@ -790,7 +795,7 @@ void GetFileClose(GETFILESTRUCT* pGFStruct)
     if (pGFStruct == NULL)
         return;
 
-    FindClose(hFindInfoHandle[pGFStruct->iFindHandle]);
+    W8FindClose(hFindInfoHandle[pGFStruct->iFindHandle]);
     hFindInfoHandle[pGFStruct->iFindHandle] = INVALID_HANDLE_VALUE;
     fFindInfoInUse[pGFStruct->iFindHandle] = FALSE;
 
@@ -858,7 +863,7 @@ void W32toSGPFileFind(GETFILESTRUCT* pGFStruct, WIN32_FIND_DATA* pW32Struct)
 // FUNCTION: WIZ8 0x004054d0
 BOOLEAN FileCopy(STR strSrcFile, STR strDstFile, BOOLEAN fFailIfExists)
 {
-    return (CopyFile(strSrcFile, strDstFile, fFailIfExists));
+    return (W8CopyFile(strSrcFile, strDstFile, fFailIfExists));
 
     // Not needed, use Windows CopyFile
 }
@@ -869,7 +874,7 @@ UINT32 FileGetAttributes(STR strFilename)
     UINT32 uiAttribs = 0;
     UINT32 uiFileAttrib = 0;
 
-    uiAttribs = GetFileAttributes(strFilename);
+    uiAttribs = W8GetFileAttributes(strFilename);
 
     if (uiAttribs == 0xFFFFFFFF)
         return (uiAttribs);
@@ -904,7 +909,7 @@ UINT32 FileGetAttributes(STR strFilename)
 // FUNCTION: WIZ8 0x00405550
 BOOLEAN FileClearAttributes(STR strFilename)
 {
-    return SetFileAttributes(strFilename, FILE_ATTRIBUTE_NORMAL);
+    return W8SetFileAttributes(strFilename, FILE_ATTRIBUTE_NORMAL);
 }
 
 //returns true if at end of file, else false
@@ -928,13 +933,13 @@ BOOLEAN FileCheckEndOfFile(HWFILE hFile)
         hRealFile = gFileDataBase.RealFiles.pRealFilesOpen[uiFileNum].hRealFileHandle;
 
         //Get the current position of the file pointer
-        uiOldFilePtrLoc = SetFilePointer(hRealFile, 0, NULL, FILE_CURRENT);
+        uiOldFilePtrLoc = W8SetFilePointer(hRealFile, 0, NULL, FILE_CURRENT);
 
         //Get the end of file ptr location
-        uiEndOfFilePtrLoc = SetFilePointer(hRealFile, 0, NULL, FILE_END);
+        uiEndOfFilePtrLoc = W8SetFilePointer(hRealFile, 0, NULL, FILE_END);
 
         //reset back to the original location
-        temp = SetFilePointer(hRealFile, -((INT32)(uiEndOfFilePtrLoc - uiOldFilePtrLoc)), NULL,
+        temp = W8SetFilePointer(hRealFile, -((INT32)(uiEndOfFilePtrLoc - uiOldFilePtrLoc)), NULL,
                               FILE_END);
 
         //if the 2 pointers are the same, we are at the end of a file
@@ -1000,17 +1005,17 @@ BOOLEAN GetFileManFileTime(HWFILE hFile, SGP_FILETIME* pCreationTime,
         hRealFile = gFileDataBase.RealFiles.pRealFilesOpen[uiFileNum].hRealFileHandle;
 
         //Gets the UTC file time for the 'real' file
-        GetFileTime(hRealFile, &sCreationUtcFileTime, &sLastAccessedUtcFileTime,
+        W8GetFileTime(hRealFile, &sCreationUtcFileTime, &sLastAccessedUtcFileTime,
                     &sLastWriteUtcFileTime);
 
         //converts the creation UTC file time to the current time used for the file
-        FileTimeToLocalFileTime(&sCreationUtcFileTime, pCreationTime);
+        W8FileTimeToLocalFileTime(&sCreationUtcFileTime, pCreationTime);
 
         //converts the accessed UTC file time to the current time used for the file
-        FileTimeToLocalFileTime(&sLastAccessedUtcFileTime, pLastAccessedTime);
+        W8FileTimeToLocalFileTime(&sLastAccessedUtcFileTime, pLastAccessedTime);
 
         //converts the write UTC file time to the current time used for the file
-        FileTimeToLocalFileTime(&sLastWriteUtcFileTime, pLastWriteTime);
+        W8FileTimeToLocalFileTime(&sLastWriteUtcFileTime, pLastWriteTime);
     } else {
         //if the database is initialized
         if (gFileDataBase.fInitialized) {
@@ -1032,7 +1037,7 @@ BOOLEAN GetFileManFileTime(HWFILE hFile, SGP_FILETIME* pCreationTime,
 // FUNCTION: WIZ8 0x00405720
 INT32 CompareSGPFileTimes(SGP_FILETIME* pFirstFileTime, SGP_FILETIME* pSecondFileTime)
 {
-    return (CompareFileTime(pFirstFileTime, pSecondFileTime));
+    return (W8CompareFileTime(pFirstFileTime, pSecondFileTime));
 }
 // AddSubdirectoryToPath
 //		Puts a subdirectory of the current working directory into the current
@@ -1056,10 +1061,10 @@ BOOLEAN AddSubdirectoryToPath(CHAR8* subdirectory)
             strcat(path, "\\");
         }
         strcat(path, subdirectory);
-        if (GetEnvironmentVariableA("PATH", environment, 0x208)) {
+        if (W8GetEnvironmentVariable("PATH", environment, 0x208)) {
             strcat(environment, ";");
             strcat(environment, path);
-            SetEnvironmentVariableA("PATH", environment);
+            W8SetEnvironmentVariable("PATH", environment);
             return TRUE;
         }
     }
@@ -1076,12 +1081,12 @@ BOOLEAN FileIsOlderThanFile(CHAR8* pcFileName1, CHAR8* pcFileName2, UINT32 ulNum
     ULONGLONG difference;
 
     // a failed search leaves the timestamps uninitialized
-    search = FindFirstFile(pcFileName1, &first);
-    FindClose(search);
-    search = FindFirstFile(pcFileName2, &second);
-    FindClose(search);
+    search = W8FindFirstFile(pcFileName1, &first);
+    W8FindClose(search);
+    search = W8FindFirstFile(pcFileName2, &second);
+    W8FindClose(search);
 
-    compared = CompareFileTime(&first.ftLastWriteTime, &second.ftLastWriteTime);
+    compared = W8CompareFileTime(&first.ftLastWriteTime, &second.ftLastWriteTime);
     if (compared <= 0) {
         if (ulNumSeconds == 0) {
             if (compared != 0) {

@@ -12,9 +12,14 @@
 #include "soundman.h"
 #include "FileMan.h"
 #include "LibraryDataBase.h"
-#include "debug.h"
+#include "DEBUG.H"
 #include "MemMan.h"
-#include "mss.h"
+#if defined(WIZ8_NATIVE)
+#include "compat/audio.h"
+#include <stdexcept>
+#else
+#include "Mss.h"
+#endif
 #include "random.h"
 
 // Uncomment this to disable the startup of sound hardware
@@ -213,6 +218,21 @@ BOOLEAN InitializeSoundManager(void)
 // FUNCTION: WIZ8 0x00408850
 void ShutdownSoundManager(void)
 {
+#if defined(WIZ8_NATIVE)
+    if (fSoundSystemInit) {
+        for (UINT32 channel = 0; channel < SOUND_MAX_CHANNELS; ++channel) {
+            /* Retail shutdown does not dispatch EOS callbacks into game state. */
+            pSoundList[channel].EOSCallback = NULL;
+            SoundStopIndex(channel);
+        }
+        SoundEmptyCache();
+        if (gh3DProvider) AIL_close_3D_provider(gh3DProvider);
+        gh3DProvider = 0;
+        gh3DListener = NULL;
+        if (hSoundDriver) AIL_close_digital_driver(hSoundDriver);
+        hSoundDriver = NULL;
+    }
+#endif
     fSoundSystemInit = FALSE;
 }
 
@@ -308,6 +328,12 @@ UINT32 SoundPlayStreamedFile(STR pFilename, SOUNDPARMS* pParms)
                 return (SOUND_ERROR);
             }
 
+#if defined(WIZ8_NATIVE)
+            /* The native decoder opens a bounded stream through the recovered
+               file database, preserving the SLF entry's length and offset. */
+            FileClose(hFile);
+            return SoundStartStream(filename, uiChannel, pParms);
+#else
             // MSS cannot determine which provider to play if you don't give it a real filename
             // so if the file isn't in a library, play it normally
             if (DB_EXTRACT_LIBRARY(hFile) == REAL_FILE_LIBRARY_ID) {
@@ -338,6 +364,7 @@ UINT32 SoundPlayStreamedFile(STR pFilename, SOUNDPARMS* pParms)
                 CloseHandle(hRealFileHandle);
 
             return (uiRetVal);
+#endif
         }
     }
 
@@ -777,6 +804,9 @@ BOOLEAN SoundServiceStreams(void)
             if (pSoundList[uiCount].hMSSStream != NULL) {
                 if (AIL_service_stream(pSoundList[uiCount].hMSSStream, 0)) {
                     if (pSoundList[uiCount].uiFlags & SOUND_CALLBACK) {
+#if defined(WIZ8_NATIVE)
+                        throw std::runtime_error("Miles raw-buffer stream callbacks are unsupported");
+#else
                         uiSpeed = pSoundList[uiCount].hMSSStream->datarate;
                         uiBuffLen = pSoundList[uiCount].hMSSStream->bufsize;
                         pBuffer = pSoundList[uiCount]
@@ -785,6 +815,7 @@ BOOLEAN SoundServiceStreams(void)
                         pData = pSoundList[uiCount].pData;
                         pSoundList[uiCount].pCallback(pBuffer, uiBuffLen, uiSpeed, uiBytesPerSample,
                                                       pData);
+#endif
                     }
                 }
             }
@@ -1375,7 +1406,7 @@ UINT32 SoundStartSample(UINT32 uiSample, UINT32 uiChannel, SOUNDPARMS* pParms)
     else
         pSoundList[uiChannel].uiPriority = PRIORITY_MAX;
 
-    if ((pParms != NULL) && ((UINT32)pParms->EOSCallback != SOUND_PARMS_DEFAULT)) {
+    if ((pParms != NULL) && ((w8_ulong_ptr)pParms->EOSCallback != (w8_ulong_ptr)-1)) {
         pSoundList[uiChannel].EOSCallback = pParms->EOSCallback;
         pSoundList[uiChannel].pCallbackData = pParms->pCallbackData;
     } else {
@@ -1459,7 +1490,7 @@ UINT32 SoundStartStream(STR pFilename, UINT32 uiChannel, SOUNDPARMS* pParms)
     else
         pSoundList[uiChannel].uiPriority = SOUND_PARMS_DEFAULT;
 
-    if ((pParms != NULL) && ((UINT32)pParms->EOSCallback != SOUND_PARMS_DEFAULT)) {
+    if ((pParms != NULL) && ((w8_ulong_ptr)pParms->EOSCallback != (w8_ulong_ptr)-1)) {
         pSoundList[uiChannel].EOSCallback = pParms->EOSCallback;
         pSoundList[uiChannel].pCallbackData = pParms->pCallbackData;
     } else {
@@ -1568,6 +1599,7 @@ BOOLEAN SoundStopIndex(UINT32 uiChannel)
                 pSoundList[uiChannel].uiSample = NO_SAMPLE;
             }
 
+#if !defined(WIZ8_NATIVE)
             if (pSoundList[uiChannel].hFile != (HWFILE)INVALID_HANDLE_VALUE) {
                 CloseHandle((HANDLE)pSoundList[uiChannel].hFile);
                 pSoundList[uiChannel].hFile = (HWFILE)INVALID_HANDLE_VALUE;
@@ -1575,6 +1607,7 @@ BOOLEAN SoundStopIndex(UINT32 uiChannel)
                 pSoundList[uiChannel].uiSample = NO_SAMPLE;
             }
 
+#endif
             pSoundList[uiChannel].fMusic = FALSE;
             return (TRUE);
         }
@@ -1642,6 +1675,12 @@ BOOLEAN SoundFileIsPlaying(CHAR8* pFilename)
 
     for (uiCount = 0; uiCount < SOUND_MAX_CHANNELS; uiCount++) {
         if (SoundIndexIsPlaying(uiCount)) {
+#if defined(WIZ8_NATIVE)
+            // Streamed voices carry SOUND_ERROR instead of a cache index.
+            if (pSoundList[uiCount].uiSample >= SOUND_MAX_CACHED) {
+                continue;
+            }
+#endif
             if (stricmp(pSampleList[pSoundList[uiCount].uiSample].pName, pFilename) == 0)
                 return (TRUE);
         }
@@ -1704,8 +1743,13 @@ void Sound3DSetProvider(CHAR8* pProviderName)
     Assert(pProviderName);
 
     if (pProviderName) {
+#if defined(WIZ8_NATIVE)
+        static CHAR8 native_provider[] = "miniaudio spatial";
+        gpProviderName = native_provider;
+#else
         gpProviderName = (CHAR8*)MemAlloc(strlen(pProviderName) + 1);
         strcpy(gpProviderName, pProviderName);
+#endif
     }
 }
 
@@ -1749,8 +1793,12 @@ BOOLEAN Sound3DInitProvider(CHAR8* pProviderName)
                     Sound3DSetListener(0.0f, 0.0f, 0.0f);
 
                     AIL_3D_provider_attribute(gh3DProvider, "EAX environment selection", &iResult);
+#if defined(WIZ8_NATIVE)
+                    gfUsingEAX = iResult != -1;
+#else
                     if (iResult != (-1))
                         gfUsingEAX = TRUE;
+#endif
 
                     return (TRUE);
                 }
@@ -1897,7 +1945,12 @@ UINT32 Sound3DStartSample(UINT32 uiSample, UINT32 uiChannel, SOUND3DPARMS* pParm
         return (SOUND_ERROR);
     }
 
+#if defined(WIZ8_NATIVE)
+    if (!W8AudioSetSpatialFile(pSoundList[uiChannel].hM3D, pSampleList[uiSample].pData,
+                               pSampleList[uiSample].uiSize)) {
+#else
     if (!AIL_set_3D_sample_file(pSoundList[uiChannel].hM3D, pSampleList[uiSample].pData)) {
+#endif
         AIL_release_3D_sample_handle(pSoundList[uiChannel].hM3D);
         pSoundList[uiChannel].hM3D = NULL;
 
@@ -1954,7 +2007,7 @@ UINT32 Sound3DStartSample(UINT32 uiSample, UINT32 uiChannel, SOUND3DPARMS* pParm
     else
         pSoundList[uiChannel].uiPriority = PRIORITY_MAX;
 
-    if ((pParms != NULL) && ((UINT32)pParms->EOSCallback != SOUND_PARMS_DEFAULT)) {
+    if ((pParms != NULL) && ((w8_ulong_ptr)pParms->EOSCallback != (w8_ulong_ptr)-1)) {
         pSoundList[uiChannel].EOSCallback = pParms->EOSCallback;
         pSoundList[uiChannel].pCallbackData = pParms->pCallbackData;
     } else {

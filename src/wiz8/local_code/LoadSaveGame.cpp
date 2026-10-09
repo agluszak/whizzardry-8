@@ -70,10 +70,11 @@
 
 #include "timer.h"
 
-#include <windows.h>
-
+#include "wiz8/wiz8_windows.h"
 #include <errno.h>
+#if !defined(WIZ8_NATIVE)
 #include <io.h>
+#endif
 #include <malloc.h>
 #include <stdio.h>
 #include <string.h>
@@ -93,6 +94,7 @@
 #include "wiz8/local_screens/JournalScreen.h"
 #include "wiz8/cursor.h"
 #include "wiz8/local_code/ConditionsAndEnchantments.h"
+#include "compat/platform.h"
 
 /* The attribute word this gate tests is a Windows attribute word, so the two
    constants come from windows.h and are not restated here. Ghidra labels the
@@ -251,7 +253,7 @@ void FillCurrentSaveSlot(W8SaveSlot* slot)
     slot->game_time_ms = g_status.game_time_ms;
     slot->game_time_days = g_status.game_time_days;
     slot->iron_man = g_status.iron_man;
-    GetLocalTime(&slot->timestamp);
+    W8GetLocalTime(&slot->timestamp);
     CaptureSaveScreenshot(&slot->screenshot);
     slot->version_major = 1;
     slot->version_minor = 2;
@@ -269,7 +271,7 @@ bool EnumerateSaveSlots(W8GrowableVector<W8SaveSlot*>* slots)
     sprintf(path, "%s\\*.%s", "Saves", g_save_extension);
     int first = slots->GetCount();
     memset(&find_data, 0, sizeof(find_data));
-    HANDLE search = FindFirstFileA(path, &find_data);
+    HANDLE search = W8FindFirstFile(path, &find_data);
     if (search != INVALID_HANDLE_VALUE) {
         do {
             sprintf(path, "%s\\%s", "Saves", find_data.cFileName);
@@ -312,8 +314,8 @@ bool EnumerateSaveSlots(W8GrowableVector<W8SaveSlot*>* slots)
                     }
                     find_data.cFileName[63] = 0;
                     swprintf(slot->name, L"%hs", find_data.cFileName);
-                    FileTimeToLocalFileTime(&find_data.ftLastWriteTime, &slot->local_write_time);
-                    FileTimeToSystemTime(&slot->local_write_time, &slot->timestamp);
+                    W8FileTimeToLocalFileTime(&find_data.ftLastWriteTime, &slot->local_write_time);
+                    W8FileTimeToSystemTime(&slot->local_write_time, &slot->timestamp);
                     slot->level_id = status.current_level;
                     slot->game_time_ms = status.game_time_ms;
                     slot->iron_man = status.iron_man;
@@ -328,9 +330,9 @@ bool EnumerateSaveSlots(W8GrowableVector<W8SaveSlot*>* slots)
                     slots->InsertAt(position, slot);
                 }
             }
-        } while (FindNextFileA(search, &find_data));
+        } while (W8FindNextFile(search, &find_data));
     }
-    FindClose(search);
+    W8FindClose(search);
     return true;
 }
 
@@ -934,7 +936,7 @@ bool LoadItemStatus(W8Chunk* chunk, int level)
                     for (int inner = stream->ChunkCount(); inner > 0; --inner) {
                         stream->OpenChunk(0, 0);
                         if (stream->CurrentChunkAtEnd() == 0) {
-                            unsigned long chunk_id = stream->CurrentChunkId();
+                            w8_ulong chunk_id = stream->CurrentChunkId();
 
                             if (chunk_id == 0x54415453) { /* STAT */
                                 LoadStatusHeader(stream);
@@ -1054,7 +1056,7 @@ bool LoadDefaultLevelStatus(unsigned int level)
         for (count = chunk.ChunkCount(); count > 0; --count) {
             chunk.OpenChunk(0, 0);
             if (chunk.CurrentChunkAtEnd() == 0) {
-                unsigned long chunk_id = chunk.CurrentChunkId();
+                w8_ulong chunk_id = chunk.CurrentChunkId();
 
                 switch (chunk_id) {
                 case 0x4b434f4c: /* LOCK */
@@ -1461,6 +1463,11 @@ W8WorldItem* LoadItem(int handle, bool add_to_list)
         if (!FileRead(handle, item, sizeof(W8WorldItem), &done)) {
             return 0;
         }
+#if defined(WIZ8_NATIVE)
+        // The saved pointer is a chain-presence marker, not a native handle.
+        const bool has_next = W8SerializedPointerPresent(item->next);
+        item->next = 0;
+#endif
         item->sector_id = -2;
         item->fActive = false;
         item->p3D = 0;
@@ -1476,7 +1483,11 @@ W8WorldItem* LoadItem(int handle, bool add_to_list)
             item->entity_flags &= ~W8_ITEM_ENTITY_RADAR_SEEN;
         }
         previous = item;
+#if defined(WIZ8_NATIVE)
+        if (!has_next) {
+#else
         if (item->next == 0) {
+#endif
             return first;
         }
         item = static_cast<W8WorldItem*>(malloc(sizeof(W8WorldItem)));
