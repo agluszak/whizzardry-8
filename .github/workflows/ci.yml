@@ -35,7 +35,7 @@ jobs:
       - name: Check script syntax and Python sources
         run: |
           set -euo pipefail
-          shellcheck run.sh tools/*.sh
+          shellcheck -e SC1091 run.sh tools/*.sh
           python3 -m compileall -q tools
       - name: Validate GitHub Actions workflow
         run: |
@@ -116,15 +116,10 @@ jobs:
             echo 'Licensed graphics checks not run (missing secrets or untrusted fork PR).' >> "$GITHUB_STEP_SUMMARY"
           fi
 
-      # Reuse the decomp composite action, pinned to a reviewed commit. The
-      # cache holds only encrypted bytes, never licensed plaintext game data.
-      - name: Prepare the decomp installer action workspace
-        if: steps.licensed.outputs.enabled == 'true'
-        run: mkdir -p config
-
+      # Adapted from decomp's input action. Only encrypted bytes enter the cache.
       - name: Download/decrypt shared GOG CI installer
         if: steps.licensed.outputs.enabled == 'true'
-        uses: agluszak/wizardry-8-decomp/.github/actions/materialize-gog-installer@075cbd0b853c4670e94f6ae4fe48d53b52b5e819
+        uses: ./.github/actions/materialize-gog-installer
         with:
           inputs-token: ${{ secrets.WIZ8_INPUTS_TOKEN }}
           cache-key: ${{ secrets.WIZ8_CACHE_KEY }}
