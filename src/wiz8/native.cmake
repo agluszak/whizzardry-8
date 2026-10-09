@@ -18,4 +18,6 @@ target_compile_definitions(WIZ8_GAME_CORE PRIVATE NOMINMAX WIN32_LEAN_AND_MEAN)
 target_link_libraries(WIZ8_GAME_CORE PUBLIC wiz8_native_settings WIZ8_SGP SURRENDER)
 
 # Keep focused integration tests able to discard unused recovered game functions.
-target_compile_options(WIZ8_GAME_CORE PRIVATE -ffunction-sections -fdata-sections)
+if(NOT WIN32)
+    target_compile_options(WIZ8_GAME_CORE PRIVATE -ffunction-sections -fdata-sections)
+endif()

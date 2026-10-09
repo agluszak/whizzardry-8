@@ -41,21 +41,31 @@ endif()
 # Settings shared by every native component.
 add_library(wiz8_native_settings INTERFACE)
 target_compile_definitions(wiz8_native_settings INTERFACE WIZ8_NATIVE NDEBUG)
-target_compile_options(wiz8_native_settings INTERFACE
-    "SHELL:-include ${PROJECT_SOURCE_DIR}/include/wiz8/compat/compiler.h"
-    # MSVC semantics the recovered code relies on: signed char on every
-    # architecture, wrapping integer arithmetic and type punning through
-    # pointer casts.
-    -fsigned-char -fwrapv -fno-strict-aliasing
-    # Two-byte wchar_t as on Windows; compat/native.h routes wide-string calls
-    # to implementations for that width.
-    -fshort-wchar
-    # LLVM rewrites wide strlen loops into wcslen calls, and glibc's wcslen
-    # reads four-byte characters.
-    -fno-builtin-wcslen
-    # Retail was built without RTTI (/GR-); several interfaces have no key function.
-    $<$<COMPILE_LANGUAGE:CXX>:-fno-rtti>
-)
+# Native Windows uses clang-cl's MSVC option spelling, not Unix clang
+# options (which clang-cl can silently ignore).
+if(WIN32)
+    set(WIZ8_NATIVE_ABI_OPTIONS
+        "/FI${PROJECT_SOURCE_DIR}/include/wiz8/compat/compiler.h"
+        /clang:-fwrapv /clang:-fno-strict-aliasing /clang:-fno-builtin-wcslen
+        $<$<COMPILE_LANGUAGE:CXX>:/GR->
+    )
+    set(WIZ8_COMPAT_ABI_OPTIONS
+        "/FI${PROJECT_SOURCE_DIR}/include/wiz8/compat/compiler.h"
+        /clang:-fno-builtin-wcslen
+    )
+else()
+    set(WIZ8_NATIVE_ABI_OPTIONS
+        "SHELL:-include ${PROJECT_SOURCE_DIR}/include/wiz8/compat/compiler.h"
+        -fsigned-char -fwrapv -fno-strict-aliasing -fshort-wchar
+        -fno-builtin-wcslen
+        $<$<COMPILE_LANGUAGE:CXX>:-fno-rtti>
+    )
+    set(WIZ8_COMPAT_ABI_OPTIONS
+        "SHELL:-include ${PROJECT_SOURCE_DIR}/include/wiz8/compat/compiler.h"
+        -fsigned-char -fshort-wchar -fno-builtin-wcslen
+    )
+endif()
+target_compile_options(wiz8_native_settings INTERFACE ${WIZ8_NATIVE_ABI_OPTIONS})
 target_include_directories(wiz8_native_settings INTERFACE
     "${PROJECT_SOURCE_DIR}/include"
     "${PROJECT_SOURCE_DIR}/include/wiz8"
@@ -74,9 +84,7 @@ add_library(wiz8_compat SHARED
     src/compat/platform_system.cpp
     src/compat/platform_events.cpp
 )
-target_compile_options(wiz8_compat PRIVATE
-    "SHELL:-include ${PROJECT_SOURCE_DIR}/include/wiz8/compat/compiler.h"
-    -fsigned-char -fshort-wchar -fno-builtin-wcslen)
+target_compile_options(wiz8_compat PRIVATE ${WIZ8_COMPAT_ABI_OPTIONS})
 target_compile_definitions(wiz8_compat PRIVATE WIZ8_NATIVE)
 target_include_directories(wiz8_compat PRIVATE "${PROJECT_SOURCE_DIR}/include/wiz8")
 target_link_libraries(wiz8_compat PRIVATE Threads::Threads SDL3::SDL3)
