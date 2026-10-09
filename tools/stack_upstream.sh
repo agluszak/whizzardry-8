@@ -12,4 +12,4 @@ git tag -f upstream-tip HEAD >/dev/null
 for commit in $local_commits; do git cherry-pick "$commit" >/dev/null; done
 git branch -f "$branch" HEAD
 git checkout -q "$branch"
-git log --oneline --decorate -n $(( $(echo $local_commits | wc -w) + 3 ))
+git log --oneline --decorate -n $(( $(echo "$local_commits" | wc -w) + 3 ))
