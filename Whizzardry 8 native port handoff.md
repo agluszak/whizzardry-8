@@ -38,6 +38,9 @@ experience-reference experiments remain local and uncommitted. Sky, terrain
 and combat regressions remain open in `native-runtime-issues.md`. The native-only
 cutover is the next separate task.
 
+The native branch is published as [Whizzardry #2](https://github.com/agluszak/whizzardry-8/pull/2)
+against `main`; both PRs are open and unmerged.
+
 Publication checks: the native build and all **14/14 CTest tests pass**. The
 imports/model-bounds test also passes ASan/UBSan with leak detection. The real
 game loader renders **38 enabled meshes / 3,394 submitted polygons**, then
