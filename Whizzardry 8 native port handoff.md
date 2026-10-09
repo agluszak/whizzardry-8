@@ -2,6 +2,99 @@
 
 Oct 9, 2026 · @Mietek Pierdzibąk
 
+## Continuation — native world rendering, Oct 9, 2026
+
+Native world rendering is implemented at `bd26f26a9bbeb9bbcbe0f9cc6260cf164105d8b5`. With this final handoff
+commit, `native-port` has **35 commits over main: 20 upstreamable commits
+first**, ending at `upstream-tip` (`cc4bba6f8352ccd4cfee0c2312cfc53556343ef4`), followed by 15 native/documentation
+commits. The shared world fixes were moved below the entire native suffix;
+`git diff` against the pre-restack tree was empty before restoring native work.
+Earlier sections record historical hashes and validation boundaries. No
+publication to the decomp upstream repository was performed.
+
+- **Visible world:** the real new-game loader reaches the Monastery beach with
+  textured sand and cliffs, water, sky, trees, wreckage, a chest and the party
+  interface. `native_world_graphics` links production game/SGP/renderer code,
+  loads an existing installed CHR, initializes the party/NPC opening state and
+  enters the ordinary loading screen and game loop. Only the opening movie is
+  bypassed. No mock level, world, actor or graphics implementations were added.
+  The harness creates and removes a private user overlay. Retail assets and
+  character data are supplied locally and are not committed.
+- **World contribution:** 38 enabled meshes and 3,394 submitted level polygons.
+  At the same camera/UI, world on/off records **160/35 GPU draw calls** and
+  **1,525/64 input triangles**. Disabling the world changes **130,597 viewport
+  pixels**, and re-enabling it restores **129,048 pixels** relative to the
+  control. Animation can vary these counts. Output: `build-native/world.png`,
+  `world.ppm`, and `world.ppm.control.ppm`; log `world-final-run.log`.
+- **Ordinary executable:** synthetic Escape, party selection with the existing
+  character, confirmation/options, opening movie and actual level loading also
+  reach the beach in `Wiz8Native` on isolated X11 with the already installed
+  Mesa lavapipe Vulkan driver. The party opening speech appears in
+  `build-native/world-ui-beach.png`. Standard WM_DELETE_WINDOW exits with status
+  0. This verifies the full new-game screen route separately from the harness;
+  physical input and audible output remain unverified. The COSMIC/XWayland
+  desktop window stays hidden without keyboard focus. NVIDIA on Xvfb shows
+  stale presentation and rapid resource growth; lavapipe avoids those symptoms.
+  Desktop focus and NVIDIA/Xvfb behavior require separate investigation.
+- **Native renderer fixes:** fog alpha is opacity, so zero must preserve object
+  color. The shader had inverted that value, producing a blue world. All three
+  fog modes and the absent-array default now follow the recovered pipeline.
+  Partial texture uploads take exclusive right/bottom bounds from GERD, not
+  width/height; confusing them overwrote untouched UI texels and read beyond
+  temporary staging storage. Magnification comes from packed bits 4..5 rather
+  than the perspective-correction bits. Nine fog readbacks and 8,192 texture
+  texel comparisons cover those contracts.
+- **Shared fixes first:** preserve the 0xad-byte serialized `W8WorldItem` with
+  four-byte pointer slots, interpret saved links as chain markers, and stage
+  native item pointers across output APIs. Huffman symbol trees and the vertex
+  processor bank allocate by element size. Packed dice/vector/UTF16/condition/
+  allied-group/cache accesses retain their retail byte offsets while avoiding
+  native alignment UB. Raw bit/triangulator allocations use matching unsized
+  deletion on native builds. Native guards also handle unused null trace
+  cursors, unmatched monster-cycle table rows, non-finite normal compression,
+  streamed audio cache sentinels and fatal shutdown before handle-table teardown.
+  Windows control flow and code generation remain intact.
+- **Light ownership evidence:** the native copied `srLight` constructs a fresh
+  registered base instead of sharing scene links/registry ownership. The retail
+  `MonsterLight` copy at **0x0049D660** calls the zero-parent illuminator
+  constructor at **0x0049D682**, registers the new class, then invokes light
+  assignment at **0x0049D6BF** before copying its members. The existing
+  `srClassSupport(const Derived&)` implements that ownership sequence. A copied
+  light lifecycle test and real recovered world shutdown exercise the fix.
+- **Validation:** **12/12 native tests pass** (`world-final-tests.log`). Packed
+  UTF16, branching Huffman and copied-light client tests pass ASan/UBSan with
+  leak detection (`build-native-asan/world-focused-tests.log`). The world harness
+  reaches rendering and shutdown without invalid accesses or UB reports
+  (`build-native-asan/world-run.log`). GPU fog/partial-texture assertions pass
+  under sanitizers too (`world-gpu-tests.log`). Legacy clang-cl builds; all
+  **299 non-zlib objects remain exact** in instructions, relocations and `.rdata`
+  against `228fa4c` with `SOURCE_DATE_EPOCH=1791503644`
+  (`build-clang/world-final-objdiff.log`). VC6/macOS remain untested.
+- **Sanitizer boundary:** full-world LeakSanitizer still reports **1,275,925
+  bytes in 205 allocations**, including game status/vector/level/material
+  owners and external driver/DBus allocations. GPU-only validation reports
+  **55,148 bytes in 22 allocations**, including runtime-class name ownership
+  and external modules. These runs exit nonzero because of leaks; they are not
+  leak-clean results. No suppressions were introduced.
+- **Dependencies/publication:** no packages were installed. Keep the user's
+  preference: provide installation commands if new dependencies are required.
+  Code is followed by this final documentation commit, and the parent handoff
+  copy is synchronized. All controlled game/display processes were stopped.
+
+Reproduce with installed assets and an existing character basename:
+
+```sh
+WIZ8_ASSET_ROOT=/path/to/Wizardry8 SDL_VIDEODRIVER=x11 \
+  build-native/native_world_graphics party.CHR "$PWD/build-native/world.ppm"
+WIZ8_ASSET_ROOT=/path/to/Wizardry8 SDL_VIDEODRIVER=x11 \
+  build-native/Wiz8Native /WINDOW
+```
+
+Next: validate desktop focus and physical movement/look input, then save/load
+round trips and ordinary gameplay. Compare world output against the shipped
+renderer and audit the observed game-owned lifetime leaks. Recovered Targa
+textures already serve this world; native JPEG integration remains open.
+
 ## Continuation — FFmpeg movies and native game startup, Oct 9, 2026
 
 Native movie playback and the actual game executable are implemented at
