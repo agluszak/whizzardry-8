@@ -8,65 +8,52 @@ if [[ -f "$repo_dir/.env" ]]; then
     set +a
 fi
 
-build_dir=${WIZ8_BUILD_DIR:-"$repo_dir/build-clang/launch"}
-game_dir=${WIZ8_RUN_DIR:-"$repo_dir/build/run-clang"}
-runner=${WIZ8_UMU_RUN:-umu-run}
-export WINEPREFIX=${WIZ8_WINE_PREFIX:-${WINEPREFIX:-}}
-export WINEDLLOVERRIDES="sr=n${WINEDLLOVERRIDES:+;$WINEDLLOVERRIDES}"
+build_dir=${WIZ8_BUILD_DIR:-"$repo_dir/build-native"}
+asset_root=${WIZ8_ASSET_ROOT:-${WIZ8_RUN_DIR:-"$repo_dir/build/run-clang"}}
+user_root=${WIZ8_USER_ROOT:-"${XDG_DATA_HOME:-$HOME/.local/share}/whizzardry8"}
 
-for dependency in "$runner" xdotool; do
-    if ! command -v "$dependency" >/dev/null; then
-        printf 'Required launcher dependency not found: %s\n' "$dependency" >&2
-        exit 1
-    fi
-done
-for binary in Wiz8.exe sr.dll; do
-    if [[ ! -f "$build_dir/$binary" ]]; then
-        printf 'Missing rebuilt binary: %s/%s\n' "$build_dir" "$binary" >&2
-        exit 1
-    fi
-done
-if [[ ! -d "$game_dir/Data" || ! -d "$game_dir/Dll" ]]; then
-    printf 'Game assets must be staged in %s (Data/ and Dll/).\n' "$game_dir" >&2
+if [[ ! -x "$build_dir/Wiz8Native" ]]; then
+    printf 'Missing native executable: %s/Wiz8Native\nBuild it with: cmake --build %q\n' \
+        "$build_dir" "$build_dir" >&2
     exit 1
 fi
-if [[ -z ${DISPLAY:-} || -z $WINEPREFIX ]]; then
-    printf 'Set DISPLAY and WIZ8_WINE_PREFIX (or WINEPREFIX) before launching.\n' >&2
+if [[ ! -d "$asset_root/Data" && ! -d "$asset_root/data" ]]; then
+    printf 'Set WIZ8_ASSET_ROOT to your installed Wizardry 8 directory (containing Data/).\n' >&2
+    exit 1
+fi
+build_dir=$(cd -- "$build_dir" && pwd)
+WIZ8_ASSET_ROOT=$(cd -- "$asset_root" && pwd)
+export WIZ8_ASSET_ROOT
+mkdir -p -- "$user_root"
+WIZ8_USER_ROOT=$(cd -- "$user_root" && pwd)
+export WIZ8_USER_ROOT
+if [[ "$WIZ8_USER_ROOT/" == "$WIZ8_ASSET_ROOT/"* ||
+      "$WIZ8_ASSET_ROOT/" == "$WIZ8_USER_ROOT/"* ]]; then
+    printf 'WIZ8_USER_ROOT and WIZ8_ASSET_ROOT must be separate directories.\n' >&2
     exit 1
 fi
 
-cp -- "$build_dir/Wiz8.exe" "$build_dir/sr.dll" "$game_dir/"
-cd -- "$game_dir"
-mkdir -p diagnostics
-printf 'Launching Wizardry 8; log: %s/diagnostics/launch.log\n' "$game_dir"
-"$runner" "$PWD/Wiz8.exe" /WINDOW "$@" </dev/null >diagnostics/launch.log 2>&1 &
-game_pid=$!
-
-# XWayland also needs a desktop activation request: starting Wine from a
-# terminal does not reliably transfer keyboard focus to its game window.
-# Activate each startup window once; leave subsequent user focus changes alone.
-(
-    focused_windows=' '
-    for ((attempt = 0; attempt < 240; attempt++)); do
-        kill -0 "$game_pid" 2>/dev/null || exit 0
-        while read -r window; do
-            [[ -n $window && $focused_windows != *" $window "* ]] || continue
-            if xdotool windowactivate "$window" windowfocus "$window" 2>/dev/null; then
-                focused_windows+="$window "
-            fi
-        done < <(xdotool search --onlyvisible --name '^Wizardry 8$' 2>/dev/null || true)
-        sleep 0.25
+export SDL_VIDEODRIVER=${SDL_VIDEODRIVER:-x11}
+if [[ -z ${VK_DRIVER_FILES:-} && -z ${VK_ICD_FILENAMES:-} ]]; then
+    for driver in /usr/share/vulkan/icd.d/lvp_icd.json \
+                  /usr/share/vulkan/icd.d/lvp_icd.x86_64.json; do
+        if [[ -f "$driver" ]]; then
+            export VK_DRIVER_FILES=$driver
+            break
+        fi
     done
-) &
-focus_pid=$!
-trap 'kill "$focus_pid" 2>/dev/null || true' EXIT
-trap 'kill "$game_pid" 2>/dev/null || true' INT TERM
-
-if wait "$game_pid"; then
-    exit 0
-else
-    status=$?
-    printf 'Wizardry 8 exited with status %s. See %s/diagnostics/launch.log\n' \
-        "$status" "$game_dir" >&2
-    exit "$status"
+    if [[ -z ${VK_DRIVER_FILES:-} ]]; then
+        printf 'Mesa lavapipe was not found. Install mesa-vulkan-drivers, or set VK_DRIVER_FILES.\n' >&2
+        exit 1
+    fi
 fi
+
+# Initialize the writable overlay once; keep the user's later video choices.
+if [[ ! -e "$WIZ8_USER_ROOT/3DVideo.CFG" ]]; then
+    printf 'SDLGPU\n640\n480\n16\nminiaudio spatial\n' > "$WIZ8_USER_ROOT/3DVideo.CFG"
+fi
+mkdir -p -- "$WIZ8_USER_ROOT/diagnostics"
+log_file="$WIZ8_USER_ROOT/diagnostics/launch.log"
+printf 'Launching Whizzardry 8; log: %s\nClose the game window or press Ctrl-C to quit.\n' "$log_file"
+cd -- "$repo_dir"
+exec "$build_dir/Wiz8Native" /WINDOW "$@" </dev/null > "$log_file" 2>&1

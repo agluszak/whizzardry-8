@@ -95,14 +95,21 @@ in `src/sgp/SFI Source Code license agreement.txt`.
 
 ## Launching on Linux
 
-Run `./run.sh` from any directory. It loads the repository's `.env`, copies
-the rebuilt `Wiz8.exe` and `sr.dll` from `build-clang/launch` into the existing
-`build/run-clang` asset directory, and launches through UMU/GE-Proton. It activates
-the game window so keyboard input reaches the game. Requires `xdotool`, a working
-graphical session, and `WIZ8_UMU_RUN` and `WIZ8_WINE_PREFIX` in `.env`.
+Run `./run.sh` from any directory. It loads the repository's `.env` and launches
+`build-native/Wiz8Native` directly with the installed assets in `build/run-clang`.
+The default renderer uses X11 and Mesa lavapipe, matching the verified native
+new-game route. The launcher creates a 640x480 native video configuration only
+when the user overlay has none; later video choices are preserved.
 
-For Docker outputs, use `WIZ8_BUILD_DIR="$PWD/build-clang/docker" ./run.sh`.
-`WIZ8_RUN_DIR` can select another directory containing the installed game assets.
-Additional arguments are passed to the EXE, for example `./run.sh /NOSOUND`.
-Launcher output is saved to the game directory's `diagnostics/launch.log`.
-The script stages existing binaries; rebuild them first after source changes.
+`WIZ8_BUILD_DIR` selects another native build directory. `WIZ8_ASSET_ROOT` (or
+`WIZ8_RUN_DIR`) selects the installed assets, and `WIZ8_USER_ROOT` selects the
+separate writable save/config directory. The default user root is
+`${XDG_DATA_HOME:-$HOME/.local/share}/whizzardry8`. Set `VK_DRIVER_FILES` or
+`VK_ICD_FILENAMES` to choose another Vulkan driver, or `SDL_VIDEODRIVER` to choose
+another SDL display backend. Defaults use the already installed lavapipe ICD;
+if it is missing, the launcher tells you to install `mesa-vulkan-drivers`.
+
+Arguments are passed to the game, for example `./run.sh /NOSOUND`. Output is
+saved to the user root's `diagnostics/launch.log`. The game runs in the
+foreground: close its window or press Ctrl-C to quit. Rebuild after source
+changes with `cmake --build build-native`.
