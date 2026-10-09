@@ -10,9 +10,10 @@ add_library(WIZ8_GAME_CORE STATIC ${WIZ8_NATIVE_GAME_UNITS}
     src/native/movie.cpp
     src/native/bink_video.cpp
 )
-find_package(PkgConfig REQUIRED)
-pkg_check_modules(FFMPEG REQUIRED IMPORTED_TARGET libavformat libavcodec libavutil libswscale libswresample)
-target_link_libraries(WIZ8_GAME_CORE PRIVATE PkgConfig::FFMPEG)
+# vcpkg's FindFFMPEG also carries static transitive libraries on Windows.
+target_include_directories(WIZ8_GAME_CORE PRIVATE ${FFMPEG_INCLUDE_DIRS})
+target_link_directories(WIZ8_GAME_CORE PRIVATE ${FFMPEG_LIBRARY_DIRS})
+target_link_libraries(WIZ8_GAME_CORE PRIVATE ${FFMPEG_LIBRARIES})
 target_compile_definitions(WIZ8_GAME_CORE PRIVATE NOMINMAX WIN32_LEAN_AND_MEAN)
 target_link_libraries(WIZ8_GAME_CORE PUBLIC wiz8_native_settings WIZ8_SGP SURRENDER)
 

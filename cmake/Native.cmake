@@ -19,6 +19,7 @@ set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
 find_package(ZLIB REQUIRED)
 find_package(SDL3 CONFIG REQUIRED)
+find_package(FFMPEG REQUIRED)
 find_package(Threads REQUIRED)
 
 # Fetch the exact miniaudio revision previously vendored in third_party/.

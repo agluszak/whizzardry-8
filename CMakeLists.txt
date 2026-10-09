@@ -2,11 +2,16 @@ cmake_minimum_required(VERSION 3.20)
 if(NOT DEFINED CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE Release CACHE STRING "Build configuration")
 endif()
+# Dependency setup must run before project() so vcpkg is the active toolchain.
+# The historical 32-bit Windows build is not part of native dependency management.
+if(WIZ8_NATIVE OR NOT CMAKE_HOST_WIN32)
+    include(cmake/BootstrapVcpkg.cmake)
+endif()
 project(whizzardry8 LANGUAGES C CXX)
 
 # The native lane builds for Linux and macOS with Clang. The legacy lane
 # reproduces the shipped 32-bit Windows binaries with VC6 or clang-cl.
-if(NOT MSVC)
+if(WIZ8_NATIVE OR NOT MSVC)
     include(cmake/Native.cmake)
     return()
 endif()

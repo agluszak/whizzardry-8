@@ -7,20 +7,40 @@ Game data comes from an existing retail installation and is not distributed here
 
 ## Build
 
-On Ubuntu, install the development dependencies:
+Install CMake, Git, Ninja and a modern C/C++ compiler. CMake bootstraps
+a pinned vcpkg checkout in the build directory and installs SDL3, FFmpeg,
+zlib and the glslang shader compiler. Miniaudio is fetched separately by CMake.
+Linux also needs the system X11/Wayland development interfaces used by SDL3;
+rendering requires a working Vulkan driver.
+
+Linux (Clang):
 
 ```sh
-sudo apt install clang cmake ninja-build pkg-config libsdl3-dev zlib1g-dev glslang-tools \
-    libavformat-dev libavcodec-dev libavutil-dev libswscale-dev libswresample-dev
+cmake --preset linux
+cmake --build --preset linux
+ctest --preset linux
 ```
 
-Configure and build:
+macOS (Apple Silicon; Intel Macs use `macos-x64`):
 
 ```sh
-cmake -S . -B build-native -G Ninja -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++
-cmake --build build-native
-ctest --test-dir build-native --output-on-failure
+cmake --preset macos-arm64
+cmake --build --preset macos-arm64
+ctest --preset macos-arm64
 ```
+
+Modern Windows (x64, Visual Studio Build Tools and LLVM clang-cl):
+
+```powershell
+cmake --preset windows-clangcl
+cmake --build --preset windows-clangcl
+ctest --preset windows-clangcl
+```
+
+The Windows preset selects the native build, not the historical VC6 lane.
+Windows dependency configuration is supported; the game's POSIX-based native
+filesystem/CRT implementation still requires a Windows backend before a
+working Windows executable can be claimed.
 
 The native targets include `Wiz8Native` and SurRender (`libsr.so` on Linux).
 A Vulkan-capable SDL3 GPU backend is required for graphics checks.
