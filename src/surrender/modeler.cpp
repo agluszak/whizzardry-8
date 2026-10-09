@@ -794,21 +794,23 @@ void srModeler::getAxialBounds(e_axis axis, float& minimum, float& maximum)
             maximum = 0.0f;
             return;
         }
-        w8_unaligned_float* component = &(&triangles[0].vertices[0].position.x)[axis];
-        minimum = *component;
-        maximum = *component;
         for (w8_ulong index = 0; index < triangle_count; ++index) {
-            float* vertex_component = component;
             for (int vertex = 0; vertex < 3; ++vertex) {
-                if (*vertex_component < minimum) {
-                    minimum = *vertex_component;
+                const srVector3T<float>& position = triangles[index].vertices[vertex].position;
+                float component = axis == AXIS_X ? position.x :
+                                  axis == AXIS_Y ? position.y : position.z;
+                if (index == 0 && vertex == 0) {
+                    minimum = component;
+                    maximum = component;
+                } else {
+                    if (component < minimum) {
+                        minimum = component;
+                    }
+                    if (maximum < component) {
+                        maximum = component;
+                    }
                 }
-                if (maximum < *vertex_component) {
-                    maximum = *vertex_component;
-                }
-                vertex_component += 0x44;
             }
-            component += 0xda;
         }
     }
 }

@@ -202,8 +202,12 @@ wchar_t* ConvertStringToWide(const char* string)
 // FUNCTION: WIZ8 0x00517ad0
 char* ConvertWideStringToString(const wchar_t* string)
 {
-    sprintf(reinterpret_cast<char*>(g_wide_string_buffer), "%ls", string);
-    return reinterpret_cast<char*>(g_wide_string_buffer);
+    char* output = reinterpret_cast<char*>(g_wide_string_buffer);
+    if (wcstombs(output, string, sizeof(g_wide_string_buffer) - 1) == static_cast<size_t>(-1)) {
+        output[0] = 0;
+    }
+    output[sizeof(g_wide_string_buffer) - 1] = 0;
+    return output;
 }
 
 // FUNCTION: WIZ8 0x00517af0

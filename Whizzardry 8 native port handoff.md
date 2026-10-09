@@ -2,6 +2,50 @@
 
 Oct 9, 2026 · @Mietek Pierdzibąk
 
+## Continuation — filtered decomp upstream patch, Oct 9, 2026
+
+The agreed project boundary supersedes the historical dual-build instructions
+below. Decomp preserves retail behavior, including established bugs and UB;
+Whizzardry will become native-only and may rewrite runtime structures and
+serialization boundaries. Do not add more native conditionals merely to retain
+Windows x86/assembly matching in Whizzardry.
+
+The historical shared prefix was filtered rather than cherry-picked wholesale.
+`../whizzardry-decomp-upstream.patch` is committed above decomp `main`
+`6c7de144cf94fd7bc62e0fc42e1449f2be37c704` as
+`81c8606d5e12215e62038147cc5697569e6b4be4` on
+`port-prep/historical-types-and-sizes`. The upstream PR is
+[decomp #980](https://github.com/agluszak/wizardry-8-decomp/pull/980). It contains 380 source/header
+changes: ordinary historical long/pointer-role aliases, ABI/disk contract
+markers, typed sizes/strides and text/allocation declarations. Native branches,
+implementations, handles, packed-access workaround aliases and gameplay fixes
+are excluded. The newer decomp fixes were retained. The branch is pushed;
+the PR has not been merged.
+
+Both Clang-cl and actual VC6 SP5 compile all 311 first-party units. Clang's
+non-debug COFF sections/relocations/symbols match in all 311 objects. VC6 differs
+in 24 objects after compiler-local name normalization; a focused experiment
+with only the three long typedefs already reproduces 15 differences. Exact VC6
+or retail matching is not claimed. Nine independent source gates, changed-file
+formatting, unchanged annotation inventories and patch round-trip checks pass.
+The Docker-backed compiler-index/full project check remains outstanding.
+
+See `../whizzardry-decomp-upstream-review.md` for scope, checks and the VC6
+emission differences. Whizzardry publication includes the native port history,
+typed model bounds, save-name conversion and bounded ambient-name disk writes,
+plus installed-asset regression harness modes. The unfinished packing and
+experience-reference experiments remain local and uncommitted. Sky, terrain
+and combat regressions remain open in `native-runtime-issues.md`. The native-only
+cutover is the next separate task.
+
+Publication checks: the native build and all **14/14 CTest tests pass**. The
+imports/model-bounds test also passes ASan/UBSan with leak detection. The real
+game loader renders **38 enabled meshes / 3,394 submitted polygons**, then
+successfully saves and reloads `native-test` in a private writable directory.
+This does not establish visual parity or interactive save-menu behavior. The
+retired decomp `wiz8 pr-check` command is unavailable in Whizzardry; native
+CMake/CTest checks are used instead. macOS was not tested.
+
 ## Continuation — shared generalization audit, Oct 9, 2026
 
 The persistent queue is `upstream-generalization-todo.md`; confirmed fixes,

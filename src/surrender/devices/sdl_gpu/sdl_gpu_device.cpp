@@ -747,6 +747,15 @@ private:
                     m[5], m[6], m[7], m[8], m[9], m[10], m[11], m[12], m[13], m[14], m[15],
                     viewport.x, viewport.y, viewport.w, viewport.h, scissor.x, scissor.y,
                     scissor.w, scissor.h);
+            if (SDL_getenv("WIZ8_SRDD_VERTICES")) {
+                for (size_t i = start; i < vertices.size(); ++i) {
+                    const Vertex& p = vertices[i];
+                    SDL_Log("srDD vertex %08x (%g %g %g %g) uv=(%g %g %g) rgba=(%g %g %g %g)",
+                            shader.value, p.position[0], p.position[1], p.position[2], p.position[3],
+                            p.texcoord0[0], p.texcoord0[1], p.texcoord0[2], p.diffuse[0],
+                            p.diffuse[1], p.diffuse[2], p.diffuse[3]);
+                }
+            }
         }
         DrawCommand command = {};
         command.kind = DrawCommand::DRAW;

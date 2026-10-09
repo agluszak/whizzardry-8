@@ -7,6 +7,7 @@
 #include "surrender/srLight.h"
 #include "surrender/srMaterial.h"
 #include "surrender/srMemoryAllocator.h"
+#include "surrender/srModeler.h"
 #include "surrender/srQuadWord.h"
 #include "surrender/srTextureFile.h"
 #include "surrender/srVP_generic.h"
@@ -61,6 +62,23 @@ struct ClientTextureFile : srTextureFile
 };
 int main()
 {
+    {
+        srModeler modeler;
+        srModeler::Triangle triangle;
+        for (int row = 0; row < 2; ++row)
+        {
+            for (int vertex = 0; vertex < 3; ++vertex)
+                triangle.vertices[vertex].position.Set(row * 10 + vertex, row * 20 + vertex, -vertex);
+            modeler.addTriangle(triangle);
+        }
+        float minimum, maximum;
+        modeler.getAxialBounds(srModeler::AXIS_X, minimum, maximum);
+        CHECK(minimum == 0 && maximum == 12);
+        modeler.getAxialBounds(srModeler::AXIS_Y, minimum, maximum);
+        CHECK(minimum == 0 && maximum == 22);
+        modeler.getAxialBounds(srModeler::AXIS_Z, minimum, maximum);
+        CHECK(minimum == -2 && maximum == 0);
+    }
     struct alignas(8) WordPair
     {
         unsigned int padding;

@@ -5,6 +5,17 @@
 #include "wiz8/local_code/GameplayCode.h"
 #include "wiz8/local_code/GameplayInit.h"
 #include "wiz8/local_code/LoadSaveGame.h"
+#include "wiz8/engine_code/GDCamera.h"
+#include "wiz8/engine_code/GameData.h"
+#include "wiz8/layouts/combat_state.h"
+#include "wiz8/layouts/game_status.h"
+#include "wiz8/local_code/Combat.h"
+#include "wiz8/local_code/HealthStaminaMana.h"
+#include "wiz8/local_code/MonsterManager.h"
+#include "wiz8/local_code/UtilityFunctions.h"
+#include "wiz8/local_screens/OptionsScreen.h"
+#include "wiz8/utility.h"
+#include "wiz8/xstatus.h"
 #include "wiz8/local_screens/Screens.h"
 #include "wiz8/layouts/screen_state.h"
 #include "wiz8/layouts/character.h"
@@ -148,6 +159,58 @@ int main(int argc, char** argv)
         SaveFrame(output, restored);
         std::string control_path = std::string(output) + ".control.ppm";
         SaveFrame(control_path.c_str(), control);
+        if (argc > 3 && strcmp(argv[3], "kill") == 0)
+        {
+            W8MonsterInfo* monster = GetNextMonsterInfo(true);
+            while (monster && (!monster->fActive || !monster->p3D || !monster->hp_current))
+                monster = GetNextMonsterInfo(false);
+            CHECK(monster);
+            fprintf(stderr, "regression: kill monster %d species %u HP %u\n",
+                    monster->location_id, monster->monster_species, monster->hp_current);
+            if (!gXStatus.fCombatMode)
+            {
+                for (int frame = 0; frame < 90; ++frame)
+                {
+                    SDL_Delay(16);
+                    GameLoop();
+                }
+            }
+            if (!gXStatus.fCombatMode)
+                CHECK(StartCombat(0));
+            if (!monster->fInCombat)
+                MonsterInfoEnterCombat(monster);
+            W8TargetSource attacker{};
+            attacker.iType = W8_TARGET_SOURCE_CHARACTER;
+            attacker.iChar = 0;
+            while (attacker.iChar < W8_PARTY_SLOT_COUNT &&
+                   !g_status.buffers.XChar[attacker.iChar].fOccupied)
+                ++attacker.iChar;
+            CHECK(attacker.iChar < W8_PARTY_SLOT_COUNT);
+            attacker.iMonsterID = -1;
+            ApplyDamageToMonster(monster, monster->hp_current, &attacker, false, 1, 0, nullptr, false);
+            fprintf(stderr, "regression: lethal damage returned\n");
+            for (int frame = 0; frame < 100; ++frame) GameLoop();
+        }
+        if (argc > 3 && strcmp(argv[3], "save") == 0)
+        {
+            CHECK(strcmp(ConvertWideStringToString(L"native-test"), "native-test") == 0);
+            CHECK(SaveGame("native-test", nullptr));
+            fprintf(stderr, "regression: save succeeded\n");
+            CHECK(LoadGame("native-test"));
+            fprintf(stderr, "regression: reload succeeded\n");
+        }
+        if (argc > 3 && strcmp(argv[3], "angles") == 0)
+        {
+            for (int angle = 0; angle < 4; ++angle)
+            {
+                g_gd_camera->SetOrientationImmediate(angle < 2 ? -0.7f : 0.5f,
+                                                      state.yaw[0] + angle * 1.5707963f);
+                GameLoop();
+                RenderFrame();
+                auto pixels = ReadFrame();
+                SaveFrame((std::string(output) + "." + std::to_string(angle) + ".ppm").c_str(), pixels);
+            }
+        }
         result = 0;
     }
     catch (const std::exception& failure)
