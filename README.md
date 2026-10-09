@@ -1,116 +1,141 @@
 # Whizzardry 8
 
-Wizardry 8 and SurRender. The build produces `Wiz8.exe` and `sr.dll`.
-JPEG and UnZip plug-in sources remain in the tree but are excluded from the build.
+Native Linux/macOS port of Wizardry 8 and SurRender, based on the recovered
+sources in [wizardry-8-decomp](https://github.com/agluszak/wizardry-8-decomp).
+The native build uses Clang, SDL3 GPU rendering, FFmpeg for movies, miniaudio
+for sound, and system zlib. CMake downloads miniaudio at a pinned revision.
+**The port runs but does not yet reproduce all retail gameplay and graphics.**
 
-## Native Linux build (in progress)
+This is the modernization repository: it can change runtime implementations,
+memory ownership and serialization adapters. The decomp repository remains the
+retail-faithful Windows reconstruction (see its [port-preparation PR #980](https://github.com/agluszak/wizardry-8-decomp/pull/980)).
+Do not add Windows assembly-matching workarounds here merely to preserve
+the old shared commit history.
 
-Any non-MSVC Clang selects the native lane (`cmake/Native.cmake`): 64-bit
-Linux, SDL3 GPU, system zlib and FFmpeg, with miniaudio downloaded at
-CMake configuration time from a pinned upstream commit.
-It builds `Wiz8Native` and `libsr.so`. The recovered game loop, intro transitions,
-SGP input/surfaces and sound manager run through native adapters. FFmpeg decodes
-Bink video/audio from loose files or bounded SLF streams; movies present through
-SurRender in the same SDL window as the game. Startup, movies, Escape to the
-main menu and exit have been exercised with installed retail assets. The world
-harness loads a real new game and renders the Monastery beach with terrain,
-textures, water, sky, objects and party UI. The executable also reaches that
-scene through its new-game screens on X11 with Mesa lavapipe. Physical input,
-interactive gameplay, save/load and
-shipped-renderer parity still need native runtime validation.
+## Build
+
+On Ubuntu with the development packages available:
 
 ```sh
 sudo apt install clang cmake ninja-build pkg-config libsdl3-dev zlib1g-dev glslang-tools \
     libavformat-dev libavcodec-dev libavutil-dev libswscale-dev libswresample-dev
 cmake -S . -B build-native -G Ninja -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++
 cmake --build build-native
-(cd build-native && ctest)
+ctest --test-dir build-native --output-on-failure
 ```
 
-`srdd_spike` renders through `srGERD` and needs a display with a Vulkan
-driver. `WIZ8_SRDD_TRACE=1` logs device draws; `WIZ8_GPU_DEBUG=1` enables
-SDL GPU debug mode.
-
-`native_events` uses SDL's dummy video driver and exercises the recovered input
-and string editor without a display. `native_imports` checks renderer contracts
-from a separate client executable. See [native validation](tests/native/README.md)
-for coverage and limitations. With installed assets, run the game or the
-focused graphics check:
+The native targets include `Wiz8Native` and `SURRENDER` (`libsr.so` on Linux).
+CMake also builds focused tests and asset-dependent harnesses. For a normal
+launch, install/obtain the retail game assets separately:
 
 ```sh
-WIZ8_ASSET_ROOT=/path/to/Wizardry8 build-native/Wiz8Native /WINDOW
+WIZ8_ASSET_ROOT=/path/to/Wizardry8 ./run.sh /WINDOW
+```
+
+The launcher reads optional `.env`, uses `build-native` by default, chooses X11
+and Mesa lavapipe if no Vulkan driver is configured, and writes
+`diagnostics/launch.log` under the user root. Set `WIZ8_BUILD_DIR`,
+`SDL_VIDEODRIVER`, `VK_DRIVER_FILES` or `VK_ICD_FILENAMES` to override
+these defaults. `WIZ8_GPU_DEBUG=1` enables SDL GPU debugging;
+`WIZ8_SRDD_TRACE=1` traces SurRender draws.
+
+File reads consult `WIZ8_USER_ROOT` first, then `WIZ8_ASSET_ROOT`; writes
+go only to the user root. Keep these directories separate. By default the user
+root is `$XDG_DATA_HOME/whizzardry8` (or `~/.local/share/whizzardry8` on
+Linux; `~/Library/Application Support/whizzardry8` on macOS). The compatibility
+layer maps a case-insensitive, backslash-separated virtual `C:` drive onto the
+asset root and supports optional `WIZ8_CD1_ROOT` through `WIZ8_CD3_ROOT`
+for read-only virtual disc drives.
+
+## Validation
+
+`ctest --test-dir build-native --output-on-failure` runs focused checks for
+file/SLF handling, SDL input and timers, CRT and pointer semantics, save
+records, Huffman/zlib, native audio, FFmpeg movies, JPEG surface transfer,
+blitters and SurRender contracts. `native_events` uses SDL's dummy driver.
+The tests are **not** proof of interactive game or renderer parity.
+
+With installed assets and a Vulkan-capable display:
+
+```sh
 WIZ8_ASSET_ROOT=/path/to/Wizardry8 build-native/native_game_graphics
-# Existing character basename in Saves/Characters; private user overlay:
-WIZ8_ASSET_ROOT=/path/to/Wizardry8 build-native/native_world_graphics party.CHR
+WIZ8_ASSET_ROOT=/path/to/Wizardry8 build-native/native_world_graphics party.CHR \
+    "$PWD/build-native/world.ppm"
+# Additional world harness modes: save, kill, angles.
+WIZ8_ASSET_ROOT=/path/to/Wizardry8 build-native/native_world_graphics party.CHR \
+    "$PWD/build-native/world.ppm" save
 ```
 
-The harness uses a temporary user overlay and a private 640x480 configuration.
+The world harness uses the actual level, party and asset loaders with a
+private writable overlay. Previous Linux/X11/lavapipe checks loaded the
+Monastery beach, submitted 38 enabled meshes/3,394 polygons and completed
+a save/reload round trip. Counts may vary with animation; this does not
+establish retail visual parity. `native_movie_test` also accepts a path to a
+retail `.BIK` file; `tests/native/generate_movie.sh` regenerates its
+checked-in media fixtures using FFmpeg.
 
-File I/O uses a virtual `C:\` rooted at `WIZ8_ASSET_ROOT` (default: startup
-working directory). Reads check `WIZ8_USER_ROOT` first, then installed assets;
-writes go to the user root. Its default is `$XDG_DATA_HOME/whizzardry8`, or
-`$HOME/.local/share/whizzardry8` on Linux and
-`$HOME/Library/Application Support/whizzardry8` on macOS. Backslashes and ASCII
-case differences work throughout Win32 wrappers, CRT opens and SurRender streams.
-The roots must be separate. Optional `WIZ8_CD1_ROOT`, `WIZ8_CD2_ROOT` and
-`WIZ8_CD3_ROOT` expose read-only `D:\`, `E:\`, `F:\` drives with retail disc labels.
-These directories may point at mounted discs or extracted installations.
-See [native I/O validation](tests/native/README.md) for tested behavior and limits.
+To investigate external SDL/Vulkan shutdown allocations independently of
+game code, build and run `native_gpu_lifecycle`. Existing full-game
+LeakSanitizer results include allocations in game owners and external
+DBus/graphics drivers; they are not leak-clean. GPU/device tests require
+a usable Vulkan backend. macOS and physical input/audio have not been
+fully validated.
 
-## Clang in Docker
+## Porting constraints
 
-The image pins the Debian base and package snapshot, LLVM 19, the Microsoft
-CRT/Windows SDK manifest, and the zlib 1.0.4 archive checksum. It contains all
-build dependencies; no host compiler, SDK, Python installation, or extracted
-library tree is used.
+- Keep on-disk records and serialized pointer words at their actual widths.
+  `W8_PTR32` represents four-byte disk pointer slots; live 64-bit pointers
+  require an explicit mapping.
+- MSVC `long` is 32-bit, unlike LP64 `long`; `w8_long`/`w8_ulong` express
+  game-sized fields. Derive allocation and stride sizes from their types
+  without altering format-defined byte counts.
+- Game text has two-byte `wchar_t` (`-fshort-wchar`) and needs explicit
+  native UTF-16/CRT adapters. Never call host wide-string libc functions
+  that assume four-byte `wchar_t` on Linux.
+- Packed members, ownership, callback signatures and raw I/O records need
+  review at their producer/consumer boundaries; a clean compile is not
+  evidence of correct behavior.
+- Retain recovered game/SGP logic where useful. Native platform replacement
+  belongs in `src/compat/`, `src/sgp/native/`, `src/surrender/native/`
+  and the SDL GPU device, not in copied vendor implementations.
 
-```sh
-docker build --platform linux/amd64 -t whizzardry8-clang:llvm19 docker/clang
-mkdir -p build-clang/docker
-docker run --rm --network none \
-    -v "$PWD:/repo:ro" -v "$PWD/build-clang/docker:/out" \
-    whizzardry8-clang:llvm19
-```
+## Known problems and next work
 
-The container configures CMake and builds 32-bit Windows binaries with clang-cl
-and LLD. Set `-e BUILD_JOBS=4` to change build parallelism. Outputs go into
-`build-clang/docker`. Both `Wiz8.exe` and `sr.dll` build with Clang. The resulting binaries use the
-modern Microsoft C/C++ runtime, including the x86 Visual C++ runtime DLLs.
+- **Rendering:** sky sections disappear at some camera angles; terrain has
+  dark/flickering triangles; compass and formation widgets have dark wedges.
+  Compare the GPU pipeline and scenes against retail before claiming parity.
+- **Saves:** the real save/load routines round-trip in an isolated harness,
+  but the interactive options menu has reported an overwrite/write-protected
+  error. Test actual menu actions.
+- **Combat:** an observed crash follows killing a crab. Earlier sanitizer
+  evidence reached an unaligned experience reference in
+  `AwardPartyExperience`; neither the cause nor fix is established.
+- **Native behavior:** exercise real keyboard/mouse/focus, audible playback,
+  Wayland, macOS, full shutdown and additional gameplay/save paths.
+  Verify real JPEG decoding and native unzip integration, not only mocked
+  transfer/fixture paths.
+- **Source cleanup:** review remaining narrow `printf` calls with two-byte
+  strings (`%S`/`%ls`), packed pointer escapes, callbacks, raw record fields,
+  narrowing conversions, object lifetimes and owning copies. Investigate
+  the temporary string leak in `AppendToLastTextLine`, sentinel/null cursor
+  arithmetic and cleanup/error paths. Do not widen serialized pointer slots
+  or change intentional byte pitches/alignment padding.
 
-## MSVC 6
+## Legacy Windows builds
 
-Use a VC6 SP5 command prompt with CMake 3.20 or newer, Python 3, and zlib 1.0.4
-sources:
+The temporary legacy lane still builds `Wiz8.exe` and `sr.dll` with VC6 or
+clang-cl, using zlib 1.0.4. For VC6 SP5 (with Python 3 and CMake 3.20+):
 
 ```bat
 cmake -S . -B build -G "NMake Makefiles" -DCMAKE_BUILD_TYPE=Release -DZLIB_SOURCE=C:/deps/zlib-1.0.4
 cmake --build build
 ```
 
-The VC6 Docker toolchain remains in `docker/msvc600`. CMake uses Python only
-to generate the existing SurRender assertion import library.
+The isolated clang-cl Docker workflow is available in `docker/clang`;
+`docker/msvc600` contains the VC6 toolchain. The legacy blitter capture
+harness remains optional (`WIZ8_BUILD_LEGACY_BLITTER_TEST`). Exact Windows
+assembly equivalence is tracked in the decomp project, not here.
 
-Running the game requires installed Wizardry 8 assets and its other runtime
-DLLs. Third-party sources retain their own licenses, including the SGP license
-in `src/sgp/SFI Source Code license agreement.txt`.
-
-## Launching on Linux
-
-Run `./run.sh` from any directory. It loads the repository's `.env` and launches
-`build-native/Wiz8Native` directly with the installed assets in `build/run-clang`.
-The default renderer uses X11 and Mesa lavapipe, matching the verified native
-new-game route. The launcher creates a 640x480 native video configuration only
-when the user overlay has none; later video choices are preserved.
-
-`WIZ8_BUILD_DIR` selects another native build directory. `WIZ8_ASSET_ROOT` (or
-`WIZ8_RUN_DIR`) selects the installed assets, and `WIZ8_USER_ROOT` selects the
-separate writable save/config directory. The default user root is
-`${XDG_DATA_HOME:-$HOME/.local/share}/whizzardry8`. Set `VK_DRIVER_FILES` or
-`VK_ICD_FILENAMES` to choose another Vulkan driver, or `SDL_VIDEODRIVER` to choose
-another SDL display backend. Defaults use the already installed lavapipe ICD;
-if it is missing, the launcher tells you to install `mesa-vulkan-drivers`.
-
-Arguments are passed to the game, for example `./run.sh /NOSOUND`. Output is
-saved to the user root's `diagnostics/launch.log`. The game runs in the
-foreground: close its window or press Ctrl-C to quit. Rebuild after source
-changes with `cmake --build build-native`.
+Retail assets and proprietary runtime libraries are not distributed in
+this repository. Third-party source licenses, including the SGP license,
+remain with their respective sources.

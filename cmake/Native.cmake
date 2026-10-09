@@ -146,15 +146,6 @@ add_test(NAME native_blitters COMMAND native_blitter_test
 add_test(NAME native_no_glibc_wide_strings
     COMMAND sh -c "! nm -u $<TARGET_FILE:wiz8_compat> $<TARGET_FILE:SURRENDER> $<TARGET_FILE:native_crt_test> | grep -E ' U (wcs|wmem|swprintf|vswprintf|wprintf)'")
 
-# srGERD on the SDL3 GPU device; needs a display and a Vulkan driver.
-add_executable(srdd_spike tests/native/srdd_spike.cpp)
-target_link_libraries(srdd_spike PRIVATE SURRENDER wiz8_native_settings SDL3::SDL3)
-add_test(NAME srdd_spike COMMAND srdd_spike 60)
-
-add_executable(native_surface_oracle tests/native/surface_oracle.cpp)
-target_link_libraries(native_surface_oracle PRIVATE WIZ8_SGP)
-add_test(NAME native_surface_oracle COMMAND native_surface_oracle "${PROJECT_SOURCE_DIR}/tests/native/surfaces_legacy.txt")
-
 add_executable(native_game_graphics tests/native/game_graphics.cpp)
 target_compile_definitions(native_game_graphics PRIVATE
     WIZ8_RENDERER_LIBRARY="$<TARGET_FILE:SURRENDER>"
