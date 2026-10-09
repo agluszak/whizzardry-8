@@ -114,3 +114,20 @@ Arguments are passed to the game, for example `./run.sh /NOSOUND`. Output is
 saved to the user root's `diagnostics/launch.log`. The game runs in the
 foreground: close its window or press Ctrl-C to quit. Rebuild after source
 changes with `cmake --build build-native`.
+
+## Continuous integration
+
+GitHub Actions on Ubuntu 26.04 builds the native executable, SurRender and all
+test binaries with Clang 21; runs native platform code through clang-tidy;
+checks scripts and workflow syntax; and runs the 14 CTest cases in Xvfb with
+Mesa's software Vulkan driver. These tests need no proprietary assets.
+
+When repository secrets `WIZ8_INPUTS_TOKEN` (read access to the private
+`agluszak/wiz8-ci-inputs` release) and `WIZ8_CACHE_KEY` (the same cache
+encryption key used by wizardry-8-decomp CI) are configured, CI also runs the
+retail-asset graphics test and Sir-Tech movie decode. If the installed assets
+include a character under `Saves/Characters`, it additionally runs the
+new-game/world and save/load harness. The installer comes from the decomp CI
+input release using the decomp's pinned composite action; only its encrypted
+form is cached. Licensed tests are skipped on fork PRs or when these secrets
+are missing, and CI reports the skip explicitly.
