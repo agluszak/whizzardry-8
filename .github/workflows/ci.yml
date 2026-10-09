@@ -21,7 +21,7 @@ env:
   GOG_INPUT_REPO: agluszak/wiz8-ci-inputs
   GOG_RELEASE_TAG: gog-22306
   GOG_CACHE_VERSION: v1-aes256cbc-pbkdf2-200000
-  WIZ8_INPUT_DIR: ${{ runner.temp }}/wiz8-inputs
+  WIZ8_INPUT_DIR: /tmp/wiz8-inputs
 
 jobs:
   lint:
