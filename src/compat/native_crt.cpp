@@ -290,6 +290,34 @@ int w8_wtoi(const wchar_t* text)
     return atoi(narrow(text).c_str());
 }
 
+size_t w8_wcstombs(char* destination, const wchar_t* source, size_t count)
+{
+    mbstate_t state = {};
+    size_t written = 0;
+    for (size_t index = 0;; ++index) {
+        if (destination != 0 && written == count) {
+            return written;
+        }
+        const wchar_t character = read_wide(source, index);
+        char bytes[MB_LEN_MAX];
+        // The host receives a scalar character, never a two-byte text pointer.
+        const size_t length = wcrtomb(bytes, character, &state);
+        if (length == static_cast<size_t>(-1)) {
+            return length;
+        }
+        if (destination != 0) {
+            if (length > count - written) {
+                return written;
+            }
+            memcpy(destination + written, bytes, length);
+        }
+        if (character == 0) {
+            return written + length - 1;
+        }
+        written += length;
+    }
+}
+
 int w8_vswprintf(wchar_t* buffer, const wchar_t* format, va_list arguments)
 {
     Output out = {buffer, 0};

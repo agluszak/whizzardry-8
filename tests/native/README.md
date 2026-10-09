@@ -3,6 +3,22 @@
 Run the configured native lane with `cmake --build build-native` and
 `ctest --test-dir build-native --output-on-failure`.
 
+`native_save_records` writes private NPCT version 2/3 and NSF fixtures and runs
+the production loaders. It checks absent/nonzero pointer markers, collisions
+with runtime handle IDs, following payload alignment, empty strings and stale
+zero-count array slots. It also exercises packed condition arrays through the
+real AI spell selector and packed points through PointInsideTriangle. No retail
+assets or display are required. Fixture allocations are released explicitly;
+the recovered NSF release routine does not free all outer arrays/text.
+
+`native_jpeg_transfer` links the production JPEG importer and transfer loops
+with controlled codec adapters. One-, three- and four-component rows check
+pitch and byte permutations; this does not test actual JPEG decoding.
+`native_imports` additionally compares srFloatToInt with x87 signed-dword FISTP
+under every rounding mode and exercises odd-address vector min/max and texture
+name replacement. `native_crt` covers bounded, alignment-safe UTF16-to-narrow
+conversion. These four tests pass ASan/UBSan with leak detection.
+
 `native_events` sends SDL events through the native message bridge into the
 recovered SGP `input.cpp` and `timer.cpp`. It checks keys/modifiers, repeated
 keys, extended/numpad keys, string editing, mouse scaling and immediate warp queries, button repeats and

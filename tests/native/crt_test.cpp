@@ -61,6 +61,20 @@ int main()
         fprintf(stderr, "_strupr\n");
         ++failures;
     }
+    char converted[8] = {};
+    if (wcstombs(converted, item_name, sizeof(converted)) != 5 ||
+        strcmp(converted, "abcDE") != 0 || wcstombs(nullptr, item_name, 0) != 5) {
+        fprintf(stderr, "packed UTF-16 to narrow conversion\n");
+        ++failures;
+    }
+    const wchar_t invalid[] = {static_cast<wchar_t>(0xd800), 0};
+    memset(converted, '!', sizeof(converted));
+    if (wcstombs(converted, item_name, 3) != 3 || memcmp(converted, "abc!", 4) != 0 ||
+        wcstombs(converted, invalid, 0) != 0 ||
+        wcstombs(converted, invalid, sizeof(converted)) != static_cast<size_t>(-1)) {
+        fprintf(stderr, "bounded conversion and invalid UTF-16\n");
+        ++failures;
+    }
     if (failures == 0) {
         printf("ok\n");
     }

@@ -105,6 +105,21 @@ add_executable(native_pointer_test tests/native/pointer_test.cpp)
 target_link_libraries(native_pointer_test PRIVATE wiz8_native_settings)
 add_test(NAME native_pointer COMMAND native_pointer_test)
 
+add_executable(native_save_records_test tests/native/save_records_test.cpp)
+target_link_libraries(native_save_records_test PRIVATE WIZ8_GAME_CORE WIZ8_SGP WIZ8_GAME_CORE SDL3::SDL3)
+if(APPLE)
+    target_link_options(native_save_records_test PRIVATE -Wl,-dead_strip)
+else()
+    target_link_options(native_save_records_test PRIVATE -Wl,--gc-sections -Wl,-z,start-stop-gc)
+endif()
+add_test(NAME native_save_records COMMAND native_save_records_test)
+
+add_executable(native_jpeg_transfer_test tests/native/jpeg_transfer_test.cpp
+    src/srext_jpegimporter/plugin.cpp src/srext_jpegimporter/surface_transfer.cpp)
+target_include_directories(native_jpeg_transfer_test PRIVATE "${PROJECT_SOURCE_DIR}/src/srext_jpegimporter")
+target_link_libraries(native_jpeg_transfer_test PRIVATE SURRENDER wiz8_native_settings)
+add_test(NAME native_jpeg_transfer COMMAND native_jpeg_transfer_test)
+
 add_executable(native_blitter_test tests/native/blitter_test.cpp)
 target_link_libraries(native_blitter_test PRIVATE WIZ8_SGP)
 add_test(NAME native_blitters COMMAND native_blitter_test

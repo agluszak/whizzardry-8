@@ -8,6 +8,12 @@
 #include "surrender/srMaterial.h"
 #include "surrender/srMemoryAllocator.h"
 #include "surrender/srQuadWord.h"
+#include "surrender/srTextureFile.h"
+#include "surrender/srVP_generic.h"
+#include <cfenv>
+#include <cmath>
+#include <initializer_list>
+#include <limits>
 #include "wiz8/sr_api.h"
 #include <cstdio>
 #include <cstring>
@@ -34,11 +40,24 @@ static void assertion(const char* expression, const char* path, w8_long line, co
 }
 struct ClientNode : srNode
 {
-    ~ClientNode() override {}
+    ~ClientNode() override
+    {
+    }
 };
 struct ClientMaterial : srMaterial
 {
-    ~ClientMaterial() override {}
+    ~ClientMaterial() override
+    {
+    }
+};
+struct ClientTextureFile : srTextureFile
+{
+    ClientTextureFile() : srTextureFile(nullptr, 0)
+    {
+    }
+    ~ClientTextureFile() override
+    {
+    }
 };
 int main()
 {
@@ -49,9 +68,57 @@ int main()
     } words{0, {7, 1}};
     static_assert(offsetof(WordPair, value) == 4, "exercise four-byte aligned word pair");
     CHECK(double(words.value) == 4294967303.0);
+    for (int mode : {FE_TONEAREST, FE_DOWNWARD, FE_UPWARD, FE_TOWARDZERO})
+    {
+        CHECK(fesetround(mode) == 0);
+        const double inputs[] = {0.0,
+                                 1.5,
+                                 -1.5,
+                                 2147483647.0,
+                                 -2147483648.0,
+                                 2147483648.0,
+                                 -2147483649.0,
+                                 4294967296.0,
+                                 std::numeric_limits<double>::infinity(),
+                                 -std::numeric_limits<double>::infinity(),
+                                 std::numeric_limits<double>::quiet_NaN()};
+        for (volatile double input : inputs)
+        {
+            feclearexcept(FE_ALL_EXCEPT);
+            const w8_long actual = srFloatToInt(input);
+            const bool invalid = fetestexcept(FE_INVALID);
+#if defined(__i386__) || defined(__x86_64__)
+            w8_long retail;
+            feclearexcept(FE_ALL_EXCEPT);
+            asm volatile("fldl %1; fistpl %0" : "=m"(retail) : "m"(input) : "st");
+            CHECK(actual == retail && invalid == bool(fetestexcept(FE_INVALID)));
+#else
+            if (!std::isfinite(input) || input >= 2147483648.0 || input < -2147483648.0)
+            {
+                CHECK(actual == (-2147483647 - 1) && invalid);
+            }
+#endif
+        }
+    }
+    CHECK(fesetround(FE_TONEAREST) == 0);
+    CHECK(srFloatToInt(std::numeric_limits<float>::quiet_NaN()) == (-2147483647 - 1));
     srAssertSetFunc(assertion);
     CHECK(srInit());
     {
+        struct alignas(16) PackedVectors
+        {
+            char padding;
+            srVector3 values[2];
+            srVector3 minimum;
+            srVector3 maximum;
+        } vectors;
+        vectors.values[0].Set(5, -2, 7);
+        vectors.values[1].Set(-3, 9, 1);
+        CHECK(reinterpret_cast<uintptr_t>(&vectors.values[0]) % alignof(float) != 0);
+        srVP_generic processor;
+        processor._minMax(vectors.values, vectors.minimum, vectors.maximum, 2);
+        CHECK(vectors.minimum.x == -3 && vectors.minimum.y == -2 && vectors.minimum.z == 1);
+        CHECK(vectors.maximum.x == 5 && vectors.maximum.y == 9 && vectors.maximum.z == 7);
         srMemoryAllocator allocator;
         const unsigned sizes[] = {1u, 17u, 257u, 1025u};
         for (unsigned size : sizes)
@@ -68,6 +135,12 @@ int main()
             allocator.free(first); // Unlink a non-head block, then the head.
             allocator.free(second);
         }
+        // A raw operator-new name buffer must use the same release family.
+        ClientTextureFile texture;
+        texture.setFileName("first.bmp");
+        texture.setFileName("second.bmp");
+        CHECK(strcmp(texture.getFileName(), "second.bmp") == 0);
+        texture.setFileName(nullptr);
         srCamera source, copy;
         source.setViewPlane(2, 3);
         copy = source;
@@ -117,7 +190,8 @@ int main()
         // Exercise a branching symbol tree, as used by octree alpha bits.
         const w8_ulong values[] = {10, 10, 11, 12, 13, 10, 13, 14, 0xffffffff};
         srHuffman::Sampler tree_sampler;
-        for (auto value : values) tree_sampler.insert(value);
+        for (auto value : values)
+            tree_sampler.insert(value);
         srHuffman::Compressor compressor(tree_sampler);
         srBinOMStream encoded;
         {
@@ -126,14 +200,15 @@ int main()
             bits.put(compressor.code_width, 6);
             bits.put(sizeof(values) / sizeof(values[0]), 32);
             compressor.storeSymbolTable(bits);
-            for (auto value : values) compressor.compressSymbol(bits, value);
+            for (auto value : values)
+                compressor.compressSymbol(bits, value);
         }
         srBinIMStream input(encoded.getPtr(), encoded.getSize());
         srHuffman::BitIStream bits(input);
         srHuffman::Decompressor decoder(bits);
         CHECK(decoder.getDataCount() == sizeof(values) / sizeof(values[0]));
-        for (auto value : values) CHECK(decoder.decompressSymbol() == value);
-
+        for (auto value : values)
+            CHECK(decoder.decompressSymbol() == value);
     }
     srAssertFail("native probe", "imports_test.cpp", 42, "value %d", 7);
     CHECK(assertions == 1);
