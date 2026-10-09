@@ -11,8 +11,12 @@ It builds `Wiz8Native` and `libsr.so`. The recovered game loop, intro transition
 SGP input/surfaces and sound manager run through native adapters. FFmpeg decodes
 Bink video/audio from loose files or bounded SLF streams; movies present through
 SurRender in the same SDL window as the game. Startup, movies, Escape to the
-main menu and exit have been exercised with installed retail assets. World
-rendering, gameplay and save/load still need native runtime validation.
+main menu and exit have been exercised with installed retail assets. The world
+harness loads a real new game and renders the Monastery beach with terrain,
+textures, water, sky, objects and party UI. The executable also reaches that
+scene through its new-game screens on X11 with Mesa lavapipe. Physical input,
+interactive gameplay, save/load and
+shipped-renderer parity still need native runtime validation.
 
 ```sh
 sudo apt install clang cmake ninja-build pkg-config libsdl3-dev zlib1g-dev glslang-tools \
@@ -35,6 +39,8 @@ focused graphics check:
 ```sh
 WIZ8_ASSET_ROOT=/path/to/Wizardry8 build-native/Wiz8Native /WINDOW
 WIZ8_ASSET_ROOT=/path/to/Wizardry8 build-native/native_game_graphics
+# Existing character basename in Saves/Characters; private user overlay:
+WIZ8_ASSET_ROOT=/path/to/Wizardry8 build-native/native_world_graphics party.CHR
 ```
 
 The harness uses a temporary user overlay and a private 640x480 configuration.

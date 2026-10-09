@@ -42,6 +42,20 @@ int main()
         fprintf(stderr, "comparison helpers\n");
         ++failures;
     }
+    // Item database names have a three-byte prefix, so UTF-16 is unaligned.
+    alignas(wchar_t) unsigned char packed[64]{};
+    wchar_t* item_name = reinterpret_cast<wchar_t*>(packed + 3);
+    const wchar_t name[] = L"Potion of Light";
+    memcpy(packed + 3, name, sizeof(name));
+    swprintf(buffer, L"%s", item_name);
+    expect(buffer, name, "packed item name formatting");
+    wcscpy(item_name, L"abc");
+    wcsncat(item_name, L"DEF", 2);
+    if (wcslen(item_name) != 5 || _wcsicmp(item_name, L"abcde") != 0 ||
+        wcschr(item_name, L'D') != item_name + 3) {
+        fprintf(stderr, "packed item name helpers\n");
+        ++failures;
+    }
     char text[] = "MiXed";
     if (strcmp(_strupr(text), "MIXED") != 0) {
         fprintf(stderr, "_strupr\n");

@@ -44,11 +44,11 @@ void main()
         color.rgb += in_specular.rgb;
     }
     if (mode.w == FOG_ENABLE) {
-        color.rgb = mix(fog_color.rgb, color.rgb, in_fog);
+        color.rgb = mix(color.rgb, fog_color.rgb, in_fog);
     } else if (mode.w == FOG_WHITE) {
-        color.rgb = mix(vec3(1.0), color.rgb, in_fog);
+        color.rgb = mix(color.rgb, vec3(1.0), in_fog);
     } else if (mode.w == FOG_SCALE_FRAGMENT) {
-        color.rgb *= in_fog;
+        color.rgb *= 1.0 - in_fog;
     }
     if (alpha.x != 0.0 && color.a <= alpha.y) {
         discard;

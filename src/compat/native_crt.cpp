@@ -8,11 +8,25 @@
 #include <string>
 
 namespace {
+/* Database strings can start at odd byte offsets in packed retail records. */
+wchar_t read_wide(const wchar_t* text, size_t index = 0)
+{
+    wchar_t value;
+    memcpy(&value, reinterpret_cast<const unsigned char*>(text) + index * sizeof(value),
+           sizeof(value));
+    return value;
+}
+
+void write_wide(wchar_t* text, size_t index, wchar_t value)
+{
+    memcpy(reinterpret_cast<unsigned char*>(text) + index * sizeof(value), &value, sizeof(value));
+}
+
 std::string narrow(const wchar_t* text)
 {
     std::string result;
-    for (; *text != 0; ++text) {
-        result += *text < 0x100 ? (char)*text : '?';
+    for (; read_wide(text) != 0; ++text) {
+        result += read_wide(text) < 0x100 ? (char)read_wide(text) : '?';
     }
     return result;
 }
@@ -29,7 +43,7 @@ struct Output {
 
     void put(wchar_t character)
     {
-        buffer[length++] = character;
+        write_wide(buffer, length++, character);
     }
 
     void pad(int count, wchar_t character)
@@ -102,7 +116,7 @@ void w8_splitpath(const char* path, char* drive, char* directory, char* name, ch
 size_t w8_wcslen(const wchar_t* text)
 {
     size_t length = 0;
-    while (text[length] != 0) {
+    while (read_wide(text, length) != 0) {
         ++length;
     }
     return length;
@@ -111,7 +125,10 @@ size_t w8_wcslen(const wchar_t* text)
 wchar_t* w8_wcscpy(wchar_t* destination, const wchar_t* source)
 {
     wchar_t* cursor = destination;
-    while ((*cursor++ = *source++) != 0) {
+    for (;;) {
+        const wchar_t character = read_wide(source++);
+        write_wide(cursor++, 0, character);
+        if (character == 0) break;
     }
     return destination;
 }
@@ -119,11 +136,11 @@ wchar_t* w8_wcscpy(wchar_t* destination, const wchar_t* source)
 wchar_t* w8_wcsncpy(wchar_t* destination, const wchar_t* source, size_t count)
 {
     size_t index = 0;
-    for (; index < count && source[index] != 0; ++index) {
-        destination[index] = source[index];
+    for (; index < count && read_wide(source, index) != 0; ++index) {
+        write_wide(destination, index, read_wide(source, index));
     }
     for (; index < count; ++index) {
-        destination[index] = 0;
+        write_wide(destination, index, 0);
     }
     return destination;
 }
@@ -138,18 +155,18 @@ wchar_t* w8_wcsncat(wchar_t* destination, const wchar_t* source, size_t count)
 {
     wchar_t* end = destination + w8_wcslen(destination);
     size_t index = 0;
-    for (; index < count && source[index] != 0; ++index) {
-        end[index] = source[index];
+    for (; index < count && read_wide(source, index) != 0; ++index) {
+        write_wide(end, index, read_wide(source, index));
     }
-    end[index] = 0;
+    write_wide(end, index, 0);
     return destination;
 }
 
 int w8_wcsncmp(const wchar_t* first, const wchar_t* second, size_t count)
 {
     for (size_t index = 0; index < count; ++index) {
-        const unsigned short a = (unsigned short)first[index];
-        const unsigned short b = (unsigned short)second[index];
+        const unsigned short a = (unsigned short)read_wide(first, index);
+        const unsigned short b = (unsigned short)read_wide(second, index);
         if (a != b || a == 0) {
             return a < b ? -1 : a > b ? 1 : 0;
         }
@@ -165,8 +182,8 @@ int w8_wcscmp(const wchar_t* first, const wchar_t* second)
 int w8_wcsnicmp(const wchar_t* first, const wchar_t* second, size_t count)
 {
     for (size_t index = 0; index < count; ++index) {
-        const unsigned short a = (unsigned short)lower(first[index]);
-        const unsigned short b = (unsigned short)lower(second[index]);
+        const unsigned short a = (unsigned short)lower(read_wide(first, index));
+        const unsigned short b = (unsigned short)lower(read_wide(second, index));
         if (a != b || a == 0) {
             return a < b ? -1 : a > b ? 1 : 0;
         }
@@ -182,10 +199,10 @@ int w8_wcsicmp(const wchar_t* first, const wchar_t* second)
 wchar_t* w8_wcschr(const wchar_t* text, wchar_t character)
 {
     for (;; ++text) {
-        if (*text == character) {
+        if (read_wide(text) == character) {
             return const_cast<wchar_t*>(text);
         }
-        if (*text == 0) {
+        if (read_wide(text) == 0) {
             return 0;
         }
     }
@@ -195,10 +212,10 @@ wchar_t* w8_wcsrchr(const wchar_t* text, wchar_t character)
 {
     const wchar_t* found = 0;
     for (;; ++text) {
-        if (*text == character) {
+        if (read_wide(text) == character) {
             found = text;
         }
-        if (*text == 0) {
+        if (read_wide(text) == 0) {
             return const_cast<wchar_t*>(found);
         }
     }
@@ -207,7 +224,7 @@ wchar_t* w8_wcsrchr(const wchar_t* text, wchar_t character)
 wchar_t* w8_wcsstr(const wchar_t* text, const wchar_t* pattern)
 {
     const size_t length = w8_wcslen(pattern);
-    for (; *text != 0; ++text) {
+    for (; read_wide(text) != 0; ++text) {
         if (w8_wcsncmp(text, pattern, length) == 0) {
             return const_cast<wchar_t*>(text);
         }
@@ -218,7 +235,7 @@ wchar_t* w8_wcsstr(const wchar_t* text, const wchar_t* pattern)
 size_t w8_wcscspn(const wchar_t* text, const wchar_t* reject)
 {
     size_t length = 0;
-    while (text[length] != 0 && w8_wcschr(reject, text[length]) == 0) {
+    while (read_wide(text, length) != 0 && w8_wcschr(reject, read_wide(text, length)) == 0) {
         ++length;
     }
     return length;
@@ -227,7 +244,7 @@ size_t w8_wcscspn(const wchar_t* text, const wchar_t* reject)
 size_t w8_wcsspn(const wchar_t* text, const wchar_t* accept)
 {
     size_t length = 0;
-    while (text[length] != 0 && w8_wcschr(accept, text[length]) != 0) {
+    while (read_wide(text, length) != 0 && w8_wcschr(accept, read_wide(text, length)) != 0) {
         ++length;
     }
     return length;
@@ -244,13 +261,13 @@ wchar_t* w8_wcstok(wchar_t* text, const wchar_t* delimiters)
         return 0;
     }
     text += w8_wcsspn(text, delimiters);
-    if (*text == 0) {
+    if (read_wide(text) == 0) {
         next = 0;
         return 0;
     }
     wchar_t* end = text + w8_wcscspn(text, delimiters);
-    if (*end != 0) {
-        *end = 0;
+    if (read_wide(end) != 0) {
+        write_wide(end, 0, 0);
         next = end + 1;
     } else {
         next = 0;
@@ -276,12 +293,12 @@ int w8_wtoi(const wchar_t* text)
 int w8_vswprintf(wchar_t* buffer, const wchar_t* format, va_list arguments)
 {
     Output out = {buffer, 0};
-    for (const wchar_t* cursor = format; *cursor != 0; ++cursor) {
-        if (*cursor != L'%') {
-            out.put(*cursor);
+    for (const wchar_t* cursor = format; read_wide(cursor) != 0; ++cursor) {
+        if (read_wide(cursor) != L'%') {
+            out.put(read_wide(cursor));
             continue;
         }
-        if (cursor[1] == L'%') {
+        if (read_wide(cursor, 1) == L'%') {
             out.put(L'%');
             ++cursor;
             continue;
@@ -290,12 +307,12 @@ int w8_vswprintf(wchar_t* buffer, const wchar_t* format, va_list arguments)
         std::string spec = "%";
         ++cursor;
         bool left = false;
-        while (*cursor != 0 && wcschr(L"-+ #0", *cursor) != 0) {
-            left |= *cursor == L'-';
-            spec += (char)*cursor++;
+        while (read_wide(cursor) != 0 && wcschr(L"-+ #0", read_wide(cursor)) != 0) {
+            left |= read_wide(cursor) == L'-';
+            spec += (char)read_wide(cursor++);
         }
         int width = -1;
-        if (*cursor == L'*') {
+        if (read_wide(cursor) == L'*') {
             width = va_arg(arguments, int);
             if (width < 0) {
                 left = true;
@@ -304,47 +321,47 @@ int w8_vswprintf(wchar_t* buffer, const wchar_t* format, va_list arguments)
             spec += std::to_string(width);
             ++cursor;
         } else {
-            while (*cursor >= L'0' && *cursor <= L'9') {
-                width = (width < 0 ? 0 : width * 10) + (*cursor - L'0');
-                spec += (char)*cursor++;
+            while (read_wide(cursor) >= L'0' && read_wide(cursor) <= L'9') {
+                width = (width < 0 ? 0 : width * 10) + (read_wide(cursor) - L'0');
+                spec += (char)read_wide(cursor++);
             }
         }
         int precision = -1;
-        if (*cursor == L'.') {
+        if (read_wide(cursor) == L'.') {
             spec += '.';
             ++cursor;
             precision = 0;
-            if (*cursor == L'*') {
+            if (read_wide(cursor) == L'*') {
                 precision = va_arg(arguments, int);
                 spec += std::to_string(precision);
                 ++cursor;
             } else {
-                while (*cursor >= L'0' && *cursor <= L'9') {
-                    precision = precision * 10 + (*cursor - L'0');
-                    spec += (char)*cursor++;
+                while (read_wide(cursor) >= L'0' && read_wide(cursor) <= L'9') {
+                    precision = precision * 10 + (read_wide(cursor) - L'0');
+                    spec += (char)read_wide(cursor++);
                 }
             }
         }
         /* Length: h, l, ll, I64, w. long is 32 bits on Windows. */
         enum { DEFAULT, SHORT, LONG64, NARROW, WIDE } size = DEFAULT;
         for (;;) {
-            if (*cursor == L'h') {
+            if (read_wide(cursor) == L'h') {
                 size = SHORT;
                 ++cursor;
-            } else if (*cursor == L'l' && cursor[1] == L'l') {
+            } else if (read_wide(cursor) == L'l' && read_wide(cursor, 1) == L'l') {
                 size = LONG64;
                 cursor += 2;
-            } else if (*cursor == L'l' || *cursor == L'w') {
+            } else if (read_wide(cursor) == L'l' || read_wide(cursor) == L'w') {
                 size = size == DEFAULT ? WIDE : size;
                 ++cursor;
-            } else if (*cursor == L'I' && cursor[1] == L'6' && cursor[2] == L'4') {
+            } else if (read_wide(cursor) == L'I' && read_wide(cursor, 1) == L'6' && read_wide(cursor, 2) == L'4') {
                 size = LONG64;
                 cursor += 3;
             } else {
                 break;
             }
         }
-        const wchar_t conversion = *cursor;
+        const wchar_t conversion = read_wide(cursor);
         if (conversion == 0) {
             break;
         }
@@ -369,7 +386,7 @@ int w8_vswprintf(wchar_t* buffer, const wchar_t* format, va_list arguments)
             }
             for (int index = 0; index < length; ++index) {
                 out.put(narrow_text ? (wchar_t)(unsigned char)static_cast<const char*>(argument)[index]
-                                    : static_cast<const wchar_t*>(argument)[index]);
+                                    : read_wide(static_cast<const wchar_t*>(argument), index));
             }
             if (left) {
                 out.pad(width - length, L' ');

@@ -24,8 +24,8 @@ interval bounds. Text goes through the recovered key table/string editor;
 SDL text-input/IME support is not implemented.
 
 `native_imports` compiles a separate renderer client and exercises generated
-copy/destructor contracts for cameras, clip planes, fog, materials and Huffman
-sampling, plus the provider's variadic assertion signature. It also checks a
+copy/destructor contracts for cameras, clip planes, fog, materials and lights,
+plus branching Huffman compression/decompression and sampling, plus the provider's variadic assertion signature. It also checks a
 four-byte-aligned `srQuadWord` conversion. Native clients use the same generated
 members as the library; Windows import declarations remain intact.
 
@@ -66,7 +66,7 @@ Escape, with cursor and menu input. A standard window-close request reaches the
 native window procedure and exits normally (status 0). The recovered menu Exit
 screen waits for a further key or button press. Checks used a private overlay
 and X11 on this Linux host.
-Physical input, audible output, Wayland/macOS, world rendering and gameplay
+Physical input, audible output, Wayland/macOS and interactive gameplay
 have not been validated. Full-game ASan/UBSan reaches the menu and exit without
 invalid accesses, but LeakSanitizer reports existing game status buffers and
 vectors plus external DBus/unloaded-driver allocations. This is not a
@@ -118,12 +118,53 @@ WIZ8_ASSET_ROOT=/path/to/Wizardry8 build-native/native_game_graphics \
 ```
 
 The graphics harness uses `NativeInputWindowProcedure` and the real sound-manager
-contracts. Its configuration disables audio startup. The full `WindowProcedure`
-and main compile but need
-the media implementations to link their game lifecycle. This checks real asset
-rendering, not an interactive game or full-shell runtime. The 640x480 client-space
+contracts. Its configuration disables audio startup. The full executable separately links the actual
+`WindowProcedure`, main and media implementations. This focused check exercises
+asset rendering without the full game lifecycle. The 640x480 client-space
 adapter scales SDL input/warps against actual window dimensions; native Video2
 keeps its logical cursor coordinate calculations.
+
+`native_world_graphics` requires installed retail assets, an existing character
+basename in `Saves/Characters`, and a display/Vulkan device. It initializes the
+real game, adds that character to the party, runs new-game setup and enters the
+ordinary loading screen and game loop. Only the opening movie is bypassed;
+level/monster/item databases, SLF/Targa textures, octree meshes, actors, sky and
+party UI use the production implementations. It owns a temporary user overlay
+and writes a full-frame PPM and a `.control.ppm` with the world pass disabled.
+
+```sh
+WIZ8_ASSET_ROOT=/path/to/Wizardry8 SDL_VIDEODRIVER=x11 \
+    build-native/native_world_graphics party.CHR "$PWD/build-native/world.ppm"
+```
+
+The Monastery beach check observed 38 enabled meshes and 3,394 submitted level
+polygons. At the same camera, world on/off produced 160/35 GPU draw calls and
+1,525/64 input triangles; disabling the world changed 130,597 viewport pixels,
+and re-enabling it restored 129,048 pixels relative to the control. Counts can
+vary with monster animation. Screenshots show textured sand, cliffs, water, sky,
+wreckage and a chest. This proves world contribution separately from UI/sky
+rendering; it does not establish shipped-renderer parity or interactive play.
+`srdd_spike` additionally checks nine GPU readbacks for fog opacity 0, 0.5 and 1
+under each of the three fog modes. Zero opacity preserves object color. Its
+partial-texture regression checks all 4,096 texels before and after an 8x8
+update at (40,48), proving that pixels outside the rectangle stay intact and
+that native sampling follows the packed magnification field.
+
+The world harness reaches rendering and recovered shutdown under ASan/UBSan
+without invalid accesses or undefined-behavior reports. LeakSanitizer still
+reports 1,275,925 bytes in 205 allocations from game status/vector/level/material
+owners and external DBus/driver code. No suppressions were added. Focused packed
+UTF16, branching Huffman and copied-light ownership tests pass with leak
+detection. The ordinary executable also reaches the beach through the actual party
+selection, options, intro and level-loading screens on an isolated X11 display
+with Mesa lavapipe. Synthetic keys/buttons select the existing character, and
+WM_DELETE_WINDOW exits with status 0. The desktop COSMIC/XWayland window remains
+hidden without keyboard focus. NVIDIA on Xvfb shows stale presentation and
+rapid resource growth; lavapipe avoids those symptoms. Physical input, audible
+output and shipped-renderer parity remain unverified. GPU-only sanitizer
+readbacks also pass their assertions without invalid accesses, but
+LeakSanitizer reports 55,148 bytes in 22 allocations, including external
+driver/DBus allocations and existing runtime-class name ownership.
 
 `native_audio` retains the recovered manager's cache, channel selection, random
 scheduling, fade steps, callback dispatch and sound IDs. The native Miles-call

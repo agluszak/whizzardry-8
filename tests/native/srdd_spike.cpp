@@ -39,6 +39,138 @@ void writePpm(const char* path, const std::vector<w8_ulong>& pixels)
     }
     fclose(file);
 }
+struct PartialTexture : srTextureMap
+{
+    PartialTexture(srColorSurfaceIFace* surface) : srTextureMap(surface) {}
+    void getMipmapLevelPartial(PartialRequest& request) override
+    {
+        request.destination->blit(request.destination_x, request.destination_y, *getSurfacePtr(),
+                                 request.destination_x, request.destination_y,
+                                 request.source_right, request.source_bottom);
+    }
+};
+
+int checkPartialTexture(srGERD* gerd)
+{
+    auto source = new srColorSurface(srPixelConvert::SURFACE_ARGB32, 64, 64);
+    for (int y = 0; y < 64; ++y)
+        for (int x = 0; x < 64; ++x) source->setPixel(x, y, 0xff208040);
+    auto texture = new PartialTexture(source);
+    texture->setMipmap(srTextureIFace::MIPMAP_NONE);
+    texture->setMagFilter(srTextureIFace::FILTER_NONE);
+    texture->setMinFilter(srTextureIFace::FILTER_NONE);
+    const float positions[4][3] = {{-1, -1, 0}, {1, -1, 0}, {1, 1, 0}, {-1, 1, 0}};
+    const float colors[4][4] = {{1, 1, 1, 1}, {1, 1, 1, 1}, {1, 1, 1, 1}, {1, 1, 1, 1}};
+    const float coordinates[4][2] = {{0, 1}, {1, 1}, {1, 0}, {0, 0}};
+    srShader shader;
+    shader.value |= srShader::MASK_TEXTURING;
+    int result = 0;
+    for (int frame = 0; frame < 2; ++frame)
+    {
+        if (frame)
+        {
+            for (int y = 48; y < 56; ++y)
+                for (int x = 40; x < 48; ++x) source->setPixel(x, y, 0xffe04020);
+            // Dirty rectangle far from zero: extents 8x8, exclusive bounds 48x56.
+            gerd->setTextureSubImage(texture, 0, 40, 48, 8, 8);
+        }
+        if (gerd->beginFrame() != srGERD::ERROR_NONE) return fail("partial beginFrame", gerd);
+        gerd->clear(srFlags<srGERD::e_buffer>(srGERD::BUFFER_COLOR | srGERD::BUFFER_DEPTH));
+        gerd->matrixMode(srGERD::MATRIX_PROJECTION);
+        gerd->loadIdentity();
+        gerd->matrixMode(srGERD::MATRIX_MODELVIEW);
+        gerd->loadIdentity();
+        gerd->setShader(shader);
+        gerd->setTexture(texture, 0);
+        gerd->setVertexPointer(3, srRendererDefs::TYPE_FLOAT, 12, positions, 4);
+        gerd->setDiffusePointer(4, srRendererDefs::TYPE_FLOAT, 16, colors);
+        gerd->setTexCoordPointer(2, srRendererDefs::TYPE_FLOAT, 8, coordinates, 0);
+        gerd->setVertexArrayMask(srFlags<srRendererDefs::e_vertexArray>(
+            1u << srRendererDefs::VERTEX_ARRAY_POSITIONS |
+            1u << srRendererDefs::VERTEX_ARRAY_DIFFUSE |
+            1u << srRendererDefs::VERTEX_ARRAY_TEXCOORD0));
+        gerd->drawArrays(srRendererDefs::PRIMITIVE_TRIANGLE_FAN, 0, 4);
+        gerd->endFrame();
+        auto buffer = gerd->lockBuffer();
+        if (!buffer) return fail("partial lockBuffer", gerd);
+        for (int y = 0; y < 64; ++y)
+            for (int x = 0; x < 64; ++x)
+            {
+                unsigned expected = frame && x >= 40 && x < 48 && y >= 48 && y < 56 ?
+                                    0xe04020 : 0x208040;
+                unsigned actual = buffer->getPixel((2 * x + 1) * WIDTH / 128,
+                                                   (2 * y + 1) * HEIGHT / 128) & 0xffffff;
+                if (actual != expected)
+                {
+                    if (!result) fprintf(stderr, "partial frame %d texel %d,%d: %06x != %06x\n",
+                                         frame, x, y, actual, expected);
+                    result = 1;
+                }
+            }
+        gerd->unlockBuffer();
+    }
+    texture->release();
+    if (result) fprintf(stderr, "partial texture: GPU texels differ from expected rectangle\n");
+    else puts("partial texture: 8192 texel readbacks match");
+    return result;
+}
+
+// SurRender passes fog opacity in specular alpha: zero leaves the object visible.
+int checkFog(srGERD* gerd)
+{
+    const float positions[4][3] = {{-.9f, -.9f, 0}, {.9f, -.9f, 0},
+                                  {.9f, .9f, 0}, {-.9f, .9f, 0}};
+    const float color[3] = {.8f, .2f, .1f};
+    const float fog_color[3] = {.1f, .3f, .9f};
+    const float colors[4][4] = {{.8f, .2f, .1f, 1}, {.8f, .2f, .1f, 1},
+                               {.8f, .2f, .1f, 1}, {.8f, .2f, .1f, 1}};
+    srVector3T<float> fog(fog_color[0], fog_color[1], fog_color[2]);
+    gerd->setFogColor(fog);
+    for (int mode = srShader::FOG_ENABLE; mode <= srShader::FOG_WHITE; ++mode)
+    {
+        for (float amount : {0.0f, 0.5f, 1.0f})
+        {
+            float amounts[4] = {amount, amount, amount, amount};
+            srShader shader;
+            shader.value = (shader.value & ~srShader::MASK_FOG) | mode << srShader::FOG_SHIFT;
+            if (gerd->beginFrame() != srGERD::ERROR_NONE) return fail("fog beginFrame", gerd);
+            gerd->clear(srFlags<srGERD::e_buffer>(srGERD::BUFFER_COLOR | srGERD::BUFFER_DEPTH));
+            gerd->matrixMode(srGERD::MATRIX_PROJECTION);
+            gerd->loadIdentity();
+            gerd->matrixMode(srGERD::MATRIX_MODELVIEW);
+            gerd->loadIdentity();
+            gerd->setShader(shader);
+            gerd->setVertexPointer(3, srRendererDefs::TYPE_FLOAT, 12, positions, 4);
+            gerd->setDiffusePointer(4, srRendererDefs::TYPE_FLOAT, 16, colors);
+            gerd->setFogPointer(1, srRendererDefs::TYPE_FLOAT, 4, amounts);
+            gerd->setVertexArrayMask(srFlags<srRendererDefs::e_vertexArray>(
+                1u << srRendererDefs::VERTEX_ARRAY_POSITIONS |
+                1u << srRendererDefs::VERTEX_ARRAY_DIFFUSE |
+                1u << srRendererDefs::VERTEX_ARRAY_SPECULAR_ALPHA));
+            gerd->drawArrays(srRendererDefs::PRIMITIVE_TRIANGLE_FAN, 0, 4);
+            gerd->endFrame();
+            auto surface = gerd->lockBuffer();
+            if (!surface) return fail("fog lockBuffer", gerd);
+            unsigned pixel = surface->getPixel(WIDTH / 2, HEIGHT / 2);
+            gerd->unlockBuffer();
+            for (int channel = 0; channel < 3; ++channel)
+            {
+                float target = mode == srShader::FOG_ENABLE ? fog_color[channel] :
+                               mode == srShader::FOG_WHITE ? 1.0f : 0.0f;
+                int expected = int((color[channel] * (1 - amount) + target * amount) * 255 + .5f);
+                int actual = (pixel >> (16 - channel * 8)) & 255;
+                if (abs(actual - expected) > 1)
+                {
+                    fprintf(stderr, "fog mode %d amount %g channel %d: %d != %d\n",
+                            mode, amount, channel, actual, expected);
+                    return 1;
+                }
+            }
+        }
+    }
+    puts("fog: nine opacity/mode GPU readbacks match");
+    return 0;
+}
 } // namespace
 
 int main(int argc, char** argv)
@@ -166,6 +298,8 @@ int main(int argc, char** argv)
         }
     }
 
+    status |= checkPartialTexture(gerd);
+    status |= checkFog(gerd);
     texture->release();
     gerd->deleteContext();
     srExit();

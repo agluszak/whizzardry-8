@@ -160,3 +160,7 @@ else()
     target_link_options(native_movie_test PRIVATE -Wl,--gc-sections -Wl,-z,start-stop-gc)
 endif()
 add_test(NAME native_movies COMMAND native_movie_test)
+
+# Installed level/character integration; supplied assets and a display are required.
+add_executable(native_world_graphics tests/native/world_graphics.cpp)
+target_link_libraries(native_world_graphics PRIVATE WIZ8_GAME_CORE WIZ8_SGP WIZ8_GAME_CORE SDL3::SDL3)

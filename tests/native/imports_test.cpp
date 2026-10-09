@@ -5,6 +5,7 @@
 #include "surrender/srFog.h"
 #include "surrender/srHuffman.h"
 #include "surrender/srMaterial.h"
+#include "surrender/srLight.h"
 #include "surrender/srQuadWord.h"
 #include "wiz8/sr_api.h"
 #include <cstdio>
@@ -30,6 +31,10 @@ static void assertion(const char* expression, const char* path, w8_long line, co
     }
     ++assertions;
 }
+struct ClientNode : srNode
+{
+    ~ClientNode() override {}
+};
 struct ClientMaterial : srMaterial
 {
     ~ClientMaterial() override {}
@@ -76,11 +81,42 @@ int main()
         material.setEmissive(emissive);
         material_copy.srMaterial::operator=(material);
         CHECK(material_copy.getEmissive().z == 0.75f);
+        // Copied lights must own independent registry entries and scene links.
+        auto parent = new ClientNode;
+        auto original = new srLight(parent);
+        auto sibling = new srLight(parent);
+        auto clone = new srLight(*original);
+        CHECK(clone->getParent() != parent);
+        clone->setParent(parent, 0);
+        delete original;
+        CHECK(parent->getChildCount() == 2 && clone->getParent() == parent &&
+              sibling->getParent() == parent);
+        delete parent; // Recursively releases the sibling and copied light.
         srHuffman::Sampler sampler;
         sampler.insert(10);
         sampler.insert(10);
         sampler.insert(11);
         CHECK(sampler.getNumSymbols() == 2 && sampler.getSymbolFrequency(0) == 2);
+        // Exercise a branching symbol tree, as used by octree alpha bits.
+        const w8_ulong values[] = {10, 10, 11, 12, 13, 10, 13, 14, 0xffffffff};
+        srHuffman::Sampler tree_sampler;
+        for (auto value : values) tree_sampler.insert(value);
+        srHuffman::Compressor compressor(tree_sampler);
+        srBinOMStream encoded;
+        {
+            srHuffman::BitOStream bits(encoded);
+            bits.put(compressor.num_symbols, 32);
+            bits.put(compressor.code_width, 6);
+            bits.put(sizeof(values) / sizeof(values[0]), 32);
+            compressor.storeSymbolTable(bits);
+            for (auto value : values) compressor.compressSymbol(bits, value);
+        }
+        srBinIMStream input(encoded.getPtr(), encoded.getSize());
+        srHuffman::BitIStream bits(input);
+        srHuffman::Decompressor decoder(bits);
+        CHECK(decoder.getDataCount() == sizeof(values) / sizeof(values[0]));
+        for (auto value : values) CHECK(decoder.decompressSymbol() == value);
+
     }
     srAssertFail("native probe", "imports_test.cpp", 42, "value %d", 7);
     CHECK(assertions == 1);

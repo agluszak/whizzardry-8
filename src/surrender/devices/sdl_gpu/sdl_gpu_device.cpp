@@ -409,14 +409,15 @@ public:
                    texture.levels[level]);
     }
 
-    void texSubImage(Texture& texture, w8_ulong level, w8_ulong x, w8_ulong y, w8_ulong w,
-                     w8_ulong h) override
+    void texSubImage(Texture& texture, w8_ulong level, w8_ulong x, w8_ulong y, w8_ulong right,
+                     w8_ulong bottom) override
     {
         if (texture.resident_data == 0) {
             makeResident(texture);
             return;
         }
-        queueLevel(texture, level, x, y, w, h, texture.levels[level]);
+        // srGERD passes PartialRequest's exclusive bounds, not rectangle extents.
+        queueLevel(texture, level, x, y, right - x, bottom - y, texture.levels[level]);
     }
 
     /* Only 32-bit ARGB textures are offered, so palettes never reach the device. */
@@ -661,7 +662,7 @@ private:
         static const float white[4] = {1.0f, 1.0f, 1.0f, 1.0f};
         static const float black[4] = {0.0f, 0.0f, 0.0f, 0.0f};
         static const float texcoord[3] = {0.0f, 0.0f, 1.0f};
-        static const float no_fog[1] = {1.0f};
+        static const float no_fog[1] = {0.0f};
         Vertex vertex;
         fetch(vertex.position, vertex_arrays, srRendererDefs::VERTEX_ARRAY_POSITIONS, index, 4,
               origin);
@@ -755,8 +756,8 @@ private:
         const bool texturing = (shader.value & srShader::MASK_TEXTURING) != 0;
         for (int stage = 0; stage < 2; ++stage) {
             command.textures[stage] = texturing && bound[stage] != 0 ? bound[stage] : 1;
-            /* TexParms bit 0 selects bilinear magnification in the packed word. */
-            command.samplers[stage] = (parameters[stage] & 1) != 0 ? 1 : 0;
+            // srGERD packs magnification at bits 4..5; low bits are correction.
+            command.samplers[stage] = ((parameters[stage] >> 4) & 3) >= 2 ? 1 : 0;
         }
         command.vertex_uniforms = projection;
         FragmentUniforms& fragment = command.fragment_uniforms;
