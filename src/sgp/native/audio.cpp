@@ -4,11 +4,13 @@
 #include "compat/platform.h"
 #include "miniaudio.h"
 #include "native/audio_test.h"
+#include "native/movie_audio.h"
 #include <algorithm>
 #include <atomic>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <deque>
 #include <memory>
 #include <mutex>
 #include <stdexcept>
@@ -172,7 +174,10 @@ struct _DIG_DRIVER
 };
 namespace
 {
-Voice::~Voice() { clear(*this); }
+Voice::~Voice()
+{
+    clear(*this);
+}
 bool attach(Voice& voice, bool spatial, ma_result result)
 {
     if (record(result) != MA_SUCCESS)
@@ -278,9 +283,18 @@ S32 AIL_startup()
     last_error[0] = 0;
     return 1;
 }
-char* AIL_last_error() { return last_error; }
-void* AIL_mem_alloc_lock(U32 size) { return malloc(size); }
-void AIL_mem_free_lock(void* pointer) { free(pointer); }
+char* AIL_last_error()
+{
+    return last_error;
+}
+void* AIL_mem_alloc_lock(U32 size)
+{
+    return malloc(size);
+}
+void AIL_mem_free_lock(void* pointer)
+{
+    free(pointer);
+}
 S32 AIL_set_preference(U32 name, S32 value)
 {
     int* setting = name == DIG_MIXER_CHANNELS ? &mixer_channels
@@ -341,7 +355,10 @@ void AIL_init_sample(HSAMPLE sample)
     if (sample)
         clear(*sample);
 }
-void AIL_release_sample_handle(HSAMPLE sample) { delete sample; }
+void AIL_release_sample_handle(HSAMPLE sample)
+{
+    delete sample;
+}
 S32 AIL_set_named_sample_file(HSAMPLE sample, const C8*, const void* bytes, S32 size, S32 block)
 {
     return size > 0 && !block && memory(sample, bytes, size, false);
@@ -381,8 +398,14 @@ HSTREAM AIL_open_stream(HDIGDRIVER driver, const char* path, S32)
         return nullptr;
     return stream.release();
 }
-void AIL_close_stream(HSTREAM stream) { delete stream; }
-S32 AIL_service_stream(HSTREAM stream, S32) { return status(stream) == SMP_PLAYING; }
+void AIL_close_stream(HSTREAM stream)
+{
+    delete stream;
+}
+S32 AIL_service_stream(HSTREAM stream, S32)
+{
+    return status(stream) == SMP_PLAYING;
+}
 S32 AIL_enumerate_3D_providers(HPROENUM* next, HPROVIDER* destination, C8** name)
 {
     static char provider[] = "miniaudio spatial";
@@ -423,7 +446,10 @@ H3DSAMPLE AIL_allocate_3D_sample_handle(HPROVIDER provider)
     sample->driver = active_driver;
     return sample;
 }
-void AIL_release_3D_sample_handle(H3DSAMPLE sample) { delete sample; }
+void AIL_release_3D_sample_handle(H3DSAMPLE sample)
+{
+    delete sample;
+}
 S32 W8AudioSetSpatialFile(H3DSAMPLE sample, const void* data, UINT32 size)
 {
     return memory(sample, data, size, true);
@@ -467,24 +493,69 @@ void AIL_set_3D_sample_distances(H3DSAMPLE sample, F32 maximum, F32 minimum)
     }
 }
 #define VOICE_FUNCTIONS(kind, Type)                                                                \
-    void AIL_start_##kind(Type voice) { start(voice); }                                            \
-    void AIL_set_##kind##_volume(Type voice, S32 value) { volume(voice, value); }                  \
-    S32 AIL_##kind##_volume(Type voice) { return voice ? voice->volume : 0; }                      \
-    void AIL_set_##kind##_playback_rate(Type voice, S32 value) { rate(voice, value); }             \
-    S32 AIL_##kind##_playback_rate(Type voice) { return voice ? voice->rate : 0; }
+    void AIL_start_##kind(Type voice)                                                              \
+    {                                                                                              \
+        start(voice);                                                                              \
+    }                                                                                              \
+    void AIL_set_##kind##_volume(Type voice, S32 value)                                            \
+    {                                                                                              \
+        volume(voice, value);                                                                      \
+    }                                                                                              \
+    S32 AIL_##kind##_volume(Type voice)                                                            \
+    {                                                                                              \
+        return voice ? voice->volume : 0;                                                          \
+    }                                                                                              \
+    void AIL_set_##kind##_playback_rate(Type voice, S32 value)                                     \
+    {                                                                                              \
+        rate(voice, value);                                                                        \
+    }                                                                                              \
+    S32 AIL_##kind##_playback_rate(Type voice)                                                     \
+    {                                                                                              \
+        return voice ? voice->rate : 0;                                                            \
+    }
 VOICE_FUNCTIONS(sample, HSAMPLE)
 VOICE_FUNCTIONS(stream, HSTREAM)
 VOICE_FUNCTIONS(3D_sample, H3DSAMPLE)
-void AIL_stop_sample(HSAMPLE voice) { stop(voice); }
-void AIL_stop_3D_sample(H3DSAMPLE voice) { stop(voice); }
-U32 AIL_sample_status(HSAMPLE voice) { return status(voice); }
-U32 AIL_3D_sample_status(H3DSAMPLE voice) { return status(voice); }
-S32 AIL_stream_status(HSTREAM voice) { return status(voice); }
-void AIL_set_sample_pan(HSAMPLE voice, S32 value) { pan(voice, value); }
-void AIL_set_stream_pan(HSTREAM voice, S32 value) { pan(voice, value); }
-void AIL_set_sample_loop_count(HSAMPLE voice, S32 count) { loop(voice, count); }
-void AIL_set_stream_loop_count(HSTREAM voice, S32 count) { loop(voice, count); }
-void AIL_set_3D_sample_loop_count(H3DSAMPLE voice, U32 count) { loop(voice, count); }
+void AIL_stop_sample(HSAMPLE voice)
+{
+    stop(voice);
+}
+void AIL_stop_3D_sample(H3DSAMPLE voice)
+{
+    stop(voice);
+}
+U32 AIL_sample_status(HSAMPLE voice)
+{
+    return status(voice);
+}
+U32 AIL_3D_sample_status(H3DSAMPLE voice)
+{
+    return status(voice);
+}
+S32 AIL_stream_status(HSTREAM voice)
+{
+    return status(voice);
+}
+void AIL_set_sample_pan(HSAMPLE voice, S32 value)
+{
+    pan(voice, value);
+}
+void AIL_set_stream_pan(HSTREAM voice, S32 value)
+{
+    pan(voice, value);
+}
+void AIL_set_sample_loop_count(HSAMPLE voice, S32 count)
+{
+    loop(voice, count);
+}
+void AIL_set_stream_loop_count(HSTREAM voice, S32 count)
+{
+    loop(voice, count);
+}
+void AIL_set_3D_sample_loop_count(H3DSAMPLE voice, U32 count)
+{
+    loop(voice, count);
+}
 void AIL_sample_ms_position(HSAMPLE voice, S32* total, S32* current)
 {
     position(voice, total, current);
@@ -506,5 +577,113 @@ bool audio_render_for_test(float* samples, size_t frames)
     return active_driver && offline &&
            ma_engine_read_pcm_frames(&active_driver->engine, samples, frames, nullptr) ==
                MA_SUCCESS;
+}
+} // namespace w8_native
+
+namespace w8_native
+{
+struct MovieAudio::State
+{
+    ma_data_source_base base{};
+    ma_sound sound{};
+    unsigned channels, rate;
+    std::deque<float> queued;
+    mutable std::mutex mutex;
+    bool finished = false, initialized = false;
+    static ma_result read(ma_data_source* data, void* output, ma_uint64 frames, ma_uint64* count)
+    {
+        auto& source = *reinterpret_cast<State*>(data);
+        std::lock_guard<std::mutex> lock(source.mutex);
+        size_t available = std::min<ma_uint64>(frames, source.queued.size() / source.channels);
+        auto samples = static_cast<float*>(output);
+        for (size_t i = 0; i < available * source.channels; ++i)
+        {
+            if (samples)
+                samples[i] = source.queued.front();
+            source.queued.pop_front();
+        }
+        *count = available;
+        if (source.finished)
+            return available == frames ? MA_SUCCESS : MA_AT_END;
+        // An underrun is silence, not end-of-stream: decoding resumes on the main thread.
+        if (samples)
+            std::fill(samples + available * source.channels, samples + frames * source.channels,
+                      0.f);
+        *count = frames;
+        return MA_SUCCESS;
+    }
+    static ma_result format(ma_data_source* data, ma_format* format, ma_uint32* channels,
+                            ma_uint32* rate, ma_channel* map, size_t capacity)
+    {
+        auto& source = *reinterpret_cast<State*>(data);
+        if (format)
+            *format = ma_format_f32;
+        if (channels)
+            *channels = source.channels;
+        if (rate)
+            *rate = source.rate;
+        if (map)
+            ma_channel_map_init_standard(ma_standard_channel_map_default, map, capacity,
+                                         source.channels);
+        return MA_SUCCESS;
+    }
+    State(unsigned frequency, unsigned channel_count) : channels(channel_count), rate(frequency)
+    {
+        static const ma_data_source_vtable table = {read,    nullptr, format, nullptr,
+                                                    nullptr, nullptr, 0};
+        auto config = ma_data_source_config_init();
+        config.vtable = &table;
+        if (!active_driver || ma_data_source_init(&config, &base) != MA_SUCCESS)
+            throw std::runtime_error("Movie audio has no initialized output engine");
+        if (ma_sound_init_from_data_source(&active_driver->engine, &base,
+                                           MA_SOUND_FLAG_NO_SPATIALIZATION, nullptr,
+                                           &sound) != MA_SUCCESS)
+        {
+            ma_data_source_uninit(&base);
+            throw std::runtime_error("Cannot create movie PCM voice");
+        }
+        initialized = true;
+    }
+    ~State()
+    {
+        if (initialized)
+        {
+            // Uninit disconnects the engine before releasing callback-owned PCM/mutex.
+            ma_sound_uninit(&sound);
+            ma_data_source_uninit(&base);
+        }
+    }
+};
+MovieAudio::MovieAudio(unsigned rate, unsigned channels)
+    : state(std::make_unique<State>(rate, channels))
+{
+}
+MovieAudio::~MovieAudio() = default;
+void MovieAudio::append(const float* samples, size_t frames)
+{
+    std::lock_guard<std::mutex> lock(state->mutex);
+    if (frames > state->rate * 2 ||
+        state->queued.size() / state->channels + frames > state->rate * 2)
+        throw std::runtime_error("Movie audio exceeded two seconds of lookahead");
+    state->queued.insert(state->queued.end(), samples, samples + frames * state->channels);
+}
+void MovieAudio::start()
+{
+    if (ma_sound_start(&state->sound) != MA_SUCCESS)
+        throw std::runtime_error("Cannot start movie PCM voice");
+}
+void MovieAudio::finish()
+{
+    std::lock_guard<std::mutex> lock(state->mutex);
+    state->finished = true;
+}
+bool MovieAudio::drained() const
+{
+    std::lock_guard<std::mutex> lock(state->mutex);
+    return state->finished && state->queued.empty();
+}
+bool movie_audio_available()
+{
+    return active_driver != nullptr;
 }
 } // namespace w8_native

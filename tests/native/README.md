@@ -29,26 +29,49 @@ sampling, plus the provider's variadic assertion signature. It also checks a
 four-byte-aligned `srQuadWord` conversion. Native clients use the same generated
 members as the library; Windows import declarations remain intact.
 
-`WIZ8_GAME_CORE` compiles 211 recovered game units, including Video2, except
-Miles imports and Bink. The 33-unit SGP archive includes its recovered shell and
-surface manager, sound manager and CPU/SDL/miniaudio adapters. The two Windows
-DirectDraw units remain excluded. `WIZ8_NATIVE_SHELL` compiles the actual
-SDL entry point. The full game link still requires movie playback;
-building these archives and entry point does not prove gameplay.
-To inspect the remaining contracts on Linux:
+`WIZ8_GAME_CORE` contains 211 recovered game units and the native movie decoder
+and Bink owner replacement. The 33-unit SGP archive includes the recovered shell,
+surface/input/sound managers and CPU/SDL/miniaudio adapters. `Wiz8Native` links
+these with the actual SDL entry point. Windows Miles/Bink imports and the two
+DirectDraw units are replaced rather than linked on native builds.
+
+`native_movies` checks five timed FFV1 RGB555 frames byte-for-byte against the
+FFmpeg CLI, 22,050 decoded PCM frames, actual miniaudio output energy, loose and
+SLF sources, truncated-entry bounds, final-frame duration, repeated Open, owner
+release and unsupported parameters. `movie.mkv` and `movie.rgb555` are authored
+lavfi fixtures; reproduce them with `bash tests/native/generate_movie.sh`.
+The CLI is needed only to regenerate fixtures, not to build or run tests.
+
+The decoder uses FFmpeg's
+[custom AVIO](https://ffmpeg.org/doxygen/trunk/avio_read_callback_8c-example.html)
+and [packet/frame API](https://ffmpeg.org/doxygen/trunk/demux_decode_8c-example.html).
+Video and PCM lookahead are bounded, decoding stays on the main thread, and a
+movie-owned PCM voice uses the same miniaudio engine as recovered soundman.
+Frames follow container timestamps; EOF drains codecs/audio and holds the final
+frame for its duration. Only the used zero Open flags are supported. If the
+sound manager has no output engine, movies can play silently. Movie surfaces
+must support RGB555 and contain the decoded dimensions (at most 640x480).
+
+The installed Sir-Tech Bink decodes 486 frames and 716,160 stereo PCM frames.
+All decoded RGB555 bytes have FNV64 `a8ac71db8aa752cc`, matching the FFmpeg CLI
+with `-sws_flags bilinear+bitexact -pix_fmt rgb555le`. To run that check using
+assets supplied locally:
 
 ```sh
-clang++ -o build-native/game-link-audit \
-    build-native/CMakeFiles/WIZ8_NATIVE_SHELL.dir/src/sgp/native/main.cpp.o \
-    -Wl,--whole-archive \
-    build-native/libWIZ8_GAME_CORE.a build-native/libWIZ8_SGP.a \
-    -Wl,--no-whole-archive -Lbuild-native -lsr -lwiz8_compat -lwiz8_miniaudio -lz -pthread -ldl -lm -lSDL3 \
-    > build-native/game-link-audit.log 2>&1
+build-native/native_movie_test /absolute/path/to/Wizardry8/Data/Flics/Intro/sirtech.BIK
 ```
 
-The latest audit has five unresolved contracts, all `W8BinkVideo` playback
-ownership. Audio, including `gfEnableStartup`, now resolves. Graphics, entry-point and
-SurRender contracts resolve. This is a saved link inventory, not gameplay.
+The actual game displays the Sir-Tech movie and the retail main menu after
+Escape, with cursor and menu input. A standard window-close request reaches the
+native window procedure and exits normally (status 0). The recovered menu Exit
+screen waits for a further key or button press. Checks used a private overlay
+and X11 on this Linux host.
+Physical input, audible output, Wayland/macOS, world rendering and gameplay
+have not been validated. Full-game ASan/UBSan reaches the menu and exit without
+invalid accesses, but LeakSanitizer reports existing game status buffers and
+vectors plus external DBus/unloaded-driver allocations. This is not a
+leak-clean full-game result; no suppressions were added. The focused movie and
+audio tests pass with leak detection.
 
 `native_surface_oracle` compares 90 cases at 8/16/32 bpp with Wine DirectDraw:
 fills, source/destination keys, nearest-neighbour stretching, self-overlap and
@@ -80,7 +103,12 @@ GPU. It runs the actual SLF/STI readers, recovered surface/object managers,
 Video2 renderer setup, `stSurface2D::DrawTiles` and cursor scene. It uses its own
 temporary overlay and 640x480 video config. The default bottom-interface fixture
 has 58,548 colored pixels; all match CPU RGB555 within eight levels per channel,
-and the cursor contributes 556 GPU pixels in the sampled region.
+and the cursor contributes 556 GPU pixels in the sampled region. It also checks
+all 307,200 pixels of the movie output (authored frame plus black background),
+the persistent window and unchanged game primary across movie presentation.
+Movie tiles own their source: recovered `updateRectangle` gets pixels through
+`stTexture2D::surface`, ignoring the ABI pixel argument. The native adapter must
+not upload the game primary when presenting a separate movie surface.
 
 ```sh
 WIZ8_ASSET_ROOT=/path/to/Wizardry8 build-native/native_game_graphics
@@ -239,12 +267,12 @@ cmake -S . -B build-native-asan -G Ninja \
     -DCMAKE_BUILD_TYPE=RelWithDebInfo \
     -DCMAKE_C_FLAGS='-fsanitize=address,undefined -shared-libasan -fno-omit-frame-pointer' \
     -DCMAKE_CXX_FLAGS='-fsanitize=address,undefined -shared-libasan -fno-omit-frame-pointer'
-cmake --build build-native-asan --target native_files_test native_events_test native_imports_test native_surface_oracle native_audio_test
+cmake --build build-native-asan --target native_files_test native_events_test native_imports_test native_surface_oracle native_audio_test native_movie_test
 native_sanitizer_runtime=$(dirname "$(clang++ --print-file-name=libclang_rt.asan-x86_64.so)")
 LD_LIBRARY_PATH="$native_sanitizer_runtime${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" \
     UBSAN_OPTIONS=halt_on_error=1 ASAN_OPTIONS=detect_leaks=1 \
     ctest --test-dir build-native-asan --output-on-failure \
-    -R '^native_(files|events|imports|surface_oracle|audio)$'
+    -R '^native_(files|events|imports|surface_oracle|audio|movies)$'
 ```
 
 `-shared-libasan` supplies the runtime to the shared libraries while retaining

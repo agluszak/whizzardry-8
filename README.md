@@ -6,17 +6,17 @@ JPEG and UnZip plug-in sources remain in the tree but are excluded from the buil
 ## Native Linux build (in progress)
 
 Any non-MSVC Clang selects the native lane (`cmake/Native.cmake`): 64-bit
-Linux, system zlib and SDL3, no Windows SDK. It currently builds SurRender
-as `libsr.so` with an SDL3 GPU device, the portable SGP core and the recovered
-game code as `libWIZ8_GAME_CORE.a`. SDL keyboard, mouse, focus and timer messages
-feed the recovered SGP input queue and clock. CPU surfaces now serve the recovered
-surface manager and Video2; the SDL entry point and window procedure compile.
-The recovered sound manager now uses miniaudio for samples, streams and spatial
-audio. Movie playback still blocks the full game link. The graphics harness
-loads retail SLF/STI assets and presents the recovered UI and cursor through SDL GPU.
+Linux, SDL3 GPU, system zlib and FFmpeg, with pinned miniaudio source in the tree.
+It builds `Wiz8Native` and `libsr.so`. The recovered game loop, intro transitions,
+SGP input/surfaces and sound manager run through native adapters. FFmpeg decodes
+Bink video/audio from loose files or bounded SLF streams; movies present through
+SurRender in the same SDL window as the game. Startup, movies, Escape to the
+main menu and exit have been exercised with installed retail assets. World
+rendering, gameplay and save/load still need native runtime validation.
 
 ```sh
-sudo apt install clang cmake ninja-build libsdl3-dev zlib1g-dev glslang-tools
+sudo apt install clang cmake ninja-build pkg-config libsdl3-dev zlib1g-dev glslang-tools \
+    libavformat-dev libavcodec-dev libavutil-dev libswscale-dev libswresample-dev
 cmake -S . -B build-native -G Ninja -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++
 cmake --build build-native
 (cd build-native && ctest)
@@ -29,10 +29,11 @@ SDL GPU debug mode.
 `native_events` uses SDL's dummy video driver and exercises the recovered input
 and string editor without a display. `native_imports` checks renderer contracts
 from a separate client executable. See [native validation](tests/native/README.md)
-for coverage and the remaining link boundary. With installed assets, run the
-recovered graphics path explicitly:
+for coverage and limitations. With installed assets, run the game or the
+focused graphics check:
 
 ```sh
+WIZ8_ASSET_ROOT=/path/to/Wizardry8 build-native/Wiz8Native /WINDOW
 WIZ8_ASSET_ROOT=/path/to/Wizardry8 build-native/native_game_graphics
 ```
 

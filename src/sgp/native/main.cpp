@@ -61,7 +61,7 @@ int main(int argc, char** argv)
     {
         fprintf(stderr, "Wizardry native platform: %s\n", failure.what());
     }
-    ShutdownStandardGamingPlatform();
+    SGPExit();
     SDL_Quit();
     return result;
 }
