@@ -1289,6 +1289,18 @@ done:
     leader_info->heard_noise_position = old_info->heard_noise_position;
 }
 
+static inline int ReadAlliedGroupId(const int* ids, int index)
+{
+#if defined(WIZ8_NATIVE)
+    int value;
+    memcpy(&value, reinterpret_cast<const unsigned char*>(ids) + index * sizeof(value),
+           sizeof(value)); // reinterpret-ok: packed monster-group id bank
+    return value;
+#else
+    return ids[index];
+#endif
+}
+
 /* Detach every allied group, promote the one whose members hold the highest
    navigator leadership_rank to lead the rest, and carry the fallen leader's script
    and heard-noise state to the new leader's MonsterInfo. */
@@ -1301,7 +1313,7 @@ void ElectAlliedLeaderGroup(W8MonsterGroup* monster_group, W8MonsterInfo* leader
     int live_allies = 0;
     int index;
     for (index = 0; index < 4; ++index) {
-        if (allies[index] != 0) {
+        if (ReadAlliedGroupId(allies, index) != 0) {
             ++live_allies;
         }
     }
@@ -1309,9 +1321,9 @@ void ElectAlliedLeaderGroup(W8MonsterGroup* monster_group, W8MonsterInfo* leader
         return;
     }
     for (index = 0; index < 4; ++index) {
-        if (allies[index] != 0) {
+        if (ReadAlliedGroupId(allies, index) != 0) {
             W8MonsterGroup* candidate = GetMonsterGroupByListIndex(
-                GetMonsterGroupIndexByID(0x2ce, MONSTER_GROUP_CPP, allies[index], true));
+                GetMonsterGroupIndexByID(0x2ce, MONSTER_GROUP_CPP, ReadAlliedGroupId(allies, index), true));
             candidate->leader_group_id = 0;
             unsigned int high = 0;
             unsigned int member_index = 0;
@@ -1339,7 +1351,7 @@ void ElectAlliedLeaderGroup(W8MonsterGroup* monster_group, W8MonsterInfo* leader
         LinkMonsterGroupToLeader(0, leader);
     }
     for (index = 0; index < 4; ++index) {
-        int ally_id = allies[index];
+        int ally_id = ReadAlliedGroupId(allies, index);
         if (ally_id != 0 && leader_group_id != ally_id) {
             W8MonsterGroup* leader = 0;
             if (leader_group_id != 0) {
@@ -1467,9 +1479,9 @@ void MonsterGroupEnterCombat(W8MonsterGroup* monster_group)
             }
             int* allies = monster_group->allied_group_ids;
             for (int ally_index = 0; ally_index < 4; ++ally_index) {
-                if (allies[ally_index] != 0) {
+                if (ReadAlliedGroupId(allies, ally_index) != 0) {
                     W8MonsterGroup* ally = GetMonsterGroupByListIndex(GetMonsterGroupIndexByID(
-                        0x1c8, MONSTER_GROUP_CPP, allies[ally_index], true));
+                        0x1c8, MONSTER_GROUP_CPP, ReadAlliedGroupId(allies, ally_index), true));
                     if (!ally->fInCombat) {
                         index = 0;
                         while (index < ILLength(ally->monsters)) {

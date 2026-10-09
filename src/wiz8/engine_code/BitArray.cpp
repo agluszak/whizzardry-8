@@ -147,7 +147,11 @@ unsigned char BitArray::Load(int handle)
                 }
             }
             memcpy(puiIndex, decoded, word_count * sizeof(unsigned int));
+#if defined(WIZ8_NATIVE)
+            operator delete(decoded);
+#else
             delete decoded;
+#endif
             operator delete(packed);
             magic = 0;
             if (FileRead(handle, &magic, 4, 0) == 0 || magic != 0xdeadd00d) {

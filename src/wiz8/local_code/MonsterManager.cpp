@@ -1169,6 +1169,15 @@ unsigned char ShutdownMonsterManager(void)
         return 0;
     }
     gXStatus.plsMonsterGroupEncounterList = 0;
+#if defined(WIZ8_NATIVE)
+    // Direct member access retains the packed cache's alignment information.
+    for (int index = 0; index < MAX_MONSTERS_IN_DATABASE; ++index) {
+        if (gXStatus.monster_record_cache[index] != 0) {
+            free(gXStatus.monster_record_cache[index]);
+            gXStatus.monster_record_cache[index] = 0;
+        }
+    }
+#else
     for (slot = gXStatus.monster_record_cache;
          slot < gXStatus.monster_record_cache + MAX_MONSTERS_IN_DATABASE; ++slot) {
         if (*slot != 0) {
@@ -1176,6 +1185,7 @@ unsigned char ShutdownMonsterManager(void)
             *slot = 0;
         }
     }
+#endif
     return 1;
 }
 

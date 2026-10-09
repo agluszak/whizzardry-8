@@ -49,6 +49,44 @@ srLight::srLight(srNode* parent, e_preset preset)
     }
 }
 
+#if defined(WIZ8_NATIVE)
+/* WIZ8 0x0049D67C..0x0049D6C5 inlines the SDK copy: construct the
+   illuminator with parent zero, register a fresh instance, then assign the
+   light before copying its members. Compiler-generated copying shares scene
+   links and registry ownership, leaving dangling siblings during unload. */
+srLight::srLight(const srLight& other)
+    : srClassSupport<srLight, srIlluminator, false, 0x1220>(other),
+      attenuation_model(other.attenuation_model),
+      near_start(other.near_start),
+      near_end(other.near_end),
+      far_start(other.far_start),
+      far_end(other.far_end),
+      scaled_near_start(other.scaled_near_start),
+      scaled_far_end(other.scaled_far_end),
+      near_attenuation(other.near_attenuation),
+      far_attenuation(other.far_attenuation),
+      opengl_attenuation(other.opengl_attenuation),
+      enable_flags(other.enable_flags),
+      ambient(other.ambient),
+      diffuse(other.diffuse),
+      specular(other.specular),
+      spot_direction(other.spot_direction),
+      spot_angle(other.spot_angle),
+      spot_exponent(other.spot_exponent),
+      intensity(other.intensity),
+      safe_range(other.safe_range),
+      scaled_ambient(other.scaled_ambient),
+      scaled_diffuse(other.scaled_diffuse),
+      scaled_specular(other.scaled_specular),
+      spot_direction_eye(other.spot_direction_eye),
+      spot_cutoff(other.spot_cutoff),
+      attenuation_range(other.attenuation_range),
+      derived_flags(other.derived_flags),
+      channel_mask(other.channel_mask)
+{
+}
+#endif
+
 // FUNCTION: SURRENDER 0x1004DFB0
 srLight& srLight::operator=(const srLight& other)
 {

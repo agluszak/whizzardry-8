@@ -332,6 +332,17 @@ INT16 StringPixLengthArg(INT32 usUseFont, UINT32 uiCharCount, CHAR16* pFontStrin
 //  Created by:     Gilles Beauparlant
 //  Created on:     12/1/99
 
+static inline CHAR16 ReadFontCharacter(const CHAR16* text)
+{
+#if defined(WIZ8_NATIVE)
+    CHAR16 value;
+    memcpy(&value, reinterpret_cast<const unsigned char*>(text), sizeof(value));
+    return value;
+#else
+    return *text;
+#endif
+}
+
 // FUNCTION: WIZ8 0x00406f90
 INT16 StringNPixLength(CHAR16* string, UINT32 uiMaxCount, INT32 UseFont)
 {
@@ -342,8 +353,8 @@ INT16 StringNPixLength(CHAR16* string, UINT32 uiMaxCount, INT32 UseFont)
     uiCharCount = 0;
     curletter = string;
 
-    while ((*curletter) != L'\0' && uiCharCount < uiMaxCount) {
-        transletter = GetIndex(*curletter++);
+    while (ReadFontCharacter(curletter) != L'\0' && uiCharCount < uiMaxCount) {
+        transletter = GetIndex(ReadFontCharacter(curletter++));
         Cur += GetWidth(FontObjs[UseFont], transletter);
         uiCharCount++;
     }
@@ -365,8 +376,8 @@ INT16 StringPixLength(CHAR16* string, INT32 UseFont)
     Cur = 0;
     curletter = string;
 
-    while ((*curletter) != L'\0') {
-        transletter = GetIndex(*curletter++);
+    while (ReadFontCharacter(curletter) != L'\0') {
+        transletter = GetIndex(ReadFontCharacter(curletter++));
         Cur += GetWidth(FontObjs[UseFont], transletter);
     }
     return ((INT16)Cur);
@@ -529,8 +540,8 @@ UINT32 mprintf(INT32 x, INT32 y, CHAR16* pFontString, ...)
     // Lock the dest buffer
     pDestBuf = LockVideoSurface(FontDestBuffer, &uiDestPitchBYTES);
 
-    while ((*curletter) != 0) {
-        transletter = GetIndex(*curletter++);
+    while (ReadFontCharacter(curletter) != 0) {
+        transletter = GetIndex(ReadFontCharacter(curletter++));
 
         if (FontDestWrap &&
             BltIsClipped(FontObjs[FontDefault], destx, desty, transletter, &FontDestRegion)) {
@@ -643,8 +654,8 @@ UINT32 gprintf(INT32 x, INT32 y, CHAR16* pFontString, ...)
     // Lock the dest buffer
     pDestBuf = LockVideoSurface(FontDestBuffer, &uiDestPitchBYTES);
 
-    while ((*curletter) != 0) {
-        transletter = GetIndex(*curletter++);
+    while (ReadFontCharacter(curletter) != 0) {
+        transletter = GetIndex(ReadFontCharacter(curletter++));
 
         if (FontDestWrap &&
             BltIsClipped(FontObjs[FontDefault], destx, desty, transletter, &FontDestRegion)) {
@@ -695,8 +706,8 @@ UINT32 gprintfDirty(INT32 x, INT32 y, CHAR16* pFontString, ...)
     // Lock the dest buffer
     pDestBuf = LockVideoSurface(FontDestBuffer, &uiDestPitchBYTES);
 
-    while ((*curletter) != 0) {
-        transletter = GetIndex(*curletter++);
+    while (ReadFontCharacter(curletter) != 0) {
+        transletter = GetIndex(ReadFontCharacter(curletter++));
 
         if (FontDestWrap &&
             BltIsClipped(FontObjs[FontDefault], destx, desty, transletter, &FontDestRegion)) {
@@ -752,8 +763,8 @@ UINT32 gprintf_buffer(UINT8* pDestBuf, UINT32 uiDestPitchBYTES, UINT32 FontType,
     destx = x;
     desty = y;
 
-    while ((*curletter) != 0) {
-        transletter = GetIndex(*curletter++);
+    while (ReadFontCharacter(curletter) != 0) {
+        transletter = GetIndex(ReadFontCharacter(curletter++));
 
         if (FontDestWrap &&
             BltIsClipped(FontObjs[FontType], destx, desty, transletter, &FontDestRegion)) {
@@ -798,8 +809,8 @@ UINT32 mprintf_buffer(UINT8* pDestBuf, UINT32 uiDestPitchBYTES, UINT32 FontType,
     destx = x;
     desty = y;
 
-    while ((*curletter) != 0) {
-        transletter = GetIndex(*curletter++);
+    while (ReadFontCharacter(curletter) != 0) {
+        transletter = GetIndex(ReadFontCharacter(curletter++));
 
         if (FontDestWrap &&
             BltIsClipped(FontObjs[FontDefault], destx, desty, transletter, &FontDestRegion)) {

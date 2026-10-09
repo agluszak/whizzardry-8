@@ -405,7 +405,7 @@ srHuffman::Decompressor::Decompressor(BitIStream& stream)
     code_width = this->stream->get(6);
     data_count = this->stream->get(0x20);
     if (num_symbols != 0) {
-        symbols = static_cast<Symbol*>(::operator new(num_symbols * 0x18));
+        symbols = static_cast<Symbol*>(::operator new(num_symbols * 2 * sizeof(Symbol)));
         setupSymbolTable(symbols);
         for (w8_ulong index = 0; index < 0x100; ++index) {
             Symbol* node = symbols;

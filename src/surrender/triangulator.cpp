@@ -52,7 +52,11 @@ srTriangulator::CircularList::CircularList(int count)
 // FUNCTION: SURRENDER 0x1003c260
 srTriangulator::CircularList::~CircularList()
 {
+#if defined(WIZ8_NATIVE)
+    operator delete(nodes);
+#else
     delete nodes;
+#endif
 }
 
 // FUNCTION: SURRENDER 0x1003bea0

@@ -684,7 +684,14 @@ void ActivateItem(W8WorldItem* item)
         }
     }
 
+#if defined(WIZ8_NATIVE)
+    W8Item* entity = item->p3D;
+    bool loaded = LoadItemFromFile(&info, zItemName, &entity, false);
+    item->p3D = entity;
+    if (!loaded) {
+#else
     if (!LoadItemFromFile(&info, zItemName, &item->p3D, false)) {
+#endif
         srAssertFail("fSuccess", ITEM_MANAGER_CPP, 0x1f2,
                      FormatString("ActivateItem: ERROR - ItemRead %s failed", zItemName));
     }

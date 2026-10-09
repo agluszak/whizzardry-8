@@ -563,6 +563,8 @@ void ShutdownWithErrorBox(const CHAR8* pcMessage)
 
 #if defined(WIZ8_NATIVE)
     fprintf(stderr, "%s\n", gzErrorMsg);
+    // Release packed-pointer users before exit destroys the native handle table.
+    SGPExit();
     exit(1);
 #else
     exit(0);

@@ -11,6 +11,27 @@
 #include "surrender/srVariableTimer.h"
 #include "surrender/srVectorProcessor.h"
 
+/* RGB24 rows contain a word at every third byte, including odd addresses. */
+static inline unsigned short readPackedWord(const unsigned char* bytes)
+{
+#if defined(WIZ8_NATIVE)
+    unsigned short value;
+    memcpy(&value, bytes, sizeof(value));
+    return value;
+#else
+    return *reinterpret_cast<const unsigned short*>(bytes); // reinterpret-ok: retail x86 word load
+#endif
+}
+
+static inline void writePackedWord(unsigned char* bytes, unsigned short value)
+{
+#if defined(WIZ8_NATIVE)
+    memcpy(bytes, &value, sizeof(value));
+#else
+    *reinterpret_cast<unsigned short*>(bytes) = value; // reinterpret-ok: retail x86 word store
+#endif
+}
+
 /* Conversion routines stored in the format table. The generic pair is
    selected by PixelFormat::color_model; the per-entry overrides cover
    formats whose converter does not fit a generic kernel. The MMX workers
@@ -819,7 +840,7 @@ void __cdecl readYUV(const srPixelConvert::ConversionInfo& info)
         for (w8_ulong i = 0; i < info.count; i++) {
             /* reinterpret-ok: 24-bit records load their high two bytes as a word. */
             w8_ulong pixel =
-                *reinterpret_cast<const unsigned short*>(source + 1) * 0x100 + source[0];
+                readPackedWord(source + 1) * 0x100 + source[0];
             srVector3T<float> yuv((float)luts[0][(pixel >> shifts[0]) & masks[0]],
                                   (float)luts[1][(pixel >> shifts[1]) & masks[1]],
                                   (float)luts[2][(pixel >> shifts[2]) & masks[2]]);
@@ -1091,7 +1112,7 @@ void __cdecl readIntensity(const srPixelConvert::ConversionInfo& info)
         for (w8_ulong i = 0; i < count; i++) {
             /* reinterpret-ok: 24-bit records load their high two bytes as a word. */
             w8_ulong pixel =
-                *reinterpret_cast<const unsigned short*>(source + 1) * 0x100 + source[0];
+                readPackedWord(source + 1) * 0x100 + source[0];
             const unsigned char* gray =
                 lutGray[intensity_lut[(pixel >> format->red_shift) & intensity_mask]];
             /* reinterpret-ok: packed BGRA gray entry. */
@@ -2410,14 +2431,14 @@ static void packIntensity24(unsigned char* dest, const srARGB* source,
                                                 8]
                                   << intensity_shift;
             /* reinterpret-ok: 24-bit records store their low word separately. */
-            *reinterpret_cast<unsigned short*>(dest) = static_cast<unsigned short>(value);
+            writePackedWord(dest, static_cast<unsigned short>(value));
             dest[2] = static_cast<unsigned char>(value >> 16);
             pixel = source[i + 1];
             value = intensity_lut[(lutRamp54[pixel.red] + lutRamp183[pixel.green] +
                                    lutRamp18[pixel.blue]) >>
                                   8]
                     << intensity_shift;
-            *reinterpret_cast<unsigned short*>(dest + 3) = static_cast<unsigned short>(value);
+            writePackedWord(dest + 3, static_cast<unsigned short>(value));
             dest[5] = static_cast<unsigned char>(value >> 16);
             dest += 6;
         }
@@ -2427,7 +2448,7 @@ static void packIntensity24(unsigned char* dest, const srARGB* source,
                                                  lutRamp18[pixel.blue]) >>
                                                 8]
                                   << intensity_shift;
-            *reinterpret_cast<unsigned short*>(dest) = static_cast<unsigned short>(value);
+            writePackedWord(dest, static_cast<unsigned short>(value));
             dest[2] = static_cast<unsigned char>(value >> 16);
             dest += 3;
         }
@@ -2440,7 +2461,7 @@ static void packIntensity24(unsigned char* dest, const srARGB* source,
                                       << intensity_shift |
                                   alpha_lut[pixel.alpha] << alpha_shift;
             /* reinterpret-ok: 24-bit records store their low word separately. */
-            *reinterpret_cast<unsigned short*>(dest) = static_cast<unsigned short>(value);
+            writePackedWord(dest, static_cast<unsigned short>(value));
             dest[2] = static_cast<unsigned char>(value >> 16);
             pixel = source[i + 1];
             value = intensity_lut[(lutRamp54[pixel.red] + lutRamp183[pixel.green] +
@@ -2448,7 +2469,7 @@ static void packIntensity24(unsigned char* dest, const srARGB* source,
                                   8]
                         << intensity_shift |
                     alpha_lut[pixel.alpha] << alpha_shift;
-            *reinterpret_cast<unsigned short*>(dest + 3) = static_cast<unsigned short>(value);
+            writePackedWord(dest + 3, static_cast<unsigned short>(value));
             dest[5] = static_cast<unsigned char>(value >> 16);
             dest += 6;
         }
@@ -2459,7 +2480,7 @@ static void packIntensity24(unsigned char* dest, const srARGB* source,
                                                 8]
                                       << intensity_shift |
                                   alpha_lut[pixel.alpha] << alpha_shift;
-            *reinterpret_cast<unsigned short*>(dest) = static_cast<unsigned short>(value);
+            writePackedWord(dest, static_cast<unsigned short>(value));
             dest[2] = static_cast<unsigned char>(value >> 16);
             dest += 3;
         }
@@ -2633,22 +2654,22 @@ static void pack24(unsigned char* dest, const srARGB* source, const unsigned cha
                                   luts[1][pixel.green] << shifts[1] |
                                   luts[2][pixel.blue] << shifts[2];
             /* reinterpret-ok: 24-bit records store their low word separately. */
-            *reinterpret_cast<unsigned short*>(dest) = static_cast<unsigned short>(value);
+            writePackedWord(dest, static_cast<unsigned short>(value));
             dest[2] = static_cast<unsigned char>(value >> 16);
             pixel = source[i + 1];
             value = luts[0][pixel.red] << shifts[0] | luts[1][pixel.green] << shifts[1] |
                     luts[2][pixel.blue] << shifts[2];
-            *reinterpret_cast<unsigned short*>(dest + 3) = static_cast<unsigned short>(value);
+            writePackedWord(dest + 3, static_cast<unsigned short>(value));
             dest[5] = static_cast<unsigned char>(value >> 16);
             pixel = source[i + 2];
             value = luts[0][pixel.red] << shifts[0] | luts[1][pixel.green] << shifts[1] |
                     luts[2][pixel.blue] << shifts[2];
-            *reinterpret_cast<unsigned short*>(dest + 6) = static_cast<unsigned short>(value);
+            writePackedWord(dest + 6, static_cast<unsigned short>(value));
             dest[8] = static_cast<unsigned char>(value >> 16);
             pixel = source[i + 3];
             value = luts[0][pixel.red] << shifts[0] | luts[1][pixel.green] << shifts[1] |
                     luts[2][pixel.blue] << shifts[2];
-            *reinterpret_cast<unsigned short*>(dest + 9) = static_cast<unsigned short>(value);
+            writePackedWord(dest + 9, static_cast<unsigned short>(value));
             dest[11] = static_cast<unsigned char>(value >> 16);
             dest += 12;
         }
@@ -2657,7 +2678,7 @@ static void pack24(unsigned char* dest, const srARGB* source, const unsigned cha
             w8_ulong value = luts[0][pixel.red] << shifts[0] |
                                   luts[1][pixel.green] << shifts[1] |
                                   luts[2][pixel.blue] << shifts[2];
-            *reinterpret_cast<unsigned short*>(dest) = static_cast<unsigned short>(value);
+            writePackedWord(dest, static_cast<unsigned short>(value));
             dest[2] = static_cast<unsigned char>(value >> 16);
             dest += 3;
         }
@@ -2668,22 +2689,22 @@ static void pack24(unsigned char* dest, const srARGB* source, const unsigned cha
                 luts[0][pixel.red] << shifts[0] | luts[1][pixel.green] << shifts[1] |
                 luts[3][pixel.alpha] << shifts[3] | luts[2][pixel.blue] << shifts[2];
             /* reinterpret-ok: 24-bit records store their low word separately. */
-            *reinterpret_cast<unsigned short*>(dest) = static_cast<unsigned short>(value);
+            writePackedWord(dest, static_cast<unsigned short>(value));
             dest[2] = static_cast<unsigned char>(value >> 16);
             pixel = source[i + 1];
             value = luts[0][pixel.red] << shifts[0] | luts[1][pixel.green] << shifts[1] |
                     luts[3][pixel.alpha] << shifts[3] | luts[2][pixel.blue] << shifts[2];
-            *reinterpret_cast<unsigned short*>(dest + 3) = static_cast<unsigned short>(value);
+            writePackedWord(dest + 3, static_cast<unsigned short>(value));
             dest[5] = static_cast<unsigned char>(value >> 16);
             pixel = source[i + 2];
             value = luts[0][pixel.red] << shifts[0] | luts[1][pixel.green] << shifts[1] |
                     luts[3][pixel.alpha] << shifts[3] | luts[2][pixel.blue] << shifts[2];
-            *reinterpret_cast<unsigned short*>(dest + 6) = static_cast<unsigned short>(value);
+            writePackedWord(dest + 6, static_cast<unsigned short>(value));
             dest[8] = static_cast<unsigned char>(value >> 16);
             pixel = source[i + 3];
             value = luts[0][pixel.red] << shifts[0] | luts[1][pixel.green] << shifts[1] |
                     luts[3][pixel.alpha] << shifts[3] | luts[2][pixel.blue] << shifts[2];
-            *reinterpret_cast<unsigned short*>(dest + 9) = static_cast<unsigned short>(value);
+            writePackedWord(dest + 9, static_cast<unsigned short>(value));
             dest[11] = static_cast<unsigned char>(value >> 16);
             dest += 12;
         }
@@ -2692,7 +2713,7 @@ static void pack24(unsigned char* dest, const srARGB* source, const unsigned cha
             w8_ulong value =
                 luts[0][pixel.red] << shifts[0] | luts[1][pixel.green] << shifts[1] |
                 luts[3][pixel.alpha] << shifts[3] | luts[2][pixel.blue] << shifts[2];
-            *reinterpret_cast<unsigned short*>(dest) = static_cast<unsigned short>(value);
+            writePackedWord(dest, static_cast<unsigned short>(value));
             dest[2] = static_cast<unsigned char>(value >> 16);
             dest += 3;
         }
@@ -2796,22 +2817,22 @@ static void unpack24(w8_ulong* dest, const unsigned char* source,
     for (; i < (count & ~3UL); i += 4) {
         /* reinterpret-ok: 24-bit records load their high two bytes as a word. */
         w8_ulong pixel =
-            *reinterpret_cast<const unsigned short*>(source + 1) * 0x100 + source[0];
+            readPackedWord(source + 1) * 0x100 + source[0];
         dest[i] = luts[0][(pixel >> shifts[0]) & masks[0]] << 16 |
                   luts[1][(pixel >> shifts[1]) & masks[1]] << 8 |
                   luts[2][(pixel >> shifts[2]) & masks[2]] |
                   luts[3][(pixel >> shifts[3]) & masks[3]] << 24;
-        pixel = *reinterpret_cast<const unsigned short*>(source + 4) * 0x100 + source[3];
+        pixel = readPackedWord(source + 4) * 0x100 + source[3];
         dest[i + 1] = luts[0][(pixel >> shifts[0]) & masks[0]] << 16 |
                       luts[1][(pixel >> shifts[1]) & masks[1]] << 8 |
                       luts[2][(pixel >> shifts[2]) & masks[2]] |
                       luts[3][(pixel >> shifts[3]) & masks[3]] << 24;
-        pixel = *reinterpret_cast<const unsigned short*>(source + 7) * 0x100 + source[6];
+        pixel = readPackedWord(source + 7) * 0x100 + source[6];
         dest[i + 2] = luts[0][(pixel >> shifts[0]) & masks[0]] << 16 |
                       luts[1][(pixel >> shifts[1]) & masks[1]] << 8 |
                       luts[2][(pixel >> shifts[2]) & masks[2]] |
                       luts[3][(pixel >> shifts[3]) & masks[3]] << 24;
-        pixel = *reinterpret_cast<const unsigned short*>(source + 10) * 0x100 + source[9];
+        pixel = readPackedWord(source + 10) * 0x100 + source[9];
         dest[i + 3] = luts[0][(pixel >> shifts[0]) & masks[0]] << 16 |
                       luts[1][(pixel >> shifts[1]) & masks[1]] << 8 |
                       luts[2][(pixel >> shifts[2]) & masks[2]] |
@@ -2820,7 +2841,7 @@ static void unpack24(w8_ulong* dest, const unsigned char* source,
     }
     for (; i < count; i++) {
         w8_ulong pixel =
-            *reinterpret_cast<const unsigned short*>(source + 1) * 0x100 + source[0];
+            readPackedWord(source + 1) * 0x100 + source[0];
         dest[i] = luts[0][(pixel >> shifts[0]) & masks[0]] << 16 |
                   luts[1][(pixel >> shifts[1]) & masks[1]] << 8 |
                   luts[2][(pixel >> shifts[2]) & masks[2]] |

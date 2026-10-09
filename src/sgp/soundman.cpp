@@ -1675,6 +1675,12 @@ BOOLEAN SoundFileIsPlaying(CHAR8* pFilename)
 
     for (uiCount = 0; uiCount < SOUND_MAX_CHANNELS; uiCount++) {
         if (SoundIndexIsPlaying(uiCount)) {
+#if defined(WIZ8_NATIVE)
+            // Streamed voices carry SOUND_ERROR instead of a cache index.
+            if (pSoundList[uiCount].uiSample >= SOUND_MAX_CACHED) {
+                continue;
+            }
+#endif
             if (stricmp(pSampleList[pSoundList[uiCount].uiSample].pName, pFilename) == 0)
                 return (TRUE);
         }

@@ -82,6 +82,10 @@ public:
     T y;
 };
 
+#ifdef WIZ8_NATIVE
+// Character/location records embed these vectors at unaligned retail offsets.
+#pragma pack(push, 1)
+#endif
 template <class T> class srVector3T {
 public:
     srVector3T<T>();
@@ -154,6 +158,10 @@ public:
     T y;
     T z;
 };
+
+#ifdef WIZ8_NATIVE
+#pragma pack(pop)
+#endif
 
 template <class T> srVector3T<T>::srVector3T() {}
 

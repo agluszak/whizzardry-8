@@ -1400,6 +1400,18 @@ void stMeshModel::SetAmbientColor(const srVector3T<float>& color)
     }
 }
 
+static inline char CompressNormalByte(float value)
+{
+#if defined(WIZ8_NATIVE)
+    // A zero-length normal becomes NaN. MSVC's x87 integer-indefinite result
+    // has a zero low byte; express that result without an undefined FP cast.
+    if (!_finite(value)) {
+        return 0;
+    }
+#endif
+    return static_cast<char>(value);
+}
+
 /* Build one frame's compressed polygon and vertex normals from its vertex
    locations. Vertex normals are summed per polygon corner, remapped through
    the shade index table when there is one, unitized, and stored as signed
@@ -1470,17 +1482,17 @@ void stMeshModel::ComputeFrameNormals(int frame)
     }
     srVectorProcessor::mul(&vnorm->x, 127.0f, &vnorm->x, vertex_location_count * 3);
     for (int index = 0; index < vertex_location_count; ++index) {
-        compressed_vertex_normals[frame][index * 3] = static_cast<char>(vnorm[index].x);
-        compressed_vertex_normals[frame][index * 3 + 1] = static_cast<char>(vnorm[index].y);
-        compressed_vertex_normals[frame][index * 3 + 2] = static_cast<char>(vnorm[index].z);
+        compressed_vertex_normals[frame][index * 3] = CompressNormalByte(vnorm[index].x);
+        compressed_vertex_normals[frame][index * 3 + 1] = CompressNormalByte(vnorm[index].y);
+        compressed_vertex_normals[frame][index * 3 + 2] = CompressNormalByte(vnorm[index].z);
     }
 
     srVectorProcessor::normalize(pnorm, pnorm, 1.0f, polygon_count);
     srVectorProcessor::mul(&pnorm->x, 127.0f, &pnorm->x, polygon_count * 3);
     for (int polygon = 0; polygon < polygon_count; ++polygon) {
-        compressed_polygon_normals[frame][polygon * 3] = static_cast<char>(pnorm[polygon].x);
-        compressed_polygon_normals[frame][polygon * 3 + 1] = static_cast<char>(pnorm[polygon].y);
-        compressed_polygon_normals[frame][polygon * 3 + 2] = static_cast<char>(pnorm[polygon].z);
+        compressed_polygon_normals[frame][polygon * 3] = CompressNormalByte(pnorm[polygon].x);
+        compressed_polygon_normals[frame][polygon * 3 + 1] = CompressNormalByte(pnorm[polygon].y);
+        compressed_polygon_normals[frame][polygon * 3 + 2] = CompressNormalByte(pnorm[polygon].z);
     }
 
     delete[] pnorm;

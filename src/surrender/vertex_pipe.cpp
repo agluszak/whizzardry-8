@@ -223,7 +223,8 @@ void srVertexPipe::process(const Input& input)
             }
             processor_heap_capacity = capacity;
             if (capacity != 0) {
-                processor_heap = static_cast<srVertexProcessor**>(srHeap.allocate(capacity * 4));
+                processor_heap = static_cast<srVertexProcessor**>(
+                    srHeap.allocate(capacity * sizeof(*processor_heap)));
             }
         }
         active_processors = processor_heap;
