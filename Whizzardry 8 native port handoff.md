@@ -2,6 +2,94 @@
 
 Oct 9, 2026 · @Mietek Pierdzibąk
 
+## Continuation — FFmpeg movies and native game startup, Oct 9, 2026
+
+Native movie playback and the actual game executable are implemented at
+`822ce38d47e15eff1dc094b9bada4b8820456b61`. This final handoff commit brings
+`native-port` to **32 commits over main: 19 upstreamable commits first**, ending
+at `upstream-tip` (`f37bb567327d2278c320d13f8cb5725d60cd646c`), followed by
+13 native/documentation commits. The shared commit was restacked below the
+entire native suffix, with an exact tree comparison before restoring native
+work. Earlier sections contain historical hashes from prior stacks; consult
+`git log` for the current suffix. No decomp-repo upstreaming was done.
+
+- **Full link and startup:** `Wiz8Native` links the real SDL entry point,
+  recovered game loop, 211 recovered game units plus two native movie units,
+  and the 33-unit SGP archive. The five remaining Bink contracts are now real
+  implementations. A whole-archive link also succeeds without unresolved
+  contracts (`build-native/movie-link-audit.log`). No fake media routines or
+  harness-only substitutions were added to the executable.
+- **Movies:** `src/native/movie.cpp` owns bounded platform handles for loose
+  files or recovered SLF entries, FFmpeg custom AVIO, codecs, resampler and
+  RGB555 conversion. Decoding remains on the main thread, with a quarter-second
+  of frame lookahead and bounded PCM buffering. Container timestamps pace
+  frames; EOF drains codecs/PCM and retains the final frame for its duration.
+  Movie-owned PCM voices share the existing miniaudio engine. Reopening stops
+  the preceding movie/voice. Only the used zero Open flags are supported;
+  movie output requires RGB555 and dimensions no larger than 640x480. When
+  soundman has no output engine, video can run silently.
+- **Black window fixed:** recovered `stSurface2D::updateRectangle` ignores its
+  pixel-pointer argument and uploads through each texture's source surface.
+  Passing movie pixels while retaining the game's empty source produced black.
+  The native movie now owns a separate SurRender surface/tile set. It presents
+  in the existing SDL window without changing the game primary. The graphics
+  check matches all 307,200 movie/background pixels, then checks restoration
+  of the game primary and persistent window. Retail UI/cursor checks remain
+  58,548 matching UI pixels and 556 cursor pixels.
+- **Visible game behavior:** with installed assets, X11 and a private user
+  overlay, the full executable displays the Sir-Tech movie. Synthetic Escape
+  transitions to the rendered main menu, with retail artwork and cursor.
+  A standard WM_DELETE_WINDOW request reaches the native window procedure and
+  exits normally (status 0). The menu's recovered Exit screen waits for an
+  additional key/button press. Screenshots: `build-native/movie-fixed.png`
+  and `movie-menu.png`. Physical input and audible output were not independently
+  verified; these are startup/menu checks, not gameplay or world-mesh parity.
+- **Shared fixes first:** the opaque native movie handle and primary-surface
+  declaration are guarded without changing Windows layout. Native movie
+  presentation brackets ordinary frame rendering. SGP exit releases screen-owned
+  movie voices before the audio engine, and native main invokes the guarded exit
+  handler before SDL shutdown. Startup ASan exposed the item-category array's
+  four-byte allocation; it and the remaining explicit pointer banks in prepath,
+  submesh lighting, octree particles/props, build scratch and GameData triggers/
+  environments now allocate by pointee size, preserving spare element counts.
+  Serialized four-byte scalar arrays were left intact.
+- **Validation:** 12/12 native tests pass. Six focused I/O/input/import/surface/
+  audio/movie tests pass ASan/UBSan with leak detection; the installed movie also
+  passes the movie sanitizer test. Authored FFV1/PCM fixtures check timed frames
+  byte-for-byte against the FFmpeg CLI, stereo PCM count/energy, loose/SLF reads,
+  a truncated SLF entry, last-frame duration, reopen, release and invalid flags.
+  The installed Sir-Tech movie decodes **486 frames and 716,160 PCM frames**;
+  RGB555 FNV64 **a8ac71db8aa752cc** matches the CLI over every decoded byte.
+  The syntax probe remains 246/246 clean; the two new native movie units compile
+  through CMake separately. Legacy clang-cl builds and all **299 non-zlib objects
+  remain exact** in instructions, relocations and `.rdata` against `228fa4c`,
+  using `SOURCE_DATE_EPOCH=1791503644`. VC6/macOS remain untested.
+- **Sanitizer boundary:** the full game reaches movie/menu/exit without an
+  invalid-access report. LeakSanitizer is **not clean**: it reports existing
+  `ResetGameStatus` character/status buffers and `gXStatus` vector allocations
+  overwritten by initialization, plus the already observed DBus/unloaded-driver
+  allocations. Closing during an active movie also reaches shutdown without
+  invalid accesses (`build-native-asan/movie-active-close.log`). See
+  `build-native-asan/movie-runtime-check.log` for the menu/exit leak report. Do not conflate
+  the leak-clean focused movie test with the full executable. No suppressions
+  were introduced and no retail cleanup behavior was invented to hide leaks.
+- **Dependencies:** system FFmpeg development libraries were already installed.
+  No packages were installed by the agent. Keep the user's preference: give
+  installation commands for missing dependencies and let the user install them.
+  README now lists the required FFmpeg/pkg-config packages.
+
+Next work should start from the actual executable rather than the old link
+inventory: validate a new-game/load path and visible world mesh/draw calls,
+then resolve failures using runtime evidence. Native JPEG/Targa integration,
+shipped-renderer world parity, save/load and the observed game-owned lifetime
+leaks remain open. Exercise focus/resume and real input too; X11 synthetic
+menu input does not establish Wayland or physical-input correctness.
+
+Publication uses exact leases on the previously verified branch
+`34ffe0f82eb5b7ae67116661d228369a0ad62295` and tag
+`e7e5647517a1f2ad45be71388c19ecbb0b72713a`. The tracked handoff and parent-directory
+copy are synchronized. Evidence logs/artifacts live in ignored build directories.
+
 ## Continuation — native audio and pipeline ownership, Oct 9, 2026
 
 The native audio implementation is committed at
