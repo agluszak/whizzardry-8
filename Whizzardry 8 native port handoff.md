@@ -2,6 +2,80 @@
 
 Oct 9, 2026 · @Mietek Pierdzibąk
 
+## Continuation — native audio and pipeline ownership, Oct 9, 2026
+
+The native audio implementation is committed at
+`47f084c0908d126a05b0d4c901026973d9d8c70b`. This final handoff commit brings
+`native-port` to 29 commits over `main`: 18 upstreamable commits first, ending
+at `upstream-tip` (`e7e5647517a1f2ad45be71388c19ecbb0b72713a`), followed by 11
+native/documentation commits. Publication uses exact leases on the previously
+verified branch `0e9c2080d1528e57a1ac7d789a5be73a333917ab` and tag
+`719095bfde14840cad2b772f7d49b47f501ee960`. No decomp-repo upstreaming was done.
+
+- **Pipeline ownership fixed:** game methods and the game vtable bind locally
+  on native clients; the DLL-owned `srTriMeshPipeline::pipe` remains imported.
+  This preserves the original EXE/DLL ownership rather than allowing ELF
+  interposition to merge the two implementations. The graphics test checks
+  distinct game/DLL `Get` functions returning the same singleton and exercises
+  allocation, reset, flush and destruction through `srExit`. Strict ASan no
+  longer reports the vtable collision. Windows declarations/codegen are intact.
+- **Audio implemented:** retain recovered `soundman.cpp` for cache, IDs, channel
+  selection, priorities, random scheduling, fades, flags and EOS callbacks.
+  `src/sgp/native/audio.cpp` implements its used Miles calls through pinned,
+  unmodified miniaudio 0.11.25 (`third_party/miniaudio`, original license retained).
+  Memory decoders own encoded bytes; clearing cache while music plays stays safe.
+  Streams use bounded platform handles at the recovered SLF entry's offset and
+  length, without encoding full-width native handles in filenames. Decoder
+  reads/seeks/cursor queries share a mutex; finite/infinite loops use an atomic
+  counter. Native shutdown releases voices before their driver and dispatches
+  no EOS callbacks. The all-ones callback sentinel is pointer-width safe.
+- **Native adaptations:** legacy provider selections use miniaudio spatialization;
+  EAX effects are unavailable and are not advertised. The unused Miles raw-buffer
+  callback interface fails explicitly if requested. Tests use an offline engine;
+  production starts its real native output device. No system packages were
+  installed. The user's package preference is explicit: provide install commands
+  for missing dependencies; never install them yourself. FFmpeg development
+  libraries and the CLI are already present on this machine.
+- **Validation:** 11/11 native tests pass. Audio tests cover generated WAV and
+  MP3 samples/streams, WAV-to-MP3 fallback, loose/SLF streaming, duration/cursor,
+  pan/volume, finite/infinite loops, fades, priority groups, 32 occupied channels,
+  random scheduling, spatialization, callbacks/sentinels and repeated lifecycle.
+  `native_audio_test --device` also opened the native output device and observed
+  playback completion; audible output was not independently checked. Audio,
+  including miniaudio C code, passes full ASan/UBSan with leak detection. The
+  real UI/cursor graphics check still matches 58,548 UI and 556 cursor pixels.
+- **Graphics leak boundary:** strict ASan reaches correct pixels but still
+  reports shutdown allocations in DBus and unloaded external modules. The new
+  `native_gpu_lifecycle` target reproduces these allocation sites using only
+  SDL/Vulkan, without game or renderer code. This is an independently reproduced
+  host-stack limitation; graphics remains **not leak-clean**. No sanitizer
+  suppressions were added. The standalone test enables SDL's DBus shutdown
+  diagnostic hint; production does not enable it. See
+  `build-native-asan/audio-graphics.log` and `gpu-lifecycle.log`.
+- **Build/link frontier:** 211 recovered game units, 33 SGP/native units and the
+  separately built miniaudio implementation. Probe: 246/246 clean, with four
+  whole Windows/media units excluded. Whole-archive link including actual main
+  now has **five unresolved contracts**, all `W8BinkVideo` constructor,
+  destructor, Open, SetTarget and UpdateFrame. Audio, graphics and shell resolve.
+  The full game still does not link/run until movie playback is implemented.
+- **Legacy:** clang-cl builds; exact instruction bytes, relocations and `.rdata`
+  match all 299 non-zlib objects against `228fa4c`, using the established
+  `SOURCE_DATE_EPOCH=1791503644`. VC6 and macOS remain untested.
+
+Shared commit: `e7e5647`. Native implementation: `47f084c`. Earlier native
+commits were restacked to `d0e451f`, `9350e50`, `dff2987`, `30fb609`, `6576126`,
+`cb3363a`, `52281a4`, `5e0bf5b`, `229c0fc`; the combined tree was preserved.
+README.md and tests/native/README.md contain build/test commands and limits.
+
+**Next:** implement FFmpeg-backed Bink playback against the recovered
+`W8BinkVideo` contract, including pacing, target/primary RGB555 output and audio.
+Finish the real game link; then validate startup, resize/focus/input, shutdown,
+saves and gameplay interactively. JPEG/Targa importer integration and shipped
+renderer parity remain in the revised plan. Keep further shared commits before
+native commits; refresh remote IDs before any restacked branch/tag push.
+
+Earlier continuation sections below are historical and superseded here.
+
 ## Continuation — CPU surfaces, recovered Video2 and SDL shell, Oct 9, 2026
 
 Work stopped at the user's request after publishing the implementation at
@@ -310,7 +384,9 @@ After the probe is clean, the native CMake lane needs the game target itself (de
 - [x] Add portable game and SGP core targets to the native lane and audit the remaining platform link contracts.
 - [x] SDL message/timer bridge and input into the recovered queue, with integration tests.
 - [x] CPU surfaces and recovered Video2 integration; SDL main/window procedure compiled.
-- [ ] Resolve native game/renderer pipeline ownership and graphics sanitizer shutdown findings.
-- [ ] PR 4 (miniaudio) and PR 5 (FFmpeg); complete the real shell/game link and validate it interactively.
+- [x] Preserve native game/renderer pipeline method ownership and shared singleton; strict ODR check passes.
+- [ ] Graphics shutdown leak reports: independently reproduced in standalone SDL/Vulkan; keep the host-stack limitation documented.
+- [x] PR 4 miniaudio adapter with recovered sound manager, WAV/MP3/SLF tests and native-device check.
+- [ ] PR 5 FFmpeg playback; complete the real shell/game link and validate it interactively.
 - [ ] Bring `srDD_SDLGPU` to parity: scissored clears, stencil, `TexParms` decoding, detail combiners, fog and alpha reference, then compare scenes with the shipped `srDD_Software`/`srDD_OpenGL` output.
 - [ ] Upstream: cherry-pick `main..upstream-tip` into the decomp repo and run its VC6 matching check.
