@@ -30,10 +30,10 @@ four-byte-aligned `srQuadWord` conversion. Native clients use the same generated
 members as the library; Windows import declarations remain intact.
 
 `WIZ8_GAME_CORE` compiles 211 recovered game units, including Video2, except
-Miles imports and Bink. The 31-unit SGP archive includes its recovered shell and
-surface manager plus the CPU surface and SDL window adapters. Sound and the two
-Windows DirectDraw units remain excluded. `WIZ8_NATIVE_SHELL` compiles the actual
-SDL entry point. The full game link still requires audio and movie playback;
+Miles imports and Bink. The 33-unit SGP archive includes its recovered shell and
+surface manager, sound manager and CPU/SDL/miniaudio adapters. The two Windows
+DirectDraw units remain excluded. `WIZ8_NATIVE_SHELL` compiles the actual
+SDL entry point. The full game link still requires movie playback;
 building these archives and entry point does not prove gameplay.
 To inspect the remaining contracts on Linux:
 
@@ -42,12 +42,12 @@ clang++ -o build-native/game-link-audit \
     build-native/CMakeFiles/WIZ8_NATIVE_SHELL.dir/src/sgp/native/main.cpp.o \
     -Wl,--whole-archive \
     build-native/libWIZ8_GAME_CORE.a build-native/libWIZ8_SGP.a \
-    -Wl,--no-whole-archive -Lbuild-native -lsr -lwiz8_compat -lz -pthread -ldl -lSDL3 \
+    -Wl,--no-whole-archive -Lbuild-native -lsr -lwiz8_compat -lwiz8_miniaudio -lz -pthread -ldl -lm -lSDL3 \
     > build-native/game-link-audit.log 2>&1
 ```
 
-The latest audit has 38 distinct unresolved contracts, all sound-manager or
-Bink playback ownership (including `gfEnableStartup`). Graphics, entry-point and
+The latest audit has five unresolved contracts, all `W8BinkVideo` playback
+ownership. Audio, including `gfEnableStartup`, now resolves. Graphics, entry-point and
 SurRender contracts resolve. This is a saved link inventory, not gameplay.
 
 `native_surface_oracle` compares 90 cases at 8/16/32 bpp with Wine DirectDraw:
@@ -89,21 +89,56 @@ WIZ8_ASSET_ROOT=/path/to/Wizardry8 build-native/native_game_graphics \
     'Data\MAIN INTERFACE\BOTTOM.STI' "$PWD/build-native/game-ui.ppm"
 ```
 
-The graphics harness uses `NativeInputWindowProcedure`, a test-only sound-provider
-recorder and startup flag. The full `WindowProcedure` and main compile but need
+The graphics harness uses `NativeInputWindowProcedure` and the real sound-manager
+contracts. Its configuration disables audio startup. The full `WindowProcedure`
+and main compile but need
 the media implementations to link their game lifecycle. This checks real asset
 rendering, not an interactive game or full-shell runtime. The 640x480 client-space
 adapter scales SDL input/warps against actual window dimensions; native Video2
 keeps its logical cursor coordinate calculations.
 
-Surface, file, event and renderer-client tests pass full ASan/UBSan with leak
-detection. The graphics sanitizer run is **not clean**: default ASan flags duplicate
-`srTriMeshPipeline` vtables from the game and renderer. A diagnostic run with
-`detect_odr_violation=1` reaches the matching UI/cursor output but reports shutdown
-leaks in external/unknown modules. Preserve the stricter failure as a follow-up;
-no suppression is required for the four clean tests. Sanitizers also exposed an
-empty-vertex upload passing a null pointer to zero-length `memcpy`; the SDL GPU
-adapter now skips that copy. Linux focused-graphics links use `-z start-stop-gc`
+`native_audio` retains the recovered manager's cache, channel selection, random
+scheduling, fade steps, callback dispatch and sound IDs. The native Miles-call
+adapter uses vendored [miniaudio 0.11.25](../../third_party/miniaudio/README.md).
+Memory decoders own encoded bytes so clearing cache while music plays retains
+valid backing storage. Streams own bounded platform handles, retaining an SLF
+entry's offset/length without encoding native pointers in filenames. Decoder
+reads/seeks/cursor queries share a mutex; loop counters are atomic. The native
+shutdown releases voices before their driver and dispatches no EOS callbacks,
+matching retail shutdown's lack of callbacks. Native provider names select
+miniaudio spatialization; EAX environment effects and the unused Miles raw-buffer
+callback interface are unsupported. The latter fails explicitly if requested.
+
+The generated WAV and 100 ms sine-wave `tone.mp3` fixture exercise sample and
+stream decoding, WAV-to-MP3 filename fallback, duration/cursor, pan, volume,
+finite/infinite loops, fades, music/cache lifetime, priority groups, 32 occupied
+channels, random scheduling, spatial sounds, callbacks, all-ones LP64 callback
+sentinels and repeated shutdown/reinitialization. The default test mixes through
+miniaudio's offline engine, so it needs no sound device. A manual device check is:
+
+```sh
+build-native/native_audio_test --device
+```
+
+That command also opens the native output device and observes playback completion;
+it does not independently verify audible output. The MP3 fixture was generated
+with `ffmpeg -i tone-source.wav -c:a libmp3lame -b:a 96k -map_metadata -1 tone.mp3`;
+the test constructs the equivalent source WAV programmatically.
+
+Audio, surface, file, event and renderer-client tests pass ASan/UBSan with leak
+detection. Compile both C and C++ with sanitizers to include miniaudio. The game
+pipeline's methods/vtable bind locally on native clients while the DLL-owned
+`pipe` remains imported. The graphics test checks distinct game/DLL `Get`
+functions sharing one singleton and exercises its lifecycle through `srExit`.
+Strict ASan no longer reports the prior vtable collision. Graphics still reports
+shutdown leaks in DBus and unloaded external modules; a standalone SDL/Vulkan
+lifecycle without game/renderer code reproduces these allocation sites
+(`native_gpu_lifecycle`; saved log `build-native-asan/gpu-lifecycle.log`).
+Build/run that target with the same sanitizer configuration to reproduce.
+This remains a host-stack limitation,
+not a clean graphics leak result. The standalone test enables SDL's documented
+DBus shutdown diagnostic hint; production code does not enable that hint.
+Linux focused-graphics links use `-z start-stop-gc`
 so unused ASan global-registration sections can be discarded with unused game
 functions while media remains absent.
 
@@ -202,13 +237,14 @@ built with sanitizers:
 cmake -S . -B build-native-asan -G Ninja \
     -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ \
     -DCMAKE_BUILD_TYPE=RelWithDebInfo \
+    -DCMAKE_C_FLAGS='-fsanitize=address,undefined -shared-libasan -fno-omit-frame-pointer' \
     -DCMAKE_CXX_FLAGS='-fsanitize=address,undefined -shared-libasan -fno-omit-frame-pointer'
-cmake --build build-native-asan --target native_files_test native_events_test native_imports_test native_surface_oracle
+cmake --build build-native-asan --target native_files_test native_events_test native_imports_test native_surface_oracle native_audio_test
 native_sanitizer_runtime=$(dirname "$(clang++ --print-file-name=libclang_rt.asan-x86_64.so)")
 LD_LIBRARY_PATH="$native_sanitizer_runtime${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" \
     UBSAN_OPTIONS=halt_on_error=1 ASAN_OPTIONS=detect_leaks=1 \
     ctest --test-dir build-native-asan --output-on-failure \
-    -R '^native_(files|events|imports|surface_oracle)$'
+    -R '^native_(files|events|imports|surface_oracle|audio)$'
 ```
 
 `-shared-libasan` supplies the runtime to the shared libraries while retaining

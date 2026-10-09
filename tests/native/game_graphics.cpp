@@ -6,12 +6,14 @@
 #include "platform_paths.h"
 #include "sgp.h"
 #include "surrender/srGERD.h"
+#include "surrender/srTriMeshPipeline.h"
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/sr_api.h"
 #include "wiz8/surface2d.h"
 #include <SDL3/SDL.h>
 #include <cstdio>
 #include <cstring>
+#include <dlfcn.h>
 #include <exception>
 #include <filesystem>
 #include <unistd.h>
@@ -25,10 +27,6 @@
             return 1;                                                                              \
         }                                                                                          \
     } while (0)
-/* Test-only provider recorder; this configuration selects no audio provider. */
-BOOLEAN gfEnableStartup = FALSE;
-static unsigned provider_calls = 0;
-void Sound3DSetProvider(char*) { ++provider_calls; }
 extern unsigned char g_fullscreen;
 extern WNDPROC g_window_proc;
 extern srScene* g_cursor_scene;
@@ -58,6 +56,8 @@ int main(int argc, char** argv)
         CHECK(config);
         fputs("SDLGPU\n640\n480\n16\nnone\n", config);
         fclose(config);
+        /* This standalone test owns SDL and DBus until process exit. */
+        SDL_SetHint(SDL_HINT_SHUTDOWN_DBUS_ON_QUIT, "1");
         CHECK(SDL_Init(SDL_INIT_VIDEO));
         CHECK(InitializeMemoryManager());
         CHECK(InitializeFileManager(nullptr));
@@ -70,6 +70,16 @@ int main(int argc, char** argv)
         CHECK(InitializePrimaryDirectDrawSurface());
         CHECK(InitializeVideoDevice());
         CHECK(InitializeRendererSceneObjects());
+        void* renderer_library = dlopen(WIZ8_RENDERER_LIBRARY, RTLD_NOW | RTLD_NOLOAD);
+        CHECK(renderer_library);
+        auto renderer_pipeline = reinterpret_cast<srTriMeshPipeline* (*)(srGERD*)>(
+            dlsym(renderer_library, "_ZN17srTriMeshPipeline3GetEP6srGERD"));
+        CHECK(renderer_pipeline && renderer_pipeline != &srTriMeshPipeline::Get);
+        CHECK(!renderer_pipeline(nullptr) && !srTriMeshPipeline::Get(nullptr));
+        auto pipeline = srTriMeshPipeline::Get(g_gerd);
+        CHECK(pipeline && renderer_pipeline(g_gerd) == pipeline);
+        pipeline->Flush();
+        dlclose(renderer_library);
         CHECK(InitializeVideoSurfaceManager());
         CHECK(InitializeVideoObjectManager());
         VOBJECT_DESC image{};
@@ -149,7 +159,7 @@ int main(int argc, char** argv)
         CHECK(colored > 100 && matched == colored);
         printf("retail cursor: %u GPU pixels\n", cursor_pixels);
         CHECK(cursor_pixels > 5);
-        CHECK(provider_calls == 0);
+
         ShutdownVideoObjectManager();
         ShutdownVideoSurfaceManager();
         ShutdownVideoScenes();

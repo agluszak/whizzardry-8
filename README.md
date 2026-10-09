@@ -11,7 +11,8 @@ as `libsr.so` with an SDL3 GPU device, the portable SGP core and the recovered
 game code as `libWIZ8_GAME_CORE.a`. SDL keyboard, mouse, focus and timer messages
 feed the recovered SGP input queue and clock. CPU surfaces now serve the recovered
 surface manager and Video2; the SDL entry point and window procedure compile.
-Audio and movie playback still block the full game link. The graphics harness
+The recovered sound manager now uses miniaudio for samples, streams and spatial
+audio. Movie playback still blocks the full game link. The graphics harness
 loads retail SLF/STI assets and presents the recovered UI and cursor through SDL GPU.
 
 ```sh

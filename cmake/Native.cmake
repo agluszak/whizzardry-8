@@ -123,6 +123,7 @@ target_link_libraries(native_surface_oracle PRIVATE WIZ8_SGP)
 add_test(NAME native_surface_oracle COMMAND native_surface_oracle "${PROJECT_SOURCE_DIR}/tests/native/surfaces_legacy.txt")
 
 add_executable(native_game_graphics tests/native/game_graphics.cpp)
+target_compile_definitions(native_game_graphics PRIVATE WIZ8_RENDERER_LIBRARY="$<TARGET_FILE:SURRENDER>")
 target_link_libraries(native_game_graphics PRIVATE WIZ8_GAME_CORE WIZ8_SGP WIZ8_GAME_CORE SDL3::SDL3)
 if(APPLE)
     target_link_options(native_game_graphics PRIVATE -Wl,-dead_strip)
@@ -132,3 +133,13 @@ else()
     target_link_options(native_game_graphics PRIVATE -Wl,--gc-sections -Wl,-z,start-stop-gc)
 endif()
 # Uses installed retail assets, supplied through WIZ8_ASSET_ROOT; run explicitly.
+
+add_executable(native_audio_test tests/native/audio_test.cpp)
+target_link_libraries(native_audio_test PRIVATE WIZ8_SGP)
+target_compile_definitions(native_audio_test PRIVATE WIZ8_AUDIO_TEST_MP3="${PROJECT_SOURCE_DIR}/tests/native/tone.mp3")
+add_test(NAME native_audio COMMAND native_audio_test)
+
+# Standalone SDL/Vulkan lifetime control for diagnosing host leak reports.
+# Run manually: failures here are independent of game and SurRender ownership.
+add_executable(native_gpu_lifecycle tests/native/gpu_lifecycle.cpp)
+target_link_libraries(native_gpu_lifecycle PRIVATE SDL3::SDL3)
