@@ -2,7 +2,10 @@ cmake_minimum_required(VERSION 3.21)
 if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
     set(CMAKE_BUILD_TYPE Release CACHE STRING "Build configuration")
 endif()
-include(cmake/BootstrapVcpkg.cmake)
+option(WIZ8_PORTABLE_API_ONLY "Build only the SDL filesystem/time API and isolated tests" OFF)
+if(NOT WIZ8_PORTABLE_API_ONLY)
+    include(cmake/BootstrapVcpkg.cmake)
+endif()
 project(whizzardry8 LANGUAGES C CXX)
 
 if(NOT CMAKE_SYSTEM_NAME MATCHES "^(Linux|Darwin|Windows)$" OR
@@ -16,7 +19,7 @@ endif()
 
 set(CMAKE_C_STANDARD 17)
 set(CMAKE_C_STANDARD_REQUIRED ON)
-set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}")
@@ -24,10 +27,29 @@ set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}")
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}")
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
-find_package(ZLIB REQUIRED)
 find_package(SDL3 3.2 CONFIG REQUIRED)
-find_package(FFMPEG REQUIRED)
 find_package(Threads REQUIRED)
+
+# No forced CRT vocabulary or short-wchar options at the portable API boundary.
+add_library(wiz8_filesystem STATIC
+    src/compat/platform_paths.cpp
+    src/platform/filesystem.cpp
+    src/platform/file_time.cpp
+)
+target_include_directories(wiz8_filesystem PUBLIC "${PROJECT_SOURCE_DIR}/include"
+    PRIVATE "${PROJECT_SOURCE_DIR}/src/compat")
+target_link_libraries(wiz8_filesystem PUBLIC SDL3::SDL3 Threads::Threads)
+target_compile_features(wiz8_filesystem PUBLIC cxx_std_23)
+include(CTest)
+if(BUILD_TESTING)
+    add_subdirectory(tests/portable)
+endif()
+if(WIZ8_PORTABLE_API_ONLY)
+    return()
+endif()
+
+find_package(ZLIB REQUIRED)
+find_package(FFMPEG REQUIRED)
 
 # Audio dependency; do not build upstream examples or extra nodes.
 include(FetchContent)
@@ -79,14 +101,13 @@ target_link_libraries(wiz8_native_settings INTERFACE Threads::Threads ${CMAKE_DL
 # One process-wide owner for roots, file handles, CRT and SDL state in the executable.
 add_library(wiz8_compat STATIC
     src/compat/native_crt.cpp
-    src/compat/platform_paths.cpp
     src/compat/platform_crt.cpp
     src/compat/platform_files.cpp
     src/compat/platform_system.cpp
 )
 target_compile_options(wiz8_compat PRIVATE ${WIZ8_COMPAT_OPTIONS})
 target_include_directories(wiz8_compat PRIVATE "${PROJECT_SOURCE_DIR}/include/wiz8")
-target_link_libraries(wiz8_compat PRIVATE Threads::Threads SDL3::SDL3)
+target_link_libraries(wiz8_compat PRIVATE Threads::Threads SDL3::SDL3 wiz8_filesystem)
 if(WIN32)
     # Keep host SDK declarations out of the transitional game vocabulary.
     add_library(wiz8_os STATIC src/compat/platform_fs_windows.cpp)
