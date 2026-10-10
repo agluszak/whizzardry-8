@@ -115,7 +115,7 @@ public:
 
     SR_DLL_IMPORT void applyWorldSpaceMatrix(class srGERD& renderer);
     SR_DLL_IMPORT double getDistance(const srNode& node) const;
-    SR_DLL_IMPORT srVector3T<double> getLocation() const;
+    SR_DLL_IMPORT glm::dvec3 getLocation() const;
     SR_DLL_IMPORT void getLocation(srVector3T<float>& location) const;
     // FUNCTION: SURRENDER 0x10053DD0 SYMBOL
     // RECOMP: ?getLocation@srNode@@QBEXAAV?$srVector3T@N@@@Z
@@ -128,20 +128,20 @@ public:
     SR_DLL_IMPORT double getLocationZ() const;
     SR_DLL_IMPORT void getRotation(glm::mat3& rotation) const;
     SR_DLL_IMPORT void getRotation(glm::dmat3& rotation) const;
-    SR_DLL_IMPORT srVector3T<double> getScale() const;
+    SR_DLL_IMPORT glm::dvec3 getScale() const;
     SR_DLL_IMPORT void getWorldSpaceCoordinates(glm::mat3& rotation, srVector3T<float>& location,
                                                 srVector3T<float>& scale) const;
     SR_DLL_IMPORT void getWorldSpaceCoordinates(glm::dmat3& rotation, srVector3T<double>& location,
                                                 srVector3T<double>& scale) const;
-    SR_DLL_IMPORT srVector3T<double> getWorldSpaceDOF() const;
-    SR_DLL_IMPORT srVector3T<double> getWorldSpaceLocation() const;
+    SR_DLL_IMPORT glm::dvec3 getWorldSpaceDOF() const;
+    SR_DLL_IMPORT glm::dvec3 getWorldSpaceLocation() const;
     SR_DLL_IMPORT void getWorldSpaceMatrix(glm::mat4& matrix) const;
     SR_DLL_IMPORT void getWorldSpaceMatrix(glm::dmat4& matrix) const;
     SR_DLL_IMPORT void getWorldSpaceMatrix(glm::mat4x3& matrix) const;
     SR_DLL_IMPORT void getWorldSpaceMatrix(glm::dmat4x3& matrix) const;
     SR_DLL_IMPORT void getWorldSpaceRotation(glm::mat3& rotation) const;
     SR_DLL_IMPORT void getWorldSpaceRotation(glm::dmat3& rotation) const;
-    SR_DLL_IMPORT srVector3T<double> getWorldSpaceScale() const;
+    SR_DLL_IMPORT glm::dvec3 getWorldSpaceScale() const;
     SR_DLL_IMPORT void move(const srVector3T<double>& offset);
     SR_DLL_IMPORT void moveBackward(double distance);
     SR_DLL_IMPORT void moveDown(double distance);

@@ -24,6 +24,6 @@ public:
     SR_DLL_IMPORT void setGroupMask(w8_ulong mask);
 
     w8_ulong group_mask;       /* 0x13c */
-    srVector3T<float> eye_location; /* 0x140 */
+    glm::vec3 eye_location;    /* 0x140 */
 };
 

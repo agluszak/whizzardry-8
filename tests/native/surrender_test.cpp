@@ -1,4 +1,5 @@
 #include "surrender/srClipPlane.h"
+#include "surrender/srCamera.h"
 #include "surrender/srCore.h"
 #include "surrender/srIlluminator.h"
 #include "surrender/srLight.h"
@@ -137,6 +138,39 @@ static bool interfaces()
         scene.getFogColor(color);
         CHECK(color == scene.getFogColor());
 
+        srLight light;
+        light.setAmbient(glm::vec3(0.1f, 0.2f, 0.3f));
+        CHECK(light.getAmbient() == glm::vec3(0.1f, 0.2f, 0.3f));
+        light.setSpotDirection(glm::vec3(3, 0, 4));
+        CHECK(glm::length(light.getSpotDirection() - glm::vec3(0.6f, 0, 0.8f)) < 1e-6f);
+        light.setSpotDirection(glm::vec3(0));
+        CHECK(light.getSpotDirection() == glm::vec3(0));
+        light.setAttenuation(glm::vec3(-1, 0, 2));
+        CHECK(light.getAttenuation() == glm::vec3(0.0001f, 0.0001f, 2));
+
+        srCamera camera;
+        camera.setClipRange(1, 100);
+        camera.setViewPlane(srCamera::Rect{-1, -1, 1, 1}, 1);
+        camera.setLocation(3, 4, 5);
+        camera.setRotation(0, std::numbers::pi / 2, 0);
+        srVector3 projected;
+        CHECK(camera.project(projected, srVector3T<double>(13, 4, 5)) ==
+              srCamera::PROJECTION_RESULT_ACCEPTED);
+        CHECK(glm::length(projected.glmValue() - glm::vec3(0.5f, 0.5f, 10)) < 1e-5f);
+        srVector3 restored;
+        CHECK(camera.unproject(restored, srVector3T<double>(0.5, 0.5, 10)));
+        CHECK(glm::length(restored.glmValue() - glm::vec3(13, 4, 5)) < 1e-5f);
+        CHECK(camera.project(projected, srVector3T<double>(13, 4, -15)) ==
+              srCamera::PROJECTION_RESULT_OUTSIDE_VIEW);
+        CHECK(camera.project(projected, srVector3T<double>(203, 4, 5)) ==
+              srCamera::PROJECTION_RESULT_OUTSIDE_CLIP_RANGE);
+        CHECK(!camera.unproject(restored, srVector3T<double>(2, 0.5, 10)));
+        camera.flipHorizontal();
+        CHECK(camera.unproject(restored, srVector3T<double>(0.25, 0.5, 10)));
+        CHECK(camera.project(projected, srVector3T<double>(restored.glmValue())) ==
+              srCamera::PROJECTION_RESULT_ACCEPTED);
+        CHECK(std::abs(projected.x - 0.25f) < 1e-5f);
+
         ModelInstance model;
         CHECK(!model.isAligned());
         model.setAlignAxis(srVector3T<float>(3, 0, 4));
@@ -165,7 +199,6 @@ static bool interfaces()
         CHECK(clip.getClipType() == srClipPlane::CLIP_POSITIONAL_0);
 
         srIlluminator illuminator;
-        srLight light;
     }
     CHECK(srExit() == 1);
 

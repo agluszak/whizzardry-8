@@ -4,7 +4,7 @@
 #include "wiz8/geometry.h"
 #include "wiz8/float_constants.h"
 #include "wiz8/engine_code/World.h"
-#include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtx/euler_angles.hpp>
 
 /* Orientation limits shared by the inline setters and GDCamera.cpp. */
 extern const float g_camera_angle_period0;
@@ -59,33 +59,15 @@ public:
     // FUNCTION: WIZ8 0x004784C0
     void SetPitch(float pitch)
     {
-        if (pitch > g_camera_pitch_upper) {
-            pitch = g_camera_pitch_upper;
-        }
-        if (pitch < g_camera_pitch_lower) {
-            pitch = g_camera_pitch_lower;
-        }
-        m_pitch = pitch;
-
-        m_pitch_rotation = glm::mat3(1);
-        m_pitch_rotation *= glm::mat3(
-            glm::mat3_cast(glm::angleAxis(double(pitch), glm::normalize(glm::dvec3(1, 0, 0)))));
+        m_pitch = glm::clamp(pitch, g_camera_pitch_lower, g_camera_pitch_upper);
+        m_pitch_rotation = glm::mat3(glm::eulerAngleX(m_pitch));
         MarkRendererReady();
     }
     // FUNCTION: WIZ8 0x00478720
     void SetYaw(float angle)
     {
-        while (angle > g_camera_angle_period0) {
-            angle -= g_camera_angle_period0;
-        }
-        while (angle < g_camera_angle_lower) {
-            angle += g_camera_angle_period0;
-        }
-        m_yaw = angle;
-
-        m_yaw_rotation = glm::mat3(1);
-        m_yaw_rotation *= glm::mat3(
-            glm::mat3_cast(glm::angleAxis(double(angle), glm::normalize(glm::dvec3(0, 1, 0)))));
+        m_yaw = glm::mod(angle, g_camera_angle_period0);
+        m_yaw_rotation = glm::mat3(glm::eulerAngleY(m_yaw));
         MarkRendererReady();
     }
     void SetOrientation(float angle, float pitch);                   /* 0x004788E0 */
@@ -100,12 +82,12 @@ public:
     glm::mat3 m_pitch_rotation;    /* 0x00c */
     glm::mat3 m_yaw_rotation;      /* 0x030 */
     glm::mat3 m_rotation;       /* 0x054 */
-    srVector3T<float> m_direction;      /* 0x078 */
+    glm::vec3 m_direction;      /* 0x078 */
     float m_frame_elapsed;              /* 0x084 */
     bool m_transition_active;           /* 0x088 */
     bool m_forced_transition;           /* 0x089 */
     unsigned char m_padding_08a[2];
-    srVector3T<float> m_position;         /* 0x08c */
+    glm::vec3 m_position;                 /* 0x08c */
     float m_target_yaw;                   /* 0x098 */
     float m_target_pitch;                 /* 0x09c */
     float m_start_yaw;                    /* 0x0a0 */
@@ -116,6 +98,9 @@ public:
     float m_pitch_distance;               /* 0x0b4 */
     float m_transition_duration;          /* 0x0b8 */
     W8IntervalGate* m_manual_input_timer; /* 0x0bc */
+
+private:
+    bool CanTrackTarget() const;
 };
 
 extern GDCamera* g_gd_camera;

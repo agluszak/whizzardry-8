@@ -1,4 +1,4 @@
-#include "wiz8/compat/unaligned.h"
+#include "surrender/srBoundingBox.h"
 #include "surrender/srBounder.h"
 #include "surrender/srStreamFlags.h"
 
@@ -148,14 +148,8 @@ void srBounder::updateBounds()
             getChildBoundingBox(child);
         }
         if (bounds.state == 1) {
-            /* Retail builds the center through the float vector operators (the sums
-               and the halves are rounded to float) and measures the radius from the
-               stored center, summing the squares z, y, then x. */
-            bounds.center = (bounds.maximum + bounds.minimum) * 0.5;
-            double dx = bounds.minimum.x - bounds.center.x;
-            double dy = bounds.minimum.y - bounds.center.y;
-            double dz = bounds.minimum.z - bounds.center.z;
-            bounds.radius = static_cast<float>(sqrt((dz * dz + dy * dy) + dx * dx));
+            bounds.center = (bounds.maximum + bounds.minimum) * 0.5f;
+            bounds.radius = (bounds.minimum - bounds.center).Length();
         }
     }
     clearNotify(NOTIFY_BOUNDS_DIRTY);
@@ -171,36 +165,15 @@ void srBounder::getChildBoundingBox(srNode* node)
         if (child_bounds.state == 1) {
             glm::mat4 world;
             node->getWorldSpaceMatrix(world);
-            glm::mat4 combined;
-            combined = inverse_world * world;
-            srVector3T<float> corners[8];
-            corners[0].Set(child_bounds.minimum.x, child_bounds.minimum.y, child_bounds.minimum.z);
-            corners[1].Set(child_bounds.minimum.x, child_bounds.minimum.y, child_bounds.maximum.z);
-            corners[2].Set(child_bounds.minimum.x, child_bounds.maximum.y, child_bounds.minimum.z);
-            corners[3].Set(child_bounds.minimum.x, child_bounds.maximum.y, child_bounds.maximum.z);
-            corners[4].Set(child_bounds.maximum.x, child_bounds.minimum.y, child_bounds.minimum.z);
-            corners[5].Set(child_bounds.maximum.x, child_bounds.minimum.y, child_bounds.maximum.z);
-            corners[6].Set(child_bounds.maximum.x, child_bounds.maximum.y, child_bounds.minimum.z);
-            corners[7].Set(child_bounds.maximum.x, child_bounds.maximum.y, child_bounds.maximum.z);
-            for (int index = 0; index != 8; ++index) {
-                corners[index] = glm::vec3(combined * glm::vec4(corners[index].glmValue(), 1));
-            }
+            const srBoundingBox child_box{child_bounds.minimum.glmValue(),
+                                          child_bounds.maximum.glmValue()};
+            const auto transformed = child_box.transformed(inverse_world * world);
             if (bounds.state == 0) {
-                bounds.minimum = corners[0];
-                bounds.maximum = corners[0];
-            }
-            for (int corner = 0; corner != 8; ++corner) {
-                const w8_unaligned_float* point = &corners[corner].x;
-                w8_unaligned_float* bound_min = &bounds.minimum.x;
-                w8_unaligned_float* bound_max = &bounds.maximum.x;
-                for (int axis = 0; axis != 3; ++axis) {
-                    if (point[axis] < bound_min[axis]) {
-                        bound_min[axis] = point[axis];
-                    }
-                    if (bound_max[axis] < point[axis]) {
-                        bound_max[axis] = point[axis];
-                    }
-                }
+                bounds.minimum = transformed.minimum;
+                bounds.maximum = transformed.maximum;
+            } else {
+                bounds.minimum = glm::min(bounds.minimum.glmValue(), transformed.minimum);
+                bounds.maximum = glm::max(bounds.maximum.glmValue(), transformed.maximum);
             }
             bounds.state = 1;
         } else if (child_bounds.state == 2) {

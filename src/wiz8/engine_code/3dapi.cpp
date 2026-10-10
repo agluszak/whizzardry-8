@@ -226,9 +226,9 @@ unsigned char LoadWorld(W8World* world, char* level_file_name, const char* level
     SetSceneAmbientLightWhite(world->static_scene);
     world->camera = CreateOrSetGameCamera(world->static_scene, 0);
     world->camera_light = CreateRangedWorldLight(world, "CameraLight");
-    world->camera_light->ambient.SetZero();
-    world->camera_light->diffuse.Set(1.0f, 0.85f, 0.39f);
-    world->camera_light->specular.SetZero();
+    world->camera_light->ambient = glm::vec3(0);
+    world->camera_light->diffuse = glm::vec3(1.0f, 0.85f, 0.39f);
+    world->camera_light->specular = glm::vec3(0);
     world->camera_light->intensity = 1.0f;
     world->camera_light->setGroupMask(2);
     ConfigureWorldLight(world->camera_light, 4000.0f);

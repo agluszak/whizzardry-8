@@ -5,6 +5,7 @@
 #include "surrender/srGERD.h"
 
 #include <ostream>
+#include <algorithm>
 
 /* Flag-name table; never assigned, so dump prints numeric bit indices. */
 static const char* flag_names;
@@ -372,84 +373,37 @@ srCamera::e_projectionResult srCamera::project(srVector3T<float>& output,
 {
     glm::dmat3 rotation;
     getWorldSpaceRotation(rotation);
-    srVector3T<double> location = getWorldSpaceLocation();
-    srVector3T<double> delta = input - location;
-    srVector3T<double> point = rotation * delta.glmValue();
-
-    double near_clip = this->near_clip < this->far_clip ? this->near_clip : this->far_clip;
-    double far_clip = this->near_clip < this->far_clip ? this->far_clip : this->near_clip;
-    if (near_clip <= point.z && point.z <= far_clip) {
-        double inverse_distance = 1.0 / view_plane_distance;
-        double bottom = inverse_distance * view_plane.bottom;
-        double top = inverse_distance * view_plane.top;
-        double lower = top;
-        double upper = bottom;
-        if (bottom < top) {
-            lower = bottom;
-            upper = top;
-        }
-        double left = inverse_distance * view_plane.left;
-        double right = inverse_distance * view_plane.right;
-        double x_lower = right;
-        double x_upper = left;
-        if (left < right) {
-            x_lower = left;
-            x_upper = right;
-        }
-        output.x = (float)((point.x / point.z - left) / (right - left));
-        output.y = (float)((point.y / point.z - top) / (bottom - top));
-        output.z = (float)point.z;
-        if (point.z * x_upper <= point.x && point.x <= point.z * x_lower &&
-            point.z * lower <= point.y && point.y <= point.z * upper) {
-            return PROJECTION_RESULT_ACCEPTED;
-        }
-        return PROJECTION_RESULT_OUTSIDE_VIEW;
+    const auto point = glm::transpose(rotation) * (input.glmValue() - getWorldSpaceLocation());
+    if (point.z < std::min(near_clip, far_clip) || point.z > std::max(near_clip, far_clip) ||
+        point.z == 0) {
+        output.SetZero();
+        return PROJECTION_RESULT_OUTSIDE_CLIP_RANGE;
     }
-    output.SetZero();
-    return PROJECTION_RESULT_OUTSIDE_CLIP_RANGE;
+    const glm::dvec2 start(view_plane.left, view_plane.top);
+    const glm::dvec2 end(view_plane.right, view_plane.bottom);
+    const auto uv = (glm::dvec2(point) * (view_plane_distance / point.z) - start) / (end - start);
+    output = glm::vec3(uv, point.z);
+    return glm::all(glm::greaterThanEqual(uv, glm::dvec2(0))) &&
+                   glm::all(glm::lessThanEqual(uv, glm::dvec2(1)))
+               ? PROJECTION_RESULT_ACCEPTED
+               : PROJECTION_RESULT_OUTSIDE_VIEW;
 }
 
 // FUNCTION: SURRENDER 0x100490B0
 int srCamera::unproject(srVector3T<float>& output, const srVector3T<double>& input)
 {
-    double left = view_plane.left / view_plane_distance;
-    double right = view_plane.right / view_plane_distance;
-    double bottom = view_plane.bottom / view_plane_distance;
-    double top = view_plane.top / view_plane_distance;
-    double depth = input.z;
-    double x = ((right - left) * input.x + left) * depth;
-    double y = ((bottom - top) * input.y + top) * depth;
-    double near_clip = this->near_clip < this->far_clip ? this->near_clip : this->far_clip;
-    double far_clip = this->near_clip < this->far_clip ? this->far_clip : this->near_clip;
     output.SetZero();
-    if (near_clip <= depth && depth <= far_clip) {
-        double x_upper = left;
-        double x_lower = right;
-        if (left < right) {
-            x_upper = right;
-            x_lower = left;
-        }
-        double y_lower = top;
-        double y_upper = bottom;
-        if (bottom < top) {
-            y_lower = bottom;
-            y_upper = top;
-        }
-        if (y_lower * depth <= y && y <= y_upper * depth && x_lower * depth <= x &&
-            x <= x_upper * depth) {
-            glm::dmat3 rotation;
-            getWorldSpaceRotation(rotation);
-            srVector3T<double> location = getWorldSpaceLocation();
-            srVector3T<double> point;
-            point.x = x;
-            point.y = y;
-            point.z = depth;
-            srVector3T<double> world = glm::transpose(rotation) * point.glmValue();
-            output.x = (float)(world.x + location.x);
-            output.y = (float)(world.y + location.y);
-            output.z = (float)(world.z + location.z);
-            return 1;
-        }
-    }
-    return 0;
+    const glm::dvec2 uv(input.x, input.y);
+    if (input.z < std::min(near_clip, far_clip) || input.z > std::max(near_clip, far_clip) ||
+        !glm::all(glm::greaterThanEqual(uv, glm::dvec2(0))) ||
+        !glm::all(glm::lessThanEqual(uv, glm::dvec2(1))))
+        return 0;
+
+    const glm::dvec2 start(view_plane.left, view_plane.top);
+    const glm::dvec2 end(view_plane.right, view_plane.bottom);
+    const glm::dvec3 point(glm::mix(start, end, uv) * (input.z / view_plane_distance), input.z);
+    glm::dmat3 rotation;
+    getWorldSpaceRotation(rotation);
+    output = glm::vec3(rotation * point + getWorldSpaceLocation());
+    return 1;
 }

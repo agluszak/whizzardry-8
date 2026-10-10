@@ -5135,7 +5135,7 @@ void W8Monster::RefreshStandingHeight()
     SetCycle(1);
     SetSubCycle(0);
     srVector3T<float> camera_location;
-    camera_location = g_world->camera->getLocation();
+    camera_location = glm::vec3(g_world->camera->getLocation());
     SelectLOD(&camera_location);
     srVector3T<float> minimum;
     srVector3T<float> maximum;

@@ -1495,7 +1495,7 @@ unsigned int GetMillisecondsSinceCursorMove(void)
 /* The tracked cursor as viewport-relative 0..1 coordinates, or zero when it
    lies outside. Same tracked position and viewport as the query above. */
 // FUNCTION: WIZ8 0x00428230
-unsigned char GetCursorPositionInViewport(srVector3T<float>* position)
+unsigned char GetCursorPositionInViewport(glm::vec2* position)
 {
     int x = g_cursor_hotspot_x + g_cursor_width;
     int y = g_cursor_hotspot_y + g_cursor_height;
@@ -1504,7 +1504,6 @@ unsigned char GetCursorPositionInViewport(srVector3T<float>* position)
         position->x =
             (x - g_viewport.left) / static_cast<float>(g_viewport.right - g_viewport.left);
         position->y = (y - g_viewport.top) / static_cast<float>(g_viewport.bottom - g_viewport.top);
-        position->z = 0.0f;
         return 1;
     }
     return 0;
@@ -1513,10 +1512,10 @@ unsigned char GetCursorPositionInViewport(srVector3T<float>* position)
 /* The tracked cursor tip (hotspot + size) in pixel-scale units. DropHeldItem
    turns it into the toss direction. */
 // FUNCTION: WIZ8 0x004282F0
-void GetCursorScaledPosition(srVector3T<float>* position)
+glm::vec2 GetCursorScaledPosition()
 {
-    position->Set((g_cursor_hotspot_x + g_cursor_width) * g_viewport_x_scale,
-                  (g_cursor_hotspot_y + g_cursor_height) * g_viewport_y_scale, 0.0f);
+    return glm::vec2(g_cursor_hotspot_x + g_cursor_width, g_cursor_hotspot_y + g_cursor_height) *
+           glm::vec2(g_viewport_x_scale, g_viewport_y_scale);
 }
 
 /* Keep the rendered cursor synchronized with the OS cursor. The input layer

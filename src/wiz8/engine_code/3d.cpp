@@ -142,7 +142,7 @@ unsigned char BakeInstanceVertexLighting(stModelInstance* instance, srNode* ligh
     bool locations_allocated = false;
     stMeshModel* mesh = static_cast<stMeshModel*>(instance->getModel());
     srVector3T<float> location;
-    location = instance->getWorldSpaceLocation();
+    location = glm::vec3(instance->getWorldSpaceLocation());
     srVector3T<float> minimum;
     srVector3T<float> maximum;
     mesh->getBoundingBox(minimum, maximum);
@@ -255,7 +255,7 @@ unsigned char BakeInstanceVertexLighting(stModelInstance* instance, srNode* ligh
                     static_cast<float>(g_light_range_attenuation_numerator /
                                        (attenuation.y * g_light_range_attenuation_denominator));
                 srVector3T<float> light_position;
-                light_position = light_node->getWorldSpaceLocation();
+                light_position = glm::vec3(light_node->getWorldSpaceLocation());
                 srVector3T<float> light_min(light_position.x - range, light_position.y - range,
                                             light_position.z - range);
                 srVector3T<float> light_max(light_position.x + range, light_position.y + range,
