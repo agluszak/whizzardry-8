@@ -47,13 +47,9 @@ public:
     W8DialogBase* m_owner;
 
 private:
-    ButtonImage m_up_image;
     GUIButton m_up_button;
-    ButtonImage m_down_image;
     GUIButton m_down_button;
-    ButtonImage m_thumb_image;
     GUIButton m_thumb_button;
-    ButtonImage m_track_image;
     GUIButton m_track_button;
     void (*m_on_scroll)(W8DialogScrollBar* scroll_bar, int first_visible_entry);
 };

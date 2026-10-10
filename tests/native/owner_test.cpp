@@ -13,6 +13,9 @@
 #include "wiz8/video_object_catalog.h"
 #include "wiz8/utility.h"
 #include "Button System.h"
+#include "wiz8/dialog_code/DialogButton.h"
+#include "wiz8/dialog_code/ButtonUserData.h"
+#include "wiz8/local_code/ButtonSound.h"
 #include "Font.h"
 #include "input.h"
 #include "mousesystem_macros.h"
@@ -665,6 +668,116 @@ void generic_button_images()
         REQUIRE(!CreateImage("bad-size.sti", IMAGE_ALLDATA));
         REQUIRE(CreateImage("bad-size.sti", IMAGE_PALETTE));
     }
+    // A button retains its graphics after the loader's reference and the
+    // image manager are released; the last button releases the resource.
+    REQUIRE(MSYS_Init());
+    auto graphics = ButtonGraphics::Load("button.sti", 0, 1, 2, 3, 4);
+    REQUIRE(graphics);
+    REQUIRE((graphics->MaxWidth == 1 && graphics->MaxHeight == 1));
+    std::weak_ptr<const ButtonGraphics> lifetime = graphics;
+    auto first_button = QuickCreateButton(graphics, 0, 0, BUTTON_NO_TOGGLE,
+                                          MSYS_PRIORITY_NORMAL, nullptr, nullptr);
+    auto second_button = QuickCreateButton(graphics, 2, 0, BUTTON_NO_TOGGLE,
+                                           MSYS_PRIORITY_NORMAL, nullptr, nullptr);
+    REQUIRE((first_button && second_button));
+    // Give each frame a distinct color and verify actual blits for both
+    // button kinds, including checkbox-only mouse-down highlights.
+    auto* sprite = graphics->object();
+    for (unsigned frame = 0; frame < 5; ++frame) {
+        sprite->sprites[frame].pixels[0] = frame + 1;
+        sprite->p16BPPPalette[frame + 1] = 0x1000 + frame;
+    }
+    VSURFACE_DESC target_desc{};
+    target_desc.fCreateFlags = VSURFACE_CREATE_DEFAULT;
+    target_desc.usWidth = target_desc.usHeight = 8;
+    target_desc.ubBitDepth = 16;
+    UINT32 target;
+    REQUIRE(AddVideoSurface(&target_desc, &target));
+    const auto old_target = ButtonDestBuffer;
+    const auto old_hilights = gfRenderHilights;
+    const auto old_left_down = gfLeftButtonState;
+    ButtonDestBuffer = target;
+    gfRenderHilights = true;
+    for (bool checkbox : {false, true}) {
+        for (bool enabled : {false, true}) {
+            for (bool pressed : {false, true}) {
+                for (bool hover : {false, true}) {
+                    for (bool mouse_down : {false, true}) {
+                        first_button->uiFlags = (checkbox ? BUTTON_CHECKBOX : BUTTON_QUICK) |
+                            (enabled ? BUTTON_ENABLED : 0) | (pressed ? BUTTON_CLICKED_ON : 0);
+                        if (hover) first_button->Area.uiFlags |= MSYS_MOUSE_IN_AREA;
+                        else first_button->Area.uiFlags &= ~MSYS_MOUSE_IN_AREA;
+                        gfLeftButtonState = mouse_down;
+                        DrawButton(first_button);
+                        UINT32 pitch;
+                        auto* pixels = reinterpret_cast<UINT16*>(LockVideoSurface(target, &pitch));
+                        REQUIRE(pixels);
+                        const auto color = pixels[0];
+                        UnLockVideoSurface(target);
+                        const bool highlight = hover && (!checkbox || mouse_down);
+                        const unsigned expected_frame = !enabled ? 0 :
+                            pressed ? (highlight ? 4 : 3) : (highlight ? 2 : 1);
+                        REQUIRE(color == 0x1000 + expected_frame);
+                    }
+                }
+            }
+        }
+    }
+    ButtonDestBuffer = old_target;
+    gfRenderHilights = old_hilights;
+    gfLeftButtonState = old_left_down;
+    REQUIRE(DeleteVideoSurfaceFromIndex(target));
+    graphics.reset();
+    ShutdownButtonImageManager();
+    REQUIRE(!lifetime.expired());
+    first_button.reset();
+    REQUIRE(second_button->quick_image->object()->sprites[4].pixels[0] == 5);
+    second_button.reset();
+    REQUIRE(lifetime.expired());
+    REQUIRE(RegisteredButtonCount() == 0);
+    // Validate each of the five states, including invalid negative indices.
+    for (int bad : {-2, 9, 65536}) {
+        for (size_t state = 0; state < 5; ++state) {
+            std::array<int, 5> frames{0, 1, 2, 3, 4};
+            frames[state] = bad;
+            REQUIRE(!ButtonGraphics::Load("button.sti", frames[0], frames[1], frames[2],
+                                           frames[3], frames[4]));
+        }
+    }
+    REQUIRE(!ButtonGraphics::Load("missing.sti", 0, 1, 2, 3, 4));
+    REQUIRE(!ButtonGraphics::Load("button.sti", -1, -1, -1, -1, -1));
+    REQUIRE(ButtonGraphics::Load("button.sti", -1, 0, -1, 1, -1));
+    std::vector<ButtonImage> quick_images;
+    for (unsigned index = 0; index < 300; ++index)
+        quick_images.push_back(ButtonGraphics::Load("button.sti", 0, 1, 2, 3, 4));
+    REQUIRE(std::all_of(quick_images.begin(), quick_images.end(),
+                        [](const auto& item) { return item != nullptr; }));
+    quick_images.clear();
+    {
+        auto dialog = std::make_unique<W8DialogButton>();
+        REQUIRE(dialog->ConfigureIcon("button.sti", 0, 1, MSYS_PRIORITY_NORMAL,
+                                      W8_DIALOG_BUTTON_NO_TOOLTIP));
+        dialog->SetPosition(12, 13);
+        REQUIRE(!dialog->ConfigureIcon("missing.sti", 0, 1, MSYS_PRIORITY_NORMAL,
+                                       W8_DIALOG_BUTTON_NO_TOOLTIP));
+        REQUIRE((dialog->GetX() == 12 && dialog->GetY() == 13 && dialog->GetWidth() == 1));
+        REQUIRE(RegisteredButtonCount() == 1);
+    }
+    REQUIRE(RegisteredButtonCount() == 0);
+    // A dialog's click callback can close it. The dispatcher must not read
+    // the released dialog while completing the click (including its sound).
+    auto* closing_dialog = new W8DialogButton;
+    REQUIRE(closing_dialog->Configure("button.sti", 0, 1, 2, 3, 4,
+        [](W8DialogButton* dialog) { delete dialog; }, nullptr, false,
+        MSYS_PRIORITY_NORMAL, W8_DIALOG_BUTTON_NO_TOOLTIP, nullptr, nullptr));
+    auto dispatch_button = std::make_shared<GUI_BUTTON>();
+    SetButtonUserDataPointer(dispatch_button, closing_dialog);
+    dispatch_button->uiFlags = BUTTON_CLICKED_ON;
+    PushButtonSoundScheme(0, true);
+    DialogButtonCallback(dispatch_button.get(), MSYS_CALLBACK_REASON_LBUTTON_UP);
+    REQUIRE(RegisteredButtonCount() == 0);
+    MSYS_Shutdown();
+
     REQUIRE(!InitializeButtonImageManager(-1, -1, -1));
     button_image_fixture(assets, DEFAULT_GENERIC_BUTTON_ON);
     REQUIRE(InitializeButtonImageManager(-1, -1, -1));
@@ -679,7 +792,7 @@ void generic_button_images()
         names[index] = missing;
         REQUIRE(!load(names));
     }
-    REQUIRE(!load({{}, filename, {}, {}, {}, {}}));
+    REQUIRE(!load({std::string_view{}, filename, {}, {}, {}, {}}));
     REQUIRE(!load({filename, {}, {}, {}, {}, {}}));
     REQUIRE(!load({"short.sti", filename, {}, {}, {}, {}}));
     auto image = load({filename, filename, filename, filename, filename, filename});

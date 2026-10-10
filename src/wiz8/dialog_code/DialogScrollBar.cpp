@@ -22,25 +22,25 @@ bool W8DialogScrollBar::CreateControls(const Resources* resources)
     ButtonImage track_image;
     GUIButton track_button;
     if (m_initialized) return true;
-    up_image = LoadButtonImage(resources->arrows_path, 3, 0, 1, 2, 2);
+    up_image = ButtonGraphics::Load(resources->arrows_path, 3, 0, 1, 2, 2);
     if (up_image) {
         up_button =
             QuickCreateButton(up_image, 0, 0, BUTTON_NO_TOGGLE, MSYS_PRIORITY_HIGHEST - 1,
                               UpButtonCallback, UpButtonCallback);
     }
-    down_image = LoadButtonImage(resources->arrows_path, 11, 8, 9, 10, 10);
+    down_image = ButtonGraphics::Load(resources->arrows_path, 11, 8, 9, 10, 10);
     if (down_image) {
         down_button =
             QuickCreateButton(down_image, 0, 0, BUTTON_NO_TOGGLE, MSYS_PRIORITY_HIGHEST - 1,
                               DownButtonCallback, DownButtonCallback);
     }
-    thumb_image = LoadButtonImage(resources->arrows_path, 7, 4, 5, 6, 6);
+    thumb_image = ButtonGraphics::Load(resources->arrows_path, 7, 4, 5, 6, 6);
     if (thumb_image) {
         thumb_button =
             QuickCreateButton(thumb_image, 0, 0, BUTTON_NO_TOGGLE, MSYS_PRIORITY_HIGHEST - 2,
                               BUTTON_NO_CALLBACK, BUTTON_NO_CALLBACK);
     }
-    track_image = LoadButtonImage(resources->track_path, BUTTON_NO_IMAGE,
+    track_image = ButtonGraphics::Load(resources->track_path, BUTTON_NO_IMAGE,
                                     resources->track_frame, BUTTON_NO_IMAGE, resources->track_frame,
                                     BUTTON_NO_IMAGE);
     if (track_image) {
@@ -53,13 +53,9 @@ bool W8DialogScrollBar::CreateControls(const Resources* resources)
         SetButtonUserDataPointer(down_button, this);
         SetButtonUserDataPointer(thumb_button, this);
         SetButtonUserDataPointer(track_button, this);
-        m_up_image = std::move(up_image);
         m_up_button = std::move(up_button);
-        m_down_image = std::move(down_image);
         m_down_button = std::move(down_button);
-        m_thumb_image = std::move(thumb_image);
         m_thumb_button = std::move(thumb_button);
-        m_track_image = std::move(track_image);
         m_track_button = std::move(track_button);
         m_on_scroll = resources->on_scroll;
         m_initialized = true;
@@ -256,13 +252,9 @@ W8DialogScrollBar::W8DialogScrollBar()
     m_track_bounds.top = 0;
     m_track_bounds.right = 0;
     m_track_bounds.bottom = 0;
-    m_up_image.reset();
     m_up_button.reset();
-    m_down_image.reset();
     m_down_button.reset();
-    m_thumb_image.reset();
     m_thumb_button.reset();
-    m_track_image.reset();
     m_track_button.reset();
     m_on_scroll = 0;
 }

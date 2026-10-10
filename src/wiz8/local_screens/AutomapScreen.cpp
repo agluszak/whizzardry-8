@@ -172,7 +172,7 @@ void (*g_automap_button_callbacks[16])(void) = {
     AutomapPanWestButton,        AutomapPanEastButton,         RestoreAutomapCameraPosition,
     AutomapExitButton,
 };
-/* Catalog object ids ConfigureVObjButton loads for each button. */
+/* Catalog entries supplying filenames and state-frame offsets for each button. */
 // GLOBAL: WIZ8 0x0064b824
 int g_automap_button_catalogs[16] = {388, 392, 396, 380, 384, 348, 352, 356,
                                      340, 344, 360, 364, 368, 372, 376, 336};
@@ -474,26 +474,26 @@ void RestoreAutomapCameraPosition(void)
 void CreateAutomapButtons(void)
 {
     int index;
-    int base_frame;
-    HVOBJECT object;
-
-    g_automap_buttons = new W8DialogButton*[16];
+    g_automap_buttons = new W8DialogButton*[16]{};
     if (g_automap_buttons == 0) {
         srAssertFail("gpstAutomapButtons",
                      "C:\\Projects\\Wizardry 8\\Local Screens\\AutomapScreen.cpp", 0xd05, 0);
     }
     for (index = 0; index < 16; ++index) {
-        object = GetCatalogVideoObject(g_automap_button_catalogs[index], 0, &base_frame);
-        if (object != 0) {
+        const auto& slot = g_video_slots[g_automap_button_catalogs[index]];
+        const auto& frame = g_video_frames[slot.first_frame];
+        const int base_frame = slot.y_offset;
+        if (frame.storage_kind == W8_VIDEO_STORAGE_OBJECT) {
             g_automap_buttons[index] = new W8DialogButton;
             if (g_automap_buttons[index] != 0) {
                 W8DialogButtonCallback callback = reinterpret_cast<W8DialogButtonCallback>(
                     g_automap_button_callbacks[index]); // reinterpret-ok: void() vs button*
-                if (g_automap_buttons[index]->ConfigureVObjButton(object, base_frame, callback,
-                                                                  false)) {
+                if (g_automap_buttons[index]->Configure(
+                        frame.path.c_str(), base_frame + 3, base_frame, base_frame + 1,
+                        base_frame + 2, base_frame + 2, callback, nullptr, false,
+                        MSYS_PRIORITY_HIGHEST, g_automap_button_tooltips[index], nullptr, nullptr)) {
                     g_automap_buttons[index]->SetPosition(g_automap_button_positions[index].x,
                                                           g_automap_button_positions[index].y);
-                    g_automap_buttons[index]->SetTooltipIndex(g_automap_button_tooltips[index]);
                 }
             }
         }

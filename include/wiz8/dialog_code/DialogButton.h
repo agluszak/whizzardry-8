@@ -72,10 +72,6 @@ public:
     bool ConfigureTextButton(std::string_view text, unsigned int font, short fore_color,
                              short shadow_color, short x, short y, short width, short height,
                              W8DialogButtonCallback left_callback, int user_data);
-    /* Configure from an already-loaded vobject; the five state
-       frames derive from base_frame (gray +3, off +0/+1, on states +2/+2). */
-    bool ConfigureVObjButton(HVOBJECT object, int base_frame, W8DialogButtonCallback left_callback,
-                             bool left_toggles);
     /* Store the tooltip string-table index and, when tooltips are
        enabled, push its text onto the SGP button. */
     void SetTooltipIndex(int tooltip_index);
@@ -83,12 +79,6 @@ public:
     friend void DialogButtonCallback(GUI_BUTTON* button, INT32 reason);
 
 private:
-    int m_gray_frame;
-    int m_off_normal_frame;
-    int m_off_hover_frame;
-    int m_on_normal_frame;
-    int m_on_hover_frame;
-    ButtonImage m_image_handle;
     GUIButton m_button_handle; /* owns the underlying SGP button */
     int m_tooltip_index; /* g_localized_strings index, or -1 */
     W8DialogButtonCallback m_left_callback;

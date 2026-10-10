@@ -187,14 +187,14 @@ int W8MessageDialogBase::CreateControls()
     m_message_button = CreateTextButton({}, g_dialog_interface_font, g_dialog_font_foreground, g_dialog_font_background, m_edge_image, static_cast<short>(m_x + 9), static_cast<short>(m_y + 9), static_cast<short>(m_width - 0x12), static_cast<short>(m_height - 0x12), BUTTON_NO_TOGGLE | BUTTON_IGNORE_CLICKS, MSYS_PRIORITY_HIGHEST - 1, BUTTON_NO_CALLBACK, BUTTON_NO_CALLBACK);
 
     m_confirm_image =
-        LoadButtonImage("Data\\Dialogs\\DialogConfirmation.STI", 3, 0, 1, 2, 2);
+        ButtonGraphics::Load("Data\\Dialogs\\DialogConfirmation.STI", 3, 0, 1, 2, 2);
     if (m_confirm_image) {
         m_confirm_button =
             QuickCreateButton(m_confirm_image, 0, 0, BUTTON_NO_TOGGLE, MSYS_PRIORITY_HIGHEST,
                               MessageDialogConfirmCallback, MessageDialogConfirmCallback);
     }
     m_cancel_image =
-        LoadButtonImage("Data\\Dialogs\\DialogConfirmation.STI", 7, 4, 5, 6, 6);
+        ButtonGraphics::Load("Data\\Dialogs\\DialogConfirmation.STI", 7, 4, 5, 6, 6);
     if (m_cancel_image) {
         m_cancel_button =
             QuickCreateButton(m_cancel_image, 0, 0, BUTTON_NO_TOGGLE, MSYS_PRIORITY_HIGHEST,

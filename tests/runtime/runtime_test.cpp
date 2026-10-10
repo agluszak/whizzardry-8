@@ -45,6 +45,8 @@
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_screens/MGSKeyboard.h"
 #include "wiz8/local_screens/OptionsScreen.h"
+#include "wiz8/local_screens/AutomapScreen.h"
+#include "wiz8/dialog_code/DialogButton.h"
 #include "wiz8/xstatus.h"
 #include "wiz8/local_code/TextControl.h"
 #include "wiz8/local_screens/CharacterScreen.h"
@@ -720,6 +722,23 @@ void ResourceLifecycleScenario()
 {
     Game game(false);
     StartPremadeGame(game);
+    // Automap buttons own their sprite sheets. Re-entering the screen must
+    // rebuild all sixteen controls after the previous owners are destroyed.
+    for (int visit = 0; visit != 2; ++visit) {
+        game.command(W8_MGS_COMMAND_AUTOMAP);
+        game.wait_screen("automap-buttons", W8_SCREEN_AUTOMAP);
+        REQUIRE(g_automap_buttons);
+        for (int index = 0; index != 16; ++index) {
+            REQUIRE(g_automap_buttons[index]);
+            REQUIRE(g_automap_buttons[index]->GetWidth() > 0);
+            REQUIRE(g_automap_buttons[index]->GetHeight() > 0);
+            g_automap_buttons[index]->m_dirty = true;
+            g_automap_buttons[index]->Draw();
+        }
+        game.key(SDLK_ESCAPE);
+        game.wait_screen("automap-buttons-released", W8_SCREEN_MAIN_GAME);
+        REQUIRE(!g_automap_buttons);
+    }
     const int level = g_status.current_level;
     const auto anchor = Walk(game, "settle-before-save", 2.0f);
     QuickSave(game);

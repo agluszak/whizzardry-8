@@ -151,8 +151,6 @@ _GUI_BUTTON::~_GUI_BUTTON()
 
 static GenericButtonImage default_generic_image;
 
-// GLOBAL: WIZ8 0x006e1020
-
 // flag to state we wish to render buttons on the one after the next pass through render buttons
 // GLOBAL: WIZ8 0x00650EA8
 BOOLEAN fPausedMarkButtonsDirtyFlag = FALSE;
@@ -172,217 +170,45 @@ extern MOUSE_REGION* MSYS_CurrRegion;
 
 
 
-//	LoadButtonImage
-//	Load images for use with QuickButtons.
-// FUNCTION: WIZ8 0x0040c230
-ButtonImage LoadButtonImage(std::string_view filename, INT32 Grayed, INT32 OffNormal, INT32 OffHilite,
-                      INT32 OnNormal, INT32 OnHilite)
+// Load and validate all state frames before publishing the graphics resource.
+ButtonImage ButtonGraphics::Load(std::string_view filename, INT32 grayed, INT32 off_normal,
+                                 INT32 off_hilite, INT32 on_normal, INT32 on_hilite)
 {
-    VOBJECT_DESC vo_desc;
-    SpriteFrame* pTrav;
-    UINT32 MaxHeight, MaxWidth, ThisHeight, ThisWidth;
-
-    AssertMsg(!filename.empty(), "Attempting to LoadButtonImage() with null filename.");
-    Assert(!filename.empty() && filename.front() != '\0');
-
-    // is there ANY file to open?
-    if ((Grayed == BUTTON_NO_IMAGE) && (OffNormal == BUTTON_NO_IMAGE) &&
-        (OffHilite == BUTTON_NO_IMAGE) && (OnNormal == BUTTON_NO_IMAGE) &&
-        (OnHilite == BUTTON_NO_IMAGE)) {
-        SDL_LogDebug(SDL_LOG_CATEGORY_APPLICATION, "No button pictures selected for %s", std::string(filename).c_str());
+    const std::array frames{grayed, off_normal, off_hilite, on_normal, on_hilite};
+    if (filename.empty() || std::all_of(frames.begin(), frames.end(),
+                                      [](int frame) { return frame == BUTTON_NO_IMAGE; }))
         return {};
-    }
 
-    auto image = std::make_shared<BUTTON_PICS>();
-
-    // Load the image
-    vo_desc.fCreateFlags = VOBJECT_CREATE_FROMFILE;
-    vo_desc.ImageFile = filename;
-
-    (*image).ownedObject.reset(CreateVideoObject(&vo_desc));
-    if (!(*image).ownedObject) {
-        SDL_LogDebug(SDL_LOG_CATEGORY_APPLICATION, "Couldn't create VOBJECT for %s", std::string(filename).c_str());
+    VOBJECT_DESC desc{};
+    desc.fCreateFlags = VOBJECT_CREATE_FROMFILE;
+    desc.ImageFile = filename;
+    auto image = std::make_shared<ButtonGraphics>();
+    image->ownedObject.reset(CreateVideoObject(&desc));
+    if (!image->ownedObject)
         return {};
+
+    image->MaxWidth = image->MaxHeight = 0;
+    for (int index : frames) {
+        if (index == BUTTON_NO_IMAGE)
+            continue;
+        if (index < 0 || static_cast<size_t>(index) >= image->object()->sprites.size()) {
+            SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Invalid button frame %d in %s",
+                         index, desc.ImageFile.c_str());
+            return {};
+        }
+        const auto& frame = image->object()->sprites[index];
+        image->MaxWidth = std::max(image->MaxWidth,
+            static_cast<UINT32>(std::max(0, frame.usWidth + frame.sOffsetX)));
+        image->MaxHeight = std::max(image->MaxHeight,
+            static_cast<UINT32>(std::max(0, frame.usHeight + frame.sOffsetY)));
     }
-
-    // Init the QuickButton image structure with indexes to use
-    (*image).Grayed = Grayed;
-    (*image).OffNormal = OffNormal;
-    (*image).OffHilite = OffHilite;
-    (*image).OnNormal = OnNormal;
-    (*image).OnHilite = OnHilite;
-
-    // Fit the button size to the largest image in the set
-    MaxWidth = MaxHeight = 0;
-    if (Grayed != BUTTON_NO_IMAGE) {
-        pTrav = &((*image).object()->sprites[Grayed]);
-        ThisHeight = (UINT32)(pTrav->usHeight + pTrav->sOffsetY);
-        ThisWidth = (UINT32)(pTrav->usWidth + pTrav->sOffsetX);
-
-        if (MaxWidth < ThisWidth)
-            MaxWidth = ThisWidth;
-        if (MaxHeight < ThisHeight)
-            MaxHeight = ThisHeight;
-    }
-
-    if (OffNormal != BUTTON_NO_IMAGE) {
-        pTrav = &((*image).object()->sprites[OffNormal]);
-        ThisHeight = (UINT32)(pTrav->usHeight + pTrav->sOffsetY);
-        ThisWidth = (UINT32)(pTrav->usWidth + pTrav->sOffsetX);
-
-        if (MaxWidth < ThisWidth)
-            MaxWidth = ThisWidth;
-        if (MaxHeight < ThisHeight)
-            MaxHeight = ThisHeight;
-    }
-
-    if (OffHilite != BUTTON_NO_IMAGE) {
-        pTrav = &((*image).object()->sprites[OffHilite]);
-        ThisHeight = (UINT32)(pTrav->usHeight + pTrav->sOffsetY);
-        ThisWidth = (UINT32)(pTrav->usWidth + pTrav->sOffsetX);
-
-        if (MaxWidth < ThisWidth)
-            MaxWidth = ThisWidth;
-        if (MaxHeight < ThisHeight)
-            MaxHeight = ThisHeight;
-    }
-
-    if (OnNormal != BUTTON_NO_IMAGE) {
-        pTrav = &((*image).object()->sprites[OnNormal]);
-        ThisHeight = (UINT32)(pTrav->usHeight + pTrav->sOffsetY);
-        ThisWidth = (UINT32)(pTrav->usWidth + pTrav->sOffsetX);
-
-        if (MaxWidth < ThisWidth)
-            MaxWidth = ThisWidth;
-        if (MaxHeight < ThisHeight)
-            MaxHeight = ThisHeight;
-    }
-
-    if (OnHilite != BUTTON_NO_IMAGE) {
-        pTrav = &((*image).object()->sprites[OnHilite]);
-        ThisHeight = (UINT32)(pTrav->usHeight + pTrav->sOffsetY);
-        ThisWidth = (UINT32)(pTrav->usWidth + pTrav->sOffsetX);
-
-        if (MaxWidth < ThisWidth)
-            MaxWidth = ThisWidth;
-        if (MaxHeight < ThisHeight)
-            MaxHeight = ThisHeight;
-    }
-
-    // Set the width and height for this image set
-    (*image).MaxHeight = MaxHeight;
-    (*image).MaxWidth = MaxWidth;
-
-    // Return the owned image.
+    image->Grayed = grayed;
+    image->OffNormal = off_normal;
+    image->OffHilite = off_hilite;
+    image->OnNormal = on_normal;
+    image->OnHilite = on_hilite;
     return image;
 }
-
-//	UseVObjAsButtonImage
-//	Uses a previously loaded VObject for use with QuickButtons.
-//	The function simply duplicates the vobj pointer and uses that.
-//		**** NOTE ****
-//			The image isn't unloaded with a call to UnloadButtonImage. The internal
-//			structures are simply removed from the button image list. It's up to
-//			the user to actually unload the image.
-// FUNCTION: WIZ8 0x0040c4f0
-ButtonImage UseVObjAsButtonImage(HVOBJECT hVObject, INT32 Grayed, INT32 OffNormal, INT32 OffHilite,
-                           INT32 OnNormal, INT32 OnHilite)
-{
-    SpriteFrame* pTrav;
-    UINT32 MaxHeight, MaxWidth, ThisHeight, ThisWidth;
-
-    // Is button image index given valid?
-    if (hVObject == nullptr) {
-        SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "UseVObjAsButtonImage: Invalid VObject image given");
-        return {};
-    }
-
-    // is there ANY file to open?
-    if ((Grayed == BUTTON_NO_IMAGE) && (OffNormal == BUTTON_NO_IMAGE) &&
-        (OffHilite == BUTTON_NO_IMAGE) && (OnNormal == BUTTON_NO_IMAGE) &&
-        (OnHilite == BUTTON_NO_IMAGE)) {
-        SDL_LogDebug(SDL_LOG_CATEGORY_APPLICATION, "UseVObjAsButtonImage: No button pictures indexes selected for VObject");
-        return {};
-    }
-
-    auto image = std::make_shared<BUTTON_PICS>();
-
-    // Init the QuickButton image structure with indexes to use
-    (*image).borrowedObject = hVObject;
-    (*image).Grayed = Grayed;
-    (*image).OffNormal = OffNormal;
-    (*image).OffHilite = OffHilite;
-    (*image).OnNormal = OnNormal;
-    (*image).OnHilite = OnHilite;
-
-    // Fit the button size to the largest image in the set
-    MaxWidth = MaxHeight = 0;
-    if (Grayed != BUTTON_NO_IMAGE) {
-        pTrav = &((*image).object()->sprites[Grayed]);
-        ThisHeight = (UINT32)(pTrav->usHeight + pTrav->sOffsetY);
-        ThisWidth = (UINT32)(pTrav->usWidth + pTrav->sOffsetX);
-
-        if (MaxWidth < ThisWidth)
-            MaxWidth = ThisWidth;
-        if (MaxHeight < ThisHeight)
-            MaxHeight = ThisHeight;
-    }
-
-    if (OffNormal != BUTTON_NO_IMAGE) {
-        pTrav = &((*image).object()->sprites[OffNormal]);
-        ThisHeight = (UINT32)(pTrav->usHeight + pTrav->sOffsetY);
-        ThisWidth = (UINT32)(pTrav->usWidth + pTrav->sOffsetX);
-
-        if (MaxWidth < ThisWidth)
-            MaxWidth = ThisWidth;
-        if (MaxHeight < ThisHeight)
-            MaxHeight = ThisHeight;
-    }
-
-    if (OffHilite != BUTTON_NO_IMAGE) {
-        pTrav = &((*image).object()->sprites[OffHilite]);
-        ThisHeight = (UINT32)(pTrav->usHeight + pTrav->sOffsetY);
-        ThisWidth = (UINT32)(pTrav->usWidth + pTrav->sOffsetX);
-
-        if (MaxWidth < ThisWidth)
-            MaxWidth = ThisWidth;
-        if (MaxHeight < ThisHeight)
-            MaxHeight = ThisHeight;
-    }
-
-    if (OnNormal != BUTTON_NO_IMAGE) {
-        pTrav = &((*image).object()->sprites[OnNormal]);
-        ThisHeight = (UINT32)(pTrav->usHeight + pTrav->sOffsetY);
-        ThisWidth = (UINT32)(pTrav->usWidth + pTrav->sOffsetX);
-
-        if (MaxWidth < ThisWidth)
-            MaxWidth = ThisWidth;
-        if (MaxHeight < ThisHeight)
-            MaxHeight = ThisHeight;
-    }
-
-    if (OnHilite != BUTTON_NO_IMAGE) {
-        pTrav = &((*image).object()->sprites[OnHilite]);
-        ThisHeight = (UINT32)(pTrav->usHeight + pTrav->sOffsetY);
-        ThisWidth = (UINT32)(pTrav->usWidth + pTrav->sOffsetX);
-
-        if (MaxWidth < ThisWidth)
-            MaxWidth = ThisWidth;
-        if (MaxHeight < ThisHeight)
-            MaxHeight = ThisHeight;
-    }
-
-    // Set the width and height for this image set
-    (*image).MaxHeight = MaxHeight;
-    (*image).MaxWidth = MaxWidth;
-
-    // Return the owned image.
-    return image;
-}
-
-//Removes a QuickButton image from the system.
-// FUNCTION: WIZ8 0x0040c710
-
 
 //	DisableButton
 //	Disables a button. The button remains in the system list, and can be
@@ -400,12 +226,6 @@ BOOLEAN DisableButton(const GUIButton& button)
 }
 
 namespace {
-std::array<std::unique_ptr<SGPVObject>*, 6> GenericButtonImageSlots(GenericButtonImages& image)
-{
-    return {&image.frames[0], &image.frames[1], &image.frames[2],
-            &image.frames[3], &image.frames[4], &image.frames[5]};
-}
-
 HVOBJECT LoadButtonVideoObject(const char* filename)
 {
     VOBJECT_DESC desc{};
@@ -422,8 +242,6 @@ HVOBJECT LoadButtonVideoObject(const char* filename)
 BOOLEAN InitializeButtonImageManager(INT32 DefaultBuffer, INT32 DefaultPitch, INT32 DefaultBPP)
 {
     UINT8 Pix;
-    int x;
-
     // Set up the default settings
     if (DefaultBuffer != BUTTON_USE_DEFAULT)
         ButtonDestBuffer = (UINT32)DefaultBuffer;
@@ -440,36 +258,33 @@ BOOLEAN InitializeButtonImageManager(INT32 DefaultBuffer, INT32 DefaultPitch, IN
     else
         ButtonDestBPP = 16;
 
-    default_generic_image = std::make_shared<GenericButtonImages>();
-
+    default_generic_image.reset();
+    auto image = std::make_shared<GenericButtonImages>();
 
     const std::array<const char*, 6> filenames{
         DEFAULT_GENERIC_BUTTON_OFF, DEFAULT_GENERIC_BUTTON_ON, nullptr,
         DEFAULT_GENERIC_BUTTON_OFF_HI, DEFAULT_GENERIC_BUTTON_ON_HI, nullptr};
-    const auto images = GenericButtonImageSlots(*default_generic_image);
     for (size_t index = 0; index < filenames.size(); ++index) {
         if (!filenames[index])
             continue;
-        images[index]->reset(LoadButtonVideoObject(filenames[index]));
+        image->frames[index].reset(LoadButtonVideoObject(filenames[index]));
         // Default highlights are optional even when their files are missing.
-        if (!*images[index] && index < 2) {
+        if (!image->frames[index] && index < 2) {
             SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Couldn't create VOBJECT for %s", std::string(filenames[index]).c_str());
-            if (default_generic_image->frames[0])
-                default_generic_image.reset();
             return false;
         }
     }
 
     Pix = 0;
-    if (!GetETRLEPixelValue(&Pix, default_generic_image->frames[0].get(), 8, 0, 0)) {
+    if (!GetETRLEPixelValue(&Pix, image->frames[0].get(), 8, 0, 0)) {
         SDL_LogDebug(SDL_LOG_CATEGORY_APPLICATION, "%s", "Couldn't get generic button's background pixel value");
-        default_generic_image.reset();
         return false;
     }
 
-    default_generic_image->fill_color = default_generic_image->frames[0]->p16BPPPalette[Pix];
+    image->fill_color = image->frames[0]->p16BPPPalette[Pix];
 
-    return (TRUE);
+    default_generic_image = std::move(image);
+    return TRUE;
 }
 
 
@@ -520,14 +335,7 @@ GenericButtonImage LoadGenericButtonImages(std::string_view GrayName, std::strin
 // FUNCTION: WIZ8 0x0040ce60
 void ShutdownButtonImageManager(void)
 {
-    int x;
-
-#ifdef BUTTONSYSTEM_DEBUGGING
-    gfIgnoreShutdownAssertions = TRUE;
-#endif
-
     default_generic_image.reset();
-
 }
 
 //	InitButtonSystem
@@ -747,9 +555,9 @@ GUIButton QuickCreateButton(ButtonImage Image, INT16 xloc, INT16 yloc, INT32 Typ
     // Strip off any extraneous bits from button type
     BType = Type & (BUTTON_TYPE_MASK | BUTTON_NEWTOGGLE);
 
-    // Is there a QuickButton image in the given image slot?
+    // Require a graphics resource before registering the button.
     if (!Image || Image->object() == nullptr) {
-        SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "%s", "QuickCreateButton: Invalid button image number");
+        SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "%s", "QuickCreateButton: Missing button graphics");
         return {};
     }
 
@@ -1099,7 +907,7 @@ void DrawButtonFromPtr(GUI_BUTTON* b)
             b->uiFlags &= (~BUTTON_CLICKED_ON);
         return; //hotspots don't have text, but if you want to, change this to a break!
     case BUTTON_CHECKBOX:
-        DrawCheckBoxButton(b);
+        DrawQuickButton(b);
         break;
     }
     //If button has text, draw it now
@@ -1125,34 +933,26 @@ void DrawButtonFromPtr(GUI_BUTTON* b)
 // FUNCTION: WIZ8 0x0040e060
 void DrawQuickButton(GUI_BUTTON* b)
 {
-    INT32 UseImage;
-    UseImage = 0;
-    // Is button Enabled, or diabled but no "Grayed" image associated with this QuickButton?
+    if (!b->quick_image) return;
+    const auto& image = *b->quick_image;
+    const bool checkbox = (b->uiFlags & BUTTON_CHECKBOX) != 0;
+    const bool pressed = (b->uiFlags & BUTTON_CLICKED_ON) != 0;
+    INT32 frame = 0;
     if (b->uiFlags & BUTTON_ENABLED) {
-        // Is the button's state ON?
-        if (b->uiFlags & BUTTON_CLICKED_ON) {
-            // Is the mouse over this area, and we have a hilite image?
-            if ((b->Area.uiFlags & MSYS_MOUSE_IN_AREA) && gfRenderHilights &&
-                ((*b->quick_image).OnHilite != -1))
-                UseImage = (*b->quick_image).OnHilite; // Use On-Hilite image
-            else if ((*b->quick_image).OnNormal != -1)
-                UseImage = (*b->quick_image).OnNormal; // Use On-Normal image
-        } else {
-            // Is the mouse over the button, and do we have hilite image?
-            if ((b->Area.uiFlags & MSYS_MOUSE_IN_AREA) && gfRenderHilights &&
-                ((*b->quick_image).OffHilite != -1))
-                UseImage = (*b->quick_image).OffHilite; // Use Off-Hilite image
-            else if ((*b->quick_image).OffNormal != -1)
-                UseImage = (*b->quick_image).OffNormal; // Use Off-Normal image
-        }
-    } else if ((*b->quick_image).Grayed !=
-               -1) { // Button is diabled so use the "Grayed-out" image
-        UseImage = (*b->quick_image).Grayed;
+        const bool highlighted = (b->Area.uiFlags & MSYS_MOUSE_IN_AREA) && gfRenderHilights &&
+                                 (!checkbox || gfLeftButtonState);
+        const auto normal = pressed ? image.OnNormal : image.OffNormal;
+        const auto hilite = pressed ? image.OnHilite : image.OffHilite;
+        if (highlighted && hilite != BUTTON_NO_IMAGE) frame = hilite;
+        else if (normal != BUTTON_NO_IMAGE) frame = normal;
+    } else if (image.Grayed != BUTTON_NO_IMAGE) {
+        frame = image.Grayed;
     } else {
-        UseImage = (*b->quick_image).OffNormal;
+        frame = checkbox ? (pressed ? image.OnHilite : image.OffHilite) : image.OffNormal;
         switch (b->bDisabledStyle) {
         case DISABLED_STYLE_DEFAULT:
-            gbDisabledButtonStyle = !b->string.empty() ? DISABLED_STYLE_SHADED : DISABLED_STYLE_HATCHED;
+            gbDisabledButtonStyle = !checkbox && !b->string.empty()
+                ? DISABLED_STYLE_SHADED : DISABLED_STYLE_HATCHED;
             break;
         case DISABLED_STYLE_HATCHED:
         case DISABLED_STYLE_SHADED:
@@ -1160,10 +960,9 @@ void DrawQuickButton(GUI_BUTTON* b)
             break;
         }
     }
-
-    // Display the button image
-    BltVideoObject(ButtonDestBuffer, (*b->quick_image).object(), (UINT16)UseImage, b->XLoc,
-                   b->YLoc, VO_BLT_SRCTRANSPARENCY, nullptr);
+    if (frame != BUTTON_NO_IMAGE)
+        BltVideoObject(ButtonDestBuffer, image.object(), static_cast<UINT16>(frame),
+                       b->XLoc, b->YLoc, VO_BLT_SRCTRANSPARENCY, nullptr);
 }
 
 void DrawHatchOnButton(GUI_BUTTON* b)
@@ -1223,58 +1022,6 @@ void DrawDefaultOnButton(GUI_BUTTON* b)
     }
     UnLockVideoSurface(ButtonDestBuffer);
 }
-
-// FUNCTION: WIZ8 0x0040e280
-void DrawCheckBoxButton(GUI_BUTTON* b)
-{
-    INT32 UseImage;
-
-    UseImage = 0;
-    // Is button Enabled, or diabled but no "Grayed" image associated with this QuickButton?
-    if (b->uiFlags & BUTTON_ENABLED) {
-        // Is the button's state ON?
-        if (b->uiFlags & BUTTON_CLICKED_ON) {
-            // Is the mouse over this area, and we have a hilite image?
-            if (b->Area.uiFlags & MSYS_MOUSE_IN_AREA && gfRenderHilights && gfLeftButtonState &&
-                (*b->quick_image).OnHilite != -1)
-                UseImage = (*b->quick_image).OnHilite; // Use On-Hilite image
-            else if ((*b->quick_image).OnNormal != -1)
-                UseImage = (*b->quick_image).OnNormal; // Use On-Normal image
-        } else {
-            // Is the mouse over the button, and do we have hilite image?
-            if (b->Area.uiFlags & MSYS_MOUSE_IN_AREA && gfRenderHilights && gfLeftButtonState &&
-                (*b->quick_image).OffHilite != -1)
-                UseImage = (*b->quick_image).OffHilite; // Use Off-Hilite image
-            else if ((*b->quick_image).OffNormal != -1)
-                UseImage = (*b->quick_image).OffNormal; // Use Off-Normal image
-        }
-    } else if ((*b->quick_image).Grayed !=
-               -1) { // Button is disabled so use the "Grayed-out" image
-        UseImage = (*b->quick_image).Grayed;
-    } else //use the disabled style
-    {
-        if (b->uiFlags & BUTTON_CLICKED_ON)
-            UseImage = (*b->quick_image).OnHilite;
-        else
-            UseImage = (*b->quick_image).OffHilite;
-        switch (b->bDisabledStyle) {
-        case DISABLED_STYLE_DEFAULT:
-            gbDisabledButtonStyle = DISABLED_STYLE_HATCHED;
-            break;
-        case DISABLED_STYLE_HATCHED:
-        case DISABLED_STYLE_SHADED:
-            gbDisabledButtonStyle = b->bDisabledStyle;
-            break;
-        }
-    }
-
-    // Display the button image
-    BltVideoObject(ButtonDestBuffer, (*b->quick_image).object(), (UINT16)UseImage, b->XLoc,
-                   b->YLoc, VO_BLT_SRCTRANSPARENCY, nullptr);
-}
-
-// FUNCTION: WIZ8 0x0040e3b0
-
 
 //If a button has text attached to it, then it'll draw it last.
 // FUNCTION: WIZ8 0x0040e5d0

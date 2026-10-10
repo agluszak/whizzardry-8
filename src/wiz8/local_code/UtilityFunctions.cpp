@@ -533,7 +533,7 @@ bool CreateMessageBox(std::string_view text, int font, unsigned int shade, bool 
     SpecifyButtonMultiColorFont(g_message_box_background_button, 1);
     if (has_accept) {
         strcpy(filename, "Data\\Message Box\\Ok.sti");
-        g_message_box_accept_image = LoadButtonImage(filename, 0, 1, 2, 3, 4);
+        g_message_box_accept_image = ButtonGraphics::Load(filename, 0, 1, 2, 3, 4);
         if (!g_message_box_accept_image) {
             return false;
         }
@@ -548,7 +548,7 @@ bool CreateMessageBox(std::string_view text, int font, unsigned int shade, bool 
     }
     if (has_cancel) {
         strcpy(filename, "Data\\Message Box\\Cancel.sti");
-        g_message_box_cancel_image = LoadButtonImage(filename, 0, 1, 2, 3, 4);
+        g_message_box_cancel_image = ButtonGraphics::Load(filename, 0, 1, 2, 3, 4);
         if (!g_message_box_cancel_image) {
             return false;
         }

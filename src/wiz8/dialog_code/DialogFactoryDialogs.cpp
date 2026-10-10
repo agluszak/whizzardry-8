@@ -241,21 +241,21 @@ int W8ListBoxDialog::CreateControls()
         return 7;
     }
     SetButtonUserDataPointer(m_area_button, this);
-    m_up_image = LoadButtonImage("Data\\Dialogs\\DialogUpArrow.STI", 3, 0, 1, 2, 2);
+    m_up_image = ButtonGraphics::Load("Data\\Dialogs\\DialogUpArrow.STI", 3, 0, 1, 2, 2);
     if (m_up_image) {
         m_up_button =
             QuickCreateButton(m_up_image, 0, 0, BUTTON_NO_TOGGLE, MSYS_PRIORITY_HIGHEST - 1,
                               UpButtonCallback, UpButtonCallback);
     }
     m_down_image =
-        LoadButtonImage("Data\\Dialogs\\DialogDownArrow.STI", 3, 0, 1, 2, 2);
+        ButtonGraphics::Load("Data\\Dialogs\\DialogDownArrow.STI", 3, 0, 1, 2, 2);
     if (m_down_image) {
         m_down_button =
             QuickCreateButton(m_down_image, 0, 0, BUTTON_NO_TOGGLE, MSYS_PRIORITY_HIGHEST - 1,
                               DownButtonCallback, DownButtonCallback);
     }
     m_slider_image =
-        LoadButtonImage("Data\\Dialogs\\DialogSlideBar.STI", BUTTON_NO_IMAGE, 0,
+        ButtonGraphics::Load("Data\\Dialogs\\DialogSlideBar.STI", BUTTON_NO_IMAGE, 0,
                         BUTTON_NO_IMAGE, BUTTON_NO_IMAGE, BUTTON_NO_IMAGE);
     if (m_slider_image) {
         m_slider_button =
@@ -263,13 +263,13 @@ int W8ListBoxDialog::CreateControls()
                               BUTTON_NO_CALLBACK, BUTTON_NO_CALLBACK);
     }
     m_ok_image =
-        LoadButtonImage("Data\\Dialogs\\DialogConfirmation.STI", 3, 0, 1, 2, 2);
+        ButtonGraphics::Load("Data\\Dialogs\\DialogConfirmation.STI", 3, 0, 1, 2, 2);
     if (m_ok_image) {
         m_ok_button = QuickCreateButton(m_ok_image, 0, 0, BUTTON_NO_TOGGLE, MSYS_PRIORITY_HIGHEST,
                                         OkButtonCallback, OkButtonCallback);
     }
     m_cancel_image =
-        LoadButtonImage("Data\\Dialogs\\DialogConfirmation.STI", 7, 4, 5, 6, 6);
+        ButtonGraphics::Load("Data\\Dialogs\\DialogConfirmation.STI", 7, 4, 5, 6, 6);
     if (m_cancel_image) {
         m_cancel_button =
             QuickCreateButton(m_cancel_image, 0, 0, BUTTON_NO_TOGGLE, MSYS_PRIORITY_HIGHEST,

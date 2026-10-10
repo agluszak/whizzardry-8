@@ -37,7 +37,6 @@
 #define BUTTON_NO_FILENAME nullptr
 #define BUTTON_NO_CALLBACK nullptr
 #define BUTTON_NO_IMAGE -1
-#define BUTTON_NO_SLOT -1
 
 #define BUTTON_INIT 1
 #define BUTTON_WAS_CLICKED 2
@@ -74,9 +73,9 @@ extern UINT32 ButtonDestBuffer;
 typedef void (*GUI_CALLBACK)(struct _GUI_BUTTON*, INT32);
 
 // GUI_BUTTON structure definitions.
-struct BUTTON_PICS;
+struct ButtonGraphics;
 struct GenericButtonImages;
-using ButtonImage = std::shared_ptr<BUTTON_PICS>;
+using ButtonImage = std::shared_ptr<const ButtonGraphics>;
 using GenericButtonImage = std::shared_ptr<GenericButtonImages>;
 
 typedef struct _GUI_BUTTON : std::enable_shared_from_this<_GUI_BUTTON> {
@@ -118,6 +117,7 @@ typedef struct _GUI_BUTTON : std::enable_shared_from_this<_GUI_BUTTON> {
     INT8 bTextYSubOffSet;
     BOOLEAN fShiftText;
     INT16 sWrappedWidth;
+
     bool ubToggleButtonOldState; // Varibles for new toggle buttons that work
     bool ubToggleButtonActivated;
 
@@ -132,10 +132,14 @@ using GUIButton = std::shared_ptr<GUI_BUTTON>;
 size_t RegisteredButtonCount();
 
 // Struct definition for the QuickButton pictures.
-struct BUTTON_PICS {
+struct ButtonGraphics {
+    // Each resource owns its decoded sprite sheet. Buttons may share the resource.
+    static ButtonImage Load(std::string_view filename, INT32 grayed, INT32 off_normal,
+                            INT32 off_hilite, INT32 on_normal, INT32 on_hilite);
+    HVOBJECT object() const { return ownedObject.get(); }
+private:
     std::unique_ptr<SGPVObject> ownedObject;
-    HVOBJECT borrowedObject = nullptr;
-    HVOBJECT object() const { return ownedObject ? ownedObject.get() : borrowedObject; }
+public:
     INT32 Grayed;     // Index to use for a "Grayed-out" button
     INT32 OffNormal;  // Index to use when button is OFF
     INT32 OffHilite;  // Index to use when button is OFF w/ hilite on it
@@ -165,10 +169,6 @@ void ShutdownButtonSystem(void);
 // Now used by Wizardry -- DB
 void SetButtonFastHelpText(const GUIButton& button, std::string_view Text);
 
-ButtonImage LoadButtonImage(std::string_view filename, INT32 Grayed, INT32 OffNormal, INT32 OffHilite,
-                      INT32 OnNormal, INT32 OnHilite);
-ButtonImage UseVObjAsButtonImage(HVOBJECT hVObject, INT32 Grayed, INT32 OffNormal, INT32 OffHilite,
-                           INT32 OnNormal, INT32 OnHilite);
 GenericButtonImage LoadGenericButtonImages(std::string_view GrayName, std::string_view OffNormName, std::string_view OffHiliteName,
                               std::string_view OnNormName, std::string_view OnHiliteName, std::string_view BkGrndName,
                               INT16 Index, INT16 OffsetX, INT16 OffsetY);
@@ -184,9 +184,7 @@ void DrawButtonFromPtr(GUI_BUTTON* b);
 //Base button types
 void DrawGenericButton(GUI_BUTTON* b);
 void DrawQuickButton(GUI_BUTTON* b);
-void DrawCheckBoxButton(GUI_BUTTON* b);
-//Additional layers on buttons that can exist in any combination on generic or quick buttons
-//To do so, use the new specify functions below.
+// Text can be overlaid on generic and quick buttons.
 void DrawTextOnButton(GUI_BUTTON* b);
 
 extern BOOLEAN gfRenderHilights;
