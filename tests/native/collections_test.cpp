@@ -1,3 +1,4 @@
+#include <catch2/catch_test_macros.hpp>
 #include "wiz8/containers.h"
 #include "wiz8/xstatus.h"
 #include "wiz8/local_code/Controls.h"
@@ -21,13 +22,6 @@
 #include <iterator>
 #include <vector>
 
-#define CHECK(expression)                                                                          \
-    do {                                                                                           \
-        if (!(expression)) {                                                                       \
-            std::fprintf(stderr, "line %d: %s\n", __LINE__, #expression);                          \
-            return false;                                                                          \
-        }                                                                                          \
-    } while (0)
 
 struct Entry : W8Widget {
     Controls& owner;
@@ -63,18 +57,18 @@ static bool ownershipAndCallbacks()
     // Exercise the real UI owner's teardown, including a destructor that
     // removes and destroys its neighbor from the same collection.
     owner.DestroyAllControls();
-    CHECK(owner.m_controls.empty() && unlinked);
-    CHECK((destroyed == std::vector<int>{3, 2, 1}));
+    REQUIRE((owner.m_controls.empty() && unlinked));
+    REQUIRE((destroyed == std::vector<int>{3, 2, 1}));
 
     auto* borrowed = new Entry(owner, destroyed, unlinked, 4);
     owner.m_controls = {borrowed, nullptr, borrowed};
     owner.RemoveControl(borrowed);
-    CHECK((owner.m_controls == std::vector<W8Widget*>{nullptr, borrowed}));
-    CHECK(destroyed.size() == 3); // unlinking removes only the first borrowed pointer
+    REQUIRE((owner.m_controls == std::vector<W8Widget*>{nullptr, borrowed}));
+    REQUIRE(destroyed.size() == 3); // unlinking removes only the first borrowed pointer
     owner.RemoveControl(borrowed);
     owner.m_controls.clear();
     delete borrowed;
-    CHECK(unlinked && destroyed.back() == 4);
+    REQUIRE((unlinked && destroyed.back() == 4));
 
     // Ordered destruction also unlinks first and tolerates a destructor deleting
     // the next entry. A detached snapshot would double-delete that entry.
@@ -84,8 +78,8 @@ static bool ownershipAndCallbacks()
     third = new Entry(owner, destroyed, unlinked, 3);
     owner.m_controls = {first, second, third};
     wiz8::remove_all_and_delete_in_order(owner.m_controls);
-    CHECK(owner.m_controls.empty() && unlinked);
-    CHECK((destroyed == std::vector<int>{1, 2, 3}));
+    REQUIRE((owner.m_controls.empty() && unlinked));
+    REQUIRE((destroyed == std::vector<int>{1, 2, 3}));
     return true;
 }
 
@@ -116,11 +110,11 @@ static bool masterFunctionMutation()
 {
     g_master_functions = {firstMaster, removingMaster};
     RunMasterFunctions();
-    CHECK((masterCalls == std::vector<int>{10, 20}));
-    CHECK((g_master_functions == std::vector<W8MasterFunction>{firstMaster, laterMaster}));
+    REQUIRE((masterCalls == std::vector<int>{10, 20}));
+    REQUIRE((g_master_functions == std::vector<W8MasterFunction>{firstMaster, laterMaster}));
     masterCalls.clear();
     SaveMasterFunctions();
-    CHECK((masterCalls == std::vector<int>{9, 29}));
+    REQUIRE((masterCalls == std::vector<int>{9, 29}));
     g_master_functions.clear();
     return true;
 }
@@ -128,14 +122,14 @@ static bool masterFunctionMutation()
 static bool groupMemberLookup()
 {
     W8MonsterGroup group{};
-    CHECK(group.MemberIds().empty() && group.MemberLocationId(0) == -1);
+    REQUIRE((group.MemberIds().empty() && group.MemberLocationId(0) == -1));
     std::vector<int> members{101, 202};
     group.monsters = &members;
-    CHECK(group.MemberIds().size() == 2);
-    CHECK(group.MemberLocationId(0) == 101 && group.MemberLocationId(1) == 202);
-    CHECK(group.MemberLocationId(2) == -1 && group.MemberLocationId(-1) == -1);
+    REQUIRE(group.MemberIds().size() == 2);
+    REQUIRE((group.MemberLocationId(0) == 101 && group.MemberLocationId(1) == 202));
+    REQUIRE((group.MemberLocationId(2) == -1 && group.MemberLocationId(-1) == -1));
     members.erase(members.begin());
-    CHECK(group.MemberLocationId(0) == 202);
+    REQUIRE(group.MemberLocationId(0) == 202);
     return true;
 }
 
@@ -143,20 +137,20 @@ static bool gameplayCollectionLifetime()
 {
     W8MonsterInfo monster{};
     W8MonsterGroup group{};
-    CHECK(gXStatus.monsters.empty() && GetMonsterListEntry(0) == nullptr);
+    REQUIRE((gXStatus.monsters.empty() && GetMonsterListEntry(0) == nullptr));
     gXStatus.monsters.push_back(&monster);
     gXStatus.unborn_monsters.push_back(&monster);
     gXStatus.encounter_groups.push_back(&group);
-    CHECK(GetMonsterListEntry(0) == &monster);
-    CHECK(GetMonsterListEntry(-1) == nullptr && GetMonsterListEntry(1) == nullptr);
-    CHECK(GetUnbornMonsterEntry(0) == &monster && GetUnbornMonsterEntry(1) == nullptr);
-    CHECK(GetMonsterGroupEncounter(0) == &group && GetMonsterGroupEncounter(1) == nullptr);
+    REQUIRE(GetMonsterListEntry(0) == &monster);
+    REQUIRE((GetMonsterListEntry(-1) == nullptr && GetMonsterListEntry(1) == nullptr));
+    REQUIRE((GetUnbornMonsterEntry(0) == &monster && GetUnbornMonsterEntry(1) == nullptr));
+    REQUIRE((GetMonsterGroupEncounter(0) == &group && GetMonsterGroupEncounter(1) == nullptr));
     // Reset releases vector storage and leaves immediately reusable collections.
     gXStatus = {};
-    CHECK(GetMonsterListEntry(0) == nullptr && GetUnbornMonsterEntry(0) == nullptr);
-    CHECK(GetMonsterGroupEncounter(0) == nullptr);
+    REQUIRE((GetMonsterListEntry(0) == nullptr && GetUnbornMonsterEntry(0) == nullptr));
+    REQUIRE(GetMonsterGroupEncounter(0) == nullptr);
     gXStatus.monsters.push_back(&monster);
-    CHECK(GetMonsterListEntry(0) == &monster);
+    REQUIRE(GetMonsterListEntry(0) == &monster);
     gXStatus.monsters.clear();
     return true;
 }
@@ -180,10 +174,10 @@ static bool npcStockOrdering()
     W8NpcState npc{};
     npc.items = &items;
     SortNpcItems(&npc);
-    CHECK((items == std::vector<W8NpcItemEntry*>{second, first, third}));
-    CHECK(first->available_at == 100 && third->available_at == 200);
-    CHECK(GetNpcItemAt(&npc, -1) == nullptr && GetNpcItemAt(&npc, 3) == nullptr);
-    CHECK(GetNpcItemAt(&npc, 0) == second);
+    REQUIRE((items == std::vector<W8NpcItemEntry*>{second, first, third}));
+    REQUIRE((first->available_at == 100 && third->available_at == 200));
+    REQUIRE((GetNpcItemAt(&npc, -1) == nullptr && GetNpcItemAt(&npc, 3) == nullptr));
+    REQUIRE(GetNpcItemAt(&npc, 0) == second);
     delete first;
     delete second;
     delete third;
@@ -207,27 +201,27 @@ static bool keyboardBindingReplacement()
         file->write(bindings.data(), sizeof(bindings));
     }
     MGSKeyboard keyboard;
-    CHECK(keyboard.GetBinding(0) == nullptr);
+    REQUIRE(keyboard.GetBinding(0) == nullptr);
     {
         auto file = wiz8::open_host_file(path);
-        CHECK(keyboard.Load(file.get(), true));
+        REQUIRE(keyboard.Load(file.get(), true));
     }
     // A duplicate command replaces its record and moves to the end of the
     // ordered bindings. The command index must refer to that replacement.
-    CHECK(keyboard.FindBinding(W8_MGS_COMMAND_MOVE_FORWARD) == 0);
-    CHECK(keyboard.FindBinding(W8_MGS_COMMAND_CANCEL) == 1);
-    CHECK(keyboard.GetBinding(0)->key == 'B' && keyboard.GetBinding(1)->key == 'C');
-    CHECK(keyboard.GetBinding(-1) == nullptr);
-    CHECK(keyboard.GetBinding(2) == keyboard.GetBinding(0));
+    REQUIRE(keyboard.FindBinding(W8_MGS_COMMAND_MOVE_FORWARD) == 0);
+    REQUIRE(keyboard.FindBinding(W8_MGS_COMMAND_CANCEL) == 1);
+    REQUIRE((keyboard.GetBinding(0)->key == 'B' && keyboard.GetBinding(1)->key == 'C'));
+    REQUIRE(keyboard.GetBinding(-1) == nullptr);
+    REQUIRE(keyboard.GetBinding(2) == keyboard.GetBinding(0));
     gfKeyState['A'] = true;
-    CHECK(!keyboard.IsCommandPressed(W8_MGS_COMMAND_CANCEL));
+    REQUIRE(!keyboard.IsCommandPressed(W8_MGS_COMMAND_CANCEL));
     gfKeyState['A'] = false;
     gfKeyState['C'] = true;
-    CHECK(keyboard.IsCommandPressed(W8_MGS_COMMAND_CANCEL));
+    REQUIRE(keyboard.IsCommandPressed(W8_MGS_COMMAND_CANCEL));
     gfKeyState['C'] = false;
     keyboard.Clear();
-    CHECK(keyboard.GetBinding(0) == nullptr);
-    CHECK(!keyboard.IsCommandPressed(W8_MGS_COMMAND_CANCEL));
+    REQUIRE(keyboard.GetBinding(0) == nullptr);
+    REQUIRE(!keyboard.IsCommandPressed(W8_MGS_COMMAND_CANCEL));
     std::filesystem::remove_all(root);
     return true;
 }
@@ -256,11 +250,11 @@ static bool journalSerialization()
         auto file = wiz8::open_host_file(input_path);
         LoadJournalEntries(file.get());
     }
-    CHECK(g_fact_journal_entries.size() == count);
+    REQUIRE(g_fact_journal_entries.size() == count);
     for (int i = 0; i < count; ++i) {
         const auto& actual = g_fact_journal_entries[i];
-        CHECK(actual.level == expected[i].level && actual.fact == expected[i].fact &&
-              actual.alternate_text == expected[i].alternate_text);
+        REQUIRE((actual.level == expected[i].level && actual.fact == expected[i].fact &&
+              actual.alternate_text == expected[i].alternate_text));
     }
     {
         auto file = wiz8::open_host_file(output_path, wiz8::OpenMode::replace);
@@ -271,7 +265,7 @@ static bool journalSerialization()
                                      std::istreambuf_iterator<char>{}};
     const std::vector<char> roundtrip{std::istreambuf_iterator<char>(output),
                                       std::istreambuf_iterator<char>{}};
-    CHECK(original == roundtrip && original.size() == 8 + 3 * 12);
+    REQUIRE((original == roundtrip && original.size() == 8 + 3 * 12));
     // Reusing the journal with an empty chunk must shrink its live extent.
     {
         auto file = wiz8::open_host_file(input_path, wiz8::OpenMode::replace);
@@ -283,7 +277,7 @@ static bool journalSerialization()
         auto file = wiz8::open_host_file(input_path);
         LoadJournalEntries(file.get());
     }
-    CHECK(g_fact_journal_entries.empty());
+    REQUIRE(g_fact_journal_entries.empty());
     std::filesystem::remove_all(root);
     return true;
 }
@@ -295,33 +289,36 @@ static bool visibilityRecordLifetime()
     observer.fActive = true;
     target.location_id = 200;
     target.fActive = true;
-    CHECK(!FindMonToMonVisibility(&observer, &target));
+    REQUIRE(!FindMonToMonVisibility(&observer, &target));
     observer.monster_visibility = new W8MonsterVisibility;
     auto& records = *observer.monster_visibility;
     auto& row = records[target.location_id];
     row.about_location_id = target.location_id;
     row.sight_state = W8_SIGHT_SEEN;
     auto* original = FindMonToMonVisibility(&observer, &target);
-    CHECK(original == &row);
+    REQUIRE(original == &row);
     for (int id = 1000; id < 2000; ++id) records[id].about_location_id = id;
-    CHECK(FindMonToMonVisibility(&observer, &target) == original);
-    CHECK(original->sight_state == W8_SIGHT_SEEN);
+    REQUIRE(FindMonToMonVisibility(&observer, &target) == original);
+    REQUIRE(original->sight_state == W8_SIGHT_SEEN);
     gXStatus.monsters = {&observer, &target};
     ReleaseMonToMonVisibilityList(&target);
-    CHECK(!FindMonToMonVisibility(&observer, &target));
-    CHECK(records.size() == 1000);
+    REQUIRE(!FindMonToMonVisibility(&observer, &target));
+    REQUIRE(records.size() == 1000);
     ReleaseMonToMonVisibilityList(&observer);
-    CHECK(!observer.monster_visibility);
+    REQUIRE(!observer.monster_visibility);
     ReleaseMonToMonVisibilityList(&observer);
     gXStatus.monsters.clear();
     return true;
 }
 
-int main()
+TEST_CASE("collections_test")
 {
-    return ownershipAndCallbacks() && gameplayCollectionLifetime() && masterFunctionMutation() &&
-                   groupMemberLookup() && npcStockOrdering() && keyboardBindingReplacement() &&
-                   journalSerialization() && visibilityRecordLifetime()
-               ? 0
-               : 1;
+    REQUIRE(ownershipAndCallbacks());
+    REQUIRE(gameplayCollectionLifetime());
+    REQUIRE(masterFunctionMutation());
+    REQUIRE(groupMemberLookup());
+    REQUIRE(npcStockOrdering());
+    REQUIRE(keyboardBindingReplacement());
+    REQUIRE(journalSerialization());
+    REQUIRE(visibilityRecordLifetime());
 }

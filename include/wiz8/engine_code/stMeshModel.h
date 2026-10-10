@@ -37,10 +37,8 @@ public:
     virtual ~stMeshModel() override;       /* 0x00470ED0 */
     stMeshModel(const stMeshModel&) = delete;
     stMeshModel& operator=(const stMeshModel&) = delete;
-    virtual int getBoundingSphere(srVector3T<float>& center,
-                                  float& radius) override; /* 0x00471dd0 */
-    virtual int getBoundingBox(srVector3T<float>& minimum,
-                               srVector3T<float>& maximum) override; /* 0x00471d80 */
+    virtual int getBoundingSphere(glm::vec3& center, float& radius) override;    /* 0x00471dd0 */
+    virtual int getBoundingBox(glm::vec3& minimum, glm::vec3& maximum) override; /* 0x00471d80 */
     virtual void getTriMesh(TriMesh& mesh) override;                 /* 0x004727e0 */
     /* Recomputes the union bounds over the head and its parts and pushes them
        to each mesh via srMeshModel::setBounds. */
@@ -82,7 +80,7 @@ public:
     void FinalizeVertexFrame(int frame);
     /* Bounds `frame`'s vertex table into `minimum`/`maximum`, decompressing a
        scratch copy when the frame is not resident. */
-    void GetFrameBounds(int frame, srVector3T<float>* minimum, srVector3T<float>* maximum);
+    void GetFrameBounds(int frame, glm::vec3* minimum, glm::vec3* maximum);
     unsigned char DecompressFrame(int frame, unsigned char flags,
                                   srVector3T<float>* destination); /* 0x00471930 */
     void ComputeFrameNormals(int frame);                           /* 0x004729F0 */

@@ -1,3 +1,4 @@
+#include <catch2/catch_test_macros.hpp>
 /* SDL -> the native input queue and main-thread clock. Capture entry points below
    record calls for this test; they are not a native video implementation. */
 #include <SDL3/SDL.h>
@@ -14,16 +15,6 @@
 #include "timer.h"
 #include "Video2.h"
 
-#define CHECK(expression)                                                                          \
-    do                                                                                             \
-    {                                                                                              \
-        if (!(expression))                                                                         \
-        {                                                                                          \
-            fprintf(stderr, "line %d: %s (SDL: %s)\n", __LINE__, #expression,            \
-                    SDL_GetError());                                             \
-            exit(1);                                                                               \
-        }                                                                                          \
-    } while (0)
 
 SDL_Window* ghWindow = nullptr;
 static int screenshots = 0, captures = 0, suspensions = 0, restorations = 0, resizes = 0;
@@ -38,7 +29,7 @@ BOOLEAN RestoreVideoSurfaces() { return TRUE; }
 BOOLEAN VideoResizeWindow() { ++resizes; return TRUE; }
 float MoveTimer(int action) { clock_actions.push_back(action); return 0; }
 static SDL_WindowID id;
-static void push(SDL_Event event) { CHECK(SDL_PushEvent(&event)); }
+static void push(SDL_Event event) { REQUIRE(SDL_PushEvent(&event)); }
 static void focus(Uint32 kind)
 {
     SDL_Event event{};
@@ -89,7 +80,7 @@ static void wheel(float amount, bool flipped = false)
 }
 static void drain_events()
 {
-    CHECK(std::this_thread::get_id() == dispatch_thread);
+    REQUIRE(std::this_thread::get_id() == dispatch_thread);
     PumpGameEvents();
 }
 static std::vector<InputAtom> input()
@@ -102,37 +93,37 @@ static std::vector<InputAtom> input()
 }
 static void expect(const InputAtom& atom, UINT16 kind, UINT32 parameter, UINT16 state = 0)
 {
-    CHECK(atom.usEvent == kind && atom.usParam == parameter && atom.usKeyState == state);
+    REQUIRE((atom.usEvent == kind && atom.usParam == parameter && atom.usKeyState == state));
 }
-int main()
+TEST_CASE("events_test")
 {
     gfProgramIsRunning = gfApplicationActive = TRUE;
     gfIgnoreMessages = FALSE;
     /* No GPU is needed to validate events and timers. */
-    CHECK(SDL_Init(SDL_INIT_VIDEO));
+    REQUIRE(SDL_Init(SDL_INIT_VIDEO));
     SDL_Window* window = SDL_CreateWindow("Whizzardry input test", 1280, 960, SDL_WINDOW_HIDDEN);
-    CHECK(window);
+    REQUIRE(window);
     dispatch_thread = std::this_thread::get_id();
     id = SDL_GetWindowID(window);
     ghWindow = reinterpret_cast<SDL_Window*>(window);
     SetInputWindow(window);
-    CHECK(ghWindow && uintptr_t(ghWindow) == uintptr_t(window));
-    CHECK(InitializeInputManager());
+    REQUIRE((ghWindow && uintptr_t(ghWindow) == uintptr_t(window)));
+    REQUIRE(InitializeInputManager());
     drain_events();
     focus(SDL_EVENT_WINDOW_FOCUS_GAINED);
     mouse(SDL_EVENT_MOUSE_MOTION, 0, 640, 480);
     drain_events();
-    CHECK(input().empty());
-    CHECK(gusMouseXPos == 320 && gusMouseYPos == 240);
+    REQUIRE(input().empty());
+    REQUIRE((gusMouseXPos == 320 && gusMouseYPos == 240));
 
-    CHECK(WarpGameMouse(window, 123, 321));
+    REQUIRE(WarpGameMouse(window, 123, 321));
     SDL_Point position;
     GetGameMousePosition(&position);
-    CHECK(position.x == 123 && position.y == 321);
-    CHECK(WarpGameMouse(window, -10, 600));
+    REQUIRE((position.x == 123 && position.y == 321));
+    REQUIRE(WarpGameMouse(window, -10, 600));
     GetGameMousePosition(&position);
-    CHECK(position.x == 0 && position.y == 479);
-    CHECK(WarpGameMouse(window, 320, 240));
+    REQUIRE((position.x == 0 && position.y == 479));
+    REQUIRE(WarpGameMouse(window, 320, 240));
     drain_events();
 
     key(SDL_EVENT_KEY_DOWN, SDLK_A, SDL_KMOD_LSHIFT);
@@ -141,27 +132,27 @@ int main()
     key(SDL_EVENT_KEY_UP, SDLK_LSHIFT);
     drain_events();
     auto events = input();
-    CHECK(events.size() == 3 && gfShiftState == 0 && gfKeyState['A'] == 0);
+    REQUIRE((events.size() == 3 && gfShiftState == 0 && gfKeyState['A'] == 0));
     expect(events[0], KEY_DOWN, 'A', SHIFT_DOWN);
     expect(events[1], KEY_REPEAT, 'A', SHIFT_DOWN);
     expect(events[2], KEY_UP, 'A', SHIFT_DOWN);
-    CHECK(events[0].uiParam == ((240u << 16) | 320u));
+    REQUIRE(events[0].uiParam == ((240u << 16) | 320u));
 
     SetNativeTextInputEnabled(true);
     SDL_Event committed{};
     committed.type = SDL_EVENT_TEXT_INPUT;
     committed.text.windowID = SDL_GetWindowID(window);
     committed.text.text = "é中😀";
-    CHECK(SDL_PushEvent(&committed));
+    REQUIRE(SDL_PushEvent(&committed));
     drain_events();
     events = input();
-    CHECK(events.size() == 3);
-    CHECK(events[0].usParam == 0x00e9 && events[1].usParam == 0x4e2d && events[2].usParam == 0x1f600);
-    for (const auto& event : events) CHECK(event.usEvent == KEY_DOWN && event.uiParam == NATIVE_TEXT_INPUT_FLAG);
+    REQUIRE(events.size() == 3);
+    REQUIRE((events[0].usParam == 0x00e9 && events[1].usParam == 0x4e2d && events[2].usParam == 0x1f600));
+    for (const auto& event : events) REQUIRE((event.usEvent == KEY_DOWN && event.uiParam == NATIVE_TEXT_INPUT_FLAG));
     SetNativeTextInputEnabled(false);
-    CHECK(SDL_PushEvent(&committed));
+    REQUIRE(SDL_PushEvent(&committed));
     drain_events();
-    CHECK(input().empty());
+    REQUIRE(input().empty());
 
     key(SDL_EVENT_KEY_DOWN, SDLK_LEFT);
     key(SDL_EVENT_KEY_UP, SDLK_LEFT);
@@ -173,7 +164,7 @@ int main()
     key(SDL_EVENT_KEY_UP, SDLK_F1);
     drain_events();
     events = input();
-    CHECK(events.size() == 8);
+    REQUIRE(events.size() == 8);
     expect(events[0], KEY_DOWN, VK_LEFT);
     expect(events[2], KEY_DOWN, 0x61);
     expect(events[4], KEY_DOWN, 0x6c);
@@ -187,7 +178,7 @@ int main()
     key(SDL_EVENT_KEY_UP, SDLK_RCTRL);
     drain_events();
     events = input();
-    CHECK(events.size() == 2 && !gfCtrlState);
+    REQUIRE((events.size() == 2 && !gfCtrlState));
     expect(events[0], KEY_DOWN, 'B', CTRL_DOWN);
     expect(events[1], KEY_UP, 'B', CTRL_DOWN);
 
@@ -195,7 +186,7 @@ int main()
     key(SDL_EVENT_KEY_UP, SDLK_PRINTSCREEN, SDL_KMOD_LCTRL);
     key(SDL_EVENT_KEY_UP, SDLK_LCTRL);
     drain_events();
-    CHECK(screenshots == 1 && captures == 1 && input().empty());
+    REQUIRE((screenshots == 1 && captures == 1 && input().empty()));
 
     key(SDL_EVENT_KEY_DOWN, SDLK_A, SDL_KMOD_LSHIFT);
     key(SDL_EVENT_KEY_UP, SDLK_A, SDL_KMOD_LSHIFT);
@@ -207,9 +198,9 @@ int main()
     key(SDL_EVENT_KEY_UP, SDLK_RETURN);
     drain_events();
     events = input();
-    CHECK(events.size() == 8);
+    REQUIRE(events.size() == 8);
     expect(events[0], KEY_DOWN, 'A', SHIFT_DOWN);
-    CHECK(TranslateKeyToCharacter(events[0].usParam, events[0].usKeyState) == 'A');
+    REQUIRE(TranslateKeyToCharacter(events[0].usParam, events[0].usKeyState) == 'A');
     expect(events[2], KEY_DOWN, 'B');
     expect(events[4], KEY_DOWN, VK_BACK);
     expect(events[6], KEY_DOWN, VK_RETURN);
@@ -219,26 +210,26 @@ int main()
     mouse(SDL_EVENT_MOUSE_BUTTON_DOWN, SDL_BUTTON_LEFT, 640, 480);
     drain_events();
     events = input();
-    CHECK(events.size() == 2 && gfLeftButtonState);
+    REQUIRE((events.size() == 2 && gfLeftButtonState));
     expect(events[0], MOUSE_POS, 0);
-    CHECK(events[0].uiParam == ((479u << 16) | 639u));
+    REQUIRE(events[0].uiParam == ((479u << 16) | 639u));
     expect(events[1], LEFT_BUTTON_DOWN, 0);
     guiLeftButtonRepeatTimer = w8_get_ticks() - 1;
     events = input();
-    CHECK(events.size() == 1);
+    REQUIRE(events.size() == 1);
     expect(events[0], LEFT_BUTTON_REPEAT, 0);
-    CHECK(events[0].uiParam == ((240u << 16) | 320u));
+    REQUIRE(events[0].uiParam == ((240u << 16) | 320u));
     guiSingleClickTimer = w8_get_ticks() - 1000;
     mouse(SDL_EVENT_MOUSE_BUTTON_UP, SDL_BUTTON_LEFT, 640, 480);
     drain_events();
     events = input();
-    CHECK(events.size() == 1 && !gfLeftButtonState);
+    REQUIRE((events.size() == 1 && !gfLeftButtonState));
     expect(events[0], LEFT_BUTTON_UP, 0);
     mouse(SDL_EVENT_MOUSE_BUTTON_DOWN, SDL_BUTTON_LEFT, 640, 480);
     mouse(SDL_EVENT_MOUSE_BUTTON_UP, SDL_BUTTON_LEFT, 640, 480);
     drain_events();
     events = input();
-    CHECK(events.size() == 3);
+    REQUIRE(events.size() == 3);
     expect(events[0], LEFT_BUTTON_DOWN, 0);
     expect(events[1], LEFT_BUTTON_UP, 0);
     expect(events[2], LEFT_BUTTON_DBL_CLK, 0);
@@ -246,24 +237,24 @@ int main()
     wheel(0.25f);
     wheel(0.5f);
     drain_events();
-    CHECK(input().empty());
+    REQUIRE(input().empty());
     wheel(0.25f);
     wheel(2, true);
     drain_events();
     events = input();
-    CHECK(events.size() == 3);
-    CHECK(GetMouseWheelDeltaValue(events[0].usParam) == 1);
-    CHECK(GetMouseWheelDeltaValue(events[1].usParam) == -1 &&
-          GetMouseWheelDeltaValue(events[2].usParam) == -1);
+    REQUIRE(events.size() == 3);
+    REQUIRE(GetMouseWheelDeltaValue(events[0].usParam) == 1);
+    REQUIRE((GetMouseWheelDeltaValue(events[1].usParam) == -1 &&
+          GetMouseWheelDeltaValue(events[2].usParam) == -1));
 
     key(SDL_EVENT_KEY_DOWN, SDLK_C, SDL_KMOD_LALT);
     mouse(SDL_EVENT_MOUSE_BUTTON_DOWN, SDL_BUTTON_RIGHT, 640, 480);
     focus(SDL_EVENT_WINDOW_FOCUS_LOST);
     key(SDL_EVENT_KEY_DOWN, SDLK_D);
     drain_events();
-    CHECK(!gfKeyState['C'] && !gfKeyState['D'] && !gfAltState && !gfRightButtonState &&
-          !guiRightButtonRepeatTimer);
-    CHECK(input().size() == 2);
+    REQUIRE((!gfKeyState['C'] && !gfKeyState['D'] && !gfAltState && !gfRightButtonState &&
+          !guiRightButtonRepeatTimer));
+    REQUIRE(input().size() == 2);
     focus(SDL_EVENT_WINDOW_FOCUS_GAINED);
     drain_events();
 
@@ -285,30 +276,30 @@ int main()
         events.insert(events.end(), next.begin(), next.end());
     }
     producer.join();
-    CHECK(events.size() == 2);
+    REQUIRE(events.size() == 2);
     expect(events[0], KEY_DOWN, 'F');
     expect(events[1], KEY_UP, 'F');
 
     uint64_t countdown = w8_get_ticks() + 100;
-    CHECK(TimeUntilDeadline(countdown) <= 100 && TimeUntilDeadline(countdown) > 0);
-    CHECK(TimeUntilDeadline(w8_get_ticks() - 1) == 0);
+    REQUIRE((TimeUntilDeadline(countdown) <= 100 && TimeUntilDeadline(countdown) > 0));
+    REQUIRE(TimeUntilDeadline(w8_get_ticks() - 1) == 0);
     /* 64-bit deadlines never wrap: far-future stamps honestly report their
        remaining time instead of aliasing into the past. */
     countdown = w8_get_ticks() + 0xfffffff0u;
-    CHECK(TimeUntilDeadline(countdown) > 0 && TimeUntilDeadline(countdown) <= 0xfffffff0u);
+    REQUIRE((TimeUntilDeadline(countdown) > 0 && TimeUntilDeadline(countdown) <= 0xfffffff0u));
 
     suspensions = restorations = 0;
     clock_actions.clear();
     focus(SDL_EVENT_WINDOW_FOCUS_LOST);
     drain_events();
-    CHECK(!gfApplicationActive && suspensions == 1);
+    REQUIRE((!gfApplicationActive && suspensions == 1));
     focus(SDL_EVENT_WINDOW_FOCUS_GAINED);
     drain_events();
-    CHECK(gfApplicationActive && restorations == 1);
+    REQUIRE((gfApplicationActive && restorations == 1));
     focus(SDL_EVENT_WINDOW_FOCUS_GAINED);
     drain_events();
-    CHECK(restorations == 1 && clock_actions.size() == 2);
-    CHECK(clock_actions[0] == TIMER_SUSPEND && clock_actions[1] == TIMER_RESUME);
+    REQUIRE((restorations == 1 && clock_actions.size() == 2));
+    REQUIRE((clock_actions[0] == TIMER_SUSPEND && clock_actions[1] == TIMER_RESUME));
     SDL_Event resize{};
     resize.type = SDL_EVENT_WINDOW_RESIZED;
     resize.window.windowID = id;
@@ -317,11 +308,11 @@ int main()
     resizes = 0;
     push(resize);
     drain_events();
-    CHECK(resizes == 1);
+    REQUIRE(resizes == 1);
     SDL_Point point{};
-    CHECK(WarpGameMouse(window, 320, 240));
+    REQUIRE(WarpGameMouse(window, 320, 240));
     GetGameMousePosition(&point);
-    CHECK(point.x == 320 && point.y == 240);
+    REQUIRE((point.x == 320 && point.y == 240));
     drain_events();
     input();
 
@@ -331,61 +322,62 @@ int main()
         for (unsigned i = 0; i < 257; ++i)
             QueueEvent(KEY_DOWN, i, batch);
         events = input();
-        CHECK(events.size() == 256);
+        REQUIRE(events.size() == 256);
         for (unsigned i = 0; i < 256; ++i)
-            CHECK(events[i].usParam == i && events[i].uiParam == batch);
+            REQUIRE((events[i].usParam == i && events[i].uiParam == batch));
     }
     gfIgnoreMessages = TRUE;
     key(SDL_EVENT_KEY_DOWN, SDLK_Q);
     focus(SDL_EVENT_WINDOW_CLOSE_REQUESTED);
     drain_events();
-    CHECK(!gfProgramIsRunning && input().empty());
+    REQUIRE((!gfProgramIsRunning && input().empty()));
     gfProgramIsRunning = TRUE;
     SDL_Event quit{};
     quit.type = SDL_EVENT_QUIT;
     push(quit);
     drain_events();
-    CHECK(!gfProgramIsRunning);
+    REQUIRE(!gfProgramIsRunning);
     gfIgnoreMessages = FALSE;
     for (int round = 0; round < 3; ++round) {
-        CHECK(InitializeInputManager());
+        REQUIRE(InitializeInputManager());
         for (unsigned i = 0; i < 256; ++i)
             QueueEvent(KEY_DOWN, i, i + 100);
         QueueEvent(KEY_UP, 999, 0);
         events = input();
-        CHECK(events.size() == 256);
+        REQUIRE(events.size() == 256);
         for (unsigned i = 0; i < events.size(); ++i) {
             expect(events[i], KEY_DOWN, i);
-            CHECK(events[i].uiParam == i + 100);
+            REQUIRE(events[i].uiParam == i + 100);
         }
     }
     for (unsigned queued : {254u, 255u, 256u}) {
-        CHECK(InitializeInputManager());
+        REQUIRE(InitializeInputManager());
         for (unsigned i = 0; i < queued; ++i)
             QueueEvent(KEY_DOWN, i, 0);
         guiSingleClickTimer = w8_get_ticks();
         gusRecordedKeyState = SHIFT_DOWN;
         QueueEvent(LEFT_BUTTON_UP, 17, 23);
         events = input();
-        CHECK(events.size() == 256);
+        REQUIRE(events.size() == 256);
         for (unsigned i = 0; i < queued; ++i)
             expect(events[i], KEY_DOWN, i);
         if (queued < 256) {
             expect(events[queued], LEFT_BUTTON_UP, 17, SHIFT_DOWN);
-            CHECK(events[queued].uiParam == 23);
+            REQUIRE(events[queued].uiParam == 23);
         }
         if (queued == 254)
             expect(events.back(), LEFT_BUTTON_DBL_CLK, 17, SHIFT_DOWN);
         QueueEvent(KEY_UP, 999, 0);
         events = input();
-        CHECK(events.size() == 1);
+        REQUIRE(events.size() == 1);
         expect(events[0], KEY_UP, 999);
     }
     KeyChange(0xffff, 0, TRUE);
-    CHECK(input().empty());
+    REQUIRE(input().empty());
     SetInputWindow(nullptr);
 
     SDL_DestroyWindow(window);
     SDL_Quit();
     puts("ok: SDL events feed input, strings, repeats, focus, resize, quit and main-thread clock");
+
 }

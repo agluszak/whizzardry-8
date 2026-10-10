@@ -66,9 +66,9 @@ public:
         std::shared_ptr<srTextureIFace>* poly_textures[4][2]{};
         srShader* poly_shaders[4]{};
         srVector3i* poly_uv[4]{};
-        srVector3T<float> bounds_minimum{0.0f, 0.0f, 0.0f};
-        srVector3T<float> bounds_maximum{0.0f, 0.0f, 0.0f};
-        srVector3T<float> bounds_center{0.0f, 0.0f, 0.0f};
+        glm::vec3 bounds_minimum{0.0f, 0.0f, 0.0f};
+        glm::vec3 bounds_maximum{0.0f, 0.0f, 0.0f};
+        glm::vec3 bounds_center{0.0f, 0.0f, 0.0f};
         float bounds_radius = 0.0f;
         float sort_bias = 0.0f;
         w8_ulong* active_polygons = nullptr;
@@ -99,9 +99,8 @@ public:
 
     SR_DLL_IMPORT virtual void dump(std::ostream& stream) override;
     SR_DLL_IMPORT virtual void verify(srRuntimeClass::e_verify mode) override;
-    SR_DLL_IMPORT virtual int getBoundingSphere(srVector3T<float>& center, float& radius) override;
-    SR_DLL_IMPORT virtual int getBoundingBox(srVector3T<float>& minimum,
-                                             srVector3T<float>& maximum) override;
+    SR_DLL_IMPORT virtual int getBoundingSphere(glm::vec3& center, float& radius) override;
+    SR_DLL_IMPORT virtual int getBoundingBox(glm::vec3& minimum, glm::vec3& maximum) override;
     SR_DLL_IMPORT virtual void render(class srGERD& renderer) override;
     SR_DLL_IMPORT virtual void reindexPolygons(const w8_ulong* indices);
     SR_DLL_IMPORT virtual void reindexVertices(const w8_ulong* indices);
@@ -185,8 +184,8 @@ public:
     SR_DLL_IMPORT srVector3T<float>* getVertexLoc();
     /* Fills the cached AABB/sphere (bounds_minimum..bounds_radius)
        from the supplied box and center/radius. */
-    SR_DLL_IMPORT void setBounds(const srVector3T<float>& minimum, const srVector3T<float>& maximum,
-                                 const srVector3T<float>& center, float radius);
+    SR_DLL_IMPORT void setBounds(const glm::vec3& minimum, const glm::vec3& maximum,
+                                 const glm::vec3& center, float radius);
 
 protected:
     SR_DLL_IMPORT virtual void updateTriMesh();
@@ -216,9 +215,9 @@ public:
     std::vector<w8_ulong> vertex_shade_indices;
     std::vector<w8_ulong> active_polygons;
     w8_long active_polygon_count = 0;
-    srVector3T<float> bounds_minimum{0.0f, 0.0f, 0.0f};
-    srVector3T<float> bounds_maximum{0.0f, 0.0f, 0.0f};
-    srVector3T<float> bounds_center{0.0f, 0.0f, 0.0f};
+    glm::vec3 bounds_minimum{0.0f, 0.0f, 0.0f};
+    glm::vec3 bounds_maximum{0.0f, 0.0f, 0.0f};
+    glm::vec3 bounds_center{0.0f, 0.0f, 0.0f};
     float bounds_radius = 0.0f;
     w8_long pass_count = 1;
     w8_long vertex_location_count = 0;

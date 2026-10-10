@@ -136,9 +136,9 @@ void srBounder::traverse(TraverseInfo& info)
 void srBounder::updateBounds()
 {
     if (testNotify(NOTIFY_BOUNDS_DIRTY) != 0 && bound_mode == BOUND_MODE_DYNAMIC) {
-        bounds.minimum.SetZero();
-        bounds.maximum.SetZero();
-        bounds.center.SetZero();
+        bounds.minimum = glm::vec3(0);
+        bounds.maximum = glm::vec3(0);
+        bounds.center = glm::vec3(0);
         bounds.radius = 0.0f;
         bounds.state = 0;
         glm::mat4 world;
@@ -149,7 +149,7 @@ void srBounder::updateBounds()
         }
         if (bounds.state == 1) {
             bounds.center = (bounds.maximum + bounds.minimum) * 0.5f;
-            bounds.radius = (bounds.minimum - bounds.center).Length();
+            bounds.radius = glm::distance(bounds.minimum, bounds.center);
         }
     }
     clearNotify(NOTIFY_BOUNDS_DIRTY);
@@ -165,15 +165,14 @@ void srBounder::getChildBoundingBox(srNode* node)
         if (child_bounds.state == 1) {
             glm::mat4 world;
             node->getWorldSpaceMatrix(world);
-            const srBoundingBox child_box{child_bounds.minimum.glmValue(),
-                                          child_bounds.maximum.glmValue()};
+            const srBoundingBox child_box{child_bounds.minimum, child_bounds.maximum};
             const auto transformed = child_box.transformed(inverse_world * world);
             if (bounds.state == 0) {
                 bounds.minimum = transformed.minimum;
                 bounds.maximum = transformed.maximum;
             } else {
-                bounds.minimum = glm::min(bounds.minimum.glmValue(), transformed.minimum);
-                bounds.maximum = glm::max(bounds.maximum.glmValue(), transformed.maximum);
+                bounds.minimum = glm::min(bounds.minimum, transformed.minimum);
+                bounds.maximum = glm::max(bounds.maximum, transformed.maximum);
             }
             bounds.state = 1;
         } else if (child_bounds.state == 2) {

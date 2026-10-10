@@ -1,3 +1,4 @@
+#include <catch2/catch_test_macros.hpp>
 #include "surrender/srClipPlane.h"
 #include "surrender/srCore.h"
 #include "surrender/srScene.h"
@@ -15,8 +16,6 @@
 #include <memory>
 #include <vector>
 
-#define CHECK(expression) do { if (!(expression)) { \
-    std::fprintf(stderr, "line %d: %s\n", __LINE__, #expression); return false; } } while (0)
 
 namespace {
 struct TestWorld {
@@ -56,14 +55,14 @@ bool triggers()
     Trigger* newest = AddTrigger(level, "DOOR");
     Trigger* in_sky = AddTrigger(sky, "SKYDOOR");
     AddTrigger(level, "");
-    CHECK(FindTriggerByName("door") == newest);
-    CHECK(FindTriggerByName("DOOR") == newest);
-    CHECK(FindTriggerByName("SkyDoor") == in_sky);
-    CHECK(FindTriggerByName("") == nullptr);
-    CHECK(FindTriggerByName("MISSING") == nullptr);
+    REQUIRE((FindTriggerByName("door") == newest));
+    REQUIRE((FindTriggerByName("DOOR") == newest));
+    REQUIRE((FindTriggerByName("SkyDoor") == in_sky));
+    REQUIRE((FindTriggerByName("") == nullptr));
+    REQUIRE((FindTriggerByName("MISSING") == nullptr));
     level.triggers.erase(level.triggers.begin() + 1);
     delete newest;
-    CHECK(FindTriggerByName("DOOR") == first);
+    REQUIRE((FindTriggerByName("DOOR") == first));
     SetCurrentWorld(0);
     SetSecondaryWorld(0);
     return true;
@@ -84,16 +83,16 @@ bool nodes(const std::filesystem::path& directory)
     auto* layer = new srClipPlane(level.world.static_scene);
     layer->setName("LAYER 1");
 
-    CHECK(FindWorldNode<stLight>("LAMP") == lamp);
-    CHECK(FindWorldNode<stLight>("lamp") == nullptr);
-    CHECK(FindWorldNode<srNode>("SUN") == sky_light);
-    CHECK(FindWorldNode<srClipPlane>("LAYER 1") == layer);
-    CHECK(FindWorldNode<stLight>("LAYER 1") == nullptr);
-    CHECK(FindLightByName("TORCH") == torch);
+    REQUIRE((FindWorldNode<stLight>("LAMP") == lamp));
+    REQUIRE((FindWorldNode<stLight>("lamp") == nullptr));
+    REQUIRE((FindWorldNode<srNode>("SUN") == sky_light));
+    REQUIRE((FindWorldNode<srClipPlane>("LAYER 1") == layer));
+    REQUIRE((FindWorldNode<stLight>("LAYER 1") == nullptr));
+    REQUIRE((FindLightByName("TORCH") == torch));
 
     int lights = 0;
     ForEachWorldNode<stLight>([&](stLight*) { ++lights; });
-    CHECK(lights == 3);
+    REQUIRE((lights == 3));
 
     // Only trigger-toggled lights are saved; loading restores them by name.
     lamp->m_save_marked = true;
@@ -109,8 +108,8 @@ bool nodes(const std::filesystem::path& directory)
         auto file = wiz8::open_host_file(path);
         LoadLightStates(file.get());
     }
-    CHECK(lamp->testFlag(srNode::FLAG_DISABLE));
-    CHECK(torch->testFlag(srNode::FLAG_DISABLE));
+    REQUIRE((lamp->testFlag(srNode::FLAG_DISABLE)));
+    REQUIRE((torch->testFlag(srNode::FLAG_DISABLE)));
 
     srClock clock;
     g_shared_timer_base = &clock;
@@ -131,7 +130,7 @@ bool nodes(const std::filesystem::path& directory)
         auto file = wiz8::open_host_file(path);
         LoadParticleStates(file.get());
     }
-    CHECK(!gas->emitting && idle->emitting);
+    REQUIRE((!gas->emitting && idle->emitting));
     // Particles are owned by the world list, not the scene.
     level.particles.clear();
     delete gas;
@@ -144,7 +143,7 @@ bool nodes(const std::filesystem::path& directory)
 }
 } // namespace
 
-int main()
+TEST_CASE("world_lookup_test")
 {
     if (!srInit()) return 1;
     const std::filesystem::path directory = make_temporary_directory("wiz8-world-lookup");

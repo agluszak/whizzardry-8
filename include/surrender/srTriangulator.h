@@ -9,7 +9,7 @@ public:
     srTriangulator(const srTriangulator&) = delete;
     srTriangulator& operator=(const srTriangulator&) = delete;
 
-    srVector3i next();
+    glm::ivec3 next();
 
 private:
     struct Node {

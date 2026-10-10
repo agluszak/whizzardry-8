@@ -500,7 +500,7 @@ void stModelInstance::RenderMeshes(srGERD& renderer)
     stMeshModel* model = static_cast<stMeshModel*>(getModel());
     stMeshModel* first_model = model;
 
-    srVector3T<float> center;
+    glm::vec3 center;
     float radius;
     model->getBoundingSphere(center, radius);
     if (((model->render_control.value & 0x20) == 0) &&
@@ -508,8 +508,8 @@ void stModelInstance::RenderMeshes(srGERD& renderer)
         return;
     }
     if (((model->render_control.value & 0x10) == 0) && (model->vertex_location_count >= 8)) {
-        srVector3T<float> minimum;
-        srVector3T<float> maximum;
+        glm::vec3 minimum;
+        glm::vec3 maximum;
         model->getBoundingBox(minimum, maximum);
         if (renderer.testBoundingBox(minimum, maximum) == srGERD::VISIBILITY_OUTSIDE) {
             return;

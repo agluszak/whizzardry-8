@@ -86,8 +86,7 @@ float PointToSegmentDistance2D(glm::vec2* point, const glm::vec2* from, const gl
 char GrowBoundsByPoint(const srVector3T<float>* point, srVector3T<float>* minimum,
                        srVector3T<float>* maximum); /* 0x004378F0 */
 /* Whether `point` lies within `radius` of the bounds box. */
-bool SphereNearBounds(const srVector3T<float>* point, float radius,
-                      const W8BoundingBox* bounds); /* 0x004386A0 */
+/* 0x004386A0 */
 
 inline bool ReadVectorArray(wiz8::File* file, void* values, int count)
 {

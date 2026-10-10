@@ -1,3 +1,4 @@
+#include <catch2/catch_test_macros.hpp>
 /* Runtime scenarios against installed retail assets.
 
    The scenario drives the real game loop on this thread: it injects SDL input
@@ -73,21 +74,10 @@ namespace
 namespace fs = std::filesystem;
 using Clock = std::chrono::steady_clock;
 
-struct Failure : std::runtime_error
-{
-    using std::runtime_error::runtime_error;
-};
-
 [[noreturn]] void Fail(const std::string& step, const std::string& detail)
 {
-    throw Failure(step + ": " + detail);
+    throw std::runtime_error(step + ": " + detail);
 }
-#define REQUIRE(step, condition)                                                                   \
-    do                                                                                             \
-    {                                                                                              \
-        if (!(condition))                                                                          \
-            Fail(step, #condition);                                                                \
-    } while (false)
 
 /* Error-level log lines are test failures: the game reports broken assets and
    blits that way while carrying on. */
@@ -175,7 +165,7 @@ class Game
         const std::string_view arguments[] = {"/WINDOW"};
         application_.emplace(arguments);
         window_ = reinterpret_cast<SDL_Window*>(ghWindow);
-        REQUIRE("startup", window_);
+        REQUIRE(window_);
         SDL_Event focus{};
         focus.type = SDL_EVENT_WINDOW_FOCUS_GAINED;
         focus.window.windowID = SDL_GetWindowID(window_);
@@ -202,7 +192,7 @@ class Game
     void frame()
     {
         PumpGameEvents(false);
-        REQUIRE("frame", gfProgramIsRunning);
+        REQUIRE(gfProgramIsRunning);
         GameLoop();
         gfSGPInputReceived = FALSE;
         ++frames_;
@@ -326,7 +316,7 @@ class Game
     std::vector<unsigned> read_frame()
     {
         auto* surface = g_gerd->lockBuffer();
-        REQUIRE("read-frame", surface);
+        REQUIRE(surface);
         std::vector<unsigned> pixels(SCREEN_WIDTH * SCREEN_HEIGHT);
         for (int y = 0; y < SCREEN_HEIGHT; ++y)
             for (int x = 0; x < SCREEN_WIDTH; ++x)
@@ -387,7 +377,7 @@ void Snapshot(const char* name, const std::vector<unsigned>& pixels)
 void ReachMainMenu(Game& game)
 {
     game.wait_screen("main-menu", W8_SCREEN_MAIN_MENU);
-    REQUIRE("main-menu", g_runtime_test_hooks.movie_frames_presented == 0);
+    REQUIRE(g_runtime_test_hooks.movie_frames_presented == 0);
 }
 
 /* --- Character creation through the real controls ------------------------ */
@@ -403,7 +393,7 @@ W8CharacterStatsPage* StatsPage()
 void SpendPool(Game& game, const char* step, int page_index, const bool& complete)
 {
     W8CharacterPage* page = g_character_screen->m_pages[page_index];
-    REQUIRE(step, page && !page->m_entries.empty());
+    REQUIRE((page && !page->m_entries.empty()));
     for (int index = 0; index < static_cast<int>(page->m_entries.size()) && !complete; ++index) {
         W8CharacterPageEntry* entry = page->m_entries[index];
         if (!entry || !entry->m_enabled || !entry->m_second || !entry->m_third ||
@@ -417,7 +407,7 @@ void SpendPool(Game& game, const char* step, int page_index, const bool& complet
                 break; // The entry is capped by something else (race maximum).
         }
     }
-    REQUIRE(step, complete);
+    REQUIRE(complete);
 }
 
 /* Main menu -> party selection -> character screen -> saved character back on
@@ -439,16 +429,16 @@ std::string CreateCharacter(Game& game)
     });
 
     W8CharacterStatsPage* stats = StatsPage();
-    REQUIRE("profession", stats->m_profession_row && stats->m_race_row && stats->m_gender_row);
+    REQUIRE((stats->m_profession_row && stats->m_race_row && stats->m_gender_row));
     game.click("profession", ControlRegion(stats->m_profession_row->m_increment));
-    REQUIRE("profession", game.within_frames(2, [&] { return stats->m_profession_row->m_index != -1; }));
+    REQUIRE(game.within_frames(2, [&] { return stats->m_profession_row->m_index != -1; }));
     game.click("race", ControlRegion(stats->m_race_row->m_increment));
-    REQUIRE("race", game.within_frames(2, [&] { return stats->m_race_row->m_index != -1; }));
+    REQUIRE(game.within_frames(2, [&] { return stats->m_race_row->m_index != -1; }));
     game.click("gender", ControlRegion(stats->m_gender_row->m_increment));
-    REQUIRE("gender", game.within_frames(2, [&] { return stats->m_gender_row->m_index != -1; }));
-    REQUIRE("attributes", game.within_frames(2, [&] {
+    REQUIRE(game.within_frames(2, [&] { return stats->m_gender_row->m_index != -1; }));
+    REQUIRE((game.within_frames(2, [&] {
         return !stats->m_entries.empty() && stats->m_entries[0]->m_enabled;
-    }));
+    })));
     SpendPool(game, "attributes", 0, g_character_screen->m_creation_state.attributes_complete);
 
     // The first profession is a non-caster, so Next skips the spell page.
@@ -470,14 +460,14 @@ std::string CreateCharacter(Game& game)
         game.key(key);
     const W8Character& typed = g_character_screen->m_character;
     const std::string name = typed.name;
-    REQUIRE("name", !name.empty());
+    REQUIRE(!name.empty());
 
     game.click("commit", ControlRegion(g_character_screen->m_next));
     game.wait_screen("committed", W8_SCREEN_PARTY_SELECTION);
     const auto saved = game.user_root() / "Saves" / "Characters" / (name + ".CHR");
     if (!fs::is_regular_file(saved))
         Fail("saved", "missing " + saved.string());
-    REQUIRE("saved", fs::file_size(saved) > 0);
+    REQUIRE(fs::file_size(saved) > 0);
     return name;
 }
 
@@ -487,7 +477,7 @@ void StartGame(Game& game)
     CreateCharacter(game);
     // Return toggles the selected roster row (the new character) into the party.
     game.key(SDLK_RETURN);
-    REQUIRE("add-to-party", game.within_frames(4, [] { return CountActiveCharacters() == 1; }));
+    REQUIRE(game.within_frames(4, [] { return CountActiveCharacters() == 1; }));
 
     /* Confirm walks the screen's own steps: a party of fewer than six asks
        for confirmation, then the options page's Confirm runs the opening. */
@@ -500,9 +490,9 @@ void StartGame(Game& game)
             game.key(SDLK_RETURN);
     }
     game.wait_screen("main-game", W8_SCREEN_MAIN_GAME, 60);
-    REQUIRE("main-game", g_runtime_test_hooks.movie_frames_presented == 0);
+    REQUIRE(g_runtime_test_hooks.movie_frames_presented == 0);
     W8World* world = GetWorld();
-    REQUIRE("main-game", world && world->octree && world->camera && world->level);
+    REQUIRE((world && world->octree && world->camera && world->level));
 }
 
 /* --- Main-game helpers ---------------------------------------------------- */
@@ -524,7 +514,7 @@ void WaitMainGame(Game& game, const char* step)
 {
     game.wait_screen(step, W8_SCREEN_MAIN_GAME, 60);
     W8World* world = GetWorld();
-    REQUIRE(step, world && world->octree && world->camera && world->level);
+    REQUIRE((world && world->octree && world->camera && world->level));
 }
 
 /* Steps until the party stops moving (gravity and settling after loads). */
@@ -556,10 +546,10 @@ srVector3T<float> Walk(Game& game, const char* step, float distance)
 
 int PremadeSlot()
 {
-    REQUIRE("party", CountActiveCharacters() == 1);
+    REQUIRE(CountActiveCharacters() == 1);
     for (int slot = 0; slot < W8_PARTY_SLOT_COUNT; ++slot)
         if (g_status.buffers.XChar[slot].fOccupied) {
-            REQUIRE("party", g_status.buffers.Char[slot].fInParty);
+            REQUIRE(g_status.buffers.Char[slot].fInParty);
             return slot;
         }
     Fail("party", "no occupied slot");
@@ -572,14 +562,14 @@ void StartPremadeGame(Game& game)
     ReachMainMenu(game);
     ResetForNewGame();
     W8Character character{};
-    REQUIRE("premade", LoadCharacter("vi.CHR", &character, -1, false));
-    REQUIRE("premade", character.record_version == 1 && character.uiExpLevel == 1);
-    REQUIRE("premade", character.name == "vi");
-    REQUIRE("premade", character.iProfession == W8_PROFESSION_FIGHTER &&
-                           character.iRace == W8_RACE_HUMAN && character.gender == W8_GENDER_MALE);
-    REQUIRE("premade", character.hp_current == 18 && character.experience == 0);
-    REQUIRE("premade", AddCharacterToParty(&character, -1) >= 0);
-    REQUIRE("premade", CountActiveCharacters() == 1);
+    REQUIRE(LoadCharacter("vi.CHR", &character, -1, false));
+    REQUIRE((character.record_version == 1 && character.uiExpLevel == 1));
+    REQUIRE(character.name == "vi");
+    REQUIRE((character.iProfession == W8_PROFESSION_FIGHTER &&
+                           character.iRace == W8_RACE_HUMAN && character.gender == W8_GENDER_MALE));
+    REQUIRE((character.hp_current == 18 && character.experience == 0));
+    REQUIRE(AddCharacterToParty(&character, -1) >= 0);
+    REQUIRE(CountActiveCharacters() == 1);
     RunNewGameOpeningSequence(false, {});
     WaitMainGame(game, "premade-main-game");
 }
@@ -598,10 +588,10 @@ std::vector<fs::path> SaveFiles(const fs::path& user)
 /* Quick-save through its key binding; returns the written save. */
 fs::path QuickSave(Game& game)
 {
-    REQUIRE("quick-save", SaveFiles(game.user_root()).empty());
+    REQUIRE(SaveFiles(game.user_root()).empty());
     game.command(W8_MGS_COMMAND_QUICK_SAVE);
     const auto saves = SaveFiles(game.user_root());
-    REQUIRE("quick-save", saves.size() == 1 && fs::file_size(saves[0]) > 0);
+    REQUIRE((saves.size() == 1 && fs::file_size(saves[0]) > 0));
     // Exercise the real quick-save writer, including RIFF extent/count patches.
     W8SaveScreenshot screenshot{};
     const auto name = saves[0].stem().string();
@@ -612,18 +602,18 @@ fs::path QuickSave(Game& game)
         return bytes;
     };
     std::size_t operations;
-    { FileFaults trace; REQUIRE("save-trace", SaveGame(name.c_str(), &screenshot)); operations = trace.operations; }
+    { FileFaults trace; REQUIRE(SaveGame(name.c_str(), &screenshot)); operations = trace.operations; }
     const auto before = snapshot();
     for (std::size_t operation = 1; operation <= operations; ++operation) {
-        { FileFaults fault(operation); REQUIRE("failed-save", !SaveGame(name.c_str(), &screenshot)); REQUIRE("fault-fired", fault.fired); }
-        REQUIRE("save-rollback", snapshot() == before);
+        { FileFaults fault(operation); REQUIRE(!SaveGame(name.c_str(), &screenshot)); REQUIRE(fault.fired); }
+        REQUIRE(snapshot() == before);
     }
-    REQUIRE("ordinary-save", SaveGame("TransactionRoundtrip", &screenshot));
-    REQUIRE("ordinary-load", GetSaveGameLevel("TransactionRoundtrip") == int(g_status.current_level));
+    REQUIRE(SaveGame("TransactionRoundtrip", &screenshot));
+    REQUIRE(GetSaveGameLevel("TransactionRoundtrip") == int(g_status.current_level));
     wiz8::remove_file("Saves\\TransactionRoundtrip.SAV");
     // The same transaction handles level-status compaction, including publish failure.
-    REQUIRE("current-save", SaveGame("CurrentGame", &screenshot));
-    REQUIRE("current-load", GetSaveGameLevel("CurrentGame") == int(g_status.current_level));
+    REQUIRE(SaveGame("CurrentGame", &screenshot));
+    REQUIRE(GetSaveGameLevel("CurrentGame") == int(g_status.current_level));
     auto current_snapshot = [] {
         auto file = wiz8::open_file("Saves\\CurrentGame.SAV");
         std::string bytes(file->size(), '\0');
@@ -631,15 +621,15 @@ fs::path QuickSave(Game& game)
         return bytes;
     };
     std::size_t cleanup_operations;
-    { FileFaults trace; REQUIRE("cleanup-save", SaveLevelStatus("Saves\\CurrentGame.SAV")); cleanup_operations = trace.operations; }
+    { FileFaults trace; REQUIRE(SaveLevelStatus("Saves\\CurrentGame.SAV")); cleanup_operations = trace.operations; }
     const auto current_before = current_snapshot();
     for (std::size_t operation = 1; operation <= cleanup_operations; ++operation) {
-        { FileFaults fault(operation); REQUIRE("failed-cleanup", !SaveLevelStatus("Saves\\CurrentGame.SAV")); REQUIRE("cleanup-fault-fired", fault.fired); }
-        REQUIRE("cleanup-rollback", current_snapshot() == current_before);
+        { FileFaults fault(operation); REQUIRE(!SaveLevelStatus("Saves\\CurrentGame.SAV")); REQUIRE(fault.fired); }
+        REQUIRE(current_snapshot() == current_before);
     }
-    REQUIRE("cleanup-load", GetSaveGameLevel("CurrentGame") == int(g_status.current_level));
-    REQUIRE("cleanup-repeat", SaveLevelStatus("Saves\\CurrentGame.SAV"));
-    REQUIRE("cleanup-repeat-load", GetSaveGameLevel("CurrentGame") == int(g_status.current_level));
+    REQUIRE(GetSaveGameLevel("CurrentGame") == int(g_status.current_level));
+    REQUIRE(SaveLevelStatus("Saves\\CurrentGame.SAV"));
+    REQUIRE(GetSaveGameLevel("CurrentGame") == int(g_status.current_level));
     std::printf("cleanup: preserved the save at all %zu failure points\n", cleanup_operations);
     std::printf("quick-save: preserved the published save at all %zu I/O failure points\n", operations);
     return saves[0];
@@ -666,7 +656,7 @@ void VideoScenario(bool intro_seen)
     g_settings.intro_seen = intro_seen;
     // The startup logo movie plays on the intro screen.
     game.wait("logo", [] { return g_runtime_test_hooks.movie_frames_presented >= 1; });
-    REQUIRE("logo", g_current_screen_state.id == W8_SCREEN_INTRO);
+    REQUIRE(g_current_screen_state.id == W8_SCREEN_INTRO);
     unsigned lit = 0;
     game.wait("logo-content", [&] {
         if (g_runtime_test_hooks.movie_frames_presented > 150)
@@ -683,13 +673,13 @@ void VideoScenario(bool intro_seen)
         game.wait("title", [&] {
             return g_runtime_test_hooks.movie_frames_presented >= logo_frames + 5;
         });
-        REQUIRE("title", g_current_screen_state.id == W8_SCREEN_INTRO);
+        REQUIRE(g_current_screen_state.id == W8_SCREEN_INTRO);
         game.key(SDLK_ESCAPE);
     }
     game.wait_screen("main-menu", W8_SCREEN_MAIN_MENU);
-    REQUIRE("main-menu", g_settings.intro_seen);
+    REQUIRE(g_settings.intro_seen);
     if (intro_seen)
-        REQUIRE("skip-title", g_runtime_test_hooks.movie_frames_presented == logo_frames);
+        REQUIRE(g_runtime_test_hooks.movie_frames_presented == logo_frames);
     std::printf("video: %u movie frames presented\n", g_runtime_test_hooks.movie_frames_presented);
 }
 
@@ -728,10 +718,10 @@ void WorldRenderScenario()
     for (unsigned i = 0; i <= world->octree->GetMeshCount(); ++i)
         if (world->psrMeshes[i] && !world->psrMeshes[i]->testFlag(srNode::FLAG_DISABLE))
             ++enabled;
-    REQUIRE("meshes", enabled > 0);
+    REQUIRE(enabled > 0);
 
     // The same scene and UI with only the world pass switched off is the control.
-    REQUIRE("world", g_world_render_enabled && !g_world_blacked_out);
+    REQUIRE((g_world_render_enabled && !g_world_blacked_out));
     RenderFrame();
     srGERD::Statistics with_world{};
     g_gerd->getStatistics(with_world);
@@ -754,12 +744,12 @@ void WorldRenderScenario()
                 "pixels from the world\n",
                 enabled, polygons, with_world.draw_calls, without_world.draw_calls,
                 with_world.input_triangles, without_world.input_triangles, changed, viewport);
-    REQUIRE("world", polygons > 0);
-    REQUIRE("world", with_world.draw_calls > without_world.draw_calls);
-    REQUIRE("world", with_world.input_triangles > without_world.input_triangles);
+    REQUIRE(polygons > 0);
+    REQUIRE(with_world.draw_calls > without_world.draw_calls);
+    REQUIRE(with_world.input_triangles > without_world.input_triangles);
     // The sky is a separate pass and stays in the control frame; the world
     // (ground, cliffs, water at the Monastery start) covers about half the view.
-    REQUIRE("world", changed > viewport / 4);
+    REQUIRE(changed > viewport / 4);
 }
 
 // Load and render the retail level, evict resident textures, then reload the
@@ -774,7 +764,7 @@ void ResourceLifecycleScenario()
     QuickSave(game);
     for (int cycle = 0; cycle != 2; ++cycle) {
         auto* world = GetWorld();
-        REQUIRE("resident-level", world && world->octree && world->level);
+        REQUIRE((world && world->octree && world->level));
         unsigned linked = 0, animated = 0;
         for (unsigned i = 0; i <= world->octree->GetMeshCount(); ++i) {
             auto* instance = world->psrMeshes[i];
@@ -785,16 +775,16 @@ void ResourceLifecycleScenario()
         }
         std::printf("resource-lifecycle: cycle %d, %u linked heads, %u animated textures\n",
                     cycle, linked, animated);
-        REQUIRE("linked-level-meshes", linked > 0);
-        REQUIRE("animated-level-textures", animated > 0);
+        REQUIRE(linked > 0);
+        REQUIRE(animated > 0);
         for (int frame = 0; frame != 4; ++frame) game.frame();
         RenderFrame();
-        REQUIRE("render-level", world->level->m_submitted_polygons > 0);
-        REQUIRE("resident-textures", g_gerd->getTextureCacheUsed() > 0);
+        REQUIRE(world->level->m_submitted_polygons > 0);
+        REQUIRE(g_gerd->getTextureCacheUsed() > 0);
         g_gerd->invalidateTextureCache();
         RenderFrame();
-        REQUIRE("recreated-textures", g_gerd->getTextureCacheUsed() > 0);
-        REQUIRE("render-after-eviction", world->level->m_submitted_polygons > 0);
+        REQUIRE(g_gerd->getTextureCacheUsed() > 0);
+        REQUIRE(world->level->m_submitted_polygons > 0);
         game.command(W8_MGS_COMMAND_QUICK_LOAD);
         bool loading = false;
         game.wait("reload-level", [&] {
@@ -802,11 +792,11 @@ void ResourceLifecycleScenario()
             return loading && g_current_screen_state.id == W8_SCREEN_MAIN_GAME && game.settled();
         });
         Settle(game, "reload-level");
-        REQUIRE("reloaded-level", g_status.current_level == level);
+        REQUIRE(g_status.current_level == level);
         ExpectAt("reloaded-position", anchor);
     }
     RenderFrame();
-    REQUIRE("shutdown-resident", g_gerd->getTextureCacheUsed() > 0);
+    REQUIRE(g_gerd->getTextureCacheUsed() > 0);
 }
 
 /* Quick save, walk away, quick load: the party is back where it saved. */
@@ -819,7 +809,7 @@ void QuickSaveScenario()
     const unsigned experience = g_status.buffers.Char[PremadeSlot()].experience;
     const fs::path save = QuickSave(game);
     Walk(game, "walk-away", 4.0f);
-    REQUIRE("walk-away", HorizontalDistance(PartyPosition(), anchor) > 2.0f);
+    REQUIRE(HorizontalDistance(PartyPosition(), anchor) > 2.0f);
     // Change a persistent field as well as the camera: loading must replace
     // the character record, not just reposition the party.
     g_status.buffers.Char[PremadeSlot()].experience = experience + 123;
@@ -832,9 +822,9 @@ void QuickSaveScenario()
     });
     Settle(game, "quick-load");
     ExpectAt("quick-load", anchor);
-    REQUIRE("quick-load", CountActiveCharacters() == 1);
-    REQUIRE("quick-load", g_status.current_level == level);
-    REQUIRE("quick-load", g_status.buffers.Char[PremadeSlot()].experience == experience);
+    REQUIRE(CountActiveCharacters() == 1);
+    REQUIRE(g_status.current_level == level);
+    REQUIRE(g_status.buffers.Char[PremadeSlot()].experience == experience);
     std::printf("quick-save: %s round-tripped after %lu frames\n",
                 save.filename().string().c_str(), game.frames());
 }
@@ -853,7 +843,7 @@ void SaveFixtureScenario(const fs::path& output)
              << anchor.x << ' ' << anchor.y << ' ' << anchor.z << ' '
              << g_status.current_level << ' ' << g_status.buffers.Char[PremadeSlot()].experience << '\n';
     metadata.close();
-    REQUIRE("save-fixture", metadata);
+    REQUIRE(metadata);
     std::printf("save-fixture: wrote %s (%ju bytes)\n", (output / "Fixture.SAV").string().c_str(),
                 std::uintmax_t(fs::file_size(output / "Fixture.SAV")));
 }
@@ -868,9 +858,9 @@ void LoadGameScenario(const fs::path& fixture)
     int level = -1;
     unsigned experience = 0;
     std::ifstream metadata(fixture / "Fixture.txt");
-    REQUIRE("fixture", metadata >> anchor.x >> anchor.y >> anchor.z >> level >> experience);
-    REQUIRE("fixture", std::isfinite(anchor.x) && std::isfinite(anchor.y) && std::isfinite(anchor.z));
-    REQUIRE("fixture", fs::is_regular_file(fixture / "Fixture.SAV"));
+    REQUIRE(metadata >> anchor.x >> anchor.y >> anchor.z >> level >> experience);
+    REQUIRE((std::isfinite(anchor.x) && std::isfinite(anchor.y) && std::isfinite(anchor.z)));
+    REQUIRE(fs::is_regular_file(fixture / "Fixture.SAV"));
     game.install(fixture / "Fixture.SAV", "Saves/Fixture.SAV");
     ReachMainMenu(game);
     game.click("load-game", RegionByCallback(MainMenuLoadGame));
@@ -889,14 +879,14 @@ void LoadGameScenario(const fs::path& fixture)
     });
     // The only save is the first row; select it, then press Load.
     game.click("select-save", ControlRegion(panel->m_rows[0]));
-    REQUIRE("select-save", panel->m_selection.m_selectedIndex == 0);
+    REQUIRE(panel->m_selection.m_selectedIndex == 0);
     game.click("load", ControlRegion(panel->m_action_button));
     WaitMainGame(game, "loaded");
     Settle(game, "loaded");
     ExpectAt("loaded", anchor);
-    REQUIRE("loaded", CountActiveCharacters() == 1);
-    REQUIRE("loaded", g_status.current_level == level);
-    REQUIRE("loaded", g_status.buffers.Char[PremadeSlot()].experience == experience);
+    REQUIRE(CountActiveCharacters() == 1);
+    REQUIRE(g_status.current_level == level);
+    REQUIRE(g_status.buffers.Char[PremadeSlot()].experience == experience);
     std::printf("load-game: loaded the fixture after %lu frames\n", game.frames());
 }
 
@@ -908,32 +898,32 @@ void CombatScenario()
     StartPremadeGame(game);
     Settle(game, "settle");
     game.command(W8_MGS_COMMAND_TOGGLE_COMBAT);
-    REQUIRE("enter-combat", game.within_frames(4, [] { return gXStatus.fCombatMode != 0; }));
-    REQUIRE("enter-combat", g_combat_state);
+    REQUIRE(game.within_frames(4, [] { return gXStatus.fCombatMode != 0; }));
+    REQUIRE(g_combat_state);
 
     W8MonsterInfo* monster = GetNextMonsterInfo(true);
     while (monster && (!monster->fActive || !monster->p3D || !monster->hp_current ||
                        monster->ubDisposition != W8_DISPOSITION_HOSTILE))
         monster = GetNextMonsterInfo(false);
-    REQUIRE("monster", monster);
+    REQUIRE(monster);
     if (!monster->fInCombat)
         MonsterInfoEnterCombat(monster);
     const unsigned experience = g_status.buffers.Char[PremadeSlot()].experience;
     const int kills = g_status.buffers.Char[PremadeSlot()].kill_count;
     const unsigned reward = GetMonsterExperience(GetMonsterDataForInfo(monster));
-    REQUIRE("monster", reward > 0);
+    REQUIRE(reward > 0);
 
     for (int slot = 0; slot < W8_PARTY_SLOT_COUNT; ++slot)
         if (g_status.buffers.XChar[slot].fOccupied)
             ChooseAction(slot, W8_ACTION_DEFEND, -1, nullptr, false, 1);
     const unsigned round = g_combat_state->round_count;
     game.command(W8_MGS_COMMAND_START_COMBAT_ROUND);
-    REQUIRE("round-start", g_combat_state && g_combat_state->round_count == round + 1);
+    REQUIRE((g_combat_state && g_combat_state->round_count == round + 1));
     game.wait("round", [&] {
-        REQUIRE("round", g_combat_state);
+        REQUIRE(g_combat_state);
         return !g_combat_state->execution_active;
     });
-    REQUIRE("round", gXStatus.fCombatMode && monster->fInCombat);
+    REQUIRE((gXStatus.fCombatMode && monster->fInCombat));
     W8TargetSource attacker{};
     attacker.iType = W8_TARGET_SOURCE_CHARACTER;
     attacker.iChar = PremadeSlot();
@@ -943,84 +933,110 @@ void CombatScenario()
     // Resolve by ID after death/cleanup rather than relying on a retained pointer.
     const unsigned dead_index =
         MonsterGetIndexByLocationID(__LINE__, __FILE__, monster_id, false);
-    REQUIRE("monster-dead", dead_index != 0xffffffffu);
+    REQUIRE(dead_index != 0xffffffffu);
     const W8MonsterInfo* dead = MonsterGetScriptPartByLocationIndex(dead_index);
-    REQUIRE("monster-dead", dead && !dead->fActive && dead->hp_current == 0 &&
-                                dead->uiCondition[W8_CONDITION_DEAD] != 0);
+    REQUIRE((dead && !dead->fActive && dead->hp_current == 0 &&
+                                dead->uiCondition[W8_CONDITION_DEAD] != 0));
 
     if (gXStatus.fCombatMode)
         game.command(W8_MGS_COMMAND_START_COMBAT_ROUND);
     game.wait("leave-combat", [] { return gXStatus.fCombatMode == 0; }, 10);
-    REQUIRE("leave-combat", !g_combat_state);
-    REQUIRE("experience", g_status.buffers.Char[PremadeSlot()].experience == experience + reward);
-    REQUIRE("kill-credit", g_status.buffers.Char[PremadeSlot()].kill_count == kills + 1);
+    REQUIRE(!g_combat_state);
+    REQUIRE(g_status.buffers.Char[PremadeSlot()].experience == experience + reward);
+    REQUIRE(g_status.buffers.Char[PremadeSlot()].kill_count == kills + 1);
     game.command(W8_MGS_COMMAND_TOGGLE_COMBAT);
-    REQUIRE("reenter-combat", game.within_frames(4, [] { return gXStatus.fCombatMode != 0; }));
-    REQUIRE("reenter-combat", g_combat_state && g_combat_state->round_count == 0);
-    REQUIRE("reenter-combat", g_combat_state->attack_report.reports.empty());
+    REQUIRE(game.within_frames(4, [] { return gXStatus.fCombatMode != 0; }));
+    REQUIRE((g_combat_state && g_combat_state->round_count == 0));
+    REQUIRE(g_combat_state->attack_report.reports.empty());
     game.command(W8_MGS_COMMAND_TOGGLE_COMBAT);
     game.wait("leave-combat-again", [] { return gXStatus.fCombatMode == 0; }, 10);
-    REQUIRE("leave-combat-again", !g_combat_state);
+    REQUIRE(!g_combat_state);
     std::printf("combat: round, kill and exit after %lu frames\n", game.frames());
 }
 
 } // namespace
 
-int main(int argc, char** argv)
+static void RequireAssets()
 {
-    if (argc < 2)
-    {
-        std::fprintf(stderr,
-                     "usage: %s video|video-seen|character|game-start|world|quick-save|combat\n"
-                     "       %s save-fixture|load-game FIXTURE_DIR\n",
-                     argv[0], argv[0]);
-        return 2;
-    }
-    const std::string scenario = argv[1];
-    try
-    {
-        const char* assets = SDL_getenv("WIZ8_ASSET_ROOT");
-        if (!assets || !fs::is_directory(assets))
-            throw std::invalid_argument("WIZ8_ASSET_ROOT is not set");
-        if (scenario == "video")
-            VideoScenario(false);
-        else if (scenario == "video-seen")
-            VideoScenario(true);
-        else if (scenario == "character")
-            CharacterScenario();
-        else if (scenario == "game-start")
-            GameStartScenario();
-        else if (scenario == "world")
-            WorldRenderScenario();
-        else if (scenario == "resource-lifecycle")
-            ResourceLifecycleScenario();
-        else if (scenario == "quick-save")
-            QuickSaveScenario();
-        else if (scenario == "combat")
-            CombatScenario();
-        else if (scenario == "save-fixture" && argc == 3)
-            SaveFixtureScenario(argv[2]);
-        else if (scenario == "load-game" && argc == 3)
-            LoadGameScenario(argv[2]);
-        else
-            Fail("arguments", "unknown scenario " + scenario);
-    }
-    catch (const std::invalid_argument& skipped)
-    {
-        std::fprintf(stderr, "%s: skipped: %s\n", scenario.c_str(), skipped.what());
-        return 77;
-    }
-    catch (const std::exception& failure)
-    {
-        std::fprintf(stderr, "%s: FAILED at %s\n", scenario.c_str(), failure.what());
-        return 1;
-    }
-    if (!g_logged_errors.empty())
-    {
-        for (const auto& message : g_logged_errors)
-            std::fprintf(stderr, "%s: logged error: %s\n", scenario.c_str(), message.c_str());
-        return 1;
-    }
-    std::printf("%s: passed\n", scenario.c_str());
-    return 0;
+    const char* assets = SDL_getenv("WIZ8_ASSET_ROOT");
+    if (!assets || !fs::is_directory(assets))
+        SKIP("WIZ8_ASSET_ROOT is not set");
+    g_logged_errors.clear();
+}
+
+static void CheckGameErrors()
+{
+    for (const auto& message : g_logged_errors)
+        UNSCOPED_INFO(message);
+    REQUIRE(g_logged_errors.empty());
+}
+
+TEST_CASE("video", "[runtime]")
+{
+    RequireAssets();
+    VideoScenario(false);
+    CheckGameErrors();
+}
+
+TEST_CASE("video-seen", "[runtime]")
+{
+    RequireAssets();
+    VideoScenario(true);
+    CheckGameErrors();
+}
+
+TEST_CASE("character", "[runtime]")
+{
+    RequireAssets();
+    CharacterScenario();
+    CheckGameErrors();
+}
+
+TEST_CASE("game-start", "[runtime]")
+{
+    RequireAssets();
+    GameStartScenario();
+    CheckGameErrors();
+}
+
+TEST_CASE("world", "[runtime]")
+{
+    RequireAssets();
+    WorldRenderScenario();
+    CheckGameErrors();
+}
+
+TEST_CASE("resource-lifecycle", "[runtime]")
+{
+    RequireAssets();
+    ResourceLifecycleScenario();
+    CheckGameErrors();
+}
+
+TEST_CASE("quick-save", "[runtime]")
+{
+    RequireAssets();
+    QuickSaveScenario();
+    CheckGameErrors();
+}
+
+TEST_CASE("combat", "[runtime]")
+{
+    RequireAssets();
+    CombatScenario();
+    CheckGameErrors();
+}
+
+TEST_CASE("save-fixture", "[runtime]")
+{
+    RequireAssets();
+    SaveFixtureScenario(WIZ8_RUNTIME_SAVE_FIXTURE);
+    CheckGameErrors();
+}
+
+TEST_CASE("load-game", "[runtime]")
+{
+    RequireAssets();
+    LoadGameScenario(WIZ8_RUNTIME_SAVE_FIXTURE);
+    CheckGameErrors();
 }

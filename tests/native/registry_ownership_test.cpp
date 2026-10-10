@@ -1,3 +1,4 @@
+#include <catch2/catch_test_macros.hpp>
 #include "surrender/srTypeRegistry.h"
 
 #include <algorithm>
@@ -33,13 +34,6 @@ void __cdecl srAssertFail(const char* expression, const char* path, w8_long line
 }
 #endif
 
-#define CHECK(expression)                                                                          \
-    do {                                                                                           \
-        if (!(expression)) {                                                                       \
-            std::fprintf(stderr, "line %d: %s\n", __LINE__, #expression);                            \
-            std::abort();                                                                          \
-        }                                                                                          \
-    } while (0)
 
 namespace {
 struct Registered : srClassSupport<Registered, srClass, 0x7ff001> {
@@ -49,64 +43,64 @@ struct Registered : srClassSupport<Registered, srClass, 0x7ff001> {
 void names()
 {
     Registered first, second, unnamed;
-    CHECK(!unnamed.isNamed() && unnamed.getName() == "anonymous");
+    REQUIRE((!unnamed.isNamed() && unnamed.getName() == "anonymous"));
     std::string source(256, 'a');
     first.setName(source);
     source[0] = 'b';
-    CHECK(first.getName() == std::string(256, 'a'));
+    REQUIRE((first.getName() == std::string(256, 'a')));
     first.setName(first.getName()); // Setter owns its argument before replacing the name.
-    CHECK(first.getName() == std::string(256, 'a'));
+    REQUIRE((first.getName() == std::string(256, 'a')));
     first.setName({});
-    CHECK(!first.isNamed() && first.getName() == "anonymous");
+    REQUIRE((!first.isNamed() && first.getName() == "anonymous"));
 
     // Assignment copies the name, not the fallback display name.
     second.setName("same");
     first.srClass::operator=(second);
-    CHECK(first.isNamed() && first.getName() == "same");
+    REQUIRE((first.isNamed() && first.getName() == "same"));
     first.srClass::operator=(unnamed);
-    CHECK(!first.isNamed());
+    REQUIRE((!first.isNamed()));
     Registered copy(second);
-    CHECK(copy.getName() == "same" && copy.getClassID() == Registered::CLASS_ID);
+    REQUIRE((copy.getName() == "same" && copy.getClassID() == Registered::CLASS_ID));
 }
 
 void class_tree()
 {
     srRegistry registry;
-    CHECK(registry.getRootNode()->children.empty());
+    REQUIRE((registry.getRootNode()->children.empty()));
     auto* root = registry.getRootNode();
     std::vector<srRegistry::ClassNode*> nodes;
     for (w8_ulong id = 1; id <= 1024; ++id) {
         std::string name = "owned-class-" + std::to_string(id);
         nodes.push_back(registry.registerClass(name.c_str(), root, id));
         name.assign("changed producer buffer");
-        CHECK(std::string(registry.getClassName(nodes.back())) == "owned-class-" + std::to_string(id));
-        CHECK(registry.getClassNode(1) == nodes.front());
-        CHECK(registry.registerClass("ignored duplicate ID", root, id) == nodes.back());
-        CHECK(root->children.front() == nodes.back());
+        REQUIRE((std::string(registry.getClassName(nodes.back())) == "owned-class-" + std::to_string(id)));
+        REQUIRE((registry.getClassNode(1) == nodes.front()));
+        REQUIRE((registry.registerClass("ignored duplicate ID", root, id) == nodes.back()));
+        REQUIRE((root->children.front() == nodes.back()));
     }
-    CHECK(root->children.size() == nodes.size());
-    CHECK(std::equal(root->children.begin(), root->children.end(), nodes.rbegin()));
-    CHECK(registry.getClassNode(0) == nullptr);
-    CHECK(nodes.front()->children.empty());
+    REQUIRE((root->children.size() == nodes.size()));
+    REQUIRE((std::equal(root->children.begin(), root->children.end(), nodes.rbegin())));
+    REQUIRE((registry.getClassNode(0) == nullptr));
+    REQUIRE((nodes.front()->children.empty()));
     // Ownership is flat, so teardown does not recursively delete a potentially deep class tree.
     auto* parent = nodes.front();
     for (w8_ulong id = 2048; id < 4096; ++id) {
         parent = registry.registerClass("deep descendant", parent, id);
     }
-    CHECK(registry.isDerivedOrSame(nodes.front(), parent));
+    REQUIRE((registry.isDerivedOrSame(nodes.front(), parent)));
 }
 
 } // namespace
 
-int main()
+TEST_CASE("registry_ownership_test")
 {
     class_tree();
     for (int cycle = 0; cycle < 3; ++cycle) {
-        CHECK(srInit());
-        CHECK(srCore.getRegistry()->getClassNode(Registered::CLASS_ID) == nullptr);
+        REQUIRE((srInit()));
+        REQUIRE((srCore.getRegistry()->getClassNode(Registered::CLASS_ID) == nullptr));
         names();
-        CHECK(srCore.getRegistry()->getClassNode(Registered::CLASS_ID) == Registered::sGetClassNode());
-        CHECK(srExit());
+        REQUIRE((srCore.getRegistry()->getClassNode(Registered::CLASS_ID) == Registered::sGetClassNode()));
+        REQUIRE((srExit()));
     }
     std::puts("ok: registry class tree, owned names, teardown");
 }

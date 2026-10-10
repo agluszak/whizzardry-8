@@ -1,3 +1,5 @@
+link_libraries(Catch2::Catch2WithMain)
+
 add_executable(native_game_geometry_test native/game_geometry_test.cpp)
 target_link_libraries(native_game_geometry_test PRIVATE WIZ8_GAME_CORE)
 add_test(NAME native_game_geometry COMMAND native_game_geometry_test)
@@ -154,9 +156,10 @@ target_link_libraries(native_vector_math_test PRIVATE SURRENDER wiz8_native_sett
 add_test(NAME native_vector_math COMMAND native_vector_math_test)
 
 add_executable(native_blitter_test "${PROJECT_SOURCE_DIR}/tests/native/blitter_test.cpp")
+target_compile_definitions(native_blitter_test PRIVATE
+    WIZ8_BLITTER_EXPECTED="${PROJECT_SOURCE_DIR}/tests/native/blitters_expected.txt")
 target_link_libraries(native_blitter_test PRIVATE WIZ8_GAME_CORE)
-add_test(NAME native_blitters COMMAND native_blitter_test
-    "${PROJECT_SOURCE_DIR}/tests/native/blitters_expected.txt")
+add_test(NAME native_blitters COMMAND native_blitter_test)
 
 # Check first-party objects, not SDL's statically linked host-width code.
 if(UNIX)
@@ -221,18 +224,15 @@ add_executable(native_runtime_test runtime/runtime_test.cpp
 target_compile_definitions(native_runtime_test PRIVATE WIZ8_RUNTIME_TESTS=1)
 target_include_directories(native_runtime_test PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/native")
 target_link_libraries(native_runtime_test PRIVATE WIZ8_GAME_CORE SDL3::SDL3)
-target_compile_definitions(native_runtime_test PRIVATE
-    WIZ8_RUNTIME_FIXTURES="${CMAKE_CURRENT_SOURCE_DIR}/runtime/fixtures")
 set(WIZ8_RUNTIME_SAVE_FIXTURE "${CMAKE_CURRENT_BINARY_DIR}/runtime-fixtures")
+target_compile_definitions(native_runtime_test PRIVATE
+    WIZ8_RUNTIME_FIXTURES="${CMAKE_CURRENT_SOURCE_DIR}/runtime/fixtures"
+    WIZ8_RUNTIME_SAVE_FIXTURE="${WIZ8_RUNTIME_SAVE_FIXTURE}")
 foreach(scenario video video-seen character game-start world resource-lifecycle quick-save combat save-fixture load-game)
-    set(arguments ${scenario})
-    if(scenario MATCHES "fixture|load-game")
-        list(APPEND arguments "${WIZ8_RUNTIME_SAVE_FIXTURE}")
-    endif()
-    add_test(NAME runtime_${scenario} COMMAND native_runtime_test ${arguments})
+    add_test(NAME runtime_${scenario} COMMAND native_runtime_test ${scenario})
     set_tests_properties(runtime_${scenario} PROPERTIES
         ENVIRONMENT "SDL_VIDEODRIVER=offscreen;SDL_AUDIO_DRIVER=dummy"
-        SKIP_RETURN_CODE 77 TIMEOUT 120 LABELS runtime)
+        SKIP_REGULAR_EXPRESSION "WIZ8_ASSET_ROOT is not set" TIMEOUT 120 LABELS runtime)
 endforeach()
 # One saved game shared by the load scenarios, written once per run.
 set_tests_properties(runtime_save-fixture PROPERTIES FIXTURES_SETUP runtime_save)

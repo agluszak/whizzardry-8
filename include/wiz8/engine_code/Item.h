@@ -33,8 +33,8 @@ struct W8ItemRep : public W8AnimRepBase {
     virtual ~W8ItemRep() override;
 
     srModelInstance* m_psrMesh;       /* 0x64 */
-    srVector3T<float> bounds_minimum; /* 0x68 */
-    srVector3T<float> bounds_maximum; /* 0x74 */
+    glm::vec3 bounds_minimum;         /* 0x68 */
+    glm::vec3 bounds_maximum;         /* 0x74 */
     float bounds_radius;              /* 0x80 */
     unsigned char padding_84[4];
     float pulse_level; /* 0x88 */

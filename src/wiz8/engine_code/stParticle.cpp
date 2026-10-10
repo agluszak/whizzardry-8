@@ -1,3 +1,4 @@
+#include "surrender/srBoundingBox.h"
 #include <cstdlib>
 
 #include "wiz8/engine_code/stTextureFile.h"
@@ -665,21 +666,16 @@ void stParticle::PrepareRenderer(glm::mat4& view)
 // FUNCTION: WIZ8 0x004994D0
 void stParticle::SubmitToRenderer(srGERD* renderer)
 {
-    srVector3T<float> position;
+    glm::vec3 position;
 
     if (camera_relative == 1) {
         srVector3T<float> camera_position;
         GetCameraPosition(&camera_position);
-        position = camera_position + camera_offset;
+        position = camera_position.glmValue() + camera_offset.glmValue();
 
-        srVector3T<double> placed;
-        placed = glm::dvec3(position.glmValue());
-        setLocation(placed);
+        setLocation(srVector3T<double>(glm::dvec3(position)));
     } else {
-        /* Bound rather than copied: the three conversions read through the
-           returned buffer instead of through a named local's own address. */
-        const srVector3T<double>& located = getLocation();
-        position = located;
+        position = glm::vec3(getLocation());
     }
 
     Update();
@@ -709,7 +705,7 @@ void stParticle::SubmitToRenderer(srGERD* renderer)
             visibility = renderer->testBoundingSphere(position, size_scale * bounds_radius);
         } else {
             getRotation(rotation);
-            srVector3T<float> center = rotation * extent.glmValue() + position.glmValue();
+            glm::vec3 center = rotation * extent.glmValue() + position;
             visibility = renderer->testBoundingSphere(center, size_scale * bounds_radius);
         }
         if (visibility == srGERD::VISIBILITY_OUTSIDE) {
@@ -719,10 +715,12 @@ void stParticle::SubmitToRenderer(srGERD* renderer)
 
     if (bounds_mode == W8_PARTICLE_BOUNDS_BOX) {
         getRotation(rotation);
-        srVector3T<float> minimum = rotation * lifetime_minimum.glmValue() + position.glmValue();
-        srVector3T<float> maximum = rotation * lifetime_maximum.glmValue() + position.glmValue();
-
-        srGERD::e_visibility visibility = renderer->testBoundingBox(minimum, maximum);
+        glm::mat4 world(rotation);
+        world[3] = glm::vec4(position, 1);
+        const auto bounds =
+            srBoundingBox{lifetime_minimum.glmValue(), lifetime_maximum.glmValue()}.transformed(
+                world);
+        const auto visibility = renderer->testBoundingBox(bounds.minimum, bounds.maximum);
         if (visibility == srGERD::VISIBILITY_OUTSIDE) {
             return;
         }

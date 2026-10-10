@@ -30,8 +30,8 @@ struct W8AniMesh {
     State flags;                      /* 0x00: runtime cache state, not a disk byte */
     unsigned char frame_count;        /* 0x01 */
     stModelInstance** meshes;         /* 0x04: ppsrMeshes */
-    srVector3T<float> bounds_minimum; /* 0x08 */
-    srVector3T<float> bounds_maximum; /* 0x14 */
+    glm::vec3 bounds_minimum;         /* 0x08 */
+    glm::vec3 bounds_maximum;         /* 0x14 */
     float radius;                     /* 0x20 */
     unsigned int loaded_bytes;        /* 0x24 */
     signed char list_index;           /* 0x28 */

@@ -23,7 +23,7 @@ public:
         int direct_vertex_indices;
         const srVector3T<float>* positions;
         const srVector3T<float>* normals;
-        srVector3T<float> eye_center;
+        glm::vec3 eye_center;
         float eye_radius;
         const glm::mat4* model_view;
         const glm::mat4* normal_matrix;
@@ -64,7 +64,7 @@ public:
     SR_DLL_IMPORT const float* getDepthCue();
     SR_DLL_IMPORT glm::vec4* getDiffuse();
     SR_DLL_IMPORT w8_ulong getExclusionMask() const;
-    SR_DLL_IMPORT void getEyeSpaceBoundingSphere(srVector3T<float>& center, float& radius) const;
+    SR_DLL_IMPORT void getEyeSpaceBoundingSphere(glm::vec3& center, float& radius) const;
     SR_DLL_IMPORT const glm::vec3* getEyeSpaceDir();
     SR_DLL_IMPORT const float* getEyeSpaceDist();
     SR_DLL_IMPORT const glm::vec4* getEyeSpaceLocation();
@@ -85,7 +85,7 @@ public:
     int isChannelAvailable(srVertexProcessor::e_channel channel) const;
     SR_DLL_IMPORT void process(const Input& input);
     SR_DLL_IMPORT void swapDiffuseAndSpecular();
-    SR_DLL_IMPORT int testEyeSpaceBounds(const srVector3T<float>& center, float radius) const;
+    SR_DLL_IMPORT int testEyeSpaceBounds(const glm::vec3& center, float radius) const;
 
     /* Per-record render state from Input::records. flags: bit0 vertex colors present, bit1 indexed
        specular into diffuse, bit2 indexed specular into specular, bit3 indexed alpha, bits4/5
