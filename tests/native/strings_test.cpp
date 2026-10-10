@@ -1,6 +1,5 @@
 #include "surrender/srBinOStream.h"
 #include "surrender/srIStreamOpener.h"
-#include "surrender/srIOManager.h"
 
 #include <cstdio>
 #include <memory>
@@ -37,25 +36,6 @@ public:
     srBinIStream* open(std::string_view) override { return new BadStream(destroyed); }
     std::string_view getDescription() const override { return "Bad stream fixture"; }
     int destroyed = 0;
-};
-
-class RegistrationManager : public srIOManager {
-public:
-    using srIOManager::addImporter;
-    using srIOManager::addExporter;
-    using srIOManager::findImporter;
-    using srIOManager::findExporter;
-    using srIOManager::removeImporter;
-    using srIOManager::removeExporter;
-};
-
-class Importer : public srIOManager::Importer {
-public:
-    const char* getTypeName() const override { return "fixture importer"; }
-};
-class Exporter : public srIOManager::Exporter {
-public:
-    const char* getTypeName() const override { return "fixture exporter"; }
 };
 
 int main()
@@ -106,50 +86,6 @@ int main()
     CHECK(bad_fallback && !bad_fallback->good() && bad.destroyed == 1);
     bad_fallback.reset();
     CHECK(bad.destroyed == 2);
-
-    RegistrationManager manager;
-    Importer first_importer, second_importer;
-    Exporter first_exporter, second_exporter;
-    std::string registered_extension = "jpg";
-    manager.addImporter(&first_importer, registered_extension);
-    manager.addExporter(&first_exporter, registered_extension);
-    registered_extension.assign("changed");
-    manager.addImporter(&first_importer, "JPEG");
-    manager.addImporter(&first_importer, "JPG");
-    manager.addExporter(&first_exporter, "JPEG");
-    manager.addExporter(&first_exporter, "JPG");
-    manager.addImporter(&second_importer, "JPG");
-    manager.addExporter(&second_exporter, "JPG");
-    CHECK(manager.findImporter("jPg") == &first_importer);
-    CHECK(manager.findExporter("jPg") == &first_exporter);
-    manager.removeImporter(&first_importer);
-    manager.removeExporter(&first_exporter);
-    CHECK(manager.findImporter("jpg") == &second_importer);
-    CHECK(manager.findExporter("jpg") == &second_exporter);
-    CHECK(!manager.findImporter("jpeg") && !manager.findExporter("jpeg"));
-    manager.removeImporter(&first_importer);
-    manager.removeExporter(&first_exporter);
-    manager.addImporter(nullptr, "jpg");
-    manager.addExporter(nullptr, "jpg");
-    manager.addImporter(&first_importer, {});
-    manager.addExporter(&first_exporter, {});
-    CHECK(!manager.findImporter({}) && !manager.findExporter({}));
-    CHECK(manager.getExtension("folder.with.dot/no-extension").empty());
-    CHECK(manager.getExtension("folder.with.dot\\no-extension").empty());
-    CHECK(manager.getExtension("C:\\folder.with.dot\\image.JpG") == "JpG");
-    CHECK(manager.getExtension("image.").empty() && manager.getExtension({}).empty());
-    const std::string bounded_extension = "jpgIgnored";
-    CHECK(manager.findImporter(std::string_view(bounded_extension.data(), 3)) == &second_importer);
-    CHECK(manager.findExporter(std::string_view(bounded_extension.data(), 3)) == &second_exporter);
-    manager.addImporter(&first_importer, long_text);
-    CHECK(manager.findImporter(long_text) == &first_importer);
-    manager.removeImporter(&first_importer);
-    CHECK(!manager.findImporter(long_text));
-
-    std::string message = "temporary error";
-    srIOManager::Error error(message);
-    message.assign("overwritten");
-    CHECK(error.getDescription() == "temporary error");
 
     auto memory = new srBinOMStream;
     std::unique_ptr<srBinOStream> output(memory);

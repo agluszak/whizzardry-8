@@ -41,7 +41,7 @@
 #include "surrender/srCore.h"
 #include "surrender/srFilter.h"
 #include "surrender/srGERD.h"
-#include "surrender/srImporter.h"
+#include "surrender/srImageIO.h"
 #include "surrender/srMaterial.h"
 #include "surrender/srMeshModel.h"
 #include "surrender/srModeler.h"
@@ -2553,29 +2553,20 @@ int g_screenshot_page;
 // FUNCTION: WIZ8 0x004229e0
 void SaveJpegScreenshot(void)
 {
-    srSurfaceIOManager* surface_io_manager = srCore.getSurfaceIOManager();
-
     srColorSurfaceIFace* surface = g_gerd->lockBuffer();
     if (surface != 0) {
         char filename[32];
-        srSurfaceIOManager::ExportInfo options;
 
         if (g_auto_capture) {
             int screenshot_index = g_screenshot_index++;
-            options.unknown_00 = 0;
-            options.unknown_04 = 1;
-            options.option_string = "QUALITY=0.35";
             sprintf(filename, "Wiz8%5.5d.JPG", screenshot_index);
             PauseSharedGameTimers();
-            surface_io_manager->exportSurface(filename, *surface, options);
+            srImage::save(filename, *surface, 35);
             ResumeSharedGameTimers();
         } else {
             int screenshot_index = g_screenshot_index++;
             sprintf(filename, "Wiz8%5.5d.JPG", screenshot_index);
-            options.unknown_00 = 0;
-            options.unknown_04 = 1;
-            options.option_string = 0;
-            surface_io_manager->exportSurface(filename, *surface, options);
+            srImage::save(filename, *surface);
         }
         g_gerd->unlockBuffer();
     }

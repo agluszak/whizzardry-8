@@ -13,8 +13,6 @@
 #ifdef WIZ8_REGISTRY_STANDALONE_TEST
 #include "surrender/srDebug.h"
 #include "surrender/srIStreamOpener.h"
-#include "surrender/srImporter.h"
-#include "surrender/srVideoManager.h"
 
 class srCore srCore;
 srCore::srCore() = default;
