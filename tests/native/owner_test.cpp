@@ -398,7 +398,7 @@ void image_and_sprite_ownership()
     image.pETRLEObject[0].uiDataOffset = 0xffffffffu;
     CHECK(!CreateVideoObject(&desc));
     CHECK(image.pImageData[1] == 2 && image.pETRLEObject[0].uiDataOffset == 0xffffffffu);
-    CHECK(ReleaseImageData(&image, IMAGE_ALLDATA));
+    image = {};
     CHECK(image.pImageData.empty() && !image.pPalette && image.pETRLEObject.empty());
     for (auto id : {ids[0], ids[31], ids[63]}) {
         CHECK(DeleteVideoObjectFromIndex(id));
@@ -566,9 +566,6 @@ void generic_button_images()
         CHECK(image->pImageData.data() == pixels && image->pAppData.data() == app);
         CHECK(image->pPalette.get() != palette && image->pPalette[1].peRed == 255);
         palette = image->pPalette.get();
-        CHECK(ReleaseImageData(image.get(), IMAGE_BITMAPDATA));
-        CHECK(image->pPalette.get() == palette && image->pAppData.data() == app);
-        CHECK(image->pImageData.empty() && image->pETRLEObject.empty());
         CHECK(LoadImageData(image.get(), IMAGE_BITMAPDATA));
         CHECK(image->pPalette.get() == palette && image->pAppData.data() == app);
         CHECK(image->pImageData[1] == 1 && image->pETRLEObject.size() == 3);
@@ -581,6 +578,23 @@ void generic_button_images()
         CHECK(image->pImageData.data() == pixels && image->pETRLEObject.data() == objects);
         CHECK(image->pPalette.get() == palette && image->pAppData.data() == app);
         CHECK(image->fFlags == flags && image->pAppData.size() == 4 && image->pImageData.size() == 9);
+
+        const auto pixel_offset = STCI_HEADER_SIZE + STCI_8BIT_PALETTE_SIZE + 3 * STCI_SUBIMAGE_SIZE;
+        for (std::uintmax_t cut : {0u, STCI_HEADER_SIZE - 1u,
+             STCI_HEADER_SIZE + STCI_8BIT_PALETTE_SIZE - 1u,
+             pixel_offset - 1u, pixel_offset + 8u, pixel_offset + 12u}) {
+            button_image_fixture(assets, "metadata.sti", 3, true);
+            std::filesystem::resize_file(assets / "metadata.sti", cut);
+            CHECK(!LoadImageData(image.get(), IMAGE_ALLDATA));
+            CHECK(image->pImageData.data() == pixels && image->pETRLEObject.data() == objects);
+            CHECK(image->pPalette.get() == palette && image->pAppData.data() == app);
+            CHECK(image->fFlags == flags && image->pAppData.size() == 4 && image->pImageData[1] == 1);
+        }
+        button_image_fixture(assets, "metadata.sti", 3, true);
+        std::filesystem::resize_file(assets / "metadata.sti", pixel_offset);
+        CHECK(LoadImageData(image.get(), IMAGE_PALETTE));
+        CHECK(image->pImageData.data() == pixels && image->pAppData.data() == app);
+        CHECK(!LoadImageData(image.get(), IMAGE_BITMAPDATA));
     }
     std::string long_image_path;
     for (int i = 0; i < 8; ++i)
