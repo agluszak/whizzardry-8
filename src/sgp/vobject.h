@@ -79,14 +79,13 @@ typedef struct {
 // The video object contains different data based on it's type, compressed or not
 typedef struct TAG_HVOBJECT {
     UINT32 fFlags;                  // Special flags
-    UINT32 uiSizePixData;           // ETRLE data size
     std::unique_ptr<SGPPaletteEntry[]> pPaletteEntry; // 8BPP Palette
     COLORVAL TransparentColor;      // Defaults to 0,0,0
     std::shared_ptr<UINT16[]> ownedPalette;
     UINT16* p16BPPPalette; // Borrowed palette view; font drawing may temporarily override it.
 
-    std::unique_ptr<UINT8[]> pPixData; // ETRLE pixel data
-    std::unique_ptr<ETRLEObject[]> pETRLEObject; // Object offset data etc
+    std::vector<UINT8> pPixData; // ETRLE pixel data
+    std::vector<ETRLEObject> pETRLEObject; // Object offset data etc
     std::vector<SixteenBPPObjectInfo> p16BPPObject;
     std::array<std::shared_ptr<UINT16[]>, HVOBJECT_SHADE_TABLES> pShades; // Shading tables
     UINT16* pShadeCurrent;
@@ -95,12 +94,7 @@ typedef struct TAG_HVOBJECT {
     UINT8* pGlow8;             // 8-bit glow table
     std::vector<std::unique_ptr<ZStripInfo>> ppZStripInfo; // Z-value strip info arrays
 
-    UINT16 usNumberOf16BPPObjects;
-    UINT16 usNumberOfObjects; // Total number of objects
     UINT8 ubBitDepth;         // BPP
-
-    // Reserved for added room and 32-byte boundaries
-    BYTE bReserved[1];
 
 } SGPVObject, *HVOBJECT;
 
