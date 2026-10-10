@@ -2026,22 +2026,6 @@ void ApplyBeingEffectSlot(W8SpellEffectEntry* effect)
     }
 }
 
-/* The character and monster passes resolve the same follow-up condition. */
-static void ApplySecondaryCondition(W8SpellEffectEntry* effect, W8CombatSlot* target,
-                                    W8Condition attack_condition, W8Condition condition,
-                                    int attack_argument, int condition_argument,
-                                    unsigned int duration, int source_character)
-{
-    if (ResolveAttackOnTarget(&effect->Source, target, attack_condition,
-                              g_spell_records[effect->kind].realm,
-                              effect->definition.power_level, attack_argument,
-                              duration, false, true, 0)) {
-        InflictConditionOnTarget(target, condition, g_spell_records[effect->kind].realm,
-                                 effect->definition.power_level, condition_argument, duration,
-                                 source_character, 0, true);
-    }
-}
-
 /* Roll for each listed target: the attack condition goes out against a
    chance, and a target that shakes it off still takes the second condition
    the effect carries. */
@@ -2073,8 +2057,13 @@ void AttackThenInflictCondition(W8SpellEffectEntry* effect, W8Condition attack_c
         }
         target.iType = W8_TARGET_KIND_CHARACTER;
         target.iChar = character_index;
-        ApplySecondaryCondition(effect, &target, attack_condition, condition,
-                                attack_argument, condition_argument, duration, source_character);
+        if (ResolveAttackOnTarget(
+                &effect->Source, &target, attack_condition, g_spell_records[effect->kind].realm,
+                effect->definition.power_level, attack_argument, duration, false, true, 0)) {
+            InflictConditionOnTarget(&target, condition, g_spell_records[effect->kind].realm,
+                                     effect->definition.power_level, condition_argument, duration,
+                                     source_character, 0, true);
+        }
     }
     for (index = 0; index < static_cast<int>(effect->monster_ids.size()); ++index) {
         if (Random(100) >= static_cast<unsigned int>(chance)) {
@@ -2084,8 +2073,13 @@ void AttackThenInflictCondition(W8SpellEffectEntry* effect, W8Condition attack_c
         monster_info = GetEffectMonsterTarget(effect->monster_ids[index], 0x4d8, 0x4d9);
         target.iType = W8_TARGET_KIND_MONSTER;
         target.iMonsterID = monster_info->location_id;
-        ApplySecondaryCondition(effect, &target, attack_condition, condition,
-                                attack_argument, condition_argument, duration, source_character);
+        if (ResolveAttackOnTarget(
+                &effect->Source, &target, attack_condition, g_spell_records[effect->kind].realm,
+                effect->definition.power_level, attack_argument, duration, false, true, 0)) {
+            InflictConditionOnTarget(&target, condition, g_spell_records[effect->kind].realm,
+                                     effect->definition.power_level, condition_argument, duration,
+                                     source_character, 0, true);
+        }
     }
 }
 
