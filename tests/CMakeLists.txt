@@ -200,7 +200,7 @@ target_link_libraries(native_runtime_test PRIVATE WIZ8_GAME_CORE SDL3::SDL3)
 target_compile_definitions(native_runtime_test PRIVATE
     WIZ8_RUNTIME_FIXTURES="${CMAKE_CURRENT_SOURCE_DIR}/runtime/fixtures")
 set(WIZ8_RUNTIME_SAVE_FIXTURE "${CMAKE_CURRENT_BINARY_DIR}/runtime-fixtures")
-foreach(scenario video character game-start world quick-save combat save-fixture load-game)
+foreach(scenario video video-seen character game-start world quick-save combat save-fixture load-game)
     set(arguments ${scenario})
     if(scenario MATCHES "fixture|load-game")
         list(APPEND arguments "${WIZ8_RUNTIME_SAVE_FIXTURE}")
