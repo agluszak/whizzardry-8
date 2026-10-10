@@ -316,6 +316,11 @@ static void keyword_file_contracts()
     CHECK(first[1] == std::vector<std::string>({"bye", "last"}));
     CHECK(TranslateDialogueKeyword("BONJOUR") == "hello");
     CHECK(TranslateDialogueKeyword("unknown") == "unknown");
+    // Translated fields without an English counterpart remain unchanged.
+    write_keywords(english, "header\n01234567890hello/");
+    ReloadKeywordLists();
+    CHECK(TranslateDialogueKeyword("monde") == "monde");
+    CHECK(TranslateDialogueKeyword("final") == "final");
     ClearKeywordLists();
     CHECK(!g_keyword_lists_loaded && g_keyword_lists.size() == 0);
     write_keywords(english, "header\n01234567890partial/row/\n01234567890" + std::string("\0bad", 4));
