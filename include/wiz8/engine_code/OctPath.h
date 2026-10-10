@@ -1,5 +1,7 @@
 #pragma once
 
+#include "wiz8/filesystem.h"
+
 #include "wiz8/navigation_flags.h"
 
 #include "surrender/srMath.h"
@@ -447,8 +449,8 @@ public:
        header, and the level name the octree already owns. */
     void ConfigureForLevel(int size, float grid_scale, float path_clearance,
                            const srVector3T<float>* bounds, const char* name); /* 0x00458A50 */
-    unsigned char ReadPathNodes(int handle);                                   /* 0x00458CE0 */
-    bool WritePathNodes(unsigned int handle);
+    unsigned char ReadPathNodes(wiz8::File* handle);                                   /* 0x00458CE0 */
+    bool WritePathNodes(wiz8::File* handle);
     unsigned char SaveWaypointSnapshot(bool force);
     unsigned char WriteWaypointFile();
     unsigned char ReadWaypointFile();

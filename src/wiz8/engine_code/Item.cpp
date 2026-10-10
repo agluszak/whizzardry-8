@@ -5,7 +5,7 @@
 #include <stdio.h>
 #include <string.h>
 
-#include "FileMan.h"
+#include "wiz8/filesystem.h"
 #include "random.h"
 #include "sgp.h"
 #include "input.h"
@@ -208,6 +208,7 @@ W8Item::W8Item()
 // FUNCTION: WIZ8 0x0049F4A0
 bool LoadItemFromFile(const W8ReadLevelInfo* context, const char* name, W8Item** output,
                       bool anonymous_mesh)
+try
 {
     W8Item* item = 0;
     if (name == 0 || output == 0) {
@@ -215,7 +216,7 @@ bool LoadItemFromFile(const W8ReadLevelInfo* context, const char* name, W8Item**
     }
     char filename[52];
     sprintf(filename, "%s\\%s.itm", "Data\\Items3D", name);
-    HWFILE file = FileOpen(filename, FILE_ACCESS_READ | FILE_OPEN_EXISTING, 0);
+    std::unique_ptr<wiz8::File> file = [&]() { try { return wiz8::open_file(filename, wiz8::OpenMode::read); } catch (const std::exception&) { return std::unique_ptr<wiz8::File>{}; } }();
     if (file == 0) {
         ShutdownWithErrorBox(
             FormatString("Couldn't load %s", filename));
@@ -224,22 +225,24 @@ bool LoadItemFromFile(const W8ReadLevelInfo* context, const char* name, W8Item**
 
     W8ReadLevelInfo info;
     info.world = context->world;
-    info.hFile = file;
+    info.hFile = file.get();
     info.bitmap_folder = context->bitmap_folder;
     char* mesh_name = new char[1024];
     strcpy(mesh_name, name);
     info.mesh_filename = mesh_name;
     unsigned char version;
     bool success = false;
-    if (FileRead(file, &version, 1, 0) && version == 2 &&
+    if ((file->read(&version, 1).bytes == static_cast<std::size_t>(1)) && version == 2 &&
         ReadItemFromFile(&info, &item, anonymous_mesh)) {
         *output = item;
         success = true;
     }
-    FileClose(file);
+    if (file) file->close();
+    file.reset();
     delete[] mesh_name;
     return success;
 }
+catch (const std::exception&) { return false; }
 
 /* On failure retail leaves the output alone and does not delete the allocated
    item. This is not an owning smart-pointer factory. */

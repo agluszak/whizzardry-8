@@ -1,5 +1,7 @@
 #pragma once
 
+#include "wiz8/filesystem.h"
+
 #include "wiz8/engine_code/game_timer.h"
 
 /* The 0x28-byte timer-derived helper constructed by GDCamera. Its original
@@ -25,8 +27,8 @@ public:
         }
         return IsFinished();
     }
-    BOOLEAN Load(int handle);
-    BOOLEAN Save(int handle);
+    BOOLEAN Load(wiz8::File* handle);
+    BOOLEAN Save(wiz8::File* handle);
 
 private:
     bool m_finished; /* 0x024 */

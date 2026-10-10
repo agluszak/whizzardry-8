@@ -5,7 +5,7 @@
 #include <stdlib.h>
 #include "Types.h"
 #include "string.h"
-#include "FileMan.h"
+#include "wiz8/filesystem.h"
 #include "himage.h"
 #include <SDL3_image/SDL_image.h>
 #include <algorithm>
@@ -50,12 +50,6 @@ typedef union {
 namespace
 {
 constexpr std::size_t max_image_bytes = 256 * 1024 * 1024;
-
-struct FileCloser
-{
-    HWFILE handle;
-    ~FileCloser() { if (handle) FileClose(handle); }
-};
 
 using Surface = std::unique_ptr<SDL_Surface, decltype(&SDL_DestroySurface)>;
 
@@ -135,15 +129,15 @@ bool valid_image_header(const std::vector<UINT8>& bytes, UINT32 loader)
 BOOLEAN LoadOrdinaryImage(HIMAGE image, UINT16 contents)
 try
 {
-    const FileCloser file{FileOpen(image->ImageFile, FILE_ACCESS_READ | FILE_OPEN_EXISTING, FALSE)};
-    if (!file.handle)
+    const auto file = wiz8::open_file(image->ImageFile);
+    if (!file)
         return FALSE;
-    const auto size = FileGetSize(file.handle);
+    const auto size = file->size();
     if (!size || size > max_image_bytes)
         return FALSE;
     std::vector<UINT8> bytes(size);
     UINT32 read = 0;
-    if (!FileRead(file.handle, bytes.data(), size, &read) || read != size ||
+    if (!((read = file->read(bytes.data(), size).bytes) == static_cast<std::size_t>(size)) || read != size ||
         !valid_image_header(bytes, image->iFileLoader))
         return FALSE;
 
@@ -251,7 +245,7 @@ try
         return NULL;
 
     // Determine if resource exists before creating image structure
-    if (!FileExists(path.data())) {
+    if (![&]() { const auto status = wiz8::file_status(path.data()); return status && status->info.type == SDL_PATHTYPE_FILE; }()) {
         //If in debig, make fatal!
         SDL_LogDebug(SDL_LOG_CATEGORY_APPLICATION, "Resource file %s does not exist.", ImageFile);
         return (NULL);

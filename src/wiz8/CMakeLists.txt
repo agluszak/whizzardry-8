@@ -1,3 +1,5 @@
+set_source_files_properties(engine_code/gap.c PROPERTIES LANGUAGE CXX)
+
 add_library(WIZ8_GAME_CORE STATIC
     "local_code/PC Item.cpp"
     local_code/FormationAndFacing.cpp

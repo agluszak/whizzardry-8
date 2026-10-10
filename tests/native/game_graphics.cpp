@@ -1,7 +1,7 @@
 #include <wiz8/filesystem.h>
 /* Real SLF/STI -> recovered SGP surfaces -> recovered stSurface2D -> SDL GPU.
    Also checks a movie-owned surface and restoration of the game primary. */
-#include "LibraryDataBase.h"
+
 #include "compat/video.h"
 #include "native/input_events.h"
 #include <wiz8/asset_paths.h>
@@ -64,8 +64,8 @@ int main(int argc, char** argv)
         /* This standalone test owns SDL and DBus until process exit. */
         SDL_SetHint(SDL_HINT_SHUTDOWN_DBUS_ON_QUIT, "1");
         CHECK(SDL_Init(SDL_INIT_VIDEO));
-        CHECK(InitializeFileManager(nullptr));
-        CHECK(InitializeFileDatabase());
+
+        wiz8::mount_slf("Data\\Data.slf");
         CHECK(InitializeInputManager());
         g_fullscreen = 0;
         Initialize16BitPixelFormatMasks();
@@ -224,8 +224,8 @@ int main(int argc, char** argv)
         ReleasePrimaryCpuSurface();
         W8DestroyGameWindow(window);
         ShutdownInputManager();
-        ShutDownFileDatabase();
-        ShutdownFileManager();
+        wiz8::clear_asset_archives();
+
         SDL_Quit();
         return 0;
     }

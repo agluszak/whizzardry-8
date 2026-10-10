@@ -30,7 +30,7 @@
 #include "wiz8/virtual_file.h"
 #include "surrender/srModelInstance.h"
 #include "surrender/srCore.h"
-#include "FileMan.h"
+#include "wiz8/filesystem.h"
 #include <math.h>
 #include <new>
 #include <stdio.h>
@@ -259,6 +259,7 @@ const float g_float_one_thousand = 1000.0f;
 bool LoadGrCycle(const W8GrCycleLoadContext* context, const char* mon_name, W8GrCycle** cycle,
                  int cycle_index, int value, const char* directory, unsigned char object_type,
                  const char* bitmap_directory)
+try
 {
     W8ReadLevelInfo info;
     char mon_path[128];
@@ -278,23 +279,25 @@ bool LoadGrCycle(const W8GrCycleLoadContext* context, const char* mon_name, W8Gr
         strcpy(bitmap_path, bitmap_directory);
     }
 
-    int handle = FileOpen(mon_path, FILE_ACCESS_READ | FILE_OPEN_EXISTING, 0);
+    std::unique_ptr<wiz8::File> handle = [&]() { try { return wiz8::open_file(mon_path, wiz8::OpenMode::read); } catch (const std::exception&) { return std::unique_ptr<wiz8::File>{}; } }();
     if (handle == 0) {
         ShutdownWithErrorBox(FormatString("Couldn't open %s", mon_path));
     }
 
     info.world = context->world;
-    info.hFile = handle;
+    info.hFile = handle.get();
     info.bitmap_folder = bitmap_path;
     info.mesh_filename = mon_path;
     success = true;
 
-    if (FileRead(handle, &version, 1, 0) == 0 || version != 1 ||
+    if ((handle->read(&version, 1).bytes == static_cast<std::size_t>(1)) == 0 || version != 1 ||
         ReadGrCycleData(&info, cycle, cycle_index, value, object_type) == 0) {
         success = false;
     }
 
-    FileClose(handle);
+    if (handle) handle->close();
+
+    handle.reset();
     if (!success) {
         srAssertFail(
             "fSuccess", "C:\\Projects\\Wizardry 8\\Engine Code\\GrCycle.cpp", 0x198,
@@ -302,6 +305,7 @@ bool LoadGrCycle(const W8GrCycleLoadContext* context, const char* mon_name, W8Gr
     }
     return success;
 }
+catch (const std::exception&) { return false; }
 
 /* Read the shared path and particle prefix, then dispatch the object-specific
    representation payload.  A particle attachment keeps the source node plus
@@ -310,6 +314,7 @@ bool LoadGrCycle(const W8GrCycleLoadContext* context, const char* mon_name, W8Gr
 // FUNCTION: WIZ8 0x004A6970
 unsigned char ReadGrCycleData(W8ReadLevelInfo* info, W8GrCycle** cycle, int cycle_index, int value,
                               unsigned char object_type)
+try
 {
     unsigned char has_path;
     unsigned char has_particles;
@@ -344,7 +349,7 @@ unsigned char ReadGrCycleData(W8ReadLevelInfo* info, W8GrCycle** cycle, int cycl
         (*cycle)->GetRepresentation()->current_cycle = -1;
     }
 
-    FileRead(info->hFile, &has_path, 1, 0);
+    (info->hFile->read(&has_path, 1).bytes == static_cast<std::size_t>(1));
     if (has_path != 0) {
         /* LoadPathAI stores its result only on success; the base-typed AI
            slot takes the loaded path from there. */
@@ -357,7 +362,7 @@ unsigned char ReadGrCycleData(W8ReadLevelInfo* info, W8GrCycle** cycle, int cycl
         }
     }
 
-    FileRead(info->hFile, &has_particles, 1, 0);
+    (info->hFile->read(&has_particles, 1).bytes == static_cast<std::size_t>(1));
     if (has_particles != 0) {
         W8Vector<stParticle*> particles;
 
@@ -404,6 +409,7 @@ unsigned char ReadGrCycleData(W8ReadLevelInfo* info, W8GrCycle** cycle, int cycl
     }
     return success;
 }
+catch (const std::exception&) { return false; }
 
 // FUNCTION: WIZ8 0x004a5e50
 W8GrCycle::W8GrCycle()

@@ -58,7 +58,7 @@
 #include "surrender/srCamera.h"
 #include "surrender/srScene.h"
 
-#include "FileMan.h"
+#include "wiz8/filesystem.h"
 #include "input.h"
 #include "soundman.h"
 
@@ -253,12 +253,13 @@ unsigned char LoadWorld(W8World* world, char* level_file_name, const char* level
     world->update_mesh_source = 0;
     memset(world->m_unknown_07c, 0, 0x10);
 
-    int handle = FileOpen(level_path, FILE_ACCESS_READ | FILE_OPEN_EXISTING, FALSE);
+    std::unique_ptr<wiz8::File> handle = [&]() { try { return wiz8::open_file(level_path, wiz8::OpenMode::read); } catch (const std::exception&) { return std::unique_ptr<wiz8::File>{}; } }();
     if (handle == 0) {
         srAssertFail("hFile", THREE_D_API_CPP, 0x1d8, "Could not open level file.");
     }
-    unsigned char success = ReadLevel(world, handle, use_octree, material_folder);
-    FileClose(handle);
+    unsigned char success = ReadLevel(world, handle.get(), use_octree, material_folder);
+    if (handle) handle->close();
+    handle.reset();
     if (success == 0) {
         srAssertFail("fSuccess", THREE_D_API_CPP, 0x1dd,
                      "Problem loading level, please check files and versions.");

@@ -1,3 +1,4 @@
+#include "wiz8/filesystem.h"
 #ifndef WIZ8_NPC_SCRIPT_FILE_H
 #define WIZ8_NPC_SCRIPT_FILE_H
 
@@ -103,7 +104,7 @@ static_assert(offsetof(W8NpcScriptFile, name) == 6, "W8NpcScriptFile_name");
 static_assert(offsetof(W8NpcScriptFile, quotes) == 0x0a, "W8NpcScriptFile_quotes");
 
 void ReleaseNpcScriptFile(W8NpcScriptFile* file);
-unsigned char ReadNpcScriptQuote(int handle, W8NpcScriptQuote* quote);
+unsigned char ReadNpcScriptQuote(wiz8::File* handle, W8NpcScriptQuote* quote);
 W8NpcScriptFile* LoadNpcScriptFile(char* path);
 
 #endif

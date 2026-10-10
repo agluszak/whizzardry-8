@@ -10,8 +10,7 @@
 
 #include "input.h"
 #include <string>
-#include "FileMan.h"
-#include "DbMan.h"
+#include "wiz8/filesystem.h"
 #include "soundman.h"
 #include "line.h"
 #include "Font.h"

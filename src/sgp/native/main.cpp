@@ -1,4 +1,5 @@
 #include <wiz8/asset_paths.h>
+#include <wiz8/filesystem.h>
 #include "sgp.h"
 #include "wiz8/local_code/Gameloop.h"
 #include <SDL3/SDL.h>
@@ -31,6 +32,7 @@ int main(int argc, char** argv)
             command_line += argv[i];
         }
         ProcessCommandLine(command_line.data());
+        wiz8::refresh_asset_archives();
         if (InitializeStandardGamingPlatform(nullptr, 9))
         {
             gfApplicationActive = TRUE;

@@ -4,21 +4,21 @@
 #include <string.h>
 #include <array>
 #include <algorithm>
-#include "FileMan.h"
+#include "wiz8/filesystem.h"
 #include "imgfmt.h"
 #include "himage.h"
 #include "Types.h"
 #include "WCheck.h"
 
-BOOLEAN STCILoadRGB(HIMAGE hImage, UINT16 fContents, HWFILE hFile, STCIHeader* pHeader);
-BOOLEAN STCILoadIndexed(HIMAGE hImage, UINT16 fContents, HWFILE hFile, STCIHeader* pHeader);
+BOOLEAN STCILoadRGB(HIMAGE hImage, UINT16 fContents, wiz8::File* hFile, STCIHeader* pHeader);
+BOOLEAN STCILoadIndexed(HIMAGE hImage, UINT16 fContents, wiz8::File* hFile, STCIHeader* pHeader);
 BOOLEAN STCISetPalette(PTR pSTCIPalette, HIMAGE hImage);
 
 // FUNCTION: WIZ8 0x00415130
 BOOLEAN LoadSTCIFileToImage(HIMAGE hImage, UINT16 fContents)
 try
 {
-    HWFILE hFile;
+    std::unique_ptr<wiz8::File> hFile;
     STCIHeader Header;
     UINT32 uiBytesRead;
     image_type TempImage{};
@@ -29,14 +29,13 @@ try
     memcpy(TempImage.ImageFile, hImage->ImageFile, sizeof(TempImage.ImageFile));
     TempImage.iFileLoader = hImage->iFileLoader;
 
-    CHECKF(FileExists(TempImage.ImageFile));
+    CHECKF([&]() { const auto status = wiz8::file_status(TempImage.ImageFile); return status && status->info.type == SDL_PATHTYPE_FILE; }());
 
     // Open the file and read the header
-    hFile = FileOpen(TempImage.ImageFile, FILE_ACCESS_READ, FALSE);
+    hFile = [&]() { try { return wiz8::open_file(TempImage.ImageFile, wiz8::OpenMode::read); } catch (const std::exception&) { return std::unique_ptr<wiz8::File>{}; } }();
     CHECKF(hFile);
-    struct FileCloser { HWFILE file; ~FileCloser() { FileClose(file); } } closer{hFile};
 
-    if (!FileRead(hFile, &Header, STCI_HEADER_SIZE, &uiBytesRead) ||
+    if (!((uiBytesRead = hFile->read(&Header, STCI_HEADER_SIZE).bytes) == static_cast<std::size_t>(STCI_HEADER_SIZE)) ||
         uiBytesRead != STCI_HEADER_SIZE || memcmp(Header.cID, STCI_ID_STRING, STCI_ID_LEN) != 0) {
         SDL_LogDebug(SDL_LOG_CATEGORY_APPLICATION, "%s", "Problem reading STCI header.");
         return (FALSE);
@@ -44,12 +43,12 @@ try
 
     // Determine from the header the data stored in the file. and run the appropriate loader
     if (Header.fFlags & STCI_RGB) {
-        if (!STCILoadRGB(&TempImage, fContents, hFile, &Header)) {
+        if (!STCILoadRGB(&TempImage, fContents, hFile.get(), &Header)) {
             SDL_LogDebug(SDL_LOG_CATEGORY_APPLICATION, "%s", "Problem loading RGB image.");
             return (FALSE);
         }
     } else if (Header.fFlags & STCI_INDEXED) {
-        if (!STCILoadIndexed(&TempImage, fContents, hFile, &Header)) {
+        if (!STCILoadIndexed(&TempImage, fContents, hFile.get(), &Header)) {
             SDL_LogDebug(SDL_LOG_CATEGORY_APPLICATION, "%s", "Problem loading palettized image.");
             return (FALSE);
         }
@@ -97,7 +96,8 @@ catch (...)
 }
 
 // FUNCTION: WIZ8 0x00415250
-BOOLEAN STCILoadRGB(HIMAGE hImage, UINT16 fContents, HWFILE hFile, STCIHeader* pHeader)
+BOOLEAN STCILoadRGB(HIMAGE hImage, UINT16 fContents, wiz8::File* hFile, STCIHeader* pHeader)
+try
 {
     UINT32 uiBytesRead;
 
@@ -111,7 +111,7 @@ BOOLEAN STCILoadRGB(HIMAGE hImage, UINT16 fContents, HWFILE hFile, STCIHeader* p
         hImage->pImageData = std::make_unique<UINT8[]>(pHeader->uiStoredSize);
         if (hImage->pImageData == NULL) {
             return (FALSE);
-        } else if (!FileRead(hFile, hImage->pImageData.get(), pHeader->uiStoredSize, &uiBytesRead) ||
+        } else if (!((uiBytesRead = hFile->read(hImage->pImageData.get(), pHeader->uiStoredSize).bytes) == static_cast<std::size_t>(pHeader->uiStoredSize)) ||
                    uiBytesRead != pHeader->uiStoredSize) {
             return (FALSE);
         }
@@ -163,9 +163,11 @@ BOOLEAN STCILoadRGB(HIMAGE hImage, UINT16 fContents, HWFILE hFile, STCIHeader* p
     // Anything else is an ERROR! --DB
     return (FALSE);
 }
+catch (const std::exception&) { return false; }
 
 // FUNCTION: WIZ8 0x004153f0
-BOOLEAN STCILoadIndexed(HIMAGE hImage, UINT16 fContents, HWFILE hFile, STCIHeader* pHeader)
+BOOLEAN STCILoadIndexed(HIMAGE hImage, UINT16 fContents, wiz8::File* hFile, STCIHeader* pHeader)
+try
 {
     UINT32 uiBytesRead;
     const auto paletteBytes = pHeader->Indexed.uiNumberOfColours * STCI_PALETTE_ELEMENT_SIZE;
@@ -173,12 +175,12 @@ BOOLEAN STCILoadIndexed(HIMAGE hImage, UINT16 fContents, HWFILE hFile, STCIHeade
         if (pHeader->Indexed.uiNumberOfColours != 256)
             return FALSE;
         std::array<STCIPaletteElement, 256> palette{};
-        if (!FileRead(hFile, palette.data(), paletteBytes, &uiBytesRead) || uiBytesRead != paletteBytes ||
+        if (!((uiBytesRead = hFile->read(palette.data(), paletteBytes).bytes) == static_cast<std::size_t>(paletteBytes)) || uiBytesRead != paletteBytes ||
             !STCISetPalette(palette.data(), hImage))
             return FALSE;
         hImage->fFlags |= IMAGE_PALETTE;
     } else if ((fContents & (IMAGE_BITMAPDATA | IMAGE_APPDATA)) &&
-               !FileSeek(hFile, paletteBytes, FILE_SEEK_FROM_CURRENT)) {
+               !(hFile->seek(paletteBytes, wiz8::SeekOrigin::current), true)) {
         return FALSE;
     }
     const auto objectCount = (pHeader->fFlags & STCI_ETRLE_COMPRESSED) ?
@@ -188,7 +190,7 @@ BOOLEAN STCILoadIndexed(HIMAGE hImage, UINT16 fContents, HWFILE hFile, STCIHeade
         if (pHeader->fFlags & STCI_ETRLE_COMPRESSED) {
             Assert(sizeof(ETRLEObject) == STCI_SUBIMAGE_SIZE);
             hImage->pETRLEObject = std::make_unique<ETRLEObject[]>(objectCount);
-            if (!FileRead(hFile, hImage->pETRLEObject.get(), objectBytes, &uiBytesRead) ||
+            if (!((uiBytesRead = hFile->read(hImage->pETRLEObject.get(), objectBytes).bytes) == static_cast<std::size_t>(objectBytes)) ||
                 uiBytesRead != objectBytes)
                 return FALSE;
             hImage->usNumberOfObjects = objectCount;
@@ -196,18 +198,18 @@ BOOLEAN STCILoadIndexed(HIMAGE hImage, UINT16 fContents, HWFILE hFile, STCIHeade
             hImage->fFlags |= IMAGE_TRLECOMPRESSED;
         }
         hImage->pImageData = std::make_unique<UINT8[]>(pHeader->uiStoredSize);
-        if (!FileRead(hFile, hImage->pImageData.get(), pHeader->uiStoredSize, &uiBytesRead) ||
+        if (!((uiBytesRead = hFile->read(hImage->pImageData.get(), pHeader->uiStoredSize).bytes) == static_cast<std::size_t>(pHeader->uiStoredSize)) ||
             uiBytesRead != pHeader->uiStoredSize)
             return FALSE;
         hImage->uiSizePixData = pHeader->uiStoredSize;
         hImage->fFlags |= IMAGE_BITMAPDATA;
     } else if ((fContents & IMAGE_APPDATA) &&
-               !FileSeek(hFile, objectBytes + pHeader->uiStoredSize, FILE_SEEK_FROM_CURRENT)) {
+               !(hFile->seek(objectBytes + pHeader->uiStoredSize, wiz8::SeekOrigin::current), true)) {
         return FALSE;
     }
     if ((fContents & IMAGE_APPDATA) && pHeader->uiAppDataSize) {
         hImage->pAppData = std::make_unique<UINT8[]>(pHeader->uiAppDataSize);
-        if (!FileRead(hFile, hImage->pAppData.get(), pHeader->uiAppDataSize, &uiBytesRead) ||
+        if (!((uiBytesRead = hFile->read(hImage->pAppData.get(), pHeader->uiAppDataSize).bytes) == static_cast<std::size_t>(pHeader->uiAppDataSize)) ||
             uiBytesRead != pHeader->uiAppDataSize)
             return FALSE;
         hImage->uiAppDataSize = pHeader->uiAppDataSize;
@@ -215,6 +217,7 @@ BOOLEAN STCILoadIndexed(HIMAGE hImage, UINT16 fContents, HWFILE hFile, STCIHeade
     }
     return TRUE;
 }
+catch (const std::exception&) { return false; }
 
 BOOLEAN STCISetPalette(PTR pSTCIPalette, HIMAGE hImage)
 {

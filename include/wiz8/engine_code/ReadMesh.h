@@ -1,5 +1,7 @@
 #pragma once
 
+#include "wiz8/filesystem.h"
+
 #include "surrender/srMath.h"
 struct W8MaterialRecord;
 
@@ -52,5 +54,5 @@ enum {
 void OptimizeMeshOrder(srMeshModel* model, w8_ulong flags);
 
 void ClearMaterialRecordPadding(W8MaterialRecord* material);
-void ReadMeshTransform(int file, srVector3T<float>* location, srMatrix3T<float>* rotation,
+void ReadMeshTransform(wiz8::File* file, srVector3T<float>* location, srMatrix3T<float>* rotation,
                        srVector3T<float>* scale);

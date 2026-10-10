@@ -54,7 +54,7 @@
 #include "wiz8/video_object_catalog.h"
 #include "wiz8/virtual_file.h"
 #include "wiz8/utility.h"
-#include "FileMan.h"
+#include "wiz8/filesystem.h"
 #include "Font.h"
 #include "vsurface.h"
 
@@ -197,16 +197,13 @@ void W8PartySelectionCharacterCollection::DeleteAt(int index)
 void W8PartySelectionCharacterCollection::LoadExternalCharacters()
 {
     char search_path[128];
-    GETFILESTRUCT find;
 
     BuildCharacterFilePath(search_path, FormatString("*.%s", "CHR", -1), -1);
-    BOOLEAN found = GetFileFirst(search_path, &find);
-    for (;;) {
-        if (!found) {
-            return;
-        }
+    const std::string pattern(search_path);
+    const auto separator = pattern.find_last_of("\\/");
+    for (const auto& entry : wiz8::list_directory(pattern.substr(0, separator), "*.CHR")) {
         W8Character* character = new W8Character;
-        if (!LoadCharacter(find.zFileName, character, -1, false)) {
+        if (!LoadCharacter(entry.c_str(), character, -1, false)) {
             delete character;
         } else {
             int slot;
@@ -222,7 +219,6 @@ void W8PartySelectionCharacterCollection::LoadExternalCharacters()
                 characters.Add(character);
             }
         }
-        found = GetFileNext(&find);
     }
 }
 
@@ -230,15 +226,15 @@ void W8PartySelectionCharacterCollection::LoadExternalCharacters()
    time. Small partitions use insertion sort; larger partitions use the last
    time as the quicksort pivot, matching the retail split at ten elements. */
 // FUNCTION: WIZ8 0x005c3520
-static void SortPartySelectionCharactersByTime(W8Character** characters, SGP_FILETIME* times,
+static void SortPartySelectionCharactersByTime(W8Character** characters, wiz8::DiskFileTime* times,
                                                int first, int last)
 {
     if (last - first < 9) {
         for (int next = first + 1; next <= last; ++next) {
-            SGP_FILETIME time = times[next];
+            wiz8::DiskFileTime time = times[next];
             W8Character* character = characters[next];
             int insert = next;
-            while (insert > first && CompareSGPFileTimes(&times[insert - 1], &time) < 0) {
+            while (insert > first && ((&times[insert - 1])->ticks() < (&time)->ticks() ? -1 : (&times[insert - 1])->ticks() > (&time)->ticks() ? 1 : 0) < 0) {
                 times[insert] = times[insert - 1];
                 characters[insert] = characters[insert - 1];
                 --insert;
@@ -249,20 +245,20 @@ static void SortPartySelectionCharactersByTime(W8Character** characters, SGP_FIL
         return;
     }
 
-    SGP_FILETIME pivot = times[last];
+    wiz8::DiskFileTime pivot = times[last];
     int left = first - 1;
     int right = last;
     for (;;) {
         do {
             ++left;
-        } while (left < last && CompareSGPFileTimes(&times[left], &pivot) > 0);
+        } while (left < last && ((&times[left])->ticks() < (&pivot)->ticks() ? -1 : (&times[left])->ticks() > (&pivot)->ticks() ? 1 : 0) > 0);
         do {
             --right;
-        } while (right > first && CompareSGPFileTimes(&times[right], &pivot) < 0);
+        } while (right > first && ((&times[right])->ticks() < (&pivot)->ticks() ? -1 : (&times[right])->ticks() > (&pivot)->ticks() ? 1 : 0) < 0);
         if (left >= right) {
             break;
         }
-        SGP_FILETIME time = times[left];
+        wiz8::DiskFileTime time = times[left];
         times[left] = times[right];
         times[right] = time;
         W8Character* character = characters[left];
@@ -289,17 +285,16 @@ void W8PartySelectionCharacterCollection::SortCharactersByWriteTime()
         return;
     }
 
-    SGP_FILETIME* times = new SGP_FILETIME[characters.GetCount()];
-    memset(times, 0, characters.GetCount() * sizeof(SGP_FILETIME));
+    wiz8::DiskFileTime* times = new wiz8::DiskFileTime[characters.GetCount()];
+    memset(times, 0, characters.GetCount() * sizeof(wiz8::DiskFileTime));
     for (int index = 0; index < characters.GetCount(); ++index) {
         char path[128];
         BuildCharacterPath(path, characters[index]->name, -1);
-        int handle = FileOpen(path, FILE_ACCESS_READ, 0);
+        std::unique_ptr<wiz8::File> handle = [&]() { try { return wiz8::open_file(path, wiz8::OpenMode::read); } catch (const std::exception&) { return std::unique_ptr<wiz8::File>{}; } }();
         if (handle) {
-            SGP_FILETIME creation;
-            SGP_FILETIME access;
-            GetFileManFileTime(handle, &creation, &access, &times[index]);
-            FileClose(handle);
+            times[index] = handle->times().modified;
+            if (handle) handle->close();
+            handle.reset();
         }
     }
     SortPartySelectionCharactersByTime(characters.data, times, 0, characters.GetCount() - 1);
@@ -1440,19 +1435,15 @@ void W8PartySelectionController::SetMode(W8PartySelectionMode mode)
     }
     case W8_PARTY_SELECT_IMPORT: {
         if (g_party_selection_character_collection->names.GetCount() == 0) {
-            char search[128];
-            GETFILESTRUCT find;
-            sprintf(search, "%s\\*.*", "Saves\\Import");
-            BOOLEAN found = GetFileFirst(search, &find);
-            while (found) {
-                if ((find.uiFileAttribs & FILE_IS_DIRECTORY) == 0) {
-                    size_t length = strlen(find.zFileName) + 1;
+            for (const auto& entry : wiz8::list_directory("Saves\\Import", "*.*")) {
+                const auto status = wiz8::file_status("Saves\\Import\\" + entry);
+                if (status && status->info.type == SDL_PATHTYPE_FILE) {
+                    size_t length = entry.size() + 1;
                     char* name = new char[length];
-                    memcpy(name, find.zFileName, length);
+                    memcpy(name, entry.c_str(), length);
                     g_party_selection_character_collection->names.Add(name);
                 }
-                found = GetFileNext(&find);
-            }
+                    }
         }
 
         m_range->SetEnabled(true);
@@ -1867,7 +1858,7 @@ void W8PartySelectionController::ApplyPartySelectionConfirmation(W8PartyConfirma
         }
         char path[128];
         BuildCharacterPath(path, character->name, -1);
-        FileDelete(path);
+        wiz8::remove_file(path);
         collection->DeleteAt(selected);
 
         m_character_panel->m_range = m_range;

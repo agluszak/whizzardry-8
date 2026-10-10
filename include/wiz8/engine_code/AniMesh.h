@@ -1,3 +1,4 @@
+#include "wiz8/filesystem.h"
 #ifndef WIZ8_ENGINE_CODE_ANI_MESH_H
 #define WIZ8_ENGINE_CODE_ANI_MESH_H
 
@@ -56,7 +57,7 @@ W8AniMesh* CopyAniMesh(const W8AniMesh* other);
 float GetAniMeshFrameRadius(W8AniMesh* mesh, unsigned char frame);
 unsigned char GetAniMeshBounds(W8AniMesh* mesh, srVector3T<float>* minimum,
                                srVector3T<float>* maximum);
-unsigned char LoadAniMesh(int file, W8AniMesh* mesh, bool load_all);
+unsigned char LoadAniMesh(wiz8::File* file, W8AniMesh* mesh, bool load_all);
 unsigned char LoadAniMeshFromInfo(W8ReadLevelInfo* info, W8AniMesh* mesh, unsigned char load_all);
 unsigned char UnloadAniMesh(W8AniMesh* mesh, bool force);
 stModelInstance* GetAniMeshFrame(W8AniMesh* mesh, unsigned char frame);

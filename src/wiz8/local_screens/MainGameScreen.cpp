@@ -103,7 +103,7 @@
 #include "wiz8/local_code/MonsterGroup.h"
 
 #include "Font.h"
-#include "FileMan.h"
+#include "wiz8/filesystem.h"
 #include "input.h"
 #include "timer.h"
 #include "Types.h"
@@ -3131,7 +3131,7 @@ void MainGameScreenFrame(void)
             *extension = '\0';
         }
         strcat(path, ".rlk");
-        if (!FileExists(path)) {
+        if (![&]() { const auto status = wiz8::file_status(path); return status && status->info.type == SDL_PATHTYPE_FILE; }()) {
             g_world->octree->BuildRegionLinks(true);
         }
         for (; g_next_link_level < W8_LEVEL_COUNT; ++g_next_link_level) {

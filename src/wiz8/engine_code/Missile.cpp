@@ -27,7 +27,7 @@
 #include "wiz8/engine_code/Quality.h"
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/virtual_file.h"
-#include "FileMan.h"
+#include "wiz8/filesystem.h"
 #include "surrender/srCamera.h"
 #include "surrender/srTimer.h"
 #include "wiz8/engine_code/Spells.h"
@@ -264,19 +264,20 @@ unsigned int g_missile_table_count;
    0x101-byte editor prefix followed by the 0x1e5-byte runtime record. */
 // FUNCTION: WIZ8 0x004a5600
 unsigned char LoadMissileDatabase(void)
+try
 {
     int allocated_count;
     unsigned int database_version;
     unsigned int index;
-    int handle;
+    std::unique_ptr<wiz8::File> handle;
     bool success;
 
     ReleaseMissileDatabase();
-    handle = FileOpen("Data\\Databases\\MissileTables.dbs", 0x41, 0);
+    handle = [&]() { try { return wiz8::open_file("Data\\Databases\\MissileTables.dbs", wiz8::OpenMode::read); } catch (const std::exception&) { return std::unique_ptr<wiz8::File>{}; } }();
     if (!handle) {
         return 0;
     }
-    success = FileRead(handle, &allocated_count, 4, 0) && FileRead(handle, &database_version, 4, 0);
+    success = (handle->read(&allocated_count, 4).bytes == static_cast<std::size_t>(4)) && (handle->read(&database_version, 4).bytes == static_cast<std::size_t>(4));
     g_missile_table = new W8MissileTableRecord[allocated_count];
     if (!g_missile_table) {
         srAssertFail("s_pMissileTable", MISSILE_CPP, 0x8d6, 0);
@@ -285,8 +286,8 @@ unsigned char LoadMissileDatabase(void)
         if (!success) {
             break;
         }
-        success = FileSeek(handle, 0x101, 4) &&
-                  FileRead(handle, &g_missile_table[index], sizeof(W8MissileTableRecord), 0);
+        success = (handle->seek(0x101, wiz8::SeekOrigin::current), true) &&
+                  (handle->read(&g_missile_table[index], sizeof(W8MissileTableRecord)).bytes == static_cast<std::size_t>(sizeof(W8MissileTableRecord)));
     }
     if (success) {
         g_missile_table_count = allocated_count;
@@ -295,9 +296,11 @@ unsigned char LoadMissileDatabase(void)
         g_missile_table = 0;
         g_missile_table_count = 0;
     }
-    FileClose(handle);
+    if (handle) handle->close();
+    handle.reset();
     return success;
 }
+catch (const std::exception&) { return false; }
 
 /* Release the one allocation that owns every runtime missile-table row. */
 // FUNCTION: WIZ8 0x004a5760
@@ -493,7 +496,7 @@ unsigned char LoadMissileCycle(W8GrCycleLoadContext* context, const char* name,
     bool explode_ground;
     bool align_explosion;
     float velocity;
-    int handle;
+    std::unique_ptr<wiz8::File> handle;
     W8SoundEventKind sound_kind;
     int frame;
     int cycle;
@@ -538,7 +541,7 @@ unsigned char LoadMissileCycle(W8GrCycleLoadContext* context, const char* name,
     align_explosion = false;
     velocity = 15000.0f;
     sprintf(path, "data\\Missiles\\%s.mls", name);
-    handle = FileOpen(path, 0x41, 0);
+    handle = [&]() { try { return wiz8::open_file(path, wiz8::OpenMode::read); } catch (const std::exception&) { return std::unique_ptr<wiz8::File>{}; } }();
     *ppMissile = 0;
     if (handle != 0) {
         for (;;) {
@@ -546,7 +549,7 @@ unsigned char LoadMissileCycle(W8GrCycleLoadContext* context, const char* name,
                 if (more == 0 || !loaded) {
                     goto close_file;
                 }
-                ReadTextLine(handle, line, 100, &more);
+                ReadTextLine(handle.get(), line, 100, &more);
             } while (line[0] == '#');
             pacName[0] = 0;
             pacFileName[0] = '\0';
@@ -663,7 +666,8 @@ unsigned char LoadMissileCycle(W8GrCycleLoadContext* context, const char* name,
     return loaded;
 
 close_file:
-    FileClose(handle);
+    if (handle) handle->close();
+    handle.reset();
     if (*ppMissile != 0) {
         (*ppMissile)->gravity = gravity;
         (*ppMissile)->align_camera = align_camera;

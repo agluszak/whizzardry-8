@@ -10,7 +10,7 @@
 #include "sgp.h"
 #include "vobject.h"
 #include "Font.h"
-#include "FileMan.h"
+#include "wiz8/filesystem.h"
 #include "input.h"
 #include "random.h"
 #include "wiz8/game_init.h"
@@ -83,13 +83,6 @@ BOOLEAN InitializeStandardGamingPlatform(HINSTANCE hInstance, int sCommandShow)
     GetRuntimeSettings();
 
     // Now start up everything else.
-
-    SDL_LogDebug(SDL_LOG_CATEGORY_APPLICATION, "%s", "Initializing File Manager");
-    // Initialize the File Manager
-    if (InitializeFileManager(NULL) == FALSE) { // We were unable to initialize the file manager
-        SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "%s", "FAILED : Initializing File Manager");
-        return FALSE;
-    }
 
     SDL_LogDebug(SDL_LOG_CATEGORY_APPLICATION, "%s", "Initializing Input Manager");
     // Initialize the Input Manager
@@ -191,7 +184,7 @@ void ShutdownStandardGamingPlatform(void)
     ShutdownVideoManager();
 
     ShutdownInputManager();
-    ShutdownFileManager();
+    wiz8::clear_asset_archives();
 
 }
 

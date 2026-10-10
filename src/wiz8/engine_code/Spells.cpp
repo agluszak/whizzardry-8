@@ -1,3 +1,4 @@
+#include "wiz8/filesystem.h"
 #include "wiz8/engine_code/AnimRep.hpp"
 
 #include "wiz8/float_constants.h"
@@ -516,7 +517,7 @@ bool LoadSpellVisualResource(const W8GrCycleLoadContext* context, const char* na
     bool success = true;
     char path[100];
     sprintf(path, "data\\Spells\\%s.mls", name);
-    int handle = FileOpen(path, FILE_ACCESS_READ | FILE_OPEN_EXISTING, 0);
+    std::unique_ptr<wiz8::File> handle = [&]() { try { return wiz8::open_file(path, wiz8::OpenMode::read); } catch (const std::exception&) { return std::unique_ptr<wiz8::File>{}; } }();
     *visual = 0;
     if (handle == 0) {
         success = false;
@@ -537,7 +538,7 @@ bool LoadSpellVisualResource(const W8GrCycleLoadContext* context, const char* na
         W8CameraShakeEffect* effect;
 
         while (more != 0 && success) {
-            ReadTextLine(handle, line, sizeof(line), &more);
+            ReadTextLine(handle.get(), line, sizeof(line), &more);
             sscanf(line, "%s %s", pac_name, pac_value);
             if (strlen(line) <= 2) {
                 continue;
@@ -596,7 +597,9 @@ bool LoadSpellVisualResource(const W8GrCycleLoadContext* context, const char* na
             }
         }
 
-        FileClose(handle);
+        if (handle) handle->close();
+
+        handle.reset();
         if (*visual == 0) {
             srAssertFail("*ppSpell", "C:\\Projects\\Wizardry 8\\Engine Code\\Spells.cpp", 0x365,
                          FormatString("Spell %s missing cycle of type %d", name, group));
@@ -1532,23 +1535,24 @@ bool CanSpellBackfire(int spell_id)
 
 // FUNCTION: WIZ8 0x004acc10
 unsigned char InitializeSpellDatabase(void)
+try
 {
     /* Retail reads allocation_count/database_version uninitialised when the
        header FileRead pair short-circuits; preserve that behavior. The global
        receives the allocation count despite its older misleading name. */
-    int handle;
+    std::unique_ptr<wiz8::File> handle;
     unsigned int index;
     bool ok;
     int allocation_count;
     unsigned int database_version;
 
     ReleaseSpellDatabase();
-    handle = FileOpen("Data\\Databases\\SpellTables.dbs", 0x41, 0);
+    handle = [&]() { try { return wiz8::open_file("Data\\Databases\\SpellTables.dbs", wiz8::OpenMode::read); } catch (const std::exception&) { return std::unique_ptr<wiz8::File>{}; } }();
     if (handle == 0) {
         return 0;
     }
     ok = false;
-    if (FileRead(handle, &allocation_count, 4, 0) && FileRead(handle, &database_version, 4, 0)) {
+    if ((handle->read(&allocation_count, 4).bytes == static_cast<std::size_t>(4)) && (handle->read(&database_version, 4).bytes == static_cast<std::size_t>(4))) {
         ok = true;
     }
     g_spell_records = new W8SpellRuntimeRecord[allocation_count];
@@ -1561,8 +1565,8 @@ unsigned char InitializeSpellDatabase(void)
             goto discard;
         }
         ok = false;
-        if (FileSeek(handle, 0x101, FILE_SEEK_FROM_CURRENT) &&
-            FileRead(handle, &g_spell_records[index], sizeof(W8SpellRuntimeRecord), 0)) {
+        if ((handle->seek(0x101, wiz8::SeekOrigin::current), true) &&
+            (handle->read(&g_spell_records[index], sizeof(W8SpellRuntimeRecord)).bytes == static_cast<std::size_t>(sizeof(W8SpellRuntimeRecord)))) {
             ok = true;
         }
     }
@@ -1571,7 +1575,9 @@ unsigned char InitializeSpellDatabase(void)
         delete[] g_spell_records;
         g_spell_records = 0;
     }
-    FileClose(handle);
+    if (handle) handle->close();
+    handle.reset();
     g_spell_database_version = allocation_count;
     return ok;
 }
+catch (const std::exception&) { return false; }

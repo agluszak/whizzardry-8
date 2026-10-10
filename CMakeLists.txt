@@ -33,6 +33,7 @@ find_package(Threads REQUIRED)
 add_library(wiz8_filesystem STATIC
     src/platform/path_resolver.cpp
     src/platform/filesystem.cpp
+    src/platform/slf.cpp
     src/platform/file_time.cpp
 )
 target_include_directories(wiz8_filesystem PUBLIC "${PROJECT_SOURCE_DIR}/include")

@@ -9,8 +9,8 @@
 #include "wiz8/local_screens/Screens.h"
 #include "wiz8/sr_api.h"
 
-#include "FileMan.h"
-#include "LibraryDataBase.h"
+#include "wiz8/filesystem.h"
+
 #include "Font.h"
 #include "english.h"
 #include "input.h"
@@ -47,6 +47,7 @@ W8BinkVideo* gpVideo;
 unsigned char IntroScreenEnter(void)
 {
     char path[500];
+    char gzCdDirectory[4];
 
     SetClippingRegionAndImageWidth(0x500, 0, 0, 0x280, 0x1e0);
     SetFontDestBuffer(FRAME_BUFFER, 0, 0, 0x280, 0x1e0, 0);
@@ -55,13 +56,13 @@ unsigned char IntroScreenEnter(void)
         return 1;
     }
     sprintf(path, "Data\\Flics\\Intro\\%s", g_intro_video_names[g_intro_video_index]);
-    if (!FileExists(path)) {
+    if (![&]() { const auto status = wiz8::file_status(path); return status && status->info.type == SDL_PATHTYPE_FILE; }()) {
         if (!FindGameDataPath(gzCdDirectory, 3)) {
             return 1;
         }
         sprintf(path, "%sData\\Flics\\Intro\\%s", gzCdDirectory,
                 g_intro_video_names[g_intro_video_index]);
-        if (!FileExists(path)) {
+        if (![&]() { const auto status = wiz8::file_status(path); return status && status->info.type == SDL_PATHTYPE_FILE; }()) {
             return 1;
         }
     }
@@ -111,16 +112,17 @@ void IntroScreenFrame(void)
 static void AdvanceIntroScreen(void)
 {
     char path[500];
+    char gzCdDirectory[4];
     bool first_video_available = false;
 
     if (g_intro_video_index == 6 && !g_settings.intro_seen) {
         g_intro_video_index = 0;
         sprintf(path, "Data\\Flics\\Intro\\%s", g_intro_video_names[g_intro_video_index]);
-        first_video_available = FileExists(path);
+        first_video_available = [&]() { const auto status = wiz8::file_status(path); return status && status->info.type == SDL_PATHTYPE_FILE; }();
         if (!first_video_available && FindGameDataPath(gzCdDirectory, 3)) {
             sprintf(path, "%sData\\Flics\\Intro\\%s", gzCdDirectory,
                     g_intro_video_names[g_intro_video_index]);
-            first_video_available = FileExists(path);
+            first_video_available = [&]() { const auto status = wiz8::file_status(path); return status && status->info.type == SDL_PATHTYPE_FILE; }();
         }
         if (first_video_available && gpVideo != 0 && gpVideo->Open(path, 0)) {
             return;

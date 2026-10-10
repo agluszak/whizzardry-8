@@ -29,7 +29,7 @@
 #include "wiz8/engine_code/ReadLevel.h"
 #include "wiz8/engine_code/stModelInstance.h"
 #include "surrender/srCore.h"
-#include "FileMan.h"
+#include "wiz8/filesystem.h"
 
 #include <math.h>
 #include <string.h>
@@ -674,11 +674,11 @@ void ActivateItem(W8WorldItem* item)
     } else {
         sprintf(zItemFullPath, "%s\\%s.ITM", "Data\\Items3D", zItemName);
     }
-    if (!FileExists(zItemFullPath)) {
+    if (![&]() { const auto status = wiz8::file_status(zItemFullPath); return status && status->info.type == SDL_PATHTYPE_FILE; }()) {
         strcpy(zItemName, "questionmark");
         sprintf(zItemFullPath, "%s\\%s.ITM", "Data\\Items3D", zItemName);
-        if (!FileExists(zItemFullPath)) {
-            srAssertFail("FileExists(zItemFullPath)", ITEM_MANAGER_CPP, 0x1ed,
+        if (![&]() { const auto status = wiz8::file_status(zItemFullPath); return status && status->info.type == SDL_PATHTYPE_FILE; }()) {
+            srAssertFail("[&]() { const auto status = wiz8::file_status(zItemFullPath); return status && status->info.type == SDL_PATHTYPE_FILE; }()", ITEM_MANAGER_CPP, 0x1ed,
                          FormatString("ActivateItem: ERROR - missing ITM file %s, item %d",
                                       zItemFullPath, item->item.iItemNo));
         }

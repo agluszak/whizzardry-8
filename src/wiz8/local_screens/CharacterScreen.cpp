@@ -53,7 +53,7 @@
 #include <string.h>
 #include <wchar.h>
 
-#include "FileMan.h"
+#include "wiz8/filesystem.h"
 #include "wiz8/local_screens/OptionsScreen.h"
 
 // GLOBAL: WIZ8 0x0061e3a4
@@ -558,7 +558,7 @@ bool W8CharacterScreen::CommitCharacter()
         if (m_original != 0) {
             char path[260];
             BuildCharacterPath(path, m_original->name, -1);
-            FileDelete(path);
+            wiz8::remove_file(path);
         }
         m_character.fInParty = false;
         if (!SaveCharacter(&m_character, -1, false, 0)) {
@@ -677,7 +677,7 @@ bool W8CharacterScreen::ValidateName()
     if (!g_status.game_started && !g_status.skip_loose_character_check) {
         char path[260];
         BuildCharacterPath(path, m_character.name, -1);
-        if (FileExists(path)) {
+        if ([&]() { const auto status = wiz8::file_status(path); return status && status->info.type == SDL_PATHTYPE_FILE; }()) {
             ShowMessage(gppStringList[0xd5], 0, 0);
             return false;
         }

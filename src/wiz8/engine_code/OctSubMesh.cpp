@@ -1,3 +1,4 @@
+#include "wiz8/filesystem.h"
 #include "wiz8/engine_code/OctMeshModel.h"
 #include "wiz8/engine_code/Octree.h"
 
@@ -31,7 +32,7 @@ srShader* g_oct_mesh_default_shader;
 /* The loader verifies every array the same way: a null getter result and a
    failed bulk read each stop with the call site's own diagnostic. */
 template <class T>
-void ReadMeshArray(int file, T* values, int count, const char* get_message,
+void ReadMeshArray(wiz8::File* file, T* values, int count, const char* get_message,
                    const char* read_message)
 {
     if (values == 0) {
@@ -90,20 +91,20 @@ OctMeshModel::~OctMeshModel()
 }
 
 // FUNCTION: WIZ8 0x0049E5D0
-bool OctMeshModel::Write(int hFile)
+bool OctMeshModel::Write(wiz8::File* hFile)
 {
     unsigned char success;
     unsigned char write_result;
     int index;
 
     m_packed_header |= static_cast<unsigned int>(version) << 8;
-    success = FileWrite(hFile, &m_packed_header, 4, 0);
-    success &= FileWrite(hFile, &m_vertex_count, 4, 0);
-    success &= FileWrite(hFile, &m_map_count, 4, 0);
-    success &= FileWrite(hFile, &m_polygon_count, 4, 0);
-    success &= FileWrite(hFile, &m_link_index, 4, 0);
-    success &= FileWrite(hFile, &next_link, 4, 0);
-    success &= FileWrite(hFile, &m_material_index, 4, 0);
+    success = (hFile->write(&m_packed_header, 4), true);
+    success &= (hFile->write(&m_vertex_count, 4), true);
+    success &= (hFile->write(&m_map_count, 4), true);
+    success &= (hFile->write(&m_polygon_count, 4), true);
+    success &= (hFile->write(&m_link_index, 4), true);
+    success &= (hFile->write(&next_link, 4), true);
+    success &= (hFile->write(&m_material_index, 4), true);
     if (success == 0) {
         srAssertFail("fSuccess", "C:\\Projects\\Wizardry 8\\Engine Code\\OctSubMesh.cpp", 0x105,
                      "OctMeshModel::Write -- Could not write INT32 fields.\n");
@@ -126,7 +127,7 @@ bool OctMeshModel::Write(int hFile)
     m_vertex_map = 0;
 
     if (m_material_index < 0) {
-        write_result = FileWrite(hFile, m_vertex_materials, m_vertex_count * sizeof(int), 0);
+        write_result = (hFile->write(m_vertex_materials, m_vertex_count * sizeof(int)), true);
         if (write_result == 0) {
             srAssertFail("fSuccess", "C:\\Projects\\Wizardry 8\\Engine Code\\OctSubMesh.cpp", 0x116,
                          "OctMeshModel::Write -- Could not write m_plVertMats.\n");
@@ -153,7 +154,7 @@ bool OctMeshModel::Write(int hFile)
     srHeap.free(m_poly_vertices);
     m_poly_vertices = 0;
 
-    write_result = FileWrite(hFile, m_poly_textures, m_polygon_count * sizeof(int), 0);
+    write_result = (hFile->write(m_poly_textures, m_polygon_count * sizeof(int)), true);
     if (write_result == 0) {
         srAssertFail("fSuccess", "C:\\Projects\\Wizardry 8\\Engine Code\\OctSubMesh.cpp", 0x12a,
                      "OctMeshModel::Write -- Could not write m_plPolyTextures.\n");
@@ -186,7 +187,7 @@ bool OctMeshModel::Write(int hFile)
     m_poly_equations = 0;
 
     if (version != 0) {
-        write_result = FileWrite(hFile, m_sun_lights[0], m_vertex_count * sizeof(float), 0);
+        write_result = (hFile->write(m_sun_lights[0], m_vertex_count * sizeof(float)), true);
         if (write_result == 0) {
             srAssertFail("fSuccess", "C:\\Projects\\Wizardry 8\\Engine Code\\OctSubMesh.cpp", 0x143,
                          "OctMeshModel::Write -- Could not write m_ppflSunLights.\n");
@@ -199,12 +200,12 @@ bool OctMeshModel::Write(int hFile)
     m_sun_lights = 0;
 
     int terminator = -1;
-    write_result = FileWrite(hFile, &terminator, 4, 0);
+    write_result = (hFile->write(&terminator, 4), true);
     return write_result & success;
 }
 
 // FUNCTION: WIZ8 0x0049E9A0
-stMeshModel* OctMeshModel::Read(int file, srMaterialIFace** materials, srTextureIFace** textures,
+stMeshModel* OctMeshModel::Read(wiz8::File* file, srMaterialIFace** materials, srTextureIFace** textures,
                                 srShader* render_flags, stMeshModel** meshes, int material_count)
 {
     if (g_oct_mesh_default_material == 0) {
@@ -217,13 +218,13 @@ stMeshModel* OctMeshModel::Read(int file, srMaterialIFace** materials, srTexture
     }
 
     unsigned char read_ok = 1;
-    read_ok &= FileRead(file, &m_packed_header, 4, 0);
-    read_ok &= FileRead(file, &m_vertex_count, 4, 0);
-    read_ok &= FileRead(file, &m_map_count, 4, 0);
-    read_ok &= FileRead(file, &m_polygon_count, 4, 0);
-    read_ok &= FileRead(file, &m_link_index, 4, 0);
-    read_ok &= FileRead(file, &next_link, 4, 0);
-    read_ok &= FileRead(file, &m_material_index, 4, 0);
+    read_ok &= (file->read(&m_packed_header, 4).bytes == static_cast<std::size_t>(4));
+    read_ok &= (file->read(&m_vertex_count, 4).bytes == static_cast<std::size_t>(4));
+    read_ok &= (file->read(&m_map_count, 4).bytes == static_cast<std::size_t>(4));
+    read_ok &= (file->read(&m_polygon_count, 4).bytes == static_cast<std::size_t>(4));
+    read_ok &= (file->read(&m_link_index, 4).bytes == static_cast<std::size_t>(4));
+    read_ok &= (file->read(&next_link, 4).bytes == static_cast<std::size_t>(4));
+    read_ok &= (file->read(&m_material_index, 4).bytes == static_cast<std::size_t>(4));
     if (read_ok == 0) {
         ShutdownWithErrorBox("OctMeshModel::Read -- Could not read Integer fields.\n");
     }
@@ -272,7 +273,7 @@ stMeshModel* OctMeshModel::Read(int file, srMaterialIFace** materials, srTexture
         if (vertex_materials == 0) {
             ShutdownWithErrorBox("OctMeshModel::Read -- Could not get vertex material array.\n");
         }
-        if (!FileRead(file, m_vertex_materials, m_vertex_count * sizeof(int), 0)) {
+        if (!(file->read(m_vertex_materials, m_vertex_count * sizeof(int)).bytes == static_cast<std::size_t>(m_vertex_count * sizeof(int)))) {
             ShutdownWithErrorBox("OctMeshModel::Read -- Could not read m_plVertMats.\n");
         }
         selected_material = m_vertex_materials[0];
@@ -303,7 +304,7 @@ stMeshModel* OctMeshModel::Read(int file, srMaterialIFace** materials, srTexture
     if (polygon_textures == 0) {
         ShutdownWithErrorBox("OctMeshModel::Read -- Could not get poly texture array.\n");
     }
-    if (!FileRead(file, m_vertex_materials, m_polygon_count * sizeof(int), 0)) {
+    if (!(file->read(m_vertex_materials, m_polygon_count * sizeof(int)).bytes == static_cast<std::size_t>(m_polygon_count * sizeof(int)))) {
         ShutdownWithErrorBox("OctMeshModel::Read -- Could not read m_plPolyTextures.\n");
     }
     for (index = 0; index < m_polygon_count; ++index) {
@@ -334,7 +335,7 @@ stMeshModel* OctMeshModel::Read(int file, srMaterialIFace** materials, srTexture
     if (weights == 0) {
         ShutdownWithErrorBox("OctMeshModel::Read -- Could not allocate intensity array.\n");
     }
-    if (version != 0 && !FileRead(file, weights, m_vertex_count * sizeof(float), 0)) {
+    if (version != 0 && !(file->read(weights, m_vertex_count * sizeof(float)).bytes == static_cast<std::size_t>(m_vertex_count * sizeof(float)))) {
         ShutdownWithErrorBox("OctMeshModel::Read -- Could not read Sunlight array.\n");
     }
 
@@ -348,7 +349,7 @@ stMeshModel* OctMeshModel::Read(int file, srMaterialIFace** materials, srTexture
     }
 
     int terminator;
-    FileRead(file, &terminator, sizeof(terminator), 0);
+    file->read_exact(&terminator, sizeof(terminator));
     if (terminator != -1) {
         ShutdownWithErrorBox("Mesh Model in .pvl file is wrong length.");
     }

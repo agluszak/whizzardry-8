@@ -1,5 +1,7 @@
 #pragma once
 
+#include "wiz8/filesystem.h"
+
 #include "surrender/srMath.h"
 #include "wiz8/engine_code/BitArray.h"
 #include "wiz8/engine_code/OctPreTree.h"
@@ -63,12 +65,12 @@ struct W8OctreeTrace {
 static_assert(sizeof(W8OctreeTrace) == 0x30, "W8OctreeTrace_must_be_0x30");
 /* Bulk .oct vector I/O. Writers stage at most 0x100 records per FileWrite;
    the raw twelve-byte reader serves float vectors and polygon index triples. */
-BOOLEAN WriteVector4Array(int file, const srVector4T<float>* values, int count);
-BOOLEAN WriteVector3Array(int file, const srVector3T<float>* values, int count);
-BOOLEAN WriteVector2Array(int file, const srVector2T<float>* values, int count);
-bool ReadVector4Array(int file, srVector4T<float>* values, int count);
-bool ReadVector3Array(int file, void* values, int count);
-bool ReadVector2Array(int file, srVector2T<float>* values, int count);
+BOOLEAN WriteVector4Array(wiz8::File* file, const srVector4T<float>* values, int count);
+BOOLEAN WriteVector3Array(wiz8::File* file, const srVector3T<float>* values, int count);
+BOOLEAN WriteVector2Array(wiz8::File* file, const srVector2T<float>* values, int count);
+bool ReadVector4Array(wiz8::File* file, srVector4T<float>* values, int count);
+bool ReadVector3Array(wiz8::File* file, void* values, int count);
+bool ReadVector2Array(wiz8::File* file, srVector2T<float>* values, int count);
 /* Distance from `point` to the `from`-`to` segment, shared by the trace
    resolver and the GameData surface walk. When `clamp_point` is set the
    closest segment point is written back over `point`; `out_t` returns the
@@ -88,37 +90,37 @@ char GrowBoundsByPoint(const srVector3T<float>* point, srVector3T<float>* minimu
 bool SphereNearBounds(const srVector3T<float>* point, float radius,
                       const W8BoundingBox* bounds); /* 0x004386A0 */
 
-inline bool ReadVectorArray(int file, void* values, int count)
+inline bool ReadVectorArray(wiz8::File* file, void* values, int count)
 {
     return ReadVector3Array(file, values, count);
 }
-inline bool ReadVectorArray(int file, srVector4T<float>* values, int count)
+inline bool ReadVectorArray(wiz8::File* file, srVector4T<float>* values, int count)
 {
     return ReadVector4Array(file, values, count);
 }
-inline bool ReadVectorArray(int file, srVector2T<float>* values, int count)
+inline bool ReadVectorArray(wiz8::File* file, srVector2T<float>* values, int count)
 {
     return ReadVector2Array(file, values, count);
 }
 
 /* The polygon index triples serialize through the same canonical 12-byte
    float-vector writer. */
-inline BOOLEAN WriteVectorArray(int file, const srVector3i* values, int count)
+inline BOOLEAN WriteVectorArray(wiz8::File* file, const srVector3i* values, int count)
 {
     return WriteVector3Array(
         file, reinterpret_cast<const srVector3T<float>*>(values), /* reinterpret-ok: the
             float writer's raw 12-byte record is the index-triple record */
         count);
 }
-inline BOOLEAN WriteVectorArray(int file, const srVector3T<float>* values, int count)
+inline BOOLEAN WriteVectorArray(wiz8::File* file, const srVector3T<float>* values, int count)
 {
     return WriteVector3Array(file, values, count);
 }
-inline BOOLEAN WriteVectorArray(int file, const srVector4T<float>* values, int count)
+inline BOOLEAN WriteVectorArray(wiz8::File* file, const srVector4T<float>* values, int count)
 {
     return WriteVector4Array(file, values, count);
 }
-inline BOOLEAN WriteVectorArray(int file, const srVector2T<float>* values, int count)
+inline BOOLEAN WriteVectorArray(wiz8::File* file, const srVector2T<float>* values, int count)
 {
     return WriteVector2Array(file, values, count);
 }

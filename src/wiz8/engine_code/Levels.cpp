@@ -1,6 +1,6 @@
 #include "wiz8/engine_code/stModelInstance.h"
 #include "wiz8/engine_code/3dapi.h"
-#include "LibraryDataBase.h"
+
 #include "wiz8/engine_code/GameData.h"
 #include "wiz8/level_specific_code/MasterFunctionList.h"
 #include "wiz8/local_code/ItemManager.h"
@@ -50,7 +50,7 @@
 #include "surrender/srModelInstance.h"
 #include "surrender/srScene.h"
 
-#include "FileMan.h"
+#include "wiz8/filesystem.h"
 #include "wiz8/local_screens/AutomapScreen.h"
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/local_screens/NPCInteractionSubscreen.h"
@@ -130,7 +130,8 @@ int GetLevelCdNumber(int level)
 // FUNCTION: WIZ8 0x0042b6f0
 bool IsLevelCdMissing(int level)
 {
-    return FindGameDataPath(gzCdDirectory, g_level_folders[level].cd_number) == 0;
+    char directory[4];
+    return FindGameDataPath(directory, g_level_folders[level].cd_number) == 0;
 }
 
 /* Configured disc roots are immutable D: through F: asset namespaces. */
@@ -176,7 +177,7 @@ void StartLevelMusic(int fade, int replace_current)
     const char* level_name = g_level_folders[g_status.current_level].level_name;
 
     sprintf(path, "Data\\Music\\%s.MPL", level_name);
-    if (FileExists(path)) {
+    if ([&]() { const auto status = wiz8::file_status(path); return status && status->info.type == SDL_PATHTYPE_FILE; }()) {
         sprintf(path, "%s.MPL", level_name);
         StartMusicResource(path, fade, replace_current);
     } else {
@@ -458,22 +459,22 @@ bool LevelBuildInfoByID(int level, W8LevelInfo* info)
     strcpy(oct_path + strlen(oct_path) - 3, "oct");
     strcpy(pvl_path, info->level_path);
     strcpy(pvl_path + strlen(pvl_path) - 3, "pvl");
-    if (!FileExists(info->level_path) && (!FileExists(oct_path) || !FileExists(pvl_path))) {
+    if (![&]() { const auto status = wiz8::file_status(info->level_path); return status && status->info.type == SDL_PATHTYPE_FILE; }() && (![&]() { const auto status = wiz8::file_status(oct_path); return status && status->info.type == SDL_PATHTYPE_FILE; }() || ![&]() { const auto status = wiz8::file_status(pvl_path); return status && status->info.type == SDL_PATHTYPE_FILE; }())) {
         return false;
     }
 
     sprintf(info->sky_path, "%s\\%s", info->sky_folder, info->sky_file_name);
     if (level < W8_LEVEL_COUNT) {
-        if (g_level_folders[level].sky_index != -1 && !FileExists(info->sky_path)) {
+        if (g_level_folders[level].sky_index != -1 && ![&]() { const auto status = wiz8::file_status(info->sky_path); return status && status->info.type == SDL_PATHTYPE_FILE; }()) {
             sprintf(info->sky_folder, "%s\\Test", "Levels");
             sprintf(info->sky_file_name, "%s.%s", g_sky_names[0], "LVL");
             sprintf(info->sky_bitmap_folder, "%s\\Bitmaps", info->sky_folder);
             sprintf(info->sky_path, "%s\\%s", info->sky_folder, info->sky_file_name);
-            if (!FileExists(info->sky_path)) {
+            if (![&]() { const auto status = wiz8::file_status(info->sky_path); return status && status->info.type == SDL_PATHTYPE_FILE; }()) {
                 return false;
             }
         }
-    } else if (!FileExists(info->sky_path)) {
+    } else if (![&]() { const auto status = wiz8::file_status(info->sky_path); return status && status->info.type == SDL_PATHTYPE_FILE; }()) {
         info->sky_file_name[0] = '\0';
     }
     return true;
@@ -513,7 +514,7 @@ unsigned char LoadLevel(int requested_level, int entrance, bool restoring_game)
     previous_level = g_status.current_level;
     g_status.current_level = level;
     sprintf(music_path, "Data\\Music\\%s.MPL", g_level_folders[level].level_name);
-    if (FileExists(music_path)) {
+    if ([&]() { const auto status = wiz8::file_status(music_path); return status && status->info.type == SDL_PATHTYPE_FILE; }()) {
         sprintf(music_path, "%s.MPL", g_level_folders[g_status.current_level].level_name);
         StartMusicResource(music_path, 1, 1);
     } else {

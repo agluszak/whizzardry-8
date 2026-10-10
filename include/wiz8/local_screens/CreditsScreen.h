@@ -1,4 +1,6 @@
 #pragma once
+
+#include "wiz8/filesystem.h"
 #include "wiz8/layouts/screen_state.h"
 
 #include "input.h"
@@ -13,7 +15,7 @@ struct W8CreditLine {
 };
 W8_ABI_ASSERT(sizeof(W8CreditLine) == 0x14, "W8CreditLine_size");
 
-unsigned char ReadWideTextLine(int handle, wchar_t* destination, int capacity, unsigned char* more);
+unsigned char ReadWideTextLine(wiz8::File* handle, wchar_t* destination, int capacity, unsigned char* more);
 unsigned char CreditsScreenEnter(void);
 void CreditsScreenFrame(void);
 unsigned char CreditsScreenLeave(int leaving);

@@ -1,3 +1,4 @@
+#include "wiz8/filesystem.h"
 #include "wiz8/fact_state.h"
 #include "wiz8/layouts/character.h"
 #include "wiz8/local_code/PC_Item.h"
@@ -51,12 +52,12 @@ void PostNewGameLoad(void)
 /* Reads the fact array back, then re-applies the consequences that do not
    survive a save. */
 // FUNCTION: WIZ8 0x005064a0
-void LoadFactState(int save_handle)
+void LoadFactState(wiz8::File* save_handle)
 {
     W8NpcState* npc;
     unsigned int bytes_read;
 
-    FileRead(save_handle, g_fact_values, 1000, &bytes_read);
+    ((bytes_read = save_handle->read(g_fact_values, 1000).bytes) == static_cast<std::size_t>(1000));
     if (GetFact(W8_FACT_RFS81_HAS_BEEN_FIXED)) {
         npc = GetNpcStateByKind(0x20);
         if (npc && npc->has_monster) {

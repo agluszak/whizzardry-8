@@ -1,5 +1,7 @@
 #pragma once
 
+#include "wiz8/filesystem.h"
+
 /* Reads g_environment_lighting_mode: 2 while the day/night cycle
    runs, 1 while a lighting transition is in progress, 0 once a transition has
    faded the world out. The only retail caller is in NPC Scripting, so the
@@ -48,8 +50,8 @@ extern EnvironmentColour g_environment_colours1[256];
 class stLight;
 void AddEnvironmentLight(stLight* light);
 
-BOOLEAN ReadLightColourTable(int hFile);
-BOOLEAN ReadEnvironmentColourTable(int hFile);
+BOOLEAN ReadLightColourTable(wiz8::File* hFile);
+BOOLEAN ReadEnvironmentColourTable(wiz8::File* hFile);
 void BuildEnvironmentColourRamp(void);
 void BuildLightColourRamp(void);
 void UpdateEnvironmentLight(void);

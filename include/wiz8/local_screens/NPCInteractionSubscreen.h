@@ -1,5 +1,7 @@
 #pragma once
 
+#include "wiz8/filesystem.h"
+
 void SyncNpcDialogueTranscriptScrollButtons();
 
 #include "input.h"
@@ -481,8 +483,8 @@ bool NpcTradeItemAllowed(W8ItemInstance* item);
 void EnableNpcTradeFilterButtons(void);
 W8ItemInstance* GetNpcTradeSlotItem(int index);
 void HandleNpcDialogueKeyEvent(const InputAtom* event);
-unsigned char LoadNpcDialogueTranscript(unsigned int file);
-unsigned char SaveNpcDialogueTranscript(unsigned int file);
+unsigned char LoadNpcDialogueTranscript(wiz8::File* file);
+unsigned char SaveNpcDialogueTranscript(wiz8::File* file);
 void HandleNpcDialogueItemChoice(void);
 void RefreshNpcTradePartyGold(void);
 void RefreshNpcTradePrice(void);

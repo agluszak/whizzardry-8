@@ -1,7 +1,7 @@
 #include "wiz8/engine_code/BitArray.h"
 #include "wiz8/sr_api.h"
 
-#include "FileMan.h"
+#include "wiz8/filesystem.h"
 #include "surrender/srHuffman.h"
 
 #include <new>
@@ -101,7 +101,8 @@ void BitArray::CopyFrom(BitArray& other)
    trailing copy of the magic. An allocation failure after SetSize still
    recounts and answers success, matching retail. */
 // FUNCTION: WIZ8 0x0043aec0
-unsigned char BitArray::Load(int handle)
+unsigned char BitArray::Load(wiz8::File* handle)
+try
 {
     unsigned int magic;
     unsigned int packed_size;
@@ -111,19 +112,19 @@ unsigned char BitArray::Load(int handle)
     w8_ulong remaining;
     w8_ulong* cursor;
 
-    if (FileRead(handle, &magic, 4, 0) == 0 || magic != 0xdeadd00d) {
+    if ((handle->read(&magic, 4).bytes == static_cast<std::size_t>(4)) == 0 || magic != 0xdeadd00d) {
         return 0;
     }
-    if (FileRead(handle, &file_bit_count, 4, 0) == 0 || file_bit_count == 0) {
+    if ((handle->read(&file_bit_count, 4).bytes == static_cast<std::size_t>(4)) == 0 || file_bit_count == 0) {
         return 0;
     }
     SetSize(file_bit_count);
-    if (FileRead(handle, &packed_size, 4, 0) == 0) {
+    if ((handle->read(&packed_size, 4).bytes == static_cast<std::size_t>(4)) == 0) {
         return 0;
     }
     packed = operator new(packed_size);
     if (packed != 0) {
-        if (FileRead(handle, packed, packed_size, 0) == 0) {
+        if ((handle->read(packed, packed_size).bytes == static_cast<std::size_t>(packed_size)) == 0) {
             operator delete(packed);
             return 0;
         }
@@ -150,7 +151,7 @@ unsigned char BitArray::Load(int handle)
             operator delete(decoded);
             operator delete(packed);
             magic = 0;
-            if (FileRead(handle, &magic, 4, 0) == 0 || magic != 0xdeadd00d) {
+            if ((handle->read(&magic, 4).bytes == static_cast<std::size_t>(4)) == 0 || magic != 0xdeadd00d) {
                 return 0;
             }
         }
@@ -164,13 +165,14 @@ unsigned char BitArray::Load(int handle)
     }
     return 1;
 }
+catch (const std::exception&) { return false; }
 
 /* Packed Huffman payload used by the octree alpha-bit and prop-sun-bit
    arrays. Sampler is destroyed as its srArray and srHashTable members
    rather than the imported ~Sampler; codes are looked up through the
    Compressor hash prefix and written with BitOStream::put. */
 // FUNCTION: WIZ8 0x0043b0e0
-unsigned char BitArray::Save(int handle)
+unsigned char BitArray::Save(wiz8::File* handle)
 {
     unsigned int magic;
     w8_ulong packed_size;
@@ -183,10 +185,10 @@ unsigned char BitArray::Save(int handle)
         return 0;
     }
 
-    if (FileWrite(handle, &magic, 4, 0) == 0) {
+    if ((handle->write(&magic, 4), true) == 0) {
         return 0;
     }
-    if (FileWrite(handle, &bit_count, 4, 0) == 0) {
+    if ((handle->write(&bit_count, 4), true) == 0) {
         return 0;
     }
 
@@ -222,13 +224,13 @@ unsigned char BitArray::Save(int handle)
     }
 
     packed_size = stream.getSize();
-    if (FileWrite(handle, &packed_size, 4, 0) == 0) {
+    if ((handle->write(&packed_size, 4), true) == 0) {
         return 0;
     }
-    if (FileWrite(handle, stream.getPtr(), packed_size, 0) == 0) {
+    if ((handle->write(stream.getPtr(), packed_size), true) == 0) {
         return 0;
     }
-    if (FileWrite(handle, &magic, 4, 0) == 0) {
+    if ((handle->write(&magic, 4), true) == 0) {
         return 0;
     }
     return 1;

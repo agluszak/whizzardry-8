@@ -43,9 +43,9 @@ void LoadGameConfiguration(void)
                     loaded = true;
                 }
             } else if (id == 0x4d59454b) {
-                g_mgs_keyboard->Load(file.m_hFile, false);
+                g_mgs_keyboard->Load(file.m_hFile.get(), false);
             } else if (id == 0x59544c51) {
-                LoadRenderOptions(file.m_hFile);
+                LoadRenderOptions(file.m_hFile.get());
             }
             file.SkipCurrentChunk();
             file.ReleaseCurrentChunk();
@@ -77,6 +77,7 @@ void LoadGameConfiguration(void)
 
 // FUNCTION: WIZ8 0x0054b6d0
 bool SaveGameConfiguration(void)
+try
 {
     W8Chunk file;
     char path[60];
@@ -89,11 +90,12 @@ bool SaveGameConfiguration(void)
     file.Write(&g_settings, sizeof(g_settings), 0);
     file.ReleaseCurrentChunk();
     file.OpenChunk(0x59544c51, 0);
-    SaveRenderOptions(file.m_hFile);
+    SaveRenderOptions(file.m_hFile.get());
     file.ReleaseCurrentChunk();
     file.OpenChunk(0x4d59454b, 0);
-    g_mgs_keyboard->Save(file.m_hFile);
+    g_mgs_keyboard->Save(file.m_hFile.get());
     file.ReleaseCurrentChunk();
     file.Close();
     return true;
 }
+catch (const std::exception&) { return false; }

@@ -1,6 +1,6 @@
 #include "wiz8/mouth_gap.h"
 
-#include "FileMan.h"
+#include "wiz8/filesystem.h"
 #include "soundman.h"
 
 #include <stdio.h>
@@ -24,8 +24,7 @@ void LoadMouthGapTrack(char* path, W8MouthGapTrack* track)
     char* extension;
     unsigned int start;
     unsigned int end;
-    unsigned int bytes_read;
-    HWFILE file;
+    std::unique_ptr<wiz8::File> file;
     W8MouthGapRange* previous = 0;
     W8MouthGapRange* range;
 
@@ -49,11 +48,11 @@ void LoadMouthGapTrack(char* path, W8MouthGapTrack* track)
     extension[3] = 'p';
     extension[4] = '\0';
 
-    file = FileOpen(gap_path, FILE_ACCESS_READ, FALSE);
+    file = [&]() { try { return wiz8::open_file(gap_path, wiz8::OpenMode::read); } catch (const std::exception&) { return std::unique_ptr<wiz8::File>{}; } }();
     if (file != 0) {
-        FileRead(file, &start, 4, &bytes_read);
-        while (FileCheckEndOfFile(file) == 0) {
-            FileRead(file, &end, 4, &bytes_read);
+        while (file->size() - file->tell() >= 8) {
+            file->read_exact(&start, 4);
+            file->read_exact(&end, 4);
             range = (W8MouthGapRange*)malloc(sizeof(W8MouthGapRange));
             if (previous != 0) {
                 previous->next = range;
@@ -65,11 +64,10 @@ void LoadMouthGapTrack(char* path, W8MouthGapTrack* track)
             range->start_ms = start;
             range->end_ms = end;
             previous = range;
-            FileRead(file, &start, 4, &bytes_read);
         }
         track->mouth_open = 0;
         track->unused = 0;
-        FileClose(file);
+        file.reset();
     }
 }
 

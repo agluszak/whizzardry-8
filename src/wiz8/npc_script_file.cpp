@@ -1,7 +1,7 @@
 #include "wiz8/npc_script_file.h"
 #include "wiz8/virtual_file.h"
 #include "wiz8/layouts/gameplay_databases.h"
-#include "FileMan.h"
+#include "wiz8/filesystem.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -44,7 +44,8 @@ void ReleaseNpcScriptFile(W8NpcScriptFile* file)
 }
 
 // FUNCTION: WIZ8 0x0055a140
-unsigned char ReadNpcScriptQuote(int handle, W8NpcScriptQuote* record)
+unsigned char ReadNpcScriptQuote(wiz8::File* handle, W8NpcScriptQuote* record)
+try
 {
     W8NpcQuoteEntry* entry;
     W8NpcQuoteSubEntry* sub_entry;
@@ -58,7 +59,7 @@ unsigned char ReadNpcScriptQuote(int handle, W8NpcScriptQuote* record)
     int sub_index;
     wchar_t wide[2000];
 
-    FileRead(handle, record, sizeof(*record), &transferred);
+    ((transferred = handle->read(record, sizeof(*record)).bytes) == static_cast<std::size_t>(sizeof(*record)));
     if (transferred != sizeof(*record)) {
         return 0;
     }
@@ -67,10 +68,10 @@ unsigned char ReadNpcScriptQuote(int handle, W8NpcScriptQuote* record)
     record->subquotes = 0;
     record->entries = 0;
     if (has_subquotes) {
-        FileRead(handle, record, 1, &transferred);
+        ((transferred = handle->read(record, 1).bytes) == static_cast<std::size_t>(1));
         record->subquotes = static_cast<char**>(malloc(record->subquote_count * sizeof(char*)));
         for (index = 0; index < record->subquote_count; ++index) {
-            FileRead(handle, &length, 2, &transferred);
+            ((transferred = handle->read(&length, 2).bytes) == static_cast<std::size_t>(2));
             record->subquotes[index] = 0;
             if (transferred != 2) {
                 return 0;
@@ -80,7 +81,7 @@ unsigned char ReadNpcScriptQuote(int handle, W8NpcScriptQuote* record)
                 if (record->subquotes[index] == 0) {
                     return 0;
                 }
-                FileRead(handle, wide, length * 2, &transferred);
+                ((transferred = handle->read(wide, length * 2).bytes) == static_cast<std::size_t>(length * 2));
                 wide[length] = 0;
                 wcstombs(record->subquotes[index], wide, length + 1);
             }
@@ -101,7 +102,7 @@ unsigned char ReadNpcScriptQuote(int handle, W8NpcScriptQuote* record)
 
     for (index = 0; index < record->entry_count; ++index) {
         entry = &record->entries[index];
-        FileRead(handle, entry, sizeof(*entry), &transferred);
+        ((transferred = handle->read(entry, sizeof(*entry)).bytes) == static_cast<std::size_t>(sizeof(*entry)));
         if (transferred != sizeof(*entry)) {
             return 0;
         }
@@ -117,14 +118,14 @@ unsigned char ReadNpcScriptQuote(int handle, W8NpcScriptQuote* record)
             memset(entry->sub_entries, 0, disk_sub_count * sizeof(*entry->sub_entries));
             for (sub_index = 0; sub_index < entry->sub_entry_count; ++sub_index) {
                 sub_entry = entry->sub_entries + sub_index;
-                FileRead(handle, sub_entry, 8, &transferred);
+                ((transferred = handle->read(sub_entry, 8).bytes) == static_cast<std::size_t>(8));
                 if (transferred != 8) {
                     return 0;
                 }
                 const bool has_text = W8SerializedPointerPresent(sub_entry->text);
                 sub_entry->text = 0;
                 if (has_text) {
-                    FileRead(handle, &length, 2, &transferred);
+                    ((transferred = handle->read(&length, 2).bytes) == static_cast<std::size_t>(2));
                     if (transferred != 2) {
                         return 0;
                     }
@@ -133,7 +134,7 @@ unsigned char ReadNpcScriptQuote(int handle, W8NpcScriptQuote* record)
                     if (text == 0) {
                         return 0;
                     }
-                    FileRead(handle, text, length, &transferred);
+                    ((transferred = handle->read(text, length).bytes) == static_cast<std::size_t>(length));
                     if (transferred != length) {
                         return 0;
                     }
@@ -144,6 +145,7 @@ unsigned char ReadNpcScriptQuote(int handle, W8NpcScriptQuote* record)
     }
     return 1;
 }
+catch (const std::exception&) { return false; }
 
 /* Load the whole file: the fixed header, the optional length-prefixed name, then
    one 0x0c-byte record per header count. Every failure returns without releasing
@@ -152,7 +154,7 @@ unsigned char ReadNpcScriptQuote(int handle, W8NpcScriptQuote* record)
 // FUNCTION: WIZ8 0x0055a480
 W8NpcScriptFile* LoadNpcScriptFile(char* path)
 {
-    int handle;
+    std::unique_ptr<wiz8::File> handle;
     W8NpcScriptFile* file;
     char* name;
     W8NpcScriptQuote* quotes;
@@ -160,7 +162,7 @@ W8NpcScriptFile* LoadNpcScriptFile(char* path)
     unsigned short length;
     int index;
 
-    handle = FileOpen(path, 0x41, 0);
+    handle = [&]() { try { return wiz8::open_file(path, wiz8::OpenMode::read); } catch (const std::exception&) { return std::unique_ptr<wiz8::File>{}; } }();
     if (handle == 0) {
         return 0;
     }
@@ -168,7 +170,7 @@ W8NpcScriptFile* LoadNpcScriptFile(char* path)
     if (file == 0) {
         return 0;
     }
-    FileRead(handle, file, sizeof(*file), &transferred);
+    ((transferred = handle->read(file, sizeof(*file)).bytes) == static_cast<std::size_t>(sizeof(*file)));
     if (transferred != sizeof(*file)) {
         return 0;
     }
@@ -176,7 +178,7 @@ W8NpcScriptFile* LoadNpcScriptFile(char* path)
     file->name = 0;
     file->quotes = 0;
     if (has_name) {
-        FileRead(handle, &length, 2, &transferred);
+        ((transferred = handle->read(&length, 2).bytes) == static_cast<std::size_t>(2));
         if (transferred != 2) {
             return 0;
         }
@@ -186,7 +188,7 @@ W8NpcScriptFile* LoadNpcScriptFile(char* path)
             if (name == 0) {
                 return 0;
             }
-            FileRead(handle, name, length, &transferred);
+            ((transferred = handle->read(name, length).bytes) == static_cast<std::size_t>(length));
             if (transferred != length) {
                 return 0;
             }
@@ -199,10 +201,11 @@ W8NpcScriptFile* LoadNpcScriptFile(char* path)
         return 0;
     }
     for (index = 0; index < file->quote_count; ++index) {
-        if (!ReadNpcScriptQuote(handle, &file->quotes[index])) {
+        if (!ReadNpcScriptQuote(handle.get(), &file->quotes[index])) {
             return 0;
         }
     }
-    FileClose(handle);
+    if (handle) handle->close();
+    handle.reset();
     return file;
 }
