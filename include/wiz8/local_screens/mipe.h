@@ -28,15 +28,15 @@ struct W8MipeMonsterEntry {
 
 /* One row of mipeEdit.cpp's prop field editor: a label index into the
    g_mipe_prop_labels table plus the live value slots.  type 1 edits
-   float_value, types 2/4/5 edit value as int/bool, 6 edits the heap text
-   buffer and 7 picks one of option_count names starting at option_base in the
+   float_value, types 2/4/5 edit value as int/bool, 6 edits owned UTF-8 text
+   and 7 picks one of option_count names starting at option_base in the
    g_mipe_key_names table. */
 struct W8MipeEditField {
     char type;
     int label_index;
     signed char option_count;
     signed char option_base;
-    char* text;
+    std::string text;
     float float_value;
     int value;
 };
