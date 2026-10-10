@@ -60,13 +60,17 @@ set(SURRENDER_SOURCES
 add_library(SURRENDER SHARED ${SURRENDER_SOURCES})
 target_compile_definitions(SURRENDER PRIVATE SURRENDER_BUILD)
 target_link_libraries(SURRENDER PRIVATE wiz8_native_settings SDL3::SDL3)
-if(NOT APPLE)
+if(UNIX AND NOT APPLE)
     target_link_options(SURRENDER PRIVATE -Wl,--no-undefined)
 endif()
 set_target_properties(SURRENDER PROPERTIES OUTPUT_NAME sr)
 
 # SDL3 GPU device: GLSL compiled to SPIR-V headers at build time.
-find_program(GLSLANG_VALIDATOR glslangValidator REQUIRED)
+find_program(GLSLANG_VALIDATOR NAMES glslangValidator glslangValidator.exe
+    HINTS "${VCPKG_INSTALLED_DIR}/${VCPKG_HOST_TRIPLET}/tools/glslang"
+          "${_VCPKG_INSTALLED_DIR}/${VCPKG_HOST_TRIPLET}/tools/glslang"
+          "${CMAKE_BINARY_DIR}/vcpkg_installed/${VCPKG_HOST_TRIPLET}/tools/glslang"
+    REQUIRED)
 set(SDL_GPU_DEVICE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/devices/sdl_gpu")
 set(SDL_GPU_SHADER_DIR "${CMAKE_CURRENT_BINARY_DIR}/sdl_gpu_shaders")
 set(SDL_GPU_SHADER_HEADERS)

@@ -213,12 +213,14 @@ add_library(WIZ8_GAME_CORE STATIC
     ../native/movie.cpp
     ../native/bink_video.cpp
 )
-find_package(PkgConfig REQUIRED)
-pkg_check_modules(FFMPEG REQUIRED IMPORTED_TARGET
-    libavformat>=59.27 libavcodec>=59.37 libavutil>=57.28
-    libswscale>=6.7 libswresample>=4.7)
-target_link_libraries(WIZ8_GAME_CORE PRIVATE PkgConfig::FFMPEG)
+target_include_directories(WIZ8_GAME_CORE PRIVATE ${FFMPEG_INCLUDE_DIRS})
+target_link_directories(WIZ8_GAME_CORE PRIVATE ${FFMPEG_LIBRARY_DIRS})
+target_link_libraries(WIZ8_GAME_CORE PRIVATE ${FFMPEG_LIBRARIES})
 target_link_libraries(WIZ8_GAME_CORE PUBLIC wiz8_native_settings WIZ8_SGP SURRENDER)
 
 # Keep focused integration tests able to discard unused recovered game functions.
-target_compile_options(WIZ8_GAME_CORE PRIVATE -ffunction-sections -fdata-sections)
+if(CMAKE_CXX_COMPILER_FRONTEND_VARIANT STREQUAL "MSVC")
+    target_compile_options(WIZ8_GAME_CORE PRIVATE /Gy /Gw)
+else()
+    target_compile_options(WIZ8_GAME_CORE PRIVATE -ffunction-sections -fdata-sections)
+endif()

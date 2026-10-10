@@ -1,3 +1,13 @@
+foreach(directory IN LISTS OBJECT_DIRS)
+    file(GLOB_RECURSE objects "${directory}/*.o")
+    if(NOT objects)
+        message(FATAL_ERROR "No first-party objects found in ${directory}")
+    endif()
+    list(APPEND BINARIES ${objects})
+endforeach()
+if(NOT BINARIES)
+    message(FATAL_ERROR "No objects supplied to the wide-string check")
+endif()
 execute_process(COMMAND "${NM}" -P -u ${BINARIES}
     RESULT_VARIABLE result OUTPUT_VARIABLE symbols ERROR_VARIABLE error)
 if(NOT result EQUAL 0)

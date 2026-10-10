@@ -10,3 +10,7 @@ __pycache__/
 *.map
 *.log
 .DS_Store
+
+# Per-preset dependency installation and generated builds.
+/build/
+/vcpkg_installed/

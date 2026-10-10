@@ -40,6 +40,10 @@ target_include_directories(WIZ8_SGP PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
 target_link_libraries(WIZ8_SGP PUBLIC wiz8_native_settings ZLIB::ZLIB)
 
 # Allow focused integration executables to discard unused game functions.
-target_compile_options(WIZ8_SGP PRIVATE -ffunction-sections -fdata-sections)
+if(CMAKE_CXX_COMPILER_FRONTEND_VARIANT STREQUAL "MSVC")
+    target_compile_options(WIZ8_SGP PRIVATE /Gy /Gw)
+else()
+    target_compile_options(WIZ8_SGP PRIVATE -ffunction-sections -fdata-sections)
+endif()
 
 target_link_libraries(WIZ8_SGP PRIVATE miniaudio)

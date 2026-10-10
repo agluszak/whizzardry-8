@@ -34,7 +34,7 @@ add_executable(native_save_records_test "${PROJECT_SOURCE_DIR}/tests/native/save
 target_link_libraries(native_save_records_test PRIVATE WIZ8_GAME_CORE WIZ8_SGP WIZ8_GAME_CORE SDL3::SDL3)
 if(APPLE)
     target_link_options(native_save_records_test PRIVATE -Wl,-dead_strip)
-else()
+elseif(UNIX)
     target_link_options(native_save_records_test PRIVATE -Wl,--gc-sections -Wl,-z,start-stop-gc)
 endif()
 add_test(NAME native_save_records COMMAND native_save_records_test)
@@ -50,12 +50,13 @@ target_link_libraries(native_blitter_test PRIVATE WIZ8_SGP)
 add_test(NAME native_blitters COMMAND native_blitter_test
     "${PROJECT_SOURCE_DIR}/tests/native/blitters_expected.txt")
 
-# These first-party modules use two-byte wchar_t. The game also links host-width
-# miniaudio, so its host wide-string imports are not a failure of this check.
-add_test(NAME native_no_glibc_wide_strings
-    COMMAND "${CMAKE_COMMAND}" "-DNM=${CMAKE_NM}"
-        "-DBINARIES=$<TARGET_FILE:wiz8_compat>;$<TARGET_FILE:SURRENDER>;$<TARGET_FILE:native_crt_test>"
-        -P "${CMAKE_CURRENT_SOURCE_DIR}/no_host_wide_strings.cmake")
+# Check first-party objects, not SDL/miniaudio's statically linked host-width code.
+if(UNIX)
+    add_test(NAME native_no_glibc_wide_strings
+        COMMAND "${CMAKE_COMMAND}" "-DNM=${CMAKE_NM}"
+            "-DOBJECT_DIRS=${PROJECT_BINARY_DIR}/CMakeFiles/wiz8_compat.dir;${PROJECT_BINARY_DIR}/src/surrender/CMakeFiles/SURRENDER.dir;${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/native_crt_test.dir"
+            -P "${CMAKE_CURRENT_SOURCE_DIR}/no_host_wide_strings.cmake")
+endif()
 
 add_executable(native_game_graphics "${PROJECT_SOURCE_DIR}/tests/native/game_graphics.cpp")
 target_compile_definitions(native_game_graphics PRIVATE
@@ -64,7 +65,7 @@ target_compile_definitions(native_game_graphics PRIVATE
 target_link_libraries(native_game_graphics PRIVATE WIZ8_GAME_CORE WIZ8_SGP WIZ8_GAME_CORE SDL3::SDL3)
 if(APPLE)
     target_link_options(native_game_graphics PRIVATE -Wl,-dead_strip)
-else()
+elseif(UNIX)
     # Discard unused ASan global-registration sections alongside unused game
     # functions in this focused graphics harness.
     target_link_options(native_game_graphics PRIVATE -Wl,--gc-sections -Wl,-z,start-stop-gc)
@@ -88,7 +89,7 @@ target_compile_definitions(native_movie_test PRIVATE
 target_link_libraries(native_movie_test PRIVATE WIZ8_GAME_CORE WIZ8_SGP WIZ8_GAME_CORE SDL3::SDL3)
 if(APPLE)
     target_link_options(native_movie_test PRIVATE -Wl,-dead_strip)
-else()
+elseif(UNIX)
     target_link_options(native_movie_test PRIVATE -Wl,--gc-sections -Wl,-z,start-stop-gc)
 endif()
 add_test(NAME native_movies COMMAND native_movie_test)
