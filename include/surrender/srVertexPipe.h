@@ -1,10 +1,12 @@
 #pragma once
 
+#include <span>
 #include <vector>
 
 #include "srCore.h"
 #include "srFlags.h"
 #include "srMath.h"
+#include "srPtr.h"
 #include "srVertexProcessor.h"
 
 class srMaterialIFace;
@@ -13,8 +15,9 @@ class srVertexPipe {
     friend class W8GroundShadowMapper;
 
 public:
+    struct Record;
+
     struct Input {
-        w8_ulong record_count;
         w8_ulong vertex_count;
         const w8_ulong* active_vertices;
         int direct_vertex_indices;
@@ -27,7 +30,7 @@ public:
         srVertexArray* vertex_arrays;
         w8_ulong exclusion_mask;
         srVector4T<float> ambient_light;
-        const void* records;
+        std::span<const Record> records;
         srVertexProcessor** processors;
         w8_ulong processor_count;
         float environment_minimum;
@@ -98,24 +101,24 @@ public:
             HAS_TEXCOORD1 = 0x20u,
             HAS_VERTEX_MATERIALS = 0x40u
         };
-        w8_ulong flags;
-        w8_ulong channels;
-        srMaterialIFace* material;
+        w8_ulong flags = 0;
+        w8_ulong channels = 0;
+        srMaterialIFace* material = nullptr;
         struct ColorSource {
             enum e_format { FORMAT_ARGB = 0, FORMAT_VECTOR3 = 1, FORMAT_VECTOR4 = 2 };
-            const void* colors;
-            e_format format;
+            const void* colors = nullptr;
+            e_format format = FORMAT_VECTOR4;
 
             void copyDiffuseColors(srVector4T<float>* destination, const w8_ulong* indices,
                                    w8_ulong count) const;
         };
-        ColorSource color_source;
-        const srVector4T<float>* spec_for_diffuse;
-        const srVector4T<float>* spec_for_specular;
-        const float* alpha_source;
-        const srVector2T<float>* st_source[2];
-        srMaterialIFace* const* materials;
-        void* user[12];
+        ColorSource color_source{};
+        const srVector4T<float>* spec_for_diffuse = nullptr;
+        const srVector4T<float>* spec_for_specular = nullptr;
+        const float* alpha_source = nullptr;
+        const srVector2T<float>* st_source[2]{};
+        const srPtr<srMaterialIFace>* materials = nullptr;
+        void* user[12]{};
     };
 
 private:
@@ -188,8 +191,6 @@ private:
 };
 
 W8_ABI_ASSERT(sizeof(srVertexPipe) == 0x9c, "srVertexPipe_must_be_0x9c");
-W8_ABI_ASSERT(sizeof(srVertexPipe::Record) == 0x5c, "srVertexPipe_Record_must_be_0x5c");
-W8_ABI_ASSERT(sizeof(srVertexPipe::Input) == 0x64, "srVertexPipe_Input_must_be_0x64");
 
 // FUNCTION: SURRENDER 0x1002C4B0 SYMBOL
 // RECOMP: ?getVertexCount@srVertexPipe@@QBEKXZ

@@ -978,12 +978,13 @@ void stParticle::SubmitToRenderer(srGERD* renderer)
     pipeline->current_pass->texture_tables[1] = 0;
 
     if (colors != 0) {
-        pipeline->current_record->colors = colors;
-        pipeline->current_record->color_format = srVertexPipe::Record::ColorSource::FORMAT_VECTOR3;
+        pipeline->current_record->color_source.colors = colors;
+        pipeline->current_record->color_source.format =
+            srVertexPipe::Record::ColorSource::FORMAT_VECTOR3;
         pipeline->current_record->flags |= srVertexPipe::Record::HAS_COLORS;
     }
     if (alphas != 0) {
-        pipeline->current_record->alphas = alphas;
+        pipeline->current_record->alpha_source = alphas;
         pipeline->current_record->flags |= srVertexPipe::Record::HAS_ALPHA;
     }
 
@@ -995,7 +996,7 @@ void stParticle::SubmitToRenderer(srGERD* renderer)
     pipeline->SetFlags(render_flags);
 
     if (texcoords != 0) {
-        pipeline->current_record->st0 = texcoords;
+        pipeline->current_record->st_source[0] = texcoords;
         pipeline->current_record->flags |= srVertexPipe::Record::HAS_TEXCOORD0;
     }
 

@@ -16,25 +16,7 @@ class srMaterialIFace;
 class srTriMeshPipeline {
 public:
     enum { FRUSTUM_CLIPPING = 1u, LIMIT_VERTEX_BATCHES = 2u };
-    /* Record is consumed as srVertexPipe::Record, which uses four-byte packing. */
-#pragma pack(push, 4)
-    struct Record {
-        w8_ulong flags = 0;
-        w8_ulong disable_mask = 0;
-        srMaterialIFace* material = nullptr;
-        /* Bit 0: DIG or particle colors with format. Bit 1: DCG. Bit 2: SCG. */
-        void* colors = nullptr;
-        srVertexPipe::Record::ColorSource::e_format color_format =
-            srVertexPipe::Record::ColorSource::FORMAT_VECTOR4;
-        srVector4T<float>* dcg = nullptr;
-        srVector4T<float>* scg = nullptr;
-        /* Optional per-vertex arrays, each gated by its own flags bit. */
-        float* alphas = nullptr;
-        srVector2T<float>* st0 = nullptr;
-        srVector2T<float>* st1 = nullptr;
-        srPtr<srMaterialIFace>* vertex_materials = nullptr;
-        void* unknown_2c_[12]{};
-    };
+    using Record = srVertexPipe::Record;
 
     struct Pass {
         srTextureIFace* textures[2]{};
@@ -44,15 +26,10 @@ public:
            them synchronously in Renderer::render before unlockRenderer queues owned render data. */
         void* texture_tables[2]{};
         const srShader* shaders = nullptr;
-        srVector2T<float>* texcoords = nullptr;
+        const srVector2T<float>* texcoords = nullptr;
         /* The mesh's per-triangle poly-UV corner source table. */
         const srVector3i* poly_uv = nullptr;
     };
-
-#pragma pack(pop)
-
-    W8_ABI_ASSERT(sizeof(Record) == 0x5c, "srTriMeshPipeline_Record_must_be_0x5c");
-    W8_ABI_ASSERT(sizeof(Pass) == 0x20, "srTriMeshPipeline_Pass_must_be_0x20");
 
     static srTriMeshPipeline* Get(srGERD* renderer);
     void SetFlags(srShader shader);

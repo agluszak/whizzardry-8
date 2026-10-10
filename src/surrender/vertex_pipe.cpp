@@ -208,8 +208,8 @@ void srVertexPipe::process(const Input& input)
                 this->input->positions + batch_base, *this->input->model_view);
         }
         w8_ulong record_index;
-        for (record_index = 0; record_index < input.record_count; ++record_index) {
-            const Record* record = static_cast<const Record*>(input.records) + record_index;
+        for (record_index = 0; record_index < input.records.size(); ++record_index) {
+            const Record* record = &input.records[record_index];
             current_record = record;
             vertex_array = input.vertex_arrays + record_index;
             if ((record->flags & Record::HAS_VERTEX_MATERIALS) == 0) {
@@ -218,22 +218,21 @@ void srVertexPipe::process(const Input& input)
                 setMaterial(record->material);
                 processVertexBuffer();
             } else {
-                srMaterialIFace* material = record->materials[avt[0]];
+                srMaterialIFace* material = record->materials[avt[0]].get();
                 setMaterial(material);
                 sub_batch_offset = 0;
                 while (sub_batch_offset < batch_count) {
-                    srMaterialIFace* next = record->materials[avt[sub_batch_offset]];
+                    srMaterialIFace* next = record->materials[avt[sub_batch_offset]].get();
                     if (next != material) {
                         setMaterial(next);
                         material = next;
                     }
-                    /* Retail reuses the dword scan on the pointer table; 64-bit
-                       pointers need a pointer comparison. */
                     {
                         const w8_ulong* indices = avt + 1 + sub_batch_offset;
                         const w8_ulong index_count = batch_count - sub_batch_offset - 1;
                         w8_ulong same = 0;
-                        while (same < index_count && record->materials[indices[same]] == material) {
+                        while (same < index_count &&
+                               record->materials[indices[same]].get() == material) {
                             ++same;
                         }
                         this->vertex_count = same + 1;
@@ -243,7 +242,7 @@ void srVertexPipe::process(const Input& input)
                 }
             }
         }
-        for (record_index = 1; record_index < input.record_count; ++record_index) {
+        for (record_index = 1; record_index < input.records.size(); ++record_index) {
             srVector4T<float>* destination =
                 input.vertex_arrays[record_index].eye_locations + batch_base;
             srVector4T<float>* source = eye_space_locations + batch_base;
