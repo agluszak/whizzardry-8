@@ -52,6 +52,8 @@ set(SURRENDER_SOURCES
     triangulator.cpp
     type_registry.cpp
     video_manager.cpp
+    ../srext_jpegimporter/plugin.cpp
+    ../srext_jpegimporter/surface_transfer.cpp
     window.cpp
     window_out.cpp
     vector_processor.cpp

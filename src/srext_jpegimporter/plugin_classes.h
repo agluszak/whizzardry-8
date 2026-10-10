@@ -27,3 +27,12 @@ public:
 private:
     srJPEGImporter jpeg_importer_;
 };
+
+class srTGAImporter : public srSurfaceIOManager::SurfaceImporter {
+public:
+    srTGAImporter();
+    ~srTGAImporter() override;
+    const char* getTypeName() const override;
+    srColorSurfaceIFace* importSurface(srBinIStream& stream,
+                                       const srSurfaceIOManager::ImportInfo& options) override;
+};

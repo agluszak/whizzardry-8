@@ -17,9 +17,6 @@ do not need the original compiler layout.
 - Modernize remaining SurRender/SGP allocator, string, array and threading
   abstractions; remove unused layout assertions, packing and ABI annotations
   once runtime and serialized records are separate.
-- Make JPEG import an explicit native codec boundary. Its retained plug-in
-  source is not currently linked into the game; `native_jpeg_transfer` exercises
-  pixel transfer with controlled decoded rows, not codec loading.
 
 The CTest fixtures remain independent of installed assets. The separate
 graphics/world harnesses still require a display, a usable GPU driver and

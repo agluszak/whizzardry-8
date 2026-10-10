@@ -1,5 +1,6 @@
 // Round-trips data through system zlib and SGP's streaming decompressor.
 #include "Compression.h"
+#include "himage.h"
 
 #include <stdio.h>
 #include <string.h>
@@ -43,6 +44,23 @@ int main()
     if (total != original.size() || memcmp(unpacked.data(), original.data(), total) != 0) {
         fprintf(stderr, "round trip mismatch: %u of %zu bytes\n", total, original.size());
         return 1;
+    }
+    image_type image{};
+    image.usWidth = 500;
+    image.usHeight = 200;
+    image.pCompressedImageData = packed.data();
+    UINT16 palette[256]{};
+    image.pui16BPPPalette = palette;
+    unsigned char destination8[200]{};
+    UINT16 destination16[200]{};
+    SGPRect rectangle{3, 2, 13, 7};
+    for (unsigned repeat = 0; repeat < 3; ++repeat) {
+        if (!Copy8BPPCompressedImageTo8BPPBuffer(&image, destination8, 20, 10, 1, 1, &rectangle) ||
+            !Copy8BPPCompressedImageTo16BPPBuffer(&image, reinterpret_cast<BYTE*>(destination16),
+                                                20, 10, 1, 1, &rectangle)) {
+            fputs("compressed blitter cleanup failed\n", stderr);
+            return 1;
+        }
     }
     printf("ok: %u bytes via zlib %s\n", total, zlibVersion());
     return 0;

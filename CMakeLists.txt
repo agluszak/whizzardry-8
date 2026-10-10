@@ -45,14 +45,6 @@ endif()
 find_package(ZLIB MODULE REQUIRED)
 find_package(FFMPEG REQUIRED)
 
-find_path(MINIAUDIO_INCLUDE_DIR miniaudio.h REQUIRED)
-add_library(miniaudio STATIC src/sgp/native/miniaudio.c)
-target_include_directories(miniaudio SYSTEM PUBLIC "${MINIAUDIO_INCLUDE_DIR}")
-target_link_libraries(miniaudio PRIVATE Threads::Threads ${CMAKE_DL_LIBS})
-if(UNIX AND NOT APPLE)
-    target_link_libraries(miniaudio PRIVATE m)
-endif()
-
 # Settings shared by every native component.
 add_library(wiz8_native_settings INTERFACE)
 target_compile_definitions(wiz8_native_settings INTERFACE NDEBUG)

@@ -33,8 +33,9 @@ w8_ulong srHuffman::BitIStream::getDWord(w8_long position)
         fetchCache(position);
         offset = 0;
     }
-    /* reinterpret-ok: the byte cache is read as an unaligned dword. */
-    return *reinterpret_cast<w8_ulong*>(cache + offset);
+    w8_ulong value;
+    memcpy(&value, cache + offset, sizeof(value));
+    return value;
 }
 
 // FUNCTION: SURRENDER 0x10001340

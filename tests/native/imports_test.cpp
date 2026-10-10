@@ -43,6 +43,7 @@ static void assertion(const char* expression, const char* path, w8_long line, co
 static int destroyed_nodes = 0;
 struct ClientNode : srNode
 {
+    bool transformDirty() const { return testNotify(NOTIFY_TRANSFORM_DIRTY) != 0; }
     ~ClientNode() override
     {
         ++destroyed_nodes;
@@ -141,6 +142,27 @@ int main()
         CHECK(scene->getChildCount() == 1);
         delete scene;
         CHECK(destroyed_nodes == before_destruction + 1);
+
+        auto parent_node = new ClientNode;
+        auto transformed_child = new ClientNode;
+        transformed_child->setParent(parent_node, 0);
+        CHECK(transformed_child->getWorldSpaceLocation().x == 0);
+        CHECK(!parent_node->transformDirty() && !transformed_child->transformDirty());
+        parent_node->setLocation(10, 0, 0);
+        CHECK(parent_node->transformDirty() && transformed_child->transformDirty());
+        CHECK(transformed_child->getWorldSpaceLocation().x == 10);
+        CHECK(!parent_node->transformDirty() && !transformed_child->transformDirty());
+        transformed_child->setLocation(3, 0, 0);
+        CHECK(transformed_child->getWorldSpaceLocation().x == 13);
+        auto other_parent = new ClientNode;
+        other_parent->setLocation(20, 0, 0);
+        transformed_child->setParent(other_parent, 1);
+        CHECK(transformed_child->getWorldSpaceLocation().x == 13);
+        other_parent->setLocation(30, 0, 0);
+        CHECK(transformed_child->transformDirty());
+        CHECK(transformed_child->getWorldSpaceLocation().x == 23);
+        delete parent_node;
+        delete other_parent;
 
         struct alignas(16) PackedVectors
         {

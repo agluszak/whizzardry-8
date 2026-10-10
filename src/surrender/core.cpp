@@ -2,6 +2,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <memory>
+#include "../srext_jpegimporter/plugin_classes.h"
 
 #include "surrender/srCore.h"
 #include "surrender/srStreamFlags.h"
@@ -29,6 +31,11 @@
 #include "surrender/srTypeRegistry.h"
 #include "surrender/srVectorProcessor.h"
 #include "surrender/srVideoManager.h"
+
+namespace {
+std::unique_ptr<srJPEGImporter> jpeg_importer;
+std::unique_ptr<srTGAImporter> tga_importer;
+}
 
 // FUNCTION: SURRENDER 0x10014FE0
 void __cdecl _srLibraryInit(void)
@@ -92,6 +99,8 @@ int __cdecl srInit()
         srCore.material->setName("SurRender default material");
         srDebugPrintf(0xfe, "srInit() -- initializing IO managers\n");
         srCore.surface_io_manager = new srSurfaceIOManager;
+        jpeg_importer = std::make_unique<srJPEGImporter>();
+        tga_importer = std::make_unique<srTGAImporter>();
         srCore.model_io_manager = new srModelIOManager;
         srCore.hierarchy_io_manager = new srHierarchyIOManager;
         srCore.video_manager = new srVideoManager;
@@ -182,6 +191,8 @@ int __cdecl srExit()
         delete srCore.registry_;
         srCore.registry_ = 0;
         srExtension::releaseAll();
+        tga_importer.reset();
+        jpeg_importer.reset();
         srCore.initialized = 0;
         delete srCore.default_file_manager;
         srCore.default_file_manager = 0;

@@ -1,6 +1,5 @@
 #include "surrender/srBinIStream.h"
 #include "surrender/srCore.h"
-#include "surrender/srExtension.h"
 #include "surrender/srIStreamOpener.h"
 #include "surrender/srString.h"
 #include "wiz8/virtual_file.h"
@@ -110,8 +109,7 @@ W8VirtualFileStreamOpener g_virtual_file_stream_opener;
 // FUNCTION: WIZ8 0x0047d5f0
 void InitializeVirtualFileImageImporters(void)
 {
-    srExtension::load("JPEGImporter", NULL);
-    srExtension::load("TargaImporter", NULL);
     srCore.getIStreamOpener()->addStreamType(&g_virtual_file_stream_opener, "jpg");
+    srCore.getIStreamOpener()->addStreamType(&g_virtual_file_stream_opener, "jpeg");
     srCore.getIStreamOpener()->addStreamType(&g_virtual_file_stream_opener, "tga");
 }

@@ -1,6 +1,6 @@
 #pragma once
 
-#include "../../srext_jpegimporter/sdl_stream.h"
+#include "sdl_stream.h"
 #include "surrender/srCore.h"
 #include "surrender/srColorSurface.h"
 #include <SDL3_image/SDL_image.h>

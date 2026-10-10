@@ -487,12 +487,15 @@ BOOLEAN Copy8BPPCompressedImageTo8BPPBuffer(HIMAGE hImage, BYTE* pDestBuf, UINT1
     // to blit has been done).
 
     // initialize the decompression routines
-    pDecompPtr =
-        DecompressInit((BYTE*)hImage->pCompressedImageData, hImage->usWidth * hImage->usHeight);
+    std::unique_ptr<void, decltype(&DecompressFini)> decompressor(
+        DecompressInit((BYTE*)hImage->pCompressedImageData, hImage->usWidth * hImage->usHeight),
+        DecompressFini);
+    pDecompPtr = decompressor.get();
     CHECKF(pDecompPtr);
 
     // Allocate memory for one scanline
-    pScanLine = (UINT8*)MemAlloc(hImage->usWidth);
+    ImageMemory<UINT8> scanline(static_cast<UINT8*>(MemAlloc(hImage->usWidth)));
+    pScanLine = scanline.get();
     CHECKF(pScanLine);
 
     // go past all the scanlines we don't need to process
@@ -515,7 +518,6 @@ BOOLEAN Copy8BPPCompressedImageTo8BPPBuffer(HIMAGE hImage, BYTE* pDestBuf, UINT1
     Assert(uiDecompressed == hImage->usWidth);
     //	memcpy( pDest, pScanLine + srcRect->iLeft, uiLineSize );
 
-    DecompressFini(pDecompPtr);
     return (TRUE);
 }
 
@@ -577,12 +579,15 @@ BOOLEAN Copy8BPPCompressedImageTo16BPPBuffer(HIMAGE hImage, BYTE* pDestBuf, UINT
     // to blit has been done).
 
     // initialize the decompression routines
-    pDecompPtr =
-        DecompressInit((BYTE*)hImage->pCompressedImageData, hImage->usWidth * hImage->usHeight);
+    std::unique_ptr<void, decltype(&DecompressFini)> decompressor(
+        DecompressInit((BYTE*)hImage->pCompressedImageData, hImage->usWidth * hImage->usHeight),
+        DecompressFini);
+    pDecompPtr = decompressor.get();
     CHECKF(pDecompPtr);
 
     // Allocate memory for one scanline
-    pScanLine = (UINT8*)MemAlloc(hImage->usWidth);
+    ImageMemory<UINT8> scanline(static_cast<UINT8*>(MemAlloc(hImage->usWidth)));
+    pScanLine = scanline.get();
     CHECKF(pScanLine);
 
     // go past all the scanlines we don't need to process
@@ -612,7 +617,6 @@ BOOLEAN Copy8BPPCompressedImageTo16BPPBuffer(HIMAGE hImage, BYTE* pDestBuf, UINT
 
     DbgMessage(TOPIC_HIMAGE, DBG_LEVEL_3, String("End Copying at %p", pDest));
 
-    DecompressFini(pDecompPtr);
     return (TRUE);
 }
 

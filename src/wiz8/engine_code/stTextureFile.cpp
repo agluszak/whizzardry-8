@@ -3,7 +3,7 @@
 #include "wiz8/engine_code/stTextureFile.h"
 
 #include "FileMan.h"
-#include "tga_import.h"
+#include "../../srext_jpegimporter/tga_import.h"
 
 #include <cstring>
 

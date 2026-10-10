@@ -1,5 +1,6 @@
 #include <ctype.h>
 #include <string.h>
+#include <memory>
 
 #include "surrender/srBinFStream.h"
 #include "surrender/srCore.h"
@@ -325,13 +326,12 @@ void srSurfaceIOManager::getSurfaceDesc(srColorSurfaceIFace::SurfaceDesc& descri
     if (path != 0 && *path != '\0') {
         SurfaceImporter* importer = static_cast<SurfaceImporter*>(findImporter(getExtension(path)));
         if (importer != 0) {
-            srBinIStream* stream = srCore.getIStreamOpener()->open(path);
+            std::unique_ptr<srBinIStream> stream(srCore.getIStreamOpener()->open(path));
             if (stream != 0 && stream->good()) {
                 if (importer->getSurfaceDesc(description, *stream, options) == 0) {
                     throw Error("srSurfaceIOManager::getSurfaceDesc() - Importer failed to "
                                 "load surface!");
                 }
-                delete static_cast<srBinStream*>(stream);
                 return;
             }
             throw Error("srSurfaceIOManager::getSurfaceDesc(): File could not be opened");
@@ -386,7 +386,7 @@ srColorSurfaceIFace* srSurfaceIOManager::importSurface(const char* path, const I
             throw Error("srSurfaceIOManager::importSurface() - Importer for this file "
                         "extension not found");
         }
-        srBinIStream* stream = srCore.getIStreamOpener()->open(path);
+        std::unique_ptr<srBinIStream> stream(srCore.getIStreamOpener()->open(path));
         if (stream != 0 && stream->good()) {
             srColorSurfaceIFace* surface =
                 static_cast<SurfaceImporter*>(importer)->importSurface(*stream, options);
@@ -394,7 +394,6 @@ srColorSurfaceIFace* srSurfaceIOManager::importSurface(const char* path, const I
                 throw Error("srSurfaceIOManager::importSurface() - Importer failed to "
                             "load surface!");
             }
-            delete static_cast<srBinStream*>(stream);
             return surface;
         }
         throw Error("srSurfaceIOManager::importSurface: File could not be opened");

@@ -44,5 +44,3 @@ if(CMAKE_CXX_COMPILER_FRONTEND_VARIANT STREQUAL "MSVC")
 else()
     target_compile_options(WIZ8_SGP PRIVATE -ffunction-sections -fdata-sections)
 endif()
-
-target_link_libraries(WIZ8_SGP PRIVATE miniaudio)

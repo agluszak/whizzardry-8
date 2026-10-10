@@ -2,7 +2,7 @@
    synthetic 3x2, quality-100 JPEGs with samples 20 + 9*i. */
 #include "plugin_classes.h"
 #include "sdl_stream.h"
-#include "../../src/wiz8/engine_code/tga_import.h"
+#include "tga_import.h"
 #include "wiz8/sr_api.h"
 #include <array>
 #include <cstdio>
@@ -52,9 +52,10 @@ static Bytes encode(srJPEGImporter& importer, srColorSurfaceIFace& surface, cons
 }
 static void jpegTests()
 {
-    srJPEGImporter importer;
-    CHECK(strcmp(importer.getTypeName(), "JPEG") == 0);
     auto* manager = srCore.getSurfaceIOManager();
+    CHECK(manager && manager->getImporter("sample.jpg"));
+    auto& importer = *static_cast<srJPEGImporter*>(manager->getImporter("sample.jpg"));
+    CHECK(strcmp(importer.getTypeName(), "JPEG") == 0);
     CHECK(manager && manager->getImporter("sample.jpg") == &importer);
     CHECK(manager->getImporter("sample.jpeg") == &importer);
     CHECK(manager->getExporter("sample.jpg") == &importer);

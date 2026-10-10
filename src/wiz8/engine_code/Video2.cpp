@@ -452,7 +452,7 @@ void ShutdownVideoManager(void)
 }
 
 /* Releases the renderer scene graph and 2D objects created by the video
-   startup sequence; runs from ShutdownVideoManager before the DirectDraw
+   startup sequence; runs from ShutdownVideoManager before the CPU surface
    teardown. */
 // FUNCTION: WIZ8 0x00423f30
 void ShutdownVideoScenes(void)
@@ -2566,7 +2566,6 @@ int g_screenshot_page;
 void SaveJpegScreenshot(void)
 {
     srSurfaceIOManager* surface_io_manager = srCore.getSurfaceIOManager();
-    srExtension::load("JPEGImporter", 0);
 
     srColorSurfaceIFace* surface = g_gerd->lockBuffer();
     if (surface != 0) {
