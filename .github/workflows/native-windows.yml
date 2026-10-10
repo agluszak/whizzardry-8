@@ -59,7 +59,7 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y clang ninja-build pkg-config nasm autoconf automake libtool autoconf-archive \
+          sudo apt-get install -y clang ninja-build pkg-config nasm autoconf automake libtool libltdl-dev autoconf-archive \
             libx11-dev libxft-dev libxext-dev libxcursor-dev libxi-dev libxrandr-dev libxss-dev libxtst-dev \
             libwayland-dev libxkbcommon-dev libasound2-dev libpulse-dev libegl1-mesa-dev libdrm-dev libgbm-dev libibus-1.0-dev
       - name: macOS build tools
