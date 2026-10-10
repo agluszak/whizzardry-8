@@ -8,10 +8,8 @@
 #include "surrender/srColorSurface.h"
 #include "surrender/srDebug.h"
 #include "surrender/srExponentTable.h"
-#include "image_io.h"
 #include "surrender/srFilter.h"
 #include "surrender/srGERD.h"
-#include "surrender/srImporter.h"
 #include "surrender/srIStreamOpener.h"
 #include "surrender/srMaterial.h"
 #include "surrender/srPalette.h"
@@ -20,7 +18,6 @@
 #include "surrender/srTextureMap.h"
 #include "surrender/srTriMeshPipeline.h"
 #include "surrender/srTypeRegistry.h"
-#include "surrender/srVideoManager.h"
 
 // FUNCTION: SURRENDER 0x10014FE0
 void __cdecl _srLibraryInit(void)
@@ -68,17 +65,10 @@ int __cdecl srInit()
         srCore.root_node->setName("SurRender root node");
         srCore.material = new srMaterial;
         srCore.material->setName("SurRender default material");
-        srDebugPrintf(0xfe, "srInit() -- initializing IO managers\n");
-        srCore.surface_io_manager = new srSurfaceIOManager;
-        srCore.model_io_manager = new srModelIOManager;
-        srCore.hierarchy_io_manager = new srHierarchyIOManager;
-        srCore.video_manager = new srVideoManager;
         srDebugPrintf(0xfe, "srInit() -- initializing stream openers\n");
         srCore.stream_opener = new srIStreamOpener;
         srCore.file_stream_opener = new srFStreamOpener;
         srCore.stream_opener->addStreamType(srCore.file_stream_opener, "file");
-        srDebugPrintf(0xfe, "srInit() -- initializing built-in image handlers\n");
-        srInitImageIO();
         srDebugPrintf(0xfe, "srInit() -- setting up default texture/surface\n");
         srCore.surface = new srColorSurface(srPixelConvert::SURFACE_L8, 0x40, 0x40);
         srCore.surface->setName("SurRender default surface");
@@ -149,16 +139,7 @@ int __cdecl srExit()
         srDebugPrintf(0xfe, "srExit() -- cleaning up class registry.\n");
         delete srCore.registry_;
         srCore.registry_ = 0;
-        srExitImageIO();
         srCore.initialized = 0;
-        delete srCore.surface_io_manager;
-        srCore.surface_io_manager = 0;
-        delete srCore.video_manager;
-        srCore.video_manager = 0;
-        delete srCore.model_io_manager;
-        srCore.model_io_manager = 0;
-        delete srCore.hierarchy_io_manager;
-        srCore.hierarchy_io_manager = 0;
         delete srCore.stream_opener;
         srCore.stream_opener = 0;
         delete srCore.file_stream_opener;
@@ -203,30 +184,6 @@ srPalette* srCore::getPalette() const
     return palette;
 }
 
-// FUNCTION: SURRENDER 0x10015a80
-srSurfaceIOManager* srCore::getSurfaceIOManager() const
-{
-    return surface_io_manager;
-}
-
-// FUNCTION: SURRENDER 0x10015a90
-srVideoManager* srCore::getVideoManager() const
-{
-    return video_manager;
-}
-
-// FUNCTION: SURRENDER 0x10015aa0
-srModelIOManager* srCore::getModelIOManager() const
-{
-    return model_io_manager;
-}
-
-// FUNCTION: SURRENDER 0x10015ab0
-srHierarchyIOManager* srCore::getHierarchyIOManager() const
-{
-    return hierarchy_io_manager;
-}
-
 // FUNCTION: SURRENDER 0x10015AC0
 srIStreamOpener* srCore::getIStreamOpener() const
 {
@@ -261,10 +218,6 @@ srCore::srCore()
     multi_thread = 0;
     texture = 0;
     surface = 0;
-    surface_io_manager = 0;
-    video_manager = 0;
-    model_io_manager = 0;
-    hierarchy_io_manager = 0;
     filter = 0;
     root_node = 0;
     palette = 0;
@@ -280,10 +233,6 @@ void srCore::reset()
     multi_thread = 0;
     texture = 0;
     surface = 0;
-    surface_io_manager = 0;
-    video_manager = 0;
-    model_io_manager = 0;
-    hierarchy_io_manager = 0;
     filter = 0;
     root_node = 0;
     palette = 0;

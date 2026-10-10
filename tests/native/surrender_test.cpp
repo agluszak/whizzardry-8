@@ -2,7 +2,6 @@
 #include "surrender/srBinOStream.h"
 #include "surrender/srClipPlane.h"
 #include "surrender/srCore.h"
-#include "surrender/srIOManager.h"
 #include "surrender/srIStreamOpener.h"
 #include "surrender/srIlluminator.h"
 #include "surrender/srLight.h"
@@ -37,8 +36,6 @@ static_assert(noncopyable<srBinIFStream>);
 static_assert(noncopyable<srBinOFStream>);
 static_assert(noncopyable<srBinIOFStream>);
 
-struct IOManager : srIOManager {};
-static_assert(noncopyable<IOManager>);
 static_assert(std::is_copy_constructible_v<srBinIMStream>);
 static_assert(std::is_copy_assignable_v<srBinIMStream>);
 static_assert(std::is_copy_constructible_v<srBinOMStream>);
