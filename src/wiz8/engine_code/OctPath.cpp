@@ -172,11 +172,10 @@ bool LoadPathParameters();
 // FUNCTION: WIZ8 0x004577F0
 void W8PathHeapHandle::DeleteRoot(W8PathSearchNode* node)
 {
-    if (open.empty()) {
-        root_node = 0;
-    } else {
-        root_node = open.pop().node;
+    if (!open.empty()) {
+        open.pop();
     }
+    root_node = open.empty() ? 0 : open.top().node;
     node->flags |= W8_PATH_SEARCH_CLOSED;
 }
 
@@ -390,11 +389,7 @@ try
     }
 
     delete path_heap;
-    unsigned int heap_capacity = surface_capacity;
-    if (heap_capacity <= g_path_reserve)
-        heap_capacity = g_path_reserve;
     path_heap = new W8PathHeapHandle;
-    path_heap->open.reserve(heap_capacity);
 
     memset(m_waypoints, 0, m_ulNumWayPoints * sizeof(W8PathSurface));
     for (unsigned int surface = 1; surface < m_ulNumWayPoints; ++surface) {
@@ -1140,7 +1135,7 @@ unsigned short W8PathingService::FindPath(W8NavigatorAttachment* attachment, uns
     }
     m_visited_path_nodes->ClearAll();
     m_marked_path_nodes->ClearAll();
-    path_heap->open.clear();
+    path_heap->open = {};
     m_marked_path_nodes->Set(start);
     m_waypoints[start].search_parent = 0;
     unsigned short usWayPt = usStartNode;
@@ -1252,11 +1247,10 @@ unsigned short W8PathingService::FindPath(W8NavigatorAttachment* attachment, uns
             if (settled) {
                 W8PathHeapHandle* handle = path_heap;
                 W8PathOpenSet* heap = &handle->open;
-                if (heap->empty()) {
-                    handle->root_node = 0;
-                } else {
-                    handle->root_node = heap->pop().node;
+                if (!heap->empty()) {
+                    heap->pop();
                 }
+                handle->root_node = heap->empty() ? 0 : heap->top().node;
                 m_waypoints[current].flags &= 0xffffu & ~W8_WAYPOINT_IN_HEAP;
                 m_visited_path_nodes->Set(current);
             }
@@ -1298,7 +1292,7 @@ bool W8PathingService::BuildAttachmentPath(W8NavigatorAttachment* attachment, un
         (m_waypoints != 0)) {
         m_visited_path_nodes->ClearAll();
         m_marked_path_nodes->ClearAll();
-        path_heap->open.clear();
+        path_heap->open = {};
         unsigned short node = FindPath(attachment, flags);
         if (node != 0) {
             unsigned short count = 0;
@@ -1362,7 +1356,7 @@ bool W8PathingService::LinkAttachmentTarget(W8NavigatorAttachment* attachment, u
     }
     m_visited_path_nodes->ClearAll();
     m_marked_path_nodes->ClearAll();
-    path_heap->open.clear();
+    path_heap->open = {};
     index = start;
     m_marked_path_nodes->Set(index);
     m_probe_cell_key = index;
@@ -1531,7 +1525,7 @@ bool W8PathingService::BuildPatrolPath(W8NavigatorAttachment* attachment, unsign
     }
     m_visited_path_nodes->ClearAll();
     m_marked_path_nodes->ClearAll();
-    path_heap->open.clear();
+    path_heap->open = {};
     m_probe_cell_key = 0;
     m_patrol_node = 0;
     unsigned int start = usStartNode;
@@ -2124,7 +2118,7 @@ unsigned short W8PathingService::PlanMovement(W8NavigatorMovementState* movement
     memset(m_search_nodes, 0, m_search_node_capacity * sizeof(W8PathSearchNode));
     m_probe_cell_key = 0;
     m_probe_limit = static_cast<unsigned int>(-1);
-    path_heap->open.clear();
+    path_heap->open = {};
 
     W8NavigatorAttachment* attachment = movement->attachment;
     attachment->flags &= ~W8_NAV_ATTACHMENT_RESULT_MASK;
@@ -4948,7 +4942,7 @@ void W8PathingService::DrawPathPosition(srVector3T<float> position, unsigned cha
     visited->clear();
 
     m_search_node_count = 0;
-    path_heap->open.clear();
+    path_heap->open = {};
     unsigned short root_index = AllocateSearchNode();
     W8PathSearchNode* root = &m_search_nodes[root_index];
     root->flags = 0;
