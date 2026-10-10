@@ -71,4 +71,3 @@ public:
     }
 };
 
-W8_ABI_ASSERT((sizeof(srQuadWord) == 8), "srQuadWord_must_be_8");

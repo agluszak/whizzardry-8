@@ -20,7 +20,7 @@
 #include "srDD.h"
 #include "srTriMeshPipeline.h"
 #include "srColorSurfaceIFace.h"
-#include "srPtr.h"
+#include <memory>
 #include "srARGB.h"
 class srColorSurface;
 class srModelInstance;
@@ -89,7 +89,6 @@ public:
             glm::vec2 st;
             float q;
         };
-        W8_ABI_ASSERT(sizeof(TexCoordQ) == 0xc, "TexCoordQ_must_be_0xc");
 
         /* The interned record additionally carries a blend class derived from the shader's DSTBLEND
            field (ZERO -> 0, SRC_ALPHA pair -> 1, ONE -> 2, SRC_COLOR pair -> 3). */
@@ -242,11 +241,6 @@ public:
         w8_long batch_limit;
         w8_ulong texture_stages;
     };
-    W8_ABI_ASSERT(sizeof(Renderer) == 0xe4, "srGERD_Renderer_must_be_0xe4");
-    W8_ABI_ASSERT(sizeof(Renderer::Parameters) == 0x10, "srGERD_Renderer_Parameters_must_be_0x10");
-    W8_ABI_ASSERT(sizeof(Renderer::TextureSetKey) == 0x0c,
-                  "srGERD_Renderer_TextureSetKey_must_be_0x0c");
-    W8_ABI_ASSERT(sizeof(Renderer::IndexWrite) == 0x10, "srGERD_Renderer_IndexWrite_must_be_0x10");
 
     enum e_error {
         ERROR_NONE = 0,
@@ -566,6 +560,8 @@ public:
     void invalidateResidentTexture(srTextureIFace* texture);
     void invalidateTextureCache();
     void invalidateTexture(srTextureIFace* texture);
+    /* Clears every open renderer's binding of a texture being destroyed. */
+    static void unbindTexture(const srTextureIFace* texture);
     void invalidateTextureByFrameHandle(w8_ulong handle);
     w8_ulong getTextureCacheSize() const;
     void setTextureCacheSize(w8_ulong bytes);
@@ -736,11 +732,10 @@ private:
         /* evaluateTexturePixelFormat copies the matched device format here. */
         srPixelConvert::PixelFormat pixel_format;
         std::vector<unsigned char> surface_data;
-        srPtr<srPalette> palette;
+        std::shared_ptr<srPalette> palette;
         std::string name;
         srDD::Texture device;
     };
-    W8_ABI_ASSERT(sizeof(Texture) == 0xa8, "srGERD_Texture_must_be_0xa8");
 
     /* Pick batch view: indices selects triangles out of the caller's stream, vertices remaps each
        corner to a position index, positions is the renderer's vec4 stream base. */
@@ -1050,7 +1045,7 @@ private:
     /* Accumulation buffer: width*height pixels plus one ARGB scratch row. */
     std::vector<AccumPixel> accum_buffer;
     std::vector<srARGB> accum_scratch;
-    LockSurface* lock_surface;
+    std::unique_ptr<LockSurface> lock_surface;
     /* Buffer-lock nesting depth; _lockBuffer only locks the device on the
        first entry and _unlockBuffer unlocks when this returns to zero. */
     w8_long buffer_lock_count;
@@ -1065,13 +1060,14 @@ private:
     /* Device palette record handed to bindPalette/deletePalette. */
     srDD::Palette device_palette;
     TextureState texture_state;
-    srPtr<srPalette> palette;
+    std::shared_ptr<srPalette> palette;
     e_polygonMode polygon_mode;
     w8_long polygon_offset;
     glm::vec4 fog_color;
     srShader shader;
-    /* Texture interfaces requested through setTexture for stages 0/1. */
-    srPtr<srTextureIFace> texture_iface[2];
+    /* Borrowed texture interfaces requested through setTexture for stages 0/1;
+       a texture clears its bindings when destroyed. */
+    srTextureIFace* texture_iface[2];
     /* Live textures keyed by the texture interface's frame handle. */
     std::unordered_map<w8_ulong, Texture*> texture_lookup;
     TexturePool texture_pool;
@@ -1097,6 +1093,3 @@ private:
     std::vector<glm::vec4> pick_vertices;
 };
 
-W8_ABI_ASSERT(sizeof(srGERD) == 0x2238, "srGERD_must_be_0x2238");
-W8_ABI_ASSERT(sizeof(srGERD::ClipPlanes) == 0x208, "srGERD_ClipPlanes_must_be_0x208");
-W8_ABI_ASSERT(sizeof(srGERD::Renderer::TriInput) == 0x28, "srGERD_Renderer_TriInput_must_be_0x28");

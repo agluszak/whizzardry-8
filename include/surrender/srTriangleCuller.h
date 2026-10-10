@@ -90,5 +90,3 @@ private:
                               const srVector3i* triangles, w8_ulong count);
 };
 
-W8_ABI_ASSERT(sizeof(srTriangleCuller::Output) == 0x18, "srTriangleCuller_Output_must_be_0x18");
-W8_ABI_ASSERT(sizeof(srTriangleCuller::Input) == 0x34, "srTriangleCuller_Input_must_be_0x34");

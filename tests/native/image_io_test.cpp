@@ -25,12 +25,11 @@ static void CheckImage(const char* name, const std::vector<unsigned char>& bytes
                        const w8_ulong* expected = colors)
 {
     auto stream = srIO::own(SDL_IOFromConstMem(bytes.data(), static_cast<w8_ulong>(bytes.size())));
-    auto* surface = srImage::load(name, stream.get());
+    auto surface = srImage::load(name, stream.get());
     CHECK(surface && surface->getWidth() == 2 && surface->getHeight() == 2);
     for (int y = 0; y < 2; ++y)
         for (int x = 0; x < 2; ++x)
             CHECK(surface->getPixel(x, y) == expected[y * 2 + x]);
-    surface->release();
 }
 
 static std::vector<unsigned char> Targa(bool top, bool rle, bool alpha)
@@ -100,16 +99,15 @@ public:
 
 static void CheckJPEG()
 {
-    auto* source = new PixelOnlySurface;
+    auto source = std::make_unique<PixelOnlySurface>();
     CHECK(!source->getDataPtr());
     auto output = srIO::own(SDL_IOFromDynamicMem());
     srImage::save("screenshot.JPG", output.get(), *source);
-    source->release();
     CHECK((SDL_GetIOStatus(output.get()) == SDL_IO_STATUS_READY) && SDL_GetIOSize(output.get()) > 2);
     CHECK(static_cast<unsigned char*>(SDL_GetPointerProperty(SDL_GetIOProperties(output.get()), SDL_PROP_IOSTREAM_DYNAMIC_MEMORY_POINTER, nullptr))[0] == 255 &&
           static_cast<unsigned char*>(SDL_GetPointerProperty(SDL_GetIOProperties(output.get()), SDL_PROP_IOSTREAM_DYNAMIC_MEMORY_POINTER, nullptr))[1] == 216);
     auto input = srIO::own(SDL_IOFromConstMem(SDL_GetPointerProperty(SDL_GetIOProperties(output.get()), SDL_PROP_IOSTREAM_DYNAMIC_MEMORY_POINTER, nullptr), SDL_GetIOSize(output.get())));
-    auto* decoded = srImage::load("screenshot.jpeg", input.get());
+    auto decoded = srImage::load("screenshot.jpeg", input.get());
     CHECK(decoded && decoded->getWidth() == 16 && decoded->getHeight() == 16);
     for (int y = 0; y < 16; ++y)
         for (int x = 0; x < 16; ++x) {
@@ -118,7 +116,6 @@ static void CheckJPEG()
             CHECK(abs(int((pixel >> 8) & 255) - 32) <= 4);
             CHECK(abs(int(pixel & 255) - 16) <= 4);
         }
-    decoded->release();
 }
 
 static void CheckLossless(const char* name)

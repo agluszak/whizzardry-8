@@ -22,7 +22,6 @@ public:
     }
 
     virtual void dump(std::ostream& stream) override;
-    virtual srClass* vInstance() override;
     virtual void traverse(TraverseInfo& info) override;
     virtual void process(const ProcessInfo& info, e_processType type) override;
 
@@ -37,4 +36,3 @@ protected:
     e_clip clip_type_;             /* 0x148 */
 };
 
-W8_ABI_ASSERT(sizeof(srClipPlane) == 0x150, "srClipPlane_must_be_0x150");

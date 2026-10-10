@@ -498,7 +498,7 @@ W8CharacterEventQueue::~W8CharacterEventQueue()
     delete[] event_character_masks;
 }
 
-/* Complete and release active events before clearing the queued owners. */
+/* The queue owns active and deferred events until completion or teardown. */
 // FUNCTION: WIZ8 0x0052db80
 void W8CharacterEventQueue::DestroyAllEvents()
 {
@@ -511,6 +511,9 @@ void W8CharacterEventQueue::DestroyAllEvents()
     }
     while (vector0.GetCount() > 0) {
         vector0.RemoveAtAndDelete(0);
+    }
+    while (vector1.GetCount() > 0) {
+        vector1.RemoveAtAndDelete(0);
     }
 }
 
@@ -549,9 +552,9 @@ void W8CharacterEventQueue::RemoveCharacterEvents(W8Character* character)
 void W8CharacterEventQueue::CompleteAllActiveEvents()
 {
     while (active_events.GetCount() > 0) {
-        auto* entry = active_events.RemoveAt(0);
-        entry->Complete();
-        delete entry;
+        auto* event = active_events.RemoveAt(0);
+        event->Complete();
+        delete event;
     }
 }
 
@@ -576,6 +579,7 @@ void W8CharacterEvent::Complete()
     party_slot = CharacterPointerToPartySlot(character);
     slot = &gXStatus.monster_manager_entries[party_slot];
     sound_was_active = slot->portrait_event_active;
+    sound_end_handled = true;
     slot->active_character_event = 0;
     if (sound_was_active) {
         if (SoundIsPlaying(slot->voice_sound_handle) != 0) {
@@ -584,6 +588,7 @@ void W8CharacterEvent::Complete()
         }
         SetPartyPortraitEventState(party_slot, false, -1, 0, 1);
     }
+    FreeMouthGapTrack(&slot->mouth_gap);
     if (event_type == 23 || event_type == 24) {
         if ((flags & W8_EVENT_NPC_SCRIPT) == 0) {
             if (item.iItemNo == -1) {
@@ -826,14 +831,12 @@ unsigned char W8CharacterEvent::Dispatch()
             }
             if ((flags & W8_EVENT_NPC_SCRIPT) != 0) {
                 SetNpcScriptEventActive(1);
-                ReleaseNpcScriptFile(npc->script_file);
                 ReloadNpcScriptResources(npc);
             }
             BeginNpcScriptDialogue(npc, 1);
             RunNpcScriptLine(event_type, (flags & W8_EVENT_NPC_SCRIPT) != 0);
             if ((flags & W8_EVENT_NPC_SCRIPT) != 0) {
                 SetNpcScriptEventActive(0);
-                ReleaseNpcScriptFile(npc->script_file);
                 ReloadNpcScriptResources(npc);
             }
             slot->active_character_event = this;
@@ -1129,10 +1132,7 @@ int W8CharacterEventQueue::QueueEntry(W8CharacterEvent* entry)
     if (entry->event_type > 0x91 && (entry->flags & W8_EVENT_NO_PREEMPT) == 0) {
         W8MonsterManagerEntry* slot = &gXStatus.monster_manager_entries[party_slot];
         if (slot->active_character_event != 0) {
-            active_events.Remove(slot->active_character_event);
-            RestartFollowUpClock(slot->active_character_event);
-            slot->active_character_event->Complete();
-            delete slot->active_character_event;
+            CompleteActiveEvent(slot->active_character_event);
         }
         entry->Dispatch();
         return 1;

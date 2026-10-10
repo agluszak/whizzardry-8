@@ -16,7 +16,7 @@ struct JpegHeader {
     unsigned components = 0;
 };
 
-srColorSurface* loadJpeg(SDL_IOStream* io)
+std::unique_ptr<srColorSurface> loadJpeg(SDL_IOStream* io)
 {
     if (SDL_GetIOSize(io) > 256 * 1024 * 1024 ||
         SDL_SeekIO(io, 0, SDL_IO_SEEK_SET) < 0)
@@ -38,14 +38,11 @@ srColorSurface* loadJpeg(SDL_IOStream* io)
                                                                        SDL_PIXELFORMAT_BGR24), SDL_DestroySurface);
     if (!bgr)
         return nullptr;
-    auto* result = new srColorSurface(header.components == 1 ? srPixelConvert::SURFACE_L8 :
+    auto result = std::make_unique<srColorSurface>(header.components == 1 ? srPixelConvert::SURFACE_L8 :
                                         four_channels ? srPixelConvert::SURFACE_BGRA32 :
                                                         srPixelConvert::SURFACE_BGR24,
                                           header.width, header.height);
-    if (!result || !result->getDataPtr()) {
-        if (result) result->release();
-        return nullptr;
-    }
+    if (!result->getDataPtr()) return nullptr;
     if (header.components == 1) {
         for (unsigned y = 0; y < header.height; ++y) {
             const auto* src = static_cast<const Uint8*>(bgr->pixels) + size_t(y) * bgr->pitch;
@@ -54,7 +51,6 @@ srColorSurface* loadJpeg(SDL_IOStream* io)
                 dst[x] = src[x * 3];
         }
     } else if (!srImage::copyRows(*bgr, *result, four_channels ? 4 : 3)) {
-        result->release();
         return nullptr;
     }
     return result;
@@ -99,12 +95,9 @@ void saveImage(OutputFormat output, SDL_IOStream* io, srColorSurfaceIFace& sourc
         Uint64(source.getWidth()) * source.getHeight() > 64 * 1024 * 1024)
         throw std::runtime_error("Image output dimensions are invalid");
     const bool jpeg = output == OutputFormat::jpeg;
-    auto* copy = new srColorSurface(jpeg ? srPixelConvert::SURFACE_RGB24 : srPixelConvert::SURFACE_BGRA32,
+    auto copy = std::make_unique<srColorSurface>(jpeg ? srPixelConvert::SURFACE_RGB24 : srPixelConvert::SURFACE_BGRA32,
                                       source.getWidth(), source.getHeight());
-    std::unique_ptr<srColorSurface, void(*)(srColorSurface*)> owned(copy, [](srColorSurface* p) {
-        if (p) p->release();
-    });
-    if (!copy || !copy->getDataPtr())
+    if (!copy->getDataPtr())
         throw std::runtime_error("Image output allocation failed");
     copy->copy(source);
     srImage::Surface view(SDL_CreateSurfaceFrom(copy->getWidth(), copy->getHeight(),
@@ -126,7 +119,7 @@ void saveImage(OutputFormat output, SDL_IOStream* io, srColorSurfaceIFace& sourc
                      SDL_PROP_IOSTREAM_DYNAMIC_MEMORY_POINTER, nullptr), static_cast<size_t>(size));
 
 }
-srColorSurfaceIFace* loadImage(const char* path, SDL_IOStream* io)
+std::unique_ptr<srColorSurfaceIFace> loadImage(const char* path, SDL_IOStream* io)
 {
     using namespace srImage;
     const char* type = extension(path);
@@ -137,8 +130,8 @@ srColorSurfaceIFace* loadImage(const char* path, SDL_IOStream* io)
             SDL_SeekIO(io, 0, SDL_IO_SEEK_SET) < 0) return nullptr;
         if (isJpeg(type)) return loadJpeg(io);
         if (SDL_strcasecmp(type, "tga") == 0) {
-            auto* result = loadTga(io);
-            if (result && SDL_GetIOStatus(io) == SDL_IO_STATUS_ERROR) { result->release(); return nullptr; }
+            auto result = loadTga(io);
+            if (result && SDL_GetIOStatus(io) == SDL_IO_STATUS_ERROR) return nullptr;
             return result;
         }
         Surface decoded(IMG_LoadTyped_IO(io, false, type), SDL_DestroySurface);
@@ -146,9 +139,8 @@ srColorSurfaceIFace* loadImage(const char* path, SDL_IOStream* io)
             Uint64(decoded->w) * decoded->h > 64 * 1024 * 1024) return nullptr;
         Surface converted(SDL_ConvertSurface(decoded.get(), SDL_PIXELFORMAT_BGRA32), SDL_DestroySurface);
         if (!converted) return nullptr;
-        auto* result = new srColorSurface(srPixelConvert::SURFACE_BGRA32, converted->w, converted->h);
+        auto result = std::make_unique<srColorSurface>(srPixelConvert::SURFACE_BGRA32, converted->w, converted->h);
         if (!copyRows(*converted, *result, 4)) {
-            result->release();
             return nullptr;
         }
         return result;
@@ -158,28 +150,28 @@ srColorSurfaceIFace* loadImage(const char* path, SDL_IOStream* io)
 
 namespace srImage {
 // FUNCTION: SURRENDER 0x1002DB20
-srColorSurfaceIFace* load(const char* path, SDL_IOStream* stream)
+std::unique_ptr<srColorSurfaceIFace> load(const char* path, SDL_IOStream* stream)
 {
     return loadImage(path, stream);
 }
 
-srColorSurfaceIFace* load(const char* path, wiz8::File& file)
+std::unique_ptr<srColorSurfaceIFace> load(const char* path, wiz8::File& file)
 {
     try { return load(path, file.io()); } catch (...) { return nullptr; }
 }
 
-srColorSurface* loadTga(wiz8::File& file)
+std::unique_ptr<srColorSurface> loadTga(wiz8::File& file)
 {
     try { return loadTga(file.io()); } catch (...) { return nullptr; }
 }
 
 // FUNCTION: SURRENDER 0x1002DA00
-srColorSurfaceIFace* load(const char* path)
+std::unique_ptr<srColorSurfaceIFace> load(const char* path)
 {
     extension(path);
     if (!srCore.isInitialized()) throw std::runtime_error("Image I/O requires SurRender initialization");
     auto file = wiz8::open_file(path);
-    auto* surface = load(path, *file);
+    auto surface = load(path, *file);
     if (!surface) throw std::runtime_error("Image decoding failed");
     return surface;
 }
@@ -189,11 +181,10 @@ bool describe(srColorSurfaceIFace::SurfaceDesc& description, const char* path, S
 {
     const auto position = SDL_TellIO(stream);
     if (position < 0) return false;
-    srColorSurfaceIFace* surface = nullptr;
+    std::unique_ptr<srColorSurfaceIFace> surface;
     try { surface = load(path, stream); } catch (...) {}
     if (surface) {
         surface->getSurfaceDesc(description);
-        surface->release();
     }
     return SDL_SeekIO(stream, position, SDL_IO_SEEK_SET) == position && surface != nullptr;
 }
@@ -206,9 +197,8 @@ bool describe(srColorSurfaceIFace::SurfaceDesc& description, const char* path, w
 // FUNCTION: SURRENDER 0x1002D8F0
 void describe(srColorSurfaceIFace::SurfaceDesc& description, const char* path)
 {
-    auto* surface = load(path);
+    auto surface = load(path);
     surface->getSurfaceDesc(description);
-    surface->release();
 }
 
 // FUNCTION: SURRENDER 0x1002DCD0

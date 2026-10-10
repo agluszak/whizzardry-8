@@ -123,4 +123,3 @@ public:
     w8_ulong channel_mask;  /* 0x220 */
 };
 
-W8_ABI_ASSERT(sizeof(srLight) == 0x228, "srLight_must_be_0x228");

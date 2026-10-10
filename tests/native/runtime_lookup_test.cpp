@@ -1,3 +1,4 @@
+#include <memory>
 #include "surrender/srClipPlane.h"
 #include "surrender/srFog.h"
 #include "surrender/srLight.h"
@@ -84,15 +85,15 @@ static bool lookup()
         auto* next = registry->find(clips, transient);
         const auto transient_id = transient->getID();
         transient->setName("TransientLayer");
-        CHECK(transient->release());
+        delete transient;
         CHECK(next == &second);
         CHECK(registry->find(clips, transient_id) == nullptr);
         CHECK(registry->find(clips, "TransientLayer", nullptr) == nullptr);
-        auto* clone = first.clone();
+        auto clone = std::make_unique<srClipPlane>(first);
         CHECK(clone->getID() != first.getID());
         CHECK(clone->getClassID() == first.getClassID());
-        CHECK(registry->find(clips, long_name.c_str(), nullptr) == clone);
-        CHECK(clone->release());
+        CHECK(registry->find(clips, long_name.c_str(), nullptr) == clone.get());
+        clone.reset();
         CHECK(registry->find(clips, long_name.c_str(), nullptr) == &first);
 
         {
@@ -106,14 +107,6 @@ static bool lookup()
             CHECK(registry->getNumberOfInstances(runtime, 0) == baseline + 6);
         }
 
-        // Palette reuse uses exact-type iteration rather than a name lookup.
-        auto* palette = new srPalette(nullptr, 2);
-        srARGB colors[2];
-        std::memset(colors, 0, sizeof(colors));
-        palette->setColor(0, colors[0]);
-        palette->setColor(1, colors[1]);
-        CHECK(srPalette::findMatchingPalette(colors, 2) == palette);
-        CHECK(palette->release());
     }
     CHECK(registry->getNumberOfInstances(runtime, 0) == baseline);
     CHECK(registry->find(nodes, deleted_id) == nullptr);

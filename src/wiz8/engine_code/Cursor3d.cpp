@@ -102,7 +102,6 @@ void InitializeWorldCursor(void)
     srVector3T<float> camera_position;
     glm::vec4 colour;
     srShader shader;
-    srMaterial* material;
 
     DisableCursorScene();
     SetMouseCursorHotspot(0, 0);
@@ -151,11 +150,11 @@ void InitializeWorldCursor(void)
             gp3DCursor->light->specular = glm::vec3(0);
             gp3DCursor->light->setLocation(1000.0, 0.0, 0.0);
             if (gp3DCursor->particle != 0) {
-                material = new srMaterial;
+                auto material = std::make_shared<srMaterial>();
                 colour = glm::vec4(0.0f, 0.0f, 0.0f, 1.0f);
                 material->setEmissive(colour);
                 material->setDiffuse(colour);
-                gp3DCursor->particle->SetMaterial(material);
+                gp3DCursor->particle->SetMaterial(std::move(material));
                 gp3DCursor->particle->SetTexture(
                     LoadTextureFromFolder("Data\\Monsters\\Bitmaps\\", "particle.tga", true));
                 shader.value = 0x100c433;

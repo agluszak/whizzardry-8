@@ -17,6 +17,9 @@
 #include "temporary_directory.h"
 #include "surrender/srGERD.h"
 #include "surrender/srModelInstance.h"
+#include "wiz8/engine_code/stMeshModel.h"
+#include "wiz8/engine_code/stModelInstance.h"
+#include "wiz8/engine_code/materials.h"
 #include "wiz8/asset_paths.h"
 #include "wiz8/filesystem.h"
 #include "wiz8/regions.h"
@@ -720,6 +723,53 @@ void WorldRenderScenario()
     REQUIRE("world", changed > viewport / 4);
 }
 
+// Load and render the retail level, evict resident textures, then reload the
+// saved level through the shipped loading screen. Leave gameplay resident at
+// scope exit so Application shutdown exercises the same owners as gameplay.
+void ResourceLifecycleScenario()
+{
+    Game game(false);
+    StartPremadeGame(game);
+    const int level = g_status.current_level;
+    const auto anchor = Walk(game, "settle-before-save", 2.0f);
+    QuickSave(game);
+    for (int cycle = 0; cycle != 2; ++cycle) {
+        auto* world = GetWorld();
+        REQUIRE("resident-level", world && world->octree && world->level);
+        unsigned linked = 0, animated = 0;
+        for (unsigned i = 0; i <= world->octree->GetMeshCount(); ++i) {
+            auto* instance = world->psrMeshes[i];
+            if (!instance) continue;
+            auto* model = static_cast<stMeshModel*>(instance->getModel());
+            if (model && !model->parts.empty()) ++linked;
+            if (model && MeshHasAnimatedTexture(model)) ++animated;
+        }
+        std::printf("resource-lifecycle: cycle %d, %u linked heads, %u animated textures\n",
+                    cycle, linked, animated);
+        REQUIRE("linked-level-meshes", linked > 0);
+        REQUIRE("animated-level-textures", animated > 0);
+        for (int frame = 0; frame != 4; ++frame) game.frame();
+        RenderFrame();
+        REQUIRE("render-level", world->level->m_submitted_polygons > 0);
+        REQUIRE("resident-textures", g_gerd->getTextureCacheUsed() > 0);
+        g_gerd->invalidateTextureCache();
+        RenderFrame();
+        REQUIRE("recreated-textures", g_gerd->getTextureCacheUsed() > 0);
+        REQUIRE("render-after-eviction", world->level->m_submitted_polygons > 0);
+        game.command(W8_MGS_COMMAND_QUICK_LOAD);
+        bool loading = false;
+        game.wait("reload-level", [&] {
+            loading = loading || g_current_screen_state.id == W8_SCREEN_PLEASE_WAIT;
+            return loading && g_current_screen_state.id == W8_SCREEN_MAIN_GAME && game.settled();
+        });
+        Settle(game, "reload-level");
+        REQUIRE("reloaded-level", g_status.current_level == level);
+        ExpectAt("reloaded-position", anchor);
+    }
+    RenderFrame();
+    REQUIRE("shutdown-resident", g_gerd->getTextureCacheUsed() > 0);
+}
+
 /* Quick save, walk away, quick load: the party is back where it saved. */
 void QuickSaveScenario()
 {
@@ -889,6 +939,9 @@ int main(int argc, char** argv)
     const std::string scenario = argv[1];
     try
     {
+        const char* assets = SDL_getenv("WIZ8_ASSET_ROOT");
+        if (!assets || !fs::is_directory(assets))
+            throw std::invalid_argument("WIZ8_ASSET_ROOT is not set");
         if (scenario == "video")
             VideoScenario(false);
         else if (scenario == "video-seen")
@@ -899,6 +952,8 @@ int main(int argc, char** argv)
             GameStartScenario();
         else if (scenario == "world")
             WorldRenderScenario();
+        else if (scenario == "resource-lifecycle")
+            ResourceLifecycleScenario();
         else if (scenario == "quick-save")
             QuickSaveScenario();
         else if (scenario == "combat")

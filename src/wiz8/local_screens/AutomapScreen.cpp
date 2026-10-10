@@ -32,6 +32,7 @@
 #include "wiz8/item_spawning.h"
 #include "wiz8/dialog_code/DialogButton.h"
 #include "surrender/srColorSurface.h"
+#include "wiz8/compat/surfaces.h"
 #include "wiz8/cursor.h"
 #include "wiz8/engine_code/Quality.h"
 #include "wiz8/engine_code/Video2.h"
@@ -135,7 +136,7 @@ W8_ABI_ASSERT(sizeof(W8AutomapState) == 0xfc, "W8AutomapState_size");
 // GLOBAL: WIZ8 0x0068f268
 W8AutomapState* g_automap_state;
 // GLOBAL: WIZ8 0x0068f274
-srColorSurface* g_automap_surface;
+std::unique_ptr<srColorSurface> g_automap_surface;
 
 void AutomapZoomInButton(void);
 void AutomapZoomOutButton(void);
@@ -320,7 +321,7 @@ static void ClearAutomapMarkers()
 {
     while (g_automap_markers->GetCount()) {
         srClass* object = *g_automap_markers->GetAt(0);
-        object->release();
+        delete object;
         g_automap_markers->Remove(object);
     }
 }
@@ -718,9 +719,8 @@ unsigned char AutomapScreenEnter(void)
         g_world_render_enabled = 0;
         g_monster_shadow_updates_enabled = 0;
         if (!g_automap_surface) {
-            srColorSurface* surface =
-                new srColorSurface(srPixelConvert::SURFACE_ARGB1555, 640, 480);
-            g_automap_surface = surface;
+            g_automap_surface = std::make_unique<srColorSurface>(srPixelConvert::SURFACE_ARGB1555, 640, 480);
+            auto* surface = g_automap_surface.get();
             if (surface)
                 surface->setFilter(&srBoxFilter);
         }
@@ -781,9 +781,7 @@ unsigned char AutomapScreenEnter(void)
                 }
             }
             for (unsigned int mesh = 0; mesh < g_world->octree->m_meshCount; ++mesh) {
-                for (stMeshModel* model =
-                         static_cast<stMeshModel*>(g_world->psrMeshes[mesh]->getModel());
-                     model; model = model->next) {
+                for (stMeshModel* model : stMeshModel::Meshes(static_cast<stMeshModel*>(g_world->psrMeshes[mesh]->getModel()))) {
                     model->ApplyAutomapPolygonFilter(excluded_textures);
                 }
             }
@@ -1044,10 +1042,10 @@ unsigned char AutomapScreenLeave(int)
     if (clipping_plane) {
         g_world->level->setParent(g_world->static_scene, 1);
         g_world->dynamic_scene->setParent(g_world->static_scene, 1);
-        clipping_plane->release();
+        delete clipping_plane;
     }
     gfTrackMousePos = 0;
-    ReleaseRendererObject(g_automap_surface);
+    g_automap_surface.reset();
     ClearAutomapMarkers();
     g_automap_party_marker->setParent(0, 1);
     for (int index = 0; index < 16; ++index) {
@@ -1059,14 +1057,13 @@ unsigned char AutomapScreenLeave(int)
     UpdateHeldItemCursor();
     EnableCursorScene();
     for (unsigned int mesh = 0; mesh < g_world->octree->m_meshCount; ++mesh) {
-        for (stMeshModel* model = static_cast<stMeshModel*>(g_world->psrMeshes[mesh]->getModel());
-             model; model = model->next) {
+        for (stMeshModel* model : stMeshModel::Meshes(static_cast<stMeshModel*>(g_world->psrMeshes[mesh]->getModel()))) {
             model->ClearAutomapPolygonFilter();
         }
     }
     while (g_automap_created_layers.GetCount()) {
         if (*g_automap_created_layers.GetAt(0))
-            (*g_automap_created_layers.GetAt(0))->release();
+            delete *g_automap_created_layers.GetAt(0);
         g_automap_created_layers.RemoveAt(0);
     }
     return 1;
@@ -1285,16 +1282,13 @@ void ResetAutomapLighting(void)
         for (unsigned int mesh = 0; mesh < g_world->octree->m_meshCount; ++mesh) {
             srModelInstance* instance = g_world->psrMeshes[mesh];
             if (instance != 0) {
-                for (stMeshModel* model = static_cast<stMeshModel*>(instance->getModel());
-                     model != 0; model = model->next) {
+                for (stMeshModel* model : stMeshModel::Meshes(static_cast<stMeshModel*>(instance->getModel()))) {
                     model->ClearVertexLights();
                 }
             }
         }
     } else {
-        for (stMeshModel* model =
-                 static_cast<stMeshModel*>(g_world->update_mesh_source->getModel());
-             model != 0; model = model->next) {
+        for (stMeshModel* model : stMeshModel::Meshes(static_cast<stMeshModel*>(g_world->update_mesh_source->getModel()))) {
             model->ClearVertexLights();
         }
     }
@@ -1501,7 +1495,7 @@ void LightAutomapCell(const srVector3T<float>* position)
                         }
                     }
                 }
-                model = model->next;
+                model = model->Next();
             }
         }
     }
@@ -1526,17 +1520,16 @@ void RenderAutomapFrame(void)
                 view.top = static_cast<double>(half);
                 g_world->camera->setViewPlane(view, static_cast<double>(g_automap_near_clip));
                 g_world->camera->setClipRange(g_automap_near_clip, 1500000.0);
-                RenderWorldToSurface(g_automap_surface, &g_automap_viewport, false);
+                RenderWorldToSurface(g_automap_surface.get(), &g_automap_viewport, false);
                 g_automap_overlay_redraw = false;
                 SetResidentTexturePolicy(0);
             }
             unsigned int pitch;
             void* pixels = LockPrimarySurface(&pitch);
-            srColorSurface* surface = new srColorSurface(srPixelConvert::SURFACE_ARGB1555,
+            auto surface = std::make_unique<srColorSurface>(srPixelConvert::SURFACE_ARGB1555,
                                                              pixels, 0x280, 0x1e0, pitch);
             surface->setFilter(&srBoxFilter);
             surface->blit(0xc, 0x20, *g_automap_surface, 0xc, 0x20, 0x1d3, 0x1d3);
-            surface->release();
             UnlockPrimarySurface();
             RenderAutomapMarkers();
             InvalidateRegion(0xc, 0x20, 0x1d3, 0x1d3, 0);
@@ -1571,13 +1564,11 @@ int RestoreAutomapRect(W8ScreenRect* rect)
 {
     if (g_automap_surface != 0) {
         unsigned int pitch;
-        void* pixels = LockPrimarySurface(&pitch);
-        srColorSurface* surface =
-            new srColorSurface(srPixelConvert::SURFACE_ARGB1555, pixels, 0x280, 0x1e0, pitch);
-        surface->setFilter(&srBoxFilter);
-        surface->blit(rect->left, rect->top, *g_automap_surface, rect->left, rect->top, rect->right,
-                      rect->bottom);
-        surface->release();
+        LockPrimarySurface(&pitch);
+        srColorSurface screen(srPixelConvert::SURFACE_ARGB1555, *g_primary_surface->surface);
+        screen.setFilter(&srBoxFilter);
+        screen.blit(rect->left, rect->top, *g_automap_surface, rect->left, rect->top, rect->right,
+                    rect->bottom);
         UnlockPrimarySurface();
     }
     return 1;
@@ -1792,10 +1783,9 @@ W8AutomapNote* FindAutomapNoteUnderCursor(void)
 }
 
 /* Descriptive name for the common marker-texture loading operation. */
-static stTextureFile* LoadAutomapMarkerTexture(const char* path)
+static std::shared_ptr<stTextureFile> LoadAutomapMarkerTexture(const char* path)
 {
-    stTextureFile* texture = new stTextureFile(path, 0);
-    texture->autoRelease();
+    auto texture = std::make_shared<stTextureFile>(path, 0);
     texture->enableHint(srTextureIFace::HINT_ONE_BIT_ALPHA);
     texture->enableHint(srTextureIFace::HINT_NO_MIPMAPS);
     texture->setMipmap(srTextureIFace::MIPMAP_NONE);
@@ -1808,7 +1798,7 @@ static stTextureFile* LoadAutomapMarkerTexture(const char* path)
 
 static void CreateAutomapMarkerSprite(const char* path, stModelInstance2D*& marker)
 {
-    stTextureFile* texture = LoadAutomapMarkerTexture(path);
+    std::shared_ptr<stTextureFile> texture = LoadAutomapMarkerTexture(path);
     srColorSurface* surface = texture->getSurface();
     if (surface != 0) {
         marker = CreateSpriteFromTexture(texture, surface->getWidth() * g_viewport_x_scale,
@@ -1828,7 +1818,8 @@ void CreateAutomapMarkerSprites(void)
         g_automap_markers = new W8Vector<srClass*>(5);
     }
     if (g_automap_party_marker == 0) {
-        stTextureFile* texture = LoadAutomapMarkerTexture("Data\\Automap\\map_partymarker_a.tga");
+        std::shared_ptr<stTextureFile> texture =
+            LoadAutomapMarkerTexture("Data\\Automap\\map_partymarker_a.tga");
         srColorSurface* surface = texture->getSurface();
         if (surface != 0) {
             g_automap_party_marker =
@@ -1843,7 +1834,7 @@ void CreateAutomapMarkerSprites(void)
             glm::vec4 second;
             first = glm::vec4(0.0f, 0.25f, 0.0f, 1.0f);
             second = glm::vec4(0.0f, 0.75f, 0.0f, 1.0f);
-            g_automap_party_marker->SetGlowColors(&first, &second);
+            g_automap_party_marker->SetGlowColors(first, second);
             g_automap_party_marker->render_state.render_depth = 2000;
         }
     }
@@ -2049,14 +2040,13 @@ stModelInstance2D* CreateAutomapItemMarker(int item_id)
     if (!GetVideoObjectETRLEPropertiesFromIndex(handle, &properties, region)) {
         return 0;
     }
-    srColorSurface* surface = new srColorSurface(srPixelConvert::SURFACE_ARGB1555, 0x40, 0x40);
-    surface->autoRelease();
+    auto surface = std::make_shared<srColorSurface>(srPixelConvert::SURFACE_ARGB1555, 0x40, 0x40);
     surface->fill(0);
     surface->setFilter(&srBSplineFilter);
     int y = (0x40 - properties.usHeight) / 2;
     int x = (0x40 - properties.usWidth) / 2;
     BlitVideoObjectToColorSurface(GetCatalogVideoObjectHandle(object, 0),
-                                  GetCatalogVideoObjectYOffset(object), surface, x, y);
+                                  GetCatalogVideoObjectYOffset(object), surface.get(), x, y);
     float factor = (g_float_one / (g_automap_zoom * 0.00004f)) * 0.44f;
     stModelInstance2D* marker = static_cast<stModelInstance2D*>(
         MakePolygonBrush(g_scene_fullscreen, surface, surface->getWidth() * g_viewport_x_scale,
@@ -2071,7 +2061,7 @@ stModelInstance2D* CreateAutomapItemMarker(int item_id)
     glm::vec4 second;
     second = glm::vec4(0.0f, 0.0f, 1.0f, 1.0f);
     first = glm::vec4(0.0f, 0.0f, 0.25f, 1.0f);
-    marker->SetGlowColors(&first, &second);
+    marker->SetGlowColors(first, second);
     marker->setRenderDepth(2000);
     ScaleAutomapMarker(marker, factor);
     return marker;
@@ -2093,7 +2083,7 @@ stModelInstance2D* CreateAutomapMonsterMarker(int type)
         *marker = *g_automap_friendly_marker;
         second = glm::vec4(0.0f, 0.5f, 0.0f, 1.0f);
         first = glm::vec4(0.0f, 0.0f, 0.0f, 1.0f);
-        marker->SetGlowColors(&first, &second);
+        marker->SetGlowColors(first, second);
         break;
     }
     case 1: {
@@ -2102,7 +2092,7 @@ stModelInstance2D* CreateAutomapMonsterMarker(int type)
         *marker = *g_automap_neutral_marker;
         second = glm::vec4(0.25f, 0.25f, 0.0f, 1.0f);
         first = glm::vec4(0.0f, 0.0f, 0.0f, 1.0f);
-        marker->SetGlowColors(&first, &second);
+        marker->SetGlowColors(first, second);
         break;
     }
     case 2: {
@@ -2111,7 +2101,7 @@ stModelInstance2D* CreateAutomapMonsterMarker(int type)
         *marker = *g_automap_hostile_marker;
         second = glm::vec4(0.5f, 0.0f, 0.0f, 1.0f);
         first = glm::vec4(0.0f, 0.0f, 0.0f, 1.0f);
-        marker->SetGlowColors(&first, &second);
+        marker->SetGlowColors(first, second);
         break;
     }
     }
@@ -2144,7 +2134,7 @@ stModelInstance2D* CreateAutomapTextMarker(void)
     glm::vec4 second;
     second = glm::vec4(1.0f, 0.4f, 0.0f, 1.0f);
     first = glm::vec4(0.0f, 0.0f, 0.0f, 1.0f);
-    marker->SetGlowColors(&first, &second);
+    marker->SetGlowColors(first, second);
     marker->setRenderDepth(2000);
     return marker;
 }

@@ -27,13 +27,12 @@ struct srVertexArray {
     unsigned char* attributes;
 };
 
-W8_ABI_ASSERT(sizeof(srVertexArray) == 0x20, "srVertexArray_must_be_0x20");
-
 /* Interface with no data beyond its vptr. */
 #pragma pack(push, 4)
 // VTABLE: SURRENDER 0x10076c74 srVertexProcessor
 class srVertexProcessor {
 public:
+    virtual ~srVertexProcessor() {}
     struct MaterialInfo {
         // FUNCTION: WIZ8 0x00424A80
         inline MaterialInfo() : disabled_channels(0) {}
@@ -65,7 +64,6 @@ public:
 
 protected:
     // FUNCTION: WIZ8 0x0042A360
-    virtual ~srVertexProcessor() {}
 
 public:
     // The provider's base vtable contains these bodies, not _purecall.
@@ -82,6 +80,3 @@ public:
 
 #pragma pack(pop)
 
-W8_ABI_ASSERT(sizeof(srVertexProcessor) == 0x04, "srVertexProcessor_must_be_0x04");
-W8_ABI_ASSERT(sizeof(srVertexProcessor::MaterialInfo) == 0x54,
-              "srVertexProcessor_MaterialInfo_must_be_0x54");

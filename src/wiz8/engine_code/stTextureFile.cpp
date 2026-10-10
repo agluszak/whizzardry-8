@@ -7,7 +7,7 @@
 
 #include <cstring>
 
-srColorSurface* __stdcall LoadSurface(wiz8::File* handle, w8_long*)
+std::unique_ptr<srColorSurface> __stdcall LoadSurface(wiz8::File* handle, w8_long*)
 {
     return handle ? srImage::loadTga(*handle) : nullptr;
 }
@@ -26,13 +26,13 @@ srColorSurface* __stdcall LoadSurface(wiz8::File* handle, w8_long*)
 // FUNCTION: WIZ8 0x0047BBD0
 void stTextureFile::releaseSurface()
 {
-    ReleaseRendererObject(surface);
+    surface.reset();
     texture_flags_ |= DEFAULTS_PENDING;
 }
 
 // FUNCTION: WIZ8 0x0047C630
 stTextureFile::stTextureFile(const char* file_name, int cached)
-    : cached(0), file_name(0), surface(0), frame_handle(getNewFrameHandle()), has_alpha(0)
+    : cached(0), file_name(0), surface(nullptr), frame_handle(getNewFrameHandle()), has_alpha(0)
 {
     /* Retail stores 0 then conditionally stores 1: the authored value is the
        normalized predicate, not the raw parameter. */
@@ -77,13 +77,7 @@ void stTextureFile::setupDefaultValues()
     if (surface == 0) {
         loadSurface();
     }
-    setupDefaultValuesFromSurface(surface);
-}
-
-// FUNCTION: WIZ8 0x0047C7A0
-srClass* stTextureFile::vInstance()
-{
-    return new stTextureFile(0, 0);
+    setupDefaultValuesFromSurface(surface.get());
 }
 
 // FUNCTION: WIZ8 0x0047C830

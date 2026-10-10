@@ -455,6 +455,12 @@ void DestroyWorldCollections(W8World* world)
         return;
     }
 
+    if (world->monster_generators) {
+        for (int index = 0; index < world->monster_generators->GetCount(); ++index)
+            delete *world->monster_generators->GetAt(index);
+        world->monster_generators->Clear();
+    }
+
     if (world->plsMonsters != 0) {
         while (PLLength(world->plsMonsters) != 0) {
             W8Monster* object = static_cast<W8Monster*>(PLGet(world->plsMonsters, 0));
@@ -523,7 +529,7 @@ void DestroyWorldCollections(W8World* world)
 
     if (world->particles != 0) {
         while (world->particles->GetCount() != 0) {
-            (*world->particles->GetAt(0))->release();
+            delete *world->particles->GetAt(0);
             world->particles->RemoveAt(0);
         }
     }

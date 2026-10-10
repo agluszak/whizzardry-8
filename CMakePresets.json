@@ -30,6 +30,16 @@
       }
     },
     {
+      "name": "linux-asan",
+      "inherits": "linux",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "CMAKE_C_FLAGS": "-fsanitize=address -fno-omit-frame-pointer",
+        "CMAKE_CXX_FLAGS": "-fsanitize=address -fno-omit-frame-pointer",
+        "CMAKE_EXE_LINKER_FLAGS": "-fsanitize=address"
+      }
+    },
+    {
       "name": "macos-arm64",
       "inherits": "native-base",
       "condition": {
@@ -88,6 +98,10 @@
     {
       "name": "windows-clangcl",
       "configurePreset": "windows-clangcl"
+    },
+    {
+      "name": "linux-asan",
+      "configurePreset": "linux-asan"
     }
   ],
   "testPresets": [
@@ -115,6 +129,13 @@
     {
       "name": "windows-clangcl",
       "configurePreset": "windows-clangcl",
+      "output": {
+        "outputOnFailure": true
+      }
+    },
+    {
+      "name": "linux-asan",
+      "configurePreset": "linux-asan",
       "output": {
         "outputOnFailure": true
       }

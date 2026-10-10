@@ -159,7 +159,7 @@ W8ItemRep::W8ItemRep()
 W8ItemRep::~W8ItemRep()
 {
     if (m_psrMesh != 0) {
-        m_psrMesh->release();
+        delete m_psrMesh;
     }
 }
 

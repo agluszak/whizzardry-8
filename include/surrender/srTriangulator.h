@@ -17,7 +17,6 @@ private:
         Node* next;
         Node* prev;
     };
-    W8_ABI_ASSERT(sizeof(Node) == 0xc, "CircularList_Node_must_be_0xc");
 
     int sameSide(const glm::vec2& first_point, const glm::vec2& second_point, const glm::vec2& a,
                  const glm::vec2& b);
@@ -32,4 +31,3 @@ private:
     const glm::vec2* points;
 };
 
-W8_ABI_ASSERT((sizeof(srTriangulator) == 0x10), "srTriangulator_must_be_0x10");

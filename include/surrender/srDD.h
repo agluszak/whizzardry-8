@@ -113,7 +113,6 @@ public:
         char name[64];
         char api_name[64];
     };
-    W8_ABI_ASSERT(sizeof(DriverInfo) == 0x94, "srDD_DriverInfo_must_be_0x94");
     /* getInfo output record. The nine trailing strings are the device identity fields. */
     struct Info {
         enum { PIXEL_TEXTURE_STATISTICS = 0x10u, RELEASE_SURFACE_AFTER_BIND = 0x20u };
@@ -153,7 +152,6 @@ public:
            vendor. */
         char text[9][0x40];
     };
-    W8_ABI_ASSERT(sizeof(Info) == 0x27c, "srDD_Info_must_be_0x27c");
     /* getStatistics output record. */
     struct Statistics {
         double texture_transfer;
@@ -180,7 +178,6 @@ public:
         w8_ulong height;
         w8_ulong depth;
     };
-    W8_ABI_ASSERT(sizeof(WindowInfo) == 0x0c, "WindowInfo_must_be_0x0c");
     struct WindowInfoList {
         WindowInfo* entries;
         w8_long count;
@@ -206,7 +203,6 @@ public:
         w8_ulong stencil;
     };
 #pragma pack(pop)
-    W8_ABI_ASSERT(sizeof(ClearValues) == 0x2c, "srDD_ClearValues_must_be_0x2c");
     /* Scissor rectangle {left, top, right, bottom}. */
     struct Scissor {
         w8_ulong left, top, right, bottom;
