@@ -1339,6 +1339,21 @@ bool CanPartySlotUseRecordedItem(int party_slot)
     return true;
 }
 
+/* Monster casting uses the same runtime-plus-database spell budget
+   for power selection and the final failure roll. */
+static unsigned int MonsterSpellPointBudget(W8MonsterInfo* monster_info,
+                                            const W8MonsterRecord* record)
+{
+    unsigned int budget = monster_info->spell_points + record->sp_budget;
+    if (record->sp_budget == 0) {
+        DebugMessage(0, fmt::format("DATA ERROR: Monster {} casting spells with SP Budget of 0",
+                                    GetMonsterName(monster_info, 0, 0)));
+    }
+    if (static_cast<int>(budget) < 0)
+        budget = 0;
+    return budget;
+}
+
 /* How hard a monster casts. It walks the power levels up from one until the
    cost of the next would leave it far enough short of its spell-point budget
    to matter - nine per cent of the cost - and then steps back to the last one
@@ -1365,14 +1380,7 @@ unsigned int ChooseMonsterSpellPowerLevel(W8MonsterInfo* monster_info, W8Monster
     for (;;) {
         W8MonsterRecord* record = GetMonsterDataForInfo(monster_info);
 
-        budget = monster_info->spell_points + record->sp_budget;
-        if (record->sp_budget == 0) {
-            DebugMessage(0, fmt::format("DATA ERROR: Monster {} casting spells with SP Budget of 0",
-                                        GetMonsterName(monster_info, 0, 0)));
-        }
-        if (static_cast<int>(budget) < 0) {
-            budget = 0;
-        }
+        budget = MonsterSpellPointBudget(monster_info, record);
 
         band =
             g_spell_records[spell_id].spell_point_cost / 2 + g_spell_records[spell_id].spell_level;
@@ -1987,14 +1995,7 @@ unsigned int MonsterCastsSpell(W8MonsterInfo* monster_info, int spell_id, unsign
     }
 
     record = GetMonsterDataForInfo(monster_info);
-    budget = monster_info->spell_points + record->sp_budget;
-    if (record->sp_budget == 0) {
-        DebugMessage(0, fmt::format("DATA ERROR: Monster {} casting spells with SP Budget of 0",
-                                    GetMonsterName(monster_info, 0, 0)));
-    }
-    if (static_cast<int>(budget) < 0) {
-        budget = 0;
-    }
+    budget = MonsterSpellPointBudget(monster_info, record);
     failure = GetSpellFailureChance(budget, spell_id, static_cast<int>(power_level));
 
     CastSpellFromSource(spell_id, &source, &monster_info->Target, power_level, 0, failure, false,
