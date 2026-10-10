@@ -6,6 +6,7 @@
 #include "compat/kernel32.h"
 #include "vobject_blitters.h"
 #include <stdint.h>
+#include <algorithm>
 #include <stdio.h>
 #include <string.h>
 
@@ -122,9 +123,9 @@ int main(int argc, char** argv)
         palette8[i] = static_cast<UINT8>(i * 73 + 11);
     }
     SGPVObject object = {};
-    ETRLEObject frame = {};
-    object.pETRLEObject = &frame;
-    object.pPixData = encoded;
+    object.pETRLEObject = std::make_unique<ETRLEObject[]>(1);
+    auto& frame = object.pETRLEObject[0];
+    object.pPixData = std::make_unique<UINT8[]>(sizeof(encoded));
     object.pShade8 = palette8;
     object.pShadeCurrent = palette;
     ClippingRect = {0, 0, 640, static_cast<INT32>(rows)};
@@ -133,6 +134,7 @@ int main(int argc, char** argv)
 
     for (int data = 0; data < 3; ++data) {
         sprite_data(frame, data);
+        std::copy_n(encoded, sizeof(encoded), object.pPixData.get());
         for (int variant = 0; variant < 8; ++variant) {
             // Whole, partial opaque/transparent runs, every clipped edge,
             // null/default clip rectangle and complete rejection.
@@ -189,7 +191,8 @@ int main(int argc, char** argv)
         SGPVSurface surface = {};
         surface.usWidth = pitch;
         surface.usHeight = rows;
-        surface.p16BPPPalette = palette;
+        surface.p16BPPPalette = std::make_unique<UINT16[]>(256);
+        std::copy_n(palette, 256, surface.p16BPPPalette.get());
         SGPRect area = {2, 3, static_cast<INT32>(2 + width), 7};
         reset(); ok = check("Blt8BPPDataSubTo16BPPBuffer", width,
             Blt8BPPDataSubTo16BPPBuffer(destination, pitch, &surface, reinterpret_cast<UINT8*>(source), pitch,

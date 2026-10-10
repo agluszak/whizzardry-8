@@ -57,13 +57,6 @@ struct FileCloser
     ~FileCloser() { if (handle) FileClose(handle); }
 };
 
-struct ImageMemoryDeleter
-{
-    void operator()(void* data) const { if (data) MemFree(data); }
-};
-
-template<class T>
-using ImageMemory = std::unique_ptr<T, ImageMemoryDeleter>;
 using Surface = std::unique_ptr<SDL_Surface, decltype(&SDL_DestroySurface)>;
 
 bool safe_dimensions(std::size_t width, std::size_t height)
@@ -177,12 +170,12 @@ try
     }
     const unsigned depth = indexed ? 8 : rgb555 ? 16 : 24;
     const std::size_t row_bytes = surface->w * (depth / 8);
-    ImageMemory<UINT8> data;
-    ImageMemory<SGPPaletteEntry> colors;
-    ImageMemory<UINT16> packed_colors;
+    std::unique_ptr<UINT8[]> data;
+    std::unique_ptr<SGPPaletteEntry[]> colors;
+    std::unique_ptr<UINT16[]> packed_colors;
     if (contents & IMAGE_BITMAPDATA)
     {
-        data.reset(static_cast<UINT8*>(MemAlloc(row_bytes * surface->h)));
+        data = std::make_unique<UINT8[]>(row_bytes * surface->h);
         if (!data)
             return FALSE;
         for (int y = 0; y < surface->h; ++y)
@@ -191,7 +184,7 @@ try
     }
     if (indexed && (contents & IMAGE_PALETTE))
     {
-        colors.reset(static_cast<SGPPaletteEntry*>(MemAlloc(256 * sizeof(SGPPaletteEntry))));
+        colors = std::make_unique<SGPPaletteEntry[]>(256);
         if (!colors)
             return FALSE;
         memset(colors.get(), 0, 256 * sizeof(SGPPaletteEntry));
@@ -199,7 +192,7 @@ try
             (bytes[2] == 1 || bytes[2] == 9) ? little_word(bytes.data() + 3) : 0;
         for (unsigned i = 0; i < std::min(unsigned(palette->ncolors), 256 - first_color); ++i)
             colors.get()[first_color + i] = {palette->colors[i].r, palette->colors[i].g, palette->colors[i].b, 0};
-        packed_colors.reset(Create16BPPPalette(colors.get()));
+        packed_colors = Create16BPPPalette(colors.get());
         if (!packed_colors)
             return FALSE;
     }
@@ -211,13 +204,13 @@ try
     image->ubBitDepth = static_cast<UINT8>(depth);
     if (data)
     {
-        image->p8BPPData = data.release();
+        image->pImageData = std::move(data);
         image->fFlags |= IMAGE_BITMAPDATA;
     }
     if (colors)
     {
-        image->pPalette = colors.release();
-        image->pui16BPPPalette = packed_colors.release();
+        image->pPalette = std::move(colors);
+        image->pui16BPPPalette = std::move(packed_colors);
         image->fFlags |= IMAGE_PALETTE;
     }
     return TRUE;
@@ -265,13 +258,11 @@ try
     }
 
     // Create memory for image structure
-    std::unique_ptr<image_type, decltype(&DestroyImage)> hImage(
-        static_cast<image_type*>(MemAlloc(sizeof(image_type))), DestroyImage);
+    auto hImage = std::make_unique<image_type>();
 
     if (!hImage)
         return NULL;
     // Initialize some values
-    memset(hImage.get(), 0, sizeof(image_type));
 
     // Set filename and loader
     memcpy(hImage->ImageFile, path.c_str(), path.size() + 1);
@@ -294,11 +285,7 @@ BOOLEAN DestroyImage(HIMAGE hImage)
 {
     Assert(hImage != NULL);
 
-    // First delete contents
-    ReleaseImageData(hImage, IMAGE_ALLDATA); //hImage->fFlags );
-
-    // Now free structure
-    MemFree(hImage);
+    delete hImage;
 
     return (TRUE);
 }
@@ -309,40 +296,22 @@ BOOLEAN ReleaseImageData(HIMAGE hImage, UINT16 fContents)
 
     Assert(hImage != NULL);
 
-    if ((fContents & IMAGE_PALETTE) && (hImage->fFlags & IMAGE_PALETTE)) {
-        //Destroy palette
-        if (hImage->pPalette != NULL) {
-            MemFree(hImage->pPalette);
-            hImage->pPalette = NULL;
-        }
-
-        if (hImage->pui16BPPPalette != NULL) {
-            MemFree(hImage->pui16BPPPalette);
-            hImage->pui16BPPPalette = NULL;
-        }
-
-        // Remove contents flag
-        hImage->fFlags = hImage->fFlags ^ IMAGE_PALETTE;
+    if (fContents & IMAGE_PALETTE) {
+        hImage->pPalette.reset();
+        hImage->pui16BPPPalette.reset();
+        hImage->fFlags &= ~IMAGE_PALETTE;
     }
-
-    if ((fContents & IMAGE_BITMAPDATA) && (hImage->fFlags & IMAGE_BITMAPDATA)) {
-        //Destroy image data
-        Assert(hImage->pImageData != NULL);
-        MemFree(hImage->pImageData);
-        hImage->pImageData = NULL;
-        if (hImage->usNumberOfObjects > 0) {
-            MemFree(hImage->pETRLEObject);
-        }
-        // Remove contents flag
-        hImage->fFlags = hImage->fFlags ^ IMAGE_BITMAPDATA;
+    if (fContents & IMAGE_BITMAPDATA) {
+        hImage->pImageData.reset();
+        hImage->pETRLEObject.reset();
+        hImage->uiSizePixData = 0;
+        hImage->usNumberOfObjects = 0;
+        hImage->fFlags &= ~(IMAGE_BITMAPDATA | IMAGE_COMPRESSED | IMAGE_TRLECOMPRESSED);
     }
-
-    if ((fContents & IMAGE_APPDATA) && (hImage->fFlags & IMAGE_APPDATA)) {
-        // get rid of the APP DATA
-        if (hImage->pAppData != NULL) {
-            MemFree(hImage->pAppData);
-            hImage->fFlags &= (~IMAGE_APPDATA);
-        }
+    if (fContents & IMAGE_APPDATA) {
+        hImage->pAppData.reset();
+        hImage->uiAppDataSize = 0;
+        hImage->fFlags &= ~IMAGE_APPDATA;
     }
 
     return (TRUE);
@@ -448,12 +417,12 @@ BOOLEAN Copy8BPPCompressedImageTo8BPPBuffer(HIMAGE hImage, BYTE* pDestBuf, UINT1
 
     UINT8* pScanLine;
 
-    PTR pDecompPtr;
+    z_stream* pDecompPtr;
     UINT32 uiDecompressed;
 
     // Assertions
     Assert(hImage != NULL);
-    Assert(hImage->pCompressedImageData != NULL);
+    Assert(hImage->pImageData.get() != NULL);
 
     // Validations
     CHECKF(usX >= 0);
@@ -484,14 +453,12 @@ BOOLEAN Copy8BPPCompressedImageTo8BPPBuffer(HIMAGE hImage, BYTE* pDestBuf, UINT1
     // to blit has been done).
 
     // initialize the decompression routines
-    std::unique_ptr<void, decltype(&DecompressFini)> decompressor(
-        DecompressInit((BYTE*)hImage->pCompressedImageData, hImage->usWidth * hImage->usHeight),
-        DecompressFini);
+    auto decompressor = DecompressInit(hImage->pImageData.get(), hImage->uiSizePixData);
     pDecompPtr = decompressor.get();
     CHECKF(pDecompPtr);
 
     // Allocate memory for one scanline
-    ImageMemory<UINT8> scanline(static_cast<UINT8*>(MemAlloc(hImage->usWidth)));
+    auto scanline = std::make_unique<UINT8[]>(hImage->usWidth);
     pScanLine = scanline.get();
     CHECKF(pScanLine);
 
@@ -535,14 +502,14 @@ BOOLEAN Copy8BPPCompressedImageTo16BPPBuffer(HIMAGE hImage, BYTE* pDestBuf, UINT
     UINT8* pScanLine;
     UINT8* pScanLineTemp;
 
-    PTR pDecompPtr;
+    z_stream* pDecompPtr;
     UINT32 uiDecompressed;
 
     UINT16* p16BPPPalette;
 
     // Assertions
     Assert(hImage != NULL);
-    Assert(hImage->pCompressedImageData != NULL);
+    Assert(hImage->pImageData.get() != NULL);
     SDL_LogDebug(SDL_LOG_CATEGORY_APPLICATION, "%s", "Start check");
     // Validations
     CHECKF(usX >= 0);
@@ -552,7 +519,7 @@ BOOLEAN Copy8BPPCompressedImageTo16BPPBuffer(HIMAGE hImage, BYTE* pDestBuf, UINT
     CHECKF(srcRect->iRight > srcRect->iLeft);
     CHECKF(srcRect->iBottom > srcRect->iTop);
     SDL_LogDebug(SDL_LOG_CATEGORY_APPLICATION, "%s", "End check");
-    p16BPPPalette = hImage->pui16BPPPalette;
+    p16BPPPalette = hImage->pui16BPPPalette.get();
 
     // determine where to start Copying and rectangle size
     uiDestStart = usY * usDestWidth + usX;
@@ -576,14 +543,12 @@ BOOLEAN Copy8BPPCompressedImageTo16BPPBuffer(HIMAGE hImage, BYTE* pDestBuf, UINT
     // to blit has been done).
 
     // initialize the decompression routines
-    std::unique_ptr<void, decltype(&DecompressFini)> decompressor(
-        DecompressInit((BYTE*)hImage->pCompressedImageData, hImage->usWidth * hImage->usHeight),
-        DecompressFini);
+    auto decompressor = DecompressInit(hImage->pImageData.get(), hImage->uiSizePixData);
     pDecompPtr = decompressor.get();
     CHECKF(pDecompPtr);
 
     // Allocate memory for one scanline
-    ImageMemory<UINT8> scanline(static_cast<UINT8*>(MemAlloc(hImage->usWidth)));
+    auto scanline = std::make_unique<UINT8[]>(hImage->usWidth);
     pScanLine = scanline.get();
     CHECKF(pScanLine);
 
@@ -637,7 +602,7 @@ BOOLEAN Copy8BPPImageTo8BPPBuffer(HIMAGE hImage, BYTE* pDestBuf, UINT16 usDestWi
 
     // Assertions
     Assert(hImage != NULL);
-    Assert(hImage->p16BPPData != NULL);
+    Assert(reinterpret_cast<UINT16*>(hImage->pImageData.get()) != NULL);
 
     // Validations
     CHECKF(usX >= 0);
@@ -658,7 +623,7 @@ BOOLEAN Copy8BPPImageTo8BPPBuffer(HIMAGE hImage, BYTE* pDestBuf, UINT16 usDestWi
 
     // Copy line by line
     pDest = (UINT8*)pDestBuf + uiDestStart;
-    pSrc = hImage->p8BPPData + uiSrcStart;
+    pSrc = hImage->pImageData.get() + uiSrcStart;
 
     for (cnt = 0; cnt < uiNumLines - 1; cnt++) {
         memcpy(pDest, pSrc, uiLineSize);
@@ -680,7 +645,7 @@ BOOLEAN Copy16BPPImageTo16BPPBuffer(HIMAGE hImage, BYTE* pDestBuf, UINT16 usDest
     UINT16 *pDest, *pSrc;
 
     Assert(hImage != NULL);
-    Assert(hImage->p16BPPData != NULL);
+    Assert(reinterpret_cast<UINT16*>(hImage->pImageData.get()) != NULL);
 
     // Validations
     CHECKF(usX >= 0);
@@ -701,7 +666,7 @@ BOOLEAN Copy16BPPImageTo16BPPBuffer(HIMAGE hImage, BYTE* pDestBuf, UINT16 usDest
 
     // Copy line by line
     pDest = (UINT16*)pDestBuf + uiDestStart;
-    pSrc = hImage->p16BPPData + uiSrcStart;
+    pSrc = reinterpret_cast<UINT16*>(hImage->pImageData.get()) + uiSrcStart;
 
     for (cnt = 0; cnt < uiNumLines - 1; cnt++) {
         memcpy(pDest, pSrc, uiLineSize * 2);
@@ -724,14 +689,14 @@ BOOLEAN Copy8BPPImageTo16BPPBuffer(HIMAGE hImage, BYTE* pDestBuf, UINT16 usDestW
     UINT16 *pDest, *pDestTemp;
     UINT16* p16BPPPalette;
 
-    p16BPPPalette = hImage->pui16BPPPalette;
+    p16BPPPalette = hImage->pui16BPPPalette.get();
 
     // Assertions
     Assert(p16BPPPalette != NULL);
     Assert(hImage != NULL);
 
     // Validations
-    CHECKF(hImage->p16BPPData != NULL);
+    CHECKF(reinterpret_cast<UINT16*>(hImage->pImageData.get()) != NULL);
     CHECKF(usX >= 0);
     CHECKF(usX < usDestWidth);
     CHECKF(usY >= 0);
@@ -750,7 +715,7 @@ BOOLEAN Copy8BPPImageTo16BPPBuffer(HIMAGE hImage, BYTE* pDestBuf, UINT16 usDestW
 
     // Convert to Pixel specification
     pDest = (UINT16*)pDestBuf + uiDestStart;
-    pSrc = hImage->p8BPPData + uiSrcStart;
+    pSrc = hImage->pImageData.get() + uiSrcStart;
     SDL_LogDebug(SDL_LOG_CATEGORY_APPLICATION, "Start Copying at %p", pDest);
 
     // For every entry, look up into 16BPP palette
@@ -774,15 +739,15 @@ BOOLEAN Copy8BPPImageTo16BPPBuffer(HIMAGE hImage, BYTE* pDestBuf, UINT16 usDestW
 }
 
 // FUNCTION: WIZ8 0x00410190
-UINT16* Create16BPPPalette(SGPPaletteEntry* pPalette)
+std::unique_ptr<UINT16[]> Create16BPPPalette(SGPPaletteEntry* pPalette)
 {
-    UINT16 *p16BPPPalette, r16, g16, b16, usColor;
+    auto p16BPPPalette = std::make_unique<UINT16[]>(256);
+    UINT16 r16, g16, b16, usColor;
     UINT32 cnt;
     UINT8 r, g, b;
 
     Assert(pPalette != NULL);
 
-    p16BPPPalette = (UINT16*)MemAlloc(sizeof(UINT16) * 256);
 
     if (!p16BPPPalette)
         return NULL;
@@ -846,17 +811,17 @@ UINT16* Create16BPPPalette(SGPPaletteEntry* pPalette)
 
 **********************************************************************************************/
 // FUNCTION: WIZ8 0x004102c0
-UINT16* Create16BPPPaletteShaded(SGPPaletteEntry* pPalette, UINT32 rscale, UINT32 gscale,
+std::unique_ptr<UINT16[]> Create16BPPPaletteShaded(SGPPaletteEntry* pPalette, UINT32 rscale, UINT32 gscale,
                                  UINT32 bscale, BOOLEAN mono)
 {
-    UINT16 *p16BPPPalette, r16, g16, b16, usColor;
+    auto p16BPPPalette = std::make_unique<UINT16[]>(256);
+    UINT16 r16, g16, b16, usColor;
     UINT32 cnt, lumin;
     UINT32 rmod, gmod, bmod;
     UINT8 r, g, b;
 
     Assert(pPalette != NULL);
 
-    p16BPPPalette = (UINT16*)MemAlloc(sizeof(UINT16) * 256);
 
     for (cnt = 0; cnt < 256; cnt++) {
         if (mono) {
@@ -957,26 +922,14 @@ BOOLEAN GetETRLEImageData(HIMAGE hImage, ETRLEData* pBuffer)
     Assert(hImage != NULL);
     Assert(pBuffer != NULL);
 
-    // Create memory for data
-    pBuffer->usNumberOfObjects = hImage->usNumberOfObjects;
-
-    // Create buffer for objects
-    pBuffer->pETRLEObject =
-        (ETRLEObject*)MemAlloc(sizeof(ETRLEObject) * pBuffer->usNumberOfObjects);
-    CHECKF(pBuffer->pETRLEObject != NULL);
-
-    // Copy into buffer
-    memcpy(pBuffer->pETRLEObject, hImage->pETRLEObject,
-           sizeof(ETRLEObject) * pBuffer->usNumberOfObjects);
-
-    // Allocate memory for pixel data
-    pBuffer->pPixData = MemAlloc(hImage->uiSizePixData);
-    CHECKF(pBuffer->pPixData != NULL);
-
-    pBuffer->uiSizePixData = hImage->uiSizePixData;
-
-    // Copy into buffer
-    memcpy(pBuffer->pPixData, hImage->pPixData8, pBuffer->uiSizePixData);
+    ETRLEData data{};
+    data.usNumberOfObjects = hImage->usNumberOfObjects;
+    data.uiSizePixData = hImage->uiSizePixData;
+    data.pETRLEObject = std::make_unique<ETRLEObject[]>(data.usNumberOfObjects);
+    data.pPixData = std::make_unique<UINT8[]>(data.uiSizePixData);
+    std::copy_n(hImage->pETRLEObject.get(), data.usNumberOfObjects, data.pETRLEObject.get());
+    std::copy_n(hImage->pImageData.get(), data.uiSizePixData, data.pPixData.get());
+    *pBuffer = std::move(data);
 
     return (TRUE);
 }

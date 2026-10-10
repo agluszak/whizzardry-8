@@ -4,6 +4,7 @@
 #define __FONT_H_
 
 #include "Types.h"
+#include <vector>
 #include "himage.h"
 #include "vobject.h"
 
@@ -42,13 +43,9 @@
 
 typedef struct {
     UINT16 usNumberOfSymbols;
-    UINT16* DynamicArrayOf16BitValues;
+    std::vector<UINT16> DynamicArrayOf16BitValues;
 
 } FontTranslationTable;
-
-#ifdef __cplusplus
-extern "C" {
-#endif
 
 extern INT32 FontDefault;
 extern UINT32 FontDestBuffer;
@@ -78,8 +75,6 @@ void SetRGBFontShadow(UINT32 uiRed, UINT32 uiGreen, UINT32 uiBlue);
 UINT16* SetFontObjectPalette16BPP(INT32 iFont, UINT16* pPal16);
 UINT16* GetFontObjectPalette16BPP(INT32 iFont);
 
-void DestroyEnglishTransTable(void);
-
 extern HVOBJECT GetFontObject(INT32 iFont);
 extern UINT32 gprintf(INT32 x, INT32 y, CHAR16* pFontString, ...);
 extern UINT32 gprintfDirty(INT32 x, INT32 y, CHAR16* pFontString, ...);
@@ -99,11 +94,11 @@ extern BOOLEAN SetFont(INT32 iFontIndex);
 
 extern INT32 LoadFontFile(UINT8* pFileName);
 extern UINT16 GetFontHeight(INT32 FontNum);
-extern BOOLEAN InitializeFontManager(UINT16 usDefaultPixDepth, FontTranslationTable* pTransTable);
+extern BOOLEAN InitializeFontManager(UINT16 usDefaultPixDepth, const FontTranslationTable& pTransTable);
 extern void ShutdownFontManager(void);
 extern void UnloadFont(UINT32 FontIndex);
 
-extern FontTranslationTable* CreateEnglishTransTable();
+extern FontTranslationTable CreateEnglishTransTable();
 
 extern INT16 GetIndex(UINT16 siChar);
 extern UINT32 GetWidth(HVOBJECT hSrcVObject, INT16 ssIndex);
@@ -133,9 +128,5 @@ void FindFontCenterCoordinates(INT16 sLeft, INT16 sTop, INT16 sWidth, INT16 sHei
 // make sure the pFontString is terminated by 0
 //extern BOOLEAN   PrintFontString(UINT16 *pFontString, UINT8 *pDestBuffer, UINT16 siDestWidth, UINT16 siDestPixelDepth, UINT16 siDestPitch, UINT16 siDestHeight, UINT16 siX, UINT16 siY, UINT16 siTotalWidth, UINT16 siTotalHeight, BOOLEAN MultiLine, FontBase *pFontBase);
 //extern BOOLEAN   SetFont16BitData(FontBase *pFontBase, UINT16 *pData16);
-
-#ifdef __cplusplus
-}
-#endif
 
 #endif

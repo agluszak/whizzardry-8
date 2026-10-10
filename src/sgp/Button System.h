@@ -93,7 +93,7 @@ typedef struct _GUI_BUTTON {
     //Button disabled style
     INT8 bDisabledStyle;
     //For buttons with text
-    CHAR16* string;      //the string
+    std::unique_ptr<CHAR16[]> string; //the string
     UINT16 usFont;       //font for text
     BOOLEAN fMultiColor; //font is a multi-color font
     INT16 sForeColor;    //text colors if there is text

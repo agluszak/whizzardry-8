@@ -89,23 +89,6 @@ add_executable(native_pixel_convert_test native/pixel_convert_test.cpp)
 target_link_libraries(native_pixel_convert_test PRIVATE SURRENDER wiz8_native_settings SDL3::SDL3)
 add_test(NAME native_pixel_convert COMMAND native_pixel_convert_test)
 
-include(CheckLinkerFlag)
-check_linker_flag(CXX "-Wl,--wrap=malloc,--wrap=realloc" WIZ8_TEST_WRAP_C_ALLOCATIONS)
-foreach(mode debug extreme)
-    add_executable(native_${mode}_memory_test native/memory_test.cpp native/allocation_failures.cpp
-        "${PROJECT_SOURCE_DIR}/src/sgp/MemMan.cpp")
-    target_link_libraries(native_${mode}_memory_test PRIVATE wiz8_native_settings SDL3::SDL3)
-    target_compile_definitions(native_${mode}_memory_test PRIVATE _DEBUG _ITERATOR_DEBUG_LEVEL=0)
-    if(mode STREQUAL "extreme")
-        target_compile_definitions(native_${mode}_memory_test PRIVATE EXTREME_MEMORY_DEBUGGING)
-    endif()
-    if(WIZ8_TEST_WRAP_C_ALLOCATIONS)
-        target_compile_definitions(native_${mode}_memory_test PRIVATE WIZ8_TEST_WRAP_C_ALLOCATIONS)
-        target_link_options(native_${mode}_memory_test PRIVATE -Wl,--wrap=malloc,--wrap=realloc)
-    endif()
-    add_test(NAME native_${mode}_memory COMMAND native_${mode}_memory_test)
-endforeach()
-
 add_executable(native_blitter_test "${PROJECT_SOURCE_DIR}/tests/native/blitter_test.cpp")
 target_link_libraries(native_blitter_test PRIVATE WIZ8_SGP)
 add_test(NAME native_blitters COMMAND native_blitter_test

@@ -12,7 +12,8 @@
 #include <stdio.h>
 #include <memory.h>
 #include "input.h"
-#include "MemMan.h"
+#include <array>
+#include <memory>
 #include "english.h"
 #include "vobject.h"
 #include "vobject_blitters.h"
@@ -135,6 +136,7 @@ UINT32 ButtonDestBPP = 16;
 
 // GLOBAL: WIZ8 0x006e1240
 GUI_BUTTON* ButtonList[MAX_BUTTONS];
+static std::array<std::unique_ptr<GUI_BUTTON>, MAX_BUTTONS> ButtonOwners;
 
 // GLOBAL: WIZ8 0x00650ea4
 INT32 ButtonsInList = 0;
@@ -827,16 +829,13 @@ void RemoveButton(INT32 iButtonID)
     // ...kill it!!!
     MSYS_RemoveRegion(&b->Area);
 
-    // Get rid of the text string
-    if (b->string != NULL)
-        MemFree(b->string);
 
     if (b == gpAnchoredButton)
         gpAnchoredButton = NULL;
     if (b == gpPrevAnchoredButton)
         gpPrevAnchoredButton = NULL;
 
-    MemFree(b);
+    ButtonOwners[iButtonID].reset();
     b = NULL;
     ButtonList[iButtonID] = NULL;
 }
@@ -973,17 +972,15 @@ INT32 CreateTextButton(CHAR16* string, UINT32 uiFont, INT16 sForeColor, INT16 sS
     }
 
     // Allocate memory for a GUI_BUTTON structure
-    if ((b = (GUI_BUTTON*)MemAlloc(sizeof(GUI_BUTTON))) == NULL) {
-        SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "%s", "CreateTextButton: Can't alloc mem for button struct");
-        return (-1);
-    }
+    auto owner = std::make_unique<GUI_BUTTON>();
+    b = owner.get();
 
     // Allocate memory for the button's text string...
     b->string = NULL;
     if (string && wcslen(string)) {
-        b->string = (CHAR16*)MemAlloc((wcslen(string) + 1) * sizeof(UINT16));
+        b->string = std::make_unique<CHAR16[]>(wcslen(string) + 1);
         AssertMsg(b->string, "Out of memory error:  Couldn't allocate string in CreateTextButton.");
-        wcscpy(b->string, string);
+        wcscpy(b->string.get(), string);
     }
 
     // Init the button structure variables
@@ -1056,6 +1053,7 @@ INT32 CreateTextButton(CHAR16* string, UINT32 uiFont, INT16 sForeColor, INT16 sS
 #ifdef BUTTONSYSTEM_DEBUGGING
     AssertFailIfIdenticalButtonAttributesFound(b);
 #endif
+    ButtonOwners[ButtonNum] = std::move(owner);
     ButtonList[ButtonNum] = b;
 
 
@@ -1099,10 +1097,8 @@ INT32 QuickCreateButton(UINT32 Image, INT16 xloc, INT16 yloc, INT32 Type, INT16 
     }
 
     // Allocate memory for a GUI_BUTTON structure
-    if ((b = (GUI_BUTTON*)MemAlloc(sizeof(GUI_BUTTON))) == NULL) {
-        SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "%s", "QuickCreateButton: Can't alloc mem for button struct");
-        return (-1);
-    }
+    auto owner = std::make_unique<GUI_BUTTON>();
+    b = owner.get();
 
     // Set the values for this buttn
     b->uiFlags = BUTTON_DIRTY;
@@ -1167,7 +1163,7 @@ INT32 QuickCreateButton(UINT32 Image, INT16 xloc, INT16 yloc, INT32 Type, INT16 
     } else
         b->MoveCallback = BUTTON_NO_CALLBACK;
 
-    memset(&b->Area, 0, sizeof(MOUSE_REGION));
+    b->Area = {};
     // Define a MOUSE_REGION for this QuickButton
     MSYS_DefineRegion(&b->Area, (UINT16)xloc, (UINT16)yloc,
                       (UINT16)(xloc + (INT16)ButtonPictures[Image].MaxWidth),
@@ -1185,6 +1181,7 @@ INT32 QuickCreateButton(UINT32 Image, INT16 xloc, INT16 yloc, INT32 Type, INT16 
 #ifdef BUTTONSYSTEM_DEBUGGING
     AssertFailIfIdenticalButtonAttributesFound(b);
 #endif
+    ButtonOwners[ButtonNum] = std::move(owner);
     ButtonList[ButtonNum] = b;
 
 
@@ -1203,19 +1200,13 @@ void SpecifyButtonText(INT32 iButtonID, CHAR16* string)
 
     b = ButtonList[iButtonID];
 
-    //free the previous strings memory if applicable
-    if (b->string)
-        MemFree(b->string);
-    b->string = NULL;
-
+    std::unique_ptr<CHAR16[]> text;
     if (string && wcslen(string)) {
-        //allocate memory for the new string
-        b->string = (CHAR16*)MemAlloc((wcslen(string) + 1) * sizeof(UINT16));
-        Assert(b->string);
-        //copy the string to the button
-        wcscpy(b->string, string);
+        text = std::make_unique<CHAR16[]>(wcslen(string) + 1);
+        wcscpy(text.get(), string);
         b->uiFlags |= BUTTON_DIRTY;
     }
+    b->string = std::move(text);
 }
 
 // FUNCTION: WIZ8 0x0040d8c0
@@ -1903,11 +1894,11 @@ void DrawTextOnButton(GUI_BUTTON* b)
                 xp = TextX + 3;
                 break;
             case BUTTON_TEXT_RIGHT:
-                xp = NewClip.iRight - StringPixLength(b->string, b->usFont) - 3;
+                xp = NewClip.iRight - StringPixLength(b->string.get(), b->usFont) - 3;
                 break;
             case BUTTON_TEXT_CENTER:
             default:
-                xp = (((width - 6) - StringPixLength(b->string, b->usFont)) / 2) + TextX;
+                xp = (((width - 6) - StringPixLength(b->string.get(), b->usFont)) / 2) + TextX;
                 break;
             }
         } else
@@ -1944,9 +1935,9 @@ void DrawTextOnButton(GUI_BUTTON* b)
             yp++;
         }
         if (b->fMultiColor)
-            gprintf(xp, yp, b->string);
+            gprintf(xp, yp, b->string.get());
         else
-            mprintf(xp, yp, b->string);
+            mprintf(xp, yp, b->string.get());
         // Restore the old text printing settings
     }
 }

@@ -6,7 +6,6 @@
 #include <stdio.h>
 #include <memory.h>
 #include "input.h"
-#include "MemMan.h"
 #include "english.h"
 #include "Video2.h"
 
@@ -14,7 +13,6 @@
 // on the language used). ENGLISH.C, JAPANESE.C, FRENCH.C, GERMAN.C, SPANISH.C, etc...
 
 #include "sgp.h"
-
 
 // The gfKeyState table is used to track which of the keys is up or down at any one time. This is used while polling
 // the interface.
@@ -84,7 +82,6 @@ BOOLEAN gfSGPInputReceived = FALSE;
 // This is the WIN95 hook specific data and defines used to handle the keyboard and
 // mouse hook
 
-
 // If the following pointer is non NULL then input characters are redirected to
 // the related string
 
@@ -101,7 +98,6 @@ void HandleSingleClicksAndButtonRepeats(void);
 void AdjustMouseForWindowOrigin(void);
 
 // These are the hook functions for both keyboard and mouse
-
 
 // FUNCTION: WIZ8 0x00401ea0
 BOOLEAN InitializeInputManager(void)

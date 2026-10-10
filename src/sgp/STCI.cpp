@@ -2,7 +2,8 @@
 /* Modified for the Wizardry 8 reconstruction: 2026-10-03, 2026-10-06, 2026-10-07.
    Distributed under the accompanying SFI Source Code license agreement. */
 #include <string.h>
-#include "MemMan.h"
+#include <array>
+#include <algorithm>
 #include "FileMan.h"
 #include "imgfmt.h"
 #include "himage.h"
@@ -15,27 +16,29 @@ BOOLEAN STCISetPalette(PTR pSTCIPalette, HIMAGE hImage);
 
 // FUNCTION: WIZ8 0x00415130
 BOOLEAN LoadSTCIFileToImage(HIMAGE hImage, UINT16 fContents)
+try
 {
     HWFILE hFile;
     STCIHeader Header;
     UINT32 uiBytesRead;
-    image_type TempImage;
+    image_type TempImage{};
 
     // Check that hImage is valid, and that the file in question exists
     Assert(hImage != NULL);
 
-    TempImage = *hImage;
+    memcpy(TempImage.ImageFile, hImage->ImageFile, sizeof(TempImage.ImageFile));
+    TempImage.iFileLoader = hImage->iFileLoader;
 
     CHECKF(FileExists(TempImage.ImageFile));
 
     // Open the file and read the header
     hFile = FileOpen(TempImage.ImageFile, FILE_ACCESS_READ, FALSE);
     CHECKF(hFile);
+    struct FileCloser { HWFILE file; ~FileCloser() { FileClose(file); } } closer{hFile};
 
     if (!FileRead(hFile, &Header, STCI_HEADER_SIZE, &uiBytesRead) ||
         uiBytesRead != STCI_HEADER_SIZE || memcmp(Header.cID, STCI_ID_STRING, STCI_ID_LEN) != 0) {
         SDL_LogDebug(SDL_LOG_CATEGORY_APPLICATION, "%s", "Problem reading STCI header.");
-        FileClose(hFile);
         return (FALSE);
     }
 
@@ -43,23 +46,19 @@ BOOLEAN LoadSTCIFileToImage(HIMAGE hImage, UINT16 fContents)
     if (Header.fFlags & STCI_RGB) {
         if (!STCILoadRGB(&TempImage, fContents, hFile, &Header)) {
             SDL_LogDebug(SDL_LOG_CATEGORY_APPLICATION, "%s", "Problem loading RGB image.");
-            FileClose(hFile);
             return (FALSE);
         }
     } else if (Header.fFlags & STCI_INDEXED) {
         if (!STCILoadIndexed(&TempImage, fContents, hFile, &Header)) {
             SDL_LogDebug(SDL_LOG_CATEGORY_APPLICATION, "%s", "Problem loading palettized image.");
-            FileClose(hFile);
             return (FALSE);
         }
     } else { // unsupported type of data, or the right flags weren't set!
         SDL_LogDebug(SDL_LOG_CATEGORY_APPLICATION, "%s", "Unknown data organization in STCI file.");
-        FileClose(hFile);
         return (FALSE);
     }
 
     // Requested data loaded successfully.
-    FileClose(hFile);
 
     // Set some more flags in the temporary image structure, copy it so that hImage points
     // to it, and return.
@@ -69,9 +68,32 @@ BOOLEAN LoadSTCIFileToImage(HIMAGE hImage, UINT16 fContents)
     TempImage.usWidth = Header.usWidth;
     TempImage.usHeight = Header.usHeight;
     TempImage.ubBitDepth = Header.ubDepth;
-    *hImage = TempImage;
+    ReleaseImageData(hImage, fContents);
+    hImage->usWidth = TempImage.usWidth;
+    hImage->usHeight = TempImage.usHeight;
+    hImage->ubBitDepth = TempImage.ubBitDepth;
+    hImage->fFlags |= TempImage.fFlags;
+    if (fContents & IMAGE_PALETTE) {
+        hImage->pPalette = std::move(TempImage.pPalette);
+        hImage->pui16BPPPalette = std::move(TempImage.pui16BPPPalette);
+    }
+    if (fContents & IMAGE_BITMAPDATA) {
+        hImage->pImageData = std::move(TempImage.pImageData);
+        hImage->pETRLEObject = std::move(TempImage.pETRLEObject);
+        hImage->usNumberOfObjects = TempImage.usNumberOfObjects;
+        hImage->uiSizePixData = TempImage.uiSizePixData;
+    }
+    if (fContents & IMAGE_APPDATA) {
+        hImage->pAppData = std::move(TempImage.pAppData);
+        hImage->uiAppDataSize = TempImage.uiAppDataSize;
+    }
 
     return (TRUE);
+}
+
+catch (...)
+{
+    return FALSE;
 }
 
 // FUNCTION: WIZ8 0x00415250
@@ -86,16 +108,16 @@ BOOLEAN STCILoadRGB(HIMAGE hImage, UINT16 fContents, HWFILE hFile, STCIHeader* p
 
     if (fContents & IMAGE_BITMAPDATA) {
         // Allocate memory for the image data and read it in
-        hImage->pImageData = MemAlloc(pHeader->uiStoredSize);
+        hImage->pImageData = std::make_unique<UINT8[]>(pHeader->uiStoredSize);
         if (hImage->pImageData == NULL) {
             return (FALSE);
-        } else if (!FileRead(hFile, hImage->pImageData, pHeader->uiStoredSize, &uiBytesRead) ||
+        } else if (!FileRead(hFile, hImage->pImageData.get(), pHeader->uiStoredSize, &uiBytesRead) ||
                    uiBytesRead != pHeader->uiStoredSize) {
-            MemFree(hImage->pImageData);
             return (FALSE);
         }
 
         hImage->fFlags |= IMAGE_BITMAPDATA;
+        hImage->uiSizePixData = pHeader->uiStoredSize;
 
         if (pHeader->ubDepth == 16) {
             // ASSUMPTION: file data is 565 R,G,B
@@ -110,28 +132,28 @@ BOOLEAN STCILoadRGB(HIMAGE hImage, UINT16 fContents, HWFILE hFile, STCIHeader* p
                     // hardware wants RGB!
                     if (gusRedMask == 0x7C00 && gusGreenMask == 0x03E0 &&
                         gusBlueMask == 0x001F) { // hardware is 555
-                        ConvertRGBDistribution565To555(hImage->p16BPPData,
+                        ConvertRGBDistribution565To555(reinterpret_cast<UINT16*>(hImage->pImageData.get()),
                                                        pHeader->usWidth * pHeader->usHeight);
                         return (TRUE);
                     } else if (gusRedMask == 0xFC00 && gusGreenMask == 0x03E0 &&
                                gusBlueMask == 0x001F) {
-                        ConvertRGBDistribution565To655(hImage->p16BPPData,
+                        ConvertRGBDistribution565To655(reinterpret_cast<UINT16*>(hImage->pImageData.get()),
                                                        pHeader->usWidth * pHeader->usHeight);
                         return (TRUE);
                     } else if (gusRedMask == 0xF800 && gusGreenMask == 0x07C0 &&
                                gusBlueMask == 0x003F) {
-                        ConvertRGBDistribution565To556(hImage->p16BPPData,
+                        ConvertRGBDistribution565To556(reinterpret_cast<UINT16*>(hImage->pImageData.get()),
                                                        pHeader->usWidth * pHeader->usHeight);
                         return (TRUE);
                     } else {
                         // take the long route
-                        ConvertRGBDistribution565ToAny(hImage->p16BPPData,
+                        ConvertRGBDistribution565ToAny(reinterpret_cast<UINT16*>(hImage->pImageData.get()),
                                                        pHeader->usWidth * pHeader->usHeight);
                         return (TRUE);
                     }
                 } else {
                     // hardware distribution is not R-G-B so we have to take the long route!
-                    ConvertRGBDistribution565ToAny(hImage->p16BPPData,
+                    ConvertRGBDistribution565ToAny(reinterpret_cast<UINT16*>(hImage->pImageData.get()),
                                                    pHeader->usWidth * pHeader->usHeight);
                     return (TRUE);
                 }
@@ -145,156 +167,53 @@ BOOLEAN STCILoadRGB(HIMAGE hImage, UINT16 fContents, HWFILE hFile, STCIHeader* p
 // FUNCTION: WIZ8 0x004153f0
 BOOLEAN STCILoadIndexed(HIMAGE hImage, UINT16 fContents, HWFILE hFile, STCIHeader* pHeader)
 {
-    UINT32 uiFileSectionSize;
     UINT32 uiBytesRead;
-    PTR pSTCIPalette;
-
-    if (fContents & IMAGE_PALETTE) { // Allocate memory for reading in the palette
-        if (pHeader->Indexed.uiNumberOfColours != 256) {
-            SDL_LogDebug(SDL_LOG_CATEGORY_APPLICATION, "%s", "Palettized image has bad palette size.");
-            return (FALSE);
-        }
-        uiFileSectionSize = pHeader->Indexed.uiNumberOfColours * STCI_PALETTE_ELEMENT_SIZE;
-        pSTCIPalette = MemAlloc(uiFileSectionSize);
-        if (pSTCIPalette == NULL) {
-            SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "%s", "Out of memory!");
-            FileClose(hFile);
-            return (FALSE);
-        }
-
-        // ATE: Memset: Jan 16/99
-        memset(pSTCIPalette, 0, uiFileSectionSize);
-
-        // Read in the palette
-        if (!FileRead(hFile, pSTCIPalette, uiFileSectionSize, &uiBytesRead) ||
-            uiBytesRead != uiFileSectionSize) {
-            SDL_LogDebug(SDL_LOG_CATEGORY_APPLICATION, "%s", "Problem loading palette!");
-            FileClose(hFile);
-            MemFree(pSTCIPalette);
-            return (FALSE);
-        } else if (!STCISetPalette(pSTCIPalette, hImage)) {
-            SDL_LogDebug(SDL_LOG_CATEGORY_APPLICATION, "%s", "Problem setting hImage-format palette!");
-            FileClose(hFile);
-            MemFree(pSTCIPalette);
-            return (FALSE);
-        }
+    const auto paletteBytes = pHeader->Indexed.uiNumberOfColours * STCI_PALETTE_ELEMENT_SIZE;
+    if (fContents & IMAGE_PALETTE) {
+        if (pHeader->Indexed.uiNumberOfColours != 256)
+            return FALSE;
+        std::array<STCIPaletteElement, 256> palette{};
+        if (!FileRead(hFile, palette.data(), paletteBytes, &uiBytesRead) || uiBytesRead != paletteBytes ||
+            !STCISetPalette(palette.data(), hImage))
+            return FALSE;
         hImage->fFlags |= IMAGE_PALETTE;
-        // Free the temporary buffer
-        MemFree(pSTCIPalette);
-    } else if (fContents & (IMAGE_BITMAPDATA | IMAGE_APPDATA)) { // seek past the palette
-        uiFileSectionSize = pHeader->Indexed.uiNumberOfColours * STCI_PALETTE_ELEMENT_SIZE;
-        if (FileSeek(hFile, uiFileSectionSize, FILE_SEEK_FROM_CURRENT) == FALSE) {
-            SDL_LogDebug(SDL_LOG_CATEGORY_APPLICATION, "%s", "Problem seeking past palette!");
-            FileClose(hFile);
-            return (FALSE);
-        }
+    } else if ((fContents & (IMAGE_BITMAPDATA | IMAGE_APPDATA)) &&
+               !FileSeek(hFile, paletteBytes, FILE_SEEK_FROM_CURRENT)) {
+        return FALSE;
     }
+    const auto objectCount = (pHeader->fFlags & STCI_ETRLE_COMPRESSED) ?
+        pHeader->Indexed.usNumberOfSubImages : 0;
+    const auto objectBytes = objectCount * STCI_SUBIMAGE_SIZE;
     if (fContents & IMAGE_BITMAPDATA) {
         if (pHeader->fFlags & STCI_ETRLE_COMPRESSED) {
-            // load data for the subimage (object) structures
             Assert(sizeof(ETRLEObject) == STCI_SUBIMAGE_SIZE);
-            hImage->usNumberOfObjects = pHeader->Indexed.usNumberOfSubImages;
-            uiFileSectionSize = hImage->usNumberOfObjects * STCI_SUBIMAGE_SIZE;
-            hImage->pETRLEObject = (ETRLEObject*)MemAlloc(
-                hImage->usNumberOfObjects * sizeof(*hImage->pETRLEObject));
-            if (hImage->pETRLEObject == NULL) {
-                SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "%s", "Out of memory!");
-                FileClose(hFile);
-                if (fContents & IMAGE_PALETTE) {
-                    MemFree(hImage->pPalette);
-                }
-                return (FALSE);
-            }
-            if (!FileRead(hFile, hImage->pETRLEObject, uiFileSectionSize, &uiBytesRead) ||
-                uiBytesRead != uiFileSectionSize) {
-                SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "%s", "Error loading subimage structures!");
-                FileClose(hFile);
-                if (fContents & IMAGE_PALETTE) {
-                    MemFree(hImage->pPalette);
-                }
-                MemFree(hImage->pETRLEObject);
-                return (FALSE);
-            }
+            hImage->pETRLEObject = std::make_unique<ETRLEObject[]>(objectCount);
+            if (!FileRead(hFile, hImage->pETRLEObject.get(), objectBytes, &uiBytesRead) ||
+                uiBytesRead != objectBytes)
+                return FALSE;
+            hImage->usNumberOfObjects = objectCount;
             hImage->uiSizePixData = pHeader->uiStoredSize;
             hImage->fFlags |= IMAGE_TRLECOMPRESSED;
         }
-        // allocate memory for and read in the image data
-        hImage->pImageData = MemAlloc(pHeader->uiStoredSize);
-        if (hImage->pImageData == NULL) {
-            SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "%s", "Out of memory!");
-            FileClose(hFile);
-            if (fContents & IMAGE_PALETTE) {
-                MemFree(hImage->pPalette);
-            }
-            if (hImage->usNumberOfObjects > 0) {
-                MemFree(hImage->pETRLEObject);
-            }
-            return (FALSE);
-        } else if (!FileRead(hFile, hImage->pImageData, pHeader->uiStoredSize, &uiBytesRead) ||
-                   uiBytesRead != pHeader->uiStoredSize) { // Problem reading in the image data!
-            SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "%s", "Error loading image data!");
-            FileClose(hFile);
-            MemFree(hImage->pImageData);
-            if (fContents & IMAGE_PALETTE) {
-                MemFree(hImage->pPalette);
-            }
-            if (hImage->usNumberOfObjects > 0) {
-                MemFree(hImage->pETRLEObject);
-            }
-            return (FALSE);
-        }
+        hImage->pImageData = std::make_unique<UINT8[]>(pHeader->uiStoredSize);
+        if (!FileRead(hFile, hImage->pImageData.get(), pHeader->uiStoredSize, &uiBytesRead) ||
+            uiBytesRead != pHeader->uiStoredSize)
+            return FALSE;
+        hImage->uiSizePixData = pHeader->uiStoredSize;
         hImage->fFlags |= IMAGE_BITMAPDATA;
-    } else if (fContents & IMAGE_APPDATA) // then there's a point in seeking ahead
-    {
-        if (FileSeek(hFile, pHeader->uiStoredSize, FILE_SEEK_FROM_CURRENT) == FALSE) {
-            SDL_LogDebug(SDL_LOG_CATEGORY_APPLICATION, "%s", "Problem seeking past image data!");
-            FileClose(hFile);
-            return (FALSE);
-        }
+    } else if ((fContents & IMAGE_APPDATA) &&
+               !FileSeek(hFile, objectBytes + pHeader->uiStoredSize, FILE_SEEK_FROM_CURRENT)) {
+        return FALSE;
     }
-
-    if (fContents & IMAGE_APPDATA && pHeader->uiAppDataSize > 0) {
-        // load application-specific data
-        hImage->pAppData = (UINT8*)MemAlloc(pHeader->uiAppDataSize);
-        if (hImage->pAppData == NULL) {
-            SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "%s", "Out of memory!");
-            FileClose(hFile);
-            MemFree(hImage->pAppData);
-            if (fContents & IMAGE_PALETTE) {
-                MemFree(hImage->pPalette);
-            }
-            if (fContents & IMAGE_BITMAPDATA) {
-                MemFree(hImage->pImageData);
-            }
-            if (hImage->usNumberOfObjects > 0) {
-                MemFree(hImage->pETRLEObject);
-            }
-            return (FALSE);
-        }
-        if (!FileRead(hFile, hImage->pAppData, pHeader->uiAppDataSize, &uiBytesRead) ||
-            uiBytesRead != pHeader->uiAppDataSize) {
-            SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "%s", "Error loading application-specific data!");
-            FileClose(hFile);
-            MemFree(hImage->pAppData);
-            if (fContents & IMAGE_PALETTE) {
-                MemFree(hImage->pPalette);
-            }
-            if (fContents & IMAGE_BITMAPDATA) {
-                MemFree(hImage->pImageData);
-            }
-            if (hImage->usNumberOfObjects > 0) {
-                MemFree(hImage->pETRLEObject);
-            }
-            return (FALSE);
-        }
+    if ((fContents & IMAGE_APPDATA) && pHeader->uiAppDataSize) {
+        hImage->pAppData = std::make_unique<UINT8[]>(pHeader->uiAppDataSize);
+        if (!FileRead(hFile, hImage->pAppData.get(), pHeader->uiAppDataSize, &uiBytesRead) ||
+            uiBytesRead != pHeader->uiAppDataSize)
+            return FALSE;
         hImage->uiAppDataSize = pHeader->uiAppDataSize;
-        ;
         hImage->fFlags |= IMAGE_APPDATA;
-    } else {
-        hImage->pAppData = NULL;
-        hImage->uiAppDataSize = 0;
     }
-    return (TRUE);
+    return TRUE;
 }
 
 BOOLEAN STCISetPalette(PTR pSTCIPalette, HIMAGE hImage)
@@ -305,8 +224,7 @@ BOOLEAN STCISetPalette(PTR pSTCIPalette, HIMAGE hImage)
     pubPalette = (STCIPaletteElement*)pSTCIPalette;
 
     // Allocate memory for palette
-    hImage->pPalette = (SGPPaletteEntry*)MemAlloc(sizeof(SGPPaletteEntry) * 256);
-    memset(hImage->pPalette, 0, (sizeof(SGPPaletteEntry) * 256));
+    hImage->pPalette = std::make_unique<SGPPaletteEntry[]>(256);
 
     if (hImage->pPalette == NULL) {
         return (FALSE);

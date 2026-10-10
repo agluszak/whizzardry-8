@@ -23,7 +23,6 @@
 
 #include "input.h"
 
-
 // Prototype Declarations
 
 // Should the game immediately load the quick save at startup?
@@ -32,7 +31,7 @@ BOOLEAN gfLoadAtStartup = FALSE;
 // GLOBAL: WIZ8 0x006505a1
 BOOLEAN gfUsingBoundsChecker = FALSE;
 // GLOBAL: WIZ8 0x006505a4
-CHAR8* gzStringDataOverride = NULL;
+std::string gzStringDataOverride;
 // GLOBAL: WIZ8 0x006505a8
 BOOLEAN gfCapturingVideo = FALSE;
 
@@ -46,7 +45,6 @@ RECT rcWindow;
 
 // moved from header file: 24mar98:HJH
 // GLOBAL: WIZ8 0x006f0624
-UINT32 giStartMem;
 
 // GLOBAL: WIZ8 0x006f0620
 
@@ -72,11 +70,9 @@ BOOLEAN gfIgnoreMessages = FALSE;
 // GLOBAL: WIZ8 0x005ff450
 UINT8 gbPixelDepth = PIXEL_DEPTH;
 
-
 // FUNCTION: WIZ8 0x00401570
 BOOLEAN InitializeStandardGamingPlatform(HINSTANCE hInstance, int sCommandShow)
 {
-    FontTranslationTable* pFontTable;
 
     // now required by all (even JA2) in order to call ShutdownSGP
     atexit(SGPExit);
@@ -87,13 +83,6 @@ BOOLEAN InitializeStandardGamingPlatform(HINSTANCE hInstance, int sCommandShow)
     GetRuntimeSettings();
 
     // Now start up everything else.
-
-    SDL_LogDebug(SDL_LOG_CATEGORY_APPLICATION, "%s", "Initializing Memory Manager");
-    // Initialize the Memory Manager
-    if (InitializeMemoryManager() == FALSE) { // We were unable to initialize the memory manager
-        SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "%s", "FAILED : Initializing Memory Manager");
-        return FALSE;
-    }
 
     SDL_LogDebug(SDL_LOG_CATEGORY_APPLICATION, "%s", "Initializing File Manager");
     // Initialize the File Manager
@@ -136,10 +125,7 @@ BOOLEAN InitializeStandardGamingPlatform(HINSTANCE hInstance, int sCommandShow)
     InitializeClockManager(); // must initialize after VideoManager, 'cause it uses ghWindow
 
     // Create font translation table (store in temp structure)
-    pFontTable = CreateEnglishTransTable();
-    if (pFontTable == NULL) {
-        return (FALSE);
-    }
+    const auto pFontTable = CreateEnglishTransTable();
 
     // Initialize Font Manager
     SDL_LogDebug(SDL_LOG_CATEGORY_APPLICATION, "%s", "Initializing the Font Manager");
@@ -148,8 +134,6 @@ BOOLEAN InitializeStandardGamingPlatform(HINSTANCE hInstance, int sCommandShow)
         SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "%s", "FAILED : Initializing Font Manager");
         return FALSE;
     }
-    // Don't need this thing anymore, so get rid of it (but don't de-alloc the contents)
-    MemFree(pFontTable);
 
     SDL_LogDebug(SDL_LOG_CATEGORY_APPLICATION, "%s", "Initializing Sound Manager");
     // Initialize the Sound Manager (DirectSound)
@@ -198,14 +182,9 @@ void ShutdownStandardGamingPlatform(void)
 
     ShutdownSoundManager();
 
-    DestroyEnglishTransTable(); // has to go before ShutdownFontManager()
     ShutdownFontManager();
 
     ShutdownClockManager(); // must shutdown before VideoManager, 'cause it uses ghWindow
-
-#ifdef SGP_VIDEO_DEBUGGING
-    PerformVideoInfoDumpIntoFile("SGPVideoShutdownDump.txt", FALSE);
-#endif
 
     ShutdownVideoSurfaceManager();
     ShutdownVideoObjectManager();
@@ -214,13 +193,7 @@ void ShutdownStandardGamingPlatform(void)
     ShutdownInputManager();
     ShutdownFileManager();
 
-#ifdef EXTREME_MEMORY_DEBUGGING
-    DumpMemoryInfoIntoFile("ExtremeMemoryDump.txt", FALSE);
-#endif
-
-    ShutdownMemoryManager(); // must go last, for MemDebugCounter to work right...
 }
-
 
 //Do not place code in between WinMain and Handled WinMain
 
@@ -282,17 +255,8 @@ void ShutdownWithErrorBox(const CHAR8* pcMessage)
 void ProcessCommandLine(CHAR8* pCommandLine)
 {
     CHAR8 cSeparators[] = "\t =";
-    CHAR8 *pCopy = NULL, *pToken;
-
-    pCopy = (CHAR8*)MemAlloc(strlen(pCommandLine) + 1);
-
-    Assert(pCopy);
-    if (!pCopy)
-        return;
-
-    memcpy(pCopy, pCommandLine, strlen(pCommandLine) + 1);
-
-    pToken = strtok(pCopy, cSeparators);
+    std::string pCopy(pCommandLine);
+    CHAR8* pToken = strtok(pCopy.data(), cSeparators);
     while (pToken) {
         if (!_strnicmp(pToken, "/NOSOUND", 8)) {
             SoundEnableSound(FALSE);
@@ -313,12 +277,11 @@ void ProcessCommandLine(CHAR8* pCommandLine)
             NoOct();
         } else if (!_strnicmp(pToken, "/STRINGDATA", 11)) {
             pToken = strtok(NULL, cSeparators);
-            gzStringDataOverride = (CHAR8*)MemAlloc(strlen(pToken) + 1);
-            strcpy(gzStringDataOverride, pToken);
+            if (pToken)
+                gzStringDataOverride = pToken;
         }
 
         pToken = strtok(NULL, cSeparators);
     }
 
-    MemFree(pCopy);
 }

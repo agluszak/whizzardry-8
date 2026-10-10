@@ -100,7 +100,7 @@ typedef struct SGPVSurface {
     UINT32 fFlags;
     std::array<SGPPaletteEntry, 256> palette{};
     bool hasPalette = false;
-    UINT16* p16BPPPalette;
+    std::unique_ptr<UINT16[]> p16BPPPalette;
     COLORVAL TransparentColor;
     std::vector<VSURFACE_REGION> RegionList;          // A List of regions within the video Surface
 
@@ -129,7 +129,6 @@ typedef struct {
 extern "C" {
 #endif
 
-extern INT32 giMemUsedInSurfaces;
 
 // Creates a list to contain video Surfaces
 BOOLEAN InitializeVideoSurfaceManager();
@@ -141,14 +140,7 @@ BOOLEAN ShutdownVideoSurfaceManager();
 BOOLEAN RestoreVideoSurfaces();
 
 // Creates and adds a video Surface to list
-#ifdef SGP_VIDEO_DEBUGGING
-void DumpVSurfaceInfoIntoFile(UINT8* filename, BOOLEAN fAppend);
-extern BOOLEAN _AddAndRecordVSurface(VSURFACE_DESC* VSurfaceDesc, UINT32* uiIndex, UINT32 uiLineNum,
-                                     UINT8* pSourceFile);
-#define AddVideoSurface(a, b) _AddAndRecordVSurface(a, b, __LINE__, __FILE__)
-#else
 #define AddVideoSurface(a, b) AddStandardVideoSurface(a, b)
-#endif
 
 BOOLEAN AddStandardVideoSurface(VSURFACE_DESC* VSurfaceDesc, UINT32* uiIndex);
 

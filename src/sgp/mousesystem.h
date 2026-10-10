@@ -19,6 +19,7 @@
 // *****************************************************************************
 
 #include "mousesystem_macros.h"
+#include <memory>
 
 #ifndef _MOUSE_SYSTEM_H_
 #define _MOUSE_SYSTEM_H_
@@ -54,7 +55,7 @@ typedef struct _MOUSE_REGION {
 
     //Fast help vars.
     INT16 FastHelpTimer;  // Countdown timer for FastHelp text
-    CHAR16* FastHelpText; // Text string for the FastHelp (describes buttons if left there a while)
+    std::unique_ptr<CHAR16[]> FastHelpText; // Text string for the FastHelp (describes buttons if left there a while)
     INT32 FastHelpRect;
     MOUSE_HELPTEXT_DONE_CALLBACK HelpDoneCallback;
 

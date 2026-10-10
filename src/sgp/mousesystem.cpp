@@ -14,7 +14,6 @@
 #include <stdio.h>
 #include <memory.h>
 #include "input.h"
-#include "MemMan.h"
 #include "line.h"
 #include "Video2.h"
 #define BASE_REGION_FLAGS MSYS_REGION_ENABLED
@@ -107,7 +106,7 @@ MOUSE_REGION MSYS_SystemBaseRegion = {MSYS_ID_SYSTEM,
                                       MSYS_NO_CALLBACK,
                                       {0, 0, 0, 0},
                                       0,
-                                      0,
+                                      {},
                                       -1,
                                       MSYS_NO_CALLBACK,
                                       NULL,
@@ -730,7 +729,6 @@ void MSYS_DefineRegion(MOUSE_REGION* region, UINT16 tlx, UINT16 tly, UINT16 brx,
     if (buttoncallback != MSYS_NO_CALLBACK)
         region->uiFlags |= MSYS_BUTTON_CALLBACK;
 
-
     region->RegionTopLeftX = tlx;
     region->RegionTopLeftY = tly;
     region->RegionBottomRightX = brx;
@@ -780,7 +778,7 @@ void MSYS_RemoveRegion(MOUSE_REGION* region)
     if (region->FastHelpText) {
         if (region->uiFlags & MSYS_FASTHELP)
             VideoRemoveToolTip();
-        MemFree(region->FastHelpText);
+        region->FastHelpText.reset();
     }
     region->FastHelpText = NULL;
 
@@ -805,7 +803,7 @@ void MSYS_RemoveRegion(MOUSE_REGION* region)
     }
 
     //clear all internal values (including the region exists flag)
-    memset(region, 0, sizeof(MOUSE_REGION));
+    *region = {};
 }
 
 //	MSYS_EnableRegion
@@ -909,24 +907,22 @@ void SetRegionFastHelpText(MOUSE_REGION* region, CHAR16* szText)
 {
     Assert(region);
 
-    if (region->FastHelpText)
-        MemFree(region->FastHelpText);
-
-    region->FastHelpText = NULL;
     //	region->FastHelpTimer = 0;
     if (!(region->uiFlags & MSYS_REGION_EXISTS)) {
+        region->FastHelpText.reset();
         return;
         //AssertMsg( 0, FormatString( "Attempting to set fast help text, \"%S\" to an inactive region.", szText ) );
     }
 
-    if (!szText || !wcslen(szText))
+    if (!szText || !wcslen(szText)) {
+        region->FastHelpText.reset();
         return; //blank (or clear)
+    }
 
     // Allocate memory for the button's FastHelp text string...
-    region->FastHelpText = (CHAR16*)MemAlloc((wcslen(szText) + 1) * sizeof(UINT16));
-    Assert(region->FastHelpText);
-
-    wcscpy(region->FastHelpText, szText);
+    auto text = std::make_unique<CHAR16[]>(wcslen(szText) + 1);
+    wcscpy(text.get(), szText);
+    region->FastHelpText = std::move(text);
 
     // ATE: We could be replacing already existing, active text
     // so let's remove the region so it be rebuilt...
@@ -944,7 +940,7 @@ void DisplayFastHelp(MOUSE_REGION* region)
     INT32 iX, iY, iW, iH;
 
     if (region->uiFlags & MSYS_FASTHELP) {
-        VideoToolTip(region->FastHelpText);
+        VideoToolTip(region->FastHelpText.get());
 
         iW = VideoGetToolTipWidth();
         iH = VideoGetToolTipHeight();
