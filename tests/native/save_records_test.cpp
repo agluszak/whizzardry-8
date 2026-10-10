@@ -968,7 +968,8 @@ static void packed_camera_angles()
 
 struct SaveFixture
 {
-    std::filesystem::path root = wiz8::path_from_utf8(make_temporary_directory("wiz8-save-records"));
+    ScopedTemporaryDirectory directory{"wiz8-save-records"};
+    std::filesystem::path root = directory.path;
     std::filesystem::path assets = root / "assets";
     std::filesystem::path user = root / "user";
 
@@ -985,8 +986,6 @@ struct SaveFixture
     ~SaveFixture()
     {
         wiz8::clear_asset_archives();
-        std::error_code ignored;
-        std::filesystem::remove_all(root, ignored);
     }
 };
 

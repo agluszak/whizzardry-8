@@ -103,7 +103,8 @@ static bool near(double value, double expected, double tolerance = 0.02)
 
 struct AudioFixture
 {
-    std::filesystem::path temporary = make_temporary_directory("wiz8-audio");
+    ScopedTemporaryDirectory directory{"wiz8-audio"};
+    std::filesystem::path temporary = directory.path;
     std::filesystem::path asset = temporary / "assets";
     std::filesystem::path user = temporary / "user";
     std::vector<unsigned char> wave = wav();
@@ -169,8 +170,6 @@ struct AudioFixture
     {
         ShutdownSoundManager();
         wiz8::clear_asset_archives();
-        std::error_code ignored;
-        std::filesystem::remove_all(temporary, ignored);
     }
 };
 

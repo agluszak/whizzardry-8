@@ -459,8 +459,8 @@ static void path_tables()
 
 TEST_CASE("loader_records_test")
 {
-    const auto temporary = make_temporary_directory("wiz8-loader-records");
-    const auto root = wiz8::path_from_utf8(temporary);
+    ScopedTemporaryDirectory directory{"wiz8-loader-records"};
+    const auto root = directory.path;
     fixture_root = root / "assets";
     std::filesystem::create_directory(fixture_root);
     std::filesystem::create_directory(root / "user");
@@ -471,6 +471,5 @@ TEST_CASE("loader_records_test")
     wgd_banks();
     path_tables();
     malformed_octrees();
-    std::filesystem::remove_all(root);
     std::puts("loader truncation, malformed counts, indices, strings and rollback pass");
 }
