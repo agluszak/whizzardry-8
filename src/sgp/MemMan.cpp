@@ -1,525 +1,281 @@
-/* Modified for the Wizardry 8 reconstruction: 2026-10-03, 2026-10-06, 2026-10-07, 2026-10-09.
+/* Modified for the Wizardry 8 reconstruction: 2026-10-03, 2026-10-06, 2026-10-07, 2026-10-09, 2026-10-10.
    Distributed under the accompanying SFI Source Code license agreement. */
-// Filename :	MemMan.cpp
-//	Purpose :	function definitions for the memory manager
-// Modification history :
-//		11sep96:HJH	- Creation
-//    29may97:ARM - Fix & improve MemDebugCounter handling, logging of
-//                    MemAlloc/MemFree, and reporting of any errors
-//				Includes
+// Filename: MemMan.cpp
+// Purpose: engine memory allocation diagnostics
 
-#include "Types.h"
-#include "compat/kernel32.h"
-#if defined(_WIN32)
-#include "platform_fs_windows.h"
-#elif defined(__APPLE__)
-#include <malloc/malloc.h>
-#define _msize malloc_size
-#else
-#include <malloc.h>
-#define _msize malloc_usable_size
-#endif
-#ifndef _WIN32
-#include <unistd.h>
-#endif
-#include <malloc.h>
-#include <stdlib.h>
-#include <string.h>
 #include "MemMan.h"
 #include "DEBUG.H"
+#include <stdlib.h>
 #include <stdio.h>
-#ifdef _DEBUG
-#include <crtdbg.h>
+#include <string.h>
+#if defined(_DEBUG) || defined(EXTREME_MEMORY_DEBUGGING)
+#include <mutex>
 #endif
 
-#ifdef _DEBUG
-//#define DEBUG_MEM_LEAKS // turns on tracking of every MemAlloc and MemFree!
-#endif
-//				Variables
-
-#ifdef EXTREME_MEMORY_DEBUGGING
-typedef struct MEMORY_NODE {
-    PTR pBlock;
-    struct MEMORY_NODE *next, *prev;
-    UINT8* pCode;
-    UINT32 uiSize;
-} MEMORY_NODE;
-
-MEMORY_NODE* gpMemoryHead = NULL;
-MEMORY_NODE* gpMemoryTail = NULL;
-UINT32 guiMemoryNodes = 0;
-UINT32 guiTotalMemoryNodes = 0;
-#endif
-
-static BOOLEAN gfMemDebug = TRUE;
-// debug variable for total memory currently allocated
-// GLOBAL: WIZ8 0x00650df4
-UINT32 guiMemTotal = 0;
-// GLOBAL: WIZ8 0x00650df8
-UINT32 guiMemAlloced = 0;
-// GLOBAL: WIZ8 0x00650dfc
-UINT32 guiMemFreed = 0;
-// GLOBAL: WIZ8 0x00650e00
+// Requested engine allocation bytes, not allocator capacity or host memory usage.
+uint64_t guiMemTotal = 0;
+uint64_t guiMemAlloced = 0;
+uint64_t guiMemFreed = 0;
 UINT32 MemDebugCounter = 0;
-// GLOBAL: WIZ8 0x00650e04
 BOOLEAN fMemManagerInit = FALSE;
-//				Function Prototypes
 
-void DebugPrint(void);
-//				Functions
-// MemInit
-// Parameter List :
-// Return Value :
-// Modification history :
-//		12sep96:HJH		-> modified for use by Wizardry
+#if defined(_DEBUG) || defined(EXTREME_MEMORY_DEBUGGING)
+namespace
+{
+struct MEMORY_NODE
+{
+    PTR pBlock;
+    MEMORY_NODE *next, *prev;
+    const char* sourceFile;
+    INT32 line;
+    UINT32 uiSize;
+};
 
-// FUNCTION: WIZ8 0x00404ba0
+MEMORY_NODE* gpMemoryHead = nullptr;
+MEMORY_NODE* gpMemoryTail = nullptr;
+std::mutex allocationMutex;
+
+MEMORY_NODE* FindAllocation(PTR ptr)
+{
+    for (MEMORY_NODE* node = gpMemoryHead; node; node = node->next) {
+        if (node->pBlock == ptr)
+            return node;
+    }
+    return nullptr;
+}
+
+void LinkAllocation(MEMORY_NODE* node)
+{
+    node->prev = gpMemoryTail;
+    node->next = nullptr;
+    if (gpMemoryTail)
+        gpMemoryTail->next = node;
+    else
+        gpMemoryHead = node;
+    gpMemoryTail = node;
+    ++MemDebugCounter;
+}
+
+void UnlinkAllocation(MEMORY_NODE* node)
+{
+    if (node->prev)
+        node->prev->next = node->next;
+    else
+        gpMemoryHead = node->next;
+    if (node->next)
+        node->next->prev = node->prev;
+    else
+        gpMemoryTail = node->prev;
+    --MemDebugCounter;
+    free(node);
+}
+
+PTR AllocateTracked(UINT32 size, const char* sourceFile, INT32 line, PTR special)
+{
+    if (!size)
+        return nullptr;
+
+    if (!fMemManagerInit)
+        DbgMessage(TOPIC_MEMORY_MANAGER, DBG_LEVEL_0,
+                   String("MemAlloc: memory manager not initialized (line %d file %s)",
+                          line, sourceFile));
+
+    // Separate metadata preserves malloc alignment and the caller's exact pointer.
+    auto* node = static_cast<MEMORY_NODE*>(malloc(sizeof(MEMORY_NODE)));
+    if (!node)
+        return nullptr;
+    PTR ptr = special ? special : malloc(size);
+    if (!ptr) {
+        free(node);
+        DbgMessage(TOPIC_MEMORY_MANAGER, DBG_LEVEL_0,
+                   String("MemAlloc failed: %u bytes (line %d file %s)", size, line, sourceFile));
+        return nullptr;
+    }
+
+    const std::lock_guard lock(allocationMutex);
+    node->pBlock = ptr;
+    node->uiSize = size;
+    node->sourceFile = sourceFile;
+    node->line = line;
+    LinkAllocation(node);
+    guiMemTotal += size;
+    guiMemAlloced += size;
+#ifdef DEBUG_MEM_LEAKS
+    DbgMessage(TOPIC_MEMORY_MANAGER, DBG_LEVEL_1,
+               String("MemAlloc %p: %u requested bytes (line %d file %s)",
+                      ptr, size, line, sourceFile));
+#endif
+    return ptr;
+}
+
+void FreeTracked(PTR ptr, [[maybe_unused]] const char* sourceFile,
+                 [[maybe_unused]] INT32 line, PTR special)
+{
+    if (!ptr)
+        return;
+    const std::lock_guard lock(allocationMutex);
+    auto* node = FindAllocation(ptr);
+    if (node) {
+#ifdef DEBUG_MEM_LEAKS
+        DbgMessage(TOPIC_MEMORY_MANAGER, DBG_LEVEL_1,
+                   String("MemFree %p: %u requested bytes (line %d file %s)",
+                          ptr, node->uiSize, line, sourceFile));
+#endif
+        guiMemTotal -= node->uiSize;
+        guiMemFreed += node->uiSize;
+        UnlinkAllocation(node);
+    }
+    if (!special)
+        free(ptr);
+}
+
+PTR ReallocateTracked(PTR ptr, UINT32 size, const char* sourceFile, INT32 line, PTR special)
+{
+    if (!ptr)
+        return AllocateTracked(size, sourceFile, line, special);
+    if (!size) {
+        FreeTracked(ptr, sourceFile, line, special);
+        return nullptr;
+    }
+
+    const std::lock_guard lock(allocationMutex);
+    MEMORY_NODE* node = FindAllocation(ptr);
+    const bool tracked = node != nullptr;
+    const UINT32 oldSize = tracked ? node->uiSize : 0;
+    if (!tracked) {
+        node = static_cast<MEMORY_NODE*>(malloc(sizeof(MEMORY_NODE)));
+        if (!node)
+            return nullptr;
+    }
+
+    PTR replacement = special ? special : realloc(ptr, size);
+    if (!replacement) {
+        // A failed nonzero realloc leaves both the old allocation and its record intact.
+        if (!tracked)
+            free(node);
+        DbgMessage(TOPIC_MEMORY_MANAGER, DBG_LEVEL_0,
+                   String("MemRealloc failed: %p, %u -> %u bytes (line %d file %s)",
+                          ptr, oldSize, size, line, sourceFile));
+        return nullptr;
+    }
+
+    node->pBlock = replacement;
+    node->uiSize = size;
+    node->sourceFile = sourceFile;
+    node->line = line;
+    if (!tracked)
+        LinkAllocation(node);
+    guiMemTotal = guiMemTotal - oldSize + size;
+    guiMemFreed += oldSize;
+    guiMemAlloced += size;
+#ifdef DEBUG_MEM_LEAKS
+    DbgMessage(TOPIC_MEMORY_MANAGER, DBG_LEVEL_1,
+               String("MemRealloc %p: %u -> %u requested bytes (line %d file %s)",
+                      replacement, oldSize, size, line, sourceFile));
+#endif
+    return replacement;
+}
+} // namespace
+#endif
+
 BOOLEAN InitializeMemoryManager(void)
 {
-    // Register the memory manager with the debugger
     RegisterDebugTopic(TOPIC_MEMORY_MANAGER, "Memory Manager");
     MemDebugCounter = 0;
     guiMemTotal = 0;
     guiMemAlloced = 0;
     guiMemFreed = 0;
     fMemManagerInit = TRUE;
-
-#ifdef EXTREME_MEMORY_DEBUGGING
-    gpMemoryHead = NULL;
-    gpMemoryTail = NULL;
-    guiMemoryNodes = 0;
-    guiTotalMemoryNodes = 0;
-#endif
-
-    return (TRUE);
+    return TRUE;
 }
-// MemDebug
-//		To set whether or not we should print debug info.
-// Parameter List :
-// Return Value :
-// Modification history :
-//		12sep96:HJH		-> modified for use by Wizardry
-// MemShutdown
-//		Shuts down the memory manager.
-// Parameter List :
-// Return Value :
-// Modification history :
-//		12sep96:HJH		-> modified for use by Wizardry
 
-// FUNCTION: WIZ8 0x00404bc0
 void ShutdownMemoryManager(void)
 {
     if (MemDebugCounter != 0) {
-        DbgMessage(TOPIC_MEMORY_MANAGER, DBG_LEVEL_0, String(" "));
         DbgMessage(TOPIC_MEMORY_MANAGER, DBG_LEVEL_0,
-                   String("***** WARNING - WARNING - WARNING *****"));
+                   String("MEMORY LEAK: %u tracked blocks, %llu requested bytes still allocated",
+                          MemDebugCounter, static_cast<unsigned long long>(guiMemTotal)));
         DbgMessage(TOPIC_MEMORY_MANAGER, DBG_LEVEL_0,
-                   String("***** WARNING - WARNING - WARNING *****"));
-        DbgMessage(TOPIC_MEMORY_MANAGER, DBG_LEVEL_0,
-                   String("***** WARNING - WARNING - WARNING *****"));
-        DbgMessage(TOPIC_MEMORY_MANAGER, DBG_LEVEL_0, String(" "));
-        DbgMessage(TOPIC_MEMORY_MANAGER, DBG_LEVEL_0,
-                   String("  >>>>> MEMORY LEAK DETECTED!!! <<<<<  "));
-        DbgMessage(TOPIC_MEMORY_MANAGER, DBG_LEVEL_0,
-                   String("%d memory blocks still allocated", MemDebugCounter));
-        DbgMessage(TOPIC_MEMORY_MANAGER, DBG_LEVEL_0,
-                   String("%d bytes memory total STILL allocated", guiMemTotal));
-        DbgMessage(TOPIC_MEMORY_MANAGER, DBG_LEVEL_0,
-                   String("%d bytes memory total was allocated", guiMemAlloced));
-        DbgMessage(TOPIC_MEMORY_MANAGER, DBG_LEVEL_0,
-                   String("%d bytes memory total was freed", guiMemFreed));
-
-        DbgMessage(TOPIC_MEMORY_MANAGER, DBG_LEVEL_0, String(" "));
-        DbgMessage(TOPIC_MEMORY_MANAGER, DBG_LEVEL_0,
-                   String("***** WARNING - WARNING - WARNING *****"));
-        DbgMessage(TOPIC_MEMORY_MANAGER, DBG_LEVEL_0,
-                   String("***** WARNING - WARNING - WARNING *****"));
-        DbgMessage(TOPIC_MEMORY_MANAGER, DBG_LEVEL_0,
-                   String("***** WARNING - WARNING - WARNING *****"));
-        DbgMessage(TOPIC_MEMORY_MANAGER, DBG_LEVEL_0, String(" "));
-
-#ifndef EXTREME_MEMORY_DEBUGGING
-#endif
+                   String("%llu requested bytes allocated, %llu requested bytes freed",
+                          static_cast<unsigned long long>(guiMemAlloced),
+                          static_cast<unsigned long long>(guiMemFreed)));
     }
-
     UnRegisterDebugTopic(TOPIC_MEMORY_MANAGER, "Memory Manager Un-initialized");
-
     fMemManagerInit = FALSE;
 }
 
-#ifdef _DEBUG
-
-PTR MemAllocReal(UINT32 uiSize, const char* pcFile, INT32 iLine)
-{
-    PTR ptr;
-
-    if (!uiSize) {
-        return NULL;
-    }
-
-    if (!fMemManagerInit)
-        DbgMessage(TOPIC_MEMORY_MANAGER, DBG_LEVEL_0,
-                   String("MemAlloc: Warning -- Memory manager not initialized -- Line %d in %s",
-                          iLine, pcFile));
-
-    ptr = _malloc_dbg(uiSize, _NORMAL_BLOCK, pcFile, iLine);
-    if (ptr != NULL) {
-        guiMemTotal += uiSize;
-        guiMemAlloced += uiSize;
-        MemDebugCounter++;
-    } else {
-        DbgMessage(TOPIC_MEMORY_MANAGER, DBG_LEVEL_0,
-                   String("MemAlloc failed: %d bytes (line %d file %s)", uiSize, iLine, pcFile));
-    }
-
-#ifdef DEBUG_MEM_LEAKS
-    DbgMessage(TOPIC_MEMORY_MANAGER, DBG_LEVEL_1,
-               String("MemAlloc %p: %d bytes (line %d file %s)", ptr, uiSize, iLine, pcFile));
-#endif
-
-    return (ptr);
-}
-
-void MemFreeReal(PTR ptr, const char* pcFile, INT32 iLine)
-{
-    UINT32 uiSize;
-
-    if (!fMemManagerInit)
-        DbgMessage(TOPIC_MEMORY_MANAGER, DBG_LEVEL_0,
-                   String("MemFree: Warning -- Memory manager not initialized -- Line %d in %s",
-                          iLine, pcFile));
-
-    if (ptr != NULL) {
-        uiSize = _msize(ptr);
-        guiMemTotal -= uiSize;
-        guiMemFreed += uiSize;
-        _free_dbg(ptr, _NORMAL_BLOCK);
-
-#ifdef DEBUG_MEM_LEAKS
-        DbgMessage(TOPIC_MEMORY_MANAGER, DBG_LEVEL_1,
-                   String("MemFree  %p: %d bytes (line %d file %s)", ptr, uiSize, iLine, pcFile));
-#endif
-    } else {
-        DbgMessage(TOPIC_MEMORY_MANAGER, DBG_LEVEL_0,
-                   String("MemFree ERROR: NULL ptr received (line %d file %s)", iLine, pcFile));
-    }
-
-    // count even a NULL ptr as a MemFree, not because it's really a memory leak, but because it is still an error of some
-    // sort (nobody should ever be freeing NULL pointers), and this will help in tracking it down if the above DbgMessage
-    // is not noticed.
-    MemDebugCounter--;
-}
-
-PTR MemReallocReal(PTR ptr, UINT32 uiSize, const char* pcFile, INT32 iLine)
-{
-    PTR ptrNew;
-    UINT32 uiOldSize;
-
-    if (!fMemManagerInit)
-        DbgMessage(TOPIC_MEMORY_MANAGER, DBG_LEVEL_0,
-                   String("MemRealloc: Warning -- Memory manager not initialized -- Line %d in %s",
-                          iLine, pcFile));
-
-    if (ptr != NULL) {
-        uiOldSize = _msize(ptr);
-        guiMemTotal -= uiOldSize;
-        guiMemFreed += uiOldSize;
-        MemDebugCounter--;
-    }
-
-    // Note that the ptr changes to ptrNew...
-    ptrNew = _realloc_dbg(ptr, uiSize, _NORMAL_BLOCK, pcFile, iLine);
-    if (ptrNew == NULL) {
-        DbgMessage(TOPIC_MEMORY_MANAGER, DBG_LEVEL_0,
-                   String("MemReAlloc failed: ptr %d, %d -> %d bytes (line %d file %s)", ptr,
-                          uiOldSize, uiSize, iLine, pcFile));
-        if (uiSize != 0) {
-            // ptr is left untouched, so undo the math above
-            guiMemTotal += uiOldSize;
-            guiMemFreed -= uiOldSize;
-            MemDebugCounter++;
-        }
-    } else {
-#ifdef DEBUG_MEM_LEAKS
-        DbgMessage(
-            TOPIC_MEMORY_MANAGER, DBG_LEVEL_1,
-            String("MemRealloc %p: Resizing %d bytes to %d bytes (line %d file %s) - New ptr %p",
-                   ptr, uiOldSize, uiSize, iLine, pcFile, ptrNew));
-#endif
-
-        guiMemTotal += uiSize;
-        guiMemAlloced += uiSize;
-        MemDebugCounter++;
-    }
-
-    return (ptrNew);
-}
-
-#endif
-// MemGetFree
-// Parameter List :
-// Return Value :
-// Modification history :
-//		??sep96:HJH		-> modified for use by Wizardry
-
-// FUNCTION: WIZ8 0x00404bd0
-UINT32 MemGetFree(void)
-{
-    /* Retail reports MEMORYSTATUS::dwAvailPhys, a 32-bit byte count. */
-#ifdef _WIN32
-    unsigned long long available = w8_native::available_physical_memory();
-#else
-    unsigned long long available = (unsigned long long)sysconf(_SC_PAGESIZE);
-#if defined(_SC_AVPHYS_PAGES)
-    available *= (unsigned long long)sysconf(_SC_AVPHYS_PAGES);
-#else
-    available *= (unsigned long long)sysconf(_SC_PHYS_PAGES);
-#endif
-#endif
-    return available > 0xffffffffull ? 0xffffffffu : (UINT32)available;
-}
-// MemGetTotalSystem
-// Parameter List :
-// Return Value :
-// Modification history :
-//		May98:HJH		-> Carter
-// MemCheckPool
-// Parameter List :
-// Return Value :
-// Modification history :
-//		23sep96:HJH		-> modified for use by Wizardry
-
 #ifdef EXTREME_MEMORY_DEBUGGING
-
-PTR MemAllocXDebug(UINT32 size, const char* szCodeString, INT32 iLineNum, void* pSpecial)
+PTR MemAllocXDebug(UINT32 size, const char* sourceFile, INT32 line, void* special)
 {
-    PTR ptr;
-    UINT16 usLength;
-    UINT8 str[70];
-    UINT8* pStr;
-
-    if (!size) {
-        return NULL;
-    }
-
-    if (!pSpecial) {
-        ptr = malloc(size);
-    } else {
-        ptr = pSpecial;
-    }
-
-    if (ptr) {
-        // Set into video object list
-        if (gpMemoryHead) { //Add node after tail
-            gpMemoryTail->next = (MEMORY_NODE*)malloc(sizeof(MEMORY_NODE));
-            Assert(gpMemoryTail->next); //out of memory?
-            gpMemoryTail->next->prev = gpMemoryTail;
-            gpMemoryTail->next->next = NULL;
-            gpMemoryTail = gpMemoryTail->next;
-        } else { //new list
-            gpMemoryHead = (MEMORY_NODE*)malloc(sizeof(MEMORY_NODE));
-            Assert(gpMemoryHead); //out of memory?
-            gpMemoryHead->prev = gpMemoryHead->next = NULL;
-            gpMemoryTail = gpMemoryHead;
-        }
-
-        //record the code location of the calling creating function.
-        pStr = strrchr(szCodeString, '\\');
-        pStr++;
-        sprintf(str, "%s -- line(%d)", pStr, iLineNum);
-        usLength = strlen(str) + 1;
-        gpMemoryTail->pCode = (UINT8*)malloc(usLength);
-        memset(gpMemoryTail->pCode, 0, usLength);
-        strcpy(gpMemoryTail->pCode, str);
-
-        //record the size
-        gpMemoryTail->uiSize = size;
-
-        //Set the hVObject into the node.
-        gpMemoryTail->pBlock = ptr;
-
-        guiMemoryNodes++;
-        guiTotalMemoryNodes++;
-    }
-    return (ptr);
+    return AllocateTracked(size, sourceFile, line, special);
 }
 
-void MemFreeXDebug(PTR ptr, const char* szCodeString, INT32 iLineNum, void* pSpecial)
+void MemFreeXDebug(PTR ptr, const char* sourceFile, INT32 line, void* special)
 {
-    MEMORY_NODE* curr;
-
-    if (ptr) {
-        curr = gpMemoryHead;
-        while (curr) {
-            if (curr->pBlock == ptr) { //Found the node, so detach it and delete it.
-
-                if (!pSpecial) {
-                    free(ptr);
-                }
-
-                if (curr ==
-                    gpMemoryHead) { //Advance the head, because we are going to remove the head node.
-                    gpMemoryHead = gpMemoryHead->next;
-                }
-                if (curr ==
-                    gpMemoryTail) { //Back up the tail, because we are going to remove the tail node.
-                    gpMemoryTail = gpMemoryTail->prev;
-                }
-                //Detach the node from the vobject list
-                if (curr->next) { //Make the prev node point to the next
-                    curr->next->prev = curr->prev;
-                }
-                if (curr->prev) { //Make the next node point to the prev
-                    curr->prev->next = curr->next;
-                }
-                //The node is now detached.  Now deallocate it.
-                free(curr);
-                curr = NULL;
-                guiMemoryNodes--;
-                return;
-            }
-            curr = curr->next;
-        }
-    }
+    FreeTracked(ptr, sourceFile, line, special);
 }
 
-PTR MemReallocXDebug(PTR ptr, UINT32 size, const char* szCodeString, INT32 iLineNum, void* pSpecial)
+PTR MemReallocXDebug(PTR ptr, UINT32 size, const char* sourceFile, INT32 line, void* special)
 {
-    MEMORY_NODE* curr;
-    PTR ptrNew;
-    UINT16 usLength;
-    UINT8 str[70];
-    UINT8* pStr;
-
-    if (!ptr && size) {
-        return MemAllocXDebug(size, szCodeString, iLineNum, pSpecial);
-    }
-
-    curr = gpMemoryHead;
-    while (curr) {
-        if (curr->pBlock == ptr) {
-            // Note that the ptr changes to ptrNew...
-            if (!pSpecial) {
-                ptrNew = realloc(ptr, size);
-            } else {
-                ptrNew = pSpecial;
-            }
-
-            if (ptrNew) {
-                curr->pBlock = ptrNew;
-                curr->uiSize = size;
-
-                free(curr->pCode);
-
-                //record the code location of the calling creating function.
-                pStr = strrchr(szCodeString, '\\');
-                pStr++;
-                sprintf(str, "%s -- line(%d)", pStr, iLineNum);
-                usLength = strlen(str) + 1;
-                curr->pCode = (UINT8*)malloc(usLength);
-                memset(curr->pCode, 0, usLength);
-                strcpy(curr->pCode, str);
-            } else {
-                ptr = ptr;
-            }
-            return ptrNew;
-        }
-        curr = curr->next;
-    }
-    return 0;
+    return ReallocateTracked(ptr, size, sourceFile, line, special);
 }
 
-typedef struct DUMPFILENAME {
-    UINT8 str[70];
-} DUMPFILENAME;
-
-void DumpMemoryInfoIntoFile(UINT8* filename, BOOLEAN fAppend)
+void DumpMemoryInfoIntoFile(UINT8* filename, BOOLEAN append)
 {
-    MEMORY_NODE* curr;
-    FILE* fp;
-    DUMPFILENAME* pCode;
-    UINT32 *puiCounter, *puiSize;
-    UINT8 tempCode[70];
-    UINT32 i, uiUniqueID, uiTotalKbWasted = 0, uiBytesRemainder = 0;
-    BOOLEAN fFound;
-
-    if (fAppend) {
-        fp = fopen(filename, "a");
-    } else {
-        fp = fopen(filename, "w");
-    }
-    Assert(fp);
-
-    if (!guiMemoryNodes) {
-        fprintf(fp, "NO MEMORY LEAKS DETECTED!  CONGRATULATIONS!\n");
-        fclose(fp);
+    FILE* file = fopen(reinterpret_cast<const char*>(filename), append ? "a" : "w");
+    if (!file)
         return;
-    }
-
-    //Allocate enough strings and counters for each node.
-    pCode = (DUMPFILENAME*)malloc(sizeof(DUMPFILENAME) * guiMemoryNodes);
-    memset(pCode, 0, sizeof(DUMPFILENAME) * guiMemoryNodes);
-    puiSize = (UINT32*)malloc(sizeof(*puiSize) * guiMemoryNodes);
-    memset(puiSize, 0, sizeof(*puiSize) * guiMemoryNodes);
-    puiCounter = (UINT32*)malloc(sizeof(*puiCounter) * guiMemoryNodes);
-    memset(puiCounter, 0, sizeof(*puiCounter) * guiMemoryNodes);
-
-    //Loop through the list and record every unique filename and count them
-    uiUniqueID = 0;
-    curr = gpMemoryHead;
-    while (curr) {
-        strcpy(tempCode, curr->pCode);
-        fFound = FALSE;
-        for (i = 0; i < uiUniqueID; i++) {
-            if (!_stricmp(tempCode, pCode[i].str)) { //same string
-                fFound = TRUE;
-                (puiCounter[i])++;
-                (puiSize[i]) += curr->uiSize;
-                break;
+    const std::lock_guard lock(allocationMutex);
+    if (!gpMemoryHead) {
+        fprintf(file, "NO MEMORY LEAKS DETECTED!\n");
+    } else {
+        fprintf(file, "%u tracked allocation blocks remain\n", MemDebugCounter);
+        for (auto* node = gpMemoryHead; node; node = node->next) {
+            auto sameLocation = [node](const MEMORY_NODE* other) {
+                return node->line == other->line &&
+                       strcmp(node->sourceFile, other->sourceFile) == 0;
+            };
+            bool reported = false;
+            for (auto* previous = gpMemoryHead; previous != node; previous = previous->next) {
+                if (sameLocation(previous)) {
+                    reported = true;
+                    break;
+                }
             }
-        }
-        if (!fFound) {
-            strcpy(pCode[i].str, tempCode);
-            (puiSize[i]) += curr->uiSize;
-            (puiCounter[i])++;
-            uiUniqueID++;
-        }
-        curr = curr->next;
-    }
-
-    //Now dump the info.
-    fprintf(fp,
-            "--------------------------------------------------------------------------------\n");
-    fprintf(fp, "%d unique memory allocation locations exist in %d memory nodes\n", uiUniqueID,
-            guiMemoryNodes);
-    fprintf(fp,
-            "--------------------------------------------------------------------------------\n");
-    for (i = 0; i < uiUniqueID; i++) {
-        fprintf(fp, "%d occurrences of %s (total size %d bytes)\n", puiCounter[i], pCode[i].str,
-                puiSize[i]);
-        uiBytesRemainder += puiSize[i];
-        if (uiBytesRemainder >= 1024) {
-            uiTotalKbWasted += uiBytesRemainder / 1024;
-            uiBytesRemainder %= 1024;
+            if (reported)
+                continue;
+            UINT32 count = 0;
+            unsigned long long bytes = 0;
+            for (auto* other = node; other; other = other->next) {
+                if (sameLocation(other)) {
+                    ++count;
+                    bytes += other->uiSize;
+                }
+            }
+            fprintf(file, "%u occurrences of %s -- line(%d) (%llu requested bytes)\n",
+                    count, node->sourceFile, node->line, bytes);
         }
     }
-    fprintf(fp,
-            "--------------------------------------------------------------------------------\n");
-    fprintf(fp, "%dKB of memory total wasn't cleaned up!\n", uiTotalKbWasted);
-    fprintf(fp,
-            "--------------------------------------------------------------------------------\n");
-
-    fclose(fp);
-
-    //Free all memory associated with this operation.
-    free(pCode);
-    free(puiCounter);
-    free(puiSize);
+    fclose(file);
 }
 
-BOOLEAN _AddAndRecordMemAlloc(UINT32 size, UINT32 uiLineNum, UINT8* pSourceFile)
+BOOLEAN _AddAndRecordMemAlloc(UINT32, UINT32, UINT8*)
 {
-    return 0;
+    return FALSE;
+}
+#elif defined(_DEBUG)
+PTR MemAllocReal(UINT32 size, const char* sourceFile, INT32 line)
+{
+    return AllocateTracked(size, sourceFile, line, nullptr);
 }
 
+void MemFreeReal(PTR ptr, const char* sourceFile, INT32 line)
+{
+    FreeTracked(ptr, sourceFile, line, nullptr);
+}
+
+PTR MemReallocReal(PTR ptr, UINT32 size, const char* sourceFile, INT32 line)
+{
+    return ReallocateTracked(ptr, size, sourceFile, line, nullptr);
+}
 #endif

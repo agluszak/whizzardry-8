@@ -22,6 +22,7 @@
 //**************************************************************************
 
 #include "Types.h"
+#include <stdint.h>
 
 //**************************************************************************
 //
@@ -46,9 +47,9 @@ extern "C" {
 #endif
 
 extern UINT32 MemDebugCounter;
-extern UINT32 guiMemTotal;
-extern UINT32 guiMemAlloced;
-extern UINT32 guiMemFreed;
+extern uint64_t guiMemTotal;
+extern uint64_t guiMemAlloced;
+extern uint64_t guiMemFreed;
 
 extern BOOLEAN InitializeMemoryManager(void);
 extern void ShutdownMemoryManager(void);
@@ -79,17 +80,13 @@ extern void MemFreeReal(PTR ptr, const char*, INT32);
 extern PTR MemReallocReal(PTR ptr, UINT32 size, const char*, INT32);
 #else
 //Release build verison
-#include <malloc.h>
+#include <stdlib.h>
 #define MemAlloc(size) malloc((size))
 #define MemFree(ptr) free((ptr))
 #define MemRealloc(ptr, size) realloc((ptr), (size))
 #endif
 #endif
 
-// get total free on the system at this moment
-extern UINT32 MemGetFree(void);
-
-// get the total on the system
 #ifdef __cplusplus
 }
 #endif
