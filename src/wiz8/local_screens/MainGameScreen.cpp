@@ -8143,7 +8143,7 @@ const float g_fade_resume_scale = -500.0f;
 // GLOBAL: WIZ8 0x0068edca
 static bool g_surprise_fade_in;
 // GLOBAL: WIZ8 0x0068edf0
-static srColorSurfaceIFace* g_surprise_snapshot_surface;
+static std::shared_ptr<srColorSurfaceIFace> g_surprise_snapshot_surface;
 // GLOBAL: WIZ8 0x0068edf4
 static stSurface2D* g_surprise_snapshot_overlay;
 // GLOBAL: WIZ8 0x0068edf8
@@ -8217,7 +8217,7 @@ void ReverseSurpriseFade(void)
 void DestroySurpriseFade(void)
 {
     ReleaseRendererObject(g_surprise_snapshot_overlay);
-    ReleaseRendererObject(g_surprise_snapshot_surface);
+    g_surprise_snapshot_surface.reset();
     ReleaseRendererObject(g_surprise_fade_node);
     SetFullscreenSceneLast(1);
     g_world_render_enabled = 1;
@@ -8256,7 +8256,7 @@ unsigned char UpdateSurpriseFade(void)
         if (gXStatus.surprise_phase == 0) {
             w8_long pitch;
             void* pixels = LockCatalogFrameSurface(0x1e0, 0, &pitch);
-            srColorSurface* surface = new srColorSurface(srPixelConvert::SURFACE_ARGB1555,
+            auto surface = std::make_shared<srColorSurface>(srPixelConvert::SURFACE_ARGB1555,
                                                              pixels, 0x280, 0x1e0, pitch);
             g_surprise_snapshot_surface = surface;
             g_surprise_snapshot_overlay = new stSurface2D(g_surprise_snapshot_surface, 0x280, 0x1e0,
@@ -8268,8 +8268,7 @@ unsigned char UpdateSurpriseFade(void)
         } else {
             g_surprise_snapshot_overlay->release();
             g_surprise_snapshot_overlay = 0;
-            g_surprise_snapshot_surface->release();
-            g_surprise_snapshot_surface = 0;
+            g_surprise_snapshot_surface.reset();
             g_world_render_enabled = 1;
         }
         return done;

@@ -1,3 +1,4 @@
+#include <memory>
 #include "surrender/srMath.h"
 #include <wiz8/filesystem.h>
 #include <sstream>
@@ -178,7 +179,7 @@ srScene* g_scene_overlay1;
 // GLOBAL: WIZ8 0x65965c
 srScene* g_scene_square;
 // GLOBAL: WIZ8 0x659660
-srColorSurface* g_primary_color_surface;
+std::shared_ptr<srColorSurface> g_primary_color_surface;
 // GLOBAL: WIZ8 0x659664
 class stSurface2D* g_surface_node;
 // GLOBAL: WIZ8 0x659680
@@ -188,7 +189,7 @@ srCamera* g_overlay_camera;
 // GLOBAL: WIZ8 0x659674
 srCamera* g_square_camera;
 // GLOBAL: WIZ8 0x659688
-srColorSurface* g_mouse_surface;
+std::shared_ptr<srColorSurface> g_mouse_surface;
 // GLOBAL: WIZ8 0x65967c
 srMaterial* g_blit_material;
 // GLOBAL: WIZ8 0x654adc
@@ -438,8 +439,8 @@ void ShutdownVideoScenes(void)
     ReleaseRendererObject(g_render_object0);
     ReleaseRendererObject(g_render_object1);
     ReleaseRendererObject(g_blit_material);
-    ReleaseRendererObject(g_mouse_surface);
-    ReleaseRendererObject(g_primary_color_surface);
+    g_mouse_surface.reset();
+    g_primary_color_surface.reset();
 }
 
 /* Derives the 16-bit channel masks and their leading-bit positions from the
@@ -1176,7 +1177,7 @@ void SetWorldModelPickingEnabled(bool enabled)
 /* Mouse cursor scene and rendering. */
 
 // FUNCTION: WIZ8 0x00424EB0
-srModelInstance* MakePolygonBrush(srNode* parent, srColorSurfaceIFace* surface, double width,
+srModelInstance* MakePolygonBrush(srNode* parent, std::shared_ptr<srColorSurfaceIFace> surface, double width,
                                   double height, float mapping_x, float mapping_y,
                                   float mapping_width, float mapping_height, unsigned char overlay)
 {
@@ -1206,7 +1207,7 @@ srModelInstance* MakePolygonBrush(srNode* parent, srColorSurfaceIFace* surface, 
     if (!surface) {
         shader.value &= ~srShader::MASK_TEXTURING;
     } else {
-        texture = new srTextureMap(static_cast<srColorSurfaceIFace*>(0));
+        texture = new srTextureMap();
         texture->autoRelease();
         texture->setName("Video2DMakePolygonBrush");
         texture->setSurfacePtr(surface);
@@ -1414,13 +1415,13 @@ BOOLEAN SetMouseCursorFromVideoObject(UINT32 video_object, UINT16 region, INT16 
     g_cursor_image_u_extent = g_cursor_image_width * g_inverse_screen_width;
     g_cursor_image_v_extent = g_cursor_image_height * g_inverse_screen_height;
     ClearMouseSurface();
-    return BlitVideoObjectToColorSurface(video_object, region, g_mouse_surface, 0, 0);
+    return BlitVideoObjectToColorSurface(video_object, region, g_mouse_surface.get(), 0, 0);
 }
 
 // FUNCTION: WIZ8 0x00427fc0
 void BlitToMouseCursor(UINT32 video_object, UINT16 region, UINT16 x, UINT16 y)
 {
-    BlitVideoObjectToColorSurface(video_object, region, g_mouse_surface, x, y);
+    BlitVideoObjectToColorSurface(video_object, region, g_mouse_surface.get(), x, y);
 }
 
 // FUNCTION: WIZ8 0x00427ff0
@@ -2032,10 +2033,10 @@ void VideoRemoveToolTip(void)
 }
 
 // FUNCTION: WIZ8 0x00424A90
-srNode* VideoMakePoster(srColorSurfaceIFace* surface, float width, float height, bool additive)
+srNode* VideoMakePoster(std::shared_ptr<srColorSurfaceIFace> surface, float width, float height, bool additive)
 {
     srTextureIFace::e_hint hint;
-    srTextureMap* texture = new srTextureMap(static_cast<srColorSurfaceIFace*>(0));
+    srTextureMap* texture = new srTextureMap();
     texture->setMipmapBias(-8.0f);
     texture->autoRelease();
     texture->setName("VideoMakePoster");
@@ -2075,19 +2076,19 @@ void SetPrimarySurfaceTextureHint2Enabled(bool enabled)
 unsigned char InitializeMouseSurface(void)
 {
     if (g_pixel_format == 7) {
-        g_mouse_surface = new srColorSurface(srPixelConvert::SURFACE_RGB565, 128UL, 128UL);
+        g_mouse_surface = std::make_shared<srColorSurface>(srPixelConvert::SURFACE_RGB565, 128UL, 128UL);
         if (!g_mouse_surface) {
             srAssertFail("psrMouseSurface", "C:\\Projects\\Wizardry 8\\Engine Code\\Video2.cpp",
                          0x641, 0);
         }
     } else if (g_pixel_format == 8) {
-        g_mouse_surface = new srColorSurface(srPixelConvert::SURFACE_RGB555, 128UL, 128UL);
+        g_mouse_surface = std::make_shared<srColorSurface>(srPixelConvert::SURFACE_RGB555, 128UL, 128UL);
         if (!g_mouse_surface) {
             srAssertFail("psrMouseSurface", "C:\\Projects\\Wizardry 8\\Engine Code\\Video2.cpp",
                          0x635, 0);
         }
     } else if (g_pixel_format == 9) {
-        g_mouse_surface = new srColorSurface(srPixelConvert::SURFACE_ARGB1555, 128UL, 128UL);
+        g_mouse_surface = std::make_shared<srColorSurface>(srPixelConvert::SURFACE_ARGB1555, 128UL, 128UL);
         if (!g_mouse_surface) {
             srAssertFail("psrMouseSurface", "C:\\Projects\\Wizardry 8\\Engine Code\\Video2.cpp",
                          0x63b, 0);
@@ -2197,7 +2198,7 @@ unsigned char InitializeRendererSceneObjects(void)
 
     surface_description = LockCpuSurface(*g_primary_surface);
     UnlockCpuSurface(*g_primary_surface);
-    g_primary_color_surface = new srColorSurface(
+    g_primary_color_surface = std::make_shared<srColorSurface>(
         srPixelConvert::SURFACE_ARGB1555, surface_description.pixels, 640UL, 480UL,
         static_cast<w8_ulong>(surface_description.pitch));
     if (!g_primary_color_surface)
@@ -2577,9 +2578,7 @@ srModelInstance* Video2DRectToSquarePolygon(const W8ControlsRect* rect, void* so
             size = ((extent <= 0x10) - 1 & 0x10) + 0x10;
         }
 
-        srColorSurface* surface =
-            new srColorSurface(srPixelConvert::SURFACE_ARGB1555, size, size);
-        surface->autoRelease();
+        auto surface = std::make_shared<srColorSurface>(srPixelConvert::SURFACE_ARGB1555, size, size);
         surface->fill(0);
         surface->setFilter(&srBoxFilter);
 
@@ -2587,7 +2586,7 @@ srModelInstance* Video2DRectToSquarePolygon(const W8ControlsRect* rect, void* so
         float scale_y;
         float mapping_x;
         float mapping_y;
-        if (CopySurfaceWithBorder(surface, rect, source, source_pitch, &scale_x, &scale_y,
+        if (CopySurfaceWithBorder(surface.get(), rect, source, source_pitch, &scale_x, &scale_y,
                                   &mapping_x, &mapping_y)) {
             srModelInstance* node = MakePolygonBrush(parent, surface, width, width, scale_x,
                                                      scale_y, mapping_x, mapping_y, overlay);
@@ -2600,7 +2599,6 @@ srModelInstance* Video2DRectToSquarePolygon(const W8ControlsRect* rect, void* so
             PositionToolTipNode(node, rect->left, rect->top, false);
             return node;
         }
-        surface->release();
     }
     return 0;
 }
@@ -2861,8 +2859,7 @@ srModelInstance* Video2DRectToPolygon(const W8ControlsRect* rect, void* source, 
         }
     }
 
-    srColorSurface* surface =
-        new srColorSurface(srPixelConvert::SURFACE_ARGB1555, static_cast<w8_ulong>(extent),
+    auto surface = std::make_shared<srColorSurface>(srPixelConvert::SURFACE_ARGB1555, static_cast<w8_ulong>(extent),
                                static_cast<w8_ulong>(extent));
     if (surface == 0) {
         return 0;
@@ -2872,9 +2869,8 @@ srModelInstance* Video2DRectToPolygon(const W8ControlsRect* rect, void* source, 
     float scale_y;
     float mapping_x;
     float mapping_y;
-    if (!CopySurfaceWithBorder(surface, rect, source, source_pitch, &scale_x, &scale_y, &mapping_x,
+    if (!CopySurfaceWithBorder(surface.get(), rect, source, source_pitch, &scale_x, &scale_y, &mapping_x,
                                &mapping_y)) {
-        surface->release();
         return 0;
     }
     surface->getDataPtr();
@@ -2906,8 +2902,7 @@ void VideoToolTip(CHAR16* text)
     if (g_screen_transition_object_count != 0) {
         return;
     }
-    srColorSurface* surface =
-        new srColorSurface(srPixelConvert::SURFACE_ARGB1555, 0xfeUL, 0xfeUL);
+    auto surface = std::make_unique<srColorSurface>(srPixelConvert::SURFACE_ARGB1555, 0xfeUL, 0xfeUL);
     if (surface == 0) {
         return;
     }
@@ -2981,7 +2976,6 @@ void VideoToolTip(CHAR16* text)
     }
     g_help_box_x = position_x;
     g_help_box_y = position_y;
-    surface->release();
     delete buffer;
 }
 
@@ -3074,17 +3068,16 @@ stTextureAnim* VideoVObjectToTextureAnim(HVOBJECT object, unsigned short start_f
                 extent = static_cast<w8_ulong>(-1);
             }
 
-            srColorSurface* surface;
+            std::shared_ptr<srColorSurface> surface;
             if (!use_argb1555) {
-                surface = new srColorSurface(srPixelConvert::SURFACE_RGB555, extent, extent);
+                surface = std::make_shared<srColorSurface>(srPixelConvert::SURFACE_RGB555, extent, extent);
             } else {
-                surface = new srColorSurface(srPixelConvert::SURFACE_ARGB1555, extent, extent);
+                surface = std::make_shared<srColorSurface>(srPixelConvert::SURFACE_ARGB1555, extent, extent);
             }
             surface->setName("VideoVObjecttoTextureAnim:srColorSurface");
-            surface->autoRelease();
             surface->fill(0);
-            if (BlitHVObjectToColorSurface(object, frame, surface, 0, 0)) {
-                srTextureMap* texture = new srTextureMap(static_cast<srColorSurfaceIFace*>(0));
+            if (BlitHVObjectToColorSurface(object, frame, surface.get(), 0, 0)) {
+                srTextureMap* texture = new srTextureMap();
                 texture->autoRelease();
                 texture->setName("VideoVObjecttoTextureAnim");
                 texture->setMipmapBias(-8.0f);
@@ -3255,7 +3248,7 @@ void EndRenderProbe(void)
 srNode* MakePosterQuad(srTextureIFace* texture, float width, float height, bool additive)
 {
     srShader shader;
-    srPtr<srPalette> palette;
+    std::shared_ptr<srPalette> palette;
     srTextureIFace::Dimensions dimensions;
     srPixelConvert::PixelFormat format;
     format.fourcc = 0;

@@ -7,7 +7,7 @@
 
 class stTextureFile;
 
-srColorSurface* __stdcall LoadSurface(wiz8::File* handle, w8_long*);
+std::unique_ptr<srColorSurface> __stdcall LoadSurface(wiz8::File* handle, w8_long*);
 
 /* Wizardry's virtual-file-backed texture. SR.DLL exports a parallel
    srTextureFile (id 0x2112) whose 17-slot vtable is:
@@ -46,7 +46,7 @@ public:
     }
     srColorSurface* getSurface() const
     {
-        return surface;
+        return surface.get();
     }
     unsigned char hasAlpha() const
     {
@@ -78,7 +78,7 @@ private:
 
     int cached;
     char* file_name;
-    srColorSurface* surface;
+    std::unique_ptr<srColorSurface> surface;
     w8_ulong frame_handle;
     bool has_alpha;
 };

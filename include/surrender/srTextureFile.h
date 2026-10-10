@@ -43,7 +43,7 @@ protected:
 
     int cached;
     std::string file_name;
-    srColorSurfaceIFace* surface;
+    std::unique_ptr<srColorSurfaceIFace> surface;
     w8_ulong frame_handle;
 };
 

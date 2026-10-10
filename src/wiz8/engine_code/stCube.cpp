@@ -165,12 +165,10 @@ W8WorldCursorNode* CreateWorldCursorCube(void)
     shader.value = 0x0100c5b3; /* packed srShader: LEQUAL, color write, dst 1-srcA, fog, modulate */
     modeller.setShader(shader, 0);
 
-    srColorSurface* surface =
-        new srColorSurface(srPixelConvert::SURFACE_ARGB1555, 0x20UL, 0x20UL);
+    auto surface = std::make_shared<srColorSurface>(srPixelConvert::SURFACE_ARGB1555, 0x20UL, 0x20UL);
     if (surface == 0) {
         srAssertFail("psrSurface", ST_CUBE_CPP, 0xac, 0);
     }
-    surface->autoRelease();
 
     w8_ulong pixel;
     unsigned char* bytes =
@@ -182,7 +180,7 @@ W8WorldCursorNode* CreateWorldCursorCube(void)
     surface->fill(pixel);
     surface->setFilter(&srBoxFilter);
 
-    srTextureMap* texture = new srTextureMap(static_cast<srColorSurfaceIFace*>(0));
+    srTextureMap* texture = new srTextureMap();
     texture->autoRelease();
     texture->setSurfacePtr(surface);
     texture->setMipmap(srTextureIFace::MIPMAP_NONE);

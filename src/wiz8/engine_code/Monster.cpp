@@ -4970,8 +4970,7 @@ void W8Monster::SpawnDamageNumber(unsigned int amount)
         return;
     }
 
-    srColorSurface* surface =
-        new srColorSurface(srPixelConvert::SURFACE_ARGB1555, 0x100, 0x100);
+    auto surface = std::make_shared<srColorSurface>(srPixelConvert::SURFACE_ARGB1555, 0x100, 0x100);
     surface->fill(0);
     unsigned char* data = static_cast<unsigned char*>(surface->getDataPtr());
     if (data != 0) {

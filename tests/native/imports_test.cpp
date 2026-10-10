@@ -13,6 +13,7 @@
 #include "surrender/srQuadWord.h"
 #include "surrender/srScene.h"
 #include "surrender/srTextureFile.h"
+#include "surrender/srTextureMap.h"
 #include "surrender/srVectorMath.h"
 #include <cfenv>
 #include <algorithm>
@@ -75,10 +76,8 @@ static int surface_storage()
     for (std::size_t index = 0; index < pixels.size(); ++index)
         pixels[index] = static_cast<unsigned char>(index * 7);
     const auto original = pixels;
-    srPtr<srPalette> palette;
-    palette = new srPalette;
-    palette->release();
-    const auto references = palette->getReferenceCount();
+    auto palette = std::make_shared<srPalette>();
+    const auto references = palette.use_count();
     {
         srColorSurface borrowed(srPixelConvert::SURFACE_BGRA32, pixels.data(), 3, 2, 20);
         borrowed.setPalette(palette);
@@ -92,7 +91,7 @@ static int surface_storage()
         CHECK(copied.getDataPtr() != pixels.data());
         CHECK(copied.getPitch() == 20 && copied.getDataSize() == 40);
         CHECK(std::memcmp(copied.getDataPtr(), pixels.data(), pixels.size()) == 0);
-        CHECK(palette->getReferenceCount() == references + 2);
+        CHECK(palette.use_count() == references + 2);
         copied.setPixelRaw(0, 0, 0x12345678);
         CHECK(pixels == original && copied.getPixelRaw(0, 0) == 0x12345678);
         copied = static_cast<const srColorSurface&>(copied);
@@ -102,11 +101,11 @@ static int surface_storage()
         assigned = borrowed;
         CHECK(assigned.getDataPtr() != pixels.data());
         CHECK(std::memcmp(assigned.getDataPtr(), pixels.data(), pixels.size()) == 0);
-        CHECK(palette->getReferenceCount() == references + 3);
+        CHECK(palette.use_count() == references + 3);
         srColorSurface view(srPixelConvert::SURFACE_BGRA32, assigned.getDataPtr(), 3, 2, 20);
         assigned = view;
         CHECK(std::memcmp(assigned.getDataPtr(), pixels.data(), pixels.size()) == 0);
-        CHECK(palette->getReferenceCount() == references + 2);
+        CHECK(palette.use_count() == references + 2);
         CHECK(assigned.resize(7, 5));
         auto* begin = static_cast<unsigned char*>(assigned.getDataPtr());
         CHECK(std::all_of(begin, begin + assigned.getDataSize(), [](auto value) { return value == 0; }));
@@ -126,7 +125,50 @@ static int surface_storage()
         CHECK(other_borrowed.getDataPtr() != pixels.data());
         CHECK(other_borrowed.resize(2, 2));
     }
-    CHECK(pixels == original && palette->getReferenceCount() == references);
+    CHECK(pixels == original && palette.use_count() == references);
+    return 0;
+}
+
+// Maps share their source surface; copies of dimensions also keep the palette alive.
+static int shared_surface_lifetimes()
+{
+    struct Map : srTextureMap {
+        using srTextureMap::srTextureMap;
+        Map& operator=(const Map&) = default;
+        ~Map() override = default;
+    };
+    std::weak_ptr<srColorSurfaceIFace> surface_lifetime;
+    std::weak_ptr<srPalette> palette_lifetime;
+    srTextureIFace::Dimensions dimensions{};
+    {
+        auto palette = std::make_shared<srPalette>(nullptr, 7);
+        srARGB color;
+        color.alpha = 0xff; color.red = 0x12; color.green = 0x34; color.blue = 0x56;
+        palette->setColor(0, color);
+        palette_lifetime = palette;
+        srPalette borrowed;
+        borrowed = *palette;
+        auto matching = srPalette::findMatchingPalette(palette->getPaletteDataPtr(), 7);
+        CHECK(matching == palette);
+        CHECK(!matching.owner_before(palette) && !palette.owner_before(matching));
+        auto surface = std::make_shared<srColorSurface>(srPixelConvert::SURFACE_P8, 2, 2);
+        surface->setPalette(palette);
+        surface_lifetime = surface;
+        Map first(surface), second;
+        second = first;
+        first.getDimensions(dimensions);
+        surface.reset();
+        matching.reset();
+        palette.reset();
+        first.setSurfacePtr(nullptr);
+        CHECK(!surface_lifetime.expired());
+        CHECK(second.getSurfacePtr()->getWidth() == 2);
+        second.setSurfacePtr(nullptr);
+        CHECK(surface_lifetime.expired());
+        CHECK(!palette_lifetime.expired());
+    }
+    dimensions.palette.reset();
+    CHECK(palette_lifetime.expired());
     return 0;
 }
 
@@ -201,6 +243,7 @@ int main()
     srAssertSetFunc(assertion);
     CHECK(srInit());
     CHECK(surface_storage() == 0);
+    CHECK(shared_surface_lifetimes() == 0);
     {
         const int before_destruction = destroyed_nodes;
         srScene* scene = new srScene;

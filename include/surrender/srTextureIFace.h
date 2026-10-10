@@ -1,9 +1,10 @@
 #pragma once
 
+#include <memory>
+
 #include "srColorSurfaceIFace.h"
 #include "srPalette.h"
 #include "srPixelConvert.h"
-#include "srPtr.h"
 #include "srTypeRegistry.h"
 
 class srFilter;
@@ -16,12 +17,11 @@ public:
     /* srGERD::setTextureDefaultCompression remaps DEFAULT (4) to 0; the
        srTexture ctor seeds Dimensions::compression with DEFAULT. */
     enum e_compression { COMPRESSION_DEFAULT = 4 };
-    /* srTexture::getDimensions copies this block wholesale; palette is assigned through
-       srPtr::operator=, so the output object must be constructed. */
+    /* Copies retain shared palette ownership; the output object must be constructed. */
     struct Dimensions {
         w8_ulong width;
         w8_ulong height;
-        srPtr<srPalette> palette;
+        std::shared_ptr<srPalette> palette;
         srPixelConvert::PixelFormat format;
         w8_ulong hints;
         e_compression compression;

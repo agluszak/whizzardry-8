@@ -74,9 +74,8 @@ int main(int argc, char** argv)
         CHECK(InitializePrimaryCpuSurface());
         CHECK(InitializeVideoDevice());
         CHECK(InitializeRendererSceneObjects());
-        auto* targa = srImage::load("Data\\AUTOMAP\\MAP_MONSTERFRIENDLY_A.TGA");
+        auto targa = srImage::load("Data\\AUTOMAP\\MAP_MONSTERFRIENDLY_A.TGA");
         CHECK(targa && targa->getWidth() > 0 && targa->getHeight() > 0);
-        targa->release();
         CHECK(!srTriMeshPipeline::Get(nullptr));
         auto pipeline = srTriMeshPipeline::Get(g_gerd);
         CHECK(pipeline);
@@ -211,9 +210,8 @@ int main(int argc, char** argv)
 
         g_screenshot_index = 0;
         SaveJpegScreenshot();
-        auto* screenshot = srImage::load("Wiz800000.JPG");
+        auto screenshot = srImage::load("Wiz800000.JPG");
         CHECK(screenshot && screenshot->getWidth() == 640 && screenshot->getHeight() == 480);
-        screenshot->release();
         puts("retail Targa import and game JPEG screenshot round-trip");
 
         ShutdownVideoObjectManager();

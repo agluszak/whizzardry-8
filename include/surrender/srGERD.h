@@ -736,7 +736,7 @@ private:
         /* evaluateTexturePixelFormat copies the matched device format here. */
         srPixelConvert::PixelFormat pixel_format;
         std::vector<unsigned char> surface_data;
-        srPtr<srPalette> palette;
+        std::shared_ptr<srPalette> palette;
         std::string name;
         srDD::Texture device;
     };
@@ -1050,7 +1050,7 @@ private:
     /* Accumulation buffer: width*height pixels plus one ARGB scratch row. */
     std::vector<AccumPixel> accum_buffer;
     std::vector<srARGB> accum_scratch;
-    LockSurface* lock_surface;
+    std::unique_ptr<srColorSurfaceIFace> lock_surface;
     /* Buffer-lock nesting depth; _lockBuffer only locks the device on the
        first entry and _unlockBuffer unlocks when this returns to zero. */
     w8_long buffer_lock_count;
@@ -1065,7 +1065,7 @@ private:
     /* Device palette record handed to bindPalette/deletePalette. */
     srDD::Palette device_palette;
     TextureState texture_state;
-    srPtr<srPalette> palette;
+    std::shared_ptr<srPalette> palette;
     e_polygonMode polygon_mode;
     w8_long polygon_offset;
     srVector4T<float> fog_color;

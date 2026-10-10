@@ -1,10 +1,11 @@
 #pragma once
 
+#include <memory>
+
 #include "srARGB.h"
 #include "srFilter.h"
 #include "srMath.h"
 #include "srPixelConvert.h"
-#include "srPtr.h"
 #include "srStat.h"
 #include "srTypeRegistry.h"
 
@@ -41,6 +42,7 @@ public:
         srPixelConvert::PixelFormat pixel_format;
     };
 
+    virtual ~srColorSurfaceIFace() override = default;
     SR_DLL_IMPORT srColorSurfaceIFace();
     SR_DLL_IMPORT srColorSurfaceIFace(const srColorSurfaceIFace& other);
     SR_DLL_IMPORT srColorSurfaceIFace& operator=(const srColorSurfaceIFace& other);
@@ -63,8 +65,8 @@ public:
                                               w8_long y_end);
     virtual SR_DLL_IMPORT void setPixelColumn(const w8_ulong* pixels, w8_long x, w8_long y_start,
                                               w8_long y_end);
-    virtual SR_DLL_IMPORT srPalette* getPalette();
-    virtual SR_DLL_IMPORT void setPalette(srPalette* palette);
+    virtual SR_DLL_IMPORT std::shared_ptr<srPalette> getPalette();
+    virtual SR_DLL_IMPORT void setPalette(std::shared_ptr<srPalette> palette);
     virtual SR_DLL_IMPORT void* getDataPtr();
     virtual SR_DLL_IMPORT w8_long getDataSize();
     virtual SR_DLL_IMPORT int resize(w8_long width, w8_long height);

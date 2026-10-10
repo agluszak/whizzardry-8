@@ -1,3 +1,4 @@
+#include <memory>
 /* Modified for the Wizardry 8 reconstruction, 2026-09-10.
    Reconstructed Wizardry Video2 interface.
    Remove the artificial SGP C boundary and unused local configuration include, 2026-10-04.
@@ -148,7 +149,7 @@ void DrawVideoInspector(int left, unsigned int top);
 unsigned int MeasureNodeRenderWithoutPositionalOption(srNode* node);
 /* 0x00424EB0: build the 2D polygon-brush model instance over a surface;
    RenderAutomapMarkers' item-marker factory calls it cross-TU. */
-srModelInstance* MakePolygonBrush(srNode* parent, srColorSurfaceIFace* surface, double width,
+srModelInstance* MakePolygonBrush(srNode* parent, std::shared_ptr<srColorSurfaceIFace> surface, double width,
                                   double height, float mapping_x, float mapping_y,
                                   float mapping_width, float mapping_height, unsigned char overlay);
 /* 0x00484A40: blit one frame of a video object into a color surface. */
@@ -203,9 +204,9 @@ extern srScene* g_scene_prerender1;
 extern srScene* g_scene_overlay0;
 extern srScene* g_scene_overlay1;
 extern srScene* g_scene_square;
-extern srColorSurface* g_primary_color_surface;
+extern std::shared_ptr<srColorSurface> g_primary_color_surface;
 void DrawColorSurface(srColorSurface* surface, int x, int y);
-srNode* VideoMakePoster(srColorSurfaceIFace* surface, float width, float height,
+srNode* VideoMakePoster(std::shared_ptr<srColorSurfaceIFace> surface, float width, float height,
                         bool additive); /* 0x00424A90 */
 extern srCamera* g_overlay_camera;
 extern srCamera* g_square_camera;
@@ -216,7 +217,7 @@ extern srGERD* g_secondary_gerd;
 extern CpuSurface* g_primary_surface;
 extern stSurface2D* g_surface_node;
 extern srMaterial* g_blit_material;
-extern srColorSurface* g_mouse_surface;
+extern std::shared_ptr<srColorSurface> g_mouse_surface;
 extern srNode* g_surface_nodes[0x12c0];
 extern unsigned char g_block[0x12c0];
 extern srModelInstance* g_current_model_instance;

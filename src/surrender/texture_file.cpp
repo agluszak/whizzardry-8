@@ -8,7 +8,7 @@
 
 // FUNCTION: SURRENDER 0x1005F8E0
 srTextureFile::srTextureFile(std::string file_name, int cached)
-    : cached(cached != 0), surface(0), frame_handle(getNewFrameHandle())
+    : cached(cached != 0), surface(nullptr), frame_handle(getNewFrameHandle())
 {
     setFileName(std::move(file_name));
     if (!this->file_name.empty()) {
@@ -98,7 +98,6 @@ void srTextureFile::loadSurface()
 void srTextureFile::releaseSurface()
 {
     if (surface != 0) {
-        surface->release();
         surface = 0;
     }
 }
@@ -128,7 +127,7 @@ void srTextureFile::setupDefaultValues()
         if (surface == 0) {
             loadSurface();
         }
-        setupDefaultValuesFromSurface(surface);
+        setupDefaultValuesFromSurface(surface.get());
     }
 }
 

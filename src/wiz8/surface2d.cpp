@@ -1,3 +1,4 @@
+#include <memory>
 #include "wiz8/surface2d.h"
 
 #include "surrender/srCore.h"
@@ -65,7 +66,7 @@ void stTexture2D::setupDefaultValues()
 }
 
 // FUNCTION: WIZ8 0x0047DAE0
-stSurface2D::stSurface2D(srColorSurfaceIFace* source, int source_width, int source_height,
+stSurface2D::stSurface2D(std::shared_ptr<srColorSurfaceIFace> source, int source_width, int source_height,
                          srNode* parent, int tile_extent)
     : srClassSupport<stSurface2D, srNode, 0x1000e>(static_cast<srNode*>(0)),
       source_surface(source), vertex_array_mask(1 << srRendererDefs::VERTEX_ARRAY_TEXCOORD0),

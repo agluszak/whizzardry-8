@@ -134,7 +134,7 @@ W8_ABI_ASSERT(sizeof(W8AutomapState) == 0xfc, "W8AutomapState_size");
 // GLOBAL: WIZ8 0x0068f268
 W8AutomapState* g_automap_state;
 // GLOBAL: WIZ8 0x0068f274
-srColorSurface* g_automap_surface;
+std::unique_ptr<srColorSurface> g_automap_surface;
 
 void AutomapZoomInButton(void);
 void AutomapZoomOutButton(void);
@@ -712,9 +712,8 @@ unsigned char AutomapScreenEnter(void)
         g_world_render_enabled = 0;
         g_monster_shadow_updates_enabled = 0;
         if (!g_automap_surface) {
-            srColorSurface* surface =
-                new srColorSurface(srPixelConvert::SURFACE_ARGB1555, 640, 480);
-            g_automap_surface = surface;
+            g_automap_surface = std::make_unique<srColorSurface>(srPixelConvert::SURFACE_ARGB1555, 640, 480);
+            auto* surface = g_automap_surface.get();
             if (surface)
                 surface->setFilter(&srBoxFilter);
         }
@@ -1043,7 +1042,7 @@ unsigned char AutomapScreenLeave(int)
         clipping_plane->release();
     }
     gfTrackMousePos = 0;
-    ReleaseRendererObject(g_automap_surface);
+    g_automap_surface.reset();
     ClearAutomapMarkers();
     g_automap_party_marker->setParent(0, 1);
     for (int index = 0; index < 16; ++index) {
@@ -1532,17 +1531,16 @@ void RenderAutomapFrame(void)
                 view.top = static_cast<double>(half);
                 g_world->camera->setViewPlane(view, static_cast<double>(g_automap_near_clip));
                 g_world->camera->setClipRange(g_automap_near_clip, 1500000.0);
-                RenderWorldToSurface(g_automap_surface, &g_automap_viewport, false);
+                RenderWorldToSurface(g_automap_surface.get(), &g_automap_viewport, false);
                 g_automap_overlay_redraw = false;
                 SetResidentTexturePolicy(0);
             }
             unsigned int pitch;
             void* pixels = LockPrimarySurface(&pitch);
-            srColorSurface* surface = new srColorSurface(srPixelConvert::SURFACE_ARGB1555,
+            auto surface = std::make_unique<srColorSurface>(srPixelConvert::SURFACE_ARGB1555,
                                                              pixels, 0x280, 0x1e0, pitch);
             surface->setFilter(&srBoxFilter);
             surface->blit(0xc, 0x20, *g_automap_surface, 0xc, 0x20, 0x1d3, 0x1d3);
-            surface->release();
             UnlockPrimarySurface();
             RenderAutomapMarkers();
             InvalidateRegion(0xc, 0x20, 0x1d3, 0x1d3, 0);
@@ -1578,12 +1576,10 @@ int RestoreAutomapRect(W8ScreenRect* rect)
     if (g_automap_surface != 0) {
         unsigned int pitch;
         void* pixels = LockPrimarySurface(&pitch);
-        srColorSurface* surface =
-            new srColorSurface(srPixelConvert::SURFACE_ARGB1555, pixels, 0x280, 0x1e0, pitch);
+        auto surface = std::make_unique<srColorSurface>(srPixelConvert::SURFACE_ARGB1555, pixels, 0x280, 0x1e0, pitch);
         surface->setFilter(&srBoxFilter);
         surface->blit(rect->left, rect->top, *g_automap_surface, rect->left, rect->top, rect->right,
                       rect->bottom);
-        surface->release();
         UnlockPrimarySurface();
     }
     return 1;
@@ -2058,14 +2054,13 @@ stModelInstance2D* CreateAutomapItemMarker(int item_id)
     if (!GetVideoObjectETRLEPropertiesFromIndex(handle, &properties, region)) {
         return 0;
     }
-    srColorSurface* surface = new srColorSurface(srPixelConvert::SURFACE_ARGB1555, 0x40, 0x40);
-    surface->autoRelease();
+    auto surface = std::make_shared<srColorSurface>(srPixelConvert::SURFACE_ARGB1555, 0x40, 0x40);
     surface->fill(0);
     surface->setFilter(&srBSplineFilter);
     int y = (0x40 - properties.usHeight) / 2;
     int x = (0x40 - properties.usWidth) / 2;
     BlitVideoObjectToColorSurface(GetCatalogVideoObjectHandle(object, 0),
-                                  GetCatalogVideoObjectYOffset(object), surface, x, y);
+                                  GetCatalogVideoObjectYOffset(object), surface.get(), x, y);
     float factor = (g_float_one / (g_automap_zoom * 0.00004f)) * 0.44f;
     stModelInstance2D* marker = static_cast<stModelInstance2D*>(
         MakePolygonBrush(g_scene_fullscreen, surface, surface->getWidth() * g_viewport_x_scale,

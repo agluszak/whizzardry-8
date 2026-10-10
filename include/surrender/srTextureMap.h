@@ -1,6 +1,6 @@
 #pragma once
 
-#include "srPtr.h"
+#include <memory>
 #include "srTexture.h"
 
 // VTABLE: SURRENDER 0x100775BC
@@ -11,7 +11,7 @@
 class SR_DLL_IMPORT srTextureMap
     : public srClassSupport<srTextureMap, srTexture, 0x2111> {
 public:
-    srTextureMap(srColorSurfaceIFace* surface = 0);
+    srTextureMap(std::shared_ptr<srColorSurfaceIFace> surface = {});
 
     // FUNCTION: SURRENDER 0x10060770 SYMBOL
     // RECOMP: ?sGetClassName@srTextureMap@@SAPBDXZ
@@ -29,13 +29,13 @@ public:
     virtual srClass* vInstance() override;
     virtual w8_ulong getTextureFrameHandle() override;
     virtual void getMipmapData(MultiRequest& request) override;
-    void setSurfacePtr(srColorSurfaceIFace* surface);
+    void setSurfacePtr(std::shared_ptr<srColorSurfaceIFace> surface);
     srColorSurfaceIFace* getSurfacePtr() const;
     virtual void invalidate() override;
 
 protected:
     virtual void setupDefaultValues() override;
-    srPtr<srColorSurfaceIFace> surface;
+    std::shared_ptr<srColorSurfaceIFace> surface;
     w8_ulong frame_handle; /* 0x58: ctor stores getNewFrameHandle() */
 };
 

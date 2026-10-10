@@ -32,7 +32,7 @@ public:
     {
         return material;
     }
-    SR_DLL_IMPORT srPalette* getPalette() const;
+    SR_DLL_IMPORT std::shared_ptr<srPalette> getPalette() const;
     SR_DLL_IMPORT srNode* getRootNode() const;
     // FUNCTION: SURRENDER 0x100156B0
     // RECOMP: ?getStatisticsManager@srCore@@QBEPAVsrStatisticsManager@@XZ
@@ -76,10 +76,10 @@ private:
     // Declared first and reset last: registered resources need it during release.
     std::unique_ptr<srRegistry> registry_;
     std::unique_ptr<srClock> timer;
-    srColorSurfaceIFace* surface = nullptr;
+    std::shared_ptr<srColorSurfaceIFace> surface;
     srFilter* filter = nullptr;
     std::unique_ptr<srStatisticsManager> statistics_manager;
-    srPalette* palette = nullptr;
+    std::shared_ptr<srPalette> palette;
     w8_ulong next_unique_id = 0;
     w8_ulong debug_level = 1;
     int multi_thread = 0;

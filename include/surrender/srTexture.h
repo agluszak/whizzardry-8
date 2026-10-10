@@ -7,8 +7,7 @@ class SR_DLL_IMPORT srTexture
     : public srClassSupport<srTexture, srTextureIFace, 0x2110> {
 public:
     static const char* sGetClassName();
-    /* The copy body is consistent with ordinary member copy-construction;
-       in particular Dimensions' srPtr palette is addref'd as a fresh member. */
+    /* Copies share the palette stored in Dimensions. */
 
     srTexture& operator=(const srTexture& other);
     virtual void dump(std::ostream& stream) override;

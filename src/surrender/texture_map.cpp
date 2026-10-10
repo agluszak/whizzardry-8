@@ -4,7 +4,7 @@
 #include <ostream>
 
 // FUNCTION: SURRENDER 0x10060270
-srTextureMap::srTextureMap(srColorSurfaceIFace* surface)
+srTextureMap::srTextureMap(std::shared_ptr<srColorSurfaceIFace> surface)
 {
     frame_handle = getNewFrameHandle();
     setSurfacePtr(surface);
@@ -40,10 +40,8 @@ void srTextureMap::getMipmapData(MultiRequest& request)
     }
 }
 
-/* The guard repeats inside srPtr::operator=(T*), which is also the re-check
-   after invalidate() — a recursive invalidation can swap the surface first. */
 // FUNCTION: SURRENDER 0x100604E0
-void srTextureMap::setSurfacePtr(srColorSurfaceIFace* surface)
+void srTextureMap::setSurfacePtr(std::shared_ptr<srColorSurfaceIFace> surface)
 {
     if (surface != this->surface) {
         invalidate();
@@ -55,7 +53,7 @@ void srTextureMap::setSurfacePtr(srColorSurfaceIFace* surface)
 // FUNCTION: SURRENDER 0x10060490
 srColorSurfaceIFace* srTextureMap::getSurfacePtr() const
 {
-    return surface;
+    return surface.get();
 }
 
 // FUNCTION: SURRENDER 0x100604A0
@@ -73,7 +71,7 @@ w8_ulong srTextureMap::getTextureFrameHandle()
 // FUNCTION: SURRENDER 0x100604C0
 void srTextureMap::setupDefaultValues()
 {
-    setupDefaultValuesFromSurface(surface);
+    setupDefaultValuesFromSurface(surface.get());
     texture_flags_ &= ~(1 << FLAG_DIRTY_DEFAULTS);
 }
 
@@ -91,5 +89,5 @@ void srTextureMap::dump(std::ostream& stream)
 // FUNCTION: SURRENDER 0x10060780
 srClass* srTextureMap::vInstance()
 {
-    return new srTextureMap(0);
+    return new srTextureMap(nullptr);
 }

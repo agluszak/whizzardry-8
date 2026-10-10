@@ -1,5 +1,7 @@
 #pragma once
 
+#include <memory>
+
 #include "srColorSurfaceIFace.h"
 #include "srPalette.h"
 
@@ -43,8 +45,8 @@ public:
                                               w8_long y_end) override;
     virtual SR_DLL_IMPORT void setPixelColumn(const w8_ulong* pixels, w8_long x, w8_long y_start,
                                               w8_long y_end) override;
-    virtual SR_DLL_IMPORT srPalette* getPalette() override;
-    virtual SR_DLL_IMPORT void setPalette(srPalette* palette) override;
+    virtual SR_DLL_IMPORT std::shared_ptr<srPalette> getPalette() override;
+    virtual SR_DLL_IMPORT void setPalette(std::shared_ptr<srPalette> palette) override;
     virtual SR_DLL_IMPORT void* getDataPtr() override;
     virtual SR_DLL_IMPORT w8_long getDataSize() override;
     virtual SR_DLL_IMPORT int resize(w8_long width, w8_long height) override;
@@ -91,7 +93,7 @@ private:
 
     srPixelConvert::ConversionFunc pixel_write = nullptr;
     srPixelConvert::ConversionFunc pixel_read = nullptr;
-    srPtr<srPalette> palette;
+    std::shared_ptr<srPalette> palette;
     enum { BORROWED_DATA = 0x01u };
     w8_ulong surface_flags = 0;
     std::vector<unsigned char> owned_data;

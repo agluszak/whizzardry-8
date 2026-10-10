@@ -12,7 +12,8 @@ class srColorSurfaceIFace;
 // class srClassSupport<srPalette, srClass, 10496>
 
 // VTABLE: SURRENDER 0x100753CC srPalette
-class srPalette : public srClassSupport<srPalette, srClass, 0x2900> {
+class srPalette : public srClassSupport<srPalette, srClass, 0x2900>,
+                  public std::enable_shared_from_this<srPalette> {
 public:
     /* Two-level lookup: lut_rg[(g<<8)|r] selects a palette row, lut_rgb[(row<<8)|b] yields the
        index. */
@@ -99,7 +100,7 @@ public:
         void addSurface(const char* name, w8_long weight);
         void addSurface(srColorSurfaceIFace& surface, w8_long weight);
         void addSurfaces(srColorSurfaceIFace** surfaces, w8_long surface_count, w8_long weight);
-        srPalette* createOptimalPalette();
+        std::shared_ptr<srPalette> createOptimalPalette();
         void dump(std::ostream& stream);
 
     private:
@@ -135,7 +136,7 @@ public:
             w8_long mask_count;                   /* 0x14 */
         };
 
-        static srPalette* createOptimalPalette(const PaletteInfo& info);
+        static std::shared_ptr<srPalette> createOptimalPalette(const PaletteInfo& info);
 
     private:
         struct HashEntry {
@@ -181,7 +182,7 @@ public:
     };
 
     static SR_DLL_IMPORT const char* sGetClassName();
-    static SR_DLL_IMPORT srPalette* findMatchingPalette(const srARGB* const colors,
+    static SR_DLL_IMPORT std::shared_ptr<srPalette> findMatchingPalette(const srARGB* const colors,
                                                         w8_long color_count);
 
     SR_DLL_IMPORT srPalette(srARGB* colors = 0, w8_long color_count = 1);
@@ -204,7 +205,7 @@ public:
                                  w8_long color_count);
     SR_DLL_IMPORT void update();
 
-protected:
+public:
     // FUNCTION: SURRENDER 0x10004610
     virtual SR_DLL_IMPORT ~srPalette() override = default;
 

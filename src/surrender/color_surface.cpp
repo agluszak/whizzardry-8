@@ -88,13 +88,13 @@ const char* srColorSurfaceIFace::sGetClassName()
 }
 
 // FUNCTION: SURRENDER 0x10021310
-srPalette* srColorSurfaceIFace::getPalette()
+std::shared_ptr<srPalette> srColorSurfaceIFace::getPalette()
 {
     return 0;
 }
 
 // FUNCTION: SURRENDER 0x10021320
-void srColorSurfaceIFace::setPalette(srPalette* palette) {}
+void srColorSurfaceIFace::setPalette(std::shared_ptr<srPalette> palette) {}
 
 // FUNCTION: SURRENDER 0x10021330
 void* srColorSurfaceIFace::getDataPtr()
@@ -1218,13 +1218,13 @@ w8_long srColorSurface::getDataSize()
 }
 
 // FUNCTION: SURRENDER 0x1005B570
-srPalette* srColorSurface::getPalette()
+std::shared_ptr<srPalette> srColorSurface::getPalette()
 {
     return palette;
 }
 
 // FUNCTION: SURRENDER 0x1005B580
-void srColorSurface::setPalette(srPalette* palette)
+void srColorSurface::setPalette(std::shared_ptr<srPalette> palette)
 {
     this->palette = palette;
 }
@@ -1243,7 +1243,7 @@ void srColorSurface::convertToARGB8888(w8_ulong* pixels, const void* source,
     info.dest = pixels;
     info.source = source;
     info.count = count;
-    info.palette = palette;
+    info.palette = palette.get();
     info.format = &pixel_format;
     pixel_read(info);
 }
@@ -1256,7 +1256,7 @@ void srColorSurface::convertFromARGB8888(void* pixels, const w8_ulong* source,
     info.dest = pixels;
     info.source = source;
     info.count = count;
-    info.palette = palette;
+    info.palette = palette.get();
     info.format = &pixel_format;
     pixel_write(info);
 }
