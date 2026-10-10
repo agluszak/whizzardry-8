@@ -1,3 +1,4 @@
+#include "surrender/srMath.h"
 /* Native consumer-side linking and lifetime for the renderer contracts used
    by the game, including compiler-generated members imported on Windows. */
 #include "surrender/srCamera.h"
@@ -6,6 +7,7 @@
 #include "surrender/srHuffman.h"
 #include "surrender/srLight.h"
 #include "surrender/srMaterial.h"
+#include "surrender/srMeshModel.h"
 #include "surrender/srMemoryAllocator.h"
 #include "surrender/srModeler.h"
 #include "surrender/srQuadWord.h"
@@ -16,6 +18,7 @@
 #include <cmath>
 #include <initializer_list>
 #include <limits>
+#include <stdexcept>
 #include "wiz8/sr_api.h"
 #include <cstdio>
 #include <cstring>
@@ -64,8 +67,42 @@ struct ClientTextureFile : srTextureFile
     {
     }
 };
+struct TrackedElement
+{
+    inline static int live = 0;
+    inline static int constructors_before_throw = -1;
+    int value = 0;
+    TrackedElement()
+    {
+        if (constructors_before_throw == 0) throw std::runtime_error("element construction");
+        if (constructors_before_throw > 0) --constructors_before_throw;
+        ++live;
+    }
+    ~TrackedElement() { --live; }
+};
+
 int main()
 {
+    {
+        srMeshModel::MeshTable<TrackedElement> table;
+        table.Resize(3, 0);
+        CHECK(TrackedElement::live == 3 && table.count == 3);
+        table.data[0].value = 42;
+        table.Resize(5, 1);
+        CHECK(TrackedElement::live == 5 && table.data[0].value == 42);
+        auto copy = table;
+        CHECK(TrackedElement::live == 10 && copy.data[0].value == 42);
+        TrackedElement::constructors_before_throw = 1;
+        bool threw = false;
+        try { table.Resize(8, 1); }
+        catch (const std::runtime_error&) { threw = true; }
+        TrackedElement::constructors_before_throw = -1;
+        CHECK(threw && TrackedElement::live == 10 && table.count == 5);
+        CHECK(table.data[0].value == 42);
+        table.Release();
+        CHECK(TrackedElement::live == 5 && !table.data && !table.count);
+    }
+    CHECK(TrackedElement::live == 0);
     {
         srModeler modeler;
         srModeler::Triangle triangle;

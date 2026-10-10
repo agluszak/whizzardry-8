@@ -1,3 +1,5 @@
+#include <cstdlib>
+
 #include "wiz8/engine_code/OctPreTree.h"
 #include "wiz8/engine_code/3d.h"
 #include "wiz8/engine_code/GDProp.h"
@@ -535,17 +537,17 @@ OctMeshModel* OctPreTree::CreateSubMeshes(W8OctPreTreeGeometry* geometry)
                         }
                         model->next_link = record->m_next_link - 1;
                         model->m_vertex_locations = static_cast<srVector3T<float>*>(
-                            srHeap.allocate(record->vertex_count * sizeof(srVector3T<float>)));
+                            std::malloc(record->vertex_count * sizeof(srVector3T<float>)));
                         model->m_vertex_map = record->m_uv_map;
                         model->m_poly_vertices = record->m_poly_vertices;
                         model->m_poly_uv_index = record->m_poly_uv_index;
                         model->m_poly_equations = static_cast<srVector4T<float>*>(
-                            srHeap.allocate(record->m_polygon_count *
+                            std::malloc(record->m_polygon_count *
                                 sizeof(*model->m_poly_equations)));
                         model->m_vertex_normals = static_cast<srVector3T<float>*>(
-                            srHeap.allocate(record->vertex_count * sizeof(srVector3T<float>)));
+                            std::malloc(record->vertex_count * sizeof(srVector3T<float>)));
                         model->m_vertex_lights = static_cast<srVector3T<float>*>(
-                            srHeap.allocate(record->vertex_count * sizeof(srVector3T<float>)));
+                            std::malloc(record->vertex_count * sizeof(srVector3T<float>)));
                         model->m_vertex_materials =
                             static_cast<int*>(malloc(record->vertex_count * sizeof(int)));
                         model->m_poly_textures =
@@ -805,7 +807,7 @@ w8_ulong OctPreTree::SplitMeshes(W8OctPreTreeGeometry* geometry, W8OctSubmeshBui
         for (w8_ulong index = 1; index < m_spatial.submesh_count; ++index) {
             W8OctSubmeshBuild* record = records + index;
             record->m_poly_vertices =
-                static_cast<srVector3i*>(srHeap.allocate(record->m_polygon_count * sizeof(srVector3i)));
+                static_cast<srVector3i*>(std::malloc(record->m_polygon_count * sizeof(srVector3i)));
             if (record->m_poly_vertices == 0) {
                 ReportBuildStatus(7, "SplitMeshes: Could not allocate psrPolyVertex.\n");
                 return 0;
@@ -911,7 +913,7 @@ w8_ulong OctPreTree::SplitUVMaps(W8OctSubmeshBuild* record, W8OctPreTreeGeometry
         return 0;
     }
     memset(table, 0, record->m_polygon_count * (4 * sizeof(*table)));
-    srVector3i* uv_index = static_cast<srVector3i*>(srHeap.allocate(record->m_polygon_count * sizeof(srVector3i)));
+    srVector3i* uv_index = static_cast<srVector3i*>(std::malloc(record->m_polygon_count * sizeof(srVector3i)));
     if (uv_index == 0) {
         ReportBuildStatus(7, "SplitUVMaps: Could not allocate psrPolyUVIndex.\n");
         return 0;
@@ -975,7 +977,7 @@ w8_ulong OctPreTree::SplitUVMaps(W8OctSubmeshBuild* record, W8OctPreTreeGeometry
     record->m_poly_uv_index = uv_index;
     record->m_map_count = uv_count;
     record->m_uv_map = static_cast<srVector2T<float>*>(
-        srHeap.allocate(uv_count * sizeof(*record->m_uv_map)));
+        std::malloc(uv_count * sizeof(*record->m_uv_map)));
     if (record->m_uv_map == 0) {
         ReportBuildStatus(7, "SplitUVMaps: Could not allocate pMesh->psrMaps.\n");
         free(table);

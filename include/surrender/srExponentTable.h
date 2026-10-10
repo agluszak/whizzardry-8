@@ -1,6 +1,5 @@
 #pragma once
 
-#include "srHeap.h"
 
 class
 #if defined(SURRENDER_BUILD)

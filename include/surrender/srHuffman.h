@@ -4,7 +4,6 @@
 #include "srBinIStream.h"
 #include "srBinOStream.h"
 #include "srHash.h"
-#include "srHeap.h"
 
 class srHuffman {
 public:

@@ -19,7 +19,6 @@
 #include "wiz8/geometry.h"
 #include "wiz8/sr_api.h"
 #include "surrender/srCamera.h"
-#include "surrender/srHeap.h"
 #include "surrender/srIlluminator.h"
 #include "surrender/srMaterial.h"
 #include "surrender/srScene.h"
@@ -858,12 +857,6 @@ void SetSceneMeshShaderLowBits(srNode* node, int argument)
             SetSceneMeshShaderLowBits(node->first_child_, argument);
         }
     }
-}
-
-// FUNCTION: WIZ8 0x0046f3f0
-void FreeThroughRenderHeap(void* block)
-{
-    srHeap.free(block);
 }
 
 // FUNCTION: WIZ8 0x0046f4f0

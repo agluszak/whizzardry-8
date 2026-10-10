@@ -2,7 +2,6 @@
 
 #include <iosfwd>
 
-#include "srHeap.h"
 
 // VTABLE: SURRENDER 0x100755C8
 // class srFileManager

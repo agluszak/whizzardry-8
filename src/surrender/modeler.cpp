@@ -1,8 +1,9 @@
+#include <cstdlib>
+
 #include "wiz8/compat/unaligned.h"
 #include "surrender/srModeler.h"
 
 #include "surrender/srDebug.h"
-#include "surrender/srHeap.h"
 #include "surrender/srTriangulator.h"
 
 #include <math.h>
@@ -999,7 +1000,7 @@ void srModeler::addPolygon(const Polygon& polygon)
             abs_z += (float)fabs(first_x * second_y - first_y * second_x);
         }
         srVector2T<float>* points = static_cast<srVector2T<float>*>(
-            srHeap.allocate(count * sizeof(*points)));
+            std::malloc(count * sizeof(*points)));
         if (abs_x <= abs_y) {
             if (abs_y <= abs_z) {
                 for (int index = 0; index < count; ++index) {
@@ -1039,7 +1040,7 @@ void srModeler::addPolygon(const Polygon& polygon)
             addTriangle(triangle);
             indices = triangulator.next();
         }
-        srHeap.free(points);
+        std::free(points);
     }
 }
 

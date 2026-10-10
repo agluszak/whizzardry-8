@@ -1,3 +1,5 @@
+#include <cstdlib>
+
 #include "wiz8/compat/unaligned.h"
 #include "wiz8/engine_code/stMeshModel.h"
 
@@ -5,7 +7,6 @@
 #include "wiz8/sr_api.h"
 #include "surrender/srCore.h"
 #include "surrender/srGERD.h"
-#include "surrender/srHeap.h"
 #include "wiz8/wiz8_windows.h"
 #include "surrender/srMaterial.h"
 #include "surrender/srTriangleCuller.h"
@@ -118,7 +119,7 @@ stMeshModel::~stMeshModel()
         g_mesh_models.Remove(this);
     }
     if (lerp_buffer != 0) {
-        srHeap.free(lerp_buffer);
+        std::free(lerp_buffer);
         lerp_buffer = 0;
     }
     if (automap_polygons != 0) {
@@ -1027,7 +1028,7 @@ static unsigned int ReleaseDecompressedFrameTable(srVector3T<float>** frames,
         for (unsigned int frame = 0; frame < frame_count; ++frame) {
             if (frames[frame] != 0) {
                 released += element_count * sizeof(srVector3T<float>);
-                srHeap.free(frames[frame]);
+                std::free(frames[frame]);
                 frames[frame] = 0;
             }
         }
@@ -1260,7 +1261,7 @@ unsigned char stMeshModel::AllocateFrameBuffers(unsigned int uiFrame, unsigned c
         }
         g_decompressed_mesh_bytes += needed;
         m_pVertexLoc[uiFrame] = static_cast<srVector3T<float>*>(
-            srHeap.allocate(vertex_location_count * sizeof(srVector3T<float>)));
+            std::malloc(vertex_location_count * sizeof(srVector3T<float>)));
         if (m_pVertexLoc[uiFrame] == 0) {
             srAssertFail("m_pVertexLoc[uiFrame]",
                          "C:\\Projects\\Wizardry 8\\Engine Code\\stMeshModel.cpp", 0x243, 0);
@@ -1275,7 +1276,7 @@ unsigned char stMeshModel::AllocateFrameBuffers(unsigned int uiFrame, unsigned c
         }
         g_decompressed_mesh_bytes += needed;
         m_pVertexNormal[uiFrame] = static_cast<srVector3T<float>*>(
-            srHeap.allocate(vertex_location_count * sizeof(srVector3T<float>)));
+            std::malloc(vertex_location_count * sizeof(srVector3T<float>)));
         if (m_pVertexNormal[uiFrame] == 0) {
             srAssertFail("m_pVertexNormal[uiFrame]",
                          "C:\\Projects\\Wizardry 8\\Engine Code\\stMeshModel.cpp", 0x24e, 0);
@@ -1290,7 +1291,7 @@ unsigned char stMeshModel::AllocateFrameBuffers(unsigned int uiFrame, unsigned c
         }
         g_decompressed_mesh_bytes += needed;
         m_pPolyNormal[uiFrame] = static_cast<srVector3T<float>*>(
-            srHeap.allocate(polygon_count * sizeof(srVector3T<float>)));
+            std::malloc(polygon_count * sizeof(srVector3T<float>)));
         if (m_pPolyNormal[uiFrame] == 0) {
             srAssertFail("m_pPolyNormal[uiFrame]",
                          "C:\\Projects\\Wizardry 8\\Engine Code\\stMeshModel.cpp", 0x259, 0);
@@ -1313,7 +1314,7 @@ srVector3T<float>* stMeshModel::GetVertexLocations(unsigned int frame, bool load
         unsigned int next_frame = (frame + 1) % frame_count;
         if (lerp_buffer == 0) {
             lerp_buffer = static_cast<srVector3T<float>*>(
-                srHeap.allocate(vertex_location_count * sizeof(srVector3T<float>)));
+                std::malloc(vertex_location_count * sizeof(srVector3T<float>)));
             if (lerp_buffer == 0) {
                 srAssertFail("m_pLerpBuffer",
                              "C:\\Projects\\Wizardry 8\\Engine Code\\stMeshModel.cpp", 0x2d4, 0);

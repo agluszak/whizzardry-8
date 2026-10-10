@@ -1,3 +1,5 @@
+#include <cstdlib>
+
 #include "wiz8/engine_code/stTextureFile.h"
 #include "wiz8/engine_code/stModelInstance.h"
 #include "wiz8/engine_code/materials.h"
@@ -8,7 +10,6 @@
 #include "surrender/srGERD.h"
 #include "surrender/srMaterial.h"
 #include "surrender/srNode.h"
-#include "surrender/srHeap.h"
 #include "surrender/srTriMeshPipeline.h"
 #include "surrender/srVectorProcessor.h"
 #include "wiz8/engine_code/Octree.h"
@@ -225,10 +226,10 @@ stModelInstance2D::stModelInstance2D(srNode* parent)
 stModelInstance2D::~stModelInstance2D()
 {
     if (glow_color_base != 0) {
-        srHeap.free(glow_color_base);
+        std::free(glow_color_base);
     }
     if (glow_color_peak != 0) {
-        srHeap.free(glow_color_peak);
+        std::free(glow_color_peak);
     }
     if (m_pGlowMaterial != 0) {
         m_pGlowMaterial->release();
@@ -256,12 +257,12 @@ stModelInstance2D& stModelInstance2D::operator=(const stModelInstance2D& other)
     render_state.render_depth = other.render_state.render_depth;
     if (other.glow_color_base != 0) {
         glow_color_base =
-            static_cast<srVector4T<float>*>(srHeap.allocate(sizeof(srVector4T<float>)));
+            static_cast<srVector4T<float>*>(std::malloc(sizeof(srVector4T<float>)));
         *glow_color_base = *other.glow_color_base;
     }
     if (other.glow_color_peak != 0) {
         glow_color_peak =
-            static_cast<srVector4T<float>*>(srHeap.allocate(sizeof(srVector4T<float>)));
+            static_cast<srVector4T<float>*>(std::malloc(sizeof(srVector4T<float>)));
         *glow_color_peak = *other.glow_color_peak;
     }
     return *this;
@@ -516,12 +517,12 @@ void stModelInstance2D::SetGlowColors(srVector4T<float>* first, srVector4T<float
 {
     if (glow_color_base == 0) {
         glow_color_base =
-            static_cast<srVector4T<float>*>(srHeap.allocate(sizeof(srVector4T<float>)));
+            static_cast<srVector4T<float>*>(std::malloc(sizeof(srVector4T<float>)));
     }
     *glow_color_base = *first;
     if (glow_color_peak == 0) {
         glow_color_peak =
-            static_cast<srVector4T<float>*>(srHeap.allocate(sizeof(srVector4T<float>)));
+            static_cast<srVector4T<float>*>(std::malloc(sizeof(srVector4T<float>)));
     }
     *glow_color_peak = *second;
 }
@@ -925,7 +926,7 @@ static void BuildShadowMesh()
                 material->setDiffuse(color);
                 material->m_surface_flags = 0;
             }
-            srVector3i* triangles = static_cast<srVector3i*>(srHeap.allocate(2 * sizeof(*triangles)));
+            srVector3i* triangles = static_cast<srVector3i*>(std::malloc(2 * sizeof(*triangles)));
             g_shadow_mesh->poly_vertices = triangles;
             triangles[0].x = 0;
             triangles[0].y = 1;
@@ -934,7 +935,7 @@ static void BuildShadowMesh()
             triangles[1].y = 4;
             triangles[1].z = 5;
             srVector3T<float>* positions = static_cast<srVector3T<float>*>(
-                srHeap.allocate(6 * sizeof(*positions)));
+                std::malloc(6 * sizeof(*positions)));
             g_shadow_mesh->positions = positions;
             positions[0].Set(-250.0f, 250.0f, 0.0f);
             positions[1].Set(0.0f, -250.0f, 0.0f);

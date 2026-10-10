@@ -1,9 +1,45 @@
 #pragma once
 
-#include "srHeap.h"
-
+#include <fenv.h>
 #include <float.h>
 #include <math.h>
+#include <string.h>
+
+/* Zero fill that pre-aligns the destination to an 8-byte boundary. */
+inline void srZeroMemory(void* destination, w8_long size)
+{
+    if (size > 0) {
+        /* reinterpret-ok: raw address alignment is storage the type system
+           cannot express. */
+        w8_ulong misalign = reinterpret_cast<w8_ulong_ptr>(destination) & 7;
+        if (size >= 8 && misalign != 0) {
+            w8_ulong head = 8 - misalign;
+            memset(destination, 0, head);
+            /* reinterpret-ok: byte-granular advance past the head fill. */
+            memset(reinterpret_cast<unsigned char*>(destination) + head, 0, size - head);
+        } else {
+            memset(destination, 0, size);
+        }
+    }
+}
+
+/* Float-to-int through the FPU's current rounding mode (round to nearest, not truncation). */
+inline w8_long srFloatToInt(double value)
+{
+    const double rounded = rint(value);
+    // Retail FISTP stores a signed dword. LP64 lrint instead has a 64-bit
+    // range and narrowing its integer-indefinite result can produce zero.
+    if (!(rounded >= -2147483648.0 && rounded <= 2147483647.0)) {
+        feraiseexcept(FE_INVALID);
+        return (-2147483647 - 1);
+    }
+    return static_cast<w8_long>(rounded);
+}
+
+inline w8_long srFloatToInt(float value)
+{
+    return srFloatToInt(static_cast<double>(value));
+}
 
 inline int srFinite(double value)
 {
@@ -16,16 +52,6 @@ template <class T> class srVector2T {
 public:
     srVector2T<T>() {}
     srVector2T<T>(T source_0, T source_1) : x(source_0), y(source_1) {}
-
-    void* operator new[](size_t size)
-    {
-        return srHeap.allocate(size);
-    }
-
-    void operator delete[](void* allocation)
-    {
-        srHeap.free(allocation);
-    }
 
     srVector2T<T>* Set(T source_0, T source_1)
     {
@@ -92,16 +118,6 @@ public:
     srVector2T<T> xz() const
     {
         return srVector2T<T>(x, z);
-    }
-
-    void* operator new[](size_t size)
-    {
-        return srHeap.allocate(size);
-    }
-
-    void operator delete[](void* allocation)
-    {
-        srHeap.free(allocation);
     }
 
     void SetZero();
@@ -412,16 +428,6 @@ public:
         srVector3T<T> result;
         result.Set(x, y, z);
         return result;
-    }
-
-    void* operator new[](size_t size)
-    {
-        return srHeap.allocate(size);
-    }
-
-    void operator delete[](void* allocation)
-    {
-        srHeap.free(allocation);
     }
 
     template <class U> srVector4T<T>& operator=(const srVector4T<U>& source)
@@ -1238,16 +1244,6 @@ public:
 class srVector3i {
 public:
     srVector3i() {}
-
-    void* operator new[](size_t size)
-    {
-        return srHeap.allocate(size);
-    }
-
-    void operator delete[](void* allocation)
-    {
-        srHeap.free(allocation);
-    }
 
     int x;
     int y;

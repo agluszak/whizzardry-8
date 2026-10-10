@@ -1,3 +1,5 @@
+#include <cstdlib>
+
 #include "wiz8/engine_code/stTextureFile.h"
 #include "wiz8/engine_code/GDCamera.h"
 #include "wiz8/engine_code/stParticle.h"
@@ -12,7 +14,6 @@
 #include "wiz8/virtual_file.h"
 #include "surrender/srCore.h"
 #include "surrender/srGERD.h"
-#include "surrender/srHeap.h"
 #include "surrender/srNode.h"
 #include "surrender/srTriMeshPipeline.h"
 #include "FileMan.h"
@@ -187,7 +188,7 @@ stParticle::stParticle(srNode* parent, int count)
     }
 
     particle_positions =
-        static_cast<srVector3T<float>*>(srHeap.allocate(count * sizeof(srVector3T<float>)));
+        static_cast<srVector3T<float>*>(std::malloc(count * sizeof(srVector3T<float>)));
     /* 0x00497C57 and 0x00498360 test the count parameter signed, while every
        comparison against the stored particle_count (0x00497D6C, 0x00497E74)
        and vertex_count (0x00497EA8) is unsigned. */
@@ -199,10 +200,10 @@ stParticle::stParticle(srNode* parent, int count)
     vertex_count = count * 4;
     texture_frame_count = count * 2;
     texcoords =
-        static_cast<srVector2T<float>*>(srHeap.allocate(vertex_count * sizeof(srVector2T<float>)));
+        static_cast<srVector2T<float>*>(std::malloc(vertex_count * sizeof(srVector2T<float>)));
     vertex_positions =
-        static_cast<srVector3T<float>*>(srHeap.allocate(vertex_count * sizeof(srVector3T<float>)));
-    triangles = static_cast<srVector3i*>(srHeap.allocate(count * 2 * sizeof(srVector3i)));
+        static_cast<srVector3T<float>*>(std::malloc(vertex_count * sizeof(srVector3T<float>)));
+    triangles = static_cast<srVector3i*>(std::malloc(count * 2 * sizeof(srVector3i)));
     alphas = new float[vertex_count];
     texture_frames = 0;
 
@@ -233,7 +234,7 @@ stParticle::stParticle(srNode* parent, int count)
     active_triangles = new w8_ulong[texture_frame_count];
     active_particle_count = 0;
     velocities =
-        static_cast<srVector3T<float>*>(srHeap.allocate(count * sizeof(srVector3T<float>)));
+        static_cast<srVector3T<float>*>(std::malloc(count * sizeof(srVector3T<float>)));
     birth_ticks = new unsigned int[count];
     particle_active = new bool[count];
     memset(particle_active, 0, count);
@@ -308,7 +309,7 @@ stParticle::stParticle(const stParticle& other)
     SetRenderFlags(other.GetRenderFlags());
 
     particle_positions =
-        static_cast<srVector3T<float>*>(srHeap.allocate(count * sizeof(srVector3T<float>)));
+        static_cast<srVector3T<float>*>(std::malloc(count * sizeof(srVector3T<float>)));
     if (particle_positions == 0) {
         srAssertFail("pLoc", ST_PARTICLE_CPP, 0xda, 0);
     }
@@ -324,16 +325,16 @@ stParticle::stParticle(const stParticle& other)
     texture_frame_count = count * 2;
     SetTexture(other.texture);
     texcoords =
-        static_cast<srVector2T<float>*>(srHeap.allocate(vertex_count * sizeof(srVector2T<float>)));
+        static_cast<srVector2T<float>*>(std::malloc(vertex_count * sizeof(srVector2T<float>)));
     if (texcoords == 0) {
         srAssertFail("vUV", ST_PARTICLE_CPP, 0xe4, 0);
     }
     vertex_positions =
-        static_cast<srVector3T<float>*>(srHeap.allocate(vertex_count * sizeof(srVector3T<float>)));
+        static_cast<srVector3T<float>*>(std::malloc(vertex_count * sizeof(srVector3T<float>)));
     if (vertex_positions == 0) {
         srAssertFail("vLoc", ST_PARTICLE_CPP, 0xe5, 0);
     }
-    triangles = static_cast<srVector3i*>(srHeap.allocate(texture_frame_count * sizeof(srVector3i)));
+    triangles = static_cast<srVector3i*>(std::malloc(texture_frame_count * sizeof(srVector3i)));
     if (triangles == 0) {
         srAssertFail("pVertex", ST_PARTICLE_CPP, 0xe7, 0);
     }
@@ -362,7 +363,7 @@ stParticle::stParticle(const stParticle& other)
     particle_active = new bool[count];
     memset(particle_active, 0, count);
     velocities =
-        static_cast<srVector3T<float>*>(srHeap.allocate(count * sizeof(srVector3T<float>)));
+        static_cast<srVector3T<float>*>(std::malloc(count * sizeof(srVector3T<float>)));
     birth_ticks = new unsigned int[count];
     emitting = other.emitting;
     traversal_enabled = true;
@@ -1031,22 +1032,22 @@ void stParticle::SubmitToRenderer(srGERD* renderer)
 stParticle::~stParticle()
 {
     if (particle_positions != 0) {
-        srHeap.free(particle_positions);
+        std::free(particle_positions);
     }
     if (vertex_extras != 0) {
-        srHeap.free(vertex_extras);
+        std::free(vertex_extras);
     }
     if (texcoords != 0) {
-        srHeap.free(texcoords);
+        std::free(texcoords);
     }
     if (vertex_positions != 0) {
-        srHeap.free(vertex_positions);
+        std::free(vertex_positions);
     }
     if (triangles != 0) {
-        srHeap.free(triangles);
+        std::free(triangles);
     }
     if (colors != 0) {
-        srHeap.free(colors);
+        std::free(colors);
     }
     if (alphas != 0) {
         delete[] alphas;
@@ -1055,7 +1056,7 @@ stParticle::~stParticle()
         material->release();
     }
     if (velocities != 0) {
-        srHeap.free(velocities);
+        std::free(velocities);
     }
     if (birth_ticks != 0) {
         delete[] birth_ticks;

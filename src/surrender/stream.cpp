@@ -1,6 +1,5 @@
 #include "surrender/srBinFStream.h"
 #include "surrender/srBinOStream.h"
-#include "surrender/srHeap.h"
 #include "surrender/srIStreamOpener.h"
 
 #include <string.h>

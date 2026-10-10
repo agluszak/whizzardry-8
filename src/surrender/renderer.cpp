@@ -1,3 +1,6 @@
+#include "surrender/srMath.h"
+#include <cstdlib>
+
 #include "surrender/srGERD.h"
 
 #include <string.h>
@@ -21,7 +24,7 @@ static void sortPairs(SortPair* pairs, w8_ulong count)
     if (count <= 1) {
         return;
     }
-    SortPair* scratch = static_cast<SortPair*>(srHeap.allocate(count * sizeof(SortPair)));
+    SortPair* scratch = static_cast<SortPair*>(std::malloc(count * sizeof(SortPair)));
     w8_ulong counts[0x100];
     SortPair* src = pairs;
     SortPair* dst = scratch;
@@ -71,7 +74,7 @@ static void sortPairs(SortPair* pairs, w8_ulong count)
     if (src != pairs) {
         copyMemory(pairs, src, count * sizeof(*pairs));
     }
-    srHeap.free(dst);
+    std::free(dst);
 }
 
 static void* copyMemory(void* destination, const void* source, w8_long size)
@@ -772,7 +775,7 @@ void srGERD::Renderer::drawSorted()
             order[index] = index;
         }
         if (count > 1) {
-            SortPair* pairs = static_cast<SortPair*>(srHeap.allocate(count * sizeof(SortPair)));
+            SortPair* pairs = static_cast<SortPair*>(std::malloc(count * sizeof(SortPair)));
             for (index = 0; index < count; index++) {
                 pairs[index].index = order[index];
                 pairs[index].key = sort_key[index];
@@ -782,7 +785,7 @@ void srGERD::Renderer::drawSorted()
                 order[index] = pairs[index].index;
                 sort_key[index] = pairs[index].key;
             }
-            srHeap.free(pairs);
+            std::free(pairs);
         }
         const TextureSet& first = texture_sets.sets.data[texture_set[order[0]]];
         texture0 = first.texture0;
@@ -792,7 +795,7 @@ void srGERD::Renderer::drawSorted()
         gerd->setTexture(texture1, 1);
         gerd->setShader(shader);
         /* 0x200 index triples per submission chunk (0x1800 bytes). */
-        srVector3i* batch = static_cast<srVector3i*>(srHeap.allocate(0x200 * sizeof(*batch)));
+        srVector3i* batch = static_cast<srVector3i*>(std::malloc(0x200 * sizeof(*batch)));
         if (srVectorProcessor::isEqual(texture_set, texture_set[order[0]], count) != 0) {
             w8_ulong offset = 0;
             do {
@@ -822,7 +825,7 @@ void srGERD::Renderer::drawSorted()
                 run += length;
             } while (run < count);
         }
-        srHeap.free(batch);
+        std::free(batch);
         ::operator delete(order);
     }
 }

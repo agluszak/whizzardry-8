@@ -1,8 +1,9 @@
 #pragma once
 
+#include <iosfwd>
+
 #include <new>
 
-#include "srHeap.h"
 #include "srFlags.h"
 #include "srMaterial.h"
 #include "srMath.h"
@@ -229,24 +230,10 @@ public:
             return *this;
         }
 
-        T* Allocate(w8_ulong elements)
-        {
-            T* replacement = static_cast<T*>(srHeap.allocate(elements * sizeof(T)));
-            for (w8_ulong index = 0; index < elements; ++index) {
-                new (&replacement[index]) T;
-            }
-            return replacement;
-        }
-
         /* Release each element, free the allocation, and zero the pair. */
         void Release()
         {
-            if (data != 0) {
-                for (w8_ulong index = 0; index < count; ++index) {
-                    data[index].~T();
-                }
-                srHeap.free(data);
-            }
+            delete[] data;
             data = 0;
             count = 0;
         }
@@ -260,7 +247,7 @@ public:
                     Release();
                     return;
                 }
-                T* replacement = Allocate(elements);
+                T* replacement = new T[elements];
                 if (data != 0 && count != 0 && preserve != 0) {
                     Copy(replacement, data, elements < count ? elements : count);
                 }

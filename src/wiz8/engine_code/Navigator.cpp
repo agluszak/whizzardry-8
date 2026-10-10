@@ -8,7 +8,6 @@
 #include "wiz8/xstatus.h"
 #include "wiz8/float_constants.h"
 #include "surrender/srNode.h"
-#include "surrender/srHeap.h"
 #include "wiz8/3d_code/IList.h"
 #include "wiz8/engine_code/GameTimeAccumulator.h"
 #include "wiz8/engine_code/PathAI.h"
@@ -291,7 +290,7 @@ void ResumeAllNavigators(void)
 }
 
 /* The attachment owns two allocations from construction: ten srVector3T<float>
-   of recorded positions from srHeap, and a zeroed twenty-byte record. */
+   of recorded positions from new[], and a zeroed twenty-byte record. */
 // FUNCTION: WIZ8 0x00456210
 W8NavigatorAttachment::W8NavigatorAttachment()
 {

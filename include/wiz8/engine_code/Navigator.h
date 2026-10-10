@@ -56,11 +56,10 @@ struct W8NavigatorAttachment {
     srVector3T<float> start_waypoint; /* valid while W8_NAV_ATTACHMENT_START_WAYPOINT */
     srVector3T<float> path_length_origin;
     srVector3T<float> recorded_position;
-    /* The owned vector array uses the vector type's new[]/delete[] overloads,
-       which route allocation and release to srHeap. Growth retains the promoted
+    /* The owned vector array uses ordinary new[]/delete[]. Growth retains the promoted
        allocation count until the final 16-bit capacity store. */
     srVector3T<float>* path_positions;
-    /* 0x00457530 releases this one with free while +0x4c goes back to srHeap,
+    /* 0x00457530 releases this one with free while +0x4c uses delete[],
        so the two allocations do not share an owner. */
     unsigned short* path_values;
     float separation;

@@ -1,3 +1,5 @@
+#include <cstdlib>
+
 #include "wiz8/engine_code/OctMeshModel.h"
 #include "wiz8/engine_code/Octree.h"
 
@@ -10,7 +12,6 @@
 #include "surrender/srMaterial.h"
 #include "surrender/srPtr.h"
 #include "surrender/srTexture.h"
-#include "surrender/srHeap.h"
 
 #include <stdlib.h>
 
@@ -56,31 +57,31 @@ OctMeshModel::OctMeshModel()
 OctMeshModel::~OctMeshModel()
 {
     if (m_vertex_locations != 0) {
-        srHeap.free(m_vertex_locations);
+        std::free(m_vertex_locations);
     }
     if (m_vertex_map != 0) {
-        srHeap.free(m_vertex_map);
+        std::free(m_vertex_map);
     }
     if (m_vertex_materials != 0) {
         free(m_vertex_materials);
     }
     if (m_poly_vertices != 0) {
-        srHeap.free(m_poly_vertices);
+        std::free(m_poly_vertices);
     }
     if (m_poly_uv_index != 0) {
-        srHeap.free(m_poly_uv_index);
+        std::free(m_poly_uv_index);
     }
     if (m_poly_textures != 0) {
         free(m_poly_textures);
     }
     if (m_vertex_normals != 0) {
-        srHeap.free(m_vertex_normals);
+        std::free(m_vertex_normals);
     }
     if (m_vertex_lights != 0) {
-        srHeap.free(m_vertex_lights);
+        std::free(m_vertex_lights);
     }
     if (m_poly_equations != 0) {
-        srHeap.free(m_poly_equations);
+        std::free(m_poly_equations);
     }
     if (m_sun_lights != 0) {
         for (short index = 0; index < version; ++index) {
@@ -114,7 +115,7 @@ bool OctMeshModel::Write(int hFile)
         srAssertFail("fSuccess", "C:\\Projects\\Wizardry 8\\Engine Code\\OctSubMesh.cpp", 0x109,
                      "OctMeshModel::Write -- Could not write m_psrVertLoc.\n");
     }
-    srHeap.free(m_vertex_locations);
+    std::free(m_vertex_locations);
     m_vertex_locations = 0;
 
     write_result = WriteVectorArray(hFile, m_vertex_map, m_map_count);
@@ -122,7 +123,7 @@ bool OctMeshModel::Write(int hFile)
         srAssertFail("fSuccess", "C:\\Projects\\Wizardry 8\\Engine Code\\OctSubMesh.cpp", 0x10f,
                      "OctMeshModel::Write -- Could not write m_psrMap.\n");
     }
-    srHeap.free(m_vertex_map);
+    std::free(m_vertex_map);
     m_vertex_map = 0;
 
     if (m_material_index < 0) {
@@ -142,7 +143,7 @@ bool OctMeshModel::Write(int hFile)
         srAssertFail("fSuccess", "C:\\Projects\\Wizardry 8\\Engine Code\\OctSubMesh.cpp", 0x11f,
                      "OctMeshModel::Write -- Could not write m_psrPolyUVIndex.\n");
     }
-    srHeap.free(m_poly_uv_index);
+    std::free(m_poly_uv_index);
     m_poly_uv_index = 0;
 
     write_result = WriteVectorArray(hFile, m_poly_vertices, m_polygon_count);
@@ -150,7 +151,7 @@ bool OctMeshModel::Write(int hFile)
         srAssertFail("fSuccess", "C:\\Projects\\Wizardry 8\\Engine Code\\OctSubMesh.cpp", 0x125,
                      "OctMeshModel::Write -- Could not write m_psrPolyVertex.\n");
     }
-    srHeap.free(m_poly_vertices);
+    std::free(m_poly_vertices);
     m_poly_vertices = 0;
 
     write_result = FileWrite(hFile, m_poly_textures, m_polygon_count * sizeof(int), 0);
@@ -166,7 +167,7 @@ bool OctMeshModel::Write(int hFile)
         srAssertFail("fSuccess", "C:\\Projects\\Wizardry 8\\Engine Code\\OctSubMesh.cpp", 0x130,
                      "OctMeshModel::Write -- Could not write m_pVertNorms.\n");
     }
-    srHeap.free(m_vertex_normals);
+    std::free(m_vertex_normals);
     m_vertex_normals = 0;
 
     write_result = WriteVectorArray(hFile, m_vertex_lights, m_vertex_count);
@@ -174,7 +175,7 @@ bool OctMeshModel::Write(int hFile)
         srAssertFail("fSuccess", "C:\\Projects\\Wizardry 8\\Engine Code\\OctSubMesh.cpp", 0x136,
                      "OctMeshModel::Write -- Could not write m_pVertLights.\n");
     }
-    srHeap.free(m_vertex_lights);
+    std::free(m_vertex_lights);
     m_vertex_lights = 0;
 
     write_result = WriteVectorArray(hFile, m_poly_equations, m_polygon_count);
@@ -182,7 +183,7 @@ bool OctMeshModel::Write(int hFile)
         srAssertFail("fSuccess", "C:\\Projects\\Wizardry 8\\Engine Code\\OctSubMesh.cpp", 0x13c,
                      "OctMeshModel::Write -- Could not write m_psrPolyEqtns.\n");
     }
-    srHeap.free(m_poly_equations);
+    std::free(m_poly_equations);
     m_poly_equations = 0;
 
     if (version != 0) {

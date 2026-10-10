@@ -62,7 +62,7 @@ public:
        texture_frames where consecutive pairs share one frame. */
     unsigned int texture_frame_count;
     /* Per-vertex billboard corners (assert pVertex), texture UVs (pTexCoord)
-       and triangle index triples; srHeap-allocated, vertex_count /
+       and triangle index triples; malloc-allocated, vertex_count /
        texture_frame_count long. */
     srVector3T<float>* vertex_positions;
     srVector2T<float>* texcoords;

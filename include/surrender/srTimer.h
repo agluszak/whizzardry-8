@@ -2,7 +2,6 @@
 
 #include <iosfwd>
 
-#include "srHeap.h"
 #include "srQuadWord.h"
 
 #pragma pack(push, 4)

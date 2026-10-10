@@ -1,9 +1,10 @@
 #pragma once
 
+#include <cstdlib>
+
 #include <iosfwd>
 
 #include "srArray.h"
-#include "srHeap.h"
 
 class srConfig {
 public:
@@ -52,7 +53,7 @@ public:
                 if (count > 0xff) {
                     count = 0x100;
                 }
-                Entry* block = static_cast<Entry*>(srHeap.allocate(count * sizeof(Entry)));
+                Entry* block = static_cast<Entry*>(std::malloc(count * sizeof(Entry)));
                 w8_ulong block_index = entry_block_count;
                 free_entries = block;
                 entry_block_count = block_index + 1;
@@ -88,7 +89,7 @@ public:
         void release()
         {
             for (w8_ulong index = 0; index < entry_block_count; ++index) {
-                srHeap.free(entry_blocks[index]);
+                std::free(entry_blocks[index]);
             }
             entry_blocks.release();
             free_entries = 0;

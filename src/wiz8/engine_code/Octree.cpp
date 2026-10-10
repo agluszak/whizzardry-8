@@ -6,7 +6,6 @@
 #include <cstring>
 
 #include "surrender/srCamera.h"
-#include "surrender/srHeap.h"
 #include "surrender/srMath.h"
 #include "surrender/srScene.h"
 #include "surrender/srShader.h"

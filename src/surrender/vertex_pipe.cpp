@@ -1,7 +1,8 @@
+#include <cstdlib>
+
 #include "surrender/srVertexPipe.h"
 
 #include "surrender/srCore.h"
-#include "surrender/srHeap.h"
 #include "surrender/srMaterial.h"
 #include "surrender/srMaterialIFace.h"
 #include "surrender/srPalette.h"
@@ -118,7 +119,7 @@ srVertexPipe::~srVertexPipe()
 {
     ::operator delete(scratch);
     if (processor_heap != 0) {
-        srHeap.free(processor_heap);
+        std::free(processor_heap);
     }
     processor_heap = 0;
     processor_heap_capacity = 0;
@@ -213,7 +214,7 @@ void srVertexPipe::process(const Input& input)
     if (processor_count != 0) {
         if (processor_heap_capacity < processor_count) {
             if (processor_heap != 0) {
-                srHeap.free(processor_heap);
+                std::free(processor_heap);
             }
             processor_heap = 0;
             processor_heap_capacity = 0;
@@ -224,7 +225,7 @@ void srVertexPipe::process(const Input& input)
             processor_heap_capacity = capacity;
             if (capacity != 0) {
                 processor_heap = static_cast<srVertexProcessor**>(
-                    srHeap.allocate(capacity * sizeof(*processor_heap)));
+                    std::malloc(capacity * sizeof(*processor_heap)));
             }
         }
         active_processors = processor_heap;
