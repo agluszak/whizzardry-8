@@ -1,7 +1,6 @@
 #include <wiz8/native_audio.h>
 #include <wiz8/filesystem.h>
-#include "FileMan.h"
-#include "LibraryDataBase.h"
+
 #include "native/audio_test.h"
 #include "native/movie_audio.h"
 #include <algorithm>
@@ -96,19 +95,8 @@ AudioInput open_audio_input(const char* path)
     try
     {
         auto input = std::make_unique<Input>();
-        if (FileExistsNoDB(const_cast<char*>(path)))
-        {
-            input->file = wiz8::open_file(path);
-            input->length = input->file->size();
-        }
-        else
-        {
-            const auto handle = FileOpen(const_cast<char*>(path), FILE_ACCESS_READ | FILE_OPEN_EXISTING, FALSE);
-            if (!handle) { SDL_SetError("Cannot open audio input: %s", path); return {}; }
-            input->length = FileGetSize(handle);
-            input->file.reset(OpenLibraryStream(handle));
-            FileClose(handle);
-        }
+        input->file = wiz8::open_file(path);
+        input->length = input->file->size();
         if (!input->file) { SDL_SetError("Cannot open audio stream: %s", path); return {}; }
         input->start = input->file->tell();
         const auto size = input->file->size();

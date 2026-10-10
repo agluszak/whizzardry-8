@@ -41,7 +41,6 @@
 #include "vsurface.h"
 #include "himage.h"
 #include "input.h"
-#include "FileMan.h"
 #include "surrender/srColorSurface.h"
 
 #include <string.h>
@@ -404,7 +403,7 @@ void W8OptionsSaveLoadPanel::OnDialogClosed(bool accepted, int value)
         case 3: {
             char path[260];
             sprintf(path, "%s\\%s.%s", "Saves", ConvertWideStringToString(m_previous_name), g_save_extension);
-            if (FileDelete(path) == 0) {
+            if (wiz8::remove_file(path) == 0) {
                 g_options_screen->ShowNotification(this, false, 0x82e, 0);
                 return;
             }
@@ -501,7 +500,7 @@ void W8OptionsSaveLoadPanel::DeleteSelectedSave()
     W8SaveSlot* slot = *g_options_screen->m_save_slots.GetAt(selected_slot);
     char path[260];
     sprintf(path, "%s\\%s.%s", "Saves", ConvertWideStringToString(slot->name), g_save_extension);
-    if (FileDelete(path) == 0) {
+    if (wiz8::remove_file(path) == 0) {
         g_options_screen->ShowNotification(this, false, 0x82f, 0);
         return;
     }
@@ -562,7 +561,7 @@ void W8OptionsSaveLoadPanel::SaveSelectedSave()
 
     char path[260];
     sprintf(path, "%s\\%s.%s", "Saves", ConvertWideStringToString(slot->name), g_save_extension);
-    if (FileExists(path) != 0 && FileDelete(path) == 0) {
+    if ([&]() { const auto status = wiz8::file_status(path); return status && status->info.type == SDL_PATHTYPE_FILE; }() != 0 && wiz8::remove_file(path) == 0) {
         g_options_screen->ShowNotification(this, false, 0x82e, 0);
         return;
     }

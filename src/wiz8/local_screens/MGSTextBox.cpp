@@ -16,7 +16,7 @@
 #include "wiz8/xstatus.h"
 #include "timer.h"
 #include "Font.h"
-#include "FileMan.h"
+#include "wiz8/filesystem.h"
 #include "wiz8/local_code/Controls.h"
 #include "wiz8/local_screens/AutomapScreen.h"
 #include "wiz8/layouts/screen_state.h"
@@ -451,7 +451,7 @@ int GetTextBoxScrollRange(void)
    wide string. The record's first word is the string count including its
    terminator; its +0x18 word retains the live list-pointer bits. */
 // FUNCTION: WIZ8 0x0058FB50
-unsigned char SaveMessageStorage(int file)
+unsigned char SaveMessageStorage(wiz8::File* file)
 {
     W8MessageStorageDiskRecord disk_record;
     W8MessageStorageRecord* live_record;
@@ -459,9 +459,9 @@ unsigned char SaveMessageStorage(int file)
     unsigned int region;
     unsigned int index;
 
-    FileWrite(file, &format, 4, 0);
+    file->write(&format, 4);
     for (region = 0; region < 4; ++region) {
-        FileWrite(file, &g_status.text_box_lines_used[region], 4, 0);
+        file->write(&g_status.text_box_lines_used[region], 4);
         for (index = 0; index < g_status.text_box_lines_used[region]; ++index) {
             live_record = &g_message_storage[region][index];
             disk_record.character_count =
@@ -480,8 +480,8 @@ unsigned char SaveMessageStorage(int file)
                    sizeof(disk_record.serialized_entries_18_bits));
             memcpy(disk_record.trailing_bytes, live_record->unknown_1c,
                    sizeof(disk_record.trailing_bytes));
-            FileWrite(file, &disk_record, sizeof(disk_record), 0);
-            FileWrite(file, live_record->wString, disk_record.character_count * 2, 0);
+            file->write(&disk_record, sizeof(disk_record));
+            file->write(live_record->wString, disk_record.character_count * 2);
         }
     }
     return 1;
@@ -494,7 +494,8 @@ unsigned char SaveMessageStorage(int file)
    link-height constant never wrote a fourth region, so its count is forced to
    zero without consuming a count slot. */
 // FUNCTION: WIZ8 0x0058FC30
-unsigned char LoadMessageStorage(int file)
+unsigned char LoadMessageStorage(wiz8::File* file)
+try
 {
     W8MessageStorageDiskRecord disk_record;
     W8MessageStorageRecord* live_record;
@@ -505,15 +506,15 @@ unsigned char LoadMessageStorage(int file)
     wchar_t* text;
 
     ReleaseMessageStorage();
-    FileRead(file, &format, 4, 0);
+    file->read_exact(&format, 4);
     for (region = 0; region < 4; ++region) {
         if (g_status.buffers.save_version < g_prepath_link_height && region == 3) {
             g_status.text_box_lines_used[3] = 0;
         } else {
-            FileRead(file, &g_status.text_box_lines_used[region], 4, 0);
+            file->read_exact(&g_status.text_box_lines_used[region], 4);
         }
         for (index = 0; index < g_status.text_box_lines_used[region]; ++index) {
-            FileRead(file, &disk_record, sizeof(disk_record), 0);
+            file->read_exact(&disk_record, sizeof(disk_record));
             live_record = &g_message_storage[region][index];
             live_record->font_palette = disk_record.font_palette;
             live_record->highlight_color = disk_record.highlight_color;
@@ -530,12 +531,13 @@ unsigned char LoadMessageStorage(int file)
             text = static_cast<wchar_t*>(malloc(disk_record.character_count * sizeof(*text)));
             live_record->wString = text;
             if (text != 0) {
-                FileRead(file, text, size, 0);
+                file->read_exact(text, size);
             }
         }
     }
     return 1;
 }
+catch (const std::exception&) { return false; }
 
 /* The selected wrapped-line start for one text box. NPC trade uses box 2. */
 // FUNCTION: WIZ8 0x0058fa60

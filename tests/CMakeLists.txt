@@ -90,36 +90,24 @@ add_executable(native_surface_test native/surface_test.cpp)
 target_link_libraries(native_surface_test PRIVATE WIZ8_SGP)
 add_test(NAME native_surfaces COMMAND native_surface_test)
 
+add_executable(native_owner_test native/owner_test.cpp)
+target_link_libraries(native_owner_test PRIVATE WIZ8_GAME_CORE WIZ8_SGP WIZ8_GAME_CORE SDL3::SDL3)
+if(APPLE)
+    target_link_options(native_owner_test PRIVATE -Wl,-dead_strip)
+elseif(UNIX)
+    target_link_options(native_owner_test PRIVATE -Wl,--gc-sections -Wl,-z,start-stop-gc)
+endif()
+add_test(NAME native_owners COMMAND native_owner_test)
+set_tests_properties(native_owners PROPERTIES TIMEOUT 10)
+foreach(mode plain message)
+    add_test(NAME native_assertion_${mode}
+        COMMAND "${CMAKE_COMMAND}" "-DPROGRAM=$<TARGET_FILE:native_owner_test>" "-DMODE=${mode}"
+            -P "${CMAKE_CURRENT_SOURCE_DIR}/assertion_failure.cmake")
+endforeach()
+
 add_executable(native_pixel_convert_test native/pixel_convert_test.cpp)
 target_link_libraries(native_pixel_convert_test PRIVATE SURRENDER wiz8_native_settings SDL3::SDL3)
 add_test(NAME native_pixel_convert COMMAND native_pixel_convert_test)
-
-add_executable(native_container_test native/container_test.cpp native/allocation_failures.cpp)
-target_link_libraries(native_container_test PRIVATE WIZ8_SGP)
-add_test(NAME native_containers COMMAND native_container_test)
-
-add_executable(native_debug_container_test native/container_test.cpp native/allocation_failures.cpp
-    "${PROJECT_SOURCE_DIR}/src/sgp/Container.cpp")
-target_compile_definitions(native_debug_container_test PRIVATE _DEBUG _ITERATOR_DEBUG_LEVEL=0)
-target_link_libraries(native_debug_container_test PRIVATE wiz8_native_settings)
-add_test(NAME native_debug_containers COMMAND native_debug_container_test)
-
-include(CheckLinkerFlag)
-check_linker_flag(CXX "-Wl,--wrap=malloc,--wrap=realloc" WIZ8_TEST_WRAP_C_ALLOCATIONS)
-foreach(mode debug extreme)
-    add_executable(native_${mode}_memory_test native/memory_test.cpp native/allocation_failures.cpp
-        "${PROJECT_SOURCE_DIR}/src/sgp/MemMan.cpp")
-    target_link_libraries(native_${mode}_memory_test PRIVATE wiz8_native_settings)
-    target_compile_definitions(native_${mode}_memory_test PRIVATE _DEBUG _ITERATOR_DEBUG_LEVEL=0)
-    if(mode STREQUAL "extreme")
-        target_compile_definitions(native_${mode}_memory_test PRIVATE EXTREME_MEMORY_DEBUGGING)
-    endif()
-    if(WIZ8_TEST_WRAP_C_ALLOCATIONS)
-        target_compile_definitions(native_${mode}_memory_test PRIVATE WIZ8_TEST_WRAP_C_ALLOCATIONS)
-        target_link_options(native_${mode}_memory_test PRIVATE -Wl,--wrap=malloc,--wrap=realloc)
-    endif()
-    add_test(NAME native_${mode}_memory COMMAND native_${mode}_memory_test)
-endforeach()
 
 add_executable(native_blitter_test "${PROJECT_SOURCE_DIR}/tests/native/blitter_test.cpp")
 target_link_libraries(native_blitter_test PRIVATE WIZ8_SGP)

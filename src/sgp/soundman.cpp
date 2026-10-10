@@ -1,3 +1,4 @@
+#include <SDL3/SDL_log.h>
 /* Modified for the Wizardry 8 reconstruction: 2026-10-03, 2026-10-06, 2026-10-07, 2026-10-09.
    Distributed under the accompanying SFI Source Code license agreement. */
 /*********************************************************************************
@@ -10,9 +11,9 @@
 #include <stdio.h>
 #include <string.h>
 #include "soundman.h"
-#include "FileMan.h"
-#include "LibraryDataBase.h"
-#include "DEBUG.H"
+#include "wiz8/filesystem.h"
+#include "wiz8/compat/kernel32.h"
+
 #include <wiz8/native_audio.h>
 #include <algorithm>
 #include <cmath>
@@ -121,7 +122,7 @@ static std::string ResolveSoundPath(const char* path)
     if (!path || !*path) return {};
     std::string filename(path);
     strupr(filename.data());
-    if (FileExists(filename.data())) return filename;
+    if ([&]() { const auto status = wiz8::file_status(filename.data()); return status && status->info.type == SDL_PATHTYPE_FILE; }()) return filename;
     if (filename.ends_with(".WAV")) filename.replace(filename.size() - 4, 4, ".MP3");
     else if (filename.ends_with(".MP3")) filename.replace(filename.size() - 4, 4, ".WAV");
     return filename;
@@ -1070,12 +1071,13 @@ UINT32 SoundGetUniqueID(void)
 
 BOOLEAN SoundPlayStreamed(STR pFilename)
 {
-    HWFILE hDisk;
+    std::unique_ptr<wiz8::File> hDisk;
     UINT32 uiFilesize;
 
-    if ((hDisk = FileOpen(pFilename, FILE_ACCESS_READ, FALSE)) != 0) {
-        uiFilesize = FileGetSize(hDisk);
-        FileClose(hDisk);
+    if ((hDisk = [&]() { try { return wiz8::open_file(pFilename, wiz8::OpenMode::read); } catch (const std::exception&) { return std::unique_ptr<wiz8::File>{}; } }()) != 0) {
+        uiFilesize = hDisk->size();
+        if (hDisk) hDisk->close();
+        hDisk.reset();
         return (uiFilesize >= guiSoundCacheThreshold);
     }
 
@@ -1310,7 +1312,7 @@ UINT32 Sound3DPlay(STR pFilename, SOUND3DPARMS* pParms)
                 return (Sound3DStartSample(uiSample, uiChannel, pParms));
             }
         } else {
-            FastDebugMsg(String("Sound3DPlay: ERROR: Failed loading sample %s\n", pFilename));
+            SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Sound3DPlay: ERROR: Failed loading sample %s\n", pFilename);
         }
     }
 

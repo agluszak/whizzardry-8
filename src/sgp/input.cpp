@@ -5,9 +5,7 @@
 #include "native/input_events.h"
 #include <stdio.h>
 #include <memory.h>
-#include "DEBUG.H"
 #include "input.h"
-#include "MemMan.h"
 #include "english.h"
 #include "Video2.h"
 
@@ -15,7 +13,6 @@
 // on the language used). ENGLISH.C, JAPANESE.C, FRENCH.C, GERMAN.C, SPANISH.C, etc...
 
 #include "sgp.h"
-
 
 // The gfKeyState table is used to track which of the keys is up or down at any one time. This is used while polling
 // the interface.
@@ -85,7 +82,6 @@ BOOLEAN gfSGPInputReceived = FALSE;
 // This is the WIN95 hook specific data and defines used to handle the keyboard and
 // mouse hook
 
-
 // If the following pointer is non NULL then input characters are redirected to
 // the related string
 
@@ -103,12 +99,10 @@ void AdjustMouseForWindowOrigin(void);
 
 // These are the hook functions for both keyboard and mouse
 
-
 // FUNCTION: WIZ8 0x00401ea0
 BOOLEAN InitializeInputManager(void)
 {
     // Link to debugger
-    RegisterDebugTopic(TOPIC_INPUT, "Input Manager");
     // Initialize the gfKeyState table to FALSE everywhere
     memset(gfKeyState, FALSE, 256);
     // Initialize the Event Queue
@@ -146,7 +140,6 @@ BOOLEAN InitializeInputManager(void)
 void ShutdownInputManager(void)
 { // There's very little to do when shutting down the input manager. In the future, this is where the keyboard and
     // mouse hooks will be destroyed
-    UnRegisterDebugTopic(TOPIC_INPUT, "Input Manager");
 }
 
 // FUNCTION: WIZ8 0x00401f90

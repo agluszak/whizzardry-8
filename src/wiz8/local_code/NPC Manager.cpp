@@ -52,7 +52,7 @@
 #include "wiz8/local_code/Sight.h"
 #include "wiz8/3d_code/PList.h"
 #include "wiz8/chunk.h"
-#include "FileMan.h"
+#include "wiz8/filesystem.h"
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/local_screens/MGSTextBox.h"
 #include "wiz8/local_screens/NPCInteractionSubscreen.h"
@@ -61,7 +61,7 @@
 #include "wiz8/chunk.h"
 #include "wiz8/3d_code/IList.h"
 #include "wiz8/3d_code/PList.h"
-#include "FileMan.h"
+#include "wiz8/filesystem.h"
 
 #include <stdio.h>
 #include <wchar.h>
@@ -1227,6 +1227,7 @@ void ReleaseNpcStates(void)
    The per-state stock lists trail through the section's file handle. */
 // FUNCTION: WIZ8 0x00509F00
 bool SaveNpcStates(W8Chunk* chunks)
+try
 {
     unsigned char version = 3;
     W8NpcState* npc;
@@ -1246,8 +1247,9 @@ bool SaveNpcStates(W8Chunk* chunks)
             chunks->Write(npc->character, size, 0);
         }
     }
-    return SaveNpcItemLists(chunks->m_hFile);
+    return SaveNpcItemLists(chunks->m_hFile.get());
 }
+catch (const std::exception&) { return false; }
 
 /* The NPCT section reader: release the live states, then rebuild them from the
    saved blocks. Character blocks carry their size from version 3 on and older
@@ -1257,7 +1259,7 @@ bool SaveNpcStates(W8Chunk* chunks)
 /* The stock-list tail of the NPCT section: for every NPC state the entry
    count, then each 0x14-byte stock entry in list order. */
 // FUNCTION: WIZ8 0x0050AA10
-bool SaveNpcItemLists(int file)
+bool SaveNpcItemLists(wiz8::File* file)
 {
     unsigned int written = 0;
     unsigned int item_count = 0;
@@ -1275,12 +1277,12 @@ bool SaveNpcItemLists(int file)
         } else {
             item_count = 0;
         }
-        if (FileWrite(file, &item_count, 4, &written) == 0 || written != 4) {
+        if ((file->write(&item_count, 4), written = 4, true) == 0 || written != 4) {
             return false;
         }
         for (index = 0; index < item_count; ++index) {
             entry = static_cast<W8NpcItemEntry*>(PLGet(npc->items, index));
-            if (FileWrite(file, entry, sizeof(*entry), &written) == 0 ||
+            if ((file->write(entry, sizeof(*entry)), written = sizeof(*entry), true) == 0 ||
                 written != sizeof(*entry)) {
                 return false;
             }
@@ -1622,7 +1624,7 @@ void LoadNpcStates(W8Chunk* chunks)
         }
     }
     if (version > 1) {
-        LoadNpcItemLists(chunks->m_hFile);
+        LoadNpcItemLists(chunks->m_hFile.get());
     }
     for (npc_id = 0; npc_id < gXStatus.uiNpcsInDatabase; ++npc_id) {
         if (g_npc_records[npc_id].monster_bound == 0 && GetNpcStateByKind(npc_id) == 0) {
@@ -1639,7 +1641,8 @@ void LoadNpcStates(W8Chunk* chunks)
    entry count followed by each 0x14-byte entry appended to a fresh plist. A
    short FileRead or a failed allocation fails the whole pass. */
 // FUNCTION: WIZ8 0x0050AAF0
-bool LoadNpcItemLists(unsigned int file)
+bool LoadNpcItemLists(wiz8::File* file)
+try
 {
     unsigned int transferred = 0;
     unsigned int item_count = 0;
@@ -1652,7 +1655,7 @@ bool LoadNpcItemLists(unsigned int file)
     count = g_npc_states->GetCount();
     for (npc_index = 0; npc_index < count; ++npc_index) {
         npc = *g_npc_states->GetAt(npc_index);
-        if (FileRead(file, &item_count, 4, &transferred) == 0 || transferred != 4) {
+        if (((transferred = file->read(&item_count, 4).bytes) == static_cast<std::size_t>(4)) == 0 || transferred != 4) {
             return false;
         }
         if (npc->items != 0) {
@@ -1667,7 +1670,7 @@ bool LoadNpcItemLists(unsigned int file)
                 if (entry == 0) {
                     return false;
                 }
-                if (FileRead(file, entry, sizeof(*entry), &transferred) == 0 ||
+                if (((transferred = file->read(entry, sizeof(*entry)).bytes) == static_cast<std::size_t>(sizeof(*entry))) == 0 ||
                     transferred != sizeof(*entry)) {
                     return false;
                 }
@@ -1677,6 +1680,7 @@ bool LoadNpcItemLists(unsigned int file)
     }
     return true;
 }
+catch (const std::exception&) { return false; }
 
 /* Hand back the NPC binding selected by a monster-list index, or null when
    the monster's record is missing, is not NPC-routed, binds no NPC, or the

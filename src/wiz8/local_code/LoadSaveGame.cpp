@@ -38,10 +38,7 @@
 #include "wiz8/utility.h"
 #include "wiz8/virtual_file.h"
 
-/* GETFILESTRUCT is library layout and comes from the vendored SGP header rather
-   than being restated: the 0x44-dword clear the body below opens with is exactly
-   its 272 bytes. */
-#include "FileMan.h"
+#include "wiz8/filesystem.h"
 #include "wiz8/local_code/PC_Item.h"
 #include "wiz8/local_screens/AutomapScreen.h"
 #include "wiz8/engine_code/stCube.h"
@@ -130,9 +127,6 @@ static unsigned int g_save_filetime_xor_low = 0x6b24e9f0;
 // GLOBAL: WIZ8 0x0061A138
 static unsigned int g_save_filetime_xor_high = 0xe77c28c1;
 
-/* FileWrite, FileExists, FileClearAttributes and FILE_IS_READONLY come from the
-   vendored SGP FileMan.h already on this target's include path, so they are not
-   restated here. */
 
 /* 0x0068517C selects where characters live, and flags is a per-slot byte
    consulted only when it is set. The failure notice comes out of the shared
@@ -189,13 +183,14 @@ void BuildCharacterPath(char* destination, const wchar_t* name, int slot)
    record cleared and reports failure, and the file is closed either way. */
 // FUNCTION: WIZ8 0x005152b0
 bool LoadCharacter(const char* name, W8Character* character, int slot, bool report_failure)
+try
 {
     char path[60];
     char directory[260];
     unsigned int size;
     unsigned int transferred;
     bool loaded = false;
-    int handle;
+    std::unique_ptr<wiz8::File> handle;
 
     if (g_status.game_started) {
         if (slot != -1 && g_status.flags[slot] == 0) {
@@ -211,14 +206,15 @@ bool LoadCharacter(const char* name, W8Character* character, int slot, bool repo
     if (g_status.game_started && (slot == -1 || g_status.flags[slot] != 0)) {
         loaded = LoadCharacterFromCurrentGame(path, character);
     } else {
-        handle = FileOpen(path, 1, 0);
+        handle = [&]() { try { return wiz8::open_file(path, wiz8::OpenMode::read); } catch (const std::exception&) { return std::unique_ptr<wiz8::File>{}; } }();
         if (handle != 0) {
             memset(character, 0, sizeof(W8Character));
-            if (FileRead(handle, &size, 4, &transferred) &&
-                FileRead(handle, character, size, &transferred)) {
+            if (((transferred = handle->read(&size, 4).bytes) == static_cast<std::size_t>(4)) &&
+                ((transferred = handle->read(character, size).bytes) == static_cast<std::size_t>(size))) {
                 loaded = true;
             }
-            FileClose(handle);
+            if (handle) handle->close();
+            handle.reset();
         }
     }
     if (loaded) {
@@ -230,6 +226,7 @@ bool LoadCharacter(const char* name, W8Character* character, int slot, bool repo
     }
     return false;
 }
+catch (const std::exception&) { return false; }
 
 static void SetSaveSlotCalendar(SYSTEMTIME& destination, const wiz8::CivilTime& time)
 {
@@ -265,6 +262,7 @@ void FillCurrentSaveSlot(W8SaveSlot* slot)
 
 // FUNCTION: WIZ8 0x00511e70
 bool EnumerateSaveSlots(W8GrowableVector<W8SaveSlot*>* slots)
+try
 {
     W8Chunk chunks;
     int first = slots->GetCount();
@@ -325,8 +323,7 @@ bool EnumerateSaveSlots(W8GrowableVector<W8SaveSlot*>* slots)
                     slot->game_time_days = status.game_time_days;
                     int position;
                     for (position = first; position < slots->GetCount(); ++position) {
-                        if (CompareSGPFileTimes(&slot->local_write_time,
-                                                &(*slots->GetAt(position))->local_write_time) > 0) {
+                        if ((wiz8::DiskFileTime{(&slot->local_write_time)->dwLowDateTime, (&slot->local_write_time)->dwHighDateTime}.ticks() < wiz8::DiskFileTime{(&(*slots->GetAt(position))->local_write_time)->dwLowDateTime, (&(*slots->GetAt(position))->local_write_time)->dwHighDateTime}.ticks() ? -1 : wiz8::DiskFileTime{(&slot->local_write_time)->dwLowDateTime, (&slot->local_write_time)->dwHighDateTime}.ticks() > wiz8::DiskFileTime{(&(*slots->GetAt(position))->local_write_time)->dwLowDateTime, (&(*slots->GetAt(position))->local_write_time)->dwHighDateTime}.ticks() ? 1 : 0) > 0) {
                             break;
                         }
                     }
@@ -340,6 +337,7 @@ bool EnumerateSaveSlots(W8GrowableVector<W8SaveSlot*>* slots)
     }
     return true;
 }
+catch (const std::exception&) { return false; }
 
 /* Open one save slot and read only its game-status chunk. Startup needs the
    saved level before it commits to the full load, so every other top-level
@@ -388,13 +386,14 @@ int GetSaveGameLevel(const char* slot_name)
    file open and returns zero. */
 // FUNCTION: WIZ8 0x005123F0
 bool SaveGame(const char* name, W8SaveScreenshot* screenshot)
+try
 {
     W8Chunk chunks;
     W8Chunk current_game;
     W8ScreenRect bounds;
-    SGP_FILETIME creation_time;
-    SGP_FILETIME access_time;
-    SGP_FILETIME write_time;
+    wiz8::DiskFileTime creation_time;
+    wiz8::DiskFileTime access_time;
+    wiz8::DiskFileTime write_time;
     srColorSurface* surface;
     char path[260];
     bool generated;
@@ -428,9 +427,9 @@ bool SaveGame(const char* name, W8SaveScreenshot* screenshot)
     g_status.buffers.save_version = 1.1f;
     g_status.difficulty = g_settings.difficulty;
     if (g_status.iron_man) {
-        GetFileManFileTime(chunks.m_hFile, &creation_time, &access_time, &write_time);
-        g_status.save_filetime_xor[0] = creation_time.dwLowDateTime ^ g_save_filetime_xor_low;
-        g_status.save_filetime_xor[1] = creation_time.dwHighDateTime ^ g_save_filetime_xor_high;
+        [&]() { const auto times = chunks.m_hFile->times(); *(&creation_time) = times.created; *(&access_time) = times.accessed; *(&write_time) = times.modified; return true; }();
+        g_status.save_filetime_xor[0] = creation_time.low ^ g_save_filetime_xor_low;
+        g_status.save_filetime_xor[1] = creation_time.high ^ g_save_filetime_xor_high;
     }
     cursor = g_status.text_line_cursor;
     if (cursor == 2) {
@@ -472,15 +471,15 @@ bool SaveGame(const char* name, W8SaveScreenshot* screenshot)
         delete screenshot;
     }
     chunks.OpenChunk(0x54584554, 0); /* TEXT */
-    SaveMessageStorage(chunks.m_hFile);
+    SaveMessageStorage(chunks.m_hFile.get());
     chunks.ReleaseCurrentChunk();
     if (g_location_variable_values.GetCount() != 0) {
         chunks.OpenChunk(0x52415654, 0); /* TVAR */
-        SaveLocationVariables(chunks.m_hFile);
+        SaveLocationVariables(chunks.m_hFile.get());
         chunks.ReleaseCurrentChunk();
     }
     chunks.OpenChunk(0x4943504e, 0); /* NPCI */
-    if (SaveNpcDialogueTranscript(chunks.m_hFile) == 0) {
+    if (SaveNpcDialogueTranscript(chunks.m_hFile.get()) == 0) {
         chunks.ReleaseCurrentChunk();
         return false;
     }
@@ -489,13 +488,13 @@ bool SaveGame(const char* name, W8SaveScreenshot* screenshot)
     SaveNpcStates(&chunks);
     chunks.ReleaseCurrentChunk();
     chunks.OpenChunk(0x4643504e, 0); /* NPCF */
-    SaveFactState(chunks.m_hFile);
+    SaveFactState(chunks.m_hFile.get());
     chunks.ReleaseCurrentChunk();
     chunks.OpenChunk(0x41544146, 0); /* FATA */
-    SaveFactionState(chunks.m_hFile);
+    SaveFactionState(chunks.m_hFile.get());
     chunks.ReleaseCurrentChunk();
     chunks.OpenChunk(0x4c4e524a, 0); /* JRNL */
-    SaveFactJournal(chunks.m_hFile);
+    SaveFactJournal(chunks.m_hFile.get());
     chunks.ReleaseCurrentChunk();
     if (FindMonsterControlSpellEffect() != 0) {
         chunks.OpenChunk(0x4e505948, 0); /* HYPN */
@@ -508,6 +507,7 @@ bool SaveGame(const char* name, W8SaveScreenshot* screenshot)
     chunks.Close();
     return true;
 }
+catch (const std::exception&) { return false; }
 
 /* Build the level-specific status path the save code falls back to when the
    current-game save has no matching level section. The regular levels use the
@@ -548,6 +548,7 @@ void BuildLevelStatusPath(char* path, unsigned int level)
    and revisits each that turned out to be zero. */
 // FUNCTION: WIZ8 0x00513090
 bool LoadStatusHeader(W8Chunk* chunk)
+try
 {
     unsigned int transferred;
     W8StatusHeader header;
@@ -580,6 +581,7 @@ bool LoadStatusHeader(W8Chunk* chunk)
     memcpy(g_status.status_header_prefix, header.status_block, sizeof(header.status_block));
     return true;
 }
+catch (const std::exception&) { return false; }
 
 /* Persist the current game status to one path. An existing current-game save
    that holds more than half its bytes in already-consumed level sections is
@@ -587,6 +589,7 @@ bool LoadStatusHeader(W8Chunk* chunk)
    file is reopened for append. A fresh path is created outright. */
 // FUNCTION: WIZ8 0x00513160
 bool SaveLevelStatus(const char* path)
+try
 {
     W8Chunk chunk;
     bool opened;
@@ -601,8 +604,8 @@ bool SaveLevelStatus(const char* path)
         chunk.Close();
         if (empty_percent > 0x32 && _stricmp(path, "Saves\\CurrentGame.SAV") == 0) {
             SaveGame("CleanUp", 0);
-            if (FileCopy("Saves\\CleanUp.SAV", "Saves\\CurrentGame.SAV", FALSE)) {
-                FileDelete("Saves\\CleanUp.SAV");
+            if ((wiz8::copy_file("Saves\\CleanUp.SAV", "Saves\\CurrentGame.SAV", wiz8::CopyMode::replace), true)) {
+                wiz8::remove_file("Saves\\CleanUp.SAV");
             }
             return false;
         }
@@ -614,6 +617,7 @@ bool SaveLevelStatus(const char* path)
     }
     return result;
 }
+catch (const std::exception&) { return false; }
 
 /* Serialize the complete per-level group. LVLS is a grouped chunk: its level
    id leads a sequence of ordinary child chunks. The restore path deliberately
@@ -622,6 +626,7 @@ bool SaveLevelStatus(const char* path)
    light sections. */
 // FUNCTION: WIZ8 0x00513260
 bool SaveStatusHeader(W8Chunk* chunks)
+try
 {
     W8StatusHeader header;
     unsigned int count;
@@ -653,7 +658,7 @@ bool SaveStatusHeader(W8Chunk* chunks)
     count = PLLength(gXStatus.plsItemList);
     chunks->Write(&count, sizeof(count), 0);
     for (index = 0; index < count; ++index) {
-        if (!SaveItemFile(chunks->m_hFile, ItemInfo(index))) {
+        if (!SaveItemFile(chunks->m_hFile.get(), ItemInfo(index))) {
             chunks->ReleaseCurrentChunk();
             break;
         }
@@ -662,20 +667,20 @@ bool SaveStatusHeader(W8Chunk* chunks)
 
     if (g_level_status_loading) {
         chunks->OpenChunk(0x45425543, 0); /* CUBE */
-        SaveWorldCursorNodes(chunks->m_hFile);
-        SaveWorldCursorNodeStates(chunks->m_hFile);
+        SaveWorldCursorNodes(chunks->m_hFile.get());
+        SaveWorldCursorNodeStates(chunks->m_hFile.get());
         chunks->ReleaseCurrentChunk();
 
         chunks->OpenChunk(0x474e4f4d, 0); /* MONG */
-        SaveEncounterState(chunks->m_hFile);
+        SaveEncounterState(chunks->m_hFile.get());
         chunks->ReleaseCurrentChunk();
 
         chunks->OpenChunk(0x4b434f4c, 0); /* LOCK */
-        SaveTriggerRuntimeStates(g_world, chunks->m_hFile, g_level_status_loading);
+        SaveTriggerRuntimeStates(g_world, chunks->m_hFile.get(), g_level_status_loading);
         chunks->ReleaseCurrentChunk();
 
         chunks->OpenChunk(0x53455254, 0); /* TRES */
-        SaveTriggerActionData(g_world, chunks->m_hFile);
+        SaveTriggerActionData(g_world, chunks->m_hFile.get());
         chunks->ReleaseCurrentChunk();
         if (g_level_status_loading) {
             chunks->ReleaseGroup();
@@ -685,47 +690,48 @@ bool SaveStatusHeader(W8Chunk* chunks)
     }
 
     chunks->OpenChunk(0x4f545541, 0); /* AUTO */
-    SaveAutomapNotes(chunks->m_hFile);
+    SaveAutomapNotes(chunks->m_hFile.get());
     chunks->ReleaseCurrentChunk();
 
     if (g_world->triggers->GetCount() != 0) {
         chunks->OpenChunk(0x47495254, 0); /* TRIG */
-        SaveWorldTriggers(g_world, chunks->m_hFile);
+        SaveWorldTriggers(g_world, chunks->m_hFile.get());
         chunks->ReleaseCurrentChunk();
     }
 
     chunks->OpenChunk(0x54535041, 0); /* APST */
-    SaveWorldProps(g_world, chunks->m_hFile);
+    SaveWorldProps(g_world, chunks->m_hFile.get());
     chunks->ReleaseCurrentChunk();
 
     chunks->OpenChunk(0x53425543, 0); /* CUBS */
-    SaveWorldCursorNodeStates(chunks->m_hFile);
+    SaveWorldCursorNodeStates(chunks->m_hFile.get());
     chunks->ReleaseCurrentChunk();
 
     chunks->OpenChunk(0x534e474d, 0); /* MGNS */
-    SaveMonsterGenerators(chunks->m_hFile);
+    SaveMonsterGenerators(chunks->m_hFile.get());
     chunks->ReleaseCurrentChunk();
 
     chunks->OpenChunk(0x534b434c, 0); /* LCKS */
-    SaveTriggerRuntimeStates(g_world, chunks->m_hFile, g_level_status_loading);
+    SaveTriggerRuntimeStates(g_world, chunks->m_hFile.get(), g_level_status_loading);
     chunks->ReleaseCurrentChunk();
 
     chunks->OpenChunk(0x53424d41, 0); /* AMBS */
-    SaveAmbientSoundList(chunks->m_hFile);
+    SaveAmbientSoundList(chunks->m_hFile.get());
     chunks->ReleaseCurrentChunk();
 
     chunks->OpenChunk(0x54524150, 0); /* PART */
-    SaveParticleStates(chunks->m_hFile);
+    SaveParticleStates(chunks->m_hFile.get());
     chunks->ReleaseCurrentChunk();
 
     chunks->OpenChunk(0x5448474c, 0); /* LGHT */
-    SaveLightStates(chunks->m_hFile);
+    SaveLightStates(chunks->m_hFile.get());
     chunks->ReleaseCurrentChunk();
 
     chunks->ReleaseGroup();
     chunks->ReleaseCurrentChunk();
     return true;
 }
+catch (const std::exception&) { return false; }
 
 /* MONS chunk: the group and monster totals, then every group's 0x12b-byte
    record restamped to save version 3 with an "encountered" byte, then every
@@ -733,6 +739,7 @@ bool SaveStatusHeader(W8Chunk* chunks)
    chunk and fails the section. */
 // FUNCTION: WIZ8 0x005145a0
 bool SaveMonsterStatus(W8Chunk* chunks)
+try
 {
     unsigned int group_count;
     unsigned int monster_count;
@@ -792,6 +799,7 @@ fail:
     chunks->ReleaseCurrentChunk();
     return false;
 }
+catch (const std::exception&) { return false; }
 
 /* One monster's save record: the version-7 tag, the 0x425-byte W8MonsterInfo
    with position/angle refreshed while the entry is live, then the optional
@@ -800,6 +808,7 @@ fail:
    order. */
 // FUNCTION: WIZ8 0x005147a0
 static bool SaveMonsterRecord(W8Chunk* chunks, unsigned int index)
+try
 {
     char script_name[0x40] = {0};
     memcpy(script_name, &g_empty_ambient_name, sizeof(g_empty_ambient_name));
@@ -854,7 +863,7 @@ static bool SaveMonsterRecord(W8Chunk* chunks, unsigned int index)
     unborn = PListIndexOf(gXStatus.plsUnbornMonsterList, info) != -1;
     chunks->Write(&unborn, 1, 0);
     monster = info->p3D;
-    monster->SaveMovementState(chunks->m_hFile);
+    monster->SaveMovementState(chunks->m_hFile.get());
     script_flag = monster->defining_orders;
     chunks->Write(&script_flag, 1, 0);
     value = monster->order_mode;
@@ -887,11 +896,13 @@ static bool SaveMonsterRecord(W8Chunk* chunks, unsigned int index)
     chunks->Write(&script_flag, 1, 0);
     return true;
 }
+catch (const std::exception&) { return false; }
 
 /* Open a per-level status file and hand it to the section reader. A file that
    cannot be opened reports failure without touching the live status. */
 // FUNCTION: WIZ8 0x005135d0
 bool LoadLevelStatus(const char* path, int level)
+try
 {
     W8Chunk chunk;
     bool result = false;
@@ -902,6 +913,7 @@ bool LoadLevelStatus(const char* path, int level)
     }
     return result;
 }
+catch (const std::exception&) { return false; }
 
 /* Walk one status file's top-level chunks and apply the saved section for the
    requested level. A section at the file's end carries no payload and is skipped; a non-matching
@@ -911,6 +923,7 @@ bool LoadLevelStatus(const char* path, int level)
    trigger-state loader. */
 // FUNCTION: WIZ8 0x00513650
 bool LoadItemStatus(W8Chunk* chunk, int level)
+try
 {
     unsigned int file_level;
     W8Chunk* stream = chunk;
@@ -967,7 +980,7 @@ bool LoadItemStatus(W8Chunk* chunk, int level)
 
                                 stream->Read(&item_count, 4, 0);
                                 for (index = 0; index < item_count; ++index) {
-                                    if (LoadItem(stream->m_hFile, true) == 0) {
+                                    if (LoadItem(stream->m_hFile.get(), true) == 0) {
                                         break;
                                     }
                                 }
@@ -975,36 +988,36 @@ bool LoadItemStatus(W8Chunk* chunk, int level)
                                 if (!g_level_status_loading) {
                                     ReleaseWorldCursorNodes();
                                 }
-                                LoadWorldCursorNodes(stream->m_hFile);
+                                LoadWorldCursorNodes(stream->m_hFile.get());
                                 if (g_level_status_loading) {
-                                    LoadWorldCursorNodeStates(stream->m_hFile);
+                                    LoadWorldCursorNodeStates(stream->m_hFile.get());
                                 }
                             } else if (chunk_id == 0x474e4f4d) { /* MONG */
                                 if (!g_level_status_loading) {
                                     DestroyMonsterGenerators();
                                 }
-                                MonGen::LoadAll(stream->m_hFile);
+                                MonGen::LoadAll(stream->m_hFile.get());
                             } else if (chunk_id == 0x4b434f4c || /* LOCK */
                                        chunk_id == 0x534b434c) { /* LCKS */
-                                LoadTriggerRuntimeStates(stream->m_hFile);
+                                LoadTriggerRuntimeStates(stream->m_hFile.get());
                             } else if (chunk_id == 0x53455254) { /* TRES */
-                                LoadTriggerActionData(stream->m_hFile);
+                                LoadTriggerActionData(stream->m_hFile.get());
                             } else if (chunk_id == 0x4f545541) { /* AUTO */
-                                LoadAutomapNotes(stream->m_hFile);
+                                LoadAutomapNotes(stream->m_hFile.get());
                             } else if (chunk_id == 0x47495254) { /* TRIG */
-                                LoadWorldTriggers(g_world, stream->m_hFile);
+                                LoadWorldTriggers(g_world, stream->m_hFile.get());
                             } else if (chunk_id == 0x54535041) { /* APST */
-                                LoadWorldProps(g_world, stream->m_hFile);
+                                LoadWorldProps(g_world, stream->m_hFile.get());
                             } else if (chunk_id == 0x53425543) { /* CUBS */
-                                LoadWorldCursorNodeStates(stream->m_hFile);
+                                LoadWorldCursorNodeStates(stream->m_hFile.get());
                             } else if (chunk_id == 0x534e474d) { /* MGNS */
-                                LoadMonsterGenerators(stream->m_hFile);
+                                LoadMonsterGenerators(stream->m_hFile.get());
                             } else if (chunk_id == 0x53424d41) { /* AMBS */
-                                LoadAmbientSoundList(stream->m_hFile);
+                                LoadAmbientSoundList(stream->m_hFile.get());
                             } else if (chunk_id == 0x54524150) { /* PART */
-                                LoadParticleStates(stream->m_hFile);
+                                LoadParticleStates(stream->m_hFile.get());
                             } else if (chunk_id == 0x5448474c) { /* LGHT */
-                                LoadLightStates(stream->m_hFile);
+                                LoadLightStates(stream->m_hFile.get());
                             }
                         }
                     chunk_done:
@@ -1020,6 +1033,7 @@ bool LoadItemStatus(W8Chunk* chunk, int level)
     }
     return result;
 }
+catch (const std::exception&) { return false; }
 
 /* Fold the shipped per-level status file into the live state - the baseline a
    save's section is layered over. The path build is the same table walk
@@ -1030,6 +1044,7 @@ bool LoadItemStatus(W8Chunk* chunk, int level)
    and discarded; the file is already level-specific. */
 // FUNCTION: WIZ8 0x005139c0
 bool LoadDefaultLevelStatus(unsigned int level)
+try
 {
     W8Chunk chunk;
     W8LevelInfo info;
@@ -1063,16 +1078,16 @@ bool LoadDefaultLevelStatus(unsigned int level)
 
                 switch (chunk_id) {
                 case 0x4b434f4c: /* LOCK */
-                    LoadTriggerRuntimeStates(chunk.m_hFile);
+                    LoadTriggerRuntimeStates(chunk.m_hFile.get());
                     break;
                 case 0x45425543: /* CUBE */
-                    LoadWorldCursorNodes(chunk.m_hFile);
+                    LoadWorldCursorNodes(chunk.m_hFile.get());
                     break;
                 case 0x474e4f4d: /* MONG */
-                    MonGen::LoadAll(chunk.m_hFile);
+                    MonGen::LoadAll(chunk.m_hFile.get());
                     break;
                 case 0x53455254: /* TRES */
-                    LoadTriggerActionData(chunk.m_hFile);
+                    LoadTriggerActionData(chunk.m_hFile.get());
                     break;
                 }
             }
@@ -1087,6 +1102,7 @@ bool LoadDefaultLevelStatus(unsigned int level)
     }
     return false;
 }
+catch (const std::exception&) { return false; }
 
 /* Reads one saved monster group and files it under the species or the encounter
    list. The record's own size leads it, and the assertion that bounds it names
@@ -1096,6 +1112,7 @@ bool LoadDefaultLevelStatus(unsigned int level)
    success. */
 // FUNCTION: WIZ8 0x00513c20
 bool LoadMonsterGroup(W8Chunk* chunk)
+try
 {
     unsigned int record_size;
     W8MonsterGroup* group;
@@ -1152,6 +1169,7 @@ bool LoadMonsterGroup(W8Chunk* chunk)
     }
     return true;
 }
+catch (const std::exception&) { return false; }
 
 /* One saved monster entry: a version dword, the uiSize-prefixed
    W8MonsterInfo record, then the script block, the unborn-list flag, the
@@ -1162,6 +1180,7 @@ bool LoadMonsterGroup(W8Chunk* chunk)
    deleted and started dying when the record says it is dead. */
 // FUNCTION: WIZ8 0x00513d80
 bool LoadMonster(W8Chunk* chunk)
+try
 {
     W8MonsterInfo* monster_info;
     W8MonsterRecord* record;
@@ -1282,7 +1301,7 @@ bool LoadMonster(W8Chunk* chunk)
         SetMonsterSpellIcon(monster, SPELL_ICON_SUMMONED, true);
     }
     if (record_version >= 2) {
-        monster->LoadMovementState(chunk->m_hFile);
+        monster->LoadMovementState(chunk->m_hFile.get());
     }
     if (record_version >= 3) {
         chunk->Read(&script_flag, 1, 0);
@@ -1343,6 +1362,7 @@ bool LoadMonster(W8Chunk* chunk)
     }
     return true;
 }
+catch (const std::exception&) { return false; }
 
 /* Write the MONS section: the group and monster counts, then every group
    record followed by the flag that says whether the group is also on the
@@ -1402,7 +1422,7 @@ bool VerifyDataSubdirs(void)
    representation flags copied into the current record are read from the head's
    rep, and the bit-3 clear lands on the head rather than the cursor. */
 // FUNCTION: WIZ8 0x00514be0
-bool SaveItemFile(int handle, W8WorldItem* item_info)
+bool SaveItemFile(wiz8::File* handle, W8WorldItem* item_info)
 {
     W8WorldItem* item = item_info;
     unsigned int bytes_written;
@@ -1418,7 +1438,7 @@ bool SaveItemFile(int handle, W8WorldItem* item_info)
         if (g_level_status_loading) {
             item_info->entity_flags &= ~W8_ITEM_ENTITY_RADAR_SEEN;
         }
-        if (!FileWrite(handle, item, sizeof(W8WorldItem), &bytes_written)) {
+        if (!(handle->write(item, sizeof(W8WorldItem)), bytes_written = sizeof(W8WorldItem), true)) {
             return false;
         }
         item = item->next;
@@ -1431,7 +1451,7 @@ bool SaveItemFile(int handle, W8WorldItem* item_info)
    follows, and the real link is rebuilt here. Every failure after the first
    allocation abandons the partial chain, which the original does too. */
 // FUNCTION: WIZ8 0x00514c80
-W8WorldItem* LoadItem(int handle, bool add_to_list)
+W8WorldItem* LoadItem(wiz8::File* handle, bool add_to_list)
 {
     W8WorldItem* previous = 0;
     W8WorldItem* first = 0;
@@ -1443,7 +1463,7 @@ W8WorldItem* LoadItem(int handle, bool add_to_list)
         if (first == 0) {
             first = item;
         }
-        if (!FileRead(handle, item, sizeof(W8WorldItem), &done)) {
+        if (!((done = handle->read(item, sizeof(W8WorldItem)).bytes) == static_cast<std::size_t>(sizeof(W8WorldItem)))) {
             return 0;
         }
         // The saved pointer is a chain-presence marker, not a native handle.
@@ -1478,21 +1498,10 @@ W8WorldItem* LoadItem(int handle, bool add_to_list)
 // FUNCTION: WIZ8 0x00512fb0
 bool SaveGameExists(void)
 {
-    GETFILESTRUCT find;
-    char path[260];
-    bool found;
-
-    found = false;
-    memset(&find, 0, sizeof(find));
-    sprintf(path, "%s\\*.%s", "Saves", g_save_extension);
-    if (GetFileFirst(path, &find)) {
-        sprintf(path, "%s\\%s", "Saves", find.zFileName);
-        if (strcmp(path, "Saves\\CurrentGame.SAV") != 0 || GetFileNext(&find)) {
-            found = true;
-        }
+    for (const auto& entry : wiz8::list_directory("Saves", std::string("*.") + g_save_extension)) {
+        if (SDL_strcasecmp(entry.c_str(), "CurrentGame.SAV") != 0) return true;
     }
-    GetFileClose(&find);
-    return found;
+    return false;
 }
 
 /* Writes one character record back to Saves\\Characters or Saves\\NPCs. The
@@ -1512,6 +1521,7 @@ bool SaveGameExists(void)
 // FUNCTION: WIZ8 0x00515090
 bool SaveCharacter(W8Character* character, int slot, bool report_failure,
                    void (*continuation)(void))
+try
 {
     char file_name[16];
     char path[260];
@@ -1519,7 +1529,7 @@ bool SaveCharacter(W8Character* character, int slot, bool report_failure,
     bool saved = true;
     unsigned int size;
     unsigned int transferred;
-    int handle;
+    std::unique_ptr<wiz8::File> handle;
 
     character->record_version = 1;
     sprintf(file_name, "%ls.%s", character->name, "CHR");
@@ -1533,20 +1543,21 @@ bool SaveCharacter(W8Character* character, int slot, bool report_failure,
     }
 
     if (!g_status.game_started) {
-        if (FileExists(path) && (FileGetAttributes(path) & FILE_IS_READONLY) != 0 &&
-            FileClearAttributes(path) == 0) {
+        if ([&]() { const auto status = wiz8::file_status(path); return status && status->read_only; }() &&
+            (wiz8::clear_read_only(path), true) == 0) {
             saved = false;
         } else {
-            handle = FileOpen(path, 0x22, 0);
+            handle = [&]() { try { return wiz8::open_file(path, wiz8::OpenMode::replace); } catch (const std::exception&) { return std::unique_ptr<wiz8::File>{}; } }();
             if (handle == 0) {
                 saved = false;
             } else {
                 size = sizeof(W8Character);
-                if (FileWrite(handle, &size, 4, &transferred) == 0 ||
-                    FileWrite(handle, character, sizeof(W8Character), &transferred) == 0) {
+                if ((handle->write(&size, 4), transferred = 4, true) == 0 ||
+                    (handle->write(character, sizeof(W8Character)), transferred = sizeof(W8Character), true) == 0) {
                     saved = false;
                 }
-                FileClose(handle);
+                if (handle) handle->close();
+                handle.reset();
             }
         }
     } else {
@@ -1566,6 +1577,7 @@ bool SaveCharacter(W8Character* character, int slot, bool report_failure,
     }
     return false;
 }
+catch (const std::exception&) { return false; }
 
 /* The two chunk tags the walk recognises, as the four-character codes the
    comparison spells them. */
@@ -1575,6 +1587,7 @@ enum { W8_SAVE_TAG_CHAR = 0x52414843, W8_SAVE_TAG_LVLS = 0x534c564c };
    and mark it consumed so a later append can supersede it. */
 // FUNCTION: WIZ8 0x005154a0
 bool MarkCurrentGameCharacterChunkConsumed(const char* path)
+try
 {
     W8Chunk chunk;
     char name[64];
@@ -1598,12 +1611,14 @@ bool MarkCurrentGameCharacterChunkConsumed(const char* path)
     }
     return found ? 1 : 0;
 }
+catch (const std::exception&) { return false; }
 
 /* Append one character record to Saves\\CurrentGame.SAV. Retail writes the
    64-byte name, size and body without opening a CHAR chunk header first; the
    matching load walk still keys on CHAR tags produced by other writers. */
 // FUNCTION: WIZ8 0x005155b0
 bool SaveCharacterToCurrentGame(const char* path, int /*slot*/, W8Character* character)
+try
 {
     W8Chunk chunk;
     char name[64];
@@ -1622,10 +1637,12 @@ bool SaveCharacterToCurrentGame(const char* path, int /*slot*/, W8Character* cha
     }
     return false;
 }
+catch (const std::exception&) { return false; }
 
 /* Load one character record from a CHAR chunk in Saves\\CurrentGame.SAV. */
 // FUNCTION: WIZ8 0x005156c0
 bool LoadCharacterFromCurrentGame(const char* path, W8Character* character)
+try
 {
     W8Chunk chunk;
     char name[64];
@@ -1655,6 +1672,7 @@ bool LoadCharacterFromCurrentGame(const char* path, W8Character* character)
     }
     return found ? 1 : 0;
 }
+catch (const std::exception&) { return false; }
 
 /* Render the world into the slot's embedded 80x60 ARGB1555 pixel buffer.
    Option 4 is suppressed so the HUD does not bleed into the thumbnail, the
@@ -1703,8 +1721,8 @@ void DeleteCurrentSaveFiles(void)
 
     sprintf(path, "%s\\%s.%s", "Saves", ConvertWideStringToString(GetLastSaveName()),
             g_save_extension);
-    FileDelete(path);
-    FileDelete("Saves\\CurrentGame.SAV");
+    wiz8::remove_file(path);
+    wiz8::remove_file("Saves\\CurrentGame.SAV");
 }
 
 /* Two gates with no established meaning beyond their position in the chain, so
@@ -1752,7 +1770,7 @@ unsigned char SaveSlotFileExists(const char* slot_name)
     char path[260];
 
     sprintf(path, "%s\\%s.%s", "Saves", slot_name, g_save_extension);
-    return FileExists(path);
+    return [&]() { const auto status = wiz8::file_status(path); return status && status->info.type == SDL_PATHTYPE_FILE; }();
 }
 
 /* Note that the save could not be written. The notice is only shown on the
@@ -1868,26 +1886,28 @@ void SaveMonsterControlSpellEffect(W8Chunk* chunks)
    the oldest modification time. */
 // FUNCTION: WIZ8 0x00516670
 bool SelectQuickSaveSlotForWrite(char* slot_name)
+try
 {
-    SGP_FILETIME creation_time;
-    SGP_FILETIME access_time;
-    SGP_FILETIME write_time;
-    SGP_FILETIME oldest_write_time;
+    wiz8::DiskFileTime creation_time;
+    wiz8::DiskFileTime access_time;
+    wiz8::DiskFileTime write_time;
+    wiz8::DiskFileTime oldest_write_time;
     int write_slot = 1;
     int slot;
-    int handle;
+    std::unique_ptr<wiz8::File> handle;
 
     for (slot = 1; slot <= 3; ++slot) {
         sprintf(slot_name, "%s\\%s %d.%s", "Saves", "Quick", slot, g_save_extension);
-        handle = FileOpen(slot_name, 1, 0);
+        handle = [&]() { try { return wiz8::open_file(slot_name, wiz8::OpenMode::read); } catch (const std::exception&) { return std::unique_ptr<wiz8::File>{}; } }();
         if (!handle) {
             write_slot = slot;
             break;
         }
-        GetFileManFileTime(handle, &creation_time, &access_time, &write_time);
-        FileClose(handle);
+        [&]() { const auto times = handle->times(); *(&creation_time) = times.created; *(&access_time) = times.accessed; *(&write_time) = times.modified; return true; }();
+        if (handle) handle->close();
+        handle.reset();
         if (slot > 1) {
-            if (CompareSGPFileTimes(&write_time, &oldest_write_time) < 0) {
+            if (((&write_time)->ticks() < (&oldest_write_time)->ticks() ? -1 : (&write_time)->ticks() > (&oldest_write_time)->ticks() ? 1 : 0) < 0) {
                 oldest_write_time = write_time;
                 write_slot = slot;
             }
@@ -1898,30 +1918,33 @@ bool SelectQuickSaveSlotForWrite(char* slot_name)
     sprintf(slot_name, "%s %d", "Quick", write_slot);
     return true;
 }
+catch (const std::exception&) { return false; }
 
 /* Select the newest numbered quick save for command-line startup. The three
    candidates are real save files named Quick 1 through Quick 3; the unnumbered
    Quick slot is accepted only when none of those files exists. */
 // FUNCTION: WIZ8 0x00516740
 bool FindStartupQuickSave(char* slot_name)
+try
 {
     int newest_slot = 0;
-    SGP_FILETIME creation_time;
-    SGP_FILETIME access_time;
-    SGP_FILETIME write_time;
-    SGP_FILETIME newest_write_time;
+    wiz8::DiskFileTime creation_time;
+    wiz8::DiskFileTime access_time;
+    wiz8::DiskFileTime write_time;
+    wiz8::DiskFileTime newest_write_time;
     char path[260];
     int slot;
-    int handle;
+    std::unique_ptr<wiz8::File> handle;
 
     for (slot = 1; slot <= 3; ++slot) {
         sprintf(slot_name, "%s\\%s %d.%s", "Saves", "Quick", slot, g_save_extension);
-        handle = FileOpen(slot_name, 1, 0);
+        handle = [&]() { try { return wiz8::open_file(slot_name, wiz8::OpenMode::read); } catch (const std::exception&) { return std::unique_ptr<wiz8::File>{}; } }();
         if (handle) {
-            GetFileManFileTime(handle, &creation_time, &access_time, &write_time);
-            FileClose(handle);
+            [&]() { const auto times = handle->times(); *(&creation_time) = times.created; *(&access_time) = times.accessed; *(&write_time) = times.modified; return true; }();
+            if (handle) handle->close();
+            handle.reset();
             if (newest_slot > 0) {
-                if (CompareSGPFileTimes(&write_time, &newest_write_time) > 0) {
+                if (((&write_time)->ticks() < (&newest_write_time)->ticks() ? -1 : (&write_time)->ticks() > (&newest_write_time)->ticks() ? 1 : 0) > 0) {
                     newest_write_time = write_time;
                     newest_slot = slot;
                 }
@@ -1936,12 +1959,13 @@ bool FindStartupQuickSave(char* slot_name)
         return true;
     }
     sprintf(path, "%s\\%s.%s", "Saves", "Quick", g_save_extension);
-    if (FileExists(path)) {
+    if ([&]() { const auto status = wiz8::file_status(path); return status && status->info.type == SDL_PATHTYPE_FILE; }()) {
         strcpy(slot_name, "Quick");
         return true;
     }
     return false;
 }
+catch (const std::exception&) { return false; }
 
 /* Walk every chunk of a saved game. Character chunks are read straight in; a
    level chunk is read only for the level the party is actually on, and one for
@@ -1985,6 +2009,7 @@ void ReadSaveChunks(W8Chunk* source, W8Chunk* destination)
    a zero total would trap there as well. */
 // FUNCTION: WIZ8 0x00514df0
 bool MeasureLevelStatusChunks(W8Chunk* chunk, int level, unsigned int* empty_percent)
+try
 {
     bool found = false;
     unsigned int total = 0;
@@ -2021,6 +2046,7 @@ bool MeasureLevelStatusChunks(W8Chunk* chunk, int level, unsigned int* empty_per
     }
     return found;
 }
+catch (const std::exception&) { return false; }
 
 /* Read the complete GSTA payload and its two eight-record collections. The
    pointers at the head of the fixed block are process ownership, so they are
@@ -2137,6 +2163,7 @@ void SaveGlobalStatus(W8Chunk* chunks, W8GlobalStatus* status)
    the level's group has been processed. */
 // FUNCTION: WIZ8 0x00516070
 bool LoadSavedLevelItems(int level, W8GrowableVector<W8WorldItem*>* items)
+try
 {
     W8Chunk chunk;
     unsigned int file_level;
@@ -2172,7 +2199,7 @@ bool LoadSavedLevelItems(int level, W8GrowableVector<W8WorldItem*>* items)
                             chunk.CurrentChunkId() == 0x4d455449) { /* ITEM */
                             chunk.Read(&item_count, 4, 0);
                             for (index = 0; index < item_count; ++index) {
-                                W8WorldItem* item = LoadItem(chunk.m_hFile, false);
+                                W8WorldItem* item = LoadItem(chunk.m_hFile.get(), false);
 
                                 if (item != 0) {
                                     items->Add(item);
@@ -2192,6 +2219,7 @@ bool LoadSavedLevelItems(int level, W8GrowableVector<W8WorldItem*>* items)
     chunk.Close();
     return found;
 }
+catch (const std::exception&) { return false; }
 
 /* Pick a free autosave slot for the ending sequence: "Ending", then
    "Ending1" through "Ending20" until Saves\<name>.<ext> does not exist.
@@ -2205,13 +2233,13 @@ bool FindFreeEndingSaveName(char* name)
 
     strcpy(name, "Ending");
     sprintf(path, "%s\\%s.%s", "Saves", name, g_save_extension);
-    if (FileExists(path) == 0) {
+    if ([&]() { const auto status = wiz8::file_status(path); return status && status->info.type == SDL_PATHTYPE_FILE; }() == 0) {
         return true;
     }
     for (index = 1; index <= 20; ++index) {
         sprintf(name, "%s%d", "Ending", index);
         sprintf(path, "%s\\%s.%s", "Saves", name, g_save_extension);
-        if (FileExists(path) == 0) {
+        if ([&]() { const auto status = wiz8::file_status(path); return status && status->info.type == SDL_PATHTYPE_FILE; }() == 0) {
             return true;
         }
     }
@@ -2234,6 +2262,7 @@ bool FindFreeEndingSaveName(char* name)
    and the loaded items are normalized. */
 // FUNCTION: WIZ8 0x00512920
 bool LoadGame(const char* slot_name)
+try
 {
     W8Chunk chunks;
     char path[260];
@@ -2243,8 +2272,8 @@ bool LoadGame(const char* slot_name)
 
     ResetLiveSessionForLoad();
     sprintf(path, "%s\\%s.%s", "Saves", slot_name, g_save_extension);
-    FileDelete("Saves\\CurrentGame.SAV");
-    FileCopy(path, "Saves\\CurrentGame.SAV", 0);
+    wiz8::remove_file("Saves\\CurrentGame.SAV");
+    (wiz8::copy_file(path, "Saves\\CurrentGame.SAV", wiz8::CopyMode::replace), true);
     if (chunks.OpenRead(const_cast<char*>("Saves\\CurrentGame.SAV")) == 0) {
         return false;
     }
@@ -2257,25 +2286,25 @@ bool LoadGame(const char* slot_name)
                 LoadGameStatus(&chunks, &g_status);
                 break;
             case 0x54584554: /* TEXT */
-                LoadMessageStorage(chunks.m_hFile);
+                LoadMessageStorage(chunks.m_hFile.get());
                 break;
             case 0x52415654: /* TVAR */
-                LoadLocationVariables(chunks.m_hFile);
+                LoadLocationVariables(chunks.m_hFile.get());
                 break;
             case 0x4943504e: /* NPCI */
-                LoadNpcDialogueTranscript(chunks.m_hFile);
+                LoadNpcDialogueTranscript(chunks.m_hFile.get());
                 break;
             case 0x5443504e: /* NPCT */
                 LoadNpcStates(&chunks);
                 break;
             case 0x4643504e: /* NPCF */
-                LoadFactState(chunks.m_hFile);
+                LoadFactState(chunks.m_hFile.get());
                 break;
             case 0x41544146: /* FATA */
-                LoadFactionState(chunks.m_hFile);
+                LoadFactionState(chunks.m_hFile.get());
                 break;
             case 0x4c4e524a: /* JRNL */
-                LoadJournalEntries(chunks.m_hFile);
+                LoadJournalEntries(chunks.m_hFile.get());
                 break;
             case 0x4e505948: /* HYPN */
                 LoadMonsterControlSpellEffect(&chunks);
@@ -2304,6 +2333,7 @@ bool LoadGame(const char* slot_name)
     SanitizeLoadedItems();
     return true;
 }
+catch (const std::exception&) { return false; }
 
 /* Render the world onto an 80x60 ARGB1555 surface backed by the record's
    pixel store. Renderer option 4 is suppressed while RenderWorldToSurface captures

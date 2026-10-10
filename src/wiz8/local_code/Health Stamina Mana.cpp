@@ -70,7 +70,7 @@
 #include "sgp.h"
 #include "wiz8/bink_video.h"
 #include "wiz8/mouth_gap.h"
-#include "FileMan.h"
+#include "wiz8/filesystem.h"
 
 #include <stdio.h>
 #include <stdlib.h>

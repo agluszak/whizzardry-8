@@ -10,7 +10,7 @@
 #include "wiz8/integer_constants.h"
 #include "wiz8/local_screens/RCSStatsPage.h"
 #include "input.h"
-#include "Container.h"
+#include <vector>
 
 class W8DialogBase;
 struct Controls;
@@ -169,7 +169,7 @@ struct W8CampScreenState {
     /* The stats page's condition/equipment effect list, rebuilt
        by RebuildCampEffectList and refiltered by
        FilterCampEffectList. */
-    unsigned char effect_items_only; /* 1 lists equipped items, 0 conditions/enchantments */
+    bool effect_items_only; /* true lists equipped items, false conditions/enchantments */
     unsigned char padding_d09[3];
     W8CampEffectFilter effect_filter; /* 0 all, 1 beneficial only, 2 detrimental only */
     int effect_beneficial_count;
@@ -180,7 +180,7 @@ struct W8CampScreenState {
     int effect_last_visible;
     int effect_visible_lines;
     int effect_scroll;
-    HLIST effect_list; /* W8CampEffectEntry rows */
+    std::vector<W8CampEffectEntry> effect_list; /* W8CampEffectEntry rows */
     int selected_spell_row;
     unsigned char unknown_d38[7];
     unsigned char item_action;

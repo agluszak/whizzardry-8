@@ -7,6 +7,21 @@
 
 struct W8Region;
 
+/* One row of the stats page's effect list: a character condition, an
+   enchantment, or the modifiers of one equipped item. */
+struct W8CampEffectEntry {
+    bool items;          /* row lists an equipped item */
+    bool visible;        /* passes the current filter */
+    bool beneficial;
+    bool detrimental;
+    int kind;        /* 0 condition, 1 enchantment, 2 equipment */
+    int index;       /* condition, enchantment or equipment-slot index */
+    int enchantment; /* the enchantment id for kind 1 */
+    int turns;       /* remaining turns; 9999 is permanent */
+    int lines;       /* rendered height in 0xe-pixel lines */
+};
+W8_ABI_ASSERT(sizeof(W8CampEffectEntry) == 0x18, "W8CampEffectEntry_size");
+
 /* Camp stats page (page 1) and skills page (page 2) machinery. The scrollbar and
    the three toggle buttons drive the stats page's condition/equipment effect
    list: button 0 selects beneficial rows, button 1 detrimental rows and

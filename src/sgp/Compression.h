@@ -5,6 +5,8 @@
 #define COMPRESSION_H
 
 #include "Types.h"
+#include <memory>
+#include <zlib.h>
 
 // Notes on how to use these functions without getting your hands dirty:
 
@@ -25,9 +27,10 @@
 //
 // 3) call DecompressFini() with the decompression pointer when you're done
 
-PTR DecompressInit(BYTE* pCompressedData, UINT32 uiDataSize);
-UINT32 Decompress(PTR pDecompPtr, BYTE* pBuffer, UINT32 uiBufferLen);
-void DecompressFini(PTR pDecompPtr);
+void DecompressFini(z_stream* pDecompPtr);
+using DecompressionStream = std::unique_ptr<z_stream, decltype(&DecompressFini)>;
+DecompressionStream DecompressInit(BYTE* pCompressedData, UINT32 uiDataSize);
+UINT32 Decompress(z_stream* pDecompPtr, BYTE* pBuffer, UINT32 uiBufferLen);
 
 // To compress:
 //

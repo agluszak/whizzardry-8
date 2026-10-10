@@ -16,7 +16,7 @@
 #include "surrender/srGERD.h"
 #include "surrender/srNode.h"
 #include "surrender/srTriMeshPipeline.h"
-#include "FileMan.h"
+#include "wiz8/filesystem.h"
 #include <math.h>
 #include <stdlib.h>
 #include <string.h>
@@ -88,13 +88,13 @@ void stParticle::SetParticleScale(float scale)
 }
 
 // FUNCTION: WIZ8 0x0049B150
-void SaveParticleStates(HWFILE handle)
+void SaveParticleStates(wiz8::File* handle)
 {
     unsigned char version = 1;
     char name[0x80] = "";
     int count = 0;
 
-    FileWrite(handle, &version, sizeof(version), 0);
+    handle->write(&version, sizeof(version));
 
     stParticle* particle = static_cast<stParticle*>(srCore.getRegistry()->find(
         stParticle::sGetClassNode(), static_cast<const srRuntimeClass*>(0)));
@@ -106,15 +106,15 @@ void SaveParticleStates(HWFILE handle)
             srCore.getRegistry()->find(stParticle::sGetClassNode(), particle));
     }
 
-    FileWrite(handle, &count, sizeof(count), 0);
+    handle->write(&count, sizeof(count));
 
     particle = static_cast<stParticle*>(srCore.getRegistry()->find(
         stParticle::sGetClassNode(), static_cast<const srRuntimeClass*>(0)));
     while (particle != 0) {
         if (particle->persisted) {
             strcpy(name, particle->getName().c_str());
-            FileWrite(handle, name, sizeof(name), 0);
-            FileWrite(handle, &particle->emitting, sizeof(particle->emitting), 0);
+            handle->write(name, sizeof(name));
+            handle->write(&particle->emitting, sizeof(particle->emitting));
         }
         particle = static_cast<stParticle*>(
             srCore.getRegistry()->find(stParticle::sGetClassNode(), particle));
@@ -122,19 +122,19 @@ void SaveParticleStates(HWFILE handle)
 }
 
 // FUNCTION: WIZ8 0x0049B3B0
-void LoadParticleStates(int handle)
+void LoadParticleStates(wiz8::File* handle)
 {
     unsigned char version;
     int count = 0;
     char name[0x80] = "";
 
-    FileRead(handle, &version, sizeof(version), 0);
-    FileRead(handle, &count, sizeof(count), 0);
+    handle->read_exact(&version, sizeof(version));
+    handle->read_exact(&count, sizeof(count));
 
     for (int index = 0; index < count; ++index) {
         unsigned char active;
-        FileRead(handle, name, sizeof(name), 0);
-        FileRead(handle, &active, sizeof(active), 0);
+        handle->read_exact(name, sizeof(name));
+        handle->read_exact(&active, sizeof(active));
 
         stParticle* particle = static_cast<stParticle*>(
             srCore.getRegistry()->find(stParticle::sGetClassNode(), name, 0));

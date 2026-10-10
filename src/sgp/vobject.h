@@ -4,8 +4,9 @@
 #define __VOBJECT_H
 
 #include "Types.h"
-#include "Container.h"
 #include "himage.h"
+#include <array>
+#include <vector>
 
 // ************************************************************************************
 //
@@ -45,11 +46,11 @@ typedef struct {
     INT8 bInitialZChange;     // difference in Z value between the leftmost and base strips
     UINT8 ubFirstZStripWidth; // # of pixels in the leftmost strip
     UINT8 ubNumberOfZChanges; // number of strips (after the first)
-    INT8* pbZChange;          // change to the Z value in each strip (after the first)
+    std::unique_ptr<INT8[]> pbZChange; // change to the Z value in each strip (after the first)
 } ZStripInfo;
 
 typedef struct {
-    UINT16* p16BPPData;
+    std::unique_ptr<UINT16[]> p16BPPData;
     UINT16 usRegionIndex;
     UINT8 ubShadeLevel;
     UINT16 usWidth;
@@ -78,19 +79,20 @@ typedef struct {
 typedef struct TAG_HVOBJECT {
     UINT32 fFlags;                  // Special flags
     UINT32 uiSizePixData;           // ETRLE data size
-    SGPPaletteEntry* pPaletteEntry; // 8BPP Palette
+    std::unique_ptr<SGPPaletteEntry[]> pPaletteEntry; // 8BPP Palette
     COLORVAL TransparentColor;      // Defaults to 0,0,0
-    UINT16* p16BPPPalette;          // A 16BPP palette used for 8->16 blits
+    std::shared_ptr<UINT16[]> ownedPalette;
+    UINT16* p16BPPPalette; // Borrowed palette view; font drawing may temporarily override it.
 
-    PTR pPixData;              // ETRLE pixel data
-    ETRLEObject* pETRLEObject; // Object offset data etc
-    SixteenBPPObjectInfo* p16BPPObject;
-    UINT16* pShades[HVOBJECT_SHADE_TABLES]; // Shading tables
+    std::unique_ptr<UINT8[]> pPixData; // ETRLE pixel data
+    std::unique_ptr<ETRLEObject[]> pETRLEObject; // Object offset data etc
+    std::vector<SixteenBPPObjectInfo> p16BPPObject;
+    std::array<std::shared_ptr<UINT16[]>, HVOBJECT_SHADE_TABLES> pShades; // Shading tables
     UINT16* pShadeCurrent;
     UINT16* pGlow;             // glow highlight table
     UINT8* pShade8;            // 8-bit shading index table
     UINT8* pGlow8;             // 8-bit glow table
-    ZStripInfo** ppZStripInfo; // Z-value strip info arrays
+    std::vector<std::unique_ptr<ZStripInfo>> ppZStripInfo; // Z-value strip info arrays
 
     UINT16 usNumberOf16BPPObjects;
     UINT16 usNumberOfObjects; // Total number of objects
@@ -132,15 +134,7 @@ BOOLEAN InitializeVideoObjectManager();
 BOOLEAN ShutdownVideoObjectManager();
 
 // Creates and adds a video object to list
-#ifdef SGP_VIDEO_DEBUGGING
-void PerformVideoInfoDumpIntoFile(UINT8* filename, BOOLEAN fAppend);
-void DumpVObjectInfoIntoFile(UINT8* filename, BOOLEAN fAppend);
-BOOLEAN _AddAndRecordVObject(VOBJECT_DESC* VObjectDesc, UINT32* uiIndex, UINT32 uiLineNum,
-                             UINT8* pSourceFile);
-#define AddVideoObject(a, b) _AddAndRecordVObject(a, b, __LINE__, __FILE__)
-#else
 #define AddVideoObject(a, b) AddStandardVideoObject(a, b)
-#endif
 
 BOOLEAN AddStandardVideoObject(VOBJECT_DESC* VObjectDesc, UINT32* uiIndex);
 
@@ -198,7 +192,6 @@ BOOLEAN GetETRLEPixelValue(UINT8* pDest, HVOBJECT hVObject, UINT16 usETLREIndex,
 // Globals
 //
 // ****************************************************************************
-extern HLIST ghVideoObjects;
 
 // ****************************************************************************
 //

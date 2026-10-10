@@ -25,7 +25,6 @@
 #include "wiz8/sr_api.h"
 #include "wiz8/utility.h"
 #include "wiz8/wiz8_windows.h"
-#include "Container.h"
 #include "timer.h"
 
 #include <string.h>
@@ -60,13 +59,11 @@ bool W8NpcDialogueTextController::HandleScrollUpCommand(bool check_only)
 // FUNCTION: WIZ8 0x0055EC10
 W8ScreenId GetPendingScreenState(void)
 {
-    W8ScreenStateRuntime state;
-
     if (g_pending_screen_state.id != W8_SCREEN_NONE) {
         return g_pending_screen_state.id;
     }
-    if (PeekStack(g_screen_return_stack, &state)) {
-        return state.id;
+    if (!g_screen_return_stack.empty()) {
+        return g_screen_return_stack.back().id;
     }
     return W8_SCREEN_NONE;
 }

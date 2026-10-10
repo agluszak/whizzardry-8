@@ -1,11 +1,10 @@
-#include <wiz8/filesystem.h>
-#include <sstream>
+#include "wiz8/utility.h"
+#include <SDL3/SDL_log.h>
 /* Modified for the Wizardry 8 reconstruction: 2026-10-03, 2026-10-06, 2026-10-07, 2026-10-09.
    Distributed under the accompanying SFI Source Code license agreement. */
 #include "compat/surfaces.h"
 #include <stdio.h>
 #include <stdlib.h>
-#include "DEBUG.H"
 #include "Video2.h"
 #include "himage.h"
 #include "vsurface.h"
@@ -19,11 +18,6 @@ extern void GetClippingRect(SGPRect* clip);
 // Video Surface SGP Module
 // Second Revision: Dec 10, 1996, Andrew Emmons
 // Defines
-// This define is sent to CreateList SGP function. It dynamically re-sizes if
-// the list gets larger
-
-#define DEFAULT_NUM_REGIONS 5
-#define DEFAULT_VIDEO_SURFACE_LIST_SIZE 10
 // LOCAL functions
 
 BOOLEAN ClipReleatedSrcAndDestRectangles(HVSURFACE hDestVSurface, HVSURFACE hSrcVSurface,
@@ -38,27 +32,19 @@ void DeletePrimaryVideoSurfaces();
 // LOCAL global variables
 
 typedef struct VSURFACE_NODE {
-    HVSURFACE hVSurface;
+    std::unique_ptr<SGPVSurface, decltype(&DeleteVideoSurface)> hVSurface{nullptr, DeleteVideoSurface};
     UINT32 uiIndex;
-    struct VSURFACE_NODE *next, *prev;
-
-#ifdef SGP_VIDEO_DEBUGGING
-    UINT8* pName;
-    UINT8* pCode;
-#endif
+    std::unique_ptr<VSURFACE_NODE> next;
+    VSURFACE_NODE* prev;
 
 } VSURFACE_NODE;
 
 // GLOBAL: WIZ8 0x00650dbc
-VSURFACE_NODE* gpVSurfaceHead = nullptr;
+std::unique_ptr<VSURFACE_NODE> gpVSurfaceHead;
 // GLOBAL: WIZ8 0x00650dc0
 VSURFACE_NODE* gpVSurfaceTail = nullptr;
 // GLOBAL: WIZ8 0x00650dc4
 UINT32 guiVSurfaceIndex = 0;
-// GLOBAL: WIZ8 0x00650dc8
-UINT32 guiVSurfaceSize = 0;
-// GLOBAL: WIZ8 0x00650dcc
-UINT32 guiVSurfaceTotalAdded = 0;
 
 #ifdef _DEBUG
 enum {
@@ -80,21 +66,14 @@ UINT8 gubVSDebugCode = 0;
 void CheckValidVSurfaceIndex(UINT32 uiIndex);
 #endif
 
-// GLOBAL: WIZ8 0x006ef4c0
-INT32 giMemUsedInSurfaces;
-
-//OBSOLETE!!!!!!!!!
-HLIST ghVideoSurfaces = nullptr;
-//OBSOLETE!!!!!!!!!
-
 // GLOBAL: WIZ8 0x00650dd4
-HVSURFACE ghPrimary = nullptr;
+std::unique_ptr<SGPVSurface> ghPrimary;
 // GLOBAL: WIZ8 0x00650dd8
-HVSURFACE ghBackBuffer = nullptr;
+std::unique_ptr<SGPVSurface> ghBackBuffer;
 // GLOBAL: WIZ8 0x00650ddc
-HVSURFACE ghFrameBuffer = nullptr;
+std::unique_ptr<SGPVSurface> ghFrameBuffer;
 // GLOBAL: WIZ8 0x00650de0
-HVSURFACE ghMouseBuffer = nullptr;
+std::unique_ptr<SGPVSurface> ghMouseBuffer;
 // Video Surface Manager functions
 
 // FUNCTION: WIZ8 0x00402970
@@ -104,14 +83,12 @@ BOOLEAN InitializeVideoSurfaceManager()
     //Call shutdown first...
     Assert(!gpVSurfaceHead);
     Assert(!gpVSurfaceTail);
-    RegisterDebugTopic(TOPIC_VIDEOSURFACE, "Video Surface Manager");
-    gpVSurfaceHead = gpVSurfaceTail = nullptr;
-
-    giMemUsedInSurfaces = 0;
+    gpVSurfaceHead.reset();
+    gpVSurfaceTail = nullptr;
 
     // Create primary and backbuffer from globals
     if (!SetPrimaryVideoSurfaces()) {
-        DbgMessage(TOPIC_VIDEOSURFACE, DBG_LEVEL_1, String("Could not create primary surfaces"));
+        SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Could not create primary surfaces");
         return FALSE;
     }
 
@@ -121,31 +98,15 @@ BOOLEAN InitializeVideoSurfaceManager()
 // FUNCTION: WIZ8 0x00402990
 BOOLEAN ShutdownVideoSurfaceManager()
 {
-    VSURFACE_NODE* curr;
-
-    DbgMessage(TOPIC_VIDEOSURFACE, DBG_LEVEL_0, "Shutting down the Video Surface manager");
-
-    // Delete primary viedeo surfaces
     DeletePrimaryVideoSurfaces();
-
+    DeletePrimaryVideoSurfaces();
     while (gpVSurfaceHead) {
-        curr = gpVSurfaceHead;
-        gpVSurfaceHead = gpVSurfaceHead->next;
-        DeleteVideoSurface(curr->hVSurface);
-#ifdef SGP_VIDEO_DEBUGGING
-        if (curr->pName)
-            MemFree(curr->pName);
-        if (curr->pCode)
-            MemFree(curr->pCode);
-#endif
-        MemFree(curr);
+        auto node = std::move(gpVSurfaceHead);
+        gpVSurfaceHead = std::move(node->next);
     }
     gpVSurfaceHead = nullptr;
     gpVSurfaceTail = nullptr;
     guiVSurfaceIndex = 0;
-    guiVSurfaceSize = 0;
-    guiVSurfaceTotalAdded = 0;
-    UnRegisterDebugTopic(TOPIC_VIDEOSURFACE, "Video Objects");
     return TRUE;
 }
 
@@ -156,7 +117,7 @@ BOOLEAN RestoreVideoSurfaces()
     // Loop through Video Surfaces and Restore
     curr = gpVSurfaceTail;
     while (curr) {
-        if (!RestoreVideoSurface(curr->hVSurface)) {
+        if (!RestoreVideoSurface(curr->hVSurface.get())) {
             return FALSE;
         }
         curr = curr->prev;
@@ -175,6 +136,7 @@ BOOLEAN AddStandardVideoSurface(VSURFACE_DESC* pVSurfaceDesc, UINT32* puiIndex)
     Assert(pVSurfaceDesc);
 
     // Create video object
+    auto node = std::make_unique<VSURFACE_NODE>();
     hVSurface = CreateVideoSurface(pVSurfaceDesc);
 
     if (!hVSurface) {
@@ -186,30 +148,19 @@ BOOLEAN AddStandardVideoSurface(VSURFACE_DESC* pVSurfaceDesc, UINT32* puiIndex)
     SetVideoSurfaceTransparencyColor(hVSurface, FROMRGB(0, 0, 0));
 
     // Set into video object list
-    if (gpVSurfaceHead) { //Add node after tail
-        gpVSurfaceTail->next = (VSURFACE_NODE*)MemAlloc(sizeof(VSURFACE_NODE));
-        Assert(gpVSurfaceTail->next); //out of memory?
-        gpVSurfaceTail->next->prev = gpVSurfaceTail;
-        gpVSurfaceTail->next->next = nullptr;
-        gpVSurfaceTail = gpVSurfaceTail->next;
-    } else { //new list
-        gpVSurfaceHead = (VSURFACE_NODE*)MemAlloc(sizeof(VSURFACE_NODE));
-        Assert(gpVSurfaceHead); //out of memory?
-        gpVSurfaceHead->prev = gpVSurfaceHead->next = nullptr;
-        gpVSurfaceTail = gpVSurfaceHead;
-    }
-#ifdef SGP_VIDEO_DEBUGGING
-    gpVSurfaceTail->pName = nullptr;
-    gpVSurfaceTail->pCode = nullptr;
-#endif
+    node->hVSurface.reset(hVSurface);
+    node->prev = gpVSurfaceTail;
+    auto* tail = node.get();
+    if (gpVSurfaceTail)
+        gpVSurfaceTail->next = std::move(node);
+    else
+        gpVSurfaceHead = std::move(node);
+    gpVSurfaceTail = tail;
     //Set the hVSurface into the node.
-    gpVSurfaceTail->hVSurface = hVSurface;
     gpVSurfaceTail->uiIndex = guiVSurfaceIndex += 2;
     *puiIndex = gpVSurfaceTail->uiIndex;
     Assert(guiVSurfaceIndex < 0xfffffff0); //unlikely that we will ever use 2 billion VSurfaces!
     //We would have to create about 70 VSurfaces per second for 1 year straight to achieve this...
-    guiVSurfaceSize++;
-    guiVSurfaceTotalAdded++;
 
     return TRUE;
 }
@@ -229,19 +180,19 @@ BYTE* LockVideoSurface(UINT32 uiVSurface, UINT32* puiPitch)
     }
     // Otherwise, use list
 
-    curr = gpVSurfaceHead;
+    curr = gpVSurfaceHead.get();
     while (curr) {
         if (curr->uiIndex == uiVSurface) {
             break;
         }
-        curr = curr->next;
+        curr = curr->next.get();
     }
     if (!curr) {
         return FALSE;
     }
     // Lock buffer
 
-    return LockVideoSurfaceBuffer(curr->hVSurface, puiPitch);
+    return LockVideoSurfaceBuffer(curr->hVSurface.get(), puiPitch);
 }
 
 // FUNCTION: WIZ8 0x00402c30
@@ -260,19 +211,19 @@ void UnLockVideoSurface(UINT32 uiVSurface)
         return;
     }
 
-    curr = gpVSurfaceHead;
+    curr = gpVSurfaceHead.get();
     while (curr) {
         if (curr->uiIndex == uiVSurface) {
             break;
         }
-        curr = curr->next;
+        curr = curr->next.get();
     }
     if (!curr) {
         return;
     }
     // unlock buffer
 
-    UnLockVideoSurfaceBuffer(curr->hVSurface);
+    UnLockVideoSurfaceBuffer(curr->hVSurface.get());
 }
 
 // FUNCTION: WIZ8 0x00402d00
@@ -302,32 +253,32 @@ BOOLEAN GetVideoSurface(HVSURFACE* hVSurface, UINT32 uiIndex)
 #endif
 
     if (uiIndex == PRIMARY_SURFACE) {
-        *hVSurface = ghPrimary;
+        *hVSurface = ghPrimary.get();
         return TRUE;
     }
 
     if (uiIndex == BACKBUFFER) {
-        *hVSurface = ghBackBuffer;
+        *hVSurface = ghBackBuffer.get();
         return TRUE;
     }
 
     if (uiIndex == FRAME_BUFFER) {
-        *hVSurface = ghFrameBuffer;
+        *hVSurface = ghFrameBuffer.get();
         return TRUE;
     }
 
     if (uiIndex == MOUSE_BUFFER) {
-        *hVSurface = ghMouseBuffer;
+        *hVSurface = ghMouseBuffer.get();
         return TRUE;
     }
 
-    curr = gpVSurfaceHead;
+    curr = gpVSurfaceHead.get();
     while (curr) {
         if (curr->uiIndex == uiIndex) {
-            *hVSurface = curr->hVSurface;
+            *hVSurface = curr->hVSurface.get();
             return TRUE;
         }
-        curr = curr->next;
+        curr = curr->next.get();
     }
     return FALSE;
 }
@@ -345,7 +296,7 @@ BOOLEAN SetPrimaryVideoSurfaces()
     pSurface = GetFrameBufferObject();
     CHECKF(pSurface != nullptr);
 
-    ghFrameBuffer = CreateVideoSurfaceFromCpuSurface(pSurface);
+    ghFrameBuffer.reset(CreateVideoSurfaceFromCpuSurface(pSurface));
     CHECKF(ghFrameBuffer != nullptr);
 
     return (TRUE);
@@ -356,25 +307,13 @@ void DeletePrimaryVideoSurfaces()
 {
     // If globals are not null, delete them
 
-    if (ghPrimary != nullptr) {
-        DeleteVideoSurface(ghPrimary);
-        ghPrimary = nullptr;
-    }
+    ghPrimary.reset();
 
-    if (ghBackBuffer != nullptr) {
-        DeleteVideoSurface(ghBackBuffer);
-        ghBackBuffer = nullptr;
-    }
+    ghBackBuffer.reset();
 
-    if (ghFrameBuffer != nullptr) {
-        DeleteVideoSurface(ghFrameBuffer);
-        ghFrameBuffer = nullptr;
-    }
+    ghFrameBuffer.reset();
 
-    if (ghMouseBuffer != nullptr) {
-        DeleteVideoSurface(ghMouseBuffer);
-        ghMouseBuffer = nullptr;
-    }
+    ghMouseBuffer.reset();
 }
 // Given an index to the dest and src vobject contained in our private VSurface list
 // Based on flags, blit accordingly
@@ -593,16 +532,15 @@ HVSURFACE CreateVideoSurface(VSURFACE_DESC* VSurfaceDesc)
     result->usHeight = height;
     result->ubBitDepth = bits;
     result->fFlags = VSURFACE_SYSTEM_MEM_USAGE;
-    result->RegionList = CreateList(DEFAULT_NUM_REGIONS, sizeof(VSURFACE_REGION));
     result->TransparentColor = FROMRGB(0, 0, 0);
     if (image) {
         if (image->fFlags & IMAGE_PALETTE)
-            SetVideoSurfacePalette(result.get(), image->pPalette);
+            SetVideoSurfacePalette(result.get(), image->pPalette.get());
         SGPRect region{0, 0, width, height};
         SetVideoSurfaceDataFromHImage(result.get(), image.get(), 0, 0, &region);
     }
     SetVideoSurfaceTransparencyColor(result.get(), result->TransparentColor);
-    giMemUsedInSurfaces += height * width * (bits / 8);
+
     return result.release();
 }
 // Called when surface is lost, for the most part called by utility functions
@@ -621,7 +559,7 @@ BYTE* LockVideoSurfaceBuffer(HVSURFACE hVSurface, UINT32* pPitch)
 {
     Assert(hVSurface != nullptr);
     Assert(pPitch != nullptr);
-    if (hVSurface == ghFrameBuffer)
+    if (hVSurface == ghFrameBuffer.get())
         return static_cast<BYTE*>(LockPrimarySurface(pPitch));
     const auto lock = LockCpuSurface(*hVSurface->surface);
     *pPitch = lock.pitch;
@@ -631,7 +569,7 @@ BYTE* LockVideoSurfaceBuffer(HVSURFACE hVSurface, UINT32* pPitch)
 void UnLockVideoSurfaceBuffer(HVSURFACE hVSurface)
 {
     Assert(hVSurface != nullptr);
-    if (hVSurface == ghFrameBuffer) {
+    if (hVSurface == ghFrameBuffer.get()) {
         UnlockPrimarySurface();
         return;
     }
@@ -705,8 +643,7 @@ BOOLEAN SetVideoSurfaceDataFromHImage(HVSURFACE hVSurface, HIMAGE hImage, UINT16
     // This HIMAGE function will transparently copy buffer
     if (!CopyImageToBuffer(hImage, fBufferBPP, pDest, usEffectiveWidth, hVSurface->usHeight, usX,
                            usY, &aRect)) {
-        DbgMessage(TOPIC_VIDEOSURFACE, DBG_LEVEL_2,
-                   String("Error Occured Copying HIMAGE to HVSURFACE"));
+        SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Error Occured Copying HIMAGE to HVSURFACE");
         UnLockVideoSurfaceBuffer(hVSurface);
         return (FALSE);
     }
@@ -730,8 +667,6 @@ BOOLEAN SetVideoSurfacePalette(HVSURFACE hVSurface, SGPPaletteEntry* pSrcPalette
         CHECKF(SDL_SetPaletteColors(SDL_GetSurfacePalette(hVSurface->surface->surface.get()),
                                    colors, 0, 256));
     }
-    if (hVSurface->p16BPPPalette)
-        MemFree(hVSurface->p16BPPPalette);
     hVSurface->p16BPPPalette = Create16BPPPalette(pSrcPalette);
     return TRUE;
 }
@@ -750,51 +685,23 @@ BOOLEAN SetVideoSurfaceTransparencyColor(HVSURFACE hVSurface, COLORVAL TransColo
 // FUNCTION: WIZ8 0x004039c0
 BOOLEAN DeleteVideoSurfaceFromIndex(UINT32 uiIndex)
 {
-    VSURFACE_NODE* curr;
-
 #ifdef _DEBUG
     gubVSDebugCode = DEBUGSTR_DELETEVIDEOSURFACEFROMINDEX;
     CheckValidVSurfaceIndex(uiIndex);
 #endif
 
-    curr = gpVSurfaceHead;
-    while (curr) {
-        if (curr->uiIndex == uiIndex) { //Found the node, so detach it and delete it.
-
-            //Deallocate the memory for the video surface
-            DeleteVideoSurface(curr->hVSurface);
-
-            if (curr ==
-                gpVSurfaceHead) { //Advance the head, because we are going to remove the head node.
-                gpVSurfaceHead = gpVSurfaceHead->next;
-            }
-            if (curr ==
-                gpVSurfaceTail) { //Back up the tail, because we are going to remove the tail node.
-                gpVSurfaceTail = gpVSurfaceTail->prev;
-            }
-            //Detach the node from the vsurface list
-            if (curr->next) { //Make the prev node point to the next
-                curr->next->prev = curr->prev;
-            }
-            if (curr->prev) { //Make the next node point to the prev
-                curr->prev->next = curr->next;
-            }
-            //The node is now detached.  Now deallocate it.
-
-#ifdef SGP_VIDEO_DEBUGGING
-            if (curr->pName) {
-                MemFree(curr->pName);
-            }
-            if (curr->pCode) {
-                MemFree(curr->pCode);
-            }
-#endif
-
-            MemFree(curr);
-            guiVSurfaceSize--;
+    auto* link = &gpVSurfaceHead;
+    while (*link) {
+        if ((*link)->uiIndex == uiIndex) {
+            auto node = std::move(*link);
+            *link = std::move(node->next);
+            if (*link)
+                (*link)->prev = node->prev;
+            else
+                gpVSurfaceTail = node->prev;
             return TRUE;
         }
-        curr = curr->next;
+        link = &(*link)->next;
     }
     return FALSE;
 }
@@ -804,11 +711,6 @@ BOOLEAN DeleteVideoSurfaceFromIndex(UINT32 uiIndex)
 BOOLEAN DeleteVideoSurface(HVSURFACE hVSurface)
 {
     CHECKF(hVSurface != nullptr);
-    DeleteList(hVSurface->RegionList);
-    if (hVSurface->p16BPPPalette)
-        MemFree(hVSurface->p16BPPPalette);
-    if (hVSurface->ownedSurface)
-        giMemUsedInSurfaces -= hVSurface->usHeight * hVSurface->usWidth * (hVSurface->ubBitDepth / 8);
     delete hVSurface;
     return TRUE;
 }
@@ -837,11 +739,11 @@ BOOLEAN GetVSurfaceRegion(HVSURFACE hVSurface, UINT16 usIndex, VSURFACE_REGION* 
 {
     Assert(hVSurface != nullptr);
 
-    if (!PeekList(hVSurface->RegionList, aRegion, usIndex)) {
-        return (FALSE);
+    if (!aRegion || usIndex >= hVSurface->RegionList.size()) {
+        return FALSE;
     }
-
-    return (TRUE);
+    *aRegion = hVSurface->RegionList[usIndex];
+    return TRUE;
 }
 
 BOOLEAN GetVSurfaceRect(HVSURFACE hVSurface, RECT* pRect)
@@ -879,7 +781,7 @@ BOOLEAN BltVideoSurfaceToVideoSurface(HVSURFACE hDestVSurface, HVSURFACE hSrcVSu
 
     // Check that both region and subrect are not given
     if ((fBltFlags & VS_BLT_SRCREGION) && (fBltFlags & VS_BLT_SRCSUBRECT)) {
-        DbgMessage(TOPIC_VIDEOSURFACE, DBG_LEVEL_2, String("Inconsistant blit flags given"));
+        SDL_LogDebug(SDL_LOG_CATEGORY_APPLICATION, "Inconsistant blit flags given");
         return (FALSE);
     }
 
@@ -935,13 +837,11 @@ BOOLEAN BltVideoSurfaceToVideoSurface(HVSURFACE hDestVSurface, HVSURFACE hSrcVSu
         // Here, use default, which is entire Video Surface
         // Check Sizes, SRC size MUST be <= DEST size
         if (hDestVSurface->usHeight < hSrcVSurface->usHeight) {
-            DbgMessage(TOPIC_VIDEOSURFACE, DBG_LEVEL_2,
-                       String("Incompatible height size given in Video Surface blit"));
+            SDL_LogDebug(SDL_LOG_CATEGORY_APPLICATION, "Incompatible height size given in Video Surface blit");
             return (FALSE);
         }
         if (hDestVSurface->usWidth < hSrcVSurface->usWidth) {
-            DbgMessage(TOPIC_VIDEOSURFACE, DBG_LEVEL_2,
-                       String("Incompatible height size given in Video Surface blit"));
+            SDL_LogDebug(SDL_LOG_CATEGORY_APPLICATION, "Incompatible height size given in Video Surface blit");
             return (FALSE);
         }
 
@@ -999,16 +899,14 @@ BOOLEAN BltVideoSurfaceToVideoSurface(HVSURFACE hDestVSurface, HVSURFACE hSrcVSu
         if (fBltFlags & VS_BLT_MIRROR_Y) {
             if ((pSrcSurface16 = (UINT16*)LockVideoSurfaceBuffer(hSrcVSurface, &uiSrcPitch)) ==
                 nullptr) {
-                DbgMessage(TOPIC_VIDEOSURFACE, DBG_LEVEL_2,
-                           String("Failed on lock of 16BPP surface for blitting"));
+                SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Failed on lock of 16BPP surface for blitting");
                 return (FALSE);
             }
 
             if ((pDestSurface16 = (UINT16*)LockVideoSurfaceBuffer(hDestVSurface, &uiDestPitch)) ==
                 nullptr) {
                 UnLockVideoSurfaceBuffer(hSrcVSurface);
-                DbgMessage(TOPIC_VIDEOSURFACE, DBG_LEVEL_2,
-                           String("Failed on lock of 16BPP dest surface for blitting"));
+                SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Failed on lock of 16BPP dest surface for blitting");
                 return (FALSE);
             }
 
@@ -1025,8 +923,7 @@ BOOLEAN BltVideoSurfaceToVideoSurface(HVSURFACE hDestVSurface, HVSURFACE hSrcVSu
         return BltVSurfaceUsingSDL(hDestVSurface, hSrcVSurface, fBltFlags,
                                   iDestX, iDestY, &SrcRect);
     } else {
-        DbgMessage(TOPIC_VIDEOSURFACE, DBG_LEVEL_2,
-                   String("Incompatible BPP values with src and dest Video Surfaces for blitting"));
+        SDL_LogDebug(SDL_LOG_CATEGORY_APPLICATION, "Incompatible BPP values with src and dest Video Surfaces for blitting");
         return (FALSE);
     }
 
@@ -1055,7 +952,6 @@ HVSURFACE CreateVideoSurfaceFromCpuSurface(CpuSurface* cpuSurface)
     result->ubBitDepth = SDL_BYTESPERPIXEL(surface.format) * 8;
     result->surface = cpuSurface;
     result->fFlags = VSURFACE_SYSTEM_MEM_USAGE | VSURFACE_RESERVED_SURFACE;
-    result->RegionList = CreateList(DEFAULT_NUM_REGIONS, sizeof(VSURFACE_REGION));
     if (const auto* palette = SDL_GetSurfacePalette(cpuSurface->surface.get())) {
         for (int i = 0; i < std::min(256, palette->ncolors); ++i)
             result->palette[i] = {palette->colors[i].r, palette->colors[i].g,
@@ -1344,113 +1240,10 @@ void CheckValidVSurfaceIndex(UINT32 uiIndex)
             break;
         }
         if (uiIndex == 0xffffffff) {
-            AssertMsg(0, String("Trying to %s with deleted index -1.", str));
+            AssertMsg(0, FormatString("Trying to %s with deleted index -1.", str));
         } else {
-            AssertMsg(0, String("Trying to %s using a VOBJECT ID %d!", str, uiIndex));
+            AssertMsg(0, FormatString("Trying to %s using a VOBJECT ID %d!", str, uiIndex));
         }
     }
 }
-#endif
-
-#ifdef SGP_VIDEO_DEBUGGING
-typedef struct DUMPFILENAME {
-    UINT8 str[256];
-} DUMPFILENAME;
-void DumpVSurfaceInfoIntoFile(UINT8* filename, BOOLEAN fAppend)
-{
-    VSURFACE_NODE* curr;
-    std::ostringstream report;
-    DUMPFILENAME *pName, *pCode;
-    UINT32* puiCounter;
-    UINT8 tempName[256];
-    UINT8 tempCode[256];
-    UINT32 i, uiUniqueID;
-    BOOLEAN fFound;
-    if (!guiVSurfaceSize) {
-        return;
-    }
-
-
-
-    //Allocate enough strings and counters for each node.
-    pName = (DUMPFILENAME*)MemAlloc(sizeof(DUMPFILENAME) * guiVSurfaceSize);
-    pCode = (DUMPFILENAME*)MemAlloc(sizeof(DUMPFILENAME) * guiVSurfaceSize);
-    memset(pName, 0, sizeof(DUMPFILENAME) * guiVSurfaceSize);
-    memset(pCode, 0, sizeof(DUMPFILENAME) * guiVSurfaceSize);
-    puiCounter = (UINT32*)MemAlloc(sizeof(*puiCounter) * guiVSurfaceSize);
-    memset(puiCounter, 0, sizeof(*puiCounter) * guiVSurfaceSize);
-
-    //Loop through the list and record every unique filename and count them
-    uiUniqueID = 0;
-    curr = gpVSurfaceHead;
-    while (curr) {
-        strcpy(tempName, curr->pName);
-        strcpy(tempCode, curr->pCode);
-        fFound = FALSE;
-        for (i = 0; i < uiUniqueID; i++) {
-            if (!_stricmp(tempName, pName[i].str) &&
-                !_stricmp(tempCode, pCode[i].str)) { //same string
-                fFound = TRUE;
-                (puiCounter[i])++;
-                break;
-            }
-        }
-        if (!fFound) {
-            strcpy(pName[i].str, tempName);
-            strcpy(pCode[i].str, tempCode);
-            (puiCounter[i])++;
-            uiUniqueID++;
-        }
-        curr = curr->next;
-    }
-
-    //Now dump the info.
-    report << "-----------------------------------------------\n";
-    report << uiUniqueID << " unique vSurface names exist in " << guiVSurfaceSize << "\n";
-    report << "-----------------------------------------------\n\n";
-    for (i = 0; i < uiUniqueID; i++) {
-        report << puiCounter[i] << " occurrences of " << pName[i].str << "\n";
-        report << pCode[i].str << "\n\n";
-    }
-    report << "\n-----------------------------------------------\n\n";
-
-    //Free all memory associated with this operation.
-    MemFree(pName);
-    MemFree(pCode);
-    MemFree(puiCounter);
-    try {
-        auto output = wiz8::open_file(reinterpret_cast<const char*>(filename),
-            fAppend ? wiz8::OpenMode::append : wiz8::OpenMode::replace);
-        const auto text = report.str();
-        output->write(text.data(), text.size());
-    } catch (const std::exception&) {}
-
-}
-
-//Debug wrapper for adding vsurfaces
-BOOLEAN _AddAndRecordVSurface(VSURFACE_DESC* VSurfaceDesc, UINT32* uiIndex, UINT32 uiLineNum,
-                              UINT8* pSourceFile)
-{
-    UINT16 usLength;
-    UINT8 str[256];
-    if (!AddStandardVideoSurface(VSurfaceDesc, uiIndex)) {
-        return FALSE;
-    }
-
-    //record the filename of the vsurface (some are created via memory though)
-    usLength = strlen(VSurfaceDesc->ImageFile) + 1;
-    gpVSurfaceTail->pName = (UINT8*)MemAlloc(usLength);
-    memset(gpVSurfaceTail->pName, 0, usLength);
-    strcpy(gpVSurfaceTail->pName, VSurfaceDesc->ImageFile);
-
-    //record the code location of the calling creating function.
-    sprintf(str, "%s -- line(%d)", pSourceFile, uiLineNum);
-    usLength = strlen(str) + 1;
-    gpVSurfaceTail->pCode = (UINT8*)MemAlloc(usLength);
-    memset(gpVSurfaceTail->pCode, 0, usLength);
-    strcpy(gpVSurfaceTail->pCode, str);
-
-    return TRUE;
-}
-
 #endif

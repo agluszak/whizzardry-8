@@ -23,10 +23,9 @@
 #include "wiz8/local_code/CombatSound.h"
 #include "wiz8/local_code/GameplayInit.h"
 #include "wiz8/engine_code/Missile.h"
-#include "LibraryDataBase.h"
+
 #include "wiz8/sound_man.h"
 #include "Button System.h"
-#include "Container.h"
 #include "shading.h"
 #include "sgp.h"
 
@@ -56,9 +55,7 @@ unsigned char InitializeGame(void)
     strcat(version, FormatString("v%d.%d.%d", 1, 2, 4));
     strcat(version, FormatString(" (build %d)", 0xdb));
     strcat(version, FormatString(" %s", "2001/12/24 15:36"));
-    InitializeFileDatabase();
-    LoadPatchSlfArchives("Patches");
-    LoadLocalizedStrings(gzStringDataOverride ? gzStringDataOverride
+    LoadLocalizedStrings(!gzStringDataOverride.empty() ? gzStringDataOverride.c_str()
                                               : "Data\\Strings\\StringData.DAT");
     buffer = LockPrimarySurface(&count);
     memset(buffer, 0, count * 0x1e0);
@@ -66,10 +63,7 @@ unsigned char InitializeGame(void)
     LoadGameConfiguration();
     g_current_screen_state.id = W8_SCREEN_NONE;
     g_pending_screen_state.id = W8_SCREEN_NONE;
-    g_screen_return_stack = CreateStack(5, sizeof(W8ScreenStateRuntime));
-    if (!g_screen_return_stack) {
-        return 0;
-    }
+    g_screen_return_stack.clear();
     for (int screen = 0; screen < W8_SCREEN_COUNT; ++screen) {
         if (!g_screen_handlers[screen].initialize()) {
             return 0;

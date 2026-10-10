@@ -19,6 +19,7 @@
 // *****************************************************************************
 
 #include "mousesystem_macros.h"
+#include <memory>
 
 #ifndef _MOUSE_SYSTEM_H_
 #define _MOUSE_SYSTEM_H_
@@ -46,7 +47,6 @@ typedef struct _MOUSE_REGION {
     INT16 RelativeXPos; // Mouse's Coordinates relative to the Top-Left corner of the region
     INT16 RelativeYPos;
     UINT16 ButtonState; // Current state of the mouse buttons
-    UINT16 Cursor;      // Cursor to use when mouse in this region (see flags)
     MOUSE_CALLBACK
     MovementCallback; // Pointer to callback function if movement occured in this region
     MOUSE_CALLBACK
@@ -55,7 +55,7 @@ typedef struct _MOUSE_REGION {
 
     //Fast help vars.
     INT16 FastHelpTimer;  // Countdown timer for FastHelp text
-    CHAR16* FastHelpText; // Text string for the FastHelp (describes buttons if left there a while)
+    std::unique_ptr<CHAR16[]> FastHelpText; // Text string for the FastHelp (describes buttons if left there a while)
     INT32 FastHelpRect;
     MOUSE_HELPTEXT_DONE_CALLBACK HelpDoneCallback;
 
@@ -72,7 +72,6 @@ typedef struct _MOUSE_REGION {
 // Mouse Region Flags
 #define MSYS_NO_FLAGS 0x00000000
 #define MSYS_MOUSE_IN_AREA 0x00000001
-#define MSYS_SET_CURSOR 0x00000002
 #define MSYS_MOVE_CALLBACK 0x00000004
 #define MSYS_BUTTON_CALLBACK 0x00000008
 #define MSYS_REGION_EXISTS 0x00000010
@@ -119,7 +118,6 @@ typedef struct _MOUSE_REGION {
 
 // Mouse system special values
 #define MSYS_NO_CALLBACK nullptr
-#define MSYS_NO_CURSOR 65534
 
 // Mouse system callback reasons
 #define MSYS_CALLBACK_REASON_NONE 0
@@ -173,13 +171,12 @@ void MSYS_AddRegionToList(MOUSE_REGION* region);
 INT32 MSYS_RegionInList(MOUSE_REGION* region);
 void MSYS_DeleteRegionFromList(MOUSE_REGION* region);
 void MSYS_UpdateMouseRegion(void);
-void MSYS_SetCurrentCursor(UINT16 Cursor);
 
 // External
 INT32 MSYS_Init(void);
 void MSYS_Shutdown(void);
 void MSYS_DefineRegion(MOUSE_REGION* region, UINT16 tlx, UINT16 tly, UINT16 brx, UINT16 bry,
-                       INT8 priority, UINT16 crsr, MOUSE_CALLBACK movecallback,
+                       INT8 priority, MOUSE_CALLBACK movecallback,
                        MOUSE_CALLBACK buttoncallback);
 void MSYS_RemoveRegion(MOUSE_REGION* region);
 void MSYS_EnableRegion(MOUSE_REGION* region);

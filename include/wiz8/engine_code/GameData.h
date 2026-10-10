@@ -1,5 +1,7 @@
 #pragma once
 
+#include "wiz8/filesystem.h"
+
 #include "wiz8/camera_motion.h"
 #include "wiz8/float_constants.h"
 #include "wiz8/engine_code/GDCamera.h"
@@ -202,11 +204,11 @@ struct W8GDInterfaceState {
    a counted pointer array, the environment count/array pair, and a trailing
    flag. Only straightforward storage is claimed past the prefix. */
 struct W8GameData {
-    W8GameData(int handle, bool secondary); /* 0x00449010 */
+    W8GameData(wiz8::File* handle, bool secondary); /* 0x00449010 */
     ~W8GameData();                          /* 0x00449BB0 */
-    void ReadProcessedGameData(int handle); /* 0x00449240 */
+    void ReadProcessedGameData(wiz8::File* handle); /* 0x00449240 */
     /* Writes the game-data block WriteOctFile appends after the terminator. */
-    unsigned char WriteGameData(int handle); /* 0x0044AA40 */
+    unsigned char WriteGameData(wiz8::File* handle); /* 0x0044AA40 */
     /* Reads one WGD vertex/polygon list: counts, the scaled vertex bank with
        unscaled bounds tracking, the face records, and — for the non-primary
        pass — the interface name and conditional-face records. */

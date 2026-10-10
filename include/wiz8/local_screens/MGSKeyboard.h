@@ -1,5 +1,7 @@
 #pragma once
 
+#include "wiz8/filesystem.h"
+
 #include "input.h"
 #include "wiz8/mgs_commands.h"
 #include "surrender/srMath.h"
@@ -29,8 +31,8 @@ public:
     MGSKeyBinding* GetBinding(int index) const;
     bool IsCommandPressed(W8MGSCommand command) const;
     void Clear();
-    unsigned char Load(int handle, bool clear);
-    unsigned char Save(int handle) const;
+    unsigned char Load(wiz8::File* handle, bool clear);
+    unsigned char Save(wiz8::File* handle) const;
     unsigned char LoadDefaults(const char* path);
 
 private:

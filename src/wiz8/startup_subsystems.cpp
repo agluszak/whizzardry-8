@@ -9,7 +9,7 @@
 #include "wiz8/video_object_catalog.h"
 #include "wiz8/engine_code/Video2.h"
 #include "Font.h"
-#include "FileMan.h"
+#include "wiz8/filesystem.h"
 #include "vobject.h"
 
 #include <stdlib.h>

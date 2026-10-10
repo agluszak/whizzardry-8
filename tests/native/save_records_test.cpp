@@ -1,7 +1,6 @@
 /* Exercise recovered NPCT loading with retail addresses and native handles as
    on-disk presence markers. No installed game data or display is required. */
-#include "FileMan.h"
-#include "LibraryDataBase.h"
+
 #include <wiz8/asset_paths.h>
 #include <wiz8/filesystem.h>
 #include <wiz8/file_time.h>
@@ -47,11 +46,6 @@ template <class T> static void write(std::ofstream& out, const T& value)
 {
     out.write(reinterpret_cast<const char*>(&value), sizeof(value));
     CHECK(out.good());
-}
-
-static wiz8::DiskFileTime disk_time(const SGP_FILETIME& value)
-{
-    return {value.dwLowDateTime, value.dwHighDateTime};
 }
 
 static void keyword_file_contracts()
@@ -108,45 +102,43 @@ static void save_file_contracts(const std::filesystem::path& user)
     CHECK(wiz8::file_time_with_legacy_local_bias({}, -1).ticks() == UINT64_MAX - 9999999);
 
     char path[] = "Saves\\Timestamp.SAV";
-    HWFILE file = FileOpen(path, FILE_ACCESS_READWRITE | FILE_CREATE_ALWAYS, FALSE);
+    auto file = wiz8::open_file(path, wiz8::OpenMode::replace);
     CHECK(file);
     SDL_PathInfo info{};
     CHECK(SDL_GetPathInfo(wiz8::path_to_utf8(user / "Saves" / "Timestamp.SAV").c_str(), &info));
     const int offset = wiz8::current_utc_offset_seconds();
-    SGP_FILETIME created{}, accessed{}, modified{};
-    CHECK(GetFileManFileTime(file, &created, &accessed, &modified));
-    CHECK(disk_time(created).ticks() ==
+    auto created = file->times().created;
+    CHECK(created.ticks() ==
           wiz8::file_time_with_legacy_local_bias(wiz8::file_time_from_sdl(info.create_time), offset).ticks());
 
     // SaveGame's unchanged masks apply independently to the packed dwords.
     constexpr unsigned masks[] = {0x6b24e9f0u, 0xe77c28c1u};
     static_assert(sizeof(g_status.save_filetime_xor) == 8);
-    unsigned words[] = {created.dwLowDateTime ^ masks[0], created.dwHighDateTime ^ masks[1]};
-    UINT32 count = 0;
-    CHECK(FileWrite(file, words, sizeof(words), &count) && count == 8);
+    unsigned words[] = {created.low ^ masks[0], created.high ^ masks[1]};
+    file->write(words, sizeof(words));
+    CHECK(file->tell() == 8);
     std::filesystem::last_write_time(user / "Saves" / "Timestamp.SAV",
                                      std::filesystem::file_time_type::clock::now() - hours(48));
-    SGP_FILETIME later{};
-    CHECK(GetFileManFileTime(file, &later, nullptr, nullptr));
-    CHECK(disk_time(later).ticks() == disk_time(created).ticks());
-    FileClose(file);
+    auto later = file->times().created;
+    CHECK(later.ticks() == created.ticks());
+    file.reset();
     std::ifstream encoded(user / "Saves" / "Timestamp.SAV", std::ios::binary);
     unsigned stored[2]{};
     encoded.read(reinterpret_cast<char*>(stored), sizeof(stored));
     CHECK(encoded.gcount() == 8 && stored[0] == words[0] && stored[1] == words[1]);
     encoded.close();
-    CHECK((stored[0] ^ masks[0]) == created.dwLowDateTime &&
-          (stored[1] ^ masks[1]) == created.dwHighDateTime);
-    file = FileOpen(path, FILE_ACCESS_READ, FALSE);
-    CHECK(file && GetFileManFileTime(file, &later, nullptr, &modified));
+    CHECK((stored[0] ^ masks[0]) == created.low &&
+          (stored[1] ^ masks[1]) == created.high);
+    file = wiz8::open_file(path);
+    const auto times = file->times();
+    later = times.created;
     CHECK(SDL_GetPathInfo(wiz8::path_to_utf8(user / "Saves" / "Timestamp.SAV").c_str(), &info));
     // Reader fallback is current SDL create_time (POSIX ctime, not birth).
-    CHECK(disk_time(later).ticks() ==
+    CHECK(later.ticks() ==
           wiz8::file_time_with_legacy_local_bias(wiz8::file_time_from_sdl(info.create_time), offset).ticks());
-    CHECK(disk_time(modified).ticks() ==
+    CHECK(times.modified.ticks() ==
           wiz8::file_time_with_legacy_local_bias(wiz8::file_time_from_sdl(info.modify_time), offset).ticks());
-    CHECK(GetFileManFileTime(file, nullptr, nullptr, nullptr));
-    FileClose(file);
+    file.reset();
     // Fixed epoch pair encodes the same eight bytes; no record layout changed.
     const unsigned epoch_masked[] = {epoch.low ^ masks[0], epoch.high ^ masks[1]};
     CHECK(epoch_masked[0] == 0xbe1a69f0u && epoch_masked[1] == 0xe6e1991fu);
@@ -165,24 +157,30 @@ static void save_file_contracts(const std::filesystem::path& user)
     CHECK(SelectQuickSaveSlotForWrite(selected) && !strcmp(selected, "Quick 2"));
     CHECK(FindStartupQuickSave(selected) && !strcmp(selected, "Quick 1"));
     char oldest[] = "Saves\\Quick 2.SAV", newest[] = "Saves\\Quick 1.SAV";
-    CHECK(FileIsOlderThanFile(oldest, newest, 3600));
-    CHECK(!FileIsOlderThanFile(newest, oldest, 0));
-    CHECK(!FileIsOlderThanFile(oldest, newest, 20000));
-    SGP_FILETIME high{0, 2}, low{UINT32_MAX, 1};
-    CHECK(CompareSGPFileTimes(&high, &low) == 1);
-    CHECK(CompareSGPFileTimes(&low, &high) == -1 && CompareSGPFileTimes(&low, &low) == 0);
-    CHECK(FileDelete(oldest));
+    const auto oldest_status = wiz8::file_status(oldest), newest_status = wiz8::file_status(newest);
+    CHECK(oldest_status && newest_status);
+    const auto oldest_time = wiz8::file_time_from_sdl(oldest_status->info.modify_time).ticks();
+    const auto newest_time = wiz8::file_time_from_sdl(newest_status->info.modify_time).ticks();
+    CHECK(oldest_time < newest_time && (newest_time - oldest_time) / 10000000 >= 3600);
+    CHECK(!(newest_time < oldest_time));
+    CHECK((newest_time - oldest_time) / 10000000 < 20000);
+    wiz8::DiskFileTime high{0, 2}, low{UINT32_MAX, 1};
+    CHECK(high.ticks() > low.ticks());
+    const wiz8::DiskFileTime same_low{UINT32_MAX, 1};
+    CHECK(low.ticks() < high.ticks() && low.ticks() == same_low.ticks());
+    CHECK(wiz8::remove_file(oldest));
     CHECK(SelectQuickSaveSlotForWrite(selected) && !strcmp(selected, "Quick 2"));
-    CHECK(FileDelete(newest));
+    CHECK(wiz8::remove_file(newest));
     // Missing Quick 1 must not leave the candidate timestamp uninitialized.
     CHECK(FindStartupQuickSave(selected) && !strcmp(selected, "Quick 3"));
     char third[] = "Saves\\Quick 3.SAV";
-    CHECK(FileDelete(third));
+    CHECK(wiz8::remove_file(third));
     CHECK(!FindStartupQuickSave(selected));
     std::ofstream fallback(user / "Saves" / "Quick.SAV", std::ios::binary);
     write(fallback, 7u);
     fallback.close();
     CHECK(FindStartupQuickSave(selected) && !strcmp(selected, "Quick"));
+    UINT32 count = 0;
 
     char riff[] = "Saves\\Riff.SAV";
     W8Chunk chunks;
@@ -280,7 +278,6 @@ int main()
     std::filesystem::create_directories(assets);
     std::filesystem::create_directories(user / "Saves");
     w8_native::configure_paths({wiz8::path_to_utf8(assets), wiz8::path_to_utf8(user), {"", "", ""}});
-    CHECK(InitializeFileManager(nullptr) && InitializeFileDatabase());
     global_status_record();
     const auto path = root / wiz8::path_from_utf8("npc-雪.bin");
     W8NpcDatabaseRecord database[3] = {};
@@ -326,7 +323,7 @@ int main()
         write(out, 0xdecafbadU);
         out.close();
         W8Chunk chunk;
-        chunk.m_hFile = FileOpenHost(path, FILE_ACCESS_READ | FILE_OPEN_EXISTING);
+        chunk.m_hFile = wiz8::open_host_file(path);
         CHECK(chunk.m_hFile != 0);
         LoadNpcStates(&chunk);
         CHECK(g_npc_states->GetCount() == 3);
@@ -347,7 +344,7 @@ int main()
         }
         unsigned int trailer;
         CHECK(chunk.Read(&trailer, sizeof(trailer), 0) && trailer == 0xdecafbadU);
-        FileClose(chunk.m_hFile);
+        chunk.m_hFile.reset();
         chunk.m_hFile = 0;
         ReleaseNpcStates();
     }
@@ -453,8 +450,8 @@ int main()
     CHECK(!PointInsideTriangle(triangle.vertices, 0, &triangle.point));
     save_file_contracts(user);
     keyword_file_contracts();
-    CHECK(ShutDownFileDatabase());
-    ShutdownFileManager();
+    wiz8::clear_asset_archives();
+
     std::filesystem::remove_all(root);
     puts("NPCT/NSF consume retail and handle-valued markers; packed AI/vectors pass");
 }

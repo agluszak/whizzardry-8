@@ -1,61 +1,28 @@
+#include <SDL3/SDL_log.h>
 /* Modified for the Wizardry 8 reconstruction: 2026-10-03, 2026-10-06, 2026-10-07.
    Distributed under the accompanying SFI Source Code license agreement. */
-#include "MemMan.h"
-#include "DEBUG.H"
+#include "Compression.h"
+#include "WCheck.h"
 #include "zlib.h"
 
-// mem allocation functions for ZLIB's purposes
-
-// FUNCTION: WIZ8 0x00415820
-voidpf ZAlloc(voidpf opaque, uInt items, uInt size)
-{
-    return (MemAlloc(items * size));
-}
-
-// FUNCTION: WIZ8 0x00415840
-void ZFree(voidpf opaque, voidpf address)
-{
-    MemFree(address);
-}
-
 // FUNCTION: WIZ8 0x00415850
-PTR DecompressInit(BYTE* pCompressedData, UINT32 uiDataSize)
+DecompressionStream DecompressInit(BYTE* pCompressedData, UINT32 uiDataSize)
 {
-    z_stream* pZStream;
-    int iZRetCode;
-
-    // allocate memory for the z_stream struct
-    pZStream = (z_stream*)MemAlloc(sizeof(z_stream));
-    if (pZStream == nullptr) { // out of memory!
-        return (nullptr);
-    }
-
-    // initial defines
-    pZStream->zalloc = ZAlloc;
-    pZStream->zfree = ZFree;
-    pZStream->opaque = nullptr;
-
-    // call the ZLIB init routine
-    iZRetCode = inflateInit(pZStream);
-    if (iZRetCode != Z_OK) { // ZLIB init error!
-        MemFree(pZStream);
-        return (nullptr);
-    }
-
-    // set up our parameters
-    pZStream->next_in = pCompressedData;
-    pZStream->avail_in = uiDataSize;
-    return ((PTR)pZStream);
+    DecompressionStream stream(new z_stream{}, DecompressFini);
+    if (inflateInit(stream.get()) != Z_OK)
+        return DecompressionStream(nullptr, DecompressFini);
+    stream->next_in = pCompressedData;
+    stream->avail_in = uiDataSize;
+    return stream;
 }
 
 // FUNCTION: WIZ8 0x004158b0
-UINT32 Decompress(PTR pDecompPtr, BYTE* pBuffer, UINT32 uiBufferLen)
+UINT32 Decompress(z_stream* pDecompPtr, BYTE* pBuffer, UINT32 uiBufferLen)
 {
     z_stream* pZStream = (z_stream*)pDecompPtr;
 
     // these assertions is in here to ensure that we get passed a proper z_stream pointer
     Assert(pZStream != nullptr);
-    Assert(pZStream->zalloc == ZAlloc);
 
     if (pZStream->avail_in == 0) { // There is nothing left to decompress!
         return (0);
@@ -72,14 +39,13 @@ UINT32 Decompress(PTR pDecompPtr, BYTE* pBuffer, UINT32 uiBufferLen)
 }
 
 // FUNCTION: WIZ8 0x004158f0
-void DecompressFini(PTR pDecompPtr)
+void DecompressFini(z_stream* pDecompPtr)
 {
     z_stream* pZStream = (z_stream*)pDecompPtr;
 
     // these assertions is in here to ensure that we get passed a proper z_stream pointer
     Assert(pZStream != nullptr);
-    Assert(pZStream->zalloc == ZAlloc);
 
     inflateEnd(pZStream);
-    MemFree(pZStream);
+    delete pZStream;
 }
