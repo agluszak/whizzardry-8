@@ -53,6 +53,8 @@ int main(int argc, char** argv)
         auto roots = w8_native::path_roots();
         roots.user = temporary;
         w8_native::configure_paths(roots);
+        std::filesystem::copy_file(WIZ8_MOVIE_FIXTURE, fixture.path / "movie-fixture.mkv");
+        const char* movie_path = "C:\\movie-fixture.mkv";
         auto config = wiz8::open_file("C:\\3DVideo.CFG", wiz8::OpenMode::replace);
         const std::string settings = "SDLGPU\n640\n480\n16\nnone\n";
         config->write(settings.data(), settings.size());
@@ -159,14 +161,14 @@ int main(int argc, char** argv)
             std::vector<uint16_t> movie_pixels;
             {
                 W8NativeVideo decoded;
-                decoded.open(WIZ8_MOVIE_FIXTURE);
+                decoded.open(movie_path);
                 CHECK(decoded.update(0) == W8NativeVideo::FrameReady);
                 CHECK(decoded.frame().width == 32 && decoded.frame().height == 24);
                 movie_pixels = decoded.frame().pixels;
             }
             W8BinkVideo movie;
             movie.SetTarget(BeginVideoPresentation());
-            CHECK(movie.Open(WIZ8_MOVIE_FIXTURE, 0));
+            CHECK(movie.Open(movie_path, 0));
             CHECK(!movie.UpdateFrame());
             // The actual presentation surface reaches GPU output; the game primary stays intact.
             RenderFrame();
