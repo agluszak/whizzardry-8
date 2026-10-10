@@ -19,34 +19,8 @@ extern unsigned char DispatchControlRegionEvent(const InputAtom* event, struct W
 /* The simple button-region policy shared by camp tabs, scrolling and
    movement controls. Repeat presses again; release is unconditional. The
    panel-owned dispatcher above has a different repeat/release policy. */
-inline unsigned char DispatchButtonRegionEvent(const InputAtom* event, W8Region* region,
-                                               W8Widget* button)
-{
-    switch (event->usEvent) {
-    case LEFT_BUTTON_DOWN:
-    case LEFT_BUTTON_REPEAT:
-        button->OnLeftButtonDown(0);
-        region->flags |= W8_REGION_LEFT_BUTTON_HELD;
-        return 1;
-    case LEFT_BUTTON_UP:
-        button->OnLeftButtonUp(0);
-        if ((region->flags & W8_REGION_LEFT_BUTTON_HELD) != 0) {
-            region->flags &= ~W8_REGION_LEFT_BUTTON_HELD;
-        }
-        return 1;
-    case MOUSE_POS:
-        if ((region->flags & W8_REGION_MOUSE_LEAVE) != 0) {
-            button->OnMouseLeave(0);
-            return 1;
-        }
-        if ((region->flags & W8_REGION_MOUSE_ENTER) != 0) {
-            button->OnMouseEnter(0);
-            return 1;
-        }
-        break;
-    }
-    return 0;
-}
+unsigned char DispatchButtonRegionEvent(const InputAtom* event, W8Region* region,
+                                               W8Widget* button);
 
 /* Panel/container, not a W8Widget base. Widgets register their pointers in
    m_controls and retain a back-pointer in m_pPanel. The panel destructor owns

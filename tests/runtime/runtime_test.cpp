@@ -835,7 +835,7 @@ void LoadGameScenario(const fs::path& fixture)
         if (!set || set->m_current < 0 ||
             static_cast<std::size_t>(set->m_current) >= set->m_panels.size())
             return false;
-        panel = static_cast<W8OptionsSaveLoadPanel*>(set->m_panels[set->m_current]);
+        panel = static_cast<W8OptionsSaveLoadPanel*>(set->m_panels[set->m_current].get());
         return panel->m_panel == 11 && !panel->m_rows.empty();
     });
     // The only save is the first row; select it, then press Load.

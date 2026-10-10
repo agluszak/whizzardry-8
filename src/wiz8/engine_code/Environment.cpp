@@ -255,102 +255,58 @@ static void ClampEnvironmentComponent(float& component)
     }
 }
 
-// FUNCTION: WIZ8 0x00482F90
-BOOLEAN ReadLightColourTable(wiz8::File* hFile)
+/* The two binary colour tables differ only in their destination array. */
+static BOOLEAN ReadColourTable(wiz8::File* file, EnvironmentColour (&colours)[256])
 try
 {
     unsigned char components[256 * 3];
-    int index;
-
     memset(components, 0xff, sizeof(components));
-    if (hFile == 0 || !(hFile->read(components, sizeof(components)).bytes == static_cast<std::size_t>(sizeof(components)))) {
-        return 0;
-    }
+    if (!file || file->read(components, sizeof(components)).bytes != sizeof(components))
+        return false;
 
-    for (index = 0; index < 256; ++index) {
-        g_environment_colours1[index].x = components[index * 3] * (1.0f / 255.0f);
-        g_environment_colours1[index].y = components[index * 3 + 1] * (1.0f / 255.0f);
-        g_environment_colours1[index].z = components[index * 3 + 2] * (1.0f / 255.0f);
-        ClampEnvironmentComponent(g_environment_colours1[index].x);
-        ClampEnvironmentComponent(g_environment_colours1[index].y);
-        ClampEnvironmentComponent(g_environment_colours1[index].z);
+    for (int index = 0; index < 256; ++index) {
+        colours[index].x = components[index * 3] * (1.0f / 255.0f);
+        colours[index].y = components[index * 3 + 1] * (1.0f / 255.0f);
+        colours[index].z = components[index * 3 + 2] * (1.0f / 255.0f);
+        ClampEnvironmentComponent(colours[index].x);
+        ClampEnvironmentComponent(colours[index].y);
+        ClampEnvironmentComponent(colours[index].z);
     }
-    return 1;
+    return true;
 } catch (const std::exception&) {
     return false;
 }
 
-// FUNCTION: WIZ8 0x004830D0
-BOOLEAN ReadEnvironmentColourTable(wiz8::File* hFile)
-try
+// FUNCTION: WIZ8 0x00482F90
+BOOLEAN ReadLightColourTable(wiz8::File* file)
 {
-    unsigned char components[256 * 3];
-    int index;
+    return ReadColourTable(file, g_environment_colours1);
+}
 
-    memset(components, 0xff, sizeof(components));
-    if (hFile == 0 || !(hFile->read(components, sizeof(components)).bytes == static_cast<std::size_t>(sizeof(components)))) {
-        return 0;
-    }
+// FUNCTION: WIZ8 0x004830D0
+BOOLEAN ReadEnvironmentColourTable(wiz8::File* file)
+{
+    return ReadColourTable(file, g_environment_colours0);
+}
 
-    for (index = 0; index < 256; ++index) {
-        g_environment_colours0[index].x = components[index * 3] * (1.0f / 255.0f);
-        g_environment_colours0[index].y = components[index * 3 + 1] * (1.0f / 255.0f);
-        g_environment_colours0[index].z = components[index * 3 + 2] * (1.0f / 255.0f);
-        ClampEnvironmentComponent(g_environment_colours0[index].x);
-        ClampEnvironmentComponent(g_environment_colours0[index].y);
-        ClampEnvironmentComponent(g_environment_colours0[index].z);
+static void BuildColourRamp(EnvironmentColour (&colours)[256])
+{
+    for (int index = 0; index < 256; ++index) {
+        const float value = (index < 128 ? index : 255 - index) * (1.0f / 127.0f);
+        colours[index] = value;
     }
-    return 1;
-} catch (const std::exception&) {
-    return false;
 }
 
 // FUNCTION: WIZ8 0x00483210
 void BuildEnvironmentColourRamp(void)
 {
-    int index;
-    float value;
-
-    for (index = 0; index < 128; ++index) {
-        value = index * (1.0f / 127.0f);
-        g_environment_colours0[index] = value;
-        ClampEnvironmentComponent(g_environment_colours0[index].x);
-        ClampEnvironmentComponent(g_environment_colours0[index].y);
-        ClampEnvironmentComponent(g_environment_colours0[index].z);
-    }
-    for (; index < 256; ++index) {
-        value = (255 - index) * (1.0f / 127.0f);
-        g_environment_colours0[index] = value;
-        ClampEnvironmentComponent(g_environment_colours0[index].x);
-        ClampEnvironmentComponent(g_environment_colours0[index].y);
-        ClampEnvironmentComponent(g_environment_colours0[index].z);
-    }
+    BuildColourRamp(g_environment_colours0);
 }
 
 // FUNCTION: WIZ8 0x00483360
 void BuildLightColourRamp(void)
 {
-    int index;
-    float value;
-
-    for (index = 0; index < 128; ++index) {
-        value = index * (1.0f / 127.0f);
-        g_environment_colours1[index].x = value;
-        g_environment_colours1[index].y = value;
-        g_environment_colours1[index].z = value;
-        ClampEnvironmentComponent(g_environment_colours1[index].x);
-        ClampEnvironmentComponent(g_environment_colours1[index].y);
-        ClampEnvironmentComponent(g_environment_colours1[index].z);
-    }
-    for (; index < 256; ++index) {
-        value = (255 - index) * (1.0f / 127.0f);
-        g_environment_colours1[index].x = value;
-        g_environment_colours1[index].y = value;
-        g_environment_colours1[index].z = value;
-        ClampEnvironmentComponent(g_environment_colours1[index].x);
-        ClampEnvironmentComponent(g_environment_colours1[index].y);
-        ClampEnvironmentComponent(g_environment_colours1[index].z);
-    }
+    BuildColourRamp(g_environment_colours1);
 }
 
 /* Refresh the light direction from the day-phase table when the phase turns

@@ -24,6 +24,35 @@
 #include "vsurface.h"
 
 
+unsigned char DispatchButtonRegionEvent(const InputAtom* event, W8Region* region,
+                                               W8Widget* button)
+{
+    switch (event->usEvent) {
+    case LEFT_BUTTON_DOWN:
+    case LEFT_BUTTON_REPEAT:
+        button->OnLeftButtonDown(0);
+        region->flags |= W8_REGION_LEFT_BUTTON_HELD;
+        return 1;
+    case LEFT_BUTTON_UP:
+        button->OnLeftButtonUp(0);
+        if ((region->flags & W8_REGION_LEFT_BUTTON_HELD) != 0) {
+            region->flags &= ~W8_REGION_LEFT_BUTTON_HELD;
+        }
+        return 1;
+    case MOUSE_POS:
+        if ((region->flags & W8_REGION_MOUSE_LEAVE) != 0) {
+            button->OnMouseLeave(0);
+            return 1;
+        }
+        if ((region->flags & W8_REGION_MOUSE_ENTER) != 0) {
+            button->OnMouseEnter(0);
+            return 1;
+        }
+        break;
+    }
+    return 0;
+}
+
 /* Original Local Code\Controls.cpp translation unit. Keep these implementations
    together and preserve their order. Retail assertions identify m_uiRegionSetId
    (line 399) and the widget's m_pPanel (line 1849); other role names are recovered. */
@@ -103,7 +132,10 @@ Controls::Controls(int left, int top, int right_bound, int bottom_bound, int cat
 }
 
 // FUNCTION: WIZ8 0x004f2d30
-Controls::~Controls() {}
+Controls::~Controls()
+{
+    DestroyAllControls();
+}
 
 /* 0x00562A50 takes the redraw-request mask the panel raises. */
 // GLOBAL: WIZ8 0x0060CC74

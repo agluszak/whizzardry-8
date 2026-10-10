@@ -1331,7 +1331,6 @@ W8OptionsScreen::~W8OptionsScreen()
     int index;
     SelectPanel(-1, true);
     wiz8::remove_all_and_delete(m_save_slots);
-    if (m_controls) m_controls->DestroyAllControls();
     delete m_controls;
     delete m_menu_set;
     delete m_menu_selection;
@@ -1691,14 +1690,22 @@ W8OptionsPanel::~W8OptionsPanel()
     DestroyAllControls();
 }
 
+/* All labelled option rows use the same geometry and text formatting. */
+static void AddOptionsLabel(W8OptionsPanel& panel, int label)
+{
+    W8ControlsRect bounds = {panel.m_bounds.left + 20,
+                             panel.m_bounds.top + panel.m_content_top,
+                             panel.m_bounds.right,
+                             panel.m_bounds.top + panel.m_content_top + 22};
+    panel.m_text_buffers.emplace_back(
+        new W8TextBuffer(&bounds, g_localized_strings[label], g_options_detail_font,
+                         g_W8TextBufferAlignTop | g_W8TextBufferAlignLeft, 4));
+}
+
 // FUNCTION: WIZ8 0x005a84e0
 W8OptionsCheckbox* W8OptionsPanel::AddCheckbox(int label, int* value)
 {
-    W8ControlsRect bounds = {m_bounds.left + 20, m_bounds.top + m_content_top, m_bounds.right,
-                             m_bounds.top + m_content_top + 22};
-    W8TextBuffer* text = new W8TextBuffer(&bounds, g_localized_strings[label], g_options_detail_font,
-                                          g_W8TextBufferAlignTop | g_W8TextBufferAlignLeft, 4);
-    m_text_buffers.emplace_back(text);
+    AddOptionsLabel(*this, label);
     W8OptionsCheckbox* checkbox = new W8OptionsCheckbox(this, m_content_top, value);
     m_content_top += 44;
     return checkbox;
@@ -1722,11 +1729,7 @@ W8TextControl* W8OptionsPanel::AddChoiceButton(int label)
 // FUNCTION: WIZ8 0x005a8800
 W8OptionsSlider* W8OptionsPanel::AddSlider(int label, float* value, bool alternate)
 {
-    W8ControlsRect bounds = {m_bounds.left + 20, m_bounds.top + m_content_top, m_bounds.right,
-                             m_bounds.top + m_content_top + 22};
-    W8TextBuffer* text = new W8TextBuffer(&bounds, g_localized_strings[label], g_options_detail_font,
-                                          g_W8TextBufferAlignTop | g_W8TextBufferAlignLeft, 4);
-    m_text_buffers.emplace_back(text);
+    AddOptionsLabel(*this, label);
     W8OptionsSlider* slider = new W8OptionsSlider(this, m_content_top, value, alternate);
     m_content_top += 22;
     return slider;
@@ -1735,13 +1738,9 @@ W8OptionsSlider* W8OptionsPanel::AddSlider(int label, float* value, bool alterna
 // FUNCTION: WIZ8 0x005a8980
 void W8OptionsPanel::AddChoices(int label, int count, const int* choices, int* value)
 {
-    W8ControlsRect bounds = {m_bounds.left + 20, m_bounds.top + m_content_top, m_bounds.right,
-                             m_bounds.top + m_content_top + 22};
-    W8TextBuffer* text = new W8TextBuffer(&bounds, g_localized_strings[label], g_options_detail_font,
-                                          g_W8TextBufferAlignTop | g_W8TextBufferAlignLeft, 4);
-    m_text_buffers.emplace_back(text);
+    AddOptionsLabel(*this, label);
     W8OptionsSelection* selection = new W8OptionsSelection(value);
-    m_option_selections.emplace_back(selection);
+    m_option_selections.push_back(selection);
     for (int index = 0; index < count; ++index) {
         selection->AddEntry(AddChoiceButton(choices[index]));
     }

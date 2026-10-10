@@ -299,22 +299,12 @@ PTR LockPrimarySurface(UINT32* pitch)
     return description.pixels;
 }
 
-/* Clear the software-facing frame and retire every transient 2D overlay.
-   The four scene walks are the same typed operation used during renderer
-   bring-up; keeping the reset here avoids reproducing SurRender's node ABI at
-   the menu call site. */
-// FUNCTION: WIZ8 0x00422b10
-void ResetVideoFrameState(void)
+/* Reset both framebuffer pages and discard transient scene instances.
+   Callers select whether to invalidate all dirty blocks or the normal region. */
+static void ResetVideoDirtyState(int invalidate_flag)
 {
-    SurfaceLock description{};
-    unsigned int active;
-
-    description = LockCpuSurface(*g_primary_surface);
-    memset(description.pixels, 0, description.pitch * 480);
-    UnlockCpuSurface(*g_primary_surface);
     memset(g_tile_dirty_flags, 0, sizeof(g_tile_dirty_flags));
-    memset(g_surface_nodes, 0, sizeof(g_surface_nodes));
-    active = g_active_page;
+    const unsigned int active = g_active_page;
     g_page_full_redraw[active ^ 1] = 0;
     g_page_full_redraw[active] = 0;
     g_dirty_tile_count = 0;
@@ -322,7 +312,21 @@ void ResetVideoFrameState(void)
     PurgeInactiveSceneInstances(g_scene_overlay0);
     PurgeInactiveSceneInstances(g_scene_prerender1);
     PurgeInactiveSceneInstances(g_scene_overlay1);
-    InvalidateRegion(0, 0, 640, 480, 0);
+    InvalidateRegion(0, 0, 640, 480, invalidate_flag);
+}
+
+/* Clear the software-facing frame and retire every transient 2D overlay.
+   The four scene walks are the same typed operation used during renderer
+   bring-up; keeping the reset here avoids reproducing SurRender's node ABI at
+   the menu call site. */
+// FUNCTION: WIZ8 0x00422b10
+void ResetVideoFrameState(void)
+{
+    SurfaceLock description = LockCpuSurface(*g_primary_surface);
+    memset(description.pixels, 0, description.pitch * 480);
+    UnlockCpuSurface(*g_primary_surface);
+    memset(g_surface_nodes, 0, sizeof(g_surface_nodes));
+    ResetVideoDirtyState(0);
 }
 
 /* Brings the renderer up, shows the window and, when the INSPECTOR switch was
@@ -332,7 +336,6 @@ void ResetVideoFrameState(void)
 // FUNCTION: WIZ8 0x00421bb0
 unsigned char InitializeVideoManager(void)
 {
-    unsigned int active;
     g_world_pick_enabled = true;
     SetPickedModelInstance(0);
     g_fps_frame_count = 0;
@@ -366,16 +369,7 @@ unsigned char InitializeVideoManager(void)
             SDL_ShowWindow(ghWindow);
             SDL_RestoreWindow(ghWindow);
             SDL_RaiseWindow(ghWindow);
-            memset(g_tile_dirty_flags, 0, sizeof(g_tile_dirty_flags));
-            active = g_active_page;
-            g_page_full_redraw[g_active_page ^ 1] = 0;
-            g_dirty_tile_count = 0;
-            g_page_full_redraw[active] = 0;
-            PurgeInactiveSceneInstances(g_scene_prerender0);
-            PurgeInactiveSceneInstances(g_scene_overlay0);
-            PurgeInactiveSceneInstances(g_scene_prerender1);
-            PurgeInactiveSceneInstances(g_scene_overlay1);
-            InvalidateRegion(0, 0, 0x280, 0x1e0, 0);
+            ResetVideoDirtyState(0);
             SetRendererModePair();
         }
     }
@@ -650,16 +644,7 @@ void VideoFullScreen(unsigned char enabled)
 // FUNCTION: WIZ8 0x00422f10
 void ResetTransientRenderScenes(void)
 {
-    memset(g_tile_dirty_flags, 0, sizeof(g_tile_dirty_flags));
-    unsigned int active = g_active_page;
-    g_page_full_redraw[active ^ 1] = 0;
-    g_page_full_redraw[active] = 0;
-    g_dirty_tile_count = 0;
-    PurgeInactiveSceneInstances(g_scene_prerender0);
-    PurgeInactiveSceneInstances(g_scene_overlay0);
-    PurgeInactiveSceneInstances(g_scene_prerender1);
-    PurgeInactiveSceneInstances(g_scene_overlay1);
-    InvalidateRegion(0, 0, 640, 480, 0);
+    ResetVideoDirtyState(0);
 }
 
 /* Same dirty-block / transient-scene reset as ResetTransientRenderScenes, but
@@ -667,16 +652,7 @@ void ResetTransientRenderScenes(void)
 // FUNCTION: WIZ8 0x00423150
 void ClearVideoDirtyBlocks(void)
 {
-    memset(g_tile_dirty_flags, 0, sizeof(g_tile_dirty_flags));
-    unsigned int active = g_active_page;
-    g_page_full_redraw[active ^ 1] = 0;
-    g_page_full_redraw[active] = 0;
-    g_dirty_tile_count = 0;
-    PurgeInactiveSceneInstances(g_scene_prerender0);
-    PurgeInactiveSceneInstances(g_scene_overlay0);
-    PurgeInactiveSceneInstances(g_scene_prerender1);
-    PurgeInactiveSceneInstances(g_scene_overlay1);
-    InvalidateRegion(0, 0, 640, 480, 1);
+    ResetVideoDirtyState(1);
 }
 
 // FUNCTION: WIZ8 0x004277e0
@@ -715,15 +691,7 @@ unsigned char RestoreVideoManager(void)
         SDL_RestoreWindow(ghWindow);
         if (g_gerd->isWindowOpen() != 0 || OpenRendererWindow()) {
             SDL_RaiseWindow(ghWindow);
-            memset(g_tile_dirty_flags, 0, sizeof(g_tile_dirty_flags));
-            g_dirty_tile_count = 0;
-            g_page_full_redraw[g_active_page ^ 1] = 0;
-            g_page_full_redraw[g_active_page] = 0;
-            PurgeInactiveSceneInstances(g_scene_prerender0);
-            PurgeInactiveSceneInstances(g_scene_overlay0);
-            PurgeInactiveSceneInstances(g_scene_prerender1);
-            PurgeInactiveSceneInstances(g_scene_overlay1);
-            InvalidateRegion(0, 0, 0x280, 0x1e0, 0);
+            ResetVideoDirtyState(0);
             SetRendererModePair();
         }
     }

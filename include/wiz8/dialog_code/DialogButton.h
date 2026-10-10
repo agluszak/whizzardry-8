@@ -6,27 +6,7 @@
 
 /* Update the non-toggle dialog arrow's pressed/hover state. The caller
    retains its action and invalidates only when this operation reports a change. */
-inline bool UpdateDialogArrowState(GUI_BUTTON* button, INT32 reason)
-{
-    if (reason & MSYS_CALLBACK_REASON_LBUTTON_DWN) {
-        if (!(button->uiFlags & BUTTON_CLICKED_ON)) {
-            button->uiFlags |= BUTTON_CLICKED_ON;
-            return true;
-        }
-    } else if (reason & MSYS_CALLBACK_REASON_LBUTTON_UP) {
-        if (button->uiFlags & BUTTON_CLICKED_ON) {
-            button->uiFlags &= ~BUTTON_CLICKED_ON;
-            return true;
-        }
-    } else if (reason & MSYS_CALLBACK_REASON_GAIN_MOUSE) {
-        button->Area.uiFlags |= MSYS_MOUSE_IN_AREA;
-        return true;
-    } else if (reason & MSYS_CALLBACK_REASON_LOST_MOUSE) {
-        button->Area.uiFlags &= ~MSYS_MOUSE_IN_AREA;
-        return true;
-    }
-    return false;
-}
+bool UpdateDialogArrowState(GUI_BUTTON* button, INT32 reason);
 
 /* Tooltip string-table sentinel; independent of the five frame indices. */
 enum { W8_DIALOG_BUTTON_NO_TOOLTIP = -1 };

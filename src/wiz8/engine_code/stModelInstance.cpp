@@ -285,50 +285,6 @@ static void ApplyModelViewMatrix(srModelInstance* instance, srGERD* renderer, fl
     }
 }
 
-/* stModelInstance2D::process's copy of ApplyModelViewMatrix. Retail expands
-   the two copies inline with different arithmetic, so each process function
-   has its own. */
-static void ApplyModelViewMatrix2D(srModelInstance* instance, srGERD* renderer, float align_angle,
-                                   const srVector3T<float>& align_axis)
-{
-    if ((instance->alignment_flags.value & 1) == 0) {
-        instance->applyWorldSpaceMatrix(*renderer);
-    } else {
-        glm::mat4 view;
-        srVector3T<double> world_location;
-        srVector3T<double> world_scale;
-        glm::vec4 transformed_location;
-        srVector3T<float> translation;
-        srVector3T<float> basis;
-
-        renderer->matrixMode(srGERD::MATRIX_MODELVIEW);
-        renderer->pushMatrix();
-        renderer->getMatrix(srGERD::MATRIX_MODELVIEW, view);
-        world_location = instance->getWorldSpaceLocation();
-        world_scale = instance->getWorldSpaceScale();
-
-        srVector3T<float> location;
-        location = world_location;
-        srVector3T<float> scale;
-        scale = world_scale;
-        transformed_location = view * glm::vec4(location.glmValue(), 1);
-        const glm::mat3 view_basis(view);
-        basis = glm::vec3(glm::length(view_basis[0]), glm::length(view_basis[1]),
-                          glm::length(view_basis[2]));
-        if (glm::determinant(view_basis) > 0)
-            basis = -basis;
-        scale *= basis;
-
-        renderer->loadIdentity();
-        translation = glm::vec3(transformed_location);
-        renderer->translate(translation);
-        if (align_angle != g_float_zero) {
-            renderer->rotate(align_angle, align_axis);
-        }
-        renderer->scale(scale.x, scale.y, -scale.z);
-    }
-}
-
 /* Render the instance through SurRender's detached TriMesh value. Aligned
    instances retain their screen-facing orientation while preserving the
    current view matrix's translation, scale and handedness. The optional glow
@@ -340,7 +296,7 @@ void stModelInstance2D::process(const ProcessInfo& info, e_processType)
     srMeshModel::TriMesh mesh;
     srGERD* renderer = info.renderer;
 
-    ApplyModelViewMatrix2D(this, renderer, align_angle, align_axis);
+    ApplyModelViewMatrix(this, renderer, align_angle, align_axis);
 
     srMeshModel* model = static_cast<srMeshModel*>(getModel());
     model->getTriMesh(mesh);
