@@ -360,10 +360,17 @@ int main() try
     CHECK(!InitializeLibrary(invalid_path, &library, FALSE));
     archived = open_game_file("Data\\archiveonly.bin");
     CHECK(archived);
-    fs::resize_file(assets / "data" / "DATA.SLF", sizeof(LIBHEADER) + 3);
+    auto& archive_stream = *gFileDataBase.pLibraries[DB_EXTRACT_LIBRARY(archived)].hLibraryHandle;
+    const auto archive_path = archive_stream.physical_path();
+    // Release the stream before editing the fixture, retaining cached entries and cursors.
+    archive_stream.close();
+    fs::resize_file(archive_path, sizeof(LIBHEADER) + 3);
+    archive_stream = std::move(*wiz8::open_host_file(archive_path));
     CHECK(read_bytes(archived, 4, false).empty() && FileGetPos(archived) == 0);
     FileClose(archived);
-    fixture(assets / "data" / "DATA.SLF", archive_bytes);
+    archive_stream.close();
+    fixture(archive_path, archive_bytes);
+    archive_stream = std::move(*wiz8::open_host_file(archive_path));
 
     CHECK(!GetFileManFileTime(0, &creation, &accessed, &modified));
     CHECK(creation.dwLowDateTime == 0 && modified.dwHighDateTime == 0);
