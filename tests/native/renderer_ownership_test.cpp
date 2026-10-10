@@ -146,8 +146,10 @@ bool processorOwnership()
 {
     srPtr<TestMaterial> first_material;
     first_material = new TestMaterial;
+    first_material->release(); // srPtr owns the retained reference.
     srPtr<TestMaterial> second_material;
     second_material = new TestMaterial;
+    second_material->release();
     ScratchProbe probe;
     Counter active;
     Counter inactive;

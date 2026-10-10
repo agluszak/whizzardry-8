@@ -1,3 +1,7 @@
+add_executable(native_hash_consumers_test native/hash_consumers_test.cpp)
+target_link_libraries(native_hash_consumers_test PRIVATE SURRENDER wiz8_native_settings)
+add_test(NAME native_hash_consumers COMMAND native_hash_consumers_test)
+
 add_executable(native_bit_array_io_test native/bit_array_io_test.cpp)
 target_link_libraries(native_bit_array_io_test PRIVATE WIZ8_GAME_CORE)
 add_test(NAME native_bit_array_io COMMAND native_bit_array_io_test)

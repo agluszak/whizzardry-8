@@ -651,7 +651,8 @@ void srGERD::invalidateTextureByFrameHandle(w8_ulong handle)
 {
     std::lock_guard access(state_section);
     if (handle != 0 && texture_hash_enabled) {
-        Texture* texture = texture_lookup.Lookup(&handle);
+        const auto entry = texture_lookup.find(handle);
+        Texture* texture = entry == texture_lookup.end() ? nullptr : entry->second;
         if (texture != 0) {
             invalidateTexture(*texture);
         }
@@ -679,7 +680,8 @@ void srGERD::invalidateResidentTexture(srTextureIFace* texture)
     std::lock_guard access(state_section);
     if (texture != 0) {
         w8_ulong handle = texture->getTextureFrameHandle();
-        Texture* found = texture_lookup.Lookup(&handle);
+        const auto entry = texture_lookup.find(handle);
+        Texture* found = entry == texture_lookup.end() ? nullptr : entry->second;
         if (found != 0) {
             invalidateResidentTexture(*found);
         }
@@ -705,7 +707,8 @@ void srGERD::setTextureSubImage(srTextureIFace* texture, w8_long mipmap, w8_long
         return;
     }
     w8_ulong handle = texture->getTextureFrameHandle();
-    Texture* resident = texture_lookup.Lookup(&handle);
+    const auto entry = texture_lookup.find(handle);
+    Texture* resident = entry == texture_lookup.end() ? nullptr : entry->second;
     if (resident != 0 && resident->device.first_level <= (w8_ulong)mipmap &&
         (w8_ulong)mipmap <= resident->device.last_level) {
         srTextureIFace::PartialRequest request;
@@ -2984,7 +2987,7 @@ void srGERD::deleteTexture(Texture& texture)
     if (&texture == texture_deleted) {
         texture_deleted = texture.next;
     }
-    texture_lookup.Remove(&texture.id);
+    texture_lookup.erase(texture.id);
     getDD()->deleteTexture(texture.device);
     texture.name.clear();
     texture.device.resident_data = 0;
@@ -3038,7 +3041,7 @@ srGERD::Texture* srGERD::allocTexture(w8_ulong id)
     Texture* texture = texture_pool.allocate();
     texture->id = id;
     texture->palette = 0;
-    texture_lookup.Insert(&texture->id, &texture);
+    texture_lookup.emplace(texture->id, texture);
     texture->next = texture_head;
     texture->prev = 0;
     if (texture_head != 0) {
@@ -3112,9 +3115,9 @@ void srGERD::changeTexture(srTextureIFace* texture, w8_ulong stage, int apply_pa
     } else {
         w8_ulong id = texture->getTextureFrameHandle();
         if (id != 0) {
-            int slot = texture_lookup.FindNextEntry(&id, -1);
-            if (slot != -1) {
-                found = texture_lookup.entries[slot].value;
+            const auto entry = texture_lookup.find(id);
+            if (entry != texture_lookup.end()) {
+                found = entry->second;
                 if (found != 0) {
                     goto bound;
                 }
@@ -3471,7 +3474,7 @@ void srGERD::dumpTextureCache(std::ostream& stream)
     }
     srStreamPrintf(stream, "GERD Texture cache:\n\n");
     srStreamPrintf(stream, "Cached textures:          %d\n", count);
-    srStreamPrintf(stream, "Hash table size           %d\n", texture_lookup.bucket_count);
+    srStreamPrintf(stream, "Hash table buckets        %zu\n", texture_lookup.bucket_count());
     srStreamPrintf(stream, "GERD Cache memory used:   %d kB\n", (texture_cache_used + 0x3ff) >> 10);
     if (texture_cache_size == 0) {
         srStreamPrintf(stream, "Max cache size:           infinite\n");
@@ -3816,7 +3819,7 @@ void srGERD::closeTexCache()
         markTextureAsDeleted(*texture_default);
         deleteTexture(*texture_default);
         texture_default = 0;
-        texture_lookup.Clear();
+        texture_lookup.clear();
         texture_deleted = 0;
         texture_head = 0;
         texture_cache_used = 0;
@@ -3828,7 +3831,7 @@ void srGERD::closeTexCache()
 void srGERD::initTexCache()
 {
     if (texture_hash_enabled == 0) {
-        texture_lookup.Clear();
+        texture_lookup.clear();
         texture_head = 0;
         texture_deleted = 0;
         texture_cache_used = 0;
@@ -4105,7 +4108,7 @@ int srGERD::isTextureCached(srTextureIFace* texture) const
     std::lock_guard access(state_section);
     if (texture != 0) {
         w8_ulong handle = texture->getTextureFrameHandle();
-        return texture_lookup.Lookup(&handle) != 0;
+        return texture_lookup.contains(handle);
     }
     return 0;
 }
@@ -4116,7 +4119,8 @@ int srGERD::isTextureResident(srTextureIFace* texture) const
     std::lock_guard access(state_section);
     if (texture != 0 && isWindowOpen() != 0) {
         w8_ulong handle = texture->getTextureFrameHandle();
-        Texture* resident = texture_lookup.Lookup(&handle);
+        const auto entry = texture_lookup.find(handle);
+        Texture* resident = entry == texture_lookup.end() ? nullptr : entry->second;
         if (resident != 0 && resident->device.resident_data != 0 &&
             resident->device.resident_size != 0) {
             return 1;
@@ -4133,7 +4137,8 @@ int srGERD::getTextureInfo(srTextureIFace* texture, TextureInfo& info)
         return 0;
     }
     w8_ulong handle = texture->getTextureFrameHandle();
-    Texture* resident = texture_lookup.Lookup(&handle);
+    const auto entry = texture_lookup.find(handle);
+    Texture* resident = entry == texture_lookup.end() ? nullptr : entry->second;
     if (resident != 0) {
         info.pixel_format = resident->pixel_format;
         info.width = resident->device.width;

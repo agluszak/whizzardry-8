@@ -204,16 +204,19 @@ void srGERD::Renderer::getStatistics(w8_ulong* statistics)
 // FUNCTION: SURRENDER 0x10024280
 w8_ulong srGERD::Renderer::TextureSetCache::intern(const TextureSetKey& key)
 {
-    srHashTable<TextureSetKey, w8_ulong>* map = &this->map;
-    int slot = map->FindNextEntry(&key, -1);
-    if (slot != -1) {
-        return map->entries[slot].value;
+    const auto found = map.find(key);
+    if (found != map.end()) {
+        return found->second;
     }
 
-    w8_ulong index = static_cast<w8_ulong>(sets.size());
-    map->Insert(&key, &index);
-
+    const auto index = static_cast<w8_ulong>(sets.size());
     TextureSet& set = sets.emplace_back();
+    try {
+        map.emplace(key, index);
+    } catch (...) {
+        sets.pop_back();
+        throw;
+    }
     set.texture0 = key.texture0;
     set.texture1 = key.texture1;
     set.shader = key.shader;
