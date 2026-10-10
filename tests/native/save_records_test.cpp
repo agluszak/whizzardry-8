@@ -53,6 +53,7 @@ static void character_file_contracts(const std::filesystem::path& assets,
                                      const std::filesystem::path& user)
 {
     g_status.game_started = false;
+    CHECK(VerifyDataSubdirs());
     for (const wchar_t* name : {L"A", L"Vi", L"Sir Bob", L"Ninechars"})
     {
         W8Character character = {};
