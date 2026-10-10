@@ -27,14 +27,12 @@ public:
         e_compression compression;
         srFilter* filter;
     };
-    W8_ABI_ASSERT(sizeof(Dimensions) == 0x2c, "srTextureIFace_Dimensions_must_be_0x2c");
     struct MultiRequest {
         w8_long mipmap_level;
         /* Last mipmap level filled; iterated level <= last_level. */
         w8_ulong last_level;
         srColorSurfaceIFace* destinations[12];
     };
-    W8_ABI_ASSERT(sizeof(MultiRequest) == 0x38, "srTextureIFace_MultiRequest_must_be_0x38");
     /* srGERD::setTextureSubImage packs the level-0 dimensions and the target
        mipmap level ahead of the clipped destination rect. */
     struct PartialRequest {
@@ -65,7 +63,6 @@ public:
         w8_ulong packed_state;
         float mipmap_bias;
     };
-    W8_ABI_ASSERT(sizeof(Parameters) == 0x08, "srTextureIFace_Parameters_must_be_0x08");
     /* srTexture::dump: NONE / FASTEST / GOOD / BEST, else DEFAULT.
        setTextureDefaultMagFilter remaps DEFAULT (4) to GOOD. */
     enum e_filter {

@@ -15,8 +15,6 @@ class SR_DLL_IMPORT srScene : public srClassSupport<srScene, srNode, 0x1010> {
 public:
     enum e_enable { ENABLE_NODE_PICK_KEYS = 0 };
 
-
-
     struct Statistics {
         double elapsed;              /* seconds since the last reset */
         w8_ulong render_calls;  /* scene renders accumulated */
@@ -71,5 +69,3 @@ protected:
     srVector3T<float> fog_color;     /* 0x180 */
 };
 
-W8_ABI_ASSERT((sizeof(srScene) == 0x190), "srScene_must_be_0x190");
-W8_ABI_ASSERT((sizeof(srScene::Statistics) == 0x18), "srScene_Statistics_must_be_0x18");

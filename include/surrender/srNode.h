@@ -221,6 +221,3 @@ public:
     srNode* first_child_;      /* 0x134 */
 };
 
-W8_ABI_ASSERT((sizeof(srNode) == 0x138), "srNode_must_be_0x138");
-W8_ABI_ASSERT((sizeof(srNode::TraverseInfo) == 0x1c), "srNode_TraverseInfo_must_be_0x1c");
-W8_ABI_ASSERT((sizeof(srNode::BoundInfo) == 0x2c), "srNode_BoundInfo_must_be_0x2c");

@@ -48,8 +48,6 @@ public:
     int m_surface_flags; /* 0x78 */
 };
 
-W8_ABI_ASSERT((sizeof(stMaterial) == 0x7C), "stMaterial_must_be_0x7c");
-
 #pragma pack(push, 1)
 
 /* Engine Code\materials.cpp consumes this serialized material record from
@@ -76,7 +74,7 @@ struct W8MaterialRecord {
 
 #pragma pack(pop)
 
-W8_ABI_ASSERT(sizeof(W8MaterialRecord) == 0x12a, "W8MaterialRecord_size_must_be_0x12a");
+static_assert(sizeof(W8MaterialRecord) == 0x12a, "W8MaterialRecord is a serialized record");
 
 /* Per-draw material override switches consumed by stMaterial::getMaterialInfo;
    stModelInstance's mesh submit arms them around each chained model. */

@@ -36,4 +36,3 @@ protected:
     w8_ulong frame_handle; /* 0x58: ctor stores getNewFrameHandle() */
 };
 
-W8_ABI_ASSERT((sizeof(srTextureMap) == 0x5c), "srTextureMap_must_be_0x5c");

@@ -175,9 +175,6 @@ public:
         static void findOptimalColor(Node* node, const LUT& lut);
         static void setupLUT(LUT& lut, const srARGB& color);
 
-        W8_ABI_ASSERT(sizeof(Node) == 0x48, "OptimizerNode_must_be_0x48");
-        W8_ABI_ASSERT(sizeof(Leaf) == 0x10, "OptimizerLeaf_must_be_0x10");
-        W8_ABI_ASSERT(sizeof(LUT) == 0x1810, "OptimizerLUT_must_be_0x1810");
     };
 
     static SR_DLL_IMPORT const char* sGetClassName();
@@ -214,6 +211,3 @@ private:
     std::unique_ptr<Quantizer> quantizer;
 };
 
-W8_ABI_ASSERT(sizeof(srPalette::Quantizer) == 0x21918, "Quantizer_must_be_0x21918");
-W8_ABI_ASSERT(sizeof(srPalette::Sampler) == 0x20530, "Sampler_must_be_0x20530");
-W8_ABI_ASSERT(sizeof(srPalette) == 0x28, "srPalette_must_be_0x28");

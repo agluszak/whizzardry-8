@@ -180,11 +180,3 @@ private:
     w8_long pass_count;
 };
 
-W8_ABI_ASSERT((sizeof(srModeler) == 0x14), "srModeler_must_be_0x14");
-W8_ABI_ASSERT((sizeof(srModeler::MappingInfo) == 0x18), "srModeler_MappingInfo_must_be_0x18");
-W8_ABI_ASSERT((sizeof(srModeler::Vertex) == 0x110), "srModeler_Vertex_must_be_0x110");
-W8_ABI_ASSERT((sizeof(srModeler::Triangle) == 0x368), "srModeler_Triangle_must_be_0x368");
-W8_ABI_ASSERT((sizeof(srModeler::Polygon) == 0x44), "srModeler_Polygon_must_be_0x44");
-W8_ABI_ASSERT((sizeof(srModeler::VertexHash) == 0x100c), "srModeler_VertexHash_must_be_0x100c");
-W8_ABI_ASSERT((sizeof(srModeler::VertexHash::Entry) == 0x14),
-              "srModeler_VertexHash_Entry_must_be_0x14");

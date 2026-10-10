@@ -15,7 +15,6 @@ struct SortPair {
     w8_ulong key;
 };
 
-
 /* Mark `bit` in output wherever the indexed table value changes between adjacent entries; when
    `initialized` is zero the output chunk is cleared first. */
 template <class Lookup>

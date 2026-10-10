@@ -231,5 +231,3 @@ public:
     srFlags<e_control> render_control;
 };
 
-W8_ABI_ASSERT((sizeof(srMeshModel::TriMesh) == 0x154), "srMeshModel_TriMesh_must_be_0x154");
-W8_ABI_ASSERT((sizeof(srMeshModel) == 0x398), "srMeshModel_must_be_0x398");

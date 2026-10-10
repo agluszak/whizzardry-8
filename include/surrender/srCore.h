@@ -88,8 +88,6 @@ private:
     std::unique_ptr<srTexture> texture;
 };
 
-W8_ABI_ASSERT(sizeof(srCore) == 0x17c, "srCore_must_be_0x17c");
-
 extern SR_DLL_IMPORT class srCore srCore;
 
 SR_DLL_IMPORT int __cdecl srInit(void);

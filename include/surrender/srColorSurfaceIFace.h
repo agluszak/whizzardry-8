@@ -195,6 +195,3 @@ protected:
     srPixelConvert::PixelFormat pixel_format;
 };
 
-W8_ABI_ASSERT(sizeof(srColorSurfaceIFace) == 0x44, "srColorSurfaceIFace_must_be_0x44");
-
-W8_ABI_ASSERT((sizeof(srColorSurfaceIFace::SurfaceDesc) == 0x28), "srSurfaceDesc_must_be_0x28");

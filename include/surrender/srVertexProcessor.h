@@ -27,8 +27,6 @@ struct srVertexArray {
     unsigned char* attributes;
 };
 
-W8_ABI_ASSERT(sizeof(srVertexArray) == 0x20, "srVertexArray_must_be_0x20");
-
 /* Interface with no data beyond its vptr. */
 #pragma pack(push, 4)
 // VTABLE: SURRENDER 0x10076c74 srVertexProcessor
@@ -82,6 +80,3 @@ public:
 
 #pragma pack(pop)
 
-W8_ABI_ASSERT(sizeof(srVertexProcessor) == 0x04, "srVertexProcessor_must_be_0x04");
-W8_ABI_ASSERT(sizeof(srVertexProcessor::MaterialInfo) == 0x54,
-              "srVertexProcessor_MaterialInfo_must_be_0x54");

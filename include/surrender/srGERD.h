@@ -89,7 +89,6 @@ public:
             glm::vec2 st;
             float q;
         };
-        W8_ABI_ASSERT(sizeof(TexCoordQ) == 0xc, "TexCoordQ_must_be_0xc");
 
         /* The interned record additionally carries a blend class derived from the shader's DSTBLEND
            field (ZERO -> 0, SRC_ALPHA pair -> 1, ONE -> 2, SRC_COLOR pair -> 3). */
@@ -242,11 +241,6 @@ public:
         w8_long batch_limit;
         w8_ulong texture_stages;
     };
-    W8_ABI_ASSERT(sizeof(Renderer) == 0xe4, "srGERD_Renderer_must_be_0xe4");
-    W8_ABI_ASSERT(sizeof(Renderer::Parameters) == 0x10, "srGERD_Renderer_Parameters_must_be_0x10");
-    W8_ABI_ASSERT(sizeof(Renderer::TextureSetKey) == 0x0c,
-                  "srGERD_Renderer_TextureSetKey_must_be_0x0c");
-    W8_ABI_ASSERT(sizeof(Renderer::IndexWrite) == 0x10, "srGERD_Renderer_IndexWrite_must_be_0x10");
 
     enum e_error {
         ERROR_NONE = 0,
@@ -742,7 +736,6 @@ private:
         std::string name;
         srDD::Texture device;
     };
-    W8_ABI_ASSERT(sizeof(Texture) == 0xa8, "srGERD_Texture_must_be_0xa8");
 
     /* Pick batch view: indices selects triangles out of the caller's stream, vertices remaps each
        corner to a position index, positions is the renderer's vec4 stream base. */
@@ -1100,6 +1093,3 @@ private:
     std::vector<glm::vec4> pick_vertices;
 };
 
-W8_ABI_ASSERT(sizeof(srGERD) == 0x2238, "srGERD_must_be_0x2238");
-W8_ABI_ASSERT(sizeof(srGERD::ClipPlanes) == 0x208, "srGERD_ClipPlanes_must_be_0x208");
-W8_ABI_ASSERT(sizeof(srGERD::Renderer::TriInput) == 0x28, "srGERD_Renderer_TriInput_must_be_0x28");

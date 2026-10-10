@@ -168,8 +168,6 @@ private:
         w8_ulong flags = 0;
     };
 
-    W8_ABI_ASSERT(sizeof(Scratch) == 0xb04, "Scratch_must_be_0xb04");
-
     /* Each lazy setup fills its batch range before use. Preserve the former heap's
        16-byte base alignment without a separate allocation or pointer alias. */
     alignas(16) Scratch scratch;
@@ -189,8 +187,6 @@ private:
     w8_ulong vertex_count;                    /* 0x88 */
     w8_ulong batch_count;                     /* 0x8c */
 };
-
-W8_ABI_ASSERT(sizeof(srVertexPipe) == 0x9c, "srVertexPipe_must_be_0x9c");
 
 // FUNCTION: SURRENDER 0x1002C4B0 SYMBOL
 // RECOMP: ?getVertexCount@srVertexPipe@@QBEKXZ

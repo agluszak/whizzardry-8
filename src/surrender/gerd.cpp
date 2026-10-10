@@ -113,7 +113,6 @@ public:
 private:
 };
 
-
 // FUNCTION: SURRENDER 0x10019320
 srGERD::srGERD(srDD* device, const char* device_name)
     : dirty(0), state_flags(0), device{}, state{}, frame_statistics{}, statistics{},

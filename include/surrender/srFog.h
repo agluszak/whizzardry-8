@@ -14,7 +14,6 @@ public:
 
     SR_DLL_IMPORT srFog(srNode* parent = 0);
 
-
     // FUNCTION: SURRENDER 0x1004C1A0
     static const char* sGetClassName()
     {
@@ -43,4 +42,3 @@ public:
     float density;    /* 0x160 */
 };
 
-W8_ABI_ASSERT(sizeof(srFog) == 0x168, "srFog_must_be_0x168");

@@ -1,6 +1,5 @@
 #include "surrender/srTextureMap.h"
 
-
 #include <ostream>
 
 // FUNCTION: SURRENDER 0x10060270

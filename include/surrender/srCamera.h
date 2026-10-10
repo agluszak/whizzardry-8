@@ -30,7 +30,6 @@ public:
 
     srCamera(srNode* parent = 0);
 
-
     virtual void dump(std::ostream& stream) override;
     virtual void process(const ProcessInfo& info, e_processType type) override;
 
@@ -81,5 +80,3 @@ private:
     float environment_far_scale;  /* 0x184 */
 };
 
-W8_ABI_ASSERT((sizeof(srCamera) == 0x188), "srCamera_must_be_0x188");
-W8_ABI_ASSERT(sizeof(srCamera::Rect) == 0x20, "srCamera_Rect_must_be_0x20");

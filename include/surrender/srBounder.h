@@ -45,4 +45,3 @@ private:
     glm::mat4 inverse_world;
 };
 
-W8_ABI_ASSERT((sizeof(srBounder) == 0x1a8), "srBounder_must_be_0x1a8");

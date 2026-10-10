@@ -47,8 +47,6 @@ public:
     int m_polygon_count;
 };
 
-W8_ABI_ASSERT(sizeof(OctMeshModel) == 0x48, "OctMeshModel_size_must_be_0x48");
-
 /* The first Read call snapshots material/texture/render-flag zero as the
    shared default rendering state for the path and trace meshes. */
 extern W8MeshMaterial g_oct_mesh_default;

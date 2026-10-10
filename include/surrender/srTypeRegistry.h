@@ -117,7 +117,6 @@ private:
     w8_ulong id;
 };
 
-
 class srClass : public srRuntimeClass {
 public:
     typedef srClass RegistryClass;
@@ -144,7 +143,6 @@ protected:
         *this = other;
     }
 };
-
 
 /* Supplies format identity and cloning for a concrete scene/data type. */
 template <class Derived, class Base, w8_ulong ClassID>

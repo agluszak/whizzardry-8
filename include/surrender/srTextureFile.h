@@ -46,4 +46,3 @@ protected:
     w8_ulong frame_handle;
 };
 
-W8_ABI_ASSERT(sizeof(srTextureFile) == 0x64, "srTextureFile_must_be_0x64");

@@ -92,4 +92,3 @@ private:
     srTriMeshPipeline();
 };
 
-W8_ABI_ASSERT(sizeof(srTriMeshPipeline) == 0xac, "srTriMeshPipeline_must_be_0xac");

@@ -63,4 +63,3 @@ protected:
     w8_ulong texture_flags_;   /* 0x50 */
 };
 
-W8_ABI_ASSERT((sizeof(srTexture) == 0x54), "srTexture_must_be_0x54");

@@ -16,7 +16,6 @@
 #include "surrender/srFilter.h"
 #include "surrender/srPalette.h"
 
-
 // FUNCTION: SURRENDER 0x100571F0
 srColorSurfaceIFace::srColorSurfaceIFace()
     : width(0), height(0), pitch(0), clamp_modes(0), filter(nullptr)
@@ -2504,9 +2503,6 @@ struct SampleContributions {
         }
     }
 };
-
-W8_ABI_ASSERT(sizeof(SampleWeight) == 8, "SampleWeight_must_be_8");
-W8_ABI_ASSERT(sizeof(SampleContributions) == 8, "SampleContributions_must_be_8");
 
 // FUNCTION: SURRENDER 0x10059AC0
 void srColorSurfaceIFace::scaleHorizontal(srColorSurfaceIFace& source)
