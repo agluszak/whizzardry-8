@@ -1,4 +1,5 @@
 #include "wiz8/containers.h"
+#include "surrender/srBoundingBox.h"
 #include "wiz8/compat/unaligned.h"
 #include <vector>
 #include <algorithm>
@@ -127,208 +128,70 @@ void FinalizeStaticScene(srScene* scene)
 // FUNCTION: WIZ8 0x0046E8A0
 unsigned char BakeInstanceVertexLighting(stModelInstance* instance, srNode* lights, bool walk_chain)
 {
-    srVector3T<float>* directions = 0;
-    bool locations_allocated = false;
-    stMeshModel* mesh = static_cast<stMeshModel*>(instance->getModel());
-    srVector3T<float> location;
-    location = glm::vec3(instance->getWorldSpaceLocation());
-    srVector3T<float> minimum;
-    srVector3T<float> maximum;
-    mesh->getBoundingBox(minimum, maximum);
-    maximum += location;
-    minimum += location;
-    glm::mat3 rotation;
-    instance->getWorldSpaceRotation(rotation);
+    glm::mat4 world;
+    instance->getWorldSpaceMatrix(world);
+    const auto normal_matrix = glm::transpose(glm::inverse(glm::mat3(world)));
+    std::vector<glm::vec3> world_vertices, world_normals, material_colors;
 
-    while (mesh != 0) {
-        srVector3T<float>* vertex_lights = mesh->GetVertexLights(true, -1);
+    for (auto* mesh = static_cast<stMeshModel*>(instance->getModel()); mesh; mesh = mesh->Next()) {
+        const auto count = mesh->vertex_location_count;
+        if (count <= 0)
+            continue;
+        auto* vertex_lights = mesh->GetVertexLights(true, -1);
         mesh->GetVertexSunlight(true);
-        std::shared_ptr<srMaterialIFace>* vertex_materials =
-            mesh->getVertexMaterial(0, srMeshModel::SIDE_FRONT, 0);
-        srMaterialIFace* material_iface = mesh->getMaterial(0, srMeshModel::SIDE_FRONT);
-        glm::vec4 material_diffuse;
-        if (material_iface != 0) {
-            material_diffuse = static_cast<srMaterial*>(material_iface)->parms.diffuse;
+        if (!vertex_lights)
+            return 0;
+        if (!lights)
+            continue;
+        auto* vertex_materials = mesh->getVertexMaterial(0, srMeshModel::SIDE_FRONT, 0);
+        auto* base_material =
+            static_cast<srMaterial*>(mesh->getMaterial(0, srMeshModel::SIDE_FRONT));
+        const glm::vec3 base_color =
+            base_material ? glm::vec3(base_material->parms.diffuse) : glm::vec3(1);
+        const auto* vertices = (mesh->flags & W8_MESH_HAS_FRAME_STORAGE)
+                                   ? mesh->GetVertexLocations(0, true, 0.0f)
+                                   : mesh->getVertexLoc();
+        const auto* normals = (mesh->flags & W8_MESH_HAS_FRAME_STORAGE)
+                                  ? mesh->GetVertexNormals(0, true)
+                                  : mesh->getVertexNormal();
+        world_vertices.resize(count);
+        world_normals.resize(count);
+        material_colors.resize(count);
+        for (int i = 0; i < count; ++i) {
+            world_vertices[i] = glm::vec3(world * glm::vec4(vertices[i].glmValue(), 1));
+            world_normals[i] = normalizedOrZero(normal_matrix * normals[i].glmValue());
+            auto* material =
+                vertex_materials ? static_cast<srMaterial*>(vertex_materials[i].get()) : nullptr;
+            material_colors[i] = material ? glm::vec3(material->parms.diffuse) : base_color;
         }
-        if (vertex_lights == 0) {
-            srAssertFail("psrDIG", THREE_D_CPP, 0x453, 0);
-        }
-
-        srVector3T<float>* vertices;
-        srVector3T<float>* normals;
-        if ((mesh->flags & W8_MESH_HAS_FRAME_STORAGE) != 0) {
-            vertices = mesh->GetVertexLocations(0, true, 0.0f);
-            normals = mesh->GetVertexNormals(0, true);
-        } else {
-            vertices = mesh->getVertexLoc();
-            normals = mesh->getVertexNormal();
-        }
-        w8_ulong count = mesh->vertex_location_count;
-
-        srVector3T<float>* world_vertices = vertices;
-        if (rotation[0][0] != g_float_one || rotation[1][1] != g_float_one ||
-            rotation[2][2] != g_float_one || rotation[1][0] != g_float_zero ||
-            rotation[2][0] != g_float_zero || rotation[0][1] != g_float_zero ||
-            rotation[2][1] != g_float_zero || rotation[0][2] != g_float_zero ||
-            rotation[1][2] != g_float_zero || location.x != g_float_zero ||
-            location.y != g_float_zero || location.z != g_float_zero) {
-            locations_allocated = true;
-            world_vertices =
-                static_cast<srVector3T<float>*>(malloc(count * sizeof(srVector3T<float>)));
-            if (world_vertices == 0) {
-                return 0;
-            }
-            if (count != 0 && world_vertices != vertices) {
-                std::copy_n(vertices, count, world_vertices);
-            }
-            if (rotation[0][0] == g_float_one && rotation[1][1] == g_float_one &&
-                rotation[2][2] == g_float_one && rotation[1][0] == g_float_zero &&
-                rotation[2][0] == g_float_zero && rotation[0][1] == g_float_zero &&
-                rotation[2][1] == g_float_zero && rotation[0][2] == g_float_zero &&
-                rotation[1][2] == g_float_zero) {
-                if (count != 0 && (location.x != g_float_zero || location.y != g_float_zero ||
-                                   location.z != g_float_zero)) {
-                    for (std::size_t i = 0; i < count; ++i)
-                        world_vertices[i] = location + world_vertices[i];
-                }
-            } else if (count != 0) {
-                glm::mat4 transform;
-                {
-                    transform = glm::mat4(rotation);
-                    transform[3] = glm::vec4(location.glmValue(), 1);
-                };
-                {
-                    const auto transform_matrix = transform;
-                    for (std::size_t i = 0; i < count; ++i)
-                        world_vertices[i] = glm::vec3(
-                            transform_matrix * glm::vec4(world_vertices[i].glmValue(), 1.0f));
-                }
-            }
-        }
-
-        srVector3T<float>* world_normals;
-        if (rotation[0][0] == g_float_one && rotation[1][1] == g_float_one &&
-            rotation[2][2] == g_float_one && rotation[1][0] == g_float_zero &&
-            rotation[2][0] == g_float_zero && rotation[0][1] == g_float_zero &&
-            rotation[2][1] == g_float_zero && rotation[0][2] == g_float_zero &&
-            rotation[1][2] == g_float_zero) {
-            world_normals = normals;
-        } else {
-            world_normals =
-                static_cast<srVector3T<float>*>(malloc(count * sizeof(srVector3T<float>)));
-            if (world_normals == 0) {
-                return 0;
-            }
-            srVector3T<float> origin(0.0f, 0.0f, 0.0f);
-            if (count != 0) {
-                glm::mat4 transform;
-                {
-                    transform = glm::mat4(rotation);
-                    transform[3] = glm::vec4(origin.glmValue(), 1);
-                };
-                {
-                    const auto transform_matrix = transform;
-                    for (std::size_t i = 0; i < count; ++i)
-                        world_normals[i] =
-                            glm::vec3(transform_matrix * glm::vec4(normals[i].glmValue(), 1.0f));
-                }
-            }
-        }
-
-        srNode* light_node = lights;
-        while (light_node != 0) {
-            stLight* light = sr_cast<stLight>(light_node);
-            if (light != 0 && _strnicmp(light->getName().c_str(), "Sun", 3) != 0) {
-                srVector3T<float> attenuation = light->opengl_attenuation;
-                float range =
-                    static_cast<float>(g_light_range_attenuation_numerator /
-                                       (attenuation.y * g_light_range_attenuation_denominator));
-                srVector3T<float> light_position;
-                light_position = glm::vec3(light_node->getWorldSpaceLocation());
-                srVector3T<float> light_min(light_position.x - range, light_position.y - range,
-                                            light_position.z - range);
-                srVector3T<float> light_max(light_position.x + range, light_position.y + range,
-                                            light_position.z + range);
-                if (BoundsOverlap(&light_min, &light_max, &minimum, &maximum)) {
-                    if (directions == 0) {
-                        directions = static_cast<srVector3T<float>*>(
-                            malloc(count * sizeof(srVector3T<float>)));
-                        if (directions == 0) {
-                            return 0;
-                        }
-                    }
-                    if (light_position.x == g_float_zero && light_position.y == g_float_zero &&
-                        light_position.z == g_float_zero) {
-                        std::copy_n(world_vertices, count, directions);
-                    } else {
-                        srVector3T<float> offset(-light_position.x, -light_position.y,
-                                                 -light_position.z);
-                        OffsetVertices(directions, world_vertices, &offset, count);
-                    }
-                    srVector3T<float> light_color = light->diffuse;
-                    float intensity = light->intensity;
-                    for (w8_ulong index = 0; index < count; ++index) {
-                        srVector3T<float> direction = directions[index];
-                        float distance = direction.Length();
-                        if (distance <= range) {
-                            direction.Normalize();
-                            float facing =
-                                glm::dot(direction.glmValue(), world_normals[index].glmValue());
-                            if (facing < g_double_zero) {
-                                double contribution =
-                                    -facing * intensity * (g_double_one - distance / range);
-                                if (vertex_materials != 0) {
-                                    srMaterialIFace* vertex_material = vertex_materials[index].get();
-                                    if (vertex_material != 0) {
-                                        material_diffuse = static_cast<srMaterial*>(vertex_material)
-                                                               ->parms.diffuse;
-                                    } else {
-                                        srMaterialIFace* base_material =
-                                            mesh->getMaterial(0, srMeshModel::SIDE_FRONT);
-                                        if (base_material != 0) {
-                                            material_diffuse =
-                                                static_cast<srMaterial*>(base_material)
-                                                    ->parms.diffuse;
-                                        } else {
-                                            material_diffuse.x = 1.0f;
-                                            material_diffuse.y = 1.0f;
-                                            material_diffuse.z = 1.0f;
-                                        }
-                                    }
-                                }
-                                vertex_lights[index].x +=
-                                    material_diffuse.x * light_color.x * contribution;
-                                vertex_lights[index].y +=
-                                    material_diffuse.y * light_color.y * contribution;
-                                vertex_lights[index].z +=
-                                    material_diffuse.z * light_color.z * contribution;
-                            }
-                        }
-                    }
-                }
-            }
-            if (!walk_chain) {
-                break;
-            }
-            light_node = light_node->next_sibling_;
-        }
-
-        if (locations_allocated) {
-            free(world_vertices);
-        }
-        if (rotation[0][0] != g_float_one || rotation[1][1] != g_float_one ||
-            rotation[2][2] != g_float_one || rotation[1][0] != g_float_zero ||
-            rotation[2][0] != g_float_zero || rotation[0][1] != g_float_zero ||
-            rotation[2][1] != g_float_zero || rotation[0][2] != g_float_zero ||
-            rotation[1][2] != g_float_zero) {
-            free(world_normals);
-        }
-        if (directions != 0) {
-            free(directions);
-            directions = 0;
+        srVector3 minimum, maximum;
+        mesh->getBoundingBox(minimum, maximum);
+        const auto box = srBoundingBox{minimum.glmValue(), maximum.glmValue()}.transformed(world);
+        for (auto* node = lights; node; node = walk_chain ? node->next_sibling_ : nullptr) {
+            const auto* light = sr_cast<stLight>(node);
+            if (!light ||
+                _strnicmp(node->getName().c_str(), "Sun", 3) == 0)
+                continue;
+            const float range = static_cast<float>(
+                g_light_range_attenuation_numerator /
+                (light->opengl_attenuation.y * g_light_range_attenuation_denominator));
+            const auto position = glm::vec3(light->getWorldSpaceLocation());
+            if (!box.overlaps({position - range, position + range}))
+                continue;
             mesh->flags |= W8_MESH_VERTEX_LIGHTING_DIRTY;
+            for (int i = 0; i < count; ++i) {
+                const auto direction = world_vertices[i] - position;
+                const float distance = glm::length(direction);
+                if (distance > range)
+                    continue;
+                const float facing = glm::dot(normalizedOrZero(direction), world_normals[i]);
+                if (facing < 0) {
+                    const float contribution = -facing * light->intensity * (1 - distance / range);
+                    vertex_lights[i] = vertex_lights[i].glmValue() +
+                                       material_colors[i] * light->diffuse * contribution;
+                }
+            }
         }
-        mesh = mesh->Next();
     }
     return 1;
 }

@@ -1,3 +1,4 @@
+#include "wiz8/unicode.h"
 #include "wiz8/filesystem.h"
 #include "wiz8/engine_code/3d.h"
 #include <cmath>

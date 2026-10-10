@@ -1,3 +1,4 @@
+#include "wiz8/retail_text_records.h"
 #include "wiz8/asset_paths.h"
 #include "wiz8/filesystem.h"
 #include "wiz8/local_code/GameplayDatabase.h"
@@ -29,7 +30,13 @@ static std::filesystem::path fixture_root;
 
 template<class T> static void append(std::string& bytes, const T& value)
 {
-    bytes.append(reinterpret_cast<const char*>(&value), sizeof(value));
+    if constexpr (requires { typename wiz8::retail::Record<T>::Disk; }) {
+        const auto encoded = wiz8::retail::encode(value);
+        bytes.append(reinterpret_cast<const char*>(encoded.data()), encoded.size());
+    } else {
+        static_assert(std::is_trivially_copyable_v<T>);
+        bytes.append(reinterpret_cast<const char*>(&value), sizeof(value));
+    }
 }
 
 static void store(const char* path, const std::string& bytes)

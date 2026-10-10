@@ -259,19 +259,15 @@ int srNode::setParent(srNode* parent, int preserve_world_transform)
         parent->first_child_ = this;
         if (preserve_world_transform != 0) {
             glm::dmat3 parent_rotation;
-            srVector3T<double> parent_location;
-            srVector3T<double> parent_scale;
+            glm::dvec3 parent_location;
+            glm::dvec3 parent_scale;
             parent->getWorldSpaceCoordinates(parent_rotation, parent_location, parent_scale);
             rotation = glm::transpose(parent_rotation) * rotation;
             orthonormalizeRotation(rotation);
-            srVector3T<double> inverse_scale;
-            inverse_scale.x = 1.0 / parent_scale.x;
-            inverse_scale.y = 1.0 / parent_scale.y;
-            inverse_scale.z = 1.0 / parent_scale.z;
-            location -= parent_location.glmValue();
-            location *= inverse_scale.glmValue();
-            location = glm::transpose(parent_rotation) * location;
-            scale *= inverse_scale.glmValue();
+            const auto inverse_scale = 1.0 / parent_scale;
+            location =
+                glm::transpose(parent_rotation) * ((location - parent_location) * inverse_scale);
+            scale *= inverse_scale;
         }
     }
     notifyDependent();
@@ -384,8 +380,8 @@ void srNode::dump(std::ostream& stream)
     glm::dmat3 rotation;
     getRotation(rotation);
     glm::dmat3 ws_rotation;
-    srVector3T<double> ws_location;
-    srVector3T<double> ws_scale;
+    glm::dvec3 ws_location;
+    glm::dvec3 ws_scale;
     getWorldSpaceCoordinates(ws_rotation, ws_location, ws_scale);
     w8_long flags = srGetStreamFlags(stream);
     srSetStreamFlags(stream, (flags & 0xfffffe7fL) | 0x40);
@@ -678,8 +674,8 @@ void srNode::setScale(const srVector3T<double>& scale)
 }
 
 // FUNCTION: SURRENDER 0x10054E70
-void srNode::getWorldSpaceCoordinates(glm::dmat3& rotation, srVector3T<double>& location,
-                                      srVector3T<double>& scale) const
+void srNode::getWorldSpaceCoordinates(glm::dmat3& rotation, glm::dvec3& location,
+                                      glm::dvec3& scale) const
 {
     checkTransformation();
     getWorldSpaceRotation(rotation);
@@ -688,8 +684,8 @@ void srNode::getWorldSpaceCoordinates(glm::dmat3& rotation, srVector3T<double>& 
 }
 
 // FUNCTION: SURRENDER 0x10054ED0
-void srNode::getWorldSpaceCoordinates(glm::mat3& rotation, srVector3T<float>& location,
-                                      srVector3T<float>& scale) const
+void srNode::getWorldSpaceCoordinates(glm::mat3& rotation, glm::vec3& location,
+                                      glm::vec3& scale) const
 {
     checkTransformation();
     getWorldSpaceRotation(rotation);

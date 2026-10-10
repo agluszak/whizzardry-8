@@ -1,3 +1,5 @@
+#include <fmt/format.h>
+#include <fmt/printf.h>
 #include "wiz8/engine_code/AnimRep.hpp"
 #include "wiz8/monster_cycles.h"
 #include "wiz8/conditions.h"
@@ -73,7 +75,6 @@
 
 #include <stdio.h>
 #include <stdlib.h>
-#include <wchar.h>
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/local_screens/OptionsScreen.h"
 
@@ -100,14 +101,15 @@ unsigned int ApplyDamageToCharacter(int party_slot, unsigned int amount, bool qu
         return 0;
     }
     if (g_status.world_suspended) {
-        PostCharacterNotice(party_slot, gppStringList[0x253], amount);
+        PostCharacterNotice(party_slot, fmt::sprintf(g_localized_strings[0x253], amount));
         return 0;
     }
 
     if (character->enchantments[W8_ENCHANTMENT_GUARDIAN_ANGEL].turns != 0) {
         absorbed = character->enchantments[W8_ENCHANTMENT_GUARDIAN_ANGEL].magnitude;
         if (amount <= absorbed) {
-            PostCharacterNotice(party_slot, gppStringList[0x193 - (quiet)], amount);
+            PostCharacterNotice(party_slot,
+                                fmt::sprintf(g_localized_strings[0x193 - (quiet)], amount));
             character->enchantments[W8_ENCHANTMENT_GUARDIAN_ANGEL].magnitude =
                 static_cast<unsigned short>(absorbed - amount);
             if (result_stats != 0) {
@@ -116,10 +118,11 @@ unsigned int ApplyDamageToCharacter(int party_slot, unsigned int amount, bool qu
             return 0;
         }
 
-        PostCharacterNotice(party_slot, gppStringList[0x193 - (quiet)], absorbed);
+        PostCharacterNotice(party_slot,
+                            fmt::sprintf(g_localized_strings[0x193 - (quiet)], absorbed));
         amount -= absorbed;
         ClearCharacterEnchantmentSlot(party_slot, W8_ENCHANTMENT_GUARDIAN_ANGEL);
-        PostCharacterNotice(party_slot, gppStringList[0x194]);
+        PostCharacterNotice(party_slot, g_localized_strings[0x194]);
     }
 
     FatigueCharacter(party_slot, (amount * 2) / 3, false, result_stats);
@@ -130,12 +133,12 @@ unsigned int ApplyDamageToCharacter(int party_slot, unsigned int amount, bool qu
 
     if (announce) {
         if (detailed) {
-            PostCharacterNotice(party_slot, gppStringList[0x268], amount);
+            PostCharacterNotice(party_slot, fmt::sprintf(g_localized_strings[0x268], amount));
         } else if (short_notice) {
-            ShowNoticef(W8_FONT_PALETTE_RUST, gppStringList[0x254], amount);
+            ShowNotice(W8_FONT_PALETTE_RUST, fmt::sprintf(g_localized_strings[0x254], amount));
         } else {
-            PostCharacterNotice(party_slot, gppStringList[0x255], amount,
-                                quiet ? gppStringList[0x257] : &g_empty_wide_string);
+            PostCharacterNotice(party_slot, fmt::sprintf(g_localized_strings[0x255], amount,
+                                                         quiet ? g_localized_strings[0x257] : ""));
         }
     }
 
@@ -318,7 +321,7 @@ void RestorePartySpellPoints(int amount)
 /* Suffix the damage notice carries when a poison tick is what hurt the
    monster. */
 // GLOBAL: WIZ8 0x0061C964
-wchar_t g_poison_suffix[] = L"POISON ";
+char g_poison_suffix[] = "POISON ";
 
 /* Roll the dice once for every live monster inside the radius of a point and
    apply each roll as damage through the monster-side effect pass. */
@@ -367,7 +370,8 @@ unsigned int ApplyDamageToMonster(W8MonsterInfo* monster_info, unsigned int amou
     if (monster_info->enchantments[W8_ENCHANTMENT_GUARDIAN_ANGEL].turns != 0) {
         absorbed = monster_info->enchantments[W8_ENCHANTMENT_GUARDIAN_ANGEL].magnitude;
         if (amount <= absorbed) {
-            PostMonsterNotice(monster_info, gppStringList[0x193 - (quiet)], amount);
+            PostMonsterNotice(monster_info,
+                              fmt::sprintf(g_localized_strings[0x193 - (quiet)], amount));
             monster_info->enchantments[W8_ENCHANTMENT_GUARDIAN_ANGEL].magnitude =
                 static_cast<unsigned short>(absorbed - amount);
             if (result_stats != 0) {
@@ -375,7 +379,8 @@ unsigned int ApplyDamageToMonster(W8MonsterInfo* monster_info, unsigned int amou
             }
             return 0;
         }
-        PostMonsterNotice(monster_info, gppStringList[0x193 - (quiet)], absorbed);
+        PostMonsterNotice(monster_info,
+                          fmt::sprintf(g_localized_strings[0x193 - (quiet)], absorbed));
         amount -= absorbed;
         ClearMonsterEnchantmentSlot(monster_info->location_id, W8_ENCHANTMENT_GUARDIAN_ANGEL);
     }
@@ -392,14 +397,14 @@ unsigned int ApplyDamageToMonster(W8MonsterInfo* monster_info, unsigned int amou
             }
             if (in_combat != 0) {
                 if (c) {
-                    ShowNoticef(category, FormatWideString(g_format_s_space_s,
-                                                           GetMonsterName(monster_info, 0, 0),
-                                                           gppStringList[0x268], amount));
+                    ShowNotice(category, fmt::format("{} {}", GetMonsterName(monster_info, 0, 0),
+                                                     g_localized_strings[0x268]));
                 } else if (a != 0) {
-                    ShowNoticef(category, gppStringList[0x254], amount);
+                    ShowNotice(category, fmt::sprintf(g_localized_strings[0x254], amount));
                 } else {
-                    ShowNoticef(category, gppStringList[0x256], GetMonsterName(monster_info, 0, 0),
-                                amount, quiet ? g_poison_suffix : &g_empty_wide_string);
+                    ShowNotice(category, fmt::sprintf(g_localized_strings[0x256],
+                                                      GetMonsterName(monster_info, 0, 0), amount,
+                                                      quiet ? g_poison_suffix : ""));
                 }
             }
         }
@@ -422,7 +427,7 @@ unsigned int ApplyDamageToMonster(W8MonsterInfo* monster_info, unsigned int amou
                 if (report != 0) {
                     memset(report, 0, sizeof(W8SpellDamageReport));
                     report->kind = 3;
-                    wcscpy(report->text, GetMonsterName(monster_info, 0, 0));
+                    report->text = GetMonsterName(monster_info, 0, 0);
                     result_stats->reports.push_back(report);
                 }
             }
@@ -457,11 +462,12 @@ void HealMonster(W8MonsterInfo* monster_info, unsigned int amount, bool announce
 
     if (announce) {
         if (monster_info->hp_current == static_cast<unsigned int>(monster_info->uiHPMax)) {
-            ShowNoticef(W8_FONT_PALETTE_RUST, gppStringList[0x259],
-                        GetMonsterName(monster_info, 0, 0));
+            ShowNotice(W8_FONT_PALETTE_RUST, fmt::sprintf(g_localized_strings[0x259],
+                                                          GetMonsterName(monster_info, 0, 0)));
         } else {
-            ShowNoticef(W8_FONT_PALETTE_RUST, gppStringList[0x25b],
-                        GetMonsterName(monster_info, 0, 0), amount);
+            ShowNotice(W8_FONT_PALETTE_RUST,
+                       fmt::sprintf(g_localized_strings[0x25b], GetMonsterName(monster_info, 0, 0),
+                                    amount));
         }
     }
 }
@@ -501,8 +507,8 @@ int MonsterActionFatigueCost(const W8MonsterInfo* monster_info)
         break;
     default:
         srAssertFail("FALSE", HEALTH_STAMINA_MANA_CPP, 1774,
-                     FormatString("MonsterActionFatigueCost: ERROR - Invalid action %d",
-                                  monster_info->action_kind));
+                     fmt::format("MonsterActionFatigueCost: ERROR - Invalid action {:d}",
+                                 fmt::underlying(monster_info->action_kind)));
         break;
     }
 
@@ -606,9 +612,9 @@ void HealCharacter(int party_slot, int amount, bool announce)
     }
     if (announce) {
         if (character->hp_current == hp_max) {
-            PostCharacterNotice(party_slot, gppStringList[0x258]);
+            PostCharacterNotice(party_slot, g_localized_strings[0x258]);
         } else {
-            PostCharacterNotice(party_slot, gppStringList[0x25a], amount);
+            PostCharacterNotice(party_slot, fmt::sprintf(g_localized_strings[0x25a], amount));
         }
     }
 
@@ -654,9 +660,9 @@ void RestoreCharacterStamina(int party_slot, int amount, bool announce)
     }
     if (announce) {
         if (character->stamina == stamina_max) {
-            PostCharacterNotice(party_slot, gppStringList[0x25c]);
+            PostCharacterNotice(party_slot, g_localized_strings[0x25c]);
         } else {
-            PostCharacterNotice(party_slot, gppStringList[0x25e], amount);
+            PostCharacterNotice(party_slot, fmt::sprintf(g_localized_strings[0x25e], amount));
         }
     }
 
@@ -691,7 +697,7 @@ void DrainCharacterSpellPoints(int party_slot, unsigned int amount, bool announc
         return;
     }
     if (g_status.world_suspended) {
-        PostCharacterNotice(party_slot, gppStringList[0x260], amount);
+        PostCharacterNotice(party_slot, fmt::sprintf(g_localized_strings[0x260], amount));
         return;
     }
 
@@ -704,8 +710,9 @@ void DrainCharacterSpellPoints(int party_slot, unsigned int amount, bool announc
             }
             SpendCharacterSpellPoints(party_slot, realm, taken);
             if (announce) {
-                ShowNoticef(W8_FONT_PALETTE_WHITE, gppStringList[0x263], amount,
-                            gppStringList[g_realm_message_offsets[realm]]);
+                ShowNotice(W8_FONT_PALETTE_WHITE,
+                           fmt::sprintf(g_localized_strings[0x263], amount,
+                                        g_localized_strings[g_realm_message_offsets[realm]]));
             }
             remaining = amount - taken;
             amount = remaining;
@@ -755,7 +762,8 @@ void RestoreCharacterSpellPointsEvenly(int party_slot, int amount)
             if (order[index].deficit == 0 || (index != W8_SPELL_REALM_COUNT - 1 &&
                                               order[index].deficit < order[index + 1].deficit)) {
                 if (index == W8_SPELL_REALM_COUNT - 1) {
-                    PostCharacterNotice(party_slot, gppStringList[0x1a3], granted);
+                    PostCharacterNotice(party_slot,
+                                        fmt::sprintf(g_localized_strings[0x1a3], granted));
                     return;
                 }
                 continue;
@@ -769,12 +777,12 @@ void RestoreCharacterSpellPointsEvenly(int party_slot, int amount)
                 break;
             }
             if (amount == 0) {
-                PostCharacterNotice(party_slot, gppStringList[0x1a3], granted);
+                PostCharacterNotice(party_slot, fmt::sprintf(g_localized_strings[0x1a3], granted));
                 return;
             }
         }
     }
-    PostCharacterNotice(party_slot, gppStringList[0x1a3], granted);
+    PostCharacterNotice(party_slot, fmt::sprintf(g_localized_strings[0x1a3], granted));
 }
 
 /* Wound one character. Two thirds of the damage also tires them, the damage
@@ -793,7 +801,7 @@ void DamageCharacter(int party_slot, unsigned int damage, bool announce)
     if (character->uiHPMax != 0 && character->hp_current != 0) {
         FatigueCharacter(party_slot, (damage * 2) / 3, false, 0);
         if (announce) {
-            ShowNoticef(W8_FONT_PALETTE_WHITE, gppStringList[0x1c4], damage);
+            ShowNotice(W8_FONT_PALETTE_WHITE, fmt::sprintf(g_localized_strings[0x1c4], damage));
         }
         character->hp_adjustment -= damage;
         RecalculateCharacterHitPoints(character);
@@ -876,11 +884,12 @@ void RestoreMonsterStamina(W8MonsterInfo* monster_info, int amount, bool announc
     }
     if (announce) {
         if (static_cast<unsigned int>(monster_info->stamina) == stamina_max) {
-            ShowNoticef(W8_FONT_PALETTE_RUST, gppStringList[0x25d],
-                        GetMonsterName(monster_info, 0, 0));
+            ShowNotice(W8_FONT_PALETTE_RUST, fmt::sprintf(g_localized_strings[0x25d],
+                                                          GetMonsterName(monster_info, 0, 0)));
         } else {
-            ShowNoticef(W8_FONT_PALETTE_RUST, gppStringList[0x25f],
-                        GetMonsterName(monster_info, 0, 0), amount);
+            ShowNotice(W8_FONT_PALETTE_RUST,
+                       fmt::sprintf(g_localized_strings[0x25f], GetMonsterName(monster_info, 0, 0),
+                                    amount));
         }
     }
 
@@ -1110,8 +1119,9 @@ void DrainCharacterRealmSpellPoints(int party_slot, W8SpellRealm realm, unsigned
     }
 
     if (g_status.world_suspended) {
-        PostCharacterNotice(party_slot, gppStringList[0x262], amount,
-                            gppStringList[g_realm_message_offsets[realm]]);
+        PostCharacterNotice(party_slot,
+                            fmt::sprintf(g_localized_strings[0x262], amount,
+                                         g_localized_strings[g_realm_message_offsets[realm]]));
         return;
     }
 
@@ -1126,8 +1136,9 @@ void DrainCharacterRealmSpellPoints(int party_slot, W8SpellRealm realm, unsigned
     }
     SpendCharacterSpellPoints(party_slot, realm, amount);
     if (announce) {
-        ShowNoticef(W8_FONT_PALETTE_WHITE, gppStringList[0x263], amount,
-                    gppStringList[g_realm_message_offsets[realm]]);
+        ShowNotice(W8_FONT_PALETTE_WHITE,
+                   fmt::sprintf(g_localized_strings[0x263], amount,
+                                g_localized_strings[g_realm_message_offsets[realm]]));
     }
 }
 

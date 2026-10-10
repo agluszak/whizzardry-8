@@ -1,3 +1,4 @@
+#include <string>
 #ifndef WIZ8_LAYOUTS_SCREEN_STATE_H
 #define WIZ8_LAYOUTS_SCREEN_STATE_H
 
@@ -27,7 +28,6 @@ struct W8ScreenStateHandlers {
     unsigned char (*finalize)(void);
 };
 
-W8_ABI_ASSERT(sizeof(W8ScreenStateHandlers) == 0x14, "W8ScreenStateHandlers_size");
 
 /* The current and pending screen records begin at the two globals whose first
    dwords the reviewed setters address directly. One storage object preserves
@@ -49,9 +49,8 @@ struct W8ScreenStateRuntime {
        camp opens without an identify/use-item handoff. Not the entry mode —
        that lives on W8CampScreenState::item_action. */
     struct W8Character* parameter_4;
-    char name[0x80]; /* 0x18 */
+    std::string name;
 };
 
-W8_ABI_ASSERT(sizeof(W8ScreenStateRuntime) == 0x98, "W8ScreenStateRuntime_must_be_0x98");
 
 #endif

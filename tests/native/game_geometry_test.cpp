@@ -1,4 +1,10 @@
 #include "surrender/srBoundingBox.h"
+#include "surrender/srMaterial.h"
+#include "wiz8/engine_code/3d.h"
+#include "wiz8/engine_code/stLight.hpp"
+#include "wiz8/engine_code/stMeshModel.h"
+#include "wiz8/engine_code/stModelInstance.h"
+#include "wiz8/sr_api.h"
 #include "wiz8/direction_angles.h"
 #include "wiz8/engine_code/GDCamera.h"
 #include "wiz8/engine_code/GameData.h"
@@ -9,6 +15,7 @@
 #include <glm/gtc/constants.hpp>
 #include <array>
 #include <cmath>
+#include <limits>
 #include <cstdio>
 #include <cstdlib>
 
@@ -34,6 +41,9 @@ static void bounds()
     CHECK(box.minimum == glm::vec3(-4, 2, -7));
     CHECK(box.maximum == glm::vec3(-1, 8, -1));
     CHECK(box.center() == glm::vec3(-2.5f, 5, -4));
+    CHECK(box.contains({-4, 2, -7}) && !box.contains({0, 5, -4}));
+    CHECK(box.overlaps({{-1, 8, -1}, {2, 9, 1}}));
+    CHECK(!box.overlaps({{0, 2, -7}, {1, 8, -1}}));
     const auto matrix = glm::translate(glm::mat4(1), glm::vec3(10, 20, 30)) *
                         glm::eulerAngleY(glm::half_pi<float>());
     const auto rotated = box.transformed(matrix);
@@ -127,10 +137,125 @@ static void camera_and_throw()
               {center.z, center.y, -center.x}, 0.01f));
 }
 
+static void linked_mesh_bounds()
+{
+    stMeshModel mesh(0, 2);
+    auto* vertices = mesh.getVertexLoc();
+    vertices[0] = srVector3(2, 3, 4);
+    vertices[1] = srVector3(4, 5, 6);
+    auto* linked = new stMeshModel(0, 2);
+    linked->getVertexLoc()[0] = srVector3(6, 7, 8);
+    linked->getVertexLoc()[1] = srVector3(8, 9, 10);
+    mesh.AddPart(std::unique_ptr<stMeshModel>(linked));
+    mesh.AddPart(std::make_unique<stMeshModel>(0, 0));
+    linked->CalculateLinkedBounds();
+    for (auto* member = &mesh; member; member = member->Next()) {
+        CHECK(member->bounds_minimum == srVector3(2, 3, 4));
+        CHECK(member->bounds_maximum == srVector3(8, 9, 10));
+        CHECK(member->bounds_center == srVector3(5, 6, 7));
+        CHECK(std::abs(member->bounds_radius - std::sqrt(27.0f)) < 1e-5f);
+    }
+    // Replacing all positions with negative values must not expand the box to the origin.
+    for (auto* member = &mesh; member; member = member->Next()) {
+        for (auto& vertex : std::span(member->getVertexLoc(), member->vertex_location_count))
+            vertex = -vertex;
+        member->setDirtyAll();
+    }
+    mesh.CalculateLinkedBounds();
+    CHECK(mesh.bounds_minimum == srVector3(-8, -9, -10));
+    CHECK(mesh.bounds_maximum == srVector3(-2, -3, -4));
+    CHECK(mesh.findClosestVertex({-3, -4, -5}) == 0); // Equal distances choose the first vertex.
+    stMeshModel zero(0, 2);
+    zero.scaleToMaxRadius(10);
+    zero.scaleToAverageRadius(10);
+    CHECK(zero.getVertexLoc()[0] == srVector3(0, 0, 0));
+    CHECK(zero.getMaxRadius() == 0);
+}
+
+static void baked_lighting()
+{
+    auto material = std::make_shared<srMaterial>();
+    material->parms.diffuse = glm::vec4(0.5f, 1, 0.25f, 1);
+    auto model = std::make_shared<stMeshModel>(0, 2);
+    auto& mesh = *model;
+    mesh.getVertexLoc()[0] = srVector3(1, 0, 0);
+    mesh.getVertexLoc()[1] = srVector3(2, 0, 0);
+    const auto normal = glm::normalize(glm::vec3(1, 1, 0));
+    mesh.getVertexNormal()[0] = normal;
+    mesh.getVertexNormal()[1] = normal;
+    mesh.setMaterial(material, 0, srMeshModel::SIDE_FRONT);
+    stModelInstance instance(nullptr);
+    instance.setModel(model);
+    instance.setLocation(10, 0, 0);
+    instance.setScale(srVector3T<double>(2, 1, 1));
+    instance.setRotation(0, glm::half_pi<double>(), 0);
+    struct TestLight : stLight {
+        using stLight::stLight;
+        ~TestLight() override = default;
+    };
+    TestLight light(nullptr);
+    light.diffuse = glm::vec3(1, 0.5f, 1);
+    light.setLocation(10, 4, -2);
+    light.setLinearAttenuation(10, 1.0f / 511);
+    light.intensity = 1;
+    CHECK(BakeInstanceVertexLighting(&instance, &light, false));
+    const float first_contribution = 2 / std::sqrt(5.0f) * 0.6f;
+    const float second_contribution = 0.6f * (1 - std::sqrt(20.0f) / 10);
+    auto* colors = mesh.GetVertexLights(false, -1);
+    CHECK(close(colors[0].glmValue(), glm::vec3(0.5f, 0.5f, 0.25f) * first_contribution));
+    CHECK(close(colors[1].glmValue(), glm::vec3(0.5f, 0.5f, 0.25f) * second_contribution));
+    CHECK(mesh.vertex_lighting_ready && (mesh.flags & W8_MESH_VERTEX_LIGHTING_DIRTY));
+
+    mesh.setMaterial(nullptr, 0, srMeshModel::SIDE_FRONT);
+    colors[0].SetZero();
+    colors[1].SetZero();
+    CHECK(BakeInstanceVertexLighting(&instance, &light, false));
+    CHECK(close(colors[0].glmValue(), light.diffuse * first_contribution));
+    CHECK(close(colors[1].glmValue(), light.diffuse * second_contribution));
+    mesh.setMaterial(material, 0, srMeshModel::SIDE_FRONT);
+
+    colors[0].SetZero();
+    colors[1].SetZero();
+    const auto world_normal = glm::normalize(glm::vec3(0, 2, -1));
+    const auto position = glm::dvec3(glm::vec3(10, 0, -2) + world_normal * 0.5f);
+    light.setLocation(srVector3T<double>(position));
+    light.setLinearAttenuation(1, 1.0f / 511);
+    CHECK(BakeInstanceVertexLighting(&instance, &light, false));
+    CHECK(close(colors[0].glmValue(), glm::vec3(0.25f, 0.25f, 0.125f)));
+    CHECK(colors[1] == srVector3(0, 0, 0));
+
+    colors[0].SetZero();
+    light.setLocation(10, 0, -2); // Coincident light and vertex remain finite.
+    CHECK(BakeInstanceVertexLighting(&instance, &light, false));
+    CHECK(colors[0] == srVector3(0, 0, 0));
+    light.setName("Sun");
+    light.setLocation(srVector3T<double>(position));
+    CHECK(BakeInstanceVertexLighting(&instance, &light, true));
+    CHECK(colors[0] == srVector3(0, 0, 0));
+    glm::mat4 world;
+    instance.getWorldSpaceMatrix(world);
+    mesh.flags &= ~W8_MESH_VERTEX_LIGHTING_DIRTY;
+    mesh.RevealVerticesNear({10, 0, -2}, 0.25f, world);
+    CHECK(colors[0] == srVector3(1, 1, 1) && colors[1] == srVector3(0, 0, 0));
+    CHECK(mesh.flags & W8_MESH_VERTEX_LIGHTING_DIRTY);
+    mesh.RevealVerticesNear({10, 0, -4}, 0.25f, world);
+    CHECK(colors[0] == srVector3(1, 1, 1) && colors[1] == srVector3(1, 1, 1));
+    colors[1].SetZero();
+    mesh.RevealVerticesNear({10, 0, -4}, -1, world);
+    CHECK(colors[1] == srVector3(0, 0, 0));
+    mesh.RevealVerticesNear(glm::vec3(std::numeric_limits<float>::quiet_NaN()), 1, world);
+    CHECK(colors[1] == srVector3(0, 0, 0));
+    instance.setModel(nullptr);
+}
+
 int main()
 {
+    CHECK(srInit());
     bounds();
     planes_and_segments();
     camera_and_throw();
-    std::puts("ok: bounds, collision geometry, camera rotations and cursor throw directions");
+    linked_mesh_bounds();
+    baked_lighting();
+    CHECK(srExit());
+    std::puts("ok: bounds, camera and collision geometry, mesh radii and baked lighting");
 }

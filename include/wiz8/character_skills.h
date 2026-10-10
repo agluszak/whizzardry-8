@@ -1,3 +1,4 @@
+#include <string>
 #pragma once
 
 #include "surrender/srMath.h"
@@ -81,8 +82,7 @@ void PostSkillIncreaseNotices(const W8SkillNoticePayload* notices);
 
 /* 0x00554170: append one "race-icon Name's skill +level" clause to a notice
    buffer; when continue_line is set, insert a line break first. */
-void AppendSkillIncreaseNoticeText(wchar_t* text, unsigned int* length, int party_slot,
-                                   bool continue_line, W8Skill skill_id);
+std::string FormatSkillIncreaseNoticeText(int party_slot, bool continue_line, W8Skill skill_id);
 
 /* 0x005542E0: drain the deferred per-slot skill-increase flags into one or
    more W8_NPC_MSG_SKILL_NOTICES message-box lines. */

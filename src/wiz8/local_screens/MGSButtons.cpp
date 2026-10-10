@@ -1,4 +1,5 @@
-#include "wiz8/sgp_text.h"
+#include <fmt/format.h>
+#include <string>
 #include "wiz8/local_screens/MGSButtons.h"
 #include "wiz8/layouts/character.h"
 #include "wiz8/character_skills.h"
@@ -877,7 +878,7 @@ unsigned char SubMenuRowRegionEvent(const InputAtom* event, W8Region* region)
 {
     W8PartySlotRow* party_row;
     W8ItemInstance* item;
-    wchar_t* name;
+    std::string name;
     int slot;
 
     if (g_level_block->combat_end_notification == -1) {
@@ -911,12 +912,12 @@ unsigned char SubMenuRowRegionEvent(const InputAtom* event, W8Region* region)
             SetRegionHelpForceEnabled(true);
             slot = g_status.selected_character;
             if (!CanPartySlotUseRecordedItem(slot)) {
-                SetRegionHelpText(gppStringList[0x5d]);
+                SetRegionHelpText(g_localized_strings[0x5d]);
             } else {
                 party_row = &g_status.buffers.XChar[slot];
                 item = FindCharacterItemAt(slot, party_row->item_origin, party_row->item_slot);
                 name = FormatItemDisplayName(item, false);
-                SetRegionHelpText(FormatWideString(g_format_s_colon_s, gppStringList[0x5d], name));
+                SetRegionHelpText(fmt::format("{}: {}", g_localized_strings[0x5d], name));
             }
         }
         g_submenu_rows[region->callback_id]->OnMouseEnter(0);
@@ -934,9 +935,9 @@ void DrawSubMenuCharacterAction(void)
     W8ActionKind action;
     unsigned int monster_index;
     W8MonsterInfo* monster_info;
-    wchar_t* name;
-    wchar_t text[126];
-    wchar_t second[126];
+    std::string name;
+    std::string text;
+    std::string second;
     INT16 width;
     INT16 separator;
     INT16 trailing;
@@ -951,89 +952,87 @@ void DrawSubMenuCharacterAction(void)
     DrawCatalogImageAndInvalidate(FRAME_BUFFER, 0x7e, 0, 6, 0x157, 0x1c2, VO_BLT_SRCTRANSPARENCY,
                                   0);
     character = &g_status.buffers.Char[slot];
-    swprintf(text, L"%s - %s", character->name,
-             gppStringList[g_profession_name_message_ids[character->iProfession]]);
-    gprintfDirty((0xb9 - StringPixLength(text, g_smfnt_font)) / 2 + 0x157, 0x1c6,
-                 Wiz8ToSgpWideText(g_format_s), text);
+    text = fmt::format("{} - {}", character->name,
+                       g_localized_strings[g_profession_name_message_ids[character->iProfession]]);
+    DrawFontTextDirty((0xb9 - StringPixLength(text, g_smfnt_font)) / 2 + 0x157, 0x1c6, text);
     if (!gXStatus.fCombatMode) {
         if (character->highest_condition == W8_CONDITION_NONE) {
             return;
         }
-        swprintf(text, L"%s",
-                 gppStringList[g_condition_notices[character->highest_condition].name]);
+        text = g_localized_strings[g_condition_notices[character->highest_condition].name];
     } else {
         action = row->action;
         switch (action) {
         case W8_ACTION_CAST_SPELL:
-            swprintf(text, L"%s - %s (%d)", gppStringList[g_action_kind_message_ids[7]],
-                     g_spell_records[row->action_detail0].display_name,
-                     row->action_detail1.spell.power_level);
+            text = fmt::format("{} - {} ({:d})", g_localized_strings[g_action_kind_message_ids[7]],
+                               g_spell_records[row->action_detail0].display_name,
+                               row->action_detail1.spell.power_level);
             break;
         case W8_ACTION_USE_ITEM:
-            swprintf(
-                text, L"%s - %s", gppStringList[g_action_kind_message_ids[8]],
+            text = fmt::format(
+                "{} - {}", g_localized_strings[g_action_kind_message_ids[8]],
                 g_spell_records[g_item_records[row->action_detail1.item_use.item->iItemNo].spell_id]
                     .display_name);
             break;
         case W8_ACTION_ATTACK:
-            swprintf(text, L"%s - ", gppStringList[g_action_kind_message_ids[0]]);
+            text = fmt::format("{} - ", g_localized_strings[g_action_kind_message_ids[0]]);
             if (character->Hand[0].in_play) {
                 if (character->EquippedItem[W8_EQUIP_SLOT_PRIMARY_WEAPON].iItemNo == -1) {
-                    wcscat(text, gppStringList[0x5b8]);
+                    text += g_localized_strings[0x5b8];
                 } else {
-                    wcscat(text,
-                           gppStringList[g_generic_item_name_notice[GetItemUnidentifiedNameIndex(
-                               &character->EquippedItem[W8_EQUIP_SLOT_PRIMARY_WEAPON])]]);
+                    text += g_localized_strings[g_generic_item_name_notice[GetItemUnidentifiedNameIndex(
+                               &character->EquippedItem[W8_EQUIP_SLOT_PRIMARY_WEAPON])]];
                 }
             }
             if (!character->Hand[1].in_play) {
                 if (!character->Hand[0].in_play) {
-                    wcscat(text, gppStringList[0x5b8]);
+                    text += g_localized_strings[0x5b8];
                 }
             } else {
                 if (character->EquippedItem[W8_EQUIP_SLOT_SECONDARY_WEAPON].iItemNo == -1) {
-                    swprintf(second, L"%s", gppStringList[0x5b8]);
+                    second = g_localized_strings[0x5b8];
                 } else {
-                    swprintf(second, L"%s",
-                             gppStringList[g_generic_item_name_notice[GetItemUnidentifiedNameIndex(
-                                 &character->EquippedItem[W8_EQUIP_SLOT_SECONDARY_WEAPON])]]);
+                    second =
+                        g_localized_strings[g_generic_item_name_notice[GetItemUnidentifiedNameIndex(
+                            &character->EquippedItem[W8_EQUIP_SLOT_SECONDARY_WEAPON])]];
                 }
                 if (!character->Hand[0].in_play) {
-                    wcscat(text, second);
+                    text += second;
                 } else {
                     width = StringPixLength(text, g_smfnt_font);
-                    separator = StringPixLength(L"/)", g_smfnt_font);
+                    separator = StringPixLength("/)", g_smfnt_font);
                     trailing = StringPixLength(second, g_smfnt_font);
                     if (static_cast<unsigned int>(trailing + width + separator) < 0xb9) {
-                        wcscat(text, L"/");
-                        wcscat(text, second);
+                        text += "/";
+                        text += second;
                     }
                 }
             }
             break;
         case W8_ACTION_PROTECT:
             if (row->target_in_combat.iType == W8_TARGET_KIND_CHARACTER) {
-                swprintf(text, L"%s - %s", gppStringList[g_action_kind_message_ids[5]],
-                         g_status.buffers.Char[row->target_in_combat.iChar].name);
+                text = fmt::format("{} - {}", g_localized_strings[g_action_kind_message_ids[5]],
+                                   g_status.buffers.Char[row->target_in_combat.iChar].name);
             } else if (row->target_in_combat.iType == W8_TARGET_KIND_MONSTER) {
                 monster_index = MonsterGetIndexByLocationID(0x7ed, MGSBUTTONS_CPP,
                                                             row->target_in_combat.iMonsterID, true);
                 monster_info = MonsterGetScriptPartByLocationIndex(monster_index);
                 name = GetMonsterName(monster_info, 0, 0);
-                swprintf(text, L"%s - %s", gppStringList[g_action_kind_message_ids[5]], name);
+                text =
+                    fmt::format("{} - {}", g_localized_strings[g_action_kind_message_ids[5]], name);
             } else {
-                swprintf(text, L"%s ", gppStringList[g_action_kind_message_ids[5]]);
+                text = fmt::format("{} ", g_localized_strings[g_action_kind_message_ids[5]]);
             }
             break;
         case W8_ACTION_NONE:
-            wcscpy(text, gppStringList[0x7e1]);
+            text = g_localized_strings[0x7e1];
             break;
         default:
-            swprintf(text, L"%s ", gppStringList[g_action_kind_message_ids[action]]);
+            text = fmt::format("{} ", g_localized_strings[g_action_kind_message_ids[action]]);
             break;
         }
     }
-    gprintfDirty((0xb9 - StringPixLength(text, g_smfnt_font)) / 2 + 0x157, 0x1d1, text);
+    DrawFontTextDirty((0xb9 - StringPixLength(text, g_smfnt_font)) / 2 + 0x157, 0x1d1, text);
 }
 
 /* Enable the fight/review panel buttons from combat engagement and mode

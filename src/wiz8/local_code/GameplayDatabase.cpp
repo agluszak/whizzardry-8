@@ -1,3 +1,6 @@
+#include <fmt/format.h>
+#include "wiz8/unicode.h"
+#include "wiz8/retail_text_records.h"
 #include "wiz8/containers.h"
 #include "wiz8/layouts/screen_state.h"
 #include "wiz8/local_screens/Screens.h"
@@ -84,7 +87,7 @@ W8NpcDatabaseRecord* g_npc_records;
 // GLOBAL: WIZ8 0x006836B0
 W8ItemTableRecord* g_item_tables;
 // GLOBAL: WIZ8 0x006836B4
-std::array<char, 0x100>* g_item_table_category_names;
+std::string* g_item_table_category_names;
 // GLOBAL: WIZ8 0x0065BE1C
 W8SpellRuntimeRecord* g_spell_records;
 // GLOBAL: WIZ8 0x0065BE18
@@ -93,7 +96,7 @@ unsigned int g_spell_database_version;
 
 namespace {
 std::unique_ptr<W8ItemDatabaseRecord[]> item_records;
-std::vector<std::array<char, 0x100>> item_table_categories;
+std::vector<std::string> item_table_categories;
 std::vector<W8ItemTableRecord> item_tables;
 }
 
@@ -104,11 +107,11 @@ try
     auto handle = wiz8::open_file("Data\\Databases\\Items.DBS", wiz8::OpenMode::read);
     unsigned int count;
     handle->read_exact(&count, sizeof(count));
-    if (count > (handle->size() - handle->tell()) / std::int64_t(sizeof(W8ItemDatabaseRecord))) {
+    if (count > (handle->size() - handle->tell()) / std::int64_t(wiz8::retail::kItemDatabaseRecordBytes)) {
         return false;
     }
     auto records = count ? std::make_unique<W8ItemDatabaseRecord[]>(count) : nullptr;
-    handle->read_exact(records.get(), std::size_t(count) * sizeof(W8ItemDatabaseRecord));
+    for (unsigned i = 0; i < count; ++i) wiz8::retail::read_exact(*handle, records[i]);
     item_records = std::move(records);
     g_item_records = item_records.get();
     gXStatus.uiItemsInDatabase = count;
@@ -130,12 +133,13 @@ try
         category_count > (remaining - std::int64_t(sizeof(unsigned int))) / 0x100) {
         return false;
     }
-    std::vector<std::array<char, 0x100>> categories(category_count);
-    handle->read_exact(categories.data(), categories.size() * sizeof(categories[0]));
+    std::vector<std::string> categories(category_count);
     for (auto& category : categories) {
-        if (std::find(category.begin(), category.end(), '\0') == category.end()) {
-            return false;
-        }
+        std::array<char, 256> bytes;
+        handle->read_exact(bytes.data(), bytes.size());
+        auto end = std::find(bytes.begin(), bytes.end(), '\0');
+        if (end == bytes.end()) return false;
+        category.assign(bytes.begin(), end);
     }
 
     unsigned int table_count;
@@ -171,15 +175,11 @@ try
                      0);
     }
     auto handle = wiz8::open_file("Data\\Databases\\Monsters.DBS", wiz8::OpenMode::read);
-    handle->seek(std::int64_t(uiMonsterIndex) * std::int64_t(sizeof(*record)) + 4, wiz8::SeekOrigin::begin);
+    handle->seek(std::int64_t(uiMonsterIndex) * std::int64_t(wiz8::retail::kMonsterRecordBytes) + 4, wiz8::SeekOrigin::begin);
     W8MonsterRecord loaded;
-    handle->read_exact(&loaded, sizeof(loaded));
-    for (auto* name : {loaded.name0, loaded.name1, loaded.name2, loaded.name3}) {
-        if (std::find(name, name + std::size(loaded.name0), L'\0') == name + std::size(loaded.name0)) {
-            return false;
-        }
-        StripMonsterNameSuffix(name);
-    }
+    wiz8::retail::read_exact(*handle, loaded);
+    for (auto* name : {&loaded.name0, &loaded.name1, &loaded.name2, &loaded.name3})
+        StripMonsterNameSuffix(*name);
     *record = loaded;
     return true;
 }
@@ -223,17 +223,12 @@ try
     unsigned int count;
     handle->read_exact(&count, sizeof(count));
     if (count > std::size(gXStatus.monster_record_cache) ||
-        count > (handle->size() - handle->tell()) / std::int64_t(sizeof(W8MonsterRecord))) {
+        count > (handle->size() - handle->tell()) / std::int64_t(wiz8::retail::kMonsterRecordBytes)) {
         return false;
     }
     if (records) {
-        const auto bytes = std::size_t(count) * sizeof(W8MonsterRecord);
-        std::unique_ptr<W8MonsterRecord, decltype(&free)> block(
-            count ? static_cast<W8MonsterRecord*>(malloc(bytes)) : nullptr, &free);
-        if (count && !block) {
-            return false;
-        }
-        handle->read_exact(block.get(), bytes);
+        auto block = std::make_unique<W8MonsterRecord[]>(count);
+        for (unsigned i = 0; i < count; ++i) wiz8::retail::read_exact(*handle, block[i]);
         *records = block.release();
     }
     gXStatus.uiMonstersInDatabase = count;
@@ -254,14 +249,14 @@ try
         srAssertFail("uiStartIndex <= uiEndIndex", GAMEPLAY_DATABASE_CPP, 0x17b, 0);
     }
     auto handle = wiz8::open_file("Data\\Databases\\Monsters.DBS", wiz8::OpenMode::read);
-    handle->seek(std::int64_t(uiStartIndex) * std::int64_t(sizeof(*records)) + 4, wiz8::SeekOrigin::begin);
+    handle->seek(std::int64_t(uiStartIndex) * std::int64_t(wiz8::retail::kMonsterRecordBytes) + 4, wiz8::SeekOrigin::begin);
     const auto count = std::size_t(uiEndIndex) - uiStartIndex + 1;
     const auto remaining = handle->size() - handle->tell();
-    if (remaining < 0 || count > std::uint64_t(remaining) / sizeof(*records)) {
+    if (remaining < 0 || count > std::uint64_t(remaining) / wiz8::retail::kMonsterRecordBytes) {
         return false;
     }
     std::vector<W8MonsterRecord> loaded(count);
-    handle->read_exact(loaded.data(), loaded.size() * sizeof(*records));
+    for (auto& record : loaded) wiz8::retail::read_exact(*handle, record);
     std::copy(loaded.begin(), loaded.end(), records);
     return true;
 }
@@ -280,7 +275,7 @@ void DestroyNpcDatabase(void)
                 g_npc_records[index].item_stock_rules = 0;
             }
         }
-        free(g_npc_records);
+        delete[] g_npc_records;
         g_npc_records = 0;
     }
     gXStatus.uiNpcsInDatabase = 0;

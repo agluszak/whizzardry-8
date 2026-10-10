@@ -1,3 +1,5 @@
+#include <string_view>
+#include <string>
 #pragma once
 
 #include "wiz8/engine_code/Quality.h"
@@ -34,7 +36,6 @@ public:
     Listener* m_listener;
 };
 
-W8_ABI_ASSERT(sizeof(W8OptionsTextEditor) == 8, "W8OptionsTextEditor_size");
 
 class W8OptionsKeyCapture {
 public:
@@ -63,7 +64,6 @@ public:
     W8OptionsSaveRowListener* m_save_listener;
 };
 
-W8_ABI_ASSERT(sizeof(W8OptionsSaveRow) == 0xc4, "W8OptionsSaveRow_size");
 
 /* The settings transfer routines at 005A6E20/005A72F0/005A7320 share this
    receiver. The trailing direction flag is part of the record, not a global.
@@ -103,7 +103,6 @@ struct W8OptionsValues {
     int applying;
 };
 
-W8_ABI_ASSERT(sizeof(W8OptionsValues) == 0x90, "W8OptionsValues_size");
 extern W8OptionsValues g_options_values;
 
 /* A set of option panels; it owns the panels in its vector. */
@@ -123,7 +122,6 @@ public:
     std::vector<W8OptionsPanel*> m_panels;
 };
 
-W8_ABI_ASSERT(sizeof(W8OptionsPanelSet) == 0x20, "W8OptionsPanelSet_must_be_0x20");
 
 /* Widgets bound to an option value; their input handlers store through the
    value pointer. */
@@ -153,9 +151,6 @@ public:
     int* m_value;
 };
 
-W8_ABI_ASSERT(sizeof(W8OptionsCheckbox) == 0xbc, "W8OptionsCheckbox_size");
-W8_ABI_ASSERT(sizeof(W8OptionsSlider) == 0x74, "W8OptionsSlider_size");
-W8_ABI_ASSERT(sizeof(W8OptionsSelection) == 0x28, "W8OptionsSelection_size");
 
 /* Common base of the concrete option panels. */
 // VTABLE: WIZ8 0x005eefa8
@@ -179,7 +174,6 @@ public:
     std::vector<W8OptionsSelection*> m_option_selections;
 };
 
-W8_ABI_ASSERT(sizeof(W8OptionsPanel) == 0x78, "W8OptionsPanel_must_be_0x78");
 
 // VTABLE: WIZ8 0x005ef174
 class W8OptionsGamePanel : public W8OptionsPanel {
@@ -247,7 +241,7 @@ public:
 // VTABLE: WIZ8 0x005eee80
 class W8OptionsButton : public W8TextControl {
 public:
-    W8OptionsButton(Controls* owner, int left, int top, int right, int bottom, const wchar_t* text);
+    W8OptionsButton(Controls* owner, int left, int top, int right, int bottom, std::string_view text);
     virtual void Redraw(bool full_redraw) override;
     virtual void OnMouseEnter(int event) override;
     virtual void OnMouseLeave(int event) override;
@@ -266,8 +260,6 @@ public:
     W8MGSCommand m_secondary_binding;
 };
 
-W8_ABI_ASSERT(sizeof(W8OptionsButton) == 0xb8, "W8OptionsButton_size");
-W8_ABI_ASSERT(sizeof(W8OptionsKeyButton) == 0xc0, "W8OptionsKeyButton_size");
 
 // VTABLE: WIZ8 0x005ef034 W8OptionsPanel
 // VTABLE: WIZ8 0x005ef02c W8TextControl::Listener
@@ -334,15 +326,10 @@ public:
     W8ControlSelection m_selection;
     W8TextControl* m_delete_button;
     W8TextControl* m_action_button;
-    wchar_t m_previous_name[64];
+    std::string m_previous_name;
     int m_editing_row;
 };
 
-W8_ABI_ASSERT(sizeof(W8OptionsInterfacePanel) == 0x84, "W8OptionsInterfacePanel_size");
-W8_ABI_ASSERT(sizeof(W8OptionsAudioPanel) == 0xa0, "W8OptionsAudioPanel_size");
-W8_ABI_ASSERT(sizeof(W8OptionsGraphicsPanel) == 0x7c, "W8OptionsGraphicsPanel_size");
-W8_ABI_ASSERT(sizeof(W8OptionsKeyboardPanel) == 0xb4, "W8OptionsKeyboardPanel_size");
-W8_ABI_ASSERT(sizeof(W8OptionsSaveLoadPanel) == 0x150, "W8OptionsSaveLoadPanel_size");
 W8_ASSERT_BASE_END(W8OptionsInterfacePanel, W8TextControl::Listener, m_tooltip_delay, 0x7c);
 W8_ASSERT_BASE_END(W8OptionsAudioPanel, W8TextControl::Listener, m_sliders, 0x7c);
 W8_ASSERT_BASE_TAIL(W8OptionsGraphicsPanel, W8HorizontalRangeThumbListener, 0x78);
@@ -358,7 +345,6 @@ struct W8OptionsMenuRow {
     W8ControlsRect bounds;
     int image_indices[5];
 };
-W8_ABI_ASSERT(sizeof(W8OptionsMenuRow) == 0x48, "W8OptionsMenuRow_must_be_0x48");
 
 /* Inclusive range of CreateOptionsPanel indices shown by one menu item. */
 struct W8OptionsPanelRange {
@@ -379,7 +365,6 @@ public:
     int m_item_id;
 };
 
-W8_ABI_ASSERT(sizeof(W8OptionsMenuButton) == 0xc0, "W8OptionsMenuButton_must_be_0xc0");
 W8_ASSERT_BASE_END(W8OptionsMenuButton, W8TextControl::Listener, m_item_id, 0xb8);
 
 /* The options menu: its rows and the panel set they select. */
@@ -400,7 +385,6 @@ public:
     void UpdateMenuSet();
 };
 
-W8_ABI_ASSERT(sizeof(W8OptionsMenuSet) == 0x60, "W8OptionsMenuSet_must_be_0x60");
 W8_ASSERT_BASE_END(W8OptionsMenuSet, W8TextControl::Listener, m_pMenuSet, 0x4c);
 
 // VTABLE: WIZ8 0x005ef008 W8ControlSelectionListener
@@ -418,7 +402,7 @@ public:
     void Redraw();
     void ShowNotification(W8DialogCloseListener* listener, bool allow_cancel, int message,
                           int value);
-    void BeginSaveNameEdit(W8OptionsTextEditor::Listener* listener, int row, const wchar_t* text);
+    void BeginSaveNameEdit(W8OptionsTextEditor::Listener* listener, int row, std::string_view text);
     virtual void OnSelectionChanged(W8ControlSelection* control, int selected) override;
     virtual void OnPrimary(W8TextControl* control) override;
     virtual void OnSecondary(W8TextControl*) override {}
@@ -439,18 +423,16 @@ public:
     W8OptionsKeyCapture* m_key_capture;
 };
 
-W8_ABI_ASSERT(sizeof(W8OptionsScreen) == 0x64, "W8OptionsScreen_must_be_0x64");
 W8_ASSERT_BASE_END(W8OptionsScreen, W8DialogCloseListener, m_save_slots, 0x8);
 
 extern W8OptionsScreen* g_options_screen;
-extern wchar_t g_options_last_save_name[64];
+extern std::string g_options_last_save_name;
 
-void SetLastSaveName(const wchar_t* target);
-wchar_t* GetLastSaveName(void);
+void SetLastSaveName(std::string_view target);
+std::string_view GetLastSaveName(void);
 
 unsigned char OptionsScreenInitialize(void);
 unsigned char OptionsScreenEnter(void);
 void OptionsScreenFrame(void);
 unsigned char OptionsScreenLeave(int leaving);
 unsigned char OptionsScreenFinalize(void);
-extern wchar_t g_empty_wide_string;

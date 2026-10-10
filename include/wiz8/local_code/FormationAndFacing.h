@@ -5,6 +5,7 @@
 
 struct W8MonsterInfo;
 struct W8CombatSlot;
+struct W8PartySlotRow;
 
 unsigned int TurnPartyTo(unsigned int degrees);
 void TurnPartyToImmediate(unsigned int degrees, char snap);
@@ -16,7 +17,7 @@ extern const float g_facing_tolerance0;
 
 signed char DecideFacingForPosition(int position, int target_position);
 
-void RebuildPartyStatus(W8PartyFormationState* status);
+void RebuildPartyStatus(W8PartyFormationState* status, const W8PartySlotRow* party_rows);
 
 /* Turn the position's formation facing toward the second position
    the way DecideFacingForPosition resolved it. */

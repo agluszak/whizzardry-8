@@ -1,3 +1,8 @@
+#include <fmt/format.h>
+#include <fmt/printf.h>
+#include "wiz8/unicode.h"
+#include <string_view>
+#include "wiz8/retail_text_records.h"
 #include "wiz8/containers.h"
 #include "wiz8/compat/debug_heap.h"
 #include "wiz8/engine_code/AmbientSound.h"
@@ -142,27 +147,19 @@ static unsigned int g_save_filetime_xor_high = 0xe77c28c1;
    characters are being supplied by an archive, a flagged slot or the external
    character sentinel keeps the caller's name unqualified. */
 // FUNCTION: WIZ8 0x00514fa0
-void BuildCharacterFilePath(char* destination, const char* filename, int slot)
+std::string BuildCharacterFilePath(std::string_view filename, int slot)
 {
-    char directory[260];
-
-    if (!g_status.game_started) {
-        strcpy(directory, slot == -1 ? "Saves\\Characters" : "Saves\\NPCs");
-        sprintf(destination, "%s\\%s", directory, filename);
-        return;
-    }
-    if (slot != -1 && !g_status.flags[slot]) {
-        sprintf(destination, "%s\\%s", "Saves\\NPCs", filename);
-        return;
-    }
-    strcpy(destination, filename);
+    if (!g_status.game_started)
+        return fmt::format("{}\\{}", slot == -1 ? "Saves\\Characters" : "Saves\\NPCs", filename);
+    if (slot != -1 && !g_status.flags[slot])
+        return fmt::format("Saves\\NPCs\\{}", filename);
+    return std::string(filename);
 }
 
 // FUNCTION: WIZ8 0x00514ec0
-void BuildCharacterPath(char* destination, const wchar_t* name, int slot)
+std::string BuildCharacterPath(std::string_view name, int slot)
 {
-    const std::string filename = std::string(ConvertWideStringToString(name)) + ".CHR";
-    BuildCharacterFilePath(destination, filename.c_str(), slot);
+    return BuildCharacterFilePath(fmt::format("{}.CHR", name), slot);
 }
 
 /* Loads one character record, either from a loose file under Saves\Characters
@@ -174,25 +171,25 @@ void BuildCharacterPath(char* destination, const wchar_t* name, int slot)
    length and then that many bytes. A short or failed second read leaves the
    record cleared and reports failure, and the file is closed either way. */
 // FUNCTION: WIZ8 0x005152b0
-bool LoadCharacter(const char* name, W8Character* character, int slot, bool report_failure)
+bool LoadCharacter(std::string_view name, W8Character* character, int slot, bool report_failure)
 try
 {
-    char path[260];
+    std::string path;
     bool loaded = false;
 
     try {
-        BuildCharacterFilePath(path, name, slot);
+        path = BuildCharacterFilePath(name, slot);
         if (g_status.game_started && (slot == -1 || g_status.flags[slot] != 0)) {
             loaded = LoadCharacterFromCurrentGame(path, character);
         } else {
             auto handle = wiz8::open_file(path);
-            memset(character, 0, sizeof(*character));
+            *character = {};
             unsigned int size;
             handle->read_exact(&size, sizeof(size));
             if (size <= W8_CHARACTER_SERIALIZED_SIZE) {
                 W8Character saved{};
-                handle->read_exact(&saved, size);
-                memcpy(character, &saved, sizeof(saved));
+                wiz8::retail::read_exact(*handle, saved, size);
+                *character = std::move(saved);
                 loaded = true;
             }
         }
@@ -203,7 +200,7 @@ try
         return true;
     }
     if (report_failure) {
-        CreateMessageBox(FormatWideString(gppStringList[W8_NOTICE_CHARACTER_LOAD_FAILED], name),
+        CreateMessageBox(fmt::sprintf(g_localized_strings[W8_NOTICE_CHARACTER_LOAD_FAILED], name),
                          g_small_font, 1, true, false, 0);
     }
     return false;
@@ -283,7 +280,7 @@ try
                 chunks.Close();
                 if (has_status && !status.flag && !status.endgame_started) {
                     const auto stem = name.substr(0, name.find_last_of('.'));
-                    swprintf(slot->name, L"%hs", stem.c_str());
+                    slot->name = stem;
                     const auto local_time = wiz8::file_time_with_legacy_local_bias(
                         wiz8::file_time_from_sdl(metadata->info.modify_time), utc_offset);
                     slot->local_write_time = local_time;
@@ -315,11 +312,11 @@ catch (const std::exception&) { return false; }
    saved level before it commits to the full load, so every other top-level
    chunk is skipped and released without being materialized. */
 // FUNCTION: WIZ8 0x00512290
-int GetSaveGameLevel(const char* slot_name)
+int GetSaveGameLevel(std::string_view slot_name)
 try
 {
     W8Chunk chunks;
-    char path[260];
+    std::string path;
     W8GlobalStatus status{};
     W8Character characters[8]{};
     W8PartySlotRow party_rows[8]{};
@@ -328,7 +325,7 @@ try
     int count;
     int index;
 
-    sprintf(path, "%s\\%s.%s", "Saves", slot_name, g_save_extension);
+    path = fmt::format("{}\\{}.{}", "Saves", slot_name, g_save_extension);
     if (chunks.OpenRead(path)) {
         count = chunks.ChunkCount();
         for (index = 0; index < count; ++index) {
@@ -362,7 +359,7 @@ catch (const std::exception&) { return 0; }
 // FUNCTION: WIZ8 0x005123F0
 
 
-bool SaveGame(const char* name, W8SaveScreenshot* screenshot)
+bool SaveGame(std::string_view name, W8SaveScreenshot* screenshot)
 try
 {
     W8Chunk chunks;
@@ -372,7 +369,7 @@ try
     wiz8::DiskFileTime access_time;
     wiz8::DiskFileTime write_time;
     std::unique_ptr<srColorSurface> surface;
-    char path[260];
+    std::string path;
     bool generated;
     short cursor;
     int saved;
@@ -382,11 +379,11 @@ try
     int region;
     unsigned int index;
 
-    sprintf(path, "%s\\%s.%s", "Saves", name, g_save_extension);
+    path = fmt::format("{}\\{}.{}", "Saves", name, g_save_extension);
     if (!chunks.OpenWrite(path)) {
         return false;
     }
-    if (_stricmp(name, "CurrentGame") != 0 &&
+    if (CompareTextIgnoreAsciiCase(name, "CurrentGame") != 0 &&
         current_game.OpenRead("Saves\\CurrentGame.SAV") != 0) {
         ReadSaveChunks(&current_game, &chunks);
         current_game.Close();
@@ -496,25 +493,13 @@ catch (const std::exception&) { return false; }
    ten slots as test levels. The recovered units disagree exactly as retail
    does; no non-OOB branch exists at the call site. */
 // FUNCTION: WIZ8 0x00512e80
-void BuildLevelStatusPath(char* path, unsigned int level)
+std::string BuildLevelStatusPath(unsigned int level)
 {
-    W8LevelInfo info;
-
-    if (!LevelBuildInfoByID(level, &info)) {
-        srAssertFail("LevelFilesExist(ulLevel, &LevelName)",
-                     "C:\\Projects\\Wizardry 8\\Local Code\\LoadSaveGame.cpp", 870, 0);
-    }
-    *strchr(info.level_file_name, '.') = '\0';
-    if (level < 57) {
-        if (level == 56) {
-            sprintf(path, "%s\\Test\\DefaultLevel.%s", "Levels", "STS");
-        } else {
-            sprintf(path, "%s\\%s\\%s.%s", "Levels", g_level_folders[level].folder_name,
-                    g_level_folders[level].level_name, "STS");
-        }
-    } else {
-        sprintf(path, "%s\\Test\\Level%c.%s", "Levels", level - 56, "STS");
-    }
+    if (level == 56) return "Levels\\Test\\DefaultLevel.STS";
+    if (level < 56)
+        return fmt::format("Levels\\{}\\{}.STS", g_level_folders[level].folder_name,
+                           g_level_folders[level].level_name);
+    return fmt::format("Levels\\Test\\Level{:c}.STS", static_cast<char>(level - 56));
 }
 
 /* Reads and validates the header, then publishes the four counts and the block
@@ -552,7 +537,11 @@ try
     if (header.next_trigger_id == 0) {
         g_status.next_trigger_id = 1;
     }
-    memcpy(g_status.status_header_prefix, header.status_block, sizeof(header.status_block));
+    // The STAT payload spans three fields in the retail record. Native
+    // adjacency is not a serialization contract.
+    std::memcpy(g_status.status_header_prefix, header.status_block, sizeof(g_status.status_header_prefix));
+    std::memcpy(&g_status.uiTurnsElapsed, header.status_block + 0xd4, sizeof(g_status.uiTurnsElapsed));
+    std::memcpy(g_status.status_header_suffix, header.status_block + 0xd8, sizeof(g_status.status_header_suffix));
     return true;
 }
 catch (const std::exception&) { return false; }
@@ -574,7 +563,7 @@ try
 
         MeasureLevelStatusChunks(&chunk, g_status.current_level, &empty_percent);
         chunk.Close();
-        if (empty_percent > 0x32 && _stricmp(path, "Saves\\CurrentGame.SAV") == 0) {
+        if (empty_percent > 0x32 && CompareTextIgnoreAsciiCase(path, "Saves\\CurrentGame.SAV") == 0) {
             SaveGame("CleanUp", 0);
             if ((wiz8::copy_file("Saves\\CleanUp.SAV", "Saves\\CurrentGame.SAV", wiz8::CopyMode::replace), true)) {
                 wiz8::remove_file("Saves\\CleanUp.SAV");
@@ -616,7 +605,9 @@ try
     header.next_monster_location_id = g_status.next_monster_location_id;
     header.next_world_item_id = g_status.next_world_item_id;
     header.next_trigger_id = g_status.next_trigger_id;
-    memcpy(header.status_block, g_status.status_header_prefix, sizeof(header.status_block));
+    std::memcpy(header.status_block, g_status.status_header_prefix, sizeof(g_status.status_header_prefix));
+    std::memcpy(header.status_block + 0xd4, &g_status.uiTurnsElapsed, sizeof(g_status.uiTurnsElapsed));
+    std::memcpy(header.status_block + 0xd8, g_status.status_header_suffix, sizeof(g_status.status_header_suffix));
     chunks->m_hFile->write(&header, sizeof(header));
     chunks->ReleaseCurrentChunk();
 
@@ -1015,7 +1006,7 @@ try
 {
     W8Chunk chunk;
     W8LevelInfo info;
-    char path[260];
+    std::string path;
     int file_level;
     int count;
 
@@ -1026,13 +1017,13 @@ try
     *strchr(info.level_file_name + 4, '.') = '\0';
     if (level < 0x39) {
         if (level == 0x38) {
-            sprintf(path, "%s\\Test\\DefaultLevel.%s", "Levels", "STS");
+            path = fmt::format("{}\\Test\\DefaultLevel.{}", "Levels", "STS");
         } else {
-            sprintf(path, "%s\\%s\\%s.%s", "Levels", g_level_folders[level].folder_name,
-                    g_level_folders[level].level_name, "STS");
+            path = fmt::format("{}\\{}\\{}.{}", "Levels", g_level_folders[level].folder_name,
+                               g_level_folders[level].level_name, "STS");
         }
     } else {
-        sprintf(path, "%s\\Test\\Level%c.%s", "Levels", level - 0x38, "STS");
+        path = fmt::format("{}\\Test\\Level{:c}.{}", "Levels", level - 0x38, "STS");
     }
     if (chunk.OpenRead(path)) {
         chunk.OpenChunk(0, 0);
@@ -1505,7 +1496,7 @@ bool SaveGameExists(void)
 }
 
 /* Writes one character record back to Saves\\Characters or Saves\\NPCs. The
-   file name is the character's own wide name with a CHR extension, and the
+   file name is the character's UTF-8 name with a CHR extension, and the
    record is written as a four-byte length followed by that many bytes, which is
    the pair LoadCharacter reads back.
 
@@ -1520,42 +1511,31 @@ bool SaveCharacter(W8Character* character, int slot, bool report_failure,
                    void (*continuation)(void))
 try
 {
-    char path[260];
-    bool saved = true;
-    unsigned int size;
-    unsigned int transferred;
-    std::unique_ptr<wiz8::File> handle;
-
     character->record_version = 1;
-    BuildCharacterPath(path, character->name, slot);
-
-    if (!g_status.game_started) {
-        if ([&]() { const auto status = wiz8::file_status(path); return status && status->read_only; }() &&
-            (wiz8::clear_read_only(path), true) == 0) {
-            saved = false;
+    const auto path = BuildCharacterPath(character->name, slot);
+    bool saved;
+    try {
+        if (g_status.game_started) {
+            saved = SaveCharacterToCurrentGame(path, slot, character);
         } else {
-            handle = [&]() { try { return wiz8::open_file(path, wiz8::OpenMode::replace); } catch (const std::exception&) { return std::unique_ptr<wiz8::File>{}; } }();
-            if (handle == 0) {
-                saved = false;
-            } else {
-                size = sizeof(W8Character);
-                if ((handle->write(&size, 4), transferred = 4, true) == 0 ||
-                    (handle->write(character, sizeof(W8Character)), transferred = sizeof(W8Character), true) == 0) {
-                    saved = false;
-                }
-                if (handle) handle->close();
-                handle.reset();
-            }
+            if (const auto status = wiz8::file_status(path); status && status->read_only)
+                wiz8::clear_read_only(path);
+            auto file = wiz8::open_file(path, wiz8::OpenMode::replace);
+            const unsigned int size = wiz8::retail::kCharacterBytes;
+            file->write(&size, sizeof(size));
+            wiz8::retail::write(*file, *character);
+            file->close();
+            saved = true;
         }
-    } else {
-        saved = SaveCharacterToCurrentGame(path, slot, character);
+    } catch (const std::exception&) {
+        saved = false;
     }
     if (saved) {
         return true;
     }
     if (report_failure) {
         CreateMessageBox(
-            FormatWideString(gppStringList[W8_NOTICE_CHARACTER_SAVE_FAILED], character->name),
+            fmt::sprintf(g_localized_strings[W8_NOTICE_CHARACTER_SAVE_FAILED], character->name),
             g_small_font, 1, true, false, continuation);
         return false;
     }
@@ -1574,7 +1554,7 @@ enum { W8_SAVE_TAG_CHAR = 0x52414843, W8_SAVE_TAG_LVLS = 0x534c564c };
    the finalized RIFF is atomic; a failed replacement leaves the old save intact.
    Malformed CHAR payloads are skipped by loading and can be replaced normally. */
 // FUNCTION: WIZ8 0x005155b0
-bool MarkCurrentGameCharacterChunkConsumed(const char* path)
+bool MarkCurrentGameCharacterChunkConsumed(std::string_view path)
 try
 {
     W8Chunk chunk;
@@ -1589,7 +1569,7 @@ try
             chunk.OpenChunk(0, 0);
             if (chunk.CurrentChunkAtEnd() == 0 && chunk.CurrentChunkId() == W8_SAVE_TAG_CHAR) {
                 chunk.Read(name, 0x40, 0);
-                if (_stricmp(name, path) == 0) {
+                if (CompareTextIgnoreAsciiCase(std::string_view(name, strnlen(name, sizeof(name))), path) == 0) {
                     chunk.SetCurrentChunkAtEnd();
                     found = true;
                 }
@@ -1601,7 +1581,7 @@ try
 }
 catch (const std::exception&) { return false; }
 
-bool SaveCharacterToCurrentGame(const char* path, int /*slot*/, W8Character* character)
+bool SaveCharacterToCurrentGame(std::string_view path, int /*slot*/, W8Character* character)
 try
 {
     W8Chunk chunk;
@@ -1609,13 +1589,12 @@ try
     unsigned int size;
 
     MarkCurrentGameCharacterChunkConsumed(path);
-    strncpy(name, path, 0x3f);
-    name[0x3f] = 0;
+    wiz8::text::write_utf8_field(path, name);
     if (chunk.OpenAppend(const_cast<char*>("Saves\\CurrentGame.SAV")) != 0) {
         chunk.Write(name, 0x40, 0);
         size = W8_CHARACTER_SERIALIZED_SIZE;
         chunk.Write(&size, 4, 0);
-        chunk.Write(character, size, 0);
+        wiz8::retail::write(chunk, *character);
         chunk.Close();
         return true;
     }
@@ -1625,10 +1604,10 @@ catch (const std::exception&) { return false; }
 
 /* Load one character record from a char chunk in Saves\\CurrentGame.SAV. */
 // FUNCTION: WIZ8 0x005156c0
-bool LoadCharacterFromCurrentGame(const char* path, W8Character* character)
+bool LoadCharacterFromCurrentGame(std::string_view path, W8Character* character)
 try
 {
-    if (!path || !character) return false;
+    if (path.empty() || !character) return false;
     W8Chunk chunk;
     if (!chunk.OpenRead("Saves\\CurrentGame.SAV")) return false;
     W8Character saved{};
@@ -1641,10 +1620,10 @@ try
             unsigned size;
             chunk.m_hFile->read_exact(name, sizeof(name));
             chunk.m_hFile->read_exact(&size, sizeof(size));
-            if (memchr(name, '\0', sizeof(name)) && _stricmp(name, path) == 0 &&
+            if (memchr(name, '\0', sizeof(name)) && CompareTextIgnoreAsciiCase(name, path) == 0 &&
                 size <= W8_CHARACTER_SERIALIZED_SIZE && size <= unsigned(chunk.CurrentChunkExtent() - 68)) {
                 saved = {};
-                chunk.m_hFile->read_exact(&saved, size);
+                wiz8::retail::read_exact(*chunk.m_hFile, saved, size);
                 found = true;
             }
         }
@@ -1699,10 +1678,9 @@ char g_save_extension[] = "SAV";
 // FUNCTION: WIZ8 0x00515920
 void DeleteCurrentSaveFiles(void)
 {
-    char path[260];
+    std::string path;
 
-    sprintf(path, "%s\\%s.%s", "Saves", ConvertWideStringToString(GetLastSaveName()),
-            g_save_extension);
+    path = fmt::format("{}\\{}.{}", "Saves", GetLastSaveName(), g_save_extension);
     wiz8::remove_file(path);
     wiz8::remove_file("Saves\\CurrentGame.SAV");
 }
@@ -1720,15 +1698,13 @@ void DeleteCurrentSaveFiles(void)
 // FUNCTION: WIZ8 0x005159e0
 bool AutoSaveIfAllowed(bool forced)
 {
-    char name[64];
 
     gXStatus.save_notice_shown = false;
     if (g_status.world_cursor_gate == 0 && !AnyMonsterDying() &&
         ((g_settings.auto_save != 0 && !forced) || g_status.iron_man) && !gXStatus.fCombatMode &&
         !IsSightRangeOverridden() && CanInterruptLevelMovement() && !gXStatus.fNpcDialogueMode &&
         !gXStatus.fCampMode) {
-        strcpy(name, g_status.iron_man ? ConvertWideStringToString(GetLastSaveName()) : "AutoSave");
-        return SaveGame(name, 0);
+        return SaveGame(g_status.iron_man ? GetLastSaveName() : "AutoSave", nullptr);
     }
     return true;
 }
@@ -1747,11 +1723,11 @@ bool TakePendingSaveFlag(void)
 /* Whether one save slot's file is on disk. The path is built into a MAX_PATH
    buffer from the saves directory, the slot name and the extension. */
 // FUNCTION: WIZ8 0x00512f70
-unsigned char SaveSlotFileExists(const char* slot_name)
+unsigned char SaveSlotFileExists(std::string_view slot_name)
 {
-    char path[260];
+    std::string path;
 
-    sprintf(path, "%s\\%s.%s", "Saves", slot_name, g_save_extension);
+    path = fmt::format("Saves\\{}.{}", slot_name, g_save_extension);
     const auto status = wiz8::file_status(path);
     return status && status->info.type == SDL_PATHTYPE_FILE;
 }
@@ -1764,7 +1740,7 @@ void ReportSaveFailed(bool quiet)
     if (!quiet || g_status.iron_man) {
         gXStatus.save_notice_shown = true;
         if (g_current_screen_state.id == W8_SCREEN_MAIN_GAME) {
-            ShowNotice(W8_FONT_PALETTE_BEIGE, gppStringList[0x783]);
+            ShowNotice(W8_FONT_PALETTE_BEIGE, g_localized_strings[0x783]);
         }
     }
 }
@@ -1777,7 +1753,7 @@ void ReportSaveFailed(bool quiet)
 // FUNCTION: WIZ8 0x00515b00
 void ProcessMainGameAutoSave(void)
 {
-    char name[64];
+    std::string_view name;
     bool saved;
 
     if (g_status.world_cursor_gate != 0) {
@@ -1810,7 +1786,7 @@ void ProcessMainGameAutoSave(void)
         }
         gXStatus.save_notice_shown = true;
         if (g_current_screen_state.id == W8_SCREEN_MAIN_GAME) {
-            ShowNotice(W8_FONT_PALETTE_BEIGE, gppStringList[0x783]);
+            ShowNotice(W8_FONT_PALETTE_BEIGE, g_localized_strings[0x783]);
         }
         gXStatus.gameplay_timer->Restart();
         return;
@@ -1821,9 +1797,9 @@ void ProcessMainGameAutoSave(void)
         !IsSightRangeOverridden() && CanInterruptLevelMovement() && !gXStatus.fNpcDialogueMode &&
         !gXStatus.fCampMode) {
         if (g_status.iron_man) {
-            strcpy(name, ConvertWideStringToString(GetLastSaveName()));
+            name = GetLastSaveName();
         } else {
-            strcpy(name, "AutoSave");
+            name = "AutoSave";
         }
         saved = SaveGame(name, 0);
     } else {
@@ -1833,10 +1809,10 @@ void ProcessMainGameAutoSave(void)
         return;
     }
     if (!saved) {
-        ShowNotice(W8_FONT_PALETTE_BEIGE, gppStringList[0x785]);
+        ShowNotice(W8_FONT_PALETTE_BEIGE, g_localized_strings[0x785]);
         return;
     }
-    ShowNotice(W8_FONT_PALETTE_BEIGE, gppStringList[0x784]);
+    ShowNotice(W8_FONT_PALETTE_BEIGE, g_localized_strings[0x784]);
 }
 
 /* Serialize the live monster-control effect into the open HYPN chunk. The
@@ -1868,7 +1844,7 @@ void SaveMonsterControlSpellEffect(W8Chunk* chunks)
    A missing slot wins immediately; when all three exist, replace the one with
    the oldest modification time. */
 // FUNCTION: WIZ8 0x00516670
-bool SelectQuickSaveSlotForWrite(char* slot_name)
+std::optional<std::string> SelectQuickSaveSlotForWrite()
 try
 {
     wiz8::DiskFileTime oldest_write_time{};
@@ -1887,18 +1863,18 @@ try
             write_slot = slot;
         }
     }
-    sprintf(slot_name, "Quick %d", write_slot);
-    return true;
+    return fmt::format("Quick {}", write_slot);
 }
-catch (const std::exception&) { return false; }
+catch (const std::exception&) { return {}; }
 
 /* Select the newest numbered quick save for command-line startup. The three
    candidates are real save files named Quick 1 through Quick 3; the unnumbered
    Quick slot is accepted only when none of those files exists. */
 // FUNCTION: WIZ8 0x00516740
-bool FindStartupQuickSave(char* slot_name)
+std::optional<std::string> FindStartupQuickSave()
 try
 {
+    std::string slot_name;
     int newest_slot = 0;
     wiz8::DiskFileTime newest_write_time{};
 
@@ -1916,17 +1892,15 @@ try
         }
     }
     if (newest_slot > 0) {
-        sprintf(slot_name, "Quick %d", newest_slot);
-        return true;
+        return fmt::format("Quick {}", newest_slot);
     }
     const auto status = wiz8::file_status(std::string("Saves\\Quick.") + g_save_extension);
     if (status && status->info.type == SDL_PATHTYPE_FILE) {
-        strcpy(slot_name, "Quick");
-        return true;
+        return "Quick";
     }
-    return false;
+    return {};
 }
-catch (const std::exception&) { return false; }
+catch (const std::exception&) { return {}; }
 
 /* Walk every chunk of a saved game. Character chunks are read straight in; a
    level chunk is read only for the level the party is actually on, and one for
@@ -2023,10 +1997,10 @@ void LoadGameStatus(W8Chunk* chunks, W8GlobalStatus* status)
     unsigned int size;
 
     chunks->m_hFile->read_exact(&size, sizeof(size));
-    if (size > sizeof(saved)) {
+    if (size > wiz8::retail::kGlobalStatusBytes) {
         throw std::runtime_error("oversized global status record");
     }
-    chunks->m_hFile->read_exact(&saved, size);
+    wiz8::retail::read_exact(*chunks->m_hFile, saved, size);
     if (saved.buffers.save_version < 1.1f) {
         for (int box = 0; box < 3; ++box) {
             saved.text_box_lines_used[box] = saved.legacy_text_box_lines[0][box];
@@ -2043,10 +2017,10 @@ void LoadGameStatus(W8Chunk* chunks, W8GlobalStatus* status)
     }
     for (auto& character : saved_characters) {
         chunks->m_hFile->read_exact(&size, sizeof(size));
-        if (size > sizeof(character)) {
+        if (size > wiz8::retail::kCharacterBytes) {
             throw std::runtime_error("oversized character status record");
         }
-        chunks->m_hFile->read_exact(&character, size);
+        wiz8::retail::read_exact(*chunks->m_hFile, character, size);
         if (character.record_version < 2 &&
             character.original_profession == W8_PROFESSION_FIGHTER &&
             character.profession_levels[W8_PROFESSION_FIGHTER] == 0) {
@@ -2055,10 +2029,10 @@ void LoadGameStatus(W8Chunk* chunks, W8GlobalStatus* status)
     }
     for (auto& party_row : saved_rows) {
         chunks->m_hFile->read_exact(&size, sizeof(size));
-        if (size > sizeof(party_row)) {
+        if (size > wiz8::retail::kPartySlotBytes) {
             throw std::runtime_error("oversized party status record");
         }
-        chunks->m_hFile->read_exact(&party_row, size);
+        wiz8::retail::read_exact(*chunks->m_hFile, party_row, size);
     }
     const std::int64_t chunk_end =
         chunks->CurrentChunkEnd();
@@ -2067,9 +2041,10 @@ void LoadGameStatus(W8Chunk* chunks, W8GlobalStatus* status)
     }
     saved.buffers.Char = characters;
     saved.buffers.XChar = party_rows;
-    memcpy(characters, saved_characters, sizeof(saved_characters));
-    memcpy(party_rows, saved_rows, sizeof(saved_rows));
-    memcpy(status, &saved, sizeof(saved));
+    std::move(std::begin(saved_characters), std::end(saved_characters), characters);
+    std::copy(std::begin(saved_rows), std::end(saved_rows), party_rows);
+    *status = std::move(saved);
+    RebuildPartyStatus(&status->formation, party_rows);
 
     if (status == &g_status) {
         for (int slot = 0; slot < 8; ++slot) {
@@ -2088,7 +2063,7 @@ void LoadGameStatus(W8Chunk* chunks, W8GlobalStatus* status)
             party_row.item_target.pPCItem = nullptr;
             party_row.breath_target.pPCItem = nullptr;
         }
-        RebuildPartyStatus(&status->formation);
+        RebuildPartyStatus(&status->formation, party_rows);
     }
 }
 
@@ -2102,18 +2077,18 @@ void SaveGlobalStatus(W8Chunk* chunks, W8GlobalStatus* status)
     unsigned int slot;
 
     chunks->OpenChunk(0x41545347, 0);
-    size = sizeof(*status);
+    size = wiz8::retail::kGlobalStatusBytes;
     chunks->m_hFile->write(&size, sizeof(size));
-    chunks->m_hFile->write(status, size);
+    wiz8::retail::write(*chunks->m_hFile, *status);
     for (slot = 0; slot != 8; ++slot) {
-        size = sizeof(W8Character);
+        size = wiz8::retail::kCharacterBytes;
         chunks->m_hFile->write(&size, sizeof(size));
-        chunks->m_hFile->write(&status->buffers.Char[slot], size);
+        wiz8::retail::write(*chunks->m_hFile, status->buffers.Char[slot]);
     }
     for (slot = 0; slot != 8; ++slot) {
-        size = sizeof(W8PartySlotRow);
+        size = wiz8::retail::kPartySlotBytes;
         chunks->m_hFile->write(&size, sizeof(size));
-        chunks->m_hFile->write(&status->buffers.XChar[slot], size);
+        wiz8::retail::write(*chunks->m_hFile, status->buffers.XChar[slot]);
     }
     chunks->ReleaseCurrentChunk();
 }
@@ -2197,23 +2172,17 @@ catch (const std::exception&) { return false; }
    Writes the chosen bare name into `name`; returns 0 when all twenty-one
    slots are taken. */
 // FUNCTION: WIZ8 0x00516890
-bool FindFreeEndingSaveName(char* name)
+std::optional<std::string> FindFreeEndingSaveName()
 try
 {
     for (int index = 0; index <= 20; ++index) {
-        if (index == 0) {
-            strcpy(name, "Ending");
-        } else {
-            sprintf(name, "Ending%d", index);
-        }
-        const auto status = wiz8::file_status(std::string("Saves\\") + name + "." + g_save_extension);
-        if (!status || status->info.type != SDL_PATHTYPE_FILE) {
-            return true;
-        }
+        auto name = index == 0 ? std::string("Ending") : fmt::format("Ending{}", index);
+        const auto status = wiz8::file_status(fmt::format("Saves\\{}.{}", name, g_save_extension));
+        if (!status || status->info.type != SDL_PATHTYPE_FILE) return name;
     }
-    return false;
+    return {};
 }
-catch (const std::exception&) { return false; }
+catch (const std::exception&) { return {}; }
 
 /* Write a full save slot: repair the target's read-only bit, fold the running
    CurrentGame sections forward unless this save is CurrentGame itself, refresh
@@ -2230,17 +2199,17 @@ catch (const std::exception&) { return false; }
    recorded, the gameplay timer restarts, the held-item cursor is restored,
    and the loaded items are normalized. */
 // FUNCTION: WIZ8 0x00512920
-bool LoadGame(const char* slot_name)
+bool LoadGame(std::string_view slot_name)
 try
 {
     W8Chunk chunks;
-    char path[260];
+    std::string path;
     int count;
     int index;
     int box;
 
     ResetLiveSessionForLoad();
-    sprintf(path, "%s\\%s.%s", "Saves", slot_name, g_save_extension);
+    path = fmt::format("Saves\\{}.{}", slot_name, g_save_extension);
     wiz8::copy_file(path, "Saves\\CurrentGame.SAV", wiz8::CopyMode::replace);
     if (chunks.OpenRead(const_cast<char*>("Saves\\CurrentGame.SAV")) == 0) {
         return false;

@@ -265,6 +265,14 @@ class Game
     void key(SDL_Keycode code)
     {
         hold_key(code, true);
+        if (NativeTextInputEnabled() && code >= 32 && code < 127) {
+            const char text[] = {static_cast<char>(code), 0};
+            SDL_Event committed{};
+            committed.type = SDL_EVENT_TEXT_INPUT;
+            committed.text.windowID = SDL_GetWindowID(window_);
+            committed.text.text = text;
+            HandleGameEvent(committed);
+        }
         frame();
         hold_key(code, false);
         frame();
@@ -460,15 +468,7 @@ std::string CreateCharacter(Game& game)
     for (SDL_Keycode key : {SDLK_P, SDLK_R, SDLK_O, SDLK_B, SDLK_E, SDLK_TAB, SDLK_V, SDLK_I})
         game.key(key);
     const W8Character& typed = g_character_screen->m_character;
-    std::string name;
-    std::array<wchar_t, 10> short_name;
-    std::memcpy(short_name.data(), static_cast<const void*>(typed.name), sizeof(short_name));
-    for (wchar_t c : short_name)
-    {
-        if (!c)
-            break;
-        name += char(c);
-    }
+    const std::string name = typed.name;
     REQUIRE("name", !name.empty());
 
     game.click("commit", ControlRegion(g_character_screen->m_next));
@@ -573,14 +573,13 @@ void StartPremadeGame(Game& game)
     W8Character character{};
     REQUIRE("premade", LoadCharacter("vi.CHR", &character, -1, false));
     REQUIRE("premade", character.record_version == 1 && character.uiExpLevel == 1);
-    REQUIRE("premade", character.name[0] == L'v' && character.name[1] == L'i' &&
-                           character.name[2] == 0);
+    REQUIRE("premade", character.name == "vi");
     REQUIRE("premade", character.iProfession == W8_PROFESSION_FIGHTER &&
                            character.iRace == W8_RACE_HUMAN && character.gender == W8_GENDER_MALE);
     REQUIRE("premade", character.hp_current == 18 && character.experience == 0);
     REQUIRE("premade", AddCharacterToParty(&character, -1) >= 0);
     REQUIRE("premade", CountActiveCharacters() == 1);
-    RunNewGameOpeningSequence(false, nullptr);
+    RunNewGameOpeningSequence(false, {});
     WaitMainGame(game, "premade-main-game");
 }
 

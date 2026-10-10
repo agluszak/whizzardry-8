@@ -1,3 +1,4 @@
+#include <string_view>
 #pragma once
 
 #include "wiz8/dialog_code/DialogBase.h"
@@ -65,7 +66,7 @@ void ConfigureDialogFont(int font, BOOLEAN enabled, unsigned char foreground,
 W8DialogBase* CreateCharacterSummaryDialog(W8Character* character);
 W8DialogBase* CreateDialogByKind(W8DialogKind kind);
 bool GetDialogResult(W8DialogBase* dialog);
-void SetDialogPrompt(W8MessageDialogBase* dialog, wchar_t* text, int, int);
+void SetDialogPrompt(W8MessageDialogBase* dialog, std::string_view text, int, int);
 void DrawDialog(W8DialogBase* dialog);
 bool ProcessDialogInput(W8DialogBase* dialog);
 void SetDialogDestroyCallback(W8DialogBase* dialog, W8DialogDestroyCallback callback);

@@ -1,4 +1,7 @@
 #include <array>
+#include <fmt/format.h>
+#include "wiz8/unicode.h"
+#include "wiz8/retail_text_records.h"
 #include "wiz8/layouts/screen_state.h"
 #include "soundman.h"
 #include "wiz8/local_screens/Screens.h"
@@ -83,26 +86,21 @@ try
     auto handle = wiz8::open_file("Data\\Databases\\NPC.DBS", wiz8::OpenMode::read);
     unsigned int count;
     handle->read_exact(&count, sizeof(count));
-    if (count > (handle->size() - handle->tell()) / std::int64_t(sizeof(W8NpcDatabaseRecord))) {
+    if (count > (handle->size() - handle->tell()) / std::int64_t(wiz8::retail::kNpcDatabaseRecordBytes)) {
         return 0;
     }
-    std::unique_ptr<W8NpcDatabaseRecord, decltype(&free)> records(
-        count ? static_cast<W8NpcDatabaseRecord*>(calloc(count, sizeof(W8NpcDatabaseRecord))) : nullptr,
-        &free);
-    if (count && !records) {
-        return 0;
-    }
+    auto records = std::make_unique<W8NpcDatabaseRecord[]>(count);
     std::vector<std::unique_ptr<W8NpcItemStockRule>> entries;
     std::vector<std::unique_ptr<std::vector<W8NpcItemStockRule*>>> lists;
     for (unsigned int index = 0; index < count; ++index) {
         auto& record = records.get()[index];
-        handle->read_exact(&record, sizeof(record));
+        wiz8::retail::read_exact(*handle, record);
         record.item_stock_rules = nullptr;
         if (record.no_item_stock == 0 && record.version > 1) {
             unsigned int entry_count;
             handle->read_exact(&entry_count, sizeof(entry_count));
             const auto remaining = handle->size() - handle->tell();
-            const auto following_records = std::int64_t(count - index - 1) * std::int64_t(sizeof(record));
+            const auto following_records = std::int64_t(count - index - 1) * std::int64_t(wiz8::retail::kNpcDatabaseRecordBytes);
             if (remaining < following_records ||
                 entry_count > (remaining - following_records) / std::int64_t(sizeof(W8NpcItemStockRule)) ||
                 entry_count > std::numeric_limits<int>::max()) {
@@ -143,11 +141,11 @@ try
     unsigned int count;
     handle->read_exact(&count, sizeof(count));
     if (count > std::size(g_fact_values) ||
-        count > (handle->size() - handle->tell()) / std::int64_t(sizeof(W8FactDatabaseRecord))) {
+        count > (handle->size() - handle->tell()) / std::int64_t(wiz8::retail::kFactDatabaseRecordBytes)) {
         return 0;
     }
     auto records = count ? std::make_unique<W8FactDatabaseRecord[]>(count) : nullptr;
-    handle->read_exact(records.get(), std::size_t(count) * sizeof(W8FactDatabaseRecord));
+    for (unsigned i = 0; i < count; ++i) wiz8::retail::read_exact(*handle, records[i]);
     fact_records = std::move(records);
     g_fact_records = fact_records.get();
     gXStatus.uiFactsInDatabase = count;
@@ -170,11 +168,11 @@ try
     auto handle = wiz8::open_file("Data\\Databases\\LEVELS.DBS", wiz8::OpenMode::read);
     unsigned int count;
     handle->read_exact(&count, sizeof(count));
-    if (count > (handle->size() - handle->tell()) / std::int64_t(sizeof(W8LevelDatabaseRecord))) {
+    if (count > (handle->size() - handle->tell()) / std::int64_t(wiz8::retail::kLevelDatabaseRecordBytes)) {
         return 0;
     }
     auto records = count ? std::make_unique<W8LevelDatabaseRecord[]>(count) : nullptr;
-    handle->read_exact(records.get(), std::size_t(count) * sizeof(W8LevelDatabaseRecord));
+    for (unsigned i = 0; i < count; ++i) wiz8::retail::read_exact(*handle, records[i]);
     level_records = std::move(records);
     g_level_records = level_records.get();
     gXStatus.uiLevelsInDatabase = count;
@@ -291,10 +289,10 @@ void ResetForNewGame(void)
    runs a fixed opening sequence. The two calls into 0x00482720 and 0x00482740
    share one stack cleanup, as consecutive cdecl calls do. */
 // FUNCTION: WIZ8 0x0054b250
-void RunNewGameOpeningSequence(bool notify, const wchar_t* target)
+void RunNewGameOpeningSequence(bool notify, std::string_view target)
 {
     g_status.game_started = true;
-    if (target) {
+    if (!target.empty()) {
         g_status.iron_man = true;
         SetLastSaveName(target);
     }

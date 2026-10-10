@@ -448,8 +448,8 @@ int main(int argc, char**)
     CHECK(SoundPlayStreamedFile(bad, &options) == SOUND_ERROR);
     CHECK(SoundPlay(truncated, &options) == SOUND_ERROR);
     CHECK(SoundPlayStreamedFile(truncated, &options) == SOUND_ERROR);
-    CHECK(SoundPlay(nullptr, &options) == SOUND_ERROR);
-    CHECK(SoundPlayStreamedFile(nullptr, &options) == SOUND_ERROR);
+    CHECK(SoundPlay({}, &options) == SOUND_ERROR);
+    CHECK(SoundPlayStreamedFile({}, &options) == SOUND_ERROR);
     CHECK(!SoundRandomShouldPlay(NO_SAMPLE));
     CHECK(SoundStartRandom(NO_SAMPLE) == SOUND_ERROR);
     sound = SoundPlayStreamedFile(fallback, &options);

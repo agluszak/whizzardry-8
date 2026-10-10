@@ -12,8 +12,8 @@
 srScene::srScene(srNode* parent)
     : srClassSupport<srScene, srNode, 0x1010>(static_cast<srNode*>(0))
 {
-    ambient_light = 0.2f;
-    fog_color.Set(0.1f, 0.2f, 0.4f);
+    ambient_light = glm::vec3(0.2f);
+    fog_color = glm::vec3(0.1f, 0.2f, 0.4f);
     traversal.renderer = 0;
     enabled.value = 0;
     if (parent != 0) {
@@ -65,8 +65,8 @@ void srScene::process(const ProcessInfo& info, e_processType type)
     glm::vec4 ambient_light;
     renderer->getFogColor(fog_color);
     renderer->getAmbientLight(ambient_light);
-    renderer->setFogColor(this->fog_color);
-    renderer->setAmbientLight(this->ambient_light);
+    renderer->setFogColor(glm::vec4(this->fog_color, 0));
+    renderer->setAmbientLight(glm::vec4(this->ambient_light, 0));
     ProcessInfo process_info = info;
     for (w8_long index = 0; index < node_count; ++index) {
         traversal.nodes[index]->process(process_info, PROCESS_PUSH_GLOBAL);
@@ -172,20 +172,14 @@ int srScene::isEnabled(e_enable option) const
     return (enabled.value & (1ul << option)) != 0;
 }
 
-// FUNCTION: SURRENDER 0x10056C20
-void srScene::getAmbientLight(srVector3T<float>& color) const
-{
-    color = ambient_light;
-}
-
 // FUNCTION: SURRENDER 0x10056C40
-srVector3T<float> srScene::getAmbientLight() const
+glm::vec3 srScene::getAmbientLight() const
 {
     return ambient_light;
 }
 
 // FUNCTION: SURRENDER 0x10056C90
-srVector3T<float> srScene::getFogColor() const
+glm::vec3 srScene::getFogColor() const
 {
     return fog_color;
 }
@@ -193,13 +187,11 @@ srVector3T<float> srScene::getFogColor() const
 // FUNCTION: SURRENDER 0x10056CC0
 void srScene::setAmbientLight(float red, float green, float blue)
 {
-    ambient_light.x = red;
-    ambient_light.y = green;
-    ambient_light.z = blue;
+    ambient_light = glm::vec3(red, green, blue);
 }
 
 // FUNCTION: SURRENDER 0x10056CF0
-void srScene::setAmbientLight(const srVector3T<float>& color)
+void srScene::setAmbientLight(const glm::vec3& color)
 {
     ambient_light = color;
 }
@@ -207,7 +199,5 @@ void srScene::setAmbientLight(const srVector3T<float>& color)
 // FUNCTION: SURRENDER 0x10056D10
 void srScene::setFogColor(float red, float green, float blue)
 {
-    fog_color.x = red;
-    fog_color.y = green;
-    fog_color.z = blue;
+    fog_color = glm::vec3(red, green, blue);
 }

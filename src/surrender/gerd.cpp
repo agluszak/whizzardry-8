@@ -2455,9 +2455,7 @@ void srGERD::popVertexProcessor()
 // FUNCTION: SURRENDER 0x1001C640
 void srGERD::setFogColor(const srVector3T<float>& color)
 {
-    glm::vec4 clamped;
-    clamped = glm::vec4(color.x, color.y, color.z, 0.0f);
-    setFogColor(clamped);
+    setFogColor(glm::vec4(color.glmValue(), 0));
 }
 
 /* Each component clamps through (0,1): strictly positive keeps the value, 1.0 or above saturates,
@@ -2466,14 +2464,8 @@ void srGERD::setFogColor(const srVector3T<float>& color)
 // FUNCTION: SURRENDER 0x1001C6B0
 void srGERD::setFogColor(const glm::vec4& color)
 {
-    glm::vec4 clamped;
-    {
-        const auto color_value = color;
-        clamped = glm::mix(glm::clamp(color_value, float(0), float(1)), glm::vec4(0),
-                           glm::lessThanEqual(color_value, glm::vec4(0)));
-    }
-    if (clamped.x != fog_color.x || clamped.y != fog_color.y || clamped.z != fog_color.z ||
-        clamped.w != fog_color.w) {
+    const auto clamped = glm::clamp(color, 0.0f, 1.0f);
+    if (clamped != fog_color) {
         flushImmediateRenderers();
         fog_color = clamped;
         dirty |= DIRTY_FOG_COLOR;
@@ -2489,12 +2481,7 @@ void srGERD::getFogColor(glm::vec4& color) const
 // FUNCTION: SURRENDER 0x1001C440
 void srGERD::setAmbientLight(const srVector3T<float>& light)
 {
-    glm::vec4 expanded;
-    expanded.x = light.x;
-    expanded.w = 0.0f;
-    expanded.y = light.y;
-    expanded.z = light.z;
-    setAmbientLight(expanded);
+    setAmbientLight(glm::vec4(light.glmValue(), 0));
 }
 
 // FUNCTION: SURRENDER 0x1001DB20

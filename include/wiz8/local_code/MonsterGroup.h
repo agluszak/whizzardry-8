@@ -1,3 +1,4 @@
+#include <string>
 #ifndef WIZ8_LOCAL_CODE_MONSTER_GROUP_H
 #define WIZ8_LOCAL_CODE_MONSTER_GROUP_H
 
@@ -159,7 +160,7 @@ void RebindMonsterGroupScripts(void);
 
 void DespawnMonsterGroup(W8MonsterGroup* monster_group);
 void ActivateGroupMembers(W8MonsterGroup* monster_group, W8MonsterActivationMode mode);
-wchar_t* GetMonsterGroupName(W8MonsterGroup* monster_group);
+std::string GetMonsterGroupName(W8MonsterGroup* monster_group);
 void RefreshMonsterGroupAndAllies(W8MonsterGroup* monster_group);
 
 W8MonsterRecord* MonsterGroupGetRecord(W8MonsterGroup* group);

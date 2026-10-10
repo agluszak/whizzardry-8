@@ -9,15 +9,19 @@ do not need the original compiler layout.
 - Separate save/asset records from runtime objects, then replace `W8_PTR32`
   and its process-wide pointer table with ordinary pointers and containers.
   Keep explicit fixed-width disk fields and round-trip fixtures.
-- Replace two-byte `wchar_t`/CRT substitution with explicit asset text decoding
-  and native strings. Remove `-fshort-wchar` only after migrating callers and
-  testing format boundaries, including existing `fgetws`/`swscanf` game calls.
+- Continue separating the remaining numeric save records and engine resource
+  identifiers from their runtime representations. Game text and editable
+  controls now own UTF-8 strings; retail UTF-16LE records have independent
+  layouts and explicit codecs. Native text input and grapheme traversal are
+  supported, while font coverage still depends on the installed retail fonts.
 - Remove `-fwrapv` and `-fno-strict-aliasing` after correcting the arithmetic
   and aliasing assumptions they currently protect.
 - Modernize remaining SurRender/SGP allocator, string, array and threading
   abstractions; remove unused layout assertions, packing and ABI annotations
   once runtime and serialized records are separate.
 
-The CTest fixtures remain independent of installed assets. The separate
-graphics/world harnesses still require a display, a usable GPU driver and
-an installed game. Passing CTest alone does not establish complete gameplay.
+CTest includes both asset-independent fixtures and licensed runtime scenarios.
+The runtime label covers video, character creation, game start, world movement,
+quick-save, combat, save-fixture creation and save loading. These scenarios need
+WIZ8_ASSET_ROOT and a usable SDL GPU backend; CI provisions the licensed assets.
+The separate graphics/world harnesses additionally require an interactive display.

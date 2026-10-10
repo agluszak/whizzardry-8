@@ -1,9 +1,11 @@
+#include <fmt/format.h>
+#include "wiz8/unicode.h"
+#include <string>
 #include "wiz8/fonts.h"
 #include "Types.h"
 #include "mousesystem.h"
 #include "wiz8/regions.h"
 #include "wiz8/local_screens/MGSTextBox.h"
-#include "wiz8/sgp_text.h"
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/engine_code/World.h"
@@ -31,7 +33,6 @@
 
 #include <stdlib.h>
 #include <string.h>
-#include <wchar.h>
 #include "line.h"
 #include "wiz8/local_code/NPCManager.h"
 
@@ -40,12 +41,12 @@
    tail from the screen-state record it was entered with; the frame handler reads
    the tail and writes the caption; the leave releases it. */
 struct W8LevelLoadDescriptor {
-    wchar_t caption[0x78]; /* 0x000, written by wcscpy and swprintf */
+    std::string caption; /* 0x000, written by strcpy and sprintf */
     int mode;              /* 0x0f0, the screen state's own mode */
     int parameter;
     int parameter_2;
     bool waiting;    /* 0x0fc, gates the polling path */
-    char name[0x3f]; /* 0x0fd, bounded only by the next field */
+    std::string name; /* 0x0fd, bounded only by the next field */
     W8SaveScreenshot* save_payload;
     w8_ulong entered_tick;
     int caption_y;
@@ -104,11 +105,10 @@ unsigned char PleaseWaitScreenEnter(void)
 {
     if (!g_load_descriptor) {
         g_load_descriptor =
-            static_cast<W8LevelLoadDescriptor*>(malloc(sizeof(W8LevelLoadDescriptor)));
+            new W8LevelLoadDescriptor{};
         if (!g_load_descriptor) {
             return 0;
         }
-        memset(g_load_descriptor, 0, sizeof(W8LevelLoadDescriptor));
         g_load_descriptor->mode = g_current_screen_state.mode;
         switch (g_load_descriptor->mode) {
         case 0:
@@ -119,11 +119,11 @@ unsigned char PleaseWaitScreenEnter(void)
             break;
         case 1:
             g_load_descriptor->parameter = g_current_screen_state.parameter;
-            strcpy(g_load_descriptor->name, g_current_screen_state.name);
+            g_load_descriptor->name = g_current_screen_state.name;
             break;
         case 2:
             g_load_descriptor->parameter = g_status.current_level;
-            strcpy(g_load_descriptor->name, g_current_screen_state.name);
+            g_load_descriptor->name = g_current_screen_state.name;
             g_load_descriptor->save_payload =
                 static_cast<W8SaveScreenshot*>(g_current_screen_state.parameter_3);
             break;
@@ -166,8 +166,8 @@ static bool PleaseWaitScreenEnsureLevelArchive(int level)
                 g_swap_disc_dialog->SetOrigin(0xf0, 0xbe);
                 g_swap_disc_dialog->SetExtent(0xa0, 100);
             }
-            wchar_t* message =
-                FormatWideString(L"%s%d", gppStringList[0x6ee], GetLevelCdNumber(level));
+            std::string message =
+                fmt::format("{}{:d}", g_localized_strings[0x6ee], GetLevelCdNumber(level));
             SetDialogPrompt(g_swap_disc_dialog, message, 0, 0);
             EnableCursorScene();
             return false;
@@ -187,7 +187,7 @@ static void DrawPleaseWaitScreen()
     DrawCatalogImage(FRAME_BUFFER, backdrop, 0, 0, 0, 0, VO_BLT_SRCTRANSPARENCY, 0);
     DrawCatalogImage(FRAME_BUFFER, 0x1de, 0, 0, 0, 0x1be, VO_BLT_SRCTRANSPARENCY, 0);
     SetFont(g_level_load_font);
-    gprintf(0x6a, 0x1c7, Wiz8ToSgpWideText(g_format_s), g_load_descriptor->caption);
+    DrawFontText(0x6a, 0x1c7, g_load_descriptor->caption);
     DrawCatalogImage(FRAME_BUFFER, 0x1dd, 0, g_load_descriptor->caption_y, 0, 0x185,
                      VO_BLT_SRCTRANSPARENCY, 0);
     ResetTransientRenderScenes();
@@ -234,26 +234,27 @@ void PleaseWaitScreenFrame(void)
 
     switch (g_load_descriptor->mode) {
     case 0:
-        wcscpy(g_load_descriptor->caption, gppStringList[0x6ef]);
+        g_load_descriptor->caption = g_localized_strings[0x6ef];
         break;
     case 1: {
-        wchar_t** strings = gppStringList;
-        wcscpy(g_load_descriptor->caption,
-               strncmp(g_load_descriptor->name, "Quick", strlen("Quick")) == 0 ? strings[0x6f1]
-                                                                               : strings[0x6f0]);
+        const auto& strings = g_localized_strings;
+        g_load_descriptor->caption =
+               g_load_descriptor->name.starts_with("Quick") ? strings[0x6f1]
+                                                                               : strings[0x6f0];
     } break;
     case 2:
-        wcscpy(g_load_descriptor->caption, gppStringList[0x6f2]);
+        g_load_descriptor->caption = g_localized_strings[0x6f2].c_str();
         break;
     case 3:
         if (static_cast<unsigned int>(g_load_descriptor->parameter) < W8_LEVEL_COUNT) {
-            swprintf(g_load_descriptor->caption, L"%s %s...", gppStringList[0x6f3],
-                     gppStringList[g_level_name_indices[g_load_descriptor->parameter]]);
+            g_load_descriptor->caption = fmt::format(
+                "{} {}...", g_localized_strings[0x6f3],
+                g_localized_strings[g_level_name_indices[g_load_descriptor->parameter]]);
         } else if (g_load_descriptor->parameter == 0x38) {
-            wcscpy(g_load_descriptor->caption, L"Entering default level...");
+            g_load_descriptor->caption = "Entering default level...";
         } else {
-            swprintf(g_load_descriptor->caption, L"Entering test level %c...",
-                     g_load_descriptor->parameter + 2);
+            g_load_descriptor->caption =
+                fmt::format("Entering test level {:c}...", g_load_descriptor->parameter + 2);
         }
     }
 
@@ -287,7 +288,7 @@ void PleaseWaitScreenFrame(void)
         break;
     case 2: {
         bool saved = SaveGame(g_load_descriptor->name, g_load_descriptor->save_payload);
-        ShowNotice(W8_FONT_PALETTE_BEIGE, saved ? gppStringList[0x6f4] : gppStringList[0x6f6]);
+        ShowNotice(W8_FONT_PALETTE_BEIGE, saved ? g_localized_strings[0x6f4] : g_localized_strings[0x6f6]);
         if (g_load_descriptor->save_payload) {
             delete g_load_descriptor->save_payload;
         }
@@ -331,7 +332,7 @@ void PleaseWaitScreenFrame(void)
 unsigned char PleaseWaitScreenLeave(int leaving)
 {
     if (leaving) {
-        free(g_load_descriptor);
+        delete g_load_descriptor;
         g_load_descriptor = 0;
     }
     NoOp();

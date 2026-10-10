@@ -1,3 +1,4 @@
+#include <string>
 #ifndef WIZ8_LOCAL_CODE_MONSTER_MANAGER_H
 #define WIZ8_LOCAL_CODE_MONSTER_MANAGER_H
 
@@ -499,7 +500,7 @@ void InitializeMonsterRuntimeStats(void);
 float CalculateMonsterScale(W8MonsterInfo* monster_info);
 void TryStartMonsterCycle2(W8MonsterInfo* monster_info, W8Monster* monster, int query_state);
 void ProcessMonsterManagerFrame(void);
-void FormatMonsterHealth(W8MonsterInfo* monster_info, wchar_t* health_text);
+std::string FormatMonsterHealth(W8MonsterInfo* monster_info);
 unsigned int GetMonsterExperience(const W8MonsterRecord* record);
 bool AnyMonsterDying(void);
 float GetAveragePartyMemberLevel(void);
@@ -511,7 +512,7 @@ void StartMonsterCycle(W8MonsterInfo* monster_info, int cycle, int behavior);
 void MonsterInfoLeaveCombat(W8MonsterInfo* monster_info);
 unsigned char ShutdownMonsterManager(void);
 
-wchar_t* GetMonsterName(W8MonsterInfo* monster_info, W8MonsterRecord* record,
+std::string GetMonsterName(W8MonsterInfo* monster_info, W8MonsterRecord* record,
                         unsigned char name_form);
 bool RemoveMonster(unsigned int monster_list_index, bool destroy_monster);
 void MonsterInfoEnterCombat(W8MonsterInfo* monster_info);

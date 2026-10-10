@@ -1,3 +1,5 @@
+#include <string>
+#include "wiz8/unicode.h"
 #include <SDL3/SDL_log.h>
 /* Modified for the Wizardry 8 reconstruction: 2026-10-03, 2026-10-06, 2026-10-07, 2026-10-09.
    Distributed under the accompanying SFI Source Code license agreement. */
@@ -6,7 +8,6 @@
 #include <stdio.h>
 #include <stdarg.h>
 #include <stdarg.h>
-#include <wchar.h>
 #include <algorithm>
 #include "wiz8/application.h"
 #include "wiz8/filesystem.h"
@@ -289,35 +290,14 @@ UINT32 GetWidth(HVOBJECT hSrcVObject, INT16 ssIndex)
     return ((UINT32)(pTrav->usWidth + pTrav->sOffsetX));
 }
 
-// StringPixLengthArg
-//		Returns the length of a string with a variable number of arguments, in
-// pixels, using the current font. Maximum length in characters the string can
-// evaluate to is 512.
-//    'uiCharCount' specifies how many characters of the string are counted.
+// Measure a prefix counted in Unicode scalar values.
 
 // FUNCTION: WIZ8 0x00406ea0
-INT16 StringPixLengthArg(INT32 usUseFont, UINT32 uiCharCount, const CHAR16* pFontString, ...)
+INT16 StringCodepointPrefixPixelWidth(INT32 usUseFont, UINT32 uiCharCount, std::string_view string)
 {
-    va_list argptr;
-    wchar_t string[512];
 
-    Assert(pFontString != nullptr);
-
-    va_start(argptr, pFontString);          // Set up variable argument pointer
-    vswprintf(string, pFontString, argptr); // process gprintf string (get output str)
-    va_end(argptr);
-
-    // make sure the character count is legal
-    if (uiCharCount > wcslen(string)) {
-        uiCharCount = wcslen(string);
-    } else {
-        if (uiCharCount < wcslen(string)) {
-            // less than the full string, so whack off the end of it (it's temporary anyway)
-            string[uiCharCount] = '\0';
-        }
-    }
-
-    return (StringPixLength(string, usUseFont));
+    return StringPixLength(string.substr(0, wiz8::text::codepoint_prefix(string, uiCharCount)),
+                           usUseFont);
 }
 //  StringNPixLength
 //  Return the length of the of the string or count characters in the
@@ -326,52 +306,22 @@ INT16 StringPixLengthArg(INT32 usUseFont, UINT32 uiCharCount, const CHAR16* pFon
 //  Created by:     Gilles Beauparlant
 //  Created on:     12/1/99
 
-static inline CHAR16 ReadFontCharacter(const CHAR16* text)
-{
-    CHAR16 value;
-    memcpy(&value, reinterpret_cast<const unsigned char*>(text), sizeof(value));
-    return value;
-}
-
 // FUNCTION: WIZ8 0x00406f90
-INT16 StringNPixLength(CHAR16* string, UINT32 uiMaxCount, INT32 UseFont)
+INT16 StringPrefixPixelWidth(std::string_view string, std::size_t byte_end, INT32 UseFont)
 {
-    UINT32 Cur, uiCharCount;
-    CHAR16 *curletter, transletter;
-
-    Cur = 0;
-    uiCharCount = 0;
-    curletter = string;
-
-    while (ReadFontCharacter(curletter) != L'\0' && uiCharCount < uiMaxCount) {
-        transletter = GetIndex(ReadFontCharacter(curletter++));
-        Cur += GetWidth(FontObjs[UseFont].get(), transletter);
-        uiCharCount++;
+    UINT32 width = 0;
+    for (std::size_t offset = 0; offset < string.size() && offset < byte_end;) {
+        const auto glyph = GetIndex(wiz8::text::next(string, offset));
+        if (offset > byte_end) break;
+        width += GetWidth(FontObjs[UseFont].get(), glyph);
     }
-    return ((INT16)Cur);
+    return static_cast<INT16>(width);
 }
-// StringPixLength
-//	Returns the length of a string in pixels, depending on the font given.
 
 // FUNCTION: WIZ8 0x00407010
-INT16 StringPixLength(const CHAR16* string, INT32 UseFont)
+INT16 StringPixLength(std::string_view string, INT32 UseFont)
 {
-    UINT32 Cur;
-    const CHAR16* curletter;
-    CHAR16 transletter;
-
-    if (string == nullptr) {
-        return (0);
-    }
-
-    Cur = 0;
-    curletter = string;
-
-    while (ReadFontCharacter(curletter) != L'\0') {
-        transletter = GetIndex(ReadFontCharacter(curletter++));
-        Cur += GetWidth(FontObjs[UseFont].get(), transletter);
-    }
-    return ((INT16)Cur);
+    return StringPrefixPixelWidth(string, string.size(), UseFont);
 }
 // SaveFontSettings
 //	Saves the current font printing settings into temporary locations.
@@ -442,13 +392,13 @@ UINT16 GetFontHeight(INT32 FontNum)
 //	cell in the font to print to the screen. The conversion table is built by
 //	CreateEnglishTransTable()
 
-INT16 GetIndex(UINT16 siChar)
+INT16 GetIndex(char32_t siChar)
 {
     const auto glyph = std::find(g_font_translation.begin(), g_font_translation.end(), siChar);
     if (glyph != g_font_translation.end())
         return static_cast<INT16>(glyph - g_font_translation.begin());
-    SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Error: Invalid character given %d", siChar);
-    return 0;
+    const auto fallback = std::find(g_font_translation.begin(), g_font_translation.end(), '?');
+    return fallback == g_font_translation.end() ? 0 : static_cast<INT16>(fallback - g_font_translation.begin());
 }
 
 // SetFont
@@ -483,95 +433,58 @@ BOOLEAN SetFontDestBuffer(UINT32 DestBuffer, INT32 x1, INT32 y1, INT32 x2, INT32
     return (TRUE);
 }
 
-// mprintf
-//	Prints to the currently selected destination buffer, at the X/Y coordinates
-// specified, using the currently selected font. Other than the X/Y coordinates,
-// the parameters are identical to printf. The resulting string may be no longer
-// than 512 word-characters. Uses monochrome font color settings
+// One bounded UTF-8 traversal for surface and buffer rendering.
+static void DrawTextToBuffer(UINT8* buffer, UINT32 pitch, UINT32 font_index, INT32 x, INT32 y,
+                             std::string_view text, bool mono)
+{
+    auto* font = FontObjs[font_index].get();
+    INT32 destx = x;
+    for (std::size_t offset = 0; offset < text.size();) {
+        const auto glyph = GetIndex(wiz8::text::next(text, offset));
+        if (FontDestWrap && BltIsClipped(font, destx, y, glyph, &FontDestRegion)) {
+            destx = x;
+            y += GetHeight(font, glyph);
+        }
+        if (mono) {
+            if (gbPixelDepth == 8)
+                Blt8BPPDataTo8BPPBufferMonoShadowClip(buffer, pitch, font, destx, y, glyph,
+                                                      &FontDestRegion, FontForeground8,
+                                                      FontBackground8);
+            else
+                Blt8BPPDataTo16BPPBufferMonoShadowClip(
+                    reinterpret_cast<UINT16*>(buffer), pitch, font, destx, y, glyph,
+                    &FontDestRegion, FontForeground16, FontBackground16, FontShadow16);
+        } else {
+            if (gbPixelDepth == 8)
+                Blt8BPPDataTo8BPPBufferTransparentClip(reinterpret_cast<UINT16*>(buffer), pitch,
+                                                       font, destx, y, glyph, &FontDestRegion);
+            else
+                Blt8BPPDataTo16BPPBufferTransparentClip(reinterpret_cast<UINT16*>(buffer), pitch,
+                                                        font, destx, y, glyph, &FontDestRegion);
+        }
+        destx += GetWidth(font, glyph);
+    }
+}
+
+static UINT32 DrawTextToSurface(INT32 x, INT32 y, std::string_view text, bool mono)
+{
+    UINT32 pitch;
+    auto* buffer = LockVideoSurface(FontDestBuffer, &pitch);
+    DrawTextToBuffer(buffer, pitch, FontDefault, x, y, text, mono);
+    UnLockVideoSurface(FontDestBuffer);
+    return 0;
+}
+
+// Draw UTF-8 text using the current font and destination.
 
 // FUNCTION: WIZ8 0x00407260
-UINT32 mprintf(INT32 x, INT32 y, const CHAR16* pFontString, ...)
+UINT32 DrawMonoFontText(INT32 x, INT32 y, std::string_view string)
 {
-    INT32 destx, desty;
-    CHAR16 *curletter, transletter;
-    va_list argptr;
-    wchar_t string[512];
-    UINT32 uiDestPitchBYTES;
-    UINT8* pDestBuf;
-
-    Assert(pFontString != nullptr);
-
-    va_start(argptr, pFontString);          // Set up variable argument pointer
-    vswprintf(string, pFontString, argptr); // process gprintf string (get output str)
-    va_end(argptr);
-
-    curletter = string;
-
-    destx = x;
-    desty = y;
-
-    // Lock the dest buffer
-    pDestBuf = LockVideoSurface(FontDestBuffer, &uiDestPitchBYTES);
-
-    while (ReadFontCharacter(curletter) != 0) {
-        transletter = GetIndex(ReadFontCharacter(curletter++));
-
-        if (FontDestWrap &&
-            BltIsClipped(FontObjs[FontDefault].get(), destx, desty, transletter, &FontDestRegion)) {
-            destx = x;
-            desty += GetHeight(FontObjs[FontDefault].get(), transletter);
-        }
-
-        // Blit directly
-        if (gbPixelDepth == 8) {
-            Blt8BPPDataTo8BPPBufferMonoShadowClip(pDestBuf, uiDestPitchBYTES, FontObjs[FontDefault].get(),
-                                                  destx, desty, transletter, &FontDestRegion,
-                                                  FontForeground8, FontBackground8);
-        } else {
-            Blt8BPPDataTo16BPPBufferMonoShadowClip(
-                (UINT16*)pDestBuf, uiDestPitchBYTES, FontObjs[FontDefault].get(), destx, desty,
-                transletter, &FontDestRegion, FontForeground16, FontBackground16, FontShadow16);
-        }
-        destx += GetWidth(FontObjs[FontDefault].get(), transletter);
-    }
-
-    // Unlock buffer
-    UnLockVideoSurface(FontDestBuffer);
-
-    return (0);
+    return DrawTextToSurface(x, y, string, true);
 }
 
 // FUNCTION: WIZ8 0x00407420
-void VarFindFontRightCoordinates(INT16 sLeft, INT16 sTop, INT16 sWidth, INT16 sHeight,
-                                 INT32 iFontIndex, INT16* psNewX, INT16* psNewY,
-                                 const CHAR16* pFontString, ...)
-{
-    wchar_t string[512];
-    va_list argptr;
-
-    va_start(argptr, pFontString);          // Set up variable argument pointer
-    vswprintf(string, pFontString, argptr); // process gprintf string (get output str)
-    va_end(argptr);
-
-    FindFontRightCoordinates(sLeft, sTop, sWidth, sHeight, string, iFontIndex, psNewX, psNewY);
-}
-
-// FUNCTION: WIZ8 0x00407530
-void VarFindFontCenterCoordinates(INT16 sLeft, INT16 sTop, INT16 sWidth, INT16 sHeight,
-                                  INT32 iFontIndex, INT16* psNewX, INT16* psNewY,
-                                  const CHAR16* pFontString, ...)
-{
-    wchar_t string[512];
-    va_list argptr;
-
-    va_start(argptr, pFontString);          // Set up variable argument pointer
-    vswprintf(string, pFontString, argptr); // process gprintf string (get output str)
-    va_end(argptr);
-
-    FindFontCenterCoordinates(sLeft, sTop, sWidth, sHeight, string, iFontIndex, psNewX, psNewY);
-}
-
-void FindFontRightCoordinates(INT16 sLeft, INT16 sTop, INT16 sWidth, INT16 sHeight, CHAR16* pStr,
+void FindFontRightCoordinates(INT16 sLeft, INT16 sTop, INT16 sWidth, INT16 sHeight, std::string_view pStr,
                               INT32 iFontIndex, INT16* psNewX, INT16* psNewY)
 {
     INT16 xp, yp;
@@ -584,7 +497,8 @@ void FindFontRightCoordinates(INT16 sLeft, INT16 sTop, INT16 sWidth, INT16 sHeig
     *psNewY = yp;
 }
 
-void FindFontCenterCoordinates(INT16 sLeft, INT16 sTop, INT16 sWidth, INT16 sHeight, CHAR16* pStr,
+// FUNCTION: WIZ8 0x00407530
+void FindFontCenterCoordinates(INT16 sLeft, INT16 sTop, INT16 sWidth, INT16 sHeight, std::string_view pStr,
                                INT32 iFontIndex, INT16* psNewX, INT16* psNewY)
 {
     INT16 xp, yp;
@@ -597,214 +511,39 @@ void FindFontCenterCoordinates(INT16 sLeft, INT16 sTop, INT16 sWidth, INT16 sHei
     *psNewY = yp;
 }
 
-// gprintf
-//	Prints to the currently selected destination buffer, at the X/Y coordinates
-// specified, using the currently selected font. Other than the X/Y coordinates,
-// the parameters are identical to printf. The resulting string may be no longer
-// than 512 word-characters.
+// Draw UTF-8 text using the current font and destination.
 
 // FUNCTION: WIZ8 0x00407650
-UINT32 gprintf(INT32 x, INT32 y, const CHAR16* pFontString, ...)
+UINT32 DrawFontText(INT32 x, INT32 y, std::string_view string)
 {
-    INT32 destx, desty;
-    CHAR16 *curletter, transletter;
-    va_list argptr;
-    wchar_t string[512];
-    UINT32 uiDestPitchBYTES;
-    UINT8* pDestBuf;
-
-    Assert(pFontString != nullptr);
-
-    va_start(argptr, pFontString);          // Set up variable argument pointer
-    vswprintf(string, pFontString, argptr); // process gprintf string (get output str)
-    va_end(argptr);
-
-    curletter = string;
-
-    destx = x;
-    desty = y;
-
-    // Lock the dest buffer
-    pDestBuf = LockVideoSurface(FontDestBuffer, &uiDestPitchBYTES);
-
-    while (ReadFontCharacter(curletter) != 0) {
-        transletter = GetIndex(ReadFontCharacter(curletter++));
-
-        if (FontDestWrap &&
-            BltIsClipped(FontObjs[FontDefault].get(), destx, desty, transletter, &FontDestRegion)) {
-            destx = x;
-            desty += GetHeight(FontObjs[FontDefault].get(), transletter);
-        }
-
-        // Blit directly
-        if (gbPixelDepth == 8) {
-            Blt8BPPDataTo8BPPBufferTransparentClip((UINT16*)pDestBuf, uiDestPitchBYTES,
-                                                   FontObjs[FontDefault].get(), destx, desty, transletter,
-                                                   &FontDestRegion);
-        } else {
-            Blt8BPPDataTo16BPPBufferTransparentClip((UINT16*)pDestBuf, uiDestPitchBYTES,
-                                                    FontObjs[FontDefault].get(), destx, desty,
-                                                    transletter, &FontDestRegion);
-        }
-        destx += GetWidth(FontObjs[FontDefault].get(), transletter);
-    }
-
-    // Unlock buffer
-    UnLockVideoSurface(FontDestBuffer);
-
-    return (0);
+    return DrawTextToSurface(x, y, string, false);
 }
 
 // FUNCTION: WIZ8 0x004077d0
-UINT32 gprintfDirty(INT32 x, INT32 y, const CHAR16* pFontString, ...)
+UINT32 DrawFontTextDirty(INT32 x, INT32 y, std::string_view string)
 {
-    INT32 destx, desty;
-    CHAR16 *curletter, transletter;
-    va_list argptr;
-    wchar_t string[512];
-    UINT32 uiDestPitchBYTES;
-    UINT8* pDestBuf;
-
-    Assert(pFontString != nullptr);
-
-    va_start(argptr, pFontString);          // Set up variable argument pointer
-    vswprintf(string, pFontString, argptr); // process gprintf string (get output str)
-    va_end(argptr);
-
-    curletter = string;
-
-    destx = x;
-    desty = y;
-
-    // Lock the dest buffer
-    pDestBuf = LockVideoSurface(FontDestBuffer, &uiDestPitchBYTES);
-
-    while (ReadFontCharacter(curletter) != 0) {
-        transletter = GetIndex(ReadFontCharacter(curletter++));
-
-        if (FontDestWrap &&
-            BltIsClipped(FontObjs[FontDefault].get(), destx, desty, transletter, &FontDestRegion)) {
-            destx = x;
-            desty += GetHeight(FontObjs[FontDefault].get(), transletter);
-        }
-
-        // Blit directly
-        if (gbPixelDepth == 8) {
-            Blt8BPPDataTo8BPPBufferTransparentClip((UINT16*)pDestBuf, uiDestPitchBYTES,
-                                                   FontObjs[FontDefault].get(), destx, desty, transletter,
-                                                   &FontDestRegion);
-        } else {
-            Blt8BPPDataTo16BPPBufferTransparentClip((UINT16*)pDestBuf, uiDestPitchBYTES,
-                                                    FontObjs[FontDefault].get(), destx, desty,
-                                                    transletter, &FontDestRegion);
-        }
-        destx += GetWidth(FontObjs[FontDefault].get(), transletter);
-    }
-
-    // Unlock buffer
-    UnLockVideoSurface(FontDestBuffer);
-
+    DrawFontText(x, y, string);
     InvalidateRegion(x, y, x + StringPixLength(string, FontDefault), y + GetFontHeight(FontDefault),
                      INVAL_SRC_TRANS);
-
-    return (0);
+    return 0;
 }
 
-// gprintf_buffer
-//	Prints to the currently selected destination buffer, at the X/Y coordinates
-// specified, using the currently selected font. Other than the X/Y coordinates,
-// the parameters are identical to printf. The resulting string may be no longer
-// than 512 word-characters.
+// Draw UTF-8 text using the current font and destination.
 
 // FUNCTION: WIZ8 0x00407a10
-UINT32 gprintf_buffer(UINT8* pDestBuf, UINT32 uiDestPitchBYTES, UINT32 FontType, INT32 x, INT32 y,
-                      const CHAR16* pFontString, ...)
+UINT32 DrawFontTextToBuffer(UINT8* pDestBuf, UINT32 uiDestPitchBYTES, UINT32 FontType, INT32 x,
+                            INT32 y, std::string_view string)
 {
-    INT32 destx, desty;
-    CHAR16 *curletter, transletter;
-    va_list argptr;
-    wchar_t string[512];
-
-    Assert(pFontString != nullptr);
-
-    va_start(argptr, pFontString);          // Set up variable argument pointer
-    vswprintf(string, pFontString, argptr); // process gprintf string (get output str)
-    va_end(argptr);
-
-    curletter = string;
-
-    destx = x;
-    desty = y;
-
-    while (ReadFontCharacter(curletter) != 0) {
-        transletter = GetIndex(ReadFontCharacter(curletter++));
-
-        if (FontDestWrap &&
-            BltIsClipped(FontObjs[FontType].get(), destx, desty, transletter, &FontDestRegion)) {
-            destx = x;
-            desty += GetHeight(FontObjs[FontType].get(), transletter);
-        }
-
-        // Blit directly
-        if (gbPixelDepth == 8) {
-            Blt8BPPDataTo8BPPBufferTransparentClip((UINT16*)pDestBuf, uiDestPitchBYTES,
-                                                   FontObjs[FontDefault].get(), destx, desty, transletter,
-                                                   &FontDestRegion);
-        } else {
-            Blt8BPPDataTo16BPPBufferTransparentClip((UINT16*)pDestBuf, uiDestPitchBYTES,
-                                                    FontObjs[FontDefault].get(), destx, desty,
-                                                    transletter, &FontDestRegion);
-        }
-
-        destx += GetWidth(FontObjs[FontType].get(), transletter);
-    }
-
-    return (0);
+    DrawTextToBuffer(pDestBuf, uiDestPitchBYTES, FontType, x, y, string, false);
+    return 0;
 }
 
 // FUNCTION: WIZ8 0x00407b80
-UINT32 mprintf_buffer(UINT8* pDestBuf, UINT32 uiDestPitchBYTES, UINT32 FontType, INT32 x, INT32 y,
-                      const CHAR16* pFontString, ...)
+UINT32 DrawMonoFontTextToBuffer(UINT8* pDestBuf, UINT32 uiDestPitchBYTES, UINT32 FontType, INT32 x,
+                                INT32 y, std::string_view string)
 {
-    INT32 destx, desty;
-    CHAR16 *curletter, transletter;
-    va_list argptr;
-    wchar_t string[512];
-
-    Assert(pFontString != nullptr);
-
-    va_start(argptr, pFontString);          // Set up variable argument pointer
-    vswprintf(string, pFontString, argptr); // process gprintf string (get output str)
-    va_end(argptr);
-
-    curletter = string;
-
-    destx = x;
-    desty = y;
-
-    while (ReadFontCharacter(curletter) != 0) {
-        transletter = GetIndex(ReadFontCharacter(curletter++));
-
-        if (FontDestWrap &&
-            BltIsClipped(FontObjs[FontDefault].get(), destx, desty, transletter, &FontDestRegion)) {
-            destx = x;
-            desty += GetHeight(FontObjs[FontDefault].get(), transletter);
-        }
-
-        // Blit directly
-        if (gbPixelDepth == 8) {
-            Blt8BPPDataTo8BPPBufferMonoShadowClip(pDestBuf, uiDestPitchBYTES, FontObjs[FontDefault].get(),
-                                                  destx, desty, transletter, &FontDestRegion,
-                                                  FontForeground8, FontBackground8);
-        } else {
-            Blt8BPPDataTo16BPPBufferMonoShadowClip(
-                (UINT16*)pDestBuf, uiDestPitchBYTES, FontObjs[FontDefault].get(), destx, desty,
-                transletter, &FontDestRegion, FontForeground16, FontBackground16, FontShadow16);
-        }
-        destx += GetWidth(FontObjs[FontDefault].get(), transletter);
-    }
-
-    return (0);
+    DrawTextToBuffer(pDestBuf, uiDestPitchBYTES, FontType, x, y, string, true);
+    return 0;
 }
 
 // InitializeFontManager
