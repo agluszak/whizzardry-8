@@ -145,3 +145,19 @@ set_tests_properties(native_audio native_movies PROPERTIES ENVIRONMENT "SDL_AUDI
 # Installed level/character integration; supplied assets and a display are required.
 add_executable(native_world_graphics "${PROJECT_SOURCE_DIR}/tests/native/world_graphics.cpp")
 target_link_libraries(native_world_graphics PRIVATE WIZ8_GAME_CORE WIZ8_SGP WIZ8_GAME_CORE SDL3::SDL3)
+
+# Scenarios through the real game loop against installed retail assets
+# (WIZ8_ASSET_ROOT); skipped when it is unset. bink_video.cpp is recompiled
+# with WIZ8_RUNTIME_TESTS so its test hooks replace the archive's object.
+add_executable(native_runtime_test runtime/runtime_test.cpp
+    "${PROJECT_SOURCE_DIR}/src/native/bink_video.cpp")
+target_compile_definitions(native_runtime_test PRIVATE WIZ8_RUNTIME_TESTS=1)
+target_include_directories(native_runtime_test PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/native")
+target_link_libraries(native_runtime_test PRIVATE WIZ8_GAME_CORE WIZ8_SGP WIZ8_GAME_CORE SDL3::SDL3)
+# game-start and world are runnable by hand; main-game frames still stall (under investigation).
+foreach(scenario video character)
+    add_test(NAME runtime_${scenario} COMMAND native_runtime_test ${scenario})
+    set_tests_properties(runtime_${scenario} PROPERTIES
+        ENVIRONMENT "SDL_VIDEODRIVER=offscreen;SDL_AUDIO_DRIVER=dummy"
+        SKIP_RETURN_CODE 77 TIMEOUT 120 LABELS runtime)
+endforeach()

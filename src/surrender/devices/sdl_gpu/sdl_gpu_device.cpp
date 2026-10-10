@@ -146,7 +146,7 @@ class SDLGPUDevice : public srDD {
 public:
     SDLGPUDevice()
         : device(0), window(0), color_target(0), depth_target(0), depth_format(),
-          swapchain_format(), vertex_shader(0), fragment_shader(0), vertex_buffer(0),
+          vertex_shader(0), fragment_shader(0), vertex_buffer(0),
           vertex_buffer_size(0), command_buffer(0), width(0), height(0), cull_mode(CULL_NONE),
           polygon_mode(POLYGON_FILL), polygon_offset(0), vertex_arrays(), readback_dirty(0),
           locked(0), trace(SDL_getenv("WIZ8_SRDD_TRACE") != 0)
@@ -430,11 +430,20 @@ public:
         window = reinterpret_cast<SDL_Window*>(handle);
         device = SDL_CreateGPUDevice(SDL_GPU_SHADERFORMAT_SPIRV, SDL_getenv("WIZ8_GPU_DEBUG") != 0,
                                      0);
-        if (device == 0 || !SDL_ClaimWindowForGPUDevice(device, window)) {
+        if (device == 0) {
             SDL_Log("srDD_SDLGPU: device: %s", SDL_GetError());
             return static_cast<e_error>(1);
         }
-        swapchain_format = SDL_GetGPUSwapchainTextureFormat(device, window);
+        if (!SDL_ClaimWindowForGPUDevice(device, window)) {
+            /* The offscreen video driver has no presentable surface; render into
+               the color target and skip presentation (headless tests). */
+            const char* driver = SDL_GetCurrentVideoDriver();
+            if (driver == 0 || SDL_strcmp(driver, "offscreen") != 0) {
+                SDL_Log("srDD_SDLGPU: device: %s", SDL_GetError());
+                return static_cast<e_error>(1);
+            }
+            window = 0;
+        }
         depth_format = SDL_GPUTextureSupportsFormat(device, SDL_GPU_TEXTUREFORMAT_D24_UNORM_S8_UINT,
                                                     SDL_GPU_TEXTURETYPE_2D,
                                                     SDL_GPU_TEXTUREUSAGE_DEPTH_STENCIL_TARGET)
@@ -490,7 +499,9 @@ public:
         }
         SDL_ReleaseGPUShader(device, vertex_shader);
         SDL_ReleaseGPUShader(device, fragment_shader);
-        SDL_ReleaseWindowFromGPUDevice(device, window);
+        if (window != 0) {
+            SDL_ReleaseWindowFromGPUDevice(device, window);
+        }
         SDL_DestroyGPUDevice(device);
         device = 0;
         vertex_buffer = 0;
@@ -1048,7 +1059,7 @@ private:
         SDL_GPUCommandBuffer* command = commandBuffer();
         uploadPending(command);
         replay(command);
-        if (present) {
+        if (present && window != 0) {
             SDL_GPUTexture* swapchain = 0;
             Uint32 swapchain_width = 0;
             Uint32 swapchain_height = 0;
@@ -1170,7 +1181,6 @@ private:
     SDL_GPUTexture* color_target;
     SDL_GPUTexture* depth_target;
     SDL_GPUTextureFormat depth_format;
-    SDL_GPUTextureFormat swapchain_format;
     SDL_GPUShader* vertex_shader;
     SDL_GPUShader* fragment_shader;
     SDL_GPUSampler* samplers[2];
