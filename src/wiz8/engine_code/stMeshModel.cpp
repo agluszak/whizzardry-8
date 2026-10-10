@@ -288,7 +288,8 @@ const srMeshModel::TriMesh& stMeshModel::getTriMesh()
                         vertex_light_table != 1 && (count = vertex_location_count, count != 0) &&
                         IsZeroVector(&g_environment_offset) == 0) {
                         srMath::add({dig, static_cast<std::size_t>(static_cast<SRDWORD>(count))},
-                                    g_environment_offset, dig);
+                                    g_environment_offset,
+                                    {dig, static_cast<std::size_t>(static_cast<SRDWORD>(count))});
                     }
                 } else {
                     /* Retail indexes material ambient at +0x28; that is
@@ -307,9 +308,13 @@ const srMeshModel::TriMesh& stMeshModel::getTriMesh()
                         }
                     }
                     if (vertex_location_count != 0) {
-                        srMath::mul({dig, static_cast<std::size_t>(
-                                              static_cast<SRDWORD>(vertex_location_count))},
-                                    dig, sunlight);
+                        srMath::mul(
+                            {dig,
+                             static_cast<std::size_t>(static_cast<SRDWORD>(vertex_location_count))},
+                            {dig,
+                             static_cast<std::size_t>(static_cast<SRDWORD>(vertex_location_count))},
+                            {sunlight, static_cast<std::size_t>(
+                                           static_cast<SRDWORD>(vertex_location_count))});
                     }
                     std::transform(dig, dig + vertex_location_count, lights, dig,
                                    [](const auto& value, const auto& light) {
@@ -321,7 +326,8 @@ const srMeshModel::TriMesh& stMeshModel::getTriMesh()
                         (count = vertex_location_count, count != 0) &&
                         IsZeroVector(&g_environment_offset) == 0) {
                         srMath::add({dig, static_cast<std::size_t>(static_cast<SRDWORD>(count))},
-                                    g_environment_offset, dig);
+                                    g_environment_offset,
+                                    {dig, static_cast<std::size_t>(static_cast<SRDWORD>(count))});
                     }
                 }
             } else {
@@ -343,9 +349,13 @@ const srMeshModel::TriMesh& stMeshModel::getTriMesh()
                         }
                     }
                     if (vertex_location_count != 0) {
-                        srMath::mul({dig, static_cast<std::size_t>(
-                                              static_cast<SRDWORD>(vertex_location_count))},
-                                    dig, sunlight);
+                        srMath::mul(
+                            {dig,
+                             static_cast<std::size_t>(static_cast<SRDWORD>(vertex_location_count))},
+                            {dig,
+                             static_cast<std::size_t>(static_cast<SRDWORD>(vertex_location_count))},
+                            {sunlight, static_cast<std::size_t>(
+                                           static_cast<SRDWORD>(vertex_location_count))});
                     }
                 }
                 index = 0;
@@ -370,7 +380,9 @@ const srMeshModel::TriMesh& stMeshModel::getTriMesh()
                             if (IsZeroVector(&scaled) == 0) {
                                 srMath::mul({dig + index,
                                              static_cast<std::size_t>(static_cast<SRDWORD>(run))},
-                                            scaled, dig + index);
+                                            scaled,
+                                            {dig + index,
+                                             static_cast<std::size_t>(static_cast<SRDWORD>(run))});
                             } else {
                                 std::fill_n(dig + index, run,
                                             srVector3T<float>(0.0f, 0.0f, 0.0f));
@@ -389,18 +401,15 @@ const srMeshModel::TriMesh& stMeshModel::getTriMesh()
                     vertex_light_table != 1 && (count = vertex_location_count, count != 0) &&
                     IsZeroVector(&g_environment_offset) == 0) {
                     srMath::add({dig, static_cast<std::size_t>(static_cast<SRDWORD>(count))},
-                                g_environment_offset, dig);
+                                g_environment_offset,
+                                {dig, static_cast<std::size_t>(static_cast<SRDWORD>(count))});
                 }
             }
             if (light_scale != g_float_one && (count = vertex_location_count, count != 0)) {
                 if (light_scale == g_float_zero) {
                     std::fill_n(dig, count, srVector3T<float>(0.0f, 0.0f, 0.0f));
                 } else {
-                    srMath::mul({reinterpret_cast<float*>(dig),
-                                 static_cast<std::size_t>( // reinterpret-ok: packed DIG as float*
-                                     static_cast<SRDWORD>(count) *
-                                     3)}, // reinterpret-ok: packed DIG as float*
-                                light_scale, reinterpret_cast<float*>(dig));
+                    srMath::mul({dig, static_cast<std::size_t>(count)}, light_scale, {dig, static_cast<std::size_t>(count)});
                 }
             }
         }
@@ -659,7 +668,7 @@ void OffsetVertices(srVector3T<float>* destination, const srVector3T<float>* sou
             }
         } else {
             srMath::add({destination, static_cast<std::size_t>(static_cast<SRDWORD>(count))},
-                        *offset, source);
+                        *offset, {source, static_cast<std::size_t>(static_cast<SRDWORD>(count))});
         }
     }
 }
@@ -1013,8 +1022,7 @@ srVector3T<float>* stMeshModel::GetVertexLocations(unsigned int frame, bool load
             if (interpolation == g_float_one) {
                 std::copy_n(next, vertex_location_count, lerp_buffer.data());
             } else {
-                srMath::lerp({&lerp_buffer[0].x, static_cast<std::size_t>(vertex_location_count * 3)},
-                             &next->x, &current->x, interpolation);
+                srMath::lerp(lerp_buffer, {next, static_cast<std::size_t>(vertex_location_count)}, {current, static_cast<std::size_t>(vertex_location_count)}, interpolation);
             }
         }
         return lerp_buffer.data();
@@ -1148,23 +1156,23 @@ void stMeshModel::ComputeFrameNormals(int frame)
                             {shade_index, static_cast<std::size_t>(vertex_location_count)});
     }
 
-    srMath::normalize(vnorm, vnorm.data(), 1.0f);
+    srMath::normalize(vnorm, vnorm, 1.0f);
     for (int vertex = 0; vertex < vertex_location_count; ++vertex) {
         if (IsZeroVector(&vnorm[vertex]) != 0) {
             vnorm[vertex] = 1e-6f;
         }
     }
     srMath::mul({&vnorm[0].x, static_cast<std::size_t>(vertex_location_count * 3)},
-                127.0f, &vnorm[0].x);
+                127.0f, {&vnorm[0].x, static_cast<std::size_t>(vertex_location_count * 3)});
     for (int index = 0; index < vertex_location_count; ++index) {
         storage.compressed_vertex_normals[index * 3] = CompressNormalByte(vnorm[index].x);
         storage.compressed_vertex_normals[index * 3 + 1] = CompressNormalByte(vnorm[index].y);
         storage.compressed_vertex_normals[index * 3 + 2] = CompressNormalByte(vnorm[index].z);
     }
 
-    srMath::normalize(pnorm, pnorm.data(), 1.0f);
+    srMath::normalize(pnorm, pnorm, 1.0f);
     srMath::mul({&pnorm[0].x, static_cast<std::size_t>(polygon_count * 3)},
-                127.0f, &pnorm[0].x);
+                127.0f, {&pnorm[0].x, static_cast<std::size_t>(polygon_count * 3)});
     for (int polygon = 0; polygon < polygon_count; ++polygon) {
         storage.compressed_polygon_normals[polygon * 3] = CompressNormalByte(pnorm[polygon].x);
         storage.compressed_polygon_normals[polygon * 3 + 1] = CompressNormalByte(pnorm[polygon].y);

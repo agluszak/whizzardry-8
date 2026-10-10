@@ -86,7 +86,7 @@ int srTriangleCuller::setClipFlags(w8_ulong* clip_flags, float* distances,
                                    w8_ulong shift, w8_ulong count, int first)
 {
     w8_ulong collected = 0;
-    srMath::dot({distances, static_cast<std::size_t>(count)}, plane, vertices);
+    srMath::dot({distances, count}, plane, {vertices, count});
     /* reinterpret-ok: the outside test reads the distances' IEEE sign bits. */
     const w8_ulong* bits = reinterpret_cast<const w8_ulong*>(distances);
     w8_ulong index = 0;
@@ -272,7 +272,7 @@ w8_ulong srTriangleCuller::collectNegative(w8_ulong* indices, const float* dista
 w8_ulong srTriangleCuller::cullNoClip(w8_ulong* indices, const srVector4* projected,
                                            const srVector4& constant, w8_ulong count)
 {
-    return srMath::srCullNoClip({indices, static_cast<std::size_t>(count)}, constant, projected);
+    return srMath::srCullNoClip({indices, count}, constant, {projected, count});
 }
 
 // FUNCTION: SURRENDER 0x1002A290
@@ -287,8 +287,7 @@ w8_ulong srTriangleCuller::cullNoClipAPT(w8_ulong* indices, const w8_ulong* acti
         if (0x100 < chunk) {
             chunk = 0x100;
         }
-        srMath::dotIndexed({distances, static_cast<std::size_t>(chunk)}, constant, projected,
-                           {active + base, static_cast<std::size_t>(chunk)});
+        srMath::dotIndexed({distances, chunk}, constant, projected, {active + base, chunk});
         w8_ulong found = collectNegative(indices + collected, distances, base, chunk);
         if (found != 0) {
             w8_ulong* destination = indices + collected;
@@ -366,8 +365,7 @@ w8_ulong srTriangleCuller::cullClip(w8_ulong* indices, const w8_ulong* clip_flag
                                          const srVector4* projected, const srVector3i* triangles,
                                          const srVector4& constant, w8_ulong count)
 {
-    w8_ulong culled =
-        srMath::srCullNoClip({indices, static_cast<std::size_t>(count)}, constant, projected);
+    w8_ulong culled = srMath::srCullNoClip({indices, count}, constant, {projected, count});
     return collectCF(indices, clip_flags, triangles, culled);
 }
 
@@ -415,9 +413,9 @@ w8_ulong srTriangleCuller::buildAVT(w8_ulong* avt, w8_ulong* vertex_scratch,
        inverse remap below. */
     srMath::srSetIndexed(reinterpret_cast<SRBYTE*>(vertex_scratch), triangles,
                          {indices, static_cast<std::size_t>(triangle_count)});
-    w8_ulong count = srMath::srCollectNonZero({avt, static_cast<std::size_t>(vertex_count)},
-                                              reinterpret_cast<const SRBYTE*>(vertex_scratch));
-    srMath::srRemapInverse(vertex_scratch, {avt, static_cast<std::size_t>(count)});
+    w8_ulong count = srMath::srCollectNonZero(
+        {avt, vertex_count}, {reinterpret_cast<const SRBYTE*>(vertex_scratch), vertex_count});
+    srMath::srRemapInverse(vertex_scratch, {avt, count});
     return count;
 }
 

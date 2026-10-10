@@ -200,14 +200,16 @@ unsigned char BakeInstanceVertexLighting(stModelInstance* instance, srNode* ligh
                                    location.z != g_float_zero)) {
                     srMath::add(
                         {world_vertices, static_cast<std::size_t>(static_cast<SRDWORD>(count))},
-                        location, world_vertices);
+                        location,
+                        {world_vertices, static_cast<std::size_t>(static_cast<SRDWORD>(count))});
                 }
             } else if (count != 0) {
                 srMatrix4T<float> transform;
                 transform.Set(rotation, location);
                 srMath::transform(
                     {world_vertices, static_cast<std::size_t>(static_cast<SRDWORD>(count))},
-                    world_vertices, transform);
+                    {world_vertices, static_cast<std::size_t>(static_cast<SRDWORD>(count))},
+                    transform);
             }
         }
 
@@ -229,8 +231,8 @@ unsigned char BakeInstanceVertexLighting(stModelInstance* instance, srNode* ligh
                 srMatrix4T<float> transform;
                 transform.Set(rotation, origin);
                 srMath::transform(
-                    {world_normals, static_cast<std::size_t>(static_cast<SRDWORD>(count))}, normals,
-                    transform);
+                    {world_normals, static_cast<std::size_t>(static_cast<SRDWORD>(count))},
+                    {normals, static_cast<std::size_t>(static_cast<SRDWORD>(count))}, transform);
             }
         }
 
