@@ -57,10 +57,7 @@ set(SURRENDER_SOURCES
 )
 
 add_library(SURRENDER STATIC ${SURRENDER_SOURCES})
-target_compile_definitions(SURRENDER PRIVATE
-    SURRENDER_BUILD
-    SR_LIBRARY_EXTENSION="${CMAKE_SHARED_LIBRARY_SUFFIX}"
-)
+target_compile_definitions(SURRENDER PRIVATE SURRENDER_BUILD)
 find_package(SDL3_image CONFIG REQUIRED)
 target_link_libraries(SURRENDER PRIVATE wiz8_native_settings SDL3::SDL3 SDL3_image::SDL3_image)
 if(UNIX AND NOT APPLE)
