@@ -6,7 +6,6 @@
 #include "codec_adapter.h"
 #include "plugin_classes.h"
 
-srJPEGPlugin::~srJPEGPlugin() {}
 
 // FUNCTION: SREXT_JPEGIMPORTER 0x10014D40
 srJPEGImporter::srJPEGImporter()
@@ -55,25 +54,4 @@ bool srJPEGImporter::readHeader(void* input_cookie)
     return codec_.failed == 0;
 }
 
-// FUNCTION: SREXT_JPEGIMPORTER 0x10014BA0
-const char* srJPEGPlugin::getDescription() const
-{
-    return "SurRender JPEG-importer/exporter plug-in";
-}
-
-// FUNCTION: SREXT_JPEGIMPORTER 0x100155B0
-
-// FUNCTION: SREXT_JPEGIMPORTER 0x100155D0
-extern "C" w8_ulong __cdecl srGetLibraryVersion()
-{
-    return 0x012A0209UL;
-}
-
-// FUNCTION: SREXT_JPEGIMPORTER 0x10014B70
-extern "C" srPlugin* __cdecl srInitPlugin()
-{
-    return new srJPEGPlugin;
-}
-
 W8_ABI_ASSERT((sizeof(srJPEGImporter) == 0x44), "srJPEGImporter_must_be_0x44");
-W8_ABI_ASSERT((sizeof(srJPEGPlugin) == 0x48), "srJPEGPlugin_must_be_0x48");

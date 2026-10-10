@@ -18,10 +18,7 @@ public:
     static SR_DLL_IMPORT void endDebug();
     static SR_DLL_IMPORT void dump(std::ostream& stream);
     static SR_DLL_IMPORT void resetStatistics();
-    static SR_DLL_IMPORT int load(const char* filename);
     static SR_DLL_IMPORT void initBaseVP();
-    static SR_DLL_IMPORT w8_long getID(const char* filename);
-    static SR_DLL_IMPORT int loadBest(const char* path);
     static SR_DLL_IMPORT void release();
 
     static inline void memcopy(void* destination, const void* source, SRDWORD bytes)
@@ -391,8 +388,6 @@ private:
     static srDebugVP* debug;
     // GLOBAL: SURRENDER 0x100A9248
     static w8_ulong debug_active;
-    // GLOBAL: SURRENDER 0x100A924C
-    static void* module;
 
     /* srVertexPipe::process snapshots the active processor into its own
        vector_processor and dispatches vtable slots through it. */
