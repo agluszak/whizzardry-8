@@ -741,7 +741,7 @@ void srPalette::Sampler::addSurfaces(srColorSurfaceIFace** surfaces, w8_long sur
 void srPalette::Sampler::addSurface(const char* name, w8_long weight)
 {
     if ((name != 0) && (*name != '\0')) {
-        srColorSurfaceIFace* surface = srImage::load(name);
+        auto surface = srImage::load(name);
         if (surface != 0) {
             addSurface(*surface, weight);
         }

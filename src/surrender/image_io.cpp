@@ -97,9 +97,6 @@ void saveImage(OutputFormat output, SDL_IOStream* io, srColorSurfaceIFace& sourc
     const bool jpeg = output == OutputFormat::jpeg;
     auto copy = std::make_unique<srColorSurface>(jpeg ? srPixelConvert::SURFACE_RGB24 : srPixelConvert::SURFACE_BGRA32,
                                       source.getWidth(), source.getHeight());
-    std::unique_ptr<srColorSurface, void(*)(srColorSurface*)> owned(copy, [](srColorSurface* p) {
-        if (p) p->release();
-    });
     if (!copy || !copy->getDataPtr())
         throw std::runtime_error("Image output allocation failed");
     copy->copy(source);
