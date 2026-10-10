@@ -1742,7 +1742,7 @@ bool GiveHeldItemToCharacterOrParty(int uiChar, bool party_first)
     }
 
     if (!item->identified)
-        PartyAttemptsToIdentifyItem(item);
+        PartyAttemptsToIdentifyItem(item, 0);
 
     if (!g_status.game_started) {
         srAssertFail("gStatus.fGameStarted", PC_ITEM_CPP, 0x194, 0);
