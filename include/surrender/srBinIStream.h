@@ -10,10 +10,10 @@
 // class srBinIStream
 class SR_DLL_IMPORT srBinIStream : public virtual srBinStream {
 public:
+    virtual ~srBinIStream() override {}
 #if !defined(SURRENDER_BUILD)
     srBinIStream() {}
     srBinIStream(const srBinIStream& stream);
-    virtual ~srBinIStream() override {}
     srBinIStream& operator=(const srBinIStream& stream);
 #endif
 

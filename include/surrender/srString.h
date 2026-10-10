@@ -130,7 +130,7 @@ inline srInlineString& srInlineString::operator=(const srInlineString& source)
 inline void srInlineString::erase(w8_ulong begin, w8_ulong end)
 {
     if (begin != end) {
-        strncpy(data_ + begin, data_ + end, size_ - end);
+        memmove(data_ + begin, data_ + end, size_ - end);
         size_ = strlen(data_) + 1;
     }
 }
