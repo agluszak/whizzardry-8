@@ -1,5 +1,4 @@
 #include "wiz8/engine_code/AnimRep.hpp"
-#include "surrender/srTimer.h"
 #include "wiz8/engine_code/Emitter.h"
 #include "wiz8/engine_code/game_timer.h"
 #include "wiz8/geometry.h"
@@ -99,7 +98,7 @@ W8AnimRep::W8AnimRep()
     if (g_shared_timer_base == 0) {
         srAssertFail("gpsrTimer", "C:\\Projects\\Wizardry 8\\Engine Code\\AnimRep.cpp", 0x4e, 0);
     }
-    timer = g_shared_timer_base->getMsTime(srTimer::TIMER_READ_DEFAULT);
+    timer = g_shared_timer_base->milliseconds();
 }
 
 /* Vtable 0x005EC1D8's clone slot allocates exactly the root's 0x64-byte
@@ -126,7 +125,7 @@ W8AnimRep::W8AnimRep(const W8AnimRep& other)
     if (g_shared_timer_base == 0) {
         srAssertFail("gpsrTimer", "C:\\Projects\\Wizardry 8\\Engine Code\\AnimRep.cpp", 100, 0);
     }
-    timer = g_shared_timer_base->getMsTime(srTimer::TIMER_READ_DEFAULT);
+    timer = g_shared_timer_base->milliseconds();
 }
 
 /* The abstract emitter host copies its stable settings, but starts with no

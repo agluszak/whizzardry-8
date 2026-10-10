@@ -3160,13 +3160,6 @@ void srColorSurfaceIFace::composite(w8_long x, w8_long y, srColorSurfaceIFace& s
     }
 }
 
-// FUNCTION: SURRENDER 0x1005A840
-static void __cdecl minifyRow_MMX(w8_ulong* destination, const w8_ulong* first,
-                                  const w8_ulong* second, w8_ulong count)
-{
-    abort(); /* MMX workers are never selected natively */
-}
-
 // FUNCTION: SURRENDER 0x1005A930
 void srColorSurfaceIFace::minify(srColorSurfaceIFace& source)
 {
@@ -3180,28 +3173,19 @@ void srColorSurfaceIFace::minify(srColorSurfaceIFace& source)
         w8_ulong* buffer = (w8_ulong*)buffer_colors;
         w8_ulong* second = buffer + source_width;
         w8_ulong* row = buffer + source_width * 2;
-        if ((srCore.getTimer()->m_cpu_features & (1UL << srTimer::CPU_FEATURE_MMX)) == 0) {
-            for (w8_long y = 0; y < height; y++) {
-                source.getPixelRow(buffer, y * 2, 0, source_width);
-                source.getPixelRow(second, y * 2 + 1, 0, source_width);
-                for (w8_ulong x = 0; x < width; x++) {
-                    unsigned char* top = (unsigned char*)&buffer[x * 2];
-                    unsigned char* bottom = (unsigned char*)&second[x * 2];
-                    unsigned char* pixel = (unsigned char*)&row[x];
-                    pixel[0] = (unsigned char)((top[0] + top[4] + bottom[0] + bottom[4] + 3) >> 2);
-                    pixel[1] = (unsigned char)((top[1] + top[5] + bottom[1] + bottom[5] + 3) >> 2);
-                    pixel[2] = (unsigned char)((top[2] + top[6] + bottom[2] + bottom[6] + 3) >> 2);
-                    pixel[3] = (unsigned char)((top[3] + top[7] + bottom[3] + bottom[7] + 3) >> 2);
-                }
-                setPixelRow(row, y, 0, width);
+        for (w8_long y = 0; y < height; y++) {
+            source.getPixelRow(buffer, y * 2, 0, source_width);
+            source.getPixelRow(second, y * 2 + 1, 0, source_width);
+            for (w8_ulong x = 0; x < width; x++) {
+                unsigned char* top = (unsigned char*)&buffer[x * 2];
+                unsigned char* bottom = (unsigned char*)&second[x * 2];
+                unsigned char* pixel = (unsigned char*)&row[x];
+                pixel[0] = (unsigned char)((top[0] + top[4] + bottom[0] + bottom[4] + 3) >> 2);
+                pixel[1] = (unsigned char)((top[1] + top[5] + bottom[1] + bottom[5] + 3) >> 2);
+                pixel[2] = (unsigned char)((top[2] + top[6] + bottom[2] + bottom[6] + 3) >> 2);
+                pixel[3] = (unsigned char)((top[3] + top[7] + bottom[3] + bottom[7] + 3) >> 2);
             }
-        } else {
-            for (w8_long y = 0; y < height; y++) {
-                source.getPixelRow(buffer, y * 2, 0, source_width);
-                source.getPixelRow(second, y * 2 + 1, 0, source_width);
-                minifyRow_MMX(row, buffer, second, width);
-                setPixelRow(row, y, 0, width);
-            }
+            setPixelRow(row, y, 0, width);
         }
     }
 }

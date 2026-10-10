@@ -1,7 +1,7 @@
+#include "surrender/srClock.h"
 #include "surrender/srCore.h"
 #include "surrender/srDD_SDLGPU.h"
 #include "surrender/srGERD.h"
-#include "surrender/srTimer.h"
 
 #include <chrono>
 #include <cstdio>
@@ -19,16 +19,12 @@
 
 int main()
 {
-    srTimer timer;
-    srQuadWord frequency;
-    timer.getFreq(frequency);
-    CHECK(frequency.lo == 1000000 && frequency.hi == 0);
-    CHECK(timer.getIdent() && timer.getOsIdent());
-    const double before = timer.getTime(srTimer::TIMER_READ_DEFAULT);
+    srClock timer;
+    const double before = timer.seconds();
     std::this_thread::sleep_for(std::chrono::milliseconds(2));
-    CHECK(timer.getTime(srTimer::TIMER_READ_DEFAULT) > before);
-    timer.setUnits(1000);
-    CHECK(timer.getUnits() == 1000);
+    CHECK(timer.seconds() > before);
+    CHECK(timer.milliseconds() >= 1);
+    CHECK(timer.ticks(10000) >= 10);
 
     for (int cycle = 0; cycle < 3; ++cycle) {
         CHECK(srInit() && srCore.isInitialized());

@@ -29,7 +29,6 @@
 #include "wiz8/virtual_file.h"
 #include "wiz8/filesystem.h"
 #include "surrender/srCamera.h"
-#include "surrender/srTimer.h"
 #include "wiz8/engine_code/Spells.h"
 #include "wiz8/local_code/Magic.h"
 #include "wiz8/local_code/MagicEffects.h"
@@ -126,7 +125,7 @@ unsigned char UpdateMissileAI(W8AIMissile* record)
         return 1;
     }
     position = missile->GetPosition();
-    count = g_shared_timer_base->getMsTime(srTimer::TIMER_READ_DEFAULT) >> 1;
+    count = g_shared_timer_base->milliseconds() >> 1;
     delta = count - record->last_half_tick;
     if (delta > 0xfa) {
         delta = 0xfa;
@@ -748,7 +747,7 @@ W8Missile* CreateMissile(unsigned int missile_table_index, srVector3T<float>* so
             ai->kind = W8_AI_RECORD_MISSILE;
             ai->gravity = missile->gravity;
             ai->limit = limit;
-            ai->last_half_tick = g_shared_timer_base->getMsTime(srTimer::TIMER_READ_DEFAULT) >> 1;
+            ai->last_half_tick = g_shared_timer_base->milliseconds() >> 1;
             ai->missile = missile;
         }
         missile->m_pAI = ai;
@@ -876,7 +875,7 @@ unsigned char W8MissileRep::ReadCycleData(W8ReadLevelInfo* info, W8Missile* miss
     emitter_playback_scales[emitter] = animation->playback_scale;
     active = 1;
     frame_direction = W8_ANIMATION_FORWARD;
-    timer = g_shared_timer_base->getMsTime(srTimer::TIMER_READ_DEFAULT);
+    timer = g_shared_timer_base->milliseconds();
     animation_behaviour = animation->behaviour;
     frame_method = animation->frame_method;
     animation_playing = animation->animation_playing;
@@ -1194,7 +1193,7 @@ void W8Missile::SetCycle(signed char cycle)
     } else {
         m_pRep->m_bLOD = 0;
     }
-    m_pRep->timer = g_shared_timer_base->getMsTime(srTimer::TIMER_READ_DEFAULT);
+    m_pRep->timer = g_shared_timer_base->milliseconds();
     m_pRep->frame_method = animation->frame_method;
     m_pRep->animation_playing = animation->animation_playing;
     m_pRep->subcycle = 0;

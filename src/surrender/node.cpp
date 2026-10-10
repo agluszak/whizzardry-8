@@ -10,7 +10,7 @@
 #include <string.h>
 
 // GLOBAL: SURRENDER 0x100A49E0
-srCriticalSection srNode::sceneGraphCSect;
+std::recursive_mutex srNode::sceneGraphCSect;
 
 // GLOBAL: SURRENDER 0x100A49FC
 w8_long srNode::sceneGraphLockCount;
@@ -52,14 +52,14 @@ static const char* s_notify_names;
 // FUNCTION: SURRENDER 0x10050340
 void srNode::lockSceneGraph()
 {
-    sceneGraphCSect.getAccess();
+    sceneGraphCSect.lock();
     ++sceneGraphLockCount;
 }
 
 // FUNCTION: SURRENDER 0x10050360
 void srNode::unlockSceneGraph()
 {
-    sceneGraphCSect.releaseAccess();
+    sceneGraphCSect.unlock();
     --sceneGraphLockCount;
 }
 
@@ -159,7 +159,7 @@ void srNode::getLocalBounds(BoundInfo& bounds)
 srNode& srNode::operator=(const srNode& other)
 {
     if (this != &other) {
-        srCriticalSectionAccess access(&sceneGraphCSect);
+        std::lock_guard<std::recursive_mutex> access(sceneGraphCSect);
         srClass::operator=(other);
         flags.value = other.flags.value;
         location = other.location;
@@ -220,7 +220,7 @@ srNode::srNode(srNode* parent)
     if (s_flag_names1 == 0) {
         s_flag_names1 = "DISABLE,TERMINATE,GLOBAL,IGNORE_TRANSFORM";
     }
-    srCriticalSectionAccess access(&sceneGraphCSect);
+    std::lock_guard<std::recursive_mutex> access(sceneGraphCSect);
     next_sibling_ = 0;
     previous_sibling_ = 0;
     parent_ = 0;
@@ -236,7 +236,7 @@ srNode::srNode(srNode* parent)
 // FUNCTION: SURRENDER 0x10050E20
 srNode::~srNode()
 {
-    srCriticalSectionAccess access(&sceneGraphCSect);
+    std::lock_guard<std::recursive_mutex> access(sceneGraphCSect);
     unlink();
     while (first_child_ != 0) {
         delete first_child_;
@@ -250,7 +250,7 @@ srNode::~srNode()
 // FUNCTION: SURRENDER 0x10050F00
 int srNode::setParent(srNode* parent, int preserve_world_transform)
 {
-    srCriticalSectionAccess access(&sceneGraphCSect);
+    std::lock_guard<std::recursive_mutex> access(sceneGraphCSect);
     if (parent == this) {
         return 0;
     }

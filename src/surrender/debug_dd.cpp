@@ -81,13 +81,13 @@ srDebugDD::ScopeTimer::ScopeTimer(srDebugDD* owner, e_command command)
 {
     this->owner = owner;
     this->command = command;
-    start_time = srCore.getTimer()->getTime(srTimer::TIMER_READ_DEFAULT);
+    start_time = srCore.getTimer()->seconds();
 }
 
 // FUNCTION: SURRENDER 0x10016DA0
 srDebugDD::ScopeTimer::~ScopeTimer()
 {
-    double elapsed = srCore.getTimer()->getTime(srTimer::TIMER_READ_DEFAULT) - start_time;
+    double elapsed = srCore.getTimer()->seconds() - start_time;
     owner->call_times[command] += elapsed;
     ++owner->call_counts[command];
 }

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <mutex>
 #include <string>
 #include <thread>
 #include <vector>
@@ -19,7 +20,6 @@
 #include "srPtr.h"
 #include "srARGB.h"
 class srColorSurface;
-class srCriticalSection;
 class srDebugDD;
 class srModelInstance;
 class srPalette;
@@ -985,8 +985,8 @@ private:
 
     unsigned char unknown_0c_[4];
     RendererEntry* renderers;
-    srCriticalSection* renderers_section;
-    srCriticalSection* state_section;
+    std::recursive_mutex* renderers_section;
+    std::recursive_mutex* state_section;
     std::thread::id owner_thread;
     srFlags<e_enable> enable_flags;
     enum {
