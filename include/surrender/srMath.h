@@ -1,13 +1,26 @@
 #pragma once
 
-#include "srHeap.h"
-
+#include <fenv.h>
 #include <float.h>
+#include <cmath>
 #include <math.h>
 
-inline int srFinite(double value)
+/* Float-to-int through the FPU's current rounding mode (round to nearest, not truncation). */
+inline w8_long srFloatToInt(double value)
 {
-    return _finite(value);
+    const double rounded = rint(value);
+    // Retail FISTP stores a signed dword. LP64 lrint instead has a 64-bit
+    // range and narrowing its integer-indefinite result can produce zero.
+    if (!(rounded >= -2147483648.0 && rounded <= 2147483647.0)) {
+        feraiseexcept(FE_INVALID);
+        return (-2147483647 - 1);
+    }
+    return static_cast<w8_long>(rounded);
+}
+
+inline w8_long srFloatToInt(float value)
+{
+    return srFloatToInt(static_cast<double>(value));
 }
 
 template <class T> class srMatrix3T;
@@ -16,16 +29,6 @@ template <class T> class srVector2T {
 public:
     srVector2T<T>() {}
     srVector2T<T>(T source_0, T source_1) : x(source_0), y(source_1) {}
-
-    void* operator new[](size_t size)
-    {
-        return srHeap.allocate(size);
-    }
-
-    void operator delete[](void* allocation)
-    {
-        srHeap.free(allocation);
-    }
 
     srVector2T<T>* Set(T source_0, T source_1)
     {
@@ -47,7 +50,7 @@ public:
 
     int isValid() const
     {
-        return _finite(static_cast<double>(x)) && _finite(static_cast<double>(y));
+        return std::isfinite(static_cast<double>(x)) && std::isfinite(static_cast<double>(y));
     }
 
     srVector2T<T>& operator*=(double scalar)
@@ -94,16 +97,6 @@ public:
         return srVector2T<T>(x, z);
     }
 
-    void* operator new[](size_t size)
-    {
-        return srHeap.allocate(size);
-    }
-
-    void operator delete[](void* allocation)
-    {
-        srHeap.free(allocation);
-    }
-
     void SetZero();
     srVector3T<T>* Set(double source_0, double source_1, double source_2);
 
@@ -148,8 +141,8 @@ public:
 
     int isValid() const
     {
-        return _finite(static_cast<double>(x)) && _finite(static_cast<double>(y)) &&
-               _finite(static_cast<double>(z));
+        return std::isfinite(static_cast<double>(x)) && std::isfinite(static_cast<double>(y)) &&
+               std::isfinite(static_cast<double>(z));
     }
 
     T x;
@@ -414,16 +407,6 @@ public:
         return result;
     }
 
-    void* operator new[](size_t size)
-    {
-        return srHeap.allocate(size);
-    }
-
-    void operator delete[](void* allocation)
-    {
-        srHeap.free(allocation);
-    }
-
     template <class U> srVector4T<T>& operator=(const srVector4T<U>& source)
     {
         x = static_cast<T>(source.x);
@@ -438,8 +421,8 @@ public:
 
     int isValid() const
     {
-        return _finite(static_cast<double>(x)) && _finite(static_cast<double>(y)) &&
-               _finite(static_cast<double>(z)) && _finite(static_cast<double>(w));
+        return std::isfinite(static_cast<double>(x)) && std::isfinite(static_cast<double>(y)) &&
+               std::isfinite(static_cast<double>(z)) && std::isfinite(static_cast<double>(w));
     }
 
     /* Four-channel saturation; both endpoints are written. */
@@ -774,10 +757,8 @@ srMatrix3T<T>* srMatrix3T<T>::RotateAroundAxis(double angle, const srVector3T<T>
     return this;
 }
 
-/* The off-diagonal products associate differently in the two retail binaries. sr.dll's
-   double instance (0x10055D40) forms (1 - cos) * a first and then multiplies by b; the
-   Wiz8.exe float instance (0x0042B910) multiplies the two float axis components first
-   and then by the double (1 - cos). */
+/* Multiply axis components before (1 - cos), as in Wiz8.exe (0x0042B910) and the angle
+   overload. Retail sr.dll (0x10055D40) multiplied (1 - cos) by an axis component first. */
 template <class T>
 srMatrix3T<T>* srMatrix3T<T>::RotateAroundAxis(double sine, double cosine,
                                                const srVector3T<T>& axis)
@@ -785,17 +766,6 @@ srMatrix3T<T>* srMatrix3T<T>::RotateAroundAxis(double sine, double cosine,
     srMatrix3T<T> rotation;
     double one_minus_cosine = 1.0 - cosine;
 
-#if defined(SURRENDER_BUILD)
-    rotation.vectors[0].x = (T)(axis.x * axis.x + ((T)1 - axis.x * axis.x) * cosine);
-    rotation.vectors[0].y = (T)((one_minus_cosine * axis.y) * axis.x - axis.z * sine);
-    rotation.vectors[0].z = (T)((one_minus_cosine * axis.z) * axis.x + axis.y * sine);
-    rotation.vectors[1].x = (T)((one_minus_cosine * axis.y) * axis.x + axis.z * sine);
-    rotation.vectors[1].y = (T)(axis.y * axis.y + ((T)1 - axis.y * axis.y) * cosine);
-    rotation.vectors[1].z = (T)((one_minus_cosine * axis.z) * axis.y - axis.x * sine);
-    rotation.vectors[2].x = (T)((one_minus_cosine * axis.z) * axis.x - axis.y * sine);
-    rotation.vectors[2].y = (T)((one_minus_cosine * axis.z) * axis.y + axis.x * sine);
-    rotation.vectors[2].z = (T)(axis.z * axis.z + ((T)1 - axis.z * axis.z) * cosine);
-#else
     rotation.vectors[0].x = (T)(axis.x * axis.x + ((T)1 - axis.x * axis.x) * cosine);
     rotation.vectors[0].y = (T)(axis.x * axis.y * one_minus_cosine - axis.z * sine);
     rotation.vectors[0].z = (T)(axis.x * axis.z * one_minus_cosine + axis.y * sine);
@@ -805,7 +775,6 @@ srMatrix3T<T>* srMatrix3T<T>::RotateAroundAxis(double sine, double cosine,
     rotation.vectors[2].x = (T)(axis.z * axis.x * one_minus_cosine - axis.y * sine);
     rotation.vectors[2].y = (T)(axis.z * axis.y * one_minus_cosine + axis.x * sine);
     rotation.vectors[2].z = (T)(axis.z * axis.z + ((T)1 - axis.z * axis.z) * cosine);
-#endif
     MultiplyBy(rotation);
     return this;
 }
@@ -1224,10 +1193,10 @@ template <class T> srVector3T<T> srMatrix4x3T<T>::TransformPoint(const srVector3
     return result;
 }
 
-static_assert(sizeof(srMatrix4x3T<float>) == 0x30, "srMatrix4x3T_float_must_be_0x30");
-static_assert(sizeof(srMatrix4x3T<double>) == 0x60, "srMatrix4x3T_double_must_be_0x60");
-static_assert(sizeof(srMatrix2T<float>) == 0x10, "srMatrix2T_float_must_be_0x10");
-static_assert(sizeof(srMatrix2T<double>) == 0x20, "srMatrix2T_double_must_be_0x20");
+W8_ABI_ASSERT(sizeof(srMatrix4x3T<float>) == 0x30, "srMatrix4x3T_float_must_be_0x30");
+W8_ABI_ASSERT(sizeof(srMatrix4x3T<double>) == 0x60, "srMatrix4x3T_double_must_be_0x60");
+W8_ABI_ASSERT(sizeof(srMatrix2T<float>) == 0x10, "srMatrix2T_float_must_be_0x10");
+W8_ABI_ASSERT(sizeof(srMatrix2T<double>) == 0x20, "srMatrix2T_double_must_be_0x20");
 
 class srVector2i {
 public:
@@ -1238,16 +1207,6 @@ public:
 class srVector3i {
 public:
     srVector3i() {}
-
-    void* operator new[](size_t size)
-    {
-        return srHeap.allocate(size);
-    }
-
-    void operator delete[](void* allocation)
-    {
-        srHeap.free(allocation);
-    }
 
     int x;
     int y;
@@ -1262,7 +1221,7 @@ public:
     int w;
 };
 
-static_assert(sizeof(srVector4i) == 0x10, "srVector4i_must_be_0x10");
+W8_ABI_ASSERT(sizeof(srVector4i) == 0x10, "srVector4i_must_be_0x10");
 
 class srQuaternion {
 public:
@@ -1270,4 +1229,4 @@ public:
     srVector3T<float> v;
 };
 
-static_assert(sizeof(srQuaternion) == 0x10, "srQuaternion_must_be_0x10");
+W8_ABI_ASSERT(sizeof(srQuaternion) == 0x10, "srQuaternion_must_be_0x10");

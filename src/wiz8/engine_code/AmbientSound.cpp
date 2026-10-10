@@ -14,7 +14,7 @@
 #include "wiz8/xstatus.h"
 #include "wiz8/sound_man.h"
 #include "wiz8/virtual_file.h"
-#include "FileMan.h"
+#include "wiz8/filesystem.h"
 #include "random.h"
 #include "soundman.h"
 #include "wiz8/engine_code/Spells.h"
@@ -474,7 +474,6 @@ int PlayFootstep(signed char surface, signed char material, W8FootstepKind kind)
     char path[260];
     SOUNDPARMS options;
     int attempts = 0;
-    int index;
 
     if (GetRenderOptionState(W8_RENDER_OPTION_FOOTSTEP_SOUND) == 0) {
         return -1;
@@ -694,7 +693,7 @@ unsigned short g_empty_ambient_name;
 // FUNCTION: WIZ8 0x0047ab40
 unsigned char ReadAmbientSoundListFile(char* filename)
 {
-    int handle;
+    std::unique_ptr<wiz8::File> handle;
     unsigned char more = 1;
     char directory[260];
     char name[260];
@@ -704,11 +703,11 @@ unsigned char ReadAmbientSoundListFile(char* filename)
     SOUNDPARMS direct;
     int direct_selector = 0;
 
-    handle = FileOpen(filename, 0x41, 0);
+    handle = [&]() { try { return wiz8::open_file(filename, wiz8::OpenMode::read); } catch (const std::exception&) { return std::unique_ptr<wiz8::File>{}; } }();
     if (handle == 0) {
         return 0;
     }
-    ReadTextLine(handle, directory, 100, &more);
+    ReadTextLine(handle.get(), directory, 100, &more);
     while (more != 0) {
         int index;
         for (index = 0; index < 10; ++index) {
@@ -716,7 +715,7 @@ unsigned char ReadAmbientSoundListFile(char* filename)
         }
         memset(&direct, -1, sizeof(direct));
         memset(line, 0, sizeof(line));
-        ReadTextLine(handle, line, sizeof(line), &more);
+        ReadTextLine(handle.get(), line, sizeof(line), &more);
         if (strlen(line) != 0) {
             sscanf(line, "%s %d %d %d %d %d %d %d", name, &configured[2], &configured[3],
                    &configured[4], &configured[5], &configured[0], &configured[1],
@@ -734,7 +733,8 @@ unsigned char ReadAmbientSoundListFile(char* filename)
             }
         }
     }
-    FileClose(handle);
+    if (handle) handle->close();
+    handle.reset();
     return 1;
 }
 
@@ -811,7 +811,7 @@ void SetSoundEffectsMuted(unsigned char muted)
 }
 
 // FUNCTION: WIZ8 0x0047b140
-void SaveAmbientSoundList(HWFILE handle)
+void SaveAmbientSoundList(wiz8::File* handle)
 {
     unsigned char version = 1;
     unsigned int count;
@@ -821,30 +821,30 @@ void SaveAmbientSoundList(HWFILE handle)
 
     memcpy(empty_name, &g_empty_ambient_name, 2);
     memset(empty_name + 2, 0, sizeof(empty_name) - 2);
-    ok = FileWrite(handle, &version, 1, 0);
+    ok = (handle->write(&version, 1), true);
     if (g_world->plsAmbientSounds == 0) {
         count = 0;
-        FileWrite(handle, &count, 4, 0);
+        handle->write(&count, 4);
         return;
     }
     count = PLLength(g_world->plsAmbientSounds);
-    ok = ok && FileWrite(handle, &count, 4, 0);
+    ok = ok && (handle->write(&count, 4), true);
     for (index = 0; index < static_cast<int>(count); ++index) {
         W8AmbientSound* sound = GetWorldAmbientSound(g_world, index);
         if (sound != 0) {
             if (sound->pacSoundName == 0) {
                 if (ok) {
-                    ok = FileWrite(handle, empty_name, sizeof(empty_name), 0);
+                    ok = (handle->write(empty_name, sizeof(empty_name)), true);
                 }
             } else if (ok) {
                 // The disk record is fixed width, but live names are strlen + 1
                 // allocations.
                 char name[0x80] = {};
                 strncpy(name, sound->pacSoundName, sizeof(name) - 1);
-                ok = FileWrite(handle, name, sizeof(name), 0);
+                ok = (handle->write(name, sizeof(name)), true);
             }
             if (ok) {
-                ok = FileWrite(handle, &sound->stopped, 1, 0);
+                ok = (handle->write(&sound->stopped, 1), true);
             }
         }
     }
@@ -855,7 +855,7 @@ void SaveAmbientSoundList(HWFILE handle)
    script commands are replayed — the helpers rescan the list themselves, and
    VC6 inlines that rescan twice here. */
 // FUNCTION: WIZ8 0x0047b270
-void LoadAmbientSoundList(HWFILE handle)
+void LoadAmbientSoundList(wiz8::File* handle)
 {
     unsigned char version;
     unsigned char ok;
@@ -867,16 +867,16 @@ void LoadAmbientSoundList(HWFILE handle)
     if (g_world->plsAmbientSounds == 0) {
         return;
     }
-    ok = FileRead(handle, &version, 1, 0);
+    ok = (handle->read(&version, 1).bytes == static_cast<std::size_t>(1));
     if (ok != 0) {
-        ok = FileRead(handle, &count, 4, 0);
+        ok = (handle->read(&count, 4).bytes == static_cast<std::size_t>(4));
     }
     for (index = 0; index < count; ++index) {
         int length;
         int scan;
 
-        if (ok != 0 && FileRead(handle, name, 0x80, 0) != 0) {
-            ok = FileRead(handle, &stopped_flag, 1, 0);
+        if (ok != 0 && (handle->read(name, 0x80).bytes == static_cast<std::size_t>(0x80)) != 0) {
+            ok = (handle->read(&stopped_flag, 1).bytes == static_cast<std::size_t>(1));
         } else {
             ok = 0;
         }

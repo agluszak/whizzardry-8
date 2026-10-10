@@ -1,4 +1,4 @@
-#include "FileMan.h"
+#include "wiz8/filesystem.h"
 #include "wiz8/engine_code/Navigator.h"
 #include "wiz8/engine_code/3d.h"
 #include "wiz8/engine_code/3dapi.h"
@@ -8,7 +8,6 @@
 #include "wiz8/xstatus.h"
 #include "wiz8/float_constants.h"
 #include "surrender/srNode.h"
-#include "surrender/srHeap.h"
 #include "wiz8/3d_code/IList.h"
 #include "wiz8/engine_code/GameTimeAccumulator.h"
 #include "wiz8/engine_code/PathAI.h"
@@ -291,7 +290,7 @@ void ResumeAllNavigators(void)
 }
 
 /* The attachment owns two allocations from construction: ten srVector3T<float>
-   of recorded positions from srHeap, and a zeroed twenty-byte record. */
+   of recorded positions from new[], and a zeroed twenty-byte record. */
 // FUNCTION: WIZ8 0x00456210
 W8NavigatorAttachment::W8NavigatorAttachment()
 {
@@ -541,6 +540,7 @@ void W8Navigator::SetNavigationMode(int mode)
         SetPathAI(path);
         /* Falls into mode four's body: the retail block ends where mode four's
            jump-table entry lands. */
+        [[fallthrough]];
     case 4:
         SetPitchRollEnabled(false, false);
         break;
@@ -633,7 +633,7 @@ void W8Navigator::ClearMovementStopped()
    byte, then for an ungrouped navigator whose 0x20000000 movement flag is set
    the height bounds, the position and the attachment's segment target. */
 // FUNCTION: WIZ8 0x004549d0
-unsigned char W8Navigator::SaveMovementState(unsigned int hFile)
+unsigned char W8Navigator::SaveMovementState(wiz8::File* hFile)
 {
     unsigned char has_state = 0;
     unsigned char ok;
@@ -645,16 +645,16 @@ unsigned char W8Navigator::SaveMovementState(unsigned int hFile)
     }
     if (linked_navigator == 0 && (flags & 0x20000000) != 0) {
         has_state = 1;
-        ok = FileWrite(hFile, &has_state, 1, 0);
-        ok &= FileWrite(hFile, &minimum_height, 4, 0);
-        ok &= FileWrite(hFile, &maximum_height, 4, 0);
+        ok = (hFile->write(&has_state, 1), true);
+        ok &= (hFile->write(&minimum_height, 4), true);
+        ok &= (hFile->write(&maximum_height, 4), true);
         position = patrol_home;
-        ok &= FileWrite(hFile, &position, 0xc, 0);
+        ok &= (hFile->write(&position, 0xc), true);
         target = movement.attachment->path_destination;
-        ok &= FileWrite(hFile, &target, 0xc, 0);
+        ok &= (hFile->write(&target, 0xc), true);
         return ok;
     }
-    ok = FileWrite(hFile, &has_state, 1, 0);
+    ok = (hFile->write(&has_state, 1), true);
     return ok;
 }
 
@@ -664,7 +664,8 @@ unsigned char W8Navigator::SaveMovementState(unsigned int hFile)
    accepts the target through SetMovementTarget and releases the navigator and
    its group to move again. */
 // FUNCTION: WIZ8 0x00454ad0
-unsigned char W8Navigator::LoadMovementState(unsigned int hFile)
+unsigned char W8Navigator::LoadMovementState(wiz8::File* hFile)
+try
 {
     srVector3T<float> loaded;
     srVector3T<float> target;
@@ -674,15 +675,15 @@ unsigned char W8Navigator::LoadMovementState(unsigned int hFile)
     if (hFile == 0) {
         return 0;
     }
-    ok = FileRead(hFile, &has_state, 1, 0);
+    ok = (hFile->read(&has_state, 1).bytes == static_cast<std::size_t>(1));
     if (has_state == 0) {
         return 0;
     }
-    ok &= FileRead(hFile, &minimum_height, 4, 0);
-    ok &= FileRead(hFile, &maximum_height, 4, 0);
-    ok &= FileRead(hFile, &loaded, 0xc, 0);
+    ok &= (hFile->read(&minimum_height, 4).bytes == static_cast<std::size_t>(4));
+    ok &= (hFile->read(&maximum_height, 4).bytes == static_cast<std::size_t>(4));
+    ok &= (hFile->read(&loaded, 0xc).bytes == static_cast<std::size_t>(0xc));
     patrol_home = loaded;
-    ok &= FileRead(hFile, &loaded, 0xc, 0);
+    ok &= (hFile->read(&loaded, 0xc).bytes == static_cast<std::size_t>(0xc));
     target = loaded;
     if (ok == 0) {
         return 0;
@@ -701,6 +702,7 @@ unsigned char W8Navigator::LoadMovementState(unsigned int hFile)
     movement_target = movement.attachment->path_destination;
     return 1;
 }
+catch (const std::exception&) { return false; }
 
 void W8Navigator::CopyPathToGroup()
 {

@@ -35,7 +35,7 @@ struct W8BoundingBox {
     srVector3T<float> maximum;
 };
 
-static_assert(sizeof(W8BoundingBox) == 0x18, "W8BoundingBox_must_be_0x18");
+W8_ABI_ASSERT(sizeof(W8BoundingBox) == 0x18, "W8BoundingBox_must_be_0x18");
 
 /* Plane equation record n·p + w = 0: a unit normal plus the signed origin
    distance. The canonical coefficient quad shared by GD surfaces, build-time
@@ -45,7 +45,7 @@ struct W8Plane {
     float w;
 };
 
-static_assert(sizeof(W8Plane) == 0x10, "W8Plane_must_be_0x10");
+W8_ABI_ASSERT(sizeof(W8Plane) == 0x10, "W8Plane_must_be_0x10");
 
 struct W8GDSurface {
     unsigned int flags;
@@ -95,7 +95,7 @@ struct W8GDSurface {
     bool ApplyEnvironContact(srVector3T<float>* direction);
 };
 
-static_assert(sizeof(W8GDSurface) == 0x4c, "W8GDSurface_must_be_0x4c");
+W8_ABI_ASSERT(sizeof(W8GDSurface) == 0x4c, "W8GDSurface_must_be_0x4c");
 
 /* Newell cyclic normal plus centroid plane distance. Independent TUs:
    GDFileIO BuildTrianglePlane 0x00449A40 and 3d BuildPlaneFromPoints

@@ -6,7 +6,6 @@
 #include <stddef.h>
 
 #include "surrender/srMath.h"
-#include "surrender/srHeap.h"
 #include "surrender/srTypeRegistry.h"
 #include "wiz8/engine_code/Emitter.h"
 #include "wiz8/engine_code/game_timer.h"

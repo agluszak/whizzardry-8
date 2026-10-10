@@ -51,7 +51,7 @@ public:
         unsigned char reserved : 2;
         unsigned char reserved_bytes[3];
     };
-    static_assert(sizeof(Flags) == 4, "W8CameraShakeEffect_flags_size");
+    W8_ABI_ASSERT(sizeof(Flags) == 4, "W8CameraShakeEffect_flags_size");
 
     W8CameraShakeEffect(float duration, bool preset, float intensity, float distance_cap,
                         const srVector3T<float>* position); /* 0x004ADED0 */

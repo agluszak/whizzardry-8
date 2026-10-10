@@ -1,18 +1,31 @@
 # Whizzardry 8
 
 Native Wizardry 8 and SurRender for 64-bit Linux, macOS and Windows, built with Clang and C++23.
-The build uses SDL3 GPU rendering, FFmpeg video decoding,
-miniaudio sound and zlib. All dependencies use the pinned vcpkg registry.
+The build uses SDL3 GPU rendering and CPU surfaces, SDL3_image with JPEG,
+SDL3_mixer with MP3, FFmpeg video decoding and zlib.
 Game data comes from an existing retail installation and is not distributed here.
 
 ## Build
 
-Install CMake 3.21+, Git, Ninja and Clang. The build bootstraps pinned vcpkg
-and installs SDL3, FFmpeg, zlib and the host shader compiler under the build
-tree. Miniaudio is fetched separately by CMake. Linux also needs SDL's system
-X11/Wayland development interfaces, build tools (including NASM, pkg-config,
-autoconf, automake, autoconf-archive and libtool with libltdl development files)
-and a working Vulkan driver.
+Install CMake 3.21+, Ninja, Clang, pkg-config, glslang, SDL3, SDL3_image,
+SDL3_mixer, FFmpeg development libraries and zlib through the host package
+manager.
+
+On Ubuntu 26.04, the SDL3_mixer package is not in the release archive yet.
+Install the regular dependencies from apt and the prebuilt SDL3_mixer package
+from the Ubuntu archive pool:
+
+```sh
+sudo apt-get install clang ninja-build cmake curl pkg-config glslang-tools \
+    zlib1g-dev libsdl3-dev libsdl3-image-dev \
+    libavcodec-dev libavformat-dev libswresample-dev libswscale-dev
+curl -fsSLO https://archive.ubuntu.com/ubuntu/pool/universe/libs/libsdl3-mixer/libsdl3-mixer0_3.2.4+ds-1_amd64.deb
+curl -fsSLO https://archive.ubuntu.com/ubuntu/pool/universe/libs/libsdl3-mixer/libsdl3-mixer-dev_3.2.4+ds-1_amd64.deb
+sudo apt-get install ./libsdl3-mixer0_3.2.4+ds-1_amd64.deb \
+    ./libsdl3-mixer-dev_3.2.4+ds-1_amd64.deb
+```
+
+Then build normally:
 
 ```sh
 cmake --preset linux
@@ -20,17 +33,10 @@ cmake --build --preset linux
 ctest --preset linux
 ```
 
-Use `macos-arm64`, `macos-x64` or `windows-clangcl` in the same commands.
-Windows uses the same LLVM compiler with its MSVC-compatible frontend; run
-from a Visual Studio C++ developer shell with LLVM and the Windows SDK installed.
-The Windows preset builds native x64 targets with static dependencies and the
-dynamic Microsoft CRT, not the removed 32-bit recompilation lane.
-
-`VCPKG_ROOT` may point at an existing vcpkg checkout; otherwise its pinned
-release is downloaded automatically. Dependencies need no separate manual
-installation, but the compiler and platform SDK/system interfaces do.
-Visual Studio's developer shell can set `VCPKG_ROOT` automatically; clear it
-with `$env:VCPKG_ROOT = ""` in PowerShell to use the repository-pinned bootstrap.
+Use `macos-arm64`, `macos-x64` or `windows-clangcl` in the same commands once
+the matching host packages are installed. Windows uses the same LLVM compiler
+with its MSVC-compatible frontend; run from a Visual Studio C++ developer shell
+with LLVM and the Windows SDK installed.
 
 The native targets include `Wiz8Native` and statically linked SurRender and
 the SDL-backed filesystem and runtime, sharing one SDL state.
@@ -64,12 +70,14 @@ disc drives. The launcher writes diagnostics to the user root.
 ## Native tests
 
 The CTest suite covers portable file/SLF operations, SDL events/timers,
-CRT and pointer semantics, serialization, compression, blitters, JPEG transfer,
-audio and movie decoding, and SurRender interfaces. GPU tests need a working
+CRT and pointer semantics, serialization, compression, image decoding/virtual
+transfers, CPU surfaces, pixel/blitter differentials, offline/positional audio,
+typed ownership/lifetimes, fatal assertions, movie decoding and SurRender interfaces.
+GPU tests need a working
 display/Vulkan driver; `native_events` uses SDL's dummy driver.
-CI builds Linux, macOS and Windows x64 clang-cl; the first-party
-host-width wide-string import check runs only on Unix. macOS and interactive
-Windows graphics/gameplay remain unverified.
+CI builds Linux with native Clang; the first-party host-width wide-string import
+check runs only on Unix. macOS, Windows and interactive graphics/gameplay remain
+unverified in CI.
 
 With installed game assets, run the focused graphics and world harnesses:
 
@@ -84,6 +92,11 @@ its respective focused checks. The movie fixture can be regenerated with
 `tests/native/generate_movie.sh`.
 
 ## Source and format conventions
+
+Use `std::string` for owning text (UTF-8 for Unicode), `std::string_view` for
+borrowed read-only text, and `std::filesystem::path` for native host paths.
+Pass `.c_str()` at C-string boundaries; serialized buffers and two-byte game
+text retain their format-defined representation.
 
 The original game has a 32-bit data model, two-byte strings and packed binary
 records. Native storage may use 64-bit pointers, but saved pointer words and

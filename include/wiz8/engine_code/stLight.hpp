@@ -1,5 +1,7 @@
 #pragma once
 
+#include "wiz8/filesystem.h"
+
 #include "surrender/srLight.h"
 #include "wiz8/sr_api.h"
 #include "wiz8/vector.h"
@@ -27,7 +29,7 @@ enum W8LightDefinitionKind {
     W8_LIGHT_DEFINITION_PARAMETRIC = 1,
     W8_LIGHT_DEFINITION_KEYFRAMED = 2
 };
-static_assert(sizeof(W8LightDefinitionKind) == 4, "W8LightDefinitionKind_size");
+W8_ABI_ASSERT(sizeof(W8LightDefinitionKind) == 4, "W8LightDefinitionKind_size");
 
 class stLightDefinition {
 public:
@@ -248,8 +250,8 @@ public:
 
 W8_ABI_ASSERT(sizeof(stLight) == 0x258, "stLight_must_be_0x258");
 
-void SaveLightStates(int handle);
-void LoadLightStates(int handle);
+void SaveLightStates(wiz8::File* handle);
+void LoadLightStates(wiz8::File* handle);
 
 /* Animation copies retain per-light position before assignment, detach the new
    light and register it with the world before adding it to the owned list. */

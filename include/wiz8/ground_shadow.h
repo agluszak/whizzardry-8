@@ -14,6 +14,7 @@ public:
     }
     stGroundShadow(srNode* parent);              /* 0x004D61B0 */
     stGroundShadow(const stGroundShadow& other); /* 0x004D6430 */
+    stGroundShadow& operator=(const stGroundShadow&) = default;
 
     virtual srClass* vInstance() override;                                      /* 0x004D6BF0 */
     virtual void traverse(TraverseInfo& info) override;                         /* 0x004D6540 */

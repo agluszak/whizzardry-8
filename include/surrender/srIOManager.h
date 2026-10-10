@@ -1,16 +1,11 @@
 #pragma once
 
-#include "srHeap.h"
 
 #include <string.h>
 
 // VTABLE: SURRENDER 0x10076960
 // class srIOManager
-class
-#if defined(SURRENDER_BUILD)
-
-#endif
-    srIOManager {
+class srIOManager {
 public:
     class Error;
     class Importer;
@@ -19,11 +14,8 @@ public:
     friend class Importer;
     friend class Exporter;
 
-#if !defined(SURRENDER_BUILD)
-    SR_DLL_IMPORT srIOManager(const srIOManager& manager);
-    SR_DLL_IMPORT srIOManager& operator=(const srIOManager& manager);
-#endif
-
+    srIOManager(const srIOManager&) = delete;
+    srIOManager& operator=(const srIOManager&) = delete;
     SR_DLL_IMPORT void dump();
     SR_DLL_IMPORT const char* getExtension(const char* path);
 
@@ -182,11 +174,7 @@ private:
     ExporterList exporters;
 };
 
-class
-#if defined(SURRENDER_BUILD)
-
-#endif
-    srIOManager::Error {
+class srIOManager::Error {
 public:
     // FUNCTION: SURRENDER 0x1002CB00
     // RECOMP: ??0Error@srIOManager@@QAE@PBD@Z
@@ -200,11 +188,7 @@ private:
     const char* description;
 };
 
-class
-#if defined(SURRENDER_BUILD)
-
-#endif
-    srIOManager::Importer {
+class srIOManager::Importer {
 public:
     virtual const char* getTypeName() const = 0;
 
@@ -219,11 +203,7 @@ protected:
     SR_DLL_IMPORT void removeFromImporters(srIOManager* manager);
 };
 
-class
-#if defined(SURRENDER_BUILD)
-
-#endif
-    srIOManager::Exporter {
+class srIOManager::Exporter {
 public:
     virtual const char* getTypeName() const = 0;
 

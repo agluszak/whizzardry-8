@@ -1,9 +1,10 @@
 #include "surrender/srFog.h"
+#include <algorithm>
+#include <cstring>
 #include "surrender/srStreamFlags.h"
 
 #include "surrender/srCore.h"
 #include "surrender/srDebug.h"
-#include "surrender/srHeap.h"
 #include "surrender/srVectorProcessor.h"
 #include "surrender/srVertexPipe.h"
 
@@ -104,16 +105,14 @@ void srFog::process(srVertexPipe& pipe)
             if (count != 0) {
                 if (start == 0.0f) {
                     if (values != distances) {
-                        srVectorProcessor::memcopy(values, distances, count * 4);
+                        std::copy_n(distances, count, values);
                     }
                 } else {
                     srVectorProcessor::add(values, -start, distances, count);
                 }
                 if (scale != 1.0f) {
                     if (scale == 0.0f) {
-                        srVectorProcessor::copy(
-                            reinterpret_cast<SRDWORD*>(values), /* reinterpret-ok: VP dword fill */
-                            0, count);
+                        std::fill_n(values, count, 0.0f);
                     } else {
                         srVectorProcessor::mul(values, scale, values, count);
                     }
@@ -123,9 +122,7 @@ void srFog::process(srVertexPipe& pipe)
             density = this->density;
             if ((count != 0) && (density != 1.0f)) {
                 if (density == 0.0f) {
-                    srVectorProcessor::copy(
-                        reinterpret_cast<SRDWORD*>(values), /* reinterpret-ok: VP dword fill */
-                        0, count);
+                    std::fill_n(values, count, 0.0f);
                 } else {
                     srVectorProcessor::mul(values, density, values, count);
                 }
@@ -134,16 +131,13 @@ void srFog::process(srVertexPipe& pipe)
         } else {
             float* fog = pipe.getFog();
             if (this->density >= 1.0f) {
-                srVectorProcessor::copy(reinterpret_cast<SRDWORD*>(fog),
-                                        /* reinterpret-ok: VP dword fill */ 0x3f800000, count);
+                std::fill_n(fog, count, 1.0f);
                 return;
             }
             density = 1.0f - this->density;
             if ((count != 0) && (density != 1.0f)) {
                 if (density == 0.0f) {
-                    srVectorProcessor::copy(
-                        reinterpret_cast<SRDWORD*>(fog), /* reinterpret-ok: VP dword fill */
-                        0, count);
+                    std::fill_n(fog, count, 0.0f);
                 } else {
                     srVectorProcessor::mul(fog, density, fog, count);
                 }

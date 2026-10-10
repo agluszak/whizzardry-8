@@ -1,3 +1,4 @@
+#include "wiz8/filesystem.h"
 #include "wiz8/engine_code/AnimRep.hpp"
 #include "wiz8/monster_cycles.h"
 #include "wiz8/fonts.h"
@@ -863,7 +864,6 @@ void HandleScriptedNpcDeath(unsigned int monster_list_index)
         if (npc != 0) {
             npc->spawned = 1;
             if (npc->name_style == W8_NPC_VI_DOMINA) {
-                wchar_t display_value[16];
                 unsigned char fact_ok = GetFact(W8_FACT_VI_RESCUED);
                 if (fact_ok == 0) {
                     fact_ok = GetFact(W8_FACT_MYLES_MISSION_RESCUE_VI_ASSIGNED);
@@ -1065,11 +1065,11 @@ void SetFact(W8FactId fact_id, unsigned char value, bool suppress_side_effects)
    one write. Retail passes the handle's own dead stack slot as the
    bytes-written out-parameter; that is VC6 reusing the slot for this local. */
 // FUNCTION: WIZ8 0x00506480
-void SaveFactState(int save_handle)
+void SaveFactState(wiz8::File* save_handle)
 {
     unsigned int bytes_written;
 
-    FileWrite(save_handle, g_fact_values, 1000, &bytes_written);
+    (save_handle->write(g_fact_values, 1000), bytes_written = 1000, true);
 }
 
 /* Clears every fact, then seeds the ones a fresh party starts with. A party

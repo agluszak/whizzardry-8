@@ -1,3 +1,5 @@
+set_source_files_properties(engine_code/gap.c PROPERTIES LANGUAGE CXX)
+
 add_library(WIZ8_GAME_CORE STATIC
     "local_code/PC Item.cpp"
     local_code/FormationAndFacing.cpp
@@ -213,9 +215,7 @@ add_library(WIZ8_GAME_CORE STATIC
     ../native/movie.cpp
     ../native/bink_video.cpp
 )
-target_include_directories(WIZ8_GAME_CORE PRIVATE ${FFMPEG_INCLUDE_DIRS})
-target_link_directories(WIZ8_GAME_CORE PRIVATE ${FFMPEG_LIBRARY_DIRS})
-target_link_libraries(WIZ8_GAME_CORE PRIVATE ${FFMPEG_LIBRARIES})
+target_link_libraries(WIZ8_GAME_CORE PRIVATE PkgConfig::FFMPEG)
 target_link_libraries(WIZ8_GAME_CORE PUBLIC wiz8_native_settings WIZ8_SGP SURRENDER)
 
 # Keep focused integration tests able to discard unused recovered game functions.

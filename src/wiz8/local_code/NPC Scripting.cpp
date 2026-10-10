@@ -75,7 +75,7 @@
 #include "wiz8/xstatus.h"
 #include "wiz8/sr_api.h"
 
-#include "FileMan.h"
+#include "wiz8/filesystem.h"
 
 #include "wiz8/wiz8_windows.h"
 #include <stdio.h>
@@ -1224,7 +1224,7 @@ void ProcessNpcQuoteEntry(W8NpcQuoteEntry* entry, int continuation_quote)
     case W8_NPC_ENTRY_OPTIONS:
     case W8_NPC_ENTRY_KEYWORD_INPUT:
         continuation_quote = -1;
-        /* fall through */
+        [[fallthrough]];
     case W8_NPC_ENTRY_PRICE_CHECK:
     case W8_NPC_ENTRY_ALWAYS_PRICE_CHECK:
         OpenNpcDialog(entry, continuation_quote);

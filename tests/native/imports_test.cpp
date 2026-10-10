@@ -1,3 +1,4 @@
+#include "surrender/srMath.h"
 /* Native consumer-side linking and lifetime for the renderer contracts used
    by the game, including compiler-generated members imported on Windows. */
 #include "surrender/srCamera.h"
@@ -6,16 +7,20 @@
 #include "surrender/srHuffman.h"
 #include "surrender/srLight.h"
 #include "surrender/srMaterial.h"
-#include "surrender/srMemoryAllocator.h"
+#include "surrender/srMeshModel.h"
 #include "surrender/srModeler.h"
 #include "surrender/srQuadWord.h"
 #include "surrender/srScene.h"
 #include "surrender/srTextureFile.h"
 #include "surrender/srVP_generic.h"
 #include <cfenv>
+#include <algorithm>
+#include <array>
+#include <string_view>
 #include <cmath>
 #include <initializer_list>
 #include <limits>
+#include <stdexcept>
 #include "wiz8/sr_api.h"
 #include <cstdio>
 #include <cstring>
@@ -43,6 +48,7 @@ static void assertion(const char* expression, const char* path, w8_long line, co
 static int destroyed_nodes = 0;
 struct ClientNode : srNode
 {
+    bool transformDirty() const { return testNotify(NOTIFY_TRANSFORM_DIRTY) != 0; }
     ~ClientNode() override
     {
         ++destroyed_nodes;
@@ -56,15 +62,111 @@ struct ClientMaterial : srMaterial
 };
 struct ClientTextureFile : srTextureFile
 {
-    ClientTextureFile() : srTextureFile(nullptr, 0)
+    ClientTextureFile() : srTextureFile({}, 0)
     {
     }
     ~ClientTextureFile() override
     {
     }
 };
+struct TrackedElement
+{
+    inline static int live = 0;
+    inline static int constructors_before_throw = -1;
+    int value = 0;
+    TrackedElement()
+    {
+        if (constructors_before_throw == 0) throw std::runtime_error("element construction");
+        if (constructors_before_throw > 0) --constructors_before_throw;
+        ++live;
+    }
+    TrackedElement(const TrackedElement&) = default;
+    TrackedElement& operator=(const TrackedElement&) = default;
+    ~TrackedElement() { --live; }
+};
+
+static int surface_storage()
+{
+    std::array<unsigned char, 40> pixels;
+    for (std::size_t index = 0; index < pixels.size(); ++index)
+        pixels[index] = static_cast<unsigned char>(index * 7);
+    const auto original = pixels;
+    srPtr<srPalette> palette;
+    palette = new srPalette;
+    const auto references = palette->getReferenceCount();
+    {
+        srColorSurface borrowed(srPixelConvert::SURFACE_BGRA32, pixels.data(), 3, 2, 20);
+        borrowed.setPalette(palette);
+        CHECK(borrowed.getDataPtr() == pixels.data() && borrowed.getDataSize() == 40);
+        CHECK(!borrowed.resize(4, 3) && !borrowed.rescale(4, 3));
+        srPixelConvert::PixelFormat format;
+        srPixelConvert::mapPixelFormat(srPixelConvert::SURFACE_RGB24, format);
+        CHECK(!borrowed.changePixelFormat(format, 1));
+
+        srColorSurface copied(borrowed);
+        CHECK(copied.getDataPtr() != pixels.data());
+        CHECK(copied.getPitch() == 20 && copied.getDataSize() == 40);
+        CHECK(std::memcmp(copied.getDataPtr(), pixels.data(), pixels.size()) == 0);
+        CHECK(palette->getReferenceCount() == references + 2);
+        copied.setPixelRaw(0, 0, 0x12345678);
+        CHECK(pixels == original && copied.getPixelRaw(0, 0) == 0x12345678);
+        copied = static_cast<const srColorSurface&>(copied);
+        CHECK(copied.getPixelRaw(0, 0) == 0x12345678);
+
+        srColorSurface assigned(srPixelConvert::SURFACE_BGRA32, 1, 1);
+        assigned = borrowed;
+        CHECK(assigned.getDataPtr() != pixels.data());
+        CHECK(std::memcmp(assigned.getDataPtr(), pixels.data(), pixels.size()) == 0);
+        CHECK(palette->getReferenceCount() == references + 3);
+        srColorSurface view(srPixelConvert::SURFACE_BGRA32, assigned.getDataPtr(), 3, 2, 20);
+        assigned = view;
+        CHECK(std::memcmp(assigned.getDataPtr(), pixels.data(), pixels.size()) == 0);
+        CHECK(palette->getReferenceCount() == references + 2);
+        CHECK(assigned.resize(7, 5));
+        auto* begin = static_cast<unsigned char*>(assigned.getDataPtr());
+        CHECK(std::all_of(begin, begin + assigned.getDataSize(), [](auto value) { return value == 0; }));
+        assigned.fill(0xff336699);
+        CHECK(assigned.rescale(3, 2));
+        for (int y = 0; y < 2; ++y)
+            for (int x = 0; x < 3; ++x)
+                CHECK(assigned.getPixelRaw(x, y) == 0xff336699);
+        CHECK(assigned.changePixelFormat(format, 1));
+        CHECK(assigned.getPitch() == 9 && assigned.getPixelRaw(0, 0) == 0x996633);
+        CHECK(assigned.getPixel(0, 0) == 0xff336699);
+
+        std::array<unsigned char, 4> other_pixels{1, 2, 3, 4};
+        srColorSurface other_borrowed(srPixelConvert::SURFACE_BGRA32, other_pixels.data(), 1, 1, 4);
+        other_borrowed = borrowed;
+        CHECK(other_pixels == (std::array<unsigned char, 4>{1, 2, 3, 4}));
+        CHECK(other_borrowed.getDataPtr() != pixels.data());
+        CHECK(other_borrowed.resize(2, 2));
+    }
+    CHECK(pixels == original && palette->getReferenceCount() == references);
+    return 0;
+}
+
 int main()
 {
+    {
+        srMeshModel::MeshTable<TrackedElement> table;
+        table.Resize(3, 0);
+        CHECK(TrackedElement::live == 3 && table.count == 3);
+        table.data[0].value = 42;
+        table.Resize(5, 1);
+        CHECK(TrackedElement::live == 5 && table.data[0].value == 42);
+        auto copy = table;
+        CHECK(TrackedElement::live == 10 && copy.data[0].value == 42);
+        TrackedElement::constructors_before_throw = 1;
+        bool threw = false;
+        try { table.Resize(8, 1); }
+        catch (const std::runtime_error&) { threw = true; }
+        TrackedElement::constructors_before_throw = -1;
+        CHECK(threw && TrackedElement::live == 10 && table.count == 5);
+        CHECK(table.data[0].value == 42);
+        table.Release();
+        CHECK(TrackedElement::live == 5 && !table.data && !table.count);
+    }
+    CHECK(TrackedElement::live == 0);
     {
         srModeler modeler;
         srModeler::Triangle triangle;
@@ -133,6 +235,7 @@ int main()
     CHECK(srFloatToInt(std::numeric_limits<float>::quiet_NaN()) == (-2147483647 - 1));
     srAssertSetFunc(assertion);
     CHECK(srInit());
+    CHECK(surface_storage() == 0);
     {
         const int before_destruction = destroyed_nodes;
         srScene* scene = new srClientSupport<srScene, 0x1010>;
@@ -141,6 +244,27 @@ int main()
         CHECK(scene->getChildCount() == 1);
         delete scene;
         CHECK(destroyed_nodes == before_destruction + 1);
+
+        auto parent_node = new ClientNode;
+        auto transformed_child = new ClientNode;
+        transformed_child->setParent(parent_node, 0);
+        CHECK(transformed_child->getWorldSpaceLocation().x == 0);
+        CHECK(!parent_node->transformDirty() && !transformed_child->transformDirty());
+        parent_node->setLocation(10, 0, 0);
+        CHECK(parent_node->transformDirty() && transformed_child->transformDirty());
+        CHECK(transformed_child->getWorldSpaceLocation().x == 10);
+        CHECK(!parent_node->transformDirty() && !transformed_child->transformDirty());
+        transformed_child->setLocation(3, 0, 0);
+        CHECK(transformed_child->getWorldSpaceLocation().x == 13);
+        auto other_parent = new ClientNode;
+        other_parent->setLocation(20, 0, 0);
+        transformed_child->setParent(other_parent, 1);
+        CHECK(transformed_child->getWorldSpaceLocation().x == 13);
+        other_parent->setLocation(30, 0, 0);
+        CHECK(transformed_child->transformDirty());
+        CHECK(transformed_child->getWorldSpaceLocation().x == 23);
+        delete parent_node;
+        delete other_parent;
 
         struct alignas(16) PackedVectors
         {
@@ -156,28 +280,15 @@ int main()
         processor._minMax(vectors.values, vectors.minimum, vectors.maximum, 2);
         CHECK(vectors.minimum.x == -3 && vectors.minimum.y == -2 && vectors.minimum.z == 1);
         CHECK(vectors.maximum.x == 5 && vectors.maximum.y == 9 && vectors.maximum.z == 7);
-        srMemoryAllocator allocator;
-        const unsigned sizes[] = {1u, 17u, 257u, 1025u};
-        for (unsigned size : sizes)
-        {
-            void* first = allocator.allocate(3, size, "first allocation");
-            void* second = allocator.allocate(size + 1, "second allocation");
-            CHECK(reinterpret_cast<w8_ulong_ptr>(first) % 32 == 0);
-            CHECK(reinterpret_cast<w8_ulong_ptr>(second) % 32 == 0);
-            CHECK(allocator.getSize(first) == 3 * size && allocator.getSize(second) == size + 1);
-            memset(first, 0xa5, 3 * size);
-            memset(second, 0x5a, size + 1);
-            CHECK(strcmp(allocator.getName(first), "first allocation") == 0);
-            CHECK(strcmp(allocator.getName(second), "second allocation") == 0);
-            allocator.free(first); // Unlink a non-head block, then the head.
-            allocator.free(second);
-        }
-        // A raw operator-new name buffer must use the same release family.
+        // File names own their text, including an aliased setter argument.
         ClientTextureFile texture;
         texture.setFileName("first.bmp");
         texture.setFileName("second.bmp");
-        CHECK(strcmp(texture.getFileName(), "second.bmp") == 0);
-        texture.setFileName(nullptr);
+        CHECK(texture.getFileName() == "second.bmp");
+        texture.setFileName(texture.getFileName());
+        CHECK(texture.getFileName() == "second.bmp");
+        texture.setFileName({});
+        CHECK(texture.getFileName().empty());
         srCamera source, copy;
         source.setViewPlane(2, 3);
         copy = source;

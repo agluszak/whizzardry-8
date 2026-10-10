@@ -98,7 +98,6 @@
 #include "wiz8/world_cursor.h"
 #include "wiz8/local_code/MonsterGroup.h"
 #include "Font.h"
-#include "FileMan.h"
 #include "input.h"
 #include "timer.h"
 #include "Types.h"
@@ -358,6 +357,7 @@ static void ReleaseKeywordFile(KeywordFile* file)
    adds a list, an empty one included, and the loader answers one. */
 // FUNCTION: WIZ8 0x0056bed0
 unsigned char LoadKeywordFile(const char* path, W8GrowableVector<W8GrowableVector<wchar_t*>*>* file)
+try
 {
     wchar_t line[1000];
     wchar_t field[1000];
@@ -417,6 +417,7 @@ unsigned char LoadKeywordFile(const char* path, W8GrowableVector<W8GrowableVecto
     } catch (const std::exception&) { return 0; }
     return 1;
 }
+catch (const std::exception&) { return false; }
 
 /* Release every keyword file list: its words through free, each line list and
    each file list through its deleting destructor. The loaded flag is lowered
@@ -496,7 +497,7 @@ void ResetMainScreenStateBlock(void)
 {
     int unset = -1;
 
-    memset(g_npc_interaction_state, 0, sizeof(W8NpcInteractionState));
+    *g_npc_interaction_state = {};
     g_npc_interaction_state->dialogue_category_filter = unset;
     g_npc_interaction_state->transcript_sorted = false;
     g_npc_interaction_state->pending_trade_toggle = false;
@@ -1272,9 +1273,10 @@ void EndNpcDialogueSession(bool skip_exit_actions)
     ApplyMainGameModeFlag(gXStatus.fCampMode ? g_settings.main_ui_mode
                                              : g_npc_interaction_state->saved_main_ui_mode,
                           true);
-    /* The seven dialogue panels delete through the non-virtual Controls
-       destructor; the thirty-nine dialogue controls through the virtual one.
-       The members stay dangling until the next dialogue rebuilds them. */
+    /* Retail deleted the seven dialogue panels through a non-virtual Controls
+       destructor; the native one is virtual, so the derived panels' members
+       are released too. The members stay dangling until the next dialogue
+       rebuilds them. */
     int i;
     Controls** panel = g_npc_interaction_state->dialogue_panels;
     for (i = 0; i < 7; i++) {
@@ -1553,7 +1555,7 @@ unsigned char NpcDialogueTextBoxRegionEvent(const InputAtom* event, W8Region* re
             NpcDialogueTextBoxLeftUp(static_cast<unsigned short>(event->uiParam),
                                      event->uiParam >> 16);
         }
-        /* fall through */
+        [[fallthrough]];
     case RIGHT_BUTTON_DOWN:
         region->flags |= W8_REGION_RIGHT_BUTTON_HELD;
         return 1;
@@ -2928,7 +2930,6 @@ static void UpdatePartyTradeQuantity(const W8ItemInstance* item, int row, bool d
 // FUNCTION: WIZ8 0x005729C0
 W8ItemInstance* ResolveNpcTradeRow(int index, bool pick, char decrement, char commit)
 {
-    W8ItemInstance* pool;
     W8NpcItemEntry* entry;
     int selected;
     int hit;
@@ -3916,7 +3917,8 @@ void ClearNpcDialogueTranscript(void)
 }
 
 // FUNCTION: WIZ8 0x005750D0
-unsigned char LoadNpcDialogueTranscript(unsigned int file)
+unsigned char LoadNpcDialogueTranscript(wiz8::File* file)
+try
 {
     unsigned char version;
     unsigned int bytes_read;
@@ -3925,26 +3927,27 @@ unsigned char LoadNpcDialogueTranscript(unsigned int file)
     int index;
 
     ClearNpcDialogueTranscript();
-    FileRead(file, &version, 1, &bytes_read);
-    FileRead(file, &record_count, 4, &bytes_read);
+    ((bytes_read = file->read(&version, 1).bytes) == static_cast<std::size_t>(1));
+    ((bytes_read = file->read(&record_count, 4).bytes) == static_cast<std::size_t>(4));
     for (index = 0; index < record_count; ++index) {
         W8DialogueTranscriptRecord* record =
             static_cast<W8DialogueTranscriptRecord*>(malloc(sizeof(W8DialogueTranscriptRecord)));
         memset(record, 0, sizeof(*record));
-        FileRead(file, &text_length, 4, &bytes_read);
-        FileRead(file, record, text_length * 2 + 2, &bytes_read);
-        FileRead(file, &record->category, 1, &bytes_read);
+        ((bytes_read = file->read(&text_length, 4).bytes) == static_cast<std::size_t>(4));
+        ((bytes_read = file->read(record, text_length * 2 + 2).bytes) == static_cast<std::size_t>(text_length * 2 + 2));
+        ((bytes_read = file->read(&record->category, 1).bytes) == static_cast<std::size_t>(1));
         g_npc_interaction_state->dialogue_transcript.Add(record);
     }
     if (version > 1) {
-        FileRead(file, &g_npc_interaction_state->dialogue_category_filter, 1, &bytes_read);
-        FileRead(file, &g_npc_interaction_state->transcript_sorted, 1, &bytes_read);
+        ((bytes_read = file->read(&g_npc_interaction_state->dialogue_category_filter, 1).bytes) == static_cast<std::size_t>(1));
+        ((bytes_read = file->read(&g_npc_interaction_state->transcript_sorted, 1).bytes) == static_cast<std::size_t>(1));
     }
     return 1;
 }
+catch (const std::exception&) { return false; }
 
 // FUNCTION: WIZ8 0x00575290
-unsigned char SaveNpcDialogueTranscript(unsigned int file)
+unsigned char SaveNpcDialogueTranscript(wiz8::File* file)
 {
     unsigned char version;
     unsigned int bytes_written;
@@ -3952,19 +3955,19 @@ unsigned char SaveNpcDialogueTranscript(unsigned int file)
     int index;
 
     version = 2;
-    FileWrite(file, &version, 1, &bytes_written);
+    (file->write(&version, 1), bytes_written = 1, true);
     text_length = g_npc_interaction_state->dialogue_transcript.GetCount();
-    FileWrite(file, &text_length, 4, &bytes_written);
+    (file->write(&text_length, 4), bytes_written = 4, true);
     for (index = 0; index < g_npc_interaction_state->dialogue_transcript.GetCount(); ++index) {
         W8DialogueTranscriptRecord* record =
             *g_npc_interaction_state->dialogue_transcript.GetAt(index);
         text_length = wcslen(record->text);
-        FileWrite(file, &text_length, 4, &bytes_written);
-        FileWrite(file, record, text_length * 2 + 2, &bytes_written);
-        FileWrite(file, &record->category, 1, &bytes_written);
+        (file->write(&text_length, 4), bytes_written = 4, true);
+        (file->write(record, text_length * 2 + 2), bytes_written = text_length * 2 + 2, true);
+        (file->write(&record->category, 1), bytes_written = 1, true);
     }
-    FileWrite(file, &g_npc_interaction_state->dialogue_category_filter, 1, &bytes_written);
-    FileWrite(file, &g_npc_interaction_state->transcript_sorted, 1, &bytes_written);
+    (file->write(&g_npc_interaction_state->dialogue_category_filter, 1), bytes_written = 1, true);
+    (file->write(&g_npc_interaction_state->transcript_sorted, 1), bytes_written = 1, true);
     return 1;
 }
 

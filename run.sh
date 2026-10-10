@@ -44,7 +44,7 @@ fi
 
 # Initialize the writable overlay once; keep the user's later video choices.
 if [[ ! -e "$WIZ8_USER_ROOT/3DVideo.CFG" ]]; then
-    printf 'SDLGPU\n640\n480\n16\nminiaudio spatial\n' > "$WIZ8_USER_ROOT/3DVideo.CFG"
+    printf 'SDLGPU\n640\n480\n16\nSDL mixer spatial\n' > "$WIZ8_USER_ROOT/3DVideo.CFG"
 fi
 mkdir -p -- "$WIZ8_USER_ROOT/diagnostics"
 log_file="$WIZ8_USER_ROOT/diagnostics/launch.log"

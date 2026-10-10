@@ -39,7 +39,7 @@ public:
     virtual void postProcess(srVertexPipe& pipe) override;
 
 protected:
-    virtual ~srMaterial() override;
+
     virtual void updateParms();
     virtual void reset();
 

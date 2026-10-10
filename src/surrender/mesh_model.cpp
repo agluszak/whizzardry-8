@@ -1,3 +1,7 @@
+#include <algorithm>
+#include <cmath>
+#include <vector>
+
 /* D:\srsdk1x\sources\corelib\srMeshModel.cpp */
 
 #include "surrender/srMeshModel.h"
@@ -17,7 +21,6 @@
 #include <ostream>
 #include <stdio.h>
 #include <string.h>
-#pragma intrinsic(memset)
 
 /* Flag-name tables dump walks while printing the render_control and dirty_flags bits. Nothing sets
    them, so dump prints numeric bit indices. */
@@ -27,46 +30,15 @@ static const char* s_control_names;
 // GLOBAL: SURRENDER 0x100A499C
 static const char* s_flag_names0;
 
-static void fillConstant(w8_ulong* destination, w8_ulong value, w8_ulong count)
-{
-    if (count != 0) {
-        srVectorProcessor::copy(destination, value, count);
-    }
-}
-
-/* POD table permutation: scratch through srHeap, straight copy, then reordered copy back. */
+/* Copy to scratch, then reorder the table. */
 template <class T> static void permuteTable(T* table, const w8_ulong* indices, w8_long count)
 {
-    T* scratch = static_cast<T*>(srHeap.allocate(count * sizeof(T)));
-    if (scratch == 0) {
-        scratch = 0;
-    }
-    if (count != 0) {
-        w8_long index;
-        for (index = 0; index < count; ++index) {
-            scratch[index] = table[index];
-        }
-        for (index = 0; index < count; ++index) {
+    if (count > 0) {
+        std::vector<T> scratch(table, table + count);
+        for (w8_long index = 0; index < count; ++index) {
             table[index] = scratch[indices[index]];
         }
     }
-    srHeap.free(scratch);
-}
-
-/* Object-table permutation: `new T[count]` scratch so each element's ctor and copy-assign run. */
-template <class T> static void permuteObjects(T* table, const w8_ulong* indices, w8_long count)
-{
-    T* scratch = new T[count];
-    if (count != 0) {
-        w8_long index;
-        for (index = 0; index < count; ++index) {
-            scratch[index] = table[index];
-        }
-        for (index = 0; index < count; ++index) {
-            table[index] = scratch[indices[index]];
-        }
-    }
-    delete[] scratch;
 }
 
 /* Bounds-checked pass/side slots; out-of-range indices are ignored. */
@@ -575,7 +547,7 @@ void srMeshModel::calculateVertexNormals()
         srVector3i* polygons = getPolyVertex();
         w8_ulong* shade_indices = getVertexShadeIndex(0);
         if (shade_indices == 0) {
-            fillConstant((w8_ulong*)normals, 0, vertex_location_count * 3);
+            std::fill_n(normals, vertex_location_count, srVector3T<float>(0.0f, 0.0f, 0.0f));
             for (w8_long polygon = 0; polygon < polygon_count; polygon++) {
                 normals[polygons[polygon].x].x += equations[polygon].x;
                 normals[polygons[polygon].x].y += equations[polygon].y;
@@ -588,12 +560,8 @@ void srMeshModel::calculateVertexNormals()
                 normals[polygons[polygon].z].z += equations[polygon].z;
             }
         } else {
-            srVector3T<float>* smooth =
-                (srVector3T<float>*)srHeap.allocate(vertex_location_count * sizeof(*smooth));
-            w8_long count = vertex_location_count * 3;
-            if (count != 0) {
-                srVectorProcessor::copy((SRDWORD*)smooth, 0, count);
-            }
+            std::vector<srVector3T<float>> smooth(vertex_location_count,
+                                                 srVector3T<float>(0.0f, 0.0f, 0.0f));
             for (w8_long polygon = 0; polygon < polygon_count; polygon++) {
                 smooth[shade_indices[polygons[polygon].x]].x += equations[polygon].x;
                 smooth[shade_indices[polygons[polygon].x]].y += equations[polygon].y;
@@ -606,10 +574,9 @@ void srMeshModel::calculateVertexNormals()
                 smooth[shade_indices[polygons[polygon].z]].z += equations[polygon].z;
             }
             if (vertex_location_count != 0) {
-                srVectorProcessor::copyIndexed(normals, smooth, shade_indices,
+                srVectorProcessor::copyIndexed(normals, smooth.data(), shade_indices,
                                                vertex_location_count);
             }
-            srHeap.free(smooth);
         }
         if (vertex_location_count != 0) {
             srVectorProcessor::normalize(normals, normals, 1.0f, vertex_location_count);
@@ -670,7 +637,6 @@ void srMeshModel::relocateVertices(const srVector3T<float>& offset)
    effect, and none of the plain float formulations tried reproduced it. So
    the sums are doubles (what the 53-bit stack holds), and float
    consistency keeps the one explicit rounding of the y sum. */
-#pragma optimize("p", on)
 // FUNCTION: SURRENDER 0x1003E9B0
 void srMeshModel::centerVertices()
 {
@@ -694,7 +660,6 @@ void srMeshModel::centerVertices()
         relocateVertices(offset);
     }
 }
-#pragma optimize("", on)
 
 // FUNCTION: SURRENDER 0x1003EA90
 double srMeshModel::getAverageRadius()
@@ -974,11 +939,11 @@ void srMeshModel::reindexPolygons(const w8_ulong* indices)
                 permuteTable(getPolyUVIndex(pass, 0), indices, polygon_count);
             }
             if (getPolyShader(pass, 0) != 0) {
-                permuteObjects(getPolyShader(pass, 0), indices, polygon_count);
+                permuteTable(getPolyShader(pass, 0), indices, polygon_count);
             }
             for (w8_long layer = 0; layer < 2; ++layer) {
                 if (getPolyTexture(pass, layer, 0) != 0) {
-                    permuteObjects(getPolyTexture(pass, layer, 0), indices, polygon_count);
+                    permuteTable(getPolyTexture(pass, layer, 0), indices, polygon_count);
                 }
             }
         }
@@ -1020,7 +985,7 @@ void srMeshModel::reindexVertices(const w8_ulong* indices)
         if (shade != 0) {
             w8_ulong* copy = new w8_ulong[vertex_location_count];
             if (vertex_location_count != 0 && copy != shade) {
-                srVectorProcessor::memcopy(copy, shade, vertex_location_count * 4);
+                std::copy_n(shade, vertex_location_count, copy);
             }
             for (index = 0; index < vertex_location_count; ++index) {
                 shade[index] = forward[copy[indices[index]]];
@@ -1037,7 +1002,7 @@ void srMeshModel::reindexVertices(const w8_ulong* indices)
         for (pass = 0; pass < pass_count; ++pass) {
             for (side = 0; side < 2; ++side) {
                 if (getVertexMaterial(pass, static_cast<e_side>(side), 0) != 0) {
-                    permuteObjects(getVertexMaterial(pass, static_cast<e_side>(side), 0), indices,
+                    permuteTable(getVertexMaterial(pass, static_cast<e_side>(side), 0), indices,
                                    vertex_location_count);
                 }
             }
@@ -1104,7 +1069,7 @@ void srMeshModel::verify(srRuntimeClass::e_verify mode)
         srAssertFail("t.pnum > 0", "D:\\srsdk1x\\sources\\corelib\\srMeshModel.cpp", 0x5d0, 0);
     }
     if (t.pass_count > 0 && t.pass_count <= MAX_PASSES) {
-        if (!srFinite(t.sort_bias)) {
+        if (!std::isfinite(t.sort_bias)) {
             srAssertFail("srFinite(t.sortBias)", "D:\\srsdk1x\\sources\\corelib\\srMeshModel.cpp",
                          0x5d2, 0);
         }
@@ -1650,11 +1615,16 @@ void srTriMeshPipeline::Flush()
     flushing = 0;
 }
 
-/* Point current_record / current_pass at slot slot_count, growing
-   either table by (capacity + slot + 8) when needed. */
+/* Point current_record / current_pass at slot slot_count. */
 // FUNCTION: SURRENDER 0x100442E0
 void srTriMeshPipeline::PrepareSlot()
 {
+    if (records.size() <= slot_count) {
+        records.resize(slot_count + 1);
+    }
+    if (passes.size() <= slot_count) {
+        passes.resize(slot_count + 1);
+    }
     current_record = &records[slot_count];
     current_pass = &passes[slot_count];
 
@@ -1765,7 +1735,8 @@ void srTriMeshPipeline::FlushSlots()
         }
     }
 
-    w8_ulong* scratch = culler_scratch.ensure(batch_limit + vertex_count * 2);
+    culler_scratch.resize(batch_limit + vertex_count * 2);
+    w8_ulong* scratch = culler_scratch.data();
     srTriangleCuller::Output culler_output;
     culler_output.indices = scratch;
     culler_output.avt = scratch + batch_limit;
@@ -1800,8 +1771,8 @@ void srTriMeshPipeline::FlushSlots()
 
             srGERD::Renderer* renderer = this->renderer->lockRenderer();
 
-            (void)this->vertex_arrays[slot_count];
-            srVertexArray* vertex_arrays = &this->vertex_arrays[0];
+            this->vertex_arrays.resize(slot_count);
+            srVertexArray* vertex_arrays = this->vertex_arrays.data();
             renderer->allocVertexArray(vertex_arrays[0], slot_count * culler_output.vertex_count);
 
             /* The left side re-reads vertex_arrays[slot] while the right side keeps the snapshot
@@ -1821,8 +1792,8 @@ void srTriMeshPipeline::FlushSlots()
             w8_ulong processor_count = this->renderer->getVertexProcessorCount();
             srVertexProcessor** processors = 0;
             if (processor_count != 0) {
-                processors = vertex_processors.ensure(processor_count);
-                this->renderer->getVertexProcessors(processors);
+                vertex_processors = this->renderer->getVertexProcessors();
+                processors = vertex_processors.data();
             }
 
             srVector4T<float> ambient_light;
@@ -1941,6 +1912,9 @@ void srMeshModel::renderTriMesh(srGERD& renderer, const TriMesh& mesh)
         for (w8_long side = 1; side >= 0; --side) {
             if ((mesh.control_flags & (1u << side)) != 0) {
                 srTriMeshPipeline* pipeline = srTriMeshPipeline::Get(&renderer);
+                pipeline->records.resize(static_cast<std::size_t>(mesh.pass_count) + 1);
+                pipeline->passes.resize(static_cast<std::size_t>(mesh.pass_count) + 1);
+                pipeline->PrepareSlot();
                 pipeline->sort_bias = mesh.sort_bias;
                 pipeline->triangles = mesh.poly_vertices;
                 pipeline->triangle_count = static_cast<w8_ulong>(mesh.polygon_count);

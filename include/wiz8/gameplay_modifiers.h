@@ -50,12 +50,12 @@ struct W8EffectSlot {
 }; /* 0x11 */
 #pragma pack(pop)
 
-static_assert(sizeof(W8EffectSlot) == 0x11, "W8EffectSlot_must_be_0x11");
-static_assert(offsetof(W8EffectSlot, active) == 0x00, "W8EffectSlot_active");
-static_assert(offsetof(W8EffectSlot, effect_id) == 0x01, "W8EffectSlot_effect_id");
-static_assert(offsetof(W8EffectSlot, amount) == 0x05, "W8EffectSlot_amount");
-static_assert(offsetof(W8EffectSlot, percent) == 0x09, "W8EffectSlot_percent");
-static_assert(offsetof(W8EffectSlot, duration) == 0x0d, "W8EffectSlot_duration");
+W8_ABI_ASSERT(sizeof(W8EffectSlot) == 0x11, "W8EffectSlot_must_be_0x11");
+W8_ABI_ASSERT(offsetof(W8EffectSlot, active) == 0x00, "W8EffectSlot_active");
+W8_ABI_ASSERT(offsetof(W8EffectSlot, effect_id) == 0x01, "W8EffectSlot_effect_id");
+W8_ABI_ASSERT(offsetof(W8EffectSlot, amount) == 0x05, "W8EffectSlot_amount");
+W8_ABI_ASSERT(offsetof(W8EffectSlot, percent) == 0x09, "W8EffectSlot_percent");
+W8_ABI_ASSERT(offsetof(W8EffectSlot, duration) == 0x0d, "W8EffectSlot_duration");
 
 /* The 0x67-byte modifier accumulator. Its byte runs are fixed by the fold at
    0x0050F090: bytes 0x00..0x0b, 0x0c..0x12, 0x13..0x3b and 0x3c..0x41 are
@@ -105,11 +105,11 @@ struct W8GameplayModifierBlock {
     unsigned char unknown_4c[0x1b]; /* 0x4c .. 0x66 */
 }; /* 0x67 */
 
-static_assert(offsetof(W8GameplayModifierBlock, damage_reduction_adjustment) == 0x06,
+W8_ABI_ASSERT(offsetof(W8GameplayModifierBlock, damage_reduction_adjustment) == 0x06,
               "W8GameplayModifierBlock_damage_reduction_offset");
-static_assert(offsetof(W8GameplayModifierBlock, attribute_adjustments) == 0x0c,
+W8_ABI_ASSERT(offsetof(W8GameplayModifierBlock, attribute_adjustments) == 0x0c,
               "W8GameplayModifierBlock_attribute_adjustments_offset");
-static_assert(sizeof(W8GameplayModifierBlock) == 0x67, "W8GameplayModifierBlock_must_be_0x67");
+W8_ABI_ASSERT(sizeof(W8GameplayModifierBlock) == 0x67, "W8GameplayModifierBlock_must_be_0x67");
 
 /* The spell that fills each being effect slot; the monster side indexes
    W8MonsterInfo::effect_slots, the party side

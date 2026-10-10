@@ -1,11 +1,10 @@
-#include "surrender/srDynamicLibrary.h"
-#include "surrender/srMutex.h"
-#include "surrender/srThread.h"
+#include "surrender/srCore.h"
+#include "surrender/srDD_SDLGPU.h"
+#include "surrender/srGERD.h"
 #include "surrender/srTimer.h"
 
 #include <chrono>
 #include <cstdio>
-#include <future>
 #include <thread>
 
 #define CHECK(expression)                                                                          \
@@ -17,11 +16,6 @@
             return 1;                                                                             \
         }                                                                                         \
     } while (0)
-
-static void worker(void* argument)
-{
-    static_cast<std::promise<int>*>(argument)->set_value(42);
-}
 
 int main()
 {
@@ -36,33 +30,40 @@ int main()
     timer.setUnits(1000);
     CHECK(timer.getUnits() == 1000);
 
-    srMutex mutex;
-    mutex.getAccess();
-    mutex.getAccess();
-    CHECK(mutex.accessAvailable());
-    bool available = true;
-    std::thread competing([&] { available = mutex.accessAvailable(); });
-    competing.join();
-    CHECK(!available);
-    mutex.releaseAccess();
-    mutex.releaseAccess();
-    CHECK(mutex.accessAvailable());
+    for (int cycle = 0; cycle < 3; ++cycle) {
+        CHECK(srInit() && srCore.isInitialized());
+        {
+            srGERD gerd(srCreateSDLGPUDevice(), "SDLGPU");
+            auto* renderer = gerd.lockRenderer();
+            gerd.unlockRenderer(renderer, 1);
+            w8_ulong statistics[7];
+            renderer->getStatistics(statistics);
+            CHECK(statistics[4] == 1);
 
-    std::promise<int> result;
-    auto completed = result.get_future();
-    srThread::begin(worker, &result);
-    CHECK(completed.get() == 42);
-    const auto yields = srThread::getYieldCount();
-    srThread::yield(0);
-    CHECK(srThread::getYieldCount() == yields + 1);
+            bool reused = false;
+            std::jthread worker([&] {
+                auto* acquired = gerd.lockRenderer();
+                reused = acquired == renderer;
+                gerd.unlockRenderer(acquired, 1);
+                gerd.flushImmediateRenderers();
+                gerd.flushRenderers();
+            });
+            worker.join();
+            CHECK(reused);
+            renderer->getStatistics(statistics);
+            CHECK(statistics[4] == 1);
 
-    CHECK(!srDynamicLibrary::load(nullptr));
-    void* library = srDynamicLibrary::load(WIZ8_PLATFORM_LIBRARY);
-    CHECK(library);
-    auto symbol = reinterpret_cast<int (*)()>(
-        srDynamicLibrary::getFunction(library, "w8_loader_fixture_symbol"));
-    CHECK(symbol && symbol() == 42);
-    CHECK(!srDynamicLibrary::getFunction(library, "missing_native_fixture_symbol"));
-    CHECK(srDynamicLibrary::free(library));
-    puts("ok: renderer monotonic clock, recursive mutex, worker and shared-object loading");
+            gerd.flushImmediateRenderers();
+            renderer->getStatistics(statistics);
+            CHECK(statistics[4] == 2);
+            gerd.flushRenderers();
+            renderer->getStatistics(statistics);
+            CHECK(statistics[4] == 3);
+        }
+        CHECK(srGERD::getFirst() == nullptr);
+        CHECK(srExit() && !srCore.isInitialized());
+        CHECK(srExit());
+    }
+
+    puts("ok: renderer clock, owner-thread submission and core reinitialization");
 }

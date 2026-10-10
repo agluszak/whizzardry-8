@@ -14,7 +14,7 @@
 #include "surrender/srMeshModel.h"
 #include "surrender/srCore.h"
 
-#include "FileMan.h"
+#include "wiz8/filesystem.h"
 
 #include "wiz8/wiz8_windows.h"
 #include <new>
@@ -125,13 +125,9 @@ void stLight::traverse(srNode::TraverseInfo& info)
             }
         } else if (m_definition != 0) {
             if (!testFlag(FLAG_GLOBAL)) {
-                srNode::TraverseInfo::Entry& entry = info.entries[info.entry_count];
-                entry.node = this;
-                entry.value = 1;
-                ++info.entry_count;
+                info.entries.push_back({this, 1});
             } else {
-                info.nodes[info.node_count] = this;
-                ++info.node_count;
+                info.nodes.push_back(this);
             }
 
             if (first_child_ != 0) {
@@ -139,10 +135,7 @@ void stLight::traverse(srNode::TraverseInfo& info)
             }
 
             if (!testFlag(FLAG_GLOBAL)) {
-                srNode::TraverseInfo::Entry& entry = info.entries[info.entry_count];
-                entry.node = this;
-                entry.value = 2;
-                ++info.entry_count;
+                info.entries.push_back({this, 2});
             }
         }
     }
@@ -415,14 +408,14 @@ void stLight::Reset()
 /* Serialize the registered positional lights: a version byte and count
    followed by each light's 0x80-byte name and its disable flag. */
 // FUNCTION: WIZ8 0x0049D120
-void SaveLightStates(int handle)
+void SaveLightStates(wiz8::File* handle)
 {
     char name[0x80] = {0};
     memcpy(name, &g_empty_ambient_name, sizeof(g_empty_ambient_name));
     unsigned char version = 1;
     int count = 0;
 
-    FileWrite(handle, &version, sizeof(version), 0);
+    handle->write(&version, sizeof(version));
 
     stLight* light = static_cast<stLight*>(srCore.getRegistry()->find(
         stLight::sGetClassNode(), static_cast<const srRuntimeClass*>(0)));
@@ -433,16 +426,16 @@ void SaveLightStates(int handle)
         light = static_cast<stLight*>(srCore.getRegistry()->find(stLight::sGetClassNode(), light));
     }
 
-    FileWrite(handle, &count, sizeof(count), 0);
+    handle->write(&count, sizeof(count));
 
     light = static_cast<stLight*>(srCore.getRegistry()->find(
         stLight::sGetClassNode(), static_cast<const srRuntimeClass*>(0)));
     while (light != 0) {
         if (light->m_save_marked) {
             strcpy(name, light->getName());
-            FileWrite(handle, name, sizeof(name), 0);
+            handle->write(name, sizeof(name));
             unsigned char enabled = light->testFlag(srNode::FLAG_DISABLE) == 0;
-            FileWrite(handle, &enabled, sizeof(enabled), 0);
+            handle->write(&enabled, sizeof(enabled));
         }
         light = static_cast<stLight*>(srCore.getRegistry()->find(stLight::sGetClassNode(), light));
     }
@@ -452,20 +445,20 @@ void SaveLightStates(int handle)
    followed by each light's 0x80-byte name and its enable flag, applied to the
    light found by name in the registry. */
 // FUNCTION: WIZ8 0x0049D390
-void LoadLightStates(int handle)
+void LoadLightStates(wiz8::File* handle)
 {
     char name[0x80] = {0};
     memcpy(name, &g_empty_ambient_name, sizeof(g_empty_ambient_name));
     unsigned char version;
     int count = 0;
 
-    FileRead(handle, &version, sizeof(version), 0);
-    FileRead(handle, &count, sizeof(count), 0);
+    handle->read_exact(&version, sizeof(version));
+    handle->read_exact(&count, sizeof(count));
 
     for (int index = 0; index < count; ++index) {
         unsigned char enabled;
-        FileRead(handle, name, sizeof(name), 0);
-        FileRead(handle, &enabled, sizeof(enabled), 0);
+        handle->read_exact(name, sizeof(name));
+        handle->read_exact(&enabled, sizeof(enabled));
 
         stLight* light =
             static_cast<stLight*>(srCore.getRegistry()->find(stLight::sGetClassNode(), name, 0));

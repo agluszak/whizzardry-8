@@ -10,13 +10,6 @@
 // class srBinIStream
 class SR_DLL_IMPORT srBinIStream : public virtual srBinStream {
 public:
-#if !defined(SURRENDER_BUILD)
-    srBinIStream() {}
-    srBinIStream(const srBinIStream& stream);
-    virtual ~srBinIStream() override {}
-    srBinIStream& operator=(const srBinIStream& stream);
-#endif
-
     unsigned short getChar();
     w8_ulong getDWord();
     double getDouble();
@@ -61,18 +54,9 @@ srBinIStream& operator>>(srBinIStream& stream, srMatrix4T<double>& value);
 // VTABLE: SURRENDER 0x10076B80 srBinStream
 // VTABLE: SURRENDER 0x10076B94 srBinIStream
 // class srBinIMStream
-#if defined(SURRENDER_BUILD)
-class srBinIMStream
-#else
-class SR_DLL_IMPORT srBinIMStream
-#endif
-    : public srBinIStream {
+class SR_DLL_IMPORT srBinIMStream : public srBinIStream {
 public:
     srBinIMStream(const void* data, w8_ulong size);
-
-#if !defined(SURRENDER_BUILD)
-    virtual ~srBinIMStream() override {}
-#endif
 
     virtual w8_ulong getSize() override;
     virtual srBinStream& seek(w8_ulong position, srBinStream::e_seekDir direction) override;

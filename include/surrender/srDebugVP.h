@@ -13,7 +13,7 @@ class srDebugVP : public srVP {
     friend class srVectorProcessor;
 
 public:
-    /* Command ids, one per srVP slot; the names are descriptive. Slots 163 and 164 are unnamed. */
+    /* Historical command ids retained for renderer-operation statistics. */
     enum e_command {
         COMMAND_DUMMY = 0,
         COMMAND_MEMCMP = 1,
@@ -189,23 +189,11 @@ public:
     /* Every override below wraps the same-numbered call on processor in a ScopeTimer. The
        _max/_min(const SRDWORD*) bodies swap their command ids and targets. */
     virtual const char* getName() override;
-    virtual int _memcmp(const void* source_0, const void* source_1, SRDWORD bytes) override;
-    virtual void _memcopy(void* destination, int source, SRDWORD bytes) override;
-    virtual void _memcopy(void* destination, const void* source, SRDWORD bytes) override;
-    virtual void _prefetch(const void* destination, SRDWORD bytes, SRDWORD unused) override;
-    virtual void _copyInterleaved(void* destination, const void* source, SRDWORD destination_pitch,
-                                  SRDWORD source_pitch, SRDWORD width, SRDWORD count) override;
-    virtual void _swap(void* first, void* second, SRDWORD bytes) override;
     virtual void _copy(srVector4* destination, const srVector3* source_0, const float* source_1,
                        SRDWORD count) override;
     virtual void _copy(srVector4* destination, const srVector3* source, float constant,
                        SRDWORD count) override;
-    virtual void _copy(srVector4* destination, const srVector4& constant, SRDWORD count) override;
     virtual void _copy(srVector3* destination, const srVector4* source, SRDWORD count) override;
-    virtual void _copy(srVector3* destination, const srVector3& constant, SRDWORD count) override;
-    virtual void _copy(srVector2* destination, const srVector2& constant, SRDWORD count) override;
-    virtual void _copy(SRDWORD* destination, SRDWORD constant, SRDWORD count) override;
-    virtual void _reverse(SRDWORD* destination, const SRDWORD* source, SRDWORD count) override;
     virtual void _and(SRDWORD* destination, const SRDWORD* source_0, const SRDWORD* source_1,
                       SRDWORD count) override;
     virtual void _and(SRDWORD* destination, const SRDWORD* source, SRDWORD constant,
@@ -535,6 +523,6 @@ private:
     void resetInternalStatistics();
 };
 
-static_assert(sizeof(srDebugVP::e_command) == 4, "srDebugVP_command_size");
+W8_ABI_ASSERT(sizeof(srDebugVP::e_command) == 4, "srDebugVP_command_size");
 
 W8_ABI_ASSERT((sizeof(srDebugVP) == 0x1678), "srDebugVP_must_be_0x1678");

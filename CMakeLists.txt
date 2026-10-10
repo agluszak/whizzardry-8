@@ -2,7 +2,6 @@ cmake_minimum_required(VERSION 3.21)
 if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
     set(CMAKE_BUILD_TYPE Release CACHE STRING "Build configuration")
 endif()
-include(cmake/BootstrapVcpkg.cmake)
 project(whizzardry8 LANGUAGES C CXX)
 
 if(NOT CMAKE_SYSTEM_NAME MATCHES "^(Linux|Darwin|Windows)$" OR
@@ -24,13 +23,25 @@ set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}")
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}")
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
-find_package(SDL3 3.2 CONFIG REQUIRED)
+# First-party warning baseline.
+if(CMAKE_CXX_COMPILER_FRONTEND_VARIANT STREQUAL "MSVC")
+    add_compile_options(/W4)
+else()
+    add_compile_options(-Wall -Wextra)
+endif()
+add_compile_options(-Wdeprecated -Wimplicit-fallthrough -Wno-unused-parameter
+    $<$<COMPILE_LANGUAGE:CXX>:-Wsuggest-override>)
+
+find_package(SDL3 3.4 CONFIG REQUIRED)
+find_package(SDL3_image 3.4 CONFIG REQUIRED)
+find_package(SDL3_mixer 3.2.4 CONFIG REQUIRED)
 find_package(Threads REQUIRED)
 
 # No forced CRT vocabulary or short-wchar options at the portable API boundary.
 add_library(wiz8_filesystem STATIC
     src/platform/path_resolver.cpp
     src/platform/filesystem.cpp
+    src/platform/slf.cpp
     src/platform/file_time.cpp
 )
 target_include_directories(wiz8_filesystem PUBLIC "${PROJECT_SOURCE_DIR}/include")
@@ -41,15 +52,14 @@ if(BUILD_TESTING)
     add_subdirectory(tests/portable)
 endif()
 find_package(ZLIB REQUIRED)
-find_package(FFMPEG REQUIRED)
-
-find_path(MINIAUDIO_INCLUDE_DIR miniaudio.h REQUIRED)
-add_library(miniaudio STATIC src/sgp/native/miniaudio.c)
-target_include_directories(miniaudio SYSTEM PUBLIC "${MINIAUDIO_INCLUDE_DIR}")
-target_link_libraries(miniaudio PRIVATE Threads::Threads ${CMAKE_DL_LIBS})
-if(UNIX AND NOT APPLE)
-    target_link_libraries(miniaudio PRIVATE m)
-endif()
+find_package(PkgConfig REQUIRED)
+pkg_check_modules(FFMPEG REQUIRED IMPORTED_TARGET
+    libavcodec
+    libavformat
+    libavutil
+    libswresample
+    libswscale
+)
 
 # Settings shared by every native component.
 add_library(wiz8_native_settings INTERFACE)

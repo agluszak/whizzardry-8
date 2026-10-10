@@ -12,7 +12,6 @@ class SR_DLL_IMPORT srClipPlane
 public:
     typedef srClientSupport<srClipPlane, 0x1500> ClientType;
 
-
     enum e_clip { CLIP_POSITIONAL_0 = 0 };
 
     srClipPlane(srNode* parent = 0);
@@ -28,20 +27,8 @@ public:
     virtual void traverse(TraverseInfo& info) override;
     virtual void process(const ProcessInfo& info, e_processType type) override;
 
-#if defined(SURRENDER_BUILD)
     void setClipPlane(const srVector4T<float>& plane);
     void setClipType(e_clip type);
-#else
-    void setClipPlane(const srVector4T<float>& plane)
-    {
-        clip_plane_ = plane;
-    }
-
-    void setClipType(e_clip type)
-    {
-        clip_type_ = type;
-    }
-#endif
     void getClipPlane(srVector4T<float>& plane) const;
     srVector4T<float> getClipPlane() const;
     e_clip getClipType() const;

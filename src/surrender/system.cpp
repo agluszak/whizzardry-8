@@ -1,6 +1,5 @@
 #include "surrender/srSystem.h"
 
-#include "surrender/srStringTable.h"
 #include <wiz8/asset_paths.h>
 #include "wiz8/filesystem.h"
 
@@ -9,7 +8,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-w8_long srSystem::scanFiles(srStringTable& files, const char* path)
+w8_long srSystem::scanFiles(std::vector<std::string>& files, const char* path)
 {
     if (path == 0 || *path == '\0') {
         return 0;
@@ -41,13 +40,7 @@ w8_long srSystem::chDir(const char* path)
     return w8_native::change_directory(path);
 }
 
-w8_long srSystem::scanLibraries(srStringTable&, const char*, const char*)
-{
-    /* Device drivers, vector processors and extensions are built in. */
-    return 0;
-}
-
-w8_long srSystem::scanFiles(srStringTable& files, const char* directory, const char* pattern)
+w8_long srSystem::scanFiles(std::vector<std::string>& files, const char* directory, const char* pattern)
 {
     if (pattern == 0) {
         return 0;
@@ -69,7 +62,7 @@ w8_long srSystem::scanFiles(srStringTable& files, const char* directory, const c
                 const auto info = wiz8::host_file_status(path);
                 if (info && info->info.type == SDL_PATHTYPE_FILE) {
                     const auto full = wiz8::path_to_utf8(path);
-                    files.addString(full.c_str());
+                    files.push_back(full);
                     ++count;
                 }
             }
@@ -81,7 +74,7 @@ w8_long srSystem::scanFiles(srStringTable& files, const char* directory, const c
             const auto entry = wiz8::file_status(game_path);
             if (entry && entry->info.type == SDL_PATHTYPE_FILE) {
                 const std::string full = w8_native::full_path(game_path.c_str());
-                files.addString(full.c_str());
+                files.push_back(full);
                 ++count;
             }
         }

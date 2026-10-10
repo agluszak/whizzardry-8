@@ -25,6 +25,8 @@ public:
     }
 
     virtual ~stScript() override;
+
+    stScript& operator=(const stScript&) = default;
     virtual srClass* vInstance() override;
 
     int FindLabelLine(const char* label) const;

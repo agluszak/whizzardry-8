@@ -54,7 +54,7 @@
 #include "wiz8/sr_api.h"
 #include "wiz8/vector.h"
 #include "wiz8/virtual_file.h"
-#include "FileMan.h"
+#include "wiz8/filesystem.h"
 #include "random.h"
 #include "timer.h"
 #include "wiz8/local_code/character_events.h"
@@ -68,22 +68,24 @@
    six-byte elements appended to a freshly created list. */
 // FUNCTION: WIZ8 0x0054aac0
 unsigned char InitializeNpcDatabase(void)
+try
 {
     char path[60];
     unsigned int index;
     unsigned int entry;
     unsigned int entry_count;
     unsigned int transferred;
-    int handle;
+    std::unique_ptr<wiz8::File> handle;
     W8NpcItemStockRule* element;
 
     sprintf(path, "%s\\%s.%s", "Data\\Databases", "NPC", "DBS");
-    handle = FileOpen(path, 1, 0);
+    handle = [&]() { try { return wiz8::open_file(path, wiz8::OpenMode::read); } catch (const std::exception&) { return std::unique_ptr<wiz8::File>{}; } }();
     if (!handle) {
         return 0;
     }
-    if (!FileRead(handle, &gXStatus.uiNpcsInDatabase, 4, &transferred)) {
-        FileClose(handle);
+    if (!((transferred = handle->read(&gXStatus.uiNpcsInDatabase, 4).bytes) == static_cast<std::size_t>(4))) {
+        if (handle) handle->close();
+        handle.reset();
         return 0;
     }
     g_npc_records = static_cast<W8NpcDatabaseRecord*>(
@@ -92,15 +94,17 @@ unsigned char InitializeNpcDatabase(void)
         return 0;
     }
     for (index = 0; index < gXStatus.uiNpcsInDatabase; ++index) {
-        if (!FileRead(handle, &g_npc_records[index], sizeof(*g_npc_records), &transferred)) {
-            FileClose(handle);
+        if (!((transferred = handle->read(&g_npc_records[index], sizeof(*g_npc_records)).bytes) == static_cast<std::size_t>(sizeof(*g_npc_records)))) {
+            if (handle) handle->close();
+            handle.reset();
             return 0;
         }
         g_npc_records[index].item_stock_rules = 0;
         if (g_npc_records[index].no_item_stock == 0 && g_npc_records[index].version > 1) {
             entry_count = 0;
-            if (!FileRead(handle, &entry_count, 4, &transferred)) {
-                FileClose(handle);
+            if (!((transferred = handle->read(&entry_count, 4).bytes) == static_cast<std::size_t>(4))) {
+                if (handle) handle->close();
+                handle.reset();
                 return 0;
             }
             if (entry_count > 0) {
@@ -108,12 +112,14 @@ unsigned char InitializeNpcDatabase(void)
                 for (entry = 0; entry < entry_count; ++entry) {
                     element = new W8NpcItemStockRule;
                     if (!element) {
-                        FileClose(handle);
+                        if (handle) handle->close();
+                        handle.reset();
                         return 0;
                     }
                     memset(element, 0, 6);
-                    if (!FileRead(handle, element, 6, &transferred)) {
-                        FileClose(handle);
+                    if (!((transferred = handle->read(element, 6).bytes) == static_cast<std::size_t>(6))) {
+                        if (handle) handle->close();
+                        handle.reset();
                         return 0;
                     }
                     PListInsert(g_npc_records[index].item_stock_rules, entry, element);
@@ -121,9 +127,11 @@ unsigned char InitializeNpcDatabase(void)
             }
         }
     }
-    FileClose(handle);
+    if (handle) handle->close();
+    handle.reset();
     return 1;
 }
+catch (const std::exception&) { return false; }
 
 /* The three loaders below share one shape: build Data\Databases\<NAME>.DBS,
    open it, read a record count, allocate count * stride, then read the records
@@ -134,19 +142,21 @@ unsigned char InitializeNpcDatabase(void)
 
 // FUNCTION: WIZ8 0x0054ad00
 unsigned char InitializeFactDatabase(void)
+try
 {
     char path[60];
     unsigned int index;
     unsigned int transferred;
-    int handle;
+    std::unique_ptr<wiz8::File> handle;
 
     sprintf(path, "%s\\%s.%s", "Data\\Databases", "FACT", "DBS");
-    handle = FileOpen(path, 1, 0);
+    handle = [&]() { try { return wiz8::open_file(path, wiz8::OpenMode::read); } catch (const std::exception&) { return std::unique_ptr<wiz8::File>{}; } }();
     if (!handle) {
         return 0;
     }
-    if (!FileRead(handle, &gXStatus.uiFactsInDatabase, 4, &transferred)) {
-        FileClose(handle);
+    if (!((transferred = handle->read(&gXStatus.uiFactsInDatabase, 4).bytes) == static_cast<std::size_t>(4))) {
+        if (handle) handle->close();
+        handle.reset();
         return 0;
     }
     g_fact_records = static_cast<W8FactDatabaseRecord*>(
@@ -155,14 +165,17 @@ unsigned char InitializeFactDatabase(void)
         return 0;
     }
     for (index = 0; index < gXStatus.uiFactsInDatabase; ++index) {
-        if (!FileRead(handle, &g_fact_records[index], sizeof(*g_fact_records), &transferred)) {
-            FileClose(handle);
+        if (!((transferred = handle->read(&g_fact_records[index], sizeof(*g_fact_records)).bytes) == static_cast<std::size_t>(sizeof(*g_fact_records)))) {
+            if (handle) handle->close();
+            handle.reset();
             return 0;
         }
     }
-    FileClose(handle);
+    if (handle) handle->close();
+    handle.reset();
     return 1;
 }
+catch (const std::exception&) { return false; }
 
 // FUNCTION: WIZ8 0x0054ae00
 void DestroyFactDatabase(void)
@@ -173,19 +186,21 @@ void DestroyFactDatabase(void)
 
 // FUNCTION: WIZ8 0x0054ae20
 unsigned char InitializeLevelDatabase(void)
+try
 {
     char path[60];
     unsigned int index;
     unsigned int transferred;
-    int handle;
+    std::unique_ptr<wiz8::File> handle;
 
     sprintf(path, "%s\\%s.%s", "Data\\Databases", "LEVELS", "DBS");
-    handle = FileOpen(path, 1, 0);
+    handle = [&]() { try { return wiz8::open_file(path, wiz8::OpenMode::read); } catch (const std::exception&) { return std::unique_ptr<wiz8::File>{}; } }();
     if (!handle) {
         return 0;
     }
-    if (!FileRead(handle, &gXStatus.uiLevelsInDatabase, 4, &transferred)) {
-        FileClose(handle);
+    if (!((transferred = handle->read(&gXStatus.uiLevelsInDatabase, 4).bytes) == static_cast<std::size_t>(4))) {
+        if (handle) handle->close();
+        handle.reset();
         return 0;
     }
     g_level_records = static_cast<W8LevelDatabaseRecord*>(
@@ -194,14 +209,17 @@ unsigned char InitializeLevelDatabase(void)
         return 0;
     }
     for (index = 0; index < gXStatus.uiLevelsInDatabase; ++index) {
-        if (!FileRead(handle, &g_level_records[index], sizeof(*g_level_records), &transferred)) {
-            FileClose(handle);
+        if (!((transferred = handle->read(&g_level_records[index], sizeof(*g_level_records)).bytes) == static_cast<std::size_t>(sizeof(*g_level_records)))) {
+            if (handle) handle->close();
+            handle.reset();
             return 0;
         }
     }
-    FileClose(handle);
+    if (handle) handle->close();
+    handle.reset();
     return 1;
 }
+catch (const std::exception&) { return false; }
 
 // FUNCTION: WIZ8 0x0054af10
 void DestroyLevelDatabase(void)
@@ -246,7 +264,7 @@ void ResetGameStatus(bool release)
 // FUNCTION: WIZ8 0x0054afd0
 void InitializeGameplayRuntimeObjects(void)
 {
-    memset(&gXStatus, 0, sizeof(gXStatus));
+    gXStatus = {};
     gXStatus.character_event_queue = new W8CharacterEventQueue();
     gXStatus.gameplay_timer = new W8GameTimer(300.0f, 0);
 }
@@ -375,7 +393,7 @@ void ResetGameplaySlot(unsigned int slot)
     W8MonsterManagerEntry* record = &gXStatus.monster_manager_entries[slot];
     int tier;
 
-    memset(record, 0, sizeof(W8MonsterManagerEntry));
+    *record = {};
     record->portrait_event_active = false;
     record->voice_sound_handle = SOUND_ERROR;
     record->previous_portrait_frame = -1;

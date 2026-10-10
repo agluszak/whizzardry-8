@@ -1,5 +1,7 @@
 #pragma once
 
+#include "wiz8/filesystem.h"
+
 #include "wiz8/camera_motion.h"
 #include "wiz8/float_constants.h"
 #include "wiz8/engine_code/GDCamera.h"
@@ -173,7 +175,7 @@ struct W8EnvironRecord {
     void AddScaledMotion(srVector3T<float>* position);
 };
 
-static_assert(sizeof(W8EnvironRecord) == 0x44, "W8EnvironRecord_must_be_0x44");
+W8_ABI_ASSERT(sizeof(W8EnvironRecord) == 0x44, "W8EnvironRecord_must_be_0x44");
 
 class BitArray;
 
@@ -202,11 +204,11 @@ struct W8GDInterfaceState {
    a counted pointer array, the environment count/array pair, and a trailing
    flag. Only straightforward storage is claimed past the prefix. */
 struct W8GameData {
-    W8GameData(int handle, bool secondary); /* 0x00449010 */
+    W8GameData(wiz8::File* handle, bool secondary); /* 0x00449010 */
     ~W8GameData();                          /* 0x00449BB0 */
-    void ReadProcessedGameData(int handle); /* 0x00449240 */
+    void ReadProcessedGameData(wiz8::File* handle); /* 0x00449240 */
     /* Writes the game-data block WriteOctFile appends after the terminator. */
-    unsigned char WriteGameData(int handle); /* 0x0044AA40 */
+    unsigned char WriteGameData(wiz8::File* handle); /* 0x0044AA40 */
     /* Reads one WGD vertex/polygon list: counts, the scaled vertex bank with
        unscaled bounds tracking, the face records, and — for the non-primary
        pass — the interface name and conditional-face records. */
@@ -339,13 +341,13 @@ struct W8GameData {
 
 W8_ABI_ASSERT(sizeof(W8GameData) == 0x8c, "W8GameData_must_be_0x8c");
 
-static_assert(offsetof(W8LevelDataRecord, primary_contact_prop_id) == 0x04,
+W8_ABI_ASSERT(offsetof(W8LevelDataRecord, primary_contact_prop_id) == 0x04,
               "W8LevelDataRecord_primary_contact_prop_id");
-static_assert(offsetof(W8LevelDataRecord, residual_contact_length) == 0x18,
+W8_ABI_ASSERT(offsetof(W8LevelDataRecord, residual_contact_length) == 0x18,
               "W8LevelDataRecord_residual_contact_length");
-static_assert(offsetof(W8LevelDataRecord, contact_normal) == 0xac,
+W8_ABI_ASSERT(offsetof(W8LevelDataRecord, contact_normal) == 0xac,
               "W8LevelDataRecord_contact_normal_ac");
-static_assert(offsetof(W8LevelDataRecord, contact_normal_scale) == 0xb8,
+W8_ABI_ASSERT(offsetof(W8LevelDataRecord, contact_normal_scale) == 0xb8,
               "W8LevelDataRecord_contact_normal_scale");
 W8_ABI_ASSERT(sizeof(W8LevelDataRecord) == 0xf4, "W8LevelDataRecord_must_be_0xf4");
 

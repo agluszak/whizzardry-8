@@ -31,7 +31,7 @@ class GDProp {
         unsigned char reserved : 4;
         unsigned char reserved_byte;
     };
-    static_assert(sizeof(Flags) == 2, "GDProp_flags_size");
+    W8_ABI_ASSERT(sizeof(Flags) == 2, "GDProp_flags_size");
 
     friend class W8Prop;
     friend class W8PathingService;

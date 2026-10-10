@@ -299,7 +299,7 @@ int srNode::setParent(srNode* parent, int preserve_world_transform)
     }
     notifyDependent();
     setWSDirty();
-    if (testNotify(static_cast<e_notify>(1)) != 0) {
+    if (testNotify(NOTIFY_TRANSFORM_DIRTY) != 0) {
         updateTransformation();
     }
     return 1;
@@ -403,8 +403,7 @@ static void dumpFlags(std::ostream& stream, w8_ulong flags, const char* names)
 void srNode::dump(std::ostream& stream)
 {
     srClass::dump(stream);
-    char* path = new char[getFullPathLength() + 1];
-    getFullPath(path);
+    const std::string path = getFullPath();
     srMatrix3T<double> rotation;
     getRotation(rotation);
     srMatrix3T<double> ws_rotation;
@@ -448,7 +447,6 @@ void srNode::dump(std::ostream& stream)
     dumpFlags(stream, notifications.value, s_notify_names);
     stream << '\n';
     srSetStreamFlags(stream, flags & 0x7fff);
-    delete[] path;
 }
 
 // FUNCTION: SURRENDER 0x10051A20
@@ -478,7 +476,7 @@ void srNode::setScale(double scale)
 // FUNCTION: SURRENDER 0x10051A90
 void srNode::checkTransformation() const
 {
-    if ((notifications.value & 2) != 0) {
+    if (testNotify(NOTIFY_TRANSFORM_DIRTY) != 0) {
         updateTransformation();
     }
 }
@@ -525,8 +523,8 @@ void srNode::setWSDirty()
     /* The dirty fan-out to parents and children can rewrite the notification word, so the
        positional bit is saved first and restored after. */
     int bounds_dirty = notifications.value & (1 << NOTIFY_BOUNDS_DIRTY);
-    notifyParents(srFlags<e_notify>(1));
-    notifyChildren(srFlags<e_notify>(2));
+    notifyParents(srFlags<e_notify>(1u << NOTIFY_BOUNDS_DIRTY));
+    notifyChildren(srFlags<e_notify>(1u << NOTIFY_TRANSFORM_DIRTY));
     notifications.set(NOTIFY_BOUNDS_DIRTY, bounds_dirty);
 }
 
@@ -873,7 +871,7 @@ void srNode::getWorldSpaceMatrix(srMatrix4T<float>& matrix) const
 // FUNCTION: SURRENDER 0x10054920
 void srNode::updateTransformation() const
 {
-    notifications.value &= ~2;
+    notifications.value &= ~(1u << NOTIFY_TRANSFORM_DIRTY);
     srNode* parent = parent_;
     if (parent == 0) {
         if (testFlag(FLAG_IGNORE_TRANSFORM) == 0) {
@@ -884,7 +882,7 @@ void srNode::updateTransformation() const
             world_transform0.SetIdentity();
         }
     } else if (testFlag(FLAG_IGNORE_TRANSFORM) == 0) {
-        if ((parent->notifications.value & 2) != 0) {
+        if (parent->testNotify(NOTIFY_TRANSFORM_DIRTY) != 0) {
             parent->updateTransformation();
         }
         /* Retail writes the parent * local product out element by element (columns
@@ -992,39 +990,24 @@ srNode* srNode::cloneHierarchyInternal(srNode* parent)
 }
 
 // FUNCTION: SURRENDER 0x10050A30
-char* srNode::getFullPath(char* path) const
+std::string srNode::getFullPath() const
 {
-    if (path == 0) {
-        return 0;
-    }
-    *path = '\0';
+    std::string path;
     if (parent_ != 0) {
         parent_->getFullPathInternal(path);
     }
-    strcat(path, getName());
+    path += getName();
     return path;
 }
 
 // FUNCTION: SURRENDER 0x100509B0
-void srNode::getFullPathInternal(char* path) const
+void srNode::getFullPathInternal(std::string& path) const
 {
     if (parent_ != 0) {
         parent_->getFullPathInternal(path);
     }
-    strcat(path, getName());
-    strcat(path, "/");
-}
-
-// FUNCTION: SURRENDER 0x10050AD0
-w8_long srNode::getFullPathLength() const
-{
-    return (parent_ != 0 ? parent_->getFullPathLengthInternal() : 0) + strlen(getName());
-}
-
-// FUNCTION: SURRENDER 0x10050A90
-w8_long srNode::getFullPathLengthInternal() const
-{
-    return (parent_ != 0 ? parent_->getFullPathLengthInternal() : 0) + strlen(getName()) + 1;
+    path += getName();
+    path += '/';
 }
 
 // FUNCTION: SURRENDER 0x10050B10
@@ -1041,18 +1024,18 @@ void srNode::dumpHierarchy(std::ostream& stream, w8_long indent) const
 }
 
 // FUNCTION: SURRENDER 0x100507B0
-srNode* srNode::findChild(const char* name) const
+srNode* srNode::findChild(std::string_view name) const
 {
-    if (name != 0 && first_child_ != 0) {
+    if (first_child_ != 0) {
         return first_child_->findChildInternal(name);
     }
     return 0;
 }
 
 // FUNCTION: SURRENDER 0x10050730
-srNode* srNode::findChildInternal(const char* name)
+srNode* srNode::findChildInternal(std::string_view name)
 {
-    if (strcmp(name, getName()) == 0) {
+    if (name == getName()) {
         return this;
     }
     if (next_sibling_ != 0) {
@@ -1069,18 +1052,18 @@ srNode* srNode::findChildInternal(const char* name)
 }
 
 // FUNCTION: SURRENDER 0x10050860
-srNode* srNode::findChildByNameAndType(const char* name, w8_ulong class_id) const
+srNode* srNode::findChildByNameAndType(std::string_view name, w8_ulong class_id) const
 {
-    if (name != 0 && first_child_ != 0) {
+    if (first_child_ != 0) {
         return first_child_->findChildByNameAndTypeInternal(name, class_id);
     }
     return 0;
 }
 
 // FUNCTION: SURRENDER 0x100507D0
-srNode* srNode::findChildByNameAndTypeInternal(const char* name, w8_ulong class_id)
+srNode* srNode::findChildByNameAndTypeInternal(std::string_view name, w8_ulong class_id)
 {
-    if (strcmp(name, getName()) == 0 && matchClassID(class_id) != 0) {
+    if (name == getName() && matchClassID(class_id) != 0) {
         return this;
     }
     if (next_sibling_ != 0) {
@@ -1097,19 +1080,19 @@ srNode* srNode::findChildByNameAndTypeInternal(const char* name, w8_ulong class_
 }
 
 // FUNCTION: SURRENDER 0x10050930
-srNode* srNode::findParent(const char* name) const
+srNode* srNode::findParent(std::string_view name) const
 {
-    if (name != 0 && parent_ != 0) {
+    if (parent_ != 0) {
         return parent_->findParentInternal(name);
     }
     return 0;
 }
 
 // FUNCTION: SURRENDER 0x10050890
-srNode* srNode::findParentInternal(const char* name)
+srNode* srNode::findParentInternal(std::string_view name)
 {
     srNode* node = this;
-    while (strcmp(name, node->getName()) != 0) {
+    while (name != node->getName()) {
         node = node->parent_;
         if (node == 0) {
             return 0;

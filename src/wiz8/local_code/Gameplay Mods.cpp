@@ -431,7 +431,7 @@ void ApplyConditionModifiers(W8Character* character, const unsigned int* conditi
             break;
         case 0xe:
             target->attribute_adjustments[W8_ATTRIBUTE_DEXTERITY] -= 0x32;
-            /* fall through */
+            [[fallthrough]];
         case W8_CONDITION_ASLEEP:
         case 0x10:
         case W8_CONDITION_UNCONSCIOUS:

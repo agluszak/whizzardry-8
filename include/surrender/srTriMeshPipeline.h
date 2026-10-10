@@ -1,6 +1,6 @@
 #pragma once
 
-#include "srArray.h"
+#include <vector>
 #include "srMaterialIFace.h"
 #include "srMath.h"
 #include "srPtr.h"
@@ -11,19 +11,12 @@
 class srGERD;
 class srMaterialIFace;
 
-/* Shared lazy singleton behind srTriMeshPipeline::pipe. Wizardry implements it (Engine
-   Code\stMeshModel.cpp) and owns an srVertexPipe in it. */
-#pragma pack(push, 4)
-/* The EXE and DLL each implement the methods/vtable, but import one pipe
-   static from the DLL. Native clients must bind their recovered game methods
-   locally instead of interposing on the renderer's implementation. */
-#if !defined(SURRENDER_BUILD)
-class __attribute__((visibility("hidden"))) srTriMeshPipeline {
-#else
+/* Shared lazy singleton behind srTriMeshPipeline::pipe; owns an srVertexPipe. */
 class srTriMeshPipeline {
-#endif
 public:
     enum { FRUSTUM_CLIPPING = 1u, LIMIT_VERTEX_BATCHES = 2u };
+    /* Record is consumed as srVertexPipe::Record, which uses four-byte packing. */
+#pragma pack(push, 4)
     struct Record {
         inline Record()
             : flags(0), disable_mask(0), colors(0),
@@ -44,7 +37,7 @@ public:
         srVector2T<float>* st0;
         srVector2T<float>* st1;
         srPtr<srMaterialIFace>* vertex_materials;
-        unsigned char unknown_2c_[0x30];
+        void* unknown_2c_[12];
     };
 
     struct Pass {
@@ -63,6 +56,8 @@ public:
         /* The mesh's per-triangle poly-UV corner source table. */
         const srVector3i* poly_uv;
     };
+
+#pragma pack(pop)
 
     W8_ABI_ASSERT(sizeof(Record) == 0x5c, "srTriMeshPipeline_Record_must_be_0x5c");
     W8_ABI_ASSERT(sizeof(Pass) == 0x20, "srTriMeshPipeline_Pass_must_be_0x20");
@@ -89,8 +84,8 @@ public:
     virtual void FlushSlots();
     virtual ~srTriMeshPipeline();
 
-    srHeapBuffer<srVertexProcessor*> vertex_processors;
-    srHeapBuffer<w8_ulong> culler_scratch;
+    std::vector<srVertexProcessor*> vertex_processors;
+    std::vector<w8_ulong> culler_scratch;
     Record* current_record;
     Pass* current_pass;
     w8_ulong triangle_count;
@@ -121,23 +116,17 @@ public:
     srGERD* renderer;
     volatile w8_ulong flushing;
     srVertexPipe* vertex_pipe;
-    srArray<Record> records;
-    srArray<Pass> passes;
-    srArray<srVertexArray> vertex_arrays;
+    std::vector<Record> records;
+    std::vector<Pass> passes;
+    std::vector<srVertexArray> vertex_arrays;
 
 protected:
     /* srExit releases the singleton through this protected static. */
     friend SR_DLL_IMPORT int __cdecl srExit(void);
-
-#if !defined(SURRENDER_BUILD)
-    static __attribute__((visibility("default"))) srTriMeshPipeline* pipe;
-#else
     static SR_DLL_IMPORT srTriMeshPipeline* pipe;
-#endif
 
 private:
     srTriMeshPipeline();
 };
-#pragma pack(pop)
 
 W8_ABI_ASSERT(sizeof(srTriMeshPipeline) == 0xac, "srTriMeshPipeline_must_be_0xac");

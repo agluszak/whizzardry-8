@@ -1,7 +1,6 @@
 #include "../../src/native/movie.h"
-#include "FileMan.h"
-#include "LibraryDataBase.h"
-#include "MemMan.h"
+#include "wiz8/filesystem.h"
+#include "wiz8/slf.h"
 #include "compat/surfaces.h"
 #include "native/audio_test.h"
 #include <wiz8/asset_paths.h>
@@ -83,12 +82,12 @@ int main(int argc, char** argv)
         auto encoded = read(WIZ8_MOVIE_FIXTURE), golden = read(WIZ8_MOVIE_GOLDEN);
         CHECK(golden.size() == 5 * 1536);
         write(assets / "Movie.mkv", encoded);
-        LIBHEADER header{};
+        wiz8::SlfHeader header{};
         strcpy(header.sLibName, "DATA.SLF");
         strcpy(header.sPathToLibrary, "Data\\");
         header.iEntries = header.iUsed = 2;
         header.iVersion = 0x200;
-        DIRENTRY entries[2]{};
+        wiz8::SlfEntry entries[2]{};
         strcpy(entries[0].sFileName, "Packed.mkv");
         entries[0].uiOffset = sizeof(header);
         entries[0].uiLength = encoded.size();
@@ -102,9 +101,8 @@ int main(int argc, char** argv)
         archive.insert(archive.end(), reinterpret_cast<unsigned char*>(entries),
                        reinterpret_cast<unsigned char*>(entries) + sizeof(entries));
         write(assets / "Data" / "DATA.SLF", archive);
-        CHECK(InitializeMemoryManager());
-        CHECK(InitializeFileManager(nullptr));
-        CHECK(InitializeFileDatabase());
+
+        wiz8::mount_slf("Data\\Data.slf");
         w8_native::audio_offline_for_test(true);
         CHECK(InitializeSoundManager());
         double energy = 0;
@@ -174,32 +172,26 @@ int main(int argc, char** argv)
             CHECK(reusable.update(0) == W8NativeVideo::FrameReady);
             CHECK(matchesFrame(reusable.frame().pixels, golden.data()));
         }
-        DDSURFACEDESC description{};
-        description.dwWidth = 640;
-        description.dwHeight = 480;
-        description.ddpfPixelFormat = {sizeof(DDPIXELFORMAT), DDPF_RGB, 16, 0x7c00, 0x3e0, 0x1f, 0};
-        IDirectDrawSurface* first = nullptr;
-        IDirectDrawSurface2* target = nullptr;
-        DDCreateSurface(nullptr, &description, &first, &target);
-        CHECK(target);
+        auto target = CreateCpuSurface(640, 480, 16, 0x7c00, 0x3e0, 0x1f);
+        SurfaceLock description{};
         {
             W8BinkVideo movie;
-            movie.SetTarget(target);
+            movie.SetTarget(target.get());
             CHECK(movie.Open("Movie.mkv", 0));
             CHECK(!movie.UpdateFrame());
-            DDLockSurface(target, nullptr, &description, 0, nullptr);
+            description = LockCpuSurface(*target);
             for (int y = 0; y < 24; ++y)
-                CHECK(std::memcmp(static_cast<unsigned char*>(description.lpSurface) +
-                                      y * description.lPitch,
+                CHECK(std::memcmp(static_cast<unsigned char*>(description.pixels) +
+                                      y * description.pitch,
                                   first_frame.data() + y * 32, 64) == 0);
-            DDUnlockSurface(target, nullptr);
+            UnlockCpuSurface(*target);
             CHECK(movie.Open("Data\\Packed.mkv",
                              0)); // Reopen stops the preceding PCM voice.
             CHECK(!movie.UpdateFrame());
             CHECK(!movie.Open("Movie.mkv", 1));
             CHECK(!movie.Open("missing.bik", 0));
         }
-        DDReleaseSurface(&first, &target);
+        target.reset();
         std::vector<float> silence(8192 * 2);
         CHECK(w8_native::audio_render_for_test(silence.data(), 8192));
         double residual = 0;
@@ -238,9 +230,8 @@ int main(int argc, char** argv)
                    (unsigned long long)retail.decoded_audio_frames(), (unsigned long long)hash);
         }
         ShutdownSoundManager();
-        ShutDownFileDatabase();
-        ShutdownFileManager();
-        ShutdownMemoryManager();
+        wiz8::clear_asset_archives();
+
         printf("movie: loose/SLF RGB555 golden frames, timed EOF, PCM audio, "
                "reopen and bounded failure passed\n");
         return 0;

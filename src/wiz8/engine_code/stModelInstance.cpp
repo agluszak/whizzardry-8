@@ -1,3 +1,6 @@
+#include <algorithm>
+#include <cstdlib>
+
 #include "wiz8/engine_code/stTextureFile.h"
 #include "wiz8/engine_code/stModelInstance.h"
 #include "wiz8/engine_code/materials.h"
@@ -8,7 +11,6 @@
 #include "surrender/srGERD.h"
 #include "surrender/srMaterial.h"
 #include "surrender/srNode.h"
-#include "surrender/srHeap.h"
 #include "surrender/srTriMeshPipeline.h"
 #include "surrender/srVectorProcessor.h"
 #include "wiz8/engine_code/Octree.h"
@@ -27,7 +29,7 @@ extern float g_monster_light_scale;
 /* Scratch vertex store shared by every highlight shell submission; grown
    on demand and kept between frames. */
 // GLOBAL: WIZ8 0x0065A148
-static srHeapBuffer<srVector3T<float> >* g_vertex_scratch;
+static std::vector<srVector3T<float>> g_vertex_scratch;
 
 // VTABLE: WIZ8 0x005ec89c srClassSupport<srModelInstance, class srNode, 0, 4352>
 // VTABLE: WIZ8 0x005ec88c srModel::Client
@@ -59,7 +61,7 @@ stTextureAnim* stModelInstance::FindMouthTexture()
     } else {
         while (mesh != 0) {
             srPtr<srTextureIFace>* textures =
-                mesh->GetTextureTable(damage_stage_tables.data[damage_stage]);
+                mesh->GetTextureTable(damage_stage_tables[damage_stage]);
 
             if (textures != 0) {
                 for (int polygon = 0; polygon < mesh->polygon_count; ++polygon) {
@@ -94,10 +96,7 @@ void stModelInstance::traverse(TraverseInfo& info)
     stMeshModel* model = static_cast<stMeshModel*>(getModel());
 
     if (!testFlag(FLAG_DISABLE) && model != 0 && (model->flags & W8_MESH_SORTED_RENDERING) == 0) {
-        TraverseInfo::Entry& entry = info.entries[info.entry_count];
-        entry.node = this;
-        entry.value = 0;
-        ++info.entry_count;
+        info.entries.push_back({this, 0});
     }
 
     if (next_sibling_ != 0) {
@@ -105,10 +104,7 @@ void stModelInstance::traverse(TraverseInfo& info)
     }
 
     if (!testFlag(FLAG_DISABLE) && model != 0 && (model->flags & W8_MESH_SORTED_RENDERING) != 0) {
-        TraverseInfo::Entry& entry = info.entries[info.entry_count];
-        entry.node = this;
-        entry.value = 0;
-        ++info.entry_count;
+        info.entries.push_back({this, 0});
     }
 
     if (!testFlag(FLAG_TERMINATE) && first_child_ != 0) {
@@ -127,11 +123,9 @@ int stModelInstance::AddDamageStage(const char* name)
         return -1;
     }
 
-    int stage = damage_stage_tables.capacity;
-    damage_stage_tables.setCapacity(stage + 1, 1);
-
-    int base_table = stage > 0 ? damage_stage_tables.data[0] : -1;
-    damage_stage_tables.data[stage] = mesh->CreateSkinTable(name, base_table);
+    int stage = static_cast<int>(damage_stage_tables.size());
+    int base_table = stage > 0 ? damage_stage_tables[0] : -1;
+    damage_stage_tables.push_back(mesh->CreateSkinTable(name, base_table));
     for (mesh = mesh->next; mesh != 0; mesh = mesh->next) {
         mesh->CreateSkinTable(name, base_table);
     }
@@ -148,9 +142,8 @@ int stModelInstance::AddExistingDamageStage(const char* name)
         return -1;
     }
 
-    int stage = damage_stage_tables.capacity;
-    damage_stage_tables.setCapacity(stage + 1, 1);
-    damage_stage_tables.data[stage] = table;
+    int stage = static_cast<int>(damage_stage_tables.size());
+    damage_stage_tables.push_back(table);
     return stage;
 }
 
@@ -169,7 +162,7 @@ unsigned char stModelInstance::ReplaceDamageStageTexture(int stage, const char* 
     }
 
     for (; mesh != 0; mesh = mesh->next) {
-        srPtr<srTextureIFace>* textures = mesh->GetTextureTable(damage_stage_tables.data[stage]);
+        srPtr<srTextureIFace>* textures = mesh->GetTextureTable(damage_stage_tables[stage]);
         if (textures == 0) {
             continue;
         }
@@ -225,10 +218,10 @@ stModelInstance2D::stModelInstance2D(srNode* parent)
 stModelInstance2D::~stModelInstance2D()
 {
     if (glow_color_base != 0) {
-        srHeap.free(glow_color_base);
+        std::free(glow_color_base);
     }
     if (glow_color_peak != 0) {
-        srHeap.free(glow_color_peak);
+        std::free(glow_color_peak);
     }
     if (m_pGlowMaterial != 0) {
         m_pGlowMaterial->release();
@@ -256,12 +249,12 @@ stModelInstance2D& stModelInstance2D::operator=(const stModelInstance2D& other)
     render_state.render_depth = other.render_state.render_depth;
     if (other.glow_color_base != 0) {
         glow_color_base =
-            static_cast<srVector4T<float>*>(srHeap.allocate(sizeof(srVector4T<float>)));
+            static_cast<srVector4T<float>*>(std::malloc(sizeof(srVector4T<float>)));
         *glow_color_base = *other.glow_color_base;
     }
     if (other.glow_color_peak != 0) {
         glow_color_peak =
-            static_cast<srVector4T<float>*>(srHeap.allocate(sizeof(srVector4T<float>)));
+            static_cast<srVector4T<float>*>(std::malloc(sizeof(srVector4T<float>)));
         *glow_color_peak = *other.glow_color_peak;
     }
     return *this;
@@ -516,12 +509,12 @@ void stModelInstance2D::SetGlowColors(srVector4T<float>* first, srVector4T<float
 {
     if (glow_color_base == 0) {
         glow_color_base =
-            static_cast<srVector4T<float>*>(srHeap.allocate(sizeof(srVector4T<float>)));
+            static_cast<srVector4T<float>*>(std::malloc(sizeof(srVector4T<float>)));
     }
     *glow_color_base = *first;
     if (glow_color_peak == 0) {
         glow_color_peak =
-            static_cast<srVector4T<float>*>(srHeap.allocate(sizeof(srVector4T<float>)));
+            static_cast<srVector4T<float>*>(std::malloc(sizeof(srVector4T<float>)));
     }
     *glow_color_peak = *second;
 }
@@ -726,9 +719,9 @@ void stModelInstance::RenderMeshes(srGERD& renderer)
             w8_ulong* active;
             if (damage_stage >= 0) {
                 mesh.poly_textures[0][0] =
-                    model->GetTextureTable(damage_stage_tables.data[damage_stage]);
+                    model->GetTextureTable(damage_stage_tables[damage_stage]);
                 active = model->GetActivePolygons(&active_count,
-                                                  damage_stage_tables.data[damage_stage], true);
+                                                  damage_stage_tables[damage_stage], true);
             } else {
                 active = model->GetActivePolygons(&active_count, -1, true);
             }
@@ -795,15 +788,7 @@ void stModelInstance::RenderMeshes(srGERD& renderer)
                 if (mesh.poly_textures[0][0] != 0 ||
                     ((mesh.textures[0][0] != 0) &&
                      (_strnicmp("blank", mesh.textures[0][0]->getName(), 5) != 0))) {
-                    if (g_vertex_scratch == 0) {
-                        g_vertex_scratch = new srHeapBuffer<srVector3T<float> >;
-                    }
-                    /* Retail expresses the scratch grow as vertex_count*3
-                       floats but stores it as the vec3 element capacity. */
-                    w8_ulong needed = mesh.vertex_count * 3 * sizeof(float);
-                    if (g_vertex_scratch->capacity < needed) {
-                        g_vertex_scratch->setCapacity(needed, 0);
-                    }
+                    g_vertex_scratch.resize(mesh.vertex_count);
 
                     const srVector3T<float>* poly_normals = 0;
                     if ((model->flags & W8_MESH_HAS_FRAME_STORAGE) != 0) {
@@ -818,7 +803,7 @@ void stModelInstance::RenderMeshes(srGERD& renderer)
                         w8_ulong* active;
                         if (damage_stage >= 0) {
                             active = model->GetActivePolygons(
-                                &active_count, damage_stage_tables.data[damage_stage], true);
+                                &active_count, damage_stage_tables[damage_stage], true);
                         } else {
                             active = model->GetActivePolygons(&active_count, -1, true);
                         }
@@ -844,26 +829,19 @@ void stModelInstance::RenderMeshes(srGERD& renderer)
                     if (mesh.vertex_count != 0) {
                         if (offsets.x == g_float_zero && offsets.y == g_float_zero &&
                             offsets.z == g_float_zero) {
-                            if (mesh.vertex_count * 3 != 0) {
-                                srVectorProcessor::copy(
-                                    // reinterpret-ok: dword view of the vec3 scratch buffer.
-                                    reinterpret_cast<SRDWORD*>(g_vertex_scratch->data), 0,
-                                    mesh.vertex_count * 3);
-                            }
+                            std::fill_n(g_vertex_scratch.data(), mesh.vertex_count,
+                                        srVector3T<float>(0.0f, 0.0f, 0.0f));
                         } else {
-                            srVectorProcessor::mul(g_vertex_scratch->data, offsets, mesh.normals,
+                            srVectorProcessor::mul(g_vertex_scratch.data(), offsets, mesh.normals,
                                                    mesh.vertex_count);
                         }
                     }
-                    if (mesh.vertex_count * 3 != 0) {
-                        srVectorProcessor::add(
-                            // reinterpret-ok: float lanes of the vec3 scratch buffer.
-                            reinterpret_cast<float*>(g_vertex_scratch->data),
-                            reinterpret_cast<const float*>(g_vertex_scratch->data),
-                            // reinterpret-ok: float lanes of the mesh positions.
-                            reinterpret_cast<const float*>(mesh.positions), mesh.vertex_count * 3);
-                    }
-                    mesh.positions = g_vertex_scratch->data;
+                    std::transform(g_vertex_scratch.begin(), g_vertex_scratch.end(),
+                                   mesh.positions, g_vertex_scratch.begin(),
+                                   [](const auto& offset, const auto& position) {
+                                       return offset + position;
+                                   });
+                    mesh.positions = g_vertex_scratch.data();
                     mesh.control_flags |= (1UL << srMeshModel::CONTROL_SORTED_RENDERING);
 
                     if ((render_flags & RENDER_NO_PICK) != 0 && !renderer.isPickStackEmpty()) {
@@ -925,7 +903,7 @@ static void BuildShadowMesh()
                 material->setDiffuse(color);
                 material->m_surface_flags = 0;
             }
-            srVector3i* triangles = static_cast<srVector3i*>(srHeap.allocate(2 * sizeof(*triangles)));
+            srVector3i* triangles = static_cast<srVector3i*>(std::malloc(2 * sizeof(*triangles)));
             g_shadow_mesh->poly_vertices = triangles;
             triangles[0].x = 0;
             triangles[0].y = 1;
@@ -934,7 +912,7 @@ static void BuildShadowMesh()
             triangles[1].y = 4;
             triangles[1].z = 5;
             srVector3T<float>* positions = static_cast<srVector3T<float>*>(
-                srHeap.allocate(6 * sizeof(*positions)));
+                std::malloc(6 * sizeof(*positions)));
             g_shadow_mesh->positions = positions;
             positions[0].Set(-250.0f, 250.0f, 0.0f);
             positions[1].Set(0.0f, -250.0f, 0.0f);
@@ -1004,6 +982,9 @@ void stModelInstance::RenderShadow(srGERD& renderer, srMeshModel::TriMesh& mesh)
     pipeline->vertex_count = g_shadow_mesh->vertex_count;
     pipeline->positions = g_shadow_mesh->positions;
     pipeline->vertex_extras = g_shadow_mesh->normals;
+    pipeline->records.resize(2);
+    pipeline->passes.resize(2);
+    pipeline->PrepareSlot();
     pipeline->current_record->flags = 0;
     pipeline->current_pass->shaders = 0;
     pipeline->current_pass->texture_tables[0] = 0;
@@ -1011,19 +992,8 @@ void stModelInstance::RenderShadow(srGERD& renderer, srMeshModel::TriMesh& mesh)
     pipeline->material = g_shadow_mesh->materials[0][0];
     pipeline->current_record->material = pipeline->material;
     pipeline->SetFlags(g_shadow_mesh->shaders[0]);
-    pipeline->current_record = &pipeline->records[++pipeline->slot_count];
-    pipeline->current_pass = &pipeline->passes[pipeline->slot_count];
-    pipeline->current_record->flags = 0;
-    pipeline->current_record->disable_mask = 0;
-    pipeline->current_record->material = pipeline->material;
-    pipeline->current_pass->textures[0] = pipeline->texture0;
-    pipeline->current_pass->textures[1] = pipeline->texture1;
-    pipeline->current_pass->shader.value = pipeline->shader.value;
-    pipeline->current_pass->texture_tables[0] = 0;
-    pipeline->current_pass->texture_tables[1] = 0;
-    pipeline->current_pass->shaders = 0;
-    pipeline->current_pass->texcoords = 0;
-    pipeline->current_pass->poly_uv = 0;
+    ++pipeline->slot_count;
+    pipeline->PrepareSlot();
     pipeline->FlushIfCurrent();
     renderer.popMatrix();
     renderer.popEnable();

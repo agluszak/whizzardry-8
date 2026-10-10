@@ -1,5 +1,7 @@
 #pragma once
 
+#include "wiz8/filesystem.h"
+
 #include "surrender/srMath.h"
 #include "wiz8/engine_code/BitArray.h"
 #include "wiz8/engine_code/OctPreTree.h"
@@ -60,15 +62,15 @@ struct W8OctreeTrace {
     void Reseed(const srVector3T<float>* from, const srVector3T<float>* to); /* 0x00457700 */
 };
 
-static_assert(sizeof(W8OctreeTrace) == 0x30, "W8OctreeTrace_must_be_0x30");
+W8_ABI_ASSERT(sizeof(W8OctreeTrace) == 0x30, "W8OctreeTrace_must_be_0x30");
 /* Bulk .oct vector I/O. Writers stage at most 0x100 records per FileWrite;
    the raw twelve-byte reader serves float vectors and polygon index triples. */
-BOOLEAN WriteVector4Array(int file, const srVector4T<float>* values, int count);
-BOOLEAN WriteVector3Array(int file, const srVector3T<float>* values, int count);
-BOOLEAN WriteVector2Array(int file, const srVector2T<float>* values, int count);
-bool ReadVector4Array(int file, srVector4T<float>* values, int count);
-bool ReadVector3Array(int file, void* values, int count);
-bool ReadVector2Array(int file, srVector2T<float>* values, int count);
+BOOLEAN WriteVector4Array(wiz8::File* file, const srVector4T<float>* values, int count);
+BOOLEAN WriteVector3Array(wiz8::File* file, const srVector3T<float>* values, int count);
+BOOLEAN WriteVector2Array(wiz8::File* file, const srVector2T<float>* values, int count);
+bool ReadVector4Array(wiz8::File* file, srVector4T<float>* values, int count);
+bool ReadVector3Array(wiz8::File* file, void* values, int count);
+bool ReadVector2Array(wiz8::File* file, srVector2T<float>* values, int count);
 /* Distance from `point` to the `from`-`to` segment, shared by the trace
    resolver and the GameData surface walk. When `clamp_point` is set the
    closest segment point is written back over `point`; `out_t` returns the
@@ -88,37 +90,37 @@ char GrowBoundsByPoint(const srVector3T<float>* point, srVector3T<float>* minimu
 bool SphereNearBounds(const srVector3T<float>* point, float radius,
                       const W8BoundingBox* bounds); /* 0x004386A0 */
 
-inline bool ReadVectorArray(int file, void* values, int count)
+inline bool ReadVectorArray(wiz8::File* file, void* values, int count)
 {
     return ReadVector3Array(file, values, count);
 }
-inline bool ReadVectorArray(int file, srVector4T<float>* values, int count)
+inline bool ReadVectorArray(wiz8::File* file, srVector4T<float>* values, int count)
 {
     return ReadVector4Array(file, values, count);
 }
-inline bool ReadVectorArray(int file, srVector2T<float>* values, int count)
+inline bool ReadVectorArray(wiz8::File* file, srVector2T<float>* values, int count)
 {
     return ReadVector2Array(file, values, count);
 }
 
 /* The polygon index triples serialize through the same canonical 12-byte
    float-vector writer. */
-inline BOOLEAN WriteVectorArray(int file, const srVector3i* values, int count)
+inline BOOLEAN WriteVectorArray(wiz8::File* file, const srVector3i* values, int count)
 {
     return WriteVector3Array(
         file, reinterpret_cast<const srVector3T<float>*>(values), /* reinterpret-ok: the
             float writer's raw 12-byte record is the index-triple record */
         count);
 }
-inline BOOLEAN WriteVectorArray(int file, const srVector3T<float>* values, int count)
+inline BOOLEAN WriteVectorArray(wiz8::File* file, const srVector3T<float>* values, int count)
 {
     return WriteVector3Array(file, values, count);
 }
-inline BOOLEAN WriteVectorArray(int file, const srVector4T<float>* values, int count)
+inline BOOLEAN WriteVectorArray(wiz8::File* file, const srVector4T<float>* values, int count)
 {
     return WriteVector4Array(file, values, count);
 }
-inline BOOLEAN WriteVectorArray(int file, const srVector2T<float>* values, int count)
+inline BOOLEAN WriteVectorArray(wiz8::File* file, const srVector2T<float>* values, int count)
 {
     return WriteVector2Array(file, values, count);
 }
@@ -138,7 +140,7 @@ struct W8OctSubmesh {
     unsigned int polygon_count;
 };
 
-static_assert(sizeof(W8OctSubmesh) == 0x10, "W8OctSubmesh_must_be_0x10");
+W8_ABI_ASSERT(sizeof(W8OctSubmesh) == 0x10, "W8OctSubmesh_must_be_0x10");
 
 /* The object classes the octree tracks. Kind 3 is not dynamic: it names the
    static GD-surface polygon streams stored inside each leaf record. The
@@ -224,7 +226,7 @@ struct W8OctreeWalk {
     int error_reset1;     /* 0x3c */
 };
 
-static_assert(sizeof(W8OctreeWalk) == 0x40, "W8OctreeWalk_must_be_0x40");
+W8_ABI_ASSERT(sizeof(W8OctreeWalk) == 0x40, "W8OctreeWalk_must_be_0x40");
 
 /* The two compact records stored in an OCT file.  A branch is its two shorts
    followed by eight child indices; a leaf retains offsets into the region and
@@ -248,8 +250,8 @@ struct W8OctPreTreeLeaf {
     w8_ulong kind_offsets[6];
 };
 
-static_assert(sizeof(W8OctPreTreeBranch) == 0x24, "W8OctPreTreeBranch_must_be_0x24");
-static_assert(sizeof(W8OctPreTreeLeaf) == 0x28, "W8OctPreTreeLeaf_must_be_0x28");
+W8_ABI_ASSERT(sizeof(W8OctPreTreeBranch) == 0x24, "W8OctPreTreeBranch_must_be_0x24");
+W8_ABI_ASSERT(sizeof(W8OctPreTreeLeaf) == 0x28, "W8OctPreTreeLeaf_must_be_0x28");
 
 /* The camera snapshot and visibility frustum W8Octree keeps for one frame.
    Reset (0x0042D1D6) clears the whole record with one 47-dword rep stosd,
@@ -272,7 +274,7 @@ struct W8OctreeView {
     W8Plane frustum_planes[6];
 };
 
-static_assert(sizeof(W8OctreeView) == 0xbc, "W8OctreeView_must_be_0xbc");
+W8_ABI_ASSERT(sizeof(W8OctreeView) == 0xbc, "W8OctreeView_must_be_0xbc");
 
 class W8Octree {
 public:

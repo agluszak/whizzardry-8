@@ -10,7 +10,7 @@
 #include "wiz8/integer_constants.h"
 #include "wiz8/local_screens/RCSStatsPage.h"
 #include "input.h"
-#include "Container.h"
+#include <vector>
 
 class W8DialogBase;
 struct Controls;
@@ -69,7 +69,7 @@ enum W8CampItemFilter {
    W8CampStatsRange and W8CampStatsControls are authored in RCSStatsPage.cpp
    (declared in RCSStatsPage.h). */
 // VTABLE: WIZ8 0x005eed08
-class W8CampItemRange : public W8CampRangeListener {
+class W8CampItemRange final : public W8CampRangeListener {
 public:
     W8CampItemRange();
     ~W8CampItemRange()
@@ -80,7 +80,7 @@ public:
 };
 
 // VTABLE: WIZ8 0x005ef298
-class W8CampSpellRange : public W8CampRangeListener {
+class W8CampSpellRange final : public W8CampRangeListener {
 public:
     explicit W8CampSpellRange(W8SpellRealm realm);
     ~W8CampSpellRange();
@@ -169,7 +169,7 @@ struct W8CampScreenState {
     /* The stats page's condition/equipment effect list, rebuilt
        by RebuildCampEffectList and refiltered by
        FilterCampEffectList. */
-    unsigned char effect_items_only; /* 1 lists equipped items, 0 conditions/enchantments */
+    bool effect_items_only; /* true lists equipped items, false conditions/enchantments */
     unsigned char padding_d09[3];
     W8CampEffectFilter effect_filter; /* 0 all, 1 beneficial only, 2 detrimental only */
     int effect_beneficial_count;
@@ -180,7 +180,7 @@ struct W8CampScreenState {
     int effect_last_visible;
     int effect_visible_lines;
     int effect_scroll;
-    HLIST effect_list; /* W8CampEffectEntry rows */
+    std::vector<W8CampEffectEntry> effect_list; /* W8CampEffectEntry rows */
     int selected_spell_row;
     unsigned char unknown_d38[7];
     unsigned char item_action;
@@ -197,12 +197,12 @@ struct W8CampScreenState {
     unsigned char padding_d51[3];
 };
 W8_ABI_ASSERT(sizeof(W8CampScreenState) == 0xd54, "W8CampScreenState_size");
-static_assert(offsetof(W8CampScreenState, learned_spells) == 0x100,
+W8_ABI_ASSERT(offsetof(W8CampScreenState, learned_spells) == 0x100,
               "W8CampScreenState_learned_spells_offset");
-static_assert(offsetof(W8CampScreenState, learned_spells) + offsetof(W8LearnedSpellState, scroll) ==
+W8_ABI_ASSERT(offsetof(W8CampScreenState, learned_spells) + offsetof(W8LearnedSpellState, scroll) ==
                   0x4c0,
               "W8CampScreenState_spell_scroll_offset");
-static_assert(offsetof(W8CampScreenState, learned_spells) +
+W8_ABI_ASSERT(offsetof(W8CampScreenState, learned_spells) +
                       offsetof(W8LearnedSpellState, learned_total) ==
                   0x4d8,
               "W8CampScreenState_learned_total_offset");

@@ -3,7 +3,8 @@
 #ifndef __IMAGE_H
 #define __IMAGE_H
 
-#include "MemMan.h"
+#include "Types.h"
+#include <memory>
 #include "imgfmt.h"
 
 // The HIMAGE module provides a common interface for managing image data. This module
@@ -20,6 +21,7 @@
 #define TGA_FILE_READER 0x2
 #define STCI_FILE_READER 0x4
 #define TRLE_FILE_READER 0x8
+#define JPEG_FILE_READER 0x10
 #define UNKNOWN_FILE_READER 0x200
 
 // Defines for buffer bit depth
@@ -78,9 +80,9 @@ typedef struct tagETRLEObject {
 } ETRLEObject;
 
 typedef struct tagETRLEData {
-    PTR pPixData;
+    std::unique_ptr<UINT8[]> pPixData;
     UINT32 uiSizePixData;
-    ETRLEObject* pETRLEObject;
+    std::unique_ptr<ETRLEObject[]> pETRLEObject;
     UINT16 usNumberOfObjects;
 } ETRLEData;
 
@@ -92,33 +94,14 @@ typedef struct {
     UINT16 fFlags;
     SGPFILENAME ImageFile;
     UINT32 iFileLoader;
-    SGPPaletteEntry* pPalette;
-    UINT16* pui16BPPPalette;
-    UINT8* pAppData;
+    std::unique_ptr<SGPPaletteEntry[]> pPalette;
+    std::unique_ptr<UINT16[]> pui16BPPPalette;
+    std::unique_ptr<UINT8[]> pAppData;
     UINT32 uiAppDataSize;
-    // This union is used to describe each data type and is flexible to include the
-    // data strucutre of the compresssed format, once developed.
-    union {
-        struct {
-            PTR pImageData;
-        };
-        struct {
-            PTR pCompressedImageData;
-        };
-        struct {
-            UINT8* p8BPPData;
-        };
-        struct {
-
-            UINT16* p16BPPData;
-        };
-        struct {
-            UINT8* pPixData8;
-            UINT32 uiSizePixData;
-            ETRLEObject* pETRLEObject;
-            UINT16 usNumberOfObjects;
-        };
-    };
+    std::unique_ptr<UINT8[]> pImageData;
+    UINT32 uiSizePixData;
+    std::unique_ptr<ETRLEObject[]> pETRLEObject;
+    UINT16 usNumberOfObjects;
 
 } image_type, *HIMAGE;
 
@@ -132,12 +115,11 @@ typedef struct {
 //
 // *****************************************************************************
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
-// This function will return NULL if it fails, and call SetLastError() to set
-// error information
+// Virtual game paths (including SLF entries), never host paths. The final
+// basename extension selects STI or SDL_image PCX/TGA/JPEG; extensionless names
+// default to PCX without changing the caller's path. Ordinary images are tight,
+// top-down INDEX8 + palettes, packed RGB555 (16-bit TGA), or RGB24.
+// Returns NULL on failure without retaining image allocations.
 HIMAGE CreateImage(SGPFILENAME ImageFile, UINT16 fContents);
 
 // This function destroys the HIMAGE structure as well as its contents
@@ -183,9 +165,9 @@ BOOLEAN GetETRLEImageData(HIMAGE hImage, ETRLEData* pBuffer);
 // UTILITY FUNCTIONS
 
 // Used to create a 16BPP Palette from an 8 bit palette, found in himage.c
-UINT16* Create16BPPPaletteShaded(SGPPaletteEntry* pPalette, UINT32 rscale, UINT32 gscale,
+std::unique_ptr<UINT16[]> Create16BPPPaletteShaded(SGPPaletteEntry* pPalette, UINT32 rscale, UINT32 gscale,
                                  UINT32 bscale, BOOLEAN mono);
-UINT16* Create16BPPPalette(SGPPaletteEntry* pPalette);
+std::unique_ptr<UINT16[]> Create16BPPPalette(SGPPaletteEntry* pPalette);
 UINT16 Get16BPPColor(UINT32 RGBValue);
 extern UINT16 gusAlphaMask;
 extern UINT16 gusRedMask;
@@ -200,9 +182,5 @@ void ConvertRGBDistribution565To555(UINT16* p16BPPData, UINT32 uiNumberOfPixels)
 void ConvertRGBDistribution565To655(UINT16* p16BPPData, UINT32 uiNumberOfPixels);
 void ConvertRGBDistribution565To556(UINT16* p16BPPData, UINT32 uiNumberOfPixels);
 void ConvertRGBDistribution565ToAny(UINT16* p16BPPData, UINT32 uiNumberOfPixels);
-
-#ifdef __cplusplus
-}
-#endif
 
 #endif

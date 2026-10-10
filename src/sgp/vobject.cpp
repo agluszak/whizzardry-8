@@ -1,9 +1,8 @@
-#include <wiz8/filesystem.h>
-#include <sstream>
+#include "wiz8/utility.h"
+#include <SDL3/SDL_log.h>
 /* Modified for the Wizardry 8 reconstruction: 2026-10-03, 2026-10-06, 2026-10-07.
    Distributed under the accompanying SFI Source Code license agreement. */
 #include <stdio.h>
-#include "DEBUG.H"
 #include "Video2.h"
 #include "himage.h"
 #include "vobject.h"
@@ -26,10 +25,6 @@
 // Defines
 // *******************************************************************************
 
-// This define is sent to CreateList SGP function. It dynamically re-sizes if
-// the list gets larger
-#define DEFAULT_VIDEO_OBJECT_LIST_SIZE 10
-
 #define COMPRESS_TRANSPARENT 0x80
 #define COMPRESS_RUN_MASK 0x7F
 
@@ -45,32 +40,23 @@
 // LOCAL global variables
 // *******************************************************************************
 
-HLIST ghVideoObjects = NULL;
 // GLOBAL: WIZ8 0x00650e20
 BOOLEAN gfVideoObjectsInit = FALSE;
 
 typedef struct VOBJECT_NODE {
-    HVOBJECT hVObject;
+    std::unique_ptr<SGPVObject, decltype(&DeleteVideoObject)> hVObject{nullptr, DeleteVideoObject};
     UINT32 uiIndex;
-    struct VOBJECT_NODE *next, *prev;
-
-#ifdef SGP_VIDEO_DEBUGGING
-    UINT8* pName;
-    UINT8* pCode;
-#endif
+    std::unique_ptr<VOBJECT_NODE> next;
+    VOBJECT_NODE* prev;
 
 } VOBJECT_NODE;
 
 // GLOBAL: WIZ8 0x00650e24
-VOBJECT_NODE* gpVObjectHead = NULL;
+std::unique_ptr<VOBJECT_NODE> gpVObjectHead;
 // GLOBAL: WIZ8 0x00650e28
-VOBJECT_NODE* gpVObjectTail = NULL;
+VOBJECT_NODE* gpVObjectTail = nullptr;
 // GLOBAL: WIZ8 0x005ff5e8
 UINT32 guiVObjectIndex = 1;
-// GLOBAL: WIZ8 0x00650e2c
-UINT32 guiVObjectSize = 0;
-// GLOBAL: WIZ8 0x00650e30
-UINT32 guiVObjectTotalAdded = 0;
 
 #ifdef _DEBUG
 enum {
@@ -104,8 +90,8 @@ BOOLEAN InitializeVideoObjectManager()
     //Call shutdown first...
     Assert(!gpVObjectHead);
     Assert(!gpVObjectTail);
-    RegisterDebugTopic(TOPIC_VIDEOOBJECT, "Video Object Manager");
-    gpVObjectHead = gpVObjectTail = NULL;
+    gpVObjectHead.reset();
+    gpVObjectTail = nullptr;
     gfVideoObjectsInit = TRUE;
     return TRUE;
 }
@@ -113,25 +99,13 @@ BOOLEAN InitializeVideoObjectManager()
 // FUNCTION: WIZ8 0x00405e80
 BOOLEAN ShutdownVideoObjectManager()
 {
-    VOBJECT_NODE* curr;
     while (gpVObjectHead) {
-        curr = gpVObjectHead;
-        gpVObjectHead = gpVObjectHead->next;
-        DeleteVideoObject(curr->hVObject);
-#ifdef SGP_VIDEO_DEBUGGING
-        if (curr->pName)
-            MemFree(curr->pName);
-        if (curr->pCode)
-            MemFree(curr->pCode);
-#endif
-        MemFree(curr);
+        auto node = std::move(gpVObjectHead);
+        gpVObjectHead = std::move(node->next);
     }
-    gpVObjectHead = NULL;
-    gpVObjectTail = NULL;
+    gpVObjectHead = nullptr;
+    gpVObjectTail = nullptr;
     guiVObjectIndex = 1;
-    guiVObjectSize = 0;
-    guiVObjectTotalAdded = 0;
-    UnRegisterDebugTopic(TOPIC_VIDEOOBJECT, "Video Objects");
     gfVideoObjectsInit = FALSE;
     return TRUE;
 }
@@ -147,6 +121,7 @@ BOOLEAN AddStandardVideoObject(VOBJECT_DESC* pVObjectDesc, UINT32* puiIndex)
     Assert(pVObjectDesc);
 
     // Create video object
+    auto node = std::make_unique<VOBJECT_NODE>();
     hVObject = CreateVideoObject(pVObjectDesc);
 
     if (!hVObject) {
@@ -158,30 +133,19 @@ BOOLEAN AddStandardVideoObject(VOBJECT_DESC* pVObjectDesc, UINT32* puiIndex)
     SetVideoObjectTransparencyColor(hVObject, FROMRGB(0, 0, 0));
 
     // Set into video object list
-    if (gpVObjectHead) { //Add node after tail
-        gpVObjectTail->next = (VOBJECT_NODE*)MemAlloc(sizeof(VOBJECT_NODE));
-        Assert(gpVObjectTail->next); //out of memory?
-        gpVObjectTail->next->prev = gpVObjectTail;
-        gpVObjectTail->next->next = NULL;
-        gpVObjectTail = gpVObjectTail->next;
-    } else { //new list
-        gpVObjectHead = (VOBJECT_NODE*)MemAlloc(sizeof(VOBJECT_NODE));
-        Assert(gpVObjectHead); //out of memory?
-        gpVObjectHead->prev = gpVObjectHead->next = NULL;
-        gpVObjectTail = gpVObjectHead;
-    }
-#ifdef SGP_VIDEO_DEBUGGING
-    gpVObjectTail->pName = NULL;
-    gpVObjectTail->pCode = NULL;
-#endif
+    node->hVObject.reset(hVObject);
+    node->prev = gpVObjectTail;
+    auto* tail = node.get();
+    if (gpVObjectTail)
+        gpVObjectTail->next = std::move(node);
+    else
+        gpVObjectHead = std::move(node);
+    gpVObjectTail = tail;
     //Set the hVObject into the node.
-    gpVObjectTail->hVObject = hVObject;
     gpVObjectTail->uiIndex = guiVObjectIndex += 2;
     *puiIndex = gpVObjectTail->uiIndex;
     Assert(guiVObjectIndex < 0xfffffff0); //unlikely that we will ever use 2 billion vobjects!
     //We would have to create about 70 vobjects per second for 1 year straight to achieve this...
-    guiVObjectSize++;
-    guiVObjectTotalAdded++;
 
     return TRUE;
 }
@@ -195,13 +159,13 @@ BOOLEAN GetVideoObject(HVOBJECT* hVObject, UINT32 uiIndex)
     CheckValidVObjectIndex(uiIndex);
 #endif
 
-    curr = gpVObjectHead;
+    curr = gpVObjectHead.get();
     while (curr) {
         if (curr->uiIndex == uiIndex) {
-            *hVObject = curr->hVObject;
+            *hVObject = curr->hVObject.get();
             return TRUE;
         }
-        curr = curr->next;
+        curr = curr->next.get();
     }
     return FALSE;
 }
@@ -217,7 +181,7 @@ BOOLEAN BltVideoObjectFromIndex(UINT32 uiDestVSurface, UINT32 uiSrcVObject, UINT
     // Lock video surface
     pBuffer = (UINT16*)LockVideoSurface(uiDestVSurface, &uiPitch);
 
-    if (pBuffer == NULL) {
+    if (pBuffer == nullptr) {
         return (FALSE);
     }
 
@@ -245,53 +209,28 @@ BOOLEAN BltVideoObjectFromIndex(UINT32 uiDestVSurface, UINT32 uiSrcVObject, UINT
 // FUNCTION: WIZ8 0x00406080
 BOOLEAN DeleteVideoObjectFromIndex(UINT32 uiVObject)
 {
-    VOBJECT_NODE* curr;
-
 #ifdef _DEBUG
     gubVODebugCode = DEBUGSTR_DELETEVIDEOOBJECTFROMINDEX;
     CheckValidVObjectIndex(uiVObject);
 #endif
 
-    curr = gpVObjectHead;
-    while (curr) {
-        if (curr->uiIndex == uiVObject) { //Found the node, so detach it and delete it.
-
-            //Deallocate the memory for the video object
-            DeleteVideoObject(curr->hVObject);
-
-            if (curr ==
-                gpVObjectHead) { //Advance the head, because we are going to remove the head node.
-                gpVObjectHead = gpVObjectHead->next;
-            }
-            if (curr ==
-                gpVObjectTail) { //Back up the tail, because we are going to remove the tail node.
-                gpVObjectTail = gpVObjectTail->prev;
-            }
-            //Detach the node from the vobject list
-            if (curr->next) { //Make the prev node point to the next
-                curr->next->prev = curr->prev;
-            }
-            if (curr->prev) { //Make the next node point to the prev
-                curr->prev->next = curr->next;
-            }
-            //The node is now detached.  Now deallocate it.
-#ifdef SGP_VIDEO_DEBUGGING
-            if (curr->pName)
-                MemFree(curr->pName);
-            if (curr->pCode)
-                MemFree(curr->pCode);
-#endif
-            MemFree(curr);
-            curr = NULL;
-            guiVObjectSize--;
-            return TRUE;
+    auto* link = &gpVObjectHead;
+    while (*link) {
+        if ((*link)->uiIndex == uiVObject) {
+            auto node = std::move(*link);
+            *link = std::move(node->next);
+            if (*link)
+                (*link)->prev = node->prev;
+            else
+                gpVObjectTail = node->prev;
+                    return TRUE;
         }
-        curr = curr->next;
+        link = &(*link)->next;
     }
     return FALSE;
 }
 
-// Given an index to the dest and src vobject contained in ghVideoObjects
+// Given indices to the destination and source video objects
 // Based on flags, blit accordingly
 // There are two types, a BltFast and a Blt. BltFast is 10% faster, uses no
 // clipping lists
@@ -306,7 +245,7 @@ BOOLEAN BltVideoObject(UINT32 uiDestVSurface, HVOBJECT hSrcVObject, UINT16 usReg
     // Lock video surface
     pBuffer = (UINT16*)LockVideoSurface(uiDestVSurface, &uiPitch);
 
-    if (pBuffer == NULL) {
+    if (pBuffer == nullptr) {
         return (FALSE);
     }
 
@@ -329,15 +268,14 @@ BOOLEAN BltVideoObject(UINT32 uiDestVSurface, HVOBJECT hSrcVObject, UINT16 usReg
 // FUNCTION: WIZ8 0x00406180
 HVOBJECT CreateVideoObject(VOBJECT_DESC* VObjectDesc)
 {
-    HVOBJECT hVObject;
     HIMAGE hImage;
     ETRLEData TempETRLEData;
     //	UINT32							count;
 
     // Allocate memory for video object data and initialize
-    hVObject = (HVOBJECT)MemAlloc(sizeof(SGPVObject));
-    CHECKF(hVObject != NULL);
-    memset(hVObject, 0, sizeof(SGPVObject));
+    auto owner = std::make_unique<SGPVObject>();
+    auto* hVObject = owner.get();
+    std::unique_ptr<image_type> imageOwner;
 
     // default of all members of the vobject is 0
 
@@ -348,28 +286,25 @@ HVOBJECT CreateVideoObject(VOBJECT_DESC* VObjectDesc)
         VObjectDesc->fCreateFlags & VOBJECT_CREATE_FROMHIMAGE) {
         if (VObjectDesc->fCreateFlags & VOBJECT_CREATE_FROMFILE) {
             // Create himage object from file
-            hImage = CreateImage(VObjectDesc->ImageFile, IMAGE_ALLIMAGEDATA);
+            imageOwner.reset(CreateImage(VObjectDesc->ImageFile, IMAGE_ALLIMAGEDATA));
+            hImage = imageOwner.get();
 
-            if (hImage == NULL) {
-                MemFree(hVObject);
-                DbgMessage(TOPIC_VIDEOOBJECT, DBG_LEVEL_2, "Invalid Image Filename given");
-                return (NULL);
+            if (hImage == nullptr) {
+                SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "%s", "Invalid Image Filename given");
+                return (nullptr);
             }
         } else { // create video object from provided hImage
             hImage = VObjectDesc->hImage;
-            if (hImage == NULL) {
-                MemFree(hVObject);
-                DbgMessage(TOPIC_VIDEOOBJECT, DBG_LEVEL_2, "Invalid hImage pointer given");
-                return (NULL);
+            if (hImage == nullptr) {
+                SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "%s", "Invalid hImage pointer given");
+                return (nullptr);
             }
         }
 
         // Check if returned himage is TRLE compressed - return error if not
         if (!(hImage->fFlags & IMAGE_TRLECOMPRESSED)) {
-            MemFree(hVObject);
-            DbgMessage(TOPIC_VIDEOOBJECT, DBG_LEVEL_2, "Invalid Image format given.");
-            DestroyImage(hImage);
-            return (NULL);
+            SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "%s", "Invalid Image format given.");
+            return (nullptr);
         }
 
         // Set values from himage
@@ -380,8 +315,8 @@ HVOBJECT CreateVideoObject(VOBJECT_DESC* VObjectDesc)
 
         // Set values
         hVObject->usNumberOfObjects = TempETRLEData.usNumberOfObjects;
-        hVObject->pETRLEObject = TempETRLEData.pETRLEObject;
-        hVObject->pPixData = TempETRLEData.pPixData;
+        hVObject->pETRLEObject = std::move(TempETRLEData.pETRLEObject);
+        hVObject->pPixData = std::move(TempETRLEData.pPixData);
         hVObject->uiSizePixData = TempETRLEData.uiSizePixData;
 
         // Set palette from himage
@@ -389,18 +324,16 @@ HVOBJECT CreateVideoObject(VOBJECT_DESC* VObjectDesc)
             hVObject->pShade8 = ubColorTables[DEFAULT_SHADE_LEVEL];
             hVObject->pGlow8 = ubColorTables[0];
 
-            SetVideoObjectPalette(hVObject, hImage->pPalette);
+            SetVideoObjectPalette(hVObject, hImage->pPalette.get());
         }
 
         if (VObjectDesc->fCreateFlags & VOBJECT_CREATE_FROMFILE) {
             // Delete himage object
-            DestroyImage(hImage);
         }
         //		break;
     } else {
-        MemFree(hVObject);
-        DbgMessage(TOPIC_VIDEOOBJECT, DBG_LEVEL_2, "Invalid VObject creation flags given.");
-        return (NULL);
+        SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "%s", "Invalid VObject creation flags given.");
+        return (nullptr);
     }
 
     // If here, no special options given, use structure given in paraneters
@@ -410,43 +343,40 @@ HVOBJECT CreateVideoObject(VOBJECT_DESC* VObjectDesc)
     //	while( FALSE );
 
     // All is well
-    //  DbgMessage( TOPIC_VIDEOOBJECT, DBG_LEVEL_3, String("Success in Creating Video Object" ) );
 
-    return (hVObject);
+    return owner.release();
 }
 
 // Palette setting is expensive, need to set both DDPalette and create 16BPP palette
 BOOLEAN SetVideoObjectPalette(HVOBJECT hVObject, SGPPaletteEntry* pSrcPalette)
 {
 
-    Assert(hVObject != NULL);
-    Assert(pSrcPalette != NULL);
+    Assert(hVObject != nullptr);
+    Assert(pSrcPalette != nullptr);
 
     // Create palette object if not already done so
-    if (hVObject->pPaletteEntry == NULL) {
+    if (hVObject->pPaletteEntry == nullptr) {
         // Create palette
-        hVObject->pPaletteEntry = (SGPPaletteEntry*)MemAlloc(sizeof(SGPPaletteEntry) * 256);
-        CHECKF(hVObject->pPaletteEntry != NULL);
+        hVObject->pPaletteEntry = std::make_unique<SGPPaletteEntry[]>(256);
+        CHECKF(hVObject->pPaletteEntry != nullptr);
 
         // Copy src into palette
-        memcpy(hVObject->pPaletteEntry, pSrcPalette, sizeof(SGPPaletteEntry) * 256);
+        memcpy(hVObject->pPaletteEntry.get(), pSrcPalette, sizeof(SGPPaletteEntry) * 256);
 
     } else {
         // Just Change entries
-        memcpy(hVObject->pPaletteEntry, pSrcPalette, sizeof(SGPPaletteEntry) * 256);
+        memcpy(hVObject->pPaletteEntry.get(), pSrcPalette, sizeof(SGPPaletteEntry) * 256);
     }
 
-    // Delete 16BPP Palette if one exists
-    if (hVObject->p16BPPPalette != NULL) {
-        MemFree(hVObject->p16BPPPalette);
-        hVObject->p16BPPPalette = NULL;
-    }
-
-    // Create 16BPP Palette
-    hVObject->p16BPPPalette = Create16BPPPalette(pSrcPalette);
+    std::shared_ptr<UINT16[]> palette = Create16BPPPalette(pSrcPalette);
+    const auto* oldPalette = hVObject->ownedPalette.get();
+    for (auto& shade : hVObject->pShades)
+        if (shade.get() == oldPalette)
+            shade = palette;
+    hVObject->ownedPalette = std::move(palette);
+    hVObject->p16BPPPalette = hVObject->ownedPalette.get();
     hVObject->pShadeCurrent = hVObject->p16BPPPalette;
 
-    //  DbgMessage(TOPIC_VIDEOOBJECT, DBG_LEVEL_3, String("Video Object Palette change successfull" ));
     return (TRUE);
 }
 
@@ -456,7 +386,7 @@ BOOLEAN SetVideoObjectTransparencyColor(HVOBJECT hVObject, COLORVAL TransColor)
 {
 
     // Assertions
-    Assert(hVObject != NULL);
+    Assert(hVObject != nullptr);
 
     //Set trans color into video object
     hVObject->TransparentColor = TransColor;
@@ -468,50 +398,8 @@ BOOLEAN SetVideoObjectTransparencyColor(HVOBJECT hVObject, COLORVAL TransColor)
 // FUNCTION: WIZ8 0x00406320
 BOOLEAN DeleteVideoObject(HVOBJECT hVObject)
 {
-    UINT16 usLoop;
-
-    // Assertions
-    CHECKF(hVObject != NULL);
-
-    DestroyObjectPaletteTables(hVObject);
-
-    // Release palette
-    if (hVObject->pPaletteEntry != NULL) {
-        MemFree(hVObject->pPaletteEntry);
-        //		hVObject->pPaletteEntry = NULL;
-    }
-
-    if (hVObject->pPixData != NULL) {
-        MemFree(hVObject->pPixData);
-        //		hVObject->pPixData = NULL;
-    }
-
-    if (hVObject->pETRLEObject != NULL) {
-        MemFree(hVObject->pETRLEObject);
-        //		hVObject->pETRLEObject = NULL;
-    }
-
-    if (hVObject->ppZStripInfo != NULL) {
-        for (usLoop = 0; usLoop < hVObject->usNumberOfObjects; usLoop++) {
-            if (hVObject->ppZStripInfo[usLoop] != NULL) {
-                MemFree(hVObject->ppZStripInfo[usLoop]->pbZChange);
-                MemFree(hVObject->ppZStripInfo[usLoop]);
-            }
-        }
-        MemFree(hVObject->ppZStripInfo);
-        //		hVObject->ppZStripInfo = NULL;
-    }
-
-    if (hVObject->usNumberOf16BPPObjects > 0) {
-        for (usLoop = 0; usLoop < hVObject->usNumberOf16BPPObjects; usLoop++) {
-            MemFree(hVObject->p16BPPObject[usLoop].p16BPPData);
-        }
-        MemFree(hVObject->p16BPPObject);
-    }
-
-    // Release object
-    MemFree(hVObject);
-
+    CHECKF(hVObject != nullptr);
+    delete hVObject;
     return (TRUE);
 }
 
@@ -533,63 +421,58 @@ UINT16 CreateObjectPaletteTables(HVOBJECT pObj, UINT32 uiType)
 
     // this creates the highlight table. Specify the glow-type when creating the tables
     // through uiType, symbols are from VOBJECT.H
-    for (count = 0; count < 16; count++) {
-        if ((count == 4) && (pObj->p16BPPPalette == pObj->pShades[count]))
-            pObj->pShades[count] = NULL;
-        else if (pObj->pShades[count] != NULL) {
-            MemFree(pObj->pShades[count]);
-            pObj->pShades[count] = NULL;
-        }
-    }
+    for (auto& shade : pObj->pShades)
+        shade.reset();
 
     switch (uiType) {
     case HVOBJECT_GLOW_GREEN: // green glow
-        pObj->pShades[0] = Create16BPPPaletteShaded(pObj->pPaletteEntry, 0, 255, 0, TRUE);
+        pObj->pShades[0] = Create16BPPPaletteShaded(pObj->pPaletteEntry.get(), 0, 255, 0, TRUE);
         break;
     case HVOBJECT_GLOW_BLUE: // blue glow
-        pObj->pShades[0] = Create16BPPPaletteShaded(pObj->pPaletteEntry, 0, 0, 255, TRUE);
+        pObj->pShades[0] = Create16BPPPaletteShaded(pObj->pPaletteEntry.get(), 0, 0, 255, TRUE);
         break;
     case HVOBJECT_GLOW_YELLOW: // yellow glow
-        pObj->pShades[0] = Create16BPPPaletteShaded(pObj->pPaletteEntry, 255, 255, 0, TRUE);
+        pObj->pShades[0] = Create16BPPPaletteShaded(pObj->pPaletteEntry.get(), 255, 255, 0, TRUE);
         break;
     case HVOBJECT_GLOW_RED: // red glow
-        pObj->pShades[0] = Create16BPPPaletteShaded(pObj->pPaletteEntry, 255, 0, 0, TRUE);
+        pObj->pShades[0] = Create16BPPPaletteShaded(pObj->pPaletteEntry.get(), 255, 0, 0, TRUE);
         break;
     }
 
     // these are the brightening tables, 115%-150% brighter than original
-    pObj->pShades[1] = Create16BPPPaletteShaded(pObj->pPaletteEntry, 293, 293, 293, FALSE);
-    pObj->pShades[2] = Create16BPPPaletteShaded(pObj->pPaletteEntry, 281, 281, 281, FALSE);
-    pObj->pShades[3] = Create16BPPPaletteShaded(pObj->pPaletteEntry, 268, 268, 268, FALSE);
+    pObj->pShades[1] = Create16BPPPaletteShaded(pObj->pPaletteEntry.get(), 293, 293, 293, FALSE);
+    pObj->pShades[2] = Create16BPPPaletteShaded(pObj->pPaletteEntry.get(), 281, 281, 281, FALSE);
+    pObj->pShades[3] = Create16BPPPaletteShaded(pObj->pPaletteEntry.get(), 268, 268, 268, FALSE);
 
     // palette 4 is the non-modified palette.
     // if the standard one has already been made, we'll use it
-    if (pObj->p16BPPPalette != NULL)
-        pObj->pShades[4] = pObj->p16BPPPalette;
+    if (pObj->ownedPalette)
+        pObj->pShades[4] = pObj->ownedPalette;
     else {
         // or create our own, and assign it to the standard one
-        pObj->pShades[4] = Create16BPPPaletteShaded(pObj->pPaletteEntry, 255, 255, 255, FALSE);
-        pObj->p16BPPPalette = pObj->pShades[4];
+        pObj->pShades[4] = Create16BPPPaletteShaded(pObj->pPaletteEntry.get(), 255, 255, 255, FALSE);
+        pObj->ownedPalette = pObj->pShades[4];
+        pObj->p16BPPPalette = pObj->ownedPalette.get();
     }
 
     // the rest are darkening tables, right down to all-black.
-    pObj->pShades[5] = Create16BPPPaletteShaded(pObj->pPaletteEntry, 195, 195, 195, FALSE);
-    pObj->pShades[6] = Create16BPPPaletteShaded(pObj->pPaletteEntry, 165, 165, 165, FALSE);
-    pObj->pShades[7] = Create16BPPPaletteShaded(pObj->pPaletteEntry, 135, 135, 135, FALSE);
-    pObj->pShades[8] = Create16BPPPaletteShaded(pObj->pPaletteEntry, 105, 105, 105, FALSE);
-    pObj->pShades[9] = Create16BPPPaletteShaded(pObj->pPaletteEntry, 75, 75, 75, FALSE);
-    pObj->pShades[10] = Create16BPPPaletteShaded(pObj->pPaletteEntry, 45, 45, 45, FALSE);
-    pObj->pShades[11] = Create16BPPPaletteShaded(pObj->pPaletteEntry, 36, 36, 36, FALSE);
-    pObj->pShades[12] = Create16BPPPaletteShaded(pObj->pPaletteEntry, 27, 27, 27, FALSE);
-    pObj->pShades[13] = Create16BPPPaletteShaded(pObj->pPaletteEntry, 18, 18, 18, FALSE);
-    pObj->pShades[14] = Create16BPPPaletteShaded(pObj->pPaletteEntry, 9, 9, 9, FALSE);
-    pObj->pShades[15] = Create16BPPPaletteShaded(pObj->pPaletteEntry, 0, 0, 0, FALSE);
+    pObj->pShades[5] = Create16BPPPaletteShaded(pObj->pPaletteEntry.get(), 195, 195, 195, FALSE);
+    pObj->pShades[6] = Create16BPPPaletteShaded(pObj->pPaletteEntry.get(), 165, 165, 165, FALSE);
+    pObj->pShades[7] = Create16BPPPaletteShaded(pObj->pPaletteEntry.get(), 135, 135, 135, FALSE);
+    pObj->pShades[8] = Create16BPPPaletteShaded(pObj->pPaletteEntry.get(), 105, 105, 105, FALSE);
+    pObj->pShades[9] = Create16BPPPaletteShaded(pObj->pPaletteEntry.get(), 75, 75, 75, FALSE);
+    pObj->pShades[10] = Create16BPPPaletteShaded(pObj->pPaletteEntry.get(), 45, 45, 45, FALSE);
+    pObj->pShades[11] = Create16BPPPaletteShaded(pObj->pPaletteEntry.get(), 36, 36, 36, FALSE);
+    pObj->pShades[12] = Create16BPPPaletteShaded(pObj->pPaletteEntry.get(), 27, 27, 27, FALSE);
+    pObj->pShades[13] = Create16BPPPaletteShaded(pObj->pPaletteEntry.get(), 18, 18, 18, FALSE);
+    pObj->pShades[14] = Create16BPPPaletteShaded(pObj->pPaletteEntry.get(), 9, 9, 9, FALSE);
+    pObj->pShades[15] = Create16BPPPaletteShaded(pObj->pPaletteEntry.get(), 0, 0, 0, FALSE);
 
     // Set current shade table to neutral color
-    pObj->pShadeCurrent = pObj->pShades[4];
+    pObj->pShadeCurrent = pObj->pShades[4].get();
 
     // check to make sure every table got a palette
-    for (count = 0; (count < HVOBJECT_SHADE_TABLES) && (pObj->pShades[count] != NULL); count++)
+    for (count = 0; (count < HVOBJECT_SHADE_TABLES) && (pObj->pShades[count] != nullptr); count++)
         ;
 
     // return the result of the check
@@ -608,13 +491,12 @@ BOOLEAN BltVideoObjectToBuffer(UINT16* pBuffer, UINT32 uiDestPitchBYTES, HVOBJEC
 {
 
     // Assertions
-    Assert(pBuffer != NULL);
+    Assert(pBuffer != nullptr);
 
-    if (hSrcVObject == NULL) {
-        int i = 0;
+    if (hSrcVObject == nullptr) {
     }
 
-    Assert(hSrcVObject != NULL);
+    Assert(hSrcVObject != nullptr);
 
     // Check For Flags and bit depths
     switch (hSrcVObject->ubBitDepth) {
@@ -694,33 +576,12 @@ BOOLEAN BltVideoObjectToBuffer(UINT16* pBuffer, UINT32 uiDestPitchBYTES, HVOBJEC
 **********************************************************************************************/
 BOOLEAN DestroyObjectPaletteTables(HVOBJECT hVObject)
 {
-    UINT32 x;
-    BOOLEAN f16BitPal;
-
-    for (x = 0; x < HVOBJECT_SHADE_TABLES; x++) {
-        if (!(hVObject->fFlags & VOBJECT_FLAG_SHADETABLE_SHARED)) {
-            if (hVObject->pShades[x] != NULL) {
-                if (hVObject->pShades[x] == hVObject->p16BPPPalette)
-                    f16BitPal = TRUE;
-                else
-                    f16BitPal = FALSE;
-
-                MemFree(hVObject->pShades[x]);
-                hVObject->pShades[x] = NULL;
-
-                if (f16BitPal)
-                    hVObject->p16BPPPalette = NULL;
-            }
-        }
-    }
-
-    if (hVObject->p16BPPPalette != NULL) {
-        MemFree(hVObject->p16BPPPalette);
-        hVObject->p16BPPPalette = NULL;
-    }
-
-    hVObject->pShadeCurrent = NULL;
-    hVObject->pGlow = NULL;
+    for (auto& shade : hVObject->pShades)
+        shade.reset();
+    hVObject->ownedPalette.reset();
+    hVObject->p16BPPPalette = nullptr;
+    hVObject->pShadeCurrent = nullptr;
+    hVObject->pGlow = nullptr;
 
     return (TRUE);
 }
@@ -728,17 +589,16 @@ BOOLEAN DestroyObjectPaletteTables(HVOBJECT hVObject)
 // FUNCTION: WIZ8 0x004068e0
 UINT16 SetObjectShade(HVOBJECT pObj, UINT32 uiShade)
 {
-    Assert(pObj != NULL);
+    Assert(pObj != nullptr);
     Assert(uiShade >= 0);
     Assert(uiShade < HVOBJECT_SHADE_TABLES);
 
-    if (pObj->pShades[uiShade] == NULL) {
-        DbgMessage(TOPIC_VIDEOOBJECT, DBG_LEVEL_2,
-                   String("Attempt to set shade level to NULL table"));
+    if (pObj->pShades[uiShade] == nullptr) {
+        SDL_LogDebug(SDL_LOG_CATEGORY_APPLICATION, "Attempt to set shade level to nullptr table");
         return (FALSE);
     }
 
-    pObj->pShadeCurrent = pObj->pShades[uiShade];
+    pObj->pShadeCurrent = pObj->pShades[uiShade].get();
     return (TRUE);
 }
 
@@ -759,7 +619,7 @@ BOOLEAN GetETRLEPixelValue(UINT8* pDest, HVOBJECT hVObject, UINT16 usETRLEIndex,
     ETRLEObject* pETRLEObject;
 
     // Do a bunch of checks
-    CHECKF(hVObject != NULL);
+    CHECKF(hVObject != nullptr);
     CHECKF(usETRLEIndex < hVObject->usNumberOfObjects);
 
     pETRLEObject = &(hVObject->pETRLEObject[usETRLEIndex]);
@@ -768,7 +628,7 @@ BOOLEAN GetETRLEPixelValue(UINT8* pDest, HVOBJECT hVObject, UINT16 usETRLEIndex,
     CHECKF(usY < pETRLEObject->usHeight);
 
     // Assuming everything's okay, go ahead and look...
-    pCurrent = &((UINT8*)hVObject->pPixData)[pETRLEObject->uiDataOffset];
+    pCurrent = &(hVObject->pPixData.get())[pETRLEObject->uiDataOffset];
 
     // Skip past all uninteresting scanlines
     while (usLoopY < usY) {
@@ -929,121 +789,10 @@ void CheckValidVObjectIndex(UINT32 uiIndex)
             break;
         }
         if (uiIndex == 0xffffffff) {
-            AssertMsg(0, String("Trying to %s with deleted index -1.", str));
+            AssertMsg(0, FormatString("Trying to %s with deleted index -1.", str));
         } else {
-            AssertMsg(0, String("Trying to %s using a VSURFACE ID %d!", str, uiIndex));
+            AssertMsg(0, FormatString("Trying to %s using a VSURFACE ID %d!", str, uiIndex));
         }
     }
 }
-#endif
-
-#ifdef SGP_VIDEO_DEBUGGING
-
-typedef struct DUMPFILENAME {
-    UINT8 str[256];
-} DUMPFILENAME;
-
-void DumpVObjectInfoIntoFile(UINT8* filename, BOOLEAN fAppend)
-{
-    VOBJECT_NODE* curr;
-    std::ostringstream report;
-    DUMPFILENAME *pName, *pCode;
-    UINT32* puiCounter;
-    UINT8 tempName[256];
-    UINT8 tempCode[256];
-    UINT32 i, uiUniqueID;
-    BOOLEAN fFound;
-    if (!guiVObjectSize) {
-        return;
-    }
-
-
-
-    //Allocate enough strings and counters for each node.
-    pName = (DUMPFILENAME*)MemAlloc(sizeof(DUMPFILENAME) * guiVObjectSize);
-    pCode = (DUMPFILENAME*)MemAlloc(sizeof(DUMPFILENAME) * guiVObjectSize);
-    memset(pName, 0, sizeof(DUMPFILENAME) * guiVObjectSize);
-    memset(pCode, 0, sizeof(DUMPFILENAME) * guiVObjectSize);
-    puiCounter = (UINT32*)MemAlloc(sizeof(*puiCounter) * guiVObjectSize);
-    memset(puiCounter, 0, sizeof(*puiCounter) * guiVObjectSize);
-
-    //Loop through the list and record every unique filename and count them
-    uiUniqueID = 0;
-    curr = gpVObjectHead;
-    while (curr) {
-        strcpy(tempName, curr->pName);
-        strcpy(tempCode, curr->pCode);
-        fFound = FALSE;
-        for (i = 0; i < uiUniqueID; i++) {
-            if (!_stricmp(tempName, pName[i].str) &&
-                !_stricmp(tempCode, pCode[i].str)) { //same string
-                fFound = TRUE;
-                (puiCounter[i])++;
-                break;
-            }
-        }
-        if (!fFound) {
-            strcpy(pName[i].str, tempName);
-            strcpy(pCode[i].str, tempCode);
-            (puiCounter[i])++;
-            uiUniqueID++;
-        }
-        curr = curr->next;
-    }
-
-    //Now dump the info.
-    report << "-----------------------------------------------\n";
-    report << uiUniqueID << " unique vObject names exist in " << guiVObjectSize << "\n";
-    report << "-----------------------------------------------\n\n";
-    for (i = 0; i < uiUniqueID; i++) {
-        report << puiCounter[i] << " occurrences of " << pName[i].str << "\n";
-        report << pCode[i].str << "\n\n";
-    }
-    report << "\n-----------------------------------------------\n\n";
-
-    //Free all memory associated with this operation.
-    MemFree(pName);
-    MemFree(pCode);
-    MemFree(puiCounter);
-    try {
-        auto output = wiz8::open_file(reinterpret_cast<const char*>(filename),
-            fAppend ? wiz8::OpenMode::append : wiz8::OpenMode::replace);
-        const auto text = report.str();
-        output->write(text.data(), text.size());
-    } catch (const std::exception&) {}
-
-}
-
-//Debug wrapper for adding vObjects
-BOOLEAN _AddAndRecordVObject(VOBJECT_DESC* VObjectDesc, UINT32* uiIndex, UINT32 uiLineNum,
-                             UINT8* pSourceFile)
-{
-    UINT16 usLength;
-    UINT8 str[256];
-    if (!AddStandardVideoObject(VObjectDesc, uiIndex)) {
-        return FALSE;
-    }
-
-    //record the filename of the vObject (some are created via memory though)
-    usLength = strlen(VObjectDesc->ImageFile) + 1;
-    gpVObjectTail->pName = (UINT8*)MemAlloc(usLength);
-    memset(gpVObjectTail->pName, 0, usLength);
-    strcpy(gpVObjectTail->pName, VObjectDesc->ImageFile);
-
-    //record the code location of the calling creating function.
-    sprintf(str, "%s -- line(%d)", pSourceFile, uiLineNum);
-    usLength = strlen(str) + 1;
-    gpVObjectTail->pCode = (UINT8*)MemAlloc(usLength);
-    memset(gpVObjectTail->pCode, 0, usLength);
-    strcpy(gpVObjectTail->pCode, str);
-
-    return TRUE;
-}
-
-void PerformVideoInfoDumpIntoFile(UINT8* filename, BOOLEAN fAppend)
-{
-    DumpVObjectInfoIntoFile(filename, fAppend);
-    DumpVSurfaceInfoIntoFile(filename, TRUE);
-}
-
 #endif

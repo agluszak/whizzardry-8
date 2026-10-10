@@ -8,7 +8,6 @@
 #include "wiz8/wiz8_windows.h"
 #include "compat/surfaces.h"
 
-#include "DEBUG.H"
 #include "Types.h"
 #include "vsurface.h"
 #include "Mutex Manager.h"
@@ -31,8 +30,7 @@ extern void SuspendVideoManager(void);
 extern BOOLEAN RestoreVideoManager(void);
 extern void GetCurrentVideoSettings(UINT16* usWidth, UINT16* usHeight, UINT8* ubBitDepth);
 extern void InvalidateRegion(INT32 iLeft, INT32 iTop, INT32 iRight, INT32 iBottom, UINT32 uiFlags);
-extern LPDIRECTDRAW2 GetDirectDraw2Object(void);
-extern LPDIRECTDRAWSURFACE2 GetFrameBufferObject(void);
+extern CpuSurface* GetFrameBufferObject(void);
 extern PTR LockPrimarySurface(UINT32* uiPitch);
 extern void UnlockPrimarySurface(void);
 extern PTR LockMouseBuffer(UINT32* uiPitch);
@@ -216,7 +214,7 @@ extern bool g_texture_cache_enabled;
 extern srGERD* g_gerd;
 /* Secondary renderer device preferred by the offscreen world-render path. */
 extern srGERD* g_secondary_gerd;
-extern LPDIRECTDRAWSURFACE2 g_primary_surface;
+extern CpuSurface* g_primary_surface;
 extern stSurface2D* g_surface_node;
 extern srMaterial* g_blit_material;
 extern srColorSurface* g_mouse_surface;
@@ -235,7 +233,7 @@ struct W8ViewportRect {
     int right;
     int bottom;
 };
-static_assert(sizeof(W8ViewportRect) == 16, "W8ViewportRect_size");
+W8_ABI_ASSERT(sizeof(W8ViewportRect) == 16, "W8ViewportRect_size");
 extern W8ViewportRect g_viewport;
 extern int g_dirty_tile_count;
 extern int g_resident_texture_policy;
@@ -269,7 +267,7 @@ void ClearVideoDirtyBlocks(void); /* 0x00423150 */
 void RenderScene(srScene* scene, srCamera* camera, const int* viewport, bool preserve_fog);
 void RenderFrame(void);
 /* The native presentation shell also owns this opaque surface entry point. */
-IDirectDrawSurface2* BeginVideoPresentation(void);
+CpuSurface* BeginVideoPresentation(void);
 unsigned char FinishVideoPresentation(void);
 void PublishLightDirection(const EnvironmentColour* direction);
 void GetWorldColour(EnvironmentColour* colour); /* 0x00427290 */
@@ -277,7 +275,8 @@ srVector3T<float>* __fastcall SaturateColor(srVector3T<float>* color);
 void ReleaseObject(srClass* object);
 void Initialize16BitPixelFormatMasks(void);
 unsigned char CreateWizardryWindow(void);
-unsigned char InitializePrimaryDirectDrawSurface(void);
+unsigned char InitializePrimaryCpuSurface(void);
+void ReleasePrimaryCpuSurface(void);
 unsigned char InitializeVideoDevice(void);
 unsigned char OpenRendererWindow(void);
 void InvalidateRendererTextureCache(void);

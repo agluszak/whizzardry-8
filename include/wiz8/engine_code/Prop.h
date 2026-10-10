@@ -1,5 +1,7 @@
 #pragma once
 
+#include "wiz8/filesystem.h"
+
 #include "wiz8/engine_code/AnimRep.hpp"
 #include "wiz8/engine_code/GrObject.h"
 #include "wiz8/engine_code/game_timer.h"
@@ -113,7 +115,7 @@ public:
     /* Restore the rep's persisted animation state: five saved bytes plus one
        discarded byte, clamped to the loaded animation's frame count, with
        path values re-synced while a running animation is active. */
-    bool LoadAnimationState(int hFile);        /* 0x0044DBD0 */
+    bool LoadAnimationState(wiz8::File* hFile);        /* 0x0044DBD0 */
     int BuildOrRefreshPathingRepresentation(); /* 0x0044DEA0 */
     /* When the animation advanced exactly one frame this writes the current
        position minus the home position into `out`; otherwise `out` is zeroed.

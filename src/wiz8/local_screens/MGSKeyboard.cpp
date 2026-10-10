@@ -54,7 +54,7 @@
 #include "wiz8/world_cursor.h"
 #include "wiz8/xstatus.h"
 
-#include "FileMan.h"
+#include "wiz8/filesystem.h"
 #include "input.h"
 
 #include <string.h>
@@ -158,17 +158,18 @@ void MGSKeyboard::Clear()
 }
 
 // FUNCTION: WIZ8 0x0055d590
-unsigned char MGSKeyboard::Load(int handle, bool clear)
+unsigned char MGSKeyboard::Load(wiz8::File* handle, bool clear)
+try
 {
     int count;
 
     if (clear) {
         Clear();
     }
-    FileRead(handle, &count, sizeof(count), 0);
+    handle->read_exact(&count, sizeof(count));
     for (int index = 0; index < count; ++index) {
         MGSKeyBinding* binding = new MGSKeyBinding;
-        FileRead(handle, binding, sizeof(*binding), 0);
+        handle->read_exact(binding, sizeof(*binding));
 
         int old_index = FindBinding(binding->command);
         if (old_index != -1) {
@@ -183,14 +184,15 @@ unsigned char MGSKeyboard::Load(int handle, bool clear)
     }
     return 1;
 }
+catch (const std::exception&) { return false; }
 
 // FUNCTION: WIZ8 0x0055d7a0
-unsigned char MGSKeyboard::Save(int handle) const
+unsigned char MGSKeyboard::Save(wiz8::File* handle) const
 {
     int count = m_bindings.GetCount();
-    FileWrite(handle, &count, sizeof(count), 0);
+    handle->write(&count, sizeof(count));
     for (int index = 0; index < count; ++index) {
-        FileWrite(handle, *m_bindings.GetAt(index), sizeof(MGSKeyBinding), 0);
+        handle->write(*m_bindings.GetAt(index), sizeof(MGSKeyBinding));
     }
     return 1;
 }
@@ -272,7 +274,6 @@ void DispatchMGSCommand(W8MGSCommand command)
                     return;
                 }
             }
-            ClearRecordModeValue();
             ShowMainGameNoticeLine(gppStringList[0x779], OnLeaveGameConfirmClosed, true, true);
         }
         InvalidateRegion(0xa8, 0x16e, 0x1c4, 0x1ba, 0);

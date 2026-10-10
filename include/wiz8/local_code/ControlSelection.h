@@ -20,6 +20,7 @@ public:
 class W8ControlSelection : public W8TextControl::Listener {
 public:
     W8ControlSelection();
+    virtual ~W8ControlSelection() = default;
     int AddEntry(W8TextControl* entry);
     void SetSelected(int iSelected);
     virtual void OnPrimary(W8TextControl* entry) override;

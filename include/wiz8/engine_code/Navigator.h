@@ -1,5 +1,7 @@
 #pragma once
 
+#include "wiz8/filesystem.h"
+
 #include "wiz8/navigation_flags.h"
 
 struct W8MonsterInfo;
@@ -56,11 +58,10 @@ struct W8NavigatorAttachment {
     srVector3T<float> start_waypoint; /* valid while W8_NAV_ATTACHMENT_START_WAYPOINT */
     srVector3T<float> path_length_origin;
     srVector3T<float> recorded_position;
-    /* The owned vector array uses the vector type's new[]/delete[] overloads,
-       which route allocation and release to srHeap. Growth retains the promoted
+    /* The owned vector array uses ordinary new[]/delete[]. Growth retains the promoted
        allocation count until the final 16-bit capacity store. */
     srVector3T<float>* path_positions;
-    /* 0x00457530 releases this one with free while +0x4c goes back to srHeap,
+    /* 0x00457530 releases this one with free while +0x4c uses delete[],
        so the two allocations do not share an owner. */
     unsigned short* path_values;
     float separation;
@@ -353,8 +354,8 @@ public:
     /* Save the presence-gated movement state LoadMovementState
        consumes: the flag byte, then for an ungrouped navigator with flag
        0x20000000 set the height bounds, position and movement target. */
-    unsigned char LoadMovementState(unsigned int hFile); /* 0x00454AD0 */
-    unsigned char SaveMovementState(unsigned int hFile); /* 0x004549D0 */
+    unsigned char LoadMovementState(wiz8::File* hFile); /* 0x00454AD0 */
+    unsigned char SaveMovementState(wiz8::File* hFile); /* 0x004549D0 */
     void CopyPathToGroup();
     void PropagateGroupPosition();                        /* 0x00454C80 */
     void UpdateAngles();                                  /* 0x00453990 */

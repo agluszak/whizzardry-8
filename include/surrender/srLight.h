@@ -30,6 +30,7 @@ public:
     };
 
     srLight(srNode* parent = 0, e_preset preset = PRESET_POINT);
+    ~srLight() override = default;
 
     srLight(const srLight& other);
 
@@ -42,11 +43,6 @@ public:
     }
 
     virtual void dump(std::ostream& stream) override;
-
-public:
-#if !defined(SURRENDER_BUILD)
-    virtual ~srLight() override {}
-#endif
 
 public:
     virtual void traverse(srNode::TraverseInfo& info) override;

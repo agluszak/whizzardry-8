@@ -418,64 +418,13 @@ const char* srDebugVP::getName()
     return "srDebugVP";
 }
 
-// FUNCTION: SURRENDER 0x1006A3D0
-int srDebugVP::_memcmp(const void* source_0, const void* source_1, SRDWORD bytes)
-{
-    ScopeTimer scope_timer(this, bytes, COMMAND_MEMCMP, source_0, source_1, 0, 0);
-    return processor->_memcmp(source_0, source_1, bytes);
-}
 
-// FUNCTION: SURRENDER 0x1006A450
-void srDebugVP::_memcopy(void* destination, const void* source, SRDWORD bytes)
-{
-    ScopeTimer scope_timer(this, bytes, COMMAND_MEMCOPY_VOID_ARRAY_VOID_ARRAY, destination, source,
-                           0, 0);
-    processor->_memcopy(destination, source, bytes);
-}
 
-// FUNCTION: SURRENDER 0x1006A4D0
-void srDebugVP::_memcopy(void* destination, int source, SRDWORD bytes)
-{
-    ScopeTimer scope_timer(this, bytes, COMMAND_MEMCOPY_VOID_ARRAY_BYTE, destination, 0, 0, 0);
-    processor->_memcopy(destination, source, bytes);
-}
 
-// FUNCTION: SURRENDER 0x1006A550
-void srDebugVP::_prefetch(const void* destination, SRDWORD bytes, SRDWORD unused)
-{
-    ScopeTimer scope_timer(this, bytes >> 5, COMMAND_PREFETCH, destination, 0, 0, 0);
-    processor->_prefetch(destination, bytes, unused);
-}
 
-// FUNCTION: SURRENDER 0x1006A5D0
-void srDebugVP::_copyInterleaved(void* destination, const void* source, SRDWORD destination_pitch,
-                                 SRDWORD source_pitch, SRDWORD width, SRDWORD count)
-{
-    ScopeTimer scope_timer(this, width * count, COMMAND_COPY_INTERLEAVED, destination, source, 0,
-                           0);
-    processor->_copyInterleaved(destination, source, destination_pitch, source_pitch, width, count);
-}
 
-// FUNCTION: SURRENDER 0x1006A660
-void srDebugVP::_swap(void* first, void* second, SRDWORD bytes)
-{
-    ScopeTimer scope_timer(this, bytes, COMMAND_SWAP, first, second, 0, 0);
-    processor->_swap(first, second, bytes);
-}
 
-// FUNCTION: SURRENDER 0x1006A6E0
-void srDebugVP::_copy(SRDWORD* destination, SRDWORD constant, SRDWORD count)
-{
-    ScopeTimer scope_timer(this, count, COMMAND_COPY_DWORD_ARRAY_DWORD, destination, 0, 0, 0);
-    processor->_copy(destination, constant, count);
-}
 
-// FUNCTION: SURRENDER 0x1006A760
-void srDebugVP::_reverse(SRDWORD* destination, const SRDWORD* source, SRDWORD count)
-{
-    ScopeTimer scope_timer(this, count, COMMAND_REVERSE, destination, source, 0, 0);
-    processor->_reverse(destination, source, count);
-}
 
 // FUNCTION: SURRENDER 0x1006A7E0
 void srDebugVP::_and(SRDWORD* destination, const SRDWORD* source, SRDWORD constant, SRDWORD count)
@@ -943,13 +892,6 @@ void srDebugVP::_cubic(float* destination, const float* source, SRDWORD count)
     processor->_cubic(destination, source, count);
 }
 
-// FUNCTION: SURRENDER 0x1006C700
-void srDebugVP::_copy(srVector2* destination, const srVector2& constant, SRDWORD count)
-{
-    ScopeTimer scope_timer(this, count, COMMAND_COPY_VEC2_ARRAY_VEC2_CONSTANT, destination, 0, 0,
-                           0);
-    processor->_copy(destination, constant, count);
-}
 
 // FUNCTION: SURRENDER 0x1006C780
 void srDebugVP::_copyIndexed(srVector2* destination, const srVector2* source,
@@ -969,13 +911,6 @@ void srDebugVP::_div(srVector2* destination, const srVector2* vector_source,
     processor->_div(destination, vector_source, float_source, count);
 }
 
-// FUNCTION: SURRENDER 0x1006C8A0
-void srDebugVP::_copy(srVector3* destination, const srVector3& constant, SRDWORD count)
-{
-    ScopeTimer scope_timer(this, count, COMMAND_COPY_VEC3_ARRAY_VEC3_CONSTANT, destination, 0, 0,
-                           0);
-    processor->_copy(destination, constant, count);
-}
 
 // FUNCTION: SURRENDER 0x1006C920
 void srDebugVP::_copy(srVector3* destination, const srVector4* source, SRDWORD count)
@@ -1235,13 +1170,6 @@ void srDebugVP::_dir(srVector3* destination, float* lengths, const srVector4* so
     processor->_dir(destination, lengths, source, count);
 }
 
-// FUNCTION: SURRENDER 0x1006D940
-void srDebugVP::_copy(srVector4* destination, const srVector4& constant, SRDWORD count)
-{
-    ScopeTimer scope_timer(this, count, COMMAND_COPY_VEC4_ARRAY_VEC4_CONSTANT, destination, 0, 0,
-                           0);
-    processor->_copy(destination, constant, count);
-}
 
 // FUNCTION: SURRENDER 0x1006D9C0
 void srDebugVP::_copy(srVector4* destination, const srVector3* source, float constant,

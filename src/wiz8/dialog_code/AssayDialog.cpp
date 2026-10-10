@@ -205,7 +205,6 @@ bool W8AssayDialog::PopulateText()
     unsigned int bit;
     int index;
     int count;
-    const W8ItemRequirement* requirement;
     wchar_t modifier_text[0x100];
     char path[0x200];
     wchar_t description[0x7d0];

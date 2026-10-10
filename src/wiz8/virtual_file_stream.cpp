@@ -1,30 +1,18 @@
 #include "surrender/srBinIStream.h"
 #include "surrender/srCore.h"
-#include "surrender/srExtension.h"
 #include "surrender/srIStreamOpener.h"
-#include "surrender/srString.h"
 #include "wiz8/virtual_file.h"
 #include "wiz8/virtual_file_stream.h"
-#include "FileMan.h"
+#include "wiz8/filesystem.h"
 
 /* Original translation-unit ownership is unknown; surrounding anchors do not resolve it. */
 
 // FUNCTION: WIZ8 0x0047CBD0
-W8VirtualFileBinIStream::W8VirtualFileBinIStream(const char* path) : m_hFile(0)
+W8VirtualFileBinIStream::W8VirtualFileBinIStream(const char* path)
 {
-    srInlineString normalized(path);
-    {
-        srInlineString backslash("\\");
-        srInlineString slash("/");
-
-        w8_long index;
-        while ((index = normalized.find(slash, 0)) != -1) {
-            normalized.erase(index, index + slash.size() - 1);
-            normalized.insert(backslash, index);
-        }
+    if (path && *path) {
+        m_hFile = [&]() { try { return wiz8::open_file(path, wiz8::OpenMode::read); } catch (const std::exception&) { return std::unique_ptr<wiz8::File>{}; } }();
     }
-
-    m_hFile = FileOpen(normalized.data(), 0x41, 0);
     if (m_hFile != 0) {
         setState(SR_STREAM_OK);
     } else {
@@ -36,58 +24,61 @@ W8VirtualFileBinIStream::W8VirtualFileBinIStream(const char* path) : m_hFile(0)
 W8VirtualFileBinIStream::~W8VirtualFileBinIStream()
 {
     if (m_hFile) {
-        FileClose(m_hFile);
+        m_hFile.reset();
     }
 }
 
 // FUNCTION: WIZ8 0x0047D4D0
 srBinStream& W8VirtualFileBinIStream::seek(w8_ulong position, e_seekDir direction)
+try
 {
-    int origin;
+    if (!m_hFile) { setState(SR_STREAM_ERROR); return *this; }
+    wiz8::SeekOrigin origin;
     switch (direction) {
     case SR_SEEK_BEGIN:
-        origin = 1;
+        origin = wiz8::SeekOrigin::begin;
         break;
     case SR_SEEK_CURRENT:
-        origin = 4;
+        origin = wiz8::SeekOrigin::current;
         break;
     case SR_SEEK_END:
-        origin = 2;
+        origin = wiz8::SeekOrigin::end;
         break;
     default:
         return *this;
     }
-    if (!FileSeek(m_hFile, position, origin)) {
-        setState(SR_STREAM_ERROR);
-    }
+    m_hFile->seek(direction == SR_SEEK_END ? -std::int64_t(position) : position, origin);
     return *this;
 }
+catch (const std::exception&) { setState(SR_STREAM_ERROR); return *this; }
 
 // FUNCTION: WIZ8 0x0047D560
 srBinStream& W8VirtualFileBinIStream::seek(w8_ulong position)
+try
 {
-    if (!FileSeek(m_hFile, position, 1)) {
-        setState(SR_STREAM_ERROR);
-    }
+    if (!m_hFile) { setState(SR_STREAM_ERROR); return *this; }
+    m_hFile->seek(position, wiz8::SeekOrigin::begin);
     return *this;
 }
+catch (const std::exception&) { setState(SR_STREAM_ERROR); return *this; }
 
 // FUNCTION: WIZ8 0x0047D5B0
 w8_ulong W8VirtualFileBinIStream::tell()
+try
 {
-    return FileGetPos(m_hFile);
+    if (!m_hFile) return 0;
+    return m_hFile->tell();
 }
+catch (const std::exception&) { setState(SR_STREAM_ERROR); return 0; }
 
 // FUNCTION: WIZ8 0x0047d5c0
 w8_ulong W8VirtualFileBinIStream::vread(void* buffer, w8_ulong size)
+try
 {
-    unsigned int bytes_read;
-
-    if (FileRead(m_hFile, buffer, size, &bytes_read)) {
-        return bytes_read;
-    }
-    return 0;
+    if (!m_hFile) { setState(SR_STREAM_ERROR); return 0; }
+    return m_hFile->read(buffer, size).bytes;
 }
+catch (const std::exception&) { setState(SR_STREAM_ERROR); return 0; }
 
 // FUNCTION: WIZ8 0x0047CB30
 srBinIStream* W8VirtualFileStreamOpener::open(const char* path)
@@ -110,8 +101,7 @@ W8VirtualFileStreamOpener g_virtual_file_stream_opener;
 // FUNCTION: WIZ8 0x0047d5f0
 void InitializeVirtualFileImageImporters(void)
 {
-    srExtension::load("JPEGImporter", NULL);
-    srExtension::load("TargaImporter", NULL);
     srCore.getIStreamOpener()->addStreamType(&g_virtual_file_stream_opener, "jpg");
+    srCore.getIStreamOpener()->addStreamType(&g_virtual_file_stream_opener, "jpeg");
     srCore.getIStreamOpener()->addStreamType(&g_virtual_file_stream_opener, "tga");
 }

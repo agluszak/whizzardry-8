@@ -1,6 +1,5 @@
 #pragma once
 
-#include "srHeap.h"
 
 class srPalette;
 
@@ -53,9 +52,6 @@ public:
 
         PixelFormat() : fourcc(0) {}
 
-#if defined(SURRENDER_BUILD)
-
-#endif
         void getName(char* const name);
         int isValid() const;
         w8_ulong match(const PixelFormat* formats, w8_ulong count) const;

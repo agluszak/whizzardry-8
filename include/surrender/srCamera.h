@@ -83,4 +83,4 @@ private:
 };
 
 W8_ABI_ASSERT((sizeof(srCamera) == 0x188), "srCamera_must_be_0x188");
-static_assert(sizeof(srCamera::Rect) == 0x20, "srCamera_Rect_must_be_0x20");
+W8_ABI_ASSERT(sizeof(srCamera::Rect) == 0x20, "srCamera_Rect_must_be_0x20");

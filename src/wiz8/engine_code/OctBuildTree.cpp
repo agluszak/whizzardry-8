@@ -19,10 +19,6 @@ W8GDSurface** g_oct_build_scratch;
    leaf collector. Saved and restored around nested collects. */
 // GLOBAL: WIZ8 0x00659a38
 static w8_ulong g_oct_build_count;
-/* The caller's result slot during a segment collect; retail writes it but
-   no recovered reader exists. */
-// GLOBAL: WIZ8 0x00659a44
-static void* g_oct_build_out;
 
 char CollectSurfacePredicate(W8GDSurface* surface, short kind);
 
@@ -61,23 +57,16 @@ W8OctBuildLink* W8OctBuildLinkLists::GetNewLink(void* surface)
 }
 
 // FUNCTION: WIZ8 0x00446330
-W8OctBuildNode::W8OctBuildNode()
-{
-    memset(this, 0, 10 * sizeof(w8_ulong));
-    leaf_kind = 0;
-    region = 0;
-    provisional_region = 0;
-}
+W8OctBuildNode::W8OctBuildNode() : children{}, region(0), leaf_kind(0), provisional_region(0) {}
 
 // FUNCTION: WIZ8 0x00446350
 W8OctBuildNode::~W8OctBuildNode()
 {
     if (leaf_kind != 0) {
-        memset(this, 0, 10 * sizeof(w8_ulong));
         return;
     }
-    for (int child = 0; child != 8; ++child) {
-        delete children[child];
+    for (W8OctBuildNode* child : children) {
+        delete child;
     }
 }
 
@@ -345,10 +334,8 @@ int W8OctBuildTree::CollectObjectsAlongSegment(W8GDSurface*** results,
 
     if (*results == 0) {
         *results = g_oct_build_scratch;
-        g_oct_build_out = g_oct_build_scratch;
     } else {
         saved = g_oct_build_count;
-        g_oct_build_out = results;
     }
     g_oct_build_count = 0;
 

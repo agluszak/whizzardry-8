@@ -1,3 +1,6 @@
+#include "wiz8/utility.h"
+#include <cstdlib>
+
 #include "wiz8/engine_code/OctPreTree.h"
 #include "wiz8/engine_code/3d.h"
 #include "wiz8/engine_code/GDProp.h"
@@ -12,8 +15,7 @@
 #include "wiz8/float_constants.h"
 #include "wiz8/vector.h"
 
-#include "FileMan.h"
-#include "DEBUG.H"
+#include "wiz8/filesystem.h"
 
 #include <math.h>
 #include <stdio.h>
@@ -260,9 +262,10 @@ bool OctPreTree::TestCollectedPolygons(W8OctreeTrace* trace)
    them. */
 // FUNCTION: WIZ8 0x004683f0
 unsigned char OctPreTree::WriteOctFile(W8OctPreTreeGeometry* geometry, W8GameData* game_data)
+try
 {
     unsigned char written;
-    int file;
+    std::unique_ptr<wiz8::File> file;
     w8_ulong sentinel = 0xffffffff;
     W8OctFileHeader header;
 
@@ -315,47 +318,47 @@ unsigned char OctPreTree::WriteOctFile(W8OctPreTreeGeometry* geometry, W8GameDat
         header.m_path_nodes = pre_pathing->path_node_count;
         header.m_edge_node_count = pre_pathing->edge_node_count;
     }
-    file = FileOpen("NewLevel.oct", FILE_ACCESS_WRITE | FILE_CREATE_ALWAYS, 0);
+    file = [&]() { try { return wiz8::open_file("NewLevel.oct", wiz8::OpenMode::replace); } catch (const std::exception&) { return std::unique_ptr<wiz8::File>{}; } }();
     if (file == 0) {
         ReportBuildStatus(7, "WriteOctFile: Couldn't create file.\n");
         return 0;
     }
     /* Every write-failure path below returns without FileClose: retail leaks
        the handle on each of them (verified at 0x4686b4 et seq.). */
-    if (FileWrite(file, &header, sizeof(header), 0) == 0) {
+    if ((file->write(&header, sizeof(header)), true) == 0) {
         ReportBuildStatus(7, "WriteOctFile: Couldn't write tree info.\n");
         return 0;
     }
-    FileWrite(file, &sentinel, 4, 0);
-    if (FileWrite(file, m_branches, header.m_branch_count * sizeof(W8OctPreTreeBranch), 0) == 0) {
+    file->write(&sentinel, 4);
+    if ((file->write(m_branches, header.m_branch_count * sizeof(W8OctPreTreeBranch)), true) == 0) {
         ReportBuildStatus(7, "WriteOctFile: Couldn't write Node info.\n");
         return 0;
     }
-    if (FileWrite(file, m_leaves, header.m_leaf_count * sizeof(W8OctPreTreeLeaf), 0) == 0) {
+    if ((file->write(m_leaves, header.m_leaf_count * sizeof(W8OctPreTreeLeaf)), true) == 0) {
         ReportBuildStatus(7, "WriteOctFile: Couldn't write Leaves info.\n");
         return 0;
     }
-    if (FileWrite(file, m_polygon_index_stream, header.m_leaf_polygon_stream_len * 4, 0) == 0) {
+    if ((file->write(m_polygon_index_stream, header.m_leaf_polygon_stream_len * 4), true) == 0) {
         ReportBuildStatus(7, "WriteOctFile: Couldn't write Poly List info.\n");
         return 0;
     }
     unsigned int grid_cells =
         m_leaf_grid_dimensions.z * m_leaf_grid_dimensions.y * m_leaf_grid_dimensions.x;
-    if (grid_cells < 250000 && FileWrite(file, m_leaf_lookup, grid_cells * 4, 0) == 0) {
+    if (grid_cells < 250000 && (file->write(m_leaf_lookup, grid_cells * 4), true) == 0) {
         ReportBuildStatus(7, "WriteOctFile: Couldn't write uiLeafGrid info.\n");
         return 0;
     }
-    if (FileWrite(file, m_aulPolyLookup, header.m_polygon_count * 4, 0) == 0) {
+    if ((file->write(m_aulPolyLookup, header.m_polygon_count * 4), true) == 0) {
         ReportBuildStatus(7, "WriteOctFile: Couldn't write Poly Lookup table.\n");
         return 0;
     }
     if (header.m_region_list_len != 0 &&
-        FileWrite(file, m_region_index_stream, header.m_region_list_len * 2, 0) == 0) {
+        (file->write(m_region_index_stream, header.m_region_list_len * 2), true) == 0) {
         ReportBuildStatus(7, "WriteOctFile: Couldn't write region list.\n");
         return 0;
     }
     if (header.m_gd_surface_stream_len != 0 &&
-        FileWrite(file, m_gd_surface_index_stream, header.m_gd_surface_stream_len * 4, 0) == 0) {
+        (file->write(m_gd_surface_index_stream, header.m_gd_surface_stream_len * 4), true) == 0) {
         ReportBuildStatus(7, "WriteOctFile: Couldn't write Game Data Poly List.\n");
         return 0;
     }
@@ -363,45 +366,42 @@ unsigned char OctPreTree::WriteOctFile(W8OctPreTreeGeometry* geometry, W8GameDat
        reads it back as 2-byte elements (0x4688c3 vs 0x42c351): the asymmetry
        is authentic.  In practice the count is always zero. */
     if (header.m_trigger_count != 0 &&
-        FileWrite(file, m_trigger_indices, header.m_trigger_count * 4, 0) == 0) {
+        (file->write(m_trigger_indices, header.m_trigger_count * 4), true) == 0) {
         ReportBuildStatus(7, "WriteOctFile: Couldn't write Trigger list.\n");
         return 0;
     }
     if (header.m_region_count > 1 &&
-        FileWrite(file, m_spatial.m_region_volumes,
-                  header.m_region_count * sizeof(W8OctRegionVolume), 0) == 0) {
+        (file->write(m_spatial.m_region_volumes, header.m_region_count * sizeof(W8OctRegionVolume)), true) == 0) {
         ReportBuildStatus(7, "WriteOctFile: Couldn't write Region array.\n");
         return 0;
     }
-    FileWrite(file, &sentinel, 4, 0);
+    file->write(&sentinel, 4);
     if (header.m_submesh_count != 0) {
-        if (FileWrite(file, m_pSubmeshes, (header.m_submesh_count + 1) * sizeof(W8OctSubmesh), 0) ==
+        if ((file->write(m_pSubmeshes, (header.m_submesh_count + 1) * sizeof(W8OctSubmesh)), true) ==
             0) {
             ReportBuildStatus(7, "WriteOctFile: Couldn't write submesh array.\n");
             return 0;
         }
-        if (m_meshCount != 0 && m_pAlphaBits != 0 && m_pAlphaBits->Save(file) == 0) {
+        if (m_meshCount != 0 && m_pAlphaBits != 0 && m_pAlphaBits->Save(file.get()) == 0) {
             srAssertFail("m_pAlphaBits->Save(hOctFile)", OCTPRETREE_CPP, 0x224,
                          "ReadOctFile: Failure writing Alpha Bits.");
         }
         if (m_ulNumParticles != 0) {
-            if (FileWrite(file, m_pusMeshParticleLookup, header.m_mesh_total * 2 + 2, 0) == 0) {
+            if ((file->write(m_pusMeshParticleLookup, header.m_mesh_total * 2 + 2), true) == 0) {
                 ReportBuildStatus(7, "WriteOctFile: Couldn't write Mesh Particle Lookup Table.\n");
                 return 0;
             }
-            if (FileWrite(file, m_pusMeshParticles,
-                          static_cast<unsigned int>(m_usMeshParticlesLen) << 1, 0) == 0) {
+            if ((file->write(m_pusMeshParticles, static_cast<unsigned int>(m_usMeshParticlesLen) << 1), true) == 0) {
                 ReportBuildStatus(7, "WriteOctFile: Couldn't write Mesh Particle Link Table.\n");
                 return 0;
             }
         }
         if (m_ulNumProps != 0) {
-            if (FileWrite(file, m_pusMeshPropLookup, header.m_mesh_total * 2 + 2, 0) == 0) {
+            if ((file->write(m_pusMeshPropLookup, header.m_mesh_total * 2 + 2), true) == 0) {
                 ReportBuildStatus(7, "WriteOctFile: Couldn't write Mesh Prop Lookup Table.\n");
                 return 0;
             }
-            if (FileWrite(file, m_pusMeshProps, static_cast<unsigned int>(m_usMeshPropsLen) << 1,
-                          0) == 0) {
+            if ((file->write(m_pusMeshProps, static_cast<unsigned int>(m_usMeshPropsLen) << 1), true) == 0) {
                 ReportBuildStatus(7, "WriteOctFile: Couldn't write Mesh Prop Link Table.\n");
                 return 0;
             }
@@ -409,20 +409,20 @@ unsigned char OctPreTree::WriteOctFile(W8OctPreTreeGeometry* geometry, W8GameDat
     }
     /* Every section terminator is the same 0xffffffff dword: retail keeps one
        -1 local for all of them (verified at 0x468406). */
-    if (FileWrite(file, &sentinel, 4, 0) == 0) {
+    if ((file->write(&sentinel, 4), true) == 0) {
         ReportBuildStatus(7,
                           "WriteOctFile: Couldn't write Terminator after Mesh Prop Link Table.\n");
         return 0;
     }
-    if (pre_pathing != 0 && !pre_pathing->WritePathNodes(file)) {
+    if (pre_pathing != 0 && !pre_pathing->WritePathNodes(file.get())) {
         ReportBuildStatus(7, "WriteOctFile: Couldn't write Path Nodes.\n");
         return 0;
     }
-    if (m_ulNumProps != 0 && m_pPropSunBits != 0 && m_pPropSunBits->Save(file) == 0) {
+    if (m_ulNumProps != 0 && m_pPropSunBits != 0 && m_pPropSunBits->Save(file.get()) == 0) {
         ReportBuildStatus(7, "WriteOctFile: Couldn't write Prop Sunlight bits array.\n");
         return 0;
     }
-    written = FileWrite(file, &sentinel, 4, 0);
+    written = (file->write(&sentinel, 4), true);
     if (written == 0) {
         ReportBuildStatus(7, "WriteOctFile: Couldn't write Terminator field.\n");
         return 0;
@@ -431,19 +431,21 @@ unsigned char OctPreTree::WriteOctFile(W8OctPreTreeGeometry* geometry, W8GameDat
        above (verified at 0x468572); this null check is authentic but
        unreachable-with-null. */
     if (game_data != 0 && header.m_gd_surface_stream_len != 0) {
-        written = game_data->WriteGameData(file);
+        written = game_data->WriteGameData(file.get());
         /* Retail bitwise-ORs the game-data and terminator results: a failed
            game-data write followed by a successful four-byte write reports
            success.  Verified at 0x468be0-0x468bec. */
-        written |= FileWrite(file, &sentinel, 4, 0);
+        written |= (file->write(&sentinel, 4), true);
         if (written == 0) {
             ReportBuildStatus(7, "WriteOctFile: Couldn't write final Terminator field.\n");
             return 0;
         }
     }
-    FileClose(file);
+    if (file) file->close();
+    file.reset();
     return written;
 }
+catch (const std::exception&) { return false; }
 
 /* Releases the two per-record id runs SplitMeshes allocates; retail inlines
    this same loop at every CreateSubMeshes exit. */
@@ -535,17 +537,17 @@ OctMeshModel* OctPreTree::CreateSubMeshes(W8OctPreTreeGeometry* geometry)
                         }
                         model->next_link = record->m_next_link - 1;
                         model->m_vertex_locations = static_cast<srVector3T<float>*>(
-                            srHeap.allocate(record->vertex_count * sizeof(srVector3T<float>)));
+                            std::malloc(record->vertex_count * sizeof(srVector3T<float>)));
                         model->m_vertex_map = record->m_uv_map;
                         model->m_poly_vertices = record->m_poly_vertices;
                         model->m_poly_uv_index = record->m_poly_uv_index;
                         model->m_poly_equations = static_cast<srVector4T<float>*>(
-                            srHeap.allocate(record->m_polygon_count *
+                            std::malloc(record->m_polygon_count *
                                 sizeof(*model->m_poly_equations)));
                         model->m_vertex_normals = static_cast<srVector3T<float>*>(
-                            srHeap.allocate(record->vertex_count * sizeof(srVector3T<float>)));
+                            std::malloc(record->vertex_count * sizeof(srVector3T<float>)));
                         model->m_vertex_lights = static_cast<srVector3T<float>*>(
-                            srHeap.allocate(record->vertex_count * sizeof(srVector3T<float>)));
+                            std::malloc(record->vertex_count * sizeof(srVector3T<float>)));
                         model->m_vertex_materials =
                             static_cast<int*>(malloc(record->vertex_count * sizeof(int)));
                         model->m_poly_textures =
@@ -805,7 +807,7 @@ w8_ulong OctPreTree::SplitMeshes(W8OctPreTreeGeometry* geometry, W8OctSubmeshBui
         for (w8_ulong index = 1; index < m_spatial.submesh_count; ++index) {
             W8OctSubmeshBuild* record = records + index;
             record->m_poly_vertices =
-                static_cast<srVector3i*>(srHeap.allocate(record->m_polygon_count * sizeof(srVector3i)));
+                static_cast<srVector3i*>(std::malloc(record->m_polygon_count * sizeof(srVector3i)));
             if (record->m_poly_vertices == 0) {
                 ReportBuildStatus(7, "SplitMeshes: Could not allocate psrPolyVertex.\n");
                 return 0;
@@ -895,7 +897,7 @@ struct W8OctUvPoolEntry {
     float v;
 };
 
-static_assert(sizeof(W8OctUvPoolEntry) == 0xc, "W8OctUvPoolEntry_must_be_0xc");
+W8_ABI_ASSERT(sizeof(W8OctUvPoolEntry) == 0xc, "W8OctUvPoolEntry_must_be_0xc");
 
 /* Builds one record's UV map: walks the three corners of every polygon,
    deduplicates uvs through the pool and emits the corner-to-uv index
@@ -911,7 +913,7 @@ w8_ulong OctPreTree::SplitUVMaps(W8OctSubmeshBuild* record, W8OctPreTreeGeometry
         return 0;
     }
     memset(table, 0, record->m_polygon_count * (4 * sizeof(*table)));
-    srVector3i* uv_index = static_cast<srVector3i*>(srHeap.allocate(record->m_polygon_count * sizeof(srVector3i)));
+    srVector3i* uv_index = static_cast<srVector3i*>(std::malloc(record->m_polygon_count * sizeof(srVector3i)));
     if (uv_index == 0) {
         ReportBuildStatus(7, "SplitUVMaps: Could not allocate psrPolyUVIndex.\n");
         return 0;
@@ -975,7 +977,7 @@ w8_ulong OctPreTree::SplitUVMaps(W8OctSubmeshBuild* record, W8OctPreTreeGeometry
     record->m_poly_uv_index = uv_index;
     record->m_map_count = uv_count;
     record->m_uv_map = static_cast<srVector2T<float>*>(
-        srHeap.allocate(uv_count * sizeof(*record->m_uv_map)));
+        std::malloc(uv_count * sizeof(*record->m_uv_map)));
     if (record->m_uv_map == 0) {
         ReportBuildStatus(7, "SplitUVMaps: Could not allocate pMesh->psrMaps.\n");
         free(table);
@@ -1584,9 +1586,8 @@ int OctPreTree::CreatePathProps(W8LevelFile* level, W8PreProp** preprops)
                             "(UINT16)(pLVL->pProps[i].bNumFrames))", /* c-style-cast-ok: verbatim
                                 retail assertion text, kept for .rdata match */
                             OCTPRETREE_CPP, 0x8b4,
-                            reinterpret_cast<const char*>( // reinterpret-ok: String returns UINT8*
-                                String("%s Prop Error:Segment frame number %d is out of range",
-                                       prop->name, frame)));
+                            FormatString("%s Prop Error:Segment frame number %d is out of range",
+                                       prop->name, frame));
                     }
                     record->pStopMeshes[j].ApplyAnimFrame(frame, &prop->anim_obj);
                     record->pStopMeshes[j].ComputeBounds(&bounds.minimum, &bounds.maximum);
@@ -1717,14 +1718,6 @@ void W8OctSpatialState::GetClippedBounds(srVector3T<float>* minimum, srVector3T<
 {
     *minimum = m_clipped_minimum;
     *maximum = m_clipped_maximum;
-}
-
-// FUNCTION: WIZ8 0x0046cdd0
-W8OctSpatialState::~W8OctSpatialState()
-{
-    m_region_volumes = 0;
-    m_root = 0;
-    m_triangle_vertices = 0;
 }
 
 /* Strict axis-aligned overlap: touching faces are not an intersection. */

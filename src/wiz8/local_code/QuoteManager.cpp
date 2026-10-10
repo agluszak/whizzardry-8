@@ -70,7 +70,7 @@
 #include "sgp.h"
 #include "wiz8/bink_video.h"
 #include "wiz8/mouth_gap.h"
-#include "FileMan.h"
+#include "wiz8/filesystem.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -195,7 +195,7 @@ struct W8CharacterEventDescriptor {
     unsigned char log_quote_on_finish;
     unsigned char unknown_07;
 };
-static_assert(sizeof(W8CharacterEventDescriptor) == 8, "W8CharacterEventDescriptor_must_be_8");
+W8_ABI_ASSERT(sizeof(W8CharacterEventDescriptor) == 8, "W8CharacterEventDescriptor_must_be_8");
 // GLOBAL: WIZ8 0x005EE000
 const W8CharacterEventDescriptor g_character_event_descriptors[0xb1] = {
     {0x00000001, 0x00, 0x00, 0x00, 0x00}, {0x00000005, 0x00, 0x01, 0x00, 0x00},
@@ -447,7 +447,7 @@ bool FormatCharacterQuoteText(W8Character* character, unsigned int event_type,
             static_cast<char>(((character->gender != W8_GENDER_MALE) - 1U & 7) + 0x66);
         sprintf(path, "Data\\Quotes\\PCs\\%c_%s%d0.MSG", gender_code,
                 g_quote_personality_names[character->personality], (character->voice != 0) + 1);
-        if (!FileExists(path)) {
+        if (![&]() { const auto status = wiz8::file_status(path); return status && status->info.type == SDL_PATHTYPE_FILE; }()) {
             g_character_text[0] = 0;
             return false;
         }

@@ -15,7 +15,7 @@ class SR_DLL_IMPORT srScene : public srClassSupport<srScene, srNode, 0, 0x1010> 
 public:
     enum e_enable { ENABLE_NODE_PICK_KEYS = 0 };
 
-    virtual ~srScene() override;
+
 
     struct Statistics {
         double elapsed;              /* seconds since the last reset */
@@ -44,14 +44,7 @@ public:
     {
         color = fog_color;
     }
-#if defined(SURRENDER_BUILD)
     srVector3T<float> getFogColor() const;
-#else
-    srVector3T<float> getFogColor() const
-    {
-        return fog_color;
-    }
-#endif
     void getStatistics(Statistics& statistics);
     int isEnabled(e_enable option) const;
     void render(srGERD& renderer, class srCamera* camera);
@@ -61,27 +54,9 @@ public:
     {
         return "srScene";
     }
-#if defined(SURRENDER_BUILD)
     void setAmbientLight(float red, float green, float blue);
-#else
-    inline void setAmbientLight(float red, float green, float blue)
-    {
-        ambient_light.x = red;
-        ambient_light.y = green;
-        ambient_light.z = blue;
-    }
-#endif
     void setAmbientLight(const srVector3T<float>& color);
-#if defined(SURRENDER_BUILD)
     void setFogColor(float red, float green, float blue);
-#else
-    inline void setFogColor(float red, float green, float blue)
-    {
-        fog_color.x = red;
-        fog_color.y = green;
-        fog_color.z = blue;
-    }
-#endif
     // FUNCTION: SURRENDER 0x10056D40 SYMBOL
     // RECOMP: ?setFogColor@srScene@@QAEXABV?$srVector3T@M@@@Z
     void setFogColor(const srVector3T<float>& color)

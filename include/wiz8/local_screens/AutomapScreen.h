@@ -1,5 +1,7 @@
 #pragma once
 
+#include "wiz8/filesystem.h"
+
 extern float g_automap_grid_cell_size;
 
 #include "input.h"
@@ -46,8 +48,8 @@ void RefreshDirtyAutomap(void);
 bool AutomapHasCellAt(const srVector3T<float>* position);
 
 void ResetAutomapView(void);
-bool SaveAutomapNotes(int handle);
-bool LoadAutomapNotes(int handle);
+bool SaveAutomapNotes(wiz8::File* handle);
+bool LoadAutomapNotes(wiz8::File* handle);
 unsigned char GetAutomapPositionUnderCursor(srVector3T<float>* position);
 void SetAutomapToolCursor(int tool);
 W8AutomapNote* FindAutomapNoteUnderCursor(void);
@@ -55,7 +57,7 @@ void CreateAutomapMarkerSprites(void);
 void RenderAutomapMarkers(void);
 void CreateAutomapButtons(void);
 
-unsigned char ReadAutomapNodes(int hFile);
+unsigned char ReadAutomapNodes(wiz8::File* hFile);
 unsigned char AutomapScreenInitialize(void);
 unsigned char AutomapScreenEnter(void);
 void AutomapScreenFrame(void);

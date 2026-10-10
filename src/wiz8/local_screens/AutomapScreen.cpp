@@ -49,7 +49,7 @@
 #include "wiz8/local_screens/MGSKeyboard.h"
 #include "input.h"
 #include "Types.h"
-#include "FileMan.h"
+#include "wiz8/filesystem.h"
 #include "mousesystem.h"
 #include "Font.h"
 #include "vobject.h"
@@ -58,6 +58,8 @@
 #include "surrender/srMeshModel.h"
 #include "surrender/srVectorProcessor.h"
 
+#include <algorithm>
+#include <vector>
 #include <stdlib.h>
 #include <wchar.h>
 #include <stdio.h>
@@ -130,7 +132,7 @@ struct W8AutomapState {
     unsigned char pending_cell_lighting;
     unsigned char unknown_0fa[2];
 };
-static_assert(sizeof(W8AutomapState) == 0xfc, "W8AutomapState_size");
+W8_ABI_ASSERT(sizeof(W8AutomapState) == 0xfc, "W8AutomapState_size");
 // GLOBAL: WIZ8 0x0068f268
 W8AutomapState* g_automap_state;
 // GLOBAL: WIZ8 0x0068f274
@@ -1435,8 +1437,8 @@ void UpdateAutomapBounds(void)
 void LightAutomapCell(const srVector3T<float>* position)
 {
     W8Vector<stModelInstance*> instances(5);
-    srArray<float> distances;
-    srArray<srVector3T<float> > vertices;
+    std::vector<float> distances;
+    std::vector<srVector3T<float>> vertices;
     float range = g_automap_range;
 
     if (g_world->octree->CollectModelsNearPoint(&instances, position, range, 0, false) != 0) {
@@ -1460,31 +1462,22 @@ void LightAutomapCell(const srVector3T<float>* position)
                 srVector3T<float>* source = model->getVertexLoc();
                 int count = model->vertex_location_count;
                 if (inside) {
-                    float light_value = 1.0f;
-                    // reinterpret-ok: vertex-light floats filled via dword fill.
-                    srVectorProcessor::copy(reinterpret_cast<SRDWORD*>(lights),
-                                            // reinterpret-ok: fill pattern read as dword.
-                                            reinterpret_cast<SRDWORD&>(light_value),
-                                            static_cast<SRDWORD>(count) * 3);
+                    std::fill_n(lights, count, srVector3T<float>(1.0f, 1.0f, 1.0f));
                 } else {
-                    if (static_cast<int>(distances.capacity) < count) {
-                        distances.setCapacity(count);
-                    }
-                    if (static_cast<int>(vertices.capacity) < count) {
-                        vertices.setCapacity(count);
-                    }
-                    srVector3T<float>* transformed = &vertices[0];
+                    distances.resize(count);
+                    vertices.resize(count);
+                    srVector3T<float>* transformed = vertices.data();
                     if (IsZeroVector(position) != 0) {
-                        CopyDwordBuffer(transformed, source, count * 3);
+                        std::copy_n(source, count, transformed);
                     } else {
                         srVector3T<float> offset = -*position;
                         OffsetVertices(transformed, source, &offset, count);
                     }
                     if (count != 0) {
-                        srVectorProcessor::length(&distances[0], &vertices[0],
+                        srVectorProcessor::length(distances.data(), vertices.data(),
                                                   static_cast<SRDWORD>(count));
                     }
-                    float* distance = &distances[0];
+                    float* distance = distances.data();
                     if (count != 0) {
                         srVector3T<float>* light = lights;
                         unsigned int vertex = 0;
@@ -1497,13 +1490,8 @@ void LightAutomapCell(const srVector3T<float>* position)
                             }
                             unsigned int lit_count = lit - vertex;
                             if (lit_count != 0) {
-                                float light_value = 1.0f;
-                                // reinterpret-ok: vertex-light floats filled via
-                                // dword fill.
-                                srVectorProcessor::copy(reinterpret_cast<SRDWORD*>(light),
-                                                        // reinterpret-ok: fill pattern as dword.
-                                                        reinterpret_cast<SRDWORD&>(light_value),
-                                                        lit_count * 3);
+                                std::fill_n(light, lit_count,
+                                            srVector3T<float>(1.0f, 1.0f, 1.0f));
                                 light += lit_count;
                                 vertex = lit;
                             }
@@ -1669,50 +1657,51 @@ unsigned char ShowAutomapNoteTooltip(W8AutomapNote* note)
 /* Persist the visited-cell bitmap and every note's position, layer and text.
    A 0xF00DF00D signature brackets the note records. */
 // FUNCTION: WIZ8 0x00581CE0
-bool SaveAutomapNotes(int handle)
+bool SaveAutomapNotes(wiz8::File* handle)
 {
     int signature = 0xf00df00d;
     unsigned char saved;
     if (g_automap_visited_cells != 0) {
         saved = g_automap_visited_cells->Save(handle);
     } else {
-        saved = static_cast<unsigned char>(handle);
+        saved = handle != nullptr;
     }
     if (saved == 0) {
         return false;
     }
-    if (FileWrite(handle, &signature, 4, 0) == 0) {
+    if ((handle->write(&signature, 4), true) == 0) {
         return false;
     }
     unsigned int count = g_automap_notes->GetCount();
-    if (FileWrite(handle, &count, 4, 0) == 0) {
+    if ((handle->write(&count, 4), true) == 0) {
         return false;
     }
     for (unsigned int index = 0; index < count; ++index) {
         W8AutomapNote* note = *g_automap_notes->GetAt(index);
         if (note != 0) {
-            bool ok = FileWrite(handle, &note->position.x, 4, 0) != 0 &&
-                      FileWrite(handle, &note->position.y, 4, 0) != 0 &&
-                      FileWrite(handle, &note->layer, 4, 0) != 0;
+            bool ok = (handle->write(&note->position.x, 4), true) != 0 &&
+                      (handle->write(&note->position.y, 4), true) != 0 &&
+                      (handle->write(&note->layer, 4), true) != 0;
             int length = wcslen(note->text) + 1;
             if (!ok) {
                 return false;
             }
-            if (FileWrite(handle, &length, 4, 0) == 0) {
+            if ((handle->write(&length, 4), true) == 0) {
                 return false;
             }
-            if (FileWrite(handle, note->text, length * 2, 0) == 0) {
+            if ((handle->write(note->text, length * 2), true) == 0) {
                 return false;
             }
         }
     }
-    return FileWrite(handle, &signature, 4, 0) != 0;
+    return (handle->write(&signature, 4), true) != 0;
 }
 
 /* Release every note, restore the visited-cell bitmap for the loaded level,
    then rebuild the notes from the saved records. */
 // FUNCTION: WIZ8 0x00581E60
-bool LoadAutomapNotes(int handle)
+bool LoadAutomapNotes(wiz8::File* handle)
+try
 {
     int signature = 0;
     ClearAutomapNotes();
@@ -1726,33 +1715,34 @@ bool LoadAutomapNotes(int handle)
         }
         g_automap_bounds_dirty = true;
         unsigned int count;
-        if (FileRead(handle, &signature, 4, 0) != 0 && signature == static_cast<int>(0xf00df00d) &&
-            FileRead(handle, &count, 4, 0) != 0) {
+        if ((handle->read(&signature, 4).bytes == static_cast<std::size_t>(4)) != 0 && signature == static_cast<int>(0xf00df00d) &&
+            (handle->read(&count, 4).bytes == static_cast<std::size_t>(4)) != 0) {
             for (unsigned int index = 0; index < count; ++index) {
                 srVector2T<float> position;
                 int layer = 0;
-                int length;
+                int length = 0;
                 /* Retail fed `length` to malloc even when the FileRead chain
-                   short-circuited before filling it; the recovery keeps that read. */
-                bool ok = FileRead(handle, &position.x, 4, 0) != 0 &&
-                          FileRead(handle, &position.y, 4, 0) != 0 &&
-                          FileRead(handle, &layer, 4, 0) != 0 &&
-                          FileRead(handle, &length, 4, 0) != 0;
+                   short-circuited before filling it; natively it starts at zero. */
+                bool ok = (handle->read(&position.x, 4).bytes == static_cast<std::size_t>(4)) != 0 &&
+                          (handle->read(&position.y, 4).bytes == static_cast<std::size_t>(4)) != 0 &&
+                          (handle->read(&layer, 4).bytes == static_cast<std::size_t>(4)) != 0 &&
+                          (handle->read(&length, 4).bytes == static_cast<std::size_t>(4)) != 0;
                 wchar_t* text = static_cast<wchar_t*>(malloc(length * sizeof(*text)));
                 if (!ok) {
                     return false;
                 }
-                if (FileRead(handle, text, length * 2, 0) == 0) {
+                if ((handle->read(text, length * 2).bytes == static_cast<std::size_t>(length * 2)) == 0) {
                     return false;
                 }
                 CreateAutomapNote(&position, layer, text);
                 free(text);
             }
-            return FileRead(handle, &signature, 4, 0) != 0;
+            return (handle->read(&signature, 4).bytes == static_cast<std::size_t>(4)) != 0;
         }
     }
     return false;
 }
+catch (const std::exception&) { return false; }
 
 /* Convert the cursor position to an automap world position on the layer
    below the current one, defaulting the height to the grid minimum when no
@@ -2411,7 +2401,8 @@ unsigned char HandleAutomapKey(const InputAtom* input)
    visited-bit arrays and record table stay valid; otherwise the key list is
    read whole and every cell key is inserted with its one-based index. */
 // FUNCTION: WIZ8 0x00584DD0
-unsigned char ReadAutomapNodes(int hFile)
+unsigned char ReadAutomapNodes(wiz8::File* hFile)
+try
 {
     if (g_automap_visited_cells != 0) {
         delete g_automap_visited_cells;
@@ -2430,8 +2421,8 @@ unsigned char ReadAutomapNodes(int hFile)
         g_automap_cell_index = 0;
     }
 
-    FileRead(hFile, &g_automap_grid_cell_size, 4, 0);
-    unsigned char ok = FileRead(hFile, &g_automap_cell_count, 4, 0);
+    hFile->read_exact(&g_automap_grid_cell_size, 4);
+    unsigned char ok = (hFile->read(&g_automap_cell_count, 4).bytes == static_cast<std::size_t>(4));
     if (g_automap_cell_count == 0) {
         g_automap_visited_cells = new BitArray(1);
         g_automap_lit_cells = new BitArray(1);
@@ -2470,8 +2461,7 @@ unsigned char ReadAutomapNodes(int hFile)
 
     unsigned char success = 0;
     if (ok != 0) {
-        success = FileRead(hFile, g_automap_cell_keys,
-                           g_automap_cell_count * sizeof(*g_automap_cell_keys), 0);
+        success = (hFile->read(g_automap_cell_keys, g_automap_cell_count * sizeof(*g_automap_cell_keys)).bytes == static_cast<std::size_t>(g_automap_cell_count * sizeof(*g_automap_cell_keys)));
     }
     g_automap_cell_index = new W8HashTable<unsigned int, int>();
     for (int index = 0; index < g_automap_cell_count; ++index) {
@@ -2480,6 +2470,7 @@ unsigned char ReadAutomapNodes(int hFile)
     }
     return success;
 }
+catch (const std::exception&) { return false; }
 
 /* Pack a world position into an automap node key: eleven bits of z, then
    eleven of x, then ten of y, each scaled to grid cells. */

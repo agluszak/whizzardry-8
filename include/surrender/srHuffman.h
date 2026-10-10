@@ -1,18 +1,13 @@
 #pragma once
 
-#include "srArray.h"
+#include <vector>
 #include "srBinIStream.h"
 #include "srBinOStream.h"
 #include "srHash.h"
-#include "srHeap.h"
 
 class srHuffman {
 public:
-    class
-#if defined(SURRENDER_BUILD)
-
-#endif
-        BitIStream {
+    class BitIStream {
     public:
         SR_DLL_IMPORT BitIStream(srBinIStream& stream);
         SR_DLL_IMPORT w8_ulong get(w8_ulong bits);
@@ -34,11 +29,7 @@ public:
         w8_long bit_pos;
     };
 
-    class
-#if defined(SURRENDER_BUILD)
-
-#endif
-        BitOStream {
+    class BitOStream {
     public:
         SR_DLL_IMPORT BitOStream(srBinOStream& stream);
         SR_DLL_IMPORT ~BitOStream();
@@ -61,18 +52,15 @@ public:
         w8_ulong buffered;
     };
 
-    class
-#if defined(SURRENDER_BUILD)
-
-#endif
-        Sampler {
+    class Sampler {
     public:
         struct Symbol {
             w8_ulong symbol;
             w8_ulong frequency;
         };
 
-        SR_DLL_IMPORT Sampler();
+        // FUNCTION: SURRENDER 0x10001840
+        SR_DLL_IMPORT Sampler() = default;
 
         SR_DLL_IMPORT void insert(w8_ulong symbol);
         SR_DLL_IMPORT w8_ulong getNumSymbols() const;
@@ -81,15 +69,10 @@ public:
 
     private:
         srHashTable<w8_ulong, int> table;
-        srArray<Symbol> symbols;
-        int count;
+        std::vector<Symbol> symbols;
     };
 
-    class
-#if defined(SURRENDER_BUILD)
-
-#endif
-        Compressor {
+    class Compressor {
     public:
         struct Node {
             w8_ulong symbol;
@@ -101,7 +84,6 @@ public:
         };
 
         SR_DLL_IMPORT Compressor(const Sampler& sampler);
-        SR_DLL_IMPORT ~Compressor();
 
         SR_DLL_IMPORT void storeSymbolTable(BitOStream& stream);
         SR_DLL_IMPORT void buildSymbolTree();
@@ -117,7 +99,7 @@ public:
         }
 
         srHashTable<w8_ulong, Node*> table;
-        Node* nodes;
+        std::vector<Node> nodes;
         Node* free_list;
         Node* root;
         w8_ulong num_symbols;
@@ -133,14 +115,9 @@ public:
         void setupPath(Node* node, w8_ulong code, w8_ulong depth);
     };
 
-    class
-#if defined(SURRENDER_BUILD)
-
-#endif
-        Decompressor {
+    class Decompressor {
     public:
         SR_DLL_IMPORT Decompressor(BitIStream& stream);
-        SR_DLL_IMPORT ~Decompressor();
         SR_DLL_IMPORT w8_ulong decompressSymbol();
         SR_DLL_IMPORT w8_ulong getDataCount() const;
 
@@ -156,7 +133,7 @@ public:
         void setupSymbolTable(Symbol* node);
 
         BitIStream* stream;
-        Symbol* symbols;
+        std::vector<Symbol> symbols;
         w8_ulong next_node;
         w8_ulong code_width;
         w8_ulong unknown_10;

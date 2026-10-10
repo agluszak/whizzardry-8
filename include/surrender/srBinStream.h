@@ -1,14 +1,9 @@
 #pragma once
 
-#include "srHeap.h"
 
 // VTABLE: SURRENDER 0x10076970 srBinStream
 // class srBinStream
-#if defined(SURRENDER_BUILD)
-class srBinStream {
-#else
 class SR_DLL_IMPORT srBinStream {
-#endif
 public:
     enum e_state { SR_STREAM_OK = 0, SR_STREAM_ERROR = 1, SR_STREAM_STATE_2 = 2 };
 
@@ -42,6 +37,8 @@ public:
 
 protected:
     srBinStream();
+    srBinStream(const srBinStream&) = default;
+    srBinStream& operator=(const srBinStream&) = default;
 
     bool byteOrderMatch() const;
     static void byteSwap(unsigned char* data, int size);
@@ -49,7 +46,6 @@ protected:
 private:
     e_state state;
     bool exceptions0;
-    unsigned char padding_09_[3];
     e_byteOrder byte_order;
 };
 

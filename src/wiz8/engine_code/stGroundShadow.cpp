@@ -134,10 +134,7 @@ void stGroundShadow::traverse(TraverseInfo& info)
     }
 
     if (!testFlag(FLAG_DISABLE)) {
-        TraverseInfo::Entry& entry = info.entries[info.entry_count];
-        entry.node = this;
-        entry.value = 0;
-        ++info.entry_count;
+        info.entries.push_back({this, 0});
     }
 
     if (!testFlag(FLAG_TERMINATE) && first_child_ != 0) {

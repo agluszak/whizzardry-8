@@ -85,7 +85,7 @@ int main(int argc, char** argv)
         roots.user = temporary;
         w8_native::configure_paths(roots);
         auto config = wiz8::open_file("C:\\3DVideo.CFG", wiz8::OpenMode::replace);
-        const std::string settings = "SDLGPU\n640\n480\n16\nminiaudio spatial\n";
+        const std::string settings = "SDLGPU\n640\n480\n16\nSDL mixer spatial\n";
         config->write(settings.data(), settings.size());
         config->close();
         CHECK(SDL_Init(SDL_INIT_VIDEO));

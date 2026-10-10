@@ -1,3 +1,4 @@
+#include <SDL3/SDL_log.h>
 /* Modified for the Wizardry 8 reconstruction: 2026-10-03, 2026-10-06, 2026-10-07, 2026-10-09.
    Distributed under the accompanying SFI Source Code license agreement. */
 // font.c
@@ -8,11 +9,8 @@
 #include <stdarg.h>
 #include <wchar.h>
 #include "sgp.h"
-#include "pcx.h"
-#include "MemMan.h"
-#include "FileMan.h"
+#include "wiz8/filesystem.h"
 #include "Font.h"
-#include "DEBUG.H"
 
 #include "Video2.h"
 
@@ -31,13 +29,13 @@ SGPPaletteEntry gSgpPalette[256];
 
 typedef struct {
     UINT16 usDefaultPixelDepth;
-    FontTranslationTable* pTranslationTable;
+    FontTranslationTable pTranslationTable;
 } FontManager;
 
 // GLOBAL: WIZ8 0x006eb704
-FontManager* pFManager;
+std::unique_ptr<FontManager> pFManager;
 // GLOBAL: WIZ8 0x006eb6a0
-HVOBJECT FontObjs[MAX_FONTS];
+std::array<std::unique_ptr<SGPVObject>, MAX_FONTS> FontObjs;
 INT32 FontsLoaded = 0;
 
 // Destination printing parameters
@@ -179,7 +177,7 @@ UINT16* SetFontObjectPalette16BPP(INT32 iFont, UINT16* pPal16)
 {
     Assert(iFont >= 0);
     Assert(iFont <= MAX_FONTS);
-    Assert(FontObjs[iFont] != NULL);
+    Assert(FontObjs[iFont] != nullptr);
 
     FontObjs[iFont]->p16BPPPalette = pPal16;
     FontObjs[iFont]->pShadeCurrent = pPal16;
@@ -195,7 +193,7 @@ UINT16* GetFontObjectPalette16BPP(INT32 iFont)
 {
     Assert(iFont >= 0);
     Assert(iFont <= MAX_FONTS);
-    Assert(FontObjs[iFont] != NULL);
+    Assert(FontObjs[iFont] != nullptr);
 
     return (FontObjs[iFont]->p16BPPPalette);
 }
@@ -208,9 +206,9 @@ HVOBJECT GetFontObject(INT32 iFont)
 {
     Assert(iFont >= 0);
     Assert(iFont <= MAX_FONTS);
-    Assert(FontObjs[iFont] != NULL);
+    Assert(FontObjs[iFont] != nullptr);
 
-    return (FontObjs[iFont]);
+    return (FontObjs[iFont].get());
 }
 
 // FindFreeFont
@@ -221,7 +219,7 @@ INT32 FindFreeFont(void)
     int count;
 
     for (count = 0; count < MAX_FONTS; count++)
-        if (FontObjs[count] == NULL)
+        if (FontObjs[count] == nullptr)
             return (count);
 
     return (-1);
@@ -236,22 +234,22 @@ INT32 FindFreeFont(void)
 INT32 LoadFontFile(UINT8* filename)
 {
     VOBJECT_DESC vo_desc;
-    UINT32 LoadIndex;
+    INT32 LoadIndex;
 
-    Assert(filename != NULL);
-    Assert(strlen(filename));
+    Assert(filename != nullptr);
+    Assert(filename[0] != '\0');
 
     if ((LoadIndex = FindFreeFont()) == (-1)) {
-        DbgMessage(TOPIC_FONT_HANDLER, DBG_LEVEL_0, String("Out of font slots (%s)", filename));
+        SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Out of font slots (%s)", filename);
         return (-1);
     }
 
     vo_desc.fCreateFlags = VOBJECT_CREATE_FROMFILE;
     strcpy(vo_desc.ImageFile, (char*)filename);
 
-    if ((FontObjs[LoadIndex] = CreateVideoObject(&vo_desc)) == NULL) {
-        DbgMessage(TOPIC_FONT_HANDLER, DBG_LEVEL_0,
-                   String("Error creating VOBJECT (%s)", filename));
+    FontObjs[LoadIndex].reset(CreateVideoObject(&vo_desc));
+    if (!FontObjs[LoadIndex].get()) {
+        SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Error creating VOBJECT (%s)", filename);
         return (-1);
     }
 
@@ -269,10 +267,9 @@ void UnloadFont(UINT32 FontIndex)
 {
     Assert(FontIndex >= 0);
     Assert(FontIndex <= MAX_FONTS);
-    Assert(FontObjs[FontIndex] != NULL);
+    Assert(FontObjs[FontIndex] != nullptr);
 
-    DeleteVideoObject(FontObjs[FontIndex]);
-    FontObjs[FontIndex] = NULL;
+    FontObjs[FontIndex].reset();
 }
 
 // GetWidth
@@ -283,10 +280,9 @@ UINT32 GetWidth(HVOBJECT hSrcVObject, INT16 ssIndex)
     ETRLEObject* pTrav;
 
     // Assertions
-    Assert(hSrcVObject != NULL);
+    Assert(hSrcVObject != nullptr);
 
     if (ssIndex < 0 || ssIndex > 92) {
-        int i = 0;
     }
 
     // Get Offsets from Index into structure
@@ -301,12 +297,12 @@ UINT32 GetWidth(HVOBJECT hSrcVObject, INT16 ssIndex)
 //    'uiCharCount' specifies how many characters of the string are counted.
 
 // FUNCTION: WIZ8 0x00406ea0
-INT16 StringPixLengthArg(INT32 usUseFont, UINT32 uiCharCount, CHAR16* pFontString, ...)
+INT16 StringPixLengthArg(INT32 usUseFont, UINT32 uiCharCount, const CHAR16* pFontString, ...)
 {
     va_list argptr;
     wchar_t string[512];
 
-    Assert(pFontString != NULL);
+    Assert(pFontString != nullptr);
 
     va_start(argptr, pFontString);          // Set up variable argument pointer
     vswprintf(string, pFontString, argptr); // process gprintf string (get output str)
@@ -350,7 +346,7 @@ INT16 StringNPixLength(CHAR16* string, UINT32 uiMaxCount, INT32 UseFont)
 
     while (ReadFontCharacter(curletter) != L'\0' && uiCharCount < uiMaxCount) {
         transletter = GetIndex(ReadFontCharacter(curletter++));
-        Cur += GetWidth(FontObjs[UseFont], transletter);
+        Cur += GetWidth(FontObjs[UseFont].get(), transletter);
         uiCharCount++;
     }
     return ((INT16)Cur);
@@ -359,12 +355,13 @@ INT16 StringNPixLength(CHAR16* string, UINT32 uiMaxCount, INT32 UseFont)
 //	Returns the length of a string in pixels, depending on the font given.
 
 // FUNCTION: WIZ8 0x00407010
-INT16 StringPixLength(CHAR16* string, INT32 UseFont)
+INT16 StringPixLength(const CHAR16* string, INT32 UseFont)
 {
     UINT32 Cur;
-    CHAR16 *curletter, transletter;
+    const CHAR16* curletter;
+    CHAR16 transletter;
 
-    if (string == NULL) {
+    if (string == nullptr) {
         return (0);
     }
 
@@ -373,7 +370,7 @@ INT16 StringPixLength(CHAR16* string, INT32 UseFont)
 
     while (ReadFontCharacter(curletter) != L'\0') {
         transletter = GetIndex(ReadFontCharacter(curletter++));
-        Cur += GetWidth(FontObjs[UseFont], transletter);
+        Cur += GetWidth(FontObjs[UseFont].get(), transletter);
     }
     return ((INT16)Cur);
 }
@@ -422,7 +419,7 @@ UINT32 GetHeight(HVOBJECT hSrcVObject, INT16 ssIndex)
     ETRLEObject* pTrav;
 
     // Assertions
-    Assert(hSrcVObject != NULL);
+    Assert(hSrcVObject != nullptr);
 
     // Get Offsets from Index into structure
     pTrav = &(hSrcVObject->pETRLEObject[ssIndex]);
@@ -436,9 +433,9 @@ UINT16 GetFontHeight(INT32 FontNum)
 {
     Assert(FontNum >= 0);
     Assert(FontNum <= MAX_FONTS);
-    Assert(FontObjs[FontNum] != NULL);
+    Assert(FontObjs[FontNum] != nullptr);
 
-    return ((UINT16)GetHeight(FontObjs[FontNum], 0));
+    return ((UINT16)GetHeight(FontObjs[FontNum].get(), 0));
 }
 
 // GetIndex
@@ -450,10 +447,10 @@ INT16 GetIndex(UINT16 siChar)
 {
     UINT16* pTrav;
     UINT16 ssCount = 0;
-    UINT16 usNumberOfSymbols = pFManager->pTranslationTable->usNumberOfSymbols;
+    UINT16 usNumberOfSymbols = pFManager->pTranslationTable.usNumberOfSymbols;
 
     // search the Translation Table and return the index for the font
-    pTrav = pFManager->pTranslationTable->DynamicArrayOf16BitValues;
+    pTrav = pFManager->pTranslationTable.DynamicArrayOf16BitValues.data();
     while (ssCount < usNumberOfSymbols) {
         if (siChar == *pTrav) {
             return ssCount;
@@ -463,8 +460,7 @@ INT16 GetIndex(UINT16 siChar)
     }
 
     // If here, present warning and give the first index
-    DbgMessage(TOPIC_FONT_HANDLER, DBG_LEVEL_0,
-               String("Error: Invalid character given %d", siChar));
+    SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Error: Invalid character given %d", siChar);
 
     // Return 0 here, NOT -1 - we should see A's here now...
     return 0;
@@ -478,7 +474,7 @@ BOOLEAN SetFont(INT32 iFontIndex)
 {
     Assert(iFontIndex >= 0);
     Assert(iFontIndex <= MAX_FONTS);
-    Assert(FontObjs[iFontIndex] != NULL);
+    Assert(FontObjs[iFontIndex] != nullptr);
 
     FontDefault = iFontIndex;
     return (TRUE);
@@ -512,7 +508,7 @@ BOOLEAN SetFontDestBuffer(UINT32 DestBuffer, INT32 x1, INT32 y1, INT32 x2, INT32
 // than 512 word-characters. Uses monochrome font color settings
 
 // FUNCTION: WIZ8 0x00407260
-UINT32 mprintf(INT32 x, INT32 y, CHAR16* pFontString, ...)
+UINT32 mprintf(INT32 x, INT32 y, const CHAR16* pFontString, ...)
 {
     INT32 destx, desty;
     CHAR16 *curletter, transletter;
@@ -521,7 +517,7 @@ UINT32 mprintf(INT32 x, INT32 y, CHAR16* pFontString, ...)
     UINT32 uiDestPitchBYTES;
     UINT8* pDestBuf;
 
-    Assert(pFontString != NULL);
+    Assert(pFontString != nullptr);
 
     va_start(argptr, pFontString);          // Set up variable argument pointer
     vswprintf(string, pFontString, argptr); // process gprintf string (get output str)
@@ -539,22 +535,22 @@ UINT32 mprintf(INT32 x, INT32 y, CHAR16* pFontString, ...)
         transletter = GetIndex(ReadFontCharacter(curletter++));
 
         if (FontDestWrap &&
-            BltIsClipped(FontObjs[FontDefault], destx, desty, transletter, &FontDestRegion)) {
+            BltIsClipped(FontObjs[FontDefault].get(), destx, desty, transletter, &FontDestRegion)) {
             destx = x;
-            desty += GetHeight(FontObjs[FontDefault], transletter);
+            desty += GetHeight(FontObjs[FontDefault].get(), transletter);
         }
 
         // Blit directly
         if (gbPixelDepth == 8) {
-            Blt8BPPDataTo8BPPBufferMonoShadowClip(pDestBuf, uiDestPitchBYTES, FontObjs[FontDefault],
+            Blt8BPPDataTo8BPPBufferMonoShadowClip(pDestBuf, uiDestPitchBYTES, FontObjs[FontDefault].get(),
                                                   destx, desty, transletter, &FontDestRegion,
                                                   FontForeground8, FontBackground8);
         } else {
             Blt8BPPDataTo16BPPBufferMonoShadowClip(
-                (UINT16*)pDestBuf, uiDestPitchBYTES, FontObjs[FontDefault], destx, desty,
+                (UINT16*)pDestBuf, uiDestPitchBYTES, FontObjs[FontDefault].get(), destx, desty,
                 transletter, &FontDestRegion, FontForeground16, FontBackground16, FontShadow16);
         }
-        destx += GetWidth(FontObjs[FontDefault], transletter);
+        destx += GetWidth(FontObjs[FontDefault].get(), transletter);
     }
 
     // Unlock buffer
@@ -566,7 +562,7 @@ UINT32 mprintf(INT32 x, INT32 y, CHAR16* pFontString, ...)
 // FUNCTION: WIZ8 0x00407420
 void VarFindFontRightCoordinates(INT16 sLeft, INT16 sTop, INT16 sWidth, INT16 sHeight,
                                  INT32 iFontIndex, INT16* psNewX, INT16* psNewY,
-                                 CHAR16* pFontString, ...)
+                                 const CHAR16* pFontString, ...)
 {
     wchar_t string[512];
     va_list argptr;
@@ -581,7 +577,7 @@ void VarFindFontRightCoordinates(INT16 sLeft, INT16 sTop, INT16 sWidth, INT16 sH
 // FUNCTION: WIZ8 0x00407530
 void VarFindFontCenterCoordinates(INT16 sLeft, INT16 sTop, INT16 sWidth, INT16 sHeight,
                                   INT32 iFontIndex, INT16* psNewX, INT16* psNewY,
-                                  CHAR16* pFontString, ...)
+                                  const CHAR16* pFontString, ...)
 {
     wchar_t string[512];
     va_list argptr;
@@ -626,7 +622,7 @@ void FindFontCenterCoordinates(INT16 sLeft, INT16 sTop, INT16 sWidth, INT16 sHei
 // than 512 word-characters.
 
 // FUNCTION: WIZ8 0x00407650
-UINT32 gprintf(INT32 x, INT32 y, CHAR16* pFontString, ...)
+UINT32 gprintf(INT32 x, INT32 y, const CHAR16* pFontString, ...)
 {
     INT32 destx, desty;
     CHAR16 *curletter, transletter;
@@ -635,7 +631,7 @@ UINT32 gprintf(INT32 x, INT32 y, CHAR16* pFontString, ...)
     UINT32 uiDestPitchBYTES;
     UINT8* pDestBuf;
 
-    Assert(pFontString != NULL);
+    Assert(pFontString != nullptr);
 
     va_start(argptr, pFontString);          // Set up variable argument pointer
     vswprintf(string, pFontString, argptr); // process gprintf string (get output str)
@@ -653,22 +649,22 @@ UINT32 gprintf(INT32 x, INT32 y, CHAR16* pFontString, ...)
         transletter = GetIndex(ReadFontCharacter(curletter++));
 
         if (FontDestWrap &&
-            BltIsClipped(FontObjs[FontDefault], destx, desty, transletter, &FontDestRegion)) {
+            BltIsClipped(FontObjs[FontDefault].get(), destx, desty, transletter, &FontDestRegion)) {
             destx = x;
-            desty += GetHeight(FontObjs[FontDefault], transletter);
+            desty += GetHeight(FontObjs[FontDefault].get(), transletter);
         }
 
         // Blit directly
         if (gbPixelDepth == 8) {
             Blt8BPPDataTo8BPPBufferTransparentClip((UINT16*)pDestBuf, uiDestPitchBYTES,
-                                                   FontObjs[FontDefault], destx, desty, transletter,
+                                                   FontObjs[FontDefault].get(), destx, desty, transletter,
                                                    &FontDestRegion);
         } else {
             Blt8BPPDataTo16BPPBufferTransparentClip((UINT16*)pDestBuf, uiDestPitchBYTES,
-                                                    FontObjs[FontDefault], destx, desty,
+                                                    FontObjs[FontDefault].get(), destx, desty,
                                                     transletter, &FontDestRegion);
         }
-        destx += GetWidth(FontObjs[FontDefault], transletter);
+        destx += GetWidth(FontObjs[FontDefault].get(), transletter);
     }
 
     // Unlock buffer
@@ -678,7 +674,7 @@ UINT32 gprintf(INT32 x, INT32 y, CHAR16* pFontString, ...)
 }
 
 // FUNCTION: WIZ8 0x004077d0
-UINT32 gprintfDirty(INT32 x, INT32 y, CHAR16* pFontString, ...)
+UINT32 gprintfDirty(INT32 x, INT32 y, const CHAR16* pFontString, ...)
 {
     INT32 destx, desty;
     CHAR16 *curletter, transletter;
@@ -687,7 +683,7 @@ UINT32 gprintfDirty(INT32 x, INT32 y, CHAR16* pFontString, ...)
     UINT32 uiDestPitchBYTES;
     UINT8* pDestBuf;
 
-    Assert(pFontString != NULL);
+    Assert(pFontString != nullptr);
 
     va_start(argptr, pFontString);          // Set up variable argument pointer
     vswprintf(string, pFontString, argptr); // process gprintf string (get output str)
@@ -705,22 +701,22 @@ UINT32 gprintfDirty(INT32 x, INT32 y, CHAR16* pFontString, ...)
         transletter = GetIndex(ReadFontCharacter(curletter++));
 
         if (FontDestWrap &&
-            BltIsClipped(FontObjs[FontDefault], destx, desty, transletter, &FontDestRegion)) {
+            BltIsClipped(FontObjs[FontDefault].get(), destx, desty, transletter, &FontDestRegion)) {
             destx = x;
-            desty += GetHeight(FontObjs[FontDefault], transletter);
+            desty += GetHeight(FontObjs[FontDefault].get(), transletter);
         }
 
         // Blit directly
         if (gbPixelDepth == 8) {
             Blt8BPPDataTo8BPPBufferTransparentClip((UINT16*)pDestBuf, uiDestPitchBYTES,
-                                                   FontObjs[FontDefault], destx, desty, transletter,
+                                                   FontObjs[FontDefault].get(), destx, desty, transletter,
                                                    &FontDestRegion);
         } else {
             Blt8BPPDataTo16BPPBufferTransparentClip((UINT16*)pDestBuf, uiDestPitchBYTES,
-                                                    FontObjs[FontDefault], destx, desty,
+                                                    FontObjs[FontDefault].get(), destx, desty,
                                                     transletter, &FontDestRegion);
         }
-        destx += GetWidth(FontObjs[FontDefault], transletter);
+        destx += GetWidth(FontObjs[FontDefault].get(), transletter);
     }
 
     // Unlock buffer
@@ -740,14 +736,14 @@ UINT32 gprintfDirty(INT32 x, INT32 y, CHAR16* pFontString, ...)
 
 // FUNCTION: WIZ8 0x00407a10
 UINT32 gprintf_buffer(UINT8* pDestBuf, UINT32 uiDestPitchBYTES, UINT32 FontType, INT32 x, INT32 y,
-                      CHAR16* pFontString, ...)
+                      const CHAR16* pFontString, ...)
 {
     INT32 destx, desty;
     CHAR16 *curletter, transletter;
     va_list argptr;
     wchar_t string[512];
 
-    Assert(pFontString != NULL);
+    Assert(pFontString != nullptr);
 
     va_start(argptr, pFontString);          // Set up variable argument pointer
     vswprintf(string, pFontString, argptr); // process gprintf string (get output str)
@@ -762,23 +758,23 @@ UINT32 gprintf_buffer(UINT8* pDestBuf, UINT32 uiDestPitchBYTES, UINT32 FontType,
         transletter = GetIndex(ReadFontCharacter(curletter++));
 
         if (FontDestWrap &&
-            BltIsClipped(FontObjs[FontType], destx, desty, transletter, &FontDestRegion)) {
+            BltIsClipped(FontObjs[FontType].get(), destx, desty, transletter, &FontDestRegion)) {
             destx = x;
-            desty += GetHeight(FontObjs[FontType], transletter);
+            desty += GetHeight(FontObjs[FontType].get(), transletter);
         }
 
         // Blit directly
         if (gbPixelDepth == 8) {
             Blt8BPPDataTo8BPPBufferTransparentClip((UINT16*)pDestBuf, uiDestPitchBYTES,
-                                                   FontObjs[FontDefault], destx, desty, transletter,
+                                                   FontObjs[FontDefault].get(), destx, desty, transletter,
                                                    &FontDestRegion);
         } else {
             Blt8BPPDataTo16BPPBufferTransparentClip((UINT16*)pDestBuf, uiDestPitchBYTES,
-                                                    FontObjs[FontDefault], destx, desty,
+                                                    FontObjs[FontDefault].get(), destx, desty,
                                                     transletter, &FontDestRegion);
         }
 
-        destx += GetWidth(FontObjs[FontType], transletter);
+        destx += GetWidth(FontObjs[FontType].get(), transletter);
     }
 
     return (0);
@@ -786,14 +782,14 @@ UINT32 gprintf_buffer(UINT8* pDestBuf, UINT32 uiDestPitchBYTES, UINT32 FontType,
 
 // FUNCTION: WIZ8 0x00407b80
 UINT32 mprintf_buffer(UINT8* pDestBuf, UINT32 uiDestPitchBYTES, UINT32 FontType, INT32 x, INT32 y,
-                      CHAR16* pFontString, ...)
+                      const CHAR16* pFontString, ...)
 {
     INT32 destx, desty;
     CHAR16 *curletter, transletter;
     va_list argptr;
     wchar_t string[512];
 
-    Assert(pFontString != NULL);
+    Assert(pFontString != nullptr);
 
     va_start(argptr, pFontString);          // Set up variable argument pointer
     vswprintf(string, pFontString, argptr); // process gprintf string (get output str)
@@ -808,22 +804,22 @@ UINT32 mprintf_buffer(UINT8* pDestBuf, UINT32 uiDestPitchBYTES, UINT32 FontType,
         transletter = GetIndex(ReadFontCharacter(curletter++));
 
         if (FontDestWrap &&
-            BltIsClipped(FontObjs[FontDefault], destx, desty, transletter, &FontDestRegion)) {
+            BltIsClipped(FontObjs[FontDefault].get(), destx, desty, transletter, &FontDestRegion)) {
             destx = x;
-            desty += GetHeight(FontObjs[FontDefault], transletter);
+            desty += GetHeight(FontObjs[FontDefault].get(), transletter);
         }
 
         // Blit directly
         if (gbPixelDepth == 8) {
-            Blt8BPPDataTo8BPPBufferMonoShadowClip(pDestBuf, uiDestPitchBYTES, FontObjs[FontDefault],
+            Blt8BPPDataTo8BPPBufferMonoShadowClip(pDestBuf, uiDestPitchBYTES, FontObjs[FontDefault].get(),
                                                   destx, desty, transletter, &FontDestRegion,
                                                   FontForeground8, FontBackground8);
         } else {
             Blt8BPPDataTo16BPPBufferMonoShadowClip(
-                (UINT16*)pDestBuf, uiDestPitchBYTES, FontObjs[FontDefault], destx, desty,
+                (UINT16*)pDestBuf, uiDestPitchBYTES, FontObjs[FontDefault].get(), destx, desty,
                 transletter, &FontDestRegion, FontForeground16, FontBackground16, FontShadow16);
         }
-        destx += GetWidth(FontObjs[FontDefault], transletter);
+        destx += GetWidth(FontObjs[FontDefault].get(), transletter);
     }
 
     return (0);
@@ -833,9 +829,8 @@ UINT32 mprintf_buffer(UINT8* pDestBuf, UINT32 uiDestPitchBYTES, UINT32 FontType,
 //	Starts up the font manager system with the appropriate translation table.
 
 // FUNCTION: WIZ8 0x00407d30
-BOOLEAN InitializeFontManager(UINT16 usDefaultPixelDepth, FontTranslationTable* pTransTable)
+BOOLEAN InitializeFontManager(UINT16 usDefaultPixelDepth, const FontTranslationTable& pTransTable)
 {
-    FontTranslationTable* pTransTab;
     int count;
     UINT16 uiRight, uiBottom;
     UINT8 uiPixelDepth;
@@ -855,28 +850,15 @@ BOOLEAN InitializeFontManager(UINT16 usDefaultPixelDepth, FontTranslationTable* 
 
     FontDestWrap = FALSE;
 
-    // register the appropriate debug topics
-    if (pTransTable == NULL) {
-        return FALSE;
-    }
-    RegisterDebugTopic(TOPIC_FONT_HANDLER, "Font Manager");
-
-    if ((pFManager = (FontManager*)MemAlloc(sizeof(FontManager))) == NULL) {
-        return FALSE;
-    }
-
-    if ((pTransTab = (FontTranslationTable*)MemAlloc(sizeof(FontTranslationTable))) == NULL) {
-        return FALSE;
-    }
-
-    pFManager->pTranslationTable = pTransTab;
+    if (pFManager)
+        ShutdownFontManager();
+    pFManager = std::make_unique<FontManager>();
+    pFManager->pTranslationTable = pTransTable;
     pFManager->usDefaultPixelDepth = usDefaultPixelDepth;
-    pTransTab->usNumberOfSymbols = pTransTable->usNumberOfSymbols;
-    pTransTab->DynamicArrayOf16BitValues = pTransTable->DynamicArrayOf16BitValues;
 
     // Mark all font slots as empty
     for (count = 0; count < MAX_FONTS; count++)
-        FontObjs[count] = NULL;
+        FontObjs[count] = nullptr;
 
     return TRUE;
 }
@@ -889,32 +871,11 @@ void ShutdownFontManager(void)
 {
     INT32 count;
 
-    UnRegisterDebugTopic(TOPIC_FONT_HANDLER, "Font Manager");
-    if (pFManager)
-        MemFree(pFManager);
+    pFManager.reset();
 
     for (count = 0; count < MAX_FONTS; count++) {
-        if (FontObjs[count] != NULL)
+        if (FontObjs[count] != nullptr)
             UnloadFont(count);
-    }
-}
-
-// DestroyEnglishTransTable
-// Destroys the English text->font map table.
-
-// FUNCTION: WIZ8 0x00407E70
-void DestroyEnglishTransTable(void)
-{
-    if (pFManager) {
-        if (pFManager->pTranslationTable != NULL) {
-            if (pFManager->pTranslationTable->DynamicArrayOf16BitValues != NULL) {
-                MemFree(pFManager->pTranslationTable->DynamicArrayOf16BitValues);
-            }
-
-            MemFree(pFManager->pTranslationTable);
-
-            pFManager->pTranslationTable = NULL;
-        }
     }
 }
 
@@ -922,16 +883,14 @@ void DestroyEnglishTransTable(void)
 // Creates the English text->font map table.
 
 // FUNCTION: WIZ8 0x00407ec0
-FontTranslationTable* CreateEnglishTransTable()
+FontTranslationTable CreateEnglishTransTable()
 {
-    FontTranslationTable* pTable = NULL;
+    FontTranslationTable pTable{};
     UINT16* temp;
 
-    pTable = (FontTranslationTable*)MemAlloc(sizeof(FontTranslationTable));
-    pTable->usNumberOfSymbols = 252;
-    pTable->DynamicArrayOf16BitValues = (UINT16*)MemAlloc(
-        pTable->usNumberOfSymbols * sizeof(*pTable->DynamicArrayOf16BitValues));
-    temp = pTable->DynamicArrayOf16BitValues;
+    pTable.usNumberOfSymbols = 252;
+    pTable.DynamicArrayOf16BitValues.resize(pTable.usNumberOfSymbols);
+    temp = pTable.DynamicArrayOf16BitValues.data();
 
     *temp = 'A';
     temp++;

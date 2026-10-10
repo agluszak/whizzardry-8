@@ -1051,6 +1051,7 @@ bool ResolveAttackOnTarget(const W8TargetSource* source, W8CombatSlot* target,
                     }
                     return true;
                 }
+                [[fallthrough]];
             case W8_CONDITION_DISEASED:
             case W8_CONDITION_IRRITATED:
             case W8_CONDITION_NAUSEATED:
@@ -1066,6 +1067,7 @@ bool ResolveAttackOnTarget(const W8TargetSource* source, W8CombatSlot* target,
                 if (magnitude == W8_CONDITION_INDEFINITE) {
                     break;
                 }
+                [[fallthrough]];
             case W8_CONDITION_TURNCOAT:
                 if (CharacterHasTrait(character, W8_TRAIT_MENTAL_CONDITION_IMMUNITY)) {
                     if (announce_resistance) {
@@ -2871,7 +2873,7 @@ void TickRadiusBlastEffectSlots(W8EffectSlot* effect_slots)
 
     verbose = g_settings.verbose_combat_messages != 0;
     ResetTargetSource(&source);
-    memset(&local_result, 0, sizeof(local_result));
+    local_result = {};
     memset(&target, 0, sizeof(target));
     remaining = 9;
     do {
@@ -3186,7 +3188,6 @@ void ProcessSpellEffectTargets(W8SpellEffectEntry* effect)
     int index;
     int cost;
     W8Character* character;
-    W8MonsterInfo* monster_info;
     W8ItemInstance* item;
     W8EffectSlot* slot;
 
@@ -3527,7 +3528,7 @@ void ProcessSpellEffectTargets(W8SpellEffectEntry* effect)
             path = FormatString(s_spell_sound_format, sound_name);
             SoundPlay(path, parms);
         }
-        /* fall through */
+        [[fallthrough]];
     case W8_SPELL_FROST:
     case W8_SPELL_MAKE_WOUNDS:
     case W8_SPELL_HOLY_WATER:
@@ -3703,7 +3704,7 @@ void ApplyDiceDamageToCharacter(int party_slot, W8TargetSource* source, W8Enchan
     if (enchantment->power == 0) {
         return;
     }
-    memset(&result, 0, sizeof(result));
+    result = {};
     dice = g_spell_records[W8_SPELL_RAZOR_CLOAK].effect_dice;
     dice.count = static_cast<unsigned char>(enchantment->power) * dice.count;
     amount = ApplyCharacterDamageReduction(&g_status.buffers.Char[party_slot], RollDice(&dice));

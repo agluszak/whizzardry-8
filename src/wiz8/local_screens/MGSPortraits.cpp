@@ -547,7 +547,6 @@ void RedrawPartyPortraitBars(unsigned int party_slot, bool slot_enabled)
     int stamina_catalog;
     int spell_catalog;
     unsigned int numeric_hp_mode;
-    UINT32 pitch;
 
     if (character->hp_current != 0) {
         GetPartySlotMenuAnchor(party_slot, &menu_x, &menu_y, &band_menu_edge, &band_portrait_edge,

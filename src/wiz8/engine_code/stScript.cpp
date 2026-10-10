@@ -2,7 +2,7 @@
 #include "surrender/srCore.h"
 #include "wiz8/sr_api.h"
 #include "wiz8/virtual_file.h"
-#include "FileMan.h"
+#include "wiz8/filesystem.h"
 
 #include <stdlib.h>
 #include <string.h>
@@ -12,7 +12,8 @@
    `more`.  The terminator is not retained and CRLF is normalised by removing
    the CR after the loop. */
 // FUNCTION: WIZ8 0x004CEE40
-unsigned char ReadTextLine(int handle, char* destination, int capacity, unsigned char* more)
+unsigned char ReadTextLine(wiz8::File* handle, char* destination, int capacity, unsigned char* more)
+try
 {
     unsigned char result;
     unsigned int transferred;
@@ -23,7 +24,7 @@ unsigned char ReadTextLine(int handle, char* destination, int capacity, unsigned
     *more = 1;
 
     for (;;) {
-        result = FileRead(handle, &character, 1, &transferred);
+        result = ((transferred = handle->read(&character, 1).bytes) == static_cast<std::size_t>(1));
         if (transferred == 0) {
             result = length != 0;
             *more = 0;
@@ -52,6 +53,7 @@ unsigned char ReadTextLine(int handle, char* destination, int capacity, unsigned
     }
     return result;
 }
+catch (const std::exception&) { return false; }
 
 // VTABLE: WIZ8 0x005ED328
 // class stScript
@@ -93,20 +95,22 @@ unsigned char stScript::Load(const char* path)
     int source_line = 0;
     int script_line = 0;
     char buffer[256];
-    int handle;
+    std::unique_ptr<wiz8::File> handle;
 
-    if (path == 0 || (handle = FileOpen(const_cast<char*>(path), 0x41, 0)) == 0) {
+    if (path == 0 || (handle = [&]() { try { return wiz8::open_file(const_cast<char*>(path), wiz8::OpenMode::read); } catch (const std::exception&) { return std::unique_ptr<wiz8::File>{}; } }()) == 0) {
         return 0;
     }
 
     for (;;) {
         if (more == 0) {
-            FileClose(handle);
+            if (handle) handle->close();
+            handle.reset();
             return 1;
         }
-        while (ReadTextLine(handle, buffer, sizeof(buffer), &more) == 0) {
+        while (ReadTextLine(handle.get(), buffer, sizeof(buffer), &more) == 0) {
             if (more == 0) {
-                FileClose(handle);
+                if (handle) handle->close();
+                handle.reset();
                 return 1;
             }
         }

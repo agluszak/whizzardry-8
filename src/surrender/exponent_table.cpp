@@ -1,3 +1,4 @@
+#include "surrender/srMath.h"
 #include "surrender/srExponentTable.h"
 
 #include <math.h>

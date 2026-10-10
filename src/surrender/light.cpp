@@ -1,5 +1,6 @@
 
 #include "surrender/srLight.h"
+#include <algorithm>
 #include "surrender/srStreamFlags.h"
 
 #include <math.h>
@@ -410,9 +411,7 @@ void srLight::process(srVertexPipe& pipe)
             if ((derived_flags & srLight::DERIVED_OPENGL_ATTENUATION) != 0) {
                 if ((derived_flags & srLight::DERIVED_CONSTANT_ATTENUATION) != 0) {
                     float constant = 1.0f / opengl_attenuation.x;
-                    // reinterpret-ok: dword fill with the float's bit pattern.
-                    srVectorProcessor::copy(reinterpret_cast<SRDWORD*>(attenuation_bank),
-                                            reinterpret_cast<SRDWORD&>(constant), count);
+                    std::fill_n(attenuation_bank, count, constant);
                 } else {
                     srVectorProcessor::invPoly(attenuation_bank, distances, opengl_attenuation,
                                                count);
@@ -490,15 +489,11 @@ void srLight::process(srVertexPipe& pipe)
         return;
     }
     if ((derived_flags & srLight::DERIVED_DIRECTIONAL) != 0 && count != 0) {
-        if (eye_location.x == eye_location.y && eye_location.x == eye_location.z) {
-            if (count * 3 != 0) {
-                // reinterpret-ok: dword fill of the vector array.
-                srVectorProcessor::copy(reinterpret_cast<SRDWORD*>(directions),
-                                        *reinterpret_cast<SRDWORD*>(&eye_location.x), count * 3);
-            }
-        } else {
-            srVectorProcessor::copy(directions, eye_location, count);
+        srVector3 constant = eye_location;
+        if (constant.x == constant.y && constant.x == constant.z) {
+            constant.Set(eye_location.x, eye_location.x, eye_location.x);
         }
+        std::fill_n(directions, count, constant);
     }
     if ((scratch->flags & srVertexPipe::Scratch::READY_EYE_DIRECTION) == 0) {
         pipe.setupEyeSpaceDirAndDist();
@@ -549,22 +544,15 @@ void srLight::traverse(TraverseInfo& info)
         return;
     }
     if (!testFlag(FLAG_GLOBAL)) {
-        TraverseInfo::Entry& entry = info.entries[info.entry_count];
-        entry.node = this;
-        entry.value = 1;
-        ++info.entry_count;
+        info.entries.push_back({this, 1});
     } else {
-        info.nodes[info.node_count] = this;
-        ++info.node_count;
+        info.nodes.push_back(this);
     }
     if (first_child_ != 0) {
         first_child_->traverse(info);
     }
     if (!testFlag(FLAG_GLOBAL)) {
-        TraverseInfo::Entry& entry = info.entries[info.entry_count];
-        entry.node = this;
-        entry.value = 2;
-        ++info.entry_count;
+        info.entries.push_back({this, 2});
     }
 }
 

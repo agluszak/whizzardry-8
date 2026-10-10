@@ -1,5 +1,7 @@
 #pragma once
 
+#include "wiz8/filesystem.h"
+
 class Trigger;
 
 #include <wchar.h>
@@ -27,7 +29,7 @@ struct W8NoticeWord {
     unsigned char keyword; /* 0 none, 1 keyword, 2 selected */
     bool redraw;           /* repaint once after deselection */
 };
-static_assert(sizeof(W8NoticeWord) == 10, "W8NoticeWord_must_be_10");
+W8_ABI_ASSERT(sizeof(W8NoticeWord) == 10, "W8NoticeWord_must_be_10");
 
 void AdvanceNoticeLine(short text_box);
 
@@ -71,7 +73,7 @@ void FormatNotice(int channel, short text_box, const wchar_t* format, ...);
 void ReleaseMessageStorage(void);
 /* The TEXT section pair - the four message-storage
    runs persisted around the game-status record. */
-unsigned char SaveTextBoxState(unsigned int file);
+unsigned char SaveTextBoxState(wiz8::File* file);
 unsigned char HandleDialogueTextInput(const InputAtom* input);
 char TextBoxHandleKey(const InputAtom* event);
 int GetSelectedTextLine(int index);
@@ -150,9 +152,9 @@ int FindStoppedTextLine(void);
 void SetTextBoxRegionBounds(int left, int top, int right, int bottom);
 void ResetMessageStorage(void);
 /* Write the four message runs into the open TEXT chunk. */
-unsigned char SaveMessageStorage(int file);
+unsigned char SaveMessageStorage(wiz8::File* file);
 /* Rebuild the four message runs from the open TEXT chunk. */
-unsigned char LoadMessageStorage(int file);
+unsigned char LoadMessageStorage(wiz8::File* file);
 /* Defaults select the live mode's text box and its available line width. */
 const short W8_NOTICE_TEXT_BOX_AUTOMATIC = -1;
 const unsigned int W8_NOTICE_WRAP_AUTOMATIC = ~0U;

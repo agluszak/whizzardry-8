@@ -1,6 +1,8 @@
 #pragma once
 
-#include "srArray.h"
+#include <array>
+#include <memory>
+#include <vector>
 #include "srMaterialIFace.h"
 #include "srMath.h"
 #include "srMeshModel.h"
@@ -8,20 +10,12 @@
 #include "srTextureIFace.h"
 
 // VTABLE: SURRENDER 0x10076C88 srModeler
-#if defined(SURRENDER_BUILD)
-class srModeler {
-#else
 class SR_DLL_IMPORT srModeler {
-#endif
 public:
     /* Axis selector indexing the position components. */
     enum e_axis { AXIS_X = 0, AXIS_Y = 1, AXIS_Z = 2 };
 
-    struct
-#if defined(SURRENDER_BUILD)
-
-#endif
-        MappingInfo {
+    struct MappingInfo {
         // FUNCTION: SURRENDER 0x10037BD0
         // RECOMP: ??0MappingInfo@srModeler@@QAE@W4e_axis@1@0MMMM@Z
         MappingInfo(e_axis axis_u = AXIS_X, e_axis axis_v = AXIS_Y, float u_scale = 1.0f,
@@ -42,11 +36,7 @@ public:
     /* A triangle vertex: position, the per-pass material pair (side-indexed), the three per-pass
        attribute vectors convert() feeds into the mesh's DCG/DIG/SCG streams, the eight UV slots
        (pass*2 + layer), and the per-pass weights convert() writes as the DCG alpha. */
-    class
-#if defined(SURRENDER_BUILD)
-
-#endif
-        Vertex {
+    class Vertex {
     public:
         Vertex();
         void reset();
@@ -64,11 +54,7 @@ public:
         float weights[4];
     };
 
-    class
-#if defined(SURRENDER_BUILD)
-
-#endif
-        Triangle {
+    class Triangle {
     public:
         Triangle();
         void reset();
@@ -81,14 +67,9 @@ public:
         w8_ulong disabled;
     };
 
-    class
-#if defined(SURRENDER_BUILD)
-
-#endif
-        Polygon {
+    class Polygon {
     public:
         Polygon(int vertices);
-        ~Polygon();
         void reset();
         void reAllocate(int vertices);
 
@@ -96,15 +77,15 @@ public:
         srShader shaders[4];
         /* Engine Code\stCube.cpp assigns positions and UVs through this table
            after Polygon(4) allocates it. */
-        Vertex* vertices;
+        std::vector<Vertex> vertices;
         int vertex_count;
         w8_ulong flags;
         w8_ulong disabled;
-        int capacity;
     };
 
     srModeler();
-    virtual ~srModeler();
+    // FUNCTION: SURRENDER 0x1003BC70
+    virtual ~srModeler() = default;
 
     void discard();
 
@@ -164,7 +145,7 @@ public:
        coincident corners before building the mesh (the game passes 1). */
     void convert(srMeshModel& model, int remove_degenerate);
 
-    /* getUniqueVertexList's deduplication table: a raw entry pool, 1024
+    /* getUniqueVertexList's deduplication table: an entry pool, 1024
        position-hash buckets chaining entries, and the per-source-vertex
        result table written through during hashing. entries[i].shade_index is
        the representative index convert() copies into the mesh's vertex shade
@@ -181,27 +162,26 @@ public:
         };
 
         VertexHash(w8_ulong vertex_count);
-        ~VertexHash();
 
         static w8_ulong hash(double x, double y, double z);
 
-        Entry* entries;
-        Entry* buckets[1024];
-        Entry** table;
+        std::vector<Entry> entries;
+        std::array<Entry*, 1024> buckets{};
+        std::vector<Entry*> table;
         w8_ulong unique_count;
     };
 
 private:
-    VertexHash* getUniqueVertexList();
+    std::unique_ptr<VertexHash> getUniqueVertexList();
     int isClockwise(srVector2T<float>* points, int count);
 
     w8_ulong triangle_count;
-    srArray<Triangle> triangles;
+    std::vector<Triangle> triangles;
     w8_long pass_count;
 };
 
 W8_ABI_ASSERT((sizeof(srModeler) == 0x14), "srModeler_must_be_0x14");
-static_assert((sizeof(srModeler::MappingInfo) == 0x18), "srModeler_MappingInfo_must_be_0x18");
+W8_ABI_ASSERT((sizeof(srModeler::MappingInfo) == 0x18), "srModeler_MappingInfo_must_be_0x18");
 W8_ABI_ASSERT((sizeof(srModeler::Vertex) == 0x110), "srModeler_Vertex_must_be_0x110");
 W8_ABI_ASSERT((sizeof(srModeler::Triangle) == 0x368), "srModeler_Triangle_must_be_0x368");
 W8_ABI_ASSERT((sizeof(srModeler::Polygon) == 0x44), "srModeler_Polygon_must_be_0x44");

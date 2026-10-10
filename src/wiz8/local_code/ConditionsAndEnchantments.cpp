@@ -744,7 +744,7 @@ unsigned char SetCharacterCondition(int party_slot, W8Condition condition, int d
             PostCharacterNotice(party_slot, gppStringList[0x180]);
             return 0;
         }
-        /* fall through */
+        [[fallthrough]];
     case W8_CONDITION_DISEASED:
     case W8_CONDITION_IRRITATED:
     case W8_CONDITION_NAUSEATED:
@@ -758,7 +758,7 @@ unsigned char SetCharacterCondition(int party_slot, W8Condition condition, int d
         if (duration == W8_CONDITION_INDEFINITE) {
             break;
         }
-        /* fall through */
+        [[fallthrough]];
     case W8_CONDITION_TURNCOAT:
         if (CharacterHasTrait(character, W8_TRAIT_MENTAL_CONDITION_IMMUNITY)) {
             PostCharacterNotice(party_slot, gppStringList[0x181]);

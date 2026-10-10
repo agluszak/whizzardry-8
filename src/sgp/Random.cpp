@@ -14,7 +14,7 @@ void InitializeRandom()
 {
     // Seed the random-number generator with current time so that
     // the numbers will be different every time we run.
-    srand((unsigned)time(NULL));
+    srand((unsigned)time(nullptr));
 #ifdef PRERANDOM_GENERATOR
     //Pregenerate all of the random numbers.
     for (guiPreRandomIndex = 0; guiPreRandomIndex < MAX_PREGENERATED_NUMS; guiPreRandomIndex++) {

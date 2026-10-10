@@ -60,7 +60,6 @@
 #include "wiz8/3d_code/PList.h"
 #include "wiz8/layouts/gameplay_databases.h"
 #include "wiz8/sr_api.h"
-#include "DEBUG.H"
 #include "random.h"
 #include "wiz8/engine_code/Octree.h"
 #include "wiz8/engine_code/PolyPick.h"
@@ -1120,7 +1119,6 @@ bool InitializeMonsterManagerState(void)
 // FUNCTION: WIZ8 0x004e3820
 unsigned char ShutdownMonsterManager(void)
 {
-    W8MonsterRecord** slot;
 
     if (gXStatus.plsMonsterGroupList == 0) {
         srAssertFail("gXStatus.plsMonsterGroupList != NULL", MONSTER_MANAGER_CPP, 0x5c, 0);

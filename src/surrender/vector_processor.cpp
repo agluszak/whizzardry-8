@@ -6,16 +6,12 @@
 #include "surrender/srCore.h"
 #include "surrender/srDebug.h"
 #include "surrender/srDebugVP.h"
-#include "surrender/srDynamicLibrary.h"
-#include "surrender/srStringTable.h"
-#include "surrender/srSystem.h"
 #include "surrender/srVP_generic.h"
 
 srVP* srVectorProcessor::vp = 0;
 srVP* srVectorProcessor::base = 0;
 srDebugVP* srVectorProcessor::debug = 0;
 w8_ulong srVectorProcessor::debug_active = 0;
-void* srVectorProcessor::module = 0;
 
 // FUNCTION: SURRENDER 0x10064370
 const char* srVectorProcessor::getName()
@@ -162,100 +158,10 @@ void srVectorProcessor::resetStatistics()
     }
 }
 
-// FUNCTION: SURRENDER 0x10064920
-int srVectorProcessor::load(const char* filename)
-{
-    if (filename == 0) {
-        return 0;
-    }
-    void* new_module = srDynamicLibrary::load(filename);
-    if (new_module == 0) {
-        return 0;
-    }
-    srGetVectorProcessorAPIFn get_api = reinterpret_cast<srGetVectorProcessorAPIFn>(
-        srDynamicLibrary::getFunction(new_module, "srGetVectorProcessorAPI"));
-    srInitVectorProcessorFn init_processor = reinterpret_cast<srInitVectorProcessorFn>(
-        srDynamicLibrary::getFunction(new_module, "srInitVectorProcessor"));
-    if (init_processor == 0 || get_api == 0) {
-        if (get_api == 0) {
-            srDebugPrintf(0,
-                          "srVectorProcessor::load() -- cannot locate function "
-                          "'srGetVectorProcessorAPI' for VP file '%s'\n",
-                          filename);
-        } else {
-            srDebugPrintf(0,
-                          "srVectorProcessor::load() -- cannot locate function "
-                          "'srInitVectorProcessor' for VP file '%s'\n",
-                          filename);
-        }
-    } else if (get_api() >= SR_VP_MIN_API_VERSION) {
-        srVP* processor = init_processor();
-        if (processor != 0) {
-            install(processor);
-            module = new_module;
-            return 1;
-        }
-    }
-    srDynamicLibrary::free(new_module);
-    return 0;
-}
-
 // FUNCTION: SURRENDER 0x100649C0
 void srVectorProcessor::initBaseVP()
 {
     install(new srVP_generic);
-    module = 0;
-}
-
-// FUNCTION: SURRENDER 0x10064A40
-w8_long srVectorProcessor::getID(const char* filename)
-{
-    if (filename == 0) {
-        return -1;
-    }
-    void* probe_module = srDynamicLibrary::load(filename);
-    if (probe_module == 0) {
-        return -1;
-    }
-    srGetVectorProcessorIDFn get_id = reinterpret_cast<srGetVectorProcessorIDFn>(
-        srDynamicLibrary::getFunction(probe_module, "srGetVectorProcessorID"));
-    if (get_id == 0) {
-        srDebugPrintf(0,
-                      "srVectorProcessor::getID() -- cannot locate function "
-                      "'srGetVectorProcessorID' for VP file '%s'\n",
-                      filename);
-        srDynamicLibrary::free(probe_module);
-        return -1;
-    }
-    w8_long id = get_id();
-    srDynamicLibrary::free(probe_module);
-    return id;
-}
-
-// FUNCTION: SURRENDER 0x10064AB0
-int srVectorProcessor::loadBest(const char* path)
-{
-    srStringTable libraries;
-    w8_long best = 0;
-    w8_long count;
-    int index;
-
-    install(0);
-    srSystem::scanLibraries(libraries, path, "srVP_*");
-    count = libraries.getCount();
-    for (index = 0; index < count; ++index) {
-        w8_long id = getID(libraries.getString(index));
-        if (best <= id) {
-            if (load(libraries.getString(index)) != 0) {
-                best = id;
-            }
-        }
-    }
-    if (vp == 0) {
-        return 0;
-    }
-    srDebugPrintf(0, "srVectorProcessor::load() -- vector processor '%s' loaded.\n", vp->getName());
-    return 1;
 }
 
 // FUNCTION: SURRENDER 0x10064BB0
@@ -264,17 +170,8 @@ void srVectorProcessor::release()
     if (vp != 0) {
         delete base;
         delete debug;
-        if (module != 0) {
-            if (!srDynamicLibrary::free(module)) {
-                char message[512];
-                sprintf(message, "srVectorProcessor::release () -- call to "
-                                 "srDynamicLibrary::free() failed!\n");
-                srDebugPrintf(0, message);
-            }
-        }
         vp = 0;
         base = 0;
         debug = 0;
-        module = 0;
     }
 }

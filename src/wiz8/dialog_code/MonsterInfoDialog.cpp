@@ -39,7 +39,7 @@
    load, read through this pointer. */
 // GLOBAL: WIZ8 0x0064f610
 // STRING: WIZ8 0x0064f660
-char* g_info_dialog_background = "Data\\Dialogs\\popup_monsterinfo.sti";
+const char* g_info_dialog_background = "Data\\Dialogs\\popup_monsterinfo.sti";
 
 // FUNCTION: WIZ8 0x005d5e30
 W8MonsterInfoDialog::W8MonsterInfoDialog(int location_id) : m_location_id(location_id)

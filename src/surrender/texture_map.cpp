@@ -1,6 +1,5 @@
 #include "surrender/srTextureMap.h"
 
-#include "surrender/srHeap.h"
 
 #include <ostream>
 

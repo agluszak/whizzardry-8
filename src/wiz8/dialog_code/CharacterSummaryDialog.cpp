@@ -33,7 +33,7 @@ static W8ControlsRect g_character_summary_quote_bounds[1] = {
 
 // FUNCTION: WIZ8 0x005e0320
 W8CharacterSummaryDialog::W8CharacterSummaryDialog(W8Character* character)
-    : m_voice_started(0), m_quote_text(0), m_numeric_input(0), m_field_060(0), m_remaining(0),
+    : m_voice_started(0), m_quote_text(0), m_numeric_input(0), m_remaining(0),
       m_taken(0), m_total(0), m_field_070(0), m_character(character), m_use_original_character(0),
       m_portrait_clock_started(0)
 {
@@ -54,8 +54,7 @@ int W8CharacterSummaryDialog::CreateControls()
     m_field_070 = 0;
     m_use_original_character = 0;
     memcpy(&m_saved_character, g_status.buffers.Char, sizeof(m_saved_character));
-    memcpy(&m_saved_monster_entry, &gXStatus.monster_manager_entries[0],
-           sizeof(m_saved_monster_entry));
+    m_saved_monster_entry = gXStatus.monster_manager_entries[0];
     memcpy(&m_saved_party_row, g_status.buffers.XChar, sizeof(m_saved_party_row));
     memcpy(g_status.buffers.Char, m_character, sizeof(*m_character));
     ResetPartySlotRow(0);
@@ -78,8 +77,7 @@ void W8CharacterSummaryDialog::DestroyControls()
     gXStatus.character_event_queue->CompleteAllActiveEvents();
     if (!m_use_original_character) {
         memcpy(g_status.buffers.Char, &m_saved_character, sizeof(m_saved_character));
-        memcpy(&gXStatus.monster_manager_entries[0], &m_saved_monster_entry,
-               sizeof(m_saved_monster_entry));
+        gXStatus.monster_manager_entries[0] = m_saved_monster_entry;
         memcpy(g_status.buffers.XChar, &m_saved_party_row, sizeof(m_saved_party_row));
     }
 }

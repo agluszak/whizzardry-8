@@ -3,6 +3,21 @@
 #ifndef __TYPES_
 #define __TYPES_
 
+#ifdef __cplusplus
+#include <SDL3/SDL_log.h>
+#include <cstdlib>
+
+#define Assert(condition) AssertMsg(condition, "Assertion failed: " #condition)
+#define AssertMsg(condition, message)                                                               \
+    do {                                                                                           \
+        if (!(condition)) {                                                                        \
+            SDL_LogCritical(SDL_LOG_CATEGORY_APPLICATION, "%s (%s:%d)",                             \
+                            reinterpret_cast<const char*>(message), __FILE__, __LINE__);            \
+            std::abort();                                                                          \
+        }                                                                                          \
+    } while (false)
+#endif
+
 #ifndef _SIRTECH_TYPES_
 #define _SIRTECH_TYPES_
 
@@ -37,7 +52,6 @@ typedef void* PTR;
 typedef unsigned short HNDL;
 typedef UINT8 BYTE;
 typedef CHAR8 STRING512[512];
-typedef UINT32 HWFILE;
 
 #define SGPFILENAME_LEN 100
 typedef CHAR8 SGPFILENAME[SGPFILENAME_LEN];
@@ -61,10 +75,6 @@ typedef CHAR8 SGPFILENAME[SGPFILENAME_LEN];
 #define PI 3.1415926
 
 #define ST_EPSILON 0.00001 // define a sir-tech epsilon value
-
-#ifndef NULL
-#define NULL 0
-#endif
 
 typedef struct {
     INT32 iLeft;

@@ -1,3 +1,4 @@
+#include "wiz8/filesystem.h"
 #ifndef WIZ8_ENGINE_CODE_ANI_MESH_H
 #define WIZ8_ENGINE_CODE_ANI_MESH_H
 
@@ -39,8 +40,8 @@ struct W8AniMesh {
     int last_used;                    /* 0x3c */
 }; /* 0x40 */
 
-static_assert(sizeof(W8AniMesh::State) == 1, "W8AniMesh_state_size");
-static_assert(offsetof(W8AniMesh, frame_count) == 1, "W8AniMesh_frame_count_offset");
+W8_ABI_ASSERT(sizeof(W8AniMesh::State) == 1, "W8AniMesh_state_size");
+W8_ABI_ASSERT(offsetof(W8AniMesh, frame_count) == 1, "W8AniMesh_frame_count_offset");
 W8_ABI_ASSERT(sizeof(W8AniMesh) == 0x40, "W8AniMesh_minimum_size_must_be_0x40");
 
 extern int g_animesh_cache_stamp;
@@ -56,7 +57,7 @@ W8AniMesh* CopyAniMesh(const W8AniMesh* other);
 float GetAniMeshFrameRadius(W8AniMesh* mesh, unsigned char frame);
 unsigned char GetAniMeshBounds(W8AniMesh* mesh, srVector3T<float>* minimum,
                                srVector3T<float>* maximum);
-unsigned char LoadAniMesh(int file, W8AniMesh* mesh, bool load_all);
+unsigned char LoadAniMesh(wiz8::File* file, W8AniMesh* mesh, bool load_all);
 unsigned char LoadAniMeshFromInfo(W8ReadLevelInfo* info, W8AniMesh* mesh, unsigned char load_all);
 unsigned char UnloadAniMesh(W8AniMesh* mesh, bool force);
 stModelInstance* GetAniMeshFrame(W8AniMesh* mesh, unsigned char frame);

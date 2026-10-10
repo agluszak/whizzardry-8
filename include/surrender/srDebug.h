@@ -1,7 +1,6 @@
 #pragma once
 
 #include <ostream>
-#include "srHeap.h"
 
 SR_DLL_IMPORT w8_long __cdecl srDebugPrintf(w8_ulong level, const char* format, ...) W8_PRINTF(2, 3);
 SR_DLL_IMPORT w8_long __cdecl srPrintf(const char* format, ...);
@@ -23,17 +22,13 @@ SR_DLL_IMPORT void __cdecl srDefaultAssertFailFunc(const char* expression, const
 /* Sink that discards every insertion. */
 // VTABLE: SURRENDER 0x10076C00 srDummyStreamBuf
 // class srDummyStreamBuf
-class
-#if defined(SURRENDER_BUILD)
-
-#endif
-    srDummyStreamBuf : public std::streambuf {
+class srDummyStreamBuf : public std::streambuf {
 public:
     srDummyStreamBuf();
 
 private:
-    virtual int overflow(int ch);
-    virtual int underflow();
+    int overflow(int ch) override;
+    int underflow() override;
 
     /* The copy constructor reinitializes a fresh stream buffer rather than copying get/put state. */
     srDummyStreamBuf(const srDummyStreamBuf& other);

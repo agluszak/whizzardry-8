@@ -1,5 +1,7 @@
 #pragma once
 
+#include "wiz8/filesystem.h"
+
 #include "wiz8/layouts/encounter_tables.h"
 #include "wiz8/vector.h"
 
@@ -40,10 +42,10 @@ void RemoveMonsterGenerator(MonGen* generator);        /* 0x0048BEB0 */
 W8EncounterTableRuntime* GetEncounterTable(int index); /* 0x0048AD00 */
 int FindEncounterTableByName(const char* name);        /* 0x0048CCA0 */
 
-void SaveEncounterState(int handle);
-void SaveMonsterGenerators(int handle);
+void SaveEncounterState(wiz8::File* handle);
+void SaveMonsterGenerators(wiz8::File* handle);
 void DestroyMonsterGenerators(void);
-void LoadMonsterGenerators(int handle); /* 0x0048C470 */
+void LoadMonsterGenerators(wiz8::File* handle); /* 0x0048C470 */
 void RunMonsterGenerators(void);
 void DespawnAllActiveMonsterGroups(void);
 void ResetMonsterGeneratorTimers(void);

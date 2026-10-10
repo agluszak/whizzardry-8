@@ -29,4 +29,4 @@ private:
 W8_ABI_ASSERT(sizeof(W8MonsterInfoDialog) == 0x144, "W8MonsterInfoDialog_size");
 
 /* The monster and statistic info dialogs' background. */
-extern char* g_info_dialog_background;
+extern const char* g_info_dialog_background;

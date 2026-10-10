@@ -1,6 +1,9 @@
 // Round-trips data through system zlib and SGP's streaming decompressor.
 #include "Compression.h"
+#include "himage.h"
 
+#include <algorithm>
+#include <iterator>
 #include <stdio.h>
 #include <string.h>
 #include <vector>
@@ -19,7 +22,7 @@ int main()
         return 1;
     }
 
-    PTR stream = DecompressInit(packed.data(), static_cast<UINT32>(packed_size));
+    auto stream = DecompressInit(packed.data(), static_cast<UINT32>(packed_size));
     if (stream == NULL) {
         fprintf(stderr, "DecompressInit failed\n");
         return 1;
@@ -32,16 +35,47 @@ int main()
         if (chunk > 7919) {
             chunk = 7919;
         }
-        UINT32 produced = Decompress(stream, unpacked.data() + total, chunk);
+        UINT32 produced = Decompress(stream.get(), unpacked.data() + total, chunk);
         if (produced == 0) {
             break;
         }
         total += produced;
     }
-    DecompressFini(stream);
+    stream.reset();
 
     if (total != original.size() || memcmp(unpacked.data(), original.data(), total) != 0) {
         fprintf(stderr, "round trip mismatch: %u of %zu bytes\n", total, original.size());
+        return 1;
+    }
+    image_type image{};
+    image.usWidth = 500;
+    image.usHeight = 200;
+    image.pImageData = std::make_unique<UINT8[]>(packed_size);
+    std::copy_n(packed.data(), packed_size, image.pImageData.get());
+    image.uiSizePixData = packed_size;
+    image.pui16BPPPalette = std::make_unique<UINT16[]>(256);
+    unsigned char destination8[200];
+    std::fill_n(destination8, 200, 0xa5);
+    UINT16 destination16[200]{};
+    SGPRect rectangle{3, 2, 13, 7};
+    for (unsigned repeat = 0; repeat < 3; ++repeat) {
+        if (!Copy8BPPCompressedImageTo8BPPBuffer(&image, destination8, 20, 10, 1, 1, &rectangle) ||
+            !Copy8BPPCompressedImageTo16BPPBuffer(&image, reinterpret_cast<BYTE*>(destination16),
+                                                20, 10, 1, 1, &rectangle)) {
+            fputs("compressed blitter cleanup failed\n", stderr);
+            return 1;
+        }
+    }
+    image.pImageData[0] = 0;
+    image.uiSizePixData = 1;
+    if (!Copy8BPPCompressedImageTo8BPPBuffer(&image, destination8, 20, 10, 1, 1, &rectangle) ||
+        !std::all_of(std::begin(destination8), std::end(destination8),
+                     [](unsigned char pixel) { return pixel == 0xa5; })) {
+        fputs("8-bit compressed blitter must not decode or modify its destination\n", stderr);
+        return 1;
+    }
+    if (Copy8BPPCompressedImageTo8BPPBuffer(&image, destination8, 20, 10, 20, 1, &rectangle)) {
+        fputs("8-bit compressed blitter must still validate destination coordinates\n", stderr);
         return 1;
     }
     printf("ok: %u bytes via zlib %s\n", total, zlibVersion());

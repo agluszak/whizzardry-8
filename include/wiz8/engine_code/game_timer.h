@@ -1,5 +1,7 @@
 #pragma once
 
+#include "wiz8/filesystem.h"
+
 #include "Types.h"
 #include "wiz8/layouts/game_status.h"
 #include "surrender/srTimer.h"
@@ -57,7 +59,7 @@ public:
     void SetProgress(float progress);
     void SetDurationScale(float scale);
     void ResetDurationScale();
-    BOOLEAN Load(int handle);
+    BOOLEAN Load(wiz8::File* handle);
     float GetElapsedSeconds();
 
     W8TimerClock m_clock_mode; /* 0x04: 1 reads the game clock */
@@ -72,5 +74,5 @@ public:
 
 W8GameTimer* CreateGameTimer(float duration, unsigned char raw_time);
 
-static_assert(sizeof(W8GameTimer::Flags) == 2, "W8GameTimer_flags_size");
+W8_ABI_ASSERT(sizeof(W8GameTimer::Flags) == 2, "W8GameTimer_flags_size");
 W8_ABI_ASSERT(sizeof(W8GameTimer) == 0x24, "W8GameTimer_must_be_0x24");

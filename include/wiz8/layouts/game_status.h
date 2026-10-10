@@ -209,6 +209,10 @@ struct W8GlobalStatus {
 };
 #pragma pack(pop)
 
+W8_ABI_ASSERT(offsetof(W8GlobalStatus, status_header_suffix) + sizeof(W8GlobalStatus::status_header_suffix) -
+              offsetof(W8GlobalStatus, status_header_prefix) == 0x100,
+              "W8GlobalStatus_status_header_size");
+
 extern W8GlobalStatus g_status;
 
 #include "wiz8/evidence/game_status_layout.inc"

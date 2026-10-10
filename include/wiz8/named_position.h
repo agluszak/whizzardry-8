@@ -17,4 +17,4 @@ struct W8NamedPosition {
     srVector3T<float> direction;
 };
 
-static_assert(sizeof(W8NamedPosition) == 0x9c, "W8NamedPosition_must_be_0x9c");
+W8_ABI_ASSERT(sizeof(W8NamedPosition) == 0x9c, "W8NamedPosition_must_be_0x9c");

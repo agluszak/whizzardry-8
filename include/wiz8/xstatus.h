@@ -17,7 +17,7 @@ struct W8WorldItem;
 struct W8CharacterEventQueue;
 class W8GameTimer;
 
-#pragma pack(push, 1)
+// Live state, not a disk record. Offset comments refer to retail layout.
 struct W8XStatus {
     W8MonsterManagerEntry monster_manager_entries[8]; /* 0x000: 0x006836B8 */
     unsigned int uiItemsInDatabase;                   /* 0x8c0: 0x00683F78 */
@@ -122,9 +122,13 @@ struct W8XStatus {
     int mipe_cube_serial;               /* 0x1a02: 0x006850BA */
     int hostile_group_count;            /* 0x1a06: 0x006850BE */
 };
-#pragma pack(pop)
 
-static_assert(offsetof(W8XStatus, monster_manager_entries) == 0x0, "W8XStatus_entries_offset");
+W8_ABI_ASSERT(offsetof(W8XStatus, target_markers) % alignof(W8GrowableVector<int>) == 0,
+              "W8XStatus_target_markers_aligned");
+W8_ABI_ASSERT(offsetof(W8XStatus, target_position) % alignof(srVector3T<float>) == 0,
+              "W8XStatus_target_position_aligned");
+
+W8_ABI_ASSERT(offsetof(W8XStatus, monster_manager_entries) == 0x0, "W8XStatus_entries_offset");
 W8_ABI_ASSERT(offsetof(W8XStatus, uiItemsInDatabase) == 0x8c0, "W8XStatus_items_offset");
 W8_ABI_ASSERT(offsetof(W8XStatus, uiMonstersInDatabase) == 0x8cc, "W8XStatus_monster_count_offset");
 W8_ABI_ASSERT(offsetof(W8XStatus, fCombatMode) == 0x8dc, "W8XStatus_combat_mode_offset");

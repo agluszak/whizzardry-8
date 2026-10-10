@@ -53,22 +53,15 @@ void srIlluminator::traverse(TraverseInfo& info)
     if (!testFlag(FLAG_TERMINATE)) {
         if (!testFlag(FLAG_DISABLE)) {
             if (!testFlag(FLAG_GLOBAL)) {
-                TraverseInfo::Entry& entry = info.entries[info.entry_count];
-                entry.node = this;
-                entry.value = 1;
-                ++info.entry_count;
+                info.entries.push_back({this, 1});
             } else {
-                info.nodes[info.node_count] = this;
-                ++info.node_count;
+                info.nodes.push_back(this);
             }
             if (first_child_ != 0) {
                 first_child_->traverse(info);
             }
             if (!testFlag(FLAG_GLOBAL)) {
-                TraverseInfo::Entry& entry = info.entries[info.entry_count];
-                entry.node = this;
-                entry.value = 2;
-                ++info.entry_count;
+                info.entries.push_back({this, 2});
             }
         } else if (first_child_ != 0) {
             first_child_->traverse(info);

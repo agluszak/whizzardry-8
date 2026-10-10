@@ -1,13 +1,8 @@
 #pragma once
 
-#include "srHeap.h"
 #include "srMath.h"
 
-class
-#if defined(SURRENDER_BUILD)
-
-#endif
-    srTriangleCuller {
+class srTriangleCuller {
 public:
     struct Output {
         w8_ulong* indices;

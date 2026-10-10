@@ -1,9 +1,9 @@
 #include "surrender/srHuffman.h"
 
+#include <algorithm>
 #include <string.h>
 
 static void sortSymbolPairs(srHuffman::Sampler::Symbol* pairs, w8_ulong count);
-static void* copyMemory(void* destination, const void* source, w8_long size);
 
 // FUNCTION: SURRENDER 0x100013D0
 void srHuffman::BitIStream::fetchCache(w8_long position)
@@ -33,8 +33,9 @@ w8_ulong srHuffman::BitIStream::getDWord(w8_long position)
         fetchCache(position);
         offset = 0;
     }
-    /* reinterpret-ok: the byte cache is read as an unaligned dword. */
-    return *reinterpret_cast<w8_ulong*>(cache + offset);
+    w8_ulong value;
+    memcpy(&value, cache + offset, sizeof(value));
+    return value;
 }
 
 // FUNCTION: SURRENDER 0x10001340
@@ -153,17 +154,13 @@ void srHuffman::BitOStream::putBit(w8_ulong bit)
     }
 }
 
-// FUNCTION: SURRENDER 0x10001840
-srHuffman::Sampler::Sampler() : count(0) {}
-
 // FUNCTION: SURRENDER 0x10001990
 void srHuffman::Sampler::insert(w8_ulong symbol)
 {
     if (table.FindNextEntry(&symbol, -1) == -1) {
-        symbols[count].symbol = symbol;
-        symbols[count].frequency = 1;
+        const auto count = static_cast<int>(symbols.size());
+        symbols.push_back({symbol, 1});
         table.Insert(&symbol, &count);
-        ++count;
     } else {
         ++symbols[table.Lookup(&symbol)].frequency;
     }
@@ -172,19 +169,19 @@ void srHuffman::Sampler::insert(w8_ulong symbol)
 // FUNCTION: SURRENDER 0x10001BA0
 w8_ulong srHuffman::Sampler::getNumSymbols() const
 {
-    return count;
+    return static_cast<w8_ulong>(symbols.size());
 }
 
 // FUNCTION: SURRENDER 0x10001BB0
 w8_ulong srHuffman::Sampler::getSymbolValue(w8_ulong index) const
 {
-    return symbols.data[index].symbol;
+    return symbols[index].symbol;
 }
 
 // FUNCTION: SURRENDER 0x10001BC0
 w8_ulong srHuffman::Sampler::getSymbolFrequency(w8_ulong index) const
 {
-    return symbols.data[index].frequency;
+    return symbols[index].frequency;
 }
 
 // FUNCTION: SURRENDER 0x10001BD0
@@ -193,35 +190,28 @@ srHuffman::Compressor::Compressor(const Sampler& sampler)
     num_symbols = sampler.getNumSymbols();
     code_width = 0;
     total = 0;
-    nodes = 0;
     root = 0;
     free_list = 0;
     if (num_symbols != 0) {
-        nodes = static_cast<Node*>(::operator new(num_symbols * 2 * sizeof(Node)));
-        free_list = nodes;
+        nodes.resize(num_symbols * 2);
+        free_list = nodes.data();
         for (w8_ulong index = 0; index < num_symbols * 2; ++index) {
             nodes[index].symbol = 0;
             nodes[index].frequency = 0;
-            nodes[index].next = nodes + index + 1;
+            nodes[index].next = nodes.data() + index + 1;
             nodes[index].children[0] = 0;
             nodes[index].children[1] = 0;
             nodes[index].code = 0;
             nodes[index].bits = 0;
         }
         nodes[num_symbols - 1].next = 0;
-        free_list = nodes + num_symbols;
+        free_list = nodes.data() + num_symbols;
         nodes[num_symbols * 2 - 1].next = 0;
         collectSymbols(sampler);
         buildSymbolTree();
         total = 0;
         setupPath(root, 0, 0);
     }
-}
-
-// FUNCTION: SURRENDER 0x10001E10
-srHuffman::Compressor::~Compressor()
-{
-    ::operator delete(nodes);
 }
 
 // FUNCTION: SURRENDER 0x10001E40
@@ -271,7 +261,7 @@ void srHuffman::Compressor::buildSymbolTree()
         Node* heads[2];
         Node* tails[2];
         Node* root = 0;
-        heads[0] = nodes;
+        heads[0] = nodes.data();
         heads[1] = 0;
         tails[1] = 0;
         for (w8_ulong merged = 0; merged < num_symbols - 1; ++merged) {
@@ -306,22 +296,21 @@ void srHuffman::Compressor::buildSymbolTree()
         }
         this->root = root;
     } else {
-        this->root = nodes;
+        this->root = nodes.data();
     }
 }
 
 // FUNCTION: SURRENDER 0x10002080
 void srHuffman::Compressor::collectSymbols(const Sampler& sampler)
 {
-    w8_ulong* symbols = static_cast<w8_ulong*>(srHeap.allocate(num_symbols * sizeof(w8_ulong)));
-    w8_ulong* frequencies = static_cast<w8_ulong*>(srHeap.allocate(num_symbols * sizeof(w8_ulong)));
+    std::vector<Sampler::Symbol> pairs(num_symbols);
     w8_ulong max_symbol = 0;
     w8_ulong index;
     for (index = 0; index < num_symbols; ++index) {
-        symbols[index] = sampler.getSymbolValue(index);
-        frequencies[index] = sampler.getSymbolFrequency(index);
-        if (max_symbol < symbols[index]) {
-            max_symbol = symbols[index];
+        pairs[index].symbol = sampler.getSymbolValue(index);
+        pairs[index].frequency = sampler.getSymbolFrequency(index);
+        if (max_symbol < pairs[index].symbol) {
+            max_symbol = pairs[index].symbol;
         }
     }
     int width;
@@ -354,61 +343,27 @@ void srHuffman::Compressor::collectSymbols(const Sampler& sampler)
         code_width = 1;
     }
     if (num_symbols > 1) {
-        Sampler::Symbol* pairs = static_cast<Sampler::Symbol*>(srHeap.allocate(num_symbols * sizeof(*pairs)));
-        w8_ulong bulk = num_symbols & ~3;
-        for (index = 0; index < bulk; index += 4) {
-            pairs[index].symbol = symbols[index];
-            pairs[index].frequency = frequencies[index];
-            pairs[index + 1].symbol = symbols[index + 1];
-            pairs[index + 1].frequency = frequencies[index + 1];
-            pairs[index + 2].symbol = symbols[index + 2];
-            pairs[index + 2].frequency = frequencies[index + 2];
-            pairs[index + 3].symbol = symbols[index + 3];
-            pairs[index + 3].frequency = frequencies[index + 3];
-        }
-        for (; index < num_symbols; ++index) {
-            pairs[index].symbol = symbols[index];
-            pairs[index].frequency = frequencies[index];
-        }
-        sortSymbolPairs(pairs, num_symbols);
-        for (index = 0; index < bulk; index += 4) {
-            symbols[index] = pairs[index].symbol;
-            frequencies[index] = pairs[index].frequency;
-            symbols[index + 1] = pairs[index + 1].symbol;
-            frequencies[index + 1] = pairs[index + 1].frequency;
-            symbols[index + 2] = pairs[index + 2].symbol;
-            frequencies[index + 2] = pairs[index + 2].frequency;
-            symbols[index + 3] = pairs[index + 3].symbol;
-            frequencies[index + 3] = pairs[index + 3].frequency;
-        }
-        for (; index < num_symbols; ++index) {
-            symbols[index] = pairs[index].symbol;
-            frequencies[index] = pairs[index].frequency;
-        }
-        srHeap.free(pairs);
+        sortSymbolPairs(pairs.data(), num_symbols);
     }
     for (index = 0; index < num_symbols; ++index) {
-        nodes[index].symbol = symbols[index];
-        nodes[index].frequency = frequencies[index];
+        nodes[index].symbol = pairs[index].symbol;
+        nodes[index].frequency = pairs[index].frequency;
     }
-    srHeap.free(symbols);
-    srHeap.free(frequencies);
 }
 
 // FUNCTION: SURRENDER 0x10002340
 srHuffman::Decompressor::Decompressor(BitIStream& stream)
 {
-    symbols = 0;
     next_node = 0;
     this->stream = &stream;
     num_symbols = this->stream->get(0x20);
     code_width = this->stream->get(6);
     data_count = this->stream->get(0x20);
     if (num_symbols != 0) {
-        symbols = static_cast<Symbol*>(::operator new(num_symbols * 2 * sizeof(Symbol)));
-        setupSymbolTable(symbols);
+        symbols.resize(num_symbols * 2);
+        setupSymbolTable(symbols.data());
         for (w8_ulong index = 0; index < 0x100; ++index) {
-            Symbol* node = symbols;
+            Symbol* node = symbols.data();
             w8_ulong depth;
             for (depth = 0; depth < 8; ++depth) {
                 Symbol* next = node->children[0];
@@ -424,12 +379,6 @@ srHuffman::Decompressor::Decompressor(BitIStream& stream)
             this->depth[index] = (unsigned char)depth;
         }
     }
-}
-
-// FUNCTION: SURRENDER 0x100024F0
-srHuffman::Decompressor::~Decompressor()
-{
-    ::operator delete(symbols);
 }
 
 // FUNCTION: SURRENDER 0x10002500
@@ -476,66 +425,8 @@ static void sortSymbolPairs(srHuffman::Sampler::Symbol* pairs, w8_ulong count)
     if (count <= 1) {
         return;
     }
-    srHuffman::Sampler::Symbol* scratch =
-        static_cast<srHuffman::Sampler::Symbol*>(srHeap.allocate(count * sizeof(srHuffman::Sampler::Symbol)));
-    w8_ulong counts[0x100];
-    srHuffman::Sampler::Symbol* src = pairs;
-    srHuffman::Sampler::Symbol* dst = scratch;
-    w8_ulong bulk = count & ~3;
-    for (w8_ulong pass = 0; pass < 4; ++pass) {
-        srZeroMemory(counts, sizeof(counts));
-        /* reinterpret-ok: radix pass extracts byte `pass` of each key. */
-        unsigned char* keys = reinterpret_cast<unsigned char*>(&src[0].frequency) + pass;
-        w8_ulong index = 0;
-        for (; index < bulk; index += 4) {
-            ++counts[keys[index * 8]];
-            ++counts[keys[index * 8 + 8]];
-            ++counts[keys[index * 8 + 0x10]];
-            ++counts[keys[index * 8 + 0x18]];
-        }
-        for (; index < count; ++index) {
-            ++counts[keys[index * 8]];
-        }
-        w8_ulong position = 0;
-        for (w8_ulong bucket = 0; bucket < 0x100; bucket += 4) {
-            w8_ulong saved = counts[bucket];
-            counts[bucket] = position;
-            position += saved;
-            saved = counts[bucket + 1];
-            counts[bucket + 1] = position;
-            position += saved;
-            saved = counts[bucket + 2];
-            counts[bucket + 2] = position;
-            position += saved;
-            saved = counts[bucket + 3];
-            counts[bucket + 3] = position;
-            position += saved;
-        }
-        for (index = 0; index < bulk; index += 4) {
-            dst[counts[keys[index * 8]]++] = src[index];
-            dst[counts[keys[index * 8 + 8]]++] = src[index + 1];
-            dst[counts[keys[index * 8 + 0x10]]++] = src[index + 2];
-            dst[counts[keys[index * 8 + 0x18]]++] = src[index + 3];
-        }
-        for (; index < count; ++index) {
-            dst[counts[keys[index * 8]]++] = src[index];
-        }
-        srHuffman::Sampler::Symbol* swap = src;
-        src = dst;
-        dst = swap;
-    }
-    if (src != pairs) {
-        copyMemory(pairs, src, count * sizeof(*pairs));
-    }
-    srHeap.free(dst);
-}
-
-// FUNCTION: SURRENDER 0x10002A90
-static void* copyMemory(void* destination, const void* source, w8_long size)
-{
-    if (size <= 0) {
-        return 0;
-    }
-    memcpy(destination, source, size);
-    return destination;
+    // Stable frequency order preserves the radix sort's tie order and therefore the bitstream.
+    std::stable_sort(pairs, pairs + count, [](const auto& first, const auto& second) {
+        return first.frequency < second.frequency;
+    });
 }

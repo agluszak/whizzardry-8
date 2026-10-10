@@ -6,7 +6,6 @@
 #include "wiz8/engine_code/LevelFile.h"
 #include "wiz8/float_constants.h"
 #include "wiz8/sr_api.h"
-#include "surrender/srHeap.h"
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -566,7 +565,7 @@ struct W8CubRegionRecord {
     srVector3T<float> corners[8];
 };
 #pragma pack(pop)
-static_assert(sizeof(W8CubRegionRecord) == 0x6a, "W8CubRegionRecord_must_be_0x6a");
+W8_ABI_ASSERT(sizeof(W8CubRegionRecord) == 0x6a, "W8CubRegionRecord_must_be_0x6a");
 
 /* Load the optional .cub region file beside the level: a version -5 header
    word precedes the region count, and each record supplies the eight frustum
@@ -657,6 +656,7 @@ unsigned short OctBuildPreTree::LoadRegionFile(const char* stem, srVector3T<floa
         SortFrustumCorners(&volume->m_points[1]);
         BuildFrustumPlanes(&volume->m_points[1], volume->m_planes);
     }
+    if (file) file->close();
     file.reset();
     ReportBuildStatus(6, path);
     spatial.m_region_volumes = volumes.release();

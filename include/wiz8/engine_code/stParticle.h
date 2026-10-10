@@ -1,5 +1,7 @@
 #pragma once
 
+#include "wiz8/filesystem.h"
+
 #include "wiz8/engine_code/particle_modes.h"
 
 #include "surrender/srMaterialIFace.h"
@@ -47,6 +49,7 @@ protected:
     virtual ~stParticle() override; /* 0x00498A20 */
 
 public:
+    stParticle& operator=(const stParticle&) = default;
     unsigned int requires_sorted_renderer;
     unsigned char padding_13c[4];
     double particle_size; /* 0x140: billboard quad scale from particle_size */
@@ -62,7 +65,7 @@ public:
        texture_frames where consecutive pairs share one frame. */
     unsigned int texture_frame_count;
     /* Per-vertex billboard corners (assert pVertex), texture UVs (pTexCoord)
-       and triangle index triples; srHeap-allocated, vertex_count /
+       and triangle index triples; malloc-allocated, vertex_count /
        texture_frame_count long. */
     srVector3T<float>* vertex_positions;
     srVector2T<float>* texcoords;
@@ -149,5 +152,5 @@ public:
 W8_ABI_ASSERT(sizeof(stParticle) == 0x280, "stParticle_size_must_be_0x280");
 
 stParticle* FindRegisteredParticle(const char* name);
-void SaveParticleStates(unsigned int handle);
-void LoadParticleStates(int handle);
+void SaveParticleStates(wiz8::File* handle);
+void LoadParticleStates(wiz8::File* handle);

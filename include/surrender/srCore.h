@@ -2,11 +2,6 @@
 
 #include <iosfwd>
 
-#include "srFileManager.h"
-#include "srGlobalRecycler.h"
-#include "srHeap.h"
-#include "srMemoryAllocator.h"
-#include "srScheduler.h"
 #include "srStatisticsManager.h"
 #include "srVariableTimer.h"
 
@@ -24,11 +19,7 @@ class srSurfaceIOManager;
 class srTexture;
 class srVideoManager;
 
-class
-#if defined(SURRENDER_BUILD)
-
-#endif
-    srCore {
+class srCore {
 public:
     SR_DLL_IMPORT srCore();
 
@@ -39,9 +30,7 @@ public:
     SR_DLL_IMPORT const char* getCopyright() const;
     SR_DLL_IMPORT const char* getVersion() const;
     SR_DLL_IMPORT unsigned char getDebugLevel() const;
-    SR_DLL_IMPORT srFileManager* getFileManager() const;
     SR_DLL_IMPORT srFilter* getFilter() const;
-    SR_DLL_IMPORT srGlobalRecycler* getGlobalRecycler() const;
     SR_DLL_IMPORT srHierarchyIOManager* getHierarchyIOManager() const;
     // FUNCTION: SURRENDER 0x10015730
     // RECOMP: ?getMaterial@srCore@@QBEPAVsrMaterial@@XZ
@@ -49,16 +38,9 @@ public:
     {
         return material;
     }
-    SR_DLL_IMPORT srMemoryAllocator* getMemoryAllocator() const;
     SR_DLL_IMPORT srModelIOManager* getModelIOManager() const;
     SR_DLL_IMPORT srPalette* getPalette() const;
     SR_DLL_IMPORT srNode* getRootNode() const;
-    // FUNCTION: SURRENDER 0x100156A0
-    // RECOMP: ?getScheduler@srCore@@QBEPAVsrScheduler@@XZ
-    srScheduler* getScheduler() const
-    {
-        return scheduler;
-    }
     // FUNCTION: SURRENDER 0x100156B0
     // RECOMP: ?getStatisticsManager@srCore@@QBEPAVsrStatisticsManager@@XZ
     srStatisticsManager* getStatisticsManager() const
@@ -77,7 +59,6 @@ public:
     SR_DLL_IMPORT srVideoManager* getVideoManager() const;
     SR_DLL_IMPORT int isInitialized() const;
     SR_DLL_IMPORT void setDebugLevel(unsigned char level);
-    SR_DLL_IMPORT void setFileManager(srFileManager* manager);
     SR_DLL_IMPORT void setFilter(srFilter* filter);
     SR_DLL_IMPORT int supportMultiThread();
     SR_DLL_IMPORT void supportMultiThread(int enabled);
@@ -100,19 +81,14 @@ private:
 
     static SR_DLL_IMPORT int initialized;
 
-    srScheduler* scheduler;
-    srGlobalRecycler* global_recycler;
     srVariableTimer* timer;
     srColorSurfaceIFace* surface;
     srSurfaceIOManager* surface_io_manager;
     srIStreamOpener* stream_opener;
     srFStreamOpener* file_stream_opener;
     srFilter* filter;
-    srMemoryAllocator* memory_allocator;
-    srFileManager* file_manager;
     srStatisticsManager* statistics_manager;
     srRegistry* registry_;
-    srFileManager* default_file_manager;
     srPalette* palette;
     w8_ulong next_unique_id;
     char version_[0x20];
@@ -134,8 +110,7 @@ extern SR_DLL_IMPORT class srCore srCore;
 SR_DLL_IMPORT int __cdecl srInit(void);
 SR_DLL_IMPORT int __cdecl srExit(void);
 
-/* DLL attach/detach hooks called by the library entry wrapper. */
+/* Library initialization hook. */
 void __cdecl _srLibraryInit(void);
-void __cdecl _srLibraryExit(void);
 
 extern const unsigned char srLogo[0x1000];

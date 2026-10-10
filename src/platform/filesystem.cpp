@@ -1,5 +1,6 @@
 #include "wiz8/filesystem.h"
 #include "path_resolver.h"
+#include "slf.h"
 
 #include <SDL3/SDL_error.h>
 
@@ -137,7 +138,7 @@ void copy_physical(const fs::path& source, const fs::path& destination, CopyMode
 
 fs::path path_from_utf8(std::string_view text)
 {
-    return fs::u8path(text.begin(), text.end());
+    return fs::path(std::u8string(text.begin(), text.end()));
 }
 std::string path_to_utf8(const fs::path& path)
 {
@@ -176,7 +177,7 @@ File::~File()
 }
 File::File(File&& other) noexcept
     : stream_(std::exchange(other.stream_, nullptr)), path_(std::move(other.path_)),
-      writable_(other.writable_), writer_create_time_(other.writer_create_time_)
+      writable_(other.writable_), writer_create_time_(other.writer_create_time_), extent_(other.extent_)
 {
 }
 File& File::operator=(File&& other) noexcept
@@ -189,6 +190,7 @@ File& File::operator=(File&& other) noexcept
         path_ = std::move(other.path_);
         writable_ = other.writable_;
         writer_create_time_ = other.writer_create_time_;
+        extent_ = other.extent_;
     }
     return *this;
 }
@@ -205,6 +207,9 @@ ReadResult File::read(void* data, std::size_t bytes)
         return {0, false};
     if (!data)
         throw std::invalid_argument("null read buffer");
+    if (extent_ && (bytes > static_cast<std::uint64_t>(size() - tell()) ||
+                   SDL_GetIOSize(require_stream()) < std::int64_t(extent_->offset) + extent_->length))
+        throw std::out_of_range("read exceeds SLF entry");
     std::size_t total = 0;
     while (total < bytes)
     {
@@ -216,6 +221,11 @@ ReadResult File::read(void* data, std::size_t bytes)
             sdl_failure("read file");
     }
     return {total, false};
+}
+void File::read_exact(void* data, std::size_t bytes)
+{
+    if (read(data, bytes).bytes != bytes)
+        throw std::runtime_error("short file read");
 }
 void File::write(const void* data, std::size_t bytes)
 {
@@ -246,20 +256,24 @@ std::int64_t File::seek(std::int64_t offset, SeekOrigin origin)
     if (offset < -base || offset > std::numeric_limits<std::int64_t>::max() - base)
         throw std::out_of_range("seek outside signed file positions");
     const auto destination = base + offset;
-    const auto position = SDL_SeekIO(require_stream(), destination, SDL_IO_SEEK_SET);
-    if (position != destination)
+    if (extent_ && destination > extent_->length)
+        throw std::out_of_range("seek exceeds SLF entry");
+    const auto physical = destination + (extent_ ? extent_->offset : 0);
+    const auto position = SDL_SeekIO(require_stream(), physical, SDL_IO_SEEK_SET);
+    if (position != physical)
         sdl_failure("seek file");
-    return position;
+    return destination;
 }
 std::int64_t File::tell() const
 {
     const auto position = SDL_TellIO(require_stream());
     if (position < 0)
         sdl_failure("tell file");
-    return position;
+    return position - (extent_ ? extent_->offset : 0);
 }
 std::int64_t File::size() const
 {
+    if (extent_) { require_stream(); return extent_->length; }
     const auto bytes = SDL_GetIOSize(require_stream());
     if (bytes < 0)
         sdl_failure("size file");
@@ -279,10 +293,31 @@ bool File::is_open() const noexcept { return stream_ != nullptr; }
 const fs::path& File::physical_path() const noexcept { return path_; }
 FileStatus File::status() const
 {
+    if (extent_)
+    {
+        FileStatus result{};
+        result.info.type = SDL_PATHTYPE_FILE;
+        result.info.size = extent_->length;
+        result.info.modify_time = file_time_to_sdl(extent_->modified).value_or(0);
+        result.read_only = result.archived = true;
+        return result;
+    }
     const auto info = host_file_status(path_);
     if (!info)
         throw std::runtime_error("opened file path no longer exists");
     return *info;
+}
+FileTimes File::times() const
+{
+    require_stream();
+    if (extent_) return {{}, {}, extent_->modified};
+    const auto info = status().info;
+    const auto offset = current_utc_offset_seconds();
+    const auto convert = [offset](SDL_Time time) {
+        return file_time_with_legacy_local_bias(file_time_from_sdl(time), offset);
+    };
+    return {convert(writer_create_time_.value_or(info.create_time)),
+            convert(info.access_time), convert(info.modify_time)};
 }
 std::optional<SDL_Time> File::opened_writer_create_time() const noexcept
 {
@@ -292,7 +327,20 @@ std::unique_ptr<File> open_file(std::string_view game_path, OpenMode mode)
 {
     const auto path = w8_native::resolve_path(game_path);
     if (mode == OpenMode::read)
+    {
+        if (physical_status(path.readable, path.writable_source))
+            return std::unique_ptr<File>(new File(path.readable, mode));
+        if (const auto entry = archive_entry(game_path))
+        {
+            auto file = open_host_file(entry->archive);
+            if (std::int64_t(entry->offset) + entry->length > file->size())
+                throw std::runtime_error("truncated SLF entry");
+            file->seek(entry->offset, SeekOrigin::begin);
+            file->extent_ = File::Extent{entry->offset, entry->length, entry->modified};
+            return file;
+        }
         return std::unique_ptr<File>(new File(path.readable, mode));
+    }
     if (mode == OpenMode::update && !fs::exists(path.readable))
         throw std::system_error(std::make_error_code(std::errc::no_such_file_or_directory),
                                 "update existing game file");
@@ -308,7 +356,17 @@ std::unique_ptr<File> open_host_file(const fs::path& path, OpenMode mode)
 std::optional<FileStatus> file_status(std::string_view game_path)
 {
     const auto path = w8_native::resolve_path(game_path);
-    return physical_status(path.readable, path.writable_source);
+    if (const auto status = physical_status(path.readable, path.writable_source)) return status;
+    if (const auto entry = archive_entry(game_path))
+    {
+        FileStatus result{};
+        result.info.type = SDL_PATHTYPE_FILE;
+        result.info.size = entry->length;
+        result.info.modify_time = file_time_to_sdl(entry->modified).value_or(0);
+        result.read_only = result.archived = true;
+        return result;
+    }
+    return std::nullopt;
 }
 std::optional<FileStatus> host_file_status(const fs::path& path)
 {

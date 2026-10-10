@@ -53,9 +53,6 @@ static W8MipeEditField* g_mipe_var_set_fields[NUM_VAR_SETS] = {
     g_mipe_prop_fields,
 };
 
-// GLOBAL: WIZ8 0x0064edfc
-static int g_mipe_prop_field_count = 10;
-
 /* Running digit accumulator while typing a numeric field value. */
 // GLOBAL: WIZ8 0x0069c510
 static float g_mipe_edit_accum;

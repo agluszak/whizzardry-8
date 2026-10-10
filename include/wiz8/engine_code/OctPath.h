@@ -1,5 +1,7 @@
 #pragma once
 
+#include "wiz8/filesystem.h"
+
 #include "wiz8/navigation_flags.h"
 
 #include "surrender/srMath.h"
@@ -26,7 +28,7 @@ struct W8FilePathNode {
     unsigned int cell;
     unsigned int level_flags;
 };
-static_assert(sizeof(W8FilePathNode) == 8, "W8FilePathNode_size");
+W8_ABI_ASSERT(sizeof(W8FilePathNode) == 8, "W8FilePathNode_size");
 
 /* Header preceding the conditional path tables. The writer deliberately
    writes zero to flags while the reader accepts the stored word. */
@@ -36,7 +38,7 @@ struct W8ConditionalPathHeader {
     unsigned int node_count;
     unsigned int flags;
 };
-static_assert(sizeof(W8ConditionalPathHeader) == 0x10, "W8ConditionalPathHeader_size");
+W8_ABI_ASSERT(sizeof(W8ConditionalPathHeader) == 0x10, "W8ConditionalPathHeader_size");
 
 /* One pre-path prop record handed to LinkCollideableProps: the prop's path
    name plus the GDPreProp array OctPreTree.cpp builds for it (stride 0x48). */
@@ -51,7 +53,7 @@ struct W8PreProp {
 };
 
 W8_ABI_ASSERT(sizeof(W8PreProp) == 0x48, "W8PreProp_must_be_0x48");
-static_assert(offsetof(W8PreProp, num_stop_meshes) == 0x40, "W8PreProp_num_stop_meshes_40");
+W8_ABI_ASSERT(offsetof(W8PreProp, num_stop_meshes) == 0x40, "W8PreProp_num_stop_meshes_40");
 W8_ABI_ASSERT(offsetof(W8PreProp, pStopMeshes) == 0x44, "W8PreProp_pStopMeshes");
 
 struct W8NavigatorMovementState;
@@ -118,7 +120,6 @@ public:
 
 private:
     W8NavigatorMovementState* movement;
-    unsigned char padding_04[4];
     float speed_limit;
     float acceleration;
     float velocity_length;
@@ -129,7 +130,6 @@ private:
     float radius;
     bool nearby_queried;
     bool blocked;
-    unsigned char padding_4a[2];
     unsigned int nearby_count;
     w8_ulong* nearby_locations;
     W8Monster* monster;
@@ -177,9 +177,9 @@ struct W8PathEdge {
 };
 #pragma pack(pop)
 
-static_assert(sizeof(W8PathSurface) == 0x28, "W8PathSurface_must_be_0x28");
-static_assert(sizeof(W8PathEdge) == 0x0e, "W8PathEdge_must_be_0x0e");
-static_assert(sizeof(W8FileWaypoint) == 0x10, "W8FileWaypoint_must_be_0x10");
+W8_ABI_ASSERT(sizeof(W8PathSurface) == 0x28, "W8PathSurface_must_be_0x28");
+W8_ABI_ASSERT(sizeof(W8PathEdge) == 0x0e, "W8PathEdge_must_be_0x0e");
+W8_ABI_ASSERT(sizeof(W8FileWaypoint) == 0x10, "W8FileWaypoint_must_be_0x10");
 
 /* One named conditional-path set. FindPathHandle compares path.name and then
    walks the zero-terminated lookup run starting at lookup_index: each lookup
@@ -208,7 +208,7 @@ struct GDPropCondPaths {
     unsigned int lookup_index; /* 0x40 */
 };
 
-static_assert(sizeof(GDPropCondPaths) == 0x44, "GDPropCondPaths_must_be_0x44");
+W8_ABI_ASSERT(sizeof(GDPropCondPaths) == 0x44, "GDPropCondPaths_must_be_0x44");
 
 /* The two-dimensional cell walk used by path-surface probing. The cell and
    step runs are modeled as triples like the sibling octree walker; only X/Z
@@ -229,11 +229,11 @@ struct W8PathGridWalk {
     int error_reset1;
 };
 
-static_assert(sizeof(W8PathGridWalk) == 0x40, "W8PathGridWalk_must_be_0x40");
-static_assert(offsetof(W8PathGridWalk, step) == 0x0c, "W8PathGridWalk_step_offset");
-static_assert(offsetof(W8PathGridWalk, minor_axis1) == 0x20, "W8PathGridWalk_second_axis_offset");
-static_assert(offsetof(W8PathGridWalk, error_delta1) == 0x34, "W8PathGridWalk_second_error_offset");
-static_assert(offsetof(W8PathGridWalk, error_reset1) == 0x3c, "W8PathGridWalk_second_reset_offset");
+W8_ABI_ASSERT(sizeof(W8PathGridWalk) == 0x40, "W8PathGridWalk_must_be_0x40");
+W8_ABI_ASSERT(offsetof(W8PathGridWalk, step) == 0x0c, "W8PathGridWalk_step_offset");
+W8_ABI_ASSERT(offsetof(W8PathGridWalk, minor_axis1) == 0x20, "W8PathGridWalk_second_axis_offset");
+W8_ABI_ASSERT(offsetof(W8PathGridWalk, error_delta1) == 0x34, "W8PathGridWalk_second_error_offset");
+W8_ABI_ASSERT(offsetof(W8PathGridWalk, error_reset1) == 0x3c, "W8PathGridWalk_second_reset_offset");
 
 /* One of the fixed probe volumes assembled by 0x004656A0. The outer radius
    is the navigator's collision radius; the inner bound is its distance from
@@ -246,7 +246,7 @@ struct W8PathProbeVolume {
     srVector3T<float> center;
 };
 
-static_assert(sizeof(W8PathProbeVolume) == 0x18, "W8PathProbeVolume_must_be_0x18");
+W8_ABI_ASSERT(sizeof(W8PathProbeVolume) == 0x18, "W8PathProbeVolume_must_be_0x18");
 
 /* The fixed 0x2c search node allocated by W8PathingService's constructor.
    Scoring at 0x00464FF0 proves the flag word, base score, current distance,
@@ -291,11 +291,11 @@ struct W8PathHeapHandle {
     void DeleteRoot(W8PathSearchNode* node);
 };
 
-static_assert(sizeof(W8PathHeapEntry) == 8, "W8PathHeapEntry_must_be_8");
+W8_ABI_ASSERT(sizeof(W8PathHeapEntry) == 8, "W8PathHeapEntry_must_be_8");
 W8_ABI_ASSERT(sizeof(W8PathHeap) == 0x10, "W8PathHeap_must_be_0x10");
 W8_ABI_ASSERT(sizeof(W8PathHeapHandle) == 8, "W8PathHeapHandle_must_be_8");
 
-static_assert(sizeof(W8PathSearchNode) == 0x2c, "W8PathSearchNode_must_be_0x2c");
+W8_ABI_ASSERT(sizeof(W8PathSearchNode) == 0x2c, "W8PathSearchNode_must_be_0x2c");
 
 /* The pathing service the octree builds when its file carries one. Its own
    constructor at 0x004578E0 initialises through 0x238 and ReadOctFile allocates
@@ -447,8 +447,8 @@ public:
        header, and the level name the octree already owns. */
     void ConfigureForLevel(int size, float grid_scale, float path_clearance,
                            const srVector3T<float>* bounds, const char* name); /* 0x00458A50 */
-    unsigned char ReadPathNodes(int handle);                                   /* 0x00458CE0 */
-    bool WritePathNodes(unsigned int handle);
+    unsigned char ReadPathNodes(wiz8::File* handle);                                   /* 0x00458CE0 */
+    bool WritePathNodes(wiz8::File* handle);
     unsigned char SaveWaypointSnapshot(bool force);
     unsigned char WriteWaypointFile();
     unsigned char ReadWaypointFile();

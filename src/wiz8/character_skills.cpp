@@ -668,7 +668,7 @@ void PracticeCharacterSkill(W8Character* character, W8Skill skill_id, int usage_
         W8CharacterSkill* skill = &character->skills[skill_id];
         skill->available = true;
         if (!skill->active) {
-            if (!IsCharacterSkillAvailable(character, skill_id, NULL)) {
+            if (!IsCharacterSkillAvailable(character, skill_id, nullptr)) {
                 return;
             }
             skill->active = true;

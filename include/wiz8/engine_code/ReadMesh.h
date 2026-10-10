@@ -1,5 +1,7 @@
 #pragma once
 
+#include "wiz8/filesystem.h"
+
 #include "surrender/srMath.h"
 struct W8MaterialRecord;
 
@@ -16,7 +18,7 @@ struct W8ReadMeshFace {
 };
 #pragma pack(pop)
 
-static_assert(sizeof(W8ReadMeshFace) == 0x29, "W8ReadMeshFace_size_must_be_0x29");
+W8_ABI_ASSERT(sizeof(W8ReadMeshFace) == 0x29, "W8ReadMeshFace_size_must_be_0x29");
 class srMaterialIFace;
 class srModelInstance;
 class srTextureIFace;
@@ -52,5 +54,5 @@ enum {
 void OptimizeMeshOrder(srMeshModel* model, w8_ulong flags);
 
 void ClearMaterialRecordPadding(W8MaterialRecord* material);
-void ReadMeshTransform(int file, srVector3T<float>* location, srMatrix3T<float>* rotation,
+void ReadMeshTransform(wiz8::File* file, srVector3T<float>* location, srMatrix3T<float>* rotation,
                        srVector3T<float>* scale);

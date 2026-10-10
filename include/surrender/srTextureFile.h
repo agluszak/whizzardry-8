@@ -3,6 +3,8 @@
 #include "srColorSurface.h"
 #include "srTexture.h"
 
+#include <string>
+
 // VTABLE: SURRENDER 0x1007752C
 // class srClassSupport<srTextureFile, srTexture, 0, 8466>
 
@@ -11,7 +13,7 @@
 // VTABLE: SURRENDER 0x100774E8 srTextureFile
 class srTextureFile : public srClassSupport<srTextureFile, srTexture, 0, 0x2112> {
 public:
-    srTextureFile(const char* file_name = 0, int cached = 0);
+    srTextureFile(std::string file_name = {}, int cached = 0);
 
     srTextureFile& operator=(const srTextureFile& other);
 
@@ -21,8 +23,8 @@ public:
         return "srTextureFile";
     }
 
-    const char* getFileName() const;
-    void setFileName(const char* file_name);
+    const std::string& getFileName() const;
+    void setFileName(std::string file_name);
     void setCached(int cached);
     int isSurfaceLoaded() const;
     void loadSurface();
@@ -40,7 +42,7 @@ protected:
     virtual void setupDefaultValues() override;
 
     int cached;
-    char* file_name;
+    std::string file_name;
     srColorSurfaceIFace* surface;
     w8_ulong frame_handle;
 };

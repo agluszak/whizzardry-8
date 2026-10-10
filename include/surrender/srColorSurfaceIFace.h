@@ -113,27 +113,21 @@ public:
     SR_DLL_IMPORT int getHClampMode() const;
 // FUNCTION: SURRENDER 0x100598F0 SYMBOL
 // RECOMP: ?getHeight@srColorSurfaceIFace@@QBEJXZ
-#if defined(SURRENDER_BUILD)
 
-#endif
     w8_long getHeight() const
     {
         return height;
     }
 // FUNCTION: SURRENDER 0x100599E0 SYMBOL
 // RECOMP: ?getPitch@srColorSurfaceIFace@@QBEJXZ
-#if defined(SURRENDER_BUILD)
 
-#endif
     w8_long getPitch() const
     {
         return pitch;
     }
 // FUNCTION: SURRENDER 0x100599F0 SYMBOL
 // RECOMP: ?getPixelFormat@srColorSurfaceIFace@@QBEXAAUPixelFormat@srPixelConvert@@@Z
-#if defined(SURRENDER_BUILD)
 
-#endif
     void getPixelFormat(srPixelConvert::PixelFormat& format) const
     {
         format = pixel_format;
@@ -141,9 +135,7 @@ public:
     SR_DLL_IMPORT w8_long getRedBits() const;
 // FUNCTION: SURRENDER 0x10059A10 SYMBOL
 // RECOMP: ?getSurfaceDesc@srColorSurfaceIFace@@QBEXAAUSurfaceDesc@1@@Z
-#if defined(SURRENDER_BUILD)
 
-#endif
     void getSurfaceDesc(SurfaceDesc& description) const
     {
         description.width = width;
@@ -156,9 +148,7 @@ public:
     SR_DLL_IMPORT int getVClampMode() const;
 // FUNCTION: SURRENDER 0x10059A60 SYMBOL
 // RECOMP: ?getWidth@srColorSurfaceIFace@@QBEJXZ
-#if defined(SURRENDER_BUILD)
 
-#endif
     w8_long getWidth() const
     {
         return width;
@@ -168,9 +158,7 @@ public:
     SR_DLL_IMPORT void rotate180();
 // FUNCTION: SURRENDER 0x10059A90 SYMBOL
 // RECOMP: ?setFilter@srColorSurfaceIFace@@QAEXPAVsrFilter@@@Z
-#if defined(SURRENDER_BUILD)
 
-#endif
     void setFilter(srFilter* filter)
     {
         this->filter = filter;
@@ -197,7 +185,7 @@ protected:
                                             const W8TgaHeader* header);
     friend class srColorSurface;
 
-    unsigned char unknown_18_[0x04];
+    unsigned char unknown_18_[0x04]{};
     w8_long width;
     w8_long height;
     w8_long pitch;

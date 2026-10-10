@@ -5,26 +5,19 @@
 
 #include "surrender/srCore.h"
 #include "surrender/srStreamFlags.h"
-#include "surrender/srBinIAsyncStream.h"
 #include "surrender/srColorSurface.h"
-#include "surrender/srConfig.h"
 #include "surrender/srDebug.h"
 #include "surrender/srExponentTable.h"
-#include "surrender/srExtension.h"
+#include "image_io.h"
 #include "surrender/srFilter.h"
 #include "surrender/srGERD.h"
-#include "surrender/srHeap.h"
 #include "surrender/srImporter.h"
 #include "surrender/srIStreamOpener.h"
 #include "surrender/srMaterial.h"
-#include "surrender/srMemoryPool.h"
-#include "surrender/srMutex.h"
 #include "surrender/srPalette.h"
 #include "surrender/srPixelConvert.h"
 #include "surrender/srScene.h"
-#include "surrender/srString.h"
 #include "surrender/srTextureMap.h"
-#include "surrender/srThread.h"
 #include "surrender/srTriMeshPipeline.h"
 #include "surrender/srTypeRegistry.h"
 #include "surrender/srVectorProcessor.h"
@@ -33,14 +26,10 @@
 // FUNCTION: SURRENDER 0x10014FE0
 void __cdecl _srLibraryInit(void)
 {
-    srAssertSetFunc(srDefaultAssertFailFunc);
+    if (srAssertGetFunc() == 0) {
+        srAssertSetFunc(srDefaultAssertFailFunc);
+    }
     initPixelTables();
-}
-
-// FUNCTION: SURRENDER 0x10015000
-void __cdecl _srLibraryExit(void)
-{
-    srHeap.freeAll();
 }
 
 // FUNCTION: SURRENDER 0x10015010
@@ -65,22 +54,13 @@ const char* srCore::getVersion() const
 int __cdecl srInit()
 {
     if (srCore.initialized == 0) {
-        const char* dll_path = srConfig.get("DLL_PATH");
         srCore.reset();
-        if (srConfig.exists("DEBUG_LEVEL") != 0) {
-            srCore.debug_level = atoi(srConfig.get("DEBUG_LEVEL"));
-        }
         srDebugPrintf(0xfe, "srInit() -- initializing SurRender\n");
-        srCore.global_recycler = new srGlobalRecycler;
         srCore.registry_ = new srRegistry;
         srCore.timer = new srVariableTimer;
+        _srLibraryInit();
         srCore.multi_thread = srCore.timer->fastThreads();
-        if (srVectorProcessor::loadBest(dll_path) == 0) {
-            srVectorProcessor::initBaseVP();
-            srDebugPrintf(0, "srInit() -- no Vector Processor DLLs found (using base VP)\n");
-        }
-        srCore.memory_allocator = new srMemoryAllocator;
-        srCore.file_manager = srCore.default_file_manager = new srFileManager;
+        srVectorProcessor::initBaseVP();
         srCore.statistics_manager = new srStatisticsManager;
         srCore.statistics_manager->reset();
         srCore.setFilter(0);
@@ -99,8 +79,8 @@ int __cdecl srInit()
         srCore.stream_opener = new srIStreamOpener;
         srCore.file_stream_opener = new srFStreamOpener;
         srCore.stream_opener->addStreamType(srCore.file_stream_opener, "file");
-        srDebugPrintf(0xfe, "srInit() -- loading default extension\n");
-        srExtension::load("Default", dll_path);
+        srDebugPrintf(0xfe, "srInit() -- initializing built-in image handlers\n");
+        srInitImageIO();
         srDebugPrintf(0xfe, "srInit() -- setting up default texture/surface\n");
         srCore.surface = new srColorSurface(srPixelConvert::SURFACE_L8, 0x40, 0x40);
         srCore.surface->setName("SurRender default surface");
@@ -109,8 +89,6 @@ int __cdecl srInit()
         }
         srCore.texture = new srTextureMap(srCore.surface);
         srCore.texture->setName("SurRender default texture");
-        srDebugPrintf(0xfe, "srInit() -- initializing scheduler\n");
-        srCore.scheduler = new srScheduler;
         srDebugPrintf(0xfe, "srInit() -- done\n");
         srCore.initialized = 1;
     }
@@ -121,12 +99,6 @@ int __cdecl srInit()
 unsigned char srCore::getDebugLevel() const
 {
     return debug_level;
-}
-
-// FUNCTION: SURRENDER 0x10015690
-srGlobalRecycler* srCore::getGlobalRecycler() const
-{
-    return global_recycler;
 }
 
 // FUNCTION: SURRENDER 0x100156D0
@@ -164,8 +136,6 @@ int __cdecl srExit()
 {
     if (srCore.initialized != 0) {
         srDebugPrintf(0xfe, "srExit() -- shutting down SurRender\n");
-        delete srCore.scheduler;
-        srCore.scheduler = 0;
         srGERD::releaseAll();
         srCachedExponentTable::freeAll();
         srCore.root_node->release();
@@ -181,12 +151,8 @@ int __cdecl srExit()
         srDebugPrintf(0xfe, "srExit() -- cleaning up class registry.\n");
         delete srCore.registry_;
         srCore.registry_ = 0;
-        srExtension::releaseAll();
+        srExitImageIO();
         srCore.initialized = 0;
-        delete srCore.default_file_manager;
-        srCore.default_file_manager = 0;
-        delete srCore.memory_allocator;
-        srCore.memory_allocator = 0;
         delete srCore.surface_io_manager;
         srCore.surface_io_manager = 0;
         delete srCore.video_manager;
@@ -203,12 +169,8 @@ int __cdecl srExit()
         srCore.statistics_manager = 0;
         delete srCore.timer;
         srCore.timer = 0;
-        delete srCore.global_recycler;
-        srCore.global_recycler = 0;
         srCore.reset();
         srVectorProcessor::release();
-        srDebugPrintf(0xfe, "srExit() -- cleaning up config system.\n");
-        srConfig.removeAll();
         delete srTriMeshPipeline::pipe;
         srTriMeshPipeline::pipe = 0;
         srDebugPrintf(0xfe, "srExit() -- done\n");
@@ -236,15 +198,6 @@ void srCore::setFilter(srFilter* filter)
         return;
     }
     this->filter = &srTriangleFilter;
-}
-
-// FUNCTION: SURRENDER 0x10015B30
-void srCore::setFileManager(srFileManager* manager)
-{
-    if (manager == 0) {
-        manager = default_file_manager;
-    }
-    file_manager = manager;
 }
 
 // FUNCTION: SURRENDER 0x10015B50
@@ -277,12 +230,6 @@ srHierarchyIOManager* srCore::getHierarchyIOManager() const
     return hierarchy_io_manager;
 }
 
-// FUNCTION: SURRENDER 0x10015B10
-srMemoryAllocator* srCore::getMemoryAllocator() const
-{
-    return memory_allocator;
-}
-
 // FUNCTION: SURRENDER 0x10015AC0
 srIStreamOpener* srCore::getIStreamOpener() const
 {
@@ -293,12 +240,6 @@ srIStreamOpener* srCore::getIStreamOpener() const
 srNode* srCore::getRootNode() const
 {
     return root_node;
-}
-
-// FUNCTION: SURRENDER 0x10015B20
-srFileManager* srCore::getFileManager() const
-{
-    return file_manager;
 }
 
 // FUNCTION: SURRENDER 0x10015A60
@@ -321,8 +262,6 @@ srCore::srCore()
     strcat(copyright_, "MSVC 6.0");
     strcat(copyright_, ") (c) Hybrid Holding Ltd. 1994-1999");
     multi_thread = 0;
-    global_recycler = 0;
-    scheduler = 0;
     texture = 0;
     surface = 0;
     surface_io_manager = 0;
@@ -331,9 +270,6 @@ srCore::srCore()
     hierarchy_io_manager = 0;
     filter = 0;
     root_node = 0;
-    memory_allocator = 0;
-    default_file_manager = 0;
-    file_manager = 0;
     palette = 0;
     timer = 0;
     registry_ = 0;
@@ -345,8 +281,6 @@ srCore::srCore()
 void srCore::reset()
 {
     multi_thread = 0;
-    global_recycler = 0;
-    scheduler = 0;
     texture = 0;
     surface = 0;
     surface_io_manager = 0;
@@ -355,9 +289,6 @@ void srCore::reset()
     hierarchy_io_manager = 0;
     filter = 0;
     root_node = 0;
-    memory_allocator = 0;
-    default_file_manager = 0;
-    file_manager = 0;
     palette = 0;
     timer = 0;
     registry_ = 0;

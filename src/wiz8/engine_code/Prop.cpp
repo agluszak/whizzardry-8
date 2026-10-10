@@ -29,9 +29,8 @@
 #include "surrender/srModelInstance.h"
 #include "surrender/srNode.h"
 
-#include "FileMan.h"
+#include "wiz8/filesystem.h"
 
-#include "DEBUG.H"
 
 #include <math.h>
 #include <new>
@@ -593,7 +592,7 @@ void W8Prop::UpdatePropAnimation()
         return;
     }
     if (rep->animation_playing == 0 && rep->random_play &&
-        rand() * (1.0f / RAND_MAX) < rep->play_chance) {
+        rand() * (1.0f / static_cast<float>(RAND_MAX)) < rep->play_chance) {
         if (rep->frame_direction == W8_ANIMATION_FORWARD_COMPLETE) {
             rep->subcycle = rep->first_frame;
             rep->frame_direction = W8_ANIMATION_FORWARD;
@@ -1157,7 +1156,8 @@ void W8Prop::DetachAnimationInstances(W8World* world)
    The read chain's success is reported even though the restore runs either
    way. */
 // FUNCTION: WIZ8 0x0044dbd0
-bool W8Prop::LoadAnimationState(int hFile)
+bool W8Prop::LoadAnimationState(wiz8::File* hFile)
+try
 {
     unsigned char unused;
     unsigned int count;
@@ -1166,12 +1166,12 @@ bool W8Prop::LoadAnimationState(int hFile)
     bool success;
     W8PathAI* path;
 
-    success = FileRead(hFile, &Rep()->subcycle, 1, 0) != 0 &&
-              FileRead(hFile, &Rep()->first_frame, 1, 0) != 0 &&
-              FileRead(hFile, &Rep()->last_frame, 1, 0) != 0 &&
-              FileRead(hFile, &Rep()->frame_direction, 1, 0) != 0 &&
-              FileRead(hFile, &Rep()->animation_playing, 1, 0) != 0 &&
-              FileRead(hFile, &unused, 1, 0) != 0;
+    success = (hFile->read(&Rep()->subcycle, 1).bytes == static_cast<std::size_t>(1)) != 0 &&
+              (hFile->read(&Rep()->first_frame, 1).bytes == static_cast<std::size_t>(1)) != 0 &&
+              (hFile->read(&Rep()->last_frame, 1).bytes == static_cast<std::size_t>(1)) != 0 &&
+              (hFile->read(&Rep()->frame_direction, 1).bytes == static_cast<std::size_t>(1)) != 0 &&
+              (hFile->read(&Rep()->animation_playing, 1).bytes == static_cast<std::size_t>(1)) != 0 &&
+              (hFile->read(&unused, 1).bytes == static_cast<std::size_t>(1)) != 0;
     if (Rep()->animation != 0) {
         total = static_cast<int>(AnimObjValue(Rep()->animation, 2));
         if (Rep()->last_frame >= total) {
@@ -1196,6 +1196,7 @@ bool W8Prop::LoadAnimationState(int hFile)
     }
     return success;
 }
+catch (const std::exception&) { return false; }
 
 /* Union of the per-frame bounds over every frame of the rep's animation.
    The rep's current frame is saved, the bounds for frame zero seed the merge,
@@ -1400,8 +1401,9 @@ bool CreateAndLoadProp(W8ReadLevelInfo* info, W8Prop** prop_out)
    PropRep method: LoadProp(pInfo, pProp). */
 // FUNCTION: WIZ8 0x0044aee0
 bool W8PropRepresentation::LoadProp(W8ReadLevelInfo* info, W8Prop* prop)
+try
 {
-    int hFile;
+    wiz8::File* hFile;
     bool success;
     signed char version;
     unsigned char frame_count = 0;
@@ -1417,7 +1419,7 @@ bool W8PropRepresentation::LoadProp(W8ReadLevelInfo* info, W8Prop* prop)
         srAssertFail("pInfo && pInfo->hFile && pProp", PROP_CPP, 0xae, 0);
     }
     hFile = info->hFile;
-    success = FileRead(hFile, &version, 1, 0);
+    success = (hFile->read(&version, 1).bytes == static_cast<std::size_t>(1));
     if (version < 4) {
         unsigned char b0 = 0;
         unsigned char b1 = 0;
@@ -1425,9 +1427,9 @@ bool W8PropRepresentation::LoadProp(W8ReadLevelInfo* info, W8Prop* prop)
         int ok;
         W8AniMesh* mesh;
 
-        if (!success || (success = FileRead(hFile, &b0, 1, 0), !success) ||
-            (success = FileRead(hFile, &b1, 1, 0), !success) ||
-            (success = FileRead(hFile, &b2, 1, 0), !success)) {
+        if (!success || (success = (hFile->read(&b0, 1).bytes == static_cast<std::size_t>(1)), !success) ||
+            (success = (hFile->read(&b1, 1).bytes == static_cast<std::size_t>(1)), !success) ||
+            (success = (hFile->read(&b2, 1).bytes == static_cast<std::size_t>(1)), !success)) {
             ok = 0;
         } else {
             ok = 1;
@@ -1443,7 +1445,7 @@ bool W8PropRepresentation::LoadProp(W8ReadLevelInfo* info, W8Prop* prop)
                 fail_line = 0xcb;
                 goto fail;
             }
-            success = FileRead(hFile, &playback_scale, 4, 0);
+            success = (hFile->read(&playback_scale, 4).bytes == static_cast<std::size_t>(4));
             if (!success) {
                 fail_line = 0xcb;
                 goto fail;
@@ -1479,17 +1481,17 @@ bool W8PropRepresentation::LoadProp(W8ReadLevelInfo* info, W8Prop* prop)
         flag_bits = 0;
         info->mesh_filename = 0;
         if (success) {
-            FileRead(hFile, &frame_count, 1, 0);
+            hFile->read_exact(&frame_count, 1);
         }
         if (version > 4) {
             float lx = 0.0f;
             float ly = 0.0f;
             float lz = 0.0f;
 
-            FileRead(hFile, &option_byte, 1, 0);
-            FileRead(hFile, &lx, 4, 0);
-            FileRead(hFile, &ly, 4, 0);
-            FileRead(hFile, &lz, 4, 0);
+            hFile->read_exact(&option_byte, 1);
+            hFile->read_exact(&lx, 4);
+            hFile->read_exact(&ly, 4);
+            hFile->read_exact(&lz, 4);
             lx *= g_double_five_hundred;
             ly *= g_double_five_hundred;
             lz *= g_double_five_hundred;
@@ -1501,7 +1503,7 @@ bool W8PropRepresentation::LoadProp(W8ReadLevelInfo* info, W8Prop* prop)
             this->location.z = lz;
         }
         if (version > 5) {
-            FileRead(hFile, &flag_bits, 4, 0);
+            hFile->read_exact(&flag_bits, 4);
             prop->flags |= flag_bits;
         }
         if (version > 6) {
@@ -1509,7 +1511,7 @@ bool W8PropRepresentation::LoadProp(W8ReadLevelInfo* info, W8Prop* prop)
             int length = -1;
             char* scan = buffer;
 
-            FileRead(hFile, buffer, 0x40, 0);
+            hFile->read_exact(buffer, 0x40);
             do {
                 if (length == 0) {
                     break;
@@ -1527,24 +1529,23 @@ bool W8PropRepresentation::LoadProp(W8ReadLevelInfo* info, W8Prop* prop)
         }
         if (version > 7) {
             slot_count = 0;
-            FileRead(hFile, &slot_count, 1, 0);
+            hFile->read_exact(&slot_count, 1);
             for (slot_i = 0; slot_i < slot_count; ++slot_i) {
                 unsigned short frame_tmp = 0;
                 unsigned short tag_tmp = 0;
                 W8PropAnimationSegment* slot = new W8PropAnimationSegment;
 
-                FileRead(hFile, &frame_tmp, 2, 0);
+                hFile->read_exact(&frame_tmp, 2);
                 slot->frame = static_cast<signed char>(frame_tmp);
-                FileRead(hFile, &tag_tmp, 2, 0);
+                hFile->read_exact(&tag_tmp, 2);
                 slot->tag = static_cast<unsigned char>(tag_tmp);
                 if (frame_count <= frame_tmp) {
                     srAssertFail(
                         "(usTemp < (UINT16)ubNumFrames)", /* c-style-cast-ok: verbatim assert text */
                         PROP_CPP, 0x11f,
-                        reinterpret_cast<const char*>(
-                            String("%s Prop Error:Segment %d frame number is out of range (%d)",
+                        FormatString("%s Prop Error:Segment %d frame number is out of range (%d)",
                                    prop->m_name, static_cast<unsigned int>(tag_tmp),
-                                   static_cast<unsigned int>(frame_tmp))));
+                                   static_cast<unsigned int>(frame_tmp)));
                 }
                 this->slots.Add(slot);
             }
@@ -1569,7 +1570,7 @@ bool W8PropRepresentation::LoadProp(W8ReadLevelInfo* info, W8Prop* prop)
             } else {
                 instance = AnimObjDispatchList(this->animation, 2, 0);
             }
-            named = reinterpret_cast<char*>(String("Prop: %s", prop->m_name));
+            named = FormatString("Prop: %s", prop->m_name);
             instance->setName(named);
             mesh_model = static_cast<stMeshModel*>(instance->getModel());
             for (; mesh_model != 0; mesh_model = mesh_model->next) {
@@ -1682,7 +1683,7 @@ bool W8PropRepresentation::LoadProp(W8ReadLevelInfo* info, W8Prop* prop)
         if (!result) {
             result = false;
         } else {
-            success = FileRead(hFile, &attach_flag, 1, 0);
+            success = (hFile->read(&attach_flag, 1).bytes == static_cast<std::size_t>(1));
             result = success;
         }
         if (attach_flag != 0) {
@@ -1730,12 +1731,12 @@ bool W8PropRepresentation::LoadProp(W8ReadLevelInfo* info, W8Prop* prop)
         unsigned char extra = 0;
 
         if (result) {
-            success = FileRead(hFile, &extra, 1, 0);
+            success = (hFile->read(&extra, 1).bytes == static_cast<std::size_t>(1));
             result = success;
         }
         if (extra != 0) {
-            if (result && (success = FileRead(hFile, &this->footstep_surface, 1, 0), success) &&
-                (success = FileRead(hFile, &this->footstep_material, 1, 0), success)) {
+            if (result && (success = (hFile->read(&this->footstep_surface, 1).bytes == static_cast<std::size_t>(1)), success) &&
+                (success = (hFile->read(&this->footstep_material, 1).bytes == static_cast<std::size_t>(1)), success)) {
                 result = true;
             } else {
                 result = false;
@@ -1759,6 +1760,7 @@ fail_with_result:
     srAssertFail("fSuccess", PROP_CPP, fail_line, 0);
     return result;
 }
+catch (const std::exception&) { return false; }
 
 /* The prop representation's current animation value, or -1 while it owns no
    animation. */
@@ -1824,7 +1826,7 @@ void W8Prop::CollectModelInstances(W8GrowableVector<stModelInstance*>* instances
    flags and the active byte). The per-prop byte writes only run while the
    previous writes succeed. */
 // FUNCTION: WIZ8 0x0044e830
-void SaveWorldProps(W8World* world, int handle)
+void SaveWorldProps(W8World* world, wiz8::File* handle)
 {
     int index;
     int count;
@@ -1835,20 +1837,20 @@ void SaveWorldProps(W8World* world, int handle)
 
     signature = 0xDEADD00D;
     version = 1;
-    FileWrite(handle, &signature, 4, 0);
-    FileWrite(handle, &version, 4, 0);
+    handle->write(&signature, 4);
+    handle->write(&version, 4);
     count = static_cast<int>(PLLength(world->plsProps));
-    FileWrite(handle, &count, 4, 0);
+    handle->write(&count, 4);
     for (index = 0; index < count; ++index) {
         prop = GetWorldProp(world, index);
         strcpy(name, prop->m_name);
-        FileWrite(handle, name, 0x40, 0);
-        if (FileWrite(handle, &prop->Rep()->subcycle, 1, 0) != 0 &&
-            FileWrite(handle, &prop->Rep()->first_frame, 1, 0) != 0 &&
-            FileWrite(handle, &prop->Rep()->last_frame, 1, 0) != 0 &&
-            FileWrite(handle, &prop->Rep()->frame_direction, 1, 0) != 0 &&
-            FileWrite(handle, &prop->Rep()->animation_playing, 1, 0) != 0) {
-            FileWrite(handle, &prop->Rep()->active, 1, 0);
+        handle->write(name, 0x40);
+        if ((handle->write(&prop->Rep()->subcycle, 1), true) != 0 &&
+            (handle->write(&prop->Rep()->first_frame, 1), true) != 0 &&
+            (handle->write(&prop->Rep()->last_frame, 1), true) != 0 &&
+            (handle->write(&prop->Rep()->frame_direction, 1), true) != 0 &&
+            (handle->write(&prop->Rep()->animation_playing, 1), true) != 0) {
+            handle->write(&prop->Rep()->active, 1);
         }
     }
 }
@@ -1858,7 +1860,7 @@ void SaveWorldProps(W8World* world, int handle)
    Records whose prop cannot be found are consumed by a scratch prop so the
    stream stays aligned. */
 // FUNCTION: WIZ8 0x0044e9a0
-void LoadWorldProps(W8World* world, int handle)
+void LoadWorldProps(W8World* world, wiz8::File* handle)
 {
     int index;
     int count;
@@ -1870,11 +1872,11 @@ void LoadWorldProps(W8World* world, int handle)
     W8Prop* prop;
     W8Prop* entry;
 
-    FileRead(handle, &signature, 4, 0);
+    handle->read_exact(&signature, 4);
     if (signature != 0xDEADD00D) {
         count = signature;
         for (index = 0; index < count; ++index) {
-            FileRead(handle, &key, 4, 0);
+            handle->read_exact(&key, 4);
             prop = 0;
             entries = static_cast<int>(PLLength(world->plsProps));
             for (int entry_index = 0; entry_index < entries; ++entry_index) {
@@ -1893,10 +1895,10 @@ void LoadWorldProps(W8World* world, int handle)
             }
         }
     } else {
-        FileRead(handle, &version, 4, 0);
-        FileRead(handle, &count, 4, 0);
+        handle->read_exact(&version, 4);
+        handle->read_exact(&count, 4);
         for (index = 0; index < count; ++index) {
-            FileRead(handle, name, 0x40, 0);
+            handle->read_exact(name, 0x40);
             prop = FindPropByName(g_world, name);
             if (prop != 0) {
                 prop->LoadAnimationState(handle);

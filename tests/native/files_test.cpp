@@ -1,13 +1,13 @@
-/* Asset, SLF and save contracts through the game file manager, not OS handles. */
-#include "FileMan.h"
-#include "LibraryDataBase.h"
+/* Asset, SLF and save contracts through native production streams. */
+#include "wiz8/slf.h"
 #include <wiz8/asset_paths.h>
 #include <wiz8/filesystem.h>
 #include <wiz8/file_time.h>
 #include <SDL3/SDL_stdinc.h>
 #include "surrender/srSystem.h"
 #include "surrender/srBinFStream.h"
-#include "surrender/srStringTable.h"
+#include "wiz8/virtual_file_stream.h"
+#include "wiz8/chunk.h"
 #include "temporary_directory.h"
 
 #include <cstdio>
@@ -18,6 +18,11 @@
 #include <set>
 #include <string>
 #include <vector>
+
+#if defined(__unix__) || defined(__APPLE__)
+#include <csignal>
+#include <sys/resource.h>
+#endif
 
 namespace fs = std::filesystem;
 #define CHECK(expression) do { if (!(expression)) { \
@@ -35,37 +40,29 @@ static std::string contents(const fs::path& path)
     std::ifstream file(path, std::ios::binary);
     return std::string(std::istreambuf_iterator<char>(file), {});
 }
-static HWFILE open_game_file(const char* path, UINT32 options = FILE_ACCESS_READ, bool temporary = false)
+template<class F> static bool fails(F&& action)
 {
-    std::string name(path);
-    return FileOpen(name.data(), options, temporary);
+    try { action(); return false; } catch (const std::exception&) { return true; }
 }
-static void write_bytes(HWFILE file, const std::string& text)
+static std::string read_bytes(wiz8::File& file, std::size_t size)
 {
-    UINT32 count = 99;
-    CHECK(FileWrite(file, const_cast<char*>(text.data()), UINT32(text.size()), &count));
-    CHECK(count == text.size());
-}
-static std::string read_bytes(HWFILE file, UINT32 bytes, bool complete = true)
-{
-    std::string result(bytes, '\0');
-    UINT32 count = 99;
-    CHECK(bool(FileRead(file, result.data(), bytes, &count)) == complete);
-    CHECK(count <= bytes);
-    result.resize(count);
-    return result;
+    std::string bytes(size, '\0');
+    const auto result = file.read(bytes.data(), bytes.size());
+    CHECK(result.bytes <= size);
+    bytes.resize(result.bytes);
+    return bytes;
 }
 static std::string slf_bytes()
 {
-    static_assert(sizeof(LIBHEADER) == 532);
-    static_assert(sizeof(DIRENTRY) == 280);
-    static_assert(sizeof(SGP_FILETIME) == 8);
-    LIBHEADER header{};
+    static_assert(sizeof(wiz8::SlfHeader) == 532);
+    static_assert(sizeof(wiz8::SlfEntry) == 280);
+    static_assert(sizeof(wiz8::DiskFileTime) == 8);
+    wiz8::SlfHeader header{};
     strcpy(header.sLibName, "Data.slf");
     strcpy(header.sPathToLibrary, "Data\\");
     header.iEntries = header.iUsed = 2;
     header.iVersion = 0x200;
-    DIRENTRY entries[2]{};
+    wiz8::SlfEntry entries[2]{};
     strcpy(entries[0].sFileName, "ArchiveOnly.bin");
     entries[0].uiOffset = sizeof(header);
     entries[0].uiLength = 8;
@@ -80,24 +77,9 @@ static std::string slf_bytes()
     CHECK(static_cast<unsigned char>(bytes[sizeof(header) + 15 + 268]) == 1);
     return bytes;
 }
-static std::set<std::string> scan(char* pattern)
-{
-    GETFILESTRUCT entry{};
-    std::set<std::string> names;
-    if (GetFileFirst(pattern, &entry))
-    {
-        do { names.insert(entry.zFileName); } while (GetFileNext(&entry));
-        GetFileClose(&entry);
-        CHECK(!GetFileNext(&entry));
-        GetFileClose(&entry);
-    }
-    return names;
-}
-
 int main() try
 {
-    const auto temporary = make_temporary_directory("wiz8-files");
-    const fs::path root = wiz8::path_from_utf8(temporary);
+    const auto root = wiz8::path_from_utf8(make_temporary_directory("wiz8-files"));
     const auto assets = root / "assets", user = root / "user", disc = root / "disc";
     fixture(assets / "data" / "MixedCase.BIN", "retail bytes");
     fixture(assets / "data" / "Override.bin", "loose!");
@@ -117,317 +99,321 @@ int main() try
     CHECK(fs::equivalent(wiz8::path_from_utf8(configured.assets), assets));
     CHECK(fs::equivalent(wiz8::path_from_utf8(configured.user), user));
     w8_native::configure_paths({wiz8::path_to_utf8(assets), wiz8::path_to_utf8(user),
-                                {wiz8::path_to_utf8(disc), "", ""}});
-    CHECK(InitializeFileManager(nullptr));
-    CHECK(InitializeFileDatabase());
+                                {wiz8::path_to_utf8(disc), wiz8::path_to_utf8(disc), wiz8::path_to_utf8(disc)}});
+    wiz8::mount_slf("Data/DATA.SLF");
+    auto file = wiz8::open_file("DATA/mixedcase.bin");
+    auto independent = wiz8::open_file("C:/data/MixedCase.BIN");
+    CHECK(file->size() == 12 && independent->tell() == 0);
+    CHECK(read_bytes(*file, 64) == "retail bytes");
+    CHECK(file->tell() == 12 && read_bytes(*file, 1).empty());
+    CHECK(fails([&] { char byte; file->read_exact(&byte, 1); }));
+    CHECK(independent->tell() == 0 && read_bytes(*independent, 6) == "retail");
+    CHECK(fails([&] { file->write("x", 1); }));
+    CHECK(file->seek(-5, wiz8::SeekOrigin::end) == 7);
+    CHECK(read_bytes(*file, 5) == "bytes");
+    CHECK(fails([&] { file->seek(-99, wiz8::SeekOrigin::current); }));
+    file->seek(0, wiz8::SeekOrigin::begin);
+    CHECK(file->read(nullptr, 0).bytes == 0);
+    CHECK(fails([&] { file->read(nullptr, 1); }));
+    file->close(); file->close(); independent.reset();
+    CHECK(fails([&] { file->read(nullptr, 1); }));
+    CHECK(fails([&] { wiz8::open_file("Data"); }));
+    CHECK(fails([&] { wiz8::open_file("missing/new.sav", wiz8::OpenMode::replace); }));
 
-    HWFILE file = open_game_file("DATA\\mixedcase.bin");
-    CHECK(file && FileGetSize(file) == 12);
-    HWFILE independent = open_game_file("C:/data/MixedCase.BIN");
-    CHECK(independent && independent != file);
-    CHECK(read_bytes(file, 64, false) == "retail bytes");
-    CHECK(FileCheckEndOfFile(file) && FileGetPos(file) == 12);
-    CHECK(read_bytes(file, 1, false).empty());
-    CHECK(FileGetPos(independent) == 0 && read_bytes(independent, 6) == "retail");
-    UINT32 count = 99;
-    CHECK(!FileWrite(file, const_cast<char*>("x"), 1, &count) && count == 0);
-    CHECK(FileSeek(file, 5, FILE_SEEK_FROM_END) && FileGetPos(file) == 7);
-    CHECK(read_bytes(file, 5) == "bytes");
-    CHECK(!FileSeek(file, UINT32(-99), FILE_SEEK_FROM_CURRENT));
-    CHECK(FileGetPos(file) == 12 && !FileSeek(file, 0, 99));
-    CHECK(FileSeek(file, 0, FILE_SEEK_FROM_START) && !FileCheckEndOfFile(file));
-    CHECK(FileRead(file, nullptr, 0, &count) && count == 0);
-    CHECK(!FileRead(file, nullptr, 1, &count) && count == 0);
-    FileClose(file);
-    FileClose(file);
-    FileClose(independent);
-    CHECK(!FileRead(file, nullptr, 1, &count) && count == 0);
-    CHECK(!FileRead(UINT32(-1), nullptr, 0, &count) && count == 0);
-    CHECK(!FileSeek(0, 0, FILE_SEEK_FROM_START) && FileGetPos(0) == -1);
-    CHECK(!open_game_file("Data", FILE_ACCESS_READ) && !FileExistsNoDB(const_cast<char*>("Data")));
-    CHECK(!open_game_file("missing\\new.sav", FILE_ACCESS_WRITE | FILE_CREATE_NEW));
-
-    file = open_game_file("Data\\MixedCase.BIN", FILE_ACCESS_READWRITE | FILE_OPEN_EXISTING);
-    CHECK(file);
-    write_bytes(file, "native");
-    CHECK(FileSeek(file, 0, FILE_SEEK_FROM_START));
-    CHECK(read_bytes(file, 12) == "native bytes");
-    FileClose(file);
+    file = wiz8::open_file("Data/MixedCase.BIN", wiz8::OpenMode::update);
+    file->write("native", 6);
+    file->seek(0, wiz8::SeekOrigin::begin);
+    CHECK(read_bytes(*file, 12) == "native bytes"); file.reset();
     CHECK(contents(assets / "data" / "MixedCase.BIN") == "retail bytes");
-    CHECK(FileDelete(const_cast<char*>("Data\\mixedcase.bin")));
-    file = open_game_file("Data\\MixedCase.BIN");
-    CHECK(read_bytes(file, 12) == "retail bytes");
-    FileClose(file);
-    CHECK(!FileDelete(const_cast<char*>("Data\\MixedCase.BIN")));
-
-    // Read-only installed assets can be copied up, but never altered in place.
-    CHECK(FileGetAttributes(const_cast<char*>("Data\\ReadOnly.bin")) & FILE_ATTRIBUTES_READONLY);
-    CHECK(FileClearAttributes(const_cast<char*>("Data\\ReadOnly.bin")));
-    CHECK(!(FileGetAttributes(const_cast<char*>("Data\\ReadOnly.bin")) & FILE_ATTRIBUTES_READONLY));
-    file = open_game_file("Data\\ReadOnly.bin", FILE_ACCESS_WRITE | FILE_OPEN_EXISTING);
-    CHECK(file);
-    write_bytes(file, "unlocked");
-    FileClose(file);
+    CHECK(wiz8::remove_file("Data/mixedcase.bin"));
+    CHECK(!wiz8::remove_file("Data/MixedCase.BIN"));
+    CHECK(wiz8::file_status("Data/ReadOnly.bin")->read_only);
+    wiz8::clear_read_only("Data/ReadOnly.bin");
+    CHECK(!wiz8::file_status("Data/ReadOnly.bin")->read_only);
+    file = wiz8::open_file("Data/ReadOnly.bin", wiz8::OpenMode::update);
+    file->write("unlocked", 8); file.reset();
     CHECK(contents(assets / "data" / "ReadOnly.bin") == "locked");
-    CHECK(!FileOpenHost(assets / "data" / "ReadOnly.bin", FILE_ACCESS_WRITE));
-    file = open_game_file("D:/levels/levels.slf");
-    CHECK(file && read_bytes(file, 10) == "disc bytes");
-    FileClose(file);
-    for (UINT32 mode : {FILE_OPEN_EXISTING, FILE_CREATE_ALWAYS, FILE_OPEN_ALWAYS, FILE_ACCESS_APPEND})
-        CHECK(!open_game_file("D:\\Levels\\LEVELS.SLF", FILE_ACCESS_WRITE | mode));
-    CHECK(!FileClearAttributes(const_cast<char*>("D:\\Levels\\LEVELS.SLF")));
-    CHECK(!FileDelete(const_cast<char*>("D:\\Levels\\LEVELS.SLF")));
-
-    char saves[] = "sAVES", characters[] = "Saves\\Characters";
-    CHECK(DirectoryExists(saves) && MakeFileManDirectory(saves));
-    CHECK(MakeFileManDirectory(characters) && DirectoryExists(characters));
-    CHECK(FileGetAttributes(saves) & FILE_ATTRIBUTES_DIRECTORY);
-    file = open_game_file("Saves\\CurrentGame.SAV");
-    CHECK(file && read_bytes(file, 9) == "user save");
-    FileClose(file);
-    CHECK(!open_game_file("Saves\\currentgame.sav", FILE_ACCESS_WRITE | FILE_CREATE_NEW));
-    fs::permissions(user / "Saves" / "CurrentGame.SAV", fs::perms::owner_read,
-                    fs::perm_options::replace);
-    CHECK(FileClearAttributes(const_cast<char*>("Saves\\CurrentGame.SAV")));
-    CHECK((fs::status(user / "Saves" / "CurrentGame.SAV").permissions() & fs::perms::owner_write) !=
-          fs::perms::none);
-    CHECK(contents(user / "Saves" / "CurrentGame.SAV") == "user save");
-    CHECK(!open_game_file("Saves\\missing.sav", FILE_ACCESS_WRITE | FILE_TRUNCATE_EXISTING));
-    file = open_game_file("Saves\\SGP.SAV", FILE_ACCESS_WRITE | FILE_CREATE_ALWAYS | FILE_TRUNCATE_EXISTING);
-    CHECK(file);
-    write_bytes(file, "sgp save");
-    CHECK(!FileRead(file, &count, sizeof(count), nullptr));
-    FileClose(file);
-    file = open_game_file("Saves\\SGP.SAV", FILE_ACCESS_READWRITE | FILE_ACCESS_APPEND);
-    CHECK(file && FileSeek(file, 0, FILE_SEEK_FROM_START));
-    write_bytes(file, " appended");
-    FileClose(file);
-    CHECK(contents(user / "Saves" / "SGP.SAV") == "sgp save appended");
-    file = open_game_file("Saves\\Installed.SAV", FILE_ACCESS_READWRITE | FILE_ACCESS_APPEND);
-    CHECK(file);
-    write_bytes(file, "+user");
-    FileClose(file);
-    CHECK(contents(assets / "Saves" / "Installed.SAV") == "installed save");
+    CHECK(fails([&] { wiz8::open_host_file(assets / "data" / "ReadOnly.bin", wiz8::OpenMode::update); }));
+    for (const char* drive : {"D", "E", "F"}) {
+        file = wiz8::open_file(std::string(drive) + ":/Levels/Levels.slf");
+        CHECK(read_bytes(*file, 10) == "disc bytes"); file.reset();
+    }
+    for (auto mode : {wiz8::OpenMode::update, wiz8::OpenMode::replace, wiz8::OpenMode::append})
+        CHECK(fails([&] { wiz8::open_file("D:/Levels/Levels.slf", mode); }));
+    CHECK(fails([&] { wiz8::clear_read_only("D:/Levels/Levels.slf"); }));
+    CHECK(fails([&] { wiz8::remove_file("D:/Levels/Levels.slf"); }));
+    wiz8::create_directory("sAVES"); wiz8::create_directory("Saves/Characters");
+    CHECK(wiz8::file_status("Saves/Characters")->info.type == SDL_PATHTYPE_DIRECTORY);
+    file = wiz8::open_file("Saves/Installed.SAV", wiz8::OpenMode::append);
+    file->write("+user", 5); file.reset();
     CHECK(contents(user / "Saves" / "Installed.SAV") == "installed save+user");
-    file = open_game_file("Saves\\SGP.SAV", FILE_ACCESS_WRITE | FILE_TRUNCATE_EXISTING);
-    CHECK(file && FileGetSize(file) == 0);
-    write_bytes(file, "replacement");
-    FileClose(file);
-    file = open_game_file("Saves\\SGP.SAV", FILE_ACCESS_WRITE | FILE_CREATE_ALWAYS);
-    CHECK(file && FileGetSize(file) == 0);
-    FileClose(file);
-    CHECK(contents(user / "Saves" / "CurrentGame.SAV") == "user save");
-
-    CHECK(FileCopy(const_cast<char*>("Saves\\CurrentGame.SAV"),
-                   const_cast<char*>("Saves\\Backup.SAV"), TRUE));
-    CHECK(!FileCopy(const_cast<char*>("Saves\\CurrentGame.SAV"),
-                    const_cast<char*>("Saves\\backup.sav"), TRUE));
-    CHECK(!FileCopy(const_cast<char*>("Saves\\CurrentGame.SAV"),
-                    const_cast<char*>("Saves\\currentgame.sav"), FALSE));
-    CHECK(!FileCopy(const_cast<char*>("missing.sav"),
-                    const_cast<char*>("Saves\\Backup.SAV"), FALSE));
+    CHECK(contents(assets / "Saves" / "Installed.SAV") == "installed save");
+    file = wiz8::open_file("Saves/Native.SAV", wiz8::OpenMode::replace);
+    file->write("save", 4); file.reset();
+    file = wiz8::open_file("Saves/Native.SAV", wiz8::OpenMode::append);
+    file->seek(0, wiz8::SeekOrigin::begin); file->write(" appended", 9); file.reset();
+    CHECK(contents(user / "Saves" / "Native.SAV") == "save appended");
+    file = wiz8::open_file("Saves/Native.SAV", wiz8::OpenMode::replace);
+    CHECK(file->size() == 0); file.reset();
+    {
+        char path[] = "Saves/Native.SAV";
+        fixture(user / "Saves" / "Native.SAV", "RIFF");
+        W8Chunk chunk;
+        CHECK(!chunk.OpenRead(path) && !chunk.m_hFile && chunk.m_heads.GetCount() == 0);
+        CHECK(chunk.OpenWrite(path));
+        const unsigned word = 0x12345678;
+        CHECK(chunk.OpenChunk(0x54534554, false));
+        CHECK(chunk.Write(&word, sizeof(word), nullptr));
+        CHECK(chunk.ReleaseCurrentChunk());
+        chunk.Close();
+        CHECK(chunk.OpenRead(path) && chunk.ChunkCount() == 1);
+        CHECK(chunk.OpenChunk(0, false) && chunk.CurrentChunkId() == 0x54534554);
+        unsigned loaded = 0;
+        CHECK(chunk.Read(&loaded, sizeof(loaded), nullptr) && loaded == word);
+        CHECK(chunk.ReleaseCurrentChunk());
+        chunk.Close();
+        // Destruction owns pending headers as well as the stream, even without Close.
+        CHECK(chunk.OpenRead(path));
+    }
+#if defined(__unix__) || defined(__APPLE__)
+    const auto limited_path = root / "write-limit.bin";
+    auto limited = wiz8::open_host_file(limited_path, wiz8::OpenMode::replace);
+    struct rlimit old_limit{};
+    CHECK(getrlimit(RLIMIT_FSIZE, &old_limit) == 0);
+    const auto old_handler = std::signal(SIGXFSZ, SIG_IGN);
+    CHECK(old_handler != SIG_ERR);
+    const struct rlimit no_writes{0, old_limit.rlim_max};
+    CHECK(setrlimit(RLIMIT_FSIZE, &no_writes) == 0);
+    const bool rejected_write = fails([&] { limited->write("checked", 7); limited->flush(); });
+    limited.reset();
+    CHECK(setrlimit(RLIMIT_FSIZE, &old_limit) == 0);
+    CHECK(std::signal(SIGXFSZ, old_handler) != SIG_ERR);
+    CHECK(rejected_write && fs::file_size(limited_path) == 0);
+#endif
+    wiz8::copy_file("Saves/CurrentGame.SAV", "Saves/Backup.SAV");
+    CHECK(fails([&] { wiz8::copy_file("Saves/CurrentGame.SAV", "Saves/backup.sav"); }));
+    CHECK(fails([&] { wiz8::copy_file("Saves/CurrentGame.SAV", "Saves/currentgame.sav", wiz8::CopyMode::replace); }));
+    CHECK(fails([&] { wiz8::copy_file("missing.sav", "Saves/Backup.SAV", wiz8::CopyMode::replace); }));
     CHECK(contents(user / "Saves" / "Backup.SAV") == "user save");
-    CHECK(FileCopy(const_cast<char*>("Data\\MixedCase.BIN"),
-                   const_cast<char*>("Saves\\Backup.SAV"), FALSE));
+    wiz8::copy_file("Data/MixedCase.BIN", "Saves/Backup.SAV", wiz8::CopyMode::replace);
     CHECK(contents(user / "Saves" / "Backup.SAV") == "retail bytes");
-    file = open_game_file("Saves\\Temporary.SAV", FILE_ACCESS_WRITE | FILE_CREATE_NEW, true);
-    CHECK(file);
-    write_bytes(file, "temporary");
-    CHECK(w8_native::change_directory("Data") == 0);
-    FileClose(file);
-    CHECK(w8_native::change_directory("C:\\") == 0);
-    CHECK(!FileExists(const_cast<char*>("Saves\\Temporary.SAV")));
-    CHECK(!open_game_file("Saves\\SGP.SAV", FILE_ACCESS_WRITE | FILE_ACCESS_APPEND | FILE_TRUNCATE_EXISTING));
-    CHECK(!open_game_file("Saves\\SGP.SAV", FILE_ACCESS_READ | FILE_ACCESS_APPEND));
-    file = open_game_file("Saves\\NewAppend.SAV", FILE_ACCESS_WRITE | FILE_ACCESS_APPEND | FILE_CREATE_NEW);
-    CHECK(file);
-    write_bytes(file, "first");
-    CHECK(FileSeek(file, 0, FILE_SEEK_FROM_START));
-    write_bytes(file, "+second");
-    FileClose(file);
-    CHECK(contents(user / "Saves" / "NewAppend.SAV") == "first+second");
-    file = open_game_file("Saves\\Sparse.SAV", FILE_ACCESS_READWRITE | FILE_CREATE_NEW);
-    CHECK(file && FileSeek(file, UINT32_MAX, FILE_SEEK_FROM_START));
-    CHECK(FileGetPos(file) == -1); // SGP exposes signed 32-bit positions.
-    write_bytes(file, "x");
-    CHECK(FileGetSize(file) == 0); // No silent narrowing of a >32-bit size.
-    CHECK(FileSeek(file, UINT32_MAX, FILE_SEEK_FROM_END) && FileGetPos(file) == 1);
-    FileClose(file);
-    CHECK(FileDelete(const_cast<char*>("Saves\\Sparse.SAV")));
-
     const auto unicode = root / wiz8::path_from_utf8("zażółć-雪.bin");
     fixture(unicode, "unicode import");
     CHECK(wiz8::path_from_utf8(wiz8::path_to_utf8(unicode)) == unicode);
-    file = FileOpenHost(unicode, FILE_ACCESS_READ);
-    CHECK(file && read_bytes(file, 14) == "unicode import");
-    FileClose(file);
+    file = wiz8::open_host_file(unicode);
+    CHECK(read_bytes(*file, 14) == "unicode import"); file.reset();
+    std::vector<std::string> host_files;
     const auto host_text = wiz8::path_to_utf8(unicode);
-    CHECK(!open_game_file(host_text.c_str()));
-    CHECK(!open_game_file("C:\\..\\outside.sav", FILE_ACCESS_WRITE | FILE_CREATE_ALWAYS));
-    CHECK(!open_game_file("Saves\\..\\..\\outside.sav", FILE_ACCESS_WRITE | FILE_CREATE_ALWAYS));
-    CHECK(!open_game_file("Saves\\part:stream", FILE_ACCESS_WRITE | FILE_CREATE_ALWAYS));
+    CHECK(srSystem::scanFiles(host_files, host_text.c_str()) == 1);
+    CHECK(host_files == std::vector<std::string>{host_text});
+    CHECK(fails([&] { wiz8::open_file(host_text); }));
+    for (const char* path : {"C:/../outside.sav", "Saves/../../outside.sav", "Saves/part:stream"})
+        CHECK(fails([&] { wiz8::open_file(path, wiz8::OpenMode::replace); }));
     const auto outside = root / "outside";
     fixture(outside / "untouched.sav", "outside");
     std::error_code symlink_error;
     fs::create_directory_symlink(outside, user / "Escape", symlink_error);
     if (!symlink_error) {
-        CHECK(!open_game_file("Escape\\untouched.sav", FILE_ACCESS_WRITE | FILE_CREATE_ALWAYS));
-        CHECK(!FileCopy(const_cast<char*>("Saves\\CurrentGame.SAV"),
-                       const_cast<char*>("Escape\\untouched.sav"), FALSE));
+        CHECK(fails([&] { wiz8::open_file("Escape/untouched.sav", wiz8::OpenMode::replace); }));
+        CHECK(fails([&] { wiz8::copy_file("Saves/CurrentGame.SAV", "Escape/untouched.sav", wiz8::CopyMode::replace); }));
         CHECK(contents(outside / "untouched.sav") == "outside");
     } else fprintf(stderr, "Symlink checks unavailable: %s\n", symlink_error.message().c_str());
     symlink_error.clear();
     fs::create_directory_symlink(assets, user / "AssetLink", symlink_error);
     if (!symlink_error) {
-        CHECK(!open_game_file("AssetLink\\data\\MixedCase.BIN", FILE_ACCESS_WRITE));
-        CHECK(!FileDelete(const_cast<char*>("AssetLink\\data\\MixedCase.BIN")));
-    } else fprintf(stderr, "Asset symlink checks unavailable: %s\n", symlink_error.message().c_str());
-
-    char pattern[] = "dAtA\\*.*", no_match[] = "Data\\*.absent";
-    const auto names = scan(pattern);
-    CHECK(names.size() == 5 && names.count("NoExtension") && names.count("MixedCase.BIN"));
-    CHECK(scan(no_match).empty());
-    GETFILESTRUCT bad{};
-    bad.iFindHandle = 999;
-    CHECK(!GetFileNext(&bad));
-    GetFileClose(&bad);
-    std::vector<GETFILESTRUCT> active(20);
-    for (auto& search : active)
-        CHECK(GetFileFirst(pattern, &search));
-    CHECK(!GetFileFirst(pattern, &bad));
-    for (auto& search : active)
-        GetFileClose(&search);
-    CHECK(GetFileFirst(pattern, &bad));
-    CHECK(w8_native::change_directory("Saves") == 0);
-    CHECK(GetFileNext(&bad));
-    CHECK(w8_native::change_directory("C:\\") == 0);
-    GetFileClose(&bad);
+        CHECK(fails([&] { wiz8::open_file("AssetLink/data/MixedCase.BIN", wiz8::OpenMode::update); }));
+        CHECK(fails([&] { wiz8::remove_file("AssetLink/data/MixedCase.BIN"); }));
+    }
+    const auto names = wiz8::list_directory("dAtA", "*.*");
+    CHECK(names.size() == 5 && std::find(names.begin(), names.end(), "NoExtension") != names.end());
+    CHECK(wiz8::list_directory("Data", "*.absent").empty());
     char directory[512];
-    CHECK(GetExecutableDirectory(directory) && directory == configured.assets);
-
     // Renderer callers share the same namespace, without inspecting their adapters.
     {
         srBinIFStream input("DATA\\mixedcase.bin");
         CHECK(input.isOpen());
+        CHECK(std::string(input.getPath()) == "DATA\\mixedcase.bin");
         input.read(directory, 12);
         CHECK(!memcmp(directory, "retail bytes", 12));
         input.close();
+        CHECK(!input.isOpen() && std::string(input.getPath()).empty());
+        input.close();
+        input.open("Data/MixedCase.BIN");
+        CHECK(input.isOpen() && std::string(input.getPath()) == "Data/MixedCase.BIN");
+        input.close();
+        input.open(nullptr);
+        CHECK(!input.isOpen() && std::string(input.getPath()).empty());
+        input.open("Data/missing-renderer.bin");
+        CHECK(!input.isOpen() && !input.good() && std::string(input.getPath()).empty());
+        input.open("");
+        CHECK(!input.isOpen() && !input.good());
         srBinOFStream output("Saves\\Renderer.SAV");
         CHECK(output.isOpen());
         output.write("renderer save", 13);
         output.close();
         CHECK(contents(user / "Saves" / "Renderer.SAV") == "renderer save");
+
+        fixture(assets / "data" / "RendererUpdate.bin", "asset bytes");
+        srBinIOFStream update("C:\\data\\rendererupdate.bin");
+        CHECK(update.isOpen() && update.good());
+        update.write("USER!", 5);
+        update.seek(0);
+        update.read(directory, 11);
+        CHECK(update.good() && !memcmp(directory, "USER! bytes", 11));
+        update.close();
+        CHECK(contents(assets / "data" / "RendererUpdate.bin") == "asset bytes");
+        input.open("Data/RENDERERUPDATE.BIN");
+        CHECK(input.isOpen() && input.good());
+        input.read(directory, 11);
+        CHECK(input.good() && !memcmp(directory, "USER! bytes", 11));
+        input.close();
+
+        srBinIFStream disc_input("D:\\levels\\levels.slf");
+        CHECK(disc_input.isOpen() && disc_input.good());
+        disc_input.read(directory, 10);
+        CHECK(disc_input.good() && !memcmp(directory, "disc bytes", 10));
+        srBinOFStream disc_output("D:/Levels/LEVELS.SLF");
+        CHECK(!disc_output.isOpen() && !disc_output.good());
+        CHECK(contents(disc / "Levels" / "LEVELS.SLF") == "disc bytes");
     }
-    srStringTable table;
+    std::vector<std::string> table{"existing"};
     CHECK(srSystem::scanFiles(table, "Data\\*.SLF") == 1);
+    CHECK(table.size() == 2 && table.front() == "existing");
+    CHECK(table.back() == "C:\\Data\\DATA.SLF");
+    CHECK(srSystem::scanFiles(table, "Data/", "*.SLF") == 1);
+    CHECK(table.size() == 3 && table[1] == table[2]);
+    CHECK(srSystem::scanFiles(table, nullptr) == 0);
+    CHECK(srSystem::scanFiles(table, "") == 0);
+    CHECK(srSystem::scanFiles(table, "Data/") == 0);
+    CHECK(srSystem::scanFiles(table, "Data", nullptr) == 0);
+    CHECK(srSystem::scanFiles(table, "Data/*.absent") == 0 && table.size() == 3);
 
-    CHECK(FileExists(const_cast<char*>("Data\\archiveonly.bin")));
-    CHECK(!FileExistsNoDB(const_cast<char*>("Data\\archiveonly.bin")));
-    HWFILE archived = open_game_file("Data\\archiveonly.bin");
-    CHECK(archived && FileGetSize(archived) == 8);
-    // Library reads are entry-bounded: an oversized request is rejected whole.
-    CHECK(read_bytes(archived, 9, false).empty() && FileGetPos(archived) == 0);
-    CHECK(read_bytes(archived, 8) == "archive!");
-    CHECK(FileCheckEndOfFile(archived));
-    CHECK(FileSeek(archived, 3, FILE_SEEK_FROM_START));
-    CHECK(read_bytes(archived, 5) == "hive!");
-    CHECK(!FileWrite(archived, const_cast<char*>("x"), 1, &count) && count == 0);
-    SGP_FILETIME creation{}, accessed{}, modified{};
-    CHECK(GetFileManFileTime(archived, &creation, &accessed, &modified));
-    CHECK(creation.dwLowDateTime == 0 && creation.dwHighDateTime == 0);
-    CHECK(modified.dwLowDateTime == 0xd53e8001u && modified.dwHighDateTime == 0x019db1deu);
-    FileClose(archived);
-    // Regular and bounded entries share ownership, not cursor or access state.
-    {
-        const auto first = open_game_file("Data\\archiveonly.bin");
-        const auto second = open_game_file("Data\\archiveonly.bin");
-        const auto regular = open_game_file("Saves\\CurrentGame.SAV");
-        CHECK(first && second && regular && first != second && second != regular && first != regular);
-        std::unique_ptr<wiz8::File> independent(OpenLibraryStream(first));
-        CHECK(independent);
-        CHECK(FileSeek(first, 3, FILE_SEEK_FROM_START));
-        CHECK(FileGetPos(second) == 0 && read_bytes(second, 4) == "arch");
-        CHECK(read_bytes(first, 5) == "hive!");
-        CHECK(FileSeek(first, UINT32(-1), FILE_SEEK_FROM_CURRENT));
-        CHECK(FileGetPos(first) == 7);
-        CHECK(!FileSeek(first, 2, FILE_SEEK_FROM_CURRENT) && FileGetPos(first) == 7);
-        CHECK(!FileSeek(second, 9, FILE_SEEK_FROM_END) && FileGetPos(second) == 4);
-        const auto id = GetLibraryIDFromFileName(const_cast<char*>("Data\\archiveonly.bin"));
-        CHECK(CloseLibrary(id));
-        CHECK(!FileSeek(first, 0, FILE_SEEK_FROM_START));
-        CHECK(!FileSeek(second, 0, FILE_SEEK_FROM_START));
-        CHECK(read_bytes(regular, 4) == "user");
-        char payload[8];
-        CHECK(independent->read(payload, sizeof(payload)).bytes == sizeof(payload));
-        CHECK(std::string(payload, sizeof(payload)) == "archive!");
-        FileClose(regular);
-        CHECK(OpenLibrary(id));
+    for (const char* path : {"Data/archiveonly.bin", "Data\\archiveonly.bin",
+                             "C:/Data\\archiveonly.bin"}) {
+        W8VirtualFileBinIStream input(path);
+        CHECK(input.good() && input.getSize() == 8);
+        char bytes[8];
+        input.read(bytes, sizeof(bytes));
+        CHECK(input.good() && input.tell() == sizeof(bytes));
+        CHECK(!memcmp(bytes, "archive!", sizeof(bytes)));
     }
-    file = open_game_file("Data\\Override.bin");
-    CHECK(file && read_bytes(file, 6) == "loose!");
-    FileClose(file);
+    CHECK(!W8VirtualFileBinIStream(nullptr).good());
+    CHECK(!W8VirtualFileBinIStream("").good());
 
-    // Keep archive corruption negatives at the real SLF initializer.
-    for (std::size_t length : {std::size_t(20), archive_bytes.size() - 1})
-    {
+
+    CHECK(wiz8::file_status("Data/archiveonly.bin")->archived);
+    auto archived = wiz8::open_file("Data/archiveonly.bin");
+    CHECK(archived->size() == 8);
+    CHECK(fails([&] { read_bytes(*archived, 9); }) && archived->tell() == 0);
+    CHECK(read_bytes(*archived, 8) == "archive!");
+    CHECK(archived->read(nullptr, 0).bytes == 0);
+    CHECK(fails([&] { read_bytes(*archived, 1); }));
+    CHECK(archived->seek(3, wiz8::SeekOrigin::begin) == 3);
+    CHECK(read_bytes(*archived, 5) == "hive!");
+    CHECK(fails([&] { archived->write("x", 1); }));
+    const auto times = archived->times();
+    CHECK(times.created.ticks() == 0 && times.accessed.ticks() == 0);
+    CHECK(times.modified.low == 0xd53e8001u && times.modified.high == 0x019db1deu);
+    auto second = wiz8::open_file("Data/archiveonly.bin");
+    CHECK(second->tell() == 0 && read_bytes(*second, 4) == "arch");
+    CHECK(archived->seek(-1, wiz8::SeekOrigin::current) == 7);
+    CHECK(fails([&] { archived->seek(2, wiz8::SeekOrigin::current); }));
+    CHECK(archived->tell() == 7);
+    CHECK(fails([&] { second->seek(-9, wiz8::SeekOrigin::end); }));
+    CHECK(second->tell() == 4);
+    wiz8::clear_asset_archives();
+    CHECK(read_bytes(*archived, 1) == "!");
+    CHECK(read_bytes(*second, 4) == "ive!");
+    archived.reset(); second.reset();
+    wiz8::mount_slf("Data/DATA.SLF");
+    file = wiz8::open_file("Data/Override.bin");
+    CHECK(read_bytes(*file, 6) == "loose!"); file.reset();
+    auto patch = archive_bytes;
+    patch.replace(sizeof(wiz8::SlfHeader), 8, "patched!");
+    fixture(assets / "Patches" / "Patch.000", patch);
+    wiz8::mount_slf("Patches/Patch.000", true);
+    file = wiz8::open_file("C:/DATA/ARCHIVEONLY.BIN");
+    CHECK(read_bytes(*file, 8) == "patched!"); file.reset();
+    auto latest_patch = patch;
+    latest_patch.replace(sizeof(wiz8::SlfHeader), 8, "latest!!");
+    fixture(assets / "Patches" / "Patch.049", latest_patch);
+    wiz8::mount_slf("Patches/Patch.049", true);
+    file = wiz8::open_file("Data/archiveonly.bin");
+    CHECK(read_bytes(*file, 8) == "latest!!"); file.reset();
+    fixture(assets / "data" / "ArchiveOnly.bin", "loose archive");
+    file = wiz8::open_file("Data/archiveonly.bin");
+    CHECK(read_bytes(*file, 32) == "loose archive"); file.reset();
+    fs::remove(assets / "data" / "ArchiveOnly.bin");
+    for (std::size_t length : {std::size_t(20), archive_bytes.size() - 1}) {
         fixture(assets / "data" / "Truncated.slf", archive_bytes.substr(0, length));
-        LibraryHeaderStruct library{};
-        char path[] = "Data\\Truncated.slf";
-        CHECK(!InitializeLibrary(path, &library, FALSE));
+        CHECK(fails([&] { wiz8::mount_slf("Data/Truncated.slf"); }));
     }
-    auto invalid_entry = archive_bytes;
-    DIRENTRY invalid{};
-    memcpy(&invalid, invalid_entry.data() + sizeof(LIBHEADER) + 15, sizeof(invalid));
-    invalid.uiLength = UINT32(-1);
-    memcpy(invalid_entry.data() + sizeof(LIBHEADER) + 15, &invalid, sizeof(invalid));
-    fixture(assets / "data" / "InvalidEntry.slf", invalid_entry);
-    LibraryHeaderStruct library{};
-    char invalid_path[] = "Data\\InvalidEntry.slf";
-    CHECK(!InitializeLibrary(invalid_path, &library, FALSE));
-    const auto library_id = GetLibraryIDFromFileName(const_cast<char*>("Data\\archiveonly.bin"));
-    CHECK(library_id >= 0);
-    auto& archive_stream = *gFileDataBase.pLibraries[library_id].hLibraryHandle;
-    const auto archive_path = archive_stream.physical_path();
-    // Retain cached entries, but release all streams before changing the backing file.
-    archive_stream.close();
-    fs::resize_file(archive_path, sizeof(LIBHEADER) + 3);
-    archive_stream = std::move(*wiz8::open_host_file(archive_path));
-    CHECK(!open_game_file("Data\\archiveonly.bin"));
-    archive_stream.close();
-    fixture(archive_path, archive_bytes);
-    archive_stream = std::move(*wiz8::open_host_file(archive_path));
-
-    CHECK(!GetFileManFileTime(0, &creation, &accessed, &modified));
-    CHECK(creation.dwLowDateTime == 0 && modified.dwHighDateTime == 0);
-    // Grow slots past the initial allocation and close a sparse set safely.
-    std::vector<HWFILE> readers;
-    for (unsigned i = 0; i < 45; ++i)
-    {
-        file = open_game_file(i % 2 ? "Data\\archiveonly.bin" : "Saves\\CurrentGame.SAV");
-        CHECK(file);
-        CHECK(std::find(readers.begin(), readers.end(), file) == readers.end());
-        CHECK(read_bytes(file, 4) == (i % 2 ? "arch" : "user"));
-        readers.push_back(file);
+    auto invalid = archive_bytes;
+    wiz8::SlfEntry entry{};
+    memcpy(&entry, invalid.data() + sizeof(wiz8::SlfHeader) + 15, sizeof(entry));
+    entry.uiLength = UINT32_MAX;
+    memcpy(invalid.data() + sizeof(wiz8::SlfHeader) + 15, &entry, sizeof(entry));
+    fixture(assets / "data" / "InvalidEntry.slf", invalid);
+    CHECK(fails([&] { wiz8::mount_slf("Data/InvalidEntry.slf"); }));
+    for (int corruption = 0; corruption < 4; ++corruption) {
+        auto bytes = archive_bytes;
+        wiz8::SlfHeader header{};
+        memcpy(&header, bytes.data(), sizeof(header));
+        if (corruption == 0) header.iEntries = -1;
+        if (corruption == 1) header.iUsed = 3;
+        if (corruption == 2) memset(header.sPathToLibrary, 'x', sizeof(header.sPathToLibrary));
+        if (corruption == 3) {
+            const auto offset = sizeof(header) + 15;
+            memcpy(bytes.data() + offset + sizeof(wiz8::SlfEntry), bytes.data() + offset,
+                   sizeof(wiz8::SlfEntry));
+        }
+        memcpy(bytes.data(), &header, sizeof(header));
+        fixture(assets / "data" / "Malformed.slf", bytes);
+        CHECK(fails([&] { wiz8::mount_slf("Data/Malformed.slf", true); }));
+        file = wiz8::open_file("Data/archiveonly.bin");
+        CHECK(read_bytes(*file, 8) == "latest!!"); file.reset();
     }
-    for (std::size_t i = 0; i < readers.size(); i += 2)
-        FileClose(readers[i]);
-    ShutdownFileManager();
-    for (const auto handle : readers)
-        CHECK(!FileSeek(handle, 0, FILE_SEEK_FROM_START));
-    CHECK(ShutDownFileDatabase());
-    CHECK(InitializeFileDatabase());
-    file = open_game_file("Saves\\DatabaseTemporary.SAV", FILE_ACCESS_WRITE | FILE_CREATE_NEW, true);
-    CHECK(file);
-    write_bytes(file, "delete on database shutdown");
-    CHECK(ShutDownFileDatabase());
-    CHECK(!FileExistsNoDB(const_cast<char*>("Saves\\DatabaseTemporary.SAV")));
-    ShutdownFileManager();
+    wiz8::clear_asset_archives();
+    wiz8::mount_slf("Data/DATA.SLF");
+    auto stale_archive = wiz8::open_file("Data/ArchiveOnly.bin");
+    fs::resize_file(assets / "data" / "DATA.SLF", sizeof(wiz8::SlfHeader) + 3);
+    CHECK(fails([&] { wiz8::open_file("Data/archiveonly.bin"); }));
+    CHECK(fails([&] { char byte; stale_archive->read(&byte, 1); }));
+    stale_archive.reset();
+    fixture(assets / "data" / "DATA.SLF", archive_bytes);
+    std::vector<std::unique_ptr<wiz8::File>> readers;
+    for (unsigned i = 0; i < 45; ++i) {
+        auto reader = wiz8::open_file(i % 2 ? "Data/archiveonly.bin" : "Saves/CurrentGame.SAV");
+        CHECK(read_bytes(*reader, 4) == (i % 2 ? "arch" : "user"));
+        readers.push_back(std::move(reader));
+    }
+    for (std::size_t i = 0; i < readers.size(); i += 2) readers[i].reset();
+    readers.clear();
+    auto level_archive = archive_bytes;
+    wiz8::SlfHeader level_header{};
+    memcpy(&level_header, level_archive.data(), sizeof(level_header));
+    strcpy(level_header.sPathToLibrary, "Levels\\");
+    memcpy(level_archive.data(), &level_header, sizeof(level_header));
+    fixture(disc / "Levels" / "LEVELS.SLF", level_archive);
+    wiz8::refresh_asset_archives();
+    file = wiz8::open_file("Levels/ArchiveOnly.bin");
+    CHECK(read_bytes(*file, 8) == "archive!"); file.reset();
+    file = wiz8::open_file("Data/ArchiveOnly.bin");
+    CHECK(read_bytes(*file, 8) == "latest!!");
+    // Refresh replaced disc metadata, but never invalidates an existing cursor.
+    level_archive.replace(sizeof(level_header), 8, "newdisc!");
+    fixture(disc / "Levels" / "LEVELS.SLF", level_archive);
+    wiz8::refresh_asset_archives();
+    CHECK(file->tell() == 8); file.reset();
+    file = wiz8::open_file("Levels/ArchiveOnly.bin");
+    CHECK(read_bytes(*file, 8) == "newdisc!"); file.reset();
+    wiz8::clear_asset_archives();
     CHECK(contents(user / "Saves" / "CurrentGame.SAV") == "user save");
     CHECK(contents(assets / "data" / "MixedCase.BIN") == "retail bytes");
     CHECK(contents(assets / "data" / "ReadOnly.bin") == "locked");
     fs::permissions(assets / "data" / "ReadOnly.bin", fs::perms::owner_write, fs::perm_options::add);
     fs::remove_all(root);
-    puts("ok: game streams, immutable assets, user overlays, UTF-8 imports and bounded SLF records");
+    puts("ok: native game streams, immutable assets, user overlays, UTF-8 imports and bounded SLF records");
 }
 catch (const std::exception& error)
 {

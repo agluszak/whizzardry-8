@@ -70,4 +70,4 @@ public:
     }
 };
 
-static_assert((sizeof(srQuadWord) == 8), "srQuadWord_must_be_8");
+W8_ABI_ASSERT((sizeof(srQuadWord) == 8), "srQuadWord_must_be_8");

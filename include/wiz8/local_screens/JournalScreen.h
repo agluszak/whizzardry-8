@@ -1,5 +1,7 @@
 #pragma once
 
+#include "wiz8/filesystem.h"
+
 extern wchar_t g_default_level[];
 #include "wiz8/fact_state.h"
 #include "wiz8/layouts/screen_state.h"
@@ -34,7 +36,7 @@ struct W8JournalEntry {
     W8FactId fact;
     int alternate_text;
 };
-static_assert(sizeof(W8JournalEntry) == 0x0c, "W8JournalEntry_size");
+W8_ABI_ASSERT(sizeof(W8JournalEntry) == 0x0c, "W8JournalEntry_size");
 
 /* The fact journal, created lazily by the initializer below and
    appended to whenever a fact changes. */
@@ -48,11 +50,11 @@ void InitializeFactJournal(void);
 void RecordFactChangeForJournal(W8FactId fact_id);
 /* Write the entry count, a format dword and each journal entry
    into the open JRNL chunk. */
-void SaveFactJournal(int file);
+void SaveFactJournal(wiz8::File* file);
 unsigned char JournalScreenInitialize(void);
 unsigned char JournalScreenEnter(void);
 void JournalScreenFrame(void);
 unsigned char JournalScreenLeave(int leaving);
 unsigned char JournalScreenFinalize(void);
 /* Load the fact journal vector from the JRNL section. */
-void LoadJournalEntries(unsigned int file);
+void LoadJournalEntries(wiz8::File* file);

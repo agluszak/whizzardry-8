@@ -714,7 +714,7 @@ unsigned char HandleMipeMonsterCreateKey(unsigned short key)
     case 0x39:
         g_mipe_count =
             static_cast<int>(static_cast<char>(static_cast<char>(key) - 0x30)) + g_mipe_count * 10;
-        /* fall through */
+        [[fallthrough]];
     case 0x20:
         ShowMipeMonsterStatus();
         return 1;
@@ -2272,7 +2272,6 @@ unsigned char HandleMipeKey(const InputAtom* event)
     unsigned short event_type;
     Trigger* trigger;
     W8Item* rep_item;
-    wchar_t name[100];
     int shown;
 
     handled = false;

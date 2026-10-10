@@ -1,3 +1,4 @@
+#include <new>
 #include "wiz8/wiz8_windows.h"
 #include "wiz8/spell_ids.h"
 #include "wiz8/conditions.h"
@@ -1294,7 +1295,7 @@ unsigned char CampScreenEnter(void)
     }
     ClearItemDrag();
     if (!g_camp_screen) {
-        g_camp_screen = static_cast<W8CampScreenState*>(malloc(sizeof(W8CampScreenState)));
+        g_camp_screen = new (std::nothrow) W8CampScreenState{};
         if (!g_camp_screen) {
             if (IsMessageBoxActive()) {
                 CloseMessageBox();
@@ -1303,7 +1304,6 @@ unsigned char CampScreenEnter(void)
             RequestScreenTransition();
             return 0;
         }
-        memset(g_camp_screen, 0, sizeof(W8CampScreenState));
     }
     SetClippingRegionAndImageWidth(0x500, 0, 0, 0x280, 0x1e0);
     g_camp_screen->item_action = initial_item_action;
@@ -1326,8 +1326,8 @@ unsigned char CampScreenEnter(void)
         g_camp_screen->spell_ranges[range_index] =
             new W8CampSpellRange(static_cast<W8SpellRealm>(range_index));
     }
-    g_camp_screen->effect_list = 0;
-    g_camp_screen->effect_items_only = 1;
+    g_camp_screen->effect_list.clear();
+    g_camp_screen->effect_items_only = true;
     g_camp_screen->effect_filter = W8_CAMP_EFFECT_FILTER_ALL;
     g_camp_screen->stats_range = new W8CampStatsRange;
     g_camp_screen->stats_controls = new W8CampStatsControls;
@@ -1495,7 +1495,7 @@ unsigned char CampScreenLeave(int)
     delete g_camp_screen->stats_range;
     delete g_camp_screen->stats_controls;
     delete g_camp_screen->character_info;
-    free(g_camp_screen);
+    delete g_camp_screen;
     g_camp_screen = 0;
     MSYS_Shutdown();
     ResetRegions();
@@ -1731,11 +1731,7 @@ void DeactivateCampPage(void)
         state->stats_range->m_range->EnableRegionSet(false);
         state->stats_controls->EnableRegionSet(false);
         state->character_info->SetEnabled(false);
-        if (state->effect_list != 0) {
-            DeleteList(state->effect_list);
-            state->effect_list = 0;
-            return;
-        }
+        state->effect_list.clear();
         break;
     case W8_CAMP_PAGE_SKILLS:
         DisableCampSkillRegions();
@@ -2773,8 +2769,8 @@ void ShowEndingScreen(void)
 {
     int fade_to_black;
     bool schedule_fade;
-    char* music;
-    char* sound;
+    const char* music;
+    const char* sound;
     int image;
     wchar_t text[512];
     W8ControlsRect bounds;

@@ -3,6 +3,8 @@
 #include "srColorSurfaceIFace.h"
 #include "srPalette.h"
 
+#include <vector>
+
 // VTABLE: SURRENDER 0x100773A0
 // class srClassSupport<srColorSurface, srColorSurfaceIFace, 0, 12560>
 
@@ -19,6 +21,7 @@ public:
     SR_DLL_IMPORT srColorSurface(srPixelConvert::e_surfaceType type, void* data,
                                  w8_ulong width, w8_ulong height, w8_ulong pitch);
 
+    SR_DLL_IMPORT srColorSurface(const srColorSurface& other);
     SR_DLL_IMPORT srColorSurface& operator=(const srColorSurface& other);
 
     static SR_DLL_IMPORT const char* sGetClassName();
@@ -72,15 +75,10 @@ public:
     SR_DLL_IMPORT void setPixelReadFunc(srPixelConvert::ConversionFunc function);
     SR_DLL_IMPORT void setPixelWriteFunc(srPixelConvert::ConversionFunc function);
 
-protected:
-    virtual SR_DLL_IMPORT ~srColorSurface() override;
-
 private:
     virtual SR_DLL_IMPORT void copyNoScaling(srColorSurfaceIFace& source) override;
     virtual SR_DLL_IMPORT void scaleFast(srColorSurfaceIFace& source) override;
 
-    SR_DLL_IMPORT void allocData();
-    SR_DLL_IMPORT void freeData();
     SR_DLL_IMPORT void init(const srPixelConvert::PixelFormat& format, w8_ulong width,
                             w8_ulong height, w8_ulong pitch);
     SR_DLL_IMPORT unsigned char* getAddress(w8_long x, w8_long y);
@@ -91,13 +89,13 @@ private:
     SR_DLL_IMPORT void reversePixels(void* pixels, w8_ulong count);
     SR_DLL_IMPORT int isCompatible(srColorSurfaceIFace& source);
 
-    srPixelConvert::ConversionFunc pixel_write;
-    srPixelConvert::ConversionFunc pixel_read;
+    srPixelConvert::ConversionFunc pixel_write = nullptr;
+    srPixelConvert::ConversionFunc pixel_read = nullptr;
     srPtr<srPalette> palette;
     enum { BORROWED_DATA = 0x01u };
-    w8_ulong surface_flags;
-    w8_long data_size;
-    void* data;
+    w8_ulong surface_flags = 0;
+    std::vector<unsigned char> owned_data;
+    unsigned char* borrowed_data = nullptr;
 };
 
 W8_ABI_ASSERT((sizeof(srColorSurface) == 0x5c), "srColorSurface_must_be_0x5c");

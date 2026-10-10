@@ -1,3 +1,4 @@
+#include "wiz8/filesystem.h"
 #include <cstring>
 #include <math.h>
 
@@ -256,13 +257,14 @@ static void ClampEnvironmentComponent(float& component)
 }
 
 // FUNCTION: WIZ8 0x00482F90
-BOOLEAN ReadLightColourTable(int hFile)
+BOOLEAN ReadLightColourTable(wiz8::File* hFile)
+try
 {
     unsigned char components[256 * 3];
     int index;
 
     memset(components, 0xff, sizeof(components));
-    if (hFile == 0 || !FileRead(hFile, components, sizeof(components), 0)) {
+    if (hFile == 0 || !(hFile->read(components, sizeof(components)).bytes == static_cast<std::size_t>(sizeof(components)))) {
         return 0;
     }
 
@@ -276,15 +278,17 @@ BOOLEAN ReadLightColourTable(int hFile)
     }
     return 1;
 }
+catch (const std::exception&) { return false; }
 
 // FUNCTION: WIZ8 0x004830D0
-BOOLEAN ReadEnvironmentColourTable(int hFile)
+BOOLEAN ReadEnvironmentColourTable(wiz8::File* hFile)
+try
 {
     unsigned char components[256 * 3];
     int index;
 
     memset(components, 0xff, sizeof(components));
-    if (hFile == 0 || !FileRead(hFile, components, sizeof(components), 0)) {
+    if (hFile == 0 || !(hFile->read(components, sizeof(components)).bytes == static_cast<std::size_t>(sizeof(components)))) {
         return 0;
     }
 
@@ -298,6 +302,7 @@ BOOLEAN ReadEnvironmentColourTable(int hFile)
     }
     return 1;
 }
+catch (const std::exception&) { return false; }
 
 // FUNCTION: WIZ8 0x00483210
 void BuildEnvironmentColourRamp(void)
@@ -881,7 +886,7 @@ void SetCameraLightMode(int mode)
                 camera_light->intensity = intensity;
                 return;
             }
-            /* fall through */
+            [[fallthrough]];
         case 2:
             camera_light->setFlag(srNode::FLAG_DISABLE);
             return;

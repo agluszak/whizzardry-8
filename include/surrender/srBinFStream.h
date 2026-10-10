@@ -2,19 +2,19 @@
 
 #include "srBinIStream.h"
 #include "srBinOStream.h"
-#include "srString.h"
+
+#include <string>
 
 #include <wiz8/filesystem.h>
 
 // VTABLE: SURRENDER 0x10076A40 srBinStream
 // VTABLE: SURRENDER 0x10076A54 srBinFStream
 // class srBinFStream
-class
-#if defined(SURRENDER_BUILD)
-
-#endif
-    srBinFStream : public virtual srBinStream {
+class srBinFStream : public virtual srBinStream {
 public:
+    srBinFStream(const srBinFStream&) = delete;
+    srBinFStream& operator=(const srBinFStream&) = delete;
+
     void close();
     const char* getPath() const;
     int isOpen();
@@ -25,7 +25,7 @@ protected:
     srBinFStream();
     virtual ~srBinFStream() override;
 
-    void mopen(const char* path, e_mode mode, int search_paths);
+    void mopen(const char* path, e_mode mode);
     virtual srBinStream& pseek(w8_ulong position, srBinStream::e_seekDir direction);
     virtual srBinStream& pseek(w8_ulong position);
     virtual w8_ulong ptell();
@@ -41,18 +41,14 @@ protected:
 private:
     void setPath(const char* path);
 
-    srInlineString path;
+    std::string path;
 };
 
 // VTABLE: SURRENDER 0x10076A70 srBinStream
 // VTABLE: SURRENDER 0x10076A84 srBinIStream
 // VTABLE: SURRENDER 0x10076A8C srBinFStream
 // class srBinIFStream
-class
-#if defined(SURRENDER_BUILD)
-
-#endif
-    srBinIFStream : public srBinFStream,
+class srBinIFStream : public srBinFStream,
                     public srBinIStream {
 public:
     srBinIFStream();
@@ -73,11 +69,7 @@ private:
 // VTABLE: SURRENDER 0x10076AD4 srBinIStream
 // VTABLE: SURRENDER 0x10076ADC srBinFStream
 // class srBinIOFStream
-class
-#if defined(SURRENDER_BUILD)
-
-#endif
-    srBinIOFStream : public srBinFStream,
+class srBinIOFStream : public srBinFStream,
                      public srBinIStream,
                      public srBinOStream {
 public:
@@ -100,11 +92,7 @@ private:
 // VTABLE: SURRENDER 0x10076B3C srBinOStream
 // VTABLE: SURRENDER 0x10076B44 srBinStream
 // class srBinOFStream
-class
-#if defined(SURRENDER_BUILD)
-
-#endif
-    srBinOFStream : public virtual srBinOStream,
+class srBinOFStream : public virtual srBinOStream,
                     public virtual srBinFStream {
 public:
     srBinOFStream();

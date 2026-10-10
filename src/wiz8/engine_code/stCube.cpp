@@ -1,3 +1,4 @@
+#include "surrender/srMath.h"
 #include "wiz8/xstatus.h"
 #include "wiz8/world_cursor.h"
 #include "wiz8/engine_code/World.h"
@@ -38,7 +39,7 @@
 #include "wiz8/engine_code/GameData.h"
 #include "wiz8/engine_code/PolyPick.h"
 #include "wiz8/local_screens/CharacterScreen.h"
-#include "FileMan.h"
+#include "wiz8/filesystem.h"
 
 #define ST_CUBE_CPP "C:\\Projects\\Wizardry 8\\Engine Code\\stCube.cpp"
 
@@ -90,7 +91,7 @@ W8WorldCursorNode* CreateWorldCursorCube(void)
        stack Vertices are constructed and unused, matching retail. */
     srModeler::Vertex unused[4];
     (void)unused;
-    srModeler::Vertex* vertices = polygon.vertices;
+    srModeler::Vertex* vertices = polygon.vertices.data();
 
     vertices[0].uv[0].Set(1.0f, 1.0f);
     vertices[1].uv[0].Set(0.0f, 1.0f);
@@ -474,20 +475,20 @@ void SetWorldCursorNodeColorComponents(W8WorldCursorNode* entry, float red, floa
 }
 
 // FUNCTION: WIZ8 0x0048e470
-unsigned int LoadWorldCursorNodeStates(int handle)
+unsigned int LoadWorldCursorNodeStates(wiz8::File* handle)
 {
     int version;
     unsigned int count;
     unsigned int index;
     bool success = true;
 
-    if (!FileRead(handle, &version, 4, 0)) {
+    if (!(handle->read(&version, 4).bytes == static_cast<std::size_t>(4))) {
         return 0;
     }
     if (version == 0x21122112) {
         version = 1;
     }
-    if (!FileRead(handle, &count, 4, 0)) {
+    if (!(handle->read(&count, 4).bytes == static_cast<std::size_t>(4))) {
         return 0;
     }
 
@@ -501,7 +502,7 @@ unsigned int LoadWorldCursorNodeStates(int handle)
             char name[0x20];
             int cube_index;
 
-            FileRead(handle, name, sizeof(name), 0);
+            handle->read_exact(name, sizeof(name));
             for (cube_index = 0; cube_index < g_world_cursor_nodes.GetCount(); ++cube_index) {
                 W8WorldCursorNode* candidate = *g_world_cursor_nodes.GetAt(cube_index);
                 if (strcmp(candidate->name, name) == 0) {
@@ -515,7 +516,7 @@ unsigned int LoadWorldCursorNodeStates(int handle)
             }
         }
 
-        if (success && FileRead(handle, &cube->userdata_size, 4, 0)) {
+        if (success && (handle->read(&cube->userdata_size, 4).bytes == static_cast<std::size_t>(4))) {
             success = true;
         } else {
             success = false;
@@ -526,7 +527,7 @@ unsigned int LoadWorldCursorNodeStates(int handle)
                 srAssertFail("pCube->pUserdata", ST_CUBE_CPP, 0x3c8, 0);
             }
             memset(cube->pUserdata, 0, cube->userdata_size);
-            if (success && FileRead(handle, cube->pUserdata, cube->userdata_size, 0)) {
+            if (success && (handle->read(cube->pUserdata, cube->userdata_size).bytes == static_cast<std::size_t>(cube->userdata_size))) {
                 success = true;
             } else {
                 success = false;
@@ -545,7 +546,7 @@ unsigned int LoadWorldCursorNodeStates(int handle)
 }
 
 // FUNCTION: WIZ8 0x0048e6d0
-unsigned char SaveWorldCursorNodeStates(int handle)
+unsigned char SaveWorldCursorNodeStates(wiz8::File* handle)
 {
     bool ok = true;
     int version = 2;
@@ -553,44 +554,44 @@ unsigned char SaveWorldCursorNodeStates(int handle)
     unsigned int index;
     W8WorldCursorNode* node;
 
-    if (!FileWrite(handle, &version, 4, 0)) {
+    if (!(handle->write(&version, 4), true)) {
         return 0;
     }
     count = g_world_cursor_nodes.GetCount();
-    if (!FileWrite(handle, &count, 4, 0)) {
+    if (!(handle->write(&count, 4), true)) {
         return 0;
     }
     for (index = 0; index < count && ok; ++index) {
         node = *g_world_cursor_nodes.GetAt(index);
-        ok = FileWrite(handle, node->name, sizeof(node->name), 0) &&
-             FileWrite(handle, &node->userdata_size, 4, 0);
+        ok = (handle->write(node->name, sizeof(node->name)), true) &&
+             (handle->write(&node->userdata_size, 4), true);
         if (node->userdata_size != 0) {
-            ok = ok && FileWrite(handle, node->pUserdata, node->userdata_size, 0);
+            ok = ok && (handle->write(node->pUserdata, node->userdata_size), true);
         }
     }
     return ok;
 }
 
 // FUNCTION: WIZ8 0x0048e7b0
-unsigned int LoadWorldCursorNodes(int handle)
+unsigned int LoadWorldCursorNodes(wiz8::File* handle)
 {
     int version;
     unsigned int count;
     unsigned int index;
     bool success = true;
 
-    if (!FileRead(handle, &version, 4, 0)) {
+    if (!(handle->read(&version, 4).bytes == static_cast<std::size_t>(4))) {
         return 0;
     }
     if (static_cast<unsigned int>(version) == 0xdeadd00d) {
         version = 1;
     }
     if (version > 2) {
-        FileRead(handle, &gXStatus.mipe_cube_serial, 4, 0);
+        handle->read_exact(&gXStatus.mipe_cube_serial, 4);
     } else {
         gXStatus.mipe_cube_serial = 100;
     }
-    if (!FileRead(handle, &count, 4, 0)) {
+    if (!(handle->read(&count, 4).bytes == static_cast<std::size_t>(4))) {
         return 0;
     }
 
@@ -602,7 +603,7 @@ unsigned int LoadWorldCursorNodes(int handle)
         int component;
 
         if (version >= 2) {
-            FileRead(handle, cube->name, 0x20, 0);
+            handle->read_exact(cube->name, 0x20);
             if (cube->name[0] == 0) {
                 sprintf(cube->name, "Cube%3.3d", gXStatus.mipe_cube_serial++);
             }
@@ -610,21 +611,21 @@ unsigned int LoadWorldCursorNodes(int handle)
             sprintf(cube->name, "Cube%d", index);
         }
         for (component = 0; component < 3; ++component) {
-            if (success && FileRead(handle, &cube->parameters[component], 4, 0)) {
+            if (success && (handle->read(&cube->parameters[component], 4).bytes == static_cast<std::size_t>(4))) {
                 success = true;
             } else {
                 success = false;
             }
         }
         for (component = 0; component < 3; ++component) {
-            if (success && FileRead(handle, &(&minimum.x)[component], 4, 0)) {
+            if (success && (handle->read(&(&minimum.x)[component], 4).bytes == static_cast<std::size_t>(4))) {
                 success = true;
             } else {
                 success = false;
             }
         }
         for (component = 0; component < 3; ++component) {
-            if (success && FileRead(handle, &(&maximum.x)[component], 4, 0)) {
+            if (success && (handle->read(&(&maximum.x)[component], 4).bytes == static_cast<std::size_t>(4))) {
                 success = true;
             } else {
                 success = false;
@@ -645,7 +646,7 @@ unsigned int LoadWorldCursorNodes(int handle)
         }
 
         for (component = 0; component < 3; ++component) {
-            if (success && FileRead(handle, &(&location.x)[component], 4, 0)) {
+            if (success && (handle->read(&(&location.x)[component], 4).bytes == static_cast<std::size_t>(4))) {
                 success = true;
             } else {
                 success = false;
@@ -660,7 +661,7 @@ unsigned int LoadWorldCursorNodes(int handle)
                                              static_cast<double>(location.z));
             cube->node->setLocation(node_location);
         }
-        if (success && FileRead(handle, &cube->value_08, 4, 0)) {
+        if (success && (handle->read(&cube->value_08, 4).bytes == static_cast<std::size_t>(4))) {
             success = true;
         } else {
             success = false;
@@ -671,7 +672,7 @@ unsigned int LoadWorldCursorNodes(int handle)
 }
 
 // FUNCTION: WIZ8 0x0048ead0
-unsigned char SaveWorldCursorNodes(int handle)
+unsigned char SaveWorldCursorNodes(wiz8::File* handle)
 {
     bool ok = true;
     int version = 3;
@@ -682,30 +683,30 @@ unsigned char SaveWorldCursorNodes(int handle)
     W8WorldCursorNode* node;
     srNode::BoundInfo bounds;
 
-    if (!FileWrite(handle, &version, 4, 0)) {
+    if (!(handle->write(&version, 4), true)) {
         return 0;
     }
-    FileWrite(handle, &gXStatus.mipe_cube_serial, 4, 0);
+    handle->write(&gXStatus.mipe_cube_serial, 4);
     count = g_world_cursor_nodes.GetCount();
-    if (!FileWrite(handle, &count, 4, 0)) {
+    if (!(handle->write(&count, 4), true)) {
         return 0;
     }
     for (index = 0; index < count && ok; ++index) {
         node = *g_world_cursor_nodes.GetAt(index);
-        FileWrite(handle, node->name, sizeof(node->name), 0);
+        handle->write(node->name, sizeof(node->name));
         for (component = 0; component < 3 && ok; ++component) {
-            ok = FileWrite(handle, &node->parameters[component], 4, 0);
+            ok = (handle->write(&node->parameters[component], 4), true);
         }
         node->node->getLocalBounds(bounds);
         location = node->node->getLocation();
-        ok = ok && FileWrite(handle, &bounds.minimum.x, 4, 0) &&
-             FileWrite(handle, &bounds.minimum.y, 4, 0) &&
-             FileWrite(handle, &bounds.minimum.z, 4, 0) &&
-             FileWrite(handle, &bounds.maximum.x, 4, 0) &&
-             FileWrite(handle, &bounds.maximum.y, 4, 0) &&
-             FileWrite(handle, &bounds.maximum.z, 4, 0) && FileWrite(handle, &location.x, 4, 0) &&
-             FileWrite(handle, &location.y, 4, 0) && FileWrite(handle, &location.z, 4, 0) &&
-             FileWrite(handle, &node->value_08, 4, 0);
+        ok = ok && (handle->write(&bounds.minimum.x, 4), true) &&
+             (handle->write(&bounds.minimum.y, 4), true) &&
+             (handle->write(&bounds.minimum.z, 4), true) &&
+             (handle->write(&bounds.maximum.x, 4), true) &&
+             (handle->write(&bounds.maximum.y, 4), true) &&
+             (handle->write(&bounds.maximum.z, 4), true) && (handle->write(&location.x, 4), true) &&
+             (handle->write(&location.y, 4), true) && (handle->write(&location.z, 4), true) &&
+             (handle->write(&node->value_08, 4), true);
     }
     return ok;
 }

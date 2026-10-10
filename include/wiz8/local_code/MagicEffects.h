@@ -80,7 +80,7 @@ struct W8EffectVisual {
     int hud_icon;
     W8MonsterSpellIconId monster_icon;
 };
-static_assert(sizeof(W8EffectVisual) == 8, "W8EffectVisual_size");
+W8_ABI_ASSERT(sizeof(W8EffectVisual) == 8, "W8EffectVisual_size");
 extern W8EffectVisual g_effect_visual_table[150];
 
 void TickCombatEffectSlots(W8EffectSlot* slots, W8CombatSlot* target);
