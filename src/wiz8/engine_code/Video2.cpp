@@ -2071,7 +2071,6 @@ unsigned char InitializeMouseSurface(void)
 // FUNCTION: WIZ8 0x00423500
 unsigned char InitializeRendererSceneObjects(void)
 {
-    SurfaceLock surface_description{};
     srCamera::Rect view;
     std::shared_ptr<srMaterial> material;
     glm::vec4 material_value;
@@ -2163,11 +2162,9 @@ unsigned char InitializeRendererSceneObjects(void)
     g_dirty_tile_count = 0;
     g_viewport.bottom = 0;
 
-    surface_description = LockCpuSurface(*g_primary_surface);
-    UnlockCpuSurface(*g_primary_surface);
-    g_primary_color_surface = std::make_shared<srColorSurface>(
-        srPixelConvert::SURFACE_ARGB1555, surface_description.pixels, 640UL, 480UL,
-        static_cast<w8_ulong>(surface_description.pitch));
+    /* Shares the CPU surface's pixels, so they outlive its recreation. */
+    g_primary_color_surface = std::make_shared<srColorSurface>(srPixelConvert::SURFACE_ARGB1555,
+                                                               *g_primary_surface->surface);
 
     g_surface_node = new stSurface2D(g_primary_color_surface, 640, 480, g_scene_overlay0, 128);
     if (!g_surface_node)

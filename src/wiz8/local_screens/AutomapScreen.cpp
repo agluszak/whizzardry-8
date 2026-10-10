@@ -32,6 +32,7 @@
 #include "wiz8/item_spawning.h"
 #include "wiz8/dialog_code/DialogButton.h"
 #include "surrender/srColorSurface.h"
+#include "wiz8/compat/surfaces.h"
 #include "wiz8/cursor.h"
 #include "wiz8/engine_code/Quality.h"
 #include "wiz8/engine_code/Video2.h"
@@ -1569,11 +1570,11 @@ int RestoreAutomapRect(W8ScreenRect* rect)
 {
     if (g_automap_surface != 0) {
         unsigned int pitch;
-        void* pixels = LockPrimarySurface(&pitch);
-        auto surface = std::make_unique<srColorSurface>(srPixelConvert::SURFACE_ARGB1555, pixels, 0x280, 0x1e0, pitch);
-        surface->setFilter(&srBoxFilter);
-        surface->blit(rect->left, rect->top, *g_automap_surface, rect->left, rect->top, rect->right,
-                      rect->bottom);
+        LockPrimarySurface(&pitch);
+        srColorSurface screen(srPixelConvert::SURFACE_ARGB1555, *g_primary_surface->surface);
+        screen.setFilter(&srBoxFilter);
+        screen.blit(rect->left, rect->top, *g_automap_surface, rect->left, rect->top, rect->right,
+                    rect->bottom);
         UnlockPrimarySurface();
     }
     return 1;

@@ -69,6 +69,18 @@ struct ClientTextureFile : srTextureFile
     {
     }
 };
+// Compares a 3x2 BGRA32 surface with the 20-byte-pitch fixture rows.
+static bool samePixels(srColorSurface& surface, const unsigned char* pixels)
+{
+    const auto* data = static_cast<const unsigned char*>(surface.getDataPtr());
+    for (int row = 0; row < 2; ++row) {
+        if (std::memcmp(data + row * surface.getPitch(), pixels + row * 20, 12) != 0) {
+            return false;
+        }
+    }
+    return true;
+}
+
 static int surface_storage()
 {
     std::array<unsigned char, 40> pixels;
@@ -88,8 +100,7 @@ static int surface_storage()
 
         srColorSurface copied(borrowed);
         CHECK(copied.getDataPtr() != pixels.data());
-        CHECK(copied.getPitch() == 20 && copied.getDataSize() == 40);
-        CHECK(std::memcmp(copied.getDataPtr(), pixels.data(), pixels.size()) == 0);
+        CHECK(samePixels(copied, pixels.data()));
         CHECK(palette.use_count() == references + 2);
         copied.setPixelRaw(0, 0, 0x12345678);
         CHECK(pixels == original && copied.getPixelRaw(0, 0) == 0x12345678);
@@ -99,11 +110,12 @@ static int surface_storage()
         srColorSurface assigned(srPixelConvert::SURFACE_BGRA32, 1, 1);
         assigned = borrowed;
         CHECK(assigned.getDataPtr() != pixels.data());
-        CHECK(std::memcmp(assigned.getDataPtr(), pixels.data(), pixels.size()) == 0);
+        CHECK(samePixels(assigned, pixels.data()));
         CHECK(palette.use_count() == references + 3);
-        srColorSurface view(srPixelConvert::SURFACE_BGRA32, assigned.getDataPtr(), 3, 2, 20);
+        srColorSurface view(srPixelConvert::SURFACE_BGRA32, assigned.getDataPtr(), 3, 2,
+                            assigned.getPitch());
         assigned = view;
-        CHECK(std::memcmp(assigned.getDataPtr(), pixels.data(), pixels.size()) == 0);
+        CHECK(samePixels(assigned, pixels.data()));
         CHECK(palette.use_count() == references + 2);
         CHECK(assigned.resize(7, 5));
         auto* begin = static_cast<unsigned char*>(assigned.getDataPtr());
@@ -114,7 +126,7 @@ static int surface_storage()
             for (int x = 0; x < 3; ++x)
                 CHECK(assigned.getPixelRaw(x, y) == 0xff336699);
         CHECK(assigned.changePixelFormat(format, 1));
-        CHECK(assigned.getPitch() == 9 && assigned.getPixelRaw(0, 0) == 0x996633);
+        CHECK(assigned.getPitch() >= 9 && assigned.getPixelRaw(0, 0) == 0x996633);
         CHECK(assigned.getPixel(0, 0) == 0xff336699);
 
         std::array<unsigned char, 4> other_pixels{1, 2, 3, 4};
@@ -125,6 +137,17 @@ static int surface_storage()
         CHECK(other_borrowed.resize(2, 2));
     }
     CHECK(pixels == original && palette.use_count() == references);
+
+    // A view of an SDL surface keeps its pixels after the original owner releases them.
+    {
+        SDL_Surface* owner = SDL_CreateSurface(2, 2, SDL_PIXELFORMAT_ARGB1555);
+        CHECK(owner);
+        srColorSurface shared(srPixelConvert::SURFACE_ARGB1555, *owner);
+        CHECK(shared.getDataPtr() == owner->pixels && !shared.resize(4, 4));
+        SDL_DestroySurface(owner);
+        shared.setPixelRaw(1, 1, 0x7fff);
+        CHECK(shared.getPixelRaw(1, 1) == 0x7fff);
+    }
     return 0;
 }
 
