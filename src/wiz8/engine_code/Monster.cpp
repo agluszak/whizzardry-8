@@ -1881,16 +1881,12 @@ void W8Monster::ProcessScript()
         char line[256];
         char* token;
         W8MonsterScriptCommand command;
-        stScriptLine* source_line;
 
         if (script_line >= static_cast<int>(script->lines.size())) {
             break;
         }
-        source_line = script->lines[script_line++];
-        if (source_line == 0 || source_line->text == 0) {
-            continue;
-        }
-        strcpy(line, source_line->text);
+        const auto& source_line = script->lines[script_line++];
+        strcpy(line, source_line.text.c_str());
         token = strtok(line, " \t");
         if (token == 0) {
             continue;

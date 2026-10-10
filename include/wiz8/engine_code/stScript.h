@@ -4,7 +4,7 @@
 #include <string>
 
 struct stScriptLine {
-    char* text;
+    std::string text;
     int source_line;
 };
 
@@ -16,8 +16,6 @@ struct stScriptLabel {
 /* Owns parsed script lines and labels. */
 class stScript {
 public:
-    ~stScript();
-
     const std::string& getName() const
     {
         return name;
@@ -33,6 +31,6 @@ public:
     void Clear();
 
     std::string name;
-    std::vector<stScriptLine*> lines;   /* 0x18 */
-    std::vector<stScriptLabel*> labels; /* 0x28 */
+    std::vector<stScriptLine> lines;
+    std::vector<stScriptLabel> labels;
 };

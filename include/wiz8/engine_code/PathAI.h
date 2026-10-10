@@ -10,9 +10,7 @@
 class srNode;
 class W8AnimRepBase;
 
-/* Engine Code\PathAI.cpp.  The assertion-backed `pPathAI` identity and the
-   five consumers below establish these offsets; unresolved members remain
-   address-qualified rather than receiving speculative pathfinding names. */
+/* Runtime path data. File records are read field by field by LoadPathAI. */
 
 /* The tagged AI record family W8GrObject stores at +0x0c: the leading byte
    selects the record type, kind 0 being W8PathAI and kind 3 being
@@ -31,35 +29,29 @@ struct W8AIRecord {
 struct W8PathAI : W8AIRecord {
     /* Serialized record selector: value 2 adds a per-point scale array. */
     unsigned char version;
-    unsigned char padding_02[2];
     /* Normalized for interpolated movement, point units in discrete mode. */
-    float position;                      /* 0x04 */
-    unsigned int unknown_08;             /* 0x08: serialized */
-    std::vector<srVector3T<float>*>* nodes; /* 0x0c */
-    int entry_index;                     /* 0x10: level camera/path entry index, assigned at load */
-    /* 0x004A98C0 sizes both from the node count: 0x24 a record here, and a
-       srVector3T<float> each in the render array. */
-    glm::mat3* rotations; /* 0x14 */
-    srVector3T<float>* scales;    /* 0x18 */
-    unsigned char discrete_mode;  /* 0x1c */
-    unsigned char padding_1d[3];
-    unsigned int point_index;      /* 0x20 */
-    float interpolation_fraction;  /* 0x24 */
-    uint64_t last_update_tick; /* 0x28 */
-    float speed;                   /* 0x2c */
-    float distance_travelled;      /* 0x30 */
-    float total_length;            /* 0x34 */
-    unsigned char looping;         /* 0x38 */
-    unsigned char step_by_node;    /* 0x39 */
-    unsigned char animated;        /* 0x3a */
+    float position;
+    unsigned int unknown_08;             /* serialized */
+    std::vector<srVector3T<float>> nodes;
+    int entry_index;                     /* level camera/path entry index, assigned at load */
+    std::vector<glm::mat3> rotations;
+    std::vector<srVector3T<float>> scales;
+    unsigned char discrete_mode;
+    unsigned int point_index;
+    float interpolation_fraction;
+    uint64_t last_update_tick;
+    float speed;
+    float distance_travelled;
+    float total_length;
+    unsigned char looping;
+    unsigned char step_by_node;
+    unsigned char animated;
     /* When set the emitter target is pitched upright (rotateX pi/2); camera
        paths raise it. */
     unsigned char upright;
-    unsigned char timed; /* 0x3c */
-    unsigned char padding_3d[3];
+    unsigned char timed;
 };
 
-W8_ABI_ASSERT(sizeof(W8PathAI) == 0x40, "W8PathAI_size_must_be_0x40");
 
 /* Tagged-record dispatchers: the body switches on kind and hands the
    record to the path or missile implementation. */
@@ -91,14 +83,10 @@ void PathAISetDiscreteMode(W8PathAI* path, unsigned char value);
 bool LoadPathAI(W8PathAI** path, wiz8::File* handle);
 unsigned char PathAIAddPoint(W8PathAI* path, const srVector3T<float>* point);
 
-/* Build a zeroed 0x40-byte path and its position-pointer vector. Every caller
-   pushes an argument the factory never reads. */
+/* Create an empty path. The legacy factory argument is unused. */
 W8PathAI* CreateRecord(int);
 
-/* The two operations stLight applies to the path it owns at +0x244. The
-   release is DestroyPathAI's body behind an extra `kind == W8_AI_RECORD_PATH`
-   guard; the clone allocates a fresh 0x40-byte record and deep-copies the
-   node vector and both trailing arrays. */
+/* Release a path only when the AI record tag identifies a path. */
 void DestroyOwnedPathAI(W8PathAI* path);
 
 /* The dispatcher every AI-record copy goes through; the kind tag, not the

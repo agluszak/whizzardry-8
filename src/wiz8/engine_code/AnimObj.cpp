@@ -222,7 +222,7 @@ try
             PathAISetAnimated(path, 0);
             PathAISetScale(path, animation->playback_scale);
             animation->path = path;
-            animation->frame_count = static_cast<unsigned char>(path->nodes->size());
+            animation->frame_count = static_cast<unsigned char>(path->nodes.size());
         }
     }
     if (version > 9) {
@@ -285,7 +285,7 @@ try
                 path->discrete_mode = 1;
                 PathAISetAnimated(path, 0);
                 PathAISetScale(path, animation->playback_scale);
-                animation->frame_count = static_cast<unsigned char>(path->nodes->size());
+                animation->frame_count = static_cast<unsigned char>(path->nodes.size());
             }
         }
     }

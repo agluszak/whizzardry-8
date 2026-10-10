@@ -1040,11 +1040,11 @@ void W8Prop::AttachAnimationInstances(W8World* world)
                 rotation = glm::mat3_cast(glm::normalize(interpolated_rotation));
             }
             animation_rotation = rotation;
-            current = *(*path->nodes)[Rep()->subcycle];
-            next_pos = *(*path->nodes)[next_frame];
+            current = path->nodes[Rep()->subcycle];
+            next_pos = path->nodes[next_frame];
             inv = g_float_one - anim_frame_fraction;
             position = current * inv + next_pos * anim_frame_fraction;
-            if (path->scales != 0) {
+            if (!path->scales.empty()) {
                 has_scales = true;
                 current_scale = path->scales[Rep()->subcycle];
                 next_scale = path->scales[next_frame];

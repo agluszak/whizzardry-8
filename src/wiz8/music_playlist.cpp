@@ -94,8 +94,8 @@ int AnalyzeMusicPlaylist(stScript* playlist, int* total_weight)
     bool found_unweighted = false;
 
     *total_weight = 0;
-    for (int index = 0; index < static_cast<int>(playlist->lines.size()); ++index) {
-        const char* line = playlist->lines[index]->text;
+    for (const auto& entry : playlist->lines) {
+        const char* line = entry.text.c_str();
 
         if (line[0] == '#') {
             if (_strnicmp(line + 1, "PAUSEMIN=", 9) == 0) {
@@ -154,7 +154,7 @@ void ServiceMusicPlaylist(void)
             unsigned int target = Random(g_music_playlist_weight_total);
             unsigned int accumulated = 0;
             for (int index = 0; index < static_cast<int>(g_music_playlist->lines.size()); ++index) {
-                const char* line = g_music_playlist->lines[index]->text;
+                const char* line = g_music_playlist->lines[index].text.c_str();
                 if (line[0] == '#') {
                     continue;
                 }
@@ -172,7 +172,7 @@ void ServiceMusicPlaylist(void)
         }
 
         char track[260];
-        strcpy(track, g_music_playlist->lines[selected]->text);
+        strcpy(track, g_music_playlist->lines[selected].text.c_str());
         char* weight = strchr(track, '(');
         if (weight != 0) {
             *weight = 0;

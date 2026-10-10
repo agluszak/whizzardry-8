@@ -745,13 +745,13 @@ unsigned char AutomapScreenEnter(void)
         int line = 0;
         int section = -1;
         while (section < g_status.current_level && line < static_cast<int>(script.lines.size())) {
-            if (strchr(script.lines[line]->text, '['))
+            if (script.lines[line].text.contains('['))
                 ++section;
             ++line;
         }
         if (line < static_cast<int>(script.lines.size()) && section == g_status.current_level) {
             for (; line < static_cast<int>(script.lines.size()); ++line) {
-                char* text = script.lines[line]->text;
+                const char* text = script.lines[line].text.c_str();
                 if (strchr(text, '['))
                     break;
                 if (!strstr(text, "LAYER=")) {

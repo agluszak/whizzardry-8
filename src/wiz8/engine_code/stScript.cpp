@@ -1,6 +1,4 @@
-#include "wiz8/containers.h"
 #include "wiz8/engine_code/stScript.h"
-#include "wiz8/sr_api.h"
 #include "wiz8/virtual_file.h"
 #include "wiz8/filesystem.h"
 
@@ -55,48 +53,30 @@ try
 }
 catch (const std::exception&) { *more = 0; return false; }
 
-// FUNCTION: WIZ8 0x004CF260
-stScript::~stScript()
-{
-    Clear();
-}
-
 // FUNCTION: WIZ8 0x004CF690
 void stScript::Clear()
 {
-    for (auto* line : lines) {
-        if (line) {
-            free(line->text);
-            delete line;
-        }
-    }
     lines.clear();
-    wiz8::remove_all_and_delete_in_order(labels);
+    labels.clear();
 }
 
 // FUNCTION: WIZ8 0x004CF3B0
 unsigned char stScript::Load(const char* path)
+try
 {
     unsigned char more = 1;
     int source_line = 0;
     int script_line = 0;
     char buffer[256];
-    std::unique_ptr<wiz8::File> handle;
-
-    if (path == 0 || (handle = [&]() { try { return wiz8::open_file(const_cast<char*>(path), wiz8::OpenMode::read); } catch (const std::exception&) { return std::unique_ptr<wiz8::File>{}; } }()) == 0) {
-        return 0;
-    }
+    if (!path) return 0;
+    auto handle = wiz8::open_file(path);
 
     for (;;) {
         if (more == 0) {
-            if (handle) handle->close();
-            handle.reset();
             return 1;
         }
         while (ReadTextLine(handle.get(), buffer, sizeof(buffer), &more) == 0) {
             if (more == 0) {
-                if (handle) handle->close();
-                handle.reset();
                 return 1;
             }
         }
@@ -106,54 +86,30 @@ unsigned char stScript::Load(const char* path)
             continue;
         }
 
-        char* owned_text = static_cast<char*>(malloc(strlen(buffer) + 1));
-        if (owned_text == 0) {
-            srAssertFail("pNewLine", "C:\\Projects\\Wizardry 8\\Engine Code\\stScript.cpp", 69, 0);
-        }
-        strcpy(owned_text, buffer);
-
+        std::string text = buffer;
         char* token = strtok(buffer, " \t");
         if (token == 0 || token[0] == '*') {
-            free(owned_text);
             continue;
         }
 
         int length = strlen(token);
         if (token[length - 1] == ':') {
             token[length - 1] = 0;
-            int index;
-            bool add_label = true;
-            for (index = 0; index < static_cast<int>(labels.size()); ++index) {
-                stScriptLabel* existing = labels[index];
-                if (_strnicmp(existing->name, token, 0x1f) == 0) {
-                    if (existing->line != -1) {
-                        add_label = false;
-                    }
-                    break;
-                }
+            if (FindLabelLine(token) == -1) {
+                auto& label = labels.emplace_back();
+                strncpy(label.name, token, sizeof(label.name) - 1);
+                label.name[sizeof(label.name) - 1] = '\0';
+                label.line = script_line;
             }
-            if (add_label) {
-                stScriptLabel* label = new stScriptLabel;
-                if (label != 0) {
-                    strncpy(label->name, token, 0x1f);
-                    label->name[0x1f] = 0;
-                    label->line = script_line;
-                    labels.push_back(label);
-                }
-            }
-            free(owned_text);
             continue;
         }
 
-        stScriptLine* line = new stScriptLine;
-        if (line != 0) {
-            line->text = owned_text;
-            line->source_line = source_line;
-            lines.push_back(line);
-        }
+        lines.push_back({std::move(text), source_line});
         ++script_line;
     }
 }
+
+catch (const std::exception&) { return 0; }
 
 /* The label table stores fixed 31-character, case-insensitive identifiers and
    the script line to resume at. A null query or a miss has the source's -1
@@ -161,14 +117,9 @@ unsigned char stScript::Load(const char* path)
 // FUNCTION: WIZ8 0x004CF730
 int stScript::FindLabelLine(const char* label) const
 {
-    int index;
-
-    if (label != 0) {
-        for (index = 0; index < static_cast<int>(labels.size()); ++index) {
-            stScriptLabel* entry = labels[index];
-            if (_strnicmp(entry->name, label, 0x1f) == 0) {
-                return entry->line;
-            }
+    if (label) {
+        for (const auto& entry : labels) {
+            if (_strnicmp(entry.name, label, 0x1f) == 0) return entry.line;
         }
     }
     return -1;
@@ -179,17 +130,6 @@ int stScript::FindLabelLine(const char* label) const
 // FUNCTION: WIZ8 0x004CF790
 int stScript::GetSourceLine(int line) const
 {
-    stScriptLine* entry;
-
-    if (line < 0) {
-        return -1;
-    }
-    if (line >= static_cast<int>(lines.size())) {
-        return -1;
-    }
-    entry = lines[line];
-    if (entry != 0) {
-        return entry->source_line;
-    }
-    return -1;
+    return line >= 0 && static_cast<std::size_t>(line) < lines.size()
+               ? lines[line].source_line : -1;
 }

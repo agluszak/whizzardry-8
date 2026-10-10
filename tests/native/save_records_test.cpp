@@ -18,6 +18,8 @@
 #include "wiz8/local_code/LoadSaveGame.h"
 #include "wiz8/local_screens/NPCInteractionSubscreen.h"
 #include "wiz8/npc_script_file.h"
+#include "wiz8/engine_code/stScript.h"
+#include "wiz8/engine_code/PathAI.h"
 #include "wiz8/monster_generators.h"
 #include "wiz8/spell_ids.h"
 #include "wiz8/xstatus.h"
@@ -152,6 +154,106 @@ static void keyword_file_contracts()
     CHECK(wiz8::remove_file(english));
     ReloadKeywordLists();
     CHECK(!g_keyword_lists_loaded && static_cast<int>(g_keyword_lists.size()) == 0);
+}
+
+static void path_record_contracts()
+{
+    constexpr auto filename = "Data/path-records.bin";
+    auto write_header = [](wiz8::File& file, unsigned char version, int count) {
+        const unsigned char kind = 0;
+        const float position = 0;
+        const unsigned int unknown = 17;
+        file.write(&kind, 1);
+        file.write(&version, 1);
+        file.write(&position, 4);
+        file.write(&unknown, 4);
+        file.write(&count, 4);
+    };
+    for (unsigned char version : {1, 2}) {
+        {
+            auto file = wiz8::open_file(filename, wiz8::OpenMode::replace);
+            write_header(*file, version, 2);
+            for (int i = 0; i < 2; ++i) {
+                const float point[] = {static_cast<float>(i), 0, 0};
+                const float angle_axis[] = {0, 0, 1, 0};
+                const float scale[] = {2, 3, 4};
+                file->write(point, sizeof(point));
+                file->write(angle_axis, sizeof(angle_axis));
+                if (version == 2) file->write(scale, sizeof(scale));
+            }
+        }
+        auto file = wiz8::open_file(filename);
+        W8PathAI* loaded = nullptr;
+        CHECK(LoadPathAI(&loaded, file.get()) && loaded);
+        std::unique_ptr<W8PathAI> path(loaded);
+        CHECK(path->nodes.size() == 2 && path->rotations.size() == 2);
+        CHECK(path->nodes[1].x == 500 && path->total_length == 500);
+        CHECK(path->unknown_08 == 17 && path->rotations[0] == glm::mat3(1));
+        CHECK(path->scales.size() == (version == 2 ? 2 : 0));
+        if (version == 2) CHECK(path->scales[1].y == 3);
+        path->timed = true;
+        std::unique_ptr<W8PathAI> copy(ClonePathAI(path.get()));
+        CHECK(!copy->timed && copy->nodes.data() != path->nodes.data());
+        CHECK(copy->rotations.data() != path->rotations.data());
+        if (version == 2) CHECK(copy->scales.data() != path->scales.data());
+        copy->nodes[0].x = 99;
+        CHECK(path->nodes[0].x == 0);
+        PathAIClearOwned(copy.get());
+        PathAIClearOwned(copy.get());
+        CHECK(copy->nodes.empty() && copy->rotations.empty() && copy->scales.empty());
+        srVector3T<float> point;
+        copy->looping = true;
+        CHECK(!PathAINextPoint(copy.get(), &point));
+        CHECK(PathAINextPoint(path.get(), &point) && point.x == 0);
+        CHECK(PathAINextPoint(path.get(), &point) && point.x == 500);
+        CHECK(!PathAINextPoint(path.get(), &point));
+        path->animated = true;
+        path->point_index = 0;
+        path->interpolation_fraction = 0.25f;
+        PathAIPosition(path.get(), &point);
+        CHECK(point.x == 125);
+    }
+    for (int count : {-1, 0, 1}) {
+        {
+            auto file = wiz8::open_file(filename, wiz8::OpenMode::replace);
+            write_header(*file, 2, count); // No point payload: count 1 is truncated.
+        }
+        auto file = wiz8::open_file(filename);
+        W8PathAI existing{};
+        auto* output = &existing;
+        CHECK(LoadPathAI(&output, file.get()) == (count == 0));
+        CHECK(output == (count == 0 ? nullptr : &existing));
+    }
+    CHECK(wiz8::remove_file(filename));
+}
+
+static void script_record_contracts()
+{
+    constexpr auto path = "Data/script-records.txt";
+    const std::string prefix(31, 'x');
+    {
+        auto file = wiz8::open_file(path, wiz8::OpenMode::replace);
+        const auto text = "* comment\r\n\r\nStart:\r\n  MOVE 10\r\nstart:\nWAIT 5\n" +
+                          prefix + "first:\nEND\n" + prefix + "second:\nFINAL";
+        file->write(text.data(), text.size());
+    }
+    stScript script;
+    CHECK(script.Load(path));
+    CHECK(script.lines.size() == 4 && script.labels.size() == 2);
+    CHECK(script.lines[0].text == "  MOVE 10" && script.lines[3].text == "FINAL");
+    CHECK(script.FindLabelLine("START") == 0 && script.FindLabelLine(prefix.c_str()) == 2);
+    CHECK(script.FindLabelLine("missing") == -1 && script.FindLabelLine(nullptr) == -1);
+    CHECK(script.GetSourceLine(0) == 4 && script.GetSourceLine(3) == 10);
+    CHECK(script.GetSourceLine(-1) == -1 && script.GetSourceLine(4) == -1);
+    // Copies own their text and remain valid after the original is cleared.
+    auto copy = script;
+    script.Clear();
+    script.Clear();
+    CHECK(script.lines.empty() && script.labels.empty());
+    CHECK(copy.lines[0].text == "  MOVE 10" && copy.FindLabelLine("start") == 0);
+    CHECK(script.Load(path) && script.lines.size() == 4);
+    CHECK(wiz8::remove_file(path));
+    CHECK(!script.Load(path));
 }
 
 static void encounter_table_contracts()
@@ -590,6 +692,8 @@ int main()
     save_file_contracts(user);
     keyword_file_contracts();
     encounter_table_contracts();
+    script_record_contracts();
+    path_record_contracts();
     wiz8::clear_asset_archives();
 
     std::filesystem::remove_all(root);
