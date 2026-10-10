@@ -674,25 +674,24 @@ void W8TextBuffer::RenderToTarget(int offset, bool force, unsigned int target)
 
     int y = GetVerticalPosition();
     size_t span = strcspn(line, g_W8LineBreakCharacters);
-    while (line[span] != '\0') {
-        line[span] = '\0';
-        int x = GetHorizontalPosition(StringPixLength(line, m_font));
+    for (;;) {
+        const bool has_next_line = line[span] != '\0';
+        if (has_next_line)
+            line[span] = '\0';
+
+        const int x = GetHorizontalPosition(StringPixLength(line, m_font));
         DrawFontText(x + offset, y + offset, line);
+
+        if (!has_next_line)
+            break;
         y += GetLineHeight();
         line[span] = '\n';
-        if (m_layoutBounds.bottom <= y) {
-            goto done;
-        }
+        if (m_layoutBounds.bottom <= y)
+            break;
         line += span + 1;
         span = strcspn(line, g_W8LineBreakCharacters);
     }
 
-    {
-        int x = GetHorizontalPosition(StringPixLength(line, m_font));
-        DrawFontText(x + offset, y + offset, line);
-    }
-
-done:
     SetFontObjectPalette16BPP(m_font, previous_state);
     InvalidateRegion(m_layoutBounds.left, m_layoutBounds.top, m_layoutBounds.right,
                      m_layoutBounds.bottom, 0);
@@ -1477,17 +1476,20 @@ void W8RangeControl::SetRangeEnabled(bool enabled)
     m_thumb->SetEnabled(enabled);
 }
 
+/* Both thumb orientations use the same normalized track coordinate. */
+static int ClampThumbToTrack(float& position, float minimum, float maximum, int track_length)
+{
+    if (position < minimum)
+        position = minimum;
+    if (maximum < position)
+        position = maximum;
+    return static_cast<int>(((position - minimum) / (maximum - minimum)) * track_length);
+}
+
 void W8VerticalRangeThumb::ClampPositionAndInvalidate()
 {
-    if (m_position < m_minimumPosition) {
-        m_position = m_minimumPosition;
-    }
-    if (m_maximumPosition < m_position) {
-        m_position = m_maximumPosition;
-    }
-    m_pixelPosition = static_cast<int>(
-        ((m_position - m_minimumPosition) / (m_maximumPosition - m_minimumPosition)) *
-        m_trackLength);
+    m_pixelPosition = ClampThumbToTrack(m_position, m_minimumPosition, m_maximumPosition,
+                                        m_trackLength);
     Invalidate(false);
 }
 
@@ -1742,15 +1744,8 @@ void W8HelpTextControl::OnLeftButtonDoubleClick(int event)
 
 void W8HorizontalRangeThumb::ClampPositionAndInvalidate()
 {
-    if (m_position < m_minimumPosition) {
-        m_position = m_minimumPosition;
-    }
-    if (m_maximumPosition < m_position) {
-        m_position = m_maximumPosition;
-    }
-    m_pixelPosition = static_cast<int>(
-        ((m_position - m_minimumPosition) / (m_maximumPosition - m_minimumPosition)) *
-        m_trackLength);
+    m_pixelPosition = ClampThumbToTrack(m_position, m_minimumPosition, m_maximumPosition,
+                                        m_trackLength);
     Invalidate(false);
 }
 
