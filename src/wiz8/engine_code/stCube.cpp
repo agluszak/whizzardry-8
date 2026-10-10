@@ -1,6 +1,8 @@
 #include <fmt/format.h>
 #include "wiz8/unicode.h"
 #include <string>
+#include "surrender/srBoundingBox.h"
+#include <array>
 #include "wiz8/containers.h"
 #include "surrender/srMath.h"
 #include "wiz8/xstatus.h"
@@ -89,61 +91,24 @@ W8WorldCursorNode* CreateWorldCursorCube(void)
     auto model = std::make_shared<stMeshModel>(0, 0);
     stModelInstance* instance = new stModelInstance(0);
     W8WorldCursorNode* entry = new W8WorldCursorNode;
-    /* Polygon(4) already heap-allocates the modelled vertices; these four
-       stack Vertices are constructed and unused, matching retail. */
-    srModeler::Vertex unused[4];
-    (void)unused;
-    srModeler::Vertex* vertices = polygon.vertices.data();
-
-    vertices[0].uv[0] = glm::vec2(1.0f, 1.0f);
-    vertices[1].uv[0] = glm::vec2(0.0f, 1.0f);
-    vertices[2].uv[0] = glm::vec2(0);
-    vertices[3].uv[0] = glm::vec2(1.0f, 0.0f);
-
-    srVector3T<float> npp(-0.5f, 1.0f, 0.5f);
-    srVector3T<float> ppp(0.5f, 1.0f, 0.5f);
-    srVector3T<float> ppn(0.5f, 1.0f, -0.5f);
-    srVector3T<float> npn(-0.5f, 1.0f, -0.5f);
-    srVector3T<float> nnn(-0.5f, 0.0f, -0.5f);
-    srVector3T<float> pnp(0.5f, 0.0f, 0.5f);
-    srVector3T<float> nnp(-0.5f, 0.0f, 0.5f);
-    srVector3T<float> pnn(0.5f, 0.0f, -0.5f);
-
-    vertices[0].position = npp;
-    vertices[1].position = ppp;
-    vertices[2].position = ppn;
-    vertices[3].position = npn;
-    modeller.addPolygon(polygon);
-
-    vertices[0].position = nnn;
-    vertices[1].position = nnp;
-    vertices[2].position = npp;
-    vertices[3].position = npn;
-    modeller.addPolygon(polygon);
-
-    vertices[0].position = nnp;
-    vertices[1].position = pnp;
-    vertices[2].position = ppp;
-    vertices[3].position = npp;
-    modeller.addPolygon(polygon);
-
-    vertices[0].position = pnp;
-    vertices[1].position = pnn;
-    vertices[2].position = ppn;
-    vertices[3].position = ppp;
-    modeller.addPolygon(polygon);
-
-    vertices[0].position = pnn;
-    vertices[1].position = nnn;
-    vertices[2].position = npn;
-    vertices[3].position = ppn;
-    modeller.addPolygon(polygon);
-
-    vertices[0].position = pnn;
-    vertices[1].position = pnp;
-    vertices[2].position = nnp;
-    vertices[3].position = nnn;
-    modeller.addPolygon(polygon);
+    const std::array<glm::vec3, 8> corners{{{-0.5f, 1, 0.5f},
+                                            {0.5f, 1, 0.5f},
+                                            {0.5f, 1, -0.5f},
+                                            {-0.5f, 1, -0.5f},
+                                            {-0.5f, 0, -0.5f},
+                                            {0.5f, 0, 0.5f},
+                                            {-0.5f, 0, 0.5f},
+                                            {0.5f, 0, -0.5f}}};
+    const std::array<std::array<int, 4>, 6> faces{
+        {{0, 1, 2, 3}, {4, 6, 0, 3}, {6, 5, 1, 0}, {5, 7, 2, 1}, {7, 4, 3, 2}, {7, 5, 6, 4}}};
+    const std::array<glm::vec2, 4> uv{{{1, 1}, {0, 1}, {0, 0}, {1, 0}}};
+    for (const auto& face : faces) {
+        for (int i = 0; i < 4; ++i) {
+            polygon.vertices[i].position = corners[face[i]];
+            polygon.vertices[i].uv[0] = uv[i];
+        }
+        modeller.addPolygon(polygon);
+    }
 
     auto material = std::make_shared<srMaterial>();
     material->setName("Cube Number Material");
@@ -185,17 +150,13 @@ W8WorldCursorNode* CreateWorldCursorCube(void)
     texture->setSurfacePtr(surface);
     texture->setMipmap(srTextureIFace::MIPMAP_NONE);
 
-    srVector3T<float> scale(500.0f, 500.0f, 500.0f);
-    modeller.scale(scale);
+    modeller.scale(glm::vec3(500));
     modeller.convert(*model, 1);
     model->setTexture(std::move(texture), 0, 0);
 
     model->setDirty(srMeshModel::DIRTY_TRI_MESH);
     model->setDirty(srMeshModel::DIRTY_BOUNDS);
 
-    srVector3T<float> minimum;
-    srVector3T<float> maximum;
-    model->getBoundingBox(minimum, maximum);
     model->setName("stCube");
     instance->setModel(model);
     entry->node = instance;
@@ -783,14 +744,9 @@ W8WorldCursorNode* FindWorldCursorNodeAtPoint(W8WorldCursorNode* after, srVector
         if (entry->node != 0) {
             srNode::BoundInfo bounds;
             entry->node->getLocalBounds(bounds);
-            srVector3T<double> location = entry->node->getLocation();
-            bounds.minimum.x += static_cast<float>(location.x);
-            bounds.minimum.y += static_cast<float>(location.y);
-            bounds.minimum.z += static_cast<float>(location.z);
-            bounds.maximum.x += static_cast<float>(location.x);
-            bounds.maximum.y += static_cast<float>(location.y);
-            bounds.maximum.z += static_cast<float>(location.z);
-            if (PointInsideBounds(point, &bounds.minimum, &bounds.maximum)) {
+            const auto location = glm::vec3(entry->node->getLocation());
+            const srBoundingBox box{bounds.minimum + location, bounds.maximum + location};
+            if (box.contains(point->glmValue())) {
                 return entry;
             }
         }

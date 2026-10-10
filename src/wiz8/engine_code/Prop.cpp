@@ -1638,60 +1638,30 @@ try
         W8AniMesh* mesh = AnimObjEntry(animation, 2, 0);
         unsigned char value_count = AniMeshValue(mesh);
         stModelInstance* frame = GetAniMeshFrame(mesh, 0);
-        srVector3T<float> minimum;
-        srVector3T<float> maximum;
+        glm::vec3 minimum;
+        glm::vec3 maximum;
         unsigned int frame_i;
-        float extent;
 
         if (frame == 0) {
             srAssertFail("psrMesh", PROP_CPP, 0x182, 0);
         }
         frame->getModel()->getBoundingBox(minimum, maximum);
         for (frame_i = 0; frame_i < value_count; ++frame_i) {
-            srVector3T<float> frame_min;
-            srVector3T<float> frame_max;
+            glm::vec3 frame_min;
+            glm::vec3 frame_max;
 
             frame = GetAniMeshFrame(mesh, frame_i);
             if (frame == 0) {
                 srAssertFail("psrMesh", PROP_CPP, 0x192, 0);
             }
             frame->getModel()->getBoundingBox(frame_min, frame_max);
-            if (frame_min.x < minimum.x) {
-                minimum.x = frame_min.x;
-            }
-            if (maximum.x < frame_max.x) {
-                maximum.x = frame_max.x;
-            }
-            if (frame_min.y < minimum.y) {
-                minimum.y = frame_min.y;
-            }
-            if (maximum.y < frame_max.y) {
-                maximum.y = frame_max.y;
-            }
-            if (frame_min.z < minimum.z) {
-                minimum.z = frame_min.z;
-            }
-            if (maximum.z < frame_max.z) {
-                maximum.z = frame_max.z;
-            }
+            minimum = glm::min(minimum, frame_min);
+            maximum = glm::max(maximum, frame_max);
         }
-        {
-            /* Retail writes the six floats in this interleaved order. */
-            this->bounds_min.y = minimum.y;
-            this->bounds_max.x = maximum.x;
-            this->bounds_min.x = minimum.x;
-            this->bounds_max.z = maximum.z;
-            this->bounds_min.z = minimum.z;
-            this->bounds_max.y = maximum.y;
-        }
-        extent = maximum.x - minimum.x;
-        if (extent < maximum.y - minimum.y) {
-            extent = maximum.y - minimum.y;
-        }
-        if (extent < maximum.z - minimum.z) {
-            extent = maximum.z - minimum.z;
-        }
-        this->bounds_extent = extent * g_float_half;
+        bounds_min = minimum;
+        bounds_max = maximum;
+        const auto size = maximum - minimum;
+        bounds_extent = std::max({size.x, size.y, size.z}) * g_float_half;
     }
 
     if (version > 2) {

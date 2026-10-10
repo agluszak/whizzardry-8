@@ -194,7 +194,7 @@ bool W8ItemRep::ReadFromFile(W8ReadLevelInfo* info, W8Item* item, bool anonymous
 void W8ItemRep::RefreshBounds()
 {
     m_psrMesh->getModel()->getBoundingBox(bounds_minimum, bounds_maximum);
-    bounds_radius = static_cast<float>((bounds_maximum - bounds_minimum).Length() * 0.5);
+    bounds_radius = static_cast<float>(glm::distance(bounds_maximum, bounds_minimum) * 0.5);
 }
 
 // FUNCTION: WIZ8 0x0049F350

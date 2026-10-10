@@ -76,7 +76,7 @@ static bool frame_storage()
         CHECK(!mesh.frames[0].locations);
         CHECK(g_decompressed_mesh_bytes == initial_bytes); // Normal-builder scratch is not a cache.
 
-        srVector3T<float> minimum, maximum;
+        glm::vec3 minimum, maximum;
         mesh.GetFrameBounds(1, &minimum, &maximum);
         CHECK(minimum == srVector3T<float>(2.0f, 0.0f, 0.0f));
         CHECK(maximum == srVector3T<float>(3.0f, 1.0f, 0.0f));

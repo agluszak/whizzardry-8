@@ -271,8 +271,7 @@ void srLight::process(const ProcessInfo& info, e_processType type)
                 }
                 if ((enable_flags & (1UL << srLight::ENABLE_RANGE_FAR)) != 0) {
                     if ((enable_flags & (1UL << srLight::ENABLE_BOUNDING_SPHERE)) != 0) {
-                        srVector3 origin(0, 0, 0);
-                        if (renderer->testBoundingSphere(origin, safe_range + far_end) == 0) {
+                        if (renderer->testBoundingSphere(glm::vec3(0), safe_range + far_end) == 0) {
                             derived_flags &= ~srLight::DERIVED_ACTIVE;
                         }
                     }
@@ -297,7 +296,7 @@ int srLight::isActive(srVertexPipe& pipe)
         return 0;
     }
     if ((derived_flags & srLight::DERIVED_RANGE_CULL) != 0) {
-        const auto offset = eye_location - input->eye_center.glmValue();
+        const auto offset = eye_location - input->eye_center;
         float range = attenuation_range + input->eye_radius;
         if (range * range <= glm::dot(offset, offset)) {
             return 0;
@@ -305,7 +304,7 @@ int srLight::isActive(srVertexPipe& pipe)
     }
     if ((derived_flags & srLight::DERIVED_SPOT) != 0) {
         float radius = input->eye_radius;
-        const auto offset = input->eye_center.glmValue() - eye_location;
+        const auto offset = input->eye_center - eye_location;
         const float distance_squared = glm::dot(offset, offset);
         if (radius * radius < distance_squared &&
             glm::dot(offset, spot_direction_eye) / sqrtf(distance_squared) +

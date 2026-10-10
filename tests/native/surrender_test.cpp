@@ -100,8 +100,8 @@ static bool transforms()
 
     const glm::mat4 transform =
         glm::scale(glm::translate(glm::mat4(1), glm::vec3(3, 2, 0)), glm::vec3(2, 3, 4));
-    const auto plane = srTriangleCuller::transformClipPlane(glm::vec4(1, 0, 0, -1), transform,
-                                                            srRendererDefs::SCALE_TYPE_NON_UNIFORM);
+    const auto plane_matrix = glm::transpose(glm::inverse(transform));
+    const auto plane = srTriangleCuller::transformClipPlane(glm::vec4(1, 0, 0, -1), plane_matrix);
     CHECK(glm::length(plane - glm::vec4(1, 0, 0, -5)) < 1e-6f);
     CHECK(glm::dot(plane, glm::vec4(6, 0, 0, 1)) > 0);
     CHECK(glm::dot(plane, glm::vec4(4, 0, 0, 1)) < 0);
