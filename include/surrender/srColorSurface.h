@@ -1,9 +1,11 @@
 #pragma once
 
+#include <memory>
+
 #include "srColorSurfaceIFace.h"
 #include "srPalette.h"
 
-#include <vector>
+#include <SDL3/SDL_surface.h>
 
 // VTABLE: SURRENDER 0x100773A0
 // class srClassSupport<srColorSurface, srColorSurfaceIFace, 12560>
@@ -20,6 +22,8 @@ public:
                                  w8_ulong width, w8_ulong height, w8_ulong pitch);
     SR_DLL_IMPORT srColorSurface(srPixelConvert::e_surfaceType type, void* data,
                                  w8_ulong width, w8_ulong height, w8_ulong pitch);
+    /* Shares an existing SDL surface; its pixels live as long as either owner. */
+    srColorSurface(srPixelConvert::e_surfaceType type, SDL_Surface& shared);
 
     SR_DLL_IMPORT srColorSurface(const srColorSurface& other);
     SR_DLL_IMPORT srColorSurface& operator=(const srColorSurface& other);
@@ -27,7 +31,6 @@ public:
     static SR_DLL_IMPORT const char* sGetClassName();
 
     virtual SR_DLL_IMPORT void dump(std::ostream& stream) override;
-    virtual SR_DLL_IMPORT srClass* vInstance() override;
 
     virtual SR_DLL_IMPORT w8_ulong getPixelRaw(w8_long x, w8_long y) override;
     virtual SR_DLL_IMPORT void setPixelRaw(w8_long x, w8_long y, w8_ulong pixel) override;
@@ -43,8 +46,8 @@ public:
                                               w8_long y_end) override;
     virtual SR_DLL_IMPORT void setPixelColumn(const w8_ulong* pixels, w8_long x, w8_long y_start,
                                               w8_long y_end) override;
-    virtual SR_DLL_IMPORT srPalette* getPalette() override;
-    virtual SR_DLL_IMPORT void setPalette(srPalette* palette) override;
+    virtual SR_DLL_IMPORT std::shared_ptr<srPalette> getPalette() override;
+    virtual SR_DLL_IMPORT void setPalette(std::shared_ptr<srPalette> palette) override;
     virtual SR_DLL_IMPORT void* getDataPtr() override;
     virtual SR_DLL_IMPORT w8_long getDataSize() override;
     virtual SR_DLL_IMPORT int resize(w8_long width, w8_long height) override;
@@ -89,13 +92,21 @@ private:
     SR_DLL_IMPORT void reversePixels(void* pixels, w8_ulong count);
     SR_DLL_IMPORT int isCompatible(srColorSurfaceIFace& source);
 
+    void allocate();
+    void adopt(SDL_Surface* storage);
+    /* Caller memory or a shared surface cannot be reallocated. */
+    bool hasFixedStorage() const;
+
+    struct SurfaceDeleter {
+        void operator()(SDL_Surface* surface) const
+        {
+            SDL_DestroySurface(surface);
+        }
+    };
+
     srPixelConvert::ConversionFunc pixel_write = nullptr;
     srPixelConvert::ConversionFunc pixel_read = nullptr;
-    srPtr<srPalette> palette;
-    enum { BORROWED_DATA = 0x01u };
-    w8_ulong surface_flags = 0;
-    std::vector<unsigned char> owned_data;
-    unsigned char* borrowed_data = nullptr;
+    std::shared_ptr<srPalette> palette;
+    /* SDL holds the pixels; pixel_format describes their channels. */
+    std::unique_ptr<SDL_Surface, SurfaceDeleter> storage;
 };
-
-W8_ABI_ASSERT((sizeof(srColorSurface) == 0x5c), "srColorSurface_must_be_0x5c");

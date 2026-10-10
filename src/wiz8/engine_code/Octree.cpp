@@ -1625,7 +1625,7 @@ int W8Octree::CountBadRegionMeshLinks(W8OctSpatialState* spatial)
                     srVector3T<float> maximum;
                     minimum.x = minimum.y = minimum.z = 1.0e7f;
                     maximum.x = maximum.y = maximum.z = -1.0e7f;
-                    for (; model != 0; model = model->next) {
+                    for (; model != 0; model = model->Next()) {
                         srVector3T<float> box_minimum;
                         srVector3T<float> box_maximum;
                         model->getBoundingBox(box_minimum, box_maximum);
@@ -3788,13 +3788,7 @@ W8Octree::~W8Octree()
     }
     g_octree_storage_ = 0;
     g_octree = 0;
-    srMaterialIFace* default_material = g_oct_mesh_default_material;
-    if (default_material)
-        default_material->release();
-    g_oct_mesh_default_material = 0;
-    g_oct_mesh_default_texture = 0;
-    delete g_oct_mesh_default_shader;
-    g_oct_mesh_default_shader = 0;
+    ReleaseOctMeshDefaults();
     delete m_pPropSunBits;
     m_pPropSunBits = 0;
 }

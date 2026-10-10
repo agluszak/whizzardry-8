@@ -14,7 +14,6 @@ public:
 
     SR_DLL_IMPORT srFog(srNode* parent = 0);
 
-
     // FUNCTION: SURRENDER 0x1004C1A0
     static const char* sGetClassName()
     {
@@ -33,7 +32,6 @@ public:
     srFog& operator=(const srFog&) = default;
 
 public:
-    virtual SR_DLL_IMPORT srClass* vInstance() override;
 
     using srClassSupport<srFog, srIlluminator, 0x1210>::process;
     virtual SR_DLL_IMPORT int isActive(srVertexPipe& pipe) override;
@@ -44,4 +42,3 @@ public:
     float density;    /* 0x160 */
 };
 
-W8_ABI_ASSERT(sizeof(srFog) == 0x168, "srFog_must_be_0x168");

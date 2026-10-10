@@ -75,6 +75,44 @@ void srGERD::TexturePool::release(Texture* texture)
 // RECOMP: ??0MatrixStack@srGERD@@QAE@XZ
 srGERD::MatrixStack::MatrixStack() : depth(0) {}
 
+class srGERD::LockSurface : public srClassSupport<LockSurface, srColorSurfaceIFace, 0x3111> {
+public:
+    LockSurface(srGERD* gerd, const srPixelConvert::PixelFormat& format);
+    virtual ~LockSurface() override;
+    LockSurface& operator=(const LockSurface&) = default;
+    // FUNCTION: SURRENDER 0x1001F780
+    static const char* sGetClassName()
+    {
+        return "srGERD::Surface";
+    }
+    /* Cannot construct a LockSurface without the owning GERD and pixel format. */
+    virtual void getPixelColumn(w8_ulong* pixels, w8_long x, w8_long y0, w8_long y1) override;
+    virtual void setPixelColumn(const w8_ulong* pixels, w8_long x, w8_long y0, w8_long y1) override;
+    virtual void* getDataPtr() override;
+    virtual w8_long getDataSize() override;
+    virtual void setHLine(w8_long y, w8_long x0, w8_long x1, w8_ulong pixel) override;
+    virtual void getPixelRow(w8_ulong* pixels, w8_long y, w8_long x0, w8_long x1) override;
+    virtual void setPixelRow(const w8_ulong* pixels, w8_long y, w8_long x0, w8_long x1) override;
+    virtual void getPixelRowRaw(void* pixels, w8_long y, w8_long x0, w8_long x1) override;
+    virtual void setPixelRowRaw(const void* pixels, w8_long y, w8_long x0, w8_long x1) override;
+    void setScissor(w8_ulong left, w8_ulong top, w8_ulong right,
+                    w8_ulong bottom);
+
+private:
+    srGERD* gerd;
+    w8_ulong left;
+    w8_ulong top;
+    w8_ulong right;
+    w8_ulong bottom;
+    srColorSurface scratch;
+
+public:
+    /* Set by lockBuffer when the locked pixel format is 32-bit ARGB. */
+    unsigned char argb32;
+
+private:
+};
+
 // FUNCTION: SURRENDER 0x10019320
 srGERD::srGERD(srDD* device, const char* device_name)
     : dirty(0), state_flags(0), device{}, state{}, frame_statistics{}, statistics{},
@@ -576,6 +614,18 @@ srGERD* srGERD::getNextOpen() const
     return next_open;
 }
 
+void srGERD::unbindTexture(const srTextureIFace* texture)
+{
+    for (srGERD* gerd = getFirstOpen(); gerd != 0; gerd = gerd->getNextOpen()) {
+        std::lock_guard access(gerd->state_section);
+        for (auto*& bound : gerd->texture_iface) {
+            if (bound == texture) {
+                bound = 0;
+            }
+        }
+    }
+}
+
 // FUNCTION: SURRENDER 0x10018330
 void srGERD::invalidateTexture(srTextureIFace* texture)
 {
@@ -750,10 +800,8 @@ void srGERD::setTextureSubImage(srTextureIFace* texture, w8_long mipmap, w8_long
         if (resident->surface_data.empty()) {
             std::vector<unsigned char> staging(
                 static_cast<std::size_t>(bytes_per_pixel) * level_height * level_width);
-            auto release_surface = [](srColorSurface* surface) { surface->release(); };
-            std::unique_ptr<srColorSurface, decltype(release_surface)> destination(
-                new srColorSurface(resident->pixel_format, staging.data(), level_width,
-                                   level_height, pitch), release_surface);
+            auto destination = std::make_unique<srColorSurface>(
+                resident->pixel_format, staging.data(), level_width, level_height, pitch);
             request.destination = destination.get();
             texture->getMipmapLevelPartial(request);
             destination.reset();
@@ -768,11 +816,11 @@ void srGERD::setTextureSubImage(srTextureIFace* texture, w8_long mipmap, w8_long
             }
             resident->device.levels[mipmap] = 0;
         } else {
-            request.destination =
-                new srColorSurface(resident->pixel_format, resident->device.levels[mipmap],
-                                   level_width, level_height, pitch);
+            auto destination = std::make_unique<srColorSurface>(
+                resident->pixel_format, resident->device.levels[mipmap],
+                level_width, level_height, pitch);
+            request.destination = destination.get();
             texture->getMipmapLevelPartial(request);
-            request.destination->release();
             getDD()->texSubImage(resident->device, mipmap, request.destination_x,
                                  request.destination_y, request.source_right,
                                  request.source_bottom);
@@ -1580,47 +1628,9 @@ void srGERD::accumClear()
 /* Locked-buffer surface created by lockBuffer. It keeps its own scissor rect and proxies pixel
    access through device bufferOp commands, staging through a 1-pixel-high srColorSurface scratch
    buffer when the locked format is not 32-bit ARGB. */
-class srGERD::LockSurface : public srClassSupport<LockSurface, srColorSurfaceIFace, 0x3111> {
-public:
-    LockSurface(srGERD* gerd, const srPixelConvert::PixelFormat& format);
-    virtual ~LockSurface() override;
-    LockSurface& operator=(const LockSurface&) = default;
-    // FUNCTION: SURRENDER 0x1001F780
-    static const char* sGetClassName()
-    {
-        return "srGERD::Surface";
-    }
-    /* Cannot construct a LockSurface without the owning GERD and pixel format. */
-    virtual srClass* vInstance() override;
-    virtual void getPixelColumn(w8_ulong* pixels, w8_long x, w8_long y0, w8_long y1) override;
-    virtual void setPixelColumn(const w8_ulong* pixels, w8_long x, w8_long y0, w8_long y1) override;
-    virtual void* getDataPtr() override;
-    virtual w8_long getDataSize() override;
-    virtual void setHLine(w8_long y, w8_long x0, w8_long x1, w8_ulong pixel) override;
-    virtual void getPixelRow(w8_ulong* pixels, w8_long y, w8_long x0, w8_long x1) override;
-    virtual void setPixelRow(const w8_ulong* pixels, w8_long y, w8_long x0, w8_long x1) override;
-    virtual void getPixelRowRaw(void* pixels, w8_long y, w8_long x0, w8_long x1) override;
-    virtual void setPixelRowRaw(const void* pixels, w8_long y, w8_long x0, w8_long x1) override;
-    void setScissor(w8_ulong left, w8_ulong top, w8_ulong right,
-                    w8_ulong bottom);
-
-private:
-    srGERD* gerd;
-    w8_ulong left;
-    w8_ulong top;
-    w8_ulong right;
-    w8_ulong bottom;
-    srColorSurface* scratch;
-
-public:
-    /* Set by lockBuffer when the locked pixel format is 32-bit ARGB. */
-    unsigned char argb32;
-
-private:
-};
-
 // FUNCTION: SURRENDER 0x100205D0
 srGERD::LockSurface::LockSurface(srGERD* gerd, const srPixelConvert::PixelFormat& format)
+    : scratch(format, std::max(gerd->getWidth(), gerd->getHeight()), 1)
 {
     SurfaceDesc description{};
     description.width = gerd->getWidth();
@@ -1633,23 +1643,12 @@ srGERD::LockSurface::LockSurface(srGERD* gerd, const srPixelConvert::PixelFormat
     top = 0;
     right = 0;
     bottom = 0;
-    /* One row tall and as wide as the longest scissor axis. */
-    w8_ulong side =
-        (w8_long)description.width < (w8_long)description.height ? description.height : description.width;
-    scratch = new srColorSurface(format, side, 1);
     argb32 = 0;
 }
 
 // FUNCTION: SURRENDER 0x1001F610
 srGERD::LockSurface::~LockSurface()
 {
-    scratch->release();
-}
-
-// FUNCTION: SURRENDER 0x1001F770
-srClass* srGERD::LockSurface::vInstance()
-{
-    return 0;
 }
 
 // FUNCTION: SURRENDER 0x1001F750
@@ -1681,8 +1680,8 @@ void srGERD::LockSurface::setHLine(w8_long y, w8_long x0, w8_long x1, w8_ulong p
     }
     /* Convert the pixel through the scratch surface, then hand the device a
        pointer to the converted value. */
-    scratch->setPixel(0, 0, pixel);
-    w8_ulong converted = scratch->getPixelRaw(0, 0);
+    scratch.setPixel(0, 0, pixel);
+    w8_ulong converted = scratch.getPixelRaw(0, 0);
     srDD::BufferCommand command;
     command.flags = 0;
     command.opcode = 4;
@@ -1721,9 +1720,9 @@ void srGERD::LockSurface::getPixelRow(w8_ulong* pixels, w8_long y, w8_long x0, w
         gerd->getDD()->bufferOp(command);
         return;
     }
-    command.data = scratch->getDataPtr();
+    command.data = scratch.getDataPtr();
     gerd->getDD()->bufferOp(command);
-    scratch->getPixelRow(pixels, 0, 0, count);
+    scratch.getPixelRow(pixels, 0, 0, count);
 }
 
 // FUNCTION: SURRENDER 0x10020840
@@ -1754,8 +1753,8 @@ void srGERD::LockSurface::setPixelRow(const w8_ulong* pixels, w8_long y, w8_long
         gerd->getDD()->bufferOp(command);
         return;
     }
-    scratch->setPixelRow(pixels, 0, 0, count);
-    command.data = scratch->getDataPtr();
+    scratch.setPixelRow(pixels, 0, 0, count);
+    command.data = scratch.getDataPtr();
     gerd->getDD()->bufferOp(command);
 }
 
@@ -1839,9 +1838,9 @@ void srGERD::LockSurface::getPixelColumn(w8_ulong* pixels, w8_long x, w8_long y0
         gerd->getDD()->bufferOp(command);
         return;
     }
-    command.data = scratch->getDataPtr();
+    command.data = scratch.getDataPtr();
     gerd->getDD()->bufferOp(command);
-    scratch->getPixelRow(pixels, 0, 0, count);
+    scratch.getPixelRow(pixels, 0, 0, count);
 }
 
 // FUNCTION: SURRENDER 0x10020AF0
@@ -1872,8 +1871,8 @@ void srGERD::LockSurface::setPixelColumn(const w8_ulong* pixels, w8_long x, w8_l
         gerd->getDD()->bufferOp(command);
         return;
     }
-    scratch->setPixelRow(pixels, 0, 0, count);
-    command.data = scratch->getDataPtr();
+    scratch.setPixelRow(pixels, 0, 0, count);
+    command.data = scratch.getDataPtr();
     gerd->getDD()->bufferOp(command);
 }
 
@@ -2838,7 +2837,7 @@ bound:
     if (found->palette != 0 && found->palette != this->palette) {
         ++statistics.palette_binds;
         invalidatePalette();
-        srPalette* palette = found->palette;
+        auto palette = found->palette;
         device_palette.flags = 0;
         device_palette.data = palette->getPaletteDataPtr();
         w8_ulong size = palette->getPaletteSize();
@@ -3300,7 +3299,7 @@ srColorSurfaceIFace* srGERD::lockBuffer()
     checkViewStateChanges();
     srPixelConvert::PixelFormat format;
     getPixelFormat(format);
-    lock_surface = new LockSurface(this, format);
+    lock_surface = std::make_unique<LockSurface>(this, format);
     lock_surface->setScissor(state.scissor.left, state.scissor.top, state.scissor.right,
                              state.scissor.bottom);
     if (format.color_model == srPixelConvert::COLOR_RGB &&
@@ -3310,15 +3309,14 @@ srColorSurfaceIFace* srGERD::lockBuffer()
         format.alpha_shift == 0x18) {
         lock_surface->argb32 = 1;
     }
-    return lock_surface;
+    return lock_surface.get();
 }
 
 // FUNCTION: SURRENDER 0x10020F30
 void srGERD::unlockBuffer()
 {
     if (lock_surface != 0) {
-        lock_surface->release();
-        lock_surface = 0;
+        lock_surface.reset();
         _unlockBuffer();
     }
 }
@@ -3720,16 +3718,18 @@ srGERD::Texture* srGERD::createNewTexture(srTextureIFace* texture)
     evaluateTextureDimensions(result->device, dimensions);
     evaluateTexturePixelFormat(*result, dimensions);
     allocTextureData(*result);
-    srTextureIFace::MultiRequest request;
+    srTextureIFace::MultiRequest request{};
+    std::unique_ptr<srColorSurface> surfaces[12];
     request.mipmap_level = (w8_long)result->device.first_level;
     request.last_level = result->device.last_level;
     w8_ulong width = result->device.width;
     w8_ulong height = result->device.height;
     w8_long level = request.mipmap_level;
     for (; level <= (w8_long)request.last_level; ++level) {
-        srColorSurface* surface =
-            new srColorSurface(result->pixel_format, result->device.levels[level], width, height,
-                               (w8_ulong)(result->pixel_format.pixel_size + 1) * width);
+        surfaces[level] = std::make_unique<srColorSurface>(
+            result->pixel_format, result->device.levels[level], width, height,
+            (w8_ulong)(result->pixel_format.pixel_size + 1) * width);
+        auto* surface = surfaces[level].get();
         request.destinations[level] = surface;
         if (result->palette != 0) {
             surface->setPalette(result->palette);
@@ -3739,9 +3739,7 @@ srGERD::Texture* srGERD::createNewTexture(srTextureIFace* texture)
         height >>= 1;
     }
     texture->getMipmapData(request);
-    for (level = request.mipmap_level; level <= (w8_long)request.last_level; ++level) {
-        request.destinations[level]->release();
-    }
+
     result->device.resident_data = 0;
     result->device.priority = texture->getPriority();
     ++statistics.textures_created;
@@ -3794,7 +3792,7 @@ w8_long srGERD::getTextureReduction() const
 // FUNCTION: SURRENDER 0x10017B70
 void srGERD::invalidateResidentPalette(srPalette* palette)
 {
-    if (palette != 0 && palette == this->palette) {
+    if (palette != 0 && palette == this->palette.get()) {
         this->palette = 0;
         dirty |= DIRTY_TEXTURE0;
         dirty |= DIRTY_TEXTURE1;

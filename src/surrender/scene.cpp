@@ -8,12 +8,6 @@
 
 #include <ostream>
 
-// FUNCTION: SURRENDER 0x10056BB0
-srClass* srScene::vInstance()
-{
-    return new srScene(static_cast<srNode*>(0));
-}
-
 // FUNCTION: SURRENDER 0x100565D0
 srScene::srScene(srNode* parent)
     : srClassSupport<srScene, srNode, 0x1010>(static_cast<srNode*>(0))

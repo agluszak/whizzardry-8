@@ -93,8 +93,6 @@ struct FormatEntry {
     FormatEntry* next;
 };
 
-W8_ABI_ASSERT(sizeof(FormatEntry) == 0x20, "srPixelConvert_FormatEntry_must_be_0x20");
-
 /* Lookup tables built by initPixelTables(): n-bit channel expansion (round(i * 255 / (2^n - 1))),
    8-bit channel reduction, the ordered-dither bias cube, the packed-chroma decode table and the
    fixed-point channel weight ramps. */
@@ -114,7 +112,6 @@ struct ExpandTables5And6 {
     unsigned char expand32[32];
     unsigned char expand64[64];
 };
-W8_ABI_ASSERT(sizeof(ExpandTables5And6) == 0x60, "ExpandTables5And6_must_be_0x60");
 // GLOBAL: SURRENDER 0x100A1ACC
 ExpandTables5And6 lutExpand5And6;
 // GLOBAL: SURRENDER 0x100A1B2C

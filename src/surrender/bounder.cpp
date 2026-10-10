@@ -19,12 +19,6 @@ srBounder::srBounder(srNode* parent)
     setNotify(NOTIFY_BOUNDS_DIRTY);
 }
 
-// FUNCTION: SURRENDER 0x1004b080
-srClass* srBounder::vInstance()
-{
-    return new srBounder(static_cast<srNode*>(0));
-}
-
 // FUNCTION: SURRENDER 0x1004b1a0
 srBounder::e_boundMode srBounder::getBoundMode() const
 {

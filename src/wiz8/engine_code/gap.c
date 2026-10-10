@@ -28,6 +28,7 @@ void LoadMouthGapTrack(char* path, W8MouthGapTrack* track)
     W8MouthGapRange* previous = 0;
     W8MouthGapRange* range;
 
+    FreeMouthGapTrack(track);
     track->range_count = 0;
     track->unused = 0;
     track->head = 0;

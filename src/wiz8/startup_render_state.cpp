@@ -30,7 +30,7 @@ EnvironmentColour g_environment_colours0[256];
 // GLOBAL: WIZ8 0x0065AD98
 EnvironmentColour g_environment_colours1[256];
 // GLOBAL: WIZ8 0x0065A168
-stTextureAnim* g_sky_gradient_animations[3];
+std::weak_ptr<stTextureAnim> g_sky_gradient_animations[3];
 // GLOBAL: WIZ8 0x0060A394
 bool g_environment_time_enabled = true;
 // GLOBAL: WIZ8 0x0065A160
@@ -67,13 +67,13 @@ unsigned char InitializeEnvironmentColours(void)
         g_environment_colours0[index] = value;
         g_environment_colours1[index] = value;
     }
-    g_sky_gradient_animations[0] = 0;
-    g_sky_gradient_animations[1] = 0;
+    g_sky_gradient_animations[0].reset();
+    g_sky_gradient_animations[1].reset();
     g_environment_time_enabled = false;
     g_sun_prop = 0;
     g_moon_prop = 0;
     g_environment_lights.Clear();
     g_view_distance = 12.0f;
-    g_sky_gradient_animations[2] = 0;
+    g_sky_gradient_animations[2].reset();
     return 1;
 }

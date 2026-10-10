@@ -16,11 +16,7 @@
 #define CHECK(e) do { if (!(e)) { fprintf(stderr, "line %d: %s (%s)\n", \
     __LINE__, #e, SDL_GetError()); throw std::runtime_error(#e); } } while (0)
 using Bytes = std::vector<Uint8>;
-using OwnedSurface = std::unique_ptr<srColorSurfaceIFace, void(*)(srColorSurfaceIFace*)>;
-static OwnedSurface owned(srColorSurfaceIFace* p)
-{
-    return {p, [](srColorSurfaceIFace* s) { if (s) s->release(); }};
-}
+using OwnedSurface = std::unique_ptr<srColorSurfaceIFace>;
 static Bytes fixture(const char* name)
 {
     std::ifstream input(std::filesystem::path(WIZ8_IMAGE_IMPORT_FIXTURE_DIR) / name,
@@ -38,9 +34,9 @@ static void checkFormat(const srColorSurfaceIFace& surface, srPixelConvert::e_su
 }
 static OwnedSurface loadJpeg(const Bytes& data)
 {
-    if (data.empty()) return owned(nullptr);
+    if (data.empty()) return nullptr;
     auto input = srIO::own(SDL_IOFromConstMem(data.data(), data.size()));
-    auto result = owned(srImage::load("sample.jpg", input.get()));
+    auto result = srImage::load("sample.jpg", input.get());
     CHECK(SDL_GetIOSize(input.get()) == Sint64(data.size()));
     return result;
 }
@@ -97,7 +93,7 @@ static void jpegTests()
             p[0] = 20 + 40 * x + 60 * y;
             p[1] = p[0] + 20; p[2] = p[0] + 60; p[3] = 40;
         }
-    auto source = owned(new srColorSurface(srPixelConvert::SURFACE_BGRA32, pixels.data(), 3, 2, 16));
+    auto source = std::make_unique<srColorSurface>(srPixelConvert::SURFACE_BGRA32, pixels.data(), 3, 2, 16);
     const auto rgb = encode(*source);
     CHECK(rgb == encode(*source, 100));
     CHECK(rgb == encode(*source, 200));
@@ -174,7 +170,7 @@ static void pitchTests()
         for (unsigned y = 0; y < 2; ++y)
             for (unsigned x = 0; x < row_bytes; ++x) src[y * src_pitch + x] = 20 * y + x;
         srImage::Surface view(SDL_CreateSurfaceFrom(3, 2, format.sdl, src.data(), src_pitch), SDL_DestroySurface);
-        auto destination = owned(new srColorSurface(format.sr, dst.data(), 3, 2, dst_pitch));
+        auto destination = std::make_unique<srColorSurface>(format.sr, dst.data(), 3, 2, dst_pitch);
         CHECK(view && destination);
         for (bool mirror : {false, true}) {
             CHECK(srImage::copyRows(*view, *destination, format.bytes, mirror));
@@ -259,7 +255,7 @@ static TgaFixture tgaFixture(unsigned depth, bool indexed, bool rle, unsigned or
 static OwnedSurface loadTga(const Bytes& data)
 {
     auto input = srIO::own(SDL_IOFromConstMem(data.data(), data.size()));
-    auto result = owned(srImage::loadTga(input.get()));
+    auto result = srImage::loadTga(input.get());
     CHECK(SDL_GetIOSize(input.get()) == Sint64(data.size()));
     return result;
 }
@@ -293,7 +289,7 @@ static void tgaTests()
                 auto surface = loadTga(fixture.encoded);
                 CHECK(surface);
                 checkTga(fixture, *surface);
-                const auto* palette = surface->getPalette();
+                const auto palette = surface->getPalette();
                 CHECK(palette && palette->getPaletteSize() == 10);
                 CHECK(palette->getColor(0).red == 0 && palette->getColor(6).blue == 0);
                 for (unsigned i = 0; i < 3; ++i) {

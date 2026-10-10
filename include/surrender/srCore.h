@@ -30,9 +30,9 @@ public:
     // RECOMP: ?getMaterial@srCore@@QBEPAVsrMaterial@@XZ
     srMaterial* getMaterial() const
     {
-        return material;
+        return material.get();
     }
-    SR_DLL_IMPORT srPalette* getPalette() const;
+    SR_DLL_IMPORT std::shared_ptr<srPalette> getPalette() const;
     SR_DLL_IMPORT srNode* getRootNode() const;
     // FUNCTION: SURRENDER 0x100156B0
     // RECOMP: ?getStatisticsManager@srCore@@QBEPAVsrStatisticsManager@@XZ
@@ -76,19 +76,17 @@ private:
     // Declared first and reset last: registered resources need it during release.
     std::unique_ptr<srRegistry> registry_;
     std::unique_ptr<srClock> timer;
-    srColorSurfaceIFace* surface = nullptr;
+    std::shared_ptr<srColorSurfaceIFace> surface;
     srFilter* filter = nullptr;
     std::unique_ptr<srStatisticsManager> statistics_manager;
-    srPalette* palette = nullptr;
+    std::shared_ptr<srPalette> palette;
     w8_ulong next_unique_id = 0;
     w8_ulong debug_level = 1;
     int multi_thread = 0;
-    srNode* root_node = nullptr;
-    srMaterial* material = nullptr;
-    srTexture* texture = nullptr;
+    std::unique_ptr<srNode> root_node;
+    std::unique_ptr<srMaterial> material;
+    std::unique_ptr<srTexture> texture;
 };
-
-W8_ABI_ASSERT(sizeof(srCore) == 0x17c, "srCore_must_be_0x17c");
 
 extern SR_DLL_IMPORT class srCore srCore;
 

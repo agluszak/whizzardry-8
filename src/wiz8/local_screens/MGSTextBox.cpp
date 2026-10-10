@@ -179,12 +179,22 @@ void ResetMessageStorage(void)
     }
 }
 
+static void ReleaseMessageRow(int row)
+{
+    for (auto& record : g_message_storage[row]) {
+        free(record.wString);
+        record.ClearEntries();
+        record = {};
+    }
+}
+
 // FUNCTION: WIZ8 0x0058AA20
 void ResetEditorStatusLine(short line)
 {
     if (line == -1) {
         line = g_status.text_line_cursor;
     }
+    ReleaseMessageRow(line);
     g_status.text_box_lines_used[line] = 0;
     g_status.text_box_lines_shown[line] = 0;
     if (!IsNpcDialogueTextInputActive()) {
@@ -432,14 +442,7 @@ void W8MessageStorageRecord::ClearEntries()
 void ReleaseMessageStorage(void)
 {
     for (int row = 0; row < 4; ++row) {
-        for (int index = 0; index < 0x15e; ++index) {
-            W8MessageStorageRecord* record = &g_message_storage[row][index];
-            if (record->wString) {
-                free(record->wString);
-            }
-            record->ClearEntries();
-            memset(record, 0, sizeof(*record));
-        }
+        ReleaseMessageRow(row);
     }
 }
 

@@ -163,8 +163,8 @@ unsigned int W8MessageDialogBase::WrapMessage(const wchar_t* message)
     unsigned int maximum_width = static_cast<unsigned int>(m_width) + 0xf;
     unsigned int index;
 
-    std::vector<wchar_t> remaining_storage(wcslen(message) + 1);
-    remaining = remaining_storage.data();
+    std::vector<wchar_t> storage(wcslen(message) + 1);
+    remaining = storage.data();
     wcscpy(remaining, message);
     for (index = 0; index < 32; ++index) {
         wcscpy(lines[index], L"");
