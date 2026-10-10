@@ -4,8 +4,6 @@
 #include "surrender/srExporter.h"
 #include "surrender/srPlugin.h"
 
-#include "layout.h"
-
 class srJPEGImporter : public srSurfaceIOManager::SurfaceImporter,
                        public srSurfaceIOManager::SurfaceExporter {
 public:
@@ -19,13 +17,6 @@ public:
                                                const srSurfaceIOManager::ImportInfo& options);
     virtual void exportSurface(srBinOStream& stream, srColorSurfaceIFace& surface,
                                const srSurfaceIOManager::ExportInfo& options);
-
-private:
-    void initializeCodecOptions();
-    bool readHeader(void* input_cookie);
-
-    JpegCodecState codec_;
-    JpegExportOptions export_options_;
 };
 
 class srJPEGPlugin : public srPlugin {
@@ -36,6 +27,3 @@ public:
 private:
     srJPEGImporter jpeg_importer_;
 };
-
-W8_ABI_ASSERT((sizeof(srJPEGImporter) == 0x44), "srJPEGImporter_must_be_0x44");
-W8_ABI_ASSERT((sizeof(srJPEGPlugin) == 0x48), "srJPEGPlugin_must_be_0x48");
