@@ -16,7 +16,7 @@ int srEnvironmentMapper::isActive(srVertexPipe&)
 void srEnvironmentMapper::process(srVertexPipe& pipe)
 {
     w8_ulong count = pipe.vertex_count;
-    srVertexPipe::Scratch* scratch = pipe.scratch;
+    srVertexPipe::Scratch* scratch = &pipe.scratch;
     if ((scratch->flags & srVertexPipe::Scratch::READY_EYE_DIRECTION) == 0) {
         pipe.setupEyeSpaceDirAndDist();
     }

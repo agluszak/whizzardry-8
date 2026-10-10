@@ -432,7 +432,7 @@ void SaveLightStates(wiz8::File* handle)
         stLight::sGetClassNode(), static_cast<const srRuntimeClass*>(0)));
     while (light != 0) {
         if (light->m_save_marked) {
-            strcpy(name, light->getName());
+            strcpy(name, light->getName().c_str());
             handle->write(name, sizeof(name));
             unsigned char enabled = light->testFlag(srNode::FLAG_DISABLE) == 0;
             handle->write(&enabled, sizeof(enabled));

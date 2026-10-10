@@ -23,6 +23,22 @@ add_executable(native_imports_test "${PROJECT_SOURCE_DIR}/tests/native/imports_t
 target_link_libraries(native_imports_test PRIVATE SURRENDER wiz8_native_settings)
 add_test(NAME native_imports COMMAND native_imports_test)
 
+foreach(fixture mesh_ownership registry_ownership renderer_ownership)
+    add_executable(native_${fixture}_test native/${fixture}_test.cpp)
+    target_link_libraries(native_${fixture}_test PRIVATE SURRENDER wiz8_native_settings)
+    add_test(NAME native_${fixture} COMMAND native_${fixture}_test)
+endforeach()
+set_tests_properties(native_renderer_ownership PROPERTIES TIMEOUT 15)
+
+add_executable(native_mesh_frames_test native/mesh_frames_test.cpp)
+target_link_libraries(native_mesh_frames_test PRIVATE WIZ8_GAME_CORE)
+if(APPLE)
+    target_link_options(native_mesh_frames_test PRIVATE -Wl,-dead_strip)
+elseif(UNIX)
+    target_link_options(native_mesh_frames_test PRIVATE -Wl,--gc-sections -Wl,-z,start-stop-gc)
+endif()
+add_test(NAME native_mesh_frames COMMAND native_mesh_frames_test)
+
 add_executable(native_image_io_test native/image_io_test.cpp)
 target_link_libraries(native_image_io_test PRIVATE SURRENDER wiz8_native_settings)
 add_test(NAME native_image_io COMMAND native_image_io_test)
@@ -157,14 +173,15 @@ target_link_libraries(native_world_graphics PRIVATE WIZ8_GAME_CORE SDL3::SDL3)
 
 # Scenarios through the real game loop against installed retail assets
 # (WIZ8_ASSET_ROOT); skipped when it is unset. bink_video.cpp is recompiled
-# with WIZ8_RUNTIME_TESTS so its test hooks replace the archive's object.
+# with WIZ8_RUNTIME_TESTS (as is native_crt.cpp, the game clock) so their test
+# hooks replace the archives' objects.
 add_executable(native_runtime_test runtime/runtime_test.cpp
-    "${PROJECT_SOURCE_DIR}/src/native/bink_video.cpp")
+    "${PROJECT_SOURCE_DIR}/src/native/bink_video.cpp"
+    "${PROJECT_SOURCE_DIR}/src/compat/native_crt.cpp")
 target_compile_definitions(native_runtime_test PRIVATE WIZ8_RUNTIME_TESTS=1)
 target_include_directories(native_runtime_test PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/native")
 target_link_libraries(native_runtime_test PRIVATE WIZ8_GAME_CORE SDL3::SDL3)
-# game-start and world are runnable by hand; main-game frames still stall (under investigation).
-foreach(scenario video character)
+foreach(scenario video character game-start world)
     add_test(NAME runtime_${scenario} COMMAND native_runtime_test ${scenario})
     set_tests_properties(runtime_${scenario} PROPERTIES
         ENVIRONMENT "SDL_VIDEODRIVER=offscreen;SDL_AUDIO_DRIVER=dummy"

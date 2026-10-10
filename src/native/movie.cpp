@@ -1,3 +1,4 @@
+#include "compat/kernel32.h"
 /* Native Bink replacement: bounded SGP file/SLF I/O, FFmpeg decoding and
    timed RGB555 frames. Recovered IntroScreen still owns transitions/input. */
 #include "movie.h"
@@ -52,7 +53,7 @@ struct W8NativeVideo::State
     unsigned video_frames = 0;
     uint64_t audio_frames = 0;
     bool eof = false, started = false;
-    std::chrono::steady_clock::time_point began{};
+    uint64_t began = 0; // w8_clock_us
     std::unique_ptr<w8_native::MovieAudio> voice;
     std::deque<Frame> queued;
     Frame current{};
@@ -343,10 +344,10 @@ uint64_t W8NativeVideo::decoded_audio_frames() const
 
 W8NativeVideo::Result W8NativeVideo::update_now()
 {
-    auto now = std::chrono::steady_clock::now();
+    const uint64_t now = w8_clock_us();
     if (!state->started)
         state->began = now;
-    return update(std::chrono::duration<double>(now - state->began).count());
+    return update((now - state->began) / 1e6);
 }
 
 void W8NativeVideo::present(CpuSurface* target)

@@ -119,6 +119,8 @@ template <class A, class B> inline auto min(A a, B b) -> typename std::remove_re
 #ifdef __cplusplus
 extern "C" {
 #endif
+/* The game's one monotonic clock; runtime tests can substitute a virtual one. */
+uint64_t w8_clock_us(void);
 uint32_t w8_get_ticks(void);
 void w8_sleep(uint32_t milliseconds);
 #ifdef __cplusplus

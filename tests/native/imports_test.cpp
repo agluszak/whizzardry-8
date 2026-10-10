@@ -20,7 +20,6 @@
 #include <cmath>
 #include <initializer_list>
 #include <limits>
-#include <stdexcept>
 #include "wiz8/sr_api.h"
 #include <cstdio>
 #include <cstring>
@@ -69,22 +68,6 @@ struct ClientTextureFile : srTextureFile
     {
     }
 };
-struct TrackedElement
-{
-    inline static int live = 0;
-    inline static int constructors_before_throw = -1;
-    int value = 0;
-    TrackedElement()
-    {
-        if (constructors_before_throw == 0) throw std::runtime_error("element construction");
-        if (constructors_before_throw > 0) --constructors_before_throw;
-        ++live;
-    }
-    TrackedElement(const TrackedElement&) = default;
-    TrackedElement& operator=(const TrackedElement&) = default;
-    ~TrackedElement() { --live; }
-};
-
 static int surface_storage()
 {
     std::array<unsigned char, 40> pixels;
@@ -93,6 +76,7 @@ static int surface_storage()
     const auto original = pixels;
     srPtr<srPalette> palette;
     palette = new srPalette;
+    palette->release();
     const auto references = palette->getReferenceCount();
     {
         srColorSurface borrowed(srPixelConvert::SURFACE_BGRA32, pixels.data(), 3, 2, 20);
@@ -147,26 +131,6 @@ static int surface_storage()
 
 int main()
 {
-    {
-        srMeshModel::MeshTable<TrackedElement> table;
-        table.Resize(3, 0);
-        CHECK(TrackedElement::live == 3 && table.count == 3);
-        table.data[0].value = 42;
-        table.Resize(5, 1);
-        CHECK(TrackedElement::live == 5 && table.data[0].value == 42);
-        auto copy = table;
-        CHECK(TrackedElement::live == 10 && copy.data[0].value == 42);
-        TrackedElement::constructors_before_throw = 1;
-        bool threw = false;
-        try { table.Resize(8, 1); }
-        catch (const std::runtime_error&) { threw = true; }
-        TrackedElement::constructors_before_throw = -1;
-        CHECK(threw && TrackedElement::live == 10 && table.count == 5);
-        CHECK(table.data[0].value == 42);
-        table.Release();
-        CHECK(TrackedElement::live == 5 && !table.data && !table.count);
-    }
-    CHECK(TrackedElement::live == 0);
     {
         srModeler modeler;
         srModeler::Triangle triangle;

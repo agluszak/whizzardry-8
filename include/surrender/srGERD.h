@@ -1,5 +1,8 @@
 #pragma once
 
+#include <condition_variable>
+#include <list>
+#include <memory>
 #include <mutex>
 #include <string>
 #include <thread>
@@ -770,10 +773,8 @@ private:
         Texture* texture;
     };
     struct RendererEntry {
-        RendererEntry* prev;
-        RendererEntry* next;
-        Renderer* renderer;
-        w8_long busy;
+        std::unique_ptr<Renderer> renderer;
+        bool busy = false;
     };
     void setError(e_error error);
     void resetTexture();
@@ -984,9 +985,11 @@ private:
     };
 
     unsigned char unknown_0c_[4];
-    RendererEntry* renderers;
-    std::recursive_mutex* renderers_section;
-    std::recursive_mutex* state_section;
+    // Stable entries survive concurrent additions while condition-variable waits release the lock.
+    std::list<RendererEntry> renderers;
+    std::recursive_mutex renderers_section;
+    std::condition_variable_any renderers_idle;
+    mutable std::recursive_mutex state_section;
     std::thread::id owner_thread;
     srFlags<e_enable> enable_flags;
     enum {

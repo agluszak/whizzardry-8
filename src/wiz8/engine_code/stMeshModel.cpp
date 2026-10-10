@@ -1,5 +1,7 @@
 #include <algorithm>
-#include <cstdlib>
+#include <cctype>
+#include <memory>
+#include <utility>
 
 #include "wiz8/engine_code/stMeshModel.h"
 
@@ -18,13 +20,12 @@
 
 #include <math.h>
 #include <string.h>
-#include <stdlib.h>
 
 extern srVector3T<float> g_environment_offset;
 extern float g_monster_light_scale;
 
 // GLOBAL: WIZ8 0x00659cb8
-W8GrowableVector<stMeshModel*> g_mesh_models;
+std::vector<stMeshModel*> g_mesh_models;
 
 // GLOBAL: WIZ8 0x0065a0e8
 int g_decompressed_mesh_bytes;
@@ -39,68 +40,22 @@ std::vector<w8_ulong> g_software_cull_active_polygons;
 // GLOBAL: WIZ8 0x00609d34
 static int g_decompressed_mesh_byte_limit = 0x800000;
 
-/* Signed-byte normal components back to floats, indexed by the raw byte. */
-// GLOBAL: WIZ8 0x00659ce8
-static float s_compressed_normal_table[256];
-
-// GLOBAL: WIZ8 0x0065a0ef
-static bool s_compressed_normal_table_ready;
-
 // FUNCTION: WIZ8 0x00470B00
 stMeshModel::stMeshModel(w8_long polygons, w8_long vertices)
-    : srClassSupport<stMeshModel, srMeshModel, false, 0x10003>(0, 0), skin_table_ids(5),
-      skin_texture_tables(5), skin_table_names(5), mapped_values(5), mapped_keys(5)
+    : srClassSupport<stMeshModel, srMeshModel, false, 0x10003>(polygons, vertices)
 {
-    if (!s_compressed_normal_table_ready) {
-        for (int value = -128; value < 128; ++value) {
-            float component = value * (1.0f / 127.0f);
-            if (component < -1.0f) {
-                component = -1.0f;
-            } else if (component > 1.0f) {
-                component = 1.0f;
-            }
-            s_compressed_normal_table[static_cast<unsigned char>(value)] = component;
-        }
-        s_compressed_normal_table_ready = true;
-    }
-
-    memset(&tri_mesh, 0, sizeof(tri_mesh));
-    srMeshModel::reset(polygons, vertices);
-    sort_bias = 0.0f;
-
-    for (int pass = 0; pass < 4; ++pass) {
-        int side;
-        for (side = 0; side < 2; ++side) {
-            materials[pass][side] = 0;
-        }
-        for (side = 0; side < 2; ++side) {
-            textures[pass][side] = 0;
-        }
-        shaders[pass] = srShader();
-    }
     duplicate_on_reuse = 1;
     vertex_lighting_ready = false;
     previous = 0;
     next = 0;
     flags = W8_MESH_VERTEX_LIGHTING_DIRTY;
     ambient_color = -1.0f;
-    frame_count = 1;
     vertex_light_table = 0;
-    compressed_vertex_locations = 0;
-    compressed_vertex_normals = 0;
-    compressed_polygon_normals = 0;
-    m_pVertexLoc = 0;
-    m_pVertexNormal = 0;
-    m_pPolyNormal = 0;
+    vertex_compression_scale = 1.0f;
+    last_decompress_release_tick = GetTickCount();
     render_control.value &= ~0x10UL;
     setDirty(DIRTY_BOUNDS);
-    lerp_buffer = 0;
-    automap_polygons = 0;
-    automap_polygon_count = 0;
     automap_filter_active = false;
-    skin_blanking_apt = 0;
-    skin_blanking_apt_number = 0;
-    skin_blanking_checked = 0;
 }
 
 // FUNCTION: WIZ8 0x00470ED0
@@ -111,30 +66,66 @@ stMeshModel::~stMeshModel()
         next = 0;
         delete linked;
     }
-    FreeFrameStorage();
-    while (skin_table_names.GetCount() != 0) {
-        RemoveSkinTable(0);
+    ReleaseDecompressedFrames();
+    std::erase(g_mesh_models, this);
+}
+
+stMeshModel& stMeshModel::operator=(const stMeshModel& other)
+{
+    if (this == &other) {
+        return *this;
     }
-    if ((flags & W8_MESH_HAS_FRAME_STORAGE) != 0) {
-        g_mesh_models.Remove(this);
+    // Prepare independent ownership before replacing this registered model.
+    // In particular, a registry clone must not share the owned successor chain
+    // or count the source's decompressed allocations a second time.
+    auto copied_frames = other.frames;
+    auto copied_skins = other.skins;
+    auto copied_mappings = other.mapped_vertices;
+    auto copied_lerp = other.lerp_buffer;
+    auto copied_automap = other.automap_polygons;
+    auto copied_lights_0 = other.vertex_lights[0];
+    auto copied_lights_1 = other.vertex_lights[1];
+    auto copied_sunlight = other.vertex_sunlight;
+    std::unique_ptr<stMeshModel> linked;
+    if (other.next != nullptr) {
+        linked = std::make_unique<stMeshModel>(0, 0);
+        *linked = *other.next;
     }
-    if (lerp_buffer != 0) {
-        std::free(lerp_buffer);
-        lerp_buffer = 0;
+    srMeshModel::operator=(other);
+    if (frames.empty() && !copied_frames.empty()) {
+        g_mesh_models.push_back(this);
+    } else if (copied_frames.empty()) {
+        std::erase(g_mesh_models, this);
     }
-    if (automap_polygons != 0) {
-        delete[] automap_polygons;
-        automap_polygons = 0;
+    ReleaseDecompressedFrames();
+    frames = std::move(copied_frames);
+    for (const auto& frame : frames) {
+        for (const auto* cache : {&frame.locations, &frame.vertex_normals, &frame.polygon_normals}) {
+            if (*cache) {
+                g_decompressed_mesh_bytes += (*cache)->capacity() * sizeof(srVector3T<float>);
+            }
+        }
     }
-    if (skin_blanking_apt != 0) {
-        delete skin_blanking_apt;
+    skins = std::move(copied_skins);
+    mapped_vertices = std::move(copied_mappings);
+    lerp_buffer = std::move(copied_lerp);
+    automap_polygons = std::move(copied_automap);
+    vertex_lights[0] = std::move(copied_lights_0);
+    vertex_lights[1] = std::move(copied_lights_1);
+    vertex_sunlight = std::move(copied_sunlight);
+    flags = other.flags;
+    ambient_color = other.ambient_color;
+    vertex_light_table = other.vertex_light_table;
+    duplicate_on_reuse = other.duplicate_on_reuse;
+    vertex_lighting_ready = other.vertex_lighting_ready;
+    vertex_compression_scale = other.vertex_compression_scale;
+    automap_filter_active = other.automap_filter_active;
+    delete next;
+    next = linked.release();
+    if (next != nullptr) {
+        next->previous = this;
     }
-    if (skin_blanking_apt_number != 0) {
-        delete skin_blanking_apt_number;
-    }
-    if (skin_blanking_checked != 0) {
-        delete skin_blanking_checked;
-    }
+    return *this;
 }
 
 // FUNCTION: WIZ8 0x004748c0
@@ -189,7 +180,7 @@ void stMeshModel::CalculateLinkedBounds()
     minimum.SetZero();
     maximum.SetZero();
     for (model = head; model != 0; model = model->next) {
-        for (unsigned int frame = 0; frame < model->frame_count; ++frame) {
+        for (unsigned int frame = 0; frame < std::max(size_t{1}, model->frames.size()); ++frame) {
             srVector3T<float> frame_minimum;
             srVector3T<float> frame_maximum;
             if ((model->flags & W8_MESH_HAS_FRAME_STORAGE) == 0) {
@@ -245,25 +236,21 @@ void stMeshModel::GetFrameBounds(int frame, srVector3T<float>* minimum, srVector
 {
     minimum->SetZero();
     maximum->SetZero();
-    if (m_pVertexLoc != 0 && vertex_location_count != 0 &&
-        static_cast<unsigned int>(frame) < frame_count) {
-        srVector3T<float>* vertices = m_pVertexLoc[frame];
-        if (vertices == 0) {
-            vertices = new srVector3T<float>[vertex_location_count];
-            if (vertices == 0) {
-                return;
-            }
-            DecompressFrame(frame, W8_MESH_FRAME_LOCATIONS, vertices);
-        }
-        if (vertex_location_count != 0) {
-            srMath::minMax(
-                {vertices, static_cast<std::size_t>(static_cast<SRDWORD>(vertex_location_count))},
-                *minimum, *maximum);
-        }
-        if (m_pVertexLoc[frame] == 0) {
-            delete[] vertices;
-        }
+    if (static_cast<unsigned int>(frame) >= frames.size() || vertex_location_count == 0) {
+        return;
     }
+    std::vector<srVector3T<float>> scratch;
+    const auto& cache = frames[frame].locations;
+    const srVector3T<float>* vertices;
+    if (cache) {
+        vertices = cache->data();
+    } else {
+        scratch.resize(vertex_location_count);
+        DecompressFrame(frame, W8_MESH_FRAME_LOCATIONS, scratch.data());
+        vertices = scratch.data();
+    }
+    srMath::minMax({vertices, static_cast<std::size_t>(vertex_location_count)},
+                   *minimum, *maximum);
 }
 
 /* Apply pending vertex DIG lighting when flags bit 1 is set, then return
@@ -423,7 +410,8 @@ const srMeshModel::TriMesh& stMeshModel::getTriMesh()
                 if (light_scale == g_float_zero) {
                     std::fill_n(dig, count, srVector3T<float>(0.0f, 0.0f, 0.0f));
                 } else {
-                    srMath::mul({dig, static_cast<std::size_t>(count)}, light_scale, {dig, static_cast<std::size_t>(count)});
+                    srMath::mul({dig, static_cast<std::size_t>(count)}, light_scale,
+                                {dig, static_cast<std::size_t>(count)});
                 }
             }
         }
@@ -687,151 +675,89 @@ void OffsetVertices(srVector3T<float>* destination, const srVector3T<float>* sou
     }
 }
 
-// FUNCTION: WIZ8 0x00473fa0
-void stMeshModel::ApplyAutomapPolygonFilter(const W8GrowableVector<char*>* excluded_textures)
+static bool MeshNameEquals(std::string_view left, std::string_view right)
 {
-    if (automap_polygons) {
-        delete[] automap_polygons;
-        automap_polygons = 0;
-    }
-    automap_polygon_count = 0;
-    automap_polygons = new w8_ulong[polygon_count];
-    automap_filter_active = true;
-    srPtr<srTextureIFace>* texture = getPolyTexture(0, 0, 0);
-    if (texture) {
-        for (unsigned int polygon = 0; polygon < static_cast<unsigned int>(polygon_count);
-             ++polygon, ++texture) {
-            if (*texture) {
-                char name[256];
-                strcpy(name, (*texture)->getName());
-                bool include = true;
-                for (int index = 0; index < excluded_textures->GetCount(); ++index) {
-                    if (_stricmp(name, *excluded_textures->GetAt(index)) == 0)
-                        include = false;
-                }
-                if (include)
-                    automap_polygons[automap_polygon_count++] = polygon;
-            } else {
-                automap_polygons[automap_polygon_count++] = polygon;
+    return left.size() == right.size() &&
+           std::equal(left.begin(), left.end(), right.begin(), [](unsigned char a, unsigned char b) {
+               return std::tolower(a) == std::tolower(b);
+           });
+}
+
+// FUNCTION: WIZ8 0x00473fa0
+void stMeshModel::ApplyAutomapPolygonFilter(std::span<const std::string_view> excluded_textures)
+{
+    std::vector<w8_ulong> active;
+    active.reserve(polygon_count);
+    auto* textures = getPolyTexture(0, 0, 0);
+    if (textures != nullptr) {
+        for (unsigned int polygon = 0; polygon < static_cast<unsigned int>(polygon_count); ++polygon) {
+            if (textures[polygon] == nullptr ||
+                std::none_of(excluded_textures.begin(), excluded_textures.end(), [&](auto name) {
+                    return MeshNameEquals(name, textures[polygon]->getName());
+                })) {
+                active.push_back(polygon);
             }
         }
     }
-    if (automap_polygon_count >= static_cast<unsigned int>(polygon_count)) {
-        delete[] automap_polygons;
-        automap_polygons = 0;
-        automap_polygon_count = 0;
+    if (active.size() == static_cast<unsigned int>(polygon_count)) {
+        automap_polygons.reset();
+    } else {
+        automap_polygons = std::move(active);
     }
+    automap_filter_active = true;
 }
 
 // FUNCTION: WIZ8 0x00474120
 void stMeshModel::ClearAutomapPolygonFilter()
 {
-    if (automap_polygons) {
-        delete[] automap_polygons;
-        automap_polygons = 0;
-        automap_polygon_count = 0;
-    }
+    automap_polygons.reset();
+    // Clearing the automap override must allow the regular blank-texture scan
+    // on the next draw, rather than leaving a cached "all polygons" result.
+    automap_filter_active = false;
 }
 
 /* The active-polygon table selects which polygons a texture-table draw
-   submits: per skin table the list is cached in the blanking vectors and
-   built on first use by dropping polygons whose texture name starts with
-   "blank"; the -1 table is the automap filter built by
-   ApplyAutomapPolygonFilter. */
+   submits. Skin scans drop textures whose name starts with "blank"; a table
+   not found among the skins uses the base/automap selection. */
 // FUNCTION: WIZ8 0x00473CD0
 w8_ulong* stMeshModel::GetActivePolygons(w8_long* count_out, int table, bool flag)
 {
-    int index = -1;
-    for (int i = 0; i < skin_table_ids.GetCount(); ++i) {
-        if (*skin_table_ids.GetAt(i) == table) {
-            index = i;
-            break;
-        }
-    }
-
-    w8_ulong* list;
-    unsigned char checked;
-    if (index >= 0) {
-        if (skin_blanking_apt == 0) {
-            *count_out = 0;
-            return 0;
-        }
-        list = *skin_blanking_apt->GetAt(index);
-        *count_out = *skin_blanking_apt_number->GetAt(index);
-        checked = *skin_blanking_checked->GetAt(index);
-    } else {
-        *count_out = automap_polygon_count;
-        list = automap_polygons;
-        checked = automap_filter_active;
-    }
-    if (list != 0) {
-        return list;
-    }
-    if (checked != 0 || !flag) {
-        *count_out = 0;
-        return 0;
-    }
-
-    *count_out = 0;
-    w8_ulong* fresh = new w8_ulong[polygon_count];
-    srPtr<srTextureIFace>* textures = 0;
-    if (index < 0) {
-        automap_filter_active = true;
-        textures = getPolyTexture(0, 0, 0);
-    } else {
-        skin_blanking_checked->SetAt(index, 1);
-        int skin = -1;
-        for (int i = 0; i < skin_table_ids.GetCount(); ++i) {
-            if (*skin_table_ids.GetAt(i) == table) {
-                skin = i;
-                break;
-            }
-        }
-        if (skin != -1) {
-            textures = *skin_texture_tables.GetAt(skin);
-        }
-    }
-    if (textures != 0) {
-        for (unsigned int polygon = 0; polygon < static_cast<unsigned int>(polygon_count);
-             ++polygon) {
-            if (textures[polygon] == 0) {
-                fresh[*count_out] = polygon;
-                ++*count_out;
-            } else {
-                char name[260];
-                strcpy(name, textures[polygon]->getName());
-                if (_strnicmp(name, "blank", 5) != 0) {
-                    fresh[*count_out] = polygon;
-                    ++*count_out;
+    auto skin = std::find_if(skins.begin(), skins.end(),
+                            [table](const auto& skin) { return skin.id == table; });
+    auto& selection = skin != skins.end() ? skin->active_polygons : automap_polygons;
+    auto& checked = skin != skins.end() ? skin->blanking_checked : automap_filter_active;
+    if (!checked && flag) {
+        std::vector<w8_ulong> active;
+        active.reserve(polygon_count);
+        auto* textures = skin != skins.end() ? skin->textures.data() : getPolyTexture(0, 0, 0);
+        if (textures != nullptr) {
+            for (unsigned int polygon = 0; polygon < static_cast<unsigned int>(polygon_count); ++polygon) {
+                if (textures[polygon] == nullptr ||
+                    !MeshNameEquals(std::string_view(textures[polygon]->getName()).substr(0, 5), "blank")) {
+                    active.push_back(polygon);
                 }
             }
-        }
-        if (*count_out != polygon_count) {
-            if (index < 0) {
-                automap_polygons = fresh;
-                automap_polygon_count = *count_out;
-            } else {
-                skin_blanking_apt->SetAt(index, fresh);
-                skin_blanking_apt_number->SetAt(index, *count_out);
+            if (active.size() != static_cast<unsigned int>(polygon_count)) {
+                selection = std::move(active);
             }
-            return fresh;
         }
+        checked = true;
     }
-    delete[] fresh;
-    *count_out = 0;
-    return 0;
+    *count_out = selection ? static_cast<w8_long>(selection->size()) : 0;
+    if (!selection) {
+        return nullptr; // No selection means the renderer submits every polygon.
+    }
+    // The TriMesh consumer uses a non-null pointer to recognize filtering.
+    // An engaged empty vector therefore needs a non-null, never-dereferenced
+    // sentinel so "none selected" cannot accidentally turn into "draw all".
+    static w8_ulong empty_selection;
+    return selection->empty() ? &empty_selection : selection->data();
 }
 
 // FUNCTION: WIZ8 0x00471160
 void stMeshModel::SetMappedVertex(short vertex, short key)
 {
-    int index = mapped_keys.IndexOf(key);
-    if (index != -1) {
-        mapped_values.SetAt(index, vertex);
-        return;
-    }
-    mapped_values.Add(vertex);
-    mapped_keys.Add(key);
+    mapped_vertices.insert_or_assign(key, vertex);
 }
 
 // FUNCTION: WIZ8 0x004712d0
@@ -840,11 +766,8 @@ int stMeshModel::FindMappedIndex(short key)
     if (key < 0) {
         return -1;
     }
-    int index = mapped_keys.IndexOf(key);
-    if (index != -1) {
-        return *mapped_values.GetAt(index);
-    }
-    return -1;
+    auto entry = mapped_vertices.find(key);
+    return entry != mapped_vertices.end() ? entry->second : -1;
 }
 
 /* Link one model onto another, setting both ends - so the two pointers are one
@@ -863,190 +786,75 @@ void stMeshModel::LinkTo(stMeshModel* other)
 // FUNCTION: WIZ8 0x00471aa0
 short* stMeshModel::GetVertex(unsigned int frame)
 {
-    if (compressed_vertex_locations != 0 && frame < frame_count) {
-        return compressed_vertex_locations[frame];
-    }
-    return 0;
+    return frame < frames.size() ? frames[frame].compressed_locations.data() : nullptr;
 }
 
 // FUNCTION: WIZ8 0x00473b00
-void stMeshModel::InitializeVertexFrames(int frames)
+void stMeshModel::InitializeVertexFrames(int count)
 {
-    if (frames == 0) {
+    if (count <= 0) {
         srAssertFail("uiFrames", "C:\\Projects\\Wizardry 8\\Engine Code\\stMeshModel.cpp", 0x6e8,
                      0);
+        return;
     }
-    if ((flags & W8_MESH_HAS_FRAME_STORAGE) == 0) {
-        FreeFrameStorage();
-        frame_count = frames;
-        flags |= W8_MESH_HAS_FRAME_STORAGE;
-        AllocateFrameStorage();
-        g_mesh_models.Add(this);
+    // ReadMesh calls this for each frame; it must not discard earlier frames.
+    if (!frames.empty()) {
+        return;
     }
+    std::vector<Frame> storage(count);
+    for (auto& frame : storage) {
+        frame.compressed_locations.resize(vertex_location_count * 3);
+        frame.compressed_vertex_normals.resize(vertex_location_count * 3);
+        frame.compressed_polygon_normals.resize(polygon_count * 3);
+    }
+    g_mesh_models.push_back(this);
+    frames = std::move(storage);
+    flags |= W8_MESH_HAS_FRAME_STORAGE;
 }
 
-/* Zero-filled pointer tables for every frame, then one compressed table per
-   frame: three shorts per vertex location and three bytes per vertex and
-   polygon normal. Any failed allocation releases everything again. */
-// FUNCTION: WIZ8 0x00471340
-unsigned char stMeshModel::AllocateFrameStorage()
-{
-    if (frame_count == 0) {
-        return 0;
-    }
-    m_pVertexLoc = new srVector3T<float>*[frame_count];
-    if (m_pVertexLoc == 0) {
-        FreeFrameStorage();
-        return 0;
-    }
-    memset(m_pVertexLoc, 0, frame_count * sizeof(srVector3T<float>*));
-    m_pVertexNormal = new srVector3T<float>*[frame_count];
-    if (m_pVertexNormal == 0) {
-        FreeFrameStorage();
-        return 0;
-    }
-    memset(m_pVertexNormal, 0, frame_count * sizeof(srVector3T<float>*));
-    m_pPolyNormal = new srVector3T<float>*[frame_count];
-    if (m_pPolyNormal == 0) {
-        FreeFrameStorage();
-        return 0;
-    }
-    memset(m_pPolyNormal, 0, frame_count * sizeof(srVector3T<float>*));
-    compressed_vertex_locations = new short*[frame_count];
-    if (compressed_vertex_locations == 0) {
-        FreeFrameStorage();
-        return 0;
-    }
-    compressed_vertex_normals = new unsigned char*[frame_count];
-    if (compressed_vertex_normals == 0) {
-        FreeFrameStorage();
-        return 0;
-    }
-    compressed_polygon_normals = new unsigned char*[frame_count];
-    if (compressed_polygon_normals == 0) {
-        FreeFrameStorage();
-        return 0;
-    }
-    for (unsigned int frame = 0; frame < frame_count; ++frame) {
-        compressed_vertex_locations[frame] = new short[vertex_location_count * 3];
-        if (compressed_vertex_locations[frame] == 0) {
-            srAssertFail("m_psCompVertexLoc[uiCount]",
-                         "C:\\Projects\\Wizardry 8\\Engine Code\\stMeshModel.cpp", 0x1ce, 0);
-        }
-        memset(compressed_vertex_locations[frame], 0, vertex_location_count * 3 * sizeof(short));
-        compressed_vertex_normals[frame] = new unsigned char[vertex_location_count * 3];
-        if (compressed_vertex_normals[frame] == 0) {
-            srAssertFail("m_pbCompVertexNormal[uiCount]",
-                         "C:\\Projects\\Wizardry 8\\Engine Code\\stMeshModel.cpp", 0x1d3, 0);
-        }
-        memset(compressed_vertex_normals[frame], 0, vertex_location_count * 3);
-        compressed_polygon_normals[frame] = new unsigned char[polygon_count * 3];
-        if (compressed_polygon_normals[frame] == 0) {
-            srAssertFail("m_pbCompPolyNormal[uiCount]",
-                         "C:\\Projects\\Wizardry 8\\Engine Code\\stMeshModel.cpp", 0x1d8, 0);
-        }
-        memset(compressed_polygon_normals[frame], 0, polygon_count * 3);
-    }
-    return 1;
-}
-
-// FUNCTION: WIZ8 0x004715e0
-void stMeshModel::FreeFrameStorage()
-{
-    unsigned int frame;
-
-    ReleaseDecompressedFrames();
-    if (m_pVertexLoc != 0) {
-        delete[] m_pVertexLoc;
-        m_pVertexLoc = 0;
-    }
-    if (m_pVertexNormal != 0) {
-        delete[] m_pVertexNormal;
-        m_pVertexNormal = 0;
-    }
-    if (m_pPolyNormal != 0) {
-        delete[] m_pPolyNormal;
-        m_pPolyNormal = 0;
-    }
-    if (compressed_vertex_locations != 0) {
-        for (frame = 0; frame < frame_count; ++frame) {
-            if (compressed_vertex_locations[frame] != 0) {
-                delete[] compressed_vertex_locations[frame];
-            }
-        }
-        delete[] compressed_vertex_locations;
-        compressed_vertex_locations = 0;
-    }
-    if (compressed_vertex_normals != 0) {
-        for (frame = 0; frame < frame_count; ++frame) {
-            if (compressed_vertex_normals[frame] != 0) {
-                delete[] compressed_vertex_normals[frame];
-            }
-        }
-        delete[] compressed_vertex_normals;
-        compressed_vertex_normals = 0;
-    }
-    if (compressed_polygon_normals != 0) {
-        for (frame = 0; frame < frame_count; ++frame) {
-            if (compressed_polygon_normals[frame] != 0) {
-                delete[] compressed_polygon_normals[frame];
-            }
-        }
-        delete[] compressed_polygon_normals;
-        compressed_polygon_normals = 0;
-    }
-}
-
-static unsigned int ReleaseDecompressedFrameTable(srVector3T<float>** frames,
-                                                  unsigned int frame_count, int element_count)
-{
-    unsigned int released = 0;
-    if (frames != 0) {
-        for (unsigned int frame = 0; frame < frame_count; ++frame) {
-            if (frames[frame] != 0) {
-                released += element_count * sizeof(srVector3T<float>);
-                std::free(frames[frame]);
-                frames[frame] = 0;
-            }
-        }
-    }
-    return released;
-}
-
-/* Drop every decompressed float cache, returning the bytes released. */
+/* Drop every decompressed float cache, returning the bytes actually released.
+   Resetting the optional destroys its vector allocation, unlike vector::clear. */
 // FUNCTION: WIZ8 0x004739e0
 int stMeshModel::ReleaseDecompressedFrames()
 {
     int released = 0;
-    released += ReleaseDecompressedFrameTable(m_pVertexLoc, frame_count, vertex_location_count);
-    released += ReleaseDecompressedFrameTable(m_pVertexNormal, frame_count, vertex_location_count);
-    released += ReleaseDecompressedFrameTable(m_pPolyNormal, frame_count, polygon_count);
+    for (auto& frame : frames) {
+        for (auto* cache : {&frame.locations, &frame.vertex_normals, &frame.polygon_normals}) {
+            if (*cache) {
+                released += (*cache)->capacity() * sizeof(srVector3T<float>);
+                cache->reset();
+            }
+        }
+    }
     last_decompress_release_tick = GetTickCount();
     g_decompressed_mesh_bytes -= released;
     return released;
 }
 
 /* Evict least-recently-used decompressed frames until `needed` bytes are
-   available, or give up when every registered model has been drained. */
+   available, or give up when every eligible model has been drained. */
 // FUNCTION: WIZ8 0x00473BF0
-unsigned char ReclaimDecompressedBytes(unsigned int needed)
+unsigned char ReclaimDecompressedBytes(unsigned int needed, const stMeshModel* retained_model)
 {
     unsigned int released = 0;
     while (released < needed) {
-        stMeshModel* oldest = 0;
-        w8_ulong oldest_tick = 0xffffffff;
-        for (int index = 0; index < g_mesh_models.GetCount(); ++index) {
-            stMeshModel* model = *g_mesh_models.GetAt(index);
-            if (model == 0) {
-                srAssertFail("pstModel", "C:\\Projects\\Wizardry 8\\Engine Code\\stMeshModel.cpp",
-                             0x712, 0);
+        stMeshModel* oldest = nullptr;
+        for (stMeshModel* model : g_mesh_models) {
+            if (model == retained_model) {
+                continue;
             }
-            if (model->last_decompress_release_tick < oldest_tick) {
+            bool resident = std::any_of(model->frames.begin(), model->frames.end(),
+                                       [](const auto& frame) {
+                                           return (frame.locations && !frame.locations->empty()) ||
+                                                  (frame.vertex_normals && !frame.vertex_normals->empty()) ||
+                                                  (frame.polygon_normals && !frame.polygon_normals->empty());
+                                       });
+            if (resident && (oldest == nullptr ||
+                             model->last_decompress_release_tick < oldest->last_decompress_release_tick)) {
                 oldest = model;
-                oldest_tick = model->last_decompress_release_tick;
             }
         }
-        if (oldest == 0) {
+        if (oldest == nullptr) {
             return 0;
         }
         released += oldest->ReleaseDecompressedFrames();
@@ -1055,11 +863,13 @@ unsigned char ReclaimDecompressedBytes(unsigned int needed)
 }
 
 // FUNCTION: WIZ8 0x004736d0
-int stMeshModel::FindSkinTable(const char* name)
+int stMeshModel::FindSkinTable(std::string_view name)
 {
-    for (int index = 0; index < skin_table_names.GetCount(); ++index) {
-        if (_stricmp(name, *skin_table_names.GetAt(index)) == 0) {
-            return index;
+    for (const auto& skin : skins) {
+        if (MeshNameEquals(name, skin.name)) {
+            // AddExistingDamageStage stores this as the GetTextureTable ID,
+            // not the record's changing position after another skin is removed.
+            return skin.id;
         }
     }
     return -1;
@@ -1068,132 +878,67 @@ int stMeshModel::FindSkinTable(const char* name)
 // FUNCTION: WIZ8 0x00473720
 srPtr<srTextureIFace>* stMeshModel::GetTextureTable(int table)
 {
-    int index = skin_table_ids.IndexOf(table);
-
-    if (index != -1) {
-        return *skin_texture_tables.GetAt(index);
-    }
-    return 0;
+    auto skin = std::find_if(skins.begin(), skins.end(),
+                            [table](const auto& skin) { return skin.id == table; });
+    return skin != skins.end() ? skin->textures.data() : nullptr;
 }
 
-/* Clone one polygon-texture table under a new name and allocate the parallel
-   skin-blanking state used by the renderer. Table ids are the lowest free
-   non-negative integer and remain stable independently of vector position. */
+/* Clone one polygon-texture table under an owned name. Table ids are the lowest
+   free non-negative integer and remain stable independently of vector position. */
 // FUNCTION: WIZ8 0x00473260
-int stMeshModel::CreateSkinTable(const char* name, int base_table)
+int stMeshModel::CreateSkinTable(std::string_view name, int base_table)
 {
-    int base_index = skin_table_ids.IndexOf(base_table);
-
     if (FindSkinTable(name) != -1) {
         return -1;
     }
-
-    srPtr<srTextureIFace>* source;
-    if (base_index == -1) {
+    auto* source = GetTextureTable(base_table);
+    if (source == nullptr) {
         source = getPolyTexture(0, 0, 0);
-    } else {
-        source = *skin_texture_tables.GetAt(base_index);
     }
-    if (source == 0) {
+    if (source == nullptr) {
         return -1;
     }
-
     int table = 0;
-    while (skin_table_ids.IndexOf(table) != -1) {
+    while (std::any_of(skins.begin(), skins.end(),
+                       [table](const auto& skin) { return skin.id == table; })) {
         ++table;
     }
-
-    srPtr<srTextureIFace>* textures = new srPtr<srTextureIFace>[polygon_count];
-    for (int polygon = 0; polygon < polygon_count; ++polygon) {
-        textures[polygon] = source[polygon];
-    }
-    skin_texture_tables.Add(textures);
-    skin_table_ids.Add(table);
-
-    char* copied_name = static_cast<char*>(malloc(strlen(name) + 1));
-    strcpy(copied_name, name);
-    skin_table_names.Add(copied_name);
-
-    if (skin_blanking_apt == 0) {
-        skin_blanking_apt = new W8GrowableVector<w8_ulong*>;
-        if (skin_blanking_apt == 0) {
-            srAssertFail("m_plsSkinBlankingAPT",
-                         "C:\\Projects\\Wizardry 8\\Engine Code\\stMeshModel.cpp", 0x5cd, 0);
-        }
-    }
-    skin_blanking_apt->Add(0);
-
-    if (skin_blanking_apt_number == 0) {
-        skin_blanking_apt_number = new W8GrowableVector<int>;
-        if (skin_blanking_apt_number == 0) {
-            srAssertFail("m_plsSkinBlankingAPTNum",
-                         "C:\\Projects\\Wizardry 8\\Engine Code\\stMeshModel.cpp", 0x5d6, 0);
-        }
-    }
-    skin_blanking_apt_number->Add(0);
-
-    if (skin_blanking_checked == 0) {
-        skin_blanking_checked = new W8GrowableVector<unsigned char>;
-        if (skin_blanking_checked == 0) {
-            srAssertFail("m_plsSkinBlankingChecked",
-                         "C:\\Projects\\Wizardry 8\\Engine Code\\stMeshModel.cpp", 0x5df, 0);
-        }
-    }
-    skin_blanking_checked->Add(0);
+    Skin skin{table, std::string(name), {source, source + polygon_count}, std::nullopt, false};
+    skins.push_back(std::move(skin));
     return table;
 }
 
 // FUNCTION: WIZ8 0x00473830
 void stMeshModel::RemoveSkinTable(int index)
 {
-    srPtr<srTextureIFace>* textures = *skin_texture_tables.GetAt(index);
-    for (int polygon = 0; polygon < polygon_count; ++polygon) {
-        textures[polygon] = static_cast<srTextureIFace*>(0);
+    if (static_cast<unsigned int>(index) < skins.size()) {
+        skins.erase(skins.begin() + index);
     }
-    delete[] textures;
-    free(*skin_table_names.GetAt(index));
-
-    skin_texture_tables.RemoveAt(index);
-    skin_table_names.RemoveAt(index);
-    skin_table_ids.RemoveAt(index);
-
-    w8_ulong* apt = *skin_blanking_apt->GetAt(index);
-    if (apt != 0) {
-        delete apt;
-    }
-    skin_blanking_apt->RemoveAt(index);
-    skin_blanking_apt_number->RemoveAt(index);
-    skin_blanking_checked->RemoveAt(index);
 }
 
 /* Skin tables are named with the owning cycle plus a one-character suffix.
    Final teardown removes every table whose name has that cycle prefix. */
 // FUNCTION: WIZ8 0x00473780
-void stMeshModel::RemoveSkinTablesForCycle(const char* cycle_name)
+void stMeshModel::RemoveSkinTablesForCycle(std::string_view cycle_name)
 {
-    if (cycle_name != 0) {
-        for (int index = 0; index < skin_table_names.GetCount(); ++index) {
-            char name[200];
-
-            strncpy(name, *skin_table_names.GetAt(index), 199);
-            name[199] = '\0';
-            name[strlen(name) - 1] = '\0';
-            if (strlen(name) != 0 && _stricmp(cycle_name, name) == 0) {
-                RemoveSkinTable(index);
-                --index;
-            }
-        }
+    if (!cycle_name.empty()) {
+        std::erase_if(skins, [cycle_name](const auto& skin) {
+            std::string_view name = skin.name;
+            return name.size() > 1 && MeshNameEquals(cycle_name, name.substr(0, name.size() - 1));
+        });
     }
 }
 
 static void DecompressMeshNormals(const unsigned char* normals, int count,
                                   srVector3T<float>* destination)
 {
+    // The former lookup table (WIZ8 0x00659ce8, ready flag 0x0065a0ef) only decoded signed bytes.
+    const auto expand = [](unsigned char component) {
+        return std::clamp(static_cast<signed char>(component) * (1.0f / 127.0f), -1.0f, 1.0f);
+    };
     for (int index = 0; index < count; ++index) {
         const unsigned char* source = &normals[index * 3];
-        destination[index].Set(s_compressed_normal_table[source[0]],
-                               s_compressed_normal_table[source[1]],
-                               s_compressed_normal_table[source[2]]);
+        destination[index].Set(expand(source[0]), expand(source[1]), expand(source[2]));
     }
 }
 
@@ -1203,9 +948,13 @@ static void DecompressMeshNormals(const unsigned char* normals, int count,
 unsigned char stMeshModel::DecompressFrame(int frame, unsigned char flags,
                                            srVector3T<float>* destination)
 {
+    if (static_cast<unsigned int>(frame) >= frames.size()) {
+        return 0;
+    }
+    const auto& storage = frames[frame];
     if (flags & W8_MESH_FRAME_LOCATIONS) {
         for (int index = 0; index < vertex_location_count; ++index) {
-            const short* source = &compressed_vertex_locations[frame][index * 3];
+            const short* source = &storage.compressed_locations[index * 3];
             destination[index].Set(source[0] * vertex_compression_scale,
                                    source[1] * vertex_compression_scale,
                                    source[2] * vertex_compression_scale);
@@ -1213,11 +962,13 @@ unsigned char stMeshModel::DecompressFrame(int frame, unsigned char flags,
         return 1;
     }
     if (flags & W8_MESH_FRAME_VERTEX_NORMALS) {
-        DecompressMeshNormals(compressed_vertex_normals[frame], vertex_location_count, destination);
+        DecompressMeshNormals(storage.compressed_vertex_normals.data(), vertex_location_count,
+                              destination);
         return 1;
     }
     if (flags & W8_MESH_FRAME_POLYGON_NORMALS) {
-        DecompressMeshNormals(compressed_polygon_normals[frame], polygon_count, destination);
+        DecompressMeshNormals(storage.compressed_polygon_normals.data(), polygon_count,
+                              destination);
         return 1;
     }
     return 0;
@@ -1229,51 +980,29 @@ unsigned char stMeshModel::DecompressFrame(int frame, unsigned char flags,
 // FUNCTION: WIZ8 0x00471720
 unsigned char stMeshModel::AllocateFrameBuffers(unsigned int uiFrame, unsigned char flags)
 {
-    if ((flags & W8_MESH_FRAME_LOCATIONS) != 0 && m_pVertexLoc[uiFrame] == 0) {
-        int needed = vertex_location_count * sizeof(srVector3T<float>);
-        if (g_decompressed_mesh_byte_limit <= g_decompressed_mesh_bytes + needed) {
-            if (ReclaimDecompressedBytes(needed) == 0) {
-                return 0;
-            }
-        }
-        g_decompressed_mesh_bytes += needed;
-        m_pVertexLoc[uiFrame] = static_cast<srVector3T<float>*>(
-            std::malloc(vertex_location_count * sizeof(srVector3T<float>)));
-        if (m_pVertexLoc[uiFrame] == 0) {
-            srAssertFail("m_pVertexLoc[uiFrame]",
-                         "C:\\Projects\\Wizardry 8\\Engine Code\\stMeshModel.cpp", 0x243, 0);
-        }
+    if (uiFrame >= frames.size()) {
+        return 0;
     }
-    if ((flags & W8_MESH_FRAME_VERTEX_NORMALS) != 0 && m_pVertexNormal[uiFrame] == 0) {
-        int needed = vertex_location_count * sizeof(srVector3T<float>);
+    auto& frame = frames[uiFrame];
+    auto allocate = [&](auto& cache, int count, unsigned char bit) {
+        if ((flags & bit) == 0 || cache) {
+            return;
+        }
+        int needed = count * sizeof(srVector3T<float>);
         if (g_decompressed_mesh_byte_limit <= g_decompressed_mesh_bytes + needed) {
-            if (ReclaimDecompressedBytes(needed) == 0) {
-                return 0;
-            }
+            // Never evict this model between returning positions and normals,
+            // or between loading the two frames of an interpolation. The budget
+            // is soft only when that working set alone cannot fit; drain other
+            // models first even if they cannot supply the entire request.
+            ReclaimDecompressedBytes(needed, this);
         }
-        g_decompressed_mesh_bytes += needed;
-        m_pVertexNormal[uiFrame] = static_cast<srVector3T<float>*>(
-            std::malloc(vertex_location_count * sizeof(srVector3T<float>)));
-        if (m_pVertexNormal[uiFrame] == 0) {
-            srAssertFail("m_pVertexNormal[uiFrame]",
-                         "C:\\Projects\\Wizardry 8\\Engine Code\\stMeshModel.cpp", 0x24e, 0);
-        }
-    }
-    if ((flags & W8_MESH_FRAME_POLYGON_NORMALS) != 0 && m_pPolyNormal[uiFrame] == 0) {
-        int needed = polygon_count * sizeof(srVector3T<float>);
-        if (g_decompressed_mesh_byte_limit <= g_decompressed_mesh_bytes + needed) {
-            if (ReclaimDecompressedBytes(needed) == 0) {
-                return 0;
-            }
-        }
-        g_decompressed_mesh_bytes += needed;
-        m_pPolyNormal[uiFrame] = static_cast<srVector3T<float>*>(
-            std::malloc(polygon_count * sizeof(srVector3T<float>)));
-        if (m_pPolyNormal[uiFrame] == 0) {
-            srAssertFail("m_pPolyNormal[uiFrame]",
-                         "C:\\Projects\\Wizardry 8\\Engine Code\\stMeshModel.cpp", 0x259, 0);
-        }
-    }
+        cache.emplace(count, srVector3T<float>(0.0f, 0.0f, 0.0f));
+        g_decompressed_mesh_bytes += cache->capacity() * sizeof(srVector3T<float>);
+    };
+    allocate(frame.locations, vertex_location_count, W8_MESH_FRAME_LOCATIONS);
+    allocate(frame.vertex_normals, vertex_location_count, W8_MESH_FRAME_VERTEX_NORMALS);
+    allocate(frame.polygon_normals, polygon_count, W8_MESH_FRAME_POLYGON_NORMALS);
+    last_decompress_release_tick = GetTickCount();
     return 1;
 }
 
@@ -1284,49 +1013,31 @@ unsigned char stMeshModel::AllocateFrameBuffers(unsigned int uiFrame, unsigned c
 srVector3T<float>* stMeshModel::GetVertexLocations(unsigned int frame, bool load,
                                                    float interpolation)
 {
-    if (m_pVertexLoc == 0) {
-        return 0;
+    if (frame >= frames.size()) {
+        return nullptr;
     }
-    if (g_float_zero < interpolation && frame < frame_count - 1) {
-        unsigned int next_frame = (frame + 1) % frame_count;
-        if (lerp_buffer == 0) {
-            lerp_buffer = static_cast<srVector3T<float>*>(
-                std::malloc(vertex_location_count * sizeof(srVector3T<float>)));
-            if (lerp_buffer == 0) {
-                srAssertFail("m_pLerpBuffer",
-                             "C:\\Projects\\Wizardry 8\\Engine Code\\stMeshModel.cpp", 0x2d4, 0);
+    if (g_float_zero < interpolation && frame + 1 < frames.size()) {
+        const auto* current = GetVertexLocations(frame, true, 0.0f);
+        const auto* next = GetVertexLocations(frame + 1, true, 0.0f);
+        lerp_buffer.resize(vertex_location_count);
+        if (vertex_location_count != 0) {
+            if (interpolation == g_float_one) {
+                std::copy_n(next, vertex_location_count, lerp_buffer.data());
+            } else {
+                srMath::lerp(lerp_buffer, {next, lerp_buffer.size()}, {current, lerp_buffer.size()},
+                             interpolation);
             }
         }
-        if (m_pVertexLoc[frame] == 0) {
-            AllocateFrameBuffers(frame, W8_MESH_FRAME_LOCATIONS);
-            DecompressFrame(frame, W8_MESH_FRAME_LOCATIONS, m_pVertexLoc[frame]);
-        }
-        if (m_pVertexLoc[next_frame] == 0) {
-            AllocateFrameBuffers(next_frame, W8_MESH_FRAME_LOCATIONS);
-            DecompressFrame(next_frame, W8_MESH_FRAME_LOCATIONS, m_pVertexLoc[next_frame]);
-        }
-        if (lerp_buffer != 0) {
-            srVector3T<float>* next = m_pVertexLoc[next_frame];
-            srVector3T<float>* current = m_pVertexLoc[frame];
-            if (next != 0 && current != 0 && vertex_location_count != 0) {
-                if (interpolation == g_float_one) {
-                    std::copy_n(next, vertex_location_count, lerp_buffer);
-                } else {
-                    srMath::lerp({lerp_buffer, static_cast<std::size_t>(vertex_location_count)},
-                                 {next, static_cast<std::size_t>(vertex_location_count)}, {current, static_cast<std::size_t>(vertex_location_count)},
-                                 interpolation);
-                }
-            }
-        }
-        return lerp_buffer;
+        return lerp_buffer.data();
     }
-    if (m_pVertexLoc[frame] == 0) {
+    auto& cache = frames[frame].locations;
+    if (!cache) {
         AllocateFrameBuffers(frame, W8_MESH_FRAME_LOCATIONS);
-        if (load && m_pVertexLoc[frame] != 0) {
-            DecompressFrame(frame, W8_MESH_FRAME_LOCATIONS, m_pVertexLoc[frame]);
+        if (load) {
+            DecompressFrame(frame, W8_MESH_FRAME_LOCATIONS, cache->data());
         }
     }
-    return m_pVertexLoc[frame];
+    return cache->data();
 }
 
 /* Return frame `frame`'s vertex normals, decompressing on demand when `load`
@@ -1334,31 +1045,33 @@ srVector3T<float>* stMeshModel::GetVertexLocations(unsigned int frame, bool load
 // FUNCTION: WIZ8 0x00471CA0
 srVector3T<float>* stMeshModel::GetVertexNormals(unsigned int frame, bool load)
 {
-    if (m_pVertexNormal == 0) {
-        return 0;
+    if (frame >= frames.size()) {
+        return nullptr;
     }
-    if (m_pVertexNormal[frame] == 0) {
+    auto& cache = frames[frame].vertex_normals;
+    if (!cache) {
         AllocateFrameBuffers(frame, W8_MESH_FRAME_VERTEX_NORMALS);
-        if (load && m_pVertexNormal[frame] != 0) {
-            DecompressFrame(frame, W8_MESH_FRAME_VERTEX_NORMALS, m_pVertexNormal[frame]);
+        if (load) {
+            DecompressFrame(frame, W8_MESH_FRAME_VERTEX_NORMALS, cache->data());
         }
     }
-    return m_pVertexNormal[frame];
+    return cache->data();
 }
 
 // FUNCTION: WIZ8 0x00471D00
 srVector3T<float>* stMeshModel::GetPolygonNormals(unsigned int frame, bool load)
 {
-    if (m_pPolyNormal == 0) {
-        return 0;
+    if (frame >= frames.size()) {
+        return nullptr;
     }
-    if (m_pPolyNormal[frame] == 0) {
+    auto& cache = frames[frame].polygon_normals;
+    if (!cache) {
         AllocateFrameBuffers(frame, W8_MESH_FRAME_POLYGON_NORMALS);
-        if (load && m_pPolyNormal[frame] != 0) {
-            DecompressFrame(frame, W8_MESH_FRAME_POLYGON_NORMALS, m_pPolyNormal[frame]);
+        if (load) {
+            DecompressFrame(frame, W8_MESH_FRAME_POLYGON_NORMALS, cache->data());
         }
     }
-    return m_pPolyNormal[frame];
+    return cache->data();
 }
 
 void stMeshModel::ClearVertexLights()
@@ -1397,28 +1110,25 @@ static inline char CompressNormalByte(float value)
 // FUNCTION: WIZ8 0x004729F0
 void stMeshModel::ComputeFrameNormals(int frame)
 {
-    if (polygon_count == 0 || vertex_location_count == 0) {
+    if (static_cast<unsigned int>(frame) >= frames.size() || polygon_count == 0 ||
+        vertex_location_count == 0) {
         return;
     }
 
     srVector3i* poly_vertex = getPolyVertex();
-    srVector3T<float>* pnorm = new srVector3T<float>[polygon_count];
-    if (pnorm == 0 || poly_vertex == 0) {
+    if (poly_vertex == nullptr) {
         return;
     }
-
-    srVector3T<float>* l = 0;
-    bool decompressed = false;
-    if (m_pVertexLoc != 0) {
-        l = m_pVertexLoc[frame];
-    }
-    if (l == 0) {
-        l = new srVector3T<float>[vertex_location_count];
-        if (l == 0) {
-            srAssertFail("l", "C:\\Projects\\Wizardry 8\\Engine Code\\stMeshModel.cpp", 0x4ca, 0);
-        }
-        DecompressFrame(frame, W8_MESH_FRAME_LOCATIONS, l);
-        decompressed = true;
+    std::vector<srVector3T<float>> pnorm(polygon_count);
+    auto& storage = frames[frame];
+    std::vector<srVector3T<float>> scratch;
+    const srVector3T<float>* l;
+    if (storage.locations) {
+        l = storage.locations->data();
+    } else {
+        scratch.resize(vertex_location_count);
+        DecompressFrame(frame, W8_MESH_FRAME_LOCATIONS, scratch.data());
+        l = scratch.data();
     }
 
     for (int poly = 0; poly < polygon_count; ++poly) {
@@ -1428,59 +1138,53 @@ void stMeshModel::ComputeFrameNormals(int frame)
         pnorm[poly] = CrossProduct(edge_0, edge_1);
     }
 
-    srVector3T<float>* vnorm = new srVector3T<float>[vertex_location_count];
+    std::vector<srVector3T<float>> vnorm(vertex_location_count,
+                                       srVector3T<float>(0.0f, 0.0f, 0.0f));
     w8_ulong* shade_index = getVertexShadeIndex(0);
-    if (vnorm == 0) {
-        srAssertFail("vnorm", "C:\\Projects\\Wizardry 8\\Engine Code\\stMeshModel.cpp", 0x4db, 0);
-    }
     if (shade_index == 0) {
-        std::fill_n(vnorm, vertex_location_count, srVector3T<float>(0.0f, 0.0f, 0.0f));
         for (int corner_poly = 0; corner_poly < polygon_count; ++corner_poly) {
             vnorm[poly_vertex[corner_poly].x] += pnorm[corner_poly];
             vnorm[poly_vertex[corner_poly].y] += pnorm[corner_poly];
             vnorm[poly_vertex[corner_poly].z] += pnorm[corner_poly];
         }
     } else {
-        srVector3T<float>* shaded = new srVector3T<float>[vertex_location_count];
-        std::fill_n(shaded, vertex_location_count, srVector3T<float>(0.0f, 0.0f, 0.0f));
+        std::vector<srVector3T<float>> shaded(vertex_location_count,
+                                            srVector3T<float>(0.0f, 0.0f, 0.0f));
         for (int corner_poly = 0; corner_poly < polygon_count; ++corner_poly) {
             shaded[shade_index[poly_vertex[corner_poly].x]] += pnorm[corner_poly];
             shaded[shade_index[poly_vertex[corner_poly].y]] += pnorm[corner_poly];
             shaded[shade_index[poly_vertex[corner_poly].z]] += pnorm[corner_poly];
         }
-        srMath::copyIndexed({vnorm, static_cast<std::size_t>(vertex_location_count)}, shaded,
+        srMath::copyIndexed(vnorm, shaded.data(),
                             {shade_index, static_cast<std::size_t>(vertex_location_count)});
-        delete[] shaded;
     }
 
-    srMath::normalize({vnorm, static_cast<std::size_t>(vertex_location_count)}, {vnorm, static_cast<std::size_t>(vertex_location_count)}, 1.0f);
+    srMath::normalize(vnorm, vnorm, 1.0f);
     for (int vertex = 0; vertex < vertex_location_count; ++vertex) {
-        if (IsZeroVector(vnorm + vertex) != 0) {
+        if (IsZeroVector(&vnorm[vertex]) != 0) {
             vnorm[vertex] = 1e-6f;
         }
     }
-    srMath::mul({&vnorm->x, static_cast<std::size_t>(vertex_location_count * 3)}, 127.0f,
-                {&vnorm->x, static_cast<std::size_t>(vertex_location_count * 3)});
+    srMath::mul(vnorm, 127.0f, vnorm);
     for (int index = 0; index < vertex_location_count; ++index) {
-        compressed_vertex_normals[frame][index * 3] = CompressNormalByte(vnorm[index].x);
-        compressed_vertex_normals[frame][index * 3 + 1] = CompressNormalByte(vnorm[index].y);
-        compressed_vertex_normals[frame][index * 3 + 2] = CompressNormalByte(vnorm[index].z);
+        storage.compressed_vertex_normals[index * 3] = CompressNormalByte(vnorm[index].x);
+        storage.compressed_vertex_normals[index * 3 + 1] = CompressNormalByte(vnorm[index].y);
+        storage.compressed_vertex_normals[index * 3 + 2] = CompressNormalByte(vnorm[index].z);
     }
 
-    srMath::normalize({pnorm, static_cast<std::size_t>(polygon_count)},
-                      {pnorm, static_cast<std::size_t>(polygon_count)}, 1.0f);
-    srMath::mul({&pnorm->x, static_cast<std::size_t>(polygon_count * 3)}, 127.0f,
-                {&pnorm->x, static_cast<std::size_t>(polygon_count * 3)});
+    srMath::normalize(pnorm, pnorm, 1.0f);
+    srMath::mul(pnorm, 127.0f, pnorm);
     for (int polygon = 0; polygon < polygon_count; ++polygon) {
-        compressed_polygon_normals[frame][polygon * 3] = CompressNormalByte(pnorm[polygon].x);
-        compressed_polygon_normals[frame][polygon * 3 + 1] = CompressNormalByte(pnorm[polygon].y);
-        compressed_polygon_normals[frame][polygon * 3 + 2] = CompressNormalByte(pnorm[polygon].z);
+        storage.compressed_polygon_normals[polygon * 3] = CompressNormalByte(pnorm[polygon].x);
+        storage.compressed_polygon_normals[polygon * 3 + 1] = CompressNormalByte(pnorm[polygon].y);
+        storage.compressed_polygon_normals[polygon * 3 + 2] = CompressNormalByte(pnorm[polygon].z);
     }
 
-    delete[] pnorm;
-    delete[] vnorm;
-    if (decompressed) {
-        delete[] l;
+    if (storage.vertex_normals) {
+        DecompressFrame(frame, W8_MESH_FRAME_VERTEX_NORMALS, storage.vertex_normals->data());
+    }
+    if (storage.polygon_normals) {
+        DecompressFrame(frame, W8_MESH_FRAME_POLYGON_NORMALS, storage.polygon_normals->data());
     }
 }
 
@@ -1516,9 +1220,6 @@ void stMeshModel::FinalizeVertexFrame(int frame)
 {
     ComputeFrameNormals(frame);
 }
-
-/* Stores table 0x005EC518, the W8GrowableVector<W8VectorElement005EC514*>
-   specialization's one-slot table - not 0x005EC514 of W8GrowableVector<stMeshModel*>. */
 
 /* Retail ICF folds this empty thiscall onto W8OptionsGraphicsPanel::OnDragEnd
    at 0x005AA400 (OptionsScreen.cpp). This source function has no separately

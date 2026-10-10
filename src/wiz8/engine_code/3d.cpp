@@ -239,7 +239,7 @@ unsigned char BakeInstanceVertexLighting(stModelInstance* instance, srNode* ligh
         srNode* light_node = lights;
         while (light_node != 0) {
             if (light_node->getClassID() == stLight::CLASS_ID &&
-                _strnicmp(light_node->getName(), "Sun", 3) != 0) {
+                _strnicmp(light_node->getName().c_str(), "Sun", 3) != 0) {
                 stLight* light = static_cast<stLight*>(light_node);
                 srVector3T<float> attenuation = light->opengl_attenuation;
                 float range =
@@ -602,7 +602,7 @@ stLight* CreateLight(srNode* parent, const char* name)
     stLight* light = new stLight(parent);
 
     if (light != 0) {
-        light->setName(name);
+        light->setName(name ? name : "");
         light->attenuation_model = srLight::ATTENUATION_3DSTUDIO_MAX;
         light->enable_flags |= (1UL << srLight::ENABLE_RANGE_FAR);
         light->enable_flags |= (1UL << srLight::ENABLE_BOUNDING_SPHERE);
@@ -628,7 +628,7 @@ stLight* CreateWorldLight(W8World* world, const char* name)
     if (light == 0) {
         srAssertFail("pLight", THREE_D_CPP, 579, 0);
     }
-    light->setName(name);
+    light->setName(name ? name : "");
     light->attenuation_model = srLight::ATTENUATION_3DSTUDIO_MAX;
     light->enable_flags |= (1UL << srLight::ENABLE_RANGE_FAR);
     light->enable_flags |= (1UL << srLight::ENABLE_BOUNDING_SPHERE);
@@ -659,7 +659,7 @@ stLight* CreateRangedWorldLight(W8World* world, const char* name)
     light->attenuation_model = srLight::ATTENUATION_3DSTUDIO_MAX;
     light->enable_flags |= (1UL << srLight::ENABLE_RANGE_FAR);
     light->enable_flags |= (1UL << srLight::ENABLE_BOUNDING_SPHERE);
-    light->setName(name);
+    light->setName(name ? name : "");
     light->near_start = 0.0;
     light->near_end = 0.0;
     light->far_start = 0.0;

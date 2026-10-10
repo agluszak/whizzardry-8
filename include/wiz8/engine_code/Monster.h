@@ -4,6 +4,7 @@
 #include "wiz8/monster_spell_icons.h"
 #include "wiz8/monster_actions.h"
 #include <stddef.h>
+#include <string>
 
 #include "surrender/srMath.h"
 #include "surrender/srTypeRegistry.h"
@@ -211,7 +212,7 @@ public:
     float GetPointDistanceToPlayer(srVector3T<float> point);
     float GetDistanceToMonster(W8Monster* monster);
     float GetPointDistanceToMonster(W8Monster* monster, srVector3T<float> point);
-    bool SetScript(const char* script_name, bool reset_orders);
+    bool SetScript(std::string script_name, bool reset_orders);
     void ProcessScript();
     bool ResolveScriptPosition(const char* name, srVector3T<float>* position);
     bool GetProjectilePosition(srVector3T<float>* position);

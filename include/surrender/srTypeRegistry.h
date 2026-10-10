@@ -4,8 +4,12 @@
 #define SR_NEW(Type) new Type::ClientType
 
 #include <iosfwd>
+#include <map>
+#include <memory>
 #include <mutex>
-#include <new>
+#include <string>
+#include <string_view>
+#include <vector>
 
 #include "srCore.h"
 
@@ -18,70 +22,9 @@ public:
     class ClassNode {
         friend class srRegistry;
 
-        struct ChildLink {
-            ClassNode* node;
-            ChildLink* next;
-            ChildLink* previous;
-        };
-
-        struct ChildList {
-            w8_ulong count;
-            ChildLink* first;
-            ChildLink* last;
-
-            ChildList() : first(new ChildLink), last(first)
-            {
-                first->next = 0;
-                first->previous = 0;
-                count = 0;
-            }
-
-            /* The existing child-list owner retains non-owning ClassNode*
-               values; destruction removes only the allocated links. */
-            void pushFront(ClassNode* node)
-            {
-                ChildLink* link = new ChildLink;
-                link->next = first;
-                link->node = node;
-                link->previous = first->previous;
-                if (link->previous == 0) {
-                    first = link;
-                } else {
-                    link->previous->next = link;
-                }
-                if (link->next != 0) {
-                    link->next->previous = link;
-                }
-                ++count;
-            }
-
-            void removeFirst()
-            {
-                ChildLink* link = first;
-                first = link->next;
-                if (link->previous != 0) {
-                    link->previous->next = link->next;
-                }
-                if (link->next != 0) {
-                    link->next->previous = link->previous;
-                }
-                delete link;
-                --count;
-            }
-
-            // FUNCTION: SURRENDER 0x10010780
-            ~ChildList()
-            {
-                while (first != last) {
-                    removeFirst();
-                }
-                delete first;
-            }
-        };
-
     public:
-        struct NameIndex;
-        struct IDIndex;
+        // FUNCTION: SURRENDER 0x1000F670
+        ~ClassNode() = default;
 
     private:
         int isSame(ClassNode* other) const;
@@ -89,13 +32,13 @@ public:
         w8_long getNumberOfInstances(int exact) const;
         w8_ulong getClassID() const;
         ClassNode* getParent() const;
-        NameIndex* getNameIndex() const;
-        IDIndex* getIDIndex() const;
+        ClassNode* getLookupNode();
+        void addName(srRuntimeClass* instance);
+        void removeName(srRuntimeClass* instance);
         void enableInstanceLookup();
         void registerInstance(srRuntimeClass* instance);
-        void refreshInstance(srRuntimeClass* instance);
         void unregisterInstance(srRuntimeClass* instance);
-        srRuntimeClass* findByName(ClassNode* requested_class, const char* name, int exact,
+        srRuntimeClass* findByName(ClassNode* requested_class, std::string_view name, int exact,
                                    const srRuntimeClass* relative_to);
         srRuntimeClass* findRelative(ClassNode* requested_class, int exact,
                                      const srRuntimeClass* relative_to);
@@ -103,17 +46,16 @@ public:
         void dump(std::ostream& stream, int indent);
 
         ClassNode(ClassNode* parent, const char* class_name, w8_ulong class_id);
-        ~ClassNode();
-        void initialize(ClassNode* parent, const char* class_name, w8_ulong class_id);
-        ChildList children;
+        // Nodes are owned by the registry's class map; traversal is newest child first.
+        std::vector<ClassNode*> children;
         ClassNode* parent;
         w8_ulong class_id;
-        const char* class_name;
-        NameIndex* named_instances;
-        NameIndex* inherited_named_instances;
-        IDIndex* instances_by_id;
-        IDIndex* inherited_instances_by_id;
-        w8_long instance_count;
+        std::string class_name;
+        bool instance_lookup_enabled = false;
+        std::map<std::string, std::vector<srRuntimeClass*>, std::less<>> named_instances;
+        // IDs increase on construction; reverse traversal visits newest instances first.
+        std::map<w8_ulong, srRuntimeClass*> instances_by_id;
+        w8_long instance_count = 0;
     };
 
     SR_DLL_IMPORT srRegistry();
@@ -136,26 +78,25 @@ public:
                                            w8_ulong class_id, int register_instances);
     SR_DLL_IMPORT void registerInstance(ClassNode* node, srRuntimeClass* instance);
     SR_DLL_IMPORT void unregisterInstance(ClassNode* node, srRuntimeClass* instance);
-    SR_DLL_IMPORT srRuntimeClass* find(ClassNode* node, const char* name,
+    SR_DLL_IMPORT srRuntimeClass* find(ClassNode* node, std::string_view name,
                                        const srRuntimeClass* relative_to);
     SR_DLL_IMPORT srRuntimeClass* find(ClassNode* node, const srRuntimeClass* relative_to);
     SR_DLL_IMPORT srRuntimeClass* find(ClassNode* node, w8_ulong id);
-    SR_DLL_IMPORT srRuntimeClass* findExact(ClassNode* node, const char* name,
+    SR_DLL_IMPORT srRuntimeClass* findExact(ClassNode* node, std::string_view name,
                                             const srRuntimeClass* relative_to);
     SR_DLL_IMPORT srRuntimeClass* findExact(ClassNode* node, const srRuntimeClass* relative_to);
     SR_DLL_IMPORT srRuntimeClass* findExact(ClassNode* node, w8_ulong id);
-    SR_DLL_IMPORT void refreshInstance(ClassNode* node, srRuntimeClass* instance);
 
 private:
-    struct ClassIndex;
+    friend class srRuntimeClass;
+    SR_DLL_IMPORT void renameInstance(ClassNode* node, srRuntimeClass* instance, std::string name);
 
     SR_DLL_IMPORT ClassNode* addToTree(ClassNode* parent, const char* class_name,
                                        w8_ulong class_id);
 
+    std::recursive_mutex critical_section;
+    std::map<w8_ulong, std::unique_ptr<ClassNode>> class_index;
     ClassNode* root;
-    ClassIndex* class_index;
-    int valid;
-    std::recursive_mutex* critical_section;
 };
 
 W8_ABI_ASSERT(sizeof(srRegistry::ClassNode) == 0x2c, "srRegistry_ClassNode_must_be_0x2c");
@@ -180,8 +121,8 @@ public:
     static SR_DLL_IMPORT w8_long getTotalInstances(int exact);
     static SR_DLL_IMPORT void dumpNames(std::ostream& stream, int indent);
 
-    SR_DLL_IMPORT void setName(const char* name);
-    SR_DLL_IMPORT const char* getName() const;
+    SR_DLL_IMPORT void setName(std::string name);
+    SR_DLL_IMPORT const std::string& getName() const;
     SR_DLL_IMPORT w8_ulong getID() const;
     SR_DLL_IMPORT void getUniqueName(std::ostream& stream) const;
     SR_DLL_IMPORT int isNamed() const;
@@ -194,7 +135,8 @@ protected:
 private:
     static SR_DLL_IMPORT w8_ulong sGetClassID();
 
-    char* name;
+    friend class srRegistry;
+    std::string name;
     w8_ulong id;
 };
 
@@ -209,9 +151,9 @@ public:
     static SR_DLL_IMPORT const char* sGetClassName();
     static SR_DLL_IMPORT srRegistry::ClassNode* sGetClassNode();
     static SR_DLL_IMPORT srClass* find(w8_ulong id);
-    static SR_DLL_IMPORT srClass* find(const char* name, w8_ulong class_id,
+    static SR_DLL_IMPORT srClass* find(std::string_view name, w8_ulong class_id,
                                        const srRuntimeClass* relative_to);
-    static SR_DLL_IMPORT srClass* find(const char* name, const srClass* relative_to);
+    static SR_DLL_IMPORT srClass* find(std::string_view name, const srClass* relative_to);
     static SR_DLL_IMPORT srClass* find(const srClass* relative_to);
     static SR_DLL_IMPORT void performUpdates(double time);
 

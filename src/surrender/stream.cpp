@@ -619,9 +619,9 @@ void srBinStream::byteSwap(unsigned char* data, int size)
 }
 
 // FUNCTION: SURRENDER 0x10032220
-srBinStream::operator void*() const
+srBinStream::operator bool() const
 {
-    return (void*)good();
+    return good();
 }
 
 // FUNCTION: SURRENDER 0x10032230

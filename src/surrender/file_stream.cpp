@@ -18,29 +18,28 @@ int srBinFStream::isOpen()
 void srBinFStream::close()
 {
     try { if (file) file->close(); }
-    catch (const std::exception&) { setState(SR_STREAM_ERROR); file.reset(); return; }
+    catch (const std::exception&) {
+        file.reset();
+        path.clear();
+        setState(SR_STREAM_ERROR);
+        return;
+    }
     file.reset();
     path.clear();
     setState(SR_STREAM_STATE_2);
 }
 
 // FUNCTION: SURRENDER 0x1002F010
-const char* srBinFStream::getPath() const
+std::string_view srBinFStream::getPath() const
 {
-    return path.c_str();
-}
-
-// FUNCTION: SURRENDER 0x1002F020
-void srBinFStream::setPath(const char* path)
-{
-    this->path = path != nullptr ? path : "";
+    return path;
 }
 
 // FUNCTION: SURRENDER 0x1002F0A0
-void srBinFStream::mopen(const char* path, e_mode mode)
+void srBinFStream::mopen(std::string_view path, e_mode mode)
 {
     if (!isOpen()) {
-        if (path == nullptr || *path == '\0') {
+        if (path.empty()) {
             setState(SR_STREAM_ERROR);
             return;
         }
@@ -53,7 +52,7 @@ void srBinFStream::mopen(const char* path, e_mode mode)
         }
         try {
             file = wiz8::open_file(path, intent);
-            setPath(path);
+            this->path = path;
             setState(SR_STREAM_OK);
             return;
         } catch (const std::exception&) {
@@ -66,16 +65,7 @@ void srBinFStream::mopen(const char* path, e_mode mode)
 // FUNCTION: SURRENDER 0x1002F250
 srBinFStream::srBinFStream()
 {
-    file.reset();
     setState(SR_STREAM_STATE_2);
-}
-
-// FUNCTION: SURRENDER 0x1002F2B0
-srBinFStream::~srBinFStream()
-{
-    if (isOpen()) {
-        close();
-    }
 }
 
 // FUNCTION: SURRENDER 0x1002F340
@@ -141,13 +131,13 @@ unsigned short srBinFStream::putFile(char character)
 srBinIFStream::srBinIFStream() {}
 
 // FUNCTION: SURRENDER 0x1002F760
-srBinIFStream::srBinIFStream(const char* path)
+srBinIFStream::srBinIFStream(std::string_view path)
 {
     open(path);
 }
 
 // FUNCTION: SURRENDER 0x1002F830
-void srBinIFStream::open(const char* path)
+void srBinIFStream::open(std::string_view path)
 {
     mopen(path, SR_MODE_READ);
 }
@@ -186,13 +176,13 @@ w8_ulong srBinIFStream::tell()
 srBinIOFStream::srBinIOFStream() {}
 
 // FUNCTION: SURRENDER 0x1002FD20
-srBinIOFStream::srBinIOFStream(const char* path)
+srBinIOFStream::srBinIOFStream(std::string_view path)
 {
     open(path);
 }
 
 // FUNCTION: SURRENDER 0x1002FE10
-void srBinIOFStream::open(const char* path)
+void srBinIOFStream::open(std::string_view path)
 {
     mopen(path, SR_MODE_READ_WRITE);
 }
@@ -240,7 +230,7 @@ w8_ulong srBinIOFStream::tell()
 }
 
 // FUNCTION: SURRENDER 0x10030330
-srBinOFStream::srBinOFStream(const char* path)
+srBinOFStream::srBinOFStream(std::string_view path)
 {
     open(path);
 }
@@ -249,7 +239,7 @@ srBinOFStream::srBinOFStream(const char* path)
 srBinOFStream::srBinOFStream() {}
 
 // FUNCTION: SURRENDER 0x100304F0
-void srBinOFStream::open(const char* path)
+void srBinOFStream::open(std::string_view path)
 {
     mopen(path, SR_MODE_WRITE);
 }

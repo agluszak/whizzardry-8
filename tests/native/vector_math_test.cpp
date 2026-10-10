@@ -66,7 +66,7 @@ static void Elementary()
     CHECK(srMath::isZero(zeros) && srMath::isZero({}));
     CHECK(!srMath::isZero(special));
     CHECK(!srMath::isZero({&nan, 1}));
-    srMath::copyIndexed(std::span<SRDWORD>{}, nullptr, {});
+    srMath::copyIndexed(std::span<srVector3>{}, static_cast<const srVector3*>(nullptr), {});
     srMath::transform(std::span<srVector3>{}, {}, srMatrix4{});
 }
 
@@ -115,7 +115,7 @@ static void Geometry()
     srMath::dir(normalized, {zero_length, std::size(normalized)}, {zero, std::size(normalized)});
     CHECK(zero_length[0] == 0 && std::isnan(normalized[0].x));
     srMath::normalize(normalized, {zero, std::size(normalized)}, 1);
-    CHECK(std::isnan(normalized[0].x));
+    CHECK(normalized[0] == srVector3(0, 0, 0));
     srVector4 projected[7];
     projected[0].Set(-2, 0, 0, 1);
     projected[1].Set(2, 0, 0, 1);

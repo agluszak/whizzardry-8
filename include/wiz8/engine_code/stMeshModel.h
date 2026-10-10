@@ -1,13 +1,16 @@
 #pragma once
 
+#include <optional>
+#include <span>
+#include <string>
+#include <string_view>
+#include <unordered_map>
 #include <vector>
 #include "surrender/srMeshModel.h"
-#include "wiz8/vector.h"
 #include "surrender/srTypeRegistry.h"
 
-/* Engine Code\stMeshModel.cpp. Only fields reached by reviewed bodies are
-   modeled. The two short-vector pairs are parallel key/value tables; their
-   semantic domain is not established, so the names stay positional. */
+/* Engine Code\stMeshModel.cpp. Compressed frame bytes retain their asset format;
+   float caches and render scratch are owned independently of the base mesh. */
 enum W8MeshFrameData {
     W8_MESH_FRAME_LOCATIONS = 1,
     W8_MESH_FRAME_VERTEX_NORMALS = 2,
@@ -31,7 +34,10 @@ public:
 
     stMeshModel(w8_long polygons, w8_long vertices);
     virtual ~stMeshModel() override;       /* 0x00470ED0 */
-    stMeshModel& operator=(const stMeshModel&) = default;
+    // The registry's clone callback assigns into an already registered instance;
+    // the inherited support-class copy constructor cannot construct owned state.
+    stMeshModel(const stMeshModel&) = delete;
+    stMeshModel& operator=(const stMeshModel& other);
     virtual srClass* vInstance() override; /* 0x004748c0 */
     virtual int getBoundingSphere(srVector3T<float>& center,
                                   float& radius) override; /* 0x00471dd0 */
@@ -54,14 +60,14 @@ public:
     void SetMappedVertex(short vertex, short key);
     void LinkTo(stMeshModel* other);      /* 0x00471D60 */
     short* GetVertex(unsigned int frame); /* 0x00471AA0 */
-    int FindSkinTable(const char* name);
-    int CreateSkinTable(const char* name, int base_table);
+    int FindSkinTable(std::string_view name);
+    int CreateSkinTable(std::string_view name, int base_table);
     srPtr<srTextureIFace>* GetTextureTable(int table); /* 0x00473720 */
     /* Active-polygon index list for a texture table; writes the count through
-       `count_out` and returns 0 when the table selects no polygons. */
+       `count_out`. Null draws all polygons, non-null with count zero draws none. */
     w8_ulong* GetActivePolygons(w8_long* count_out, int table, bool flag);
     void RemoveSkinTable(int index);
-    void RemoveSkinTablesForCycle(const char* cycle_name);
+    void RemoveSkinTablesForCycle(std::string_view cycle_name);
     srVector3T<float>* GetVertexLocations(unsigned int frame, bool load, float interpolation);
     srVector3T<float>* GetVertexNormals(unsigned int frame, bool load); /* 0x00471CA0 */
     srVector3T<float>* GetPolygonNormals(unsigned int frame, bool load);
@@ -72,8 +78,6 @@ public:
     float* GetVertexSunlight(bool initialize);                                     /* 0x004721E0 */
     void NotifyLinkedModel(stMeshModel* previous_model);
     void InitializeVertexFrames(int frames); /* 0x00473B00 */
-    unsigned char AllocateFrameStorage();    /* 0x00471340 */
-    void FreeFrameStorage();                 /* 0x004715E0 */
     int ReleaseDecompressedFrames();         /* 0x004739E0 */
     void FinalizeVertexFrame(int frame);
     /* Bounds `frame`'s vertex table into `minimum`/`maximum`, decompressing a
@@ -83,7 +87,7 @@ public:
                                   srVector3T<float>* destination); /* 0x00471930 */
     void ComputeFrameNormals(int frame);                           /* 0x004729F0 */
     void ClearAutomapPolygonFilter();
-    void ApplyAutomapPolygonFilter(const W8GrowableVector<char*>* excluded_textures);
+    void ApplyAutomapPolygonFilter(std::span<const std::string_view> excluded_textures);
 
     stMeshModel* next;     /* 0x398 */
     stMeshModel* previous; /* 0x39c */
@@ -99,40 +103,44 @@ public:
     /* Set once both vertex lights and sunlight exist. */
     bool vertex_lighting_ready;
     unsigned char padding_3ce[2];
-    /* uiFrames: per-frame tables below hold one pointer per frame. The
-       decompressed float caches are malloc allocations and are counted in
-       g_decompressed_mesh_bytes; the compressed tables are operator new. */
-    unsigned int frame_count;                   /* 0x3d0 */
-    srVector3T<float>** m_pVertexLoc;           /* 0x3d4 */
-    srVector3T<float>** m_pVertexNormal;        /* 0x3d8 */
-    srVector3T<float>** m_pPolyNormal;          /* 0x3dc */
-    short** compressed_vertex_locations;        /* 0x3e0 m_psCompVertexLoc */
-    unsigned char** compressed_vertex_normals;  /* 0x3e4 m_pbCompVertexNormal */
-    unsigned char** compressed_polygon_normals; /* 0x3e8 m_pbCompPolyNormal */
-    unsigned char padding_3ec[4];
-    W8GrowableVector<int> skin_table_ids;                         /* 0x3f0; count at 0x3f4 */
-    W8GrowableVector<srPtr<srTextureIFace>*> skin_texture_tables; /* 0x400 */
-    W8GrowableVector<char*> skin_table_names;                     /* 0x410 */
-    W8GrowableVector<short> mapped_values;                        /* 0x420 */
-    W8GrowableVector<short> mapped_keys;                          /* 0x430 */
+    struct Frame {
+        // m_psCompVertexLoc / m_pbCompVertexNormal / m_pbCompPolyNormal:
+        // three shorts per location and three signed-byte components per normal.
+        std::vector<short> compressed_locations;
+        std::vector<unsigned char> compressed_vertex_normals;
+        std::vector<unsigned char> compressed_polygon_normals;
+        // m_pVertexLoc / m_pVertexNormal / m_pPolyNormal. Disengaged means
+        // absent, even on a zero-vertex model. Engaged storage counts toward
+        // g_decompressed_mesh_bytes and is dropped only by explicit eviction.
+        std::optional<std::vector<srVector3T<float>>> locations;
+        std::optional<std::vector<srVector3T<float>>> vertex_normals;
+        std::optional<std::vector<srVector3T<float>>> polygon_normals;
+    };
+    std::vector<Frame> frames; // Empty for a static base-class mesh.
+
+    struct Skin {
+        int id;
+        std::string name;
+        std::vector<srPtr<srTextureIFace>> textures;
+        // An absent selection draws all polygons; an engaged empty selection
+        // draws none. The checked bit distinguishes that from a pending scan.
+        std::optional<std::vector<w8_ulong>> active_polygons;
+        bool blanking_checked = false;
+    };
+    std::vector<Skin> skins;
+    std::unordered_map<short, short> mapped_vertices; // key -> vertex
     w8_ulong last_decompress_release_tick;
     float vertex_compression_scale;
-    /* m_pLerpBuffer: interpolation scratch for GetVertexLocations; a malloc
-       allocation that is not counted in g_decompressed_mesh_bytes. */
-    srVector3T<float>* lerp_buffer;
-    w8_ulong* automap_polygons;    /* 0x44c */
-    unsigned int automap_polygon_count; /* 0x450 */
-    bool automap_filter_active;         /* 0x454 */
-    unsigned char padding_455[3];
-    W8GrowableVector<w8_ulong*>* skin_blanking_apt;
-    W8GrowableVector<int>* skin_blanking_apt_number;
-    W8GrowableVector<unsigned char>* skin_blanking_checked;
+    // m_pLerpBuffer: stable interpolation scratch, outside the cache budget.
+    std::vector<srVector3T<float>> lerp_buffer;
+    std::optional<std::vector<w8_ulong>> automap_polygons;
+    bool automap_filter_active;
 };
 
 W8_ABI_ASSERT(sizeof(stMeshModel) == 0x464, "stMeshModel_size_must_be_0x464");
 
 /* Every mesh model whose frame storage has been initialized. */
-extern W8GrowableVector<stMeshModel*> g_mesh_models; /* 0x00659CB8 */
+extern std::vector<stMeshModel*> g_mesh_models; /* 0x00659CB8 */
 /* Bytes currently held by decompressed per-frame float caches. */
 extern int g_decompressed_mesh_bytes; /* 0x0065A0E8 */
 /* Scratch active-polygon indices filled by software backface cull in
@@ -147,5 +155,7 @@ int __fastcall IsZeroVector(const srVector3T<float>* vector);
 void OffsetVertices(srVector3T<float>* destination, const srVector3T<float>* source,
                     const srVector3T<float>* offset, int count);
 /* Release least-recently-used decompressed frame caches until `needed` bytes
-   have been freed; 0 when the registry cannot supply them. */
-unsigned char ReclaimDecompressedBytes(unsigned int needed);
+   have been freed; 0 when the registry cannot supply them. A requesting model
+   is retained because its renderer may already hold borrowed frame pointers. */
+unsigned char ReclaimDecompressedBytes(unsigned int needed,
+                                      const stMeshModel* retained_model = nullptr);

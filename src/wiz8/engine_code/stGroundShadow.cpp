@@ -118,7 +118,7 @@ stGroundShadow::stGroundShadow(const stGroundShadow& other)
     : srClassSupport<stGroundShadow, srNode, false, 0x10010>(static_cast<srNode*>(0))
 {
     setParent(other.parent_, 1);
-    setName(other.getName());
+    setName(other.isNamed() ? other.getName() : std::string{});
     angle = other.angle;
     depth = other.depth;
     width = other.width;

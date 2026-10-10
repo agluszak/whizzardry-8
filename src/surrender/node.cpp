@@ -13,7 +13,7 @@
 std::recursive_mutex srNode::sceneGraphCSect;
 
 // GLOBAL: SURRENDER 0x100A49FC
-w8_long srNode::sceneGraphLockCount;
+std::atomic<w8_long> srNode::sceneGraphLockCount{0};
 
 /* Retail's world-space setters measure the column vectors with Length inlined
    and summed z, y, x; one call in setWorldSpaceRotation goes through the
@@ -59,14 +59,14 @@ void srNode::lockSceneGraph()
 // FUNCTION: SURRENDER 0x10050360
 void srNode::unlockSceneGraph()
 {
-    sceneGraphCSect.unlock();
     --sceneGraphLockCount;
+    sceneGraphCSect.unlock();
 }
 
 // FUNCTION: SURRENDER 0x10050380
 int srNode::isSceneGraphLocked()
 {
-    return sceneGraphLockCount != 0;
+    return sceneGraphLockCount.load() != 0;
 }
 
 // FUNCTION: SURRENDER 0x10050390
@@ -159,7 +159,7 @@ void srNode::getLocalBounds(BoundInfo& bounds)
 srNode& srNode::operator=(const srNode& other)
 {
     if (this != &other) {
-        std::lock_guard<std::recursive_mutex> access(sceneGraphCSect);
+        std::lock_guard access(sceneGraphCSect);
         srClass::operator=(other);
         flags.value = other.flags.value;
         location = other.location;
@@ -215,12 +215,12 @@ w8_long srNode::getHierarchyLevel() const
 // FUNCTION: SURRENDER 0x10050C10
 srNode::srNode(srNode* parent)
 {
+    std::lock_guard access(sceneGraphCSect);
     world_transform0.SetIdentity();
     world_transform1.SetIdentity();
     if (s_flag_names1 == 0) {
         s_flag_names1 = "DISABLE,TERMINATE,GLOBAL,IGNORE_TRANSFORM";
     }
-    std::lock_guard<std::recursive_mutex> access(sceneGraphCSect);
     next_sibling_ = 0;
     previous_sibling_ = 0;
     parent_ = 0;
@@ -236,7 +236,7 @@ srNode::srNode(srNode* parent)
 // FUNCTION: SURRENDER 0x10050E20
 srNode::~srNode()
 {
-    std::lock_guard<std::recursive_mutex> access(sceneGraphCSect);
+    std::lock_guard access(sceneGraphCSect);
     unlink();
     while (first_child_ != 0) {
         delete first_child_;
@@ -250,7 +250,7 @@ srNode::~srNode()
 // FUNCTION: SURRENDER 0x10050F00
 int srNode::setParent(srNode* parent, int preserve_world_transform)
 {
-    std::lock_guard<std::recursive_mutex> access(sceneGraphCSect);
+    std::lock_guard access(sceneGraphCSect);
     if (parent == this) {
         return 0;
     }
@@ -1015,7 +1015,7 @@ void srNode::dumpHierarchy(std::ostream& stream, w8_long indent) const
 {
     const srNode* node = this;
     do {
-        srStreamPrintf(stream, "%*c%s (%s)\n", indent, 0x20, node->getName(), node->getClassName());
+        srStreamPrintf(stream, "%*c%s (%s)\n", indent, 0x20, node->getName().c_str(), node->getClassName());
         if (node->first_child_ != 0) {
             node->first_child_->dumpHierarchy(stream, indent + 2);
         }

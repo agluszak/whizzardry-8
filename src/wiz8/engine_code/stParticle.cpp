@@ -112,7 +112,7 @@ void SaveParticleStates(wiz8::File* handle)
         stParticle::sGetClassNode(), static_cast<const srRuntimeClass*>(0)));
     while (particle != 0) {
         if (particle->persisted) {
-            strcpy(name, particle->getName());
+            strcpy(name, particle->getName().c_str());
             handle->write(name, sizeof(name));
             handle->write(&particle->emitting, sizeof(particle->emitting));
         }
@@ -292,7 +292,7 @@ stParticle::stParticle(const stParticle& other)
     }
 
     setParent(other.getParent(), 1);
-    setName(other.getName());
+    setName(other.isNamed() ? other.getName() : std::string{});
     particle_count = count;
     particle_positions = 0;
     texcoords = 0;
@@ -1123,7 +1123,7 @@ unsigned char stParticle::ReplaceTexture(const char* old_name, srTextureIFace* r
     if (texture != 0 &&
         (texture->getClassID() == stTextureFile::CLASS_ID ||
          texture->getClassID() == stTextureAnim::CLASS_ID) &&
-        _stricmp(texture->getName(), old_name) == 0) {
+        _stricmp(texture->getName().c_str(), old_name) == 0) {
         SetTexture(replacement);
         return 1;
     }

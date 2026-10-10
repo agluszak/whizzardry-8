@@ -70,18 +70,6 @@ constexpr float points[0x12][7] = {
 };
 } // namespace
 
-// FUNCTION: SURRENDER 0x10065C10
-void srMath::copyIndexed(std::span<SRDWORD> destination, const SRDWORD* source,
-                         std::span<const SRDWORD> indices)
-{
-    assert(destination.size() >= indices.size());
-    const std::size_t count = indices.size();
-    for (std::size_t index = 0; index < count; ++index) {
-        SRDWORD source_index = indices[index];
-        destination[index] = source[source_index];
-    }
-}
-
 // FUNCTION: SURRENDER 0x10065EF0
 void srMath::axpy(std::span<float> destination, std::span<const float> add_source,
                   std::span<const float> scale_source, std::span<const float> multiply_source)
@@ -296,7 +284,6 @@ void srMath::mul(std::span<srVector3> destination, const srVector3& constant,
                            [&](auto value_0) { return value_0 * constant; });
 }
 
-// FUNCTION: SURRENDER 0x10066AB0
 void srMath::mul(std::span<srVector3> destination, float constant,
                  std::span<const srVector3> source)
 {
@@ -307,6 +294,7 @@ void srMath::mul(std::span<srVector3> destination, float constant,
         });
 }
 
+// FUNCTION: SURRENDER 0x10066AB0
 void srMath::mul(std::span<srVector3> destination, std::span<const srVector3> vector_source,
                  std::span<const float> float_source)
 {
@@ -368,7 +356,8 @@ void srMath::normalize(std::span<srVector3> destination, std::span<const srVecto
     assert(vectors.size() >= destination.size());
     const std::size_t count = destination.size();
     for (std::size_t index = 0; index < count; ++index) {
-        float scale = length / vectors[index].Length();
+        const float magnitude = vectors[index].Length();
+        const float scale = magnitude == 0.0f ? 0.0f : length / magnitude;
         destination[index] = vectors[index] * scale;
     }
 }

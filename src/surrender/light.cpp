@@ -372,7 +372,7 @@ void srLight::process(srVertexPipe& pipe)
     float dots[0x40];
     float distances[0x40];
     srVector3 directions[0x40];
-    srVertexPipe::Scratch* scratch = pipe.scratch;
+    srVertexPipe::Scratch* scratch = &pipe.scratch;
     float* attenuation = 0;
 
     if ((derived_flags & srLight::DERIVED_DIRECTIONAL) == 0) {

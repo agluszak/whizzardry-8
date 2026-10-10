@@ -1,6 +1,8 @@
 #pragma once
 
 #include <iosfwd>
+#include <memory>
+#include <string_view>
 
 #include "srClock.h"
 #include "srStatisticsManager.h"
@@ -16,11 +18,12 @@ class srTexture;
 class srCore {
 public:
     SR_DLL_IMPORT srCore();
+    ~srCore();
 
     SR_DLL_IMPORT void dump(std::ostream& stream);
-    SR_DLL_IMPORT const char* getBuildTime() const;
-    SR_DLL_IMPORT const char* getCopyright() const;
-    SR_DLL_IMPORT const char* getVersion() const;
+    SR_DLL_IMPORT std::string_view getBuildTime() const;
+    SR_DLL_IMPORT std::string_view getCopyright() const;
+    SR_DLL_IMPORT std::string_view getVersion() const;
     SR_DLL_IMPORT unsigned char getDebugLevel() const;
     SR_DLL_IMPORT srFilter* getFilter() const;
     // FUNCTION: SURRENDER 0x10015730
@@ -35,7 +38,7 @@ public:
     // RECOMP: ?getStatisticsManager@srCore@@QBEPAVsrStatisticsManager@@XZ
     srStatisticsManager* getStatisticsManager() const
     {
-        return statistics_manager;
+        return statistics_manager.get();
     }
     SR_DLL_IMPORT srColorSurfaceIFace* getSurface() const;
     SR_DLL_IMPORT srTexture* getTexture() const;
@@ -43,7 +46,7 @@ public:
     // RECOMP: ?getTimer@srCore@@QBEPAVsrVariableTimer@@XZ
     srClock* getTimer() const
     {
-        return timer;
+        return timer.get();
     }
     SR_DLL_IMPORT w8_ulong getUniqueID();
     SR_DLL_IMPORT int isInitialized() const;
@@ -56,7 +59,7 @@ public:
     // RECOMP: ?getRegistry@srCore@@QBEPAVsrRegistry@@XZ
     srRegistry* getRegistry() const
     {
-        return registry_;
+        return registry_.get();
     }
 
 private:
@@ -70,20 +73,19 @@ private:
 
     static SR_DLL_IMPORT int initialized;
 
-    srClock* timer;
-    srColorSurfaceIFace* surface;
-    srFilter* filter;
-    srStatisticsManager* statistics_manager;
-    srRegistry* registry_;
-    srPalette* palette;
-    w8_ulong next_unique_id;
-    char version_[0x20];
-    char copyright_[0x100];
-    w8_ulong debug_level;
-    int multi_thread;
-    srNode* root_node;
-    srMaterial* material;
-    srTexture* texture;
+    // Declared first and reset last: registered resources need it during release.
+    std::unique_ptr<srRegistry> registry_;
+    std::unique_ptr<srClock> timer;
+    srColorSurfaceIFace* surface = nullptr;
+    srFilter* filter = nullptr;
+    std::unique_ptr<srStatisticsManager> statistics_manager;
+    srPalette* palette = nullptr;
+    w8_ulong next_unique_id = 0;
+    w8_ulong debug_level = 1;
+    int multi_thread = 0;
+    srNode* root_node = nullptr;
+    srMaterial* material = nullptr;
+    srTexture* texture = nullptr;
 };
 
 W8_ABI_ASSERT(sizeof(srCore) == 0x17c, "srCore_must_be_0x17c");

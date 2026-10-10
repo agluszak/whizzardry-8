@@ -69,7 +69,7 @@ void SetMusicMuted(unsigned char muted)
 // FUNCTION: WIZ8 0x00490180
 bool IsCurrentMusicPlaylist(const char* playlist)
 {
-    return _stricmp(playlist, g_music_playlist->getName()) == 0;
+    return _stricmp(playlist, g_music_playlist->getName().c_str()) == 0;
 }
 
 // FUNCTION: WIZ8 0x0048f940
@@ -232,7 +232,7 @@ unsigned char StartMusicResource(const char* resource, int fade, unsigned char r
         return 1;
     }
 
-    if (_stricmp(resource, g_music_playlist->getName()) == 0) {
+    if (_stricmp(resource, g_music_playlist->getName().c_str()) == 0) {
         return 1;
     }
 

@@ -31,7 +31,7 @@ public:
     e_byteOrder getByteOrder() const;
     bool good() const;
     bool operator!() const;
-    operator void*() const;
+    explicit operator bool() const;
     void setByteOrder(e_byteOrder byte_order);
     void setState(e_state state);
 
