@@ -20,7 +20,7 @@
 #include <wchar.h>
 
 // GLOBAL: WIZ8 0x0069C4A8
-static W8GrowableVector<W8CreditLine>* g_credit_lines;
+static std::vector<W8CreditLine>* g_credit_lines;
 // GLOBAL: WIZ8 0x0069C494
 static int g_credit_elapsed_steps;
 // GLOBAL: WIZ8 0x0069C498
@@ -73,16 +73,16 @@ try
     ResetRegions();
     RegionSetEnable(2);
     DisableCursorScene();
-    auto release_lines = [](W8GrowableVector<W8CreditLine>* lines) {
-        for (int index = 0; index < lines->GetCount(); ++index) {
-            W8CreditLine* line = lines->GetAt(index);
+    auto release_lines = [](std::vector<W8CreditLine>* lines) {
+        for (int index = 0; index < static_cast<int>(lines->size()); ++index) {
+            W8CreditLine* line = &(*lines)[index];
             free(line->primary);
             free(line->secondary);
         }
         delete lines;
     };
-    std::unique_ptr<W8GrowableVector<W8CreditLine>, decltype(release_lines)> pending(
-        new W8GrowableVector<W8CreditLine>, release_lines);
+    std::unique_ptr<std::vector<W8CreditLine>, decltype(release_lines)> pending(
+        new std::vector<W8CreditLine>, release_lines);
     std::unique_ptr<wiz8::File> handle;
     try { handle = wiz8::open_file("Data\\Options\\Credits.txt", wiz8::OpenMode::read); }
     catch (const std::exception&) {}
@@ -135,7 +135,7 @@ try
                 entry.secondary = secondary.get();
             }
             entry.line_height = 0x14 + ((entry.flags & 1) ? 5 : 0);
-            if (pending->Add(entry) < 0) throw std::bad_alloc();
+            pending->push_back(entry);
             (void)primary.release();
             (void)secondary.release();
         }
@@ -157,8 +157,8 @@ catch (const std::exception&) {
 // FUNCTION: WIZ8 0x005bc420
 unsigned char CreditsScreenLeave(int)
 {
-    for (int index = 0; index < g_credit_lines->GetCount(); ++index) {
-        W8CreditLine* entry = g_credit_lines->GetAt(index);
+    for (int index = 0; index < static_cast<int>(g_credit_lines->size()); ++index) {
+        W8CreditLine* entry = &(*g_credit_lines)[index];
         if (entry->primary != 0) {
             free(entry->primary);
         }
@@ -178,7 +178,7 @@ unsigned char CreditsScreenLeave(int)
 // FUNCTION: WIZ8 0x005bc530
 void CreditsScreenFrame(void)
 {
-    if (g_credit_lines->GetCount() == 0) {
+    if (g_credit_static_cast<int>(lines->size()) == 0) {
         RequestScreenTransition();
         return;
     }
@@ -197,15 +197,15 @@ void CreditsScreenFrame(void)
     if (steps >= 1) {
         g_credit_elapsed_steps += steps;
         g_credit_redraw = true;
-        W8CreditLine entry = *g_credit_lines->GetAt(g_credit_line);
+        W8CreditLine entry = (*g_credit_lines)[g_credit_line];
         g_credit_y -= steps;
         while (g_credit_y < 0) {
             ++g_credit_line;
-            if (g_credit_line >= g_credit_lines->GetCount()) {
+            if (g_credit_line >= static_cast<int>(g_credit_lines->size())) {
                 RequestScreenTransition();
                 break;
             }
-            entry = *g_credit_lines->GetAt(g_credit_line);
+            entry = (*g_credit_lines)[g_credit_line];
             g_credit_y += entry.line_height;
         }
     }
@@ -215,8 +215,9 @@ void CreditsScreenFrame(void)
 
     DrawCatalogImage(FRAME_BUFFER, 0xe9, 0, 0, 0, 0, VO_BLT_SRCTRANSPARENCY, 0);
     int y = g_credit_y;
-    for (int index = g_credit_line; index < g_credit_lines->GetCount() && y <= 0x1df; ++index) {
-        const W8CreditLine* entry = g_credit_lines->GetAt(index);
+    for (int index = g_credit_line; index < static_cast<int>(g_credit_lines->size()) && y <= 0x1df;
+         ++index) {
+        const W8CreditLine* entry = &(*g_credit_lines)[index];
         if ((entry->flags & 4) == 0) {
             SetFont((entry->flags & 1) ? g_options_title_font : g_options_detail_font);
             if ((entry->flags & 2) == 0) {

@@ -9,7 +9,8 @@
 #include "wiz8/layouts/party_formation.h"
 #include "wiz8/layouts/targeting.h"
 #include "wiz8/local_code/SpellEffect.h"
-#include "wiz8/vector.h"
+#include <vector>
+#include <algorithm>
 
 struct W8Character;
 

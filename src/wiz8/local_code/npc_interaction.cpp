@@ -1,3 +1,4 @@
+#include "wiz8/containers.h"
 #include "wiz8/layouts/character.h"
 #include "wiz8/character_skills.h"
 #include "wiz8/local_code/CharGeneration.h"
@@ -55,7 +56,6 @@ bool IsPartySlotEligible(int slot)
 // FUNCTION: WIZ8 0x00524c50
 void ClearNpcMessageQueue(void)
 {
-    int index;
 
     if (g_npc_scripting.voice_playing) {
         g_npc_scripting.voice_playing = false;
@@ -63,8 +63,7 @@ void ClearNpcMessageQueue(void)
         SoundStop(g_npc_scripting.voice_handle);
     }
     FreeMouthGapTrack(&g_npc_scripting.gap_track);
-    for (index = 0; index < g_npc_scripting.message_lines.GetCount(); ++index) {
-        auto* line = *g_npc_scripting.message_lines.GetAt(index);
+    for (auto* line : g_npc_scripting.message_lines) {
         // These payloads have not been handed to a portrait bubble yet.
         switch (line->type) {
         case W8_NPC_MSG_SKILL_NOTICES:

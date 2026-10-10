@@ -22,7 +22,8 @@
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/local_screens/CharacterScreen.h"
 #include "wiz8/local_screens/MGSTextBox.h"
-#include "wiz8/vector.h"
+#include <vector>
+#include <algorithm>
 #include "wiz8/utility.h"
 #include "wiz8/float_constants.h"
 #include "wiz8/string_database.h"
@@ -273,7 +274,7 @@ static void DischargeTrapSpell(srVector3T<float> point, int spell_id, unsigned i
 {
     int index;
     int eligible;
-    W8GrowableVector<int> targets;
+    std::vector<int> targets;
     W8CombatSlot target;
     W8TargetSource source;
 
@@ -294,17 +295,17 @@ static void DischargeTrapSpell(srVector3T<float> point, int spell_id, unsigned i
         eligible = 0;
         for (index = 0; index < W8_PARTY_SLOT_COUNT; ++index) {
             if (CanPartySlotParticipate(index)) {
-                targets.Add(index);
+                targets.push_back(index);
                 ++eligible;
             }
         }
         if (num_targets >= eligible) {
             num_targets = eligible;
         }
-        while (targets.GetCount() > num_targets) {
-            index = Random(targets.GetCount());
-            if (*targets.GetAt(index) != g_status.selected_character) {
-                targets.RemoveAt(index);
+        while (static_cast<int>(targets.size()) > num_targets) {
+            index = Random(static_cast<int>(targets.size()));
+            if (targets[index] != g_status.selected_character) {
+                targets.erase(targets.begin() + index);
             }
         }
         CastSpellFromSource(spell_id, &source, &target, power_level, 0, 0, false, 0, 0, &targets,

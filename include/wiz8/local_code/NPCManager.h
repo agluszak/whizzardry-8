@@ -99,7 +99,6 @@ void ProcessNpcPendingEvents(void);
 
 /* Lazily create and then empty the shared NPC-state
    vector, recreating a runtime node for every database record still in use. */
-void InitializeNpcStates(void);
 void ResetNpcStates(void);
 void ReleaseNpcStates(void);
 /* Build one runtime state from its database record and return it,

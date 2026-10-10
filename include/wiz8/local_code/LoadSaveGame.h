@@ -2,7 +2,8 @@
 
 #include <stddef.h>
 #include "wiz8/file_time.h"
-#include "wiz8/vector.h"
+#include <vector>
+#include <algorithm>
 
 bool VerifyDataSubdirs(void);
 bool FindStartupQuickSave(char* slot_name);
@@ -44,7 +45,7 @@ W8_ABI_ASSERT(offsetof(W8SaveSlot, screenshot) == 0xa8, "W8SaveSlot_screenshot_o
 
 void CaptureSaveScreenshot(W8SaveScreenshot* screenshot);
 void FillCurrentSaveSlot(W8SaveSlot* slot);
-bool EnumerateSaveSlots(W8GrowableVector<W8SaveSlot*>* slots);
+bool EnumerateSaveSlots(std::vector<W8SaveSlot*>& slots);
 
 bool SaveGame(const char* name, W8SaveScreenshot* screenshot);
 

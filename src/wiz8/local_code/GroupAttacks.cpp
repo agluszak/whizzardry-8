@@ -97,8 +97,8 @@ static unsigned int RollSpecialAttackSum(unsigned int bound)
    five table doubles it. Kind six delegates to the summon. */
 // FUNCTION: WIZ8 0x005560A0
 void ResolveMonsterGroupAttack(int special_attack_kind, W8TargetSource* pSource,
-                               W8CombatSlot* pAttackerSlot, W8GrowableVector<int> char_targets,
-                               W8GrowableVector<int> monster_targets)
+                               W8CombatSlot* pAttackerSlot, std::vector<int> char_targets,
+                               std::vector<int> monster_targets)
 {
     bool announce;
     int iTarget;
@@ -180,8 +180,8 @@ void ResolveMonsterGroupAttack(int special_attack_kind, W8TargetSource* pSource,
         uiTotals[0] = 0;
         uiHits[1] = 0;
         uiTotals[1] = 0;
-        for (iTarget = 0; iTarget < char_targets.GetCount(); ++iTarget) {
-            iChar = *char_targets.GetAt(iTarget);
+        for (iTarget = 0; iTarget < static_cast<int>(char_targets.size()); ++iTarget) {
+            iChar = char_targets[iTarget];
             if (iChar == -1) {
                 srAssertFail("iTargetChar != BAD_INDEX", GROUP_ATTACKS_CPP, 0xdc, 0);
             }
@@ -286,8 +286,8 @@ void ResolveMonsterGroupAttack(int special_attack_kind, W8TargetSource* pSource,
                 }
             }
         }
-        for (iTarget = 0; iTarget < monster_targets.GetCount(); ++iTarget) {
-            iMonsterID = *monster_targets.GetAt(iTarget);
+        for (iTarget = 0; iTarget < static_cast<int>(monster_targets.size()); ++iTarget) {
+            iMonsterID = monster_targets[iTarget];
             if (iMonsterID == -1) {
                 srAssertFail("iTargetMonsterID != BAD_INDEX", GROUP_ATTACKS_CPP, 0x169, 0);
             }

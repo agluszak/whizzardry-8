@@ -1,9 +1,11 @@
-#include "wiz8/filesystem.h"
 #ifndef WIZ8_ENGINE_CODE_PATH_AI_H
 #define WIZ8_ENGINE_CODE_PATH_AI_H
 
+#include "wiz8/filesystem.h"
+
 #include "wiz8/geometry.h"
-#include "wiz8/vector.h"
+#include <vector>
+#include <algorithm>
 
 class srNode;
 class W8AnimRepBase;
@@ -33,7 +35,7 @@ struct W8PathAI : W8AIRecord {
     /* Normalized for interpolated movement, point units in discrete mode. */
     float position;                      /* 0x04 */
     unsigned int unknown_08;             /* 0x08: serialized */
-    W8Vector<srVector3T<float>*>* nodes; /* 0x0c */
+    std::vector<srVector3T<float>*>* nodes; /* 0x0c */
     int entry_index;                     /* 0x10: level camera/path entry index, assigned at load */
     /* 0x004A98C0 sizes both from the node count: 0x24 a record here, and a
        srVector3T<float> each in the render array. */
@@ -57,8 +59,6 @@ struct W8PathAI : W8AIRecord {
     unsigned char padding_3d[3];
 };
 
-W8_ABI_ASSERT(sizeof(W8GrowableVector<srVector3T<float>*>) == 0x10,
-              "PathAI_vector_size_must_be_0x10");
 W8_ABI_ASSERT(sizeof(W8PathAI) == 0x40, "W8PathAI_size_must_be_0x40");
 
 /* Tagged-record dispatchers: the body switches on kind and hands the

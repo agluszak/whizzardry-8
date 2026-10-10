@@ -22,7 +22,8 @@
 #include "wiz8/compat/compiler.h"
 #include "wiz8/engine_code/game_timer.h"
 #include "wiz8/local_code/Controls.h"
-#include "wiz8/vector.h"
+#include <vector>
+#include <algorithm>
 
 #include "input.h"
 
@@ -94,7 +95,7 @@ public:
     virtual void HandleInput(InputAtom* input);
     virtual void Refresh();
     virtual void Prepare();
-    W8Vector<W8CharacterPageEntry*> m_entries;
+    std::vector<W8CharacterPageEntry*> m_entries;
     W8CharacterScreen* m_screen;
     W8Character* m_character;
     W8CharacterCreationState* m_creation_state;

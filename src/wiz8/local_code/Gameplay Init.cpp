@@ -23,7 +23,8 @@
 #include "wiz8/layouts/npc_state.h"
 #include "wiz8/local_code/NPCManager.h"
 #include "wiz8/local_code/NPCScripting.h"
-#include "wiz8/3d_code/PList.h"
+#include <vector>
+#include <algorithm>
 #include "wiz8/layouts/item_instance.h"
 #include "wiz8/layouts/gameplay_databases.h"
 #include "wiz8/local_code/MonsterManager.h"
@@ -54,7 +55,7 @@
 #include "wiz8/local_code/Targeting.h"
 #include "wiz8/utility.h"
 #include "wiz8/sr_api.h"
-#include "wiz8/vector.h"
+#include "wiz8/virtual_file.h"
 #include "wiz8/filesystem.h"
 #include "random.h"
 #include "timer.h"
@@ -92,7 +93,7 @@ try
         return 0;
     }
     std::vector<std::unique_ptr<W8NpcItemStockRule>> entries;
-    std::vector<std::unique_ptr<W8PList, decltype(&PLDestroy)>> lists;
+    std::vector<std::unique_ptr<std::vector<W8NpcItemStockRule*>>> lists;
     for (unsigned int index = 0; index < count; ++index) {
         auto& record = records.get()[index];
         handle->read_exact(&record, sizeof(record));
@@ -108,22 +109,13 @@ try
                 return 0;
             }
             if (entry_count > 0) {
-                std::unique_ptr<W8PList, decltype(&PLDestroy)> rules(
-                    static_cast<W8PList*>(calloc(1, sizeof(W8PList))), &PLDestroy);
-                if (!rules) {
-                    return 0;
-                }
-                rules->data = static_cast<void**>(calloc(entry_count, sizeof(void*)));
-                if (!rules->data) {
-                    return 0;
-                }
-                rules->capacity = static_cast<int>(entry_count);
+                auto rules = std::make_unique<std::vector<W8NpcItemStockRule*>>();
+                rules->reserve(entry_count);
                 for (unsigned int entry = 0; entry < entry_count; ++entry) {
                     auto element = std::make_unique<W8NpcItemStockRule>();
                     handle->read_exact(element.get(), sizeof(*element));
-                    rules->data[entry] = element.get();
+                    rules->push_back(element.get());
                     entries.push_back(std::move(element));
-                    ++rules->iNumUsed;
                 }
                 record.item_stock_rules = rules.get();
                 lists.push_back(std::move(rules));
@@ -313,7 +305,6 @@ void RunNewGameOpeningSequence(bool notify, const wchar_t* target)
     if (notify) {
         RequestScreenTransition();
     }
-    InitializeNpcStates();
     ResetNpcStates();
     InitializeFactJournal();
     ResetFactions();

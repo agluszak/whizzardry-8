@@ -1,3 +1,4 @@
+#include "wiz8/containers.h"
 #include "wiz8/engine_code/stScript.h"
 #include "wiz8/sr_api.h"
 #include "wiz8/virtual_file.h"
@@ -49,16 +50,14 @@ stScript::~stScript()
 // FUNCTION: WIZ8 0x004CF690
 void stScript::Clear()
 {
-    while (lines.GetCount() != 0) {
-        stScriptLine* line = lines.RemoveAt(0);
-        if (line != 0) {
+    for (auto* line : lines) {
+        if (line) {
             free(line->text);
             delete line;
         }
     }
-    while (labels.GetCount() != 0) {
-        labels.RemoveAtAndDelete(0);
-    }
+    lines.clear();
+    wiz8::remove_all_and_delete_in_order(labels);
 }
 
 // FUNCTION: WIZ8 0x004CF3B0
@@ -92,8 +91,8 @@ try
         if (token[length - 1] == ':') {
             token[length - 1] = 0;
             bool add_label = true;
-            for (int index = 0; index < labels.GetCount(); ++index) {
-                stScriptLabel* existing = *labels.GetAt(index);
+            for (int index = 0; index < static_cast<int>(labels.size()); ++index) {
+                stScriptLabel* existing = labels[index];
                 if (_strnicmp(existing->name, token, 0x1f) == 0) {
                     add_label = existing->line == -1;
                     break;
@@ -122,16 +121,16 @@ try
         pending_lines.push_back(std::move(line));
         ++script_line;
     }
-    if (pending_lines.size() > static_cast<std::size_t>(std::numeric_limits<int>::max() - lines.GetCount()) ||
-        pending_labels.size() > static_cast<std::size_t>(std::numeric_limits<int>::max() - labels.GetCount())) return 0;
-    if (!lines.Grow(lines.GetCount() + static_cast<int>(pending_lines.size())) ||
-        !labels.Grow(labels.GetCount() + static_cast<int>(pending_labels.size()))) throw std::bad_alloc();
+    if (pending_lines.size() > static_cast<std::size_t>(std::numeric_limits<int>::max() - static_cast<int>(lines.size())) ||
+        pending_labels.size() > static_cast<std::size_t>(std::numeric_limits<int>::max() - static_cast<int>(labels.size()))) return 0;
+    lines.reserve(lines.size() + pending_lines.size());
+    labels.reserve(labels.size() + pending_labels.size());
     for (auto& line : pending_lines) {
-        (void)lines.Add(line.get());
+        lines.push_back(line.get());
         (void)line.release();
     }
     for (auto& label : pending_labels) {
-        (void)labels.Add(label.get());
+        labels.push_back(label.get());
         (void)label.release();
     }
     return 1;
@@ -147,8 +146,8 @@ int stScript::FindLabelLine(const char* label) const
     int index;
 
     if (label != 0) {
-        for (index = 0; index < labels.GetCount(); ++index) {
-            stScriptLabel* entry = *labels.GetAt(index);
+        for (index = 0; index < static_cast<int>(labels.size()); ++index) {
+            stScriptLabel* entry = labels[index];
             if (_strnicmp(entry->name, label, 0x1f) == 0) {
                 return entry->line;
             }
@@ -167,10 +166,10 @@ int stScript::GetSourceLine(int line) const
     if (line < 0) {
         return -1;
     }
-    if (line >= lines.GetCount()) {
+    if (line >= static_cast<int>(lines.size())) {
         return -1;
     }
-    entry = *lines.GetAt(line);
+    entry = lines[line];
     if (entry != 0) {
         return entry->source_line;
     }

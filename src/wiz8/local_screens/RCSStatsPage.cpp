@@ -1320,7 +1320,7 @@ void W8CharacterSkillsPage::Accept()
     Invalidate(0);
     m_dirty = true;
     m_screen->UpdateNavigation(this);
-    for (int index = 0; index < m_entries.GetCount(); ++index) {
+    for (int index = 0; index < static_cast<int>(m_entries.size()); ++index) {
         m_entries[index]->UpdateButtons();
     }
 }
@@ -1331,7 +1331,7 @@ void W8CharacterSkillsPage::GetNavigationState(bool* next_enabled, bool* exit_en
     *next_enabled = m_creation_state->skills_complete;
     *exit_enabled = m_creation_state->skill_points_remaining < m_creation_state->skill_points_total;
     if (*next_enabled != nav_next_state) {
-        for (int index = 0; index < m_entries.GetCount(); ++index) {
+        for (int index = 0; index < static_cast<int>(m_entries.size()); ++index) {
             m_entries[index]->SetIncrementAllowed(!*next_enabled);
         }
         nav_next_state = *next_enabled;

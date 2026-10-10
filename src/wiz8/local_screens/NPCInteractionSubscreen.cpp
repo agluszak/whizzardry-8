@@ -1,3 +1,4 @@
+#include "wiz8/containers.h"
 #include <wiz8/filesystem.h>
 #include <algorithm>
 #include <iterator>
@@ -70,8 +71,8 @@
 #include "wiz8/dialog_code/DialogInterface.h"
 #include "wiz8/dialog_code/MessageDialogBase.h"
 #include "wiz8/dialog_code/NpcDialog.h"
-#include "wiz8/3d_code/IList.h"
-#include "wiz8/3d_code/PList.h"
+#include <vector>
+#include <algorithm>
 #include "wiz8/cursor.h"
 #include "wiz8/engine_code/Octree.h"
 #include "wiz8/engine_code/Navigator.h"
@@ -154,7 +155,7 @@ W8NpcInteractionState* g_npc_interaction_state = &g_npc_interaction_storage;
    list and element one the translated one; each file list holds one line list
    per line and each line list one word per field. */
 // GLOBAL: WIZ8 0x0068EE80
-W8GrowableVector<W8GrowableVector<W8GrowableVector<wchar_t*>*>*> g_keyword_lists;
+std::vector<KeywordFile> g_keyword_lists;
 /* Both keyword files are loaded and the tables are usable. */
 // GLOBAL: WIZ8 0x0068F0F8
 bool g_keyword_lists_loaded;
@@ -245,7 +246,7 @@ void W8NpcDialogueOptionsPanel::SetEnabled(bool enable)
     int index;
 
     m_fEnabled = enable;
-    for (index = 0; index < m_controls.GetCount(); ++index) {
+    for (index = 0; index < static_cast<int>(m_controls.size()); ++index) {
         if (enable &&
             (ControlAt(index) ==
                  g_npc_interaction_state->dialogue_controls[W8_NPC_CONTROL_OPTION_BUTTONS + 0] ||
@@ -336,29 +337,10 @@ wchar_t* ParseKeywordToken(wchar_t* line, wchar_t* field)
     return cursor;
 }
 
-using KeywordLine = W8GrowableVector<wchar_t*>;
-using KeywordFile = W8GrowableVector<KeywordLine*>;
-
-static void ReleaseKeywordLine(KeywordLine* line)
-{
-    for (int i = 0; i < line->GetCount(); ++i) free(*line->GetAt(i));
-    delete line;
-}
-
-static void ReleaseKeywordFile(KeywordFile* file)
-{
-    for (int i = 0; i < file->GetCount(); ++i) ReleaseKeywordLine(*file->GetAt(i));
-    delete file;
-}
-
-/* Load one keyword file into a file list: a fresh line list per line and a
-   malloc'd wide copy of every '/'-separated field. The header line is skipped,
-   and parsing starts eleven wide characters
-   into every line - retail's own offset, whose prefix meaning is not
-   resolved. A file that cannot be opened answers zero; otherwise every line
-   adds a list, an empty one included, and the loader answers one. */
+/* Skip the header and the eleven-character prefix on each keyword row.
+   Append only after the whole file has been parsed successfully. */
 // FUNCTION: WIZ8 0x0056bed0
-unsigned char LoadKeywordFile(const char* path, W8GrowableVector<W8GrowableVector<wchar_t*>*>* file)
+bool LoadKeywordFile(const char* path, KeywordFile& file)
 try
 {
     wchar_t line[1000];
@@ -391,42 +373,25 @@ try
             throw std::runtime_error("invalid keyword text");
         return true;
     };
-    std::unique_ptr<KeywordFile, decltype(&ReleaseKeywordFile)> pending(
-        new KeywordFile, ReleaseKeywordFile);
+    KeywordFile pending;
     read_line(); // Header row.
     while (read_line()) {
-        std::unique_ptr<KeywordLine, decltype(&ReleaseKeywordLine)> entry(
-            new KeywordLine, ReleaseKeywordLine);
+        auto& entry = pending.emplace_back();
         cursor = line + 11;
-        while ((cursor = ParseKeywordToken(cursor, field)) != 0) {
-            const auto length = wcslen(field);
-            std::unique_ptr<wchar_t, decltype(&free)> word(
-                static_cast<wchar_t*>(malloc((length + 1) * sizeof(wchar_t))), free);
-            if (!word) throw std::bad_alloc();
-            wcscpy(word.get(), field);
-            if (entry->Add(word.get()) < 0) throw std::bad_alloc();
-            (void)word.release();
+        while ((cursor = ParseKeywordToken(cursor, field)) != nullptr) {
+            entry.emplace_back(field, field + wcslen(field) + 1);
         }
-        if (pending->Add(entry.get()) < 0) throw std::bad_alloc();
-        (void)entry.release();
     }
-    if (pending->GetCount() > std::numeric_limits<int>::max() - file->GetCount()) return 0;
-    if (!file->Grow(file->GetCount() + pending->GetCount())) throw std::bad_alloc();
-    for (int i = 0; i < pending->GetCount(); ++i) (void)file->Add(*pending->GetAt(i));
-    pending->Clear();
+    file.insert(file.end(), std::make_move_iterator(pending.begin()),
+                std::make_move_iterator(pending.end()));
     return 1;
 }
 catch (const std::exception&) { return false; }
 
-/* Release every keyword file list: its words through free, each line list and
-   each file list through its deleting destructor. The loaded flag is lowered
-   either way and the outer count is cleared. */
 // FUNCTION: WIZ8 0x0056c130
 void ClearKeywordLists(void)
 {
-    for (int i = 0; i < g_keyword_lists.GetCount(); ++i)
-        ReleaseKeywordFile(*g_keyword_lists.GetAt(i));
-    g_keyword_lists.Clear();
+    g_keyword_lists.clear();
     g_keyword_lists_loaded = false;
 }
 
@@ -439,54 +404,36 @@ void ReloadKeywordLists(void)
 {
     ClearKeywordLists();
     try {
-        std::unique_ptr<KeywordFile, decltype(&ReleaseKeywordFile)> english(
-            new KeywordFile, ReleaseKeywordFile);
-        if (!LoadKeywordFile("Data\\Strings\\English_Keywords.txt", english.get())) return;
-        if (g_keyword_lists.Add(english.get()) < 0) throw std::bad_alloc();
-        (void)english.release();
-        std::unique_ptr<KeywordFile, decltype(&ReleaseKeywordFile)> translated(
-            new KeywordFile, ReleaseKeywordFile);
-        if (!LoadKeywordFile("Data\\Strings\\translated_Keywords.txt", translated.get())) {
-            ClearKeywordLists();
+        std::vector<KeywordFile> files(2);
+        if (!LoadKeywordFile("Data\\Strings\\English_Keywords.txt", files[0]) ||
+            !LoadKeywordFile("Data\\Strings\\translated_Keywords.txt", files[1])) {
             return;
         }
-        if (g_keyword_lists.Add(translated.get()) < 0) throw std::bad_alloc();
-        (void)translated.release();
+        g_keyword_lists = std::move(files);
         g_keyword_lists_loaded = true;
     } catch (const std::exception&) {
         ClearKeywordLists();
     }
 }
 
-/* Translate a typed dialogue keyword through the loaded tables. With no
-   tables loaded the input passes through verbatim; otherwise the active
-   language's list is scanned and the matching English field is copied out.
-   Element one holds the translated file when two loaded, falling back to the
-   English list through GetAt's clamped read. */
+/* Translate a matching keyword, leaving unmatched or unavailable translations
+   unchanged. Files with different row/word counts are also valid. */
 // FUNCTION: WIZ8 0x0056c440
 void TranslateDialogueKeyword(const wchar_t* source, wchar_t* destination)
 {
-    W8GrowableVector<W8GrowableVector<wchar_t*>*>* file;
-    W8GrowableVector<wchar_t*>* entry;
-    W8GrowableVector<wchar_t*>* english;
-    int entry_index;
-    int word_index;
-
-    if (!g_keyword_lists_loaded) {
-        wcscpy(destination, source);
-        return;
-    }
-    file = *g_keyword_lists.GetAt(1);
-    for (entry_index = 0; entry_index < file->count; ++entry_index) {
-        entry = *file->GetAt(entry_index);
-        for (word_index = 0; word_index < entry->count; ++word_index) {
-            if (CompareWideTextIgnoreAsciiCase(source, *entry->GetAt(word_index)) == 0) {
-                english = *(*g_keyword_lists.GetAt(0))->GetAt(entry_index);
-                wcscpy(destination, *english->GetAt(word_index));
-                return;
+    if (g_keyword_lists_loaded) {
+        const auto& english = g_keyword_lists[0];
+        const auto& translated = g_keyword_lists[1];
+        for (std::size_t row = 0; row < std::min(english.size(), translated.size()); ++row) {
+            for (std::size_t word = 0; word < std::min(english[row].size(), translated[row].size()); ++word) {
+                if (CompareWideTextIgnoreAsciiCase(source, translated[row][word].data()) == 0) {
+                    wcscpy(destination, english[row][word].data());
+                    return;
+                }
             }
         }
     }
+    wcscpy(destination, source);
 }
 
 /* Reset the screen state block: zero its 0x268 bytes, write its reset values,
@@ -1288,7 +1235,8 @@ void EndNpcDialogueSession(bool skip_exit_actions)
     }
     RequestRedrawCombatBar();
     RequestRedraw(W8_MAIN_REDRAW_SUBMENU_BUTTONS);
-    for (unsigned int index = 0; index < PLLength(gXStatus.plsMonsterList); index++) {
+    for (unsigned int index = 0;
+         index < gXStatus.monsters.size(); index++) {
         ClearMonsterCharm(MonsterGetScriptPartByLocationIndex(index));
     }
     GetNpcMonsterInfo(g_npc_interaction_state->dialogue_npc);
@@ -3910,10 +3858,11 @@ bool IsDialoguePlaceKeyword(const wchar_t* name)
 // FUNCTION: WIZ8 0x00575070
 void ClearNpcDialogueTranscript(void)
 {
-    for (int index = 0; index < g_npc_interaction_state->dialogue_transcript.GetCount(); ++index) {
-        free(*g_npc_interaction_state->dialogue_transcript.GetAt(index));
+    for (int index = 0;
+         index < static_cast<int>(g_npc_interaction_state->dialogue_transcript.size()); ++index) {
+        free(g_npc_interaction_state->dialogue_transcript[index]);
     }
-    g_npc_interaction_state->dialogue_transcript.Clear();
+    g_npc_interaction_state->dialogue_transcript.clear();
 }
 
 // FUNCTION: WIZ8 0x005750D0
@@ -3952,10 +3901,10 @@ try
             sorted > 1) return 0;
     }
     auto& transcript = g_npc_interaction_state->dialogue_transcript;
-    if (!transcript.Grow(record_count)) throw std::bad_alloc();
+    transcript.reserve(record_count);
     ClearNpcDialogueTranscript();
     for (auto& record : pending) {
-        (void)transcript.Add(record.get());
+        transcript.push_back(record.get());
         (void)record.release();
     }
     g_npc_interaction_state->dialogue_category_filter = category_filter;
@@ -3969,11 +3918,11 @@ unsigned char SaveNpcDialogueTranscript(wiz8::File* file)
 try
 {
     const unsigned char version = 2;
-    const int record_count = g_npc_interaction_state->dialogue_transcript.GetCount();
+    const int record_count = static_cast<int>(g_npc_interaction_state->dialogue_transcript.size());
     file->write(&version, sizeof(version));
     file->write(&record_count, sizeof(record_count));
     for (int index = 0; index < record_count; ++index) {
-        W8DialogueTranscriptRecord* record = *g_npc_interaction_state->dialogue_transcript.GetAt(index);
+        W8DialogueTranscriptRecord* record = g_npc_interaction_state->dialogue_transcript[index];
         const auto end = std::find(std::begin(record->text), std::end(record->text), L'\0');
         if (end == std::end(record->text)) return 0;
         const int text_length = static_cast<int>(end - record->text);
@@ -4418,7 +4367,7 @@ void SetNpcQuoteBubbleVisible(bool visible, const wchar_t* text, W8NpcScriptQuot
             line->text = static_cast<wchar_t*>(malloc((wcslen(normalized) + 1) * sizeof(wchar_t)));
             line->npc_kind = npc_kind;
             wcscpy(line->text, normalized);
-            g_npc_interaction_state->pending_notice_lines.Add(line);
+            g_npc_interaction_state->pending_notice_lines.push_back(line);
         }
         g_npc_interaction_state->quote_notice_kind = notice_kind;
         g_npc_interaction_state->quote_notice_payload = payload;
@@ -4524,8 +4473,9 @@ void FlushPendingNoticeLines(void)
     wchar_t npc_name[100];
     int index;
 
-    for (index = 0; index < g_npc_interaction_state->pending_notice_lines.GetCount(); ++index) {
-        W8PendingNoticeLine* line = *g_npc_interaction_state->pending_notice_lines.GetAt(index);
+    for (index = 0; index < static_cast<int>(g_npc_interaction_state->pending_notice_lines.size());
+         ++index) {
+        W8PendingNoticeLine* line = g_npc_interaction_state->pending_notice_lines[index];
         if (line->npc_kind != -1 &&
             line->npc_kind != g_npc_interaction_state->last_notice_npc_kind) {
             W8NpcState* npc = GetNpcState(line->npc_kind);
@@ -4537,11 +4487,11 @@ void FlushPendingNoticeLines(void)
         }
         ShowNotice(line->npc_kind == -1 ? 0xb : 0xf, line->text, 3, GetTextBoxScrollRange());
     }
-    while (g_npc_interaction_state->pending_notice_lines.GetCount() > 0) {
-        W8PendingNoticeLine* line = g_npc_interaction_state->pending_notice_lines.RemoveAt(0);
-        free(line->text);
-        delete line;
-    }
+    wiz8::clear_and_dispose(g_npc_interaction_state->pending_notice_lines,
+                           [](W8PendingNoticeLine* line) {
+                               free(line->text);
+                               delete line;
+                           });
 }
 
 // FUNCTION: WIZ8 0x005767f0
@@ -4939,9 +4889,10 @@ void AddDialogueTranscriptKeyword(const wchar_t* name, signed char category)
                                                        : W8_DIALOGUE_CATEGORY_MISC;
         }
     }
-    for (int index = 0; index < g_npc_interaction_state->dialogue_transcript.GetCount(); ++index) {
+    for (int index = 0;
+         index < static_cast<int>(g_npc_interaction_state->dialogue_transcript.size()); ++index) {
         if (CompareWideTextIgnoreAsciiCase(
-                (*g_npc_interaction_state->dialogue_transcript.GetAt(index))->text, keyword) == 0) {
+                g_npc_interaction_state->dialogue_transcript[index]->text, keyword) == 0) {
             return;
         }
     }
@@ -4950,7 +4901,7 @@ void AddDialogueTranscriptKeyword(const wchar_t* name, signed char category)
     memset(record, 0, sizeof(*record));
     wcscpy(record->text, keyword);
     record->category = category;
-    g_npc_interaction_state->dialogue_transcript.Add(record);
+    g_npc_interaction_state->dialogue_transcript.push_back(record);
 }
 
 // FUNCTION: WIZ8 0x005777c0
@@ -5051,25 +5002,10 @@ bool ProcessPendingEvent(void)
     return false;
 }
 
-// VTABLE: WIZ8 0x005ee9d0
-// class W8GrowableVector<W8DialogueTranscriptRecord*>
 
-// VTABLE: WIZ8 0x005ee9d4
-// class W8GrowableVector<W8PendingNoticeLine*>
 
-// VTABLE: WIZ8 0x005ee9d8
-// class W8Vector<W8PendingNoticeLine*>
 
-// VTABLE: WIZ8 0x005ee9dc
-// class W8Vector<W8DialogueTranscriptRecord*>
 
-// VTABLE: WIZ8 0x005ee9e0
-// class W8GrowableVector<W8GrowableVector<W8GrowableVector<wchar_t*>*>*>
 
 /* The keyword-list instantiations' wchar_t element type canonicalizes to
    unsigned short under the VC6 ABI spelling used by the PDB names. */
-// VTABLE: WIZ8 0x005ee9fc
-// class W8GrowableVector<unsigned short*>
-
-// VTABLE: WIZ8 0x005eea00
-// class W8GrowableVector<W8GrowableVector<unsigned short*>*>

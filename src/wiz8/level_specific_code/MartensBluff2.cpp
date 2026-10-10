@@ -1,7 +1,8 @@
 #include "wiz8/level_specific_code/MartensBluff2.h"
 #include "wiz8/engine_code/Trigger.hpp"
 #include "wiz8/engine_code/World.h"
-#include "wiz8/3d_code/IList.h"
+#include <vector>
+#include <algorithm>
 #include "wiz8/cursor.h"
 #include "wiz8/engine_code/Environment.h"
 #include "wiz8/engine_code/GDProp.h"
@@ -111,7 +112,7 @@ void MartensBluff2Setup(void)
             if (quest_state == 2) {
                 if (FindEntityByName("Ravenz", &position, 0, 0)) {
                     group = SpawnMonsters(0x183, 1, &position, 0, true, false, false);
-                    location_id = IListGetAt(group->monsters, 0);
+                    location_id = group->MemberLocationId(0);
                     if (location_id != 0) {
                         info = MonsterGetScriptPartByLocationIndex(MonsterGetIndexByLocationID(
                             0x1d2, MARTENSBLUFF2_CPP, location_id, true));
@@ -252,7 +253,7 @@ void MartensBluff2Spikeball(int command)
         }
         if (g_spikeball_gate == 0) {
             g_spikeball_gate = new W8IntervalGate(2.0f, false, true);
-            g_master_functions->Add(MartensBluff2Spikeball);
+            g_master_functions.push_back(MartensBluff2Spikeball);
         }
     }
     g_remove_current_master_function = false;
@@ -359,7 +360,7 @@ bool MartensBluff2PerfumeBox(Trigger* pTrigger)
     quest_state = 2;
     if (FindEntityByName("Ravenz", &position, 0, 0)) {
         group = SpawnMonsters(0x183, 1, &position, 0, true, false, false);
-        location_id = IListGetAt(group->monsters, 0);
+        location_id = group->MemberLocationId(0);
         if (location_id != 0) {
             info = MonsterGetScriptPartByLocationIndex(
                 MonsterGetIndexByLocationID(0x1d2, MARTENSBLUFF2_CPP, location_id, true));
@@ -485,7 +486,7 @@ void MartensBluff2MonsterCrusher(int command)
             }
             g_crusher_active = true;
             g_crusher_state = 1;
-            g_master_functions->Add(MartensBluff2MonsterCrusher);
+            g_master_functions.push_back(MartensBluff2MonsterCrusher);
         }
         if (command != 1 && GetLocationVarValueByName("RavenQuest") != 0) {
             g_running_trigger_from_script = true;
@@ -591,7 +592,7 @@ bool MartensBluff2StoneIdol(Trigger* pTrigger)
     }
     BeginSurprise();
     MartensBluff2IdolGas(1);
-    g_master_functions->Add(MartensBluff2IdolGas);
+    g_master_functions.push_back(MartensBluff2IdolGas);
     pTrigger->flags &= ~W8_TRIGGER_ENABLED;
     g_running_trigger_from_script = true;
     SetFact(W8_FACT_QUEST_MARTEN_IDOL, 1, false);

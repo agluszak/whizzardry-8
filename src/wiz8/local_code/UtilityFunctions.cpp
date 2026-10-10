@@ -561,8 +561,7 @@ int RPCPtrToPCSlot(const W8MonsterManagerEntry* rpc)
 {
     int slot = 0;
 
-    for (const W8MonsterManagerEntry* current = gXStatus.monster_manager_entries;
-         current < &gXStatus.monster_manager_entries[8]; ++current) {
+    for (const W8MonsterManagerEntry* current = gXStatus.monster_manager_entries; current < &gXStatus.monster_manager_entries[8]; ++current) {
         if (rpc == current) {
             return slot;
         }

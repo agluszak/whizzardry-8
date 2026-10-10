@@ -4,7 +4,8 @@
 #include "wiz8/dialog_code/DialogButton.h"
 #include "wiz8/local_code/ControlsRect.h"
 #include "wiz8/local_code/TextBuffer.h"
-#include "wiz8/vector.h"
+#include <vector>
+#include <algorithm>
 
 #include "Button System.h"
 #include "input.h"
@@ -94,38 +95,38 @@ private:
 
 public:
     /* The displayed text lines; the dialog owns and frees each one. */
-    W8GrowableVector<wchar_t*> m_lines;
-    W8GrowableVector<void (*)(int)> m_field_064;
-    int m_field_074;
-    float m_field_078; /* 0.05 */
-    float m_field_07c; /* 0.2 */
-    float m_field_080; /* 0.9 */
-    float m_field_084; /* 0.75 */
-    int m_fill_colour; /* highlight fill colour */
-    int m_text_button;
-    int m_second_text_button;
-    short area_inlay;  /* DialogInlay inlay for m_area_button */
-    int m_area_button; /* scrolling text area */
-    int m_up_button;
-    int m_up_image;
-    int m_down_button;
-    int m_down_image;
-    int m_slider_button;
-    int m_slider_image;
-    short third_btn_inlay; /* DialogInlay inlay for m_third_text_button */
-    int m_third_text_button;
-    int m_ok_button;
-    int m_ok_image;
-    /* Click rectangles read by ProcessInput; nothing writes them. */
-    W8ControlsRect m_ok_rect;
-    int m_cancel_button;
-    int m_cancel_image;
-    W8ControlsRect m_cancel_rect;
-    bool m_scrollable; /* scrolling area is scrollable */
-    int m_first_visible_line;
-    int m_selected_line;
-    short edge_inlay; /* DialogEdge inlay for the text buttons */
-    short flags;
+  std::vector<wchar_t*> m_lines;
+  std::vector<void (*)(int)> m_field_064;
+  int m_field_074;
+  float m_field_078; /* 0.05 */
+  float m_field_07c; /* 0.2 */
+  float m_field_080; /* 0.9 */
+  float m_field_084; /* 0.75 */
+  int m_fill_colour; /* highlight fill colour */
+  int m_text_button;
+  int m_second_text_button;
+  short area_inlay;  /* DialogInlay inlay for m_area_button */
+  int m_area_button; /* scrolling text area */
+  int m_up_button;
+  int m_up_image;
+  int m_down_button;
+  int m_down_image;
+  int m_slider_button;
+  int m_slider_image;
+  short third_btn_inlay; /* DialogInlay inlay for m_third_text_button */
+  int m_third_text_button;
+  int m_ok_button;
+  int m_ok_image;
+  /* Click rectangles read by ProcessInput; nothing writes them. */
+  W8ControlsRect m_ok_rect;
+  int m_cancel_button;
+  int m_cancel_image;
+  W8ControlsRect m_cancel_rect;
+  bool m_scrollable; /* scrolling area is scrollable */
+  int m_first_visible_line;
+  int m_selected_line;
+  short edge_inlay; /* DialogEdge inlay for the text buttons */
+  short flags;
 };
 
 // VTABLE: WIZ8 0x005ef9f0
@@ -249,11 +250,11 @@ private:
     static void ScrollItemsToMouse(W8DialogButton* button);
 
 public:
-    W8Vector<W8WorldItem*> items;
-    W8GrowableVector<unsigned char> flags;
-    W8DialogButton* m_buttons[13];
-    int m_first_item;
-    W8WorldItem* m_item_group;
+  std::vector<W8WorldItem*> items;
+  std::vector<unsigned char> flags;
+  W8DialogButton* m_buttons[13];
+  int m_first_item;
+  W8WorldItem* m_item_group;
 };
 
 W8_ABI_ASSERT(sizeof(W8TriggerItemPickerDialog) == 0xb0, "W8TriggerItemPickerDialog_must_be_0xb0");

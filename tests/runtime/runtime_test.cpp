@@ -395,10 +395,9 @@ W8CharacterStatsPage* StatsPage()
 void SpendPool(Game& game, const char* step, int page_index, const bool& complete)
 {
     W8CharacterPage* page = g_character_screen->m_pages[page_index];
-    REQUIRE(step, page && page->m_entries.count > 0);
-    for (int index = 0; index < page->m_entries.count && !complete; ++index)
-    {
-        W8CharacterPageEntry* entry = page->m_entries.data[index];
+    REQUIRE(step, page && !page->m_entries.empty());
+    for (int index = 0; index < static_cast<int>(page->m_entries.size()) && !complete; ++index) {
+        W8CharacterPageEntry* entry = page->m_entries[index];
         if (!entry || !entry->m_enabled || !entry->m_second || !entry->m_third ||
             (page_index == 2 && !entry->m_increment_allowed))
             continue;
@@ -440,7 +439,7 @@ std::string CreateCharacter(Game& game)
     game.click("gender", ControlRegion(stats->m_gender_row->m_increment));
     REQUIRE("gender", game.within_frames(2, [&] { return stats->m_gender_row->m_index != -1; }));
     REQUIRE("attributes", game.within_frames(2, [&] {
-        return stats->m_entries.count > 0 && stats->m_entries.data[0]->m_enabled;
+        return !stats->m_entries.empty() && stats->m_entries[0]->m_enabled;
     }));
     SpendPool(game, "attributes", 0, g_character_screen->m_creation_state.attributes_complete);
 
@@ -448,7 +447,7 @@ std::string CreateCharacter(Game& game)
     game.click("to-skills", ControlRegion(g_character_screen->m_next));
     game.wait("skills", [&] {
         W8CharacterPage* page = g_character_screen->m_pages[2];
-        return g_character_screen->m_page_index == 2 && page && page->m_entries.count > 0;
+        return g_character_screen->m_page_index == 2 && page && !page->m_entries.empty();
     });
     SpendPool(game, "skills", 2, g_character_screen->m_creation_state.skills_complete);
 
@@ -883,13 +882,14 @@ void LoadGameScenario(const fs::path& fixture)
             return false;
         // Panel set 4 holds the single load panel (W8OptionsSaveLoadPanel 11).
         W8OptionsPanelSet* set = g_options_screen->m_panel[4];
-        if (!set || set->m_current < 0 || set->m_current >= set->m_panels.GetCount())
+        if (!set || set->m_current < 0 ||
+            static_cast<std::size_t>(set->m_current) >= set->m_panels.size())
             return false;
-        panel = static_cast<W8OptionsSaveLoadPanel*>(*set->m_panels.GetAt(set->m_current));
-        return panel->m_panel == 11 && panel->m_rows.GetCount() > 0;
+        panel = static_cast<W8OptionsSaveLoadPanel*>(set->m_panels[set->m_current]);
+        return panel->m_panel == 11 && !panel->m_rows.empty();
     });
     // The only save is the first row; select it, then press Load.
-    game.click("select-save", ControlRegion(*panel->m_rows.GetAt(0)));
+    game.click("select-save", ControlRegion(panel->m_rows[0]));
     REQUIRE("select-save", panel->m_selection.m_selectedIndex == 0);
     game.click("load", ControlRegion(panel->m_action_button));
     WaitMainGame(game, "loaded");
@@ -958,7 +958,7 @@ void CombatScenario()
     game.command(W8_MGS_COMMAND_TOGGLE_COMBAT);
     REQUIRE("reenter-combat", game.within_frames(4, [] { return gXStatus.fCombatMode != 0; }));
     REQUIRE("reenter-combat", g_combat_state && g_combat_state->round_count == 0);
-    REQUIRE("reenter-combat", g_combat_state->attack_report.reports.GetCount() == 0);
+    REQUIRE("reenter-combat", g_combat_state->attack_report.reports.empty());
     game.command(W8_MGS_COMMAND_TOGGLE_COMBAT);
     game.wait("leave-combat-again", [] { return gXStatus.fCombatMode == 0; }, 10);
     REQUIRE("leave-combat-again", !g_combat_state);
