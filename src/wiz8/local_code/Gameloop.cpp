@@ -127,7 +127,7 @@ void ShutdownGame(size_t initialized_screens, bool save_configuration)
     ClearNpcDialogueTranscript();
     ReleaseMessageStorage();
     FreeStringTable();
-    FreeStatusBuffers(&g_status.buffers);
+    g_status.buffers = {};
     if (save_configuration)
         SaveGameConfiguration();
 }
