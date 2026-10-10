@@ -1570,15 +1570,8 @@ unsigned char W8Navigator::LinkToNavigator(W8Navigator* target, double separatio
                                              static_cast<float>(separation)) != 0) {
         flags = 9;
         target_last_position = target->movement.position;
-        movement_stopped = false;
+        ClearMovementStopped();
         result = 1;
-        if (g_combat_inactive != 0 && linked_navigator == 0) {
-            g_navigator_group.clear();
-            CollectGroupNavigators(g_navigator_group);
-            for (int index = 0; index < static_cast<int>(g_navigator_group.size()); ++index) {
-                g_navigator_group[index]->movement_stopped = false;
-            }
-        }
     }
     return result;
 }
