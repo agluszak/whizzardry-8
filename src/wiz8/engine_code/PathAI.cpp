@@ -97,11 +97,6 @@ void PathAIResetRecord(W8PathAI* path)
     }
 }
 
-// FUNCTION: WIZ8 0x004a9740
-W8AIRecordKind GetAIRecordKind(const W8AIRecord* record)
-{
-    return record->kind;
-}
 
 // FUNCTION: WIZ8 0x004a91f0
 void PathAIApplyToRep(W8AIRecord* record, W8AnimRepBase* representation)
@@ -162,11 +157,6 @@ void PathAIAddPoint(W8PathAI& path, const srVector3T<float>& point)
     }
 }
 
-// FUNCTION: WIZ8 0x004a9b90
-void PathAISetAnimated(W8PathAI* path, bool value)
-{
-    path->animated = value;
-}
 
 // FUNCTION: WIZ8 0x004a9ba0
 void PathAIEnableTimedMode(W8PathAI* path)
@@ -218,14 +208,6 @@ bool PathAIIsComplete(W8PathAI* path)
     return true;
 }
 
-// FUNCTION: WIZ8 0x004a9f20
-unsigned int PathAIEntryCount(W8PathAI* path)
-{
-    if (path == 0) {
-        srAssertFail("pPathAI", PATH_AI_CPP, 0x43b, 0);
-    }
-    return static_cast<int>(path->nodes.size());
-}
 
 // FUNCTION: WIZ8 0x004a9f60
 void PathAISetValue(W8PathAI* path, float value)
@@ -513,35 +495,3 @@ void PathAIApply(W8PathAI* path, srNode* target)
         }
     }
 }
-
-// FUNCTION: WIZ8 0x004aa9c0
-void PathAISetScale(W8PathAI* path, float value)
-{
-    path->speed = value;
-}
-
-// FUNCTION: WIZ8 0x004aa9d0
-void PathAISetLooping(W8PathAI* path, bool value)
-{
-    if (path == 0) {
-        srAssertFail("pPathAI", PATH_AI_CPP, 0x6dc, 0);
-    }
-    path->looping = value;
-}
-
-// FUNCTION: WIZ8 0x004aaa10
-void PathAISetDiscreteMode(W8PathAI* path, bool value)
-{
-    if (path == 0) {
-        srAssertFail("pPathAI", PATH_AI_CPP, 0x6ee, 0);
-    }
-    path->discrete_mode = value;
-}
-
-// FUNCTION: WIZ8 0x004AAA50
-float PathAIGetScale(W8PathAI* path)
-{
-    return path->speed;
-}
-
-// FUNCTION: WIZ8 0x004a9750

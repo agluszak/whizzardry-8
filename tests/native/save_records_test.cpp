@@ -481,6 +481,39 @@ static void animation_record_contracts()
     CHECK(wiz8::remove_file(filename));
 }
 
+static void animated_mesh_cache_contracts()
+{
+    CHECK(g_animesh_cache_list.empty());
+    const int old_limit = g_animesh_cache_limit;
+    const int old_bytes = g_animesh_cache_bytes;
+    {
+        W8AniMesh original;
+        CHECK(original.meshes.empty() && original.filename.empty());
+        CHECK(original.bounds_minimum == srVector3T<float>(0, 0, 0));
+        original.flags.loaded = true;
+        original.flags.keep_loaded = true;
+        original.flags.cache_protected = true;
+        original.loaded_bytes = 32;
+        g_animesh_cache_bytes += 32;
+        g_animesh_cache_list.push_back(&original);
+        {
+            W8AniMesh copy(original);
+            CHECK(g_animesh_cache_bytes == old_bytes + 64);
+            CHECK(g_animesh_cache_list.size() == 2);
+            g_animesh_cache_limit = old_bytes;
+            EnforceAniMeshMemoryLimit(&original); // All candidates protected: no invalid erase.
+            CHECK(copy.flags.loaded);
+            copy.flags.cache_protected = false;
+            EnforceAniMeshMemoryLimit(&original);
+            CHECK(!copy.flags.loaded && original.flags.loaded);
+            CHECK(g_animesh_cache_bytes == old_bytes + 32);
+            CHECK(g_animesh_cache_list.size() == 1);
+        }
+    }
+    CHECK(g_animesh_cache_bytes == old_bytes && g_animesh_cache_list.empty());
+    g_animesh_cache_limit = old_limit;
+}
+
 static void graphical_object_ownership_contracts()
 {
     W8GrObject original;
@@ -1045,6 +1078,7 @@ int main()
     path_record_contracts();
     animation_record_contracts();
     graphical_object_ownership_contracts();
+    animated_mesh_cache_contracts();
     wiz8::clear_asset_archives();
 
     std::filesystem::remove_all(root);

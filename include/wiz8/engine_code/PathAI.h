@@ -56,28 +56,21 @@ struct W8PathAI : W8AIRecord {
    record to the path or missile implementation. */
 bool PathAIUpdate(W8AIRecord* record, signed char direction);
 void PathAIResetRecord(W8PathAI* path);
-W8AIRecordKind GetAIRecordKind(const W8AIRecord* record);
 void PathAIApplyToRep(W8AIRecord* record, W8AnimRepBase* representation);
 /* Places one srNode (model instance, light, camera, …) through a path. The
    body only calls srNode child/location/rotation/scale APIs; retail callers
    pass those node kinds interchangeably. */
 void PathAIApply(W8PathAI* path, srNode* node); /* 0x004AA520 */
-float PathAIGetScale(W8PathAI* path);           /* 0x004AAA50 */
 void PathAIClearOwned(W8PathAI* path);
-void PathAISetAnimated(W8PathAI* path, bool value);
 void PathAIEnableTimedMode(W8PathAI* path);
 void PathAIResetTick(W8PathAI* path);
 float PathAIGetValue(W8PathAI* path);
 bool PathAINextPoint(W8PathAI* path, srVector3T<float>* point);
 bool PathAIIsComplete(W8PathAI* path);
-unsigned int PathAIEntryCount(W8PathAI* path);
 void PathAISetValue(W8PathAI* path, float value);
 void PathAIAdvanceNormalized(W8PathAI* path, float amount);
 bool PathAITick(W8PathAI* path, signed char direction);
 void PathAIPosition(W8PathAI* path, srVector3T<float>* value);
-void PathAISetLooping(W8PathAI* path, bool value);
-void PathAISetScale(W8PathAI* path, float value);
-void PathAISetDiscreteMode(W8PathAI* path, bool value);
 bool LoadPathAI(W8PathAI** path, wiz8::File* handle);
 void PathAIAddPoint(W8PathAI& path, const srVector3T<float>& point);
 

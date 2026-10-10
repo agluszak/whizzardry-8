@@ -1048,9 +1048,9 @@ unsigned char W8MonsterRep::ReadCycleData(W8ReadLevelInfo* info, W8Monster* mons
             for (entry = 0; entry < count; ++entry) {
                 W8PathAI* path = AnimObjListEntry(animation, list, entry);
                 if (path != 0) {
-                    PathAISetLooping(path, 1);
-                    PathAISetDiscreteMode(path, 1);
-                    PathAISetScale(path, animation->playback_scale);
+                    path->looping = true;
+                    path->discrete_mode = true;
+                    path->speed = animation->playback_scale;
                 }
             }
         }

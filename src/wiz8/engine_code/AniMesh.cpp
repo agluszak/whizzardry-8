@@ -453,33 +453,16 @@ void SetAniMeshCacheProtected(W8AniMesh* mesh, bool enabled)
 // FUNCTION: WIZ8 0x004b6770
 void EnforceAniMeshMemoryLimit(W8AniMesh* current)
 {
-    while (g_animesh_cache_bytes > g_animesh_cache_limit && !g_animesh_cache_list.empty()) {
-        W8AniMesh* oldest = 0;
-        int oldest_index = -1;
-        unsigned int count = static_cast<unsigned int>(g_animesh_cache_list.size());
-
-        for (unsigned int index = 0; index < count; ++index) {
-            W8AniMesh* candidate = static_cast<W8AniMesh*>(g_animesh_cache_list[index]);
-
-            if (candidate != current) {
-                if (candidate == 0) {
-                    srAssertFail("pAniMesh", ANI_MESH_CPP, 0x3d0, 0);
-                }
-                if (!candidate->flags.cache_protected &&
-                    (oldest_index == -1 || static_cast<unsigned int>(candidate->last_used) <
-                                               static_cast<unsigned int>(oldest->last_used))) {
-                    oldest = candidate;
-                    oldest_index = index;
-                }
+    while (g_animesh_cache_bytes > g_animesh_cache_limit) {
+        W8AniMesh* oldest = nullptr;
+        for (auto* candidate : g_animesh_cache_list) {
+            if (!candidate || candidate == current || candidate->flags.cache_protected) continue;
+            if (!oldest || static_cast<unsigned int>(candidate->last_used) <
+                           static_cast<unsigned int>(oldest->last_used)) {
+                oldest = candidate;
             }
         }
-        if (oldest != current) {
-            UnloadAniMesh(oldest, false);
-            g_animesh_cache_list.erase(g_animesh_cache_list.begin() + oldest_index);
-        } else if (oldest_index == -1) {
-            srAssertFail("0", ANI_MESH_CPP, 0x39d,
-                         "mimp.cpp -> Tell a programmer : running out of monster memory.");
-            return;
-        }
+        if (!oldest || !UnloadAniMesh(oldest, false)) return;
+        std::erase(g_animesh_cache_list, oldest);
     }
 }

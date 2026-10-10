@@ -533,7 +533,7 @@ void W8Navigator::SetNavigationMode(int mode)
     switch (mode) {
     case 1:
         path = new W8PathAI;
-        PathAISetAnimated(path, true);
+        path->animated = true;
         SetPathAI(path);
         /* Falls into mode four's body: the retail block ends where mode four's
            jump-table entry lands. */
@@ -545,13 +545,13 @@ void W8Navigator::SetNavigationMode(int mode)
     case 3:
     case 5:
         path = new W8PathAI;
-        PathAISetAnimated(path, true);
+        path->animated = true;
         SetPathAI(path);
         SetPitchRollEnabled(true, false);
         break;
     case 6:
         path = new W8PathAI;
-        PathAISetAnimated(path, true);
+        path->animated = true;
         SetPathAI(path);
         SetPitchRollEnabled(true, true);
         break;

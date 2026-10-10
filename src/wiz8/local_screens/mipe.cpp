@@ -499,8 +499,8 @@ void ShowMonsterSpeedStatus(void)
         return;
     }
     path = static_cast<W8PathAI*>(MonsterGetAIRecord(g_mipe_state->monster));
-    if (path != 0 && GetAIRecordKind(path) == W8_AI_RECORD_PATH) {
-        speed = PathAIGetScale(path);
+    if (path != 0 && path->kind == W8_AI_RECORD_PATH) {
+        speed = path->speed;
     } else {
         if (g_mipe_state->monster == 0) {
             ShowNotice(W8_FONT_PALETTE_WHITE, "Monster has no path AI.");
@@ -1244,24 +1244,24 @@ void AdjustMonsterSpeed(unsigned short key)
         factor = 1.0f;
         speed = MonsterGetNavigatorMovementScale(g_mipe_state->monster);
     } else {
-        if (GetAIRecordKind(path) != W8_AI_RECORD_PATH) {
+        if (path->kind != W8_AI_RECORD_PATH) {
             return;
         }
-        speed = PathAIGetScale(path);
+        speed = path->speed;
         speed += speed;
     }
     switch (key) {
     case 0xbc:
         speed = speed - factor * g_mipe_state->speed_step;
         if (path != 0) {
-            PathAISetScale(path, speed);
+            path->speed = speed;
         }
         MonsterSetNavigatorMovementScale(g_mipe_state->monster, speed);
         break;
     case 0xbe:
         speed = factor * g_mipe_state->speed_step + speed;
         if (path != 0) {
-            PathAISetScale(path, speed);
+            path->speed = speed;
         }
         MonsterSetNavigatorMovementScale(g_mipe_state->monster, speed);
         break;
@@ -1279,8 +1279,8 @@ void AdjustMonsterSpeed(unsigned short key)
     }
     ShowMonsterSpeedStatus();
 speed_done:
-    if (path != 0 && PathAIGetScale(path) < g_float_one_ten_thousandth) {
-        PathAISetScale(path, 0.0001f);
+    if (path != 0 && path->speed < g_float_one_ten_thousandth) {
+        path->speed = 0.0001f;
     }
 }
 

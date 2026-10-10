@@ -203,8 +203,8 @@ try
                 srAssertFail("fSuccess", ANIM_OBJ_CPP, 0x1c5, 0);
             }
             path->discrete_mode = true;
-            PathAISetAnimated(path, false);
-            PathAISetScale(path, animation->playback_scale);
+            path->animated = false;
+            path->speed = animation->playback_scale;
             animation->path.reset(path);
             animation->frame_count = static_cast<unsigned char>(path->nodes.size());
         }
@@ -264,8 +264,8 @@ try
                 animation->paths[channel].insert(animation->paths[channel].begin() + entry,
                                                  std::unique_ptr<W8PathAI>(path));
                 path->discrete_mode = true;
-                PathAISetAnimated(path, false);
-                PathAISetScale(path, animation->playback_scale);
+                path->animated = false;
+                path->speed = animation->playback_scale;
                 animation->frame_count = static_cast<unsigned char>(path->nodes.size());
             }
         }

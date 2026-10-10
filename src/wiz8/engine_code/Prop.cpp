@@ -1610,9 +1610,9 @@ try
         for (entry_index = 0; entry_index < list_count; ++entry_index) {
             W8PathAI* path = AnimObjListEntry(animation, 2, static_cast<signed char>(entry_index));
             if (path != 0) {
-                PathAISetLooping(path, 1);
-                PathAISetDiscreteMode(path, 1);
-                PathAISetScale(path, animation->playback_scale);
+                path->looping = true;
+                path->discrete_mode = true;
+                path->speed = animation->playback_scale;
             }
         }
     }
