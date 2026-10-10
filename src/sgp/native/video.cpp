@@ -38,7 +38,7 @@ bool W8ConfigureGameWindow(SDL_Window* window, bool fullscreen, int width, int h
            SDL_SetWindowFullscreen(window, fullscreen) && SDL_SyncWindow(window);
 }
 srDD* W8CreateNativeRenderDevice() { return srCreateSDLGPUDevice(); }
-bool W8VideoGetClientRect(SDL_Window* window, SGPRect* rect)
+bool W8VideoGetClientRect(SDL_Window* window, SDL_Rect* rect)
 {
     if (!window || !rect)
         return false;

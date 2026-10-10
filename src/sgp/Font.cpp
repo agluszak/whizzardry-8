@@ -43,7 +43,7 @@ UINT32 FontDestPitch = 640 * 2;
 // GLOBAL: WIZ8 0x005ff5fc
 UINT32 FontDestBPP = 16;
 // GLOBAL: WIZ8 0x005ff600
-SGPRect FontDestRegion = {0, 0, 640, 480};
+SDL_Rect FontDestRegion = {0, 0, 640, 480};
 // GLOBAL: WIZ8 0x00650e38
 BOOLEAN FontDestWrap = FALSE;
 // GLOBAL: WIZ8 0x00650e3a
@@ -67,7 +67,7 @@ UINT32 SaveFontDestPitch = 640 * 2;
 // GLOBAL: WIZ8 0x005ff620
 UINT32 SaveFontDestBPP = 16;
 // GLOBAL: WIZ8 0x005ff628
-SGPRect SaveFontDestRegion = {0, 0, 640, 480};
+SDL_Rect SaveFontDestRegion = {0, 0, 640, 480};
 // GLOBAL: WIZ8 0x00650e40
 BOOLEAN SaveFontDestWrap = FALSE;
 // GLOBAL: WIZ8 0x00650e42
@@ -477,10 +477,7 @@ BOOLEAN SetFontDestBuffer(UINT32 DestBuffer, INT32 x1, INT32 y1, INT32 x2, INT32
 
     FontDestBuffer = DestBuffer;
 
-    FontDestRegion.iLeft = x1;
-    FontDestRegion.iTop = y1;
-    FontDestRegion.iRight = x2;
-    FontDestRegion.iBottom = y2;
+    FontDestRegion = {x1, y1, x2 - x1, y2 - y1};
     FontDestWrap = wrap;
 
     return (TRUE);
@@ -826,10 +823,7 @@ BOOLEAN InitializeFontManager(const std::vector<UINT16>& translation)
     //	FontDestBPP=0;
 
     GetCurrentVideoSettings(&uiRight, &uiBottom, &uiPixelDepth);
-    FontDestRegion.iLeft = 0;
-    FontDestRegion.iTop = 0;
-    FontDestRegion.iRight = (INT32)uiRight;
-    FontDestRegion.iBottom = (INT32)uiBottom;
+    FontDestRegion = {0, 0, (INT32)uiRight, (INT32)uiBottom};
     FontDestBPP = (UINT32)uiPixelDepth;
 
     FontDestWrap = FALSE;

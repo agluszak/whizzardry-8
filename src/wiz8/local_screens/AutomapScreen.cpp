@@ -863,9 +863,9 @@ void AutomapScreenFrame(void)
                 g_automap_cursor_inside = false;
                 SetAutomapToolCursor(g_automap_tool);
             }
-            SGPPoint point;
+            SDL_Point point;
             SGPMouseGetPos(&point);
-            MSYS_SGP_Mouse_Handler_Hook(MOUSE_POS, point.iX, point.iY, gfLeftButtonState,
+            MSYS_SGP_Mouse_Handler_Hook(MOUSE_POS, point.x, point.y, gfLeftButtonState,
                                         gfRightButtonState);
             unsigned short reason;
             switch (input.usEvent) {
@@ -885,7 +885,7 @@ void AutomapScreenFrame(void)
             default:
                 continue;
             }
-            MSYS_SGP_Mouse_Handler_Hook(reason, point.iX, point.iY, gfLeftButtonState,
+            MSYS_SGP_Mouse_Handler_Hook(reason, point.x, point.y, gfLeftButtonState,
                                         gfRightButtonState);
             continue;
         }
@@ -1977,9 +1977,9 @@ void RenderAutomapMarkers(void)
         }
     }
     if (g_automap_page != 2) {
-        SGPRect saved_clip;
+        SDL_Rect saved_clip;
         GetClippingRect(&saved_clip);
-        SGPRect clip = {0xc, 0x20, 0x1d3, 0x1d3};
+        SDL_Rect clip = {0xc, 0x20, 0x1d3 - 0xc, 0x1d3 - 0x20};
         SetClippingRect(&clip);
         SetFont(g_wiz_text_font_secondary);
         SetObjectShade(GetFontObject(g_wiz_text_font_secondary), 4);

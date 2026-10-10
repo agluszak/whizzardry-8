@@ -47,18 +47,18 @@ extern INT32 FontDefault;
 extern UINT32 FontDestBuffer;
 extern UINT32 FontDestPitch;
 extern UINT32 FontDestBPP;
-extern SGPRect FontDestRegion;
+extern SDL_Rect FontDestRegion;
 extern BOOLEAN FontDestWrap;
 
 #define SetFontDestObject(x)                                                                       \
-    (SetFontDestBuffer(x, FontDestRegion.iLeft, FontDestRegion.iTop, FontDestRegion.iRight,           \
-                       FontDestRegion.iBottom, FontDestWrap))
+    (SetFontDestBuffer(x, FontDestRegion.x, FontDestRegion.y, (FontDestRegion.x + FontDestRegion.w),           \
+                       (FontDestRegion.y + FontDestRegion.h), FontDestWrap))
 
 #define SetFontDestClip(x1, y1, x2, y2)                                                            \
     (SetFontDestBuffer(FontDestBuffer, x1, y1, x2, y2, FontDestWrap))
 #define SetFontDestWrap(x)                                                                         \
-    (SetFontDestBuffer(FontDestBuffer, FontDestRegion.iLeft, FontDestRegion.iTop,                    \
-                       FontDestRegion.iRight, FontDestRegion.iBottom, x))
+    (SetFontDestBuffer(FontDestBuffer, FontDestRegion.x, FontDestRegion.y,                    \
+                       (FontDestRegion.x + FontDestRegion.w), (FontDestRegion.y + FontDestRegion.h), x))
 // functions
 
 void SetFontForeground(UINT8 ubForeground);

@@ -121,8 +121,8 @@ void UpdatePartyMovementPanel(void)
 // FUNCTION: WIZ8 0x005A19B0
 void DrawPartyMovementPanel(void)
 {
-    SGPRect previous;
-    SGPRect clip;
+    SDL_Rect previous;
+    SDL_Rect clip;
     bool panel_live;
     int caption;
     short right;
@@ -183,10 +183,7 @@ void DrawPartyMovementPanel(void)
     }
     if (panel_live) {
         GetClippingRect(&previous);
-        clip.iLeft = right;
-        clip.iTop = 0;
-        clip.iRight = 0x1b9;
-        clip.iBottom = 0x1e0;
+        clip = {right, 0, 0x1b9 - right, 0x1e0};
         SetClippingRect(&clip);
         DrawCatalogImageAndInvalidate(FRAME_BUFFER, 0x96, 0, image, 0xc3, 0x144,
                                       VO_BLT_SRCTRANSPARENCY, 0);

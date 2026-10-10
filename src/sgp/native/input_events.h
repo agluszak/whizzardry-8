@@ -4,6 +4,6 @@
 
 void SetInputWindow(SDL_Window* window);
 void HandleInputEvent(const SDL_Event& event);
-void GetGameMousePosition(SGPPoint* point);
-bool SetGameCursorRect(const SGPRect* rect);
+void GetGameMousePosition(SDL_Point* point);
+bool SetGameCursorRect(const SDL_Rect* rect);
 bool WarpGameMouse(SDL_Window* window, int x, int y);

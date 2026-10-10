@@ -228,7 +228,7 @@ static bool HandleDeveloperModeKey(const InputAtom* input)
 // FUNCTION: WIZ8 0x005bcbf0
 void MainMenuScreenFrame()
 {
-    SGPPoint point;
+    SDL_Point point;
     InputAtom input;
 
     if (g_dev_mode) {
@@ -253,7 +253,7 @@ void MainMenuScreenFrame()
         ProcessMessageBoxInput();
     } else {
         SGPMouseGetPos(&point);
-        g_main_menu_hover_region = UpdateRegionMousePosition(point.iX, point.iY);
+        g_main_menu_hover_region = UpdateRegionMousePosition(point.x, point.y);
         while (DequeueEvent(&input) == 1) {
             if (!DispatchRegionInput(&input) && input.usEvent == KEY_DOWN) {
                 if (HandleDeveloperModeKey(&input)) {

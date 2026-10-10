@@ -112,7 +112,7 @@ bool LoadImageData(HIMAGE hImage, UINT16 fContents);
 
 bool CopyImageToBuffer(const image_type& image, UINT32 buffer_type, std::span<UINT8> destination,
                        std::size_t dest_width, std::size_t dest_height, std::size_t x, std::size_t y,
-                       const SGPRect& source_rect);
+                       const SDL_Rect& source_rect);
 
 // UTILITY FUNCTIONS
 

@@ -37,7 +37,7 @@ wchar_t* FormatUnsignedIntegerWithCommas(wchar_t* output, unsigned int value);
 char* TitleCaseString(char* string);
 float ShortestAngleDistance(float first, float second);
 void UnionScreenRects(const W8ScreenRect* first, const W8ScreenRect* second, W8ScreenRect* result);
-bool ScreenPointInRect(const W8ScreenRect* rect, const SGPPoint* point);
+bool ScreenPointInRect(const W8ScreenRect* rect, const SDL_Point* point);
 void AdjustByteByPercent(unsigned char* value, unsigned int percent);
 void AdjustIntegerByPercent(unsigned int* value, unsigned int percent);
 float NormalizeAngle(float angle);

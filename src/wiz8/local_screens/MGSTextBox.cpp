@@ -1619,7 +1619,7 @@ unsigned char TextBoxBodyRegionEvent(const InputAtom* event, W8Region* region)
 // FUNCTION: WIZ8 0x0058EFD0
 unsigned char TextBoxChannelTabRegionEvent(const InputAtom* event, W8Region* region)
 {
-    SGPPoint mouse_pos;
+    SDL_Point mouse_pos;
 
     PushButtonSoundScheme(0, true);
     SGPMouseGetPos(&mouse_pos);
@@ -1996,8 +1996,8 @@ void RedrawTextBoxBody(bool skip_invalidate)
 // FUNCTION: WIZ8 0x0058CC10
 void RedrawTextBoxScrollChrome(void)
 {
-    SGPRect saved_clip;
-    SGPRect clip;
+    SDL_Rect saved_clip;
+    SDL_Rect clip;
     short text_box;
     unsigned int scroll;
     unsigned int line_count;
@@ -2006,7 +2006,7 @@ void RedrawTextBoxScrollChrome(void)
 
     GetClippingRect(&saved_clip);
     clip = saved_clip;
-    clip.iBottom = 0x1db;
+    clip.h = (0x1db) - clip.y;
     SetClippingRect(&clip);
 
     if (g_level_block->action_panel_visible != 0) {

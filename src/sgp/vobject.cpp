@@ -465,7 +465,7 @@ BOOLEAN BltVideoObjectToBuffer(UINT16* pBuffer, UINT32 uiDestPitchBYTES, HVOBJEC
                 }
             }
             // Use default blitter here
-            //Blt8BPPDataTo16BPPBuffer( hDestVObject, hSrcVObject, (UINT16)iDestX, (UINT16)iDestY, (SGPRect*)&SrcRect );
+            //Blt8BPPDataTo16BPPBuffer( hDestVObject, hSrcVObject, (UINT16)iDestX, (UINT16)iDestY, (SDL_Rect*)&SrcRect );
 
         } while (FALSE);
 

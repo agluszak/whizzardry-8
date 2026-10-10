@@ -15,18 +15,15 @@ void sdl(bool result)
     if (!result)
         throw std::runtime_error(SDL_GetError());
 }
-SGPRect bounds(const SDL_Surface& surface)
+SDL_Rect bounds(const SDL_Surface& surface)
 {
     return {0, 0, surface.w, surface.h};
 }
-SDL_Rect rectangle(const SGPRect& rect)
+bool valid(const SDL_Rect& rect, const SDL_Surface& surface)
 {
-    return {rect.iLeft, rect.iTop, rect.iRight - rect.iLeft, rect.iBottom - rect.iTop};
-}
-bool valid(const SGPRect& rect, const SDL_Surface& surface)
-{
-    return rect.iLeft >= 0 && rect.iTop >= 0 && rect.iRight > rect.iLeft && rect.iBottom > rect.iTop &&
-           rect.iRight <= surface.w && rect.iBottom <= surface.h;
+    SDL_Rect result;
+    const SDL_Rect limit = bounds(surface);
+    return SDL_GetRectIntersection(&rect, &limit, &result) && SDL_RectsEqual(&result, &rect);
 }
 UINT32 pixel(const void* source, unsigned bytes)
 {
@@ -38,29 +35,26 @@ bool inKey(UINT32 value, const SurfaceColorKey& key)
 {
     return value >= key.low && value <= key.high;
 }
-SGPRect intersection(SGPRect region, const SGPRect& dest, const SDL_Surface& surface)
+bool intersection(const SDL_Rect& clip, const SDL_Rect& dest,
+                  const SDL_Surface& surface, SDL_Rect* region)
 {
-    region.iLeft = std::max(region.iLeft, std::max<INT32>(dest.iLeft, 0));
-    region.iTop = std::max(region.iTop, std::max<INT32>(dest.iTop, 0));
-    region.iRight = std::min(region.iRight, std::min<INT32>(dest.iRight, surface.w));
-    region.iBottom = std::min(region.iBottom, std::min<INT32>(dest.iBottom, surface.h));
-    return region;
+    const SDL_Rect limit = bounds(surface);
+    return SDL_GetRectIntersection(&clip, &dest, region) &&
+           SDL_GetRectIntersection(region, &limit, region);
 }
 
 // Range/destination keys and edge-sampled scaling have no equivalent SDL operation.
-void packedBlit(SDL_Surface& dest, const SGPRect& region, const SGPRect& mapping,
-                const SDL_Surface& source, const SGPRect& sample,
+void packedBlit(SDL_Surface& dest, const SDL_Rect& region, const SDL_Rect& mapping,
+                const SDL_Surface& source, const SDL_Rect& sample,
                 const SurfaceColorKey* sourceKey, const SurfaceColorKey* destinationKey)
 {
     const unsigned bytes = SDL_BYTESPERPIXEL(dest.format);
-    for (int y = region.iTop; y < region.iBottom; ++y)
+    for (int y = region.y; y < region.y + region.h; ++y)
     {
-        const int sy = sample.iTop + int(int64_t(y - mapping.iTop) * (sample.iBottom - sample.iTop) /
-                                       (mapping.iBottom - mapping.iTop));
-        for (int x = region.iLeft; x < region.iRight; ++x)
+        const int sy = sample.y + int(int64_t(y - mapping.y) * sample.h / mapping.h);
+        for (int x = region.x; x < region.x + region.w; ++x)
         {
-            const int sx = sample.iLeft + int(int64_t(x - mapping.iLeft) * (sample.iRight - sample.iLeft) /
-                                            (mapping.iRight - mapping.iLeft));
+            const int sx = sample.x + int(int64_t(x - mapping.x) * sample.w / mapping.w);
             auto* output = static_cast<BYTE*>(dest.pixels) + size_t(y) * dest.pitch + x * bytes;
             const UINT32 value = pixel(static_cast<const BYTE*>(source.pixels) +
                                        size_t(sy) * source.pitch + sx * bytes, bytes);
@@ -103,16 +97,16 @@ std::unique_ptr<CpuSurface> CreateCpuSurface(UINT16 width, UINT16 height, UINT8 
     return result;
 }
 
-SurfaceLock LockCpuSurface(CpuSurface& owner, const SGPRect* rect)
+SurfaceLock LockCpuSurface(CpuSurface& owner, const SDL_Rect* rect)
 {
     auto& surface = *owner.surface;
-    const SGPRect region = rect ? *rect : bounds(surface);
+    const SDL_Rect region = rect ? *rect : bounds(surface);
     require(!owner.locked && valid(region, surface), "CPU surface lock state/rectangle");
     sdl(SDL_LockSurface(&surface));
     owner.locked = true;
-    return {static_cast<BYTE*>(surface.pixels) + size_t(region.iTop) * surface.pitch +
-            region.iLeft * SDL_BYTESPERPIXEL(surface.format), surface.pitch,
-            region.iRight - region.iLeft, region.iBottom - region.iTop};
+    return {static_cast<BYTE*>(surface.pixels) + size_t(region.y) * surface.pitch +
+            region.x * SDL_BYTESPERPIXEL(surface.format), surface.pitch,
+            region.w, region.h};
 }
 void UnlockCpuSurface(CpuSurface& surface)
 {
@@ -121,37 +115,35 @@ void UnlockCpuSurface(CpuSurface& surface)
     surface.locked = false;
 }
 
-void FillCpuSurface(CpuSurface& owner, UINT32 color, const SGPRect* rect)
+void FillCpuSurface(CpuSurface& owner, UINT32 color, const SDL_Rect* rect)
 {
     require(!owner.locked, "CPU surface fill while locked");
     auto& dest = *owner.surface;
-    const SGPRect d = rect ? *rect : bounds(dest);
-    require(d.iRight > d.iLeft && d.iBottom > d.iTop, "CPU surface fill rectangle");
-    const auto fill = rectangle(d);
-    for (const SGPRect& clip : owner.clipRegions ? std::span<const SGPRect>(*owner.clipRegions) :
-                                              std::span<const SGPRect>(&d, 1))
+    const SDL_Rect d = rect ? *rect : bounds(dest);
+    require(!SDL_RectEmpty(&d), "CPU surface fill rectangle");
+    for (const SDL_Rect& clip : owner.clipRegions ? std::span<const SDL_Rect>(*owner.clipRegions) :
+                                              std::span<const SDL_Rect>(&d, 1))
     {
-        const SGPRect region = intersection(clip, d, dest);
-        if (region.iLeft >= region.iRight || region.iTop >= region.iBottom)
+        SDL_Rect region;
+        if (!intersection(clip, d, dest, &region))
             continue;
-        const auto limit = rectangle(region);
-        SDL_SetSurfaceClipRect(&dest, &limit);
-        sdl(SDL_FillSurfaceRect(&dest, &fill, color));
+        SDL_SetSurfaceClipRect(&dest, &region);
+        sdl(SDL_FillSurfaceRect(&dest, &d, color));
     }
     SDL_SetSurfaceClipRect(&dest, nullptr);
 }
 
-void BlitCpuSurface(CpuSurface& output, const SGPRect* destRect, CpuSurface& input,
-                   const SGPRect* sourceRect, bool useSourceKey, bool useDestinationKey)
+void BlitCpuSurface(CpuSurface& output, const SDL_Rect* destRect, CpuSurface& input,
+                   const SDL_Rect* sourceRect, bool useSourceKey, bool useDestinationKey)
 {
     auto& dest = *output.surface;
     auto& source = *input.surface;
     require(!output.locked && !input.locked &&
             SDL_BYTESPERPIXEL(dest.format) == SDL_BYTESPERPIXEL(source.format),
             "CPU surface blit state/format");
-    const SGPRect d = destRect ? *destRect : bounds(dest);
-    const SGPRect s = sourceRect ? *sourceRect : bounds(source);
-    require(d.iRight > d.iLeft && d.iBottom > d.iTop && valid(s, source),
+    const SDL_Rect d = destRect ? *destRect : bounds(dest);
+    const SDL_Rect s = sourceRect ? *sourceRect : bounds(source);
+    require(!SDL_RectEmpty(&d) && valid(s, source),
             "CPU surface blit rectangles");
     require(!useSourceKey || input.sourceKey.has_value(), "source color key missing");
     require(!useDestinationKey || output.destinationKey.has_value(), "destination color key missing");
@@ -189,55 +181,52 @@ void BlitCpuSurface(CpuSurface& output, const SGPRect* destRect, CpuSurface& inp
                                      SDL_ISPIXELFORMAT_ALPHA(dest.format) || unusedBits);
     if (sourceKey && !rawKey)
         sdl(SDL_SetSurfaceColorKey(view.get(), true, sourceKey->low));
-    for (const SGPRect& clip : output.clipRegions ? std::span<const SGPRect>(*output.clipRegions) :
-                                               std::span<const SGPRect>(&d, 1))
+    for (const SDL_Rect& clip : output.clipRegions ? std::span<const SDL_Rect>(*output.clipRegions) :
+                                               std::span<const SDL_Rect>(&d, 1))
     {
-        const SGPRect region = intersection(clip, d, dest);
-        if (region.iLeft >= region.iRight || region.iTop >= region.iBottom)
+        SDL_Rect region;
+        if (!intersection(clip, d, dest, &region))
             continue;
-        SGPRect sample = s;
+        SDL_Rect sample = s;
         if (output.clipRegions)
         {
-            const float scaleX = float(s.iRight - s.iLeft) / float(d.iRight - d.iLeft);
-            const float scaleY = float(s.iBottom - s.iTop) / float(d.iBottom - d.iTop);
-            sample.iLeft += INT32((region.iLeft - d.iLeft) * scaleX);
-            sample.iTop += INT32((region.iTop - d.iTop) * scaleY);
-            sample.iRight -= INT32((d.iRight - region.iRight) * scaleX);
-            sample.iBottom -= INT32((d.iBottom - region.iBottom) * scaleY);
+            const float scaleX = float(s.w) / float(d.w);
+            const float scaleY = float(s.h) / float(d.h);
+            const INT32 left = INT32((region.x - d.x) * scaleX);
+            const INT32 top = INT32((region.y - d.y) * scaleY);
+            sample.x += left;
+            sample.y += top;
+            sample.w -= INT32(((d.x + d.w) - (region.x + region.w)) * scaleX) + left;
+            sample.h -= INT32(((d.y + d.h) - (region.y + region.h)) * scaleY) + top;
         }
-        const SGPRect mapping = output.clipRegions ? region : d;
-        const auto target = rectangle(mapping);
-        const auto from = rectangle(sample);
-        const auto limit = rectangle(region);
-        const bool integralScale = target.w % from.w == 0 && target.h % from.h == 0;
-        const bool scaledPacked = (SDL_ISPIXELFORMAT_INDEXED(dest.format) || unusedBits) &&
-                                  (target.w != from.w || target.h != from.h);
-        const bool clippedScale = (target.w != from.w || target.h != from.h) &&
-            (mapping.iLeft != region.iLeft || mapping.iTop != region.iTop ||
-             mapping.iRight != region.iRight || mapping.iBottom != region.iBottom);
+        const SDL_Rect mapping = output.clipRegions ? region : d;
+        const bool scaled = mapping.w != sample.w || mapping.h != sample.h;
+        const bool integralScale = mapping.w % sample.w == 0 && mapping.h % sample.h == 0;
+        const bool scaledPacked = (SDL_ISPIXELFORMAT_INDEXED(dest.format) || unusedBits) && scaled;
+        const bool clippedScale = scaled && !SDL_RectsEqual(&mapping, &region);
         if (destinationKey || rawKey || !integralScale || scaledPacked || clippedScale)
         {
             packedBlit(dest, region, mapping, *data, sample, sourceKey, destinationKey);
             continue;
         }
-        SDL_SetSurfaceClipRect(&dest, &limit);
-        if (target.w == from.w && target.h == from.h)
-            sdl(SDL_BlitSurface(view.get(), &from, &dest, &target));
+        SDL_SetSurfaceClipRect(&dest, &region);
+        if (!scaled)
+            sdl(SDL_BlitSurface(view.get(), &sample, &dest, &mapping));
         else
-            sdl(SDL_BlitSurfaceScaled(view.get(), &from, &dest, &target, SDL_SCALEMODE_NEAREST));
+            sdl(SDL_BlitSurfaceScaled(view.get(), &sample, &dest, &mapping, SDL_SCALEMODE_NEAREST));
     }
     SDL_SetSurfaceClipRect(&dest, nullptr);
 }
 
-void SetSurfaceClipRegions(CpuSurface& surface, std::span<const SGPRect> input)
+void SetSurfaceClipRegions(CpuSurface& surface, std::span<const SDL_Rect> input)
 {
     std::vector<INT32> edges;
-    for (const SGPRect& rect : input)
+    for (const SDL_Rect& rect : input)
     {
-        if (rect.iLeft >= rect.iRight || rect.iTop >= rect.iBottom)
+        if (SDL_RectEmpty(&rect))
             continue;
-        edges.push_back(rect.iTop);
-        edges.push_back(rect.iBottom);
+        edges.push_back(rect.y);
+        edges.push_back(rect.y + rect.h);
     }
     std::sort(edges.begin(), edges.end());
     edges.erase(std::unique(edges.begin(), edges.end()), edges.end());
@@ -248,9 +237,9 @@ void SetSurfaceClipRegions(CpuSurface& surface, std::span<const SGPRect> input)
     for (size_t i = 1; i < edges.size(); ++i)
     {
         std::vector<std::pair<INT32, INT32>> spans, merged;
-        for (const SGPRect& rect : input)
-            if (rect.iTop <= edges[i - 1] && rect.iBottom >= edges[i] && rect.iLeft < rect.iRight)
-                spans.emplace_back(rect.iLeft, rect.iRight);
+        for (const SDL_Rect& rect : input)
+            if (rect.y <= edges[i - 1] && (rect.y + rect.h) >= edges[i] && rect.w > 0)
+                spans.emplace_back(rect.x, (rect.x + rect.w));
         std::sort(spans.begin(), spans.end());
         for (auto span : spans)
         {
@@ -262,13 +251,14 @@ void SetSurfaceClipRegions(CpuSurface& surface, std::span<const SGPRect> input)
         if (merged == previous)
         {
             for (size_t j = previousStart; j < rectangles.size(); ++j)
-                rectangles[j].iBottom = edges[i];
+                rectangles[j].h = (edges[i]) - rectangles[j].y;
         }
         else
         {
             previousStart = rectangles.size();
             for (auto span : merged)
-                rectangles.push_back({span.first, edges[i - 1], span.second, edges[i]});
+                rectangles.push_back(
+                    {span.first, edges[i - 1], span.second - span.first, edges[i] - edges[i - 1]});
         }
         previous = merged;
     }

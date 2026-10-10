@@ -755,14 +755,14 @@ unsigned char CharacterScreenLeave(int leaving)
 // FUNCTION: WIZ8 0x005b18e0
 void CharacterScreenFrame(void)
 {
-    SGPPoint point;
+    SDL_Point point;
     InputAtom input;
     SGPMouseGetPos(&point);
     g_character_screen->UpdateDialog();
-    MSYS_SGP_Mouse_Handler_Hook(MOUSE_POS, static_cast<unsigned short>(point.iX),
-                                static_cast<unsigned short>(point.iY), gfLeftButtonState,
+    MSYS_SGP_Mouse_Handler_Hook(MOUSE_POS, static_cast<unsigned short>(point.x),
+                                static_cast<unsigned short>(point.y), gfLeftButtonState,
                                 gfRightButtonState);
-    UpdateRegionMousePosition(point.iX, point.iY);
+    UpdateRegionMousePosition(point.x, point.y);
     while (DequeueEvent(&input) == 1) {
         W8CharacterScreen* screen = g_character_screen;
         screen->m_pages[screen->m_page_index]->HandleInput(&input);
