@@ -207,7 +207,6 @@ INT32 LoadButtonImage(UINT8* filename, INT32 Grayed, INT32 OffNormal, INT32 OffH
     UINT32 UseSlot;
     ETRLEObject* pTrav;
     UINT32 MaxHeight, MaxWidth, ThisHeight, ThisWidth;
-    UINT32 MemBefore, MemAfter, MemUsed;
 
     AssertMsg(filename != BUTTON_NO_FILENAME,
               "Attempting to LoadButtonImage() with null filename.");
@@ -233,14 +232,11 @@ INT32 LoadButtonImage(UINT8* filename, INT32 Grayed, INT32 OffNormal, INT32 OffH
     vo_desc.fCreateFlags = VOBJECT_CREATE_FROMFILE;
     strcpy(vo_desc.ImageFile, (char*)filename);
 
-    MemBefore = MemGetFree();
     if ((ButtonPictures[UseSlot].vobj = CreateVideoObject(&vo_desc)) == NULL) {
         DbgMessage(TOPIC_BUTTON_HANDLER, DBG_LEVEL_0,
                    String("Couldn't create VOBJECT for %s", filename));
         return (-1);
     }
-    MemAfter = MemGetFree();
-    MemUsed = MemBefore - MemAfter;
 
     // Init the QuickButton image structure with indexes to use
     ButtonPictures[UseSlot].Grayed = Grayed;

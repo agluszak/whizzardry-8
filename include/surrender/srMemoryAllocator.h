@@ -2,7 +2,7 @@
 
 #include "srHeap.h"
 
-class SR_DLL_EXPORT srMemoryAllocator {
+class srMemoryAllocator {
 public:
     enum e_alignSize { ALIGN_SIZE_32 = 0x20 };
 

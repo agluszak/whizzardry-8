@@ -6,8 +6,6 @@
    Window, file, graphics and audio APIs are replaced at their use sites. */
 #include <stdint.h>
 #include <stdio.h>
-#include <time.h>
-#include <unistd.h>
 #ifdef __cplusplus
 #include <type_traits>
 #endif
@@ -47,7 +45,6 @@ typedef struct tagRECT {
     LONG bottom;
 } RECT, *LPRECT;
 
-typedef LRESULT (CALLBACK* WNDPROC)(HWND, UINT, WPARAM, LPARAM);
 
 typedef struct tagPOINT {
     LONG x;
@@ -71,14 +68,6 @@ typedef struct _SYSTEMTIME {
     uint16_t wMilliseconds;
 } SYSTEMTIME;
 
-typedef struct tagMSG {
-    HWND hwnd;
-    UINT message;
-    WPARAM wParam;
-    LPARAM lParam;
-    DWORD time;
-    POINT pt;
-} MSG;
 
 /* Virtual-key codes: the game's keyboard vocabulary. The native input layer
    translates SDL key events into these values. */
@@ -127,11 +116,18 @@ template <class A, class B> inline auto min(A a, B b) -> typename std::remove_re
 #endif
 #endif
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+uint32_t w8_get_ticks(void);
+void w8_sleep(uint32_t milliseconds);
+#ifdef __cplusplus
+}
+#endif
+
 inline uint32_t GetTickCount()
 {
-    struct timespec now;
-    clock_gettime(CLOCK_MONOTONIC, &now);
-    return (uint32_t)(now.tv_sec * 1000u + now.tv_nsec / 1000000);
+    return w8_get_ticks();
 }
 
 inline uint32_t timeGetTime()
@@ -141,7 +137,7 @@ inline uint32_t timeGetTime()
 
 inline void Sleep(uint32_t milliseconds)
 {
-    usleep(milliseconds * 1000u);
+    w8_sleep(milliseconds);
 }
 
 inline void OutputDebugString(const char* text)

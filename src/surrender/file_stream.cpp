@@ -16,7 +16,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define _fsopen(path, mode, share) fopen(path, mode)
+#include <limits>
 
 // FUNCTION: SURRENDER 0x1002E010
 srFileManager::Path::Path(const char* name)
@@ -400,8 +400,9 @@ int srBinFStream::isOpen()
 // FUNCTION: SURRENDER 0x1002EFC0
 void srBinFStream::close()
 {
-    fclose(file);
-    file = 0;
+    try { if (file) file->close(); }
+    catch (const std::exception&) { setState(SR_STREAM_ERROR); file.reset(); return; }
+    file.reset();
     path = 0;
     setState(SR_STREAM_STATE_2);
 }
@@ -422,29 +423,18 @@ void srBinFStream::setPath(const char* path)
 void srBinFStream::mopen(const char* path, e_mode mode, int search_paths)
 {
     if (!isOpen()) {
-        char mode_string[4];
-        int length;
+        wiz8::OpenMode intent;
         switch (mode) {
-        case SR_MODE_READ:
-            mode_string[0] = 'r';
-            length = 1;
-            break;
-        case SR_MODE_WRITE:
-            mode_string[0] = 'w';
-            length = 1;
-            break;
-        case SR_MODE_READ_WRITE:
-            mode_string[0] = 'r';
-            mode_string[1] = '+';
-            length = 2;
-            break;
-        default:
-            length = 0;
-            break;
+        case SR_MODE_READ: intent = wiz8::OpenMode::read; break;
+        case SR_MODE_WRITE: intent = wiz8::OpenMode::replace; break;
+        case SR_MODE_READ_WRITE: intent = wiz8::OpenMode::update; break;
+        default: setState(SR_STREAM_ERROR); return;
         }
-        mode_string[length] = 'b';
-        mode_string[length + 1] = '\0';
-        file = _fsopen(path, mode_string, _SH_DENYWR);
+        auto open = [&](const char* name) {
+            try { file = wiz8::open_file(name, intent); setPath(name); }
+            catch (const std::exception&) { file.reset(); }
+        };
+        open(path);
         if (file != 0) {
             setState(SR_STREAM_OK);
             return;
@@ -467,7 +457,7 @@ void srBinFStream::mopen(const char* path, e_mode mode, int search_paths)
                                     search_extension);
                 char candidate[_MAX_PATH];
                 srSystem::makePath(candidate, drive, directory, full_name, extension);
-                file = _fsopen(candidate, mode_string, _SH_DENYWR);
+                open(candidate);
                 if (file != 0) {
                     setPath(candidate);
                     setState(SR_STREAM_OK);
@@ -482,7 +472,7 @@ void srBinFStream::mopen(const char* path, e_mode mode, int search_paths)
 // FUNCTION: SURRENDER 0x1002F250
 srBinFStream::srBinFStream()
 {
-    file = 0;
+    file.reset();
     setState(SR_STREAM_STATE_2);
 }
 
@@ -497,43 +487,60 @@ srBinFStream::~srBinFStream()
 // FUNCTION: SURRENDER 0x1002F340
 srBinStream& srBinFStream::pseek(w8_ulong position, e_seekDir direction)
 {
-    int whence;
+    wiz8::SeekOrigin origin;
     switch (direction) {
-    case SR_SEEK_BEGIN:
-        whence = SEEK_SET;
-        break;
-    case SR_SEEK_CURRENT:
-        whence = SEEK_CUR;
-        break;
-    case SR_SEEK_END:
-        whence = SEEK_END;
-        break;
-    default:
-        return *this;
+    case SR_SEEK_BEGIN: origin = wiz8::SeekOrigin::begin; break;
+    case SR_SEEK_CURRENT: origin = wiz8::SeekOrigin::current; break;
+    case SR_SEEK_END: origin = wiz8::SeekOrigin::end; break;
+    default: setState(SR_STREAM_ERROR); return *this;
     }
-    if (fseek(file, position, whence) != 0) {
-        setState(SR_STREAM_ERROR);
-    }
+    try {
+        if (!file) throw std::logic_error("closed stream");
+        file->seek(direction != SR_SEEK_BEGIN ? std::int64_t(std::int32_t(position)) :
+                                                  std::int64_t(position), origin);
+    } catch (const std::exception&) { setState(SR_STREAM_ERROR); }
     return *this;
 }
 
-// FUNCTION: SURRENDER 0x1002F3B0
 srBinStream& srBinFStream::pseek(w8_ulong position)
 {
-    if (fseek(file, position, SEEK_SET) != 0) {
-        setState(SR_STREAM_ERROR);
-    }
-    return *this;
+    return pseek(position, SR_SEEK_BEGIN);
 }
 
-// FUNCTION: SURRENDER 0x1002F400
 w8_ulong srBinFStream::ptell()
 {
-    w8_ulong position = ftell(file);
-    if (position == 0xffffffff) {
-        setState(SR_STREAM_ERROR);
-    }
-    return position;
+    try {
+        if (!file) throw std::logic_error("closed stream");
+        const auto position = file->tell();
+        if (position > std::numeric_limits<w8_ulong>::max())
+            throw std::overflow_error("stream position exceeds game range");
+        return static_cast<w8_ulong>(position);
+    } catch (const std::exception&) { setState(SR_STREAM_ERROR); return 0xffffffff; }
+}
+
+w8_ulong srBinFStream::readFile(void* destination, w8_ulong size)
+{
+    try {
+        if (!file) throw std::logic_error("closed stream");
+        return static_cast<w8_ulong>(file->read(destination, size).bytes);
+    } catch (const std::exception&) { setState(SR_STREAM_ERROR); return 0; }
+}
+w8_ulong srBinFStream::writeFile(const void* source, w8_ulong size)
+{
+    try {
+        if (!file) throw std::logic_error("closed stream");
+        file->write(source, size);
+        return size;
+    } catch (const std::exception&) { setState(SR_STREAM_ERROR); return 0; }
+}
+unsigned short srBinFStream::getFile()
+{
+    unsigned char byte;
+    return readFile(&byte, 1) == 1 ? byte : 0xffff;
+}
+unsigned short srBinFStream::putFile(char character)
+{
+    return writeFile(&character, 1) == 1 ? 0 : 0xffff;
 }
 
 // FUNCTION: SURRENDER 0x1002F6B0
@@ -554,17 +561,13 @@ void srBinIFStream::open(const char* path)
 // FUNCTION: SURRENDER 0x1002F850
 unsigned short srBinIFStream::vget()
 {
-    int result = fgetc(file);
-    if (result == -1) {
-        return 0xffff;
-    }
-    return result;
+    return getFile();
 }
 
 // FUNCTION: SURRENDER 0x1002F870
 w8_ulong srBinIFStream::vread(void* destination, w8_ulong size)
 {
-    return fread(destination, 1, size, file);
+    return readFile(destination, size);
 }
 
 // FUNCTION: SURRENDER 0x1002F890
@@ -603,29 +606,25 @@ void srBinIOFStream::open(const char* path)
 // FUNCTION: SURRENDER 0x1002FE30
 w8_ulong srBinIOFStream::vwrite(const void* source, w8_ulong size)
 {
-    return fwrite(source, 1, size, file);
+    return writeFile(source, size);
 }
 
 // FUNCTION: SURRENDER 0x1002FE50
 unsigned short srBinIOFStream::vput(char character)
 {
-    return fputc(character, file) != -1 ? 0 : 0xffff;
+    return putFile(character);
 }
 
 // FUNCTION: SURRENDER 0x1002FE80
 unsigned short srBinIOFStream::vget()
 {
-    int result = fgetc(file);
-    if (result == -1) {
-        return 0xffff;
-    }
-    return result;
+    return getFile();
 }
 
 // FUNCTION: SURRENDER 0x1002FEA0
 w8_ulong srBinIOFStream::vread(void* destination, w8_ulong size)
 {
-    return fread(destination, 1, size, file);
+    return readFile(destination, size);
 }
 
 // FUNCTION: SURRENDER 0x1002FEC0
@@ -664,13 +663,13 @@ void srBinOFStream::open(const char* path)
 // FUNCTION: SURRENDER 0x10030510
 w8_ulong srBinOFStream::vwrite(const void* source, w8_ulong size)
 {
-    return fwrite(source, 1, size, file);
+    return writeFile(source, size);
 }
 
 // FUNCTION: SURRENDER 0x10030540
 unsigned short srBinOFStream::vput(char character)
 {
-    return fputc(character, file) != -1 ? 0 : 0xffff;
+    return putFile(character);
 }
 
 // FUNCTION: SURRENDER 0x10030570

@@ -24,7 +24,7 @@
 
 extern HWND ghWindow;
 
-extern BOOLEAN InitializeVideoManager(HINSTANCE hInstance, UINT16 usCommandShow, void* WindowProc);
+extern BOOLEAN InitializeVideoManager(HINSTANCE hInstance, UINT16 usCommandShow);
 extern void ShutdownVideoManager(void);
 extern void ShutdownVideoScenes(void);
 extern void SuspendVideoManager(void);
@@ -289,7 +289,6 @@ void SetWorldModelPickingEnabled(bool enabled);
 bool RendererBufferIsLockable(void);
 void SetRendererAutoFlipEnabled(bool enabled);
 bool HasEnoughFreeDiskSpace(void);
-int GetUsedPageFileBytes(void);
 srModelInstance* GetPickedModelInstance(void);
 void SetPickedModelInstance(srModelInstance* value);
 bool IsCursorInsideViewport(void);      /* 0x00428070 */

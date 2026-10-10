@@ -45,7 +45,7 @@
 #include <cstring>
 #include <cmath>
 #include <new>
-#include "compat/platform.h"
+#include <wiz8/filesystem.h>
 
 #define MATERIALS_CPP "C:\\Projects\\Wizardry 8\\Engine Code\\materials.cpp"
 
@@ -222,7 +222,7 @@ static unsigned int g_progress_done;
 // GLOBAL: WIZ8 0x0065BD50
 static unsigned int g_progress_mark;
 // GLOBAL: WIZ8 0x0065BD54
-static FILE* g_log_file;
+static std::unique_ptr<wiz8::File> g_log_file;
 
 // GLOBAL: WIZ8 0x005ECBB0
 const float g_weld_grid_key_scale = 268435456.0f;
@@ -285,12 +285,11 @@ char W8Octree::BuildPreprocessedFiles(const char* level_path)
         if (built != 0) {
             sprintf(line, "%s.pvl", stem);
             if (FileExists(line) != 0) {
-                if (_access(line, 2) != 0) {
-                    _chmod(line, 0x180);
-                }
-                W8DeleteFile(line);
+                FileClearAttributes(line);
+                FileDelete(line);
             }
-            move_pvl = W8MoveFile("NewLevel.lvl", line);
+            move_pvl = FileCopy("NewLevel.lvl", line, FALSE);
+            if (move_pvl) FileDelete("NewLevel.lvl");
             sprintf(line, "%s.rlk", stem);
             if (FileExists(line) != 0) {
                 ReportStartupMessage(
@@ -299,12 +298,11 @@ char W8Octree::BuildPreprocessedFiles(const char* level_path)
             }
             sprintf(line, "%s.oct", stem);
             if (FileExists(line) != 0) {
-                if (_access(line, 2) != 0) {
-                    _chmod(line, 0x180);
-                }
-                W8DeleteFile(line);
+                FileClearAttributes(line);
+                FileDelete(line);
             }
-            move_oct = W8MoveFile("NewLevel.oct", line);
+            move_oct = FileCopy("NewLevel.oct", line, FALSE);
+            if (move_oct) FileDelete("NewLevel.oct");
             result =
                 built & static_cast<unsigned char>(move_pvl) & static_cast<unsigned char>(move_oct);
             if (result == 0) {
@@ -860,19 +858,21 @@ void ReportBuildStatus(short channel, const char* message)
 {
     char line[120];
 
+    auto log = [](const char* text) { g_log_file->write(text, strlen(text)); };
+    try {
     switch (channel) {
     case 0:
         if (g_log_file == 0) {
             g_progress_total = 0;
             g_progress_done = 0;
             if (message == 0) {
-                g_log_file = fopen(g_log_path, "w");
+                g_log_file = wiz8::open_file(g_log_path, wiz8::OpenMode::replace);
                 return;
             }
             if (*message != '\0') {
                 strcpy(g_log_path, message);
                 if (g_option_logging) {
-                    g_log_file = fopen(message, "w");
+                    g_log_file = wiz8::open_file(message, wiz8::OpenMode::replace);
                     return;
                 }
             }
@@ -881,18 +881,16 @@ void ReportBuildStatus(short channel, const char* message)
     case 6:
         ReportStartupMessage(message);
         if (g_log_file != 0) {
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wformat-security"
-            fprintf(g_log_file, message);
-#pragma clang diagnostic pop
+            log(message);
             return;
         }
         break;
     case 7:
         if (g_log_file != 0) {
             sprintf(line, "ERROR: %s", message);
-            fprintf(g_log_file, "\n\n%s", message);
-            fclose(g_log_file);
+            log("\n\n");
+            log(message);
+            g_log_file.reset();
         }
         ShutdownWithErrorBox(message);
         return;
@@ -911,13 +909,12 @@ void ReportBuildStatus(short channel, const char* message)
         return;
     case 3:
         if (g_log_file != 0) {
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wformat-security"
-            fprintf(g_log_file, message);
-#pragma clang diagnostic pop
-            fprintf(g_log_file, "Number of Nodes: %d             Number of Leaves: %d\n",
+            log(message);
+            snprintf(line, sizeof(line), "Number of Nodes: %d             Number of Leaves: %d\n",
                     g_oct_node_count, g_progress_total);
-            fprintf(g_log_file, "Most Objects in Any Node: %d\n\n", g_oct_max_objects);
+            log(line);
+            snprintf(line, sizeof(line), "Most Objects in Any Node: %d\n\n", g_oct_max_objects);
+            log(line);
             return;
         }
         break;
@@ -926,17 +923,17 @@ void ReportBuildStatus(short channel, const char* message)
         return;
     case 5:
         if (g_log_file != 0) {
-            fprintf(g_log_file, "%s", message);
+            log(message);
             return;
         }
         break;
     case 8:
         if (g_log_file != 0) {
-            fclose(g_log_file);
-            g_log_file = 0;
+            g_log_file.reset();
         }
         break;
     }
+    } catch (const std::exception&) { g_log_file.reset(); }
 }
 
 // FUNCTION: WIZ8 0x004969D0
@@ -1855,7 +1852,6 @@ void W8Octree::OctBuildOptions(char* stem)
     int line;
     int index;
     short length;
-    MSG message;
 
     colour_saved.SetZero();
     colour_backup.SetZero();
@@ -1943,15 +1939,13 @@ void W8Octree::OctBuildOptions(char* stem)
                 gprintfDirty(1, 0x184 + line * 0xd, Wiz8ToSgpWideText(g_format_s), wide[line]);
             }
             InvalidateRegion(0, 0x183, 0x27f, 0x1df, 4);
-            while (DequeueEvent(&atom) == 0) {
+            while (gfProgramIsRunning && DequeueEvent(&atom) == 0) {
                 RenderFrame();
                 RenderFrame();
-                W8WaitMessage();
-                if (W8PeekMessage(&message, (HWND)0, 0, 0, 0) != 0 &&
-                    W8GetMessage(&message, (HWND)0, 0, 0) != 0) {
-                    W8TranslateMessage(&message);
-                    W8DispatchMessage(&message);
-                }
+                PumpGameEvents(true);
+            }
+            if (!gfProgramIsRunning) {
+                goto accepted;
             }
             if (atom.usEvent != KEY_DOWN) {
                 continue;

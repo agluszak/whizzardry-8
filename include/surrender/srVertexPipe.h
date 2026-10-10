@@ -9,7 +9,7 @@ class srMaterialIFace;
 class srVP;
 
 #pragma pack(push, 4)
-class SR_DLL_EXPORT srVertexPipe {
+class srVertexPipe {
     friend class W8GroundShadowMapper;
 
 public:

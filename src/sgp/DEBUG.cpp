@@ -22,7 +22,7 @@
 #include "TopicIDs.h"
 #include "TopicOps.h"
 #include "WizShare.h"
-#include "compat/platform.h"
+#include <wiz8/filesystem.h>
 
 //Kris addition
 
@@ -221,7 +221,8 @@ void DbgTopicRegistration(UINT8 ubCmd, UINT16* usTopicID, CHAR8* zMessage)
 
 void RemoveDebugText(void)
 {
-    w8_remove(gpcDebugLogFileName);
+    try { wiz8::remove_file(gpcDebugLogFileName); }
+    catch (const std::exception&) {}
 }
 // DbgClearAllTopics
 // Parameter List :
@@ -241,6 +242,16 @@ void DbgClearAllTopics(void)
         }
     }
 }
+#ifndef _NO_DEBUG_TXT
+static void WriteDebugLog(const char* text)
+{
+    try {
+        auto output = wiz8::open_file(gpcDebugLogFileName, wiz8::OpenMode::append);
+        output->write(text, strlen(text));
+    } catch (const std::exception&) {}
+}
+#endif
+
 // DbgMessageReal
 // Parameter List :
 // Return Value :
@@ -249,9 +260,6 @@ void DbgClearAllTopics(void)
 
 void DbgMessageReal(UINT16 uiTopicId, UINT8 uiCommand, UINT8 uiDebugLevel, CHAR8* strMessage)
 {
-#ifndef _NO_DEBUG_TXT
-    FILE* OutFile;
-#endif
 
     // Check for a registered topic ID
     if (uiTopicId < MAX_TOPICS_ALLOTED && gfDebugTopics[uiTopicId]) {
@@ -261,10 +269,8 @@ void DbgMessageReal(UINT16 uiTopicId, UINT8 uiCommand, UINT8 uiDebugLevel, CHAR8
 //add _NO_DEBUG_TXT to your SGP preprocessor definitions to avoid this f**king huge file from
 //slowly growing behind the scenes!!!!
 #ifndef _NO_DEBUG_TXT
-        if ((OutFile = fopen(gpcDebugLogFileName, "a+t")) != NULL) {
-            fprintf(OutFile, "%s\n", strMessage);
-            fclose(OutFile);
-        }
+        WriteDebugLog(strMessage);
+        WriteDebugLog("\n");
 #endif
     }
 }
@@ -284,9 +290,6 @@ void DbgMessageReal(UINT16 uiTopicId, UINT8 uiCommand, UINT8 uiDebugLevel, CHAR8
 void _DebugMessage(UINT8* pString, UINT32 uiLineNum, UINT8* pSourceFile)
 {
     UINT8 ubOutputString[512];
-#ifndef _NO_DEBUG_TXT
-    FILE* DebugFile;
-#endif
     // Build the output string
 
     sprintf((char*)ubOutputString, "{ %ld } %s [Line %d in %s]\n", GetTickCount(), pString,
@@ -300,10 +303,7 @@ void _DebugMessage(UINT8* pString, UINT32 uiLineNum, UINT8* pSourceFile)
 
 #ifndef _NO_DEBUG_TXT
     if (gfRecordToFile) {
-        if ((DebugFile = fopen(gpcDebugLogFileName, "a+t")) != NULL) {
-            fputs((char*)ubOutputString, DebugFile);
-            fclose(DebugFile);
-        }
+        WriteDebugLog((char*)ubOutputString);
     }
 #endif
 }
@@ -318,9 +318,6 @@ void _FailMessage(UINT8* pString, UINT32 uiLineNum, UINT8* pSourceFile)
     UINT8 ubOutputString[512];
     BOOLEAN fDone = FALSE;
 
-#ifndef _NO_DEBUG_TXT
-    FILE* DebugFile;
-#endif
 
     // Build the output string
     sprintf((char*)ubOutputString, "{ %ld } Assertion Failure: %s [Line %d in %s]\n",
@@ -337,13 +334,8 @@ void _FailMessage(UINT8* pString, UINT32 uiLineNum, UINT8* pSourceFile)
     // Record to file if required
 #ifndef _NO_DEBUG_TXT
     if (gfRecordToFile) {
-        if ((DebugFile = fopen(gpcDebugLogFileName, "a+t")) != NULL) {
-            fputs((char*)ubOutputString, DebugFile);
-            if (pString) { //tag on the assert message
-                fputs((char*)gubAssertString, DebugFile);
-            }
-            fclose(DebugFile);
-        }
+        WriteDebugLog((char*)ubOutputString);
+        if (pString) WriteDebugLog((char*)gubAssertString);
     }
 #endif
     exit(0);

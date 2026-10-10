@@ -1,9 +1,9 @@
+#include "sgp.h"
 #include "wiz8/compat/unaligned.h"
 #include "wiz8/wiz8_windows.h"
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
-#include <sys/stat.h>
 
 #include "surrender/srCamera.h"
 #include "surrender/srHeap.h"
@@ -61,7 +61,6 @@
 #include <math.h>
 #include <time.h>
 #include "surrender/srModelInstance.h"
-#include "compat/platform.h"
 
 #define OCTREE_CPP "C:\\Projects\\Wizardry 8\\Engine Code\\Octree.cpp"
 
@@ -989,9 +988,8 @@ bool W8Octree::LoadPointFiles(const char* level_name)
 /* Write the octree's point array to a companion file.
 
    The level path supplies the base name and its existing extension is
-   replaced with the point-file extension. A read-only file is made writable
-   first. The count precedes the records, and the result reports either
-   write. */
+   replaced with the point-file extension. Writes target the mutable overlay.
+   The count precedes the records, and the result reports either write. */
 // FUNCTION: WIZ8 0x00432d60
 BOOLEAN W8Octree::SavePoints(char* path)
 {
@@ -1004,11 +1002,6 @@ BOOLEAN W8Octree::SavePoints(char* path)
         *extension = '\0';
     }
     strcat(name, g_octree_point_extension);
-    if (FileExists(name) != 0) {
-        if (_access(name, 2) != 0) {
-            _chmod(name, 0x180);
-        }
-    }
     int file = FileOpen(name, 2, 0);
     if (file != 0) {
         if (m_point_count != 0 && m_sample_points != 0) {
@@ -1408,11 +1401,13 @@ void W8Octree::BuildRegionLinks(bool rebuild_all)
                       point.z < m_spatial.m_working_maximum.z)) {
                     continue;
                 }
-                MSG message;
-                if (W8PeekMessage(&message, 0, 0, 0, 0) != 0 &&
-                    W8GetMessage(&message, 0, 0, 0) != 0) {
-                    W8TranslateMessage(&message);
-                    W8DispatchMessage(&message);
+                const bool received_events = PumpGameEvents();
+                if (!gfProgramIsRunning) {
+                    aborted = true;
+                    g_build_level_links = false;
+                    break;
+                }
+                if (received_events) {
                     InputAtom input;
                     if (DequeueEvent(&input) != 0 && input.usEvent == KEY_DOWN) {
                         if (input.usParam == VK_RETURN) {
@@ -1464,10 +1459,7 @@ void W8Octree::BuildRegionLinks(bool rebuild_all)
         }
         strcat(point_path, g_octree_point_extension);
         if (FileExists(point_path)) {
-            if (_access(point_path, 2) != 0) {
-                _chmod(point_path, 0x180);
-            }
-            W8DeleteFile(point_path);
+            FileDelete(point_path);
         }
         delete[] m_sample_points;
         m_sample_points = 0;
@@ -1510,8 +1502,10 @@ void W8Octree::BuildRegionLinks(bool rebuild_all)
     if (aborted) {
         stale = m_pRegionLinks;
         m_pRegionLinks = saved_links;
-        CreateMessageBox(FormatWideString(L"  Linking Aborted!  "), g_small_font, 1, true, false,
-                         0);
+        if (gfProgramIsRunning) {
+            CreateMessageBox(FormatWideString(L"  Linking Aborted!  "), g_small_font, 1, true,
+                             false, 0);
+        }
     } else {
         SaveRegionLinks(m_owned_0c0);
         if (hours == 0) {
@@ -1560,11 +1554,6 @@ BOOLEAN W8Octree::SaveRegionLinks(char* path)
         *extension = '\0';
     }
     strcat(name, g_region_link_extension);
-    if (FileExists(name) != 0) {
-        if (_access(name, 2) != 0) {
-            _chmod(name, 0x180);
-        }
-    }
     file = FileOpen(name, 2, 0);
     if (file == 0) {
         goto cleanup;

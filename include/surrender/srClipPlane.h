@@ -7,7 +7,7 @@
 
 // VTABLE: SURRENDER 0x10076EC0 srClipPlane
 // class srClipPlane
-class SR_DLL_IMPORT SR_DLL_EXPORT srClipPlane
+class SR_DLL_IMPORT srClipPlane
     : public srClassSupport<srClipPlane, srNode, false, 0x1500> {
 public:
     typedef srClientSupport<srClipPlane, 0x1500> ClientType;

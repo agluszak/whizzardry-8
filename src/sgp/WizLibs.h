@@ -9,7 +9,7 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
-extern LibraryInitHeader gGameLibaries[50];
+extern LibraryInitHeader gGameLibaries[MAX_NUMBER_OF_LIBRARIES];
 #ifdef __cplusplus
 }
 #endif

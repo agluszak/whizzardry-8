@@ -1,4 +1,7 @@
+#include <wiz8/filesystem.h>
+#include <sstream>
 #include "wiz8/xstatus.h"
+#include "native/input_events.h"
 #ifdef WIZ8_RUNTIME_TESTS
 #include "runtime_instrumentation.h"
 #endif
@@ -72,7 +75,6 @@
 #define GetClientRect W8VideoGetClientRect
 #define GetWindowRect W8VideoGetWindowRect
 #define ClientToScreen W8VideoClientToScreen
-#define GetCursorPos W8GetMousePosition
 #define SetCursorPos(x, y) W8VideoWarpMouse(ghWindow, x, y)
 #define ShowCursor W8VideoShowCursor
 #define ShowWindow W8VideoShowWindow
@@ -151,7 +153,6 @@ HINSTANCE g_app_instance;
 // GLOBAL: WIZ8 0x659620
 unsigned short g_show_command;
 // GLOBAL: WIZ8 0x6595f8
-WNDPROC g_window_proc;
 // GLOBAL: WIZ8 0x659710
 bool g_video_active;
 // GLOBAL: WIZ8 0x65970e
@@ -357,8 +358,7 @@ void ResetVideoFrameState(void)
    original working directory. Each gate that fails returns straight out with
    the callee's own false still in AL. */
 // FUNCTION: WIZ8 0x00421bb0
-unsigned char InitializeVideoManager(HINSTANCE instance, unsigned short show_command,
-                                     void* window_proc)
+unsigned char InitializeVideoManager(HINSTANCE instance, unsigned short show_command)
 {
     unsigned int active;
     g_world_pick_enabled = true;
@@ -371,7 +371,6 @@ unsigned char InitializeVideoManager(HINSTANCE instance, unsigned short show_com
     g_page_full_redraw[1] = 0;
     g_app_instance = instance;
     g_show_command = show_command;
-    g_window_proc = (WNDPROC)window_proc;
     Initialize16BitPixelFormatMasks();
     if (!CreateWizardryWindow()) {
         return 0;
@@ -413,9 +412,7 @@ unsigned char InitializeVideoManager(HINSTANCE instance, unsigned short show_com
 done:
     SetViewport(0, 0, 0x280, 0x1e0);
     if (g_video_inspector_enabled) {
-        _chdir("DLL");
-        srExtension::load("INSPECTOR", 0);
-        _chdir("..");
+        srExtension::load("INSPECTOR", "DLL");
     }
     if (!InitializeStartupNavigation()) {
         return 0;
@@ -533,7 +530,7 @@ void Initialize16BitPixelFormatMasks(void)
 // FUNCTION: WIZ8 0x00425ec0
 unsigned char CreateWizardryWindow(void)
 {
-    ghWindow = W8CreateGameWindow(g_window_proc, g_screen_width, g_screen_height, g_fullscreen != 0);
+    ghWindow = W8CreateGameWindow(g_screen_width, g_screen_height, g_fullscreen != 0);
     return ghWindow != 0;
 }
 
@@ -566,7 +563,7 @@ unsigned char InitializePrimaryDirectDrawSurface(void)
 // FUNCTION: WIZ8 0x00422240
 unsigned char InitializeVideoDevice(void)
 {
-    FILE* config;
+    std::istringstream config;
     char device[100] = "";
     char sound_provider[100] = "";
     char line[10] = "";
@@ -577,9 +574,16 @@ unsigned char InitializeVideoDevice(void)
         return 1;
     }
 
-    config = fopen("3DVideo.CFG", "r");
+    try {
+        auto input = wiz8::open_file("3DVideo.CFG");
+        if (input->size() > 65536) throw std::runtime_error("oversized video configuration");
+        std::string text(static_cast<std::size_t>(input->size()), '\0');
+        if (input->read(text.data(), text.size()).bytes != text.size())
+            throw std::runtime_error("truncated video configuration");
+        config.str(text);
+    } catch (const std::exception&) { config.setstate(std::ios::failbit); }
     if (config) {
-        fgets(device, sizeof(device), config);
+        config.getline(device, sizeof(device));
         newline = strchr(device, '\r');
         if (newline) {
             *newline = '\0';
@@ -588,13 +592,13 @@ unsigned char InitializeVideoDevice(void)
         if (newline) {
             *newline = '\0';
         }
-        fgets(line, sizeof(line), config);
+        config.getline(line, sizeof(line));
         g_screen_width = atoi(line);
-        fgets(line, sizeof(line), config);
+        config.getline(line, sizeof(line));
         g_screen_height = atoi(line);
-        fgets(line, sizeof(line), config);
+        config.getline(line, sizeof(line));
         g_screen_depth = atoi(line);
-        fgets(sound_provider, sizeof(sound_provider), config);
+        config.getline(sound_provider, sizeof(sound_provider));
         newline = strchr(sound_provider, '\r');
         if (newline) {
             *newline = '\0';
@@ -603,7 +607,7 @@ unsigned char InitializeVideoDevice(void)
         if (newline) {
             *newline = '\0';
         }
-        fclose(config);
+
     }
 
     srInit();
@@ -1215,12 +1219,6 @@ void GetWorldColour(EnvironmentColour* colour)
     colour->SetZero();
 }
 
-// FUNCTION: WIZ8 0x00428e20
-int GetUsedPageFileBytes(void)
-{
-    return W8UsedPageFileBytes();
-}
-
 // FUNCTION: WIZ8 0x00427260
 bool RendererBufferIsLockable(void)
 {
@@ -1625,7 +1623,7 @@ void SyncSystemCursor(void)
     POINT top_left;
     POINT bottom_right;
 
-    GetCursorPos(&cursor);
+    GetGameMousePosition(&cursor);
     if (!g_fullscreen) {
         GetClientRect(ghWindow, &client);
         top_left.x = client.left;
@@ -2100,8 +2098,7 @@ void DrawVideoInspector(int left, unsigned int top)
             gprintfDirty(left, top + 0x5a, L"RM: %dK", g_gerd->getResidentTextureMemUsed() >> 10);
             gprintfDirty(left, top + 0x64, L"TM: %dK", g_gerd->getTextureCacheUsed());
             gprintfDirty(left, top + 0x6e, L"DR: %3d", GetCameraYawAndRotation(0));
-            gprintfDirty(left, top + 0x78, L"MU: %dK", W8UsedPageFileBytes() >> 10);
-            gprintfDirty(left, top + 0x82, L"MM: %dK",
+            gprintfDirty(left, top + 0x78, L"MM: %dK",
                          static_cast<unsigned int>(g_decompressed_mesh_bytes) >> 10);
             return;
         }

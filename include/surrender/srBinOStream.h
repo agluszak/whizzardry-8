@@ -38,7 +38,7 @@ private:
 // VTABLE: SURRENDER 0x10076BC4 srBinOStream
 // class srBinOMStream
 #if defined(SURRENDER_BUILD)
-class SR_DLL_EXPORT srBinOMStream
+class srBinOMStream
 #else
 class SR_DLL_IMPORT srBinOMStream
 #endif

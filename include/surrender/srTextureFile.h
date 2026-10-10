@@ -9,7 +9,7 @@
 /* File-backed texture. Wizardry does not use it; it owns a parallel stTextureFile with the same
    interface. */
 // VTABLE: SURRENDER 0x100774E8 srTextureFile
-class SR_DLL_EXPORT srTextureFile : public srClassSupport<srTextureFile, srTexture, 0, 0x2112> {
+class srTextureFile : public srClassSupport<srTextureFile, srTexture, 0, 0x2112> {
 public:
     srTextureFile(const char* file_name = 0, int cached = 0);
 

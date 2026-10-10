@@ -1,9 +1,9 @@
 #pragma once
 
-/* Native (non-Windows) lane.  Maps Microsoft compiler keywords and CRT
+/* Native lane. Maps Microsoft compiler keywords and CRT
    spellings onto standard equivalents or onto w8_* implementations with the
    Microsoft semantics the recovered code expects.  Windows API calls do not
-   belong here: each one is replaced at its use or wrapped in compat/platform.h.
+   belong here: game file operations use wiz8/filesystem.h.
 
    wchar_t is two bytes (-fshort-wchar), as on Windows, so the C library's
    wide-character functions, which assume four, are never called: every wide
@@ -17,8 +17,14 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#ifndef _WIN32
 #include <strings.h>
+#endif
 #include <sys/stat.h>
+#ifdef _WIN32
+#include <io.h>
+#include <direct.h>
+#endif
 #include <wchar.h>
 #include <wctype.h>
 #ifdef __cplusplus
@@ -31,6 +37,7 @@
 #include <string>
 #endif
 
+#ifndef _WIN32
 #define __cdecl
 #define __stdcall
 #define __fastcall
@@ -45,6 +52,10 @@
 #define _vsnprintf vsnprintf
 #define _finite(value) isfinite(value)
 #define _isnan(value) isnan(value)
+#else
+#define stricmp _stricmp
+#define strnicmp _strnicmp
+#endif
 
 #define _MAX_PATH 260
 #define _MAX_DRIVE 3
@@ -60,17 +71,9 @@
 extern "C" {
 #endif
 
-/* Narrow CRT extensions and path-aware file entry points. */
-FILE* w8_fopen(const char* path, const char* mode);
-int w8_rename(const char* source, const char* destination);
-/* Kept explicit: a remove macro would also rewrite C++ member names. */
-int w8_remove(const char* path);
+/* Narrow CRT spelling extensions. */
 char* w8_strupr(char* text);
 char* w8_strlwr(char* text);
-int w8_access(const char* path, int mode);
-int w8_chmod(const char* path, int mode);
-int w8_chdir(const char* path);
-char* w8_getcwd(char* buffer, int size);
 void w8_splitpath(const char* path, char* drive, char* directory, char* name, char* extension);
 
 /* Wide strings: two-byte wchar_t, Microsoft semantics. */
@@ -100,21 +103,25 @@ int w8_vswprintf(wchar_t* buffer, const wchar_t* format, va_list arguments);
 }
 #endif
 
-#define fopen w8_fopen
-#define rename w8_rename
 
 #define _strupr w8_strupr
 #define strupr w8_strupr
 #define _strlwr w8_strlwr
 #define strlwr w8_strlwr
-#define _access w8_access
-#define _chmod w8_chmod
-#define _chdir w8_chdir
-#define _getcwd w8_getcwd
 #define _splitpath w8_splitpath
+#ifndef _WIN32
 #define _S_IREAD S_IRUSR
 #define _S_IWRITE S_IWUSR
+#else
+#define S_IRUSR _S_IREAD
+#define S_IWUSR _S_IWRITE
+#define S_IWGRP 0
+#define S_IWOTH 0
+#define S_ISREG(mode) (((mode) & _S_IFMT) == _S_IFREG)
+#define S_ISDIR(mode) (((mode) & _S_IFMT) == _S_IFDIR)
+#endif
 
+#ifdef __cplusplus
 #define wcslen w8_wcslen
 #define wcscpy w8_wcscpy
 #define wcsncpy w8_wcsncpy
@@ -135,3 +142,4 @@ int w8_vswprintf(wchar_t* buffer, const wchar_t* format, va_list arguments);
 #define wcstombs w8_wcstombs
 #define swprintf w8_swprintf
 #define vswprintf w8_vswprintf
+#endif

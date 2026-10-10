@@ -6,7 +6,7 @@
 #include <string.h>
 
 #include <chrono>
-#include <sys/utsname.h>
+#include <SDL3/SDL_platform.h>
 #include <thread>
 
 /* reset()'s persistence record: the registry round-trip pairs CPU identity
@@ -182,12 +182,10 @@ int srTimer::getCPUIDSupport() const
 int srTimer::reset(int, int, int)
 {
     m_cpu_count = std::thread::hardware_concurrency();
-    struct utsname name;
-    if (uname(&name) == 0) {
-        snprintf(m_cpu_ident, sizeof(m_cpu_ident), "%s", name.machine);
-    } else {
-        strcpy(m_cpu_ident, "unknown");
-    }
+    if (m_cpu_count)
+        snprintf(m_cpu_ident, sizeof(m_cpu_ident), "%u logical CPUs", m_cpu_count);
+    else
+        strcpy(m_cpu_ident, "unknown CPU count");
     memset(m_cpu_vendor, 0, sizeof(m_cpu_vendor));
     m_cpu_max_id = 0;
     m_cpu_signature = 0;
@@ -488,12 +486,7 @@ const char* srTimer::getOsIdent() const
         return osIdent;
     }
     osThreadState = 1;
-    struct utsname name;
-    if (uname(&name) == 0) {
-        snprintf(osIdent, sizeof(osIdent), "%s %s", name.sysname, name.release);
-    } else {
-        strcpy(osIdent, "unknown");
-    }
+    snprintf(osIdent, sizeof(osIdent), "%s", SDL_GetPlatform());
     return osIdent;
 }
 

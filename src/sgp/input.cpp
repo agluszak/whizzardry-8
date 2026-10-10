@@ -2,7 +2,7 @@
    Distributed under the accompanying SFI Source Code license agreement. */
 #include "Types.h"
 #include "compat/kernel32.h"
-#include "compat/platform.h"
+#include "native/input_events.h"
 #include <stdio.h>
 #include <memory.h>
 #include "DEBUG.H"
@@ -16,10 +16,6 @@
 
 #include "sgp.h"
 
-#define SGPMouseGetPos W8GetMousePosition
-#define ClipCursor W8ClipCursor
-#undef GetCursorPos
-#define GetCursorPos SGPMouseGetPos
 
 // The gfKeyState table is used to track which of the keys is up or down at any one time. This is used while polling
 // the interface.
@@ -292,7 +288,7 @@ void KeyChange(UINT32 key, UINT32 flags, UINT8 pressed)
     } else if (key == 0x0d && (flags & 0x1000000) != 0) {
         key = 0x6c;
     }
-    SGPMouseGetPos(&point);
+    GetGameMousePosition(&point);
     packed = ((unsigned int)point.y << 0x10) | ((unsigned int)point.x & 0xffff);
     if (pressed == 1) {
         code = key & 0xffff;
@@ -316,7 +312,7 @@ void KeyChange(UINT32 key, UINT32 flags, UINT8 pressed)
         return;
     }
     if ((short)key == 9 && gfAltState != 0) {
-        W8MinimizeWindow(ghWindow);
+        SDL_MinimizeWindow(reinterpret_cast<SDL_Window*>(ghWindow));
         gfKeyState[0x12] = 0;
         gfAltState = 0;
     }
@@ -584,7 +580,7 @@ void RedirectToString(UINT16 usInputCharacter)
 // FUNCTION: WIZ8 0x00402750
 void FreeMouseCursor(void)
 {
-    ClipCursor(NULL);
+    SetGameCursorRect(NULL);
     fCursorWasClipped = FALSE;
 }
 
@@ -600,7 +596,7 @@ void HandleSingleClicksAndButtonRepeats(void)
             UINT32 uiTmpLParam;
             POINT MousePos;
 
-            GetCursorPos(&MousePos);
+            GetGameMousePosition(&MousePos);
             uiTmpLParam = ((MousePos.y << 16) & 0xffff0000) | (MousePos.x & 0x0000ffff);
             QueueEvent(LEFT_BUTTON_REPEAT, 0, uiTmpLParam);
             guiLeftButtonRepeatTimer = uiTimer + BUTTON_REPEAT_TIME;
@@ -615,7 +611,7 @@ void HandleSingleClicksAndButtonRepeats(void)
             UINT32 uiTmpLParam;
             POINT MousePos;
 
-            GetCursorPos(&MousePos);
+            GetGameMousePosition(&MousePos);
             uiTmpLParam = ((MousePos.y << 16) & 0xffff0000) | (MousePos.x & 0x0000ffff);
             QueueEvent(RIGHT_BUTTON_REPEAT, 0, uiTmpLParam);
             guiRightButtonRepeatTimer = uiTimer + BUTTON_REPEAT_TIME;
@@ -630,7 +626,7 @@ INT16 GetMouseWheelDeltaValue(UINT32 wParam)
 {
     INT16 sDelta = HIWORD(wParam);
 
-    return (sDelta / WHEEL_DELTA);
+    return (sDelta / 120);
 }
 
 // FUNCTION: WIZ8 0x00402780

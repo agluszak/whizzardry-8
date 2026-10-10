@@ -57,8 +57,11 @@ set(SURRENDER_SOURCES
     vector_processor.cpp
 )
 
-add_library(SURRENDER SHARED ${SURRENDER_SOURCES})
-target_compile_definitions(SURRENDER PRIVATE SURRENDER_BUILD)
+add_library(SURRENDER STATIC ${SURRENDER_SOURCES})
+target_compile_definitions(SURRENDER PRIVATE
+    SURRENDER_BUILD
+    SR_LIBRARY_EXTENSION="${CMAKE_SHARED_LIBRARY_SUFFIX}"
+)
 target_link_libraries(SURRENDER PRIVATE wiz8_native_settings SDL3::SDL3)
 if(UNIX AND NOT APPLE)
     target_link_options(SURRENDER PRIVATE -Wl,--no-undefined)

@@ -1,9 +1,10 @@
+#include <wiz8/filesystem.h>
 /* Real SLF/STI -> recovered SGP surfaces -> recovered stSurface2D -> SDL GPU.
    Also checks a movie-owned surface and restoration of the game primary. */
 #include "LibraryDataBase.h"
 #include "compat/video.h"
 #include "native/input_events.h"
-#include "platform_paths.h"
+#include <wiz8/asset_paths.h>
 #include "sgp.h"
 #include "surrender/srGERD.h"
 #include "surrender/srTriMeshPipeline.h"
@@ -15,10 +16,9 @@
 #include <SDL3/SDL.h>
 #include <cstdio>
 #include <cstring>
-#include <dlfcn.h>
 #include <exception>
 #include <filesystem>
-#include <unistd.h>
+#include "temporary_directory.h"
 #include <vector>
 #define CHECK(x)                                                                                   \
     do                                                                                             \
@@ -31,7 +31,6 @@
     } while (0)
 void PresentMenuOverlayFrame();
 extern unsigned char g_fullscreen;
-extern WNDPROC g_window_proc;
 extern srScene* g_cursor_scene;
 unsigned char InitializeMouseCursorScene();
 void PositionMouseCursor(int, int, bool);
@@ -49,16 +48,17 @@ int main(int argc, char** argv)
 {
     try
     {
-        char temporary[] = "/tmp/wiz8-graphics-XXXXXX";
-        CHECK(mkdtemp(temporary));
+        const auto temporary = make_temporary_directory("wiz8-graphics");
         FixtureRoot fixture{temporary};
         auto roots = w8_native::path_roots();
         roots.user = temporary;
         w8_native::configure_paths(roots);
-        FILE* config = fopen("C:\\3DVideo.CFG", "w");
-        CHECK(config);
-        fputs("SDLGPU\n640\n480\n16\nnone\n", config);
-        fclose(config);
+        std::filesystem::copy_file(WIZ8_MOVIE_FIXTURE, fixture.path / "movie-fixture.mkv");
+        const char* movie_path = "C:\\movie-fixture.mkv";
+        auto config = wiz8::open_file("C:\\3DVideo.CFG", wiz8::OpenMode::replace);
+        const std::string settings = "SDLGPU\n640\n480\n16\nnone\n";
+        config->write(settings.data(), settings.size());
+        config->close();
         /* This standalone test owns SDL and DBus until process exit. */
         SDL_SetHint(SDL_HINT_SHUTDOWN_DBUS_ON_QUIT, "1");
         CHECK(SDL_Init(SDL_INIT_VIDEO));
@@ -67,22 +67,15 @@ int main(int argc, char** argv)
         CHECK(InitializeFileDatabase());
         CHECK(InitializeInputManager());
         g_fullscreen = 0;
-        g_window_proc = NativeInputWindowProcedure;
         Initialize16BitPixelFormatMasks();
         CHECK(CreateWizardryWindow());
         CHECK(InitializePrimaryDirectDrawSurface());
         CHECK(InitializeVideoDevice());
         CHECK(InitializeRendererSceneObjects());
-        void* renderer_library = dlopen(WIZ8_RENDERER_LIBRARY, RTLD_NOW | RTLD_NOLOAD);
-        CHECK(renderer_library);
-        auto renderer_pipeline = reinterpret_cast<srTriMeshPipeline* (*)(srGERD*)>(
-            dlsym(renderer_library, "_ZN17srTriMeshPipeline3GetEP6srGERD"));
-        CHECK(renderer_pipeline && renderer_pipeline != &srTriMeshPipeline::Get);
-        CHECK(!renderer_pipeline(nullptr) && !srTriMeshPipeline::Get(nullptr));
+        CHECK(!srTriMeshPipeline::Get(nullptr));
         auto pipeline = srTriMeshPipeline::Get(g_gerd);
-        CHECK(pipeline && renderer_pipeline(g_gerd) == pipeline);
+        CHECK(pipeline);
         pipeline->Flush();
-        dlclose(renderer_library);
         CHECK(InitializeVideoSurfaceManager());
         CHECK(InitializeVideoObjectManager());
         VOBJECT_DESC image{};
@@ -107,9 +100,9 @@ int main(int argc, char** argv)
         unsigned colored = 0, matched = 0, cursor_pixels = 0;
         for (int frame = 0; frame < 3; ++frame)
         {
-            MSG message;
-            while (W8PeekMessage(&message, nullptr, 0, 0, PM_REMOVE))
-                W8DispatchMessage(&message);
+            SDL_Event event;
+            while (SDL_PollEvent(&event))
+                HandleInputEvent(event);
             auto error = g_gerd->beginFrame();
             if (error != srGERD::ERROR_NONE)
                 fprintf(stderr, "begin frame %d: %d %s window %llu open %d\n", frame, int(error),
@@ -144,17 +137,18 @@ int main(int argc, char** argv)
             }
         if (argc > 2)
         {
-            FILE* output = fopen(argv[2], "wb");
+            auto output = wiz8::open_host_file(wiz8::path_from_utf8(argv[2]),
+                                              wiz8::OpenMode::replace);
             CHECK(output);
-            fprintf(output, "P6\n640 480\n255\n");
+            output->write("P6\n640 480\n255\n", 15);
             for (int y = 0; y < 480; ++y)
                 for (int x = 0; x < 640; ++x)
                 {
                     unsigned v = buffer->getPixel(x, y);
                     unsigned char rgb[] = {BYTE(v >> 16), BYTE(v >> 8), BYTE(v)};
-                    fwrite(rgb, 1, 3, output);
+                    output->write(rgb, 3);
                 }
-            fclose(output);
+            output->close();
         }
         g_gerd->unlockBuffer();
         printf("retail STI: %u colored pixels, %u match CPU RGB555 within 8 levels\n", colored,
@@ -168,14 +162,14 @@ int main(int argc, char** argv)
             std::vector<uint16_t> movie_pixels;
             {
                 W8NativeVideo decoded;
-                decoded.open(WIZ8_MOVIE_FIXTURE);
+                decoded.open(movie_path);
                 CHECK(decoded.update(0) == W8NativeVideo::FrameReady);
                 CHECK(decoded.frame().width == 32 && decoded.frame().height == 24);
                 movie_pixels = decoded.frame().pixels;
             }
             W8BinkVideo movie;
             movie.SetTarget(BeginVideoPresentation());
-            CHECK(movie.Open(WIZ8_MOVIE_FIXTURE, 0));
+            CHECK(movie.Open(movie_path, 0));
             CHECK(!movie.UpdateFrame());
             // The actual presentation surface reaches GPU output; the game primary stays intact.
             RenderFrame();

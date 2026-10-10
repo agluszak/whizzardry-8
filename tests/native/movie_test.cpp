@@ -4,7 +4,7 @@
 #include "MemMan.h"
 #include "compat/surfaces.h"
 #include "native/audio_test.h"
-#include "platform_paths.h"
+#include <wiz8/asset_paths.h>
 #include "soundman.h"
 #include "wiz8/bink_video.h"
 #include <algorithm>
@@ -12,8 +12,9 @@
 #include <cstdio>
 #include <cstring>
 #include <filesystem>
+#include <fstream>
 #include <stdexcept>
-#include <unistd.h>
+#include "temporary_directory.h"
 #include <vector>
 #define CHECK(x)                                                                                   \
     do                                                                                             \
@@ -26,24 +27,20 @@
     } while (0)
 std::vector<unsigned char> read(const char* path)
 {
-    FILE* file = fopen(path, "rb");
+    std::ifstream file(path, std::ios::binary | std::ios::ate);
     if (!file)
         throw std::runtime_error("Missing test fixture");
-    fseek(file, 0, SEEK_END);
-    std::vector<unsigned char> bytes(ftell(file));
-    rewind(file);
-    if (fread(bytes.data(), 1, bytes.size(), file) != bytes.size())
+    std::vector<unsigned char> bytes(static_cast<size_t>(file.tellg()));
+    file.seekg(0);
+    if (!file.read(reinterpret_cast<char*>(bytes.data()), bytes.size()))
         throw std::runtime_error("Short fixture");
-    fclose(file);
     return bytes;
 }
 void write(const std::filesystem::path& path, const std::vector<unsigned char>& bytes)
 {
-    FILE* file = fopen(path.c_str(), "wb");
-    if (!file)
+    std::ofstream file(path, std::ios::binary);
+    if (!file.write(reinterpret_cast<const char*>(bytes.data()), bytes.size()))
         throw std::runtime_error("Cannot create fixture");
-    fwrite(bytes.data(), 1, bytes.size(), file);
-    fclose(file);
 }
 struct Temporary
 {
@@ -77,8 +74,7 @@ int main(int argc, char** argv)
 {
     try
     {
-        char temporary[] = "/tmp/wiz8-movie-XXXXXX";
-        CHECK(mkdtemp(temporary));
+        const auto temporary = make_temporary_directory("wiz8-movie");
         Temporary fixture{temporary};
         auto assets = fixture.path / "assets", user = fixture.path / "user";
         std::filesystem::create_directories(assets / "Data");
@@ -113,51 +109,71 @@ int main(int argc, char** argv)
         CHECK(InitializeSoundManager());
         double energy = 0;
         std::vector<uint16_t> first_frame;
-        for (const char* name : {"MOVIE.MKV", "data\\PACKED.mkv"})
         {
-            W8NativeVideo movie;
-            movie.open(name);
-            unsigned shown = 0;
-            bool done = false;
+            W8NativeVideo movies[3];
+            movies[0].open("C:\\MOVIE.MKV");
+            movies[1].open("data\\PACKED.mkv");
+            movies[2].open("Data\\Packed.mkv");
+            unsigned shown[3]{};
+            bool done[3]{};
             for (int tick = 0; tick < 700; ++tick)
             {
-                auto result = movie.update(tick / 1000.0);
-                if (result == W8NativeVideo::FrameReady)
+                for (unsigned i = 0; i < 3; ++i)
                 {
-                    const auto& frame = movie.frame();
-                    CHECK(shown < 5 && frame.width == 32 && frame.height == 24);
-                    CHECK(std::abs(frame.time - shown * 0.1) < 0.000001);
-                    CHECK(matchesFrame(frame.pixels, golden.data() + shown * 1536));
-                    if (shown == 0)
-                        first_frame = frame.pixels;
-                    ++shown;
+                    if (done[i])
+                        continue;
+                    auto result = movies[i].update(tick / 1000.0);
+                    if (result == W8NativeVideo::FrameReady)
+                    {
+                        const auto& frame = movies[i].frame();
+                        CHECK(shown[i] < 5 && frame.width == 32 && frame.height == 24);
+                        CHECK(std::abs(frame.time - shown[i] * 0.1) < 0.000001);
+                        CHECK(matchesFrame(frame.pixels, golden.data() + shown[i] * 1536));
+                        if (i == 0 && shown[i] == 0)
+                            first_frame = frame.pixels;
+                        ++shown[i];
+                    }
+                    if (result == W8NativeVideo::Done)
+                    {
+                        CHECK(tick >= 500);
+                        done[i] = true;
+                    }
                 }
-                if (result == W8NativeVideo::Done)
-                {
-                    CHECK(tick >= 500);
-                    done = true;
+                if (done[0] && done[1] && done[2])
                     break;
-                }
                 std::vector<float> samples((tick % 10 == 9 ? 45 : 44) * 2);
                 CHECK(w8_native::audio_render_for_test(samples.data(), samples.size() / 2));
                 for (auto value : samples)
                     energy += value * value;
             }
-            CHECK(done && shown == 5 && movie.decoded_frames() == 5);
-            CHECK(movie.decoded_audio_frames() == 22050);
+            for (unsigned i = 0; i < 3; ++i)
+            {
+                CHECK(done[i] && shown[i] == 5 && movies[i].decoded_frames() == 5);
+                CHECK(movies[i].decoded_audio_frames() == 22050);
+            }
         }
         CHECK(energy > 10);
-        bool failed = false;
-        try
         {
-            W8NativeVideo invalid;
-            invalid.open("Data\\Truncated.mkv");
+            W8NativeVideo reusable;
+            for (const char* name : {"Data\\Truncated.mkv", "missing.mkv"})
+            {
+                reusable.open("Movie.mkv");
+                bool failed = false;
+                try
+                {
+                    reusable.open(name);
+                }
+                catch (const std::exception&)
+                {
+                    failed = true;
+                }
+                CHECK(failed && reusable.decoded_frames() == 0 &&
+                      reusable.decoded_audio_frames() == 0);
+            }
+            reusable.open("Data\\Packed.mkv");
+            CHECK(reusable.update(0) == W8NativeVideo::FrameReady);
+            CHECK(matchesFrame(reusable.frame().pixels, golden.data()));
         }
-        catch (const std::exception&)
-        {
-            failed = true;
-        }
-        CHECK(failed);
         DDSURFACEDESC description{};
         description.dwWidth = 640;
         description.dwHeight = 480;

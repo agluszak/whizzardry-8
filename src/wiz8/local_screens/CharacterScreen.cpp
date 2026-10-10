@@ -55,7 +55,6 @@
 
 #include "FileMan.h"
 #include "wiz8/local_screens/OptionsScreen.h"
-#include "compat/platform.h"
 
 // GLOBAL: WIZ8 0x0061e3a4
 unsigned short g_character_description_first_ids[22] = {
@@ -559,7 +558,7 @@ bool W8CharacterScreen::CommitCharacter()
         if (m_original != 0) {
             char path[260];
             BuildCharacterPath(path, m_original->name, -1);
-            W8DeleteFile(path);
+            FileDelete(path);
         }
         m_character.fInParty = false;
         if (!SaveCharacter(&m_character, -1, false, 0)) {

@@ -1,6 +1,9 @@
 #pragma once
-#include "compat/platform.h"
+#include "compat/kernel32.h"
+#include <SDL3/SDL.h>
 
-/* The application dispatches translated SDL messages here. QueueEvent,
-   KeyDown/KeyUp, key translation, strings and repeats remain recovered code. */
-LRESULT NativeInputWindowProcedure(HWND window, UINT message, WPARAM wparam, LPARAM lparam);
+void SetInputWindow(SDL_Window* window);
+void HandleInputEvent(const SDL_Event& event);
+void GetGameMousePosition(POINT* point);
+bool SetGameCursorRect(const RECT* rect);
+bool WarpGameMouse(SDL_Window* window, int x, int y);

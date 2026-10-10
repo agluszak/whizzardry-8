@@ -11,13 +11,11 @@ class srModeler;
 
 // VTABLE: SURRENDER 0x10077230 srScene
 // class srScene
-class SR_DLL_IMPORT SR_DLL_EXPORT srScene : public srClassSupport<srScene, srNode, 0, 0x1010> {
+class SR_DLL_IMPORT srScene : public srClassSupport<srScene, srNode, 0, 0x1010> {
 public:
     enum e_enable { ENABLE_NODE_PICK_KEYS = 0 };
 
-#if !defined(SURRENDER_BUILD)
     virtual ~srScene() override;
-#endif
 
     struct Statistics {
         double elapsed;              /* seconds since the last reset */
@@ -30,9 +28,6 @@ public:
     srScene(srNode* parent = 0);
 
     srScene& operator=(const srScene& other);
-
-    /* Destruction is consistent with base-only cleanup; the reconstruction
-       leaves the derived destructor implicit. */
 
     virtual void dump(std::ostream& stream) override;
     virtual srClass* vInstance() override;

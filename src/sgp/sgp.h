@@ -42,10 +42,11 @@ extern HINSTANCE ghInstance;
 extern BOOLEAN gfApplicationActive;
 extern BOOLEAN gfGameInitialized;
 extern BOOLEAN gfIgnoreMessages;
-extern UINT32 guiMouseWheelMsg;
 extern CHAR8 gzErrorMsg[2048];
 
-LRESULT WindowProcedure(HWND window, UINT message, WPARAM wparam, LPARAM lparam);
+union SDL_Event;
+void HandleGameEvent(const SDL_Event& event);
+bool PumpGameEvents(bool wait = false);
 BOOLEAN InitializeStandardGamingPlatform(HINSTANCE instance, int show_command);
 void ShutdownStandardGamingPlatform(void);
 void ProcessCommandLine(CHAR8* command_line);

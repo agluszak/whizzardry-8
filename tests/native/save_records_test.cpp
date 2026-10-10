@@ -1,6 +1,10 @@
 /* Exercise recovered NPCT loading with retail addresses and native handles as
    on-disk presence markers. No installed game data or display is required. */
 #include "FileMan.h"
+#include "LibraryDataBase.h"
+#include <wiz8/asset_paths.h>
+#include <wiz8/filesystem.h>
+#include <wiz8/file_time.h>
 #include "wiz8/chunk.h"
 #include "wiz8/engine_code/3d.h"
 #include "wiz8/layouts/character.h"
@@ -8,6 +12,8 @@
 #include "wiz8/layouts/npc_state.h"
 #include "wiz8/local_code/MonsterAI.h"
 #include "wiz8/local_code/NPCManager.h"
+#include "wiz8/local_code/LoadSaveGame.h"
+#include "wiz8/local_screens/NPCInteractionSubscreen.h"
 #include "wiz8/npc_script_file.h"
 #include "wiz8/spell_ids.h"
 #include "wiz8/xstatus.h"
@@ -17,7 +23,8 @@
 #include <cstring>
 #include <filesystem>
 #include <fstream>
-#include <unistd.h>
+#include <chrono>
+#include "temporary_directory.h"
 
 extern W8GrowableVector<W8NpcState*>* g_npc_states;
 
@@ -37,11 +44,175 @@ template <class T> static void write(std::ofstream& out, const T& value)
     CHECK(out.good());
 }
 
+static wiz8::DiskFileTime disk_time(const SGP_FILETIME& value)
+{
+    return {value.dwLowDateTime, value.dwHighDateTime};
+}
+
+static void keyword_file_contracts()
+{
+    wiz8::create_directory("Data/Strings");
+    auto write_keywords = [](const char* path, const std::string& text) {
+        auto file = wiz8::open_file(path, wiz8::OpenMode::replace);
+        file->write(text.data(), text.size());
+        file->close();
+    };
+    const char* english = "Data/Strings/English_Keywords.txt";
+    const char* translated = "Data/Strings/translated_Keywords.txt";
+    write_keywords(english, "header\r\n01234567890  hello / world /\r\n01234567890bye/last");
+    ReloadKeywordLists();
+    CHECK(!g_keyword_lists_loaded && g_keyword_lists.GetCount() == 0);
+    write_keywords(translated, "header\n01234567890bonjour/monde/\n01234567890au revoir/final");
+    ReloadKeywordLists();
+    CHECK(g_keyword_lists_loaded && g_keyword_lists.GetCount() == 2);
+    auto first = *g_keyword_lists.GetAt(0);
+    CHECK(first->GetCount() == 2);
+    auto row = *first->GetAt(0);
+    CHECK(row->GetCount() == 2 && !wcscmp(*row->GetAt(0), L"hello") &&
+          !wcscmp(*row->GetAt(1), L"world"));
+    row = *first->GetAt(1);
+    CHECK(row->GetCount() == 2 && !wcscmp(*row->GetAt(0), L"bye") &&
+          !wcscmp(*row->GetAt(1), L"last"));
+    ClearKeywordLists();
+    CHECK(!g_keyword_lists_loaded && g_keyword_lists.GetCount() == 0);
+    write_keywords(english, "header\n01234567890partial/row/\n01234567890" + std::string("\0bad", 4));
+    ReloadKeywordLists();
+    CHECK(!g_keyword_lists_loaded && g_keyword_lists.GetCount() == 0);
+    write_keywords(english, "header\n01234567890" + std::string(1000, 'x'));
+    ReloadKeywordLists();
+    CHECK(!g_keyword_lists_loaded && g_keyword_lists.GetCount() == 0);
+    CHECK(wiz8::remove_file(english));
+    ReloadKeywordLists();
+    CHECK(!g_keyword_lists_loaded && g_keyword_lists.GetCount() == 0);
+}
+
+static void save_file_contracts(const std::filesystem::path& user)
+{
+    using namespace std::chrono;
+    const auto epoch = wiz8::file_time_from_sdl(0);
+    CHECK(epoch.ticks() == 116444736000000000ULL);
+    const auto utc = wiz8::file_time_to_utc(epoch);
+    CHECK(utc.year == 1970 && utc.month == 1 && utc.day == 1);
+    CHECK(wiz8::file_time_from_sdl(-1).ticks() == epoch.ticks() - 1);
+    CHECK(wiz8::file_time_from_utc({1601, 1, 1, 0, 0, 0, 0, 1}).ticks() == 0);
+    CHECK(wiz8::file_time_with_legacy_local_bias(epoch, 19800).ticks() ==
+          epoch.ticks() + 19800ULL * 10000000);
+    CHECK(wiz8::file_time_with_legacy_local_bias(epoch, -18000).ticks() ==
+          epoch.ticks() - 18000ULL * 10000000);
+    CHECK(wiz8::file_time_to_utc(wiz8::file_time_with_legacy_local_bias(epoch, -18000)).year == 1969);
+    CHECK(wiz8::file_time_with_legacy_local_bias({}, -1).ticks() == UINT64_MAX - 9999999);
+
+    char path[] = "Saves\\Timestamp.SAV";
+    HWFILE file = FileOpen(path, FILE_ACCESS_READWRITE | FILE_CREATE_ALWAYS, FALSE);
+    CHECK(file);
+    SDL_PathInfo info{};
+    CHECK(SDL_GetPathInfo(wiz8::path_to_utf8(user / "Saves" / "Timestamp.SAV").c_str(), &info));
+    const int offset = wiz8::current_utc_offset_seconds();
+    SGP_FILETIME created{}, accessed{}, modified{};
+    CHECK(GetFileManFileTime(file, &created, &accessed, &modified));
+    CHECK(disk_time(created).ticks() ==
+          wiz8::file_time_with_legacy_local_bias(wiz8::file_time_from_sdl(info.create_time), offset).ticks());
+
+    // SaveGame's unchanged masks apply independently to the packed dwords.
+    constexpr unsigned masks[] = {0x6b24e9f0u, 0xe77c28c1u};
+    static_assert(sizeof(g_status.save_filetime_xor) == 8);
+    unsigned words[] = {created.dwLowDateTime ^ masks[0], created.dwHighDateTime ^ masks[1]};
+    UINT32 count = 0;
+    CHECK(FileWrite(file, words, sizeof(words), &count) && count == 8);
+    std::filesystem::last_write_time(user / "Saves" / "Timestamp.SAV",
+                                     std::filesystem::file_time_type::clock::now() - hours(48));
+    SGP_FILETIME later{};
+    CHECK(GetFileManFileTime(file, &later, nullptr, nullptr));
+    CHECK(disk_time(later).ticks() == disk_time(created).ticks());
+    FileClose(file);
+    std::ifstream encoded(user / "Saves" / "Timestamp.SAV", std::ios::binary);
+    unsigned stored[2]{};
+    encoded.read(reinterpret_cast<char*>(stored), sizeof(stored));
+    CHECK(encoded.gcount() == 8 && stored[0] == words[0] && stored[1] == words[1]);
+    encoded.close();
+    CHECK((stored[0] ^ masks[0]) == created.dwLowDateTime &&
+          (stored[1] ^ masks[1]) == created.dwHighDateTime);
+    file = FileOpen(path, FILE_ACCESS_READ, FALSE);
+    CHECK(file && GetFileManFileTime(file, &later, nullptr, &modified));
+    CHECK(SDL_GetPathInfo(wiz8::path_to_utf8(user / "Saves" / "Timestamp.SAV").c_str(), &info));
+    // Reader fallback is current SDL create_time (POSIX ctime, not birth).
+    CHECK(disk_time(later).ticks() ==
+          wiz8::file_time_with_legacy_local_bias(wiz8::file_time_from_sdl(info.create_time), offset).ticks());
+    CHECK(disk_time(modified).ticks() ==
+          wiz8::file_time_with_legacy_local_bias(wiz8::file_time_from_sdl(info.modify_time), offset).ticks());
+    CHECK(GetFileManFileTime(file, nullptr, nullptr, nullptr));
+    FileClose(file);
+    // Fixed epoch pair encodes the same eight bytes; no record layout changed.
+    const unsigned epoch_masked[] = {epoch.low ^ masks[0], epoch.high ^ masks[1]};
+    CHECK(epoch_masked[0] == 0xbe1a69f0u && epoch_masked[1] == 0xe6e1991fu);
+
+    const auto now = std::filesystem::file_time_type::clock::now();
+    for (int slot = 1; slot <= 3; ++slot)
+    {
+        const auto name = "Quick " + std::to_string(slot) + ".SAV";
+        std::ofstream save(user / "Saves" / name, std::ios::binary);
+        write(save, slot);
+        save.close();
+        std::filesystem::last_write_time(user / "Saves" / name,
+                                        now - hours(slot == 1 ? 0 : slot == 2 ? 4 : 2));
+    }
+    char selected[260];
+    CHECK(SelectQuickSaveSlotForWrite(selected) && !strcmp(selected, "Quick 2"));
+    CHECK(FindStartupQuickSave(selected) && !strcmp(selected, "Quick 1"));
+    char oldest[] = "Saves\\Quick 2.SAV", newest[] = "Saves\\Quick 1.SAV";
+    CHECK(FileIsOlderThanFile(oldest, newest, 3600));
+    CHECK(!FileIsOlderThanFile(newest, oldest, 0));
+    CHECK(!FileIsOlderThanFile(oldest, newest, 20000));
+    SGP_FILETIME high{0, 2}, low{UINT32_MAX, 1};
+    CHECK(CompareSGPFileTimes(&high, &low) == 1);
+    CHECK(CompareSGPFileTimes(&low, &high) == -1 && CompareSGPFileTimes(&low, &low) == 0);
+    CHECK(FileDelete(oldest));
+    CHECK(SelectQuickSaveSlotForWrite(selected) && !strcmp(selected, "Quick 2"));
+    CHECK(FileDelete(newest));
+    // Missing Quick 1 must not leave the candidate timestamp uninitialized.
+    CHECK(FindStartupQuickSave(selected) && !strcmp(selected, "Quick 3"));
+    char third[] = "Saves\\Quick 3.SAV";
+    CHECK(FileDelete(third));
+    CHECK(!FindStartupQuickSave(selected));
+    std::ofstream fallback(user / "Saves" / "Quick.SAV", std::ios::binary);
+    write(fallback, 7u);
+    fallback.close();
+    CHECK(FindStartupQuickSave(selected) && !strcmp(selected, "Quick"));
+
+    char riff[] = "Saves\\Riff.SAV";
+    W8Chunk chunks;
+    CHECK(chunks.OpenWrite(riff));
+    CHECK(chunks.OpenChunk(0x454d4954u, 0)); // TIME
+    CHECK(chunks.Write(words, sizeof(words), &count) && count == 8);
+    CHECK(chunks.ReleaseCurrentChunk());
+    chunks.Close();
+    CHECK(chunks.OpenAppend(riff));
+    CHECK(chunks.OpenChunk(0x5458454eu, 0)); // NEXT
+    CHECK(chunks.Write("tail", 4, &count) && count == 4);
+    CHECK(chunks.ReleaseCurrentChunk());
+    chunks.Close();
+    CHECK(chunks.OpenRead(riff) && chunks.ChunkCount() == 2);
+    CHECK(chunks.OpenChunk(0, 0) && chunks.CurrentChunkId() == 0x454d4954u);
+    CHECK(chunks.Read(stored, sizeof(stored), &count) && count == 8);
+    CHECK(stored[0] == words[0] && stored[1] == words[1]);
+    CHECK(chunks.ReleaseCurrentChunk());
+    CHECK(chunks.OpenChunk(0, 0) && chunks.CurrentChunkId() == 0x5458454eu);
+    char tail[4]{};
+    CHECK(chunks.Read(tail, sizeof(tail), &count) && count == 4 && !memcmp(tail, "tail", 4));
+    CHECK(chunks.ReleaseCurrentChunk());
+    chunks.Close();
+}
+
 int main()
 {
-    char temporary[] = "/tmp/wiz8-save-records-XXXXXX";
-    CHECK(mkdtemp(temporary));
-    const auto path = std::filesystem::path(temporary) / "npc.bin";
+    const auto temporary = make_temporary_directory("wiz8-save-records");
+    const auto root = wiz8::path_from_utf8(temporary);
+    const auto assets = root / "assets", user = root / "user";
+    std::filesystem::create_directories(assets);
+    std::filesystem::create_directories(user / "Saves");
+    w8_native::configure_paths({wiz8::path_to_utf8(assets), wiz8::path_to_utf8(user), {"", "", ""}});
+    CHECK(InitializeFileManager(nullptr) && InitializeFileDatabase());
+    const auto path = root / wiz8::path_from_utf8("npc-雪.bin");
     W8NpcDatabaseRecord database[3] = {};
     g_npc_records = database;
     // Keep the missing-database-node backfill out of this isolated fixture.
@@ -85,8 +256,7 @@ int main()
         write(out, 0xdecafbadU);
         out.close();
         W8Chunk chunk;
-        std::string filename = path.string();
-        chunk.m_hFile = FileOpen(filename.data(), FILE_ACCESS_READ | FILE_OPEN_EXISTING, 0);
+        chunk.m_hFile = FileOpenHost(path, FILE_ACCESS_READ | FILE_OPEN_EXISTING);
         CHECK(chunk.m_hFile != 0);
         LoadNpcStates(&chunk);
         CHECK(g_npc_states->GetCount() == 3);
@@ -114,7 +284,7 @@ int main()
     g_npc_records = nullptr;
     // NSF pointer words are presence markers too. Include empty strings and
     // zero-count arrays carrying a word that collides with a runtime handle.
-    const auto script_path = std::filesystem::path(temporary) / "dialogue.nsf";
+    const auto script_path = user / "Saves" / "dialogue.nsf";
     for (unsigned int marker : {0x12345678u, live_handle, 0u})
     {
         std::ofstream out(script_path, std::ios::binary | std::ios::trunc);
@@ -160,8 +330,8 @@ int main()
         write(out, entry);
         CHECK(out.good());
         out.close();
-        std::string filename = script_path.string();
-        W8NpcScriptFile* file = LoadNpcScriptFile(filename.data());
+        char filename[] = "Saves\\dialogue.nsf";
+        W8NpcScriptFile* file = LoadNpcScriptFile(filename);
         CHECK(file && file->quote_count == 3);
         CHECK(marker ? file->name != 0 && strcmp(file->name, "name") == 0 : file->name == 0);
         W8NpcScriptQuote* quotes = file->quotes;
@@ -211,6 +381,10 @@ int main()
     CHECK(PointInsideTriangle(triangle.vertices, 0, &triangle.point));
     triangle.point.Set(0, 3, 3);
     CHECK(!PointInsideTriangle(triangle.vertices, 0, &triangle.point));
-    std::filesystem::remove_all(temporary);
+    save_file_contracts(user);
+    keyword_file_contracts();
+    CHECK(ShutDownFileDatabase());
+    ShutdownFileManager();
+    std::filesystem::remove_all(root);
     puts("NPCT/NSF consume retail and handle-valued markers; packed AI/vectors pass");
 }

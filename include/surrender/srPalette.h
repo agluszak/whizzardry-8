@@ -9,11 +9,11 @@ class srColorSurfaceIFace;
 // class srClassSupport<srPalette, srClass, 1, 10496>
 
 // VTABLE: SURRENDER 0x100753CC srPalette
-class SR_DLL_EXPORT srPalette : public srClassSupport<srPalette, srClass, 1, 0x2900> {
+class srPalette : public srClassSupport<srPalette, srClass, 1, 0x2900> {
 public:
     /* Two-level lookup: lut_rg[(g<<8)|r] selects a palette row, lut_rgb[(row<<8)|b] yields the
        index. */
-    class SR_DLL_EXPORT Quantizer {
+    class Quantizer {
     public:
         Quantizer();
         // FUNCTION: SURRENDER 0x10004B40
@@ -67,7 +67,7 @@ public:
     /* Color sampler. Sampled colors are quantized to sample_bits per channel and accumulated in a
        0x8000-bucket open hash; entries hold the packed color and its total weight, linked through a
        parallel index array. */
-    class SR_DLL_EXPORT Sampler {
+    class Sampler {
     public:
         struct ColorEntry {
             srARGB color;
@@ -119,7 +119,7 @@ public:
     /* Optimal-palette builder; an octree over the sampled 5-5-5 color space. Level arrays hold
        8^level nodes for levels 0-4; level-4 children index the sparse 15-bit leaf-bucket map. Leaf
        bucket nodes own Leaf records {color, weight, error}. */
-    class SR_DLL_EXPORT Optimizer {
+    class Optimizer {
     public:
         struct PaletteInfo {
             const Sampler::ColorEntry* colors; /* 0x00 */

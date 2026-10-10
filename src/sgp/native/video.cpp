@@ -1,23 +1,18 @@
 #include "compat/video.h"
-#include "compat/platform.h"
-#include "platform_events.h"
-#include "platform_paths.h"
+#include "native/input_events.h"
+#include <wiz8/asset_paths.h>
+#include <wiz8/filesystem.h>
 #include "surrender/srDD_SDLGPU.h"
 #include <SDL3/SDL.h>
 #include <algorithm>
 #include <climits>
 #include <filesystem>
-#include <fstream>
-#include <strings.h>
-#include <unistd.h>
-#if defined(__APPLE__)
-#include <sys/sysctl.h>
-#endif
+#include <sstream>
 namespace
 {
 SDL_Window* native(HWND window) { return reinterpret_cast<SDL_Window*>(window); }
 } // namespace
-HWND W8CreateGameWindow(WNDPROC procedure, int width, int height, bool fullscreen)
+HWND W8CreateGameWindow(int width, int height, bool fullscreen)
 {
     if (!SDL_Init(SDL_INIT_VIDEO))
         return nullptr;
@@ -27,21 +22,20 @@ HWND W8CreateGameWindow(WNDPROC procedure, int width, int height, bool fullscree
         return nullptr;
     SDL_SetWindowMinimumSize(window, 640, 480);
     SDL_SetWindowAspectRatio(window, 4.f / 3.f, 4.f / 3.f);
-    HWND handle = w8_native::attach_window(window, procedure, 640, 480);
-    if (!handle || !W8ConfigureGameWindow(handle, fullscreen, width, height))
+    HWND handle = reinterpret_cast<HWND>(window);
+    if (!W8ConfigureGameWindow(handle, fullscreen, width, height))
     {
-        if (handle)
-            w8_native::detach_window(handle);
         SDL_DestroyWindow(window);
         return nullptr;
     }
+    SetInputWindow(window);
     return handle;
 }
 void W8DestroyGameWindow(HWND window)
 {
     if (!window)
         return;
-    w8_native::detach_window(window);
+    SetInputWindow(nullptr);
     SDL_DestroyWindow(native(window));
 }
 bool W8ConfigureGameWindow(HWND window, bool fullscreen, int width, int height)
@@ -72,7 +66,7 @@ BOOL W8VideoGetWindowRect(HWND window, RECT* rect)
     *rect = {x, y, x + width, y + height};
     return TRUE;
 }
-BOOL W8VideoWarpMouse(HWND window, int x, int y) { return w8_native::warp_mouse(window, x, y); }
+BOOL W8VideoWarpMouse(HWND window, int x, int y) { return WarpGameMouse(native(window), x, y); }
 BOOL W8VideoShowCursor(BOOL visible) { return visible ? SDL_ShowCursor() : SDL_HideCursor(); }
 BOOL W8VideoShowWindow(HWND window, int command)
 {
@@ -86,53 +80,46 @@ BOOL W8VideoRaiseWindow(HWND window) { return window && SDL_RaiseWindow(native(w
 BOOL W8VideoCloseWindow(HWND window) { return window && SDL_HideWindow(native(window)); }
 unsigned int W8TotalPhysicalMemory()
 {
-#if defined(__APPLE__)
-    uint64_t bytes = 0;
-    size_t size = sizeof(bytes);
-    if (sysctlbyname("hw.memsize", &bytes, &size, nullptr, 0))
+    const int megabytes = SDL_GetSystemRAM();
+    if (megabytes <= 0)
         return 0;
-#else
-    long pages = sysconf(_SC_PHYS_PAGES), page_size = sysconf(_SC_PAGESIZE);
-    if (pages < 0 || page_size < 0)
-        return 0;
-    uint64_t bytes = uint64_t(pages) * page_size;
-#endif
+    const uint64_t bytes = uint64_t(megabytes) * 1024 * 1024;
     return std::min<uint64_t>(bytes, UINT_MAX);
-}
-int W8UsedPageFileBytes()
-{
-#if defined(__APPLE__)
-    xsw_usage usage{};
-    size_t size = sizeof(usage);
-    if (sysctlbyname("vm.swapusage", &usage, &size, nullptr, 0))
-        return 0;
-    return std::min<uint64_t>(usage.xsu_used, INT_MAX);
-#else
-    std::ifstream memory("/proc/meminfo");
-    std::string name, rest;
-    uint64_t amount;
-    while (memory >> name >> amount)
-    {
-        std::getline(memory, rest);
-        if (name == "Committed_AS:")
-            return std::min<uint64_t>(amount * 1024, INT_MAX);
-    }
-    return 0;
-#endif
 }
 bool W8HasEnoughSaveSpace()
 {
     std::error_code error;
-    auto root = std::filesystem::path(w8_native::path_roots().user);
-    while (!root.empty() && !std::filesystem::exists(root, error))
-        root = root.parent_path();
-    auto space = std::filesystem::space(root, error);
-    return !error && space.available >= 0x10000000;
+    auto root = wiz8::path_from_utf8(w8_native::path_roots().user);
+    while (!root.empty())
+    {
+        const bool exists = std::filesystem::exists(root, error);
+        if (error)
+            return false;
+        if (exists)
+            break;
+        const auto parent = root.parent_path();
+        if (parent == root)
+            return false;
+        root = parent;
+    }
+    if (root.empty())
+        return false;
+    if (!std::filesystem::is_directory(root, error) || error)
+        return false;
+    const auto space = std::filesystem::space(root, error);
+    return !error && space.available != static_cast<std::uintmax_t>(-1) && space.available >= 0x10000000;
 }
 
 int W8ReadProfileInt(const char* path, const char* section, const char* key, int fallback)
 {
-    std::ifstream input(w8_native::read_path(path));
+    std::istringstream input;
+    try {
+        auto file = wiz8::open_file(path);
+        if (file->size() > 1024 * 1024) return fallback;
+        std::string text(static_cast<std::size_t>(file->size()), '\0');
+        if (file->read(text.data(), text.size()).bytes != text.size()) return fallback;
+        input.str(text);
+    } catch (const std::exception&) { return fallback; }
     std::string line, current;
     auto trim = [](std::string value)
     {
@@ -154,10 +141,10 @@ int W8ReadProfileInt(const char* path, const char* section, const char* key, int
             continue;
         }
         auto separator = line.find('=');
-        if (separator == std::string::npos || strcasecmp(current.c_str(), section))
+        if (separator == std::string::npos || stricmp(current.c_str(), section))
             continue;
         auto name = trim(line.substr(0, separator));
-        if (!strcasecmp(name.c_str(), key))
+        if (!stricmp(name.c_str(), key))
             return atoi(line.c_str() + separator + 1);
     }
     return fallback;

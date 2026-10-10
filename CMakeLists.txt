@@ -16,7 +16,7 @@ endif()
 
 set(CMAKE_C_STANDARD 17)
 set(CMAKE_C_STANDARD_REQUIRED ON)
-set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}")
@@ -24,25 +24,28 @@ set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}")
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}")
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
-find_package(ZLIB REQUIRED)
 find_package(SDL3 3.2 CONFIG REQUIRED)
-find_package(FFMPEG REQUIRED)
 find_package(Threads REQUIRED)
 
-# Audio dependency; do not build upstream examples or extra nodes.
-include(FetchContent)
-set(CMAKE_POLICY_DEFAULT_CMP0077 NEW)
-set(MINIAUDIO_BUILD_EXAMPLES OFF)
-set(MINIAUDIO_BUILD_TESTS OFF)
-set(MINIAUDIO_BUILD_TOOLS OFF)
-set(MINIAUDIO_INSTALL OFF)
-set(MINIAUDIO_NO_EXTRA_NODES ON)
-set(MINIAUDIO_NO_LIBVORBIS ON)
-set(MINIAUDIO_NO_LIBOPUS ON)
-FetchContent_Declare(miniaudio
-    URL https://codeload.github.com/mackron/miniaudio/tar.gz/9634bedb5b5a2ca38c1ee7108a9358a4e233f14d
+# No forced CRT vocabulary or short-wchar options at the portable API boundary.
+add_library(wiz8_filesystem STATIC
+    src/platform/asset_paths.cpp
+    src/platform/filesystem.cpp
+    src/platform/file_time.cpp
 )
-FetchContent_MakeAvailable(miniaudio)
+target_include_directories(wiz8_filesystem PUBLIC "${PROJECT_SOURCE_DIR}/include")
+target_link_libraries(wiz8_filesystem PUBLIC SDL3::SDL3 Threads::Threads)
+target_compile_features(wiz8_filesystem PUBLIC cxx_std_23)
+include(CTest)
+if(BUILD_TESTING)
+    add_subdirectory(tests/portable)
+endif()
+find_package(ZLIB REQUIRED)
+find_package(FFMPEG REQUIRED)
+
+find_path(MINIAUDIO_INCLUDE_DIR miniaudio.h REQUIRED)
+add_library(miniaudio STATIC src/sgp/native/miniaudio.c)
+target_include_directories(miniaudio SYSTEM PUBLIC "${MINIAUDIO_INCLUDE_DIR}")
 target_link_libraries(miniaudio PRIVATE Threads::Threads ${CMAKE_DL_LIBS})
 if(UNIX AND NOT APPLE)
     target_link_libraries(miniaudio PRIVATE m)
@@ -76,23 +79,16 @@ target_include_directories(wiz8_native_settings INTERFACE
 )
 target_link_libraries(wiz8_native_settings INTERFACE Threads::Threads ${CMAKE_DL_LIBS})
 
-# One process-wide owner for roots, file handles and CRT compatibility. Sharing
-# this library avoids separate overlay state in the game and SurRender on macOS.
-add_library(wiz8_compat SHARED
+# Two-byte wide-string CRT support; filesystem ownership lives in wiz8_filesystem.
+add_library(wiz8_compat STATIC
     src/compat/native_crt.cpp
-    src/compat/platform_paths.cpp
-    src/compat/platform_crt.cpp
-    src/compat/platform_files.cpp
-    src/compat/platform_system.cpp
-    src/compat/platform_events.cpp
 )
 target_compile_options(wiz8_compat PRIVATE ${WIZ8_COMPAT_OPTIONS})
 target_include_directories(wiz8_compat PRIVATE "${PROJECT_SOURCE_DIR}/include/wiz8")
-target_link_libraries(wiz8_compat PRIVATE Threads::Threads SDL3::SDL3)
+target_link_libraries(wiz8_compat PUBLIC wiz8_filesystem)
 if(UNIX AND NOT APPLE)
     target_link_options(wiz8_compat PRIVATE -Wl,--no-undefined)
 endif()
-target_include_directories(wiz8_native_settings INTERFACE "${PROJECT_SOURCE_DIR}/src/compat")
 target_link_libraries(wiz8_native_settings INTERFACE wiz8_compat)
 
 add_subdirectory(src/surrender)
@@ -102,7 +98,6 @@ add_subdirectory(src/wiz8)
 add_executable(Wiz8Native src/sgp/native/main.cpp)
 target_link_libraries(Wiz8Native PRIVATE WIZ8_GAME_CORE WIZ8_SGP WIZ8_GAME_CORE SDL3::SDL3)
 
-include(CTest)
 if(BUILD_TESTING)
     add_subdirectory(tests)
 endif()

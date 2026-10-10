@@ -55,7 +55,8 @@
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/local_screens/NPCInteractionSubscreen.h"
 #include "wiz8/local_code/GameplayMods.h"
-#include "compat/platform.h"
+#include "wiz8/filesystem.h"
+#include <wiz8/asset_paths.h>
 
 #define LEVELS_CPP "C:\\Projects\\Wizardry 8\\Engine Code\\Levels.cpp"
 
@@ -114,7 +115,7 @@ W8LevelFolderRecord g_level_folders[W8_LEVEL_COUNT] = {
    sky is loaded. Every retail access is a byte access. */
 // GLOBAL: WIZ8 0x00604470
 static signed char g_loaded_sky_index = -1;
-/* The CD volume number of the drive the game-data path finder last matched. */
+/* The configured disc number the game-data path finder last matched. */
 // GLOBAL: WIZ8 0x00604474
 static int g_cd_index = -1;
 // GLOBAL: WIZ8 0x00659738
@@ -132,53 +133,26 @@ bool IsLevelCdMissing(int level)
     return FindGameDataPath(gzCdDirectory, g_level_folders[level].cd_number) == 0;
 }
 
-/* Scan every logical drive for the CD whose volume label is WIZ8_<cd_number>,
-   write its root path into the caller's buffer and report whether it was
-   found. Only a CD-ROM drive is considered, and the volume query temporarily
-   suppresses the system's error dialog for a missing disc. */
+/* Configured disc roots are immutable D: through F: asset namespaces. */
 // FUNCTION: WIZ8 0x0042B590
 unsigned char FindGameDataPath(char* path, int cd_number)
 {
-    char expected_label[32];
-    char volume_name[32];
-    char drives[512];
-    DWORD length;
-    bool found = false;
-
-    length = W8GetLogicalDriveStrings(sizeof(drives), drives);
-    if (length == 0) {
+    if (path == nullptr || cd_number < 1 || cd_number > 3) return 0;
+    path[0] = '\0';
+    try {
+        if (w8_native::path_roots().discs[cd_number - 1].empty()) return 0;
+        char disc[] = "D:\\";
+        disc[0] += cd_number - 1;
+        const auto root = wiz8::file_status(disc);
+        const auto data = wiz8::file_status(std::string(disc) + "Data");
+        if (!root || root->info.type != SDL_PATHTYPE_DIRECTORY || root->writable ||
+            !data || data->info.type != SDL_PATHTYPE_DIRECTORY || data->writable) return 0;
+        strcpy(path, disc);
+        g_cd_index = cd_number;
+        return 1;
+    } catch (const std::exception&) {
         return 0;
     }
-    for (DWORD index = 0; index < length; ++index) {
-        char drive[4];
-
-        if (drives[index] == '\0') {
-            continue;
-        }
-        drive[0] = drives[index];
-        drive[1] = drives[index + 1];
-        drive[2] = drives[index + 2];
-        drive[3] = '\0';
-        index += 2;
-
-        if (W8GetDriveType(drive) != DRIVE_CDROM) {
-            continue;
-        }
-        strcpy(path, drive);
-        sprintf(expected_label, "WIZ8_%d", cd_number);
-
-        UINT previous_mode = W8SetErrorMode(1);
-        if (W8GetVolumeInformation(path, volume_name, 32, 0, 0, 0, 0, 0) != 0 &&
-            _stricmp(expected_label, volume_name) == 0) {
-            found = true;
-            g_cd_index = cd_number;
-        }
-        W8SetErrorMode(previous_mode);
-        if (found) {
-            return 1;
-        }
-    }
-    return 0;
 }
 
 // FUNCTION: WIZ8 0x0042b740

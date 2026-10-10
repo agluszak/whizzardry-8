@@ -2,16 +2,16 @@
 
 #include "srBinFStream.h"
 
-class SR_DLL_EXPORT srIStreamOpener {
+class srIStreamOpener {
 public:
     class Opener {
     public:
         // FUNCTION: SURRENDER 0x10032680
         // RECOMP: ??0Opener@srIStreamOpener@@QAE@XZ
-        SR_DLL_EXPORT Opener() {}
+        Opener() {}
         // FUNCTION: SURRENDER 0x10032690
         // RECOMP: ??1Opener@srIStreamOpener@@UAE@XZ
-        virtual SR_DLL_EXPORT ~Opener() {}
+        virtual ~Opener() {}
         SR_DLL_IMPORT Opener& operator=(const Opener& other);
 
         virtual srBinIStream* open(const char* path) = 0;
@@ -60,7 +60,7 @@ W8_ABI_ASSERT(sizeof(srIStreamOpener) == 0x0c, "srIStreamOpener_must_be_0x0c");
 
 /* SR's built-in file opener. */
 // VTABLE: SURRENDER 0x10075520 srFStreamOpener
-class SR_DLL_EXPORT srFStreamOpener : public srIStreamOpener::Opener {
+class srFStreamOpener : public srIStreamOpener::Opener {
 public:
     // FUNCTION: SURRENDER 0x10032440
     // RECOMP: ??0srFStreamOpener@@QAE@XZ

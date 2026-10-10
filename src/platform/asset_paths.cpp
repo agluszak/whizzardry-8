@@ -1,16 +1,26 @@
-#include "platform_paths.h"
+#include <wiz8/asset_paths.h>
 
 #include <algorithm>
 #include <filesystem>
 #include <mutex>
 #include <cerrno>
-#include <unistd.h>
+#include <SDL3/SDL_filesystem.h>
+#include <SDL3/SDL_stdinc.h>
 
 namespace fs = std::filesystem;
 namespace w8_native
 {
 namespace
 {
+fs::path native_path(const std::string& text)
+{
+    return fs::u8path(text);
+}
+std::string utf8(const fs::path& path)
+{
+    const auto text = path.generic_u8string();
+    return std::string(text.begin(), text.end());
+}
 std::recursive_mutex lock;
 Roots roots;
 bool initialized = false;
@@ -27,26 +37,59 @@ std::string folded(std::string text)
 }
 std::string environment(const char* name)
 {
-    const char* value = getenv(name);
+    const char* value = SDL_getenv(name);
     return value != nullptr ? value : "";
 }
 std::string absolute(const std::string& path)
 {
     std::error_code error;
-    fs::path full = fs::absolute(path, error);
+    fs::path full = fs::absolute(native_path(path), error);
     if (error)
+    {
+        errno = error.value();
         return "";
+    }
     const fs::path canonical = fs::weakly_canonical(full, error);
     if (error)
     {
         errno = error.value();
         return "";
     }
-    return canonical.string();
+    return utf8(canonical);
+}
+bool ancestry(const std::string& path, const std::string& base, bool canonicalize)
+{
+    if (path.empty() || base.empty())
+        return false;
+    std::error_code error;
+    const fs::path root = fs::weakly_canonical(native_path(base), error);
+    if (error)
+        return false;
+    fs::path cursor = canonicalize ? fs::weakly_canonical(native_path(path), error)
+                                  : fs::absolute(native_path(path), error).lexically_normal();
+    if (error)
+        return false;
+    for (;;)
+    {
+        if (cursor == root || fs::equivalent(cursor, root, error))
+            return true;
+        const fs::path parent = cursor.parent_path();
+        if (parent.empty() || parent == cursor)
+            return false;
+        cursor = parent;
+        error.clear();
+    }
 }
 bool within(const std::string& path, const std::string& base)
 {
-    return !base.empty() && (path == base || path.rfind(base + "/", 0) == 0);
+    return ancestry(path, base, true);
+}
+bool immutable(const std::string& path)
+{
+    for (const auto& root : {roots.assets, roots.discs[0], roots.discs[1], roots.discs[2]})
+        if (within(path, root) || ancestry(path, root, false))
+            return true;
+    return false;
 }
 void validate_roots()
 {
@@ -62,31 +105,23 @@ void initialize()
         return;
     roots.assets = environment("WIZ8_ASSET_ROOT");
     if (roots.assets.empty())
-        roots.assets = ".";
+    {
+        const char* base = SDL_GetBasePath();
+        roots.assets = base ? base : ".";
+    }
     roots.assets = absolute(roots.assets);
     roots.user = environment("WIZ8_USER_ROOT");
     if (roots.user.empty())
     {
-        roots.user = environment("XDG_DATA_HOME");
-        if (roots.user.empty())
+        char* pref = SDL_GetPrefPath("Whizzardry", "whizzardry8");
+        if (pref)
         {
-            const std::string home = environment("HOME");
-            if (home.empty())
-            {
-                /* No writable root is guessed when neither variable exists. */
-                roots.user.clear();
-            }
-            else
-            {
-#ifdef __APPLE__
-                roots.user = home + "/Library/Application Support";
-#else
-                roots.user = home + "/.local/share";
-#endif
-            }
+            roots.user = pref;
+            SDL_free(pref);
+            const std::string legacy = existing_legacy_user_root(roots.user);
+            if (!legacy.empty())
+                roots.user = legacy;
         }
-        if (!roots.user.empty())
-            roots.user += "/whizzardry8";
     }
     if (!roots.user.empty())
         roots.user = absolute(roots.user);
@@ -117,9 +152,10 @@ Path parse(const char* input)
         return path;
     }
     std::string text(input);
-    /* Explicit POSIX paths are allowed for imports and renderer search paths.
-       Paths within a configured root retain that root's write policy. */
-    if (text[0] == '/')
+    /* C: through F: are always virtual, including forward-slash spellings.
+       Native drive paths use the explicit host entry points instead. */
+    const bool drive_prefix = text.size() >= 2 && text[1] == ':';
+    if (!drive_prefix && native_path(text).is_absolute())
     {
         text = absolute(text);
         if (text.empty())
@@ -131,14 +167,14 @@ Path parse(const char* input)
                                      roots.discs[2]};
         for (int i = 0; i < 5; ++i)
         {
-            if (bases[i].empty())
+            if (!within(text, bases[i]))
                 continue;
-            if (text == bases[i] || text.compare(0, bases[i].size() + 1, bases[i] + "/") == 0)
-            {
-                path.drive = i < 2 ? 0 : i - 1;
-                path.relative = text == bases[i] ? "" : text.substr(bases[i].size() + 1);
-                return path;
-            }
+            path.drive = i < 2 ? 0 : i - 1;
+            std::error_code error;
+            path.relative = utf8(fs::relative(native_path(text), native_path(bases[i]), error));
+            if (error)
+                path.drive = -1;
+            return path;
         }
         path.physical = text;
         return path;
@@ -177,7 +213,7 @@ Path parse(const char* input)
             text = cwd.substr(3) + "/" + text;
     }
     std::replace(text.begin(), text.end(), '\\', '/');
-    /* Clamp '..' at a virtual drive root, as Win32 does. */
+    /* A traversal outside a virtual root is never a writable alias. */
     std::vector<std::string> components;
     size_t start = 0;
     while (start <= text.size())
@@ -186,10 +222,22 @@ Path parse(const char* input)
         if (end == std::string::npos)
             end = text.size();
         std::string part = text.substr(start, end - start);
+        // Embedded drive names and alternate streams are not game components.
+        if (part.find(':') != std::string::npos)
+        {
+            errno = EINVAL;
+            path.drive = -1;
+            return path;
+        }
         if (part == "..")
         {
-            if (!components.empty())
-                components.pop_back();
+            if (components.empty())
+            {
+                errno = EACCES;
+                path.drive = -1;
+                return path;
+            }
+            components.pop_back();
         }
         else if (!part.empty() && part != ".")
             components.push_back(part);
@@ -207,8 +255,8 @@ Path parse(const char* input)
    Sorting also makes case collisions reproducible on case-sensitive hosts. */
 std::string locate(const std::string& root, const std::string& relative)
 {
-    fs::path cursor(root);
-    for (const auto& component : fs::path(relative))
+    fs::path cursor = native_path(root);
+    for (const auto& component : native_path(relative))
     {
         fs::path exact = cursor / component;
         std::error_code error;
@@ -221,26 +269,31 @@ std::string locate(const std::string& root, const std::string& relative)
         for (fs::directory_iterator it(cursor, error), end; !error && it != end;
              it.increment(error))
         {
-            const std::string name = it->path().filename().string();
-            if (folded(name) == folded(component.string()))
+            const std::string name = utf8(it->path().filename());
+            if (folded(name) == folded(utf8(component)))
                 matches.push_back(name);
         }
         std::sort(matches.begin(), matches.end());
-        cursor /= matches.empty() ? component.string() : matches.front();
+        cursor /= matches.empty() ? utf8(component) : matches.front();
     }
-    return cursor.string();
+    return utf8(cursor);
+}
+std::string locate_physical(const std::string& path)
+{
+    const fs::path physical = native_path(path);
+    return locate(utf8(physical.root_path()), utf8(physical.relative_path()));
 }
 bool exists(const std::string& path)
 {
     std::error_code error;
-    return !path.empty() && fs::exists(path, error);
+    return !path.empty() && fs::exists(native_path(path), error);
 }
 std::string read(const Path& path)
 {
     if (path.drive < 0)
         return "";
     if (!path.physical.empty())
-        return locate("/", path.physical.substr(1));
+        return locate_physical(path.physical);
     if (path.drive != 0)
     {
         const auto& root = roots.discs[path.drive - 1];
@@ -302,6 +355,66 @@ std::string read_path(const char* input)
     std::lock_guard<std::recursive_mutex> guard(lock);
     return read(parse(input));
 }
+std::string existing_legacy_user_root(const std::string& preferred)
+{
+    fs::path app = native_path(preferred).lexically_normal();
+    if (app.filename().empty())
+        app = app.parent_path();
+    const fs::path candidate = app.parent_path().parent_path() / "whizzardry8";
+    std::error_code error;
+    // Prefer the current root when both contain data; never strand newer saves.
+    const bool preferred_has_data = fs::is_directory(app, error) && !fs::is_empty(app, error);
+    if (!preferred_has_data && app.parent_path().filename() == "Whizzardry" &&
+        fs::is_directory(candidate, error) && !fs::is_empty(candidate, error))
+        return absolute(utf8(candidate));
+    return "";
+}
+std::string host_read_path(const std::string& path)
+{
+    std::lock_guard<std::recursive_mutex> guard(lock);
+    initialize();
+    if (path.empty())
+    {
+        errno = ENOENT;
+        return "";
+    }
+    const std::string full = absolute(path);
+    return full;
+}
+std::string host_write_path(const std::string& path)
+{
+    std::lock_guard<std::recursive_mutex> guard(lock);
+    initialize();
+    const std::string destination = host_read_path(path);
+    if (destination.empty() || immutable(path) || immutable(destination) ||
+        (ancestry(path, roots.user, false) && !within(destination, roots.user)))
+    {
+        errno = EACCES;
+        return "";
+    }
+    return destination;
+}
+std::string mutation_path(const char* input)
+{
+    std::lock_guard<std::recursive_mutex> guard(lock);
+    Path path = parse(input);
+    if (path.drive < 0)
+        return "";
+    if (!path.physical.empty())
+        return host_write_path(path.physical);
+    if (path.drive != 0 || roots.user.empty())
+    {
+        errno = EACCES;
+        return "";
+    }
+    const std::string destination = locate(roots.user, path.relative);
+    if (!within(destination, roots.user) || immutable(destination))
+    {
+        errno = EACCES;
+        return "";
+    }
+    return destination;
+}
 std::string write_path(const char* input, bool preserve)
 {
     std::lock_guard<std::recursive_mutex> guard(lock);
@@ -309,7 +422,7 @@ std::string write_path(const char* input, bool preserve)
     if (path.drive < 0)
         return "";
     if (!path.physical.empty())
-        return locate("/", path.physical.substr(1));
+        return host_write_path(path.physical);
     if (path.drive != 0 || roots.user.empty())
     {
         errno = EACCES;
@@ -317,7 +430,7 @@ std::string write_path(const char* input, bool preserve)
     }
     std::string destination = locate(roots.user, path.relative);
     const std::string source = read(path);
-    if (!within(absolute(destination), roots.user))
+    if (!within(absolute(destination), roots.user) || immutable(destination))
     {
         errno = EACCES;
         return "";
@@ -325,15 +438,15 @@ std::string write_path(const char* input, bool preserve)
     std::error_code error;
     /* Materialize root and only parents that already exist in the virtual tree.
        This keeps CreateFile from silently creating arbitrary directories. */
-    const fs::path parent = fs::path(path.relative).parent_path();
+    const fs::path parent = native_path(path.relative).parent_path();
     Path parent_path = path;
-    parent_path.relative = parent.string();
-    if (!fs::is_directory(read(parent_path), error))
+    parent_path.relative = utf8(parent);
+    if (!fs::is_directory(native_path(read(parent_path)), error))
     {
         errno = ENOTDIR;
         return "";
     }
-    fs::create_directories(fs::path(destination).parent_path(), error);
+    fs::create_directories(native_path(destination).parent_path(), error);
     if (error)
     {
         errno = error.value();
@@ -341,7 +454,7 @@ std::string write_path(const char* input, bool preserve)
     }
     if (preserve && source != destination && exists(source))
     {
-        fs::copy_file(source, destination, fs::copy_options::none, error);
+        fs::copy_file(native_path(source), native_path(destination), fs::copy_options::none, error);
         if (error)
         {
             errno = error.value();
@@ -371,8 +484,8 @@ std::vector<std::string> directory_entries(const char* input)
     {
         std::error_code error;
         std::vector<std::string> next;
-        for (fs::directory_iterator it(base, error), end; !error && it != end; it.increment(error))
-            next.push_back(it->path().filename().string());
+        for (fs::directory_iterator it(native_path(base), error), end; !error && it != end; it.increment(error))
+            next.push_back(utf8(it->path().filename()));
         std::sort(next.begin(), next.end());
         for (const auto& name : next)
         {
@@ -392,14 +505,14 @@ int change_directory(const char* input)
     std::lock_guard<std::recursive_mutex> guard(lock);
     const std::string physical = read_path(input);
     std::error_code error;
-    if (!fs::is_directory(physical, error))
+    if (!fs::is_directory(native_path(physical), error))
     {
         errno = ENOENT;
         return -1;
     }
     const std::string full = full_path(input);
     /* Explicit external directories use the host CWD for host relative I/O. */
-    if (full.empty() || full[0] == '/')
+    if (full.empty() || !parse(input).physical.empty())
     {
         errno = ENOTSUP;
         return -1;
@@ -420,7 +533,7 @@ bool is_read_only_path(const char* input)
     if (path.drive < 0 || path.drive != 0)
         return true;
     if (!path.physical.empty())
-        return false;
+        return immutable(path.physical);
     if (roots.user.empty())
         return true;
     const std::string source = read(path);

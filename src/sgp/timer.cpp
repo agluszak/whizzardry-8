@@ -1,66 +1,32 @@
-/* Modified for the Wizardry 8 reconstruction: 2026-10-03, 2026-10-06, 2026-10-07, 2026-10-09.
+/* Modified for the Wizardry 8 reconstruction: 2026-10-09.
    Distributed under the accompanying SFI Source Code license agreement. */
-#include "Types.h"
-#include "compat/kernel32.h"
-#include "Video2.h"
 #include "timer.h"
-#include "compat/platform.h"
+#include <SDL3/SDL_timer.h>
 
-
-// GLOBAL: WIZ8 0x006eb708
 UINT32 guiStartupTime;
-// GLOBAL: WIZ8 0x006eb70c
 UINT32 guiCurrentTime;
 
-// FUNCTION: WIZ8 0x00406b70
-void CALLBACK Clock(HWND hWindow, UINT uMessage, UINT_PTR idEvent, DWORD dwTime)
+namespace
 {
-    guiCurrentTime = GetTickCount();
-    if (guiCurrentTime <
-        guiStartupTime) { // Adjust guiCurrentTime because of loopback on the timer value
-        guiCurrentTime = guiCurrentTime + (0xffffffff - guiStartupTime);
-    } else { // Adjust guiCurrentTime because of loopback on the timer value
-        guiCurrentTime = guiCurrentTime - guiStartupTime;
-    }
+bool running = false;
 }
-
-// FUNCTION: WIZ8 0x00406ba0
-BOOLEAN InitializeClockManager(void)
+void UpdateClockManager()
 {
-
-    // Register the start time (use WIN95 API call)
-    guiCurrentTime = guiStartupTime = GetTickCount();
-    W8SetTimer(ghWindow, MAIN_TIMER_ID, 10, (TIMERPROC)Clock);
-
+    if (running)
+        guiCurrentTime = UINT32(SDL_GetTicks()) - guiStartupTime;
+}
+BOOLEAN InitializeClockManager()
+{
+    guiStartupTime = UINT32(SDL_GetTicks());
+    guiCurrentTime = 0;
+    running = true;
     return TRUE;
 }
-
-// FUNCTION: WIZ8 0x00406bd0
-void ShutdownClockManager(void)
+void ShutdownClockManager() { running = false; }
+TIMER GetClock() { return guiCurrentTime; }
+TIMER SetCountdownClock(UINT32 delay) { return guiCurrentTime + delay; }
+UINT32 ClockIsTicking(TIMER timer)
 {
-
-    // Make sure we kill the timer
-    W8KillTimer(ghWindow, MAIN_TIMER_ID);
-}
-
-// FUNCTION: WIZ8 0x00406be0
-TIMER GetClock(void)
-{
-    return guiCurrentTime;
-}
-
-// FUNCTION: WIZ8 0x00406bf0
-TIMER SetCountdownClock(UINT32 uiTimeToElapse)
-{
-    return (guiCurrentTime + uiTimeToElapse);
-}
-
-// FUNCTION: WIZ8 0x00406c00
-UINT32 ClockIsTicking(TIMER uiTimer)
-{
-    if (uiTimer > guiCurrentTime) { // Well timer still hasn't elapsed
-        return (uiTimer - guiCurrentTime);
-    }
-    // Time's up
-    return 0;
+    const INT32 remaining = INT32(timer - guiCurrentTime);
+    return remaining > 0 ? UINT32(remaining) : 0;
 }

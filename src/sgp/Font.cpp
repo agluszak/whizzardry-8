@@ -4,7 +4,6 @@
 #include "Types.h"
 #include <stdio.h>
 #include <stdarg.h>
-#include <malloc.h>
 #include "compat/kernel32.h"
 #include <stdarg.h>
 #include <wchar.h>

@@ -60,8 +60,6 @@ W8_ABI_ASSERT((sizeof(srInlineString) == 0x0c), "srInlineString_must_be_0x0c");
 
 srInlineString operator+(const srInlineString& left, const srInlineString& right);
 
-#if defined(SURRENDER_BUILD)
-
 inline srInlineString::srInlineString()
 {
     init();
@@ -97,6 +95,11 @@ inline srInlineString::~srInlineString()
     reset();
 }
 
+inline void srInlineString::release()
+{
+    reset();
+}
+
 // FUNCTION: SURRENDER 0x100040D0
 inline srInlineString& srInlineString::operator=(const char* source)
 {
@@ -112,7 +115,10 @@ inline srInlineString& srInlineString::operator=(const char* source)
 
 inline srInlineString& srInlineString::operator=(const srInlineString& source)
 {
-    init();
+    if (this == &source) {
+        return *this;
+    }
+    reset();
     if (source.data_ != 0 && *source.data_ != '\0') {
         size_ = strlen(source.data_) + 1;
         data_ = static_cast<char*>(srHeap.allocate(size_));
@@ -155,4 +161,3 @@ inline w8_long srInlineString::find(const srInlineString& needle, w8_ulong offse
     }
     return -1;
 }
-#endif

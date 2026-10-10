@@ -32,6 +32,8 @@ srScene::srScene(srNode* parent)
     resetStatistics();
 }
 
+srScene::~srScene() = default;
+
 // FUNCTION: SURRENDER 0x100566F0
 srScene& srScene::operator=(const srScene& other)
 {

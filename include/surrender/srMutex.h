@@ -3,7 +3,7 @@
 #include "srHeap.h"
 
 // VTABLE: SURRENDER 0x10076DE4 srMutex
-class SR_DLL_EXPORT srMutex {
+class srMutex {
 public:
     srMutex();
 
