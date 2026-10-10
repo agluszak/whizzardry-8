@@ -74,13 +74,10 @@ bool LoadStatusHeader(W8Chunk* chunk);
 bool SaveStatusHeader(W8Chunk* chunks);
 /* The per-level item-section reader and the already-open level-status scan. */
 bool LoadItemStatus(W8Chunk* chunk, int level);
-bool MeasureLevelStatusChunks(W8Chunk* chunk, int level, unsigned int* empty_percent);
 
 extern bool g_save_pending;
 
-/* Mark a matching char payload consumed in Saves\\CurrentGame.SAV. */
-bool MarkCurrentGameCharacterChunkConsumed(const char* path);
-/* Append one character record to Saves\\CurrentGame.SAV. `slot` is unused. */
+/* Replace one character record in Saves\\CurrentGame.SAV. `slot` is unused. */
 bool SaveCharacterToCurrentGame(const char* path, int slot, W8Character* character);
 bool LoadCharacterFromCurrentGame(const char* path, W8Character* character);
 /* Deferred main-game autosave: notice first, then SaveGame on the next tick. */
