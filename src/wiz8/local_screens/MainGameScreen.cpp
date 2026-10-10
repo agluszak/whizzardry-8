@@ -4670,48 +4670,39 @@ void FallbackFromUnreachableAction(int party_slot)
         }
         break;
     case W8_ACTION_CAST_SPELL:
-        if (CharacterHasCastableSpell(&g_status.buffers.Char[party_slot]) &&
-            ActionNeedsExplicitTarget(party_slot)) {
-            if (!g_combat_state->round_active) {
-                if (gXStatus.fPartyMovementMode &&
-                    (SelectPartyCharacter(party_slot), party_slot == g_status.selected_character)) {
-                    int spell_id = row->action_detail0;
-                    W8TargetNeed needed_kind = GetTargetNeededForSpellFriendly(
-                        spell_id, false, W8_TARGETING_CONTEXT_CURRENT);
-                    ConfigureSpellTargetFilter(GetSpellTargetType(spell_id, false), needed_kind);
-                    return;
-                }
-            } else {
-                SelectPartyCharacter(party_slot);
-                if (party_slot == g_status.selected_character) {
+    case W8_ACTION_USE_ITEM: {
+        const bool casting = row->action == W8_ACTION_CAST_SPELL;
+        if (!(casting
+                  ? CharacterHasCastableSpell(&g_status.buffers.Char[party_slot]) &&
+                        ActionNeedsExplicitTarget(party_slot)
+                  : ItemUseNeedsTarget(party_slot))) {
+            break;
+        }
+        if (!g_combat_state->round_active) {
+            if (gXStatus.fPartyMovementMode &&
+                (SelectPartyCharacter(party_slot), party_slot == g_status.selected_character)) {
+                const int spell_id = casting ? row->action_detail0
+                                             : GetItemSpell(row->action_detail1.item_use.item);
+                const W8TargetNeed needed_kind =
+                    GetTargetNeededForSpellFriendly(spell_id, false, W8_TARGETING_CONTEXT_CURRENT);
+                ConfigureSpellTargetFilter(GetSpellTargetType(spell_id, false), needed_kind);
+                return;
+            }
+        } else {
+            SelectPartyCharacter(party_slot);
+            if (party_slot == g_status.selected_character) {
+                if (casting) {
                     OpenSpellCastingView(party_slot);
                     SelectSpellPowerLevel(row->action_detail1.spell.power_level - 1);
-                    return;
-                }
-            }
-        }
-        break;
-    case W8_ACTION_USE_ITEM:
-        if (ItemUseNeedsTarget(party_slot)) {
-            if (!g_combat_state->round_active) {
-                if (gXStatus.fPartyMovementMode &&
-                    (SelectPartyCharacter(party_slot), party_slot == g_status.selected_character)) {
-                    int spell_id = GetItemSpell(row->action_detail1.item_use.item);
-                    W8TargetNeed needed_kind = GetTargetNeededForSpellFriendly(
-                        spell_id, false, W8_TARGETING_CONTEXT_CURRENT);
-                    ConfigureSpellTargetFilter(GetSpellTargetType(spell_id, false), needed_kind);
-                    return;
-                }
-            } else {
-                SelectPartyCharacter(party_slot);
-                if (party_slot == g_status.selected_character) {
+                } else {
                     OpenUseItemSelectView(party_slot);
                     SelectCurrentUseItemLine();
-                    return;
                 }
+                return;
             }
         }
         break;
+    }
     case W8_ACTION_PROTECT:
         if (CanCharacterAttack(party_slot) &&
             (g_combat_state->round_active || gXStatus.fPartyMovementMode)) {
