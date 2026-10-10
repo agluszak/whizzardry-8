@@ -974,7 +974,8 @@ struct SaveFixture
 
     SaveFixture()
     {
-        std::filesystem::create_directories(assets);
+        // Game-file overlays require the corresponding asset parent to exist.
+        std::filesystem::create_directories(assets / "Data");
         std::filesystem::create_directories(user / "Data");
         std::filesystem::create_directories(user / "Saves");
         w8_native::configure_paths(
