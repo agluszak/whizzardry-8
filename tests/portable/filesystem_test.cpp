@@ -6,6 +6,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <fstream>
+#include <limits>
 #include <random>
 #include <stdexcept>
 #include <type_traits>
@@ -131,6 +132,14 @@ int main(int argc, char**)
     CHECK(!file->read(nullptr, 0).eof);
     rejects([&] { file->write("x", 1); });
     rejects([&] { file->seek(-1, SeekOrigin::begin); });
+    CHECK(file->tell() == 0);
+    rejects([&] { file->seek(std::numeric_limits<std::int64_t>::min(), SeekOrigin::current); });
+    CHECK(file->tell() == 0);
+    CHECK(file->seek(1, SeekOrigin::begin) == 1);
+    rejects([&] { file->seek(std::numeric_limits<std::int64_t>::max(), SeekOrigin::current); });
+    rejects([&] { file->seek(std::numeric_limits<std::int64_t>::max(), SeekOrigin::end); });
+    CHECK(file->tell() == 1);
+    CHECK(file->seek(0, SeekOrigin::begin) == 0);
     File moved(std::move(*file));
     CHECK(!file->is_open() && moved.is_open());
     CHECK(read_all(moved) == "retail");

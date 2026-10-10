@@ -6,6 +6,7 @@
 #include <algorithm>
 #include <array>
 #include <cerrno>
+#include <limits>
 #include <random>
 #include <stdexcept>
 #include <system_error>
@@ -242,15 +243,19 @@ void File::write(const void* data, std::size_t bytes)
 }
 std::int64_t File::seek(std::int64_t offset, SeekOrigin origin)
 {
-    SDL_IOWhence whence = SDL_IO_SEEK_SET;
+    std::int64_t base = 0;
     switch (origin)
     {
     case SeekOrigin::begin: break;
-    case SeekOrigin::current: whence = SDL_IO_SEEK_CUR; break;
-    case SeekOrigin::end: whence = SDL_IO_SEEK_END; break;
+    case SeekOrigin::current: base = tell(); break;
+    case SeekOrigin::end: base = size(); break;
+    default: throw std::invalid_argument("invalid seek origin");
     }
-    const auto position = SDL_SeekIO(require_stream(), offset, whence);
-    if (position < 0)
+    if (offset < -base || offset > std::numeric_limits<std::int64_t>::max() - base)
+        throw std::out_of_range("seek outside signed file positions");
+    const auto destination = base + offset;
+    const auto position = SDL_SeekIO(require_stream(), destination, SDL_IO_SEEK_SET);
+    if (position != destination)
         sdl_failure("seek file");
     return position;
 }
