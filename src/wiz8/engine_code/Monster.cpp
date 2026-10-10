@@ -1333,8 +1333,7 @@ void W8Monster::Update()
     if (g_monster_shadow_updates_enabled != 0 && (move_dirty || UpdateTrackedPosition())) {
         move_dirty = false;
         if (distance < WorldGetRenderRange(g_world)) {
-            srNode* sun = static_cast<srNode*>(
-                srCore.getRegistry()->find(g_world->dynamic_scene->getClassNode(), "SUN", 0));
+            srNode* sun = FindWorldNode<srNode>("SUN");
             if (sun != 0) {
                 srVector3T<float> mapped_position;
                 srVector3T<double> sun_location = sun->getLocation();
