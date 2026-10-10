@@ -491,8 +491,8 @@ TEST_CASE_METHOD(AudioFixture, "Audio playback, spatialization and movie lifetim
     REQUIRE(SoundPlayStreamedFile(truncated, &options) == SOUND_ERROR);
     REQUIRE(SoundPlay({}, &options) == SOUND_ERROR);
     REQUIRE(SoundPlayStreamedFile({}, &options) == SOUND_ERROR);
-    REQUIRE(!SoundRandomShouldPlay(NO_SAMPLE));
-    REQUIRE(SoundStartRandom(NO_SAMPLE) == SOUND_ERROR);
+    REQUIRE(!SoundRandomShouldPlay({}));
+    REQUIRE(SoundStartRandom({}) == SOUND_ERROR);
     sound = SoundPlayStreamedFile(fallback, &options);
     REQUIRE(sound != SOUND_ERROR);
     samples = mix(8192);
