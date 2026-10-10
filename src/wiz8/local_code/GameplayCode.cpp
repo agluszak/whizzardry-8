@@ -1203,11 +1203,11 @@ void AwardPartyExperience(int amount, int alternate_message)
                 character->experience = static_cast<unsigned int>(-1);
             }
             if (g_status.current_level < W8_LEVEL_COUNT) {
-                unsigned int& gained =
-                    g_status.level_progress[g_status.current_level].experience_gained;
+                auto& progress = g_status.level_progress[g_status.current_level];
+                const unsigned int gained = progress.experience_gained;
                 total = gained + static_cast<unsigned int>(amount);
                 if (total > gained) {
-                    gained = total;
+                    progress.experience_gained = total;
                 }
             }
             gXStatus.level_up_notice = true;

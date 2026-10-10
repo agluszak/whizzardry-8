@@ -33,7 +33,16 @@
 #include "vsurface.h"
 
 #include <new>
+#include <cstring>
 #include <string.h>
+
+namespace {
+template<class T> T ReadStatValue(const void* address) {
+    T value;
+    std::memcpy(&value, address, sizeof(value));
+    return value;
+}
+}
 
 // GLOBAL: WIZ8 0x006483d0
 W8PortraitDescriptor g_portrait_descriptors[80] = {
@@ -145,8 +154,8 @@ void W8CharacterPageEntry::Redraw()
             DrawCatalogImageAndInvalidate(FRAME_BUFFER, 0x108, 0, 2, m_x, m_y,
                                           VO_BLT_SRCTRANSPARENCY, 0);
         }
-        m_first_text->SetText(fmt::format("{:d}", *m_first), g_wiz_text_font_secondary);
-        m_second_text->SetText(fmt::format("{:d}", *m_second), g_wiz_text_font_secondary);
+        m_first_text->SetText(fmt::format("{:d}", ReadStatValue<unsigned int>(m_first)), g_wiz_text_font_secondary);
+        m_second_text->SetText(fmt::format("{:d}", ReadStatValue<int>(m_second)), g_wiz_text_font_secondary);
         m_first_text->FillBounds(0x8000);
         m_second_text->FillBounds(0x8000);
         m_label->RenderToTarget(0, true, FRAME_BUFFER);
@@ -177,12 +186,12 @@ void W8CharacterPageEntry::MarkDirty()
 void W8CharacterPageEntry::UpdateButtons()
 {
     if (m_enabled) {
-        bool enabled = *m_second > 0;
+        bool enabled = ReadStatValue<int>(m_second) > 0;
         if (m_decrement->m_enabled != enabled) {
             m_decrement->SetEnabled(enabled);
             m_decrement->Invalidate(false);
         }
-        enabled = m_increment_allowed && *m_second < *m_third;
+        enabled = m_increment_allowed && ReadStatValue<int>(m_second) < ReadStatValue<int>(m_third);
         if (m_increment->m_enabled != enabled) {
             m_increment->SetEnabled(enabled);
             m_increment->Invalidate(false);

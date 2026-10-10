@@ -2386,7 +2386,7 @@ void Trigger::GenerateItemGroup()
         return;
     }
 
-    maximum_items = RollDice(&g_item_tables[table_id]->item_count_dice);
+    maximum_items = RollDice(&g_item_tables[table_id].item_count_dice);
     GenerateItemsFromTable(items, table_id, maximum_items);
     if (world_item_group == 0) {
         world_item_group = SpawnItem(0x23c, &position, 0, false);
@@ -2394,7 +2394,7 @@ void Trigger::GenerateItemGroup()
     for (index = 0; index < static_cast<int>(items.size()); ++index) {
         ItemInfoAddToGroup(world_item_group, items[index]);
     }
-    gold = RollDice(&g_item_tables[table_id]->gold_dice);
+    gold = RollDice(&g_item_tables[table_id].gold_dice);
     items_generated = 1;
 }
 

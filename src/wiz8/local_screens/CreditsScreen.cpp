@@ -48,6 +48,7 @@ std::optional<std::string> ReadRetailTextLine(wiz8::File* handle)
         if (!result.bytes) { if (bytes.empty()) return {}; break; }
         if (result.bytes != 2) throw std::runtime_error("Truncated UTF-16LE line");
         if (unit[0] == std::byte{10} && unit[1] == std::byte{}) break;
+        if (bytes.size() >= 254) throw std::runtime_error("Oversized credits line");
         bytes.insert(bytes.end(), unit.begin(), unit.end());
     }
     auto text = wiz8::text::from_utf16le(bytes);
@@ -66,12 +67,15 @@ try
     ResetRegions();
     RegionSetEnable(2);
     DisableCursorScene();
-    g_credit_lines.clear();
+    std::vector<W8CreditLine> pending;
 
     handle = [&]() { try { return wiz8::open_file((char*)"Data\\Options\\Credits.txt", wiz8::OpenMode::read); } catch (const std::exception&) { return std::unique_ptr<wiz8::File>{}; } }();
     if (handle != 0) {
         std::optional<std::string> line_result;
-        handle->seek(2, wiz8::SeekOrigin::begin); // UTF-16LE BOM
+        if (handle->size() % 2) throw std::runtime_error("Truncated credits character");
+        std::uint16_t marker;
+        handle->read_exact(&marker, sizeof(marker));
+        if (marker != 0xfeff) handle->seek(0, wiz8::SeekOrigin::begin);
         while (!(handle->tell() >= handle->size())) {
             if (((line_result = ReadRetailTextLine(handle.get())) && (line = std::move(*line_result), true)) && line[0] != '*') {
                 W8CreditLine entry{};
@@ -99,13 +103,14 @@ try
                         entry.primary, bold ? g_options_title_font : g_options_detail_font);
                 }
                 entry.line_height = 0x14 + (bold ? 5 : 0);
-                g_credit_lines.push_back(std::move(entry));
+                pending.push_back(std::move(entry));
             }
         }
         if (handle) handle->close();
         handle.reset();
     }
     g_credit_line = 0;
+    g_credit_lines.swap(pending);
     g_credit_elapsed_steps = 0;
     g_credit_y = 0x1df;
     g_credit_started_at = w8_get_ticks();

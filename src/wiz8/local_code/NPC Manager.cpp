@@ -68,6 +68,11 @@
 #include "wiz8/chunk.h"
 #include "wiz8/filesystem.h"
 
+#include <limits>
+#include <memory>
+#include <stdexcept>
+#include <vector>
+
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -1117,15 +1122,15 @@ int SelectNewGameStartLevel(void)
     return 8;
 }
 
-/* Descriptive name for the complete state teardown expanded in reset,
-   shutdown and load. Stock ownership remains with the database record. */
+static void DestroyNpcItemList(std::vector<W8NpcItemEntry*>* items);
+
+/* Complete teardown for the state's owned resources, regardless of whether
+   its database record normally supplies stock. */
 static void DestroyNpcState(W8NpcState* npc)
 {
     ReleaseNpcScriptFile(npc->script_file);
     npc->script_file = 0;
-    if (npc->record != 0 && npc->record->owns_stock != 0) {
-        ClearNpcItems(npc);
-    }
+    DestroyNpcItemList(npc->items);
     delete npc->character;
     delete npc;
 }
@@ -1167,16 +1172,16 @@ try
     unsigned int index;
     int size;
 
-    chunks->Write(&version, 1, 0);
-    count = static_cast<int>(g_npc_states.size());
-    chunks->Write(&count, 4, 0);
+    chunks->m_hFile->write(&version, 1);
+    count = g_npc_states.size();
+    chunks->m_hFile->write(&count, 4);
     for (index = 0; index < count; ++index) {
         npc = g_npc_states[index];
-        chunks->Write(npc, sizeof(*npc), 0);
+        chunks->m_hFile->write(npc, sizeof(*npc));
         if (npc->character != 0) {
             size = wiz8::retail::kCharacterBytes;
-            chunks->Write(&size, 4, 0);
-            wiz8::retail::write(*chunks, *npc->character);
+            chunks->m_hFile->write(&size, 4);
+            wiz8::retail::write(*chunks->m_hFile, *npc->character);
         }
     }
     return SaveNpcItemLists(chunks->m_hFile.get());
@@ -1192,36 +1197,20 @@ catch (const std::exception&) { return false; }
    count, then each 0x14-byte stock entry in list order. */
 // FUNCTION: WIZ8 0x0050AA10
 bool SaveNpcItemLists(wiz8::File* file)
+try
 {
-    unsigned int written = 0;
-    unsigned int item_count = 0;
-    unsigned int index;
-    unsigned int npc_index;
-    unsigned int count;
-    W8NpcState* npc;
-    W8NpcItemEntry* entry;
-
-    count = static_cast<int>(g_npc_states.size());
-    for (npc_index = 0; npc_index < count; ++npc_index) {
-        npc = g_npc_states[npc_index];
-        if (npc->items != 0) {
-            item_count = (npc->items ? npc->items->size() : 0);
-        } else {
-            item_count = 0;
-        }
-        if ((file->write(&item_count, 4), written = 4, true) == 0 || written != 4) {
-            return false;
-        }
-        for (index = 0; index < item_count; ++index) {
-            entry = (*npc->items)[index];
-            if ((file->write(entry, sizeof(*entry)), written = sizeof(*entry), true) == 0 ||
-                written != sizeof(*entry)) {
-                return false;
-            }
+    for (int npc_index = 0; npc_index < g_npc_states.size(); ++npc_index) {
+        W8NpcState* npc = g_npc_states[npc_index];
+        const unsigned int item_count = npc->items != nullptr ? npc->items->size() : 0;
+        file->write(&item_count, sizeof(item_count));
+        for (unsigned int index = 0; index < item_count; ++index) {
+            auto* entry = (*npc->items)[index];
+            file->write(entry, sizeof(*entry));
         }
     }
     return true;
 }
+catch (const std::exception&) { return false; }
 
 /* Build one runtime NPC state, reusing an unavailable slot or appending a new
    one. Save records and monster bindings refer to these stable slot indices. */
@@ -1407,14 +1396,14 @@ void InitializeNpcItemTable(W8NpcState* npc)
         return;
     }
     for (index = 0; index < 40; ++index) {
-        if (g_item_tables[npc->record->item_table_id - 1]->entries[index].selector != 0) {
+        if (g_item_tables[npc->record->item_table_id - 1].entries[index].selector != 0) {
             npc->item_ids[index] =
-                g_item_tables[npc->record->item_table_id - 1]->entries[index].item_id;
+                g_item_tables[npc->record->item_table_id - 1].entries[index].item_id;
             npc->item_weights[index] =
-                g_item_tables[npc->record->item_table_id - 1]->entries[index].weight;
+                g_item_tables[npc->record->item_table_id - 1].entries[index].weight;
         }
     }
-    npc->item_count_dice = g_item_tables[npc->record->item_table_id - 1]->item_count_dice;
+    npc->item_count_dice = g_item_tables[npc->record->item_table_id - 1].item_count_dice;
 }
 
 /* Release the monster binding and script held by an active NPC slot. */
@@ -1454,35 +1443,53 @@ void LoadNpcStates(W8Chunk* chunks)
     unsigned int size;
     W8NpcState* npc;
 
-    ReleaseNpcStates();
-    chunks->Read(&version, 1, 0);
-    chunks->Read(&count, 4, 0);
-    for (loaded = 0; loaded < count; ++loaded) {
-        npc = new W8NpcState;
-        chunks->Read(npc, sizeof(*npc), 0);
-        npc->items = 0;
-        // A saved pointer denotes an attached character, not a live handle.
-        const bool has_character = W8SerializedPointerPresent(npc->character);
-        npc->character = 0;
-        if (has_character) {
-            npc->character = new W8Character;
-            if (version < 3) {
-                *npc->character = W8Character{};
-                wiz8::retail::read(*chunks, *npc->character, 0x185c);
-            } else {
-                *npc->character = W8Character{};
-                chunks->Read(&size, 4, 0);
-                if (size > wiz8::retail::kCharacterBytes) {
-                    srAssertFail("uiSize <= sizeof(*pNode->pPCData)", NPC_MANAGER_CPP, 0x217, 0);
-                }
-                wiz8::retail::read(*chunks, *npc->character, size);
-            }
+    struct StateRollback {
+        std::vector<W8NpcState*> previous;
+        bool committed = false;
+        StateRollback() { previous.swap(g_npc_states); }
+        ~StateRollback() {
+            if (!committed) previous.swap(g_npc_states);
+            for (auto* state : previous) DestroyNpcState(state);
         }
-        if (npc->name_style == 0) {
-            npc->name_style = loaded;
+    } rollback;
+    chunks->m_hFile->read_exact(&version, 1);
+    chunks->m_hFile->read_exact(&count, 4);
+    if (count > static_cast<unsigned int>(std::numeric_limits<int>::max()) ||
+        count > (chunks->m_hFile->size() - chunks->m_hFile->tell()) / sizeof(W8NpcState)) {
+        throw std::runtime_error("invalid NPC state count");
+    }
+    for (loaded = 0; loaded < count; ++loaded) {
+        W8NpcState disk_state;
+        chunks->m_hFile->read_exact(&disk_state, sizeof(disk_state));
+        const bool has_character = W8SerializedPointerPresent(disk_state.character);
+        disk_state.script_file = nullptr;
+        disk_state.items = nullptr;
+        disk_state.character = nullptr;
+        disk_state.record = nullptr;
+        const unsigned int record_id = disk_state.name_style == 0 ? loaded : disk_state.name_style;
+        if (record_id >= gXStatus.uiNpcsInDatabase ||
+            record_id > std::numeric_limits<unsigned char>::max()) {
+            throw std::runtime_error("invalid NPC database index");
+        }
+        disk_state.name_style = static_cast<unsigned char>(record_id);
+        disk_state.record = &g_npc_records[record_id];
+        std::unique_ptr<W8NpcState, decltype(&DestroyNpcState)> owner(
+            new W8NpcState(disk_state), DestroyNpcState);
+        npc = owner.get();
+        if (has_character) {
+            size = 0x185c;
+            if (version >= 3) chunks->m_hFile->read_exact(&size, sizeof(size));
+            if (size > wiz8::retail::kCharacterBytes) {
+                throw std::runtime_error("invalid NPC character size");
+            }
+            auto character = std::make_unique<W8Character>();
+            wiz8::retail::read_exact(*chunks->m_hFile, *character, size);
+            npc->character = character.get();
+            (void)character.release();
         }
         npc->partner_index = static_cast<int>(g_npc_states.size());
         g_npc_states.push_back(npc);
+        (void)owner.release();
     }
     for (loaded = 0; loaded < count; ++loaded) {
         npc = g_npc_states[loaded];
@@ -1502,59 +1509,58 @@ void LoadNpcStates(W8Chunk* chunks)
         }
     }
     if (version > 1) {
-        LoadNpcItemLists(chunks->m_hFile.get());
+        if (!LoadNpcItemLists(chunks->m_hFile.get())) {
+            throw std::runtime_error("invalid NPC stock lists");
+        }
     }
     for (npc_id = 0; npc_id < gXStatus.uiNpcsInDatabase; ++npc_id) {
         if (g_npc_records[npc_id].monster_bound == 0 && GetNpcStateByKind(npc_id) == 0) {
             CreateNpcRuntimeNode(npc_id);
         }
     }
+    rollback.committed = true;
 }
 
-/* Append every NPC's stock item list behind the NPCT state records: the
-   entry count followed by each 0x14-byte entry. A short FileWrite fails the
-   whole pass. */
+static void DestroyNpcItemList(std::vector<W8NpcItemEntry*>* items)
+{
+    if (items == nullptr) return;
+    for (auto* item : *items) delete item;
+    delete items;
+}
 
-/* Read every NPC's stock item list back from the open NPCT chunk tail: the
-   entry count followed by each 0x14-byte entry appended to a fresh plist. A
-   short FileRead or a failed allocation fails the whole pass. */
+/* Stage all stock lists before replacing any live NPC's inventory. */
 // FUNCTION: WIZ8 0x0050AAF0
 bool LoadNpcItemLists(wiz8::File* file)
 try
 {
-    unsigned int transferred = 0;
-    unsigned int item_count = 0;
-    unsigned int index;
-    unsigned int npc_index;
-    unsigned int count;
-    W8NpcState* npc;
-    W8NpcItemEntry* entry;
-
-    count = static_cast<int>(g_npc_states.size());
-    for (npc_index = 0; npc_index < count; ++npc_index) {
-        npc = g_npc_states[npc_index];
-        if (((transferred = file->read(&item_count, 4).bytes) == static_cast<std::size_t>(4)) == 0 || transferred != 4) {
+    using ItemListOwner = std::unique_ptr<std::vector<W8NpcItemEntry*>, decltype(&DestroyNpcItemList)>;
+    std::vector<ItemListOwner> pending;
+    pending.reserve(g_npc_states.size());
+    for (int npc_index = 0; npc_index < g_npc_states.size(); ++npc_index) {
+        unsigned int item_count;
+        file->read_exact(&item_count, sizeof(item_count));
+        if (item_count > static_cast<unsigned int>(std::numeric_limits<int>::max()) ||
+            item_count > (file->size() - file->tell()) / sizeof(W8NpcItemEntry)) {
             return false;
         }
-        if (npc->items != 0) {
-            ClearNpcItems(npc);
-        }
-        if (item_count == 0) {
-            npc->items = 0;
-        } else {
-            npc->items = new std::vector<W8NpcItemEntry*>;
-            for (index = 0; index < item_count; ++index) {
-                entry = new W8NpcItemEntry;
-                if (entry == 0) {
-                    return false;
-                }
-                if (((transferred = file->read(entry, sizeof(*entry)).bytes) == static_cast<std::size_t>(sizeof(*entry))) == 0 ||
-                    transferred != sizeof(*entry)) {
-                    return false;
-                }
-                npc->items->push_back(entry);
+        ItemListOwner items(nullptr, DestroyNpcItemList);
+        if (item_count != 0) {
+            items.reset(new std::vector<W8NpcItemEntry*>);
+            items->reserve(item_count);
+            for (unsigned int index = 0; index < item_count; ++index) {
+                auto entry = std::make_unique<W8NpcItemEntry>();
+                file->read_exact(entry.get(), sizeof(*entry));
+                items->push_back(entry.get());
+                (void)entry.release();
             }
         }
+        pending.push_back(std::move(items));
+    }
+    for (int npc_index = 0; npc_index < g_npc_states.size(); ++npc_index) {
+        W8NpcState* npc = g_npc_states[npc_index];
+        DestroyNpcItemList(npc->items);
+        npc->items = pending[npc_index].get();
+        (void)pending[npc_index].release();
     }
     return true;
 }

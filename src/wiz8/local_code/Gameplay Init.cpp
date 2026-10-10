@@ -1,3 +1,4 @@
+#include <array>
 #include <fmt/format.h>
 #include "wiz8/unicode.h"
 #include "wiz8/retail_text_records.h"
@@ -12,6 +13,7 @@
 #include "wiz8/local_code/Strings.h"
 #include "wiz8/engine_code/game_timer.h"
 #include "wiz8/layouts/game_status.h"
+#include "wiz8/fact_state.h"
 #include "wiz8/local_code/Configuration.h"
 #include "wiz8/local_code/GameplayDatabase.h"
 #include "wiz8/local_code/GameplayInit.h"
@@ -61,10 +63,18 @@
 #include "random.h"
 #include "timer.h"
 #include "wiz8/local_code/character_events.h"
-#include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+#include <iterator>
+#include <limits>
+#include <memory>
+#include <vector>
 /* TU attribution follows the 2001-08-14 demo __FILE__ and link-order evidence. */
+
+namespace {
+std::unique_ptr<W8FactDatabaseRecord[]> fact_records;
+std::unique_ptr<W8LevelDatabaseRecord[]> level_records;
+}
 
 /* NPC.DBS records carry an optional sub-list, stored after the record when its
    leading count exceeds one and its 0x9D flag is clear: a count, then that many
@@ -73,191 +83,121 @@
 unsigned char InitializeNpcDatabase(void)
 try
 {
-    std::string path;
-    unsigned int index;
-    unsigned int entry;
-    unsigned int entry_count;
-    unsigned int transferred;
-    std::unique_ptr<wiz8::File> handle;
-    W8NpcItemStockRule* element;
-
-    path = fmt::format("{}\\{}.{}", "Data\\Databases", "NPC", "DBS");
-    handle = [&]() { try { return wiz8::open_file(path, wiz8::OpenMode::read); } catch (const std::exception&) { return std::unique_ptr<wiz8::File>{}; } }();
-    if (!handle) {
+    auto handle = wiz8::open_file("Data\\Databases\\NPC.DBS", wiz8::OpenMode::read);
+    unsigned int count;
+    handle->read_exact(&count, sizeof(count));
+    if (count > (handle->size() - handle->tell()) / std::int64_t(wiz8::retail::kNpcDatabaseRecordBytes)) {
         return 0;
     }
-    if (!((transferred = handle->read(&gXStatus.uiNpcsInDatabase, 4).bytes) == static_cast<std::size_t>(4))) {
-        if (handle) handle->close();
-        handle.reset();
-        return 0;
-    }
-    g_npc_records = new W8NpcDatabaseRecord[gXStatus.uiNpcsInDatabase]{};
-    if (!g_npc_records) {
-        return 0;
-    }
-    for (index = 0; index < gXStatus.uiNpcsInDatabase; ++index) {
-        if (!((transferred = wiz8::retail::read(*handle, g_npc_records[index]).bytes) == wiz8::retail::kNpcDatabaseRecordBytes)) {
-            if (handle) handle->close();
-            handle.reset();
-            return 0;
-        }
-        g_npc_records[index].item_stock_rules = 0;
-        if (g_npc_records[index].no_item_stock == 0 && g_npc_records[index].version > 1) {
-            entry_count = 0;
-            if (!((transferred = handle->read(&entry_count, 4).bytes) == static_cast<std::size_t>(4))) {
-                if (handle) handle->close();
-                handle.reset();
+    auto records = std::make_unique<W8NpcDatabaseRecord[]>(count);
+    std::vector<std::unique_ptr<W8NpcItemStockRule>> entries;
+    std::vector<std::unique_ptr<std::vector<W8NpcItemStockRule*>>> lists;
+    for (unsigned int index = 0; index < count; ++index) {
+        auto& record = records.get()[index];
+        wiz8::retail::read_exact(*handle, record);
+        record.item_stock_rules = nullptr;
+        if (record.no_item_stock == 0 && record.version > 1) {
+            unsigned int entry_count;
+            handle->read_exact(&entry_count, sizeof(entry_count));
+            const auto remaining = handle->size() - handle->tell();
+            const auto following_records = std::int64_t(count - index - 1) * std::int64_t(wiz8::retail::kNpcDatabaseRecordBytes);
+            if (remaining < following_records ||
+                entry_count > (remaining - following_records) / std::int64_t(sizeof(W8NpcItemStockRule)) ||
+                entry_count > std::numeric_limits<int>::max()) {
                 return 0;
             }
             if (entry_count > 0) {
-                g_npc_records[index].item_stock_rules = new std::vector<W8NpcItemStockRule*>;
-                for (entry = 0; entry < entry_count; ++entry) {
-                    element = new W8NpcItemStockRule;
-                    if (!element) {
-                        if (handle) handle->close();
-                        handle.reset();
-                        return 0;
-                    }
-                    memset(element, 0, 6);
-                    if (!((transferred = handle->read(element, 6).bytes) == static_cast<std::size_t>(6))) {
-                        if (handle) handle->close();
-                        handle.reset();
-                        return 0;
-                    }
-                    g_npc_records[index].item_stock_rules->insert(
-                        g_npc_records[index].item_stock_rules->begin() + entry, element);
+                auto rules = std::make_unique<std::vector<W8NpcItemStockRule*>>();
+                rules->reserve(entry_count);
+                for (unsigned int entry = 0; entry < entry_count; ++entry) {
+                    auto element = std::make_unique<W8NpcItemStockRule>();
+                    handle->read_exact(element.get(), sizeof(*element));
+                    rules->push_back(element.get());
+                    entries.push_back(std::move(element));
                 }
+                record.item_stock_rules = rules.get();
+                lists.push_back(std::move(rules));
             }
         }
     }
-    if (handle) handle->close();
-    handle.reset();
+    DestroyNpcDatabase();
+    g_npc_records = records.release();
+    gXStatus.uiNpcsInDatabase = count;
+    for (auto& entry : entries) {
+        (void)entry.release();
+    }
+    for (auto& list : lists) {
+        (void)list.release();
+    }
     return 1;
 }
-catch (const std::exception&) { return false; }
-
-/* The three loaders below share one shape: build Data\Databases\<NAME>.DBS,
-   open it, read a record count, allocate count * stride, then read the records
-   one at a time. They are written out rather than folded into a helper because
-   each is its own COMDAT in the original and shares no code with the others.
-   All three leak the handle when the allocation fails while every other failure
-   closes it; the asymmetry is the original's and is reproduced. */
+catch (const std::exception&) { return 0; }
 
 // FUNCTION: WIZ8 0x0054ad00
 unsigned char InitializeFactDatabase(void)
 try
 {
-    std::string path;
-    unsigned int index;
-    unsigned int transferred;
-    std::unique_ptr<wiz8::File> handle;
-
-    path = fmt::format("{}\\{}.{}", "Data\\Databases", "FACT", "DBS");
-    handle = [&]() { try { return wiz8::open_file(path, wiz8::OpenMode::read); } catch (const std::exception&) { return std::unique_ptr<wiz8::File>{}; } }();
-    if (!handle) {
+    auto handle = wiz8::open_file("Data\\Databases\\FACT.DBS", wiz8::OpenMode::read);
+    unsigned int count;
+    handle->read_exact(&count, sizeof(count));
+    if (count > std::size(g_fact_values) ||
+        count > (handle->size() - handle->tell()) / std::int64_t(wiz8::retail::kFactDatabaseRecordBytes)) {
         return 0;
     }
-    if (!((transferred = handle->read(&gXStatus.uiFactsInDatabase, 4).bytes) == static_cast<std::size_t>(4))) {
-        if (handle) handle->close();
-        handle.reset();
-        return 0;
-    }
-    g_fact_records = new W8FactDatabaseRecord[gXStatus.uiFactsInDatabase]{};
-    if (!g_fact_records) {
-        return 0;
-    }
-    for (index = 0; index < gXStatus.uiFactsInDatabase; ++index) {
-        if (!((transferred = wiz8::retail::read(*handle, g_fact_records[index]).bytes) == wiz8::retail::kFactDatabaseRecordBytes)) {
-            if (handle) handle->close();
-            handle.reset();
-            return 0;
-        }
-    }
-    if (handle) handle->close();
-    handle.reset();
+    auto records = count ? std::make_unique<W8FactDatabaseRecord[]>(count) : nullptr;
+    for (unsigned i = 0; i < count; ++i) wiz8::retail::read_exact(*handle, records[i]);
+    fact_records = std::move(records);
+    g_fact_records = fact_records.get();
+    gXStatus.uiFactsInDatabase = count;
     return 1;
 }
-catch (const std::exception&) { return false; }
+catch (const std::exception&) { return 0; }
 
 // FUNCTION: WIZ8 0x0054ae00
 void DestroyFactDatabase(void)
 {
-    delete[] g_fact_records;
-    g_fact_records = 0;
+    fact_records.reset();
+    g_fact_records = nullptr;
+    gXStatus.uiFactsInDatabase = 0;
 }
 
 // FUNCTION: WIZ8 0x0054ae20
 unsigned char InitializeLevelDatabase(void)
 try
 {
-    std::string path;
-    unsigned int index;
-    unsigned int transferred;
-    std::unique_ptr<wiz8::File> handle;
-
-    path = fmt::format("{}\\{}.{}", "Data\\Databases", "LEVELS", "DBS");
-    handle = [&]() { try { return wiz8::open_file(path, wiz8::OpenMode::read); } catch (const std::exception&) { return std::unique_ptr<wiz8::File>{}; } }();
-    if (!handle) {
+    auto handle = wiz8::open_file("Data\\Databases\\LEVELS.DBS", wiz8::OpenMode::read);
+    unsigned int count;
+    handle->read_exact(&count, sizeof(count));
+    if (count > (handle->size() - handle->tell()) / std::int64_t(wiz8::retail::kLevelDatabaseRecordBytes)) {
         return 0;
     }
-    if (!((transferred = handle->read(&gXStatus.uiLevelsInDatabase, 4).bytes) == static_cast<std::size_t>(4))) {
-        if (handle) handle->close();
-        handle.reset();
-        return 0;
-    }
-    g_level_records = new W8LevelDatabaseRecord[gXStatus.uiLevelsInDatabase]{};
-    if (!g_level_records) {
-        return 0;
-    }
-    for (index = 0; index < gXStatus.uiLevelsInDatabase; ++index) {
-        if (!((transferred = wiz8::retail::read(*handle, g_level_records[index]).bytes) == wiz8::retail::kLevelDatabaseRecordBytes)) {
-            if (handle) handle->close();
-            handle.reset();
-            return 0;
-        }
-    }
-    if (handle) handle->close();
-    handle.reset();
+    auto records = count ? std::make_unique<W8LevelDatabaseRecord[]>(count) : nullptr;
+    for (unsigned i = 0; i < count; ++i) wiz8::retail::read_exact(*handle, records[i]);
+    level_records = std::move(records);
+    g_level_records = level_records.get();
+    gXStatus.uiLevelsInDatabase = count;
     return 1;
 }
-catch (const std::exception&) { return false; }
+catch (const std::exception&) { return 0; }
 
 // FUNCTION: WIZ8 0x0054af10
 void DestroyLevelDatabase(void)
 {
-    delete[] g_level_records;
-    g_level_records = 0;
+    level_records.reset();
+    g_level_records = nullptr;
+    gXStatus.uiLevelsInDatabase = 0;
 }
 
-/* Optionally releases the global status block's two buffers, then clears the
-   whole block - which zeroes those pointers as a side effect, since they live
-   inside it - and allocates them again. Either allocation failing leaves the
-   block cleared and the other buffer live, as the original does. */
+/* Reset the status and its fixed eight-slot character banks. */
 // FUNCTION: WIZ8 0x0054af30
-void ResetGameStatus(bool release)
+void ResetGameStatus(bool /*release*/)
 {
-    if (release) {
-        if (g_status.buffers.Char) {
-            delete[] g_status.buffers.Char;
-            g_status.buffers.Char = 0;
-        }
-        if (g_status.buffers.XChar) {
-            free(g_status.buffers.XChar);
-            g_status.buffers.XChar = 0;
-        }
-    }
-    g_status = W8GlobalStatus{};
-    g_status.buffers.Char =
-        new W8Character[W8_PARTY_SLOT_COUNT]{};
-    if (!g_status.buffers.Char) {
-        return;
-    }
-    g_status.buffers.XChar =
-        static_cast<W8PartySlotRow*>(malloc(sizeof(W8PartySlotRow) * W8_PARTY_SLOT_COUNT));
-    if (!g_status.buffers.XChar) {
-        return;
-    }
-    memset(g_status.buffers.XChar, 0, sizeof(W8PartySlotRow) * W8_PARTY_SLOT_COUNT);
+    static std::array<W8Character, W8_PARTY_SLOT_COUNT> characters;
+    static std::array<W8PartySlotRow, W8_PARTY_SLOT_COUNT> rows;
+    characters.fill({}); rows.fill({});
+    g_status = {};
+    g_status.buffers.Char = characters.data();
+    g_status.buffers.XChar = rows.data();
 }
 
 /* Clear the complete status object, including its POD gameplay-state tail. */
@@ -460,35 +400,6 @@ void ResetPartySlotRow(int slot)
 
 /* Both buffers are cleared only after both allocations succeed, so a failed
    second allocation leaves the first one live and unzeroed. */
-// FUNCTION: WIZ8 0x0054b4c0
-unsigned char AllocateStatusBuffers(W8StatusBuffers* status)
-{
-    status->Char = new W8Character[W8_PARTY_SLOT_COUNT]{};
-    if (!status->Char) {
-        return 0;
-    }
-    status->XChar =
-        static_cast<W8PartySlotRow*>(malloc(sizeof(W8PartySlotRow) * W8_PARTY_SLOT_COUNT));
-    if (!status->XChar) {
-        return 0;
-    }
-    memset(status->XChar, 0, sizeof(W8PartySlotRow) * W8_PARTY_SLOT_COUNT);
-    return 1;
-}
-
-// FUNCTION: WIZ8 0x0054b520
-void FreeStatusBuffers(W8StatusBuffers* status)
-{
-    if (status->Char) {
-        delete[] status->Char;
-        status->Char = 0;
-    }
-    if (status->XChar) {
-        free(status->XChar);
-        status->XChar = 0;
-    }
-}
-
 /* Clears the settings block and writes its defaults. The constants 0, 1, 0x40
    and 0xff are each used many times over, which is why VC6 holds them in
    registers rather than spelling out immediates. */
