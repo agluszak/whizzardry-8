@@ -103,7 +103,10 @@ Controls::Controls(int left, int top, int right_bound, int bottom_bound, int cat
 }
 
 // FUNCTION: WIZ8 0x004f2d30
-Controls::~Controls() {}
+Controls::~Controls()
+{
+    DestroyAllControls();
+}
 
 /* 0x00562A50 takes the redraw-request mask the panel raises. */
 // GLOBAL: WIZ8 0x0060CC74

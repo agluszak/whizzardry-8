@@ -80,6 +80,20 @@ static bool ownershipAndCallbacks()
     wiz8::remove_all_and_delete_in_order(owner.m_controls);
     REQUIRE((owner.m_controls.empty() && unlinked));
     REQUIRE((destroyed == std::vector<int>{1, 2, 3}));
+
+    // Panels release their children at end of lifetime without an explicit
+    // DestroyAllControls call.
+    std::vector<int> automatically_destroyed;
+    bool automatically_unlinked = true;
+    {
+        Controls automatic_owner;
+        automatic_owner.m_controls.push_back(
+            new Entry(automatic_owner, automatically_destroyed, automatically_unlinked, 4));
+        automatic_owner.m_controls.push_back(
+            new Entry(automatic_owner, automatically_destroyed, automatically_unlinked, 5));
+    }
+    REQUIRE(automatically_unlinked);
+    REQUIRE((automatically_destroyed == std::vector<int>{5, 4}));
     return true;
 }
 

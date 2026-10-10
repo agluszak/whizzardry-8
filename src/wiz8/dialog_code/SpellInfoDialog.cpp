@@ -89,6 +89,7 @@ int W8SpellInfoDialog::CreateControls()
     return 0;
 }
 
+
 // FUNCTION: WIZ8 0x005dbe00
 void W8SpellInfoDialog::Draw()
 {

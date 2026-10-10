@@ -33,7 +33,6 @@ extern W8ProfRaceInfoRow g_race_info_rows[W8_RACE_COUNT];
 class W8ProfRaceInfoDialogBase : public W8DialogBase {
 public:
     W8ProfRaceInfoDialogBase();
-    // FUNCTION: WIZ8 0x005DEBB0
     virtual int CreateControls() override;
     virtual void Draw() override;
     virtual void OnRightButtonUp() override;

@@ -462,6 +462,7 @@ void W8MonsterInfoDialog::ScrollCallback(W8DialogScrollBar* scroll_bar, int firs
     }
 }
 
+
 // FUNCTION: WIZ8 0x005d6080
 void W8MonsterInfoDialog::Draw()
 {
