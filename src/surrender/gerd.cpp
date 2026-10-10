@@ -536,15 +536,7 @@ void srGERD::setClearColor(float red, float green, float blue, float alpha)
 // FUNCTION: SURRENDER 0x1001CB70
 void srGERD::setClearDepth(double depth)
 {
-    if (depth <= 0.0) {
-        clear_state.clear_values.depth = 0.0;
-        return;
-    }
-    if (depth >= 1.0) {
-        clear_state.clear_values.depth = 1.0;
-        return;
-    }
-    clear_state.clear_values.depth = depth;
+    clear_state.clear_values.depth = std::clamp(depth, 0.0, 1.0);
 }
 
 /* Both indexed and array draws consume the same pending renderer state. */
