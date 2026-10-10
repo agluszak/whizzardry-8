@@ -1494,85 +1494,83 @@ static void AnnounceCombatTargetCondition(const W8SpellEffectResult* report,
    damage notices, what the target suffered unless it died, and the casualty
    list - then wipe the record clean for the next attack. */
 // FUNCTION: WIZ8 0x0053fb00
-void ReportCharacterAttackResult(int party_slot, W8SpellEffectResult* report)
+/* The two combat streams use the same damage/condition report; their
+   speaker, colour and the monster-only Missing condition remain distinct. */
+static void ReportAttackResult(int party_slot, W8MonsterInfo* attacker,
+                               W8SpellEffectResult* report)
 {
-    W8MonsterInfo* monster_info;
-    w8_unaligned_uint* condition_turns;
-    unsigned int condition;
+    const bool monster_attacker = attacker != nullptr;
+    const unsigned int palette = monster_attacker ? W8_FONT_PALETTE_RUST : W8_FONT_PALETTE_WHITE;
+    auto post = [&](std::string_view message) {
+        if (monster_attacker)
+            PostMonsterNotice(attacker, message);
+        else
+            PostCharacterNotice(party_slot, message);
+    };
+    auto postNoticeValue = [&](int index, int text_id) {
+        if (report->notice_values[index] > 0)
+            post(fmt::sprintf(g_localized_strings[text_id], report->notice_values[index]));
+    };
 
-    if (report->condition_counts[W8_CONDITION_DEAD] > 0) {
-        if (report->notice_values[3] > 0) {
-            PostCharacterNotice(party_slot,
-                                fmt::sprintf(g_localized_strings[0x267], report->notice_values[3]));
-        }
-        if (report->notice_values[4] > 0) {
-            PostCharacterNotice(party_slot,
-                                fmt::sprintf(g_localized_strings[0x268], report->notice_values[4]));
-        }
-    } else {
+    if (report->condition_counts[W8_CONDITION_DEAD] == 0) {
         if (report->count == 0) {
-            if (report->missed) {
-                ShowNotice(W8_FONT_PALETTE_WHITE, g_localized_strings[0x20b]);
-                return;
-            }
-            ShowNotice(W8_FONT_PALETTE_WHITE, g_localized_strings[0x209]);
+            ShowNotice(palette, g_localized_strings[report->missed ? 0x20b : 0x209]);
             return;
         }
         if (report->amount == 0) {
-            ShowNotice(W8_FONT_PALETTE_WHITE, g_localized_strings[0x20e]);
+            ShowNotice(palette, g_localized_strings[0x20e]);
         } else if (report->count == 1) {
-            PostCharacterNotice(party_slot,
-                                fmt::sprintf(g_localized_strings[0x265], report->amount));
+            post(fmt::sprintf(g_localized_strings[0x265], report->amount));
         } else if (report->count > 1) {
-            PostCharacterNotice(party_slot, fmt::sprintf(g_localized_strings[0x266], report->count,
-                                                         report->amount));
+            post(fmt::sprintf(g_localized_strings[0x266], report->count, report->amount));
         }
-        if (report->notice_values[3] > 0) {
-            PostCharacterNotice(party_slot,
-                                fmt::sprintf(g_localized_strings[0x267], report->notice_values[3]));
-        }
-        if (report->notice_values[4] > 0) {
-            PostCharacterNotice(party_slot,
-                                fmt::sprintf(g_localized_strings[0x268], report->notice_values[4]));
-        }
+    }
+    postNoticeValue(3, 0x267);
+    postNoticeValue(4, 0x268);
+
+    if (report->condition_counts[W8_CONDITION_DEAD] == 0) {
+        W8MonsterInfo* target_monster = nullptr;
+        w8_unaligned_uint* condition_turns;
         if (report->target.iType == W8_TARGET_KIND_MONSTER) {
-            monster_info =
-                MonsterInfoFromID(0x68c, COMBAT_ATTACK_CPP, report->target.iMonsterID, true);
-            condition_turns = monster_info->uiCondition;
+            target_monster = MonsterInfoFromID(monster_attacker ? 0x9f5 : 0x68c,
+                                               COMBAT_ATTACK_CPP, report->target.iMonsterID, true);
+            condition_turns = target_monster->uiCondition;
         } else {
             condition_turns = g_status.buffers.Char[report->target.iChar].uiCondition;
         }
         if (condition_turns[W8_CONDITION_DEAD] == 0) {
-            if (report->notice_values[0] > 0) {
-                ShowNotice(W8_FONT_PALETTE_WHITE,
-                           fmt::sprintf(g_localized_strings[0x1a6], report->notice_values[0]));
+            for (int index = 0; index < 3; ++index) {
+                static constexpr int text_ids[] = {0x1a6, 0x264, 0x261};
+                if (report->notice_values[index] > 0)
+                    ShowNotice(palette, fmt::sprintf(g_localized_strings[text_ids[index]],
+                                                     report->notice_values[index]));
             }
-            if (report->notice_values[1] > 0) {
-                ShowNotice(W8_FONT_PALETTE_WHITE,
-                           fmt::sprintf(g_localized_strings[0x264], report->notice_values[1]));
+            if (!monster_attacker && report->notice_values[5] > 0) {
+                const W8Character& character = g_status.buffers.Char[party_slot];
+                if (character.hp_current == static_cast<unsigned int>(character.uiHPMax))
+                    post(g_localized_strings[0x258]);
+                else
+                    post(fmt::sprintf(g_localized_strings[0x25a], report->notice_values[5]));
             }
-            if (report->notice_values[2] > 0) {
-                ShowNotice(W8_FONT_PALETTE_WHITE,
-                           fmt::sprintf(g_localized_strings[0x261], report->notice_values[2]));
-            }
-            if (report->notice_values[5] > 0) {
-                if (g_status.buffers.Char[party_slot].hp_current ==
-                    static_cast<unsigned int>(g_status.buffers.Char[party_slot].uiHPMax)) {
-                    PostCharacterNotice(party_slot, g_localized_strings[0x258]);
-                } else {
-                    PostCharacterNotice(party_slot, fmt::sprintf(g_localized_strings[0x25a],
-                                                                 report->notice_values[5]));
+            for (unsigned int condition = 0; condition < W8_CONDITION_COUNT; ++condition) {
+                if (report->condition_counts[condition] == 0 || condition == W8_CONDITION_DRAINED)
+                    continue;
+                if (condition == W8_CONDITION_MISSING) {
+                    if (monster_attacker && report->target.iType == W8_TARGET_KIND_CHARACTER &&
+                        GetConditionRecordFlag(report->target.iChar, W8_DEPENDENCE_SWALLOWED))
+                        PostCharacterNotice(report->target.iChar, g_localized_strings[0x1d5]);
+                    continue;
                 }
-            }
-            for (condition = 0; condition < W8_CONDITION_COUNT; ++condition) {
-                if (report->condition_counts[condition] > 0 && condition != W8_CONDITION_DRAINED &&
-                    condition != W8_CONDITION_MISSING) {
-                    AnnounceCombatTargetCondition(report, condition, monster_info);
-                }
+                AnnounceCombatTargetCondition(report, condition, target_monster);
             }
         }
     }
     DrainCombatDeathReports(report);
+}
+
+void ReportCharacterAttackResult(int party_slot, W8SpellEffectResult* report)
+{
+    ReportAttackResult(party_slot, nullptr, report);
 }
 
 static int GetCombatFumbleChance(const std::vector<W8CombatSlot>& targets, int attack_score)
@@ -2038,77 +2036,7 @@ invalid_target:
 // FUNCTION: WIZ8 0x005412b0
 void ReportMonsterAttackResult(W8MonsterInfo* monster_info, W8SpellEffectResult* report)
 {
-    w8_unaligned_uint* condition_turns;
-    unsigned int condition;
-
-    if (report->condition_counts[W8_CONDITION_DEAD] > 0) {
-        if (report->notice_values[3] > 0) {
-            PostMonsterNotice(monster_info,
-                              fmt::sprintf(g_localized_strings[0x267], report->notice_values[3]));
-        }
-        if (report->notice_values[4] > 0) {
-            PostMonsterNotice(monster_info,
-                              fmt::sprintf(g_localized_strings[0x268], report->notice_values[4]));
-        }
-    } else {
-        if (report->count == 0) {
-            if (report->missed) {
-                ShowNotice(W8_FONT_PALETTE_RUST, g_localized_strings[0x20b]);
-                return;
-            }
-            ShowNotice(W8_FONT_PALETTE_RUST, g_localized_strings[0x209]);
-            return;
-        }
-        if (report->amount == 0) {
-            ShowNotice(W8_FONT_PALETTE_RUST, g_localized_strings[0x20e]);
-        } else if (report->count == 1) {
-            PostMonsterNotice(monster_info,
-                              fmt::sprintf(g_localized_strings[0x265], report->amount));
-        } else if (report->count > 1) {
-            PostMonsterNotice(monster_info, fmt::sprintf(g_localized_strings[0x266], report->count,
-                                                         report->amount));
-        }
-        if (report->notice_values[3] > 0) {
-            PostMonsterNotice(monster_info,
-                              fmt::sprintf(g_localized_strings[0x267], report->notice_values[3]));
-        }
-        if (report->notice_values[4] > 0) {
-            PostMonsterNotice(monster_info,
-                              fmt::sprintf(g_localized_strings[0x268], report->notice_values[4]));
-        }
-        if (report->target.iType == W8_TARGET_KIND_MONSTER) {
-            monster_info =
-                MonsterInfoFromID(0x9f5, COMBAT_ATTACK_CPP, report->target.iMonsterID, true);
-            condition_turns = monster_info->uiCondition;
-        } else {
-            condition_turns = g_status.buffers.Char[report->target.iChar].uiCondition;
-        }
-        if (condition_turns[W8_CONDITION_DEAD] == 0) {
-            if (report->notice_values[0] > 0) {
-                ShowNotice(W8_FONT_PALETTE_RUST,
-                           fmt::sprintf(g_localized_strings[0x1a6], report->notice_values[0]));
-            }
-            if (report->notice_values[1] > 0) {
-                ShowNotice(W8_FONT_PALETTE_RUST,
-                           fmt::sprintf(g_localized_strings[0x264], report->notice_values[1]));
-            }
-            if (report->notice_values[2] > 0) {
-                ShowNotice(W8_FONT_PALETTE_RUST,
-                           fmt::sprintf(g_localized_strings[0x261], report->notice_values[2]));
-            }
-            for (condition = 0; condition < W8_CONDITION_COUNT; ++condition) {
-                if (report->condition_counts[condition] > 0 && condition != W8_CONDITION_DRAINED) {
-                    if (condition == W8_CONDITION_MISSING) {
-                        if (report->target.iType == W8_TARGET_KIND_CHARACTER &&
-                            GetConditionRecordFlag(report->target.iChar, W8_DEPENDENCE_SWALLOWED)) {
-                            PostCharacterNotice(report->target.iChar, g_localized_strings[0x1d5]);
-                        }
-                    } else AnnounceCombatTargetCondition(report, condition, monster_info);
-                }
-            }
-        }
-    }
-    DrainCombatDeathReports(report);
+    ReportAttackResult(-1, monster_info, report);
 }
 
 /* Begin one of the monster's attacks for the round: validate the state, rate
