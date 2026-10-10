@@ -56,7 +56,7 @@ static std::vector<unsigned int> ReadFrame()
 
 static void SaveFrame(const char* path, const std::vector<unsigned int>& pixels)
 {
-    auto output = wiz8::open_host_file(path, wiz8::OpenMode::replace);
+    auto output = wiz8::open_host_file(wiz8::path_from_utf8(path), wiz8::OpenMode::replace);
     CHECK(output);
     char header[80];
     const int count = snprintf(header, sizeof(header), "P6\n%d %d\n255\n", SCREEN_WIDTH, SCREEN_HEIGHT);

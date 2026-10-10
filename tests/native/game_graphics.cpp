@@ -137,7 +137,8 @@ int main(int argc, char** argv)
             }
         if (argc > 2)
         {
-            auto output = wiz8::open_host_file(argv[2], wiz8::OpenMode::replace);
+            auto output = wiz8::open_host_file(wiz8::path_from_utf8(argv[2]),
+                                              wiz8::OpenMode::replace);
             CHECK(output);
             output->write("P6\n640 480\n255\n", 15);
             for (int y = 0; y < 480; ++y)
