@@ -1,6 +1,8 @@
 #include <fmt/format.h>
 #include <fmt/printf.h>
 #include "wiz8/fonts.h"
+#include "wiz8/local_screens/MGSTextBox.h"
+#include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/local_code/Gameloop.h"
 #include "wiz8/local_screens/Screens.h"
 #include "wiz8/local_screens/ReviewCharacterScreen.h"
@@ -724,6 +726,27 @@ void generic_button_images()
     SetFont(0);
     DrawFontTextToBuffer(reinterpret_cast<UINT8*>(view_pixels.data()), 128, 1, 0, 0, "é中");
     CHECK(view_pixels == expected_pixels);
+    // Rebuilding word ranges preserves UTF-8 byte boundaries and discards
+    // old hover state, including when a line becomes empty.
+    auto level = std::make_unique<W8LevelRuntimeBlock>();
+    auto* previous_level = g_level_block;
+    g_level_block = level.get();
+    level->text_box_font = 0;
+    W8MessageStorageRecord words{};
+    words.text = "  é 中  ";
+    words.RebuildEntries();
+    CHECK(words.entries.size() == 2);
+    CHECK(words.entries[0].start == 2 && words.entries[0].end == 3);
+    CHECK(words.entries[1].start == 5 && words.entries[1].end == 7);
+    CHECK(words.entries[1].x_start == StringPixLength("  é ", 0));
+    words.entries[0].keyword = W8_NOTICE_WORD_SELECTED;
+    words.text = "中";
+    words.RebuildEntries();
+    CHECK(words.entries.size() == 1 && words.entries[0].keyword == W8_NOTICE_WORD_NORMAL);
+    words.text.clear();
+    words.RebuildEntries();
+    CHECK(words.entries.empty());
+    g_level_block = previous_level;
     g_font12point1 = 0;
     MSYS_Init();
     InitTextInputMode();

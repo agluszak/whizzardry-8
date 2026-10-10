@@ -109,36 +109,23 @@ W8MessageStorageRecord g_message_storage[4][0x15e];
 static void AppendNoticeLine(unsigned char font_palette, std::string_view text, short text_box,
                              int wrapped_line);
 
+// Rebuild byte ranges and pixel hit boxes when the text or font changes.
 // FUNCTION: WIZ8 0x0058fdd0
-static int GetNextNoticeWord(int cursor, std::string_view value, W8NoticeWord* word)
-{
-    while (static_cast<std::size_t>(cursor) < value.size() && value[cursor] == ' ') {
-        ++cursor;
-    }
-    if (static_cast<std::size_t>(cursor) >= value.size()) {
-        return -1;
-    }
-    const auto start = static_cast<std::size_t>(cursor);
-    auto end = value.find(' ', start);
-    if (end == std::string_view::npos) end = value.size();
-    word->start = start;
-    word->end = end - 1;
-    word->x_start = StringPrefixPixelWidth(value, start, g_level_block->text_box_font);
-    word->x_end = word->x_start + StringPixLength(value.substr(start, end - start),
-                                                g_level_block->text_box_font);
-    return static_cast<int>(end);
-}
-
-/* Rebuild every stored line's word list from its string - used when the text
-   box geometry or font metrics change and the per-word hit ranges must be
-   recomputed without dropping the lines themselves. */
 void W8MessageStorageRecord::RebuildEntries()
 {
     entries.clear();
-    int cursor = 0;
-    W8NoticeWord word{};
-    while ((cursor = GetNextNoticeWord(cursor, text, &word)) != -1) {
-        entries.push_back(word);
+    const std::string_view value = text;
+    for (auto start = value.find_first_not_of(' '); start != value.npos;
+         start = value.find_first_not_of(' ', start)) {
+        auto end = value.find(' ', start);
+        if (end == value.npos)
+            end = value.size();
+        const auto x = StringPrefixPixelWidth(value, start, g_level_block->text_box_font);
+        const auto width =
+            StringPixLength(value.substr(start, end - start), g_level_block->text_box_font);
+        entries.push_back(
+            {start, end - 1, x, static_cast<short>(x + width), W8_NOTICE_WORD_NORMAL, false});
+        start = end;
     }
 }
 
