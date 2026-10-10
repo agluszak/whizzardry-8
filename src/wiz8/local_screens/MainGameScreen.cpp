@@ -6889,10 +6889,10 @@ bool IsMGSActionKeyEnabled(unsigned short command)
     if (gXStatus.fSurprisePossible || gXStatus.fCampMode) {
         return false;
     }
-    if (!gXStatus.fCombatMode) {
-        switch (command) {
-        case W8_MGS_ACTION_JOURNAL:
-            return true;
+    if (gXStatus.fCombatMode && !g_combat_state->round_active) {
+        return false;
+    }
+    switch (command) {
         case W8_MGS_ACTION_USE_ITEM_VIEW:
             state = GetSubMenuEntryState(W8_SUBMENU_ITEMS, 1, g_status.selected_character);
             break;
@@ -6905,28 +6905,13 @@ bool IsMGSActionKeyEnabled(unsigned short command)
         case W8_MGS_ACTION_CAST_RECORDED_SPELL:
             state = GetSubMenuEntryState(W8_SUBMENU_SPELLS, 1, g_status.selected_character);
             break;
-        default:
-            return false;
-        }
-    } else {
-        if (!g_combat_state->round_active) {
-            return false;
+    default:
+        if (!gXStatus.fCombatMode) {
+            return command == W8_MGS_ACTION_JOURNAL;
         }
         switch (command) {
         case W8_MGS_ACTION_JOURNAL:
             return false;
-        case W8_MGS_ACTION_USE_ITEM_VIEW:
-            state = GetSubMenuEntryState(W8_SUBMENU_ITEMS, 1, g_status.selected_character);
-            break;
-        case W8_MGS_ACTION_USE_RECORDED_ITEM:
-            state = GetSubMenuEntryState(W8_SUBMENU_ITEMS, 2, g_status.selected_character);
-            break;
-        case W8_MGS_ACTION_SPELL_VIEW:
-            state = GetSubMenuEntryState(W8_SUBMENU_SPELLS, 0, g_status.selected_character);
-            break;
-        case W8_MGS_ACTION_CAST_RECORDED_SPELL:
-            state = GetSubMenuEntryState(W8_SUBMENU_SPELLS, 1, g_status.selected_character);
-            break;
         case W8_MGS_ACTION_BREATHE:
             state = GetSubMenuEntryState(W8_SUBMENU_ATTACK, 2, g_status.selected_character);
             break;
