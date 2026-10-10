@@ -31,6 +31,7 @@
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/local_code/Combat.h"
+#include "wiz8/local_code/Configuration.h"
 #include "wiz8/local_code/GameplayCode.h"
 #include "wiz8/local_code/GameplayInit.h"
 #include "wiz8/local_code/Gameloop.h"
@@ -613,9 +614,12 @@ void ExpectAt(const char* step, const srVector3T<float>& expected)
 
 /* --- Scenarios ----------------------------------------------------------- */
 
-void VideoScenario()
+void VideoScenario(bool intro_seen)
 {
     Game game(true);
+    // The asset root can contain a returning player's Wiz8.CFG.
+    // Set the scenario explicitly after startup loads that configuration.
+    g_settings.intro_seen = intro_seen;
     // The startup logo movie plays on the intro screen.
     game.wait("logo", [] { return g_runtime_test_hooks.movie_frames_presented >= 1; });
     REQUIRE("logo", g_current_screen_state.id == W8_SCREEN_INTRO);
@@ -628,15 +632,20 @@ void VideoScenario()
         return lit > 1000;
     });
     const unsigned logo_frames = g_runtime_test_hooks.movie_frames_presented;
-    // Escape moves on to the title movie, which also plays...
     game.key(SDLK_ESCAPE);
-    game.wait("title", [&] {
-        return g_runtime_test_hooks.movie_frames_presented >= logo_frames + 5;
-    });
-    REQUIRE("title", g_current_screen_state.id == W8_SCREEN_INTRO);
-    // ...and Escape again leaves for the main menu.
-    game.key(SDLK_ESCAPE);
+    if (!intro_seen)
+    {
+        // On a first launch, skipping the logo starts the title movie.
+        game.wait("title", [&] {
+            return g_runtime_test_hooks.movie_frames_presented >= logo_frames + 5;
+        });
+        REQUIRE("title", g_current_screen_state.id == W8_SCREEN_INTRO);
+        game.key(SDLK_ESCAPE);
+    }
     game.wait_screen("main-menu", W8_SCREEN_MAIN_MENU);
+    REQUIRE("main-menu", g_settings.intro_seen);
+    if (intro_seen)
+        REQUIRE("skip-title", g_runtime_test_hooks.movie_frames_presented == logo_frames);
     std::printf("video: %u movie frames presented\n", g_runtime_test_hooks.movie_frames_presented);
 }
 
@@ -870,7 +879,7 @@ int main(int argc, char** argv)
     if (argc < 2)
     {
         std::fprintf(stderr,
-                     "usage: %s video|character|game-start|world|quick-save|combat\n"
+                     "usage: %s video|video-seen|character|game-start|world|quick-save|combat\n"
                      "       %s save-fixture|load-game FIXTURE_DIR\n",
                      argv[0], argv[0]);
         return 2;
@@ -879,7 +888,9 @@ int main(int argc, char** argv)
     try
     {
         if (scenario == "video")
-            VideoScenario();
+            VideoScenario(false);
+        else if (scenario == "video-seen")
+            VideoScenario(true);
         else if (scenario == "character")
             CharacterScenario();
         else if (scenario == "game-start")
