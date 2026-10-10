@@ -975,6 +975,7 @@ struct SaveFixture
     SaveFixture()
     {
         std::filesystem::create_directories(assets);
+        std::filesystem::create_directories(user / "Data");
         std::filesystem::create_directories(user / "Saves");
         w8_native::configure_paths(
             {wiz8::path_to_utf8(assets), wiz8::path_to_utf8(user), {"", "", ""}});
