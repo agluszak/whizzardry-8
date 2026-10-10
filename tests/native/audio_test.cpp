@@ -596,6 +596,7 @@ TEST_CASE_METHOD(AudioFixture, "Audio output device", "[.manual][audio]")
 
 TEST_CASE_METHOD(AudioFixture, "Audio clips outlive cache entries without slot reuse", "[audio][ownership]")
 {
+    startOfflineAudio();
     std::vector<SoundClip> clips;
     for (unsigned i = 0; i < 140; ++i) {
         auto name = "clip" + std::to_string(i) + ".wav";
@@ -630,6 +631,7 @@ TEST_CASE_METHOD(AudioFixture, "Audio clips outlive cache entries without slot r
 
 TEST_CASE_METHOD(AudioFixture, "Owned clips retain the mixer across sound shutdown", "[audio][ownership]")
 {
+    startOfflineAudio();
     char path[] = "tone.wav";
     auto clip = SoundLoadSample(path);
     REQUIRE(clip);
@@ -643,6 +645,7 @@ TEST_CASE_METHOD(AudioFixture, "Owned clips retain the mixer across sound shutdo
 
 TEST_CASE_METHOD(AudioFixture, "Playback references never alias replacement tracks", "[audio][ownership]")
 {
+    startOfflineAudio();
     char path[] = "tone.wav";
     SOUNDPARMS options;
     memset(&options, 0xff, sizeof(options));
@@ -668,6 +671,7 @@ TEST_CASE_METHOD(AudioFixture, "Playback references never alias replacement trac
 
 TEST_CASE_METHOD(AudioFixture, "Mixer service owns discarded playback until completion", "[audio][ownership]")
 {
+    startOfflineAudio();
     char path[] = "tone.wav";
     std::weak_ptr<AudioPlayback> lifetime;
     {
@@ -684,6 +688,7 @@ TEST_CASE_METHOD(AudioFixture, "Mixer service owns discarded playback until comp
 
 TEST_CASE_METHOD(AudioFixture, "Playback completion permits stop and shutdown reentry", "[audio][ownership]")
 {
+    startOfflineAudio();
     struct Context {
         SoundPlayback other;
         unsigned calls = 0;
