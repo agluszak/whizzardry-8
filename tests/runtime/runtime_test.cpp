@@ -720,7 +720,7 @@ void ResourceLifecycleScenario()
     Game game(false);
     StartPremadeGame(game);
     const int level = g_status.current_level;
-    const auto anchor = PartyPosition();
+    const auto anchor = Walk(game, "settle-before-save", 2.0f);
     QuickSave(game);
     for (int cycle = 0; cycle != 2; ++cycle) {
         auto* world = GetWorld();
