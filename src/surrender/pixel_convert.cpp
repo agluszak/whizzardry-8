@@ -1,4 +1,8 @@
 #include "surrender/srPixelConvert.h"
+#include <SDL3/SDL_surface.h>
+#include <limits>
+#include <stdexcept>
+#include <vector>
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -1237,32 +1241,37 @@ void __cdecl readRGB(const srPixelConvert::ConversionInfo& info)
    converter does not fit the generic kernels: the 8-bit indexed pair
    delegates to the vector processor copy, the 32-bit color-keyed formats
    mask through _and/_or, and the packed formats run dedicated loops. */
+static void convertByteChannels(const srPixelConvert::ConversionInfo& info,
+                                SDL_PixelFormat sourceFormat, SDL_PixelFormat destFormat)
+{
+    if (!info.count)
+        return;
+    if (info.count > static_cast<w8_ulong>(std::numeric_limits<int>::max() / 4))
+        throw std::length_error("Pixel conversion row is too large");
+    const int sourcePitch = int(info.count) * SDL_BYTESPERPIXEL(sourceFormat);
+    const int destPitch = int(info.count) * SDL_BYTESPERPIXEL(destFormat);
+    std::vector<unsigned char> snapshot;
+    const void* source = info.source;
+    if (info.dest == info.source) {
+        const auto* bytes = static_cast<const unsigned char*>(source);
+        snapshot.assign(bytes, bytes + sourcePitch);
+        source = snapshot.data();
+    }
+    if (!SDL_ConvertPixels(int(info.count), 1, sourceFormat, source, sourcePitch,
+                           destFormat, info.dest, destPitch))
+        throw std::runtime_error(SDL_GetError());
+}
+
 // FUNCTION: SURRENDER 0x1000A8C0
 void __cdecl writeRGB24(const srPixelConvert::ConversionInfo& info)
 {
-    unsigned char* dest = static_cast<unsigned char*>(info.dest);
-    const w8_ulong* source = static_cast<const w8_ulong*>(info.source);
-    for (w8_ulong i = info.count; i > 0; i--) {
-        w8_ulong pixel = *source++;
-        dest[0] = static_cast<unsigned char>(pixel >> 16);
-        dest[1] = static_cast<unsigned char>(pixel >> 8);
-        dest[2] = static_cast<unsigned char>(pixel);
-        dest += 3;
-    }
+    convertByteChannels(info, SDL_PIXELFORMAT_ARGB8888, SDL_PIXELFORMAT_RGB24);
 }
 
 // FUNCTION: SURRENDER 0x1000A900
 void __cdecl readRGB24(const srPixelConvert::ConversionInfo& info)
 {
-    w8_ulong* dest = static_cast<w8_ulong*>(info.dest);
-    const unsigned char* source = static_cast<const unsigned char*>(info.source);
-    for (w8_ulong i = info.count; i > 0; i--) {
-        w8_ulong pixel = source[0] | 0xffffff00;
-        pixel = pixel << 8 | source[1];
-        pixel = pixel << 8 | source[2];
-        *dest++ = pixel;
-        source += 3;
-    }
+    convertByteChannels(info, SDL_PIXELFORMAT_RGB24, SDL_PIXELFORMAT_ARGB8888);
 }
 
 /* format_table[srPixelConvert::SURFACE_BGRA32] write/read: straight dword copy for BGRA32. */
@@ -1301,43 +1310,13 @@ void __cdecl readBGRX(const srPixelConvert::ConversionInfo& info)
 // FUNCTION: SURRENDER 0x1000AA10
 void __cdecl writeABGR(const srPixelConvert::ConversionInfo& info)
 {
-    w8_ulong* dest = static_cast<w8_ulong*>(info.dest);
-    const w8_ulong* source = static_cast<const w8_ulong*>(info.source);
-    w8_ulong i = 0;
-    for (; i + 8 <= info.count; i += 8) {
-        dest[i] = source[i] << 8 | source[i] >> 24;
-        dest[i + 1] = source[i + 1] << 8 | source[i + 1] >> 24;
-        dest[i + 2] = source[i + 2] << 8 | source[i + 2] >> 24;
-        dest[i + 3] = source[i + 3] << 8 | source[i + 3] >> 24;
-        dest[i + 4] = source[i + 4] << 8 | source[i + 4] >> 24;
-        dest[i + 5] = source[i + 5] << 8 | source[i + 5] >> 24;
-        dest[i + 6] = source[i + 6] << 8 | source[i + 6] >> 24;
-        dest[i + 7] = source[i + 7] << 8 | source[i + 7] >> 24;
-    }
-    for (; i < info.count; i++) {
-        dest[i] = source[i] << 8 | source[i] >> 24;
-    }
+    convertByteChannels(info, SDL_PIXELFORMAT_ARGB8888, SDL_PIXELFORMAT_RGBA8888);
 }
 
 // FUNCTION: SURRENDER 0x1000AB70
 void __cdecl readABGR(const srPixelConvert::ConversionInfo& info)
 {
-    w8_ulong* dest = static_cast<w8_ulong*>(info.dest);
-    const w8_ulong* source = static_cast<const w8_ulong*>(info.source);
-    w8_ulong i = 0;
-    for (; i + 8 <= info.count; i += 8) {
-        dest[i] = source[i] << 24 | source[i] >> 8;
-        dest[i + 1] = source[i + 1] << 24 | source[i + 1] >> 8;
-        dest[i + 2] = source[i + 2] << 24 | source[i + 2] >> 8;
-        dest[i + 3] = source[i + 3] << 24 | source[i + 3] >> 8;
-        dest[i + 4] = source[i + 4] << 24 | source[i + 4] >> 8;
-        dest[i + 5] = source[i + 5] << 24 | source[i + 5] >> 8;
-        dest[i + 6] = source[i + 6] << 24 | source[i + 6] >> 8;
-        dest[i + 7] = source[i + 7] << 24 | source[i + 7] >> 8;
-    }
-    for (; i < info.count; i++) {
-        dest[i] = source[i] << 24 | source[i] >> 8;
-    }
+    convertByteChannels(info, SDL_PIXELFORMAT_RGBA8888, SDL_PIXELFORMAT_ARGB8888);
 }
 
 /* format_table[srPixelConvert::SURFACE_RGB555] write/read: 32-bit BGRA packed to RGB555 through the
@@ -1370,6 +1349,12 @@ void __cdecl writeRGB555(const srPixelConvert::ConversionInfo& info)
 }
 
 // FUNCTION: SURRENDER 0x1000AE80
+static unsigned char expandRGB555Red(w8_ulong word)
+{
+    const auto index = word >> 10;
+    return index < 32 ? lutExpand5And6.expand32[index] : lutExpand5And6.expand64[index - 32];
+}
+
 void __cdecl readRGB555(const srPixelConvert::ConversionInfo& info)
 {
     w8_ulong* dest = static_cast<w8_ulong*>(info.dest);
@@ -1377,25 +1362,25 @@ void __cdecl readRGB555(const srPixelConvert::ConversionInfo& info)
     w8_ulong i = 0;
     for (; i < (info.count & ~3UL); i += 4) {
         w8_ulong pixel = source[i];
-        dest[i] = 0xff000000 | lutExpand5And6.expand32[pixel >> 10] << 16 |
+        dest[i] = 0xff000000 | expandRGB555Red(pixel) << 16 |
                   lutExpand5And6.expand32[pixel >> 5 & 0x1f] << 8 |
                   lutExpand5And6.expand32[pixel & 0x1f];
         pixel = source[i + 1];
-        dest[i + 1] = 0xff000000 | lutExpand5And6.expand32[pixel >> 10] << 16 |
+        dest[i + 1] = 0xff000000 | expandRGB555Red(pixel) << 16 |
                       lutExpand5And6.expand32[pixel >> 5 & 0x1f] << 8 |
                       lutExpand5And6.expand32[pixel & 0x1f];
         pixel = source[i + 2];
-        dest[i + 2] = 0xff000000 | lutExpand5And6.expand32[pixel >> 10] << 16 |
+        dest[i + 2] = 0xff000000 | expandRGB555Red(pixel) << 16 |
                       lutExpand5And6.expand32[pixel >> 5 & 0x1f] << 8 |
                       lutExpand5And6.expand32[pixel & 0x1f];
         pixel = source[i + 3];
-        dest[i + 3] = 0xff000000 | lutExpand5And6.expand32[pixel >> 10] << 16 |
+        dest[i + 3] = 0xff000000 | expandRGB555Red(pixel) << 16 |
                       lutExpand5And6.expand32[pixel >> 5 & 0x1f] << 8 |
                       lutExpand5And6.expand32[pixel & 0x1f];
     }
     for (; i < info.count; i++) {
         w8_ulong pixel = source[i];
-        dest[i] = 0xff000000 | lutExpand5And6.expand32[pixel >> 10] << 16 |
+        dest[i] = 0xff000000 | expandRGB555Red(pixel) << 16 |
                   lutExpand5And6.expand32[pixel >> 5 & 0x1f] << 8 |
                   lutExpand5And6.expand32[pixel & 0x1f];
     }
