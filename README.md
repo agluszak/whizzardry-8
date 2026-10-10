@@ -125,6 +125,20 @@ The world harness accepts additional `save`, `kill` and `angles` modes for
 its respective focused checks. The movie fixture can be regenerated with
 `tests/native/generate_movie.sh`.
 
+## Formatting
+
+The project uses clang-format 21 and the root `.clang-format` configuration.
+On a feature branch, format the changed C and C++ lines without touching
+unrelated recovered code:
+
+```sh
+git clang-format-21 --binary clang-format-21 main -- include src tests
+```
+
+For a complete reformat of one file, run `clang-format-21 -i path/to/file.cpp`.
+CI checks formatting of changed lines only; existing files do not require a
+mass reformat.
+
 ## Source and format conventions
 
 Use `std::string` for owning text (UTF-8 for Unicode), `std::string_view` for
