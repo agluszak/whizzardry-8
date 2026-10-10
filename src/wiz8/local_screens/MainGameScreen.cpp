@@ -4469,7 +4469,6 @@ static int MeasurePortraitConditions(const W8Character* character, unsigned int&
                 fmt::format("{}", g_localized_strings[g_condition_notices[condition].name]);
             int width = StringPixLength(g_level_block->text_paint_scratch, g_wiz_text_font);
             if (max_width < static_cast<unsigned int>(width)) {
-                width = StringPixLength(g_level_block->text_paint_scratch, g_wiz_text_font);
                 max_width = width;
             }
         }
@@ -4494,7 +4493,6 @@ static int MeasurePortraitEnchantments(const W8Character* character, unsigned in
                             character->enchantments[slot].power);
             int width = StringPixLength(g_level_block->text_paint_scratch, g_wiz_text_font);
             if (max_width < static_cast<unsigned int>(width)) {
-                width = StringPixLength(g_level_block->text_paint_scratch, g_wiz_text_font);
                 max_width = width;
             }
         }
