@@ -164,19 +164,8 @@ void BuildCharacterFilePath(char* destination, const char* filename, int slot)
 // FUNCTION: WIZ8 0x00514ec0
 void BuildCharacterPath(char* destination, const wchar_t* name, int slot)
 {
-    char filename[16];
-    char directory[260];
-
-    sprintf(filename, "%ls.%s", name, "CHR");
-    if (!g_status.game_started) {
-        strcpy(directory, slot == -1 ? "Saves\\Characters" : "Saves\\NPCs");
-    } else if (slot == -1 || g_status.flags[slot]) {
-        strcpy(destination, filename);
-        return;
-    } else {
-        strcpy(directory, "Saves\\NPCs");
-    }
-    sprintf(destination, "%s\\%s", directory, filename);
+    const std::string filename = std::string(ConvertWideStringToString(name)) + ".CHR";
+    BuildCharacterFilePath(destination, filename.c_str(), slot);
 }
 
 /* Loads one character record, either from a loose file under Saves\Characters
@@ -1500,11 +1489,8 @@ bool SaveGameExists(void)
    record is written as a four-byte length followed by that many bytes, which is
    the pair LoadCharacter reads back.
 
-   The two directory spellings do not share a sprintf the way LoadCharacter's do:
-   with characters loose, the NPC path is copied whole because the name already
-   carries no directory, while the other two arms format one. An existing
-   read-only file has its attribute cleared first, and a failure to clear it is
-   treated exactly like a failure to open.
+   An existing read-only file has its attribute cleared first, and a failure to
+   clear it is treated exactly like a failure to open.
 
    Failure reporting has two shapes. With report_failure set the caller gets the
    save-failed notice and the continuation is dropped; without it the
@@ -1513,24 +1499,14 @@ bool SaveGameExists(void)
 bool SaveCharacter(W8Character* character, int slot, bool report_failure,
                    void (*continuation)(void))
 {
-    char file_name[16];
     char path[260];
-    char directory[260];
     bool saved = true;
     unsigned int size;
     unsigned int transferred;
     int handle;
 
     character->record_version = 1;
-    sprintf(file_name, "%ls.%s", character->name, "CHR");
-    if (!g_status.game_started) {
-        strcpy(directory, slot != -1 ? "Saves\\NPCs" : "Saves\\Characters");
-        sprintf(path, "%s\\%s", directory, file_name);
-    } else if (slot == -1 || g_status.flags[slot] != 0) {
-        strcpy(path, file_name);
-    } else {
-        sprintf(path, "%s\\%s", "Saves\\NPCs", file_name);
-    }
+    BuildCharacterPath(path, character->name, slot);
 
     if (!g_status.game_started) {
         if (FileExists(path) && (FileGetAttributes(path) & FILE_IS_READONLY) != 0 &&

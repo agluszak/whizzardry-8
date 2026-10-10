@@ -49,6 +49,63 @@ static wiz8::DiskFileTime disk_time(const SGP_FILETIME& value)
     return {value.dwLowDateTime, value.dwHighDateTime};
 }
 
+static void character_file_contracts(const std::filesystem::path& assets,
+                                     const std::filesystem::path& user)
+{
+    g_status.game_started = false;
+    for (const wchar_t* name : {L"A", L"Vi", L"Sir Bob", L"Ninechars"})
+    {
+        W8Character character = {};
+        wcscpy(character.name, name);
+        character.uiExpLevel = 7;
+        char path[260];
+        BuildCharacterPath(path, name, -1);
+        char stem[10] = {};
+        CHECK(wcstombs(stem, name, sizeof(stem)) == wcslen(name));
+        const std::string filename = std::string(stem) + ".CHR";
+        CHECK(path == std::string("Saves\\Characters\\") + filename);
+        CHECK(SaveCharacter(&character, -1, false, nullptr));
+        CHECK(character.record_version == 1);
+        const auto saved = user / "Saves" / "Characters" / filename;
+        CHECK(std::filesystem::file_size(saved) == 4 + sizeof(character));
+        CHECK(!std::filesystem::exists(assets / "Saves" / "Characters" / filename));
+        std::ifstream encoded(saved, std::ios::binary);
+        unsigned int size = 0;
+        encoded.read(reinterpret_cast<char*>(&size), sizeof(size));
+        CHECK(encoded.good() && size == sizeof(character));
+        encoded.close();
+        W8Character loaded = {};
+        CHECK(LoadCharacter(filename.c_str(), &loaded, -1, false));
+        CHECK(!memcmp(&loaded, &character, sizeof(character)));
+        character.uiExpLevel = 8;
+        CHECK(SaveCharacter(&character, -1, false, nullptr));
+        CHECK(LoadCharacter(filename.c_str(), &loaded, -1, false));
+        CHECK(!memcmp(&loaded, &character, sizeof(character)));
+    }
+
+    W8Character npc = {};
+    wcscpy(npc.name, L"Vi");
+    char path[260];
+    BuildCharacterPath(path, npc.name, 0);
+    CHECK(!strcmp(path, "Saves\\NPCs\\Vi.CHR"));
+    CHECK(SaveCharacter(&npc, 0, false, nullptr));
+    W8Character loaded = {};
+    CHECK(LoadCharacter("Vi.CHR", &loaded, 0, false));
+    CHECK(!memcmp(&loaded, &npc, sizeof(npc)));
+
+    g_status.game_started = true;
+    g_status.flags[0] = 0;
+    BuildCharacterPath(path, npc.name, 0);
+    CHECK(!strcmp(path, "Saves\\NPCs\\Vi.CHR"));
+    g_status.flags[0] = 1;
+    BuildCharacterPath(path, npc.name, 0);
+    CHECK(!strcmp(path, "Vi.CHR"));
+    BuildCharacterPath(path, npc.name, -1);
+    CHECK(!strcmp(path, "Vi.CHR"));
+    g_status.flags[0] = 0;
+    g_status.game_started = false;
+}
+
 static void keyword_file_contracts()
 {
     wiz8::create_directory("Data/Strings");
@@ -282,6 +339,7 @@ int main()
         ReleaseNpcStates();
     }
     g_npc_records = nullptr;
+    character_file_contracts(assets, user);
     // NSF pointer words are presence markers too. Include empty strings and
     // zero-count arrays carrying a word that collides with a runtime handle.
     const auto script_path = user / "Saves" / "dialogue.nsf";
