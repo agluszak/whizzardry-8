@@ -55,6 +55,10 @@ public:
     File(const File&) = delete;
     File& operator=(const File&) = delete;
 
+    // Borrowed SDL stream; shares this File's cursor and lifetime. Do not close it.
+    // Archive entries expose a bounded, read-only SDL stream.
+    SDL_IOStream* io() const;
+
     ReadResult read(void* data, std::size_t bytes);
     void read_exact(void* data, std::size_t bytes);
     void write(const void* data, std::size_t bytes);

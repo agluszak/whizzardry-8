@@ -1,4 +1,5 @@
-#include "image_stream.h"
+#include "image_helpers.h"
+#include "surrender/srIO.h"
 #include "surrender/srImageIO.h"
 #include "surrender/srCore.h"
 #include "surrender/srColorSurface.h"
@@ -58,14 +59,14 @@ struct Input {
         if (count < bytes) *status = SDL_IO_STATUS_EOF;
         return count;
     }
-    IO open()
+    srIO::IO open()
     {
         SDL_IOStreamInterface interface;
         SDL_INIT_INTERFACE(&interface);
         interface.size = size;
         interface.seek = seek;
         interface.read = read;
-        return IO(SDL_OpenIO(&interface, this), SDL_CloseIO);
+        return srIO::own(SDL_OpenIO(&interface, this));
     }
 };
 

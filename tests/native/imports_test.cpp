@@ -1,3 +1,4 @@
+#include "surrender/srIO.h"
 #include "surrender/srMath.h"
 /* Native consumer-side linking and lifetime for the renderer contracts used
    by the game, including compiler-generated members imported on Windows. */
@@ -304,18 +305,28 @@ int main()
         for (auto value : values)
             tree_sampler.insert(value);
         srHuffman::Compressor compressor(tree_sampler);
-        srBinOMStream encoded;
+        auto encoded = srIO::own(SDL_IOFromDynamicMem());
         {
-            srHuffman::BitOStream bits(encoded);
+            srHuffman::BitOStream bits(encoded.get());
             bits.put(compressor.num_symbols, 32);
             bits.put(compressor.code_width, 6);
             bits.put(sizeof(values) / sizeof(values[0]), 32);
             compressor.storeSymbolTable(bits);
             for (auto value : values)
                 compressor.compressSymbol(bits, value);
+            bits.flush();
         }
-        srBinIMStream input(encoded.getPtr(), encoded.getSize());
-        srHuffman::BitIStream bits(input);
+        // Captured from main's pre-consolidation stream/Huffman implementation.
+        const unsigned char golden[] = {
+            0x06,0x00,0x00,0x00,0x60,0x02,0x00,0x00,0x00,0x2e,0x00,0x00,0x00,
+            0x64,0x00,0x00,0x00,0xd0,0x01,0x00,0x00,0xe0,0xff,0xff,0xff,0xbf,
+            0x0d,0x00,0x00,0x00,0x15,0x00,0x00,0x00,0x1e,0xec,0x64
+        };
+        CHECK(SDL_GetIOSize(encoded.get()) == sizeof(golden));
+        CHECK(memcmp(SDL_GetPointerProperty(SDL_GetIOProperties(encoded.get()),
+                     SDL_PROP_IOSTREAM_DYNAMIC_MEMORY_POINTER, nullptr), golden, sizeof(golden)) == 0);
+        auto input = srIO::own(SDL_IOFromConstMem(SDL_GetPointerProperty(SDL_GetIOProperties(encoded.get()), SDL_PROP_IOSTREAM_DYNAMIC_MEMORY_POINTER, nullptr), SDL_GetIOSize(encoded.get())));
+        srHuffman::BitIStream bits(input.get());
         srHuffman::Decompressor decoder(bits);
         CHECK(decoder.getDataCount() == sizeof(values) / sizeof(values[0]));
         for (auto value : values)

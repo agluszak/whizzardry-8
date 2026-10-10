@@ -1,5 +1,3 @@
-#include "surrender/srBinFStream.h"
-#include "surrender/srBinOStream.h"
 #include "surrender/srClipPlane.h"
 #include "surrender/srCore.h"
 #include "surrender/srIlluminator.h"
@@ -30,14 +28,6 @@ template <class T>
 constexpr bool noncopyable = !std::is_copy_constructible_v<T> && !std::is_copy_assignable_v<T>;
 
 static_assert(noncopyable<srVertexPipe>);
-static_assert(noncopyable<srBinIFStream>);
-static_assert(noncopyable<srBinOFStream>);
-static_assert(noncopyable<srBinIOFStream>);
-
-static_assert(std::is_copy_constructible_v<srBinIMStream>);
-static_assert(std::is_copy_assignable_v<srBinIMStream>);
-static_assert(std::is_copy_constructible_v<srBinOMStream>);
-static_assert(std::is_copy_assignable_v<srBinOMStream>);
 static_assert(std::is_destructible_v<srIlluminator>);
 static_assert(std::is_destructible_v<srLight>);
 
@@ -199,18 +189,6 @@ static bool interfaces()
     }
     CHECK(srExit() == 1);
 
-    srBinOMStream stream;
-    stream.putDWord(0x12345678);
-    auto copy = stream;
-    copy.seek(0);
-    copy.putDWord(0x87654321);
-    srBinIMStream original(stream.getPtr(), stream.getSize());
-    CHECK(original.getDWord() == 0x12345678);
-    srBinOMStream assigned;
-    assigned = copy;
-    srBinIMStream input(assigned.getPtr(), assigned.getSize());
-    auto borrowed = input;
-    CHECK(borrowed.getDWord() == 0x87654321 && input.tell() == 0);
     return true;
 }
 

@@ -1,5 +1,4 @@
-#include "surrender/srBinIStream.h"
-#include "surrender/srBinOStream.h"
+#include "surrender/srIO.h"
 #include "surrender/srColorSurface.h"
 #include "surrender/srCore.h"
 #include "surrender/srImageIO.h"
@@ -22,16 +21,11 @@
 
 static const w8_ulong colors[] = {0xff123456, 0xffabcdef, 0xff2468ac, 0xfffedcba};
 
-class ClientImageStream : public srBinIMStream {
-public:
-    using srBinIMStream::srBinIMStream;
-};
-
 static void CheckImage(const char* name, const std::vector<unsigned char>& bytes,
                        const w8_ulong* expected = colors)
 {
-    ClientImageStream stream(bytes.data(), static_cast<w8_ulong>(bytes.size()));
-    auto* surface = srImage::load(name, stream);
+    auto stream = srIO::own(SDL_IOFromConstMem(bytes.data(), static_cast<w8_ulong>(bytes.size())));
+    auto* surface = srImage::load(name, stream.get());
     CHECK(surface && surface->getWidth() == 2 && surface->getHeight() == 2);
     for (int y = 0; y < 2; ++y)
         for (int x = 0; x < 2; ++x)
@@ -108,14 +102,14 @@ static void CheckJPEG()
 {
     auto* source = new PixelOnlySurface;
     CHECK(!source->getDataPtr());
-    srBinOMStream output;
-    srImage::save("screenshot.JPG", output, *source);
+    auto output = srIO::own(SDL_IOFromDynamicMem());
+    srImage::save("screenshot.JPG", output.get(), *source);
     source->release();
-    CHECK(output.good() && output.getSize() > 2);
-    CHECK(static_cast<unsigned char*>(output.getPtr())[0] == 255 &&
-          static_cast<unsigned char*>(output.getPtr())[1] == 216);
-    srBinIMStream input(output.getPtr(), output.getSize());
-    auto* decoded = srImage::load("screenshot.jpeg", input);
+    CHECK((SDL_GetIOStatus(output.get()) == SDL_IO_STATUS_READY) && SDL_GetIOSize(output.get()) > 2);
+    CHECK(static_cast<unsigned char*>(SDL_GetPointerProperty(SDL_GetIOProperties(output.get()), SDL_PROP_IOSTREAM_DYNAMIC_MEMORY_POINTER, nullptr))[0] == 255 &&
+          static_cast<unsigned char*>(SDL_GetPointerProperty(SDL_GetIOProperties(output.get()), SDL_PROP_IOSTREAM_DYNAMIC_MEMORY_POINTER, nullptr))[1] == 216);
+    auto input = srIO::own(SDL_IOFromConstMem(SDL_GetPointerProperty(SDL_GetIOProperties(output.get()), SDL_PROP_IOSTREAM_DYNAMIC_MEMORY_POINTER, nullptr), SDL_GetIOSize(output.get())));
+    auto* decoded = srImage::load("screenshot.jpeg", input.get());
     CHECK(decoded && decoded->getWidth() == 16 && decoded->getHeight() == 16);
     for (int y = 0; y < 16; ++y)
         for (int x = 0; x < 16; ++x) {
@@ -133,23 +127,23 @@ static void CheckLossless(const char* name)
     for (int y = 0; y < 2; ++y)
         for (int x = 0; x < 2; ++x)
             source.setPixel(x, y, colors[y * 2 + x]);
-    srBinOMStream output;
-    srImage::save(name, output, source);
-    CHECK(output.good() && output.getSize());
-    const auto* bytes = static_cast<const unsigned char*>(output.getPtr());
-    CheckImage(name, {bytes, bytes + output.getSize()});
-    srBinIMStream input(output.getPtr(), output.getSize());
-    input.seek(7);
+    auto output = srIO::own(SDL_IOFromDynamicMem());
+    srImage::save(name, output.get(), source);
+    CHECK((SDL_GetIOStatus(output.get()) == SDL_IO_STATUS_READY) && SDL_GetIOSize(output.get()));
+    const auto* bytes = static_cast<const unsigned char*>(SDL_GetPointerProperty(SDL_GetIOProperties(output.get()), SDL_PROP_IOSTREAM_DYNAMIC_MEMORY_POINTER, nullptr));
+    CheckImage(name, {bytes, bytes + SDL_GetIOSize(output.get())});
+    auto input = srIO::own(SDL_IOFromConstMem(SDL_GetPointerProperty(SDL_GetIOProperties(output.get()), SDL_PROP_IOSTREAM_DYNAMIC_MEMORY_POINTER, nullptr), SDL_GetIOSize(output.get())));
+    SDL_SeekIO(input.get(), 7, SDL_IO_SEEK_SET);
     srColorSurfaceIFace::SurfaceDesc description;
-    CHECK(srImage::describe(description, name, input));
-    CHECK(description.width == 2 && description.height == 2 && input.tell() == 7);
+    CHECK(srImage::describe(description, name, input.get()));
+    CHECK(description.width == 2 && description.height == 2 && SDL_TellIO(input.get()) == 7);
     unsigned char signature = 0;
-    input.seek(0);
-    input.read(&signature, 1);
-    CHECK(input.good());
+    SDL_SeekIO(input.get(), 0, SDL_IO_SEEK_SET);
+    srIO::readExact(input.get(), &signature, 1);
+    CHECK((SDL_GetIOStatus(input.get()) == SDL_IO_STATUS_READY));
     if (strstr(name, "PNG")) {
         CHECK(signature == 0x89);
-        CheckImage("without-extension", {bytes, bytes + output.getSize()});
+        CheckImage("without-extension", {bytes, bytes + SDL_GetIOSize(output.get())});
     } else {
         CHECK(signature == 'B');
     }
@@ -159,25 +153,25 @@ static void CheckErrors()
 {
     srColorSurface source(srPixelConvert::SURFACE_BGR24, 2, 2);
     for (const char* path : {static_cast<const char*>(nullptr), "", "image.pcx", "image", "dir.png/image", "dir\\name.jpg\\image"}) {
-        srBinOMStream output;
+        auto output = srIO::own(SDL_IOFromDynamicMem());
         bool rejected = false;
-        try { srImage::save(path, output, source); }
+        try { srImage::save(path, output.get(), source); }
         catch (const std::runtime_error&) { rejected = true; }
-        CHECK(rejected && output.tell() == 0 && output.getSize() == 0);
+        CHECK(rejected && SDL_TellIO(output.get()) == 0 && SDL_GetIOSize(output.get()) == 0);
     }
     for (const char* path : {static_cast<const char*>(nullptr), ""}) {
         auto bytes = Bitmap();
-        srBinIMStream input(bytes.data(), bytes.size());
+        auto input = srIO::own(SDL_IOFromConstMem(bytes.data(), bytes.size()));
         bool rejected = false;
-        try { srImage::load(path, input); }
+        try { srImage::load(path, input.get()); }
         catch (const std::runtime_error&) { rejected = true; }
-        CHECK(rejected && input.tell() == 0);
+        CHECK(rejected && SDL_TellIO(input.get()) == 0);
     }
     unsigned char corrupt[] = {1, 2, 3};
-    srBinIMStream input(corrupt, sizeof(corrupt));
-    input.seek(1);
+    auto input = srIO::own(SDL_IOFromConstMem(corrupt, sizeof(corrupt)));
+    SDL_SeekIO(input.get(), 1, SDL_IO_SEEK_SET);
     srColorSurfaceIFace::SurfaceDesc description;
-    CHECK(!srImage::describe(description, "bad.jpg", input) && input.tell() == 1);
+    CHECK(!srImage::describe(description, "bad.jpg", input.get()) && SDL_TellIO(input.get()) == 1);
 }
 
 int main()
@@ -202,8 +196,8 @@ int main()
         CheckErrors();
         unsigned char corrupt[] = {1, 2, 3};
         for (const char* name : {"bad.jpg", "bad.tga", "bad.bmp", "bad.pcx"}) {
-            srBinIMStream stream(corrupt, sizeof(corrupt));
-            CHECK(!srImage::load(name, stream));
+            auto stream = srIO::own(SDL_IOFromConstMem(corrupt, sizeof(corrupt)));
+            CHECK(!srImage::load(name, stream.get()));
         }
         CHECK(srExit() && !srCore.isInitialized());
         CHECK(srExit());

@@ -1,64 +1,91 @@
 #include "surrender/srHuffman.h"
 
 #include <algorithm>
+#include <limits>
+#include <utility>
 #include <string.h>
 
 static void sortSymbolPairs(srHuffman::Sampler::Symbol* pairs, w8_ulong count);
 
 // FUNCTION: SURRENDER 0x100013D0
-void srHuffman::BitIStream::fetchCache(w8_long position)
+void srHuffman::BitIStream::fetchCache(Sint64 position)
 {
+    if (position < 0 || position > bit_end / 8)
+        throw std::out_of_range("Huffman cursor outside input");
     cache_base = position;
-    stream->seek(position);
-    stream->read(cache, 0x80);
-    stream->setState(srBinStream::SR_STREAM_OK);
+    if (SDL_SeekIO(stream, position, SDL_IO_SEEK_SET) != position)
+        throw std::runtime_error(SDL_GetError());
+    std::fill(std::begin(cache), std::end(cache), 0);
+    cache_valid = SDL_ReadIO(stream, cache, sizeof(cache));
+    if (SDL_GetIOStatus(stream) != SDL_IO_STATUS_READY &&
+        SDL_GetIOStatus(stream) != SDL_IO_STATUS_EOF)
+        throw std::runtime_error(SDL_GetError());
 }
 
 // FUNCTION: SURRENDER 0x100015C0
-w8_ulong srHuffman::BitIStream::getByte(w8_long position)
+w8_ulong srHuffman::BitIStream::getByte(Sint64 position)
 {
-    w8_ulong offset = position - cache_base;
+    const auto distance = position - cache_base;
+    size_t offset = distance < 0 ? sizeof(cache) : size_t(distance);
     if (offset >= 0x80) {
         fetchCache(position);
         offset = 0;
     }
+    if (offset >= cache_valid) throw std::runtime_error("Truncated Huffman bits");
     return cache[offset];
 }
 
 // FUNCTION: SURRENDER 0x10001490
-w8_ulong srHuffman::BitIStream::getDWord(w8_long position)
+w8_ulong srHuffman::BitIStream::getDWord(Sint64 position)
 {
-    w8_ulong offset = position - cache_base;
+    const auto distance = position - cache_base;
+    size_t offset = distance < 0 ? sizeof(cache) : size_t(distance);
     if (offset >= 0x7d) {
         fetchCache(position);
         offset = 0;
     }
-    w8_ulong value;
+    Uint32 value;
     memcpy(&value, cache + offset, sizeof(value));
-    return value;
+    return SDL_Swap32LE(value);
 }
 
 // FUNCTION: SURRENDER 0x10001340
 w8_ulong srHuffman::BitIStream::getWordOrLess(w8_ulong bits)
 {
-    w8_long position = bit_pos / 8;
+    Sint64 position = bit_pos / 8;
     w8_ulong shift = bit_pos & 7;
     w8_ulong data = getDWord(position);
+    if (size_t(position - cache_base) + (shift + bits + 7) / 8 > cache_valid)
+        throw std::runtime_error("Truncated Huffman bits");
     bit_pos += bits;
     return (data & ((1 << (shift + bits)) - 1)) >> shift;
 }
 
 // FUNCTION: SURRENDER 0x100010A0
-srHuffman::BitIStream::BitIStream(srBinIStream& stream)
+srHuffman::BitIStream::BitIStream(SDL_IOStream* stream)
 {
-    this->stream = &stream;
+    this->stream = stream;
     cache_base = -0x100;
-    bit_pos = this->stream->tell() << 3;
+    const auto position = SDL_TellIO(stream), size = SDL_GetIOSize(stream);
+    if (position < 0 || size < position || size > std::numeric_limits<Sint64>::max() / 8)
+        throw std::out_of_range("Invalid Huffman cursor or length");
+    bit_begin = bit_pos = position * 8;
+    bit_end = size * 8;
+
+}
+
+void srHuffman::BitIStream::requireBits(w8_ulong bits) const
+{
+    if (bits > bit_end - bit_pos)
+        throw std::out_of_range("Truncated Huffman bits");
 }
 
 // FUNCTION: SURRENDER 0x100010E0
 w8_ulong srHuffman::BitIStream::get(w8_ulong bits)
 {
+    if (bits == 0) return 0;
+    if (bits > 32) throw std::runtime_error("Invalid Huffman bit width");
+    requireBits(bits);
     if (bits <= 0x10) {
         return getWordOrLess(bits);
     }
@@ -67,9 +94,15 @@ w8_ulong srHuffman::BitIStream::get(w8_ulong bits)
     return (high << 0x10) | low;
 }
 
+w8_ulong srHuffman::BitIStream::peekByte()
+{
+    return (getDWord(bit_pos / 8) >> (bit_pos & 7)) & 0xff;
+}
+
 // FUNCTION: SURRENDER 0x10001290
 w8_ulong srHuffman::BitIStream::getBit()
 {
+    requireBits(1);
     w8_ulong data = getByte(bit_pos / 8);
     w8_ulong bit = (data >> (bit_pos & 7)) & 1;
     ++bit_pos;
@@ -79,6 +112,8 @@ w8_ulong srHuffman::BitIStream::getBit()
 // FUNCTION: SURRENDER 0x10001320
 void srHuffman::BitIStream::rewind(w8_long bits)
 {
+    if (bits < 0 || bits > bit_pos - bit_begin)
+        throw std::out_of_range("Rewind outside Huffman input");
     bit_pos -= bits;
 }
 
@@ -89,9 +124,9 @@ srHuffman::BitOStream& srHuffman::BitOStream::operator=(const BitOStream& stream
 }
 
 // FUNCTION: SURRENDER 0x100016D0
-srHuffman::BitOStream::BitOStream(srBinOStream& stream)
+srHuffman::BitOStream::BitOStream(SDL_IOStream* stream)
 {
-    this->stream = &stream;
+    this->stream = stream;
     pending = 0;
     bit_count = 0;
     bytes = 0;
@@ -101,7 +136,7 @@ srHuffman::BitOStream::BitOStream(srBinOStream& stream)
 // FUNCTION: SURRENDER 0x10001730
 srHuffman::BitOStream::~BitOStream()
 {
-    flush();
+    try { flush(); } catch (...) { /* Explicit flush reports failures to the caller. */ }
 }
 
 // FUNCTION: SURRENDER 0x10001760
@@ -139,9 +174,9 @@ void srHuffman::BitOStream::flushByte()
 void srHuffman::BitOStream::flushBuffer()
 {
     if (buffered != 0) {
-        stream->write(buffer, buffered);
+        const auto count = std::exchange(buffered, 0);
+        srIO::writeExact(stream, buffer, count);
     }
-    buffered = 0;
 }
 
 // FUNCTION: SURRENDER 0x10001810
@@ -391,8 +426,8 @@ w8_ulong srHuffman::Decompressor::getDataCount() const
 w8_ulong srHuffman::Decompressor::decompressSymbol()
 {
     BitIStream* stream = this->stream;
-    w8_ulong key = stream->get(8);
-    stream->rewind(8 - depth[key]);
+    w8_ulong key = stream->peekByte();
+    stream->get(depth[key]);
     Symbol* node = lookup[key];
     while (node->children[0] != 0) {
         node = node->children[stream->getBit()];

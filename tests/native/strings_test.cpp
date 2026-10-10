@@ -1,5 +1,4 @@
-#include "surrender/srBinOStream.h"
-#include "surrender/srBinIStream.h"
+#include "surrender/srIO.h"
 
 #include <cstdio>
 #include <memory>
@@ -12,20 +11,20 @@
 
 int main()
 {
-    auto memory = new srBinOMStream;
-    std::unique_ptr<srBinOStream> output(memory);
+    auto output = srIO::own(SDL_IOFromDynamicMem());
     const std::string memory_text = "zażółć-雪";
-    output->write(memory_text.data(), memory_text.size());
-    CHECK(output->good() && output->getSize() == memory_text.size());
-    std::unique_ptr<srBinIStream> input(new srBinIMStream(memory->getPtr(), memory_text.size()));
+    srIO::writeExact(output.get(), memory_text.data(), memory_text.size());
+    CHECK(SDL_GetIOSize(output.get()) == Sint64(memory_text.size()));
+    CHECK(SDL_SeekIO(output.get(), 0, SDL_IO_SEEK_SET) == 0);
     std::string copied(memory_text.size(), '\0');
-    input->read(copied.data(), copied.size());
-    CHECK(input->good() && copied == memory_text);
-    CHECK(static_cast<bool>(*input) && !(!*input));
-    input->setState(srBinStream::SR_STREAM_ERROR);
-    CHECK(!static_cast<bool>(*input) && !*input);
-    input->clear();
-    CHECK(static_cast<bool>(*input));
+    srIO::readExact(output.get(), copied.data(), copied.size());
+    CHECK(copied == memory_text);
+    char byte;
+    CHECK(SDL_ReadIO(output.get(), &byte, 1) == 0);
+    CHECK(SDL_GetIOStatus(output.get()) == SDL_IO_STATUS_EOF);
+    CHECK(SDL_SeekIO(output.get(), 0, SDL_IO_SEEK_SET) == 0);
+    CHECK(SDL_ReadIO(output.get(), &byte, 1) == 1);
+    CHECK(SDL_GetIOStatus(output.get()) == SDL_IO_STATUS_READY);
+    puts("ok: UTF-8 strings and SDL memory stream lifetimes");
 
-    puts("ok: standard strings and polymorphic memory stream lifecycles");
 }

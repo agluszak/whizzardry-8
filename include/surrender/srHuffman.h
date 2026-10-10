@@ -1,16 +1,17 @@
 #pragma once
 
 #include <vector>
-#include "srBinIStream.h"
-#include "srBinOStream.h"
+#include "srIO.h"
 #include "srHash.h"
 
 class srHuffman {
 public:
     class BitIStream {
     public:
-        SR_DLL_IMPORT BitIStream(srBinIStream& stream);
+        SR_DLL_IMPORT BitIStream(SDL_IOStream* stream);
         SR_DLL_IMPORT w8_ulong get(w8_ulong bits);
+        // Padded lookahead does not consume bits; get validates consumption.
+        w8_ulong peekByte();
         SR_DLL_IMPORT w8_ulong getBit();
         SR_DLL_IMPORT void rewind(w8_long bits);
 
@@ -18,33 +19,36 @@ public:
         BitIStream(const BitIStream& stream);
         BitIStream& operator=(const BitIStream& stream);
 
-        void fetchCache(w8_long position);
-        w8_ulong getByte(w8_long position);
-        w8_ulong getDWord(w8_long position);
+        void fetchCache(Sint64 position);
+        w8_ulong getByte(Sint64 position);
+        w8_ulong getDWord(Sint64 position);
         w8_ulong getWordOrLess(w8_ulong bits);
 
-        srBinIStream* stream;
-        unsigned char cache[0x80];
-        w8_long cache_base;
-        w8_long bit_pos;
+        SDL_IOStream* stream;
+        unsigned char cache[0x80]{};
+        size_t cache_valid = 0;
+        void requireBits(w8_ulong bits) const;
+        Sint64 cache_base;
+        Sint64 bit_pos, bit_begin, bit_end;
     };
 
     class BitOStream {
     public:
-        SR_DLL_IMPORT BitOStream(srBinOStream& stream);
+        SR_DLL_IMPORT BitOStream(SDL_IOStream* stream);
         SR_DLL_IMPORT ~BitOStream();
+        // Explicitly flush before inspecting output or returning success.
+        void flush();
         SR_DLL_IMPORT void put(w8_ulong value, w8_ulong bits);
 
     private:
         BitOStream(const BitOStream& stream);
         BitOStream& operator=(const BitOStream& stream);
 
-        void flush();
         void flushByte();
         void flushBuffer();
         void putBit(w8_ulong bit);
 
-        srBinOStream* stream;
+        SDL_IOStream* stream;
         w8_ulong bytes;
         w8_ulong bit_count;
         w8_ulong pending;

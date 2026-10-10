@@ -7,7 +7,6 @@ set(SURRENDER_SOURCES
     environment_mapper.cpp
     fog.cpp
     vertex_pipe.cpp
-    file_stream.cpp
     filter.cpp
     color_surface.cpp
     vector_math.cpp
@@ -15,6 +14,7 @@ set(SURRENDER_SOURCES
     gerd_filters.cpp
     huffman.cpp
     illuminator.cpp
+    jpeg_validate.c
     image_io.cpp
     image_tga.cpp
     light.cpp
@@ -26,7 +26,6 @@ set(SURRENDER_SOURCES
     modeler.cpp
     node.cpp
     scene.cpp
-    stream.cpp
     system.cpp
     palette.cpp
     pixel_convert.cpp
@@ -41,8 +40,9 @@ set(SURRENDER_SOURCES
     window_out.cpp
 )
 
+find_package(JPEG REQUIRED)
 add_library(SURRENDER STATIC ${SURRENDER_SOURCES})
-target_link_libraries(SURRENDER PRIVATE wiz8_native_settings SDL3::SDL3 SDL3_image::SDL3_image)
+target_link_libraries(SURRENDER PRIVATE wiz8_native_settings SDL3::SDL3 SDL3_image::SDL3_image JPEG::JPEG)
 if(UNIX AND NOT APPLE)
     target_link_options(SURRENDER PRIVATE -Wl,--no-undefined)
 endif()
