@@ -13,7 +13,6 @@
 #include "wiz8/layouts/world.h"
 #include "wiz8/item_spawning.h"
 #include "wiz8/engine_code/stMeshModel.h"
-#include "surrender/srHeap.h"
 #include "surrender/srModelInstance.h"
 #include <math.h>
 #include <stdlib.h>

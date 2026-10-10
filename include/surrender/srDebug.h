@@ -1,7 +1,6 @@
 #pragma once
 
 #include <ostream>
-#include "srHeap.h"
 
 SR_DLL_IMPORT w8_long __cdecl srDebugPrintf(w8_ulong level, const char* format, ...) W8_PRINTF(2, 3);
 SR_DLL_IMPORT w8_long __cdecl srPrintf(const char* format, ...);

@@ -6,7 +6,6 @@
 #include "wiz8/engine_code/LevelFile.h"
 #include "wiz8/float_constants.h"
 #include "wiz8/sr_api.h"
-#include "surrender/srHeap.h"
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>

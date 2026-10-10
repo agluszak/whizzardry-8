@@ -1,3 +1,4 @@
+#include "surrender/srMath.h"
 
 #include "surrender/srPalette.h"
 #include "surrender/srStreamFlags.h"
@@ -9,7 +10,6 @@
 
 #include "surrender/srColorSurfaceIFace.h"
 #include "surrender/srCore.h"
-#include "surrender/srHeap.h"
 #include "surrender/srImporter.h"
 
 /* Squared channel distance scaled by the luma weights 299/587/114; the biased
@@ -387,7 +387,7 @@ srPalette* srPalette::findMatchingPalette(const srARGB* const colors, w8_long co
 void srPalette::releaseQuantizer()
 {
     if (quantizer != 0) {
-        srHeap.free(quantizer);
+        delete quantizer;
     }
     quantizer = 0;
     flags = flags | 1;
@@ -397,10 +397,9 @@ void srPalette::releaseQuantizer()
 void srPalette::updateQuantizer()
 {
     if (quantizer != 0) {
-        srHeap.free(quantizer);
+        delete quantizer;
     }
-    quantizer = new (srHeap.allocate(sizeof(Quantizer)))
-        Quantizer(colors, color_count, 0, '\b', '\b', '\b');
+    quantizer = new Quantizer(colors, color_count, 0, '\b', '\b', '\b');
 }
 
 // FUNCTION: SURRENDER 0x10004300
@@ -475,7 +474,7 @@ srPalette::~srPalette()
         colors = 0;
     }
     if (quantizer != 0) {
-        srHeap.free(quantizer);
+        delete quantizer;
         quantizer = 0;
     }
 }
@@ -491,7 +490,7 @@ srPalette& srPalette::operator=(const srPalette& other)
         colors = 0;
     }
     if (quantizer != 0) {
-        srHeap.free(quantizer);
+        delete quantizer;
         quantizer = 0;
     }
     srClass::operator=(other);

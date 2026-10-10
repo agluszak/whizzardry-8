@@ -99,7 +99,7 @@ public:
     bool vertex_lighting_ready;
     unsigned char padding_3ce[2];
     /* uiFrames: per-frame tables below hold one pointer per frame. The
-       decompressed float caches are srHeap allocations and are counted in
+       decompressed float caches are malloc allocations and are counted in
        g_decompressed_mesh_bytes; the compressed tables are operator new. */
     unsigned int frame_count;                   /* 0x3d0 */
     srVector3T<float>** m_pVertexLoc;           /* 0x3d4 */
@@ -116,7 +116,7 @@ public:
     W8GrowableVector<short> mapped_keys;                          /* 0x430 */
     w8_ulong last_decompress_release_tick;
     float vertex_compression_scale;
-    /* m_pLerpBuffer: interpolation scratch for GetVertexLocations; an srHeap
+    /* m_pLerpBuffer: interpolation scratch for GetVertexLocations; a malloc
        allocation that is not counted in g_decompressed_mesh_bytes. */
     srVector3T<float>* lerp_buffer;
     w8_ulong* automap_polygons;    /* 0x44c */

@@ -1,3 +1,6 @@
+#include "surrender/srMath.h"
+#include <cstdlib>
+
 #include "wiz8/engine_code/PathAI.h"
 #include "wiz8/engine_code/AnimRep.hpp"
 #include "wiz8/float_constants.h"
@@ -7,7 +10,6 @@
 #include "wiz8/sr_api.h"
 #include "wiz8/virtual_file.h"
 #include "surrender/srNode.h"
-#include "surrender/srHeap.h"
 
 #include <math.h>
 #include "wiz8/wiz8_windows.h"
@@ -88,7 +90,7 @@ bool LoadPathAI(W8PathAI** output, int handle)
 
         for (index = 0; index < point_count; ++index) {
             srVector3T<float>* point =
-                static_cast<srVector3T<float>*>(srHeap.allocate(sizeof(srVector3T<float>)));
+                static_cast<srVector3T<float>*>(std::malloc(sizeof(srVector3T<float>)));
             float angle;
             srVector3T<float> axis;
             srMatrix3T<float> rotation;
@@ -112,7 +114,7 @@ bool LoadPathAI(W8PathAI** output, int handle)
                 success =
                     success && FileRead(handle, &path->scales[index], sizeof(srVector3T<float>), 0);
             }
-            srHeap.free(point);
+            std::free(point);
         }
     }
 
@@ -160,7 +162,7 @@ void DestroyPathAI(W8PathAI* path)
         nodes = path->nodes;
         if (nodes != 0) {
             while (nodes->GetCount() != 0) {
-                srHeap.free(nodes->RemoveAt(nodes->GetCount() - 1));
+                std::free(nodes->RemoveAt(nodes->GetCount() - 1));
                 nodes = path->nodes;
             }
             if (path->rotations != 0) {
@@ -191,7 +193,7 @@ void DestroyOwnedPathAI(W8PathAI* path)
 }
 
 /* A deep copy. Everything the source owns is rebuilt: each node point gets its
-   own srHeap allocation, and both trailing arrays are reallocated and copied
+   own malloc allocation, and both trailing arrays are reallocated and copied
    element by element at the node count. Nothing is shared, and timed is the
    one field the copy does not carry over. */
 // FUNCTION: WIZ8 0x004a98c0
@@ -230,7 +232,7 @@ W8PathAI* ClonePathAI(const W8PathAI* source)
         copy->nodes = new W8Vector<srVector3T<float>*>();
         for (index = 0; index < count; ++index) {
             srVector3T<float>* allocated =
-                static_cast<srVector3T<float>*>(srHeap.allocate(sizeof(srVector3T<float>)));
+                static_cast<srVector3T<float>*>(std::malloc(sizeof(srVector3T<float>)));
             srVector3T<float>* point;
 
             if (allocated != 0) {
@@ -287,7 +289,7 @@ void PathAIClearOwned(W8PathAI* path)
         nodes = path->nodes;
         if (nodes != 0) {
             while (nodes->GetCount() != 0) {
-                srHeap.free(nodes->RemoveAt(nodes->GetCount() - 1));
+                std::free(nodes->RemoveAt(nodes->GetCount() - 1));
                 nodes = path->nodes;
             }
         }
@@ -302,7 +304,7 @@ void PathAIClearOwned(W8PathAI* path)
 unsigned char PathAIAddPoint(W8PathAI* path, const srVector3T<float>* point)
 {
     srVector3T<float>* copy =
-        static_cast<srVector3T<float>*>(srHeap.allocate(sizeof(srVector3T<float>)));
+        static_cast<srVector3T<float>*>(std::malloc(sizeof(srVector3T<float>)));
     float total_length;
     int index;
 

@@ -4,10 +4,10 @@
 #define SR_NEW(Type) new Type::ClientType
 
 #include <iosfwd>
+#include <new>
 
 #include "srCore.h"
 #include "srCriticalSection.h"
-#include "srHeap.h"
 
 class srRuntimeClass;
 class srNode;
@@ -105,15 +105,6 @@ public:
         ClassNode(ClassNode* parent, const char* class_name, w8_ulong class_id);
         ~ClassNode();
         void initialize(ClassNode* parent, const char* class_name, w8_ulong class_id);
-        void* operator new(size_t size)
-        {
-            return srHeap.allocate(size);
-        }
-        void operator delete(void* node)
-        {
-            srHeap.free(node);
-        }
-
         ChildList children;
         ClassNode* parent;
         w8_ulong class_id;
@@ -171,22 +162,7 @@ W8_ABI_ASSERT(sizeof(srRegistry::ClassNode) == 0x2c, "srRegistry_ClassNode_must_
 W8_ABI_ASSERT(sizeof(srRegistry) == 0x10, "srRegistry_must_be_0x10");
 
 /* Empty common root; its original name is unknown. */
-class srRuntimeClassEmptyBase {
-public:
-    /* Every class in this hierarchy is allocated from and freed through the SurRender heap. */
-    void* operator new(size_t size)
-    {
-        return srHeap.allocate(size);
-    }
-    void* operator new(size_t, void* at)
-    {
-        return at;
-    }
-    void operator delete(void* instance)
-    {
-        srHeap.free(instance);
-    }
-};
+class srRuntimeClassEmptyBase {};
 
 // VTABLE: SURRENDER 0x100754E4 srRuntimeClass
 // class srRuntimeClass

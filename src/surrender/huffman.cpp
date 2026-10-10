@@ -1,3 +1,6 @@
+#include "surrender/srMath.h"
+#include <cstdlib>
+
 #include "surrender/srHuffman.h"
 
 #include <string.h>
@@ -314,8 +317,8 @@ void srHuffman::Compressor::buildSymbolTree()
 // FUNCTION: SURRENDER 0x10002080
 void srHuffman::Compressor::collectSymbols(const Sampler& sampler)
 {
-    w8_ulong* symbols = static_cast<w8_ulong*>(srHeap.allocate(num_symbols * sizeof(w8_ulong)));
-    w8_ulong* frequencies = static_cast<w8_ulong*>(srHeap.allocate(num_symbols * sizeof(w8_ulong)));
+    w8_ulong* symbols = static_cast<w8_ulong*>(std::malloc(num_symbols * sizeof(w8_ulong)));
+    w8_ulong* frequencies = static_cast<w8_ulong*>(std::malloc(num_symbols * sizeof(w8_ulong)));
     w8_ulong max_symbol = 0;
     w8_ulong index;
     for (index = 0; index < num_symbols; ++index) {
@@ -355,7 +358,7 @@ void srHuffman::Compressor::collectSymbols(const Sampler& sampler)
         code_width = 1;
     }
     if (num_symbols > 1) {
-        Sampler::Symbol* pairs = static_cast<Sampler::Symbol*>(srHeap.allocate(num_symbols * sizeof(*pairs)));
+        Sampler::Symbol* pairs = static_cast<Sampler::Symbol*>(std::malloc(num_symbols * sizeof(*pairs)));
         w8_ulong bulk = num_symbols & ~3;
         for (index = 0; index < bulk; index += 4) {
             pairs[index].symbol = symbols[index];
@@ -386,14 +389,14 @@ void srHuffman::Compressor::collectSymbols(const Sampler& sampler)
             symbols[index] = pairs[index].symbol;
             frequencies[index] = pairs[index].frequency;
         }
-        srHeap.free(pairs);
+        std::free(pairs);
     }
     for (index = 0; index < num_symbols; ++index) {
         nodes[index].symbol = symbols[index];
         nodes[index].frequency = frequencies[index];
     }
-    srHeap.free(symbols);
-    srHeap.free(frequencies);
+    std::free(symbols);
+    std::free(frequencies);
 }
 
 // FUNCTION: SURRENDER 0x10002340
@@ -478,7 +481,7 @@ static void sortSymbolPairs(srHuffman::Sampler::Symbol* pairs, w8_ulong count)
         return;
     }
     srHuffman::Sampler::Symbol* scratch =
-        static_cast<srHuffman::Sampler::Symbol*>(srHeap.allocate(count * sizeof(srHuffman::Sampler::Symbol)));
+        static_cast<srHuffman::Sampler::Symbol*>(std::malloc(count * sizeof(srHuffman::Sampler::Symbol)));
     w8_ulong counts[0x100];
     srHuffman::Sampler::Symbol* src = pairs;
     srHuffman::Sampler::Symbol* dst = scratch;
@@ -528,7 +531,7 @@ static void sortSymbolPairs(srHuffman::Sampler::Symbol* pairs, w8_ulong count)
     if (src != pairs) {
         copyMemory(pairs, src, count * sizeof(*pairs));
     }
-    srHeap.free(dst);
+    std::free(dst);
 }
 
 // FUNCTION: SURRENDER 0x10002A90

@@ -2,8 +2,6 @@
 
 #include <iosfwd>
 
-#include "srGlobalRecycler.h"
-#include "srHeap.h"
 #include "srStatisticsManager.h"
 #include "srVariableTimer.h"
 
@@ -33,7 +31,6 @@ public:
     SR_DLL_IMPORT const char* getVersion() const;
     SR_DLL_IMPORT unsigned char getDebugLevel() const;
     SR_DLL_IMPORT srFilter* getFilter() const;
-    SR_DLL_IMPORT srGlobalRecycler* getGlobalRecycler() const;
     SR_DLL_IMPORT srHierarchyIOManager* getHierarchyIOManager() const;
     // FUNCTION: SURRENDER 0x10015730
     // RECOMP: ?getMaterial@srCore@@QBEPAVsrMaterial@@XZ
@@ -84,7 +81,6 @@ private:
 
     static SR_DLL_IMPORT int initialized;
 
-    srGlobalRecycler* global_recycler;
     srVariableTimer* timer;
     srColorSurfaceIFace* surface;
     srSurfaceIOManager* surface_io_manager;
@@ -114,8 +110,7 @@ extern SR_DLL_IMPORT class srCore srCore;
 SR_DLL_IMPORT int __cdecl srInit(void);
 SR_DLL_IMPORT int __cdecl srExit(void);
 
-/* DLL attach/detach hooks called by the library entry wrapper. */
+/* Library initialization hook. */
 void __cdecl _srLibraryInit(void);
-void __cdecl _srLibraryExit(void);
 
 extern const unsigned char srLogo[0x1000];

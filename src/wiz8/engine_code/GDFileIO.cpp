@@ -1,3 +1,5 @@
+#include <cstdlib>
+
 #include "wiz8/engine_code/GameData.h"
 #include "wiz8/engine_code/OctBuildTree.h"
 #include "wiz8/engine_code/OctBuildPreTree.h"
@@ -687,12 +689,12 @@ void W8GameData::AddLinkedRecord(const srVector3T<float>* vertices, float value,
                                  const signed char* face)
 {
     srVector3T<float>* copy =
-        static_cast<srVector3T<float>*>(srHeap.allocate(36 * sizeof(srVector3T<float>)));
+        static_cast<srVector3T<float>*>(std::malloc(36 * sizeof(srVector3T<float>)));
     for (int index = 0; index < 36; ++index) {
         copy[index] = vertices[index];
     }
     AddTriggerPlane(copy, value, scalar, face);
-    srHeap.free(copy);
+    std::free(copy);
 }
 
 /* Appends a linked record's vertices to the trigger bank, scaled by

@@ -1,3 +1,5 @@
+#include <cstdlib>
+
 #include "surrender/srTypeRegistry.h"
 
 #include "surrender/srArray.h"
@@ -242,15 +244,6 @@ struct srRegistry::ClassNode::IDIndex {
        place. Unused; ~ClassNode performs the same steps itself. */
     void destroy();
 
-    void* operator new(size_t size)
-    {
-        return srHeap.allocate(size);
-    }
-    void operator delete(void* index)
-    {
-        srHeap.free(index);
-    }
-
     InstanceLink* add(srRuntimeClass* instance)
     {
         w8_ulong id = instance->getID();
@@ -332,7 +325,7 @@ private:
             count = 0x100;
         }
         InstanceLink* block =
-            static_cast<InstanceLink*>(srHeap.allocate(count * sizeof(InstanceLink)));
+            static_cast<InstanceLink*>(std::malloc(count * sizeof(InstanceLink)));
         free = block;
         w8_ulong index = block_count;
         block_count = index + 1;
@@ -398,7 +391,7 @@ srRegistry::ClassNode::IDIndex::insert(InstanceLink* after, srRuntimeClass*& ins
 void srRegistry::ClassNode::IDIndex::clearBlocks()
 {
     for (w8_ulong index = 0; index < block_count; ++index) {
-        srHeap.free(blocks[index]);
+        std::free(blocks[index]);
     }
     blocks.release();
     free = 0;

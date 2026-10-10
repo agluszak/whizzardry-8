@@ -3,7 +3,6 @@
 
 #include "surrender/srCore.h"
 #include "surrender/srGERD.h"
-#include "surrender/srHeap.h"
 
 #include <ostream>
 

@@ -1,8 +1,9 @@
 #pragma once
 
+#include <cstdlib>
+
 #include <new>
 
-#include "srHeap.h"
 
 template <class T> class srArray {
 public:
@@ -101,7 +102,7 @@ template <class T> T& srArray<T>::operator[](w8_ulong index)
     return data[index];
 }
 
-/* Raw srHeap storage; does not construct or destroy elements. */
+/* Raw storage; does not construct or destroy elements. */
 template <class T> class srHeapBuffer {
 public:
     inline srHeapBuffer() : data(0), capacity(0)
@@ -117,7 +118,7 @@ public:
     inline void release()
     {
         if (data != 0) {
-            srHeap.free(data);
+            std::free(data);
         }
         data = 0;
         capacity = 0;
@@ -125,7 +126,7 @@ public:
 
     static inline T* allocate(w8_ulong count)
     {
-        return static_cast<T*>(srHeap.allocate(count * sizeof(T)));
+        return static_cast<T*>(std::malloc(count * sizeof(T)));
     }
 
     /* Discards contents when growing. */

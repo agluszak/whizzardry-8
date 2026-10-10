@@ -1,3 +1,4 @@
+#include "surrender/srMath.h"
 #include "wiz8/xstatus.h"
 #include "wiz8/world_cursor.h"
 #include "wiz8/engine_code/World.h"

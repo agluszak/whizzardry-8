@@ -1,3 +1,6 @@
+#include "surrender/srMath.h"
+#include <cstdlib>
+
 #include "surrender/srGERD.h"
 
 #include "surrender/srColorSurface.h"
@@ -6,12 +9,13 @@
 #include "surrender/srDebug.h"
 #include "surrender/srDebugDD.h"
 #include "surrender/srWindow.h"
-#include "surrender/srHeap.h"
 #include "surrender/srPalette.h"
 #include "surrender/srVectorProcessor.h"
 
 #include <ctype.h>
 #include <ostream>
+#include <memory>
+#include <vector>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -29,7 +33,7 @@ srGERD::TexturePool::TexturePool() : count(0), free(0), pool_count(0) {}
 void srGERD::TexturePool::release()
 {
     for (w8_ulong index = 0; index < pool_count; ++index) {
-        srHeap.free(chunks[index]);
+        std::free(chunks[index]);
     }
     chunks.release();
     free = 0;
@@ -46,7 +50,7 @@ srGERD::Texture* srGERD::TexturePool::allocate()
         } else if (0xff < (w8_long)chunk_count) {
             chunk_count = 0x100;
         }
-        Texture* chunk = static_cast<Texture*>(srHeap.allocate(chunk_count * sizeof(Texture)));
+        Texture* chunk = static_cast<Texture*>(std::malloc(chunk_count * sizeof(Texture)));
         free = chunk;
         chunks[pool_count++] = chunk;
         Texture* link = chunk;
@@ -780,18 +784,25 @@ void srGERD::setTextureSubImage(srTextureIFace* texture, w8_long mipmap, w8_long
             static_cast<w8_ulong>(resident->pixel_format.pixel_size) + 1;
         w8_ulong pitch = bytes_per_pixel * level_width;
         if (resident->surface_data == 0) {
-            void* staging =
-                srCore.getGlobalRecycler()->allocate(bytes_per_pixel * level_height * level_width);
-            request.destination = new srColorSurface(resident->pixel_format, staging, level_width,
-                                                     level_height, pitch);
+            std::vector<unsigned char> staging(
+                static_cast<std::size_t>(bytes_per_pixel) * level_height * level_width);
+            auto release_surface = [](srColorSurface* surface) { surface->release(); };
+            std::unique_ptr<srColorSurface, decltype(release_surface)> destination(
+                new srColorSurface(resident->pixel_format, staging.data(), level_width,
+                                   level_height, pitch), release_surface);
+            request.destination = destination.get();
             texture->getMipmapLevelPartial(request);
-            request.destination->release();
-            resident->device.levels[mipmap] = staging;
-            getDD()->texSubImage(resident->device, mipmap, request.destination_x,
-                                 request.destination_y, request.source_right,
-                                 request.source_bottom);
+            destination.reset();
+            resident->device.levels[mipmap] = staging.data();
+            try {
+                getDD()->texSubImage(resident->device, mipmap, request.destination_x,
+                                     request.destination_y, request.source_right,
+                                     request.source_bottom);
+            } catch (...) {
+                resident->device.levels[mipmap] = 0;
+                throw;
+            }
             resident->device.levels[mipmap] = 0;
-            srCore.getGlobalRecycler()->free(staging);
         } else {
             request.destination =
                 new srColorSurface(resident->pixel_format, resident->device.levels[mipmap],
@@ -1674,8 +1685,8 @@ void srGERD::accumAlloc()
 {
     if (getWidth() != 0) {
         if (getHeight() != 0) {
-            accum_buffer = static_cast<AccumPixel*>(srHeap.allocate(getWidth() * getHeight() * sizeof(*accum_buffer)));
-            w8_ulong* scratch = static_cast<w8_ulong*>(srHeap.allocate(getWidth() * sizeof(*scratch)));
+            accum_buffer = static_cast<AccumPixel*>(std::malloc(getWidth() * getHeight() * sizeof(*accum_buffer)));
+            w8_ulong* scratch = static_cast<w8_ulong*>(std::malloc(getWidth() * sizeof(*scratch)));
             if (scratch != 0) {
                 accum_scratch = scratch;
                 accumClear();
@@ -3020,7 +3031,7 @@ void srGERD::releaseTextureSurfaceData(Texture& texture)
         texture.device.levels[index] = 0;
     }
     if (texture.surface_data != 0) {
-        srHeap.free(texture.surface_data);
+        std::free(texture.surface_data);
         texture.surface_data = 0;
     }
     texture_cache_used -= texture.device.size;
@@ -3048,7 +3059,7 @@ void srGERD::deleteTexture(Texture& texture)
     texture_lookup.Remove(&texture.id);
     getDD()->deleteTexture(texture.device);
     if (texture.name != 0) {
-        srHeap.free(texture.name);
+        std::free(texture.name);
         texture.name = 0;
     }
     texture.device.resident_data = 0;
@@ -3695,11 +3706,11 @@ void srGERD::deleteRenderers()
 void srGERD::accumRelease()
 {
     if (accum_buffer != 0) {
-        srHeap.free(accum_buffer);
+        std::free(accum_buffer);
         accum_buffer = 0;
     }
     if (accum_scratch != 0) {
-        srHeap.free(accum_scratch);
+        std::free(accum_scratch);
         accum_scratch = 0;
     }
 }
@@ -4094,7 +4105,7 @@ void srGERD::allocTextureData(Texture& texture)
         releaseTextureMemory((w8_long)(size - texture_cache_size + texture_cache_used));
         texture.device.priority = priority;
     }
-    texture.surface_data = srHeap.allocate(size);
+    texture.surface_data = std::malloc(size);
     texture.device.size = size;
     texture_cache_used += size;
     w8_long bytes_per_pixel = texture.pixel_format.pixel_size;
@@ -4129,7 +4140,7 @@ srGERD::Texture* srGERD::createNewTexture(srTextureIFace* texture)
     if (name == 0 || *name == 0) {
         result->name = 0;
     } else {
-        char* copy = (char*)srHeap.allocate(strlen(name) + 1);
+        char* copy = (char*)std::malloc(strlen(name) + 1);
         result->name = copy;
         strcpy(copy, name);
     }

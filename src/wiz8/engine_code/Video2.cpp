@@ -1,3 +1,4 @@
+#include "surrender/srMath.h"
 #include <wiz8/filesystem.h>
 #include <sstream>
 #include "wiz8/xstatus.h"

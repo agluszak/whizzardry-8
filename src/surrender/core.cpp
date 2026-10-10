@@ -11,7 +11,6 @@
 #include "image_io.h"
 #include "surrender/srFilter.h"
 #include "surrender/srGERD.h"
-#include "surrender/srHeap.h"
 #include "surrender/srImporter.h"
 #include "surrender/srIStreamOpener.h"
 #include "surrender/srMaterial.h"
@@ -31,12 +30,6 @@ void __cdecl _srLibraryInit(void)
         srAssertSetFunc(srDefaultAssertFailFunc);
     }
     initPixelTables();
-}
-
-// FUNCTION: SURRENDER 0x10015000
-void __cdecl _srLibraryExit(void)
-{
-    srHeap.freeAll();
 }
 
 // FUNCTION: SURRENDER 0x10015010
@@ -63,7 +56,6 @@ int __cdecl srInit()
     if (srCore.initialized == 0) {
         srCore.reset();
         srDebugPrintf(0xfe, "srInit() -- initializing SurRender\n");
-        srCore.global_recycler = new srGlobalRecycler;
         srCore.registry_ = new srRegistry;
         srCore.timer = new srVariableTimer;
         _srLibraryInit();
@@ -107,12 +99,6 @@ int __cdecl srInit()
 unsigned char srCore::getDebugLevel() const
 {
     return debug_level;
-}
-
-// FUNCTION: SURRENDER 0x10015690
-srGlobalRecycler* srCore::getGlobalRecycler() const
-{
-    return global_recycler;
 }
 
 // FUNCTION: SURRENDER 0x100156D0
@@ -183,13 +169,10 @@ int __cdecl srExit()
         srCore.statistics_manager = 0;
         delete srCore.timer;
         srCore.timer = 0;
-        delete srCore.global_recycler;
-        srCore.global_recycler = 0;
         srCore.reset();
         srVectorProcessor::release();
         delete srTriMeshPipeline::pipe;
         srTriMeshPipeline::pipe = 0;
-        _srLibraryExit();
         srDebugPrintf(0xfe, "srExit() -- done\n");
     }
     return 1;
@@ -279,7 +262,6 @@ srCore::srCore()
     strcat(copyright_, "MSVC 6.0");
     strcat(copyright_, ") (c) Hybrid Holding Ltd. 1994-1999");
     multi_thread = 0;
-    global_recycler = 0;
     texture = 0;
     surface = 0;
     surface_io_manager = 0;
@@ -299,7 +281,6 @@ srCore::srCore()
 void srCore::reset()
 {
     multi_thread = 0;
-    global_recycler = 0;
     texture = 0;
     surface = 0;
     surface_io_manager = 0;

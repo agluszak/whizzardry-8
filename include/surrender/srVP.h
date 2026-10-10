@@ -2,7 +2,6 @@
 
 #include <string.h>
 
-#include "srHeap.h"
 #include "srMath.h"
 
 class srARGB;

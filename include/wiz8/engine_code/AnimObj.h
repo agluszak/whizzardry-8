@@ -39,7 +39,7 @@ struct W8AnimObj {
        "pao->pfKnownBBoxFrames && pao->pvecBoundMin && pao->pvecBoundMax".
        One byte a frame saying whether that frame's bounds are already known,
        and the cached minimum and maximum for it. The flags come from malloc,
-       the two vectors from srHeap. */
+       the two vectors with ordinary array allocation. */
     unsigned char* pfKnownBBoxFrames; /* 0x40 */
     srVector3T<float>* pvecBoundMin;  /* 0x44 */
     srVector3T<float>* pvecBoundMax;  /* 0x48 */

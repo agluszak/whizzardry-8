@@ -1,3 +1,6 @@
+#include "surrender/srMath.h"
+#include <cstdlib>
+
 #include "surrender/srColorSurface.h"
 
 #include <math.h>
@@ -7,7 +10,6 @@
 
 #include "surrender/srCore.h"
 #include "surrender/srFilter.h"
-#include "surrender/srHeap.h"
 #include "surrender/srPalette.h"
 #include "surrender/srVectorProcessor.h"
 
@@ -1264,7 +1266,7 @@ void srColorSurface::allocData()
 {
     data_size = pitch * height;
     if (data_size != 0) {
-        data = srHeap.allocate(data_size);
+        data = std::malloc(data_size);
     }
 }
 
@@ -1272,7 +1274,7 @@ void srColorSurface::allocData()
 void srColorSurface::freeData()
 {
     if (!(surface_flags & BORROWED_DATA) && data != 0) {
-        srHeap.free(data);
+        std::free(data);
         data = 0;
     }
 }

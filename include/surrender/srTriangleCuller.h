@@ -1,6 +1,5 @@
 #pragma once
 
-#include "srHeap.h"
 #include "srMath.h"
 
 class srTriangleCuller {

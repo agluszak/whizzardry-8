@@ -1,6 +1,5 @@
 #pragma once
 
-#include "srHeap.h"
 
 // VTABLE: SURRENDER 0x10076970 srBinStream
 // class srBinStream

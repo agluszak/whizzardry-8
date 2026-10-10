@@ -1,3 +1,5 @@
+#include <cstdlib>
+
 /* D:\srsdk1x\sources\corelib\srMeshModel.cpp */
 
 #include "surrender/srMeshModel.h"
@@ -34,10 +36,10 @@ static void fillConstant(w8_ulong* destination, w8_ulong value, w8_ulong count)
     }
 }
 
-/* POD table permutation: scratch through srHeap, straight copy, then reordered copy back. */
+/* POD table permutation: straight copy to scratch, then reordered copy back. */
 template <class T> static void permuteTable(T* table, const w8_ulong* indices, w8_long count)
 {
-    T* scratch = static_cast<T*>(srHeap.allocate(count * sizeof(T)));
+    T* scratch = static_cast<T*>(std::malloc(count * sizeof(T)));
     if (scratch == 0) {
         scratch = 0;
     }
@@ -50,7 +52,7 @@ template <class T> static void permuteTable(T* table, const w8_ulong* indices, w
             table[index] = scratch[indices[index]];
         }
     }
-    srHeap.free(scratch);
+    std::free(scratch);
 }
 
 /* Object-table permutation: `new T[count]` scratch so each element's ctor and copy-assign run. */
@@ -589,7 +591,7 @@ void srMeshModel::calculateVertexNormals()
             }
         } else {
             srVector3T<float>* smooth =
-                (srVector3T<float>*)srHeap.allocate(vertex_location_count * sizeof(*smooth));
+                (srVector3T<float>*)std::malloc(vertex_location_count * sizeof(*smooth));
             w8_long count = vertex_location_count * 3;
             if (count != 0) {
                 srVectorProcessor::copy((SRDWORD*)smooth, 0, count);
@@ -609,7 +611,7 @@ void srMeshModel::calculateVertexNormals()
                 srVectorProcessor::copyIndexed(normals, smooth, shade_indices,
                                                vertex_location_count);
             }
-            srHeap.free(smooth);
+            std::free(smooth);
         }
         if (vertex_location_count != 0) {
             srVectorProcessor::normalize(normals, normals, 1.0f, vertex_location_count);

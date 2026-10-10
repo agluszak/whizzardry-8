@@ -2,7 +2,6 @@
 
 #include <iosfwd>
 
-#include "srHeap.h"
 
 class srStatisticsManager {
 public:

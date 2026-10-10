@@ -3,7 +3,6 @@
 
 #include "surrender/srCore.h"
 #include "surrender/srDebug.h"
-#include "surrender/srHeap.h"
 #include "surrender/srVectorProcessor.h"
 #include "surrender/srVertexPipe.h"
 

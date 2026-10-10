@@ -6,7 +6,6 @@
 #include "surrender/srCore.h"
 #include "surrender/srDebug.h"
 #include "surrender/srExporter.h"
-#include "surrender/srHeap.h"
 #include "surrender/srIStreamOpener.h"
 #include "surrender/srImporter.h"
 
