@@ -1860,21 +1860,22 @@ static bool ApplyConditionAttackToTarget(W8SpellEffectEntry* effect, W8CombatSlo
 {
     const bool monster = target->iType == W8_TARGET_KIND_MONSTER;
     const int character_index = monster ? -1 : target->iChar;
-    const unsigned int haste_turns = monster
-        ? monster_info->enchantments[W8_ENCHANTMENT_HASTE].turns
-        : g_status.buffers.Char[character_index].enchantments[W8_ENCHANTMENT_HASTE].turns;
-
-    if (effect->kind == W8_SPELL_SLOW && haste_turns != 0) {
-        const int remaining = static_cast<int>(duration) - static_cast<int>(haste_turns);
-        if (monster)
-            TickMonsterEnchantmentSlot(monster_info->location_id, W8_ENCHANTMENT_HASTE, duration);
-        else
-            TickCharacterEnchantmentSlot(character_index, W8_ENCHANTMENT_HASTE, duration);
-        return remaining > 0 &&
-               !ResolveAttackOnTarget(&effect->Source, target, condition,
-                                      g_spell_records[effect->kind].realm,
-                                      effect->definition.power_level, argument, remaining,
-                                      verbose, verbose, 0) && !verbose;
+    if (effect->kind == W8_SPELL_SLOW) {
+        const unsigned int haste_turns = monster
+            ? monster_info->enchantments[W8_ENCHANTMENT_HASTE].turns
+            : g_status.buffers.Char[character_index].enchantments[W8_ENCHANTMENT_HASTE].turns;
+        if (haste_turns != 0) {
+            const int remaining = static_cast<int>(duration) - static_cast<int>(haste_turns);
+            if (monster)
+                TickMonsterEnchantmentSlot(monster_info->location_id, W8_ENCHANTMENT_HASTE, duration);
+            else
+                TickCharacterEnchantmentSlot(character_index, W8_ENCHANTMENT_HASTE, duration);
+            return remaining > 0 &&
+                   !ResolveAttackOnTarget(&effect->Source, target, condition,
+                                          g_spell_records[effect->kind].realm,
+                                          effect->definition.power_level, argument, remaining,
+                                          verbose, verbose, 0) && !verbose;
+        }
     }
 
     if (ResolveAttackOnTarget(&effect->Source, target, condition,
