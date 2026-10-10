@@ -1,5 +1,5 @@
 #include "wiz8/index_algorithms.h"
-#include "wiz8/engine_code/OctPath.h"
+#include "wiz8/engine_code/path_open_set.h"
 #include "wiz8/engine_code/Octree.h"
 #include "surrender/srGERD.h"
 #include "surrender/srHuffman.h"
@@ -69,20 +69,47 @@ static bool mirroredOctreeIndexes()
     return true;
 }
 
-static bool pathPriorityOrder()
+static bool pathTieBreaking()
 {
     W8PathOpenSet queue;
-    queue.push({10, 4});
-    queue.push({11, 1});
-    queue.push({12, 3});
-    queue.push({13, 1});
-    queue.push({14, 2});
-    for (const auto expected : {1u, 1u, 2u, 3u, 4u}) {
-        CHECK(!queue.empty());
-        CHECK(queue.top().priority == expected);
-        queue.pop();
+    queue.reserve(128);
+    for (unsigned int node = 1; node <= 7; ++node) queue.push({node, 10});
+    // Equal replacement stops at the root: this is deliberately neither FIFO
+    // nor node order. A plain std::priority_queue changes this sequence.
+    for (const auto expected : {1u, 7u, 6u, 5u, 4u, 3u, 2u}) {
+        CHECK(queue.pop().node == expected);
     }
     CHECK(queue.empty());
+
+    // Golden trace from stHeap at main 4759d96: 50,000 interleaved operations,
+    // eight priority levels, repeated reset, and a bounded 128-node open set.
+    std::uint32_t state = 0x12345678;
+    std::uint64_t digest = 14695981039346656037ull;
+    unsigned int next_node = 1, live = 0;
+    const auto mix = [&](unsigned int value) { digest = (digest ^ value) * 1099511628211ull; };
+    for (unsigned int step = 0; step < 50000; ++step) {
+        state = state * 1664525u + 1013904223u;
+        if (step % 997 == 0) {
+            queue.clear();
+            live = 0;
+        } else if (live == 0 || (live < 128 && state % 100 < 55)) {
+            queue.push({next_node++, (state >> 16) % 8});
+            ++live;
+        } else {
+            const auto popped = queue.pop();
+            --live;
+            mix(popped.node);
+            mix(popped.priority);
+        }
+        CHECK(queue.empty() == (live == 0));
+        if (live != 0) {
+            mix(queue.top().node);
+            mix(queue.top().priority);
+        } else {
+            mix(0);
+        }
+    }
+    CHECK(digest == 0x287275717ef8f818ull);
     return true;
 }
 
@@ -120,6 +147,6 @@ static bool renderingAndSymbolIndexes()
 
 int main()
 {
-    return candidateOrdering() && mirroredOctreeIndexes() && pathPriorityOrder() &&
+    return candidateOrdering() && mirroredOctreeIndexes() && pathTieBreaking() &&
            renderingAndSymbolIndexes() ? 0 : 1;
 }
