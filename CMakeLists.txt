@@ -23,9 +23,9 @@ set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}")
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}")
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
-# Build-time experiments are opt-in; keep the ordinary build independent of
-# unity grouping and precompiled-header invalidation.
-option(WIZ8_PRECOMPILE_HEADERS "Precompile stable C++ dependencies" OFF)
+# Precompile stable headers by default. Unity grouping remains opt-in for local
+# builds because single-file edits otherwise rebuild whole compilation batches.
+option(WIZ8_PRECOMPILE_HEADERS "Precompile stable C++ dependencies" ON)
 option(WIZ8_UNITY_BUILD "Compile game and renderer sources in batches" OFF)
 set(WIZ8_UNITY_BATCH_SIZE 4 CACHE STRING "Sources per unity compilation batch")
 if(WIZ8_UNITY_BUILD AND NOT WIZ8_UNITY_BATCH_SIZE MATCHES "^[1-9][0-9]*$")

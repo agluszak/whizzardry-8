@@ -1,8 +1,7 @@
 name: Compilation benchmarks
 
+# Run on demand to compare clean builds. All variants disable the compiler cache.
 on:
-  push:
-    branches: [build/compilation-performance]
   workflow_dispatch:
 
 jobs:
@@ -13,6 +12,12 @@ jobs:
       fail-fast: false
       matrix:
         include:
+          - variant: baseline
+            pch: "OFF"
+            unity: "OFF"
+          - variant: pch
+            pch: "ON"
+            unity: "OFF"
           - variant: unity
             pch: "OFF"
             unity: "ON"
