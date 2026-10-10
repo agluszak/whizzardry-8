@@ -40,7 +40,6 @@ public:
 class W8CampStatsControls : public Controls, public W8TextControl::Listener {
 public:
     W8CampStatsControls();
-    virtual ~W8CampStatsControls();
     virtual void OnPrimary(W8TextControl* control) override;
     W8TextControl* m_buttons[3];
 };

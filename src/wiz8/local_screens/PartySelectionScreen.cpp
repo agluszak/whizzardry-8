@@ -484,7 +484,6 @@ class W8PartySelectionCharacterPanel : public Controls,
                                        public W8PartySelectionPanelSelectionListener {
 public:
     W8PartySelectionCharacterPanel();
-    virtual ~W8PartySelectionCharacterPanel();
     virtual void OnSelectionChanged(W8ControlSelection* control, int selected) override;
     virtual void OnRangeChanged(W8RangeControl* control) override;
     virtual void SelectPartyMemberRow(int row) override;
@@ -508,7 +507,6 @@ W8_ASSERT_BASE_END(W8PartySelectionCharacterPanel, W8PartySelectionPanelSelectio
 class W8PartySelectionCharacterGridPanel : public Controls, public W8TextControl::Listener {
 public:
     W8PartySelectionCharacterGridPanel();
-    virtual ~W8PartySelectionCharacterGridPanel();
     virtual void OnPrimary(W8TextControl* control) override;
     virtual void OnSecondary(W8TextControl*) override {}
 };
@@ -533,7 +531,6 @@ public:
     friend class W8PartySelectionController;
 
     W8PartySelectionPartySlotPanel();
-    virtual ~W8PartySelectionPartySlotPanel();
     virtual void OnSelectionChanged(W8ControlSelection* control, int selected) override;
 
     W8ControlSelection m_control;
@@ -783,12 +780,6 @@ W8PartySelectionCharacterPanel::W8PartySelectionCharacterPanel()
     SynchronizeVisibleSelection();
 }
 
-// FUNCTION: WIZ8 0x005bedf0
-W8PartySelectionCharacterPanel::~W8PartySelectionCharacterPanel()
-{
-    DestroyAllControls();
-}
-
 // FUNCTION: WIZ8 0x005bee70
 void W8PartySelectionCharacterPanel::OnSelectionChanged(W8ControlSelection*, int selected)
 {
@@ -982,18 +973,6 @@ void W8PartySelectionCharacterGridPanel::OnPrimary(W8TextControl* control)
     g_pending_screen_state.parameter_3 = &g_status.buffers.Char[index + 2];
     g_pending_screen_state.mode = 2;
     SetPendingScreenState(W8_SCREEN_CHARACTER);
-}
-
-// FUNCTION: WIZ8 0x005bf7e0
-W8PartySelectionCharacterGridPanel::~W8PartySelectionCharacterGridPanel()
-{
-    DestroyAllControls();
-}
-
-// FUNCTION: WIZ8 0x005bf640
-W8PartySelectionPartySlotPanel::~W8PartySelectionPartySlotPanel()
-{
-    DestroyAllControls();
 }
 
 /* Draw the selected character's portrait and complete summary card.  The
