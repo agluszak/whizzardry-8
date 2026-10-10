@@ -162,9 +162,9 @@ void W8CharacterSpellList::OnMouseLeave(int event)
 /* Shared hit test; the callers retain their distinct > and >= bounds. */
 int W8CharacterSpellList::GetMouseEntry()
 {
-    POINT mouse;
+    SGPPoint mouse;
     SGPMouseGetPos(&mouse);
-    return (mouse.y - m_pPanel->m_bounds.top - m_top) / 13 + m_scroll_offset + m_first_entry;
+    return (mouse.iY - m_pPanel->m_bounds.top - m_top) / 13 + m_scroll_offset + m_first_entry;
 }
 
 // FUNCTION: WIZ8 0x005c8120

@@ -3,13 +3,12 @@
 #pragma once
 
 #include "Types.h"
-#include "compat/kernel32.h"
 
-/* Countdowns are stored as UINT32 GetTickCount deadline stamps. Signed
+/* Countdowns are stored as UINT32 w8_get_ticks deadline stamps. Signed
    subtraction keeps TimeUntilDeadline correct across the 32-bit tick
    wraparound. */
 inline UINT32 TimeUntilDeadline(UINT32 deadline)
 {
-    const INT32 remaining = INT32(deadline - GetTickCount());
+    const INT32 remaining = INT32(deadline - w8_get_ticks());
     return remaining > 0 ? UINT32(remaining) : 0;
 }

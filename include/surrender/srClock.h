@@ -1,6 +1,5 @@
 #pragma once
 
-#include "wiz8/compat/kernel32.h"
 #include <chrono>
 #include <cstdint>
 

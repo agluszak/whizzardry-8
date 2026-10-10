@@ -870,7 +870,7 @@ static void SelectSpellCastingRealm(W8SpellRealm realm)
         gpSCSV->iSpellRealm = realm;
         gpSCSV->realm_anim_frame = g_spell_realm_animations[gpSCSV->iSpellRealm].initial_frame;
         gpSCSV->realm_icons[gpSCSV->iSpellRealm]->Invalidate(false);
-        gpSCSV->realm_anim_timer = GetTickCount() + (0x32);
+        gpSCSV->realm_anim_timer = w8_get_ticks() + (0x32);
         RebuildSpellCastingList(W8_SPELL_NONE);
         ClearSpellCastingChoice();
     }
@@ -1114,7 +1114,7 @@ void CommitSpellCastingSelection(void)
             }
             gpSCSV->realm_icons[gpSCSV->iSpellRealm]->m_normalSprite = gpSCSV->realm_anim_frame;
             gpSCSV->realm_icons[gpSCSV->iSpellRealm]->Invalidate(false);
-            gpSCSV->realm_anim_timer = GetTickCount() + (0x32);
+            gpSCSV->realm_anim_timer = w8_get_ticks() + (0x32);
             RequestRedraw(W8_MAIN_REDRAW_FRAME);
         }
     }

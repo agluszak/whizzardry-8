@@ -35,7 +35,6 @@
 #include "wiz8/startup_world.h"
 #include "wiz8/surface2d.h"
 #include "wiz8/utility.h"
-#include "wiz8/wiz8_windows.h"
 #include "surrender/srColorSurface.h"
 #include "surrender/srCore.h"
 #include "surrender/srFilter.h"
@@ -107,7 +106,7 @@ void FlushDirtyTiles(void);
 /* The released SGP video unit owns this platform handle.  Wiz8 replaces the
    released video manager but keeps the same source-defined interface. */
 // GLOBAL: WIZ8 0x006596CC
-HWND ghWindow;
+SDL_Window* ghWindow;
 
 // GLOBAL: WIZ8 0x603c38
 bool g_world_pick_enabled = true;
@@ -168,7 +167,7 @@ CpuSurface* g_primary_surface;
 // GLOBAL: WIZ8 0x6596b0
 std::unique_ptr<CpuSurface> videoSurfaceOwner;
 // GLOBAL: WIZ8 0x659610
-RECT g_window_rect;
+SGPRect g_window_rect;
 
 // GLOBAL: WIZ8 0x600088
 unsigned int g_color_key = 0x3def;
@@ -242,7 +241,7 @@ srClass* g_render_object0;
 // GLOBAL: WIZ8 0x659678
 srClass* g_render_object1;
 // GLOBAL: WIZ8 0x659720
-HWND g_render_window;
+SDL_Window* g_render_window;
 // GLOBAL: WIZ8 0x65409c
 unsigned int g_last_capture_tick;
 // GLOBAL: WIZ8 0x659704
@@ -352,7 +351,7 @@ unsigned char InitializeVideoManager(void)
     g_world_pick_enabled = true;
     SetPickedModelInstance(0);
     g_fps_frame_count = 0;
-    g_fps_window_tick = GetTickCount();
+    g_fps_window_tick = w8_get_ticks();
     g_overlay_page_counters[0] = 0;
     g_overlay_page_counters[1] = 0;
     g_page_full_redraw[0] = 0;
@@ -412,7 +411,7 @@ void ShutdownVideoManager(void)
     ShutdownVideoScenes();
     ShutdownStartupNavigation();
     SuspendVideoManager();
-    HWND native_window = ghWindow;
+    SDL_Window* native_window = ghWindow;
     ReleasePrimaryCpuSurface();
     videoSurfaceOwner.reset();
     if (ghWindow) {
@@ -1036,7 +1035,7 @@ void RenderFrame(void)
         g_screenshot_pending = false;
     }
     if (g_auto_capture) {
-        now = GetTickCount();
+        now = w8_get_ticks();
         if (now < g_last_capture_tick || g_last_capture_tick + g_frame_reset_interval < now) {
             g_screenshot_pending = true;
             g_last_capture_tick = now;
@@ -1053,11 +1052,11 @@ void RenderFrame(void)
     PurgeInactiveSceneInstances(retire_prerender);
     PurgeInactiveSceneInstances(retire_overlay);
 
-    now = GetTickCount();
+    now = w8_get_ticks();
     elapsed = static_cast<float>(now - g_fps_window_tick);
     frames_per_second = g_fps_frame_count / elapsed * 1000.0f;
     if (g_fps_frame_count > 50) {
-        g_fps_window_tick = GetTickCount();
+        g_fps_window_tick = w8_get_ticks();
         g_fps_frame_count = 0;
     }
     g_seconds_per_frame = 1.0f / frames_per_second;
@@ -1342,20 +1341,20 @@ BOOLEAN BlitHVObjectToColorSurface(HVOBJECT object, UINT16 region, srColorSurfac
 
 static void MoveSystemCursor(int x, int y)
 {
-    RECT client;
-    POINT top_left;
-    POINT bottom_right;
+    SGPRect client;
+    SGPPoint top_left;
+    SGPPoint bottom_right;
 
     if (!g_fullscreen) {
         GetClientRect(ghWindow, &client);
-        top_left.x = client.left;
-        top_left.y = client.top;
-        bottom_right.x = client.right;
-        bottom_right.y = client.bottom;
+        top_left.iX = client.iLeft;
+        top_left.iY = client.iTop;
+        bottom_right.iX = client.iRight;
+        bottom_right.iY = client.iBottom;
         ClientToScreen(ghWindow, &top_left);
         ClientToScreen(ghWindow, &bottom_right);
-        x += top_left.x;
-        y += top_left.y;
+        x += top_left.iX;
+        y += top_left.iY;
     }
     SetCursorPos(x, y);
 }
@@ -1506,13 +1505,13 @@ void WarpSystemCursor(int x, int y)
         SetCursorPos(x, y);
         return;
     }
-    RECT client;
+    SGPRect client;
     GetClientRect(ghWindow, &client);
-    // reinterpret-ok: Win32 ClientToScreen takes LPPOINT; RECT is two adjacent POINTs
-    ClientToScreen(ghWindow, reinterpret_cast<LPPOINT>(&client));
-    // reinterpret-ok: Win32 ClientToScreen takes LPPOINT; RECT is two adjacent POINTs
-    ClientToScreen(ghWindow, reinterpret_cast<LPPOINT>(&client.right));
-    SetCursorPos(client.left + x, client.top + y);
+    // reinterpret-ok: Win32 ClientToScreen takes SGPPoint*; SGPRect is two adjacent SGPPoints
+    ClientToScreen(ghWindow, reinterpret_cast<SGPPoint*>(&client));
+    // reinterpret-ok: Win32 ClientToScreen takes SGPPoint*; SGPRect is two adjacent SGPPoints
+    ClientToScreen(ghWindow, reinterpret_cast<SGPPoint*>(&client.iRight));
+    SetCursorPos(client.iLeft + x, client.iTop + y);
 }
 
 // FUNCTION: WIZ8 0x00428140
@@ -1529,7 +1528,7 @@ void PositionMouseCursor(int width, int height, bool reset_tick)
             location.z = 0.0;
             g_cursor_node->setLocation(location);
             if (reset_tick) {
-                g_cursor_move_tick = GetTickCount();
+                g_cursor_move_tick = w8_get_ticks();
             }
         }
     }
@@ -1540,7 +1539,7 @@ void PositionMouseCursor(int width, int height, bool reset_tick)
 // FUNCTION: WIZ8 0x00428220
 unsigned int GetMillisecondsSinceCursorMove(void)
 {
-    return GetTickCount() - g_cursor_move_tick;
+    return w8_get_ticks() - g_cursor_move_tick;
 }
 
 /* The tracked cursor as viewport-relative 0..1 coordinates, or zero when it
@@ -1576,32 +1575,32 @@ void GetCursorScaledPosition(srVector3T<float>* position)
 // FUNCTION: WIZ8 0x00428340
 void SyncSystemCursor(void)
 {
-    POINT cursor;
-    RECT client;
-    POINT top_left;
-    POINT bottom_right;
+    SGPPoint cursor;
+    SGPRect client;
+    SGPPoint top_left;
+    SGPPoint bottom_right;
 
     GetGameMousePosition(&cursor);
     if (!g_fullscreen) {
         GetClientRect(ghWindow, &client);
-        top_left.x = client.left;
-        top_left.y = client.top;
-        bottom_right.x = client.right;
-        bottom_right.y = client.bottom;
+        top_left.iX = client.iLeft;
+        top_left.iY = client.iTop;
+        bottom_right.iX = client.iRight;
+        bottom_right.iY = client.iBottom;
         ClientToScreen(ghWindow, &top_left);
         ClientToScreen(ghWindow, &bottom_right);
-        if (cursor.x < top_left.x || cursor.x >= bottom_right.x || cursor.y < top_left.y ||
-            cursor.y >= bottom_right.y) {
+        if (cursor.iX < top_left.iX || cursor.iX >= bottom_right.iX || cursor.iY < top_left.iY ||
+            cursor.iY >= bottom_right.iY) {
             if (!g_system_cursor_visible) {
                 g_system_cursor_visible = true;
                 ShowCursor(TRUE);
             }
             return;
         }
-        cursor.x -= top_left.x;
-        cursor.y -= top_left.y;
-        if (cursor.x != g_cursor_width || cursor.y != g_cursor_height) {
-            PositionMouseCursor(cursor.x, cursor.y, true);
+        cursor.iX -= top_left.iX;
+        cursor.iY -= top_left.iY;
+        if (cursor.iX != g_cursor_width || cursor.iY != g_cursor_height) {
+            PositionMouseCursor(cursor.iX, cursor.iY, true);
         }
         if (g_system_cursor_visible) {
             g_system_cursor_visible = false;
@@ -1610,27 +1609,27 @@ void SyncSystemCursor(void)
         return;
     }
 
-    if (cursor.x < 1)
-        cursor.x = 0;
-    else if (cursor.x >= 640)
-        cursor.x = 640;
-    if (cursor.y < 1)
-        cursor.y = 0;
-    else if (cursor.y >= 480)
-        cursor.y = 480;
-    if (cursor.x != g_cursor_width || cursor.y != g_cursor_height) {
-        PositionMouseCursor(cursor.x, cursor.y, true);
+    if (cursor.iX < 1)
+        cursor.iX = 0;
+    else if (cursor.iX >= 640)
+        cursor.iX = 640;
+    if (cursor.iY < 1)
+        cursor.iY = 0;
+    else if (cursor.iY >= 480)
+        cursor.iY = 480;
+    if (cursor.iX != g_cursor_width || cursor.iY != g_cursor_height) {
+        PositionMouseCursor(cursor.iX, cursor.iY, true);
         if (!g_fullscreen) {
             GetClientRect(ghWindow, &client);
-            top_left.x = client.left;
-            top_left.y = client.top;
-            bottom_right.x = client.right;
-            bottom_right.y = client.bottom;
+            top_left.iX = client.iLeft;
+            top_left.iY = client.iTop;
+            bottom_right.iX = client.iRight;
+            bottom_right.iY = client.iBottom;
             ClientToScreen(ghWindow, &top_left);
             ClientToScreen(ghWindow, &bottom_right);
-            SetCursorPos(top_left.x + cursor.x, top_left.y + cursor.y);
+            SetCursorPos(top_left.iX + cursor.iX, top_left.iY + cursor.iY);
         } else {
-            SetCursorPos(cursor.x, cursor.y);
+            SetCursorPos(cursor.iX, cursor.iY);
         }
     }
 }
@@ -1639,22 +1638,22 @@ void SyncSystemCursor(void)
    refresh that recomputes them. Fifty callers reach this; what the two pairs
    mean is not established beyond the sum, so both keep address-qualified names. */
 // FUNCTION: WIZ8 0x004284f0
-void SGPMouseGetPos(POINT* point)
+void SGPMouseGetPos(SGPPoint* point)
 {
     if (point != 0) {
         SyncSystemCursor();
-        point->x = g_cursor_hotspot_x + g_cursor_width;
-        point->y = g_cursor_hotspot_y + g_cursor_height;
+        point->iX = g_cursor_hotspot_x + g_cursor_width;
+        point->iY = g_cursor_hotspot_y + g_cursor_height;
     }
 }
 
 // FUNCTION: WIZ8 0x00428520
 bool IsCursorInRectangle(int left, int top, int right, int bottom)
 {
-    POINT point;
+    SGPPoint point;
 
     SGPMouseGetPos(&point);
-    return point.x >= left && point.x <= right && point.y >= top && point.y <= bottom;
+    return point.iX >= left && point.iX <= right && point.iY >= top && point.iY <= bottom;
 }
 
 /* The atom's packed mouse position plus the cursor hotspot, split into the
@@ -2303,7 +2302,7 @@ void ClearSurfaceRect(int left, unsigned int top, int right, unsigned int bottom
 {
     if (top >= bottom || left >= right)
         return;
-    const RECT rectangle{left, static_cast<LONG>(top), right, static_cast<LONG>(bottom)};
+    const SGPRect rectangle{left, static_cast<INT32>(top), right, static_cast<INT32>(bottom)};
     FillCpuSurface(*g_primary_surface, 0, &rectangle);
 }
 
@@ -2499,11 +2498,11 @@ BOOLEAN CheckCdPresent(void)
 }
 
 // FUNCTION: WIZ8 0x00427a70
-void VideoGetClientRect(RECT* rect)
+void VideoGetClientRect(SGPRect* rect)
 {
     GetClientRect(ghWindow, rect);
-    ClientToScreen(ghWindow, (POINT*)rect);
-    ClientToScreen(ghWindow, (POINT*)&rect->right);
+    ClientToScreen(ghWindow, (SGPPoint*)rect);
+    ClientToScreen(ghWindow, (SGPPoint*)&rect->iRight);
 }
 
 // FUNCTION: WIZ8 0x00421f20

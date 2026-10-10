@@ -208,7 +208,7 @@ void ClearSearchables()
 void RunSearchPulse(void)
 {
     if (TimeUntilDeadline(g_search_pulse_clock) == 0) {
-        g_search_pulse_clock = GetTickCount() + (500);
+        g_search_pulse_clock = w8_get_ticks() + (500);
         if (GetEnvironmentFlag() != 0 && !gXStatus.world_update_blocked &&
             !gXStatus.fSurprisePossible && !gXStatus.fLockInteractMode && !gXStatus.fLockInteract &&
             !gXStatus.fTrapInteractMode && !gXStatus.fTrapInteract) {
@@ -391,7 +391,7 @@ void ToggleSearchMode(void)
     if (!gXStatus.fCombatMode) {
         g_status.search_mode = 1;
         ShowNotice(W8_FONT_PALETTE_BEIGE, gppStringList[W8_NOTICE_SEARCH_MODE_ON]);
-        g_search_pulse_clock = GetTickCount() + (0x1f4);
+        g_search_pulse_clock = w8_get_ticks() + (0x1f4);
         ClearActiveWorldCursorNode();
     } else {
         ShowNotice(W8_FONT_PALETTE_BEIGE, gppStringList[W8_NOTICE_SEARCH_BLOCKED_COMBAT]);

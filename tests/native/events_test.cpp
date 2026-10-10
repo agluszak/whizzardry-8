@@ -25,7 +25,7 @@
         }                                                                                          \
     } while (0)
 
-HWND ghWindow = nullptr;
+SDL_Window* ghWindow = nullptr;
 static int screenshots = 0, captures = 0, suspensions = 0, restorations = 0, resizes = 0;
 static std::thread::id dispatch_thread;
 static std::vector<int> clock_actions;
@@ -114,7 +114,7 @@ int main()
     CHECK(window);
     dispatch_thread = std::this_thread::get_id();
     id = SDL_GetWindowID(window);
-    ghWindow = reinterpret_cast<HWND>(window);
+    ghWindow = reinterpret_cast<SDL_Window*>(window);
     SetInputWindow(window);
     CHECK(ghWindow && uintptr_t(ghWindow) == uintptr_t(window));
     CHECK(InitializeInputManager());
@@ -126,12 +126,12 @@ int main()
     CHECK(gusMouseXPos == 320 && gusMouseYPos == 240);
 
     CHECK(WarpGameMouse(window, 123, 321));
-    POINT position;
+    SGPPoint position;
     GetGameMousePosition(&position);
-    CHECK(position.x == 123 && position.y == 321);
+    CHECK(position.iX == 123 && position.iY == 321);
     CHECK(WarpGameMouse(window, -10, 600));
     GetGameMousePosition(&position);
-    CHECK(position.x == 0 && position.y == 479);
+    CHECK(position.iX == 0 && position.iY == 479);
     CHECK(WarpGameMouse(window, 320, 240));
     drain_events();
 
@@ -207,12 +207,12 @@ int main()
     expect(events[0], MOUSE_POS, 0);
     CHECK(events[0].uiParam == ((479u << 16) | 639u));
     expect(events[1], LEFT_BUTTON_DOWN, 0);
-    guiLeftButtonRepeatTimer = GetTickCount() - 1;
+    guiLeftButtonRepeatTimer = w8_get_ticks() - 1;
     events = input();
     CHECK(events.size() == 1);
     expect(events[0], LEFT_BUTTON_REPEAT, 0);
     CHECK(events[0].uiParam == ((240u << 16) | 320u));
-    guiSingleClickTimer = GetTickCount() - 1000;
+    guiSingleClickTimer = w8_get_ticks() - 1000;
     mouse(SDL_EVENT_MOUSE_BUTTON_UP, SDL_BUTTON_LEFT, 640, 480);
     drain_events();
     events = input();
@@ -273,11 +273,11 @@ int main()
     expect(events[0], KEY_DOWN, 'F');
     expect(events[1], KEY_UP, 'F');
 
-    UINT32 countdown = GetTickCount() + 100;
+    UINT32 countdown = w8_get_ticks() + 100;
     CHECK(TimeUntilDeadline(countdown) <= 100 && TimeUntilDeadline(countdown) > 0);
-    CHECK(TimeUntilDeadline(GetTickCount() - 1) == 0);
+    CHECK(TimeUntilDeadline(w8_get_ticks() - 1) == 0);
     /* Signed deadline math stays correct across the 32-bit tick wraparound. */
-    countdown = GetTickCount() + 0xfffffff0u;
+    countdown = w8_get_ticks() + 0xfffffff0u;
     CHECK(TimeUntilDeadline(countdown) == 0);
 
     suspensions = restorations = 0;
@@ -301,10 +301,10 @@ int main()
     push(resize);
     drain_events();
     CHECK(resizes == 1);
-    POINT point{};
+    SGPPoint point{};
     CHECK(WarpGameMouse(window, 320, 240));
     GetGameMousePosition(&point);
-    CHECK(point.x == 320 && point.y == 240);
+    CHECK(point.iX == 320 && point.iY == 240);
     drain_events();
     input();
 
@@ -346,7 +346,7 @@ int main()
         CHECK(InitializeInputManager());
         for (unsigned i = 0; i < queued; ++i)
             QueueEvent(KEY_DOWN, i, 0);
-        guiSingleClickTimer = GetTickCount();
+        guiSingleClickTimer = w8_get_ticks();
         gusRecordedKeyState = SHIFT_DOWN;
         QueueEvent(LEFT_BUTTON_UP, 17, 23);
         events = input();

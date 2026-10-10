@@ -225,7 +225,7 @@ struct W8CombatState {
     /* 0x7a8: continuous-combat UI pacing; the confirm button resets it while
        TimeUntilDeadline reports it still running. */
     UINT32 combat_ui_timer;
-    /* 0x7ac: the pacing clock the scheduler arms as a GetTickCount deadline
+    /* 0x7ac: the pacing clock the scheduler arms as a w8_get_ticks deadline
        before the scheduled actor's action may execute. */
     UINT32 action_clock;
     int eCombatActionStatus;                  /* 0x7b0 */

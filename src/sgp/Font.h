@@ -51,14 +51,14 @@ extern SGPRect FontDestRegion;
 extern BOOLEAN FontDestWrap;
 
 #define SetFontDestObject(x)                                                                       \
-    (SetFontDestBuffer(x, FontDestRegion.left, FontDestRegion.top, FontDestRegion.right,           \
-                       FontDestRegion.bottom, FontDestWrap))
+    (SetFontDestBuffer(x, FontDestRegion.iLeft, FontDestRegion.iTop, FontDestRegion.iRight,           \
+                       FontDestRegion.iBottom, FontDestWrap))
 
 #define SetFontDestClip(x1, y1, x2, y2)                                                            \
     (SetFontDestBuffer(FontDestBuffer, x1, y1, x2, y2, FontDestWrap))
 #define SetFontDestWrap(x)                                                                         \
-    (SetFontDestBuffer(FontDestBuffer, FontDestRegion.left, FontDestRegion.top,                    \
-                       FontDestRegion.right, FontDestRegion.bottom, x))
+    (SetFontDestBuffer(FontDestBuffer, FontDestRegion.iLeft, FontDestRegion.iTop,                    \
+                       FontDestRegion.iRight, FontDestRegion.iBottom, x))
 // functions
 
 void SetFontForeground(UINT8 ubForeground);

@@ -1,9 +1,7 @@
-#include "wiz8/wiz8_windows.h"
 #include "wiz8/cursor.h"
 #include "Font.h"
 #include "input.h"
 #include "wiz8/local_screens/MainGameScreen.h"
-#include "wiz8/wiz8_windows.h"
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/fonts.h"
 #include "wiz8/text_input.h"
@@ -1149,7 +1147,7 @@ void RenderActiveTextField(void)
     }
 
     if (gfEditingText && field->szString != 0 && gfLeftButtonState == 0 &&
-        GetTickCount() % 1000 < 500) {
+        w8_get_ticks() % 1000 < 500) {
         int left = field->region.RegionTopLeftX + gsCursorX;
         int top = field->region.RegionTopLeftY + vertical_offset;
         ColorFillVideoSurfaceArea(FRAME_BUFFER, left, top, left + 1, top + font_height,

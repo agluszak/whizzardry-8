@@ -19,7 +19,7 @@ float g_frame_elapsed;
 // FUNCTION: WIZ8 0x00482140
 void UpdateRenderElapsedTime(void)
 {
-    unsigned int now = GetTickCount();
+    unsigned int now = w8_get_ticks();
     unsigned int elapsed = now - g_frame_tick;
     g_frame_tick = now;
     g_frame_elapsed = elapsed * 0.001f;

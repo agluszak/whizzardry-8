@@ -124,7 +124,7 @@ BOOLEAN DDBlt8BPPDataTo16BPPBufferFullTransparent(HVOBJECT hDestVObject, HVOBJEC
 BOOLEAN DDFillSurface(HVOBJECT hDestVObject, blt_fx* pBltFx);
 BOOLEAN DDFillSurfaceRect(HVOBJECT hDestVObject, blt_fx* pBltFx);
 BOOLEAN BltVObjectUsingDD(HVOBJECT hDestVObject, HVOBJECT hSrcVObject, UINT32 fBltFlags,
-                          INT32 iDestX, INT32 iDestY, RECT* SrcRect);
+                          INT32 iDestX, INT32 iDestY, SGPRect* SrcRect);
 
 // New 16/16 blitters
 

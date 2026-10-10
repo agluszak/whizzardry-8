@@ -1,4 +1,3 @@
-#include "wiz8/wiz8_windows.h"
 #include "wiz8/engine_code/Item.h"
 
 #include <math.h>
@@ -202,7 +201,7 @@ W8Item::W8Item()
     kind = 2;
     m_pRep = new W8ItemRep;
     id = AllocateGrObjectId();
-    countdown = GetTickCount() + (0);
+    countdown = w8_get_ticks() + (0);
 }
 
 // FUNCTION: WIZ8 0x0049F4A0
@@ -421,7 +420,7 @@ float W8Item::DistanceToCamera(W8World* world)
 // FUNCTION: WIZ8 0x004A0030
 void W8Item::LightRadarBlip()
 {
-    countdown = GetTickCount() + (10000);
+    countdown = w8_get_ticks() + (10000);
 }
 
 /* Run an item's trigger without a source. Action states 1 and 4 return zero

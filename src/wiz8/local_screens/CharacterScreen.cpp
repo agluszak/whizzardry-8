@@ -1,4 +1,3 @@
-#include "wiz8/wiz8_windows.h"
 #include "soundman.h"
 #include "wiz8/layouts/character.h"
 #include "wiz8/character_skills.h"
@@ -756,14 +755,14 @@ unsigned char CharacterScreenLeave(int leaving)
 // FUNCTION: WIZ8 0x005b18e0
 void CharacterScreenFrame(void)
 {
-    POINT point;
+    SGPPoint point;
     InputAtom input;
     SGPMouseGetPos(&point);
     g_character_screen->UpdateDialog();
-    MSYS_SGP_Mouse_Handler_Hook(MOUSE_POS, static_cast<unsigned short>(point.x),
-                                static_cast<unsigned short>(point.y), gfLeftButtonState,
+    MSYS_SGP_Mouse_Handler_Hook(MOUSE_POS, static_cast<unsigned short>(point.iX),
+                                static_cast<unsigned short>(point.iY), gfLeftButtonState,
                                 gfRightButtonState);
-    UpdateRegionMousePosition(point.x, point.y);
+    UpdateRegionMousePosition(point.iX, point.iY);
     while (DequeueEvent(&input) == 1) {
         W8CharacterScreen* screen = g_character_screen;
         screen->m_pages[screen->m_page_index]->HandleInput(&input);

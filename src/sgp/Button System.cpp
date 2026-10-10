@@ -8,7 +8,6 @@
 ***********************************************************************************************/
 
 #include "Types.h"
-#include "compat/kernel32.h"
 #include <stdio.h>
 #include <memory.h>
 #include "input.h"

@@ -14,7 +14,6 @@
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/layouts/screen_state.h"
 #include "wiz8/local_code/Gameloop.h"
-#include "wiz8/wiz8_windows.h"
 #include "wiz8/sr_api.h"
 #include "wiz8/virtual_file.h"
 #include "surrender/srCore.h"
@@ -77,7 +76,7 @@ W8MaterialMapper::W8MaterialMapper()
 {
     scroll_rate_u = 0.002f;
     scroll_rate_v = 0.0f;
-    g_frame_tick = GetTickCount();
+    g_frame_tick = w8_get_ticks();
 }
 
 // FUNCTION: WIZ8 0x00482040
@@ -139,7 +138,7 @@ void AdvanceEnvironmentTime(int elapsed)
     if (g_current_screen_state.id == W8_SCREEN_MAIN_GAME) {
         UpdateGameClock(elapsed);
     }
-    g_tick = GetTickCount();
+    g_tick = w8_get_ticks();
 
     const double arc = 3.141592653589793 * (1.0f / 180.0f) * 80.0;
     bool day;
@@ -191,7 +190,7 @@ void AdvanceEnvironmentTime(int elapsed)
 static void AdvanceEnvironmentClock(void)
 {
     if (g_environment_time_enabled) {
-        w8_ulong now = GetTickCount();
+        w8_ulong now = w8_get_ticks();
         w8_ulong elapsed = now < g_tick ? now - g_tick - 1 : now - g_tick;
         if (elapsed != 0) {
             AdvanceEnvironmentTime(
@@ -212,7 +211,7 @@ void SetEnvironmentTimeEnabled(bool enabled)
     }
 
     g_environment_time_enabled = true;
-    g_tick = GetTickCount();
+    g_tick = w8_get_ticks();
     AdvanceEnvironmentClock();
 }
 
@@ -557,7 +556,7 @@ void BeginWorldLightingFade(float duration)
     }
 
     g_environment_transition_rate = g_float_one / duration;
-    g_environment_transition_tick = GetTickCount();
+    g_environment_transition_tick = w8_get_ticks();
     g_environment_lighting_mode = 1;
     if (duration < g_float_zero) {
         g_world->environment_base_intensity = g_world->environment_intensity;
@@ -576,7 +575,7 @@ void BeginWorldLightingFade(float duration)
 // FUNCTION: WIZ8 0x00484300
 void UpdateEnvironmentLighting(void)
 {
-    w8_ulong now = GetTickCount();
+    w8_ulong now = w8_get_ticks();
     w8_ulong elapsed = now - g_environment_transition_tick;
     W8World* world;
     float scale;
@@ -898,7 +897,7 @@ void SetCameraLightMode(int mode)
 void SetGameTimeMilliseconds(int value)
 {
     g_status.game_time_ms = value;
-    g_tick = GetTickCount();
+    g_tick = w8_get_ticks();
 }
 
 // FUNCTION: WIZ8 0x00482740

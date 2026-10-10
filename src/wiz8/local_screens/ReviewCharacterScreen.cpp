@@ -1,5 +1,4 @@
 #include <new>
-#include "wiz8/wiz8_windows.h"
 #include "wiz8/spell_ids.h"
 #include "wiz8/conditions.h"
 #include "wiz8/sgp_text.h"
@@ -1334,7 +1333,7 @@ unsigned char CampScreenEnter(void)
     g_camp_screen->character_info = new W8CampCharacterInfo;
     g_camp_screen->item_icons_drawn = false;
     ActivateCampPage();
-    g_camp_screen->animation_timer = GetTickCount() + (50);
+    g_camp_screen->animation_timer = w8_get_ticks() + (50);
     for (unsigned int animation = 0; animation < 6; ++animation) {
         g_camp_screen->animation_frames[animation] =
             Random(g_spell_realm_animations[animation].frame_count);
@@ -1407,9 +1406,9 @@ void CampScreenFrame(void)
         !gXStatus.fCombatMode && !IsScreenTransitionPending()) {
         RefreshLevelUpReadyNotices();
     }
-    POINT point;
+    SGPPoint point;
     SGPMouseGetPos(&point);
-    g_camp_screen->hover_region = UpdateRegionMousePosition(point.x, point.y);
+    g_camp_screen->hover_region = UpdateRegionMousePosition(point.iX, point.iY);
     InputAtom input;
     while (DequeueEvent(&input) == 1) {
         if (!DispatchRegionInput(&input) && input.usEvent == KEY_DOWN) {
@@ -1455,7 +1454,7 @@ void CampScreenFrame(void)
                 g_camp_screen->animation_frames[realm] = 0;
             }
         }
-        g_camp_screen->animation_timer = GetTickCount() + (50);
+        g_camp_screen->animation_timer = w8_get_ticks() + (50);
         g_camp_screen->redraw_flags |= 0x10000;
     }
     if (g_camp_screen->page == W8_CAMP_PAGE_ITEMS && g_camp_screen->item_timer_active &&
@@ -2597,7 +2596,7 @@ void BeginScreenFade(int fade_to_black, int fade_out, int duration, void (*callb
     static_cast<srMaterial*>(static_cast<srMeshModel*>(g_fade_overlay->getModel())
                                  ->getMaterial(0, srMeshModel::SIDE_FRONT))
         ->setOpacity(fade_out != 0 ? 1.0f : 0.0f);
-    g_fade_tick_base = GetTickCount();
+    g_fade_tick_base = w8_get_ticks();
 }
 
 /* Advance the pending screen fade: interpolate the overlay's opacity over
@@ -2611,7 +2610,7 @@ unsigned char UpdateScreenFade(void)
     if (!g_level_block->review_transition_done) {
         return 0;
     }
-    w8_ulong elapsed = GetTickCount() - g_fade_tick_base;
+    w8_ulong elapsed = w8_get_ticks() - g_fade_tick_base;
     if (g_fade_duration < elapsed) {
         g_level_block->review_transition_done = false;
         if (g_fade_out == 0) {

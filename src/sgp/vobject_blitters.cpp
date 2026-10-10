@@ -10,6 +10,7 @@
 #include "vobject_blitters.h"
 #include "shading.h"
 #include <string.h>
+#include <algorithm>
 
 namespace {
 // The assembly permits unaligned 16-bit pixels (including in the routines
@@ -169,10 +170,10 @@ BOOLEAN Blt8BPPDataTo8BPPBufferMonoShadowClip(UINT8* pBuffer, UINT32 uiDestPitch
     }
 
     // Calculate rows hanging off each side of the screen
-    LeftSkip = __min(ClipX1 - min(ClipX1, iTempX), (INT32)usWidth);
-    RightSkip = __min(max(ClipX2, (iTempX + (INT32)usWidth)) - ClipX2, (INT32)usWidth);
-    TopSkip = __min(ClipY1 - __min(ClipY1, iTempY), (INT32)usHeight);
-    BottomSkip = __min(__max(ClipY2, (iTempY + (INT32)usHeight)) - ClipY2, (INT32)usHeight);
+    LeftSkip = std::min(ClipX1 - std::min(ClipX1, iTempX), (INT32)usWidth);
+    RightSkip = std::min(std::max(ClipX2, (iTempX + (INT32)usWidth)) - ClipX2, (INT32)usWidth);
+    TopSkip = std::min(ClipY1 - std::min(ClipY1, iTempY), (INT32)usHeight);
+    BottomSkip = std::min(std::max(ClipY2, (iTempY + (INT32)usHeight)) - ClipY2, (INT32)usHeight);
 
     // calculate the remaining rows and columns to blit
     BlitLength = ((INT32)usWidth - LeftSkip - RightSkip);
@@ -249,10 +250,10 @@ BOOLEAN Blt8BPPDataTo8BPPBufferTransparentClip(UINT16* pBuffer, UINT32 uiDestPit
     }
 
     // Calculate rows hanging off each side of the screen
-    LeftSkip = __min(ClipX1 - min(ClipX1, iTempX), (INT32)usWidth);
-    RightSkip = __min(max(ClipX2, (iTempX + (INT32)usWidth)) - ClipX2, (INT32)usWidth);
-    TopSkip = __min(ClipY1 - __min(ClipY1, iTempY), (INT32)usHeight);
-    BottomSkip = __min(__max(ClipY2, (iTempY + (INT32)usHeight)) - ClipY2, (INT32)usHeight);
+    LeftSkip = std::min(ClipX1 - std::min(ClipX1, iTempX), (INT32)usWidth);
+    RightSkip = std::min(std::max(ClipX2, (iTempX + (INT32)usWidth)) - ClipX2, (INT32)usWidth);
+    TopSkip = std::min(ClipY1 - std::min(ClipY1, iTempY), (INT32)usHeight);
+    BottomSkip = std::min(std::max(ClipY2, (iTempY + (INT32)usHeight)) - ClipY2, (INT32)usHeight);
 
     // calculate the remaining rows and columns to blit
     BlitLength = ((INT32)usWidth - LeftSkip - RightSkip);
@@ -422,10 +423,10 @@ BOOLEAN Blt8BPPDataTo8BPPBufferShadowClip(UINT16* pBuffer, UINT32 uiDestPitchBYT
     }
 
     // Calculate rows hanging off each side of the screen
-    LeftSkip = __min(ClipX1 - min(ClipX1, iTempX), (INT32)usWidth);
-    RightSkip = __min(max(ClipX2, (iTempX + (INT32)usWidth)) - ClipX2, (INT32)usWidth);
-    TopSkip = __min(ClipY1 - __min(ClipY1, iTempY), (INT32)usHeight);
-    BottomSkip = __min(__max(ClipY2, (iTempY + (INT32)usHeight)) - ClipY2, (INT32)usHeight);
+    LeftSkip = std::min(ClipX1 - std::min(ClipX1, iTempX), (INT32)usWidth);
+    RightSkip = std::min(std::max(ClipX2, (iTempX + (INT32)usWidth)) - ClipX2, (INT32)usWidth);
+    TopSkip = std::min(ClipY1 - std::min(ClipY1, iTempY), (INT32)usHeight);
+    BottomSkip = std::min(std::max(ClipY2, (iTempY + (INT32)usHeight)) - ClipY2, (INT32)usHeight);
 
     // calculate the remaining rows and columns to blit
     BlitLength = ((INT32)usWidth - LeftSkip - RightSkip);
@@ -509,10 +510,10 @@ BOOLEAN Blt8BPPDataTo16BPPBufferMonoShadowClip(UINT16* pBuffer, UINT32 uiDestPit
     }
 
     // Calculate rows hanging off each side of the screen
-    LeftSkip = __min(ClipX1 - min(ClipX1, iTempX), (INT32)usWidth);
-    RightSkip = __min(max(ClipX2, (iTempX + (INT32)usWidth)) - ClipX2, (INT32)usWidth);
-    TopSkip = __min(ClipY1 - __min(ClipY1, iTempY), (INT32)usHeight);
-    BottomSkip = __min(__max(ClipY2, (iTempY + (INT32)usHeight)) - ClipY2, (INT32)usHeight);
+    LeftSkip = std::min(ClipX1 - std::min(ClipX1, iTempX), (INT32)usWidth);
+    RightSkip = std::min(std::max(ClipX2, (iTempX + (INT32)usWidth)) - ClipX2, (INT32)usWidth);
+    TopSkip = std::min(ClipY1 - std::min(ClipY1, iTempY), (INT32)usHeight);
+    BottomSkip = std::min(std::max(ClipY2, (iTempY + (INT32)usHeight)) - ClipY2, (INT32)usHeight);
 
     // calculate the remaining rows and columns to blit
     BlitLength = ((INT32)usWidth - LeftSkip - RightSkip);
@@ -660,13 +661,13 @@ BOOLEAN Blt16BPPTo16BPPMirror(UINT16* pDest, UINT32 uiDestPitch, UINT16* pSrc, U
     }
 
     // Calculate rows hanging off each side of the screen
-    LeftSkip = __min(ClipX1 - __min(ClipX1, iTempX), (INT32)uiWidth);
-    RightSkip = __min(__max(ClipX2, (iTempX + (INT32)uiWidth)) - ClipX2, (INT32)uiWidth);
-    TopSkip = __min(ClipY1 - __min(ClipY1, iTempY), (INT32)uiHeight);
-    BottomSkip = __min(__max(ClipY2, (iTempY + (INT32)uiHeight)) - ClipY2, (INT32)uiHeight);
+    LeftSkip = std::min(ClipX1 - std::min(ClipX1, iTempX), (INT32)uiWidth);
+    RightSkip = std::min(std::max(ClipX2, (iTempX + (INT32)uiWidth)) - ClipX2, (INT32)uiWidth);
+    TopSkip = std::min(ClipY1 - std::min(ClipY1, iTempY), (INT32)uiHeight);
+    BottomSkip = std::min(std::max(ClipY2, (iTempY + (INT32)uiHeight)) - ClipY2, (INT32)uiHeight);
 
-    iTempX = __max(ClipX1, iDestXPos);
-    iTempY = __max(ClipY1, iDestYPos);
+    iTempX = std::max(ClipX1, iDestXPos);
+    iTempY = std::max(ClipY1, iDestYPos);
 
     // calculate the remaining rows and columns to blit
     BlitLength = ((INT32)uiWidth - LeftSkip - RightSkip);
@@ -891,10 +892,10 @@ BOOLEAN Blt16BPPBufferPixelateRectWithColor(UINT16* pBuffer, UINT32 uiDestPitchB
     Assert(pBuffer != nullptr);
     Assert(Pattern != nullptr);
 
-    iLeft = __max(ClippingRect.iLeft, area->iLeft);
-    iTop = __max(ClippingRect.iTop, area->iTop);
-    iRight = __min(ClippingRect.iRight - 1, area->iRight);
-    iBottom = __min(ClippingRect.iBottom - 1, area->iBottom);
+    iLeft = std::max(ClippingRect.iLeft, area->iLeft);
+    iTop = std::max(ClippingRect.iTop, area->iTop);
+    iRight = std::min(ClippingRect.iRight - 1, area->iRight);
+    iBottom = std::min(ClippingRect.iBottom - 1, area->iBottom);
 
     DestPtr = (pBuffer + (iTop * (uiDestPitchBYTES / 2)) + iLeft);
     width = iRight - iLeft + 1;
@@ -1130,10 +1131,10 @@ BOOLEAN Blt8BPPDataTo16BPPBufferTransparentClip(UINT16* pBuffer, UINT32 uiDestPi
     }
 
     // Calculate rows hanging off each side of the screen
-    LeftSkip = __min(ClipX1 - min(ClipX1, iTempX), (INT32)usWidth);
-    RightSkip = __min(max(ClipX2, (iTempX + (INT32)usWidth)) - ClipX2, (INT32)usWidth);
-    TopSkip = __min(ClipY1 - __min(ClipY1, iTempY), (INT32)usHeight);
-    BottomSkip = __min(__max(ClipY2, (iTempY + (INT32)usHeight)) - ClipY2, (INT32)usHeight);
+    LeftSkip = std::min(ClipX1 - std::min(ClipX1, iTempX), (INT32)usWidth);
+    RightSkip = std::min(std::max(ClipX2, (iTempX + (INT32)usWidth)) - ClipX2, (INT32)usWidth);
+    TopSkip = std::min(ClipY1 - std::min(ClipY1, iTempY), (INT32)usHeight);
+    BottomSkip = std::min(std::max(ClipY2, (iTempY + (INT32)usHeight)) - ClipY2, (INT32)usHeight);
 
     // calculate the remaining rows and columns to blit
     BlitLength = ((INT32)usWidth - LeftSkip - RightSkip);
@@ -1198,16 +1199,16 @@ BOOLEAN BltIsClipped(HVOBJECT hSrcVObject, INT32 iX, INT32 iY, UINT16 usIndex, S
     }
 
     // Calculate rows hanging off each side of the screen
-    if (__min(ClipX1 - min(ClipX1, iTempX), (INT32)usWidth))
+    if (std::min(ClipX1 - std::min(ClipX1, iTempX), (INT32)usWidth))
         return (TRUE);
 
-    if (__min(max(ClipX2, (iTempX + (INT32)usWidth)) - ClipX2, (INT32)usWidth))
+    if (std::min(std::max(ClipX2, (iTempX + (INT32)usWidth)) - ClipX2, (INT32)usWidth))
         return (TRUE);
 
-    if (__min(ClipY1 - __min(ClipY1, iTempY), (INT32)usHeight))
+    if (std::min(ClipY1 - std::min(ClipY1, iTempY), (INT32)usHeight))
         return (TRUE);
 
-    if (__min(__max(ClipY2, (iTempY + (INT32)usHeight)) - ClipY2, (INT32)usHeight))
+    if (std::min(std::max(ClipY2, (iTempY + (INT32)usHeight)) - ClipY2, (INT32)usHeight))
         return (TRUE);
 
     return (FALSE);
@@ -1261,10 +1262,10 @@ BOOLEAN Blt8BPPDataTo16BPPBufferShadowClip(UINT16* pBuffer, UINT32 uiDestPitchBY
     }
 
     // Calculate rows hanging off each side of the screen
-    LeftSkip = __min(ClipX1 - min(ClipX1, iTempX), (INT32)usWidth);
-    RightSkip = __min(max(ClipX2, (iTempX + (INT32)usWidth)) - ClipX2, (INT32)usWidth);
-    TopSkip = __min(ClipY1 - __min(ClipY1, iTempY), (INT32)usHeight);
-    BottomSkip = __min(__max(ClipY2, (iTempY + (INT32)usHeight)) - ClipY2, (INT32)usHeight);
+    LeftSkip = std::min(ClipX1 - std::min(ClipX1, iTempX), (INT32)usWidth);
+    RightSkip = std::min(std::max(ClipX2, (iTempX + (INT32)usWidth)) - ClipX2, (INT32)usWidth);
+    TopSkip = std::min(ClipY1 - std::min(ClipY1, iTempY), (INT32)usHeight);
+    BottomSkip = std::min(std::max(ClipY2, (iTempY + (INT32)usHeight)) - ClipY2, (INT32)usHeight);
 
     // calculate the remaining rows and columns to blit
     BlitLength = ((INT32)usWidth - LeftSkip - RightSkip);
@@ -1410,10 +1411,10 @@ BOOLEAN FillRect16BPP(UINT16* pBuffer, UINT32 uiDestPitchBYTES, INT32 x1, INT32 
 
     // clip edges of rect if hanging off screen
 
-    x1real = __max(0, x1);
-    x2real = __min(639, x2);
-    y1real = __max(0, y1);
-    y2real = __min(479, y2);
+    x1real = std::max(0, x1);
+    x2real = std::min(639, x2);
+    y1real = std::max(0, y1);
+    y2real = std::min(479, y2);
 
     startoffset = pBuffer + (y1real * uiDestPitchBYTES / 2) + x1real;
     lines = y2real - y1real + 1;

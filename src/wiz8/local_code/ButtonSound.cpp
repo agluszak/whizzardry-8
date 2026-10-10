@@ -54,7 +54,7 @@ void PlayButtonSound(int sound_id)
         if (TimeUntilDeadline(g_button_sound_cooldown) != 0) {
             return;
         }
-        g_button_sound_cooldown = GetTickCount() + (200);
+        g_button_sound_cooldown = w8_get_ticks() + (200);
     }
 
     SOUNDPARMS options;

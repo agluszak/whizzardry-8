@@ -764,7 +764,7 @@ void W8CharacterEventQueue::RecordDispatchedEvent(unsigned int event_type, unsig
         active_event_type = event_type;
         active_party_slot = party_slot;
     }
-    recent_event_clock = GetTickCount() + (5000);
+    recent_event_clock = w8_get_ticks() + (5000);
 }
 
 // FUNCTION: WIZ8 0x0052CA60
@@ -953,7 +953,7 @@ void SetPartyPortraitEventState(unsigned int party_slot, bool active, unsigned i
     record->previous_portrait_frame = record->portrait_frame;
     record->portrait_frame = 7;
     record->portrait_frame_dirty = true;
-    record->portrait_frame_clock = GetTickCount() + (0x78);
+    record->portrait_frame_clock = w8_get_ticks() + (0x78);
     int pose_category;
     if (static_cast<int>(g_normal_event_count) < static_cast<int>(event_type)) {
         pose_category = 1;
@@ -1052,9 +1052,9 @@ void W8CharacterEventQueue::RestartFollowUpClock(W8CharacterEvent* entry)
 {
     if ((follow_up_flags & 1) && entry->event_type > 13 && entry->event_type < 16) {
         if (follow_up_flags & 2) {
-            follow_up_clock = GetTickCount() + (Random(6000) + 2000);
+            follow_up_clock = w8_get_ticks() + (Random(6000) + 2000);
         } else {
-            follow_up_clock = GetTickCount() + (Random(60000) + 300000);
+            follow_up_clock = w8_get_ticks() + (Random(60000) + 300000);
         }
     }
 }
@@ -1317,7 +1317,7 @@ void W8CharacterEventQueue::ProcessDeferredCharacterEvents()
                     return;
                 }
                 if (entry->dispatch_delay_ms != 0 &&
-                    GetTickCount() - entry->dispatch_delay_start <=
+                    w8_get_ticks() - entry->dispatch_delay_start <=
                         static_cast<unsigned int>(entry->dispatch_delay_ms)) {
                     return;
                 }
@@ -1820,7 +1820,7 @@ int UpdateCharacterEventState(void)
                             record->previous_portrait_frame = record->portrait_frame;
                             record->portrait_frame = direction;
                             record->portrait_frame_dirty = true;
-                            record->portrait_frame_clock = GetTickCount() + (120);
+                            record->portrait_frame_clock = w8_get_ticks() + (120);
                             record->voice_time_remaining_ms -= 120;
                         }
                     }
@@ -1855,7 +1855,7 @@ int UpdateCharacterEventState(void)
                     if (record->portrait_pose == 1 &&
                         TimeUntilDeadline(record->portrait_idle_clock) == 0) {
                         record->portrait_pose_animation_active = true;
-                        record->portrait_idle_clock = GetTickCount() + (Random(5000) + 5000);
+                        record->portrait_idle_clock = w8_get_ticks() + (Random(5000) + 5000);
                     }
                 } else if (TimeUntilDeadline(record->portrait_pose_clock) == 0) {
                     int pose = record->portrait_pose;
@@ -1863,7 +1863,7 @@ int UpdateCharacterEventState(void)
                     record->portrait_pose =
                         g_portrait_pose_transition[pose - 1][record->target_portrait_pose - 1];
                     record->portrait_pose_animation_active = true;
-                    record->portrait_pose_clock = GetTickCount() + (Random(50) + 50);
+                    record->portrait_pose_clock = w8_get_ticks() + (Random(50) + 50);
                 }
             } else if (TimeUntilDeadline(record->portrait_pose_clock) == 0) {
                 int pose = record->portrait_pose;
@@ -1871,7 +1871,7 @@ int UpdateCharacterEventState(void)
                     record->previous_portrait_pose = pose;
                     record->portrait_pose = g_portrait_pose_transition[pose - 1][2 - 1];
                     record->portrait_pose_animation_active = true;
-                    record->portrait_pose_clock = GetTickCount() + (Random(50) + 50);
+                    record->portrait_pose_clock = w8_get_ticks() + (Random(50) + 50);
                 }
                 if (record->portrait_pose == 2) {
                     record->portrait_pose_animation_active = false;

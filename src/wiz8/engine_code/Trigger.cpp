@@ -60,7 +60,6 @@
 #include "surrender/srScene.h"
 #include "wiz8/local_code/character_events.h"
 
-#include "wiz8/wiz8_windows.h"
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -2028,7 +2027,7 @@ Trigger::Trigger()
     name[0] = 0;
     position.SetZero();
     action_data[0] = 0;
-    item_group_seed = GetTickCount() + Random(30000);
+    item_group_seed = w8_get_ticks() + Random(30000);
     gold = 0;
     uses_remaining = 0;
     trigger_id = g_status.next_trigger_id++;
@@ -3418,7 +3417,7 @@ void Trigger::Run(int source)
             NextTriggerRecipient(&recipient);
             ++count;
         }
-        selected = static_cast<unsigned char>(GetTickCount() % count);
+        selected = static_cast<unsigned char>(w8_get_ticks() % count);
         recipient = m_pacRecipients;
         do {
             NextTriggerRecipient(&recipient);

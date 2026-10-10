@@ -3,7 +3,6 @@
 #include <memory>
 #include <bit>
 #include <SDL3/SDL_stdinc.h>
-#include "wiz8/wiz8_windows.h"
 #include "wiz8/spell_ids.h"
 #include "wiz8/conditions.h"
 #include "line.h"
@@ -94,7 +93,6 @@
 #include "wiz8/dialog_code/PortraitQuote.h"
 #include "wiz8/character_event_queue.h"
 #include "wiz8/xstatus.h"
-#include "wiz8/wiz8_windows.h"
 #include "wiz8/world_cursor.h"
 #include "wiz8/local_code/MonsterGroup.h"
 #include "Font.h"
@@ -167,7 +165,7 @@ wchar_t g_dialogue_empty_text[4];
    header. */
 // GLOBAL: WIZ8 0x0068EE60
 W8PendingNotice g_pending_notice;
-/* GetTickCount sample for the trade-item highlight timeout. */
+/* w8_get_ticks sample for the trade-item highlight timeout. */
 // GLOBAL: WIZ8 0x0068EE78
 static unsigned int g_trade_highlight_tick;
 
@@ -1181,7 +1179,7 @@ void ServiceNpcDialogue(void)
         static_cast<W8TextControl*>(
             g_npc_interaction_state->dialogue_controls[W8_NPC_CONTROL_TEXT_24])
                 ->m_textBuffer.m_highlighted != 0 &&
-        GetTickCount() - g_trade_highlight_tick > 500) {
+        w8_get_ticks() - g_trade_highlight_tick > 500) {
         static_cast<W8TextControl*>(
             g_npc_interaction_state->dialogue_controls[W8_NPC_CONTROL_TEXT_24])
             ->m_textBuffer.m_highlighted = false;
@@ -2877,7 +2875,7 @@ static void HighlightNpcTradeQuantity()
         ->m_textBuffer.SetGeometryDirty();
     static_cast<W8TextControl*>(g_npc_interaction_state->dialogue_controls[W8_NPC_CONTROL_TEXT_35])
         ->Invalidate(false);
-    g_trade_highlight_tick = GetTickCount();
+    g_trade_highlight_tick = w8_get_ticks();
 }
 
 /* Resolve and select one trade-list row. trade_mode picks the pool: mode 2's
@@ -4230,7 +4228,7 @@ void RefreshNpcTradePrice(void)
 // FUNCTION: WIZ8 0x00575C50
 void DrainNpcDialogueDeferralInput(void)
 {
-    POINT mouse;
+    SGPPoint mouse;
     InputAtom input;
     W8NpcDialogueLayout prior_layout;
     bool reopen_topics;
@@ -4239,8 +4237,8 @@ void DrainNpcDialogueDeferralInput(void)
         return;
     }
     SGPMouseGetPos(&mouse);
-    MSYS_SGP_Mouse_Handler_Hook(MOUSE_POS, static_cast<unsigned short>(mouse.x),
-                                static_cast<unsigned short>(mouse.y), gfLeftButtonState,
+    MSYS_SGP_Mouse_Handler_Hook(MOUSE_POS, static_cast<unsigned short>(mouse.iX),
+                                static_cast<unsigned short>(mouse.iY), gfLeftButtonState,
                                 gfRightButtonState);
     while (DequeueEvent(&input) == 1) {
         if (input.usEvent == KEY_DOWN) {
@@ -4871,15 +4869,15 @@ void ClearMainGameTargetState(void)
 // FUNCTION: WIZ8 0x00577560
 void FlushInputWhileWorldCursorGate(void)
 {
-    POINT mouse;
+    SGPPoint mouse;
     InputAtom input;
 
     if (g_status.world_cursor_gate == 0) {
         return;
     }
     SGPMouseGetPos(&mouse);
-    MSYS_SGP_Mouse_Handler_Hook(MOUSE_POS, static_cast<unsigned short>(mouse.x),
-                                static_cast<unsigned short>(mouse.y), gfLeftButtonState,
+    MSYS_SGP_Mouse_Handler_Hook(MOUSE_POS, static_cast<unsigned short>(mouse.iX),
+                                static_cast<unsigned short>(mouse.iY), gfLeftButtonState,
                                 gfRightButtonState);
     while (DequeueEvent(&input) == 1) {
     }
