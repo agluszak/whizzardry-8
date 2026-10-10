@@ -256,7 +256,7 @@ unsigned char LoadWorld(W8World* world, char* level_file_name, const char* level
         strcpy(level_path, pvl_path);
     }
 
-    world->quads = 0;
+    world->quads.reset();
     world->update_mesh_source = 0;
     memset(world->m_unknown_07c, 0, 0x10);
 
@@ -278,7 +278,6 @@ unsigned char LoadWorld(W8World* world, char* level_file_name, const char* level
     if (world->octree != 0) {
         UpdateWorldOctree(world);
     } else if (world->quads != 0) {
-        world->quads->dirty = 1;
         UpdateWorldMeshFromQuads(world);
     }
     return 1;
@@ -529,6 +528,7 @@ void DestroyWorldCollections(W8World* world)
 
     delete world->lights_to_update;
     delete world->collidable_props;
+    wiz8::remove_all_and_delete(*world->monster_generators);
     delete world->monster_generators;
     delete world->spell_visuals;
     delete world->missiles;
@@ -557,10 +557,7 @@ void DestroyWorld(W8World* world)
         delete world->octree;
         world->octree = 0;
     }
-    if (world->quads != 0) {
-        DestroyWorldQuad(world->quads);
-        world->quads = 0;
-    }
+    world->quads.reset();
     if (g_world_cleanup_flag)
         RenderFrame();
     DestroyWorldCollections(world);
@@ -771,7 +768,6 @@ void UpdateWorldMeshAfterLoad(void)
         if (g_world->octree != 0) {
             UpdateWorldOctree(g_world);
         } else if (g_world->quads != 0) {
-            ++g_world->quads->dirty;
             UpdateWorldMeshFromQuads(g_world);
         }
         RepositionAmbientSounds(g_world);

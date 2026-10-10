@@ -528,9 +528,9 @@ static unsigned char PreprocessLevel(wiz8::File* handle, char* stem)
                         value->AddLinkedRecord(record->vertices, record->normal_scale,
                                                record->forward_scale, &record->linked_face);
                     }
-                    value->geometry_index = build_tree;
+                    value->geometry_index.reset(build_tree);
                     value->CompileGameData();
-                    for (i = 0; i < value->m_iNumSurfaces; ++i) {
+                    for (i = 0; i < value->SurfacesCount(); ++i) {
                         W8OctRegionPolygon* surface = g_gd_polygons + i;
                         if (build_tree->InsertSurface(surface, 3) == 0) {
                             snprintf(message, sizeof(message),
@@ -1106,7 +1106,7 @@ static int BuildRegionPolygons(W8LevelFile* level, W8OctPreTreeGeometry* geometr
     W8OctRegionPolygon* polygons;
     W8OctRegionPolygon* polygon;
     W8OctRegionPolygon* back;
-    W8ReadMeshFace* face;
+    W8SerializedMeshFace* face;
     W8OctPreTreeVertex* current;
     W8OctPreTreeVertex* created;
 
@@ -1154,7 +1154,7 @@ static int BuildRegionPolygons(W8LevelFile* level, W8OctPreTreeGeometry* geometr
                         face->vertices[2]);
                 goto invalid;
             }
-            polygon->face = *face;
+            polygon->face = DecodeMeshFace(*face);
             polygon->ordinal = ordinal;
             polygon->material = face->material_index;
             for (corner = 0; corner < 3; ++corner) {
@@ -1285,8 +1285,8 @@ static int BuildRegionPolygons(W8LevelFile* level, W8OctPreTreeGeometry* geometr
                         back->face.vertices[0] = vertex_index[1];
                         back->face.vertices[1] = vertex_index[0];
                         back->face.vertices[2] = vertex_index[2];
-                        back->face.texture_coordinates[0] = face->texture_coordinates[1];
-                        back->face.texture_coordinates[1] = face->texture_coordinates[0];
+                        back->face.texture_coordinates[0] = polygon->face.texture_coordinates[1];
+                        back->face.texture_coordinates[1] = polygon->face.texture_coordinates[0];
                         ++mesh->num_faces;
                     }
                 }

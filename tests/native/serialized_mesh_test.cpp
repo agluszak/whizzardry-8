@@ -78,7 +78,7 @@ void WriteAnimatedFixture(const std::filesystem::path& path)
     const std::array<short, 9> second{4, 0, 0, 6, 0, 0, 4, 2, 0};
     Write(*file, first);
     Write(*file, second);
-    W8ReadMeshFace face{};
+    W8SerializedMeshFace face{};
     face.vertices[0] = 0;
     face.vertices[1] = 1;
     face.vertices[2] = 2;
@@ -102,10 +102,13 @@ bool LoadAnimated(const std::filesystem::path& path)
     CHECK(model->GetVertexLocations(0, true, 0)[1].x == 1.0f);
     CHECK(model->GetVertexLocations(1, true, 0)[1].x == 3.0f);
     srModelInstance* second = nullptr;
-    // The first load left the stream at EOF. Reuse must share the cached
-    // model without trying to read it again.
+    // Cached models still consume and validate their serialized record.
+    file->seek(0, wiz8::SeekOrigin::begin);
     CHECK(ReadSingleLevelMesh(&info, &second, 0, 0, "animated fixture", true));
     CHECK(second && second->getModel() == model);
+    srModelInstance* truncated = nullptr;
+    CHECK(!ReadSingleLevelMesh(&info, &truncated, 0, 0, "animated fixture", true));
+    CHECK(!truncated);
     delete first;
     delete second;
     CHECK(g_mesh_models.empty() && g_decompressed_mesh_bytes == 0);
@@ -151,13 +154,16 @@ int main()
     const std::filesystem::path directory = make_temporary_directory("wiz8-mesh-fixture");
     const auto good = directory / "linked.pvl", bad = directory / "duplicate.pvl";
     const auto invalid = directory / "invalid-texture.pvl";
+    const auto truncated = directory / "truncated.pvl";
     WriteFixture(good, false);
     WriteFixture(bad, true);
     WriteFixture(invalid, false, true);
+    WriteFixture(truncated, false);
+    std::filesystem::resize_file(truncated, std::filesystem::file_size(truncated) - 1);
     const auto animated = directory / "animated.mesh";
     WriteAnimatedFixture(animated);
     bool ok = LoadCycles(good) && LoadAnimated(animated);
-    for (const auto& path : {bad, invalid}) {
+    for (const auto& path : {bad, invalid, truncated}) {
         auto file = wiz8::open_host_file(path);
         W8ReadLevelInfo info{};
         W8World world{};

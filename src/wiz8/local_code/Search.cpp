@@ -204,6 +204,7 @@ void ClearSearchables()
 {
     g_search_view.items.clear();
     wiz8::remove_all_and_delete_in_order(g_searchables);
+    g_search_view.cursor = -1;
 }
 
 /* The 500ms search sweep: while nothing is interacting or surprising the

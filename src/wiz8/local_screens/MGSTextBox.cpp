@@ -216,10 +216,11 @@ static void AppendNoticeLine(unsigned char font_palette, std::string_view text, 
             }
         }
     }
-    unsigned int index = g_status.text_box_lines_used[text_box]++;
+    unsigned int index = g_status.text_box_lines_used[text_box];
     W8MessageStorageRecord* record = &g_message_storage[text_box][index];
     record->text.assign(text);
     record->RebuildEntries();
+    ++g_status.text_box_lines_used[text_box];
     record->font_palette = font_palette;
     record->highlight_color = 0xff;
     record->link = wrapped_line;

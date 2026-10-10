@@ -134,6 +134,21 @@ std::vector<std::string> list_directory(std::string_view game_directory,
 // must close independently owned destination streams themselves (also Windows).
 void copy_file(std::string_view source, std::string_view destination,
                CopyMode mode = CopyMode::fail_if_exists);
+// Owns a same-filesystem staging file. commit flushes and closes every shared
+// stream reference before publication; abandonment removes the temporary file.
+class StagedFile {
+public:
+    explicit StagedFile(std::string_view destination);
+    ~StagedFile();
+    StagedFile(const StagedFile&) = delete;
+    StagedFile& operator=(const StagedFile&) = delete;
+    std::shared_ptr<File> file() const;
+    void commit();
+private:
+    struct Impl;
+    std::unique_ptr<Impl> impl_;
+};
+
 // Closes the supplied destination BEFORE replacement and leaves it closed.
 // Other independently owned streams of that path must also be closed by caller.
 void replace_file(File& destination, std::string_view source);

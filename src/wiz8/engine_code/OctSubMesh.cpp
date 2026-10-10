@@ -1,4 +1,5 @@
 #include "wiz8/filesystem.h"
+#include "wiz8/binary_reader.h"
 #include <algorithm>
 #include <cstdlib>
 #include <stdexcept>
@@ -213,24 +214,15 @@ std::unique_ptr<stMeshModel> OctMeshModel::Read(wiz8::File* file,
                                                 const std::vector<W8MeshMaterial>& materials)
 {
     const int material_count = static_cast<int>(materials.size());
-    if (g_oct_mesh_default.material == 0) {
-        /* Retail copies only the base identity (the name) of material 0. */
-        auto material = std::make_shared<stMaterial>();
-        material->srClass::operator=(*materials[0].material);
-        g_oct_mesh_default = {std::move(material), materials[0].texture, materials[0].render_flags};
-    }
-
-    unsigned char read_ok = 1;
-    read_ok &= (file->read(&m_packed_header, 4).bytes == static_cast<std::size_t>(4));
-    read_ok &= (file->read(&m_vertex_count, 4).bytes == static_cast<std::size_t>(4));
-    read_ok &= (file->read(&m_map_count, 4).bytes == static_cast<std::size_t>(4));
-    read_ok &= (file->read(&m_polygon_count, 4).bytes == static_cast<std::size_t>(4));
-    read_ok &= (file->read(&m_link_index, 4).bytes == static_cast<std::size_t>(4));
-    read_ok &= (file->read(&next_link, 4).bytes == static_cast<std::size_t>(4));
-    read_ok &= (file->read(&m_material_index, 4).bytes == static_cast<std::size_t>(4));
-    if (read_ok == 0) {
-        ShutdownWithErrorBox("OctMeshModel::Read -- Could not read Integer fields.\n");
-    }
+    if (materials.empty()) throw std::runtime_error("Missing mesh materials");
+    wiz8::BinaryReader input(*file);
+    m_packed_header = input.record<unsigned int>();
+    m_vertex_count = input.record<int>();
+    m_map_count = input.record<int>();
+    m_polygon_count = input.record<int>();
+    m_link_index = input.record<int>();
+    next_link = input.record<int>();
+    m_material_index = input.record<int>();
 
     unsigned int header = m_packed_header;
     bool unweighted = (header & 0xff) == 0;
@@ -241,6 +233,12 @@ std::unique_ptr<stMeshModel> OctMeshModel::Read(wiz8::File* file,
         m_material_index < -1 || m_material_index >= material_count) {
         throw std::runtime_error("Invalid mesh counts or material index");
     }
+    if (m_vertex_count == 0 && m_material_index < 0)
+        throw std::runtime_error("Missing mesh vertex material");
+    const auto vertex_bytes = static_cast<std::uint64_t>(m_vertex_count) *
+        (36 + (m_material_index < 0 ? 4 : 0) + (version != 0 ? 4 : 0));
+    const auto polygon_bytes = static_cast<std::uint64_t>(m_polygon_count) * 44;
+    input.require(vertex_bytes + static_cast<std::uint64_t>(m_map_count) * 8 + polygon_bytes + 4);
     // Read destinations borrow the model's buffers. They must never become
     // reader-owned Write workspace, including when a read throws midway.
     std::vector<int> material_indices(std::max(m_vertex_count, m_polygon_count));
@@ -367,6 +365,12 @@ std::unique_ptr<stMeshModel> OctMeshModel::Read(wiz8::File* file,
         }
     } else if (!unweighted) {
         model->enable(srMeshModel::CONTROL_SORTED_RENDERING);
+    }
+
+    if (!g_oct_mesh_default.material) {
+        auto material = std::make_shared<stMaterial>();
+        material->srClass::operator=(*materials[0].material);
+        g_oct_mesh_default = {std::move(material), materials[0].texture, materials[0].render_flags};
     }
 
     return model;
