@@ -50,9 +50,9 @@ int main()
     image_type image{};
     image.usWidth = 500;
     image.usHeight = 200;
-    image.pImageData = std::make_unique<UINT8[]>(packed_size);
-    std::copy_n(packed.data(), packed_size, image.pImageData.get());
-    image.uiSizePixData = packed_size;
+    image.pImageData.resize(packed_size);
+    std::copy_n(packed.data(), packed_size, image.pImageData.data());
+
     image.pui16BPPPalette = std::make_unique<UINT16[]>(256);
     unsigned char destination8[200];
     std::fill_n(destination8, 200, 0xa5);
@@ -66,8 +66,8 @@ int main()
             return 1;
         }
     }
-    image.pImageData[0] = 0;
-    image.uiSizePixData = 1;
+    image.pImageData = {0};
+
     if (!Copy8BPPCompressedImageTo8BPPBuffer(&image, destination8, 20, 10, 1, 1, &rectangle) ||
         !std::all_of(std::begin(destination8), std::end(destination8),
                      [](unsigned char pixel) { return pixel == 0xa5; })) {

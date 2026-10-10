@@ -1,7 +1,5 @@
 #include "surrender/srImageIO.h"
 #include "surrender/srCore.h"
-#include "surrender/srIStreamOpener.h"
-#include "surrender/srBinFStream.h"
 #include "image_stream.h"
 
 #include <SDL3_image/SDL_image.h>
@@ -51,17 +49,15 @@ bool readHeader(SDL_IOStream* io, JpegHeader& header)
     }
 }
 
-srColorSurface* loadJpeg(srBinIStream& stream)
+srColorSurface* loadJpeg(srImage::Stream& bridge, SDL_IOStream* io)
 {
-    srImage::Stream bridge{stream, &stream};
-    auto io = bridge.open();
-    if (!io || SDL_GetIOSize(io.get()) > 256 * 1024 * 1024 ||
-        SDL_SeekIO(io.get(), 0, SDL_IO_SEEK_SET) < 0)
+    if (SDL_GetIOSize(io) > 256 * 1024 * 1024 ||
+        SDL_SeekIO(io, 0, SDL_IO_SEEK_SET) < 0)
         return nullptr;
     JpegHeader header;
-    if (!readHeader(io.get(), header) || SDL_SeekIO(io.get(), 0, SDL_IO_SEEK_SET) < 0)
+    if (!readHeader(io, header) || SDL_SeekIO(io, 0, SDL_IO_SEEK_SET) < 0)
         return nullptr;
-    srImage::Surface decoded(IMG_LoadJPG_IO(io.get()), SDL_DestroySurface);
+    srImage::Surface decoded(IMG_LoadJPG_IO(io), SDL_DestroySurface);
     // libjpeg can synthesize EOI at EOF and ignore I/O errors; reject either case.
     if (!decoded || bridge.failed || bridge.eof || decoded->w != int(header.width) ||
         decoded->h != int(header.height))
@@ -120,8 +116,9 @@ OutputFormat outputFormat(const char* path)
     throw std::runtime_error("Unsupported image output format");
 }
 
-void saveImage(OutputFormat output, srBinOStream& stream, srColorSurfaceIFace& source, int quality)
+void saveImage(OutputFormat output, srImage::Stream& bridge, srColorSurfaceIFace& source, int quality)
 {
+    if (!srCore.isInitialized()) throw std::runtime_error("Image I/O requires SurRender initialization");
     srPixelConvert::PixelFormat format;
     source.getPixelFormat(format);
     if (!source.getWidth() || !source.getHeight() || source.getWidth() > 65535 ||
@@ -142,7 +139,6 @@ void saveImage(OutputFormat output, srBinOStream& stream, srColorSurfaceIFace& s
     srImage::Surface view(SDL_CreateSurfaceFrom(copy->getWidth(), copy->getHeight(),
                          jpeg ? SDL_PIXELFORMAT_RGB24 : SDL_PIXELFORMAT_BGRA32,
                          copy->getDataPtr(), copy->getPitch()), SDL_DestroySurface);
-    srImage::Stream bridge{stream, nullptr, &stream};
     auto io = bridge.open();
     if (!view || !io || SDL_SeekIO(io.get(), 0, SDL_IO_SEEK_SET) < 0)
         throw std::runtime_error("Image output stream is corrupt");
@@ -150,27 +146,27 @@ void saveImage(OutputFormat output, srBinOStream& stream, srColorSurfaceIFace& s
         IMG_SaveJPG_IO(view.get(), io.get(), false, std::clamp(quality, 0, 100)) :
         output == OutputFormat::png ? IMG_SavePNG_IO(view.get(), io.get(), false) :
                                      IMG_SaveBMP_IO(view.get(), io.get(), false);
-    if (!saved || bridge.failed || !stream.good())
+    if (!saved || bridge.failed || !bridge.good())
         throw std::runtime_error("Image output stream is corrupt");
 }
-} // namespace
-
-namespace srImage {
-// FUNCTION: SURRENDER 0x1002DB20
-srColorSurfaceIFace* load(const char* path, srBinIStream& stream)
+srColorSurfaceIFace* loadImage(const char* path, srImage::Stream& bridge)
 {
+    using namespace srImage;
     const char* type = extension(path);
     try {
-        if (!stream.good()) return nullptr;
-        if (isJpeg(type)) return loadJpeg(stream);
-        if (SDL_strcasecmp(type, "tga") == 0) return loadTga(stream);
-        Stream bridge{stream, &stream};
+        if (!srCore.isInitialized() || !bridge.good()) return nullptr;
         auto io = bridge.open();
         const auto size = io ? SDL_GetIOSize(io.get()) : -1;
         if (size <= 0 || size > 256 * 1024 * 1024 ||
             SDL_SeekIO(io.get(), 0, SDL_IO_SEEK_SET) < 0) return nullptr;
+        if (isJpeg(type)) return loadJpeg(bridge, io.get());
+        if (SDL_strcasecmp(type, "tga") == 0) {
+            auto* result = loadTga(io.get());
+            if (result && bridge.failed) { result->release(); return nullptr; }
+            return result;
+        }
         Surface decoded(IMG_LoadTyped_IO(io.get(), false, type), SDL_DestroySurface);
-        if (!decoded || bridge.failed || !stream.good() || decoded->w <= 0 || decoded->h <= 0 ||
+        if (!decoded || bridge.failed || !bridge.good() || decoded->w <= 0 || decoded->h <= 0 ||
             Uint64(decoded->w) * decoded->h > 64 * 1024 * 1024) return nullptr;
         Surface converted(SDL_ConvertSurface(decoded.get(), SDL_PIXELFORMAT_BGRA32), SDL_DestroySurface);
         if (!converted) return nullptr;
@@ -182,16 +178,47 @@ srColorSurfaceIFace* load(const char* path, srBinIStream& stream)
         return result;
     } catch (...) { return nullptr; }
 }
+} // namespace
+
+namespace srImage {
+// FUNCTION: SURRENDER 0x1002DB20
+srColorSurfaceIFace* load(const char* path, srBinIStream& stream)
+{
+    Stream bridge{stream, &stream};
+    return loadImage(path, bridge);
+}
+
+srColorSurfaceIFace* load(const char* path, wiz8::File& file)
+{
+    Stream bridge{file};
+    return loadImage(path, bridge);
+}
+
+srColorSurface* loadTga(srBinIStream& stream)
+{
+    Stream bridge{stream, &stream};
+    auto io = bridge.open();
+    auto* result = io ? loadTga(io.get()) : nullptr;
+    if (result && bridge.failed) { result->release(); return nullptr; }
+    return result;
+}
+
+srColorSurface* loadTga(wiz8::File& file)
+{
+    Stream bridge{file};
+    auto io = bridge.open();
+    auto* result = io ? loadTga(io.get()) : nullptr;
+    if (result && bridge.failed) { result->release(); return nullptr; }
+    return result;
+}
 
 // FUNCTION: SURRENDER 0x1002DA00
 srColorSurfaceIFace* load(const char* path)
 {
     extension(path);
-    auto* opener = srCore.getIStreamOpener();
-    if (!opener) throw std::runtime_error("Image stream opener is not initialized");
-    std::unique_ptr<srBinIStream> stream(opener->open(path));
-    if (!stream || !stream->good()) throw std::runtime_error("Image file could not be opened");
-    auto* surface = load(path, *stream);
+    if (!srCore.isInitialized()) throw std::runtime_error("Image I/O requires SurRender initialization");
+    auto file = wiz8::open_file(path);
+    auto* surface = load(path, *file);
     if (!surface) throw std::runtime_error("Image decoding failed");
     return surface;
 }
@@ -211,6 +238,20 @@ bool describe(srColorSurfaceIFace::SurfaceDesc& description, const char* path, s
     } catch (...) { return false; }
 }
 
+bool describe(srColorSurfaceIFace::SurfaceDesc& description, const char* path, wiz8::File& file)
+{
+    try {
+        const auto position = file.tell();
+        auto* surface = load(path, file);
+        if (surface) {
+            surface->getSurfaceDesc(description);
+            surface->release();
+        }
+        file.seek(position, wiz8::SeekOrigin::begin);
+        return surface != nullptr && file.tell() == position;
+    } catch (...) { return false; }
+}
+
 // FUNCTION: SURRENDER 0x1002D8F0
 void describe(srColorSurfaceIFace::SurfaceDesc& description, const char* path)
 {
@@ -222,15 +263,23 @@ void describe(srColorSurfaceIFace::SurfaceDesc& description, const char* path)
 // FUNCTION: SURRENDER 0x1002DCD0
 void save(const char* path, srBinOStream& stream, srColorSurfaceIFace& surface, int quality)
 {
-    saveImage(outputFormat(path), stream, surface, quality);
+    Stream bridge{stream, nullptr, &stream};
+    saveImage(outputFormat(path), bridge, surface, quality);
+}
+
+void save(const char* path, wiz8::File& file, srColorSurfaceIFace& surface, int quality)
+{
+    Stream bridge{file, true};
+    saveImage(outputFormat(path), bridge, surface, quality);
 }
 
 // FUNCTION: SURRENDER 0x1002DBC0
 void save(const char* path, srColorSurfaceIFace& surface, int quality)
 {
     const auto format = outputFormat(path);
-    srBinOFStream stream(path);
-    if (!stream.good()) throw std::runtime_error("Image file could not be opened for writing");
-    saveImage(format, stream, surface, quality);
+    if (!srCore.isInitialized()) throw std::runtime_error("Image I/O requires SurRender initialization");
+    auto file = wiz8::open_file(path, wiz8::OpenMode::replace);
+    Stream bridge{*file, true};
+    saveImage(format, bridge, surface, quality);
 }
 } // namespace srImage

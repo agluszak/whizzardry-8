@@ -1,12 +1,15 @@
 #include <iostream>
 
+#include <thread>
+
+#include <SDL3/SDL_platform.h>
+
 #include "surrender/srCore.h"
 #include "surrender/srStreamFlags.h"
 #include "surrender/srColorSurface.h"
 #include "surrender/srDebug.h"
 #include "surrender/srFilter.h"
 #include "surrender/srGERD.h"
-#include "surrender/srIStreamOpener.h"
 #include "surrender/srMaterial.h"
 #include "surrender/srPalette.h"
 #include "surrender/srPixelConvert.h"
@@ -49,9 +52,9 @@ int __cdecl srInit()
         srCore.reset();
         srDebugPrintf(0xfe, "srInit() -- initializing SurRender\n");
         srCore.registry_ = std::make_unique<srRegistry>();
-        srCore.timer = std::make_unique<srVariableTimer>();
+        srCore.timer = std::make_unique<srClock>();
         _srLibraryInit();
-        srCore.multi_thread = srCore.timer->fastThreads();
+        srCore.multi_thread = std::thread::hardware_concurrency() > 1;
         srCore.statistics_manager = std::make_unique<srStatisticsManager>();
         srCore.statistics_manager->reset();
         srCore.setFilter(0);
@@ -61,10 +64,6 @@ int __cdecl srInit()
         srCore.root_node->setName("SurRender root node");
         srCore.material = new srMaterial;
         srCore.material->setName("SurRender default material");
-        srDebugPrintf(0xfe, "srInit() -- initializing stream openers\n");
-        srCore.stream_opener = std::make_unique<srIStreamOpener>();
-        srCore.file_stream_opener = std::make_unique<srFStreamOpener>();
-        srCore.stream_opener->addStreamType(srCore.file_stream_opener.get(), "file");
         srDebugPrintf(0xfe, "srInit() -- setting up default texture/surface\n");
         srCore.surface = new srColorSurface(srPixelConvert::SURFACE_L8, 0x40, 0x40);
         srCore.surface->setName("SurRender default surface");
@@ -132,8 +131,6 @@ int __cdecl srExit()
         srCore.material->release();
         srCore.material = 0;
         srCore.initialized = 0;
-        srCore.stream_opener.reset();
-        srCore.file_stream_opener.reset();
         srCore.statistics_manager.reset();
         srCore.timer.reset();
         delete srTriMeshPipeline::pipe;
@@ -172,12 +169,6 @@ void srCore::setFilter(srFilter* filter)
 srPalette* srCore::getPalette() const
 {
     return palette;
-}
-
-// FUNCTION: SURRENDER 0x10015AC0
-srIStreamOpener* srCore::getIStreamOpener() const
-{
-    return stream_opener.get();
 }
 
 // FUNCTION: SURRENDER 0x10015B00
@@ -226,20 +217,12 @@ void srCore::dump(std::ostream& stream)
     stream.width(0x18);
     stream << "Debug Level: " << debug_level << '\n';
     stream.width(0x18);
-    stream << "Seconds since reset: " << timer->getTime(srTimer::TIMER_READ_DEFAULT) << '\n';
+    stream << "Seconds since reset: " << timer->seconds() << '\n';
     stream.width(0x18);
-    stream << "Operating System: " << timer->getOsIdent() << '\n';
+    stream << "Operating System: " << SDL_GetPlatform() << '\n';
     stream << "CPU Information:\n";
     stream.width(0x18);
-    stream << "  Processor: " << timer->m_cpu_count << "x " << timer->m_cpu_ident << '\n';
-    stream.width(0x18);
-    stream << "  CPU Speed: " << timer->getFreqf() << "Mhz" << '\n';
-    stream.width(0x18);
-    stream << "  FPU support: " << srBoolToString(timer->getFPUSupport()) << '\n';
-    stream.width(0x18);
-    stream << "  MMX support: " << srBoolToString(timer->getMMXSupport()) << '\n';
-    stream.width(0x18);
-    stream << "  RDTSC support: " << srBoolToString(timer->getRDTSCSupport()) << '\n';
+    stream << "  Logical CPUs: " << std::thread::hardware_concurrency() << '\n';
     stream.width(0x18);
     stream << "  Multi-thread:  " << srBoolToString(multi_thread) << '\n';
     srSetStreamFlags(stream, flags & 0x7fff);

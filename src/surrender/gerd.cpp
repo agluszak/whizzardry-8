@@ -161,9 +161,6 @@ srGERD::srGERD(srDD* device, const char* device_name)
     this->device.driver_info.dd_api_version = 0;
     this->device.driver_info.debug_write = debugWrite;
     this->device.driver_info.flags = 0;
-    if ((srCore.getTimer()->m_cpu_features & (1UL << srTimer::CPU_FEATURE_MMX)) != 0) {
-        this->device.driver_info.flags = 1;
-    }
     getDD()->getDriverInfo(this->device.driver_info);
     initClearColors();
     initLights();
@@ -317,7 +314,7 @@ void srGERD::getStatistics(Statistics& statistics)
     this->statistics.device_vertex_indices = device.vertex_indices;
     statistics = this->statistics;
     statistics.elapsed =
-        srCore.getTimer()->getTime(srTimer::TIMER_READ_DEFAULT) - statistics.elapsed;
+        srCore.getTimer()->seconds() - statistics.elapsed;
 }
 
 // FUNCTION: SURRENDER 0x1001ACD0
@@ -331,7 +328,7 @@ void srGERD::resetStatistics()
         renderers_idle.wait(access, [entry] { return entry->busy == 0; });
         entry->renderer->resetStatistics();
     }
-    statistics.elapsed = srCore.getTimer()->getTime(srTimer::TIMER_READ_DEFAULT);
+    statistics.elapsed = srCore.getTimer()->seconds();
     frame_statistics = statistics;
 }
 

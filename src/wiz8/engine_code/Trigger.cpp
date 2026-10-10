@@ -3017,7 +3017,7 @@ void Trigger::Run(int source)
         monster_info->p3D->m_pRep->active = 1;
         monster_info->p3D->m_pRep->animation_playing = 1;
         monster_info->p3D->m_pRep->timer =
-            g_shared_timer_base->getMsTime(srTimer::TIMER_READ_DEFAULT);
+            g_shared_timer_base->milliseconds();
         monster_info->p3D->ResetRepresentation();
         monster_info->p3D->ResetPathAI();
         monster_info->p3D->reactivated = true;

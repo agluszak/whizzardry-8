@@ -5,7 +5,6 @@
 #include "Video2.h" // Wiz8
 #include "himage.h"
 #include "vobject.h"
-#include "vobject_private.h"
 #include "WCheck.h"
 #include "vobject.h"
 #include "vobject_blitters.h"
@@ -187,7 +186,7 @@ BOOLEAN Blt8BPPDataTo8BPPBufferMonoShadowClip(UINT8* pBuffer, UINT32 uiDestPitch
     if ((TopSkip >= (INT32)usHeight) || (BottomSkip >= (INT32)usHeight))
         return (TRUE);
 
-    SrcPtr = hSrcVObject->pPixData.get() + uiOffset;
+    SrcPtr = hSrcVObject->pPixData.data() + uiOffset;
     DestPtr = (UINT8*)pBuffer + (uiDestPitchBYTES * (iTempY + TopSkip)) + ((iTempX + LeftSkip));
     LineSkip = (uiDestPitchBYTES - (BlitLength));
 
@@ -267,7 +266,7 @@ BOOLEAN Blt8BPPDataTo8BPPBufferTransparentClip(UINT16* pBuffer, UINT32 uiDestPit
     if ((TopSkip >= (INT32)usHeight) || (BottomSkip >= (INT32)usHeight))
         return (TRUE);
 
-    SrcPtr = hSrcVObject->pPixData.get() + uiOffset;
+    SrcPtr = hSrcVObject->pPixData.data() + uiOffset;
     DestPtr = (UINT8*)pBuffer + (uiDestPitchBYTES * (iTempY + TopSkip)) + ((iTempX + LeftSkip));
     LineSkip = (uiDestPitchBYTES - (BlitLength));
     pPal8BPP = hSrcVObject->pShade8;
@@ -315,7 +314,7 @@ BOOLEAN Blt8BPPDataTo8BPPBufferTransparent(UINT16* pBuffer, UINT32 uiDestPitchBY
     CHECKF(iTempX >= 0);
     CHECKF(iTempY >= 0);
 
-    SrcPtr = hSrcVObject->pPixData.get() + uiOffset;
+    SrcPtr = hSrcVObject->pPixData.data() + uiOffset;
     DestPtr = (UINT8*)pBuffer + (uiDestPitchBYTES * iTempY) + (iTempX);
     LineSkip = (uiDestPitchBYTES - (usWidth));
     pPal8BPP = hSrcVObject->pShade8;
@@ -363,7 +362,7 @@ BOOLEAN Blt8BPPDataTo8BPPBufferShadow(UINT16* pBuffer, UINT32 uiDestPitchBYTES,
     CHECKF(iTempX >= 0);
     CHECKF(iTempY >= 0);
 
-    SrcPtr = hSrcVObject->pPixData.get() + uiOffset;
+    SrcPtr = hSrcVObject->pPixData.data() + uiOffset;
     DestPtr = (UINT8*)pBuffer + (uiDestPitchBYTES * iTempY) + (iTempX);
     LineSkip = (uiDestPitchBYTES - (usWidth));
 
@@ -440,7 +439,7 @@ BOOLEAN Blt8BPPDataTo8BPPBufferShadowClip(UINT16* pBuffer, UINT32 uiDestPitchBYT
     if ((TopSkip >= (INT32)usHeight) || (BottomSkip >= (INT32)usHeight))
         return (TRUE);
 
-    SrcPtr = hSrcVObject->pPixData.get() + uiOffset;
+    SrcPtr = hSrcVObject->pPixData.data() + uiOffset;
     DestPtr = (UINT8*)pBuffer + (uiDestPitchBYTES * (iTempY + TopSkip)) + ((iTempX + LeftSkip));
     pPal8BPP = hSrcVObject->pShade8;
     LineSkip = (uiDestPitchBYTES - (BlitLength));
@@ -527,7 +526,7 @@ BOOLEAN Blt8BPPDataTo16BPPBufferMonoShadowClip(UINT16* pBuffer, UINT32 uiDestPit
     if ((TopSkip >= (INT32)usHeight) || (BottomSkip >= (INT32)usHeight))
         return (TRUE);
 
-    SrcPtr = hSrcVObject->pPixData.get() + uiOffset;
+    SrcPtr = hSrcVObject->pPixData.data() + uiOffset;
     DestPtr = (UINT8*)pBuffer + (uiDestPitchBYTES * (iTempY + TopSkip)) + ((iTempX + LeftSkip) * 2);
     LineSkip = (uiDestPitchBYTES - (BlitLength * 2));
 
@@ -966,7 +965,7 @@ BOOLEAN Blt8BPPDataTo16BPPBufferShadow(UINT16* pBuffer, UINT32 uiDestPitchBYTES,
     CHECKF(iTempX >= 0);
     CHECKF(iTempY >= 0);
 
-    SrcPtr = hSrcVObject->pPixData.get() + uiOffset;
+    SrcPtr = hSrcVObject->pPixData.data() + uiOffset;
     DestPtr = (UINT8*)pBuffer + (uiDestPitchBYTES * iTempY) + (iTempX * 2);
     LineSkip = (uiDestPitchBYTES - (usWidth * 2));
 
@@ -1016,7 +1015,7 @@ BOOLEAN Blt8BPPDataTo16BPPBufferTransparent(UINT16* pBuffer, UINT32 uiDestPitchB
     CHECKF(iTempX >= 0);
     CHECKF(iTempY >= 0);
 
-    SrcPtr = hSrcVObject->pPixData.get() + uiOffset;
+    SrcPtr = hSrcVObject->pPixData.data() + uiOffset;
     DestPtr = (UINT8*)pBuffer + (uiDestPitchBYTES * iTempY) + (iTempX * 2);
     p16BPPPalette = hSrcVObject->pShadeCurrent;
     LineSkip = (uiDestPitchBYTES - (usWidth * 2));
@@ -1071,7 +1070,7 @@ BOOLEAN Blt8BPPDataTo16BPPBufferTransMirror(UINT16* pBuffer, UINT32 uiDestPitchB
     CHECKF(iTempX >= 0);
     CHECKF(iTempY >= 0);
 
-    SrcPtr = hSrcVObject->pPixData.get() + uiOffset;
+    SrcPtr = hSrcVObject->pPixData.data() + uiOffset;
     DestPtr = (UINT8*)pBuffer + (uiDestPitchBYTES * iTempY) + (iTempX * 2);
     p16BPPPalette = hSrcVObject->pShadeCurrent;
     uiDestSkip = (uiDestPitchBYTES + (usWidth * 2));
@@ -1148,7 +1147,7 @@ BOOLEAN Blt8BPPDataTo16BPPBufferTransparentClip(UINT16* pBuffer, UINT32 uiDestPi
     if ((TopSkip >= (INT32)usHeight) || (BottomSkip >= (INT32)usHeight))
         return (TRUE);
 
-    SrcPtr = hSrcVObject->pPixData.get() + uiOffset;
+    SrcPtr = hSrcVObject->pPixData.data() + uiOffset;
     DestPtr = (UINT8*)pBuffer + (uiDestPitchBYTES * (iTempY + TopSkip)) + ((iTempX + LeftSkip) * 2);
     p16BPPPalette = hSrcVObject->pShadeCurrent;
     LineSkip = (uiDestPitchBYTES - (BlitLength * 2));
@@ -1279,7 +1278,7 @@ BOOLEAN Blt8BPPDataTo16BPPBufferShadowClip(UINT16* pBuffer, UINT32 uiDestPitchBY
     if ((TopSkip >= (INT32)usHeight) || (BottomSkip >= (INT32)usHeight))
         return (TRUE);
 
-    SrcPtr = hSrcVObject->pPixData.get() + uiOffset;
+    SrcPtr = hSrcVObject->pPixData.data() + uiOffset;
     DestPtr = (UINT8*)pBuffer + (uiDestPitchBYTES * (iTempY + TopSkip)) + ((iTempX + LeftSkip) * 2);
     LineSkip = (uiDestPitchBYTES - (BlitLength * 2));
 

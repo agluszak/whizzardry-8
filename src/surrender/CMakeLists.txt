@@ -36,8 +36,6 @@ set(SURRENDER_SOURCES
     texture_file.cpp
     texture_map.cpp
     statistics.cpp
-    timer.cpp
-    variable_timer.cpp
     triangulator.cpp
     type_registry.cpp
     window.cpp

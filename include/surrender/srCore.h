@@ -4,13 +4,11 @@
 #include <memory>
 #include <string_view>
 
+#include "srClock.h"
 #include "srStatisticsManager.h"
-#include "srVariableTimer.h"
 
 class srColorSurfaceIFace;
 class srFilter;
-class srFStreamOpener;
-class srIStreamOpener;
 class srMaterial;
 class srNode;
 class srPalette;
@@ -24,7 +22,6 @@ public:
 
     SR_DLL_IMPORT void dump(std::ostream& stream);
     SR_DLL_IMPORT std::string_view getBuildTime() const;
-    SR_DLL_IMPORT srIStreamOpener* getIStreamOpener() const;
     SR_DLL_IMPORT std::string_view getCopyright() const;
     SR_DLL_IMPORT std::string_view getVersion() const;
     SR_DLL_IMPORT unsigned char getDebugLevel() const;
@@ -47,7 +44,7 @@ public:
     SR_DLL_IMPORT srTexture* getTexture() const;
     // FUNCTION: SURRENDER 0x100156C0
     // RECOMP: ?getTimer@srCore@@QBEPAVsrVariableTimer@@XZ
-    srVariableTimer* getTimer() const
+    srClock* getTimer() const
     {
         return timer.get();
     }
@@ -78,10 +75,8 @@ private:
 
     // Declared first and reset last: registered resources need it during release.
     std::unique_ptr<srRegistry> registry_;
-    std::unique_ptr<srVariableTimer> timer;
+    std::unique_ptr<srClock> timer;
     srColorSurfaceIFace* surface = nullptr;
-    std::unique_ptr<srFStreamOpener> file_stream_opener;
-    std::unique_ptr<srIStreamOpener> stream_opener;
     srFilter* filter = nullptr;
     std::unique_ptr<srStatisticsManager> statistics_manager;
     srPalette* palette = nullptr;

@@ -603,7 +603,7 @@ void W8GrCycle::TickAnimation(float scale)
         signed char subcycle_count = GetNumSubCycles();
 
         if (subcycle_count != 0) {
-            unsigned int now = g_shared_timer_base->getMsTime(srTimer::TIMER_READ_DEFAULT);
+            unsigned int now = g_shared_timer_base->milliseconds();
             unsigned int elapsed = now - representation->timer;
             float rate;
             float progress;
@@ -705,7 +705,7 @@ unsigned char W8GrCycle::ApplyPendingCycle()
             representation->subcycle = subcycle_count - 1;
         }
         representation->animation_playing = 1;
-        representation->timer = g_shared_timer_base->getMsTime(srTimer::TIMER_READ_DEFAULT);
+        representation->timer = g_shared_timer_base->milliseconds();
         return 1;
     }
     return 0;
@@ -851,7 +851,7 @@ void W8GrCycle::ResetRepresentation()
     PathAIResetRecord(static_cast<W8PathAI*>(m_pAI));
     target->frame_direction = W8_ANIMATION_FORWARD;
     target->subcycle = 0;
-    target->timer = g_shared_timer_base->getMsTime(srTimer::TIMER_READ_DEFAULT);
+    target->timer = g_shared_timer_base->milliseconds();
 }
 
 /* Push the cycle's animation state into the live scene.

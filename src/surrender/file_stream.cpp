@@ -1,4 +1,11 @@
 #include "surrender/srBinFStream.h"
+#include "surrender/srBinOStream.h"
+
+#include <ostream>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
 #include <limits>
 
 // FUNCTION: SURRENDER 0x1002EFB0

@@ -79,8 +79,14 @@ static W8GameData* ReadGeometry(std::unique_ptr<wiz8::File> file, bool secondary
 // FUNCTION: WIZ8 0x00447570
 W8GameData* ReadGameData(const char* path, bool secondary)
 {
+    std::unique_ptr<wiz8::File> file;
     try {
-        return ReadGeometry(wiz8::open_file(path), secondary);
+        file = wiz8::open_file(path);
+    } catch (const std::exception&) {
+        return 0; // Retail: a level without game data (e.g. Test\DefaultSky) is valid.
+    }
+    try {
+        return ReadGeometry(std::move(file), secondary);
     } catch (const std::exception& error) {
         ReportBuildStatus(7, error.what());
         return 0;

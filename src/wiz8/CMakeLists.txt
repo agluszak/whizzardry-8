@@ -230,7 +230,6 @@ add_library(WIZ8_GAME_CORE STATIC
     music_playlist.cpp
     npc_items.cpp
     npc_script_file.cpp
-    virtual_file_stream.cpp
     engine_code/trim_string.cpp
     ../native/application.cpp
     ../native/movie.cpp

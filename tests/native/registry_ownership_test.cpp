@@ -12,7 +12,6 @@
 // Without this define, it uses the normal library initialization and shutdown.
 #ifdef WIZ8_REGISTRY_STANDALONE_TEST
 #include "surrender/srDebug.h"
-#include "surrender/srIStreamOpener.h"
 
 class srCore srCore;
 srCore::srCore() = default;

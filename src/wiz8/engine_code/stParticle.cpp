@@ -267,7 +267,7 @@ stParticle::stParticle(srNode* parent, int count)
     bounds_origin.SetZero();
     bounds_radius = 2000.0f;
     update_flags = 0;
-    last_integration_tick = g_shared_timer_base->getMsTime(srTimer::TIMER_READ_DEFAULT);
+    last_integration_tick = g_shared_timer_base->milliseconds();
     last_emission_tick = last_integration_tick;
     emission_gap = 25;
     last_emitted_at = 0;
@@ -396,7 +396,7 @@ stParticle::stParticle(const stParticle& other)
     bounds_radius = other.bounds_radius;
     update_flags = W8_PARTICLE_ACTIVE_TRIANGLES_DIRTY;
     active_triangles = new w8_ulong[texture_frame_count];
-    last_integration_tick = g_shared_timer_base->getMsTime(srTimer::TIMER_READ_DEFAULT);
+    last_integration_tick = g_shared_timer_base->milliseconds();
     last_emission_tick = last_integration_tick;
     attachment_key = other.attachment_key;
     callback = 0;
@@ -449,7 +449,7 @@ unsigned char stParticle::ActivateParticle(unsigned int* out_index, bool replace
 
     *out_index = index;
     particle_active[index] = 1;
-    birth_ticks[index] = g_shared_timer_base->getMsTime(srTimer::TIMER_READ_DEFAULT);
+    birth_ticks[index] = g_shared_timer_base->milliseconds();
 
     float magnitude = 0.0f;
     if (speed_mode == W8_PARTICLE_SPEED_FIXED) {
@@ -542,7 +542,7 @@ void stParticle::DeactivateParticle(unsigned int index)
 // FUNCTION: WIZ8 0x00499FA0
 void stParticle::Update()
 {
-    unsigned int now = g_shared_timer_base->getMsTime(srTimer::TIMER_READ_DEFAULT);
+    unsigned int now = g_shared_timer_base->milliseconds();
     if (now - last_emitted_at < emission_gap) {
         return;
     }
@@ -768,7 +768,7 @@ void stParticle::traverse(srNode::TraverseInfo& info)
 void stParticle::SetTraversalEnabled(bool enabled)
 {
     if (enabled && !traversal_enabled) {
-        last_emission_tick = g_shared_timer_base->getMsTime(srTimer::TIMER_READ_DEFAULT);
+        last_emission_tick = g_shared_timer_base->milliseconds();
     }
     traversal_enabled = enabled;
 }
@@ -822,7 +822,7 @@ void stParticle::PrepareRenderer(srMatrix4T<float>& view)
 
     float phase = g_float_zero;
     if (flutter_period != 0) {
-        phase = static_cast<float>(g_shared_timer_base->getMsTime(srTimer::TIMER_READ_DEFAULT) %
+        phase = static_cast<float>(g_shared_timer_base->milliseconds() %
                                    flutter_period) /
                 static_cast<int>(flutter_period) * g_camera_angle_period;
     }
@@ -1110,7 +1110,7 @@ void stParticle::SetTexture(srTextureIFace* texture)
 void stParticle::SetActive(unsigned char active)
 {
     if (active != 0 && emitting == 0) {
-        unsigned int now = g_shared_timer_base->getMsTime(srTimer::TIMER_READ_DEFAULT);
+        unsigned int now = g_shared_timer_base->milliseconds();
         last_integration_tick = now;
         last_emission_tick = now;
     }

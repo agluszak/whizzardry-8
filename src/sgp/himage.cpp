@@ -13,6 +13,7 @@
 #include <memory>
 #include <string>
 #include <vector>
+#include <utility>
 #include "STCI.h"
 #include "WCheck.h"
 #include "Compression.h"
@@ -164,16 +165,14 @@ try
     }
     const unsigned depth = indexed ? 8 : rgb555 ? 16 : 24;
     const std::size_t row_bytes = surface->w * (depth / 8);
-    std::unique_ptr<UINT8[]> data;
+    std::vector<UINT8> data;
     std::unique_ptr<SGPPaletteEntry[]> colors;
     std::unique_ptr<UINT16[]> packed_colors;
     if (contents & IMAGE_BITMAPDATA)
     {
-        data = std::make_unique<UINT8[]>(row_bytes * surface->h);
-        if (!data)
-            return FALSE;
+        data.resize(row_bytes * surface->h);
         for (int y = 0; y < surface->h; ++y)
-            memcpy(data.get() + y * row_bytes,
+            memcpy(data.data() + y * row_bytes,
                    static_cast<const UINT8*>(surface->pixels) + y * surface->pitch, row_bytes);
     }
     if (indexed && (contents & IMAGE_PALETTE))
@@ -196,7 +195,7 @@ try
     image->usWidth = static_cast<UINT16>(surface->w);
     image->usHeight = static_cast<UINT16>(surface->h);
     image->ubBitDepth = static_cast<UINT8>(depth);
-    if (data)
+    if (!data.empty())
     {
         image->pImageData = std::move(data);
         image->fFlags |= IMAGE_BITMAPDATA;
@@ -216,7 +215,7 @@ catch (...)
 }
 
 // FUNCTION: WIZ8 0x0040f850
-HIMAGE CreateImage(const char* ImageFile, UINT16 fContents)
+std::unique_ptr<image_type> CreateImage(const char* ImageFile, UINT16 fContents)
 try
 {
     if (!ImageFile)
@@ -229,8 +228,6 @@ try
         path += ".PCX";
         dot = path.size() - 4;
     }
-    if (path.size() >= sizeof(SGPFILENAME))
-        return nullptr;
     const auto extension = path.substr(dot + 1);
     UINT32 iFileLoader = UNKNOWN_FILE_READER;
     if (_stricmp(extension.c_str(), "PCX") == 0)
@@ -245,43 +242,25 @@ try
         return nullptr;
 
     // Determine if resource exists before creating image structure
-    if (![&]() { const auto status = wiz8::file_status(path.data()); return status && status->info.type == SDL_PATHTYPE_FILE; }()) {
-        //If in debig, make fatal!
+    const auto status = wiz8::file_status(path);
+    if (!status || status->info.type != SDL_PATHTYPE_FILE) {
         SDL_LogDebug(SDL_LOG_CATEGORY_APPLICATION, "Resource file %s does not exist.", ImageFile);
         return (nullptr);
     }
 
-    // Create memory for image structure
     auto hImage = std::make_unique<image_type>();
-
-    if (!hImage)
-        return nullptr;
-    // Initialize some values
-
-    // Set filename and loader
-    memcpy(hImage->ImageFile, path.c_str(), path.size() + 1);
+    hImage->ImageFile = std::move(path);
     hImage->iFileLoader = iFileLoader;
 
     if (!LoadImageData(hImage.get(), fContents)) {
         return (nullptr);
     }
 
-    // All is fine, image is loaded and allocated, return pointer
-    return hImage.release();
+    return hImage;
 }
 catch (...)
 {
     return nullptr;
-}
-
-// FUNCTION: WIZ8 0x0040f9f0
-BOOLEAN DestroyImage(HIMAGE hImage)
-{
-    Assert(hImage != nullptr);
-
-    delete hImage;
-
-    return (TRUE);
 }
 
 // FUNCTION: WIZ8 0x0040fa10
@@ -296,15 +275,14 @@ BOOLEAN ReleaseImageData(HIMAGE hImage, UINT16 fContents)
         hImage->fFlags &= ~IMAGE_PALETTE;
     }
     if (fContents & IMAGE_BITMAPDATA) {
-        hImage->pImageData.reset();
-        hImage->pETRLEObject.reset();
-        hImage->uiSizePixData = 0;
-        hImage->usNumberOfObjects = 0;
+        hImage->pImageData = std::vector<UINT8>{};
+        hImage->pETRLEObject = std::vector<ETRLEObject>{};
+
         hImage->fFlags &= ~(IMAGE_BITMAPDATA | IMAGE_COMPRESSED | IMAGE_TRLECOMPRESSED);
     }
     if (fContents & IMAGE_APPDATA) {
-        hImage->pAppData.reset();
-        hImage->uiAppDataSize = 0;
+        hImage->pAppData = std::vector<UINT8>{};
+
         hImage->fFlags &= ~IMAGE_APPDATA;
     }
 
@@ -403,7 +381,7 @@ BOOLEAN Copy8BPPCompressedImageTo8BPPBuffer(HIMAGE hImage, BYTE* pDestBuf, UINT1
                                             SGPRect* srcRect)
 {
     Assert(hImage != nullptr);
-    Assert(hImage->pImageData.get() != nullptr);
+    Assert(!hImage->pImageData.empty());
 
     // Validations
     CHECKF(usX >= 0);
@@ -442,7 +420,7 @@ BOOLEAN Copy8BPPCompressedImageTo16BPPBuffer(HIMAGE hImage, BYTE* pDestBuf, UINT
 
     // Assertions
     Assert(hImage != nullptr);
-    Assert(hImage->pImageData.get() != nullptr);
+    Assert(!hImage->pImageData.empty());
     SDL_LogDebug(SDL_LOG_CATEGORY_APPLICATION, "%s", "Start check");
     // Validations
     CHECKF(usX >= 0);
@@ -476,13 +454,13 @@ BOOLEAN Copy8BPPCompressedImageTo16BPPBuffer(HIMAGE hImage, BYTE* pDestBuf, UINT
     // to blit has been done).
 
     // initialize the decompression routines
-    auto decompressor = DecompressInit(hImage->pImageData.get(), hImage->uiSizePixData);
+    auto decompressor = DecompressInit(hImage->pImageData.data(), hImage->pImageData.size());
     pDecompPtr = decompressor.get();
     CHECKF(pDecompPtr);
 
     // Allocate memory for one scanline
-    auto scanline = std::make_unique<UINT8[]>(hImage->usWidth);
-    pScanLine = scanline.get();
+    std::vector<UINT8> scanline(hImage->usWidth);
+    pScanLine = scanline.data();
     CHECKF(pScanLine);
 
     // go past all the scanlines we don't need to process
@@ -534,7 +512,7 @@ BOOLEAN Copy8BPPImageTo8BPPBuffer(HIMAGE hImage, BYTE* pDestBuf, UINT16 usDestWi
 
     // Assertions
     Assert(hImage != nullptr);
-    Assert(reinterpret_cast<UINT16*>(hImage->pImageData.get()) != nullptr);
+    Assert(!hImage->pImageData.empty());
 
     // Validations
     CHECKF(usX >= 0);
@@ -547,15 +525,15 @@ BOOLEAN Copy8BPPImageTo8BPPBuffer(HIMAGE hImage, BYTE* pDestBuf, UINT16 usDestWi
     // Determine memcopy coordinates
     uiSrcStart = srcRect->iTop * hImage->usWidth + srcRect->iLeft;
     uiDestStart = usY * usDestWidth + usX;
-    uiNumLines = (srcRect->iBottom - srcRect->iTop) + 1;
-    uiLineSize = (srcRect->iRight - srcRect->iLeft) + 1;
+    uiNumLines = srcRect->iBottom - srcRect->iTop;
+    uiLineSize = srcRect->iRight - srcRect->iLeft;
 
     Assert(usDestWidth >= uiLineSize);
     Assert(usDestHeight >= uiNumLines);
 
     // Copy line by line
     pDest = (UINT8*)pDestBuf + uiDestStart;
-    pSrc = hImage->pImageData.get() + uiSrcStart;
+    pSrc = hImage->pImageData.data() + uiSrcStart;
 
     for (cnt = 0; cnt < uiNumLines - 1; cnt++) {
         memcpy(pDest, pSrc, uiLineSize);
@@ -577,7 +555,7 @@ BOOLEAN Copy16BPPImageTo16BPPBuffer(HIMAGE hImage, BYTE* pDestBuf, UINT16 usDest
     UINT16 *pDest, *pSrc;
 
     Assert(hImage != nullptr);
-    Assert(reinterpret_cast<UINT16*>(hImage->pImageData.get()) != nullptr);
+    Assert(!hImage->pImageData.empty());
 
     // Validations
     CHECKF(usX >= 0);
@@ -590,15 +568,15 @@ BOOLEAN Copy16BPPImageTo16BPPBuffer(HIMAGE hImage, BYTE* pDestBuf, UINT16 usDest
     // Determine memcopy coordinates
     uiSrcStart = srcRect->iTop * hImage->usWidth + srcRect->iLeft;
     uiDestStart = usY * usDestWidth + usX;
-    uiNumLines = (srcRect->iBottom - srcRect->iTop) + 1;
-    uiLineSize = (srcRect->iRight - srcRect->iLeft) + 1;
+    uiNumLines = srcRect->iBottom - srcRect->iTop;
+    uiLineSize = srcRect->iRight - srcRect->iLeft;
 
     CHECKF(usDestWidth >= uiLineSize);
     CHECKF(usDestHeight >= uiNumLines);
 
     // Copy line by line
     pDest = (UINT16*)pDestBuf + uiDestStart;
-    pSrc = reinterpret_cast<UINT16*>(hImage->pImageData.get()) + uiSrcStart;
+    pSrc = reinterpret_cast<UINT16*>(hImage->pImageData.data()) + uiSrcStart;
 
     for (cnt = 0; cnt < uiNumLines - 1; cnt++) {
         memcpy(pDest, pSrc, uiLineSize * 2);
@@ -628,7 +606,7 @@ BOOLEAN Copy8BPPImageTo16BPPBuffer(HIMAGE hImage, BYTE* pDestBuf, UINT16 usDestW
     Assert(hImage != nullptr);
 
     // Validations
-    CHECKF(reinterpret_cast<UINT16*>(hImage->pImageData.get()) != nullptr);
+    CHECKF(!hImage->pImageData.empty());
     CHECKF(usX >= 0);
     CHECKF(usX < usDestWidth);
     CHECKF(usY >= 0);
@@ -647,7 +625,7 @@ BOOLEAN Copy8BPPImageTo16BPPBuffer(HIMAGE hImage, BYTE* pDestBuf, UINT16 usDestW
 
     // Convert to Pixel specification
     pDest = (UINT16*)pDestBuf + uiDestStart;
-    pSrc = hImage->pImageData.get() + uiSrcStart;
+    pSrc = hImage->pImageData.data() + uiSrcStart;
     SDL_LogDebug(SDL_LOG_CATEGORY_APPLICATION, "Start Copying at %p", pDest);
 
     // For every entry, look up into 16BPP palette
@@ -679,7 +657,6 @@ std::unique_ptr<UINT16[]> Create16BPPPalette(SGPPaletteEntry* pPalette)
     UINT8 r, g, b;
 
     Assert(pPalette != nullptr);
-
 
     if (!p16BPPPalette)
         return nullptr;
@@ -753,7 +730,6 @@ std::unique_ptr<UINT16[]> Create16BPPPaletteShaded(SGPPaletteEntry* pPalette, UI
     UINT8 r, g, b;
 
     Assert(pPalette != nullptr);
-
 
     for (cnt = 0; cnt < 256; cnt++) {
         if (mono) {
@@ -846,25 +822,6 @@ UINT16 Get16BPPColor(UINT32 RGBValue)
 // Return Value  pointer to the SGPPaletteEntry
 // Modification History :
 // Dec 15th 1996 -> modified for use by Wizardry
-
-// FUNCTION: WIZ8 0x00410580
-BOOLEAN GetETRLEImageData(HIMAGE hImage, ETRLEData* pBuffer)
-{
-    // Assertions
-    Assert(hImage != nullptr);
-    Assert(pBuffer != nullptr);
-
-    ETRLEData data{};
-    data.usNumberOfObjects = hImage->usNumberOfObjects;
-    data.uiSizePixData = hImage->uiSizePixData;
-    data.pETRLEObject = std::make_unique<ETRLEObject[]>(data.usNumberOfObjects);
-    data.pPixData = std::make_unique<UINT8[]>(data.uiSizePixData);
-    std::copy_n(hImage->pETRLEObject.get(), data.usNumberOfObjects, data.pETRLEObject.get());
-    std::copy_n(hImage->pImageData.get(), data.uiSizePixData, data.pPixData.get());
-    *pBuffer = std::move(data);
-
-    return (TRUE);
-}
 
 // FUNCTION: WIZ8 0x00410620
 void ConvertRGBDistribution565To555(UINT16* p16BPPData, UINT32 uiNumberOfPixels)

@@ -73,7 +73,6 @@
 #include "wiz8/virtual_file.h"
 #include "wiz8/fonts.h"
 #include "surrender/srCamera.h"
-#include "surrender/srTimer.h"
 #include "surrender/srScene.h"
 #include "surrender/srModelInstance.h"
 #include "surrender/srCore.h"
@@ -1030,7 +1029,7 @@ unsigned char W8MonsterRep::ReadCycleData(W8ReadLevelInfo* info, W8Monster* mons
     active = 1;
     frame_direction = W8_ANIMATION_FORWARD;
     m_bLOD = 2;
-    timer = g_shared_timer_base->getMsTime(srTimer::TIMER_READ_DEFAULT);
+    timer = g_shared_timer_base->milliseconds();
     animation_behaviour = animation->behaviour;
     frame_method = animation->frame_method;
     animation_playing = animation->animation_playing;
@@ -1464,7 +1463,7 @@ void W8Monster::Update()
                     m_pRep->frame_direction = W8_ANIMATION_FORWARD;
                     m_pRep->pending_behaviour = W8_ANIMATION_PLAY_ONCE;
                     m_pRep->animation_playing = 1;
-                    m_pRep->timer = g_shared_timer_base->getMsTime(srTimer::TIMER_READ_DEFAULT);
+                    m_pRep->timer = g_shared_timer_base->milliseconds();
                     m_pRep->pending_subcycle = 0;
                 }
                 break;
@@ -1481,11 +1480,11 @@ void W8Monster::Update()
                         m_pRep->frame_direction = W8_ANIMATION_FORWARD;
                         m_pRep->pending_behaviour = W8_ANIMATION_PLAY_ONCE;
                         m_pRep->animation_playing = 1;
-                        m_pRep->timer = g_shared_timer_base->getMsTime(srTimer::TIMER_READ_DEFAULT);
+                        m_pRep->timer = g_shared_timer_base->milliseconds();
                     } else {
                         m_pRep->pending_cycle = 1;
                         m_pRep->animation_playing = 1;
-                        m_pRep->timer = g_shared_timer_base->getMsTime(srTimer::TIMER_READ_DEFAULT);
+                        m_pRep->timer = g_shared_timer_base->milliseconds();
                         m_pRep->pending_subcycle = 0;
                     }
                 }
@@ -1495,7 +1494,7 @@ void W8Monster::Update()
                     m_pRep->pending_cycle = 1;
                     m_pRep->frame_direction = W8_ANIMATION_FORWARD;
                     m_pRep->animation_playing = 1;
-                    m_pRep->timer = g_shared_timer_base->getMsTime(srTimer::TIMER_READ_DEFAULT);
+                    m_pRep->timer = g_shared_timer_base->milliseconds();
                     m_pRep->pending_behaviour = W8_ANIMATION_NEVER_STOP;
                     m_pRep->pending_subcycle = 0;
                 }
@@ -1524,7 +1523,7 @@ void W8Monster::Update()
                             runtime_flags |= W8_MONSTER_KEEP_FRAME_DIRECTION;
                         }
                         m_pRep->animation_playing = 1;
-                        m_pRep->timer = g_shared_timer_base->getMsTime(srTimer::TIMER_READ_DEFAULT);
+                        m_pRep->timer = g_shared_timer_base->milliseconds();
                     }
                 }
                 break;
@@ -1543,7 +1542,7 @@ void W8Monster::Update()
                         m_pRep->pending_subcycle = 0;
                     }
                     m_pRep->animation_playing = 1;
-                    m_pRep->timer = g_shared_timer_base->getMsTime(srTimer::TIMER_READ_DEFAULT);
+                    m_pRep->timer = g_shared_timer_base->milliseconds();
                 }
                 break;
             case W8_MONSTER_CYCLE_TRANSITION:
@@ -1555,7 +1554,7 @@ void W8Monster::Update()
                         m_pRep->pending_cycle = 4;
                     }
                     m_pRep->animation_playing = 1;
-                    m_pRep->timer = g_shared_timer_base->getMsTime(srTimer::TIMER_READ_DEFAULT);
+                    m_pRep->timer = g_shared_timer_base->milliseconds();
                     m_pRep->pending_behaviour = W8_ANIMATION_NEVER_STOP;
                     m_pRep->pending_subcycle = 0;
                 }
@@ -1564,7 +1563,7 @@ void W8Monster::Update()
                 if (Query(W8_MONSTER_QUERY_CYCLE_COMPLETE) != 0) {
                     m_pRep->pending_cycle = 1;
                     m_pRep->animation_playing = 1;
-                    m_pRep->timer = g_shared_timer_base->getMsTime(srTimer::TIMER_READ_DEFAULT);
+                    m_pRep->timer = g_shared_timer_base->milliseconds();
                     m_pRep->pending_behaviour = W8_ANIMATION_NEVER_STOP;
                     m_pRep->pending_subcycle = 0;
                 }
@@ -1585,7 +1584,7 @@ void W8Monster::Update()
         (m_pRep->pending_cycle == -1 || m_pRep->pending_cycle == 1 || m_pRep->pending_cycle == 2) &&
         (g_combat_state->eCombatActionStatus != 2 || g_combat_state->pActionMonsterInfo == 0 ||
          g_combat_state->pActionMonsterInfo->location_id != location_id)) {
-        m_pRep->timer = g_shared_timer_base->getMsTime(srTimer::TIMER_READ_DEFAULT);
+        m_pRep->timer = g_shared_timer_base->milliseconds();
     }
 
     if (monster_info != 0 && monster_info->uiCondition[W8_CONDITION_SLOWED] != 0) {
@@ -2019,7 +2018,7 @@ void W8Monster::ProcessScript()
                     if (cycle != W8_MONSTER_CYCLE_NONE) {
                         m_pRep->pending_cycle = static_cast<signed char>(cycle);
                         m_pRep->animation_playing = 1;
-                        m_pRep->timer = g_shared_timer_base->getMsTime(srTimer::TIMER_READ_DEFAULT);
+                        m_pRep->timer = g_shared_timer_base->milliseconds();
                         SetSubCycle(0);
                         m_pRep->forced_subcycle = subcycle - 1;
                         if (m_pRep->pending_cycle == -1) {
@@ -2090,7 +2089,7 @@ void W8Monster::ProcessScript()
                 m_pRep->pending_behaviour = W8_ANIMATION_PLAY_ONCE;
                 m_pRep->pending_cycle = 0x15;
                 m_pRep->animation_playing = 1;
-                m_pRep->timer = g_shared_timer_base->getMsTime(srTimer::TIMER_READ_DEFAULT);
+                m_pRep->timer = g_shared_timer_base->milliseconds();
                 SetSubCycle(0);
                 break;
             case MONSCR_END:
@@ -3654,7 +3653,7 @@ void W8Monster::UpdateAttachedObjects()
         return;
     }
 
-    elapsed = g_shared_timer_base->getMsTime(srTimer::TIMER_READ_DEFAULT) - representation->timer;
+    elapsed = g_shared_timer_base->milliseconds() - representation->timer;
     WorldGetCameraRotation(g_world, &camera_rotation);
     base_position = movement.position;
     base_position.y += movement.vertical_base + movement.vertical_amplitude;
@@ -4332,7 +4331,7 @@ unsigned char MonsterSetAnimating(W8Monster* monster, bool animating)
         unsigned char previous = runtime->animation_playing;
 
         runtime->animation_playing = animating;
-        runtime->timer = g_shared_timer_base->getMsTime(srTimer::TIMER_READ_DEFAULT);
+        runtime->timer = g_shared_timer_base->milliseconds();
         return previous;
     }
     return 0;

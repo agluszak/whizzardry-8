@@ -11,46 +11,62 @@ namespace tga {
 inline unsigned word(const Uint8* data) { return data[0] | unsigned(data[1]) << 8; }
 
 // Normalize only metadata SDL_image does not support. Pixel/RLE decoding stays in SDL_image.
-class Input : public srBinIStream {
-public:
-    Input(srBinIStream& source, std::vector<Uint8> prefix, unsigned data_start)
-        : source(source), prefix(std::move(prefix)), data_start(data_start), position(0)
-    {
-        setState(SR_STREAM_OK);
-    }
-    w8_ulong getSize() override { return prefix.size() + source.getSize() - data_start; }
-    w8_ulong tell() override { return position; }
-    srBinStream& seek(w8_ulong target) override
-    {
-        if (target > getSize()) setState(SR_STREAM_ERROR);
-        else position = target;
-        return *this;
-    }
-    srBinStream& seek(w8_ulong offset, e_seekDir direction) override
-    {
-        return seek(direction == SR_SEEK_BEGIN ? offset :
-                    direction == SR_SEEK_CURRENT ? position + offset : getSize() - offset);
-    }
-private:
-    w8_ulong vread(void* data, w8_ulong bytes) override
-    {
-        auto* output = static_cast<Uint8*>(data);
-        const auto first = position < prefix.size() ?
-            std::min<size_t>(bytes, prefix.size() - position) : 0;
-        SDL_memcpy(output, prefix.data() + std::min<size_t>(position, prefix.size()), first);
-        position += first;
-        if (bytes > first) {
-            source.seek(data_start + position - prefix.size());
-            source.read(output + first, bytes - first);
-            if (!source.good()) { setState(SR_STREAM_ERROR); return first; }
-            position += bytes - first;
-        }
-        return bytes;
-    }
-    srBinIStream& source;
+struct Input {
+    SDL_IOStream* source;
     std::vector<Uint8> prefix;
-    unsigned data_start;
-    unsigned position;
+    Sint64 data_start, length;
+    Sint64 position = 0;
+    bool failed = false;
+
+    static Sint64 SDLCALL size(void* cookie) noexcept
+    {
+        return static_cast<Input*>(cookie)->length;
+    }
+    static Sint64 SDLCALL seek(void* cookie, Sint64 offset, SDL_IOWhence whence) noexcept
+    {
+        auto& self = *static_cast<Input*>(cookie);
+        const Sint64 base = whence == SDL_IO_SEEK_SET ? 0 :
+                            whence == SDL_IO_SEEK_CUR ? self.position :
+                            whence == SDL_IO_SEEK_END ? self.length : -1;
+        if (base < 0 || offset < -base || offset > self.length - base) {
+            self.failed = true;
+            SDL_SetError("Invalid normalized TGA seek");
+            return -1;
+        }
+        return self.position = base + offset;
+    }
+    static size_t SDLCALL read(void* cookie, void* data, size_t bytes, SDL_IOStatus* status) noexcept
+    {
+        auto& self = *static_cast<Input*>(cookie);
+        if (self.failed) { *status = SDL_IO_STATUS_ERROR; return 0; }
+        const auto count = std::min<Uint64>(bytes, self.length - self.position);
+        const auto first = self.position < Sint64(self.prefix.size()) ?
+            std::min<Uint64>(count, self.prefix.size() - self.position) : 0;
+        auto* output = static_cast<Uint8*>(data);
+        if (first) SDL_memcpy(output, self.prefix.data() + self.position, first);
+        self.position += first;
+        if (count > first) {
+            if (SDL_SeekIO(self.source, self.data_start + self.position - self.prefix.size(),
+                           SDL_IO_SEEK_SET) < 0 ||
+                SDL_ReadIO(self.source, output + first, count - first) != count - first) {
+                self.failed = true;
+                *status = SDL_IO_STATUS_ERROR;
+                return 0;
+            }
+            self.position += count - first;
+        }
+        if (count < bytes) *status = SDL_IO_STATUS_EOF;
+        return count;
+    }
+    IO open()
+    {
+        SDL_IOStreamInterface interface;
+        SDL_INIT_INTERFACE(&interface);
+        interface.size = size;
+        interface.seek = seek;
+        interface.read = read;
+        return IO(SDL_OpenIO(&interface, this), SDL_CloseIO);
+    }
 };
 
 inline bool validatePixels(SDL_IOStream* io, unsigned start, Uint64 pixels,
@@ -72,15 +88,15 @@ inline bool validatePixels(SDL_IOStream* io, unsigned start, Uint64 pixels,
 }
 } // namespace tga
 
-srColorSurface* loadTga(srBinIStream& source)
+srColorSurface* loadTga(SDL_IOStream* source)
 {
+    if (!srCore.isInitialized()) return nullptr;
     try {
-        const auto size = source.getSize();
-        if (!source.good() || size < 18 || size > 256 * 1024 * 1024) return nullptr;
-        source.seek(0);
+        const auto size = SDL_GetIOSize(source);
+        if (size < 18 || size > 256 * 1024 * 1024 ||
+            SDL_SeekIO(source, 0, SDL_IO_SEEK_SET) < 0) return nullptr;
         std::vector<Uint8> prefix(18);
-        source.read(prefix.data(), 18);
-        if (!source.good()) return nullptr;
+        if (SDL_ReadIO(source, prefix.data(), 18) != 18) return nullptr;
         const unsigned type = prefix[2], depth = prefix[16], descriptor = prefix[17];
         const unsigned origin = tga::word(prefix.data() + 3), count = tga::word(prefix.data() + 5);
         const unsigned palette_bits = prefix[7], palette_bytes = (palette_bits + 7) / 8;
@@ -101,9 +117,9 @@ srColorSurface* loadTga(srBinIStream& source)
         const unsigned metadata = 18 + prefix[0] + (has_palette ? count * palette_bytes : 0);
         if (metadata > size) return nullptr;
         std::vector<Uint8> palette_data(has_palette ? count * palette_bytes : 0);
-        source.seek(18 + prefix[0]);
-        if (has_palette) source.read(palette_data.data(), palette_data.size());
-        if (!source.good()) return nullptr;
+        if (SDL_SeekIO(source, 18 + prefix[0], SDL_IO_SEEK_SET) < 0 ||
+            (has_palette && SDL_ReadIO(source, palette_data.data(), palette_data.size()) != palette_data.size()))
+            return nullptr;
         srPalette* core_palette = nullptr;
         if (indexed && !has_palette) {
             core_palette = srCore.getPalette();
@@ -128,16 +144,16 @@ srColorSurface* loadTga(srBinIStream& source)
         prefix.insert(prefix.end(), palette_data.begin(), palette_data.end());
         const unsigned pixel_start = prefix.size();
         if (palette_only) prefix.push_back(origin);
-        tga::Input normalized(source, std::move(prefix), metadata);
-        Stream bridge{normalized, &normalized};
-        auto io = bridge.open();
+        const Sint64 normalized_size = prefix.size() + size - metadata;
+        tga::Input normalized{source, std::move(prefix), metadata, normalized_size};
+        auto io = normalized.open();
         const unsigned bytes = palette_only ? 1 : depth / 8;
         if (!io || !tga::validatePixels(io.get(), pixel_start, Uint64(width) * height,
                                         bytes, type >= 9) ||
             SDL_SeekIO(io.get(), 0, SDL_IO_SEEK_SET) < 0)
             return nullptr;
         Surface decoded(IMG_LoadTGA_IO(io.get()), SDL_DestroySurface);
-        if (!decoded || bridge.failed || !source.good() || decoded->w != int(width) ||
+        if (!decoded || normalized.failed || decoded->w != int(width) ||
             decoded->h != int(height)) return nullptr;
         const auto format = indexed ? srPixelConvert::SURFACE_P8 : gray ? srPixelConvert::SURFACE_L8 :
             depth == 16 ? ((descriptor & 15) ? srPixelConvert::SURFACE_ARGB1555 : srPixelConvert::SURFACE_RGB555) :

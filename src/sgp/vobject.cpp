@@ -7,7 +7,7 @@
 #include "Video2.h"
 #include "himage.h"
 #include "vobject.h"
-#include "vobject_private.h"
+#include <cstdint>
 #include "WCheck.h"
 #include "vobject_blitters.h"
 #include "wiz8/application.h"
@@ -224,82 +224,35 @@ BOOLEAN BltVideoObject(UINT32 uiDestVSurface, HVOBJECT hSrcVObject, UINT16 usReg
 // FUNCTION: WIZ8 0x00406180
 HVOBJECT CreateVideoObject(VOBJECT_DESC* VObjectDesc)
 {
-    HIMAGE hImage;
-    ETRLEData TempETRLEData;
-    //	UINT32							count;
-
-    // Allocate memory for video object data and initialize
-    auto owner = std::make_unique<SGPVObject>();
-    auto* hVObject = owner.get();
     std::unique_ptr<image_type> imageOwner;
-
-    // default of all members of the vobject is 0
-
-    // Check creation options
-    //	do
-    //	{
-    if (VObjectDesc->fCreateFlags & VOBJECT_CREATE_FROMFILE ||
-        VObjectDesc->fCreateFlags & VOBJECT_CREATE_FROMHIMAGE) {
-        if (VObjectDesc->fCreateFlags & VOBJECT_CREATE_FROMFILE) {
-            // Create himage object from file
-            imageOwner.reset(CreateImage(VObjectDesc->ImageFile.c_str(), IMAGE_ALLIMAGEDATA));
-            hImage = imageOwner.get();
-
-            if (hImage == nullptr) {
-                SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "%s", "Invalid Image Filename given");
-                return (nullptr);
-            }
-        } else { // create video object from provided hImage
-            hImage = VObjectDesc->hImage;
-            if (hImage == nullptr) {
-                SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "%s", "Invalid hImage pointer given");
-                return (nullptr);
-            }
-        }
-
-        // Check if returned himage is TRLE compressed - return error if not
-        if (!(hImage->fFlags & IMAGE_TRLECOMPRESSED)) {
-            SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "%s", "Invalid Image format given.");
-            return (nullptr);
-        }
-
-        // Set values from himage
-        hVObject->ubBitDepth = hImage->ubBitDepth;
-
-        // Get TRLE data
-        CHECKF(GetETRLEImageData(hImage, &TempETRLEData));
-
-        // Set values
-        hVObject->usNumberOfObjects = TempETRLEData.usNumberOfObjects;
-        hVObject->pETRLEObject = std::move(TempETRLEData.pETRLEObject);
-        hVObject->pPixData = std::move(TempETRLEData.pPixData);
-        hVObject->uiSizePixData = TempETRLEData.uiSizePixData;
-
-        // Set palette from himage
-        if (hImage->ubBitDepth == 8) {
-            hVObject->pShade8 = ubColorTables[DEFAULT_SHADE_LEVEL];
-            hVObject->pGlow8 = ubColorTables[0];
-
-            SetVideoObjectPalette(hVObject, hImage->pPalette.get());
-        }
-
-        if (VObjectDesc->fCreateFlags & VOBJECT_CREATE_FROMFILE) {
-            // Delete himage object
-        }
-        //		break;
-    } else {
-        SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "%s", "Invalid VObject creation flags given.");
-        return (nullptr);
+    HIMAGE hImage = VObjectDesc->hImage;
+    if (VObjectDesc->fCreateFlags & VOBJECT_CREATE_FROMFILE) {
+        imageOwner = CreateImage(VObjectDesc->ImageFile.c_str(), IMAGE_ALLIMAGEDATA);
+        hImage = imageOwner.get();
+    } else if (!(VObjectDesc->fCreateFlags & VOBJECT_CREATE_FROMHIMAGE)) {
+        return nullptr;
     }
-
-    // If here, no special options given, use structure given in paraneters
-    // TO DO:
-
-    //	}
-    //	while( FALSE );
-
-    // All is well
-
+    if (!hImage || !(hImage->fFlags & IMAGE_TRLECOMPRESSED))
+        return nullptr;
+    for (const auto& frame : hImage->pETRLEObject) {
+        if (std::uint64_t(frame.uiDataOffset) + frame.uiDataLength > hImage->pImageData.size())
+            return nullptr;
+    }
+    auto owner = std::make_unique<SGPVObject>();
+    owner->ubBitDepth = hImage->ubBitDepth;
+    if (hImage->ubBitDepth == 8) {
+        if (!hImage->pPalette || !SetVideoObjectPalette(owner.get(), hImage->pPalette.get()))
+            return nullptr;
+        owner->pShade8 = ubColorTables[DEFAULT_SHADE_LEVEL];
+        owner->pGlow8 = ubColorTables[0];
+    }
+    if (imageOwner) {
+        owner->pETRLEObject = std::move(hImage->pETRLEObject);
+        owner->pPixData = std::move(hImage->pImageData);
+    } else {
+        owner->pETRLEObject = hImage->pETRLEObject;
+        owner->pPixData = hImage->pImageData;
+    }
     return owner.release();
 }
 
@@ -576,7 +529,7 @@ BOOLEAN GetETRLEPixelValue(UINT8* pDest, HVOBJECT hVObject, UINT16 usETRLEIndex,
 
     // Do a bunch of checks
     CHECKF(hVObject != nullptr);
-    CHECKF(usETRLEIndex < hVObject->usNumberOfObjects);
+    CHECKF(usETRLEIndex < hVObject->pETRLEObject.size());
 
     pETRLEObject = &(hVObject->pETRLEObject[usETRLEIndex]);
 
@@ -584,7 +537,7 @@ BOOLEAN GetETRLEPixelValue(UINT8* pDest, HVOBJECT hVObject, UINT16 usETRLEIndex,
     CHECKF(usY < pETRLEObject->usHeight);
 
     // Assuming everything's okay, go ahead and look...
-    pCurrent = &(hVObject->pPixData.get())[pETRLEObject->uiDataOffset];
+    pCurrent = &(hVObject->pPixData.data())[pETRLEObject->uiDataOffset];
 
     // Skip past all uninteresting scanlines
     while (usLoopY < usY) {
@@ -629,7 +582,7 @@ BOOLEAN GetETRLEPixelValue(UINT8* pDest, HVOBJECT hVObject, UINT16 usETRLEIndex,
 BOOLEAN GetVideoObjectETRLEProperties(HVOBJECT hVObject, ETRLEObject* pETRLEObject, UINT16 usIndex)
 {
     CHECKF(usIndex >= 0);
-    CHECKF(usIndex < hVObject->usNumberOfObjects);
+    CHECKF(usIndex < hVObject->pETRLEObject.size());
 
     memcpy(pETRLEObject, &(hVObject->pETRLEObject[usIndex]), sizeof(ETRLEObject));
 

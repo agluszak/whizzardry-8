@@ -35,7 +35,6 @@
 #include "wiz8/startup_world.h"
 #include "wiz8/surface2d.h"
 #include "wiz8/utility.h"
-#include "wiz8/virtual_file_stream.h"
 #include "wiz8/wiz8_windows.h"
 #include "surrender/srColorSurface.h"
 #include "surrender/srCore.h"
@@ -601,7 +600,6 @@ try
     if (_strnicmp(audio_setting, "none", 4) == 0) {
         gfEnableStartup = FALSE;
     }
-    InitializeVirtualFileImageImporters();
     return 1;
 }
 catch (const std::exception&) { return false; }
