@@ -56,6 +56,13 @@
 #include <stdlib.h>
 #include <string.h>
 #include <wiz8/filesystem.h>
+#include <algorithm>
+#include <cstdint>
+#include <limits>
+#include <memory>
+#include <stdexcept>
+#include <string>
+#include <vector>
 // GLOBAL: WIZ8 0x005ebc30
 const double g_double_one = 1.0;
 // GLOBAL: WIZ8 0x005ec020
@@ -188,135 +195,91 @@ void W8PathHeapHandle::DeleteRoot(W8PathSearchNode* node)
    the header is emitted, exactly as the read side treats them. */
 // FUNCTION: WIZ8 0x00458ad0
 bool W8PathingService::WritePathNodes(wiz8::File* handle)
+try
 {
-    W8ConditionalPathHeader header;
-    unsigned char success;
-
-    if (path_node_count != 0) {
-        success = (handle->write(file_path_nodes, path_node_count << 3), true);
-        if (success == 0) {
-            ReportBuildStatus(7, "WritePathNodes: Couldn't write Path Hash array.\n");
-            return false;
-        }
+    if (path_node_count < 0 || m_ulNumCondPaths < 0) {
+        return false;
     }
-
-    if (static_cast<unsigned int>(m_ulNumCondFrames) < 2 ||
-        static_cast<unsigned int>(m_ulNumCondNodes) < 2) {
+    handle->write(file_path_nodes, static_cast<std::size_t>(path_node_count) * sizeof(W8FilePathNode));
+    if (m_ulNumCondFrames < 2 || m_ulNumCondNodes < 2) {
         m_ulNumCondPaths = 0;
         m_ulNumCondFrames = 0;
         m_ulNumCondNodes = 0;
     }
-    header.path_count = m_ulNumCondPaths;
-    header.frame_count = m_ulNumCondFrames;
-    header.node_count = m_ulNumCondNodes;
-    header.flags = 0;
-    success = (handle->write(&header, sizeof(header)), true);
-    if (success == 0) {
-        srAssertFail("fSuccess", OCTPATH_CPP, 0x8b2,
-                     "WritePathNodes: Couldn't write Conditional Counts.\n");
-    }
-
-    if (static_cast<unsigned int>(m_ulNumCondFrames) > 1 &&
-        static_cast<unsigned int>(m_ulNumCondNodes) > 1) {
-        success = (handle->write(m_pCondPaths, m_ulNumCondPaths * sizeof(GDPropCondPaths)), true);
-        if (success == 0) {
-            srAssertFail("fSuccess", OCTPATH_CPP, 0x8b7,
-                         "WritePathNodes: Couldn't write Conditional Prop array.\n");
-        }
-        success = (handle->write(m_pulCondLookup, m_ulNumCondFrames << 2), true);
-        if (success == 0) {
-            srAssertFail("fSuccess", OCTPATH_CPP, 0x8b9,
-                         "WritePathNodes: Couldn't write Conditional Lookup array.\n");
-        }
-        success = (handle->write(m_pusCondNodeFrames, m_ulNumCondFrames << 1), true);
-        if (success == 0) {
-            srAssertFail("fSuccess", OCTPATH_CPP, 0x8bb,
-                         "WritePathNodes: Couldn't write Conditional Frame array.\n");
-        }
-        success = (handle->write(m_pulCondNodeKeys, m_ulNumCondNodes << 2), true);
-        if (success == 0) {
-            srAssertFail("fSuccess", OCTPATH_CPP, 0x8bd,
-                         "WritePathNodes: Couldn't write Conditional Key array.\n");
-        }
-        success = (handle->write(m_pulCondNodeValues, m_ulNumCondNodes << 2), true);
-        if (success == 0) {
-            srAssertFail("fSuccess", OCTPATH_CPP, 0x8bf,
-                         "WritePathNodes: Couldn't write Conditional Value array.\n");
-        }
-    }
+    const W8ConditionalPathHeader header{
+        static_cast<unsigned int>(m_ulNumCondPaths), static_cast<unsigned int>(m_ulNumCondFrames),
+        static_cast<unsigned int>(m_ulNumCondNodes), 0};
+    handle->write(&header, sizeof(header));
+    handle->write(m_pCondPaths, static_cast<std::size_t>(m_ulNumCondPaths) * sizeof(GDPropCondPaths));
+    handle->write(m_pulCondLookup, static_cast<std::size_t>(m_ulNumCondFrames) * sizeof(*m_pulCondLookup));
+    handle->write(m_pusCondNodeFrames, static_cast<std::size_t>(m_ulNumCondFrames) * sizeof(*m_pusCondNodeFrames));
+    handle->write(m_pulCondNodeKeys, static_cast<std::size_t>(m_ulNumCondNodes) * sizeof(*m_pulCondNodeKeys));
+    handle->write(m_pulCondNodeValues, static_cast<std::size_t>(m_ulNumCondNodes) * sizeof(*m_pulCondNodeValues));
     return true;
 }
+catch (const std::exception&) { return false; }
 
 /* Snapshot live path surfaces into the compact waypoint-file representation,
    clearing runtime-only disabled and edge bits before writing the .WPT file.
    The cd-rom sentinel disables this editor-side write path. */
 // FUNCTION: WIZ8 0x00459400
 unsigned char W8PathingService::SaveWaypointSnapshot(bool force)
+try
 {
     if (!waypoints_dirty && !force) {
         return 0;
     }
-    if ([&]() { const auto status = wiz8::file_status("cd.rom"); return status && status->info.type == SDL_PATHTYPE_FILE; }() != 0) {
+    const auto cd = wiz8::file_status("cd.rom");
+    if (cd && cd->info.type == SDL_PATHTYPE_FILE) {
         return 0;
     }
 
     BuildWaypointFileData();
-    if (m_pFileWayPoints != 0) {
-        free(m_pFileWayPoints);
-    }
-    m_pFileWayPoints =
-        static_cast<W8FileWaypoint*>(malloc(m_ulNumWayPoints * sizeof(W8FileWaypoint)));
-    if (m_pFileWayPoints == 0) {
-        srAssertFail("m_pFileWayPoints", OCTPATH_CPP, 0x968, 0);
+    std::unique_ptr<W8FileWaypoint, decltype(&free)> snapshot(
+        static_cast<W8FileWaypoint*>(malloc(std::size_t{m_ulNumWayPoints} * sizeof(W8FileWaypoint))), free);
+    if (m_ulNumWayPoints != 0 && !snapshot) {
+        return false;
     }
 
     unsigned int index;
     for (index = 0; index < m_ulNumWayPoints; ++index) {
-        m_pFileWayPoints[index].flags =
+        snapshot.get()[index].flags =
             m_waypoints[index].flags & (0xffffu & ~W8_WAYPOINT_DISABLED);
-        m_pFileWayPoints[index].first_edge = m_waypoints[index].first_edge;
-        m_pFileWayPoints[index].position = m_waypoints[index].position;
+        snapshot.get()[index].first_edge = m_waypoints[index].first_edge;
+        snapshot.get()[index].position = m_waypoints[index].position;
     }
     for (index = 0; index < m_ulNumWayPtLinks; ++index) {
         m_pEdges[index].flags &= ~W8_PATH_EDGE_DISABLED;
     }
 
-    unsigned char result = WriteWaypointFile();
     free(m_pFileWayPoints);
+    m_pFileWayPoints = snapshot.get();
+    const auto result = WriteWaypointFile();
     m_pFileWayPoints = 0;
     return result;
 }
+catch (const std::exception&) { return false; }
 
-/* Write the version-two waypoint snapshot. Retail combines the six write
-   results with OR, so a partially successful sequence still reports success;
-   that behavior is part of the recovered format contract. */
+/* Write the version-two waypoint snapshot. A throwing write or flush fails
+   the operation; partial output is never reported as a successful snapshot. */
 // FUNCTION: WIZ8 0x00459540
 unsigned char W8PathingService::WriteWaypointFile()
 try
 {
-    unsigned int version = 2;
-    unsigned char result = 0;
-    char path[256];
-    sprintf(path, "%s.WPT", level_name);
-
-    if (m_ulNumWayPoints > 0xffff) {
-        return 0;
+    if (m_ulNumWayPoints == 0 || m_ulNumWayPoints > 0xffff ||
+        m_ulNumWayPtLinks > 0xffff || m_pFileWayPoints == 0) {
+        return false;
     }
-    std::unique_ptr<wiz8::File> handle = [&]() { try { return wiz8::open_file(path, wiz8::OpenMode::replace); } catch (const std::exception&) { return std::unique_ptr<wiz8::File>{}; } }();
-    if (handle == 0) {
-        return 0;
-    }
-    if (m_ulNumWayPoints != 0 && m_pFileWayPoints != 0) {
-        result = (handle->write(&version, sizeof(version)), true);
-        result |= (handle->write(&edge_node_count, sizeof(edge_node_count)), true);
-        result |= (handle->write(&m_ulNumWayPoints, sizeof(m_ulNumWayPoints)), true);
-        result |= (handle->write(&m_ulNumWayPtLinks, sizeof(m_ulNumWayPtLinks)), true);
-        result |= (handle->write(m_pFileWayPoints, m_ulNumWayPoints * sizeof(W8FileWaypoint)), true);
-        result |= (handle->write(m_pEdges, m_ulNumWayPtLinks * sizeof(W8PathEdge)), true);
-    }
-    if (handle) handle->close();
-    handle.reset();
-    return result;
+    auto handle = wiz8::open_file(std::string(level_name) + ".WPT", wiz8::OpenMode::replace);
+    const unsigned int version = 2;
+    handle->write(&version, sizeof(version));
+    handle->write(&edge_node_count, sizeof(edge_node_count));
+    handle->write(&m_ulNumWayPoints, sizeof(m_ulNumWayPoints));
+    handle->write(&m_ulNumWayPtLinks, sizeof(m_ulNumWayPtLinks));
+    handle->write(m_pFileWayPoints, std::size_t{m_ulNumWayPoints} * sizeof(W8FileWaypoint));
+    handle->write(m_pEdges, std::size_t{m_ulNumWayPtLinks} * sizeof(W8PathEdge));
+    handle->close();
+    return true;
 }
 catch (const std::exception&) { return false; }
 
@@ -327,105 +290,109 @@ catch (const std::exception&) { return false; }
 unsigned char W8PathingService::ReadWaypointFile()
 try
 {
-    unsigned int version = 2;
-    unsigned char success = 0;
-    char path[256];
-    if (path_node_count == 0)
-        return 0;
-    sprintf(path, "%s.WPT", level_name);
-    std::unique_ptr<wiz8::File> handle = [&]() { try { return wiz8::open_file(path, wiz8::OpenMode::read); } catch (const std::exception&) { return std::unique_ptr<wiz8::File>{}; } }();
-    if (handle == 0)
-        return 0;
-
-    success = (handle->read(&version, 4).bytes == static_cast<std::size_t>(4));
-    success |= (handle->read(&edge_node_count, 4).bytes == static_cast<std::size_t>(4));
-    success |= (handle->read(&m_ulNumWayPoints, 4).bytes == static_cast<std::size_t>(4));
-    success |= (handle->read(&m_ulNumWayPtLinks, 4).bytes == static_cast<std::size_t>(4));
-    if (success == 0) {
-        if (handle) handle->close();
-        handle.reset();
-        return 0;
+    if (path_node_count == 0) {
+        return false;
     }
-    unsigned int surface_capacity = (m_ulNumWayPoints / 100 + 1) * 100;
-    unsigned int edge_capacity = (m_ulNumWayPtLinks / 100 + 1) * 100;
-    m_pFileWayPoints =
-        static_cast<W8FileWaypoint*>(malloc(m_ulNumWayPoints * sizeof(W8FileWaypoint)));
-    m_waypoints = static_cast<W8PathSurface*>(malloc(surface_capacity * sizeof(W8PathSurface)));
-    m_pEdges = static_cast<W8PathEdge*>(malloc(edge_capacity * sizeof(W8PathEdge)));
-    if (m_waypoints != 0)
-        memset(m_waypoints, 0, surface_capacity * sizeof(W8PathSurface));
-    if (m_pEdges != 0)
-        memset(m_pEdges, 0, edge_capacity * sizeof(W8PathEdge));
-    if (m_pFileWayPoints == 0 || m_waypoints == 0 || m_pEdges == 0) {
-        if (m_pFileWayPoints != 0)
-            free(m_pFileWayPoints);
-        if (m_waypoints != 0)
-            free(m_waypoints);
-        if (m_pEdges != 0)
-            free(m_pEdges);
-        if (handle) handle->close();
-        handle.reset();
-        return 0;
+    auto handle = wiz8::open_file(std::string(level_name) + ".WPT");
+    unsigned int version, edge_nodes, waypoint_count, link_count;
+    handle->read_exact(&version, sizeof(version));
+    handle->read_exact(&edge_nodes, sizeof(edge_nodes));
+    handle->read_exact(&waypoint_count, sizeof(waypoint_count));
+    handle->read_exact(&link_count, sizeof(link_count));
+    if (version < 1 || waypoint_count == 0 || waypoint_count > 0xffff ||
+        link_count == 0 || link_count > 0xffff) {
+        return false;
     }
-
-    success = (handle->read(m_pFileWayPoints, m_ulNumWayPoints * sizeof(W8FileWaypoint)).bytes == static_cast<std::size_t>(m_ulNumWayPoints * sizeof(W8FileWaypoint)));
-    if (success != 0) {
-        if (version == 1) {
-            for (unsigned int edge = 0; edge < m_ulNumWayPtLinks; ++edge) {
-                W8PathEdge* item = &m_pEdges[edge];
-                success &= (handle->read(&item->flags, 4).bytes == static_cast<std::size_t>(4));
-                success &= (handle->read(&item->destination, 2).bytes == static_cast<std::size_t>(2));
-                success &= (handle->read(&item->distance, 4).bytes == static_cast<std::size_t>(4));
-                success &= (handle->read(&item->next, 2).bytes == static_cast<std::size_t>(2));
-                item->source = 0;
-            }
-        } else {
-            success &= (handle->read(m_pEdges, m_ulNumWayPtLinks * sizeof(W8PathEdge)).bytes == static_cast<std::size_t>(m_ulNumWayPtLinks * sizeof(W8PathEdge)));
+    const auto required = std::uint64_t{waypoint_count} * sizeof(W8FileWaypoint) +
+        std::uint64_t{link_count} * (version == 1 ? 12 : sizeof(W8PathEdge));
+    if (required > static_cast<std::uint64_t>(handle->size() - handle->tell())) {
+        return false;
+    }
+    const unsigned int surface_capacity = (waypoint_count / 100 + 1) * 100;
+    const unsigned int edge_capacity = (link_count / 100 + 1) * 100;
+    std::unique_ptr<W8FileWaypoint, decltype(&free)> file_waypoints(
+        static_cast<W8FileWaypoint*>(malloc(std::size_t{waypoint_count} * sizeof(W8FileWaypoint))), free);
+    std::unique_ptr<W8PathSurface, decltype(&free)> waypoints(
+        static_cast<W8PathSurface*>(calloc(surface_capacity, sizeof(W8PathSurface))), free);
+    std::unique_ptr<W8PathEdge, decltype(&free)> edges(
+        static_cast<W8PathEdge*>(calloc(edge_capacity, sizeof(W8PathEdge))), free);
+    std::unique_ptr<unsigned short, decltype(&free)> scratch(
+        static_cast<unsigned short*>(malloc(std::size_t{surface_capacity} * sizeof(unsigned short))), free);
+    if (!file_waypoints || !waypoints || !edges || !scratch) {
+        return false;
+    }
+    handle->read_exact(file_waypoints.get(), std::size_t{waypoint_count} * sizeof(W8FileWaypoint));
+    if (version == 1) {
+        for (unsigned int index = 0; index < link_count; ++index) {
+            auto& item = edges.get()[index];
+            handle->read_exact(&item.flags, sizeof(item.flags));
+            handle->read_exact(&item.destination, sizeof(item.destination));
+            handle->read_exact(&item.distance, sizeof(item.distance));
+            handle->read_exact(&item.next, sizeof(item.next));
+        }
+    } else {
+        handle->read_exact(edges.get(), std::size_t{link_count} * sizeof(W8PathEdge));
+    }
+    for (unsigned int index = 1; index < link_count; ++index) {
+        const auto& edge = edges.get()[index];
+        if (edge.destination >= waypoint_count || edge.source >= waypoint_count ||
+            edge.next >= link_count) {
+            return false;
         }
     }
-    if (success == 0) {
-        free(m_pFileWayPoints);
-        free(m_waypoints);
-        free(m_pEdges);
-        if (handle) handle->close();
-        handle.reset();
-        return 0;
+    std::vector<bool> visited(link_count);
+    for (unsigned int surface = 1; surface < waypoint_count; ++surface) {
+        const auto& source = file_waypoints.get()[surface];
+        auto& destination = waypoints.get()[surface];
+        destination.flags = source.flags;
+        destination.index = static_cast<unsigned short>(surface);
+        destination.first_edge = source.first_edge;
+        destination.position = source.position;
+        if ((destination.flags & 0xf000) == 0) {
+            destination.flags |= 0x2000;
+        }
+        for (unsigned int edge = source.first_edge; edge != 0; edge = edges.get()[edge].next) {
+            if (edge >= link_count || visited[edge]) {
+                return false;
+            }
+            visited[edge] = true;
+        }
     }
+    auto heap = std::make_unique<W8PathHeapHandle>();
+    heap->heap = new W8PathHeap{};
+    heap->heap->capacity = std::max(surface_capacity, static_cast<unsigned int>(g_path_reserve));
+    heap->heap->entries = new W8PathHeapEntry[heap->heap->capacity];
+    auto marked = std::make_unique<BitArray>(surface_capacity);
+    auto visited_nodes = std::make_unique<BitArray>(surface_capacity);
+    auto collected = std::make_unique<BitArray>(surface_capacity);
 
-    delete path_heap;
-    unsigned int heap_capacity = surface_capacity;
-    if (heap_capacity <= g_path_reserve)
-        heap_capacity = g_path_reserve;
-    path_heap = new W8PathHeapHandle;
-    path_heap->heap = new W8PathHeap;
-    path_heap->heap->entries = new W8PathHeapEntry[heap_capacity];
-    if (path_heap->heap->entries == 0)
-        srAssertFail("hlist", "..\\Engine Code\\Include\\stHeap.hpp", 0x79, 0);
-    path_heap->heap->external_storage = 0;
-    path_heap->heap->capacity = heap_capacity;
-    path_heap->heap->size = 0;
-
-    memset(m_waypoints, 0, m_ulNumWayPoints * sizeof(W8PathSurface));
     for (unsigned int surface = 1; surface < m_ulNumWayPoints; ++surface) {
-        W8FileWaypoint* source = &m_pFileWayPoints[surface];
-        W8PathSurface* destination = &m_waypoints[surface];
-        destination->flags = source->flags;
-        destination->index = static_cast<unsigned short>(surface);
-        destination->first_edge = source->first_edge;
-        destination->position = source->position;
-        srVector3T<int> point;
-        g_octree->WorldPositionToCell(&destination->position, &point);
-        g_octree->object_registry->MoveObjectToCell(W8_OCTREE_KIND_WAYPOINT, surface + 1, &point);
-        if ((destination->flags & 0xf000) == 0)
-            destination->flags |= 0x2000;
+        g_octree->object_registry->UnregisterObject(W8_OCTREE_KIND_WAYPOINT, surface + 1);
     }
-    m_marked_path_nodes->SetSize(surface_capacity);
-    m_visited_path_nodes->SetSize(surface_capacity);
-    m_collected_path_nodes->SetSize(surface_capacity);
-    if (handle) handle->close();
-    handle.reset();
-    g_path_scratch =
-        static_cast<unsigned short*>(malloc(surface_capacity * sizeof(unsigned short)));
+    free(m_pFileWayPoints);
+    free(m_waypoints);
+    free(m_pEdges);
+    free(g_path_scratch);
+    delete path_heap;
+    delete m_marked_path_nodes;
+    delete m_visited_path_nodes;
+    delete m_collected_path_nodes;
+    m_pFileWayPoints = file_waypoints.release();
+    m_waypoints = waypoints.release();
+    m_pEdges = edges.release();
+    g_path_scratch = scratch.release();
+    path_heap = heap.release();
+    m_marked_path_nodes = marked.release();
+    m_visited_path_nodes = visited_nodes.release();
+    m_collected_path_nodes = collected.release();
+    m_ulNumWayPoints = waypoint_count;
+    m_ulNumWayPtLinks = link_count;
+    edge_node_count = edge_nodes;
+    for (unsigned int surface = 1; surface < waypoint_count; ++surface) {
+        srVector3T<int> point;
+        g_octree->WorldPositionToCell(&m_waypoints[surface].position, &point);
+        g_octree->object_registry->MoveObjectToCell(W8_OCTREE_KIND_WAYPOINT, surface + 1, &point);
+    }
 
     if (version <= 2) {
         unsigned int surface;
@@ -453,7 +420,7 @@ try
         }
     }
     waypoints_dirty = true;
-    return success;
+    return true;
 }
 catch (const std::exception&) { return false; }
 
@@ -465,12 +432,8 @@ void W8PathingService::BuildWaypointFileData()
 {
     unsigned short next_surface = 1;
     unsigned short next_edge = 1;
-    unsigned short* surface_map =
-        static_cast<unsigned short*>(malloc((m_ulNumWayPoints + 1) * sizeof(unsigned short)));
-    memset(surface_map, 0, (m_ulNumWayPoints + 1) * sizeof(unsigned short));
-    unsigned short* edge_map =
-        static_cast<unsigned short*>(malloc((m_ulNumWayPtLinks + 1) * sizeof(unsigned short)));
-    memset(edge_map, 0, (m_ulNumWayPtLinks + 1) * sizeof(unsigned short));
+    std::vector<unsigned short> surface_map(std::size_t{m_ulNumWayPoints} + 1);
+    std::vector<unsigned short> edge_map(std::size_t{m_ulNumWayPtLinks} + 1);
 
     unsigned int old_surface;
     for (old_surface = 1; old_surface < m_ulNumWayPoints; ++old_surface) {
@@ -542,119 +505,99 @@ void W8PathingService::BuildWaypointFileData()
         m_pEdges[old_edge].next = edge_map[m_pEdges[old_edge].next];
     }
     saved_surface = surface_map[saved_surface];
-    free(surface_map);
-    free(edge_map);
 }
 
-/* Read the path graph out of the octree file.
-
-   Two parts. The hash array pairs a key with a value for every node the service
-   was sized for and goes straight into the first index. Then a four-dword block
-   gives the three conditional-table counts and one loose value, and a graph with
-   fewer than two lookup or key entries is treated as having none at all rather
-   than allocated. Every conditional table's allocation failure asserts against
-   m_pCondPaths rather than against itself, which is the original's own
-   shorthand and is reproduced. */
+/* Read the path hash and conditional tables completely before replacing
+   live state. Counts below the lookup/key sentinel pair denote empty tables. */
 // FUNCTION: WIZ8 0x00458ce0
 unsigned char W8PathingService::ReadPathNodes(wiz8::File* handle)
 try
 {
-    char acMessage[256];
+    if (path_node_count < 0 ||
+        std::uint64_t{static_cast<unsigned int>(path_node_count)} * sizeof(W8FilePathNode) +
+            sizeof(W8ConditionalPathHeader) >
+            static_cast<std::uint64_t>(handle->size() - handle->tell())) {
+        return false;
+    }
+    std::vector<W8FilePathNode> nodes(path_node_count);
+    handle->read_exact(nodes.data(), nodes.size() * sizeof(W8FilePathNode));
     W8ConditionalPathHeader header;
-    unsigned int uiRead;
-    W8FilePathNode* buffer;
-    W8FilePathNode* scan;
-    unsigned char fSuccess = 0;
-    unsigned int index;
-
-    if (path_node_count != 0) {
-        m_pPathValues = new W8HashTable<unsigned int, unsigned int>;
-        m_pVisitedCells = new W8OctreeIndex;
-        buffer = static_cast<W8FilePathNode*>(malloc(path_node_count * sizeof(W8FilePathNode)));
-        if (m_pPathValues == 0 || buffer == 0) {
-            strcpy(acMessage, "ReadPathNodes: Couldn't allocate path hash array.");
-        } else {
-            fSuccess = ((uiRead = handle->read(buffer, path_node_count * sizeof(W8FilePathNode)).bytes) == static_cast<std::size_t>(path_node_count * sizeof(W8FilePathNode)));
-            if (fSuccess == 0) {
-                strcpy(acMessage, "ReadPathNodes: Couldn't read path hash array.");
-                free(buffer);
-            } else {
-                scan = buffer;
-                for (index = 0; index < static_cast<unsigned int>(path_node_count); ++index) {
-                    m_pPathValues->Insert(&scan->cell, &scan->level_flags);
-                    ++scan;
-                }
-                free(buffer);
-            }
+    handle->read_exact(&header, sizeof(header));
+    if (header.frame_count < 2 || header.node_count < 2) {
+        header.path_count = header.frame_count = header.node_count = 0;
+    }
+    const auto required = std::uint64_t{header.path_count} * sizeof(GDPropCondPaths) +
+        std::uint64_t{header.frame_count} * (sizeof(unsigned int) + sizeof(unsigned short)) +
+        std::uint64_t{header.node_count} * 2 * sizeof(unsigned int);
+    if (required > static_cast<std::uint64_t>(handle->size() - handle->tell()) ||
+        header.path_count > std::numeric_limits<int>::max() ||
+        header.frame_count > std::numeric_limits<int>::max() ||
+        header.node_count > std::numeric_limits<int>::max() ||
+        std::uint64_t{header.path_count} > std::numeric_limits<std::size_t>::max() / sizeof(GDPropCondPaths) ||
+        std::uint64_t{header.frame_count} > std::numeric_limits<std::size_t>::max() / sizeof(unsigned int) ||
+        std::uint64_t{header.node_count} > std::numeric_limits<std::size_t>::max() / sizeof(unsigned int)) {
+        return false;
+    }
+    std::unique_ptr<GDPropCondPaths, decltype(&free)> paths(
+        static_cast<GDPropCondPaths*>(malloc(std::size_t{header.path_count} * sizeof(GDPropCondPaths))), free);
+    std::unique_ptr<unsigned int, decltype(&free)> lookup(
+        static_cast<unsigned int*>(malloc(std::size_t{header.frame_count} * sizeof(unsigned int))), free);
+    std::unique_ptr<unsigned short, decltype(&free)> frames(
+        static_cast<unsigned short*>(malloc(std::size_t{header.frame_count} * sizeof(unsigned short))), free);
+    std::unique_ptr<unsigned int, decltype(&free)> keys(
+        static_cast<unsigned int*>(malloc(std::size_t{header.node_count} * sizeof(unsigned int))), free);
+    std::unique_ptr<unsigned int, decltype(&free)> values(
+        static_cast<unsigned int*>(malloc(std::size_t{header.node_count} * sizeof(unsigned int))), free);
+    if ((header.path_count != 0 && !paths) ||
+        (header.frame_count != 0 && (!lookup || !frames)) ||
+        (header.node_count != 0 && (!keys || !values))) {
+        return false;
+    }
+    handle->read_exact(paths.get(), std::size_t{header.path_count} * sizeof(GDPropCondPaths));
+    handle->read_exact(lookup.get(), std::size_t{header.frame_count} * sizeof(unsigned int));
+    handle->read_exact(frames.get(), std::size_t{header.frame_count} * sizeof(unsigned short));
+    handle->read_exact(keys.get(), std::size_t{header.node_count} * sizeof(unsigned int));
+    handle->read_exact(values.get(), std::size_t{header.node_count} * sizeof(unsigned int));
+    for (unsigned int index = 0; index < header.path_count; ++index) {
+        if (paths.get()[index].lookup_index >= header.frame_count ||
+            memchr(paths.get()[index].name, 0, sizeof(paths.get()[index].name)) == 0) {
+            return false;
         }
     }
-    fSuccess = ((uiRead = handle->read(&header, sizeof(header)).bytes) == static_cast<std::size_t>(sizeof(header)));
-    if (fSuccess == 0) {
-        srAssertFail("fSuccess", OCTPATH_CPP, 0x8fa,
-                     "ReadPathNodes: Couldn't write Conditional Counts.\n");
+    for (unsigned int index = 1; index < header.frame_count; ++index) {
+        if (lookup.get()[index] >= header.node_count) {
+            return false;
+        }
     }
+    if (header.frame_count != 0 &&
+        (lookup.get()[header.frame_count - 1] != 0 || keys.get()[header.node_count - 1] != 0)) {
+        return false;
+    }
+
+    auto path_values = std::make_unique<W8HashTable<unsigned int, unsigned int>>();
+    auto visited_cells = std::make_unique<W8OctreeIndex>();
+    for (const auto& node : nodes) {
+        path_values->Insert(&node.cell, &node.level_flags);
+    }
+    delete m_pPathValues;
+    delete m_pVisitedCells;
+    free(m_pCondPaths);
+    free(m_pulCondLookup);
+    free(m_pusCondNodeFrames);
+    free(m_pulCondNodeKeys);
+    free(m_pulCondNodeValues);
+    m_pPathValues = path_values.release();
+    m_pVisitedCells = visited_cells.release();
+    m_pCondPaths = paths.release();
+    m_pulCondLookup = lookup.release();
+    m_pusCondNodeFrames = frames.release();
+    m_pulCondNodeKeys = keys.release();
+    m_pulCondNodeValues = values.release();
     m_ulNumCondPaths = header.path_count;
     m_ulNumCondFrames = header.frame_count;
     m_ulNumCondNodes = header.node_count;
     navigation_filter = header.flags;
-    if (m_ulNumCondFrames < 2 || m_ulNumCondNodes < 2) {
-        m_ulNumCondPaths = 0;
-        m_ulNumCondFrames = 0;
-        m_ulNumCondNodes = 0;
-        return fSuccess;
-    }
-    m_pCondPaths =
-        static_cast<GDPropCondPaths*>(malloc(header.path_count * sizeof(GDPropCondPaths)));
-    if (m_pCondPaths == 0) {
-        srAssertFail("m_pCondPaths", OCTPATH_CPP, 0x903,
-                     "ReadPathNodes: Couldn't allocate Conditional Prop array.\n");
-    }
-    m_pulCondLookup = static_cast<unsigned int*>(malloc(m_ulNumCondFrames * sizeof(*m_pulCondLookup)));
-    if (m_pCondPaths == 0) {
-        srAssertFail("m_pCondPaths", OCTPATH_CPP, 0x905,
-                     "ReadPathNodes: Couldn't allocate Conditional Lookup array.\n");
-    }
-    m_pusCondNodeFrames = static_cast<unsigned short*>(malloc(m_ulNumCondFrames * sizeof(*m_pusCondNodeFrames)));
-    if (m_pCondPaths == 0) {
-        srAssertFail("m_pCondPaths", OCTPATH_CPP, 0x907,
-                     "ReadPathNodes: Couldn't allocate Conditional Frame array.\n");
-    }
-    m_pulCondNodeKeys = static_cast<unsigned int*>(malloc(m_ulNumCondNodes * sizeof(*m_pulCondNodeKeys)));
-    if (m_pCondPaths == 0) {
-        srAssertFail("m_pCondPaths", OCTPATH_CPP, 0x909,
-                     "ReadPathNodes: Couldn't allocate Conditional Key array.\n");
-    }
-    m_pulCondNodeValues = static_cast<unsigned int*>(malloc(m_ulNumCondNodes * sizeof(*m_pulCondNodeValues)));
-    if (m_pCondPaths == 0) {
-        srAssertFail("m_pCondPaths", OCTPATH_CPP, 0x90b,
-                     "ReadPathNodes: Couldn't allocate Conditional Value array.\n");
-    }
-    fSuccess = ((uiRead = handle->read(m_pCondPaths, m_ulNumCondPaths * sizeof(GDPropCondPaths)).bytes) == static_cast<std::size_t>(m_ulNumCondPaths * sizeof(GDPropCondPaths)));
-    if (fSuccess == 0) {
-        srAssertFail("fSuccess", OCTPATH_CPP, 0x90e,
-                     "ReadPathNodes: Couldn't write Conditional Prop array.\n");
-    }
-    fSuccess = ((uiRead = handle->read(m_pulCondLookup, m_ulNumCondFrames << 2).bytes) == static_cast<std::size_t>(m_ulNumCondFrames << 2));
-    if (fSuccess == 0) {
-        srAssertFail("fSuccess", OCTPATH_CPP, 0x910,
-                     "ReadPathNodes: Couldn't write Conditional Lookup array.\n");
-    }
-    fSuccess = ((uiRead = handle->read(m_pusCondNodeFrames, m_ulNumCondFrames << 1).bytes) == static_cast<std::size_t>(m_ulNumCondFrames << 1));
-    if (fSuccess == 0) {
-        srAssertFail("fSuccess", OCTPATH_CPP, 0x912,
-                     "ReadPathNodes: Couldn't write Conditional Frame array.\n");
-    }
-    fSuccess = ((uiRead = handle->read(m_pulCondNodeKeys, m_ulNumCondNodes << 2).bytes) == static_cast<std::size_t>(m_ulNumCondNodes << 2));
-    if (fSuccess == 0) {
-        srAssertFail("fSuccess", OCTPATH_CPP, 0x914,
-                     "ReadPathNodes: Couldn't write Conditional Frame array.\n");
-    }
-    fSuccess = ((uiRead = handle->read(m_pulCondNodeValues, m_ulNumCondNodes << 2).bytes) == static_cast<std::size_t>(m_ulNumCondNodes << 2));
-    if (fSuccess == 0) {
-        srAssertFail("fSuccess", OCTPATH_CPP, 0x916,
-                     "ReadPathNodes: Couldn't write Conditional Value array.\n");
-    }
-    return fSuccess;
+    return true;
 }
 catch (const std::exception&) { return false; }
 
@@ -6826,26 +6769,17 @@ steered:
 
 // FUNCTION: WIZ8 0x004cccb0
 bool LoadPathParameters()
+try
 {
-    std::unique_ptr<wiz8::File> handle;
-    int index;
+    auto handle = wiz8::open_file("Data\\Monsters\\pathparms.txt");
     unsigned char more = 1;
     char line[128];
-
-    handle = [&]() { try { return wiz8::open_file("Data\\Monsters\\pathparms.txt", wiz8::OpenMode::read); } catch (const std::exception&) { return std::unique_ptr<wiz8::File>{}; } }();
-    if (handle == 0) {
-        return false;
-    }
-    for (;;) {
-        do {
-            if (more == 0) {
-                if (handle) handle->close();
-                handle.reset();
-                return true;
-            }
-            ReadTextLine(handle.get(), line, sizeof(line), &more);
-        } while (line[0] == '#');
-        for (index = 0; g_path_parameters[index].name != 0; ++index) {
+    while (more != 0) {
+        ReadTextLine(handle.get(), line, sizeof(line), &more);
+        if (line[0] == '#') {
+            continue;
+        }
+        for (int index = 0; g_path_parameters[index].name != 0; ++index) {
             if (strncmp(line, g_path_parameters[index].name,
                         strlen(g_path_parameters[index].name)) == 0) {
                 sscanf(line, "%*s %f", g_path_parameters[index].value);
@@ -6853,7 +6787,9 @@ bool LoadPathParameters()
             }
         }
     }
+    return true;
 }
+catch (const std::exception&) { return false; }
 
 /* Second emission of the float RotateAboutY; the primary template lives in
    srMath.h and surrender_math.cpp holds the 0x438F90 copy. */

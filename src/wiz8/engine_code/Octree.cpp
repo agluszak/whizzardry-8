@@ -3,8 +3,14 @@
 #include "wiz8/compat/unaligned.h"
 #include "wiz8/wiz8_windows.h"
 #include <cstdio>
+#include <algorithm>
 #include <cstdlib>
 #include <cstring>
+#include <limits>
+#include <memory>
+#include <stdexcept>
+#include <string>
+#include <vector>
 
 #include "surrender/srCamera.h"
 #include "surrender/srMath.h"
@@ -903,28 +909,22 @@ void W8Octree::CollectVisibleCells()
 }
 
 // FUNCTION: WIZ8 0x004329a0
-static unsigned char FindNextLevelFile(char* name)
+static unsigned char FindNextLevelFile(std::string* name)
 {
     if (name == 0) {
         g_octree_file_search_active = 0;
         g_octree_file_search.clear();
         return 0;
     }
-
-    if (g_octree_file_search_active == 0) {
-        char pattern[256];
-        char extension[52];
-
-        strcpy(pattern, name);
-        char* extension_start = strrchr(pattern, '.');
-        extension[0] = '\0';
-        if (extension_start != 0) {
-            strcpy(extension, extension_start);
-            *extension_start = '\0';
+    if (!g_octree_file_search_active) {
+        std::string search = *name;
+        const auto extension_start = search.find_last_of('.');
+        const auto extension = extension_start == std::string::npos ? std::string{} : search.substr(extension_start);
+        if (extension_start != std::string::npos) {
+            search.resize(extension_start);
         }
-        strcat(pattern, g_octree_file_search_wildcard);
-        strcat(pattern, extension);
-        std::string search(pattern);
+        search += g_octree_file_search_wildcard;
+        search += extension;
         const auto separator = search.find_last_of("\\/");
         g_octree_file_search = wiz8::list_directory(
             separator == std::string::npos ? "." : search.substr(0, separator),
@@ -934,97 +934,73 @@ static unsigned char FindNextLevelFile(char* name)
     } else {
         g_octree_file_search_active = ++g_octree_file_search_index < g_octree_file_search.size();
     }
-    if (g_octree_file_search_active == 0) {
+    if (!g_octree_file_search_active) {
         g_octree_file_search.clear();
         return 0;
     }
-
-    char* separator = strrchr(name, '\\');
-    if (separator != 0) {
-        separator[1] = '\0';
-    }
-    strcat(name, g_octree_file_search[g_octree_file_search_index].c_str());
-    return g_octree_file_search_active;
+    const auto separator = name->find_last_of("\\/");
+    name->resize(separator == std::string::npos ? 0 : separator + 1);
+    *name += g_octree_file_search[g_octree_file_search_index];
+    return 1;
 }
 
 // FUNCTION: WIZ8 0x00432b80
 bool W8Octree::LoadPointFiles(const char* level_name)
 try
 {
-    char name[256];
-    strcpy(name, level_name);
-    char* extension = strrchr(name, '.');
-    if (extension != 0) {
-        *extension = '\0';
+    std::string stem = level_name;
+    if (const auto extension = stem.find_last_of('.'); extension != std::string::npos) {
+        stem.resize(extension);
     }
-    strcat(name, g_octree_point_extension);
+    stem += g_octree_point_extension;
+    std::string name = std::move(stem);
 
     FindNextLevelFile(0);
-    bool first = true;
-    unsigned char read_ok = 0;
-    while (FindNextLevelFile(name) != 0) {
-        if (first) {
-            first = false;
-        } else {
-            m_points_dirty = true;
-        }
-        std::unique_ptr<wiz8::File> file = [&]() { try { return wiz8::open_file(name, wiz8::OpenMode::read); } catch (const std::exception&) { return std::unique_ptr<wiz8::File>{}; } }();
-        if (file == 0) {
+    std::unique_ptr<srVector3T<float>[]> points;
+    unsigned int count = 0;
+    unsigned int files = 0;
+    while (FindNextLevelFile(&name) != 0) {
+        auto file = wiz8::open_file(name);
+        file->read_exact(&count, sizeof(count));
+        const auto bytes = std::uint64_t{count} * sizeof(srVector3T<float>);
+        if (bytes > static_cast<std::uint64_t>(file->size() - file->tell()) ||
+            std::uint64_t{count} + 1 > std::numeric_limits<std::size_t>::max() / sizeof(srVector3T<float>)) {
             return false;
         }
-        if ((file->read(&m_point_count, 4).bytes == static_cast<std::size_t>(4)) == 0) {
-            if (file) file->close();
-            file.reset();
-            return false;
-        }
-        m_sample_points = new srVector3T<float>[m_point_count + 1];
-        if (m_sample_points == 0) {
-            if (file) file->close();
-            file.reset();
-            return false;
-        }
-        read_ok = (file->read(m_sample_points, m_point_count * sizeof(srVector3T<float>)).bytes == static_cast<std::size_t>(m_point_count * sizeof(srVector3T<float>)));
-        if (file) file->close();
-        file.reset();
+        auto next = std::make_unique<srVector3T<float>[]>(std::size_t{count} + 1);
+        file->read_exact(next.get(), static_cast<std::size_t>(bytes));
+        points = std::move(next);
+        ++files;
     }
-    if (read_ok != 0) {
-        return read_ok;
+    if (files == 0) {
+        return false;
     }
     delete[] m_sample_points;
-    m_point_count = 0;
-    return false;
+    m_sample_points = points.release();
+    m_point_count = count;
+    m_points_dirty |= files > 1;
+    return true;
 }
 catch (const std::exception&) { return false; }
 
-/* Write the octree's point array to a companion file.
-
-   The level path supplies the base name and its existing extension is
-   replaced with the point-file extension. Writes target the mutable overlay.
-   The count precedes the records, and the result reports either write. */
+/* Write the octree's point count and records to the mutable overlay. */
 // FUNCTION: WIZ8 0x00432d60
 BOOLEAN W8Octree::SavePoints(char* path)
 try
 {
-    char name[256];
-    unsigned char result = 0;
-
-    strcpy(name, path);
-    char* extension = strrchr(name, '.');
-    if (extension != 0) {
-        *extension = '\0';
+    if (m_point_count == 0 || m_sample_points == 0) {
+        return false;
     }
-    strcat(name, g_octree_point_extension);
-    std::unique_ptr<wiz8::File> file = [&]() { try { return wiz8::open_file(name, wiz8::OpenMode::replace); } catch (const std::exception&) { return std::unique_ptr<wiz8::File>{}; } }();
-    if (file != 0) {
-        if (m_point_count != 0 && m_sample_points != 0) {
-            file->write(&m_point_count, 4);
-            file->write(m_sample_points, m_point_count * sizeof(srVector3T<float>));
-            result = true;
-            if (file) file->close();
-            file.reset();
-        }
+    std::string name = path;
+    if (const auto extension = name.find_last_of('.'); extension != std::string::npos) {
+        name.resize(extension);
     }
-    return result;
+    name += g_octree_point_extension;
+    auto file = wiz8::open_file(name, wiz8::OpenMode::replace);
+    file->write(&m_point_count, sizeof(m_point_count));
+    file->write(m_sample_points, std::size_t{m_point_count} * sizeof(srVector3T<float>));
+    file->close();
+    return true;
 }
 catch (const std::exception&) { return false; }
 
@@ -1032,46 +1008,23 @@ catch (const std::exception&) { return false; }
 bool W8Octree::ReadRegionLinkFile(const char* level_name)
 try
 {
-    unsigned int count = 0;
-    unsigned int* keys = 0;
-    unsigned short* values = 0;
-    std::unique_ptr<wiz8::File> file = 0;
-    bool result = false;
-    char name[256];
-
-    strcpy(name, level_name);
-    char* extension = strrchr(name, '.');
-    if (extension != 0) {
-        *extension = '\0';
+    std::string name = level_name;
+    if (const auto extension = name.find_last_of('.'); extension != std::string::npos) {
+        name.resize(extension);
     }
-    strcat(name, g_region_link_extension);
-    if ([&]() { const auto status = wiz8::file_status(name); return status && status->info.type == SDL_PATHTYPE_FILE; }() == 0) {
+    name += g_region_link_extension;
+    auto file = wiz8::open_file(name);
+    unsigned int count;
+    file->read_exact(&count, sizeof(count));
+    const auto bytes = std::uint64_t{count} * (sizeof(unsigned int) + sizeof(unsigned short));
+    if (bytes > static_cast<std::uint64_t>(file->size() - file->tell()) ||
+        std::uint64_t{count} > std::numeric_limits<std::size_t>::max() / sizeof(unsigned int)) {
         return false;
     }
-    file = [&]() { try { return wiz8::open_file(name, wiz8::OpenMode::read); } catch (const std::exception&) { return std::unique_ptr<wiz8::File>{}; } }();
-    if (file == 0) {
-        return false;
-    }
-    if ((file->read(&count, 4).bytes == static_cast<std::size_t>(4)) == 0) {
-        return false;
-    }
-
-    keys = static_cast<unsigned int*>(malloc(count * sizeof(unsigned int)));
-    values = static_cast<unsigned short*>(malloc(count * sizeof(*values)));
-    if (keys == 0 || values == 0) {
-        if (file) file->close();
-        file.reset();
-        free(keys);
-        free(values);
-        return false;
-    }
-    if ((file->read(keys, count * 4).bytes == static_cast<std::size_t>(count * 4)) == 0 || (file->read(values, count * 2).bytes == static_cast<std::size_t>(count * 2)) == 0) {
-        if (file) file->close();
-        file.reset();
-        free(keys);
-        free(values);
-        return false;
-    }
+    std::vector<unsigned int> keys(count);
+    std::vector<unsigned short> values(count);
+    file->read_exact(keys.data(), keys.size() * sizeof(keys[0]));
+    file->read_exact(values.data(), values.size() * sizeof(values[0]));
     if (m_pRegionLinks == 0) {
         m_pRegionLinks = new W8HashTable<unsigned int, unsigned short>;
     }
@@ -1079,15 +1032,8 @@ try
         m_pRegionLinks->Remove(&keys[index], &values[index]);
         m_pRegionLinks->Insert(&keys[index], &values[index]);
     }
-    result = true;
-    if (file) file->close();
-    file.reset();
-    free(keys);
-    free(values);
-    if (result) {
-        m_region_links_ready = true;
-    }
-    return result;
+    m_region_links_ready = true;
+    return true;
 }
 catch (const std::exception&) { return false; }
 
@@ -1551,83 +1497,47 @@ void W8Octree::BuildRegionLinks(bool rebuild_all)
 BOOLEAN W8Octree::SaveRegionLinks(char* path)
 try
 {
-    unsigned char result = 1;
-    unsigned int* keys = 0;
-    unsigned short* values = 0;
-    std::unique_ptr<wiz8::File> file = 0;
-
-    if (m_pRegionLinks == 0) {
-        return 0;
+    if (m_pRegionLinks == 0 || path == 0 || m_pRegionLinks->bucket_count == 0) {
+        return false;
     }
-    if (path == 0) {
-        return 0;
+    std::string name = path;
+    if (const auto extension = name.find_last_of('.'); extension != std::string::npos) {
+        name.resize(extension);
     }
-    unsigned int capacity = m_pRegionLinks->bucket_count;
-    if (capacity == 0) {
-        return 0;
-    }
-    char name[256];
-    strcpy(name, path);
-    char* extension = strrchr(name, '.');
-    if (extension != 0) {
-        *extension = '\0';
-    }
-    strcat(name, g_region_link_extension);
-    file = [&]() { try { return wiz8::open_file(name, wiz8::OpenMode::replace); } catch (const std::exception&) { return std::unique_ptr<wiz8::File>{}; } }();
-    if (file == 0) {
-        goto cleanup;
-    }
-    keys = static_cast<unsigned int*>(malloc(capacity * sizeof(unsigned int)));
-    values = static_cast<unsigned short*>(malloc(capacity * sizeof(*values)));
-    if (keys == 0 || values == 0) {
-        result = 0;
-        goto cleanup;
-    }
-    {
-        unsigned int count = 0;
-        for (unsigned int key = 1; key < m_spatial.m_region_count; ++key) {
-            for (int slot = m_pRegionLinks->FindNextEntry(&key, -1); slot != -1;
-                 slot = m_pRegionLinks->FindNextEntry(&key, slot)) {
-                keys[count] = key;
-                values[count] = m_pRegionLinks->entries[slot].value;
-                ++count;
-            }
+    name += g_region_link_extension;
+    std::vector<unsigned int> keys;
+    std::vector<unsigned short> values;
+    for (unsigned int key = 1; key < m_spatial.m_region_count; ++key) {
+        for (int slot = m_pRegionLinks->FindNextEntry(&key, -1); slot != -1;
+             slot = m_pRegionLinks->FindNextEntry(&key, slot)) {
+            keys.push_back(key);
+            values.push_back(m_pRegionLinks->entries[slot].value);
         }
-        unsigned int extent = 1;
-        for (unsigned short level = 0; level < m_spatial.m_leaf_level; ++level) {
-            extent *= 2;
-        }
-        unsigned int base = m_region_mask * 0x1000000;
-        for (unsigned int x = 0; x < extent; ++x) {
-            for (unsigned int y = 0; y < extent; ++y) {
-                for (unsigned int z = 0; z < extent; ++z) {
-                    unsigned int key = (x << 16) + (y << 8) + z + base;
-                    for (int slot = m_pRegionLinks->FindNextEntry(&key, -1); slot != -1;
-                         slot = m_pRegionLinks->FindNextEntry(&key, slot)) {
-                        keys[count] = key;
-                        values[count] = m_pRegionLinks->entries[slot].value;
-                        ++count;
-                    }
+    }
+    const unsigned int extent = m_spatial.m_region_cells_per_axis;
+    const unsigned int base = m_region_mask * 0x1000000;
+    for (unsigned int x = 0; x < extent; ++x) {
+        for (unsigned int y = 0; y < extent; ++y) {
+            for (unsigned int z = 0; z < extent; ++z) {
+                unsigned int key = (x << 16) + (y << 8) + z + base;
+                for (int slot = m_pRegionLinks->FindNextEntry(&key, -1); slot != -1;
+                     slot = m_pRegionLinks->FindNextEntry(&key, slot)) {
+                    keys.push_back(key);
+                    values.push_back(m_pRegionLinks->entries[slot].value);
                 }
             }
         }
-        if ((file->write(&count, 4), true) == 0) {
-            return 0;
-        }
-        unsigned char wrote_keys = (file->write(keys, count * 4), true);
-        unsigned char wrote_values = (file->write(values, count * 2), true);
-        result = wrote_keys | wrote_values;
     }
-cleanup:
-    if (file) file->close();
-    file.reset();
-    if (keys != 0) {
-        free(keys);
+    if (keys.size() > std::numeric_limits<unsigned int>::max()) {
+        return false;
     }
-    if (values != 0) {
-        free(values);
-    }
-    return result;
+    const unsigned int count = keys.size();
+    auto file = wiz8::open_file(name, wiz8::OpenMode::replace);
+    file->write(&count, sizeof(count));
+    file->write(keys.data(), keys.size() * sizeof(keys[0]));
+    file->write(values.data(), values.size() * sizeof(values[0]));
+    file->close();
+    return true;
 }
 catch (const std::exception&) { return false; }
 
@@ -1953,12 +1863,6 @@ unsigned char W8Octree::LinkNavigatorTarget(W8NavigatorMovementState* movement,
 
 // GLOBAL: WIZ8 0x005ebcd0
 const float g_octree_cell_scale = 100.0f;
-/* 0x00659888 accumulates every byte the loader reads, and 0x00652DB0 caches the
-   game-data block LoadWorld hands back through its out parameter. */
-
-// GLOBAL: WIZ8 0x00659888
-w8_ulong g_octree_bytes_read;
-
 /* Follow one child bit per axis and level through the compact 9-word branch
    records.  Zero is the missing-child sentinel; live leaves start at one. */
 // FUNCTION: WIZ8 0x00433660
@@ -3190,439 +3094,254 @@ bool W8Octree::SetPathStem(const char* path)
 
 /* Read one .oct file into a fresh octree.
 
-   The original name is the image's own: fourteen assertions in this body spell
-   it ReadOctFile. The shape is one block repeated for every table the file
-   carries - allocate, read, accumulate the byte count, and on either failure
-   copy a message into the local buffer and stop advancing. fSuccess threading
-   is what makes the failures cascade rather than each one returning; the flag
-   at +0x000 bit 31 is the load error the caller tests.
+   ReadOctFile is the recovered name. Counts are checked before allocation,
+   and exact-read failures set the load error bit tested by LoadWorld. Members
+   retain ownership of partial loads for the normal destructor cleanup.
 
    A null path builds an empty octree, and a level whose preprocessed files
    cannot be built runs on the LVL file alone with the same error bit set. */
 // FUNCTION: WIZ8 0x0042bc10
 W8Octree::W8Octree(const char* path, W8GameData** game_data)
 {
-    W8OctFileHeader header;
-    char acMessage[256];
-    std::unique_ptr<wiz8::File> hOctFile;
-    unsigned int uiRead;
-    int uiTerminator;
-    unsigned char fSuccess;
-    unsigned char fLoaded;
-    unsigned int index;
-    unsigned int limit;
-    W8GameData* pGameData = 0;
-    int asset_status;
-
     Reset();
-    if (path == 0) {
-        Initialize(0);
-        return;
+    if (game_data != 0) {
+        *game_data = 0;
     }
-    asset_status = CheckLevelAssetSet(path);
-    if (asset_status < 0) {
-        goto failed;
-    }
-    if (asset_status > 0 && BuildPreprocessedFiles(path) == 0) {
-        g_octree = 0;
-        m_spatial.flags |= 0x80000000;
-        ReportStartupMessage("Cannot find or build current preprocessed files.");
-        ReportStartupMessage("Attempting to run with LVL file only -- SOME FEATURES DISABLED.");
-        ReportStartupMessage(0);
-        return;
-    }
-    hOctFile = [&]() { try { return wiz8::open_file(const_cast<char*>(path), wiz8::OpenMode::read); } catch (const std::exception&) { return std::unique_ptr<wiz8::File>{}; } }();
-    if (hOctFile == 0) {
-        srAssertFail("hOctFile", OCTREE_CPP, 0xa3, "ReadOctFile: Couldn't open octree file.");
-    }
-    fSuccess = ((uiRead = hOctFile->read(&header, sizeof(header)).bytes) == static_cast<std::size_t>(sizeof(header)));
-    g_octree_bytes_read += uiRead;
-    fLoaded = 0;
-    if (fSuccess != 0) {
-        fSuccess = ((uiRead = hOctFile->read(&uiTerminator, 4).bytes) == static_cast<std::size_t>(4));
-        if (fSuccess == 0 || uiTerminator != -1) {
-            srAssertFail("fSuccess && (uiTerminator==0xffffffff)", OCTREE_CPP, 0xac,
-                         "ReadOctFile: Header of Oct file longer than expected.");
+    try {
+        if (path == 0) {
+            Initialize(0);
+            return;
         }
-        fLoaded = 0;
-        if (fSuccess != 0) {
-            Initialize(&header);
-            SetPathStem(path);
+        const int asset_status = CheckLevelAssetSet(path);
+        if (asset_status < 0) {
+            throw std::runtime_error("Octree assets unavailable.");
+        }
+        if (asset_status > 0 && !BuildPreprocessedFiles(path)) {
+            ReportStartupMessage("Cannot find or build current preprocessed files.");
+            ReportStartupMessage("Attempting to run with LVL file only -- SOME FEATURES DISABLED.");
+            ReportStartupMessage(0);
+            throw std::runtime_error("Could not build octree assets.");
+        }
+        auto hOctFile = wiz8::open_file(path);
+        W8OctFileHeader header;
+        hOctFile->read_exact(&header, sizeof(header));
+        unsigned int uiTerminator;
+        hOctFile->read_exact(&uiTerminator, sizeof(uiTerminator));
+        if (uiTerminator != 0xffffffff || header.version != W8OctFileHeader::VERSION) {
+            throw std::runtime_error("Invalid octree header.");
+        }
 
-            m_branches = static_cast<W8OctPreTreeBranch*>(
-                malloc((header.m_branch_count + 2) * sizeof(W8OctPreTreeBranch)));
-            if (m_branches == 0) {
-                fSuccess = 0;
-                strcpy(acMessage, "ReadOctFile: Couldn't allocate octree nodes.");
-            } else {
-                fSuccess = ((uiRead = hOctFile->read(m_branches, header.m_branch_count * sizeof(W8OctPreTreeBranch)).bytes) == static_cast<std::size_t>(header.m_branch_count * sizeof(W8OctPreTreeBranch)));
-                if (fSuccess == 0) {
-                    strcpy(acMessage, "ReadOctFile: Couldn't read octree nodes.");
-                }
-            }
-            g_octree_bytes_read += uiRead;
-            fLoaded = 0;
-            if (fSuccess != 0) {
-                m_leaves = static_cast<W8OctPreTreeLeaf*>(
-                    malloc((header.m_leaf_count + 2) * sizeof(W8OctPreTreeLeaf)));
-                if (m_leaves == 0) {
-                    fSuccess = 0;
-                    strcpy(acMessage, "ReadOctFile: Couldn't allocate octree leaves.");
-                } else {
-                    fSuccess = ((uiRead = hOctFile->read(m_leaves, header.m_leaf_count * sizeof(W8OctPreTreeLeaf)).bytes) == static_cast<std::size_t>(header.m_leaf_count * sizeof(W8OctPreTreeLeaf)));
-                    if (fSuccess == 0) {
-                        strcpy(acMessage, "ReadOctFile: Couldn't read octree leaves.");
-                    }
-                }
-                g_octree_bytes_read += uiRead;
-                fLoaded = 0;
-                if (fSuccess != 0) {
-                    m_polygon_index_stream = static_cast<w8_ulong*>(
-                        malloc(header.m_leaf_polygon_stream_len * sizeof(*m_polygon_index_stream) + 2 * sizeof(*m_polygon_index_stream)));
-                    if (m_polygon_index_stream == 0) {
-                        fLoaded = 0;
-                        strcpy(acMessage,
-                               "ReadOctFile: Couldn't allocate polygon index list for leaves.");
-                    } else {
-                        fLoaded = ((uiRead = hOctFile->read(m_polygon_index_stream, header.m_leaf_polygon_stream_len * 4).bytes) == static_cast<std::size_t>(header.m_leaf_polygon_stream_len * 4));
-                        if (fLoaded == 0) {
-                            strcpy(acMessage,
-                                   "ReadOctFile: Couldn't read polygon index list for leaves.");
-                        }
-                    }
-                    g_octree_bytes_read += uiRead;
-                }
+        const auto remaining = static_cast<std::uint64_t>(hOctFile->size() - hOctFile->tell());
+        const auto grid_yz = std::uint64_t{header.m_grid_dims.y} * header.m_grid_dims.z;
+        if (header.m_grid_dims.x == 0 || header.m_grid_dims.y == 0 || header.m_grid_dims.z == 0 ||
+            grid_yz > std::numeric_limits<int>::max() ||
+            grid_yz > static_cast<unsigned int>(std::numeric_limits<int>::max()) / header.m_grid_dims.x ||
+            header.m_depth >= 31 || header.m_leaf_level > 8 ||
+            header.m_prop_count > 0xffff || header.m_particle_count > 0xffff ||
+            header.m_path_nodes > std::numeric_limits<int>::max() ||
+            header.m_surface_count > std::numeric_limits<int>::max() ||
+            header.m_mesh_total > header.m_submesh_count ||
+            header.m_submesh_count >= std::numeric_limits<unsigned int>::max() ||
+            (header.m_gd_surface_stream_len != 0 && game_data == 0)) {
+            throw std::runtime_error("Octree dimensions or counts exceed runtime limits.");
+        }
+        const std::size_t grid_count = grid_yz * header.m_grid_dims.x;
+        const auto required =
+            std::uint64_t{header.m_branch_count} * sizeof(W8OctPreTreeBranch) +
+            std::uint64_t{header.m_leaf_count} * sizeof(W8OctPreTreeLeaf) +
+            std::uint64_t{header.m_leaf_polygon_stream_len} * sizeof(w8_ulong) +
+            (grid_count < 250000 ? grid_count * sizeof(w8_ulong) : 0) +
+            std::uint64_t{header.m_polygon_count} * sizeof(w8_ulong) +
+            std::uint64_t{header.m_region_list_len} * sizeof(unsigned short) +
+            std::uint64_t{header.m_gd_surface_stream_len} * sizeof(w8_ulong) +
+            std::uint64_t{header.m_trigger_count} * sizeof(unsigned short) +
+            (header.m_region_count > 1 ? std::uint64_t{header.m_region_count} * sizeof(W8OctRegionVolume) : 0) +
+            (header.m_submesh_count != 0 ? (std::uint64_t{header.m_submesh_count} + 1) * sizeof(W8OctSubmesh) : 0) +
+            std::uint64_t{header.m_path_nodes} * sizeof(W8FilePathNode) +
+            3 * sizeof(uiTerminator);
+        if (required > remaining) {
+            throw std::runtime_error("Octree tables exceed file size.");
+        }
+        for (const auto count : {std::uint64_t{header.m_polygon_count},
+                                 std::uint64_t{header.m_surface_count},
+                                 std::uint64_t{header.m_submesh_count} + 1}) {
+            const auto whole_words = static_cast<std::uint64_t>(static_cast<float>(count) / 32.0f);
+            if (whole_words * 32 > count || count - whole_words * 32 >= 32) {
+                throw std::runtime_error("Octree count exceeds BitArray sizing precision.");
             }
         }
-    }
-
-    limit = m_leaf_grid_dimensions.x * m_leaf_grid_dimensions.y * m_leaf_grid_dimensions.z;
-    if (fLoaded != 0 && limit < 250000) {
-        m_leaf_lookup = static_cast<w8_ulong*>(malloc(limit * sizeof(w8_ulong)));
-        if (m_leaf_lookup == 0) {
-            strcpy(acMessage, "ReadOctFile: Couldn't allocate Leaf grid.");
-            goto finish;
+        if ((std::uint64_t{header.m_branch_count} + 2) > std::numeric_limits<std::size_t>::max() / sizeof(W8OctPreTreeBranch) ||
+            (std::uint64_t{header.m_leaf_count} + 2) > std::numeric_limits<std::size_t>::max() / sizeof(W8OctPreTreeLeaf) ||
+            (std::uint64_t{header.m_submesh_count} + 1) > std::numeric_limits<std::size_t>::max() / sizeof(W8OctSubmesh) ||
+            (std::uint64_t{header.m_polygon_count} + 2) > std::numeric_limits<std::size_t>::max() / sizeof(w8_ulong) ||
+            (std::uint64_t{header.m_leaf_polygon_stream_len} + 2) > std::numeric_limits<std::size_t>::max() / sizeof(w8_ulong) ||
+            (std::uint64_t{header.m_gd_surface_stream_len} + 2) > std::numeric_limits<std::size_t>::max() / sizeof(w8_ulong) ||
+            (std::uint64_t{header.m_region_list_len} + 2) > std::numeric_limits<std::size_t>::max() / sizeof(unsigned short) ||
+            (std::uint64_t{header.m_trigger_count} + 2) > std::numeric_limits<std::size_t>::max() / sizeof(unsigned short)) {
+            throw std::runtime_error("Octree allocation exceeds address space.");
         }
-        fLoaded = [&]() { const auto result = hOctFile->read(m_leaf_lookup, m_leaf_grid_dimensions.x * m_leaf_grid_dimensions.y *
-                               m_leaf_grid_dimensions.z * 4); *(&uiRead) = result.bytes; return result.bytes == static_cast<std::size_t>(m_leaf_grid_dimensions.x * m_leaf_grid_dimensions.y *
-                               m_leaf_grid_dimensions.z * 4); }();
-        if (fLoaded == 0) {
-            strcpy(acMessage, "ReadOctFile: Couldn't read leaf grid.");
-        }
-        g_octree_bytes_read += uiRead;
-    } else {
-        m_leaf_lookup = 0;
-    }
 
-    fSuccess = 0;
-    if (fLoaded != 0) {
-        m_aulPolyLookup = static_cast<w8_ulong*>(malloc(header.m_polygon_count * sizeof(*m_aulPolyLookup) + 2 * sizeof(*m_aulPolyLookup)));
-        if (m_aulPolyLookup == 0) {
-            fSuccess = 0;
-            strcpy(acMessage, "ReadOctFile: Couldn't allocate Poly Lookup table.");
-        } else {
-            fLoaded = ((uiRead = hOctFile->read(m_aulPolyLookup, header.m_polygon_count * 4).bytes) == static_cast<std::size_t>(header.m_polygon_count * 4));
-            if (fLoaded == 0) {
-                strcpy(acMessage, "ReadOctFile: Couldn't read Poly Lookup table.");
+        Initialize(&header);
+        if (!SetPathStem(path)) {
+            throw std::runtime_error("Could not store octree path.");
+        }
+        m_branches = static_cast<W8OctPreTreeBranch*>(
+            malloc((std::size_t{header.m_branch_count} + 2) * sizeof(W8OctPreTreeBranch)));
+        m_leaves = static_cast<W8OctPreTreeLeaf*>(
+            malloc((std::size_t{header.m_leaf_count} + 2) * sizeof(W8OctPreTreeLeaf)));
+        m_polygon_index_stream = static_cast<w8_ulong*>(
+            malloc((std::size_t{header.m_leaf_polygon_stream_len} + 2) * sizeof(w8_ulong)));
+        m_aulPolyLookup = static_cast<w8_ulong*>(
+            malloc((std::size_t{header.m_polygon_count} + 2) * sizeof(w8_ulong)));
+        if (!m_branches || !m_leaves || !m_polygon_index_stream || !m_aulPolyLookup) {
+            throw std::bad_alloc();
+        }
+        hOctFile->read_exact(m_branches, std::size_t{header.m_branch_count} * sizeof(W8OctPreTreeBranch));
+        hOctFile->read_exact(m_leaves, std::size_t{header.m_leaf_count} * sizeof(W8OctPreTreeLeaf));
+        hOctFile->read_exact(m_polygon_index_stream, std::size_t{header.m_leaf_polygon_stream_len} * sizeof(w8_ulong));
+        if (grid_count < 250000) {
+            m_leaf_lookup = static_cast<w8_ulong*>(malloc(grid_count * sizeof(w8_ulong)));
+            if (!m_leaf_lookup) {
+                throw std::bad_alloc();
             }
-            g_octree_bytes_read += uiRead;
-            fSuccess = 0;
-            if (fLoaded != 0) {
-                if (header.m_region_list_len != 0) {
-                    m_region_index_stream =
-                        static_cast<unsigned short*>(malloc(header.m_region_list_len * sizeof(*m_region_index_stream) + 2 * sizeof(*m_region_index_stream)));
-                    if (m_region_index_stream == 0) {
-                        fSuccess = 0;
-                        strcpy(acMessage, "ReadOctFile: Couldn't allocate region list.");
-                        goto finish;
-                    }
-                    fLoaded = ((uiRead = hOctFile->read(m_region_index_stream, header.m_region_list_len * 2).bytes) == static_cast<std::size_t>(header.m_region_list_len * 2));
-                    if (fLoaded == 0) {
-                        strcpy(acMessage, "ReadOctFile: Couldn't read region list.");
-                    }
-                    g_octree_bytes_read += uiRead;
-                }
-                fSuccess = 0;
-                if (fLoaded != 0) {
-                    if (header.m_gd_surface_stream_len != 0) {
-                        m_gd_surface_index_stream = static_cast<w8_ulong*>(
-                            malloc(header.m_gd_surface_stream_len * sizeof(*m_gd_surface_index_stream) + 2 * sizeof(*m_gd_surface_index_stream)));
-                        if (m_gd_surface_index_stream == 0) {
-                            fSuccess = 0;
-                            strcpy(acMessage, "ReadOctFile: Couldn't allocate GD Poly list.");
-                            goto finish;
-                        }
-                        fLoaded = ((uiRead = hOctFile->read(m_gd_surface_index_stream, header.m_gd_surface_stream_len * 4).bytes) == static_cast<std::size_t>(header.m_gd_surface_stream_len * 4));
-                        if (fLoaded == 0) {
-                            strcpy(acMessage, "ReadOctFile: Couldn't read GD Poly list.");
-                        }
-                        g_octree_bytes_read += uiRead;
-                    }
-                    fSuccess = 0;
-                    if (fLoaded != 0) {
-                        if (header.m_trigger_count != 0) {
-                            m_trigger_indices = static_cast<unsigned short*>(
-                                malloc(header.m_trigger_count * sizeof(*m_trigger_indices) + 2 * sizeof(*m_trigger_indices)));
-                            if (m_trigger_indices == 0) {
-                                fSuccess = 0;
-                                strcpy(acMessage, "ReadOctFile: Couldn't allocate Trigger list.");
-                                goto finish;
-                            }
-                            fLoaded = ((uiRead = hOctFile->read(m_trigger_indices, header.m_trigger_count * 2).bytes) == static_cast<std::size_t>(header.m_trigger_count * 2));
-                            if (fLoaded == 0) {
-                                strcpy(acMessage, "ReadOctFile: Couldn't read Trigger list.");
-                            }
-                            g_octree_bytes_read += uiRead;
-                        }
-                        fSuccess = 0;
-                        if (fLoaded != 0) {
-                            if (header.m_region_count > 1) {
-                                m_spatial.m_region_volumes = static_cast<W8OctRegionVolume*>(malloc(
-                                    (header.m_region_count + 2) * sizeof(W8OctRegionVolume)));
-                                if (m_spatial.m_region_volumes == 0) {
-                                    fSuccess = 0;
-                                    strcpy(acMessage,
-                                           "ReadOctFile: Couldn't allocate region array.");
-                                    goto finish;
-                                }
-                                fLoaded = ((uiRead = hOctFile->read(m_spatial.m_region_volumes, header.m_region_count * sizeof(W8OctRegionVolume)).bytes) == static_cast<std::size_t>(header.m_region_count * sizeof(W8OctRegionVolume)));
-                                if (fLoaded == 0) {
-                                    strcpy(acMessage, "ReadOctFile: Couldn't read region array.");
-                                }
-                                g_octree_bytes_read += uiRead;
-                            }
-                            fSuccess = 0;
-                            if (fLoaded != 0) {
-                                fLoaded = ((uiRead = hOctFile->read(&uiTerminator, 4).bytes) == static_cast<std::size_t>(4));
-                                if (fLoaded == 0 || uiTerminator != -1) {
-                                    srAssertFail("fSuccess && (uiTerminator==0xffffffff)",
-                                                 OCTREE_CPP, 0x15f,
-                                                 "ReadOctFile: PreRegions longer than expected.");
-                                }
-                                fSuccess = 0;
-                                if (fLoaded != 0) {
-                                    if (header.m_submesh_count != 0) {
-                                        m_pSubmeshes = static_cast<W8OctSubmesh*>(malloc(
-                                            (header.m_submesh_count + 1) * sizeof(W8OctSubmesh)));
-                                        if (m_pSubmeshes == 0) {
-                                            fLoaded = 0;
-                                            strcpy(acMessage,
-                                                   "ReadOctFile: Couldn't allocate submesh array.");
-                                        } else {
-                                            fLoaded = [&]() { const auto result = hOctFile->read(m_pSubmeshes, (header.m_submesh_count + 1) *
-                                                                   sizeof(W8OctSubmesh)); *(&uiRead) = result.bytes; return result.bytes == static_cast<std::size_t>((header.m_submesh_count + 1) *
-                                                                   sizeof(W8OctSubmesh)); }();
-                                            if (fLoaded == 0) {
-                                                strcpy(acMessage,
-                                                       "ReadOctFile: Couldn't read submesh array.");
-                                            }
-                                            g_octree_bytes_read += uiRead;
-                                            if (fLoaded != 0) {
-                                                unsigned int* scan;
-                                                unsigned int remaining;
-
-                                                limit = 0;
-                                                scan = &m_pSubmeshes[0].polygon_count;
-                                                remaining = header.m_submesh_count + 1;
-                                                do {
-                                                    if (limit < *scan) {
-                                                        limit = *scan;
-                                                    }
-                                                    scan += 4;
-                                                    --remaining;
-                                                } while (remaining != 0);
-                                                ++limit;
-                                                if (limit > 9999) {
-                                                    srAssertFail("(i2 < 10000)", OCTREE_CPP, 0x179,
-                                                                 0);
-                                                }
-                                                g_octree_storage_ = static_cast<unsigned int*>(
-                                                    malloc(limit * sizeof(unsigned int)));
-                                                if (g_octree_storage_ == 0) {
-                                                    fLoaded = 0;
-                                                    strcpy(acMessage,
-                                                           "ReadOctFile: Couldn't allocate polygon "
-                                                           "index list for regions.");
-                                                } else {
-                                                    for (index = 0; index < limit; ++index) {
-                                                        g_octree_storage_[index] = index;
-                                                    }
-                                                }
-                                            }
-                                        }
-                                        if (m_meshCount != 0) {
-                                            m_pAlphaBits = new BitArray(m_meshCount);
-                                            if (m_pAlphaBits == 0) {
-                                                srAssertFail(
-                                                    "m_pAlphaBits", OCTREE_CPP, 0x18a,
-                                                    "ReadOctFile: Failure allocating Alpha Bits.");
-                                            }
-                                            if (m_pAlphaBits->Load(hOctFile.get()) == 0) {
-                                                srAssertFail(
-                                                    "m_pAlphaBits->Load(hOctFile)", OCTREE_CPP,
-                                                    0x18b,
-                                                    "ReadOctFile: Failure reading Alpha Bits.");
-                                            }
-                                        }
-                                        if (fLoaded != 0 && m_ulNumParticles != 0) {
-                                            m_pusMeshParticleLookup = static_cast<unsigned short*>(
-                                                malloc(m_meshCount * sizeof(unsigned short) + sizeof(unsigned short)));
-                                            if (m_pusMeshParticleLookup == 0) {
-                                                srAssertFail(
-                                                    "m_pusMeshParticleLookup", OCTREE_CPP, 0x191,
-                                                    "ReadOctFile: Couldn't allocate Mesh Particle "
-                                                    "Lookup Table.");
-                                            }
-                                            fLoaded = ((uiRead = hOctFile->read(m_pusMeshParticleLookup, m_meshCount * 2 + 2).bytes) == static_cast<std::size_t>(m_meshCount * 2 + 2));
-                                            if (fLoaded == 0) {
-                                                strcpy(acMessage, "ReadOctFile: Couldn't read Mesh "
-                                                                  "Particle Lookup Table.");
-                                            }
-                                            g_octree_bytes_read += uiRead;
-                                            m_pusMeshParticles = static_cast<unsigned short*>(
-                                                malloc(m_usMeshParticlesLen * sizeof(*m_pusMeshParticles)));
-                                            if (m_pusMeshParticles == 0) {
-                                                srAssertFail(
-                                                    "m_pusMeshParticles", OCTREE_CPP, 0x198,
-                                                    "ReadOctFile: Couldn't allocate Mesh Particle "
-                                                    "Link Table.");
-                                            }
-                                            fLoaded = ((uiRead = hOctFile->read(m_pusMeshParticles, m_usMeshParticlesLen * 2).bytes) == static_cast<std::size_t>(m_usMeshParticlesLen * 2));
-                                            if (fLoaded == 0) {
-                                                strcpy(acMessage, "ReadOctFile: Couldn't read Mesh "
-                                                                  "Particle Link Table.");
-                                            }
-                                        }
-                                        if (fLoaded != 0 && m_ulNumProps != 0) {
-                                            m_pusMeshPropLookup = static_cast<unsigned short*>(
-                                                malloc(m_meshCount * sizeof(unsigned short) + sizeof(unsigned short)));
-                                            if (m_pusMeshPropLookup == 0) {
-                                                srAssertFail(
-                                                    "m_pusMeshPropLookup", OCTREE_CPP, 0x1a1,
-                                                    "ReadOctFile: Couldn't allocate Mesh Prop "
-                                                    "Lookup Table.");
-                                            }
-                                            fLoaded = ((uiRead = hOctFile->read(m_pusMeshPropLookup, m_meshCount * 2 + 2).bytes) == static_cast<std::size_t>(m_meshCount * 2 + 2));
-                                            if (fLoaded == 0) {
-                                                strcpy(acMessage, "ReadOctFile: Couldn't read Mesh "
-                                                                  "Prop Lookup Table.");
-                                            }
-                                            g_octree_bytes_read += uiRead;
-                                            m_pusMeshProps = static_cast<unsigned short*>(
-                                                malloc(m_usMeshPropsLen * sizeof(*m_pusMeshProps)));
-                                            if (m_pusMeshProps == 0) {
-                                                srAssertFail(
-                                                    "m_pusMeshProps", OCTREE_CPP, 0x1a8,
-                                                    "ReadOctFile: Couldn't allocate Mesh Prop Link "
-                                                    "Table.");
-                                            }
-                                            fLoaded = ((uiRead = hOctFile->read(m_pusMeshProps, m_usMeshPropsLen * 2).bytes) == static_cast<std::size_t>(m_usMeshPropsLen * 2));
-                                            if (fLoaded == 0) {
-                                                strcpy(acMessage, "ReadOctFile: Couldn't read Mesh "
-                                                                  "Prop Link Table.");
-                                            }
-                                        }
-                                    }
-                                    fSuccess = 0;
-                                    if (fLoaded != 0) {
-                                        fLoaded = ((uiRead = hOctFile->read(&uiTerminator, 4).bytes) == static_cast<std::size_t>(4));
-                                        if (fLoaded == 0 || uiTerminator != -1) {
-                                            srAssertFail(
-                                                "fSuccess && (uiTerminator==0xffffffff)",
-                                                OCTREE_CPP, 0x1b2,
-                                                "ReadOctFile: Mesh, Prop, and Particle data longer "
-                                                "than expected.");
-                                        }
-                                        fSuccess = 0;
-                                        if (fLoaded != 0) {
-                                            if (header.m_path_nodes != 0) {
-                                                pathing = new W8PathingService();
-                                                if (pathing == 0) {
-                                                    goto finish;
-                                                }
-                                                pathing->ConfigureForLevel(
-                                                    header.m_path_nodes, header.m_region_cell,
-                                                    header.m_path_clearance, header.m_bounds,
-                                                    m_owned_0c0);
-                                                fLoaded = pathing->ReadPathNodes(hOctFile.get());
-                                            }
-                                            fSuccess = 0;
-                                            if (fLoaded != 0) {
-                                                if (m_ulNumProps != 0 &&
-                                                    header.m_prop_sun_bits != 0) {
-                                                    m_pPropSunBits = new BitArray(m_ulNumProps);
-                                                    if (m_pPropSunBits == 0) {
-                                                        srAssertFail(
-                                                            "m_pPropSunBits", OCTREE_CPP, 0x1c5,
-                                                            "ReadOctFile: Couldn't allocate Prop "
-                                                            "Sun Bits.");
-                                                    }
-                                                    if (m_pPropSunBits->Load(hOctFile.get()) == 0) {
-                                                        srAssertFail(
-                                                            "m_pPropSunBits->Load(hOctFile)",
-                                                            OCTREE_CPP, 0x1c6,
-                                                            "ReadOctFile: Failure reading Prop Sun "
-                                                            "Bits.");
-                                                    }
-                                                }
-                                                fSuccess =
-                                                    ((uiRead = hOctFile->read(&uiTerminator, 4).bytes) == static_cast<std::size_t>(4));
-                                                if (fSuccess == 0) {
-                                                    strcpy(acMessage,
-                                                           "ReadOctFile: Couldn't read octree file "
-                                                           "terminator.");
-                                                }
-                                                if (uiTerminator != -1) {
-                                                    strcpy(acMessage,
-                                                           "ReadOctFile: Octree file longer than "
-                                                           "expected.");
-                                                    fSuccess = 0;
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
+            hOctFile->read_exact(m_leaf_lookup, grid_count * sizeof(w8_ulong));
+        }
+        hOctFile->read_exact(m_aulPolyLookup, std::size_t{header.m_polygon_count} * sizeof(w8_ulong));
+        if (header.m_region_list_len != 0) {
+            m_region_index_stream = static_cast<unsigned short*>(
+                malloc((std::size_t{header.m_region_list_len} + 2) * sizeof(unsigned short)));
+            if (!m_region_index_stream) {
+                throw std::bad_alloc();
+            }
+            hOctFile->read_exact(m_region_index_stream, std::size_t{header.m_region_list_len} * sizeof(unsigned short));
+        }
+        if (header.m_gd_surface_stream_len != 0) {
+            m_gd_surface_index_stream = static_cast<w8_ulong*>(
+                malloc((std::size_t{header.m_gd_surface_stream_len} + 2) * sizeof(w8_ulong)));
+            if (!m_gd_surface_index_stream) {
+                throw std::bad_alloc();
+            }
+            hOctFile->read_exact(m_gd_surface_index_stream, std::size_t{header.m_gd_surface_stream_len} * sizeof(w8_ulong));
+        }
+        if (header.m_trigger_count != 0) {
+            m_trigger_indices = static_cast<unsigned short*>(
+                malloc((std::size_t{header.m_trigger_count} + 2) * sizeof(unsigned short)));
+            if (!m_trigger_indices) {
+                throw std::bad_alloc();
+            }
+            hOctFile->read_exact(m_trigger_indices, std::size_t{header.m_trigger_count} * sizeof(unsigned short));
+        }
+        if (header.m_region_count > 1) {
+            m_spatial.m_region_volumes = static_cast<W8OctRegionVolume*>(
+                malloc((std::size_t{header.m_region_count} + 2) * sizeof(W8OctRegionVolume)));
+            if (!m_spatial.m_region_volumes) {
+                throw std::bad_alloc();
+            }
+            hOctFile->read_exact(m_spatial.m_region_volumes, std::size_t{header.m_region_count} * sizeof(W8OctRegionVolume));
+        }
+        hOctFile->read_exact(&uiTerminator, sizeof(uiTerminator));
+        if (uiTerminator != 0xffffffff) {
+            throw std::runtime_error("Invalid octree region terminator.");
+        }
+        if (header.m_submesh_count != 0) {
+            m_pSubmeshes = static_cast<W8OctSubmesh*>(
+                malloc((std::size_t{header.m_submesh_count} + 1) * sizeof(W8OctSubmesh)));
+            if (!m_pSubmeshes) {
+                throw std::bad_alloc();
+            }
+            hOctFile->read_exact(m_pSubmeshes, (std::size_t{header.m_submesh_count} + 1) * sizeof(W8OctSubmesh));
+            unsigned int limit = 0;
+            for (std::size_t index = 0; index <= header.m_submesh_count; ++index) {
+                limit = std::max(limit, m_pSubmeshes[index].polygon_count);
+            }
+            if (limit >= 9999) {
+                throw std::runtime_error("Octree submesh polygon count exceeds scratch capacity.");
+            }
+            ++limit;
+            g_octree_storage_ = static_cast<unsigned int*>(malloc(std::size_t{limit} * sizeof(unsigned int)));
+            if (!g_octree_storage_) {
+                throw std::bad_alloc();
+            }
+            for (unsigned int index = 0; index < limit; ++index) {
+                g_octree_storage_[index] = index;
+            }
+            if (m_meshCount != 0) {
+                m_pAlphaBits = new BitArray(m_meshCount);
+                if (!m_pAlphaBits->Load(hOctFile.get())) {
+                    throw std::runtime_error("Could not read octree alpha bits.");
                 }
             }
-        }
-    }
-
-finish:
-    SetOctreeGameData(0);
-    *game_data = 0;
-    if (fSuccess != 0 && header.m_gd_surface_stream_len != 0) {
-        pGameData = new W8GameData(hOctFile.get(), false);
-        if (pGameData == 0) {
-            strcpy(acMessage, "ReadOctFile: Octree file longer than expected.");
-            fSuccess = 0;
-        } else {
-            fSuccess = ((uiRead = hOctFile->read(&uiTerminator, 4).bytes) == static_cast<std::size_t>(4));
-            if (fSuccess == 0 || uiTerminator != -1) {
-                srAssertFail("fSuccess && (uiTerminator==0xffffffff)", OCTREE_CPP, 0x1e2,
-                             "ReadOctFile: GameData portion of Oct file longer than expected.");
+            if (m_ulNumParticles != 0) {
+                m_pusMeshParticleLookup = static_cast<unsigned short*>(
+                    malloc((std::size_t{m_meshCount} + 1) * sizeof(unsigned short)));
+                m_pusMeshParticles = static_cast<unsigned short*>(
+                    malloc(std::size_t{m_usMeshParticlesLen} * sizeof(unsigned short)));
+                if (!m_pusMeshParticleLookup || (m_usMeshParticlesLen != 0 && !m_pusMeshParticles)) {
+                    throw std::bad_alloc();
+                }
+                hOctFile->read_exact(m_pusMeshParticleLookup, (std::size_t{m_meshCount} + 1) * sizeof(unsigned short));
+                hOctFile->read_exact(m_pusMeshParticles, std::size_t{m_usMeshParticlesLen} * sizeof(unsigned short));
+            }
+            if (m_ulNumProps != 0) {
+                m_pusMeshPropLookup = static_cast<unsigned short*>(
+                    malloc((std::size_t{m_meshCount} + 1) * sizeof(unsigned short)));
+                m_pusMeshProps = static_cast<unsigned short*>(
+                    malloc(std::size_t{m_usMeshPropsLen} * sizeof(unsigned short)));
+                if (!m_pusMeshPropLookup || (m_usMeshPropsLen != 0 && !m_pusMeshProps)) {
+                    throw std::bad_alloc();
+                }
+                hOctFile->read_exact(m_pusMeshPropLookup, (std::size_t{m_meshCount} + 1) * sizeof(unsigned short));
+                hOctFile->read_exact(m_pusMeshProps, std::size_t{m_usMeshPropsLen} * sizeof(unsigned short));
             }
         }
-    }
-    if (hOctFile) hOctFile->close();
-    hOctFile.reset();
-    if (fSuccess != 0) {
+        hOctFile->read_exact(&uiTerminator, sizeof(uiTerminator));
+        if (uiTerminator != 0xffffffff) {
+            throw std::runtime_error("Invalid octree mesh terminator.");
+        }
+        if (header.m_path_nodes != 0) {
+            pathing = new W8PathingService;
+            pathing->ConfigureForLevel(header.m_path_nodes, header.m_region_cell,
+                                      header.m_path_clearance, header.m_bounds, m_owned_0c0);
+            if (!pathing->ReadPathNodes(hOctFile.get())) {
+                throw std::runtime_error("Could not read octree path nodes.");
+            }
+        }
+        if (m_ulNumProps != 0 && header.m_prop_sun_bits != 0) {
+            m_pPropSunBits = new BitArray(m_ulNumProps);
+            if (!m_pPropSunBits->Load(hOctFile.get())) {
+                throw std::runtime_error("Could not read octree prop sun bits.");
+            }
+        }
+        hOctFile->read_exact(&uiTerminator, sizeof(uiTerminator));
+        if (uiTerminator != 0xffffffff) {
+            throw std::runtime_error("Invalid octree terminator.");
+        }
+        std::unique_ptr<W8GameData> pGameData;
+        if (header.m_gd_surface_stream_len != 0) {
+            pGameData = std::make_unique<W8GameData>(hOctFile.get(), false);
+            hOctFile->read_exact(&uiTerminator, sizeof(uiTerminator));
+            if (uiTerminator != 0xffffffff) {
+                throw std::runtime_error("Invalid octree GameData terminator.");
+            }
+            pGameData->octree = this;
+        }
+        SetOctreeGameData(pGameData.get());
+        if (game_data != 0) {
+            *game_data = pGameData.release();
+        }
         g_octree = this;
-        pGameData->octree = this;
-        *game_data = pGameData;
-        SetOctreeGameData(pGameData);
         m_region_links_ready = ReadRegionLinkFile(m_owned_0c0);
         LoadPointFiles(m_owned_0c0);
         if (pathing != 0) {
             pathing->ReadWaypointFile();
         }
         return;
+    } catch (const std::exception&) {
+        SetOctreeGameData(0);
+        g_octree = 0;
+        g_pathing = 0;
+        m_spatial.flags |= 0x80000000;
     }
-failed:
-    g_octree = 0;
-    m_spatial.flags |= 0x80000000;
 }
 
 /* Answer whether this level's OCT/PVL/WGD/LVL set is present, current, and
@@ -3631,65 +3350,48 @@ failed:
 // FUNCTION: WIZ8 0x0042ccc0
 int CheckLevelAssetSet(const char* level_path)
 {
-    unsigned short version;
-    char copy[260];
-    char pvl_path[260];
-    char wgd_path[260];
-    char lvl_path[260];
-    int rebuild = 0;
-    std::unique_ptr<wiz8::File> file;
-    char* extension;
-
     if (g_octree_disabled) {
         return -1;
     }
-
-    strcpy(copy, level_path);
-    TrimAndLowercaseString(copy);
-    if (strstr(copy, "sky") != 0) {
+    std::string copy = level_path;
+    TrimAndLowercaseString(copy.data());
+    if (strstr(copy.c_str(), "sky") != 0) {
         return -1;
     }
-    if ([&]() { const auto status = wiz8::file_status("CD.ROM"); return status && status->info.type == SDL_PATHTYPE_FILE; }() != 0) {
+    const auto cd = wiz8::file_status("CD.ROM");
+    if (cd && cd->info.type == SDL_PATHTYPE_FILE) {
         return 0;
     }
 
-    strcpy(copy, level_path);
-    extension = strrchr(copy, '.');
-    if (extension != 0) {
-        *extension = '\0';
+    std::string stem = level_path;
+    if (const auto extension = stem.find_last_of('.'); extension != std::string::npos) {
+        stem.resize(extension);
     }
-    sprintf(pvl_path, "%s.PVL", copy);
-    if ([&]() { const auto status = wiz8::file_status(const_cast<char*>(level_path)); return status && status->info.type == SDL_PATHTYPE_FILE; }() != 0 && [&]() { const auto status = wiz8::file_status(pvl_path); return status && status->info.type == SDL_PATHTYPE_FILE; }() != 0 &&
-        (file = [&]() { try { return wiz8::open_file(const_cast<char*>(level_path), wiz8::OpenMode::read); } catch (const std::exception&) { return std::unique_ptr<wiz8::File>{}; } }()) != 0 &&
-        (file->read(&version, 2).bytes == static_cast<std::size_t>(2)) != 0) {
-        if (version < W8OctFileHeader::VERSION) {
-            if (g_octree_disabled) {
-                return -1;
-            }
+    const auto oct = wiz8::file_status(level_path);
+    const auto pvl = wiz8::file_status(stem + ".PVL");
+    int rebuild = 1;
+    unsigned short version = 0;
+    if (oct && oct->info.type == SDL_PATHTYPE_FILE &&
+        pvl && pvl->info.type == SDL_PATHTYPE_FILE) {
+        try {
+            auto file = wiz8::open_file(level_path);
+            file->read_exact(&version, sizeof(version));
+            rebuild = version < W8OctFileHeader::VERSION;
+        } catch (const std::exception&) {
             rebuild = 1;
-            if (file) file->close();
-            file.reset();
-        } else {
-            if (version > W8OctFileHeader::VERSION) {
-                if (file) file->close();
-                file.reset();
-                ShutdownWithErrorBox(
-                    "EXE OUT OF DATE: Program is older than File version--There is a new "
-                    "executable available.");
-            }
-            if (file) file->close();
-            file.reset();
         }
-    } else {
-        rebuild = 1;
+        if (version > W8OctFileHeader::VERSION) {
+            ShutdownWithErrorBox(
+                "EXE OUT OF DATE: Program is older than File version--There is a new "
+                "executable available.");
+        }
     }
-
-    sprintf(lvl_path, "%s.LVL", copy);
-    if ([&]() { const auto status = wiz8::file_status(lvl_path); return status && status->info.type == SDL_PATHTYPE_FILE; }() == 0) {
+    const auto lvl = wiz8::file_status(stem + ".LVL");
+    if (!lvl || lvl->info.type != SDL_PATHTYPE_FILE) {
         return -rebuild;
     }
-    sprintf(wgd_path, "%s.WGD", copy);
-    if ([&]() { const auto status = wiz8::file_status(wgd_path); return status && status->info.type == SDL_PATHTYPE_FILE; }() == 0) {
+    const auto wgd = wiz8::file_status(stem + ".WGD");
+    if (!wgd || wgd->info.type != SDL_PATHTYPE_FILE) {
         ReportStartupMessage(
             "Could not find WGD file. Cannot find or build current preprocessed files.");
         ReportStartupMessage("Attempting to run with LVL file only -- NO COLLISION DATA.");
@@ -3697,16 +3399,22 @@ int CheckLevelAssetSet(const char* level_path)
         return -rebuild;
     }
 
-    if ([&]() { const auto a = wiz8::file_status(const_cast<char*>(level_path)), b = wiz8::file_status(pvl_path); if (!a || !b) return false; const auto at = wiz8::file_time_from_sdl(a->info.modify_time).ticks(), bt = wiz8::file_time_from_sdl(b->info.modify_time).ticks(); return at < bt && (bt - at) / 10000000 >= 0; }() == 0) {
-        if ([&]() { const auto a = wiz8::file_status(pvl_path), b = wiz8::file_status(wgd_path); if (!a || !b) return false; const auto at = wiz8::file_time_from_sdl(a->info.modify_time).ticks(), bt = wiz8::file_time_from_sdl(b->info.modify_time).ticks(); return at < bt && (bt - at) / 10000000 >= 10; }() == 0 &&
-            [&]() { const auto a = wiz8::file_status(pvl_path), b = wiz8::file_status(lvl_path); if (!a || !b) return false; const auto at = wiz8::file_time_from_sdl(a->info.modify_time).ticks(), bt = wiz8::file_time_from_sdl(b->info.modify_time).ticks(); return at < bt && (bt - at) / 10000000 >= 10; }() == 0) {
+    const auto oct_time = oct ? wiz8::file_time_from_sdl(oct->info.modify_time).ticks() : 0;
+    const auto pvl_time = pvl ? wiz8::file_time_from_sdl(pvl->info.modify_time).ticks() : 0;
+    const auto wgd_time = wiz8::file_time_from_sdl(wgd->info.modify_time).ticks();
+    const auto lvl_time = wiz8::file_time_from_sdl(lvl->info.modify_time).ticks();
+    constexpr std::uint64_t tolerance = 10 * 10000000;
+    if (oct && pvl && oct_time < pvl_time) {
+        if (wgd_time <= oct_time || wgd_time - oct_time < tolerance) {
+            return lvl_time > oct_time && lvl_time - oct_time >= tolerance ? 1 : rebuild;
+        }
+    } else if (pvl) {
+        if ((wgd_time <= pvl_time || wgd_time - pvl_time < tolerance) &&
+            (lvl_time <= pvl_time || lvl_time - pvl_time < tolerance)) {
             return rebuild;
         }
-    } else if ([&]() { const auto a = wiz8::file_status(const_cast<char*>(level_path)), b = wiz8::file_status(wgd_path); if (!a || !b) return false; const auto at = wiz8::file_time_from_sdl(a->info.modify_time).ticks(), bt = wiz8::file_time_from_sdl(b->info.modify_time).ticks(); return at < bt && (bt - at) / 10000000 >= 10; }() == 0) {
-        if ([&]() { const auto a = wiz8::file_status(const_cast<char*>(level_path)), b = wiz8::file_status(lvl_path); if (!a || !b) return false; const auto at = wiz8::file_time_from_sdl(a->info.modify_time).ticks(), bt = wiz8::file_time_from_sdl(b->info.modify_time).ticks(); return at < bt && (bt - at) / 10000000 >= 10; }() == 0) {
-            return rebuild;
-        }
-        return 1;
+    } else {
+        return rebuild;
     }
     return 1;
 }
@@ -4608,57 +4316,51 @@ void W8Octree::AdjustPortalDestination(srVector3T<float>* destination,
 /* Release the location-variable names and empty their parallel value and
    level vectors. Trigger.cpp creates the names as copied character arrays. */
 
-/* The .oct writers stage at most 0x100 records through a stack buffer per
-   FileWrite call. */
-
-template <class Vector>
-static BOOLEAN WriteStagedVectorArray(wiz8::File* file, const Vector* values, int count)
-{
-    Vector staging[0x100];
-    int written = 0;
-    int chunk_count;
-    int index;
-    BOOLEAN success = TRUE;
-
-    while (success && written < count) {
-        chunk_count = count - written;
-        if (chunk_count > 0x100) {
-            chunk_count = 0x100;
-        }
-        if (chunk_count != 0) {
-            for (index = 0; index < chunk_count; ++index) {
-                staging[index] = values[written + index];
-            }
-            written += chunk_count;
-            success &= (file->write(staging, chunk_count * sizeof(staging[0])), true);
-        }
-    }
-    return success;
-}
-
 // FUNCTION: WIZ8 0x004372E0
 BOOLEAN WriteVector4Array(wiz8::File* file, const srVector4T<float>* values, int count)
+try
 {
-    return WriteStagedVectorArray(file, values, count);
+    if (count < 0) {
+        return false;
+    }
+    file->write(values, static_cast<std::size_t>(count) * sizeof(srVector4T<float>));
+    return true;
 }
+catch (const std::exception&) { return false; }
 
 // FUNCTION: WIZ8 0x00437390
 BOOLEAN WriteVector3Array(wiz8::File* file, const srVector3T<float>* values, int count)
+try
 {
-    return WriteStagedVectorArray(file, values, count);
+    if (count < 0) {
+        return false;
+    }
+    file->write(values, static_cast<std::size_t>(count) * sizeof(srVector3T<float>));
+    return true;
 }
+catch (const std::exception&) { return false; }
 
 // FUNCTION: WIZ8 0x00437430
 BOOLEAN WriteVector2Array(wiz8::File* file, const srVector2T<float>* values, int count)
+try
 {
-    return WriteStagedVectorArray(file, values, count);
+    if (count < 0) {
+        return false;
+    }
+    file->write(values, static_cast<std::size_t>(count) * sizeof(srVector2T<float>));
+    return true;
 }
+catch (const std::exception&) { return false; }
 
 // FUNCTION: WIZ8 0x004374C0
 bool ReadVector4Array(wiz8::File* file, srVector4T<float>* values, int count)
 try
 {
-    return (file->read(values, count * sizeof(srVector4T<float>)).bytes == static_cast<std::size_t>(count * sizeof(srVector4T<float>))) & 1;
+    if (count < 0) {
+        return false;
+    }
+    file->read_exact(values, static_cast<std::size_t>(count) * sizeof(srVector4T<float>));
+    return true;
 }
 catch (const std::exception&) { return false; }
 
@@ -4666,7 +4368,11 @@ catch (const std::exception&) { return false; }
 bool ReadVector3Array(wiz8::File* file, void* values, int count)
 try
 {
-    return (file->read(values, count * sizeof(srVector3T<float>)).bytes == static_cast<std::size_t>(count * sizeof(srVector3T<float>))) & 1;
+    if (count < 0) {
+        return false;
+    }
+    file->read_exact(values, static_cast<std::size_t>(count) * sizeof(srVector3T<float>));
+    return true;
 }
 catch (const std::exception&) { return false; }
 
@@ -4674,7 +4380,11 @@ catch (const std::exception&) { return false; }
 bool ReadVector2Array(wiz8::File* file, srVector2T<float>* values, int count)
 try
 {
-    return (file->read(values, count * sizeof(srVector2T<float>)).bytes == static_cast<std::size_t>(count * sizeof(srVector2T<float>))) & 1;
+    if (count < 0) {
+        return false;
+    }
+    file->read_exact(values, static_cast<std::size_t>(count) * sizeof(srVector2T<float>));
+    return true;
 }
 catch (const std::exception&) { return false; }
 
