@@ -419,7 +419,7 @@ void srMeshModel::calculateBounds()
     bounds_center.SetZero();
     bounds_radius = 0.0f;
     if (vertex_location_count != 0) {
-        const std::span<const srVector3> vertices{getVertexLoc(), vertex_location_count};
+        const std::span<const srVector3> vertices(getVertexLoc(), vertex_location_count);
         const auto box = boundingBox(vertices);
         bounds_minimum = box.minimum;
         bounds_maximum = box.maximum;
@@ -1479,7 +1479,7 @@ void srTriMeshPipeline::FlushSlots()
 
     if (bounds_source != srTriMeshPipeline::BOUNDS_SPHERE) {
         if (bounds_source == srTriMeshPipeline::BOUNDS_FROM_VERTICES && vertex_count != 0) {
-            const auto box = boundingBox({positions, vertex_count});
+            const auto box = boundingBox(std::span<const srVector3>(positions, vertex_count));
             bounds_minimum = box.minimum;
             bounds_maximum = box.maximum;
         }
