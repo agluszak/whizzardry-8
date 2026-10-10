@@ -110,9 +110,17 @@ int main()
             const bool invalid = fetestexcept(FE_INVALID);
 #if defined(__i386__) || defined(__x86_64__)
             w8_long retail;
-            feclearexcept(FE_ALL_EXCEPT);
-            asm volatile("fldl %1; fistpl %0" : "=m"(retail) : "m"(input) : "st");
-            CHECK(actual == retail && invalid == bool(fetestexcept(FE_INVALID)));
+            unsigned short saved_control, status;
+            asm volatile("fnstcw %0" : "=m"(saved_control));
+            const unsigned rounding = mode == FE_DOWNWARD ? 1 : mode == FE_UPWARD ? 2
+                                       : mode == FE_TOWARDZERO ? 3 : 0;
+            const unsigned short control = (saved_control & ~0x0c00u) | (rounding << 10);
+            // The Windows x64 CRT controls SSE, not the oracle's x87 state.
+            asm volatile("fldcw %0; fnclex" : : "m"(control));
+            asm volatile("fldl %2; fistpl %0; fnstsw %1"
+                         : "=m"(retail), "=m"(status) : "m"(input) : "st");
+            asm volatile("fnclex; fldcw %0" : : "m"(saved_control));
+            CHECK(actual == retail && invalid == bool(status & 1));
 #else
             if (!std::isfinite(input) || input >= 2147483648.0 || input < -2147483648.0)
             {

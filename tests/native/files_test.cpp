@@ -107,7 +107,9 @@ int main()
     CHECK(W8SetEnvironmentVariable("WIZ8_USER_ROOT", user.string().c_str()));
     CHECK(W8SetEnvironmentVariable("WIZ8_CD1_ROOT", disc.string().c_str()));
     const auto configured = w8_native::path_roots();
-    CHECK(configured.assets == assets && configured.user == user && configured.discs[0] == disc);
+    CHECK(configured.assets == fs::weakly_canonical(assets).generic_string());
+    CHECK(configured.user == fs::weakly_canonical(user).generic_string());
+    CHECK(configured.discs[0] == fs::weakly_canonical(disc).generic_string());
     w8_native::configure_paths({assets.string(), user.string(), {disc.string(), "", ""}});
 
     HANDLE file = open_file("DATA\\mixedcase.bin", GENERIC_READ);
