@@ -76,7 +76,8 @@ add_test(NAME native_surrender COMMAND native_surrender_test)
 
 add_executable(native_unicode_test "${PROJECT_SOURCE_DIR}/tests/native/unicode_test.cpp")
 target_link_libraries(native_unicode_test PRIVATE wiz8_native_settings)
-add_test(NAME native_unicode COMMAND native_unicode_test)
+catch_discover_tests(native_unicode_test
+    TEST_PREFIX "native_unicode/")
 
 add_executable(native_pointer_test "${PROJECT_SOURCE_DIR}/tests/native/pointer_test.cpp")
 target_link_libraries(native_pointer_test PRIVATE wiz8_native_settings)
@@ -100,7 +101,9 @@ if(APPLE)
 elseif(UNIX)
     target_link_options(native_save_records_test PRIVATE -Wl,--gc-sections -Wl,-z,start-stop-gc)
 endif()
-add_test(NAME native_save_records COMMAND native_save_records_test)
+catch_discover_tests(native_save_records_test
+    TEST_PREFIX "native_save_records/"
+    PROPERTIES TIMEOUT 120)
 
 add_executable(native_loader_records_test native/loader_records_test.cpp)
 target_link_libraries(native_loader_records_test PRIVATE WIZ8_GAME_CORE)
@@ -139,8 +142,10 @@ if(APPLE)
 elseif(UNIX)
     target_link_options(native_owner_test PRIVATE -Wl,--gc-sections -Wl,-z,start-stop-gc)
 endif()
-add_test(NAME native_owners COMMAND native_owner_test)
-set_tests_properties(native_owners PROPERTIES TIMEOUT 10)
+catch_discover_tests(native_owner_test
+    TEST_PREFIX "native_owners/"
+    TEST_SPEC "~[.death]"
+    PROPERTIES TIMEOUT 10)
 foreach(mode plain message)
     add_test(NAME native_assertion_${mode}
         COMMAND "${CMAKE_COMMAND}" "-DPROGRAM=$<TARGET_FILE:native_owner_test>" "-DMODE=${mode}"
@@ -185,7 +190,10 @@ endif()
 add_executable(native_audio_test "${PROJECT_SOURCE_DIR}/tests/native/audio_test.cpp")
 target_link_libraries(native_audio_test PRIVATE WIZ8_GAME_CORE)
 target_compile_definitions(native_audio_test PRIVATE WIZ8_AUDIO_TEST_MP3="${PROJECT_SOURCE_DIR}/tests/native/tone.mp3")
-add_test(NAME native_audio COMMAND native_audio_test)
+catch_discover_tests(native_audio_test
+    TEST_PREFIX "native_audio/"
+    TEST_SPEC "~[.manual]"
+    PROPERTIES ENVIRONMENT "SDL_AUDIO_DRIVER=wiz8-offline")
 
 # Standalone SDL/Vulkan lifetime control for diagnosing host leak reports.
 # Run manually: failures here are independent of game and SurRender ownership.
@@ -203,7 +211,7 @@ elseif(UNIX)
     target_link_options(native_movie_test PRIVATE -Wl,--gc-sections -Wl,-z,start-stop-gc)
 endif()
 add_test(NAME native_movies COMMAND native_movie_test)
-set_tests_properties(native_audio native_movies PROPERTIES ENVIRONMENT "SDL_AUDIO_DRIVER=wiz8-offline")
+set_tests_properties(native_movies PROPERTIES ENVIRONMENT "SDL_AUDIO_DRIVER=wiz8-offline")
 
 add_executable(native_application_test native/application_test.cpp)
 target_link_libraries(native_application_test PRIVATE WIZ8_GAME_CORE)

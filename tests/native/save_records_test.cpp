@@ -964,16 +964,44 @@ static void packed_camera_angles()
     delete camera.m_manual_input_timer;
 }
 
-TEST_CASE("save_records_test")
+#include <catch2/generators/catch_generators.hpp>
+
+struct SaveFixture
+{
+    std::filesystem::path root = wiz8::path_from_utf8(make_temporary_directory("wiz8-save-records"));
+    std::filesystem::path assets = root / "assets";
+    std::filesystem::path user = root / "user";
+
+    SaveFixture()
+    {
+        // Game-file overlays require the corresponding asset parent to exist.
+        std::filesystem::create_directories(assets / "Data");
+        std::filesystem::create_directories(user / "Data");
+        std::filesystem::create_directories(user / "Saves");
+        w8_native::configure_paths(
+            {wiz8::path_to_utf8(assets), wiz8::path_to_utf8(user), {"", "", ""}});
+    }
+
+    ~SaveFixture()
+    {
+        wiz8::clear_asset_archives();
+        std::error_code ignored;
+        std::filesystem::remove_all(root, ignored);
+    }
+};
+
+TEST_CASE("Packed camera angles", "[save][records]")
 {
     packed_camera_angles();
-    const auto temporary = make_temporary_directory("wiz8-save-records");
-    const auto root = wiz8::path_from_utf8(temporary);
-    const auto assets = root / "assets", user = root / "user";
-    std::filesystem::create_directories(assets);
-    std::filesystem::create_directories(user / "Saves");
-    w8_native::configure_paths({wiz8::path_to_utf8(assets), wiz8::path_to_utf8(user), {"", "", ""}});
+}
+
+TEST_CASE("Global status record", "[save][records]")
+{
     global_status_record();
+}
+
+TEST_CASE_METHOD(SaveFixture, "NPC state versions and failure recovery", "[save][npc]")
+{
     const auto path = root / wiz8::path_from_utf8("npc-雪.bin");
     W8NpcDatabaseRecord database[3] = {};
     for (unsigned char index = 0; index < 3; ++index) database[index].kind = index;
@@ -985,7 +1013,8 @@ TEST_CASE("save_records_test")
     live = &unrelated;
     unsigned int live_handle;
     memcpy(&live_handle, &live, sizeof(live_handle));
-    for (unsigned char version : {2, 3})
+    const unsigned char version = GENERATE(static_cast<unsigned char>(2), static_cast<unsigned char>(3));
+    CAPTURE(version);
     {
         std::ofstream out(path, std::ios::binary | std::ios::trunc);
         write(out, version);
@@ -1050,6 +1079,7 @@ TEST_CASE("save_records_test")
         const auto stable_states = g_npc_states;
         auto* stable_npc = stable_states[0];
         for (std::size_t operation = 1; operation <= operations; ++operation) {
+            CAPTURE(version, operation);
             chunk.m_hFile = wiz8::open_host_file(path);
             bool rejected = false;
             { FileFaults fault(operation); try { LoadNpcStates(&chunk); } catch (const std::exception&) { rejected = true; } REQUIRE(fault.fired); }
@@ -1072,6 +1102,7 @@ TEST_CASE("save_records_test")
         const auto previous = g_npc_states;
         auto* previous_npc = previous[0];
         for (int malformed = 0; malformed < 4; ++malformed) {
+            CAPTURE(version, malformed);
             std::ofstream bad(path, std::ios::binary | std::ios::trunc);
             write(bad, static_cast<unsigned char>(3));
             write(bad, malformed == 0 ? UINT32_MAX : 1u);
@@ -1103,14 +1134,31 @@ TEST_CASE("save_records_test")
         ReleaseNpcStates();
         REQUIRE(g_npc_states.empty());
     }
+
     g_npc_records = nullptr;
     gXStatus.uiNpcsInDatabase = 0;
+}
+
+TEST_CASE_METHOD(SaveFixture, "Character file records", "[save][records]")
+{
     character_file_contracts(assets, user);
+}
+
+TEST_CASE_METHOD(SaveFixture, "Current-game character replacement", "[save][records]")
+{
     current_game_character_contracts();
-    // NSF pointer words are presence markers too. Include empty strings and
-    // zero-count arrays carrying a word that collides with a runtime handle.
+}
+
+TEST_CASE_METHOD(SaveFixture, "NPC script records and truncated streams", "[save][npc]")
+{
+    W8Character unrelated{};
+    W8_PTR32(W8Character) live;
+    live = &unrelated;
+    unsigned int live_handle;
+    memcpy(&live_handle, &live, sizeof(live_handle));
     const auto script_path = user / "Saves" / "dialogue.nsf";
-    for (unsigned int marker : {0x12345678u, live_handle, 0u})
+    const unsigned int marker = GENERATE_COPY(0x12345678u, live_handle, 0u);
+    CAPTURE(marker);
     {
         std::ofstream out(script_path, std::ios::binary | std::ios::trunc);
         wiz8::retail::nsf::Header disk = {};
@@ -1178,6 +1226,11 @@ TEST_CASE("save_records_test")
             REQUIRE(LoadNpcScriptFile(filename) == nullptr);
         }
     }
+
+}
+
+TEST_CASE_METHOD(SaveFixture, "AI conditions and save slot naming", "[save][records]")
+{
     // The AI used to decay the odd-offset condition array into unsigned int*.
     alignas(16) W8Character character = {};
     static W8SpellRuntimeRecord spells[W8_SPELL_COUNT] = {};
@@ -1221,19 +1274,60 @@ TEST_CASE("save_records_test")
     auto ending = wiz8::open_file("Saves/Ending20.SAV", wiz8::OpenMode::replace);
     ending->close();
     REQUIRE(!FindFreeEndingSaveName());
-    save_file_contracts(user);
-    transcript_contracts();
-    keyword_file_contracts();
-    unicode_file_contracts();
-    unicode_database_contracts();
-    encounter_table_contracts();
-    script_record_contracts();
-    path_record_contracts();
-    animation_record_contracts();
-    graphical_object_ownership_contracts();
-    animated_mesh_cache_contracts();
-    wiz8::clear_asset_archives();
 
-    std::filesystem::remove_all(root);
-    puts("NPCT/NSF consume retail and handle-valued markers; packed AI/vectors pass");
+}
+
+TEST_CASE_METHOD(SaveFixture, "Save file timestamps", "[save][filesystem]")
+{
+    save_file_contracts(user);
+}
+
+TEST_CASE_METHOD(SaveFixture, "NPC dialogue transcripts", "[save][records]")
+{
+    transcript_contracts();
+}
+
+TEST_CASE_METHOD(SaveFixture, "Keyword files", "[save][records]")
+{
+    keyword_file_contracts();
+}
+
+TEST_CASE_METHOD(SaveFixture, "Unicode text files", "[save][records]")
+{
+    unicode_file_contracts();
+}
+
+TEST_CASE_METHOD(SaveFixture, "Unicode database records", "[save][records]")
+{
+    unicode_database_contracts();
+}
+
+TEST_CASE_METHOD(SaveFixture, "Encounter table records", "[save][records]")
+{
+    encounter_table_contracts();
+}
+
+TEST_CASE_METHOD(SaveFixture, "Script record parsing", "[save][records]")
+{
+    script_record_contracts();
+}
+
+TEST_CASE_METHOD(SaveFixture, "Path records", "[save][records]")
+{
+    path_record_contracts();
+}
+
+TEST_CASE_METHOD(SaveFixture, "Animation records", "[save][records]")
+{
+    animation_record_contracts();
+}
+
+TEST_CASE_METHOD(SaveFixture, "Graphical object ownership", "[save][records]")
+{
+    graphical_object_ownership_contracts();
+}
+
+TEST_CASE_METHOD(SaveFixture, "Animated mesh cache", "[save][records]")
+{
+    animated_mesh_cache_contracts();
 }

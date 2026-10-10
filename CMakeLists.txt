@@ -90,6 +90,7 @@ if(BUILD_TESTING)
         GIT_TAG 8b08d4d79514f45f7e4ce2a607ac9c94e920d1bb # v3.15.3
         GIT_SHALLOW FALSE)
     FetchContent_MakeAvailable(Catch2)
+    include("${catch2_SOURCE_DIR}/extras/Catch.cmake")
     add_subdirectory(tests/portable)
 endif()
 find_package(ZLIB REQUIRED)

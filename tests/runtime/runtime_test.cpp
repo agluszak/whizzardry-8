@@ -206,7 +206,8 @@ class Game
         while (!ready())
         {
             if (Clock::now() > deadline)
-                Fail(step, "timed out on screen " +
+                Fail(step, "timed out after " + std::to_string(frames_) +
+                               " frames on screen " +
                                std::string(ScreenName(g_current_screen_state.id)) + " pending " +
                                ScreenName(g_pending_screen_state.id));
             frame();
@@ -890,6 +891,7 @@ void CombatScenario()
     attacker.iChar = PremadeSlot();
     attacker.iMonsterID = -1;
     const int monster_id = monster->location_id;
+    CAPTURE(monster_id, round, game.frames());
     ApplyDamageToMonster(monster, monster->hp_current, &attacker, false, 1, 0, nullptr, false);
     // Resolve by ID after death/cleanup rather than relying on a retained pointer.
     const unsigned dead_index =
