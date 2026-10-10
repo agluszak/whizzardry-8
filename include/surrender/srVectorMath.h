@@ -20,8 +20,6 @@ using srMatrix4 = srMatrix4T<float>;
 // input/output ranges are not.
 // Matrix multiplication requires output distinct from both inputs.
 namespace srMath {
-void copyIndexed(std::span<SRDWORD> destination, const SRDWORD* source,
-                 std::span<const SRDWORD> indices);
 void axpy(std::span<float> destination, std::span<const float> add_source,
           std::span<const float> scale_source, std::span<const float> multiply_source);
 void add(std::span<float> destination, float constant, std::span<const float> source);

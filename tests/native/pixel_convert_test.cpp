@@ -16,12 +16,15 @@ void readRGB555(const srPixelConvert::ConversionInfo&);
 void writeBGRX(const srPixelConvert::ConversionInfo&);
 void readBGRX(const srPixelConvert::ConversionInfo&);
 
-#define CHECK(expression) do { if (!(expression)) throw std::runtime_error(#expression); } while (0)
+#define CHECK(expression)                                                                          \
+    do {                                                                                           \
+        if (!(expression))                                                                         \
+            throw std::runtime_error(#expression);                                                 \
+    } while (0)
 
 int main()
 {
-    try
-    {
+    try {
         constexpr unsigned count = 65539;
         std::vector<w8_ulong> input(count), rotated(count), output(count);
         for (unsigned i = 0; i < count; ++i)
@@ -45,8 +48,7 @@ int main()
         info.dest = rgb.data() + 1;
         writeRGB24(info);
         CHECK(rgb.front() == 0xa5 && rgb.back() == 0xa5);
-        for (unsigned i = 0; i < count; ++i)
-        {
+        for (unsigned i = 0; i < count; ++i) {
             CHECK(rgb[1 + i * 3] == (input[i] >> 16 & 255));
             CHECK(rgb[2 + i * 3] == (input[i] >> 8 & 255));
             CHECK(rgb[3 + i * 3] == (input[i] & 255));
@@ -118,11 +120,10 @@ int main()
         const auto expand = [](unsigned value, unsigned max) {
             return unsigned(value * 255.f * (1.f / max) + .5f);
         };
-        for (unsigned i = 0; i < packed.size(); ++i)
-        {
+        for (unsigned i = 0; i < packed.size(); ++i) {
             const auto red = i < 32768 ? expand(i >> 10, 31) : expand((i >> 10) - 32, 63);
-            const auto expected = 0xff000000u | red << 16 | expand(i >> 5 & 31, 31) << 8 |
-                                  expand(i & 31, 31);
+            const auto expected =
+                0xff000000u | red << 16 | expand(i >> 5 & 31, 31) << 8 | expand(i & 31, 31);
             CHECK(output[i] == expected);
         }
         info = {packed.data(), input.data(), 65536, nullptr, nullptr};
@@ -137,11 +138,10 @@ int main()
         CHECK(SDL_ConvertPixels(65536, 1, SDL_PIXELFORMAT_XRGB1555, packed.data(), 65536 * 2,
                                 SDL_PIXELFORMAT_ARGB8888, sdlOutput.data(), 65536 * 4));
         CHECK(output != sdlOutput); // Rounded channel expansion is not SDL's bit replication.
-        puts("Pixel conversions: exact SDL byte channels, alpha, in-place rotation and exhaustive custom RGB555 passed");
+        puts("Pixel conversions: exact SDL byte channels, alpha, in-place rotation and exhaustive "
+             "custom RGB555 passed");
         return 0;
-    }
-    catch (const std::exception& failure)
-    {
+    } catch (const std::exception& failure) {
         fprintf(stderr, "pixel conversion: %s\n", failure.what());
         return 1;
     }

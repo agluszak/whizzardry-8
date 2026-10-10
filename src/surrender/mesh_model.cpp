@@ -419,7 +419,8 @@ void srMeshModel::calculateBounds()
     if (vertex_location_count != 0) {
         srVector3T<float>* vertices = getVertexLoc();
         if (vertex_location_count != 0) {
-            srMath::minMax({vertices, static_cast<std::size_t>(vertex_location_count)}, bounds_minimum, bounds_maximum);
+            srMath::minMax({vertices, static_cast<std::size_t>(vertex_location_count)},
+                           bounds_minimum, bounds_maximum);
         }
         bounds_center.x = (bounds_minimum.x + bounds_maximum.x) * 0.5;
         bounds_center.y = (bounds_minimum.y + bounds_maximum.y) * 0.5;
@@ -514,13 +515,14 @@ void srMeshModel::calculateVertexNormals()
                 smooth[shade_indices[polygons[polygon].z]].z += equations[polygon].z;
             }
             if (vertex_location_count != 0) {
-                srMath::copyIndexed({normals, static_cast<std::size_t>(vertex_location_count)}, smooth.data(),
-                                    {shade_indices, static_cast<std::size_t>(vertex_location_count)});
+                srMath::copyIndexed(
+                    {normals, static_cast<std::size_t>(vertex_location_count)}, smooth.data(),
+                    {shade_indices, static_cast<std::size_t>(vertex_location_count)});
             }
         }
         if (vertex_location_count != 0) {
-            srMath::normalize({normals, static_cast<std::size_t>(vertex_location_count)}, {normals, static_cast<std::size_t>(vertex_location_count)},
-                              1.0f);
+            srMath::normalize({normals, static_cast<std::size_t>(vertex_location_count)},
+                              {normals, static_cast<std::size_t>(vertex_location_count)}, 1.0f);
         }
     }
 }
