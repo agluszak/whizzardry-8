@@ -589,10 +589,10 @@ try
     if (materials.empty()) {
         srAssertFail("uiMatCount", "C:\\Projects\\Wizardry 8\\Engine Code\\ReadMesh.cpp", 0x16c, 0);
     }
-    std::vector<srShader> shaders;
+    std::vector<w8_ulong> shaders;
     for (int index = 0; index < static_cast<int>(materials.size()); ++index) {
-        if (!std::ranges::contains(shaders, materials[index].render_flags)) {
-            shaders.push_back(materials[index].render_flags);
+        if (!std::ranges::contains(shaders, materials[index].render_flags.value)) {
+            shaders.push_back(materials[index].render_flags.value);
         }
     }
     if (shaders.size() > 8) {

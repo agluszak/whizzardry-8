@@ -5027,7 +5027,6 @@ void W8Monster::SpawnDamageNumber(unsigned int amount)
             particle->rotate(world);
         }
     }
-    surface->release();
 }
 
 /* Resolve the database-controlled render gate after the Monster's transient
