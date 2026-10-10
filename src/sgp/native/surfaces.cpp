@@ -229,6 +229,30 @@ void BlitCpuSurface(CpuSurface& output, const RECT* destRect, CpuSurface& input,
     SDL_SetSurfaceClipRect(&dest, nullptr);
 }
 
+bool BlitIndexedTo16BPP(SDL_Surface* indexed, const UINT16* lut, int srcX, int srcY,
+                        int width, int height, UINT8* dest, int destPitch)
+{
+    SDLSurfaceOwner view{SDL_CreateSurfaceFrom(width, height, SDL_PIXELFORMAT_ARGB1555,
+                                             dest, destPitch), SDL_DestroySurface};
+    SDL_Palette* palette = view && indexed && lut ? SDL_GetSurfacePalette(indexed) : nullptr;
+    if (!view || !palette || palette->ncolors > 256)
+        return false;
+    for (int i = 0; i < palette->ncolors; ++i)
+    {
+        const unsigned word = lut[i];
+        const unsigned red = (word >> 10) & 31;
+        const unsigned green = (word >> 5) & 31;
+        const unsigned blue = word & 31;
+        palette->colors[i] = SDL_Color{static_cast<Uint8>((red << 3) | (red >> 2)),
+                                       static_cast<Uint8>((green << 3) | (green >> 2)),
+                                       static_cast<Uint8>((blue << 3) | (blue >> 2)),
+                                       static_cast<Uint8>(word & 0x8000 ? 0x80 : 0)};
+    }
+    const SDL_Rect sourceRect{srcX, srcY, width, height};
+    SDL_Rect destRect{0, 0, width, height};
+    return SDL_BlitSurface(indexed, &sourceRect, view.get(), &destRect);
+}
+
 void SetSurfaceClipRegions(CpuSurface& surface, std::span<const RECT> input)
 {
     std::vector<LONG> edges;
