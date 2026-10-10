@@ -788,29 +788,16 @@ void ApplySummonElementalEffect(W8SpellEffectEntry* effect)
     summon->p3D->SetAngles(
         HeadingTowardNearestMonster(effect->target.point, disposition, summon->location_id));
     SetMonsterGroupHostility(group, disposition, false);
-    if (disposition == W8_DISPOSITION_FRIENDLY) {
-        for (index = 0; index < group->member_count; ++index) {
-            member =
-                MonsterInfoFromID(0xfdb, MAGIC_EFFECTS_CPP, group->MemberLocationId(index), true);
-            if (member == 0) {
-                srAssertFail("pMonsterInfo", MAGIC_EFFECTS_CPP, 0xfdc, 0);
-            }
-            if (member->summoned == W8_MONSTER_SUMMON_NONE) {
-                member->summoned = W8_MONSTER_SUMMON_FRIENDLY;
-                SetMonsterSpellIcon(member->p3D, SPELL_ICON_SUMMONED, true);
-            }
-        }
-    } else {
-        for (index = 0; index < group->member_count; ++index) {
-            member =
-                MonsterInfoFromID(0xfdb, MAGIC_EFFECTS_CPP, group->MemberLocationId(index), true);
-            if (member == 0) {
-                srAssertFail("pMonsterInfo", MAGIC_EFFECTS_CPP, 0xfdc, 0);
-            }
-            if (member->summoned == W8_MONSTER_SUMMON_NONE) {
-                member->summoned = W8_MONSTER_SUMMON_HOSTILE;
-                SetMonsterSpellIcon(member->p3D, SPELL_ICON_SUMMONED, true);
-            }
+    const auto summoned_state = disposition == W8_DISPOSITION_FRIENDLY
+                                    ? W8_MONSTER_SUMMON_FRIENDLY : W8_MONSTER_SUMMON_HOSTILE;
+    for (index = 0; index < group->member_count; ++index) {
+        member =
+            MonsterInfoFromID(0xfdb, MAGIC_EFFECTS_CPP, group->MemberLocationId(index), true);
+        if (member == 0)
+            srAssertFail("pMonsterInfo", MAGIC_EFFECTS_CPP, 0xfdc, 0);
+        if (member->summoned == W8_MONSTER_SUMMON_NONE) {
+            member->summoned = summoned_state;
+            SetMonsterSpellIcon(member->p3D, SPELL_ICON_SUMMONED, true);
         }
     }
     RefreshAllSight();
@@ -1851,6 +1838,54 @@ char TryCureConditionOnTargets(W8SpellEffectEntry* effect, W8Condition condition
     return all_cured;
 }
 
+/* Resolve the condition and any follow-up attack after the caller has
+   selected a character or monster. Return true only for quiet-mode totals. */
+static bool ApplyConditionAttackToTarget(W8SpellEffectEntry* effect, W8CombatSlot* target,
+                                         W8Condition condition, int argument,
+                                         unsigned int duration, bool verbose,
+                                         W8MonsterInfo* monster_info)
+{
+    const bool monster = target->iType == W8_TARGET_KIND_MONSTER;
+    const int character_index = monster ? -1 : target->iChar;
+    if (effect->kind == W8_SPELL_SLOW) {
+        const unsigned int haste_turns = monster
+            ? monster_info->enchantments[W8_ENCHANTMENT_HASTE].turns
+            : g_status.buffers.Char[character_index].enchantments[W8_ENCHANTMENT_HASTE].turns;
+        if (haste_turns != 0) {
+            const int remaining = static_cast<int>(duration) - static_cast<int>(haste_turns);
+            if (monster)
+                TickMonsterEnchantmentSlot(monster_info->location_id, W8_ENCHANTMENT_HASTE, duration);
+            else
+                TickCharacterEnchantmentSlot(character_index, W8_ENCHANTMENT_HASTE, duration);
+            return remaining > 0 &&
+                   !ResolveAttackOnTarget(&effect->Source, target, condition,
+                                          g_spell_records[effect->kind].realm,
+                                          effect->definition.power_level, argument, remaining,
+                                          verbose, verbose, 0) && !verbose;
+        }
+    }
+
+    if (ResolveAttackOnTarget(&effect->Source, target, condition,
+                              g_spell_records[effect->kind].realm,
+                              effect->definition.power_level, argument, duration,
+                              verbose, verbose, 0))
+        return false;
+
+    if (effect->kind == W8_SPELL_TERROR && !monster) {
+        ResolveAttackOnTarget(&effect->Source, target, W8_CONDITION_UNCONSCIOUS,
+                              g_spell_records[W8_SPELL_TERROR].realm,
+                              static_cast<unsigned int>(effect->definition.power_level) >> 1,
+                              argument, duration >> 1, false, verbose, 0);
+    } else if (monster &&
+               (effect->kind == W8_SPELL_TERROR || effect->kind == W8_SPELL_SONIC_BOOM)) {
+        ResolveAttackOnTarget(&effect->Source, target, condition,
+                              g_spell_records[effect->kind].realm,
+                              static_cast<unsigned int>(effect->definition.power_level) >> 1,
+                              argument, duration >> 1, false, verbose, 0);
+    }
+    return !verbose;
+}
+
 /* Attack every listed target with a condition on a chance roll each. The
    rolled duration is what the condition runs for; spell 0x1d first spends it
    against enchantment slot five, and the elemental spells 0xe and 0x1e strike
@@ -1864,7 +1899,6 @@ void InflictConditionAttack(W8SpellEffectEntry* effect, W8Condition condition, i
     W8CombatSlot target;
     bool verbose;
     unsigned int duration;
-    int remaining;
     int affected;
     int character_index;
     int index;
@@ -1883,38 +1917,9 @@ void InflictConditionAttack(W8SpellEffectEntry* effect, W8Condition condition, i
         }
         target.iType = W8_TARGET_KIND_CHARACTER;
         target.iChar = character_index;
-        if (effect->kind == W8_SPELL_SLOW &&
-            g_status.buffers.Char[character_index].enchantments[W8_ENCHANTMENT_HASTE].turns != 0) {
-            /* Retail subtracts the shield with signed JLE on the leftover. */
-            remaining = static_cast<int>(duration) -
-                        static_cast<int>(g_status.buffers.Char[character_index]
-                                             .enchantments[W8_ENCHANTMENT_HASTE]
-                                             .turns);
-            TickCharacterEnchantmentSlot(character_index, W8_ENCHANTMENT_HASTE, duration);
-            if (remaining > 0 && !ResolveAttackOnTarget(&effect->Source, &target, condition,
-                                                        g_spell_records[effect->kind].realm,
-                                                        effect->definition.power_level, argument,
-                                                        remaining, verbose, verbose, 0)) {
-                if (!verbose) {
-                    ++affected;
-                }
-            }
-        } else {
-            if (ResolveAttackOnTarget(
-                    &effect->Source, &target, condition, g_spell_records[effect->kind].realm,
-                    effect->definition.power_level, argument, duration, verbose, verbose, 0)) {
-                continue;
-            }
-            if (effect->kind == W8_SPELL_TERROR) {
-                ResolveAttackOnTarget(&effect->Source, &target, W8_CONDITION_UNCONSCIOUS,
-                                      g_spell_records[W8_SPELL_TERROR].realm,
-                                      static_cast<unsigned int>(effect->definition.power_level) >>
-                                          1,
-                                      argument, duration >> 1, false, verbose, 0);
-            }
-            if (!verbose) {
-                ++affected;
-            }
+        if (ApplyConditionAttackToTarget(effect, &target, condition, argument, duration,
+                                         verbose, nullptr)) {
+            ++affected;
         }
     }
     for (index = 0; index < static_cast<int>(effect->monster_ids.size()); ++index) {
@@ -1925,34 +1930,9 @@ void InflictConditionAttack(W8SpellEffectEntry* effect, W8Condition condition, i
         monster_info = GetEffectMonsterTarget(effect->monster_ids[index], 0x43d, 0x43e);
         target.iType = W8_TARGET_KIND_MONSTER;
         target.iMonsterID = monster_info->location_id;
-        if (effect->kind == W8_SPELL_SLOW &&
-            monster_info->enchantments[W8_ENCHANTMENT_HASTE].turns != 0) {
-            remaining = static_cast<int>(duration) -
-                        static_cast<int>(monster_info->enchantments[W8_ENCHANTMENT_HASTE].turns);
-            TickMonsterEnchantmentSlot(monster_info->location_id, W8_ENCHANTMENT_HASTE, duration);
-            if (remaining > 0 && !ResolveAttackOnTarget(&effect->Source, &target, condition,
-                                                        g_spell_records[effect->kind].realm,
-                                                        effect->definition.power_level, argument,
-                                                        remaining, verbose, verbose, 0)) {
-                if (!verbose) {
-                    ++affected;
-                }
-            }
-        } else {
-            if (ResolveAttackOnTarget(
-                    &effect->Source, &target, condition, g_spell_records[effect->kind].realm,
-                    effect->definition.power_level, argument, duration, verbose, verbose, 0)) {
-                continue;
-            }
-            if (effect->kind == W8_SPELL_TERROR || effect->kind == W8_SPELL_SONIC_BOOM) {
-                ResolveAttackOnTarget(
-                    &effect->Source, &target, condition, g_spell_records[effect->kind].realm,
-                    static_cast<unsigned int>(effect->definition.power_level) >> 1, argument,
-                    duration >> 1, false, verbose, 0);
-            }
-            if (!verbose) {
-                ++affected;
-            }
+        if (ApplyConditionAttackToTarget(effect, &target, condition, argument, duration,
+                                         verbose, monster_info)) {
+            ++affected;
         }
     }
     if (verbose || affected == 0) {
@@ -2042,48 +2022,33 @@ void AttackThenInflictCondition(W8SpellEffectEntry* effect, W8Condition attack_c
                                 W8Condition condition, int chance, int attack_argument,
                                 int condition_argument)
 {
-    W8MonsterInfo* monster_info;
     W8CombatSlot target;
-    unsigned int duration;
-    int source_character;
-    int character_index;
-    int index;
+    const int source_character = TargetSourceIsCharacter(&effect->Source, 0)
+                                     ? effect->Source.iChar : -1;
+    const std::size_t character_count = effect->target_indices.size();
+    const std::size_t total = character_count + effect->monster_ids.size();
 
-    if (!TargetSourceIsCharacter(&effect->Source, 0)) {
-        source_character = -1;
-    } else {
-        source_character = effect->Source.iChar;
-    }
-    for (index = 0; index < static_cast<int>(effect->target_indices.size()); ++index) {
-        if (Random(100) >= static_cast<unsigned int>(chance)) {
+    for (std::size_t index = 0; index < total; ++index) {
+        if (Random(100) >= static_cast<unsigned int>(chance))
             continue;
+
+        const unsigned int duration = RollEffectDuration(&effect->definition);
+        if (index < character_count) {
+            const int character_index = effect->target_indices[index];
+            if (character_index == -1)
+                srAssertFail("iChar != -1", MAGIC_EFFECTS_CPP, 0x4bf, 0);
+            target.iType = W8_TARGET_KIND_CHARACTER;
+            target.iChar = character_index;
+        } else {
+            W8MonsterInfo* monster = GetEffectMonsterTarget(
+                effect->monster_ids[index - character_count], 0x4d8, 0x4d9);
+            target.iType = W8_TARGET_KIND_MONSTER;
+            target.iMonsterID = monster->location_id;
         }
-        duration = RollEffectDuration(&effect->definition);
-        character_index = effect->target_indices[index];
-        if (character_index == -1) {
-            srAssertFail("iChar != -1", MAGIC_EFFECTS_CPP, 0x4bf, 0);
-        }
-        target.iType = W8_TARGET_KIND_CHARACTER;
-        target.iChar = character_index;
-        if (ResolveAttackOnTarget(
-                &effect->Source, &target, attack_condition, g_spell_records[effect->kind].realm,
-                effect->definition.power_level, attack_argument, duration, false, true, 0)) {
-            InflictConditionOnTarget(&target, condition, g_spell_records[effect->kind].realm,
-                                     effect->definition.power_level, condition_argument, duration,
-                                     source_character, 0, true);
-        }
-    }
-    for (index = 0; index < static_cast<int>(effect->monster_ids.size()); ++index) {
-        if (Random(100) >= static_cast<unsigned int>(chance)) {
-            continue;
-        }
-        duration = RollEffectDuration(&effect->definition);
-        monster_info = GetEffectMonsterTarget(effect->monster_ids[index], 0x4d8, 0x4d9);
-        target.iType = W8_TARGET_KIND_MONSTER;
-        target.iMonsterID = monster_info->location_id;
-        if (ResolveAttackOnTarget(
-                &effect->Source, &target, attack_condition, g_spell_records[effect->kind].realm,
-                effect->definition.power_level, attack_argument, duration, false, true, 0)) {
+        if (ResolveAttackOnTarget(&effect->Source, &target, attack_condition,
+                                  g_spell_records[effect->kind].realm,
+                                  effect->definition.power_level, attack_argument,
+                                  duration, false, true, 0)) {
             InflictConditionOnTarget(&target, condition, g_spell_records[effect->kind].realm,
                                      effect->definition.power_level, condition_argument, duration,
                                      source_character, 0, true);

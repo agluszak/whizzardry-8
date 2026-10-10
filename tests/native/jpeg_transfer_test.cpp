@@ -1,4 +1,5 @@
 #include <catch2/catch_test_macros.hpp>
+#include "surrender_test_fixture.h"
 #include "surrender/srIO.h"
 /* Actual SDL_image decoding and byte-exact transfer. gray.jpg/cmyk.jpg are
    synthetic 3x2, quality-100 JPEGs with samples 20 + 9*i. */
@@ -400,16 +401,28 @@ static void streamTests()
         REQUIRE(rejected);
     }
 }
-TEST_CASE("jpeg_transfer_test")
+TEST_CASE_METHOD(SurRenderTestFixture, "JPEG decoding and transfer", "[image][transfer]")
 {
-    REQUIRE(srInit());
     jpegTests();
-    jpegValidationTests();
-    pitchTests();
-    tgaTests();
-    streamTests();
-    srExit();
-    puts("SDL_image JPEG/TGA formats, transfer, origins/RLE/palettes, pitch and checked streams passed");
-
-
 }
+
+TEST_CASE_METHOD(SurRenderTestFixture, "JPEG validation", "[image][transfer]")
+{
+    jpegValidationTests();
+}
+
+TEST_CASE_METHOD(SurRenderTestFixture, "Pixel transfer pitch", "[image][transfer]")
+{
+    pitchTests();
+}
+
+TEST_CASE_METHOD(SurRenderTestFixture, "TGA orientation and RLE", "[image][transfer]")
+{
+    tgaTests();
+}
+
+TEST_CASE_METHOD(SurRenderTestFixture, "Image stream boundaries", "[image][transfer]")
+{
+    streamTests();
+}
+

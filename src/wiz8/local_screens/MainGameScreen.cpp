@@ -4467,7 +4467,6 @@ static int MeasurePortraitConditions(const W8Character* character, unsigned int&
                 fmt::format("{}", g_localized_strings[g_condition_notices[condition].name]);
             int width = StringPixLength(g_level_block->text_paint_scratch, g_wiz_text_font);
             if (max_width < static_cast<unsigned int>(width)) {
-                width = StringPixLength(g_level_block->text_paint_scratch, g_wiz_text_font);
                 max_width = width;
             }
         }
@@ -4492,7 +4491,6 @@ static int MeasurePortraitEnchantments(const W8Character* character, unsigned in
                             character->enchantments[slot].power);
             int width = StringPixLength(g_level_block->text_paint_scratch, g_wiz_text_font);
             if (max_width < static_cast<unsigned int>(width)) {
-                width = StringPixLength(g_level_block->text_paint_scratch, g_wiz_text_font);
                 max_width = width;
             }
         }
@@ -4670,48 +4668,39 @@ void FallbackFromUnreachableAction(int party_slot)
         }
         break;
     case W8_ACTION_CAST_SPELL:
-        if (CharacterHasCastableSpell(&g_status.buffers.Char[party_slot]) &&
-            ActionNeedsExplicitTarget(party_slot)) {
-            if (!g_combat_state->round_active) {
-                if (gXStatus.fPartyMovementMode &&
-                    (SelectPartyCharacter(party_slot), party_slot == g_status.selected_character)) {
-                    int spell_id = row->action_detail0;
-                    W8TargetNeed needed_kind = GetTargetNeededForSpellFriendly(
-                        spell_id, false, W8_TARGETING_CONTEXT_CURRENT);
-                    ConfigureSpellTargetFilter(GetSpellTargetType(spell_id, false), needed_kind);
-                    return;
-                }
-            } else {
-                SelectPartyCharacter(party_slot);
-                if (party_slot == g_status.selected_character) {
+    case W8_ACTION_USE_ITEM: {
+        const bool casting = row->action == W8_ACTION_CAST_SPELL;
+        if (!(casting
+                  ? CharacterHasCastableSpell(&g_status.buffers.Char[party_slot]) &&
+                        ActionNeedsExplicitTarget(party_slot)
+                  : ItemUseNeedsTarget(party_slot))) {
+            break;
+        }
+        if (!g_combat_state->round_active) {
+            if (gXStatus.fPartyMovementMode &&
+                (SelectPartyCharacter(party_slot), party_slot == g_status.selected_character)) {
+                const int spell_id = casting ? row->action_detail0
+                                             : GetItemSpell(row->action_detail1.item_use.item);
+                const W8TargetNeed needed_kind =
+                    GetTargetNeededForSpellFriendly(spell_id, false, W8_TARGETING_CONTEXT_CURRENT);
+                ConfigureSpellTargetFilter(GetSpellTargetType(spell_id, false), needed_kind);
+                return;
+            }
+        } else {
+            SelectPartyCharacter(party_slot);
+            if (party_slot == g_status.selected_character) {
+                if (casting) {
                     OpenSpellCastingView(party_slot);
                     SelectSpellPowerLevel(row->action_detail1.spell.power_level - 1);
-                    return;
-                }
-            }
-        }
-        break;
-    case W8_ACTION_USE_ITEM:
-        if (ItemUseNeedsTarget(party_slot)) {
-            if (!g_combat_state->round_active) {
-                if (gXStatus.fPartyMovementMode &&
-                    (SelectPartyCharacter(party_slot), party_slot == g_status.selected_character)) {
-                    int spell_id = GetItemSpell(row->action_detail1.item_use.item);
-                    W8TargetNeed needed_kind = GetTargetNeededForSpellFriendly(
-                        spell_id, false, W8_TARGETING_CONTEXT_CURRENT);
-                    ConfigureSpellTargetFilter(GetSpellTargetType(spell_id, false), needed_kind);
-                    return;
-                }
-            } else {
-                SelectPartyCharacter(party_slot);
-                if (party_slot == g_status.selected_character) {
+                } else {
                     OpenUseItemSelectView(party_slot);
                     SelectCurrentUseItemLine();
-                    return;
                 }
+                return;
             }
         }
         break;
+    }
     case W8_ACTION_PROTECT:
         if (CanCharacterAttack(party_slot) &&
             (g_combat_state->round_active || gXStatus.fPartyMovementMode)) {
@@ -5939,6 +5928,17 @@ unsigned char RadarMapButtonRegionEvent(const InputAtom* event, W8Region* region
     return 1;
 }
 
+/* Restore the cursor and clear the mouse-look state on both exit paths. */
+static void StopWorldMouseLook()
+{
+    WarpSystemCursor(g_mouselook_cursor_pos.x, g_mouselook_cursor_pos.y);
+    EnableCursorScene();
+    g_mouselook_active = false;
+    g_mouselook_left_held = false;
+    gfTrackMousePos = 0;
+    g_mouselook_manual = false;
+}
+
 /* Region 23: the 3D world view. Mouse-move refreshes the combat hover, the
    world-item hover and the portrait strip; left-up runs the targeting, item
    and monster dispatch; right-down opens monster info or the assay dialog or
@@ -5962,12 +5962,7 @@ unsigned char WorldViewRegionEvent(const InputAtom* event, W8Region* region)
     if (us_event > RIGHT_BUTTON_DOWN) {
         if (us_event == RIGHT_BUTTON_UP) {
             if (g_mouselook_active && g_settings.mouselook_toggle == 0) {
-                WarpSystemCursor(g_mouselook_cursor_pos.x, g_mouselook_cursor_pos.y);
-                EnableCursorScene();
-                g_mouselook_active = false;
-                g_mouselook_left_held = false;
-                gfTrackMousePos = 0;
-                g_mouselook_manual = false;
+                StopWorldMouseLook();
                 return 1;
             }
             if (!IsMipeActive()) {
@@ -6046,12 +6041,7 @@ unsigned char WorldViewRegionEvent(const InputAtom* event, W8Region* region)
         if (!IsWorldCursorVisible() && !gXStatus.fNpcDialogueMode) {
             if (g_settings.mouselook_toggle != 0) {
                 if (g_mouselook_active) {
-                    WarpSystemCursor(g_mouselook_cursor_pos.x, g_mouselook_cursor_pos.y);
-                    EnableCursorScene();
-                    g_mouselook_active = false;
-                    g_mouselook_left_held = false;
-                    gfTrackMousePos = 0;
-                    g_mouselook_manual = false;
+                    StopWorldMouseLook();
                     return 1;
                 }
             } else if (g_mouselook_active) {

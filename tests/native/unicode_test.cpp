@@ -144,11 +144,17 @@ static void record_contracts()
     REQUIRE(std::equal(npc_bytes.begin() + 0xe4, npc_bytes.begin() + 0x128, npc_edited.begin() + 0xe4));
 }
 
-TEST_CASE("unicode_test")
+TEST_CASE("UTF-8 and host Unicode conversion", "[unicode]")
 {
-
     conversion_contracts();
+}
+
+TEST_CASE("Unicode retail records", "[unicode][serialization]")
+{
     record_contracts();
+}
+
+TEST_CASE("Unicode missile records", "[unicode][serialization]")
+{
     missile_record_contracts();
-    std::puts("ok");
 }

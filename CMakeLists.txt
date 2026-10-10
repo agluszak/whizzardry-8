@@ -90,6 +90,7 @@ if(BUILD_TESTING)
         GIT_TAG 8b08d4d79514f45f7e4ce2a607ac9c94e920d1bb # v3.15.3
         GIT_SHALLOW FALSE)
     FetchContent_MakeAvailable(Catch2)
+    include("${catch2_SOURCE_DIR}/extras/Catch.cmake")
     add_subdirectory(tests/portable)
 endif()
 find_package(ZLIB REQUIRED)
@@ -130,13 +131,14 @@ target_include_directories(wiz8_native_settings INTERFACE
 )
 target_link_libraries(wiz8_native_settings INTERFACE glm::glm-header-only Threads::Threads ${CMAKE_DL_LIBS})
 
-# Remaining narrow CRT spelling helpers; Unicode lives at format boundaries.
+# Shared platform helpers and the SDL CPU surface backend used by SGP and SurRender.
 add_library(wiz8_compat STATIC
     src/compat/native_helpers.cpp
+    src/sgp/native/surfaces.cpp
 )
 target_compile_options(wiz8_compat PRIVATE ${WIZ8_COMPAT_OPTIONS})
 target_include_directories(wiz8_compat PRIVATE "${PROJECT_SOURCE_DIR}/include/wiz8" "${PROJECT_SOURCE_DIR}/include")
-target_link_libraries(wiz8_compat PUBLIC wiz8_filesystem)
+target_link_libraries(wiz8_compat PUBLIC wiz8_filesystem SDL3::SDL3)
 if(UNIX AND NOT APPLE)
     target_link_options(wiz8_compat PRIVATE -Wl,--no-undefined)
 endif()

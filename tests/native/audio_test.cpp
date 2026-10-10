@@ -100,64 +100,91 @@ static bool near(double value, double expected, double tolerance = 0.02)
     return std::abs(value - expected) <= tolerance * std::max(1.0, std::abs(expected));
 }
 
-static void exercise_audio(bool output_device)
-{
-    const auto temporary = make_temporary_directory("wiz8-audio");
-    auto asset = std::filesystem::path(temporary) / "assets",
-         user = std::filesystem::path(temporary) / "user";
-    std::filesystem::create_directories(asset);
-    std::filesystem::create_directories(user);
-    w8_native::configure_paths({asset.string(), user.string(), {}});
-    std::filesystem::copy_file(WIZ8_AUDIO_TEST_MP3, asset / "fallback.mp3");
-    auto wave = wav();
-    write(asset / "tone.wav", wave);
-    write(asset / "stereo.wav", wav(true));
-    write(asset / "bad.wav", {'n', 'o', 't', 'a', 'w', 'a', 'v'});
-    std::filesystem::create_directories(asset / "Data");
-    wiz8::SlfHeader header{};
-    strcpy(header.sLibName, "Data.slf");
-    strcpy(header.sPathToLibrary, "Data\\");
-    header.iEntries = header.iUsed = 2;
-    header.iVersion = 0x200;
-    wiz8::SlfEntry entries[2]{};
-    strcpy(entries[0].sFileName, "Packed.wav");
-    entries[0].uiOffset = sizeof(header);
-    entries[0].uiLength = wave.size();
-    strcpy(entries[1].sFileName, "Truncated.wav");
-    entries[1].uiOffset = sizeof(header);
-    entries[1].uiLength = 16;
-    std::vector<unsigned char> archive(reinterpret_cast<unsigned char*>(&header),
-                                       reinterpret_cast<unsigned char*>(&header) + sizeof(header));
-    archive.insert(archive.end(), wave.begin(), wave.end());
-    archive.insert(archive.end(), reinterpret_cast<unsigned char*>(entries),
-                   reinterpret_cast<unsigned char*>(entries) + sizeof(entries));
-    write(asset / "Data" / "DATA.SLF", archive);
 
-    wiz8::mount_slf("Data\\Data.slf");
+struct AudioFixture
+{
+    ScopedTemporaryDirectory directory{"wiz8-audio"};
+    std::filesystem::path temporary = directory.path;
+    std::filesystem::path asset = temporary / "assets";
+    std::filesystem::path user = temporary / "user";
+    std::vector<unsigned char> wave = wav();
+
+    AudioFixture()
     {
-        char packed[] = "data\\PACKED.WAV";
-        auto entry = [&]() { try { return wiz8::open_file(packed, wiz8::OpenMode::read); } catch (const std::exception&) { return std::unique_ptr<wiz8::File>{}; } }();
-        REQUIRE(entry);
-        auto first = wiz8::open_file(packed), second = wiz8::open_file(packed);
-        entry.reset();
-        REQUIRE((first && second && first->tell() == 0 && second->tell() == 0));
-        auto loose = wiz8::open_file("C:\\TONE.wav");
-        unsigned char bytes[64]{};
-        REQUIRE(first->read(bytes, sizeof(bytes)).bytes == sizeof(bytes));
-        REQUIRE(std::memcmp(bytes, wave.data(), sizeof(bytes)) == 0);
-        REQUIRE((second->tell() == 0 && loose->tell() == 0));
-        REQUIRE(second->read(bytes, 32).bytes == 32);
-        REQUIRE(std::memcmp(bytes, wave.data(), 32) == 0);
-        first.reset();
-        REQUIRE(second->seek(wave.size() - 32, wiz8::SeekOrigin::begin) ==
-              int64_t(wave.size() - 32));
-        REQUIRE(second->read(bytes, 32).bytes == 32);
-        REQUIRE(std::memcmp(bytes, wave.data() + wave.size() - 32, 32) == 0);
-        REQUIRE(loose->read(bytes, sizeof(bytes)).bytes == sizeof(bytes));
-        REQUIRE(std::memcmp(bytes, wave.data(), sizeof(bytes)) == 0);
+        callbacks = 0;
+        std::filesystem::create_directories(asset);
+        std::filesystem::create_directories(user);
+        w8_native::configure_paths({asset.string(), user.string(), {}});
+        std::filesystem::copy_file(WIZ8_AUDIO_TEST_MP3, asset / "fallback.mp3");
+        write(asset / "tone.wav", wave);
+        write(asset / "stereo.wav", wav(true));
+        write(asset / "bad.wav", {'n', 'o', 't', 'a', 'w', 'a', 'v'});
+        std::filesystem::create_directories(asset / "Data");
+        wiz8::SlfHeader header{};
+        strcpy(header.sLibName, "Data.slf");
+        strcpy(header.sPathToLibrary, "Data\\");
+        header.iEntries = header.iUsed = 2;
+        header.iVersion = 0x200;
+        wiz8::SlfEntry entries[2]{};
+        strcpy(entries[0].sFileName, "Packed.wav");
+        entries[0].uiOffset = sizeof(header);
+        entries[0].uiLength = wave.size();
+        strcpy(entries[1].sFileName, "Truncated.wav");
+        entries[1].uiOffset = sizeof(header);
+        entries[1].uiLength = 16;
+        std::vector<unsigned char> archive(reinterpret_cast<unsigned char*>(&header),
+                                           reinterpret_cast<unsigned char*>(&header) + sizeof(header));
+        archive.insert(archive.end(), wave.begin(), wave.end());
+        archive.insert(archive.end(), reinterpret_cast<unsigned char*>(entries),
+                       reinterpret_cast<unsigned char*>(entries) + sizeof(entries));
+        write(asset / "Data" / "DATA.SLF", archive);
+
+        wiz8::mount_slf("Data\\Data.slf");
     }
-    w8_native::audio_offline_for_test(true);
-    REQUIRE(InitializeSoundManager());
+
+    void checkArchiveStreams()
+    {
+        {
+            char packed[] = "data\\PACKED.WAV";
+            auto entry = [&]() { try { return wiz8::open_file(packed, wiz8::OpenMode::read); } catch (const std::exception&) { return std::unique_ptr<wiz8::File>{}; } }();
+            REQUIRE(entry);
+            auto first = wiz8::open_file(packed), second = wiz8::open_file(packed);
+            entry.reset();
+            REQUIRE((first && second && first->tell() == 0 && second->tell() == 0));
+            auto loose = wiz8::open_file("C:\\TONE.wav");
+            unsigned char bytes[64]{};
+            REQUIRE(first->read(bytes, sizeof(bytes)).bytes == sizeof(bytes));
+            REQUIRE(std::memcmp(bytes, wave.data(), sizeof(bytes)) == 0);
+            REQUIRE((second->tell() == 0 && loose->tell() == 0));
+            REQUIRE(second->read(bytes, 32).bytes == 32);
+            REQUIRE(std::memcmp(bytes, wave.data(), 32) == 0);
+            first.reset();
+            REQUIRE(second->seek(wave.size() - 32, wiz8::SeekOrigin::begin) ==
+                  int64_t(wave.size() - 32));
+            REQUIRE(second->read(bytes, 32).bytes == 32);
+            REQUIRE(std::memcmp(bytes, wave.data() + wave.size() - 32, 32) == 0);
+            REQUIRE(loose->read(bytes, sizeof(bytes)).bytes == sizeof(bytes));
+            REQUIRE(std::memcmp(bytes, wave.data(), sizeof(bytes)) == 0);
+        }
+    }
+
+    void startOfflineAudio()
+    {
+        w8_native::audio_offline_for_test(true);
+        REQUIRE(InitializeSoundManager());
+    }
+
+    ~AudioFixture()
+    {
+        ShutdownSoundManager();
+        wiz8::clear_asset_archives();
+    }
+};
+
+TEST_CASE_METHOD(AudioFixture, "Audio archives, tracks and combat sounds", "[audio][streams]")
+{
+    checkArchiveStreams();
+    startOfflineAudio();
     // Variant selection accepts a bounded, read-only name and does not append
     // into its backing storage or consume the characters beyond the view.
     const auto combat = asset / "Data" / "Sound" / "Combat";
@@ -211,6 +238,12 @@ static void exercise_audio(bool output_device)
         REQUIRE(MIX_TrackPlaying(looping.get()));
         REQUIRE(energy(samples, 0) + energy(samples, 1) > 10);
     }
+
+}
+
+TEST_CASE_METHOD(AudioFixture, "Audio playback, spatialization and movie lifetime", "[audio][mixer]")
+{
+    startOfflineAudio();
     SOUNDPARMS options;
     memset(&options, 0xff, sizeof(options));
     unsigned callback_data = 0;
@@ -339,6 +372,7 @@ static void exercise_audio(bool output_device)
         REQUIRE(sound != SOUND_ERROR);
         samples = mix(2048);
         const auto left = energy(samples, 0), right = energy(samples, 1);
+        CAPTURE(x, left, right);
         REQUIRE(near(left, baseline * (x > 0 ? 0.04 : 1)));
         REQUIRE(near(right, baseline * (x < 0 ? 0.04 : 1)));
         REQUIRE(SoundStop(sound));
@@ -537,8 +571,15 @@ static void exercise_audio(bool output_device)
     ShutdownSoundManager();
     REQUIRE(InitializeSoundManager());
     ShutdownSoundManager();
-    if (output_device)
-    {
+
+}
+
+TEST_CASE_METHOD(AudioFixture, "Audio output device", "[.manual][audio]")
+{
+
+    char path[] = "TONE.WAV";
+    SOUNDPARMS options;
+    UINT32 sound;
         w8_native::audio_offline_for_test(false);
         REQUIRE(InitializeSoundManager());
         REQUIRE(w8_native::audio_mixer());
@@ -550,21 +591,6 @@ static void exercise_audio(bool output_device)
         SoundServiceStreams();
         REQUIRE(!SoundIsPlaying(sound));
         ShutdownSoundManager();
-        puts("ok: native output device opened and completed playback");
-    }
-    wiz8::clear_asset_archives();
 
-    std::filesystem::remove_all(temporary);
-    puts("ok: native audio samples, streams, loops, pans, fades, callbacks, spatialization and "
-         "lifetime");
-}
-
-TEST_CASE("audio")
-{
-    exercise_audio(false);
-}
-
-TEST_CASE("audio-device", "[.manual]")
-{
-    exercise_audio(true);
+    puts("ok: native output device opened and completed playback");
 }

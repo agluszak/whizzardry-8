@@ -12,7 +12,9 @@
 #include "surrender/srVertexPipe.h"
 #include "wiz8/engine_code/materials.h"
 #include "wiz8/engine_code/3d.h"
-#include "wiz8/engine_code/BitArray.h"
+#include "wiz8/packed_bits.h"
+
+#include <algorithm>
 #include "wiz8/engine_code/GameData.h"
 #include "wiz8/engine_code/GDCamera.h"
 #include "wiz8/engine_code/GDFileIO.h"
@@ -189,7 +191,8 @@ W8OctPreTreeVertex* g_gd_vertices;
 // GLOBAL: WIZ8 0x0065BD38
 W8OctRegionPolygon* g_gd_polygons;
 // GLOBAL: WIZ8 0x0065BD3C
-static BitArray* g_prop_sun_bits;
+/* Material slots whose texture file is missing. */
+static std::vector<bool> g_missing_textures;
 // GLOBAL: WIZ8 0x0065BD44
 static short g_status_cursor;
 // GLOBAL: WIZ8 0x0065BD48
@@ -320,7 +323,6 @@ static unsigned char PreprocessLevel(wiz8::File* handle, char* stem)
     OctBuildPreTree* build_tree;
     OctPreTree* tree;
     OctMeshModel* submeshes;
-    BitArray* sun_bits;
     unsigned char result;
     bool report;
     int redundant;
@@ -657,7 +659,7 @@ static unsigned char PreprocessLevel(wiz8::File* handle, char* stem)
                                     lit_vertices * 100 / static_cast<int>(geometry.vertex_count));
                             ReportBuildStatus(6, message);
                         }
-                        sun_bits = new BitArray(level->nBitmaps + level->nProps);
+                        std::vector<bool> sun_bits(level->nBitmaps + level->nProps);
                         if (level->nProps != 0 && last_sun >= 0) {
                             int* read_entry = sun_map;
                             int* write_entry = sun_map;
@@ -673,22 +675,22 @@ static unsigned char PreprocessLevel(wiz8::File* handle, char* stem)
                                 for (i = 0; i < level->nProps; ++i) {
                                     if (PropReceivesLight(tree, level->pProps + i,
                                                           lights + *sun_entry) != 0) {
-                                        sun_bits->Set(i);
+                                        SetBit(sun_bits, i);
                                     }
                                 }
                                 for (i = 0; i < level->nBitmaps; ++i) {
                                     if (PropReceivesLight(tree, level->pBitmaps + i,
                                                           lights + *sun_entry) != 0) {
-                                        sun_bits->Set(level->nProps + i);
+                                        SetBit(sun_bits, level->nProps + i);
                                     }
                                 }
                             }
                             snprintf(message, sizeof(message), "%d of %d props receive sunlight\n",
-                                    sun_bits->CountSetBits(),
+                                    static_cast<int>(std::ranges::count(sun_bits, true)),
                                     static_cast<char>((level->nProps << 1)));
                             ReportBuildStatus(6, message);
                         }
-                        tree->SetPropSunBits(sun_bits);
+                        tree->SetPropSunBits(std::move(sun_bits));
                     }
                     ReportBuildStatus(6, "\nSorting Materials and Textures...\n");
                     result = MaterialSort(&geometry, level->pTextures, level->nTextures, classify);
@@ -811,8 +813,7 @@ static unsigned char PreprocessLevel(wiz8::File* handle, char* stem)
                     }
                     delete tree;
                     delete value;
-                    delete g_prop_sun_bits;
-                    g_prop_sun_bits = 0;
+                    g_missing_textures.clear();
                     if (sun_pool != 0) {
                         free(sun_pool);
                     }
@@ -1574,7 +1575,7 @@ static unsigned char* ClassifyTextures(W8MaterialRecord* textures, int count, ch
         ReportBuildStatus(7, "Couldn't find bitmaps directory--cannot check texture types.\n\n");
         kinds = 0;
     } else {
-        g_prop_sun_bits = new BitArray(count);
+        g_missing_textures.assign(count, false);
         for (index = 0; index < count; ++index) {
             W8MaterialRecord* record = textures + index;
             bool opaque = 1.0f <= record->opacity;
@@ -1614,7 +1615,7 @@ static unsigned char* ClassifyTextures(W8MaterialRecord* textures, int count, ch
                 path = fmt::format("{}{}", folder, texture);
                 file = [&]() { try { return wiz8::open_file(path, wiz8::OpenMode::read); } catch (const std::exception&) { return std::unique_ptr<wiz8::File>{}; } }();
                 if (file == 0) {
-                    g_prop_sun_bits->Set(index);
+                    SetBit(g_missing_textures, index);
                     ++missing;
                     snprintf(message, sizeof(message), "Could not find texture file %s.\n", path.c_str());
                     ReportBuildStatus(5, message);
@@ -1627,7 +1628,7 @@ static unsigned char* ClassifyTextures(W8MaterialRecord* textures, int count, ch
                         file = [&]() { try { return wiz8::open_file(path, wiz8::OpenMode::read); } catch (const std::exception&) { return std::unique_ptr<wiz8::File>{}; } }();
                     }
                     if (file == 0) {
-                        g_prop_sun_bits->Set(index);
+                        SetBit(g_missing_textures, index);
                         ++missing;
                         snprintf(message, sizeof(message), "Could not find texture file %s.\n", path.c_str());
                         ReportBuildStatus(5, message);
@@ -1777,7 +1778,7 @@ static unsigned char MaterialSort(W8OctPreTreeGeometry* geometry, W8MaterialReco
     if (1 < static_cast<int>(geometry->m_polygon_count)) {
         polygon = geometry->m_polygons + 1;
         for (index = 1; index < static_cast<int>(geometry->m_polygon_count); ++index, ++polygon) {
-            if (g_prop_sun_bits->Test(index)) {
+            if (TestBit(g_missing_textures, index)) {
                 ++missing;
             }
             polygon->texture = polygon->material;

@@ -418,29 +418,29 @@ W8SpellEffectEntry* FindMonsterControlSpellEffect(void)
 /* Count every queued effect down by one turn. The monster-control effect
    running out is the one with a consequence: every monster that is still alive
    goes back to controlling itself. */
+/* An expired or replaced hypnotic lure releases every living monster. */
+static void ReleaseHypnoticLureControl()
+{
+    for (unsigned int index = 0; index < gXStatus.monsters.size(); ++index) {
+        W8MonsterInfo* monster = MonsterGetScriptPartByLocationIndex(index);
+        if (monster && !monster->p3D->IsDying())
+            SetMonsterControlState(monster, W8_MONSTER_CONTROL_NONE);
+    }
+}
+
 // FUNCTION: WIZ8 0x00500e90
 void TickSpellEffects(void)
 {
     int count = static_cast<int>(g_spell_effects.size());
     int index;
-    unsigned int monster_index;
     W8SpellEffectEntry* effect;
-    W8MonsterInfo* monster_info;
 
     for (index = 0; index < count; ++index) {
         effect = g_spell_effects[index];
         if (effect->turns_remaining != 0) {
             --effect->turns_remaining;
             if (effect->turns_remaining == 0 && effect->kind == W8_SPELL_HYPNOTIC_LURE) {
-                for (monster_index = 0;
-                     monster_index <
-                     gXStatus.monsters.size();
-                     ++monster_index) {
-                    monster_info = MonsterGetScriptPartByLocationIndex(monster_index);
-                    if (monster_info != 0 && !monster_info->p3D->IsDying()) {
-                        SetMonsterControlState(monster_info, W8_MONSTER_CONTROL_NONE);
-                    }
-                }
+                ReleaseHypnoticLureControl();
             }
         }
     }
@@ -1339,6 +1339,21 @@ bool CanPartySlotUseRecordedItem(int party_slot)
     return true;
 }
 
+/* Monster casting uses the same runtime-plus-database spell budget
+   for power selection and the final failure roll. */
+static unsigned int MonsterSpellPointBudget(W8MonsterInfo* monster_info,
+                                            const W8MonsterRecord* record)
+{
+    unsigned int budget = monster_info->spell_points + record->sp_budget;
+    if (record->sp_budget == 0) {
+        DebugMessage(0, fmt::format("DATA ERROR: Monster {} casting spells with SP Budget of 0",
+                                    GetMonsterName(monster_info, 0, 0)));
+    }
+    if (static_cast<int>(budget) < 0)
+        budget = 0;
+    return budget;
+}
+
 /* How hard a monster casts. It walks the power levels up from one until the
    cost of the next would leave it far enough short of its spell-point budget
    to matter - nine per cent of the cost - and then steps back to the last one
@@ -1365,14 +1380,7 @@ unsigned int ChooseMonsterSpellPowerLevel(W8MonsterInfo* monster_info, W8Monster
     for (;;) {
         W8MonsterRecord* record = GetMonsterDataForInfo(monster_info);
 
-        budget = monster_info->spell_points + record->sp_budget;
-        if (record->sp_budget == 0) {
-            DebugMessage(0, fmt::format("DATA ERROR: Monster {} casting spells with SP Budget of 0",
-                                        GetMonsterName(monster_info, 0, 0)));
-        }
-        if (static_cast<int>(budget) < 0) {
-            budget = 0;
-        }
+        budget = MonsterSpellPointBudget(monster_info, record);
 
         band =
             g_spell_records[spell_id].spell_point_cost / 2 + g_spell_records[spell_id].spell_level;
@@ -1987,14 +1995,7 @@ unsigned int MonsterCastsSpell(W8MonsterInfo* monster_info, int spell_id, unsign
     }
 
     record = GetMonsterDataForInfo(monster_info);
-    budget = monster_info->spell_points + record->sp_budget;
-    if (record->sp_budget == 0) {
-        DebugMessage(0, fmt::format("DATA ERROR: Monster {} casting spells with SP Budget of 0",
-                                    GetMonsterName(monster_info, 0, 0)));
-    }
-    if (static_cast<int>(budget) < 0) {
-        budget = 0;
-    }
+    budget = MonsterSpellPointBudget(monster_info, record);
     failure = GetSpellFailureChance(budget, spell_id, static_cast<int>(power_level));
 
     CastSpellFromSource(spell_id, &source, &monster_info->Target, power_level, 0, failure, false,
@@ -3135,15 +3136,7 @@ int CastSpellFromSource(int spell_id, W8TargetSource* source, W8CombatSlot* targ
                 if (previous->kind == 0x26) {
                     if (previous != 0) {
                         previous->turns_remaining = 0;
-                        for (monster_index = 0;
-                             monster_index <
-                             gXStatus.monsters.size();
-                             ++monster_index) {
-                            monster_info = MonsterGetScriptPartByLocationIndex(monster_index);
-                            if (monster_info != 0 && !monster_info->p3D->IsDying()) {
-                                SetMonsterControlState(monster_info, W8_MONSTER_CONTROL_NONE);
-                            }
-                        }
+                        ReleaseHypnoticLureControl();
                     }
                     break;
                 }
@@ -3937,23 +3930,12 @@ void PruneSpellTargetMarkers(int spell_id, std::vector<int>& monster_markers)
 void TrackItemSpellSource(W8Character* character, int spell_id)
 {
     bool has_spell[0x96] = {false};
-    W8ItemInstance* item;
-    int count;
 
-    for (count = 0; count < 0xc; ++count) {
-        item = &character->EquippedItem[count];
-        int item_id = item->iItemNo;
-        if (item_id != -1 && g_item_records[item_id].spell_id != W8_SPELL_NONE &&
-            CanCharacterActivateItem(character, item) &&
-            ((g_item_records[item_id].quantity_kind != W8_ITEM_QUANTITY_SHOTS &&
-              g_item_records[item_id].quantity_kind != W8_ITEM_QUANTITY_CHARGES) ||
-             item->uses_or_charges != 0)) {
-            has_spell[g_item_records[item_id].spell_id] = 1;
-        }
-    }
-    for (count = 0; count < 8; ++count) {
-        item = &character->backpack[count];
-        int item_id = item->iItemNo;
+    // Equipped slots precede backpack slots in the original spell-use scan.
+    for (int index = 0; index < 20; ++index) {
+        W8ItemInstance* item = index < 12 ? &character->EquippedItem[index]
+                                          : &character->backpack[index - 12];
+        const int item_id = item->iItemNo;
         if (item_id != -1 && g_item_records[item_id].spell_id != W8_SPELL_NONE &&
             CanCharacterActivateItem(character, item) &&
             ((g_item_records[item_id].quantity_kind != W8_ITEM_QUANTITY_SHOTS &&

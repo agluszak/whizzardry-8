@@ -87,6 +87,9 @@ Run these scenarios locally without a window:
 WIZ8_ASSET_ROOT=/path/to/Wizardry8 ctest --preset linux -L runtime --output-on-failure
 ```
 
+World-render validation also uses the checked-in character; character creation and
+party-screen startup remain covered by their dedicated runtime scenarios.
+
 The save/load and combat scenarios start with the checked-in character in
 `tests/runtime/fixtures`. CTest generates a shared saved game before the menu
 load test; each scenario uses its own temporary writable user directory.
@@ -105,7 +108,7 @@ display/Vulkan driver; `native_events` uses SDL's dummy driver.
 The `linux-asan` configure/build/test presets run the same suite with AddressSanitizer
 and leak detection. CI runs both presets with the encrypted licensed-asset workflow.
 The `resource-lifecycle` runtime scenario loads a retail level, renders linked meshes
-and animated textures, evicts and recreates resident textures, quick-loads twice,
+and animated textures, evicts and recreates resident textures, quick-loads once,
 and shuts down with resources resident. Asset-independent fixtures also load serialized
 linked meshes and test interrupted initialization and destruction after `srExit()`.
 
@@ -124,6 +127,19 @@ WIZ8_ASSET_ROOT=/path/to/Wizardry8 build/linux/native_world_graphics party.CHR \
 The world harness accepts additional `save`, `kill` and `angles` modes for
 its respective focused checks. The movie fixture can be regenerated with
 `tests/native/generate_movie.sh`.
+
+## Catch2 test cases
+
+Small, independent Catch2 test cases are registered individually with CTest.
+Use `ctest --preset linux -R 'native_save_records/'` or
+`ctest --preset linux -R 'native_owners/'` to select a subsystem;
+individual cases appear in `ctest --preset linux -N`.
+
+The save, audio and ownership tests have per-case fixtures instead of relying
+on setup from earlier test cases. Catch2 generators exercise multiple serialized
+record versions and edge values. Manual device diagnostics and intentional
+assertion-abort checks remain explicit; the asset-backed runtime scenarios
+retain their named CTest entries and save/load fixture dependencies.
 
 ## Source and format conventions
 

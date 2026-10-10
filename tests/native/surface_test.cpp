@@ -95,8 +95,8 @@ std::vector<BYTE> reference(CpuSurface& dest, const SDL_Rect& d, CpuSurface& sou
 
 void differential()
 {
-    const std::array<std::array<UINT32, 5>, 7> formats{{
-        {8, 0, 0, 0, 0}, {16, 0x7c00, 0x3e0, 0x1f, 0},
+    const std::array<std::array<UINT32, 5>, 8> formats{{
+        {8, 0, 0, 0, 0}, {24, 0xff0000, 0xff00, 0xff, 0}, {16, 0x7c00, 0x3e0, 0x1f, 0},
         {16, 0xf800, 0x7e0, 0x1f, 0}, {16, 0x1f, 0x3e0, 0x7c00, 0},
         {16, 0x3f, 0xfc0, 0xf000, 0},
         {32, 0xff0000, 0xff00, 0xff, 0xff000000}, {32, 0xff, 0xff00, 0xff0000, 0}
@@ -256,4 +256,19 @@ TEST_CASE("surface_test")
     differential();
     locksFillsAndKeys();
     videoSurfaceClipping();
+}
+
+TEST_CASE("CPU blit clipping preserves paired coordinates")
+{
+    SDL_Rect source{-2, 1, 8, 6};
+    SDL_Rect destination{1, -2, 8, 6};
+    REQUIRE(ClipCpuBlit(destination, source, {0, 0, 6, 4}, {0, 0, 5, 5}));
+    REQUIRE((source.x == 0 && source.y == 3 && source.w == 3 && source.h == 2));
+    REQUIRE((destination.x == 3 && destination.y == 0 && destination.w == 3 && destination.h == 2));
+
+    source = {5, 0, 2, 2};
+    destination = {0, 0, 2, 2};
+    REQUIRE_FALSE(ClipCpuBlit(destination, source, {0, 0, 6, 4}, {0, 0, 5, 5}));
+    source = {0, 0, 0, 2};
+    REQUIRE_FALSE(ClipCpuBlit(destination, source, {0, 0, 6, 4}, {0, 0, 5, 5}));
 }

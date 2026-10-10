@@ -949,17 +949,53 @@ void generic_button_images()
 }
 }
 
-TEST_CASE("owners")
+TEST_CASE("Screen stack ownership", "[owner]")
 {
     screen_stack();
+}
+
+TEST_CASE("Surface region ownership", "[owner]")
+{
     surface_regions();
+}
+
+TEST_CASE("Camp effect ownership", "[owner]")
+{
     camp_effects();
+}
+
+TEST_CASE("Button and mouse region ownership", "[owner]")
+{
     buttons_and_regions();
+}
+
+TEST_CASE("Callback reentrancy and region teardown", "[owner]")
+{
     region_registration_and_callback_lifetimes();
+}
+
+TEST_CASE("Sprite ownership", "[owner]")
+{
     image_and_sprite_ownership();
+}
+
+TEST_CASE("Font table ownership", "[owner]")
+{
     font_table_ownership();
+}
+
+TEST_CASE("Text input ownership", "[owner]")
+{
     text_input_ownership();
+}
+
+TEST_CASE("Formatting contracts", "[owner]")
+{
     formatted_strings();
+}
+
+TEST_CASE("Generic button image ownership", "[owner]")
+{
     generic_button_images();
 }
 

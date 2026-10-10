@@ -919,29 +919,18 @@ static double DistanceBetweenPositions(const srVector3T<float>* first,
 // FUNCTION: WIZ8 0x004e61e0
 W8MonsterInfo* FindNearestMonsterInfo(const srVector3T<float>* position, double maximum_distance)
 {
-    W8MonsterInfo* nearest = 0;
+    W8MonsterInfo* nearest = nullptr;
     double nearest_distance = 1.0e11;
-    unsigned int index;
 
-    for (index = 0; index < gXStatus.monsters.size(); ++index) {
-        W8MonsterInfo* monster_info = GetMonsterListEntry(index);
-        double distance = DistanceBetweenPositions(position, monster_info->p3D->GetPosition());
-
-        if (distance < nearest_distance &&
-            (maximum_distance == 0.0 || distance < maximum_distance)) {
-            nearest = monster_info;
-            nearest_distance = distance;
-        }
-    }
-
-    for (index = 0; index < gXStatus.unborn_monsters.size(); ++index) {
-        W8MonsterInfo* monster_info = GetUnbornMonsterEntry(index);
-        double distance = DistanceBetweenPositions(position, monster_info->p3D->GetPosition());
-
-        if (distance < nearest_distance &&
-            (maximum_distance == 0.0 || distance < maximum_distance)) {
-            nearest = monster_info;
-            nearest_distance = distance;
+    for (const auto* monsters : {&gXStatus.monsters, &gXStatus.unborn_monsters}) {
+        for (W8MonsterInfo* monster_info : *monsters) {
+            const double distance =
+                DistanceBetweenPositions(position, monster_info->p3D->GetPosition());
+            if (distance < nearest_distance &&
+                (maximum_distance == 0.0 || distance < maximum_distance)) {
+                nearest = monster_info;
+                nearest_distance = distance;
+            }
         }
     }
     return nearest;
@@ -1635,6 +1624,15 @@ std::string FormatMonsterHealth(W8MonsterInfo* monster_info)
     return fmt::format("{}/{}", current, maximum);
 }
 
+/* Blind, incapacitated and unoccupied party members cannot sense monsters. */
+static bool CanNoticeMonsterGroup(unsigned int slot)
+{
+    const W8Character& character = g_status.buffers.Char[slot];
+    return g_status.buffers.XChar[slot].fOccupied && character.hp_current != 0 &&
+           character.highest_condition < W8_CONDITION_INSANE &&
+           character.uiCondition[W8_CONDITION_BLIND] == 0;
+}
+
 // FUNCTION: WIZ8 0x004e4ab0
 void DetectMonsterGroups(void)
 {
@@ -1652,12 +1650,9 @@ void DetectMonsterGroups(void)
             int best_slot = -1;
             unsigned int best_margin = 0;
             for (unsigned int slot = 0; slot < 8; ++slot) {
-                W8Character* character = &g_status.buffers.Char[slot];
-                if (!g_status.buffers.XChar[slot].fOccupied || character->hp_current == 0 ||
-                    character->highest_condition >= W8_CONDITION_INSANE ||
-                    character->uiCondition[W8_CONDITION_BLIND] != 0) {
+                if (!CanNoticeMonsterGroup(slot))
                     continue;
-                }
+                W8Character* character = &g_status.buffers.Char[slot];
                 int score =
                     (character->monster_awareness[group->monster_id] - record->effective_level) *
                         3 +
@@ -1706,12 +1701,9 @@ void DetectMonsterGroups(void)
         }
         if (group->group_state[0] == 0) {
             for (unsigned int slot = 0; slot < 8; ++slot) {
-                W8Character* character = &g_status.buffers.Char[slot];
-                if (!g_status.buffers.XChar[slot].fOccupied || character->hp_current == 0 ||
-                    character->highest_condition >= W8_CONDITION_INSANE ||
-                    character->uiCondition[W8_CONDITION_BLIND] != 0) {
+                if (!CanNoticeMonsterGroup(slot))
                     continue;
-                }
+                W8Character* character = &g_status.buffers.Char[slot];
                 unsigned int awareness =
                     character->monster_awareness[group->monster_id] + group->member_count;
                 if (awareness > 0xff) {

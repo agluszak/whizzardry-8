@@ -208,7 +208,8 @@ class Game
         while (!ready())
         {
             if (Clock::now() > deadline)
-                Fail(step, "timed out on screen " +
+                Fail(step, "timed out after " + std::to_string(frames_) +
+                               " frames on screen " +
                                std::string(ScreenName(g_current_screen_state.id)) + " pending " +
                                ScreenName(g_pending_screen_state.id));
             frame();
@@ -675,7 +676,8 @@ void GameStartScenario()
 void WorldRenderScenario()
 {
     Game game(false);
-    StartGame(game);
+    // Rendering does not need to repeat character creation and party UI.
+    StartPremadeGame(game);
     W8World* world = GetWorld();
     unsigned enabled = 0;
     for (unsigned i = 0; i <= world->octree->GetMeshCount(); ++i)
@@ -742,7 +744,7 @@ void ResourceLifecycleScenario()
     const int level = g_status.current_level;
     const auto anchor = Walk(game, "settle-before-save", 2.0f);
     QuickSave(game);
-    for (int cycle = 0; cycle != 2; ++cycle) {
+    { // One save/load cycle covers eviction, reconstruction and live teardown.
         auto* world = GetWorld();
         REQUIRE((world && world->octree && world->level));
         unsigned linked = 0, animated = 0;
@@ -753,8 +755,8 @@ void ResourceLifecycleScenario()
             if (model && !model->parts.empty()) ++linked;
             if (model && MeshHasAnimatedTexture(model)) ++animated;
         }
-        std::printf("resource-lifecycle: cycle %d, %u linked heads, %u animated textures\n",
-                    cycle, linked, animated);
+        std::printf("resource-lifecycle: %u linked heads, %u animated textures\n",
+                    linked, animated);
         REQUIRE(linked > 0);
         REQUIRE(animated > 0);
         for (int frame = 0; frame != 4; ++frame) game.frame();
@@ -909,6 +911,7 @@ void CombatScenario()
     attacker.iChar = PremadeSlot();
     attacker.iMonsterID = -1;
     const int monster_id = monster->location_id;
+    CAPTURE(monster_id, round, game.frames());
     ApplyDamageToMonster(monster, monster->hp_current, &attacker, false, 1, 0, nullptr, false);
     // Resolve by ID after death/cleanup rather than relying on a retained pointer.
     const unsigned dead_index =

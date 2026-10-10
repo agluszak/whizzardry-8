@@ -12,7 +12,7 @@
 #include "wiz8/engine_code/Octree.h"
 #include "wiz8/engine_code/OctPreTree.h"
 #include "wiz8/engine_code/OctBuildTree.h"
-#include "wiz8/engine_code/BitArray.h"
+#include "wiz8/packed_bits.h"
 #include "temporary_directory.h"
 #include "file_faults.h"
 
@@ -354,14 +354,14 @@ static void geometry()
         data.ReadProcessedGameData(reload_file.get());
         query();
     }
-    data.pending_trigger_bits->Set(0); data.active_trigger_bits->Set(0);
+    SetBit(data.pending_trigger_bits, 0); SetBit(data.active_trigger_bits, 0);
     const auto* old_index = data.geometry_index.get();
-    const auto* pending_bits = data.pending_trigger_bits.get();
-    const auto* active_bits = data.active_trigger_bits.get();
+    const auto pending_bits = data.pending_trigger_bits;
+    const auto active_bits = data.active_trigger_bits;
     auto runtime_unchanged = [&] {
         REQUIRE((data.geometry_index.get() == old_index));
-        REQUIRE((data.pending_trigger_bits.get() == pending_bits && data.active_trigger_bits.get() == active_bits));
-        REQUIRE((data.pending_trigger_bits->Test(0) && data.active_trigger_bits->Test(0)));
+        REQUIRE((data.pending_trigger_bits == pending_bits && data.active_trigger_bits == active_bits));
+        REQUIRE((TestBit(data.pending_trigger_bits, 0) && TestBit(data.active_trigger_bits, 0)));
         REQUIRE((data.m_ppTriggers.empty() && data.m_pTrigVertices.empty() && data.m_pTrigSurfaces.empty()));
     };
     auto* old_vertices = data.m_pVertices.data();
@@ -457,20 +457,53 @@ static void path_tables()
     REQUIRE((!path.ReadPathNodes(file.get()) && path.m_pPathValues == values));
 }
 
-TEST_CASE("loader_records_test")
+struct LoaderFixture
 {
-    const auto temporary = make_temporary_directory("wiz8-loader-records");
-    const auto root = wiz8::path_from_utf8(temporary);
-    fixture_root = root / "assets";
-    std::filesystem::create_directory(fixture_root);
-    std::filesystem::create_directory(root / "user");
-    w8_native::configure_paths({wiz8::path_to_utf8(fixture_root), wiz8::path_to_utf8(root / "user"), {"", "", ""}});
+    ScopedTemporaryDirectory directory{"wiz8-loader-records"};
+
+    LoaderFixture()
+    {
+        fixture_root = directory.path / "assets";
+        std::filesystem::create_directory(fixture_root);
+        std::filesystem::create_directory(directory.path / "user");
+        w8_native::configure_paths({wiz8::path_to_utf8(fixture_root),
+                                    wiz8::path_to_utf8(directory.path / "user"), {"", "", ""}});
+    }
+
+    ~LoaderFixture()
+    {
+        wiz8::clear_asset_archives();
+        fixture_root.clear();
+    }
+};
+
+TEST_CASE_METHOD(LoaderFixture, "Database record validation", "[loader][records]")
+{
     databases();
-    level_records();
-    geometry();
-    wgd_banks();
-    path_tables();
-    malformed_octrees();
-    std::filesystem::remove_all(root);
-    std::puts("loader truncation, malformed counts, indices, strings and rollback pass");
 }
+
+TEST_CASE_METHOD(LoaderFixture, "Level mesh file records", "[loader][records]")
+{
+    level_records();
+}
+
+TEST_CASE_METHOD(LoaderFixture, "Processed geometry", "[loader][records]")
+{
+    geometry();
+}
+
+TEST_CASE_METHOD(LoaderFixture, "WGD geometry banks", "[loader][records]")
+{
+    wgd_banks();
+}
+
+TEST_CASE_METHOD(LoaderFixture, "Path tables", "[loader][records]")
+{
+    path_tables();
+}
+
+TEST_CASE_METHOD(LoaderFixture, "Malformed octree files", "[loader][records]")
+{
+    malformed_octrees();
+}
+

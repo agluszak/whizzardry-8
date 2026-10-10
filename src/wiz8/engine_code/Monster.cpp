@@ -1370,12 +1370,7 @@ void W8Monster::Update()
                 current_scale = target_scale;
             }
         }
-        g_monster_model_instances.clear();
-        CollectModelInstances(g_monster_model_instances);
-        for (index = 0; index < static_cast<int>(g_monster_model_instances.size()); ++index) {
-            stModelInstance* model = g_monster_model_instances[index];
-            model->light_scale = current_scale;
-        }
+        RefreshModelLightScale();
         light_scale_timer.Restart();
     }
 
@@ -1889,6 +1884,15 @@ void W8Monster::ProcessScript()
             continue;
         }
 
+        const auto resolveNamedPosition = [&](srVector3T<float>& position) {
+            if (ResolveScriptPosition(token.c_str(), &position))
+                return true;
+            ShutdownWithErrorBox(fmt::format(
+                "MonScript {} Line {:d}: Unknown location {}", script->getName(),
+                script->GetSourceLine(script_line - 1), token));
+            return false;
+        };
+
         if (!defining_orders) {
             switch (command) {
             case MONSCR_GOTO: {
@@ -1909,10 +1913,7 @@ void W8Monster::ProcessScript()
                 if (!tokens) {
                     break;
                 }
-                if (!ResolveScriptPosition(token.c_str(), &position)) {
-                    ShutdownWithErrorBox(fmt::format(
-                        "MonScript {} Line {:d}: Unknown location {}", script->getName(),
-                        script->GetSourceLine(script_line - 1), token));
+                if (!resolveNamedPosition(position)) {
                     break;
                 }
                 if (_stricmp(token.c_str(), "PARTY") == 0) {
@@ -1934,10 +1935,7 @@ void W8Monster::ProcessScript()
                 if (!tokens) {
                     break;
                 }
-                if (!ResolveScriptPosition(token.c_str(), &position)) {
-                    ShutdownWithErrorBox(fmt::format(
-                        "MonScript {} Line {:d}: Unknown location {}", script->getName(),
-                        script->GetSourceLine(script_line - 1), token));
+                if (!resolveNamedPosition(position)) {
                     break;
                 }
                 AimAtPosition(&position);
@@ -2039,10 +2037,7 @@ void W8Monster::ProcessScript()
                 srVector3T<float> position;
                 tokens >> token;
                 if (tokens) {
-                    if (!ResolveScriptPosition(token.c_str(), &position)) {
-                        ShutdownWithErrorBox(fmt::format(
-                            "MonScript {} Line {:d}: Unknown location {}", script->getName(),
-                            script->GetSourceLine(script_line - 1), token));
+                    if (!resolveNamedPosition(position)) {
                         break;
                     }
                     SetPositionInternal(&position);
@@ -2333,10 +2328,7 @@ void W8Monster::ProcessScript()
                 tokens >> token;
                 if (tokens) {
                     srVector3T<float> position;
-                    if (!ResolveScriptPosition(token.c_str(), &position)) {
-                        ShutdownWithErrorBox(fmt::format(
-                            "MonScript {} Line {:d}: Unknown location {}", script->getName(),
-                            script->GetSourceLine(script_line - 1), token));
+                    if (!resolveNamedPosition(position)) {
                         break;
                     }
                     vector.clear();
@@ -2348,10 +2340,7 @@ void W8Monster::ProcessScript()
             case MONSCR_RANDOMPOINTPATROL: {
                 while (tokens >> token) {
                     srVector3T<float> position;
-                    if (!ResolveScriptPosition(token.c_str(), &position)) {
-                        ShutdownWithErrorBox(fmt::format(
-                            "MonScript {} Line {:d}: Unknown location {}", script->getName(),
-                            script->GetSourceLine(script_line - 1), token));
+                    if (!resolveNamedPosition(position)) {
                         continue;
                     }
                     if (patrol_points == 0) {
@@ -3492,12 +3481,7 @@ void W8Monster::SetCycle(signed char cycle)
         m_pRep->monster_light->SetVisible(enabled);
     }
 
-    g_monster_model_instances.clear();
-    CollectModelInstances(g_monster_model_instances);
-    for (index = 0; index < static_cast<int>(g_monster_model_instances.size()); ++index) {
-        stModelInstance* model = g_monster_model_instances[index];
-        model->light_scale = current_scale;
-    }
+    RefreshModelLightScale();
 
     if (cycle == W8_MONSTER_CYCLE_DIE) {
         glm::vec4 empty;
@@ -4713,6 +4697,16 @@ void MonsterAimAtMonster(W8Monster* monster, W8Monster* target, bool alternate)
                 monster->AimAtPosition(&position);
             }
         }
+    }
+}
+
+/* Apply the active light scale to the current model chain. */
+void W8Monster::RefreshModelLightScale()
+{
+    g_monster_model_instances.clear();
+    CollectModelInstances(g_monster_model_instances);
+    for (stModelInstance* model : g_monster_model_instances) {
+        model->light_scale = current_scale;
     }
 }
 

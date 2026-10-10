@@ -107,7 +107,7 @@ void OctPreTree::CollectLeafPolygons(const srVector3T<int>* cell)
         const w8_ulong* stream = m_polygon_index_stream + m_leaves[leaf_index].polygon_offset;
         for (int remaining = *stream; remaining != 0; --remaining) {
             ++stream;
-            if (!m_visited_polygon_bits->Set(*stream)) {
+            if (!SetBit(m_visited_polygon_bits, *stream)) {
                 m_aulGDObjs[m_gd_result_count] = *stream;
                 ++m_gd_result_count;
             }
@@ -131,7 +131,7 @@ bool OctPreTree::SegmentClear(const srVector3T<float>* from, const srVector3T<fl
 
     trace.Seed(from, to);
     m_gd_result_count = 0;
-    m_visited_polygon_bits->ClearAll();
+    std::ranges::fill(m_visited_polygon_bits, false);
     for (int axis = 0; axis < 3; ++axis) {
         (&cell.x)[axis] = static_cast<int>(((&from->x)[axis] - (&m_spatial.m_minimum.x)[axis]) /
                                            m_spatial.m_node_extent);
@@ -312,7 +312,7 @@ try
     header.m_region_grid_cell = m_spatial.m_region_grid_cell;
     header.m_prop_len = m_usMeshPropsLen;
     header.m_prop_count = m_ulNumProps;
-    header.m_prop_sun_bits = m_pPropSunBits != 0;
+    header.m_prop_sun_bits = !m_sunlit_props.empty();
     header.m_particle_count = m_ulNumParticles;
     header.m_kind1_submesh_count = m_kind1_submesh_count;
     header.m_zero = 0;
@@ -387,7 +387,8 @@ try
             ReportBuildStatus(7, "WriteOctFile: Couldn't write submesh array.\n");
             return 0;
         }
-        if (m_meshCount != 0 && m_pAlphaBits != 0 && m_pAlphaBits->Save(file.get()) == 0) {
+        if (m_meshCount != 0 && !m_alpha_bits.empty() &&
+            !SavePackedBits(file.get(), m_alpha_bits)) {
             srAssertFail("m_pAlphaBits->Save(hOctFile)", OCTPRETREE_CPP, 0x224,
                          "ReadOctFile: Failure writing Alpha Bits.");
         }
@@ -423,7 +424,8 @@ try
         ReportBuildStatus(7, "WriteOctFile: Couldn't write Path Nodes.\n");
         return 0;
     }
-    if (m_ulNumProps != 0 && m_pPropSunBits != 0 && m_pPropSunBits->Save(file.get()) == 0) {
+    if (m_ulNumProps != 0 && !m_sunlit_props.empty() &&
+        !SavePackedBits(file.get(), m_sunlit_props)) {
         ReportBuildStatus(7, "WriteOctFile: Couldn't write Prop Sunlight bits array.\n");
         return 0;
     }
@@ -628,11 +630,11 @@ OctMeshModel* OctPreTree::CreateSubMeshes(W8OctPreTreeGeometry* geometry)
                 m_meshCount = root_count;
                 m_root_mesh_count = kind_counts[0];
                 m_kind1_submesh_count = kind_counts[1];
-                m_pAlphaBits = new BitArray(m_meshCount);
+                m_alpha_bits.assign(m_meshCount, false);
                 if (root_count > 1) {
                     for (unsigned int index = 1; index < root_count; ++index) {
                         if (models[index].m_packed_header != 0) {
-                            m_pAlphaBits->Set(index);
+                            SetBit(m_alpha_bits, index);
                         }
                     }
                 }
@@ -1210,8 +1212,7 @@ unsigned char OctPreTree::BuildPathLists(W8GameData* game_data, W8LevelFile* lev
 
     object_registry = new W8OctreeObjectRegistry;
     SetOctreeGameData(game_data);
-    delete m_visited_object_bits;
-    m_visited_object_bits = new BitArray(m_spatial.m_item_count + 0x14);
+    m_visited_object_bits.assign(m_spatial.m_item_count + 0x14, false);
     pre_pathing = new PrePathing;
     pre_pathing->SnapNamedPositions(level->pNamedPositions, level->nNamedPositions,
                                     min_component_percent, this);

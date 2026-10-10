@@ -54,7 +54,7 @@
 #include "wiz8/local_code/UtilityFunctions.h"
 #include "wiz8/engine_code/World.h"
 #include "wiz8/local_screens/Screens.h"
-#include "wiz8/engine_code/BitArray.h"
+#include "wiz8/packed_bits.h"
 #include "wiz8/engine_code/materials.h"
 #include "wiz8/engine_code/stCube.h"
 #include "wiz8/layouts/screen_state.h"
@@ -224,8 +224,8 @@ void W8Octree::UpdateCameraVisibility()
     view.camera_dof = dof;
     view.horizontal_fov_cosine = static_cast<float>(cos(view.horizontal_fov));
     view.vertical_fov_cosine = static_cast<float>(cos(view.vertical_fov));
-    m_visited_polygon_bits->ClearAll();
-    m_projected_regions->ClearAll();
+    std::ranges::fill(m_visited_polygon_bits, false);
+    std::ranges::fill(m_projected_regions, false);
     UpdateVisibility();
     if (g_octree_trace_enabled) {
         UpdateWorldTrace();
@@ -237,8 +237,6 @@ void W8Octree::UpdateVisibility()
 {
     unsigned short mesh_index;
     unsigned int index;
-    int bit;
-
     if (m_reset_visibility) {
         m_reset_visibility = false;
         for (mesh_index = 0; mesh_index < m_meshCount; ++mesh_index) {
@@ -272,25 +270,23 @@ void W8Octree::UpdateVisibility()
             }
         }
         ValidateRegionMeshLinks();
-        m_previous_regions->ClearAll();
-        m_accumulated_regions->ClearAll();
+        std::ranges::fill(m_previous_regions, false);
+        std::ranges::fill(m_accumulated_regions, false);
         if (m_ulNumParticles != 0) {
-            m_visible_particles->ClearAll();
+            std::ranges::fill(m_visible_particles, false);
         }
         if (m_ulNumProps != 0) {
-            m_visible_props->ClearAll();
+            std::ranges::fill(m_visible_props, false);
         }
     }
 
-    m_current_regions->ClearAll();
-    m_projected_regions->ClearAll();
+    std::ranges::fill(m_current_regions, false);
+    std::ranges::fill(m_projected_regions, false);
     if (m_ulNumParticles != 0) {
-        m_particles_to_disable->ClearAll();
-        m_linked_particles->ClearAll();
+        std::ranges::fill(m_linked_particles, false);
     }
     if (m_ulNumProps != 0) {
-        m_linked_props->ClearAll();
-        m_props_to_disable->ClearAll();
+        std::ranges::fill(m_linked_props, false);
     }
     m_projected_regions_valid = false;
     m_location_region_matched = 0;
@@ -308,15 +304,17 @@ void W8Octree::UpdateVisibility()
             pathing->UpdatePathVisualization(&view.camera_location, &view.camera_dof);
         }
     }
-    if (m_projected_regions_valid) {
-        m_current_regions->IntersectWith(*m_projected_regions);
+    for (std::size_t region = 0; region < m_current_regions.size(); ++region) {
+        if (m_projected_regions_valid && !m_projected_regions[region]) {
+            m_current_regions[region] = false;
+        }
+        if (m_current_regions[region]) {
+            m_accumulated_regions[region] = true;
+        }
     }
-    m_accumulated_regions->UnionWith(*m_current_regions);
-    bit = m_previous_regions->NextSetBit(true);
-    while (bit != 0) {
-        --bit;
-        if (!m_current_regions->Test(bit) && bit != 0) {
-            W8OctSubmesh* submesh = &m_pSubmeshes[bit];
+    for (std::size_t region = 1; region < m_previous_regions.size(); ++region) {
+        if (m_previous_regions[region] && !m_current_regions[region]) {
+            W8OctSubmesh* submesh = &m_pSubmeshes[region];
             submesh->flags &= 0xfffffff7;
             stModelInstance* mesh =
                 static_cast<stModelInstance*>(g_world->psrMeshes[submesh->mesh]);
@@ -325,13 +323,13 @@ void W8Octree::UpdateVisibility()
                 mesh->setFlag(srNode::FLAG_TERMINATE);
             }
         }
-        bit = m_previous_regions->NextSetBit(false);
     }
-    bit = m_current_regions->NextSetBit(true);
-    while (bit != 0) {
-        --bit;
-        if (!m_previous_regions->Test(bit) && bit != 0) {
-            W8OctSubmesh* submesh = &m_pSubmeshes[bit];
+    for (std::size_t region = 0; region < m_current_regions.size(); ++region) {
+        if (!m_current_regions[region]) {
+            continue;
+        }
+        if (!m_previous_regions[region] && region != 0) {
+            W8OctSubmesh* submesh = &m_pSubmeshes[region];
             int mesh_index = submesh->mesh;
             submesh->flags |= 0x28;
             stModelInstance* mesh = static_cast<stModelInstance*>(g_world->psrMeshes[mesh_index]);
@@ -340,52 +338,35 @@ void W8Octree::UpdateVisibility()
                 mesh->clearFlag(srNode::FLAG_TERMINATE);
             }
         }
-        MarkMeshLinksVisible(bit);
-        bit = m_current_regions->NextSetBit(false);
+        MarkMeshLinksVisible(static_cast<unsigned int>(region));
     }
     if (m_ulNumParticles != 0) {
         for (index = 0; m_pusMeshParticles[index] != 0; ++index) {
-            m_linked_particles->Set(m_pusMeshParticles[index] - 1);
+            SetBit(m_linked_particles, m_pusMeshParticles[index] - 1);
         }
-        m_particles_to_disable->SetToComplementOf(*m_linked_particles);
-        m_particles_to_disable->IntersectWith(*m_visible_particles);
-        bit = m_linked_particles->NextSetBit(true);
-        while (bit != 0) {
-            --bit;
-            if (!m_visible_particles->Test(bit)) {
-                m_papParticles[bit]->SetTraversalEnabled(true);
+        for (std::size_t particle = 0; particle < m_linked_particles.size(); ++particle) {
+            if (m_linked_particles[particle] && !m_visible_particles[particle]) {
+                m_papParticles[particle]->SetTraversalEnabled(true);
+            } else if (!m_linked_particles[particle] && m_visible_particles[particle]) {
+                m_papParticles[particle]->SetTraversalEnabled(false);
             }
-            bit = m_linked_particles->NextSetBit(false);
         }
-        bit = m_particles_to_disable->NextSetBit(true);
-        while (bit != 0) {
-            m_papParticles[bit - 1]->SetTraversalEnabled(false);
-            bit = m_particles_to_disable->NextSetBit(false);
-        }
-        m_visible_particles->CopyFrom(*m_linked_particles);
+        m_visible_particles = m_linked_particles;
     }
     if (m_ulNumProps != 0) {
         for (index = 0; m_pusMeshProps[index] != 0; ++index) {
-            m_linked_props->Set(m_pusMeshProps[index] - 1);
+            SetBit(m_linked_props, m_pusMeshProps[index] - 1);
         }
-        m_props_to_disable->SetToComplementOf(*m_linked_props);
-        m_props_to_disable->IntersectWith(*m_visible_props);
-        bit = m_linked_props->NextSetBit(true);
-        while (bit != 0) {
-            --bit;
-            if (!m_visible_props->Test(bit)) {
-                m_papProps[bit]->SetActivationState(1);
+        for (std::size_t prop = 0; prop < m_linked_props.size(); ++prop) {
+            if (m_linked_props[prop] && !m_visible_props[prop]) {
+                m_papProps[prop]->SetActivationState(1);
+            } else if (!m_linked_props[prop] && m_visible_props[prop]) {
+                m_papProps[prop]->SetActivationState(0);
             }
-            bit = m_linked_props->NextSetBit(false);
         }
-        bit = m_props_to_disable->NextSetBit(true);
-        while (bit != 0) {
-            m_papProps[bit - 1]->SetActivationState(0);
-            bit = m_props_to_disable->NextSetBit(false);
-        }
-        m_visible_props->CopyFrom(*m_linked_props);
+        m_visible_props = m_linked_props;
     }
-    m_previous_regions->CopyFrom(*m_current_regions);
+    m_previous_regions = m_current_regions;
 }
 
 /* Collect mesh and prop instances whose world-space bounds intersect the query sphere.
@@ -414,7 +395,7 @@ int W8Octree::CollectModelsNearPoint(std::vector<stModelInstance*>& out,
         return bounds.transformed(world).intersectsSphere(center, radius);
     };
     const unsigned int level_mask = m_region_mask;
-    m_current_regions->ClearAll();
+    std::ranges::fill(m_current_regions, false);
     glm::ivec3 cell;
     for (cell.x = first.x; cell.x <= last.x; ++cell.x) {
         for (cell.y = first.y; cell.y <= last.y; ++cell.y) {
@@ -428,7 +409,7 @@ int W8Octree::CollectModelsNearPoint(std::vector<stModelInstance*>& out,
                 if (node != 0) {
                     unsigned int region = m_branches[node].region;
                     if (region != 0) {
-                        m_current_regions->Set(region);
+                        SetBit(m_current_regions, region);
                     }
                 }
             }
@@ -439,23 +420,20 @@ int W8Octree::CollectModelsNearPoint(std::vector<stModelInstance*>& out,
     for (region = 1; region < m_spatial.m_region_count; ++region) {
         if (SphereInsideFrustum(point, radius, m_spatial.m_region_volumes[region].m_planes) &&
             m_spatial.m_region_volumes[region].m_region_bit != 0) {
-            m_current_regions->Set(m_spatial.m_region_volumes[region].m_region_bit);
+            SetBit(m_current_regions, m_spatial.m_region_volumes[region].m_region_bit);
         }
     }
 
     if (m_ulNumProps == 0) {
         flags &= 0xffffff00;
     } else if ((flags & 0xff) != 0) {
-        m_linked_props->ClearAll();
+        std::ranges::fill(m_linked_props, false);
     }
-    if (only_accumulated) {
-        m_current_regions->IntersectWith(*m_accumulated_regions);
-    }
-
-    int bit = m_current_regions->NextSetBit(true);
-    while (bit != 0) {
-        unsigned int submesh = bit - 1;
-        if (submesh != 0) {
+    for (unsigned int submesh = 0; submesh < m_current_regions.size(); ++submesh) {
+        if (only_accumulated && !m_accumulated_regions[submesh]) {
+            m_current_regions[submesh] = false;
+        }
+        if (m_current_regions[submesh] && submesh != 0) {
             stModelInstance* instance =
                 static_cast<stModelInstance*>(g_world->psrMeshes[m_pSubmeshes[submesh].mesh]);
             if (intersects(instance))
@@ -464,16 +442,16 @@ int W8Octree::CollectModelsNearPoint(std::vector<stModelInstance*>& out,
                 MarkMeshLinksVisible(submesh);
             }
         }
-        bit = m_current_regions->NextSetBit(false);
     }
 
     if ((flags & 0xff) != 0) {
-        bit = m_linked_props->NextSetBit(true);
-        while (bit != 0) {
-            srModelInstance* instance = m_papProps[bit - 2]->ToggleRepAnimationDefault();
+        for (std::size_t bit = 1; bit <= m_linked_props.size(); ++bit) {
+            if (!m_linked_props[bit - 1]) {
+                continue;
+            }
+            srModelInstance* instance = m_papProps[bit - 1]->ToggleRepAnimationDefault();
             if (intersects(instance))
                 out.push_back(static_cast<stModelInstance*>(instance));
-            bit = m_linked_props->NextSetBit(false);
         }
     }
     return static_cast<int>(out.size());
@@ -500,7 +478,7 @@ void W8Octree::MarkMeshLinksVisible(unsigned int mesh)
                 unsigned short particle = m_pusMeshParticles[link];
                 ++link;
                 if (particle <= m_usNumParticlesLoaded && m_papParticles[particle] != 0) {
-                    m_linked_particles->Set(particle - 1);
+                    SetBit(m_linked_particles, particle - 1);
                 }
             } while (m_pusMeshParticles[link] != 0);
         }
@@ -516,7 +494,7 @@ void W8Octree::MarkMeshLinksVisible(unsigned int mesh)
                 unsigned short prop = m_pusMeshProps[link];
                 ++link;
                 if (prop <= m_usNumPropsLoaded && m_papProps[prop] != 0) {
-                    m_linked_props->Set(prop - 1);
+                    SetBit(m_linked_props, prop - 1);
                 }
             } while (m_pusMeshProps[link] != 0);
         }
@@ -556,14 +534,14 @@ short W8Octree::ProjectLinkedRegionsForLocation(srVector3T<float>* location,
                 continue;
             }
             if (match_count == 0) {
-                m_projected_regions->ClearAll();
+                std::ranges::fill(m_projected_regions, false);
                 m_projected_regions_valid = false;
             }
             ++match_count;
             unsigned int key = region_index;
             for (auto slot = m_pRegionLinks->equal_range(key).first; slot != m_pRegionLinks->end();
                  slot = NextIndexValue(*m_pRegionLinks, key, slot)) {
-                m_projected_regions->Set(slot->second);
+                SetBit(m_projected_regions, slot->second);
                 m_projected_regions_valid = true;
             }
         }
@@ -596,13 +574,13 @@ short W8Octree::ProjectLinkedRegionsForLocation(srVector3T<float>* location,
             g_octree_region_debug_last = region_index;
             reported_region = region_index;
         }
-        m_projected_regions->ClearAll();
+        std::ranges::fill(m_projected_regions, false);
         m_projected_regions_valid = false;
         match_count = 1;
         unsigned int key = region_index;
         for (auto slot = m_pRegionLinks->equal_range(key).first; slot != m_pRegionLinks->end();
              slot = NextIndexValue(*m_pRegionLinks, key, slot)) {
-            m_projected_regions->Set(slot->second);
+            SetBit(m_projected_regions, slot->second);
             m_projected_regions_valid = true;
         }
     }
@@ -697,7 +675,7 @@ unsigned char W8Octree::CollectVisibleRegions(srVector3T<float>* location, srVec
                 ((m_region_mask * 0x100 + link_cell.x) * 0x100 + link_cell.y) * 0x100 + link_cell.z;
             auto slot = m_pRegionLinks->equal_range(key).first;
             while (slot != m_pRegionLinks->end()) {
-                m_projected_regions->Set(slot->second);
+                SetBit(m_projected_regions, slot->second);
                 slot = NextIndexValue(*m_pRegionLinks, key, slot);
                 m_projected_regions_valid = true;
             }
@@ -730,7 +708,7 @@ void W8Octree::MarkVisibleRegions()
     for (int index = 1; index < m_spatial.m_region_count; ++index) {
         W8OctRegionVolume* volume = &m_spatial.m_region_volumes[index];
 
-        if (m_projected_regions_valid && !m_projected_regions->Test(volume->m_region_bit)) {
+        if (m_projected_regions_valid && !TestBit(m_projected_regions, volume->m_region_bit)) {
             continue;
         }
         srVector3T<float> delta = view.camera_location - volume->m_points[0];
@@ -744,7 +722,7 @@ void W8Octree::MarkVisibleRegions()
             visible = PointInsideFrustum(&volume->m_points[point], view.frustum_planes);
         }
         if (visible && volume->m_region_bit != 0) {
-            m_current_regions->Set(volume->m_region_bit);
+            SetBit(m_current_regions, volume->m_region_bit);
         }
     }
 }
@@ -860,7 +838,7 @@ void W8Octree::CollectVisibleCells()
                 if (node != 0) {
                     unsigned short region = m_branches[node].region;
                     if (region != 0) {
-                        m_current_regions->Set(region);
+                        SetBit(m_current_regions, region);
                     }
                 }
             }
@@ -1038,13 +1016,12 @@ void W8Octree::RecordRegionMeshLinks(unsigned int region_key)
     if (region_key == 0) {
         return;
     }
-    int bit = m_projected_regions->NextSetBit(true);
-    if (bit == 0) {
-        return;
-    }
     char text[256];
-    do {
-        unsigned short mesh = static_cast<unsigned short>(bit - 1);
+    for (std::size_t bit = 0; bit < m_projected_regions.size(); ++bit) {
+        if (!m_projected_regions[bit]) {
+            continue;
+        }
+        unsigned short mesh = static_cast<unsigned short>(bit);
         auto slot = m_pRegionLinks->equal_range(region_key).first;
         while (slot != m_pRegionLinks->end() && slot->second != mesh) {
             slot = NextIndexValue(*m_pRegionLinks, region_key, slot);
@@ -1065,8 +1042,7 @@ void W8Octree::RecordRegionMeshLinks(unsigned int region_key)
             NoOp();
             InsertIndexValue(*m_pRegionLinks, region_key, mesh);
         }
-        bit = m_projected_regions->NextSetBit(false);
-    } while (bit != 0);
+    }
     if (reported) {
         NoOp();
     }
@@ -1103,8 +1079,8 @@ unsigned int W8Octree::SampleRegionLinks(const srVector3T<float>* point, bool de
     }
     unsigned int key = region_key;
     if (clear_sets) {
-        m_projected_regions->ClearAll();
-        m_previous_regions->ClearAll();
+        std::ranges::fill(m_projected_regions, false);
+        std::ranges::fill(m_previous_regions, false);
     }
     m_projected_regions_valid = false;
     short samples = static_cast<short>(
@@ -1135,16 +1111,17 @@ unsigned int W8Octree::SampleRegionLinks(const srVector3T<float>* point, bool de
             view.rotation_column1.z = glm::dot(glm::row(frame, 2), unit.glmValue());
             srVector3T<double> dof = world->camera->getWorldSpaceDOF();
             view.camera_dof = dof;
-            m_current_regions->ClearAll();
+            std::ranges::fill(m_current_regions, false);
             CollectVisibleCells();
-            int bit = m_current_regions->NextSetBit(true);
             bool all_known = true;
-            if (bit != 0) {
-                do {
-                    unsigned int cell = static_cast<unsigned int>(bit - 1);
+            {
+                for (unsigned int cell = 0; cell < m_current_regions.size(); ++cell) {
+                    if (!m_current_regions[cell]) {
+                        continue;
+                    }
                     meshes.push_back(
                         static_cast<stModelInstance*>(g_world->psrMeshes[m_pSubmeshes[cell].mesh]));
-                    if (!m_projected_regions->Test(cell)) {
+                    if (!TestBit(m_projected_regions, cell)) {
                         auto slot = m_pRegionLinks->equal_range(key).first;
                         while (slot != m_pRegionLinks->end() && slot->second !=
                                                  static_cast<unsigned short>(cell)) {
@@ -1178,8 +1155,7 @@ unsigned int W8Octree::SampleRegionLinks(const srVector3T<float>* point, bool de
                         }
                         cells.push_back(0);
                     }
-                    bit = m_current_regions->NextSetBit(false);
-                } while (bit != 0);
+                }
                 if (!all_known) {
                     BeginRenderProbe();
                     for (int i = 0; i < static_cast<int>(meshes.size()); ++i) {
@@ -1218,14 +1194,14 @@ unsigned int W8Octree::SampleRegionLinks(const srVector3T<float>* point, bool de
                                 if (9 < faces) {
                                     sprintf(text, "%d, ", cell);
                                     NoOp();
-                                    m_projected_regions->Set(cell);
+                                    SetBit(m_projected_regions, cell);
                                     linked = true;
                                 }
                                 srNode* child = mesh->first_child_;
                                 while (child != 0 && descend) {
                                     faces = MeasureNodeRender(child);
                                     if (9 < faces) {
-                                        m_projected_regions->Set(cell);
+                                        SetBit(m_projected_regions, cell);
                                         linked = true;
                                     }
                                     child = child->first_child_;
@@ -1353,8 +1329,8 @@ void W8Octree::BuildRegionLinks(bool rebuild_all)
                         if (last_key != 0) {
                             RecordRegionMeshLinks(last_key);
                         }
-                        m_projected_regions->ClearAll();
-                        m_previous_regions->ClearAll();
+                        std::ranges::fill(m_projected_regions, false);
+                        std::ranges::fill(m_previous_regions, false);
                         last_key = key;
                     }
                     SampleRegionLinks(&point, false, false, key);
@@ -1684,24 +1660,24 @@ unsigned char W8Octree::PrepareNavigatorTarget(W8NavigatorMovementState* movemen
                 movement->attachment->InitializeSegment(&movement->position, &target);
                 movement->attachment->separation = separation;
                 result =
-                    pathing->BuildAttachmentPath(movement->attachment, movement->navigation_filter);
+                    pathing->BuildAttachmentPath(movement->attachment.get(), movement->navigation_filter);
                 if (result != 0) {
-                    W8NavigatorAttachment* attachment = movement->attachment;
-                    attachment->path_positions[attachment->path_position_index] =
+                    W8NavigatorAttachment* attachment = movement->attachment.get();
+                    attachment->path[attachment->path_position_index].position =
                         movement->target_position;
                     attachment->path_destination =
-                        attachment->path_positions[attachment->path_position_index];
+                        attachment->path[attachment->path_position_index].position;
                     pathing->AdvanceAttachmentWaypoint(&movement->position, attachment);
                     movement->attachment->GetNextPosition(&movement->target_position);
                     return result;
                 }
-                result = pathing->ProbeAttachmentPath(movement->attachment);
+                result = pathing->ProbeAttachmentPath(movement->attachment.get());
                 if (result != 0) {
-                    W8NavigatorAttachment* attachment = movement->attachment;
-                    attachment->path_positions[attachment->path_position_index] =
+                    W8NavigatorAttachment* attachment = movement->attachment.get();
+                    attachment->path[attachment->path_position_index].position =
                         movement->target_position;
                     attachment->path_destination =
-                        attachment->path_positions[attachment->path_position_index];
+                        attachment->path[attachment->path_position_index].position;
                     return result;
                 }
             } else {
@@ -1735,7 +1711,7 @@ bool __stdcall IsNavigatorAtTarget(W8NavigatorMovementState* movement)
 {
     srVector3T<float> target;
     if (movement->attachment != 0) {
-        W8NavigatorAttachment* attachment = movement->attachment;
+        W8NavigatorAttachment* attachment = movement->attachment.get();
         if (attachment->path_cursor < attachment->path_position_index ||
             (attachment->flags & W8_NAV_ATTACHMENT_START_WAYPOINT) != 0) {
             return false;
@@ -1758,7 +1734,7 @@ unsigned char W8Octree::PrepareNavigatorPatrol(W8NavigatorMovementState* movemen
     if (pathing != 0) {
         srVector3T<float> velocity = movement->velocity;
         movement->attachment->InitializeSegment(&movement->position, &movement->target_position);
-        result = pathing->BuildPatrolPath(movement->attachment, movement->navigation_filter,
+        result = pathing->BuildPatrolPath(movement->attachment.get(), movement->navigation_filter,
                                           &movement->target_position, minimum, &velocity, maximum);
         if (result == 0) {
             return 0;
@@ -1780,7 +1756,7 @@ unsigned char W8Octree::LinkNavigatorTarget(W8NavigatorMovementState* movement,
                                             const srVector3T<float>* target, float separation)
 {
     if (pathing != 0) {
-        return pathing->LinkAttachmentTarget(movement->attachment, movement->navigation_filter,
+        return pathing->LinkAttachmentTarget(movement->attachment.get(), movement->navigation_filter,
                                              target, separation);
     }
     return 0;
@@ -1889,7 +1865,7 @@ float W8Octree::SettleToGround(srVector3T<float>* position, bool* out_hit, char 
     if (test_props != 0) {
         current_prop = -1;
     }
-    m_visited_object_bits->ClearAll();
+    std::ranges::fill(m_visited_object_bits, false);
     if (m_spatial.m_clipped_maximum.y < position->y) {
         position->y = m_spatial.m_clipped_maximum.y;
     }
@@ -1991,9 +1967,14 @@ bool W8Octree::HasLineOfSight(const srVector3T<float>* from, srVector3T<float>* 
 
     W8OctreeTrace trace(from, to);
 
+    auto probe_current_cell = [&] {
+        if (ProbeCellForBlockers(&cell) != 0)
+            blocked = TestProbeResult(&trace);
+    };
+
     m_gd_result_count = 0;
-    m_visited_polygon_bits->ClearAll();
-    m_current_regions->ClearAll();
+    std::ranges::fill(m_visited_polygon_bits, false);
+    std::ranges::fill(m_current_regions, false);
     WorldPositionToCell(from, &cell);
     WorldPositionToCell(to, &end_cell);
     span = abs(cell.z - end_cell.z) + abs(cell.y - end_cell.y) + abs(cell.x - end_cell.x);
@@ -2019,36 +2000,26 @@ bool W8Octree::HasLineOfSight(const srVector3T<float>* from, srVector3T<float>* 
                 if (blocked != 0) {
                     break;
                 }
-                if (ProbeCellForBlockers(&cell) != 0) {
-                    blocked = TestProbeResult(&trace);
-                }
+                probe_current_cell();
                 if (error_0 < error_1) {
                     if (error_0 < 0 && blocked == 0) {
                         error_0 += walk.error_reset0;
                         (&cell.x)[walk.minor_axis0] += (&step.x)[walk.minor_axis0];
-                        if (ProbeCellForBlockers(&cell) != 0) {
-                            blocked = TestProbeResult(&trace);
-                        }
+                        probe_current_cell();
                         if (error_1 < 0 && blocked == 0) {
                             (&cell.x)[minor_1] += (&step.x)[minor_1];
                             error_1 += walk.error_reset1;
-                            if (ProbeCellForBlockers(&cell) != 0) {
-                                blocked = TestProbeResult(&trace);
-                            }
+                            probe_current_cell();
                         }
                     }
                 } else if (error_1 < 0 && blocked == 0) {
                     (&cell.x)[minor_1] += (&step.x)[minor_1];
                     error_1 += walk.error_reset1;
-                    if (ProbeCellForBlockers(&cell) != 0) {
-                        blocked = TestProbeResult(&trace);
-                    }
+                    probe_current_cell();
                     if (error_0 < 0 && blocked == 0) {
                         error_0 += walk.error_reset0;
                         (&cell.x)[walk.minor_axis0] += (&step.x)[walk.minor_axis0];
-                        if (ProbeCellForBlockers(&cell) != 0) {
-                            blocked = TestProbeResult(&trace);
-                        }
+                        probe_current_cell();
                     }
                 }
                 (&cell.x)[walk.major_axis] += (&step.x)[walk.major_axis];
@@ -2094,7 +2065,7 @@ short W8Octree::TraceLineOfSight(const srVector3T<float>* from, srVector3T<float
 
     if (visit_octree) {
         m_gd_result_count = 0;
-        m_visited_object_bits->ClearAll();
+        std::ranges::fill(m_visited_object_bits, false);
         WorldPositionToCell(from, &cell);
         WorldPositionToCell(to, &end_cell);
         span = abs(cell.z - end_cell.z) + abs(cell.y - end_cell.y) + abs(cell.x - end_cell.x);
@@ -2644,7 +2615,7 @@ int W8Octree::TraceAgainstProps(const srVector3T<float>* from, srVector3T<float>
     W8OctreeTrace trace(from, to);
     g_octree_state = m_aulGDObjs;
     m_gd_result_count = 0;
-    m_visited_object_bits->ClearAll();
+    std::ranges::fill(m_visited_object_bits, false);
     cell.x = static_cast<int>((from->x - m_spatial.m_minimum.x) / m_spatial.m_node_extent);
     end_cell.x = static_cast<int>((to->x - m_spatial.m_minimum.x) / m_spatial.m_node_extent);
     cell.y = static_cast<int>((from->y - m_spatial.m_minimum.y) / m_spatial.m_node_extent);
@@ -2738,7 +2709,7 @@ int W8Octree::ProbeCellForTrace(const srVector3T<int>* cell)
             if (9999 < m_gd_result_count) {
                 break;
             }
-            if (!m_visited_object_bits->Set(*stream)) {
+            if (!SetBit(m_visited_object_bits, *stream)) {
                 m_aulGDObjs[m_gd_result_count] = *stream;
                 ++m_gd_result_count;
             }
@@ -2764,14 +2735,14 @@ void W8Octree::AppendBlockerStream(const w8_ulong* stream)
 {
     for (int remaining = *stream; remaining != 0; --remaining) {
         ++stream;
-        if (!m_visited_polygon_bits->Set(*stream)) {
+        if (!SetBit(m_visited_polygon_bits, *stream)) {
             if (9999 < m_gd_result_count) {
                 break;
             }
             unsigned int key = m_aulPolyLookup[*stream];
             m_aulGDObjs[m_gd_result_count] = key;
             ++m_gd_result_count;
-            m_current_regions->Set(key >> 0x10);
+            SetBit(m_current_regions, key >> 0x10);
         }
     }
 }
@@ -2799,7 +2770,7 @@ unsigned char W8Octree::TestProbeResult(W8OctreeTrace* trace)
     for (unsigned int index = 0; index < m_gd_result_count; ++index) {
         unsigned int mesh_index = m_aulGDObjs[index] >> 0x10;
         if (mesh_index < m_meshCount && g_world->psrMeshes[mesh_index] != 0 &&
-            !m_pAlphaBits->Test(mesh_index)) {
+            !TestBit(m_alpha_bits, mesh_index)) {
             stMeshModel* model =
                 static_cast<stMeshModel*>(g_world->psrMeshes[mesh_index]->getModel());
             const glm::vec4* planes = model->getPolyEq();
@@ -2878,8 +2849,8 @@ w8_ulong* W8Octree::CollectPolygonsNearPoint(srVector3T<float>* center, float ra
                                                   float height)
 {
     m_gd_result_count = 0;
-    m_visited_polygon_bits->ClearAll();
-    m_current_regions->ClearAll();
+    std::ranges::fill(m_visited_polygon_bits, false);
+    std::ranges::fill(m_current_regions, false);
 
     srVector3T<float> bounds[2];
     bounds[0].x = center->x - radius;
@@ -2913,7 +2884,7 @@ w8_ulong* W8Octree::CollectPolygonsNearPoint(srVector3T<float>* center, float ra
         stMeshModel* model = 0;
         const glm::vec4* plane = 0;
         if (mesh_index < m_meshCount && g_world->psrMeshes[mesh_index] != 0 &&
-            !m_pAlphaBits->Test(mesh_index)) {
+            !TestBit(m_alpha_bits, mesh_index)) {
             model = static_cast<stMeshModel*>(g_world->psrMeshes[mesh_index]->getModel());
             unsigned int polygon = m_aulGDObjs[index] & 0xffff;
             plane = model->getPolyEq() + polygon;
@@ -3184,8 +3155,7 @@ W8Octree::W8Octree(const char* path, W8GameData** game_data)
                 g_octree_storage_[index] = index;
             }
             if (m_meshCount != 0) {
-                m_pAlphaBits = new BitArray(m_meshCount);
-                if (!m_pAlphaBits->Load(hOctFile.get())) {
+                    if (!LoadPackedBits(hOctFile.get(), m_alpha_bits)) {
                     throw std::runtime_error("Could not read octree alpha bits.");
                 }
             }
@@ -3225,8 +3195,7 @@ W8Octree::W8Octree(const char* path, W8GameData** game_data)
             }
         }
         if (m_ulNumProps != 0 && header.m_prop_sun_bits != 0) {
-            m_pPropSunBits = new BitArray(m_ulNumProps);
-            if (!m_pPropSunBits->Load(hOctFile.get())) {
+            if (!LoadPackedBits(hOctFile.get(), m_sunlit_props)) {
                 throw std::runtime_error("Could not read octree prop sun bits.");
             }
         }
@@ -3368,11 +3337,6 @@ void W8Octree::Reset()
     m_pSubmeshes = 0;
     object_registry = 0;
     m_pRegionLinks = 0;
-    m_visited_polygon_bits = 0;
-    m_owned_154 = 0;
-    m_projected_regions = 0;
-    m_current_regions = 0;
-    m_previous_regions = 0;
     m_point_count = 0;
     m_sample_points = 0;
     m_owned_0c0 = 0;
@@ -3387,27 +3351,15 @@ void W8Octree::Reset()
     m_pusMeshProps = 0;
     m_usMeshPropsLen = 0;
     m_ulNumParticles = 0;
-    m_linked_particles = 0;
-    m_visible_particles = 0;
-    m_linked_props = 0;
-    m_visible_props = 0;
-    m_particles_to_disable = 0;
-    m_props_to_disable = 0;
     m_papProps = 0;
     m_papParticles = 0;
     m_usNumPropsLoaded = 0;
     m_usNumParticlesLoaded = 0;
     m_trace_skip_flag = 0;
-    m_visited_object_bits = 0;
-    m_accumulated_regions = 0;
-    m_owned_19c = 0;
-    m_owned_1a0 = 0;
-    m_owned_1a4 = 0;
     m_root_mesh_count = 0;
     m_kind1_submesh_count = 0;
     m_alpha_polygon_count = 0;
     m_meshCount = 0;
-    m_pAlphaBits = 0;
     m_gd_result_count = 0;
     m_aulGDObjs = 0;
 
@@ -3433,7 +3385,6 @@ void W8Octree::Reset()
     m_unknown_299 = 0;
     m_sun_count = 0;
     prop_sun_base = 0;
-    m_pPropSunBits = 0;
     m_ulNumProps = 0;
     current_prop = -1;
 }
@@ -3503,27 +3454,22 @@ void W8Octree::Initialize(const W8OctFileHeader* header)
         m_ulNumParticles = header->m_particle_count;
 
         if (m_ulNumParticles != 0) {
-            m_linked_particles = new BitArray(m_ulNumParticles);
-            m_visible_particles = new BitArray(m_ulNumParticles);
-            m_particles_to_disable = new BitArray(m_ulNumParticles);
+            m_linked_particles.assign(m_ulNumParticles, false);
+            m_visible_particles.assign(m_ulNumParticles, false);
             m_papParticles = static_cast<stParticle**>(malloc((m_ulNumParticles + 2) * sizeof(*m_papParticles)));
         }
         if (m_ulNumProps != 0) {
-            m_linked_props = new BitArray(m_ulNumProps);
-            m_visible_props = new BitArray(m_ulNumProps);
-            m_props_to_disable = new BitArray(m_ulNumProps);
+            m_linked_props.assign(m_ulNumProps, false);
+            m_visible_props.assign(m_ulNumProps, false);
             m_papProps = static_cast<W8Prop**>(malloc((m_ulNumProps + 2) * sizeof(*m_papProps)));
         }
 
-        m_visited_polygon_bits = new BitArray(header->m_polygon_count);
-        m_owned_154 = new BitArray(header->m_region_id_bound + 1);
-        m_projected_regions = new BitArray(header->m_submesh_count + 1);
-        m_current_regions = new BitArray(header->m_submesh_count + 1);
-        m_previous_regions = new BitArray(header->m_submesh_count + 1);
-        m_visited_object_bits =
-            new BitArray(header->m_surface_count < 5000 ? 5000 : header->m_surface_count);
-        m_accumulated_regions = new BitArray(header->m_submesh_count + 1);
-        m_owned_19c = new BitArray(header->m_polygon_count);
+        m_visited_polygon_bits.assign(header->m_polygon_count, false);
+        m_projected_regions.assign(header->m_submesh_count + 1, false);
+        m_current_regions.assign(header->m_submesh_count + 1, false);
+        m_previous_regions.assign(header->m_submesh_count + 1, false);
+        m_visited_object_bits.assign(header->m_surface_count < 5000 ? 5000 : header->m_surface_count, false);
+        m_accumulated_regions.assign(header->m_submesh_count + 1, false);
 
         object_registry = new W8OctreeObjectRegistry;
         m_pRegionLinks = new std::unordered_multimap<unsigned int, unsigned short>;
@@ -3607,7 +3553,6 @@ W8Octree::~W8Octree()
     if (m_aulPolyLookup != 0) {
         free(m_aulPolyLookup);
     }
-    delete m_pAlphaBits;
     if (m_leaf_lookup != 0) {
         free(m_leaf_lookup);
     }
@@ -3634,11 +3579,6 @@ W8Octree::~W8Octree()
     if (m_pfRegsVisited != 0) {
         free(m_pfRegsVisited);
     }
-    delete m_visited_polygon_bits;
-    delete m_owned_154;
-    delete m_projected_regions;
-    delete m_current_regions;
-    delete m_previous_regions;
 
     if (m_pusMeshParticleLookup != 0) {
         free(m_pusMeshParticleLookup);
@@ -3663,12 +3603,6 @@ W8Octree::~W8Octree()
         free(m_papParticles);
     }
 
-    delete m_linked_particles;
-    delete m_visible_particles;
-    delete m_linked_props;
-    delete m_visible_props;
-    delete m_particles_to_disable;
-    delete m_props_to_disable;
 
     m_point_count = 0;
     if (m_sample_points != 0) {
@@ -3677,22 +3611,9 @@ W8Octree::~W8Octree()
     if (m_owned_0c0 != 0) {
         free(m_owned_0c0);
     }
-    delete m_visited_object_bits;
-    delete m_accumulated_regions;
-    delete m_owned_19c;
-    delete m_owned_1a0;
-    delete m_owned_1a4;
 
     delete object_registry;
 
-    m_visited_polygon_bits = 0;
-    m_owned_154 = 0;
-    m_projected_regions = 0;
-    m_visited_object_bits = 0;
-    m_accumulated_regions = 0;
-    m_owned_19c = 0;
-    m_owned_1a0 = 0;
-    m_owned_1a4 = 0;
 
     if (m_pSubmeshes != 0) {
         free(m_pSubmeshes);
@@ -3709,8 +3630,6 @@ W8Octree::~W8Octree()
     g_octree_storage_ = 0;
     g_octree = 0;
     ReleaseOctMeshDefaults();
-    delete m_pPropSunBits;
-    m_pPropSunBits = 0;
 }
 
 /* Running index into the prop-sunlight bit stream, shared across the octree
@@ -3721,10 +3640,10 @@ int g_prop_sun_index;
 
 /* Attach the prop-sunlight bit array, but only one that has been sized. */
 // FUNCTION: WIZ8 0x0042e3e0
-void W8Octree::SetPropSunBits(BitArray* bits)
+void W8Octree::SetPropSunBits(std::vector<bool> bits)
 {
-    if (bits->bit_count != 0) {
-        m_pPropSunBits = bits;
+    if (!bits.empty()) {
+        m_sunlit_props = std::move(bits);
     }
 }
 
@@ -3741,7 +3660,7 @@ bool W8Octree::TestPropSunBit(int offset)
         return false;
     }
     g_prop_sun_index = prop_sun_base + offset;
-    if (m_pPropSunBits != 0 && m_pPropSunBits->Test(g_prop_sun_index)) {
+    if (TestBit(m_sunlit_props, g_prop_sun_index)) {
         return true;
     }
     return false;
@@ -3818,7 +3737,7 @@ int W8Octree::CollectObjectsAlongSegment(w8_ulong** results, const srVector3T<fl
         }
         (&high.x)[axis] = bound;
     }
-    m_visited_object_bits->ClearAll();
+    std::ranges::fill(m_visited_object_bits, false);
     CollectVisibleRegions(&low, &low_cell, 0, 0);
     CollectVisibleRegions(&high, &high_cell, 0, 0);
     if (low_cell.x <= high_cell.x) {
@@ -3945,9 +3864,9 @@ int W8Octree::QueryObjects(w8_ulong** objects, const srVector3T<float>* lower,
         *objects = g_octree_state;
     }
     m_gd_result_count = 0;
-    m_visited_object_bits->ClearAll();
+    std::ranges::fill(m_visited_object_bits, false);
     if (excluded >= 0) {
-        m_visited_object_bits->Set(excluded);
+        SetBit(m_visited_object_bits, excluded);
     }
     WorldPositionToCell(lower, &start);
     WorldPositionToCell(upper, &end);
@@ -4004,7 +3923,7 @@ unsigned int W8Octree::CollectObjectsInCell(const srVector3T<int>* cell, unsigne
                     return found;
                 }
                 ++stream;
-                if (!m_visited_object_bits->Set(*stream)) {
+                if (!SetBit(m_visited_object_bits, *stream)) {
                     g_octree_state[m_gd_result_count] = *stream;
                     ++m_gd_result_count;
                 }
@@ -4025,7 +3944,7 @@ unsigned int W8Octree::CollectObjectsInCell(const srVector3T<int>* cell, unsigne
             const bool matches = kind > W8_OCTREE_KIND_LOCATION
                 ? (entry_kind == W8_OCTREE_KIND_LOCATION || entry_kind == W8_OCTREE_KIND_NAVIGATOR)
                 : entry_kind == kind;
-            if (matches && !m_visited_object_bits->Set(OctreeKeyId(packed) - 1)) {
+            if (matches && !SetBit(m_visited_object_bits, OctreeKeyId(packed) - 1)) {
                 g_octree_state[m_gd_result_count] = g_octree_query_id - 1;
                 ++m_gd_result_count;
             }
@@ -4133,10 +4052,10 @@ unsigned int W8Octree::AdvanceNavigator(W8NavigatorMovementState* movement, floa
     }
     vecPos = vecDir + movement->position;
     movement->position = vecPos;
-    attachment = movement->attachment;
-    *attachment->path_positions = vecPos;
-    attachment->path_length_origin = *attachment->path_positions;
-    attachment->segment_start = *attachment->path_positions;
+    attachment = movement->attachment.get();
+    attachment->path[0].position = vecPos;
+    attachment->path_length_origin = attachment->path[0].position;
+    attachment->segment_start = attachment->path[0].position;
     return reached;
 }
 

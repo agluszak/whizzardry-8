@@ -59,18 +59,10 @@ public:
 
     void AdjustValue(int steps)
     {
-        if (steps > 0) {
-            do {
-                Decrement();
-                --steps;
-            } while (steps != 0);
-        } else if (steps < 0) {
-            steps = -steps;
-            do {
-                Increment();
-                --steps;
-            } while (steps != 0);
-        }
+        for (; steps > 0; --steps)
+            Decrement();
+        for (; steps < 0; ++steps)
+            Increment();
     }
 
     int m_minimum;

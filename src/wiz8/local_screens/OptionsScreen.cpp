@@ -301,17 +301,22 @@ void W8OptionsSaveLoadPanel::SetActive(bool active)
     }
 }
 
+/* Commit or cancel the active save-name edit before changing options pages. */
+static void FinishOptionsTextEdit(W8OptionsScreen* screen, unsigned char cancelled)
+{
+    W8OptionsTextEditor* editor = screen->m_text_editor;
+    if (!editor)
+        return;
+    if (editor->m_listener)
+        editor->m_listener->OnTextEditComplete(editor, cancelled);
+    delete editor;
+    screen->m_text_editor = nullptr;
+}
+
 // FUNCTION: WIZ8 0x005aab30
 void W8OptionsSaveLoadPanel::SetCurrent(int current)
 {
-    if (g_options_screen->m_text_editor != 0) {
-        W8OptionsTextEditor* editor = g_options_screen->m_text_editor;
-        if (editor->m_listener != 0) {
-            editor->m_listener->OnTextEditComplete(editor, 1);
-        }
-        delete editor;
-        g_options_screen->m_text_editor = 0;
-    }
+    FinishOptionsTextEdit(g_options_screen, 1);
     m_current = current;
     Invalidate(0);
 
@@ -355,13 +360,7 @@ void W8OptionsSaveLoadPanel::OnPrimary(W8TextControl* control)
     }
 
     W8OptionsTextEditor* editor = g_options_screen->m_text_editor;
-    if (editor != 0) {
-        if (editor->m_listener != 0) {
-            editor->m_listener->OnTextEditComplete(editor, 0);
-        }
-        delete editor;
-        g_options_screen->m_text_editor = 0;
-    }
+    FinishOptionsTextEdit(g_options_screen, 0);
     if (editor == 0 && m_current == 0 && m_selection.m_selectedIndex == 0) {
         SaveSelectedSave();
     } else {
@@ -477,14 +476,7 @@ void W8OptionsSaveLoadPanel::OnActivateSave(W8OptionsSaveRow*)
 // FUNCTION: WIZ8 0x005ab250
 void W8OptionsSaveLoadPanel::OnSelectionChanged(W8ControlSelection*, int)
 {
-    if (g_options_screen->m_text_editor != 0) {
-        W8OptionsTextEditor* editor = g_options_screen->m_text_editor;
-        if (editor->m_listener != 0) {
-            editor->m_listener->OnTextEditComplete(editor, 1);
-        }
-        delete editor;
-        g_options_screen->m_text_editor = 0;
-    }
+    FinishOptionsTextEdit(g_options_screen, 1);
     if (m_panel == 12 && m_current == 0 && m_selection.m_selectedIndex == 0) {
         OnEditSaveName(m_rows[0]);
     }
@@ -1345,13 +1337,7 @@ void W8OptionsScreen::SelectPanel(int selected, bool notify)
     if (selected == m_selected_panel) {
         return;
     }
-    if (m_text_editor != 0) {
-        if (m_text_editor->m_listener != 0) {
-            m_text_editor->m_listener->OnTextEditComplete(m_text_editor, 1);
-        }
-        delete m_text_editor;
-        m_text_editor = 0;
-    }
+    FinishOptionsTextEdit(this, 1);
     if (m_selected_panel != -1) {
         W8OptionsPanelSet* previous = m_panel[m_selected_panel];
         previous->m_panels[previous->m_current]->SetActive(false);
@@ -1409,13 +1395,7 @@ void W8OptionsScreen::ShowNotification(W8DialogCloseListener* listener, bool all
 // FUNCTION: WIZ8 0x005a9a60
 void W8OptionsScreen::OnPrimary(W8TextControl*)
 {
-    if (m_text_editor != 0) {
-        if (m_text_editor->m_listener != 0) {
-            m_text_editor->m_listener->OnTextEditComplete(m_text_editor, 1);
-        }
-        delete m_text_editor;
-        m_text_editor = 0;
-    }
+    FinishOptionsTextEdit(this, 1);
     ShowNotification(this, true, 0x832, 0);
 }
 

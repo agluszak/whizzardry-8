@@ -6,7 +6,7 @@
 #include "wiz8/unicode.h"
 #include "wiz8/containers.h"
 #include "wiz8/local_screens/MainGameScreen.h"
-#include "wiz8/engine_code/BitArray.h"
+#include "wiz8/packed_bits.h"
 #include "wiz8/index_algorithms.h"
 #include "wiz8/local_screens/AutomapScreen.h"
 #include "wiz8/layouts/screen_state.h"
@@ -101,10 +101,10 @@ bool g_mipe_active;
 
 /* One bit per automap cell: raised when the party camera enters the cell. */
 // GLOBAL: WIZ8 0x0068F288
-BitArray* g_automap_visited_cells;
+std::vector<bool> g_automap_visited_cells;
 /* One bit per visited cell already turned into vertex lights. */
 // GLOBAL: WIZ8 0x0068F28C
-BitArray* g_automap_lit_cells;
+std::vector<bool> g_automap_lit_cells;
 /* Packed cell keys read from the level file, indexed by cell number. */
 // GLOBAL: WIZ8 0x0068F280
 unsigned int* g_automap_cell_keys;
@@ -406,14 +406,14 @@ void ResetAutomapView(void)
     unsigned int key = AutomapNodeKey(&relative);
     int cell = LookupIndexValue(*g_automap_cell_index, key);
     if (cell > 1) {
-        g_automap_visited_cells->Set(cell - 1);
+        SetBit(g_automap_visited_cells, cell - 1);
         return;
     }
     relative.y = camera.y + g_automap_grid_cell_size - g_automap_grid_origin.y;
     key = AutomapNodeKey(&relative);
     cell = LookupIndexValue(*g_automap_cell_index, key);
     if (cell > 1) {
-        g_automap_visited_cells->Set(cell - 1);
+        SetBit(g_automap_visited_cells, cell - 1);
     }
 }
 
@@ -427,7 +427,7 @@ bool AutomapHasCellAt(const srVector3T<float>* position)
     unsigned int key = AutomapNodeKey(&relative);
     int cell = LookupIndexValue(*g_automap_cell_index, key);
     if (cell > 1) {
-        if (!g_automap_visited_cells->Set(cell - 1)) {
+        if (!SetBit(g_automap_visited_cells, cell - 1)) {
             return true;
         }
         return false;
@@ -436,7 +436,7 @@ bool AutomapHasCellAt(const srVector3T<float>* position)
     key = AutomapNodeKey(&relative);
     cell = LookupIndexValue(*g_automap_cell_index, key);
     if (cell > 1) {
-        if (!g_automap_visited_cells->Set(cell - 1)) {
+        if (!SetBit(g_automap_visited_cells, cell - 1)) {
             return true;
         }
     }
@@ -1053,16 +1053,8 @@ unsigned char AutomapScreenFinalize(void)
         delete g_automap_notes;
         g_automap_notes = 0;
     }
-    BitArray* bits = g_automap_visited_cells;
-    if (bits) {
-        delete bits;
-        g_automap_visited_cells = 0;
-    }
-    bits = g_automap_lit_cells;
-    if (bits) {
-        delete bits;
-        g_automap_lit_cells = 0;
-    }
+    g_automap_visited_cells.clear();
+    g_automap_lit_cells.clear();
     if (g_automap_cell_keys) {
         free(g_automap_cell_keys);
         g_automap_cell_keys = 0;
@@ -1267,7 +1259,7 @@ void ResetAutomapLighting(void)
             model->ClearVertexLights();
         }
     }
-    g_automap_lit_cells->ClearAll();
+    std::ranges::fill(g_automap_lit_cells, false);
 }
 
 static srVector3T<float> GetAutomapCellPosition(unsigned int index)
@@ -1297,16 +1289,10 @@ unsigned int LightPendingAutomapCells(unsigned int max_count)
             if (max_count <= lit) {
                 return lit;
             }
-            if (0x20 < g_automap_cell_count) {
-                while (bit < static_cast<unsigned int>(g_automap_cell_count - 0x20) &&
-                       g_automap_visited_cells->puiIndex[bit >> 5] == 0) {
-                    bit += 0x20;
-                }
-            }
-            if (g_automap_visited_cells->Test(bit)) {
+            if (TestBit(g_automap_visited_cells, bit)) {
                 srVector3T<float> position = GetAutomapCellPosition(bit);
-                if (!g_automap_lit_cells->Test(bit)) {
-                    g_automap_lit_cells->Set(bit);
+                if (!TestBit(g_automap_lit_cells, bit)) {
+                    SetBit(g_automap_lit_cells, bit);
                     LightAutomapCell(&position);
                     ++lit;
                 }
@@ -1351,13 +1337,7 @@ void UpdateAutomapBounds(void)
         unsigned int bit = 0;
         if (g_automap_cell_count != 0) {
             do {
-                if (0x20 < g_automap_cell_count) {
-                    while (bit < static_cast<unsigned int>(g_automap_cell_count - 0x20) &&
-                           g_automap_visited_cells->puiIndex[bit >> 5] == 0) {
-                        bit += 0x20;
-                    }
-                }
-                if (g_automap_visited_cells->Test(bit)) {
+                if (TestBit(g_automap_visited_cells, bit)) {
                     srVector3T<float> position = GetAutomapCellPosition(bit);
                     if (position.x <= g_automap_bounds_min.x) {
                         g_automap_bounds_min.x = position.x;
@@ -1371,8 +1351,8 @@ void UpdateAutomapBounds(void)
                     if (g_automap_bounds_max.z <= position.z) {
                         g_automap_bounds_max.z = position.z;
                     }
-                    if (!g_automap_lit_cells->Test(bit)) {
-                        g_automap_lit_cells->Set(bit);
+                    if (!TestBit(g_automap_lit_cells, bit)) {
+                        SetBit(g_automap_lit_cells, bit);
                         LightAutomapCell(&position);
                     }
                 }
@@ -1556,8 +1536,8 @@ bool SaveAutomapNotes(wiz8::File* handle)
 {
     int signature = 0xf00df00d;
     unsigned char saved;
-    if (g_automap_visited_cells != 0) {
-        saved = g_automap_visited_cells->Save(handle);
+    if (!g_automap_visited_cells.empty()) {
+        saved = SavePackedBits(handle, g_automap_visited_cells);
     } else {
         saved = handle != nullptr;
     }
@@ -1603,12 +1583,12 @@ try
     int signature = 0;
     ClearAutomapNotes();
     g_automap_redraw = true;
-    if (g_automap_visited_cells != 0 && 1 < g_automap_visited_cells->bit_count) {
-        g_automap_visited_cells->Load(handle);
-        if (g_automap_visited_cells->bit_count == static_cast<unsigned int>(g_automap_cell_count)) {
+    if (1 < g_automap_visited_cells.size()) {
+        LoadPackedBits(handle, g_automap_visited_cells);
+        if (g_automap_visited_cells.size() == static_cast<std::size_t>(g_automap_cell_count)) {
             g_automap_state->pending_cell_lighting = 1;
         } else {
-            g_automap_visited_cells->SetSize(g_automap_cell_count);
+            g_automap_visited_cells.assign(g_automap_cell_count, false);
         }
         g_automap_bounds_dirty = true;
         unsigned int count;
@@ -2219,7 +2199,7 @@ unsigned char HandleAutomapKey(const InputAtom* input)
     case 0x41:
         /* Developer: reveal the whole map. */
         if (g_dev_mode) {
-            g_automap_visited_cells->SetAll();
+            std::ranges::fill(g_automap_visited_cells, true);
             g_automap_bounds_dirty = true;
             g_automap_redraw = true;
             g_automap_overlay_redraw = true;
@@ -2242,7 +2222,7 @@ unsigned char HandleAutomapKey(const InputAtom* input)
     case 0x43:
         /* Developer: forget the whole map. */
         if (g_dev_mode) {
-            g_automap_visited_cells->ClearAll();
+            std::ranges::fill(g_automap_visited_cells, false);
             g_automap_bounds_dirty = true;
             UpdateAutomapBounds();
             return 1;
@@ -2288,14 +2268,8 @@ unsigned char HandleAutomapKey(const InputAtom* input)
 unsigned char ReadAutomapNodes(wiz8::File* hFile)
 try
 {
-    if (g_automap_visited_cells != 0) {
-        delete g_automap_visited_cells;
-        g_automap_visited_cells = 0;
-    }
-    if (g_automap_lit_cells != 0) {
-        delete g_automap_lit_cells;
-        g_automap_lit_cells = 0;
-    }
+    g_automap_visited_cells.clear();
+    g_automap_lit_cells.clear();
     if (g_automap_cell_keys != 0) {
         free(g_automap_cell_keys);
         g_automap_cell_keys = 0;
@@ -2308,8 +2282,8 @@ try
     hFile->read_exact(&g_automap_grid_cell_size, 4);
     unsigned char ok = (hFile->read(&g_automap_cell_count, 4).bytes == static_cast<std::size_t>(4));
     if (g_automap_cell_count == 0) {
-        g_automap_visited_cells = new BitArray(1);
-        g_automap_lit_cells = new BitArray(1);
+        g_automap_visited_cells.assign(1, false);
+        g_automap_lit_cells.assign(1, false);
         g_automap_cell_keys = static_cast<unsigned int*>(malloc(sizeof(*g_automap_cell_keys)));
         *g_automap_cell_keys = 0;
         g_automap_cell_count = 1;
@@ -2317,29 +2291,13 @@ try
         return ok;
     }
 
-    g_automap_visited_cells = new BitArray(g_automap_cell_count);
-    if (g_automap_visited_cells == 0) {
-        return 0;
-    }
-    g_automap_lit_cells = new BitArray(g_automap_cell_count);
-    if (g_automap_lit_cells == 0) {
-        if (g_automap_visited_cells != 0) {
-            delete g_automap_visited_cells;
-        }
-        g_automap_visited_cells = 0;
-        return 0;
-    }
+    g_automap_visited_cells.assign(g_automap_cell_count, false);
+    g_automap_lit_cells.assign(g_automap_cell_count, false);
     g_automap_cell_keys =
         static_cast<unsigned int*>(malloc(g_automap_cell_count * sizeof(*g_automap_cell_keys)));
     if (g_automap_cell_keys == 0) {
-        if (g_automap_visited_cells != 0) {
-            delete g_automap_visited_cells;
-        }
-        if (g_automap_lit_cells != 0) {
-            delete g_automap_lit_cells;
-        }
-        g_automap_visited_cells = 0;
-        g_automap_lit_cells = 0;
+        g_automap_visited_cells.clear();
+        g_automap_lit_cells.clear();
         return 0;
     }
 

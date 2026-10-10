@@ -20,3 +20,23 @@ inline std::string make_temporary_directory(const char* prefix)
     }
     throw std::runtime_error("Cannot create unique test directory");
 }
+
+class ScopedTemporaryDirectory
+{
+  public:
+    explicit ScopedTemporaryDirectory(const char* prefix)
+        : path(make_temporary_directory(prefix))
+    {
+    }
+
+    ~ScopedTemporaryDirectory()
+    {
+        std::error_code ignored;
+        std::filesystem::remove_all(path, ignored);
+    }
+
+    ScopedTemporaryDirectory(const ScopedTemporaryDirectory&) = delete;
+    ScopedTemporaryDirectory& operator=(const ScopedTemporaryDirectory&) = delete;
+
+    std::filesystem::path path;
+};
