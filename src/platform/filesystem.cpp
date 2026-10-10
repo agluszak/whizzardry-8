@@ -22,7 +22,12 @@ namespace
 {
     throw std::runtime_error(std::string(operation) + ": " + SDL_GetError());
 }
-// SLF bounds belong to the stream, so every SDL consumer sees the same entry.
+// SDL has no bounded substream primitive. This private SLF backend owns one
+// physical stream and closes it exactly once; its heap context survives File
+// moves. SDL consumers share one entry-relative cursor, never the archive cursor.
+// Reads clamp to the entry end (partial transfer + EOF); short physical reads
+// inside the declared entry are errors. Bounds are rechecked against archive
+// size on reads so truncating an open archive cannot expose stale buffered data.
 struct ArchiveIO
 {
     SDL_IOStream* source;

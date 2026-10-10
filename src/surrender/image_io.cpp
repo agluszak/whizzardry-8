@@ -1,6 +1,7 @@
 #include "surrender/srImageIO.h"
 #include "surrender/srCore.h"
 #include "image_helpers.h"
+#include "jpeg_validate.h"
 #include "surrender/srIO.h"
 #include "wiz8/filesystem.h"
 
@@ -15,101 +16,22 @@ struct JpegHeader {
     unsigned components = 0;
 };
 
-bool readHeader(SDL_IOStream* io, JpegHeader& header)
-{
-    Uint8 signature[2];
-    if (SDL_ReadIO(io, signature, 2) != 2 || signature[0] != 0xff || signature[1] != 0xd8)
-        return false;
-    for (;;) {
-        Uint8 prefix = 0, marker = 0;
-        if (!SDL_ReadU8(io, &prefix) || prefix != 0xff)
-            return false;
-        do {
-            if (!SDL_ReadU8(io, &marker))
-                return false;
-        } while (marker == 0xff);
-        if (marker == 0 || marker == 0xd9 || marker == 0xda)
-            return false;
-        if (marker == 0x01 || (marker >= 0xd0 && marker <= 0xd7))
-            continue;
-        Uint16 length = 0;
-        if (!SDL_ReadU16BE(io, &length) || length < 2)
-            return false;
-        if (marker >= 0xc0 && marker <= 0xcf && marker != 0xc4 && marker != 0xc8 && marker != 0xcc) {
-            Uint8 data[6];
-            if (length < 8 || SDL_ReadIO(io, data, 6) != 6)
-                return false;
-            header.height = unsigned(data[1]) * 256 + data[2];
-            header.width = unsigned(data[3]) * 256 + data[4];
-            header.components = data[5];
-            return data[0] == 8 && (data[5] == 1 || data[5] == 3 || data[5] == 4) &&
-                   length == 8 + 3 * data[5] && header.width && header.height &&
-                   Uint64(header.width) * header.height <= 64 * 1024 * 1024;
-        }
-        if (SDL_SeekIO(io, length - 2, SDL_IO_SEEK_CUR) < 0)
-            return false;
-    }
-}
-
-bool jpegMarker(SDL_IOStream* io, bool entropy, Uint8& marker)
-{
-    if (!entropy) {
-        Uint8 prefix;
-        if (!SDL_ReadU8(io, &prefix) || prefix != 0xff) return false;
-        do { if (!SDL_ReadU8(io, &marker)) return false; } while (marker == 0xff);
-        return true;
-    }
-    // Scan entropy data in blocks, retaining marker prefixes across block
-    // boundaries. Stuffed bytes and restart markers are part of the scan.
-    Uint8 bytes[4096];
-    bool prefix = false;
-    for (;;) {
-        const auto count = SDL_ReadIO(io, bytes, sizeof(bytes));
-        if (!count || SDL_GetIOStatus(io) == SDL_IO_STATUS_ERROR) return false;
-        for (size_t i = 0; i < count; ++i) {
-            const auto byte = bytes[i];
-            if (!prefix) { prefix = byte == 0xff; continue; }
-            if (byte == 0xff) continue;
-            prefix = false;
-            if (byte == 0 || (byte >= 0xd0 && byte <= 0xd7)) continue;
-            marker = byte;
-            return SDL_SeekIO(io, Sint64(i + 1) - Sint64(count), SDL_IO_SEEK_CUR) >= 0;
-        }
-    }
-}
-
-bool completeJpeg(SDL_IOStream* io)
-{
-    if (SDL_SeekIO(io, 2, SDL_IO_SEEK_SET) < 0) return false;
-    bool entropy = false, scanned = false;
-    for (;;) {
-        Uint8 marker;
-        if (!jpegMarker(io, entropy, marker)) return false;
-        if (marker == 0xd9) return scanned;
-        if (marker == 0 || marker == 0xd8) return false;
-        if (marker == 0x01 || (marker >= 0xd0 && marker <= 0xd7)) continue;
-        Uint16 length;
-        if (!SDL_ReadU16BE(io, &length) || length < 2) return false;
-        const auto position = SDL_TellIO(io), size = SDL_GetIOSize(io);
-        if (position < 0 || size < position || length - 2 > size - position ||
-            SDL_SeekIO(io, length - 2, SDL_IO_SEEK_CUR) < 0) return false;
-        if (marker != 0xdc) entropy = marker == 0xda;
-        scanned |= entropy;
-    }
-}
-
 srColorSurface* loadJpeg(SDL_IOStream* io)
 {
     if (SDL_GetIOSize(io) > 256 * 1024 * 1024 ||
         SDL_SeekIO(io, 0, SDL_IO_SEEK_SET) < 0)
         return nullptr;
+    size_t size = 0;
+    std::unique_ptr<void, decltype(&SDL_free)> bytes(SDL_LoadFile_IO(io, &size, false), SDL_free);
     JpegHeader header;
-    if (!readHeader(io, header) || !completeJpeg(io) || SDL_SeekIO(io, 0, SDL_IO_SEEK_SET) < 0)
+    if (!bytes || size > 256 * 1024 * 1024 ||
+        SDL_GetIOStatus(io) == SDL_IO_STATUS_ERROR ||
+        !srValidateJpeg(static_cast<const unsigned char*>(bytes.get()), size,
+                        &header.width, &header.height, &header.components))
         return nullptr;
-    srImage::Surface decoded(IMG_LoadJPG_IO(io), SDL_DestroySurface);
-    // The marker pass rejects synthesized EOI; SDL reports backend failures.
-    if (!decoded || SDL_GetIOStatus(io) == SDL_IO_STATUS_ERROR || decoded->w != int(header.width) ||
-        decoded->h != int(header.height))
+    auto source = srIO::own(SDL_IOFromConstMem(bytes.get(), size));
+    srImage::Surface decoded(IMG_LoadJPG_IO(source.get()), SDL_DestroySurface);
+    if (!decoded || decoded->w != int(header.width) || decoded->h != int(header.height))
         return nullptr;
     const bool four_channels = header.components == 4;
     srImage::Surface bgr(SDL_ConvertSurface(decoded.get(), four_channels ? SDL_PIXELFORMAT_BGRA32 :

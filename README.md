@@ -8,7 +8,7 @@ Game data comes from an existing retail installation and is not distributed here
 ## Build
 
 Install CMake 3.21+, Ninja, Clang, pkg-config, glslang, SDL3, SDL3_image,
-SDL3_mixer, FFmpeg development libraries and zlib through the host package
+SDL3_mixer, libjpeg, FFmpeg development libraries and zlib through the host package
 manager.
 
 On Ubuntu 26.04, the SDL3_mixer package is not in the release archive yet.
@@ -17,7 +17,7 @@ from the Ubuntu archive pool:
 
 ```sh
 sudo apt-get install clang ninja-build cmake curl pkg-config glslang-tools \
-    zlib1g-dev libsdl3-dev libsdl3-image-dev \
+    zlib1g-dev libjpeg-dev libsdl3-dev libsdl3-image-dev \
     libavcodec-dev libavformat-dev libswresample-dev libswscale-dev
 curl -fsSLO https://archive.ubuntu.com/ubuntu/pool/universe/libs/libsdl3-mixer/libsdl3-mixer0_3.2.4+ds-1_amd64.deb
 curl -fsSLO https://archive.ubuntu.com/ubuntu/pool/universe/libs/libsdl3-mixer/libsdl3-mixer-dev_3.2.4+ds-1_amd64.deb

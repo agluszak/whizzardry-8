@@ -8,21 +8,25 @@
 static void sortSymbolPairs(srHuffman::Sampler::Symbol* pairs, w8_ulong count);
 
 // FUNCTION: SURRENDER 0x100013D0
-void srHuffman::BitIStream::fetchCache(w8_long position)
+void srHuffman::BitIStream::fetchCache(Sint64 position)
 {
+    if (position < 0 || position > bit_end / 8)
+        throw std::out_of_range("Huffman cursor outside input");
     cache_base = position;
-    if (SDL_SeekIO(stream, position, SDL_IO_SEEK_SET) < 0)
+    if (SDL_SeekIO(stream, position, SDL_IO_SEEK_SET) != position)
         throw std::runtime_error(SDL_GetError());
     std::fill(std::begin(cache), std::end(cache), 0);
     cache_valid = SDL_ReadIO(stream, cache, sizeof(cache));
-    if (SDL_GetIOStatus(stream) == SDL_IO_STATUS_ERROR)
+    if (SDL_GetIOStatus(stream) != SDL_IO_STATUS_READY &&
+        SDL_GetIOStatus(stream) != SDL_IO_STATUS_EOF)
         throw std::runtime_error(SDL_GetError());
 }
 
 // FUNCTION: SURRENDER 0x100015C0
-w8_ulong srHuffman::BitIStream::getByte(w8_long position)
+w8_ulong srHuffman::BitIStream::getByte(Sint64 position)
 {
-    w8_ulong offset = position - cache_base;
+    const auto distance = position - cache_base;
+    size_t offset = distance < 0 ? sizeof(cache) : size_t(distance);
     if (offset >= 0x80) {
         fetchCache(position);
         offset = 0;
@@ -32,21 +36,23 @@ w8_ulong srHuffman::BitIStream::getByte(w8_long position)
 }
 
 // FUNCTION: SURRENDER 0x10001490
-w8_ulong srHuffman::BitIStream::getDWord(w8_long position)
+w8_ulong srHuffman::BitIStream::getDWord(Sint64 position)
 {
-    w8_ulong offset = position - cache_base;
+    const auto distance = position - cache_base;
+    size_t offset = distance < 0 ? sizeof(cache) : size_t(distance);
     if (offset >= 0x7d) {
         fetchCache(position);
         offset = 0;
     }
-    return w8_ulong(cache[offset]) | (w8_ulong(cache[offset + 1]) << 8) |
-           (w8_ulong(cache[offset + 2]) << 16) | (w8_ulong(cache[offset + 3]) << 24);
+    Uint32 value;
+    memcpy(&value, cache + offset, sizeof(value));
+    return SDL_Swap32LE(value);
 }
 
 // FUNCTION: SURRENDER 0x10001340
 w8_ulong srHuffman::BitIStream::getWordOrLess(w8_ulong bits)
 {
-    w8_long position = bit_pos / 8;
+    Sint64 position = bit_pos / 8;
     w8_ulong shift = bit_pos & 7;
     w8_ulong data = getDWord(position);
     if (size_t(position - cache_base) + (shift + bits + 7) / 8 > cache_valid)
@@ -60,10 +66,18 @@ srHuffman::BitIStream::BitIStream(SDL_IOStream* stream)
 {
     this->stream = stream;
     cache_base = -0x100;
-    const auto position = SDL_TellIO(stream);
-    if (position < 0 || position > std::numeric_limits<w8_long>::max() / 8)
-        throw std::runtime_error("Invalid Huffman cursor");
-    bit_pos = static_cast<w8_long>(position * 8);
+    const auto position = SDL_TellIO(stream), size = SDL_GetIOSize(stream);
+    if (position < 0 || size < position || size > std::numeric_limits<Sint64>::max() / 8)
+        throw std::out_of_range("Invalid Huffman cursor or length");
+    bit_begin = bit_pos = position * 8;
+    bit_end = size * 8;
+
+}
+
+void srHuffman::BitIStream::requireBits(w8_ulong bits) const
+{
+    if (bits > bit_end - bit_pos)
+        throw std::out_of_range("Truncated Huffman bits");
 }
 
 // FUNCTION: SURRENDER 0x100010E0
@@ -71,6 +85,7 @@ w8_ulong srHuffman::BitIStream::get(w8_ulong bits)
 {
     if (bits == 0) return 0;
     if (bits > 32) throw std::runtime_error("Invalid Huffman bit width");
+    requireBits(bits);
     if (bits <= 0x10) {
         return getWordOrLess(bits);
     }
@@ -87,6 +102,7 @@ w8_ulong srHuffman::BitIStream::peekByte()
 // FUNCTION: SURRENDER 0x10001290
 w8_ulong srHuffman::BitIStream::getBit()
 {
+    requireBits(1);
     w8_ulong data = getByte(bit_pos / 8);
     w8_ulong bit = (data >> (bit_pos & 7)) & 1;
     ++bit_pos;
@@ -96,6 +112,8 @@ w8_ulong srHuffman::BitIStream::getBit()
 // FUNCTION: SURRENDER 0x10001320
 void srHuffman::BitIStream::rewind(w8_long bits)
 {
+    if (bits < 0 || bits > bit_pos - bit_begin)
+        throw std::out_of_range("Rewind outside Huffman input");
     bit_pos -= bits;
 }
 

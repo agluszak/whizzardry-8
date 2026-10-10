@@ -19,16 +19,17 @@ public:
         BitIStream(const BitIStream& stream);
         BitIStream& operator=(const BitIStream& stream);
 
-        void fetchCache(w8_long position);
-        w8_ulong getByte(w8_long position);
-        w8_ulong getDWord(w8_long position);
+        void fetchCache(Sint64 position);
+        w8_ulong getByte(Sint64 position);
+        w8_ulong getDWord(Sint64 position);
         w8_ulong getWordOrLess(w8_ulong bits);
 
         SDL_IOStream* stream;
         unsigned char cache[0x80]{};
         size_t cache_valid = 0;
-        w8_long cache_base;
-        w8_long bit_pos;
+        void requireBits(w8_ulong bits) const;
+        Sint64 cache_base;
+        Sint64 bit_pos, bit_begin, bit_end;
     };
 
     class BitOStream {

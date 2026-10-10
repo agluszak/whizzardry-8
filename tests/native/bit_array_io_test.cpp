@@ -19,12 +19,14 @@ int main() try
         auto file = wiz8::open_host_file(path, wiz8::OpenMode::replace);
         CHECK(original.Save(file.get()));
         CHECK(file->seek(0, wiz8::SeekOrigin::begin) == 0);
-        CHECK(srIO::readInteger<Uint32>(file->io()) == 0xdeadd00d);
-        CHECK(srIO::readInteger<Uint32>(file->io()) == 64);
-        const auto packed_size = srIO::readInteger<Uint32>(file->io());
+        Uint32 magic;
+        CHECK(SDL_ReadU32LE(file->io(), &magic) && magic == 0xdeadd00d);
+        Uint32 count, packed_size;
+        CHECK(SDL_ReadU32LE(file->io(), &count) && count == 64);
+        CHECK(SDL_ReadU32LE(file->io(), &packed_size));
         CHECK(packed_size + 16 == file->size());
         CHECK(SDL_SeekIO(file->io(), -4, SDL_IO_SEEK_END) == file->size() - 4);
-        CHECK(srIO::readInteger<Uint32>(file->io()) == 0xdeadd00d);
+        CHECK(SDL_ReadU32LE(file->io(), &magic) && magic == 0xdeadd00d);
     }
     auto file = wiz8::open_host_file(path);
     std::vector<unsigned char> encoded(file->size());
@@ -45,6 +47,30 @@ int main() try
         destination.Set(7);
         CHECK(!destination.Load(truncated.get()));
         CHECK(destination.bit_count == 32 && destination.Test(7));
+    }
+    // Counts near 2^24 exposed the old float divide rounding into the next
+    // word. Constructor, SetSize and Load must agree on their actual allocation.
+    for (const unsigned count : {31u, 32u, 33u, 16777247u, 16777248u, 16777249u}) {
+        BitArray source(count), resized(1);
+        resized.SetSize(count);
+        CHECK(source.word_count == count / 32 + 1 && resized.word_count == source.word_count);
+        CHECK(source.tail_mask == resized.tail_mask);
+        source.Set(count - 1);
+        auto output = wiz8::open_host_file(path, wiz8::OpenMode::replace);
+        CHECK(source.Save(output.get()));
+        output->seek(0, wiz8::SeekOrigin::begin);
+        CHECK(resized.Load(output.get()) && resized.bit_count == count);
+        CHECK(resized.word_count == source.word_count && resized.Test(count - 1));
+    }
+    // Mismatched serialized bit count and Huffman word count cannot commit.
+    encoded[4] = 32; // Original count was 64, with three decoded words.
+    {
+        auto output = wiz8::open_host_file(path, wiz8::OpenMode::replace);
+        output->write(encoded.data(), encoded.size());
+        output->seek(0, wiz8::SeekOrigin::begin);
+        BitArray destination(32);
+        destination.Set(7);
+        CHECK(!destination.Load(output.get()) && destination.Test(7));
     }
     std::filesystem::remove_all(root);
     puts("ok: SDL BitArray framing, Huffman round trip and truncation");

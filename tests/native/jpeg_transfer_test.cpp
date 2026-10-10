@@ -52,6 +52,41 @@ static Bytes encode(srColorSurfaceIFace& surface, int quality = 100)
     auto* data = static_cast<const Uint8*>(SDL_GetPointerProperty(SDL_GetIOProperties(output.get()), SDL_PROP_IOSTREAM_DYNAMIC_MEMORY_POINTER, nullptr));
     return {data, data + SDL_GetIOSize(output.get())};
 }
+// Fixtures generated with libjpeg quality 95 from a constant 32x32 RGB image
+// (40,90,150): jpeg_simple_progression, and baseline restart_interval = 1.
+static void jpegValidationTests()
+{
+    for (const auto* name : {"progressive.jpg", "restart.jpg"}) {
+        const auto bytes = fixture(name);
+        unsigned scans = 0, restarts = 0;
+        for (size_t i = 0; i + 1 < bytes.size(); ++i) {
+            scans += bytes[i] == 0xff && bytes[i + 1] == 0xda;
+            restarts += bytes[i] == 0xff && bytes[i + 1] >= 0xd0 && bytes[i + 1] <= 0xd7;
+        }
+        CHECK(scans > 1 || restarts > 0);
+        auto surface = loadJpeg(bytes);
+        CHECK(surface && surface->getWidth() == 32 && surface->getHeight() == 32);
+        const auto pixel = surface->getPixel(0, 0);
+        CHECK(abs(int((pixel >> 16) & 255) - 40) <= 2 &&
+              abs(int((pixel >> 8) & 255) - 90) <= 2 && abs(int(pixel & 255) - 150) <= 2);
+        for (const auto removed : {size_t(2), size_t(8), bytes.size() / 2}) {
+            Bytes truncated(bytes.begin(), bytes.end() - removed);
+            CHECK(!loadJpeg(truncated));
+            // A terminal EOI alone cannot make missing scans/entropy valid.
+            if (removed != 2) {
+                truncated.insert(truncated.end(), {0xff, 0xd9});
+                CHECK(!loadJpeg(truncated));
+            }
+        }
+        auto trailing = bytes;
+        trailing.insert(trailing.end(), {1, 2, 3});
+        CHECK(loadJpeg(trailing));
+        auto metadata = bytes;
+        metadata.insert(metadata.begin() + 2, {0xff,0xef,0,6,0xff,0xd9,0xff,0xd8});
+        CHECK(loadJpeg(metadata)); // Marker-looking bytes inside APP payloads.
+    }
+}
+
 static void jpegTests()
 {
     const auto gray = fixture("gray.jpg"), cmyk = fixture("cmyk.jpg");
@@ -374,6 +409,7 @@ int main() try
 {
     CHECK(srInit());
     jpegTests();
+    jpegValidationTests();
     pitchTests();
     tgaTests();
     streamTests();

@@ -5,14 +5,15 @@
 #include "surrender/srHuffman.h"
 
 #include <new>
+#include <utility>
 #include <stdlib.h>
 #include <string.h>
 
 #define BITARRAY_CPP "C:\\Projects\\Wizardry 8\\Engine Code\\BitArray.cpp"
 
-/* The word count is computed through a floating divide rather than a shift,
-   which is why every sizing path in here goes through ftol. */
-#define W8_WHOLE_WORDS(bits) ((int)((bits) / 32.0f))
+// Use the same exact allocation rule in construction, resizing and growth.
+// Float division rounded counts near large word boundaries up prematurely.
+#define W8_WHOLE_WORDS(bits) ((bits) / W8_BITS_PER_WORD)
 
 /* How much slack SetAndGrow leaves beyond the bit that overflowed. */
 enum { W8_BITARRAY_GROWTH_SLACK = 100 };
@@ -104,10 +105,12 @@ unsigned char BitArray::Load(wiz8::File* handle)
 try
 {
     auto* io = handle->io();
-    if (srIO::readInteger<Uint32>(io) != 0xdeadd00d) return 0;
-    const auto file_bit_count = srIO::readInteger<Uint32>(io);
+    Uint32 magic, file_bit_count, packed_size;
+    srIO::check(SDL_ReadU32LE(io, &magic));
+    if (magic != 0xdeadd00d) return 0;
+    srIO::check(SDL_ReadU32LE(io, &file_bit_count));
     if (!file_bit_count) return 0;
-    const auto packed_size = srIO::readInteger<Uint32>(io);
+    srIO::check(SDL_ReadU32LE(io, &packed_size));
     const auto position = SDL_TellIO(io), length = SDL_GetIOSize(io);
     if (position < 0 || length < position || Uint64(packed_size) + 4 > Uint64(length - position))
         return 0;
@@ -116,13 +119,19 @@ try
     auto stream = srIO::own(SDL_IOFromConstMem(packed.data(), packed.size()));
     srHuffman::BitIStream bits(stream.get());
     srHuffman::Decompressor decoder(bits);
-    const auto expected_words = file_bit_count / 32 + 1;
-    if (decoder.getDataCount() != expected_words) return 0;
-    std::vector<w8_ulong> decoded(expected_words);
-    for (auto& word : decoded) word = decoder.decompressSymbol();
-    if (srIO::readInteger<Uint32>(io) != 0xdeadd00d) return 0;
-    SetSize(file_bit_count);
-    memcpy(puiIndex, decoded.data(), decoded.size() * sizeof(decoded[0]));
+    BitArray decoded(file_bit_count);
+    if (decoder.getDataCount() != decoded.word_count) return 0;
+    for (unsigned int index = 0; index < decoded.word_count; ++index)
+        decoded.puiIndex[index] = decoder.decompressSymbol();
+    srIO::check(SDL_ReadU32LE(io, &magic));
+    if (magic != 0xdeadd00d) return 0;
+    // Adopt the allocation whose actual word_count was checked. The temporary
+    // releases our old buffer; failures above leave this array untouched.
+    std::swap(puiIndex, decoded.puiIndex);
+    word_count = decoded.word_count;
+    bit_count = decoded.bit_count;
+    tail_mask = decoded.tail_mask;
+    cursor_base = cursor_bit = cursor_word = 0;
 
     set_count = 0;
     if (NextSetBit(true) != 0) {
@@ -152,8 +161,8 @@ unsigned char BitArray::Save(wiz8::File* handle)
         return 0;
     }
 
-    srIO::writeInteger(handle->io(), magic);
-    srIO::writeInteger(handle->io(), bit_count);
+    srIO::check(SDL_WriteU32LE(handle->io(), magic));
+    srIO::check(SDL_WriteU32LE(handle->io(), bit_count));
 
     auto stream = srIO::own(SDL_IOFromDynamicMem());
     {
@@ -188,10 +197,10 @@ unsigned char BitArray::Save(wiz8::File* handle)
     }
 
     packed_size = static_cast<w8_ulong>(SDL_GetIOSize(stream.get()));
-    srIO::writeInteger(handle->io(), packed_size);
+    srIO::check(SDL_WriteU32LE(handle->io(), packed_size));
     srIO::writeExact(handle->io(), SDL_GetPointerProperty(SDL_GetIOProperties(stream.get()),
                      SDL_PROP_IOSTREAM_DYNAMIC_MEMORY_POINTER, nullptr), packed_size);
-    srIO::writeInteger(handle->io(), magic);
+    srIO::check(SDL_WriteU32LE(handle->io(), magic));
     return 1;
 }
 
