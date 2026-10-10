@@ -525,12 +525,7 @@ void srGERD::setClearColor(const glm::vec4& color)
 // FUNCTION: SURRENDER 0x1001CB00
 void srGERD::setClearColor(float red, float green, float blue, float alpha)
 {
-    glm::vec4 color;
-    color.x = red;
-    color.y = green;
-    color.z = blue;
-    color.w = alpha;
-    setClearColor(color);
+    setClearColor(glm::vec4(red, green, blue, alpha));
 }
 
 // FUNCTION: SURRENDER 0x1001CB70
