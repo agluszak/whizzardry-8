@@ -1006,7 +1006,7 @@ try
                                        &vertex_map_count, &mapped_values, &mapped_keys);
     if (first_model != 0) {
         first_model->autoRelease();
-        first_model->setName(name);
+        first_model->setName(name ? name : "");
         stModelInstance* loaded_instance = CreateModelInstance(first_model);
         loaded_instance->setName("ReadSTMeshFromFile");
         if (version > 1 && loaded_instance != 0) {
@@ -1143,7 +1143,7 @@ try
 
     for (g_read_mesh_index = 0; g_read_mesh_index < root_count; ++g_read_mesh_index) {
         stMeshModel* model = meshes[g_read_mesh_index];
-        model->setName(name);
+        model->setName(name ? name : "");
         if (model->previous == 0) {
             stModelInstance* instance = CreateModelInstance(model);
             instance->setName("Multi Mesh Instance");
