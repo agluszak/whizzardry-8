@@ -1,3 +1,4 @@
+#include <catch2/catch_test_macros.hpp>
 #include "surrender/srClipPlane.h"
 #include "surrender/srCamera.h"
 #include "surrender/srCore.h"
@@ -19,13 +20,6 @@
 #include <type_traits>
 #include <glm/gtc/matrix_transform.hpp>
 
-#define CHECK(expression)                                                                          \
-    do {                                                                                          \
-        if (!(expression)) {                                                                      \
-            fprintf(stderr, "line %d: %s\n", __LINE__, #expression);                               \
-            return false;                                                                         \
-        }                                                                                         \
-    } while (0)
 
 template <class T>
 constexpr bool noncopyable = !std::is_copy_constructible_v<T> && !std::is_copy_assignable_v<T>;
@@ -65,11 +59,11 @@ template <class T> static bool rotations()
                         const int remaining = 3 - row - column;
                         reference += (column == (row + 1) % 3 ? -1 : 1) * components[remaining] * sine;
                     }
-                    CHECK(std::abs(actual[column][row] - reference) <=
+                    REQUIRE(std::abs(actual[column][row] - reference) <=
                           8 * std::numeric_limits<T>::epsilon());
                 }
                 for (int other = 0; other < 3; ++other)
-                    CHECK(std::abs(glm::dot(actual[row], actual[other]) - T(row == other)) <=
+                    REQUIRE(std::abs(glm::dot(actual[row], actual[other]) - T(row == other)) <=
                           16 * std::numeric_limits<T>::epsilon());
             }
         }
@@ -87,28 +81,28 @@ static bool transforms()
     child.setLocation(1, 2, 3);
     glm::dmat4 world;
     child.getWorldSpaceMatrix(world);
-    CHECK(glm::length(glm::dvec3(world[3]) - glm::dvec3(-2, 0, 13)) < 1e-12);
-    CHECK(glm::length(glm::dvec3(world * glm::dvec4(1, 0, 0, 1)) - glm::dvec3(-2, 2, 13)) < 1e-12);
+    REQUIRE(glm::length(glm::dvec3(world[3]) - glm::dvec3(-2, 0, 13)) < 1e-12);
+    REQUIRE(glm::length(glm::dvec3(world * glm::dvec4(1, 0, 0, 1)) - glm::dvec3(-2, 2, 13)) < 1e-12);
     glm::dmat4x3 affine;
     child.getWorldSpaceMatrix(affine);
-    CHECK(glm::dmat4(affine) == world);
+    REQUIRE(glm::dmat4(affine) == world);
     const glm::dmat4 desired = glm::translate(glm::dmat4(1), glm::dvec3(7, 8, 9));
     child.setWorldSpaceMatrix(desired);
     child.getWorldSpaceMatrix(world);
     for (int column = 0; column < 4; ++column)
-        CHECK(glm::length(world[column] - desired[column]) < 1e-12);
+        REQUIRE(glm::length(world[column] - desired[column]) < 1e-12);
 
     const glm::mat4 transform =
         glm::scale(glm::translate(glm::mat4(1), glm::vec3(3, 2, 0)), glm::vec3(2, 3, 4));
     const auto plane_matrix = glm::transpose(glm::inverse(transform));
     const auto plane = srTriangleCuller::transformClipPlane(glm::vec4(1, 0, 0, -1), plane_matrix);
-    CHECK(glm::length(plane - glm::vec4(1, 0, 0, -5)) < 1e-6f);
-    CHECK(glm::dot(plane, glm::vec4(6, 0, 0, 1)) > 0);
-    CHECK(glm::dot(plane, glm::vec4(4, 0, 0, 1)) < 0);
+    REQUIRE(glm::length(plane - glm::vec4(1, 0, 0, -5)) < 1e-6f);
+    REQUIRE(glm::dot(plane, glm::vec4(6, 0, 0, 1)) > 0);
+    REQUIRE(glm::dot(plane, glm::vec4(4, 0, 0, 1)) < 0);
     parent.setRotation(0.3, srVector3T<double>(0, 0, 0));
     glm::dmat3 rotation;
     parent.getRotation(rotation);
-    CHECK(rotation == glm::dmat3(1));
+    REQUIRE(rotation == glm::dmat3(1));
     return true;
 }
 
@@ -124,26 +118,26 @@ static bool interfaces()
         const auto delta = actual_rotation - reference;
         for (int col = 0; col < 3; ++col)
             for (int row = 0; row < 3; ++row)
-                CHECK(std::abs(delta[col][row]) < 1e-14);
+                REQUIRE(std::abs(delta[col][row]) < 1e-14);
         srScene scene;
         scene.setAmbientLight(0.3f, 0.4f, 0.5f);
-        CHECK(scene.getAmbientLight() == glm::vec3(0.3f, 0.4f, 0.5f));
+        REQUIRE(scene.getAmbientLight() == glm::vec3(0.3f, 0.4f, 0.5f));
         scene.setAmbientLight(glm::vec3(0.6f, 0.7f, 0.8f));
-        CHECK(scene.getAmbientLight() == glm::vec3(0.6f, 0.7f, 0.8f));
+        REQUIRE(scene.getAmbientLight() == glm::vec3(0.6f, 0.7f, 0.8f));
         scene.setFogColor(0.1f, 0.2f, 0.3f);
-        CHECK(scene.getFogColor() == glm::vec3(0.1f, 0.2f, 0.3f));
+        REQUIRE(scene.getFogColor() == glm::vec3(0.1f, 0.2f, 0.3f));
         scene.setFogColor(glm::vec3(0.4f, 0.5f, 0.6f));
-        CHECK(scene.getFogColor() == glm::vec3(0.4f, 0.5f, 0.6f));
+        REQUIRE(scene.getFogColor() == glm::vec3(0.4f, 0.5f, 0.6f));
 
         srLight light;
         light.setAmbient(glm::vec3(0.1f, 0.2f, 0.3f));
-        CHECK(light.getAmbient() == glm::vec3(0.1f, 0.2f, 0.3f));
+        REQUIRE(light.getAmbient() == glm::vec3(0.1f, 0.2f, 0.3f));
         light.setSpotDirection(glm::vec3(3, 0, 4));
-        CHECK(glm::length(light.getSpotDirection() - glm::vec3(0.6f, 0, 0.8f)) < 1e-6f);
+        REQUIRE(glm::length(light.getSpotDirection() - glm::vec3(0.6f, 0, 0.8f)) < 1e-6f);
         light.setSpotDirection(glm::vec3(0));
-        CHECK(light.getSpotDirection() == glm::vec3(0));
+        REQUIRE(light.getSpotDirection() == glm::vec3(0));
         light.setAttenuation(glm::vec3(-1, 0, 2));
-        CHECK(light.getAttenuation() == glm::vec3(0.0001f, 0.0001f, 2));
+        REQUIRE(light.getAttenuation() == glm::vec3(0.0001f, 0.0001f, 2));
 
         srCamera camera;
         camera.setClipRange(1, 100);
@@ -151,37 +145,37 @@ static bool interfaces()
         camera.setLocation(3, 4, 5);
         camera.setRotation(0, std::numbers::pi / 2, 0);
         srVector3 projected;
-        CHECK(camera.project(projected, srVector3T<double>(13, 4, 5)) ==
+        REQUIRE(camera.project(projected, srVector3T<double>(13, 4, 5)) ==
               srCamera::PROJECTION_RESULT_ACCEPTED);
-        CHECK(glm::length(projected.glmValue() - glm::vec3(0.5f, 0.5f, 10)) < 1e-5f);
+        REQUIRE(glm::length(projected.glmValue() - glm::vec3(0.5f, 0.5f, 10)) < 1e-5f);
         srVector3 restored;
-        CHECK(camera.unproject(restored, srVector3T<double>(0.5, 0.5, 10)));
-        CHECK(glm::length(restored.glmValue() - glm::vec3(13, 4, 5)) < 1e-5f);
-        CHECK(camera.project(projected, srVector3T<double>(13, 4, -15)) ==
+        REQUIRE(camera.unproject(restored, srVector3T<double>(0.5, 0.5, 10)));
+        REQUIRE(glm::length(restored.glmValue() - glm::vec3(13, 4, 5)) < 1e-5f);
+        REQUIRE(camera.project(projected, srVector3T<double>(13, 4, -15)) ==
               srCamera::PROJECTION_RESULT_OUTSIDE_VIEW);
-        CHECK(camera.project(projected, srVector3T<double>(203, 4, 5)) ==
+        REQUIRE(camera.project(projected, srVector3T<double>(203, 4, 5)) ==
               srCamera::PROJECTION_RESULT_OUTSIDE_CLIP_RANGE);
-        CHECK(!camera.unproject(restored, srVector3T<double>(2, 0.5, 10)));
+        REQUIRE(!camera.unproject(restored, srVector3T<double>(2, 0.5, 10)));
         camera.flipHorizontal();
-        CHECK(camera.unproject(restored, srVector3T<double>(0.25, 0.5, 10)));
-        CHECK(camera.project(projected, srVector3T<double>(restored.glmValue())) ==
+        REQUIRE(camera.unproject(restored, srVector3T<double>(0.25, 0.5, 10)));
+        REQUIRE(camera.project(projected, srVector3T<double>(restored.glmValue())) ==
               srCamera::PROJECTION_RESULT_ACCEPTED);
-        CHECK(std::abs(projected.x - 0.25f) < 1e-5f);
+        REQUIRE(std::abs(projected.x - 0.25f) < 1e-5f);
 
         ModelInstance model;
-        CHECK(!model.isAligned());
+        REQUIRE(!model.isAligned());
         model.setAlignAxis(srVector3T<float>(3, 0, 4));
-        CHECK(model.isAligned());
-        CHECK(model.getAlignAxis() == srVector3T<float>(0.6f, 0, 0.8f));
+        REQUIRE(model.isAligned());
+        REQUIRE(model.getAlignAxis() == srVector3T<float>(0.6f, 0, 0.8f));
         model.setAlignment(0);
-        CHECK(!model.isAligned());
+        REQUIRE(!model.isAligned());
         model.setAlignment(2);
-        CHECK(model.isAligned());
+        REQUIRE(model.isAligned());
         model.setAlignAxis(srVector3T<float>(0, 0, 0));
-        CHECK(model.getAlignAxis() == srVector3T<float>(0, 0, 0));
-        CHECK(model.isAligned());
+        REQUIRE(model.getAlignAxis() == srVector3T<float>(0, 0, 0));
+        REQUIRE(model.isAligned());
         model.setExclusionMask(0x12345678);
-        CHECK(model.getExclusionMask() == 0x12345678);
+        REQUIRE(model.getExclusionMask() == 0x12345678);
 
         srClipPlane clip;
         glm::vec4 plane;
@@ -189,24 +183,24 @@ static bool interfaces()
         clip.setClipPlane(plane);
         glm::vec4 output;
         clip.getClipPlane(output);
-        CHECK(output.x == 1 && output.y == 2 && output.z == 3 && output.w == 4);
+        REQUIRE((output.x == 1 && output.y == 2 && output.z == 3 && output.w == 4));
         const auto returned = clip.getClipPlane();
-        CHECK(returned.x == 1 && returned.y == 2 && returned.z == 3 && returned.w == 4);
+        REQUIRE((returned.x == 1 && returned.y == 2 && returned.z == 3 && returned.w == 4));
         clip.setClipType(srClipPlane::CLIP_POSITIONAL_0);
-        CHECK(clip.getClipType() == srClipPlane::CLIP_POSITIONAL_0);
+        REQUIRE(clip.getClipType() == srClipPlane::CLIP_POSITIONAL_0);
 
         srIlluminator illuminator;
     }
-    CHECK(srExit() == 1);
+    REQUIRE(srExit() == 1);
 
     return true;
 }
 
-int main()
+TEST_CASE("surrender_test")
 {
-    if (srInit() != 1)
-        return 1;
-    if (!rotations<float>() || !rotations<double>() || !transforms() ||
-        !interfaces()) return 1;
-    puts("ok: SurRender rotations, transforms, clipping and accessors");
+    REQUIRE(srInit() == 1);
+    REQUIRE(rotations<float>());
+    REQUIRE(rotations<double>());
+    REQUIRE(transforms());
+    REQUIRE(interfaces());
 }

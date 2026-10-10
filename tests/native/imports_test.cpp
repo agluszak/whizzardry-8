@@ -1,3 +1,4 @@
+#include <catch2/catch_test_macros.hpp>
 #include "surrender/srIO.h"
 #include "surrender/srMath.h"
 /* Native consumer-side linking and lifetime for the renderer contracts used
@@ -27,13 +28,6 @@
 #include <cstring>
 #include <cassert>
 
-#define CHECK(expression)                                                                          \
-    do {                                                                                           \
-        if (!(expression)) {                                                                       \
-            fprintf(stderr, "line %d: %s\n", __LINE__, #expression);                               \
-            return 1;                                                                              \
-        }                                                                                          \
-    } while (0)
 static int assertions = 0;
 static void assertion(const char* expression, const char* path, w8_long line, const char* message)
 {
@@ -92,61 +86,61 @@ static int surface_storage()
     {
         srColorSurface borrowed(srPixelConvert::SURFACE_BGRA32, pixels.data(), 3, 2, 20);
         borrowed.setPalette(palette);
-        CHECK(borrowed.getDataPtr() == pixels.data() && borrowed.getDataSize() == 40);
-        CHECK(!borrowed.resize(4, 3) && !borrowed.rescale(4, 3));
+        REQUIRE((borrowed.getDataPtr() == pixels.data() && borrowed.getDataSize() == 40));
+        REQUIRE((!borrowed.resize(4, 3) && !borrowed.rescale(4, 3)));
         srPixelConvert::PixelFormat format;
         srPixelConvert::mapPixelFormat(srPixelConvert::SURFACE_RGB24, format);
-        CHECK(!borrowed.changePixelFormat(format, 1));
+        REQUIRE(!borrowed.changePixelFormat(format, 1));
 
         srColorSurface copied(borrowed);
-        CHECK(copied.getDataPtr() != pixels.data());
-        CHECK(samePixels(copied, pixels.data()));
-        CHECK(palette.use_count() == references + 2);
+        REQUIRE(copied.getDataPtr() != pixels.data());
+        REQUIRE(samePixels(copied, pixels.data()));
+        REQUIRE(palette.use_count() == references + 2);
         copied.setPixelRaw(0, 0, 0x12345678);
-        CHECK(pixels == original && copied.getPixelRaw(0, 0) == 0x12345678);
+        REQUIRE((pixels == original && copied.getPixelRaw(0, 0) == 0x12345678));
         copied = static_cast<const srColorSurface&>(copied);
-        CHECK(copied.getPixelRaw(0, 0) == 0x12345678);
+        REQUIRE(copied.getPixelRaw(0, 0) == 0x12345678);
 
         srColorSurface assigned(srPixelConvert::SURFACE_BGRA32, 1, 1);
         assigned = borrowed;
-        CHECK(assigned.getDataPtr() != pixels.data());
-        CHECK(samePixels(assigned, pixels.data()));
-        CHECK(palette.use_count() == references + 3);
+        REQUIRE(assigned.getDataPtr() != pixels.data());
+        REQUIRE(samePixels(assigned, pixels.data()));
+        REQUIRE(palette.use_count() == references + 3);
         srColorSurface view(srPixelConvert::SURFACE_BGRA32, assigned.getDataPtr(), 3, 2,
                             assigned.getPitch());
         assigned = view;
-        CHECK(samePixels(assigned, pixels.data()));
-        CHECK(palette.use_count() == references + 2);
-        CHECK(assigned.resize(7, 5));
+        REQUIRE(samePixels(assigned, pixels.data()));
+        REQUIRE(palette.use_count() == references + 2);
+        REQUIRE(assigned.resize(7, 5));
         auto* begin = static_cast<unsigned char*>(assigned.getDataPtr());
-        CHECK(std::all_of(begin, begin + assigned.getDataSize(), [](auto value) { return value == 0; }));
+        REQUIRE(std::all_of(begin, begin + assigned.getDataSize(), [](auto value) { return value == 0; }));
         assigned.fill(0xff336699);
-        CHECK(assigned.rescale(3, 2));
+        REQUIRE(assigned.rescale(3, 2));
         for (int y = 0; y < 2; ++y)
             for (int x = 0; x < 3; ++x)
-                CHECK(assigned.getPixelRaw(x, y) == 0xff336699);
-        CHECK(assigned.changePixelFormat(format, 1));
-        CHECK(assigned.getPitch() >= 9 && assigned.getPixelRaw(0, 0) == 0x996633);
-        CHECK(assigned.getPixel(0, 0) == 0xff336699);
+                REQUIRE(assigned.getPixelRaw(x, y) == 0xff336699);
+        REQUIRE(assigned.changePixelFormat(format, 1));
+        REQUIRE((assigned.getPitch() >= 9 && assigned.getPixelRaw(0, 0) == 0x996633));
+        REQUIRE(assigned.getPixel(0, 0) == 0xff336699);
 
         std::array<unsigned char, 4> other_pixels{1, 2, 3, 4};
         srColorSurface other_borrowed(srPixelConvert::SURFACE_BGRA32, other_pixels.data(), 1, 1, 4);
         other_borrowed = borrowed;
-        CHECK(other_pixels == (std::array<unsigned char, 4>{1, 2, 3, 4}));
-        CHECK(other_borrowed.getDataPtr() != pixels.data());
-        CHECK(other_borrowed.resize(2, 2));
+        REQUIRE(other_pixels == (std::array<unsigned char, 4>{1, 2, 3, 4}));
+        REQUIRE(other_borrowed.getDataPtr() != pixels.data());
+        REQUIRE(other_borrowed.resize(2, 2));
     }
-    CHECK(pixels == original && palette.use_count() == references);
+    REQUIRE((pixels == original && palette.use_count() == references));
 
     // A view of an SDL surface keeps its pixels after the original owner releases them.
     {
         SDL_Surface* owner = SDL_CreateSurface(2, 2, SDL_PIXELFORMAT_ARGB1555);
-        CHECK(owner);
+        REQUIRE(owner);
         srColorSurface shared(srPixelConvert::SURFACE_ARGB1555, *owner);
-        CHECK(shared.getDataPtr() == owner->pixels && !shared.resize(4, 4));
+        REQUIRE((shared.getDataPtr() == owner->pixels && !shared.resize(4, 4)));
         SDL_DestroySurface(owner);
         shared.setPixelRaw(1, 1, 0x7fff);
-        CHECK(shared.getPixelRaw(1, 1) == 0x7fff);
+        REQUIRE(shared.getPixelRaw(1, 1) == 0x7fff);
     }
     return 0;
 }
@@ -160,11 +154,11 @@ static int shared_model_lifetimes()
     first->setModel(std::move(model));
     auto* copy = new srModelInstance(nullptr);
     *copy = *first;
-    CHECK(copy->getModel() == first->getModel());
+    REQUIRE(copy->getModel() == first->getModel());
     delete first;
-    CHECK(!lifetime.expired());
+    REQUIRE(!lifetime.expired());
     delete copy;
-    CHECK(lifetime.expired());
+    REQUIRE(lifetime.expired());
     return 0;
 }
 
@@ -196,18 +190,18 @@ static int shared_surface_lifetimes()
         surface.reset();
         palette.reset();
         first.setSurfacePtr(nullptr);
-        CHECK(!surface_lifetime.expired());
-        CHECK(second.getSurfacePtr()->getWidth() == 2);
+        REQUIRE(!surface_lifetime.expired());
+        REQUIRE(second.getSurfacePtr()->getWidth() == 2);
         second.setSurfacePtr(nullptr);
-        CHECK(surface_lifetime.expired());
-        CHECK(!palette_lifetime.expired());
+        REQUIRE(surface_lifetime.expired());
+        REQUIRE(!palette_lifetime.expired());
     }
     dimensions.palette.reset();
-    CHECK(palette_lifetime.expired());
+    REQUIRE(palette_lifetime.expired());
     return 0;
 }
 
-int main()
+TEST_CASE("imports_test")
 {
     {
         srModeler modeler;
@@ -221,11 +215,11 @@ int main()
         }
         float minimum, maximum;
         modeler.getAxialBounds(srModeler::AXIS_X, minimum, maximum);
-        CHECK(minimum == 0 && maximum == 12);
+        REQUIRE((minimum == 0 && maximum == 12));
         modeler.getAxialBounds(srModeler::AXIS_Y, minimum, maximum);
-        CHECK(minimum == 0 && maximum == 22);
+        REQUIRE((minimum == 0 && maximum == 22));
         modeler.getAxialBounds(srModeler::AXIS_Z, minimum, maximum);
-        CHECK(minimum == -2 && maximum == 0);
+        REQUIRE((minimum == -2 && maximum == 0));
     }
     struct alignas(8) WordPair
     {
@@ -233,10 +227,10 @@ int main()
         srQuadWord value;
     } words{0, {7, 1}};
     static_assert(offsetof(WordPair, value) == 4, "exercise four-byte aligned word pair");
-    CHECK(double(words.value) == 4294967303.0);
+    REQUIRE(double(words.value) == 4294967303.0);
     for (int mode : {FE_TONEAREST, FE_DOWNWARD, FE_UPWARD, FE_TOWARDZERO})
     {
-        CHECK(fesetround(mode) == 0);
+        REQUIRE(fesetround(mode) == 0);
         const double inputs[] = {0.0,
                                  1.5,
                                  -1.5,
@@ -265,49 +259,49 @@ int main()
             asm volatile("fldl %2; fistpl %0; fnstsw %1"
                          : "=m"(retail), "=m"(status) : "m"(input) : "st");
             asm volatile("fnclex; fldcw %0" : : "m"(saved_control));
-            CHECK(actual == retail && invalid == bool(status & 1));
+            REQUIRE((actual == retail && invalid == bool(status & 1)));
 #else
             if (!std::isfinite(input) || input >= 2147483648.0 || input < -2147483648.0)
             {
-                CHECK(actual == (-2147483647 - 1) && invalid);
+                REQUIRE((actual == (-2147483647 - 1) && invalid));
             }
 #endif
         }
     }
-    CHECK(fesetround(FE_TONEAREST) == 0);
-    CHECK(srFloatToInt(std::numeric_limits<float>::quiet_NaN()) == (-2147483647 - 1));
+    REQUIRE(fesetround(FE_TONEAREST) == 0);
+    REQUIRE(srFloatToInt(std::numeric_limits<float>::quiet_NaN()) == (-2147483647 - 1));
     srAssertSetFunc(assertion);
-    CHECK(srInit());
-    CHECK(surface_storage() == 0);
-    CHECK(shared_surface_lifetimes() == 0);
-    CHECK(shared_model_lifetimes() == 0);
+    REQUIRE(srInit());
+    REQUIRE(surface_storage() == 0);
+    REQUIRE(shared_surface_lifetimes() == 0);
+    REQUIRE(shared_model_lifetimes() == 0);
     {
         const int before_destruction = destroyed_nodes;
         srScene* scene = new srScene;
         auto child = new ClientNode;
         child->setParent(scene, 0);
-        CHECK(scene->getChildCount() == 1);
+        REQUIRE(scene->getChildCount() == 1);
         delete scene;
-        CHECK(destroyed_nodes == before_destruction + 1);
+        REQUIRE(destroyed_nodes == before_destruction + 1);
 
         auto parent_node = new ClientNode;
         auto transformed_child = new ClientNode;
         transformed_child->setParent(parent_node, 0);
-        CHECK(transformed_child->getWorldSpaceLocation().x == 0);
-        CHECK(!parent_node->transformDirty() && !transformed_child->transformDirty());
+        REQUIRE(transformed_child->getWorldSpaceLocation().x == 0);
+        REQUIRE((!parent_node->transformDirty() && !transformed_child->transformDirty()));
         parent_node->setLocation(10, 0, 0);
-        CHECK(parent_node->transformDirty() && transformed_child->transformDirty());
-        CHECK(transformed_child->getWorldSpaceLocation().x == 10);
-        CHECK(!parent_node->transformDirty() && !transformed_child->transformDirty());
+        REQUIRE((parent_node->transformDirty() && transformed_child->transformDirty()));
+        REQUIRE(transformed_child->getWorldSpaceLocation().x == 10);
+        REQUIRE((!parent_node->transformDirty() && !transformed_child->transformDirty()));
         transformed_child->setLocation(3, 0, 0);
-        CHECK(transformed_child->getWorldSpaceLocation().x == 13);
+        REQUIRE(transformed_child->getWorldSpaceLocation().x == 13);
         auto other_parent = new ClientNode;
         other_parent->setLocation(20, 0, 0);
         transformed_child->setParent(other_parent, 1);
-        CHECK(transformed_child->getWorldSpaceLocation().x == 13);
+        REQUIRE(transformed_child->getWorldSpaceLocation().x == 13);
         other_parent->setLocation(30, 0, 0);
-        CHECK(transformed_child->transformDirty());
-        CHECK(transformed_child->getWorldSpaceLocation().x == 23);
+        REQUIRE(transformed_child->transformDirty());
+        REQUIRE(transformed_child->getWorldSpaceLocation().x == 23);
         delete parent_node;
         delete other_parent;
 
@@ -320,7 +314,7 @@ int main()
         } vectors;
         vectors.values[0].Set(5, -2, 7);
         vectors.values[1].Set(-3, 9, 1);
-        CHECK(reinterpret_cast<uintptr_t>(&vectors.values[0]) % alignof(float) != 0);
+        REQUIRE(reinterpret_cast<uintptr_t>(&vectors.values[0]) % alignof(float) != 0);
         {
             assert(std::size(vectors.values) != 0);
             auto lower = vectors.values[0].glmValue();
@@ -341,17 +335,17 @@ int main()
             (vectors.minimum) = lower;
             (vectors.maximum) = upper;
         }
-        CHECK(vectors.minimum.x == -3 && vectors.minimum.y == -2 && vectors.minimum.z == 1);
-        CHECK(vectors.maximum.x == 5 && vectors.maximum.y == 9 && vectors.maximum.z == 7);
+        REQUIRE((vectors.minimum.x == -3 && vectors.minimum.y == -2 && vectors.minimum.z == 1));
+        REQUIRE((vectors.maximum.x == 5 && vectors.maximum.y == 9 && vectors.maximum.z == 7));
         // File names own their text, including an aliased setter argument.
         ClientTextureFile texture;
         texture.setFileName("first.bmp");
         texture.setFileName("second.bmp");
-        CHECK(texture.getFileName() == "second.bmp");
+        REQUIRE(texture.getFileName() == "second.bmp");
         texture.setFileName(texture.getFileName());
-        CHECK(texture.getFileName() == "second.bmp");
+        REQUIRE(texture.getFileName() == "second.bmp");
         texture.setFileName({});
-        CHECK(texture.getFileName().empty());
+        REQUIRE(texture.getFileName().empty());
         srCamera source, copy;
         source.setViewPlane(2, 3);
         copy = source;
@@ -359,7 +353,7 @@ int main()
         double distance;
         source.getViewPlane(before, distance);
         copy.getViewPlane(after, distance);
-        CHECK(before.left == after.left && before.top == after.top);
+        REQUIRE((before.left == after.left && before.top == after.top));
         srClipPlane plane, plane_copy;
         glm::vec4 plane_value;
         plane_value.x = 1;
@@ -368,11 +362,11 @@ int main()
         plane_value.w = 4;
         plane.setClipPlane(plane_value);
         plane_copy = plane;
-        CHECK(plane_copy.getClipPlane().w == 4);
+        REQUIRE(plane_copy.getClipPlane().w == 4);
         srFog fog, fog_copy;
         fog.setDensity(0.25f);
         fog_copy = fog;
-        CHECK(fog_copy.getDensity() == 0.25f);
+        REQUIRE(fog_copy.getDensity() == 0.25f);
         ClientMaterial material, material_copy;
         glm::vec4 emissive;
         emissive.x = 0.25f;
@@ -381,23 +375,23 @@ int main()
         emissive.w = 1;
         material.setEmissive(emissive);
         material_copy.srMaterial::operator=(material);
-        CHECK(material_copy.getEmissive().z == 0.75f);
+        REQUIRE(material_copy.getEmissive().z == 0.75f);
         // Copied lights must own independent registry entries and scene links.
         auto parent = new ClientNode;
         auto original = new srLight(parent);
         auto sibling = new srLight(parent);
         auto clone = new srLight(*original);
-        CHECK(clone->getParent() != parent);
+        REQUIRE(clone->getParent() != parent);
         clone->setParent(parent, 0);
         delete original;
-        CHECK(parent->getChildCount() == 2 && clone->getParent() == parent &&
-              sibling->getParent() == parent);
+        REQUIRE((parent->getChildCount() == 2 && clone->getParent() == parent &&
+              sibling->getParent() == parent));
         delete parent; // Recursively releases the sibling and copied light.
         srHuffman::Sampler sampler;
         sampler.insert(10);
         sampler.insert(10);
         sampler.insert(11);
-        CHECK(sampler.getNumSymbols() == 2 && sampler.getSymbolFrequency(0) == 2);
+        REQUIRE((sampler.getNumSymbols() == 2 && sampler.getSymbolFrequency(0) == 2));
         // Exercise a branching symbol tree, as used by octree alpha bits.
         const w8_ulong values[] = {10, 10, 11, 12, 13, 10, 13, 14, 0xffffffff};
         srHuffman::Sampler tree_sampler;
@@ -421,19 +415,20 @@ int main()
             0x64,0x00,0x00,0x00,0xd0,0x01,0x00,0x00,0xe0,0xff,0xff,0xff,0xbf,
             0x0d,0x00,0x00,0x00,0x15,0x00,0x00,0x00,0x1e,0xec,0x64
         };
-        CHECK(SDL_GetIOSize(encoded.get()) == sizeof(golden));
-        CHECK(memcmp(SDL_GetPointerProperty(SDL_GetIOProperties(encoded.get()),
+        REQUIRE(SDL_GetIOSize(encoded.get()) == sizeof(golden));
+        REQUIRE(memcmp(SDL_GetPointerProperty(SDL_GetIOProperties(encoded.get()),
                      SDL_PROP_IOSTREAM_DYNAMIC_MEMORY_POINTER, nullptr), golden, sizeof(golden)) == 0);
         auto input = srIO::own(SDL_IOFromConstMem(SDL_GetPointerProperty(SDL_GetIOProperties(encoded.get()), SDL_PROP_IOSTREAM_DYNAMIC_MEMORY_POINTER, nullptr), SDL_GetIOSize(encoded.get())));
         srHuffman::BitIStream bits(input.get());
         srHuffman::Decompressor decoder(bits);
-        CHECK(decoder.getDataCount() == sizeof(values) / sizeof(values[0]));
+        REQUIRE(decoder.getDataCount() == sizeof(values) / sizeof(values[0]));
         for (auto value : values)
-            CHECK(decoder.decompressSymbol() == value);
+            REQUIRE(decoder.decompressSymbol() == value);
     }
     srAssertFail("native probe", "imports_test.cpp", 42, "value %d", 7);
-    CHECK(assertions == 1);
+    REQUIRE(assertions == 1);
     srExit();
     srAssertSetFunc(nullptr);
     puts("ok: native renderer consumer imports, generated special members and variadic assertion");
+
 }

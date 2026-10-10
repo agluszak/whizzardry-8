@@ -1,3 +1,4 @@
+#include <catch2/catch_test_macros.hpp>
 #include "../../src/native/movie.h"
 #include "wiz8/filesystem.h"
 #include "wiz8/slf.h"
@@ -15,15 +16,6 @@
 #include <stdexcept>
 #include "temporary_directory.h"
 #include <vector>
-#define CHECK(x)                                                                                   \
-    do                                                                                             \
-    {                                                                                              \
-        if (!(x))                                                                                  \
-        {                                                                                          \
-            fprintf(stderr, "line %d: %s\n", __LINE__, #x);                                        \
-            return 1;                                                                              \
-        }                                                                                          \
-    } while (0)
 std::vector<unsigned char> read(const char* path)
 {
     std::ifstream file(path, std::ios::binary | std::ios::ate);
@@ -69,10 +61,8 @@ bool matchesFrame(const std::vector<uint16_t>& pixels, const unsigned char* gold
     // libswscale versions/CPU paths can round by one RGB555 quantization step.
     return largest_difference <= 1;
 }
-int main(int argc, char** argv)
+static void exercise_movie(const char* retail_movie)
 {
-    try
-    {
         const auto temporary = make_temporary_directory("wiz8-movie");
         Temporary fixture{temporary};
         auto assets = fixture.path / "assets", user = fixture.path / "user";
@@ -80,7 +70,7 @@ int main(int argc, char** argv)
         std::filesystem::create_directories(user);
         w8_native::configure_paths({assets.string(), user.string(), {}});
         auto encoded = read(WIZ8_MOVIE_FIXTURE), golden = read(WIZ8_MOVIE_GOLDEN);
-        CHECK(golden.size() == 5 * 1536);
+        REQUIRE(golden.size() == 5 * 1536);
         write(assets / "Movie.mkv", encoded);
         wiz8::SlfHeader header{};
         strcpy(header.sLibName, "DATA.SLF");
@@ -104,7 +94,7 @@ int main(int argc, char** argv)
 
         wiz8::mount_slf("Data\\Data.slf");
         w8_native::audio_offline_for_test(true);
-        CHECK(InitializeSoundManager());
+        REQUIRE(InitializeSoundManager());
         double energy = 0;
         std::vector<uint16_t> first_frame;
         {
@@ -124,33 +114,33 @@ int main(int argc, char** argv)
                     if (result == W8NativeVideo::FrameReady)
                     {
                         const auto& frame = movies[i].frame();
-                        CHECK(shown[i] < 5 && frame.width == 32 && frame.height == 24);
-                        CHECK(std::abs(frame.time - shown[i] * 0.1) < 0.000001);
-                        CHECK(matchesFrame(frame.pixels, golden.data() + shown[i] * 1536));
+                        REQUIRE((shown[i] < 5 && frame.width == 32 && frame.height == 24));
+                        REQUIRE(std::abs(frame.time - shown[i] * 0.1) < 0.000001);
+                        REQUIRE(matchesFrame(frame.pixels, golden.data() + shown[i] * 1536));
                         if (i == 0 && shown[i] == 0)
                             first_frame = frame.pixels;
                         ++shown[i];
                     }
                     if (result == W8NativeVideo::Done)
                     {
-                        CHECK(tick >= 500);
+                        REQUIRE(tick >= 500);
                         done[i] = true;
                     }
                 }
                 if (done[0] && done[1] && done[2])
                     break;
                 std::vector<float> samples((tick % 10 == 9 ? 45 : 44) * 2);
-                CHECK(w8_native::audio_render_for_test(samples.data(), samples.size() / 2));
+                REQUIRE(w8_native::audio_render_for_test(samples.data(), samples.size() / 2));
                 for (auto value : samples)
                     energy += value * value;
             }
             for (unsigned i = 0; i < 3; ++i)
             {
-                CHECK(done[i] && shown[i] == 5 && movies[i].decoded_frames() == 5);
-                CHECK(movies[i].decoded_audio_frames() == 22050);
+                REQUIRE((done[i] && shown[i] == 5 && movies[i].decoded_frames() == 5));
+                REQUIRE(movies[i].decoded_audio_frames() == 22050);
             }
         }
-        CHECK(energy > 10);
+        REQUIRE(energy > 10);
         {
             W8NativeVideo reusable;
             for (const char* name : {"Data\\Truncated.mkv", "missing.mkv"})
@@ -165,43 +155,43 @@ int main(int argc, char** argv)
                 {
                     failed = true;
                 }
-                CHECK(failed && reusable.decoded_frames() == 0 &&
-                      reusable.decoded_audio_frames() == 0);
+                REQUIRE((failed && reusable.decoded_frames() == 0 &&
+                      reusable.decoded_audio_frames() == 0));
             }
             reusable.open("Data\\Packed.mkv");
-            CHECK(reusable.update(0) == W8NativeVideo::FrameReady);
-            CHECK(matchesFrame(reusable.frame().pixels, golden.data()));
+            REQUIRE(reusable.update(0) == W8NativeVideo::FrameReady);
+            REQUIRE(matchesFrame(reusable.frame().pixels, golden.data()));
         }
         auto target = CreateCpuSurface(640, 480, 16, 0x7c00, 0x3e0, 0x1f);
         SurfaceLock description{};
         {
             W8BinkVideo movie;
             movie.SetTarget(target.get());
-            CHECK(movie.Open("Movie.mkv", 0));
-            CHECK(!movie.UpdateFrame());
+            REQUIRE(movie.Open("Movie.mkv", 0));
+            REQUIRE(!movie.UpdateFrame());
             description = LockCpuSurface(*target);
             for (int y = 0; y < 24; ++y)
-                CHECK(std::memcmp(static_cast<unsigned char*>(description.pixels) +
+                REQUIRE(std::memcmp(static_cast<unsigned char*>(description.pixels) +
                                       y * description.pitch,
                                   first_frame.data() + y * 32, 64) == 0);
             UnlockCpuSurface(*target);
-            CHECK(movie.Open("Data\\Packed.mkv",
+            REQUIRE(movie.Open("Data\\Packed.mkv",
                              0)); // Reopen stops the preceding PCM voice.
-            CHECK(!movie.UpdateFrame());
-            CHECK(!movie.Open("Movie.mkv", 1));
-            CHECK(!movie.Open("missing.bik", 0));
+            REQUIRE(!movie.UpdateFrame());
+            REQUIRE(!movie.Open("Movie.mkv", 1));
+            REQUIRE(!movie.Open("missing.bik", 0));
         }
         target.reset();
         std::vector<float> silence(8192 * 2);
-        CHECK(w8_native::audio_render_for_test(silence.data(), 8192));
+        REQUIRE(w8_native::audio_render_for_test(silence.data(), 8192));
         double residual = 0;
         for (size_t i = 4096; i < silence.size(); ++i)
             residual += silence[i] * silence[i];
-        CHECK(residual == 0);
-        if (argc > 1)
+        REQUIRE(residual == 0);
+        if (retail_movie)
         {
             W8NativeVideo retail;
-            retail.open(argv[1]);
+            retail.open(retail_movie);
             uint64_t hash = 14695981039346656037ull;
             unsigned shown = 0;
             bool done = false;
@@ -223,9 +213,9 @@ int main(int argc, char** argv)
                     done = true;
                     break;
                 }
-                CHECK(w8_native::audio_render_for_test(silence.data(), tick % 10 == 9 ? 45 : 44));
+                REQUIRE(w8_native::audio_render_for_test(silence.data(), tick % 10 == 9 ? 45 : 44));
             }
-            CHECK(done && shown == retail.decoded_frames());
+            REQUIRE((done && shown == retail.decoded_frames()));
             printf("retail movie: %u frames, %llu PCM frames, RGB555 FNV64 %016llx\n", shown,
                    (unsigned long long)retail.decoded_audio_frames(), (unsigned long long)hash);
         }
@@ -234,11 +224,18 @@ int main(int argc, char** argv)
 
         printf("movie: loose/SLF RGB555 golden frames, timed EOF, PCM audio, "
                "reopen and bounded failure passed\n");
-        return 0;
-    }
-    catch (const std::exception& failure)
-    {
-        fprintf(stderr, "movie test: %s\n", failure.what());
-        return 1;
-    }
+
+
+}
+
+TEST_CASE("movie")
+{
+    exercise_movie(nullptr);
+}
+
+TEST_CASE("retail movie", "[.manual]")
+{
+    const char* path = SDL_getenv("WIZ8_MOVIE_SOURCE");
+    REQUIRE(path);
+    exercise_movie(path);
 }
