@@ -8,6 +8,7 @@
 #include "Font.h"
 #include "input.h"
 #include "line.h"
+#include <algorithm>
 #include "vobject.h"
 
 #include <wchar.h>
@@ -56,7 +57,7 @@ void W8DialogNumericInput::SetActive(bool active)
 }
 
 // FUNCTION: WIZ8 0x005e1500
-void W8DialogNumericInput::SetActive(bool active, const POINT* point)
+void W8DialogNumericInput::SetActive(bool active, const SGPPoint* point)
 {
     SetActive(active);
     if (!active) {
@@ -69,7 +70,7 @@ void W8DialogNumericInput::SetActive(bool active, const POINT* point)
     wchar_t* suffix = g_numeric_input_text + length - 1;
     for (; count < length; ++count, --suffix) {
         short suffix_width = StringPixLength(suffix, m_font);
-        if ((m_bounds.right - point->x) - m_bounds.left < suffix_width) {
+        if ((m_bounds.right - point->iX) - m_bounds.left < suffix_width) {
             m_caret = count;
             break;
         }
@@ -99,7 +100,7 @@ void W8DialogNumericInput::Draw(bool force)
     SetFontDestBuffer(FRAME_BUFFER, m_bounds.left, m_bounds.top, m_bounds.right, m_bounds.bottom,
                       0);
     unsigned short font_height = GetFontHeight(m_font);
-    int text_y = m_bounds.top + __max(0, (m_bounds.bottom - m_bounds.top - font_height) / 2);
+    int text_y = m_bounds.top + std::max(0, (m_bounds.bottom - m_bounds.top - font_height) / 2);
     int text_x = m_bounds.right - StringPixLength(g_numeric_input_text, m_font);
     if (text_x <= m_bounds.left) {
         text_x = m_bounds.left;
@@ -109,7 +110,7 @@ void W8DialogNumericInput::Draw(bool force)
         int caret_x =
             m_bounds.right - StringPixLength(g_numeric_input_text + length - m_caret, m_font) - 1;
         font_height = GetFontHeight(m_font);
-        int caret_top = m_bounds.top + __max(0, (m_bounds.bottom - m_bounds.top - font_height) / 2);
+        int caret_top = m_bounds.top + std::max(0, (m_bounds.bottom - m_bounds.top - font_height) / 2);
         UINT32 pitch;
         char* screen = static_cast<char*>(LockPrimarySurface(&pitch));
         int caret_bottom = m_bounds.bottom;

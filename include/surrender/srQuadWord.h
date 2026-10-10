@@ -17,14 +17,15 @@ public:
 
     operator double() const
     {
-        /* The word pair is only four-byte aligned, including in srTimer. */
+        /* The word pair is only four-byte aligned, including in retail
+           srTimer. */
         const unsigned __int64 bits = (static_cast<unsigned __int64>(hi) << 32) | lo;
         return static_cast<unsigned int>(bits >> 32) * 4294967296.0 +
                static_cast<unsigned int>(bits);
     }
 
-    /* The srTimer bodies subtract quad words with an explicit borrow out of
-       the low half; that is what this lowers to. */
+    /* The retail srTimer bodies subtracted quad words with an explicit borrow
+       out of the low half; that is what this lowers to. */
     srQuadWord operator-(const srQuadWord& other) const
     {
         srQuadWord result;

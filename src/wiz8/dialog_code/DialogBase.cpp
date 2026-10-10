@@ -1,4 +1,3 @@
-#include "wiz8/wiz8_windows.h"
 #include "wiz8/cursor.h"
 #include "wiz8/sgp_text.h"
 #include "wiz8/engine_code/Video2.h"
@@ -223,13 +222,13 @@ void W8DialogBase::DestroyControls()
 // FUNCTION: WIZ8 0x005dcce0
 bool W8DialogBase::ProcessInput()
 {
-    POINT mouse;
+    SGPPoint mouse;
     InputAtom input;
 
     SGPMouseGetPos(&mouse);
-    MSYS_SGP_Mouse_Handler_Hook(MOUSE_POS, mouse.x, mouse.y, gfLeftButtonState, gfRightButtonState);
+    MSYS_SGP_Mouse_Handler_Hook(MOUSE_POS, mouse.iX, mouse.iY, gfLeftButtonState, gfRightButtonState);
     while (DequeueEvent(&input)) {
-        if (DispatchDialogMouseInput(input.usEvent, mouse.x, mouse.y)) {
+        if (DispatchDialogMouseInput(input.usEvent, mouse.iX, mouse.iY)) {
             if (input.usEvent == RIGHT_BUTTON_DOWN) {
                 OnRightButtonDown();
             } else if (input.usEvent == RIGHT_BUTTON_UP) {

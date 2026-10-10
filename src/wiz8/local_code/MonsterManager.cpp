@@ -1,4 +1,5 @@
 #include "wiz8/engine_code/AnimRep.hpp"
+#include "timer.h"
 #include "wiz8/monster_cycles.h"
 #include "wiz8/fonts.h"
 #include <stdio.h>
@@ -1855,7 +1856,7 @@ void EvaluateCombatDifficulty(void)
         break;
     }
     if ((g_combat_state != 0 && g_combat_state->party_surprised) ||
-        ClockIsTicking(gXStatus.combat_countdown) == 0 ||
+        TimeUntilDeadline(gXStatus.combat_countdown) == 0 ||
         difficulty != gXStatus.combat_difficulty) {
         unsigned int event_type;
         switch (difficulty) {

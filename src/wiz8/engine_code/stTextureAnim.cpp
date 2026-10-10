@@ -4,7 +4,6 @@
 
 #include "wiz8/engine_code/ReadLevel.h"
 #include "wiz8/engine_code/stTextureFile.h"
-#include "wiz8/wiz8_windows.h"
 
 #include <stdlib.h>
 
@@ -23,7 +22,7 @@ stTextureAnim::stTextureAnim()
     animation_mode = W8_TEXTURE_ANIM_LOOP;
     initial_frame = 0;
     frame_rate = 15.0f;
-    frame_tick = GetTickCount();
+    frame_tick = w8_get_ticks();
     trigger_mode = W8_TEXTURE_TRIGGER_CONTINUOUS;
     probability = -1.0f;
     running = false;
@@ -47,7 +46,7 @@ stTextureAnim::stTextureAnim(const stTextureAnim& other)
     animation_mode = other.animation_mode;
     initial_frame = other.initial_frame;
     frame_rate = other.frame_rate;
-    frame_tick = GetTickCount();
+    frame_tick = w8_get_ticks();
     trigger_mode = other.trigger_mode;
     probability = other.probability;
     running = other.running;
@@ -78,7 +77,7 @@ stTextureAnim::~stTextureAnim()
 void stTextureAnim::SetFrame(int frame)
 {
     this->frame = frame;
-    frame_tick = GetTickCount();
+    frame_tick = w8_get_ticks();
 }
 
 // FUNCTION: WIZ8 0x00485420
@@ -110,7 +109,7 @@ void stTextureAnim::UpdateFrame()
             running = true;
             direction = 0;
             this->frame = 0;
-            frame_tick = GetTickCount();
+            frame_tick = w8_get_ticks();
         }
         if (!running || textures->GetCount() == 0) {
             return;
@@ -120,7 +119,7 @@ void stTextureAnim::UpdateFrame()
     }
 
     elapsed_frames =
-        static_cast<int>((GetTickCount() - frame_tick) * frame_rate * g_float_one_thousandth);
+        static_cast<int>((w8_get_ticks() - frame_tick) * frame_rate * g_float_one_thousandth);
     if (animation_mode == W8_TEXTURE_ANIM_LOOP) {
         int frame = (direction * elapsed_frames) % textures->GetCount();
         if (frame < this->frame) {

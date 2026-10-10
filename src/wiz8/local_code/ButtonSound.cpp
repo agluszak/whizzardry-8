@@ -28,7 +28,7 @@ char g_button_whoosh[] = "Data\\Sound\\Misc\\Interface Whoosh 01 Soft.wav";
 // GLOBAL: WIZ8 0x0068DE38
 static int g_button_sound_scheme_stack_top;
 // GLOBAL: WIZ8 0x0068DE3C
-static TIMER g_button_sound_cooldown;
+static UINT32 g_button_sound_cooldown;
 
 // FUNCTION: WIZ8 0x00558720
 void PlayButtonSound(int sound_id)
@@ -51,10 +51,10 @@ void PlayButtonSound(int sound_id)
         return;
     }
     if (sound_id < 2) {
-        if (ClockIsTicking(g_button_sound_cooldown) != 0) {
+        if (TimeUntilDeadline(g_button_sound_cooldown) != 0) {
             return;
         }
-        g_button_sound_cooldown = SetCountdownClock(200);
+        g_button_sound_cooldown = w8_get_ticks() + (200);
     }
 
     SOUNDPARMS options;

@@ -1,4 +1,3 @@
-#include "wiz8/wiz8_windows.h"
 #include "wiz8/fonts.h"
 #include "wiz8/local_screens/mipe.h"
 
@@ -2802,7 +2801,7 @@ int FindCategoryItemTable(unsigned int category, int ordinal)
 // FUNCTION: WIZ8 0x0057dc20
 void UpdateMipeSelection(void)
 {
-    POINT point;
+    SGPPoint point;
     MonGen* picked;
     W8MonsterInfo* info;
     W8Item* marker;
@@ -2849,7 +2848,7 @@ void UpdateMipeSelection(void)
         g_mipe_state->generator = picked;
         ShowMonsterGeneratorStatus();
     }
-    location_id = PickNearestMonsterUnderCursor(point.x, point.y);
+    location_id = PickNearestMonsterUnderCursor(point.iX, point.iY);
     if (g_mipe_choose_group) {
         if (location_id == -1) {
             group_id = W8_MIPE_NO_GROUP;
@@ -2949,7 +2948,7 @@ void DragSelectionWithCursor(void)
    mouse motion drags or tracks the cube. Returns whether it consumed the
    event. */
 // FUNCTION: WIZ8 0x0057e0e0
-bool MipeWorldViewEvent(int event, const POINT* point)
+bool MipeWorldViewEvent(int event, const SGPPoint* point)
 {
     bool result;
 
@@ -2971,7 +2970,7 @@ bool MipeWorldViewEvent(int event, const POINT* point)
                 SetWorldCursorNodeColorComponents(g_mipe_cube, 0.0f, 0.0f, 0.5f);
                 RefreshWorldCursorNodeLabel(g_mipe_cube);
             }
-            g_mipe_cube = PickWorldCursorNodeAtScreenPoint(point->x, point->y);
+            g_mipe_cube = PickWorldCursorNodeAtScreenPoint(point->iX, point->iY);
             if (g_mipe_cube != 0) {
                 SetWorldCursorNodeColorComponents(g_mipe_cube, 0.0f, 1.0f, 0.0f);
                 RefreshWorldCursorNodeLabel(g_mipe_cube);

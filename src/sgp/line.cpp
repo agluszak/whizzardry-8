@@ -35,10 +35,10 @@ void SetClippingRegionAndImageWidth(int iImageWidth, int iClipStartX, int iClipS
     giClipYMax = iClipStartY + iClipHeight - 1;
 }
 
-BOOL Clipt(FLOAT denom, FLOAT num, FLOAT* tE, FLOAT* tL)
+bool Clipt(FLOAT denom, FLOAT num, FLOAT* tE, FLOAT* tL)
 {
     FLOAT t;
-    BOOL accept;
+    bool accept;
 
     accept = TRUE;
 
@@ -60,15 +60,15 @@ BOOL Clipt(FLOAT denom, FLOAT num, FLOAT* tE, FLOAT* tL)
     return (accept);
 }
 
-BOOL ClipPoint(int x, int y)
+bool ClipPoint(int x, int y)
 {
     return (x <= giClipXMax && x >= giClipXMin && y <= giClipYMax && y >= giClipYMin);
 }
 
 // FUNCTION: WIZ8 0x00414010
-BOOL Clip2D(int* ix0, int* iy0, int* ix1, int* iy1)
+bool Clip2D(int* ix0, int* iy0, int* ix1, int* iy1)
 {
-    BOOL visible;
+    bool visible;
     FLOAT te, tl;
     FLOAT dx, dy;
     FLOAT x0, y0, x1, y1;
@@ -116,7 +116,7 @@ BOOL Clip2D(int* ix0, int* iy0, int* ix1, int* iy1)
 
 /* Draws a line between the specified endpoints in color Color. */
 // FUNCTION: WIZ8 0x00414390
-void LineDraw(BOOL fClip, int XStart, int YStart, int XEnd, int YEnd, short Color, char* ScreenPtr)
+void LineDraw(bool fClip, int XStart, int YStart, int XEnd, int YEnd, short Color, char* ScreenPtr)
 {
     int Temp, AdjUp, AdjDown, ErrorTerm, XAdvance, XDelta, YDelta;
     int WholeStep, InitialPixelCount, FinalPixelCount, i, RunLength;
@@ -337,7 +337,7 @@ void DrawVerticalRun(char** ScreenPtr, int XAdvance, int RunLength, int Color, i
 
 /* Draws a rectangle between the specified endpoints in color Color. */
 // FUNCTION: WIZ8 0x00414660
-void RectangleDraw(BOOL fClip, int XStart, int YStart, int XEnd, int YEnd, short Color,
+void RectangleDraw(bool fClip, int XStart, int YStart, int XEnd, int YEnd, short Color,
                    char* ScreenPtr)
 {
     LineDraw(fClip, XStart, YStart, XEnd, YStart, Color, ScreenPtr);

@@ -1557,9 +1557,9 @@ void W8VerticalRangeThumb::OnLeftButtonDown(int event)
 {
     PushButtonSoundScheme(0, true);
     if (m_enabled) {
-        POINT cursor;
+        SGPPoint cursor;
         SGPMouseGetPos(&cursor);
-        int y = cursor.y - m_pPanel->m_bounds.top - m_top;
+        int y = cursor.iY - m_pPanel->m_bounds.top - m_top;
         if (!m_hovered) {
             m_hovered = true;
             m_position = ((y - m_thumbHeight / 2) / static_cast<float>(m_trackLength)) *
@@ -1591,9 +1591,9 @@ void W8VerticalRangeThumb::OnMouseMove(int event)
         return;
     }
 
-    POINT cursor;
+    SGPPoint cursor;
     SGPMouseGetPos(&cursor);
-    int y = cursor.y - m_pPanel->m_bounds.top - m_top;
+    int y = cursor.iY - m_pPanel->m_bounds.top - m_top;
     if (m_dragging) {
         int half_height = m_thumbHeight / 2;
         if (y <= half_height) {
@@ -1808,9 +1808,9 @@ void W8HorizontalRangeThumb::OnLeftButtonDown(int event)
 {
     PushButtonSoundScheme(0, true);
     if (m_enabled) {
-        POINT cursor;
+        SGPPoint cursor;
         SGPMouseGetPos(&cursor);
-        int x = cursor.x - m_pPanel->m_bounds.left - m_left;
+        int x = cursor.iX - m_pPanel->m_bounds.left - m_left;
         if (!m_hovered) {
             m_hovered = true;
             m_position = ((x - m_thumbWidth / 2) / static_cast<float>(m_trackLength)) *
@@ -1879,9 +1879,9 @@ void W8HorizontalRangeThumb::OnMouseMove(int event)
         return;
     }
 
-    POINT cursor;
+    SGPPoint cursor;
     SGPMouseGetPos(&cursor);
-    int x = cursor.x - m_pPanel->m_bounds.left - m_left;
+    int x = cursor.iX - m_pPanel->m_bounds.left - m_left;
     if (m_dragging) {
         if (x < 0 || m_trackLength + m_thumbWidth / 2 < x) {
             return;

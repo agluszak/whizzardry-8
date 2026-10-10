@@ -9,7 +9,6 @@
 #include "wiz8/music_playlist.h"
 #include "wiz8/engine_code/Quality.h"
 #include "wiz8/utility.h"
-#include "wiz8/wiz8_windows.h"
 #include "soundman.h"
 
 #include <stdio.h>

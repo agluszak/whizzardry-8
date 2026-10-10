@@ -57,7 +57,6 @@
 #include "wiz8/layouts/screen_state.h"
 #include "wiz8/local_code/Gameloop.h"
 #include "wiz8/npc_interaction.h"
-#include "timer.h"
 #include "wiz8/local_screens/MGSPortraits.h"
 #include "wiz8/dialog_code/PortraitQuote.h"
 #include "wiz8/local_screens/ReviewCharacterScreen.h"

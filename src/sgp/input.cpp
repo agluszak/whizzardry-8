@@ -1,7 +1,6 @@
 /* Modified for the Wizardry 8 reconstruction: 2026-10-03, 2026-10-04, 2026-10-06, 2026-10-07, 2026-10-09.
    Distributed under the accompanying SFI Source Code license agreement. */
 #include "Types.h"
-#include "compat/kernel32.h"
 #include "native/input_events.h"
 #include <algorithm>
 #include <queue>
@@ -22,7 +21,7 @@
 BOOLEAN gfKeyState[256]; // TRUE = Pressed, FALSE = Not Pressed
 // GLOBAL: WIZ8 0x00650db8
 BOOLEAN fCursorWasClipped = FALSE;
-RECT gCursorClipRect;
+SGPRect gCursorClipRect;
 
 // The gsKeyTranslationTables basically translates scan codes to our own key value table. Please note that the table is 2 bytes
 // wide per entry. This will be used since we will use 2 byte characters for translation purposes.
@@ -112,7 +111,7 @@ void QueueEvent(UINT16 ubInputEvent, UINT32 usParam, UINT32 uiParam)
 {
     if (gEventQueue.size() == max_input_events)
         return;
-    const UINT32 uiTimer = GetTickCount();
+    const UINT32 uiTimer = w8_get_ticks();
     const UINT16 usKeyState = gfShiftState | gfCtrlState | gfAltState;
     switch (ubInputEvent) {
     case LEFT_BUTTON_DOWN:
@@ -157,7 +156,7 @@ unsigned short g_key_remap_5ff51c[14] = {0x0069, 0x0063, 0x0061, 0x0067, 0x0064,
 // FUNCTION: WIZ8 0x00402270
 void KeyChange(UINT32 key, UINT32 flags, UINT8 pressed)
 {
-    POINT point;
+    SGPPoint point;
     unsigned int packed;
     unsigned int code;
 
@@ -169,7 +168,7 @@ void KeyChange(UINT32 key, UINT32 flags, UINT8 pressed)
         key = 0x6c;
     }
     GetGameMousePosition(&point);
-    packed = ((unsigned int)point.y << 0x10) | ((unsigned int)point.x & 0xffff);
+    packed = ((unsigned int)point.iY << 0x10) | ((unsigned int)point.iX & 0xffff);
     code = key & 0xffff;
     if (code >= std::size(gfKeyState))
         return;
@@ -267,16 +266,16 @@ void HandleSingleClicksAndButtonRepeats(void)
 {
     UINT32 uiTimer;
 
-    uiTimer = GetTickCount();
+    uiTimer = w8_get_ticks();
 
     // Is there a LEFT mouse button repeat
     if (gfLeftButtonState) {
         if ((guiLeftButtonRepeatTimer > 0) && (guiLeftButtonRepeatTimer <= uiTimer)) {
             UINT32 uiTmpLParam;
-            POINT MousePos;
+            SGPPoint MousePos;
 
             GetGameMousePosition(&MousePos);
-            uiTmpLParam = ((MousePos.y << 16) & 0xffff0000) | (MousePos.x & 0x0000ffff);
+            uiTmpLParam = ((MousePos.iY << 16) & 0xffff0000) | (MousePos.iX & 0x0000ffff);
             QueueEvent(LEFT_BUTTON_REPEAT, 0, uiTmpLParam);
             guiLeftButtonRepeatTimer = uiTimer + BUTTON_REPEAT_TIME;
         }
@@ -288,10 +287,10 @@ void HandleSingleClicksAndButtonRepeats(void)
     if (gfRightButtonState) {
         if ((guiRightButtonRepeatTimer > 0) && (guiRightButtonRepeatTimer <= uiTimer)) {
             UINT32 uiTmpLParam;
-            POINT MousePos;
+            SGPPoint MousePos;
 
             GetGameMousePosition(&MousePos);
-            uiTmpLParam = ((MousePos.y << 16) & 0xffff0000) | (MousePos.x & 0x0000ffff);
+            uiTmpLParam = ((MousePos.iY << 16) & 0xffff0000) | (MousePos.iX & 0x0000ffff);
             QueueEvent(RIGHT_BUTTON_REPEAT, 0, uiTmpLParam);
             guiRightButtonRepeatTimer = uiTimer + BUTTON_REPEAT_TIME;
         }

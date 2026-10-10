@@ -1,4 +1,3 @@
-#include "wiz8/wiz8_windows.h"
 #include "wiz8/engine_code/Camera.h"
 #include "wiz8/engine_code/Cursor3d.h"
 #include "wiz8/world_cursor.h"
@@ -558,7 +557,7 @@ void ToggleWorldCursor(void)
 // FUNCTION: WIZ8 0x004916C0
 void UpdateWorldCursor(void)
 {
-    POINT cursor_point;
+    SGPPoint cursor_point;
     srVector3T<float> camera;
     srVector3T<float> old_position;
     srVector3T<float> position;
@@ -589,10 +588,10 @@ void UpdateWorldCursor(void)
         if (gp3DCursor->detached) {
             gp3DCursor->track_ground = false;
         }
-        gp3DCursor->input_delta.y += 0xf0 - cursor_point.y;
+        gp3DCursor->input_delta.y += 0xf0 - cursor_point.iY;
     } else {
-        gp3DCursor->input_delta.x += cursor_point.x - 0x140;
-        gp3DCursor->input_delta.z += 0xf0 - cursor_point.y;
+        gp3DCursor->input_delta.x += cursor_point.iX - 0x140;
+        gp3DCursor->input_delta.z += 0xf0 - cursor_point.iY;
     }
     WarpSystemCursor(0x140, 0xf0);
     ApplyWorldCursorInput();

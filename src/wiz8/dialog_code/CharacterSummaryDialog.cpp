@@ -124,7 +124,7 @@ void W8CharacterSummaryDialog::Draw()
     RenderPartyPortrait(m_character->portrait_index, m_x + 11, m_y + 11, 2, 1, 0);
     if (!m_portrait_clock_started) {
         m_portrait_clock_started = true;
-        m_portrait_clock = GetClock();
+        m_portrait_clock = w8_get_ticks();
     }
 }
 
@@ -171,12 +171,12 @@ bool W8CharacterSummaryDialog::HandleInputEvent(const InputAtom* input)
 // FUNCTION: WIZ8 0x005e0920
 bool W8CharacterSummaryDialog::ProcessInput()
 {
-    POINT mouse;
+    SGPPoint mouse;
     InputAtom input;
 
     SGPMouseGetPos(&mouse);
-    MSYS_SGP_Mouse_Handler_Hook(MOUSE_POS, mouse.x, mouse.y, gfLeftButtonState, gfRightButtonState);
-    if (!m_voice_started && m_portrait_clock + 750 < GetClock()) {
+    MSYS_SGP_Mouse_Handler_Hook(MOUSE_POS, mouse.iX, mouse.iY, gfLeftButtonState, gfRightButtonState);
+    if (!m_voice_started && m_portrait_clock + 750 < w8_get_ticks()) {
         m_voice_started = true;
         W8Character* character = m_use_original_character ? m_character : g_status.buffers.Char;
         QueueCharacterEvent(character, g_effect0, 0, g_character_event_no_flags,
@@ -187,7 +187,7 @@ bool W8CharacterSummaryDialog::ProcessInput()
             input.usEvent == RIGHT_BUTTON_DOWN) {
             m_keep_open = false;
         }
-        if (!DispatchDialogMouseInput(input.usEvent, mouse.x, mouse.y)) {
+        if (!DispatchDialogMouseInput(input.usEvent, mouse.iX, mouse.iY)) {
             return HandleInputEvent(&input);
         }
     }

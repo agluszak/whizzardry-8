@@ -463,7 +463,7 @@ void W8ListBoxDialog::Draw()
 // FUNCTION: WIZ8 0x005cd470
 bool W8ListBoxDialog::ProcessInput()
 {
-    POINT mouse;
+    SGPPoint mouse;
     InputAtom input;
 
     if (gfLeftButtonState != 0) {
@@ -480,9 +480,9 @@ bool W8ListBoxDialog::ProcessInput()
         }
     }
     SGPMouseGetPos(&mouse);
-    MSYS_SGP_Mouse_Handler_Hook(MOUSE_POS, mouse.x, mouse.y, gfLeftButtonState, gfRightButtonState);
+    MSYS_SGP_Mouse_Handler_Hook(MOUSE_POS, mouse.iX, mouse.iY, gfLeftButtonState, gfRightButtonState);
     while (DequeueEvent(&input) == 1) {
-        if (DispatchDialogMouseInput(input.usEvent, mouse.x, mouse.y)) {
+        if (DispatchDialogMouseInput(input.usEvent, mouse.iX, mouse.iY)) {
             continue;
         }
         if (input.usEvent == MOUSE_WHEEL) {
@@ -899,20 +899,20 @@ void W8SplitAmountDialog::SplitCancel(W8DialogButton* button)
 // FUNCTION: WIZ8 0x005da5c0
 void W8SplitAmountDialog::SplitActivateField(W8DialogButton* button)
 {
-    POINT mouse;
-    POINT point;
+    SGPPoint mouse;
+    SGPPoint point;
 
     if (button != 0) {
         W8SplitAmountDialog* dialog = static_cast<W8SplitAmountDialog*>(button->m_owner);
         SGPMouseGetPos(&mouse);
         if (dialog->m_split_input != 0) {
-            point.x = mouse.x - dialog->m_x;
-            point.y = mouse.y - dialog->m_y;
+            point.iX = mouse.iX - dialog->m_x;
+            point.iY = mouse.iY - dialog->m_y;
             if (!ScreenPointInRect(&g_split_amount_field_bounds, &point)) {
                 return;
             }
-            point.x -= g_split_amount_field_bounds.left;
-            point.y -= g_split_amount_field_bounds.top;
+            point.iX -= g_split_amount_field_bounds.left;
+            point.iY -= g_split_amount_field_bounds.top;
             dialog->m_split_input->SetActive(true, &point);
             dialog->m_active_field = dialog->m_split_input;
         }
@@ -1295,7 +1295,7 @@ void W8TriggerItemPickerDialog::ScrollItemsDown(W8DialogButton* button)
 // FUNCTION: WIZ8 0x005ceaf0
 void W8TriggerItemPickerDialog::ScrollItemsToMouse(W8DialogButton* button)
 {
-    POINT point;
+    SGPPoint point;
     int top;
     int bottom;
     int index;
@@ -1317,13 +1317,13 @@ void W8TriggerItemPickerDialog::ScrollItemsToMouse(W8DialogButton* button)
         bottom += dialog->m_buttons[9] != 0 ? dialog->m_buttons[9]->GetHeight() : -1;
         top -= (dialog->m_buttons[10] != 0 ? dialog->m_buttons[10]->GetHeight() : -1) +
                (dialog->m_buttons[11] != 0 ? dialog->m_buttons[11]->GetHeight() : -1);
-        if (point.y < bottom) {
-            point.y = bottom;
+        if (point.iY < bottom) {
+            point.iY = bottom;
         }
-        if (point.y > top) {
-            point.y = top;
+        if (point.iY > top) {
+            point.iY = top;
         }
-        index = (point.y - bottom) * dialog->items.GetCount() / (top - bottom);
+        index = (point.iY - bottom) * dialog->items.GetCount() / (top - bottom);
         dialog->SetFirstVisible(index);
     }
 }
@@ -1472,11 +1472,11 @@ int W8TriggerItemPickerDialog::AddItem(W8WorldItem* item)
 // FUNCTION: WIZ8 0x005cef00
 bool W8TriggerItemPickerDialog::ProcessInput()
 {
-    POINT mouse;
+    SGPPoint mouse;
     InputAtom input;
 
     SGPMouseGetPos(&mouse);
-    MSYS_SGP_Mouse_Handler_Hook(MOUSE_POS, mouse.x, mouse.y, gfLeftButtonState, gfRightButtonState);
+    MSYS_SGP_Mouse_Handler_Hook(MOUSE_POS, mouse.iX, mouse.iY, gfLeftButtonState, gfRightButtonState);
     while (DequeueEvent(&input) == 1) {
         if ((input.usEvent == LEFT_BUTTON_DOWN || input.usEvent == RIGHT_BUTTON_DOWN) &&
             ProcessPendingEvent()) {
@@ -1485,7 +1485,7 @@ bool W8TriggerItemPickerDialog::ProcessInput()
         if (HitTestPartyPortrait(&input) != 0) {
             continue;
         }
-        if (DispatchDialogMouseInput(input.usEvent, mouse.x, mouse.y)) {
+        if (DispatchDialogMouseInput(input.usEvent, mouse.iX, mouse.iY)) {
             continue;
         }
         if (input.usEvent == MOUSE_WHEEL) {

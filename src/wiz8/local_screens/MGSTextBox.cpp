@@ -57,7 +57,7 @@ struct W8MessageStorageDiskRecord {
     unsigned char highlight_color;
     unsigned char highlight_start;
     unsigned char highlight_stop;
-    TIMER clock;
+    UINT32 clock;
     UINT32 saved_remaining_ms;
     int link;
     int length;
@@ -279,7 +279,7 @@ static void AppendNoticeLine(unsigned char font_palette, const wchar_t* text, sh
         if (delay > 60000) {
             delay = 60000;
         }
-        last->clock = SetCountdownClock(delay);
+        last->clock = w8_get_ticks() + (delay);
     }
 }
 
@@ -935,7 +935,7 @@ void AdvanceNoticeLine(short text_box)
     if (delay > 60000) {
         delay = 60000;
     }
-    record->clock = SetCountdownClock(delay);
+    record->clock = w8_get_ticks() + (delay);
     unsigned int shown = ++g_status.text_box_lines_shown[text_box];
     if (g_level_block->text_scroll_drag_idle) {
         if (gXStatus.fNpcDialogueMode && g_npc_interaction_state->text_box_collapsed) {
@@ -1619,7 +1619,7 @@ unsigned char TextBoxBodyRegionEvent(const InputAtom* event, W8Region* region)
 // FUNCTION: WIZ8 0x0058EFD0
 unsigned char TextBoxChannelTabRegionEvent(const InputAtom* event, W8Region* region)
 {
-    POINT mouse_pos;
+    SGPPoint mouse_pos;
 
     PushButtonSoundScheme(0, true);
     SGPMouseGetPos(&mouse_pos);
@@ -1948,7 +1948,7 @@ void RedrawTextBoxBody(bool skip_invalidate)
         can_scroll_down = scroll + static_cast<unsigned int>(GetTextBoxVisibleLineCount()) <
                           GetTextBoxLineCount(text_box);
         if (!can_scroll_down &&
-            ClockIsTicking(g_message_storage[text_box][scroll + rows - 1].clock) == 0) {
+            TimeUntilDeadline(g_message_storage[text_box][scroll + rows - 1].clock) == 0) {
             return;
         }
     }
@@ -2101,7 +2101,7 @@ int FindStoppedTextLine(void)
         return -1;
     }
     while (--index >= 0) {
-        if (ClockIsTicking(g_message_storage[g_status.text_line_cursor][index].clock) == 0) {
+        if (TimeUntilDeadline(g_message_storage[g_status.text_line_cursor][index].clock) == 0) {
             return index;
         }
     }

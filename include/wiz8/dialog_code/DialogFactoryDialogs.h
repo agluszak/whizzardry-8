@@ -8,7 +8,7 @@
 
 #include "Button System.h"
 #include "input.h"
-#include "compat/kernel32.h"
+#include "Types.h"
 
 struct W8WorldItem;
 struct W8ItemInstance;
@@ -29,7 +29,7 @@ public:
                          W8DialogBase* dialog, W8DialogButton* button);
     void SetValue(int value);
     void SetActive(bool active);
-    void SetActive(bool active, const POINT* point);
+    void SetActive(bool active, const SGPPoint* point);
     void Draw(bool force);
     bool HandleInput(const InputAtom* input);
 

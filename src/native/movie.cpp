@@ -1,4 +1,3 @@
-#include "compat/kernel32.h"
 /* Native Bink replacement: bounded SGP file/SLF I/O, FFmpeg decoding and
    timed RGB555 frames. Recovered IntroScreen still owns transitions/input. */
 #include "movie.h"

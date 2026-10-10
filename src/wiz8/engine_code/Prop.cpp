@@ -35,7 +35,6 @@
 #include <math.h>
 #include <new>
 #include <stdlib.h>
-#include "wiz8/wiz8_windows.h"
 #include "wiz8/engine_code/GameData.h"
 #include "wiz8/geometry.h"
 #include "wiz8/local_code/Configuration.h"
@@ -1610,7 +1609,7 @@ try
     this->animation_playing = animation->animation_playing;
     this->frame_direction = W8_ANIMATION_FORWARD;
     this->animation_speed = animation->playback_scale;
-    this->timer = GetTickCount();
+    this->timer = w8_get_ticks();
     if (this->animation_behaviour == W8_ANIMATION_PLAY_ONCE ||
         this->animation_behaviour == W8_ANIMATION_REPEAT) {
         this->animation_playing = 0;

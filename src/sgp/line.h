@@ -20,7 +20,6 @@
 // *****************************************************************************
 
 #include "Types.h"
-#include "wiz8/wiz8_windows.h"
 #include "Types.h"
 
 //**************************************************************************
@@ -55,8 +54,8 @@ void SetClippingRegionAndImageWidth(int iImageWidth, int iClipStartX, int iClipS
 //	Don't send fClip==TRUE to LineDraw if you don't have to. So if you know
 //  that your line will be within the region you want it to be in, set
 //	fClip == FALSE.
-void LineDraw(BOOL fClip, int XStart, int YStart, int XEnd, int YEnd, short Color, char* ScreenPtr);
-void RectangleDraw(BOOL fClip, int XStart, int YStart, int XEnd, int YEnd, short Color,
+void LineDraw(bool fClip, int XStart, int YStart, int XEnd, int YEnd, short Color, char* ScreenPtr);
+void RectangleDraw(bool fClip, int XStart, int YStart, int XEnd, int YEnd, short Color,
                    char* ScreenPtr);
 // *****************************************************************************
 

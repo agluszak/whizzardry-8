@@ -1,9 +1,9 @@
 #ifndef WIZ8_LAYOUTS_COMBAT_STATE_H
 #define WIZ8_LAYOUTS_COMBAT_STATE_H
 
+#include "Types.h"
 #include "wiz8/character_skills.h"
 #include "wiz8/equipment_slots.h"
-#include "timer.h"
 #include "wiz8/gameplay_modifiers.h"
 #include "wiz8/layouts/character.h"
 #include "wiz8/layouts/party_formation.h"
@@ -223,11 +223,11 @@ struct W8CombatState {
        swprintf's into and ShowNotice displays; 0x78 wide chars. */
     wchar_t attack_message[0x78];
     /* 0x7a8: continuous-combat UI pacing; the confirm button resets it while
-       ClockIsTicking reports it still running. */
-    TIMER combat_ui_timer;
-    /* 0x7ac: the pacing clock the scheduler arms through SetCountdownClock
+       TimeUntilDeadline reports it still running. */
+    UINT32 combat_ui_timer;
+    /* 0x7ac: the pacing clock the scheduler arms as a w8_get_ticks deadline
        before the scheduled actor's action may execute. */
-    TIMER action_clock;
+    UINT32 action_clock;
     int eCombatActionStatus;                  /* 0x7b0 */
     int iActionChar;                          /* 0x7b4: -1 when nobody's turn */
     struct W8MonsterInfo* pActionMonsterInfo; /* 0x7b8 */
@@ -248,7 +248,7 @@ struct W8CombatState {
     W8PartyActionStatus uiCurrentPartyActionStatus; /* 0x918 */
     /* 0x91c: countdown used to pace synthetic movement progress when
        continuous combat is enabled and the world did not advance this frame. */
-    TIMER party_movement_clock;
+    UINT32 party_movement_clock;
     W8PartyFormationState saved_formation; /* 0x920 */
     /* 0x9a4: the running attack's target did not see it coming - the monster
        stands behind the character or the target monster is looking away. The

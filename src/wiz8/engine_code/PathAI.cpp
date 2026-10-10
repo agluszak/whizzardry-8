@@ -13,7 +13,6 @@
 #include "surrender/srNode.h"
 
 #include <math.h>
-#include "wiz8/wiz8_windows.h"
 #include <stdlib.h>
 
 #define PATH_AI_CPP "C:\\Projects\\Wizardry 8\\Engine Code\\PathAI.CPP"
@@ -359,7 +358,7 @@ void PathAIEnableTimedMode(W8PathAI* path)
 // FUNCTION: WIZ8 0x004a9c20
 void PathAIResetTick(W8PathAI* path)
 {
-    path->last_update_tick = GetTickCount();
+    path->last_update_tick = w8_get_ticks();
 }
 
 // FUNCTION: WIZ8 0x004a9e70
@@ -518,7 +517,7 @@ void PathAIAdvanceNormalized(W8PathAI* path, float amount)
 // FUNCTION: WIZ8 0x004aa1f0
 unsigned char PathAITick(W8PathAI* path, signed char direction)
 {
-    DWORD now;
+    UINT32 now;
     unsigned int elapsed;
     float amount;
     float point_count;
@@ -526,7 +525,7 @@ unsigned char PathAITick(W8PathAI* path, signed char direction)
     if (path == 0) {
         srAssertFail("pPathAI", PATH_AI_CPP, 0x520, 0);
     }
-    now = GetTickCount();
+    now = w8_get_ticks();
     if (path->discrete_mode == 0 && path->animated != 0) {
         elapsed = now - path->last_update_tick;
         if (path->last_update_tick < now) {

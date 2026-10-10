@@ -4,7 +4,6 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
-#include "wiz8/wiz8_windows.h"
 #include "wiz8/utility.h"
 #include "wiz8/geometry.h"
 #include "wiz8/3d_code/IList.h"
@@ -1053,7 +1052,7 @@ try
     info.world = world;
     info.hFile = handle;
     info.bitmap_folder = bitmap_folder;
-    GetTickCount();
+    w8_get_ticks();
 
     if (world->psrMeshes == 0 || world->octree == 0) {
         if (!ReadSingleLevelMesh(&info, &level_mesh, 0, 0, 0, true)) {

@@ -66,7 +66,6 @@
 #include "wiz8/float_constants.h"
 #include "wiz8/dice.h"
 #include "wiz8/music_playlist.h"
-#include "wiz8/wiz8_windows.h"
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/engine_code/Levels.h"
 #include "wiz8/local_code/GameplayTime.h"
@@ -193,7 +192,7 @@ bool StartCombat(int surprise)
     g_combat_state->enemies_engaged = gXStatus.hostile_monster_count > 0;
     g_combat_state->execution_active = 0;
     g_combat_state->round_active = true;
-    g_combat_state->action_clock = GetClock();
+    g_combat_state->action_clock = w8_get_ticks();
     g_combat_state->eCombatActionStatus = 0;
     g_combat_state->iActionChar = -1;
     g_combat_state->pActionMonsterInfo = 0;
@@ -275,7 +274,7 @@ bool StartCombat(int surprise)
     }
     if (g_settings.continuous_combat != 0 && !g_combat_state->party_surprised) {
         g_combat_state->combat_ui_timer =
-            SetCountdownClock(g_settings.continuous_combat_start_delay_ms);
+            w8_get_ticks() + (g_settings.continuous_combat_start_delay_ms);
     }
     SoundPlay("Data\\Sound\\Misc\\Ready Weapons.wav", 0);
     return true;
@@ -1119,7 +1118,7 @@ void EndCombat(bool forced_cleanup)
             ++entry;
         }
     }
-    gXStatus.combat_countdown = SetCountdownClock(120000);
+    gXStatus.combat_countdown = w8_get_ticks() + (120000);
     if (g_combat_state->uiNextPartyAction != W8_PARTY_ACTION_NONE) {
         ClearPendingPartyMovement(-1);
     }
@@ -3188,7 +3187,7 @@ void UpdateCombat(void)
             return;
         }
         if ((g_settings.continuous_combat == 0 ||
-             ClockIsTicking(g_combat_state->combat_ui_timer) != 0 ||
+             TimeUntilDeadline(g_combat_state->combat_ui_timer) != 0 ||
              !CombatMayAdvanceContinuously()) &&
             !g_combat_state->party_surprised) {
             return;
@@ -3212,7 +3211,7 @@ void UpdateCombat(void)
         }
         break;
     case 1:
-        if (ClockIsTicking(g_combat_state->action_clock) == 0) {
+        if (TimeUntilDeadline(g_combat_state->action_clock) == 0) {
             if (g_settings.autoscroll_combat_messages != 0) {
                 g_combat_state->notice_scroll_pending = true;
             }
@@ -3444,7 +3443,7 @@ void ScheduleCombatActor(void)
                     (g_settings.continuous_combat == 0 || !free_turn) && delay > 0x31f) {
                     delay = 0x320;
                 }
-                g_combat_state->action_clock = SetCountdownClock(delay);
+                g_combat_state->action_clock = w8_get_ticks() + (delay);
             }
             g_combat_state->pacing_latch = false;
         } else {

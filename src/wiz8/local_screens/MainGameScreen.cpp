@@ -1,4 +1,3 @@
-#include "wiz8/wiz8_windows.h"
 #include "wiz8/spell_ids.h"
 #include "wiz8/conditions.h"
 #include "wiz8/sgp_text.h"
@@ -98,7 +97,6 @@
 #include "wiz8/dialog_code/PortraitQuote.h"
 #include "wiz8/character_event_queue.h"
 #include "wiz8/xstatus.h"
-#include "wiz8/wiz8_windows.h"
 #include "wiz8/world_cursor.h"
 #include "wiz8/local_code/MonsterGroup.h"
 
@@ -188,7 +186,7 @@ bool g_mouselook_active;
 
 /* Saved mouse position while mouselook is latched (WarpSystemCursor restore). */
 // GLOBAL: WIZ8 0x0068edc0
-static POINT g_mouselook_cursor_pos;
+static SGPPoint g_mouselook_cursor_pos;
 
 // GLOBAL: WIZ8 0x0068eddc
 W8MainGameMode g_main_game_mode;
@@ -1434,11 +1432,11 @@ void W8MainGameTextKeyHandler::OnMouseLeave(int event)
 // FUNCTION: WIZ8 0x00588010
 void W8MainGameTextKeyHandler::OnMouseMove(int)
 {
-    POINT point;
+    SGPPoint point;
     int line;
 
     SGPMouseGetPos(&point);
-    line = (point.y - m_pPanel->m_bounds.top - m_top) / 0xe + m_first_visible_line;
+    line = (point.iY - m_pPanel->m_bounds.top - m_top) / 0xe + m_first_visible_line;
     if (line != m_hover_line) {
         m_hover_line = line;
         Invalidate(false);
@@ -1454,10 +1452,10 @@ void W8MainGameTextKeyHandler::AdjustValue(int steps)
 // FUNCTION: WIZ8 0x005880b0
 void W8MainGameTextKeyHandler::OnLeftButtonUp(int)
 {
-    POINT point;
+    SGPPoint point;
 
     SGPMouseGetPos(&point);
-    SetSelectedLine((point.y - m_pPanel->m_bounds.top - m_top) / 0xe + m_first_visible_line);
+    SetSelectedLine((point.iY - m_pPanel->m_bounds.top - m_top) / 0xe + m_first_visible_line);
 }
 
 // FUNCTION: WIZ8 0x00588100
@@ -3025,21 +3023,21 @@ void TickAmbientFollowUpIdle(unsigned char input_handled)
         !gXStatus.fSurprisePossible) {
         if (input_handled == 0) {
             if (GetMillisecondsSinceCursorMove() > 60000) {
-                if (ClockIsTicking(g_level_block->countdown0) != 0) {
+                if (TimeUntilDeadline(g_level_block->countdown0) != 0) {
                     return;
                 }
                 gXStatus.character_event_queue->ProcessFollowUpEvents();
                 return;
             }
         } else {
-            g_level_block->countdown0 = SetCountdownClock(60000);
+            g_level_block->countdown0 = w8_get_ticks() + (60000);
         }
         if ((gXStatus.character_event_queue->follow_up_flags & 1) != 0) {
             gXStatus.character_event_queue->follow_up_flags &= ~3;
             return;
         }
     } else {
-        g_level_block->countdown0 = SetCountdownClock(60000);
+        g_level_block->countdown0 = w8_get_ticks() + (60000);
         if ((gXStatus.character_event_queue->follow_up_flags & 1) != 0) {
             gXStatus.character_event_queue->follow_up_flags &= ~3;
         }
@@ -3079,10 +3077,10 @@ void SetMainGameMode(W8MainGameMode mode)
 // FUNCTION: WIZ8 0x005684E0
 unsigned char ProcessMainGameInput(void)
 {
-    POINT mouse;
+    SGPPoint mouse;
     SGPMouseGetPos(&mouse);
     if (GetForcedRegion() == 0) {
-        MSYS_SGP_Mouse_Handler_Hook(MOUSE_POS, mouse.x, mouse.y, gfLeftButtonState,
+        MSYS_SGP_Mouse_Handler_Hook(MOUSE_POS, mouse.iX, mouse.iY, gfLeftButtonState,
                                     gfRightButtonState);
     }
 
@@ -3098,7 +3096,7 @@ unsigned char ProcessMainGameInput(void)
             case LEFT_BUTTON_UP:
             case RIGHT_BUTTON_DOWN:
             case RIGHT_BUTTON_UP:
-                MSYS_SGP_Mouse_Handler_Hook(input.usEvent, mouse.x, mouse.y, gfLeftButtonState,
+                MSYS_SGP_Mouse_Handler_Hook(input.usEvent, mouse.iX, mouse.iY, gfLeftButtonState,
                                             gfRightButtonState);
                 break;
             default:
@@ -3234,26 +3232,26 @@ update_screen:
     if (GetSecondaryWorld()) {
         WorldUpdateProps(GetSecondaryWorld());
     }
-    POINT point;
-    POINT current;
+    SGPPoint point;
+    SGPPoint current;
     SGPMouseGetPos(&point);
     if (!IsWorldCursorVisible()) {
         if (!g_modal_owner) {
             if ((!ShouldDeferCharacterEventForNpcScript(true) || !gXStatus.fNpcDialogueMode) &&
                 !g_status.world_cursor_gate) {
-                g_level_block->hover_region = UpdateRegionMousePosition(point.x, point.y);
+                g_level_block->hover_region = UpdateRegionMousePosition(point.iX, point.iY);
             } else {
                 g_level_block->hover_region = FindRegionAtPoint(
-                    static_cast<unsigned short>(point.x), static_cast<unsigned short>(point.y));
+                    static_cast<unsigned short>(point.iX), static_cast<unsigned short>(point.iY));
             }
         } else {
-            g_level_block->hover_region = FindRegionAtPoint(static_cast<unsigned short>(point.x),
-                                                            static_cast<unsigned short>(point.y));
+            g_level_block->hover_region = FindRegionAtPoint(static_cast<unsigned short>(point.iX),
+                                                            static_cast<unsigned short>(point.iY));
             for (int portrait = 0; portrait < 8; ++portrait) {
                 if (g_status.buffers.XChar[portrait].fOccupied &&
                     (g_level_block->hover_region == portrait * 6 + 0x24U ||
                      g_level_block->hover_region == portrait + 0x5aU)) {
-                    g_level_block->hover_region = UpdateRegionMousePosition(point.x, point.y);
+                    g_level_block->hover_region = UpdateRegionMousePosition(point.iX, point.iY);
                     break;
                 }
             }
@@ -3314,7 +3312,7 @@ render_world:
         if (gXStatus.iCurrentCursor != W8_CURSOR_NONE &&
             gXStatus.iCurrentCursor != W8_CURSOR_INVALID_TARGET &&
             g_main_game_resource_slots[gXStatus.iCurrentCursor].frame_count > 1 &&
-            !ClockIsTicking(gXStatus.current_cursor_time) && !IsWorldCursorVisible() &&
+            !TimeUntilDeadline(gXStatus.current_cursor_time) && !IsWorldCursorVisible() &&
             !g_mouselook_active) {
             ++gXStatus.current_cursor_frame;
             if (gXStatus.current_cursor_frame ==
@@ -3349,9 +3347,9 @@ render_world:
             gXStatus.hostile_monster_count) {
             StartCombat(0);
         }
-        if (!ClockIsTicking(g_level_block->character_update_timer)) {
+        if (!TimeUntilDeadline(g_level_block->character_update_timer)) {
             UpdateMonsterSight();
-            g_level_block->character_update_timer = SetCountdownClock(500);
+            g_level_block->character_update_timer = w8_get_ticks() + (500);
         }
         if (!gXStatus.world_update_blocked) {
             UpdateMonsterGroups(true);
@@ -3371,9 +3369,9 @@ render_world:
             }
         }
         if (gXStatus.fCombatMode && g_level_block->refresh_combat_panel &&
-            !ClockIsTicking(g_level_block->combat_panel_timer)) {
+            !TimeUntilDeadline(g_level_block->combat_panel_timer)) {
             RefreshMonsterTargetCounts();
-            g_level_block->combat_panel_timer = SetCountdownClock(500);
+            g_level_block->combat_panel_timer = w8_get_ticks() + (500);
             g_level_block->refresh_combat_panel = 0;
         }
         if (gXStatus.iTargetingMode == W8_TARGET_NEED_CONE) {
@@ -3386,10 +3384,10 @@ render_world:
                                        g_level_block->highlighted_item);
             g_level_block->refresh_party_panel = 0;
         }
-        if (!ClockIsTicking(g_level_block->world_update_timer)) {
+        if (!TimeUntilDeadline(g_level_block->world_update_timer)) {
             UpdateNearbyWorldItems();
             DetachAllWorldItems();
-            g_level_block->world_update_timer = SetCountdownClock(50);
+            g_level_block->world_update_timer = w8_get_ticks() + (50);
         }
         if (gXStatus.fSpellCastMode)
             CommitSpellCastingSelection();
@@ -3790,7 +3788,7 @@ void DrawMainGameScreen(void)
 
     SyncPartyFacingFromCamera();
     UpdateRadarBlips();
-    if (g_level_block->portrait_flash != 0 && ClockIsTicking(g_level_block->clock) == 0) {
+    if (g_level_block->portrait_flash != 0 && TimeUntilDeadline(g_level_block->clock) == 0) {
         g_level_block->portrait_flash = 0;
         RequestPartySlotRedraw(g_status.selected_character);
     }
@@ -3859,13 +3857,13 @@ void DrawMainGameScreen(void)
             gprintfDirty(0xdc, 0x1e, Wiz8ToSgpWideText(g_format_mouselook_angles),
                          g_mouselook_pending_pitch, g_mouselook_pending_yaw);
         }
-        if (GetTickCount() - g_level_block->tick > 499) {
+        if (w8_get_ticks() - g_level_block->tick > 499) {
             if (g_level_block->inspector_enabled && !gXStatus.fSpellCastMode &&
                 !gXStatus.fNpcDialogueMode && !gXStatus.fItemSelectMode &&
                 !gXStatus.fLockInteractMode && !gXStatus.fTrapInteractMode) {
                 DrawVideoInspector(0xdc, 0x32);
             }
-            g_level_block->tick = GetTickCount();
+            g_level_block->tick = w8_get_ticks();
         }
         if (g_level_block->formation_board_visible) {
             CreateFormationBoardOverlay();
@@ -4090,7 +4088,7 @@ void SelectPartyCharacter(int party_slot)
     if (previous != -1 && (gXStatus.fSpellCastMode || gXStatus.fItemSelectMode)) {
         ClearSlotTargeting(previous);
     }
-    g_level_block->clock = SetCountdownClock(500);
+    g_level_block->clock = w8_get_ticks() + (500);
     g_level_block->portrait_flash = 1;
     if (g_level_block != 0) {
         if (gXStatus.fCombatMode) {
@@ -4953,7 +4951,7 @@ void UpdateCombatPortraitStatus(void)
         if (row->fOccupied && character->hp_current > 0 &&
             character->highest_condition <= W8_CONDITION_UNCONSCIOUS) {
             if (g_combat_state->eCombatActionStatus == 0 || g_combat_state->iActionChar != slot ||
-                ClockIsTicking(g_combat_state->action_clock) > 800) {
+                TimeUntilDeadline(g_combat_state->action_clock) > 800) {
                 if (IsPartySlotEligible(slot)) {
                     if (combat_row->dead) {
                         status = 2;
@@ -4971,23 +4969,23 @@ void UpdateCombatPortraitStatus(void)
             alternate = image;
             if (status == 3) {
                 if (combat_row->combat_status == 3) {
-                    if (ClockIsTicking(entry->acting_portrait_pulse_clock) == 0) {
+                    if (TimeUntilDeadline(entry->acting_portrait_pulse_clock) == 0) {
                         ++entry->acting_portrait_pulse;
                         if (entry->acting_portrait_pulse == 0xc) {
                             entry->acting_portrait_pulse = 1;
-                            entry->acting_portrait_pulse_clock = SetCountdownClock(100);
+                            entry->acting_portrait_pulse_clock = w8_get_ticks() + (100);
                         } else if (entry->acting_portrait_pulse < 7) {
                             image = combat_row->portrait_image + 1;
-                            entry->acting_portrait_pulse_clock = SetCountdownClock(100);
+                            entry->acting_portrait_pulse_clock = w8_get_ticks() + (100);
                         } else {
                             image = combat_row->portrait_image - 1;
-                            entry->acting_portrait_pulse_clock = SetCountdownClock(100);
+                            entry->acting_portrait_pulse_clock = w8_get_ticks() + (100);
                         }
                     } else {
                         image = combat_row->portrait_image;
                     }
                 } else {
-                    entry->acting_portrait_pulse_clock = SetCountdownClock(100);
+                    entry->acting_portrait_pulse_clock = w8_get_ticks() + (100);
                     entry->acting_portrait_pulse = 1;
                 }
             } else {
@@ -5028,15 +5026,15 @@ void UpdateKeyboardMenu(void)
             }
             if (!KeyboardMenuContainsCursor()) {
                 g_level_block->cursor_grace = 1;
-                g_level_block->countdown3 = SetCountdownClock(0x258);
+                g_level_block->countdown3 = w8_get_ticks() + (0x258);
                 return;
             }
         } else {
             if (KeyboardMenuContainsCursor()) {
-                g_level_block->countdown3 = SetCountdownClock(0);
+                g_level_block->countdown3 = w8_get_ticks() + (0);
                 g_level_block->combat_slot = GetSelectedPartySlot();
                 g_level_block->cursor_grace = 0;
-            } else if (ClockIsTicking(g_level_block->countdown3) == 0) {
+            } else if (TimeUntilDeadline(g_level_block->countdown3) == 0) {
                 CloseKeyboardMenu();
             }
         }
@@ -5108,7 +5106,7 @@ void SetTooltipSubject(int kind, int subject)
 {
     if (g_level_block->tooltip_kind != kind || g_level_block->tooltip_subject != subject) {
         g_level_block->tooltip_pending = true;
-        g_level_block->tooltip_since = GetTickCount();
+        g_level_block->tooltip_since = w8_get_ticks();
         g_level_block->tooltip_subject = subject;
         g_level_block->tooltip_kind = kind;
     }
@@ -5427,7 +5425,7 @@ unsigned char PortraitSelectRegionEvent(const InputAtom* event, W8Region* region
             if (g_level_block->portrait_refresh_pending[slot] == 0 &&
                 g_settings.main_ui_mode != W8_MAIN_UI_MODE_PORTRAITS &&
                 g_level_block->portrait_overlay_party_slot == -1 &&
-                ClockIsTicking(g_level_block->countdown5) == 0 &&
+                TimeUntilDeadline(g_level_block->countdown5) == 0 &&
                 (region->flags & W8_REGION_LEFT_BUTTON_HELD) != 0) {
                 g_level_block->portrait_overlay_party_slot = slot;
                 if (g_current_screen_state.id == W8_SCREEN_MAIN_GAME && g_level_block != 0) {
@@ -5442,7 +5440,7 @@ unsigned char PortraitSelectRegionEvent(const InputAtom* event, W8Region* region
             if (g_level_block->portrait_refresh_pending[slot] == 0 &&
                 g_settings.main_ui_mode != W8_MAIN_UI_MODE_PORTRAITS &&
                 g_level_block->portrait_overlay_party_slot == -1) {
-                g_level_block->countdown5 = SetCountdownClock(500);
+                g_level_block->countdown5 = w8_get_ticks() + (500);
                 return 1;
             }
         } else if (us_event == LEFT_BUTTON_UP) {
@@ -5537,7 +5535,7 @@ unsigned char PortraitSelectRegionEvent(const InputAtom* event, W8Region* region
         region->flags |= W8_REGION_RIGHT_BUTTON_HELD;
         if (!targeting && IsNpcDialogueCursorActive() == 0 && !gXStatus.scripted_scene &&
             !g_level_block->portrait_right_hold_armed) {
-            g_level_block->countdown4 = SetCountdownClock(1000);
+            g_level_block->countdown4 = w8_get_ticks() + (1000);
             g_level_block->portrait_right_hold_armed = true;
         }
     } else {
@@ -5546,7 +5544,7 @@ unsigned char PortraitSelectRegionEvent(const InputAtom* event, W8Region* region
                 return 0;
             }
             if (g_level_block->portrait_right_hold_armed &&
-                ClockIsTicking(g_level_block->countdown4) == 0) {
+                TimeUntilDeadline(g_level_block->countdown4) == 0) {
                 g_level_block->portrait_right_hold_armed = false;
                 OpenCharacterScreenForPartySlot(slot, false);
             }
@@ -5887,7 +5885,7 @@ unsigned char PartyCombatActionRegionEvent(const InputAtom* event, W8Region* reg
         if ((region->flags & W8_REGION_MOUSE_LEAVE) != 0) {
             if (!g_level_block->keyboard_menu_open) {
                 g_level_block->combat_slot = -1;
-                g_level_block->countdown3 = SetCountdownClock(0);
+                g_level_block->countdown3 = w8_get_ticks() + (0);
                 g_level_block->hover_combat_slot = -1;
             }
             g_level_block->combat_action_hover_party_slot = -1;
@@ -5975,7 +5973,7 @@ unsigned char RadarMapButtonRegionEvent(const InputAtom* event, W8Region* region
 // FUNCTION: WIZ8 0x00567800
 unsigned char WorldViewRegionEvent(const InputAtom* event, W8Region* region)
 {
-    POINT cursor_pos;
+    SGPPoint cursor_pos;
     int cursor_x;
     int cursor_y;
     W8TargetNeed needed;
@@ -5991,7 +5989,7 @@ unsigned char WorldViewRegionEvent(const InputAtom* event, W8Region* region)
     if (us_event > RIGHT_BUTTON_DOWN) {
         if (us_event == RIGHT_BUTTON_UP) {
             if (g_mouselook_active && g_settings.mouselook_toggle == 0) {
-                WarpSystemCursor(g_mouselook_cursor_pos.x, g_mouselook_cursor_pos.y);
+                WarpSystemCursor(g_mouselook_cursor_pos.iX, g_mouselook_cursor_pos.iY);
                 EnableCursorScene();
                 g_mouselook_active = false;
                 g_mouselook_left_held = false;
@@ -6075,7 +6073,7 @@ unsigned char WorldViewRegionEvent(const InputAtom* event, W8Region* region)
         if (!IsWorldCursorVisible() && !gXStatus.fNpcDialogueMode) {
             if (g_settings.mouselook_toggle != 0) {
                 if (g_mouselook_active) {
-                    WarpSystemCursor(g_mouselook_cursor_pos.x, g_mouselook_cursor_pos.y);
+                    WarpSystemCursor(g_mouselook_cursor_pos.iX, g_mouselook_cursor_pos.iY);
                     EnableCursorScene();
                     g_mouselook_active = false;
                     g_mouselook_left_held = false;
@@ -6454,9 +6452,9 @@ static void ApplyPendingMouselook(void)
 
     if ((g_mouselook_tick_init & 1) == 0) {
         g_mouselook_tick_init = static_cast<unsigned char>(g_mouselook_tick_init | 1);
-        g_mouselook_last_tick = GetTickCount();
+        g_mouselook_last_tick = w8_get_ticks();
     }
-    now = GetTickCount();
+    now = w8_get_ticks();
     elapsed = now - g_mouselook_last_tick;
     g_mouselook_last_tick = now;
     scale = g_generator_jitter_fraction;
@@ -6503,7 +6501,7 @@ void ApplyPendingTooltip(void)
     if (!g_level_block->tooltip_pending) {
         return;
     }
-    if (GetTickCount() - g_level_block->tooltip_since < 0x33) {
+    if (w8_get_ticks() - g_level_block->tooltip_since < 0x33) {
         return;
     }
     if (g_level_block->highlight_override != -1) {
@@ -6575,14 +6573,14 @@ void ApplyPendingTooltip(void)
     g_level_block->tooltip_kind = -1;
 }
 
-static void PositionSelectionToolTip(POINT point)
+static void PositionSelectionToolTip(SGPPoint point)
 {
-    int y = point.y - g_cursor_image_height / 2;
-    if (point.x < 0) {
-        point.x = 2;
+    int y = point.iY - g_cursor_image_height / 2;
+    if (point.iX < 0) {
+        point.iX = 2;
     }
-    if (point.x + g_help_box_width + 2 > 0x27f) {
-        point.x = 0x280 - (g_help_box_width + 2);
+    if (point.iX + g_help_box_width + 2 > 0x27f) {
+        point.iX = 0x280 - (g_help_box_width + 2);
     }
     if (y < 0) {
         y = 2;
@@ -6590,7 +6588,7 @@ static void PositionSelectionToolTip(POINT point)
     if (y + g_help_box_height + 2 > 0x1df) {
         y = 0x1e0 - (g_help_box_height + 2);
     }
-    VideoPositionToolTip(point.x, y);
+    VideoPositionToolTip(point.iX, y);
 }
 
 /* Re-picking the same monster while its tooltip clock is idle pops a
@@ -6604,9 +6602,9 @@ void SetCombatSelection(int value)
     int current = g_level_block->highlighted_item;
 
     if (value == current) {
-        if (current != -1 && !ClockIsTicking(g_level_block->countdown1) &&
+        if (current != -1 && !TimeUntilDeadline(g_level_block->countdown1) &&
             !HasScreenTransitionObjects()) {
-            POINT point;
+            SGPPoint point;
             wchar_t text[290];
             wchar_t health[32];
 
@@ -6675,7 +6673,7 @@ void SetCombatSelection(int value)
     if (delay > 500) {
         delay = 500;
     }
-    g_level_block->countdown1 = SetCountdownClock(delay);
+    g_level_block->countdown1 = w8_get_ticks() + (delay);
 }
 
 /* The world-item twin of SetCombatSelection: a pick change drops the old
@@ -6712,12 +6710,12 @@ void SetCombatTarget(int value)
         if (delay > 500) {
             delay = 500;
         }
-        g_level_block->countdown1 = SetCountdownClock(delay);
+        g_level_block->countdown1 = w8_get_ticks() + (delay);
         return;
     }
-    if (current != -1 && !ClockIsTicking(g_level_block->countdown1) &&
+    if (current != -1 && !TimeUntilDeadline(g_level_block->countdown1) &&
         !HasScreenTransitionObjects()) {
-        POINT point;
+        SGPPoint point;
         W8WorldItem* item;
 
         SGPMouseGetPos(&point);
@@ -7200,15 +7198,15 @@ void LoadMainGameCursorResources(void)
 // FUNCTION: WIZ8 0x00568950
 unsigned int DispatchMainGameMouseButtons(const InputAtom* input)
 {
-    POINT point;
+    SGPPoint point;
     SGPMouseGetPos(&point);
     switch (input->usEvent) {
     case LEFT_BUTTON_DOWN:
     case LEFT_BUTTON_UP:
     case RIGHT_BUTTON_DOWN:
     case RIGHT_BUTTON_UP:
-        MSYS_SGP_Mouse_Handler_Hook(input->usEvent, static_cast<unsigned short>(point.x),
-                                    static_cast<unsigned short>(point.y), gfLeftButtonState,
+        MSYS_SGP_Mouse_Handler_Hook(input->usEvent, static_cast<unsigned short>(point.iX),
+                                    static_cast<unsigned short>(point.iY), gfLeftButtonState,
                                     gfRightButtonState);
         return 1;
     default:
@@ -8188,7 +8186,7 @@ void CreateSurpriseFade(void)
     static_cast<srMaterial*>(static_cast<srMeshModel*>(g_surprise_fade_node->getModel())
                                  ->getMaterial(0, srMeshModel::SIDE_FRONT))
         ->setOpacity(0.0);
-    g_surprise_fade_tick_base = GetTickCount();
+    g_surprise_fade_tick_base = w8_get_ticks();
     g_surprise_fade_in = true;
 }
 
@@ -8200,7 +8198,7 @@ void ReverseSurpriseFade(void)
             static_cast<srMaterial*>(static_cast<srMeshModel*>(g_surprise_fade_node->getModel())
                                          ->getMaterial(0, srMeshModel::SIDE_FRONT));
         float opacity = material->parms.diffuse.w;
-        w8_ulong now = GetTickCount();
+        w8_ulong now = w8_get_ticks();
         g_surprise_fade_in = !g_surprise_fade_in;
         if (g_surprise_fade_in) {
             g_surprise_fade_tick_base =
@@ -8210,7 +8208,7 @@ void ReverseSurpriseFade(void)
         }
     } else {
         g_surprise_fade_node->clearFlag(srNode::FLAG_DISABLE);
-        g_surprise_fade_tick_base = GetTickCount();
+        g_surprise_fade_tick_base = w8_get_ticks();
         g_surprise_fade_in = true;
     }
 }
@@ -8231,7 +8229,7 @@ unsigned char UpdateSurpriseFade(void)
     bool done = false;
     bool boundary = false;
     float opacity;
-    w8_ulong now = GetTickCount();
+    w8_ulong now = w8_get_ticks();
 
     if (g_surprise_fade_tick_base + 500 < now) {
         if (!g_surprise_fade_in) {
@@ -8266,7 +8264,7 @@ unsigned char UpdateSurpriseFade(void)
             g_surprise_snapshot_overlay->updateRectangle(g_gerd, pixels, pitch, 0, 0, 0x280, 0x1e0);
             UnlockCatalogFrameSurface(0x1e0, 0);
             g_world_render_enabled = 0;
-            g_surprise_fade_tick_base = GetTickCount();
+            g_surprise_fade_tick_base = w8_get_ticks();
         } else {
             g_surprise_snapshot_overlay->release();
             g_surprise_snapshot_overlay = 0;

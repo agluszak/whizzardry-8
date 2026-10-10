@@ -637,9 +637,9 @@ void W8OptionsSaveRow::Redraw(bool full_redraw)
                                     ? g_default_level
                                     : gppStringList[g_level_name_indices[m_save->level_id]];
     wchar_t timestamp[32];
-    swprintf(timestamp, L"%d-%2.2d-%2.2d %2d:%2.2d", m_save->timestamp.wYear,
-             m_save->timestamp.wMonth, m_save->timestamp.wDay, m_save->timestamp.wHour,
-             m_save->timestamp.wMinute);
+    swprintf(timestamp, L"%d-%2.2d-%2.2d %2d:%2.2d", m_save->timestamp.year,
+             m_save->timestamp.month, m_save->timestamp.day, m_save->timestamp.hour,
+             m_save->timestamp.minute);
 
     SetFont(g_wiz_text_font_secondary);
     int text_x = x + 0x5e;
@@ -665,11 +665,11 @@ void W8OptionsSaveRow::OnLeftButtonUp(int event)
 {
     if (m_active && m_enabled && !m_editing &&
         (m_stateFlags & g_W8TextControlStateSecondary) != 0) {
-        POINT point;
+        SGPPoint point;
         SGPMouseGetPos(&point);
-        point.x -= m_pPanel->m_bounds.left + m_left;
-        point.y -= m_pPanel->m_bounds.top + m_top;
-        if (m_save_mode != 0 && point.x >= 0x5c && point.y >= 0x33 && m_save_listener != 0) {
+        point.iX -= m_pPanel->m_bounds.left + m_left;
+        point.iY -= m_pPanel->m_bounds.top + m_top;
+        if (m_save_mode != 0 && point.iX >= 0x5c && point.iY >= 0x33 && m_save_listener != 0) {
             m_save_listener->OnEditSaveName(this);
         }
     }
@@ -2065,8 +2065,8 @@ unsigned char OptionsScreenEnter()
 // FUNCTION: WIZ8 0x005a9cc0
 void OptionsScreenFrame()
 {
-    POINT point;
-    POINT current;
+    SGPPoint point;
+    SGPPoint current;
     InputAtom input;
 
     if (g_dev_mode) {
@@ -2080,8 +2080,8 @@ void OptionsScreenFrame()
     W8OptionsScreen* screen = g_options_screen;
     if (screen->m_text_editor != 0) {
         SGPMouseGetPos(&current);
-        MSYS_SGP_Mouse_Handler_Hook(MOUSE_POS, static_cast<unsigned short>(current.x),
-                                    static_cast<unsigned short>(current.y), gfLeftButtonState,
+        MSYS_SGP_Mouse_Handler_Hook(MOUSE_POS, static_cast<unsigned short>(current.iX),
+                                    static_cast<unsigned short>(current.iY), gfLeftButtonState,
                                     gfRightButtonState);
         screen = g_options_screen;
     }
@@ -2106,7 +2106,7 @@ void OptionsScreenFrame()
         screen->m_modal_closing = false;
     }
 
-    UpdateRegionMousePosition(point.x, point.y);
+    UpdateRegionMousePosition(point.iX, point.iY);
     while (DequeueEvent(&input) == 1) {
         if (!screen->ProcessInput(&input) && !DispatchRegionInput(&input) &&
             input.usEvent == KEY_DOWN && input.usParam == VK_ESCAPE) {

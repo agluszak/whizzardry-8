@@ -22,12 +22,12 @@ extern void GetClippingRect(SGPRect* clip);
 // LOCAL functions
 
 BOOLEAN ClipReleatedSrcAndDestRectangles(HVSURFACE hDestVSurface, HVSURFACE hSrcVSurface,
-                                         RECT* DestRect, RECT* SrcRect);
+                                         SGPRect* DestRect, SGPRect* SrcRect);
 BOOLEAN FillSurface(HVSURFACE hDestVSurface, blt_vs_fx* pBltFx);
 BOOLEAN FillSurfaceRect(HVSURFACE hDestVSurface, blt_vs_fx* pBltFx);
 BOOLEAN BltVSurfaceUsingSDL(HVSURFACE hDestVSurface, HVSURFACE hSrcVSurface, UINT32 fBltFlags,
-                           INT32 iDestX, INT32 iDestY, RECT* SrcRect);
-BOOLEAN GetVSurfaceRect(HVSURFACE hVSurface, RECT* pRect);
+                           INT32 iDestX, INT32 iDestY, SGPRect* SrcRect);
+BOOLEAN GetVSurfaceRect(HVSURFACE hVSurface, SGPRect* pRect);
 
 void DeletePrimaryVideoSurfaces();
 // LOCAL global variables
@@ -649,7 +649,7 @@ BOOLEAN DeleteVideoSurface(HVSURFACE hVSurface)
 BOOLEAN SetClipList(HVSURFACE hVSurface, SGPRect* RegionData, UINT16 usNumRegions)
 {
     CHECKF(hVSurface && RegionData && usNumRegions);
-    std::vector<RECT> rectangles;
+    std::vector<SGPRect> rectangles;
     rectangles.reserve(usNumRegions);
     for (UINT16 i = 0; i < usNumRegions; ++i)
         rectangles.push_back({RegionData[i].iLeft, RegionData[i].iTop,
@@ -673,15 +673,15 @@ BOOLEAN GetVSurfaceRegion(HVSURFACE hVSurface, UINT16 usIndex, VSURFACE_REGION* 
     return TRUE;
 }
 
-BOOLEAN GetVSurfaceRect(HVSURFACE hVSurface, RECT* pRect)
+BOOLEAN GetVSurfaceRect(HVSURFACE hVSurface, SGPRect* pRect)
 {
     Assert(hVSurface != nullptr);
     Assert(pRect != nullptr);
 
-    pRect->left = 0;
-    pRect->top = 0;
-    pRect->right = hVSurface->usWidth;
-    pRect->bottom = hVSurface->usHeight;
+    pRect->iLeft = 0;
+    pRect->iTop = 0;
+    pRect->iRight = hVSurface->usWidth;
+    pRect->iBottom = hVSurface->usHeight;
 
     return (TRUE);
 }
@@ -699,7 +699,7 @@ BOOLEAN BltVideoSurfaceToVideoSurface(HVSURFACE hDestVSurface, HVSURFACE hSrcVSu
                                       blt_vs_fx* pBltFx)
 {
     VSURFACE_REGION aRegion;
-    RECT SrcRect, DestRect;
+    SGPRect SrcRect, DestRect;
     UINT16 *pDestSurface16, *pSrcSurface16;
     UINT32 uiSrcPitch, uiDestPitch, uiWidth, uiHeight;
 
@@ -738,10 +738,10 @@ BOOLEAN BltVideoSurfaceToVideoSurface(HVSURFACE hDestVSurface, HVSURFACE hSrcVSu
         if (fBltFlags & VS_BLT_SRCREGION) {
             CHECKF(GetVSurfaceRegion(hSrcVSurface, usIndex, &aRegion))
 
-            SrcRect.top = (int)aRegion.RegionCoords.iTop;
-            SrcRect.left = (int)aRegion.RegionCoords.iLeft;
-            SrcRect.bottom = (int)aRegion.RegionCoords.iBottom;
-            SrcRect.right = (int)aRegion.RegionCoords.iRight;
+            SrcRect.iTop = (int)aRegion.RegionCoords.iTop;
+            SrcRect.iLeft = (int)aRegion.RegionCoords.iLeft;
+            SrcRect.iBottom = (int)aRegion.RegionCoords.iBottom;
+            SrcRect.iRight = (int)aRegion.RegionCoords.iRight;
             break;
         }
 
@@ -753,10 +753,10 @@ BOOLEAN BltVideoSurfaceToVideoSurface(HVSURFACE hDestVSurface, HVSURFACE hSrcVSu
 
             aSubRect = pBltFx->SrcRect;
 
-            SrcRect.top = (int)aSubRect.iTop;
-            SrcRect.left = (int)aSubRect.iLeft;
-            SrcRect.bottom = (int)aSubRect.iBottom;
-            SrcRect.right = (int)aSubRect.iRight;
+            SrcRect.iTop = (int)aSubRect.iTop;
+            SrcRect.iLeft = (int)aSubRect.iLeft;
+            SrcRect.iBottom = (int)aSubRect.iBottom;
+            SrcRect.iRight = (int)aSubRect.iRight;
 
             break;
         }
@@ -772,10 +772,10 @@ BOOLEAN BltVideoSurfaceToVideoSurface(HVSURFACE hDestVSurface, HVSURFACE hSrcVSu
             return (FALSE);
         }
 
-        SrcRect.top = (int)0;
-        SrcRect.left = (int)0;
-        SrcRect.bottom = (int)hSrcVSurface->usHeight;
-        SrcRect.right = (int)hSrcVSurface->usWidth;
+        SrcRect.iTop = (int)0;
+        SrcRect.iLeft = (int)0;
+        SrcRect.iBottom = (int)hSrcVSurface->usHeight;
+        SrcRect.iRight = (int)hSrcVSurface->usWidth;
 
     } while (FALSE);
 
@@ -784,39 +784,39 @@ BOOLEAN BltVideoSurfaceToVideoSurface(HVSURFACE hDestVSurface, HVSURFACE hSrcVSu
 
     // clipping -- added by DB
     GetVSurfaceRect(hDestVSurface, &DestRect);
-    uiWidth = SrcRect.right - SrcRect.left;
-    uiHeight = SrcRect.bottom - SrcRect.top;
+    uiWidth = SrcRect.iRight - SrcRect.iLeft;
+    uiHeight = SrcRect.iBottom - SrcRect.iTop;
 
     // check for position entirely off the screen
-    if (iDestX >= DestRect.right)
+    if (iDestX >= DestRect.iRight)
         return (FALSE);
-    if (iDestY >= DestRect.bottom)
+    if (iDestY >= DestRect.iBottom)
         return (FALSE);
-    if ((iDestX + (INT32)uiWidth) < (INT32)DestRect.left)
+    if ((iDestX + (INT32)uiWidth) < (INT32)DestRect.iLeft)
         return (FALSE);
-    if ((iDestY + (INT32)uiHeight) < (INT32)DestRect.top)
+    if ((iDestY + (INT32)uiHeight) < (INT32)DestRect.iTop)
         return (FALSE);
 
     // DB The mirroring stuff has to do it's own clipping because
     // it needs to invert some of the numbers
     if (!(fBltFlags & VS_BLT_MIRROR_Y)) {
-        if ((iDestX + (INT32)uiWidth) >= (INT32)DestRect.right) {
-            SrcRect.right -= ((iDestX + uiWidth) - DestRect.right);
-            uiWidth -= ((iDestX + uiWidth) - DestRect.right);
+        if ((iDestX + (INT32)uiWidth) >= (INT32)DestRect.iRight) {
+            SrcRect.iRight -= ((iDestX + uiWidth) - DestRect.iRight);
+            uiWidth -= ((iDestX + uiWidth) - DestRect.iRight);
         }
-        if ((iDestY + (INT32)uiHeight) >= (INT32)DestRect.bottom) {
-            SrcRect.bottom -= ((iDestY + uiHeight) - DestRect.bottom);
-            uiHeight -= ((iDestY + uiHeight) - DestRect.bottom);
+        if ((iDestY + (INT32)uiHeight) >= (INT32)DestRect.iBottom) {
+            SrcRect.iBottom -= ((iDestY + uiHeight) - DestRect.iBottom);
+            uiHeight -= ((iDestY + uiHeight) - DestRect.iBottom);
         }
-        if (iDestX < DestRect.left) {
-            SrcRect.left += (DestRect.left - iDestX);
-            uiWidth -= (DestRect.left - iDestX);
-            iDestX = DestRect.left;
+        if (iDestX < DestRect.iLeft) {
+            SrcRect.iLeft += (DestRect.iLeft - iDestX);
+            uiWidth -= (DestRect.iLeft - iDestX);
+            iDestX = DestRect.iLeft;
         }
-        if (iDestY < (INT32)DestRect.top) {
-            SrcRect.top += (DestRect.top - iDestY);
-            uiHeight -= (DestRect.top - iDestY);
-            iDestY = DestRect.top;
+        if (iDestY < (INT32)DestRect.iTop) {
+            SrcRect.iTop += (DestRect.iTop - iDestY);
+            uiHeight -= (DestRect.iTop - iDestY);
+            iDestY = DestRect.iTop;
         }
     }
 
@@ -838,7 +838,7 @@ BOOLEAN BltVideoSurfaceToVideoSurface(HVSURFACE hDestVSurface, HVSURFACE hSrcVSu
             }
 
             Blt16BPPTo16BPPMirror(pDestSurface16, uiDestPitch, pSrcSurface16, uiSrcPitch, iDestX,
-                                  iDestY, SrcRect.left, SrcRect.top, uiWidth, uiHeight);
+                                  iDestY, SrcRect.iLeft, SrcRect.iTop, uiWidth, uiHeight);
             UnLockVideoSurfaceBuffer(hSrcVSurface);
             UnLockVideoSurfaceBuffer(hDestVSurface);
             return (TRUE);
@@ -892,69 +892,69 @@ HVSURFACE CreateVideoSurfaceFromCpuSurface(CpuSurface* cpuSurface)
 // UTILITY FUNCTIONS FOR BLITTING
 
 BOOLEAN ClipReleatedSrcAndDestRectangles(HVSURFACE hDestVSurface, HVSURFACE hSrcVSurface,
-                                         RECT* DestRect, RECT* SrcRect)
+                                         SGPRect* DestRect, SGPRect* SrcRect)
 {
 
     Assert(hDestVSurface != nullptr);
     Assert(hSrcVSurface != nullptr);
 
     // Check for invalid start positions and clip by ignoring blit
-    if (DestRect->left >= hDestVSurface->usWidth || DestRect->top >= hDestVSurface->usHeight) {
+    if (DestRect->iLeft >= hDestVSurface->usWidth || DestRect->iTop >= hDestVSurface->usHeight) {
         return (FALSE);
     }
 
-    if (SrcRect->left >= hSrcVSurface->usWidth || SrcRect->top >= hSrcVSurface->usHeight) {
+    if (SrcRect->iLeft >= hSrcVSurface->usWidth || SrcRect->iTop >= hSrcVSurface->usHeight) {
         return (FALSE);
     }
 
     // For overruns
     // Clip destination rectangles
-    if (DestRect->right > hDestVSurface->usWidth) {
+    if (DestRect->iRight > hDestVSurface->usWidth) {
         // Both have to be modified or by default streching occurs
-        DestRect->right = hDestVSurface->usWidth;
-        SrcRect->right = SrcRect->left + (DestRect->right - DestRect->left);
+        DestRect->iRight = hDestVSurface->usWidth;
+        SrcRect->iRight = SrcRect->iLeft + (DestRect->iRight - DestRect->iLeft);
     }
-    if (DestRect->bottom > hDestVSurface->usHeight) {
+    if (DestRect->iBottom > hDestVSurface->usHeight) {
         // Both have to be modified or by default streching occurs
-        DestRect->bottom = hDestVSurface->usHeight;
-        SrcRect->bottom = SrcRect->top + (DestRect->bottom - DestRect->top);
+        DestRect->iBottom = hDestVSurface->usHeight;
+        SrcRect->iBottom = SrcRect->iTop + (DestRect->iBottom - DestRect->iTop);
     }
 
     // Clip src rectangles
-    if (SrcRect->right > hSrcVSurface->usWidth) {
+    if (SrcRect->iRight > hSrcVSurface->usWidth) {
         // Both have to be modified or by default streching occurs
-        SrcRect->right = hSrcVSurface->usWidth;
-        DestRect->right = DestRect->left + (SrcRect->right - SrcRect->left);
+        SrcRect->iRight = hSrcVSurface->usWidth;
+        DestRect->iRight = DestRect->iLeft + (SrcRect->iRight - SrcRect->iLeft);
     }
-    if (SrcRect->bottom > hSrcVSurface->usHeight) {
+    if (SrcRect->iBottom > hSrcVSurface->usHeight) {
         // Both have to be modified or by default streching occurs
-        SrcRect->bottom = hSrcVSurface->usHeight;
-        DestRect->bottom = DestRect->top + (SrcRect->bottom - SrcRect->top);
+        SrcRect->iBottom = hSrcVSurface->usHeight;
+        DestRect->iBottom = DestRect->iTop + (SrcRect->iBottom - SrcRect->iTop);
     }
 
     // For underruns
     // Clip destination rectangles
-    if (DestRect->left < 0) {
+    if (DestRect->iLeft < 0) {
         // Both have to be modified or by default streching occurs
-        DestRect->left = 0;
-        SrcRect->left = SrcRect->right - (DestRect->right - DestRect->left);
+        DestRect->iLeft = 0;
+        SrcRect->iLeft = SrcRect->iRight - (DestRect->iRight - DestRect->iLeft);
     }
-    if (DestRect->top < 0) {
+    if (DestRect->iTop < 0) {
         // Both have to be modified or by default streching occurs
-        DestRect->top = 0;
-        SrcRect->top = SrcRect->bottom - (DestRect->bottom - DestRect->top);
+        DestRect->iTop = 0;
+        SrcRect->iTop = SrcRect->iBottom - (DestRect->iBottom - DestRect->iTop);
     }
 
     // Clip src rectangles
-    if (SrcRect->left < 0) {
+    if (SrcRect->iLeft < 0) {
         // Both have to be modified or by default streching occurs
-        SrcRect->left = 0;
-        DestRect->left = DestRect->right - (SrcRect->right - SrcRect->left);
+        SrcRect->iLeft = 0;
+        DestRect->iLeft = DestRect->iRight - (SrcRect->iRight - SrcRect->iLeft);
     }
-    if (SrcRect->top < 0) {
+    if (SrcRect->iTop < 0) {
         // Both have to be modified or by default streching occurs
-        SrcRect->top = 0;
-        DestRect->top = DestRect->bottom - (SrcRect->bottom - SrcRect->top);
+        SrcRect->iTop = 0;
+        DestRect->iTop = DestRect->iBottom - (SrcRect->iBottom - SrcRect->iTop);
     }
 
     return (TRUE);
@@ -970,27 +970,27 @@ BOOLEAN FillSurface(HVSURFACE hDestVSurface, blt_vs_fx* pBltFx)
 BOOLEAN FillSurfaceRect(HVSURFACE hDestVSurface, blt_vs_fx* pBltFx)
 {
     CHECKF(hDestVSurface && pBltFx);
-    const RECT rect{pBltFx->FillRect.iLeft, pBltFx->FillRect.iTop,
+    const SGPRect rect{pBltFx->FillRect.iLeft, pBltFx->FillRect.iTop,
                     pBltFx->FillRect.iRight, pBltFx->FillRect.iBottom};
     FillCpuSurface(*hDestVSurface->surface, pBltFx->ColorFill, &rect);
     return TRUE;
 }
 
 BOOLEAN BltVSurfaceUsingSDL(HVSURFACE hDestVSurface, HVSURFACE hSrcVSurface, UINT32 fBltFlags,
-                           INT32 iDestX, INT32 iDestY, RECT* SrcRect)
+                           INT32 iDestX, INT32 iDestY, SGPRect* SrcRect)
 {
-    RECT destination{iDestX, iDestY, iDestX + SrcRect->right - SrcRect->left,
-                     iDestY + SrcRect->bottom - SrcRect->top};
+    SGPRect destination{iDestX, iDestY, iDestX + SrcRect->iRight - SrcRect->iLeft,
+                     iDestY + SrcRect->iBottom - SrcRect->iTop};
     if (fBltFlags & VS_BLT_FAST) {
         CHECKF(iDestX >= 0 && iDestY >= 0);
         CHECKF(!hDestVSurface->surface->clipRegions);
-        CHECKF(destination.right <= hDestVSurface->usWidth &&
-               destination.bottom <= hDestVSurface->usHeight);
+        CHECKF(destination.iRight <= hDestVSurface->usWidth &&
+               destination.iBottom <= hDestVSurface->usHeight);
     } else if (!ClipReleatedSrcAndDestRectangles(hDestVSurface, hSrcVSurface,
                                                &destination, SrcRect)) {
         return TRUE;
     }
-    if (destination.left == destination.right || destination.top == destination.bottom)
+    if (destination.iLeft == destination.iRight || destination.iTop == destination.iBottom)
         return TRUE;
     BlitCpuSurface(*hDestVSurface->surface, &destination, *hSrcVSurface->surface, SrcRect,
                    fBltFlags & VS_BLT_USECOLORKEY, fBltFlags & VS_BLT_USEDESTCOLORKEY);

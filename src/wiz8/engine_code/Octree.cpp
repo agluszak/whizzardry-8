@@ -1,7 +1,6 @@
 #include "wiz8/application.h"
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/compat/unaligned.h"
-#include "wiz8/wiz8_windows.h"
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>

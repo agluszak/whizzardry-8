@@ -74,7 +74,7 @@ short g_submenu_entry_states[5];
 // GLOBAL: WIZ8 0x0069B87E
 short g_submenu_entry_count;
 // GLOBAL: WIZ8 0x0069B880
-TIMER g_submenu_clock;
+UINT32 g_submenu_clock;
 /* Layout arrows: [0..2] left column (radar/action/formation), [3..5] right. */
 // GLOBAL: WIZ8 0x0069B884
 W8DialogButton* g_layout_arrow_buttons[6];
@@ -238,7 +238,7 @@ void OpenSubMenuPanel(short notification)
         DestroySubMenuControls();
     }
     SetSubMenuButtonTooltips(0);
-    g_submenu_clock = SetCountdownClock(0);
+    g_submenu_clock = w8_get_ticks() + (0);
     g_submenu_close_pending = false;
     RequestRedraw(W8_MAIN_REDRAW_LAYOUT);
 }
@@ -379,7 +379,7 @@ void UpdateCombatStanceButtons(void)
 
     if (g_settings.continuous_combat == 0) {
         stance = g_combat_state->execution_active != 0 ? 3U : 0U;
-    } else if ((ClockIsTicking(g_combat_state->combat_ui_timer) == 0 &&
+    } else if ((TimeUntilDeadline(g_combat_state->combat_ui_timer) == 0 &&
                 CombatMayAdvanceContinuously()) ||
                g_combat_state->party_surprised) {
         stance = g_combat_state->round_active ? 1U : 4U;
@@ -425,10 +425,10 @@ static void MainGameCombatConfirmButton(W8DialogButton* button)
     if (g_settings.continuous_combat == 0) {
         return;
     }
-    if (ClockIsTicking(g_combat_state->combat_ui_timer) == 0) {
+    if (TimeUntilDeadline(g_combat_state->combat_ui_timer) == 0) {
         return;
     }
-    g_combat_state->combat_ui_timer = SetCountdownClock(0);
+    g_combat_state->combat_ui_timer = w8_get_ticks() + (0);
 }
 
 // FUNCTION: WIZ8 0x00597ED0
@@ -1280,15 +1280,15 @@ void UpdateSubMenuAutoClose(void)
                              gpSubMenuPanel->m_bounds.top + 0x1c)) {
     check_clock:
         if (!g_submenu_close_pending) {
-            g_submenu_clock = SetCountdownClock(500);
+            g_submenu_clock = w8_get_ticks() + (500);
             g_submenu_close_pending = true;
             return;
         }
-        if (ClockIsTicking(g_submenu_clock) == 0) {
+        if (TimeUntilDeadline(g_submenu_clock) == 0) {
             DestroySubMenuControls();
         }
     } else if (g_submenu_close_pending) {
-        g_submenu_clock = SetCountdownClock(0);
+        g_submenu_clock = w8_get_ticks() + (0);
         g_submenu_close_pending = false;
     }
 }

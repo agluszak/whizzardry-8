@@ -2,7 +2,6 @@
 #define WIZ8_CHARACTER_EVENT_QUEUE_H
 
 #include "timer.h"
-#include "wiz8/wiz8_windows.h"
 
 #include "wiz8/layouts/item_instance.h"
 #include "wiz8/integer_constants.h"
@@ -63,14 +62,14 @@ struct W8CharacterEvent {
        the allocation gave them, exactly as before. */
     W8ItemInstance item;
     /* 0x30/0x34: ProcessDeferredCharacterEvents delays dispatch until this many
-       milliseconds have elapsed since the queued GetTickCount stamp. */
+       milliseconds have elapsed since the queued w8_get_ticks stamp. */
     int dispatch_delay_ms;
     unsigned int dispatch_delay_start;
 
     void DelayDispatch(int milliseconds)
     {
         dispatch_delay_ms = milliseconds;
-        dispatch_delay_start = GetTickCount();
+        dispatch_delay_start = w8_get_ticks();
     }
 
     void Complete(); /* 0x0052CED0 */
@@ -103,9 +102,9 @@ struct W8CharacterEventQueue {
     /* 0x58: a five-second countdown armed by every successful Dispatch; while
        it ticks, active_event_type/active_party_slot still describe the last
        dispatched event for duplicate coalescing. */
-    TIMER recent_event_clock;
+    UINT32 recent_event_clock;
     int follow_up_flags;
-    TIMER follow_up_clock;
+    UINT32 follow_up_clock;
     /* 0x64: the party slot that spoke the last follow-up event; the response
        pick excludes it. */
     int follow_up_speaker_slot;
