@@ -7147,7 +7147,6 @@ unsigned char HitTestPartyPortrait(const InputAtom* event)
 void LoadMainGameCursorResources(void)
 {
     HVOBJECT video_object;
-    ETRLEObject properties;
     W8MainGameResourceSlot* slot = g_main_game_resource_slots;
     W8MainGameResourceSlot* end = g_main_game_resource_slots + 17;
 
@@ -7155,10 +7154,10 @@ void LoadMainGameCursorResources(void)
         unsigned int handle = GetCatalogVideoObjectHandle(slot->image_id, 0);
         short frame = GetCatalogVideoObjectYOffset(slot->image_id);
         if (GetVideoObject(&video_object, handle)) {
-            GetVideoObjectETRLEProperties(video_object, &properties,
-                                          static_cast<unsigned short>(frame));
-            slot->size_x = properties.usWidth;
-            slot->size_y = properties.usHeight;
+            if (frame < video_object->sprites.size()) {
+                slot->size_x = video_object->sprites[frame].usWidth;
+                slot->size_y = video_object->sprites[frame].usHeight;
+            }
             slot->object =
                 VideoVObjectToTextureAnim(video_object, static_cast<unsigned short>(frame),
                                           static_cast<unsigned short>(slot->frame_count), true);

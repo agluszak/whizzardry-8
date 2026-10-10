@@ -28,7 +28,6 @@
 #include "Video2.h"
 
 // The following should be moved from here
-#define GETPIXELDEPTH() (gbPixelDepth) // From "utilities.h" in JA2
 #define COLOR_RED 162                  // From "lighting.h" in JA2
 #define COLOR_BLUE 203
 #define COLOR_YELLOW 144
@@ -218,7 +217,7 @@ INT32 LoadButtonImage(std::string_view filename, INT32 Grayed, INT32 OffNormal, 
 {
     VOBJECT_DESC vo_desc;
     INT32 UseSlot;
-    ETRLEObject* pTrav;
+    SpriteFrame* pTrav;
     UINT32 MaxHeight, MaxWidth, ThisHeight, ThisWidth;
 
     AssertMsg(!filename.empty(), "Attempting to LoadButtonImage() with null filename.");
@@ -258,7 +257,7 @@ INT32 LoadButtonImage(std::string_view filename, INT32 Grayed, INT32 OffNormal, 
     // Fit the button size to the largest image in the set
     MaxWidth = MaxHeight = 0;
     if (Grayed != BUTTON_NO_IMAGE) {
-        pTrav = &(ButtonPictures[UseSlot].object()->pETRLEObject[Grayed]);
+        pTrav = &(ButtonPictures[UseSlot].object()->sprites[Grayed]);
         ThisHeight = (UINT32)(pTrav->usHeight + pTrav->sOffsetY);
         ThisWidth = (UINT32)(pTrav->usWidth + pTrav->sOffsetX);
 
@@ -269,7 +268,7 @@ INT32 LoadButtonImage(std::string_view filename, INT32 Grayed, INT32 OffNormal, 
     }
 
     if (OffNormal != BUTTON_NO_IMAGE) {
-        pTrav = &(ButtonPictures[UseSlot].object()->pETRLEObject[OffNormal]);
+        pTrav = &(ButtonPictures[UseSlot].object()->sprites[OffNormal]);
         ThisHeight = (UINT32)(pTrav->usHeight + pTrav->sOffsetY);
         ThisWidth = (UINT32)(pTrav->usWidth + pTrav->sOffsetX);
 
@@ -280,7 +279,7 @@ INT32 LoadButtonImage(std::string_view filename, INT32 Grayed, INT32 OffNormal, 
     }
 
     if (OffHilite != BUTTON_NO_IMAGE) {
-        pTrav = &(ButtonPictures[UseSlot].object()->pETRLEObject[OffHilite]);
+        pTrav = &(ButtonPictures[UseSlot].object()->sprites[OffHilite]);
         ThisHeight = (UINT32)(pTrav->usHeight + pTrav->sOffsetY);
         ThisWidth = (UINT32)(pTrav->usWidth + pTrav->sOffsetX);
 
@@ -291,7 +290,7 @@ INT32 LoadButtonImage(std::string_view filename, INT32 Grayed, INT32 OffNormal, 
     }
 
     if (OnNormal != BUTTON_NO_IMAGE) {
-        pTrav = &(ButtonPictures[UseSlot].object()->pETRLEObject[OnNormal]);
+        pTrav = &(ButtonPictures[UseSlot].object()->sprites[OnNormal]);
         ThisHeight = (UINT32)(pTrav->usHeight + pTrav->sOffsetY);
         ThisWidth = (UINT32)(pTrav->usWidth + pTrav->sOffsetX);
 
@@ -302,7 +301,7 @@ INT32 LoadButtonImage(std::string_view filename, INT32 Grayed, INT32 OffNormal, 
     }
 
     if (OnHilite != BUTTON_NO_IMAGE) {
-        pTrav = &(ButtonPictures[UseSlot].object()->pETRLEObject[OnHilite]);
+        pTrav = &(ButtonPictures[UseSlot].object()->sprites[OnHilite]);
         ThisHeight = (UINT32)(pTrav->usHeight + pTrav->sOffsetY);
         ThisWidth = (UINT32)(pTrav->usWidth + pTrav->sOffsetX);
 
@@ -333,7 +332,7 @@ INT32 UseVObjAsButtonImage(HVOBJECT hVObject, INT32 Grayed, INT32 OffNormal, INT
                            INT32 OnNormal, INT32 OnHilite)
 {
     INT32 UseSlot;
-    ETRLEObject* pTrav;
+    SpriteFrame* pTrav;
     UINT32 MaxHeight, MaxWidth, ThisHeight, ThisWidth;
 
     // Is button image index given valid?
@@ -367,7 +366,7 @@ INT32 UseVObjAsButtonImage(HVOBJECT hVObject, INT32 Grayed, INT32 OffNormal, INT
     // Fit the button size to the largest image in the set
     MaxWidth = MaxHeight = 0;
     if (Grayed != BUTTON_NO_IMAGE) {
-        pTrav = &(ButtonPictures[UseSlot].object()->pETRLEObject[Grayed]);
+        pTrav = &(ButtonPictures[UseSlot].object()->sprites[Grayed]);
         ThisHeight = (UINT32)(pTrav->usHeight + pTrav->sOffsetY);
         ThisWidth = (UINT32)(pTrav->usWidth + pTrav->sOffsetX);
 
@@ -378,7 +377,7 @@ INT32 UseVObjAsButtonImage(HVOBJECT hVObject, INT32 Grayed, INT32 OffNormal, INT
     }
 
     if (OffNormal != BUTTON_NO_IMAGE) {
-        pTrav = &(ButtonPictures[UseSlot].object()->pETRLEObject[OffNormal]);
+        pTrav = &(ButtonPictures[UseSlot].object()->sprites[OffNormal]);
         ThisHeight = (UINT32)(pTrav->usHeight + pTrav->sOffsetY);
         ThisWidth = (UINT32)(pTrav->usWidth + pTrav->sOffsetX);
 
@@ -389,7 +388,7 @@ INT32 UseVObjAsButtonImage(HVOBJECT hVObject, INT32 Grayed, INT32 OffNormal, INT
     }
 
     if (OffHilite != BUTTON_NO_IMAGE) {
-        pTrav = &(ButtonPictures[UseSlot].object()->pETRLEObject[OffHilite]);
+        pTrav = &(ButtonPictures[UseSlot].object()->sprites[OffHilite]);
         ThisHeight = (UINT32)(pTrav->usHeight + pTrav->sOffsetY);
         ThisWidth = (UINT32)(pTrav->usWidth + pTrav->sOffsetX);
 
@@ -400,7 +399,7 @@ INT32 UseVObjAsButtonImage(HVOBJECT hVObject, INT32 Grayed, INT32 OffNormal, INT
     }
 
     if (OnNormal != BUTTON_NO_IMAGE) {
-        pTrav = &(ButtonPictures[UseSlot].object()->pETRLEObject[OnNormal]);
+        pTrav = &(ButtonPictures[UseSlot].object()->sprites[OnNormal]);
         ThisHeight = (UINT32)(pTrav->usHeight + pTrav->sOffsetY);
         ThisWidth = (UINT32)(pTrav->usWidth + pTrav->sOffsetX);
 
@@ -411,7 +410,7 @@ INT32 UseVObjAsButtonImage(HVOBJECT hVObject, INT32 Grayed, INT32 OffNormal, INT
     }
 
     if (OnHilite != BUTTON_NO_IMAGE) {
-        pTrav = &(ButtonPictures[UseSlot].object()->pETRLEObject[OnHilite]);
+        pTrav = &(ButtonPictures[UseSlot].object()->sprites[OnHilite]);
         ThisHeight = (UINT32)(pTrav->usHeight + pTrav->sOffsetY);
         ThisWidth = (UINT32)(pTrav->usWidth + pTrav->sOffsetX);
 
@@ -562,10 +561,7 @@ BOOLEAN InitializeButtonImageManager(INT32 DefaultBuffer, INT32 DefaultPitch, IN
         return false;
     }
 
-    if (GETPIXELDEPTH() == 16)
-        GenericButtonFillColors[0] = GenericButtonOffNormal[0]->p16BPPPalette[Pix];
-    else if (GETPIXELDEPTH() == 8)
-        GenericButtonFillColors[0] = COLOR_DKGREY;
+    GenericButtonFillColors[0] = GenericButtonOffNormal[0]->p16BPPPalette[Pix];
 
     return (TRUE);
 }
@@ -1647,7 +1643,7 @@ void DrawIconOnButton(GUI_BUTTON* b)
     INT32 xp, yp, width, height, IconX, IconY;
     INT32 IconW, IconH;
     SDL_Rect NewClip, OldClip;
-    ETRLEObject* pTrav;
+    SpriteFrame* pTrav;
     HVOBJECT hvObject;
 
     // If there's an actual icon on this button, try to show it.
@@ -1670,10 +1666,10 @@ void DrawIconOnButton(GUI_BUTTON* b)
 
         // Get the width and height of the icon itself
         if (b->uiFlags & BUTTON_GENERIC)
-            pTrav = &(GenericButtonIcons[b->iIconID]->pETRLEObject[b->usIconIndex]);
+            pTrav = &(GenericButtonIcons[b->iIconID]->sprites[b->usIconIndex]);
         else {
             GetVideoObject(&hvObject, b->iIconID);
-            pTrav = &(hvObject->pETRLEObject[b->usIconIndex]);
+            pTrav = &(hvObject->sprites[b->usIconIndex]);
         }
         IconH = (UINT32)(pTrav->usHeight + pTrav->sOffsetY);
         IconW = (UINT32)(pTrav->usWidth + pTrav->sOffsetX);
@@ -1808,7 +1804,7 @@ void DrawGenericButton(GUI_BUTTON* b)
     UINT32 uiDestPitchBYTES;
     UINT8* pDestBuf;
     SDL_Rect ClipRect;
-    ETRLEObject* pTrav;
+    SpriteFrame* pTrav;
 
     // Select the graphics to use depending on the current state of the button
     if (b->uiFlags & BUTTON_ENABLED) {
@@ -1850,7 +1846,7 @@ void DrawGenericButton(GUI_BUTTON* b)
     // The 3x2 size was a bit limiting. JA2 should default to the original
     // size, unchanged
 
-    pTrav = &(BPic->pETRLEObject[0]);
+    pTrav = &(BPic->sprites[0]);
     iBorderHeight = (INT32)pTrav->usHeight;
     iBorderWidth = (INT32)pTrav->usWidth;
 
@@ -1898,93 +1894,57 @@ void DrawGenericButton(GUI_BUTTON* b)
         else
             ImgNum = 1;
 
-        if (gbPixelDepth == 16) {
-            Blt8BPPDataTo16BPPBufferTransparentClip((UINT16*)pDestBuf, uiDestPitchBYTES, BPic,
-                                                    (INT32)(b->XLoc + (q * iBorderWidth)),
-                                                    (INT32)b->YLoc, (UINT16)ImgNum, &ClipRect);
-        } else if (gbPixelDepth == 8) {
-            Blt8BPPDataTo8BPPBufferTransparentClip((UINT16*)pDestBuf, uiDestPitchBYTES, BPic,
-                                                   (INT32)(b->XLoc + (q * iBorderWidth)),
-                                                   (INT32)b->YLoc, (UINT16)ImgNum, &ClipRect);
-        }
+        BltSpriteTo16BPPBuffer((UINT16*)pDestBuf, uiDestPitchBYTES,
+                                   BPic->sprites[(UINT16)ImgNum], BPic->pShadeCurrent,
+                                   (INT32)(b->XLoc + (q * iBorderWidth)), (INT32)b->YLoc, &ClipRect, false,
+                                   SpriteDrawOp::Transparent);
 
         if (q == 0)
             ImgNum = 5;
         else
             ImgNum = 6;
 
-        if (gbPixelDepth == 16) {
-            Blt8BPPDataTo16BPPBufferTransparentClip((UINT16*)pDestBuf, uiDestPitchBYTES, BPic,
-                                                    (INT32)(b->XLoc + (q * iBorderWidth)), cy,
-                                                    (UINT16)ImgNum, &ClipRect);
-        } else if (gbPixelDepth == 8) {
-            Blt8BPPDataTo8BPPBufferTransparentClip((UINT16*)pDestBuf, uiDestPitchBYTES, BPic,
-                                                   (INT32)(b->XLoc + (q * iBorderWidth)), cy,
-                                                   (UINT16)ImgNum, &ClipRect);
-        }
+        BltSpriteTo16BPPBuffer((UINT16*)pDestBuf, uiDestPitchBYTES,
+                                   BPic->sprites[(UINT16)ImgNum], BPic->pShadeCurrent,
+                                   (INT32)(b->XLoc + (q * iBorderWidth)), cy, &ClipRect, false,
+                                   SpriteDrawOp::Transparent);
     }
     // Blit the right side corners
-    if (gbPixelDepth == 16) {
-        Blt8BPPDataTo16BPPBufferTransparentClip((UINT16*)pDestBuf, uiDestPitchBYTES, BPic, cx,
-                                                (INT32)b->YLoc, 2, &ClipRect);
-    } else if (gbPixelDepth == 8) {
-        Blt8BPPDataTo8BPPBufferTransparentClip((UINT16*)pDestBuf, uiDestPitchBYTES, BPic, cx,
-                                               (INT32)b->YLoc, 2, &ClipRect);
-    }
+    BltSpriteTo16BPPBuffer((UINT16*)pDestBuf, uiDestPitchBYTES,
+                               BPic->sprites[2], BPic->pShadeCurrent,
+                               cx, (INT32)b->YLoc, &ClipRect, false,
+                               SpriteDrawOp::Transparent);
 
-    if (gbPixelDepth == 16) {
-        Blt8BPPDataTo16BPPBufferTransparentClip((UINT16*)pDestBuf, uiDestPitchBYTES, BPic, cx, cy,
-                                                7, &ClipRect);
-    } else if (gbPixelDepth == 8) {
-        Blt8BPPDataTo8BPPBufferTransparentClip((UINT16*)pDestBuf, uiDestPitchBYTES, BPic, cx, cy, 7,
-                                               &ClipRect);
-    }
+    BltSpriteTo16BPPBuffer((UINT16*)pDestBuf, uiDestPitchBYTES,
+                               BPic->sprites[7], BPic->pShadeCurrent,
+                               cx, cy, &ClipRect, false,
+                               SpriteDrawOp::Transparent);
     // Draw the vertical members of the button's borders
     NumChunksHigh--;
 
     if (hremain != 0) {
         q = NumChunksHigh;
-        if (gbPixelDepth == 16) {
-            Blt8BPPDataTo16BPPBufferTransparentClip(
-                (UINT16*)pDestBuf, uiDestPitchBYTES, BPic, (INT32)b->XLoc,
-                (INT32)(b->YLoc + (q * iBorderHeight) - (iBorderHeight - hremain)), 3, &ClipRect);
-        } else if (gbPixelDepth == 8) {
-            Blt8BPPDataTo8BPPBufferTransparentClip(
-                (UINT16*)pDestBuf, uiDestPitchBYTES, BPic, (INT32)b->XLoc,
-                (INT32)(b->YLoc + (q * iBorderHeight) - (iBorderHeight - hremain)), 3, &ClipRect);
-        }
+        BltSpriteTo16BPPBuffer((UINT16*)pDestBuf, uiDestPitchBYTES,
+                                   BPic->sprites[3], BPic->pShadeCurrent,
+                                   (INT32)b->XLoc, (INT32)(b->YLoc + (q * iBorderHeight) - (iBorderHeight - hremain)), &ClipRect, false,
+                                   SpriteDrawOp::Transparent);
 
-        if (gbPixelDepth == 16) {
-            Blt8BPPDataTo16BPPBufferTransparentClip(
-                (UINT16*)pDestBuf, uiDestPitchBYTES, BPic, cx,
-                (INT32)(b->YLoc + (q * iBorderHeight) - (iBorderHeight - hremain)), 4, &ClipRect);
-        } else if (gbPixelDepth == 8) {
-            Blt8BPPDataTo8BPPBufferTransparentClip(
-                (UINT16*)pDestBuf, uiDestPitchBYTES, BPic, cx,
-                (INT32)(b->YLoc + (q * iBorderHeight) - (iBorderHeight - hremain)), 4, &ClipRect);
-        }
+        BltSpriteTo16BPPBuffer((UINT16*)pDestBuf, uiDestPitchBYTES,
+                                   BPic->sprites[4], BPic->pShadeCurrent,
+                                   cx, (INT32)(b->YLoc + (q * iBorderHeight) - (iBorderHeight - hremain)), &ClipRect, false,
+                                   SpriteDrawOp::Transparent);
     }
 
     for (q = 1; q < NumChunksHigh; q++) {
-        if (gbPixelDepth == 16) {
-            Blt8BPPDataTo16BPPBufferTransparentClip(
-                (UINT16*)pDestBuf, uiDestPitchBYTES, BPic, (INT32)b->XLoc,
-                (INT32)(b->YLoc + (q * iBorderHeight)), 3, &ClipRect);
-        } else if (gbPixelDepth == 8) {
-            Blt8BPPDataTo8BPPBufferTransparentClip(
-                (UINT16*)pDestBuf, uiDestPitchBYTES, BPic, (INT32)b->XLoc,
-                (INT32)(b->YLoc + (q * iBorderHeight)), 3, &ClipRect);
-        }
+        BltSpriteTo16BPPBuffer((UINT16*)pDestBuf, uiDestPitchBYTES,
+                                   BPic->sprites[3], BPic->pShadeCurrent,
+                                   (INT32)b->XLoc, (INT32)(b->YLoc + (q * iBorderHeight)), &ClipRect, false,
+                                   SpriteDrawOp::Transparent);
 
-        if (gbPixelDepth == 16) {
-            Blt8BPPDataTo16BPPBufferTransparentClip((UINT16*)pDestBuf, uiDestPitchBYTES, BPic, cx,
-                                                    (INT32)(b->YLoc + (q * iBorderHeight)), 4,
-                                                    &ClipRect);
-        } else if (gbPixelDepth == 8) {
-            Blt8BPPDataTo8BPPBufferTransparentClip((UINT16*)pDestBuf, uiDestPitchBYTES, BPic, cx,
-                                                   (INT32)(b->YLoc + (q * iBorderHeight)), 4,
-                                                   &ClipRect);
-        }
+        BltSpriteTo16BPPBuffer((UINT16*)pDestBuf, uiDestPitchBYTES,
+                                   BPic->sprites[4], BPic->pShadeCurrent,
+                                   cx, (INT32)(b->YLoc + (q * iBorderHeight)), &ClipRect, false,
+                                   SpriteDrawOp::Transparent);
     }
 
     // Unlock buffer

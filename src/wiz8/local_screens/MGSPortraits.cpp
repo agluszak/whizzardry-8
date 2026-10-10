@@ -644,7 +644,7 @@ void StageMonsterCastIcon(unsigned int party_slot, W8SpellRealm realm, bool alte
         catalog = 0xaa;
     }
     entry->effect_icon_catalog = catalog;
-    entry->effect_icon_end_frame = static_cast<unsigned short>(GetCatalogVideoObject(catalog, 0, 0)->pETRLEObject.size());
+    entry->effect_icon_end_frame = static_cast<unsigned short>(GetCatalogVideoObject(catalog, 0, 0)->sprites.size());
     std::string sound =
         spell_id != W8_SPELL_NONE && g_spell_records[spell_id].sound_name[0] != 0
             ? fmt::format("Data\\Spells\\Sounds\\{}.wav", g_spell_records[spell_id].sound_name)
