@@ -5,6 +5,7 @@
 #include "compat/surfaces.h"
 #include <stdio.h>
 #include <stdlib.h>
+#include <algorithm>
 #include <map>
 #include "Video2.h"
 #include "himage.h"
@@ -1095,11 +1096,9 @@ BOOLEAN MakeVSurfaceFromVObject(UINT32 uiVObject, UINT16 usSubIndex, UINT32* pui
 {
     HVOBJECT hSrcVObject;
     UINT32 uiVSurface;
-    VSURFACE_DESC hDesc;
+    VSURFACE_DESC hDesc{};
 
     if (GetVideoObject(&hSrcVObject, uiVObject)) {
-        // ATE: Memset
-        memset(&hDesc, 0, sizeof(VSURFACE_DESC));
         hDesc.fCreateFlags = VSURFACE_CREATE_DEFAULT;
         hDesc.usWidth = hSrcVObject->pETRLEObject[usSubIndex].usWidth;
         hDesc.usHeight = hSrcVObject->pETRLEObject[usSubIndex].usHeight;
