@@ -1,0 +1,88 @@
+name: One-off clone scan
+
+on:
+  push:
+    branches:
+      - analysis/clone-scan-20261011
+
+permissions:
+  contents: read
+
+jobs:
+  clones:
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - name: Install jscpd and PMD
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm install --prefix "$RUNNER_TEMP/clone-tools" --no-audit --no-fund jscpd@5.4.0
+          curl -fLSs --retry 3 "https://github.com/pmd/pmd/releases/download/pmd_releases%2F7.27.0/pmd-dist-7.27.0-bin.zip" -o "$RUNNER_TEMP/pmd.zip"
+          unzip -q "$RUNNER_TEMP/pmd.zip" -d "$RUNNER_TEMP"
+          "$RUNNER_TEMP/clone-tools/node_modules/.bin/jscpd" --version
+          "$RUNNER_TEMP/pmd-bin-7.27.0/bin/pmd" --version
+      - name: jscpd exact and renamed
+        shell: bash
+        run: |
+          set -euo pipefail
+          jscpd="$RUNNER_TEMP/clone-tools/node_modules/.bin/jscpd"
+          mkdir -p scan-reports/jscpd-exact scan-reports/jscpd-fuzzy
+          "$jscpd" src include --mode weak --min-tokens 90 --min-lines 12 --cross-formats "cpp,c" --reporters json,html --output scan-reports/jscpd-exact --summary --summary-top 20 --no-tips
+          "$jscpd" src include --mode weak --min-tokens 90 --min-lines 12 --cross-formats "cpp,c" --ignore-identifiers --ignore-literals --max-gap-lines 5 --reporters json,html --output scan-reports/jscpd-fuzzy --summary --summary-top 20 --no-tips
+      - name: PMD CPD exact and renamed
+        shell: bash
+        run: |
+          set -euo pipefail
+          pmd="$RUNNER_TEMP/pmd-bin-7.27.0/bin/pmd"
+          mkdir -p scan-reports/pmd
+          "$pmd" cpd --language cpp --minimum-tokens 90 --dir src --dir include --format xml --report-file scan-reports/pmd/exact.xml --no-fail-on-violation --no-fail-on-error
+          "$pmd" cpd --language cpp --minimum-tokens 90 --dir src --dir include --ignore-identifiers --ignore-literals --format xml --report-file scan-reports/pmd/fuzzy.xml --no-fail-on-violation --no-fail-on-error
+      - name: Summarize top clones in job log
+        if: always()
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          import xml.etree.ElementTree as ET
+          def jscpd(name):
+              path = Path("scan-reports") / name / "jscpd-report.json"
+              if not path.exists():
+                  print(name, "MISSING")
+                  return
+              d = json.loads(path.read_text())
+              pairs = d.get("duplicates", [])
+              print(f"\\n=== {name}: {len(pairs)} pairs ===")
+              print("statistics:", json.dumps(d.get("statistics", {}), separators=(",", ":"))[:1500])
+              def line_count(p):
+                  a, b = p.get("firstFile", {}), p.get("secondFile", {})
+                  return max((a.get("end", {}).get("line", 0)-a.get("start", {}).get("line", 0)),(b.get("end", {}).get("line", 0)-b.get("start", {}).get("line", 0)))
+              for c in sorted(pairs, key=line_count, reverse=True)[:40]:
+                  a,b=c.get("firstFile",{}),c.get("secondFile",{})
+                  fmt=lambda x: f'{x.get("name")}:{x.get("start",{}).get("line")}-{x.get("end",{}).get("line")}'
+                  print(f'  {line_count(c)} lines {c.get("kind")} {c.get("similarity", "")} {fmt(a)}  <>  {fmt(b)}')
+          def pmd(name):
+              path=Path("scan-reports/pmd")/(name+".xml")
+              if not path.exists():
+                  print(name, "MISSING")
+                  return
+              root=ET.parse(path).getroot()
+              x=root.findall(".//{*}duplication")
+              print(f"\\n=== PMD {name}: {len(x)} clone groups ===")
+              for c in sorted(x,key=lambda e:int(e.get("lines","0")),reverse=True)[:40]:
+                  files=c.findall("{*}file")
+                  f=" <> ".join(f'{Path(s.get("path","")).as_posix()}:{s.get("line")}' for s in files[:5])
+                  print(f'  {c.get("lines")} lines; {c.get("tokens")} tokens; {len(files)} copies: {f}')
+          for name in ("jscpd-exact","jscpd-fuzzy"):
+              jscpd(name)
+          for name in ("exact","fuzzy"):
+              pmd(name)
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: whizzardry-clone-scan
+          path: scan-reports/
+          retention-days: 7
