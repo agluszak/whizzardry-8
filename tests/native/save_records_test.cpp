@@ -407,20 +407,20 @@ static void current_game_character_contracts()
     CHECK(chunks.OpenWrite("Saves\\CurrentGame.SAV"));
     chunks.Close();
     W8Character first{}, second{}, loaded{};
-    wcscpy(first.name, L"Vi");
+    first.name = "Vi";
     first.uiExpLevel = 7;
-    wcscpy(second.name, L"Bob");
+    second.name = "Bob";
     second.uiExpLevel = 9;
     CHECK(SaveCharacterToCurrentGame("Vi.CHR", 0, &first));
     CHECK(SaveCharacterToCurrentGame("Bob.CHR", -1, &second));
     CHECK(LoadCharacterFromCurrentGame("vi.chr", &loaded));
-    CHECK(!memcmp(&loaded, &first, sizeof(first)));
+    CHECK(wiz8::retail::encode(loaded) == wiz8::retail::encode(first));
     first.uiExpLevel = 8;
     CHECK(SaveCharacterToCurrentGame("Vi.CHR", 0, &first));
     CHECK(LoadCharacterFromCurrentGame("Vi.CHR", &loaded));
-    CHECK(!memcmp(&loaded, &first, sizeof(first)));
+    CHECK(wiz8::retail::encode(loaded) == wiz8::retail::encode(first));
     CHECK(LoadCharacterFromCurrentGame("Bob.CHR", &loaded));
-    CHECK(!memcmp(&loaded, &second, sizeof(second)));
+    CHECK(wiz8::retail::encode(loaded) == wiz8::retail::encode(second));
     CHECK(chunks.OpenRead("Saves\\CurrentGame.SAV") && chunks.ChunkCount() == 2);
     for (int index = 0; index < 2; ++index) {
         CHECK(chunks.OpenChunk(0, 0) && chunks.CurrentChunkId() == 0x52414843);
@@ -462,13 +462,13 @@ static void current_game_character_contracts()
         { FileFaults fault(operation); CHECK(!SaveCharacterToCurrentGame("Vi.CHR", 0, &replacement)); CHECK(fault.fired); }
         CHECK(snapshot() == before);
         CHECK(LoadCharacterFromCurrentGame("Vi.CHR", &loaded));
-        CHECK(!memcmp(&loaded, &first, sizeof(first)));
+        CHECK(wiz8::retail::encode(loaded) == wiz8::retail::encode(first));
     }
     for (unsigned level = 10; level < 20; ++level) {
         first.uiExpLevel = level;
         CHECK(SaveCharacterToCurrentGame("Vi.CHR", 0, &first));
         CHECK(LoadCharacterFromCurrentGame("Vi.CHR", &loaded));
-        CHECK(!memcmp(&loaded, &first, sizeof(first)));
+        CHECK(wiz8::retail::encode(loaded) == wiz8::retail::encode(first));
         CHECK(chunks.OpenRead("Saves\\CurrentGame.SAV") && chunks.ChunkCount() == 2);
         chunks.Close();
     }
@@ -483,26 +483,26 @@ static void current_game_character_contracts()
     chunks.Write(&first, 1, nullptr);
     chunks.ReleaseCurrentChunk();
     chunks.OpenChunk(0x444150, 0);
-    chunks.Write(&second, sizeof(second), nullptr);
+    wiz8::retail::write(chunks, second);
     chunks.ReleaseCurrentChunk();
     chunks.Close();
     loaded = second;
     CHECK(!LoadCharacterFromCurrentGame("Vi.CHR", &loaded));
-    CHECK(!memcmp(&loaded, &second, sizeof(second)));
+    CHECK(wiz8::retail::encode(loaded) == wiz8::retail::encode(second));
     // A malformed newer payload does not hide the last complete character.
     CHECK(chunks.OpenWrite("Saves\\CurrentGame.SAV"));
     chunks.OpenChunk(0x52414843, 0);
     chunks.Write(name, sizeof(name), nullptr); chunks.Write(&size, sizeof(size), nullptr);
-    chunks.Write(&first, size, nullptr); chunks.ReleaseCurrentChunk();
+    wiz8::retail::write(chunks, first); chunks.ReleaseCurrentChunk();
     chunks.OpenChunk(0x52414843, 0);
     chunks.Write(name, sizeof(name), nullptr); chunks.Write(&size, sizeof(size), nullptr);
     chunks.Write(&replacement, 1, nullptr); chunks.ReleaseCurrentChunk();
     chunks.Close();
     CHECK(LoadCharacterFromCurrentGame("Vi.CHR", &loaded));
-    CHECK(!memcmp(&loaded, &first, sizeof(first)));
+    CHECK(wiz8::retail::encode(loaded) == wiz8::retail::encode(first));
     CHECK(SaveCharacterToCurrentGame("Vi.CHR", 0, &replacement));
     CHECK(LoadCharacterFromCurrentGame("Vi.CHR", &loaded));
-    CHECK(!memcmp(&loaded, &replacement, sizeof(replacement)));
+    CHECK(wiz8::retail::encode(loaded) == wiz8::retail::encode(replacement));
 
 }
 
