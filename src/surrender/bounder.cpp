@@ -178,7 +178,7 @@ void srBounder::getChildBoundingBox(srNode* node)
             srMatrix4T<float> world;
             node->getWorldSpaceMatrix(world);
             srMatrix4T<float> combined;
-            combined = inverse_world.glmValue() * world.glmValue();
+            combined = inverse_world * world;
             srVector3T<float> corners[8];
             corners[0].Set(child_bounds.minimum.x, child_bounds.minimum.y, child_bounds.minimum.z);
             corners[1].Set(child_bounds.minimum.x, child_bounds.minimum.y, child_bounds.maximum.z);

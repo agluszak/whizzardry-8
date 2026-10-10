@@ -64,13 +64,8 @@ static bool zeroNormals()
     std::array<srVector3, 2> normals;
     normals[0].Set(0, 0, 0);
     normals[1].Set(0, 0, 2);
-    std::ranges::transform(
-        std::span<const srVector3>{normals}.first(std::span<srVector3>{normals}.size()),
-        std::begin(normals), [&](const auto& v) {
-            return glm::length(v.glmValue()) == 0.0f
-                       ? v.glmValue() * 0.0f
-                       : glm::normalize(v.glmValue()) * static_cast<float>(1.0f);
-        });
+    for (auto& normal : normals)
+        normal.Normalize();
     CHECK(normals[0] == srVector3(0, 0, 0));
     CHECK(normals[1] == srVector3(0, 0, 1));
     return true;

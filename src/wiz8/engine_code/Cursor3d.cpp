@@ -226,7 +226,7 @@ void ReleaseWorldCursor(void)
     camera.y = 0.0f;
     cursor->position.y = 0.0f;
     delta = cursor->position - camera;
-    g_cursor_projection_distance = glm::length(delta.glmValue());
+    g_cursor_projection_distance = delta.Length();
 
     PListRemove(g_world->plsMonsters, cursor->monster);
     DetachMonsterRepresentation(cursor->monster, g_world);
@@ -356,14 +356,8 @@ void ApplyWorldCursorInput(void)
     }
     if (!gp3DCursor->detached) {
         lifted.Set(delta.x, delta.y + g_float_one_thousand, delta.z);
-        if (gp3DCursor->range > g_float_zero &&
-            gp3DCursor->range < glm::length(lifted.glmValue())) {
-            {
-                const auto direction_value = delta.glmValue();
-                if (glm::dot(direction_value, direction_value) != 0)
-                    (delta) =
-                        glm::normalize(direction_value) * static_cast<float>(gp3DCursor->range);
-            }
+        if (gp3DCursor->range > g_float_zero && gp3DCursor->range < lifted.Length()) {
+            delta.SetLength(gp3DCursor->range);
         }
         g_world->dynamic_scene->getRotation(rotation);
         gp3DCursor->cam_rel_offset += delta;
@@ -384,35 +378,17 @@ void ApplyWorldCursorInput(void)
         GetCameraPosition(&camera);
         camera.y -= g_default_world_height;
         rotation.SetIdentity();
-        if (g_gd_camera->m_yaw != 0.0) {
-            {
-                rotation =
-                    rotation.glmValue() *
-                    glm::mat3(glm::rotate(glm::dmat4(1), static_cast<double>(g_gd_camera->m_yaw),
-                                          glm::dvec3(0, 1, 0)));
-            }
-        }
-        delta = srVector3T<float>{rotation.glmValue() * delta.glmValue()};
+        rotation.RotateAboutY(g_gd_camera->m_yaw);
+        delta = srVector3T<float>{rotation * delta};
         delta += gp3DCursor->position;
-        if (gp3DCursor->range > g_float_zero &&
-            gp3DCursor->range < glm::length((((camera - delta))).glmValue())) {
+        if (gp3DCursor->range > g_float_zero && gp3DCursor->range < (camera - delta).Length()) {
             clamped = delta - camera;
-            {
-                const auto direction_value = clamped.glmValue();
-                if (glm::dot(direction_value, direction_value) != 0)
-                    (clamped) =
-                        glm::normalize(direction_value) * static_cast<float>(gp3DCursor->range);
-            }
+            clamped.SetLength(gp3DCursor->range);
             delta = camera + clamped;
         }
-        if (glm::length((((camera - delta))).glmValue()) < g_monster_poster_max_distance) {
+        if ((camera - delta).Length() < g_monster_poster_max_distance) {
             clamped = delta - camera;
-            {
-                const auto direction_value = clamped.glmValue();
-                if (glm::dot(direction_value, direction_value) != 0)
-                    (clamped) = glm::normalize(direction_value) *
-                                static_cast<float>(g_monster_poster_max_distance);
-            }
+            clamped.SetLength(g_monster_poster_max_distance);
             delta = camera + clamped;
         }
         if (gp3DCursor->march_enabled) {
@@ -680,7 +656,7 @@ char MarchWorldCursorTarget(srVector3T<float>* target)
 
     trace_from = *target + gp3DCursor->probe_center;
     origin = gp3DCursor->position;
-    dist = glm::length((((*target - origin))).glmValue());
+    dist = (*target - origin).Length();
     if (dist == g_double_zero) {
         return 0;
     }
@@ -698,11 +674,7 @@ char MarchWorldCursorTarget(srVector3T<float>* target)
             }
             dir = *target - origin;
             scaled = dir;
-            {
-                const auto direction_value = scaled.glmValue();
-                if (glm::dot(direction_value, direction_value) != 0)
-                    (scaled) = glm::normalize(direction_value) * static_cast<float>(step);
-            }
+            scaled.SetLength(step);
             step_pos = origin + scaled;
             end_pos = step_pos;
             for (i = 4; i < 8; i++) {
@@ -769,20 +741,14 @@ void UpdateWorldCursorPlacement(void)
     if (g_gd_camera->m_yaw != g_double_zero) {
         cosine = static_cast<float>(cos(g_gd_camera->m_yaw));
         sine = static_cast<float>(sin(g_gd_camera->m_yaw));
-        {
-            const double rotation_sine = sine;
-            const double rotation_cosine = cosine;
-            const auto axis_rotation = glm::dmat3(rotation_cosine, 0, -rotation_sine, 0, 1, 0,
-                                                  rotation_sine, 0, rotation_cosine);
-            rotation = rotation.glmValue() * glm::mat3(axis_rotation);
-        }
+        rotation.RotateAboutY(sine, cosine);
     }
     GetCameraPosition(&camera);
     camera.y -= g_default_world_height;
     cursor = gp3DCursor;
     cursor->last_published = -100000000.0f;
     forward.Set(0.0, 0.0, g_cursor_projection_distance);
-    target = camera + srVector3T<float>{rotation.glmValue() * forward.glmValue()};
+    target = camera + srVector3T<float>{rotation * forward};
     cursor->position = camera;
     cursor->track_ground = true;
     if (MarchWorldCursorTarget(&target) == 0) {

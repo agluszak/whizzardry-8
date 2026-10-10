@@ -4,6 +4,8 @@
 #include <cmath>
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_access.hpp>
+#include <glm/gtc/matrix_transform.hpp>
+#include <limits>
 
 #include <span>
 #include <type_traits>
@@ -35,6 +37,28 @@ public:
     glm::vec<2, T> glmValue() const
     {
         return {x, y};
+    }
+
+    T Length() const
+    {
+        return glm::length(glmValue());
+    }
+    T LengthSquared() const
+    {
+        const auto v = glmValue();
+        return glm::dot(v, v);
+    }
+    // Zero vectors retain their components, including signed zeros.
+    srVector2T* Normalize()
+    {
+        return SetLength(1);
+    }
+    srVector2T* SetLength(double length)
+    {
+        const auto v = glmValue();
+        if (glm::dot(v, v) != 0)
+            *this = glm::normalize(v) * static_cast<T>(length);
+        return this;
     }
 
     srVector2T<T>() {}
@@ -79,6 +103,36 @@ public:
     {
         return {x, y, z};
     }
+
+    T Length() const
+    {
+        return glm::length(glmValue());
+    }
+    T LengthSquared() const
+    {
+        const auto v = glmValue();
+        return glm::dot(v, v);
+    }
+    // Zero vectors retain their components, including signed zeros.
+    srVector3T* Normalize()
+    {
+        return SetLength(1);
+    }
+    srVector3T* SetLength(double length)
+    {
+        const auto v = glmValue();
+        if (glm::dot(v, v) != 0)
+            *this = glm::normalize(v) * static_cast<T>(length);
+        return this;
+    }
+    srVector3T* Unitize()
+    {
+        return Normalize();
+    }
+    srVector3T& Transform(const srMatrix3T<T>& matrix);
+    srVector3T* RotateAboutX(double sine, double cosine);
+    srVector3T* RotateAboutY(double sine, double cosine);
+    srVector3T* RotateAboutZ(double sine, double cosine);
 
     srVector3T<T>();
     srVector3T<T>(T source_0, T source_1, T source_2) : x(source_0), y(source_1), z(source_2) {}
@@ -263,6 +317,16 @@ public:
         return {x, y, z, w};
     }
 
+    T Length() const
+    {
+        return glm::length(glmValue());
+    }
+    T LengthSquared() const
+    {
+        const auto v = glmValue();
+        return glm::dot(v, v);
+    }
+
     srVector4T<T>();
 
     srVector3T<T> xyz() const
@@ -391,7 +455,33 @@ public:
     srVector2T<T> vectors[2];
 };
 
-template <class T> class srMatrix3T {
+namespace srMathDetail
+{
+// Supplied coefficients need not describe a unit rotation. Preserve them exactly.
+inline glm::dmat3 rotationX(double sine, double cosine)
+{
+    return {1, 0, 0, 0, cosine, sine, 0, -sine, cosine};
+}
+inline glm::dmat3 rotationY(double sine, double cosine)
+{
+    return {cosine, 0, -sine, 0, 1, 0, sine, 0, cosine};
+}
+inline glm::dmat3 rotationZ(double sine, double cosine)
+{
+    return {cosine, sine, 0, -sine, cosine, 0, 0, 0, 1};
+}
+// Only the legacy supplied-coefficient/non-unit-axis case needs this formula.
+inline glm::dmat3 rotationAxis(double sine, double cosine, const glm::dvec3& axis)
+{
+    const glm::dmat3 cross(glm::cross(axis, glm::dvec3(1, 0, 0)),
+                           glm::cross(axis, glm::dvec3(0, 1, 0)),
+                           glm::cross(axis, glm::dvec3(0, 0, 1)));
+    return cosine * glm::dmat3(1) + (1 - cosine) * glm::outerProduct(axis, axis) + sine * cross;
+}
+} // namespace srMathDetail
+
+template <class T> class srMatrix3T
+{
 public:
     srMatrix3T() = default;
     srMatrix3T(const glm::mat<3, 3, T>& value)
@@ -405,6 +495,69 @@ public:
         for (int row = 0; row < 3; ++row)
             value[row] = vectors[row].glmValue();
         return glm::transpose(value);
+    }
+
+    srVector3T<T> Transform(const srVector3T<T>& value) const
+    {
+        return glmValue() * value.glmValue();
+    }
+    srVector3T<T> TransformTransposed(const srVector3T<T>& value) const
+    {
+        return glm::transpose(glmValue()) * value.glmValue();
+    }
+    srMatrix3T* RotateAboutX(double angle)
+    {
+        if (angle != 0)
+            *this =
+                glm::mat<3, 3, T>(glm::rotate(glm::dmat4(glmValue()), angle, glm::dvec3(1, 0, 0)));
+        return this;
+    }
+    srMatrix3T* RotateAboutX(double sine, double cosine)
+    {
+        *this = glmValue() * glm::mat<3, 3, T>(srMathDetail::rotationX(sine, cosine));
+        return this;
+    }
+    srMatrix3T* RotateAboutY(double angle)
+    {
+        if (angle != 0)
+            *this =
+                glm::mat<3, 3, T>(glm::rotate(glm::dmat4(glmValue()), angle, glm::dvec3(0, 1, 0)));
+        return this;
+    }
+    srMatrix3T* RotateAboutY(double sine, double cosine)
+    {
+        *this = glmValue() * glm::mat<3, 3, T>(srMathDetail::rotationY(sine, cosine));
+        return this;
+    }
+    srMatrix3T* RotateAboutZ(double angle)
+    {
+        if (angle != 0)
+            *this =
+                glm::mat<3, 3, T>(glm::rotate(glm::dmat4(glmValue()), angle, glm::dvec3(0, 0, 1)));
+        return this;
+    }
+    srMatrix3T* RotateAboutZ(double sine, double cosine)
+    {
+        *this = glmValue() * glm::mat<3, 3, T>(srMathDetail::rotationZ(sine, cosine));
+        return this;
+    }
+    srMatrix3T* RotateAroundAxis(double angle, const srVector3T<T>& axis)
+    {
+        if (angle == 0)
+            return this;
+        const auto v = glm::dvec3(axis.glmValue());
+        // GLM normalizes axes. Keep the legacy scaling for non-unit/zero axes.
+        if (std::abs(glm::dot(v, v) - 1) <= 4 * std::numeric_limits<T>::epsilon())
+            *this = glm::mat<3, 3, T>(glm::rotate(glm::dmat4(glmValue()), angle, v));
+        else
+            RotateAroundAxis(std::sin(angle), std::cos(angle), axis);
+        return this;
+    }
+    srMatrix3T* RotateAroundAxis(double sine, double cosine, const srVector3T<T>& axis)
+    {
+        *this = glmValue() * glm::mat<3, 3, T>(srMathDetail::rotationAxis(
+                                 sine, cosine, glm::dvec3(axis.glmValue())));
+        return this;
     }
 
     srMatrix3T<T>* SetRows(const srVector3T<T>& first, const srVector3T<T>& second,
@@ -438,6 +591,27 @@ template <class T> bool srMatrix3T<T>::operator==(const srMatrix3T<T>& other) co
 {
     return vectors[0] == other.vectors[0] && vectors[1] == other.vectors[1] &&
            vectors[2] == other.vectors[2];
+}
+
+template <class T> srVector3T<T>& srVector3T<T>::Transform(const srMatrix3T<T>& matrix)
+{
+    *this = matrix.Transform(*this);
+    return *this;
+}
+template <class T> srVector3T<T>* srVector3T<T>::RotateAboutX(double sine, double cosine)
+{
+    *this = glm::vec<3, T>(srMathDetail::rotationX(sine, cosine) * glm::dvec3(glmValue()));
+    return this;
+}
+template <class T> srVector3T<T>* srVector3T<T>::RotateAboutY(double sine, double cosine)
+{
+    *this = glm::vec<3, T>(srMathDetail::rotationY(sine, cosine) * glm::dvec3(glmValue()));
+    return this;
+}
+template <class T> srVector3T<T>* srVector3T<T>::RotateAboutZ(double sine, double cosine)
+{
+    *this = glm::vec<3, T>(srMathDetail::rotationZ(sine, cosine) * glm::dvec3(glmValue()));
+    return this;
 }
 
 template <class T> class srMatrix4T
@@ -489,28 +663,20 @@ public:
         vectors[3].Set(0, 0, 0, 1);
     }
 
-    /* One Set per row, written out: each row's four results are computed from the
-       unmodified row before Set stores them, and rows are updated in order; the matrices
-       must not alias. Mixed-precision multiplication keeps the source coefficient width
-       until Set narrows to T. sr.dll's out-of-line double instance (0x10055A60) is this
-       unrolled form. */
-
     srMatrix4T<T>* Set(const srMatrix3T<T>& rotation, const srVector3T<T>& translation);
 
     srVector4T<T> vectors[4];
 };
-
-/* Assign *this = inverse(source). */
 
 // srMatrix4T<float>::Set
 template <class T>
 srMatrix4T<T>* srMatrix4T<T>::Set(const srMatrix3T<T>& rotation, const srVector3T<T>& translation)
 {
     srVector4T<T> target;
-    const T* component = &translation.x;
+    const auto components = translation.glmValue();
     for (int row = 0; row < 3; ++row) {
         target.Set(rotation.vectors[row].x, rotation.vectors[row].y, rotation.vectors[row].z,
-                   *component++);
+                   components[row]);
         vectors[row] = target;
     }
     target.Set((T)0, (T)0, (T)0, (T)1);
@@ -523,9 +689,11 @@ public:
     glm::mat<4, 4, T> glmValue() const
     {
         glm::mat<4, 4, T> value(1);
-        for (int row = 0; row < 3; ++row)
+        for (int row = 0; row < 3; ++row) {
+            const auto components = rows[row].glmValue();
             for (int col = 0; col < 4; ++col)
-                value[col][row] = rows[row].glmValue()[col];
+                value[col][row] = components[col];
+        }
         return value;
     }
 
@@ -539,18 +707,9 @@ public:
 
 template <class T> void srMatrix4x3T<T>::SetIdentity()
 {
-    rows[0].x = static_cast<T>(1);
-    rows[0].y = static_cast<T>(0);
-    rows[0].z = static_cast<T>(0);
-    rows[0].w = static_cast<T>(0);
-    rows[1].x = static_cast<T>(0);
-    rows[1].y = static_cast<T>(1);
-    rows[1].z = static_cast<T>(0);
-    rows[1].w = static_cast<T>(0);
-    rows[2].x = static_cast<T>(0);
-    rows[2].y = static_cast<T>(0);
-    rows[2].z = static_cast<T>(1);
-    rows[2].w = static_cast<T>(0);
+    rows[0].Set(1, 0, 0, 0);
+    rows[1].Set(0, 1, 0, 0);
+    rows[2].Set(0, 0, 1, 0);
 }
 
 template <class T> void srMatrix4x3T<T>::SetRotation(const srMatrix3T<T>& rotation)
@@ -643,3 +802,23 @@ static_assert(sizeof(srMatrix4) == 64 && alignof(srMatrix4) == alignof(float));
 
 static_assert(std::is_trivially_copyable_v<srVector3>);
 static_assert(std::is_trivially_copyable_v<srMatrix4>);
+
+template <class T> srMatrix2T<T> operator*(const srMatrix2T<T>& left, const srMatrix2T<T>& right)
+{
+    return left.glmValue() * right.glmValue();
+}
+
+template <class T> srMatrix3T<T> operator*(const srMatrix3T<T>& left, const srMatrix3T<T>& right)
+{
+    return left.glmValue() * right.glmValue();
+}
+
+template <class T> srMatrix4T<T> operator*(const srMatrix4T<T>& left, const srMatrix4T<T>& right)
+{
+    return left.glmValue() * right.glmValue();
+}
+
+template <class T> srVector3T<T> operator*(const srMatrix3T<T>& matrix, const srVector3T<T>& vector)
+{
+    return matrix.Transform(vector);
+}

@@ -769,7 +769,7 @@ void W8Octree::MarkVisibleRegions()
         }
         srVector3T<float> delta = view.camera_location - volume->m_points[0];
 
-        if (glm::dot(delta.glmValue(), delta.glmValue()) >= radius_squared) {
+        if (delta.LengthSquared() >= radius_squared) {
             continue;
         }
         bool visible = PointInsideFrustum(&volume->m_points[0], view.frustum_planes);
@@ -993,8 +993,9 @@ try
     delete[] m_sample_points;
     m_point_count = 0;
     return false;
+} catch (const std::exception&) {
+    return false;
 }
-catch (const std::exception&) { return false; }
 
 /* Write the octree's point array to a companion file.
 
@@ -1025,8 +1026,9 @@ try
         }
     }
     return result;
+} catch (const std::exception&) {
+    return false;
 }
-catch (const std::exception&) { return false; }
 
 // FUNCTION: WIZ8 0x00432e90
 bool W8Octree::ReadRegionLinkFile(const char* level_name)
@@ -1088,8 +1090,9 @@ try
         m_region_links_ready = true;
     }
     return result;
+} catch (const std::exception&) {
+    return false;
 }
-catch (const std::exception&) { return false; }
 
 /* The region volume containing `point` as its 1-based index into the spatial
    array, else the packed auto-region key - the region-grid level in the top
@@ -1188,7 +1191,7 @@ unsigned int W8Octree::SampleRegionLinks(const srVector3T<float>* point, bool de
     sprintf(text, "Sample point: %f, %f, %f, Links Found: ", point->x, point->y, point->z);
     NoOp();
     srVector3T<double> location;
-    location = glm::dvec3((point)->glmValue());
+    location = glm::dvec3(point->glmValue());
     world->camera->setLocation(location);
     view.horizontal_fov = static_cast<float>(world->camera->getHorizontalFOV());
     view.vertical_fov = static_cast<float>(world->camera->getVerticalFOV());
@@ -1213,20 +1216,8 @@ unsigned int W8Octree::SampleRegionLinks(const srVector3T<float>* point, bool de
             float angle = direction * view.horizontal_fov;
             srMatrix3T<float> frame;
             frame.SetIdentity();
-            if (angle != g_double_zero) {
-                {
-                    frame = frame.glmValue() *
-                            glm::mat3(glm::rotate(glm::dmat4(1), static_cast<double>(angle),
-                                                  glm::dvec3(0, 1, 0)));
-                }
-            }
-            {
-                const double rotation_sine = sin_tilt;
-                const double rotation_cosine = cos_tilt;
-                const auto axis_rotation = glm::dmat3(1, 0, 0, 0, rotation_cosine, rotation_sine, 0,
-                                                      -rotation_sine, rotation_cosine);
-                frame = frame.glmValue() * glm::mat3(axis_rotation);
-            }
+            frame.RotateAboutY(angle);
+            frame.RotateAboutX(sin_tilt, cos_tilt);
             world->camera->setRotation(frame);
             view.rotation_column0.x = frame.vectors[0].x;
             srVector3T<float> unit;
@@ -1622,8 +1613,9 @@ try
     }
     file->close();
     return result;
+} catch (const std::exception&) {
+    return false;
 }
-catch (const std::exception&) { return false; }
 
 /* Draw the octree cell the camera currently occupies as a wire box. The cell
    is derived on each axis by quantizing the camera position relative to the
@@ -1830,7 +1822,7 @@ unsigned char W8Octree::PrepareNavigatorTarget(W8NavigatorMovementState* movemen
     }
     srVector3T<float> delta = movement->target_position - movement->position;
     delta.y = 0.0f;
-    if (glm::length(((delta.xz())).glmValue()) < NAVIGATOR_MINIMUM_HORIZONTAL_DISTANCE) {
+    if (((delta.xz())).Length() < NAVIGATOR_MINIMUM_HORIZONTAL_DISTANCE) {
         return 0;
     }
     if ((movement->attachment->flags & W8_NAV_ATTACHMENT_FOLLOW_PATH) == 0) {
@@ -1869,19 +1861,14 @@ unsigned char W8Octree::PrepareNavigatorTarget(W8NavigatorMovementState* movemen
         return result;
     }
     delta = movement->target_position - movement->position;
-    float length = glm::length(delta.glmValue());
+    float length = delta.Length();
     float gap = length - separation;
     if (gap < g_float_zero) {
         movement->attachment->InitializeSegment(&movement->position, &movement->position);
         return 1;
     }
     if (gap < g_world_scale) {
-        {
-            const auto direction_value = delta.glmValue();
-            if (glm::dot(direction_value, direction_value) != 0)
-                (delta) = glm::normalize(direction_value) *
-                          static_cast<float>(gap * g_float_one_and_one_hundredth);
-        }
+        delta.SetLength(gap * g_float_one_and_one_hundredth);
         delta += movement->position;
         movement->attachment->InitializeSegment(&movement->position, &delta);
         return 1;
@@ -1905,8 +1892,7 @@ bool __stdcall IsNavigatorAtTarget(W8NavigatorMovementState* movement)
     } else {
         target = movement->target_position;
     }
-    if (movement->movement_scale * g_world_scale <
-        glm::length((((target - movement->position))).glmValue())) {
+    if (movement->movement_scale * g_world_scale < (target - movement->position).Length()) {
         return false;
     }
     return true;
@@ -1929,12 +1915,8 @@ unsigned char W8Octree::PrepareNavigatorPatrol(W8NavigatorMovementState* movemen
         movement->attachment->GetNextPosition(&movement->target_position);
         srVector3T<float> delta;
         delta = movement->target_position - movement->position;
-        if (step < glm::length(delta.glmValue())) {
-            {
-                const auto direction_value = delta.glmValue();
-                if (glm::dot(direction_value, direction_value) != 0)
-                    (delta) = glm::normalize(direction_value) * static_cast<float>(step);
-            }
+        if (step < delta.Length()) {
+            delta.SetLength(step);
         }
         movement->target_position = delta + movement->position;
     }
@@ -2498,8 +2480,7 @@ no_probes:;
                         float monster_radius = monster->radius;
                         if (distance < monster_radius) {
                             direction = *to - *from;
-                            double length2 = static_cast<double>(
-                                (glm::dot(direction.glmValue(), direction.glmValue())));
+                            double length2 = static_cast<double>((direction.LengthSquared()));
                             offset = direction;
                             if (length2 != g_double_zero) {
                                 offset *= (sqrt(length2) - sqrt(monster_radius * monster_radius -
@@ -2513,7 +2494,7 @@ no_probes:;
                                     best_index = index;
                                 }
                             } else {
-                                best = sqrt(glm::dot(offset.glmValue(), offset.glmValue()));
+                                best = sqrt(offset.LengthSquared());
                                 best_index = index;
                             }
                         }
@@ -4185,7 +4166,7 @@ int W8Octree::CollectObjectsAlongSegment(w8_ulong** results, const srVector3T<fl
         *results = g_octree_state;
     }
     m_gd_result_count = 0;
-    float radius = glm::length(((*delta)).glmValue());
+    float radius = delta->Length();
     if (extent < radius) {
         extent = radius;
     }
@@ -4542,7 +4523,7 @@ unsigned int W8Octree::AdvanceNavigator(W8NavigatorMovementState* movement, floa
     }
     vecDir = movement->target_position - movement->position;
     vecDir.y = 0.0f;
-    distance = glm::length(((vecDir.xz())).glmValue());
+    distance = ((vecDir.xz())).Length();
     step = g_game_time_accumulator->GetFrameDelta() * movement->movement_scale * g_rate *
            g_world_scale;
     if (step >= distance) {
@@ -4550,12 +4531,8 @@ unsigned int W8Octree::AdvanceNavigator(W8NavigatorMovementState* movement, floa
     } else {
         reached = false;
     }
-    if (((vecDir.x * vecDir.x + vecDir.z * vecDir.z)) != g_double_zero) {
-        {
-            const auto direction_value = vecDir.glmValue();
-            if (glm::dot(direction_value, direction_value) != 0)
-                (vecDir) = glm::normalize(direction_value) * static_cast<float>(step);
-        }
+    if ((vecDir.x * vecDir.x + vecDir.z * vecDir.z) != g_double_zero) {
+        vecDir.SetLength(step);
     }
     vecPos = vecDir + movement->position;
     movement->position = vecPos;
@@ -4661,27 +4638,33 @@ BOOLEAN WriteVector2Array(wiz8::File* file, const srVector2T<float>* values, int
 
 // FUNCTION: WIZ8 0x004374C0
 bool ReadVector4Array(wiz8::File* file, srVector4T<float>* values, int count)
-try
-{
-    return (file->read(values, count * sizeof(srVector4T<float>)).bytes == static_cast<std::size_t>(count * sizeof(srVector4T<float>))) & 1;
+try {
+    return (file->read(values, count * sizeof(srVector4T<float>)).bytes ==
+            static_cast<std::size_t>(count * sizeof(srVector4T<float>))) &
+           1;
+} catch (const std::exception&) {
+    return false;
 }
-catch (const std::exception&) { return false; }
 
 // FUNCTION: WIZ8 0x004374E0
 bool ReadVector3Array(wiz8::File* file, void* values, int count)
-try
-{
-    return (file->read(values, count * sizeof(srVector3T<float>)).bytes == static_cast<std::size_t>(count * sizeof(srVector3T<float>))) & 1;
+try {
+    return (file->read(values, count * sizeof(srVector3T<float>)).bytes ==
+            static_cast<std::size_t>(count * sizeof(srVector3T<float>))) &
+           1;
+} catch (const std::exception&) {
+    return false;
 }
-catch (const std::exception&) { return false; }
 
 // FUNCTION: WIZ8 0x00437510
 bool ReadVector2Array(wiz8::File* file, srVector2T<float>* values, int count)
-try
-{
-    return (file->read(values, count * sizeof(srVector2T<float>)).bytes == static_cast<std::size_t>(count * sizeof(srVector2T<float>))) & 1;
+try {
+    return (file->read(values, count * sizeof(srVector2T<float>)).bytes ==
+            static_cast<std::size_t>(count * sizeof(srVector2T<float>))) &
+           1;
+} catch (const std::exception&) {
+    return false;
 }
-catch (const std::exception&) { return false; }
 
 // FUNCTION: WIZ8 0x00437540
 float PointToSegmentDistance(srVector3T<float>* point, const srVector3T<float>* from,
@@ -4690,8 +4673,7 @@ float PointToSegmentDistance(srVector3T<float>* point, const srVector3T<float>* 
     srVector3T<float> direction = *to - *from;
     srVector3T<float> offset = *point - *from;
     srVector3T<float> remaining = offset;
-    float t = glm::dot(offset.glmValue(), direction.glmValue()) /
-              glm::dot(direction.glmValue(), direction.glmValue());
+    float t = glm::dot(offset.glmValue(), direction.glmValue()) / direction.LengthSquared();
     if (g_double_zero < t) {
         if (t <= g_double_one) {
             remaining -= direction * t;
@@ -4721,7 +4703,7 @@ float PointToSegmentDistance(srVector3T<float>* point, const srVector3T<float>* 
             *out_t = 0.0f;
         }
     }
-    return glm::length(remaining.glmValue());
+    return remaining.Length();
 }
 
 // FUNCTION: WIZ8 0x00437760

@@ -833,11 +833,8 @@ void stModelInstance::RenderMeshes(srGERD& renderer)
                             std::fill_n(g_vertex_scratch.data(), mesh.vertex_count,
                                         srVector3T<float>(0.0f, 0.0f, 0.0f));
                         } else {
-                            std::ranges::transform(
-                                std::span<const srVector3>{
-                                    mesh.normals, static_cast<std::size_t>(mesh.vertex_count)},
-                                g_vertex_scratch.data(),
-                                [&](const auto& v) { return offsets.glmValue() * v.glmValue(); });
+                            for (std::size_t i = 0; i < mesh.vertex_count; ++i)
+                                (g_vertex_scratch.data())[i] = offsets * mesh.normals[i];
                         }
                     }
                     std::transform(g_vertex_scratch.begin(), g_vertex_scratch.end(),

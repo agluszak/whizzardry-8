@@ -55,8 +55,8 @@ int srFog::isActive(srVertexPipe& pipe)
     }
     if (density > 0.0f) {
         pipe.getEyeSpaceBoundingSphere(center, radius);
-        if ((radius <= fog_start) && (glm::dot(center.glmValue(), center.glmValue()) <
-                                      (fog_start - radius) * (fog_start - radius))) {
+        if ((radius <= fog_start) &&
+            (center.LengthSquared() < (fog_start - radius) * (fog_start - radius))) {
             return 0;
         }
         return 1;
@@ -95,7 +95,7 @@ void srFog::process(srVertexPipe& pipe)
         pipe.getEyeSpaceBoundingSphere(center, radius);
         double limit = radius + fog_end;
         w8_long count = (w8_long)pipe.getVertexCount();
-        if (glm::dot(center.glmValue(), center.glmValue()) <= limit * limit) {
+        if (center.LengthSquared() <= limit * limit) {
             if (fog_end == fog_start) {
                 scale = 1e+08f;
             } else {
@@ -109,31 +109,27 @@ void srFog::process(srVertexPipe& pipe)
                         std::copy_n(distances, count, values);
                     }
                 } else {
-                    std::ranges::transform(
-                        std::span<const float>{distances, static_cast<std::size_t>(count)}, values,
-                        [&](const auto& v) { return (-start) + v; });
+                    for (std::size_t i = 0; i < count; ++i)
+                        values[i] = (-start) + distances[i];
                 }
                 if (scale != 1.0f) {
                     if (scale == 0.0f) {
                         std::fill_n(values, count, 0.0f);
                     } else {
-                        std::ranges::transform(
-                            std::span<const float>{values, static_cast<std::size_t>(count)}, values,
-                            [&](const auto& v) { return (scale)*v; });
+                        for (std::size_t i = 0; i < count; ++i)
+                            values[i] = scale * values[i];
                     }
                 }
-                std::ranges::transform(
-                    std::span<const float>{values, static_cast<std::size_t>(count)}, values,
-                    [&](const auto& v) { return glm::clamp(v, 0.0f, 1.0f); });
+                for (std::size_t i = 0; i < count; ++i)
+                    values[i] = glm::clamp(values[i], 0.0f, 1.0f);
             }
             density = this->density;
             if ((count != 0) && (density != 1.0f)) {
                 if (density == 0.0f) {
                     std::fill_n(values, count, 0.0f);
                 } else {
-                    std::ranges::transform(
-                        std::span<const float>{values, static_cast<std::size_t>(count)}, values,
-                        [&](const auto& v) { return (density)*v; });
+                    for (std::size_t i = 0; i < count; ++i)
+                        values[i] = density * values[i];
                 }
             }
             pipe.applyFog(values);
@@ -148,14 +144,13 @@ void srFog::process(srVertexPipe& pipe)
                 if (density == 0.0f) {
                     std::fill_n(fog, count, 0.0f);
                 } else {
-                    std::ranges::transform(
-                        std::span<const float>{fog, static_cast<std::size_t>(count)}, fog,
-                        [&](const auto& v) { return (density)*v; });
+                    for (std::size_t i = 0; i < count; ++i)
+                        fog[i] = density * fog[i];
                 }
             }
             if ((count != 0) && (this->density != 0.0f)) {
-                std::ranges::transform(std::span<const float>{fog, static_cast<std::size_t>(count)},
-                                       fog, [&](const auto& v) { return (this->density) + v; });
+                for (std::size_t i = 0; i < count; ++i)
+                    fog[i] = (this->density) + fog[i];
             }
         }
     }

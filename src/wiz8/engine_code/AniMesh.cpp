@@ -198,8 +198,7 @@ float GetAniMeshFrameRadius(W8AniMesh* mesh, unsigned char frame)
                 model = model->next;
             } while (model != 0);
 
-            return static_cast<float>(glm::length((((minimum - maximum))).glmValue()) *
-                                      g_double_half);
+            return static_cast<float>((minimum - maximum).Length() * g_double_half);
         }
     }
     return g_float_zero;
@@ -350,8 +349,9 @@ try
     }
     EnforceAniMeshMemoryLimit(mesh);
     return 1;
+} catch (const std::exception&) {
+    return false;
 }
-catch (const std::exception&) { return false; }
 
 /* Hands back the mesh's cached bounding box, loading the mesh first if it has
    not been. Touching it also stamps the storage clock, so asking for bounds
@@ -433,8 +433,9 @@ try
         opened.reset();
     }
     return success;
+} catch (const std::exception&) {
+    return false;
 }
-catch (const std::exception&) { return false; }
 
 // FUNCTION: WIZ8 0x004b63f0
 unsigned char UnloadAniMesh(W8AniMesh* mesh, bool force)

@@ -442,20 +442,15 @@ unsigned char W8GameData::ApplyCameraMotion(unsigned int flags, srVector3T<float
     if ((flags & W8_CAMERA_MOTION_FAST) != 0) {
         fast_move = true;
     }
-    if (glm::length((g_level_data->motion_input).glmValue()) > g_camera_motion_clamp) {
-        {
-            const auto direction_value = (g_level_data->motion_input).glmValue();
-            if (glm::dot(direction_value, direction_value) != 0)
-                (g_level_data->motion_input) =
-                    glm::normalize(direction_value) * static_cast<float>(g_camera_motion_clamp);
-        }
+    if (g_level_data->motion_input.Length() > g_camera_motion_clamp) {
+        g_level_data->motion_input.SetLength(g_camera_motion_clamp);
     }
     g_level_motion_fast =
         g_level_data->ApplySavedMotionMatrix(g_level_motion_fast, fast_move, saved);
 
     if (g_environment_load_flag == 0) {
         *delta = g_level_data->motion_displacement;
-        moved = static_cast<float>(g_motion_delta_epsilon) < glm::length(((*delta)).glmValue());
+        moved = static_cast<float>(g_motion_delta_epsilon) < delta->Length();
         g_level_data->UpdateMotionProgress(g_level_motion_fast, moved);
         if (moved == 0) {
             goto after_move;
@@ -464,7 +459,7 @@ unsigned char W8GameData::ApplyCameraMotion(unsigned int flags, srVector3T<float
         moved = AdvanceEnvironmentMotion();
         g_level_data->UpdateMotionProgress(g_level_motion_fast, moved);
         *delta = g_level_data->motion_displacement;
-        if (glm::length(((*delta)).glmValue()) <= static_cast<float>(g_motion_delta_epsilon)) {
+        if (delta->Length() <= static_cast<float>(g_motion_delta_epsilon)) {
             if (moved == 0) {
                 goto after_move;
             }
@@ -475,8 +470,7 @@ unsigned char W8GameData::ApplyCameraMotion(unsigned int flags, srVector3T<float
 
     new_position.Set(position->x + delta->x, position->y + delta->y, position->z + delta->z);
     from_origin = new_position - g_world_origin;
-    if (sqrtf(glm::dot(from_origin.glmValue(), from_origin.glmValue())) !=
-        static_cast<float>(g_double_zero)) {
+    if (sqrtf(from_origin.LengthSquared()) != static_cast<float>(g_double_zero)) {
         MarkRendererReady();
         g_gd_camera->m_position = new_position;
     }
@@ -670,18 +664,17 @@ W8GDSurface* W8GameData::ProbePropsAlongMotion(srVector3T<float>* direction,
         residual.Set(scratch->x, scratch->y, scratch->z);
         along_normal.Set(scratch->x, scratch->y, scratch->z);
         normal.Set(s_prop_hit_plane.normal.x, s_prop_hit_plane.normal.y, s_prop_hit_plane.normal.z);
-        if (g_vector_length_squared_epsilon < glm::dot(normal.glmValue(), normal.glmValue())) {
+        if (g_vector_length_squared_epsilon < normal.LengthSquared()) {
             along_normal = normal * (glm::dot(along_normal.glmValue(), normal.glmValue()) /
-                                     glm::dot(normal.glmValue(), normal.glmValue()));
+                                     normal.LengthSquared());
         }
-        along_length = glm::length(along_normal.glmValue());
+        along_length = along_normal.Length();
         residual = (residual - along_normal) * static_cast<double>(slope);
-        residual_length = glm::length(residual.glmValue());
-        if (glm::length(projected.glmValue()) <= g_float_one) {
+        residual_length = residual.Length();
+        if (projected.Length() <= g_float_one) {
             facing = 0.0f;
         } else {
-            facing = glm::dot(projected.glmValue(), normal.glmValue()) /
-                     glm::length(projected.glmValue());
+            facing = glm::dot(projected.glmValue(), normal.glmValue()) / projected.Length();
             if (facing < g_float_zero) {
                 along_length = -along_length;
             }
@@ -742,7 +735,7 @@ unsigned char W8GameData::ProbeMonstersAlongMotion(srVector3T<float>* direction,
 
     objects = 0;
     hit = false;
-    extent = glm::length(((*direction)).glmValue()) + g_runtime_world_scale + g_world_scale;
+    extent = direction->Length() + g_runtime_world_scale + g_world_scale;
     lower.Set(position->x - extent, position->y - extent, position->z - extent);
     upper.Set(position->x + extent, position->y + extent, position->z + extent);
     count = static_cast<unsigned int>(
@@ -856,8 +849,7 @@ unsigned char W8GameData::AdvanceEnvironmentMotion()
     camera_position = level->camera_position;
     adjusted_position = camera_position;
     if (geometry_index == 0 && octree == 0) {
-        if (static_cast<float>(g_motion_delta_epsilon) <
-            glm::length((level->motion_displacement).glmValue())) {
+        if (static_cast<float>(g_motion_delta_epsilon) < level->motion_displacement.Length()) {
             return 1;
         }
         return 0;
@@ -865,8 +857,7 @@ unsigned char W8GameData::AdvanceEnvironmentMotion()
 
     g_environ_ground_latch = g_environ->ground_latch;
     g_environment_motion_active = 1;
-    if (glm::length((level->motion_velocity).glmValue()) <=
-        static_cast<float>(g_motion_vector_epsilon)) {
+    if (level->motion_velocity.Length() <= static_cast<float>(g_motion_vector_epsilon)) {
         level->flags &= ~W8_LEVEL_FLAG_NEGLIGIBLE_MOTION;
     } else {
         level->flags |= W8_LEVEL_FLAG_NEGLIGIBLE_MOTION;
@@ -879,13 +870,8 @@ unsigned char W8GameData::AdvanceEnvironmentMotion()
     gravity.Set(environ_record->gravity_x, environ_record->gravity_y, environ_record->gravity_z);
     scaled = gravity * static_cast<double>(environ_record->scale);
     environ_record->vector += scaled;
-    if (g_camera_motion_divisor < glm::length((environ_record->vector).glmValue())) {
-        {
-            const auto direction_value = (environ_record->vector).glmValue();
-            if (glm::dot(direction_value, direction_value) != 0)
-                (environ_record->vector) =
-                    glm::normalize(direction_value) * static_cast<float>(g_camera_motion_divisor);
-        }
+    if (g_camera_motion_divisor < environ_record->vector.Length()) {
+        environ_record->vector.SetLength(g_camera_motion_divisor);
     }
     environ_record->AddScaledMotion(&level->motion_displacement);
 
@@ -1085,7 +1071,7 @@ unsigned char W8GameData::AdvanceEnvironmentMotion()
 
             level = g_level_data;
             g_environment_motion_active = 0;
-            motion_length = glm::length(environ_delta.glmValue());
+            motion_length = environ_delta.Length();
             if (motion_length <= g_float_one_tenth ||
                 (fabsf(environ_delta.y + motion_length) / motion_length <= g_camera_snap_epsilon &&
                  g_negative_one <= environ_delta.y)) {
@@ -1470,29 +1456,17 @@ stModelInstance* W8GameData::CreateTraceModel()
             dig[i] = normals[i];
             if (dig[i].y < g_float_half) {
                 dig[i].y = 0.0f;
-                {
-                    const auto direction_value = dig[i].glmValue();
-                    if (glm::dot(direction_value, direction_value) != 0)
-                        (dig[i]) = glm::normalize(direction_value);
-                }
+                dig[i].Normalize();
                 dig[i].y = 1.0f;
-                {
-                    const auto direction_value = dig[i].glmValue();
-                    if (glm::dot(direction_value, direction_value) != 0)
-                        (dig[i]) = glm::normalize(direction_value);
-                }
+                dig[i].Normalize();
             }
         } else {
             dig[i].Set(normals[i].x * g_float_fifteen_hundredths + g_float_fifteen_hundredths, 0.0f,
                        normals[i].z * g_float_fifteen_hundredths + g_float_fifteen_hundredths);
-            float length = glm::length(dig[i].glmValue());
+            float length = dig[i].Length();
             if (g_double_one_ten_thousandth <= length) {
                 if (length < 0.3) {
-                    {
-                        const auto direction_value = dig[i].glmValue();
-                        if (glm::dot(direction_value, direction_value) != 0)
-                            (dig[i]) = glm::normalize(direction_value) * static_cast<float>(0.3);
-                    }
+                    dig[i].SetLength(0.3);
                 }
             } else {
                 dig[i].x = 0.15f;
@@ -1556,14 +1530,10 @@ bool W8GDSurface::TestSegment(srVector3T<float>* from, const srVector3T<float>* 
         }
     }
     srVector3T<float> unit_dir = *direction;
-    {
-        const auto direction_value = unit_dir.glmValue();
-        if (glm::dot(direction_value, direction_value) != 0)
-            (unit_dir) = glm::normalize(direction_value);
-    }
+    unit_dir.Normalize();
     srVector3T<float> normal;
     normal = plane.normal;
-    float segment_length = glm::length(((*direction)).glmValue());
+    float segment_length = direction->Length();
     if (segment_length < g_float_one_ten_thousandth) {
         if (!special) {
             g_environment_motion_active = special;
@@ -1798,7 +1768,7 @@ bool W8GDSurface::ClampHitToEdge(const srVector3T<float>* point, const srVector3
     if (nearest_dist > *limit) {
         return false;
     }
-    float offset = -(glm::dot((*point).glmValue(), plane.normal.glmValue()) + plane.w);
+    float offset = -(glm::dot(point->glmValue(), plane.normal.glmValue()) + plane.w);
     srVector3T<float> projected;
     projected.Set(plane.normal.x * offset + point->x, plane.normal.y * offset + point->y,
                   plane.normal.z * offset + point->z);
@@ -1871,7 +1841,7 @@ bool W8GDSurface::ResolveCollision(srVector3T<float>* origin, const srVector3T<f
         g_level_data->sound_environment = footstep_surface;
         g_level_data->sound_environment_alt = footstep_material;
     }
-    float direction_length = glm::length(((*direction)).glmValue());
+    float direction_length = direction->Length();
     if (direction_length == g_float_zero) {
         return false;
     }
@@ -1930,11 +1900,7 @@ bool W8GDSurface::ResolveCollision(srVector3T<float>* origin, const srVector3T<f
               normal.z * distance + direction->z);
     ApplyEnvironContact(&slide);
     srVector3T<float> slide_unit = slide;
-    {
-        const auto direction_value = slide_unit.glmValue();
-        if (glm::dot(direction_value, direction_value) != 0)
-            (slide_unit) = glm::normalize(direction_value);
-    }
+    slide_unit.Normalize();
     float approach = glm::dot(slide_unit.glmValue(), s_entry_direction.glmValue());
     if (fabsf(approach) < g_camera_snap_epsilon) {
         direction->SetZero();
@@ -1943,17 +1909,13 @@ bool W8GDSurface::ResolveCollision(srVector3T<float>* origin, const srVector3T<f
     if (approach >= g_float_one_ten_thousandth) {
         if (s_collision_state != 0) {
             srVector3T<float> ortho = s_entry_direction;
-            float normal_sq = glm::dot(normal.glmValue(), normal.glmValue());
+            float normal_sq = normal.LengthSquared();
             if (normal_sq > g_vector_length_squared_epsilon) {
                 ortho = normal *
                         (glm::dot(s_entry_direction.glmValue(), normal.glmValue()) / normal_sq);
             }
             srVector3T<float> deflect = s_entry_direction - ortho;
-            {
-                const auto direction_value = deflect.glmValue();
-                if (glm::dot(direction_value, direction_value) != 0)
-                    (deflect) = glm::normalize(direction_value);
-            }
+            deflect.Normalize();
             if (glm::dot(unit.glmValue(), deflect.glmValue()) < g_float_zero &&
                 s_collision_state == 1 &&
                 CentroidsDiverging(s_first_surface, &normal, &s_first_normal)) {
@@ -2018,7 +1980,7 @@ bool W8GDSurface::ResolveCollision(srVector3T<float>* origin, const srVector3T<f
                     return false;
                 }
                 if (ahead_b <= ahead_a) {
-                    float crease_sq = glm::dot(crease_b.glmValue(), crease_b.glmValue());
+                    float crease_sq = crease_b.LengthSquared();
                     if (crease_sq > g_vector_length_squared_epsilon) {
                         slide = crease_b *
                                 (glm::dot(slide.glmValue(), crease_b.glmValue()) / crease_sq);
@@ -2027,7 +1989,7 @@ bool W8GDSurface::ResolveCollision(srVector3T<float>* origin, const srVector3T<f
                     s_first_limit = adjusted_d;
                     s_first_surface = index;
                 } else {
-                    float crease_sq = glm::dot(crease_a.glmValue(), crease_a.glmValue());
+                    float crease_sq = crease_a.LengthSquared();
                     if (crease_sq > g_vector_length_squared_epsilon) {
                         slide = crease_a *
                                 (glm::dot(slide.glmValue(), crease_a.glmValue()) / crease_sq);
@@ -2065,7 +2027,7 @@ bool W8GDSurface::ResolveCollision(srVector3T<float>* origin, const srVector3T<f
         s_first_limit = adjusted_d;
     }
     *direction = slide;
-    if (glm::length(((*direction)).glmValue()) >= g_collision_direction_epsilon) {
+    if (direction->Length() >= g_collision_direction_epsilon) {
         return true;
     }
     return false;
@@ -2095,12 +2057,12 @@ bool W8GDSurface::CentroidsDiverging(int surface_index, const srVector3T<float>*
               other_centroid.y * g_collision_centroid_scale;
     delta.z = this_centroid.z * g_collision_centroid_scale -
               other_centroid.z * g_collision_centroid_scale;
-    float separation_sq = glm::dot(delta.glmValue(), delta.glmValue());
+    float separation_sq = delta.LengthSquared();
     srVector3T<float> adjust;
     adjust.x = delta.x + (from->x - to->x);
     adjust.y = delta.y + (from->y - to->y);
     adjust.z = delta.z + (from->z - to->z);
-    float adjusted_sq = glm::dot(adjust.glmValue(), adjust.glmValue());
+    float adjusted_sq = adjust.LengthSquared();
     if (separation_sq < adjusted_sq) {
         return false;
     }
@@ -2129,26 +2091,21 @@ bool W8GDSurface::ApplyEnvironContact(srVector3T<float>* direction)
     float factor = g_environ->motion_factor;
     srVector3T<float> slide = g_environ->vector * g_environ->scale;
     srVector3T<float> unit = slide;
-    {
-        const auto direction_value = unit.glmValue();
-        if (glm::dot(direction_value, direction_value) != 0)
-            (unit) = glm::normalize(direction_value);
-    }
+    unit.Normalize();
     if (glm::dot(unit.glmValue(), normal.glmValue()) >= g_collision_opposed_normal_threshold) {
         srVector3T<float> proj = slide;
-        float normal_sq = glm::dot(normal.glmValue(), normal.glmValue());
+        float normal_sq = normal.LengthSquared();
         if (normal_sq > g_vector_length_squared_epsilon) {
             proj = normal * (glm::dot(slide.glmValue(), normal.glmValue()) / normal_sq);
         }
         if (glm::dot(proj.glmValue(), normal.glmValue()) <= g_float_zero) {
-            float depth = glm::length(proj.glmValue());
+            float depth = proj.Length();
             if (distance < depth) {
                 depth = distance;
             }
             float attenuation = 0.25f;
             if (slide.y < g_float_zero) {
-                attenuation =
-                    fabsf(slide.y) / glm::length(slide.glmValue()) * g_float_three_quarters +
+                attenuation = fabsf(slide.y) / slide.Length() * g_float_three_quarters +
                     g_navigator_vertical_phase_step;
             }
             srVector3T<float> residual = slide - proj;
@@ -2627,11 +2584,11 @@ void SetCameraOrientation(W8CameraAngleRecord angle, W8CameraAngleRecord pitch,
 // FUNCTION: WIZ8 0x00421440
 unsigned char ProjectVectorOntoVector(srVector3T<float>* vector, const srVector3T<float>* onto)
 {
-    float length_squared = glm::dot((*onto).glmValue(), (*onto).glmValue());
+    float length_squared = glm::dot(onto->glmValue(), onto->glmValue());
     if (length_squared <= g_vector_length_squared_epsilon) {
         return 0;
     }
-    *vector = *onto * (glm::dot((*vector).glmValue(), (*onto).glmValue()) / length_squared);
+    *vector = *onto * (glm::dot(vector->glmValue(), onto->glmValue()) / length_squared);
     return 1;
 }
 
@@ -2678,7 +2635,7 @@ bool HasCameraLineOfSight(const srVector3T<float>* position)
 void PlacePartyAtPoint(const srVector3T<float>* point)
 {
     srVector3T<float> delta = *point - g_world_origin;
-    if (sqrtf(glm::dot(delta.glmValue(), delta.glmValue())) != g_double_zero) {
+    if (sqrtf(delta.LengthSquared()) != g_double_zero) {
         MarkRendererReady();
         g_gd_camera->m_position = *point;
     }
@@ -2735,29 +2692,24 @@ bool W8LevelDataRecord::IntegrateCameraForward()
     srVector3T<float> combined;
 
     cleared_vector = false;
-    forward_length = glm::length(camera_motion_velocity.glmValue());
+    forward_length = camera_motion_velocity.Length();
     limit = g_environ->motion_limit * camera_scale;
-    if (limit <= glm::length(motion_input.glmValue())) {
+    if (limit <= motion_input.Length()) {
         adjustment = camera_motion_velocity;
-        if (g_vector_length_squared_epsilon <
-            glm::dot(integrated_motion.glmValue(), integrated_motion.glmValue())) {
-            adjustment = integrated_motion *
-                         (glm::dot(adjustment.glmValue(), integrated_motion.glmValue()) /
-                          glm::dot(integrated_motion.glmValue(), integrated_motion.glmValue()));
+        if (g_vector_length_squared_epsilon < integrated_motion.LengthSquared()) {
+            adjustment =
+                integrated_motion * (glm::dot(adjustment.glmValue(), integrated_motion.glmValue()) /
+                                     integrated_motion.LengthSquared());
         }
         adjustment -= camera_motion_velocity;
-        delta_length = glm::length(adjustment.glmValue());
+        delta_length = adjustment.Length();
         limit = g_environ->motion_factor * limit;
         if (delta_length <= limit) {
             if (delta_length < limit * g_camera_snap_epsilon) {
                 adjustment.SetZero();
             }
         } else {
-            {
-                const auto direction_value = adjustment.glmValue();
-                if (glm::dot(direction_value, direction_value) != 0)
-                    (adjustment) = glm::normalize(direction_value) * static_cast<float>(limit);
-            }
+            adjustment.SetLength(limit);
         }
         scale = g_environ->momentum_scale * g_environ->motion_factor;
         integrated_motion *= scale;
@@ -2770,11 +2722,7 @@ bool W8LevelDataRecord::IntegrateCameraForward()
         adjustment.Set(-camera_motion_velocity.x, -camera_motion_velocity.y,
                        -camera_motion_velocity.z);
         if (limit < forward_length) {
-            {
-                const auto direction_value = adjustment.glmValue();
-                if (glm::dot(direction_value, direction_value) != 0)
-                    (adjustment) = glm::normalize(direction_value) * static_cast<float>(limit);
-            }
+            adjustment.SetLength(limit);
         }
         integrated_motion.SetZero();
         cleared_vector = true;
@@ -2808,7 +2756,7 @@ unsigned char W8LevelDataRecord::ApplySavedMotionMatrix(unsigned char prior_fast
         motion_input.SetZero();
         integrated_motion.SetZero();
     }
-    motion_input = srVector3T<float>{((*saved)).glmValue() * motion_input.glmValue()};
+    motion_input = srVector3T<float>{(*saved).glmValue() * motion_input.glmValue()};
     integrated_motion.Set(motion_input.x * camera_scale, motion_input.y * camera_scale,
                           motion_input.z * camera_scale);
     if (!IntegrateCameraForward()) {
@@ -2946,26 +2894,16 @@ void W8LevelDataRecord::UpdateMotionProgress(unsigned char fast_move, unsigned c
         contact_velocity.SetZero();
         contact_displacement.SetZero();
         if (g_float_zero < motion_velocity.y) {
-            length = glm::length(motion_velocity.glmValue());
+            length = motion_velocity.Length();
             if (fast_move == 0) {
                 if (g_camera_level_forward_scale < length) {
-                    {
-                        const auto direction_value = motion_velocity.glmValue();
-                        if (glm::dot(direction_value, direction_value) != 0)
-                            (motion_velocity) = glm::normalize(direction_value) *
-                                                static_cast<float>(g_camera_level_forward_scale);
-                    }
+                    motion_velocity.SetLength(g_camera_level_forward_scale);
                     motion_displacement.Set(motion_velocity.x * camera_scale,
                                             motion_velocity.y * camera_scale,
                                             motion_velocity.z * camera_scale);
                 }
             } else if (g_camera_default_forward_scale < length) {
-                {
-                    const auto direction_value = motion_velocity.glmValue();
-                    if (glm::dot(direction_value, direction_value) != 0)
-                        (motion_velocity) = glm::normalize(direction_value) *
-                                            static_cast<float>(g_camera_default_forward_scale);
-                }
+                motion_velocity.SetLength(g_camera_default_forward_scale);
                 motion_displacement.Set(motion_velocity.x * camera_scale,
                                         motion_velocity.y * camera_scale,
                                         motion_velocity.z * camera_scale);
@@ -2991,7 +2929,7 @@ void W8LevelDataRecord::UpdateMotionProgress(unsigned char fast_move, unsigned c
         gravity.Set(g_environ->gravity_x, g_environ->gravity_y, g_environ->gravity_z);
         ProjectVectorOntoVector(&projected, &gravity);
         environ_vector = g_environ->vector;
-        if (glm::length(environ_vector.glmValue()) < glm::length(projected.glmValue())) {
+        if (environ_vector.Length() < projected.Length()) {
             g_environ->vector = projected;
         }
         motion_input.SetZero();
@@ -2999,7 +2937,7 @@ void W8LevelDataRecord::UpdateMotionProgress(unsigned char fast_move, unsigned c
     }
 
     motion_velocity = motion_displacement * (static_cast<float>(g_double_one) / camera_scale);
-    speed = glm::length(motion_displacement.glmValue());
+    speed = motion_displacement.Length();
     if (speed < g_camera_transition_epsilon) {
         speed = 0;
         motion_displacement.SetZero();

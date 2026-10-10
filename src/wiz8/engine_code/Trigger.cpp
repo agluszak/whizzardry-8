@@ -347,8 +347,9 @@ try
             return true;
         }
     }
+} catch (const std::exception&) {
+    return false;
 }
-catch (const std::exception&) { return false; }
 
 /* Serialize one trigger for the save file. The header carries a version byte
    and the action-state block; the action payload follows only when one is
@@ -604,8 +605,9 @@ try
         hFile->seek(0x1d, wiz8::SeekOrigin::current);
     }
     return header_ok;
+} catch (const std::exception&) {
+    return false;
 }
-catch (const std::exception&) { return false; }
 
 /* Read every trigger record of the save file's trigger chunk. Tags 1-4 update
    the matching in-place trigger, tag 5 names its trigger and is consumed
@@ -675,8 +677,9 @@ try
             return false;
         }
     }
+} catch (const std::exception&) {
+    return false;
 }
-catch (const std::exception&) { return false; }
 
 /* Write every trigger of a world for the save file's trigger chunk. A trigger
    whose own serialization reports failure stops the walk. */
@@ -751,8 +754,9 @@ try
             return true;
         }
     }
+} catch (const std::exception&) {
+    return false;
 }
-catch (const std::exception&) { return false; }
 
 // VTABLE: WIZ8 0x005ec12c
 // class W8TriggerEvent
@@ -823,7 +827,7 @@ void UpdateWorldTriggers(W8World* world)
             (trigger->flags & W8_TRIGGER_PLANE) == 0) {
             srVector3T<float> trigger_position(trigger->position.x, trigger->position.y,
                                                trigger->position.z);
-            float distance = glm::length((((trigger_position - camera))).glmValue());
+            float distance = (trigger_position - camera).Length();
             if (trigger->range_maximum <= distance) {
                 if ((trigger->flags & W8_TRIGGER_RUNNING) != 0) {
                     trigger->FinishAction();
@@ -1001,7 +1005,7 @@ bool Trigger::HasActorWithinRadius(float radius, bool include_party)
             W8MonsterInfo* monster_info = MonsterGetScriptPartByLocationIndex(monster_index);
             if (monster_info != 0 && monster_info->p3D != 0) {
                 srVector3T<float> monster_position = monster_info->p3D->GetPosition();
-                if (glm::length((((monster_position - center))).glmValue()) <= radius) {
+                if ((monster_position - center).Length() <= radius) {
                     return true;
                 }
             }
@@ -1010,7 +1014,7 @@ bool Trigger::HasActorWithinRadius(float radius, bool include_party)
 
     if (include_party) {
         srVector3T<float> party_position = g_startup_world->GetPosition();
-        if (glm::length((((party_position - center))).glmValue()) <= radius) {
+        if ((party_position - center).Length() <= radius) {
             return true;
         }
     }
@@ -1119,20 +1123,7 @@ void W8TriggerEvent::Update()
             rotation.vectors[2].Set(0.0, 1.0, 0.0);
 
             if (trigger->angle != 0.0f) {
-                {
-                    const auto rotation_axis = glm::dvec3(axis.glmValue());
-                    const double rotation_sine = sin(trigger->angle);
-                    const double rotation_cosine = cos(trigger->angle);
-                    const auto axis_cross =
-                        glm::dmat3(glm::cross(rotation_axis, glm::dvec3(1, 0, 0)),
-                                   glm::cross(rotation_axis, glm::dvec3(0, 1, 0)),
-                                   glm::cross(rotation_axis, glm::dvec3(0, 0, 1)));
-                    const auto axis_rotation = glm::mat3(
-                        rotation_cosine * glm::dmat3(1) +
-                        (1.0 - rotation_cosine) * glm::outerProduct(rotation_axis, rotation_axis) +
-                        rotation_sine * axis_cross);
-                    rotation = rotation.glmValue() * axis_rotation;
-                }
+                rotation.RotateAroundAxis(sin(trigger->angle), cos(trigger->angle), axis);
             }
 
             transformed.x = glm::dot(rotation.vectors[1].glmValue(), target.glmValue());
@@ -1925,8 +1916,8 @@ Trigger* Trigger::CreateAndLoadLevelTrigger(wiz8::File* handle, W8World* world)
         if (trigger->initial_action == 0x0c) {
             if (trigger->m_lData1 < 0 ||
                 trigger->m_lData1 >= static_cast<int>(g_missile_table_count)) {
-                srAssertFail(
-                    "((pTrigger->m_lData1 >= 0) && (pTrigger->m_lData1 < Missile::GetNumTypes()))",
+                srAssertFail("((pTrigger->m_lData1 >= 0) && (pTrigger->m_lData1 < "
+                             "Missile::GetNumTypes()))",
                     "C:\\Projects\\Wizardry 8\\Engine Code\\Trigger.cpp", 0xf14,
                     FormatString(
                         "Trigger %s: You must enter a valid missile number", trigger->name));
@@ -2362,19 +2353,7 @@ void Trigger::RunDestination(const char* destination)
 
     rotation.SetIdentity();
     if (angle != 0.0f) {
-        {
-            const auto rotation_axis = glm::dvec3(destination_direction.glmValue());
-            const double rotation_sine = sin(angle);
-            const double rotation_cosine = cos(angle);
-            const auto axis_cross = glm::dmat3(glm::cross(rotation_axis, glm::dvec3(1, 0, 0)),
-                                               glm::cross(rotation_axis, glm::dvec3(0, 1, 0)),
-                                               glm::cross(rotation_axis, glm::dvec3(0, 0, 1)));
-            const auto axis_rotation = glm::mat3(
-                rotation_cosine * glm::dmat3(1) +
-                (1.0 - rotation_cosine) * glm::outerProduct(rotation_axis, rotation_axis) +
-                rotation_sine * axis_cross);
-            rotation = rotation.glmValue() * axis_rotation;
-        }
+        rotation.RotateAroundAxis(sin(angle), cos(angle), destination_direction);
     }
     ApplyCameraRotation(&rotation);
     SpawnCameraSpellEffect("set_portal", 1, 0, 0);
@@ -3212,24 +3191,11 @@ void Trigger::Run(int source)
             /* Retail rotates the identity matrix around the trigger's direction
                field (ebp+0x100), not around identity Z. */
             if (angle != 0.0f) {
-                {
-                    const auto rotation_axis = glm::dvec3(direction.glmValue());
-                    const double rotation_sine = sin(angle);
-                    const double rotation_cosine = cos(angle);
-                    const auto axis_cross =
-                        glm::dmat3(glm::cross(rotation_axis, glm::dvec3(1, 0, 0)),
-                                   glm::cross(rotation_axis, glm::dvec3(0, 1, 0)),
-                                   glm::cross(rotation_axis, glm::dvec3(0, 0, 1)));
-                    const auto axis_rotation = glm::mat3(
-                        rotation_cosine * glm::dmat3(1) +
-                        (1.0 - rotation_cosine) * glm::outerProduct(rotation_axis, rotation_axis) +
-                        rotation_sine * axis_cross);
-                    rotation = rotation.glmValue() * axis_rotation;
+                rotation.RotateAroundAxis(sin(angle), cos(angle), direction);
                 }
-            }
-            transformed = srVector3T<float>{rotation.glmValue() * target_position.glmValue()};
-            FireMissile(static_cast<unsigned int>(m_lData1), &source_position, &transformed, 0, 1,
-                        1, 50000.0f);
+                transformed = srVector3T<float>{rotation * target_position};
+                FireMissile(static_cast<unsigned int>(m_lData1), &source_position, &transformed, 0,
+                            1, 1, 50000.0f);
         } else if (m_pEvent == 0) {
             float duration = abs(m_lData2) * 0.001f;
 
@@ -3895,8 +3861,9 @@ try
         g_location_variable_levels.Add(level);
     }
     return read_ok;
+} catch (const std::exception&) {
+    return false;
 }
-catch (const std::exception&) { return false; }
 
 // FUNCTION: WIZ8 0x004445b0
 void ReleaseAllTriggers(void)

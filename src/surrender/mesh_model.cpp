@@ -419,30 +419,24 @@ void srMeshModel::calculateBounds()
     bounds_radius = 0.0f;
     if (vertex_location_count != 0) {
         srVector3T<float>* vertices = getVertexLoc();
-        if (vertex_location_count != 0) {
-            {
-                std::span<const srVector3> input_source{
-                    vertices, static_cast<std::size_t>(vertex_location_count)};
-                srVector3& input_minimum = bounds_minimum;
-                srVector3& input_maximum = bounds_maximum;
-                assert(!input_source.empty());
-                auto lower = input_source.front().glmValue();
-                auto upper = lower;
-                for (const auto& point : input_source.subspan(1)) {
-                    const auto v = point.glmValue();
-                    // Keep the comparison order for NaNs in recovered bounds.
-                    for (int c = 0; c < 3; ++c) {
-                        if (v[c] >= lower[c]) {
-                            if (v[c] > upper[c])
-                                upper[c] = v[c];
-                        } else
-                            lower[c] = v[c];
-                    }
-                }
-                input_minimum = lower;
-                input_maximum = upper;
+        assert(vertex_location_count != 0);
+        auto lower = vertices[0].glmValue();
+        auto upper = lower;
+        for (std::size_t point_index = 1; point_index < vertex_location_count;
+             ++point_index) {
+            const auto& point = vertices[point_index];
+            const auto v = point.glmValue();
+            // Keep the comparison order for NaNs in recovered bounds.
+            for (int c = 0; c < 3; ++c) {
+                if (v[c] >= lower[c]) {
+                    if (v[c] > upper[c])
+                        upper[c] = v[c];
+                } else
+                    lower[c] = v[c];
             }
         }
+        bounds_minimum = lower;
+        bounds_maximum = upper;
         bounds_center.x = (bounds_minimum.x + bounds_maximum.x) * 0.5;
         bounds_center.y = (bounds_minimum.y + bounds_maximum.y) * 0.5;
         bounds_center.z = (bounds_minimum.z + bounds_maximum.z) * 0.5;
@@ -536,21 +530,15 @@ void srMeshModel::calculateVertexNormals()
                 smooth[shade_indices[polygons[polygon].z]].z += equations[polygon].z;
             }
             if (vertex_location_count != 0) {
-                std::ranges::transform(
-                    std::span<const SRDWORD>{shade_indices,
-                                             static_cast<std::size_t>(vertex_location_count)},
-                    normals, [&](auto i) { return (smooth.data())[i]; });
+                for (std::size_t i = 0; i < vertex_location_count; ++i)
+                    normals[i] = (smooth.data())[shade_indices[i]];
             }
         }
         if (vertex_location_count != 0) {
-            std::ranges::transform(
-                std::span<const srVector3>{normals,
-                                           static_cast<std::size_t>(vertex_location_count)},
-                normals, [&](const auto& v) {
-                    return glm::length(v.glmValue()) == 0.0f
-                               ? v.glmValue() * 0.0f
-                               : glm::normalize(v.glmValue()) * static_cast<float>(1.0f);
-                });
+            for (std::size_t i = 0; i < vertex_location_count; ++i)
+                normals[i] = normals[i].Length() == 0.0f
+                                 ? normals[i].glmValue() * 0.0f
+                                 : glm::normalize(normals[i].glmValue()) * static_cast<float>(1.0f);
         }
     }
 }
@@ -1087,7 +1075,7 @@ void srMeshModel::verify(srRuntimeClass::e_verify mode)
             srAssertFail("t.vNorm", "D:\\srsdk1x\\sources\\corelib\\srMeshModel.cpp", 0x602, 0);
         }
         for (i = 0; i < t.vertex_count; ++i) {
-            if (fabs(glm::length(t.normals[i].glmValue()) - 1.0) >= 0.01) {
+            if (fabs(t.normals[i].Length() - 1.0) >= 0.01) {
                 srAssertFail("fabs(t.vNorm[i].length()-1.0) < 0.01",
                              "D:\\srsdk1x\\sources\\corelib\\srMeshModel.cpp", 0x606, 0);
             }
@@ -1597,27 +1585,23 @@ void srTriMeshPipeline::FlushSlots()
 
     if (bounds_source != srTriMeshPipeline::BOUNDS_SPHERE) {
         if (bounds_source == srTriMeshPipeline::BOUNDS_FROM_VERTICES && vertex_count != 0) {
-            {
-                std::span<const srVector3> input_source{positions, vertex_count};
-                srVector3& input_minimum = bounds_minimum;
-                srVector3& input_maximum = bounds_maximum;
-                assert(!input_source.empty());
-                auto lower = input_source.front().glmValue();
-                auto upper = lower;
-                for (const auto& point : input_source.subspan(1)) {
-                    const auto v = point.glmValue();
-                    // Keep the comparison order for NaNs in recovered bounds.
-                    for (int c = 0; c < 3; ++c) {
-                        if (v[c] >= lower[c]) {
-                            if (v[c] > upper[c])
-                                upper[c] = v[c];
-                        } else
-                            lower[c] = v[c];
-                    }
+            assert(vertex_count != 0);
+            auto lower = positions[0].glmValue();
+            auto upper = lower;
+            for (std::size_t point_index = 1; point_index < vertex_count; ++point_index) {
+                const auto& point = positions[point_index];
+                const auto v = point.glmValue();
+                // Keep the comparison order for NaNs in recovered bounds.
+                for (int c = 0; c < 3; ++c) {
+                    if (v[c] >= lower[c]) {
+                        if (v[c] > upper[c])
+                            upper[c] = v[c];
+                    } else
+                        lower[c] = v[c];
                 }
-                input_minimum = lower;
-                input_maximum = upper;
             }
+            bounds_minimum = lower;
+            bounds_maximum = upper;
         }
 
         srVector3T<float> center;
@@ -1626,7 +1610,7 @@ void srTriMeshPipeline::FlushSlots()
                    (bounds_minimum.z + bounds_maximum.z) * 0.5);
         bounds_center = center;
 
-        bounds_radius = glm::length((((bounds_center - bounds_minimum))).glmValue()) * 1.001f;
+        bounds_radius = (bounds_center - bounds_minimum).Length() * 1.001f;
     }
 
     srVector3T<float> eye_center;

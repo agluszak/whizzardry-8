@@ -191,8 +191,7 @@ bool W8ItemRep::ReadFromFile(W8ReadLevelInfo* info, W8Item* item, bool anonymous
 void W8ItemRep::RefreshBounds()
 {
     m_psrMesh->getModel()->getBoundingBox(bounds_minimum, bounds_maximum);
-    bounds_radius =
-        static_cast<float>(glm::length((((bounds_maximum - bounds_minimum))).glmValue()) * 0.5);
+    bounds_radius = static_cast<float>((bounds_maximum - bounds_minimum).Length() * 0.5);
 }
 
 // FUNCTION: WIZ8 0x0049F350
@@ -241,8 +240,9 @@ try
     file.reset();
     delete[] mesh_name;
     return success;
+} catch (const std::exception&) {
+    return false;
 }
-catch (const std::exception&) { return false; }
 
 /* On failure retail leaves the output alone and does not delete the allocated
    item. This is not an owning smart-pointer factory. */
@@ -278,13 +278,7 @@ void W8Item::UpdateAnimation()
         m_pRep->GetRotation(&rotation);
         double cosine = cos(-0.1963495375);
         double sine = sin(-0.1963495375);
-        {
-            const double rotation_sine = sine;
-            const double rotation_cosine = cosine;
-            const auto axis_rotation = glm::dmat3(rotation_cosine, 0, -rotation_sine, 0, 1, 0,
-                                                  rotation_sine, 0, rotation_cosine);
-            rotation = rotation.glmValue() * glm::mat3(axis_rotation);
-        }
+        rotation.RotateAboutY(sine, cosine);
         srNode* mesh = rep->m_psrMesh;
         m_pRep->SetRotation(&rotation);
         if (mesh->first_child_ == 0) {
@@ -358,13 +352,7 @@ void W8Item::SetYaw(float angle)
     if (yaw != 0.0) {
         double cosine = cos(yaw);
         double sine = sin(yaw);
-        {
-            const double rotation_sine = sine;
-            const double rotation_cosine = cosine;
-            const auto axis_rotation = glm::dmat3(rotation_cosine, 0, -rotation_sine, 0, 1, 0,
-                                                  rotation_sine, 0, rotation_cosine);
-            rotation = rotation.glmValue() * glm::mat3(axis_rotation);
-        }
+        rotation.RotateAboutY(sine, cosine);
     }
     srNode* mesh = static_cast<W8ItemRep*>(m_pRep)->m_psrMesh;
     m_pRep->SetRotation(&rotation);
@@ -427,7 +415,7 @@ float W8Item::DistanceToCamera(W8World* world)
     /* Unlike the selection-point helper, retail offsets Z by half the Z
        extent here, not Y by 0.66 of the Y extent. */
     center.z += (upper.z - lower.z) * 0.5f;
-    return glm::length((((camera_location - center))).glmValue());
+    return (camera_location - center).Length();
 }
 
 // FUNCTION: WIZ8 0x004A0030

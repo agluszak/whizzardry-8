@@ -88,10 +88,8 @@ int srTriangleCuller::setClipFlags(w8_ulong* clip_flags, float* distances,
                                    w8_ulong shift, w8_ulong count, int first)
 {
     w8_ulong collected = 0;
-    std::ranges::transform(
-        std::span<const srVector3>{vertices, count}, distances, [&](const auto& v) {
-            return glm::dot(v.glmValue(), glm::vec3(plane.glmValue())) + (plane).w;
-        });
+    for (std::size_t i = 0; i < count; ++i)
+        distances[i] = glm::dot(vertices[i].glmValue(), glm::vec3(plane.glmValue())) + plane.w;
     /* reinterpret-ok: the outside test reads the distances' IEEE sign bits. */
     const w8_ulong* bits = reinterpret_cast<const w8_ulong*>(distances);
     w8_ulong index = 0;
@@ -292,9 +290,8 @@ w8_ulong srTriangleCuller::cullNoClipAPT(w8_ulong* indices, const w8_ulong* acti
         if (0x100 < chunk) {
             chunk = 0x100;
         }
-        std::ranges::transform(
-            std::span<const SRDWORD>{active + base, chunk}, distances,
-            [&](auto i) { return glm::dot((projected)[i].glmValue(), constant.glmValue()); });
+        for (std::size_t i = 0; i < chunk; ++i)
+            distances[i] = glm::dot(projected[active[base + i]].glmValue(), constant.glmValue());
         w8_ulong found = collectNegative(indices + collected, distances, base, chunk);
         if (found != 0) {
             w8_ulong* destination = indices + collected;
@@ -415,36 +412,21 @@ w8_ulong srTriangleCuller::buildAVT(w8_ulong* avt, w8_ulong* vertex_scratch,
                                          const w8_ulong* indices, const srVector3i* triangles,
                                          w8_ulong triangle_count, w8_ulong vertex_count)
 {
-    std::fill_n(reinterpret_cast<SRBYTE*>(vertex_scratch), vertex_count, SRBYTE{});
-    /* reinterpret-ok: the flag scratch holds one SRBYTE per vertex here and is reused as the dword
-       inverse remap below. */
-    {
-        SRBYTE* input_destination = reinterpret_cast<SRBYTE*>(vertex_scratch);
-        const srVector3i* input_source = triangles;
-        std::span<const SRDWORD> input_indices{indices, static_cast<std::size_t>(triangle_count)};
-        for (auto i : input_indices) {
-            input_destination[input_source[i].x] = 1;
-            input_destination[input_source[i].y] = 1;
-            input_destination[input_source[i].z] = 1;
-        }
+    /* reinterpret-ok: the scratch holds one byte flag per vertex here, then is
+       reused as the dword inverse remap after collecting the active indices. */
+    auto* flags = reinterpret_cast<SRBYTE*>(vertex_scratch);
+    std::fill_n(flags, vertex_count, SRBYTE{});
+    for (w8_ulong i = 0; i < triangle_count; ++i) {
+        const auto& triangle = triangles[indices[i]];
+        flags[triangle.x] = flags[triangle.y] = flags[triangle.z] = 1;
     }
-    w8_ulong count = [&]() {
-        auto destination = std::span<SRDWORD>{avt, vertex_count};
-        auto source =
-            std::span<const SRBYTE>{reinterpret_cast<const SRBYTE*>(vertex_scratch), vertex_count};
-        SRDWORD collected = 0;
-        for (std::size_t i = 0; i < destination.size(); ++i) {
-            if (source[i])
-                destination[collected++] = static_cast<SRDWORD>(i);
-        }
-        return collected;
-    }();
-    {
-        SRDWORD* input_destination = vertex_scratch;
-        std::span<const SRDWORD> input_map{avt, count};
-        for (std::size_t i = 0; i < input_map.size(); ++i)
-            input_destination[input_map[i]] = static_cast<SRDWORD>(i);
-    }
+    w8_ulong count = 0;
+    for (w8_ulong i = 0; i < vertex_count; ++i)
+        if (flags[i])
+            avt[count++] = i;
+    for (w8_ulong i = 0; i < count; ++i)
+        vertex_scratch[avt[i]] = i;
+
     return count;
 }
 

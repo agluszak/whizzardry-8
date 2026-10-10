@@ -380,7 +380,7 @@ srCamera::e_projectionResult srCamera::project(srVector3T<float>& output,
     getWorldSpaceRotation(rotation);
     srVector3T<double> location = getWorldSpaceLocation();
     srVector3T<double> delta = input - location;
-    srVector3T<double> point = srVector3T<double>{rotation.glmValue() * delta.glmValue()};
+    srVector3T<double> point = srVector3T<double>{rotation * delta};
 
     double near_clip = this->near_clip < this->far_clip ? this->near_clip : this->far_clip;
     double far_clip = this->near_clip < this->far_clip ? this->far_clip : this->near_clip;

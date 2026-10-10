@@ -834,12 +834,12 @@ void WorldSetCameraLocation(W8World* world, const srVector3T<float>* location)
         srAssertFail("pWorld", THREE_D_API_CPP, 0x422, 0);
     }
     if (world->camera != 0) {
-        position = glm::dvec3((location)->glmValue());
+        position = glm::dvec3(location->glmValue());
         world->camera->setLocation(position);
         PlacePartyAtPoint(location);
     }
     if (world->camera_light != 0) {
-        position = glm::dvec3((location)->glmValue());
+        position = glm::dvec3(location->glmValue());
         world->camera_light->setLocation(position);
     }
 }
@@ -1053,24 +1053,12 @@ unsigned char AdjustWorldCollisionPosition(float radius, srVector3T<float>* posi
 
     do {
         srVector3T<float> first(0.0f, 0.0f, radius);
-        {
-            const double rotation_sine = sin(angle);
-            const double rotation_cosine = cos(angle);
-            const auto axis_rotation = glm::dmat3(rotation_cosine, 0, -rotation_sine, 0, 1, 0,
-                                                  rotation_sine, 0, rotation_cosine);
-            first = glm::vec3(axis_rotation * glm::dvec3(first.glmValue()));
-        }
+        first.RotateAboutY(sin(angle), cos(angle));
         first += *position;
 
         double opposite_angle = angle + g_camera_pi;
         srVector3T<float> second(0.0f, 0.0f, radius);
-        {
-            const double rotation_sine = sin(opposite_angle);
-            const double rotation_cosine = cos(opposite_angle);
-            const auto axis_rotation = glm::dmat3(rotation_cosine, 0, -rotation_sine, 0, 1, 0,
-                                                  rotation_sine, 0, rotation_cosine);
-            second = glm::vec3(axis_rotation * glm::dvec3(second.glmValue()));
-        }
+        second.RotateAboutY(sin(opposite_angle), cos(opposite_angle));
         second += *position;
 
         g_octree->TraceLineOfSight(position, &first, true, -3, -3, true, 0);
@@ -1078,25 +1066,15 @@ unsigned char AdjustWorldCollisionPosition(float radius, srVector3T<float>* posi
 
         first -= *position;
         second -= *position;
-        float first_distance = glm::length(first.glmValue());
-        if (first_distance < threshold && glm::length(second.glmValue()) < threshold) {
+        float first_distance = first.Length();
+        if (first_distance < threshold && second.Length() < threshold) {
             return 0;
         }
         if (first_distance < threshold) {
-            {
-                const auto direction_value = first.glmValue();
-                if (glm::dot(direction_value, direction_value) != 0)
-                    (first) = glm::normalize(direction_value) *
-                              static_cast<float>(radius - first_distance);
-            }
+            first.SetLength(radius - first_distance);
             *position -= first;
         } else {
-            {
-                const auto direction_value = second.glmValue();
-                if (glm::dot(direction_value, direction_value) != 0)
-                    (second) = glm::normalize(direction_value) *
-                               static_cast<float>(radius - glm::length(second.glmValue()));
-            }
+            second.SetLength(radius - second.Length());
             *position -= second;
         }
         angle += 0.7853981256484985f;
@@ -1112,7 +1090,7 @@ unsigned char AdjustWorldCollisionPosition(float radius, srVector3T<float>* posi
                 owner->GetSearchPosition(&center);
                 owner->GetBoundsRadius(&other_radius);
                 srVector3T<float> delta = center - *position;
-                if (glm::length(delta.glmValue()) < other_radius + radius) {
+                if (delta.Length() < other_radius + radius) {
                     return 0;
                 }
             }
@@ -1130,7 +1108,7 @@ unsigned char AdjustWorldCollisionPosition(float radius, srVector3T<float>* posi
                 monster->GetAnimationCenter(&center);
                 monster->GetAnimationRadius(&other_radius);
                 srVector3T<float> delta = center - *position;
-                if (glm::length(delta.glmValue()) < other_radius + radius) {
+                if (delta.Length() < other_radius + radius) {
                     return 0;
                 }
             }
@@ -1156,13 +1134,7 @@ unsigned char FindNearbyFreePosition(float radius, srVector3T<float>* position, 
     float diameter = radius + radius;
     do {
         srVector3T<float> offset(0.0f, 0.0f, diameter);
-        {
-            const double rotation_sine = sin(angle);
-            const double rotation_cosine = cos(angle);
-            const auto axis_rotation = glm::dmat3(rotation_cosine, 0, -rotation_sine, 0, 1, 0,
-                                                  rotation_sine, 0, rotation_cosine);
-            offset = glm::vec3(axis_rotation * glm::dvec3(offset.glmValue()));
-        }
+        offset.RotateAboutY(sin(angle), cos(angle));
         candidate = offset + *position;
         srVector3T<float> unblocked = candidate;
 

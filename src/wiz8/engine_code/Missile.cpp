@@ -119,20 +119,8 @@ unsigned char UpdateMissileAI(W8AIMissile* record)
         position = missile->GetPosition();
         yaw = HeadingToTargetCPP(&position);
         rotation.SetIdentity();
-        {
-            if (yaw != 0.0) {
-                rotation = rotation.glmValue() *
-                           glm::mat3(glm::rotate(glm::dmat4(1), static_cast<double>(yaw),
-                                                 glm::dvec3(0, 1, 0)));
-            }
-        }
-        {
-            if (pitch != 0.0) {
-                rotation = rotation.glmValue() *
-                           glm::mat3(glm::rotate(glm::dmat4(1), static_cast<double>(pitch),
-                                                 glm::dvec3(1, 0, 0)));
-            }
-        }
+        rotation.RotateAboutY(yaw);
+        rotation.RotateAboutX(pitch);
         missile->m_pRep->SetRotation(&rotation);
         return 1;
     }
@@ -163,20 +151,8 @@ unsigned char UpdateMissileAI(W8AIMissile* record)
         pitch = ElevationToTargetCPP(&out);
         yaw = HeadingToTargetCPP(&out);
         rotation.SetIdentity();
-        if (yaw != 0.0) {
-            {
-                rotation = rotation.glmValue() *
-                           glm::mat3(glm::rotate(glm::dmat4(1), static_cast<double>(yaw),
-                                                 glm::dvec3(0, 1, 0)));
-            }
-        }
-        if (pitch != 0.0) {
-            {
-                rotation = rotation.glmValue() *
-                           glm::mat3(glm::rotate(glm::dmat4(1), static_cast<double>(pitch),
-                                                 glm::dvec3(1, 0, 0)));
-            }
-        }
+        rotation.RotateAboutY(yaw);
+        rotation.RotateAboutX(pitch);
         missile->m_pRep->SetRotation(&rotation);
     }
     if (advance + record->elapsed <= missile->duration) {
@@ -249,20 +225,8 @@ float AdvanceMissileAI(W8AIMissile* record, srVector3T<float>* out, unsigned int
                 yaw = GetHeadingAngle(&representation->location, out);
                 missile = record->missile;
                 rotation.SetIdentity();
-                if (yaw != 0.0) {
-                    {
-                        rotation = rotation.glmValue() *
-                                   glm::mat3(glm::rotate(glm::dmat4(1), static_cast<double>(yaw),
-                                                         glm::dvec3(0, 1, 0)));
-                    }
-                }
-                if (pitch != 0.0) {
-                    {
-                        rotation = rotation.glmValue() *
-                                   glm::mat3(glm::rotate(glm::dmat4(1), static_cast<double>(pitch),
-                                                         glm::dvec3(1, 0, 0)));
-                    }
-                }
+                rotation.RotateAboutY(yaw);
+                rotation.RotateAboutX(pitch);
                 missile->m_pRep->SetRotation(&rotation);
                 missile->SetTargetYaw(yaw);
                 missile->SetTargetPitch(pitch);
@@ -326,8 +290,9 @@ try
     if (handle) handle->close();
     handle.reset();
     return success;
+} catch (const std::exception&) {
+    return false;
 }
-catch (const std::exception&) { return false; }
 
 /* Release the one allocation that owns every runtime missile-table row. */
 // FUNCTION: WIZ8 0x004a5760
@@ -377,29 +342,17 @@ void GetCharacterProjectilePosition(unsigned int character_index, srVector3T<flo
     if (angle != 0.0) {
         cosine = cos(angle);
         sine = sin(angle);
-        {
-            const double rotation_sine = sine;
-            const double rotation_cosine = cosine;
-            const auto axis_rotation = glm::dmat3(rotation_cosine, 0, -rotation_sine, 0, 1, 0,
-                                                  rotation_sine, 0, rotation_cosine);
-            rotation = rotation.glmValue() * glm::mat3(axis_rotation);
-        }
+        rotation.RotateAboutY(sine, cosine);
     }
     angle = -GetCameraPitchRadians();
     if (angle != 0.0) {
         cosine = cos(angle);
         sine = sin(angle);
-        {
-            const double rotation_sine = sine;
-            const double rotation_cosine = cosine;
-            const auto axis_rotation = glm::dmat3(1, 0, 0, 0, rotation_cosine, rotation_sine, 0,
-                                                  -rotation_sine, rotation_cosine);
-            rotation = rotation.glmValue() * glm::mat3(axis_rotation);
+        rotation.RotateAboutX(sine, cosine);
         }
-    }
-    position->x = glm::dot(rotation.vectors[0].glmValue(), (*position).glmValue());
-    position->y = glm::dot(rotation.vectors[1].glmValue(), (*position).glmValue());
-    position->z = glm::dot(rotation.vectors[2].glmValue(), (*position).glmValue());
+        position->x = glm::dot(rotation.vectors[0].glmValue(), position->glmValue());
+        position->y = glm::dot(rotation.vectors[1].glmValue(), position->glmValue());
+        position->z = glm::dot(rotation.vectors[2].glmValue(), position->glmValue());
     *position += camera;
 }
 
@@ -746,38 +699,14 @@ W8Missile* CreateMissile(unsigned int missile_table_index, srVector3T<float>* so
         missile->m_pRep->pending_subcycle = 0;
         missile->m_pRep->subcycle = 0;
         rotation.SetIdentity();
-        if (heading != g_double_zero) {
-            {
-                rotation = rotation.glmValue() *
-                           glm::mat3(glm::rotate(glm::dmat4(1), static_cast<double>(heading),
-                                                 glm::dvec3(0, 1, 0)));
-            }
-        }
-        if (pitch != g_double_zero) {
-            {
-                rotation = rotation.glmValue() *
-                           glm::mat3(glm::rotate(glm::dmat4(1), static_cast<double>(pitch),
-                                                 glm::dvec3(1, 0, 0)));
-            }
-        }
-        direction = rotation.glmValue() * direction.glmValue();
+        rotation.RotateAboutY(heading);
+        rotation.RotateAboutX(pitch);
+        direction = rotation * direction;
         missile->SetVelocity(&direction);
         missile->SetCyclePosition(source);
         aim.SetIdentity();
-        {
-            if (heading != 0.0) {
-                aim = aim.glmValue() *
-                      glm::mat3(glm::rotate(glm::dmat4(1), static_cast<double>(heading),
-                                            glm::dvec3(0, 1, 0)));
-            }
-        }
-        {
-            if (pitch != 0.0) {
-                aim = aim.glmValue() *
-                      glm::mat3(glm::rotate(glm::dmat4(1), static_cast<double>(pitch),
-                                            glm::dvec3(1, 0, 0)));
-            }
-        }
+        aim.RotateAboutY(heading);
+        aim.RotateAboutX(pitch);
         missile->m_pRep->SetRotation(&aim);
         missile->SetAngles(heading);
         missile->SetPitch(pitch);
@@ -787,7 +716,7 @@ W8Missile* CreateMissile(unsigned int missile_table_index, srVector3T<float>* so
             end = end + *source;
             if (octree->TraceLineOfSight(source, &end, false, -3, -3, true, 0) != 0) {
                 end -= *source;
-                limit = glm::length(end.glmValue());
+                limit = end.Length();
                 if (limit < g_float_one) {
                     limit = 1.0f;
                 }

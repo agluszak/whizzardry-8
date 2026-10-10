@@ -304,8 +304,9 @@ try
             FormatString("GrCycle::Read: ERROR - Read %s in %s failed", mon_path, bitmap_path));
     }
     return success;
+} catch (const std::exception&) {
+    return false;
 }
-catch (const std::exception&) { return false; }
 
 /* Read the shared path and particle prefix, then dispatch the object-specific
    representation payload.  A particle attachment keeps the source node plus
@@ -408,8 +409,9 @@ try
         break;
     }
     return success;
+} catch (const std::exception&) {
+    return false;
 }
-catch (const std::exception&) { return false; }
 
 // FUNCTION: WIZ8 0x004a5e50
 W8GrCycle::W8GrCycle()
@@ -921,7 +923,7 @@ void W8GrCycle::UpdateRepresentation(W8World* pWorld)
             psrMesh->setLocation(location);
             pRep->GetRotation(&rotation);
             psrMesh->getRotation(current);
-            rotation = rotation.glmValue() * current.glmValue();
+            rotation = rotation * current;
             psrMesh->setRotation(rotation);
             current_model_instance = psrMesh;
         }
@@ -989,8 +991,7 @@ void W8GrCycle::UpdateRepresentation(W8World* pWorld)
             stLight* light = *m_plsLights->GetAt(index);
             srVector3T<float> offset = light->m_position;
 
-            srVector3T<float> placed =
-                srVector3T<float>{rotation.glmValue() * offset.glmValue()} + origin;
+            srVector3T<float> placed = srVector3T<float>{rotation * offset} + origin;
             location = glm::dvec3((&placed)->glmValue());
             light->setLocation(location);
         }
@@ -1145,7 +1146,7 @@ void W8GrCycle::UpdateParticleAttachments()
         offset.x *= scale_x;
         offset.y *= scale_y;
         offset.z *= scale_z;
-        placed = srVector3T<float>{rotation.glmValue() * offset.glmValue()};
+        placed = srVector3T<float>{rotation * offset};
         location = current_model_instance->getLocation();
         srVector3T<float> anchor;
         anchor = glm::vec3((&location)->glmValue());
@@ -1182,7 +1183,7 @@ void W8GrCycle::SelectLOD(const srVector3T<float>* position)
 {
     W8EmitterHost* pRep = GetRepresentation();
     srVector3T<float> delta = pRep->location - *position;
-    float distance = glm::length(delta.glmValue());
+    float distance = delta.Length();
     bool has_lod_2 = pRep->SetCycleFrameLod(pRep->current_cycle, 0, 2) != 0;
     bool has_lod_1 = pRep->SetCycleFrameLod(pRep->current_cycle, 0, 1) != 0;
     bool has_lod_0 = pRep->SetCycleFrameLod(pRep->current_cycle, 0, 0) != 0;

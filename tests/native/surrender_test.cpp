@@ -91,8 +91,7 @@ template <class T> static bool rotations()
             const auto renderer = formerRotation(sine, cosine, axis, true);
             srMatrix3T<T> actual;
             actual.SetIdentity();
-            actual =
-                glm::mat<3, 3, T>(glm::rotate(glm::dmat4(1), angle, glm::dvec3(axis.glmValue())));
+            CHECK(actual.RotateAroundAxis(angle, axis) == &actual);
             const auto unit_axis = glm::normalize(glm::dvec3(axis.glmValue()));
             const long double a[] = {unit_axis.x, unit_axis.y, unit_axis.z};
             for (int row = 0; row < 3; ++row) {
@@ -121,12 +120,20 @@ template <class T> static bool rotations()
                 }
             }
 
+            srMatrix3T<T> by_coefficients;
+            by_coefficients.SetIdentity();
+            CHECK(by_coefficients.RotateAroundAxis(sine, cosine, axis) == &by_coefficients);
+            const auto coefficient_delta = by_coefficients.glmValue() - game.glmValue();
+            for (int column = 0; column < 3; ++column)
+                for (int row = 0; row < 3; ++row)
+                    CHECK(std::abs(coefficient_delta[column][row]) <= 4 * epsilon);
+
             srMatrix3T<T> composed;
             composed.SetIdentity();
-            composed = glm::mat<3, 3, T>(glm::rotate(glm::dmat4(1), 0.37, glm::dvec3(0, 1, 0)));
+            composed.RotateAboutY(0.37);
             auto expected = composed;
-            expected = expected.glmValue() * game.glmValue();
-            composed = composed.glmValue() * actual.glmValue();
+            expected = expected * game;
+            composed = composed * actual;
             const auto composed_delta = composed.glmValue() - expected.glmValue();
             for (int col = 0; col < 3; ++col)
                 for (int row = 0; row < 3; ++row)

@@ -376,8 +376,7 @@ bool ResolvePickedProp(W8World* world)
 
                 AnimObjGetBounds(representation->animation, 2, representation->subcycle, &minimum,
                                  &maximum);
-                distance =
-                    glm::length(((((minimum + maximum) * 0.5 - camera_position))).glmValue());
+                distance = ((((minimum + maximum) * 0.5 - camera_position))).Length();
                 if (trigger->range_minimum <= distance) {
                     g_selected_prop_index = prop_index;
                     if (distance <= trigger->range_maximum) {
@@ -1208,8 +1207,9 @@ try
         ApplyAnimationFrame();
     }
     return success;
+} catch (const std::exception&) {
+    return false;
 }
-catch (const std::exception&) { return false; }
 
 /* Union of the per-frame bounds over every frame of the rep's animation.
    The rep's current frame is saved, the bounds for frame zero seed the merge,
@@ -1349,7 +1349,7 @@ bool W8Prop::IsTriggerInView(srVector3T<float>* position)
         AnimObjGetBounds(Rep()->animation, 2, Rep()->subcycle, &minimum, &maximum);
         center.Set((minimum.x + maximum.x) * g_double_half, (minimum.y + maximum.y) * g_double_half,
                    (minimum.z + maximum.z) * g_double_half);
-        distance = glm::length((((center - *position))).glmValue());
+        distance = (center - *position).Length();
         if (distance < trigger->range_maximum && trigger->range_minimum <= distance) {
             {
                 srVector3T<double> input(static_cast<double>(center.x),
@@ -1772,8 +1772,9 @@ fail:
 fail_with_result:
     srAssertFail("fSuccess", PROP_CPP, fail_line, 0);
     return result;
+} catch (const std::exception&) {
+    return false;
 }
-catch (const std::exception&) { return false; }
 
 /* The prop representation's current animation value, or -1 while it owns no
    animation. */

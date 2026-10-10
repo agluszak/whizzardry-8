@@ -1477,7 +1477,7 @@ void srGERD::ortho(double left, double right, double bottom, double top, double 
 // FUNCTION: SURRENDER 0x100223A0
 void srGERD::rotate(double angle, const srVector3T<double>& axis)
 {
-    double length_sq = glm::dot(axis.glmValue(), axis.glmValue());
+    double length_sq = axis.LengthSquared();
     if (length_sq != 0.0) {
         srMatrix4T<double> rotation;
         srVector3T<double> unit_axis;
@@ -2243,7 +2243,7 @@ void srGERD::classifyMatrix(e_matrixMode mode)
         }
         state.modelview_scale_type = srMatrix4T<float>::SCALE_TYPE_NON_UNIFORM;
         state.max_modelview_scale = (float)sqrt(length0);
-        (*inverse) = glm::inverse((*modelview).glmValue());
+        (*inverse) = glm::inverse(modelview->glmValue());
         srMatrix4T<float> normalized = *modelview;
         normalized.vectors[0].x *= inv0;
         normalized.vectors[0].y *= inv1;
@@ -2876,7 +2876,7 @@ srGERD::e_visibility srGERD::testBoundingBox(const srVector3T<float>& minimum,
     statistics.box_tests++;
     checkViewStateChanges();
     srMatrix4T<float> combined = state.matrix_current[MATRIX_PROJECTION];
-    combined = combined.glmValue() * state.matrix_current[MATRIX_MODELVIEW].glmValue();
+    combined = combined * state.matrix_current[MATRIX_MODELVIEW];
     if (srRender::testBoundingBox(combined, minimum, maximum)) {
         statistics.box_visible++;
         return static_cast<e_visibility>(1);
@@ -4745,8 +4745,8 @@ void srGERD::accumulate(e_accum operation, float scale)
             }
             for (w8_long y = 0; y < height; y++) {
                 surface->getPixelRow(
-                    reinterpret_cast<w8_ulong*>(
-                        pixels), // reinterpret-ok: ARGB row buffer through the dword pixel-row ABI
+                    reinterpret_cast<w8_ulong*>(pixels), // reinterpret-ok: ARGB row buffer
+                                                         // through the dword pixel-row ABI
                     state.scissor.top + y, state.scissor.left, state.scissor.right);
                 for (w8_long x = 0; x < width; x++) {
                     row[x].red = row[x].red + table[pixels[x].blue];
@@ -4765,8 +4765,8 @@ void srGERD::accumulate(e_accum operation, float scale)
             }
             for (w8_long y = 0; y < height; y++) {
                 surface->getPixelRow(
-                    reinterpret_cast<w8_ulong*>(
-                        pixels), // reinterpret-ok: ARGB row buffer through the dword pixel-row ABI
+                    reinterpret_cast<w8_ulong*>(pixels), // reinterpret-ok: ARGB row buffer
+                                                         // through the dword pixel-row ABI
                     state.scissor.top + y, state.scissor.left, state.scissor.right);
                 for (w8_long x = 0; x < width; x++) {
                     row[x].red = table[pixels[x].blue];
@@ -4821,8 +4821,8 @@ void srGERD::accumulate(e_accum operation, float scale)
                     pixels[x].alpha = table[((unsigned short)row[x].alpha) >> 7];
                 }
                 surface->setPixelRow(
-                    reinterpret_cast<const w8_ulong*>(
-                        pixels), // reinterpret-ok: ARGB row buffer through the dword pixel-row ABI
+                    reinterpret_cast<const w8_ulong*>(pixels), // reinterpret-ok: ARGB row buffer
+                                                               // through the dword pixel-row ABI
                     state.scissor.top + y, state.scissor.left, state.scissor.right);
                 row += getWidth();
             }

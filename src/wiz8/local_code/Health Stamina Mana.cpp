@@ -338,7 +338,7 @@ void DamageMonstersInRadius(const srVector3T<float>& center, float radius, const
             MonsterGetLocation(monster_info->p3D, &location);
             offset = srVector3T<float>(center.x - location.x, center.y - location.y,
                                        center.z - location.z);
-            if (glm::length(offset.glmValue()) <= radius) {
+            if (offset.Length() <= radius) {
                 damage = RollDice(dice);
                 ApplyDamageToMonster(monster_info, damage, source, false, 1, 0, result, false);
             }
@@ -954,7 +954,9 @@ void FatigueCharacter(int party_slot, int amount, bool scale_by_load,
 
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored                                                                   \
-    "-Wsometimes-uninitialized" // uninit-ok: retail's invalid-load assertion continues without assigning a percentage; that unresolved value still affects stamina
+    "-Wsometimes-uninitialized" // uninit-ok: retail's invalid-load assertion continues without
+                                // assigning a percentage; that unresolved value still affects
+                                // stamina
     if (scale_by_load) {
         switch (character->load_category) {
         case 0:

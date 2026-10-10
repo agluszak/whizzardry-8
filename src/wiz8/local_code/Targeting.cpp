@@ -1347,7 +1347,7 @@ void CollectMonstersWithinRadius(const srVector3T<float>* centre, const srVector
         }
 
         position = monster->GetPosition();
-        if (radius < glm::length((((*centre - position))).glmValue()) - monster->radius) {
+        if (radius < (*centre - position).Length() - monster->radius) {
             if (highlighting != 0) {
                 srVector4T<float> block;
                 block.Set(0.0f, 0.0f, 0.0f, 0.0f);

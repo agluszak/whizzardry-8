@@ -677,8 +677,13 @@ void ActivateItem(W8WorldItem* item)
     if (![&]() { const auto status = wiz8::file_status(zItemFullPath); return status && status->info.type == SDL_PATHTYPE_FILE; }()) {
         strcpy(zItemName, "questionmark");
         sprintf(zItemFullPath, "%s\\%s.ITM", "Data\\Items3D", zItemName);
-        if (![&]() { const auto status = wiz8::file_status(zItemFullPath); return status && status->info.type == SDL_PATHTYPE_FILE; }()) {
-            srAssertFail("[&]() { const auto status = wiz8::file_status(zItemFullPath); return status && status->info.type == SDL_PATHTYPE_FILE; }()", ITEM_MANAGER_CPP, 0x1ed,
+        if (![&]() {
+                const auto status = wiz8::file_status(zItemFullPath);
+                return status && status->info.type == SDL_PATHTYPE_FILE;
+            }()) {
+            srAssertFail("[&]() { const auto status = wiz8::file_status(zItemFullPath); return "
+                         "status && status->info.type == SDL_PATHTYPE_FILE; }()",
+                         ITEM_MANAGER_CPP, 0x1ed,
                          FormatString("ActivateItem: ERROR - missing ITM file %s, item %d",
                                       zItemFullPath, item->item.iItemNo));
         }
@@ -880,7 +885,7 @@ void DropHeldItem(int)
 
     srMatrix3T<float> rotation;
     WorldGetCameraRotation(g_world, &rotation);
-    direction = srVector3T<float>{rotation.glmValue() * direction.glmValue()};
+    direction = srVector3T<float>{rotation * direction};
 
     srVector3T<float> camera;
     GetCameraPosition(&camera);
@@ -888,7 +893,7 @@ void DropHeldItem(int)
     g_octree->TraceLineOfSight(&camera, &direction, true, -3, -3, true, 0);
 
     srVector3T<float> delta = direction - camera;
-    float distance_squared = glm::dot(delta.glmValue(), delta.glmValue());
+    float distance_squared = delta.LengthSquared();
     float distance = static_cast<float>(sqrt(distance_squared)) - g_float_one_hundred_twenty_five;
     if (distance < g_float_zero) {
         distance = g_float_zero;
@@ -1067,7 +1072,7 @@ bool IsWorldItemWithinReach(W8Item* owner, const srVector3T<float>* from, float 
     GetCameraPosition(&eye);
 
     srVector3T<float> delta = position - *from;
-    if (glm::length(delta.glmValue()) < radius) {
+    if (delta.Length() < radius) {
         owner->GetCachedLocalBounds(&lower, &upper);
         lower += position;
         upper += position;
@@ -1092,7 +1097,7 @@ static bool IsWorldItemMarkerVisible(W8WorldItem* item, const srVector3T<float>&
         item->p3D->m_pRep->GetLocation(&position);
         GetCameraPosition(&eye);
         srVector3T<float> delta = position - camera;
-        if (glm::length(delta.glmValue()) < static_cast<float>(g_double_twenty_five_hundred)) {
+        if (delta.Length() < static_cast<float>(g_double_twenty_five_hundred)) {
             item->p3D->GetCachedLocalBounds(&lower, &upper);
             lower += position;
             upper += position;

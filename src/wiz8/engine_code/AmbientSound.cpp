@@ -76,21 +76,9 @@ bool W8AmbientSound::IsInsideRegion(const srVector3T<float>* listener)
 
         rotation.SetIdentity();
         if (angle != g_double_zero) {
-            {
-                const auto rotation_axis = glm::dvec3(region_axis.glmValue());
-                const double rotation_sine = sin(angle);
-                const double rotation_cosine = cos(angle);
-                const auto axis_cross = glm::dmat3(glm::cross(rotation_axis, glm::dvec3(1, 0, 0)),
-                                                   glm::cross(rotation_axis, glm::dvec3(0, 1, 0)),
-                                                   glm::cross(rotation_axis, glm::dvec3(0, 0, 1)));
-                const auto axis_rotation = glm::mat3(
-                    rotation_cosine * glm::dmat3(1) +
-                    (1.0 - rotation_cosine) * glm::outerProduct(rotation_axis, rotation_axis) +
-                    rotation_sine * axis_cross);
-                rotation = rotation.glmValue() * axis_rotation;
+            rotation.RotateAroundAxis(sin(angle), cos(angle), region_axis);
             }
-        }
-        relative = rotation.glmValue() * relative.glmValue();
+            relative = rotation * relative;
     }
     return PointInsideBounds(&relative, &region_min, &region_max);
 }
@@ -111,7 +99,7 @@ void W8AmbientSound::UpdatePosition(const srVector3T<float>* listener)
     }
     {
         srVector3T<float> to_listener = *listener - position;
-        float distance = glm::length(to_listener.glmValue());
+        float distance = to_listener.Length();
         unsigned char inside = IsInsideRegion(listener);
 
         if (radius <= distance || (bounded != 0 && inside == 0)) {
@@ -126,7 +114,7 @@ void W8AmbientSound::UpdatePosition(const srVector3T<float>* listener)
                         {
                             srVector3T<float> to_match = *listener - match->position;
                             unsigned char match_inside = match->IsInsideRegion(listener);
-                            if (glm::length(to_match.glmValue()) < match->radius &&
+                            if (to_match.Length() < match->radius &&
                                 (match->bounded == 0 || match_inside != 0) &&
                                 match->sound_handle == -1) {
                                 match->in_range = 1;
@@ -181,15 +169,9 @@ void W8AmbientSound::UpdatePosition(const srVector3T<float>* listener)
                 unsigned int volume;
 
                 rotation.SetIdentity();
-                if (angle != g_double_zero) {
-                    {
-                        rotation = rotation.glmValue() *
-                                   glm::mat3(glm::rotate(glm::dmat4(1), static_cast<double>(angle),
-                                                         glm::dvec3(0, 1, 0)));
-                    }
-                }
+                rotation.RotateAboutY(angle);
                 srVector3T<float> offset = position - *listener;
-                transformed = srVector3T<float>{rotation.glmValue() * offset.glmValue()};
+                transformed = srVector3T<float>{rotation * offset};
                 Sound3DSetPosition(sound_handle, transformed.x, transformed.y, transformed.z);
                 Sound3DSetDirection(sound_handle, -transformed.x, -transformed.y, -transformed.z,
                                     0.0f, g_float_one, 0.0f);
@@ -272,15 +254,9 @@ void W8AmbientSound::Service(bool entered)
 
                 GetCameraPosition(&camera);
                 rotation.SetIdentity();
-                if (angle != g_double_zero) {
-                    {
-                        rotation = rotation.glmValue() *
-                                   glm::mat3(glm::rotate(glm::dmat4(1), static_cast<double>(angle),
-                                                         glm::dvec3(0, 1, 0)));
-                    }
-                }
+                rotation.RotateAboutY(angle);
                 offset = position - camera;
-                transformed = srVector3T<float>{rotation.glmValue() * offset.glmValue()};
+                transformed = srVector3T<float>{rotation * offset};
                 memset(&pos, 0, sizeof(pos));
                 pos.flX = transformed.x;
                 pos.flY = transformed.y;
@@ -297,7 +273,7 @@ void W8AmbientSound::Service(bool entered)
                 pos.flFalloffMin = radius;
                 pos.flFalloffMax = radius;
                 to_listener = camera - position;
-                distance = glm::length(to_listener.glmValue());
+                distance = to_listener.Length();
                 volume = static_cast<unsigned int>(((Random(volume_max - volume_min) + volume_min) *
                                                     g_settings.sound_effects_volume) /
                                                    0x7f);
@@ -329,15 +305,9 @@ void W8AmbientSound::Service(bool entered)
         GetCameraPosition(&camera);
         current_volume = (volume_max * g_settings.sound_effects_volume) / 0x7f;
         rotation.SetIdentity();
-        if (angle != g_double_zero) {
-            {
-                rotation = rotation.glmValue() *
-                           glm::mat3(glm::rotate(glm::dmat4(1), static_cast<double>(angle),
-                                                 glm::dvec3(0, 1, 0)));
-            }
-        }
+        rotation.RotateAboutY(angle);
         offset = position - camera;
-        transformed = srVector3T<float>{rotation.glmValue() * offset.glmValue()};
+        transformed = srVector3T<float>{rotation * offset};
         memset(&parms, -1, sizeof(parms));
         parms.uiVolume = current_volume;
         parms.Pos.flFaceX = -transformed.x;

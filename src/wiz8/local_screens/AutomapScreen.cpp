@@ -964,8 +964,8 @@ void AutomapScreenFrame(void)
                 point.y = 0.0f;
                 srVector3T<float> distance(point.x - g_automap_saved_camera.position.x, 0.0f,
                                            point.z - g_automap_saved_camera.position.z);
-                if (glm::length(distance.glmValue()) < g_automap_zoom * 0.05f &&
-                    g_automap_tool == 0 && g_automap_zoom_mode != 2) {
+                if (distance.Length() < g_automap_zoom * 0.05f && g_automap_tool == 0 &&
+                    g_automap_zoom_mode != 2) {
                     DisableCursorScene();
                     srVector3T<double> scale(0.44f, 0.44f, 0.44f);
                     g_automap_party_marker->setScale(scale);
@@ -1454,8 +1454,8 @@ void LightAutomapCell(const srVector3T<float>* position)
             model->getBoundingBox(minimum, maximum);
             minimum += location;
             maximum += location;
-            bool inside = glm::length((((minimum - *position))).glmValue()) <= range &&
-                          glm::length((((maximum - *position))).glmValue()) <= range;
+            bool inside =
+                (minimum - *position).Length() <= range && (maximum - *position).Length() <= range;
             while (model != 0) {
                 srVector3T<float>* lights = model->GetVertexLights(true, -1);
                 srVector3T<float>* source = model->getVertexLoc();
@@ -1473,13 +1473,8 @@ void LightAutomapCell(const srVector3T<float>* position)
                         OffsetVertices(transformed, source, &offset, count);
                     }
                     if (count != 0) {
-                        std::ranges::transform(
-                            std::span<const srVector3>{vertices}.first(std::span<float>{
-                                distances.data(),
-                                static_cast<std::size_t>(static_cast<SRDWORD>(count))}
-                                                                           .size()),
-                            distances.data(),
-                            [&](const auto& v) { return glm::length(v.glmValue()); });
+                        for (int i = 0; i < count; ++i)
+                            distances[i] = vertices[i].Length();
                     }
                     float* distance = distances.data();
                     if (count != 0) {
@@ -1745,8 +1740,9 @@ try
         }
     }
     return false;
+} catch (const std::exception&) {
+    return false;
 }
-catch (const std::exception&) { return false; }
 
 /* Convert the cursor position to an automap world position on the layer
    below the current one, defaulting the height to the grid minimum when no
@@ -2473,8 +2469,9 @@ try
         g_automap_cell_index->insert_or_assign(g_automap_cell_keys[index], value);
     }
     return success;
+} catch (const std::exception&) {
+    return false;
 }
-catch (const std::exception&) { return false; }
 
 /* Pack a world position into an automap node key: eleven bits of z, then
    eleven of x, then ten of y, each scaled to grid cells. */

@@ -48,7 +48,7 @@ float GetHeadingAngle(const srVector3T<float>* source, const srVector3T<float>* 
 float GetElevationAngle(const srVector3T<float>* source, const srVector3T<float>* target)
 {
     srVector3T<float> delta = *target - *source;
-    float length = glm::length(delta.glmValue());
+    float length = delta.Length();
     float angle;
 
     if (length == g_float_zero) {
@@ -69,7 +69,7 @@ float ElevationToTargetCPP(const srVector3T<float>* target)
     srVector3T<float> position;
     GetCameraPosition(&position);
     srVector3T<float> delta = position - *target;
-    float length = glm::length(delta.glmValue());
+    float length = delta.Length();
     float angle;
 
     if (length == g_float_zero) {
@@ -137,7 +137,7 @@ float HeadingToTargetCPP(const srVector3T<float>* target)
 float DistanceBetweenPoints(const srVector3T<float>* first, const srVector3T<float>* second)
 {
     srVector3T<float> delta = *first - *second;
-    return glm::length(delta.glmValue());
+    return delta.Length();
 }
 
 /* The monster twin of W8Item::DistanceToCamera - animation bounds for the Z
@@ -156,7 +156,7 @@ float MonsterDistanceToCamera(W8World* world, W8Monster* monster)
     camera_location = glm::vec3((&camera)->glmValue());
     srVector3T<float> center = monster->m_pRep->location;
     center.z += (maximum.z - minimum.z) * 0.5f;
-    return glm::length((((camera_location - center))).glmValue());
+    return (camera_location - center).Length();
 }
 
 /* The free-function twin of W8Item::DistanceToCamera - same bounds lookup and
@@ -175,7 +175,7 @@ float ItemDistanceToCamera(W8World* world, W8Item* item)
     camera_location = glm::vec3((&camera)->glmValue());
     srVector3T<float> center = item->m_pRep->location;
     center.z += (upper.z - lower.z) * 0.5f;
-    return glm::length((((camera_location - center))).glmValue());
+    return (camera_location - center).Length();
 }
 
 // FUNCTION: WIZ8 0x004BE870

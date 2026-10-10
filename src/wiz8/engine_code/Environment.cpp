@@ -162,16 +162,9 @@ void AdvanceEnvironmentTime(int elapsed)
     rotation.SetIdentity();
 
     angle -= 3.141592653589793 * (1.0f / 180.0f) * 40.0;
-    if (angle != 0.0) {
-        {
-            rotation = rotation.glmValue() *
-                       glm::mat3(glm::rotate(glm::dmat4(1), static_cast<double>(angle),
-                                             glm::dvec3(0, 0, 1)));
-        }
-    }
+    rotation.RotateAboutZ(angle);
 
-    srVector3T<float> position =
-        srVector3T<float>{rotation.glmValue() * direction.glmValue()} + g_celestial_origin;
+    srVector3T<float> position = srVector3T<float>{rotation * direction} + g_celestial_origin;
 
     W8Prop* moving = day ? g_sun_prop : g_moon_prop;
     W8Prop* opposite = day ? g_moon_prop : g_sun_prop;
@@ -283,8 +276,9 @@ try
         ClampEnvironmentComponent(g_environment_colours1[index].z);
     }
     return 1;
+} catch (const std::exception&) {
+    return false;
 }
-catch (const std::exception&) { return false; }
 
 // FUNCTION: WIZ8 0x004830D0
 BOOLEAN ReadEnvironmentColourTable(wiz8::File* hFile)
@@ -307,8 +301,9 @@ try
         ClampEnvironmentComponent(g_environment_colours0[index].z);
     }
     return 1;
+} catch (const std::exception&) {
+    return false;
 }
-catch (const std::exception&) { return false; }
 
 // FUNCTION: WIZ8 0x00483210
 void BuildEnvironmentColourRamp(void)
@@ -938,7 +933,7 @@ void InitializeLevelEnvironment(void)
             g_moon_prop->m_pRep->GetLocation(&moon);
             srVector3T<float> delta = sun - moon;
             srVector3T<float> midpoint = (sun + moon) * 0.5;
-            g_celestial_orbit_radius = glm::length(delta.glmValue()) * 0.5f;
+            g_celestial_orbit_radius = delta.Length() * 0.5f;
             g_celestial_origin = midpoint;
             for (int index = 0; index < 3; ++index) {
                 const char* name = g_sky_gradient_names[index];

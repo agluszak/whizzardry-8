@@ -53,7 +53,7 @@ W8GrowableVector<W8Navigator*> g_registered_navigators(5);
 bool W8NavigatorAttachment::TruncatePathAtRadius(const srVector3T<float>* target, float radius)
 {
     unsigned int index = path_cursor;
-    float distance = glm::length((((path_positions[index] - *target))).glmValue());
+    float distance = (path_positions[index] - *target).Length();
     /* Retail leaves this slot cold when path_positions[path_cursor] is already
        outside the radius, so the interpolation below reads whatever occupied
        the stack. Preserved intentionally. */
@@ -66,7 +66,7 @@ bool W8NavigatorAttachment::TruncatePathAtRadius(const srVector3T<float>* target
             }
             previous_distance = distance;
             ++index;
-            distance = glm::length((((path_positions[index] - *target))).glmValue());
+            distance = (path_positions[index] - *target).Length();
         } while (distance < radius);
     }
     if (distance > radius) {
@@ -102,7 +102,7 @@ float W8NavigatorAttachment::MeasurePathLength()
         srVector3T<float> previous = path_length_origin;
         for (; index <= path_position_index; ++index) {
             if ((path_values[index - 1] & 2) == 0) {
-                path_length += glm::length((((path_positions[index] - previous))).glmValue());
+                path_length += (path_positions[index] - previous).Length();
             }
             previous = path_positions[index];
         }
@@ -330,7 +330,7 @@ W8NavigatorAttachment::W8NavigatorAttachment(const srVector3T<float>* from,
     path_destination = *to;
     path_positions[1] = *to;
     path_length_origin = segment_start;
-    path_length = glm::length((((path_destination - segment_start))).glmValue());
+    path_length = (path_destination - segment_start).Length();
 }
 
 /* A second pass of defaults over the same tail, run straight after the
@@ -594,7 +594,7 @@ void W8Navigator::GetVelocity(srVector3T<float>* velocity)
 // FUNCTION: WIZ8 0x00454950
 bool W8Navigator::UpdateTrackedPosition()
 {
-    float distance = glm::length((((tracked_position - movement.position))).glmValue());
+    float distance = (tracked_position - movement.position).Length();
 
     if (distance > tracked_distance) {
         tracked_position = movement.position;
@@ -701,8 +701,9 @@ try
     halted = false;
     movement_target = movement.attachment->path_destination;
     return 1;
+} catch (const std::exception&) {
+    return false;
 }
-catch (const std::exception&) { return false; }
 
 void W8Navigator::CopyPathToGroup()
 {
@@ -908,8 +909,7 @@ void W8Navigator::UpdateLinkedNavigator()
     srVector3T<float> own_position = movement.position;
     srVector3T<float> linked_position = linked_navigator->movement.position;
     srVector3T<float> delta = linked_position - own_position;
-    if (glm::dot(delta.glmValue(), delta.glmValue()) <=
-        radius * radius * NAVIGATOR_LINK_DISTANCE_SQUARED) {
+    if (delta.LengthSquared() <= radius * radius * NAVIGATOR_LINK_DISTANCE_SQUARED) {
         linked_update_time = 0;
         return;
     }
@@ -1065,13 +1065,7 @@ void W8Navigator::UpdateFacing(bool immediate)
     }
     srVector3T<float> forward(0.0f, 0.0f, 1.0f);
     srVector3T<float> normal;
-    {
-        const double rotation_sine = sin(movement.yaw);
-        const double rotation_cosine = cos(movement.yaw);
-        const auto axis_rotation = glm::dmat3(rotation_cosine, 0, -rotation_sine, 0, 1, 0,
-                                              rotation_sine, 0, rotation_cosine);
-        forward = glm::vec3(axis_rotation * glm::dvec3(forward.glmValue()));
-    }
+    forward.RotateAboutY(sin(movement.yaw), cos(movement.yaw));
     g_octree->GetPathSurfaceNormal(&movement.position, &normal);
     if (movement.pitch_enabled) {
         float angle = static_cast<float>(acos(glm::dot(normal.glmValue(), forward.glmValue())));
@@ -1215,7 +1209,7 @@ void W8NavigatorAttachment::InitializeSegment(const srVector3T<float>* source,
     path_length_origin = segment_start;
     follow_offset = 0;
     memset(path_values, 0, capacity * sizeof(unsigned short));
-    path_length = glm::length((((path_destination - segment_start))).glmValue());
+    path_length = (path_destination - segment_start).Length();
 }
 
 // FUNCTION: WIZ8 0x004564f0
@@ -1282,7 +1276,7 @@ bool W8NavigatorAttachment::AdvanceAlongPathPositions(float distance, srVector3T
     }
     flags &= ~W8_NAV_ATTACHMENT_PATH_LENGTH_CACHED;
     delta = path_positions[path_cursor] - local;
-    segment = glm::length(((delta.xz())).glmValue());
+    segment = ((delta.xz())).Length();
     if (segment < g_double_one && path_cursor == path_position_index) {
         return false;
     }
@@ -1299,7 +1293,7 @@ bool W8NavigatorAttachment::AdvanceAlongPathPositions(float distance, srVector3T
                samples one slot past path_position_index, inside the
                ten-entry allocation but never initialized. */
             delta = path_positions[path_cursor] - local;
-            segment = glm::length(((delta.xz())).glmValue());
+            segment = ((delta.xz())).Length();
         } while (segment < distance);
     }
     if (path_position_index < path_cursor) {
@@ -1417,7 +1411,7 @@ bool W8NavigatorAttachment::AdvancePositionTowardWaypoint(srVector3T<float>* pos
     PointToSegmentDistance2D(&point, &from, &to, true, &fraction);
     dir.x = to.x - from.x;
     dir.y = to.y - from.y;
-    remainder = (g_float_one - fraction) * glm::length(dir.glmValue());
+    remainder = (g_float_one - fraction) * dir.Length();
     if (distance <= remainder) {
         reached = false;
     } else {
@@ -1427,7 +1421,7 @@ bool W8NavigatorAttachment::AdvancePositionTowardWaypoint(srVector3T<float>* pos
             point = to;
             dir.x = path_positions[path_cursor + 1].x - to.x;
             dir.y = path_positions[path_cursor + 1].z - to.y;
-            remainder = glm::length(dir.glmValue());
+            remainder = dir.Length();
         }
     }
     if (remainder < distance) {
@@ -1438,7 +1432,7 @@ bool W8NavigatorAttachment::AdvancePositionTowardWaypoint(srVector3T<float>* pos
         position->z = point.y;
         return reached;
     }
-    segment = glm::length(dir.glmValue());
+    segment = dir.Length();
     if (segment != g_double_zero) {
         distance /= segment;
         dir.x *= distance;
@@ -1463,7 +1457,7 @@ bool W8NavigatorAttachment::AdvancePositionWithDirection(srVector3T<float>* posi
         }
         srVector3T<float>* waypoint = &path_positions[path_cursor];
         *direction = *waypoint - *position;
-        float length = glm::length(((*direction)).glmValue());
+        float length = direction->Length();
         if (g_double_zero < length) {
             float scale = static_cast<float>(g_double_one / length);
             *direction *= scale;
@@ -1839,7 +1833,7 @@ void W8Navigator::SetPositionInternal(const srVector3T<float>* position)
     if (position->x != movement.position.x || position->y != movement.position.y ||
         position->z != movement.position.z) {
         movement.position = *position;
-        widened = glm::dvec3((position)->glmValue());
+        widened = glm::dvec3(position->glmValue());
         node->setLocation(widened);
         if (movement.location_id != 0 || this == g_startup_world) {
             g_navigator_position_changed = true;
@@ -2126,7 +2120,7 @@ void W8Navigator::UpdateNavigation(unsigned char skip_movement, bool slowed)
         if (linked_navigator != 0 && g_combat_inactive != 0) {
             if (linked_navigator->movement_stopped) {
                 srVector3T<float> delta = linked_navigator->movement.position - movement.position;
-                if (glm::length(delta.glmValue()) <
+                if (delta.Length() <
                     radius * g_navigator_linked_radius_scale + linked_navigator->radius) {
                     SetMovementStopped();
                     break;
@@ -2202,8 +2196,7 @@ void W8Navigator::UpdateNavigation(unsigned char skip_movement, bool slowed)
             } else {
                 minimum_speed = g_navigator_minimum_speed;
             }
-            movement.movement_speed =
-                glm::length(velocity.glmValue()) / (movement.movement_scale * g_world_scale);
+            movement.movement_speed = velocity.Length() / (movement.movement_scale * g_world_scale);
             if (movement.movement_speed < minimum_speed) {
                 movement.movement_speed = minimum_speed;
             }
@@ -2223,7 +2216,7 @@ void W8Navigator::UpdateNavigation(unsigned char skip_movement, bool slowed)
     }
 
     {
-        if (tracked_distance < glm::length((((tracked_position - movement.position))).glmValue())) {
+        if (tracked_distance < (tracked_position - movement.position).Length()) {
             tracked_position = movement.position;
             tracked_dirty = true;
         }
@@ -2248,15 +2241,14 @@ int W8Navigator::ResolveMovement()
     }
 
     if ((movement.attachment->flags & W8_NAV_ATTACHMENT_FOLLOW_PATH) == 0) {
-        float target_motion =
-            glm::length((((target->movement.position - target_last_position))).glmValue());
+        float target_motion = (target->movement.position - target_last_position).Length();
 
         if (target_motion > g_double_twenty_five_hundred ||
             (target == g_startup_world && target_motion > g_double_five_hundred)) {
             target_last_position = target->movement.position;
 
             if (target->radius + radius + collision_margin <
-                glm::length((((target->movement.position - movement.position))).glmValue())) {
+                (target->movement.position - movement.position).Length()) {
                 int index;
 
                 movement_stopped = false;
@@ -2316,7 +2308,7 @@ void W8OctreeTrace::Seed(const srVector3T<float>* from, const srVector3T<float>*
     start = *from;
     end = *to;
     step = end - start;
-    length = glm::length(step.glmValue());
+    length = step.Length();
     hit_limit = length;
     step /= length;
     state = 0;

@@ -54,21 +54,7 @@ void ReadMeshTransform(wiz8::File* file, srVector3T<float>* location, srMatrix3T
     file->read_exact(&axis.z, sizeof(axis.z));
 
     rotation->SetIdentity();
-    {
-        if (angle != 0.0) {
-            const auto rotation_axis = glm::dvec3(axis.glmValue());
-            const double rotation_sine = std::sin(angle);
-            const double rotation_cosine = std::cos(angle);
-            const auto axis_cross = glm::dmat3(glm::cross(rotation_axis, glm::dvec3(1, 0, 0)),
-                                               glm::cross(rotation_axis, glm::dvec3(0, 1, 0)),
-                                               glm::cross(rotation_axis, glm::dvec3(0, 0, 1)));
-            const auto axis_rotation = glm::mat3(
-                rotation_cosine * glm::dmat3(1) +
-                (1.0 - rotation_cosine) * glm::outerProduct(rotation_axis, rotation_axis) +
-                rotation_sine * axis_cross);
-            (*rotation) = ((*rotation)).glmValue() * axis_rotation;
-        }
-    }
+    rotation->RotateAroundAxis(angle, axis);
 
     file->read_exact(&scale->x, sizeof(scale->x));
     file->read_exact(&scale->y, sizeof(scale->y));
@@ -328,9 +314,8 @@ static W8MeshOrder* ComputeMeshOrder(W8MeshOrderInfo* info, w8_ulong flags)
             for (unsigned int table = 0; table < info->polygon_key_count; ++table) {
                 if (info->polygon_count != 0) {
                     const auto* source = static_cast<const w8_ulong*>(info->polygon_keys[table]);
-                    std::ranges::transform(
-                        std::span{order->polygons, static_cast<std::size_t>(info->polygon_count)},
-                        keys, [source](auto index) { return source[index]; });
+                    for (unsigned int i = 0; i < info->polygon_count; ++i)
+                        keys[i] = source[order->polygons[i]];
                 }
                 SortGroupsByKey(order->polygons, keys, polygon_groups, info->polygon_count);
             }
@@ -399,9 +384,8 @@ static W8MeshOrder* ComputeMeshOrder(W8MeshOrderInfo* info, w8_ulong flags)
             for (unsigned int table = 0; table < info->vertex_key_count; ++table) {
                 if (info->vertex_count != 0) {
                     const auto* source = static_cast<const w8_ulong*>(info->vertex_keys[table]);
-                    std::ranges::transform(
-                        std::span{order->vertices, static_cast<std::size_t>(info->vertex_count)},
-                        keys, [source](auto index) { return source[index]; });
+                    for (unsigned int i = 0; i < info->vertex_count; ++i)
+                        keys[i] = source[order->vertices[i]];
                 }
                 SortGroupsByKey(order->vertices, keys, vertex_groups, info->vertex_count);
             }
@@ -1034,11 +1018,8 @@ try
         loaded_instance->setName("ReadSTMeshFromFile");
         if (version > 1 && loaded_instance != 0) {
             const double angle = 3.1415926;
-            {
-                rotation = rotation.glmValue() *
-                           glm::mat3(glm::rotate(glm::dmat4(1), static_cast<double>(angle),
-                                                 glm::dvec3(1, 0, 0)));
-            }
+            rotation.RotateAboutX(angle);
+
             srVector3T<double> translated(location.x * 500.0, location.y * 500.0,
                                           location.z * 500.0);
             loaded_instance->setLocation(translated);
@@ -1106,8 +1087,9 @@ try
         first_model->getBoundingBox(minimum, maximum);
     }
     return 1;
+} catch (const std::exception&) {
+    return false;
 }
-catch (const std::exception&) { return false; }
 
 // FUNCTION: WIZ8 0x00488240
 unsigned char ReadMultipleLevelMeshes(W8ReadLevelInfo* info, srModelInstance** instances,
@@ -1199,8 +1181,9 @@ try
 
     free(meshes);
     return 1;
+} catch (const std::exception&) {
+    return false;
 }
-catch (const std::exception&) { return false; }
 
 // FUNCTION: WIZ8 0x00489920
 void ReleaseRetainedMaterials()
@@ -1325,5 +1308,6 @@ try
         success = 2;
     }
     return success;
+} catch (const std::exception&) {
+    return false;
 }
-catch (const std::exception&) { return false; }

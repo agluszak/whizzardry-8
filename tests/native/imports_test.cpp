@@ -26,10 +26,8 @@
 #include <cassert>
 
 #define CHECK(expression)                                                                          \
-    do                                                                                             \
-    {                                                                                              \
-        if (!(expression))                                                                         \
-        {                                                                                          \
+    do {                                                                                           \
+        if (!(expression)) {                                                                       \
             fprintf(stderr, "line %d: %s\n", __LINE__, #expression);                               \
             return 1;                                                                              \
         }                                                                                          \
@@ -242,13 +240,12 @@ int main()
         vectors.values[1].Set(-3, 9, 1);
         CHECK(reinterpret_cast<uintptr_t>(&vectors.values[0]) % alignof(float) != 0);
         {
-            std::span<const srVector3> input_source = vectors.values;
-            srVector3& input_minimum = vectors.minimum;
-            srVector3& input_maximum = vectors.maximum;
-            assert(!input_source.empty());
-            auto lower = input_source.front().glmValue();
+            assert(std::size(vectors.values) != 0);
+            auto lower = vectors.values[0].glmValue();
             auto upper = lower;
-            for (const auto& point : input_source.subspan(1)) {
+            for (std::size_t point_index = 1; point_index < std::size(vectors.values);
+                 ++point_index) {
+                const auto& point = vectors.values[point_index];
                 const auto v = point.glmValue();
                 // Keep the comparison order for NaNs in recovered bounds.
                 for (int c = 0; c < 3; ++c) {
@@ -259,8 +256,8 @@ int main()
                         lower[c] = v[c];
                 }
             }
-            input_minimum = lower;
-            input_maximum = upper;
+            (vectors.minimum) = lower;
+            (vectors.maximum) = upper;
         }
         CHECK(vectors.minimum.x == -3 && vectors.minimum.y == -2 && vectors.minimum.z == 1);
         CHECK(vectors.maximum.x == 5 && vectors.maximum.y == 9 && vectors.maximum.z == 7);

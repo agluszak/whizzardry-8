@@ -190,6 +190,9 @@ void srVertexPipe::process(const Input& input)
     eye_space_locations = input.vertex_arrays->eye_locations;
     batch_base = 0;
     w8_ulong vertex_count = input.vertex_count;
+    if (vertex_count == 0)
+        return;
+    const auto model_view = input.model_view->glmValue();
     while (vertex_count != 0) {
         vertex_count -= batch_base;
         batch_count = vertex_count;
@@ -198,31 +201,10 @@ void srVertexPipe::process(const Input& input)
         }
         avt = input.active_vertices + batch_base;
         scratch.flags = 0;
-        if (this->input->direct_vertex_indices == 0) {
-            {
-                std::span<srVector4> input_destination{eye_space_locations + batch_base,
-                                                       batch_count};
-                const srVector3* input_source = this->input->positions;
-                std::span<const SRDWORD> input_indices{avt, batch_count};
-                const srMatrix4& input_matrix = *this->input->model_view;
-                const auto transform_matrix = input_matrix.glmValue();
-                for (std::size_t i = 0; i < input_indices.size(); ++i)
-                    input_destination[i] =
-                        transform_matrix *
-                        glm::vec4(input_source[input_indices[i]].glmValue(), 1.0f);
-            }
-        } else {
-            {
-                std::span<srVector4> input_destination{eye_space_locations + batch_base,
-                                                       batch_count};
-                std::span<const srVector3> input_vectors{this->input->positions + batch_base,
-                                                         batch_count};
-                const srMatrix4& input_matrix = *this->input->model_view;
-                const auto transform_matrix = input_matrix.glmValue();
-                for (std::size_t i = 0; i < input_destination.size(); ++i)
-                    input_destination[i] =
-                        transform_matrix * glm::vec4(input_vectors[i].glmValue(), 1.0f);
-            }
+        for (w8_ulong i = 0; i < batch_count; ++i) {
+            const auto index = input.direct_vertex_indices ? batch_base + i : avt[i];
+            eye_space_locations[batch_base + i] =
+                model_view * glm::vec4(input.positions[index].glmValue(), 1.0f);
         }
         w8_ulong record_index;
         for (record_index = 0; record_index < input.records.size(); ++record_index) {
@@ -293,22 +275,14 @@ void srVertexPipe::finishDiffuseAlpha()
         color.y = input->ambient_light.y * material_info.ambient.y + material_info.emissive.y;
         color.z = input->ambient_light.z * material_info.ambient.z + material_info.emissive.z;
         color.w = material_info.diffuse.w;
-        {
-            const auto color_value = color.glmValue();
-            color = glm::mix(glm::clamp(color_value, float(0), float(1)), glm::vec4(0),
-                             glm::lessThanEqual(color_value, glm::vec4(0)));
-        }
+        const auto color_value = color.glmValue();
+        color = glm::mix(glm::clamp(color_value, 0.0f, 1.0f), glm::vec4(0),
+                         glm::lessThanEqual(color_value, glm::vec4(0)));
         if ((current_record->flags & srVertexPipe::Record::HAS_DIFFUSE_MULTIPLIERS) != 0) {
-            {
-                std::span<srVector4> input_destination{diffuse, vertex_count};
-                const srVector4& input_constant = color;
-                const srVector4* input_indexed_source = current_record->spec_for_diffuse;
-                std::span<const SRDWORD> input_indices{avt + sub_batch_offset, vertex_count};
-                for (std::size_t i = 0; i < input_indices.size(); ++i) {
-                    input_destination[i] = input_constant.glmValue() *
-                                           input_indexed_source[input_indices[i]].glmValue();
+            for (std::size_t i = 0; i < vertex_count; ++i) {
+                diffuse[i] = color * current_record->spec_for_diffuse[avt[sub_batch_offset + i]];
                 }
-            }
+
             return;
         }
         if (vertex_count != 0) {
@@ -336,17 +310,9 @@ void srVertexPipe::finishDiffuseAlpha()
                                    });
                 }
                 lazy_setup_mask |= (1UL << srVertexProcessor::CHANNEL_ALPHA);
-            } else {
-                {
-                    std::span<float> input_destination{alpha, vertex_count};
-                    std::span<const float> input_linear_source{alpha, vertex_count};
-                    const float* input_indexed_source = current_record->alpha_source;
-                    std::span<const SRDWORD> input_indices{avt + sub_batch_offset, vertex_count};
-                    for (std::size_t i = 0; i < input_indices.size(); ++i) {
-                        input_destination[i] =
-                            input_linear_source[i] * input_indexed_source[input_indices[i]];
-                    }
-                }
+            } else
+                for (std::size_t i = 0; i < vertex_count; ++i) {
+                    alpha[i] = alpha[i] * current_record->alpha_source[avt[sub_batch_offset + i]];
             }
         }
         if ((lazy_setup_mask & (1UL << srVertexProcessor::CHANNEL_ALPHA)) == 0) {
@@ -356,12 +322,9 @@ void srVertexPipe::finishDiffuseAlpha()
             } else if (opacity >= 1.0f) {
                 opacity = 1.0f;
             }
-            {
-                std::span<srVector4> input_destination{diffuse, vertex_count};
-                float input_constant = opacity;
-                for (std::size_t i = 0; i < input_destination.size(); ++i)
-                    input_destination[i].w = input_constant;
-            }
+            for (std::size_t i = 0; i < vertex_count; ++i)
+                diffuse[i].w = opacity;
+
         } else {
             srCore.getStatisticsManager()->statistics.alpha_operations += vertex_count;
             if ((lazy_setup_mask & (1UL << srVertexProcessor::CHANNEL_ALPHA)) == 0) {
@@ -369,43 +332,31 @@ void srVertexPipe::finishDiffuseAlpha()
             }
             alpha = scratch.alpha + sub_batch_offset;
             if ((channel_mask & (1UL << srVertexProcessor::CHANNEL_DIFFUSE)) == 0) {
-                std::ranges::transform(std::span<const float>{alpha, vertex_count}, alpha,
-                                       [&](const auto& v) { return glm::clamp(v, 0.0f, 1.0f); });
+                for (std::size_t i = 0; i < vertex_count; ++i)
+                    alpha[i] = glm::clamp(alpha[i], 0.0f, 1.0f);
             }
             float opacity = material_info.diffuse.w;
             if ((vertex_count != 0) && (opacity != 1.0f)) {
                 if (opacity == 0.0f) {
                     std::fill_n(alpha, vertex_count, 0.0f);
                 } else {
-                    std::ranges::transform(std::span<const float>{alpha, vertex_count}, alpha,
-                                           [&](const auto& v) { return (opacity)*v; });
+                    for (std::size_t i = 0; i < vertex_count; ++i)
+                        alpha[i] = opacity * alpha[i];
                 }
             }
-            {
-                std::span<srVector4> input_destination{diffuse, vertex_count};
-                std::span<const float> input_source{alpha, vertex_count};
-                for (std::size_t i = 0; i < input_destination.size(); ++i)
-                    input_destination[i].w = input_source[i];
-            }
+            for (std::size_t i = 0; i < vertex_count; ++i)
+                diffuse[i].w = alpha[i];
         }
     }
     if (((channel_mask & (1UL << srVertexProcessor::CHANNEL_DIFFUSE)) != 0) &&
         (vertex_count != 0)) {
-        std::ranges::transform(std::span<const srVector4>{diffuse, vertex_count}, diffuse,
-                               [&](const auto& v) { return glm::clamp(v.glmValue(), 0.0f, 1.0f); });
+        for (std::size_t i = 0; i < vertex_count; ++i)
+            diffuse[i] = glm::clamp(diffuse[i].glmValue(), 0.0f, 1.0f);
     }
     if (((current_record->flags & srVertexPipe::Record::HAS_DIFFUSE_MULTIPLIERS) != 0) &&
-        (vertex_count != 0)) {
-        {
-            std::span<srVector4> input_destination{diffuse, vertex_count};
-            std::span<const srVector4> input_linear_source{diffuse, vertex_count};
-            const srVector4* input_indexed_source = current_record->spec_for_diffuse;
-            std::span<const SRDWORD> input_indices{avt + sub_batch_offset, vertex_count};
-            for (std::size_t i = 0; i < input_indices.size(); ++i) {
-                input_destination[i] = input_linear_source[i].glmValue() *
-                                       input_indexed_source[input_indices[i]].glmValue();
-            }
-        }
+        (vertex_count != 0))
+        for (std::size_t i = 0; i < vertex_count; ++i) {
+            diffuse[i] = diffuse[i] * current_record->spec_for_diffuse[avt[sub_batch_offset + i]];
     }
 }
 
@@ -427,35 +378,28 @@ void srVertexPipe::finishSpecularFog()
     }
     if (specular == 0) {
         if ((lazy_setup_mask & (1UL << srVertexProcessor::CHANNEL_FOG)) == 0) {
-            {
-                std::span<srVector4> input_destination{destination, vertex_count};
-                float input_constant = 0.0f;
-                for (std::size_t i = 0; i < input_destination.size(); ++i)
-                    input_destination[i].w = input_constant;
-            }
+            for (std::size_t i = 0; i < vertex_count; ++i)
+                destination[i].w = (0.0f);
+
         } else {
             srCore.getStatisticsManager()->statistics.fog_operations += vertex_count;
             if ((lazy_setup_mask & (1UL << srVertexProcessor::CHANNEL_FOG)) == 0) {
                 setupFog();
             }
             float* fog = scratch.fog + sub_batch_offset;
-            std::ranges::transform(std::span<const float>{fog, vertex_count}, fog,
-                                   [&](const auto& v) { return glm::clamp(v, 0.0f, 1.0f); });
+            for (std::size_t i = 0; i < vertex_count; ++i)
+                fog[i] = glm::clamp(fog[i], 0.0f, 1.0f);
             float scale = material_info.fog_scale;
             if ((vertex_count != 0) && (scale != 1.0f)) {
                 if (scale == 0.0f) {
                     std::fill_n(fog, vertex_count, 0.0f);
                 } else {
-                    std::ranges::transform(std::span<const float>{fog, vertex_count}, fog,
-                                           [&](const auto& v) { return (scale)*v; });
+                    for (std::size_t i = 0; i < vertex_count; ++i)
+                        fog[i] = scale * fog[i];
                 }
             }
-            {
-                std::span<srVector4> input_destination{destination, vertex_count};
-                std::span<const float> input_source{fog, vertex_count};
-                for (std::size_t i = 0; i < input_destination.size(); ++i)
-                    input_destination[i].w = input_source[i];
-            }
+            for (std::size_t i = 0; i < vertex_count; ++i)
+                destination[i].w = fog[i];
         }
     } else {
         srCore.getStatisticsManager()->statistics.specular_operations += vertex_count;
@@ -473,35 +417,23 @@ void srVertexPipe::finishSpecularFog()
                 if (scale == 0.0f) {
                     std::fill_n(fog, vertex_count, 0.0f);
                 } else {
-                    std::ranges::transform(std::span<const float>{fog, vertex_count}, fog,
-                                           [&](const auto& v) { return (scale)*v; });
+                    for (std::size_t i = 0; i < vertex_count; ++i)
+                        fog[i] = scale * fog[i];
                 }
             }
-            {
-                std::span<srVector4> input_destination{destination, vertex_count};
-                std::span<const float> input_source{fog, vertex_count};
-                for (std::size_t i = 0; i < input_destination.size(); ++i)
-                    input_destination[i].w = input_source[i];
-            }
+            for (std::size_t i = 0; i < vertex_count; ++i)
+                destination[i].w = fog[i];
         }
         if (vertex_count != 0) {
-            std::ranges::transform(
-                std::span<const srVector4>{destination, vertex_count}, destination,
-                [&](const auto& v) { return glm::clamp(v.glmValue(), 0.0f, 1.0f); });
+            for (std::size_t i = 0; i < vertex_count; ++i)
+                destination[i] = glm::clamp(destination[i].glmValue(), 0.0f, 1.0f);
         }
     }
     if (((current_record->flags & srVertexPipe::Record::HAS_SPECULAR_MULTIPLIERS) != 0) &&
-        (vertex_count != 0)) {
-        {
-            std::span<srVector4> input_destination{destination, vertex_count};
-            std::span<const srVector4> input_linear_source{destination, vertex_count};
-            const srVector4* input_indexed_source = current_record->spec_for_specular;
-            std::span<const SRDWORD> input_indices{avt + sub_batch_offset, vertex_count};
-            for (std::size_t i = 0; i < input_indices.size(); ++i) {
-                input_destination[i] = input_linear_source[i].glmValue() *
-                                       input_indexed_source[input_indices[i]].glmValue();
-            }
-        }
+        (vertex_count != 0))
+        for (std::size_t i = 0; i < vertex_count; ++i) {
+            destination[i] =
+                destination[i] * current_record->spec_for_specular[avt[sub_batch_offset + i]];
     }
 }
 
@@ -513,28 +445,12 @@ void srVertexPipe::setupEyeSpaceNormal()
         srVector3T<float> constant;
         constant.Set(0.0f, 0.0f, -1.0f);
         std::fill_n(scratch.normals, batch_count, constant);
-    } else if (input->direct_vertex_indices == 0) {
-        {
-            std::span<srVector3> input_destination{scratch.normals,
-                                                   static_cast<std::size_t>(batch_count)};
-            const srVector3* input_source = normals;
-            std::span<const SRDWORD> input_indices{avt, static_cast<std::size_t>(batch_count)};
-            const srMatrix4& input_matrix = *input->normal_matrix;
-            const auto transform_matrix = input_matrix.glmValue();
-            for (std::size_t i = 0; i < input_indices.size(); ++i)
-                input_destination[i] = glm::vec3(
-                    transform_matrix * glm::vec4(input_source[input_indices[i]].glmValue(), 1.0f));
-        }
     } else {
-        {
-            std::span<srVector3> input_destination{scratch.normals,
-                                                   static_cast<std::size_t>(batch_count)};
-            std::span<const srVector3> input_vectors{normals + batch_base, batch_count};
-            const srMatrix4& input_matrix = *input->normal_matrix;
-            const auto transform_matrix = input_matrix.glmValue();
-            for (std::size_t i = 0; i < input_destination.size(); ++i)
-                input_destination[i] =
-                    glm::vec3(transform_matrix * glm::vec4(input_vectors[i].glmValue(), 1.0f));
+        const auto normal_transform = input->normal_matrix->glmValue();
+        for (w8_ulong i = 0; i < batch_count; ++i) {
+            const auto index = input->direct_vertex_indices ? batch_base + i : avt[i];
+            scratch.normals[i] = glm::vec3(
+                normal_transform * glm::vec4(normals[index].glmValue(), 1.0f));
         }
     }
     scratch.flags |= srVertexPipe::Scratch::READY_EYE_NORMALS;
@@ -543,15 +459,10 @@ void srVertexPipe::setupEyeSpaceNormal()
 // FUNCTION: SURRENDER 0x1002B910
 void srVertexPipe::setupEyeSpaceDirAndDist()
 {
-    {
-        std::span<srVector3> input_destination{scratch.dir, batch_count};
-        std::span<float> input_lengths{scratch.dist, batch_count};
-        std::span<const srVector4> input_source{eye_space_locations + batch_base, batch_count};
-        for (std::size_t i = 0; i < input_destination.size(); ++i) {
-            const auto v = glm::vec3(input_source[i].glmValue());
-            input_lengths[i] = glm::length(v);
-            input_destination[i] = v / input_lengths[i];
-        }
+    for (std::size_t i = 0; i < batch_count; ++i) {
+        const auto v = glm::vec3(eye_space_locations[batch_base + i].glmValue());
+        scratch.dist[i] = glm::length(v);
+        scratch.dir[i] = v / scratch.dist[i];
     }
     scratch.flags |= srVertexPipe::Scratch::READY_EYE_DIRECTION;
     scratch.flags |= srVertexPipe::Scratch::READY_EYE_DISTANCE;
@@ -593,18 +504,9 @@ void srVertexPipe::applyFog(const float* values)
     srCore.getStatisticsManager()->statistics.fog_operations += vertex_count;
     float* fog = scratch.fog + sub_batch_offset;
     if ((lazy_setup_mask & (1UL << srVertexProcessor::CHANNEL_FOG)) != 0) {
-        float one_minus[0x40];
-        std::ranges::transform(std::span<const float>{values, vertex_count}, one_minus,
-                               [&](const auto& v) { return (1.0f) - v; });
-        {
-            std::span<float> input_destination{fog, vertex_count};
-            std::span<const float> input_add_source{values, vertex_count};
-            std::span<const float> input_scale_source{fog, vertex_count};
-            std::span<const float> input_multiply_source{one_minus, vertex_count};
-            for (std::size_t i = 0; i < input_destination.size(); ++i)
-                input_destination[i] =
-                    input_scale_source[i] * input_multiply_source[i] + input_add_source[i];
-        }
+        for (w8_ulong i = 0; i < vertex_count; ++i)
+            fog[i] = fog[i] * (1.0f - values[i]) + values[i];
+
         return;
     }
     if ((vertex_count != 0) && (fog != values)) {
@@ -621,18 +523,8 @@ void srVertexPipe::applyDiffuseLight(const float* values, const srVector4T<float
         setupDiffuse();
     }
     srVector4T<float>* diffuse = vertex_array->diffuse + batch_base + sub_batch_offset;
-    if (vertex_count != 0) {
-        {
-            std::span<srVector4> input_destination{diffuse, vertex_count};
-            std::span<const srVector4> input_add_source{diffuse, vertex_count};
-            const srVector4& input_multiply_constant = light;
-            std::span<const float> input_multiply_source{values, vertex_count};
-            for (std::size_t i = 0; i < input_destination.size(); ++i)
-                input_destination[i] =
-                    input_multiply_constant.glmValue() * input_multiply_source[i] +
-                    input_add_source[i].glmValue();
-        }
-    }
+    for (w8_ulong i = 0; i < vertex_count; ++i)
+        diffuse[i] = diffuse[i] + light * values[i];
 }
 
 // FUNCTION: SURRENDER 0x1002BD30
@@ -699,8 +591,8 @@ void srVertexPipe::applyDiffuseLight(const srVector4T<float>& light)
         setupDiffuse();
     }
     srVector4T<float>* diffuse = vertex_array->diffuse + batch_base + sub_batch_offset;
-    std::ranges::transform(std::span<const srVector4>{diffuse, vertex_count}, diffuse,
-                           [&](const auto& v) { return light.glmValue() + v.glmValue(); });
+    for (std::size_t i = 0; i < vertex_count; ++i)
+        diffuse[i] = light + diffuse[i];
 }
 
 // FUNCTION: SURRENDER 0x1002BF20
@@ -715,24 +607,23 @@ void srVertexPipe::Record::ColorSource::copyDiffuseColors(srVector4T<float>* des
         return;
     }
     if (format == FORMAT_ARGB) {
-        std::ranges::transform(std::span<const SRDWORD>{indices, count}, destination, [&](auto i) {
-            return glm::vec4((static_cast<const srARGB*>(colors))[i].red,
-                             (static_cast<const srARGB*>(colors))[i].green,
-                             (static_cast<const srARGB*>(colors))[i].blue,
-                             (static_cast<const srARGB*>(colors))[i].alpha) *
+        for (std::size_t i = 0; i < count; ++i)
+            destination[i] = glm::vec4((static_cast<const srARGB*>(colors))[indices[i]].red,
+                                       (static_cast<const srARGB*>(colors))[indices[i]].green,
+                                       (static_cast<const srARGB*>(colors))[indices[i]].blue,
+                                       (static_cast<const srARGB*>(colors))[indices[i]].alpha) *
                    (1.0f / 255.0f);
-        });
         return;
     }
     if (format == FORMAT_VECTOR3) {
-        std::ranges::transform(std::span<const SRDWORD>{indices, count}, destination, [&](auto i) {
-            return glm::vec4((static_cast<const srVector3*>(colors))[i].glmValue(), 1.0f);
-        });
+        for (std::size_t i = 0; i < count; ++i)
+            destination[i] =
+                glm::vec4((static_cast<const srVector3*>(colors))[indices[i]].glmValue(), 1.0f);
         return;
     }
     if (format == FORMAT_VECTOR4) {
-        std::ranges::transform(std::span<const SRDWORD>{indices, count}, destination,
-                               [&](auto i) { return (static_cast<const srVector4*>(colors))[i]; });
+        for (std::size_t i = 0; i < count; ++i)
+            destination[i] = (static_cast<const srVector4*>(colors))[indices[i]];
     }
 }
 
@@ -756,9 +647,8 @@ void srVertexPipe::setupDiffuse()
             if ((((color.x != 0.0f) || (color.y != 0.0f)) ||
                  ((color.z != 0.0f) || (color.w != 0.0f))) &&
                 (vertex_count != 0)) {
-                std::ranges::transform(
-                    std::span<const srVector4>{diffuse, vertex_count}, diffuse,
-                    [&](const auto& v) { return color.glmValue() + v.glmValue(); });
+                for (std::size_t i = 0; i < vertex_count; ++i)
+                    diffuse[i] = color + diffuse[i];
             }
         }
         lazy_setup_mask |= (1UL << srVertexProcessor::CHANNEL_DIFFUSE);
@@ -799,11 +689,11 @@ void srVertexPipe::setupDepthCue()
     } else {
         if (count != 0) {
             if (maximum == 0.0f) {
-                std::ranges::transform(std::span<const float>{dist, count}, depth_cue,
-                                       [&](const auto& v) { return -v; });
+                for (std::size_t i = 0; i < count; ++i)
+                    depth_cue[i] = -dist[i];
             } else {
-                std::ranges::transform(std::span<const float>{dist, count}, depth_cue,
-                                       [&](const auto& v) { return (maximum)-v; });
+                for (std::size_t i = 0; i < count; ++i)
+                    depth_cue[i] = maximum - dist[i];
             }
         }
         float scale = 1.0f / (maximum - minimum);
@@ -812,25 +702,25 @@ void srVertexPipe::setupDepthCue()
                 if (scale == 0.0f) {
                     std::fill_n(depth_cue, count, 0.0f);
                 } else {
-                    std::ranges::transform(std::span<const float>{depth_cue, count}, depth_cue,
-                                           [&](const auto& v) { return (scale)*v; });
+                    for (std::size_t i = 0; i < count; ++i)
+                        depth_cue[i] = scale * depth_cue[i];
                 }
             }
-            std::ranges::transform(std::span<const float>{depth_cue, count}, depth_cue,
-                                   [&](const auto& v) { return glm::clamp(v, 0.0f, 1.0f); });
+            for (std::size_t i = 0; i < count; ++i)
+                depth_cue[i] = glm::clamp(depth_cue[i], 0.0f, 1.0f);
         }
         float range = near_value - far_value;
         if (((range != 1.0f) && (count != 0)) && (range != 1.0f)) {
             if (range == 0.0f) {
                 std::fill_n(depth_cue, count, 0.0f);
             } else {
-                std::ranges::transform(std::span<const float>{depth_cue, count}, depth_cue,
-                                       [&](const auto& v) { return (range)*v; });
+                for (std::size_t i = 0; i < count; ++i)
+                    depth_cue[i] = range * depth_cue[i];
             }
         }
         if (((near_value != 1.0f) && (count != 0)) && (1.0f - near_value != 0.0f)) {
-            std::ranges::transform(std::span<const float>{depth_cue, count}, depth_cue,
-                                   [&](const auto& v) { return (1.0f - near_value) + v; });
+            for (std::size_t i = 0; i < count; ++i)
+                depth_cue[i] = (1.0f - near_value) + depth_cue[i];
         }
     }
     scratch.flags |= srVertexPipe::Scratch::READY_DEPTH_CUE;
@@ -872,10 +762,9 @@ void srVertexPipe::setupST(w8_ulong index)
     if (((current_record->flags & (srVertexPipe::Record::HAS_TEXCOORD0 << index)) != 0)) {
         const srVector2T<float>* source = current_record->st_source[index];
         if (source != 0) {
-            std::ranges::transform(
-                std::span<const SRDWORD>{avt + sub_batch_offset, vertex_count},
-                (&vertex_array->st0)[index] + batch_base + sub_batch_offset,
-                [&](auto i) { return (reinterpret_cast<const srVector2*>(source))[i]; });
+            for (std::size_t i = 0; i < vertex_count; ++i)
+                ((&vertex_array->st0)[index] + batch_base + sub_batch_offset)[i] =
+                    (reinterpret_cast<const srVector2*>(source))[avt[sub_batch_offset + i]];
         }
     }
     lazy_setup_mask |= 1 << (index + srVertexProcessor::CHANNEL_ST0);

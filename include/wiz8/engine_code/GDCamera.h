@@ -68,13 +68,7 @@ public:
         m_pitch = pitch;
 
         m_pitch_rotation.SetIdentity();
-        if (pitch != g_double_zero) {
-            {
-                m_pitch_rotation = m_pitch_rotation.glmValue() *
-                                   glm::mat3(glm::rotate(glm::dmat4(1), static_cast<double>(pitch),
-                                                         glm::dvec3(1, 0, 0)));
-            }
-        }
+        m_pitch_rotation.RotateAboutX(pitch);
         MarkRendererReady();
     }
     // FUNCTION: WIZ8 0x00478720
@@ -89,13 +83,7 @@ public:
         m_yaw = angle;
 
         m_yaw_rotation.SetIdentity();
-        if (angle != g_double_zero) {
-            {
-                m_yaw_rotation = m_yaw_rotation.glmValue() *
-                                 glm::mat3(glm::rotate(glm::dmat4(1), static_cast<double>(angle),
-                                                       glm::dvec3(0, 1, 0)));
-            }
-        }
+        m_yaw_rotation.RotateAboutY(angle);
         MarkRendererReady();
     }
     void SetOrientation(float angle, float pitch);                   /* 0x004788E0 */

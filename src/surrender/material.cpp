@@ -196,11 +196,9 @@ void srMaterial::postProcess(srVertexPipe& pipe)
                     }
                     color = pipe.vertex_array->specular + pipe.batch_base + pipe.sub_batch_offset;
                     if (vertex_count != 0) {
-                        std::ranges::transform(
-                            std::span<const srVector4>{color, vertex_count},
-                            std::span<const float>{pipe.scratch.depth_cue + pipe.sub_batch_offset,
-                                                   vertex_count},
-                            color, [&](const auto& a, const auto& b) { return a.glmValue() * b; });
+                        for (std::size_t i = 0; i < vertex_count; ++i)
+                            color[i] = color[i].glmValue() *
+                                       (pipe.scratch.depth_cue + pipe.sub_batch_offset)[i];
                     }
                     blend = 0;
                 }
@@ -218,11 +216,9 @@ void srMaterial::postProcess(srVertexPipe& pipe)
                     }
                     color = pipe.vertex_array->diffuse + pipe.batch_base + pipe.sub_batch_offset;
                     if (vertex_count != 0) {
-                        std::ranges::transform(
-                            std::span<const srVector4>{color, vertex_count},
-                            std::span<const float>{pipe.scratch.depth_cue + pipe.sub_batch_offset,
-                                                   vertex_count},
-                            color, [&](const auto& a, const auto& b) { return a.glmValue() * b; });
+                        for (std::size_t i = 0; i < vertex_count; ++i)
+                            color[i] = color[i].glmValue() *
+                                       (pipe.scratch.depth_cue + pipe.sub_batch_offset)[i];
                     }
                     blend = 0;
                 }
@@ -245,11 +241,9 @@ channels_done:
             }
             color = pipe.vertex_array->diffuse + pipe.batch_base + pipe.sub_batch_offset;
             if (vertex_count != 0) {
-                std::ranges::transform(
-                    std::span<const srVector4>{color, vertex_count},
-                    std::span<const float>{pipe.scratch.depth_cue + pipe.sub_batch_offset,
-                                           vertex_count},
-                    color, [&](const auto& a, const auto& b) { return a.glmValue() * b; });
+                for (std::size_t i = 0; i < vertex_count; ++i)
+                    color[i] =
+                        color[i].glmValue() * (pipe.scratch.depth_cue + pipe.sub_batch_offset)[i];
             }
         }
         if ((pipe.channel_mask & (1UL << srVertexProcessor::CHANNEL_SPECULAR)) != 0) {
@@ -262,11 +256,9 @@ channels_done:
             }
             color = pipe.vertex_array->specular + pipe.batch_base + pipe.sub_batch_offset;
             if (vertex_count != 0) {
-                std::ranges::transform(
-                    std::span<const srVector4>{color, vertex_count},
-                    std::span<const float>{pipe.scratch.depth_cue + pipe.sub_batch_offset,
-                                           vertex_count},
-                    color, [&](const auto& a, const auto& b) { return a.glmValue() * b; });
+                for (std::size_t i = 0; i < vertex_count; ++i)
+                    color[i] =
+                        color[i].glmValue() * (pipe.scratch.depth_cue + pipe.sub_batch_offset)[i];
             }
         }
     }
@@ -281,11 +273,8 @@ channels_done:
         }
         channel = pipe.scratch.alpha + pipe.sub_batch_offset;
         if (vertex_count != 0) {
-            std::ranges::transform(
-                std::span<const float>{channel, vertex_count},
-                std::span<const float>{pipe.scratch.depth_cue + pipe.sub_batch_offset,
-                                       vertex_count},
-                channel, [&](const auto& a, const auto& b) { return a * b; });
+            for (std::size_t i = 0; i < vertex_count; ++i)
+                channel[i] = channel[i] * (pipe.scratch.depth_cue + pipe.sub_batch_offset)[i];
         }
     }
 }

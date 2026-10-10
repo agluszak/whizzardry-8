@@ -906,7 +906,7 @@ void MoveMonsterToLiveList(W8MonsterInfo* monster_info)
 static double DistanceBetweenPositions(const srVector3T<float>* first,
                                        const srVector3T<float>& second)
 {
-    return glm::length((((*first - second))).glmValue());
+    return (*first - second).Length();
 }
 
 // FUNCTION: WIZ8 0x004e61e0

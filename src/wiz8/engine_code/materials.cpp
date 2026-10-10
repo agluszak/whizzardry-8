@@ -1227,7 +1227,7 @@ static int BuildRegionPolygons(W8LevelFile* level, W8OctPreTreeGeometry* geometr
                     normal.z += (prev->m_original_position.y - next->m_original_position.y) *
                                 cur->m_original_position.x;
                 }
-                length = sqrt(glm::dot(normal.glmValue(), normal.glmValue()));
+                length = sqrt(normal.LengthSquared());
                 normal.x /= length;
                 normal.y /= length;
                 normal.z /= length;
@@ -1495,7 +1495,7 @@ static int AccumulateVertexLight(OctPreTree* tree, W8OctPreTreeVertex* vertex, s
     do {
         if ((light->version < 2) || ((light->create == 0) && (light->visible != 0))) {
             delta = light->position - vertex->position;
-            distance = glm::length(delta.glmValue());
+            distance = delta.Length();
             if ((distance < light->range) || ((sun_map != 0) && (*sun != 0))) {
                 ++g_light_candidates;
                 dot = (delta.x / distance) * vertex->m_normal.x +

@@ -1419,9 +1419,11 @@ void ChooseCombatAction(int party_slot, W8TargetingContext context, W8ActionKind
         srAssertFail("FALSE", "C:\\Projects\\Wizardry 8\\Local Code\\Combat.cpp", 0x310, 0);
         value_a = party_slot;
         target = reinterpret_cast<W8CombatSlot*>(
-            party_slot); // reinterpret-ok: retail stores the party-slot word into the pointer output after the FALSE assert
+            party_slot); // reinterpret-ok: retail stores the party-slot word into the pointer
+                         // output after the FALSE assert
         detail = reinterpret_cast<W8ActionDetailBlock*>(
-            party_slot); // reinterpret-ok: retail stores the party-slot word into the pointer output after the FALSE assert
+            party_slot); // reinterpret-ok: retail stores the party-slot word into the pointer
+                         // output after the FALSE assert
         kind =
             static_cast<W8ActionKind>(party_slot); // retail keeps this word after the FALSE assert
         break;
@@ -2811,29 +2813,13 @@ bool CreateCharacterBreathEffect(int party_slot)
     GetCameraPosition(&camera);
     aim = target->point - camera;
     direction = aim;
-    {
-        const auto direction_value = aim.glmValue();
-        if (glm::dot(direction_value, direction_value) != 0)
-            (aim) = glm::normalize(direction_value) * static_cast<float>(1.0);
-    }
+    aim.SetLength(1.0);
     rotation.SetIdentity();
     yaw = atan2(aim.x, aim.z);
-    if (yaw != g_double_zero) {
-        {
-            rotation =
-                rotation.glmValue() * glm::mat3(glm::rotate(glm::dmat4(1), static_cast<double>(yaw),
-                                                            glm::dvec3(0, 1, 0)));
-        }
-    }
-    aim = srVector3T<float>{rotation.glmValue() * direction.glmValue()};
+    rotation.RotateAboutY(yaw);
+    aim = srVector3T<float>{rotation * direction};
     pitch = -atan2(aim.y, aim.z);
-    {
-        if (pitch != 0.0) {
-            rotation = rotation.glmValue() *
-                       glm::mat3(glm::rotate(glm::dmat4(1), static_cast<double>(pitch),
-                                             glm::dvec3(1, 0, 0)));
-        }
-    }
+    rotation.RotateAboutX(pitch);
     g_combat_state->breath_visual = CreateAimedSpellEffect(
         g_spell_records[W8_SPELL_SPECIAL_ATTACK_CONE].resource_name, 1, &camera, &rotation, 0, 0);
     if (g_combat_state->breath_visual == 0) {

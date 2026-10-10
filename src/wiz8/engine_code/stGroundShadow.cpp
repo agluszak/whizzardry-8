@@ -194,7 +194,7 @@ void stGroundShadow::renderGroundShadow(srGERD* renderer)
     rotation.vectors[0].Set(cosine, -sine);
     rotation.vectors[1].Set(sine, cosine);
     (g_ground_shadow_material_parameters.transform) =
-        g_ground_shadow_material_parameters.transform.glmValue() * rotation.glmValue();
+        g_ground_shadow_material_parameters.transform * rotation;
     g_ground_shadow_material_parameters.center_z = position.z;
     g_ground_shadow_material_parameters.center_x = position.x;
 

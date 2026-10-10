@@ -1317,7 +1317,7 @@ void W8Monster::Update()
         srVector3T<float> position = GetPosition();
         monster_position = position;
     }
-    distance = glm::length((((monster_position - party_position))).glmValue());
+    distance = (monster_position - party_position).Length();
 
     if (sunlit_state == W8_MONSTER_SUNLIGHT_UNKNOWN || g_monster_light_scale < g_float_one) {
         current_scale = 0.75f;
@@ -1648,8 +1648,7 @@ bool W8Monster::EvaluateScriptCondition(const char* expression)
         srVector3T<float> current_position = GetPosition();
         monster_position = current_position;
         if (!g_status.world_suspended &&
-            glm::length((((party_position - monster_position))).glmValue()) <
-                *parameters.GetAt(0) * g_world_scale &&
+            (party_position - monster_position).Length() < *parameters.GetAt(0) * g_world_scale &&
             MonsterInfoFromID(7533, MONSTER_CPP, location_id, true)
                     ->player_visibility.line_of_sight != 0) {
             return true;
@@ -1818,8 +1817,7 @@ bool W8Monster::GetCycleMappedPosition(signed char cycle, int mapped_index,
                 srMatrix3T<float> rotation;
                 current_model->getWorldSpaceRotation(rotation);
                 srVector3T<float> local = vertices[vertex] * m_pRep->scale;
-                srVector3T<float> rotated =
-                    srVector3T<float>{rotation.glmValue() * local.glmValue()};
+                srVector3T<float> rotated = srVector3T<float>{rotation * local};
                 srVector3T<float> owner_position = GetPosition();
                 position->Set(rotated.x + owner_position.x,
                               rotated.y + owner_position.y + movement.vertical_base,
@@ -2542,8 +2540,7 @@ bool W8Monster::IsWithinWorldRange()
         srVector3T<float> reference = g_startup_world->GetPosition();
         srVector3T<float> delta = reference - position;
 
-        return glm::dot(delta.glmValue(), delta.glmValue()) <=
-               static_cast<float>(far_clip) * static_cast<float>(far_clip);
+        return delta.LengthSquared() <= static_cast<float>(far_clip) * static_cast<float>(far_clip);
     }
 }
 
@@ -2986,7 +2983,7 @@ void UpdateNearestMonsterGroupMembers()
 
                 if (member != 0 && member->p3D != 0) {
                     srVector3T<float> position = member->p3D->GetPosition();
-                    float distance = glm::length((((position - player_position))).glmValue());
+                    float distance = (position - player_position).Length();
 
                     if (distance < g_monster_group_nearest_range && distance < nearest_distance) {
                         nearest_distance = distance;
@@ -3018,7 +3015,7 @@ float W8Monster::GetPointDistanceToPlayer(srVector3T<float> point)
 
     GetCameraPosition(&player_position);
     player_position.y -= g_default_world_height;
-    distance = glm::length((((point - player_position))).glmValue()) - movement.alternate_radius -
+    distance = (point - player_position).Length() - movement.alternate_radius -
                g_startup_world->movement.alternate_radius;
     if (distance < g_float_zero) {
         distance = g_float_zero;
@@ -3031,8 +3028,8 @@ float W8Monster::GetDistanceToMonster(W8Monster* monster)
 {
     srVector3T<float> position = GetPosition();
     srVector3T<float> other_position = monster->GetPosition();
-    float distance = glm::length((((position - other_position))).glmValue()) -
-                     movement.alternate_radius - monster->movement.alternate_radius;
+    float distance = (position - other_position).Length() - movement.alternate_radius -
+                     monster->movement.alternate_radius;
 
     if (distance < g_float_zero) {
         distance = g_float_zero;
@@ -3044,7 +3041,7 @@ float W8Monster::GetDistanceToMonster(W8Monster* monster)
 float W8Monster::GetPointDistanceToMonster(W8Monster* monster, srVector3T<float> point)
 {
     srVector3T<float> position = monster->GetPosition();
-    float distance = glm::length((((point - position))).glmValue()) - movement.alternate_radius -
+    float distance = (point - position).Length() - movement.alternate_radius -
                      monster->movement.alternate_radius;
 
     if (distance < g_float_zero) {
@@ -3227,11 +3224,7 @@ void W8Monster::UpdateRepresentation(W8World* world)
     {
         float angle = NormalizeAngle(GetYaw() + g_monster_rotation_offset);
         if (angle != 0.0f) {
-            {
-                rotation = rotation.glmValue() *
-                           glm::mat3(glm::rotate(glm::dmat4(1), static_cast<double>(angle),
-                                                 glm::dvec3(0, 1, 0)));
-            }
+            rotation.RotateAboutY(angle);
         }
     }
     {
@@ -3248,15 +3241,7 @@ void W8Monster::UpdateRepresentation(W8World* world)
         }
     }
     if (movement.roll != g_float_zero) {
-        {
-            if (static_cast<double>(movement.roll) != 0.0) {
-                rotation =
-                    rotation.glmValue() *
-                    glm::mat3(glm::rotate(glm::dmat4(1),
-                                          static_cast<double>(static_cast<double>(movement.roll)),
-                                          glm::dvec3(0, 0, 1)));
-            }
-        }
+        rotation.RotateAboutZ(static_cast<double>(movement.roll));
     }
     m_pRep->SetRotation(&rotation);
 
@@ -3681,7 +3666,7 @@ void W8Monster::UpdateAttachedObjects()
 
     GetCameraPosition(&party_position);
     party_position -= base_position;
-    distance_scale = glm::length(party_position.glmValue()) * g_monster_attachment_distance_scale;
+    distance_scale = party_position.Length() * g_monster_attachment_distance_scale;
     if (!target_highlighted && distance_scale > g_float_one) {
         distance_scale = g_float_one;
     }
@@ -3707,8 +3692,7 @@ void W8Monster::UpdateAttachedObjects()
                 srVector3T<double> widened_scale;
 
                 offset = source * distance_scale;
-                srVector3T<float> rotated =
-                    srVector3T<float>{camera_rotation.glmValue() * offset.glmValue()};
+                srVector3T<float> rotated = srVector3T<float>{camera_rotation * offset};
                 location = base_position + rotated;
                 location.y += representation->standing_height +
                               distance_scale * g_monster_attachment_vertical_scale;
@@ -3758,8 +3742,7 @@ void W8Monster::UpdateAttachedObjects()
 
                 offset = source * distance_scale;
                 offset.y += group_height * distance_scale;
-                srVector3T<float> rotated =
-                    srVector3T<float>{camera_rotation.glmValue() * offset.glmValue()};
+                srVector3T<float> rotated = srVector3T<float>{camera_rotation * offset};
                 location = base_position + rotated;
                 location.y += representation->standing_height +
                               distance_scale * g_monster_linked_vertical_scale;
@@ -3794,7 +3777,7 @@ void W8Monster::UpdateAttachedObjects()
                                               static_cast<float>(location.y) + vertical_offset,
                                               static_cast<float>(location.z));
 
-            if (glm::length((((poster_position - mapped_position))).glmValue()) <=
+            if ((poster_position - mapped_position).Length() <=
                 static_cast<float>(g_monster_poster_max_distance)) {
                 location = glm::dvec3((&poster_position)->glmValue());
                 poster->setLocation(location);
@@ -4259,31 +4242,13 @@ void MonsterSetFacing(W8Monster* monster, float angle)
     rotation.SetIdentity();
 
     angle = NormalizeAngle(monster->GetYaw() + g_monster_rotation_offset);
-    if (angle != g_double_zero) {
-        {
-            rotation = rotation.glmValue() *
-                       glm::mat3(glm::rotate(glm::dmat4(1), static_cast<double>(angle),
-                                             glm::dvec3(0, 1, 0)));
-        }
-    }
+    rotation.RotateAboutY(angle);
 
     angle = monster->GetPitch();
-    if (angle != g_float_zero && angle != g_double_zero) {
-        {
-            rotation = rotation.glmValue() *
-                       glm::mat3(glm::rotate(glm::dmat4(1), static_cast<double>(angle),
-                                             glm::dvec3(1, 0, 0)));
-        }
-    }
+    rotation.RotateAboutX(angle);
 
     angle = monster->movement.roll;
-    if (angle != g_float_zero && angle != g_double_zero) {
-        {
-            rotation = rotation.glmValue() *
-                       glm::mat3(glm::rotate(glm::dmat4(1), static_cast<double>(angle),
-                                             glm::dvec3(0, 0, 1)));
-        }
-    }
+    rotation.RotateAboutZ(angle);
 
     monster->m_pRep->SetRotation(&rotation);
 }
@@ -4466,7 +4431,7 @@ void W8Monster::GetMappedPosition(srVector3T<float>* position)
                     *position = vertices[index];
                     instance->getWorldSpaceMatrix(matrix);
                     *position = srVector3T<float>{
-                        glm::vec3(matrix.glmValue() * glm::vec4((*position).glmValue(), 1))};
+                        glm::vec3(matrix.glmValue() * glm::vec4(position->glmValue(), 1))};
                     return;
                 }
             }
@@ -5046,7 +5011,7 @@ void W8Monster::SpawnDamageNumber(unsigned int amount)
         yaw = HeadingToTargetCPP(&facing);
         OffsetPositionByYawPitch(500.0f, &position, yaw, pitch);
         GetCameraPosition(&camera_position);
-        distance = glm::length((((position - camera_position))).glmValue());
+        distance = (position - camera_position).Length();
         if (distance > g_float_fifty_thousand) {
             distance = g_float_fifty_thousand;
         }
@@ -5089,11 +5054,8 @@ void W8Monster::SpawnDamageNumber(unsigned int amount)
             location = glm::dvec3((&position)->glmValue());
             particle->setLocation(location);
             GetCurrentModelInstance()->getRotation(rotation);
-            {
-                rotation = rotation.glmValue() *
-                           glm::mat3(glm::rotate(glm::dmat4(1), static_cast<double>(g_camera_pi),
-                                                 glm::dvec3(0, 1, 0)));
-            }
+            rotation.RotateAboutY(g_camera_pi);
+
             (world.vectors[0]) = glm::dvec3((&rotation.vectors[0])->glmValue());
             (world.vectors[1]) = glm::dvec3((&rotation.vectors[1])->glmValue());
             (world.vectors[2]) = glm::dvec3((&rotation.vectors[2])->glmValue());

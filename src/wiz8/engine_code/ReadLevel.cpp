@@ -342,8 +342,9 @@ try
     }
 
     return success;
+} catch (const std::exception&) {
+    return false;
 }
-catch (const std::exception&) { return false; }
 
 // FUNCTION: WIZ8 0x004BC9D0
 unsigned char ReadWorldEnvironment(W8ReadLevelInfo* pInfo, W8World* pWorld)
@@ -389,19 +390,7 @@ try
 
         rotation.SetIdentity();
         if (angle != 0.0f) {
-            {
-                const auto rotation_axis = glm::dvec3(axis.glmValue());
-                const double rotation_sine = sin(angle);
-                const double rotation_cosine = cos(angle);
-                const auto axis_cross = glm::dmat3(glm::cross(rotation_axis, glm::dvec3(1, 0, 0)),
-                                                   glm::cross(rotation_axis, glm::dvec3(0, 1, 0)),
-                                                   glm::cross(rotation_axis, glm::dvec3(0, 0, 1)));
-                const auto axis_rotation = glm::mat3(
-                    rotation_cosine * glm::dmat3(1) +
-                    (1.0 - rotation_cosine) * glm::outerProduct(rotation_axis, rotation_axis) +
-                    rotation_sine * axis_cross);
-                rotation = rotation.glmValue() * axis_rotation;
-            }
+            rotation.RotateAroundAxis(sin(angle), cos(angle), axis);
         }
         ApplyCameraRotation(&rotation);
     }
@@ -439,8 +428,9 @@ try
         UpdateEnvironmentLight();
     }
     return success;
+} catch (const std::exception&) {
+    return false;
 }
-catch (const std::exception&) { return false; }
 
 // FUNCTION: WIZ8 0x004BCE20
 static unsigned char ReadWorldClipPlanes(W8ReadLevelInfo* pInfo, W8World* pWorld)
@@ -499,8 +489,9 @@ try
         clip_plane->setFlag(srNode::FLAG_DISABLE);
     }
     return 1;
+} catch (const std::exception&) {
+    return false;
 }
-catch (const std::exception&) { return false; }
 
 // FUNCTION: WIZ8 0x004BC5E0
 static unsigned char ReadWorldProps(W8ReadLevelInfo* pInfo, W8World* pWorld,
@@ -567,8 +558,9 @@ try
         g_octree->TestPropSunBit(-1);
     }
     return success;
+} catch (const std::exception&) {
+    return false;
 }
-catch (const std::exception&) { return false; }
 
 // FUNCTION: WIZ8 0x004BC380
 unsigned char ReadWorldItems(W8ReadLevelInfo* pInfo, W8World* pWorld)
@@ -642,8 +634,9 @@ try
         }
     }
     return success;
+} catch (const std::exception&) {
+    return false;
 }
-catch (const std::exception&) { return false; }
 
 // FUNCTION: WIZ8 0x004BC140
 unsigned char ReadMonsterPaths(W8ReadLevelInfo* pInfo, W8World* pWorld)
@@ -741,8 +734,9 @@ try
         monster->UpdateRepresentation(pWorld);
     }
     return success;
+} catch (const std::exception&) {
+    return false;
 }
-catch (const std::exception&) { return false; }
 
 // FUNCTION: WIZ8 0x004BC850
 unsigned char ReadWorldCameras(W8ReadLevelInfo* pInfo, W8World* pWorld)
@@ -792,8 +786,9 @@ try
         PathAISetScale(entry->path, scale);
     }
     return 1;
+} catch (const std::exception&) {
+    return false;
 }
-catch (const std::exception&) { return false; }
 
 // FUNCTION: WIZ8 0x004BD0D0
 unsigned char ReadWorldParticles(W8ReadLevelInfo* pInfo, srNode* pScene,
@@ -915,33 +910,14 @@ try
 
             rotation.SetIdentity();
             if (record.rotation_angle != 0.0f) {
-                {
-                    const auto rotation_axis = glm::dvec3(record.rotation_axis.glmValue());
-                    const double rotation_sine = sin(record.rotation_angle);
-                    const double rotation_cosine = cos(record.rotation_angle);
-                    const auto axis_cross =
-                        glm::dmat3(glm::cross(rotation_axis, glm::dvec3(1, 0, 0)),
-                                   glm::cross(rotation_axis, glm::dvec3(0, 1, 0)),
-                                   glm::cross(rotation_axis, glm::dvec3(0, 0, 1)));
-                    const auto axis_rotation = glm::mat3(
-                        rotation_cosine * glm::dmat3(1) +
-                        (1.0 - rotation_cosine) * glm::outerProduct(rotation_axis, rotation_axis) +
-                        rotation_sine * axis_cross);
-                    rotation = rotation.glmValue() * axis_rotation;
+                rotation.RotateAroundAxis(sin(record.rotation_angle), cos(record.rotation_angle),
+                                          record.rotation_axis);
                 }
-            }
-            {
-                rotation = rotation.glmValue() *
-                           glm::mat3(glm::rotate(glm::dmat4(1), static_cast<double>(angle),
-                                                 glm::dvec3(1, 0, 0)));
-            }
+                rotation.RotateAboutX(angle);
+
             direction.Set(0.0, 0.0, -1.0);
-            transformed = srVector3T<float>{rotation.glmValue() * direction.glmValue()};
-            {
-                const auto direction_value = transformed.glmValue();
-                if (glm::dot(direction_value, direction_value) != 0)
-                    (transformed) = glm::normalize(direction_value);
-            }
+                transformed = srVector3T<float>{rotation * direction};
+                transformed.Unitize();
             particle->direction_mode = W8_PARTICLE_DIRECTION_FIXED;
             particle->direction = transformed;
         } else if (record.direction_mode == W8_PARTICLE_DIRECTION_NODE_FORWARD) {
@@ -997,8 +973,9 @@ try
         pParticles->Add(particle);
     }
     return 1;
+} catch (const std::exception&) {
+    return false;
 }
-catch (const std::exception&) { return false; }
 
 // FUNCTION: WIZ8 0x004BDC90
 static unsigned char ReadNamedPositions(W8ReadLevelInfo* pInfo,
@@ -1036,12 +1013,14 @@ try
         named_positions->Add(pNamedPos);
     }
     return 1;
+} catch (const std::exception&) {
+    return false;
 }
-catch (const std::exception&) { return false; }
 
 #define CHECK_PVL_OFFSET(message)                                                                  \
-    if (world->octree != 0 &&                                                                      \
-        (!(handle->read(&section_end, sizeof(section_end)).bytes == static_cast<std::size_t>(sizeof(section_end))) || section_end != -1)) {          \
+    if (world->octree != 0 && (!(handle->read(&section_end, sizeof(section_end)).bytes ==          \
+                                 static_cast<std::size_t>(sizeof(section_end))) ||                 \
+                               section_end != -1)) {                                               \
         sprintf(error_message, "%s\nTry deleting .PVL file and reloading.", message);              \
         ShutdownWithErrorBox(error_message);                                                       \
     }
@@ -1242,8 +1221,9 @@ try
         g_octree->m_fAccumulating = false;
     }
     return success;
+} catch (const std::exception&) {
+    return false;
 }
-catch (const std::exception&) { return false; }
 
 // VTABLE: WIZ8 0x005ED180
 // class srClientSupport<srClipPlane,5376>

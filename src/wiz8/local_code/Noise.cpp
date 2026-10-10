@@ -49,9 +49,7 @@ void AlertMonsterGroupsToNoise(const srVector3T<float>* position, int radius, in
         }
         W8MonsterRecord* record = GetMonsterDataForInfo(info);
         srVector3T<float> monster_position = info->p3D->GetPosition();
-        int remaining =
-            radius -
-            static_cast<int>(glm::length((((monster_position - noise_position))).glmValue()));
+        int remaining = radius - static_cast<int>((monster_position - noise_position).Length());
         if (remaining <= 0) {
             continue;
         }

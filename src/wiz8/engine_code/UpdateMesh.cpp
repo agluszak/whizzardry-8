@@ -55,28 +55,16 @@ void CollectViewQuadCells(W8World* world, w8_long* x_list, w8_long* y_list, w8_l
     srVector3T<float> direction(0.0f, 0.0f, world->render_range);
     srMatrix3T<float> work = rotation;
     double angle = -g_mesh_view_half_angle_degrees * g_mesh_view_degrees_to_radians;
-    if (angle != 0.0) {
-        {
-            work =
-                work.glmValue() * glm::mat3(glm::rotate(glm::dmat4(1), static_cast<double>(angle),
-                                                        glm::dvec3(0, 1, 0)));
-        }
-    }
-    direction = srVector3T<float>{work.glmValue() * direction.glmValue()};
+    work.RotateAboutY(angle);
+    direction = srVector3T<float>{work * direction};
     w8_long edge1_x = cam_x + static_cast<w8_long>(direction.x / cell_size);
     w8_long edge1_y = cam_y + static_cast<w8_long>(direction.z / cell_size);
 
     direction.Set(0.0f, 0.0f, world->render_range);
     work = rotation;
     angle = g_mesh_view_half_angle_degrees * g_mesh_view_degrees_to_radians;
-    if (angle != 0.0) {
-        {
-            work =
-                work.glmValue() * glm::mat3(glm::rotate(glm::dmat4(1), static_cast<double>(angle),
-                                                        glm::dvec3(0, 1, 0)));
-        }
-    }
-    direction = srVector3T<float>{work.glmValue() * direction.glmValue()};
+    work.RotateAboutY(angle);
+    direction = srVector3T<float>{work * direction};
     w8_long edge2_x = cam_x + static_cast<w8_long>(direction.x / cell_size);
     w8_long edge2_y = cam_y + static_cast<w8_long>(direction.z / cell_size);
 
@@ -322,10 +310,11 @@ void UpdateWorldMeshFromQuads(W8World* world)
                     char* item = static_cast<char*>(PLGet(cell->objects, j));
                     if (item[0] == 1) {
                         w8_long entry =
-                            *reinterpret_cast< // reinterpret-ok: quad-cell object producer/lifetime is unresolved; retail reads entry at +0x14
+                            *reinterpret_cast< // reinterpret-ok: quad-cell object producer/lifetime
+                                               // is unresolved; retail reads entry at +0x14
                                 w8_long*>(item + 0x14);
-                        void** nodes =
-                            *reinterpret_cast< // reinterpret-ok: embedded pair-table at +0x1c resolved by retail offset
+                        void** nodes = *reinterpret_cast< // reinterpret-ok: embedded pair-table at
+                                                          // +0x1c resolved by retail offset
                                 void***>(item + entry * 8 + 0x1c);
                         w8_long slot = *reinterpret_cast< // reinterpret-ok: slot index field at +0x30
                             w8_long*>(item + 0x30);

@@ -245,21 +245,9 @@ void W8SpellVisual::UpdateRepresentation(W8World* world)
         SetCyclePosition(&position);
         rotation.SetIdentity();
         angle = GetCameraYawRadians() - g_monster_rotation_offset;
-        if (angle != g_double_zero) {
-            {
-                rotation = rotation.glmValue() *
-                           glm::mat3(glm::rotate(glm::dmat4(1), static_cast<double>(angle),
-                                                 glm::dvec3(0, 1, 0)));
-            }
-        }
+        rotation.RotateAboutY(angle);
         pitch = -GetCameraPitchRadians();
-        if (pitch != g_double_zero) {
-            {
-                rotation = rotation.glmValue() *
-                           glm::mat3(glm::rotate(glm::dmat4(1), static_cast<double>(pitch),
-                                                 glm::dvec3(1, 0, 0)));
-            }
-        }
+        rotation.RotateAboutX(pitch);
         apply_rotation = true;
     } else if (mode == W8_SPELL_VISUAL_TARGET) {
         W8Monster* monster = GetMonsterByLocationID(location_id);
@@ -302,23 +290,9 @@ void W8SpellVisual::UpdateRepresentation(W8World* world)
 
                     rotation.SetIdentity();
                     float angle = monster->GetYaw();
-                    if (angle != g_double_zero) {
-                        {
-                            rotation =
-                                rotation.glmValue() *
-                                glm::mat3(glm::rotate(glm::dmat4(1), static_cast<double>(angle),
-                                                      glm::dvec3(0, 1, 0)));
-                        }
-                    }
+                    rotation.RotateAboutY(angle);
                     float pitch = GetElevationAngle(&position, &camera_position);
-                    if (pitch != g_double_zero) {
-                        {
-                            rotation =
-                                rotation.glmValue() *
-                                glm::mat3(glm::rotate(glm::dmat4(1), static_cast<double>(pitch),
-                                                      glm::dvec3(1, 0, 0)));
-                        }
-                    }
+                    rotation.RotateAboutX(pitch);
                     apply_rotation = true;
                 }
             }
@@ -338,13 +312,7 @@ void W8SpellVisual::UpdateRepresentation(W8World* world)
         GetCameraPosition(&camera_position);
         angle =
             GetHeadingAngle(&visual_position, &camera_position) + static_cast<float>(g_camera_pi);
-        if (angle != g_double_zero) {
-            {
-                billboard = billboard.glmValue() *
-                            glm::mat3(glm::rotate(glm::dmat4(1), static_cast<double>(angle),
-                                                  glm::dvec3(0, 1, 0)));
-            }
-        }
+        billboard.RotateAboutY(angle);
         host->SetRotation(&billboard);
     }
 
@@ -858,21 +826,9 @@ placed:
         visual->SetCyclePosition(&position);
         rotation.SetIdentity();
         angle = GetCameraYawRadians() - g_monster_rotation_offset;
-        if (angle != g_double_zero) {
-            {
-                rotation = rotation.glmValue() *
-                           glm::mat3(glm::rotate(glm::dmat4(1), static_cast<double>(angle),
-                                                 glm::dvec3(0, 1, 0)));
-            }
-        }
+        rotation.RotateAboutY(angle);
         pitch = -GetCameraPitchRadians();
-        if (pitch != g_double_zero) {
-            {
-                rotation = rotation.glmValue() *
-                           glm::mat3(glm::rotate(glm::dmat4(1), static_cast<double>(pitch),
-                                                 glm::dvec3(1, 0, 0)));
-            }
-        }
+        rotation.RotateAboutX(pitch);
         visual->host->SetRotation(&rotation);
     }
     return visual;
@@ -1359,17 +1315,11 @@ void stSound3D::BuildSoundOptions(const srVector3T<float>* listener, SOUND3DPARM
     srVector3T<float> offset;
 
     rotation.SetIdentity();
-    if (angle != g_double_zero) {
-        {
-            rotation = rotation.glmValue() *
-                       glm::mat3(glm::rotate(glm::dmat4(1), static_cast<double>(angle),
-                                             glm::dvec3(0, 1, 0)));
-        }
-    }
+    rotation.RotateAboutY(angle);
 
     getLocation(node_position);
     offset = node_position - *listener;
-    srVector3T<float> transformed = srVector3T<float>{rotation.glmValue() * offset.glmValue()};
+    srVector3T<float> transformed = srVector3T<float>{rotation * offset};
     float x = transformed.x;
     float y = transformed.y;
     float z = transformed.z;
@@ -1377,7 +1327,7 @@ void stSound3D::BuildSoundOptions(const srVector3T<float>* listener, SOUND3DPARM
     memset(options, 0xff, sizeof(*options));
     srVector3T<float> listener_offset = *listener - node_position;
     options->uiVolume = static_cast<unsigned int>(
-        (g_float_one - glm::length(listener_offset.glmValue()) / falloff) * scaled_volume);
+        (g_float_one - listener_offset.Length() / falloff) * scaled_volume);
     options->uiLoop = 1;
     options->Pos.flX = x;
     options->Pos.flY = y;
@@ -1452,25 +1402,17 @@ void Update3DSounds()
                     to_listener.Set(listener.x - static_cast<float>(world.x),
                                     listener.y - static_cast<float>(world.y),
                                     listener.z - static_cast<float>(world.z));
-                    distance = static_cast<float>(
-                        sqrt(glm::dot(to_listener.glmValue(), to_listener.glmValue())));
+                    distance = static_cast<float>(sqrt(to_listener.LengthSquared()));
                     if (sound->falloff <= distance) {
                         SoundSetVolume(sound->sound_handle, 0);
                     } else {
                         angle = -GetCameraYawRadians();
                         rotation.SetIdentity();
-                        if (angle != g_double_zero) {
-                            {
-                                rotation =
-                                    rotation.glmValue() *
-                                    glm::mat3(glm::rotate(glm::dmat4(1), static_cast<double>(angle),
-                                                          glm::dvec3(0, 1, 0)));
-                            }
-                        }
+                        rotation.RotateAboutY(angle);
                         offset.Set(static_cast<float>(world.x) - listener.x,
                                    static_cast<float>(world.y) - listener.y,
                                    static_cast<float>(world.z) - listener.z);
-                        transformed = srVector3T<float>{rotation.glmValue() * offset.glmValue()};
+                        transformed = srVector3T<float>{rotation * offset};
                         Sound3DSetPosition(sound->sound_handle, transformed.x, transformed.y,
                                            transformed.z);
                         Sound3DSetDirection(sound->sound_handle, -transformed.x, -transformed.y,
@@ -1618,5 +1560,6 @@ try
     handle.reset();
     g_spell_database_version = allocation_count;
     return ok;
+} catch (const std::exception&) {
+    return false;
 }
-catch (const std::exception&) { return false; }

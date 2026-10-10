@@ -128,17 +128,11 @@ static void gatherIndexedTriangles(srVector3i* destination, const srVector3i* so
                                    const w8_ulong* indices, const w8_ulong* vertices,
                                    w8_ulong vertex_base, w8_ulong count)
 {
-    {
-        std::span<srVector3i> input_destination{destination, count};
-        const srVector3i* input_source = source;
-        std::span<const SRDWORD> input_indices{indices, count};
-        const SRDWORD* input_remap = vertices;
-        for (std::size_t i = 0; i < input_indices.size(); ++i) {
-            const auto& triangle = input_source[input_indices[i]];
-            input_destination[i].x = input_remap[triangle.x];
-            input_destination[i].y = input_remap[triangle.y];
-            input_destination[i].z = input_remap[triangle.z];
-        }
+    for (std::size_t i = 0; i < count; ++i) {
+        const auto& triangle = source[indices[i]];
+        destination[i].x = vertices[triangle.x];
+        destination[i].y = vertices[triangle.y];
+        destination[i].z = vertices[triangle.z];
     }
     if (vertex_base != 0) {
         /* reinterpret-ok: the triples rebase as flat dwords. */
@@ -563,28 +557,21 @@ void srGERD::Renderer::expandTriangles(const TriInput& input, int sorted)
                     arrays.q0 = &vertices.q[0][0];
                     arrays.q1 = &vertices.q[1][0];
                     arrays.attributes = &vertices.attributes[0];
-                    std::ranges::transform(
-                        std::span<const SRDWORD>{remap, static_cast<std::size_t>(new_count)},
-                        arrays.eye_locations + base,
-                        [&](auto i) { return (arrays.eye_locations)[i]; });
-                    std::ranges::transform(
-                        std::span<const SRDWORD>{remap, static_cast<std::size_t>(new_count)},
-                        arrays.diffuse + base, [&](auto i) { return (arrays.diffuse)[i]; });
-                    std::ranges::transform(
-                        std::span<const SRDWORD>{remap, static_cast<std::size_t>(new_count)},
-                        arrays.specular + base, [&](auto i) { return (arrays.specular)[i]; });
-                    std::ranges::transform(
-                        std::span<const SRDWORD>{remap, static_cast<std::size_t>(new_count)},
-                        arrays.st1 + base, [&](auto i) { return (arrays.st1)[i]; });
-                    std::ranges::transform(
-                        std::span{remap, new_count}, arrays.q1 + base,
-                        [source = arrays.q1](auto index) { return source[index]; });
+                    for (std::size_t i = 0; i < new_count; ++i)
+                        arrays.eye_locations[base + i] = arrays.eye_locations[remap[i]];
+                    for (std::size_t i = 0; i < new_count; ++i)
+                        arrays.diffuse[base + i] = arrays.diffuse[remap[i]];
+                    for (std::size_t i = 0; i < new_count; ++i)
+                        arrays.specular[base + i] = arrays.specular[remap[i]];
+                    for (std::size_t i = 0; i < new_count; ++i)
+                        arrays.st1[base + i] = arrays.st1[remap[i]];
+                    for (w8_ulong i = 0; i < new_count; ++i)
+                        arrays.q1[base + i] = arrays.q1[remap[i]];
                     for (w8_ulong index = 0; index < new_count; index++) {
                         arrays.attributes[base + index] = arrays.attributes[remap[index]];
                     }
-                    std::ranges::transform(
-                        std::span<const SRDWORD>{corner_remap, static_cast<std::size_t>(new_count)},
-                        arrays.st0 + base, [&](auto i) { return (pass.texcoords)[i]; });
+                    for (std::size_t i = 0; i < new_count; ++i)
+                        arrays.st0[base + i] = pass.texcoords[corner_remap[i]];
                     std::fill_n(arrays.q0 + base, new_count, 1.0f);
                 }
                 if (sorted != 0) {
@@ -659,44 +646,35 @@ void srGERD::Renderer::transformVertices(const TriInput& input, unsigned char* c
         if (chunk != 0 && mode != srMatrix4T<float>::TYPE_IDENTITY) {
             if (mode == srMatrix4T<float>::TYPE_ORTHOGRAPHIC) {
                 {
-                    std::span<srVector4> input_destination{write, chunk};
-                    std::span<const srVector4> input_source{write, chunk};
-                    const srMatrix4& input_matrix = *input.project_clip_near;
                     auto transform_matrix = glm::mat4(0.0f);
-                    transform_matrix[0][0] = input_matrix.vectors[0].x;
-                    transform_matrix[1][1] = input_matrix.vectors[1].y;
-                    transform_matrix[2][2] = input_matrix.vectors[2].z;
-                    transform_matrix[3][0] = input_matrix.vectors[0].w;
-                    transform_matrix[3][1] = input_matrix.vectors[1].w;
-                    transform_matrix[3][2] = input_matrix.vectors[2].w;
-                    transform_matrix[3][3] = input_matrix.vectors[3].w;
-                    for (std::size_t i = 0; i < input_destination.size(); ++i)
-                        input_destination[i] = transform_matrix * input_source[i].glmValue();
+                    transform_matrix[0][0] = (*input.project_clip_near).vectors[0].x;
+                    transform_matrix[1][1] = (*input.project_clip_near).vectors[1].y;
+                    transform_matrix[2][2] = (*input.project_clip_near).vectors[2].z;
+                    transform_matrix[3][0] = (*input.project_clip_near).vectors[0].w;
+                    transform_matrix[3][1] = (*input.project_clip_near).vectors[1].w;
+                    transform_matrix[3][2] = (*input.project_clip_near).vectors[2].w;
+                    transform_matrix[3][3] = (*input.project_clip_near).vectors[3].w;
+                    for (std::size_t i = 0; i < chunk; ++i)
+                        write[i] = transform_matrix * write[i].glmValue();
                 }
             } else if (mode == srMatrix4T<float>::TYPE_PERSPECTIVE) {
                 {
-                    std::span<srVector4> input_destination{write, chunk};
-                    std::span<const srVector4> input_source{write, chunk};
-                    const srMatrix4& input_matrix = *input.project_clip_near;
                     auto transform_matrix = glm::mat4(0.0f);
-                    transform_matrix[0][0] = input_matrix.vectors[0].x;
-                    transform_matrix[1][1] = input_matrix.vectors[1].y;
-                    transform_matrix[2][0] = input_matrix.vectors[0].z;
-                    transform_matrix[2][1] = input_matrix.vectors[1].z;
-                    transform_matrix[2][2] = input_matrix.vectors[2].z;
-                    transform_matrix[3][2] = input_matrix.vectors[2].w;
-                    transform_matrix[2][3] = input_matrix.vectors[3].z;
-                    for (std::size_t i = 0; i < input_destination.size(); ++i)
-                        input_destination[i] = transform_matrix * input_source[i].glmValue();
+                    transform_matrix[0][0] = (*input.project_clip_near).vectors[0].x;
+                    transform_matrix[1][1] = (*input.project_clip_near).vectors[1].y;
+                    transform_matrix[2][0] = (*input.project_clip_near).vectors[0].z;
+                    transform_matrix[2][1] = (*input.project_clip_near).vectors[1].z;
+                    transform_matrix[2][2] = (*input.project_clip_near).vectors[2].z;
+                    transform_matrix[3][2] = (*input.project_clip_near).vectors[2].w;
+                    transform_matrix[2][3] = (*input.project_clip_near).vectors[3].z;
+                    for (std::size_t i = 0; i < chunk; ++i)
+                        write[i] = transform_matrix * write[i].glmValue();
                 }
             } else {
                 {
-                    std::span<srVector4> input_destination{write, chunk};
-                    std::span<const srVector4> input_vectors{write, chunk};
-                    const srMatrix4& input_matrix = *input.project_clip_near;
-                    const auto transform_matrix = input_matrix.glmValue();
-                    for (std::size_t i = 0; i < input_destination.size(); ++i)
-                        input_destination[i] = transform_matrix * input_vectors[i].glmValue();
+                    const auto transform_matrix = input.project_clip_near->glmValue();
+                    for (std::size_t i = 0; i < chunk; ++i)
+                        write[i] = transform_matrix * write[i].glmValue();
                 }
             }
         }

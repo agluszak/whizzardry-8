@@ -3014,33 +3014,14 @@ int CastSpellFromSource(int spell_id, W8TargetSource* source, W8CombatSlot* targ
                     } else {
                         origin = source->point;
                         direction = target->point - origin;
-                        {
-                            const auto direction_value = direction.glmValue();
-                            if (glm::dot(direction_value, direction_value) != 0)
-                                (direction) =
-                                    glm::normalize(direction_value) * static_cast<float>(1.0);
-                        }
+                        direction.SetLength(1.0);
                         local_90.SetIdentity();
                         yaw = atan2(direction.x, direction.z);
-                        {
-                            if (yaw != 0.0) {
-                                local_90 =
-                                    local_90.glmValue() *
-                                    glm::mat3(glm::rotate(glm::dmat4(1), static_cast<double>(yaw),
-                                                          glm::dvec3(0, 1, 0)));
-                            }
-                        }
+                        local_90.RotateAboutY(yaw);
                         direction = srVector3T<float>{glm::transpose(local_90.glmValue()) *
                                                       direction.glmValue()};
                         pitch = -atan2(direction.y, direction.z);
-                        {
-                            if (pitch != 0.0) {
-                                local_90 =
-                                    local_90.glmValue() *
-                                    glm::mat3(glm::rotate(glm::dmat4(1), static_cast<double>(pitch),
-                                                          glm::dvec3(1, 0, 0)));
-                            }
-                        }
+                        local_90.RotateAboutX(pitch);
                         visual = CreateAimedSpellEffect(g_spell_records[spell_id].resource_name,
                                                         power_level, &origin, &local_90, 0, 0);
                     }
@@ -3538,12 +3519,8 @@ void ScatterSpellPointTarget(int spell_id, W8TargetSource* source, W8CombatSlot*
         }
     }
     delta = origin - point;
-    if (range < glm::length(delta.glmValue())) {
-        {
-            const auto direction_value = delta.glmValue();
-            if (glm::dot(direction_value, direction_value) != 0)
-                (delta) = glm::normalize(direction_value) * static_cast<float>(range);
-        }
+    if (range < delta.Length()) {
+        delta.SetLength(range);
         point = delta + origin;
     }
     target->point = point;

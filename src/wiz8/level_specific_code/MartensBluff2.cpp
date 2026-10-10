@@ -158,21 +158,9 @@ static void FireTrapLauncher(const char* name, W8SpellEffectDefinition* effect)
         offset.Set(0.0, 0.0, 15000.0);
         rotation.SetIdentity();
         if (angle != 0.0) {
-            {
-                const auto rotation_axis = glm::dvec3(direction.glmValue());
-                const double rotation_sine = sin(angle);
-                const double rotation_cosine = cos(angle);
-                const auto axis_cross = glm::dmat3(glm::cross(rotation_axis, glm::dvec3(1, 0, 0)),
-                                                   glm::cross(rotation_axis, glm::dvec3(0, 1, 0)),
-                                                   glm::cross(rotation_axis, glm::dvec3(0, 0, 1)));
-                const auto axis_rotation = glm::mat3(
-                    rotation_cosine * glm::dmat3(1) +
-                    (1.0 - rotation_cosine) * glm::outerProduct(rotation_axis, rotation_axis) +
-                    rotation_sine * axis_cross);
-                rotation = rotation.glmValue() * axis_rotation;
+            rotation.RotateAroundAxis(sin(angle), cos(angle), direction);
             }
-        }
-        offset = position + srVector3T<float>{rotation.glmValue() * offset.glmValue()};
+            offset = position + srVector3T<float>{rotation * offset};
         missile = FireMissile(0, &position, &offset, 0, 0, 1, 50000.0f);
         missile->SetEffectDefinition(effect);
         CreateAndPlaySoundNode("Data\\Sound\\Combat\\Blow_Gun_Attack_01.wav", position, 1.0f,
@@ -203,22 +191,8 @@ bool TriggerArrowTrap(Trigger* pTrigger)
     if (FindEntityByName("Arrowlauncher4", &position, &angle, &direction)) {
         offset.Set(0.0, 0.0, 15000.0);
         rotation.SetIdentity();
-        {
-            if (angle != 0.0) {
-                const auto rotation_axis = glm::dvec3(direction.glmValue());
-                const double rotation_sine = std::sin(angle);
-                const double rotation_cosine = std::cos(angle);
-                const auto axis_cross = glm::dmat3(glm::cross(rotation_axis, glm::dvec3(1, 0, 0)),
-                                                   glm::cross(rotation_axis, glm::dvec3(0, 1, 0)),
-                                                   glm::cross(rotation_axis, glm::dvec3(0, 0, 1)));
-                const auto axis_rotation = glm::mat3(
-                    rotation_cosine * glm::dmat3(1) +
-                    (1.0 - rotation_cosine) * glm::outerProduct(rotation_axis, rotation_axis) +
-                    rotation_sine * axis_cross);
-                rotation = rotation.glmValue() * axis_rotation;
-            }
-        }
-        offset = srVector3T<float>{rotation.glmValue() * offset.glmValue()} + position;
+        rotation.RotateAroundAxis(angle, direction);
+        offset = srVector3T<float>{rotation * offset} + position;
         missile = FireMissile(0, &position, &offset, 0, 0, 1, 50000.0f);
         missile->SetEffectDefinition(&effect);
         CreateAndPlaySoundNode("Data\\Sound\\Combat\\Blow_Gun_Attack_01.wav", position, 1.0f,
@@ -295,23 +269,9 @@ void MartensBluff2Spikeball(int command)
                 offset.Set(0.0, 0.0, 15000.0);
                 rotation.SetIdentity();
                 if (angle != 0.0) {
-                    {
-                        const auto rotation_axis = glm::dvec3(direction.glmValue());
-                        const double rotation_sine = sin(angle);
-                        const double rotation_cosine = cos(angle);
-                        const auto axis_cross =
-                            glm::dmat3(glm::cross(rotation_axis, glm::dvec3(1, 0, 0)),
-                                       glm::cross(rotation_axis, glm::dvec3(0, 1, 0)),
-                                       glm::cross(rotation_axis, glm::dvec3(0, 0, 1)));
-                        const auto axis_rotation =
-                            glm::mat3(rotation_cosine * glm::dmat3(1) +
-                                      (1.0 - rotation_cosine) *
-                                          glm::outerProduct(rotation_axis, rotation_axis) +
-                                      rotation_sine * axis_cross);
-                        rotation = rotation.glmValue() * axis_rotation;
+                    rotation.RotateAroundAxis(sin(angle), cos(angle), direction);
                     }
-                }
-                offset = srVector3T<float>{rotation.glmValue() * offset.glmValue()} + position;
+                    offset = srVector3T<float>{rotation * offset} + position;
                 missile = FireMissile(0, &position, &offset, 0, 0, 1, 50000.0f);
                 missile->SetEffectDefinition(&effect);
                 CreateAndPlaySoundNode("Data\\Sound\\Combat\\Blow_Gun_Attack_01.wav", position,

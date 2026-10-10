@@ -1,5 +1,6 @@
-#include "surrender/srARGB.h"
-#include <algorithm>
+#include "surrender/srClip.h"
+#include "surrender/srLight.h"
+#include "surrender/srMath.h"
 #include <array>
 #include <bit>
 #include <cmath>
@@ -7,12 +8,6 @@
 
 #include <cstdlib>
 #include <limits>
-#include <random>
-#include <vector>
-#include "surrender/srClip.h"
-#include "surrender/srLight.h"
-#include "surrender/srMath.h"
-#include <cassert>
 
 #define CHECK(expression)                                                                          \
     do {                                                                                           \
@@ -27,497 +22,8 @@ static void CheckFloats(float actual, float expected)
     CHECK(std::bit_cast<unsigned>(actual) == std::bit_cast<unsigned>(expected));
 }
 
-static void Elementary()
+static void ClippingAndLighting()
 {
-    std::mt19937 random(0x658e0);
-    std::uniform_real_distribution<float> values(-4, 4);
-    for (std::size_t count : {0, 1, 3, 16, 255, 256, 257, 513}) {
-        std::vector<float> a(count), b(count), out(count), alias(count);
-        std::ranges::generate(a, [&] { return values(random); });
-        std::ranges::generate(b, [&] { return values(random); });
-        alias = b;
-        std::ranges::transform(std::span<const float>{a}.first(std::span<float>{alias}.size()),
-                               std::span<const float>{alias}.first(std::span<float>{alias}.size()),
-                               std::begin(alias),
-                               [&](const auto& a, const auto& b) { return a * b; });
-        for (std::size_t i = 0; i < count; ++i)
-            CheckFloats(alias[i], a[i] * b[i]);
-        std::ranges::transform(std::span<const float>{a}.first(std::span<float>{out}.size()),
-                               std::begin(out), [&](const auto& v) { return (0.25f) * v; });
-        for (std::size_t i = 0; i < count; ++i)
-            CheckFloats(out[i], 0.25f * a[i]);
-        std::ranges::transform(std::span<const float>{a}.first(std::span<float>{out}.size()),
-                               std::begin(out), [&](const auto& v) { return (-2.0f) + v; });
-        for (std::size_t i = 0; i < count; ++i)
-            CheckFloats(out[i], -2.0f + a[i]);
-        std::ranges::transform(std::span<const float>{a}.first(std::span<float>{out}.size()),
-                               std::begin(out), [&](const auto& v) { return (1.0f) - v; });
-        for (std::size_t i = 0; i < count; ++i)
-            CheckFloats(out[i], 1.0f - a[i]);
-        alias = b;
-        {
-            std::span<float> input_destination = alias;
-            std::span<const float> input_add_source = a;
-            std::span<const float> input_scale_source = b;
-            std::span<const float> input_multiply_source = alias;
-            for (std::size_t i = 0; i < input_destination.size(); ++i)
-                input_destination[i] =
-                    input_scale_source[i] * input_multiply_source[i] + input_add_source[i];
-        }
-        for (std::size_t i = 0; i < count; ++i)
-            CheckFloats(alias[i], b[i] * b[i] + a[i]);
-        std::ranges::transform(std::span<const float>{a}.first(std::span<float>{out}.size()),
-                               std::begin(out), [&](const auto& v) { return -v; });
-        for (std::size_t i = 0; i < count; ++i)
-            CheckFloats(out[i], -a[i]);
-    }
-    const float nan = std::numeric_limits<float>::quiet_NaN();
-    float special[] = {-INFINITY, -1, -0.0f, 0, 0.5f, 1, 2, INFINITY, nan};
-    float out[std::size(special)];
-    std::ranges::transform(std::span<const float>{special, std::size(out)}, std::begin(out),
-                           [&](const auto& v) { return glm::clamp(v, 0.0f, 1.0f); });
-    for (std::size_t i = 0; i < std::size(special); ++i)
-        CheckFloats(out[i], special[i] < 0 ? 0 : special[i] > 1 ? 1 : special[i]);
-    std::ranges::transform(std::span<const float>{special, std::size(out)}, std::begin(out),
-                           [&](const auto& v) { return v <= 0.0f ? 0.0f : v; });
-    for (std::size_t i = 0; i < std::size(special); ++i)
-        CheckFloats(out[i], special[i] <= 0 ? 0 : special[i]);
-    float zeros[] = {0, -0.0f};
-    CHECK(std::ranges::all_of(zeros, [](float v) { return v == 0.0f; }) &&
-          std::ranges::all_of(std::span<const float>{}, [](float v) { return v == 0.0f; }));
-    CHECK(!std::ranges::all_of(special, [](float v) { return v == 0.0f; }));
-    CHECK(!std::ranges::all_of(std::span{&nan, 1}, [](float v) { return v == 0.0f; }));
-    {
-        std::span<srVector3> input_destination = std::span<srVector3>{};
-        std::span<const srVector3> input_vectors{};
-        const srMatrix4& input_matrix = srMatrix4{};
-        const auto transform_matrix = input_matrix.glmValue();
-        for (std::size_t i = 0; i < input_destination.size(); ++i)
-            input_destination[i] =
-                glm::vec3(transform_matrix * glm::vec4(input_vectors[i].glmValue(), 1.0f));
-    }
-}
-
-static void Geometry()
-{
-    srMatrix4 matrix;
-    matrix.SetIdentity();
-    matrix.vectors[0].w = 10;
-    matrix.vectors[1].w = -2;
-    matrix.vectors[2].w = 3;
-    srVector3 positions[] = {{1, 2, 3}, {-4, 5, -6}, {7, -8, 9}};
-    srVector3 out[3], alias[3];
-    srVector4 homogeneous[3];
-    {
-        std::span<srVector3> input_destination = out;
-        std::span<const srVector3> input_vectors{positions, std::size(out)};
-        const srMatrix4& input_matrix = matrix;
-        const auto transform_matrix = input_matrix.glmValue();
-        for (std::size_t i = 0; i < input_destination.size(); ++i)
-            input_destination[i] =
-                glm::vec3(transform_matrix * glm::vec4(input_vectors[i].glmValue(), 1.0f));
-    }
-    {
-        std::span<srVector4> input_destination = homogeneous;
-        std::span<const srVector3> input_vectors{positions, std::size(homogeneous)};
-        const srMatrix4& input_matrix = matrix;
-        const auto transform_matrix = input_matrix.glmValue();
-        for (std::size_t i = 0; i < input_destination.size(); ++i)
-            input_destination[i] = transform_matrix * glm::vec4(input_vectors[i].glmValue(), 1.0f);
-    }
-    std::ranges::copy(positions, alias);
-    {
-        std::span<srVector3> input_destination = alias;
-        std::span<const srVector3> input_vectors{alias, std::size(alias)};
-        const srMatrix4& input_matrix = matrix;
-        const auto transform_matrix = input_matrix.glmValue();
-        for (std::size_t i = 0; i < input_destination.size(); ++i)
-            input_destination[i] =
-                glm::vec3(transform_matrix * glm::vec4(input_vectors[i].glmValue(), 1.0f));
-    }
-    for (int i = 0; i < 3; ++i) {
-        CHECK(out[i].x == positions[i].x + 10 && out[i].y == positions[i].y - 2);
-        CHECK(out[i].z == positions[i].z + 3);
-        CHECK(alias[i].x == out[i].x && alias[i].y == out[i].y && alias[i].z == out[i].z);
-        CHECK(homogeneous[i].x == out[i].x && homogeneous[i].y == out[i].y);
-        CHECK(homogeneous[i].z == out[i].z && homogeneous[i].w == 1);
-    }
-    SRDWORD indices[] = {2, 0, 2};
-    {
-        std::span<srVector3> input_destination = alias;
-        const srVector3* input_source = positions;
-        std::span<const SRDWORD> input_indices = indices;
-        const srMatrix4& input_matrix = matrix;
-        const auto transform_matrix = input_matrix.glmValue();
-        for (std::size_t i = 0; i < input_indices.size(); ++i)
-            input_destination[i] = glm::vec3(
-                transform_matrix * glm::vec4(input_source[input_indices[i]].glmValue(), 1.0f));
-    }
-    for (int i = 0; i < 3; ++i) {
-        CHECK(alias[i].x == out[indices[i]].x && alias[i].y == out[indices[i]].y);
-        CHECK(alias[i].z == out[indices[i]].z);
-    }
-    srVector3 minimum, maximum;
-    {
-        std::span<const srVector3> input_source = positions;
-        srVector3& input_minimum = minimum;
-        srVector3& input_maximum = maximum;
-        assert(!input_source.empty());
-        auto lower = input_source.front().glmValue();
-        auto upper = lower;
-        for (const auto& point : input_source.subspan(1)) {
-            const auto v = point.glmValue();
-            // Keep the comparison order for NaNs in recovered bounds.
-            for (int c = 0; c < 3; ++c) {
-                if (v[c] >= lower[c]) {
-                    if (v[c] > upper[c])
-                        upper[c] = v[c];
-                } else
-                    lower[c] = v[c];
-            }
-        }
-        input_minimum = lower;
-        input_maximum = upper;
-    }
-    CHECK(minimum.x == -4 && minimum.y == -8 && minimum.z == -6);
-    CHECK(maximum.x == 7 && maximum.y == 5 && maximum.z == 9);
-    float lengths[3];
-    {
-        std::span<srVector3> input_destination = out;
-        std::span<float> input_lengths{lengths, std::size(out)};
-        std::span<const srVector3> input_source{positions, std::size(out)};
-        for (std::size_t i = 0; i < input_destination.size(); ++i) {
-            const auto v = glm::vec3(input_source[i].glmValue());
-            input_lengths[i] = glm::length(v);
-            input_destination[i] = v / input_lengths[i];
-        }
-    }
-    for (int i = 0; i < 3; ++i) {
-        CheckFloats(lengths[i], glm::length(positions[i].glmValue()));
-        CHECK(std::fabs(glm::length(out[i].glmValue()) - 1) < 1e-6f);
-    }
-    std::ranges::transform(std::span<const srVector3>{positions, std::size(alias)},
-                           std::begin(alias), [&](const auto& v) {
-                               return glm::length(v.glmValue()) == 0.0f
-                                          ? v.glmValue() * 0.0f
-                                          : glm::normalize(v.glmValue()) * static_cast<float>(2);
-                           });
-    for (const auto& v : alias)
-        CHECK(std::fabs(glm::length(v.glmValue()) - 2) < 1e-6f);
-    float zero_length[] = {0};
-    srVector3 zero[] = {{0, 0, 0}}, normalized[1];
-    {
-        std::span<srVector3> input_destination = normalized;
-        std::span<float> input_lengths{zero_length, std::size(normalized)};
-        std::span<const srVector3> input_source{zero, std::size(normalized)};
-        for (std::size_t i = 0; i < input_destination.size(); ++i) {
-            const auto v = glm::vec3(input_source[i].glmValue());
-            input_lengths[i] = glm::length(v);
-            input_destination[i] = v / input_lengths[i];
-        }
-    }
-    CHECK(zero_length[0] == 0 && std::isnan(normalized[0].x));
-    std::ranges::transform(std::span<const srVector3>{zero, std::size(normalized)},
-                           std::begin(normalized), [&](const auto& v) {
-                               return glm::length(v.glmValue()) == 0.0f
-                                          ? v.glmValue() * 0.0f
-                                          : glm::normalize(v.glmValue()) * static_cast<float>(1);
-                           });
-    CHECK(normalized[0] == srVector3(0, 0, 0));
-    srVector4 projected[7];
-    projected[0].Set(-2, 0, 0, 1);
-    projected[1].Set(2, 0, 0, 1);
-    projected[2].Set(0, -2, 0, 1);
-    projected[3].Set(0, 2, 0, 1);
-    projected[4].Set(0, 0, -2, 1);
-    projected[5].Set(0, 0, 2, 1);
-    projected[6].Set(1, -1, 1, 1);
-    SRBYTE flags[7];
-    srRender::clipFlags(flags, {projected, std::size(flags)});
-    for (int i = 0; i < 6; ++i)
-        CHECK(flags[i] == (1 << i));
-    CHECK(flags[6] == 0);
-    matrix.SetIdentity();
-    {
-        std::span<srVector4> input_destination = projected;
-        std::span<const srVector4> input_source{projected, std::size(projected)};
-        const srMatrix4& input_matrix = matrix;
-        auto transform_matrix = glm::mat4(0.0f);
-        transform_matrix[0][0] = input_matrix.vectors[0].x;
-        transform_matrix[1][1] = input_matrix.vectors[1].y;
-        transform_matrix[2][2] = input_matrix.vectors[2].z;
-        transform_matrix[3][0] = input_matrix.vectors[0].w;
-        transform_matrix[3][1] = input_matrix.vectors[1].w;
-        transform_matrix[3][2] = input_matrix.vectors[2].w;
-        transform_matrix[3][3] = input_matrix.vectors[3].w;
-        for (std::size_t i = 0; i < input_destination.size(); ++i)
-            input_destination[i] = transform_matrix * input_source[i].glmValue();
-    }
-    CHECK(projected[0].x == -2 && projected[0].w == 1);
-    CHECK(srRender::testBoundingBox(matrix, {-0.5f, -0.5f, -0.5f}, {0.5f, 0.5f, 0.5f}));
-    CHECK(!srRender::testBoundingBox(matrix, {2, 2, 2}, {3, 3, 3}));
-    srMatrix4 product;
-    product = matrix.glmValue() * matrix.glmValue();
-    for (int row = 0; row < 4; ++row)
-        for (int column = 0; column < 4; ++column)
-            CHECK((&product.vectors[row].x)[column] == (row == column));
-
-    srMatrix4 scale;
-    scale.SetIdentity();
-    scale.vectors[0].x = 2;
-    scale.vectors[1].y = 3;
-    scale.vectors[2].z = 4;
-    matrix.vectors[0].w = 10;
-    matrix.vectors[1].w = -2;
-    matrix.vectors[2].w = 3;
-    product = matrix.glmValue() * scale.glmValue();
-    {
-        std::span<srVector3> input_destination = out;
-        std::span<const srVector3> input_vectors{positions, std::size(out)};
-        const srMatrix4& input_matrix = product;
-        const auto transform_matrix = input_matrix.glmValue();
-        for (std::size_t i = 0; i < input_destination.size(); ++i)
-            input_destination[i] =
-                glm::vec3(transform_matrix * glm::vec4(input_vectors[i].glmValue(), 1.0f));
-    }
-    CHECK(out[0].x == 12 && out[0].y == 4 && out[0].z == 15);
-    product = scale.glmValue() * matrix.glmValue();
-    {
-        std::span<srVector3> input_destination = out;
-        std::span<const srVector3> input_vectors{positions, std::size(out)};
-        const srMatrix4& input_matrix = product;
-        const auto transform_matrix = input_matrix.glmValue();
-        for (std::size_t i = 0; i < input_destination.size(); ++i)
-            input_destination[i] =
-                glm::vec3(transform_matrix * glm::vec4(input_vectors[i].glmValue(), 1.0f));
-    }
-    CHECK(out[0].x == 22 && out[0].y == 0 && out[0].z == 24);
-
-    srVector4 perspective[1];
-    perspective[0].Set(1, 2, 3, 1);
-    matrix.SetIdentity();
-    matrix.vectors[0].x = 2;
-    matrix.vectors[0].z = 0.5f;
-    matrix.vectors[1].y = 3;
-    matrix.vectors[1].z = -0.5f;
-    matrix.vectors[2].z = 4;
-    matrix.vectors[2].w = 5;
-    matrix.vectors[3].z = -1;
-    matrix.vectors[3].w = 0;
-    {
-        std::span<srVector4> input_destination = perspective;
-        std::span<const srVector4> input_source{perspective, std::size(perspective)};
-        const srMatrix4& input_matrix = matrix;
-        auto transform_matrix = glm::mat4(0.0f);
-        transform_matrix[0][0] = input_matrix.vectors[0].x;
-        transform_matrix[1][1] = input_matrix.vectors[1].y;
-        transform_matrix[2][0] = input_matrix.vectors[0].z;
-        transform_matrix[2][1] = input_matrix.vectors[1].z;
-        transform_matrix[2][2] = input_matrix.vectors[2].z;
-        transform_matrix[3][2] = input_matrix.vectors[2].w;
-        transform_matrix[2][3] = input_matrix.vectors[3].z;
-        for (std::size_t i = 0; i < input_destination.size(); ++i)
-            input_destination[i] = transform_matrix * input_source[i].glmValue();
-    }
-    CHECK(perspective[0].x == 3.5f && perspective[0].y == 4.5f);
-    CHECK(perspective[0].z == 17 && perspective[0].w == -3);
-}
-
-static void TypedRanges()
-{
-    std::mt19937 random(0x661c0);
-    std::uniform_real_distribution<float> values(-4, 4);
-    for (std::size_t count : {0, 1, 3, 16, 255, 256, 257, 513}) {
-        std::vector<srVector3> a(count), b(count), out(count + 1), alias(count);
-        for (auto& value : a)
-            value.Set(values(random), values(random), values(random));
-        for (auto& value : b)
-            value.Set(values(random), values(random), values(random));
-        out.back().Set(91, 92, 93);
-        const auto destination = std::span{out}.first(count);
-        std::ranges::transform(
-            std::span<const srVector3>{a}.first(std::span<srVector3>{destination}.size()),
-            std::span<const srVector3>{b}.first(std::span<srVector3>{destination}.size()),
-            std::begin(destination),
-            [&](const auto& a, const auto& b) { return a.glmValue() - b.glmValue(); });
-        for (std::size_t i = 0; i < count; ++i) {
-            CheckFloats(out[i].x, a[i].x - b[i].x);
-            CheckFloats(out[i].y, a[i].y - b[i].y);
-            CheckFloats(out[i].z, a[i].z - b[i].z);
-        }
-        for (float scale : {-0.0f, 0.25f, 1.5f}) {
-            alias = a;
-            std::ranges::transform(
-                std::span<const srVector3>{alias}.first(std::span<srVector3>{alias}.size()),
-                std::begin(alias), [&](const auto& v) { return (scale)*v.glmValue(); });
-            for (std::size_t i = 0; i < count; ++i) {
-                CheckFloats(alias[i].x, scale * a[i].x);
-                CheckFloats(alias[i].y, scale * a[i].y);
-                CheckFloats(alias[i].z, scale * a[i].z);
-            }
-        }
-        for (float weight : {0.0f, 0.25f, 1.0f}) {
-            alias = b;
-            std::ranges::transform(
-                std::span<const srVector3>{alias}.first(std::span<srVector3>{alias}.size()),
-                std::span<const srVector3>{a}.first(std::span<srVector3>{alias}.size()),
-                std::begin(alias), [&](const auto& a, const auto& b) {
-                    return glm::mix(a.glmValue(), b.glmValue(), weight);
-                });
-            for (std::size_t i = 0; i < count; ++i) {
-                CheckFloats(alias[i].x, weight * a[i].x + (1.0f - weight) * b[i].x);
-                CheckFloats(alias[i].y, weight * a[i].y + (1.0f - weight) * b[i].y);
-                CheckFloats(alias[i].z, weight * a[i].z + (1.0f - weight) * b[i].z);
-            }
-        }
-        std::ranges::transform(
-            std::span<const srVector3>{out}.first(std::span<srVector3>{destination}.size()),
-            std::span<const srVector3>{b}.first(std::span<srVector3>{destination}.size()),
-            std::begin(destination),
-            [&](const auto& a, const auto& b) { return a.glmValue() - b.glmValue(); });
-        CHECK(out.back().x == 91 && out.back().y == 92 && out.back().z == 93);
-    }
-    const float nan = std::numeric_limits<float>::quiet_NaN();
-    srVector4 colors[3], original[3], output[4];
-    colors[0].Set(-INFINITY, -1, -0.0f, 0);
-    colors[1].Set(0.5f, 1, 2, INFINITY);
-    colors[2].Set(nan, -0.0f, nan, -0.0f);
-    colors[2].x = std::bit_cast<float>(0x7f800001U);
-    colors[2].z = std::bit_cast<float>(0xffc12345U);
-    std::ranges::copy(colors, original);
-    output[3].Set(91, 92, 93, 94);
-    std::ranges::transform(
-        std::span<const srVector4>{colors}.first(std::span<srVector4>{output, 3}.size()), output,
-        [&](const auto& v) { return glm::clamp(v.glmValue(), 0.0f, 1.0f); });
-    std::ranges::transform(
-        std::span<const srVector4>{colors}.first(std::span<srVector4>{colors}.size()),
-        std::begin(colors), [&](const auto& v) { return glm::clamp(v.glmValue(), 0.0f, 1.0f); });
-    const auto clamp = [](float value) { return value < 0 ? 0 : value > 1 ? 1 : value; };
-    for (int i = 0; i < 3; ++i) {
-        CheckFloats(colors[i].x, clamp(original[i].x));
-        CheckFloats(colors[i].y, clamp(original[i].y));
-        CheckFloats(colors[i].z, clamp(original[i].z));
-        CheckFloats(colors[i].w, clamp(original[i].w));
-        CheckFloats(output[i].x, colors[i].x);
-        CheckFloats(output[i].y, colors[i].y);
-        CheckFloats(output[i].z, colors[i].z);
-        CheckFloats(output[i].w, colors[i].w);
-    }
-    CHECK(output[3].x == 91 && output[3].y == 92 && output[3].z == 93 && output[3].w == 94);
-    std::ranges::transform(
-        std::span<const srVector4>{}.first(std::span<srVector4>{std::span<srVector4>{}}.size()),
-        std::span<srVector4>{std::span<srVector4>{}}.begin(),
-        [&](const auto& v) { return glm::clamp(v.glmValue(), 0.0f, 1.0f); });
-    {
-        std::span<srVector3> input_destination = std::span<srVector3>{};
-        std::span<float> input_lengths{};
-        std::span<const srVector3> input_source = std::span<const srVector3>{};
-        for (std::size_t i = 0; i < input_destination.size(); ++i) {
-            const auto v = glm::vec3(input_source[i].glmValue());
-            input_lengths[i] = glm::length(v);
-            input_destination[i] = v / input_lengths[i];
-        }
-    }
-    {
-        std::span<srVector3> input_destination = std::span<srVector3>{};
-        std::span<float> input_lengths{};
-        std::span<const srVector4> input_source = std::span<const srVector4>{};
-        for (std::size_t i = 0; i < input_destination.size(); ++i) {
-            const auto v = glm::vec3(input_source[i].glmValue());
-            input_lengths[i] = glm::length(v);
-            input_destination[i] = v / input_lengths[i];
-        }
-    }
-}
-
-static void IndexedAndLighting()
-{
-    srVector3 positions[] = {{1, 2, 3}, {4, 5, 6}, {7, 8, 9}};
-    SRDWORD indices[] = {2, 0, 2};
-    srVector4 colors[3];
-    std::ranges::transform(std::span<const SRDWORD>{indices}, std::begin(colors),
-                           [&](auto i) { return glm::vec4((positions)[i].glmValue(), 1.0f); });
-    for (int i = 0; i < 3; ++i)
-        CHECK(colors[i].x == positions[indices[i]].x && colors[i].w == 1);
-    srARGB packed[1];
-    packed[0].red = 255;
-    packed[0].green = 128;
-    packed[0].blue = 0;
-    packed[0].alpha = 64;
-    SRDWORD one_index[] = {0};
-    std::ranges::transform(std::span<const SRDWORD>{one_index}, colors, [&](auto i) {
-        return glm::vec4((packed)[i].red, (packed)[i].green, (packed)[i].blue, (packed)[i].alpha) *
-               (1.0f / 255.0f);
-    });
-    CHECK(colors[0].x == 1 && colors[0].z == 0);
-    CheckFloats(colors[0].y, 128 * (1.0f / 255.0f));
-    CheckFloats(colors[0].w, 64 * (1.0f / 255.0f));
-    float w[] = {0.25f, 0.5f, 0.75f};
-    for (int i = 0; i < 3; ++i)
-        colors[i].Set(positions[i].x, positions[i].y, positions[i].z, 1);
-    {
-        std::span<srVector4> input_destination = colors;
-        std::span<const float> input_source{w, std::size(colors)};
-        for (std::size_t i = 0; i < input_destination.size(); ++i)
-            input_destination[i].w = input_source[i];
-    }
-    for (int i = 0; i < 3; ++i)
-        CHECK(colors[i].x == positions[i].x && colors[i].w == w[i]);
-    {
-        std::span<srVector4> input_destination = colors;
-        float input_constant = 0.125f;
-        for (std::size_t i = 0; i < input_destination.size(); ++i)
-            input_destination[i].w = input_constant;
-    }
-    for (int i = 0; i < 3; ++i)
-        CHECK(colors[i].x == positions[i].x && colors[i].w == 0.125f);
-    srVector3i triangles[2];
-    triangles[0].x = 0;
-    triangles[0].y = 2;
-    triangles[0].z = 4;
-    triangles[1].x = 1;
-    triangles[1].y = 3;
-    triangles[1].z = 5;
-    SRBYTE flags[6]{};
-    SRDWORD selected[] = {1, 1}, active[6], inverse[6];
-    {
-        SRBYTE* input_destination = flags;
-        const srVector3i* input_source = triangles;
-        std::span<const SRDWORD> input_indices = selected;
-        for (auto i : input_indices) {
-            input_destination[input_source[i].x] = 1;
-            input_destination[input_source[i].y] = 1;
-            input_destination[input_source[i].z] = 1;
-        }
-    }
-    SRDWORD selected_count = 0;
-    for (SRDWORD i = 0; i < std::size(active); ++i)
-        if (flags[i])
-            active[selected_count++] = i;
-    CHECK(selected_count == 3);
-    CHECK(active[0] == 1 && active[1] == 3 && active[2] == 5);
-    std::ranges::fill(inverse, 99);
-    {
-        SRDWORD* input_destination = inverse;
-        std::span<const SRDWORD> input_map{active, 3};
-        for (std::size_t i = 0; i < input_map.size(); ++i)
-            input_destination[input_map[i]] = static_cast<SRDWORD>(i);
-    }
-    CHECK(inverse[1] == 0 && inverse[3] == 1 && inverse[5] == 2 && inverse[0] == 99);
-    srVector3i remapped[2];
-    {
-        std::span<srVector3i> input_destination = remapped;
-        const srVector3i* input_source = triangles;
-        std::span<const SRDWORD> input_indices = selected;
-        const SRDWORD* input_remap = inverse;
-        for (std::size_t i = 0; i < input_indices.size(); ++i) {
-            const auto& triangle = input_source[input_indices[i]];
-            input_destination[i].x = input_remap[triangle.x];
-            input_destination[i].y = input_remap[triangle.y];
-            input_destination[i].z = input_remap[triangle.z];
-        }
-    }
-    CHECK(remapped[0].x == 0 && remapped[0].y == 1 && remapped[0].z == 2);
     std::array<srVector4, 513> vertices;
     std::array<SRDWORD, 513> culled;
     for (std::size_t i = 0; i < vertices.size(); ++i)
@@ -528,6 +34,19 @@ static void IndexedAndLighting()
     CHECK(count == 171);
     for (SRDWORD i = 0; i < count; ++i)
         CHECK(culled[i] == i * 3);
+    srVector4 boundary[] = {glm::vec4(-2, 0, 0, 1), glm::vec4(2, 0, 0, 1),  glm::vec4(0, -2, 0, 1),
+                            glm::vec4(0, 2, 0, 1),  glm::vec4(0, 0, -2, 1), glm::vec4(0, 0, 2, 1),
+                            glm::vec4(1, -1, 1, 1)};
+    SRBYTE flags[7];
+    srRender::clipFlags(flags, boundary);
+    for (int i = 0; i < 6; ++i)
+        CHECK(flags[i] == (1 << i));
+    CHECK(flags[6] == 0);
+    srMatrix4 identity;
+    identity.SetIdentity();
+    CHECK(srRender::testBoundingBox(identity, {-0.5f, -0.5f, -0.5f}, {0.5f, 0.5f, 0.5f}));
+    CHECK(!srRender::testBoundingBox(identity, {2, 2, 2}, {3, 3, 3}));
+
     float light[] = {0, 0.01f, 0.5f, 1}, power[4], clamped[4];
     srLight::specularPower(power, {light, std::size(power)}, 1);
     CHECK(power[0] == 0 && power[1] > 0 && power[2] == 0.5f && power[3] == 1);
@@ -552,6 +71,9 @@ static void PackedStorage()
     stored.point = value + glm::vec3(1, 2, 3);
     CHECK(stored.tag == 0x5a && stored.point.x == 3 && stored.point.y == -1 && stored.point.z == 7);
 
+    stored.point.Normalize();
+    CHECK(stored.tag == 0x5a && std::abs(stored.point.Length() - 1) < 1e-6f);
+
     srMatrix4 rows;
     rows.vectors[0].Set(2, 3, 5, 7);
     rows.vectors[1].Set(11, 13, 17, 19);
@@ -567,13 +89,60 @@ static void PackedStorage()
           transformed.w == 321);
 }
 
+static void VectorMethods()
+{
+    srVector3 point(3, 4, 0);
+    CHECK(point.Length() == 5 && point.LengthSquared() == 25);
+    CHECK(point.SetLength(10) == &point);
+    CHECK(point == srVector3(6, 8, 0));
+    CHECK(point.Normalize() == &point);
+    CHECK(std::abs(point.Length() - 1) < 1e-6f);
+    point.SetLength(-5);
+    CHECK(std::abs(point.x + 3) < 1e-6f && std::abs(point.y + 4) < 1e-6f);
+
+    srVector3 zero(-0.0f, 0, -0.0f);
+    zero.Normalize()->SetLength(5);
+    CheckFloats(zero.x, -0.0f);
+    CheckFloats(zero.y, 0.0f);
+    CheckFloats(zero.z, -0.0f);
+    srVector3 tiny(std::numeric_limits<float>::denorm_min(), 0, 0);
+    const auto before = tiny.x;
+    tiny.Normalize();
+    CheckFloats(tiny.x, before);
+
+    srVector2T<double> horizontal(3, 4);
+    horizontal.SetLength(10);
+    CHECK(std::abs(horizontal.x - 6) < 1e-14 && std::abs(horizontal.y - 8) < 1e-14);
+    horizontal.Normalize();
+    CHECK(std::abs(horizontal.Length() - 1) < 1e-14);
+    srVector4 color;
+    color.Set(1, 2, 2, 4);
+    CHECK(color.LengthSquared() == 25 && color.Length() == 5);
+
+    // Supplied coefficients may deliberately encode scaling rather than an angle.
+    srMatrix3T<float> rotation;
+    rotation.SetIdentity();
+    rotation.RotateAboutZ(2, 3);
+    point.Set(1, 0, 0);
+    CHECK(rotation.Transform(point) == srVector3(3, 2, 0));
+    point.RotateAboutZ(2, 3);
+    CHECK(point == srVector3(3, 2, 0));
+    CHECK(rotation.TransformTransposed(srVector3(1, 0, 0)) == srVector3(3, -2, 0));
+    rotation.SetIdentity();
+    rotation.RotateAroundAxis(0.7, srVector3(0, 0, 0));
+    const auto scaled = rotation.Transform(srVector3(1, 2, 3));
+    CHECK(std::abs(scaled.x - std::cos(0.7)) < 1e-6f);
+    CHECK(std::abs(scaled.z - 3 * std::cos(0.7)) < 1e-6f);
+    rotation.SetIdentity();
+    rotation.RotateAroundAxis(1, 0, srVector3(0, 0, 2));
+    CHECK(rotation.Transform(srVector3(1, 0, 0)) == srVector3(0, 2, 0));
+    CHECK(rotation.Transform(srVector3(0, 0, 1)) == srVector3(0, 0, 4));
+}
+
 int main()
 {
-    // Storage conversion and GLM calculations have no renderer lifetime.
     PackedStorage();
-    Elementary();
-    Geometry();
-    TypedRanges();
-    IndexedAndLighting();
-    std::puts("ok: direct math, empty/in-place ranges, transforms, clipping, remaps and lighting");
+    VectorMethods();
+    ClippingAndLighting();
+    std::puts("ok: packed storage, guarded vector methods, rotations, clipping and lighting");
 }

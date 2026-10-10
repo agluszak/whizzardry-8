@@ -805,7 +805,7 @@ void ResolveSpellMissileHit(W8Missile* missile)
                 if (monster_info->fActive) {
                     MonsterGetLocation(monster_info->p3D, &location);
                     srVector3T<float> offset = center - location;
-                    if (glm::length(offset.glmValue()) <= definition->radius) {
+                    if (offset.Length() <= definition->radius) {
                         struck.iMonsterID = monster_info->location_id;
                         ApplyEffectConditions(source, &struck, definition, announce, verbose, 0);
                     }
