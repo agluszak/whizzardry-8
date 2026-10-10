@@ -542,7 +542,9 @@ BOOLEAN BltIsClipped(HVOBJECT hSrcVObject, INT32 iX, INT32 iY, UINT16 usIndex, S
     return (FALSE);
 }
 // FUNCTION: WIZ8 0x004124a0
-BOOLEAN Blt16BPPBufferShadowRect(UINT16* pBuffer, UINT32 uiDestPitchBYTES, SDL_Rect* area)
+/* Keep the legacy inclusive rectangle and palette transforms in one place. */
+static BOOLEAN Blt16BPPBufferShadowRectWithTable(UINT16* pBuffer, UINT32 uiDestPitchBYTES,
+                                                 SDL_Rect* area, const UINT16* table)
 {
     INT32 width, height;
     UINT16* DestPtr;
@@ -578,12 +580,17 @@ BOOLEAN Blt16BPPBufferShadowRect(UINT16* pBuffer, UINT32 uiDestPitchBYTES, SDL_R
     UINT8* dest = reinterpret_cast<UINT8*>(DestPtr);
     for (INT32 y = 0; y < height; ++y) {
         for (INT32 x = 0; x < width; ++x) {
-            NativeWriteWord(dest + x * 2, ShadeTable[NativeReadWord(dest + x * 2)]);
+            NativeWriteWord(dest + x * 2, table[NativeReadWord(dest + x * 2)]);
         }
         dest += uiDestPitchBYTES;
     }
 
     return (TRUE);
+}
+
+BOOLEAN Blt16BPPBufferShadowRect(UINT16* pBuffer, UINT32 uiDestPitchBYTES, SDL_Rect* area)
+{
+    return Blt16BPPBufferShadowRectWithTable(pBuffer, uiDestPitchBYTES, area, ShadeTable);
 }
 
 /**********************************************************************************************
@@ -600,46 +607,7 @@ BOOLEAN Blt16BPPBufferShadowRect(UINT16* pBuffer, UINT32 uiDestPitchBYTES, SDL_R
 BOOLEAN Blt16BPPBufferShadowRectAlternateTable(UINT16* pBuffer, UINT32 uiDestPitchBYTES,
                                                SDL_Rect* area)
 {
-    INT32 width, height;
-    UINT16* DestPtr;
-
-    // Assertions
-    Assert(pBuffer != nullptr);
-
-    // Clipping
-    if (area->x < ClippingRect.x) {
-        area->w += area->x - ClippingRect.x;
-        area->x = ClippingRect.x;
-    }
-    if (area->y < ClippingRect.y) {
-        area->h += area->y - ClippingRect.y;
-        area->y = ClippingRect.y;
-    }
-    if ((area->x + area->w) >= (ClippingRect.x + ClippingRect.w))
-        area->w = ((ClippingRect.x + ClippingRect.w) - 1) - area->x;
-    if ((area->y + area->h) >= (ClippingRect.y + ClippingRect.h))
-        area->h = ((ClippingRect.y + ClippingRect.h) - 1) - area->y;
-    //CHECKF(area->x >= ClippingRect.x );
-    //CHECKF(area->y >= ClippingRect.y );
-    //CHECKF((area->x + area->w) <= (ClippingRect.x + ClippingRect.w) );
-    //CHECKF((area->y + area->h) <= (ClippingRect.y + ClippingRect.h) );
-
-    DestPtr = (pBuffer + (area->y * (uiDestPitchBYTES / 2)) + area->x);
-    width = area->w + 1;
-    height = area->h + 1;
-
-    CHECKF(width >= 1);
-    CHECKF(height >= 1);
-
-    UINT8* dest = reinterpret_cast<UINT8*>(DestPtr);
-    for (INT32 y = 0; y < height; ++y) {
-        for (INT32 x = 0; x < width; ++x) {
-            NativeWriteWord(dest + x * 2, IntensityTable[NativeReadWord(dest + x * 2)]);
-        }
-        dest += uiDestPitchBYTES;
-    }
-
-    return (TRUE);
+    return Blt16BPPBufferShadowRectWithTable(pBuffer, uiDestPitchBYTES, area, IntensityTable);
 }
 
 // UTILITY FUNCTIONS FOR BLITTING
