@@ -40,7 +40,7 @@ private:
 #if defined(SURRENDER_BUILD)
 class srBinOMStream
 #else
-class srBinOMStream
+class SR_DLL_IMPORT srBinOMStream
 #endif
     : public srBinOStream {
 public:

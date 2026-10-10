@@ -8,7 +8,7 @@ class
 #if defined(SURRENDER_BUILD)
 
 #else
-
+    SR_DLL_IMPORT
 #endif
     srExtension {
 public:
