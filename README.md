@@ -125,6 +125,19 @@ The world harness accepts additional `save`, `kill` and `angles` modes for
 its respective focused checks. The movie fixture can be regenerated with
 `tests/native/generate_movie.sh`.
 
+## Catch2 test cases
+
+Small, independent Catch2 test cases are registered individually with CTest.
+Use `ctest --preset linux -R 'native_save_records/'` or
+`ctest --preset linux -R 'native_owners/'` to select a subsystem;
+individual cases appear in `ctest --preset linux -N`.
+
+The save, audio and ownership tests have per-case fixtures instead of relying
+on setup from earlier test cases. Catch2 generators exercise multiple serialized
+record versions and edge values. Manual device diagnostics and intentional
+assertion-abort checks remain explicit; the asset-backed runtime scenarios
+retain their named CTest entries and save/load fixture dependencies.
+
 ## Source and format conventions
 
 Use `std::string` for owning text (UTF-8 for Unicode), `std::string_view` for

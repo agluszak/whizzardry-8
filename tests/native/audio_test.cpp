@@ -100,6 +100,216 @@ static bool near(double value, double expected, double tolerance = 0.02)
     return std::abs(value - expected) <= tolerance * std::max(1.0, std::abs(expected));
 }
 
+
+struct AudioFixture
+{
+    std::filesystem::path temporary = make_temporary_directory("wiz8-audio");
+    std::filesystem::path asset = temporary / "assets";
+    std::filesystem::path user = temporary / "user";
+    std::vector<unsigned char> wave = wav();
+
+    AudioFixture()
+    {
+        callbacks = 0;
+    std::filesystem::create_directories(asset);
+    std::filesystem::create_directories(user);
+    w8_native::configure_paths({asset.string(), user.string(), {}});
+    std::filesystem::copy_file(WIZ8_AUDIO_TEST_MP3, asset / "fallback.mp3");
+    write(asset / "tone.wav", wave);
+    write(asset / "stereo.wav", wav(true));
+    write(asset / "bad.wav", {'n', 'o', 't', 'a', 'w', 'a', 'v'});
+    std::filesystem::create_directories(asset / "Data");
+    wiz8::SlfHeader header{};
+    strcpy(header.sLibName, "Data.slf");
+    strcpy(header.sPathToLibrary, "Data\\");
+    header.iEntries = header.iUsed = 2;
+    header.iVersion = 0x200;
+    wiz8::SlfEntry entries[2]{};
+    strcpy(entries[0].sFileName, "Packed.wav");
+    entries[0].uiOffset = sizeof(header);
+    entries[0].uiLength = wave.size();
+    strcpy(entries[1].sFileName, "Truncated.wav");
+    entries[1].uiOffset = sizeof(header);
+    entries[1].uiLength = 16;
+    std::vector<unsigned char> archive(reinterpret_cast<unsigned char*>(&header),
+                                       reinterpret_cast<unsigned char*>(&header) + sizeof(header));
+    archive.insert(archive.end(), wave.begin(), wave.end());
+    archive.insert(archive.end(), reinterpret_cast<unsigned char*>(entries),
+                   reinterpret_cast<unsigned char*>(entries) + sizeof(entries));
+    write(asset / "Data" / "DATA.SLF", archive);
+
+    wiz8::mount_slf("Data\\Data.slf");
+    {
+        char packed[] = "data\\PACKED.WAV";
+        auto entry = [&]() { try { return wiz8::open_file(packed, wiz8::OpenMode::read); } catch (const std::exception&) { return std::unique_ptr<wiz8::File>{}; } }();
+        REQUIRE(entry);
+        auto first = wiz8::open_file(packed), second = wiz8::open_file(packed);
+        entry.reset();
+        REQUIRE((first && second && first->tell() == 0 && second->tell() == 0));
+        auto loose = wiz8::open_file("C:\\TONE.wav");
+        unsigned char bytes[64]{};
+        REQUIRE(first->read(bytes, sizeof(bytes)).bytes == sizeof(bytes));
+        REQUIRE(std::memcmp(bytes, wave.data(), sizeof(bytes)) == 0);
+        REQUIRE((second->tell() == 0 && loose->tell() == 0));
+        REQUIRE(second->read(bytes, 32).bytes == 32);
+        REQUIRE(std::memcmp(bytes, wave.data(), 32) == 0);
+        first.reset();
+        REQUIRE(second->seek(wave.size() - 32, wiz8::SeekOrigin::begin) ==
+              int64_t(wave.size() - 32));
+        REQUIRE(second->read(bytes, 32).bytes == 32);
+        REQUIRE(std::memcmp(bytes, wave.data() + wave.size() - 32, 32) == 0);
+        REQUIRE(loose->read(bytes, sizeof(bytes)).bytes == sizeof(bytes));
+        REQUIRE(std::memcmp(bytes, wave.data(), sizeof(bytes)) == 0);
+    }
+    w8_native::audio_offline_for_test(true);
+    REQUIRE(InitializeSoundManager());
+
+    }
+
+    ~AudioFixture()
+    {
+        ShutdownSoundManager();
+        wiz8::clear_asset_archives();
+        std::error_code ignored;
+        std::filesystem::remove_all(temporary, ignored);
+    }
+};
+
+TEST_CASE_METHOD(AudioFixture, "Audio archives, tracks and combat sounds", "[audio][streams]")
+{
+    // Variant selection accepts a bounded, read-only name and does not append
+    // into its backing storage or consume the characters beyond the view.
+    const auto combat = asset / "Data" / "Sound" / "Combat";
+    std::filesystem::create_directories(combat);
+    write(combat / "strike1.wav", wave);
+    write(combat / "strike2.wav", wave);
+    const std::string backing = "striketrailing";
+    for (int repeat = 0; repeat < 2; ++repeat) {
+        PlayCombatSound(std::string_view(backing).substr(0, 6), 2, false, 0);
+        const auto rendered = mix(8192);
+        CHECK(energy(rendered, 0) + energy(rendered, 1) > 10);
+        CHECK(backing == "striketrailing");
+    }
+    {
+        auto looseInput = w8_native::open_audio_input("C:\\tone.wav");
+        auto packedInput = w8_native::open_audio_input("Data\\Packed.wav");
+        auto loopInput = w8_native::open_audio_input("data\\PACKED.WAV");
+        auto badInput = w8_native::open_audio_input("Data\\Truncated.wav");
+        REQUIRE((looseInput && packedInput && loopInput && badInput));
+        REQUIRE(SDL_GetIOSize(packedInput.get()) == Sint64(wave.size()));
+        REQUIRE(SDL_SeekIO(packedInput.get(), wave.size() + 1, SDL_IO_SEEK_SET) == -1);
+        REQUIRE(SDL_SeekIO(packedInput.get(), 0, SDL_IO_SEEK_SET) == 0);
+        REQUIRE(!w8_native::open_audio_input("missing.wav"));
+        w8_native::Track loose(MIX_CreateTrack(w8_native::audio_mixer()));
+        w8_native::Track packed(MIX_CreateTrack(w8_native::audio_mixer()));
+        w8_native::Track looping(MIX_CreateTrack(w8_native::audio_mixer()));
+        w8_native::Track bad(MIX_CreateTrack(w8_native::audio_mixer()));
+        REQUIRE((loose && packed && looping && bad));
+        REQUIRE(MIX_SetTrackIOStream(loose.get(), looseInput.get(), false));
+        REQUIRE(MIX_SetTrackIOStream(packed.get(), packedInput.get(), false));
+        REQUIRE(MIX_SetTrackIOStream(looping.get(), loopInput.get(), false));
+        REQUIRE(!MIX_SetTrackIOStream(bad.get(), badInput.get(), false));
+        for (auto track : {loose.get(), packed.get()})
+        {
+            REQUIRE(MIX_GetTrackPlaybackPosition(track) == 0);
+            REQUIRE(MIX_PlayTrack(track, 0));
+            REQUIRE(MIX_TrackFramesToMS(track, MIX_GetTrackRemaining(track)) == 100);
+        }
+        auto properties = SDL_CreateProperties();
+        REQUIRE(SDL_SetNumberProperty(properties, MIX_PROP_PLAY_LOOPS_NUMBER, -1));
+        REQUIRE(MIX_PlayTrack(looping.get(), properties));
+        SDL_DestroyProperties(properties);
+        auto samples = mix(8192);
+        REQUIRE(energy(samples, 0) + energy(samples, 1) > 10);
+        REQUIRE(!MIX_TrackPlaying(loose.get()));
+        REQUIRE(!MIX_TrackPlaying(packed.get()));
+        REQUIRE(MIX_TrackPlaying(looping.get()));
+        loose.reset();
+        packed.reset();
+        samples = mix(8192);
+        REQUIRE(MIX_TrackPlaying(looping.get()));
+        REQUIRE(energy(samples, 0) + energy(samples, 1) > 10);
+    }
+
+}
+
+TEST_CASE_METHOD(AudioFixture, "Audio playback, spatialization and movie lifetime", "[audio][mixer]")
+{
+    SOUNDPARMS options;
+    UINT32 restarted = SOUND_ERROR;
+    unsigned calls = 0;
+    static void callback(void* data)
+    {
+        auto& restart = *static_cast<RestartOnEnd*>(data);
+        ++restart.calls;
+        restart.restarted = SoundPlay(restart.path, &restart.options);
+    }
+};
+static void word(std::vector<unsigned char>& data, unsigned value, int bytes)
+{
+    for (int i = 0; i < bytes; ++i)
+        data.push_back(value >> (i * 8));
+}
+static void tag(std::vector<unsigned char>& data, const char* value)
+{
+    data.insert(data.end(), value, value + 4);
+}
+static std::vector<unsigned char> wav(bool stereo = false)
+{
+    std::vector<unsigned char> bytes;
+    tag(bytes, "RIFF");
+    word(bytes, 36 + 4410 * (stereo ? 4 : 2), 4);
+    tag(bytes, "WAVE");
+    tag(bytes, "fmt ");
+    word(bytes, 16, 4);
+    word(bytes, 1, 2);
+    word(bytes, stereo ? 2 : 1, 2);
+    word(bytes, 44100, 4);
+    word(bytes, stereo ? 176400 : 88200, 4);
+    word(bytes, stereo ? 4 : 2, 2);
+    word(bytes, 16, 2);
+    tag(bytes, "data");
+    word(bytes, 4410 * (stereo ? 4 : 2), 4);
+    for (int i = 0; i < 4410; ++i)
+    {
+        word(bytes, unsigned(short(std::sin(i * 2 * 3.14159265 * 440 / 44100) * 12000)), 2);
+        if (stereo)
+            word(bytes, unsigned(short(std::sin(i * 2 * 3.14159265 * 880 / 44100) * 6000)), 2);
+    }
+    return bytes;
+}
+static void write(const std::filesystem::path& name, const std::vector<unsigned char>& bytes)
+{
+    std::ofstream file(name, std::ios::binary);
+    if (!file.write(reinterpret_cast<const char*>(bytes.data()), bytes.size()))
+        FAIL("Audio fixture or offline mixer failed");
+}
+static std::vector<float> mix(size_t frames)
+{
+    std::vector<float> samples(frames * 2);
+    if (!w8_native::audio_render_for_test(samples.data(), frames))
+        FAIL("Audio fixture or offline mixer failed");
+    return samples;
+}
+static double energy(const std::vector<float>& values, int channel)
+{
+    double sum = 0;
+    for (size_t i = channel; i < values.size(); i += 2)
+        sum += values[i] * values[i];
+    return sum;
+}
+static unsigned crossings(const std::vector<float>& samples, int channel = 0)
+{
+    unsigned count = 0;
+    for (size_t i = channel + 2; i < samples.size(); i += 2)
+        count += samples[i - 2] <= 0 && samples[i] > 0;
+    return count;
+}
+static bool near(double value, double expected, double tolerance = 0.02)
+{
+    return std::abs(value - expected) <= tolerance * std::max(1.0, std::abs(expected));
+}
+
 static void exercise_audio(bool output_device)
 {
     const auto temporary = make_temporary_directory("wiz8-audio");
@@ -339,6 +549,7 @@ static void exercise_audio(bool output_device)
         REQUIRE(sound != SOUND_ERROR);
         samples = mix(2048);
         const auto left = energy(samples, 0), right = energy(samples, 1);
+        CAPTURE(x, left, right);
         REQUIRE(near(left, baseline * (x > 0 ? 0.04 : 1)));
         REQUIRE(near(right, baseline * (x < 0 ? 0.04 : 1)));
         REQUIRE(SoundStop(sound));
@@ -537,8 +748,12 @@ static void exercise_audio(bool output_device)
     ShutdownSoundManager();
     REQUIRE(InitializeSoundManager());
     ShutdownSoundManager();
-    if (output_device)
-    {
+
+}
+
+TEST_CASE_METHOD(AudioFixture, "Audio output device", "[.manual][audio]")
+{
+    ShutdownSoundManager();
         w8_native::audio_offline_for_test(false);
         REQUIRE(InitializeSoundManager());
         REQUIRE(w8_native::audio_mixer());
@@ -550,21 +765,6 @@ static void exercise_audio(bool output_device)
         SoundServiceStreams();
         REQUIRE(!SoundIsPlaying(sound));
         ShutdownSoundManager();
-        puts("ok: native output device opened and completed playback");
-    }
-    wiz8::clear_asset_archives();
 
-    std::filesystem::remove_all(temporary);
-    puts("ok: native audio samples, streams, loops, pans, fades, callbacks, spatialization and "
-         "lifetime");
-}
-
-TEST_CASE("audio")
-{
-    exercise_audio(false);
-}
-
-TEST_CASE("audio-device", "[.manual]")
-{
-    exercise_audio(true);
+    puts("ok: native output device opened and completed playback");
 }
