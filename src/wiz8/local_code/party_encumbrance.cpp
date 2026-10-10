@@ -17,12 +17,10 @@
 #include "wiz8/layouts/screen_state.h"
 #include "wiz8/local_code/Gameloop.h"
 #include "wiz8/local_screens/ReviewCharacterScreen.h"
-#include "compat/ptr32.h"
 #include "conditions.h"
 #include "equipment_slots.h"
 #include "gameplay_modifiers.h"
 #include "layouts/gameplay_databases.h"
-#include "layouts/item_instance.h"
 #include "layouts/main_game_screen.h"
 #include "load_category.h"
 

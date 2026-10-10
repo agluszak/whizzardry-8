@@ -1,5 +1,6 @@
 #include "wiz8/engine_code/GrObject.h"
 
+#include <memory>
 #include <string>
 #include <utility>
 

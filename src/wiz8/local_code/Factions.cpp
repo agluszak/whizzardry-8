@@ -1,5 +1,4 @@
 #include <fmt/printf.h>
-#include <fmt/format.h>
 #include <string>
 #include <cstring>
 #include <vector>

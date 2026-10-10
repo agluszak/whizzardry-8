@@ -1,7 +1,6 @@
 #include <fmt/format.h>
-#include <utf8.h>
+#include <memory>
 #include <SDL3/SDL_rect.h>
-#include <glm/glm.hpp>
 #include <vector>
 #include <algorithm>
 #include <cstddef>
@@ -15,7 +14,10 @@
 #include <unordered_map>
 #include <utility>
 
+#include "glm/ext/vector_float2.hpp"
+#include "glm/geometric.hpp"
 #include "native/input_events.h"
+#include "utf8/checked.h"
 #include "wiz8/unicode.h"
 #include "wiz8/containers.h"
 #include "wiz8/local_screens/MainGameScreen.h"

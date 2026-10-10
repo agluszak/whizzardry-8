@@ -1,6 +1,5 @@
 #include "wiz8/local_code/Noise.h"
 
-#include <glm/glm.hpp>
 #include <vector>
 
 #include "wiz8/engine_code/GrCycle.h"

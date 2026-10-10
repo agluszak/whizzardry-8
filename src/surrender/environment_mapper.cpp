@@ -1,5 +1,5 @@
-#include <glm/glm.hpp>
 
+#include "glm/geometric.hpp"
 #include "surrender/srEnvironmentMapper.h"
 #include "surrender/srCore.h"
 #include "surrender/srVertexPipe.h"

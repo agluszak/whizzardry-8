@@ -5,6 +5,7 @@
 #include <cctype>
 #include <cstring>
 
+#include "Types.h"
 #include "wiz8/utility.h"
 #include "wiz8/xstatus.h"
 #include "wiz8/layouts/character.h"
@@ -21,7 +22,6 @@
 #include "wiz8/layouts/game_status.h"
 #include "Font.h"
 #include "compat/native.h"
-#include "compat/ptr32.h"
 #include "conditions.h"
 #include "dice.h"
 #include "mousesystem.h"

@@ -40,7 +40,6 @@
 #include "Font.h"
 #include "vsurface.h"
 #include "line.h"
-#include "compat/ptr32.h"
 #include "conditions.h"
 #include "dialog_code/DialogBase.h"
 #include "equipment_slots.h"

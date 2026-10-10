@@ -1,4 +1,3 @@
-#include <glm/glm.hpp>
 #include <algorithm>
 #include <cmath>
 #include <array>
@@ -7,6 +6,8 @@
 #include <cstddef>
 #include <span>
 
+#include "glm/geometric.hpp"
+#include "glm/matrix.hpp"
 #include "surrender/srTriangleCuller.h"
 #include "surrender/srClip.h"
 #include "surrender/srMath.h"

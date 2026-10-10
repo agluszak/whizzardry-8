@@ -1,7 +1,7 @@
+#include "wiz8/engine_code/stModelInstance.h" // IWYU pragma: keep - complete sprite type for conversion to srNode.
 #include <SDL3/SDL_rect.h>
 #include <cstdint>
 #include <cstring>
-#include <string>
 #include <vector>
 
 #include "wiz8/fonts.h"
@@ -15,7 +15,6 @@
 #include "wiz8/local_code/TextControl.h"
 #include "wiz8/local_code/character_events.h"
 #include "wiz8/engine_code/Video2.h"
-#include "wiz8/engine_code/stModelInstance.h"
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/cursor.h"
 #include "wiz8/layouts/game_status.h"
@@ -27,7 +26,6 @@
 #include "wiz8/local_screens/MGSTextBox.h"
 #include "Types.h"
 #include "compat/native.h"
-#include "compat/ptr32.h"
 #include "layouts/main_game_screen.h"
 #include "layouts/party_formation.h"
 #include "local_code/ControlsRect.h"

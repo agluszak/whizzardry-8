@@ -1,11 +1,23 @@
-#include <glm/glm.hpp>
+#include <cstddef>
 #include <algorithm>
 #include <cctype>
 #include <memory>
+#include <optional>
+#include <span>
+#include <string>
+#include <string_view>
 #include <utility>
+#include <vector>
 
+#include "compat/compiler.h"
+#include "compat/native.h"
+#include "glm/common.hpp"
+#include "glm/ext/matrix_float4x4.hpp"
+#include "glm/ext/vector_float3.hpp"
+#include "glm/geometric.hpp"
 #include "surrender/srBoundingBox.h"
 #include "wiz8/engine_code/stMeshModel.h"
+#include "surrender/srMeshModel.h"
 #include "wiz8/float_constants.h"
 #include "wiz8/sr_api.h"
 #include "surrender/srGERD.h"

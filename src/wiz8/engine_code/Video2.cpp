@@ -1,7 +1,9 @@
+#include <SDL3/SDL_rect.h>
+#include <SDL3/SDL_video.h>
 #include <fmt/format.h>
+#include <ios>
 #include <wiz8/filesystem.h>
 #include <SDL3/SDL_surface.h>
-#include <glm/glm.hpp>
 #include <string_view>
 #include <memory>
 #include <sstream>
@@ -17,6 +19,11 @@
 #include <utility>
 #include <vector>
 
+#include "compat/compiler.h"
+#include "compat/native.h"
+#include "glm/common.hpp"
+#include "glm/ext/vector_float2.hpp"
+#include "glm/ext/vector_float4.hpp"
 #include "surrender/srMath.h"
 #include "wiz8/xstatus.h"
 #include "native/input_events.h"

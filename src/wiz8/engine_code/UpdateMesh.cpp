@@ -1,8 +1,6 @@
 #include <glm/ext/quaternion_trigonometric.hpp>
-#include <glm/glm.hpp>
 #include <glm/gtc/quaternion.hpp>
 #include <vector>
-#include <cmath>
 #include <memory>
 
 #include "wiz8/engine_code/UpdateMesh.h"

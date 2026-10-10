@@ -3,6 +3,7 @@
 #include <optional>
 #include <string>
 
+#include "compat/compiler.h"
 #include "vsurface.h"
 #include "wiz8/bink_video.h"
 #include "wiz8/music_playlist.h"

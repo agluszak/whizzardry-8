@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <catch2/catch_test_macros.hpp>
 #include <SDL3/SDL_events.h>
 #include <SDL3/SDL_keycode.h>
@@ -19,7 +20,6 @@
 #include <stdexcept>
 #include <string>
 #include <vector>
-#include <compare>
 #include <cstdint>
 #include <iterator>
 #include <memory>
@@ -81,7 +81,6 @@
 #include "wiz8/local_screens/Screens.h"
 #include "Types.h"
 #include "catch2/catch_message.hpp"
-#include "compat/ptr32.h"
 #include "conditions.h"
 #include "layouts/gameplay_databases.h"
 #include "layouts/targeting.h"

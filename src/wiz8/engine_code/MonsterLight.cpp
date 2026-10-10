@@ -1,9 +1,11 @@
 #include "wiz8/engine_code/MonsterLight.h"
 
-#include <glm/glm.hpp>
 #include <cmath>
 #include <string>
 
+#include "glm/common.hpp"
+#include "surrender/srLight.h"
+#include "surrender/srMath.h"
 #include "wiz8/engine_code/GameTimeAccumulator.h"
 #include "wiz8/float_constants.h"
 #include "glm/ext/vector_float3.hpp"

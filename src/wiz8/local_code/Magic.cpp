@@ -1,7 +1,6 @@
 #include <fmt/format.h>
 #include <fmt/printf.h>
 #include <glm/ext/quaternion_trigonometric.hpp>
-#include <glm/glm.hpp>
 #include <glm/gtc/quaternion.hpp>
 #include <string>
 #include <vector>
@@ -10,6 +9,7 @@
 #include <cstring>
 #include <span>
 
+#include "glm/matrix.hpp"
 #include "wiz8/containers.h"
 #include "wiz8/compat/unaligned.h"
 #include "wiz8/engine_code/AnimRep.hpp"

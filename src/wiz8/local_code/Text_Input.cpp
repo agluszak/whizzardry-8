@@ -1,4 +1,3 @@
-#include <utf8.h>
 #include <SDL3/SDL_rect.h>
 #include <string>
 #include <algorithm>
@@ -9,6 +8,7 @@
 #include <utility>
 
 #include "native/input_events.h"
+#include "utf8/checked.h"
 #include "wiz8/unicode.h"
 #include "wiz8/cursor.h"
 #include "Font.h"

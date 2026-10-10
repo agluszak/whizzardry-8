@@ -1,5 +1,4 @@
 #include <glm/ext/quaternion_trigonometric.hpp>
-#include <glm/glm.hpp>
 #include <glm/gtc/quaternion.hpp>
 #include <vector>
 #include <cmath>
@@ -8,6 +7,7 @@
 #include <exception>
 #include <memory>
 
+#include "surrender/srMath.h"
 #include "wiz8/containers.h"
 #include "wiz8/engine_code/Quality.h"
 #include "wiz8/sr_api.h"
@@ -30,6 +30,7 @@
 #include "glm/ext/matrix_float3x3.hpp"
 #include "glm/ext/vector_float3.hpp"
 #include "layouts/world.h"
+#include "audio_resources.h"
 
 // GLOBAL: WIZ8 0x005ec5a8
 const float g_ambient_sound_inner_radius_scale = 0.6000000238418579f;

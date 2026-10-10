@@ -1,5 +1,4 @@
 #include <fmt/format.h>
-#include <glm/glm.hpp>
 #include <string>
 #include <cstring>
 #include <memory>

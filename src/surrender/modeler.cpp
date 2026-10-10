@@ -1,5 +1,4 @@
 #include <glm/gtc/constants.hpp>
-#include <glm/glm.hpp>
 #include <algorithm>
 #include <cmath>
 #include <limits>
@@ -12,6 +11,9 @@
 #include <utility>
 #include <vector>
 
+#include "glm/common.hpp"
+#include "glm/geometric.hpp"
+#include "glm/vector_relational.hpp"
 #include "surrender/srModeler.h"
 #include "surrender/srDebug.h"
 #include "surrender/srTriangulator.h"

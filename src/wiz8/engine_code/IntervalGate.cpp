@@ -3,6 +3,7 @@
 #include <cstddef>
 #include <exception>
 
+#include "Types.h"
 #include "wiz8/filesystem.h"
 #include "game_timer.h"
 

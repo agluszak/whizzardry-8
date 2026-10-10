@@ -2,8 +2,8 @@
 #include <fmt/printf.h>
 #include <glm/ext/matrix_transform.hpp>
 #include <glm/ext/quaternion_trigonometric.hpp>
-#include <glm/glm.hpp>
 #include <glm/gtc/quaternion.hpp>
+#include <memory>
 #include <sstream>
 #include <optional>
 #include <string_view>
@@ -17,6 +17,13 @@
 #include <span>
 #include <utility>
 
+#include "compat/native.h"
+#include "glm/ext/matrix_double3x3.hpp"
+#include "glm/ext/matrix_double4x4.hpp"
+#include "glm/ext/matrix_float3x3.hpp"
+#include "glm/ext/matrix_float4x4.hpp"
+#include "glm/ext/vector_double3.hpp"
+#include "glm/ext/vector_float4.hpp"
 #include "wiz8/containers.h"
 #include "wiz8/engine_code/AnimRep.hpp"
 #include "wiz8/engine_code/Camera.h"
@@ -113,10 +120,10 @@
 #include "surrender/srMeshModel.h"
 #include "surrender/srModel.h"
 #include "surrender/srNode.h"
-#include "surrender/srTexture.h"
 #include "surrender/srTextureIFace.h"
 #include "surrender/srTypeRegistry.h"
 #include "texture_animation.h"
+#include "audio_resources.h"
 
 struct W8NpcState;
 

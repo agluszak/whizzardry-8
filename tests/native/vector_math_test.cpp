@@ -1,6 +1,5 @@
 #include <catch2/catch_test_macros.hpp>
 #include <glm/ext/matrix_transform.hpp>
-#include <glm/glm.hpp>
 #include <array>
 #include <bit>
 #include <cmath>
@@ -10,6 +9,7 @@
 #include <iterator>
 #include <span>
 
+#include "glm/geometric.hpp"
 #include "surrender/srClip.h"
 #include "surrender/srLight.h"
 #include "surrender/srMath.h"

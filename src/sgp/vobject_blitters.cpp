@@ -7,9 +7,12 @@
 #include <cstring>
 #include <memory>
 #include <optional>
+#include <span>
 #include <utility>
 #include <vector>
 
+#include "Types.h"
+#include "vsurface.h"
 #include "wiz8/compat/surfaces.h"
 #include "himage.h"
 #include "vobject.h"

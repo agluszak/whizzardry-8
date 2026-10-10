@@ -1,10 +1,11 @@
+#include <cstdint>
 #include <fmt/format.h>
 #include <string>
 #include <array>
-#include <memory>
 #include <vector>
 
 #include "wiz8/local_screens/MGSButtons.h"
+#include "input.h"
 #include "wiz8/layouts/character.h"
 #include "wiz8/character_skills.h"
 #include "wiz8/engine_code/GameData.h"

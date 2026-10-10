@@ -11,7 +11,6 @@
 
 #include "wiz8/retail_text_records.h"
 #include "wiz8/layouts/screen_state.h"
-#include "soundman.h"
 #include "wiz8/local_screens/Screens.h"
 #include "wiz8/engine_code/Environment.h"
 #include "wiz8/local_screens/MGSTextBox.h"

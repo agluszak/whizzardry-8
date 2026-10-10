@@ -1,7 +1,6 @@
 #include <SDL3/SDL_rect.h>
 #include <cctype>
 #include <cstring>
-#include <string>
 
 #include "wiz8/dialog_code/DialogInterface.h"
 #include "vsurface.h"
@@ -19,7 +18,6 @@
 #include "mousesystem_macros.h"
 #include "character_event_queue.h"
 #include "compat/native.h"
-#include "compat/ptr32.h"
 #include "dialog_code/DialogBase.h"
 #include "layouts/character.h"
 #include "layouts/combat_state.h"

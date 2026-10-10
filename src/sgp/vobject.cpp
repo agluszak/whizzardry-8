@@ -4,9 +4,11 @@
 #include <algorithm>
 #include <map>
 #include <cstring>
+#include <memory>
 #include <span>
 #include <utility>
 
+#include "Types.h"
 #include "himage.h"
 #include "vobject.h"
 #include "WCheck.h"

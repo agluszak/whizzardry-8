@@ -1,15 +1,15 @@
+#include <unordered_map>
 #include <wiz8/filesystem.h>
-#include <glm/glm.hpp>
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
 #include <exception>
 #include <memory>
-#include <utility>
 #include <vector>
 
 #include "wiz8/engine_code/OctBuildPreTree.h"
+#include "compat/compiler.h"
 #include "wiz8/engine_code/3d.h"
 #include "wiz8/engine_code/materials.h"
 #include "wiz8/engine_code/Octree.h"

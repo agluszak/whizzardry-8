@@ -11,6 +11,7 @@
 #include <span>
 #include <utility>
 
+#include "compat/compiler.h"
 #include "wiz8/unicode.h"
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/local_screens/CreditsScreen.h"

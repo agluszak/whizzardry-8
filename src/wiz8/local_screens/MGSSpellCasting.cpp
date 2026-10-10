@@ -4,6 +4,7 @@
 #include <cstring>
 #include <vector>
 
+#include "input.h"
 #include "wiz8/spell_ids.h"
 #include "wiz8/local_screens/MGSSpellCasting.h"
 #include "wiz8/integer_constants.h"
@@ -50,7 +51,6 @@
 #include "vsurface.h"
 #include "character_skills.h"
 #include "compat/native.h"
-#include "compat/ptr32.h"
 #include "layouts/main_game_screen.h"
 #include "layouts/npc_dialogue.h"
 #include "local_code/ControlsRect.h"

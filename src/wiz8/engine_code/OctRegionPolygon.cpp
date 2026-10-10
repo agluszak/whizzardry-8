@@ -1,7 +1,7 @@
-#include <glm/glm.hpp>
 #include <cstdlib>
 #include <cstring>
 
+#include "glm/geometric.hpp"
 #include "wiz8/engine_code/OctBuildPreTree.h"
 #include "wiz8/engine_code/OctPreTree.h"
 #include "wiz8/engine_code/materials.h"

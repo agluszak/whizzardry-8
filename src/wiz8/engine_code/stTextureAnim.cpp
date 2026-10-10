@@ -1,8 +1,13 @@
 #include <algorithm>
 #include <cstdlib>
+#include <memory>
 #include <utility>
 
 #include "wiz8/engine_code/stTextureAnim.h"
+#include "compat/compiler.h"
+#include "surrender/srTexture.h"
+#include "surrender/srTextureIFace.h"
+#include "surrender/srTypeRegistry.h"
 #include "wiz8/engine_code/GrCycle.h"
 #include "wiz8/engine_code/stTextureFile.h"
 #include "compat/native.h"

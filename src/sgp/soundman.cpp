@@ -27,6 +27,7 @@
 #include "random.h"
 #include "compat/compiler.h"
 #include "compat/native.h"
+#include "audio_resources.h"
 
 #define SOUND_DEFAULT_MEMORY (8048 * 1024) // default memory limit
 #define SOUND_DEFAULT_THRESH (256 * 8024)  // size for sample to be double-buffered

@@ -1,5 +1,7 @@
+#include <cstddef>
+#include <cstdint>
 #include <fmt/format.h>
-#include <utf8.h>
+#include <string_view>
 #include <SDL3/SDL_rect.h>
 #include <string>
 #include <vector>
@@ -9,10 +11,12 @@
 #include <cstring>
 #include <exception>
 #include <iterator>
-#include <memory>
 #include <utility>
 
+#include "Types.h"
+#include "input.h"
 #include "random.h"
+#include "utf8/checked.h"
 #include "wiz8/unicode.h"
 #include "wiz8/compat/unaligned.h"
 #include "wiz8/local_screens/MGSTextBox.h"
@@ -46,7 +50,6 @@
 #include "line.h"
 #include "compat/compiler.h"
 #include "compat/native.h"
-#include "compat/ptr32.h"
 #include "dialog_code/DialogBase.h"
 #include "game_timer.h"
 #include "layouts/character.h"

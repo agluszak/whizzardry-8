@@ -3,10 +3,11 @@
 #include "wiz8/audio_resources.h"
 #include "surrender/srMath.h"
 #include "wiz8/engine_code/game_timer.h"
-#include "compat/compiler.h"
 
 struct W8World;
-namespace wiz8 { class File; }
+namespace wiz8 {
+class File;
+}  // namespace wiz8
 
 struct W8AmbientSoundConfig {
     char wave_name[0x80];

@@ -1,13 +1,13 @@
+#include "surrender/srScene.h" // IWYU pragma: keep - complete scene type for conversion to srNode.
 #include <fmt/format.h>
+#include <unordered_map>
 #include <wiz8/filesystem.h>
 #include <SDL3/SDL_filesystem.h>
 #include <glm/ext/quaternion_trigonometric.hpp>
-#include <glm/glm.hpp>
 #include <glm/gtc/quaternion.hpp>
 #include <algorithm>
 #include <ranges>
 #include <span>
-#include <tuple>
 #include <cstdint>
 #include <limits>
 #include <memory>
@@ -20,10 +20,15 @@
 #include <cstdlib>
 #include <cstring>
 #include <exception>
-#include <functional>
 #include <optional>
 #include <utility>
 
+#include "compat/compiler.h"
+#include "compat/native.h"
+#include "glm/ext/vector_float2.hpp"
+#include "glm/ext/vector_uint2.hpp"
+#include "glm/geometric.hpp"
+#include "surrender/srMath.h"
 #include "wiz8/local_screens/MGSTextBox.h"
 #include "wiz8/local_code/CombatRange.h"
 #include "wiz8/engine_code/3d.h"
@@ -47,7 +52,6 @@
 #include "wiz8/utility.h"
 #include "wiz8/virtual_file.h"
 #include "surrender/srNode.h"
-#include "surrender/srScene.h"
 #include "wiz8/engine_code/GDProp.h"
 #include "wiz8/engine_code/GDFileIO.h"
 #include "wiz8/engine_code/OctBuildPreTree.h"

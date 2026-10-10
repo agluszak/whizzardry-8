@@ -51,7 +51,6 @@
 #include "Font.h"
 #include "vsurface.h"
 #include "compat/compiler.h"
-#include "compat/ptr32.h"
 #include "difficulty.h"
 #include "file_time.h"
 #include "mousesystem_macros.h"

@@ -1,6 +1,8 @@
 #include <SDL3/SDL_rect.h>
 #include <utility>
 
+#include "Button System.h"
+#include "Types.h"
 #include "wiz8/dialog_code/DialogButton.h"
 #include "wiz8/dialog_code/DialogScrollBar.h"
 #include "wiz8/dialog_code/ButtonUserData.h"

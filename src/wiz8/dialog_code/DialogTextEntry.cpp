@@ -3,6 +3,7 @@
 #include <cstring>
 #include <memory>
 #include <string>
+#include <string_view>
 
 #include "vsurface.h"
 #include "wiz8/local_code/ControlsRect.h"

@@ -1,14 +1,12 @@
 #include <fmt/format.h>
 #include <fmt/printf.h>
 #include <glm/ext/quaternion_trigonometric.hpp>
-#include <glm/glm.hpp>
 #include <glm/gtc/quaternion.hpp>
 #include <new>
 #include <string_view>
 #include <vector>
 #include <cmath>
 #include <cstring>
-#include <string>
 
 #include "wiz8/compat/unaligned.h"
 #include "wiz8/engine_code/AnimRep.hpp"

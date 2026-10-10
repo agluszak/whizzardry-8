@@ -1,6 +1,4 @@
 #include <fmt/printf.h>
-#include <utf8.h>
-#include <fmt/format.h>
 #include <vector>
 #include <cmath>
 #include <cstring>
@@ -8,6 +6,7 @@
 #include <string>
 #include <utility>
 
+#include "utf8/checked.h"
 #include "wiz8/fonts.h"
 #include "wiz8/layouts/character.h"
 #include "wiz8/character_skills.h"
@@ -51,7 +50,6 @@
 #include "random.h"
 #include "soundman.h"
 #include "attack_modes.h"
-#include "compat/ptr32.h"
 #include "conditions.h"
 #include "equipment_slots.h"
 #include "gameplay_modifiers.h"

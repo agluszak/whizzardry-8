@@ -1,14 +1,15 @@
+#include <cstdint>
 #include <glm/gtc/quaternion.hpp>
 #include <glm/ext/quaternion_common.hpp>
 #include <glm/ext/quaternion_geometric.hpp>
 #include <glm/ext/quaternion_trigonometric.hpp>
-#include <glm/ext/scalar_constants.hpp>
-#include <glm/glm.hpp>
 #include <algorithm>
 #include <cmath>
 #include <cstddef>
 #include <exception>
+#include <memory>
 
+#include "glm/fwd.hpp"
 #include "wiz8/filesystem.h"
 #include "surrender/srMath.h"
 #include "wiz8/engine_code/PathAI.h"

@@ -9,6 +9,8 @@
 #include <memory>
 #include <optional>
 
+#include "compat/compiler.h"
+#include "local_code/TextControl.h"
 #include "wiz8/spell_ids.h"
 #include "wiz8/conditions.h"
 #include "soundman.h"
@@ -95,6 +97,7 @@
 #include "local_screens/RCSStatsPage.h"
 #include "vobject.h"
 #include "vsurface.h"
+#include "audio_resources.h"
 
 struct W8NpcState;
 

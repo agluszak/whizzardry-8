@@ -15,7 +15,6 @@
 // and the caller's rectangle (some legacy blitters modify it).
 #include "Types.h"
 #include "vobject_blitters.h"
-#include "compat/surfaces.h"
 #include "himage.h"
 #include "shading.h"
 #include "vobject.h"

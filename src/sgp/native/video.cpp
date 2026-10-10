@@ -1,5 +1,6 @@
 #include "compat/video.h"
 
+#include <SDL3/SDL_rect.h>
 #include <wiz8/asset_paths.h>
 #include <wiz8/filesystem.h>
 #include <SDL3/SDL_cpuinfo.h>

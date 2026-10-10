@@ -7,6 +7,7 @@
 #include "wiz8/mouth_gap.h"
 #include "wiz8/filesystem.h"
 #include "soundman.h"
+#include "audio_resources.h"
 
 /* Engine Code\gap.c (demo source-path string, line 0xd9 inside the update's
    mouth-open branch; retail sits exactly between IList.cpp's tail and

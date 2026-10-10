@@ -1,10 +1,12 @@
 #include <fmt/format.h>
-#include <glm/glm.hpp>
+#include <memory>
+#include <string>
 #include <vector>
 #include <cstdio>
 #include <exception>
 #include <utility>
 
+#include "glm/geometric.hpp"
 #include "surrender/srBoundingBox.h"
 #include "wiz8/engine_code/3d.h"
 #include "wiz8/float_constants.h"

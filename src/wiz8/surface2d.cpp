@@ -1,7 +1,11 @@
 #include <memory>
 
 #include "wiz8/surface2d.h"
+#include "compat/compiler.h"
 #include "surrender/srGERD.h"
+#include "surrender/srNode.h"
+#include "surrender/srTexture.h"
+#include "surrender/srTypeRegistry.h"
 #include "wiz8/float_constants.h"
 #include "surrender/srFlags.h"
 #include "surrender/srMath.h"

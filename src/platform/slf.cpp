@@ -5,14 +5,16 @@
 #include <SDL3/SDL_stdinc.h>
 #include <algorithm>
 #include <array>
+#include <cstdint>
 #include <cstring>
 #include <limits>
 #include <mutex>
+#include <optional>
 #include <stdexcept>
-#include <compare>
 #include <exception>
 #include <memory>
 #include <string>
+#include <string_view>
 #include <utility>
 #include <vector>
 

@@ -1,6 +1,8 @@
 #include <cstddef>
 #include <exception>
 
+#include "Types.h"
+#include "surrender/srClock.h"
 #include "wiz8/filesystem.h"
 #include "wiz8/engine_code/game_timer.h"
 #include "wiz8/engine_code/GameTimeAccumulator.h"

@@ -7,6 +7,7 @@
 #include <optional>
 #include <string>
 
+#include "layouts/gameplay_databases.h"
 #include "soundman.h"
 #include "wiz8/layouts/character.h"
 #include "wiz8/character_skills.h"
@@ -44,7 +45,6 @@
 #include "mousesystem.h"
 #include "Font.h"
 #include "wiz8/filesystem.h"
-#include "compat/ptr32.h"
 #include "dialog_code/DialogBase.h"
 #include "local_code/Controls.h"
 #include "mousesystem_macros.h"

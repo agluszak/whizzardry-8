@@ -4,6 +4,7 @@
 #include <vector>
 
 #include "wiz8/local_screens/MGSSpellIcons.h"
+#include "input.h"
 #include "wiz8/local_code/Strings.h"
 #include "wiz8/local_code/ButtonSound.h"
 #include "wiz8/layouts/gameplay_databases.h"

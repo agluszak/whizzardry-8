@@ -1,6 +1,5 @@
 #include "wiz8/level_specific_code/Ascension.h"
 
-#include <glm/glm.hpp>
 #include <vector>
 #include <string>
 

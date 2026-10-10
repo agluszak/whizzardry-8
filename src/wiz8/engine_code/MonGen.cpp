@@ -1,5 +1,4 @@
 #include <fmt/format.h>
-#include <glm/glm.hpp>
 #include <vector>
 #include <algorithm>
 #include <cmath>

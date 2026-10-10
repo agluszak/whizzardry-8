@@ -1,4 +1,15 @@
 #include "wiz8/filesystem.h"
+#include <SDL3/SDL_filesystem.h>
+#include <SDL3/SDL_iostream.h>
+#include <SDL3/SDL_stdinc.h>
+#include <cstddef>
+#include <cstdint>
+#include <filesystem>
+#include <memory>
+#include <optional>
+#include <string>
+#include <string_view>
+#include <vector>
 #ifdef WIZ8_FILE_FAULTS
 #include "file_operations.h"
 

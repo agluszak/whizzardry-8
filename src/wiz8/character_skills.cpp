@@ -1,12 +1,13 @@
 #include <fmt/format.h>
 #include <fmt/printf.h>
-#include <utf8.h>
+#include <string>
 #include <cstring>
 #include <iterator>
 #include <utility>
 #include <vector>
 
 #include "random.h"
+#include "utf8/checked.h"
 #include "wiz8/local_code/GameplayCode.h"
 #include "wiz8/local_code/PC_Item.h"
 #include "wiz8/layouts/character.h"
@@ -28,7 +29,6 @@
 #include "wiz8/local_code/Gameloop.h"
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/xstatus.h"
-#include "compat/ptr32.h"
 #include "conditions.h"
 #include "gameplay_modifiers.h"
 #include "layouts/item_instance.h"

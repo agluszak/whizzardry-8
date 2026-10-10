@@ -1,9 +1,9 @@
 #include <fmt/format.h>
 #include <fmt/printf.h>
+#include <memory>
 #include <wiz8/filesystem.h>
 #include <SDL3/SDL_filesystem.h>
 #include <SDL3/SDL_stdinc.h>
-#include <glm/glm.hpp>
 #include <sstream>
 #include <string_view>
 #include <algorithm>
@@ -21,6 +21,9 @@
 #include <utility>
 #include <vector>
 
+#include "compat/compiler.h"
+#include "glm/geometric.hpp"
+#include "surrender/srTypeRegistry.h"
 #include "wiz8/unicode.h"
 #include "surrender/srCore.h"
 #include "surrender/srGERD.h"

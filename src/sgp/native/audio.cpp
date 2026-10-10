@@ -1,3 +1,4 @@
+#include <cstddef>
 #include <wiz8/native_audio.h>
 #include <wiz8/filesystem.h>
 #include <SDL3/SDL_audio.h>

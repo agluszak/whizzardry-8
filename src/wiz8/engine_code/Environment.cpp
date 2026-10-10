@@ -1,10 +1,14 @@
 #include <glm/ext/quaternion_trigonometric.hpp>
-#include <glm/glm.hpp>
 #include <glm/gtc/quaternion.hpp>
 #include <cstring>
 #include <cmath>
 #include <exception>
+#include <memory>
+#include <vector>
 
+#include "Types.h"
+#include "compat/compiler.h"
+#include "surrender/srVertexProcessor.h"
 #include "wiz8/filesystem.h"
 #include "wiz8/engine_code/Environment.h"
 #include "wiz8/engine_code/3d.h"

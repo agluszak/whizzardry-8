@@ -3,7 +3,6 @@
 #include <SDL3/SDL_pixels.h>
 #include <SDL3/SDL_properties.h>
 #include <SDL3/SDL_surface.h>
-#include <glm/glm.hpp>
 #include <cfenv>
 #include <algorithm>
 #include <array>

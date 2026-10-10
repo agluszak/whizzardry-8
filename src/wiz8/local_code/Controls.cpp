@@ -1,9 +1,11 @@
 #include <SDL3/SDL_rect.h>
+#include <algorithm>
+#include <memory>
 #include <string_view>
+#include <utility>
 #include <vector>
 #include <array>
 #include <cstring>
-#include <memory>
 #include <string>
 
 #include "wiz8/containers.h"

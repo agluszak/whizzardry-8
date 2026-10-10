@@ -1,8 +1,12 @@
 #include <SDL3/SDL_log.h>
+#include <SDL3/SDL_rect.h>
+#include <cstddef>
 #include <string>
 #include <algorithm>
 #include <array>
 #include <memory>
+#include <string_view>
+#include <vector>
 
 #include "wiz8/unicode.h"
 /* Modified for the Wizardry 8 reconstruction: 2026-10-03, 2026-10-06, 2026-10-07, 2026-10-09.

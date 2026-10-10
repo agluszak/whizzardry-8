@@ -1,15 +1,15 @@
-#include <glm/glm.hpp>
 #include <algorithm>
 #include <ostream>
 #include <cstddef>
 
+#include "glm/common.hpp"
+#include "glm/geometric.hpp"
 #include "surrender/srFog.h"
 #include "surrender/srStreamFlags.h"
 #include "surrender/srDebug.h"
 #include "surrender/srVertexPipe.h"
 #include "compat/compiler.h"
 #include "glm/ext/vector_float3.hpp"
-#include "surrender/srIlluminator.h"
 #include "surrender/srNode.h"
 #include "surrender/srTypeRegistry.h"
 #include "surrender/srVertexProcessor.h"

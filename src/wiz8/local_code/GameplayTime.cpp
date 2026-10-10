@@ -1,6 +1,4 @@
 #include <fmt/printf.h>
-#include <fmt/format.h>
-#include <glm/glm.hpp>
 #include <vector>
 #include <memory>
 #include <string>

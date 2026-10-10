@@ -2,7 +2,6 @@
 #include <fmt/printf.h>
 #include <vector>
 #include <cstring>
-#include <string>
 
 #include "random.h"
 #include "wiz8/compat/unaligned.h"

@@ -1,6 +1,5 @@
 #include <fmt/format.h>
 #include <fmt/printf.h>
-#include <glm/glm.hpp>
 #include <string_view>
 #include <string>
 #include <vector>

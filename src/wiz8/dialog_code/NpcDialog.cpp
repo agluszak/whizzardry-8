@@ -1,6 +1,7 @@
 #include <fmt/format.h>
 #include <fmt/printf.h>
 #include <SDL3/SDL_rect.h>
+#include <memory>
 #include <string>
 #include <vector>
 

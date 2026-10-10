@@ -1,13 +1,14 @@
 #include "wiz8/engine_code/SoundEvent.h"
 
 #include <glm/ext/quaternion_trigonometric.hpp>
-#include <glm/glm.hpp>
 #include <glm/gtc/quaternion.hpp>
+#include <memory>
+#include <string>
 #include <vector>
-#include <cmath>
 #include <cstring>
 #include <utility>
 
+#include "surrender/srMath.h"
 #include "wiz8/engine_code/AmbientSound.h"
 #include "wiz8/engine_code/Monster.h"
 #include "wiz8/float_constants.h"

@@ -3,7 +3,6 @@
 #include <cstdio>
 #include <filesystem>
 #include <memory>
-#include <string>
 #include <vector>
 
 #include "surrender/srCore.h"

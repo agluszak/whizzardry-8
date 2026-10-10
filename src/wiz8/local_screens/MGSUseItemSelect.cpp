@@ -3,6 +3,7 @@
 #include <cstring>
 #include <vector>
 
+#include "input.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/integer_constants.h"
 #include "wiz8/layouts/combat_state.h"
@@ -33,7 +34,6 @@
 #include "wiz8/sr_api.h"
 #include "wiz8/fonts.h"
 #include "wiz8/xstatus.h"
-#include "compat/ptr32.h"
 #include "conditions.h"
 #include "layouts/character.h"
 #include "layouts/gameplay_databases.h"

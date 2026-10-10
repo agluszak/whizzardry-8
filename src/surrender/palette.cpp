@@ -1,6 +1,7 @@
 #include <algorithm>
 #include <array>
 #include <cstdlib>
+#include <ios>
 #include <memory>
 #include <ostream>
 #include <vector>

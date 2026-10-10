@@ -1,6 +1,5 @@
 #include <fmt/format.h>
 #include <fmt/printf.h>
-#include <glm/glm.hpp>
 #include <string>
 #include <vector>
 #include <algorithm>
@@ -9,6 +8,7 @@
 #include <cstdlib>
 #include <cstring>
 
+#include "conditions.h"
 #include "wiz8/containers.h"
 #include "wiz8/engine_code/AnimRep.hpp"
 #include "timer.h"

@@ -2,7 +2,6 @@
 
 #include "wiz8/local_screens/MGSPortraitCombat.h"
 
-#include "wiz8/layouts/character.h"
 #include "wiz8/local_code/Combat.h"
 #include "wiz8/local_code/Search.h"
 #include "wiz8/local_code/GameplayTime.h"
@@ -22,7 +21,6 @@
 #include "wiz8/regions.h"
 #include "wiz8/xstatus.h"
 #include "Button System.h"
-#include "compat/ptr32.h"
 #include "layouts/main_game_screen.h"
 #include "mousesystem.h"
 #include "surrender/srMath.h"

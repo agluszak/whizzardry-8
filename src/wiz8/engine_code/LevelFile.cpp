@@ -10,8 +10,8 @@
 #include <cstring>
 #include <exception>
 #include <new>
-#include <string>
 
+#include "Types.h"
 #include "wiz8/engine_code/stLight.hpp"
 #include "wiz8/engine_code/LevelFile.h"
 #include "wiz8/engine_code/ReadMesh.h"

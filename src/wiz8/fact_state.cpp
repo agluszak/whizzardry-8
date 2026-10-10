@@ -1,5 +1,4 @@
 #include <cstring>
-#include <string>
 #include <vector>
 
 #include "wiz8/filesystem.h"
@@ -15,7 +14,6 @@
 #include "wiz8/local_screens/NPCInteractionSubscreen.h"
 #include "wiz8/layouts/npc_state.h"
 #include "wiz8/layouts/game_status.h"
-#include "compat/ptr32.h"
 #include "conditions.h"
 
 /* Runs once the new-game level has finished loading: records the two starting

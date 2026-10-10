@@ -7,6 +7,7 @@
 #include <memory>
 #include <vector>
 
+#include "compat/compiler.h"
 #include "wiz8/conditions.h"
 #include "wiz8/local_screens/RCSStatsPage.h"
 #include "wiz8/local_screens/RCSCommon.h"
@@ -39,7 +40,6 @@
 #include "Font.h"
 #include "input.h"
 #include "vobject_blitters.h"
-#include "compat/ptr32.h"
 #include "game_timer.h"
 #include "local_code/CombatAttack.h"
 #include "local_code/Controls.h"

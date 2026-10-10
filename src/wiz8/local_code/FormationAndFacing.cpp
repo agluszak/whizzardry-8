@@ -1,8 +1,6 @@
 #include <fmt/printf.h>
-#include <fmt/format.h>
 #include <cmath>
 #include <cstring>
-#include <string>
 #include <vector>
 
 #include "wiz8/fonts.h"

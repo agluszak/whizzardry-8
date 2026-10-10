@@ -23,11 +23,11 @@
 #include "random.h"
 #include "soundman.h"
 #include "attack_modes.h"
-#include "compat/ptr32.h"
 #include "equipment_slots.h"
 #include "layouts/character.h"
 #include "layouts/item_instance.h"
 #include "layouts/targeting.h"
+#include "audio_resources.h"
 
 #define COMBAT_SOUND_CPP "C:\\Projects\\Wizardry 8\\Local Code\\Combat Sound.cpp"
 

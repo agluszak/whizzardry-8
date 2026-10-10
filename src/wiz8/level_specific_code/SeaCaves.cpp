@@ -7,7 +7,6 @@
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_code/NPCManager.h"
 #include "surrender/srMath.h"
-#include "compat/ptr32.h"
 #include "monster_cycles.h"
 
 struct W8NpcState;

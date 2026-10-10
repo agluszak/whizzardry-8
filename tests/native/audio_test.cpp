@@ -1,4 +1,5 @@
 #include <catch2/catch_test_macros.hpp>
+#include <ios>
 #include <wiz8/native_audio.h>
 #include <wiz8/filesystem.h>
 #include <wiz8/asset_paths.h>
@@ -19,6 +20,7 @@
 #include <memory>
 #include <string>
 #include <string_view>
+#include <utility>
 
 /* Native soundman -> SDL3_mixer, with deterministic offline mixing. */
 #include "native/audio_test.h"
@@ -29,6 +31,10 @@
 #include "temporary_directory.h"
 #include "Types.h"
 #include "catch2/catch_message.hpp"
+#include "audio_resources.h"
+
+struct AudioClip;
+struct AudioPlayback;
 
 static unsigned callbacks = 0;
 static void ended(void* data)

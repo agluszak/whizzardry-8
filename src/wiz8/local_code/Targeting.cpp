@@ -1,13 +1,10 @@
 #include <fmt/format.h>
-#include <glm/glm.hpp>
 #include <vector>
 #include <algorithm>
 #include <cmath>
 #include <cstdlib>
 #include <cstring>
-#include <functional>
 #include <span>
-#include <string>
 
 #include "wiz8/engine_code/Monster.h"
 #include "wiz8/local_code/PC_Item.h"

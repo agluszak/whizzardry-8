@@ -1,3 +1,4 @@
+#include "wiz8/engine_code/stTextureAnim.h" // IWYU pragma: keep - complete animation type for cursor texture conversion and frame access.
 #include <string_view>
 #include <cstring>
 #include <memory>
@@ -22,7 +23,6 @@
 #include "wiz8/video_object_catalog.h"
 #include "wiz8/dialog_code/DialogBase.h"
 #include "wiz8/dialog_code/DialogTextArea.h"
-#include "wiz8/engine_code/stTextureAnim.h"
 #include "wiz8/fonts.h"
 #include "wiz8/regions.h"
 #include "wiz8/sr_api.h"

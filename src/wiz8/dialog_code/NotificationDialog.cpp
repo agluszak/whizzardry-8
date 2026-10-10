@@ -1,6 +1,5 @@
 #include "wiz8/dialog_code/NotificationDialog.h"
 
-#include <string>
 #include <vector>
 
 #include "wiz8/local_code/Strings.h"

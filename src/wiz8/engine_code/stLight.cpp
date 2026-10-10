@@ -1,9 +1,13 @@
-#include <glm/glm.hpp>
 #include <cmath>
 #include <cstdlib>
 #include <cstring>
 #include <string>
+#include <vector>
 
+#include "compat/compiler.h"
+#include "glm/common.hpp"
+#include "glm/ext/vector_float3.hpp"
+#include "surrender/srNode.h"
 #include "wiz8/float_constants.h"
 #include "wiz8/engine_code/3d.h"
 #include "wiz8/engine_code/AmbientSound.h"

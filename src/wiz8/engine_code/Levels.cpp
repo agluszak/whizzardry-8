@@ -1,7 +1,7 @@
+#include "surrender/srCamera.h" // IWYU pragma: keep - complete camera type for conversion to srNode.
 #include <wiz8/asset_paths.h>
 #include <SDL3/SDL_filesystem.h>
 #include <glm/ext/quaternion_trigonometric.hpp>
-#include <glm/glm.hpp>
 #include <glm/gtc/quaternion.hpp>
 #include <cmath>
 #include <cstdio>
@@ -45,7 +45,6 @@
 #include "wiz8/music_playlist.h"
 #include "wiz8/local_code/SpellEffect.h"
 #include "wiz8/sr_api.h"
-#include "surrender/srCamera.h"
 #include "surrender/srNode.h"
 #include "surrender/srModelInstance.h"
 #include "wiz8/local_screens/AutomapScreen.h"

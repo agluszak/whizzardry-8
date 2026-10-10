@@ -1,12 +1,16 @@
 #include "wiz8/npc_script_file.h"
 
 #include <algorithm>
+#include <cstdint>
 #include <memory>
 #include <cstddef>
 #include <exception>
 #include <iterator>
 #include <span>
+#include <string>
+#include <string_view>
 #include <utility>
+#include <vector>
 
 #include "wiz8/unicode.h"
 #include "filesystem.h"

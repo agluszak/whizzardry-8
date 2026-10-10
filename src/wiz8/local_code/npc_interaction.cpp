@@ -1,4 +1,3 @@
-#include <vector>
 
 #include "wiz8/layouts/character.h"
 #include "wiz8/layouts/combat_state.h"
@@ -7,7 +6,6 @@
 #include "wiz8/local_code/NPCScripting.h"
 #include "wiz8/message_box.h"
 #include "soundman.h"
-#include "compat/ptr32.h"
 #include "conditions.h"
 #include "mouth_gap.h"
 

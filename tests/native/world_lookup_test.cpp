@@ -17,7 +17,6 @@
 #include "surrender/srClock.h"
 #include "filesystem.h"
 #include "layouts/world.h"
-#include "quad.h"
 #include "sr_api.h"
 #include "surrender/srNode.h"
 #include "surrender/srTypeRegistry.h"

@@ -1,5 +1,4 @@
 #include <catch2/catch_test_macros.hpp>
-#include <glm/glm.hpp>
 #include <array>
 #include <cstddef>
 #include <memory>

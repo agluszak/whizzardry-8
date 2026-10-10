@@ -1,9 +1,7 @@
 #include <fmt/format.h>
-#include <glm/glm.hpp>
 #include <vector>
 #include <cmath>
 #include <span>
-#include <string>
 
 #include "wiz8/compat/unaligned.h"
 #include "wiz8/spell_ids.h"

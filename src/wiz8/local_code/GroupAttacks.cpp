@@ -1,6 +1,7 @@
 #include <fmt/format.h>
 #include <fmt/printf.h>
 #include <string>
+#include <vector>
 
 #include "wiz8/fonts.h"
 #include "wiz8/local_code/GroupAttacks.h"
@@ -22,7 +23,6 @@
 #include "wiz8/utility.h"
 #include "random.h"
 #include "wiz8/engine_code/PolyPick.h"
-#include "compat/ptr32.h"
 #include "conditions.h"
 #include "layouts/gameplay_databases.h"
 #include "layouts/targeting.h"

@@ -2,8 +2,6 @@
 #include <glm/gtc/quaternion.hpp>
 #include <glm/ext/quaternion_common.hpp>
 #include <glm/ext/quaternion_geometric.hpp>
-#include <glm/ext/scalar_constants.hpp>
-#include <glm/glm.hpp>
 #include <vector>
 #include <algorithm>
 #include <cmath>
@@ -13,6 +11,9 @@
 #include <memory>
 #include <string>
 
+#include "compat/compiler.h"
+#include "glm/common.hpp"
+#include "glm/fwd.hpp"
 #include "wiz8/engine_code/AnimRep.hpp"
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/engine_code/GDProp.h"

@@ -10,6 +10,7 @@
 //  Re-Written by Kris Morness, since...
 
 #include <algorithm>
+#include <string_view>
 #include <vector>
 #include <cstdint>
 #include <cstdio>

@@ -13,13 +13,13 @@
 #include "wiz8/integer_constants.h"
 #include "compat/compiler.h"
 #include "compat/native.h"
-#include "compat/ptr32.h"
 #include "conditions.h"
 #include "input.h"
 #include "layouts/main_game_screen.h"
 #include "message_box.h"
 #include "vobject.h"
 #include "vsurface.h"
+#include "audio_resources.h"
 #ifdef WIZ8_RUNTIME_TESTS
 #include "runtime_instrumentation.h"
 #endif

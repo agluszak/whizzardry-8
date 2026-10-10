@@ -15,6 +15,8 @@
 #include <string>
 #include <utility>
 
+#include "compat/compiler.h"
+#include "glm/fwd.hpp"
 #include "wiz8/engine_code/3d.h"
 #include "wiz8/engine_code/ReadMesh.h"
 #include "wiz8/engine_code/ReadLevel.h"

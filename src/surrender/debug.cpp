@@ -4,6 +4,8 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <streambuf>
+#include <string>
 
 #include "surrender/srDebug.h"
 #include "surrender/srCore.h"

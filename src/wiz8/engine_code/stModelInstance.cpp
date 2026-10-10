@@ -1,10 +1,17 @@
-#include <glm/glm.hpp>
 #include <algorithm>
 #include <cmath>
 #include <cstddef>
 #include <iterator>
+#include <memory>
 #include <string>
+#include <vector>
 
+#include "compat/compiler.h"
+#include "glm/ext/vector_float4.hpp"
+#include "glm/geometric.hpp"
+#include "glm/matrix.hpp"
+#include "surrender/srModel.h"
+#include "surrender/srTypeRegistry.h"
 #include "wiz8/engine_code/stTextureFile.h"
 #include "wiz8/engine_code/stModelInstance.h"
 #include "wiz8/engine_code/materials.h"

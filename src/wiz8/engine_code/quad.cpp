@@ -2,7 +2,9 @@
 
 #include <cmath>
 #include <cstddef>
+#include <memory>
 
+#include "surrender/srMath.h"
 #include "surrender/srMeshModel.h"
 #include "surrender/srModelInstance.h"
 

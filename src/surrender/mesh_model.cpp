@@ -1,4 +1,3 @@
-#include <glm/glm.hpp>
 #include <algorithm>
 #include <cmath>
 #include <vector>
@@ -6,9 +5,10 @@
 #include <cstdio>
 #include <memory>
 #include <span>
-#include <string>
 #include <utility>
 
+#include "glm/common.hpp"
+#include "glm/geometric.hpp"
 #include "surrender/srBoundingBox.h"
 #include "compat/compiler.h"
 #include "glm/ext/matrix_float3x3.hpp"

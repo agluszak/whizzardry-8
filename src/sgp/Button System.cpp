@@ -1,3 +1,5 @@
+#include <SDL3/SDL_rect.h>
+#include <cstddef>
 #include <fmt/format.h>
 #include <SDL3/SDL_log.h>
 #include <string_view>
@@ -17,6 +19,7 @@
 
 #include "Types.h"
 #include "input.h"
+#include "mousesystem.h"
 #include "vobject.h"
 #include "vobject_blitters.h"
 #include "Button System.h"

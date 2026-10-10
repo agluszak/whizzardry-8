@@ -1,6 +1,5 @@
 #include <glm/ext/matrix_transform.hpp>
 #include <glm/ext/quaternion_trigonometric.hpp>
-#include <glm/glm.hpp>
 #include <glm/gtc/matrix_access.hpp>
 #include <glm/gtc/quaternion.hpp>
 #include <ostream>
@@ -10,6 +9,8 @@
 #include <string>
 #include <string_view>
 
+#include "glm/geometric.hpp"
+#include "glm/matrix.hpp"
 #include "surrender/srNode.h"
 #include "surrender/srStreamFlags.h"
 #include "surrender/srCore.h"

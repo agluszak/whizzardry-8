@@ -2,6 +2,9 @@
    timed RGB555 frames. Recovered IntroScreen still owns transitions/input. */
 #include "movie.h"
 
+#include <cstdint>
+#include <memory>
+#include <vector>
 #include <wiz8/filesystem.h>
 #include <SDL3/SDL_surface.h>
 

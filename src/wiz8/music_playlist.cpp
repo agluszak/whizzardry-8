@@ -4,6 +4,7 @@
 #include <cstring>
 #include <string>
 #include <vector>
+#include <memory>
 
 #include "wiz8/xstatus.h"
 #include "wiz8/engine_code/stScript.h"
@@ -14,6 +15,7 @@
 #include "soundman.h"
 #include "compat/native.h"
 #include "local_screens/Screens.h"
+#include "audio_resources.h"
 
 /* Original translation-unit ownership is unknown; surrounding anchors do not resolve it. */
 

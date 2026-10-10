@@ -1,9 +1,11 @@
-#include <glm/glm.hpp>
 #include <glm/gtc/matrix_access.hpp>
 #include <ostream>
 #include <algorithm>
 #include <cmath>
 
+#include "glm/common.hpp"
+#include "glm/matrix.hpp"
+#include "glm/vector_relational.hpp"
 #include "surrender/srCamera.h"
 #include "surrender/srStreamFlags.h"
 #include "surrender/srGERD.h"

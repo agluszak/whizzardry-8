@@ -1,7 +1,10 @@
-#include <glm/glm.hpp>
+#include <memory>
 #include <vector>
 #include <string>
 
+#include "compat/native.h"
+#include "glm/geometric.hpp"
+#include "glm/matrix.hpp"
 #include "wiz8/containers.h"
 #include "surrender/srBoundingBox.h"
 #include "wiz8/compat/unaligned.h"

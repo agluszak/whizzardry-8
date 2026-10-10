@@ -1,7 +1,6 @@
 #include "wiz8/level_specific_code/MartensBluff2.h"
 
 #include <glm/ext/quaternion_trigonometric.hpp>
-#include <glm/glm.hpp>
 #include <glm/gtc/quaternion.hpp>
 #include <vector>
 #include <cmath>

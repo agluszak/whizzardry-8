@@ -7,7 +7,6 @@
 #include <SDL3/SDL_rect.h>
 #include <SDL3/SDL_stdinc.h>
 #include <SDL3/SDL_video.h>
-#include <glm/glm.hpp>
 #include <map>
 #include <vector>
 #include <cstddef>
@@ -15,6 +14,7 @@
 #include <cstring>
 #include <utility>
 
+#include "glm/matrix.hpp"
 #include "surrender/srDD_SDLGPU.h"
 #include "sr_fragment.spv.h"
 #include "sr_vertex.spv.h"

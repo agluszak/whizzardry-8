@@ -79,6 +79,7 @@
 #include "monster_actions.h"
 #include "mouth_gap.h"
 #include "surrender/srMath.h"
+#include "audio_resources.h"
 
 class W8DialogBase;
 

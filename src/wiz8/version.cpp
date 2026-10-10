@@ -1,4 +1,5 @@
 #include <fmt/format.h>
+#include <string>
 
 #include "wiz8/version.h"
 

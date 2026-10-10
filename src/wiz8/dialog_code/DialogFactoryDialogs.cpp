@@ -1,9 +1,12 @@
+#include <SDL3/SDL_rect.h>
 #include <fmt/format.h>
 #include <string>
 #include <cctype>
 #include <cstdlib>
+#include <string_view>
 
 #include "wiz8/dialog_code/DialogFactoryDialogs.h"
+#include "compat/compiler.h"
 #include "wiz8/dialog_code/ButtonUserData.h"
 #include "wiz8/dialog_code/DialogButton.h"
 #include "wiz8/dialog_code/DialogInterface.h"
@@ -30,9 +33,7 @@
 #include "soundman.h"
 #include "vsurface.h"
 #include "Video2.h"
-#include "compat/ptr32.h"
 #include "dialog_code/DialogBase.h"
-#include "layouts/character.h"
 #include "layouts/game_status.h"
 #include "layouts/item_instance.h"
 #include "local_code/ControlsRect.h"

@@ -1,7 +1,7 @@
+#include "surrender/srTexture.h" // IWYU pragma: keep - complete texture type for shared_ptr base conversion.
 #include <glm/gtx/rotate_vector.hpp>
 #include <SDL3/SDL_rect.h>
 #include <glm/ext/quaternion_trigonometric.hpp>
-#include <glm/glm.hpp>
 #include <glm/gtc/quaternion.hpp>
 #include <vector>
 #include <cmath>
@@ -38,7 +38,6 @@
 #include "surrender/srNode.h"
 #include "surrender/srMaterial.h"
 #include "surrender/srShader.h"
-#include "surrender/srTexture.h"
 #include "wiz8/engine_code/GameData.h"
 #include "wiz8/engine_code/GrCycle.h"
 #include "wiz8/engine_code/materials.h"

@@ -1,13 +1,13 @@
+#include "surrender/srScene.h" // IWYU pragma: keep - complete scene type for conversion to srNode.
 #include <glm/gtx/rotate_vector.hpp>
-#include <glm/glm.hpp>
 #include <vector>
 #include <cmath>
 
+#include "glm/trigonometric.hpp"
 #include "wiz8/containers.h"
 #include "wiz8/local_screens/MGSRadarMap.h"
 #include "surrender/srMath.h"
 #include "surrender/srNode.h"
-#include "surrender/srScene.h"
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/local_code/CombatRange.h"
 #include "wiz8/engine_code/Item.h"
@@ -28,7 +28,6 @@
 #include "wiz8/xstatus.h"
 #include "wiz8/engine_code/GameData.h"
 #include "AnimRep.hpp"
-#include "compat/ptr32.h"
 #include "glm/ext/vector_float4.hpp"
 #include "layouts/gameplay_databases.h"
 #include "layouts/main_game_screen.h"

@@ -1,5 +1,6 @@
 #include "wiz8/engine_code/AnimRep.hpp"
 
+#include "surrender/srMath.h"
 #include "wiz8/engine_code/Emitter.h"
 #include "wiz8/engine_code/game_timer.h"
 #include "wiz8/sr_api.h"

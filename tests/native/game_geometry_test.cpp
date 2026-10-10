@@ -2,7 +2,6 @@
 #include <glm/gtc/constants.hpp>
 #include <glm/ext/matrix_clip_space.hpp>
 #include <glm/ext/matrix_transform.hpp>
-#include <glm/glm.hpp>
 #include <glm/gtx/euler_angles.hpp>
 #include <array>
 #include <cmath>
@@ -13,6 +12,7 @@
 #include <string>
 #include <vector>
 
+#include "glm/geometric.hpp"
 #include "surrender_test_fixture.h"
 #include "surrender/srBoundingBox.h"
 #include "surrender/srMaterial.h"
@@ -29,7 +29,6 @@
 #include "wiz8/engine_code/GameData.h"
 #include "wiz8/engine_code/Navigator.h"
 #include "wiz8/engine_code/SoundEvent.h"
-#include "wiz8/engine_code/IntervalGate.h"
 #include "wiz8/local_code/ItemManager.h"
 #include "compat/compiler.h"
 #include "geometry.h"

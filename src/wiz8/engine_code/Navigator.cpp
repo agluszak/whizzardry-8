@@ -1,10 +1,11 @@
-#include <glm/glm.hpp>
+#include <memory>
 #include <vector>
 #include <algorithm>
 #include <cmath>
 #include <cstddef>
 #include <exception>
 
+#include "glm/geometric.hpp"
 #include "wiz8/containers.h"
 #include "wiz8/filesystem.h"
 #include "wiz8/engine_code/Navigator.h"

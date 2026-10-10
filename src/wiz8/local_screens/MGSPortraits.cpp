@@ -43,7 +43,6 @@
 #include "vobject.h"
 #include "vsurface.h"
 #include "compat/native.h"
-#include "compat/ptr32.h"
 #include "conditions.h"
 #include "equipment_slots.h"
 #include "layouts/gameplay_databases.h"

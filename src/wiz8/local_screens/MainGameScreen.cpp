@@ -1,3 +1,5 @@
+#include "surrender/srScene.h" // IWYU pragma: keep - complete scene type for conversion to srNode.
+#include "wiz8/engine_code/stTextureAnim.h" // IWYU pragma: keep - complete animation type used through the owned pointer.
 #include <fmt/format.h>
 #include <fmt/printf.h>
 #include <SDL3/SDL_filesystem.h>
@@ -12,6 +14,8 @@
 #include <memory>
 #include <optional>
 
+#include "compat/compiler.h"
+#include "layouts/targeting.h"
 #include "wiz8/spell_ids.h"
 #include "wiz8/conditions.h"
 #include "line.h"
@@ -62,7 +66,6 @@
 #include "wiz8/engine_code/Prop.h"
 #include "wiz8/engine_code/World.h"
 #include "wiz8/engine_code/stModelInstance.h"
-#include "wiz8/engine_code/stTextureAnim.h"
 #include "vobject.h"
 #include "vsurface.h"
 #include "wiz8/local_code/LoadSaveGame.h"
@@ -79,7 +82,6 @@
 #include "wiz8/local_code/GameplayTime.h"
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/sr_api.h"
-#include "surrender/srScene.h"
 #include "surrender/srColorSurface.h"
 #include "surrender/srMaterial.h"
 #include "surrender/srMeshModel.h"

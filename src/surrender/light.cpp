@@ -1,5 +1,4 @@
 
-#include <glm/glm.hpp>
 #include <algorithm>
 #include <ostream>
 #include <cassert>
@@ -8,6 +7,9 @@
 #include <span>
 #include <vector>
 
+#include "glm/common.hpp"
+#include "glm/geometric.hpp"
+#include "glm/matrix.hpp"
 #include "surrender/srLight.h"
 #include "surrender/srStreamFlags.h"
 #include "surrender/srCore.h"

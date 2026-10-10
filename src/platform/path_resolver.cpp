@@ -1,3 +1,5 @@
+#include <string_view>
+#include <vector>
 #include <wiz8/asset_paths.h>
 #include <SDL3/SDL_filesystem.h>
 #include <SDL3/SDL_stdinc.h>

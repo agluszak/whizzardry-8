@@ -1,9 +1,6 @@
-#include <glm/glm.hpp>
-#include <utility>
 #include <vector>
 #include <cstring>
 #include <span>
-#include <string>
 #include <unordered_map>
 
 #include "wiz8/fonts.h"

@@ -1,6 +1,10 @@
 #include "wiz8/unicode.h"
+#include "utf8/checked.h"
 
-#include <utf8.h>
+#include <cstddef>
+#include <span>
+#include <string>
+#include <string_view>
 #include <utf8proc.h>
 #include <algorithm>
 #include <cstring>

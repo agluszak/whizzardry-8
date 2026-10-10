@@ -1,4 +1,5 @@
 #include <catch2/catch_test_macros.hpp>
+#include <ios>
 #include <wiz8/asset_paths.h>
 #include <SDL3/SDL_init.h>
 #include <SDL3/SDL_filesystem.h>

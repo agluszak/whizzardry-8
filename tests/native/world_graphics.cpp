@@ -36,7 +36,6 @@
 #include "surrender/srGERD.h"
 #include "surrender/srModelInstance.h"
 #include "temporary_directory.h"
-#include "compat/ptr32.h"
 #include "layouts/targeting.h"
 #include "layouts/world.h"
 #include "surrender/srColorSurfaceIFace.h"

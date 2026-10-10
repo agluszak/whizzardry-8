@@ -1,6 +1,6 @@
+#include "wiz8/engine_code/stModelInstance.h" // IWYU pragma: keep - complete model type for unique_ptr destruction.
 #include <catch2/catch_test_macros.hpp>
 #include <SDL3/SDL_filesystem.h>
-#include <glm/glm.hpp>
 
 #include "wiz8/local_code/GameplayDatabase.h"
 #include "wiz8/local_code/Strings.h"
@@ -24,6 +24,7 @@
 /* Exercise recovered NPCT loading with retail addresses and native handles as
    on-disk presence markers. No installed game data or display is required. */
 
+#include <ios>
 #include <wiz8/asset_paths.h>
 #include <wiz8/filesystem.h>
 #include <wiz8/file_time.h>
@@ -63,7 +64,6 @@
 #include "wiz8/engine_code/PathAI.h"
 #include "wiz8/engine_code/AnimObj.h"
 #include "wiz8/engine_code/AniMesh.h"
-#include "wiz8/engine_code/stModelInstance.h"
 #include "wiz8/engine_code/ReadLevel.h"
 #include "wiz8/engine_code/GrObject.h"
 #include "wiz8/engine_code/SoundEvent.h"

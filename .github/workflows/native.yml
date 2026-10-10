@@ -26,7 +26,8 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y \
-            clang \
+            clang-21 \
+            clang-tidy-21 \
             ninja-build \
             ccache \
             cmake \
@@ -61,9 +62,15 @@ jobs:
       - name: Reset compiler cache statistics
         run: ccache --zero-stats
       - name: Configure
-        run: cmake --preset ${{ matrix.preset }} -DCMAKE_BUILD_TYPE=Debug -DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
+        run: cmake --preset ${{ matrix.preset }} -DCMAKE_BUILD_TYPE=Debug -DCMAKE_C_COMPILER=clang-21 -DCMAKE_CXX_COMPILER=clang++-21 -DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
       - name: Build native game and fixtures
         run: cmake --build --preset ${{ matrix.preset }} --parallel "$(nproc)"
+      - name: Check first-party include hygiene
+        if: matrix.preset == 'linux'
+        env:
+          CLANG_TIDY: clang-tidy-21
+          RUN_CLANG_TIDY: run-clang-tidy-21
+        run: ./tools/run-clang-tidy.sh build/linux
       # The canonical GOG installer is stored in the decomp project's private
       # wiz8-ci-inputs release. Never put decrypted game files in Actions cache.
       - name: Check access to licensed game assets

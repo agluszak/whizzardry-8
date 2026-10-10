@@ -1,10 +1,10 @@
-#include <glm/glm.hpp>
 #include <memory>
 #include <utility>
 #include <vector>
 #include <cstddef>
 #include <exception>
 
+#include "glm/ext/matrix_float3x3.hpp"
 #include "wiz8/filesystem.h"
 #include "wiz8/compat/debug_heap.h"
 #include "wiz8/engine_code/AnimObj.h"

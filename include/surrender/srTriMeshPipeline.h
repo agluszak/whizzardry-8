@@ -4,7 +4,6 @@
 #include <vector>
 #include "srMaterialIFace.h"
 #include "srMath.h"
-#include <memory>
 #include "srShader.h"
 #include "srTextureIFace.h"
 #include "srVertexPipe.h"

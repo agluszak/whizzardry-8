@@ -1,4 +1,3 @@
-#include <glm/glm.hpp>
 #include <algorithm>
 #include <array>
 #include <numeric>
@@ -8,7 +7,6 @@
 #include <memory>
 #include <span>
 #include <unordered_map>
-#include <utility>
 
 #include "surrender/srMath.h"
 #include "surrender/srGERD.h"

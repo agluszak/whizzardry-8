@@ -18,7 +18,6 @@
 #include "wiz8/utility.h"
 #include "wiz8/xstatus.h"
 #include "soundman.h"
-#include "compat/ptr32.h"
 #include "conditions.h"
 #include "layouts/gameplay_databases.h"
 #include "surrender/srMath.h"

@@ -66,6 +66,19 @@ points. Required formatter specializations and declarations use narrowly scoped
 Pass a build directory and optional report path to analyze another preset.
 Set `IWYU_JOBS` to change the default four concurrent processes.
 
+Clang-tidy enforces missing and unused includes, include cycles, duplicate and
+suspicious includes, and deprecated C headers. The selected checks are errors
+in `.clang-tidy`; the native CI runs the full first-party scan with Clang 21
+after building the generated headers. To use the same analyzer locally:
+
+```sh
+CLANG_TIDY=clang-tidy-21 RUN_CLANG_TIDY=run-clang-tidy-21 ./tools/run-clang-tidy.sh
+```
+
+The runner accepts a build directory followed by `run-clang-tidy` options.
+`CLANG_TIDY_JOBS` controls concurrency; `CLANG_TIDY` and `RUN_CLANG_TIDY`
+select the executables for other installations.
+
 ## Run
 
 Point the launcher to your installed game assets:

@@ -1,7 +1,5 @@
 #include <fmt/format.h>
 #include <glm/gtx/euler_angles.hpp>
-#include <glm/glm.hpp>
-#include <cmath>
 #include <cstdio>
 #include <cstring>
 #include <exception>
@@ -9,6 +7,8 @@
 #include <string>
 
 #include "wiz8/engine_code/Item.h"
+#include "glm/ext/vector_float3.hpp"
+#include "glm/geometric.hpp"
 #include "wiz8/filesystem.h"
 #include "random.h"
 #include "wiz8/application.h"

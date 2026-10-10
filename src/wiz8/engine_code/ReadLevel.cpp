@@ -1,5 +1,4 @@
 #include <glm/ext/quaternion_trigonometric.hpp>
-#include <glm/glm.hpp>
 #include <glm/gtc/quaternion.hpp>
 #include <cmath>
 #include <cstdio>
@@ -49,7 +48,6 @@
 #include "application.h"
 #include "compat/compiler.h"
 #include "compat/native.h"
-#include "compat/ptr32.h"
 #include "environment_colour.h"
 #include "glm/ext/matrix_float3x3.hpp"
 #include "glm/ext/vector_double3.hpp"

@@ -1,6 +1,5 @@
 #include <glm/ext/matrix_clip_space.hpp>
 #include <glm/ext/matrix_transform.hpp>
-#include <glm/glm.hpp>
 #include <cstdlib>
 #include <algorithm>
 #include <array>
@@ -22,6 +21,10 @@
 #include <unordered_map>
 #include <utility>
 
+#include "glm/common.hpp"
+#include "glm/geometric.hpp"
+#include "glm/matrix.hpp"
+#include "glm/vector_relational.hpp"
 #include "surrender/srMath.h"
 #include "surrender/srGERD.h"
 #include "surrender/srColorSurface.h"
@@ -40,7 +43,6 @@
 #include "surrender/srPixelConvert.h"
 #include "surrender/srRendererDefs.h"
 #include "surrender/srShader.h"
-#include "surrender/srTexture.h"
 #include "surrender/srTextureIFace.h"
 #include "surrender/srTypeRegistry.h"
 #include "glm/fwd.hpp"

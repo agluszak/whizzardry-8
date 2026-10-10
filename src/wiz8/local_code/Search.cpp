@@ -1,6 +1,7 @@
+#include <cstdint>
 #include <fmt/format.h>
-#include <glm/glm.hpp>
 #include <string>
+#include <vector>
 
 #include "wiz8/containers.h"
 #include "wiz8/fonts.h"

@@ -1,7 +1,9 @@
+#include "wiz8/engine_code/stScript.h" // IWYU pragma: keep - complete script type used through the owned pointer.
 #include <fmt/format.h>
 #include <fmt/printf.h>
 #include <SDL3/SDL_filesystem.h>
 #include <SDL3/SDL_stdinc.h>
+#include <optional>
 #include <string_view>
 #include <vector>
 #include <algorithm>
@@ -16,6 +18,7 @@
 #include <iterator>
 #include <utility>
 
+#include "compat/compiler.h"
 #include "wiz8/retail_text_records.h"
 #include "wiz8/containers.h"
 #include "wiz8/compat/debug_heap.h"
@@ -35,7 +38,6 @@
 #include "wiz8/local_code/Configuration.h"
 #include "wiz8/engine_code/Navigator.h"
 #include "wiz8/engine_code/Monster.h"
-#include "wiz8/engine_code/stScript.h"
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/xstatus.h"
 #include "wiz8/local_code/Strings.h"

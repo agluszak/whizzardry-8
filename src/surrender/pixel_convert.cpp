@@ -1,10 +1,10 @@
 #include <SDL3/SDL_pixels.h>
-#include <glm/glm.hpp>
 #include <algorithm>
 #include <iterator>
 #include <cstring>
 #include <cstdio>
 
+#include "glm/geometric.hpp"
 #include "surrender/srPixelConvert.h"
 #include "wiz8/compat/surfaces.h"
 #include "surrender/srARGB.h"

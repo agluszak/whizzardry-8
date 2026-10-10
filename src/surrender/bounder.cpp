@@ -1,6 +1,8 @@
-#include <glm/glm.hpp>
 #include <ostream>
 
+#include "glm/common.hpp"
+#include "glm/geometric.hpp"
+#include "glm/matrix.hpp"
 #include "surrender/srBoundingBox.h"
 #include "surrender/srBounder.h"
 #include "surrender/srStreamFlags.h"

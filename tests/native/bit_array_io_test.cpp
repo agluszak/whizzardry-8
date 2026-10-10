@@ -3,10 +3,10 @@
 #include <SDL3/SDL_stdinc.h>
 #include <cstdio>
 #include <fstream>
+#include <ios>
 #include <vector>
 #include <filesystem>
 #include <memory>
-#include <string>
 
 #include "wiz8/packed_bits.h"
 #include "wiz8/filesystem.h"

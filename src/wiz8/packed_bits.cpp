@@ -3,8 +3,10 @@
 #include <SDL3/SDL_iostream.h>
 #include <SDL3/SDL_properties.h>
 #include <SDL3/SDL_stdinc.h>
+#include <cstddef>
 #include <exception>
 #include <utility>
+#include <vector>
 
 #include "wiz8/filesystem.h"
 #include "surrender/srHuffman.h"

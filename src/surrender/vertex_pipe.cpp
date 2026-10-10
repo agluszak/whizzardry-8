@@ -1,13 +1,15 @@
-#include <glm/glm.hpp>
+#include "surrender/srMaterial.h" // IWYU pragma: keep - complete type for srMaterial to srMaterialIFace conversion.
 #include <algorithm>
 #include <cstddef>
 #include <memory>
 #include <span>
 #include <vector>
 
+#include "glm/common.hpp"
+#include "glm/geometric.hpp"
+#include "glm/vector_relational.hpp"
 #include "surrender/srVertexPipe.h"
 #include "surrender/srCore.h"
-#include "surrender/srMaterial.h"
 #include "surrender/srMaterialIFace.h"
 #include "surrender/srShader.h"
 #include "surrender/srMath.h"

@@ -2,7 +2,6 @@
 #include <vector>
 #include <cmath>
 #include <span>
-#include <string>
 
 #include "wiz8/spell_ids.h"
 #include "wiz8/layouts/character.h"

@@ -1,5 +1,4 @@
 #include <fmt/format.h>
-#include <glm/glm.hpp>
 #include <string>
 #include <array>
 #include <vector>
@@ -9,6 +8,7 @@
 #include <span>
 #include <utility>
 
+#include "compat/compiler.h"
 #include "wiz8/unicode.h"
 #include "surrender/srBoundingBox.h"
 #include "wiz8/containers.h"
@@ -40,7 +40,6 @@
 #include "layouts/world.h"
 #include "surrender/srColorSurfaceIFace.h"
 #include "surrender/srMeshModel.h"
-#include "surrender/srModelInstance.h"
 #include "surrender/srShader.h"
 #include "surrender/srTextureIFace.h"
 

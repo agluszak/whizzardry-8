@@ -1,5 +1,6 @@
-#include <array>
+#include <cstddef>
 #include <memory>
+#include <vector>
 
 #include "wiz8/music_playlist.h"
 #include "layouts/game_status.h"

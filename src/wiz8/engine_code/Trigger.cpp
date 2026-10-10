@@ -1,6 +1,5 @@
 #include <fmt/format.h>
 #include <glm/ext/quaternion_trigonometric.hpp>
-#include <glm/glm.hpp>
 #include <glm/gtc/matrix_access.hpp>
 #include <glm/gtc/quaternion.hpp>
 #include <string>
@@ -13,6 +12,10 @@
 #include <cstring>
 #include <exception>
 
+#include "compat/compiler.h"
+#include "compat/native.h"
+#include "glm/geometric.hpp"
+#include "glm/matrix.hpp"
 #include "wiz8/containers.h"
 #include "wiz8/spell_ids.h"
 #include "wiz8/fonts.h"

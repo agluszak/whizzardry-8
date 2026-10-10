@@ -1,4 +1,3 @@
-#include <glm/glm.hpp>
 
 #include "wiz8/direction_angles.h"
 #include "wiz8/engine_code/PolyPick.h"

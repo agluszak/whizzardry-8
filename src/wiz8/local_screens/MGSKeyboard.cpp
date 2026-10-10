@@ -1,4 +1,5 @@
 #include <fmt/format.h>
+#include <memory>
 #include <utility>
 #include <cstring>
 #include <exception>
@@ -55,7 +56,6 @@
 #include "wiz8/xstatus.h"
 #include "wiz8/filesystem.h"
 #include "camera_motion.h"
-#include "compat/ptr32.h"
 #include "layouts/main_game_screen.h"
 #include "layouts/npc_dialogue.h"
 #include "layouts/screen_state.h"

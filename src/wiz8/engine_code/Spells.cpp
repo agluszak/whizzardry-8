@@ -1,6 +1,5 @@
 #include <fmt/format.h>
 #include <glm/ext/quaternion_trigonometric.hpp>
-#include <glm/glm.hpp>
 #include <glm/gtc/quaternion.hpp>
 #include <string_view>
 #include <vector>
@@ -13,6 +12,7 @@
 #include <string>
 #include <utility>
 
+#include "glm/ext/matrix_float3x3.hpp"
 #include "wiz8/retail_text_records.h"
 #include "wiz8/containers.h"
 #include "wiz8/filesystem.h"

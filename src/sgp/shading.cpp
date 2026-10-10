@@ -2,6 +2,7 @@
    Distributed under the accompanying SFI Source Code license agreement. */
 #include <cstring>
 
+#include "Types.h"
 #include "himage.h"
 #include "vobject.h"
 #include "shading.h"

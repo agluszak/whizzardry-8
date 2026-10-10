@@ -1,3 +1,4 @@
+#include <cstdint>
 #include <utf8proc.h>
 #include <SDL3/SDL_rect.h>
 #include <SDL3/SDL_video.h>

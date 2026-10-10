@@ -1,8 +1,18 @@
-#include <glm/glm.hpp>
 #include <algorithm>
 #include <cmath>
 #include <cstring>
+#include <memory>
+#include <span>
+#include <vector>
 
+#include "compat/compiler.h"
+#include "glm/common.hpp"
+#include "glm/ext/matrix_float3x3.hpp"
+#include "glm/geometric.hpp"
+#include "glm/matrix.hpp"
+#include "glm/trigonometric.hpp"
+#include "glm/vector_relational.hpp"
+#include "surrender/srMath.h"
 #include "wiz8/engine_code/GDCamera.h"
 #include "wiz8/engine_code/GameData.h"
 #include "wiz8/engine_code/OctMeshModel.h"
@@ -52,6 +62,7 @@
 #include "layouts/world.h"
 #include "local_code/Combat.h"
 #include "surrender/srMeshModel.h"
+#include "audio_resources.h"
 
 class srMaterialIFace;
 class srTextureIFace;

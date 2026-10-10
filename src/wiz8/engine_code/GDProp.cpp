@@ -1,11 +1,11 @@
 #include <glm/ext/quaternion_trigonometric.hpp>
-#include <glm/glm.hpp>
 #include <glm/gtc/quaternion.hpp>
 #include <algorithm>
 #include <cmath>
 #include <cstdlib>
 #include <cstring>
 
+#include "surrender/srMath.h"
 #include "wiz8/containers.h"
 #include "wiz8/local_code/ItemManager.h"
 #include "compat/ptr32.h"

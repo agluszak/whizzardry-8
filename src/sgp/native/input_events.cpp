@@ -1,6 +1,9 @@
+#include <SDL3/SDL_events.h>
 #include <SDL3/SDL_keyboard.h>
 #include <SDL3/SDL_keycode.h>
 #include <SDL3/SDL_mouse.h>
+#include <SDL3/SDL_rect.h>
+#include <SDL3/SDL_video.h>
 #include <string>
 #include <string_view>
 #include <stdexcept>

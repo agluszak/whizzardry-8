@@ -1,6 +1,6 @@
+#include <ios>
 #include <ostream>
 #include <memory>
-#include <string>
 #include <utility>
 
 #include "surrender/srTextureMap.h"

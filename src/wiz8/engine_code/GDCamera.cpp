@@ -1,7 +1,11 @@
+#include <cmath>
+#include <cstdlib>
 #include <glm/gtx/rotate_vector.hpp>
 #include <algorithm>
 #include <string>
 
+#include "glm/common.hpp"
+#include "glm/geometric.hpp"
 #include "wiz8/direction_angles.h"
 #include "wiz8/xstatus.h"
 #include "wiz8/engine_code/GDCamera.h"

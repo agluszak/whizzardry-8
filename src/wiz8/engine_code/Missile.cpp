@@ -1,7 +1,6 @@
 #include <fmt/format.h>
 #include <glm/gtx/rotate_vector.hpp>
 #include <glm/ext/quaternion_trigonometric.hpp>
-#include <glm/glm.hpp>
 #include <glm/gtc/quaternion.hpp>
 #include <string>
 #include <vector>
@@ -13,6 +12,8 @@
 #include <memory>
 #include <utility>
 
+#include "compat/compiler.h"
+#include "layouts/targeting.h"
 #include "wiz8/retail_text_records.h"
 #include "wiz8/containers.h"
 #include "wiz8/engine_code/AnimRep.hpp"
@@ -54,7 +55,6 @@
 #include "GrCycle.h"
 #include "Navigator.h"
 #include "compat/native.h"
-#include "compat/ptr32.h"
 #include "gameplay_modifiers.h"
 #include "glm/ext/matrix_float3x3.hpp"
 #include "glm/ext/vector_float3.hpp"

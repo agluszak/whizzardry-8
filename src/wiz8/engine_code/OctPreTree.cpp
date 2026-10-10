@@ -2,19 +2,19 @@
 #include <algorithm>
 #include <ranges>
 #include <span>
-#include <tuple>
 #include <cstdlib>
 #include <vector>
 #include <cmath>
 #include <cstdio>
 #include <cstring>
 #include <exception>
-#include <functional>
 #include <memory>
-#include <string>
 #include <unordered_map>
 #include <utility>
 
+#include "compat/compiler.h"
+#include "glm/ext/vector_float2.hpp"
+#include "surrender/srMath.h"
 #include "wiz8/sr_api.h"
 #include "wiz8/engine_code/OctPreTree.h"
 #include "wiz8/engine_code/3d.h"

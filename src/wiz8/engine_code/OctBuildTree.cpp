@@ -1,7 +1,7 @@
-#include <glm/glm.hpp>
 #include <cstdlib>
 #include <cstring>
 
+#include "compat/compiler.h"
 #include "wiz8/compat/unaligned.h"
 #include "wiz8/engine_code/OctBuildTree.h"
 #include "wiz8/engine_code/GameData.h"

@@ -1,19 +1,18 @@
 #include <catch2/catch_test_macros.hpp>
-#include <algorithm>
 #include <array>
+#include <cstddef>
 #include <filesystem>
 #include <fstream>
+#include <ios>
 #include <iterator> // IWYU pragma: keep - public header for std::istreambuf_iterator.
 #include <functional>
 #include <stdexcept>
+#include <utility>
 #include <vector>
 #include <memory>
-#include <ranges>
 #include <span>
-#include <string>
 #include <unordered_map>
 
-#include "wiz8/containers.h"
 #include "wiz8/xstatus.h"
 #include "wiz8/local_code/Controls.h"
 #include "wiz8/local_code/ButtonSound.h"

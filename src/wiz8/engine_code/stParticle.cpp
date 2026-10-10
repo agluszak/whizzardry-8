@@ -1,12 +1,19 @@
-#include <glm/glm.hpp>
 #include <glm/gtc/matrix_access.hpp>
 #include <cstdlib>
 #include <cmath>
 #include <cstring>
+#include <memory>
 #include <string>
 #include <utility>
 
+#include "glm/ext/matrix_float4x4.hpp"
+#include "glm/geometric.hpp"
+#include "glm/matrix.hpp"
 #include "surrender/srBoundingBox.h"
+#include "surrender/srMath.h"
+#include "surrender/srShader.h"
+#include "surrender/srTextureIFace.h"
+#include "surrender/srTypeRegistry.h"
 #include "wiz8/engine_code/stTextureFile.h"
 #include "wiz8/engine_code/stParticle.h"
 #include "wiz8/engine_code/game_timer.h"

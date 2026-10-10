@@ -6,6 +6,8 @@
 #include <memory>
 #include <vector>
 
+#include "input.h"
+#include "vobject.h"
 #include "wiz8/spell_ids.h"
 #include "wiz8/local_code/GameplayCode.h"
 #include "wiz8/integer_constants.h"
@@ -51,7 +53,6 @@
 #include "wiz8/learned_spells.h"
 #include "Font.h"
 #include "vsurface.h"
-#include "compat/ptr32.h"
 #include "conditions.h"
 #include "dialog_code/DialogBase.h"
 #include "equipment_slots.h"

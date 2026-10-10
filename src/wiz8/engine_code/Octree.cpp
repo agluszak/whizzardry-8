@@ -1,7 +1,6 @@
 #include <fmt/format.h>
 #include <SDL3/SDL_filesystem.h>
 #include <glm/ext/quaternion_trigonometric.hpp>
-#include <glm/glm.hpp>
 #include <glm/gtc/matrix_access.hpp>
 #include <glm/gtc/quaternion.hpp>
 #include <algorithm>
@@ -12,6 +11,7 @@
 #include <memory>
 #include <stdexcept>
 #include <string>
+#include <unordered_map>
 #include <vector>
 #include <cmath>
 #include <cstdint>
@@ -21,6 +21,14 @@
 #include <optional>
 #include <utility>
 
+#include "Types.h"
+#include "compat/compiler.h"
+#include "compat/native.h"
+#include "glm/common.hpp"
+#include "glm/ext/vector_float2.hpp"
+#include "glm/ext/vector_float4.hpp"
+#include "glm/geometric.hpp"
+#include "glm/vector_relational.hpp"
 #include "surrender/srBoundingBox.h"
 #include "wiz8/application.h"
 #include "wiz8/engine_code/Video2.h"

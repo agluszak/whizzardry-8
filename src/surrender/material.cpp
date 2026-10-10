@@ -1,6 +1,5 @@
 /* D:\srsdk1x\sources\corelib\srMaterial.cpp */
 
-#include <glm/glm.hpp>
 #include <ostream>
 #include <cstddef>
 

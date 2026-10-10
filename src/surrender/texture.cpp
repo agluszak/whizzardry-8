@@ -1,3 +1,4 @@
+#include <ios>
 #include <ostream>
 #include <memory>
 #include <string>

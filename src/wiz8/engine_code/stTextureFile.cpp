@@ -1,8 +1,13 @@
 #include <cstring>
 #include <exception>
+#include <memory>
+#include <ostream>
 #include <string>
 
 #include "wiz8/engine_code/stTextureFile.h"
+#include "compat/compiler.h"
+#include "compat/native.h"
+#include "surrender/srTexture.h"
 #include "wiz8/filesystem.h"
 #include "surrender/srImageIO.h"
 #include "surrender/srColorSurfaceIFace.h"

@@ -3,7 +3,6 @@
 #include <algorithm>
 #include <cmath>
 #include <cstring>
-#include <string>
 
 #include "wiz8/layouts/npc_state.h"
 #include "wiz8/npc_items.h"

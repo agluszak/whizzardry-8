@@ -1,7 +1,6 @@
 #include <catch2/catch_test_macros.hpp>
 #include <unordered_map>
 #include <vector>
-#include <utility>
 
 #include "wiz8/index_algorithms.h"
 #include "wiz8/engine_code/OctPath.h"

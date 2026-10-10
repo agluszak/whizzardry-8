@@ -2,7 +2,6 @@
 #include "wiz8/local_code/Configuration.h"
 #include "wiz8/layouts/character.h"
 #include "wiz8/layouts/game_status.h"
-#include "compat/ptr32.h"
 #include "conditions.h"
 
 /* The character-side difficulty scaler: on easy a party character's value

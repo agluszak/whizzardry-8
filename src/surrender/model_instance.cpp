@@ -1,10 +1,11 @@
-#include <glm/glm.hpp>
 #include <ostream>
 #include <cmath>
 #include <memory>
 #include <string>
 #include <vector>
 
+#include "glm/geometric.hpp"
+#include "glm/matrix.hpp"
 #include "surrender/srModelInstance.h"
 #include "surrender/srStreamFlags.h"
 #include "surrender/srCore.h"
