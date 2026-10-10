@@ -547,16 +547,22 @@ void srGERD::setClearDepth(double depth)
     clear_state.clear_values.depth = depth;
 }
 
+/* Both indexed and array draws consume the same pending renderer state. */
+void srGERD::prepareDrawState()
+{
+    checkViewStateChanges();
+    checkDrawStateChanges();
+    if ((vertex_arrays_dirty & DIRTY_VERTEX_ARRAY_INFO) != 0) {
+        getDD()->setVertexArrayInfo(&vertex_arrays);
+        vertex_arrays_dirty &= ~DIRTY_VERTEX_ARRAY_INFO;
+    }
+}
+
 // FUNCTION: SURRENDER 0x1001CC10
 void srGERD::drawArrays(srRendererDefs::e_primitive primitive, w8_long first, w8_ulong count)
 {
     if ((enable_flags.value & 4) == 0) {
-        checkViewStateChanges();
-        checkDrawStateChanges();
-        if ((vertex_arrays_dirty & DIRTY_VERTEX_ARRAY_INFO) != 0) {
-            getDD()->setVertexArrayInfo(&vertex_arrays);
-            vertex_arrays_dirty &= ~DIRTY_VERTEX_ARRAY_INFO;
-        }
+        prepareDrawState();
         getDD()->drawArrays(primitive, first, count);
         statistics.draw_calls++;
     }
@@ -567,12 +573,7 @@ void srGERD::drawElements(srRendererDefs::e_primitive primitive, w8_ulong count,
                           srRendererDefs::e_indexType type, const void* indices)
 {
     if ((enable_flags.value & 4) == 0) {
-        checkViewStateChanges();
-        checkDrawStateChanges();
-        if ((vertex_arrays_dirty & DIRTY_VERTEX_ARRAY_INFO) != 0) {
-            getDD()->setVertexArrayInfo(&vertex_arrays);
-            vertex_arrays_dirty &= ~DIRTY_VERTEX_ARRAY_INFO;
-        }
+        prepareDrawState();
         getDD()->drawElements(primitive, count, type, indices);
         statistics.draw_calls++;
     }
