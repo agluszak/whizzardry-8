@@ -153,7 +153,7 @@ struct W8TriggerDeviceState {
     unsigned char pins[8];
 };
 
-static_assert(sizeof(W8TriggerDeviceState) == 9, "W8TriggerDeviceState_must_be_9");
+W8_ABI_ASSERT(sizeof(W8TriggerDeviceState) == 9, "W8TriggerDeviceState_must_be_9");
 
 /* The locks & traps device record embedded at the tail of Trigger. `lock_type` is the editor "Type" (0 none,
    1 pickable lock, 2 trap, 3 key lock); `difficulty` is the editor "Difficulty"
@@ -180,7 +180,7 @@ struct W8LockState {
     int last_interaction_clock;
 };
 
-static_assert(sizeof(W8LockState) == 0x24, "W8LockState_must_be_0x24");
+W8_ABI_ASSERT(sizeof(W8LockState) == 0x24, "W8LockState_must_be_0x24");
 
 /* Engine Code\Trigger.cpp. Trigger is registered directly below srClass. It is
    not an srNode: the temporary table installed while srClassSupport is under
@@ -204,6 +204,7 @@ public:
 
     Trigger();
     virtual ~Trigger() override;
+    Trigger& operator=(const Trigger&) = default;
     virtual srClass* vInstance() override;
 
     static Trigger* CreateAndLoadLevelTrigger(int handle, W8World* world);

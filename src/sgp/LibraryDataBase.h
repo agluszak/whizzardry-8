@@ -112,7 +112,7 @@ BOOLEAN InitializeFileDatabase(void);
 INT32 LoadPatchSlfArchives(const CHAR8* directory);
 BOOLEAN ReopenCDLibraries(void);
 BOOLEAN ShutDownFileDatabase();
-BOOLEAN CheckIfFileExistInLibrary(STR pFileName);
+BOOLEAN CheckIfFileExistInLibrary(const char* pFileName);
 INT16 GetLibraryIDFromFileName(const char* pFileName);
 HWFILE OpenFileFromLibrary(const char* pName);
 //used to open and close libraries during the game

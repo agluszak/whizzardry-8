@@ -16,7 +16,7 @@ struct MGSKeyBinding {
 };
 #pragma pack(pop)
 
-static_assert(sizeof(MGSKeyBinding) == 0x0a, "MGSKeyBinding_size");
+W8_ABI_ASSERT(sizeof(MGSKeyBinding) == 0x0a, "MGSKeyBinding_size");
 
 // VTABLE: WIZ8 0x005ee8f0
 class MGSKeyboard {
@@ -62,7 +62,7 @@ void ResetMGSKeyboardBindings();
 /* Discard every queued input atom (screen-entry stale-input flush). */
 void DrainInputEventQueue(void);
 /* Reset the slot's combat selection and tear down the menu panel and rows. */
-inline void CloseKeyboardMenu(void);
+void CloseKeyboardMenu(void);
 /* Open the keyboard-action menu for one party slot. */
 void OpenKeyboardMenuForSlot(int slot);
 /* Build the panel and one row per selectable menu entry. */

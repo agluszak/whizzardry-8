@@ -77,6 +77,8 @@ struct TrackedElement
         if (constructors_before_throw > 0) --constructors_before_throw;
         ++live;
     }
+    TrackedElement(const TrackedElement&) = default;
+    TrackedElement& operator=(const TrackedElement&) = default;
     ~TrackedElement() { --live; }
 };
 

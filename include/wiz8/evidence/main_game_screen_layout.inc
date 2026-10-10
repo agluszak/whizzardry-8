@@ -1,7 +1,7 @@
 /* Layout evidence for include/wiz8/layouts/main_game_screen.h. Included after its declarations. */
 
 W8_ABI_ASSERT(sizeof(W8MainGameResourceSlot) == 0x14, "W8MainGameResourceSlot_size");
-static_assert(offsetof(W8MainGameResourceSlot, image_id) == 0x00,
+W8_ABI_ASSERT(offsetof(W8MainGameResourceSlot, image_id) == 0x00,
               "W8MainGameResourceSlot_image_id");
 W8_ABI_ASSERT(offsetof(W8MainGameResourceSlot, object) == 0x04, "W8MainGameResourceSlot_object");
 W8_ABI_ASSERT(offsetof(W8MainGameResourceSlot, frame_count) == 0x08,
@@ -12,36 +12,36 @@ W8_ABI_ASSERT(offsetof(W8MainGameResourceSlot, hotspot_x) == 0x10,
 W8_ABI_ASSERT(sizeof(W8DialogueTextState) == 0x34, "W8DialogueTextState_size");
 W8_ABI_ASSERT(offsetof(W8DialogueTextState, saved_scroll_line) == 0x30,
               "W8DialogueTextState_saved_scroll_line");
-static_assert(offsetof(W8LevelRuntimeBlock, text_paint_scratch) == 0x0,
+W8_ABI_ASSERT(offsetof(W8LevelRuntimeBlock, text_paint_scratch) == 0x0,
               "W8LevelRuntimeBlock_text_paint_scratch");
 W8_ABI_ASSERT(sizeof(W8LevelRuntimeBlock) == 0x330, "W8LevelRuntimeBlock_must_be_0x330");
-static_assert(offsetof(W8LevelRuntimeBlock, message_box_pending) == 0x0f0,
+W8_ABI_ASSERT(offsetof(W8LevelRuntimeBlock, message_box_pending) == 0x0f0,
               "W8LevelRuntimeBlock_message_box_pending");
-static_assert(offsetof(W8LevelRuntimeBlock, saved_redraw_flags) == 0x0f8,
+W8_ABI_ASSERT(offsetof(W8LevelRuntimeBlock, saved_redraw_flags) == 0x0f8,
               "W8LevelRuntimeBlock_saved_redraw_flags");
-static_assert(offsetof(W8LevelRuntimeBlock, main_ui_mode) == 0x0fc,
+W8_ABI_ASSERT(offsetof(W8LevelRuntimeBlock, main_ui_mode) == 0x0fc,
               "W8LevelRuntimeBlock_main_ui_mode");
-static_assert(offsetof(W8LevelRuntimeBlock, portrait_refresh_pending) == 0x109,
+W8_ABI_ASSERT(offsetof(W8LevelRuntimeBlock, portrait_refresh_pending) == 0x109,
               "W8LevelRuntimeBlock_portrait_refresh_pending");
-static_assert(offsetof(W8LevelRuntimeBlock, portrait_refresh_image) == 0x114,
+W8_ABI_ASSERT(offsetof(W8LevelRuntimeBlock, portrait_refresh_image) == 0x114,
               "W8LevelRuntimeBlock_portrait_refresh_image");
-static_assert(offsetof(W8LevelRuntimeBlock, portrait_refresh_mode) == 0x134,
+W8_ABI_ASSERT(offsetof(W8LevelRuntimeBlock, portrait_refresh_mode) == 0x134,
               "W8LevelRuntimeBlock_portrait_refresh_mode");
-static_assert(offsetof(W8LevelRuntimeBlock, condition_hover_party_slot) == 0x170,
+W8_ABI_ASSERT(offsetof(W8LevelRuntimeBlock, condition_hover_party_slot) == 0x170,
               "W8LevelRuntimeBlock_condition_hover_party_slot");
-static_assert(offsetof(W8LevelRuntimeBlock, enchantment_hover_party_slot) == 0x174,
+W8_ABI_ASSERT(offsetof(W8LevelRuntimeBlock, enchantment_hover_party_slot) == 0x174,
               "W8LevelRuntimeBlock_enchantment_hover_party_slot_offset");
-static_assert(offsetof(W8LevelRuntimeBlock, name_hover_party_slot) == 0x178,
+W8_ABI_ASSERT(offsetof(W8LevelRuntimeBlock, name_hover_party_slot) == 0x178,
               "W8LevelRuntimeBlock_name_hover_party_slot_offset");
-static_assert(offsetof(W8LevelRuntimeBlock, vitals_hover_party_slot) == 0x17c,
+W8_ABI_ASSERT(offsetof(W8LevelRuntimeBlock, vitals_hover_party_slot) == 0x17c,
               "W8LevelRuntimeBlock_vitals_hover_party_slot_offset");
-static_assert(offsetof(W8LevelRuntimeBlock, combat_action_hover_party_slot) == 0x180,
+W8_ABI_ASSERT(offsetof(W8LevelRuntimeBlock, combat_action_hover_party_slot) == 0x180,
               "W8LevelRuntimeBlock_combat_action_hover_party_slot_offset");
-static_assert(offsetof(W8LevelRuntimeBlock, assay_hover_party_slot) == 0x184,
+W8_ABI_ASSERT(offsetof(W8LevelRuntimeBlock, assay_hover_party_slot) == 0x184,
               "W8LevelRuntimeBlock_assay_hover_party_slot_offset");
-static_assert(offsetof(W8LevelRuntimeBlock, portrait_assay_hover_mode) == 0x188,
+W8_ABI_ASSERT(offsetof(W8LevelRuntimeBlock, portrait_assay_hover_mode) == 0x188,
               "W8LevelRuntimeBlock_portrait_assay_hover_mode");
-static_assert(offsetof(W8LevelRuntimeBlock, formation_highlight_party_slot) == 0x18c,
+W8_ABI_ASSERT(offsetof(W8LevelRuntimeBlock, formation_highlight_party_slot) == 0x18c,
               "W8LevelRuntimeBlock_formation_highlight_party_slot");
 W8_ABI_ASSERT(offsetof(W8LevelRuntimeBlock, portrait_right_hold_armed) == 0x324,
               "W8LevelRuntimeBlock_portrait_right_hold_armed");
@@ -49,8 +49,8 @@ W8_ABI_ASSERT(offsetof(W8LevelRuntimeBlock, radar_map_alternate) == 0x326,
               "W8LevelRuntimeBlock_radar_map_alternate");
 W8_ABI_ASSERT(offsetof(W8LevelRuntimeBlock, review_transition_active) == 0x327,
               "W8LevelRuntimeBlock_review_transition_active");
-static_assert(offsetof(W8LevelRuntimeBlock, value_194) == 0x194, "W8LevelRuntimeBlock_value_194");
-static_assert(offsetof(W8LevelRuntimeBlock, value_198) == 0x198, "W8LevelRuntimeBlock_value_198");
+W8_ABI_ASSERT(offsetof(W8LevelRuntimeBlock, value_194) == 0x194, "W8LevelRuntimeBlock_value_194");
+W8_ABI_ASSERT(offsetof(W8LevelRuntimeBlock, value_198) == 0x198, "W8LevelRuntimeBlock_value_198");
 W8_ABI_ASSERT(offsetof(W8LevelRuntimeBlock, portrait_overlay_party_slot) == 0x200,
               "W8LevelRuntimeBlock_portrait_overlay_party_slot");
 W8_ABI_ASSERT(offsetof(W8LevelRuntimeBlock, condition_orb_party_slot) == 0x204,

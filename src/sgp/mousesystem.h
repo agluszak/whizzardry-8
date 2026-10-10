@@ -118,7 +118,7 @@ typedef struct _MOUSE_REGION {
 #define MSYS_RIGHT_BUTTON 2
 
 // Mouse system special values
-#define MSYS_NO_CALLBACK NULL
+#define MSYS_NO_CALLBACK nullptr
 #define MSYS_NO_CURSOR 65534
 
 // Mouse system callback reasons

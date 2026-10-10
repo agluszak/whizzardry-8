@@ -33,7 +33,7 @@ struct W8CharacterCreationState {
     bool spells_complete;
     unsigned char padding_26d[3];
 };
-static_assert(sizeof(W8CharacterCreationState) == 0x270, "W8CharacterCreationState_size");
+W8_ABI_ASSERT(sizeof(W8CharacterCreationState) == 0x270, "W8CharacterCreationState_size");
 
 void InitializeCharacterCreation(W8Character*, W8CharacterCreationState*);
 void InitializeCharacterLevelUp(W8Character*, W8CharacterCreationState*);

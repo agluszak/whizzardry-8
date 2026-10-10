@@ -672,7 +672,6 @@ void AddMonsterGenerator(MonGen* generator)
 void DestroyMonsterGenerators(void)
 {
     int count = g_world->monster_generators->GetCount();
-    MonGen* generator;
     int index;
 
     if (count < 1) {

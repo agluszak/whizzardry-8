@@ -863,7 +863,6 @@ void HandleScriptedNpcDeath(unsigned int monster_list_index)
         if (npc != 0) {
             npc->spawned = 1;
             if (npc->name_style == W8_NPC_VI_DOMINA) {
-                wchar_t display_value[16];
                 unsigned char fact_ok = GetFact(W8_FACT_VI_RESCUED);
                 if (fact_ok == 0) {
                     fact_ok = GetFact(W8_FACT_MYLES_MISSION_RESCUE_VI_ASSIGNED);

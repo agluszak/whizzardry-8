@@ -130,7 +130,7 @@ struct W8AutomapState {
     unsigned char pending_cell_lighting;
     unsigned char unknown_0fa[2];
 };
-static_assert(sizeof(W8AutomapState) == 0xfc, "W8AutomapState_size");
+W8_ABI_ASSERT(sizeof(W8AutomapState) == 0xfc, "W8AutomapState_size");
 // GLOBAL: WIZ8 0x0068f268
 W8AutomapState* g_automap_state;
 // GLOBAL: WIZ8 0x0068f274
@@ -1731,9 +1731,9 @@ bool LoadAutomapNotes(int handle)
             for (unsigned int index = 0; index < count; ++index) {
                 srVector2T<float> position;
                 int layer = 0;
-                int length;
+                int length = 0;
                 /* Retail fed `length` to malloc even when the FileRead chain
-                   short-circuited before filling it; the recovery keeps that read. */
+                   short-circuited before filling it; natively it starts at zero. */
                 bool ok = FileRead(handle, &position.x, 4, 0) != 0 &&
                           FileRead(handle, &position.y, 4, 0) != 0 &&
                           FileRead(handle, &layer, 4, 0) != 0 &&

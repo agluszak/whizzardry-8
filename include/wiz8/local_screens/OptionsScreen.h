@@ -102,7 +102,7 @@ struct W8OptionsValues {
     int applying;
 };
 
-static_assert(sizeof(W8OptionsValues) == 0x90, "W8OptionsValues_size");
+W8_ABI_ASSERT(sizeof(W8OptionsValues) == 0x90, "W8OptionsValues_size");
 extern W8OptionsValues g_options_values;
 
 /* A set of option panels; it owns the panels in its vector. */
@@ -357,7 +357,7 @@ struct W8OptionsMenuRow {
     W8ControlsRect bounds;
     int image_indices[5];
 };
-static_assert(sizeof(W8OptionsMenuRow) == 0x48, "W8OptionsMenuRow_must_be_0x48");
+W8_ABI_ASSERT(sizeof(W8OptionsMenuRow) == 0x48, "W8OptionsMenuRow_must_be_0x48");
 
 /* Inclusive range of CreateOptionsPanel indices shown by one menu item. */
 struct W8OptionsPanelRange {
@@ -405,7 +405,7 @@ W8_ASSERT_BASE_END(W8OptionsMenuSet, W8TextControl::Listener, m_pMenuSet, 0x4c);
 // VTABLE: WIZ8 0x005ef008 W8ControlSelectionListener
 // VTABLE: WIZ8 0x005ef000 W8TextControl::Listener
 // VTABLE: WIZ8 0x005eeffc W8DialogCloseListener
-class W8OptionsScreen : public W8ControlSelectionListener,
+class W8OptionsScreen final : public W8ControlSelectionListener,
                         public W8TextControl::Listener,
                         public W8DialogCloseListener {
 public:

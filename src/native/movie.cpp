@@ -383,7 +383,7 @@ void W8NativeVideo::present(CpuSurface* target)
     description = LockCpuSurface(*target);
     if (!description.pixels)
         throw std::runtime_error("Cannot lock movie presentation surface");
-    for (unsigned y = 0; y < description.height; ++y)
+    for (int y = 0; y < description.height; ++y)
         state->presentation_surface->setPixelRowRaw(
             static_cast<unsigned char*>(description.pixels) + y * description.pitch, y, 0,
             description.width);

@@ -190,9 +190,9 @@ struct W8MissileTableRecord {
 };
 #pragma pack(pop)
 
-static_assert(offsetof(W8MissileTableRecord, cycle_name) == 0x100,
+W8_ABI_ASSERT(offsetof(W8MissileTableRecord, cycle_name) == 0x100,
               "W8MissileTableRecord_cycle_name_offset");
-static_assert(sizeof(W8MissileTableRecord) == 0x1e5, "W8MissileTableRecord_must_be_0x1e5");
+W8_ABI_ASSERT(sizeof(W8MissileTableRecord) == 0x1e5, "W8MissileTableRecord_must_be_0x1e5");
 
 extern W8MissileTableRecord* g_missile_table;
 

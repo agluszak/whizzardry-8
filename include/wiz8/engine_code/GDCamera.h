@@ -16,7 +16,7 @@ class srCamera;
 class W8IntervalGate;
 struct W8LevelDataRecord;
 
-static_assert(sizeof(srMatrix3T<float>) == 0x24, "srMatrix3T_float_must_be_0x24");
+W8_ABI_ASSERT(sizeof(srMatrix3T<float>) == 0x24, "srMatrix3T_float_must_be_0x24");
 
 /* Reconstructed owner with unproven TU identity. The cluster 0x476140-
    0x478EB0 sits in the gap between stMeshModel.cpp and AmbientSound.cpp and

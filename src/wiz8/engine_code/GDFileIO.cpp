@@ -112,7 +112,7 @@ struct W8GDFaceHeader { /* 0x1c */
     int version;
 };
 
-static_assert(sizeof(W8GDFaceHeader) == 0x1c, "W8GDFaceHeader_must_be_0x1c");
+W8_ABI_ASSERT(sizeof(W8GDFaceHeader) == 0x1c, "W8GDFaceHeader_must_be_0x1c");
 
 /* The WGD face record's tail: classification flag, slope/value pair, footstep
    selectors, trace chance, and the trigger index the writer overrode. */
@@ -127,7 +127,7 @@ struct W8GDFaceData { /* 0x18 */
     int trigger_index;
 };
 
-static_assert(sizeof(W8GDFaceData) == 0x18, "W8GDFaceData_must_be_0x18");
+W8_ABI_ASSERT(sizeof(W8GDFaceData) == 0x18, "W8GDFaceData_must_be_0x18");
 
 /* The conditional-face record following a non-primary face: the group key the
    interface compiler buckets on and the interface's name. */
@@ -136,7 +136,7 @@ struct W8GDExtendedFace { /* 0x44 */
     char name[0x40];
 };
 
-static_assert(sizeof(W8GDExtendedFace) == 0x44, "W8GDExtendedFace_must_be_0x44");
+W8_ABI_ASSERT(sizeof(W8GDExtendedFace) == 0x44, "W8GDExtendedFace_must_be_0x44");
 
 /* Reads one WGD vertex/polygon bank. poly_type 0 builds fresh arrays; any
    other type grows the existing banks and also consumes each face's extended
@@ -815,7 +815,7 @@ struct W8ProcessedGameDataHeader {
     unsigned char reserved[0x24];
 };
 
-static_assert(sizeof(W8ProcessedGameDataHeader) == 0x68, "W8ProcessedGameDataHeader_must_be_0x68");
+W8_ABI_ASSERT(sizeof(W8ProcessedGameDataHeader) == 0x68, "W8ProcessedGameDataHeader_must_be_0x68");
 
 // FUNCTION: WIZ8 0x0041a820
 unsigned char W8EnvironRecord::RescaleToReference(const W8EnvironRecord* reference)

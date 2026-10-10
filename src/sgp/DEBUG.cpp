@@ -143,7 +143,7 @@ BOOLEAN DbgInitialize(void)
     INT32 iX;
 
     for (iX = 0; iX < MAX_TOPICS_ALLOTED; iX++) {
-        gpDbgTopicPtrs[iX] = NULL;
+        gpDbgTopicPtrs[iX] = nullptr;
     }
 
     DbgClearAllTopics();
@@ -183,7 +183,7 @@ void DbgTopicRegistration(UINT8 ubCmd, UINT16* usTopicID, CHAR8* zMessage)
     UINT16 usIndex, usUse;
     BOOLEAN fFound;
 
-    if (usTopicID == NULL)
+    if (usTopicID == nullptr)
         return;
 
     if (ubCmd == TOPIC_REGISTER) {
@@ -207,8 +207,8 @@ void DbgTopicRegistration(UINT8 ubCmd, UINT16* usTopicID, CHAR8* zMessage)
         DbgMessageReal(*usTopicID, TOPIC_MESSAGE, DBG_LEVEL_0, zMessage);
         gfDebugTopics[*usTopicID] = FALSE;
 
-        if (gpDbgTopicPtrs[*usTopicID] != NULL) {
-            gpDbgTopicPtrs[*usTopicID] = NULL;
+        if (gpDbgTopicPtrs[*usTopicID] != nullptr) {
+            gpDbgTopicPtrs[*usTopicID] = nullptr;
         }
 
         *usTopicID = INVALID_TOPIC;
@@ -236,9 +236,9 @@ void DbgClearAllTopics(void)
 
     for (usIndex = 0; usIndex < MAX_TOPICS_ALLOTED; usIndex++) {
         gfDebugTopics[usIndex] = FALSE;
-        if (gpDbgTopicPtrs[usIndex] != NULL) {
+        if (gpDbgTopicPtrs[usIndex] != nullptr) {
             *gpDbgTopicPtrs[usIndex] = INVALID_TOPIC;
-            gpDbgTopicPtrs[usIndex] = NULL;
+            gpDbgTopicPtrs[usIndex] = nullptr;
         }
     }
 }
@@ -258,7 +258,7 @@ static void WriteDebugLog(const char* text)
 // Modification history :
 //		xxnov96:HJH		-> creation
 
-void DbgMessageReal(UINT16 uiTopicId, UINT8 uiCommand, UINT8 uiDebugLevel, CHAR8* strMessage)
+void DbgMessageReal(UINT16 uiTopicId, UINT8 uiCommand, UINT8 uiDebugLevel, const CHAR8* strMessage)
 {
 
     // Check for a registered topic ID
@@ -292,7 +292,7 @@ void _DebugMessage(UINT8* pString, UINT32 uiLineNum, UINT8* pSourceFile)
     UINT8 ubOutputString[512];
     // Build the output string
 
-    sprintf((char*)ubOutputString, "{ %ld } %s [Line %d in %s]\n", GetTickCount(), pString,
+    sprintf((char*)ubOutputString, "{ %u } %s [Line %d in %s]\n", GetTickCount(), pString,
             uiLineNum, pSourceFile);
     // Output to debugger
 
@@ -316,14 +316,13 @@ extern HVOBJECT FontObjs[25];
 void _FailMessage(UINT8* pString, UINT32 uiLineNum, UINT8* pSourceFile)
 {
     UINT8 ubOutputString[512];
-    BOOLEAN fDone = FALSE;
 
 
     // Build the output string
-    sprintf((char*)ubOutputString, "{ %ld } Assertion Failure: %s [Line %d in %s]\n",
+    sprintf((char*)ubOutputString, "{ %u } Assertion Failure: %s [Line %d in %s]\n",
             GetTickCount(), pString, uiLineNum, pSourceFile);
     if (pString)
-        sprintf((char*)gubAssertString, (char*)pString);
+        sprintf((char*)gubAssertString, "%s", (char*)pString);
     // Output to debugger
     if (gfRecordToDebugger) {
         OutputDebugString((char*)ubOutputString);

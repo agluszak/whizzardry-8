@@ -65,7 +65,6 @@ private:
     bool m_first;
     bool m_second;
     bool m_bonus;
-    unsigned char pad_14f;
 };
 
 W8_ABI_ASSERT(sizeof(W8StatInfoDialogBase) == 0x148, "W8StatInfoDialogBase005DF880_must_be_0x148");

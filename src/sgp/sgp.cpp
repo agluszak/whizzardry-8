@@ -32,7 +32,7 @@ BOOLEAN gfLoadAtStartup = FALSE;
 // GLOBAL: WIZ8 0x006505a1
 BOOLEAN gfUsingBoundsChecker = FALSE;
 // GLOBAL: WIZ8 0x006505a4
-CHAR8* gzStringDataOverride = NULL;
+CHAR8* gzStringDataOverride = nullptr;
 // GLOBAL: WIZ8 0x006505a8
 BOOLEAN gfCapturingVideo = FALSE;
 
@@ -105,7 +105,7 @@ BOOLEAN InitializeStandardGamingPlatform(HINSTANCE hInstance, int sCommandShow)
 
     FastDebugMsg("Initializing File Manager");
     // Initialize the File Manager
-    if (InitializeFileManager(NULL) == FALSE) { // We were unable to initialize the file manager
+    if (InitializeFileManager(nullptr) == FALSE) { // We were unable to initialize the file manager
         FastDebugMsg("FAILED : Initializing File Manager");
         return FALSE;
     }
@@ -148,7 +148,7 @@ BOOLEAN InitializeStandardGamingPlatform(HINSTANCE hInstance, int sCommandShow)
 
     // Create font translation table (store in temp structure)
     pFontTable = CreateEnglishTransTable();
-    if (pFontTable == NULL) {
+    if (pFontTable == nullptr) {
         return (FALSE);
     }
 
@@ -299,7 +299,7 @@ void ShutdownWithErrorBox(const CHAR8* pcMessage)
 void ProcessCommandLine(CHAR8* pCommandLine)
 {
     CHAR8 cSeparators[] = "\t =";
-    CHAR8 *pCopy = NULL, *pToken;
+    CHAR8 *pCopy = nullptr, *pToken;
 
     pCopy = (CHAR8*)MemAlloc(strlen(pCommandLine) + 1);
 
@@ -316,7 +316,7 @@ void ProcessCommandLine(CHAR8* pCommandLine)
         } else if (!_strnicmp(pToken, "/INSPECTOR", 10)) {
             VideoInspectorEnable();
         } else if (!_strnicmp(pToken, "/VIDEOCFG", 9)) {
-            pToken = strtok(NULL, cSeparators);
+            pToken = strtok(nullptr, cSeparators);
             VideoSetConfigFile(pToken);
         } else if (!_strnicmp(pToken, "/LOAD", 5)) {
             gfLoadAtStartup = TRUE;
@@ -329,12 +329,12 @@ void ProcessCommandLine(CHAR8* pCommandLine)
         } else if (!_strnicmp(pToken, "/NOOCT", 6)) {
             NoOct();
         } else if (!_strnicmp(pToken, "/STRINGDATA", 11)) {
-            pToken = strtok(NULL, cSeparators);
+            pToken = strtok(nullptr, cSeparators);
             gzStringDataOverride = (CHAR8*)MemAlloc(strlen(pToken) + 1);
             strcpy(gzStringDataOverride, pToken);
         }
 
-        pToken = strtok(NULL, cSeparators);
+        pToken = strtok(nullptr, cSeparators);
     }
 
     MemFree(pCopy);

@@ -137,7 +137,7 @@ void copy_physical(const fs::path& source, const fs::path& destination, CopyMode
 
 fs::path path_from_utf8(std::string_view text)
 {
-    return fs::u8path(text.begin(), text.end());
+    return fs::path(std::u8string(text.begin(), text.end()));
 }
 std::string path_to_utf8(const fs::path& path)
 {

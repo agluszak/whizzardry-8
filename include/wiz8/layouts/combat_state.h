@@ -90,9 +90,9 @@ struct W8PartySlotRow {
     bool weapon_swap_pending;
 };
 
-static_assert(sizeof(W8PartySlotRow) == 0x106, "W8PartySlotRow_must_be_0x106");
+W8_ABI_ASSERT(sizeof(W8PartySlotRow) == 0x106, "W8PartySlotRow_must_be_0x106");
 
-static_assert(sizeof(W8EffectSlot) == 0x11, "W8EffectSlot_must_be_0x11");
+W8_ABI_ASSERT(sizeof(W8EffectSlot) == 0x11, "W8EffectSlot_must_be_0x11");
 
 /* Per-hand best-outcome tracking inside a W8CombatCharacterRow, 0x10 bytes.
    The score is only overwritten when a swing resolves better than the stored
@@ -105,7 +105,7 @@ struct W8CombatHandRecord {
     int dual_wielding;
 };
 
-static_assert(sizeof(W8CombatHandRecord) == 0x10, "W8CombatHandRecord_must_be_0x10");
+W8_ABI_ASSERT(sizeof(W8CombatHandRecord) == 0x10, "W8CombatHandRecord_must_be_0x10");
 
 /* One combat participant's row, one per character. */
 struct W8CombatCharacterRow {
@@ -190,8 +190,8 @@ struct W8CombatCharacterRow {
     unsigned char padding_d1[3];
 }; /* 0xd4 */
 
-static_assert(sizeof(W8CombatCharacterRow) == 0xd4, "W8CombatCharacterRow_must_be_0xd4");
-static_assert(offsetof(W8CombatCharacterRow, saved_attack_value) == 0x38,
+W8_ABI_ASSERT(sizeof(W8CombatCharacterRow) == 0xd4, "W8CombatCharacterRow_must_be_0xd4");
+W8_ABI_ASSERT(offsetof(W8CombatCharacterRow, saved_attack_value) == 0x38,
               "W8CombatCharacterRow_saved_attack_value_offset");
 
 /* The combat state, allocated when combat starts. */
@@ -314,9 +314,9 @@ struct W8CombatState {
 }; /* 0xa64 */
 
 W8_ABI_ASSERT(sizeof(W8CombatState) == 0xa64, "W8CombatState_must_be_0xa64");
-static_assert(offsetof(W8CombatState, combat_ui_timer) == 0x7a8,
+W8_ABI_ASSERT(offsetof(W8CombatState, combat_ui_timer) == 0x7a8,
               "W8CombatState_combat_ui_timer_offset");
-static_assert(offsetof(W8CombatState, eCombatActionStatus) == 0x7b0,
+W8_ABI_ASSERT(offsetof(W8CombatState, eCombatActionStatus) == 0x7b0,
               "W8CombatState_eCombatActionStatus_offset");
 W8_ABI_ASSERT(offsetof(W8CombatState, npc_combat_script_pending) == 0xa58,
               "W8CombatState_npc_combat_script_pending_offset");

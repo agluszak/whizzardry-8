@@ -178,7 +178,7 @@ UINT16* SetFontObjectPalette16BPP(INT32 iFont, UINT16* pPal16)
 {
     Assert(iFont >= 0);
     Assert(iFont <= MAX_FONTS);
-    Assert(FontObjs[iFont] != NULL);
+    Assert(FontObjs[iFont] != nullptr);
 
     FontObjs[iFont]->p16BPPPalette = pPal16;
     FontObjs[iFont]->pShadeCurrent = pPal16;
@@ -194,7 +194,7 @@ UINT16* GetFontObjectPalette16BPP(INT32 iFont)
 {
     Assert(iFont >= 0);
     Assert(iFont <= MAX_FONTS);
-    Assert(FontObjs[iFont] != NULL);
+    Assert(FontObjs[iFont] != nullptr);
 
     return (FontObjs[iFont]->p16BPPPalette);
 }
@@ -207,7 +207,7 @@ HVOBJECT GetFontObject(INT32 iFont)
 {
     Assert(iFont >= 0);
     Assert(iFont <= MAX_FONTS);
-    Assert(FontObjs[iFont] != NULL);
+    Assert(FontObjs[iFont] != nullptr);
 
     return (FontObjs[iFont]);
 }
@@ -220,7 +220,7 @@ INT32 FindFreeFont(void)
     int count;
 
     for (count = 0; count < MAX_FONTS; count++)
-        if (FontObjs[count] == NULL)
+        if (FontObjs[count] == nullptr)
             return (count);
 
     return (-1);
@@ -235,9 +235,9 @@ INT32 FindFreeFont(void)
 INT32 LoadFontFile(UINT8* filename)
 {
     VOBJECT_DESC vo_desc;
-    UINT32 LoadIndex;
+    INT32 LoadIndex;
 
-    Assert(filename != NULL);
+    Assert(filename != nullptr);
     Assert(strlen(filename));
 
     if ((LoadIndex = FindFreeFont()) == (-1)) {
@@ -248,7 +248,7 @@ INT32 LoadFontFile(UINT8* filename)
     vo_desc.fCreateFlags = VOBJECT_CREATE_FROMFILE;
     strcpy(vo_desc.ImageFile, (char*)filename);
 
-    if ((FontObjs[LoadIndex] = CreateVideoObject(&vo_desc)) == NULL) {
+    if ((FontObjs[LoadIndex] = CreateVideoObject(&vo_desc)) == nullptr) {
         DbgMessage(TOPIC_FONT_HANDLER, DBG_LEVEL_0,
                    String("Error creating VOBJECT (%s)", filename));
         return (-1);
@@ -268,10 +268,10 @@ void UnloadFont(UINT32 FontIndex)
 {
     Assert(FontIndex >= 0);
     Assert(FontIndex <= MAX_FONTS);
-    Assert(FontObjs[FontIndex] != NULL);
+    Assert(FontObjs[FontIndex] != nullptr);
 
     DeleteVideoObject(FontObjs[FontIndex]);
-    FontObjs[FontIndex] = NULL;
+    FontObjs[FontIndex] = nullptr;
 }
 
 // GetWidth
@@ -282,10 +282,9 @@ UINT32 GetWidth(HVOBJECT hSrcVObject, INT16 ssIndex)
     ETRLEObject* pTrav;
 
     // Assertions
-    Assert(hSrcVObject != NULL);
+    Assert(hSrcVObject != nullptr);
 
     if (ssIndex < 0 || ssIndex > 92) {
-        int i = 0;
     }
 
     // Get Offsets from Index into structure
@@ -300,12 +299,12 @@ UINT32 GetWidth(HVOBJECT hSrcVObject, INT16 ssIndex)
 //    'uiCharCount' specifies how many characters of the string are counted.
 
 // FUNCTION: WIZ8 0x00406ea0
-INT16 StringPixLengthArg(INT32 usUseFont, UINT32 uiCharCount, CHAR16* pFontString, ...)
+INT16 StringPixLengthArg(INT32 usUseFont, UINT32 uiCharCount, const CHAR16* pFontString, ...)
 {
     va_list argptr;
     wchar_t string[512];
 
-    Assert(pFontString != NULL);
+    Assert(pFontString != nullptr);
 
     va_start(argptr, pFontString);          // Set up variable argument pointer
     vswprintf(string, pFontString, argptr); // process gprintf string (get output str)
@@ -358,12 +357,13 @@ INT16 StringNPixLength(CHAR16* string, UINT32 uiMaxCount, INT32 UseFont)
 //	Returns the length of a string in pixels, depending on the font given.
 
 // FUNCTION: WIZ8 0x00407010
-INT16 StringPixLength(CHAR16* string, INT32 UseFont)
+INT16 StringPixLength(const CHAR16* string, INT32 UseFont)
 {
     UINT32 Cur;
-    CHAR16 *curletter, transletter;
+    const CHAR16* curletter;
+    CHAR16 transletter;
 
-    if (string == NULL) {
+    if (string == nullptr) {
         return (0);
     }
 
@@ -421,7 +421,7 @@ UINT32 GetHeight(HVOBJECT hSrcVObject, INT16 ssIndex)
     ETRLEObject* pTrav;
 
     // Assertions
-    Assert(hSrcVObject != NULL);
+    Assert(hSrcVObject != nullptr);
 
     // Get Offsets from Index into structure
     pTrav = &(hSrcVObject->pETRLEObject[ssIndex]);
@@ -435,7 +435,7 @@ UINT16 GetFontHeight(INT32 FontNum)
 {
     Assert(FontNum >= 0);
     Assert(FontNum <= MAX_FONTS);
-    Assert(FontObjs[FontNum] != NULL);
+    Assert(FontObjs[FontNum] != nullptr);
 
     return ((UINT16)GetHeight(FontObjs[FontNum], 0));
 }
@@ -477,7 +477,7 @@ BOOLEAN SetFont(INT32 iFontIndex)
 {
     Assert(iFontIndex >= 0);
     Assert(iFontIndex <= MAX_FONTS);
-    Assert(FontObjs[iFontIndex] != NULL);
+    Assert(FontObjs[iFontIndex] != nullptr);
 
     FontDefault = iFontIndex;
     return (TRUE);
@@ -511,7 +511,7 @@ BOOLEAN SetFontDestBuffer(UINT32 DestBuffer, INT32 x1, INT32 y1, INT32 x2, INT32
 // than 512 word-characters. Uses monochrome font color settings
 
 // FUNCTION: WIZ8 0x00407260
-UINT32 mprintf(INT32 x, INT32 y, CHAR16* pFontString, ...)
+UINT32 mprintf(INT32 x, INT32 y, const CHAR16* pFontString, ...)
 {
     INT32 destx, desty;
     CHAR16 *curletter, transletter;
@@ -520,7 +520,7 @@ UINT32 mprintf(INT32 x, INT32 y, CHAR16* pFontString, ...)
     UINT32 uiDestPitchBYTES;
     UINT8* pDestBuf;
 
-    Assert(pFontString != NULL);
+    Assert(pFontString != nullptr);
 
     va_start(argptr, pFontString);          // Set up variable argument pointer
     vswprintf(string, pFontString, argptr); // process gprintf string (get output str)
@@ -565,7 +565,7 @@ UINT32 mprintf(INT32 x, INT32 y, CHAR16* pFontString, ...)
 // FUNCTION: WIZ8 0x00407420
 void VarFindFontRightCoordinates(INT16 sLeft, INT16 sTop, INT16 sWidth, INT16 sHeight,
                                  INT32 iFontIndex, INT16* psNewX, INT16* psNewY,
-                                 CHAR16* pFontString, ...)
+                                 const CHAR16* pFontString, ...)
 {
     wchar_t string[512];
     va_list argptr;
@@ -580,7 +580,7 @@ void VarFindFontRightCoordinates(INT16 sLeft, INT16 sTop, INT16 sWidth, INT16 sH
 // FUNCTION: WIZ8 0x00407530
 void VarFindFontCenterCoordinates(INT16 sLeft, INT16 sTop, INT16 sWidth, INT16 sHeight,
                                   INT32 iFontIndex, INT16* psNewX, INT16* psNewY,
-                                  CHAR16* pFontString, ...)
+                                  const CHAR16* pFontString, ...)
 {
     wchar_t string[512];
     va_list argptr;
@@ -625,7 +625,7 @@ void FindFontCenterCoordinates(INT16 sLeft, INT16 sTop, INT16 sWidth, INT16 sHei
 // than 512 word-characters.
 
 // FUNCTION: WIZ8 0x00407650
-UINT32 gprintf(INT32 x, INT32 y, CHAR16* pFontString, ...)
+UINT32 gprintf(INT32 x, INT32 y, const CHAR16* pFontString, ...)
 {
     INT32 destx, desty;
     CHAR16 *curletter, transletter;
@@ -634,7 +634,7 @@ UINT32 gprintf(INT32 x, INT32 y, CHAR16* pFontString, ...)
     UINT32 uiDestPitchBYTES;
     UINT8* pDestBuf;
 
-    Assert(pFontString != NULL);
+    Assert(pFontString != nullptr);
 
     va_start(argptr, pFontString);          // Set up variable argument pointer
     vswprintf(string, pFontString, argptr); // process gprintf string (get output str)
@@ -677,7 +677,7 @@ UINT32 gprintf(INT32 x, INT32 y, CHAR16* pFontString, ...)
 }
 
 // FUNCTION: WIZ8 0x004077d0
-UINT32 gprintfDirty(INT32 x, INT32 y, CHAR16* pFontString, ...)
+UINT32 gprintfDirty(INT32 x, INT32 y, const CHAR16* pFontString, ...)
 {
     INT32 destx, desty;
     CHAR16 *curletter, transletter;
@@ -686,7 +686,7 @@ UINT32 gprintfDirty(INT32 x, INT32 y, CHAR16* pFontString, ...)
     UINT32 uiDestPitchBYTES;
     UINT8* pDestBuf;
 
-    Assert(pFontString != NULL);
+    Assert(pFontString != nullptr);
 
     va_start(argptr, pFontString);          // Set up variable argument pointer
     vswprintf(string, pFontString, argptr); // process gprintf string (get output str)
@@ -739,14 +739,14 @@ UINT32 gprintfDirty(INT32 x, INT32 y, CHAR16* pFontString, ...)
 
 // FUNCTION: WIZ8 0x00407a10
 UINT32 gprintf_buffer(UINT8* pDestBuf, UINT32 uiDestPitchBYTES, UINT32 FontType, INT32 x, INT32 y,
-                      CHAR16* pFontString, ...)
+                      const CHAR16* pFontString, ...)
 {
     INT32 destx, desty;
     CHAR16 *curletter, transletter;
     va_list argptr;
     wchar_t string[512];
 
-    Assert(pFontString != NULL);
+    Assert(pFontString != nullptr);
 
     va_start(argptr, pFontString);          // Set up variable argument pointer
     vswprintf(string, pFontString, argptr); // process gprintf string (get output str)
@@ -785,14 +785,14 @@ UINT32 gprintf_buffer(UINT8* pDestBuf, UINT32 uiDestPitchBYTES, UINT32 FontType,
 
 // FUNCTION: WIZ8 0x00407b80
 UINT32 mprintf_buffer(UINT8* pDestBuf, UINT32 uiDestPitchBYTES, UINT32 FontType, INT32 x, INT32 y,
-                      CHAR16* pFontString, ...)
+                      const CHAR16* pFontString, ...)
 {
     INT32 destx, desty;
     CHAR16 *curletter, transletter;
     va_list argptr;
     wchar_t string[512];
 
-    Assert(pFontString != NULL);
+    Assert(pFontString != nullptr);
 
     va_start(argptr, pFontString);          // Set up variable argument pointer
     vswprintf(string, pFontString, argptr); // process gprintf string (get output str)
@@ -855,16 +855,16 @@ BOOLEAN InitializeFontManager(UINT16 usDefaultPixelDepth, FontTranslationTable* 
     FontDestWrap = FALSE;
 
     // register the appropriate debug topics
-    if (pTransTable == NULL) {
+    if (pTransTable == nullptr) {
         return FALSE;
     }
     RegisterDebugTopic(TOPIC_FONT_HANDLER, "Font Manager");
 
-    if ((pFManager = (FontManager*)MemAlloc(sizeof(FontManager))) == NULL) {
+    if ((pFManager = (FontManager*)MemAlloc(sizeof(FontManager))) == nullptr) {
         return FALSE;
     }
 
-    if ((pTransTab = (FontTranslationTable*)MemAlloc(sizeof(FontTranslationTable))) == NULL) {
+    if ((pTransTab = (FontTranslationTable*)MemAlloc(sizeof(FontTranslationTable))) == nullptr) {
         return FALSE;
     }
 
@@ -875,7 +875,7 @@ BOOLEAN InitializeFontManager(UINT16 usDefaultPixelDepth, FontTranslationTable* 
 
     // Mark all font slots as empty
     for (count = 0; count < MAX_FONTS; count++)
-        FontObjs[count] = NULL;
+        FontObjs[count] = nullptr;
 
     return TRUE;
 }
@@ -893,7 +893,7 @@ void ShutdownFontManager(void)
         MemFree(pFManager);
 
     for (count = 0; count < MAX_FONTS; count++) {
-        if (FontObjs[count] != NULL)
+        if (FontObjs[count] != nullptr)
             UnloadFont(count);
     }
 }
@@ -905,14 +905,14 @@ void ShutdownFontManager(void)
 void DestroyEnglishTransTable(void)
 {
     if (pFManager) {
-        if (pFManager->pTranslationTable != NULL) {
-            if (pFManager->pTranslationTable->DynamicArrayOf16BitValues != NULL) {
+        if (pFManager->pTranslationTable != nullptr) {
+            if (pFManager->pTranslationTable->DynamicArrayOf16BitValues != nullptr) {
                 MemFree(pFManager->pTranslationTable->DynamicArrayOf16BitValues);
             }
 
             MemFree(pFManager->pTranslationTable);
 
-            pFManager->pTranslationTable = NULL;
+            pFManager->pTranslationTable = nullptr;
         }
     }
 }
@@ -923,7 +923,7 @@ void DestroyEnglishTransTable(void)
 // FUNCTION: WIZ8 0x00407ec0
 FontTranslationTable* CreateEnglishTransTable()
 {
-    FontTranslationTable* pTable = NULL;
+    FontTranslationTable* pTable = nullptr;
     UINT16* temp;
 
     pTable = (FontTranslationTable*)MemAlloc(sizeof(FontTranslationTable));

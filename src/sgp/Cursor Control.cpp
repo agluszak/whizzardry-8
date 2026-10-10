@@ -24,7 +24,7 @@ UINT16 gusExtern2VoSubIndex;
 UINT32 guiOldSetCursor = 0;
 UINT32 guiDelayTimer = 0;
 
-MOUSEBLT_HOOK gMouseBltOverride = NULL;
+MOUSEBLT_HOOK gMouseBltOverride = nullptr;
 // Cursor Handlers
 
 BOOLEAN SetCurrentCursorFromDatabase(UINT32 uiCursorIndex)

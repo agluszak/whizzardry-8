@@ -4394,7 +4394,7 @@ void MonsterSetActive(W8Monster* monster, bool state)
 // FUNCTION: WIZ8 0x004c5b40
 int MonsterQuery(W8Monster* monster, W8MonsterQueryKind query)
 {
-    if (monster != NULL) {
+    if (monster != nullptr) {
         return monster->Query(query);
     }
     return -1;
@@ -5253,7 +5253,7 @@ void ApplyMonsterRepresentationScale(W8Monster* target)
 // FUNCTION: WIZ8 0x004C5860
 void DeleteMonster(W8Monster* monster)
 {
-    if (monster != NULL) {
+    if (monster != nullptr) {
         delete monster;
     }
 }

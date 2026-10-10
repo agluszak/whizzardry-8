@@ -122,9 +122,9 @@ inline bool copyRows(const SDL_Surface& source, srColorSurfaceIFace& destination
 {
     const size_t row_bytes = size_t(source.w) * bytes_per_pixel;
     if (source.w <= 0 || source.h <= 0 || !source.pixels || !destination.getDataPtr() ||
-        destination.getWidth() != unsigned(source.w) ||
-        destination.getHeight() != unsigned(source.h) || source.pitch < 0 ||
-        size_t(source.pitch) < row_bytes || destination.getPitch() < row_bytes)
+        destination.getWidth() != source.w || destination.getHeight() != source.h ||
+        source.pitch < 0 || size_t(source.pitch) < row_bytes ||
+        size_t(destination.getPitch()) < row_bytes)
         return false;
     for (int y = 0; y < source.h; ++y) {
         const auto* src = static_cast<const unsigned char*>(source.pixels) + size_t(y) * source.pitch;

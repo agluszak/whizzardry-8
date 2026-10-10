@@ -41,8 +41,6 @@
 static char g_record_mode_line[0x1000];
 // GLOBAL: WIZ8 0x0069da6c
 static bool g_record_mode_active;
-// GLOBAL: WIZ8 0x0069da68
-static int g_record_mode_value;
 // GLOBAL: WIZ8 0x0069da70
 static int g_record_mode_length;
 
@@ -158,15 +156,10 @@ void PromptRecordModeEntry(void)
     ShowNoticef(W8_FONT_PALETTE_PINK, ConvertStringToWide(message));
 }
 
-/* Local Code\Traps.cpp. The three bodies at 0x5E35F0-0x5E3730 sit in the
+/* Local Code\Traps.cpp. The bodies at 0x5E3600-0x5E3730 sit in the
    attribution gap before the asserted Traps.cpp body at 0x5E3800 (line 148);
    their placement here is provisional, not proven ownership. */
 
-// FUNCTION: WIZ8 0x005E35F0
-void ClearRecordModeValue(void)
-{
-    g_record_mode_value = 0;
-}
 // FUNCTION: WIZ8 0x005E3600
 bool IsRecordModeActive(void)
 {

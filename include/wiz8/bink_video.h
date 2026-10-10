@@ -18,7 +18,6 @@ public:
 
 private:
     W8NativeVideo* m_handle;
-    unsigned char unknown_04[4];   /* 0x04: constructor clears; scalar type unresolved */
     CpuSurface* m_target; /* 0x08 */
 };
 

@@ -34,7 +34,7 @@ struct W8JournalEntry {
     W8FactId fact;
     int alternate_text;
 };
-static_assert(sizeof(W8JournalEntry) == 0x0c, "W8JournalEntry_size");
+W8_ABI_ASSERT(sizeof(W8JournalEntry) == 0x0c, "W8JournalEntry_size");
 
 /* The fact journal, created lazily by the initializer below and
    appended to whenever a fact changes. */

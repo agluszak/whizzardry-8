@@ -74,9 +74,9 @@ public:
 };
 
 W8_ABI_ASSERT((sizeof(srHierarchyIOManager) == 0x1c), "srHierarchyIOManager_must_be_0x1c");
-static_assert((sizeof(srHierarchyIOManager::ImportInfo) == 0x01),
+W8_ABI_ASSERT((sizeof(srHierarchyIOManager::ImportInfo) == 0x01),
               "srHierarchyImportInfo_must_be_0x01");
-static_assert((sizeof(srHierarchyIOManager::ExportInfo) == 0x01),
+W8_ABI_ASSERT((sizeof(srHierarchyIOManager::ExportInfo) == 0x01),
               "srHierarchyExportInfo_must_be_0x01");
 
 class srHierarchyIOManager::HierarchyImporter : public srIOManager::Importer {
@@ -105,8 +105,8 @@ public:
 };
 
 W8_ABI_ASSERT((sizeof(srModelIOManager) == 0x1c), "srModelIOManager_must_be_0x1c");
-static_assert((sizeof(srModelIOManager::ImportInfo) == 0x01), "srModelImportInfo_must_be_0x01");
-static_assert((sizeof(srModelIOManager::ExportInfo) == 0x01), "srModelExportInfo_must_be_0x01");
+W8_ABI_ASSERT((sizeof(srModelIOManager::ImportInfo) == 0x01), "srModelImportInfo_must_be_0x01");
+W8_ABI_ASSERT((sizeof(srModelIOManager::ExportInfo) == 0x01), "srModelExportInfo_must_be_0x01");
 
 class srModelIOManager::ModelImporter : public srIOManager::Importer {
 public:

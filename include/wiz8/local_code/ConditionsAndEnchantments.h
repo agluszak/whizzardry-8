@@ -18,7 +18,7 @@ struct W8ConditionImmunity {
     W8Condition conditions[20];
 };
 #pragma pack(pop)
-static_assert(sizeof(W8ConditionImmunity) == 0x52, "W8ConditionImmunity_size");
+W8_ABI_ASSERT(sizeof(W8ConditionImmunity) == 0x52, "W8ConditionImmunity_size");
 
 extern W8ConditionImmunity g_condition_immunities[3];
 /* String ids of one condition's notices (e.g. "Poisoned", "gets poisoned",
@@ -29,7 +29,7 @@ struct W8ConditionNoticeIds {
     unsigned short plural;
     unsigned short noun;
 };
-static_assert(sizeof(W8ConditionNoticeIds) == 8, "W8ConditionNoticeIds_size");
+W8_ABI_ASSERT(sizeof(W8ConditionNoticeIds) == 8, "W8ConditionNoticeIds_size");
 
 extern W8ConditionNoticeIds g_condition_notices[25];
 extern unsigned short g_enchantment_notices[16];

@@ -40,6 +40,7 @@ protected:
     virtual ~stTextureAnim() override; /* 0x00485290 */
 
 public:
+    stTextureAnim& operator=(const stTextureAnim&) = default;
     void UpdateFrame();
 
     W8Vector<srTextureIFace*>* textures;

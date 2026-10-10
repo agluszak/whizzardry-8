@@ -115,9 +115,6 @@ W8LevelFolderRecord g_level_folders[W8_LEVEL_COUNT] = {
    sky is loaded. Every retail access is a byte access. */
 // GLOBAL: WIZ8 0x00604470
 static signed char g_loaded_sky_index = -1;
-/* The configured disc number the game-data path finder last matched. */
-// GLOBAL: WIZ8 0x00604474
-static int g_cd_index = -1;
 // GLOBAL: WIZ8 0x00659738
 W8MaterialMapper g_material_mapper;
 
@@ -148,7 +145,6 @@ unsigned char FindGameDataPath(char* path, int cd_number)
         if (!root || root->info.type != SDL_PATHTYPE_DIRECTORY || root->writable ||
             !data || data->info.type != SDL_PATHTYPE_DIRECTORY || data->writable) return 0;
         strcpy(path, disc);
-        g_cd_index = cd_number;
         return 1;
     } catch (const std::exception&) {
         return 0;

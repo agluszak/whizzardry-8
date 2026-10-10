@@ -2021,8 +2021,8 @@ void DrawVideoInspector(int left, unsigned int top)
     unsigned char* row;
     int rows;
     /* Retail left the band height uninitialised for inspector modes outside
-       1..3 and read that storage into bottom; the recovery keeps that read. */
-    int height;
+       1..3 and read that storage into bottom; natively it starts at zero. */
+    int height = 0;
 
     if (g_video_inspector_mode == 1) {
         height = 0xb;
@@ -3359,7 +3359,6 @@ srNode* MakePosterQuad(srTextureIFace* texture, float width, float height, bool 
     dimensions.width = 64;
     dimensions.height = 64;
     palette = srCore.getPalette();
-    srFilter* filter = srCore.getFilter();
     srPixelConvert::mapPixelFormat(srPixelConvert::SURFACE_ARGB4444, format);
 
     stMeshModel* model = new stMeshModel(0, 0);

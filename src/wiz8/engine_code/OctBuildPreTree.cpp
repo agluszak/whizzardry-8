@@ -565,7 +565,7 @@ struct W8CubRegionRecord {
     srVector3T<float> corners[8];
 };
 #pragma pack(pop)
-static_assert(sizeof(W8CubRegionRecord) == 0x6a, "W8CubRegionRecord_must_be_0x6a");
+W8_ABI_ASSERT(sizeof(W8CubRegionRecord) == 0x6a, "W8CubRegionRecord_must_be_0x6a");
 
 /* Load the optional .cub region file beside the level: a version -5 header
    word precedes the region count, and each record supplies the eight frustum

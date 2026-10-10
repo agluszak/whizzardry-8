@@ -89,18 +89,18 @@ struct W8NpcScriptFile {
 
 #pragma pack(pop)
 
-static_assert(sizeof(W8NpcQuoteSubEntry) == 8, "W8NpcQuoteSubEntry_size");
-static_assert(offsetof(W8NpcQuoteSubEntry, text) == 4, "W8NpcQuoteSubEntry_text");
-static_assert(sizeof(W8NpcQuoteEntry) == 0x12, "W8NpcQuoteEntry_size");
-static_assert(offsetof(W8NpcQuoteEntry, sub_entry_count) == 0x0d, "W8NpcQuoteEntry_count");
-static_assert(offsetof(W8NpcQuoteEntry, sub_entries) == 0x0e, "W8NpcQuoteEntry_sub_entries");
-static_assert(sizeof(W8NpcScriptQuote) == 0x0c, "W8NpcScriptQuote_size");
-static_assert(offsetof(W8NpcScriptQuote, subquotes) == 1, "W8NpcScriptQuote_subquotes");
-static_assert(offsetof(W8NpcScriptQuote, entries) == 5, "W8NpcScriptQuote_entries");
-static_assert(offsetof(W8NpcScriptQuote, entry_count) == 9, "W8NpcScriptQuote_entry_count");
-static_assert(sizeof(W8NpcScriptFile) == 0x0e, "W8NpcScriptFile_size");
-static_assert(offsetof(W8NpcScriptFile, name) == 6, "W8NpcScriptFile_name");
-static_assert(offsetof(W8NpcScriptFile, quotes) == 0x0a, "W8NpcScriptFile_quotes");
+W8_ABI_ASSERT(sizeof(W8NpcQuoteSubEntry) == 8, "W8NpcQuoteSubEntry_size");
+W8_ABI_ASSERT(offsetof(W8NpcQuoteSubEntry, text) == 4, "W8NpcQuoteSubEntry_text");
+W8_ABI_ASSERT(sizeof(W8NpcQuoteEntry) == 0x12, "W8NpcQuoteEntry_size");
+W8_ABI_ASSERT(offsetof(W8NpcQuoteEntry, sub_entry_count) == 0x0d, "W8NpcQuoteEntry_count");
+W8_ABI_ASSERT(offsetof(W8NpcQuoteEntry, sub_entries) == 0x0e, "W8NpcQuoteEntry_sub_entries");
+W8_ABI_ASSERT(sizeof(W8NpcScriptQuote) == 0x0c, "W8NpcScriptQuote_size");
+W8_ABI_ASSERT(offsetof(W8NpcScriptQuote, subquotes) == 1, "W8NpcScriptQuote_subquotes");
+W8_ABI_ASSERT(offsetof(W8NpcScriptQuote, entries) == 5, "W8NpcScriptQuote_entries");
+W8_ABI_ASSERT(offsetof(W8NpcScriptQuote, entry_count) == 9, "W8NpcScriptQuote_entry_count");
+W8_ABI_ASSERT(sizeof(W8NpcScriptFile) == 0x0e, "W8NpcScriptFile_size");
+W8_ABI_ASSERT(offsetof(W8NpcScriptFile, name) == 6, "W8NpcScriptFile_name");
+W8_ABI_ASSERT(offsetof(W8NpcScriptFile, quotes) == 0x0a, "W8NpcScriptFile_quotes");
 
 void ReleaseNpcScriptFile(W8NpcScriptFile* file);
 unsigned char ReadNpcScriptQuote(int handle, W8NpcScriptQuote* quote);

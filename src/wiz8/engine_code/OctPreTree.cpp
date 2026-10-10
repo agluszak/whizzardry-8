@@ -897,7 +897,7 @@ struct W8OctUvPoolEntry {
     float v;
 };
 
-static_assert(sizeof(W8OctUvPoolEntry) == 0xc, "W8OctUvPoolEntry_must_be_0xc");
+W8_ABI_ASSERT(sizeof(W8OctUvPoolEntry) == 0xc, "W8OctUvPoolEntry_must_be_0xc");
 
 /* Builds one record's UV map: walks the three corners of every polygon,
    deduplicates uvs through the pool and emits the corner-to-uv index
@@ -1719,14 +1719,6 @@ void W8OctSpatialState::GetClippedBounds(srVector3T<float>* minimum, srVector3T<
 {
     *minimum = m_clipped_minimum;
     *maximum = m_clipped_maximum;
-}
-
-// FUNCTION: WIZ8 0x0046cdd0
-W8OctSpatialState::~W8OctSpatialState()
-{
-    m_region_volumes = 0;
-    m_root = 0;
-    m_triangle_vertices = 0;
 }
 
 /* Strict axis-aligned overlap: touching faces are not an intersection. */

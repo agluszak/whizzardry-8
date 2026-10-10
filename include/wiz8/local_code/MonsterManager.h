@@ -136,8 +136,8 @@ struct W8MonsterManagerEntry {
 #pragma pack(pop)
 
 W8_ABI_ASSERT(sizeof(W8GrowableVector<int>) == 0x10, "W8GrowableVector_int_size_must_be_0x10");
-static_assert(sizeof(W8PortraitQuoteState) == 0x0c, "W8PortraitQuoteState_size");
-static_assert(offsetof(W8MonsterManagerEntry, mouth_gap) == 0x05,
+W8_ABI_ASSERT(sizeof(W8PortraitQuoteState) == 0x0c, "W8PortraitQuoteState_size");
+W8_ABI_ASSERT(offsetof(W8MonsterManagerEntry, mouth_gap) == 0x05,
               "W8MonsterManagerEntry_mouth_gap_offset");
 W8_ABI_ASSERT(offsetof(W8MonsterManagerEntry, quote) == 0x19, "W8MonsterManagerEntry_quote_offset");
 W8_ABI_ASSERT(offsetof(W8MonsterManagerEntry, quote.quote_handle) == 0x19,
@@ -312,7 +312,7 @@ struct W8PartyThreatRecord {
     bool visible_to_player;
     unsigned char unknown_26[0x0a];
 };
-static_assert(sizeof(W8PartyThreatRecord) == 0x30, "W8PartyThreatRecord_size");
+W8_ABI_ASSERT(sizeof(W8PartyThreatRecord) == 0x30, "W8PartyThreatRecord_size");
 
 #pragma pack(push, 1)
 /* One 0x31-byte visibility record. W8MonsterInfo embeds the party-facing one
@@ -335,7 +335,7 @@ struct W8VisibilityRecord {
     bool line_of_sight;
     unsigned char unknown_29[8];
 };
-static_assert(sizeof(W8VisibilityRecord) == 0x31, "W8VisibilityRecord_size");
+W8_ABI_ASSERT(sizeof(W8VisibilityRecord) == 0x31, "W8VisibilityRecord_size");
 
 struct W8MonsterInfo {
     int location_id;
@@ -457,11 +457,11 @@ struct W8MonsterInfo {
 };
 #pragma pack(pop)
 
-static_assert(sizeof(W8MonsterInfo) == 0x425, "W8MonsterInfo_size_must_be_0x425");
-static_assert(offsetof(W8MonsterInfo, modifiers) == 0x1db, "W8MonsterInfo_modifiers_offset");
-static_assert(offsetof(W8MonsterInfo, heard_noise_margin) == 0x2f5,
+W8_ABI_ASSERT(sizeof(W8MonsterInfo) == 0x425, "W8MonsterInfo_size_must_be_0x425");
+W8_ABI_ASSERT(offsetof(W8MonsterInfo, modifiers) == 0x1db, "W8MonsterInfo_modifiers_offset");
+W8_ABI_ASSERT(offsetof(W8MonsterInfo, heard_noise_margin) == 0x2f5,
               "W8MonsterInfo_heard_noise_margin_offset");
-static_assert(offsetof(W8MonsterInfo, spell_points) == 0x2f9, "W8MonsterInfo_spell_points_offset");
+W8_ABI_ASSERT(offsetof(W8MonsterInfo, spell_points) == 0x2f9, "W8MonsterInfo_spell_points_offset");
 
 W8MonsterInfo* MonsterGetScriptPartByLocationIndex(unsigned int monster_list_index);
 bool InitializeMonsterManagerState(void);

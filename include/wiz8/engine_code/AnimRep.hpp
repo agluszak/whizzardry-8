@@ -136,7 +136,7 @@ public:
     unsigned char padding_096[2];
 };
 
-static_assert(sizeof(W8ModelInstance2DRenderState) == 0x10,
+W8_ABI_ASSERT(sizeof(W8ModelInstance2DRenderState) == 0x10,
               "W8ModelInstance2DRenderState_size_must_be_0x10");
 W8_ABI_ASSERT(offsetof(W8AnimRepBase, highlight_colour) == 0x4c,
               "W8AnimRepBase_render_state_offset");

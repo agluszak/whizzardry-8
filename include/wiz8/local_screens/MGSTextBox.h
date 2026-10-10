@@ -27,7 +27,7 @@ struct W8NoticeWord {
     unsigned char keyword; /* 0 none, 1 keyword, 2 selected */
     bool redraw;           /* repaint once after deselection */
 };
-static_assert(sizeof(W8NoticeWord) == 10, "W8NoticeWord_must_be_10");
+W8_ABI_ASSERT(sizeof(W8NoticeWord) == 10, "W8NoticeWord_must_be_10");
 
 void AdvanceNoticeLine(short text_box);
 

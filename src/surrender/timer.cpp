@@ -30,16 +30,6 @@ struct srTimerConfig {
 
 int calibrate(srTimerConfig* config);
 
-namespace {
-unsigned __int64 quadWord64(const srQuadWord& value)
-{
-    return ((unsigned __int64)value.hi << 32) | value.lo;
-}
-
-// GLOBAL: SURRENDER 0x100A49B4
-char storage_class[0x1c];
-} // namespace
-
 // GLOBAL: SURRENDER 0x1009C710
 unsigned short srTimer::cpuFreqVariancePct = 4;
 

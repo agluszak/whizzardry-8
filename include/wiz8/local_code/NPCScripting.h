@@ -32,7 +32,7 @@ struct W8NpcDialogueStagingRestore {
     short staged_short;
 };
 
-static_assert(sizeof(W8NpcDialogueStagingRestore) == 12, "W8NpcDialogueStagingRestore_must_be_12");
+W8_ABI_ASSERT(sizeof(W8NpcDialogueStagingRestore) == 12, "W8NpcDialogueStagingRestore_must_be_12");
 
 struct W8NpcScriptingState {
     unsigned char unknown_00[0x64];
@@ -65,17 +65,17 @@ struct W8NpcScriptingState {
     bool stopping_voice_playback;
 };
 
-static_assert(offsetof(W8NpcScriptingState, staging_restore) == 0x64,
+W8_ABI_ASSERT(offsetof(W8NpcScriptingState, staging_restore) == 0x64,
               "W8NpcScriptingState_staging_restore_offset");
-static_assert(offsetof(W8NpcScriptingState, unknown_00) == 0x00,
+W8_ABI_ASSERT(offsetof(W8NpcScriptingState, unknown_00) == 0x00,
               "W8NpcScriptingState_unknown_00_offset");
-static_assert(offsetof(W8NpcScriptingState, unknown_72) == 0x72,
+W8_ABI_ASSERT(offsetof(W8NpcScriptingState, unknown_72) == 0x72,
               "W8NpcScriptingState_unknown_72_offset");
-static_assert(offsetof(W8NpcScriptingState, quote_active) == 0x70,
+W8_ABI_ASSERT(offsetof(W8NpcScriptingState, quote_active) == 0x70,
               "W8NpcScriptingState_quote_active_offset");
-static_assert(offsetof(W8NpcScriptingState, voice_playing) == 0x71,
+W8_ABI_ASSERT(offsetof(W8NpcScriptingState, voice_playing) == 0x71,
               "W8NpcScriptingState_voice_playing_offset");
-static_assert(offsetof(W8NpcScriptingState, script_file) == 0x78,
+W8_ABI_ASSERT(offsetof(W8NpcScriptingState, script_file) == 0x78,
               "W8NpcScriptingState_script_file_offset");
 W8_ABI_ASSERT(offsetof(W8NpcScriptingState, npc) == 0x7c, "W8NpcScriptingState_npc_offset");
 W8_ABI_ASSERT(offsetof(W8NpcScriptingState, voice_handle) == 0x80,

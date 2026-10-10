@@ -58,7 +58,7 @@ struct Controls {
     Controls();
     Controls(int left, int top, int right, int bottom, int catalog_object, int catalog_frame,
              int catalog_image);
-    ~Controls();
+    virtual ~Controls();
 
     virtual void SetEnabled(bool enable);
     virtual void Invalidate(const W8ControlsRect* rect);

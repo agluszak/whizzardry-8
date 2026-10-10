@@ -15,7 +15,6 @@
 //				Variables
 
 // INI strings are not localized
-static const TCHAR szSoftware[] = _T("Software");
 
 // GLOBAL: WIZ8 0x00650eac
 static CHAR gszRegistryKey[REG_KEY_SIZE];
@@ -26,10 +25,10 @@ static CHAR gszProfileName[REG_KEY_SIZE];
 //				Functions
 
 // FUNCTION: WIZ8 0x0040f020
-BOOLEAN InitializeRegistryKeys(STR lpszAppName, STR lpszRegistryKey)
+BOOLEAN InitializeRegistryKeys(const char* lpszAppName, const char* lpszRegistryKey)
 {
-    CHECKF(lpszAppName != NULL);
-    CHECKF(lpszRegistryKey != NULL);
+    CHECKF(lpszAppName != nullptr);
+    CHECKF(lpszRegistryKey != nullptr);
     //CHECKF(gpszRegistryKey == NULL);
     //CHECKF(gpszAppName == NULL);
     //CHECKF(gpszProfileName == NULL);

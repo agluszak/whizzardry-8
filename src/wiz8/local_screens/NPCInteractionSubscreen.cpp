@@ -496,7 +496,7 @@ void ResetMainScreenStateBlock(void)
 {
     int unset = -1;
 
-    memset(g_npc_interaction_state, 0, sizeof(W8NpcInteractionState));
+    *g_npc_interaction_state = {};
     g_npc_interaction_state->dialogue_category_filter = unset;
     g_npc_interaction_state->transcript_sorted = false;
     g_npc_interaction_state->pending_trade_toggle = false;
@@ -1272,9 +1272,10 @@ void EndNpcDialogueSession(bool skip_exit_actions)
     ApplyMainGameModeFlag(gXStatus.fCampMode ? g_settings.main_ui_mode
                                              : g_npc_interaction_state->saved_main_ui_mode,
                           true);
-    /* The seven dialogue panels delete through the non-virtual Controls
-       destructor; the thirty-nine dialogue controls through the virtual one.
-       The members stay dangling until the next dialogue rebuilds them. */
+    /* Retail deleted the seven dialogue panels through a non-virtual Controls
+       destructor; the native one is virtual, so the derived panels' members
+       are released too. The members stay dangling until the next dialogue
+       rebuilds them. */
     int i;
     Controls** panel = g_npc_interaction_state->dialogue_panels;
     for (i = 0; i < 7; i++) {
@@ -1553,7 +1554,7 @@ unsigned char NpcDialogueTextBoxRegionEvent(const InputAtom* event, W8Region* re
             NpcDialogueTextBoxLeftUp(static_cast<unsigned short>(event->uiParam),
                                      event->uiParam >> 16);
         }
-        /* fall through */
+        [[fallthrough]];
     case RIGHT_BUTTON_DOWN:
         region->flags |= W8_REGION_RIGHT_BUTTON_HELD;
         return 1;
@@ -2928,7 +2929,6 @@ static void UpdatePartyTradeQuantity(const W8ItemInstance* item, int row, bool d
 // FUNCTION: WIZ8 0x005729C0
 W8ItemInstance* ResolveNpcTradeRow(int index, bool pick, char decrement, char commit)
 {
-    W8ItemInstance* pool;
     W8NpcItemEntry* entry;
     int selected;
     int hit;

@@ -1321,7 +1321,6 @@ unsigned char BuildSubMenuPanel(short notification)
     int icon_delta;
     short state;
     int base;
-    W8TextControl* row;
 
     if (gpSubMenuPanel != 0) {
         gpSubMenuPanel = 0;

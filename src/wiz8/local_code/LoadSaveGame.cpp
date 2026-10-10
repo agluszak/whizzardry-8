@@ -115,7 +115,7 @@ struct W8StatusHeader {
     unsigned char unknown_114[0x200];
 };
 
-static_assert(sizeof(W8StatusHeader) == 0x314, "W8StatusHeader_must_be_0x314");
+W8_ABI_ASSERT(sizeof(W8StatusHeader) == 0x314, "W8StatusHeader_must_be_0x314");
 
 /* Same-unit bodies SaveGame reaches before their definitions. */
 void ReadSaveChunks(W8Chunk* source, W8Chunk* destination);

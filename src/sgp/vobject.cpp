@@ -45,7 +45,7 @@
 // LOCAL global variables
 // *******************************************************************************
 
-HLIST ghVideoObjects = NULL;
+HLIST ghVideoObjects = nullptr;
 // GLOBAL: WIZ8 0x00650e20
 BOOLEAN gfVideoObjectsInit = FALSE;
 
@@ -62,9 +62,9 @@ typedef struct VOBJECT_NODE {
 } VOBJECT_NODE;
 
 // GLOBAL: WIZ8 0x00650e24
-VOBJECT_NODE* gpVObjectHead = NULL;
+VOBJECT_NODE* gpVObjectHead = nullptr;
 // GLOBAL: WIZ8 0x00650e28
-VOBJECT_NODE* gpVObjectTail = NULL;
+VOBJECT_NODE* gpVObjectTail = nullptr;
 // GLOBAL: WIZ8 0x005ff5e8
 UINT32 guiVObjectIndex = 1;
 // GLOBAL: WIZ8 0x00650e2c
@@ -105,7 +105,7 @@ BOOLEAN InitializeVideoObjectManager()
     Assert(!gpVObjectHead);
     Assert(!gpVObjectTail);
     RegisterDebugTopic(TOPIC_VIDEOOBJECT, "Video Object Manager");
-    gpVObjectHead = gpVObjectTail = NULL;
+    gpVObjectHead = gpVObjectTail = nullptr;
     gfVideoObjectsInit = TRUE;
     return TRUE;
 }
@@ -126,8 +126,8 @@ BOOLEAN ShutdownVideoObjectManager()
 #endif
         MemFree(curr);
     }
-    gpVObjectHead = NULL;
-    gpVObjectTail = NULL;
+    gpVObjectHead = nullptr;
+    gpVObjectTail = nullptr;
     guiVObjectIndex = 1;
     guiVObjectSize = 0;
     guiVObjectTotalAdded = 0;
@@ -162,17 +162,17 @@ BOOLEAN AddStandardVideoObject(VOBJECT_DESC* pVObjectDesc, UINT32* puiIndex)
         gpVObjectTail->next = (VOBJECT_NODE*)MemAlloc(sizeof(VOBJECT_NODE));
         Assert(gpVObjectTail->next); //out of memory?
         gpVObjectTail->next->prev = gpVObjectTail;
-        gpVObjectTail->next->next = NULL;
+        gpVObjectTail->next->next = nullptr;
         gpVObjectTail = gpVObjectTail->next;
     } else { //new list
         gpVObjectHead = (VOBJECT_NODE*)MemAlloc(sizeof(VOBJECT_NODE));
         Assert(gpVObjectHead); //out of memory?
-        gpVObjectHead->prev = gpVObjectHead->next = NULL;
+        gpVObjectHead->prev = gpVObjectHead->next = nullptr;
         gpVObjectTail = gpVObjectHead;
     }
 #ifdef SGP_VIDEO_DEBUGGING
-    gpVObjectTail->pName = NULL;
-    gpVObjectTail->pCode = NULL;
+    gpVObjectTail->pName = nullptr;
+    gpVObjectTail->pCode = nullptr;
 #endif
     //Set the hVObject into the node.
     gpVObjectTail->hVObject = hVObject;
@@ -217,7 +217,7 @@ BOOLEAN BltVideoObjectFromIndex(UINT32 uiDestVSurface, UINT32 uiSrcVObject, UINT
     // Lock video surface
     pBuffer = (UINT16*)LockVideoSurface(uiDestVSurface, &uiPitch);
 
-    if (pBuffer == NULL) {
+    if (pBuffer == nullptr) {
         return (FALSE);
     }
 
@@ -282,7 +282,7 @@ BOOLEAN DeleteVideoObjectFromIndex(UINT32 uiVObject)
                 MemFree(curr->pCode);
 #endif
             MemFree(curr);
-            curr = NULL;
+            curr = nullptr;
             guiVObjectSize--;
             return TRUE;
         }
@@ -306,7 +306,7 @@ BOOLEAN BltVideoObject(UINT32 uiDestVSurface, HVOBJECT hSrcVObject, UINT16 usReg
     // Lock video surface
     pBuffer = (UINT16*)LockVideoSurface(uiDestVSurface, &uiPitch);
 
-    if (pBuffer == NULL) {
+    if (pBuffer == nullptr) {
         return (FALSE);
     }
 
@@ -336,7 +336,7 @@ HVOBJECT CreateVideoObject(VOBJECT_DESC* VObjectDesc)
 
     // Allocate memory for video object data and initialize
     hVObject = (HVOBJECT)MemAlloc(sizeof(SGPVObject));
-    CHECKF(hVObject != NULL);
+    CHECKF(hVObject != nullptr);
     memset(hVObject, 0, sizeof(SGPVObject));
 
     // default of all members of the vobject is 0
@@ -350,17 +350,17 @@ HVOBJECT CreateVideoObject(VOBJECT_DESC* VObjectDesc)
             // Create himage object from file
             hImage = CreateImage(VObjectDesc->ImageFile, IMAGE_ALLIMAGEDATA);
 
-            if (hImage == NULL) {
+            if (hImage == nullptr) {
                 MemFree(hVObject);
                 DbgMessage(TOPIC_VIDEOOBJECT, DBG_LEVEL_2, "Invalid Image Filename given");
-                return (NULL);
+                return (nullptr);
             }
         } else { // create video object from provided hImage
             hImage = VObjectDesc->hImage;
-            if (hImage == NULL) {
+            if (hImage == nullptr) {
                 MemFree(hVObject);
                 DbgMessage(TOPIC_VIDEOOBJECT, DBG_LEVEL_2, "Invalid hImage pointer given");
-                return (NULL);
+                return (nullptr);
             }
         }
 
@@ -369,7 +369,7 @@ HVOBJECT CreateVideoObject(VOBJECT_DESC* VObjectDesc)
             MemFree(hVObject);
             DbgMessage(TOPIC_VIDEOOBJECT, DBG_LEVEL_2, "Invalid Image format given.");
             DestroyImage(hImage);
-            return (NULL);
+            return (nullptr);
         }
 
         // Set values from himage
@@ -400,7 +400,7 @@ HVOBJECT CreateVideoObject(VOBJECT_DESC* VObjectDesc)
     } else {
         MemFree(hVObject);
         DbgMessage(TOPIC_VIDEOOBJECT, DBG_LEVEL_2, "Invalid VObject creation flags given.");
-        return (NULL);
+        return (nullptr);
     }
 
     // If here, no special options given, use structure given in paraneters
@@ -419,14 +419,14 @@ HVOBJECT CreateVideoObject(VOBJECT_DESC* VObjectDesc)
 BOOLEAN SetVideoObjectPalette(HVOBJECT hVObject, SGPPaletteEntry* pSrcPalette)
 {
 
-    Assert(hVObject != NULL);
-    Assert(pSrcPalette != NULL);
+    Assert(hVObject != nullptr);
+    Assert(pSrcPalette != nullptr);
 
     // Create palette object if not already done so
-    if (hVObject->pPaletteEntry == NULL) {
+    if (hVObject->pPaletteEntry == nullptr) {
         // Create palette
         hVObject->pPaletteEntry = (SGPPaletteEntry*)MemAlloc(sizeof(SGPPaletteEntry) * 256);
-        CHECKF(hVObject->pPaletteEntry != NULL);
+        CHECKF(hVObject->pPaletteEntry != nullptr);
 
         // Copy src into palette
         memcpy(hVObject->pPaletteEntry, pSrcPalette, sizeof(SGPPaletteEntry) * 256);
@@ -437,9 +437,9 @@ BOOLEAN SetVideoObjectPalette(HVOBJECT hVObject, SGPPaletteEntry* pSrcPalette)
     }
 
     // Delete 16BPP Palette if one exists
-    if (hVObject->p16BPPPalette != NULL) {
+    if (hVObject->p16BPPPalette != nullptr) {
         MemFree(hVObject->p16BPPPalette);
-        hVObject->p16BPPPalette = NULL;
+        hVObject->p16BPPPalette = nullptr;
     }
 
     // Create 16BPP Palette
@@ -456,7 +456,7 @@ BOOLEAN SetVideoObjectTransparencyColor(HVOBJECT hVObject, COLORVAL TransColor)
 {
 
     // Assertions
-    Assert(hVObject != NULL);
+    Assert(hVObject != nullptr);
 
     //Set trans color into video object
     hVObject->TransparentColor = TransColor;
@@ -471,29 +471,29 @@ BOOLEAN DeleteVideoObject(HVOBJECT hVObject)
     UINT16 usLoop;
 
     // Assertions
-    CHECKF(hVObject != NULL);
+    CHECKF(hVObject != nullptr);
 
     DestroyObjectPaletteTables(hVObject);
 
     // Release palette
-    if (hVObject->pPaletteEntry != NULL) {
+    if (hVObject->pPaletteEntry != nullptr) {
         MemFree(hVObject->pPaletteEntry);
         //		hVObject->pPaletteEntry = NULL;
     }
 
-    if (hVObject->pPixData != NULL) {
+    if (hVObject->pPixData != nullptr) {
         MemFree(hVObject->pPixData);
         //		hVObject->pPixData = NULL;
     }
 
-    if (hVObject->pETRLEObject != NULL) {
+    if (hVObject->pETRLEObject != nullptr) {
         MemFree(hVObject->pETRLEObject);
         //		hVObject->pETRLEObject = NULL;
     }
 
-    if (hVObject->ppZStripInfo != NULL) {
+    if (hVObject->ppZStripInfo != nullptr) {
         for (usLoop = 0; usLoop < hVObject->usNumberOfObjects; usLoop++) {
-            if (hVObject->ppZStripInfo[usLoop] != NULL) {
+            if (hVObject->ppZStripInfo[usLoop] != nullptr) {
                 MemFree(hVObject->ppZStripInfo[usLoop]->pbZChange);
                 MemFree(hVObject->ppZStripInfo[usLoop]);
             }
@@ -535,10 +535,10 @@ UINT16 CreateObjectPaletteTables(HVOBJECT pObj, UINT32 uiType)
     // through uiType, symbols are from VOBJECT.H
     for (count = 0; count < 16; count++) {
         if ((count == 4) && (pObj->p16BPPPalette == pObj->pShades[count]))
-            pObj->pShades[count] = NULL;
-        else if (pObj->pShades[count] != NULL) {
+            pObj->pShades[count] = nullptr;
+        else if (pObj->pShades[count] != nullptr) {
             MemFree(pObj->pShades[count]);
-            pObj->pShades[count] = NULL;
+            pObj->pShades[count] = nullptr;
         }
     }
 
@@ -564,7 +564,7 @@ UINT16 CreateObjectPaletteTables(HVOBJECT pObj, UINT32 uiType)
 
     // palette 4 is the non-modified palette.
     // if the standard one has already been made, we'll use it
-    if (pObj->p16BPPPalette != NULL)
+    if (pObj->p16BPPPalette != nullptr)
         pObj->pShades[4] = pObj->p16BPPPalette;
     else {
         // or create our own, and assign it to the standard one
@@ -589,7 +589,7 @@ UINT16 CreateObjectPaletteTables(HVOBJECT pObj, UINT32 uiType)
     pObj->pShadeCurrent = pObj->pShades[4];
 
     // check to make sure every table got a palette
-    for (count = 0; (count < HVOBJECT_SHADE_TABLES) && (pObj->pShades[count] != NULL); count++)
+    for (count = 0; (count < HVOBJECT_SHADE_TABLES) && (pObj->pShades[count] != nullptr); count++)
         ;
 
     // return the result of the check
@@ -608,13 +608,12 @@ BOOLEAN BltVideoObjectToBuffer(UINT16* pBuffer, UINT32 uiDestPitchBYTES, HVOBJEC
 {
 
     // Assertions
-    Assert(pBuffer != NULL);
+    Assert(pBuffer != nullptr);
 
-    if (hSrcVObject == NULL) {
-        int i = 0;
+    if (hSrcVObject == nullptr) {
     }
 
-    Assert(hSrcVObject != NULL);
+    Assert(hSrcVObject != nullptr);
 
     // Check For Flags and bit depths
     switch (hSrcVObject->ubBitDepth) {
@@ -699,28 +698,28 @@ BOOLEAN DestroyObjectPaletteTables(HVOBJECT hVObject)
 
     for (x = 0; x < HVOBJECT_SHADE_TABLES; x++) {
         if (!(hVObject->fFlags & VOBJECT_FLAG_SHADETABLE_SHARED)) {
-            if (hVObject->pShades[x] != NULL) {
+            if (hVObject->pShades[x] != nullptr) {
                 if (hVObject->pShades[x] == hVObject->p16BPPPalette)
                     f16BitPal = TRUE;
                 else
                     f16BitPal = FALSE;
 
                 MemFree(hVObject->pShades[x]);
-                hVObject->pShades[x] = NULL;
+                hVObject->pShades[x] = nullptr;
 
                 if (f16BitPal)
-                    hVObject->p16BPPPalette = NULL;
+                    hVObject->p16BPPPalette = nullptr;
             }
         }
     }
 
-    if (hVObject->p16BPPPalette != NULL) {
+    if (hVObject->p16BPPPalette != nullptr) {
         MemFree(hVObject->p16BPPPalette);
-        hVObject->p16BPPPalette = NULL;
+        hVObject->p16BPPPalette = nullptr;
     }
 
-    hVObject->pShadeCurrent = NULL;
-    hVObject->pGlow = NULL;
+    hVObject->pShadeCurrent = nullptr;
+    hVObject->pGlow = nullptr;
 
     return (TRUE);
 }
@@ -728,11 +727,11 @@ BOOLEAN DestroyObjectPaletteTables(HVOBJECT hVObject)
 // FUNCTION: WIZ8 0x004068e0
 UINT16 SetObjectShade(HVOBJECT pObj, UINT32 uiShade)
 {
-    Assert(pObj != NULL);
+    Assert(pObj != nullptr);
     Assert(uiShade >= 0);
     Assert(uiShade < HVOBJECT_SHADE_TABLES);
 
-    if (pObj->pShades[uiShade] == NULL) {
+    if (pObj->pShades[uiShade] == nullptr) {
         DbgMessage(TOPIC_VIDEOOBJECT, DBG_LEVEL_2,
                    String("Attempt to set shade level to NULL table"));
         return (FALSE);
@@ -759,7 +758,7 @@ BOOLEAN GetETRLEPixelValue(UINT8* pDest, HVOBJECT hVObject, UINT16 usETRLEIndex,
     ETRLEObject* pETRLEObject;
 
     // Do a bunch of checks
-    CHECKF(hVObject != NULL);
+    CHECKF(hVObject != nullptr);
     CHECKF(usETRLEIndex < hVObject->usNumberOfObjects);
 
     pETRLEObject = &(hVObject->pETRLEObject[usETRLEIndex]);

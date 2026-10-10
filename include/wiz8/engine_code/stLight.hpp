@@ -27,7 +27,7 @@ enum W8LightDefinitionKind {
     W8_LIGHT_DEFINITION_PARAMETRIC = 1,
     W8_LIGHT_DEFINITION_KEYFRAMED = 2
 };
-static_assert(sizeof(W8LightDefinitionKind) == 4, "W8LightDefinitionKind_size");
+W8_ABI_ASSERT(sizeof(W8LightDefinitionKind) == 4, "W8LightDefinitionKind_size");
 
 class stLightDefinition {
 public:

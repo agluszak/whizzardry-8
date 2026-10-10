@@ -36,7 +36,6 @@ private:
 public:
     bool m_dirty; /* owning dialogs set this before Draw */
 private:
-    unsigned char unknown_003;
     int m_entry_count;
     int m_first_visible_entry;
     int m_entry_height;

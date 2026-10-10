@@ -19,6 +19,6 @@ public:
                                         char* filename, char* extension);
 };
 
-static_assert(sizeof(srSystem) == 0x01, "srSystem_must_be_stateless");
+W8_ABI_ASSERT(sizeof(srSystem) == 0x01, "srSystem_must_be_stateless");
 
 #undef SR_SYSTEM_API

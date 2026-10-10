@@ -50,9 +50,9 @@ typedef struct VSURFACE_NODE {
 } VSURFACE_NODE;
 
 // GLOBAL: WIZ8 0x00650dbc
-VSURFACE_NODE* gpVSurfaceHead = NULL;
+VSURFACE_NODE* gpVSurfaceHead = nullptr;
 // GLOBAL: WIZ8 0x00650dc0
-VSURFACE_NODE* gpVSurfaceTail = NULL;
+VSURFACE_NODE* gpVSurfaceTail = nullptr;
 // GLOBAL: WIZ8 0x00650dc4
 UINT32 guiVSurfaceIndex = 0;
 // GLOBAL: WIZ8 0x00650dc8
@@ -84,17 +84,17 @@ void CheckValidVSurfaceIndex(UINT32 uiIndex);
 INT32 giMemUsedInSurfaces;
 
 //OBSOLETE!!!!!!!!!
-HLIST ghVideoSurfaces = NULL;
+HLIST ghVideoSurfaces = nullptr;
 //OBSOLETE!!!!!!!!!
 
 // GLOBAL: WIZ8 0x00650dd4
-HVSURFACE ghPrimary = NULL;
+HVSURFACE ghPrimary = nullptr;
 // GLOBAL: WIZ8 0x00650dd8
-HVSURFACE ghBackBuffer = NULL;
+HVSURFACE ghBackBuffer = nullptr;
 // GLOBAL: WIZ8 0x00650ddc
-HVSURFACE ghFrameBuffer = NULL;
+HVSURFACE ghFrameBuffer = nullptr;
 // GLOBAL: WIZ8 0x00650de0
-HVSURFACE ghMouseBuffer = NULL;
+HVSURFACE ghMouseBuffer = nullptr;
 // Video Surface Manager functions
 
 // FUNCTION: WIZ8 0x00402970
@@ -105,7 +105,7 @@ BOOLEAN InitializeVideoSurfaceManager()
     Assert(!gpVSurfaceHead);
     Assert(!gpVSurfaceTail);
     RegisterDebugTopic(TOPIC_VIDEOSURFACE, "Video Surface Manager");
-    gpVSurfaceHead = gpVSurfaceTail = NULL;
+    gpVSurfaceHead = gpVSurfaceTail = nullptr;
 
     giMemUsedInSurfaces = 0;
 
@@ -140,8 +140,8 @@ BOOLEAN ShutdownVideoSurfaceManager()
 #endif
         MemFree(curr);
     }
-    gpVSurfaceHead = NULL;
-    gpVSurfaceTail = NULL;
+    gpVSurfaceHead = nullptr;
+    gpVSurfaceTail = nullptr;
     guiVSurfaceIndex = 0;
     guiVSurfaceSize = 0;
     guiVSurfaceTotalAdded = 0;
@@ -190,17 +190,17 @@ BOOLEAN AddStandardVideoSurface(VSURFACE_DESC* pVSurfaceDesc, UINT32* puiIndex)
         gpVSurfaceTail->next = (VSURFACE_NODE*)MemAlloc(sizeof(VSURFACE_NODE));
         Assert(gpVSurfaceTail->next); //out of memory?
         gpVSurfaceTail->next->prev = gpVSurfaceTail;
-        gpVSurfaceTail->next->next = NULL;
+        gpVSurfaceTail->next->next = nullptr;
         gpVSurfaceTail = gpVSurfaceTail->next;
     } else { //new list
         gpVSurfaceHead = (VSURFACE_NODE*)MemAlloc(sizeof(VSURFACE_NODE));
         Assert(gpVSurfaceHead); //out of memory?
-        gpVSurfaceHead->prev = gpVSurfaceHead->next = NULL;
+        gpVSurfaceHead->prev = gpVSurfaceHead->next = nullptr;
         gpVSurfaceTail = gpVSurfaceHead;
     }
 #ifdef SGP_VIDEO_DEBUGGING
-    gpVSurfaceTail->pName = NULL;
-    gpVSurfaceTail->pCode = NULL;
+    gpVSurfaceTail->pName = nullptr;
+    gpVSurfaceTail->pCode = nullptr;
 #endif
     //Set the hVSurface into the node.
     gpVSurfaceTail->hVSurface = hVSurface;
@@ -343,10 +343,10 @@ BOOLEAN SetPrimaryVideoSurfaces()
     // Get frame buffer surface
 
     pSurface = GetFrameBufferObject();
-    CHECKF(pSurface != NULL);
+    CHECKF(pSurface != nullptr);
 
     ghFrameBuffer = CreateVideoSurfaceFromCpuSurface(pSurface);
-    CHECKF(ghFrameBuffer != NULL);
+    CHECKF(ghFrameBuffer != nullptr);
 
     return (TRUE);
 }
@@ -356,24 +356,24 @@ void DeletePrimaryVideoSurfaces()
 {
     // If globals are not null, delete them
 
-    if (ghPrimary != NULL) {
+    if (ghPrimary != nullptr) {
         DeleteVideoSurface(ghPrimary);
-        ghPrimary = NULL;
+        ghPrimary = nullptr;
     }
 
-    if (ghBackBuffer != NULL) {
+    if (ghBackBuffer != nullptr) {
         DeleteVideoSurface(ghBackBuffer);
-        ghBackBuffer = NULL;
+        ghBackBuffer = nullptr;
     }
 
-    if (ghFrameBuffer != NULL) {
+    if (ghFrameBuffer != nullptr) {
         DeleteVideoSurface(ghFrameBuffer);
-        ghFrameBuffer = NULL;
+        ghFrameBuffer = nullptr;
     }
 
-    if (ghMouseBuffer != NULL) {
+    if (ghMouseBuffer != nullptr) {
         DeleteVideoSurface(ghMouseBuffer);
-        ghMouseBuffer = NULL;
+        ghMouseBuffer = nullptr;
     }
 }
 // Given an index to the dest and src vobject contained in our private VSurface list
@@ -556,7 +556,7 @@ BOOLEAN ImageFillVideoSurfaceArea(UINT32 uiDestVSurface, INT32 iDestX1, INT32 iD
         xc = (INT16)iDestX1;
         for (w = 0; w < wblits; w++) {
             BltVideoObject(uiDestVSurface, BkgrndImg, Index, xc + Ox, yc + Oy,
-                           VO_BLT_SRCTRANSPARENCY, NULL);
+                           VO_BLT_SRCTRANSPARENCY, nullptr);
             xc += pw;
         }
         yc += ph;
@@ -570,7 +570,7 @@ BOOLEAN ImageFillVideoSurfaceArea(UINT32 uiDestVSurface, INT32 iDestX1, INT32 iD
 // FUNCTION: WIZ8 0x004033d0
 HVSURFACE CreateVideoSurface(VSURFACE_DESC* VSurfaceDesc)
 {
-    CHECKF(VSurfaceDesc != NULL);
+    CHECKF(VSurfaceDesc != nullptr);
     auto image = std::unique_ptr<image_type, decltype(&DestroyImage)>(nullptr, DestroyImage);
     UINT16 width = VSurfaceDesc->usWidth;
     UINT16 height = VSurfaceDesc->usHeight;
@@ -609,7 +609,7 @@ HVSURFACE CreateVideoSurface(VSURFACE_DESC* VSurfaceDesc)
 
 BOOLEAN RestoreVideoSurface(HVSURFACE hVSurface)
 {
-    CHECKF(hVSurface != NULL);
+    CHECKF(hVSurface != nullptr);
     // CPU storage persists across focus/display changes; it is never lost video memory.
     return FALSE;
 }
@@ -619,8 +619,8 @@ BOOLEAN RestoreVideoSurface(HVSURFACE hVSurface)
 // The time between Locking and unlocking must be minimal
 BYTE* LockVideoSurfaceBuffer(HVSURFACE hVSurface, UINT32* pPitch)
 {
-    Assert(hVSurface != NULL);
-    Assert(pPitch != NULL);
+    Assert(hVSurface != nullptr);
+    Assert(pPitch != nullptr);
     if (hVSurface == ghFrameBuffer)
         return static_cast<BYTE*>(LockPrimarySurface(pPitch));
     const auto lock = LockCpuSurface(*hVSurface->surface);
@@ -630,7 +630,7 @@ BYTE* LockVideoSurfaceBuffer(HVSURFACE hVSurface, UINT32* pPitch)
 
 void UnLockVideoSurfaceBuffer(HVSURFACE hVSurface)
 {
-    Assert(hVSurface != NULL);
+    Assert(hVSurface != nullptr);
     if (hVSurface == ghFrameBuffer) {
         UnlockPrimarySurface();
         return;
@@ -650,8 +650,8 @@ BOOLEAN SetVideoSurfaceDataFromHImage(HVSURFACE hVSurface, HIMAGE hImage, UINT16
     SGPRect aRect;
 
     // Assertions
-    Assert(hVSurface != NULL);
-    Assert(hImage != NULL);
+    Assert(hVSurface != nullptr);
+    Assert(hImage != nullptr);
 
     // Get Size of hImage and determine if it can fit
     CHECKF(hImage->usWidth >= hVSurface->usWidth);
@@ -686,11 +686,11 @@ BOOLEAN SetVideoSurfaceDataFromHImage(HVSURFACE hVSurface, HIMAGE hImage, UINT16
     // Effective width ( in PIXELS ) is Pitch ( in bytes ) converted to pitch ( IN PIXELS )
     usEffectiveWidth = (UINT16)(uiPitch / (hVSurface->ubBitDepth / 8));
 
-    CHECKF(pDest != NULL);
+    CHECKF(pDest != nullptr);
 
     // Blit Surface
     // If rect is NULL, use entrie image size
-    if (pSrcRect == NULL) {
+    if (pSrcRect == nullptr) {
         aRect.iLeft = 0;
         aRect.iTop = 0;
         aRect.iRight = hImage->usWidth;
@@ -803,7 +803,7 @@ BOOLEAN DeleteVideoSurfaceFromIndex(UINT32 uiIndex)
 // FUNCTION: WIZ8 0x00403a50
 BOOLEAN DeleteVideoSurface(HVSURFACE hVSurface)
 {
-    CHECKF(hVSurface != NULL);
+    CHECKF(hVSurface != nullptr);
     DeleteList(hVSurface->RegionList);
     if (hVSurface->p16BPPPalette)
         MemFree(hVSurface->p16BPPPalette);
@@ -835,7 +835,7 @@ BOOLEAN SetClipList(HVSURFACE hVSurface, SGPRect* RegionData, UINT16 usNumRegion
 
 BOOLEAN GetVSurfaceRegion(HVSURFACE hVSurface, UINT16 usIndex, VSURFACE_REGION* aRegion)
 {
-    Assert(hVSurface != NULL);
+    Assert(hVSurface != nullptr);
 
     if (!PeekList(hVSurface->RegionList, aRegion, usIndex)) {
         return (FALSE);
@@ -846,8 +846,8 @@ BOOLEAN GetVSurfaceRegion(HVSURFACE hVSurface, UINT16 usIndex, VSURFACE_REGION* 
 
 BOOLEAN GetVSurfaceRect(HVSURFACE hVSurface, RECT* pRect)
 {
-    Assert(hVSurface != NULL);
-    Assert(pRect != NULL);
+    Assert(hVSurface != nullptr);
+    Assert(pRect != nullptr);
 
     pRect->left = 0;
     pRect->top = 0;
@@ -871,12 +871,11 @@ BOOLEAN BltVideoSurfaceToVideoSurface(HVSURFACE hDestVSurface, HVSURFACE hSrcVSu
 {
     VSURFACE_REGION aRegion;
     RECT SrcRect, DestRect;
-    UINT8 *pSrcSurface8, *pDestSurface8;
     UINT16 *pDestSurface16, *pSrcSurface16;
     UINT32 uiSrcPitch, uiDestPitch, uiWidth, uiHeight;
 
     // Assertions
-    Assert(hDestVSurface != NULL);
+    Assert(hDestVSurface != nullptr);
 
     // Check that both region and subrect are not given
     if ((fBltFlags & VS_BLT_SRCREGION) && (fBltFlags & VS_BLT_SRCSUBRECT)) {
@@ -886,7 +885,7 @@ BOOLEAN BltVideoSurfaceToVideoSurface(HVSURFACE hDestVSurface, HVSURFACE hSrcVSu
 
     // Check for dest src options
     if (fBltFlags & VS_BLT_DESTREGION) {
-        CHECKF(pBltFx != NULL);
+        CHECKF(pBltFx != nullptr);
         CHECKF(GetVSurfaceRegion(hDestVSurface, pBltFx->DestRegion, &aRegion));
 
         // Set starting coordinates from destination region
@@ -921,7 +920,7 @@ BOOLEAN BltVideoSurfaceToVideoSurface(HVSURFACE hDestVSurface, HVSURFACE hSrcVSu
         if (fBltFlags & VS_BLT_SRCSUBRECT) {
             SGPRect aSubRect;
 
-            CHECKF(pBltFx != NULL);
+            CHECKF(pBltFx != nullptr);
 
             aSubRect = pBltFx->SrcRect;
 
@@ -954,7 +953,7 @@ BOOLEAN BltVideoSurfaceToVideoSurface(HVSURFACE hDestVSurface, HVSURFACE hSrcVSu
     } while (FALSE);
 
     // Once here, assert valid Src
-    Assert(hSrcVSurface != NULL);
+    Assert(hSrcVSurface != nullptr);
 
     // clipping -- added by DB
     GetVSurfaceRect(hDestVSurface, &DestRect);
@@ -999,14 +998,14 @@ BOOLEAN BltVideoSurfaceToVideoSurface(HVSURFACE hDestVSurface, HVSURFACE hSrcVSu
     if (hDestVSurface->ubBitDepth == 16 && hSrcVSurface->ubBitDepth == 16) {
         if (fBltFlags & VS_BLT_MIRROR_Y) {
             if ((pSrcSurface16 = (UINT16*)LockVideoSurfaceBuffer(hSrcVSurface, &uiSrcPitch)) ==
-                NULL) {
+                nullptr) {
                 DbgMessage(TOPIC_VIDEOSURFACE, DBG_LEVEL_2,
                            String("Failed on lock of 16BPP surface for blitting"));
                 return (FALSE);
             }
 
             if ((pDestSurface16 = (UINT16*)LockVideoSurfaceBuffer(hDestVSurface, &uiDestPitch)) ==
-                NULL) {
+                nullptr) {
                 UnLockVideoSurfaceBuffer(hSrcVSurface);
                 DbgMessage(TOPIC_VIDEOSURFACE, DBG_LEVEL_2,
                            String("Failed on lock of 16BPP dest surface for blitting"));
@@ -1048,7 +1047,7 @@ BOOLEAN BltVideoSurfaceToVideoSurface(HVSURFACE hDestVSurface, HVSURFACE hSrcVSu
 // FUNCTION: WIZ8 0x004044c0
 HVSURFACE CreateVideoSurfaceFromCpuSurface(CpuSurface* cpuSurface)
 {
-    CHECKF(cpuSurface != NULL);
+    CHECKF(cpuSurface != nullptr);
     auto result = std::make_unique<SGPVSurface>();
     const auto& surface = *cpuSurface->surface;
     result->usWidth = surface.w;
@@ -1073,8 +1072,8 @@ BOOLEAN ClipReleatedSrcAndDestRectangles(HVSURFACE hDestVSurface, HVSURFACE hSrc
                                          RECT* DestRect, RECT* SrcRect)
 {
 
-    Assert(hDestVSurface != NULL);
-    Assert(hSrcVSurface != NULL);
+    Assert(hDestVSurface != nullptr);
+    Assert(hSrcVSurface != nullptr);
 
     // Check for invalid start positions and clip by ignoring blit
     if (DestRect->left >= hDestVSurface->usWidth || DestRect->top >= hDestVSurface->usHeight) {
@@ -1234,7 +1233,7 @@ BOOLEAN InternalShadowVideoSurfaceRect(UINT32 uiDestVSurface, INT32 X1, INT32 Y1
     pBuffer = (UINT16*)LockVideoSurface(uiDestVSurface, &uiPitch);
     //UnLockVideoSurface( uiDestVSurface );
 
-    if (pBuffer == NULL) {
+    if (pBuffer == nullptr) {
         return (FALSE);
     }
 
@@ -1285,7 +1284,7 @@ BOOLEAN MakeVSurfaceFromVObject(UINT32 uiVObject, UINT16 usSubIndex, UINT32* pui
 
         if (AddVideoSurface(&hDesc, &uiVSurface)) {
             if (BltVideoObjectFromIndex(uiVSurface, uiVObject, usSubIndex, 0, 0,
-                                        VO_BLT_SRCTRANSPARENCY, NULL)) {
+                                        VO_BLT_SRCTRANSPARENCY, nullptr)) {
                 *puiVSurface = uiVSurface;
                 return (TRUE);
             } else

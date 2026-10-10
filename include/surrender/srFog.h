@@ -31,6 +31,8 @@ public:
 
     virtual SR_DLL_IMPORT ~srFog() override;
 
+    srFog& operator=(const srFog&) = default;
+
 public:
     virtual SR_DLL_IMPORT srClass* vInstance() override;
 

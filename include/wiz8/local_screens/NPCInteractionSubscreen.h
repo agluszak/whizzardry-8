@@ -120,7 +120,7 @@ struct W8DialogueTranscriptRecord {
     wchar_t text[100];
     signed char category;
 };
-static_assert(sizeof(W8DialogueTranscriptRecord) == 0xca, "W8DialogueTranscriptRecord_size");
+W8_ABI_ASSERT(sizeof(W8DialogueTranscriptRecord) == 0xca, "W8DialogueTranscriptRecord_size");
 
 enum W8NpcDialogueControlSlot {
     W8_NPC_CONTROL_NPC_NAME = 0,

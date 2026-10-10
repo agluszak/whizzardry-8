@@ -86,7 +86,7 @@ public:
             srVector2T<float> st;
             float q;
         };
-        static_assert(sizeof(TexCoordQ) == 0xc, "TexCoordQ_must_be_0xc");
+        W8_ABI_ASSERT(sizeof(TexCoordQ) == 0xc, "TexCoordQ_must_be_0xc");
 
         /* The interned record additionally carries a blend class derived from the shader's DSTBLEND
            field (ZERO -> 0, SRC_ALPHA pair -> 1, ONE -> 2, SRC_COLOR pair -> 3). */
@@ -746,7 +746,6 @@ private:
         srPtr<srPalette> palette;
         char* name;
         srDD::Texture device;
-        w8_ulong unknown_a4;
     };
     W8_ABI_ASSERT(sizeof(Texture) == 0xa8, "srGERD_Texture_must_be_0xa8");
 

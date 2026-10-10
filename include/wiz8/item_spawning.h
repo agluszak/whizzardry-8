@@ -43,7 +43,7 @@ struct W8WorldItem {
 
 #pragma pack(pop)
 
-static_assert(sizeof(W8WorldItem) == 0xad, "W8WorldItem_must_be_0xad");
+W8_ABI_ASSERT(sizeof(W8WorldItem) == 0xad, "W8WorldItem_must_be_0xad");
 
 W8WorldItem* CreateWorldItem(W8ItemInstance* item, const srVector3T<float>* position,
                              int entity_flags, bool add_to_world);

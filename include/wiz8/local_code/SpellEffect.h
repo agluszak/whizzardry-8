@@ -22,7 +22,7 @@ struct W8SpellDamageReport {
     wchar_t text[50];
 };
 
-static_assert(sizeof(W8SpellDamageReport) == 0x6c, "W8SpellDamageReport_must_be_0x6c");
+W8_ABI_ASSERT(sizeof(W8SpellDamageReport) == 0x6c, "W8SpellDamageReport_must_be_0x6c");
 
 /* One spell effect definition, 0x30 bytes. A missile carries its own copy at
    0x1fc. The radius at 0x00 bounds an area effect (0 for a single target),
@@ -46,7 +46,7 @@ struct W8SpellEffectDefinition {
     int duration_per_power;
 };
 
-static_assert(sizeof(W8SpellEffectDefinition) == 0x30, "W8SpellEffectDefinition_must_be_0x30");
+W8_ABI_ASSERT(sizeof(W8SpellEffectDefinition) == 0x30, "W8SpellEffectDefinition_must_be_0x30");
 
 /* What one missile or queued effect accumulates while it resolves: the total
    amount, the number of hits, one count per condition, and the report records
@@ -93,8 +93,7 @@ struct W8SpellEffectEntry {
         targets_resolved = false;
         reported = false;
         applied = false;
-        /* Bug: this also clears the reports vector's freshly built vtable. */
-        memset(&result, 0, sizeof(result));
+        result = {};
     }
 
     int kind;
@@ -142,11 +141,11 @@ struct W8SpellEffectEntry {
 };
 
 W8_ABI_ASSERT(sizeof(W8SpellEffectEntry) == 0x1c8, "W8SpellEffectEntry_must_be_0x1c8");
-static_assert(offsetof(W8SpellEffectEntry, OrigSource) == 0x008, "W8SpellEffectEntry_OrigSource");
-static_assert(offsetof(W8SpellEffectEntry, Source) == 0x05c, "W8SpellEffectEntry_Source");
-static_assert(offsetof(W8SpellEffectEntry, target) == 0x090, "W8SpellEffectEntry_target");
-static_assert(offsetof(W8SpellEffectEntry, definition) == 0x0b0, "W8SpellEffectEntry_definition");
-static_assert(offsetof(W8SpellEffectEntry, monster_ids) == 0x0e0, "W8SpellEffectEntry_monster_ids");
+W8_ABI_ASSERT(offsetof(W8SpellEffectEntry, OrigSource) == 0x008, "W8SpellEffectEntry_OrigSource");
+W8_ABI_ASSERT(offsetof(W8SpellEffectEntry, Source) == 0x05c, "W8SpellEffectEntry_Source");
+W8_ABI_ASSERT(offsetof(W8SpellEffectEntry, target) == 0x090, "W8SpellEffectEntry_target");
+W8_ABI_ASSERT(offsetof(W8SpellEffectEntry, definition) == 0x0b0, "W8SpellEffectEntry_definition");
+W8_ABI_ASSERT(offsetof(W8SpellEffectEntry, monster_ids) == 0x0e0, "W8SpellEffectEntry_monster_ids");
 W8_ABI_ASSERT(offsetof(W8SpellEffectEntry, target_indices) == 0x0f0,
               "W8SpellEffectEntry_target_indices");
 W8_ABI_ASSERT(offsetof(W8SpellEffectEntry, spell_visuals) == 0x100,

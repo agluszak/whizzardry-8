@@ -173,7 +173,7 @@ struct W8EnvironRecord {
     void AddScaledMotion(srVector3T<float>* position);
 };
 
-static_assert(sizeof(W8EnvironRecord) == 0x44, "W8EnvironRecord_must_be_0x44");
+W8_ABI_ASSERT(sizeof(W8EnvironRecord) == 0x44, "W8EnvironRecord_must_be_0x44");
 
 class BitArray;
 
@@ -339,13 +339,13 @@ struct W8GameData {
 
 W8_ABI_ASSERT(sizeof(W8GameData) == 0x8c, "W8GameData_must_be_0x8c");
 
-static_assert(offsetof(W8LevelDataRecord, primary_contact_prop_id) == 0x04,
+W8_ABI_ASSERT(offsetof(W8LevelDataRecord, primary_contact_prop_id) == 0x04,
               "W8LevelDataRecord_primary_contact_prop_id");
-static_assert(offsetof(W8LevelDataRecord, residual_contact_length) == 0x18,
+W8_ABI_ASSERT(offsetof(W8LevelDataRecord, residual_contact_length) == 0x18,
               "W8LevelDataRecord_residual_contact_length");
-static_assert(offsetof(W8LevelDataRecord, contact_normal) == 0xac,
+W8_ABI_ASSERT(offsetof(W8LevelDataRecord, contact_normal) == 0xac,
               "W8LevelDataRecord_contact_normal_ac");
-static_assert(offsetof(W8LevelDataRecord, contact_normal_scale) == 0xb8,
+W8_ABI_ASSERT(offsetof(W8LevelDataRecord, contact_normal_scale) == 0xb8,
               "W8LevelDataRecord_contact_normal_scale");
 W8_ABI_ASSERT(sizeof(W8LevelDataRecord) == 0xf4, "W8LevelDataRecord_must_be_0xf4");
 

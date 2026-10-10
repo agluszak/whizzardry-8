@@ -132,7 +132,7 @@ W8MonsterGroup* SpawnMonsters(int monster_id, int count, srVector3T<float>* posi
    loudness fraction, clamp anything above one, then create the node at the
    requested spot, scale its base volume and falloff and start playback. */
 // FUNCTION: WIZ8 0x004D8F80
-stSound3D* CreateAndPlaySoundNode(char* sound_name, srVector3T<float> position, float volume,
+stSound3D* CreateAndPlaySoundNode(const char* sound_name, srVector3T<float> position, float volume,
                                   float scale, bool play_flag)
 {
     if (volume > g_float_one) {
@@ -505,8 +505,6 @@ int NormalizeMasterFunctionValue(int value)
 bool g_running_trigger_from_script;
 // GLOBAL: WIZ8 0x006109F0
 bool g_npc_dialogue_closed = true;
-// GLOBAL: WIZ8 0x006834E0
-static int g_master_function_level;
 // GLOBAL: WIZ8 0x00652DA5
 bool g_sea_caves_slope_override_enabled;
 
@@ -679,7 +677,6 @@ void InitializeLevelMasterFunctions(int level)
     }
     g_running_trigger_from_script = false;
     g_npc_dialogue_closed = true;
-    g_master_function_level = level;
     g_sea_caves_slope_override_enabled = false;
     switch (level) {
     case 0:

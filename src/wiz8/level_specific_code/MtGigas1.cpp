@@ -24,8 +24,6 @@
 
 // GLOBAL: WIZ8 0x006834f4
 static GDProp* g_plate_prop;
-// GLOBAL: WIZ8 0x006834f8
-static bool g_plate_contact;
 // GLOBAL: WIZ8 0x006834f9
 static bool g_plate_down;
 
@@ -125,11 +123,9 @@ bool MtGigas1PressurePlate(Trigger* pTrigger)
     position.x = static_cast<float>(camera_position.x);
     position.z = static_cast<float>(camera_position.z);
     g_plate_prop->ComputeBounds(&minimum, &maximum);
-    g_plate_contact = false;
     if ((position.x >= minimum.x && position.x <= maximum.x && position.z >= minimum.z &&
          position.z <= maximum.z) ||
         g_plate_prop->HasSupportedItems()) {
-        g_plate_contact = true;
         if (g_plate_down) {
             return false;
         }

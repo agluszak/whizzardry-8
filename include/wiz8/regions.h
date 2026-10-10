@@ -18,9 +18,9 @@ struct W8RegionSet {
 
 /* Region callbacks receive SGP's input atom unchanged. Wheel rotation uses
    usParam; uiParam carries the packed cursor position. */
-static_assert(sizeof(InputAtom) == 0x10, "InputAtom_size");
-static_assert(offsetof(InputAtom, usParam) == 0x08, "InputAtom_wheel_payload_offset");
-static_assert(offsetof(InputAtom, uiParam) == 0x0c, "InputAtom_mouse_position_offset");
+W8_ABI_ASSERT(sizeof(InputAtom) == 0x10, "InputAtom_size");
+W8_ABI_ASSERT(offsetof(InputAtom, usParam) == 0x08, "InputAtom_wheel_payload_offset");
+W8_ABI_ASSERT(offsetof(InputAtom, uiParam) == 0x0c, "InputAtom_mouse_position_offset");
 
 enum W8RegionFlags {
     W8_REGION_RECTANGLE = 0x01,

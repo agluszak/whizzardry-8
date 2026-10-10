@@ -66,7 +66,7 @@ enum W8Race {
     W8_RACE_COUNT = 16
 };
 
-static_assert(sizeof(W8Race) == 4, "W8Race_storage");
+W8_ABI_ASSERT(sizeof(W8Race) == 4, "W8Race_storage");
 
 /* A character's sex. Zero is male and one is female, which is what the quote
    lookup, the item record's sex mask and the female-only profession all agree
@@ -244,11 +244,11 @@ struct W8SpellRuntimeRecord {
     int show_effect_dice;
     char sound_name[0x74]; /* 0x14b: relative to Data\Spells\Sounds */
 }; /* 0x1bf */
-static_assert(sizeof(W8SpellRuntimeRecord) == 0x1bf, "W8SpellRuntimeRecord_size");
-static_assert(offsetof(W8SpellRuntimeRecord, duration) == 0x044, "W8SpellRuntimeRecord_duration");
-static_assert(offsetof(W8SpellRuntimeRecord, duration_per_level) == 0x04d,
+W8_ABI_ASSERT(sizeof(W8SpellRuntimeRecord) == 0x1bf, "W8SpellRuntimeRecord_size");
+W8_ABI_ASSERT(offsetof(W8SpellRuntimeRecord, duration) == 0x044, "W8SpellRuntimeRecord_duration");
+W8_ABI_ASSERT(offsetof(W8SpellRuntimeRecord, duration_per_level) == 0x04d,
               "W8SpellRuntimeRecord_duration_per_level");
-static_assert(offsetof(W8SpellRuntimeRecord, show_effect_dice) == 0x147,
+W8_ABI_ASSERT(offsetof(W8SpellRuntimeRecord, show_effect_dice) == 0x147,
               "W8SpellRuntimeRecord_show_effect_dice");
 
 struct W8FactDatabaseRecord {
@@ -264,7 +264,7 @@ struct W8FactDatabaseRecord {
     wchar_t description[0x6c];
 }; /* 0x1d8 */
 
-static_assert(sizeof(W8FactDatabaseRecord) == 0x1d8, "W8FactDatabaseRecord_size_must_be_0x1d8");
+W8_ABI_ASSERT(sizeof(W8FactDatabaseRecord) == 0x1d8, "W8FactDatabaseRecord_size_must_be_0x1d8");
 
 /* One optional NPC stock-rule entry appended after its database record: an
    item id, the configured quantity and a keep flag. The NPC restocks only
@@ -299,7 +299,7 @@ struct W8NpcCharacterTemplate {
     unsigned char unknown_1fd[9];
 }; /* 0x206, record 0x0c4..0x2c9 */
 
-static_assert(sizeof(W8NpcCharacterTemplate) == 0x206, "W8NpcCharacterTemplate_size_must_be_0x206");
+W8_ABI_ASSERT(sizeof(W8NpcCharacterTemplate) == 0x206, "W8NpcCharacterTemplate_size_must_be_0x206");
 
 /* One Data\Databases\NPC.DBS record. */
 struct W8NpcDatabaseRecord {
@@ -383,10 +383,10 @@ struct W8NpcDatabaseRecord {
     unsigned char unknown_2f1[0x18];
 }; /* 0x309 */
 
-static_assert(sizeof(W8NpcDatabaseRecord) == 0x309, "W8NpcDatabaseRecord_size_must_be_0x309");
-static_assert(offsetof(W8NpcDatabaseRecord, combat_script_notice_enabled) == 0x2ef,
+W8_ABI_ASSERT(sizeof(W8NpcDatabaseRecord) == 0x309, "W8NpcDatabaseRecord_size_must_be_0x309");
+W8_ABI_ASSERT(offsetof(W8NpcDatabaseRecord, combat_script_notice_enabled) == 0x2ef,
               "W8NpcDatabaseRecord_combat_script_notice_offset");
-static_assert(offsetof(W8NpcDatabaseRecord, allow_dismissed_departure_dialogue) == 0x2f0,
+W8_ABI_ASSERT(offsetof(W8NpcDatabaseRecord, allow_dismissed_departure_dialogue) == 0x2f0,
               "W8NpcDatabaseRecord_dialogue_departure_script_offset");
 
 /* One Data\Databases\LEVELS.DBS record. The loader retains the disk row;
@@ -407,10 +407,10 @@ struct W8LevelDatabaseRecord {
     unsigned char unknown_058[0x80];
 }; /* 0xd8 */
 
-static_assert(offsetof(W8LevelDatabaseRecord, maximum_random_encounters) == 0x3c,
+W8_ABI_ASSERT(offsetof(W8LevelDatabaseRecord, maximum_random_encounters) == 0x3c,
               "W8LevelDatabaseRecord_encounter_budget_offset");
-static_assert(sizeof(W8LevelDatabaseRecord) == 0xd8, "W8LevelDatabaseRecord_size_must_be_0xd8");
-static_assert(offsetof(W8LevelDatabaseRecord, gameplay_time_scale) == 0x54,
+W8_ABI_ASSERT(sizeof(W8LevelDatabaseRecord) == 0xd8, "W8LevelDatabaseRecord_size_must_be_0xd8");
+W8_ABI_ASSERT(offsetof(W8LevelDatabaseRecord, gameplay_time_scale) == 0x54,
               "W8LevelDatabaseRecord_gameplay_time_scale_offset");
 
 /* The one monster record whose alternate name is used in place of its own. */
@@ -426,13 +426,13 @@ struct W8MonsterTreasureEntry {
     unsigned char chance;   /* 0x05 */
     W8Dice dice;            /* 0x06: rolled once for the drop count */
 };
-static_assert(sizeof(W8MonsterTreasureEntry) == 10, "W8MonsterTreasureEntry_must_be_10");
+W8_ABI_ASSERT(sizeof(W8MonsterTreasureEntry) == 10, "W8MonsterTreasureEntry_must_be_10");
 
 struct W8MonsterTreasureBlock {
     W8MonsterTreasureEntry slots[8]; /* 0x00 */
     W8Dice gold_dice;                /* 0x50: rolled once into AddPartyGold */
 };
-static_assert(sizeof(W8MonsterTreasureBlock) == 0x54, "W8MonsterTreasureBlock_must_be_0x54");
+W8_ABI_ASSERT(sizeof(W8MonsterTreasureBlock) == 0x54, "W8MonsterTreasureBlock_must_be_0x54");
 
 #pragma pack(push, 1)
 struct W8EncounterCompanionRecord {
@@ -440,7 +440,7 @@ struct W8EncounterCompanionRecord {
     unsigned char chance;
 };
 #pragma pack(pop)
-static_assert(sizeof(W8EncounterCompanionRecord) == 3, "W8EncounterCompanionRecord_size");
+W8_ABI_ASSERT(sizeof(W8EncounterCompanionRecord) == 3, "W8EncounterCompanionRecord_size");
 
 /* Packed database flag byte. */
 enum W8MonsterRecordFlag {
@@ -578,20 +578,20 @@ struct W8MonsterRecord {
     unsigned char unknown_273[0x24];
 }; /* 0x297 */
 
-static_assert(sizeof(W8MonsterRecord) == 0x297, "W8MonsterRecord_size_must_be_0x297");
-static_assert(offsetof(W8MonsterRecord, flags) == 0xd0, "W8MonsterRecord_flags_offset");
-static_assert(offsetof(W8MonsterRecord, stamina_dice) == 0xda,
+W8_ABI_ASSERT(sizeof(W8MonsterRecord) == 0x297, "W8MonsterRecord_size_must_be_0x297");
+W8_ABI_ASSERT(offsetof(W8MonsterRecord, flags) == 0xd0, "W8MonsterRecord_flags_offset");
+W8_ABI_ASSERT(offsetof(W8MonsterRecord, stamina_dice) == 0xda,
               "W8MonsterRecord_stamina_dice_offset");
-static_assert(offsetof(W8MonsterRecord, remains_model_name) == 0x1c3,
+W8_ABI_ASSERT(offsetof(W8MonsterRecord, remains_model_name) == 0x1c3,
               "W8MonsterRecord_remains_model_name_offset");
-static_assert(offsetof(W8MonsterRecord, treasure) == 0x1f3, "W8MonsterRecord_treasure_offset");
-static_assert(offsetof(W8MonsterRecord, treasure.gold_dice) == 0x243,
+W8_ABI_ASSERT(offsetof(W8MonsterRecord, treasure) == 0x1f3, "W8MonsterRecord_treasure_offset");
+W8_ABI_ASSERT(offsetof(W8MonsterRecord, treasure.gold_dice) == 0x243,
               "W8MonsterRecord_gold_dice_offset");
-static_assert(offsetof(W8MonsterRecord, attack_body_part_chances) == 0x157,
+W8_ABI_ASSERT(offsetof(W8MonsterRecord, attack_body_part_chances) == 0x157,
               "W8MonsterRecord_attack_body_part_chances");
-static_assert(offsetof(W8MonsterRecord, effective_level) == 0x24f,
+W8_ABI_ASSERT(offsetof(W8MonsterRecord, effective_level) == 0x24f,
               "W8MonsterRecord_effective_level");
-static_assert(offsetof(W8MonsterRecord, display_level) == 0x251, "W8MonsterRecord_display_level");
+W8_ABI_ASSERT(offsetof(W8MonsterRecord, display_level) == 0x251, "W8MonsterRecord_display_level");
 
 #pragma pack(pop)
 

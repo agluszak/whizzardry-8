@@ -353,7 +353,6 @@ static unsigned char PreprocessLevel(int handle, char* stem)
     int mark;
     int i;
     int j;
-    int light;
     int lit;
     unsigned int file;
     W8LevelFileMesh* mesh;

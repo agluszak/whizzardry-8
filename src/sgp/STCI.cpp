@@ -22,7 +22,7 @@ BOOLEAN LoadSTCIFileToImage(HIMAGE hImage, UINT16 fContents)
     image_type TempImage;
 
     // Check that hImage is valid, and that the file in question exists
-    Assert(hImage != NULL);
+    Assert(hImage != nullptr);
 
     TempImage = *hImage;
 
@@ -87,7 +87,7 @@ BOOLEAN STCILoadRGB(HIMAGE hImage, UINT16 fContents, HWFILE hFile, STCIHeader* p
     if (fContents & IMAGE_BITMAPDATA) {
         // Allocate memory for the image data and read it in
         hImage->pImageData = MemAlloc(pHeader->uiStoredSize);
-        if (hImage->pImageData == NULL) {
+        if (hImage->pImageData == nullptr) {
             return (FALSE);
         } else if (!FileRead(hFile, hImage->pImageData, pHeader->uiStoredSize, &uiBytesRead) ||
                    uiBytesRead != pHeader->uiStoredSize) {
@@ -156,7 +156,7 @@ BOOLEAN STCILoadIndexed(HIMAGE hImage, UINT16 fContents, HWFILE hFile, STCIHeade
         }
         uiFileSectionSize = pHeader->Indexed.uiNumberOfColours * STCI_PALETTE_ELEMENT_SIZE;
         pSTCIPalette = MemAlloc(uiFileSectionSize);
-        if (pSTCIPalette == NULL) {
+        if (pSTCIPalette == nullptr) {
             DbgMessage(TOPIC_HIMAGE, DBG_LEVEL_3, "Out of memory!");
             FileClose(hFile);
             return (FALSE);
@@ -197,7 +197,7 @@ BOOLEAN STCILoadIndexed(HIMAGE hImage, UINT16 fContents, HWFILE hFile, STCIHeade
             uiFileSectionSize = hImage->usNumberOfObjects * STCI_SUBIMAGE_SIZE;
             hImage->pETRLEObject = (ETRLEObject*)MemAlloc(
                 hImage->usNumberOfObjects * sizeof(*hImage->pETRLEObject));
-            if (hImage->pETRLEObject == NULL) {
+            if (hImage->pETRLEObject == nullptr) {
                 DbgMessage(TOPIC_HIMAGE, DBG_LEVEL_3, "Out of memory!");
                 FileClose(hFile);
                 if (fContents & IMAGE_PALETTE) {
@@ -220,7 +220,7 @@ BOOLEAN STCILoadIndexed(HIMAGE hImage, UINT16 fContents, HWFILE hFile, STCIHeade
         }
         // allocate memory for and read in the image data
         hImage->pImageData = MemAlloc(pHeader->uiStoredSize);
-        if (hImage->pImageData == NULL) {
+        if (hImage->pImageData == nullptr) {
             DbgMessage(TOPIC_HIMAGE, DBG_LEVEL_3, "Out of memory!");
             FileClose(hFile);
             if (fContents & IMAGE_PALETTE) {
@@ -256,7 +256,7 @@ BOOLEAN STCILoadIndexed(HIMAGE hImage, UINT16 fContents, HWFILE hFile, STCIHeade
     if (fContents & IMAGE_APPDATA && pHeader->uiAppDataSize > 0) {
         // load application-specific data
         hImage->pAppData = (UINT8*)MemAlloc(pHeader->uiAppDataSize);
-        if (hImage->pAppData == NULL) {
+        if (hImage->pAppData == nullptr) {
             DbgMessage(TOPIC_HIMAGE, DBG_LEVEL_3, "Out of memory!");
             FileClose(hFile);
             MemFree(hImage->pAppData);
@@ -291,7 +291,7 @@ BOOLEAN STCILoadIndexed(HIMAGE hImage, UINT16 fContents, HWFILE hFile, STCIHeade
         ;
         hImage->fFlags |= IMAGE_APPDATA;
     } else {
-        hImage->pAppData = NULL;
+        hImage->pAppData = nullptr;
         hImage->uiAppDataSize = 0;
     }
     return (TRUE);
@@ -308,7 +308,7 @@ BOOLEAN STCISetPalette(PTR pSTCIPalette, HIMAGE hImage)
     hImage->pPalette = (SGPPaletteEntry*)MemAlloc(sizeof(SGPPaletteEntry) * 256);
     memset(hImage->pPalette, 0, (sizeof(SGPPaletteEntry) * 256));
 
-    if (hImage->pPalette == NULL) {
+    if (hImage->pPalette == nullptr) {
         return (FALSE);
     }
 

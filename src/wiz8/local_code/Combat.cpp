@@ -185,7 +185,7 @@ bool StartCombat(int surprise)
     if (g_combat_state == 0) {
         return false;
     }
-    memset(g_combat_state, 0, sizeof(W8CombatState));
+    *g_combat_state = {};
     g_combat_state->round_count = 0;
     g_combat_state->combat_result = 0;
     g_combat_state->experience_pool = 0;
@@ -2321,7 +2321,7 @@ void ExecuteCharacterAction(int party_slot)
             slot->pending_action = W8_ACTION_NONE;
         }
     }
-    if (g_combat_state != NULL) {
+    if (g_combat_state != nullptr) {
         if (action != W8_ACTION_DEFEND && action != W8_ACTION_PROTECT) {
             g_combat_state->passive_round = 0;
         }
@@ -2336,7 +2336,7 @@ void ExecuteCharacterAction(int party_slot)
         if (fatigue_cost == -1) {
             fatigue_cost = CharacterActionFatigueCost(party_slot, action);
         }
-        FatigueCharacter(party_slot, fatigue_cost, true, NULL);
+        FatigueCharacter(party_slot, fatigue_cost, true, nullptr);
     }
     if (gXStatus.fCombatMode) {
         g_combat_state->eCombatActionStatus = 2;
@@ -2429,7 +2429,7 @@ void ExecuteMonsterAction(W8MonsterInfo* monster_info, W8MonsterRecord* record)
     SetTargetSourceToMonster(monster_info, &source);
     interrupt = GetConditionInterrupt(&source);
     if (interrupt != -1) {
-        ShowNoticef(W8_FONT_PALETTE_RUST, g_format_s_space_s, GetMonsterName(monster_info, NULL, 0),
+        ShowNoticef(W8_FONT_PALETTE_RUST, g_format_s_space_s, GetMonsterName(monster_info, nullptr, 0),
                     gppStringList[g_condition_interrupt_notices[interrupt]]);
         switch (interrupt) {
         case 0:
@@ -2525,14 +2525,14 @@ void ExecuteMonsterAction(W8MonsterInfo* monster_info, W8MonsterRecord* record)
                             if (g_settings.verbose_combat_messages != 0) {
                                 if (monster_info->Target.iType == W8_TARGET_KIND_MONSTER) {
                                     PostMonsterNotice(monster_info, gppStringList[0x238],
-                                                      GetMonsterName(target_info, NULL, 0));
+                                                      GetMonsterName(target_info, nullptr, 0));
                                 } else {
                                     PostMonsterNotice(monster_info, gppStringList[0x236]);
                                 }
                             }
                         } else if (monster_info->Target.iType == W8_TARGET_KIND_MONSTER) {
                             PostMonsterNotice(monster_info, gppStringList[0x239],
-                                              GetMonsterName(target_info, NULL, 0));
+                                              GetMonsterName(target_info, nullptr, 0));
                         } else {
                             PostMonsterNotice(monster_info, gppStringList[0x237]);
                         }
@@ -2556,7 +2556,7 @@ void ExecuteMonsterAction(W8MonsterInfo* monster_info, W8MonsterRecord* record)
                 (monster_info->ubDisposition == W8_DISPOSITION_FRIENDLY &&
                  gXStatus.hostile_monster_count == 0)) {
                 ShowNoticef(W8_FONT_PALETTE_RUST, gppStringList[0x23c],
-                            GetMonsterName(monster_info, NULL, 0));
+                            GetMonsterName(monster_info, nullptr, 0));
                 monster_info->action_kind = W8_MONSTER_ACTION_WAIT;
                 continue;
             }
@@ -2564,7 +2564,7 @@ void ExecuteMonsterAction(W8MonsterInfo* monster_info, W8MonsterRecord* record)
             result = MonsterLinkToStartupNavigator(monster_info->p3D) != 0;
             if (result != 0) {
                 ShowNoticef(W8_FONT_PALETTE_RUST, gppStringList[0x23a],
-                            GetMonsterName(monster_info, NULL, 0));
+                            GetMonsterName(monster_info, nullptr, 0));
             }
             break;
         case W8_MONSTER_ACTION_ADVANCE:
@@ -2573,7 +2573,7 @@ void ExecuteMonsterAction(W8MonsterInfo* monster_info, W8MonsterRecord* record)
             if (result != 0) {
                 monster_info->pCombat->advancing = true;
                 if (interrupt != 0xc) {
-                    ShowNoticef(9, gppStringList[0x23b], GetMonsterName(monster_info, NULL, 0),
+                    ShowNoticef(9, gppStringList[0x23b], GetMonsterName(monster_info, nullptr, 0),
                                 gppStringList[g_gender_name_message_rows[record->name_group][2]]);
                 }
             }
@@ -2631,7 +2631,7 @@ void ExecuteMonsterAction(W8MonsterInfo* monster_info, W8MonsterRecord* record)
         }
         if (monster_info->action_kind == W8_MONSTER_ACTION_WAIT) {
             ShowNoticef(W8_FONT_PALETTE_RUST, gppStringList[0x23c],
-                        GetMonsterName(monster_info, NULL, 0));
+                        GetMonsterName(monster_info, nullptr, 0));
             break;
         }
     }
@@ -2666,11 +2666,11 @@ bool MonsterFleeAction(W8MonsterInfo* monster_info, W8MonsterRecord* record)
     monster_info->pCombat->special_ready = false;
     StartMonsterCycle(monster_info, W8_MONSTER_CYCLE_ATTACK_SPECIAL, W8_ANIMATION_PLAY_ONCE);
     if (g_settings.verbose_combat_messages != 0) {
-        ShowNoticef(9, L"%s %s!", GetMonsterName(monster_info, NULL, 0),
+        ShowNoticef(9, L"%s %s!", GetMonsterName(monster_info, nullptr, 0),
                     gppStringList[g_monster_special_attack_name_ids[record->special_attack_kind]]);
         return true;
     }
-    ShowNoticef(W8_FONT_PALETTE_RUST, g_format_s_space_s, GetMonsterName(monster_info, NULL, 0),
+    ShowNoticef(W8_FONT_PALETTE_RUST, g_format_s_space_s, GetMonsterName(monster_info, nullptr, 0),
                 gppStringList[g_monster_special_attack_name_ids[record->special_attack_kind]]);
     return true;
 }
@@ -2745,7 +2745,7 @@ int ExecuteMonsterSpecialAttack(W8MonsterInfo* monster_info, W8MonsterRecord* re
     ResolveMonsterGroupAttack(record->special_attack_kind, &source, &monster_info->Target,
                               char_targets, monster_targets);
     monster_info->pCombat->special_cooldown = record->special_attack_cooldown;
-    FatigueMonster(monster_info, static_cast<unsigned int>(monster_info->stamina_max) / 10, NULL);
+    FatigueMonster(monster_info, static_cast<unsigned int>(monster_info->stamina_max) / 10, nullptr);
     return 3;
 }
 
@@ -2776,7 +2776,7 @@ int ExecuteCharacterSpecialAttack(int party_slot)
         party_slot,
         static_cast<int>(static_cast<unsigned int>(g_status.buffers.Char[party_slot].uiStaminaMax) /
                          5),
-        false, NULL);
+        false, nullptr);
     return 3;
 }
 

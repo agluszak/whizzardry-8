@@ -391,7 +391,7 @@ public:
 
 // VTABLE: WIZ8 0x005eebd8 W8MainGameTextSelectionListener
 // VTABLE: WIZ8 0x005eebd0 W8TextControl::Listener
-class W8MainGameScreen : public W8MainGameTextSelectionListener, public W8TextControl::Listener {
+class W8MainGameScreen final : public W8MainGameTextSelectionListener, public W8TextControl::Listener {
 public:
     W8MainGameScreen(Trigger* owner);
     ~W8MainGameScreen();

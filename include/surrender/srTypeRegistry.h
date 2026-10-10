@@ -442,6 +442,8 @@ public:
         registry->registerInstance(sGetClassNode(), this);
     }
 
+    srClassSupport& operator=(const srClassSupport&) = default;
+
 protected:
     virtual ~srClassSupport() override
     {

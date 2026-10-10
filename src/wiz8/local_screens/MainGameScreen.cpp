@@ -510,7 +510,7 @@ static unsigned int CanSelectedCharacterCastKnockKnock(W8Character* character)
         unsigned int book =
             GetBestSpellbookSkillForSpell(character, W8_SPELL_KNOCK_KNOCK, true, false, 7);
         unsigned int realm =
-            character->skills[W8_SKILL_FIRE_MAGIC + g_spell_records[W8_SPELL_KNOCK_KNOCK].realm]
+            character->skills[static_cast<int>(W8_SKILL_FIRE_MAGIC) + g_spell_records[W8_SPELL_KNOCK_KNOCK].realm]
                 .level;
         book = character->skills[book].level;
         int power = (book + realm * 4) / 5;
@@ -839,7 +839,7 @@ void W8LockInfoPanel::RefreshInfo()
     } else {
         W8Skill book_skill =
             GetBestSpellbookSkillForSpell(character, W8_SPELL_KNOCK_KNOCK, true, false, 7);
-        realm = character->skills[W8_SKILL_FIRE_MAGIC + g_spell_records[W8_SPELL_KNOCK_KNOCK].realm]
+        realm = character->skills[static_cast<int>(W8_SKILL_FIRE_MAGIC) + g_spell_records[W8_SPELL_KNOCK_KNOCK].realm]
                     .level;
         book = character->skills[book_skill].level;
         m_text4->SetFontStateIndex(-1);
@@ -985,7 +985,6 @@ int W8LockInteraction::ReleaseOwnedTumblers(int slot)
 // FUNCTION: WIZ8 0x00586740
 void W8LockInteraction::Process()
 {
-    W8Character* character;
     int slot;
     int i;
     int dropped;
@@ -1845,7 +1844,7 @@ void W8MainGameStatusPanel::RefreshStatusTexts()
     } else {
         W8Skill book_skill =
             GetBestSpellbookSkillForSpell(character, W8_SPELL_KNOCK_KNOCK, true, false, 7);
-        realm = character->skills[W8_SKILL_FIRE_MAGIC + g_spell_records[W8_SPELL_KNOCK_KNOCK].realm]
+        realm = character->skills[static_cast<int>(W8_SKILL_FIRE_MAGIC) + g_spell_records[W8_SPELL_KNOCK_KNOCK].realm]
                     .level;
         book = character->skills[book_skill].level;
         m_text3->SetFontStateIndex(-1);
@@ -1966,7 +1965,6 @@ void W8MainGameScreen::SelectTextEntry(int index)
     int roll;
     float hold;
     float duration;
-    int i;
 
     m_selected_character = slot;
     skill = GetPartySlotLocksTrapsLevel(slot);
@@ -3238,7 +3236,6 @@ update_screen:
     }
     POINT point;
     POINT current;
-    unsigned int value;
     SGPMouseGetPos(&point);
     if (!IsWorldCursorVisible()) {
         if (!g_modal_owner) {

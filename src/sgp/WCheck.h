@@ -13,7 +13,7 @@
     }
 #define CHECKN(exp)                                                                                \
     if (!(exp)) {                                                                                  \
-        return (NULL);                                                                             \
+        return (nullptr);                                                                             \
     }
 #define CHECKBI(exp)                                                                               \
     if (!(exp)) {                                                                                  \
@@ -33,7 +33,7 @@
 #define CHECKASSERTN(exp)                                                                          \
     if (!(exp)) {                                                                                  \
         ASSERT(0);                                                                                 \
-        return (NULL);                                                                             \
+        return (nullptr);                                                                             \
     }
 #define CHECKASSERTBI(exp)                                                                         \
     if (!(exp)) {                                                                                  \

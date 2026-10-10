@@ -686,6 +686,7 @@ void ApplyMonsterRTAIDecision(W8MonsterInfo* monster_info, unsigned char decisio
             break;
         }
         decision = W8_RT_AI_IDLE;
+        [[fallthrough]];
     case W8_RT_AI_IDLE:
         ClearMonsterPathAndResume(monster_info);
         break;
@@ -1729,6 +1730,7 @@ bool MonsterSpellTargetOK(W8MonsterInfo* monster_info, int spell_id, W8CombatSlo
         if (condition_turns[6] == 0) {
             return true;
         }
+        [[fallthrough]];
     case W8_SPELL_INSANITY:
         if (condition_turns[0xb] != 0) {
             return false;

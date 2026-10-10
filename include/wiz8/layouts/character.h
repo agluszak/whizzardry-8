@@ -121,7 +121,7 @@ struct W8CharacterConditionRecord {
     bool active;
     unsigned char unknown_09[8];
 }; /* 0x11 */
-static_assert(sizeof(W8CharacterConditionRecord) == 0x11, "W8CharacterConditionRecord_size");
+W8_ABI_ASSERT(sizeof(W8CharacterConditionRecord) == 0x11, "W8CharacterConditionRecord_size");
 
 struct W8Character {
     /* 0x0000: SaveCharacter stamps 1 here before writing the record, so the
@@ -313,7 +313,7 @@ struct W8Character {
     bool has_saved_location;
 }; /* 0x1862 */
 
-static_assert(sizeof(W8Character) == 0x1862, "W8Character_must_be_0x1862");
+W8_ABI_ASSERT(sizeof(W8Character) == 0x1862, "W8Character_must_be_0x1862");
 
 enum W8SkillImportPolicy {
     W8_SKILL_IMPORT_POLICY_0 = 0,
@@ -361,7 +361,7 @@ struct W8PortraitDescriptor {
     int render_mode;
 };
 
-static_assert(sizeof(W8PortraitDescriptor) == 0x10, "W8PortraitDescriptor_size");
+W8_ABI_ASSERT(sizeof(W8PortraitDescriptor) == 0x10, "W8PortraitDescriptor_size");
 
 extern W8PortraitDescriptor g_portrait_descriptors[80];
 

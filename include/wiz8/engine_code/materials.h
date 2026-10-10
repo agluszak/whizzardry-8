@@ -45,6 +45,7 @@ protected:
     virtual ~stMaterial() override;
 
 public:
+    stMaterial& operator=(const stMaterial&) = default;
     int m_surface_flags; /* 0x78 */
 };
 
@@ -76,7 +77,7 @@ struct W8MaterialRecord {
 
 #pragma pack(pop)
 
-static_assert(sizeof(W8MaterialRecord) == 0x12a, "W8MaterialRecord_size_must_be_0x12a");
+W8_ABI_ASSERT(sizeof(W8MaterialRecord) == 0x12a, "W8MaterialRecord_size_must_be_0x12a");
 
 /* Per-draw material override switches consumed by stMaterial::getMaterialInfo;
    stModelInstance's mesh submit arms them around each chained model. */

@@ -17,7 +17,7 @@ namespace
 {
 fs::path native_path(const std::string& text)
 {
-    return fs::u8path(text);
+    return fs::path(std::u8string(text.begin(), text.end()));
 }
 std::string utf8(const fs::path& path)
 {

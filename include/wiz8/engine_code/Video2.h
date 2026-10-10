@@ -234,7 +234,7 @@ struct W8ViewportRect {
     int right;
     int bottom;
 };
-static_assert(sizeof(W8ViewportRect) == 16, "W8ViewportRect_size");
+W8_ABI_ASSERT(sizeof(W8ViewportRect) == 16, "W8ViewportRect_size");
 extern W8ViewportRect g_viewport;
 extern int g_dirty_tile_count;
 extern int g_resident_texture_policy;

@@ -19,4 +19,4 @@ struct W8Dice {
 };
 #pragma pack(pop)
 
-static_assert(sizeof(W8Dice) == 4, "W8Dice_must_be_4");
+W8_ABI_ASSERT(sizeof(W8Dice) == 4, "W8Dice_must_be_4");

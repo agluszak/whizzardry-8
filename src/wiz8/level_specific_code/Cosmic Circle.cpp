@@ -59,10 +59,10 @@ bool CosmicCircleTriggerPlane1Hedra(Trigger* pTrigger)
 void CosmicCircleSetup(void)
 {
     /* Retail dereferenced both monster infos unconditionally, leaving the
-       pointer uninitialised on a missing named entity or failed id; the recovery keeps that read.
-       */
-    W8MonsterInfo* pMonsterInfoDs;
-    W8MonsterInfo* pMonsterInfoAltheides;
+       pointer uninitialised on a missing named entity or failed id; natively
+       a missing monster is skipped. */
+    W8MonsterInfo* pMonsterInfoDs = nullptr;
+    W8MonsterInfo* pMonsterInfoAltheides = nullptr;
     srVector3T<float> positionAltheides;
     srVector3T<float> positionDs;
     srVector3T<float> positionBela;
@@ -102,8 +102,12 @@ void CosmicCircleSetup(void)
             SpawnMonsters(0x197, 1, &positionPhoonzang, 2, true, false, false);
         }
         g_status.cc_arena_spawned = true;
-        pMonsterInfoDs->p3D->AimAtPosition(&positionAltheides);
-        pMonsterInfoAltheides->p3D->AimAtPosition(&positionDs);
+        if (pMonsterInfoDs != nullptr) {
+            pMonsterInfoDs->p3D->AimAtPosition(&positionAltheides);
+        }
+        if (pMonsterInfoAltheides != nullptr) {
+            pMonsterInfoAltheides->p3D->AimAtPosition(&positionDs);
+        }
         pTrigger = FindTriggerByName("CC_TRIGGERPLANE2");
         if (pTrigger != 0) {
             pTrigger->flags &= ~W8_TRIGGER_ON;

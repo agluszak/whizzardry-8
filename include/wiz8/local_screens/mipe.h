@@ -24,7 +24,7 @@ struct W8MipeMonsterEntry {
     bool selectable;
 };
 
-static_assert(sizeof(W8MipeMonsterEntry) == 0x32, "W8MipeMonsterEntry_size");
+W8_ABI_ASSERT(sizeof(W8MipeMonsterEntry) == 0x32, "W8MipeMonsterEntry_size");
 
 /* One row of mipeEdit.cpp's prop field editor: a label index into the
    g_mipe_prop_labels table plus the live value slots.  type 1 edits

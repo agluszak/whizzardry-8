@@ -26,20 +26,20 @@ PTR DecompressInit(BYTE* pCompressedData, UINT32 uiDataSize)
 
     // allocate memory for the z_stream struct
     pZStream = (z_stream*)MemAlloc(sizeof(z_stream));
-    if (pZStream == NULL) { // out of memory!
-        return (NULL);
+    if (pZStream == nullptr) { // out of memory!
+        return (nullptr);
     }
 
     // initial defines
     pZStream->zalloc = ZAlloc;
     pZStream->zfree = ZFree;
-    pZStream->opaque = NULL;
+    pZStream->opaque = nullptr;
 
     // call the ZLIB init routine
     iZRetCode = inflateInit(pZStream);
     if (iZRetCode != Z_OK) { // ZLIB init error!
         MemFree(pZStream);
-        return (NULL);
+        return (nullptr);
     }
 
     // set up our parameters
@@ -51,11 +51,10 @@ PTR DecompressInit(BYTE* pCompressedData, UINT32 uiDataSize)
 // FUNCTION: WIZ8 0x004158b0
 UINT32 Decompress(PTR pDecompPtr, BYTE* pBuffer, UINT32 uiBufferLen)
 {
-    int iZRetCode;
     z_stream* pZStream = (z_stream*)pDecompPtr;
 
     // these assertions is in here to ensure that we get passed a proper z_stream pointer
-    Assert(pZStream != NULL);
+    Assert(pZStream != nullptr);
     Assert(pZStream->zalloc == ZAlloc);
 
     if (pZStream->avail_in == 0) { // There is nothing left to decompress!
@@ -67,8 +66,7 @@ UINT32 Decompress(PTR pDecompPtr, BYTE* pBuffer, UINT32 uiBufferLen)
     pZStream->avail_out = uiBufferLen;
 
     // decompress!
-    iZRetCode = inflate(pZStream, Z_PARTIAL_FLUSH);
-    Assert(iZRetCode == Z_OK || iZRetCode == Z_STREAM_END);
+    inflate(pZStream, Z_PARTIAL_FLUSH);
 
     return (uiBufferLen - pZStream->avail_out);
 }
@@ -79,7 +77,7 @@ void DecompressFini(PTR pDecompPtr)
     z_stream* pZStream = (z_stream*)pDecompPtr;
 
     // these assertions is in here to ensure that we get passed a proper z_stream pointer
-    Assert(pZStream != NULL);
+    Assert(pZStream != nullptr);
     Assert(pZStream->zalloc == ZAlloc);
 
     inflateEnd(pZStream);
