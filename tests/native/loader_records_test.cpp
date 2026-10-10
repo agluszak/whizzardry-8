@@ -1,3 +1,4 @@
+#include <catch2/catch_test_macros.hpp>
 #include "wiz8/retail_text_records.h"
 #include "wiz8/asset_paths.h"
 #include "wiz8/filesystem.h"
@@ -24,7 +25,6 @@
 #include <limits>
 #include <string>
 
-#define CHECK(expr) do { if (!(expr)) { std::fprintf(stderr, "line %d: %s\n", __LINE__, #expr); std::exit(1); } } while (0)
 
 static std::filesystem::path fixture_root;
 
@@ -43,7 +43,7 @@ static void store(const char* path, const std::string& bytes)
 {
     std::ofstream file(fixture_root / path, std::ios::binary | std::ios::trunc);
     file.write(bytes.data(), bytes.size());
-    CHECK(file.good());
+    REQUIRE((file.good()));
 }
 
 static void databases()
@@ -54,25 +54,25 @@ static void databases()
     append(bytes, 1u);
     append(bytes, item);
     store("Data/Databases/Items.DBS", bytes);
-    CHECK(InitializeItemDatabase());
+    REQUIRE((InitializeItemDatabase()));
     std::size_t item_operations;
-    { FileFaults trace; CHECK(InitializeItemDatabase()); item_operations = trace.operations; }
+    { FileFaults trace; REQUIRE((InitializeItemDatabase())); item_operations = trace.operations; }
     auto* records = g_item_records;
     for (std::size_t operation = 1; operation <= item_operations; ++operation) {
-        { FileFaults fault(operation); CHECK(!InitializeItemDatabase()); CHECK(fault.fired); }
-        CHECK(g_item_records == records && gXStatus.uiItemsInDatabase == 1);
+        { FileFaults fault(operation); REQUIRE((!InitializeItemDatabase())); REQUIRE((fault.fired)); }
+        REQUIRE((g_item_records == records && gXStatus.uiItemsInDatabase == 1));
     }
     for (std::size_t end = 0; end < bytes.size(); ++end) {
         store("Data/Databases/Items.DBS", bytes.substr(0, end));
-        CHECK(!InitializeItemDatabase());
-        CHECK(g_item_records == records && gXStatus.uiItemsInDatabase == 1);
+        REQUIRE((!InitializeItemDatabase()));
+        REQUIRE((g_item_records == records && gXStatus.uiItemsInDatabase == 1));
     }
     std::string excessive;
     append(excessive, UINT32_MAX);
     store("Data/Databases/Items.DBS", excessive);
-    CHECK(!InitializeItemDatabase() && g_item_records == records);
+    REQUIRE((!InitializeItemDatabase() && g_item_records == records));
     DestroyItemDatabase();
-    CHECK(g_item_records == nullptr && gXStatus.uiItemsInDatabase == 0);
+    REQUIRE((g_item_records == nullptr && gXStatus.uiItemsInDatabase == 0));
 
     std::array<char, 256> category{};
     std::strcpy(category.data(), "Weapons");
@@ -84,33 +84,33 @@ static void databases()
     append(bytes, 1u);
     append(bytes, table);
     store("Data/Databases/ItemTables.DBS", bytes);
-    CHECK(InitializeItemTables());
+    REQUIRE((InitializeItemTables()));
     std::size_t table_operations;
-    { FileFaults trace; CHECK(InitializeItemTables()); table_operations = trace.operations; }
+    { FileFaults trace; REQUIRE((InitializeItemTables())); table_operations = trace.operations; }
     auto* tables = g_item_tables;
     auto* categories = g_item_table_category_names;
     for (std::size_t operation = 1; operation <= table_operations; ++operation) {
-        { FileFaults fault(operation); CHECK(!InitializeItemTables()); CHECK(fault.fired); }
-        CHECK(g_item_tables == tables && g_item_table_category_names == categories);
-        CHECK(gXStatus.uiItemTablesInDatabase == 1 && gXStatus.uiItemTableCategories == 1);
+        { FileFaults fault(operation); REQUIRE((!InitializeItemTables())); REQUIRE((fault.fired)); }
+        REQUIRE((g_item_tables == tables && g_item_table_category_names == categories));
+        REQUIRE((gXStatus.uiItemTablesInDatabase == 1 && gXStatus.uiItemTableCategories == 1));
     }
     for (std::size_t end = 0; end < bytes.size(); ++end) {
         store("Data/Databases/ItemTables.DBS", bytes.substr(0, end));
-        CHECK(!InitializeItemTables());
-        CHECK(g_item_tables == tables && g_item_table_category_names == categories);
-        CHECK(gXStatus.uiItemTablesInDatabase == 1 && gXStatus.uiItemTableCategories == 1);
-        CHECK(!std::strcmp(tables[0].name, "Starter"));
+        REQUIRE((!InitializeItemTables()));
+        REQUIRE((g_item_tables == tables && g_item_table_category_names == categories));
+        REQUIRE((gXStatus.uiItemTablesInDatabase == 1 && gXStatus.uiItemTableCategories == 1));
+        REQUIRE((!std::strcmp(tables[0].name, "Starter")));
     }
     auto bad = bytes;
     std::memset(bad.data() + 4, 'x', 256);
     store("Data/Databases/ItemTables.DBS", bad);
-    CHECK(!InitializeItemTables() && g_item_tables == tables);
+    REQUIRE((!InitializeItemTables() && g_item_tables == tables));
     bad = bytes;
     std::memset(bad.data() + 264, 'x', 256);
     store("Data/Databases/ItemTables.DBS", bad);
-    CHECK(!InitializeItemTables() && g_item_tables == tables);
+    REQUIRE((!InitializeItemTables() && g_item_tables == tables));
     DestroyItemTables();
-    CHECK(!g_item_tables && !g_item_table_category_names);
+    REQUIRE((!g_item_tables && !g_item_table_category_names));
 }
 
 static void level_records()
@@ -127,33 +127,33 @@ static void level_records()
     store("mesh.bin", bytes);
     auto file = wiz8::open_file("mesh.bin");
     W8LevelFileMesh mesh{};
-    CHECK(ReadMeshFile(file.get(), &mesh));
+    REQUIRE((ReadMeshFile(file.get(), &mesh)));
     file->seek(0, wiz8::SeekOrigin::begin);
     std::free(mesh.pstVertices); std::free(mesh.pstFaces); mesh = {};
     std::size_t mesh_operations;
-    { FileFaults trace; CHECK(ReadMeshFile(file.get(), &mesh)); mesh_operations = trace.operations; }
-    CHECK(mesh.num_vertices == 3 && mesh.num_faces == 1 && mesh.pstVertices[1].x == 1);
+    { FileFaults trace; REQUIRE((ReadMeshFile(file.get(), &mesh))); mesh_operations = trace.operations; }
+    REQUIRE((mesh.num_vertices == 3 && mesh.num_faces == 1 && mesh.pstVertices[1].x == 1));
     std::free(mesh.pstVertices);
     std::free(mesh.pstFaces);
     for (std::size_t operation = 1; operation <= mesh_operations; ++operation) {
         file = wiz8::open_file("mesh.bin"); mesh = {};
-        { FileFaults fault(operation); CHECK(!ReadMeshFile(file.get(), &mesh)); CHECK(fault.fired); }
-        CHECK(!mesh.pstVertices && !mesh.pstFaces && !mesh.lods && !mesh.lod_shorts);
+        { FileFaults fault(operation); REQUIRE((!ReadMeshFile(file.get(), &mesh))); REQUIRE((fault.fired)); }
+        REQUIRE((!mesh.pstVertices && !mesh.pstFaces && !mesh.lods && !mesh.lod_shorts));
     }
 
     for (std::size_t end = 0; end < bytes.size(); ++end) {
         store("mesh.bin", bytes.substr(0, end));
         file = wiz8::open_file("mesh.bin");
         mesh = {};
-        CHECK(!ReadMeshFile(file.get(), &mesh));
-        CHECK(!mesh.pstVertices && !mesh.pstFaces && !mesh.lods && !mesh.lod_shorts);
+        REQUIRE((!ReadMeshFile(file.get(), &mesh)));
+        REQUIRE((!mesh.pstVertices && !mesh.pstFaces && !mesh.lods && !mesh.lod_shorts));
     }
     for (int count : {-1, INT32_MAX}) {
         auto bad = bytes;
         std::memcpy(bad.data() + 4, &count, sizeof(count));
         store("mesh.bin", bad);
         file = wiz8::open_file("mesh.bin");
-        CHECK(!ReadMeshFile(file.get(), &mesh) && !mesh.pstVertices);
+        REQUIRE((!ReadMeshFile(file.get(), &mesh) && !mesh.pstVertices));
     }
 
     bytes.clear();
@@ -176,15 +176,15 @@ static void level_records()
     store("mesh.bin", bytes);
     file = wiz8::open_file("mesh.bin");
     mesh = {};
-    CHECK(ReadMeshFile(file.get(), &mesh));
-    CHECK(mesh.num_lods == 1 && mesh.lod_shorts[0][3] == 1 && mesh.pstCompFaces[0].vertex_indices[2] == 2);
+    REQUIRE((ReadMeshFile(file.get(), &mesh)));
+    REQUIRE((mesh.num_lods == 1 && mesh.lod_shorts[0][3] == 1 && mesh.pstCompFaces[0].vertex_indices[2] == 2));
     std::free(mesh.lod_shorts[0]); std::free(mesh.lod_shorts); std::free(mesh.pstCompFaces);
     for (std::size_t end = 0; end < bytes.size(); ++end) {
         store("mesh.bin", bytes.substr(0, end));
         file = wiz8::open_file("mesh.bin");
         mesh = {};
-        CHECK(!ReadMeshFile(file.get(), &mesh));
-        CHECK(!mesh.lod_shorts && !mesh.pstCompFaces);
+        REQUIRE((!ReadMeshFile(file.get(), &mesh)));
+        REQUIRE((!mesh.lod_shorts && !mesh.pstCompFaces));
     }
     for (int malformed = 0; malformed < 3; ++malformed) {
         auto bad = bytes;
@@ -199,8 +199,8 @@ static void level_records()
         store("mesh.bin", bad);
         file = wiz8::open_file("mesh.bin");
         mesh = {};
-        CHECK(!ReadMeshFile(file.get(), &mesh));
-        CHECK(!mesh.lod_shorts && !mesh.pstCompFaces);
+        REQUIRE((!ReadMeshFile(file.get(), &mesh)));
+        REQUIRE((!mesh.lod_shorts && !mesh.pstCompFaces));
     }
 
     bytes.clear();
@@ -215,22 +215,22 @@ static void level_records()
     store("path.bin", bytes);
     file = wiz8::open_file("path.bin");
     W8LevelFilePathAI path{};
-    CHECK(ReadPathAIFile(file.get(), &path));
-    CHECK(path.path_count == 1 && path.pScaledPaths[0].path.position.x == 42);
+    REQUIRE((ReadPathAIFile(file.get(), &path)));
+    REQUIRE((path.path_count == 1 && path.pScaledPaths[0].path.position.x == 42));
     std::free(path.pScaledPaths);
     for (std::size_t end = 0; end < bytes.size(); ++end) {
         store("path.bin", bytes.substr(0, end));
         file = wiz8::open_file("path.bin");
         path = {};
-        CHECK(!ReadPathAIFile(file.get(), &path));
-        CHECK(!path.pPaths && !path.pScaledPaths);
+        REQUIRE((!ReadPathAIFile(file.get(), &path)));
+        REQUIRE((!path.pPaths && !path.pScaledPaths));
     }
 }
 
 static std::string geometry_snapshot(W8GameData& data)
 {
     auto output = wiz8::open_file("snapshot.bin", wiz8::OpenMode::replace);
-    CHECK(data.WriteGameData(output.get()));
+    REQUIRE((data.WriteGameData(output.get())));
     output->close();
     auto input = wiz8::open_file("snapshot.bin");
     std::string bytes(input->size(), '\0');
@@ -257,22 +257,22 @@ static void wgd_banks()
     store("secondary.wgd", secondary);
     W8GameData data(nullptr, true);
     auto load = [&](const char* path, int kind) { auto file = wiz8::open_file(path); return data.ReadWGDList(*file, kind); };
-    CHECK(g_world_scale != 1.0f);
-    CHECK(load("primary.wgd", 0));
-    CHECK(data.minimum.x == 2 * g_world_scale && data.maximum.x == 3 * g_world_scale && data.maximum.y == 3 * g_world_scale);
-    CHECK(data.m_pVertices[1].x == 3 * g_world_scale && data.m_pVertices[2].z == 3 * g_world_scale);
-    CHECK(load("secondary.wgd", 1));
-    CHECK(data.VerticesCount() == 6 && data.SurfacesCount() == 2);
-    CHECK(data.FindPointerByName("Door") == 1 && data.StatesCount() == 2);
+    REQUIRE((g_world_scale != 1.0f));
+    REQUIRE((load("primary.wgd", 0)));
+    REQUIRE((data.minimum.x == 2 * g_world_scale && data.maximum.x == 3 * g_world_scale && data.maximum.y == 3 * g_world_scale));
+    REQUIRE((data.m_pVertices[1].x == 3 * g_world_scale && data.m_pVertices[2].z == 3 * g_world_scale));
+    REQUIRE((load("secondary.wgd", 1)));
+    REQUIRE((data.VerticesCount() == 6 && data.SurfacesCount() == 2));
+    REQUIRE((data.FindPointerByName("Door") == 1 && data.StatesCount() == 2));
     std::size_t operations;
-    { FileFaults trace; CHECK(load("secondary.wgd", 1)); operations = trace.operations; }
-    CHECK(data.SurfacesCount() == 3 && data.m_pStates[1].poly_count == 2);
+    { FileFaults trace; REQUIRE((load("secondary.wgd", 1))); operations = trace.operations; }
+    REQUIRE((data.SurfacesCount() == 3 && data.m_pStates[1].poly_count == 2));
     store("unordered.wgd", bank(true, 2));
-    CHECK(load("unordered.wgd", 1));
-    CHECK(data.m_pStates[0].group == 0 && data.m_pStates[1].group == 7 && data.m_pStates[2].group == 2);
+    REQUIRE((load("unordered.wgd", 1)));
+    REQUIRE((data.m_pStates[0].group == 0 && data.m_pStates[1].group == 7 && data.m_pStates[2].group == 2));
     data.SetInterfaceState(1, 7);
-    CHECK(!(data.m_pSurfaces[1].flags & W8_GD_SURFACE_CONDITIONAL_DISABLED));
-    CHECK(data.m_pSurfaces[3].flags & W8_GD_SURFACE_CONDITIONAL_DISABLED);
+    REQUIRE((!(data.m_pSurfaces[1].flags & W8_GD_SURFACE_CONDITIONAL_DISABLED)));
+    REQUIRE((data.m_pSurfaces[3].flags & W8_GD_SURFACE_CONDITIONAL_DISABLED));
     const auto snapshot = geometry_snapshot(data);
     const auto* vertices = data.m_pVertices.data();
     const auto* surfaces = data.m_pSurfaces.data();
@@ -282,21 +282,21 @@ static void wgd_banks()
     const auto* environ = g_environ;
     const auto names = data.interface_names;
     auto unchanged = [&] {
-        CHECK(vertices == data.m_pVertices.data() && surfaces == data.m_pSurfaces.data());
-        CHECK(interfaces == data.m_pInterfaces.data() && states == data.m_pStates.data() && polygons == data.m_piCondPolys.data());
-        CHECK(names == data.interface_names && environ == g_environ);
-        CHECK(geometry_snapshot(data) == snapshot);
+        REQUIRE((vertices == data.m_pVertices.data() && surfaces == data.m_pSurfaces.data()));
+        REQUIRE((interfaces == data.m_pInterfaces.data() && states == data.m_pStates.data() && polygons == data.m_piCondPolys.data()));
+        REQUIRE((names == data.interface_names && environ == g_environ));
+        REQUIRE((geometry_snapshot(data) == snapshot));
     };
     for (std::size_t op = 1; op <= operations; ++op) {
         bool rejected = false;
-        { FileFaults fault(op); try { load("secondary.wgd", 1); } catch (const std::exception&) { rejected = true; } CHECK(fault.fired); }
-        CHECK(rejected); unchanged();
+        { FileFaults fault(op); try { load("secondary.wgd", 1); } catch (const std::exception&) { rejected = true; } REQUIRE((fault.fired)); }
+        REQUIRE((rejected)); unchanged();
     }
     for (std::size_t end = 0; end < secondary.size(); ++end) {
         store("secondary.wgd", secondary.substr(0, end));
         bool rejected = false;
         try { load("secondary.wgd", 1); } catch (const std::exception&) { rejected = true; }
-        CHECK(rejected); unchanged();
+        REQUIRE((rejected)); unchanged();
     }
     for (int invalid : {0, 1}) {
         auto bad = secondary;
@@ -305,7 +305,7 @@ static void wgd_banks()
         store("secondary.wgd", bad);
         bool rejected = false;
         try { load("secondary.wgd", 1); } catch (const std::exception&) { rejected = true; }
-        CHECK(rejected); unchanged();
+        REQUIRE((rejected)); unchanged();
     }
     // Processed serialization preserves the semantic geometry and interface state.
     auto file = wiz8::open_file("snapshot.bin");
@@ -313,7 +313,7 @@ static void wgd_banks()
     // Environment motion factors are normalized by the processed loader.
     const auto roundtrip = geometry_snapshot(data);
     const auto geometry_bytes = snapshot.size() - data.EnvironsCount() * sizeof(W8EnvironRecord);
-    CHECK(roundtrip.substr(0, geometry_bytes) == snapshot.substr(0, geometry_bytes));
+    REQUIRE((roundtrip.substr(0, geometry_bytes) == snapshot.substr(0, geometry_bytes)));
 }
 
 static void geometry()
@@ -340,14 +340,14 @@ static void geometry()
     { FileFaults trace; data.ReadProcessedGameData(file.get()); operations = trace.operations; }
     auto query = [&] {
         srVector3 start(0.25f, 0.25f, 2), end(0.25f, 0.25f, -2);
-        if (!data.geometry_index) CHECK(InitializeGameData(&data));
+        if (!data.geometry_index) REQUIRE((InitializeGameData(&data)));
         auto delta = end - start;
         W8GDSurface** hits = nullptr;
-        CHECK(data.geometry_index->CollectObjectsAlongSegment(&hits, &start, &delta, 0, 0, 3) == 1);
-        CHECK(hits[0] == data.m_pSurfaces.data());
+        REQUIRE((data.geometry_index->CollectObjectsAlongSegment(&hits, &start, &delta, 0, 0, 3) == 1));
+        REQUIRE((hits[0] == data.m_pSurfaces.data()));
         W8OctreeTrace trace(&start, &end);
-        CHECK(data.TestTraceResult(1, nullptr, &trace, 0, 0));
-        CHECK(trace.end.z == 0 && data.last_hit_surface == 0);
+        REQUIRE((data.TestTraceResult(1, nullptr, &trace, 0, 0)));
+        REQUIRE((trace.end.z == 0 && data.last_hit_surface == 0));
     };
     for (int reload = 0; reload < 10; ++reload) {
         auto reload_file = wiz8::open_file("geometry.bin");
@@ -359,10 +359,10 @@ static void geometry()
     const auto* pending_bits = data.pending_trigger_bits.get();
     const auto* active_bits = data.active_trigger_bits.get();
     auto runtime_unchanged = [&] {
-        CHECK(data.geometry_index.get() == old_index);
-        CHECK(data.pending_trigger_bits.get() == pending_bits && data.active_trigger_bits.get() == active_bits);
-        CHECK(data.pending_trigger_bits->Test(0) && data.active_trigger_bits->Test(0));
-        CHECK(data.m_ppTriggers.empty() && data.m_pTrigVertices.empty() && data.m_pTrigSurfaces.empty());
+        REQUIRE((data.geometry_index.get() == old_index));
+        REQUIRE((data.pending_trigger_bits.get() == pending_bits && data.active_trigger_bits.get() == active_bits));
+        REQUIRE((data.pending_trigger_bits->Test(0) && data.active_trigger_bits->Test(0)));
+        REQUIRE((data.m_ppTriggers.empty() && data.m_pTrigVertices.empty() && data.m_pTrigSurfaces.empty()));
     };
     auto* old_vertices = data.m_pVertices.data();
     auto* old_surfaces = data.m_pSurfaces.data();
@@ -370,9 +370,9 @@ static void geometry()
     for (std::size_t op = 1; op <= operations; ++op) {
         file = wiz8::open_file("geometry.bin");
         bool rejected = false;
-        { FileFaults fault(op); try { data.ReadProcessedGameData(file.get()); } catch (const std::exception&) { rejected = true; } CHECK(fault.fired); }
-        CHECK(rejected && data.m_pVertices.data() == old_vertices && data.m_pSurfaces.data() == old_surfaces);
-        CHECK(geometry_snapshot(data) == snapshot); runtime_unchanged(); query();
+        { FileFaults fault(op); try { data.ReadProcessedGameData(file.get()); } catch (const std::exception&) { rejected = true; } REQUIRE((fault.fired)); }
+        REQUIRE((rejected && data.m_pVertices.data() == old_vertices && data.m_pSurfaces.data() == old_surfaces));
+        REQUIRE((geometry_snapshot(data) == snapshot)); runtime_unchanged(); query();
     }
     for (std::size_t end = 0; end < bytes.size(); ++end) {
         store("geometry.bin", bytes.substr(0, end));
@@ -380,8 +380,8 @@ static void geometry()
         bool rejected = false;
         try { data.ReadProcessedGameData(file.get()); }
         catch (const std::exception&) { rejected = true; }
-        CHECK(rejected && data.m_pVertices.data() == old_vertices && data.m_pSurfaces.data() == old_surfaces);
-        CHECK(data.VerticesCount() == 3 && data.SurfacesCount() == 1 && old_vertices[1].x == 1); runtime_unchanged(); query();
+        REQUIRE((rejected && data.m_pVertices.data() == old_vertices && data.m_pSurfaces.data() == old_surfaces));
+        REQUIRE((data.VerticesCount() == 3 && data.SurfacesCount() == 1 && old_vertices[1].x == 1)); runtime_unchanged(); query();
     }
     auto bad = bytes;
     int invalid = 3;
@@ -392,7 +392,7 @@ static void geometry()
     bool rejected = false;
     try { data.ReadProcessedGameData(file.get()); }
     catch (const std::exception&) { rejected = true; }
-    CHECK(rejected && data.m_pVertices.data() == old_vertices && data.m_pSurfaces.data() == old_surfaces);
+    REQUIRE((rejected && data.m_pVertices.data() == old_vertices && data.m_pSurfaces.data() == old_surfaces));
 }
 
 static void malformed_octrees()
@@ -407,7 +407,7 @@ static void malformed_octrees()
         store("fixture.oct", bytes.substr(0, end));
         W8GameData* data = nullptr;
         W8Octree tree("fixture.oct", &data);
-        CHECK(tree.HasLoadError() && !data);
+        REQUIRE((tree.HasLoadError() && !data));
     }
     for (int invalid = 0; invalid < 3; ++invalid) {
         header.m_grid_dims.x = header.m_grid_dims.y = header.m_grid_dims.z = 1;
@@ -417,9 +417,9 @@ static void malformed_octrees()
         bytes.clear(); append(bytes, header); append(bytes, UINT32_MAX);
         store("fixture.oct", bytes);
         W8Octree tree("fixture.oct", nullptr);
-        CHECK(tree.HasLoadError());
+        REQUIRE((tree.HasLoadError()));
     }
-    CHECK(std::filesystem::remove(fixture_root / "CD.ROM"));
+    REQUIRE((std::filesystem::remove(fixture_root / "CD.ROM")));
 }
 
 static void path_tables()
@@ -438,26 +438,26 @@ static void path_tables()
     append(bytes, std::array<unsigned, 2>{1, 0});
     store("nodes.bin", bytes);
     auto file = wiz8::open_file("nodes.bin");
-    CHECK(path.ReadPathNodes(file.get()));
+    REQUIRE((path.ReadPathNodes(file.get())));
     auto* values = path.m_pPathValues;
     auto* paths = path.m_pCondPaths;
-    CHECK(path.m_ulNumCondPaths == 1 && path.navigation_filter == 9);
+    REQUIRE((path.m_ulNumCondPaths == 1 && path.navigation_filter == 9));
     for (std::size_t end = 0; end < bytes.size(); ++end) {
         store("nodes.bin", bytes.substr(0, end));
         file = wiz8::open_file("nodes.bin");
-        CHECK(!path.ReadPathNodes(file.get()));
-        CHECK(path.m_pPathValues == values && path.m_pCondPaths == paths && path.navigation_filter == 9);
+        REQUIRE((!path.ReadPathNodes(file.get())));
+        REQUIRE((path.m_pPathValues == values && path.m_pCondPaths == paths && path.navigation_filter == 9));
     }
     auto bad = bytes;
     std::memset(bad.data() + sizeof(W8FilePathNode) + sizeof(W8ConditionalPathHeader), 'x', sizeof(conditional.name));
     store("nodes.bin", bad);
     file = wiz8::open_file("nodes.bin");
-    CHECK(!path.ReadPathNodes(file.get()) && path.m_pCondPaths == paths);
+    REQUIRE((!path.ReadPathNodes(file.get()) && path.m_pCondPaths == paths));
     path.path_node_count = -1;
-    CHECK(!path.ReadPathNodes(file.get()) && path.m_pPathValues == values);
+    REQUIRE((!path.ReadPathNodes(file.get()) && path.m_pPathValues == values));
 }
 
-int main()
+TEST_CASE("loader_records_test")
 {
     const auto temporary = make_temporary_directory("wiz8-loader-records");
     const auto root = wiz8::path_from_utf8(temporary);

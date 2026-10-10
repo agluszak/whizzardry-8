@@ -11,9 +11,6 @@
 #include <filesystem>
 #include <string>
 
-#define REQUIRE((expression)) do { if (!(expression)) { \
-    std::fprintf(stderr, "line %d: %s\n", __LINE__, #expression); std::exit(1); } } while (false)
-
 static void write_text(std::string_view path, std::string_view text)
 {
     auto file = wiz8::open_file(path, wiz8::OpenMode::replace);

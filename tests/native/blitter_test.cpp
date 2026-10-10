@@ -115,8 +115,7 @@ TEST_CASE("blitter_test")
         // The single decoded representation must produce the legacy assembly
         // bytes; data 1 carries literal index 0 in opaque runs and exercises
         // the explicit opacity mask.
-        if (!DecodeVideoObjectSprites(&object, {&frame, 1}, {encoded, sizeof(encoded)}))
-            return 3;
+        REQUIRE(DecodeVideoObjectSprites(&object, {&frame, 1}, {encoded, sizeof(encoded)}));
         for (int variant = 0; variant < 8; ++variant) {
             // Whole, partial opaque/transparent runs, every clipped edge,
             // null/default clip rectangle and complete rejection.

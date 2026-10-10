@@ -151,7 +151,7 @@ bool LoadCycles(const std::filesystem::path& path)
 
 TEST_CASE("serialized_mesh_test")
 {
-    if (!srInit()) return 1;
+    REQUIRE(srInit());
     const std::filesystem::path directory = make_temporary_directory("wiz8-mesh-fixture");
     const auto good = directory / "linked.pvl", bad = directory / "duplicate.pvl";
     const auto invalid = directory / "invalid-texture.pvl";

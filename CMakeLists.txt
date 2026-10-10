@@ -81,6 +81,8 @@ target_link_libraries(wiz8_filesystem PUBLIC SDL3::SDL3 Threads::Threads fmt::fm
 target_compile_features(wiz8_filesystem PUBLIC cxx_std_23)
 include(CTest)
 if(BUILD_TESTING)
+    target_compile_definitions(wiz8_filesystem PRIVATE WIZ8_FILE_FAULTS)
+    target_include_directories(wiz8_filesystem PRIVATE "${PROJECT_SOURCE_DIR}/tests/native")
     # Tests run through Catch2; CTest retains the existing environment,
     # timeout, runtime-asset and fixture relationships.
     FetchContent_Declare(Catch2
