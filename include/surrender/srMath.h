@@ -774,10 +774,8 @@ srMatrix3T<T>* srMatrix3T<T>::RotateAroundAxis(double angle, const srVector3T<T>
     return this;
 }
 
-/* The off-diagonal products associate differently in the two retail binaries. sr.dll's
-   double instance (0x10055D40) forms (1 - cos) * a first and then multiplies by b; the
-   Wiz8.exe float instance (0x0042B910) multiplies the two float axis components first
-   and then by the double (1 - cos). */
+/* Multiply axis components before (1 - cos), as in Wiz8.exe (0x0042B910) and the angle
+   overload. Retail sr.dll (0x10055D40) multiplied (1 - cos) by an axis component first. */
 template <class T>
 srMatrix3T<T>* srMatrix3T<T>::RotateAroundAxis(double sine, double cosine,
                                                const srVector3T<T>& axis)
@@ -785,17 +783,6 @@ srMatrix3T<T>* srMatrix3T<T>::RotateAroundAxis(double sine, double cosine,
     srMatrix3T<T> rotation;
     double one_minus_cosine = 1.0 - cosine;
 
-#if defined(SURRENDER_BUILD)
-    rotation.vectors[0].x = (T)(axis.x * axis.x + ((T)1 - axis.x * axis.x) * cosine);
-    rotation.vectors[0].y = (T)((one_minus_cosine * axis.y) * axis.x - axis.z * sine);
-    rotation.vectors[0].z = (T)((one_minus_cosine * axis.z) * axis.x + axis.y * sine);
-    rotation.vectors[1].x = (T)((one_minus_cosine * axis.y) * axis.x + axis.z * sine);
-    rotation.vectors[1].y = (T)(axis.y * axis.y + ((T)1 - axis.y * axis.y) * cosine);
-    rotation.vectors[1].z = (T)((one_minus_cosine * axis.z) * axis.y - axis.x * sine);
-    rotation.vectors[2].x = (T)((one_minus_cosine * axis.z) * axis.x - axis.y * sine);
-    rotation.vectors[2].y = (T)((one_minus_cosine * axis.z) * axis.y + axis.x * sine);
-    rotation.vectors[2].z = (T)(axis.z * axis.z + ((T)1 - axis.z * axis.z) * cosine);
-#else
     rotation.vectors[0].x = (T)(axis.x * axis.x + ((T)1 - axis.x * axis.x) * cosine);
     rotation.vectors[0].y = (T)(axis.x * axis.y * one_minus_cosine - axis.z * sine);
     rotation.vectors[0].z = (T)(axis.x * axis.z * one_minus_cosine + axis.y * sine);
@@ -805,7 +792,6 @@ srMatrix3T<T>* srMatrix3T<T>::RotateAroundAxis(double sine, double cosine,
     rotation.vectors[2].x = (T)(axis.z * axis.x * one_minus_cosine - axis.y * sine);
     rotation.vectors[2].y = (T)(axis.z * axis.y * one_minus_cosine + axis.x * sine);
     rotation.vectors[2].z = (T)(axis.z * axis.z + ((T)1 - axis.z * axis.z) * cosine);
-#endif
     MultiplyBy(rotation);
     return this;
 }

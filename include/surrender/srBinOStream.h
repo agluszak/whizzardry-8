@@ -7,17 +7,8 @@
 // VTABLE: SURRENDER 0x10076AE8 srBinStream
 // VTABLE: SURRENDER 0x10076AFC srBinOStream
 // class srBinOStream
-class
-#if defined(SURRENDER_BUILD)
-
-#else
-
-#endif
-    srBinOStream : public virtual srBinStream {
+class srBinOStream : public virtual srBinStream {
 public:
-    /* The DLL build uses compiler-generated special members. Native clients use
-       the same members; the Windows import declarations remain unchanged. */
-
     SR_DLL_IMPORT srBinOStream& putChar(char value);
     SR_DLL_IMPORT srBinOStream& putDWord(w8_ulong value);
     SR_DLL_IMPORT srBinOStream& putDouble(double value);
@@ -37,17 +28,9 @@ private:
 // VTABLE: SURRENDER 0x10076BB0 srBinStream
 // VTABLE: SURRENDER 0x10076BC4 srBinOStream
 // class srBinOMStream
-#if defined(SURRENDER_BUILD)
-class srBinOMStream
-#else
-class SR_DLL_IMPORT srBinOMStream
-#endif
-    : public srBinOStream {
+class SR_DLL_IMPORT srBinOMStream : public srBinOStream {
 public:
     srBinOMStream();
-    /* Copy construction and destruction are consistent with ordinary member
-       lifecycle. The default constructor initializes stream state. */
-
     void* getPtr();
     virtual w8_ulong getSize() override;
     virtual srBinStream& seek(w8_ulong position, srBinStream::e_seekDir direction) override;

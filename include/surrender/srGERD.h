@@ -26,11 +26,7 @@ class srVertexProcessor;
 struct srVertexArray;
 
 // VTABLE: SURRENDER 0x100766B0 srGERD
-#if defined(SURRENDER_BUILD)
-class srGERD : public srRuntimeClass {
-#else
 class SR_DLL_IMPORT srGERD : public srRuntimeClass {
-#endif
 public:
     struct Pick {
         /* Normalized pick point the caller fills: x and y are the cursor's

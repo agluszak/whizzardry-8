@@ -8,20 +8,12 @@
 #include "srTextureIFace.h"
 
 // VTABLE: SURRENDER 0x10076C88 srModeler
-#if defined(SURRENDER_BUILD)
-class srModeler {
-#else
 class SR_DLL_IMPORT srModeler {
-#endif
 public:
     /* Axis selector indexing the position components. */
     enum e_axis { AXIS_X = 0, AXIS_Y = 1, AXIS_Z = 2 };
 
-    struct
-#if defined(SURRENDER_BUILD)
-
-#endif
-        MappingInfo {
+    struct MappingInfo {
         // FUNCTION: SURRENDER 0x10037BD0
         // RECOMP: ??0MappingInfo@srModeler@@QAE@W4e_axis@1@0MMMM@Z
         MappingInfo(e_axis axis_u = AXIS_X, e_axis axis_v = AXIS_Y, float u_scale = 1.0f,
@@ -42,11 +34,7 @@ public:
     /* A triangle vertex: position, the per-pass material pair (side-indexed), the three per-pass
        attribute vectors convert() feeds into the mesh's DCG/DIG/SCG streams, the eight UV slots
        (pass*2 + layer), and the per-pass weights convert() writes as the DCG alpha. */
-    class
-#if defined(SURRENDER_BUILD)
-
-#endif
-        Vertex {
+    class Vertex {
     public:
         Vertex();
         void reset();
@@ -64,11 +52,7 @@ public:
         float weights[4];
     };
 
-    class
-#if defined(SURRENDER_BUILD)
-
-#endif
-        Triangle {
+    class Triangle {
     public:
         Triangle();
         void reset();
@@ -81,11 +65,7 @@ public:
         w8_ulong disabled;
     };
 
-    class
-#if defined(SURRENDER_BUILD)
-
-#endif
-        Polygon {
+    class Polygon {
     public:
         Polygon(int vertices);
         ~Polygon();
