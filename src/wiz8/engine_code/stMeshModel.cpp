@@ -564,18 +564,18 @@ void stMeshModel::RenderTriMeshWithEquations(srGERD& renderer, const TriMesh& me
                     pipeline->current_pass->texture_tables[1] = 0;
 
                     if (mesh.dig[pass] != 0) {
-                        pipeline->current_record->colors = mesh.dig[pass];
-                        pipeline->current_record->color_format =
+                        pipeline->current_record->color_source.colors = mesh.dig[pass];
+                        pipeline->current_record->color_source.format =
                             srVertexPipe::Record::ColorSource::FORMAT_VECTOR3;
                         pipeline->current_record->flags |= srVertexPipe::Record::HAS_COLORS;
                     }
                     if (mesh.dcg[pass] != 0) {
-                        pipeline->current_record->dcg = mesh.dcg[pass];
+                        pipeline->current_record->spec_for_diffuse = mesh.dcg[pass];
                         pipeline->current_record->flags |=
                             srVertexPipe::Record::HAS_DIFFUSE_MULTIPLIERS;
                     }
                     if (mesh.scg[pass] != 0) {
-                        pipeline->current_record->scg = mesh.scg[pass];
+                        pipeline->current_record->spec_for_specular = mesh.scg[pass];
                         pipeline->current_record->flags |=
                             srVertexPipe::Record::HAS_SPECULAR_MULTIPLIERS;
                     }
@@ -585,7 +585,7 @@ void stMeshModel::RenderTriMeshWithEquations(srGERD& renderer, const TriMesh& me
                         pipeline->material = material;
                         pipeline->current_record->material = material;
                     } else {
-                        pipeline->current_record->vertex_materials =
+                        pipeline->current_record->materials =
                             mesh.vertex_materials[pass][side];
                         pipeline->current_record->flags |=
                             srVertexPipe::Record::HAS_VERTEX_MATERIALS;
@@ -606,12 +606,12 @@ void stMeshModel::RenderTriMeshWithEquations(srGERD& renderer, const TriMesh& me
                     }
 
                     if (mesh.texcoords[pass][0] != 0) {
-                        pipeline->current_record->st0 = mesh.texcoords[pass][0];
+                        pipeline->current_record->st_source[0] = mesh.texcoords[pass][0];
                         pipeline->current_record->flags |= srVertexPipe::Record::HAS_TEXCOORD0;
                     }
                     if (mesh.texcoords[pass][1] != 0) {
                         pipeline->current_record->flags |= srVertexPipe::Record::HAS_TEXCOORD1;
-                        pipeline->current_record->st1 = mesh.texcoords[pass][1];
+                        pipeline->current_record->st_source[1] = mesh.texcoords[pass][1];
                     }
 
                     for (int layer = 0; layer < 2; ++layer) {

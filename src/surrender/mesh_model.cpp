@@ -1727,7 +1727,6 @@ void srTriMeshPipeline::FlushSlots()
             w8_ulong exclusion_mask = this->renderer->getExclusionMask();
 
             srVertexPipe::Input pipe_input;
-            pipe_input.record_count = slot_count;
             pipe_input.vertex_count = culler_output.vertex_count;
             pipe_input.active_vertices = culler_output.avt;
             pipe_input.direct_vertex_indices = culler_output.linear == 0;
@@ -1740,7 +1739,7 @@ void srTriMeshPipeline::FlushSlots()
             pipe_input.vertex_arrays = &this->vertex_arrays[0];
             pipe_input.exclusion_mask = exclusion_mask;
             pipe_input.ambient_light = ambient_light;
-            pipe_input.records = &records[0];
+            pipe_input.records = std::span{records}.first(slot_count);
             pipe_input.processors = processors;
             pipe_input.processor_count = processor_count;
             pipe_input.environment_minimum = environment_minimum;
@@ -1761,7 +1760,7 @@ void srTriMeshPipeline::FlushSlots()
             }
 
             for (w8_ulong pass_index = 0; pass_index < slot_count; ++pass_index) {
-                passes[pass_index].texcoords = records[pass_index].st0;
+                passes[pass_index].texcoords = records[pass_index].st_source[0];
 
                 w8_ulong disable_mask;
                 if (passes[pass_index].shaders != 0) {
@@ -1775,7 +1774,7 @@ void srTriMeshPipeline::FlushSlots()
                         srVertexPipe::getShaderDisableMask(passes[pass_index].shader);
                     disable_mask = flags.value;
                 }
-                records[pass_index].disable_mask = disable_mask | renderer_disable_mask;
+                records[pass_index].channels = disable_mask | renderer_disable_mask;
             }
 
             vertex_pipe->process(pipe_input);
@@ -1890,18 +1889,18 @@ void srMeshModel::renderTriMesh(srGERD& renderer, const TriMesh& mesh)
                     pipeline->current_pass->texture_tables[1] = 0;
 
                     if (mesh.dig[pass] != 0) {
-                        pipeline->current_record->colors = mesh.dig[pass];
-                        pipeline->current_record->color_format =
+                        pipeline->current_record->color_source.colors = mesh.dig[pass];
+                        pipeline->current_record->color_source.format =
                             srVertexPipe::Record::ColorSource::FORMAT_VECTOR3;
                         pipeline->current_record->flags |= srVertexPipe::Record::HAS_COLORS;
                     }
                     if (mesh.dcg[pass] != 0) {
-                        pipeline->current_record->dcg = mesh.dcg[pass];
+                        pipeline->current_record->spec_for_diffuse = mesh.dcg[pass];
                         pipeline->current_record->flags |=
                             srVertexPipe::Record::HAS_DIFFUSE_MULTIPLIERS;
                     }
                     if (mesh.scg[pass] != 0) {
-                        pipeline->current_record->scg = mesh.scg[pass];
+                        pipeline->current_record->spec_for_specular = mesh.scg[pass];
                         pipeline->current_record->flags |=
                             srVertexPipe::Record::HAS_SPECULAR_MULTIPLIERS;
                     }
@@ -1911,7 +1910,7 @@ void srMeshModel::renderTriMesh(srGERD& renderer, const TriMesh& mesh)
                         pipeline->material = material;
                         pipeline->current_record->material = material;
                     } else {
-                        pipeline->current_record->vertex_materials =
+                        pipeline->current_record->materials =
                             mesh.vertex_materials[pass][material_side];
                         pipeline->current_record->flags |=
                             srVertexPipe::Record::HAS_VERTEX_MATERIALS;
@@ -1928,12 +1927,12 @@ void srMeshModel::renderTriMesh(srGERD& renderer, const TriMesh& mesh)
                     }
 
                     if (mesh.texcoords[pass][0] != 0) {
-                        pipeline->current_record->st0 = mesh.texcoords[pass][0];
+                        pipeline->current_record->st_source[0] = mesh.texcoords[pass][0];
                         pipeline->current_record->flags |= srVertexPipe::Record::HAS_TEXCOORD0;
                     }
                     if (mesh.texcoords[pass][1] != 0) {
                         pipeline->current_record->flags |= srVertexPipe::Record::HAS_TEXCOORD1;
-                        pipeline->current_record->st1 = mesh.texcoords[pass][1];
+                        pipeline->current_record->st_source[1] = mesh.texcoords[pass][1];
                     }
 
                     for (w8_long layer = 0; layer < 2; ++layer) {

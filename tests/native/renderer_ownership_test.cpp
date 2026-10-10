@@ -144,21 +144,23 @@ public:
 
 bool processorOwnership()
 {
-    TestMaterial first_material;
-    TestMaterial second_material;
+    srPtr<TestMaterial> first_material;
+    first_material = new TestMaterial;
+    srPtr<TestMaterial> second_material;
+    second_material = new TestMaterial;
     ScratchProbe probe;
     Counter active;
     Counter inactive;
     inactive.enabled = false;
     std::array<srVector3, 65> positions;
     std::array<w8_ulong, 65> indices;
-    std::array<srMaterialIFace*, 65> materials;
+    std::array<srPtr<srMaterialIFace>, 65> materials;
     std::array<srVector4, 65> eye_locations;
     std::array<unsigned char, 65> attributes{};
     for (w8_ulong i = 0; i < positions.size(); ++i) {
         positions[i].Set(0, 0, static_cast<float>(i + 1));
         indices[i] = i;
-        materials[i] = i == 0 ? &first_material : &second_material;
+        materials[i] = i == 0 ? first_material.get() : second_material.get();
     }
     srMatrix4 identity;
     identity.SetIdentity();
@@ -171,14 +173,13 @@ bool processorOwnership()
     record.materials = materials.data();
     std::array<srVertexProcessor*, 3> processors{&probe, &active, &inactive};
     srVertexPipe::Input input{};
-    input.record_count = 1;
     input.vertex_count = positions.size();
     input.active_vertices = indices.data();
     input.direct_vertex_indices = 1;
     input.positions = positions.data();
     input.model_view = input.normal_matrix = &identity;
     input.vertex_arrays = &arrays;
-    input.records = &record;
+    input.records = {&record, 1};
     input.processors = processors.data();
     input.processor_count = processors.size();
     input.environment_maximum = 100;
@@ -302,6 +303,60 @@ bool rendererOwnership()
     return true;
 }
 
+bool pipelineRecordTexcoords()
+{
+    // Consume the producer's actual records, including a second record and
+    // both UV channels. A layout/stride mismatch used to crash menu rendering.
+    srGERD renderer(srCreateSDLGPUDevice(), "record handoff");
+    auto* pipeline = srTriMeshPipeline::Get(&renderer);
+    std::array<srVector3, 3> positions{{{0, 0, 1}, {1, 0, 1}, {0, 1, 1}}};
+    std::array<w8_ulong, 3> indices{2, 0, 1};
+    srMatrix4 identity;
+    identity.SetIdentity();
+    std::array<std::array<srVector2, 3>, 4> source;
+    std::array<std::array<srVector2, 3>, 4> output;
+    std::array<std::array<float, 3>, 4> q;
+    std::array<std::array<srVector4, 3>, 2> eyes;
+    std::array<std::array<unsigned char, 3>, 2> attributes;
+    std::array<srVertexArray, 2> arrays{};
+    for (unsigned record = 0; record < arrays.size(); ++record) {
+        auto& slot = *pipeline->current_record;
+        slot.flags = srVertexPipe::Record::HAS_TEXCOORD0 | srVertexPipe::Record::HAS_TEXCOORD1;
+        slot.channels = ~((1u << srVertexProcessor::CHANNEL_ST0) |
+                          (1u << srVertexProcessor::CHANNEL_ST1));
+        for (unsigned layer = 0; layer < 2; ++layer) {
+            const unsigned channel = record * 2 + layer;
+            for (unsigned vertex = 0; vertex < positions.size(); ++vertex)
+                source[channel][vertex].Set(float(10 * channel + vertex), float(20 + vertex));
+            slot.st_source[layer] = source[channel].data();
+        }
+        arrays[record].eye_locations = eyes[record].data();
+        arrays[record].attributes = attributes[record].data();
+        arrays[record].st0 = output[record * 2].data();
+        arrays[record].st1 = output[record * 2 + 1].data();
+        arrays[record].q0 = q[record * 2].data();
+        arrays[record].q1 = q[record * 2 + 1].data();
+        ++pipeline->slot_count;
+        pipeline->PrepareSlot();
+    }
+    srVertexPipe::Input input{};
+    input.vertex_count = positions.size();
+    input.active_vertices = indices.data();
+    input.positions = positions.data();
+    input.model_view = input.normal_matrix = &identity;
+    input.vertex_arrays = arrays.data();
+    input.records = std::span{pipeline->records}.first(pipeline->slot_count);
+    pipeline->vertex_pipe->process(input);
+    for (unsigned channel = 0; channel < output.size(); ++channel)
+        for (unsigned vertex = 0; vertex < positions.size(); ++vertex) {
+            CHECK(output[channel][vertex].x == source[channel][indices[vertex]].x);
+            CHECK(output[channel][vertex].y == source[channel][indices[vertex]].y);
+            CHECK(q[channel][vertex] == 1.0f);
+        }
+    pipeline->Reset(&renderer);
+    return true;
+}
+
 } // namespace
 
 int main()
@@ -309,7 +364,7 @@ int main()
     for (int cycle = 0; cycle < 2; ++cycle) {
         if (!srInit()) { return 1; }
         const bool passed = recursiveSceneGraph() && processorOwnership() &&
-                            rendererOwnership();
+                            rendererOwnership() && pipelineRecordTexcoords();
         const bool exited = srExit();
         if (!passed || !exited || srGERD::getFirst() != nullptr) { return 1; }
     }
