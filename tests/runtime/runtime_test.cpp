@@ -8,7 +8,7 @@
 
    Run under SDL's offscreen video driver (no window, no host input) with
    movies skipped through WIZ8_TEST_HOOK. Exit code 77 means assets are absent. */
-#include "sgp.h"
+#include "wiz8/application.h"
 #include "native/input_events.h"
 #include "temporary_directory.h"
 #include "surrender/srGERD.h"
@@ -37,6 +37,7 @@
 #include <cstring>
 #include <filesystem>
 #include <functional>
+#include <optional>
 #include <stdexcept>
 #include <string>
 #include <vector>
@@ -145,16 +146,8 @@ class Game
 
         SDL_GetLogOutputFunction(&g_default_log, &g_default_log_data);
         SDL_SetLogOutputFunction(CaptureLog, nullptr);
-        if (!SDL_Init(SDL_INIT_VIDEO))
-            Fail("startup", SDL_GetError());
-        char command[] = "/WINDOW";
-        ProcessCommandLine(command);
-        wiz8::refresh_asset_archives();
-        if (!InitializeStandardGamingPlatform(nullptr, 9))
-            Fail("startup", "InitializeStandardGamingPlatform");
-        initialized_ = true;
-        gfApplicationActive = TRUE;
-        gfProgramIsRunning = TRUE;
+        const std::string_view arguments[] = {"/WINDOW"};
+        application_.emplace(arguments);
         window_ = reinterpret_cast<SDL_Window*>(ghWindow);
         REQUIRE("startup", window_);
         SDL_Event focus{};
@@ -164,9 +157,7 @@ class Game
     }
     ~Game()
     {
-        if (initialized_)
-            SGPExit();
-        SDL_Quit();
+        application_.reset();
         SDL_SetLogOutputFunction(g_default_log, g_default_log_data);
         std::error_code ignored;
         fs::remove_all(user_, ignored);
@@ -287,8 +278,8 @@ class Game
     }
 
     fs::path user_;
+    std::optional<wiz8::Application> application_;
     SDL_Window* window_ = nullptr;
-    bool initialized_ = false;
     unsigned long frames_ = 0;
 };
 

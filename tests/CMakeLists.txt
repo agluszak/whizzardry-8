@@ -157,7 +157,7 @@ add_executable(native_runtime_test runtime/runtime_test.cpp
     "${PROJECT_SOURCE_DIR}/src/native/bink_video.cpp")
 target_compile_definitions(native_runtime_test PRIVATE WIZ8_RUNTIME_TESTS=1)
 target_include_directories(native_runtime_test PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/native")
-target_link_libraries(native_runtime_test PRIVATE WIZ8_GAME_CORE WIZ8_SGP WIZ8_GAME_CORE SDL3::SDL3)
+target_link_libraries(native_runtime_test PRIVATE WIZ8_GAME_CORE SDL3::SDL3)
 # game-start and world are runnable by hand; main-game frames still stall (under investigation).
 foreach(scenario video character)
     add_test(NAME runtime_${scenario} COMMAND native_runtime_test ${scenario})
