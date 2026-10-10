@@ -313,8 +313,7 @@ try
 {
     auto input = wiz8::open_file(path);
     if (input->size() > 16 * 1024 * 1024) return false;
-    std::string bytes(static_cast<std::size_t>(input->size()), '\0');
-    if (input->read(bytes.data(), bytes.size()).bytes != bytes.size()) return false;
+    const auto bytes = input->read_text();
     if (bytes.find('\0') != std::string::npos) return false;
     std::istringstream stream(bytes);
     std::string line;

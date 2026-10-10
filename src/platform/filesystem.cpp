@@ -294,6 +294,17 @@ void File::read_exact(void* data, std::size_t bytes)
     if (read(data, bytes).bytes != bytes)
         throw std::runtime_error("short file read");
 }
+
+std::string File::read_text()
+{
+    const auto remaining = size() - tell();
+    if (remaining < 0)
+        throw std::runtime_error("file cursor is beyond its end");
+    std::string text(static_cast<std::size_t>(remaining), '\0');
+    read_exact(text.data(), text.size());
+    return text;
+}
+
 void File::write(const void* data, std::size_t bytes)
 {
     SDL_IOStream* stream = require_stream();

@@ -1,3 +1,4 @@
+#include <sstream>
 #include <fmt/format.h>
 #include <fmt/printf.h>
 #include "wiz8/unicode.h"
@@ -2194,23 +2195,13 @@ W8MeshMaterial CreateDefaultMaterial()
 std::shared_ptr<srTextureIFace> LoadTextureFromPath(const char* path, const W8MaterialRecord* source,
                                                     bool required)
 {
-    char drive[_MAX_PATH];
-    char directory[_MAX_PATH];
-    char file_name[_MAX_PATH];
-    char extension[_MAX_PATH];
-    char texture_folder[_MAX_PATH];
-    char texture_file[_MAX_PATH];
-
-    _splitpath(path, drive, directory, file_name, extension);
-    strcpy(texture_folder, drive);
-    strcat(texture_folder, directory);
-    strcpy(texture_file, file_name);
-    strcat(texture_file, extension);
-
-    if (std::strlen(path) > 3 && _strnicmp(extension, ".IFL", 4) == 0) {
-        return LoadAnimatedTexture(texture_folder, texture_file, source, required);
-    }
-    return LoadTextureFromFolder(texture_folder, texture_file, required);
+    const std::string_view full_path(path);
+    const auto split = full_path.find_last_of("/\\:");
+    const std::string folder(full_path.substr(0, split == full_path.npos ? 0 : split + 1));
+    const std::string name(full_path.substr(split == full_path.npos ? 0 : split + 1));
+    if (name.size() >= 4 && _stricmp(name.c_str() + name.size() - 4, ".IFL") == 0)
+        return LoadAnimatedTexture(folder.c_str(), name.c_str(), source, required);
+    return LoadTextureFromFolder(folder.c_str(), name.c_str(), required);
 }
 
 // FUNCTION: WIZ8 0x004B95D0
@@ -2267,37 +2258,27 @@ std::shared_ptr<srTexture> LoadTextureFromFolder(const char* folder, const char*
 std::shared_ptr<stTextureAnim> LoadAnimatedTexture(const char* folder, const char* name,
                                                    const W8MaterialRecord* source, bool required)
 {
-    char buffer[_MAX_PATH];
-    unsigned char more = 1;
+    const auto path = std::string(folder) + name;
     std::unique_ptr<wiz8::File> handle;
-
-    strcpy(buffer, folder);
-    strcat(buffer, name);
-    handle = [&]() { try { return wiz8::open_file(buffer, wiz8::OpenMode::read); } catch (const std::exception&) { return std::unique_ptr<wiz8::File>{}; } }();
-    if (handle == 0) {
-        ShutdownWithErrorBox(fmt::format("Cannot load/find material: {}", buffer));
+    try {
+        handle = wiz8::open_file(path);
+    } catch (const std::exception&) {
+        ShutdownWithErrorBox(fmt::format("Cannot load/find material: {}", path));
+        return {};
     }
-
+    std::istringstream frames(handle->read_text());
     auto animation = std::make_shared<stTextureAnim>();
     animation->setName(name);
     g_texture_animations.insert(name, animation);
-    while (more != 0) {
-        ReadTextLine(handle.get(), buffer, 200, &more);
-        if (strlen(buffer) <= 2) {
-            more = 0;
-        } else {
-            if (auto texture = LoadTextureFromFolder(folder, buffer, required)) {
-                animation->AddTexture(std::move(texture));
-            }
-            if (more != 0) {
-                continue;
-            }
-        }
-        break;
+    for (std::string frame; std::getline(frames, frame);) {
+        if (frame.ends_with('\r'))
+            frame.pop_back();
+        if (frame.size() <= 2)
+            break;
+        if (auto texture = LoadTextureFromFolder(folder, frame.c_str(), required))
+            animation->AddTexture(std::move(texture));
     }
     animation->setupDefaultValues();
-    if (handle) handle->close();
-    handle.reset();
     if (source != 0) {
         animation->animation_mode = source->animation_mode;
         int frame = source->animation_frame;

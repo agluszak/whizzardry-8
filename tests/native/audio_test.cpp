@@ -1,6 +1,7 @@
 /* Native soundman -> SDL3_mixer, with deterministic offline mixing. */
 #include "native/audio_test.h"
 #include "wiz8/slf.h"
+#include "wiz8/local_code/CombatSound.h"
 #include <wiz8/native_audio.h>
 #include "native/movie_audio.h"
 #include <wiz8/filesystem.h>
@@ -164,6 +165,19 @@ int main(int argc, char**)
     }
     w8_native::audio_offline_for_test(true);
     CHECK(InitializeSoundManager());
+    // Variant selection accepts a bounded, read-only name and does not append
+    // into its backing storage or consume the characters beyond the view.
+    const auto combat = asset / "Data" / "Sound" / "Combat";
+    std::filesystem::create_directories(combat);
+    write(combat / "strike1.wav", wave);
+    write(combat / "strike2.wav", wave);
+    const std::string backing = "striketrailing";
+    for (int repeat = 0; repeat < 2; ++repeat) {
+        PlayCombatSound(std::string_view(backing).substr(0, 6), 2, false, 0);
+        const auto rendered = mix(8192);
+        CHECK(energy(rendered, 0) + energy(rendered, 1) > 10);
+        CHECK(backing == "striketrailing");
+    }
     {
         auto looseInput = w8_native::open_audio_input("C:\\tone.wav");
         auto packedInput = w8_native::open_audio_input("Data\\Packed.wav");

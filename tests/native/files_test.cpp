@@ -110,7 +110,8 @@ int main() try
     CHECK(independent->tell() == 0 && read_bytes(*independent, 6) == "retail");
     CHECK(fails([&] { file->write("x", 1); }));
     CHECK(file->seek(-5, wiz8::SeekOrigin::end) == 7);
-    CHECK(read_bytes(*file, 5) == "bytes");
+    CHECK(file->read_text() == "bytes");
+    CHECK(file->read_text().empty());
     CHECK(fails([&] { file->seek(-99, wiz8::SeekOrigin::current); }));
     file->seek(0, wiz8::SeekOrigin::begin);
     CHECK(file->read(nullptr, 0).bytes == 0);
@@ -311,7 +312,8 @@ int main() try
     CHECK(second->tell() == 4);
     wiz8::clear_asset_archives();
     CHECK(read_bytes(*archived, 1) == "!");
-    CHECK(read_bytes(*second, 4) == "ive!");
+    CHECK(second->read_text() == "ive!");
+    CHECK(second->read_text().empty());
     archived.reset(); second.reset();
     wiz8::mount_slf("Data/DATA.SLF");
     file = wiz8::open_file("Data/Override.bin");
@@ -330,7 +332,8 @@ int main() try
     CHECK(read_bytes(*file, 8) == "latest!!"); file.reset();
     fixture(assets / "data" / "ArchiveOnly.bin", "loose archive");
     file = wiz8::open_file("Data/archiveonly.bin");
-    CHECK(read_bytes(*file, 32) == "loose archive"); file.reset();
+    CHECK(file->read_text() == "loose archive");
+    file.reset();
     fs::remove(assets / "data" / "ArchiveOnly.bin");
     for (std::size_t length : {std::size_t(20), archive_bytes.size() - 1}) {
         fixture(assets / "data" / "Truncated.slf", archive_bytes.substr(0, length));
