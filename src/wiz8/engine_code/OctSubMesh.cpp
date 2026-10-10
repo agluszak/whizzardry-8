@@ -285,7 +285,6 @@ stMeshModel* OctMeshModel::Read(wiz8::File* file, srMaterialIFace** materials, s
                              "C:\\Projects\\Wizardry 8\\Engine Code\\OctSubMesh.cpp", 0x1ad, 0);
             }
             vertex_materials[index] = materials[material_index];
-            vertex_materials[index]->addReference();
         }
     } else {
         model->setMaterial(materials[m_material_index], 0, srMeshModel::SIDE_FRONT);
