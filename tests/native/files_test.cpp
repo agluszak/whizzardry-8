@@ -72,30 +72,47 @@ static std::string slf_bytes()
     REQUIRE(static_cast<unsigned char>(bytes[sizeof(header) + 15 + 268]) == 1);
     return bytes;
 }
-TEST_CASE("files_test")
+struct FileFixture
 {
-    const auto root = wiz8::path_from_utf8(make_temporary_directory("wiz8-files"));
-    const auto assets = root / "assets", user = root / "user", disc = root / "disc";
-    fixture(assets / "data" / "MixedCase.BIN", "retail bytes");
-    fixture(assets / "data" / "Override.bin", "loose!");
-    fixture(assets / "data" / "NoExtension", "plain");
-    fixture(assets / "data" / "ReadOnly.bin", "locked");
-    fs::permissions(assets / "data" / "ReadOnly.bin", fs::perms::owner_read |
-                    fs::perms::group_read | fs::perms::others_read);
-    fixture(assets / "Saves" / "Installed.SAV", "installed save");
-    fixture(user / "Saves" / "CurrentGame.SAV", "user save");
-    fixture(disc / "Levels" / "LEVELS.SLF", "disc bytes");
-    const auto archive_bytes = slf_bytes();
-    fixture(assets / "data" / "DATA.SLF", archive_bytes);
-    REQUIRE(SDL_setenv_unsafe("WIZ8_ASSET_ROOT", wiz8::path_to_utf8(assets).c_str(), 1) == 0);
-    REQUIRE(SDL_setenv_unsafe("WIZ8_USER_ROOT", wiz8::path_to_utf8(user).c_str(), 1) == 0);
-    REQUIRE(SDL_setenv_unsafe("WIZ8_CD1_ROOT", wiz8::path_to_utf8(disc).c_str(), 1) == 0);
-    const auto configured = w8_native::path_roots();
-    REQUIRE(fs::equivalent(wiz8::path_from_utf8(configured.assets), assets));
-    REQUIRE(fs::equivalent(wiz8::path_from_utf8(configured.user), user));
-    w8_native::configure_paths({wiz8::path_to_utf8(assets), wiz8::path_to_utf8(user),
-                                {wiz8::path_to_utf8(disc), wiz8::path_to_utf8(disc), wiz8::path_to_utf8(disc)}});
-    wiz8::mount_slf("Data/DATA.SLF");
+    ScopedTemporaryDirectory directory{"wiz8-files"};
+    fs::path root = directory.path;
+    fs::path assets = root / "assets", user = root / "user", disc = root / "disc";
+    std::string archive_bytes = slf_bytes();
+
+    FileFixture()
+    {
+        fixture(assets / "data" / "MixedCase.BIN", "retail bytes");
+        fixture(assets / "data" / "Override.bin", "loose!");
+        fixture(assets / "data" / "NoExtension", "plain");
+        fixture(assets / "data" / "ReadOnly.bin", "locked");
+        fs::permissions(assets / "data" / "ReadOnly.bin", fs::perms::owner_read |
+                        fs::perms::group_read | fs::perms::others_read);
+        fixture(assets / "Saves" / "Installed.SAV", "installed save");
+        fixture(user / "Saves" / "CurrentGame.SAV", "user save");
+        fixture(disc / "Levels" / "LEVELS.SLF", "disc bytes");
+        fixture(assets / "data" / "DATA.SLF", archive_bytes);
+        REQUIRE(SDL_setenv_unsafe("WIZ8_ASSET_ROOT", wiz8::path_to_utf8(assets).c_str(), 1) == 0);
+        REQUIRE(SDL_setenv_unsafe("WIZ8_USER_ROOT", wiz8::path_to_utf8(user).c_str(), 1) == 0);
+        REQUIRE(SDL_setenv_unsafe("WIZ8_CD1_ROOT", wiz8::path_to_utf8(disc).c_str(), 1) == 0);
+        const auto configured = w8_native::path_roots();
+        REQUIRE(fs::equivalent(wiz8::path_from_utf8(configured.assets), assets));
+        REQUIRE(fs::equivalent(wiz8::path_from_utf8(configured.user), user));
+        w8_native::configure_paths({wiz8::path_to_utf8(assets), wiz8::path_to_utf8(user),
+                                    {wiz8::path_to_utf8(disc), wiz8::path_to_utf8(disc), wiz8::path_to_utf8(disc)}});
+        wiz8::mount_slf("Data/DATA.SLF");
+    }
+
+    ~FileFixture()
+    {
+        wiz8::clear_asset_archives();
+        std::error_code ignored;
+        fs::permissions(assets / "data" / "ReadOnly.bin", fs::perms::owner_write,
+                        fs::perm_options::add, ignored);
+    }
+};
+
+TEST_CASE_METHOD(FileFixture, "Host paths, overlays and streams", "[filesystem][io]")
+{
     auto file = wiz8::open_file("DATA/mixedcase.bin");
     auto independent = wiz8::open_file("C:/data/MixedCase.BIN");
     REQUIRE((file->size() == 12 && independent->tell() == 0));
@@ -261,6 +278,12 @@ TEST_CASE("files_test")
         catch (const std::exception&) { rejected = true; }
         REQUIRE((rejected && contents(disc / "Levels" / "LEVELS.SLF") == "disc bytes"));
     }
+
+}
+
+TEST_CASE_METHOD(FileFixture, "SLF archives and invalid records", "[filesystem][slf]")
+{
+    std::unique_ptr<wiz8::File> file;
     std::vector<std::string> table{"existing"};
     REQUIRE(srSystem::scanFiles(table, "Data\\*.SLF") == 1);
     REQUIRE((table.size() == 2 && table.front() == "existing"));
@@ -400,6 +423,5 @@ TEST_CASE("files_test")
     REQUIRE(contents(assets / "data" / "MixedCase.BIN") == "retail bytes");
     REQUIRE(contents(assets / "data" / "ReadOnly.bin") == "locked");
     fs::permissions(assets / "data" / "ReadOnly.bin", fs::perms::owner_write, fs::perm_options::add);
-    fs::remove_all(root);
-    puts("ok: native game streams, immutable assets, user overlays, UTF-8 imports and bounded SLF records");
+
 }
