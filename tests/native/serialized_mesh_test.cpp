@@ -27,8 +27,8 @@ void WriteMesh(wiz8::File& file, int predecessor, int texture_index = 0)
     const std::array<srVector3T<float>, 3> locations{
         srVector3T<float>(0, 0, 0), srVector3T<float>(1, 0, 0), srVector3T<float>(0, 1, 0)};
     Write(file, locations);
-    const std::array<srVector2T<float>, 3> uv{
-        srVector2T<float>(0, 0), srVector2T<float>(1, 0), srVector2T<float>(0, 1)};
+    const std::array<glm::vec2, 3> uv{
+        glm::vec2(0, 0), glm::vec2(1, 0), glm::vec2(0, 1)};
     Write(file, uv);
     const std::array<int, 3> triangle{0, 1, 2};
     Write(file, triangle); // UV indices.
@@ -38,8 +38,7 @@ void WriteMesh(wiz8::File& file, int predecessor, int texture_index = 0)
         srVector3T<float>(0, 0, 1), srVector3T<float>(0, 0, 1), srVector3T<float>(0, 0, 1)};
     Write(file, normals);
     Write(file, locations); // Static vertex lighting.
-    srVector4T<float> equation;
-    equation.Set(0, 0, 1, 0);
+    const glm::vec4 equation(0, 0, 1, 0);
     Write(file, equation);
     Write(file, -1);
 }

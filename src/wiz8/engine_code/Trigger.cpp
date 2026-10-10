@@ -347,8 +347,9 @@ try
             return true;
         }
     }
+} catch (const std::exception&) {
+    return false;
 }
-catch (const std::exception&) { return false; }
 
 /* Serialize one trigger for the save file. The header carries a version byte
    and the action-state block; the action payload follows only when one is
@@ -604,8 +605,9 @@ try
         hFile->seek(0x1d, wiz8::SeekOrigin::current);
     }
     return header_ok;
+} catch (const std::exception&) {
+    return false;
 }
-catch (const std::exception&) { return false; }
 
 /* Read every trigger record of the save file's trigger chunk. Tags 1-4 update
    the matching in-place trigger, tag 5 names its trigger and is consumed
@@ -675,8 +677,9 @@ try
             return false;
         }
     }
+} catch (const std::exception&) {
+    return false;
 }
-catch (const std::exception&) { return false; }
 
 /* Write every trigger of a world for the save file's trigger chunk. A trigger
    whose own serialization reports failure stops the walk. */
@@ -751,8 +754,9 @@ try
             return true;
         }
     }
+} catch (const std::exception&) {
+    return false;
 }
-catch (const std::exception&) { return false; }
 
 // VTABLE: WIZ8 0x005ec12c
 // class W8TriggerEvent
@@ -1041,7 +1045,7 @@ bool Trigger::PlayActionSound(const char* sound_name, int volume)
     stSound3D* sound = new stSound3D(sound_name, 0);
     if (sound != 0) {
         srVector3T<double> sound_position;
-        sound_position.SetFromFloat(&position);
+        sound_position = glm::dvec3(position.glmValue());
         sound->volume = volume;
         sound->setLocation(sound_position);
         if (sound->Play(false, true) != 0) {
@@ -1106,25 +1110,25 @@ void W8TriggerEvent::Update()
             srVector3T<float> target;
             srVector3T<float> transformed;
             srVector3T<float> axis;
-            srMatrix3T<float> rotation;
+                glm::mat3 rotation;
 
             source = trigger->position;
             target = source;
             target.z += 100.0f;
 
             axis.Set(0.0, 0.0, 1.0);
-            rotation.vectors[0].Set(trigger->direction.x, trigger->direction.y,
-                                    trigger->direction.z);
-            rotation.vectors[1].Set(1.0, 0.0, 0.0);
-            rotation.vectors[2].Set(0.0, 1.0, 0.0);
+            rotation = glm::transpose(glm::mat3(trigger->direction.glmValue(),
+                                                    glm::vec3(1, 0, 0), glm::vec3(0, 1, 0)));
 
-            if (trigger->angle != 0.0f) {
-                rotation.RotateAroundAxis(sin(trigger->angle), cos(trigger->angle), axis);
-            }
+                if (trigger->angle != 0.0f) {
+                    rotation *= glm::mat3_cast(
+                        glm::angleAxis(float(std::atan2(sin(trigger->angle), cos(trigger->angle))),
+                                       normalizedOrZero(glm::vec3(axis.glmValue()))));
+                }
 
-            transformed.x = DotProduct(rotation.vectors[1], target);
-            transformed.y = DotProduct(rotation.vectors[2], target);
-            transformed.z = DotProduct(axis, target);
+                transformed.x = glm::dot(glm::row(rotation, 1), target.glmValue());
+                transformed.y = glm::dot(glm::row(rotation, 2), target.glmValue());
+            transformed.z = glm::dot(axis.glmValue(), target.glmValue());
             FireMissile(static_cast<unsigned int>(trigger->m_lData1), &source, &transformed, 0, 1,
                         1, 50000.0f);
         }
@@ -1912,8 +1916,8 @@ Trigger* Trigger::CreateAndLoadLevelTrigger(wiz8::File* handle, W8World* world)
         if (trigger->initial_action == 0x0c) {
             if (trigger->m_lData1 < 0 ||
                 trigger->m_lData1 >= static_cast<int>(g_missile_table_count)) {
-                srAssertFail(
-                    "((pTrigger->m_lData1 >= 0) && (pTrigger->m_lData1 < Missile::GetNumTypes()))",
+                srAssertFail("((pTrigger->m_lData1 >= 0) && (pTrigger->m_lData1 < "
+                             "Missile::GetNumTypes()))",
                     "C:\\Projects\\Wizardry 8\\Engine Code\\Trigger.cpp", 0xf14,
                     FormatString(
                         "Trigger %s: You must enter a valid missile number", trigger->name));
@@ -2295,7 +2299,7 @@ void Trigger::RunDestination(const char* destination)
     srVector3T<float> destination_position;
     srVector3T<float> destination_direction;
     srVector3T<float> source_position;
-    srMatrix3T<float> rotation;
+    glm::mat3 rotation;
     /* Retail's named-entity path reads saved storage for these integers;
        natively a named entity stays in the current level. */
     int location_id;
@@ -2347,9 +2351,11 @@ void Trigger::RunDestination(const char* destination)
     g_octree->AdjustPortalDestination(&destination_position, &source_position);
     SetWorldScenePosition(GetWorld(), &destination_position);
 
-    rotation.SetIdentity();
+    rotation = glm::mat3(1);
     if (angle != 0.0f) {
-        rotation.RotateAroundAxis(sin(angle), cos(angle), destination_direction);
+        rotation *= glm::mat3_cast(
+            glm::angleAxis(float(std::atan2(sin(angle), cos(angle))),
+                           normalizedOrZero(glm::vec3(destination_direction.glmValue()))));
     }
     ApplyCameraRotation(&rotation);
     SpawnCameraSpellEffect("set_portal", 1, 0, 0);
@@ -3178,20 +3184,22 @@ void Trigger::Run(int source)
             srVector3T<float> source_position;
             srVector3T<float> target_position;
             srVector3T<float> transformed;
-            srMatrix3T<float> rotation;
+                glm::mat3 rotation;
 
             source_position.Set(this->position.x, this->position.y, this->position.z);
             target_position = source_position;
             target_position.z += 100.0f;
-            rotation.SetIdentity();
+            rotation = glm::mat3(1);
             /* Retail rotates the identity matrix around the trigger's direction
                field (ebp+0x100), not around identity Z. */
             if (angle != 0.0f) {
-                rotation.RotateAroundAxis(sin(angle), cos(angle), direction);
-            }
-            transformed = rotation.Transform(target_position);
-            FireMissile(static_cast<unsigned int>(m_lData1), &source_position, &transformed, 0, 1,
-                        1, 50000.0f);
+                rotation *= glm::mat3_cast(
+                        glm::angleAxis(float(std::atan2(sin(angle), cos(angle))),
+                                       normalizedOrZero(glm::vec3(direction.glmValue()))));
+                }
+                transformed = rotation * target_position.glmValue();
+                FireMissile(static_cast<unsigned int>(m_lData1), &source_position, &transformed, 0,
+                            1, 1, 50000.0f);
         } else if (m_pEvent == 0) {
             float duration = abs(m_lData2) * 0.001f;
 
@@ -3851,8 +3859,9 @@ try
         g_location_variable_levels.Add(level);
     }
     return read_ok;
+} catch (const std::exception&) {
+    return false;
 }
-catch (const std::exception&) { return false; }
 
 // FUNCTION: WIZ8 0x004445b0
 void ReleaseAllTriggers(void)

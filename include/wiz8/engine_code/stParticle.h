@@ -38,7 +38,7 @@ public:
     /* The per-particle age/cull/move step and billboard-corner expansion used
        by the submitted batch. Their retail names remain unavailable. */
     void Update();                                 /* 0x00499FA0 */
-    void PrepareRenderer(srMatrix4T<float>& view); /* 0x00498DD0 */
+    void PrepareRenderer(glm::mat4& view); /* 0x00498DD0 */
     srShader GetRenderFlags() const;
     unsigned char ReplaceTexture(const char* old_name, std::shared_ptr<srTextureIFace> replacement);
     virtual void traverse(srNode::TraverseInfo& info) override; /* 0x00498C40 */
@@ -63,7 +63,7 @@ public:
     std::vector<float> flutter_angles;
     /* Billboard geometry: four vertices and two triangles per particle. */
     std::vector<srVector3T<float>> vertex_positions;
-    std::vector<srVector2T<float>> texcoords;
+    std::vector<glm::vec2> texcoords;
     std::vector<float> alphas;
     std::vector<srVector3i> triangles;
     /* Per-triangle animated texture copies; both triangles of a particle share

@@ -4,6 +4,15 @@
 
 class srRendererDefs {
 public:
+    enum e_scaleType { SCALE_TYPE_UNIT, SCALE_TYPE_UNIFORM, SCALE_TYPE_NON_UNIFORM };
+    enum e_matrixType {
+        MATRIX_TYPE_GENERAL = 0,
+        MATRIX_TYPE_AFFINE = 3,
+        MATRIX_TYPE_IDENTITY = 4,
+        MATRIX_TYPE_ORTHOGRAPHIC = 5,
+        MATRIX_TYPE_PERSPECTIVE = 6
+    };
+
     enum e_primitive {
         PRIMITIVE_POINTS = 0,
         PRIMITIVE_LINE_STRIP = 1,

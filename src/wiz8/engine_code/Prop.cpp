@@ -1,3 +1,4 @@
+#include <glm/gtc/quaternion.hpp>
 #include "wiz8/engine_code/AnimRep.hpp"
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/engine_code/GDProp.h"
@@ -71,8 +72,8 @@ W8Prop::W8Prop()
     m_pTimer = new W8GameTimer();
     animation_position.SetZero();
     previous_animation_position.SetZero();
-    previous_animation_rotation.SetIdentity();
-    animation_rotation.SetIdentity();
+    previous_animation_rotation = glm::mat3(1);
+    animation_rotation = glm::mat3(1);
     m_gd_prop = 0;
     if (m_pRep == 0) {
         srAssertFail("m_pRep", PROP_CPP, 0x30e, "Prop::Prop() out of memory allocating m_pRep");
@@ -375,7 +376,7 @@ bool ResolvePickedProp(W8World* world)
 
                 AnimObjGetBounds(representation->animation, 2, representation->subcycle, &minimum,
                                  &maximum);
-                distance = ((minimum + maximum) * 0.5 - camera_position).Length();
+                distance = ((((minimum + maximum) * 0.5 - camera_position))).Length();
                 if (trigger->range_minimum <= distance) {
                     g_selected_prop_index = prop_index;
                     if (distance <= trigger->range_maximum) {
@@ -980,9 +981,9 @@ void W8Prop::AttachAnimationInstances(W8World* world)
     srVector3T<float> rep_position;
     srVector3T<double> location;
     srVector3T<double> scale_location;
-    srMatrix3T<float> rotation;
-    srMatrix3T<float> next;
-    srMatrix3T<float> rep_rotation;
+    glm::mat3 rotation;
+    glm::mat3 next;
+    glm::mat3 rep_rotation;
     float inv;
 
     if (Rep()->active == 0) {
@@ -1025,7 +1026,19 @@ void W8Prop::AttachAnimationInstances(W8World* world)
             next = path->rotations[next_frame];
             instance->getRotation(previous_animation_rotation);
             if (!(rotation == next)) {
-                W8Quaternion::InterpolateRotation(rotation, next, anim_frame_fraction, &rotation);
+                const auto first_rotation = glm::dquat(glm::quat_cast(rotation));
+                auto next_rotation = glm::dquat(glm::quat_cast(next));
+                double rotation_dot = glm::dot(first_rotation, next_rotation);
+                if (rotation_dot < g_double_zero) {
+                    next_rotation = -next_rotation;
+                    rotation_dot = -rotation_dot;
+                }
+                const auto interpolated_rotation =
+                    g_double_one - rotation_dot <= g_slerp_epsilon
+                        ? first_rotation * (g_double_one - anim_frame_fraction) +
+                              next_rotation * double(anim_frame_fraction)
+                        : glm::slerp(first_rotation, next_rotation, double(anim_frame_fraction));
+                rotation = glm::mat3_cast(glm::normalize(interpolated_rotation));
             }
             animation_rotation = rotation;
             current = **path->nodes->GetAt(Rep()->subcycle);
@@ -1041,19 +1054,19 @@ void W8Prop::AttachAnimationInstances(W8World* world)
             node = instance->first_child_;
             if (node == 0) {
                 instance->setRotation(rotation);
-                location.SetFromFloat(&position);
+                location = glm::dvec3(position.glmValue());
                 instance->setLocation(location);
                 if (has_scales) {
-                    scale_location.SetFromFloat(&scale_vector);
+                    scale_location = glm::dvec3(scale_vector.glmValue());
                     instance->setScale(scale_location);
                 }
             } else {
                 do {
                     node->setRotation(rotation);
-                    location.SetFromFloat(&position);
+                    location = glm::dvec3(position.glmValue());
                     node->setLocation(location);
                     if (has_scales) {
-                        scale_location.SetFromFloat(&scale_vector);
+                        scale_location = glm::dvec3(scale_vector.glmValue());
                         node->setScale(scale_location);
                     }
                     node = node->next_sibling_;
@@ -1086,12 +1099,12 @@ void W8Prop::AttachAnimationInstances(W8World* world)
             Rep()->GetRotation(&rep_rotation);
             node = instance->first_child_;
             if (node == 0) {
-                location.SetFromFloat(&rep_position);
+                location = glm::dvec3(rep_position.glmValue());
                 instance->setLocation(location);
                 instance->setRotation(rep_rotation);
             } else {
                 do {
-                    location.SetFromFloat(&rep_position);
+                    location = glm::dvec3(rep_position.glmValue());
                     node->setLocation(location);
                     node->setRotation(rep_rotation);
                     node = node->next_sibling_;
@@ -1194,8 +1207,9 @@ try
         ApplyAnimationFrame();
     }
     return success;
+} catch (const std::exception&) {
+    return false;
 }
-catch (const std::exception&) { return false; }
 
 /* Union of the per-frame bounds over every frame of the rep's animation.
    The rep's current frame is saved, the bounds for frame zero seed the merge,
@@ -1758,8 +1772,9 @@ fail:
 fail_with_result:
     srAssertFail("fSuccess", PROP_CPP, fail_line, 0);
     return result;
+} catch (const std::exception&) {
+    return false;
 }
-catch (const std::exception&) { return false; }
 
 /* The prop representation's current animation value, or -1 while it owns no
    animation. */

@@ -25,6 +25,10 @@ sudo apt-get install ./libsdl3-mixer0_3.2.4+ds-1_amd64.deb \
     ./libsdl3-mixer-dev_3.2.4+ds-1_amd64.deb
 ```
 
+CMake downloads the pinned GLM 1.0.3 headers with a SHA-256 check during the first
+configuration. For an offline build, set `FETCHCONTENT_SOURCE_DIR_GLM` to a local
+GLM 1.0.3 checkout.
+
 Then build normally:
 
 ```sh

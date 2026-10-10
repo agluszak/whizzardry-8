@@ -1021,7 +1021,7 @@ void GetCatalogImagePosition(int object, int frame, int image, short* x, short* 
 unsigned char BlitCatalogSurfaceRectTo16BPP(UINT32 target, int left, int top, int right, int bottom,
                                             int object, int source_x, int source_y)
 {
-    SGPRect source_rect;
+    SDL_Rect source_rect;
     HVSURFACE source_surface;
     unsigned int target_pitch;
     unsigned int source_pitch;
@@ -1029,10 +1029,7 @@ unsigned char BlitCatalogSurfaceRectTo16BPP(UINT32 target, int left, int top, in
     unsigned char* target_pixels;
     unsigned char* source_pixels;
 
-    source_rect.iLeft = source_x;
-    source_rect.iTop = source_y;
-    source_rect.iRight = source_x + right - left;
-    source_rect.iBottom = source_y + bottom - top;
+    source_rect = {source_x, source_y, right - left, bottom - top};
 
     if (!gfVideoObjectsInit) {
         srAssertFail("VideoObjectsInitialized()", VIDEO_OBJECT_MANAGER_CPP, 0x19d, 0);

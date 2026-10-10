@@ -8,7 +8,6 @@
 #include "runtime_instrumentation.h"
 #endif
 #include "wiz8/engine_code/Video2.h"
-#include "wiz8/engine_code/Quality.h"
 #include "wiz8/layouts/screen_state.h"
 #include "wiz8/local_code/Gameloop.h"
 #include "wiz8/local_screens/Screens.h"
@@ -19,7 +18,6 @@
 #include "wiz8/engine_code/Prop.h"
 #include "wiz8/engine_code/Trigger.hpp"
 #include "wiz8/engine_code/World.h"
-#include "wiz8/engine_code/Octree.h"
 #include "wiz8/engine_code/game_timer.h"
 #include "wiz8/engine_code/stModelInstance.h"
 #include "wiz8/engine_code/Level.h"
@@ -67,7 +65,6 @@
 #include "vobject_blitters.h"
 #include "vsurface.h"
 #include "wiz8/local_code/ControlsRect.h"
-
 #include "compat/video.h"
 #include <SDL3/SDL.h>
 #include <math.h>
@@ -903,7 +900,12 @@ void RenderFrame(void)
         if (!IsSkyEnabled()) {
             GetWorldLightValue(g_world, &clear_color);
         } else {
-            clear_color.SetSaturated(g_world->static_scene->getFogColor());
+            {
+                const auto color_value = (g_world->static_scene->getFogColor()).glmValue();
+                static_cast<srVector3T<float>&>(clear_color) =
+                    glm::mix(glm::clamp(color_value, float(0), float(1)), glm::vec3(0),
+                             glm::lessThanEqual(color_value, glm::vec3(0)));
+            }
         }
     }
 
@@ -1148,7 +1150,12 @@ void GetWorldColour(EnvironmentColour* colour)
 {
     if (g_world != 0) {
         const srVector3T<float> fog = g_world->static_scene->getFogColor();
-        colour->SetSaturated(fog);
+        {
+            const auto color_value = fog.glmValue();
+            static_cast<srVector3T<float>&>(*colour) =
+                glm::mix(glm::clamp(color_value, float(0), float(1)), glm::vec3(0),
+                         glm::lessThanEqual(color_value, glm::vec3(0)));
+        }
         return;
     }
     colour->SetZero();
@@ -1519,28 +1526,28 @@ void GetCursorScaledPosition(srVector3T<float>* position)
 // FUNCTION: WIZ8 0x00428340
 void SyncSystemCursor(void)
 {
-    SGPPoint cursor;
+    SDL_Point cursor;
 
     GetGameMousePosition(&cursor);
     if (!g_fullscreen) {
         /* GetGameMousePosition already returns design-space coordinates. */
-        if (cursor.iX != g_cursor_width || cursor.iY != g_cursor_height) {
-            PositionMouseCursor(cursor.iX, cursor.iY, true);
+        if (cursor.x != g_cursor_width || cursor.y != g_cursor_height) {
+            PositionMouseCursor(cursor.x, cursor.y, true);
         }
         return;
     }
 
-    if (cursor.iX < 1)
-        cursor.iX = 0;
-    else if (cursor.iX >= 640)
-        cursor.iX = 640;
-    if (cursor.iY < 1)
-        cursor.iY = 0;
-    else if (cursor.iY >= 480)
-        cursor.iY = 480;
-    if (cursor.iX != g_cursor_width || cursor.iY != g_cursor_height) {
-        PositionMouseCursor(cursor.iX, cursor.iY, true);
-        WarpGameMouse(ghWindow, cursor.iX, cursor.iY);
+    if (cursor.x < 1)
+        cursor.x = 0;
+    else if (cursor.x >= 640)
+        cursor.x = 640;
+    if (cursor.y < 1)
+        cursor.y = 0;
+    else if (cursor.y >= 480)
+        cursor.y = 480;
+    if (cursor.x != g_cursor_width || cursor.y != g_cursor_height) {
+        PositionMouseCursor(cursor.x, cursor.y, true);
+        WarpGameMouse(ghWindow, cursor.x, cursor.y);
     }
 }
 
@@ -1548,22 +1555,22 @@ void SyncSystemCursor(void)
    refresh that recomputes them. Fifty callers reach this; what the two pairs
    mean is not established beyond the sum, so both keep address-qualified names. */
 // FUNCTION: WIZ8 0x004284f0
-void SGPMouseGetPos(SGPPoint* point)
+void SGPMouseGetPos(SDL_Point* point)
 {
     if (point != 0) {
         SyncSystemCursor();
-        point->iX = g_cursor_hotspot_x + g_cursor_width;
-        point->iY = g_cursor_hotspot_y + g_cursor_height;
+        point->x = g_cursor_hotspot_x + g_cursor_width;
+        point->y = g_cursor_hotspot_y + g_cursor_height;
     }
 }
 
 // FUNCTION: WIZ8 0x00428520
 bool IsCursorInRectangle(int left, int top, int right, int bottom)
 {
-    SGPPoint point;
+    SDL_Point point;
 
     SGPMouseGetPos(&point);
-    return point.iX >= left && point.iX <= right && point.iY >= top && point.iY <= bottom;
+    return point.x >= left && point.x <= right && point.y >= top && point.y <= bottom;
 }
 
 /* The atom's packed mouse position plus the cursor hotspot, split into the
@@ -2067,7 +2074,7 @@ unsigned char InitializeRendererSceneObjects(void)
     SurfaceLock surface_description{};
     srCamera::Rect view;
     std::shared_ptr<srMaterial> material;
-    srVector4T<float> material_value;
+    glm::vec4 material_value;
     char renderer_name[128];
 
     InitializeMouseSurface();
@@ -2139,9 +2146,9 @@ unsigned char InitializeRendererSceneObjects(void)
     material = std::make_shared<srMaterial>();
     g_blit_material = material;
     material->setName("Blit Rect Material");
-    material_value = 1.0f;
+    material_value = glm::vec4(1.0f);
     material->setEmissive(material_value);
-    material_value = 0.0f;
+    material_value = glm::vec4(0.0f);
     material->setDiffuse(material_value);
     material->setSpecular(material_value);
     material->setOpacity(1.0);
@@ -2182,7 +2189,8 @@ void ClearSurfaceRect(int left, unsigned int top, int right, unsigned int bottom
 {
     if (top >= bottom || left >= right)
         return;
-    const SGPRect rectangle{left, static_cast<INT32>(top), right, static_cast<INT32>(bottom)};
+    const SDL_Rect rectangle{left, static_cast<INT32>(top), right - left,
+                             static_cast<INT32>(bottom - top)};
     FillCpuSurface(*g_primary_surface, 0, &rectangle);
 }
 
@@ -2368,7 +2376,7 @@ BOOLEAN CheckCdPresent(void)
 }
 
 // FUNCTION: WIZ8 0x00427a70
-void VideoGetClientRect(SGPRect* rect)
+void VideoGetClientRect(SDL_Rect* rect)
 {
     *rect = {0, 0, 640, 480};
 }
@@ -2633,7 +2641,7 @@ stModelInstance2D* CreateSpriteFromVideoSurface(int target, const W8ControlsRect
 /* Builds a solid-color quad sprite. Width/height are pixel counts; color becomes
    the material emissive. Radar blip templates are the observed callers. */
 // FUNCTION: WIZ8 0x00424790
-stModelInstance2D* CreateColoredPolygonSprite(int width, int height, const srVector4T<float>* color,
+stModelInstance2D* CreateColoredPolygonSprite(int width, int height, const glm::vec4* color,
                                               bool fullscreen)
 {
     double scale_x = width * g_inverse_screen_width;
@@ -2649,8 +2657,8 @@ stModelInstance2D* CreateColoredPolygonSprite(int width, int height, const srVec
 
     auto material = std::make_shared<srMaterial>();
     material->setEmissive(*color);
-    srVector4T<float> zero;
-    zero.Set(0.0f, 0.0f, 0.0f, 0.0f);
+    glm::vec4 zero;
+    zero = glm::vec4(0.0f, 0.0f, 0.0f, 0.0f);
     material->setDiffuse(zero);
     material->setSpecular(zero);
     material->parms.shininess = 1.0f;
@@ -3243,7 +3251,7 @@ void DrawBufferLine(w8_long x0, w8_long y0, w8_long x1, w8_long y1, w8_ulong* pi
 }
 
 // FUNCTION: WIZ8 0x004273F0
-void GetScaledViewportBounds(srVector2T<float>* left_top, srVector2T<float>* right_bottom)
+void GetScaledViewportBounds(glm::vec2* left_top, glm::vec2* right_bottom)
 {
     left_top->x = g_viewport.left * g_viewport_x_scale;
     left_top->y = g_viewport.top * g_viewport_y_scale;

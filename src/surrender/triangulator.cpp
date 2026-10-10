@@ -3,7 +3,7 @@
 #include <algorithm>
 
 // FUNCTION: SURRENDER 0x1003bea0
-srTriangulator::srTriangulator(srVector2T<float>* points, int count)
+srTriangulator::srTriangulator(glm::vec2* points, int count)
     : nodes(std::max(count, 0)), remaining(count), points(points)
 {
     // Circular links from SURRENDER 0x1003c1e0. Storage never changes during clipping.
@@ -59,9 +59,9 @@ srVector3i srTriangulator::next()
 // FUNCTION: SURRENDER 0x1003bfa0
 int srTriangulator::satisfyConstraints(const Node* vertex)
 {
-    srVector2T<float> a = points[vertex->prev->index];
-    srVector2T<float> b = points[vertex->index];
-    srVector2T<float> c = points[vertex->next->index];
+    glm::vec2 a = points[vertex->prev->index];
+    glm::vec2 b = points[vertex->index];
+    glm::vec2 c = points[vertex->next->index];
     if ((c.y - b.y) * (a.x - b.x) - (a.y - b.y) * (c.x - b.x) <= 0.0) {
         return 0;
     }
@@ -76,9 +76,8 @@ int srTriangulator::satisfyConstraints(const Node* vertex)
 }
 
 // FUNCTION: SURRENDER 0x1003bee0
-int srTriangulator::sameSide(const srVector2T<float>& first_point,
-                             const srVector2T<float>& second_point, const srVector2T<float>& a,
-                             const srVector2T<float>& b)
+int srTriangulator::sameSide(const glm::vec2& first_point, const glm::vec2& second_point,
+                             const glm::vec2& a, const glm::vec2& b)
 {
     float first = (first_point.x - a.x) * (b.y - a.y) - (first_point.y - a.y) * (b.x - a.x);
     float second = (second_point.x - a.x) * (b.y - a.y) - (second_point.y - a.y) * (b.x - a.x);
@@ -86,8 +85,8 @@ int srTriangulator::sameSide(const srVector2T<float>& first_point,
 }
 
 // FUNCTION: SURRENDER 0x1003bf40
-int srTriangulator::isInsideTriangle(const srVector2T<float>& p, const srVector2T<float>& a,
-                                     const srVector2T<float>& b, const srVector2T<float>& c)
+int srTriangulator::isInsideTriangle(const glm::vec2& p, const glm::vec2& a, const glm::vec2& b,
+                                     const glm::vec2& c)
 {
     return sameSide(p, a, b, c) && sameSide(p, b, a, c) && sameSide(p, c, a, b);
 }

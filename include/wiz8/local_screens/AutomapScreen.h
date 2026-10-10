@@ -14,7 +14,7 @@ extern float g_automap_grid_cell_size;
 /* One map note. The text is separately malloc-owned and holds at most 39
    characters plus the terminator. */
 struct W8AutomapNote {
-    srVector2T<float> position;
+    glm::vec2 position;
     int layer;
     wchar_t* text;
 };

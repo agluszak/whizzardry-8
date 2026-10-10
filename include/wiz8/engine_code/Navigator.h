@@ -209,7 +209,7 @@ struct W8NavigatorMovementState {
     /* Reset installs the identity here; the constructor starts every row at
        zero before the owner calls Reset. MeasurePathDistance copies it as
        one 36-byte object (0x0045333F). */
-    srMatrix3T<float> basis;
+    glm::mat3 basis;
     W8NavigatorAttachment* attachment;
     /* Collision/path radius, initialized to 500 by the outer navigator and
        scaled with the navigator in SetScale. */

@@ -105,7 +105,7 @@ void NativeBltETRLEClip(UINT8* src, UINT8* dest, int top_skip, int left_skip,
 
 
 // GLOBAL: WIZ8 0x00600078
-SGPRect ClippingRect = {0, 0, 640, 480};
+SDL_Rect ClippingRect = {0, 0, 640, 480};
 //555      565
 UINT32 guiTranslucentMask = 0x3def; //0x7bef;		// mask for halving 5,6,5
 
@@ -132,7 +132,7 @@ BOOLEAN gfUsePreCalcSkips = FALSE;
 // FUNCTION: WIZ8 0x00410750
 BOOLEAN Blt8BPPDataTo8BPPBufferMonoShadowClip(UINT8* pBuffer, UINT32 uiDestPitchBYTES,
                                               HVOBJECT hSrcVObject, INT32 iX, INT32 iY,
-                                              UINT16 usIndex, SGPRect* clipregion,
+                                              UINT16 usIndex, SDL_Rect* clipregion,
                                               UINT8 ubForeground, UINT8 ubBackground)
 {
     UINT32 uiOffset;
@@ -157,17 +157,11 @@ BOOLEAN Blt8BPPDataTo8BPPBufferMonoShadowClip(UINT8* pBuffer, UINT32 uiDestPitch
     iTempX = iX + pTrav->sOffsetX;
     iTempY = iY + pTrav->sOffsetY;
 
-    if (clipregion == nullptr) {
-        ClipX1 = ClippingRect.iLeft;
-        ClipY1 = ClippingRect.iTop;
-        ClipX2 = ClippingRect.iRight;
-        ClipY2 = ClippingRect.iBottom;
-    } else {
-        ClipX1 = clipregion->iLeft;
-        ClipY1 = clipregion->iTop;
-        ClipX2 = clipregion->iRight;
-        ClipY2 = clipregion->iBottom;
-    }
+    const SDL_Rect& clip = clipregion ? *clipregion : ClippingRect;
+    ClipX1 = clip.x;
+    ClipY1 = clip.y;
+    ClipX2 = clip.x + clip.w;
+    ClipY2 = clip.y + clip.h;
 
     // Calculate rows hanging off each side of the screen
     LeftSkip = std::min(ClipX1 - std::min(ClipX1, iTempX), (INT32)usWidth);
@@ -212,7 +206,7 @@ BOOLEAN Blt8BPPDataTo8BPPBufferMonoShadowClip(UINT8* pBuffer, UINT32 uiDestPitch
 // FUNCTION: WIZ8 0x004109f0
 BOOLEAN Blt8BPPDataTo8BPPBufferTransparentClip(UINT16* pBuffer, UINT32 uiDestPitchBYTES,
                                                HVOBJECT hSrcVObject, INT32 iX, INT32 iY,
-                                               UINT16 usIndex, SGPRect* clipregion)
+                                               UINT16 usIndex, SDL_Rect* clipregion)
 {
     UINT32 uiOffset;
     UINT32 usHeight, usWidth;
@@ -237,17 +231,11 @@ BOOLEAN Blt8BPPDataTo8BPPBufferTransparentClip(UINT16* pBuffer, UINT32 uiDestPit
     iTempX = iX + pTrav->sOffsetX;
     iTempY = iY + pTrav->sOffsetY;
 
-    if (clipregion == nullptr) {
-        ClipX1 = ClippingRect.iLeft;
-        ClipY1 = ClippingRect.iTop;
-        ClipX2 = ClippingRect.iRight;
-        ClipY2 = ClippingRect.iBottom;
-    } else {
-        ClipX1 = clipregion->iLeft;
-        ClipY1 = clipregion->iTop;
-        ClipX2 = clipregion->iRight;
-        ClipY2 = clipregion->iBottom;
-    }
+    const SDL_Rect& clip = clipregion ? *clipregion : ClippingRect;
+    ClipX1 = clip.x;
+    ClipY1 = clip.y;
+    ClipX2 = clip.x + clip.w;
+    ClipY2 = clip.y + clip.h;
 
     // Calculate rows hanging off each side of the screen
     LeftSkip = std::min(ClipX1 - std::min(ClipX1, iTempX), (INT32)usWidth);
@@ -385,7 +373,7 @@ BOOLEAN Blt8BPPDataTo8BPPBufferShadow(UINT16* pBuffer, UINT32 uiDestPitchBYTES,
 // FUNCTION: WIZ8 0x00410ed0
 BOOLEAN Blt8BPPDataTo8BPPBufferShadowClip(UINT16* pBuffer, UINT32 uiDestPitchBYTES,
                                           HVOBJECT hSrcVObject, INT32 iX, INT32 iY, UINT16 usIndex,
-                                          SGPRect* clipregion)
+                                          SDL_Rect* clipregion)
 {
     UINT8* pPal8BPP;
     UINT32 uiOffset;
@@ -410,17 +398,11 @@ BOOLEAN Blt8BPPDataTo8BPPBufferShadowClip(UINT16* pBuffer, UINT32 uiDestPitchBYT
     iTempX = iX + pTrav->sOffsetX;
     iTempY = iY + pTrav->sOffsetY;
 
-    if (clipregion == nullptr) {
-        ClipX1 = ClippingRect.iLeft;
-        ClipY1 = ClippingRect.iTop;
-        ClipX2 = ClippingRect.iRight;
-        ClipY2 = ClippingRect.iBottom;
-    } else {
-        ClipX1 = clipregion->iLeft;
-        ClipY1 = clipregion->iTop;
-        ClipX2 = clipregion->iRight;
-        ClipY2 = clipregion->iBottom;
-    }
+    const SDL_Rect& clip = clipregion ? *clipregion : ClippingRect;
+    ClipX1 = clip.x;
+    ClipY1 = clip.y;
+    ClipX2 = clip.x + clip.w;
+    ClipY2 = clip.y + clip.h;
 
     // Calculate rows hanging off each side of the screen
     LeftSkip = std::min(ClipX1 - std::min(ClipX1, iTempX), (INT32)usWidth);
@@ -471,7 +453,7 @@ BOOLEAN Blt8BPPDataTo8BPPBufferShadowClip(UINT16* pBuffer, UINT32 uiDestPitchBYT
 // FUNCTION: WIZ8 0x00411190
 BOOLEAN Blt8BPPDataTo16BPPBufferMonoShadowClip(UINT16* pBuffer, UINT32 uiDestPitchBYTES,
                                                HVOBJECT hSrcVObject, INT32 iX, INT32 iY,
-                                               UINT16 usIndex, SGPRect* clipregion,
+                                               UINT16 usIndex, SDL_Rect* clipregion,
                                                UINT16 usForeground, UINT16 usBackground,
                                                UINT16 usShadow)
 {
@@ -497,17 +479,11 @@ BOOLEAN Blt8BPPDataTo16BPPBufferMonoShadowClip(UINT16* pBuffer, UINT32 uiDestPit
     iTempX = iX + pTrav->sOffsetX;
     iTempY = iY + pTrav->sOffsetY;
 
-    if (clipregion == nullptr) {
-        ClipX1 = ClippingRect.iLeft;
-        ClipY1 = ClippingRect.iTop;
-        ClipX2 = ClippingRect.iRight;
-        ClipY2 = ClippingRect.iBottom;
-    } else {
-        ClipX1 = clipregion->iLeft;
-        ClipY1 = clipregion->iTop;
-        ClipX2 = clipregion->iRight;
-        ClipY2 = clipregion->iBottom;
-    }
+    const SDL_Rect& clip = clipregion ? *clipregion : ClippingRect;
+    ClipX1 = clip.x;
+    ClipY1 = clip.y;
+    ClipX2 = clip.x + clip.w;
+    ClipY2 = clip.y + clip.h;
 
     // Calculate rows hanging off each side of the screen
     LeftSkip = std::min(ClipX1 - std::min(ClipX1, iTempX), (INT32)usWidth);
@@ -639,7 +615,7 @@ BOOLEAN Blt16BPPTo16BPPMirror(UINT16* pDest, UINT32 uiDestPitch, UINT16* pSrc, U
     UINT16 *pSrcPtr, *pDestPtr;
     INT32 RightSkip, LeftSkip, TopSkip, BottomSkip, BlitLength, BlitHeight;
     INT32 iTempX, iTempY, ClipX1, ClipY1, ClipX2, ClipY2;
-    SGPRect* clipregion = nullptr;
+    SDL_Rect* clipregion = nullptr;
 
     Assert(pDest != nullptr);
     Assert(pSrc != nullptr);
@@ -649,15 +625,15 @@ BOOLEAN Blt16BPPTo16BPPMirror(UINT16* pDest, UINT32 uiDestPitch, UINT16* pSrc, U
     iTempY = iDestYPos;
 
     if (clipregion == nullptr) {
-        ClipX1 = 0;   //ClippingRect.iLeft;
-        ClipY1 = 0;   //ClippingRect.iTop;
-        ClipX2 = 640; //ClippingRect.iRight;
-        ClipY2 = 480; //ClippingRect.iBottom;
+        ClipX1 = 0;   //ClippingRect.x;
+        ClipY1 = 0;   //ClippingRect.y;
+        ClipX2 = 640; //(ClippingRect.x + ClippingRect.w);
+        ClipY2 = 480; //(ClippingRect.y + ClippingRect.h);
     } else {
-        ClipX1 = clipregion->iLeft;
-        ClipY1 = clipregion->iTop;
-        ClipX2 = clipregion->iRight;
-        ClipY2 = clipregion->iBottom;
+        ClipX1 = clipregion->x;
+        ClipY1 = clipregion->y;
+        ClipX2 = (clipregion->x + clipregion->w);
+        ClipY2 = (clipregion->y + clipregion->h);
     }
 
     // Calculate rows hanging off each side of the screen
@@ -800,7 +776,7 @@ BlitNTL10:
 // FUNCTION: WIZ8 0x00411730
 BOOLEAN Blt8BPPDataSubTo16BPPBuffer(UINT16* pBuffer, UINT32 uiDestPitchBYTES,
                                     HVSURFACE hSrcVSurface, UINT8* pSrcBuffer, UINT32 uiSrcPitch,
-                                    INT32 iX, INT32 iY, SGPRect* pRect)
+                                    INT32 iX, INT32 iY, SDL_Rect* pRect)
 {
     UINT16* p16BPPPalette;
     UINT8 *SrcPtr, *DestPtr;
@@ -820,10 +796,10 @@ BOOLEAN Blt8BPPDataSubTo16BPPBuffer(UINT16* pBuffer, UINT32 uiDestPitchBYTES,
     CHECKF(iTempX >= 0);
     CHECKF(iTempY >= 0);
 
-    LeftSkip = pRect->iLeft;
-    TopSkip = pRect->iTop * uiSrcPitch;
-    BlitLength = pRect->iRight - pRect->iLeft;
-    BlitHeight = pRect->iBottom - pRect->iTop;
+    LeftSkip = pRect->x;
+    TopSkip = pRect->y * uiSrcPitch;
+    BlitLength = pRect->w;
+    BlitHeight = pRect->h;
 
     SrcPtr = (UINT8*)(pSrcBuffer + TopSkip + LeftSkip);
     DestPtr = ((UINT8*)pBuffer + (uiDestPitchBYTES * iTempY) + (iTempX * 2));
@@ -843,21 +819,21 @@ BOOLEAN Blt8BPPDataSubTo16BPPBuffer(UINT16* pBuffer, UINT32 uiDestPitchBYTES,
 /****************************INCOMPLETE***********************************************/
 
 // FUNCTION: WIZ8 0x004117f0
-void SetClippingRect(SGPRect* clip)
+void SetClippingRect(SDL_Rect* clip)
 {
     Assert(clip != nullptr);
-    Assert(clip->iLeft < clip->iRight);
-    Assert(clip->iTop < clip->iBottom);
+    Assert(clip->w > 0);
+    Assert(clip->h > 0);
 
-    memcpy(&ClippingRect, clip, sizeof(SGPRect));
+    memcpy(&ClippingRect, clip, sizeof(SDL_Rect));
 }
 
 // FUNCTION: WIZ8 0x00411820
-void GetClippingRect(SGPRect* clip)
+void GetClippingRect(SDL_Rect* clip)
 {
     Assert(clip != nullptr);
 
-    memcpy(clip, &ClippingRect, sizeof(SGPRect));
+    memcpy(clip, &ClippingRect, sizeof(SDL_Rect));
 }
 
 /**********************************************************************************************
@@ -881,7 +857,7 @@ void GetClippingRect(SGPRect* clip)
 
 *********************************************************************************************/
 // FUNCTION: WIZ8 0x00411850
-BOOLEAN Blt16BPPBufferPixelateRectWithColor(UINT16* pBuffer, UINT32 uiDestPitchBYTES, SGPRect* area,
+BOOLEAN Blt16BPPBufferPixelateRectWithColor(UINT16* pBuffer, UINT32 uiDestPitchBYTES, SDL_Rect* area,
                                             UINT8 Pattern[8][8], UINT16 usColor)
 {
     INT32 width, height;
@@ -892,10 +868,10 @@ BOOLEAN Blt16BPPBufferPixelateRectWithColor(UINT16* pBuffer, UINT32 uiDestPitchB
     Assert(pBuffer != nullptr);
     Assert(Pattern != nullptr);
 
-    iLeft = std::max(ClippingRect.iLeft, area->iLeft);
-    iTop = std::max(ClippingRect.iTop, area->iTop);
-    iRight = std::min(ClippingRect.iRight - 1, area->iRight);
-    iBottom = std::min(ClippingRect.iBottom - 1, area->iBottom);
+    iLeft = std::max(ClippingRect.x, area->x);
+    iTop = std::max(ClippingRect.y, area->y);
+    iRight = std::min((ClippingRect.x + ClippingRect.w) - 1, (area->x + area->w));
+    iBottom = std::min((ClippingRect.y + ClippingRect.h) - 1, (area->y + area->h));
 
     DestPtr = (pBuffer + (iTop * (uiDestPitchBYTES / 2)) + iLeft);
     width = iRight - iLeft + 1;
@@ -921,7 +897,7 @@ BOOLEAN Blt16BPPBufferPixelateRectWithColor(UINT16* pBuffer, UINT32 uiDestPitchB
 
 //Uses black hatch color
 // FUNCTION: WIZ8 0x00411930
-BOOLEAN Blt16BPPBufferHatchRect(UINT16* pBuffer, UINT32 uiDestPitchBYTES, SGPRect* area)
+BOOLEAN Blt16BPPBufferHatchRect(UINT16* pBuffer, UINT32 uiDestPitchBYTES, SDL_Rect* area)
 {
     UINT8 Pattern[8][8] = {
         {1, 0, 1, 0, 1, 0, 1, 0}, {0, 1, 0, 1, 0, 1, 0, 1}, {1, 0, 1, 0, 1, 0, 1, 0},
@@ -1093,7 +1069,7 @@ BOOLEAN Blt8BPPDataTo16BPPBufferTransMirror(UINT16* pBuffer, UINT32 uiDestPitchB
 // FUNCTION: WIZ8 0x00411de0
 BOOLEAN Blt8BPPDataTo16BPPBufferTransparentClip(UINT16* pBuffer, UINT32 uiDestPitchBYTES,
                                                 HVOBJECT hSrcVObject, INT32 iX, INT32 iY,
-                                                UINT16 usIndex, SGPRect* clipregion)
+                                                UINT16 usIndex, SDL_Rect* clipregion)
 {
     UINT16* p16BPPPalette;
     UINT32 uiOffset;
@@ -1118,17 +1094,11 @@ BOOLEAN Blt8BPPDataTo16BPPBufferTransparentClip(UINT16* pBuffer, UINT32 uiDestPi
     iTempX = iX + pTrav->sOffsetX;
     iTempY = iY + pTrav->sOffsetY;
 
-    if (clipregion == nullptr) {
-        ClipX1 = ClippingRect.iLeft;
-        ClipY1 = ClippingRect.iTop;
-        ClipX2 = ClippingRect.iRight;
-        ClipY2 = ClippingRect.iBottom;
-    } else {
-        ClipX1 = clipregion->iLeft;
-        ClipY1 = clipregion->iTop;
-        ClipX2 = clipregion->iRight;
-        ClipY2 = clipregion->iBottom;
-    }
+    const SDL_Rect& clip = clipregion ? *clipregion : ClippingRect;
+    ClipX1 = clip.x;
+    ClipY1 = clip.y;
+    ClipX2 = clip.x + clip.w;
+    ClipY2 = clip.y + clip.h;
 
     // Calculate rows hanging off each side of the screen
     LeftSkip = std::min(ClipX1 - std::min(ClipX1, iTempX), (INT32)usWidth);
@@ -1167,7 +1137,7 @@ BOOLEAN Blt8BPPDataTo16BPPBufferTransparentClip(UINT16* pBuffer, UINT32 uiDestPi
 
 **********************************************************************************************/
 // FUNCTION: WIZ8 0x004120b0
-BOOLEAN BltIsClipped(HVOBJECT hSrcVObject, INT32 iX, INT32 iY, UINT16 usIndex, SGPRect* clipregion)
+BOOLEAN BltIsClipped(HVOBJECT hSrcVObject, INT32 iX, INT32 iY, UINT16 usIndex, SDL_Rect* clipregion)
 {
     UINT32 usHeight, usWidth;
     ETRLEObject* pTrav;
@@ -1186,17 +1156,11 @@ BOOLEAN BltIsClipped(HVOBJECT hSrcVObject, INT32 iX, INT32 iY, UINT16 usIndex, S
     iTempX = iX + pTrav->sOffsetX;
     iTempY = iY + pTrav->sOffsetY;
 
-    if (clipregion == nullptr) {
-        ClipX1 = ClippingRect.iLeft;
-        ClipY1 = ClippingRect.iTop;
-        ClipX2 = ClippingRect.iRight;
-        ClipY2 = ClippingRect.iBottom;
-    } else {
-        ClipX1 = clipregion->iLeft;
-        ClipY1 = clipregion->iTop;
-        ClipX2 = clipregion->iRight;
-        ClipY2 = clipregion->iBottom;
-    }
+    const SDL_Rect& clip = clipregion ? *clipregion : ClippingRect;
+    ClipX1 = clip.x;
+    ClipY1 = clip.y;
+    ClipX2 = clip.x + clip.w;
+    ClipY2 = clip.y + clip.h;
 
     // Calculate rows hanging off each side of the screen
     if (std::min(ClipX1 - std::min(ClipX1, iTempX), (INT32)usWidth))
@@ -1225,7 +1189,7 @@ BOOLEAN BltIsClipped(HVOBJECT hSrcVObject, INT32 iX, INT32 iY, UINT16 usIndex, S
 // FUNCTION: WIZ8 0x004121e0
 BOOLEAN Blt8BPPDataTo16BPPBufferShadowClip(UINT16* pBuffer, UINT32 uiDestPitchBYTES,
                                            HVOBJECT hSrcVObject, INT32 iX, INT32 iY, UINT16 usIndex,
-                                           SGPRect* clipregion)
+                                           SDL_Rect* clipregion)
 {
     UINT32 uiOffset;
     UINT32 usHeight, usWidth;
@@ -1249,17 +1213,11 @@ BOOLEAN Blt8BPPDataTo16BPPBufferShadowClip(UINT16* pBuffer, UINT32 uiDestPitchBY
     iTempX = iX + pTrav->sOffsetX;
     iTempY = iY + pTrav->sOffsetY;
 
-    if (clipregion == nullptr) {
-        ClipX1 = ClippingRect.iLeft;
-        ClipY1 = ClippingRect.iTop;
-        ClipX2 = ClippingRect.iRight;
-        ClipY2 = ClippingRect.iBottom;
-    } else {
-        ClipX1 = clipregion->iLeft;
-        ClipY1 = clipregion->iTop;
-        ClipX2 = clipregion->iRight;
-        ClipY2 = clipregion->iBottom;
-    }
+    const SDL_Rect& clip = clipregion ? *clipregion : ClippingRect;
+    ClipX1 = clip.x;
+    ClipY1 = clip.y;
+    ClipX2 = clip.x + clip.w;
+    ClipY2 = clip.y + clip.h;
 
     // Calculate rows hanging off each side of the screen
     LeftSkip = std::min(ClipX1 - std::min(ClipX1, iTempX), (INT32)usWidth);
@@ -1297,11 +1255,11 @@ BOOLEAN Blt8BPPDataTo16BPPBufferShadowClip(UINT16* pBuffer, UINT32 uiDestPitchBY
 
 	pBuffer						Pointer to a 16BPP buffer
 	uiDestPitchBytes	Pitch of the destination surface
-	area							An SGPRect, the area to darken
+	area							An SDL_Rect, the area to darken
 
 *********************************************************************************************/
 // FUNCTION: WIZ8 0x004124a0
-BOOLEAN Blt16BPPBufferShadowRect(UINT16* pBuffer, UINT32 uiDestPitchBYTES, SGPRect* area)
+BOOLEAN Blt16BPPBufferShadowRect(UINT16* pBuffer, UINT32 uiDestPitchBYTES, SDL_Rect* area)
 {
     INT32 width, height;
     UINT16* DestPtr;
@@ -1310,22 +1268,26 @@ BOOLEAN Blt16BPPBufferShadowRect(UINT16* pBuffer, UINT32 uiDestPitchBYTES, SGPRe
     Assert(pBuffer != nullptr);
 
     // Clipping
-    if (area->iLeft < ClippingRect.iLeft)
-        area->iLeft = ClippingRect.iLeft;
-    if (area->iTop < ClippingRect.iTop)
-        area->iTop = ClippingRect.iTop;
-    if (area->iRight >= ClippingRect.iRight)
-        area->iRight = ClippingRect.iRight - 1;
-    if (area->iBottom >= ClippingRect.iBottom)
-        area->iBottom = ClippingRect.iBottom - 1;
-    //CHECKF(area->iLeft >= ClippingRect.iLeft );
-    //CHECKF(area->iTop >= ClippingRect.iTop );
-    //CHECKF(area->iRight <= ClippingRect.iRight );
-    //CHECKF(area->iBottom <= ClippingRect.iBottom );
+    if (area->x < ClippingRect.x) {
+        area->w += area->x - ClippingRect.x;
+        area->x = ClippingRect.x;
+    }
+    if (area->y < ClippingRect.y) {
+        area->h += area->y - ClippingRect.y;
+        area->y = ClippingRect.y;
+    }
+    if ((area->x + area->w) >= (ClippingRect.x + ClippingRect.w))
+        area->w = ((ClippingRect.x + ClippingRect.w) - 1) - area->x;
+    if ((area->y + area->h) >= (ClippingRect.y + ClippingRect.h))
+        area->h = ((ClippingRect.y + ClippingRect.h) - 1) - area->y;
+    //CHECKF(area->x >= ClippingRect.x );
+    //CHECKF(area->y >= ClippingRect.y );
+    //CHECKF((area->x + area->w) <= (ClippingRect.x + ClippingRect.w) );
+    //CHECKF((area->y + area->h) <= (ClippingRect.y + ClippingRect.h) );
 
-    DestPtr = (pBuffer + (area->iTop * (uiDestPitchBYTES / 2)) + area->iLeft);
-    width = area->iRight - area->iLeft + 1;
-    height = area->iBottom - area->iTop + 1;
+    DestPtr = (pBuffer + (area->y * (uiDestPitchBYTES / 2)) + area->x);
+    width = area->w + 1;
+    height = area->h + 1;
 
     CHECKF(width >= 1);
     CHECKF(height >= 1);
@@ -1348,12 +1310,12 @@ BOOLEAN Blt16BPPBufferShadowRect(UINT16* pBuffer, UINT32 uiDestPitchBYTES, SGPRe
 
 	pBuffer						Pointer to a 16BPP buffer
 	uiDestPitchBytes	Pitch of the destination surface
-	area							An SGPRect, the area to darken
+	area							An SDL_Rect, the area to darken
 
 *********************************************************************************************/
 // FUNCTION: WIZ8 0x00412570
 BOOLEAN Blt16BPPBufferShadowRectAlternateTable(UINT16* pBuffer, UINT32 uiDestPitchBYTES,
-                                               SGPRect* area)
+                                               SDL_Rect* area)
 {
     INT32 width, height;
     UINT16* DestPtr;
@@ -1362,22 +1324,26 @@ BOOLEAN Blt16BPPBufferShadowRectAlternateTable(UINT16* pBuffer, UINT32 uiDestPit
     Assert(pBuffer != nullptr);
 
     // Clipping
-    if (area->iLeft < ClippingRect.iLeft)
-        area->iLeft = ClippingRect.iLeft;
-    if (area->iTop < ClippingRect.iTop)
-        area->iTop = ClippingRect.iTop;
-    if (area->iRight >= ClippingRect.iRight)
-        area->iRight = ClippingRect.iRight - 1;
-    if (area->iBottom >= ClippingRect.iBottom)
-        area->iBottom = ClippingRect.iBottom - 1;
-    //CHECKF(area->iLeft >= ClippingRect.iLeft );
-    //CHECKF(area->iTop >= ClippingRect.iTop );
-    //CHECKF(area->iRight <= ClippingRect.iRight );
-    //CHECKF(area->iBottom <= ClippingRect.iBottom );
+    if (area->x < ClippingRect.x) {
+        area->w += area->x - ClippingRect.x;
+        area->x = ClippingRect.x;
+    }
+    if (area->y < ClippingRect.y) {
+        area->h += area->y - ClippingRect.y;
+        area->y = ClippingRect.y;
+    }
+    if ((area->x + area->w) >= (ClippingRect.x + ClippingRect.w))
+        area->w = ((ClippingRect.x + ClippingRect.w) - 1) - area->x;
+    if ((area->y + area->h) >= (ClippingRect.y + ClippingRect.h))
+        area->h = ((ClippingRect.y + ClippingRect.h) - 1) - area->y;
+    //CHECKF(area->x >= ClippingRect.x );
+    //CHECKF(area->y >= ClippingRect.y );
+    //CHECKF((area->x + area->w) <= (ClippingRect.x + ClippingRect.w) );
+    //CHECKF((area->y + area->h) <= (ClippingRect.y + ClippingRect.h) );
 
-    DestPtr = (pBuffer + (area->iTop * (uiDestPitchBYTES / 2)) + area->iLeft);
-    width = area->iRight - area->iLeft + 1;
-    height = area->iBottom - area->iTop + 1;
+    DestPtr = (pBuffer + (area->y * (uiDestPitchBYTES / 2)) + area->x);
+    width = area->w + 1;
+    height = area->h + 1;
 
     CHECKF(width >= 1);
     CHECKF(height >= 1);

@@ -362,7 +362,7 @@ void W8NavigatorMovementState::Reset()
     target_location_id = -1;
     movement_scale = 1.0f;
     movement_speed = 1.0f;
-    basis.SetIdentity();
+    basis = glm::mat3(1);
 }
 
 /* The whole 0xCC tail starts cleared apart from a unit movement speed, the byte
@@ -399,9 +399,7 @@ W8NavigatorMovementState::W8NavigatorMovementState()
     vertical_base = 0.0f;
     vertical_amplitude = 0.0f;
     vertical_phase = 0.0f;
-    basis.vectors[0].SetZero();
-    basis.vectors[1] = basis.vectors[0];
-    basis.vectors[2] = basis.vectors[0];
+    basis = glm::mat3(0);
     attachment = new W8NavigatorAttachment();
     flags = 0;
 }
@@ -701,8 +699,9 @@ try
     halted = false;
     movement_target = movement.attachment->path_destination;
     return 1;
+} catch (const std::exception&) {
+    return false;
 }
-catch (const std::exception&) { return false; }
 
 void W8Navigator::CopyPathToGroup()
 {
@@ -1067,7 +1066,7 @@ void W8Navigator::UpdateFacing(bool immediate)
     forward.RotateAboutY(sin(movement.yaw), cos(movement.yaw));
     g_octree->GetPathSurfaceNormal(&movement.position, &normal);
     if (movement.pitch_enabled) {
-        float angle = static_cast<float>(acos(DotProduct(normal, forward)));
+        float angle = static_cast<float>(acos(glm::dot(normal.glmValue(), forward.glmValue())));
         if (angle < g_quarter_turn) {
             angle += NAVIGATOR_THREE_QUARTER_TURN;
         } else {
@@ -1080,7 +1079,7 @@ void W8Navigator::UpdateFacing(bool immediate)
     }
     if (movement.roll_enabled) {
         srVector3T<float> side(-forward.z, 0.0f, forward.x);
-        float angle = static_cast<float>(acos(DotProduct(side, normal)));
+        float angle = static_cast<float>(acos(glm::dot(side.glmValue(), normal.glmValue())));
         if (angle < g_quarter_turn) {
             angle += NAVIGATOR_THREE_QUARTER_TURN;
         } else {
@@ -1275,7 +1274,7 @@ bool W8NavigatorAttachment::AdvanceAlongPathPositions(float distance, srVector3T
     }
     flags &= ~W8_NAV_ATTACHMENT_PATH_LENGTH_CACHED;
     delta = path_positions[path_cursor] - local;
-    segment = delta.xz().Length();
+    segment = glm::length(((delta.xz())));
     if (segment < g_double_one && path_cursor == path_position_index) {
         return false;
     }
@@ -1292,7 +1291,7 @@ bool W8NavigatorAttachment::AdvanceAlongPathPositions(float distance, srVector3T
                samples one slot past path_position_index, inside the
                ten-entry allocation but never initialized. */
             delta = path_positions[path_cursor] - local;
-            segment = delta.xz().Length();
+            segment = glm::length(((delta.xz())));
         } while (segment < distance);
     }
     if (path_position_index < path_cursor) {
@@ -1322,9 +1321,9 @@ bool W8NavigatorAttachment::CheckPositionHopHeight(const srVector3T<float>* posi
 {
     int base;
     int end;
-    srVector2T<float> point;
-    srVector2T<float> from;
-    srVector2T<float> to;
+    glm::vec2 point;
+    glm::vec2 from;
+    glm::vec2 to;
     float fraction;
     float distance;
     float from_height;
@@ -1355,9 +1354,9 @@ bool W8NavigatorAttachment::CheckPositionHopHeight(const srVector3T<float>* posi
 // FUNCTION: WIZ8 0x00456DD0
 bool W8NavigatorAttachment::CheckPredictedHopHeight(const srVector3T<float>* position)
 {
-    srVector2T<float> point;
-    srVector2T<float> from;
-    srVector2T<float> to;
+    glm::vec2 point;
+    glm::vec2 from;
+    glm::vec2 to;
     float fraction;
     float distance;
     float other_fraction;
@@ -1395,10 +1394,10 @@ bool W8NavigatorAttachment::CheckPredictedHopHeight(const srVector3T<float>* pos
 bool W8NavigatorAttachment::AdvancePositionTowardWaypoint(srVector3T<float>* position,
                                                           float distance)
 {
-    srVector2T<float> point;
-    srVector2T<float> from;
-    srVector2T<float> to;
-    srVector2T<float> dir;
+    glm::vec2 point;
+    glm::vec2 from;
+    glm::vec2 to;
+    glm::vec2 dir;
     float fraction;
     float remainder;
     float segment;
@@ -1410,7 +1409,7 @@ bool W8NavigatorAttachment::AdvancePositionTowardWaypoint(srVector3T<float>* pos
     PointToSegmentDistance2D(&point, &from, &to, true, &fraction);
     dir.x = to.x - from.x;
     dir.y = to.y - from.y;
-    remainder = (g_float_one - fraction) * dir.Length();
+    remainder = (g_float_one - fraction) * glm::length(dir);
     if (distance <= remainder) {
         reached = false;
     } else {
@@ -1420,7 +1419,7 @@ bool W8NavigatorAttachment::AdvancePositionTowardWaypoint(srVector3T<float>* pos
             point = to;
             dir.x = path_positions[path_cursor + 1].x - to.x;
             dir.y = path_positions[path_cursor + 1].z - to.y;
-            remainder = dir.Length();
+            remainder = glm::length(dir);
         }
     }
     if (remainder < distance) {
@@ -1431,7 +1430,7 @@ bool W8NavigatorAttachment::AdvancePositionTowardWaypoint(srVector3T<float>* pos
         position->z = point.y;
         return reached;
     }
-    segment = dir.Length();
+    segment = glm::length(dir);
     if (segment != g_double_zero) {
         distance /= segment;
         dir.x *= distance;
@@ -1832,7 +1831,7 @@ void W8Navigator::SetPositionInternal(const srVector3T<float>* position)
     if (position->x != movement.position.x || position->y != movement.position.y ||
         position->z != movement.position.z) {
         movement.position = *position;
-        widened.SetFromFloat(position);
+        widened = glm::dvec3(position->glmValue());
         node->setLocation(widened);
         if (movement.location_id != 0 || this == g_startup_world) {
             g_navigator_position_changed = true;

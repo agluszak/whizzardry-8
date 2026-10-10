@@ -1,8 +1,8 @@
 #include "wiz8/filesystem.h"
 #include <cstring>
 #include <math.h>
-
 #include "wiz8/engine_code/Environment.h"
+
 #include "wiz8/engine_code/3d.h"
 #include "wiz8/engine_code/Prop.h"
 #include "wiz8/engine_code/stLight.hpp"
@@ -27,6 +27,7 @@
 #include "wiz8/local_code/GameplayTime.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/engine_code/Monster.h"
+#include <glm/gtc/matrix_transform.hpp>
 
 #define ENVIRONMENT_CPP "C:\\Projects\\Wizardry 8\\Engine Code\\Environment.cpp"
 
@@ -97,7 +98,7 @@ void W8MaterialMapper::process(srVertexPipe& pipe)
         return;
     }
     w8_ulong count = pipe.getVertexCount();
-    srVector2T<float>* coordinates = pipe.getST(0, 0);
+    glm::vec2* coordinates = pipe.getST(0, 0);
 
     offset_x = scroll_rate_u * g_frame_elapsed + scroll_u;
     scroll_u = offset_x - static_cast<float>(floor(offset_x));
@@ -157,15 +158,13 @@ void AdvanceEnvironmentTime(int elapsed)
     srVector3T<float> direction;
     direction.Set(0.0, g_celestial_orbit_radius, 0.0);
 
-    srMatrix3T<float> rotation;
-    rotation.SetIdentity();
+    glm::mat3 rotation;
+    rotation = glm::mat3(1);
 
     angle -= 3.141592653589793 * (1.0f / 180.0f) * 40.0;
-    if (angle != 0.0) {
-        rotation.RotateAboutZ(sin(angle), cos(angle));
-    }
+    rotation *= glm::mat3_cast(glm::angleAxis(float(angle), glm::vec3(0, 0, 1)));
 
-    srVector3T<float> position = rotation.Transform(direction) + g_celestial_origin;
+    srVector3T<float> position = rotation * direction.glmValue() + g_celestial_origin.glmValue();
 
     W8Prop* moving = day ? g_sun_prop : g_moon_prop;
     W8Prop* opposite = day ? g_moon_prop : g_sun_prop;
@@ -277,8 +276,9 @@ try
         ClampEnvironmentComponent(g_environment_colours1[index].z);
     }
     return 1;
+} catch (const std::exception&) {
+    return false;
 }
-catch (const std::exception&) { return false; }
 
 // FUNCTION: WIZ8 0x004830D0
 BOOLEAN ReadEnvironmentColourTable(wiz8::File* hFile)
@@ -301,8 +301,9 @@ try
         ClampEnvironmentComponent(g_environment_colours0[index].z);
     }
     return 1;
+} catch (const std::exception&) {
+    return false;
 }
-catch (const std::exception&) { return false; }
 
 // FUNCTION: WIZ8 0x00483210
 void BuildEnvironmentColourRamp(void)

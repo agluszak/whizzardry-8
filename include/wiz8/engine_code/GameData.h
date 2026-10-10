@@ -98,14 +98,15 @@ struct W8LevelDataRecord {
        party movement; returns non-zero when a clamp fired. */
     unsigned char ClampCameraToBounds(const srVector3T<float>* minimum,
                                       const srVector3T<float>* maximum);
-    /* 0x0041FF00: toggle setting-6e props referenced by primary_contact_prop_id/secondary_contact_prop_id. */
+    /* 0x0041FF00: toggle setting-6e props referenced by
+     * primary_contact_prop_id/secondary_contact_prop_id. */
     unsigned char ToggleBoundProps();
     /* 0x00420470: integrate camera_motion_velocity into motion_velocity/integrated_motion. */
     bool IntegrateCameraForward();
     /* 0x00420810: rotate motion_input by the saved yaw matrix and refresh
        motion_displacement; returns the updated fast-move latch. */
     unsigned char ApplySavedMotionMatrix(unsigned char prior_fast, bool fast_move,
-                                         const srMatrix3T<float>* saved);
+                                         const glm::mat3* saved);
     /* 0x0041FF90: advance movement progress / footstep state for one tick. */
     void UpdateMotionProgress(unsigned char fast_move, unsigned char moved);
     /* 0x00420A60: accumulate footstep distance and optionally play a step. */
@@ -233,12 +234,11 @@ struct W8GameData {
     /* 0x0041F330: apply world-render camera-motion flags into `rotation` and
        mirror the result into `saved`. Retail call sites pass the owning
        W8GameData in ECX even though the body reads only globals. */
-    void ApplyCameraMotionFlags(unsigned int flags, srMatrix3T<float>* rotation,
-                                srMatrix3T<float>* saved);
+    void ApplyCameraMotionFlags(unsigned int flags, glm::mat3* rotation, glm::mat3* saved);
     /* 0x0041F5F0: advance the camera position under the same flag set; writes
        the delta into `delta` and answers whether the position changed. */
     unsigned char ApplyCameraMotion(unsigned int flags, srVector3T<float>* position,
-                                    srVector3T<float>* delta, srMatrix3T<float>* saved);
+                                    srVector3T<float>* delta, glm::mat3* saved);
     /* 0x0041AB40: advance camera under environment-load motion, tracing
        props/octree/geometry and applying crossed surfaces. */
     unsigned char AdvanceEnvironmentMotion();
@@ -407,12 +407,12 @@ void CameraLookAt(const srVector3T<float>* position);     /* 0x00420F90 */
 void CameraSnapToTarget(const srVector3T<float>* target); /* 0x00420FB0 */
 void TurnCameraToDegrees(float degrees);
 void SetCameraYawDegrees(float degrees);
-void ApplyCameraRotation(srMatrix3T<float>* rotation);
+void ApplyCameraRotation(glm::mat3* rotation);
 void SetCameraOrientation(W8CameraAngleRecord angle, W8CameraAngleRecord pitch,
-                          srMatrix3T<float>* rotation);
+                          glm::mat3* rotation);
 /* 0x00420F40: camera yaw in whole degrees plus an optional yaw-rotation
    matrix copy. */
-int GetCameraYawAndRotation(srMatrix3T<float>* rotation);
+int GetCameraYawAndRotation(glm::mat3* rotation);
 /* 0x00421440: project `vector` onto `onto` in place; fails on a degenerate
    target direction. */
 unsigned char ProjectVectorOntoVector(srVector3T<float>* vector, const srVector3T<float>* onto);

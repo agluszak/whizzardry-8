@@ -304,8 +304,9 @@ try
             FormatString("GrCycle::Read: ERROR - Read %s in %s failed", mon_path, bitmap_path));
     }
     return success;
+} catch (const std::exception&) {
+    return false;
 }
-catch (const std::exception&) { return false; }
 
 /* Read the shared path and particle prefix, then dispatch the object-specific
    representation payload.  A particle attachment keeps the source node plus
@@ -408,8 +409,9 @@ try
         break;
     }
     return success;
+} catch (const std::exception&) {
+    return false;
 }
-catch (const std::exception&) { return false; }
 
 // FUNCTION: WIZ8 0x004a5e50
 W8GrCycle::W8GrCycle()
@@ -875,7 +877,7 @@ void W8GrCycle::UpdateRepresentation(W8World* pWorld)
 {
     W8EmitterHost* pRep = GetRepresentation();
     W8AnimObj* animation;
-    srMatrix3T<float> rotation;
+    glm::mat3 rotation;
     srVector3T<double> location;
     srVector3T<float> vecPos;
     int index;
@@ -894,7 +896,7 @@ void W8GrCycle::UpdateRepresentation(W8World* pWorld)
             stModelInstance* psrMesh = static_cast<stModelInstance*>(
                 AnimObjDispatchList(animation, pRep->m_bLOD, static_cast<signed char>(index)));
             W8PathAI* path;
-            srMatrix3T<float> current;
+            glm::mat3 current;
 
             if (psrMesh == 0) {
                 srAssertFail("psrMesh", "C:\\Projects\\Wizardry 8\\Engine Code\\GrCycle.cpp", 0x3e4,
@@ -916,12 +918,12 @@ void W8GrCycle::UpdateRepresentation(W8World* pWorld)
                 PathAIApply(path, psrMesh);
             }
             vecPos = movement.position;
-            location.SetFromFloat(&vecPos);
+            location = glm::dvec3(vecPos.glmValue());
             location.y += movement.vertical_offset;
             psrMesh->setLocation(location);
             pRep->GetRotation(&rotation);
             psrMesh->getRotation(current);
-            rotation.MultiplyBy(current);
+            rotation = rotation * current;
             psrMesh->setRotation(rotation);
             current_model_instance = psrMesh;
         }
@@ -944,7 +946,7 @@ void W8GrCycle::UpdateRepresentation(W8World* pWorld)
             }
         }
         vecPos = movement.position;
-        location.SetFromFloat(&vecPos);
+        location = glm::dvec3(vecPos.glmValue());
         location.y += movement.vertical_offset;
         pRep->GetRotation(&rotation);
         child = psrMesh->first_child_;
@@ -967,7 +969,7 @@ void W8GrCycle::UpdateRepresentation(W8World* pWorld)
     if (m_ground_shadow != 0) {
         srVector3T<float> position = GetPosition();
 
-        location.SetFromFloat(&position);
+        location = glm::dvec3(position.glmValue());
         m_ground_shadow->setLocation(location);
         m_ground_shadow->angle = GetYaw();
         m_ground_shadow->clearFlag(srNode::FLAG_TERMINATE);
@@ -989,8 +991,8 @@ void W8GrCycle::UpdateRepresentation(W8World* pWorld)
             stLight* light = *m_plsLights->GetAt(index);
             srVector3T<float> offset = light->m_position;
 
-            srVector3T<float> placed = rotation.Transform(offset) + origin;
-            location.SetFromFloat(&placed);
+            srVector3T<float> placed = rotation * offset.glmValue() + origin.glmValue();
+            location = glm::dvec3(placed.glmValue());
             light->setLocation(location);
         }
     }
@@ -1055,13 +1057,13 @@ void W8GrCycle::UpdateParticleAttachments()
     srModelInstance* psrMesh;
     W8EmitterHost* pRep;
     stMeshModel* pMeshModel;
-    srMatrix3T<float> rotation;
+    glm::mat3 rotation;
     srVector3T<double> scale;
     srVector3T<double> location;
     srVector3T<double> target;
     srVector3T<double> axis;
-    srMatrix3T<float> combined;
-    srMatrix3T<double> world;
+    glm::mat3 combined;
+    glm::dmat3 world;
     srVector3T<float> offset;
     srVector3T<float> placed;
     int vertex;
@@ -1144,25 +1146,23 @@ void W8GrCycle::UpdateParticleAttachments()
         offset.x *= scale_x;
         offset.y *= scale_y;
         offset.z *= scale_z;
-        placed = rotation.Transform(offset);
+        placed = rotation * offset.glmValue();
         location = current_model_instance->getLocation();
         srVector3T<float> anchor;
-        anchor.SetFromDouble(&location);
+        anchor = glm::vec3(location.glmValue());
         placed += anchor;
 
         if (aim_set && particle->direction_mode == W8_PARTICLE_DIRECTION_CONE) {
-            target.SetFromFloat(&placed);
-            axis.SetFromFloat(&m_axis);
+            target = glm::dvec3(placed.glmValue());
+            axis = glm::dvec3(m_axis.glmValue());
             particle->setRotation(axis, target, 0.0);
         } else if (particle->direction_mode != W8_PARTICLE_DIRECTION_RANDOM) {
             combined = rotation;
-            combined.MultiplyBy(attachment->rotation);
-            world.vectors[0].SetFromFloat(&combined.vectors[0]);
-            world.vectors[1].SetFromFloat(&combined.vectors[1]);
-            world.vectors[2].SetFromFloat(&combined.vectors[2]);
+            combined = combined * (attachment->rotation);
+            world = glm::dmat3(combined);
             particle->setWorldSpaceRotation(world);
         }
-        location.SetFromFloat(&placed);
+        location = glm::dvec3(placed.glmValue());
         particle->setLocation(location);
     }
 }

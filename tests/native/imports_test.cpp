@@ -15,7 +15,6 @@
 #include "surrender/srScene.h"
 #include "surrender/srTextureFile.h"
 #include "surrender/srTextureMap.h"
-#include "surrender/srVectorMath.h"
 #include <cfenv>
 #include <algorithm>
 #include <array>
@@ -26,12 +25,11 @@
 #include "wiz8/sr_api.h"
 #include <cstdio>
 #include <cstring>
+#include <cassert>
 
 #define CHECK(expression)                                                                          \
-    do                                                                                             \
-    {                                                                                              \
-        if (!(expression))                                                                         \
-        {                                                                                          \
+    do {                                                                                           \
+        if (!(expression)) {                                                                       \
             fprintf(stderr, "line %d: %s\n", __LINE__, #expression);                               \
             return 1;                                                                              \
         }                                                                                          \
@@ -299,7 +297,26 @@ int main()
         vectors.values[0].Set(5, -2, 7);
         vectors.values[1].Set(-3, 9, 1);
         CHECK(reinterpret_cast<uintptr_t>(&vectors.values[0]) % alignof(float) != 0);
-        srMath::minMax(vectors.values, vectors.minimum, vectors.maximum);
+        {
+            assert(std::size(vectors.values) != 0);
+            auto lower = vectors.values[0].glmValue();
+            auto upper = lower;
+            for (std::size_t point_index = 1; point_index < std::size(vectors.values);
+                 ++point_index) {
+                const auto& point = vectors.values[point_index];
+                const auto v = point.glmValue();
+                // Keep the comparison order for NaNs in recovered bounds.
+                for (int c = 0; c < 3; ++c) {
+                    if (v[c] >= lower[c]) {
+                        if (v[c] > upper[c])
+                            upper[c] = v[c];
+                    } else
+                        lower[c] = v[c];
+                }
+            }
+            (vectors.minimum) = lower;
+            (vectors.maximum) = upper;
+        }
         CHECK(vectors.minimum.x == -3 && vectors.minimum.y == -2 && vectors.minimum.z == 1);
         CHECK(vectors.maximum.x == 5 && vectors.maximum.y == 9 && vectors.maximum.z == 7);
         // File names own their text, including an aliased setter argument.
@@ -320,7 +337,7 @@ int main()
         copy.getViewPlane(after, distance);
         CHECK(before.left == after.left && before.top == after.top);
         srClipPlane plane, plane_copy;
-        srVector4T<float> plane_value;
+        glm::vec4 plane_value;
         plane_value.x = 1;
         plane_value.y = 2;
         plane_value.z = 3;
@@ -333,7 +350,7 @@ int main()
         fog_copy = fog;
         CHECK(fog_copy.getDensity() == 0.25f);
         ClientMaterial material, material_copy;
-        srVector4T<float> emissive;
+        glm::vec4 emissive;
         emissive.x = 0.25f;
         emissive.y = 0.5f;
         emissive.z = 0.75f;

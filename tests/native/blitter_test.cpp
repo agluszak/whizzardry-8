@@ -10,7 +10,7 @@
 #include <stdio.h>
 #include <string.h>
 
-BOOLEAN Blt16BPPBufferShadowRectAlternateTable(UINT16*, UINT32, SGPRect*);
+BOOLEAN Blt16BPPBufferShadowRectAlternateTable(UINT16*, UINT32, SDL_Rect*);
 
 UINT16 ShadeTable[65536];
 UINT16 IntensityTable[65536];
@@ -36,7 +36,7 @@ static void reset()
     }
 }
 
-static bool check(const char* name, int variant, BOOLEAN result, const SGPRect& rect)
+static bool check(const char* name, int variant, BOOLEAN result, const SDL_Rect& rect)
 {
     uint64_t hash = UINT64_C(14695981039346656037);
     const UINT8* bytes = reinterpret_cast<const UINT8*>(destination);
@@ -45,7 +45,7 @@ static bool check(const char* name, int variant, BOOLEAN result, const SGPRect& 
     }
     char actual[256];
     sprintf(actual, "%s %d %u %d,%d,%d,%d %08x%08x\n", name, variant, result,
-            rect.iLeft, rect.iTop, rect.iRight, rect.iBottom,
+            rect.x, rect.y, (rect.x + rect.w), (rect.y + rect.h),
             static_cast<unsigned>(hash >> 32), static_cast<unsigned>(hash));
     ++cases;
     if (capture) {
@@ -129,7 +129,7 @@ int main(int argc, char** argv)
     object.pShade8 = palette8;
     object.pShadeCurrent = palette;
     ClippingRect = {0, 0, 640, static_cast<INT32>(rows)};
-    SGPRect full = ClippingRect;
+    SDL_Rect full = ClippingRect;
     bool ok = true;
 
     for (int data = 0; data < 3; ++data) {
@@ -138,13 +138,13 @@ int main(int argc, char** argv)
         for (int variant = 0; variant < 8; ++variant) {
             // Whole, partial opaque/transparent runs, every clipped edge,
             // null/default clip rectangle and complete rejection.
-            SGPRect clip = {3, 3, 12, 7};
+            SDL_Rect clip = {3, 3, 9, 4};
             if (data == 1 || variant == 0 || variant == 6) {
                 clip = full;
             }
             int x = variant == 1 ? -2 : variant == 7 ? 660 : 4;
             int y = variant == 2 ? 1 : variant == 3 ? 6 : 4;
-            SGPRect* selected = variant == 6 ? nullptr : &clip;
+            SDL_Rect* selected = variant == 6 ? nullptr : &clip;
             unsigned id = data * 8 + variant;
 #define SPRITE(name, ...) \
             reset(); ok = check(#name, id, name(destination, pitch, &object, x, y, 0, selected, ##__VA_ARGS__), clip) && ok
@@ -193,7 +193,7 @@ int main(int argc, char** argv)
         surface.usHeight = rows;
         surface.p16BPPPalette = std::make_unique<UINT16[]>(256);
         std::copy_n(palette, 256, surface.p16BPPPalette.get());
-        SGPRect area = {2, 3, static_cast<INT32>(2 + width), 7};
+        SDL_Rect area = {2, 3, static_cast<INT32>(width), 4};
         reset(); ok = check("Blt8BPPDataSubTo16BPPBuffer", width,
             Blt8BPPDataSubTo16BPPBuffer(destination, pitch, &surface, reinterpret_cast<UINT8*>(source), pitch,
                 3, 2, &area), area) && ok;
@@ -205,16 +205,16 @@ int main(int argc, char** argv)
         }
     }
     for (int variant = 0; variant < 6; ++variant) {
-        ClippingRect = variant % 2 ? SGPRect{2, 3, 18, 11} : full;
-        SGPRect area = {-1, 1, 9 + variant, 12};
+        ClippingRect = variant % 2 ? SDL_Rect{2, 3, 16, 8} : full;
+        SDL_Rect area = {-1, 1, 10 + variant, 11};
         reset(); ok = check("Blt16BPPBufferPixelateRectWithColor", variant,
             Blt16BPPBufferPixelateRectWithColor(destination, pitch, &area, pattern, 0x7391), area) && ok;
         reset(); ok = check("Blt16BPPBufferHatchRect", variant,
             Blt16BPPBufferHatchRect(destination, pitch, &area), area) && ok;
-        area = {-1, 1, 9 + variant, 12};
+        area = {-1, 1, 10 + variant, 11};
         reset(); ok = check("Blt16BPPBufferShadowRect", variant,
             Blt16BPPBufferShadowRect(destination, pitch, &area), area) && ok;
-        area = {-1, 1, 9 + variant, 12};
+        area = {-1, 1, 10 + variant, 11};
         reset(); ok = check("Blt16BPPBufferShadowRectAlternateTable", variant,
             Blt16BPPBufferShadowRectAlternateTable(destination, pitch, &area), area) && ok;
         reset(); ok = check("FillRect16BPP", variant,

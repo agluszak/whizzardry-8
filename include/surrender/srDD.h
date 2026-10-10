@@ -200,8 +200,8 @@ public:
        clamps depth to [0,1]. */
 #pragma pack(push, 4)
     struct ClearValues {
-        srVector4T<float> color;
-        srVector4T<float> accum;
+        glm::vec4 color;
+        glm::vec4 accum;
         double depth;
         w8_ulong stencil;
     };
@@ -274,7 +274,7 @@ public:
     virtual void setScissor(const Scissor& scissor) = 0;
     virtual void setViewPort(const ViewPort& viewport) = 0;
     virtual void setClearValues(const ClearValues& values) = 0;
-    virtual void setFogColor(const srVector4T<float>& color) = 0;
+    virtual void setFogColor(const glm::vec4& color) = 0;
     virtual void setShader(const srShader& shader) = 0;
     virtual void setTextureParameters(w8_ulong stage, const TexParms& parms) = 0;
     virtual void bindTexture(w8_ulong stage, Texture& texture) = 0;
@@ -293,8 +293,8 @@ public:
     virtual void preBindTexture(w8_ulong stage, Texture& texture) = 0;
     virtual void setPolygonMode(e_polygonMode mode) = 0;
     virtual void setCullMode(e_cullMode mode) = 0;
-    virtual void setProjectionMatrix(const srMatrix4T<float>& matrix,
-                                     srMatrix4T<float>::e_type type) = 0;
+    virtual void setProjectionMatrix(const glm::mat4& matrix,
+                                     srRendererDefs::e_matrixType type) = 0;
     virtual void setVertexArrayInfo(const srRendererDefs::VertexArrayInfo* info) = 0;
     virtual void drawElements(srRendererDefs::e_primitive primitive, w8_ulong count,
                               srRendererDefs::e_indexType type, const void* indices) = 0;

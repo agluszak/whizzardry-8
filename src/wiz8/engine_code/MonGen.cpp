@@ -4,7 +4,6 @@
 #include "wiz8/local_code/MonsterGroup.h"
 #include "wiz8/engine_code/GDCamera.h"
 #include "wiz8/engine_code/Levels.h"
-#include "wiz8/engine_code/Item.h"
 #include "wiz8/engine_code/ReadLevel.h"
 #include "wiz8/engine_code/World.h"
 #include "wiz8/local_code/MonsterGenerator.h"
@@ -737,8 +736,9 @@ try
                  level->maximum_random_encounters);
     g_encounter_culling_time_seconds = level->encounter_culling_seconds;
     return success;
+} catch (const std::exception&) {
+    return false;
 }
-catch (const std::exception&) { return false; }
 
 /* Writes one generator-independent save record back onto an already loaded
    world. A record whose name no longer exists is still consumed completely: a
@@ -942,8 +942,9 @@ try
     }
     flags &= ~static_cast<unsigned int>(W8_MONGEN_ARMED);
     return loaded;
+} catch (const std::exception&) {
+    return false;
 }
-catch (const std::exception&) { return false; }
 
 /* Removes one generator from the world's list by identity and destroys it. The
    search stops at the first match and the tail is shifted down over it; a

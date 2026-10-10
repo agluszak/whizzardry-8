@@ -410,7 +410,8 @@ bool AscensionPath1Camera(Trigger* pTrigger)
     if (GetLocationVarIDByName("AP_DSSpawned") == -1) {
         return false;
     }
-    // c-style-cast-ok: ILLength consumes the W8PList monster list; the same historical C-style spelling appears in Health Stamina Mana.cpp.
+    // c-style-cast-ok: ILLength consumes the W8PList monster list; the same historical C-style
+    // spelling appears in Health Stamina Mana.cpp.
     for (index = 0; index < PLLength(gXStatus.plsMonsterList); ++index) {
         W8MonsterInfo* info = MonsterGetScriptPartByLocationIndex(index);
 

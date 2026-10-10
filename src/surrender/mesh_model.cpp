@@ -13,13 +13,14 @@
 #include "surrender/srMaterial.h"
 #include "surrender/srTriMeshPipeline.h"
 #include "surrender/srTriangleCuller.h"
-#include "surrender/srVectorMath.h"
 #include "surrender/srVertexPipe.h"
-
 #include <float.h>
 #include <math.h>
+
 #include <ostream>
 #include <stdio.h>
+#include "surrender/srMath.h"
+#include <cassert>
 
 /* Flag-name tables dump walks while printing the render_control and dirty_flags bits. Nothing sets
    them, so dump prints numeric bit indices. */
@@ -121,7 +122,7 @@ void srMeshModel::setUVCount(w8_long count)
         for (auto& pass : texcoords) {
             for (auto& table : pass) {
                 if (!table.empty()) {
-                    table.resize(uv_count, srVector2T<float>(0.0f, 0.0f));
+                    table.resize(uv_count, glm::vec2(0.0f, 0.0f));
                 }
             }
         }
@@ -167,14 +168,14 @@ srVector3T<float>* srMeshModel::getVertexNormal()
 }
 
 // FUNCTION: SURRENDER 0x10040160
-srVector4T<float>* srMeshModel::getPolyEq()
+glm::vec4* srMeshModel::getPolyEq()
 {
     if (polygon_count == 0) {
         return 0;
     }
     if (poly_equations.empty()) {
-        srVector4T<float> zero;
-        zero = 0.0f;
+        glm::vec4 zero;
+        zero = glm::vec4(0);
         poly_equations.resize(polygon_count, zero);
         setDirty(DIRTY_TRI_MESH);
     }
@@ -284,14 +285,14 @@ srVector3T<float>* srMeshModel::getVertexDIG(w8_long vertex, int table)
 }
 
 // FUNCTION: SURRENDER 0x10040A70
-srVector2T<float>* srMeshModel::getVertexTexCoords(w8_long vertex, w8_long layer, int table)
+glm::vec2* srMeshModel::getVertexTexCoords(w8_long vertex, w8_long layer, int table)
 {
     if (vertex < 0 || vertex > 3 || layer < 0 || layer > 1) {
         return 0;
     }
     auto& slot = texcoords[vertex][layer];
     if (slot.empty() && table != 0 && uv_count != 0) {
-        slot.resize(uv_count, srVector2T<float>(0.0f, 0.0f));
+        slot.resize(uv_count, glm::vec2(0.0f, 0.0f));
         setDirty(DIRTY_TRI_MESH);
     }
     return slot.empty() ? nullptr : slot.data();
@@ -342,7 +343,7 @@ void srMeshModel::reset(w8_long polygons, w8_long vertices)
     tri_mesh = TriMesh{};
     active_polygons = std::vector<w8_ulong>{};
     poly_vertices = std::vector<srVector3i>{};
-    poly_equations = std::vector<srVector4T<float>>{};
+    poly_equations = std::vector<glm::vec4>{};
     vertex_locations = std::vector<srVector3T<float>>{};
     vertex_normals = std::vector<srVector3T<float>>{};
     vertex_shade_indices = std::vector<w8_ulong>{};
@@ -418,10 +419,24 @@ void srMeshModel::calculateBounds()
     bounds_radius = 0.0f;
     if (vertex_location_count != 0) {
         srVector3T<float>* vertices = getVertexLoc();
-        if (vertex_location_count != 0) {
-            srMath::minMax({vertices, static_cast<std::size_t>(vertex_location_count)},
-                           bounds_minimum, bounds_maximum);
+        assert(vertex_location_count != 0);
+        auto lower = vertices[0].glmValue();
+        auto upper = lower;
+        for (std::size_t point_index = 1; point_index < vertex_location_count;
+             ++point_index) {
+            const auto& point = vertices[point_index];
+            const auto v = point.glmValue();
+            // Keep the comparison order for NaNs in recovered bounds.
+            for (int c = 0; c < 3; ++c) {
+                if (v[c] >= lower[c]) {
+                    if (v[c] > upper[c])
+                        upper[c] = v[c];
+                } else
+                    lower[c] = v[c];
+            }
         }
+        bounds_minimum = lower;
+        bounds_maximum = upper;
         bounds_center.x = (bounds_minimum.x + bounds_maximum.x) * 0.5;
         bounds_center.y = (bounds_minimum.y + bounds_maximum.y) * 0.5;
         bounds_center.z = (bounds_minimum.z + bounds_maximum.z) * 0.5;
@@ -448,7 +463,7 @@ void srMeshModel::calculateBounds()
 void srMeshModel::calculatePolygonNormals()
 {
     dirty_flags.value &= ~(1UL << DIRTY_POLYGON_NORMALS);
-    srVector4T<float>* equations = getPolyEq();
+    glm::vec4* equations = getPolyEq();
     srVector3i* polygons = getPolyVertex();
     srVector3T<float>* vertices = getVertexLoc();
     for (w8_long polygon = 0; polygon < polygon_count; polygon++) {
@@ -482,7 +497,7 @@ void srMeshModel::calculateVertexNormals()
             calculatePolygonNormals();
         }
         dirty_flags.value &= ~(1UL << DIRTY_VERTEX_NORMALS);
-        srVector4T<float>* equations = getPolyEq();
+        glm::vec4* equations = getPolyEq();
         srVector3T<float>* normals = getVertexNormal();
         srVector3i* polygons = getPolyVertex();
         w8_ulong* shade_indices = getVertexShadeIndex(0);
@@ -514,14 +529,15 @@ void srMeshModel::calculateVertexNormals()
                 smooth[shade_indices[polygons[polygon].z]].z += equations[polygon].z;
             }
             if (vertex_location_count != 0) {
-                srMath::copyIndexed(
-                    {normals, static_cast<std::size_t>(vertex_location_count)}, smooth.data(),
-                    {shade_indices, static_cast<std::size_t>(vertex_location_count)});
+                for (std::size_t i = 0; i < vertex_location_count; ++i)
+                    normals[i] = (smooth.data())[shade_indices[i]];
             }
         }
         if (vertex_location_count != 0) {
-            srMath::normalize({normals, static_cast<std::size_t>(vertex_location_count)}, normals,
-                              1.0f);
+            for (std::size_t i = 0; i < vertex_location_count; ++i)
+                normals[i] = normals[i].Length() == 0.0f
+                                 ? normals[i].glmValue() * 0.0f
+                                 : glm::normalize(normals[i].glmValue()) * static_cast<float>(1.0f);
         }
     }
 }
@@ -540,20 +556,11 @@ void srMeshModel::scale(const srVector3T<float>& scale)
 }
 
 // FUNCTION: SURRENDER 0x1003E780
-void srMeshModel::applyMatrix(const srMatrix3T<float>& matrix)
+void srMeshModel::applyMatrix(const glm::mat3& matrix)
 {
-    srVector3T<float>* vertices = getVertexLoc();
-    for (w8_long index = 0; index < vertex_location_count; index++) {
-        /* Retail's per-row summation order (0x1003E780). */
-        srVector3T<float>& p = vertices[index];
-        const srVector3T<float>* m = matrix.vectors;
-        float x = (p.x * m[0].x + p.y * m[0].y) + p.z * m[0].z;
-        float y = (p.z * m[1].z + p.x * m[1].x) + p.y * m[1].y;
-        float z = (p.x * m[2].x + p.y * m[2].y) + p.z * m[2].z;
-        p.x = x;
-        p.y = y;
-        p.z = z;
-    }
+    auto* vertices = getVertexLoc();
+    for (w8_long i = 0; i < vertex_location_count; ++i)
+        vertices[i] = matrix * vertices[i].glmValue();
     setDirty(DIRTY_BOUNDS);
     setDirty(DIRTY_POLYGON_NORMALS);
     setDirty(DIRTY_VERTEX_NORMALS);
@@ -635,7 +642,7 @@ double srMeshModel::getMaxRadius()
     w8_long count = vertex_location_count;
     for (w8_long index = 0; index < count; index++) {
         /* Retail compares and keeps the unrounded register sum. */
-        double radius = vertices[index].LengthSquared();
+        double radius = glm::dot(vertices[index].glmValue(), vertices[index].glmValue());
         if (maximum <= radius) {
             maximum = radius;
         }
@@ -801,15 +808,15 @@ int srMeshModel::getBoundingSphere(srVector3T<float>& center, float& radius)
 }
 
 // FUNCTION: SURRENDER 0x100408B0
-srVector4T<float>* srMeshModel::getVertexSCG(w8_long vertex, int table)
+glm::vec4* srMeshModel::getVertexSCG(w8_long vertex, int table)
 {
     if (vertex < 0 || vertex > 3) {
         return 0;
     }
     auto& slot = scg[vertex];
     if (slot.empty() && table != 0 && vertex_location_count != 0) {
-        srVector4T<float> white;
-        white = 1.0f;
+        glm::vec4 white;
+        white = glm::vec4(1);
         slot.resize(vertex_location_count, white);
         setDirty(DIRTY_TRI_MESH);
     }
@@ -817,15 +824,15 @@ srVector4T<float>* srMeshModel::getVertexSCG(w8_long vertex, int table)
 }
 
 // FUNCTION: SURRENDER 0x10040990
-srVector4T<float>* srMeshModel::getVertexDCG(w8_long vertex, int table)
+glm::vec4* srMeshModel::getVertexDCG(w8_long vertex, int table)
 {
     if (vertex < 0 || vertex > 3) {
         return 0;
     }
     auto& slot = dcg[vertex];
     if (slot.empty() && table != 0 && vertex_location_count != 0) {
-        srVector4T<float> white;
-        white = 1.0f;
+        glm::vec4 white;
+        white = glm::vec4(1);
         slot.resize(vertex_location_count, white);
         setDirty(DIRTY_TRI_MESH);
     }
@@ -1033,7 +1040,7 @@ void srMeshModel::verify(srRuntimeClass::e_verify mode)
             srAssertFail("t.pEq", "D:\\srsdk1x\\sources\\corelib\\srMeshModel.cpp", 0x5f1, 0);
         }
         for (i = 0; i < t.polygon_count; ++i) {
-            if (!t.poly_equations[i].isValid()) {
+            if (!isFinite(t.poly_equations[i])) {
                 srAssertFail("t.pEq[i].isValid()", "D:\\srsdk1x\\sources\\corelib\\srMeshModel.cpp",
                              0x5f6, 0);
             }
@@ -1051,7 +1058,7 @@ void srMeshModel::verify(srRuntimeClass::e_verify mode)
             srAssertFail("t.vNorm", "D:\\srsdk1x\\sources\\corelib\\srMeshModel.cpp", 0x602, 0);
         }
         for (i = 0; i < t.vertex_count; ++i) {
-            if (fabs(t.normals[i].length() - 1.0) >= 0.01) {
+            if (fabs(t.normals[i].Length() - 1.0) >= 0.01) {
                 srAssertFail("fabs(t.vNorm[i].length()-1.0) < 0.01",
                              "D:\\srsdk1x\\sources\\corelib\\srMeshModel.cpp", 0x606, 0);
             }
@@ -1067,7 +1074,7 @@ void srMeshModel::verify(srRuntimeClass::e_verify mode)
             }
             if (t.dcg[p] != 0) {
                 for (i = 0; i < t.vertex_count; ++i) {
-                    if (!t.dcg[p][i].isValid()) {
+                    if (!isFinite(t.dcg[p][i])) {
                         srAssertFail("t.DCG[p][i].isValid()",
                                      "D:\\srsdk1x\\sources\\corelib\\srMeshModel.cpp", 0x615, 0);
                     }
@@ -1075,7 +1082,7 @@ void srMeshModel::verify(srRuntimeClass::e_verify mode)
             }
             if (t.scg[p] != 0) {
                 for (i = 0; i < t.vertex_count; ++i) {
-                    if (!t.scg[p][i].isValid()) {
+                    if (!isFinite(t.scg[p][i])) {
                         srAssertFail("t.SCG[p][i].isValid()",
                                      "D:\\srsdk1x\\sources\\corelib\\srMeshModel.cpp", 0x619, 0);
                     }
@@ -1083,8 +1090,8 @@ void srMeshModel::verify(srRuntimeClass::e_verify mode)
             }
             for (j = 0; j < 2; ++j) {
                 if (t.texcoords[p][j] != 0) {
-                    for (i = 0; i < t.vertex_count; ++i) {
-                        if (!t.texcoords[p][j][i].isValid()) {
+                for (i = 0; i < t.vertex_count; ++i) {
+                    if (!isFinite(t.texcoords[p][j][i])) {
                             srAssertFail("t.vUV[p][j][i].isValid()",
                                          "D:\\srsdk1x\\sources\\corelib\\srMeshModel.cpp", 0x620,
                                          0);
@@ -1337,9 +1344,9 @@ void srMeshModel::dump(std::ostream& stream)
     }
     for (pass = 0; pass < 4; ++pass) {
         srVector3T<float>* dig = getVertexDIG(pass, 0);
-        srVector4T<float>* scg = getVertexSCG(pass, 0);
-        srVector4T<float>* dcg = getVertexDCG(pass, 0);
-        srVector2T<float>* uvs[2];
+        glm::vec4* scg = getVertexSCG(pass, 0);
+        glm::vec4* dcg = getVertexDCG(pass, 0);
+        glm::vec2* uvs[2];
         for (stage = 0; stage < 2; ++stage) {
             uvs[stage] = getVertexTexCoords(pass, stage, 0);
         }
@@ -1561,8 +1568,23 @@ void srTriMeshPipeline::FlushSlots()
 
     if (bounds_source != srTriMeshPipeline::BOUNDS_SPHERE) {
         if (bounds_source == srTriMeshPipeline::BOUNDS_FROM_VERTICES && vertex_count != 0) {
-            srMath::minMax({positions, static_cast<std::size_t>(vertex_count)}, bounds_minimum,
-                           bounds_maximum);
+            assert(vertex_count != 0);
+            auto lower = positions[0].glmValue();
+            auto upper = lower;
+            for (std::size_t point_index = 1; point_index < vertex_count; ++point_index) {
+                const auto& point = positions[point_index];
+                const auto v = point.glmValue();
+                // Keep the comparison order for NaNs in recovered bounds.
+                for (int c = 0; c < 3; ++c) {
+                    if (v[c] >= lower[c]) {
+                        if (v[c] > upper[c])
+                            upper[c] = v[c];
+                    } else
+                        lower[c] = v[c];
+                }
+            }
+            bounds_minimum = lower;
+            bounds_maximum = upper;
         }
 
         srVector3T<float> center;
@@ -1576,11 +1598,11 @@ void srTriMeshPipeline::FlushSlots()
 
     srVector3T<float> eye_center;
     float eye_radius;
-    srMatrix4T<float> model_view;
-    srMatrix4T<float> inverse_model_view;
+    glm::mat4 model_view;
+    glm::mat4 inverse_model_view;
     srGERD::ClipPlanes clip_planes;
-    srMatrix4T<float> project_clip_near;
-    srMatrix4T<float> normal_matrix;
+    glm::mat4 project_clip_near;
+    glm::mat4 normal_matrix;
 
     this->renderer->getEyeSpaceBounds(eye_center, eye_radius, bounds_center, bounds_radius);
     this->renderer->getMatrix(srGERD::MATRIX_MODELVIEW, model_view);
@@ -1589,7 +1611,7 @@ void srTriMeshPipeline::FlushSlots()
     this->renderer->getProjectClipNearMatrix(project_clip_near);
     this->renderer->getNormalMatrix(normal_matrix);
 
-    srMatrix4T<float>::e_scaleType scale_type = this->renderer->getModelViewScaleType();
+    srRendererDefs::e_scaleType scale_type = this->renderer->getModelViewScaleType();
     srGERD::e_cullMode cull_mode = this->renderer->getCullMode();
     srGERD::e_winding winding = this->renderer->getWinding();
 
@@ -1708,7 +1730,7 @@ void srTriMeshPipeline::FlushSlots()
                 processors = vertex_processors.data();
             }
 
-            srVector4T<float> ambient_light;
+            glm::vec4 ambient_light;
             float environment_minimum;
             float environment_maximum;
             float environment_scale;

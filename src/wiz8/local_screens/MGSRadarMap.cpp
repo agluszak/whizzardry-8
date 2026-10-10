@@ -158,8 +158,8 @@ static stModelInstance2D* AcquireRadarBlip(int sector, bool lit)
         if (!lit) {
             icon->SetGlowEnabled(false);
         } else {
-            srVector4T<float> first;
-            srVector4T<float> second;
+            glm::vec4 first;
+            glm::vec4 second;
             int group = sector - sector % 3;
 
             icon->SetGlowEnabled(true);
@@ -271,7 +271,7 @@ void RefreshRadarMap(void)
     SetModelInstance2DDisplayState(g_radar_map, 4);
 
     for (sector = 0; sector < 18; ++sector) {
-        srVector4T<float> color;
+        glm::vec4 color;
         stModelInstance2D* icon;
 
         color.x = g_radar_blip_colors[sector][0];
@@ -433,7 +433,7 @@ void UpdateRadarBlips(void)
 static unsigned char PlaceRadarBlip(srVector3T<float>* delta, int group, bool lit)
 {
     int ring = 0;
-    srMatrix3T<float> rotation;
+    glm::mat3 rotation;
     int left;
     int top;
 
@@ -445,15 +445,16 @@ static unsigned char PlaceRadarBlip(srVector3T<float>* delta, int group, bool li
         ring = 1;
     }
 
-    rotation.SetIdentity();
+    rotation = glm::mat3(1);
     double angle = g_radar_pi * g_float_inverse_half_turn_degrees * (0x168 - g_status.party_facing);
     if (angle != g_double_zero) {
         float cosine = static_cast<float>(cos(angle));
         float sine = static_cast<float>(sin(angle));
-        rotation.RotateAboutY(sine, cosine);
+        rotation *=
+            glm::mat3_cast(glm::angleAxis(float(std::atan2(sine, cosine)), glm::vec3(0, 1, 0)));
     }
 
-    delta->Transform(rotation);
+    (*delta) = rotation * (*delta).glmValue();
     delta->y = 0.0f;
 
     float distance = delta->Length();

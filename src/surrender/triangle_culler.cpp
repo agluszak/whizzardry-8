@@ -1,92 +1,28 @@
 #include "surrender/srTriangleCuller.h"
 #include <algorithm>
-
-#include "surrender/srVectorMath.h"
 #include "surrender/srRendererDefs.h"
 
-/* Retail (0x10029740) rounds the object-space points, delta, cross and the
-   transformed positive point to float, but keeps the transformed point and
-   the first edge on the x87 stack through the whole cross product; the
-   second edge's z is used once from the stack and once from its float spill.
-   Every matrix row is summed z, y, x, then w. The in-plane offset is folded
-   into point_1 without a float rounding of its own. The double locals hold
-   exactly what the 53-bit x87 stack holds, and float consistency keeps VC6
-   from dropping the float roundings or reassociating the sums. */
+#include "surrender/srClip.h"
+#include "surrender/srMath.h"
+#include <cassert>
+
 // FUNCTION: SURRENDER 0x10029740
-srVector4 srTriangleCuller::transformClipPlane(const srVector4& plane, const srMatrix4& matrix,
-                                               srMatrix4::e_scaleType scale_type)
+glm::vec4 srTriangleCuller::transformClipPlane(const glm::vec4& plane, const glm::mat4& matrix,
+                                               srRendererDefs::e_scaleType scale_type)
 {
-    srVector4 normal = plane;
-    srVector3 point(-(normal.x * normal.w), -(normal.y * normal.w), -(normal.z * normal.w));
-    srVector3 positive(point.x + normal.x, point.y + normal.y, point.z + normal.z);
-    srVector3 point_1;
-    if (normal.z != 0.0f) {
-        point_1 =
-            srVector3(point.x + normal.z, point.y + normal.z, point.z + (-normal.x - normal.y));
-    } else {
-        point_1 =
-            srVector3(point.x + (-normal.y - normal.z), point.y + normal.x, point.z + normal.x);
-    }
-    srVector3 delta(point_1.x - point.x, point_1.y - point.y, point_1.z - point.z);
-    srVector3 cross(normal.y * delta.z - normal.z * delta.y,
-                    normal.z * delta.x - normal.x * delta.z,
-                    normal.x * delta.y - normal.y * delta.x);
-    srVector3 point_2(point.x + cross.x, point.y + cross.y, point.z + cross.z);
-    const srVector4* rows = matrix.vectors;
-    double transformed_x =
-        ((point.z * rows[0].z + point.y * rows[0].y) + point.x * rows[0].x) + rows[0].w;
-    double transformed_y =
-        ((point.z * rows[1].z + point.y * rows[1].y) + point.x * rows[1].x) + rows[1].w;
-    double transformed_z =
-        ((point.z * rows[2].z + point.y * rows[2].y) + point.x * rows[2].x) + rows[2].w;
-    srVector3 transformed_positive(
-        ((positive.z * rows[0].z + positive.y * rows[0].y) + positive.x * rows[0].x) + rows[0].w,
-        ((positive.z * rows[1].z + positive.y * rows[1].y) + positive.x * rows[1].x) + rows[1].w,
-        ((positive.z * rows[2].z + positive.y * rows[2].y) + positive.x * rows[2].x) + rows[2].w);
-    double edge_1_x =
-        (((point_1.z * rows[0].z + point_1.y * rows[0].y) + point_1.x * rows[0].x) + rows[0].w) -
-        transformed_x;
-    double edge_1_y =
-        (((point_1.z * rows[1].z + point_1.y * rows[1].y) + point_1.x * rows[1].x) + rows[1].w) -
-        transformed_y;
-    double edge_1_z =
-        (((point_1.z * rows[2].z + point_1.y * rows[2].y) + point_1.x * rows[2].x) + rows[2].w) -
-        transformed_z;
-    float edge_2_x = static_cast<float>(
-        (((point_2.z * rows[0].z + point_2.y * rows[0].y) + point_2.x * rows[0].x) + rows[0].w) -
-        transformed_x);
-    float edge_2_y = static_cast<float>(
-        (((point_2.z * rows[1].z + point_2.y * rows[1].y) + point_2.x * rows[1].x) + rows[1].w) -
-        transformed_y);
-    double edge_2_z_wide =
-        (((point_2.z * rows[2].z + point_2.y * rows[2].y) + point_2.x * rows[2].x) + rows[2].w) -
-        transformed_z;
-    float edge_2_z = static_cast<float>(edge_2_z_wide);
-    srVector4 result;
-    result.x = static_cast<float>(edge_2_z_wide * edge_1_y - edge_2_y * edge_1_z);
-    result.y = static_cast<float>(edge_2_x * edge_1_z - edge_2_z * edge_1_x);
-    result.z = static_cast<float>(edge_2_y * edge_1_x - edge_2_x * edge_1_y);
-    result.w = static_cast<float>(
-        -((result.z * transformed_z + result.y * transformed_y) + result.x * transformed_x));
-    if (((result.z * transformed_positive.z + result.y * transformed_positive.y) +
-         result.x * transformed_positive.x) +
-            result.w <
-        0.0f) {
-        result.x = -result.x;
-        result.y = -result.y;
-        result.z = -result.z;
-        result.w = -result.w;
-    }
-    return result;
+    const glm::vec4 transformed = glm::transpose(glm::inverse(matrix)) * plane;
+    const float length = glm::length(glm::vec3(transformed));
+    return length == 0 ? transformed : transformed / length;
 }
 
 // FUNCTION: SURRENDER 0x10029BF0
 int srTriangleCuller::setClipFlags(w8_ulong* clip_flags, float* distances,
-                                   const srVector3* vertices, const srVector4& plane,
+                                   const srVector3* vertices, const glm::vec4& plane,
                                    w8_ulong shift, w8_ulong count, int first)
 {
     w8_ulong collected = 0;
-    srMath::dot({distances, static_cast<std::size_t>(count)}, plane, vertices);
+    for (std::size_t i = 0; i < count; ++i)
+        distances[i] = glm::dot(vertices[i].glmValue(), glm::vec3(plane)) + plane.w;
     /* reinterpret-ok: the outside test reads the distances' IEEE sign bits. */
     const w8_ulong* bits = reinterpret_cast<const w8_ulong*>(distances);
     w8_ulong index = 0;
@@ -128,7 +64,7 @@ int srTriangleCuller::setClipFlags(w8_ulong* clip_flags, float* distances,
 
 // FUNCTION: SURRENDER 0x10029DE0
 int srTriangleCuller::setClipFlagsObjectSpace(w8_ulong* clip_flags, const srVector3* vertices,
-                                              const srVector4* planes,
+                                              const glm::vec4* planes,
                                               const w8_ulong* plane_bits,
                                               w8_ulong plane_count, w8_ulong vertex_count,
                                               w8_ulong& shared_out)
@@ -156,7 +92,7 @@ int srTriangleCuller::setClipFlagsObjectSpace(w8_ulong* clip_flags, const srVect
 
 // FUNCTION: SURRENDER 0x10029FC0
 w8_ulong srTriangleCuller::getClipMask(const srVector3& center, float radius,
-                                            const srVector4* planes, w8_ulong mask,
+                                            const glm::vec4* planes, w8_ulong mask,
                                             float& depth)
 {
     depth = 0.0f;
@@ -190,7 +126,7 @@ w8_ulong srTriangleCuller::getClipMask(const srVector3& center, float radius,
         clip |= (1UL << srRendererDefs::CLIP_FAR);
     }
     w8_ulong remaining = mask & ~srRendererDefs::FRUSTUM_CLIP_MASK;
-    const srVector4* plane = planes + srRendererDefs::FIRST_USER_CLIP_PLANE;
+    const glm::vec4* plane = planes + srRendererDefs::FIRST_USER_CLIP_PLANE;
     for (w8_ulong bit = srRendererDefs::FIRST_USER_CLIP_PLANE; remaining != 0 && bit < 0x20;
          ++bit, ++plane) {
         w8_ulong plane_bit = 1 << bit;
@@ -269,15 +205,15 @@ w8_ulong srTriangleCuller::collectNegative(w8_ulong* indices, const float* dista
 }
 
 // FUNCTION: SURRENDER 0x1002A260
-w8_ulong srTriangleCuller::cullNoClip(w8_ulong* indices, const srVector4* projected,
-                                           const srVector4& constant, w8_ulong count)
+w8_ulong srTriangleCuller::cullNoClip(w8_ulong* indices, const glm::vec4* projected,
+                                      const glm::vec4& constant, w8_ulong count)
 {
-    return srMath::srCullNoClip({indices, static_cast<std::size_t>(count)}, constant, projected);
+    return srRender::collectOutside({indices, count}, constant, {projected, count});
 }
 
 // FUNCTION: SURRENDER 0x1002A290
 w8_ulong srTriangleCuller::cullNoClipAPT(w8_ulong* indices, const w8_ulong* active,
-                                              const srVector4* projected, const srVector4& constant,
+                                              const glm::vec4* projected, const glm::vec4& constant,
                                               w8_ulong count)
 {
     float distances[256];
@@ -287,8 +223,8 @@ w8_ulong srTriangleCuller::cullNoClipAPT(w8_ulong* indices, const w8_ulong* acti
         if (0x100 < chunk) {
             chunk = 0x100;
         }
-        srMath::dotIndexed({distances, static_cast<std::size_t>(chunk)}, constant, projected,
-                           {active + base, static_cast<std::size_t>(chunk)});
+        for (std::size_t i = 0; i < chunk; ++i)
+            distances[i] = glm::dot(projected[active[base + i]], constant);
         w8_ulong found = collectNegative(indices + collected, distances, base, chunk);
         if (found != 0) {
             w8_ulong* destination = indices + collected;
@@ -363,11 +299,10 @@ w8_ulong srTriangleCuller::collectCF(w8_ulong* indices, const w8_ulong* clip_fla
 
 // FUNCTION: SURRENDER 0x1002A5C0
 w8_ulong srTriangleCuller::cullClip(w8_ulong* indices, const w8_ulong* clip_flags,
-                                         const srVector4* projected, const srVector3i* triangles,
-                                         const srVector4& constant, w8_ulong count)
+                                         const glm::vec4* projected, const srVector3i* triangles,
+                                         const glm::vec4& constant, w8_ulong count)
 {
-    w8_ulong culled =
-        srMath::srCullNoClip({indices, static_cast<std::size_t>(count)}, constant, projected);
+    w8_ulong culled = srRender::collectOutside({indices, count}, constant, {projected, count});
     return collectCF(indices, clip_flags, triangles, culled);
 }
 
@@ -410,14 +345,21 @@ w8_ulong srTriangleCuller::buildAVT(w8_ulong* avt, w8_ulong* vertex_scratch,
                                          const w8_ulong* indices, const srVector3i* triangles,
                                          w8_ulong triangle_count, w8_ulong vertex_count)
 {
-    std::fill_n(reinterpret_cast<SRBYTE*>(vertex_scratch), vertex_count, SRBYTE{});
-    /* reinterpret-ok: the flag scratch holds one SRBYTE per vertex here and is reused as the dword
-       inverse remap below. */
-    srMath::srSetIndexed(reinterpret_cast<SRBYTE*>(vertex_scratch), triangles,
-                         {indices, static_cast<std::size_t>(triangle_count)});
-    w8_ulong count = srMath::srCollectNonZero({avt, static_cast<std::size_t>(vertex_count)},
-                                              reinterpret_cast<const SRBYTE*>(vertex_scratch));
-    srMath::srRemapInverse(vertex_scratch, {avt, static_cast<std::size_t>(count)});
+    /* reinterpret-ok: the scratch holds one byte flag per vertex here, then is
+       reused as the dword inverse remap after collecting the active indices. */
+    auto* flags = reinterpret_cast<SRBYTE*>(vertex_scratch);
+    std::fill_n(flags, vertex_count, SRBYTE{});
+    for (w8_ulong i = 0; i < triangle_count; ++i) {
+        const auto& triangle = triangles[indices[i]];
+        flags[triangle.x] = flags[triangle.y] = flags[triangle.z] = 1;
+    }
+    w8_ulong count = 0;
+    for (w8_ulong i = 0; i < vertex_count; ++i)
+        if (flags[i])
+            avt[count++] = i;
+    for (w8_ulong i = 0; i < count; ++i)
+        vertex_scratch[avt[i]] = i;
+
     return count;
 }
 
@@ -428,33 +370,33 @@ int srTriangleCuller::cull(Output& output, const Input& input)
         return 0;
     }
     w8_ulong clip_mask = input.clip_mask;
-    const srMatrix4& inverse_model_view = *input.inverse_model_view;
+    const glm::mat4& inverse_model_view = *input.inverse_model_view;
     w8_ulong* clip_flags = output.vertex_remap;
     output.linear = 1;
     output.triangle_count = 0;
     output.vertex_count = 0;
-    srVector4 constant;
+    glm::vec4 constant;
     if (input.cull_mode == 0) {
-        constant.Set(-inverse_model_view.vectors[0].w, -inverse_model_view.vectors[1].w,
-                     -inverse_model_view.vectors[2].w, -inverse_model_view.vectors[3].w);
+        constant = glm::vec4(-inverse_model_view[3][0], -inverse_model_view[3][1],
+                             -inverse_model_view[3][2], -inverse_model_view[3][3]);
     } else if (input.cull_mode == 1) {
-        constant.Set(inverse_model_view.vectors[0].w, inverse_model_view.vectors[1].w,
-                     inverse_model_view.vectors[2].w, inverse_model_view.vectors[3].w);
+        constant = glm::vec4(inverse_model_view[3][0], inverse_model_view[3][1],
+                             inverse_model_view[3][2], inverse_model_view[3][3]);
     } else {
-        constant = 0.0f;
+        constant = glm::vec4(0);
     }
     int clipped = clip_mask != 0;
     if (input.active_triangles == 0) {
         if (clipped != 0) {
             w8_ulong plane_bits[32];
-            srVector4 planes[32];
+            glm::vec4 planes[32];
             w8_ulong plane_count = 0;
             w8_ulong remaining = clip_mask;
-            const srVector4* plane = input.clip_planes;
+            const glm::vec4* plane = input.clip_planes;
             for (w8_ulong bit = 0; remaining != 0; ++bit, ++plane) {
                 w8_ulong plane_bit = 1 << bit;
                 if ((remaining & plane_bit) != 0) {
-                    srVector4 source = *plane;
+                    glm::vec4 source = *plane;
                     planes[plane_count] =
                         transformClipPlane(source, inverse_model_view, input.scale_type);
                     plane_bits[plane_count] = bit;
@@ -512,4 +454,18 @@ int srTriangleCuller::cull(Output& output, const Input& input)
         return 1;
     }
     return 0;
+}
+
+// FUNCTION: SURRENDER 0x10068DE0
+SRDWORD srRender::collectOutside(std::span<SRDWORD> destination, const glm::vec4& constant,
+                                 std::span<const glm::vec4> vectors)
+{
+    assert(vectors.size() >= destination.size());
+    const std::size_t count = destination.size();
+    SRDWORD collected = 0;
+    for (std::size_t i = 0; i < count; ++i) {
+        if (glm::dot(vectors[i], constant) < 0.0f)
+            destination[collected++] = static_cast<SRDWORD>(i);
+    }
+    return collected;
 }

@@ -112,13 +112,13 @@ void surface_regions()
     CHECK(!GetVSurfaceRegion(surface, 0, &result) && result.ubHitMask == 99);
     for (int index = 0; index < 80; ++index) {
         VSURFACE_REGION region{};
-        region.Origin.iX = index;
-        region.RegionCoords.iRight = index + 1;
+        region.Origin.x = index;
+        region.RegionCoords.w = (index + 1) - region.RegionCoords.x;
         region.ubHitMask = static_cast<UINT8>(index);
         surface->RegionList.push_back(region);
     }
     CHECK(GetVSurfaceRegion(surface, 79, &result));
-    CHECK(result.Origin.iX == 79 && result.RegionCoords.iRight == 80 && result.ubHitMask == 79);
+    CHECK(result.Origin.x == 79 && (result.RegionCoords.x + result.RegionCoords.w) == 80 && result.ubHitMask == 79);
     CHECK(!GetVSurfaceRegion(surface, 80, &result));
     CHECK(!GetVSurfaceRegion(surface, 1, nullptr));
     auto* borrowed = CreateVideoSurfaceFromCpuSurface(surface->surface);

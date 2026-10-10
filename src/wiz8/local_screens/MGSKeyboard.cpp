@@ -119,7 +119,7 @@ MGSKeyBinding* MGSKeyboard::GetBinding(int index) const
 bool MGSKeyboard::IsCommandPressed(W8MGSCommand command) const
 {
     unsigned int command_key = command;
-    MGSKeyBinding* binding = m_command_index.Lookup(&command_key);
+    MGSKeyBinding* binding = LookupIndexValue(m_command_index, command_key);
     if (binding != 0 && gfKeyState[binding->key] != 0) {
         unsigned short modifiers = 0;
         if (gfKeyState[VK_SHIFT] != 0) {
@@ -153,7 +153,7 @@ void DrainInputEventQueue(void)
 void MGSKeyboard::Clear()
 {
     m_bindings.RemoveAllAndDelete();
-    m_command_index.Clear();
+    m_command_index.clear();
 }
 
 // FUNCTION: WIZ8 0x0055d590
@@ -174,11 +174,11 @@ try
         if (old_index != -1) {
             unsigned int command = binding->command;
             m_bindings.RemoveAtAndDelete(old_index);
-            m_command_index.Remove(&command);
+            m_command_index.erase(command);
         }
         if (m_bindings.Add(binding) != -1) {
             unsigned int command = binding->command;
-            m_command_index.Insert(&command, &binding);
+            m_command_index.emplace(command, binding);
         }
     }
     return 1;

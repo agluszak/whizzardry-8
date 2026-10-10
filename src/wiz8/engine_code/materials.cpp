@@ -18,7 +18,7 @@
 #include "wiz8/engine_code/Octree.h"
 #include "wiz8/engine_code/ReadLevel.h"
 #include "wiz8/engine_code/ReadMesh.h"
-#include "wiz8/engine_code/stHash.hpp"
+#include "wiz8/index_algorithms.h"
 #include "wiz8/engine_code/stTextureAnim.h"
 #include "wiz8/engine_code/stTextureFile.h"
 #include "wiz8/resource_cache.h"
@@ -84,8 +84,8 @@ float g_material_emissive_override;
 // FUNCTION: WIZ8 0x004B89B0
 void W8NormalTexcoordMapper::process(srVertexPipe& pipe)
 {
-    const srVector3T<float>* normals;
-    srVector2T<float>* coordinates;
+    const glm::vec3* normals;
+    glm::vec2* coordinates;
     w8_ulong count;
     w8_ulong index;
 
@@ -97,7 +97,7 @@ void W8NormalTexcoordMapper::process(srVertexPipe& pipe)
     count = pipe.getVertexCount();
     srCore.getStatisticsManager()->statistics.texture_coordinate_operations += count;
     for (index = 0; index < count; ++index) {
-        coordinates[index].Set((normals[index].x + g_float_one) * g_float_half,
+        coordinates[index] = glm::vec2((normals[index].x + g_float_one) * g_float_half,
                                (normals[index].y + g_float_one) * g_float_half);
     }
 }
@@ -116,7 +116,7 @@ void stMaterial::getMaterialInfo(srVertexProcessor::MaterialInfo& info)
         info.diffuse.w *= g_material_diffuse_scale;
     }
     if (g_material_emissive_override_enabled) {
-        info.emissive.Set(g_material_emissive_override, g_material_emissive_override,
+        info.emissive = glm::vec4(g_material_emissive_override, g_material_emissive_override,
                           g_material_emissive_override, 1.0f);
     }
 }
@@ -208,7 +208,7 @@ static unsigned char PreprocessLevel(wiz8::File* handle, char* stem);
 /* The following helpers retain distinct retail call boundaries. Their source
    names, internal linkage and placement here are provisional; lack of /Ob2
    PDB procedures does not establish that they were authored inline. */
-static int WeldVertex(W8HashTable<unsigned int, int>* table, W8OctPreTreeVertex* vertices,
+static int WeldVertex(std::unordered_multimap<unsigned int, int>* table, W8OctPreTreeVertex* vertices,
                       unsigned int index, unsigned int link);
 static int AccumulateVertexLight(OctPreTree* tree, W8OctPreTreeVertex* vertex, short light_count,
                                  W8LevelFileLight* lights, int* sun_map);
@@ -337,8 +337,7 @@ static unsigned char PreprocessLevel(wiz8::File* handle, char* stem)
     sun_map = 0;
     lights = 0;
     {
-        W8HashTable<unsigned int, int> weld;
-        weld.Clear();
+        std::unordered_multimap<unsigned int, int> weld;
         sun_pool = 0;
         level = ReadLevelFile(handle);
         if (level == 0) {
@@ -1004,7 +1003,7 @@ void ReportStartupMessage(const char* message)
    key with value index + 1.  A `link` of -1 maintains the vertex self-link or
    redirect fields. */
 // FUNCTION: WIZ8 0x00494800
-static int WeldVertex(W8HashTable<unsigned int, int>* table, W8OctPreTreeVertex* vertices,
+static int WeldVertex(std::unordered_multimap<unsigned int, int>* table, W8OctPreTreeVertex* vertices,
                       unsigned int index, unsigned int link)
 {
     unsigned int vertex = link;
@@ -1015,7 +1014,7 @@ static int WeldVertex(W8HashTable<unsigned int, int>* table, W8OctPreTreeVertex*
     unsigned int start_x;
     unsigned int start_y;
     unsigned int start_z;
-    int slot;
+
     bool found;
     bool matched;
     unsigned int scan_x;
@@ -1056,9 +1055,9 @@ static int WeldVertex(W8HashTable<unsigned int, int>* table, W8OctPreTreeVertex*
             for (scan_z = start_z; scan_z <= cell_z + 1; ++scan_z) {
                 scan_key =
                     scan_z * g_weld_stride_z + scan_y * g_weld_stride_y + scan_x * g_weld_stride_x;
-                slot = table->FindNextEntry(&scan_key, -1);
-                while (slot != -1) {
-                    match_index = table->entries[slot].value - 1;
+                auto slot = table->equal_range(scan_key).first;
+                while (slot != table->end()) {
+                    match_index = slot->second - 1;
                     if (match_index >= 0 && !matched) {
                         candidate = vertices + match_index;
                         if (fabs(current->position.x - candidate->position.x) <
@@ -1074,7 +1073,7 @@ static int WeldVertex(W8HashTable<unsigned int, int>* table, W8OctPreTreeVertex*
                             found = true;
                         }
                     }
-                    slot = table->FindNextEntry(&scan_key, slot);
+                    slot = NextIndexValue(*table, scan_key, slot);
                 }
             }
         }
@@ -1083,7 +1082,7 @@ static int WeldVertex(W8HashTable<unsigned int, int>* table, W8OctPreTreeVertex*
         return match_index + 1;
     }
     int vertex_id = index + 1;
-    table->Insert(&key, &vertex_id);
+    InsertIndexValue(*table, key, vertex_id);
     if (link == 0xffffffff) {
         vertices[index].m_vertex_index = index;
     }
@@ -1122,8 +1121,7 @@ static int BuildRegionPolygons(W8LevelFile* level, W8OctPreTreeGeometry* geometr
     W8OctPreTreeVertex* current;
     W8OctPreTreeVertex* created;
 
-    W8HashTable<unsigned int, int> weld_table;
-    weld_table.Clear();
+    std::unordered_multimap<unsigned int, int> weld_table;
     kind_counts[0] = 0;
     kind_counts[1] = 0;
     kind_counts[2] = 0;
@@ -1232,7 +1230,8 @@ static int BuildRegionPolygons(W8LevelFile* level, W8OctPreTreeGeometry* geometr
                 for (corner = 0; corner < 3; ++corner) {
                     current = vertices + vertex_index[corner];
                     if (current->m_normal_count != 0) {
-                        length = sqrt(current->m_normal.LengthSquared());
+                        length = sqrt(glm::dot((current->m_normal).glmValue(),
+                                               (current->m_normal).glmValue()));
                         if ((current->m_normal.z / length) * normal.z +
                                 (current->m_normal.y / length) * normal.y +
                                 (current->m_normal.x / length) * normal.x <
@@ -2156,7 +2155,7 @@ W8MeshMaterial LoadMaterial(const char* bitmap_folder, const W8MaterialRecord& r
         concrete = std::make_shared<stMaterial>();
         concrete->setName(material_name);
         g_materials.insert(material_name, concrete);
-        concrete->parms.specular.Set(source->specular.x, source->specular.y, source->specular.z,
+        concrete->parms.specular = glm::vec4(source->specular.x, source->specular.y, source->specular.z,
                                      0.0f);
         concrete->dirty = 1;
         concrete->parms.shininess = 1.0f;
@@ -2170,15 +2169,15 @@ W8MeshMaterial LoadMaterial(const char* bitmap_folder, const W8MaterialRecord& r
         concrete->setOpacity(source->opacity == 0.0f ? 0.7f : source->opacity);
 
         if (texture_path[0] == '\0') {
-            concrete->parms.ambient.Set(source->diffuse.x, source->diffuse.y, source->diffuse.z,
+            concrete->parms.ambient = glm::vec4(source->diffuse.x, source->diffuse.y, source->diffuse.z,
                                         1.0f);
             concrete->dirty = 1;
-            concrete->parms.emissive = 0.0f;
+            concrete->parms.emissive = glm::vec4(0.0f);
         } else {
-            concrete->parms.ambient.Set(source->ambient.x, source->ambient.y, source->ambient.z,
+            concrete->parms.ambient = glm::vec4(source->ambient.x, source->ambient.y, source->ambient.z,
                                         0.0f);
             concrete->dirty = 1;
-            concrete->parms.emissive.Set(source->emission, source->emission, source->emission,
+            concrete->parms.emissive = glm::vec4(source->emission, source->emission, source->emission,
                                          1.0f);
         }
         concrete->dirty = 1;
@@ -2206,15 +2205,15 @@ W8MeshMaterial CreateDefaultMaterial()
         concrete->setName(DEFAULT_MATERIAL_NAME);
         g_materials.insert(DEFAULT_MATERIAL_NAME, concrete);
 
-        srVector4T<float> color;
-        color.Set(1.0f, 1.0f, 1.0f, 1.0f);
+        glm::vec4 color;
+        color = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f);
         concrete->setAmbient(color);
         concrete->setDiffuse(color);
-        color.Set(0.0f, 0.0f, 0.0f, 0.0f);
+        color = glm::vec4(0.0f, 0.0f, 0.0f, 0.0f);
         concrete->setSpecular(color);
         concrete->parms.shininess = 1.0f;
         concrete->parms.diffuse.w = 1.0f;
-        concrete->parms.emissive = 0.0f;
+        concrete->parms.emissive = glm::vec4(0.0f);
         concrete->dirty = 1;
         concrete->m_surface_flags = 0;
     }

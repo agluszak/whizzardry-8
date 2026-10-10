@@ -186,7 +186,7 @@ bool g_mouselook_active;
 
 /* Saved mouse position while mouselook is latched (WarpSystemCursor restore). */
 // GLOBAL: WIZ8 0x0068edc0
-static SGPPoint g_mouselook_cursor_pos;
+static SDL_Point g_mouselook_cursor_pos;
 
 // GLOBAL: WIZ8 0x0068eddc
 W8MainGameMode g_main_game_mode;
@@ -1432,11 +1432,11 @@ void W8MainGameTextKeyHandler::OnMouseLeave(int event)
 // FUNCTION: WIZ8 0x00588010
 void W8MainGameTextKeyHandler::OnMouseMove(int)
 {
-    SGPPoint point;
+    SDL_Point point;
     int line;
 
     SGPMouseGetPos(&point);
-    line = (point.iY - m_pPanel->m_bounds.top - m_top) / 0xe + m_first_visible_line;
+    line = (point.y - m_pPanel->m_bounds.top - m_top) / 0xe + m_first_visible_line;
     if (line != m_hover_line) {
         m_hover_line = line;
         Invalidate(false);
@@ -1452,10 +1452,10 @@ void W8MainGameTextKeyHandler::AdjustValue(int steps)
 // FUNCTION: WIZ8 0x005880b0
 void W8MainGameTextKeyHandler::OnLeftButtonUp(int)
 {
-    SGPPoint point;
+    SDL_Point point;
 
     SGPMouseGetPos(&point);
-    SetSelectedLine((point.iY - m_pPanel->m_bounds.top - m_top) / 0xe + m_first_visible_line);
+    SetSelectedLine((point.y - m_pPanel->m_bounds.top - m_top) / 0xe + m_first_visible_line);
 }
 
 // FUNCTION: WIZ8 0x00588100
@@ -1684,8 +1684,8 @@ W8MainGameTextPanel::~W8MainGameTextPanel()
 // FUNCTION: WIZ8 0x00588830
 void W8MainGameTextPanel::Redraw()
 {
-    SGPRect previous;
-    SGPRect clip;
+    SDL_Rect previous;
+    SDL_Rect clip;
     int progress;
 
     if (m_fDirty) {
@@ -1704,7 +1704,7 @@ void W8MainGameTextPanel::Redraw()
                              m_text_bounds.bottom, 0);
             GetClippingRect(&previous);
             clip = previous;
-            clip.iBottom = m_text_bounds.left + m_progress_drawn;
+            clip.h = (m_text_bounds.left + m_progress_drawn) - clip.y;
             SetClippingRect(&clip);
             DrawCatalogImage(FRAME_BUFFER, 0x1b5, 0, 0, m_text_bounds.left, m_text_bounds.top,
                              VO_BLT_SRCTRANSPARENCY, 0);
@@ -3077,10 +3077,10 @@ void SetMainGameMode(W8MainGameMode mode)
 // FUNCTION: WIZ8 0x005684E0
 unsigned char ProcessMainGameInput(void)
 {
-    SGPPoint mouse;
+    SDL_Point mouse;
     SGPMouseGetPos(&mouse);
     if (GetForcedRegion() == 0) {
-        MSYS_SGP_Mouse_Handler_Hook(MOUSE_POS, mouse.iX, mouse.iY, gfLeftButtonState,
+        MSYS_SGP_Mouse_Handler_Hook(MOUSE_POS, mouse.x, mouse.y, gfLeftButtonState,
                                     gfRightButtonState);
     }
 
@@ -3096,7 +3096,7 @@ unsigned char ProcessMainGameInput(void)
             case LEFT_BUTTON_UP:
             case RIGHT_BUTTON_DOWN:
             case RIGHT_BUTTON_UP:
-                MSYS_SGP_Mouse_Handler_Hook(input.usEvent, mouse.iX, mouse.iY, gfLeftButtonState,
+                MSYS_SGP_Mouse_Handler_Hook(input.usEvent, mouse.x, mouse.y, gfLeftButtonState,
                                             gfRightButtonState);
                 break;
             default:
@@ -3232,26 +3232,26 @@ update_screen:
     if (GetSecondaryWorld()) {
         WorldUpdateProps(GetSecondaryWorld());
     }
-    SGPPoint point;
-    SGPPoint current;
+    SDL_Point point;
+    SDL_Point current;
     SGPMouseGetPos(&point);
     if (!IsWorldCursorVisible()) {
         if (!g_modal_owner) {
             if ((!ShouldDeferCharacterEventForNpcScript(true) || !gXStatus.fNpcDialogueMode) &&
                 !g_status.world_cursor_gate) {
-                g_level_block->hover_region = UpdateRegionMousePosition(point.iX, point.iY);
+                g_level_block->hover_region = UpdateRegionMousePosition(point.x, point.y);
             } else {
                 g_level_block->hover_region = FindRegionAtPoint(
-                    static_cast<unsigned short>(point.iX), static_cast<unsigned short>(point.iY));
+                    static_cast<unsigned short>(point.x), static_cast<unsigned short>(point.y));
             }
         } else {
-            g_level_block->hover_region = FindRegionAtPoint(static_cast<unsigned short>(point.iX),
-                                                            static_cast<unsigned short>(point.iY));
+            g_level_block->hover_region = FindRegionAtPoint(static_cast<unsigned short>(point.x),
+                                                            static_cast<unsigned short>(point.y));
             for (int portrait = 0; portrait < 8; ++portrait) {
                 if (g_status.buffers.XChar[portrait].fOccupied &&
                     (g_level_block->hover_region == portrait * 6 + 0x24U ||
                      g_level_block->hover_region == portrait + 0x5aU)) {
-                    g_level_block->hover_region = UpdateRegionMousePosition(point.iX, point.iY);
+                    g_level_block->hover_region = UpdateRegionMousePosition(point.x, point.y);
                     break;
                 }
             }
@@ -3556,8 +3556,8 @@ void ApplyMainGameRedrawFlags(void)
     int text_box_variant;
     unsigned char text_box_mode;
     bool show_portraits;
-    SGPRect saved_clip;
-    SGPRect combat_clip;
+    SDL_Rect saved_clip;
+    SDL_Rect combat_clip;
     short health_percent;
     W8MainGameInvalidateRect* portrait_rect;
 
@@ -3612,10 +3612,7 @@ void ApplyMainGameRedrawFlags(void)
         gXStatus.fCombatMode && g_combat_state->round_active) {
         health_percent = GetCombatActionProgress(0);
         GetClippingRect(&saved_clip);
-        combat_clip.iRight = (health_percent * 0x11e) / 100 + 0xb1;
-        combat_clip.iTop = 0;
-        combat_clip.iBottom = 0x1e0;
-        combat_clip.iLeft = 0;
+        combat_clip = {0, 0, health_percent * 0x11e / 100 + 0xb1, 0x1e0};
         SetClippingRect(&combat_clip);
         DrawCatalogImageAndInvalidate(FRAME_BUFFER, 0x8d, 0, 0, 0xb1, 2, VO_BLT_SRCTRANSPARENCY, 0);
         SetClippingRect(&saved_clip);
@@ -5973,7 +5970,7 @@ unsigned char RadarMapButtonRegionEvent(const InputAtom* event, W8Region* region
 // FUNCTION: WIZ8 0x00567800
 unsigned char WorldViewRegionEvent(const InputAtom* event, W8Region* region)
 {
-    SGPPoint cursor_pos;
+    SDL_Point cursor_pos;
     int cursor_x;
     int cursor_y;
     W8TargetNeed needed;
@@ -5989,7 +5986,7 @@ unsigned char WorldViewRegionEvent(const InputAtom* event, W8Region* region)
     if (us_event > RIGHT_BUTTON_DOWN) {
         if (us_event == RIGHT_BUTTON_UP) {
             if (g_mouselook_active && g_settings.mouselook_toggle == 0) {
-                WarpSystemCursor(g_mouselook_cursor_pos.iX, g_mouselook_cursor_pos.iY);
+                WarpSystemCursor(g_mouselook_cursor_pos.x, g_mouselook_cursor_pos.y);
                 EnableCursorScene();
                 g_mouselook_active = false;
                 g_mouselook_left_held = false;
@@ -6073,7 +6070,7 @@ unsigned char WorldViewRegionEvent(const InputAtom* event, W8Region* region)
         if (!IsWorldCursorVisible() && !gXStatus.fNpcDialogueMode) {
             if (g_settings.mouselook_toggle != 0) {
                 if (g_mouselook_active) {
-                    WarpSystemCursor(g_mouselook_cursor_pos.iX, g_mouselook_cursor_pos.iY);
+                    WarpSystemCursor(g_mouselook_cursor_pos.x, g_mouselook_cursor_pos.y);
                     EnableCursorScene();
                     g_mouselook_active = false;
                     g_mouselook_left_held = false;
@@ -6573,14 +6570,14 @@ void ApplyPendingTooltip(void)
     g_level_block->tooltip_kind = -1;
 }
 
-static void PositionSelectionToolTip(SGPPoint point)
+static void PositionSelectionToolTip(SDL_Point point)
 {
-    int y = point.iY - g_cursor_image_height / 2;
-    if (point.iX < 0) {
-        point.iX = 2;
+    int y = point.y - g_cursor_image_height / 2;
+    if (point.x < 0) {
+        point.x = 2;
     }
-    if (point.iX + g_help_box_width + 2 > 0x27f) {
-        point.iX = 0x280 - (g_help_box_width + 2);
+    if (point.x + g_help_box_width + 2 > 0x27f) {
+        point.x = 0x280 - (g_help_box_width + 2);
     }
     if (y < 0) {
         y = 2;
@@ -6588,7 +6585,7 @@ static void PositionSelectionToolTip(SGPPoint point)
     if (y + g_help_box_height + 2 > 0x1df) {
         y = 0x1e0 - (g_help_box_height + 2);
     }
-    VideoPositionToolTip(point.iX, y);
+    VideoPositionToolTip(point.x, y);
 }
 
 /* Re-picking the same monster while its tooltip clock is idle pops a
@@ -6604,7 +6601,7 @@ void SetCombatSelection(int value)
     if (value == current) {
         if (current != -1 && !TimeUntilDeadline(g_level_block->countdown1) &&
             !HasScreenTransitionObjects()) {
-            SGPPoint point;
+            SDL_Point point;
             wchar_t text[290];
             wchar_t health[32];
 
@@ -6715,7 +6712,7 @@ void SetCombatTarget(int value)
     }
     if (current != -1 && !TimeUntilDeadline(g_level_block->countdown1) &&
         !HasScreenTransitionObjects()) {
-        SGPPoint point;
+        SDL_Point point;
         W8WorldItem* item;
 
         SGPMouseGetPos(&point);
@@ -7196,15 +7193,15 @@ void LoadMainGameCursorResources(void)
 // FUNCTION: WIZ8 0x00568950
 unsigned int DispatchMainGameMouseButtons(const InputAtom* input)
 {
-    SGPPoint point;
+    SDL_Point point;
     SGPMouseGetPos(&point);
     switch (input->usEvent) {
     case LEFT_BUTTON_DOWN:
     case LEFT_BUTTON_UP:
     case RIGHT_BUTTON_DOWN:
     case RIGHT_BUTTON_UP:
-        MSYS_SGP_Mouse_Handler_Hook(input->usEvent, static_cast<unsigned short>(point.iX),
-                                    static_cast<unsigned short>(point.iY), gfLeftButtonState,
+        MSYS_SGP_Mouse_Handler_Hook(input->usEvent, static_cast<unsigned short>(point.x),
+                                    static_cast<unsigned short>(point.y), gfLeftButtonState,
                                     gfRightButtonState);
         return 1;
     default:
@@ -8172,10 +8169,10 @@ void ResetMainGameMode(void)
 void CreateSurpriseFade(void)
 {
     srShader shader;
-    srVector4T<float> color;
+    glm::vec4 color;
 
     SetFullscreenSceneLast(0);
-    color.Set(0.0f, 0.0f, 0.0f, 0.0f);
+    color = glm::vec4(0.0f, 0.0f, 0.0f, 0.0f);
     g_surprise_fade_node = CreateColoredPolygonSprite(0x280, 0x1e0, &color, true);
     Position2DNodeUnsnapped(g_surprise_fade_node, 0, 0);
     shader = static_cast<srMeshModel*>(g_surprise_fade_node->getModel())->getShader(0);

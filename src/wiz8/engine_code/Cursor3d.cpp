@@ -29,12 +29,13 @@
 #include "surrender/srShader.h"
 #include "surrender/srTexture.h"
 #include "wiz8/engine_code/3dapi.h"
-
 #include <math.h>
+
 #include <stdlib.h>
 #include "wiz8/engine_code/GameData.h"
 #include "wiz8/engine_code/GrCycle.h"
 #include "wiz8/engine_code/materials.h"
+#include <glm/gtc/matrix_transform.hpp>
 
 #define CURSOR3D_CPP "C:\\Projects\\Wizardry 8\\Engine Code\\Cursor3d.cpp"
 
@@ -98,7 +99,7 @@ void InitializeWorldCursor(void)
     srVector3T<float> minimum;
     srVector3T<float> maximum;
     srVector3T<float> camera_position;
-    srVector4T<float> colour;
+    glm::vec4 colour;
     srShader shader;
 
     DisableCursorScene();
@@ -149,7 +150,7 @@ void InitializeWorldCursor(void)
             gp3DCursor->light->setLocation(1000.0, 0.0, 0.0);
             if (gp3DCursor->particle != 0) {
                 auto material = std::make_shared<srMaterial>();
-                colour.Set(0.0f, 0.0f, 0.0f, 1.0f);
+                colour = glm::vec4(0.0f, 0.0f, 0.0f, 1.0f);
                 material->setEmissive(colour);
                 material->setDiffuse(colour);
                 gp3DCursor->particle->SetMaterial(std::move(material));
@@ -321,7 +322,7 @@ void GetWorldCursorAnchor(srVector3T<float>* position)
 void ApplyWorldCursorInput(void)
 {
     bool hit;
-    srMatrix3T<float> rotation;
+    glm::mat3 rotation;
     srVector3T<double> node_location;
     srVector3T<float> camera;
     srVector3T<float> delta;
@@ -359,10 +360,10 @@ void ApplyWorldCursorInput(void)
         }
         g_world->dynamic_scene->getRotation(rotation);
         gp3DCursor->cam_rel_offset += delta;
-        gp3DCursor->position = rotation.Transform(gp3DCursor->cam_rel_offset);
+        gp3DCursor->position = rotation * (gp3DCursor->cam_rel_offset).glmValue();
         node_location = g_world->dynamic_scene->getLocation();
         srVector3T<float> scene_location;
-        scene_location.SetFromDouble(&node_location);
+        scene_location = glm::vec3(node_location.glmValue());
         gp3DCursor->position += scene_location;
         if (gp3DCursor->track_ground) {
             if (gp3DCursor->position.y < saved_y) {
@@ -374,11 +375,9 @@ void ApplyWorldCursorInput(void)
     } else {
         GetCameraPosition(&camera);
         camera.y -= g_default_world_height;
-        rotation.SetIdentity();
-        if (g_gd_camera->m_yaw != 0.0) {
-            rotation.RotateAboutY(sin(g_gd_camera->m_yaw), cos(g_gd_camera->m_yaw));
-        }
-        delta = rotation.Transform(delta);
+        rotation = glm::mat3(1);
+        rotation *= glm::mat3_cast(glm::angleAxis(float(g_gd_camera->m_yaw), glm::vec3(0, 1, 0)));
+        delta = rotation * delta.glmValue();
         delta += gp3DCursor->position;
         if (gp3DCursor->range > g_float_zero && gp3DCursor->range < (camera - delta).Length()) {
             clamped = delta - camera;
@@ -400,19 +399,19 @@ void ApplyWorldCursorInput(void)
         lifted = gp3DCursor->position;
         MonsterSetAdjustedPosition(gp3DCursor->monster, &lifted);
         if (g_cursor_node0 != 0) {
-            node_location.SetFromFloat(&gp3DCursor->position);
+            node_location = glm::dvec3((&gp3DCursor->position)->glmValue());
             g_cursor_node0->setLocation(node_location);
         }
         if (g_cursor_value != 0) {
-            node_location.SetFromFloat(&gp3DCursor->position);
+            node_location = glm::dvec3((&gp3DCursor->position)->glmValue());
             g_cursor_value->setLocation(node_location);
         }
         if (gp3DCursor->particle != 0) {
-            node_location.SetFromFloat(&gp3DCursor->position);
+            node_location = glm::dvec3((&gp3DCursor->position)->glmValue());
             gp3DCursor->particle->setLocation(node_location);
         }
         if (gp3DCursor->light != 0) {
-            node_location.SetFromFloat(&gp3DCursor->position);
+            node_location = glm::dvec3((&gp3DCursor->position)->glmValue());
             gp3DCursor->light->setLocation(node_location);
         }
         if (gp3DCursor->dragged_info != 0) {
@@ -556,7 +555,7 @@ void ToggleWorldCursor(void)
 // FUNCTION: WIZ8 0x004916C0
 void UpdateWorldCursor(void)
 {
-    SGPPoint cursor_point;
+    SDL_Point cursor_point;
     srVector3T<float> camera;
     srVector3T<float> old_position;
     srVector3T<float> position;
@@ -587,10 +586,10 @@ void UpdateWorldCursor(void)
         if (gp3DCursor->detached) {
             gp3DCursor->track_ground = false;
         }
-        gp3DCursor->input_delta.y += 0xf0 - cursor_point.iY;
+        gp3DCursor->input_delta.y += 0xf0 - cursor_point.y;
     } else {
-        gp3DCursor->input_delta.x += cursor_point.iX - 0x140;
-        gp3DCursor->input_delta.z += 0xf0 - cursor_point.iY;
+        gp3DCursor->input_delta.x += cursor_point.x - 0x140;
+        gp3DCursor->input_delta.z += 0xf0 - cursor_point.y;
     }
     WarpSystemCursor(0x140, 0xf0);
     ApplyWorldCursorInput();
@@ -728,7 +727,7 @@ char MarchWorldCursorTarget(srVector3T<float>* target)
 // FUNCTION: WIZ8 0x00491EC0
 void UpdateWorldCursorPlacement(void)
 {
-    srMatrix3T<float> rotation;
+    glm::mat3 rotation;
     srVector3T<float> camera(0.0f, 1.0f, 0.0f);
     srVector3T<float> forward;
     srVector3T<float> target;
@@ -736,18 +735,19 @@ void UpdateWorldCursorPlacement(void)
     float cosine;
     float sine;
 
-    rotation.SetIdentity();
+    rotation = glm::mat3(1);
     if (g_gd_camera->m_yaw != g_double_zero) {
         cosine = static_cast<float>(cos(g_gd_camera->m_yaw));
         sine = static_cast<float>(sin(g_gd_camera->m_yaw));
-        rotation.RotateAboutY(sine, cosine);
+        rotation *=
+            glm::mat3_cast(glm::angleAxis(float(std::atan2(sine, cosine)), glm::vec3(0, 1, 0)));
     }
     GetCameraPosition(&camera);
     camera.y -= g_default_world_height;
     cursor = gp3DCursor;
     cursor->last_published = -100000000.0f;
     forward.Set(0.0, 0.0, g_cursor_projection_distance);
-    target = camera + rotation.Transform(forward);
+    target = camera + srVector3T<float>{rotation * forward.glmValue()};
     cursor->position = camera;
     cursor->track_ground = true;
     if (MarchWorldCursorTarget(&target) == 0) {

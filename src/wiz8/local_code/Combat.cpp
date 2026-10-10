@@ -40,13 +40,10 @@
 #include "wiz8/local_code/CombatRange.h"
 #include "wiz8/npc_interaction.h"
 #include "wiz8/sr_api.h"
-#include "wiz8/utility.h"
 #include "wiz8/local_code/Strings.h"
 #include "random.h"
-#include "wiz8/local_code/character_events.h"
 #include "wiz8/local_code/FormationAndFacing.h"
 #include "wiz8/local_code/LoadSaveGame.h"
-#include "wiz8/local_code/MonsterGroup.h"
 #include "wiz8/local_code/MonsterAI.h"
 #include "wiz8/engine_code/Cursor3d.h"
 #include "wiz8/engine_code/GameData.h"
@@ -89,6 +86,7 @@
 #include "wiz8/character_event_queue.h"
 #include "wiz8/local_screens/ReviewCharacterScreen.h"
 #include "wiz8/cursor.h"
+#include <glm/gtc/matrix_transform.hpp>
 
 #include <stdarg.h>
 #include <stdio.h>
@@ -1421,9 +1419,11 @@ void ChooseCombatAction(int party_slot, W8TargetingContext context, W8ActionKind
         srAssertFail("FALSE", "C:\\Projects\\Wizardry 8\\Local Code\\Combat.cpp", 0x310, 0);
         value_a = party_slot;
         target = reinterpret_cast<W8CombatSlot*>(
-            party_slot); // reinterpret-ok: retail stores the party-slot word into the pointer output after the FALSE assert
+            party_slot); // reinterpret-ok: retail stores the party-slot word into the pointer
+                         // output after the FALSE assert
         detail = reinterpret_cast<W8ActionDetailBlock*>(
-            party_slot); // reinterpret-ok: retail stores the party-slot word into the pointer output after the FALSE assert
+            party_slot); // reinterpret-ok: retail stores the party-slot word into the pointer
+                         // output after the FALSE assert
         kind =
             static_cast<W8ActionKind>(party_slot); // retail keeps this word after the FALSE assert
         break;
@@ -2789,7 +2789,7 @@ int ExecuteCharacterSpecialAttack(int party_slot)
 bool CreateCharacterBreathEffect(int party_slot)
 {
     W8TargetSource source;
-    srMatrix3T<float> rotation;
+    glm::mat3 rotation;
     srVector3T<float> camera;
     srVector3T<float> direction;
     W8GrowableVector<int> char_targets;
@@ -2814,14 +2814,12 @@ bool CreateCharacterBreathEffect(int party_slot)
     aim = target->point - camera;
     direction = aim;
     aim.SetLength(1.0);
-    rotation.SetIdentity();
+    rotation = glm::mat3(1);
     yaw = atan2(aim.x, aim.z);
-    if (yaw != g_double_zero) {
-        rotation.RotateAboutY(sin(yaw), cos(yaw));
-    }
-    aim = rotation.Transform(direction);
+    rotation *= glm::mat3_cast(glm::angleAxis(float(yaw), glm::vec3(0, 1, 0)));
+    aim = rotation * direction.glmValue();
     pitch = -atan2(aim.y, aim.z);
-    rotation.RotateAboutX(pitch);
+    rotation *= glm::mat3_cast(glm::angleAxis(float(pitch), glm::vec3(1, 0, 0)));
     g_combat_state->breath_visual = CreateAimedSpellEffect(
         g_spell_records[W8_SPELL_SPECIAL_ATTACK_CONE].resource_name, 1, &camera, &rotation, 0, 0);
     if (g_combat_state->breath_visual == 0) {

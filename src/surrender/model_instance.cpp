@@ -74,44 +74,35 @@ void srModelInstance::process(const ProcessInfo& info, e_processType type)
     } else {
         renderer->matrixMode(srGERD::MATRIX_MODELVIEW);
         renderer->pushMatrix();
-        srMatrix4T<float> matrix;
+        glm::mat4 matrix;
         renderer->getMatrix(srGERD::MATRIX_MODELVIEW, matrix);
         srVector3T<double> location = getWorldSpaceLocation();
         float x = (float)location.x;
         float y = (float)location.y;
         float z = (float)location.z;
         srVector3T<double> world_scale = getWorldSpaceScale();
-        srVector4T<float> position;
-        position.Set(matrix.vectors[0].x * x + matrix.vectors[0].z * z + matrix.vectors[0].y * y +
-                         matrix.vectors[0].w,
-                     matrix.vectors[1].x * x + matrix.vectors[1].z * z + matrix.vectors[1].y * y +
-                         matrix.vectors[1].w,
-                     matrix.vectors[2].x * x + matrix.vectors[2].z * z + matrix.vectors[2].y * y +
-                         matrix.vectors[2].w,
-                     matrix.vectors[3].x * x + matrix.vectors[3].z * z + matrix.vectors[3].y * y +
-                         matrix.vectors[3].w);
-        float length_x = (float)sqrt(matrix.vectors[0].x * matrix.vectors[0].x +
-                                     matrix.vectors[1].x * matrix.vectors[1].x +
-                                     matrix.vectors[2].x * matrix.vectors[2].x);
-        float length_y = (float)sqrt(matrix.vectors[0].y * matrix.vectors[0].y +
-                                     matrix.vectors[1].y * matrix.vectors[1].y +
-                                     matrix.vectors[2].y * matrix.vectors[2].y);
-        float length_z = (float)sqrt(matrix.vectors[0].z * matrix.vectors[0].z +
-                                     matrix.vectors[1].z * matrix.vectors[1].z +
-                                     matrix.vectors[2].z * matrix.vectors[2].z);
-        float determinant = matrix.vectors[0].x * (matrix.vectors[2].z * matrix.vectors[1].y -
-                                                   matrix.vectors[2].y * matrix.vectors[1].z) +
-                            matrix.vectors[1].x * (matrix.vectors[2].y * matrix.vectors[0].z -
-                                                   matrix.vectors[2].z * matrix.vectors[0].y) +
-                            matrix.vectors[2].x * (matrix.vectors[1].z * matrix.vectors[0].y -
-                                                   matrix.vectors[1].y * matrix.vectors[0].z);
+        glm::vec4 position;
+        position = glm::vec4(matrix[0][0] * x + matrix[2][0] * z + matrix[1][0] * y + matrix[3][0],
+                             matrix[0][1] * x + matrix[2][1] * z + matrix[1][1] * y + matrix[3][1],
+                             matrix[0][2] * x + matrix[2][2] * z + matrix[1][2] * y + matrix[3][2],
+                             matrix[0][3] * x + matrix[2][3] * z + matrix[1][3] * y + matrix[3][3]);
+        float length_x = (float)sqrt(matrix[0][0] * matrix[0][0] + matrix[0][1] * matrix[0][1] +
+                                     matrix[0][2] * matrix[0][2]);
+        float length_y = (float)sqrt(matrix[1][0] * matrix[1][0] + matrix[1][1] * matrix[1][1] +
+                                     matrix[1][2] * matrix[1][2]);
+        float length_z = (float)sqrt(matrix[2][0] * matrix[2][0] + matrix[2][1] * matrix[2][1] +
+                                     matrix[2][2] * matrix[2][2]);
+        float determinant =
+            matrix[0][0] * (matrix[2][2] * matrix[1][1] - matrix[1][2] * matrix[2][1]) +
+            matrix[0][1] * (matrix[1][2] * matrix[2][0] - matrix[2][2] * matrix[1][0]) +
+            matrix[0][2] * (matrix[2][1] * matrix[1][0] - matrix[1][1] * matrix[2][0]);
         if (determinant > 0.0f) {
             length_x = -length_x;
             length_y = -length_y;
             length_z = -length_z;
         }
         renderer->loadIdentity();
-        srVector3T<float> translation = position.xyz();
+        srVector3T<float> translation = glm::vec3(position);
         renderer->translate(translation);
         if (align_angle != 0.0f) {
             renderer->rotate(align_angle, align_axis);

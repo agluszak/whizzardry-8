@@ -37,6 +37,19 @@ find_package(SDL3_image 3.4 CONFIG REQUIRED)
 find_package(SDL3_mixer 3.2.4 CONFIG REQUIRED)
 find_package(Threads REQUIRED)
 
+# GLM's headers are shared by game calculations and renderer storage adapters.
+if(POLICY CMP0135)
+    cmake_policy(SET CMP0135 NEW)
+endif()
+include(FetchContent)
+set(GLM_BUILD_TESTS OFF CACHE BOOL "" FORCE)
+set(GLM_BUILD_LIBRARY OFF CACHE BOOL "" FORCE)
+FetchContent_Declare(glm
+    URL https://codeload.github.com/g-truc/glm/tar.gz/refs/tags/1.0.3
+    URL_HASH SHA256=6775e47231a446fd086d660ecc18bcd076531cfedd912fbd66e576b118607001
+)
+FetchContent_MakeAvailable(glm)
+
 # No forced CRT vocabulary or short-wchar options at the portable API boundary.
 add_library(wiz8_filesystem STATIC
     src/platform/path_resolver.cpp
@@ -87,7 +100,7 @@ target_include_directories(wiz8_native_settings INTERFACE
     "${PROJECT_SOURCE_DIR}/include/wiz8/engine_code"
     "${PROJECT_SOURCE_DIR}/src/sgp"
 )
-target_link_libraries(wiz8_native_settings INTERFACE Threads::Threads ${CMAKE_DL_LIBS})
+target_link_libraries(wiz8_native_settings INTERFACE glm::glm-header-only Threads::Threads ${CMAKE_DL_LIBS})
 
 # Two-byte wide-string CRT support; filesystem ownership lives in wiz8_filesystem.
 add_library(wiz8_compat STATIC

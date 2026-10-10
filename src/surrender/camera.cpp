@@ -46,13 +46,13 @@ void srCamera::setProjectionType(e_project projection)
 // FUNCTION: SURRENDER 0x10047E50
 void srCamera::processPush(srGERD* renderer)
 {
-    srMatrix4T<double> world;
+    glm::dmat4 world;
     getWorldSpaceMatrix(world);
 
     /* The view transform reverses the inverse world matrix's Z row. */
-    srMatrix4T<double> view;
-    view.Inverse(world);
-    view.vectors[2] = -view.vectors[2];
+    glm::dmat4 view;
+    view = glm::inverse(world);
+    view = glm::row(view, 2, -glm::row(view, 2));
 
     renderer->matrixMode(srGERD::MATRIX_MODELVIEW);
     renderer->pushMatrix();
@@ -370,11 +370,11 @@ void srCamera::dump(std::ostream& stream)
 srCamera::e_projectionResult srCamera::project(srVector3T<float>& output,
                                                const srVector3T<double>& input)
 {
-    srMatrix3T<double> rotation;
+    glm::dmat3 rotation;
     getWorldSpaceRotation(rotation);
     srVector3T<double> location = getWorldSpaceLocation();
     srVector3T<double> delta = input - location;
-    srVector3T<double> point = rotation.Transform(delta);
+    srVector3T<double> point = rotation * delta.glmValue();
 
     double near_clip = this->near_clip < this->far_clip ? this->near_clip : this->far_clip;
     double far_clip = this->near_clip < this->far_clip ? this->far_clip : this->near_clip;
@@ -437,14 +437,14 @@ int srCamera::unproject(srVector3T<float>& output, const srVector3T<double>& inp
         }
         if (y_lower * depth <= y && y <= y_upper * depth && x_lower * depth <= x &&
             x <= x_upper * depth) {
-            srMatrix3T<double> rotation;
+            glm::dmat3 rotation;
             getWorldSpaceRotation(rotation);
             srVector3T<double> location = getWorldSpaceLocation();
             srVector3T<double> point;
             point.x = x;
             point.y = y;
             point.z = depth;
-            srVector3T<double> world = rotation.TransformTransposed(point);
+            srVector3T<double> world = glm::transpose(rotation) * point.glmValue();
             output.x = (float)(world.x + location.x);
             output.y = (float)(world.y + location.y);
             output.z = (float)(world.z + location.z);

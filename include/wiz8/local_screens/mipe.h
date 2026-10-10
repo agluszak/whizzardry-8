@@ -102,7 +102,7 @@ void ToggleMipePanel(void);
 void UpdateMipeSelection(void);
 void DragSelectionWithCursor(void);
 /* MIPE's world-view input dispatch: cube drag, cube pick, action menu. */
-bool MipeWorldViewEvent(int event, const SGPPoint* point);
+bool MipeWorldViewEvent(int event, const SDL_Point* point);
 
 /* Any armed monster-generator marker within reach of the camera; sticky
    index resumes the scan at the last hit. Used with AnyWorldItemVisible to

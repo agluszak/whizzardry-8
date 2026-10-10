@@ -50,7 +50,7 @@ public:
         srVector3T<float> dcg[4];
         srVector3T<float> dig[4];
         srVector3T<float> scg[4];
-        srVector2T<float> uv[8];
+        glm::vec2 uv[8];
         float weights[4];
     };
 
@@ -108,8 +108,8 @@ public:
     void scale(w8_ulong triangle, const srVector3T<float>& scale);
     void move(const srVector3T<float>& delta);
     void move(w8_ulong triangle, const srVector3T<float>& delta);
-    void rotate(const srMatrix3T<float>& matrix);
-    void rotate(w8_ulong triangle, const srMatrix3T<float>& matrix);
+    void rotate(const glm::mat3& matrix);
+    void rotate(w8_ulong triangle, const glm::mat3& matrix);
     int findVertex(const srVector3T<float>& position, w8_ulong& triangle,
                    w8_ulong& vertex, w8_ulong start_triangle);
     void findClosestVertex(const srVector3T<float>& position, w8_ulong& triangle,
@@ -173,7 +173,7 @@ public:
 
 private:
     std::unique_ptr<VertexHash> getUniqueVertexList();
-    int isClockwise(srVector2T<float>* points, int count);
+    int isClockwise(glm::vec2* points, int count);
 
     w8_ulong triangle_count;
     std::vector<Triangle> triangles;

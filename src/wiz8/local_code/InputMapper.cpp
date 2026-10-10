@@ -101,10 +101,10 @@ unsigned char MGSKeyboard::LoadDefaults(const char* path)
         unsigned int command_key = command;
         if (old_index != -1) {
             m_bindings.RemoveAtAndDelete(old_index);
-            m_command_index.Remove(&command_key);
+            m_command_index.erase(command_key);
         }
         if (m_bindings.Add(binding) != -1) {
-            m_command_index.Insert(&command_key, &binding);
+            m_command_index.emplace(command_key, binding);
         }
         loaded_binding = true;
     }

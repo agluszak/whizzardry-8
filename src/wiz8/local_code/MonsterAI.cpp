@@ -416,7 +416,7 @@ void DoMonsterRTAI(W8MonsterInfo* monster_info, bool engage)
         if (mode != W8_RT_AI_PATROL_AREA &&
             (!monster_info->p3D->face_party || monster_info->pathing_cooldown != 0 ||
              mode != W8_RT_AI_FACE_DIRECTION || !monster_info->player_visibility.line_of_sight ||
-             (monster_info->p3D->movement.position - g_startup_world->GetPosition()).Length() >=
+             (((monster_info->p3D->movement.position - g_startup_world->GetPosition()))).Length() >=
                  g_float_five_thousand)) {
             monster_info->ai_mode &= ~W8_MONSTER_AI_REAPPLY_MODE;
         }

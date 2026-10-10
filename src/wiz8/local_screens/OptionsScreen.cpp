@@ -664,11 +664,11 @@ void W8OptionsSaveRow::OnLeftButtonUp(int event)
 {
     if (m_active && m_enabled && !m_editing &&
         (m_stateFlags & g_W8TextControlStateSecondary) != 0) {
-        SGPPoint point;
+        SDL_Point point;
         SGPMouseGetPos(&point);
-        point.iX -= m_pPanel->m_bounds.left + m_left;
-        point.iY -= m_pPanel->m_bounds.top + m_top;
-        if (m_save_mode != 0 && point.iX >= 0x5c && point.iY >= 0x33 && m_save_listener != 0) {
+        point.x -= m_pPanel->m_bounds.left + m_left;
+        point.y -= m_pPanel->m_bounds.top + m_top;
+        if (m_save_mode != 0 && point.x >= 0x5c && point.y >= 0x33 && m_save_listener != 0) {
             m_save_listener->OnEditSaveName(this);
         }
     }
@@ -2065,8 +2065,8 @@ unsigned char OptionsScreenEnter()
 // FUNCTION: WIZ8 0x005a9cc0
 void OptionsScreenFrame()
 {
-    SGPPoint point;
-    SGPPoint current;
+    SDL_Point point;
+    SDL_Point current;
     InputAtom input;
 
     if (g_dev_mode) {
@@ -2080,8 +2080,8 @@ void OptionsScreenFrame()
     W8OptionsScreen* screen = g_options_screen;
     if (screen->m_text_editor != 0) {
         SGPMouseGetPos(&current);
-        MSYS_SGP_Mouse_Handler_Hook(MOUSE_POS, static_cast<unsigned short>(current.iX),
-                                    static_cast<unsigned short>(current.iY), gfLeftButtonState,
+        MSYS_SGP_Mouse_Handler_Hook(MOUSE_POS, static_cast<unsigned short>(current.x),
+                                    static_cast<unsigned short>(current.y), gfLeftButtonState,
                                     gfRightButtonState);
         screen = g_options_screen;
     }
@@ -2106,7 +2106,7 @@ void OptionsScreenFrame()
         screen->m_modal_closing = false;
     }
 
-    UpdateRegionMousePosition(point.iX, point.iY);
+    UpdateRegionMousePosition(point.x, point.y);
     while (DequeueEvent(&input) == 1) {
         if (!screen->ProcessInput(&input) && !DispatchRegionInput(&input) &&
             input.usEvent == KEY_DOWN && input.usParam == VK_ESCAPE) {

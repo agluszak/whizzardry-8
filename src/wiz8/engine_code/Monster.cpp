@@ -49,7 +49,6 @@
 #include "wiz8/engine_code/ReadLevel.h"
 #include "wiz8/engine_code/Trigger.hpp"
 #include "wiz8/engine_code/stTextureAnim.h"
-#include "wiz8/engine_code/stTextureFile.h"
 #include "wiz8/engine_code/stScript.h"
 #include "wiz8/resource_cache.h"
 #include "wiz8/engine_code/stSound3D.h"
@@ -95,6 +94,7 @@
 #include "wiz8/engine_code/GameData.h"
 #include "wiz8/engine_code/GrCycle.h"
 #include "input.h"
+#include <glm/gtc/matrix_transform.hpp>
 // GLOBAL: WIZ8 0x00659c14
 int g_combat_round_counter;
 
@@ -1601,7 +1601,7 @@ void W8Monster::Update()
     if (sound != 0) {
         srVector3T<float> position = GetPosition();
         srVector3T<double> location;
-        location.SetFromFloat(&position);
+        location = glm::dvec3(position.glmValue());
         sound->setLocation(location);
     }
 }
@@ -1806,10 +1806,10 @@ bool W8Monster::GetCycleMappedPosition(signed char cycle, int mapped_index,
         if (mesh != 0 && vertex != -1) {
             srVector3T<float>* vertices = mesh->GetVertexLocations(dispatch_value, true, 0.0f);
             if (vertices != 0 && current_model != 0) {
-                srMatrix3T<float> rotation;
+                glm::mat3 rotation;
                 current_model->getWorldSpaceRotation(rotation);
                 srVector3T<float> local = vertices[vertex] * m_pRep->scale;
-                srVector3T<float> rotated = rotation.Transform(local);
+                srVector3T<float> rotated = rotation * local.glmValue();
                 srVector3T<float> owner_position = GetPosition();
                 position->Set(rotated.x + owner_position.x,
                               rotated.y + owner_position.y + movement.vertical_base,
@@ -3200,7 +3200,7 @@ W8AniMesh* W8MonsterRep::GetEmitterAniMesh(signed char cycle)
 void W8Monster::UpdateRepresentation(W8World* world)
 {
     srVector3T<float> position;
-    srMatrix3T<float> rotation;
+    glm::mat3 rotation;
     srModelInstance* model;
     stTextureAnim* mouth;
     W8GrowableVector<stLight*>* lights;
@@ -3211,21 +3211,29 @@ void W8Monster::UpdateRepresentation(W8World* world)
     position.y += movement.vertical_offset;
     GetRepresentation()->SetLocation(&position);
 
-    rotation.SetIdentity();
+    rotation = glm::mat3(1);
     {
         float angle = NormalizeAngle(GetYaw() + g_monster_rotation_offset);
         if (angle != 0.0f) {
-            rotation.RotateAboutY(sin(angle), cos(angle));
+            rotation *= glm::mat3_cast(glm::angleAxis(float(angle), glm::vec3(0, 1, 0)));
         }
     }
     {
         float angle = GetPitch();
         if (angle != g_float_zero) {
-            rotation.RotateAboutX(static_cast<double>(angle));
+            {
+                if (static_cast<double>(angle) != 0.0) {
+                    rotation = rotation *
+                               glm::mat3(glm::rotate(
+                                   glm::dmat4(1), static_cast<double>(static_cast<double>(angle)),
+                                   glm::dvec3(1, 0, 0)));
+                }
+            }
         }
     }
     if (movement.roll != g_float_zero) {
-        rotation.RotateAboutZ(static_cast<double>(movement.roll));
+        rotation *= glm::mat3_cast(
+            glm::angleAxis(float(static_cast<double>(movement.roll)), glm::vec3(0, 0, 1)));
     }
     m_pRep->SetRotation(&rotation);
 
@@ -3537,8 +3545,8 @@ void W8Monster::SetCycle(signed char cycle)
     }
 
     if (cycle == W8_MONSTER_CYCLE_DIE) {
-        srVector4T<float> empty;
-        empty = 0.0f;
+        glm::vec4 empty;
+        empty = glm::vec4(0);
         srModelInstance* instance;
 
         m_pRep->highlight_colour = empty;
@@ -3632,7 +3640,7 @@ void W8Monster::UpdateAttachedObjects()
     int attachment_layout = representation->icon_count;
     unsigned int linked_count = PLLength(representation->spell_icons);
     int poster_count = representation->linked_runtime_objects.GetCount();
-    srMatrix3T<float> camera_rotation;
+    glm::mat3 camera_rotation;
     srVector3T<float> base_position;
     srVector3T<float> party_position;
     float distance_scale;
@@ -3676,7 +3684,7 @@ void W8Monster::UpdateAttachedObjects()
                 srVector3T<double> widened_scale;
 
                 offset = source * distance_scale;
-                srVector3T<float> rotated = camera_rotation.Transform(offset);
+                srVector3T<float> rotated = camera_rotation * offset.glmValue();
                 location = base_position + rotated;
                 location.y += representation->standing_height +
                               distance_scale * g_monster_attachment_vertical_scale;
@@ -3726,7 +3734,7 @@ void W8Monster::UpdateAttachedObjects()
 
                 offset = source * distance_scale;
                 offset.y += group_height * distance_scale;
-                srVector3T<float> rotated = camera_rotation.Transform(offset);
+                srVector3T<float> rotated = camera_rotation * offset.glmValue();
                 location = base_position + rotated;
                 location.y += representation->standing_height +
                               distance_scale * g_monster_linked_vertical_scale;
@@ -3736,7 +3744,7 @@ void W8Monster::UpdateAttachedObjects()
                 mesh_scale = distance_scale * g_monster_attachment_scales[chunk_count - 1];
                 widened = mesh_scale;
                 mesh->setScale(widened);
-                widened.SetFromFloat(&location);
+                widened = glm::dvec3(location.glmValue());
                 mesh->setLocation(widened);
                 if ((runtime_flags & W8_MONSTER_FADED_OUT) == 0) {
                     mesh->clearFlag(srNode::FLAG_DISABLE);
@@ -3763,7 +3771,7 @@ void W8Monster::UpdateAttachedObjects()
 
             if ((poster_position - mapped_position).Length() <=
                 static_cast<float>(g_monster_poster_max_distance)) {
-                location.SetFromFloat(&poster_position);
+                location = glm::dvec3(poster_position.glmValue());
                 poster->setLocation(location);
                 ++poster_index;
             } else {
@@ -4214,7 +4222,7 @@ unsigned char MonsterReplacePath(W8Monster* monster, W8PathAI* path)
 // FUNCTION: WIZ8 0x004c5b60
 void MonsterSetFacing(W8Monster* monster, float angle)
 {
-    srMatrix3T<float> rotation;
+    glm::mat3 rotation;
 
     if (monster == 0) {
         return;
@@ -4223,22 +4231,16 @@ void MonsterSetFacing(W8Monster* monster, float angle)
     monster->SetAngles(NormalizeAngle(angle));
     monster->SetPitch(0.0f);
 
-    rotation.SetIdentity();
+    rotation = glm::mat3(1);
 
     angle = NormalizeAngle(monster->GetYaw() + g_monster_rotation_offset);
-    if (angle != g_double_zero) {
-        rotation.RotateAboutY(sin(angle), cos(angle));
-    }
+    rotation *= glm::mat3_cast(glm::angleAxis(float(angle), glm::vec3(0, 1, 0)));
 
     angle = monster->GetPitch();
-    if (angle != g_float_zero && angle != g_double_zero) {
-        rotation.RotateAboutX(sin(angle), cos(angle));
-    }
+    rotation *= glm::mat3_cast(glm::angleAxis(float(angle), glm::vec3(1, 0, 0)));
 
     angle = monster->movement.roll;
-    if (angle != g_float_zero && angle != g_double_zero) {
-        rotation.RotateAboutZ(sin(angle), cos(angle));
-    }
+    rotation *= glm::mat3_cast(glm::angleAxis(float(angle), glm::vec3(0, 0, 1)));
 
     monster->m_pRep->SetRotation(&rotation);
 }
@@ -4416,11 +4418,12 @@ void W8Monster::GetMappedPosition(srVector3T<float>* position)
                     vertices = mesh->GetVertexLocations(0, true, 0.0f);
                 }
                 if (vertices != 0) {
-                    srMatrix4T<float> matrix;
+                    glm::mat4 matrix;
 
                     *position = vertices[index];
                     instance->getWorldSpaceMatrix(matrix);
-                    *position = matrix.TransformPoint(*position);
+                    *position = srVector3T<float>{
+                        glm::vec3(matrix * glm::vec4(position->glmValue(), 1))};
                     return;
                 }
             }
@@ -4466,7 +4469,7 @@ void W8Monster::SetForcedSubcycle(signed char value)
    single epilogue despite testing two things. The block arrives by value and is
    stored as one assignment. */
 // FUNCTION: WIZ8 0x004c5ad0
-void MonsterSetHighlightColour(W8Monster* monster, srVector4T<float> block)
+void MonsterSetHighlightColour(W8Monster* monster, glm::vec4 block)
 {
     if (monster != 0 && monster->Query(W8_MONSTER_QUERY_CYCLE) != W8_MONSTER_CYCLE_DIE) {
         monster->m_pRep->highlight_colour = block;
@@ -4970,9 +4973,9 @@ void W8Monster::SpawnDamageNumber(unsigned int amount)
         srVector3T<float> camera_position;
         srVector3T<float> facing;
         srVector3T<double> location;
-        srVector4T<float> colour;
-        srMatrix3T<float> rotation;
-        srMatrix3T<double> world;
+        glm::vec4 colour;
+        glm::mat3 rotation;
+        glm::dmat3 world;
         stModelInstance* poster;
         stParticle* particle;
         srShader shader;
@@ -5006,14 +5009,14 @@ void W8Monster::SpawnDamageNumber(unsigned int amount)
         poster = static_cast<stModelInstance*>(VideoMakePoster(surface, scale, scale, true));
         if (poster != 0) {
             poster->alignment_flags.set(0, 1);
-            location.SetFromFloat(&position);
+            location = glm::dvec3(position.glmValue());
             poster->setLocation(location);
             poster->setParent(g_world->dynamic_scene, 1);
             m_pRep->linked_runtime_objects.Add(poster);
 
             particle = new stParticle(g_world->dynamic_scene, 0xa);
             auto material = std::make_shared<srMaterial>();
-            colour.Set(0.0f, 0.0f, 0.0f, 1.0f);
+            colour = glm::vec4(0.0f, 0.0f, 0.0f, 1.0f);
             material->setEmissive(colour);
             material->setDiffuse(colour);
             particle->SetMaterial(std::move(material));
@@ -5038,13 +5041,12 @@ void W8Monster::SpawnDamageNumber(unsigned int amount)
             particle->release_when_done = true;
             particle->bounds_mode = W8_PARTICLE_BOUNDS_SPHERE;
             particle->bounds_radius = 1000.0f;
-            location.SetFromFloat(&position);
+            location = glm::dvec3(position.glmValue());
             particle->setLocation(location);
             GetCurrentModelInstance()->getRotation(rotation);
-            rotation.RotateAboutY(sin(g_camera_pi), cos(g_camera_pi));
-            world.vectors[0].SetFromFloat(&rotation.vectors[0]);
-            world.vectors[1].SetFromFloat(&rotation.vectors[1]);
-            world.vectors[2].SetFromFloat(&rotation.vectors[2]);
+            rotation *= glm::mat3_cast(glm::angleAxis(float(g_camera_pi), glm::vec3(0, 1, 0)));
+
+            world = glm::dmat3(rotation);
             particle->rotate(world);
         }
     }

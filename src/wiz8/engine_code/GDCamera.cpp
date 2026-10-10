@@ -5,8 +5,8 @@
 #include "wiz8/startup_world.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/engine_code/quad.h"
-
 #include "surrender/srCamera.h"
+
 #include "surrender/srNode.h"
 #include "surrender/srScene.h"
 #include "wiz8/engine_code/GameData.h"
@@ -15,9 +15,10 @@
 #include "wiz8/float_constants.h"
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/utility.h"
-
 #include <math.h>
+
 #include <float.h>
+#include <glm/gtc/matrix_transform.hpp>
 
 // GLOBAL: WIZ8 0x005ec300
 extern const double g_camera_view_factor0 = 0.005555555555555556;
@@ -121,23 +122,25 @@ void OffsetPositionByYawPitch(float distance, srVector3T<float>* position, float
 {
     srVector3T<float> forward;
     srVector3T<float> step;
-    srMatrix3T<float> rotation;
+    glm::mat3 rotation;
     float cosine;
     float sine;
 
     forward.Set(0.0f, 0.0f, distance);
-    rotation.SetIdentity();
+    rotation = glm::mat3(1);
     if (yaw != g_double_zero) {
         cosine = static_cast<float>(cos(yaw));
         sine = static_cast<float>(sin(yaw));
-        rotation.RotateAboutY(sine, cosine);
+        rotation *=
+            glm::mat3_cast(glm::angleAxis(float(std::atan2(sine, cosine)), glm::vec3(0, 1, 0)));
     }
     if (pitch != g_double_zero) {
         cosine = static_cast<float>(cos(pitch));
         sine = static_cast<float>(sin(pitch));
-        rotation.RotateAboutX(sine, cosine);
+        rotation *=
+            glm::mat3_cast(glm::angleAxis(float(std::atan2(sine, cosine)), glm::vec3(1, 0, 0)));
     }
-    step = rotation.Transform(forward);
+    step = rotation * forward.glmValue();
     *position += step;
 }
 
@@ -169,7 +172,7 @@ GDCamera::GDCamera()
     m_manual_input_timer = new W8IntervalGate(1.0f, false, true);
 
     m_rotation = m_yaw_rotation;
-    m_rotation.MultiplyBy(m_pitch_rotation);
+    m_rotation = m_rotation * m_pitch_rotation;
 }
 
 /* Creates the game camera when a parent is supplied, otherwise installs or
@@ -183,7 +186,7 @@ srCamera* GDCamera::CreateOrAttachCamera(srNode* parent, srCamera* camera)
 
         g_game_camera = new srCamera(parent);
         g_game_camera->setName("Sirtech Camera");
-        position.SetFromFloat(&m_position);
+        position = glm::dvec3(m_position.glmValue());
         g_game_camera->setLocation(position);
         g_game_camera->setClipRange(250.0, 75000.0);
         g_game_camera->setRotation(0.0, 0.0, 0.0);
@@ -200,7 +203,7 @@ srCamera* GDCamera::CreateOrAttachCamera(srNode* parent, srCamera* camera)
         } else {
             g_game_camera = camera;
         }
-        position.SetFromFloat(&m_position);
+        position = glm::dvec3(m_position.glmValue());
         g_game_camera->setLocation(position);
         g_game_camera->setRotation(0.0, 0.0, 0.0);
     }
@@ -212,11 +215,11 @@ srCamera* GDCamera::CreateOrAttachCamera(srNode* parent, srCamera* camera)
 }
 
 // FUNCTION: WIZ8 0x00476610
-void GDCamera::ApplyRotationMatrix(srMatrix3T<float>* rotation, W8LevelDataRecord* context)
+void GDCamera::ApplyRotationMatrix(glm::mat3* rotation, W8LevelDataRecord* context)
 {
-    float forward_x = rotation->vectors[0].z;
-    float forward_y = rotation->vectors[1].z;
-    float forward_z = rotation->vectors[2].z;
+    float forward_x = (*rotation)[2][0];
+    float forward_y = (*rotation)[2][1];
+    float forward_z = (*rotation)[2][2];
     float angle = 0.0f;
     float pitch = 0.0f;
 
@@ -238,8 +241,8 @@ void GDCamera::ApplyRotationMatrix(srMatrix3T<float>* rotation, W8LevelDataRecor
         }
         pitch = static_cast<float>(acos(forward_y)) - g_camera_half_pi;
 
-        srVector2T<float> horizontal(forward_x, forward_z);
-        horizontal *= g_float_one / horizontal.Length();
+        glm::vec2 horizontal(forward_x, forward_z);
+        horizontal *= g_float_one / glm::length(horizontal);
         forward_x = horizontal.x;
         forward_z = horizontal.y;
         if (forward_z > g_float_one) {
@@ -277,8 +280,8 @@ void GDCamera::SnapToTarget(const srVector3T<float>* target)
     }
     direction.Normalize();
 
-    srVector2T<float> horizontal = direction.xz();
-    horizontal *= 1.0 / horizontal.Length();
+    glm::vec2 horizontal = direction.xz();
+    horizontal *= 1.0 / glm::length(horizontal);
     float x = horizontal.x;
     float y = direction.y;
     float z = horizontal.y;
@@ -343,8 +346,8 @@ unsigned char GDCamera::LookAt(const srVector3T<float>* target, bool preserve_pi
     }
     direction.Normalize();
 
-    srVector2T<float> horizontal = direction.xz();
-    horizontal *= 1.0 / horizontal.Length();
+    glm::vec2 horizontal = direction.xz();
+    horizontal *= 1.0 / glm::length(horizontal);
     float x = horizontal.x;
     float y = direction.y;
     float z = horizontal.y;
@@ -756,10 +759,8 @@ void GDCamera::SetOrientation(float angle, float pitch)
         angle += g_camera_angle_period0;
     }
     m_yaw = angle;
-    m_yaw_rotation.SetIdentity();
-    if (angle != g_double_zero) {
-        m_yaw_rotation.RotateAboutY(sin(angle), cos(angle));
-    }
+    m_yaw_rotation = glm::mat3(1);
+    m_yaw_rotation *= glm::mat3_cast(glm::angleAxis(float(angle), glm::vec3(0, 1, 0)));
 
     if (pitch > g_camera_pitch_upper) {
         pitch = g_camera_pitch_upper;
@@ -768,21 +769,19 @@ void GDCamera::SetOrientation(float angle, float pitch)
         pitch = g_camera_pitch_lower;
     }
     m_pitch = pitch;
-    m_pitch_rotation.SetIdentity();
-    if (pitch != g_double_zero) {
-        m_pitch_rotation.RotateAboutX(sin(pitch), cos(pitch));
-    }
+    m_pitch_rotation = glm::mat3(1);
+    m_pitch_rotation *= glm::mat3_cast(glm::angleAxis(float(pitch), glm::vec3(1, 0, 0)));
 
     m_rotation = m_yaw_rotation;
-    m_rotation.MultiplyBy(m_pitch_rotation);
+    m_rotation = m_rotation * m_pitch_rotation;
     MarkRendererReady();
 }
 
 // FUNCTION: WIZ8 0x00478BD0
-void GDCamera::GetRotationMatrix(srMatrix3T<float>* output)
+void GDCamera::GetRotationMatrix(glm::mat3* output)
 {
     m_rotation = m_yaw_rotation;
-    m_rotation.MultiplyBy(m_pitch_rotation);
+    m_rotation = m_rotation * m_pitch_rotation;
     *output = m_rotation;
 }
 
@@ -797,9 +796,9 @@ void GDCamera::BeginLeveling()
 void GDCamera::GetForwardPoint(float distance, srVector3T<float>* output)
 {
     m_rotation = m_yaw_rotation;
-    m_rotation.MultiplyBy(m_pitch_rotation);
+    m_rotation = m_rotation * m_pitch_rotation;
     m_direction.Set(0.0f, 0.0f, 1.0f);
-    m_direction.Transform(m_rotation);
+    m_direction = m_rotation * m_direction.glmValue();
     *output = m_direction;
     output->SetLength(distance);
     *output += m_position;

@@ -496,7 +496,8 @@ int W8OctBuildTree::CollectLeaf(W8OctBuildNode* node, short depth, short kind)
                reads it back as a ushort). No producer appends at a kind above
                4, so the read is of ushort region-index storage; retained as
                the observed retail read of dead code. */
-            // reinterpret-ok: dead kind-10 path reads the proven ushort region-index pair at +0x2c as a link head
+            // reinterpret-ok: dead kind-10 path reads the proven ushort region-index pair at +0x2c
+            // as a link head
             for (link = *reinterpret_cast<W8OctBuildLink**>(&node->provisional_region); link != 0;
                  link = link->next) {
                 if (CollectSurfacePredicate(static_cast<W8GDSurface*>(link->surface), 0xb) != 0) {

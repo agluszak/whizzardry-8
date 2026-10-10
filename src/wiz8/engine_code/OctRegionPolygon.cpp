@@ -12,7 +12,8 @@
 bool W8OctRegionPolygon::InsideFrustumPlanes(const W8Plane* planes) const
 {
     for (short plane = 0; plane < 6; ++plane) {
-        float distance = DotProduct(planes[plane].normal, position) + planes[plane].w;
+        float distance =
+            glm::dot(planes[plane].normal.glmValue(), position.glmValue()) + planes[plane].w;
         if (distance < g_float_zero) {
             return false;
         }

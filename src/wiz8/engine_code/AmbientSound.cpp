@@ -18,12 +18,13 @@
 #include "random.h"
 #include "soundman.h"
 #include "wiz8/engine_code/Spells.h"
-
 #include <string.h>
+
 #include <stdio.h>
 #include <math.h>
 #include "wiz8/engine_code/GameData.h"
 #include "wiz8/engine_code/PolyPick.h"
+#include <glm/gtc/matrix_transform.hpp>
 
 // GLOBAL: WIZ8 0x005ec5a8
 const float g_ambient_sound_inner_radius_scale = 0.6000000238418579f;
@@ -70,14 +71,16 @@ bool W8AmbientSound::IsInsideRegion(const srVector3T<float>* listener)
     if (region_angle != g_float_zero &&
         (region_axis.x != g_float_zero || region_axis.y != g_float_zero ||
          region_axis.z != g_float_zero)) {
-        srMatrix3T<float> rotation;
+        glm::mat3 rotation;
         double angle = -region_angle;
 
-        rotation.SetIdentity();
+        rotation = glm::mat3(1);
         if (angle != g_double_zero) {
-            rotation.RotateAroundAxis(sin(angle), cos(angle), region_axis);
-        }
-        relative.Transform(rotation);
+            rotation *=
+                glm::mat3_cast(glm::angleAxis(float(std::atan2(sin(angle), cos(angle))),
+                                              normalizedOrZero(glm::vec3(region_axis.glmValue()))));
+            }
+            relative = rotation * relative.glmValue();
     }
     return PointInsideBounds(&relative, &region_min, &region_max);
 }
@@ -163,16 +166,14 @@ void W8AmbientSound::UpdatePosition(const srVector3T<float>* listener)
         if (shared == 0) {
             if (sound_handle != -1) {
                 float angle = -GetCameraYawRadians();
-                srMatrix3T<float> rotation;
+                glm::mat3 rotation;
                 srVector3T<float> transformed;
                 unsigned int volume;
 
-                rotation.SetIdentity();
-                if (angle != g_double_zero) {
-                    rotation.RotateAboutY(sin(angle), cos(angle));
-                }
+                rotation = glm::mat3(1);
+                rotation *= glm::mat3_cast(glm::angleAxis(float(angle), glm::vec3(0, 1, 0)));
                 srVector3T<float> offset = position - *listener;
-                transformed = rotation.Transform(offset);
+                transformed = rotation * offset.glmValue();
                 Sound3DSetPosition(sound_handle, transformed.x, transformed.y, transformed.z);
                 Sound3DSetDirection(sound_handle, -transformed.x, -transformed.y, -transformed.z,
                                     0.0f, g_float_one, 0.0f);
@@ -245,7 +246,7 @@ void W8AmbientSound::Service(bool entered)
                 g_current_screen_state.id == W8_SCREEN_MAIN_GAME) {
                 float angle = -GetCameraYawRadians();
                 srVector3T<float> camera;
-                srMatrix3T<float> rotation;
+                glm::mat3 rotation;
                 srVector3T<float> offset;
                 srVector3T<float> transformed;
                 srVector3T<float> to_listener;
@@ -254,12 +255,10 @@ void W8AmbientSound::Service(bool entered)
                 SOUND3DPOS pos;
 
                 GetCameraPosition(&camera);
-                rotation.SetIdentity();
-                if (angle != g_double_zero) {
-                    rotation.RotateAboutY(sin(angle), cos(angle));
-                }
+                rotation = glm::mat3(1);
+                rotation *= glm::mat3_cast(glm::angleAxis(float(angle), glm::vec3(0, 1, 0)));
                 offset = position - camera;
-                transformed = rotation.Transform(offset);
+                transformed = rotation * offset.glmValue();
                 memset(&pos, 0, sizeof(pos));
                 pos.flX = transformed.x;
                 pos.flY = transformed.y;
@@ -300,19 +299,17 @@ void W8AmbientSound::Service(bool entered)
     if (shared == 0) {
         float angle = -GetCameraYawRadians();
         srVector3T<float> camera;
-        srMatrix3T<float> rotation;
+        glm::mat3 rotation;
         srVector3T<float> offset;
         srVector3T<float> transformed;
         SOUND3DPARMS parms;
 
         GetCameraPosition(&camera);
         current_volume = (volume_max * g_settings.sound_effects_volume) / 0x7f;
-        rotation.SetIdentity();
-        if (angle != g_double_zero) {
-            rotation.RotateAboutY(sin(angle), cos(angle));
-        }
+        rotation = glm::mat3(1);
+        rotation *= glm::mat3_cast(glm::angleAxis(float(angle), glm::vec3(0, 1, 0)));
         offset = position - camera;
-        transformed = rotation.Transform(offset);
+        transformed = rotation * offset.glmValue();
         memset(&parms, -1, sizeof(parms));
         parms.uiVolume = current_volume;
         parms.Pos.flFaceX = -transformed.x;

@@ -10,7 +10,7 @@
 srClipPlane::srClipPlane(srNode* parent)
     : srClassSupport<srClipPlane, srNode, 0x1500>(static_cast<srNode*>(0))
 {
-    clip_plane_.Set(0.0f, 0.0f, 1.0f, 0.0f);
+    clip_plane_ = glm::vec4(0.0f, 0.0f, 1.0f, 0.0f);
     clip_type_ = CLIP_POSITIONAL_0;
     if (parent != 0) {
         setParent(parent, 0);
@@ -87,19 +87,19 @@ srClipPlane::e_clip srClipPlane::getClipType() const
 }
 
 // FUNCTION: SURRENDER 0x1004A0C0
-void srClipPlane::setClipPlane(const srVector4T<float>& plane)
+void srClipPlane::setClipPlane(const glm::vec4& plane)
 {
     clip_plane_ = plane;
 }
 
 // FUNCTION: SURRENDER 0x1004A0F0
-void srClipPlane::getClipPlane(srVector4T<float>& plane) const
+void srClipPlane::getClipPlane(glm::vec4& plane) const
 {
     plane = clip_plane_;
 }
 
 // FUNCTION: SURRENDER 0x1004A120
-srVector4T<float> srClipPlane::getClipPlane() const
+glm::vec4 srClipPlane::getClipPlane() const
 {
     return clip_plane_;
 }

@@ -21,16 +21,20 @@
 #include "wiz8/local_screens/PleaseWaitScreen.h"
 #include "wiz8/virtual_file.h"
 #include "wiz8/vector.h"
-
 #include "wiz8/filesystem.h"
+
 #include "surrender/srCore.h"
 #include "surrender/srNode.h"
-#include "surrender/srVectorMath.h"
-
+#include <algorithm>
+#include <ranges>
+#include <span>
+#include <tuple>
 #include <stdlib.h>
+
 #include <math.h>
 #include <string.h>
 #include <stdio.h>
+#include <glm/gtc/matrix_transform.hpp>
 
 static int operator==(const srShader& left, const srShader& right)
 {
@@ -38,7 +42,7 @@ static int operator==(const srShader& left, const srShader& right)
 }
 
 // FUNCTION: WIZ8 0x004896C0
-void ReadMeshTransform(wiz8::File* file, srVector3T<float>* location, srMatrix3T<float>* rotation,
+void ReadMeshTransform(wiz8::File* file, srVector3T<float>* location, glm::mat3* rotation,
                        srVector3T<float>* scale)
 {
     float angle;
@@ -52,8 +56,9 @@ void ReadMeshTransform(wiz8::File* file, srVector3T<float>* location, srMatrix3T
     file->read_exact(&axis.y, sizeof(axis.y));
     file->read_exact(&axis.z, sizeof(axis.z));
 
-    rotation->SetIdentity();
-    rotation->RotateAroundAxis(angle, axis);
+    (*rotation) = glm::mat3(1);
+    (*rotation) *=
+        glm::mat3_cast(glm::angleAxis(float(angle), normalizedOrZero(glm::vec3(axis.glmValue()))));
 
     file->read_exact(&scale->x, sizeof(scale->x));
     file->read_exact(&scale->y, sizeof(scale->y));
@@ -180,8 +185,8 @@ BuildSingleLevelMesh(int face_count, W8ReadMeshFace* faces, int vertex_count,
     int extra_uv_counts[8];
     std::array<std::vector<std::shared_ptr<srMaterialIFace>>, 8> vertex_materials;
     std::array<std::vector<std::shared_ptr<srTextureIFace>>, 8> polygon_textures;
-    std::array<std::vector<srVector2T<float>>, 8> vertex_uvs;
-    std::array<std::vector<srVector2T<float>>, 8> extra_uvs;
+    std::array<std::vector<glm::vec2>, 8> vertex_uvs;
+    std::array<std::vector<glm::vec2>, 8> extra_uvs;
     std::array<std::vector<srVector3i>, 8> polygon_vertices;
     std::array<std::vector<srVector3i>, 8> polygon_shades;
     std::array<std::vector<w8_ulong>, 8> vertex_shades;
@@ -342,10 +347,10 @@ BuildSingleLevelMesh(int face_count, W8ReadMeshFace* faces, int vertex_count,
 
         srVector3i* model_polygons = model->getPolyVertex();
         model->setUVCount(vertex_counts[type] + extra_uv_counts[type]);
-        srVector2T<float>* model_uvs = model->getVertexTexCoords(0, 0, 1);
-        memcpy(model_uvs, vertex_uvs[type].data(), vertex_counts[type] * sizeof(srVector2T<float>));
+        glm::vec2* model_uvs = model->getVertexTexCoords(0, 0, 1);
+        memcpy(model_uvs, vertex_uvs[type].data(), vertex_counts[type] * sizeof(glm::vec2));
         memcpy(model_uvs + vertex_counts[type], extra_uvs[type].data(),
-               extra_uv_counts[type] * sizeof(srVector2T<float>));
+               extra_uv_counts[type] * sizeof(glm::vec2));
         srVector3i* model_uv_indices = model->getPolyUVIndex(0, 1);
         for (int uv_polygon = 0; uv_polygon < polygon_counts[type]; ++uv_polygon) {
             for (int uv_corner = 0; uv_corner < 3; ++uv_corner) {
@@ -506,7 +511,7 @@ try
 
     srVector3T<float> location;
     srVector3T<float> scale;
-    srMatrix3T<float> rotation;
+    glm::mat3 rotation;
     if (version > 2) {
         success = (file->read(&flags, sizeof(flags)).bytes == static_cast<std::size_t>(sizeof(flags)));
     }
@@ -615,7 +620,8 @@ try
         loaded_instance->setName("ReadSTMeshFromFile");
         if (version > 1 && loaded_instance != 0) {
             const double angle = 3.1415926;
-            rotation.RotateAboutX(sin(angle), cos(angle));
+            rotation *= glm::mat3_cast(glm::angleAxis(float(angle), glm::vec3(1, 0, 0)));
+
             srVector3T<double> translated(location.x * 500.0, location.y * 500.0,
                                           location.z * 500.0);
             loaded_instance->setLocation(translated);
@@ -660,8 +666,9 @@ try
         first_model->getBoundingBox(minimum, maximum);
     }
     return 1;
+} catch (const std::exception&) {
+    return false;
 }
-catch (const std::exception&) { return false; }
 
 // FUNCTION: WIZ8 0x00488240
 unsigned char ReadMultipleLevelMeshes(W8ReadLevelInfo* info, srModelInstance** instances,
@@ -750,6 +757,8 @@ try
     }
 
     return 1;
+} catch (const std::exception&) {
+    return false;
 }
 catch (const std::exception&) { return false; }
 
@@ -852,5 +861,6 @@ try
         success = 2;
     }
     return success;
+} catch (const std::exception&) {
+    return false;
 }
-catch (const std::exception&) { return false; }

@@ -37,7 +37,7 @@ struct W8PathAI : W8AIRecord {
     int entry_index;                     /* 0x10: level camera/path entry index, assigned at load */
     /* 0x004A98C0 sizes both from the node count: 0x24 a record here, and a
        srVector3T<float> each in the render array. */
-    srMatrix3T<float>* rotations; /* 0x14 */
+    glm::mat3* rotations; /* 0x14 */
     srVector3T<float>* scales;    /* 0x18 */
     unsigned char discrete_mode;  /* 0x1c */
     unsigned char padding_1d[3];

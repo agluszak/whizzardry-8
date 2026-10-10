@@ -3,10 +3,9 @@
 #include "surrender/srGERD.h"
 #include "surrender/srMaterialIFace.h"
 #include "surrender/srNode.h"
-#include "surrender/srVectorMath.h"
 #include "surrender/srVertexPipe.h"
-
 #include <array>
+
 #include <chrono>
 #include <cmath>
 #include <cstdio>
@@ -15,6 +14,7 @@
 #include <memory>
 #include <thread>
 #include <vector>
+#include "surrender/srMath.h"
 
 #define CHECK(expression)                                                      \
     do {                                                                       \
@@ -85,7 +85,7 @@ class TestMaterial : public srMaterialIFace {
 public:
     void getMaterialInfo(srVertexProcessor::MaterialInfo& info) override
     {
-        info.diffuse = info.ambient = info.specular = info.emissive = 0.0f;
+        info.diffuse = info.ambient = info.specular = info.emissive = glm::vec4(0.0f);
         info.translucency = info.shininess = info.value_38 = info.fog_scale = 0.0f;
         info.disabled_channels = 0xffffffff;
     }
@@ -152,15 +152,15 @@ bool processorOwnership()
     std::array<srVector3, 65> positions;
     std::array<w8_ulong, 65> indices;
     std::array<std::shared_ptr<srMaterialIFace>, 65> materials;
-    std::array<srVector4, 65> eye_locations;
+    std::array<glm::vec4, 65> eye_locations;
     std::array<unsigned char, 65> attributes{};
     for (w8_ulong i = 0; i < positions.size(); ++i) {
         positions[i].Set(0, 0, static_cast<float>(i + 1));
         indices[i] = i;
         materials[i] = i == 0 ? first_material : second_material;
     }
-    srMatrix4 identity;
-    identity.SetIdentity();
+    glm::mat4 identity;
+    identity = glm::mat4(1);
     srVertexArray arrays{};
     arrays.eye_locations = eye_locations.data();
     arrays.attributes = attributes.data();
@@ -308,12 +308,12 @@ bool pipelineRecordTexcoords()
     auto* pipeline = srTriMeshPipeline::Get(&renderer);
     std::array<srVector3, 3> positions{{{0, 0, 1}, {1, 0, 1}, {0, 1, 1}}};
     std::array<w8_ulong, 3> indices{2, 0, 1};
-    srMatrix4 identity;
-    identity.SetIdentity();
-    std::array<std::array<srVector2, 3>, 4> source;
-    std::array<std::array<srVector2, 3>, 4> output;
+    glm::mat4 identity;
+    identity = glm::mat4(1);
+    std::array<std::array<glm::vec2, 3>, 4> source;
+    std::array<std::array<glm::vec2, 3>, 4> output;
     std::array<std::array<float, 3>, 4> q;
-    std::array<std::array<srVector4, 3>, 2> eyes;
+    std::array<std::array<glm::vec4, 3>, 2> eyes;
     std::array<std::array<unsigned char, 3>, 2> attributes;
     std::array<srVertexArray, 2> arrays{};
     for (unsigned record = 0; record < arrays.size(); ++record) {
@@ -324,7 +324,8 @@ bool pipelineRecordTexcoords()
         for (unsigned layer = 0; layer < 2; ++layer) {
             const unsigned channel = record * 2 + layer;
             for (unsigned vertex = 0; vertex < positions.size(); ++vertex)
-                source[channel][vertex].Set(float(10 * channel + vertex), float(20 + vertex));
+                source[channel][vertex] =
+                    glm::vec2(float(10 * channel + vertex), float(20 + vertex));
             slot.st_source[layer] = source[channel].data();
         }
         arrays[record].eye_locations = eyes[record].data();

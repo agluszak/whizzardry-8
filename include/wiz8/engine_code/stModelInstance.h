@@ -51,7 +51,7 @@ public:
 
 public:
     w8_ulong overlay_scene_flag;
-    srVector4T<float> highlight_colour;
+    glm::vec4 highlight_colour;
     /* Lazily built highlight material; RenderMeshes fills it from the
        render-state RGBA and installs it as the pass material. */
     std::shared_ptr<srMaterial> highlight_material;
@@ -92,7 +92,7 @@ public:
     unsigned short GetScaledWidth();                                    /* 0x00480EF0 */
     unsigned short GetScaledHeight();                                   /* 0x00480F70 */
     void SetGlowEnabled(bool enable);                                   /* 0x00480EB0 */
-    void SetGlowColors(const srVector4T<float>& first, const srVector4T<float>& second);
+    void SetGlowColors(const glm::vec4& first, const glm::vec4& second);
 
     unsigned char displayState() const
     {
@@ -119,8 +119,8 @@ public:
 
     w8_ulong overlay_scene_flag;
     W8ModelInstance2DRenderState render_state;
-    std::optional<srVector4T<float>> glow_color_base;
-    std::optional<srVector4T<float>> glow_color_peak;
+    std::optional<glm::vec4> glow_color_base;
+    std::optional<glm::vec4> glow_color_peak;
     /* Lazily copied from the mesh material while the glow is enabled. */
     std::shared_ptr<stMaterial> glow_material;
 };

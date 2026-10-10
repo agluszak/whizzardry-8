@@ -1,6 +1,6 @@
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/engine_code/BitArray.h"
-#include "wiz8/engine_code/stHash.hpp"
+#include "wiz8/index_algorithms.h"
 #include "wiz8/local_screens/AutomapScreen.h"
 #include "wiz8/layouts/screen_state.h"
 #include "wiz8/local_screens/Screens.h"
@@ -54,14 +54,15 @@
 #include "vobject_blitters.h"
 #include "line.h"
 #include "surrender/srMeshModel.h"
-#include "surrender/srVectorMath.h"
-
 #include <algorithm>
 #include <vector>
 #include <stdlib.h>
+
 #include <wchar.h>
 #include <stdio.h>
 #include <string.h>
+#include "surrender/srMath.h"
+#include <cassert>
 #include <ctype.h>
 
 /* Lifecycle record 8; the automap screen. Its original screen-class name is
@@ -103,7 +104,7 @@ unsigned int* g_automap_cell_keys;
 
 /* Packed cell key -> cell number + 1. */
 // GLOBAL: WIZ8 0x0068F284
-W8HashTable<unsigned int, int>* g_automap_cell_index;
+std::unordered_map<unsigned int, int>* g_automap_cell_index;
 // GLOBAL: WIZ8 0x0068F29C
 stModelInstance2D* g_automap_party_marker;
 // GLOBAL: WIZ8 0x0068F2A0
@@ -397,14 +398,14 @@ void ResetAutomapView(void)
     GetCameraPosition(&camera);
     srVector3T<float> relative = camera - g_automap_grid_origin;
     unsigned int key = AutomapNodeKey(&relative);
-    int cell = g_automap_cell_index->Lookup(&key);
+    int cell = LookupIndexValue(*g_automap_cell_index, key);
     if (cell > 1) {
         g_automap_visited_cells->Set(cell - 1);
         return;
     }
     relative.y = camera.y + g_automap_grid_cell_size - g_automap_grid_origin.y;
     key = AutomapNodeKey(&relative);
-    cell = g_automap_cell_index->Lookup(&key);
+    cell = LookupIndexValue(*g_automap_cell_index, key);
     if (cell > 1) {
         g_automap_visited_cells->Set(cell - 1);
     }
@@ -418,7 +419,7 @@ bool AutomapHasCellAt(const srVector3T<float>* position)
 {
     srVector3T<float> relative = *position - g_automap_grid_origin;
     unsigned int key = AutomapNodeKey(&relative);
-    int cell = g_automap_cell_index->Lookup(&key);
+    int cell = LookupIndexValue(*g_automap_cell_index, key);
     if (cell > 1) {
         if (!g_automap_visited_cells->Set(cell - 1)) {
             return true;
@@ -427,7 +428,7 @@ bool AutomapHasCellAt(const srVector3T<float>* position)
     }
     relative.y = position->y + g_automap_grid_cell_size - g_automap_grid_origin.y;
     key = AutomapNodeKey(&relative);
-    cell = g_automap_cell_index->Lookup(&key);
+    cell = LookupIndexValue(*g_automap_cell_index, key);
     if (cell > 1) {
         if (!g_automap_visited_cells->Set(cell - 1)) {
             return true;
@@ -759,8 +760,8 @@ unsigned char AutomapScreenEnter(void)
                     if (clip) {
                         sprintf(layer_name, "LAYER %d", layer_number);
                         clip->setName(layer_name);
-                        srVector4T<float> plane;
-                        plane.Set(0.0f, 1.0f, 0.0f, 0.0f);
+                        glm::vec4 plane;
+                        plane = glm::vec4(0.0f, 1.0f, 0.0f, 0.0f);
                         clip->setClipPlane(plane);
                         srVector3T<double> position(0.0, static_cast<double>(height * 500.0f), 0.0);
                         clip->setLocation(position);
@@ -827,7 +828,7 @@ void EnvironmentColour::Set(double red_value, double green_value, double blue_va
 }
 
 // FUNCTION: WIZ8 0x00581360
-W8AutomapNote* CreateAutomapNote(const srVector2T<float>* position, int layer, const wchar_t* text)
+W8AutomapNote* CreateAutomapNote(const glm::vec2* position, int layer, const wchar_t* text)
 {
     if (text && wcslen(text) < 40 && g_automap_notes->GetCount() < 200) {
         W8AutomapNote* note = new W8AutomapNote;
@@ -860,9 +861,9 @@ void AutomapScreenFrame(void)
                 g_automap_cursor_inside = false;
                 SetAutomapToolCursor(g_automap_tool);
             }
-            SGPPoint point;
+            SDL_Point point;
             SGPMouseGetPos(&point);
-            MSYS_SGP_Mouse_Handler_Hook(MOUSE_POS, point.iX, point.iY, gfLeftButtonState,
+            MSYS_SGP_Mouse_Handler_Hook(MOUSE_POS, point.x, point.y, gfLeftButtonState,
                                         gfRightButtonState);
             unsigned short reason;
             switch (input.usEvent) {
@@ -882,7 +883,7 @@ void AutomapScreenFrame(void)
             default:
                 continue;
             }
-            MSYS_SGP_Mouse_Handler_Hook(reason, point.iX, point.iY, gfLeftButtonState,
+            MSYS_SGP_Mouse_Handler_Hook(reason, point.x, point.y, gfLeftButtonState,
                                         gfRightButtonState);
             continue;
         }
@@ -898,8 +899,8 @@ void AutomapScreenFrame(void)
                     if (HasAutomapLayer(layer)) {
                         (*g_automap_layers.GetAt(layer))->getLocationY();
                     }
-                    srVector2T<float> location;
-                    location.Set((point.x - 0.5f) * g_automap_zoom + g_automap_position.x,
+                    glm::vec2 location;
+                    location = glm::vec2((point.x - 0.5f) * g_automap_zoom + g_automap_position.x,
                                  g_automap_position.z - (point.y - 0.5f) * g_automap_zoom);
                     g_automap_editing_note = CreateAutomapNote(&location, g_automap_layer, L"_");
                 }
@@ -1088,7 +1089,7 @@ unsigned char AutomapScreenFinalize(void)
         free(g_automap_cell_keys);
         g_automap_cell_keys = 0;
     }
-    W8HashTable<unsigned int, int>* record = g_automap_cell_index;
+    std::unordered_map<unsigned int, int>* record = g_automap_cell_index;
     if (record) {
         delete record;
         g_automap_cell_index = 0;
@@ -1465,9 +1466,8 @@ void LightAutomapCell(const srVector3T<float>* position)
                         OffsetVertices(transformed, source, &offset, count);
                     }
                     if (count != 0) {
-                        srMath::length({distances.data(),
-                                        static_cast<std::size_t>(static_cast<SRDWORD>(count))},
-                                       vertices.data());
+                        for (int i = 0; i < count; ++i)
+                            distances[i] = vertices[i].Length();
                     }
                     float* distance = distances.data();
                     if (count != 0) {
@@ -1707,7 +1707,7 @@ try
         if ((handle->read(&signature, 4).bytes == static_cast<std::size_t>(4)) != 0 && signature == static_cast<int>(0xf00df00d) &&
             (handle->read(&count, 4).bytes == static_cast<std::size_t>(4)) != 0) {
             for (unsigned int index = 0; index < count; ++index) {
-                srVector2T<float> position;
+                glm::vec2 position;
                 int layer = 0;
                 int length = 0;
                 /* Retail fed `length` to malloc even when the FileRead chain
@@ -1730,8 +1730,9 @@ try
         }
     }
     return false;
+} catch (const std::exception&) {
+    return false;
 }
-catch (const std::exception&) { return false; }
 
 /* Convert the cursor position to an automap world position on the layer
    below the current one, defaulting the height to the grid minimum when no
@@ -1838,10 +1839,10 @@ void CreateAutomapMarkerSprites(void)
                 ->enable(srMeshModel::CONTROL_SORTED_RENDERING);
             surface->setFilter(&srBSplineFilter);
             g_automap_party_marker->SetGlowEnabled(true);
-            srVector4T<float> first;
-            srVector4T<float> second;
-            first.Set(0.0f, 0.25f, 0.0f, 1.0f);
-            second.Set(0.0f, 0.75f, 0.0f, 1.0f);
+            glm::vec4 first;
+            glm::vec4 second;
+            first = glm::vec4(0.0f, 0.25f, 0.0f, 1.0f);
+            second = glm::vec4(0.0f, 0.75f, 0.0f, 1.0f);
             g_automap_party_marker->SetGlowColors(first, second);
             g_automap_party_marker->render_state.render_depth = 2000;
         }
@@ -1967,9 +1968,9 @@ void RenderAutomapMarkers(void)
         }
     }
     if (g_automap_page != 2) {
-        SGPRect saved_clip;
+        SDL_Rect saved_clip;
         GetClippingRect(&saved_clip);
-        SGPRect clip = {0xc, 0x20, 0x1d3, 0x1d3};
+        SDL_Rect clip = {0xc, 0x20, 0x1d3 - 0xc, 0x1d3 - 0x20};
         SetClippingRect(&clip);
         SetFont(g_wiz_text_font_secondary);
         SetObjectShade(GetFontObject(g_wiz_text_font_secondary), 4);
@@ -2065,10 +2066,10 @@ stModelInstance2D* CreateAutomapItemMarker(int item_id)
     static_cast<srMeshModel*>(marker->getModel())->enable(srMeshModel::CONTROL_SORTED_RENDERING);
     g_automap_markers->Add(marker);
     marker->SetGlowEnabled(true);
-    srVector4T<float> first;
-    srVector4T<float> second;
-    second.Set(0.0f, 0.0f, 1.0f, 1.0f);
-    first.Set(0.0f, 0.0f, 0.25f, 1.0f);
+    glm::vec4 first;
+    glm::vec4 second;
+    second = glm::vec4(0.0f, 0.0f, 1.0f, 1.0f);
+    first = glm::vec4(0.0f, 0.0f, 0.25f, 1.0f);
     marker->SetGlowColors(first, second);
     marker->setRenderDepth(2000);
     ScaleAutomapMarker(marker, factor);
@@ -2086,29 +2087,29 @@ stModelInstance2D* CreateAutomapMonsterMarker(int type)
     }
     switch (type) {
     case 0: {
-        srVector4T<float> first;
-        srVector4T<float> second;
+            glm::vec4 first;
+            glm::vec4 second;
         *marker = *g_automap_friendly_marker;
-        second.Set(0.0f, 0.5f, 0.0f, 1.0f);
-        first.Set(0.0f, 0.0f, 0.0f, 1.0f);
+        second = glm::vec4(0.0f, 0.5f, 0.0f, 1.0f);
+        first = glm::vec4(0.0f, 0.0f, 0.0f, 1.0f);
         marker->SetGlowColors(first, second);
         break;
     }
     case 1: {
-        srVector4T<float> first;
-        srVector4T<float> second;
+            glm::vec4 first;
+            glm::vec4 second;
         *marker = *g_automap_neutral_marker;
-        second.Set(0.25f, 0.25f, 0.0f, 1.0f);
-        first.Set(0.0f, 0.0f, 0.0f, 1.0f);
+        second = glm::vec4(0.25f, 0.25f, 0.0f, 1.0f);
+        first = glm::vec4(0.0f, 0.0f, 0.0f, 1.0f);
         marker->SetGlowColors(first, second);
         break;
     }
     case 2: {
-        srVector4T<float> first;
-        srVector4T<float> second;
+            glm::vec4 first;
+            glm::vec4 second;
         *marker = *g_automap_hostile_marker;
-        second.Set(0.5f, 0.0f, 0.0f, 1.0f);
-        first.Set(0.0f, 0.0f, 0.0f, 1.0f);
+        second = glm::vec4(0.5f, 0.0f, 0.0f, 1.0f);
+        first = glm::vec4(0.0f, 0.0f, 0.0f, 1.0f);
         marker->SetGlowColors(first, second);
         break;
     }
@@ -2138,10 +2139,10 @@ stModelInstance2D* CreateAutomapTextMarker(void)
     float factor = (g_float_one / (g_automap_zoom * 0.00004f)) * 0.44f * g_float_half;
     ScaleAutomapMarker(marker, factor);
     marker->SetGlowEnabled(true);
-    srVector4T<float> first;
-    srVector4T<float> second;
-    second.Set(1.0f, 0.4f, 0.0f, 1.0f);
-    first.Set(0.0f, 0.0f, 0.0f, 1.0f);
+    glm::vec4 first;
+    glm::vec4 second;
+    second = glm::vec4(1.0f, 0.4f, 0.0f, 1.0f);
+    first = glm::vec4(0.0f, 0.0f, 0.0f, 1.0f);
     marker->SetGlowColors(first, second);
     marker->setRenderDepth(2000);
     return marker;
@@ -2159,7 +2160,8 @@ unsigned char HandleAutomapNoteInput(const InputAtom* input)
                 if (HasAutomapLayer(layer)) {
                     (*g_automap_layers.GetAt(layer))->getLocationY();
                 }
-                g_automap_editing_note->position.Set(
+                g_automap_editing_note->position =
+                    glm::vec2(
                     (point.x - g_float_half) * g_automap_zoom + g_automap_position.x,
                     g_automap_position.z - (point.y - g_float_half) * g_automap_zoom);
                 g_automap_redraw = true;
@@ -2417,7 +2419,7 @@ try
         g_automap_cell_keys = static_cast<unsigned int*>(malloc(sizeof(*g_automap_cell_keys)));
         *g_automap_cell_keys = 0;
         g_automap_cell_count = 1;
-        g_automap_cell_index = new W8HashTable<unsigned int, int>();
+        g_automap_cell_index = new std::unordered_map<unsigned int, int>();
         return ok;
     }
 
@@ -2451,14 +2453,15 @@ try
     if (ok != 0) {
         success = (hFile->read(g_automap_cell_keys, g_automap_cell_count * sizeof(*g_automap_cell_keys)).bytes == static_cast<std::size_t>(g_automap_cell_count * sizeof(*g_automap_cell_keys)));
     }
-    g_automap_cell_index = new W8HashTable<unsigned int, int>();
+    g_automap_cell_index = new std::unordered_map<unsigned int, int>();
     for (int index = 0; index < g_automap_cell_count; ++index) {
         int value = index + 1;
-        g_automap_cell_index->Insert(g_automap_cell_keys + index, &value);
+        g_automap_cell_index->insert_or_assign(g_automap_cell_keys[index], value);
     }
     return success;
+} catch (const std::exception&) {
+    return false;
 }
-catch (const std::exception&) { return false; }
 
 /* Pack a world position into an automap node key: eleven bits of z, then
    eleven of x, then ten of y, each scaled to grid cells. */

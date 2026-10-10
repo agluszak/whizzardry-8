@@ -246,12 +246,12 @@ std::unique_ptr<stMeshModel> OctMeshModel::Read(wiz8::File* file,
     std::vector<int> material_indices(std::max(m_vertex_count, m_polygon_count));
     int* indices = material_indices.data();
     srVector3T<float>* vertex_locations;
-    srVector2T<float>* vertex_map;
+    glm::vec2* vertex_map;
     srVector3i* poly_uv_index;
     srVector3i* poly_vertices;
     srVector3T<float>* vertex_normals;
     srVector3T<float>* vertex_lights;
-    srVector4T<float>* poly_equations;
+    glm::vec4* poly_equations;
 
     auto model = std::make_unique<stMeshModel>(m_polygon_count, m_vertex_count);
     if (unweighted) {

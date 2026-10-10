@@ -483,9 +483,11 @@ unsigned char OctBuildPreTree::UpdateRegionForGeometry(const srVector3T<float>* 
    recursive call. */
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored                                                                   \
-    "-Wsometimes-uninitialized" // uninit-ok: retail tests the unset intersects byte for modes other than 5/6; that value controls region-map updates.
+    "-Wsometimes-uninitialized" // uninit-ok: retail tests the unset intersects byte for modes other
+                                // than 5/6; that value controls region-map updates.
 #pragma clang diagnostic ignored                                                                   \
-    "-Wuninitialized" // uninit-ok: retail tests the unset intersects byte for modes other than 5/6; that value controls region-map updates.
+    "-Wuninitialized" // uninit-ok: retail tests the unset intersects byte for modes other than 5/6;
+                      // that value controls region-map updates.
 // FUNCTION: WIZ8 0x004b07e0
 unsigned char OctBuildPreTree::UpdateRegionMap(const W8OctSpatialState* arg_spatial,
                                                const srVector3T<float>* geometry, short value,
@@ -520,11 +522,11 @@ unsigned char OctBuildPreTree::UpdateRegionMap(const W8OctSpatialState* arg_spat
                         unsigned short region = node->region;
                         if (region != 0) {
                             if (mode == 6) {
-                                inside_region_map->Remove(&region, &value);
-                                inside_region_map->Insert(&region, &value);
+                                RemoveIndexValue(*inside_region_map, region, value);
+                                InsertIndexValue(*inside_region_map, region, value);
                             } else if (mode == 5) {
-                                overlap_region_map->Remove(&region, &value);
-                                overlap_region_map->Insert(&region, &value);
+                                RemoveIndexValue(*overlap_region_map, region, value);
+                                InsertIndexValue(*overlap_region_map, region, value);
                             }
                             changed = true;
                         }
@@ -540,11 +542,11 @@ unsigned char OctBuildPreTree::UpdateRegionMap(const W8OctSpatialState* arg_spat
         unsigned short region = node->region;
         if (region != 0) {
             if (mode == 6) {
-                inside_region_map->Remove(&region, &value);
-                inside_region_map->Insert(&region, &value);
+                RemoveIndexValue(*inside_region_map, region, value);
+                InsertIndexValue(*inside_region_map, region, value);
             } else if (mode == 5) {
-                overlap_region_map->Remove(&region, &value);
-                overlap_region_map->Insert(&region, &value);
+                RemoveIndexValue(*overlap_region_map, region, value);
+                InsertIndexValue(*overlap_region_map, region, value);
             }
             changed = true;
         }
@@ -1047,9 +1049,9 @@ unsigned short OctBuildPreTree::BuildRegions()
     }
 
     spatial.m_region_grid_cell = working.m_cell_size;
-    region_path_map = new W8HashTable<unsigned short, w8_ulong>;
+    region_path_map = new std::unordered_multimap<unsigned short, w8_ulong>;
     AssignInitialRegions(&working);
-    positional = new W8HashTable<unsigned int, short>;
+    positional = new std::unordered_multimap<unsigned int, short>;
     region_bits = new BitArray(spatial.m_region_id_bound);
 
     for (unsigned short path_index = 0; path_index < region_path_count; ++path_index) {
@@ -1134,7 +1136,7 @@ void OctBuildPreTree::AssignInitialRegions(const W8OctSpatialState* arg_spatial)
                 }
             }
 
-            region_path_map->Insert(&this->spatial.m_region_id_bound, &arg_spatial->m_node_index);
+            InsertIndexValue(*region_path_map, this->spatial.m_region_id_bound, arg_spatial->m_node_index);
             node->region = this->spatial.m_region_id_bound;
             node->provisional_region = node->region;
             ++this->spatial.m_region_id_bound;
@@ -1275,23 +1277,23 @@ unsigned char OctBuildPreTree::MergeRegion(W8OctBuildNode* node, const int* cell
     region_bits->Set(neighbor_region);
 
     w8_ulong neighbor_count = 0;
-    int position = -1;
-    while ((position = region_path_map->FindNextEntry(&neighbor_region, position)) != -1) {
+    auto position = region_path_map->end();
+    while ((position = NextIndexValue(*region_path_map, neighbor_region, position)) != region_path_map->end()) {
         ++neighbor_count;
-        W8OctBuildNode* member = FindNode(region_path_map->entries[position].value);
+        W8OctBuildNode* member = FindNode(position->second);
         member->leaf_kind = combined_count;
     }
 
     w8_ulong moved_count = 0;
-    w8_ulong path = region_path_map->Lookup(&node_region);
+    w8_ulong path = LookupIndexValue(*region_path_map, node_region);
     while (path != 0) {
         ++moved_count;
-        region_path_map->Remove(&node_region, &path);
+        RemoveIndexValue(*region_path_map, node_region, path);
         W8OctBuildNode* member = FindNode(path);
         member->leaf_kind = combined_count;
         member->region = neighbor_region;
-        region_path_map->Insert(&neighbor_region, &path);
-        path = region_path_map->Lookup(&node_region);
+        InsertIndexValue(*region_path_map, neighbor_region, path);
+        path = LookupIndexValue(*region_path_map, node_region);
     }
 
     neighbor_center = (node_center * static_cast<double>(moved_count) +
@@ -1336,7 +1338,7 @@ void OctBuildPreTree::FinalizeRegionMapping()
         W8OctRegionPolygon& polygon = game_data->m_polygons[polygon_index];
         unsigned short region = polygon.region;
         if (region >= spatial.m_region_count) {
-            if (region_path_map->Lookup(&region) != 0) {
+            if (LookupIndexValue(*region_path_map, region) != 0) {
                 polygon.region = region_map[region];
             } else {
                 polygon.region = region_map[region_map[region]];
@@ -1368,9 +1370,9 @@ void OctBuildPreTree::FinalizeRegionMapping()
         w8_ulong path = m_pulRegPaths[path_index];
         W8OctBuildNode* node = FindNode(path);
         unsigned short old_region = node->region;
-        region_path_map->Remove(&old_region, &path);
+        RemoveIndexValue(*region_path_map, old_region, path);
         node->region = region_map[old_region];
-        region_path_map->Insert(&node->region, &path);
+        InsertIndexValue(*region_path_map, node->region, path);
         if (node->region >= final_region_count) {
             char message[256];
             sprintf(message, "Invalid submesh %d\n", static_cast<unsigned int>(node->region));
@@ -1526,9 +1528,9 @@ void OctBuildPreTree::ValidateRegionBounds(const W8BoundingBox* region_bounds)
 {
     for (w8_ulong region_index = 1; region_index < spatial.submesh_count; ++region_index) {
         unsigned short region = static_cast<unsigned short>(region_index);
-        int entry = -1;
-        while ((entry = region_path_map->FindNextEntry(&region, entry)) != -1) {
-            w8_ulong path = region_path_map->entries[entry].value;
+        auto entry = region_path_map->end();
+        while ((entry = NextIndexValue(*region_path_map, region, entry)) != region_path_map->end()) {
+            w8_ulong path = entry->second;
             srVector3T<float> minimum;
             minimum.Set(((path >> 16) & 0xff) * spatial.m_region_grid_cell + spatial.m_minimum.x,
                         ((path >> 8) & 0xff) * spatial.m_region_grid_cell + spatial.m_minimum.y,
@@ -1564,7 +1566,7 @@ unsigned char OctBuildPreTree::BuildParticleRegions(const W8LevelFileParticleSys
                                                     int particle_count)
 {
     this->particle_count = particle_count;
-    inside_region_map = new W8HashTable<unsigned short, short>;
+    inside_region_map = new std::unordered_multimap<unsigned short, short>;
 
     short region_particles[4998];
     region_particles[0] = 0;
@@ -1591,7 +1593,7 @@ unsigned char OctBuildPreTree::BuildParticleRegions(const W8LevelFileParticleSys
             W8OctRegionVolume* volume = spatial.m_region_volumes + region_index;
             if (volume->ContainsPoint(&position)) {
                 unsigned short region = volume->m_region;
-                inside_region_map->InsertUnique(&region, &particle_value);
+                InsertUniqueIndexValue(*inside_region_map, region, particle_value);
                 mapped = true;
             }
         }
@@ -1630,7 +1632,7 @@ unsigned char OctBuildPreTree::BuildParticleRegions(const W8LevelFileParticleSys
                                 W8OctRegionVolume* volume = spatial.m_region_volumes + region_index;
                                 if (volume->ContainsPoint(&corner)) {
                                     unsigned short region = volume->m_region;
-                                    inside_region_map->InsertUnique(&region, &particle_value);
+                                    InsertUniqueIndexValue(*inside_region_map, region, particle_value);
                                     corner_mapped = true;
                                     mapped = true;
                                 }
@@ -1662,14 +1664,14 @@ unsigned char OctBuildPreTree::BuildParticleRegions(const W8LevelFileParticleSys
     memset(mesh_particle_lookup, 0, region_count * sizeof(unsigned short));
 
     for (unsigned short region = 1; region < region_count; ++region) {
-        int entry = -1;
+        auto entry = inside_region_map->end();
         bool first = true;
-        while ((entry = inside_region_map->FindNextEntry(&region, entry)) != -1) {
+        while ((entry = NextIndexValue(*inside_region_map, region, entry)) != inside_region_map->end()) {
             if (first) {
                 mesh_particle_lookup[region] = list_count;
                 first = false;
             }
-            region_particles[list_count++] = inside_region_map->entries[entry].value;
+            region_particles[list_count++] = entry->second;
         }
         if (!first) {
             region_particles[list_count++] = 0;
@@ -1693,7 +1695,7 @@ unsigned char OctBuildPreTree::BuildGeometryRegions(const W8LevelFileProp* recor
                                                     int record_count, int base_index, bool finalize)
 {
     if (!finalize) {
-        overlap_region_map = new W8HashTable<unsigned short, short>;
+        overlap_region_map = new std::unordered_multimap<unsigned short, short>;
         g_region_id_list = static_cast<unsigned short*>(malloc(5000 * sizeof(*g_region_id_list)));
         g_region_id_list[0] = 0;
         g_region_id_count = 0;
@@ -1718,7 +1720,7 @@ unsigned char OctBuildPreTree::BuildGeometryRegions(const W8LevelFileProp* recor
                                        bounds[z].z * g_world_scale);
                             if (volume->ContainsPoint(&corner)) {
                                 unsigned short region = volume->m_region;
-                                overlap_region_map->InsertUnique(&region, &value);
+                                InsertUniqueIndexValue(*overlap_region_map, region, value);
                                 mapped = true;
                             }
                         }
@@ -1765,14 +1767,14 @@ unsigned char OctBuildPreTree::BuildGeometryRegions(const W8LevelFileProp* recor
         for (w8_ulong region_value = 1; region_value < region_count; ++region_value) {
             unsigned short region = static_cast<unsigned short>(region_value);
             mesh_prop_lookup[region_value] = 0;
-            int entry = -1;
+            auto entry = overlap_region_map->end();
             bool first = true;
-            while ((entry = overlap_region_map->FindNextEntry(&region, entry)) != -1) {
+            while ((entry = NextIndexValue(*overlap_region_map, region, entry)) != overlap_region_map->end()) {
                 if (first) {
                     mesh_prop_lookup[region_value] = g_region_id_count;
                     first = false;
                 }
-                g_region_id_list[g_region_id_count++] = overlap_region_map->entries[entry].value;
+                g_region_id_list[g_region_id_count++] = entry->second;
             }
             if (!first) {
                 g_region_id_list[g_region_id_count++] = 0;

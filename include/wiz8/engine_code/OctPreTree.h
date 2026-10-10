@@ -153,7 +153,7 @@ struct W8OctPreTreeVertex {
     /* Second owned run freed by the geometry cleanup. */
     int* owned;
     /* Corner texture coordinate written when a polygon vertex is split. */
-    srVector2T<float> m_uv;
+    glm::vec2 m_uv;
     /* Unscaled level-file position kept beside the engine-scaled
        position. */
     srVector3T<float> m_original_position;
@@ -209,7 +209,7 @@ struct W8OctSubmeshBuild {
        m_psrPolyUVIndex. */
     srVector3i* m_poly_uv_index;
     /* The deduplicated uv pairs SplitUVMaps emits; becomes m_psrMap. */
-    srVector2T<float>* m_uv_map;
+    glm::vec2* m_uv_map;
 };
 
 /* The 0xf5-byte NewLevel.oct file header shared by WriteOctFile and

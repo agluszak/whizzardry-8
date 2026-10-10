@@ -33,14 +33,14 @@ public:
     int m_material_index;
     int m_map_count;                       /* m_psrMap entry count */
     srVector3T<float>* m_vertex_locations; /* m_psrVertLoc */
-    srVector2T<float>* m_vertex_map;       /* m_psrMap */
+    glm::vec2* m_vertex_map;       /* m_psrMap */
     int* m_vertex_materials;               /* m_plVertMats */
     srVector3i* m_poly_vertices;           /* m_psrPolyVertex */
     srVector3i* m_poly_uv_index;           /* m_psrPolyUVIndex */
     int* m_poly_textures;                  /* m_plPolyTextures */
     srVector3T<float>* m_vertex_normals;   /* m_pVertNorms */
     srVector3T<float>* m_vertex_lights;    /* m_pVertLights */
-    srVector4T<float>* m_poly_equations;   /* m_psrPolyEqtns */
+    glm::vec4* m_poly_equations;   /* m_psrPolyEqtns */
     float** m_sun_lights;                  /* m_ppflSunLights */
     unsigned int m_packed_header;
     int m_vertex_count;

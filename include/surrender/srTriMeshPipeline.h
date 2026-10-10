@@ -16,7 +16,6 @@ class srMaterialIFace;
 class srTriMeshPipeline {
 public:
     enum { FRUSTUM_CLIPPING = 1u, LIMIT_VERTEX_BATCHES = 2u };
-    using Record = srVertexPipe::Record;
 
     struct Pass {
         srTextureIFace* textures[2]{};
@@ -25,10 +24,12 @@ public:
            Renderer::render before unlockRenderer queues owned render data. */
         const std::shared_ptr<srTextureIFace>* texture_tables[2]{};
         const srShader* shaders = nullptr;
-        const srVector2T<float>* texcoords = nullptr;
+        const glm::vec2* texcoords = nullptr;
         /* The mesh's per-triangle poly-UV corner source table. */
         const srVector3i* poly_uv = nullptr;
     };
+    enum e_boundsSource { BOUNDS_FROM_VERTICES = 0, BOUNDS_SPHERE = 1, BOUNDS_BOX = 2 };
+    using Record = srVertexPipe::Record;
 
     static srTriMeshPipeline* Get(srGERD* renderer);
     void SetFlags(srShader shader);
@@ -57,7 +58,7 @@ public:
        Bit 1: vertex/triangle batch-limit path. Reset/Get always set both. */
     w8_ulong flags;
     const w8_ulong* active_triangles;
-    const srVector4T<float>* projected_vertices;
+    const glm::vec4* projected_vertices;
     const srVector3i* triangles;
     /* stParticle stores its vertex positions here; Reset/Get null it. */
     const srVector3T<float>* positions;
@@ -67,7 +68,6 @@ public:
     srVector3T<float> bounds_maximum;
     srVector3T<float> bounds_center;
     float bounds_radius;
-    enum e_boundsSource { BOUNDS_FROM_VERTICES = 0, BOUNDS_SPHERE = 1, BOUNDS_BOX = 2 };
     e_boundsSource bounds_source;
     w8_ulong unknown_70;
     srShader shader;

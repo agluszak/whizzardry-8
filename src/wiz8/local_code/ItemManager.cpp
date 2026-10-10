@@ -677,8 +677,13 @@ void ActivateItem(W8WorldItem* item)
     if (![&]() { const auto status = wiz8::file_status(zItemFullPath); return status && status->info.type == SDL_PATHTYPE_FILE; }()) {
         strcpy(zItemName, "questionmark");
         sprintf(zItemFullPath, "%s\\%s.ITM", "Data\\Items3D", zItemName);
-        if (![&]() { const auto status = wiz8::file_status(zItemFullPath); return status && status->info.type == SDL_PATHTYPE_FILE; }()) {
-            srAssertFail("[&]() { const auto status = wiz8::file_status(zItemFullPath); return status && status->info.type == SDL_PATHTYPE_FILE; }()", ITEM_MANAGER_CPP, 0x1ed,
+        if (![&]() {
+                const auto status = wiz8::file_status(zItemFullPath);
+                return status && status->info.type == SDL_PATHTYPE_FILE;
+            }()) {
+            srAssertFail("[&]() { const auto status = wiz8::file_status(zItemFullPath); return "
+                         "status && status->info.type == SDL_PATHTYPE_FILE; }()",
+                         ITEM_MANAGER_CPP, 0x1ed,
                          FormatString("ActivateItem: ERROR - missing ITM file %s, item %d",
                                       zItemFullPath, item->item.iItemNo));
         }
@@ -878,9 +883,9 @@ void DropHeldItem(int)
     direction.x = static_cast<float>(base * sin(yaw));
     direction.z = static_cast<float>(base * cos(yaw));
 
-    srMatrix3T<float> rotation;
+    glm::mat3 rotation;
     WorldGetCameraRotation(g_world, &rotation);
-    direction = rotation.Transform(direction);
+    direction = rotation * direction.glmValue();
 
     srVector3T<float> camera;
     GetCameraPosition(&camera);

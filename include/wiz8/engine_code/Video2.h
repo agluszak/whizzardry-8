@@ -6,6 +6,8 @@
 #ifndef WIZ8_VIDEO2_H
 #define WIZ8_VIDEO2_H
 
+#include <glm/glm.hpp>
+
 #include "compat/surfaces.h"
 
 #include "Types.h"
@@ -52,7 +54,7 @@ CHAR8* VideoGetConfigFile(void);
 void VideoSetConfigFile(const CHAR8* path);
 int VideoDumpMemoryLeaks(void);
 BOOLEAN CheckCdPresent(void);
-void VideoGetClientRect(SGPRect* rect);
+void VideoGetClientRect(SDL_Rect* rect);
 void VideoToolTip(CHAR16* text);
 extern INT32 g_help_box_width;
 extern INT32 g_help_box_height;
@@ -69,7 +71,7 @@ static __inline INT32 VideoGetToolTipHeight(void)
 void VideoPositionToolTip(INT32 x, INT32 y);
 void VideoRemoveToolTip(void);
 
-void SGPMouseGetPos(SGPPoint* point);
+void SGPMouseGetPos(SDL_Point* point);
 
 /* Tooltip ownership query: nonzero while a VideoToolTip object is alive. */
 bool HasScreenTransitionObjects(void); /* 0x004297D0 */
@@ -96,9 +98,7 @@ class srModelInstance;
 class srNode;
 class srTextureIFace;
 class stModelInstance2D;
-template <class T> class srVector2T;
 template <class T> class srVector3T;
-template <class T> class srVector4T;
 srNode* MakePosterQuad(std::shared_ptr<srTextureIFace> texture, float width, float height,
                        bool additive);
 /* 0x00425190: build a 2D marker model instance over a texture. */
@@ -115,7 +115,7 @@ struct W8ControlsRect;
    and `color` becomes the material's emissive vector. MGSRadarMap's blip
    templates are its observed callers. */
 void SetFullscreenSceneLast(unsigned char value); /* 0x004298E0 */
-stModelInstance2D* CreateColoredPolygonSprite(int width, int height, const srVector4T<float>* color,
+stModelInstance2D* CreateColoredPolygonSprite(int width, int height, const glm::vec4* color,
                                               bool fullscreen);
 /* 0x004253F0: the render-target sprite factory CreateSpriteFromSurface wraps; the
    radar overlay is created through it directly. */
@@ -255,7 +255,7 @@ void SetWorldScaledViewport(int left, int top, int right, int bottom);
    through it. */
 void SetAutomapScaledViewport(int left, int top, int right, int bottom);
 /* Read the stored pixel viewport back out in normalized 0..1 scale. */
-void GetScaledViewportBounds(srVector2T<float>* left_top, srVector2T<float>* right_bottom);
+void GetScaledViewportBounds(glm::vec2* left_top, glm::vec2* right_bottom);
 /* Lock the primary GERD buffer and emit one debug wireframe line. */
 void DrawBufferLine(w8_long x0, w8_long y0, w8_long x1, w8_long y1, w8_ulong* pixel);
 unsigned char InitializeRendererSceneObjects(void);

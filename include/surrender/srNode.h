@@ -126,23 +126,21 @@ public:
     SR_DLL_IMPORT double getLocationX() const;
     SR_DLL_IMPORT double getLocationY() const;
     SR_DLL_IMPORT double getLocationZ() const;
-    SR_DLL_IMPORT void getRotation(srMatrix3T<float>& rotation) const;
-    SR_DLL_IMPORT void getRotation(srMatrix3T<double>& rotation) const;
+    SR_DLL_IMPORT void getRotation(glm::mat3& rotation) const;
+    SR_DLL_IMPORT void getRotation(glm::dmat3& rotation) const;
     SR_DLL_IMPORT srVector3T<double> getScale() const;
-    SR_DLL_IMPORT void getWorldSpaceCoordinates(srMatrix3T<float>& rotation,
-                                                srVector3T<float>& location,
+    SR_DLL_IMPORT void getWorldSpaceCoordinates(glm::mat3& rotation, srVector3T<float>& location,
                                                 srVector3T<float>& scale) const;
-    SR_DLL_IMPORT void getWorldSpaceCoordinates(srMatrix3T<double>& rotation,
-                                                srVector3T<double>& location,
+    SR_DLL_IMPORT void getWorldSpaceCoordinates(glm::dmat3& rotation, srVector3T<double>& location,
                                                 srVector3T<double>& scale) const;
     SR_DLL_IMPORT srVector3T<double> getWorldSpaceDOF() const;
     SR_DLL_IMPORT srVector3T<double> getWorldSpaceLocation() const;
-    SR_DLL_IMPORT void getWorldSpaceMatrix(srMatrix4T<float>& matrix) const;
-    SR_DLL_IMPORT void getWorldSpaceMatrix(srMatrix4T<double>& matrix) const;
-    SR_DLL_IMPORT void getWorldSpaceMatrix(srMatrix4x3T<float>& matrix) const;
-    SR_DLL_IMPORT void getWorldSpaceMatrix(srMatrix4x3T<double>& matrix) const;
-    SR_DLL_IMPORT void getWorldSpaceRotation(srMatrix3T<float>& rotation) const;
-    SR_DLL_IMPORT void getWorldSpaceRotation(srMatrix3T<double>& rotation) const;
+    SR_DLL_IMPORT void getWorldSpaceMatrix(glm::mat4& matrix) const;
+    SR_DLL_IMPORT void getWorldSpaceMatrix(glm::dmat4& matrix) const;
+    SR_DLL_IMPORT void getWorldSpaceMatrix(glm::mat4x3& matrix) const;
+    SR_DLL_IMPORT void getWorldSpaceMatrix(glm::dmat4x3& matrix) const;
+    SR_DLL_IMPORT void getWorldSpaceRotation(glm::mat3& rotation) const;
+    SR_DLL_IMPORT void getWorldSpaceRotation(glm::dmat3& rotation) const;
     SR_DLL_IMPORT srVector3T<double> getWorldSpaceScale() const;
     SR_DLL_IMPORT void move(const srVector3T<double>& offset);
     SR_DLL_IMPORT void moveBackward(double distance);
@@ -158,7 +156,7 @@ public:
     SR_DLL_IMPORT void rollAt(const srVector3T<double>& target, double amount);
     SR_DLL_IMPORT void rollAt(const srNode* target, double amount);
     SR_DLL_IMPORT void rollUp(double amount);
-    SR_DLL_IMPORT void rotate(const srMatrix3T<double>& rotation);
+    SR_DLL_IMPORT void rotate(const glm::dmat3& rotation);
     SR_DLL_IMPORT void rotate(double angle, const srVector3T<double>& axis);
     SR_DLL_IMPORT void rotateX(double angle);
     SR_DLL_IMPORT void rotateY(double angle);
@@ -169,8 +167,8 @@ public:
     SR_DLL_IMPORT void setLocationX(double x);
     SR_DLL_IMPORT void setLocationY(double y);
     SR_DLL_IMPORT void setLocationZ(double z);
-    SR_DLL_IMPORT void setRotation(const srMatrix3T<float>& rotation);
-    SR_DLL_IMPORT void setRotation(const srMatrix3T<double>& rotation);
+    SR_DLL_IMPORT void setRotation(const glm::mat3& rotation);
+    SR_DLL_IMPORT void setRotation(const glm::dmat3& rotation);
     SR_DLL_IMPORT void setRotation(const srVector3T<double>& first,
                                    const srVector3T<double>& second, double amount);
     SR_DLL_IMPORT void setRotation(const srVector3T<double>& direction, double amount);
@@ -179,8 +177,8 @@ public:
     SR_DLL_IMPORT void setScale(const srVector3T<double>& scale);
     SR_DLL_IMPORT void setScale(double scale);
     SR_DLL_IMPORT void setWorldSpaceLocation(const srVector3T<double>& location);
-    SR_DLL_IMPORT void setWorldSpaceMatrix(const srMatrix4T<double>& matrix);
-    SR_DLL_IMPORT void setWorldSpaceRotation(const srMatrix3T<double>& rotation);
+    SR_DLL_IMPORT void setWorldSpaceMatrix(const glm::dmat4& matrix);
+    SR_DLL_IMPORT void setWorldSpaceRotation(const glm::dmat3& rotation);
     SR_DLL_IMPORT void setFlag(e_flag flag);
     SR_DLL_IMPORT void clearFlag(e_flag flag);
     SR_DLL_IMPORT void notifyChildren(const srFlags<e_notify>& notifications);
@@ -206,13 +204,13 @@ private:
     static SR_DLL_IMPORT std::recursive_mutex sceneGraphCSect;
     static SR_DLL_IMPORT std::atomic<w8_long> sceneGraphLockCount;
 
-    srMatrix3T<double> rotation; /* 0x018 */
-    srVector3T<double> location; /* 0x060 */
-    srVector3T<double> scale;    /* 0x078 */
+    glm::dmat3 rotation; /* 0x018 */
+    glm::dvec3 location; /* 0x060 */
+    glm::dvec3 scale;    /* 0x078 */
     /* Cached world transforms and the notification word mutate inside the
        const updateTransformation/getter family. */
-    mutable srMatrix4x3T<double> world_transform0; /* 0x090: cached affine world transform */
-    mutable srMatrix4x3T<float> world_transform1;  /* 0x0f0 */
+    mutable glm::dmat4x3 world_transform0; /* 0x090: cached affine world transform */
+    mutable glm::mat4x3 world_transform1;  /* 0x0f0 */
     mutable srFlags<e_notify> notifications;       /* 0x120 */
     srFlags<e_flag> flags;                         /* 0x124 */
 

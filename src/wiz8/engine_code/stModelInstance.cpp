@@ -12,14 +12,15 @@
 #include "surrender/srMaterial.h"
 #include "surrender/srNode.h"
 #include "surrender/srTriMeshPipeline.h"
-#include "surrender/srVectorMath.h"
 #include "wiz8/engine_code/Octree.h"
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/sr_api.h"
-
 #include <math.h>
 #include <new>
+
 #include <string.h>
+#include "surrender/srMath.h"
+#include <cassert>
 
 #define ST_MODEL_INSTANCE_CPP "C:\\Projects\\Wizardry 8\\Engine Code\\stModelInstance.cpp"
 
@@ -202,7 +203,7 @@ stModelInstance2D::stModelInstance2D(srNode* parent)
     }
 }
 
-/* Deliberately not a whole srVector4T<float> assignment. Retail
+/* Deliberately not a whole glm::vec4 assignment. Retail
    copies the 2D fields around the parent/state work and leaves the upper two
    bytes of state untouched; GrCycle's separate whole-block copy is a
    different operation. */
@@ -247,10 +248,10 @@ static void ApplyModelViewMatrix(srModelInstance* instance, srGERD* renderer, fl
     if ((instance->alignment_flags.value & 1) == 0) {
         instance->applyWorldSpaceMatrix(*renderer);
     } else {
-        srMatrix4T<float> view;
+        glm::mat4 view;
         srVector3T<double> world_location;
         srVector3T<double> world_scale;
-        srVector4T<float> transformed_location;
+        glm::vec4 transformed_location;
         srVector3T<float> translation;
         float basis_x;
         float basis_y;
@@ -266,48 +267,16 @@ static void ApplyModelViewMatrix(srModelInstance* instance, srGERD* renderer, fl
         location = world_location;
         srVector3T<float> scale;
         scale = world_scale;
-        /* Retail expands the view transform, the column lengths and the
-           handedness test inline here: every row sums y, z, x before the
-           translation; the column lengths start from a different pair each;
-           the handedness test is the first column dotted with the cross of the
-           other two, summed from the z term. Retail also rounds the cross's x
-           and y to float before the dot product. */
-        const srVector4T<float>* rows = view.vectors;
-        transformed_location.Set(
-            ((rows[0].y * location.y + rows[0].z * location.z) + rows[0].x * location.x) +
-                rows[0].w,
-            ((rows[1].y * location.y + rows[1].z * location.z) + rows[1].x * location.x) +
-                rows[1].w,
-            ((rows[2].y * location.y + rows[2].z * location.z) + rows[2].x * location.x) +
-                rows[2].w,
-            ((rows[3].y * location.y + rows[3].z * location.z) + rows[3].x * location.x) +
-                rows[3].w);
-
-        srVector3T<float> column_x(rows[0].x, rows[1].x, rows[2].x);
-        srVector3T<float> column_y(rows[0].y, rows[1].y, rows[2].y);
-        srVector3T<float> column_z(rows[0].z, rows[1].z, rows[2].z);
-        basis_x = static_cast<float>(
-            sqrt((column_x.y * column_x.y + column_x.z * column_x.z) + column_x.x * column_x.x));
-        basis_y = static_cast<float>(
-            sqrt((column_y.z * column_y.z + column_y.x * column_y.x) + column_y.y * column_y.y));
-        basis_z = static_cast<float>(
-            sqrt((column_z.x * column_z.x + column_z.y * column_z.y) + column_z.z * column_z.z));
-
-        float normal_x = column_y.y * column_z.z - column_y.z * column_z.y;
-        float normal_y = column_y.z * column_z.x - column_y.x * column_z.z;
-        if ((column_x.z * (column_y.x * column_z.y - column_y.y * column_z.x) +
-             column_x.y * normal_y) +
-                column_x.x * normal_x >
-            g_double_zero) {
-            basis_x = -basis_x;
-            basis_y = -basis_y;
-            basis_z = -basis_z;
-        }
-        /* Retail narrows the world scale to float and rounds each product to float. */
-        scale *= srVector3T<float>(basis_x, basis_y, basis_z);
+        transformed_location = view * glm::vec4(location.glmValue(), 1);
+        const glm::mat3 view_basis(view);
+        glm::vec3 basis(glm::length(view_basis[0]), glm::length(view_basis[1]),
+                        glm::length(view_basis[2]));
+        if (glm::determinant(view_basis) > 0)
+            basis = -basis;
+        scale *= srVector3(basis);
 
         renderer->loadIdentity();
-        translation = transformed_location.xyz();
+        translation = glm::vec3(transformed_location);
         renderer->translate(translation);
         if (align_angle != g_float_zero) {
             renderer->rotate(align_angle, align_axis);
@@ -325,10 +294,10 @@ static void ApplyModelViewMatrix2D(srModelInstance* instance, srGERD* renderer, 
     if ((instance->alignment_flags.value & 1) == 0) {
         instance->applyWorldSpaceMatrix(*renderer);
     } else {
-        srMatrix4T<float> view;
+        glm::mat4 view;
         srVector3T<double> world_location;
         srVector3T<double> world_scale;
-        srVector4T<float> transformed_location;
+        glm::vec4 transformed_location;
         srVector3T<float> translation;
         srVector3T<float> basis;
 
@@ -342,40 +311,16 @@ static void ApplyModelViewMatrix2D(srModelInstance* instance, srGERD* renderer, 
         location = world_location;
         srVector3T<float> scale;
         scale = world_scale;
-        /* Retail expands the view transform, the column lengths and the
-           handedness test inline here, each with its own association: rows 1-3
-           sum z, y, x before the translation and row 0 sums x, z, y; every column
-           length sums x, y, z; the determinant expands down the first column as
-           (m10 * b + m20 * a) + m00 * c and is compared before any rounding. */
-        const srVector4T<float>* rows = view.vectors;
-        transformed_location.Set(
-            ((rows[0].x * location.x + rows[0].z * location.z) + rows[0].y * location.y) +
-                rows[0].w,
-            ((rows[1].z * location.z + rows[1].y * location.y) + rows[1].x * location.x) +
-                rows[1].w,
-            ((rows[2].z * location.z + rows[2].y * location.y) + rows[2].x * location.x) +
-                rows[2].w,
-            ((rows[3].z * location.z + rows[3].y * location.y) + rows[3].x * location.x) +
-                rows[3].w);
-
-        basis.x = static_cast<float>(
-            sqrt((rows[0].x * rows[0].x + rows[1].x * rows[1].x) + rows[2].x * rows[2].x));
-        basis.y = static_cast<float>(
-            sqrt((rows[0].y * rows[0].y + rows[1].y * rows[1].y) + rows[2].y * rows[2].y));
-        basis.z = static_cast<float>(
-            sqrt((rows[0].z * rows[0].z + rows[1].z * rows[1].z) + rows[2].z * rows[2].z));
-
-        if ((rows[1].x * (rows[0].z * rows[2].y - rows[0].y * rows[2].z) +
-             rows[2].x * (rows[0].y * rows[1].z - rows[0].z * rows[1].y)) +
-                rows[0].x * (rows[1].y * rows[2].z - rows[1].z * rows[2].y) >
-            g_double_zero) {
+        transformed_location = view * glm::vec4(location.glmValue(), 1);
+        const glm::mat3 view_basis(view);
+        basis = glm::vec3(glm::length(view_basis[0]), glm::length(view_basis[1]),
+                          glm::length(view_basis[2]));
+        if (glm::determinant(view_basis) > 0)
             basis = -basis;
-        }
-        /* Retail narrows the world scale to float and rounds each product to float. */
         scale *= basis;
 
         renderer->loadIdentity();
-        translation = transformed_location.xyz();
+        translation = glm::vec3(transformed_location);
         renderer->translate(translation);
         if (align_angle != g_float_zero) {
             renderer->rotate(align_angle, align_axis);
@@ -414,7 +359,7 @@ void stModelInstance2D::process(const ProcessInfo& info, e_processType)
                      g_camera_angle_period)));
         float base_weight = g_float_one - glow_weight;
         /* Each weighted colour is rounded to float before the sum. */
-        srVector4T<float> emissive =
+        glm::vec4 emissive =
             *glow_color_base * base_weight + *glow_color_peak * glow_weight;
         emissive.w = g_float_one;
         glow_material->setEmissive(emissive);
@@ -467,7 +412,7 @@ unsigned short stModelInstance2D::GetScaledHeight()
 /* The process pass blends between the two glow colors into the material's
    emissive term. */
 // FUNCTION: WIZ8 0x00480FF0
-void stModelInstance2D::SetGlowColors(const srVector4T<float>& first, const srVector4T<float>& second)
+void stModelInstance2D::SetGlowColors(const glm::vec4& first, const glm::vec4& second)
 {
     glow_color_base = first;
     glow_color_peak = second;
@@ -477,7 +422,7 @@ void stModelInstance2D::SetGlowColors(const srVector4T<float>& first, const srVe
 stModelInstance::stModelInstance(srNode* parent)
     : srClassSupport<stModelInstance, srModelInstance, 0x10004>(static_cast<srNode*>(0))
 {
-    highlight_colour.Set(0.0f, 0.0f, 0.0f, 0.0f);
+    highlight_colour = glm::vec4(0.0f, 0.0f, 0.0f, 0.0f);
     render_flags = 0;
     mesh_index = -1;
     frame_index = 0;
@@ -498,7 +443,7 @@ stModelInstance::stModelInstance(srNode* parent)
 stModelInstance& stModelInstance::operator=(const stModelInstance& other)
 {
     srModelInstance::operator=(other);
-    highlight_colour.Set(0.0f, 0.0f, 0.0f, 0.0f);
+    highlight_colour = glm::vec4(0.0f, 0.0f, 0.0f, 0.0f);
     render_flags = other.render_flags;
     mesh_index = other.mesh_index;
     frame_index = other.frame_index;
@@ -574,12 +519,12 @@ void stModelInstance::RenderMeshes(srGERD& renderer)
     // c-style-cast-ok: the pick key is an opaque void* token
     SetPickKey((render_flags & RENDER_NO_PICK) != 0 ? (void*)0 : (void*)this);
 
-    srVector4T<float> ambient;
+    glm::vec4 ambient;
     renderer.getAmbientLight(ambient);
     srVector3T<float> ambient_color;
-    ambient_color = ambient.xyz();
+    ambient_color = glm::vec3(ambient);
 
-    srVector4T<float> light;
+    glm::vec4 light;
     if (!model->vertex_lighting_ready) {
         light.w = 1.0f;
         light.x =
@@ -589,7 +534,7 @@ void stModelInstance::RenderMeshes(srGERD& renderer)
         light.z =
             (ambient_color.z * light_scale.z + g_environment_offset.z) * g_monster_light_scale;
     } else {
-        light.Set(0.0f, 0.0f, 0.0f, 0.0f);
+        light = glm::vec4(0.0f, 0.0f, 0.0f, 0.0f);
     }
     renderer.setAmbientLight(light);
 
@@ -597,8 +542,8 @@ void stModelInstance::RenderMeshes(srGERD& renderer)
         highlight_colour.z != g_float_zero || highlight_colour.w != g_float_zero) {
         if (highlight_material == 0) {
             highlight_material = std::make_shared<srMaterial>();
-            srVector4T<float> zero;
-            zero.Set(0.0f, 0.0f, 0.0f, 0.0f);
+            glm::vec4 zero;
+            zero = glm::vec4(0.0f, 0.0f, 0.0f, 0.0f);
             highlight_material->setAmbient(zero);
             highlight_material->setDiffuse(zero);
             highlight_material->setSpecular(zero);
@@ -754,9 +699,8 @@ void stModelInstance::RenderMeshes(srGERD& renderer)
                             std::fill_n(g_vertex_scratch.data(), mesh.vertex_count,
                                         srVector3T<float>(0.0f, 0.0f, 0.0f));
                         } else {
-                            srMath::mul({g_vertex_scratch.data(),
-                                         static_cast<std::size_t>(mesh.vertex_count)},
-                                        offsets, mesh.normals);
+                            for (std::size_t i = 0; i < mesh.vertex_count; ++i)
+                                (g_vertex_scratch.data())[i] = offsets * mesh.normals[i];
                         }
                     }
                     std::transform(g_vertex_scratch.begin(), g_vertex_scratch.end(),
@@ -809,15 +753,15 @@ static stMaterial& ShadowMaterial()
 {
     static const std::unique_ptr<stMaterial> material = [] {
         auto created = std::make_unique<stMaterial>();
-        srVector4T<float> color;
-        color.Set(1.0f, 1.0f, 1.0f, 1.0f);
+        glm::vec4 color;
+        color = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f);
         created->setAmbient(color);
-        color.Set(0.0f, 0.0f, 0.0f, 0.0f);
+        color = glm::vec4(0.0f, 0.0f, 0.0f, 0.0f);
         created->setSpecular(color);
         created->parms.shininess = 1.0f;
         created->dirty = 1;
         created->setEmissive(color);
-        color.Set(1.0f, 1.0f, 1.0f, 0.0f);
+        color = glm::vec4(1.0f, 1.0f, 1.0f, 0.0f);
         created->setDiffuse(color);
         created->m_surface_flags = 0;
         return created;
