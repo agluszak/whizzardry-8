@@ -2306,6 +2306,33 @@ struct SampleContributions {
     }
 };
 
+/* Accumulate one filtered pixel in the same scalar float order as retail. */
+static srARGB BlendWeightedSamples(const SampleContributions& entry,
+                                   const glm::vec4* channel_vectors)
+{
+    w8_long count = entry.count;
+    const SampleWeight* slot = entry.samples;
+    float a = 0.0f;
+    float r = 0.0f;
+    float g = 0.0f;
+    float b = 0.0f;
+    for (; 0 < count; --count) {
+        const float weight = slot->weight;
+        const glm::vec4 weighted = channel_vectors[slot->index] * weight;
+        ++slot;
+        a = weighted.x + a;
+        r = weighted.y + r;
+        g = weighted.z + g;
+        b = weighted.w + b;
+    }
+    srARGB pixel;
+    pixel.alpha = static_cast<unsigned char>(srFloatToInt(a));
+    pixel.red = static_cast<unsigned char>(srFloatToInt(r));
+    pixel.green = static_cast<unsigned char>(srFloatToInt(g));
+    pixel.blue = static_cast<unsigned char>(srFloatToInt(b));
+    return pixel;
+}
+
 /* Build the same filter-weight table for rows and columns. Horizontal
    magnification samples half a pixel earlier; all other cases use +0.5. */
 static void BuildScaleContributions(srColorSurfaceIFace& source, srFilter& filter,
@@ -2374,28 +2401,7 @@ void srColorSurfaceIFace::scaleHorizontal(srColorSurfaceIFace& source)
                 channel_vectors[x].w = static_cast<float>(source_row_colors[x].blue);
             }
             for (x = 0; x < width; x++) {
-                SampleContributions* entry = counts + x;
-                w8_long count = entry->count;
-                SampleWeight* slot = entry->samples;
-                float a = 0.0f;
-                float r = 0.0f;
-                float g = 0.0f;
-                float b = 0.0f;
-                for (; 0 < count; count--) {
-                    float weight = slot->weight;
-                    /* The weighted sample is a float vector temporary: retail rounds each
-                       product to float before accumulating (0x10059F22, 0x1005A6AF). */
-                    glm::vec4 weighted = channel_vectors[slot->index] * weight;
-                    ++slot;
-                    a = weighted.x + a;
-                    r = weighted.y + r;
-                    g = weighted.z + g;
-                    b = weighted.w + b;
-                }
-                row_colors[x].alpha = static_cast<unsigned char>(srFloatToInt(a));
-                row_colors[x].red = static_cast<unsigned char>(srFloatToInt(r));
-                row_colors[x].green = static_cast<unsigned char>(srFloatToInt(g));
-                row_colors[x].blue = static_cast<unsigned char>(srFloatToInt(b));
+                row_colors[x] = BlendWeightedSamples(counts[x], channel_vectors.data());
             }
             setPixelRow(row, y, 0, width);
         }
@@ -2433,28 +2439,7 @@ void srColorSurfaceIFace::scaleVertical(srColorSurfaceIFace& source)
                 channel_vectors[y].w = static_cast<float>(source_column_colors[y].blue);
             }
             for (y = 0; y < height; y++) {
-                SampleContributions* entry = counts + y;
-                w8_long count = entry->count;
-                SampleWeight* slot = entry->samples;
-                float a = 0.0f;
-                float r = 0.0f;
-                float g = 0.0f;
-                float b = 0.0f;
-                for (; 0 < count; count--) {
-                    float weight = slot->weight;
-                    /* The weighted sample is a float vector temporary: retail rounds each
-                       product to float before accumulating (0x10059F22, 0x1005A6AF). */
-                    glm::vec4 weighted = channel_vectors[slot->index] * weight;
-                    ++slot;
-                    a = weighted.x + a;
-                    r = weighted.y + r;
-                    g = weighted.z + g;
-                    b = weighted.w + b;
-                }
-                column_colors[y].alpha = static_cast<unsigned char>(srFloatToInt(a));
-                column_colors[y].red = static_cast<unsigned char>(srFloatToInt(r));
-                column_colors[y].green = static_cast<unsigned char>(srFloatToInt(g));
-                column_colors[y].blue = static_cast<unsigned char>(srFloatToInt(b));
+                column_colors[y] = BlendWeightedSamples(counts[y], channel_vectors.data());
             }
             setPixelColumn(column, x, 0, height);
         }
