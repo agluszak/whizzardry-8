@@ -10,7 +10,8 @@ Game data comes from an existing retail installation and is not distributed here
 Install CMake 3.21+, Git, Ninja and Clang. The build bootstraps pinned vcpkg
 and installs SDL3, FFmpeg, zlib and the host shader compiler under the build
 tree. Miniaudio is fetched separately by CMake. Linux also needs SDL's system
-X11/Wayland development interfaces, build tools (including NASM and pkg-config)
+X11/Wayland development interfaces, build tools (including NASM, pkg-config,
+autoconf, automake, autoconf-archive and libtool with libltdl development files)
 and a working Vulkan driver.
 
 ```sh

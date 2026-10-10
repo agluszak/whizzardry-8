@@ -94,7 +94,7 @@ static std::set<std::string> scan(char* pattern)
     return names;
 }
 
-int main()
+int main() try
 {
     const auto temporary = make_temporary_directory("wiz8-files");
     const fs::path root = wiz8::path_from_utf8(temporary);
@@ -393,4 +393,9 @@ int main()
     fs::permissions(assets / "data" / "ReadOnly.bin", fs::perms::owner_write, fs::perm_options::add);
     fs::remove_all(root);
     puts("ok: game streams, immutable assets, user overlays, UTF-8 imports and bounded SLF records");
+}
+catch (const std::exception& error)
+{
+    fprintf(stderr, "native file fixture: %s\n", error.what());
+    return 1;
 }
