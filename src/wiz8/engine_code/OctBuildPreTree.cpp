@@ -496,6 +496,15 @@ unsigned char OctBuildPreTree::UpdateRegionMap(const W8OctSpatialState* arg_spat
 {
     W8OctSpatialState child(arg_spatial);
     bool changed = false;
+    const auto updateRegion = [this, mode, value](unsigned short region) {
+        if (mode == 6) {
+            RemoveIndexValue(*inside_region_map, region, value);
+            InsertIndexValue(*inside_region_map, region, value);
+        } else if (mode == 5) {
+            RemoveIndexValue(*overlap_region_map, region, value);
+            InsertIndexValue(*overlap_region_map, region, value);
+        }
+    };
 
     if (arg_spatial->m_depth >= 16) {
         return 0;
@@ -522,13 +531,7 @@ unsigned char OctBuildPreTree::UpdateRegionMap(const W8OctSpatialState* arg_spat
                         W8OctBuildNode* node = child.m_root;
                         unsigned short region = node->region;
                         if (region != 0) {
-                            if (mode == 6) {
-                                RemoveIndexValue(*inside_region_map, region, value);
-                                InsertIndexValue(*inside_region_map, region, value);
-                            } else if (mode == 5) {
-                                RemoveIndexValue(*overlap_region_map, region, value);
-                                InsertIndexValue(*overlap_region_map, region, value);
-                            }
+                            updateRegion(region);
                             changed = true;
                         }
                         if (UpdateRegionMap(&child, geometry, value, mode) != 0) {
@@ -542,13 +545,7 @@ unsigned char OctBuildPreTree::UpdateRegionMap(const W8OctSpatialState* arg_spat
         W8OctBuildNode* node = arg_spatial->m_root;
         unsigned short region = node->region;
         if (region != 0) {
-            if (mode == 6) {
-                RemoveIndexValue(*inside_region_map, region, value);
-                InsertIndexValue(*inside_region_map, region, value);
-            } else if (mode == 5) {
-                RemoveIndexValue(*overlap_region_map, region, value);
-                InsertIndexValue(*overlap_region_map, region, value);
-            }
+            updateRegion(region);
             changed = true;
         }
     }

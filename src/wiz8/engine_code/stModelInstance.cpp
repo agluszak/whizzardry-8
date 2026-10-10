@@ -41,38 +41,22 @@ static std::vector<srVector3T<float>> g_vertex_scratch;
 stTextureAnim* stModelInstance::FindMouthTexture()
 {
     stMeshModel* mesh = static_cast<stMeshModel*>(getModel());
-
-    if (damage_stage == -1) {
-        while (mesh != 0) {
-            std::shared_ptr<srTextureIFace>* textures = mesh->getPolyTexture(0, 0, 0);
-
-            if (textures != 0) {
-                for (int polygon = 0; polygon < mesh->polygon_count; ++polygon) {
-                    auto* animation = sr_cast<stTextureAnim>(textures[polygon]);
-                    if (animation != 0 && _strnicmp(animation->getName().c_str(), "mouth", 5) == 0) {
-                        return animation;
-                    }
+    while (mesh != nullptr) {
+        std::shared_ptr<srTextureIFace>* textures =
+            damage_stage == -1 ? mesh->getPolyTexture(0, 0, 0)
+                               : mesh->GetTextureTable(damage_stage_tables[damage_stage]);
+        if (textures != nullptr) {
+            for (int polygon = 0; polygon < mesh->polygon_count; ++polygon) {
+                auto* animation = sr_cast<stTextureAnim>(textures[polygon]);
+                if (animation != nullptr &&
+                    _strnicmp(animation->getName().c_str(), "mouth", 5) == 0) {
+                    return animation;
                 }
             }
-            mesh = mesh->Next();
         }
-    } else {
-        while (mesh != 0) {
-            std::shared_ptr<srTextureIFace>* textures =
-                mesh->GetTextureTable(damage_stage_tables[damage_stage]);
-
-            if (textures != 0) {
-                for (int polygon = 0; polygon < mesh->polygon_count; ++polygon) {
-                    auto* animation = sr_cast<stTextureAnim>(textures[polygon]);
-                    if (animation != 0 && _strnicmp(animation->getName().c_str(), "mouth", 5) == 0) {
-                        return animation;
-                    }
-                }
-            }
-            mesh = mesh->Next();
-        }
+        mesh = mesh->Next();
     }
-    return 0;
+    return nullptr;
 }
 
 // FUNCTION: WIZ8 0x00480790

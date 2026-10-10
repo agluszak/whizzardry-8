@@ -856,6 +856,33 @@ enum { W8_ITEM_REQUIREMENT_NONE = 0xff };
    index 9 through the spell-source path and CASTER_ITEM_8 reads index 8. */
 enum { W8_CASTER_PROFESSION_INDEX_8 = 8, W8_CASTER_PROFESSION_INDEX_9 = 9 };
 
+/* Return the first unmet item attribute or skill requirement, optionally
+   identifying the corresponding localized attribute or skill name. */
+static bool FindUnmetItemRequirement(const W8Character* character,
+                                     const W8ItemDatabaseRecord* record,
+                                     unsigned short* message_id)
+{
+    for (unsigned int index = 0; index < 2; ++index) {
+        const int stat = static_cast<signed char>(record->attribute_requirements[index].stat_id);
+        if (record->attribute_requirements[index].stat_id != W8_ITEM_REQUIREMENT_NONE &&
+            character->attributes[stat].effective < record->attribute_requirements[index].minimum) {
+            if (message_id)
+                *message_id = g_character_description_first_ids[stat];
+            return true;
+        }
+    }
+    for (unsigned int index = 0; index < 2; ++index) {
+        const int stat = static_cast<signed char>(record->skill_requirements[index].stat_id);
+        if (record->skill_requirements[index].stat_id != W8_ITEM_REQUIREMENT_NONE &&
+            character->skills[stat].level < record->skill_requirements[index].minimum) {
+            if (message_id)
+                *message_id = g_character_skill_name_ids[stat];
+            return true;
+        }
+    }
+    return false;
+}
+
 /* Whether one character is allowed to use one item at all: profession, race
    and faction have to admit them, every attribute and skill floor has to be
    met, and a spell-bearing item additionally has to be one they have not
@@ -864,7 +891,6 @@ enum { W8_CASTER_PROFESSION_INDEX_8 = 8, W8_CASTER_PROFESSION_INDEX_9 = 9 };
 bool CanCharacterUseItem(const W8Character* character, int item_id)
 {
     const W8ItemDatabaseRecord* record = &g_item_records[item_id];
-    unsigned int index;
     unsigned int spell_id;
     unsigned int minimum_caster_level;
 
@@ -879,22 +905,8 @@ bool CanCharacterUseItem(const W8Character* character, int item_id)
         return false;
     }
 
-    for (index = 0; index < 2; ++index) {
-        if (record->attribute_requirements[index].stat_id != W8_ITEM_REQUIREMENT_NONE &&
-            character
-                    ->attributes[static_cast<signed char>(
-                        record->attribute_requirements[index].stat_id)]
-                    .effective < record->attribute_requirements[index].minimum) {
-            return false;
-        }
-    }
-    for (index = 0; index < 2; ++index) {
-        if (record->skill_requirements[index].stat_id != W8_ITEM_REQUIREMENT_NONE &&
-            character->skills[static_cast<signed char>(record->skill_requirements[index].stat_id)]
-                    .level < record->skill_requirements[index].minimum) {
-            return false;
-        }
-    }
+    if (FindUnmetItemRequirement(character, record, nullptr))
+        return false;
 
     if (record->category == W8_ITEM_CATEGORY_SPELL_SOURCE) {
         spell_id = record->spell_id;
@@ -910,20 +922,12 @@ bool CanCharacterUseItem(const W8Character* character, int item_id)
         if (spell_id == W8_SPELL_NONE) {
             srAssertFail("uiSpell != SPELL_NONE", PC_ITEM_CPP, 1844, 0);
         }
-        if (record->category == W8_ITEM_CATEGORY_CASTER_ITEM_6) {
-            minimum_caster_level = GetMinimumCasterLevelForSpell(spell_id);
-            if (static_cast<unsigned int>(
-                    character->profession_levels[W8_CASTER_PROFESSION_INDEX_9]) <
-                minimum_caster_level) {
-                return false;
-            }
-        } else {
-            minimum_caster_level = GetMinimumCasterLevelForSpell(spell_id);
-            if (static_cast<unsigned int>(
-                    character->profession_levels[W8_CASTER_PROFESSION_INDEX_8]) <
-                minimum_caster_level) {
-                return false;
-            }
+        minimum_caster_level = GetMinimumCasterLevelForSpell(spell_id);
+        const int profession = record->category == W8_ITEM_CATEGORY_CASTER_ITEM_6
+                                   ? W8_CASTER_PROFESSION_INDEX_9 : W8_CASTER_PROFESSION_INDEX_8;
+        if (static_cast<unsigned int>(character->profession_levels[profession]) <
+            minimum_caster_level) {
+            return false;
         }
     }
     return true;
@@ -1737,32 +1741,12 @@ bool GiveHeldItemToCharacterOrParty(int uiChar, bool party_first)
 {
     W8ItemInstance* item = &g_status.item_in_hand;
     bool stored = party_first;
-    bool identified = false;
-    unsigned int slot;
-
     if (!g_status.item_in_cursor) {
         srAssertFail("gStatus.fItemInCursor", PC_ITEM_CPP, 376, 0);
     }
 
-    /* Every member who is up and not too badly hurt gets an attempt at the
-       item, which is what practises the skill for them; the first one who
-       learns what it is bounds the loop's answer. */
-    if (!item->identified) {
-        for (slot = 0; slot < 8; ++slot) {
-            W8Character* character = &g_status.buffers.Char[slot];
-            if (!g_status.buffers.XChar[slot].fOccupied) {
-                continue;
-            }
-            if (character->hp_current == 0 || character->highest_condition >= W8_CONDITION_INSANE) {
-                continue;
-            }
-            if (!identified) {
-                identified = TryIdentifyItemFor(character, item);
-            } else {
-                TryIdentifyItemFor(character, item);
-            }
-        }
-    }
+    if (!item->identified)
+        PartyAttemptsToIdentifyItem(item, 0);
 
     if (!g_status.game_started) {
         srAssertFail("gStatus.fGameStarted", PC_ITEM_CPP, 0x194, 0);
@@ -2518,19 +2502,10 @@ bool FindCharacterItemByDatabaseKind(W8Character* character, short item_kind, W8
 // FUNCTION: WIZ8 0x005207e0
 W8RangeCategory GetItemSpellRange(const W8ItemInstance* item)
 {
-    if (item == 0) {
+    if (item == nullptr)
         return W8_RANGE_NONE;
-    }
-    if (item->iItemNo == -1) {
-        srAssertFail("pPCItem->iItemNo != -1", PC_ITEM_CPP, 4003, 0);
-    }
-    if (item->iItemNo >= static_cast<int>(gXStatus.uiItemsInDatabase)) {
-        srAssertFail("pPCItem->iItemNo < (INT32) gXStatus.uiItemsInDatabase", PC_ITEM_CPP, 4004, 0);
-    }
-    if (g_item_records[item->iItemNo].spell_id != W8_SPELL_NONE) {
-        return g_spell_records[g_item_records[item->iItemNo].spell_id].range_category;
-    }
-    return W8_RANGE_NONE;
+    const int spell_id = GetItemSpell(item);
+    return spell_id == W8_SPELL_NONE ? W8_RANGE_NONE : g_spell_records[spell_id].range_category;
 }
 
 /* One character's attempt at identifying an item. Their strength is a sixth of
@@ -3393,32 +3368,8 @@ void UnequipUnusableItems(W8Character* character)
         unsigned short message_id = 0;
         bool unmet = false;
         W8ItemInstance destination;
-        unsigned int index;
 
-        for (index = 0; index < 2; ++index) {
-            if (record->attribute_requirements[index].stat_id != W8_ITEM_REQUIREMENT_NONE &&
-                character
-                        ->attributes[static_cast<signed char>(
-                            record->attribute_requirements[index].stat_id)]
-                        .effective < record->attribute_requirements[index].minimum) {
-                message_id = g_character_description_first_ids[static_cast<signed char>(
-                    record->attribute_requirements[index].stat_id)];
-                unmet = true;
-                break;
-            }
-        }
-        for (index = 0; !unmet && index < 2; ++index) {
-            if (record->skill_requirements[index].stat_id != W8_ITEM_REQUIREMENT_NONE &&
-                character
-                        ->skills[static_cast<signed char>(
-                            record->skill_requirements[index].stat_id)]
-                        .level < record->skill_requirements[index].minimum) {
-                message_id = g_character_skill_name_ids[static_cast<signed char>(
-                    record->skill_requirements[index].stat_id)];
-                unmet = true;
-                break;
-            }
-        }
+        unmet = FindUnmetItemRequirement(character, record, &message_id);
         if (unmet) {
             PostCharacterNotice(
                 party_slot,

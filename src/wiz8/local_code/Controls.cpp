@@ -616,33 +616,27 @@ void W8TextBuffer::RenderText(unsigned char* buffer, unsigned int pitch, int x_o
 
     int y = GetVerticalPosition();
     size_t span = strcspn(line, g_W8LineBreakCharacters);
-    while (line[span] != '\0') {
-        line[span] = '\0';
-        int x = GetHorizontalPosition(StringPixLength(line, m_font));
-        if (m_alternateRenderer == 0) {
+    for (;;) {
+        const bool has_next_line = line[span] != '\0';
+        if (has_next_line)
+            line[span] = '\0';
+
+        const int x = GetHorizontalPosition(StringPixLength(line, m_font));
+        if (m_alternateRenderer == 0)
             DrawFontTextToBuffer(buffer, pitch, m_font, x + x_offset, y + y_offset, line);
-        } else {
+        else
             DrawMonoFontTextToBuffer(buffer, pitch, m_font, x + x_offset, y + y_offset, line);
-        }
+
+        if (!has_next_line)
+            break;
         y += GetLineHeight();
         line[span] = '\n';
-        if (m_layoutBounds.bottom <= y) {
-            goto done;
-        }
+        if (m_layoutBounds.bottom <= y)
+            break;
         line += span + 1;
         span = strcspn(line, g_W8LineBreakCharacters);
     }
 
-    {
-        int x = GetHorizontalPosition(StringPixLength(line, m_font));
-        if (m_alternateRenderer == 0) {
-            DrawFontTextToBuffer(buffer, pitch, m_font, x + x_offset, y + y_offset, line);
-        } else {
-            DrawMonoFontTextToBuffer(buffer, pitch, m_font, x + x_offset, y + y_offset, line);
-        }
-    }
-
-done:
     SetFontObjectPalette16BPP(m_font, previous_state);
     RestoreFontSettings();
     m_geometryDirty = false;

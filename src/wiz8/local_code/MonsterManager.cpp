@@ -919,29 +919,18 @@ static double DistanceBetweenPositions(const srVector3T<float>* first,
 // FUNCTION: WIZ8 0x004e61e0
 W8MonsterInfo* FindNearestMonsterInfo(const srVector3T<float>* position, double maximum_distance)
 {
-    W8MonsterInfo* nearest = 0;
+    W8MonsterInfo* nearest = nullptr;
     double nearest_distance = 1.0e11;
-    unsigned int index;
 
-    for (index = 0; index < gXStatus.monsters.size(); ++index) {
-        W8MonsterInfo* monster_info = GetMonsterListEntry(index);
-        double distance = DistanceBetweenPositions(position, monster_info->p3D->GetPosition());
-
-        if (distance < nearest_distance &&
-            (maximum_distance == 0.0 || distance < maximum_distance)) {
-            nearest = monster_info;
-            nearest_distance = distance;
-        }
-    }
-
-    for (index = 0; index < gXStatus.unborn_monsters.size(); ++index) {
-        W8MonsterInfo* monster_info = GetUnbornMonsterEntry(index);
-        double distance = DistanceBetweenPositions(position, monster_info->p3D->GetPosition());
-
-        if (distance < nearest_distance &&
-            (maximum_distance == 0.0 || distance < maximum_distance)) {
-            nearest = monster_info;
-            nearest_distance = distance;
+    for (const auto* monsters : {&gXStatus.monsters, &gXStatus.unborn_monsters}) {
+        for (W8MonsterInfo* monster_info : *monsters) {
+            const double distance =
+                DistanceBetweenPositions(position, monster_info->p3D->GetPosition());
+            if (distance < nearest_distance &&
+                (maximum_distance == 0.0 || distance < maximum_distance)) {
+                nearest = monster_info;
+                nearest_distance = distance;
+            }
         }
     }
     return nearest;

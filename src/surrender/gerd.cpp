@@ -525,38 +525,31 @@ void srGERD::setClearColor(const glm::vec4& color)
 // FUNCTION: SURRENDER 0x1001CB00
 void srGERD::setClearColor(float red, float green, float blue, float alpha)
 {
-    glm::vec4 color;
-    color.x = red;
-    color.y = green;
-    color.z = blue;
-    color.w = alpha;
-    setClearColor(color);
+    setClearColor(glm::vec4(red, green, blue, alpha));
 }
 
 // FUNCTION: SURRENDER 0x1001CB70
 void srGERD::setClearDepth(double depth)
 {
-    if (depth <= 0.0) {
-        clear_state.clear_values.depth = 0.0;
-        return;
+    clear_state.clear_values.depth = std::clamp(depth, 0.0, 1.0);
+}
+
+/* Both indexed and array draws consume the same pending renderer state. */
+void srGERD::prepareDrawState()
+{
+    checkViewStateChanges();
+    checkDrawStateChanges();
+    if ((vertex_arrays_dirty & DIRTY_VERTEX_ARRAY_INFO) != 0) {
+        getDD()->setVertexArrayInfo(&vertex_arrays);
+        vertex_arrays_dirty &= ~DIRTY_VERTEX_ARRAY_INFO;
     }
-    if (depth >= 1.0) {
-        clear_state.clear_values.depth = 1.0;
-        return;
-    }
-    clear_state.clear_values.depth = depth;
 }
 
 // FUNCTION: SURRENDER 0x1001CC10
 void srGERD::drawArrays(srRendererDefs::e_primitive primitive, w8_long first, w8_ulong count)
 {
     if ((enable_flags.value & 4) == 0) {
-        checkViewStateChanges();
-        checkDrawStateChanges();
-        if ((vertex_arrays_dirty & DIRTY_VERTEX_ARRAY_INFO) != 0) {
-            getDD()->setVertexArrayInfo(&vertex_arrays);
-            vertex_arrays_dirty &= ~DIRTY_VERTEX_ARRAY_INFO;
-        }
+        prepareDrawState();
         getDD()->drawArrays(primitive, first, count);
         statistics.draw_calls++;
     }
@@ -567,12 +560,7 @@ void srGERD::drawElements(srRendererDefs::e_primitive primitive, w8_ulong count,
                           srRendererDefs::e_indexType type, const void* indices)
 {
     if ((enable_flags.value & 4) == 0) {
-        checkViewStateChanges();
-        checkDrawStateChanges();
-        if ((vertex_arrays_dirty & DIRTY_VERTEX_ARRAY_INFO) != 0) {
-            getDD()->setVertexArrayInfo(&vertex_arrays);
-            vertex_arrays_dirty &= ~DIRTY_VERTEX_ARRAY_INFO;
-        }
+        prepareDrawState();
         getDD()->drawElements(primitive, count, type, indices);
         statistics.draw_calls++;
     }
@@ -4322,41 +4310,28 @@ void srGERD::accumulate(e_accum operation, float scale)
     {
         short addend = accumConvert(scale);
         switch (operation) {
-        case ACCUM_LOAD: {
-            short table[256];
-            for (w8_long i = 0; i < 256; i++) {
-                table[i] = (short)(w8_long)(i * (scale * (32767.0f / 255.0f)));
-            }
-            for (w8_long y = 0; y < height; y++) {
-                surface->getPixelRow(
-                    reinterpret_cast<w8_ulong*>(pixels), // reinterpret-ok: ARGB row buffer
-                                                         // through the dword pixel-row ABI
-                    state.scissor.top + y, state.scissor.left, state.scissor.right);
-                for (w8_long x = 0; x < width; x++) {
-                    row[x].red = row[x].red + table[pixels[x].blue];
-                    row[x].green = row[x].green + table[pixels[x].green];
-                    row[x].blue = row[x].blue + table[pixels[x].red];
-                    row[x].alpha = row[x].alpha + table[pixels[x].alpha];
-                }
-                row += getWidth();
-            }
-            break;
-        }
+        case ACCUM_LOAD:
         case ACCUM_ACCUMULATE: {
             short table[256];
-            for (w8_long i = 0; i < 256; i++) {
+            for (w8_long i = 0; i < 256; ++i)
                 table[i] = (short)(w8_long)(i * (scale * (32767.0f / 255.0f)));
-            }
-            for (w8_long y = 0; y < height; y++) {
+
+            for (w8_long y = 0; y < height; ++y) {
                 surface->getPixelRow(
-                    reinterpret_cast<w8_ulong*>(pixels), // reinterpret-ok: ARGB row buffer
-                                                         // through the dword pixel-row ABI
+                    reinterpret_cast<w8_ulong*>(pixels), // reinterpret-ok: packed ARGB row
                     state.scissor.top + y, state.scissor.left, state.scissor.right);
-                for (w8_long x = 0; x < width; x++) {
-                    row[x].red = table[pixels[x].blue];
-                    row[x].green = table[pixels[x].green];
-                    row[x].blue = table[pixels[x].red];
-                    row[x].alpha = table[pixels[x].alpha];
+                for (w8_long x = 0; x < width; ++x) {
+                    if (operation == ACCUM_LOAD) {
+                        row[x].red += table[pixels[x].blue];
+                        row[x].green += table[pixels[x].green];
+                        row[x].blue += table[pixels[x].red];
+                        row[x].alpha += table[pixels[x].alpha];
+                    } else {
+                        row[x].red = table[pixels[x].blue];
+                        row[x].green = table[pixels[x].green];
+                        row[x].blue = table[pixels[x].red];
+                        row[x].alpha = table[pixels[x].alpha];
+                    }
                 }
                 row += getWidth();
             }
