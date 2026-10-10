@@ -1,3 +1,4 @@
+#include "random.h"
 #include "wiz8/spell_ids.h"
 #include "wiz8/local_code/CombatHostility.h"
 #include "wiz8/local_code/MonsterManager.h"

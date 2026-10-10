@@ -947,7 +947,7 @@ void DrawSubMenuCharacterAction(void)
     }
     SetFont(g_smfnt_font);
     row = &g_status.buffers.XChar[slot];
-    SetFontObjectPalette16BPP(g_smfnt_font, g_font_state_palettes[row->party_order_index]);
+    SetFontObjectPalette16BPP(g_smfnt_font, g_font_state_palettes[row->party_order_index].get());
     DrawCatalogImageAndInvalidate(FRAME_BUFFER, 0x7e, 0, 6, 0x157, 0x1c2, VO_BLT_SRCTRANSPARENCY,
                                   0);
     character = &g_status.buffers.Char[slot];

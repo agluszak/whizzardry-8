@@ -89,7 +89,7 @@ unsigned char PleaseWaitScreenInitialize(void)
         g_cd_marker_present = true;
     }
     g_level_load_font =
-        LoadFontFile((UINT8*)const_cast<char*>("Data\\Level Load\\levelload_font.sti"));
+        LoadFontFile("Data\\Level Load\\levelload_font.sti");
     return 1;
 }
 

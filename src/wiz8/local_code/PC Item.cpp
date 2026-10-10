@@ -1,3 +1,4 @@
+#include "random.h"
 #include "wiz8/conditions.h"
 #include "wiz8/fonts.h"
 #include "soundman.h"

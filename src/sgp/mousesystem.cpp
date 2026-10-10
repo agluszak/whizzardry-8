@@ -13,7 +13,10 @@
 #include "compat/kernel32.h"
 #include <stdio.h>
 #include <memory.h>
+#include <algorithm>
+#include <vector>
 #include "input.h"
+#include "timer.h"
 #include "line.h"
 #include "Video2.h"
 #define BASE_REGION_FLAGS MSYS_REGION_ENABLED
@@ -36,8 +39,6 @@ UINT32 guiRegionLastLButtonDownTime = 0;
 
 // number of lines in height help text will be
 
-// GLOBAL: WIZ8 0x00650e78
-INT32 MSYS_ScanForID = FALSE;
 // GLOBAL: WIZ8 0x00650e7c
 INT32 MSYS_CurrentID = MSYS_ID_SYSTEM;
 
@@ -66,7 +67,7 @@ UINT16 gusClickedIDNumber;
 BOOLEAN gfClickedModeOn = FALSE;
 
 // GLOBAL: WIZ8 0x00650e94
-MOUSE_REGION* MSYS_RegList = nullptr;
+static std::vector<MOUSE_REGION*> MSYS_RegList;
 
 // GLOBAL: WIZ8 0x00650e98
 MOUSE_REGION* MSYS_PrevRegion = nullptr;
@@ -108,9 +109,7 @@ MOUSE_REGION MSYS_SystemBaseRegion = {MSYS_ID_SYSTEM,
                                       0,
                                       {},
                                       -1,
-                                      MSYS_NO_CALLBACK,
-                                      nullptr,
-                                      nullptr};
+                                      MSYS_NO_CALLBACK};
 
 // GLOBAL: WIZ8 0x00650ea0
 BOOLEAN gfRefreshUpdate = FALSE;
@@ -134,11 +133,10 @@ INT32 MSYS_Init(void)
 #ifdef MOUSESYSTEM_DEBUGGING
     gfIgnoreShutdownAssertions = FALSE;
 #endif
-    if (MSYS_RegList != nullptr)
+    if (!MSYS_RegList.empty())
         MSYS_TrashRegList();
 
     MSYS_CurrentID = MSYS_ID_SYSTEM;
-    MSYS_ScanForID = FALSE;
 
     MSYS_CurrentMX = 0;
     MSYS_CurrentMY = 0;
@@ -176,8 +174,6 @@ INT32 MSYS_Init(void)
     MSYS_SystemBaseRegion.FastHelpText = 0;
     MSYS_SystemBaseRegion.FastHelpRect = -1;
 
-    MSYS_SystemBaseRegion.next = nullptr;
-    MSYS_SystemBaseRegion.prev = nullptr;
 
     // Add the base region to the list
     MSYS_AddRegionToList(&MSYS_SystemBaseRegion);
@@ -300,50 +296,27 @@ void MSYS_SGP_Mouse_Handler_Hook(UINT16 Type, UINT16 Xcoord, UINT16 Ycoord, BOOL
 //	is returned.
 INT32 MSYS_GetNewID(void)
 {
-    INT32 retID;
-    INT32 Current, found, done;
-    MOUSE_REGION* node;
-
-    retID = MSYS_CurrentID;
-    MSYS_CurrentID++;
-
-    // Crapy scan for an unused ID
-    if ((MSYS_CurrentID >= MSYS_ID_MAX) || MSYS_ScanForID) {
-        MSYS_ScanForID = TRUE;
-        Current = MSYS_ID_BASE;
-        done = found = FALSE;
-        while (!done) {
-            found = FALSE;
-            node = MSYS_RegList;
-            while (node != nullptr && !found) {
-                if (node->IDNumber == Current)
-                    found = TRUE;
-            }
-
-            if (found && Current < MSYS_ID_MAX) // Current ID is in use, and their are more to scan
-                Current++;
-            else {
-                done = TRUE; // Got an ID to use.
-                if (found)
-                    Current = MSYS_ID_MAX; // Ooops, ran out of IDs, use MAX value!
-            }
-        }
-        MSYS_CurrentID = Current;
+    for (UINT32 attempt = 0; attempt <= MSYS_ID_MAX; ++attempt) {
+        const auto id = MSYS_CurrentID;
+        MSYS_CurrentID = id == MSYS_ID_MAX ? MSYS_ID_BASE : id + 1;
+        if (std::none_of(MSYS_RegList.begin(), MSYS_RegList.end(),
+                         [id](const MOUSE_REGION* region) { return region->IDNumber == id; }))
+            return id;
     }
-
-    return (retID);
+    AssertMsg(FALSE, "Mouse region IDs exhausted");
+    return MSYS_ID_MAX;
 }
 
 //	MSYS_TrashRegList
 //	Deletes the entire region list.
 void MSYS_TrashRegList(void)
 {
-    while (MSYS_RegList) {
-        if (MSYS_RegList->uiFlags & MSYS_REGION_EXISTS) {
-            MSYS_RemoveRegion(MSYS_RegList);
-        } else {
-            MSYS_RegList = MSYS_RegList->next;
-        }
+    while (!MSYS_RegList.empty()) {
+        auto* region = MSYS_RegList.back();
+        if (region->uiFlags & MSYS_REGION_EXISTS)
+            MSYS_RemoveRegion(region);
+        else
+            MSYS_RegList.pop_back();
     }
 }
 
@@ -353,71 +326,21 @@ void MSYS_TrashRegList(void)
 // FUNCTION: WIZ8 0x0040b720
 void MSYS_AddRegionToList(MOUSE_REGION* region)
 {
-    MOUSE_REGION* curr;
-    INT32 done;
-
-    // If region seems to already be in list, delete it so we can
-    // re-insert the region.
-    if (region->next || region->prev) { // if it wasn't actually there, then call does nothing!
+    if (MSYS_RegionInList(region))
         MSYS_DeleteRegionFromList(region);
-    }
-
-    // Set an ID number!
     region->IDNumber = (UINT16)MSYS_GetNewID();
-
-    region->next = nullptr;
-    region->prev = nullptr;
-
-    if (!MSYS_RegList) { // Null list, so add it straight up.
-        MSYS_RegList = region;
-    } else {
-        // Walk down list until we find place to insert (or at end of list)
-        curr = MSYS_RegList;
-        done = FALSE;
-        while ((curr->next != nullptr) && !done) {
-            if (curr->PriorityLevel <= region->PriorityLevel)
-                done = TRUE;
-            else
-                curr = curr->next;
-        }
-
-        if (curr->PriorityLevel > region->PriorityLevel) {
-            // Add after curr node
-            region->next = curr->next;
-            curr->next = region;
-            region->prev = curr;
-            if (region->next != nullptr)
-                region->next->prev = region;
-        } else {
-            // Add before curr node
-            region->next = curr;
-            region->prev = curr->prev;
-
-            curr->prev = region;
-            if (region->prev != nullptr)
-                region->prev->next = region;
-
-            if (MSYS_RegList == curr) // Make sure if adding at start, to adjust the list pointer
-                MSYS_RegList = region;
-        }
-    }
+    const auto position = std::lower_bound(MSYS_RegList.begin(), MSYS_RegList.end(), region,
+        [](const MOUSE_REGION* existing, const MOUSE_REGION* added) {
+            return existing->PriorityLevel > added->PriorityLevel;
+        });
+    MSYS_RegList.insert(position, region);
 }
 
 //	MSYS_RegionInList
 //	Scan region list for presence of a node with the same region ID number
 INT32 MSYS_RegionInList(MOUSE_REGION* region)
 {
-    MOUSE_REGION* Current;
-    INT32 found;
-
-    found = FALSE;
-    Current = MSYS_RegList;
-    while (Current && !found) {
-        if (Current->IDNumber == region->IDNumber)
-            found = TRUE;
-        Current = Current->next;
-    }
-    return (found);
+    return std::find(MSYS_RegList.begin(), MSYS_RegList.end(), region) != MSYS_RegList.end();
 }
 
 //	MSYS_DeleteRegionFromList
@@ -425,28 +348,8 @@ INT32 MSYS_RegionInList(MOUSE_REGION* region)
 // FUNCTION: WIZ8 0x0040b830
 void MSYS_DeleteRegionFromList(MOUSE_REGION* region)
 {
-    // If no list present, there's nothin' to do.
-    if (!MSYS_RegList)
+    if (!std::erase(MSYS_RegList, region))
         return;
-
-    // Check if region in list
-    if (!MSYS_RegionInList(region))
-        return;
-
-    // Remove a node from the list
-    if (MSYS_RegList == region) { // First node on list, adjust main pointer.
-        MSYS_RegList = region->next;
-        if (MSYS_RegList != nullptr)
-            MSYS_RegList->prev = nullptr;
-        region->next = region->prev = nullptr;
-    } else {
-        if (region->prev)
-            region->prev->next = region->next;
-        // If not last node in list, adjust following node's ->prev entry.
-        if (region->next)
-            region->next->prev = region->prev;
-        region->prev = region->next = nullptr;
-    }
 
     // Did we delete a grabbed region?
     if (MSYS_Mouse_Grabbed) {
@@ -457,14 +360,12 @@ void MSYS_DeleteRegionFromList(MOUSE_REGION* region)
     }
 
     // Is only the system background region remaining?
-    if (MSYS_RegList == &MSYS_SystemBaseRegion) {
+    if (MSYS_RegList.size() == 1 && MSYS_RegList.front() == &MSYS_SystemBaseRegion) {
         // Yup, so let's reset the ID values!
         MSYS_CurrentID = MSYS_ID_BASE;
-        MSYS_ScanForID = FALSE;
-    } else if (MSYS_RegList == nullptr) {
+    } else if (MSYS_RegList.empty()) {
         // Ack, we actually emptied the list, so let's reset for re-init possibilities
         MSYS_CurrentID = MSYS_ID_SYSTEM;
-        MSYS_ScanForID = FALSE;
     }
 }
 
@@ -483,20 +384,17 @@ void MSYS_UpdateMouseRegion(void)
         MSYS_CurrRegion = MSYS_GrabRegion;
         found = TRUE;
     }
-    if (!found)
-        MSYS_CurrRegion = MSYS_RegList;
-
-    while (!found && MSYS_CurrRegion) {
-        if (MSYS_CurrRegion->uiFlags & (MSYS_REGION_ENABLED | MSYS_ALLOW_DISABLED_FASTHELP) &&
-            (MSYS_CurrRegion->RegionTopLeftX <= MSYS_CurrentMX) && // Check boundaries
-            (MSYS_CurrRegion->RegionTopLeftY <= MSYS_CurrentMY) &&
-            (MSYS_CurrRegion->RegionBottomRightX >= MSYS_CurrentMX) &&
-            (MSYS_CurrRegion->RegionBottomRightY >= MSYS_CurrentMY)) {
-            // We got the right region. We don't need to check for priorities 'cause
-            // the whole list is sorted the right way!
-            found = TRUE;
-        } else
-            MSYS_CurrRegion = MSYS_CurrRegion->next;
+    if (!found) {
+        const auto region = std::find_if(MSYS_RegList.begin(), MSYS_RegList.end(),
+            [](const MOUSE_REGION* candidate) {
+                return (candidate->uiFlags & (MSYS_REGION_ENABLED | MSYS_ALLOW_DISABLED_FASTHELP)) &&
+                    candidate->RegionTopLeftX <= MSYS_CurrentMX &&
+                    candidate->RegionTopLeftY <= MSYS_CurrentMY &&
+                    candidate->RegionBottomRightX >= MSYS_CurrentMX &&
+                    candidate->RegionBottomRightY >= MSYS_CurrentMY;
+            });
+        found = region != MSYS_RegList.end();
+        MSYS_CurrRegion = found ? *region : nullptr;
     }
 
     if (MSYS_PrevRegion) {
@@ -519,7 +417,8 @@ void MSYS_UpdateMouseRegion(void)
                 VideoRemoveToolTip();
             }
 
-            MSYS_CurrRegion->FastHelpTimer = gsFastHelpDelay;
+            if (MSYS_CurrRegion)
+                MSYS_CurrRegion->FastHelpTimer = gsFastHelpDelay;
 
             // Force a callbacks to happen on previous region to indicate that
             // the mouse has left the old region
@@ -531,7 +430,7 @@ void MSYS_UpdateMouseRegion(void)
     }
 
     // If a region was found in the list, update it's data
-    if (found) {
+    if (found && MSYS_CurrRegion) {
         if (MSYS_CurrRegion != MSYS_PrevRegion) {
             //Kris -- October 27, 1997
             //Implemented gain mouse region
@@ -551,6 +450,8 @@ void MSYS_UpdateMouseRegion(void)
                 if (MSYS_CurrRegion->uiFlags & MSYS_REGION_ENABLED) {
                     (*(MSYS_CurrRegion->MovementCallback))(MSYS_CurrRegion,
                                                            MSYS_CALLBACK_REASON_GAIN_MOUSE);
+                    if (!MSYS_CurrRegion)
+                        return;
                 }
             }
 
@@ -571,6 +472,8 @@ void MSYS_UpdateMouseRegion(void)
             if (MSYS_CurrRegion->uiFlags & MSYS_REGION_ENABLED &&
                 MSYS_CurrRegion->uiFlags & MSYS_MOVE_CALLBACK && MSYS_Action & MSYS_DO_MOVE) {
                 (*(MSYS_CurrRegion->MovementCallback))(MSYS_CurrRegion, MSYS_CALLBACK_REASON_MOVE);
+                if (!MSYS_CurrRegion)
+                    return;
             }
 
             //ExecuteMouseHelpEndCallBack( MSYS_CurrRegion );
@@ -687,6 +590,8 @@ void MSYS_UpdateMouseRegion(void)
 
             if ((MSYS_CurrRegion->uiFlags & MSYS_MOVE_CALLBACK) && (MSYS_Action & MSYS_DO_MOVE)) {
                 (*(MSYS_CurrRegion->MovementCallback))(MSYS_CurrRegion, MSYS_CALLBACK_REASON_MOVE);
+                if (!MSYS_CurrRegion)
+                    return;
             }
 
             MSYS_Action &= (~MSYS_DO_MOVE);
@@ -744,8 +649,6 @@ void MSYS_DefineRegion(MOUSE_REGION* region, UINT16 tlx, UINT16 tly, UINT16 brx,
     region->FastHelpText = nullptr;
     region->FastHelpTimer = 0;
 
-    region->next = nullptr;
-    region->prev = nullptr;
     region->HelpDoneCallback = nullptr;
 
     //Add region to system list
@@ -790,6 +693,10 @@ void MSYS_RemoveRegion(MOUSE_REGION* region)
     //if the current region is the one that we are deleting, then clear it.
     if (MSYS_CurrRegion == region)
         MSYS_CurrRegion = nullptr;
+    if (gpRegionLastLButtonDown == region || gpRegionLastLButtonUp == region) {
+        gpRegionLastLButtonDown = gpRegionLastLButtonUp = nullptr;
+        guiRegionLastLButtonDownTime = 0;
+    }
 
     //dirty our update flag
     gfRefreshUpdate = TRUE;

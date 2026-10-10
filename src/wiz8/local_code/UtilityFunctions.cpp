@@ -757,15 +757,15 @@ void RenderMessageBox(void)
     } else if (g_message_box_state == 2) {
         HVOBJECT font;
         if (g_message_box_font == g_large_font) {
-            font = g_large_font_object;
+            font = GetFontObject(g_large_font);
         } else if (g_message_box_font == g_small_font) {
-            font = g_small_font_object;
+            font = GetFontObject(g_small_font);
         } else if (g_message_box_font == g_small_font_secondary) {
-            font = g_small_font_secondary_object;
+            font = GetFontObject(g_small_font_secondary);
         } else if (g_message_box_font == g_wiz_text_font) {
-            font = g_wiz_text_font_object;
+            font = GetFontObject(g_wiz_text_font);
         } else {
-            font = g_wiz_text_font_secondary_object;
+            font = GetFontObject(g_wiz_text_font_secondary);
         }
         SetObjectShade(font, g_message_box_shade);
         MarkButtonsDirty();

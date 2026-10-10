@@ -7,7 +7,7 @@
 
 #include "wiz8/filesystem.h"
 #include "random.h"
-#include "sgp.h"
+#include "wiz8/application.h"
 #include "input.h"
 #include "surrender/srCamera.h"
 #include "surrender/srNode.h"

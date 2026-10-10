@@ -42,7 +42,7 @@
 #include "wiz8/local_code/MonsterAI.h"
 #include "wiz8/level_specific_code/MasterFunctionList.h"
 
-#include "sgp.h"
+#include "wiz8/application.h"
 
 #include <math.h>
 #include <stdlib.h>

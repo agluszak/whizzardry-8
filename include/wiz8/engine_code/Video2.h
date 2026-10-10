@@ -23,7 +23,7 @@
 
 extern HWND ghWindow;
 
-extern BOOLEAN InitializeVideoManager(HINSTANCE hInstance, UINT16 usCommandShow);
+extern BOOLEAN InitializeVideoManager(void);
 extern void ShutdownVideoManager(void);
 extern void ShutdownVideoScenes(void);
 extern void SuspendVideoManager(void);

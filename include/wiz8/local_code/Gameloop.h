@@ -4,7 +4,7 @@
 #include "wiz8/layouts/screen_state.h"
 #include <vector>
 
-void ShutdownGame(void);
+void ShutdownGame(size_t initialized_screens, bool save_configuration);
 void GameLoop(void);
 void GameloopExit(unsigned char unload_screens);
 

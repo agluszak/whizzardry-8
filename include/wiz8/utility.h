@@ -4,7 +4,7 @@
 #include "wiz8/local_code/ControlsRect.h"
 #include <wchar.h>
 #include "wiz8/wiz8_windows.h"
-#include "sgp.h"
+#include "wiz8/application.h"
 
 #include "wiz8/dice.h"
 

@@ -7,6 +7,7 @@
 #include "wiz8/video_object_catalog.h"
 #include "wiz8/utility.h"
 #include "Button System.h"
+#include "Font.h"
 #include "input.h"
 #include "mousesystem_macros.h"
 #include "vsurface_private.h"
@@ -30,8 +31,8 @@
     fprintf(stderr, "line %d: %s\n", __LINE__, #expression); exit(1); } } while (false)
 
 extern GUI_BUTTON* gpAnchoredButton;
-extern HVOBJECT GenericButtonGrayed[], GenericButtonOffNormal[], GenericButtonOffHilite[];
-extern HVOBJECT GenericButtonOnNormal[], GenericButtonOnHilite[], GenericButtonBackground[];
+extern std::array<std::unique_ptr<SGPVObject>, 40> GenericButtonGrayed, GenericButtonOffNormal, GenericButtonOffHilite;
+extern std::array<std::unique_ptr<SGPVObject>, 40> GenericButtonOnNormal, GenericButtonOnHilite, GenericButtonBackground;
 extern UINT16 GenericButtonFillColors[], GenericButtonBackgroundIndex[];
 extern INT16 GenericButtonOffsetX[], GenericButtonOffsetY[];
 
@@ -211,6 +212,80 @@ int clicks, click_reason;
 MOUSE_REGION* clicked_region;
 void region_click(MOUSE_REGION* region, INT32) { clicked_region = region; }
 void click(GUI_BUTTON*, INT32 reason) { ++clicks; click_reason = reason; }
+int nested_outer, nested_inner;
+void nested_click(GUI_BUTTON* button, INT32 reason)
+{
+    if (button->IDNum == nested_inner) {
+        RemoveButton(nested_outer);
+        return;
+    }
+    QuickButtonCallbackMButn(&ButtonList[nested_inner]->Area, reason);
+    CHECK(ButtonList[nested_outer].get() == button);
+    CHECK(button->uiFlags & BUTTON_DELETION_PENDING);
+    RemoveButton(nested_inner);
+}
+void remove_on_move(MOUSE_REGION* region, INT32 reason)
+{
+    if (reason & MSYS_CALLBACK_REASON_GAIN_MOUSE)
+        MSYS_RemoveRegion(region);
+}
+void remove_button_on_callback(GUI_BUTTON* button, INT32)
+{
+    RemoveButton(button->IDNum);
+    CHECK(ButtonList[button->IDNum].get() == button);
+}
+
+void region_registration_and_callback_lifetimes()
+{
+    CHECK(MSYS_Init());
+    MOUSE_REGION first{}, latest{}, temporary{};
+    MSYS_DefineRegion(&first, 0, 0, 40, 40, MSYS_PRIORITY_NORMAL, nullptr, region_click);
+    const auto first_id = first.IDNumber;
+    for (unsigned registration = 0; registration < 65536; ++registration) {
+        MSYS_DefineRegion(&temporary, 0, 0, 40, 40, MSYS_PRIORITY_NORMAL, nullptr, region_click);
+        CHECK(temporary.IDNumber != 0 && temporary.IDNumber != first_id);
+        MSYS_RemoveRegion(&temporary);
+    }
+    MSYS_DefineRegion(&latest, 0, 0, 40, 40, MSYS_PRIORITY_NORMAL, nullptr, region_click);
+    MSYS_SGP_Mouse_Handler_Hook(LEFT_BUTTON_DOWN, 10, 10, true, false);
+    CHECK(clicked_region == &latest);
+    MSYS_SGP_Mouse_Handler_Hook(LEFT_BUTTON_UP, 10, 10, false, false);
+    MSYS_RemoveRegion(&latest);
+    MSYS_DefineRegion(&temporary, 0, 0, 40, 40, MSYS_PRIORITY_HIGH, remove_on_move, region_click);
+    MSYS_SGP_Mouse_Handler_Hook(MOUSE_POS, 11, 11, false, false);
+    CHECK(!(temporary.uiFlags & MSYS_REGION_EXISTS));
+    MSYS_SGP_Mouse_Handler_Hook(LEFT_BUTTON_DOWN, 11, 11, true, false);
+    CHECK(clicked_region == &first);
+    MSYS_SGP_Mouse_Handler_Hook(LEFT_BUTTON_UP, 11, 11, false, false);
+    MSYS_RemoveRegion(&first);
+
+    wchar_t label[] = L"nested";
+    nested_outer = CreateTextButton(label, 0, 0, 0, -1, 0, 0, 40, 20,
+                                   BUTTON_TOGGLE, MSYS_PRIORITY_NORMAL, nullptr, nested_click);
+    nested_inner = CreateTextButton(label, 0, 0, 0, -1, 0, 20, 40, 20,
+                                   BUTTON_TOGGLE, MSYS_PRIORITY_NORMAL, nullptr, nested_click);
+    CHECK(nested_outer >= 0 && nested_inner >= 0);
+    QuickButtonCallbackMButn(&ButtonList[nested_outer]->Area, MSYS_CALLBACK_REASON_LBUTTON_DWN);
+    CHECK(!ButtonList[nested_outer] && !ButtonList[nested_inner]);
+    for (const bool disabled : {false, true}) {
+        const auto id = CreateTextButton(label, 0, 0, 0, -1, 0, 0, 40, 20,
+                                        BUTTON_TOGGLE, MSYS_PRIORITY_NORMAL,
+                                        remove_button_on_callback, remove_button_on_callback);
+        CHECK(id >= 0);
+        if (disabled) {
+            ButtonList[id]->uiFlags &= ~BUTTON_ENABLED;
+            ButtonList[id]->uiFlags |= BUTTON_ALLOW_DISABLED_CALLBACK;
+            QuickButtonCallbackMButn(&ButtonList[id]->Area, MSYS_CALLBACK_REASON_LBUTTON_DWN);
+        } else {
+            QuickButtonCallbackMMove(&ButtonList[id]->Area, MSYS_CALLBACK_REASON_GAIN_MOUSE);
+        }
+        CHECK(!ButtonList[id]);
+    }
+    MSYS_Shutdown();
+    CHECK(MSYS_Init());
+    MSYS_Shutdown();
+}
+
 void buttons_and_regions()
 {
     CHECK(MSYS_Init());
@@ -227,11 +302,11 @@ void buttons_and_regions()
     CHECK(MSYS_GetRegionUserData(&low, 0) == 17);
     CHECK(MSYS_GrabMouse(&high) == MSYS_GRABBED_OK);
     MSYS_ReleaseMouse(&high);
-    GUI_BUTTON button{};
+    ButtonList[0] = std::make_unique<GUI_BUTTON>();
+    auto& button = *ButtonList[0];
     button.IDNum = 0;
     button.ClickCallback = click;
     button.uiFlags = BUTTON_ENABLED | BUTTON_CLICK_CALLBACK;
-    ButtonList[0] = &button;
     QuickButtonCallbackMButn(&button.Area, MSYS_CALLBACK_REASON_LBUTTON_DWN);
     CHECK(clicks == 1 && click_reason == MSYS_CALLBACK_REASON_LBUTTON_DWN);
     button.uiFlags &= ~BUTTON_ENABLED;
@@ -256,12 +331,12 @@ void buttons_and_regions()
         const auto id = CreateTextButton(label, 0, 0, 0, -1, 0, 0, 40, 20,
                                          BUTTON_TOGGLE, MSYS_PRIORITY_NORMAL, nullptr, click);
         CHECK(id >= 0);
-        auto* owned = ButtonList[id];
+        auto* owned = ButtonList[id].get();
         CHECK(owned && owned->string[0] == L'o');
         label[0] = L'x';
         CHECK(owned->string[0] == L'o');
         SpecifyButtonText(id, owned->string.get());
-        CHECK(ButtonList[id] == owned && owned->string[0] == L'o');
+        CHECK(ButtonList[id].get() == owned && owned->string[0] == L'o');
         wchar_t tooltip[] = L"tooltip";
         SetButtonFastHelpText(id, tooltip);
         tooltip[0] = L'x';
@@ -363,13 +438,13 @@ void font_table_ownership()
 {
     for (unsigned repeat = 0; repeat < 32; ++repeat) {
         auto translation = CreateEnglishTransTable();
-        CHECK(translation.usNumberOfSymbols == translation.DynamicArrayOf16BitValues.size());
-        CHECK(InitializeFontManager(8, translation));
-        translation.DynamicArrayOf16BitValues[1] = '?';
+        CHECK(translation.size() == 252);
+        CHECK(InitializeFontManager(translation));
+        translation[1] = '?';
         CHECK(GetIndex('B') == 1);
         translation = {};
         CHECK(GetIndex('B') == 1);
-        CHECK(InitializeFontManager(8, CreateEnglishTransTable()));
+        CHECK(InitializeFontManager(CreateEnglishTransTable()));
         CHECK(GetIndex('Z') == 25);
         ShutdownFontManager();
         ShutdownFontManager();
@@ -539,8 +614,8 @@ void generic_button_images()
     }
     CHECK(load({filename, filename, nullptr, nullptr, nullptr, nullptr}) == -1);
     for (unsigned repeat = 0; repeat < 32; ++repeat) {
-        CHECK(InitializeFontManager(16, CreateEnglishTransTable()));
-        CHECK(LoadFontFile(filename) == 0);
+        CHECK(InitializeFontManager(CreateEnglishTransTable()));
+        CHECK(LoadFontFile(reinterpret_cast<const char*>(filename)) == 0);
         auto* font = GetFontObject(0);
         CHECK(font && font->ownedPalette && font->usNumberOfObjects == 9);
         UINT16 borrowed[256]{};
@@ -571,6 +646,7 @@ int main(int argc, char** argv)
     surface_regions();
     camp_effects();
     buttons_and_regions();
+    region_registration_and_callback_lifetimes();
     image_and_sprite_ownership();
     font_table_ownership();
     text_input_ownership();
