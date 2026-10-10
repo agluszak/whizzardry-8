@@ -181,9 +181,19 @@ add_executable(native_runtime_test runtime/runtime_test.cpp
 target_compile_definitions(native_runtime_test PRIVATE WIZ8_RUNTIME_TESTS=1)
 target_include_directories(native_runtime_test PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/native")
 target_link_libraries(native_runtime_test PRIVATE WIZ8_GAME_CORE SDL3::SDL3)
-foreach(scenario video character game-start world)
-    add_test(NAME runtime_${scenario} COMMAND native_runtime_test ${scenario})
+target_compile_definitions(native_runtime_test PRIVATE
+    WIZ8_RUNTIME_FIXTURES="${CMAKE_CURRENT_SOURCE_DIR}/runtime/fixtures")
+set(WIZ8_RUNTIME_SAVE_FIXTURE "${CMAKE_CURRENT_BINARY_DIR}/runtime-fixtures")
+foreach(scenario video character game-start world quick-save combat save-fixture load-game)
+    set(arguments ${scenario})
+    if(scenario MATCHES "fixture|load-game")
+        list(APPEND arguments "${WIZ8_RUNTIME_SAVE_FIXTURE}")
+    endif()
+    add_test(NAME runtime_${scenario} COMMAND native_runtime_test ${arguments})
     set_tests_properties(runtime_${scenario} PROPERTIES
         ENVIRONMENT "SDL_VIDEODRIVER=offscreen;SDL_AUDIO_DRIVER=dummy"
         SKIP_RETURN_CODE 77 TIMEOUT 120 LABELS runtime)
 endforeach()
+# One saved game shared by the load scenarios, written once per run.
+set_tests_properties(runtime_save-fixture PROPERTIES FIXTURES_SETUP runtime_save)
+set_tests_properties(runtime_load-game PROPERTIES FIXTURES_REQUIRED runtime_save)

@@ -26,8 +26,20 @@
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/engine_code/World.h"
 #include "wiz8/layouts/screen_state.h"
+#include "input.h"
+#include "wiz8/layouts/character.h"
+#include "wiz8/layouts/combat_state.h"
+#include "wiz8/layouts/game_status.h"
+#include "wiz8/local_code/Combat.h"
 #include "wiz8/local_code/GameplayCode.h"
+#include "wiz8/local_code/GameplayInit.h"
 #include "wiz8/local_code/Gameloop.h"
+#include "wiz8/local_code/HealthStaminaMana.h"
+#include "wiz8/local_code/LoadSaveGame.h"
+#include "wiz8/local_code/MonsterManager.h"
+#include "wiz8/local_screens/MGSKeyboard.h"
+#include "wiz8/local_screens/OptionsScreen.h"
+#include "wiz8/xstatus.h"
 #include "wiz8/local_code/TextControl.h"
 #include "wiz8/local_screens/CharacterScreen.h"
 #include "wiz8/local_screens/IntroScreen.h"
@@ -40,7 +52,10 @@
 #include <cstdio>
 #include <cstring>
 #include <filesystem>
+#include <fstream>
 #include <functional>
+#include <iomanip>
+#include <limits>
 #include <optional>
 #include <stdexcept>
 #include <string>
@@ -165,6 +180,11 @@ class Game
     {
         application_.reset();
         SDL_SetLogOutputFunction(g_default_log, g_default_log_data);
+        if (SDL_getenv("WIZ8_RUNTIME_KEEP_USER_ROOT"))
+        {
+            std::fprintf(stderr, "kept user root %s\n", user_.string().c_str());
+            return;
+        }
         std::error_code ignored;
         fs::remove_all(user_, ignored);
     }
@@ -244,6 +264,49 @@ class Game
         frame();
         hold_key(code, false);
         frame();
+    }
+
+    /* Presses or releases the key bound to a main-game command, with its
+       modifiers, at SGP's keyboard layer (bindings hold Windows key codes). */
+    void command_key(W8MGSCommand command, bool down)
+    {
+        const int index = g_mgs_keyboard ? g_mgs_keyboard->FindBinding(command) : -1;
+        const MGSKeyBinding* binding = index >= 0 ? g_mgs_keyboard->GetBinding(index) : nullptr;
+        if (!binding || !binding->key)
+            Fail("command", "no key bound to command " + std::to_string(int(command)));
+        const std::pair<unsigned short, UINT32> modifiers[] = {
+            {SHIFT_DOWN, VK_SHIFT}, {CTRL_DOWN, VK_CONTROL}, {ALT_DOWN, VK_MENU}};
+        if (down)
+        {
+            for (auto [flag, key] : modifiers)
+                if (binding->modifiers & flag)
+                    KeyDown(key, 1);
+            KeyDown(binding->key, 1);
+            gfSGPInputReceived = TRUE;
+        }
+        else
+        {
+            KeyUp(binding->key, 0xc0000001u);
+            for (auto [flag, key] : modifiers)
+                if (binding->modifiers & flag)
+                    KeyUp(key, 0xc0000001u);
+        }
+    }
+
+    void command(W8MGSCommand command)
+    {
+        command_key(command, true);
+        frame();
+        command_key(command, false);
+        frame();
+    }
+
+    /* Copies a file into the writable user root before the game reads it. */
+    void install(const fs::path& source, const fs::path& relative)
+    {
+        const fs::path target = user_ / relative;
+        fs::create_directories(target.parent_path());
+        fs::copy_file(source, target, fs::copy_options::overwrite_existing);
     }
 
     /* Pixels of the last rendered frame, read back from the GPU target. */
@@ -436,6 +499,118 @@ void StartGame(Game& game)
     REQUIRE("main-game", world && world->octree && world->camera && world->level);
 }
 
+/* --- Main-game helpers ---------------------------------------------------- */
+
+srVector3T<float> PartyPosition()
+{
+    W8WorldCameraState state{};
+    GetWorldCameraState(GetWorld(), &state);
+    return state.position;
+}
+
+float HorizontalDistance(const srVector3T<float>& a, const srVector3T<float>& b)
+{
+    const float dx = a.x - b.x, dz = a.z - b.z;
+    return std::sqrt(dx * dx + dz * dz);
+}
+
+void WaitMainGame(Game& game, const char* step)
+{
+    game.wait_screen(step, W8_SCREEN_MAIN_GAME, 60);
+    W8World* world = GetWorld();
+    REQUIRE(step, world && world->octree && world->camera && world->level);
+}
+
+/* Steps until the party stops moving (gravity and settling after loads). */
+srVector3T<float> Settle(Game& game, const char* step)
+{
+    srVector3T<float> last = PartyPosition();
+    for (int frame = 0, still = 0; frame < 600; ++frame)
+    {
+        game.frame();
+        const srVector3T<float> now = PartyPosition();
+        const float dy = now.y - last.y;
+        still = HorizontalDistance(now, last) < 0.01f && std::abs(dy) < 0.01f ? still + 1 : 0;
+        last = now;
+        if (still >= 5)
+            return now;
+    }
+    Fail(step, "party never settled");
+}
+
+/* Holds the forward key until the party is `distance` from where it started. */
+srVector3T<float> Walk(Game& game, const char* step, float distance)
+{
+    const srVector3T<float> start = PartyPosition();
+    game.hold_key(SDLK_UP, true);
+    game.wait(step, [&] { return HorizontalDistance(PartyPosition(), start) > distance; }, 20);
+    game.hold_key(SDLK_UP, false);
+    return Settle(game, step);
+}
+
+int PremadeSlot()
+{
+    REQUIRE("party", CountActiveCharacters() == 1);
+    for (int slot = 0; slot < W8_PARTY_SLOT_COUNT; ++slot)
+        if (g_status.buffers.XChar[slot].fOccupied) {
+            REQUIRE("party", g_status.buffers.Char[slot].fInParty);
+            return slot;
+        }
+    Fail("party", "no occupied slot");
+}
+
+/* A new game with the checked-in character, bypassing party selection. */
+void StartPremadeGame(Game& game)
+{
+    game.install(fs::path(WIZ8_RUNTIME_FIXTURES) / "vi.CHR", "Saves/Characters/vi.CHR");
+    ReachMainMenu(game);
+    ResetForNewGame();
+    W8Character character{};
+    REQUIRE("premade", LoadCharacter("vi.CHR", &character, -1, false));
+    REQUIRE("premade", character.record_version == 1 && character.uiExpLevel == 1);
+    REQUIRE("premade", character.name[0] == L'v' && character.name[1] == L'i' &&
+                           character.name[2] == 0);
+    REQUIRE("premade", character.iProfession == W8_PROFESSION_FIGHTER &&
+                           character.iRace == W8_RACE_HUMAN && character.gender == W8_GENDER_MALE);
+    REQUIRE("premade", character.hp_current == 18 && character.experience == 0);
+    REQUIRE("premade", AddCharacterToParty(&character, -1) >= 0);
+    REQUIRE("premade", CountActiveCharacters() == 1);
+    RunNewGameOpeningSequence(false, nullptr);
+    WaitMainGame(game, "premade-main-game");
+}
+
+std::vector<fs::path> SaveFiles(const fs::path& user)
+{
+    std::vector<fs::path> saves;
+    std::error_code ignored;
+    for (const auto& entry : fs::directory_iterator(user / "Saves", ignored))
+        if (entry.is_regular_file() && entry.path().extension() == ".SAV" &&
+            entry.path().stem() != "CurrentGame")
+            saves.push_back(entry.path());
+    return saves;
+}
+
+/* Quick-save through its key binding; returns the written save. */
+fs::path QuickSave(Game& game)
+{
+    REQUIRE("quick-save", SaveFiles(game.user_root()).empty());
+    game.command(W8_MGS_COMMAND_QUICK_SAVE);
+    const auto saves = SaveFiles(game.user_root());
+    REQUIRE("quick-save", saves.size() == 1 && fs::file_size(saves[0]) > 0);
+    return saves[0];
+}
+
+void ExpectAt(const char* step, const srVector3T<float>& expected)
+{
+    const srVector3T<float> now = PartyPosition();
+    const float distance = HorizontalDistance(now, expected);
+    std::printf("%s: at (%g %g %g), expected (%g %g %g)\n", step, now.x, now.y, now.z,
+                expected.x, expected.y, expected.z);
+    if (!std::isfinite(distance) || !std::isfinite(now.y) || distance > 1.0f ||
+        std::abs(now.y - expected.y) > 1.0f)
+        Fail(step, "party restored " + std::to_string(distance) + " units from the save");
+}
+
 /* --- Scenarios ----------------------------------------------------------- */
 
 void VideoScenario()
@@ -534,13 +709,161 @@ void WorldRenderScenario()
     REQUIRE("world", changed > viewport / 4);
 }
 
+/* Quick save, walk away, quick load: the party is back where it saved. */
+void QuickSaveScenario()
+{
+    Game game(false);
+    StartPremadeGame(game);
+    const srVector3T<float> anchor = Walk(game, "walk", 2.0f);
+    const int level = g_status.current_level;
+    const unsigned experience = g_status.buffers.Char[PremadeSlot()].experience;
+    const fs::path save = QuickSave(game);
+    Walk(game, "walk-away", 4.0f);
+    REQUIRE("walk-away", HorizontalDistance(PartyPosition(), anchor) > 2.0f);
+    // Change a persistent field as well as the camera: loading must replace
+    // the character record, not just reposition the party.
+    g_status.buffers.Char[PremadeSlot()].experience = experience + 123;
+
+    game.command(W8_MGS_COMMAND_QUICK_LOAD);
+    bool loading = false;
+    game.wait("quick-load", [&] {
+        loading = loading || g_current_screen_state.id == W8_SCREEN_PLEASE_WAIT;
+        return loading && g_current_screen_state.id == W8_SCREEN_MAIN_GAME && game.settled();
+    });
+    Settle(game, "quick-load");
+    ExpectAt("quick-load", anchor);
+    REQUIRE("quick-load", CountActiveCharacters() == 1);
+    REQUIRE("quick-load", g_status.current_level == level);
+    REQUIRE("quick-load", g_status.buffers.Char[PremadeSlot()].experience == experience);
+    std::printf("quick-save: %s round-tripped after %lu frames\n",
+                save.filename().string().c_str(), game.frames());
+}
+
+/* Writes the shared save fixture: a game saved a few steps from the start. */
+void SaveFixtureScenario(const fs::path& output)
+{
+    Game game(false);
+    StartPremadeGame(game);
+    const srVector3T<float> anchor = Walk(game, "walk", 2.0f);
+    const fs::path save = QuickSave(game);
+    fs::create_directories(output);
+    fs::copy_file(save, output / "Fixture.SAV", fs::copy_options::overwrite_existing);
+    std::ofstream metadata(output / "Fixture.txt");
+    metadata << std::setprecision(std::numeric_limits<float>::max_digits10)
+             << anchor.x << ' ' << anchor.y << ' ' << anchor.z << ' '
+             << g_status.current_level << ' ' << g_status.buffers.Char[PremadeSlot()].experience << '\n';
+    metadata.close();
+    REQUIRE("save-fixture", metadata);
+    std::printf("save-fixture: wrote %s (%ju bytes)\n", (output / "Fixture.SAV").string().c_str(),
+                std::uintmax_t(fs::file_size(output / "Fixture.SAV")));
+}
+
+/* Main menu -> Load Game -> the fixture save -> its party and position. */
+void LoadGameScenario(const fs::path& fixture)
+{
+    srVector3T<float> anchor{};
+    int level = -1;
+    unsigned experience = 0;
+    std::ifstream metadata(fixture / "Fixture.txt");
+    REQUIRE("fixture", metadata >> anchor.x >> anchor.y >> anchor.z >> level >> experience);
+    REQUIRE("fixture", std::isfinite(anchor.x) && std::isfinite(anchor.y) && std::isfinite(anchor.z));
+    REQUIRE("fixture", fs::is_regular_file(fixture / "Fixture.SAV"));
+    Game game(false);
+    game.install(fixture / "Fixture.SAV", "Saves/Fixture.SAV");
+    ReachMainMenu(game);
+    game.click("load-game", RegionByCallback(MainMenuLoadGame));
+    W8OptionsSaveLoadPanel* panel = nullptr;
+    game.wait("load-panel", [&] {
+        if (g_current_screen_state.id != W8_SCREEN_OPTIONS || !game.settled() ||
+            !g_options_screen || g_options_screen->m_selected_panel != 4)
+            return false;
+        // Panel set 4 holds the single load panel (W8OptionsSaveLoadPanel 11).
+        W8OptionsPanelSet* set = g_options_screen->m_panel[4];
+        if (!set || set->m_current < 0 || set->m_current >= set->m_panels.GetCount())
+            return false;
+        panel = static_cast<W8OptionsSaveLoadPanel*>(*set->m_panels.GetAt(set->m_current));
+        return panel->m_panel == 11 && panel->m_rows.GetCount() > 0;
+    });
+    // The only save is the first row; select it, then press Load.
+    game.click("select-save", ControlRegion(*panel->m_rows.GetAt(0)));
+    REQUIRE("select-save", panel->m_selection.m_selectedIndex == 0);
+    game.click("load", ControlRegion(panel->m_action_button));
+    WaitMainGame(game, "loaded");
+    Settle(game, "loaded");
+    ExpectAt("loaded", anchor);
+    REQUIRE("loaded", CountActiveCharacters() == 1);
+    REQUIRE("loaded", g_status.current_level == level);
+    REQUIRE("loaded", g_status.buffers.Char[PremadeSlot()].experience == experience);
+    std::printf("load-game: loaded the fixture after %lu frames\n", game.frames());
+}
+
+/* Combat through its key bindings: enter, run a defended round, kill a
+   monster, leave. */
+void CombatScenario()
+{
+    Game game(false);
+    StartPremadeGame(game);
+    Settle(game, "settle");
+    game.command(W8_MGS_COMMAND_TOGGLE_COMBAT);
+    REQUIRE("enter-combat", game.within_frames(4, [] { return gXStatus.fCombatMode != 0; }));
+    REQUIRE("enter-combat", g_combat_state);
+
+    W8MonsterInfo* monster = GetNextMonsterInfo(true);
+    while (monster && (!monster->fActive || !monster->p3D || !monster->hp_current ||
+                       monster->ubDisposition != W8_DISPOSITION_HOSTILE))
+        monster = GetNextMonsterInfo(false);
+    REQUIRE("monster", monster);
+    if (!monster->fInCombat)
+        MonsterInfoEnterCombat(monster);
+    const unsigned experience = g_status.buffers.Char[PremadeSlot()].experience;
+    const int kills = g_status.buffers.Char[PremadeSlot()].kill_count;
+    const unsigned reward = GetMonsterExperience(GetMonsterDataForInfo(monster));
+    REQUIRE("monster", reward > 0);
+
+    for (int slot = 0; slot < W8_PARTY_SLOT_COUNT; ++slot)
+        if (g_status.buffers.XChar[slot].fOccupied)
+            ChooseAction(slot, W8_ACTION_DEFEND, -1, nullptr, false, 1);
+    const unsigned round = g_combat_state->round_count;
+    game.command(W8_MGS_COMMAND_START_COMBAT_ROUND);
+    REQUIRE("round-start", g_combat_state && g_combat_state->round_count == round + 1);
+    game.wait("round", [&] {
+        REQUIRE("round", g_combat_state);
+        return !g_combat_state->execution_active;
+    });
+    REQUIRE("round", gXStatus.fCombatMode && monster->fInCombat);
+    W8TargetSource attacker{};
+    attacker.iType = W8_TARGET_SOURCE_CHARACTER;
+    attacker.iChar = PremadeSlot();
+    attacker.iMonsterID = -1;
+    const int monster_id = monster->location_id;
+    ApplyDamageToMonster(monster, monster->hp_current, &attacker, false, 1, 0, nullptr, false);
+    // Resolve by ID after death/cleanup rather than relying on a retained pointer.
+    const unsigned dead_index =
+        MonsterGetIndexByLocationID(__LINE__, __FILE__, monster_id, false);
+    REQUIRE("monster-dead", dead_index != 0xffffffffu);
+    const W8MonsterInfo* dead = MonsterGetScriptPartByLocationIndex(dead_index);
+    REQUIRE("monster-dead", dead && !dead->fActive && dead->hp_current == 0 &&
+                                dead->uiCondition[W8_CONDITION_DEAD] != 0);
+
+    if (gXStatus.fCombatMode)
+        game.command(W8_MGS_COMMAND_START_COMBAT_ROUND);
+    game.wait("leave-combat", [] { return gXStatus.fCombatMode == 0; }, 10);
+    REQUIRE("leave-combat", !g_combat_state);
+    REQUIRE("experience", g_status.buffers.Char[PremadeSlot()].experience == experience + reward);
+    REQUIRE("kill-credit", g_status.buffers.Char[PremadeSlot()].kill_count == kills + 1);
+    std::printf("combat: round, kill and exit after %lu frames\n", game.frames());
+}
+
 } // namespace
 
 int main(int argc, char** argv)
 {
-    if (argc != 2)
+    if (argc < 2)
     {
-        std::fprintf(stderr, "usage: %s video|character|game-start|world\n", argv[0]);
+        std::fprintf(stderr,
+                     "usage: %s video|character|game-start|world|quick-save|combat\n"
+                     "       %s save-fixture|load-game FIXTURE_DIR\n",
+                     argv[0], argv[0]);
         return 2;
     }
     const std::string scenario = argv[1];
@@ -554,6 +877,14 @@ int main(int argc, char** argv)
             GameStartScenario();
         else if (scenario == "world")
             WorldRenderScenario();
+        else if (scenario == "quick-save")
+            QuickSaveScenario();
+        else if (scenario == "combat")
+            CombatScenario();
+        else if (scenario == "save-fixture" && argc == 3)
+            SaveFixtureScenario(argv[2]);
+        else if (scenario == "load-game" && argc == 3)
+            LoadGameScenario(argv[2]);
         else
             Fail("arguments", "unknown scenario " + scenario);
     }
