@@ -437,9 +437,9 @@ int W8ItemVideoObjectCache::GetOrCreateVideoObject(int item_id)
     if (name[0] == '\0') {
         name = g_item_video_object_fallback_names[record->unidentified_name_index];
     }
-    wiz8::text::copy(g_video_frames[object].path, FormatText("%s\\%s", "Data\\Items", name));
-    if (strstr(g_video_frames[object].path, ".sti") == 0) {
-        strcat(g_video_frames[object].path, ".sti");
+    g_video_frames[object].path = FormatText("%s\\%s", "Data\\Items", name);
+    if (g_video_frames[object].path.find(".sti") == std::string::npos) {
+        g_video_frames[object].path += ".sti";
     }
     g_video_frames[object].storage_kind = W8_VIDEO_STORAGE_OBJECT;
     g_video_frames[object].loaded = false;
@@ -1934,9 +1934,9 @@ bool IsItemCarriedByCharacter(W8Character* character, const W8ItemInstance* item
 // FUNCTION: WIZ8 0x0051bea0
 void AddPartyGold(int amount, bool announce)
 {
-    char sound_path[32];
+    std::string sound_path;
 
-    strcpy(sound_path, "Data\\Sound\\Misc\\ChaChing.wav");
+    sound_path = "Data\\Sound\\Misc\\ChaChing.wav";
 
     g_status.party_gold += amount;
     if (g_status.current_level < 0x2f) {

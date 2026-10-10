@@ -221,8 +221,7 @@ void GameloopExit(unsigned char release_screens)
                              "C:\\Projects\\Wizardry 8\\Local Code\\Gameloop.cpp", 0x276, 0);
             }
             state = g_pending_screen_state.id;
-            memcpy(&g_current_screen_state, &g_pending_screen_state,
-                   sizeof(g_current_screen_state));
+            g_current_screen_state = g_pending_screen_state;
             if (!g_screen_handlers[state].enter()) {
                 g_current_screen_state.id = W8_SCREEN_NONE;
             } else {

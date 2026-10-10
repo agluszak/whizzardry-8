@@ -118,7 +118,7 @@ extern BOOLEAN SoundStopMusic(void);
 extern BOOLEAN SoundStopAllRandom(void);
 extern BOOLEAN SoundStop(UINT32 uiSoundID);
 extern BOOLEAN SoundIsPlaying(UINT32 uiSoundID);
-extern BOOLEAN SoundFileIsPlaying(CHAR8* pFilename);
+extern BOOLEAN SoundFileIsPlaying(std::string_view filename);
 extern BOOLEAN SoundSetFadeVolume(UINT32 uiSoundID, UINT32 uiVolume, UINT32 uiRate,
                                   BOOLEAN fStopAtZero);
 extern BOOLEAN SoundSetVolume(UINT32 uiSoundID, UINT32 uiVolume);

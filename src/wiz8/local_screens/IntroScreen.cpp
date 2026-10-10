@@ -48,7 +48,7 @@ W8BinkVideo* gpVideo;
 // FUNCTION: WIZ8 0x005ae510
 unsigned char IntroScreenEnter(void)
 {
-    char path[500];
+    std::string path;
     char gzCdDirectory[4];
 
     SetClippingRegionAndImageWidth(0x500, 0, 0, 0x280, 0x1e0);
@@ -57,12 +57,12 @@ unsigned char IntroScreenEnter(void)
     if (g_intro_video_index == 0 && g_settings.intro_seen && !g_status.intro_shown) {
         return 1;
     }
-    wiz8::text::copy(path, FormatText("Data\\Flics\\Intro\\%s", g_intro_video_names[g_intro_video_index]));
+    path = FormatText("Data\\Flics\\Intro\\%s", g_intro_video_names[g_intro_video_index]);
     if (![&]() { const auto status = wiz8::file_status(path); return status && status->info.type == SDL_PATHTYPE_FILE; }()) {
         if (!FindGameDataPath(gzCdDirectory, 3)) {
             return 1;
         }
-        wiz8::text::copy(path, FormatText("%sData\\Flics\\Intro\\%s", gzCdDirectory, g_intro_video_names[g_intro_video_index]));
+        path = FormatText("%sData\\Flics\\Intro\\%s", gzCdDirectory, g_intro_video_names[g_intro_video_index]);
         if (![&]() { const auto status = wiz8::file_status(path); return status && status->info.type == SDL_PATHTYPE_FILE; }()) {
             return 1;
         }
@@ -74,7 +74,7 @@ unsigned char IntroScreenEnter(void)
         srAssertFail("gpVideo", "C:\\Projects\\Wizardry 8\\Local Screens\\IntroScreen.cpp", 98, 0);
     }
     gpVideo->SetTarget(BeginVideoPresentation());
-    if (!gpVideo->Open(path, 0)) {
+    if (!gpVideo->Open(path.c_str(), 0)) {
         delete gpVideo;
         gpVideo = 0;
         /* Hand presentation back, or a failed race intro leaves rendering off
@@ -115,19 +115,19 @@ void IntroScreenFrame(void)
 // FUNCTION: WIZ8 0x005ae780
 static void AdvanceIntroScreen(void)
 {
-    char path[500];
+    std::string path;
     char gzCdDirectory[4];
     bool first_video_available = false;
 
     if (g_intro_video_index == 6 && !g_settings.intro_seen) {
         g_intro_video_index = 0;
-        wiz8::text::copy(path, FormatText("Data\\Flics\\Intro\\%s", g_intro_video_names[g_intro_video_index]));
+        path = FormatText("Data\\Flics\\Intro\\%s", g_intro_video_names[g_intro_video_index]);
         first_video_available = [&]() { const auto status = wiz8::file_status(path); return status && status->info.type == SDL_PATHTYPE_FILE; }();
         if (!first_video_available && FindGameDataPath(gzCdDirectory, 3)) {
-            wiz8::text::copy(path, FormatText("%sData\\Flics\\Intro\\%s", gzCdDirectory, g_intro_video_names[g_intro_video_index]));
+            path = FormatText("%sData\\Flics\\Intro\\%s", gzCdDirectory, g_intro_video_names[g_intro_video_index]);
             first_video_available = [&]() { const auto status = wiz8::file_status(path); return status && status->info.type == SDL_PATHTYPE_FILE; }();
         }
-        if (first_video_available && gpVideo != 0 && gpVideo->Open(path, 0)) {
+        if (first_video_available && gpVideo != 0 && gpVideo->Open(path.c_str(), 0)) {
             return;
         }
     }

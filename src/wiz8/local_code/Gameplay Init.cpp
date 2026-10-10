@@ -72,7 +72,7 @@
 unsigned char InitializeNpcDatabase(void)
 try
 {
-    char path[60];
+    std::string path;
     unsigned int index;
     unsigned int entry;
     unsigned int entry_count;
@@ -80,7 +80,7 @@ try
     std::unique_ptr<wiz8::File> handle;
     W8NpcItemStockRule* element;
 
-    wiz8::text::copy(path, FormatText("%s\\%s.%s", "Data\\Databases", "NPC", "DBS"));
+    path = FormatText("%s\\%s.%s", "Data\\Databases", "NPC", "DBS");
     handle = [&]() { try { return wiz8::open_file(path, wiz8::OpenMode::read); } catch (const std::exception&) { return std::unique_ptr<wiz8::File>{}; } }();
     if (!handle) {
         return 0;
@@ -145,12 +145,12 @@ catch (const std::exception&) { return false; }
 unsigned char InitializeFactDatabase(void)
 try
 {
-    char path[60];
+    std::string path;
     unsigned int index;
     unsigned int transferred;
     std::unique_ptr<wiz8::File> handle;
 
-    wiz8::text::copy(path, FormatText("%s\\%s.%s", "Data\\Databases", "FACT", "DBS"));
+    path = FormatText("%s\\%s.%s", "Data\\Databases", "FACT", "DBS");
     handle = [&]() { try { return wiz8::open_file(path, wiz8::OpenMode::read); } catch (const std::exception&) { return std::unique_ptr<wiz8::File>{}; } }();
     if (!handle) {
         return 0;
@@ -188,12 +188,12 @@ void DestroyFactDatabase(void)
 unsigned char InitializeLevelDatabase(void)
 try
 {
-    char path[60];
+    std::string path;
     unsigned int index;
     unsigned int transferred;
     std::unique_ptr<wiz8::File> handle;
 
-    wiz8::text::copy(path, FormatText("%s\\%s.%s", "Data\\Databases", "LEVELS", "DBS"));
+    path = FormatText("%s\\%s.%s", "Data\\Databases", "LEVELS", "DBS");
     handle = [&]() { try { return wiz8::open_file(path, wiz8::OpenMode::read); } catch (const std::exception&) { return std::unique_ptr<wiz8::File>{}; } }();
     if (!handle) {
         return 0;

@@ -106,9 +106,6 @@ public:
     W8HelpTextControl* m_values[4];
 };
 
-W8_ABI_ASSERT(sizeof(W8CampItemRange) == 8, "W8CampItemRange_size");
-W8_ABI_ASSERT(sizeof(W8CampSpellRange) == 12, "W8CampSpellRange_size");
-W8_ABI_ASSERT(sizeof(W8CampCharacterInfo) == 0x6c, "W8CampCharacterInfo_size");
 W8_ASSERT_BASE_END(W8CampCharacterInfo, W8TextControl::Listener, m_combat_view, 0x4c);
 
 /* W8CampScreenState::redraw_flags. Party-slot bits are shifted by the slot
@@ -198,16 +195,6 @@ struct W8CampScreenState {
     bool item_icons_drawn;
     unsigned char padding_d51[3];
 };
-W8_ABI_ASSERT(sizeof(W8CampScreenState) == 0xd54, "W8CampScreenState_size");
-W8_ABI_ASSERT(offsetof(W8CampScreenState, learned_spells) == 0x100,
-              "W8CampScreenState_learned_spells_offset");
-W8_ABI_ASSERT(offsetof(W8CampScreenState, learned_spells) + offsetof(W8LearnedSpellState, scroll) ==
-                  0x4c0,
-              "W8CampScreenState_spell_scroll_offset");
-W8_ABI_ASSERT(offsetof(W8CampScreenState, learned_spells) +
-                      offsetof(W8LearnedSpellState, learned_total) ==
-                  0x4d8,
-              "W8CampScreenState_learned_total_offset");
 
 extern W8CampScreenState* g_camp_screen;
 extern int giReviewCharSlot;

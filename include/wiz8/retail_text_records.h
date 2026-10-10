@@ -10,63 +10,91 @@
 namespace wiz8::retail {
 enum class Encoding { utf8, utf16 };
 template<class T> struct Record;
+template<> struct Record<W8PartySlotRow> {
+    using Disk = PartySlot;
+    template<class Runtime, class Bytes, class Value, class Text>
+    static void fields(Runtime& runtime, Bytes bytes, Value value, Text) {
+        value(&runtime.fOccupied, bytes.subspan(offsetof(Disk, fOccupied), sizeof(Disk::fOccupied)));
+        value(&runtime.pending_action, bytes.subspan(offsetof(Disk, pending_action), sizeof(Disk::pending_action)));
+        value(&runtime.attack_mode, bytes.subspan(offsetof(Disk, attack_mode), sizeof(Disk::attack_mode)));
+        value(&runtime.action, bytes.subspan(offsetof(Disk, action), sizeof(Disk::action)));
+        value(&runtime.action_detail0, bytes.subspan(offsetof(Disk, action_detail0), sizeof(Disk::action_detail0)));
+        value(&runtime.action_kind, bytes.subspan(offsetof(Disk, action_kind), sizeof(Disk::action_kind)));
+        value(&runtime.action_detail, bytes.subspan(offsetof(Disk, action_detail), sizeof(Disk::action_detail)));
+        value(&runtime.spell_id, bytes.subspan(offsetof(Disk, spell_id), sizeof(Disk::spell_id)));
+        value(&runtime.item_id, bytes.subspan(offsetof(Disk, item_id), sizeof(Disk::item_id)));
+        value(&runtime.item_origin, bytes.subspan(offsetof(Disk, item_origin), sizeof(Disk::item_origin)));
+        value(&runtime.item_slot, bytes.subspan(offsetof(Disk, item_slot), sizeof(Disk::item_slot)));
+        value(&runtime.queued_action, bytes.subspan(offsetof(Disk, queued_action), sizeof(Disk::queued_action)));
+        value(&runtime.party_order_index, bytes.subspan(offsetof(Disk, party_order_index), sizeof(Disk::party_order_index)));
+        value(&runtime.item_action_pending, bytes.subspan(offsetof(Disk, item_action_pending), sizeof(Disk::item_action_pending)));
+        value(&runtime.movement_fatigue, bytes.subspan(offsetof(Disk, movement_fatigue), sizeof(Disk::movement_fatigue)));
+        value(&runtime.npc_index, bytes.subspan(offsetof(Disk, npc_index), sizeof(Disk::npc_index)));
+        value(&runtime.npc_bound, bytes.subspan(offsetof(Disk, npc_bound), sizeof(Disk::npc_bound)));
+        value(&runtime.pending_event_type, bytes.subspan(offsetof(Disk, pending_event_type), sizeof(Disk::pending_event_type)));
+        value(&runtime.portrait_advance, bytes.subspan(offsetof(Disk, portrait_advance), sizeof(Disk::portrait_advance)));
+        value(&runtime.action_is_berserk, bytes.subspan(offsetof(Disk, action_is_berserk), sizeof(Disk::action_is_berserk)));
+        value(&runtime.weapon_swap_pending, bytes.subspan(offsetof(Disk, weapon_swap_pending), sizeof(Disk::weapon_swap_pending)));
+        auto detail = [&](auto& live, auto field, bool item_use) {
+            value(&live, field);
+            // An item's saved address is transient. Preserve the kind word;
+            // loading global status rebuilds the pending item from origin/slot.
+            if (item_use) {
+                if constexpr (std::is_const_v<Runtime>)
+                    std::fill(field.begin() + 4, field.end(), std::byte{});
+                else live.item_use.item = nullptr;
+            }
+        };
+        detail(runtime.pending_action_detail, bytes.subspan(offsetof(Disk, pending_action_detail), 8), runtime.pending_action == W8_ACTION_USE_ITEM);
+        detail(runtime.action_detail1, bytes.subspan(offsetof(Disk, action_detail1), 8), runtime.action == W8_ACTION_USE_ITEM);
+        detail(runtime.spell_detail, bytes.subspan(offsetof(Disk, spell_detail), 8), false);
+        detail(runtime.item_detail, bytes.subspan(offsetof(Disk, item_detail), 8), true);
+        auto target = [&](auto& live, auto field) {
+            value(&live.iType, field.subspan(0, 4));
+            value(&live.iChar, field.subspan(4, 4));
+            value(&live.iMonsterID, field.subspan(8, 4));
+            value(&live.iGroupID, field.subspan(12, 4));
+            value(&live.point, field.subspan(16, 12));
+            if constexpr (std::is_const_v<Runtime>)
+                std::fill(field.begin() + 28, field.end(), std::byte{});
+            else live.pPCItem = nullptr;
+        };
+        target(runtime.target_out_of_combat, bytes.subspan(offsetof(Disk, target_out_of_combat), sizeof(CombatTarget)));
+        target(runtime.target_in_combat, bytes.subspan(offsetof(Disk, target_in_combat), sizeof(CombatTarget)));
+        target(runtime.spell_target, bytes.subspan(offsetof(Disk, spell_target), sizeof(CombatTarget)));
+        target(runtime.item_target, bytes.subspan(offsetof(Disk, item_target), sizeof(CombatTarget)));
+        target(runtime.breath_target, bytes.subspan(offsetof(Disk, breath_target), sizeof(CombatTarget)));
+    }
+};
+
+template<> struct Record<W8MissileTableRecord> {
+    using Disk = MissileTableRecord;
+    template<class Runtime, class Bytes, class Value, class Text>
+    static void fields(Runtime& runtime, Bytes bytes, Value value, Text text) {
+        text(runtime.display_name, bytes.subspan(offsetof(Disk, display_name), sizeof(Disk::display_name)), Encoding::utf16);
+        text(runtime.cycle_name, bytes.subspan(offsetof(Disk, cycle_name), sizeof(Disk::cycle_name)), Encoding::utf8);
+        value(&runtime.radius, bytes.subspan(offsetof(Disk, radius), sizeof(Disk::radius)));
+        value(&runtime.attack_mode, bytes.subspan(offsetof(Disk, attack_mode), sizeof(Disk::attack_mode)));
+        value(&runtime.unknown_148, bytes.subspan(offsetof(Disk, unknown_148), sizeof(Disk::unknown_148)));
+        value(&runtime.magnitude_base, bytes.subspan(offsetof(Disk, magnitude_base), sizeof(Disk::magnitude_base)));
+        value(&runtime.spell_missile, bytes.subspan(offsetof(Disk, spell_missile), sizeof(Disk::spell_missile)));
+        value(&runtime.condition_chances, bytes.subspan(offsetof(Disk, condition_chances), sizeof(Disk::condition_chances)));
+        value(&runtime.weapon_sound_class, bytes.subspan(offsetof(Disk, weapon_sound_class), sizeof(Disk::weapon_sound_class)));
+        value(&runtime.unknown_169, bytes.subspan(offsetof(Disk, unknown_169), sizeof(Disk::unknown_169)));
+    }
+};
+
 template<> struct Record<W8ItemDatabaseRecord> {
     using Disk = ItemDatabaseRecord;
     template<class R, class B, class Value, class Text>
     static void fields(R& runtime, B bytes, Value value, Text text)
     {
+        using Properties = std::conditional_t<std::is_const_v<R>, const ItemProperties, ItemProperties>;
+        using Effects = std::conditional_t<std::is_const_v<R>, const ItemEffects, ItemEffects>;
+        value(static_cast<Properties*>(&runtime), bytes.subspan(offsetof(Disk, properties), sizeof(ItemProperties)));
+        value(static_cast<Effects*>(&runtime), bytes.subspan(offsetof(Disk, effects), sizeof(ItemEffects)));
         text(runtime.display_name, bytes.subspan(offsetof(Disk, display_name), sizeof(Disk::display_name)), Encoding::utf16);
-        value(&runtime.legacy_item_number, bytes.subspan(offsetof(Disk, legacy_item_number), sizeof(Disk::legacy_item_number)));
-        value(&runtime.equip_class, bytes.subspan(offsetof(Disk, equip_class), sizeof(Disk::equip_class)));
-        value(&runtime.unidentified_name_index, bytes.subspan(offsetof(Disk, unidentified_name_index), sizeof(Disk::unidentified_name_index)));
-        value(&runtime.flags, bytes.subspan(offsetof(Disk, flags), sizeof(Disk::flags)));
-        value(&runtime.category, bytes.subspan(offsetof(Disk, category), sizeof(Disk::category)));
-        value(&runtime.unknown_043, bytes.subspan(offsetof(Disk, unknown_043), sizeof(Disk::unknown_043)));
-        value(&runtime.weapon_skill, bytes.subspan(offsetof(Disk, weapon_skill), sizeof(Disk::weapon_skill)));
-        value(&runtime.range_category, bytes.subspan(offsetof(Disk, range_category), sizeof(Disk::range_category)));
-        value(&runtime.attack_damage_bonus, bytes.subspan(offsetof(Disk, attack_damage_bonus), sizeof(Disk::attack_damage_bonus)));
-        value(&runtime.attack_hit_bonus, bytes.subspan(offsetof(Disk, attack_hit_bonus), sizeof(Disk::attack_hit_bonus)));
-        value(&runtime.damage_dice, bytes.subspan(offsetof(Disk, damage_dice), sizeof(Disk::damage_dice)));
-        value(&runtime.attack_flags, bytes.subspan(offsetof(Disk, attack_flags), sizeof(Disk::attack_flags)));
-        value(&runtime.missile_values, bytes.subspan(offsetof(Disk, missile_values), sizeof(Disk::missile_values)));
-        value(&runtime.missile_magnitude, bytes.subspan(offsetof(Disk, missile_magnitude), sizeof(Disk::missile_magnitude)));
-        value(&runtime.slays_kind, bytes.subspan(offsetof(Disk, slays_kind), sizeof(Disk::slays_kind)));
-        value(&runtime.armor_class_bonus, bytes.subspan(offsetof(Disk, armor_class_bonus), sizeof(Disk::armor_class_bonus)));
-        value(&runtime.spell_id, bytes.subspan(offsetof(Disk, spell_id), sizeof(Disk::spell_id)));
-        value(&runtime.spell_power, bytes.subspan(offsetof(Disk, spell_power), sizeof(Disk::spell_power)));
-        value(&runtime.unknown_065, bytes.subspan(offsetof(Disk, unknown_065), sizeof(Disk::unknown_065)));
-        value(&runtime.quantity_kind, bytes.subspan(offsetof(Disk, quantity_kind), sizeof(Disk::quantity_kind)));
-        value(&runtime.initial_quantity, bytes.subspan(offsetof(Disk, initial_quantity), sizeof(Disk::initial_quantity)));
-        value(&runtime.maximum_quantity, bytes.subspan(offsetof(Disk, maximum_quantity), sizeof(Disk::maximum_quantity)));
-        value(&runtime.health_regen_bonus, bytes.subspan(offsetof(Disk, health_regen_bonus), sizeof(Disk::health_regen_bonus)));
-        value(&runtime.stamina_regen_bonus, bytes.subspan(offsetof(Disk, stamina_regen_bonus), sizeof(Disk::stamina_regen_bonus)));
-        value(&runtime.spell_regen_bonus, bytes.subspan(offsetof(Disk, spell_regen_bonus), sizeof(Disk::spell_regen_bonus)));
-        value(&runtime.resistance_bonus, bytes.subspan(offsetof(Disk, resistance_bonus), sizeof(Disk::resistance_bonus)));
-        value(&runtime.property, bytes.subspan(offsetof(Disk, property), sizeof(Disk::property)));
-        value(&runtime.profession_mask, bytes.subspan(offsetof(Disk, profession_mask), sizeof(Disk::profession_mask)));
-        value(&runtime.race_mask, bytes.subspan(offsetof(Disk, race_mask), sizeof(Disk::race_mask)));
-        value(&runtime.gender_mask, bytes.subspan(offsetof(Disk, gender_mask), sizeof(Disk::gender_mask)));
-        value(&runtime.attribute_requirements, bytes.subspan(offsetof(Disk, attribute_requirements), sizeof(Disk::attribute_requirements)));
-        value(&runtime.skill_requirements, bytes.subspan(offsetof(Disk, skill_requirements), sizeof(Disk::skill_requirements)));
-        value(&runtime.identify_difficulty, bytes.subspan(offsetof(Disk, identify_difficulty), sizeof(Disk::identify_difficulty)));
-        value(&runtime.value, bytes.subspan(offsetof(Disk, value), sizeof(Disk::value)));
-        value(&runtime.weight, bytes.subspan(offsetof(Disk, weight), sizeof(Disk::weight)));
-        value(&runtime.binds_on_equip, bytes.subspan(offsetof(Disk, binds_on_equip), sizeof(Disk::binds_on_equip)));
         text(runtime.internal_name, bytes.subspan(offsetof(Disk, internal_name), sizeof(Disk::internal_name)), Encoding::utf8);
-        value(&runtime.swings_bonus, bytes.subspan(offsetof(Disk, swings_bonus), sizeof(Disk::swings_bonus)));
-        value(&runtime.modifier_0b1_index, bytes.subspan(offsetof(Disk, modifier_0b1_index), sizeof(Disk::modifier_0b1_index)));
-        value(&runtime.modifier_0b1_value, bytes.subspan(offsetof(Disk, modifier_0b1_value), sizeof(Disk::modifier_0b1_value)));
-        value(&runtime.modifier_0b3_index, bytes.subspan(offsetof(Disk, modifier_0b3_index), sizeof(Disk::modifier_0b3_index)));
-        value(&runtime.modifier_0b3_value, bytes.subspan(offsetof(Disk, modifier_0b3_value), sizeof(Disk::modifier_0b3_value)));
-        value(&runtime.unknown_0b5, bytes.subspan(offsetof(Disk, unknown_0b5), sizeof(Disk::unknown_0b5)));
-        value(&runtime.merge_component_a, bytes.subspan(offsetof(Disk, merge_component_a), sizeof(Disk::merge_component_a)));
-        value(&runtime.merge_component_b, bytes.subspan(offsetof(Disk, merge_component_b), sizeof(Disk::merge_component_b)));
-        value(&runtime.material, bytes.subspan(offsetof(Disk, material), sizeof(Disk::material)));
-        value(&runtime.weapon_sound_class, bytes.subspan(offsetof(Disk, weapon_sound_class), sizeof(Disk::weapon_sound_class)));
-        value(&runtime.merge_skill, bytes.subspan(offsetof(Disk, merge_skill), sizeof(Disk::merge_skill)));
-        value(&runtime.merge_skill_level, bytes.subspan(offsetof(Disk, merge_skill_level), sizeof(Disk::merge_skill_level)));
-        value(&runtime.editor_excluded, bytes.subspan(offsetof(Disk, editor_excluded), sizeof(Disk::editor_excluded)));
-        value(&runtime.missile_type, bytes.subspan(offsetof(Disk, missile_type), sizeof(Disk::missile_type)));
         text(runtime.video_object_name, bytes.subspan(offsetof(Disk, video_object_name), sizeof(Disk::video_object_name)), Encoding::utf8);
         text(runtime.sound_name, bytes.subspan(offsetof(Disk, sound_name), sizeof(Disk::sound_name)), Encoding::utf8);
     }

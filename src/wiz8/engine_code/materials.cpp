@@ -182,7 +182,7 @@ static srVector3T<float> g_weld_min;
 // GLOBAL: WIZ8 0x0065BACC
 static srVector3T<float> g_weld_max;
 // GLOBAL: WIZ8 0x0065BADC
-static char g_log_path[0x200];
+static std::string g_log_path;
 // GLOBAL: WIZ8 0x0065BCDC
 static unsigned int g_weld_stride_x;
 // GLOBAL: WIZ8 0x0065BCE0
@@ -855,7 +855,7 @@ static unsigned char PreprocessLevel(wiz8::File* handle, char* stem)
 // FUNCTION: WIZ8 0x00497690
 void ReportBuildStatus(short channel, std::string_view message)
 {
-    char line[120];
+    std::string line;
 
     auto log = [](std::string_view text) { g_log_file->write(text.data(), text.size()); };
     try {
@@ -869,7 +869,7 @@ void ReportBuildStatus(short channel, std::string_view message)
                 return;
             }
             if (!message.empty()) {
-                wiz8::text::copy(g_log_path, message);
+                g_log_path = message;
                 if (g_option_logging) {
                     g_log_file = wiz8::open_file(message, wiz8::OpenMode::replace);
                     return;
@@ -886,7 +886,6 @@ void ReportBuildStatus(short channel, std::string_view message)
         break;
     case 7:
         if (g_log_file != 0) {
-            wiz8::text::copy(line, FormatText("ERROR: %s", message));
             log("\n\n");
             log(message);
             if (g_log_file) g_log_file->close();
@@ -899,7 +898,7 @@ void ReportBuildStatus(short channel, std::string_view message)
         if (g_progress_mark + 10 <
             static_cast<unsigned int>((g_progress_done * 100.0f / g_progress_total))) {
             g_progress_mark += 10;
-            snprintf(line, sizeof(line), "  %d%% Complete \r", g_progress_mark);
+            line = FormatText("  %d%% Complete \r", g_progress_mark);
             ReportStartupMessage(line);
             return;
         }
@@ -910,10 +909,10 @@ void ReportBuildStatus(short channel, std::string_view message)
     case 3:
         if (g_log_file != 0) {
             log(message);
-            snprintf(line, sizeof(line), "Number of Nodes: %d             Number of Leaves: %d\n",
+            line = FormatText("Number of Nodes: %d             Number of Leaves: %d\n",
                     g_oct_node_count, g_progress_total);
             log(line);
-            snprintf(line, sizeof(line), "Most Objects in Any Node: %d\n\n", g_oct_max_objects);
+            line = FormatText("Most Objects in Any Node: %d\n\n", g_oct_max_objects);
             log(line);
             return;
         }
@@ -1572,7 +1571,7 @@ static unsigned char* ClassifyTextures(W8MaterialRecord* textures, int count, ch
 {
     char folder[1024];
     char texture[1024];
-    char path[1024];
+    std::string path;
     char message[1024];
     unsigned char more;
     unsigned char* kinds;
@@ -1633,33 +1632,33 @@ static unsigned char* ClassifyTextures(W8MaterialRecord* textures, int count, ch
             if (texture[0] == '\0') {
                 kind = 3;
             } else {
-                snprintf(path, sizeof(path), "%s%s", folder, texture);
+                path = FormatText("%s%s", folder, texture);
                 file = [&]() { try { return wiz8::open_file(path, wiz8::OpenMode::read); } catch (const std::exception&) { return std::unique_ptr<wiz8::File>{}; } }();
                 if (file == 0) {
                     g_prop_sun_bits->Set(index);
                     ++missing;
-                    snprintf(message, sizeof(message), "Could not find texture file %s.\n", path);
+                    snprintf(message, sizeof(message), "Could not find texture file %s.\n", path.c_str());
                     ReportBuildStatus(5, message);
                 } else {
-                    if (_stricmp(path + strlen(path) - 4, "ifl") == 0) {
+                    if (path.size() >= 4 && SDL_strcasecmp(path.c_str() + path.size() - 4, ".ifl") == 0) {
                         ReadTextLine(file.get(), texture, 0x3ff, &more);
                         if (file) file->close();
                         file.reset();
-                        snprintf(path, sizeof(path), "%s%s", folder, texture);
+                        path = FormatText("%s%s", folder, texture);
                         file = [&]() { try { return wiz8::open_file(path, wiz8::OpenMode::read); } catch (const std::exception&) { return std::unique_ptr<wiz8::File>{}; } }();
                     }
                     if (file == 0) {
                         g_prop_sun_bits->Set(index);
                         ++missing;
-                        snprintf(message, sizeof(message), "Could not find texture file %s.\n", path);
+                        snprintf(message, sizeof(message), "Could not find texture file %s.\n", path.c_str());
                         ReportBuildStatus(5, message);
                     } else {
                         if (file) file->close();
                         file.reset();
                         if (probe == 0) {
-                            probe = new stTextureFile(path, 1);
+                            probe = new stTextureFile(path.c_str(), 1);
                         } else {
-                            probe->setFileName(path);
+                            probe->setFileName(path.c_str());
                         }
                         if (probe == 0) {
                             snprintf(message, sizeof(message), "Could not create stTextureFile object.\n");
@@ -2261,7 +2260,7 @@ srTextureIFace* LoadTextureFromPath(const char* path, const W8MaterialRecord* so
     strcpy(texture_file, file_name);
     strcat(texture_file, extension);
 
-    if (strlen(path) > 3 && _strnicmp(extension, ".IFL", 4) == 0) {
+    if (std::strlen(path) > 3 && _strnicmp(extension, ".IFL", 4) == 0) {
         return LoadAnimatedTexture(texture_folder, texture_file, source, required);
     }
     return LoadTextureFromFolder(texture_folder, texture_file, required);
@@ -2270,8 +2269,7 @@ srTextureIFace* LoadTextureFromPath(const char* path, const W8MaterialRecord* so
 // FUNCTION: WIZ8 0x004B95D0
 srTexture* LoadTextureFromFolder(const char* folder, const char* name, bool required)
 {
-    char path[_MAX_PATH];
-    char* extension;
+    std::string path;
     srRegistry* registry;
     srRegistry::ClassNode* node;
     stTextureFile* texture;
@@ -2279,19 +2277,21 @@ srTexture* LoadTextureFromFolder(const char* folder, const char* name, bool requ
     if (g_current_screen_state.id == W8_SCREEN_PLEASE_WAIT) {
         UpdatePleaseWaitLoadFrame();
     }
-    strcpy(path, folder);
-    strcat(path, name);
-    extension = path + strlen(path) - 3;
-    *extension = '\0';
+    path = folder;
+    path += name;
+    const auto dot = path.find_last_of('.');
+    if (dot == std::string::npos) path += '.';
+    const auto extension = dot == std::string::npos ? path.size() : dot + 1;
+    path.resize(extension);
 
     registry = srCore.getRegistry();
     node = stTextureFile::sGetClassNode();
     texture = static_cast<stTextureFile*>(
         registry->find(node, name, static_cast<const srRuntimeClass*>(0)));
     if (texture == 0) {
-        strcat(extension, "tga");
+        path += "tga";
         if (required) {
-            texture = new stTextureFile(path, g_texture_cache_enabled);
+            texture = new stTextureFile(path.c_str(), g_texture_cache_enabled);
             if (texture == 0) {
                 srAssertFail("psrTexture", MATERIALS_CPP, 0x191, 0);
             }
@@ -2300,9 +2300,8 @@ srTexture* LoadTextureFromFolder(const char* folder, const char* name, bool requ
                 g_gerd->setTexture(0, 0);
             }
             if (texture->getTextureFrameHandle() == 0) {
-                *extension = '\0';
-                strcat(extension, "jpg");
-                texture->setFileName(path);
+                path.replace(extension, std::string::npos, "jpg");
+                texture->setFileName(path.c_str());
                 if (g_gerd != 0) {
                     g_gerd->setTexture(texture, 0);
                     g_gerd->setTexture(0, 0);
@@ -2314,20 +2313,18 @@ srTexture* LoadTextureFromFolder(const char* folder, const char* name, bool requ
             }
         } else {
             if (![&]() { const auto status = wiz8::file_status(path); return status && status->info.type == SDL_PATHTYPE_FILE; }()) {
-                *extension = '\0';
-                strcat(extension, "jpg");
+                path.replace(extension, std::string::npos, "jpg");
                 if (![&]() { const auto status = wiz8::file_status(path); return status && status->info.type == SDL_PATHTYPE_FILE; }()) {
                     ShutdownWithErrorBox(
                         FormatText("Missing texture file: %s", path));
                 }
             }
-            texture = new stTextureFile(path, g_texture_cache_enabled);
+            texture = new stTextureFile(path.c_str(), g_texture_cache_enabled);
             if (texture == 0) {
                 srAssertFail("psrTexture", MATERIALS_CPP, 0x1a7, 0);
             }
         }
         texture->autoRelease();
-        *extension = '\0';
         texture->setName(name);
     }
     return texture;

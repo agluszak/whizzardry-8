@@ -646,8 +646,8 @@ void ActivateItem(W8WorldItem* item)
     srVector3T<float> position;
     srVector3T<float> sun_position;
     W8ReadLevelInfo info;
-    char zItemName[0x3c];
-    char zItemFullPath[0x38];
+    std::string zItemName;
+    std::string zItemFullPath;
     std::string name;
     srRegistry::ClassNode* node;
     srNode* sun;
@@ -669,15 +669,15 @@ void ActivateItem(W8WorldItem* item)
         name =
             g_item_model_fallback_names[g_item_records[item->item.iItemNo].unidentified_name_index];
     }
-    wiz8::text::copy(zItemName, name);
-    if (strstr(zItemName, ".ITM") != 0) {
-        wiz8::text::copy(zItemFullPath, FormatText("%s\\%s", "Data\\Items3D", zItemName));
+    zItemName = name;
+    if (zItemName.find(".ITM") != std::string::npos) {
+        zItemFullPath = FormatText("%s\\%s", "Data\\Items3D", zItemName);
     } else {
-        wiz8::text::copy(zItemFullPath, FormatText("%s\\%s.ITM", "Data\\Items3D", zItemName));
+        zItemFullPath = FormatText("%s\\%s.ITM", "Data\\Items3D", zItemName);
     }
     if (![&]() { const auto status = wiz8::file_status(zItemFullPath); return status && status->info.type == SDL_PATHTYPE_FILE; }()) {
-        strcpy(zItemName, "questionmark");
-        wiz8::text::copy(zItemFullPath, FormatText("%s\\%s.ITM", "Data\\Items3D", zItemName));
+        zItemName = "questionmark";
+        zItemFullPath = FormatText("%s\\%s.ITM", "Data\\Items3D", zItemName);
         if (![&]() { const auto status = wiz8::file_status(zItemFullPath); return status && status->info.type == SDL_PATHTYPE_FILE; }()) {
             srAssertFail("[&]() { const auto status = wiz8::file_status(zItemFullPath); return status && status->info.type == SDL_PATHTYPE_FILE; }()", ITEM_MANAGER_CPP, 0x1ed,
                          FormatText("ActivateItem: ERROR - missing ITM file %s, item %d",
@@ -686,7 +686,7 @@ void ActivateItem(W8WorldItem* item)
     }
 
     W8Item* entity = item->p3D;
-    bool loaded = LoadItemFromFile(&info, zItemName, &entity, false);
+    bool loaded = LoadItemFromFile(&info, zItemName.c_str(), &entity, false);
     item->p3D = entity;
     if (!loaded) {
         srAssertFail("fSuccess", ITEM_MANAGER_CPP, 0x1f2,

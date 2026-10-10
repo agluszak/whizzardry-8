@@ -319,7 +319,7 @@ catch (const std::exception&) { return false; }
    saved level before it commits to the full load, so every other top-level
    chunk is skipped and released without being materialized. */
 // FUNCTION: WIZ8 0x00512290
-int GetSaveGameLevel(const char* slot_name)
+int GetSaveGameLevel(std::string_view slot_name)
 {
     W8Chunk chunks;
     std::string path;
@@ -542,7 +542,11 @@ try
     if (header.next_trigger_id == 0) {
         g_status.next_trigger_id = 1;
     }
-    memcpy(g_status.status_header_prefix, header.status_block, sizeof(header.status_block));
+    // The STAT payload spans three fields in the retail record. Native
+    // adjacency is not a serialization contract.
+    std::memcpy(g_status.status_header_prefix, header.status_block, sizeof(g_status.status_header_prefix));
+    std::memcpy(&g_status.uiTurnsElapsed, header.status_block + 0xd4, sizeof(g_status.uiTurnsElapsed));
+    std::memcpy(g_status.status_header_suffix, header.status_block + 0xd8, sizeof(g_status.status_header_suffix));
     return true;
 }
 catch (const std::exception&) { return false; }
@@ -608,7 +612,9 @@ try
     header.next_monster_location_id = g_status.next_monster_location_id;
     header.next_world_item_id = g_status.next_world_item_id;
     header.next_trigger_id = g_status.next_trigger_id;
-    memcpy(header.status_block, g_status.status_header_prefix, sizeof(header.status_block));
+    std::memcpy(header.status_block, g_status.status_header_prefix, sizeof(g_status.status_header_prefix));
+    std::memcpy(header.status_block + 0xd4, &g_status.uiTurnsElapsed, sizeof(g_status.uiTurnsElapsed));
+    std::memcpy(header.status_block + 0xd8, g_status.status_header_suffix, sizeof(g_status.status_header_suffix));
     if (!chunks->Write(&header, sizeof(header), &count)) {
         chunks->ReleaseCurrentChunk();
     }
@@ -811,7 +817,7 @@ try
         has_script = 1;
         chunks->Write(&has_script, 1, 0);
         memset(script_name, 0, sizeof(script_name));
-        strcpy(script_name, info->p3D->script->getName().c_str());
+        wiz8::text::copy(script_name, info->p3D->script->getName());
         script_wait = info->p3D->script_wait;
         script_line = info->p3D->script_line;
         chunks->Write(script_name, 0x40, 0);
@@ -1153,7 +1159,7 @@ try
     W8GrowableVector<bool> script_conditions;
     srVector3T<float> read_point;
     srVector3T<float> point;
-    char script_name[0x40];
+    std::string script_name;
     unsigned int record_version;
     unsigned int record_size;
     unsigned int transferred;
@@ -1170,7 +1176,7 @@ try
     bool script_flag;
     float patrol_value;
 
-    wiz8::text::copy(script_name, FormatText(""));
+    script_name = FormatText("");
     chunk->Read(&record_version, 4, 0);
     monster_info = static_cast<W8MonsterInfo*>(malloc(sizeof(W8MonsterInfo)));
     if (monster_info == 0) {
@@ -1184,7 +1190,10 @@ try
     chunk->Read(monster_info, record_size, 0);
     chunk->Read(&has_script, 1, 0);
     if (has_script != 0) {
-        chunk->Read(script_name, 0x40, &transferred);
+        std::array<char, 0x40> stored_script{};
+        chunk->Read(stored_script.data(), stored_script.size(), &transferred);
+        const auto end = std::find(stored_script.begin(), stored_script.end(), '\0');
+        script_name.assign(stored_script.begin(), end);
         chunk->Read(&script_wait, 4, &transferred);
         chunk->Read(&script_line, 4, &transferred);
         chunk->Read(&queue_count, 4, 0);
@@ -1687,15 +1696,13 @@ void DeleteCurrentSaveFiles(void)
 // FUNCTION: WIZ8 0x005159e0
 bool AutoSaveIfAllowed(bool forced)
 {
-    char name[64];
 
     gXStatus.save_notice_shown = false;
     if (g_status.world_cursor_gate == 0 && !AnyMonsterDying() &&
         ((g_settings.auto_save != 0 && !forced) || g_status.iron_man) && !gXStatus.fCombatMode &&
         !IsSightRangeOverridden() && CanInterruptLevelMovement() && !gXStatus.fNpcDialogueMode &&
         !gXStatus.fCampMode) {
-        wiz8::text::copy(name, g_status.iron_man ? GetLastSaveName() : "AutoSave");
-        return SaveGame(name, 0);
+        return SaveGame(g_status.iron_man ? GetLastSaveName() : "AutoSave", nullptr);
     }
     return true;
 }
@@ -1743,7 +1750,7 @@ void ReportSaveFailed(bool quiet)
 // FUNCTION: WIZ8 0x00515b00
 void ProcessMainGameAutoSave(void)
 {
-    char name[64];
+    std::string_view name;
     bool saved;
 
     if (g_status.world_cursor_gate != 0) {
@@ -1787,9 +1794,9 @@ void ProcessMainGameAutoSave(void)
         !IsSightRangeOverridden() && CanInterruptLevelMovement() && !gXStatus.fNpcDialogueMode &&
         !gXStatus.fCampMode) {
         if (g_status.iron_man) {
-            wiz8::text::copy(name, GetLastSaveName());
+            name = GetLastSaveName();
         } else {
-            strcpy(name, "AutoSave");
+            name = "AutoSave";
         }
         saved = SaveGame(name, 0);
     } else {
@@ -2023,7 +2030,7 @@ void LoadGameStatus(W8Chunk* chunks, W8GlobalStatus* status)
     *status = W8GlobalStatus{};
     chunks->Read(&size, sizeof(size), 0);
     if (size > wiz8::retail::kGlobalStatusBytes) {
-        srAssertFail("uiSize <= sizeof(*pStatus)", LOADSAVEGAME_CPP, 0xccd, 0);
+        srAssertFail("uiSize <= wiz8::retail::kGlobalStatusBytes", LOADSAVEGAME_CPP, 0xccd, 0);
     }
     wiz8::retail::read(*chunks, *status, size);
 
@@ -2044,7 +2051,7 @@ void LoadGameStatus(W8Chunk* chunks, W8GlobalStatus* status)
         *character = W8Character{};
         chunks->Read(&size, sizeof(size), 0);
         if (size > wiz8::retail::kCharacterBytes) {
-            srAssertFail("uiSize <= sizeof(*&pStatus->Char[uiChar])", LOADSAVEGAME_CPP, 0xce4, 0);
+            srAssertFail("uiSize <= wiz8::retail::kCharacterBytes", LOADSAVEGAME_CPP, 0xce4, 0);
         }
         wiz8::retail::read(*chunks, *character, size);
         if (character->record_version < 2 &&
@@ -2056,12 +2063,13 @@ void LoadGameStatus(W8Chunk* chunks, W8GlobalStatus* status)
 
     W8PartySlotRow* party_row = party_rows;
     for (slot = 0; slot != 8; ++slot, ++party_row) {
-        memset(party_row, 0, sizeof(W8PartySlotRow));
+        *party_row = W8PartySlotRow{};
         chunks->Read(&size, sizeof(size), 0);
-        if (size > sizeof(W8PartySlotRow)) {
-            srAssertFail("uiSize <= sizeof(*&pStatus->XChar[uiChar])", LOADSAVEGAME_CPP, 0xcf2, 0);
+        if (size > wiz8::retail::kPartySlotBytes) {
+            srAssertFail("uiSize <= wiz8::retail::kPartySlotBytes", LOADSAVEGAME_CPP, 0xcf2, 0);
         }
-        chunks->Read(party_row, size, 0);
+        if (!wiz8::retail::read(*chunks, *party_row, size))
+            throw std::runtime_error("Truncated party slot record");
 
         if (status == &g_status) {
             W8ItemInstance* item = 0;
@@ -2079,7 +2087,7 @@ void LoadGameStatus(W8Chunk* chunks, W8GlobalStatus* status)
             party_row->breath_target.pPCItem = 0;
         }
     }
-    RebuildPartyStatus(&status->formation);
+    RebuildPartyStatus(&status->formation, party_rows);
 }
 
 /* Write the global status as one GSTA chunk. The two pointed-to collections
@@ -2101,9 +2109,9 @@ void SaveGlobalStatus(W8Chunk* chunks, W8GlobalStatus* status)
         wiz8::retail::write(*chunks, status->buffers.Char[slot]);
     }
     for (slot = 0; slot != 8; ++slot) {
-        size = sizeof(W8PartySlotRow);
+        size = wiz8::retail::kPartySlotBytes;
         chunks->Write(&size, sizeof(size), 0);
-        chunks->Write(&status->buffers.XChar[slot], size, 0);
+        wiz8::retail::write(*chunks, status->buffers.XChar[slot]);
     }
     chunks->ReleaseCurrentChunk();
 }

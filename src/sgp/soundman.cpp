@@ -40,7 +40,7 @@
 
 struct CachedSound
 {
-    CHAR8 pName[128]{};
+    std::string pName;
     UINT32 uiSize = 0, uiFlags = 0, uiSpeed = 0, uiCacheHits = 0;
     std::shared_ptr<MIX_Mixer> owner;
     w8_native::Audio audio;
@@ -742,7 +742,7 @@ UINT32 SoundGetCached(STR pFilename)
     UINT32 uiCount;
 
     for (uiCount = 0; uiCount < SOUND_MAX_CACHED; uiCount++) {
-        if (pSampleList[uiCount].audio && _stricmp(pSampleList[uiCount].pName, pFilename) == 0)
+        if (pSampleList[uiCount].audio && SDL_strcasecmp(pSampleList[uiCount].pName.c_str(), pFilename) == 0)
             return (uiCount);
     }
 
@@ -758,7 +758,7 @@ UINT32 SoundGetCached(STR pFilename)
 // FUNCTION: WIZ8 0x00409970
 UINT32 SoundLoadDisk(STR filename)
 {
-    if (!fSoundSystemInit || !filename || strlen(filename) >= sizeof(CachedSound::pName)) return NO_SAMPLE;
+    if (!fSoundSystemInit || !filename) return NO_SAMPLE;
     auto input = w8_native::open_audio_input(filename);
     if (!input) return NO_SAMPLE;
     const Sint64 size = SDL_GetIOSize(input.get());
@@ -773,8 +773,7 @@ UINT32 SoundLoadDisk(STR filename)
     if (!audio || !MIX_GetAudioFormat(audio.get(), &format)) return NO_SAMPLE;
     auto& sound = pSampleList[index];
     sound = CachedSound{};
-    std::copy_n(filename, strlen(filename) + 1, sound.pName);
-    strupr(sound.pName);
+    sound.pName = filename;
     sound.uiSize = UINT32(size);
     sound.uiSpeed = UINT32(format.freq);
     sound.uiFlags = SAMPLE_ALLOCATED;
@@ -1155,7 +1154,7 @@ BOOLEAN SoundSampleIsInUse(UINT32 sample)
 // Created:  2/24/00 Derek Beland
 
 // FUNCTION: WIZ8 0x0040a910
-BOOLEAN SoundFileIsPlaying(CHAR8* pFilename)
+BOOLEAN SoundFileIsPlaying(std::string_view filename)
 {
     UINT32 uiCount;
 
@@ -1165,7 +1164,8 @@ BOOLEAN SoundFileIsPlaying(CHAR8* pFilename)
             if (pSoundList[uiCount].uiSample >= SOUND_MAX_CACHED) {
                 continue;
             }
-            if (stricmp(pSampleList[pSoundList[uiCount].uiSample].pName, pFilename) == 0)
+            if (pSampleList[pSoundList[uiCount].uiSample].pName.size() == filename.size() &&
+                SDL_strncasecmp(pSampleList[pSoundList[uiCount].uiSample].pName.c_str(), filename.data(), filename.size()) == 0)
                 return (TRUE);
         }
     }

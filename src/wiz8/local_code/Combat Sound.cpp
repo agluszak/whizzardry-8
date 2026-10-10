@@ -37,13 +37,13 @@ static char* g_material_impact_sounds[28][12];
 void PlayCombatSound(char* sound_name, unsigned int variant_count, bool store_handle, int volume)
 {
     SOUNDPARMS parms;
-    char zSoundFileName[100];
+    std::string zSoundFileName;
     unsigned int handle;
 
     if (variant_count > 1) {
         strcat(sound_name, FormatText("%d", Random(variant_count) + 1).c_str());
     }
-    wiz8::text::copy(zSoundFileName, FormatText("Data\\Sound\\Combat\\%s.wav", sound_name));
+    zSoundFileName = FormatText("Data\\Sound\\Combat\\%s.wav", sound_name);
     if (![&]() { const auto status = wiz8::file_status(zSoundFileName); return status && status->info.type == SDL_PATHTYPE_FILE; }()) {
         srAssertFail("[&]() { const auto status = wiz8::file_status(zSoundFileName); return status && status->info.type == SDL_PATHTYPE_FILE; }()", COMBAT_SOUND_CPP, 104,
                      FormatText("CombatSound: ERROR - Sound file %s not found", zSoundFileName));

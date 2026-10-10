@@ -354,7 +354,7 @@ BOOLEAN gfProgramIsRunning = FALSE;
 // GLOBAL: WIZ8 0x006505a9
 BOOLEAN gfGameInitialized = FALSE;
 // GLOBAL: WIZ8 0x006505ac
-CHAR8 gzErrorMsg[2048] = "";
+std::string gzErrorMsg;
 // GLOBAL: WIZ8 0x00650dac
 BOOLEAN gfIgnoreMessages = FALSE;
 // GLOBAL: WIZ8 0x005ff450
@@ -364,7 +364,7 @@ UINT8 gbPixelDepth = PIXEL_DEPTH;
 // FUNCTION: WIZ8 0x00401920
 [[noreturn]] void ShutdownWithErrorBox(std::string_view message)
 {
-    wiz8::text::copy(gzErrorMsg, message);
+    gzErrorMsg = message;
     gfIgnoreMessages = TRUE;
     throw std::runtime_error(gzErrorMsg);
 }

@@ -1,6 +1,8 @@
 #pragma once
 
 #include "wiz8/layouts/character.h"
+#include "wiz8/layouts/combat_state.h"
+#include "wiz8/engine_code/Missile.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/layouts/item_tables.h"
 #include <array>
@@ -19,97 +21,87 @@ inline constexpr std::size_t kLevelDatabaseRecordBytes = 0xd8;
 inline constexpr std::size_t kMonsterRecordBytes = 0x297;
 inline constexpr std::size_t kCharacterBytes = 0x1862;
 inline constexpr std::size_t kGlobalStatusBytes = 0x49c2;
+inline constexpr std::size_t kPartySlotBytes = 0x106;
+inline constexpr std::size_t kMissileTableRecordBytes = 0x1e5;
 
 #pragma pack(push, 1)
-struct ItemDatabaseRecord {
-    std::array<std::byte, 60> display_name; /* 0x000 */
-    /* 0x03c: the item number the Wizardry 7 import matches imported item ids
-       against (Party Import.cpp). */
-    short legacy_item_number;
-    unsigned char equip_class;              /* 0x03e: W8ItemEquipClass */
-    unsigned short unidentified_name_index; /* 0x03f */
-    unsigned char flags;                    /* 0x041: W8ItemFlag bits */
-    unsigned char category;                 /* 0x042: W8ItemCategory */
-    unsigned char unknown_043[3];
-    signed char weapon_skill; /* 0x046: -1 when the item grants none */
-    /* 0x047: the W8RangeCategory band the weapon attacks at. GetCharAttackRange
-       returns it, the Assay caption names it, and paired weapons/ammunition
-       must share it. */
-    unsigned char range_category;
-    signed char attack_damage_bonus; /* 0x048 */
-    signed char attack_hit_bonus;    /* 0x049 */
-    W8Dice damage_dice;              /* 0x04a */
-    unsigned short attack_flags;
-    /* 0x050..0x05f: the item's missile-attack modifier block; the missile
-       resolver sums it byte-wise across the wielded and paired weapons into
-       the fired effect definition's condition_chances. */
-    unsigned char missile_values[W8_ATTACK_EFFECT_COUNT];
-    /* 0x060: the item's missile bonus, summed across both weapons into the
-       effect definition's value_1c. */
-    unsigned char missile_magnitude;
-    /* 0x061: the monster kind the weapon slays for an extra damage die,
-       compared against W8MonsterRecord::kind by the character damage
-       resolver; 0xff means the weapon slays nothing. */
-    unsigned char slays_kind;
-    signed char armor_class_bonus; /* 0x062 */
-    unsigned char spell_id;        /* 0x063 */
-    /* 0x064: the cast spell's power level - Assay prints "(Pwr %d)" and the
-       use path consumes it as the casting power. */
-    unsigned char spell_power;
-    unsigned char unknown_065;
-    unsigned char quantity_kind; /* 0x066: W8ItemQuantityKind */
-    W8Dice initial_quantity;     /* 0x067 */
-    /* The stack merge path clamps quantity-kind 1 items to this byte. */
-    unsigned char maximum_quantity; /* 0x06b */
-    /* 0x06c..0x06e: three per-item modifier bytes the equipment fold adds to
-       the derived block's own unknowns; 0x06f..0x074 are the six resistance
-       bonuses it sums and clamps. */
-    signed char health_regen_bonus;
-    signed char stamina_regen_bonus;
-    signed char spell_regen_bonus;
-    signed char resistance_bonus[6]; /* 0x06f .. 0x074 */
-    unsigned char property;          /* assay special-property label index */
-    unsigned short profession_mask;  /* 0x076 */
-    unsigned int race_mask;          /* 0x078 */
-    /* 0x07c: one bit per sex; three admits either, and
-       CanCharacterUseItem indexes it with the character's own field. */
-    unsigned char gender_mask;
-    W8ItemRequirement attribute_requirements[2]; /* 0x07d */
-    W8ItemRequirement skill_requirements[2];     /* 0x081 */
-    unsigned char identify_difficulty;           /* 0x085 */
-    unsigned int value;                          /* 0x086 */
-    unsigned short weight;                       /* 0x08a */
-    unsigned char binds_on_equip;                /* 0x08c */
-    char internal_name[0x20];                    /* 0x08d .. 0x0ac */
-    /* 0x0ad: extra swings the weapon grants when the wielder starts an
-       attack. */
-    int swings_bonus;
-    /* 0x0b1/0x0b3: the item's (index, value) modifier pairs the equipment
-       fold adds to the derived block's two byte tables. 0xff is no pair. */
-    signed char modifier_0b1_index;
-    signed char modifier_0b1_value;
-    signed char modifier_0b3_index;
-    signed char modifier_0b3_value;
-    unsigned char unknown_0b5[4]; /* 0x0b5 .. 0x0b8 */
-    int merge_component_a;        /* 0x0b9: first item kind MergeItems combines into this one */
-    int merge_component_b;        /* 0x0bd: the other kind; either order is accepted */
-    /* 0x0c1: the item's material index; combat sound reads it on the struck
-       item to pick the impact table's material column (0..11). */
-    int material;
-    /* 0x0c5: the weapon's attack sound class; combat sound bounds it against
-       the 38-entry swing table and the 28 impact rows. */
+struct CombatTarget {
+    std::int32_t iType, iChar, iMonsterID, iGroupID;
+    float point[3];
+    std::uint32_t item_marker; // Saved address, never a runtime pointer/handle.
+};
+static_assert(sizeof(CombatTarget) == 0x20);
+struct PartySlot {
+    bool fOccupied;
+    W8ActionKind pending_action;
+    int attack_mode[4];
+    std::array<std::byte, 8> pending_action_detail;
+    CombatTarget target_out_of_combat;
+    W8ActionKind action;
+    int action_detail0;
+    std::array<std::byte, 8> action_detail1;
+    CombatTarget target_in_combat;
+    W8ActionKind action_kind;
+    int action_detail;
+    int spell_id;
+    std::array<std::byte, 8> spell_detail;
+    CombatTarget spell_target;
+    std::array<std::byte, 8> item_detail;
+    CombatTarget item_target;
+    int item_id;
+    unsigned char item_origin;
+    unsigned short item_slot;
+    signed char queued_action;
+    CombatTarget breath_target;
+    int party_order_index;
+    bool item_action_pending;
+    float movement_fatigue;
+    int npc_index;
+    bool npc_bound;
+    unsigned int pending_event_type;
+    unsigned char portrait_advance;
+    bool action_is_berserk;
+    bool weapon_swap_pending;
+};
+static_assert(std::is_trivially_copyable_v<PartySlot>);
+static_assert(sizeof(PartySlot) == kPartySlotBytes);
+static_assert(offsetof(PartySlot, pending_action) == 0x01);
+static_assert(offsetof(PartySlot, target_out_of_combat) == 0x1d);
+static_assert(offsetof(PartySlot, breath_target) == 0xd1);
+static_assert(offsetof(PartySlot, movement_fatigue) == 0xf6);
+static_assert(offsetof(PartySlot, weapon_swap_pending) == 0x105);
+
+struct MissileTableRecord {
+    std::array<std::byte, 0x100> display_name;
+    char cycle_name[0x40];
+    float radius;
+    W8AttackMode attack_mode;
+    unsigned char unknown_148[8];
+    int magnitude_base;
+    bool spell_missile;
+    unsigned char condition_chances[W8_ATTACK_EFFECT_COUNT];
     int weapon_sound_class;
-    signed char merge_skill;         /* 0x0c9: skill required to create this item, -1 for none */
-    unsigned char merge_skill_level; /* 0x0ca: level of merge_skill required */
-    unsigned char editor_excluded;   /* hidden from the MIPE item list */
-    /* 0x0cc: the missile table entry the item fires; the missile resolver
-       bounds it against g_missile_table_count. */
-    signed char missile_type;
-    char video_object_name[0x18]; /* 0x0cd: the item image */
-    char sound_name[0x28];        /* 0x0e5: played when the item's spell is cast */
+    unsigned char unknown_169[0x7c];
+};
+static_assert(std::is_trivially_copyable_v<MissileTableRecord>);
+static_assert(sizeof(MissileTableRecord) == kMissileTableRecordBytes);
+static_assert(offsetof(MissileTableRecord, cycle_name) == 0x100);
+static_assert(offsetof(MissileTableRecord, weapon_sound_class) == 0x165);
+
+struct ItemDatabaseRecord {
+    std::array<std::byte, 60> display_name;
+    ItemProperties properties;
+    char internal_name[0x20];
+    ItemEffects effects;
+    char video_object_name[0x18];
+    char sound_name[0x28];
 };
 static_assert(std::is_trivially_copyable_v<ItemDatabaseRecord>);
-static_assert(sizeof(ItemDatabaseRecord) == 0x10d, "ItemDatabaseRecord_size_must_be_0x10d");
+static_assert(sizeof(ItemDatabaseRecord) == kItemDatabaseRecordBytes);
+static_assert(offsetof(ItemDatabaseRecord, properties) == 0x3c);
+static_assert(offsetof(ItemDatabaseRecord, internal_name) == 0x8d);
+static_assert(offsetof(ItemDatabaseRecord, effects) == 0xad);
+static_assert(offsetof(ItemDatabaseRecord, video_object_name) == 0xcd);
 struct SpellRuntimeRecord {
     char database_name[64]; /* 0x000 */
     unsigned char unknown_040[4];

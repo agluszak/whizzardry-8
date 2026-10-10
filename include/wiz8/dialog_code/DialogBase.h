@@ -96,6 +96,5 @@ protected:
     unsigned char padding_051[3];
 };
 
-W8_ABI_ASSERT(sizeof(W8DialogBase) == 0x54, "W8DialogBase_must_be_0x54");
 
 extern int g_live_dialog_count;

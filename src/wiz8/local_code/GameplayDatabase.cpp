@@ -92,12 +92,12 @@ unsigned int g_spell_database_version;
 bool InitializeItemDatabase(void)
 try
 {
-    char path[60];
+    std::string path;
     unsigned int index;
     unsigned int transferred;
     std::unique_ptr<wiz8::File> handle;
 
-    wiz8::text::copy(path, FormatText("%s\\%s.%s", "Data\\Databases", "Items", "DBS"));
+    path = FormatText("%s\\%s.%s", "Data\\Databases", "Items", "DBS");
     handle = [&]() { try { return wiz8::open_file(path, wiz8::OpenMode::read); } catch (const std::exception&) { return std::unique_ptr<wiz8::File>{}; } }();
     if (!handle) {
         return false;
@@ -133,12 +133,12 @@ catch (const std::exception&) { return false; }
 bool InitializeItemTables(void)
 try
 {
-    char path[60];
+    std::string path;
     unsigned int index;
     unsigned int transferred;
     std::unique_ptr<wiz8::File> handle;
 
-    wiz8::text::copy(path, FormatText("%s\\%s.%s", "Data\\Databases", "ItemTables", "DBS"));
+    path = FormatText("%s\\%s.%s", "Data\\Databases", "ItemTables", "DBS");
     handle = [&]() { try { return wiz8::open_file(path, wiz8::OpenMode::read); } catch (const std::exception&) { return std::unique_ptr<wiz8::File>{}; } }();
     if (!handle) {
         return false;
@@ -199,7 +199,7 @@ catch (const std::exception&) { return false; }
 bool LoadMonsterDatabaseRecord(unsigned int uiMonsterIndex, W8MonsterRecord* record)
 try
 {
-    char path[60];
+    std::string path;
     unsigned int bytes_read;
     std::unique_ptr<wiz8::File> handle;
 
@@ -207,7 +207,7 @@ try
         srAssertFail("uiMonsterIndex < gXStatus.uiMonstersInDatabase", GAMEPLAY_DATABASE_CPP, 0x140,
                      0);
     }
-    wiz8::text::copy(path, FormatText("%s\\%s.%s", "Data\\Databases", "Monsters", "DBS"));
+    path = FormatText("%s\\%s.%s", "Data\\Databases", "Monsters", "DBS");
     handle = [&]() { try { return wiz8::open_file(path, wiz8::OpenMode::read); } catch (const std::exception&) { return std::unique_ptr<wiz8::File>{}; } }();
     if (!handle) {
         return false;
@@ -230,14 +230,13 @@ try
 }
 catch (const std::exception&) { return false; }
 
-/* Unlike its fact and level siblings this one guards the free and then leaves
-   the pointer dangling rather than clearing it. Both halves of that asymmetry
-   are the original's. */
+/* Release the owned item database and clear its root. */
 // FUNCTION: WIZ8 0x0054a4f0
 void DestroyItemDatabase(void)
 {
     if (g_item_records) {
         delete[] g_item_records;
+        g_item_records = nullptr;
     }
 }
 
@@ -284,13 +283,13 @@ void DestroyItemTables(void)
 bool LoadMonsterDatabase(W8MonsterRecord** records)
 try
 {
-    char path[60];
+    std::string path;
     unsigned int transferred;
     unsigned int index;
     W8MonsterRecord* block;
     std::unique_ptr<wiz8::File> handle;
 
-    wiz8::text::copy(path, FormatText("%s\\%s.%s", "Data\\Databases", "Monsters", "DBS"));
+    path = FormatText("%s\\%s.%s", "Data\\Databases", "Monsters", "DBS");
     handle = [&]() { try { return wiz8::open_file(path, wiz8::OpenMode::read); } catch (const std::exception&) { return std::unique_ptr<wiz8::File>{}; } }();
     if (!handle) {
         return false;
@@ -309,7 +308,7 @@ try
             if (!((transferred = wiz8::retail::read(*handle, block[index]).bytes) == wiz8::retail::kMonsterRecordBytes)) {
                 if (handle) handle->close();
                 handle.reset();
-                free(block);
+                delete[] block;
                 return false;
             }
         }
@@ -331,7 +330,7 @@ bool LoadMonsterDatabaseRange(unsigned int uiStartIndex, unsigned int uiEndIndex
                               W8MonsterRecord* records)
 try
 {
-    char path[60];
+    std::string path;
     std::unique_ptr<wiz8::File> handle;
 
     if (!(uiEndIndex < gXStatus.uiMonstersInDatabase)) {
@@ -340,7 +339,7 @@ try
     if (uiStartIndex > uiEndIndex) {
         srAssertFail("uiStartIndex <= uiEndIndex", GAMEPLAY_DATABASE_CPP, 0x17b, 0);
     }
-    wiz8::text::copy(path, FormatText("%s\\%s.%s", "Data\\Databases", "Monsters", "DBS"));
+    path = FormatText("%s\\%s.%s", "Data\\Databases", "Monsters", "DBS");
     handle = [&]() { try { return wiz8::open_file(path, wiz8::OpenMode::read); } catch (const std::exception&) { return std::unique_ptr<wiz8::File>{}; } }();
     if (!handle) {
         return false;

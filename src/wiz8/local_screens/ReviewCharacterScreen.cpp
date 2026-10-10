@@ -2664,7 +2664,6 @@ void BeginPartyDeath(void)
 void PumpReviewTransition(void)
 {
     InputAtom input;
-    char name[260];
     bool exit_review;
 
     if (!g_level_block->review_transition_active || g_level_block->review_transition_done) {

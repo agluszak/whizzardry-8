@@ -451,7 +451,6 @@ void DispatchMGSCommand(W8MGSCommand command)
         }
         break;
     case W8_MGS_COMMAND_QUICK_SAVE: {
-        char slot_name[0x100];
         if (IsScreenInputBlocked() != 0 || !CanInterruptLevelMovement()) {
             break;
         }
@@ -467,9 +466,9 @@ void DispatchMGSCommand(W8MGSCommand command)
                 break;
             }
         }
-        [&]() { auto result = SelectQuickSaveSlotForWrite(); if (!result) return false; wiz8::text::copy(slot_name, *result); return true; }();
-        if (SaveGame(slot_name, 0)) {
-            SetLastSaveName(slot_name);
+        const auto slot_name = SelectQuickSaveSlotForWrite();
+        if (slot_name && SaveGame(*slot_name, 0)) {
+            SetLastSaveName(*slot_name);
             ShowNotice(W8_FONT_PALETTE_BEIGE, g_localized_strings[0x6f5]);
         } else {
             ShowNotice(W8_FONT_PALETTE_BEIGE, g_localized_strings[0x6f6]);
@@ -477,7 +476,6 @@ void DispatchMGSCommand(W8MGSCommand command)
         break;
     }
     case W8_MGS_COMMAND_QUICK_LOAD: {
-        char slot_name[0x100];
         if (IsScreenInputBlocked() != 0) {
             break;
         }
@@ -485,11 +483,11 @@ void DispatchMGSCommand(W8MGSCommand command)
             ShowNotice(W8_FONT_PALETTE_BEIGE, g_localized_strings[0x82c]);
             break;
         }
-        if ([&]() { auto result = FindStartupQuickSave(); if (!result) return false; wiz8::text::copy(slot_name, *result); return true; }()) {
-            SetLastSaveName(slot_name);
+        if (const auto slot_name = FindStartupQuickSave()) {
+            SetLastSaveName(*slot_name);
             ClearHeldItemDisplay();
             g_pending_screen_state.mode = 1;
-            wiz8::text::copy(g_pending_screen_state.name, slot_name);
+            g_pending_screen_state.name = *slot_name;
             g_pending_screen_state.parameter = GetSaveGameLevel(g_pending_screen_state.name);
             CloseMainGameOverlays();
             SetMainGameMode(W8_MAIN_GAME_DEFAULT);

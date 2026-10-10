@@ -165,35 +165,30 @@ extern unsigned int g_missile_table_count;
 
 /* One 0x1e5-byte MissileTables.dbs runtime row. Only the fields reached by
    recovered consumers are named. */
-#pragma pack(push, 1)
 struct W8MissileTableRecord {
     /* The retained database row starts with a UTF-16 name, independently
        visible in all 36 canonical MissileTables.dbs rows. */
     std::string display_name;
-    /* 0x100: the GrCycle resource name the launcher loads through the
+    /* Retail offset 0x100: the GrCycle resource name the launcher loads through the
        "Data\\Missiles" script path. */
-    char cycle_name[0x40];
-    float radius;             /* 0x140: replaces the launched effect's radius */
-    W8AttackMode attack_mode; /* 0x144: the attack mode the hit is resolved with */
+    std::string cycle_name;
+    float radius;             /* Retail offset 0x140: replaces the launched effect's radius */
+    W8AttackMode attack_mode; /* Retail offset 0x144: the attack mode the hit is resolved with */
     unsigned char unknown_148[8];
-    /* 0x150: copied into the launched effect block's magnitude_base. */
+    /* Retail offset 0x150: copied into the launched effect block's magnitude_base. */
     int magnitude_base;
-    /* 0x154: nonzero marks a spell missile - its hits resolve through
+    /* Retail offset 0x154: nonzero marks a spell missile - its hits resolve through
        ResolveSpellMissileHit instead of the physical hit/deflect path. */
     bool spell_missile;
-    /* 0x155: the percentage chances the missile's hit effect assigns each
+    /* Retail offset 0x155: the percentage chances the missile's hit effect assigns each
        condition; CastSpellFromSource copies them into its effect block. */
     unsigned char condition_chances[W8_ATTACK_EFFECT_COUNT];
-    /* 0x165: the missile weapon's impact sound class; MakePCHitSound bounds it
+    /* Retail offset 0x165: the missile weapon's impact sound class; MakePCHitSound bounds it
        against the 28 material-impact rows. */
     int weapon_sound_class;
     unsigned char unknown_169[0x7c];
 };
-#pragma pack(pop)
 
-W8_ABI_ASSERT(offsetof(W8MissileTableRecord, cycle_name) == 0x100,
-              "W8MissileTableRecord_cycle_name_offset");
-W8_ABI_ASSERT(sizeof(W8MissileTableRecord) == 0x1e5, "W8MissileTableRecord_must_be_0x1e5");
 
 extern W8MissileTableRecord* g_missile_table;
 

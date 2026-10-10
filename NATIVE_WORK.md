@@ -20,6 +20,8 @@ do not need the original compiler layout.
   abstractions; remove unused layout assertions, packing and ABI annotations
   once runtime and serialized records are separate.
 
-The CTest fixtures remain independent of installed assets. The separate
-graphics/world harnesses still require a display, a usable GPU driver and
-an installed game. Passing CTest alone does not establish complete gameplay.
+CTest includes both asset-independent fixtures and licensed runtime scenarios.
+The runtime label covers video, character creation, game start, world movement,
+quick-save, combat, save-fixture creation and save loading. These scenarios need
+WIZ8_ASSET_ROOT and a usable SDL GPU backend; CI provisions the licensed assets.
+The separate graphics/world harnesses additionally require an interactive display.

@@ -26,11 +26,11 @@ static char g_config_file_extension[] = "CFG";
 void LoadGameConfiguration(void)
 {
     W8Chunk file;
-    char path[60];
+    std::string path;
     bool loaded = false;
     bool reset = true;
 
-    wiz8::text::copy(path, FormatText("%s.%s", g_config_file_name, g_config_file_extension));
+    path = FormatText("%s.%s", g_config_file_name, g_config_file_extension);
     ResetMGSKeyboardBindings();
     if (file.OpenRead(path)) {
         int count = file.ChunkCount();
@@ -80,9 +80,9 @@ bool SaveGameConfiguration(void)
 try
 {
     W8Chunk file;
-    char path[60];
+    std::string path;
 
-    wiz8::text::copy(path, FormatText("%s.%s", g_config_file_name, g_config_file_extension));
+    path = FormatText("%s.%s", g_config_file_name, g_config_file_extension);
     if (!file.OpenWrite(path)) {
         return false;
     }

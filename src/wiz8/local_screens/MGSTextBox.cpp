@@ -648,9 +648,6 @@ void HighlightTextBoxRange(unsigned char color, std::size_t start, std::size_t s
         srAssertFail("gStatus.uiTextBoxLinesUsed[iTextBuffer] > 0", MGS_TEXT_BOX_CPP, 0x261, 0);
     }
     line = &g_message_storage[text_box][g_status.text_box_lines_used[text_box] - 1];
-    if (!(!line->text.empty())) {
-        srAssertFail("pTextLine->text != NULL", MGS_TEXT_BOX_CPP, 0x263, 0);
-    }
     if (g_level_block->text_lines[8 + text_box] == static_cast<unsigned int>(-1)) {
         return;
     }
@@ -703,9 +700,6 @@ void AppendToLastTextLine(std::string_view text, short text_box)
         srAssertFail("gStatus.uiTextBoxLinesUsed[iTextBuffer] > 0", MGS_TEXT_BOX_CPP, 0xf92, 0);
     }
     W8MessageStorageRecord* line = &g_message_storage[text_box][*lines_used - 1];
-    if (!(!line->text.empty())) {
-        srAssertFail("pTextLine->text != NULL", MGS_TEXT_BOX_CPP, 0xf94, 0);
-    }
     const auto merged = FormatText("%s%s", line->text, text);
     unsigned char channel = line->font_palette;
     int link = line->link;
@@ -728,9 +722,6 @@ void AppendToLastTextLine(std::string_view text, short text_box)
     }
     if (link != 0) {
         W8MessageStorageRecord* last = &g_message_storage[text_box][*lines_used - 1];
-        if (!(!last->text.empty())) {
-            srAssertFail("pTextLine->text != NULL", MGS_TEXT_BOX_CPP, 0xfbd, 0);
-        }
         int propagated = 0;
         if (last->link != -1 && last->link + 1 > 0) {
             W8MessageStorageRecord* entry = last;
@@ -1609,9 +1600,6 @@ void RedrawTextBoxBody(bool skip_invalidate)
         line_index = static_cast<int>(scroll + row);
         if (static_cast<unsigned int>(line_index) < 0x15e) {
             line = &g_message_storage[text_box][line_index];
-            if (line->text.empty()) {
-                srAssertFail("pTextLine->text != NULL", MGS_TEXT_BOX_CPP, 0x43d, 0);
-            }
             if (!line->text.empty()) {
                 if (text_box == 3 || !g_level_block->text_box_visible) {
                     x = g_level_block->text_box_left;
@@ -2100,9 +2088,6 @@ void RefreshTextBoxMode(unsigned short mode)
     line = &g_message_storage[text_box][first_line];
     length = 0;
     for (index = first_line; index <= last_line; index++, line++) {
-        if (line->text.empty()) {
-            srAssertFail("pTextLine->text != NULL", MGS_TEXT_BOX_CPP, 0x10ad, 0);
-        }
         if (index == first_line) {
             merged = line->text;
             length = line->text.size();

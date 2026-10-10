@@ -629,7 +629,7 @@ bool RecruitNpcIntoParty(W8NpcState* npc)
 // GLOBAL: WIZ8 0x00619F18
 char g_substituted_npc_name[] = "RFS81B";
 // GLOBAL: WIZ8 0x00689F60
-char g_npc_name_buffer[52];
+// The former fixed name scratch buffer is no longer needed by owned results.
 
 /* The name style that admits a substituted name: the unfixed RFS-81 record,
    renamed to RFS81B once the fix fact is set. */
@@ -838,8 +838,7 @@ void AddNpcTopic(W8NpcState* npc, int topic)
 std::string GetNpcDisplayName(W8NpcState* npc)
 {
     if (npc->name_style == W8_NPC_RFS81_A && GetFact(W8_FACT_RFS81_HAS_BEEN_FIXED) != 0) {
-        strcpy(g_npc_name_buffer, g_substituted_npc_name);
-        return g_npc_name_buffer;
+        return g_substituted_npc_name;
     }
     return npc->record->display_name;
 }
@@ -847,7 +846,7 @@ std::string GetNpcDisplayName(W8NpcState* npc)
 /* The live NPC state whose display (or fact-substituted) name matches
    case-insensitively; released bindings and non-matches are skipped. */
 // FUNCTION: WIZ8 0x0050ADA0
-W8NpcState* FindNpcStateByName(const char* name)
+W8NpcState* FindNpcStateByName(std::string_view name)
 {
     int index;
     std::string candidate;
@@ -857,8 +856,7 @@ W8NpcState* FindNpcStateByName(const char* name)
 
         if (npc->binding_unavailable == 0) {
             if (npc->name_style == W8_NPC_RFS81_A && GetFact(W8_FACT_RFS81_HAS_BEEN_FIXED) != 0) {
-                strcpy(g_npc_name_buffer, g_substituted_npc_name);
-                candidate = g_npc_name_buffer;
+                candidate = g_substituted_npc_name;
             } else {
                 candidate = npc->record->display_name;
             }
@@ -2595,11 +2593,11 @@ void RebindNpcLevelTriggers(void)
     for (npc_index = 0; npc_index < static_cast<unsigned int>(g_npc_states->GetCount());
          ++npc_index) {
         W8NpcState* npc = *g_npc_states->GetAt(npc_index);
-        char trigger_name[40];
+        std::string trigger_name;
 
         if (npc->record->merchant != 0 || npc->record->voice_script != 0) {
-            wiz8::text::copy(trigger_name, FormatText("_%s", npc->record->source_name));
-            Trigger* trigger = FindTriggerByName(trigger_name);
+            trigger_name = FormatText("_%s", npc->record->source_name);
+            Trigger* trigger = FindTriggerByName(trigger_name.c_str());
 
             if (trigger != 0) {
                 trigger->activation_callback = NotifyNpcTriggerActivation;

@@ -83,7 +83,7 @@ void WriteRecordModeEntry(void)
 {
     W8WorldCameraState state;
     char location_code[32];
-    char line[1024];
+    std::string line;
     std::unique_ptr<wiz8::File> file;
     unsigned int length;
 
@@ -91,16 +91,16 @@ void WriteRecordModeEntry(void)
     if (file != 0) {
         file->seek(-static_cast<std::int64_t>(0), wiz8::SeekOrigin::end);
         GetWorldCameraState(GetWorld(), &state);
-        wiz8::text::copy(line, FormatText(s_record_mode_position_format, state.position.x, state.position.y, state.position.z));
-        file->write(line, strlen(line));
-        wiz8::text::copy(line, FormatText(s_record_mode_orientation_format, state.pitch[0], state.pitch[1], state.pitch[2], state.pitch[3], state.pitch[4], // reinterpret-ok: raw low byte of the angle record's trailing slot
-                *reinterpret_cast<unsigned int*>(&state.pitch[5]) & 0xff));
-        file->write(line, strlen(line));
-        snprintf(line, sizeof(line), s_record_mode_orientation_format, state.yaw[0], state.yaw[1], state.yaw[2],
+        line = FormatText(s_record_mode_position_format, state.position.x, state.position.y, state.position.z);
+        file->write(line.data(), line.size());
+        line = FormatText(s_record_mode_orientation_format, state.pitch[0], state.pitch[1], state.pitch[2], state.pitch[3], state.pitch[4], // reinterpret-ok: raw low byte of the angle record's trailing slot
+                *reinterpret_cast<unsigned int*>(&state.pitch[5]) & 0xff);
+        file->write(line.data(), line.size());
+        line = FormatText(s_record_mode_orientation_format, state.yaw[0], state.yaw[1], state.yaw[2],
                 state.yaw[3], state.yaw[4],
                 // reinterpret-ok: raw low byte of the angle record's trailing slot
                 *reinterpret_cast<unsigned int*>(&state.yaw[5]) & 0xff);
-        file->write(line, strlen(line));
+        file->write(line.data(), line.size());
         if (GetLevelLocationCode(g_status.current_level, location_code) == 0) {
             strcpy(location_code, s_record_mode_default_location);
         }

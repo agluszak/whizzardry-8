@@ -21,8 +21,6 @@ struct W8SkillNoticePayload {
     signed char skills[8];
 };
 
-W8_ABI_ASSERT(sizeof(W8ExperienceNoticePayload) == 8, "W8ExperienceNoticePayload_size");
-W8_ABI_ASSERT(sizeof(W8SkillNoticePayload) == 0x11, "W8SkillNoticePayload_size");
 
 /* The tagged dword payloads carried at W8MessageBoxLine::payload and
    ::extra. Which member is live is selected by the line's `type` (or by the
@@ -37,7 +35,6 @@ union W8MessageBoxPayload {
     W8ExperienceNoticePayload* experience; /* extra: PORTRAIT_EXTRA; delete */
     int* level_up_slot;                    /* extra: LEVEL_UP party slot; delete */
 };
-W8_ABI_ASSERT(sizeof(W8MessageBoxPayload) == 0x04, "W8MessageBoxPayload_size");
 
 /* Queued NPC message kinds dispatched by ProcessMessageBoxQueue at 0x00526E90.
    W8_NPC_MSG_QUOTE lines are built by QueueNpcScriptLine; the command kinds are
@@ -68,7 +65,7 @@ enum W8NpcMessageKind {
     W8_NPC_MSG_CALL_HENCHMAN = 0x15,     /* monster group 0x112 cycle 0x12 + callback */
     W8_NPC_MSG_HENCHMAN_LEAVES = 0x16,   /* monster group 0xdc cycle 0x12 + callback */
     W8_NPC_MSG_PORTRAIT_EXTRA = 0x17,    /* text + extra for quote bubble */
-    W8_NPC_MSG_PORTRAIT_MESSAGE = 0x18,  /* text: owned wide string for quote bubble */
+    W8_NPC_MSG_PORTRAIT_MESSAGE = 0x18,  /* text: owned UTF-8 string for quote bubble */
     W8_NPC_MSG_LEVEL_UP = 0x19,          /* text + extra: int party slot; GainLevel.wav */
     W8_NPC_MSG_PILLARGATE_LURE = 0x1a,   /* pillargate05 + fade Al-Lure (npc 0x3f) */
     W8_NPC_MSG_PILLARGATE_MADEUS = 0x1b, /* pillargate04 + fade Al-Madeus (npc 0x3e) */
@@ -117,43 +114,30 @@ enum W8NpcMessageKind {
 /* Queue record consumed by ProcessMessageBoxQueue. Field usage is per `type`:
    QUOTE lines use quote_index/mark_pending/suppress_entries; QUOTE_ENTRY
    continuations use quote_entry/continuation_quote; command kinds carry either
-   an owned wide string in `text` or a tagged int/pointer in `argument` (same
-   dword). `quote_entry` is only live for QUOTE_ENTRY and is always a
+   an owned UTF-8 string in `text` or a tagged int/pointer payload. `quote_entry` is only live for QUOTE_ENTRY and is always a
    W8NpcQuoteEntry*. */
-#pragma pack(push, 8)
 struct W8MessageBoxLine {
     std::string text;
-    int quote_index;   /* 0x00: QUOTE script quote; -1 otherwise */
-    bool mark_pending; /* 0x04: QUOTE records quote_index pending */
-    /* 0x08: QUOTE_ENTRY only; producers always store a W8NpcQuoteEntry*. */
+    int quote_index;   /* Historical offset 0x00: QUOTE script quote; -1 otherwise */
+    bool mark_pending; /* Historical offset 0x04: QUOTE records quote_index pending */
+    /* Historical offset 0x08: QUOTE_ENTRY only; producers always store a W8NpcQuoteEntry*. */
     W8NpcQuoteEntry* quote_entry;
-    W8NpcMessageKind type; /* 0x0c */
-    /* 0x10: per-kind payload sharing one dword; `text`, `item` and `argument`
+    W8NpcMessageKind type; /* Historical offset 0x0c */
+    /* Historical offset 0x10: per-kind payload sharing one dword; `text`, `item` and `argument`
        are the proven members. */
     W8MessageBoxPayload payload;
-    int continuation_quote; /* 0x14: QUOTE_ENTRY's owning quote index */
-    bool suppress_entries;  /* 0x18: QUOTE skips the quote-entry scan */
-    /* 0x1c: ownership is selected by `type`. SKILL_NOTICES hands a
+    int continuation_quote; /* Historical offset 0x14: QUOTE_ENTRY's owning quote index */
+    bool suppress_entries;  /* Historical offset 0x18: QUOTE skips the quote-entry scan */
+    /* Historical offset 0x1c: ownership is selected by `type`. SKILL_NOTICES hands a
        W8SkillNoticePayload* to the dispatcher or portrait bubble; LEVEL_UP
        hands an int party-slot pointer to the bubble. PORTRAIT_EXTRA hands a
        W8ExperienceNoticePayload* to the bubble. The bubble consumes and
        deletes each payload on dismissal; the immediate skill-notice path
        deletes its payload itself. */
     W8MessageBoxPayload extra;
-    W8NpcState* npc; /* 0x20: speaking NPC, copied from g_npc_scripting.npc */
+    W8NpcState* npc; /* Historical offset 0x20: speaking NPC, copied from g_npc_scripting.npc */
 };
 
-#pragma pack(pop)
-W8_ABI_ASSERT(sizeof(W8MessageBoxLine) == 0x24, "W8MessageBoxLine_must_be_0x24");
-W8_ABI_ASSERT(offsetof(W8MessageBoxLine, quote_entry) == 0x08, "W8MessageBoxLine_quote_entry");
-W8_ABI_ASSERT(offsetof(W8MessageBoxLine, type) == 0x0c, "W8MessageBoxLine_type");
-W8_ABI_ASSERT(offsetof(W8MessageBoxLine, payload) == 0x10, "W8MessageBoxLine_payload");
-W8_ABI_ASSERT(offsetof(W8MessageBoxLine, continuation_quote) == 0x14,
-              "W8MessageBoxLine_continuation_quote");
-W8_ABI_ASSERT(offsetof(W8MessageBoxLine, suppress_entries) == 0x18,
-              "W8MessageBoxLine_suppress_entries");
-W8_ABI_ASSERT(offsetof(W8MessageBoxLine, extra) == 0x1c, "W8MessageBoxLine_extra");
-W8_ABI_ASSERT(offsetof(W8MessageBoxLine, npc) == 0x20, "W8MessageBoxLine_npc");
 
 void AddMessageBoxLine(W8NpcMessageKind kind, W8MessageBoxPayload payload,
                        W8MessageBoxPayload extra);

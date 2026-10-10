@@ -2856,16 +2856,14 @@ unsigned char MainGameScreenInitialize(void)
     return 1;
 }
 
-/* Reset the complete Main Game state block and the UI/selection state that is
-   coupled to it. The clear's 0xcc dwords independently prove the 0x330 extent
-   used by the allocating enter handler. */
+/* Reset the owned Main Game state and its coupled UI/selection state. */
 // FUNCTION: WIZ8 0x0055f800
 void ResetMainGameScreenState(void)
 {
     int unset;
 
     if (g_level_block) {
-        memset(g_level_block, 0, sizeof(W8LevelRuntimeBlock));
+        *g_level_block = W8LevelRuntimeBlock{};
         TurnPartyToImmediate(g_status.party_facing, 0);
         g_level_block->inspector_enabled = false;
         gXStatus.fSpellCastMode = false;
@@ -2889,9 +2887,7 @@ void ResetMainGameScreenState(void)
     }
 }
 
-/* Enter the live game screen. The 0x330 allocation is the complete extent of
-   the per-screen block; the previously modeled fields only reached its last
-   observed access at 0x327. */
+/* Enter the live game screen, constructing its owned native state on first entry. */
 // FUNCTION: WIZ8 0x0055f8c0
 unsigned char MainGameScreenEnter(void)
 {
@@ -2899,7 +2895,7 @@ unsigned char MainGameScreenEnter(void)
     W8Difficulty difficulty = g_status.difficulty;
 
     if (!g_level_block) {
-        g_level_block = static_cast<W8LevelRuntimeBlock*>(malloc(sizeof(W8LevelRuntimeBlock)));
+        g_level_block = new W8LevelRuntimeBlock{};
         if (!g_level_block) {
             return 0;
         }
@@ -3492,7 +3488,7 @@ unsigned char MainGameScreenLeave(int leaving)
             }
         }
         SoundEmptyCache();
-        free(g_level_block);
+        delete g_level_block;
         g_level_block = 0;
         ReleaseLoadedVideoFrames();
     }
@@ -4370,7 +4366,7 @@ static void DrawPortraitConditionRow(int condition, int text_x, int row_y, unsig
 {
     DrawCatalogImage(FRAME_BUFFER, condition + 0xb6, 0, 0, text_x, row_y, VO_BLT_SRCTRANSPARENCY,
                      0);
-    wiz8::text::copy(g_level_block->text_paint_scratch, FormatText(g_format_s, g_localized_strings[g_condition_notices[condition].name]));
+    g_level_block->text_paint_scratch = FormatText(g_format_s, g_localized_strings[g_condition_notices[condition].name]);
     int text_width = StringPixLength(g_level_block->text_paint_scratch, g_wiz_text_font);
     gprintf(((width >> 1) - text_width / 2) + 0x1a + text_x, row_y, g_format_s,
             g_level_block->text_paint_scratch);
@@ -4380,7 +4376,7 @@ static void DrawPortraitEnchantmentRow(const W8Character* character, int slot, i
                                        int row_y, unsigned int width)
 {
     DrawCatalogImage(FRAME_BUFFER, slot + 0xc9, 0, 0, text_x, row_y, VO_BLT_SRCTRANSPARENCY, 0);
-    wiz8::text::copy(g_level_block->text_paint_scratch, FormatText(g_format_s_paren_d, g_localized_strings[g_enchantment_notices[slot]], character->enchantments[slot].power));
+    g_level_block->text_paint_scratch = FormatText(g_format_s_paren_d, g_localized_strings[g_enchantment_notices[slot]], character->enchantments[slot].power);
     int text_width = StringPixLength(g_level_block->text_paint_scratch, g_wiz_text_font);
     gprintf(((width >> 1) - text_width / 2) + 0x1a + text_x, row_y, g_format_s,
             g_level_block->text_paint_scratch);
@@ -4397,9 +4393,9 @@ void DrawPortraitVitalsOverlay(int party_slot)
     int realm_icons[6] = {0x193, 0x194, 0x195, 0x196, 0x197, 0x198};
     W8Character* character = &g_status.buffers.Char[party_slot];
 
-    wiz8::text::copy(g_level_block->text_paint_scratch, FormatText(g_format_s_colon, g_localized_strings[0x282]));
+    g_level_block->text_paint_scratch = FormatText(g_format_s_colon, g_localized_strings[0x282]);
     unsigned int label_width = StringPixLength(g_level_block->text_paint_scratch, g_wiz_text_font);
-    wiz8::text::copy(g_level_block->text_paint_scratch, FormatText(g_format_s_colon, g_localized_strings[0x283]));
+    g_level_block->text_paint_scratch = FormatText(g_format_s_colon, g_localized_strings[0x283]);
     int width = StringPixLength(g_level_block->text_paint_scratch, g_wiz_text_font);
     if (label_width < static_cast<unsigned int>(width)) {
         width = StringPixLength(g_level_block->text_paint_scratch, g_wiz_text_font);
@@ -4410,9 +4406,9 @@ void DrawPortraitVitalsOverlay(int party_slot)
     }
     label_width += 10;
 
-    wiz8::text::copy(g_level_block->text_paint_scratch, FormatText(g_format_d_slash_d, character->hp_current, character->uiHPMax));
+    g_level_block->text_paint_scratch = FormatText(g_format_d_slash_d, character->hp_current, character->uiHPMax);
     unsigned int value_width = StringPixLength(g_level_block->text_paint_scratch, g_wiz_text_font);
-    wiz8::text::copy(g_level_block->text_paint_scratch, FormatText(g_format_d_slash_d, character->stamina, character->uiStaminaMax));
+    g_level_block->text_paint_scratch = FormatText(g_format_d_slash_d, character->stamina, character->uiStaminaMax);
     width = StringPixLength(g_level_block->text_paint_scratch, g_wiz_text_font);
     if (value_width < static_cast<unsigned int>(width)) {
         width = StringPixLength(g_level_block->text_paint_scratch, g_wiz_text_font);
@@ -4420,7 +4416,7 @@ void DrawPortraitVitalsOverlay(int party_slot)
     }
     int realm;
     for (realm = 0; realm < W8_SPELL_REALM_COUNT; ++realm) {
-        wiz8::text::copy(g_level_block->text_paint_scratch, FormatText(g_format_d_slash_d, GetCharacterRealmSpellPoints(character, static_cast<W8SpellRealm>(realm)), character->sp_max[realm]));
+        g_level_block->text_paint_scratch = FormatText(g_format_d_slash_d, GetCharacterRealmSpellPoints(character, static_cast<W8SpellRealm>(realm)), character->sp_max[realm]);
         width = StringPixLength(g_level_block->text_paint_scratch, g_wiz_text_font);
         if (label_width < static_cast<unsigned int>(width)) {
             width = StringPixLength(g_level_block->text_paint_scratch, g_wiz_text_font);
@@ -4434,18 +4430,18 @@ void DrawPortraitVitalsOverlay(int party_slot)
     int text_x = g_level_block->dialogue_text_x;
     int row_y = g_level_block->dialogue_row_y;
 
-    wiz8::text::copy(g_level_block->text_paint_scratch, FormatText(g_format_s_colon, g_localized_strings[0x282]));
+    g_level_block->text_paint_scratch = FormatText(g_format_s_colon, g_localized_strings[0x282]);
     gprintf(text_x, row_y, g_level_block->text_paint_scratch);
-    wiz8::text::copy(g_level_block->text_paint_scratch, FormatText(g_format_d_slash_d, character->hp_current, character->uiHPMax));
+    g_level_block->text_paint_scratch = FormatText(g_format_d_slash_d, character->hp_current, character->uiHPMax);
     unsigned int value_center = (text_width - label_width) >> 1;
     width = StringPixLength(g_level_block->text_paint_scratch, g_wiz_text_font);
     gprintf(value_center - width / 2 + text_x + label_width, row_y, g_format_s,
             g_level_block->text_paint_scratch);
     row_y += 0x12;
 
-    wiz8::text::copy(g_level_block->text_paint_scratch, FormatText(g_format_s_colon, g_localized_strings[0x283]));
+    g_level_block->text_paint_scratch = FormatText(g_format_s_colon, g_localized_strings[0x283]);
     gprintf(text_x, row_y, g_level_block->text_paint_scratch);
-    wiz8::text::copy(g_level_block->text_paint_scratch, FormatText(g_format_d_slash_d, character->stamina, character->uiStaminaMax));
+    g_level_block->text_paint_scratch = FormatText(g_format_d_slash_d, character->stamina, character->uiStaminaMax);
     width = StringPixLength(g_level_block->text_paint_scratch, g_wiz_text_font);
     gprintf(value_center - width / 2 + text_x + label_width, row_y, g_format_s,
             g_level_block->text_paint_scratch);
@@ -4455,7 +4451,7 @@ void DrawPortraitVitalsOverlay(int party_slot)
         DrawCatalogImage(FRAME_BUFFER, realm_icons[realm], 0,
                          static_cast<short>(g_spell_realm_animations[realm].initial_frame), text_x,
                          row_y, VO_BLT_SRCTRANSPARENCY, 0);
-        wiz8::text::copy(g_level_block->text_paint_scratch, FormatText(g_format_d_slash_d, GetCharacterRealmSpellPoints(character, static_cast<W8SpellRealm>(realm)), character->sp_max[realm]));
+        g_level_block->text_paint_scratch = FormatText(g_format_d_slash_d, GetCharacterRealmSpellPoints(character, static_cast<W8SpellRealm>(realm)), character->sp_max[realm]);
         int text_y = (0x12 - GetFontHeight(g_wiz_text_font)) / 2 + row_y;
         width = StringPixLength(g_level_block->text_paint_scratch, g_wiz_text_font);
         gprintf(value_center - width / 2 + text_x + label_width, text_y,
@@ -4475,7 +4471,7 @@ static int MeasurePortraitConditions(const W8Character* character, unsigned int&
     }
     for (condition = W8_CONDITION_COUNT - 1; condition > 0; --condition) {
         if (character->uiCondition[condition] != 0) {
-            wiz8::text::copy(g_level_block->text_paint_scratch, FormatText(g_format_s, g_localized_strings[g_condition_notices[condition].name]));
+            g_level_block->text_paint_scratch = FormatText(g_format_s, g_localized_strings[g_condition_notices[condition].name]);
             int width = StringPixLength(g_level_block->text_paint_scratch, g_wiz_text_font);
             if (max_width < static_cast<unsigned int>(width)) {
                 width = StringPixLength(g_level_block->text_paint_scratch, g_wiz_text_font);
@@ -4498,7 +4494,7 @@ static int MeasurePortraitEnchantments(const W8Character* character, unsigned in
     }
     for (slot = 7; slot > 0; --slot) {
         if (character->enchantments[slot].turns != 0) {
-            wiz8::text::copy(g_level_block->text_paint_scratch, FormatText(g_format_s_paren_d, g_localized_strings[g_enchantment_notices[slot]], character->enchantments[slot].power));
+            g_level_block->text_paint_scratch = FormatText(g_format_s_paren_d, g_localized_strings[g_enchantment_notices[slot]], character->enchantments[slot].power);
             int width = StringPixLength(g_level_block->text_paint_scratch, g_wiz_text_font);
             if (max_width < static_cast<unsigned int>(width)) {
                 width = StringPixLength(g_level_block->text_paint_scratch, g_wiz_text_font);
@@ -4578,7 +4574,7 @@ void DrawPortraitStatusOverlay(int party_slot)
     }
     for (slot = 7; slot > 0; --slot) {
         if (rows_drawn == 0x13 && truncated) {
-            wiz8::text::copy(g_level_block->text_paint_scratch, FormatText(g_format_s, g_localized_strings[0x7d8], character->enchantments[slot].power));
+            g_level_block->text_paint_scratch = FormatText(g_format_s, g_localized_strings[0x7d8], character->enchantments[slot].power);
             int width = StringPixLength(g_level_block->text_paint_scratch, g_wiz_text_font);
             gprintf((((text_width - width) + 0x1a) >> 1) + text_x, row_y,
                     g_format_s, g_level_block->text_paint_scratch);
@@ -4840,11 +4836,11 @@ void RequestLevelTransition(int level, int entry, unsigned char flag)
     g_level_block->pending_entry_id = entry;
     if (flag != 0) {
         if (normalized < 0x2f) {
-            wiz8::text::copy(g_level_block->text_paint_scratch, FormatText(g_format_s_s_question, g_localized_strings[0x799], g_localized_strings[g_level_name_indices[normalized]]));
+            g_level_block->text_paint_scratch = FormatText(g_format_s_s_question, g_localized_strings[0x799], g_localized_strings[g_level_name_indices[normalized]]);
         } else if (normalized == 0x38) {
-            strcpy(g_level_block->text_paint_scratch, g_text_enter_default_level);
+            g_level_block->text_paint_scratch = g_text_enter_default_level;
         } else {
-            wiz8::text::copy(g_level_block->text_paint_scratch, FormatText(g_format_enter_test_level, normalized + 2));
+            g_level_block->text_paint_scratch = FormatText(g_format_enter_test_level, normalized + 2);
         }
         if (QueueNpcDepartureEvents(normalized)) {
             WorldSetCameraLocation(g_world, &g_trigger_camera);
@@ -7673,7 +7669,7 @@ void ShowNpcTradeItemNotice(W8ItemInstance* item)
         ShowNotice(font_palette, FormatItemDisplayName(item, true), 2);
         return;
     }
-    wiz8::text::copy(g_level_block->text_paint_scratch, FormatText("%d%s", price, g_localized_strings[0x797]));
+    g_level_block->text_paint_scratch = FormatText("%d%s", price, g_localized_strings[0x797]);
     ShowNotice(font_palette, FormatItemDisplayName(item, true), 2,
                GetTextBoxScrollRange() -
                    StringPixLength(g_level_block->text_paint_scratch, GetTextBoxFont()));
@@ -7740,9 +7736,9 @@ static void ShowNpcPlayerTradeItem(W8ItemInstance* item, bool acceptable, unsign
             CalculateNpcTradeStackPrice(g_npc_interaction_state->dialogue_npc, item->iItemNo,
                                         W8_TRADE_PRICE_PARTY_SELLS, count, item->identified);
         if (acceptable) {
-            wiz8::text::copy(g_level_block->text_paint_scratch, FormatText("%d%s", price, g_localized_strings[0x797]));
+            g_level_block->text_paint_scratch = FormatText("%d%s", price, g_localized_strings[0x797]);
         } else {
-            wiz8::text::copy(g_level_block->text_paint_scratch, FormatText("---"));
+            g_level_block->text_paint_scratch = FormatText("---");
         }
         ShowNotice(font_palette, FormatItemDisplayName(item, true), 2,
                    GetTextBoxScrollRange() -
@@ -7763,7 +7759,7 @@ void PopulateNpcTradeList(void)
     ResetNpcDialogueItemEditor();
     EnableNpcTradeFilterButtons();
     if (g_npc_interaction_state->trade_mode == W8_NPC_TRADE_GIVE) {
-        wiz8::text::copy(g_level_block->text_paint_scratch, FormatText("%d%s", g_status.party_gold, g_localized_strings[0x797]));
+        g_level_block->text_paint_scratch = FormatText("%d%s", g_status.party_gold, g_localized_strings[0x797]);
         ShowNotice(W8_FONT_PALETTE_TEXT_BOX, g_localized_strings[0x72d], 2,
                    GetTextBoxScrollRange() -
                        StringPixLength(g_level_block->text_paint_scratch, GetTextBoxFont()));

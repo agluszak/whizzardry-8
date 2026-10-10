@@ -77,6 +77,8 @@ target_link_libraries(native_pointer_test PRIVATE wiz8_native_settings)
 add_test(NAME native_pointer COMMAND native_pointer_test)
 
 add_executable(native_save_records_test "${PROJECT_SOURCE_DIR}/tests/native/save_records_test.cpp")
+target_compile_definitions(native_save_records_test PRIVATE
+    WIZ8_CHARACTER_FIXTURE="${CMAKE_CURRENT_SOURCE_DIR}/runtime/fixtures/vi.CHR")
 target_link_libraries(native_save_records_test PRIVATE WIZ8_GAME_CORE SDL3::SDL3)
 if(APPLE)
     target_link_options(native_save_records_test PRIVATE -Wl,-dead_strip)
@@ -138,7 +140,7 @@ add_test(NAME native_blitters COMMAND native_blitter_test
 if(UNIX)
     add_test(NAME native_no_glibc_wide_strings
         COMMAND "${CMAKE_COMMAND}" "-DNM=${CMAKE_NM}"
-            "-DOBJECT_DIRS=${PROJECT_BINARY_DIR}/CMakeFiles/wiz8_compat.dir;${PROJECT_BINARY_DIR}/src/surrender/CMakeFiles/SURRENDER.dir;${PROJECT_BINARY_DIR}/src/sgp/CMakeFiles/WIZ8_SGP.dir;${PROJECT_BINARY_DIR}/src/wiz8/CMakeFiles/WIZ8_GAME_CORE.dir"
+            "-DBINARIES=$<TARGET_FILE:wiz8_compat>;$<TARGET_FILE:wiz8_filesystem>;$<TARGET_FILE:SURRENDER>;$<TARGET_FILE:WIZ8_GAME_CORE>"
             -P "${CMAKE_CURRENT_SOURCE_DIR}/no_host_wide_strings.cmake")
 endif()
 

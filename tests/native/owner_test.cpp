@@ -62,7 +62,7 @@ void screen_stack()
         g_pending_screen_state.id = index % 2 ? W8_SCREEN_OPTIONS : W8_SCREEN_INTRO;
         g_pending_screen_state.parameter = index;
         g_pending_screen_state.parameter_3 = &payload;
-        snprintf(g_pending_screen_state.name, sizeof(g_pending_screen_state.name), "screen %d", index);
+        g_pending_screen_state.name = "screen " + std::to_string(index);
         CHECK(GetPendingScreenState() == g_pending_screen_state.id);
         GameLoop();
         CHECK(g_current_screen_state.parameter == index);

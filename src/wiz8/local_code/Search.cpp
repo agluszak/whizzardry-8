@@ -249,8 +249,8 @@ void RunSearchPulse(void)
                                     if (folder == 0) {
                                         folder = "Test";
                                     }
-                                    char path[512];
-                                    wiz8::text::copy(path, FormatText("Data\\Messages\\%s.msg", folder));
+                                    std::string path;
+                                    path = FormatText("Data\\Messages\\%s.msg", folder);
                                     std::string text;
                                     if ((!(text = GetStringFromStringDatabase(path, message, 0, 0)).empty()) !=
                                         0) {

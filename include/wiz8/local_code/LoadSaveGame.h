@@ -9,7 +9,7 @@
 
 bool VerifyDataSubdirs(void);
 std::optional<std::string> FindStartupQuickSave();
-int GetSaveGameLevel(const char* slot_name);
+int GetSaveGameLevel(std::string_view slot_name);
 
 /* The SHOT record. SaveGame writes 0x2588 bytes; the save-screen producer
    copy-constructs one complete record, including its trailing padding.

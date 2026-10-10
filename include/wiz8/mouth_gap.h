@@ -1,3 +1,4 @@
+#include <string_view>
 #pragma once
 
 #include <stddef.h>
@@ -31,15 +32,8 @@ W8_ABI_ASSERT(offsetof(W8MouthGapTrack, cursor) == 0x0c, "W8MouthGapTrack_cursor
 W8_ABI_ASSERT(offsetof(W8MouthGapTrack, mouth_open) == 0x10, "W8MouthGapTrack_mouth_open_offset");
 W8_ABI_ASSERT(sizeof(W8MouthGapTrack) == 0x14, "W8MouthGapTrack_size");
 
-#ifdef __cplusplus
-extern "C" { /* C-LINKAGE: src/wiz8/engine_code/gap.c is a C translation unit */
-#endif
 
 /* Engine Code\gap.c: mouth-gap companions to voice .wav files. */
-void LoadMouthGapTrack(char* path, W8MouthGapTrack* track);              /* 0x005E2D10 */
+void LoadMouthGapTrack(std::string_view path, W8MouthGapTrack* track);              /* 0x005E2D10 */
 void FreeMouthGapTrack(W8MouthGapTrack* track);                          /* 0x005E2EF0 */
 void UpdateMouthGapTrack(unsigned int sound_id, W8MouthGapTrack* track); /* 0x005E2F40 */
-
-#ifdef __cplusplus
-}
-#endif

@@ -683,16 +683,16 @@ unsigned char AutomapScreenEnter(void)
     PauseMainGameWorld();
     g_automap_layers.Clear();
     g_automap_layers.Add(0);
-    char layer_name[16];
-    wiz8::text::copy(layer_name, FormatText("LAYER %d", layer_number));
+    std::string layer_name;
+    layer_name = FormatText("LAYER %d", layer_number);
     srClipPlane* layer = static_cast<srClipPlane*>(
-        srCore.getRegistry()->find(srClipPlane::sGetClassNode(), layer_name, 0));
+        srCore.getRegistry()->find(srClipPlane::sGetClassNode(), layer_name.c_str(), 0));
     while (layer) {
         g_automap_layers.Add(layer);
         ++layer_number;
-        wiz8::text::copy(layer_name, FormatText("LAYER %d", layer_number));
+        layer_name = FormatText("LAYER %d", layer_number);
         layer = static_cast<srClipPlane*>(
-            srCore.getRegistry()->find(srClipPlane::sGetClassNode(), layer_name, 0));
+            srCore.getRegistry()->find(srClipPlane::sGetClassNode(), layer_name.c_str(), 0));
     }
     unsigned int monster_count = PLLength(gXStatus.plsMonsterList);
     for (unsigned int index = 0; index < monster_count; ++index) {
@@ -762,10 +762,9 @@ unsigned char AutomapScreenEnter(void)
                     float height = static_cast<float>(atof(text + 6));
                     srClipPlane* clip = new srClipPlane(static_cast<srNode*>(0));
                     if (clip) {
-                        wiz8::text::copy(layer_name, FormatText("LAYER %d", layer_number));
-                        clip->setName(layer_name);
-                        glm::vec4 plane;
-                        plane = glm::vec4(0.0f, 1.0f, 0.0f, 0.0f);
+                        layer_name = FormatText("LAYER %d", layer_number);
+                        clip->setName(layer_name.c_str());
+                        glm::vec4 plane(0.0f, 1.0f, 0.0f, 0.0f);
                         clip->setClipPlane(plane);
                         srVector3T<double> position(0.0, static_cast<double>(height * 500.0f), 0.0);
                         clip->setLocation(position);

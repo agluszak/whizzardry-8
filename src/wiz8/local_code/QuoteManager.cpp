@@ -426,7 +426,7 @@ W8CharacterEvent::W8CharacterEvent(W8Character* character, unsigned int event_ty
 bool FormatCharacterQuoteText(W8Character* character, unsigned int event_type,
                               unsigned int* metadata)
 {
-    char path[80];
+    std::string path;
     std::string text;
     int npc_index;
     bool has_npc;
@@ -447,7 +447,7 @@ bool FormatCharacterQuoteText(W8Character* character, unsigned int event_type,
     if (!has_npc) {
         char gender_code =
             static_cast<char>(((character->gender != W8_GENDER_MALE) - 1U & 7) + 0x66);
-        wiz8::text::copy(path, FormatText("Data\\Quotes\\PCs\\%c_%s%d0.MSG", gender_code, g_quote_personality_names[character->personality], (character->voice != 0) + 1));
+        path = FormatText("Data\\Quotes\\PCs\\%c_%s%d0.MSG", gender_code, g_quote_personality_names[character->personality], (character->voice != 0) + 1);
         if (![&]() { const auto status = wiz8::file_status(path); return status && status->info.type == SDL_PATHTYPE_FILE; }()) {
             g_character_text.clear();
             return false;
@@ -701,8 +701,8 @@ unsigned char W8CharacterEvent::PlayEventSound()
     unsigned int party_slot = CharacterPointerToPartySlot(character);
     unsigned int sound_event = event_type;
     int npc_index = g_status.buffers.XChar[party_slot].npc_index;
-    char voice_stem[20];
-    char sound_path[80];
+    std::string voice_stem;
+    std::string sound_path;
     std::string npc_sound_name;
     SOUNDPARMS sound_parms;
     unsigned int sound_handle;
@@ -718,13 +718,13 @@ unsigned char W8CharacterEvent::PlayEventSound()
         g_current_screen_state.id == W8_SCREEN_CHARACTER) {
         char gender_code =
             static_cast<char>(((character->gender != W8_GENDER_MALE) - 1U & 7) + 0x66);
-        wiz8::text::copy(voice_stem, FormatText("%c_%s%d0", gender_code, g_quote_personality_names[character->personality], character->voice + 1));
-        wiz8::text::copy(sound_path, FormatText("Data\\Sound\\PCs\\%s\\%s_%03d.wav", voice_stem, voice_stem, sound_event));
+        voice_stem = FormatText("%c_%s%d0", gender_code, g_quote_personality_names[character->personality], character->voice + 1);
+        sound_path = FormatText("Data\\Sound\\PCs\\%s\\%s_%03d.wav", voice_stem, voice_stem, sound_event);
     } else {
         npc = GetNpcState(npc_index);
         if (npc != 0) {
             npc_sound_name = FormatNpcVoiceSoundPath(npc);
-            wiz8::text::copy(sound_path, FormatText("Data\\Sound\\PCs\\%s\\%s_%03d.wav", npc_sound_name, npc_sound_name, sound_event));
+            sound_path = FormatText("Data\\Sound\\PCs\\%s\\%s_%03d.wav", npc_sound_name, npc_sound_name, sound_event);
         }
     }
     memset(&sound_parms, 0xff, sizeof(sound_parms));

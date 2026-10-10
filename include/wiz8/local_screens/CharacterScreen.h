@@ -77,7 +77,6 @@ public:
     bool m_enabled;
     bool m_increment_allowed;
 };
-W8_ABI_ASSERT(sizeof(W8CharacterPageEntry) == 0x3c, "W8CharacterPageEntry_size");
 
 /* Common base of the four character screen pages. */
 class W8CharacterPage : public Controls {
@@ -106,7 +105,6 @@ public:
 
     void AddEntry(W8CharacterPageEntry* entry);
 };
-W8_ABI_ASSERT(sizeof(W8CharacterPage) == 0x70, "W8CharacterPage_size");
 
 class W8CharacterStatsRow;
 
@@ -125,7 +123,6 @@ struct W8CharacterStatsRecord {
     unsigned char enabled;
     unsigned char pad_0f;
 };
-W8_ABI_ASSERT(sizeof(W8CharacterStatsRecord) == 0x10, "W8CharacterStatsRecord_size");
 
 /* The stats value control: it carries the record currently shown and the
    record to fall back to when the character has none. */
@@ -141,7 +138,6 @@ public:
     const W8CharacterStatsRecord* m_record;
     const W8CharacterStatsRecord* m_default_record;
 };
-W8_ABI_ASSERT(sizeof(W8CharacterStatsValue) == 0xc0, "W8CharacterStatsValue_size");
 
 /* Stats-row callbacks. The row itself raises slots 0 and 3; the page's input
    handling raises slots 1 and 2. */
@@ -152,7 +148,6 @@ public:
     virtual void OnRowCollapsed(W8CharacterStatsRow* row) = 0;
     virtual void OnRowInfoRequested(W8CharacterStatsRow* row, int value) = 0;
 };
-W8_ABI_ASSERT(sizeof(W8CharacterStatsRowListener) == 0x4, "W8CharacterStatsRowListener_size");
 
 /* A stats-page value row: a decrement arrow, an increment arrow and a value
    control whose current index indexes the row's 0x10-byte record table. */
@@ -196,7 +191,6 @@ public:
     W8TextControl** m_subpanel_entries;
     W8CharacterStatsRowListener* m_listener;
 };
-W8_ABI_ASSERT(sizeof(W8CharacterStatsRow) == 0x34, "W8CharacterStatsRow_size");
 
 // VTABLE: WIZ8 0x005ef778 W8CharacterPage
 class W8CharacterStatsPage : public W8CharacterPage,
@@ -237,7 +231,6 @@ public:
     unsigned char pad_08a[2];
     W8TextControl* m_attribute_controls[5];
 };
-W8_ABI_ASSERT(sizeof(W8CharacterStatsPage) == 0xa0, "W8CharacterStatsPage_size");
 W8_ASSERT_BASE_END(W8CharacterStatsPage, W8TextControl::Listener, m_profession_row, 0x78);
 
 struct W8CharacterSpellEntry {
@@ -246,7 +239,6 @@ struct W8CharacterSpellEntry {
     bool fSelectable;
     bool selected;
 };
-W8_ABI_ASSERT(sizeof(W8CharacterSpellEntry) == 0xc, "W8CharacterSpellEntry_size");
 
 class W8CharacterSpellListListener {
 public:
@@ -282,7 +274,6 @@ private:
     unsigned int m_animation_frames[6];
     unsigned int m_last_selected;
 };
-W8_ABI_ASSERT(sizeof(W8CharacterSpellsPage) == 0x624, "W8CharacterSpellsPage_size");
 
 class W8CharacterSkillsPage : public W8CharacterPage, public W8CharacterPageEntryListener {
 public:
@@ -303,7 +294,6 @@ private:
     bool m_show_fifth_category;
     bool nav_next_state;
 };
-W8_ABI_ASSERT(sizeof(W8CharacterSkillsPage) == 0x78, "W8CharacterSkillsPage_size");
 
 class W8CharacterPersonalityPage : public W8CharacterPage,
                                    public W8ControlSelectionListener,
@@ -338,7 +328,6 @@ private:
     bool m_description_dirty;
     bool m_portrait_dirty;
 };
-W8_ABI_ASSERT(sizeof(W8CharacterPersonalityPage) == 0x100, "W8CharacterPersonalityPage_size");
 
 W8CharacterStatsPage* CreateCharacterStatsPage();
 W8CharacterSpellsPage* CreateCharacterSpellsPage();
@@ -400,7 +389,6 @@ public:
     virtual bool HasDialog() = 0;
     virtual W8Character* GetOriginalCharacter() = 0;
 };
-W8_ABI_ASSERT(sizeof(W8CharacterPageHost) == 0x4, "W8CharacterPageHost_size");
 
 class W8CharacterScreen final : public W8CharacterPageHost, public W8TextControl::Listener {
 public:
@@ -455,7 +443,6 @@ public:
     bool m_capture_dialog_result;
     unsigned char pad_1b25[3];
 };
-W8_ABI_ASSERT(sizeof(W8CharacterScreen) == 0x1b28, "W8CharacterScreen_size");
 W8_ASSERT_BASE_END(W8CharacterScreen, W8TextControl::Listener, m_mode, 0x4);
 
 extern W8CharacterScreen* g_character_screen;

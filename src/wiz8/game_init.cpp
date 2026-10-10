@@ -108,7 +108,8 @@ unsigned char InitializeGame(size_t& initialized_screens)
     ConfigureSoundCache();
     SetPendingScreenState(W8_SCREEN_INTRO);
     g_status.current_level = -1;
-    if (gfLoadAtStartup && [&]() { auto result = FindStartupQuickSave(); if (!result) return false; wiz8::text::copy(g_pending_screen_state.name, *result); return true; }()) {
+    if (const auto save = gfLoadAtStartup ? FindStartupQuickSave() : std::nullopt) {
+        g_pending_screen_state.name = *save;
         g_pending_screen_state.mode = 1;
         g_pending_screen_state.parameter = GetSaveGameLevel(g_pending_screen_state.name);
         SetPendingScreenState(W8_SCREEN_PLEASE_WAIT);
@@ -123,7 +124,7 @@ unsigned char InitializeGame(size_t& initialized_screens)
     if (!LoadHitSoundDatabase()) {
         ShutdownWithErrorBox("Could not load hit sound database!");
     }
-    memset(g_message_storage, 0, sizeof(g_message_storage));
+    ReleaseMessageStorage();
     if (!InitializeMusicPlaylist()) {
         return 0;
     }

@@ -25,7 +25,6 @@ struct W8MipeMonsterEntry {
     bool selectable;
 };
 
-W8_ABI_ASSERT(sizeof(W8MipeMonsterEntry) == 0x32, "W8MipeMonsterEntry_size");
 
 /* One row of mipeEdit.cpp's prop field editor: a label index into the
    g_mipe_prop_labels table plus the live value slots.  type 1 edits
@@ -42,7 +41,6 @@ struct W8MipeEditField {
     int value;
 };
 
-W8_ABI_ASSERT(sizeof(W8MipeEditField) == 0x18, "W8MipeEditField_size");
 
 /* The editor state, allocated once and stored in g_mipe_state. It begins
    with the W8IList of selected monster location ids, and callers pass the
@@ -70,10 +68,6 @@ struct W8MipeState {
     signed char edit_selection; /* -1 = no row selected */
 };
 
-W8_ABI_ASSERT(sizeof(W8MipeState) == 0x64, "W8MipeState_size");
-W8_ABI_ASSERT(offsetof(W8MipeState, drag_anchor) == 0x24, "W8MipeState_drag_anchor");
-W8_ABI_ASSERT(offsetof(W8MipeState, waypoints) == 0x3c, "W8MipeState_waypoints");
-W8_ABI_ASSERT(offsetof(W8MipeState, generator) == 0x54, "W8MipeState_generator");
 
 extern bool g_debug_monster_cycle;
 extern W8MipeState* g_mipe_state;

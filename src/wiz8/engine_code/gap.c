@@ -16,12 +16,8 @@
    ranges the consumers animate freely. */
 
 // FUNCTION: WIZ8 0x005E2D10
-void LoadMouthGapTrack(char* path, W8MouthGapTrack* track)
+void LoadMouthGapTrack(std::string_view path, W8MouthGapTrack* track)
 {
-    char gap_path[256];
-    char directory[256];
-    unsigned char index;
-    char* extension;
     unsigned int start;
     unsigned int end;
     std::unique_ptr<wiz8::File> file;
@@ -34,19 +30,12 @@ void LoadMouthGapTrack(char* path, W8MouthGapTrack* track)
     track->cursor = 0;
     track->mouth_open = 0;
 
-    strcpy(gap_path, path);
-    for (index = strlen(gap_path) - 1; gap_path[index] != '\\'; --index) {
-    }
-    strncpy(directory, gap_path, index);
-    directory[index] = '\0';
-    sprintf(gap_path, "%s\\GAP\\%s", directory, path + index + 1);
-    for (index = 0; gap_path[index] != '.'; ++index) {
-    }
-    extension = gap_path + index;
-    extension[1] = 'g';
-    extension[2] = 'a';
-    extension[3] = 'p';
-    extension[4] = '\0';
+    const auto separator = path.find_last_of("\\/");
+    const auto directory = separator == std::string_view::npos ? std::string_view{} : path.substr(0, separator + 1);
+    auto filename = path.substr(separator == std::string_view::npos ? 0 : separator + 1);
+    if (const auto dot = filename.find_last_of('.'); dot != std::string_view::npos)
+        filename = filename.substr(0, dot);
+    const auto gap_path = std::string(directory) + "GAP\\" + std::string(filename) + ".gap";
 
     file = [&]() { try { return wiz8::open_file(gap_path, wiz8::OpenMode::read); } catch (const std::exception&) { return std::unique_ptr<wiz8::File>{}; } }();
     if (file != 0) {

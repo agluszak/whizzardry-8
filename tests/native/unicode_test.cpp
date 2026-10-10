@@ -61,6 +61,27 @@ static void conversion_contracts()
     CHECK(std::string(truncated) == "é");
 }
 
+static void missile_record_contracts()
+{
+    W8MissileTableRecord missile{};
+    missile.display_name = "火箭é😀";
+    missile.cycle_name = "FIREBALL";
+    missile.radius = 2.5f;
+    missile.attack_mode = static_cast<W8AttackMode>(2);
+    missile.spell_missile = true;
+    missile.magnitude_base = 13;
+    missile.weapon_sound_class = 7;
+    std::fill(std::begin(missile.unknown_169), std::end(missile.unknown_169), 0x9a);
+    const auto bytes = wiz8::retail::encode(missile);
+    CHECK(bytes.size() == 0x1e5);
+    CHECK(bytes[0x100] == std::byte{'F'} && bytes[0x154] == std::byte{1});
+    W8MissileTableRecord decoded{};
+    wiz8::retail::decode<W8MissileTableRecord>(bytes, decoded);
+    CHECK(decoded.display_name == missile.display_name && decoded.cycle_name == "FIREBALL");
+    CHECK(decoded.radius == 2.5f && decoded.magnitude_base == 13);
+    CHECK(wiz8::retail::encode(decoded) == bytes);
+}
+
 static void record_contracts()
 {
     W8Character original{};
@@ -123,5 +144,6 @@ int main()
 {
     conversion_contracts();
     record_contracts();
+    missile_record_contracts();
     std::puts("ok");
 }

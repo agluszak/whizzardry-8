@@ -28,7 +28,6 @@ public:
     unsigned char m_pad_065[3];
 };
 
-W8_ABI_ASSERT(sizeof(W8JournalPanel) == 0x68, "W8JournalPanel_size");
 W8_ASSERT_BASE_END(W8JournalPanel, W8TextControl::Listener, m_next, 0x4c);
 
 struct W8JournalEntry {
@@ -36,7 +35,6 @@ struct W8JournalEntry {
     W8FactId fact;
     int alternate_text;
 };
-W8_ABI_ASSERT(sizeof(W8JournalEntry) == 0x0c, "W8JournalEntry_size");
 
 /* The fact journal, created lazily by the initializer below and
    appended to whenever a fact changes. */

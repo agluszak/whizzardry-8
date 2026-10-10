@@ -137,7 +137,12 @@ format-defined sizes must preserve their serialized layout. `w8_long` and
 `w8_ulong` name historical 32-bit fields; `W8_PTR32` represents disk-size
 pointer slots. `wiz8/retail_records.h` defines independent fixed-size disk records;
 `wiz8/retail_text_records.h` translates their named fields to runtime objects
-that own strings. Unknown binary fields remain byte arrays and are preserved. Packed UTF-16LE is read and written
+that own strings. Native records use natural compiler layout, with no packing
+scopes or historical runtime size assertions. Packing is confined to disk types
+and invariant, trivially copyable format payloads. GSTA party slots retain their
+0x106-byte stride; missile database rows retain their 0x1e5-byte payload. Shared
+item numeric payloads are declared once and copied independently of owned text.
+Unknown binary fields remain byte arrays and are preserved. Packed UTF-16LE is read and written
 through byte spans, including character names at offset 5 and spell names at
 offset 0x9b. UTF-16 uses `char16_t`/`std::u16string` in conversion code; no
 unaligned typed text pointers are dereferenced. Malformed Unicode becomes

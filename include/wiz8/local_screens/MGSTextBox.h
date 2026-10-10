@@ -30,7 +30,6 @@ struct W8NoticeWord {
     unsigned char keyword; /* 0 none, 1 keyword, 2 selected */
     bool redraw;           /* repaint once after deselection */
 };
-W8_ABI_ASSERT(sizeof(W8NoticeWord) == 10, "W8NoticeWord_must_be_10");
 
 void AdvanceNoticeLine(short text_box);
 
@@ -50,14 +49,13 @@ struct W8MessageStorageRecord {
     UINT32 saved_remaining_ms;
     /* Continuation link count of a wrapped entry; -1 when unlinked. */
     int link;
-    int length; /* wString length, -1 when unset */
+    int length; /* UTF-8 byte length, -1 when unset */
     /* Live list pointer; save preserves its 32-bit representation and
        load discards the serialized word instead of reconstructing a pointer. */
     W8PList* entries;
     unsigned char unknown_1c[8];
 };
 
-W8_ABI_ASSERT(sizeof(W8MessageStorageRecord) == 0x24, "W8MessageStorageRecord_must_be_0x24");
 
 extern W8MessageStorageRecord g_message_storage[4][0x15e];
 

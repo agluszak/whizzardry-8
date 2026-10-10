@@ -59,8 +59,7 @@ static void character_file_contracts(const std::filesystem::path& assets,
     // The checked-in retail character supplies real nonzero gameplay and
     // unknown fields, independent of the synthetic Unicode fixtures.
     {
-        const auto fixture = std::filesystem::path(__FILE__).parent_path().parent_path() /
-                             "runtime/fixtures/vi.CHR";
+        const auto fixture = std::filesystem::path(WIZ8_CHARACTER_FIXTURE);
         std::ifstream file(fixture, std::ios::binary);
         std::uint32_t extent;
         file.read(reinterpret_cast<char*>(&extent), sizeof(extent));
@@ -437,6 +436,14 @@ static void global_status_record()
     W8GlobalStatus status = {};
     status.buffers.Char = characters;
     status.buffers.XChar = rows;
+    for (int slot = 0; slot < 8; ++slot) {
+        rows[slot].fOccupied = true;
+        rows[slot].pending_action = W8_ACTION_ATTACK;
+        rows[slot].attack_mode[0] = 100 + slot;
+        rows[slot].movement_fatigue = 1.25f + slot;
+        rows[slot].party_order_index = slot;
+        rows[slot].weapon_swap_pending = slot % 2;
+    }
     status.party_gold = 0x12345678;
     status.uiTurnsElapsed = 0x87654321;
     status.pending_move_location.position.Set(1, 2, 3);
@@ -460,6 +467,40 @@ static void global_status_record()
     float position[3];
     memcpy(position, bytes + 0x22a7, sizeof(position));
     CHECK(position[0] == 1 && position[1] == 2 && position[2] == 3);
+    // Verify each record's prefix and stride independently of native sizeof.
+    for (int slot = 0; slot < 8; ++slot) {
+        CHECK(chunks.Read(&size, 4, &count) && size == 0x1862);
+        std::array<std::byte, 0x1862> character_bytes;
+        CHECK(chunks.Read(character_bytes.data(), character_bytes.size(), &count));
+    }
+    for (int slot = 0; slot < 8; ++slot) {
+        CHECK(chunks.Read(&size, 4, &count) && size == 0x106);
+        std::array<std::byte, 0x106> party_bytes;
+        CHECK(chunks.Read(party_bytes.data(), party_bytes.size(), &count));
+        int attack_mode;
+        float fatigue;
+        std::memcpy(&attack_mode, party_bytes.data() + 5, 4);
+        std::memcpy(&fatigue, party_bytes.data() + 0xf6, 4);
+        CHECK(party_bytes[0] == std::byte{1} && attack_mode == 100 + slot);
+        CHECK(fatigue == 1.25f + slot);
+        CHECK(party_bytes[0x105] == std::byte(slot % 2));
+    }
+    chunks.ReleaseCurrentChunk();
+    chunks.Close();
+    W8Character restored_characters[8]{};
+    W8PartySlotRow restored_rows[8]{};
+    W8GlobalStatus restored{};
+    restored.buffers.Char = restored_characters;
+    restored.buffers.XChar = restored_rows;
+    CHECK(chunks.OpenRead(path) && chunks.OpenChunk(0, 0));
+    LoadGameStatus(&chunks, &restored);
+    CHECK(restored.party_gold == status.party_gold);
+    for (int slot = 0; slot < 8; ++slot) {
+        CHECK(restored_rows[slot].fOccupied);
+        CHECK(restored_rows[slot].attack_mode[0] == 100 + slot);
+        CHECK(restored_rows[slot].movement_fatigue == 1.25f + slot);
+        CHECK(restored_rows[slot].weapon_swap_pending == bool(slot % 2));
+    }
     chunks.ReleaseCurrentChunk();
     chunks.Close();
 }
