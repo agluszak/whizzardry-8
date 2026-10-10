@@ -966,9 +966,35 @@ static void packed_camera_angles()
 
 #include <catch2/generators/catch_generators.hpp>
 
+struct NpcGlobalGuard
+{
+    decltype(g_npc_records) previous_records = g_npc_records;
+    decltype(gXStatus.uiNpcsInDatabase) previous_count = gXStatus.uiNpcsInDatabase;
+
+    ~NpcGlobalGuard()
+    {
+        ReleaseNpcStates();
+        g_npc_records = previous_records;
+        gXStatus.uiNpcsInDatabase = previous_count;
+    }
+};
+
+struct CombatRecordGuard
+{
+    decltype(g_spell_records) previous_spells = g_spell_records;
+    decltype(g_status.buffers.Char) previous_characters = g_status.buffers.Char;
+
+    ~CombatRecordGuard()
+    {
+        g_spell_records = previous_spells;
+        g_status.buffers.Char = previous_characters;
+    }
+};
+
 struct SaveFixture
 {
-    std::filesystem::path root = wiz8::path_from_utf8(make_temporary_directory("wiz8-save-records"));
+    ScopedTemporaryDirectory directory{"wiz8-save-records"};
+    std::filesystem::path root = directory.path;
     std::filesystem::path assets = root / "assets";
     std::filesystem::path user = root / "user";
 
@@ -985,8 +1011,6 @@ struct SaveFixture
     ~SaveFixture()
     {
         wiz8::clear_asset_archives();
-        std::error_code ignored;
-        std::filesystem::remove_all(root, ignored);
     }
 };
 
@@ -1002,6 +1026,7 @@ TEST_CASE("Global status record", "[save][records]")
 
 TEST_CASE_METHOD(SaveFixture, "NPC state versions and failure recovery", "[save][npc]")
 {
+    NpcGlobalGuard globals;
     const auto path = root / wiz8::path_from_utf8("npc-雪.bin");
     W8NpcDatabaseRecord database[3] = {};
     for (unsigned char index = 0; index < 3; ++index) database[index].kind = index;
@@ -1231,6 +1256,7 @@ TEST_CASE_METHOD(SaveFixture, "NPC script records and truncated streams", "[save
 
 TEST_CASE_METHOD(SaveFixture, "AI conditions and save slot naming", "[save][records]")
 {
+    CombatRecordGuard globals;
     // The AI used to decay the odd-offset condition array into unsigned int*.
     alignas(16) W8Character character = {};
     static W8SpellRuntimeRecord spells[W8_SPELL_COUNT] = {};

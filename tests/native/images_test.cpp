@@ -182,29 +182,45 @@ static void check_pcx(const image_type& image)
     REQUIRE((image.pAppData.empty() && !image.pAppData.size() && !image.pETRLEObject.size()));
 }
 
-TEST_CASE("images_test")
+struct ImageFixture
 {
-    const fs::path root = wiz8::path_from_utf8(make_temporary_directory("wiz8-images"));
-    const auto assets = root / "assets", user = root / "user", disc = root / "disc";
-    fs::create_directories(user);
-    fixture(assets / "Dotted.dir" / "many.dots.PcX", pcx());
-    fixture(assets / "Dotted.dir" / "default.PCX", pcx());
-    fixture(assets / "override.pcx", pcx());
-    auto override_pcx = pcx();
-    override_pcx[128] = override_pcx[130] = override_pcx[132] = 2;
-    override_pcx[133] = 1;
-    override_pcx[135] = 0;
-    fixture(user / "override.pcx", override_pcx);
-    fixture(disc / "disc.tga", tga(24, true, false));
-    auto truncated = tga(24, true, false);
-    truncated.resize(21);
-    fixture(assets / "Data" / "Data.slf", slf({{"Packed.pcx", pcx()},
-        {"Packed.tga", tga(24, false, true)}, {"Truncated.tga", truncated}}));
-    w8_native::configure_paths({wiz8::path_to_utf8(assets), wiz8::path_to_utf8(user),
-                                {wiz8::path_to_utf8(disc), "", ""}});
+    ScopedTemporaryDirectory directory{"wiz8-images"};
+    fs::path root = directory.path;
+    fs::path assets = root / "assets", user = root / "user", disc = root / "disc";
+    Bytes truncated;
 
-    wiz8::mount_slf("Data\\Data.slf");
-    rgb555();
+    ImageFixture()
+    {
+        fs::create_directories(user);
+        fixture(assets / "Dotted.dir" / "many.dots.PcX", pcx());
+        fixture(assets / "Dotted.dir" / "default.PCX", pcx());
+        fixture(assets / "override.pcx", pcx());
+        auto override_pcx = pcx();
+        override_pcx[128] = override_pcx[130] = override_pcx[132] = 2;
+        override_pcx[133] = 1;
+        override_pcx[135] = 0;
+        fixture(user / "override.pcx", override_pcx);
+        fixture(disc / "disc.tga", tga(24, true, false));
+        truncated = tga(24, true, false);
+        truncated.resize(21);
+        fixture(assets / "Data" / "Data.slf", slf({{"Packed.pcx", pcx()},
+            {"Packed.tga", tga(24, false, true)}, {"Truncated.tga", truncated}}));
+        w8_native::configure_paths({wiz8::path_to_utf8(assets), wiz8::path_to_utf8(user),
+                                    {wiz8::path_to_utf8(disc), "", ""}});
+
+        wiz8::mount_slf("Data\\Data.slf");
+        rgb555();
+    }
+
+    ~ImageFixture()
+    {
+        wiz8::clear_asset_archives();
+        rgb555();
+    }
+};
+
+TEST_CASE_METHOD(ImageFixture, "Native image formats, palettes and archives", "[image][decoding]")
+{
     {
         static_assert(sizeof(STCIHeader) == 64);
         static_assert(offsetof(STCIHeader, uiAppDataSize) == 48);
@@ -376,12 +392,18 @@ TEST_CASE("images_test")
         REQUIRE(image->fFlags == IMAGE_BITMAPDATA);
         for (unsigned i = 0; i < 64; ++i)
         {
-            REQUIRE(abs(int(image->pImageData[i * 3]) - 240) < 4);
-            REQUIRE(abs(int(image->pImageData[i * 3 + 1]) - 20) < 4);
-            REQUIRE(abs(int(image->pImageData[i * 3 + 2]) - 40) < 4);
+            CHECK(abs(int(image->pImageData[i * 3]) - 240) < 4);
+            CHECK(abs(int(image->pImageData[i * 3 + 1]) - 20) < 4);
+            CHECK(abs(int(image->pImageData[i * 3 + 2]) - 40) < 4);
         }
     }
 
+
+}
+
+TEST_CASE_METHOD(ImageFixture, "Truncated images and rollback", "[image][validation]")
+{
+    fixture(assets / "test.tga", tga(24, true, false));
     std::vector<Bytes> invalid_pcx{{}, Bytes(127), pcx(), pcx(), pcx(), pcx()};
     invalid_pcx[2][0] = 0;
     word(invalid_pcx[3], 4, 10); // Reversed extent.
@@ -391,7 +413,7 @@ TEST_CASE("images_test")
     {
         fixture(assets / "invalid.pcx", bytes);
         for (unsigned repeat = 0; repeat < 10; ++repeat)
-            REQUIRE(!load("invalid.pcx"));
+            CHECK(!load("invalid.pcx"));
     }
     std::vector<Bytes> invalid_tga{{}, Bytes(17), truncated, tga(24, true, true),
                                   tga(24, true, false), tga(24, true, false), tga(24, true, false)};
@@ -432,8 +454,5 @@ TEST_CASE("images_test")
     REQUIRE(!load(long_path.c_str()));
     REQUIRE(!CreateImage(nullptr, IMAGE_ALLDATA));
 
-    wiz8::clear_asset_archives();
-    fs::remove_all(root);
-    puts("ok: SDL_image PCX/TGA/JPEG, palette/packed-pixel policy, orientation, bounded SLF and failures");
 
 }

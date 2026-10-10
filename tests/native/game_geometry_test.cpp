@@ -1,4 +1,5 @@
 #include <catch2/catch_test_macros.hpp>
+#include "surrender_test_fixture.h"
 #include "surrender/srBoundingBox.h"
 #include "surrender/srMaterial.h"
 #include "surrender/srModeler.h"
@@ -504,20 +505,44 @@ static void triangle_visibility()
     REQUIRE((mask == (1u << 1) && std::isfinite(depth)));
 }
 
-TEST_CASE("game_geometry_test")
+TEST_CASE_METHOD(SurRenderTestFixture, "Procedural meshes", "[geometry]")
 {
-    REQUIRE((srInit()));
     procedural_meshes();
+}
+
+TEST_CASE_METHOD(SurRenderTestFixture, "Renderer bounds", "[geometry]")
+{
     renderer_bounds();
+}
+
+TEST_CASE_METHOD(SurRenderTestFixture, "Triangle visibility", "[geometry]")
+{
     triangle_visibility();
+}
+
+TEST_CASE_METHOD(SurRenderTestFixture, "Bounding volumes", "[geometry]")
+{
     bounds();
+}
+
+TEST_CASE_METHOD(SurRenderTestFixture, "Planes and segments", "[geometry]")
+{
     planes_and_segments();
+}
+
+TEST_CASE_METHOD(SurRenderTestFixture, "Cameras and throwing", "[geometry]")
+{
     camera_and_throw();
+}
+
+TEST_CASE_METHOD(SurRenderTestFixture, "Linked mesh bounds", "[geometry]")
+{
     linked_mesh_bounds();
+}
+
+TEST_CASE_METHOD(SurRenderTestFixture, "Baked lighting", "[geometry]")
+{
     baked_lighting();
-    REQUIRE((srExit()));
-    std::puts(
-        "ok: procedural meshes, triangulation, clipping, bounds, camera, collision and lighting");
 }
 
 TEST_CASE("navigator route growth, copying and movement")
