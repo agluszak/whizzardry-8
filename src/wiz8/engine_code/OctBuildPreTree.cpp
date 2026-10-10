@@ -1143,20 +1143,17 @@ void OctBuildPreTree::AssignInitialRegions(const W8OctSpatialState* arg_spatial)
     int x_base = static_cast<int>(static_cast<signed char>(path >> 15)) & ~1;
     int y_base = static_cast<int>(static_cast<signed char>(path >> 7)) & ~1;
     signed char z_base = static_cast<signed char>(static_cast<signed char>(path) << 1);
-    short child_index = 0;
-    for (int x = 0; x != 2; ++x) {
-        for (int y = 0; y != 2; ++y) {
-            for (int z = 0; z != 2; ++z, ++child_index) {
-                W8OctBuildNode* parent = arg_spatial->m_root;
-                W8OctBuildNode* node = parent->children[child_index];
-                if (node != 0) {
-                    child.SetChildBounds(arg_spatial, x, y, z);
-                    child.m_node_index =
-                        ((high * 0x100 + x_base + x) * 0x100 + y_base + y) * 0x100 + z_base + z;
-                    child.m_root = node;
-                    AssignInitialRegions(&child);
-                }
-            }
+    for (int child_index = 0; child_index < 8; ++child_index) {
+        const int x = child_index >> 2;
+        const int y = (child_index >> 1) & 1;
+        const int z = child_index & 1;
+        W8OctBuildNode* node = arg_spatial->m_root->children[child_index];
+        if (node != nullptr) {
+            child.SetChildBounds(arg_spatial, x, y, z);
+            child.m_node_index =
+                ((high * 0x100 + x_base + x) * 0x100 + y_base + y) * 0x100 + z_base + z;
+            child.m_root = node;
+            AssignInitialRegions(&child);
         }
     }
 }
@@ -1390,18 +1387,15 @@ void OctBuildPreTree::AssignRegionFromSurfaces(const W8OctSpatialState* arg_spat
     }
 
     if (arg_spatial->m_depth != this->spatial.m_leaf_level) {
-        short child_index = 0;
-        for (int x = 0; x != 2; ++x) {
-            for (int y = 0; y != 2; ++y) {
-                for (int z = 0; z != 2; ++z, ++child_index) {
-                    W8OctBuildNode* parent = arg_spatial->m_root;
-                    W8OctBuildNode* node = parent->children[child_index];
-                    if (node != 0) {
-                        child.SetChildBounds(arg_spatial, x, y, z);
-                        child.m_root = node;
-                        AssignRegionFromSurfaces(&child);
-                    }
-                }
+        for (int child_index = 0; child_index < 8; ++child_index) {
+            const int x = child_index >> 2;
+            const int y = (child_index >> 1) & 1;
+            const int z = child_index & 1;
+            W8OctBuildNode* node = arg_spatial->m_root->children[child_index];
+            if (node != nullptr) {
+                child.SetChildBounds(arg_spatial, x, y, z);
+                child.m_root = node;
+                AssignRegionFromSurfaces(&child);
             }
         }
         return;
