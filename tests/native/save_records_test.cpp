@@ -13,6 +13,7 @@
 #include "wiz8/local_code/MonsterAI.h"
 #include "wiz8/local_code/NPCManager.h"
 #include "wiz8/local_code/LoadSaveGame.h"
+#include "wiz8/local_screens/NPCInteractionSubscreen.h"
 #include "wiz8/npc_script_file.h"
 #include "wiz8/spell_ids.h"
 #include "wiz8/xstatus.h"
@@ -46,6 +47,40 @@ template <class T> static void write(std::ofstream& out, const T& value)
 static wiz8::DiskFileTime disk_time(const SGP_FILETIME& value)
 {
     return {value.dwLowDateTime, value.dwHighDateTime};
+}
+
+static void keyword_file_contracts()
+{
+    wiz8::create_directory("Data/Strings");
+    auto write_keywords = [](const char* path, const std::string& text) {
+        auto file = wiz8::open_file(path, wiz8::OpenMode::replace);
+        file->write(text.data(), text.size());
+        file->close();
+    };
+    const char* english = "Data/Strings/English_Keywords.txt";
+    const char* translated = "Data/Strings/translated_Keywords.txt";
+    write_keywords(english, "header\r\n01234567890  hello / world /\r\n01234567890bye/last");
+    ReloadKeywordLists();
+    CHECK(!g_keyword_lists_loaded && g_keyword_lists.GetCount() == 0);
+    write_keywords(translated, "header\n01234567890bonjour/monde/\n01234567890au revoir/final");
+    ReloadKeywordLists();
+    CHECK(g_keyword_lists_loaded && g_keyword_lists.GetCount() == 2);
+    auto first = *g_keyword_lists.GetAt(0);
+    CHECK(first->GetCount() == 2);
+    auto row = *first->GetAt(0);
+    CHECK(row->GetCount() == 2 && !wcscmp(*row->GetAt(0), L"hello") &&
+          !wcscmp(*row->GetAt(1), L"world"));
+    row = *first->GetAt(1);
+    CHECK(row->GetCount() == 2 && !wcscmp(*row->GetAt(0), L"bye") &&
+          !wcscmp(*row->GetAt(1), L"last"));
+    ClearKeywordLists();
+    CHECK(!g_keyword_lists_loaded && g_keyword_lists.GetCount() == 0);
+    write_keywords(english, "header\n01234567890partial/row/\n01234567890" + std::string("\0bad", 4));
+    ReloadKeywordLists();
+    CHECK(!g_keyword_lists_loaded && g_keyword_lists.GetCount() == 0);
+    CHECK(wiz8::remove_file(english));
+    ReloadKeywordLists();
+    CHECK(!g_keyword_lists_loaded && g_keyword_lists.GetCount() == 0);
 }
 
 static void save_file_contracts(const std::filesystem::path& user)
@@ -344,6 +379,7 @@ int main()
     triangle.point.Set(0, 3, 3);
     CHECK(!PointInsideTriangle(triangle.vertices, 0, &triangle.point));
     save_file_contracts(user);
+    keyword_file_contracts();
     CHECK(ShutDownFileDatabase());
     ShutdownFileManager();
     std::filesystem::remove_all(root);

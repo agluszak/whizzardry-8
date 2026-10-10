@@ -1,5 +1,6 @@
 #include <wiz8/filesystem.h>
 #include <sstream>
+#include <memory>
 #include <cuchar>
 #include "wiz8/wiz8_windows.h"
 #include "wiz8/spell_ids.h"
@@ -333,9 +334,24 @@ wchar_t* ParseKeywordToken(wchar_t* line, wchar_t* field)
     return cursor;
 }
 
+using KeywordLine = W8GrowableVector<wchar_t*>;
+using KeywordFile = W8GrowableVector<KeywordLine*>;
+
+static void ReleaseKeywordLine(KeywordLine* line)
+{
+    for (int i = 0; i < line->GetCount(); ++i) free(*line->GetAt(i));
+    delete line;
+}
+
+static void ReleaseKeywordFile(KeywordFile* file)
+{
+    for (int i = 0; i < file->GetCount(); ++i) ReleaseKeywordLine(*file->GetAt(i));
+    delete file;
+}
+
 /* Load one keyword file into a file list: a fresh line list per line and a
-   malloc'd wide copy of every '/'-separated field. The first line is read only
-   to prime the end-of-file test, and parsing starts eleven wide characters
+   malloc'd wide copy of every '/'-separated field. The header line is skipped,
+   and parsing starts eleven wide characters
    into every line - retail's own offset, whose prefix meaning is not
    resolved. A file that cannot be opened answers zero; otherwise every line
    adds a list, an empty one included, and the loader answers one. */
@@ -344,12 +360,8 @@ unsigned char LoadKeywordFile(const char* path, W8GrowableVector<W8GrowableVecto
 {
     wchar_t line[1000];
     wchar_t field[1000];
-    W8GrowableVector<wchar_t*>* entry;
     wchar_t* cursor;
-    wchar_t* word;
     std::istringstream stream;
-    size_t length;
-
     try {
         auto input = wiz8::open_file(path);
         if (input->size() > 16 * 1024 * 1024) return 0;
@@ -363,10 +375,11 @@ unsigned char LoadKeywordFile(const char* path, W8GrowableVector<W8GrowableVecto
         memset(line, 0, sizeof(line));
         std::mbstate_t state{};
         std::size_t offset = 0, count = 0;
-        while (offset < bytes.size()) {
+        while (offset <= bytes.size()) {
             char16_t character;
             const auto consumed = std::mbrtoc16(&character, bytes.data() + offset,
                                                 bytes.size() - offset, &state);
+            if (offset == bytes.size() && consumed == std::size_t(-2)) break;
             if (consumed == std::size_t(-1) || consumed == std::size_t(-2) ||
                 consumed == 0 || count + 1 >= std::size(line))
                 throw std::runtime_error("invalid keyword text");
@@ -376,19 +389,28 @@ unsigned char LoadKeywordFile(const char* path, W8GrowableVector<W8GrowableVecto
         return true;
     };
     try {
-    read_line(); // Header row.
-    while (read_line()) {
-        entry = new W8GrowableVector<wchar_t*>;
-        cursor = line + 11;
-        while ((cursor = ParseKeywordToken(cursor, field)) != 0) {
-            length = wcslen(field);
-            word = static_cast<wchar_t*>(malloc(length * sizeof(*word) + sizeof(*word)));
-            wcscpy(word, field);
-            entry->Add(word);
+        std::unique_ptr<KeywordFile, decltype(&ReleaseKeywordFile)> pending(
+            new KeywordFile, ReleaseKeywordFile);
+        read_line(); // Header row.
+        while (read_line()) {
+            std::unique_ptr<KeywordLine, decltype(&ReleaseKeywordLine)> entry(
+                new KeywordLine, ReleaseKeywordLine);
+            cursor = line + 11;
+            while ((cursor = ParseKeywordToken(cursor, field)) != 0) {
+                const auto length = wcslen(field);
+                std::unique_ptr<wchar_t, decltype(&free)> word(
+                    static_cast<wchar_t*>(malloc((length + 1) * sizeof(wchar_t))), free);
+                if (!word) throw std::bad_alloc();
+                wcscpy(word.get(), field);
+                if (entry->Add(word.get()) < 0) throw std::bad_alloc();
+                (void)word.release();
+            }
+            if (pending->Add(entry.get()) < 0) throw std::bad_alloc();
+            (void)entry.release();
         }
-        file->Add(entry);
-    }
-
+        if (!file->Grow(file->GetCount() + pending->GetCount())) throw std::bad_alloc();
+        for (int i = 0; i < pending->GetCount(); ++i) (void)file->Add(*pending->GetAt(i));
+        pending->Clear();
     } catch (const std::exception&) { return 0; }
     return 1;
 }
@@ -399,24 +421,8 @@ unsigned char LoadKeywordFile(const char* path, W8GrowableVector<W8GrowableVecto
 // FUNCTION: WIZ8 0x0056c130
 void ClearKeywordLists(void)
 {
-    W8GrowableVector<W8GrowableVector<wchar_t*>*>* file;
-    W8GrowableVector<wchar_t*>* entry;
-    int file_index;
-    int entry_index;
-    int word_index;
-
-    for (file_index = 0; file_index < g_keyword_lists.GetCount(); ++file_index) {
-        file = *g_keyword_lists.GetAt(file_index);
-        for (entry_index = 0; entry_index < file->count; ++entry_index) {
-            entry = *file->GetAt(entry_index);
-            for (word_index = 0; word_index < entry->count; ++word_index) {
-                free(*entry->GetAt(word_index));
-            }
-            entry->Clear();
-            delete entry;
-        }
-        delete file;
-    }
+    for (int i = 0; i < g_keyword_lists.GetCount(); ++i)
+        ReleaseKeywordFile(*g_keyword_lists.GetAt(i));
     g_keyword_lists.Clear();
     g_keyword_lists_loaded = false;
 }
@@ -428,22 +434,25 @@ void ClearKeywordLists(void)
 // FUNCTION: WIZ8 0x0056c200
 void ReloadKeywordLists(void)
 {
-    W8GrowableVector<W8GrowableVector<wchar_t*>*>* english;
-    W8GrowableVector<W8GrowableVector<wchar_t*>*>* translated;
-
     ClearKeywordLists();
-    english = new W8GrowableVector<W8GrowableVector<wchar_t*>*>;
-    if (!LoadKeywordFile("Data\\Strings\\English_Keywords.txt", english)) {
-        return;
-    }
-    g_keyword_lists.Add(english);
-    translated = new W8GrowableVector<W8GrowableVector<wchar_t*>*>;
-    if (!LoadKeywordFile("Data\\Strings\\translated_Keywords.txt", translated)) {
+    try {
+        std::unique_ptr<KeywordFile, decltype(&ReleaseKeywordFile)> english(
+            new KeywordFile, ReleaseKeywordFile);
+        if (!LoadKeywordFile("Data\\Strings\\English_Keywords.txt", english.get())) return;
+        if (g_keyword_lists.Add(english.get()) < 0) throw std::bad_alloc();
+        (void)english.release();
+        std::unique_ptr<KeywordFile, decltype(&ReleaseKeywordFile)> translated(
+            new KeywordFile, ReleaseKeywordFile);
+        if (!LoadKeywordFile("Data\\Strings\\translated_Keywords.txt", translated.get())) {
+            ClearKeywordLists();
+            return;
+        }
+        if (g_keyword_lists.Add(translated.get()) < 0) throw std::bad_alloc();
+        (void)translated.release();
+        g_keyword_lists_loaded = true;
+    } catch (const std::exception&) {
         ClearKeywordLists();
-        return;
     }
-    g_keyword_lists.Add(translated);
-    g_keyword_lists_loaded = true;
 }
 
 /* Translate a typed dialogue keyword through the loaded tables. With no

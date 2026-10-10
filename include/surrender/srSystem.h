@@ -2,7 +2,6 @@
 
 #define SR_SYSTEM_API
 
-
 class srStringTable;
 
 class srSystem {

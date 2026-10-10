@@ -2,7 +2,6 @@
 
 #include "srArray.h"
 
-
 #define SR_STRING_TABLE_API
 
 class SR_STRING_TABLE_API srStringTable {

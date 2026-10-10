@@ -1,6 +1,5 @@
 #pragma once
 
-
 #define SR_DYNAMIC_LIBRARY_API
 
 class SR_DYNAMIC_LIBRARY_API srDynamicLibrary {

@@ -103,7 +103,7 @@ int main(int argc, char** argv)
     }
     if (!capture) {
         try {
-            auto file = wiz8::open_host_file(argv[1]);
+            auto file = wiz8::open_host_file(wiz8::path_from_utf8(argv[1]));
             std::string text(static_cast<std::size_t>(file->size()), '\0');
             if (file->read(text.data(), text.size()).bytes != text.size()) return 2;
             reference.str(text);
