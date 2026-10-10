@@ -58,7 +58,6 @@
 #define BUTTON_MOVE_CALLBACK 0x00000010
 #define BUTTON_GENERIC 0x00000020
 #define BUTTON_HOT_SPOT 0x00000040
-#define BUTTON_SELFDELETE_IMAGE 0x00000080
 #define BUTTON_ALLOW_DISABLED_CALLBACK 0x00000200
 #define BUTTON_DIRTY 0x00000400
 #define BUTTON_SAVEBACKGROUND 0x00000800
@@ -75,6 +74,11 @@ extern UINT32 ButtonDestBuffer;
 typedef void (*GUI_CALLBACK)(struct _GUI_BUTTON*, INT32);
 
 // GUI_BUTTON structure definitions.
+struct BUTTON_PICS;
+struct GenericButtonImages;
+using ButtonImage = std::shared_ptr<BUTTON_PICS>;
+using GenericButtonImage = std::shared_ptr<GenericButtonImages>;
+
 typedef struct _GUI_BUTTON : std::enable_shared_from_this<_GUI_BUTTON> {
     ~_GUI_BUTTON();
     _GUI_BUTTON() = default;
@@ -82,7 +86,8 @@ typedef struct _GUI_BUTTON : std::enable_shared_from_this<_GUI_BUTTON> {
     _GUI_BUTTON& operator=(const _GUI_BUTTON&) = delete;
 
     INT32 IDNum;                // ID Number, contains it's own button number
-    UINT32 ImageNum;            // Image number to use (see DOCs for details)
+    ButtonImage quick_image;
+    GenericButtonImage generic_image;
     MOUSE_REGION Area;          // Mouse System's mouse region to use for this button
     GUI_CALLBACK ClickCallback; // Button Callback when button is clicked
     GUI_CALLBACK MoveCallback;  // Button Callback when mouse moved on this region
@@ -147,9 +152,15 @@ struct BUTTON_PICS {
     UINT32 MaxHeight; // Height of largest image in use
 };
 
-#define MAX_BUTTON_PICS 256
 
-extern BUTTON_PICS ButtonPictures[MAX_BUTTON_PICS];
+struct GenericButtonImages {
+    // Off-normal, on-normal, grayed, off-highlight, on-highlight, background.
+    std::array<std::unique_ptr<SGPVObject>, 6> frames;
+    UINT16 fill_color = 0;
+    UINT16 background_frame = 0;
+    INT16 offset_x = 0;
+    INT16 offset_y = 0;
+};
 
 // Function protos for button system
 BOOLEAN InitializeButtonImageManager(INT32 DefaultBuffer, INT32 DefaultPitch, INT32 DefaultBPP);
@@ -157,21 +168,17 @@ void ShutdownButtonImageManager(void);
 BOOLEAN InitButtonSystem(void);
 void ShutdownButtonSystem(void);
 
-INT32 FindFreeButtonSlot(void);
-INT16 FindFreeGenericSlot(void);
 
 // Now used by Wizardry -- DB
 void SetButtonFastHelpText(const GUIButton& button, std::string_view Text);
 
-INT32 LoadButtonImage(std::string_view filename, INT32 Grayed, INT32 OffNormal, INT32 OffHilite,
+ButtonImage LoadButtonImage(std::string_view filename, INT32 Grayed, INT32 OffNormal, INT32 OffHilite,
                       INT32 OnNormal, INT32 OnHilite);
-INT32 UseVObjAsButtonImage(HVOBJECT hVObject, INT32 Grayed, INT32 OffNormal, INT32 OffHilite,
+ButtonImage UseVObjAsButtonImage(HVOBJECT hVObject, INT32 Grayed, INT32 OffNormal, INT32 OffHilite,
                            INT32 OnNormal, INT32 OnHilite);
-void UnloadButtonImage(INT32 Index);
-INT16 LoadGenericButtonImages(std::string_view GrayName, std::string_view OffNormName, std::string_view OffHiliteName,
+GenericButtonImage LoadGenericButtonImages(std::string_view GrayName, std::string_view OffNormName, std::string_view OffHiliteName,
                               std::string_view OnNormName, std::string_view OnHiliteName, std::string_view BkGrndName,
                               INT16 Index, INT16 OffsetX, INT16 OffsetY);
-BOOLEAN UnloadGenericButtonImage(INT16 GenImg);
 
 BOOLEAN DisableButton(const GUIButton& button);
 void HideButton(const GUIButton& button);
@@ -195,7 +202,7 @@ extern BOOLEAN gfRenderHilights;
 #define DisableHilightsAndHelpText() gfRenderHilights = FALSE;
 
 //Providing you have allocated your own image, this is a somewhat simplified function.
-GUIButton QuickCreateButton(UINT32 Image, INT16 xloc, INT16 yloc, INT32 Type, INT16 Priority,
+GUIButton QuickCreateButton(ButtonImage Image, INT16 xloc, INT16 yloc, INT32 Type, INT16 Priority,
                         GUI_CALLBACK MoveCallback, GUI_CALLBACK ClickCallback);
 
 //A hybrid of QuickCreateButton.  Takes a lot less parameters, but makes more assumptions.  It self manages the
@@ -205,7 +212,7 @@ GUIButton QuickCreateButton(UINT32 Image, INT16 xloc, INT16 yloc, INT32 Type, IN
 //Same as above, but accepts specify toggle type
 //Same as above, but accepts priority specification.
 GUIButton CreateTextButton(std::string_view string, UINT32 uiFont, INT16 sForeColor, INT16 sShadowColor,
-                       INT16 GenImg, INT16 xloc, INT16 yloc, INT16 w, INT16 h, INT32 Type,
+                       GenericButtonImage GenImg, INT16 xloc, INT16 yloc, INT16 w, INT16 h, INT32 Type,
                        INT16 Priority, GUI_CALLBACK MoveCallback, GUI_CALLBACK ClickCallback);
 //New functions
 void SpecifyButtonText(const GUIButton& button, std::string_view string);

@@ -30,8 +30,8 @@
 
 // FUNCTION: WIZ8 0x005d25b0
 W8MessageDialogBase::W8MessageDialogBase()
-    : accepted(false), is_open(true), m_edge_image(-1), m_message_button(), m_confirm_button(),
-      m_confirm_image(-1), m_cancel_button(), m_cancel_image(-1), m_line_count(0)
+    : accepted(false), is_open(true), m_edge_image(), m_message_button(), m_confirm_button(),
+      m_confirm_image(), m_cancel_button(), m_cancel_image(), m_line_count(0)
 {
 }
 
@@ -178,9 +178,9 @@ void W8MessageDialogBase::SetClientExtent(int width, int height)
 int W8MessageDialogBase::CreateControls()
 {
     W8DialogBase::CreateControls();
-    if (m_edge_image == -1) {
+    if (!m_edge_image) {
         m_edge_image = LoadGenericButtonImages({}, "Data\\Dialogs\\DialogEdge.STI", {}, "Data\\Dialogs\\DialogEdge.STI", {}, m_background_path, static_cast<short>(m_background_flags), 0, 0);
-        if (m_edge_image == -1) {
+        if (!m_edge_image) {
             return m_error = 3;
         }
     }
@@ -188,14 +188,14 @@ int W8MessageDialogBase::CreateControls()
 
     m_confirm_image =
         LoadButtonImage("Data\\Dialogs\\DialogConfirmation.STI", 3, 0, 1, 2, 2);
-    if (m_confirm_image != -1) {
+    if (m_confirm_image) {
         m_confirm_button =
             QuickCreateButton(m_confirm_image, 0, 0, BUTTON_NO_TOGGLE, MSYS_PRIORITY_HIGHEST,
                               MessageDialogConfirmCallback, MessageDialogConfirmCallback);
     }
     m_cancel_image =
         LoadButtonImage("Data\\Dialogs\\DialogConfirmation.STI", 7, 4, 5, 6, 6);
-    if (m_cancel_image != -1) {
+    if (m_cancel_image) {
         m_cancel_button =
             QuickCreateButton(m_cancel_image, 0, 0, BUTTON_NO_TOGGLE, MSYS_PRIORITY_HIGHEST,
                               MessageDialogCancelCallback, MessageDialogCancelCallback);
@@ -229,12 +229,12 @@ void W8MessageDialogBase::DestroyControls()
     unsigned int index;
 
     W8DialogBase::DestroyControls();
-    ReleaseDialogBorderImage(m_edge_image);
+    m_edge_image.reset();
     m_message_button.reset();
     m_confirm_button.reset();
     m_cancel_button.reset();
-    ReleaseDialogButtonImage(m_confirm_image);
-    ReleaseDialogButtonImage(m_cancel_image);
+    m_confirm_image.reset();
+    m_cancel_image.reset();
     m_lines.clear();
 }
 

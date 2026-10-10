@@ -40,7 +40,7 @@
 // GLOBAL: WIZ8 0x0068c0a4
 static int g_message_box_state;
 // GLOBAL: WIZ8 0x0061a548
-static short g_message_box_background_image = -1;
+static GenericButtonImage g_message_box_background_image;
 // GLOBAL: WIZ8 0x0061a54c
 static GUIButton g_message_box_background_button;
 // GLOBAL: WIZ8 0x0061a550
@@ -48,9 +48,9 @@ static GUIButton g_message_box_accept_button;
 // GLOBAL: WIZ8 0x0061a554
 static GUIButton g_message_box_cancel_button;
 // GLOBAL: WIZ8 0x0061a558
-static int g_message_box_accept_image = -1;
+static ButtonImage g_message_box_accept_image;
 // GLOBAL: WIZ8 0x0061a55c
-static int g_message_box_cancel_image = -1;
+static ButtonImage g_message_box_cancel_image;
 // GLOBAL: WIZ8 0x0068c0a0
 void (*g_message_box_callback)(void);
 // GLOBAL: WIZ8 0x0068c0a8
@@ -534,7 +534,7 @@ bool CreateMessageBox(std::string_view text, int font, unsigned int shade, bool 
     if (has_accept) {
         strcpy(filename, "Data\\Message Box\\Ok.sti");
         g_message_box_accept_image = LoadButtonImage(filename, 0, 1, 2, 3, 4);
-        if (g_message_box_accept_image < 0) {
+        if (!g_message_box_accept_image) {
             return false;
         }
         g_message_box_accept_button = QuickCreateButton(
@@ -549,7 +549,7 @@ bool CreateMessageBox(std::string_view text, int font, unsigned int shade, bool 
     if (has_cancel) {
         strcpy(filename, "Data\\Message Box\\Cancel.sti");
         g_message_box_cancel_image = LoadButtonImage(filename, 0, 1, 2, 3, 4);
-        if (g_message_box_cancel_image < 0) {
+        if (!g_message_box_cancel_image) {
             return false;
         }
         g_message_box_cancel_button = QuickCreateButton(
@@ -578,11 +578,11 @@ static void ReleaseMessageBoxControls()
     SDL_Rect rect;
     if (g_message_box_accept_button) {
         g_message_box_accept_button.reset();
-        UnloadButtonImage(g_message_box_accept_image);
+        g_message_box_accept_image.reset();
     }
     if (g_message_box_cancel_button) {
         g_message_box_cancel_button.reset();
-        UnloadButtonImage(g_message_box_cancel_image);
+        g_message_box_cancel_image.reset();
     }
     if (g_message_box_background_button) {
         GetButtonArea(g_message_box_background_button, &rect);
@@ -590,9 +590,9 @@ static void ReleaseMessageBoxControls()
         InvalidateRegion(rect.x, rect.y, (rect.x + rect.w), (rect.y + rect.h), 1);
         g_message_box_background_button.reset();
     }
-    if (g_message_box_background_image != -1) {
-        UnloadGenericButtonImage(g_message_box_background_image);
-        g_message_box_background_image = -1;
+    if (g_message_box_background_image) {
+        g_message_box_background_image.reset();
+        g_message_box_background_image.reset();
     }
 }
 

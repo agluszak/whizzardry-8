@@ -88,7 +88,7 @@ private:
     int m_off_hover_frame;
     int m_on_normal_frame;
     int m_on_hover_frame;
-    int m_image_handle;  /* loaded button-image handle */
+    ButtonImage m_image_handle;
     GUIButton m_button_handle; /* owns the underlying SGP button */
     int m_tooltip_index; /* g_localized_strings index, or -1 */
     W8DialogButtonCallback m_left_callback;
@@ -157,18 +157,4 @@ inline bool AllocateDialogButtons(W8DialogButton** buttons, int count)
 /* Dialog handles keep their sentinel until release finishes. Removal,
    ordinary images and generic borders have distinct SGP resource owners. */
 
-inline void ReleaseDialogButtonImage(INT32& handle)
-{
-    if (handle != -1) {
-        UnloadButtonImage(handle);
-        handle = -1;
-    }
-}
 
-inline void ReleaseDialogBorderImage(INT16& handle)
-{
-    if (handle != -1) {
-        UnloadGenericButtonImage(handle);
-        handle = -1;
-    }
-}

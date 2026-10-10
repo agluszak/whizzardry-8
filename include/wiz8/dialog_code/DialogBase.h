@@ -68,7 +68,7 @@ protected:
     unsigned char padding_01a[2];
     char* m_background_path;
     int m_background_flags;
-    short m_border;
+    GenericButtonImage m_border;
     unsigned char padding_026[2];
     int m_x;
     int m_y;

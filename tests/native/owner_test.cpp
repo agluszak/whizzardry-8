@@ -34,10 +34,6 @@
 
 
 extern GUI_BUTTON* gpAnchoredButton;
-extern std::array<std::unique_ptr<SGPVObject>, 40> GenericButtonGrayed, GenericButtonOffNormal, GenericButtonOffHilite;
-extern std::array<std::unique_ptr<SGPVObject>, 40> GenericButtonOnNormal, GenericButtonOnHilite, GenericButtonBackground;
-extern UINT16 GenericButtonFillColors[], GenericButtonBackgroundIndex[];
-extern INT16 GenericButtonOffsetX[], GenericButtonOffsetY[];
 
 namespace {
 std::vector<int> screen_leaves;
@@ -274,16 +270,16 @@ void region_registration_and_callback_lifetimes()
     MSYS_SGP_Mouse_Handler_Hook(LEFT_BUTTON_UP, 11, 11, false, false);
     MSYS_RemoveRegion(&first);
 
-    nested_outer = CreateTextButton("nested", 0, 0, 0, -1, 0, 0, 40, 20,
+    nested_outer = CreateTextButton("nested", 0, 0, 0, {}, 0, 0, 40, 20,
                                     BUTTON_TOGGLE, MSYS_PRIORITY_NORMAL, nullptr, nested_click);
-    nested_inner = CreateTextButton("nested", 0, 0, 0, -1, 0, 20, 40, 20,
+    nested_inner = CreateTextButton("nested", 0, 0, 0, {}, 0, 20, 40, 20,
                                     BUTTON_TOGGLE, MSYS_PRIORITY_NORMAL, nullptr, nested_click);
     REQUIRE((nested_outer && nested_inner));
     QuickButtonCallbackMButn(&nested_outer->Area, MSYS_CALLBACK_REASON_LBUTTON_DWN);
     REQUIRE((!nested_outer && !nested_inner));
 
     for (bool disabled : {false, true}) {
-        removable_button = CreateTextButton("remove", 0, 0, 0, -1, 0, 0, 40, 20,
+        removable_button = CreateTextButton("remove", 0, 0, 0, {}, 0, 0, 40, 20,
                                             BUTTON_TOGGLE, MSYS_PRIORITY_NORMAL,
                                             remove_button_on_callback, remove_button_on_callback);
         REQUIRE(removable_button);
@@ -320,7 +316,7 @@ void buttons_and_regions()
     REQUIRE(MSYS_GrabMouse(&high) == MSYS_GRABBED_OK);
     MSYS_ReleaseMouse(&high);
 
-    auto owned_button = CreateTextButton("direct", 0, 0, 0, -1, 0, 0, 40, 20,
+    auto owned_button = CreateTextButton("direct", 0, 0, 0, {}, 0, 0, 40, 20,
                                          BUTTON_TOGGLE, MSYS_PRIORITY_NORMAL, nullptr, click);
     REQUIRE(owned_button);
     auto& button = *owned_button;
@@ -348,7 +344,7 @@ void buttons_and_regions()
 
     for (unsigned repeat = 0; repeat < 32; ++repeat) {
         char label[] = "owned button";
-        auto object = CreateTextButton(label, 0, 0, 0, -1, 0, 0, 40, 20,
+        auto object = CreateTextButton(label, 0, 0, 0, {}, 0, 0, 40, 20,
                                        BUTTON_TOGGLE, MSYS_PRIORITY_NORMAL, nullptr, click);
         REQUIRE(object);
         auto* owned = object.get();
@@ -670,39 +666,40 @@ void generic_button_images()
         REQUIRE(CreateImage("bad-size.sti", IMAGE_PALETTE));
     }
     REQUIRE(!InitializeButtonImageManager(-1, -1, -1));
-    REQUIRE((FindFreeGenericSlot() == 0 && GenericButtonOffNormal[0] == nullptr));
     button_image_fixture(assets, DEFAULT_GENERIC_BUTTON_ON);
     REQUIRE(InitializeButtonImageManager(-1, -1, -1));
-    REQUIRE((FindFreeGenericSlot() == 1 && GenericButtonOnNormal[0]));
-    REQUIRE((!GenericButtonOffHilite[0] && !GenericButtonOnHilite[0]));
-    REQUIRE(UnloadGenericButtonImage(0));
-    std::string_view filename = "button.sti", missing = "missing.sti", short_image = "short.sti";
+    const std::string_view filename = "button.sti", missing = "missing.sti";
     const auto load = [](const std::array<std::string_view, 6>& names) {
-        return LoadGenericButtonImages(names[2], names[0], names[3], names[1], names[4], names[5], 3, 4, 5);
+        return LoadGenericButtonImages(names[2], names[0], names[3], names[1],
+                                       names[4], names[5], 3, 4, 5);
     };
     for (size_t index = 0; index < 6; ++index) {
         std::array<std::string_view, 6> names;
         names.fill(filename);
         names[index] = missing;
-        REQUIRE((load(names) == -1 && FindFreeGenericSlot() == 0));
-        REQUIRE((!GenericButtonOffNormal[0] && !GenericButtonOnNormal[0]));
+        REQUIRE(!load(names));
     }
-    REQUIRE(load({std::string_view{}, filename, {}, {}, {}, {}}) == -1);
-    REQUIRE(load({filename, {}, {}, {}, {}, {}}) == -1);
-    REQUIRE(load({short_image, filename, {}, {}, {}, {}}) == -1);
-    REQUIRE(FindFreeGenericSlot() == 0);
-    REQUIRE(load({filename, filename, filename, filename, filename, filename}) == 0);
-    REQUIRE((GenericButtonGrayed[0] && GenericButtonOffHilite[0] && GenericButtonOnHilite[0]));
-    REQUIRE((GenericButtonBackground[0] && GenericButtonBackgroundIndex[0] == 3));
-    REQUIRE((GenericButtonOffsetX[0] == 4 && GenericButtonOffsetY[0] == 5));
-    REQUIRE(GenericButtonFillColors[0] == GenericButtonOffNormal[0]->p16BPPPalette[1]);
-    REQUIRE(UnloadGenericButtonImage(0));
-    REQUIRE((!GenericButtonBackground[0] && GenericButtonOffsetX[0] == 0));
-    for (int slot = 0; slot < 40; ++slot) {
-        REQUIRE(load({filename, filename, {}, {}, {}, {}}) == slot);
-        REQUIRE((!GenericButtonGrayed[slot] && !GenericButtonBackground[slot]));
-    }
-    REQUIRE(load({filename, filename, {}, {}, {}, {}}) == -1);
+    REQUIRE(!load({{}, filename, {}, {}, {}, {}}));
+    REQUIRE(!load({filename, {}, {}, {}, {}, {}}));
+    REQUIRE(!load({"short.sti", filename, {}, {}, {}, {}}));
+    auto image = load({filename, filename, filename, filename, filename, filename});
+    REQUIRE(image);
+    REQUIRE((image->frames[2] && image->frames[3] && image->frames[4]));
+    REQUIRE((image->frames[5] && image->background_frame == 3));
+    REQUIRE((image->offset_x == 4 && image->offset_y == 5));
+    REQUIRE(image->fill_color == image->frames[0]->p16BPPPalette[1]);
+    auto another_owner = image;
+    image.reset();
+    REQUIRE(another_owner->frames[0]);
+    another_owner.reset();
+
+    // There is no fixed image slot limit. Lifetime is owned by the image.
+    std::vector<GenericButtonImage> images;
+    for (int index = 0; index < 45; ++index)
+        images.push_back(load({filename, filename, {}, {}, {}, {}}));
+    REQUIRE(std::all_of(images.begin(), images.end(), [](const auto& item) { return item != nullptr; }));
+    images.clear();
+
     for (unsigned repeat = 0; repeat < 32; ++repeat) {
         REQUIRE(InitializeFontManager(CreateEnglishTransTable()));
         REQUIRE(LoadFontFile(std::string(filename).c_str()) == 0);
@@ -812,7 +809,6 @@ void generic_button_images()
     MSYS_Shutdown();
     ShutdownFontManager();
     ShutdownButtonImageManager();
-    REQUIRE((FindFreeGenericSlot() == 0 && !GenericButtonOnNormal[39]));
 
     std::filesystem::remove_all(root);
 }
@@ -840,7 +836,7 @@ TEST_CASE("assert-plain", "[.death]")
 
 TEST_CASE("assert-message", "[.death]")
 {
-    CreateTextButton("invalid", 0, 0, 0, -1, -1, 0, 40, 20,
+    CreateTextButton("invalid", 0, 0, 0, {}, -1, 0, 40, 20,
                      BUTTON_TOGGLE, MSYS_PRIORITY_NORMAL, nullptr, nullptr);
     FAIL("CreateTextButton did not abort");
 }

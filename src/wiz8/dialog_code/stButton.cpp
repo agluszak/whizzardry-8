@@ -179,7 +179,7 @@ int W8DialogButton::GetUserData()
 // FUNCTION: WIZ8 0x005db1b0
 W8DialogButton::W8DialogButton()
 {
-    m_image_handle = -1;
+    m_image_handle.reset();
     m_button_handle.reset();
     m_left_callback = 0;
     m_right_callback = 0;
@@ -208,7 +208,7 @@ W8DialogButton::W8DialogButton()
 W8DialogButton::~W8DialogButton()
 {
     m_button_handle.reset();
-    ReleaseDialogButtonImage(m_image_handle);
+    m_image_handle.reset();
 }
 
 #define STBUTTON_CPP "C:\\Projects\\Wizardry 8\\Dialog Code\\stButton.cpp"
@@ -226,7 +226,7 @@ bool W8DialogButton::ConfigureVObjButton(HVOBJECT object, int base_frame,
     m_off_hover_frame = base_frame + 1;
     m_on_normal_frame = on_frame;
     m_on_hover_frame = on_frame;
-    if (m_image_handle != -1) {
+    if (m_image_handle) {
         m_button_handle =
             QuickCreateButton(m_image_handle, 0, 0, BUTTON_NO_TOGGLE, MSYS_PRIORITY_HIGHEST,
                               DialogButtonCallback, DialogButtonCallback);
@@ -238,7 +238,7 @@ bool W8DialogButton::ConfigureVObjButton(HVOBJECT object, int base_frame,
         m_dirty = true;
         return true;
     }
-    ReleaseDialogButtonImage(m_image_handle);
+    m_image_handle.reset();
     return false;
 }
 
@@ -248,7 +248,7 @@ bool W8DialogButton::ConfigureTextButton(std::string_view text, unsigned int fon
                                          short height, W8DialogButtonCallback left_callback,
                                          int user_data)
 {
-    auto handle = CreateTextButton(text, font, fore_color, shadow_color, -1,
+    auto handle = CreateTextButton(text, font, fore_color, shadow_color, {},
                                     x, y, width, height, BUTTON_NO_TOGGLE, MSYS_PRIORITY_HIGHEST,
                                     DialogButtonCallback, DialogButtonCallback);
     m_button_handle = handle;
@@ -274,7 +274,7 @@ bool W8DialogButton::Configure(const char* image_path, int gray_frame, int off_n
 {
     m_image_handle = LoadButtonImage(image_path, gray_frame, off_normal_frame,
                                      off_hover_frame, on_normal_frame, on_hover_frame);
-    if (m_image_handle != -1) {
+    if (m_image_handle) {
         m_button_handle = QuickCreateButton(m_image_handle, 0, 0, BUTTON_NO_TOGGLE, priority,
                                             DialogButtonCallback, DialogButtonCallback);
     }
@@ -299,7 +299,7 @@ bool W8DialogButton::Configure(const char* image_path, int gray_frame, int off_n
         m_dirty = true;
         return true;
     }
-    ReleaseDialogButtonImage(m_image_handle);
+    m_image_handle.reset();
     return false;
 }
 

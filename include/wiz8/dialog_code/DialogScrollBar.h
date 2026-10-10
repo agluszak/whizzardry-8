@@ -14,7 +14,6 @@ public:
         void (*on_scroll)(W8DialogScrollBar*, int first_visible_entry);
     };
     W8DialogScrollBar();
-    ~W8DialogScrollBar();
     W8DialogScrollBar(const W8DialogScrollBar&) = delete;
     W8DialogScrollBar& operator=(const W8DialogScrollBar&) = delete;
     bool CreateControls(const Resources* resources);
@@ -28,7 +27,6 @@ public:
     void ScrollToMouse();
 
 private:
-    void ResetHandles();
     static void UpButtonCallback(GUI_BUTTON* button, INT32 reason);
     static void DownButtonCallback(GUI_BUTTON* button, INT32 reason);
     static void TrackButtonCallback(GUI_BUTTON* button, INT32 reason);
@@ -49,13 +47,13 @@ public:
     W8DialogBase* m_owner;
 
 private:
-    int m_up_image;
+    ButtonImage m_up_image;
     GUIButton m_up_button;
-    int m_down_image;
+    ButtonImage m_down_image;
     GUIButton m_down_button;
-    int m_thumb_image;
+    ButtonImage m_thumb_image;
     GUIButton m_thumb_button;
-    int m_track_image;
+    ButtonImage m_track_image;
     GUIButton m_track_button;
     void (*m_on_scroll)(W8DialogScrollBar* scroll_bar, int first_visible_entry);
 };

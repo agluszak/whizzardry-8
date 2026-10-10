@@ -63,21 +63,21 @@ W8ListBoxDialog::W8ListBoxDialog()
     m_fill_colour = 0x6000;
     m_text_button.reset();
     m_second_text_button.reset();
-    area_inlay = -1;
+    area_inlay.reset();
     m_area_button.reset();
     m_up_button.reset();
-    m_up_image = -1;
+    m_up_image.reset();
     m_down_button.reset();
-    m_down_image = -1;
-    third_btn_inlay = -1;
+    m_down_image.reset();
+    third_btn_inlay.reset();
     m_third_text_button.reset();
     m_slider_button.reset();
-    m_slider_image = -1;
+    m_slider_image.reset();
     m_ok_button.reset();
-    m_ok_image = -1;
+    m_ok_image.reset();
     m_cancel_button.reset();
-    m_cancel_image = -1;
-    edge_inlay = -1;
+    m_cancel_image.reset();
+    edge_inlay.reset();
     ClearLines();
 }
 
@@ -230,7 +230,7 @@ int W8ListBoxDialog::CreateControls()
     SpecifyButtonMultiColorFont(m_text_button, g_dialog_font_enabled);
     area_inlay =
         LoadGenericButtonImages({}, "Data\\Dialogs\\DialogInlay.STI", {}, "Data\\Dialogs\\DialogInlay.STI", {}, "Data\\Dialogs\\DialogBackground_dark.STI", 0, 3, 3);
-    if (area_inlay == -1) {
+    if (!area_inlay) {
         m_error = 4;
         return 4;
     }
@@ -242,14 +242,14 @@ int W8ListBoxDialog::CreateControls()
     }
     SetButtonUserDataPointer(m_area_button, this);
     m_up_image = LoadButtonImage("Data\\Dialogs\\DialogUpArrow.STI", 3, 0, 1, 2, 2);
-    if (m_up_image != -1) {
+    if (m_up_image) {
         m_up_button =
             QuickCreateButton(m_up_image, 0, 0, BUTTON_NO_TOGGLE, MSYS_PRIORITY_HIGHEST - 1,
                               UpButtonCallback, UpButtonCallback);
     }
     m_down_image =
         LoadButtonImage("Data\\Dialogs\\DialogDownArrow.STI", 3, 0, 1, 2, 2);
-    if (m_down_image != -1) {
+    if (m_down_image) {
         m_down_button =
             QuickCreateButton(m_down_image, 0, 0, BUTTON_NO_TOGGLE, MSYS_PRIORITY_HIGHEST - 1,
                               DownButtonCallback, DownButtonCallback);
@@ -257,20 +257,20 @@ int W8ListBoxDialog::CreateControls()
     m_slider_image =
         LoadButtonImage("Data\\Dialogs\\DialogSlideBar.STI", BUTTON_NO_IMAGE, 0,
                         BUTTON_NO_IMAGE, BUTTON_NO_IMAGE, BUTTON_NO_IMAGE);
-    if (m_slider_image != -1) {
+    if (m_slider_image) {
         m_slider_button =
             QuickCreateButton(m_slider_image, 0, 0, BUTTON_NO_TOGGLE, MSYS_PRIORITY_HIGHEST - 2,
                               BUTTON_NO_CALLBACK, BUTTON_NO_CALLBACK);
     }
     m_ok_image =
         LoadButtonImage("Data\\Dialogs\\DialogConfirmation.STI", 3, 0, 1, 2, 2);
-    if (m_ok_image != -1) {
+    if (m_ok_image) {
         m_ok_button = QuickCreateButton(m_ok_image, 0, 0, BUTTON_NO_TOGGLE, MSYS_PRIORITY_HIGHEST,
                                         OkButtonCallback, OkButtonCallback);
     }
     m_cancel_image =
         LoadButtonImage("Data\\Dialogs\\DialogConfirmation.STI", 7, 4, 5, 6, 6);
-    if (m_cancel_image != -1) {
+    if (m_cancel_image) {
         m_cancel_button =
             QuickCreateButton(m_cancel_image, 0, 0, BUTTON_NO_TOGGLE, MSYS_PRIORITY_HIGHEST,
                               CancelButtonCallback, CancelButtonCallback);
@@ -285,7 +285,7 @@ int W8ListBoxDialog::CreateControls()
         SetButtonUserDataPointer(m_ok_button, this);
         SetButtonUserDataPointer(m_cancel_button, this);
         third_btn_inlay = LoadGenericButtonImages({}, "Data\\Dialogs\\DialogInlay.STI", {}, "Data\\Dialogs\\DialogInlay.STI", {}, "Data\\Dialogs\\DialogBackground_dark.STI", 0, 3, 3);
-        if (third_btn_inlay != -1) {
+        if (third_btn_inlay) {
             m_third_text_button = CreateTextButton({}, g_dialog_interface_font, g_dialog_font_foreground, g_dialog_font_background, third_btn_inlay, 0, 0, 1, 1, BUTTON_NO_TOGGLE, MSYS_PRIORITY_HIGHEST - 2, SliderTrackButtonCallback, SliderTrackButtonCallback);
             if (m_third_text_button) {
                 SetButtonUserDataPointer(m_third_text_button, this);
@@ -330,14 +330,14 @@ void W8ListBoxDialog::DestroyControls()
     m_third_text_button.reset();
     m_ok_button.reset();
     m_cancel_button.reset();
-    ReleaseDialogBorderImage(area_inlay);
-    ReleaseDialogBorderImage(third_btn_inlay);
-    ReleaseDialogBorderImage(edge_inlay);
-    ReleaseDialogButtonImage(m_up_image);
-    ReleaseDialogButtonImage(m_down_image);
-    ReleaseDialogButtonImage(m_slider_image);
-    ReleaseDialogButtonImage(m_ok_image);
-    ReleaseDialogButtonImage(m_cancel_image);
+    area_inlay.reset();
+    third_btn_inlay.reset();
+    edge_inlay.reset();
+    m_up_image.reset();
+    m_down_image.reset();
+    m_slider_image.reset();
+    m_ok_image.reset();
+    m_cancel_image.reset();
     ClearLines();
 }
 

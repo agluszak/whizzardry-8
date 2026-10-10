@@ -50,7 +50,7 @@ W8DialogBase::W8DialogBase()
     m_font = g_dialog_interface_font;
     m_foreground = g_dialog_font_foreground;
     m_background = g_dialog_font_background;
-    m_border = -1;
+    m_border.reset();
     m_x = -1;
     m_y = -1;
     m_width = -1;
@@ -163,9 +163,9 @@ int W8DialogBase::CreateControls()
     if (!m_background_path) {
         return m_error = 4;
     }
-    if (m_border == -1) {
+    if (!m_border) {
         m_border = LoadGenericButtonImages({}, "Data\\Dialogs\\DialogBorder.STI", {}, "Data\\Dialogs\\DialogBorder.STI", {}, m_background_path, static_cast<short>(m_background_flags), 0, 0);
-        if (m_border == -1) {
+        if (!m_border) {
             return m_error = 4;
         }
     }
@@ -185,7 +185,7 @@ int W8DialogBase::CreateControls()
 void W8DialogBase::DestroyControls()
 {
     m_resource.reset();
-    ReleaseDialogBorderImage(m_border);
+    m_border.reset();
     m_text.clear();
     if (m_background_path) {
         free(m_background_path);
