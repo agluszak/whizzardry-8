@@ -149,6 +149,6 @@ protected:
 };
 #pragma pack(pop)
 
-std::ostream& operator<<(std::ostream& stream, const srTimer& timer);
+SR_DLL_IMPORT std::ostream& operator<<(std::ostream& stream, const srTimer& timer);
 
 W8_ABI_ASSERT((sizeof(srTimer) == 0x868), "srTimer_must_be_0x868");

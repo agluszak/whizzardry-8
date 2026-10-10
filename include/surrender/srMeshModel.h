@@ -77,12 +77,12 @@ public:
         w8_long active_polygon_count;
     };
 
-    srMeshModel(w8_long polygons = 0, w8_long vertices = 0);
+    SR_DLL_IMPORT srMeshModel(w8_long polygons = 0, w8_long vertices = 0);
 
-    void reset(w8_long polygons, w8_long vertices);
-    void scale(const srVector3T<float>& scale);
+    SR_DLL_IMPORT void reset(w8_long polygons, w8_long vertices);
+    SR_DLL_IMPORT void scale(const srVector3T<float>& scale);
     void applyMatrix(const srMatrix3T<float>& matrix);
-    void relocateVertices(const srVector3T<float>& offset);
+    SR_DLL_IMPORT void relocateVertices(const srVector3T<float>& offset);
     void centerVertices();
     double getAverageRadius();
     double getMaxRadius();
@@ -90,7 +90,7 @@ public:
     void scaleToMaxRadius(double radius);
     void flipFaces();
     w8_long findClosestVertex(const srVector3T<float>& point);
-    srMeshModel& operator=(const srMeshModel& other);
+    SR_DLL_IMPORT srMeshModel& operator=(const srMeshModel& other);
 
     // FUNCTION: SURRENDER 0x10041AF0
     static const char* sGetClassName()
@@ -98,33 +98,33 @@ public:
         return "srMeshModel";
     }
 
-    virtual void dump(std::ostream& stream) override;
-    virtual void verify(srRuntimeClass::e_verify mode) override;
-    virtual srClass* vInstance() override;
-    virtual int getBoundingSphere(srVector3T<float>& center, float& radius) override;
-    virtual int getBoundingBox(srVector3T<float>& minimum,
+    SR_DLL_IMPORT virtual void dump(std::ostream& stream) override;
+    SR_DLL_IMPORT virtual void verify(srRuntimeClass::e_verify mode) override;
+    SR_DLL_IMPORT virtual srClass* vInstance() override;
+    SR_DLL_IMPORT virtual int getBoundingSphere(srVector3T<float>& center, float& radius) override;
+    SR_DLL_IMPORT virtual int getBoundingBox(srVector3T<float>& minimum,
                                              srVector3T<float>& maximum) override;
-    virtual void render(class srGERD& renderer) override;
-    virtual void reindexPolygons(const w8_ulong* indices);
-    virtual void reindexVertices(const w8_ulong* indices);
-    virtual void getTriMesh(TriMesh& mesh);
-    virtual const TriMesh& getTriMesh();
-    virtual void renderTriMesh(class srGERD& renderer, const TriMesh& mesh);
-    srPtr<srTextureIFace>* getPolyTexture(w8_long polygon, w8_long layer, int table);
-    srVector3i* getPolyVertex();
-    srVector3i* getPolyUVIndex(w8_long layer, int table);
-    srVector2T<float>* getVertexTexCoords(w8_long vertex, w8_long layer, int table);
-    srPtr<srMaterialIFace>* getVertexMaterial(w8_long vertex, e_side side, int table);
-    w8_ulong* getVertexShadeIndex(int table);
-    srVector3T<float>* getVertexNormal();
-    srVector4T<float>* getPolyEq();
-    srVector3T<float>* getVertexDIG(w8_long vertex, int table);
+    SR_DLL_IMPORT virtual void render(class srGERD& renderer) override;
+    SR_DLL_IMPORT virtual void reindexPolygons(const w8_ulong* indices);
+    SR_DLL_IMPORT virtual void reindexVertices(const w8_ulong* indices);
+    SR_DLL_IMPORT virtual void getTriMesh(TriMesh& mesh);
+    SR_DLL_IMPORT virtual const TriMesh& getTriMesh();
+    SR_DLL_IMPORT virtual void renderTriMesh(class srGERD& renderer, const TriMesh& mesh);
+    SR_DLL_IMPORT srPtr<srTextureIFace>* getPolyTexture(w8_long polygon, w8_long layer, int table);
+    SR_DLL_IMPORT srVector3i* getPolyVertex();
+    SR_DLL_IMPORT srVector3i* getPolyUVIndex(w8_long layer, int table);
+    SR_DLL_IMPORT srVector2T<float>* getVertexTexCoords(w8_long vertex, w8_long layer, int table);
+    SR_DLL_IMPORT srPtr<srMaterialIFace>* getVertexMaterial(w8_long vertex, e_side side, int table);
+    SR_DLL_IMPORT w8_ulong* getVertexShadeIndex(int table);
+    SR_DLL_IMPORT srVector3T<float>* getVertexNormal();
+    SR_DLL_IMPORT srVector4T<float>* getPolyEq();
+    SR_DLL_IMPORT srVector3T<float>* getVertexDIG(w8_long vertex, int table);
     srVector4T<float>* getVertexSCG(w8_long vertex, int table);
     srVector4T<float>* getVertexDCG(w8_long vertex, int table);
-    srMaterialIFace* getMaterial(w8_long polygon, e_side side) const;
-    srTextureIFace* getTexture(w8_long polygon, w8_long layer) const;
-    void setMaterial(srMaterialIFace* material, w8_long polygon, e_side side);
-    void setTexture(srTextureIFace* texture, w8_long polygon, w8_long layer);
+    SR_DLL_IMPORT srMaterialIFace* getMaterial(w8_long polygon, e_side side) const;
+    SR_DLL_IMPORT srTextureIFace* getTexture(w8_long polygon, w8_long layer) const;
+    SR_DLL_IMPORT void setMaterial(srMaterialIFace* material, w8_long polygon, e_side side);
+    SR_DLL_IMPORT void setTexture(srTextureIFace* texture, w8_long polygon, w8_long layer);
     // FUNCTION: SURRENDER 0x10041710 SYMBOL
     // RECOMP: ?setDirty@srMeshModel@@QAEXW4e_flags@1@@Z
     void setDirty(e_flags flag)
@@ -150,13 +150,13 @@ public:
     {
         return (dirty_flags.value & (1 << flag)) != 0;
     }
-    srShader* getPolyShader(w8_long polygon, int layer);
-    srShader getShader(w8_long polygon) const;
-    void setShader(srShader shader, w8_long pass);
-    void setUVCount(w8_long count);
+    SR_DLL_IMPORT srShader* getPolyShader(w8_long polygon, int layer);
+    SR_DLL_IMPORT srShader getShader(w8_long polygon) const;
+    SR_DLL_IMPORT void setShader(srShader shader, w8_long pass);
+    SR_DLL_IMPORT void setUVCount(w8_long count);
     w8_long getUVCount() const;
-    void setActivePolygonCount(w8_long count);
-    w8_long getActivePolygonCount();
+    SR_DLL_IMPORT void setActivePolygonCount(w8_long count);
+    SR_DLL_IMPORT w8_long getActivePolygonCount();
     w8_long getPassCount() const;
     w8_long getPolygonCount() const;
     w8_long getVertexCount() const;
@@ -186,20 +186,20 @@ public:
     }
     void setDirtyBounds();
     void setDirtyNormals();
-    w8_ulong* getActivePolygonTable(int table);
-    srVector3T<float>* getVertexLoc();
+    SR_DLL_IMPORT w8_ulong* getActivePolygonTable(int table);
+    SR_DLL_IMPORT srVector3T<float>* getVertexLoc();
     /* Fills the cached AABB/sphere (bounds_minimum..bounds_radius)
        from the supplied box and center/radius. */
-    void setBounds(const srVector3T<float>& minimum, const srVector3T<float>& maximum,
+    SR_DLL_IMPORT void setBounds(const srVector3T<float>& minimum, const srVector3T<float>& maximum,
                                  const srVector3T<float>& center, float radius);
 
 protected:
-    virtual ~srMeshModel() override;
+    SR_DLL_IMPORT virtual ~srMeshModel() override;
     void freeAll();
-    virtual void updateTriMesh();
-    virtual void calculateBounds();
-    virtual void calculatePolygonNormals();
-    virtual void calculateVertexNormals();
+    SR_DLL_IMPORT virtual void updateTriMesh();
+    SR_DLL_IMPORT virtual void calculateBounds();
+    SR_DLL_IMPORT virtual void calculatePolygonNormals();
+    SR_DLL_IMPORT virtual void calculateVertexNormals();
 
 public:
     /* setMaterial indexes [pass][side]. */

@@ -82,7 +82,7 @@ public:
     typedef void(__cdecl* ConversionFunc)(const ConversionInfo& info);
 
     static e_surfaceType mapPixelFormat(const PixelFormat& format);
-    static void mapPixelFormat(e_surfaceType type, PixelFormat& format);
+    static SR_DLL_IMPORT void mapPixelFormat(e_surfaceType type, PixelFormat& format);
     static void selectFuncs(const PixelFormat& format, ConversionFunc& write, ConversionFunc& read);
 };
 

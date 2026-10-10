@@ -4,6 +4,8 @@
 #include <stdint.h>
 #include "native.h"
 
+#define SR_DLL_IMPORT
+
 typedef int32_t w8_long;
 typedef uint32_t w8_ulong;
 typedef uintptr_t w8_ulong_ptr;

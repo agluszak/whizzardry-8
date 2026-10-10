@@ -11,7 +11,7 @@
 #if defined(SURRENDER_BUILD)
 class srModeler {
 #else
-class srModeler {
+class SR_DLL_IMPORT srModeler {
 #endif
 public:
     /* Axis selector indexing the position components. */

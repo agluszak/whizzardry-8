@@ -36,14 +36,14 @@ public:
 
     /* Transforms one view-space clip plane back into object space with the inverse model-view.
        scale_type is accepted but never read. */
-    static srVector4T<float>
+    static SR_DLL_IMPORT srVector4T<float>
     transformClipPlane(const srVector4T<float>& plane, const srMatrix4T<float>& matrix,
                        srMatrix4T<float>::e_scaleType scale_type);
     /* Fills distances with plane·vertex, then shifts each distance's IEEE
        sign bit into clip_flags at bit position shift. first assigns the
        flags; otherwise they are OR-merged. Returns whether any sign bit
        was set. */
-    static int setClipFlags(w8_ulong* clip_flags, float* distances,
+    static SR_DLL_IMPORT int setClipFlags(w8_ulong* clip_flags, float* distances,
                                           const srVector3T<float>* vertices,
                                           const srVector4T<float>& plane, w8_ulong shift,
                                           w8_ulong count, int first);
@@ -51,18 +51,18 @@ public:
     /* Sphere-vs-plane-mask test over the six axis frustum planes plus every
        set bit of mask. depth becomes the 0..1 penetration fraction when the
        sphere clips any of the six primary planes. */
-    static w8_ulong getClipMask(const srVector3T<float>& center, float radius,
+    static SR_DLL_IMPORT w8_ulong getClipMask(const srVector3T<float>& center, float radius,
                                                    const srVector4T<float>* planes,
                                                    w8_ulong mask, float& depth);
     /* Builds the active-vertex table: marks the vertices referenced by the
        surviving triangle indices, collects their indices into avt, then
        rewrites vertex_scratch as the vertex->avt inverse remap. Returns the
        active vertex count. */
-    static w8_ulong
+    static SR_DLL_IMPORT w8_ulong
     buildAVT(w8_ulong* avt, w8_ulong* vertex_scratch, const w8_ulong* indices,
              const srVector3i* triangles, w8_ulong triangle_count, w8_ulong vertex_count);
-    static void setupLinearArray(w8_ulong* indices, w8_ulong count);
-    static int cull(Output& output, const Input& input);
+    static SR_DLL_IMPORT void setupLinearArray(w8_ulong* indices, w8_ulong count);
+    static SR_DLL_IMPORT int cull(Output& output, const Input& input);
 
 private:
     /* Chunks vertices by 0x100, runs setClipFlags per plane/bit pair, and

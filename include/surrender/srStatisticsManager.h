@@ -22,9 +22,9 @@ public:
         w8_ulong texture_coordinate_operations;
     };
 
-    void reset();
-    void getStatistics(Statistics& statistics) const;
-    void dump(std::ostream& stream, const Statistics& statistics);
+    SR_DLL_IMPORT void reset();
+    SR_DLL_IMPORT void getStatistics(Statistics& statistics) const;
+    SR_DLL_IMPORT void dump(std::ostream& stream, const Statistics& statistics);
 
     /* SurRender's submission pipeline updates these counters directly. */
     Statistics statistics;

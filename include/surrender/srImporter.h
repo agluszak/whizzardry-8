@@ -35,7 +35,7 @@ public:
 
     void exportSurface(const char* path, srBinOStream& stream, srColorSurfaceIFace& surface,
                        const ExportInfo& options);
-    void exportSurface(const char* path, srColorSurfaceIFace& surface,
+    SR_DLL_IMPORT void exportSurface(const char* path, srColorSurfaceIFace& surface,
                                      const ExportInfo& options);
     srColorSurfaceIFace* importSurface(const char* path, srBinIStream& stream,
                                        const ImportInfo& options);

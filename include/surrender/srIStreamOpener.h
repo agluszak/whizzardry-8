@@ -12,7 +12,7 @@ public:
         // FUNCTION: SURRENDER 0x10032690
         // RECOMP: ??1Opener@srIStreamOpener@@UAE@XZ
         virtual ~Opener() {}
-        Opener& operator=(const Opener& other);
+        SR_DLL_IMPORT Opener& operator=(const Opener& other);
 
         virtual srBinIStream* open(const char* path) = 0;
         virtual const char* getDescription() const = 0;
@@ -28,13 +28,13 @@ public:
         first->previous = 0;
         count = 0;
     }
-    ~srIStreamOpener();
+    SR_DLL_IMPORT ~srIStreamOpener();
 #if !defined(SURRENDER_BUILD)
-    srIStreamOpener& operator=(const srIStreamOpener& other);
+    SR_DLL_IMPORT srIStreamOpener& operator=(const srIStreamOpener& other);
 #endif
 
-    void addStreamType(Opener* opener, const char* extension);
-    srBinIStream* open(const char* path);
+    SR_DLL_IMPORT void addStreamType(Opener* opener, const char* extension);
+    SR_DLL_IMPORT srBinIStream* open(const char* path);
 
 private:
     struct StreamType {
@@ -46,9 +46,9 @@ private:
 
     W8_ABI_ASSERT(sizeof(StreamType) == 0x10, "srIStreamOpener_StreamType_must_be_0x10");
 
-    Opener* findOpener(const char* extension);
-    srBinIStream* open(const char* path, const char* extension);
-    void parsePrefix(char** prefix, char** path, const char* input);
+    SR_DLL_IMPORT Opener* findOpener(const char* extension);
+    SR_DLL_IMPORT srBinIStream* open(const char* path, const char* extension);
+    SR_DLL_IMPORT void parsePrefix(char** prefix, char** path, const char* input);
 
     w8_long count;
     StreamType* first;

@@ -5,7 +5,7 @@
 #include "srTimer.h"
 
 class srVariableTimer;
-std::ostream& operator<<(std::ostream& stream, const srVariableTimer& timer);
+SR_DLL_IMPORT std::ostream& operator<<(std::ostream& stream, const srVariableTimer& timer);
 
 // VTABLE: SURRENDER 0x10077668 srVariableTimer
 // class srVariableTimer
@@ -61,7 +61,7 @@ private:
     w8_ulong m_step_size; /* 0x890 */
     int m_stepping;            /* 0x894 */
 
-    friend std::ostream& operator<<(std::ostream& stream,
+    friend SR_DLL_IMPORT std::ostream& operator<<(std::ostream& stream,
                                                   const srVariableTimer& timer);
 };
 

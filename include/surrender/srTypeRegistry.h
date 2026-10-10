@@ -125,40 +125,40 @@ public:
         w8_long instance_count;
     };
 
-    srRegistry();
-    ~srRegistry();
+    SR_DLL_IMPORT srRegistry();
+    SR_DLL_IMPORT ~srRegistry();
 
-    w8_ulong allocateID();
-    int checkValidity();
-    void dumpClassHierarchy(std::ostream& stream);
-    void dumpInstanceNames(ClassNode* node, std::ostream& stream, int indent);
-    ClassNode* getClassNode(w8_ulong class_id);
-    w8_ulong getClassID(ClassNode* node);
-    const char* getClassName(ClassNode* node);
-    ClassNode* getChildClass(ClassNode* parent, ClassNode* child);
-    w8_long getNumberOfInstances(ClassNode* node, int exact);
-    ClassNode* getRootClass();
-    ClassNode* getRootNode();
-    int isDerivedOrSame(ClassNode* base, ClassNode* derived);
+    SR_DLL_IMPORT w8_ulong allocateID();
+    SR_DLL_IMPORT int checkValidity();
+    SR_DLL_IMPORT void dumpClassHierarchy(std::ostream& stream);
+    SR_DLL_IMPORT void dumpInstanceNames(ClassNode* node, std::ostream& stream, int indent);
+    SR_DLL_IMPORT ClassNode* getClassNode(w8_ulong class_id);
+    SR_DLL_IMPORT w8_ulong getClassID(ClassNode* node);
+    SR_DLL_IMPORT const char* getClassName(ClassNode* node);
+    SR_DLL_IMPORT ClassNode* getChildClass(ClassNode* parent, ClassNode* child);
+    SR_DLL_IMPORT w8_long getNumberOfInstances(ClassNode* node, int exact);
+    SR_DLL_IMPORT ClassNode* getRootClass();
+    SR_DLL_IMPORT ClassNode* getRootNode();
+    SR_DLL_IMPORT int isDerivedOrSame(ClassNode* base, ClassNode* derived);
     /* Nonzero gives the node its own instance lookup tables. */
-    ClassNode* registerClass(const char* class_name, ClassNode* parent,
+    SR_DLL_IMPORT ClassNode* registerClass(const char* class_name, ClassNode* parent,
                                            w8_ulong class_id, int register_instances);
-    void registerInstance(ClassNode* node, srRuntimeClass* instance);
-    void unregisterInstance(ClassNode* node, srRuntimeClass* instance);
-    srRuntimeClass* find(ClassNode* node, const char* name,
+    SR_DLL_IMPORT void registerInstance(ClassNode* node, srRuntimeClass* instance);
+    SR_DLL_IMPORT void unregisterInstance(ClassNode* node, srRuntimeClass* instance);
+    SR_DLL_IMPORT srRuntimeClass* find(ClassNode* node, const char* name,
                                        const srRuntimeClass* relative_to);
-    srRuntimeClass* find(ClassNode* node, const srRuntimeClass* relative_to);
-    srRuntimeClass* find(ClassNode* node, w8_ulong id);
-    srRuntimeClass* findExact(ClassNode* node, const char* name,
+    SR_DLL_IMPORT srRuntimeClass* find(ClassNode* node, const srRuntimeClass* relative_to);
+    SR_DLL_IMPORT srRuntimeClass* find(ClassNode* node, w8_ulong id);
+    SR_DLL_IMPORT srRuntimeClass* findExact(ClassNode* node, const char* name,
                                             const srRuntimeClass* relative_to);
-    srRuntimeClass* findExact(ClassNode* node, const srRuntimeClass* relative_to);
-    srRuntimeClass* findExact(ClassNode* node, w8_ulong id);
-    void refreshInstance(ClassNode* node, srRuntimeClass* instance);
+    SR_DLL_IMPORT srRuntimeClass* findExact(ClassNode* node, const srRuntimeClass* relative_to);
+    SR_DLL_IMPORT srRuntimeClass* findExact(ClassNode* node, w8_ulong id);
+    SR_DLL_IMPORT void refreshInstance(ClassNode* node, srRuntimeClass* instance);
 
 private:
     struct ClassIndex;
 
-    ClassNode* addToTree(ClassNode* parent, const char* class_name,
+    SR_DLL_IMPORT ClassNode* addToTree(ClassNode* parent, const char* class_name,
                                        w8_ulong class_id);
 
     ClassNode* root;
@@ -198,29 +198,29 @@ class
 public:
     enum e_verify { VERIFY_DEFAULT = 0 };
 
-    virtual const char* getClassName() const;
-    virtual w8_ulong getClassID() const;
-    virtual srRegistry::ClassNode* getClassNode() const;
-    virtual void dump(std::ostream& stream);
-    virtual void verify(e_verify mode);
+    virtual SR_DLL_IMPORT const char* getClassName() const;
+    virtual SR_DLL_IMPORT w8_ulong getClassID() const;
+    virtual SR_DLL_IMPORT srRegistry::ClassNode* getClassNode() const;
+    virtual SR_DLL_IMPORT void dump(std::ostream& stream);
+    virtual SR_DLL_IMPORT void verify(e_verify mode);
 
-    static srRegistry::ClassNode* sGetClassNode();
-    static w8_long getTotalInstances(int exact);
-    static void dumpNames(std::ostream& stream, int indent);
+    static SR_DLL_IMPORT srRegistry::ClassNode* sGetClassNode();
+    static SR_DLL_IMPORT w8_long getTotalInstances(int exact);
+    static SR_DLL_IMPORT void dumpNames(std::ostream& stream, int indent);
 
-    void setName(const char* name);
-    const char* getName() const;
-    w8_ulong getID() const;
-    void getUniqueName(std::ostream& stream) const;
-    int isNamed() const;
-    int matchClassID(w8_ulong class_id) const;
+    SR_DLL_IMPORT void setName(const char* name);
+    SR_DLL_IMPORT const char* getName() const;
+    SR_DLL_IMPORT w8_ulong getID() const;
+    SR_DLL_IMPORT void getUniqueName(std::ostream& stream) const;
+    SR_DLL_IMPORT int isNamed() const;
+    SR_DLL_IMPORT int matchClassID(w8_ulong class_id) const;
 
 protected:
-    srRuntimeClass();
-    virtual ~srRuntimeClass();
+    SR_DLL_IMPORT srRuntimeClass();
+    virtual SR_DLL_IMPORT ~srRuntimeClass();
 
 private:
-    static w8_ulong sGetClassID();
+    static SR_DLL_IMPORT w8_ulong sGetClassID();
 
     char* name;
     w8_ulong id;
@@ -238,24 +238,24 @@ public:
 
     typedef void(__cdecl* UpdateCallBack)(srClass* instance, double time, double elapsed);
 
-    static const char* sGetClassName();
-    static srRegistry::ClassNode* sGetClassNode();
-    static srClass* find(w8_ulong id);
-    static srClass* find(const char* name, w8_ulong class_id,
+    static SR_DLL_IMPORT const char* sGetClassName();
+    static SR_DLL_IMPORT srRegistry::ClassNode* sGetClassNode();
+    static SR_DLL_IMPORT srClass* find(w8_ulong id);
+    static SR_DLL_IMPORT srClass* find(const char* name, w8_ulong class_id,
                                        const srRuntimeClass* relative_to);
-    static srClass* find(const char* name, const srClass* relative_to);
-    static srClass* find(const srClass* relative_to);
-    static void performUpdates(double time);
+    static SR_DLL_IMPORT srClass* find(const char* name, const srClass* relative_to);
+    static SR_DLL_IMPORT srClass* find(const srClass* relative_to);
+    static SR_DLL_IMPORT void performUpdates(double time);
 
     /* Assignment copies only the instance name. */
-    srClass& operator=(const srClass& other);
+    SR_DLL_IMPORT srClass& operator=(const srClass& other);
 
-    virtual srRegistry::ClassNode* getClassNode() const override;
-    virtual void dump(std::ostream& stream) override;
-    virtual void verify(srRuntimeClass::e_verify mode) override;
+    virtual SR_DLL_IMPORT srRegistry::ClassNode* getClassNode() const override;
+    virtual SR_DLL_IMPORT void dump(std::ostream& stream) override;
+    virtual SR_DLL_IMPORT void verify(srRuntimeClass::e_verify mode) override;
 
 protected:
-    virtual ~srClass() override;
+    virtual SR_DLL_IMPORT ~srClass() override;
 
 public:
     virtual srClass* vInstance() = 0;
@@ -269,21 +269,21 @@ public:
     {
         return vClone();
     }
-    srClass* instance();
-    int release() const;
-    void addReference() const;
-    w8_long getReferenceCount() const;
-    void autoRelease();
-    void touch();
-    w8_ulong getTimestamp() const;
-    UpdateCallBack getUpdateCallBack();
-    double getUpdateInterval();
-    void setUpdate(UpdateCallBack callback, double interval);
-    void setUpdatesTime(double time);
+    SR_DLL_IMPORT srClass* instance();
+    SR_DLL_IMPORT int release() const;
+    SR_DLL_IMPORT void addReference() const;
+    SR_DLL_IMPORT w8_long getReferenceCount() const;
+    SR_DLL_IMPORT void autoRelease();
+    SR_DLL_IMPORT void touch();
+    SR_DLL_IMPORT w8_ulong getTimestamp() const;
+    SR_DLL_IMPORT UpdateCallBack getUpdateCallBack();
+    SR_DLL_IMPORT double getUpdateInterval();
+    SR_DLL_IMPORT void setUpdate(UpdateCallBack callback, double interval);
+    SR_DLL_IMPORT void setUpdatesTime(double time);
 
 protected:
-    srClass();
-    w8_ulong allocateTimeStamps(w8_ulong count) const;
+    SR_DLL_IMPORT srClass();
+    SR_DLL_IMPORT w8_ulong allocateTimeStamps(w8_ulong count) const;
 
 private:
     struct Update {
@@ -297,9 +297,9 @@ private:
 
     W8_ABI_ASSERT(sizeof(Update) == 0x20, "srClass_Update_must_be_0x20");
 
-    static Update* _firstUpdate;
-    static double _lastUpdateTime;
-    static w8_ulong _timestampCtr;
+    static SR_DLL_IMPORT Update* _firstUpdate;
+    static SR_DLL_IMPORT double _lastUpdateTime;
+    static SR_DLL_IMPORT w8_ulong _timestampCtr;
 
     mutable w8_long reference_count;
     w8_ulong timestamp;

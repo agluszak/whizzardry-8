@@ -28,7 +28,7 @@ struct srVertexArray;
 #if defined(SURRENDER_BUILD)
 class srGERD : public srRuntimeClass {
 #else
-class srGERD : public srRuntimeClass {
+class SR_DLL_IMPORT srGERD : public srRuntimeClass {
 #endif
 public:
     struct Pick {

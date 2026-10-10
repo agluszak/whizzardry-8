@@ -179,35 +179,35 @@ public:
         W8_ABI_ASSERT(sizeof(LUT) == 0x1810, "OptimizerLUT_must_be_0x1810");
     };
 
-    static const char* sGetClassName();
-    static srPalette* findMatchingPalette(const srARGB* const colors,
+    static SR_DLL_IMPORT const char* sGetClassName();
+    static SR_DLL_IMPORT srPalette* findMatchingPalette(const srARGB* const colors,
                                                         w8_long color_count);
 
-    srPalette(srARGB* colors = 0, w8_long color_count = 1);
+    SR_DLL_IMPORT srPalette(srARGB* colors = 0, w8_long color_count = 1);
 
-    srPalette& operator=(const srPalette& other);
+    SR_DLL_IMPORT srPalette& operator=(const srPalette& other);
 
-    virtual void dump(std::ostream& stream) override;
-    virtual srClass* vInstance() override;
+    virtual SR_DLL_IMPORT void dump(std::ostream& stream) override;
+    virtual SR_DLL_IMPORT srClass* vInstance() override;
 
-    srARGB getColor(w8_long index) const;
-    const srARGB* getPaletteDataPtr();
-    w8_long getPaletteSize() const;
-    int matchPalette(const srARGB* const colors, w8_long color_count) const;
-    unsigned char quantize(const srARGB& color);
-    void quantize(unsigned char* const indices, const srARGB* const colors,
+    SR_DLL_IMPORT srARGB getColor(w8_long index) const;
+    SR_DLL_IMPORT const srARGB* getPaletteDataPtr();
+    SR_DLL_IMPORT w8_long getPaletteSize() const;
+    SR_DLL_IMPORT int matchPalette(const srARGB* const colors, w8_long color_count) const;
+    SR_DLL_IMPORT unsigned char quantize(const srARGB& color);
+    SR_DLL_IMPORT void quantize(unsigned char* const indices, const srARGB* const colors,
                                 w8_long color_count);
-    void releaseQuantizer();
-    void setColor(w8_long index, const srARGB& color);
-    void setColors(w8_long destination_index, const srARGB* const colors,
+    SR_DLL_IMPORT void releaseQuantizer();
+    SR_DLL_IMPORT void setColor(w8_long index, const srARGB& color);
+    SR_DLL_IMPORT void setColors(w8_long destination_index, const srARGB* const colors,
                                  w8_long color_count);
-    void update();
+    SR_DLL_IMPORT void update();
 
 protected:
-    virtual ~srPalette() override;
+    virtual SR_DLL_IMPORT ~srPalette() override;
 
 private:
-    void updateQuantizer();
+    SR_DLL_IMPORT void updateQuantizer();
 
     w8_ulong flags;
     srARGB* colors;

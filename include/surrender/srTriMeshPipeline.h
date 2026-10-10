@@ -127,12 +127,12 @@ public:
 
 protected:
     /* srExit releases the singleton through this protected static. */
-    friend int __cdecl srExit(void);
+    friend SR_DLL_IMPORT int __cdecl srExit(void);
 
 #if !defined(SURRENDER_BUILD)
     static __attribute__((visibility("default"))) srTriMeshPipeline* pipe;
 #else
-    static srTriMeshPipeline* pipe;
+    static SR_DLL_IMPORT srTriMeshPipeline* pipe;
 #endif
 
 private:

@@ -16,15 +16,15 @@ public:
 
     W8_ABI_ASSERT(sizeof(Job) == 0x04, "srScheduler_Job_must_be_0x04");
 
-    srScheduler();
-    ~srScheduler();
+    SR_DLL_IMPORT srScheduler();
+    SR_DLL_IMPORT ~srScheduler();
 
-    void queue(Job& job);
-    void cancel(Job& job);
-    void cancelAll();
-    void finish(Job& job);
-    void finishAll();
-    w8_long getJobCount() const;
+    SR_DLL_IMPORT void queue(Job& job);
+    SR_DLL_IMPORT void cancel(Job& job);
+    SR_DLL_IMPORT void cancelAll();
+    SR_DLL_IMPORT void finish(Job& job);
+    SR_DLL_IMPORT void finishAll();
+    SR_DLL_IMPORT w8_long getJobCount() const;
 
 private:
     struct WorkerSlot {

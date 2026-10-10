@@ -7,22 +7,22 @@
 
 class srConfig {
 public:
-    srConfig();
-    ~srConfig();
+    SR_DLL_IMPORT srConfig();
+    SR_DLL_IMPORT ~srConfig();
 
-    void append(const char* name, const char* value);
-    void dump(std::ostream& stream);
-    int exists(const char* name) const;
-    const char* get(const char* name) const;
-    int getBool(const char* name) const;
-    float getFloat(const char* name) const;
-    w8_long getLong(const char* name) const;
-    void remove(const char* name);
-    void removeAll();
-    void set(const char* name, const char* value);
-    void setBool(const char* name, int value);
-    void setFloat(const char* name, float value);
-    void setLong(const char* name, w8_long value);
+    SR_DLL_IMPORT void append(const char* name, const char* value);
+    SR_DLL_IMPORT void dump(std::ostream& stream);
+    SR_DLL_IMPORT int exists(const char* name) const;
+    SR_DLL_IMPORT const char* get(const char* name) const;
+    SR_DLL_IMPORT int getBool(const char* name) const;
+    SR_DLL_IMPORT float getFloat(const char* name) const;
+    SR_DLL_IMPORT w8_long getLong(const char* name) const;
+    SR_DLL_IMPORT void remove(const char* name);
+    SR_DLL_IMPORT void removeAll();
+    SR_DLL_IMPORT void set(const char* name, const char* value);
+    SR_DLL_IMPORT void setBool(const char* name, int value);
+    SR_DLL_IMPORT void setFloat(const char* name, float value);
+    SR_DLL_IMPORT void setLong(const char* name, w8_long value);
 
     struct Entry {
         char* name;
@@ -113,4 +113,4 @@ private:
 
 W8_ABI_ASSERT(sizeof(srConfig) == 0x1c, "srConfig_must_be_0x1c");
 
-extern class srConfig srConfig;
+extern SR_DLL_IMPORT class srConfig srConfig;

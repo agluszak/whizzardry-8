@@ -18,16 +18,16 @@ public:
     /* The DLL build uses compiler-generated special members. Native clients use
        the same members; the Windows import declarations remain unchanged. */
 
-    srBinOStream& putChar(char value);
-    srBinOStream& putDWord(w8_ulong value);
-    srBinOStream& putDouble(double value);
-    srBinOStream& putFloat(float value);
-    srBinOStream& putQWord(srQuadWord value);
-    srBinOStream& putWord(unsigned short value);
-    srBinOStream& write(const void* source, w8_ulong size);
+    SR_DLL_IMPORT srBinOStream& putChar(char value);
+    SR_DLL_IMPORT srBinOStream& putDWord(w8_ulong value);
+    SR_DLL_IMPORT srBinOStream& putDouble(double value);
+    SR_DLL_IMPORT srBinOStream& putFloat(float value);
+    SR_DLL_IMPORT srBinOStream& putQWord(srQuadWord value);
+    SR_DLL_IMPORT srBinOStream& putWord(unsigned short value);
+    SR_DLL_IMPORT srBinOStream& write(const void* source, w8_ulong size);
 
 protected:
-    virtual unsigned short vput(char value);
+    virtual SR_DLL_IMPORT unsigned short vput(char value);
 
 private:
     virtual w8_ulong vwrite(const void* source, w8_ulong size) = 0;

@@ -60,7 +60,7 @@ W8_ABI_ASSERT(sizeof(srBellFilter) == 0x04, "srBellFilter_must_be_0x04");
 W8_ABI_ASSERT(sizeof(srBSplineFilter) == 0x04, "srBSplineFilter_must_be_0x04");
 W8_ABI_ASSERT(sizeof(srTriangleFilter) == 0x04, "srTriangleFilter_must_be_0x04");
 
-extern class srBoxFilter srBoxFilter;
-extern class srBellFilter srBellFilter;
-extern class srBSplineFilter srBSplineFilter;
-extern class srTriangleFilter srTriangleFilter;
+extern SR_DLL_IMPORT class srBoxFilter srBoxFilter;
+extern SR_DLL_IMPORT class srBellFilter srBellFilter;
+extern SR_DLL_IMPORT class srBSplineFilter srBSplineFilter;
+extern SR_DLL_IMPORT class srTriangleFilter srTriangleFilter;

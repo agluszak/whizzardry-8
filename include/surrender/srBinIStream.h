@@ -34,12 +34,12 @@ private:
 
 srBinIStream& operator>>(srBinIStream& stream, int& value);
 srBinIStream& operator>>(srBinIStream& stream, char& value);
-srBinIStream& operator>>(srBinIStream& stream, unsigned char& value);
+SR_DLL_IMPORT srBinIStream& operator>>(srBinIStream& stream, unsigned char& value);
 srBinIStream& operator>>(srBinIStream& stream, short& value);
-srBinIStream& operator>>(srBinIStream& stream, unsigned short& value);
-srBinIStream& operator>>(srBinIStream& stream, w8_ulong& value);
+SR_DLL_IMPORT srBinIStream& operator>>(srBinIStream& stream, unsigned short& value);
+SR_DLL_IMPORT srBinIStream& operator>>(srBinIStream& stream, w8_ulong& value);
 srBinIStream& operator>>(srBinIStream& stream, srQuadWord& value);
-srBinIStream& operator>>(srBinIStream& stream, float& value);
+SR_DLL_IMPORT srBinIStream& operator>>(srBinIStream& stream, float& value);
 srBinIStream& operator>>(srBinIStream& stream, double& value);
 srBinIStream& operator>>(srBinIStream& stream, srVector2T<float>& value);
 srBinIStream& operator>>(srBinIStream& stream, srVector2T<double>& value);

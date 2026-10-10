@@ -5,13 +5,13 @@
 
 class srGlobalRecycler {
 public:
-    srGlobalRecycler();
-    ~srGlobalRecycler();
+    SR_DLL_IMPORT srGlobalRecycler();
+    SR_DLL_IMPORT ~srGlobalRecycler();
 
-    void* allocate(w8_ulong size);
-    void free(void* allocation);
-    void releaseAllUnused();
-    void setLimit(w8_ulong limit);
+    SR_DLL_IMPORT void* allocate(w8_ulong size);
+    SR_DLL_IMPORT void free(void* allocation);
+    SR_DLL_IMPORT void releaseAllUnused();
+    SR_DLL_IMPORT void setLimit(w8_ulong limit);
 
 private:
     void freeEntry(w8_ulong index);

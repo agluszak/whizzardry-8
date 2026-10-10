@@ -46,15 +46,15 @@ inline w8_long srFloatToInt(float value)
 
 class srHeap {
 public:
-    srHeap();
-    ~srHeap();
+    SR_DLL_IMPORT srHeap();
+    SR_DLL_IMPORT ~srHeap();
 
-    void* allocate(w8_ulong size);
-    void free(void* allocation);
-    void free(void* allocation, unsigned int size);
-    void freeAll();
-    w8_ulong msize(void* allocation);
-    void dump(std::ostream& stream);
+    SR_DLL_IMPORT void* allocate(w8_ulong size);
+    SR_DLL_IMPORT void free(void* allocation);
+    SR_DLL_IMPORT void free(void* allocation, unsigned int size);
+    SR_DLL_IMPORT void freeAll();
+    SR_DLL_IMPORT w8_ulong msize(void* allocation);
+    SR_DLL_IMPORT void dump(std::ostream& stream);
 
 private:
     struct Chunk;
@@ -117,4 +117,4 @@ private:
 
 W8_ABI_ASSERT(sizeof(srHeap) == 0xb4, "srHeap_must_be_0xb4");
 
-extern class srHeap srHeap;
+extern SR_DLL_IMPORT class srHeap srHeap;

@@ -7,7 +7,7 @@
 #if defined(SURRENDER_BUILD)
 class srBinStream {
 #else
-class srBinStream {
+class SR_DLL_IMPORT srBinStream {
 #endif
 public:
     enum e_state { SR_STREAM_OK = 0, SR_STREAM_ERROR = 1, SR_STREAM_STATE_2 = 2 };

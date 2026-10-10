@@ -6,19 +6,19 @@ class srMemoryAllocator {
 public:
     enum e_alignSize { ALIGN_SIZE_32 = 0x20 };
 
-    srMemoryAllocator();
-    ~srMemoryAllocator();
+    SR_DLL_IMPORT srMemoryAllocator();
+    SR_DLL_IMPORT ~srMemoryAllocator();
 #if !defined(SURRENDER_BUILD)
-    srMemoryAllocator& operator=(const srMemoryAllocator& other);
+    SR_DLL_IMPORT srMemoryAllocator& operator=(const srMemoryAllocator& other);
 #endif
 
-    void* allocate(w8_ulong size, const char* name);
-    void* allocate(w8_ulong count, w8_ulong size, const char* name);
-    void dump() const;
-    void free(void* allocation);
-    const char* getName(void* allocation) const;
-    w8_ulong getSize(void* allocation) const;
-    void setAlignment(e_alignSize alignment);
+    SR_DLL_IMPORT void* allocate(w8_ulong size, const char* name);
+    SR_DLL_IMPORT void* allocate(w8_ulong count, w8_ulong size, const char* name);
+    SR_DLL_IMPORT void dump() const;
+    SR_DLL_IMPORT void free(void* allocation);
+    SR_DLL_IMPORT const char* getName(void* allocation) const;
+    SR_DLL_IMPORT w8_ulong getSize(void* allocation) const;
+    SR_DLL_IMPORT void setAlignment(e_alignSize alignment);
 
 private:
     class Block {
@@ -34,7 +34,7 @@ private:
         w8_ulong reserved[2];
     };
 
-    Block* align(void* allocation);
+    SR_DLL_IMPORT Block* align(void* allocation);
 
     Block* first_block;
     w8_ulong allocated_bytes;

@@ -11,15 +11,15 @@ public:
     class Path {
     public:
 #if !defined(SURRENDER_BUILD)
-        Path& operator=(const Path& other);
+        SR_DLL_IMPORT Path& operator=(const Path& other);
 #endif
 
-        const char* getName() const;
-        Path* getNext() const;
+        SR_DLL_IMPORT const char* getName() const;
+        SR_DLL_IMPORT Path* getNext() const;
 
     protected:
-        Path(const char* name);
-        ~Path();
+        SR_DLL_IMPORT Path(const char* name);
+        SR_DLL_IMPORT ~Path();
 
     private:
         friend class srFileManager;
@@ -29,25 +29,25 @@ public:
         Path* previous;
     };
 
-    srFileManager();
+    SR_DLL_IMPORT srFileManager();
 
 #if !defined(SURRENDER_BUILD)
-    srFileManager(const srFileManager& other);
-    srFileManager& operator=(const srFileManager& other);
+    SR_DLL_IMPORT srFileManager(const srFileManager& other);
+    SR_DLL_IMPORT srFileManager& operator=(const srFileManager& other);
 #endif
-    virtual ~srFileManager();
+    virtual SR_DLL_IMPORT ~srFileManager();
 
-    void addPath(const char* path);
-    void dump(std::ostream& stream);
-    Path* getFirstPath() const;
-    void removePath(const char* path);
-    void setPath(const char* path);
+    SR_DLL_IMPORT void addPath(const char* path);
+    SR_DLL_IMPORT void dump(std::ostream& stream);
+    SR_DLL_IMPORT Path* getFirstPath() const;
+    SR_DLL_IMPORT void removePath(const char* path);
+    SR_DLL_IMPORT void setPath(const char* path);
 
-    virtual void* allocate(const char* path);
-    virtual void free(void* allocation);
-    virtual void load(const char* path, void* destination, w8_ulong size);
-    virtual void save(const char* path, void* source, w8_ulong size);
-    virtual w8_long getSize(const char* path);
+    virtual SR_DLL_IMPORT void* allocate(const char* path);
+    virtual SR_DLL_IMPORT void free(void* allocation);
+    virtual SR_DLL_IMPORT void load(const char* path, void* destination, w8_ulong size);
+    virtual SR_DLL_IMPORT void save(const char* path, void* source, w8_ulong size);
+    virtual SR_DLL_IMPORT w8_long getSize(const char* path);
 
 private:
     Path* first_path;
