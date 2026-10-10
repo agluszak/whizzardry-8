@@ -793,90 +793,69 @@ catch (const std::exception&) { return false; }
 static bool SaveMonsterRecord(W8Chunk* chunks, unsigned int index)
 try
 {
-    char script_name[0x40] = {0};
-    memcpy(script_name, &g_empty_ambient_name, sizeof(g_empty_ambient_name));
-    W8MonsterScriptCommand script_wait = MONSCR_NONE;
-    int script_line = -1;
-    unsigned char has_script = 0;
-    unsigned int record_version = 7;
-    unsigned int record_size;
-    int queue_count;
-    int point_count;
-    int i;
-    int component;
-    float patrol_value;
-    unsigned char unborn;
-    unsigned char value;
-    bool script_flag;
-    srVector3T<float> location;
-    srVector3T<float> point;
-    W8MonsterInfo* info;
-    W8Monster* monster;
-
-    info = MonsterGetScriptPartByLocationIndex(index);
-    chunks->m_hFile->write(&record_version, 4);
+    auto* info = MonsterGetScriptPartByLocationIndex(index);
+    if (!info || !info->p3D) {
+        return false;
+    }
+    W8Monster* monster = info->p3D;
+    const unsigned int record_version = 7;
+    const unsigned int record_size = sizeof(*info);
     if (info->fActive) {
-        MonsterGetLocation(info->p3D, &location);
-        location.y = SettlePositionToGround(&location, 0);
-        info->position = location;
-        info->derived = MonsterGetYaw(info->p3D);
+        MonsterGetLocation(monster, &info->position);
+        info->position.y = SettlePositionToGround(&info->position, 0);
+        info->derived = MonsterGetYaw(monster);
     }
-    record_size = sizeof(*info);
-    chunks->m_hFile->write(&record_size, 4);
+    chunks->m_hFile->write(&record_version, sizeof(record_version));
+    chunks->m_hFile->write(&record_size, sizeof(record_size));
     chunks->m_hFile->write(info, record_size);
-    if (info->p3D->script == 0) {
-        chunks->m_hFile->write(&has_script, 1);
-    } else {
-        has_script = 1;
-        chunks->m_hFile->write(&has_script, 1);
-        memset(script_name, 0, sizeof(script_name));
-        strcpy(script_name, info->p3D->script->getName().c_str());
-        script_wait = info->p3D->script_wait;
-        script_line = info->p3D->script_line;
-        chunks->m_hFile->write(script_name, 0x40);
-        chunks->m_hFile->write(&script_wait, 4);
-        chunks->m_hFile->write(&script_line, 4);
-        queue_count = info->p3D->script_conditions.GetCount();
-        chunks->m_hFile->write(&queue_count, 4);
-        for (i = 0; i < queue_count; ++i) {
-            script_flag = *info->p3D->script_conditions.GetAt(i);
-            chunks->m_hFile->write(&script_flag, 1);
+    const unsigned char has_script = monster->script != nullptr;
+    chunks->m_hFile->write(&has_script, sizeof(has_script));
+    if (has_script) {
+        char script_name[0x40]{};
+        const auto& name = monster->script->getName();
+        if (name.size() >= sizeof(script_name)) {
+            return false;
+        }
+        memcpy(script_name, name.c_str(), name.size());
+        chunks->m_hFile->write(script_name, sizeof(script_name));
+        chunks->m_hFile->write(&monster->script_wait, sizeof(monster->script_wait));
+        chunks->m_hFile->write(&monster->script_line, sizeof(monster->script_line));
+        const int queue_count = monster->script_conditions.GetCount();
+        chunks->m_hFile->write(&queue_count, sizeof(queue_count));
+        for (int i = 0; i < queue_count; ++i) {
+            const bool script_flag = *monster->script_conditions.GetAt(i);
+            chunks->m_hFile->write(&script_flag, sizeof(script_flag));
         }
     }
-    unborn = PListIndexOf(gXStatus.plsUnbornMonsterList, info) != -1;
-    chunks->m_hFile->write(&unborn, 1);
-    monster = info->p3D;
-    monster->SaveMovementState(chunks->m_hFile.get());
-    script_flag = monster->defining_orders;
-    chunks->m_hFile->write(&script_flag, 1);
-    value = monster->order_mode;
-    chunks->m_hFile->write(&value, 1);
-    script_flag = monster->orders_finished;
-    chunks->m_hFile->write(&script_flag, 1);
-    script_flag = monster->deaf;
-    chunks->m_hFile->write(&script_flag, 1);
-    patrol_value = monster->patrol_distance;
-    chunks->m_hFile->write(&patrol_value, 4);
-    patrol_value = monster->patrol_variation;
-    chunks->m_hFile->write(&patrol_value, 4);
-    value = monster->patrol_index;
-    chunks->m_hFile->write(&value, 1);
-    point_count = monster->vector.GetCount();
-    chunks->m_hFile->write(&point_count, 4);
-    for (i = 0; i < point_count; ++i) {
-        point = *monster->vector.GetAt(i);
-        for (component = 0; component < 3; ++component) {
-            chunks->m_hFile->write(&point.x + component, 4);
-        }
+    const unsigned char unborn = PListIndexOf(gXStatus.plsUnbornMonsterList, info) != -1;
+    chunks->m_hFile->write(&unborn, sizeof(unborn));
+    const unsigned char has_movement =
+        !monster->linked_navigator && (monster->flags & 0x20000000) != 0;
+    chunks->m_hFile->write(&has_movement, sizeof(has_movement));
+    if (has_movement) {
+        chunks->m_hFile->write(&monster->minimum_height, sizeof(monster->minimum_height));
+        chunks->m_hFile->write(&monster->maximum_height, sizeof(monster->maximum_height));
+        chunks->m_hFile->write(&monster->patrol_home, sizeof(monster->patrol_home));
+        chunks->m_hFile->write(&monster->movement.attachment->path_destination,
+                             sizeof(monster->movement.attachment->path_destination));
     }
+    chunks->m_hFile->write(&monster->defining_orders, sizeof(monster->defining_orders));
+    chunks->m_hFile->write(&monster->order_mode, sizeof(monster->order_mode));
+    chunks->m_hFile->write(&monster->orders_finished, sizeof(monster->orders_finished));
+    chunks->m_hFile->write(&monster->deaf, sizeof(monster->deaf));
+    chunks->m_hFile->write(&monster->patrol_distance, sizeof(monster->patrol_distance));
+    chunks->m_hFile->write(&monster->patrol_variation, sizeof(monster->patrol_variation));
+    chunks->m_hFile->write(&monster->patrol_index, sizeof(monster->patrol_index));
+    const int point_count = monster->vector.GetCount();
+    chunks->m_hFile->write(&point_count, sizeof(point_count));
+    for (int i = 0; i < point_count; ++i) {
+        chunks->m_hFile->write(monster->vector.GetAt(i), sizeof(srVector3T<float>));
+    }
+    srVector3T<float> point;
     point.Set(monster->direction_x, monster->direction_y, monster->direction_z);
-    for (component = 0; component < 3; ++component) {
-        chunks->m_hFile->write(&point.x + component, 4);
-    }
-    script_flag = monster->face_party;
-    chunks->m_hFile->write(&script_flag, 1);
-    script_flag = monster->stay_home;
-    chunks->m_hFile->write(&script_flag, 1);
+    chunks->m_hFile->write(&point, sizeof(point));
+    chunks->m_hFile->write(&monster->face_party, sizeof(monster->face_party));
+    chunks->m_hFile->write(&monster->stay_home, sizeof(monster->stay_home));
     return true;
 }
 catch (const std::exception&) { return false; }
@@ -909,59 +888,58 @@ bool LoadItemStatus(W8Chunk* chunk, int level)
 try
 {
     unsigned int file_level;
-    W8Chunk* stream = chunk;
     bool result = false;
-    int outer_count = stream->ChunkCount();
+    int outer_count = chunk->ChunkCount();
     unsigned int index;
 
     for (int outer = 0; outer < outer_count; ++outer) {
         if (result) {
             return result;
         }
-        stream->OpenChunk(0, 0);
-        if (stream->CurrentChunkId() == 0x534c564c) { /* LVLS */
-            if (stream->CurrentChunkAtEnd() != 0) {
-                stream->OpenGroup();
-                stream->m_hFile->read_exact(&file_level, 4);
-                stream->SkipCurrentChunk();
+        chunk->OpenChunk(0, 0);
+        if (chunk->CurrentChunkId() == 0x534c564c) { /* LVLS */
+            if (chunk->CurrentChunkAtEnd() != 0) {
+                chunk->OpenGroup();
+                chunk->m_hFile->read_exact(&file_level, 4);
+                chunk->SkipCurrentChunk();
             } else {
-                stream->OpenGroup();
-                stream->m_hFile->read_exact(&file_level, 4);
+                chunk->OpenGroup();
+                chunk->m_hFile->read_exact(&file_level, 4);
                 if (level == static_cast<int>(file_level)) {
                     if (!g_level_status_loading) {
                         LoadDefaultLevelStatus(level);
                     }
                     result = true;
-                    for (int inner = stream->ChunkCount(); inner > 0; --inner) {
-                        stream->OpenChunk(0, 0);
-                        if (stream->CurrentChunkAtEnd() == 0) {
-                            w8_ulong chunk_id = stream->CurrentChunkId();
+                    for (int inner = chunk->ChunkCount(); inner > 0; --inner) {
+                        chunk->OpenChunk(0, 0);
+                        if (chunk->CurrentChunkAtEnd() == 0) {
+                            w8_ulong chunk_id = chunk->CurrentChunkId();
 
                             if (chunk_id == 0x54415453) { /* STAT */
-                                if (!LoadStatusHeader(stream)) {
+                                if (!LoadStatusHeader(chunk)) {
                                     return false;
                                 }
                             } else if (chunk_id == 0x534e4f4d) { /* MONS */
                                 unsigned int group_count;
                                 unsigned int monster_count;
 
-                                stream->m_hFile->read_exact(&group_count, 4);
-                                stream->m_hFile->read_exact(&monster_count, 4);
+                                chunk->m_hFile->read_exact(&group_count, 4);
+                                chunk->m_hFile->read_exact(&monster_count, 4);
                                 const std::int64_t remaining =
-                                    static_cast<std::int64_t>(stream->m_offsets[stream->m_offsets.GetCount() - 1]) +
-                                    stream->CurrentChunkExtent() - stream->m_hFile->tell();
+                                    static_cast<std::int64_t>(chunk->m_offsets[chunk->m_offsets.GetCount() - 1]) +
+                                    chunk->CurrentChunkExtent() - chunk->m_hFile->tell();
                                 if (remaining < 0 ||
                                     std::uint64_t{group_count} * 4 + std::uint64_t{monster_count} * 9 >
                                         static_cast<std::uint64_t>(remaining)) {
                                     return false;
                                 }
                                 for (index = 0; index < group_count; ++index) {
-                                    if (!LoadMonsterGroup(stream)) {
+                                    if (!LoadMonsterGroup(chunk)) {
                                         return false;
                                     }
                                 }
                                 for (index = 0; index < monster_count; ++index) {
-                                    if (!LoadMonster(stream)) {
+                                    if (!LoadMonster(chunk)) {
                                         return false;
                                     }
                                 }
@@ -971,16 +949,16 @@ try
                             } else if (chunk_id == 0x4d455449) { /* ITEM */
                                 unsigned int item_count;
 
-                                stream->m_hFile->read_exact(&item_count, 4);
+                                chunk->m_hFile->read_exact(&item_count, 4);
                                 const std::int64_t remaining =
-                                    static_cast<std::int64_t>(stream->m_offsets[stream->m_offsets.GetCount() - 1]) +
-                                    stream->CurrentChunkExtent() - stream->m_hFile->tell();
+                                    static_cast<std::int64_t>(chunk->m_offsets[chunk->m_offsets.GetCount() - 1]) +
+                                    chunk->CurrentChunkExtent() - chunk->m_hFile->tell();
                                 if (remaining < 0 || item_count > static_cast<std::uint64_t>(remaining) /
                                                                      sizeof(W8WorldItem)) {
                                     return false;
                                 }
                                 for (index = 0; index < item_count; ++index) {
-                                    if (LoadItem(stream->m_hFile.get(), true) == 0) {
+                                    if (LoadItem(chunk->m_hFile.get(), true) == 0) {
                                         return false;
                                     }
                                 }
@@ -988,47 +966,47 @@ try
                                 if (!g_level_status_loading) {
                                     ReleaseWorldCursorNodes();
                                 }
-                                LoadWorldCursorNodes(stream->m_hFile.get());
+                                LoadWorldCursorNodes(chunk->m_hFile.get());
                                 if (g_level_status_loading) {
-                                    LoadWorldCursorNodeStates(stream->m_hFile.get());
+                                    LoadWorldCursorNodeStates(chunk->m_hFile.get());
                                 }
                             } else if (chunk_id == 0x474e4f4d) { /* MONG */
                                 if (!g_level_status_loading) {
                                     DestroyMonsterGenerators();
                                 }
-                                MonGen::LoadAll(stream->m_hFile.get());
+                                MonGen::LoadAll(chunk->m_hFile.get());
                             } else if (chunk_id == 0x4b434f4c || /* LOCK */
                                        chunk_id == 0x534b434c) { /* LCKS */
-                                LoadTriggerRuntimeStates(stream->m_hFile.get());
+                                LoadTriggerRuntimeStates(chunk->m_hFile.get());
                             } else if (chunk_id == 0x53455254) { /* TRES */
-                                LoadTriggerActionData(stream->m_hFile.get());
+                                LoadTriggerActionData(chunk->m_hFile.get());
                             } else if (chunk_id == 0x4f545541) { /* AUTO */
-                                LoadAutomapNotes(stream->m_hFile.get());
+                                LoadAutomapNotes(chunk->m_hFile.get());
                             } else if (chunk_id == 0x47495254) { /* TRIG */
-                                LoadWorldTriggers(g_world, stream->m_hFile.get());
+                                LoadWorldTriggers(g_world, chunk->m_hFile.get());
                             } else if (chunk_id == 0x54535041) { /* APST */
-                                LoadWorldProps(g_world, stream->m_hFile.get());
+                                LoadWorldProps(g_world, chunk->m_hFile.get());
                             } else if (chunk_id == 0x53425543) { /* CUBS */
-                                LoadWorldCursorNodeStates(stream->m_hFile.get());
+                                LoadWorldCursorNodeStates(chunk->m_hFile.get());
                             } else if (chunk_id == 0x534e474d) { /* MGNS */
-                                LoadMonsterGenerators(stream->m_hFile.get());
+                                LoadMonsterGenerators(chunk->m_hFile.get());
                             } else if (chunk_id == 0x53424d41) { /* AMBS */
-                                LoadAmbientSoundList(stream->m_hFile.get());
+                                LoadAmbientSoundList(chunk->m_hFile.get());
                             } else if (chunk_id == 0x54524150) { /* PART */
-                                LoadParticleStates(stream->m_hFile.get());
+                                LoadParticleStates(chunk->m_hFile.get());
                             } else if (chunk_id == 0x5448474c) { /* LGHT */
-                                LoadLightStates(stream->m_hFile.get());
+                                LoadLightStates(chunk->m_hFile.get());
                             }
                         }
-                        stream->SkipCurrentChunk();
-                        stream->ReleaseCurrentChunk();
+                        chunk->SkipCurrentChunk();
+                        chunk->ReleaseCurrentChunk();
                     }
                 }
             }
-            stream->ReleaseGroup();
+            chunk->ReleaseGroup();
         }
-        stream->SkipCurrentChunk();
-        stream->ReleaseCurrentChunk();
+        chunk->SkipCurrentChunk();
+        chunk->ReleaseCurrentChunk();
     }
     return result;
 }
@@ -1464,10 +1442,7 @@ bool VerifyDataSubdirs(void)
     return true;
 }
 
-/* Walks the item's sibling chain and writes each record whole. Two reads go
-   through the head of the chain instead of the item being written: the
-   representation flags copied into the current record are read from the head's
-   rep, and the bit-3 clear lands on the head rather than the cursor. */
+/* Write each sibling record with its own live position and representation flags. */
 // FUNCTION: WIZ8 0x00514be0
 bool SaveItemFile(wiz8::File* handle, W8WorldItem* item_info)
 try
@@ -2034,8 +2009,7 @@ void ReadSaveChunks(W8Chunk* source, W8Chunk* destination)
 /* Walk every top-level chunk of an already-open save. A matching LVLS section
    is marked consumed in place, and the caller receives the percentage of the
    file that sits in at-end sections, which is what decides whether the save
-   is rolled into CleanUp. Retail wraps the percentage in an unguarded DIV, so
-   a zero total would trap there as well. */
+   is rolled into CleanUp. Empty files report zero rather than dividing by zero. */
 // FUNCTION: WIZ8 0x00514df0
 bool MeasureLevelStatusChunks(W8Chunk* chunk, int level, unsigned int* empty_percent)
 try
