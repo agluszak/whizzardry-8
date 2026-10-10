@@ -3,7 +3,7 @@
 #include "wiz8/filesystem.h"
 
 #include "surrender/srMath.h"
-#include "wiz8/engine_code/BitArray.h"
+#include "wiz8/packed_bits.h"
 #include "wiz8/engine_code/OctPreTree.h"
 #include "wiz8/index_algorithms.h"
 #include "wiz8/geometry.h"
@@ -287,7 +287,7 @@ public:
     void AddLoadedProp(W8Prop* prop);
     void AddLoadedParticle(stParticle* particle);
     /* Store the prop-sunlight bit array once it has been given a size. */
-    void SetPropSunBits(BitArray* bits);
+    void SetPropSunBits(std::vector<bool> bits);
     /* Whether prop `offset` past prop_sun_base has its sunlight bit; a
        negative offset checkpoints the shared index into the base. */
     bool TestPropSunBit(int offset);
@@ -495,11 +495,10 @@ public:
        polygon index to (kind<<16)|id object key. */
     w8_ulong* m_aulPolyLookup;
     W8OctSubmesh* m_pSubmeshes;
-    /* Six original member names, from ReadOctFile's own assertion text at
-       0x0042C68A, 0x0042C70C, 0x0042C7AB, 0x0042C850, 0x0042C8F5 and
-       0x0042CAA4. The us prefix is the image's own, so the four lookup and
-       link tables are unsigned short arrays. */
-    BitArray* m_pAlphaBits;                  /* 0xdc */
+    /* Retail m_pAlphaBits; empty without a mesh count. The m_pus names below
+       come from ReadOctFile's own assertion text, so the four lookup and link
+       tables are unsigned short arrays. */
+    std::vector<bool> m_alpha_bits;
     unsigned short* m_pusMeshParticleLookup; /* 0xe0 */
     unsigned short* m_pusMeshParticles;      /* 0xe4 */
     unsigned short m_usMeshParticlesLen;
@@ -509,12 +508,10 @@ public:
     unsigned short m_usMeshPropsLen;
     unsigned short m_padding_0f6;
     w8_ulong m_ulNumParticles;
-    BitArray* m_linked_particles;
-    BitArray* m_visible_particles;
-    BitArray* m_linked_props;
-    BitArray* m_visible_props;
-    BitArray* m_particles_to_disable;
-    BitArray* m_props_to_disable;
+    std::vector<bool> m_linked_particles;
+    std::vector<bool> m_visible_particles;
+    std::vector<bool> m_linked_props;
+    std::vector<bool> m_visible_props;
     W8Prop** m_papProps;
     stParticle** m_papParticles;
     unsigned short m_usNumPropsLoaded;
@@ -539,11 +536,9 @@ public:
     unsigned short* m_region_index_stream;
     unsigned char* m_pfRegsVisited;
     std::unordered_multimap<unsigned int, unsigned short>* m_pRegionLinks;
-    BitArray* m_owned_154;
-    w8_ulong m_padding_158;
-    BitArray* m_projected_regions;
-    BitArray* m_current_regions;
-    BitArray* m_previous_regions;
+    std::vector<bool> m_projected_regions;
+    std::vector<bool> m_current_regions;
+    std::vector<bool> m_previous_regions;
     bool m_reset_visibility;
     bool m_region_links_ready;
     bool m_projected_regions_valid;
@@ -563,16 +558,11 @@ public:
     int prop_sun_base; /* 0x184: this octree's base index into the shared
                               prop-sunlight bit stream */
     w8_ulong m_ulNumProps;
-    /* Named m_pPropSunBits by ReadOctFile's assertion at 0x0042CAA4. The
-       earlier `visited` reading came from 0x0042E3E0's parameter, not from
-       the image, and the assertion outranks it. */
-    BitArray* m_pPropSunBits; /* 0x18c */
-    BitArray* m_visited_polygon_bits;
-    BitArray* m_visited_object_bits;
-    BitArray* m_accumulated_regions;
-    BitArray* m_owned_19c;
-    BitArray* m_owned_1a0;
-    BitArray* m_owned_1a4;
+    /* Retail m_pPropSunBits, named by ReadOctFile's assertion at 0x0042CAA4. */
+    std::vector<bool> m_sunlit_props; /* empty when the level has none */
+    std::vector<bool> m_visited_polygon_bits;
+    std::vector<bool> m_visited_object_bits;
+    std::vector<bool> m_accumulated_regions;
     w8_ulong m_root_mesh_count;
     w8_ulong m_kind1_submesh_count;
     w8_ulong m_alpha_polygon_count;

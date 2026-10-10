@@ -13,6 +13,7 @@
 #include "wiz8/direction_angles.h"
 #include "wiz8/engine_code/GDCamera.h"
 #include "wiz8/engine_code/GameData.h"
+#include "wiz8/engine_code/Navigator.h"
 #include "wiz8/engine_code/SoundEvent.h"
 #include "wiz8/engine_code/PolyPick.h"
 #include "wiz8/engine_code/IntervalGate.h"
@@ -517,4 +518,48 @@ TEST_CASE("game_geometry_test")
     REQUIRE((srExit()));
     std::puts(
         "ok: procedural meshes, triangulation, clipping, bounds, camera, collision and lighting");
+}
+
+TEST_CASE("navigator route growth, copying and movement")
+{
+    const srVector3 origin(0, 0, 0), end(3, 0, 4);
+    W8NavigatorAttachment route(&origin, &end);
+    REQUIRE((route.MeasurePathLength() == 5));
+    route.InitializeSegment(&origin, &end);
+    route.path_position_index = 1;
+    for (unsigned short i = 1; i <= 35; ++i) {
+        const srVector3 position(i, 0, 0);
+        route.AppendPathPosition(&position, i);
+    }
+    REQUIRE((route.path_position_index == 36 && route.path.size() > 36));
+    for (unsigned short i = 1; i <= 35; ++i) {
+        REQUIRE((route.path[i].position == srVector3(i, 0, 0)));
+        REQUIRE((route.path[i].value == i));
+    }
+    route.path[36] = {srVector3(36, 0, 0), 0};
+    W8NavigatorAttachment copied;
+    copied.path[0].position = srVector3(-1, 0, 0);
+    copied.CopyPathFrom(&route);
+    REQUIRE((copied.path[0].position == srVector3(-1, 0, 0)));
+    REQUIRE((copied.path_position_index == route.path_position_index));
+    for (unsigned i = 1; i <= 36; ++i) {
+        REQUIRE((copied.path[i].position == route.path[i].position));
+        REQUIRE((copied.path[i].value == route.path[i].value));
+    }
+    route.path[1].position = srVector3(99, 0, 0);
+    REQUIRE((copied.path[1].position == srVector3(1, 0, 0)));
+    copied.InitializeSegment(&origin, &end);
+    for (const auto& entry : copied.path) REQUIRE((entry.value == 0));
+    REQUIRE((copied.MeasurePathLength() == 5));
+    srVector3 current = origin, direction;
+    REQUIRE((!copied.AdvancePositionWithDirection(&current, 2, &direction)));
+    REQUIRE((close(current.glmValue(), {1.2f, 0, 1.6f})));
+    REQUIRE((copied.AdvancePositionWithDirection(&current, 4, &direction)));
+    REQUIRE((current == end));
+
+    // An append may borrow a position from the same storage being grown.
+    W8NavigatorAttachment aliased(&origin, &end);
+    aliased.path_position_index = 9;
+    aliased.AppendPathPosition(&aliased.path[1].position, 7);
+    REQUIRE((aliased.path[9].position == end && aliased.path[9].value == 7));
 }

@@ -89,7 +89,6 @@ add_library(WIZ8_GAME_CORE STATIC
     dialog_code/ProfRaceInfoDialog.cpp
     engine_code/GameTimeAccumulator.cpp
     engine_code/IntervalGate.cpp
-    engine_code/BitArray.cpp
     engine_code/GameData.cpp
     engine_code/GDFileIO.cpp
     engine_code/Octree.cpp
@@ -125,6 +124,7 @@ add_library(WIZ8_GAME_CORE STATIC
     engine_code/GrObject.cpp
     "local_code/Party Import.cpp"
     learned_spells.cpp
+    packed_bits.cpp
     local_code/Noise.cpp
     local_code/RegionManager.cpp
     local_code/chunk.cpp

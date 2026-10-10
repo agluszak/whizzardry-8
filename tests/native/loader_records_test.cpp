@@ -12,7 +12,7 @@
 #include "wiz8/engine_code/Octree.h"
 #include "wiz8/engine_code/OctPreTree.h"
 #include "wiz8/engine_code/OctBuildTree.h"
-#include "wiz8/engine_code/BitArray.h"
+#include "wiz8/packed_bits.h"
 #include "temporary_directory.h"
 #include "file_faults.h"
 
@@ -354,14 +354,14 @@ static void geometry()
         data.ReadProcessedGameData(reload_file.get());
         query();
     }
-    data.pending_trigger_bits->Set(0); data.active_trigger_bits->Set(0);
+    SetBit(data.pending_trigger_bits, 0); SetBit(data.active_trigger_bits, 0);
     const auto* old_index = data.geometry_index.get();
-    const auto* pending_bits = data.pending_trigger_bits.get();
-    const auto* active_bits = data.active_trigger_bits.get();
+    const auto pending_bits = data.pending_trigger_bits;
+    const auto active_bits = data.active_trigger_bits;
     auto runtime_unchanged = [&] {
         REQUIRE((data.geometry_index.get() == old_index));
-        REQUIRE((data.pending_trigger_bits.get() == pending_bits && data.active_trigger_bits.get() == active_bits));
-        REQUIRE((data.pending_trigger_bits->Test(0) && data.active_trigger_bits->Test(0)));
+        REQUIRE((data.pending_trigger_bits == pending_bits && data.active_trigger_bits == active_bits));
+        REQUIRE((TestBit(data.pending_trigger_bits, 0) && TestBit(data.active_trigger_bits, 0)));
         REQUIRE((data.m_ppTriggers.empty() && data.m_pTrigVertices.empty() && data.m_pTrigSurfaces.empty()));
     };
     auto* old_vertices = data.m_pVertices.data();

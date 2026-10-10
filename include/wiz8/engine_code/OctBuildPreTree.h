@@ -6,7 +6,6 @@
 #include "wiz8/index_algorithms.h"
 #include "wiz8/geometry.h"
 
-class BitArray;
 struct W8LevelFileParticleSystem;
 struct W8LevelFileProp;
 
@@ -129,7 +128,6 @@ struct OctBuildPreTree : W8OctBuildTree {
     w8_ulong region_path_count;
     bool mesh_linking;
     unsigned char padding_f5[3];
-    BitArray* region_bits;
     srVector3T<float>* m_psrvRegCenters;
     /* Region remap table indexed by old region id; RemapNodeRegions frees it
        after rewriting every leaf's region list through it. */
