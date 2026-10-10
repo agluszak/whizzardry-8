@@ -4706,11 +4706,6 @@ void MonsterAimAtMonster(W8Monster* monster, W8Monster* target, bool alternate)
     }
 }
 
-/* Flatten every model instance reachable from every cycle and subcycle. The
-   temporary vectors used by the damage-appearance accessors below prove the
-   element type: AniMesh's frame lookup returns stModelInstance objects and the
-   consumers read their first-party fields beyond the srModelInstance base. */
-// FUNCTION: WIZ8 0x004c6350
 /* Apply the active light scale to the current model chain. */
 void W8Monster::RefreshModelLightScale()
 {
@@ -4721,6 +4716,11 @@ void W8Monster::RefreshModelLightScale()
     }
 }
 
+/* Flatten every model instance reachable from every cycle and subcycle. The
+   temporary vectors used by the damage-appearance accessors below prove the
+   element type: AniMesh's frame lookup returns stModelInstance objects and the
+   consumers read their first-party fields beyond the srModelInstance base. */
+// FUNCTION: WIZ8 0x004c6350
 void W8Monster::CollectModelInstances(std::vector<stModelInstance*>& instances)
 {
     int cycle;
