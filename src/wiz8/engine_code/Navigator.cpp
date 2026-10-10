@@ -495,18 +495,14 @@ W8Navigator::W8Navigator(const W8Navigator& other)
 // FUNCTION: WIZ8 0x00452120
 W8Navigator::~W8Navigator()
 {
-    if (path_ai != 0) {
-        DestroyOwnedPathAI(path_ai);
-    }
+    delete path_ai;
     wiz8::erase_first(g_registered_navigators, this);
     delete owned_object;
     owned_object = 0;
     if (movement.location_id != 0 && g_octree != 0) {
         g_octree->UnregisterLocationObject(movement.location_id, W8_OCTREE_KIND_NAVIGATOR);
     }
-    if (node != 0) {
-        delete node;
-    }
+    delete node;
 }
 
 // FUNCTION: WIZ8 0x00452E10
@@ -536,7 +532,7 @@ void W8Navigator::SetNavigationMode(int mode)
     navigation_mode = mode;
     switch (mode) {
     case 1:
-        path = CreatePathAI();
+        path = new W8PathAI;
         PathAISetAnimated(path, true);
         SetPathAI(path);
         /* Falls into mode four's body: the retail block ends where mode four's
@@ -548,13 +544,13 @@ void W8Navigator::SetNavigationMode(int mode)
     case 2:
     case 3:
     case 5:
-        path = CreatePathAI();
+        path = new W8PathAI;
         PathAISetAnimated(path, true);
         SetPathAI(path);
         SetPitchRollEnabled(true, false);
         break;
     case 6:
-        path = CreatePathAI();
+        path = new W8PathAI;
         PathAISetAnimated(path, true);
         SetPathAI(path);
         SetPitchRollEnabled(true, true);
@@ -1750,7 +1746,7 @@ unsigned char W8Navigator::SetMovementTarget(const srVector3T<float>* target, bo
 void W8Navigator::AddPathPoint(const srVector3T<float>* position)
 {
     if (path_ai == 0) {
-        path_ai = CreatePathAI();
+        path_ai = new W8PathAI;
     }
     flags &= 0x00ffffff;
     if (flags == 0) {

@@ -120,61 +120,11 @@ void PathAIApplyToRep(W8AIRecord* record, W8AnimRepBase* representation)
     representation->location = representation->parent_location;
 }
 
-void DestroyAIRecord(W8AIRecord* record)
+std::unique_ptr<W8AIRecord> W8PathAI::Clone() const
 {
-    if (!record) return;
-    switch (record->kind) {
-    case W8_AI_RECORD_PATH:
-        delete static_cast<W8PathAI*>(record);
-        break;
-    case W8_AI_RECORD_MISSILE:
-        delete static_cast<W8AIMissile*>(record);
-        break;
-    }
-}
-
-// FUNCTION: WIZ8 0x004a9810
-void DestroyPathAI(W8PathAI* path)
-{
-    delete path;
-}
-
-/* The same release DestroyPathAI performs, refused for any path whose
-   kind is not the plain node-list form. stLight's destructor at 0x0049C430
-   reaches the owned path through this guard rather than the general entry. */
-// FUNCTION: WIZ8 0x004a9110
-void DestroyOwnedPathAI(W8PathAI* path)
-{
-    if (path != 0 && path->kind == W8_AI_RECORD_PATH) {
-        DestroyPathAI(path);
-    }
-}
-
-/* Value containers make the copy independent; cloned paths start untimed. */
-// FUNCTION: WIZ8 0x004a98c0
-W8PathAI* ClonePathAI(const W8PathAI* source)
-{
-    auto* copy = new W8PathAI(*source);
+    auto copy = std::make_unique<W8PathAI>(*this);
     copy->timed = false;
     return copy;
-}
-
-/* Clone whichever AI record the tag selects. An unknown tag copies nothing and
-   returns null rather than aliasing the source. */
-// FUNCTION: WIZ8 0x004a91c0
-W8AIRecord* CloneAIRecord(const W8AIRecord* record)
-{
-    if (record == 0) {
-        return 0;
-    }
-    switch (record->kind) {
-    case W8_AI_RECORD_PATH:
-        return ClonePathAI(static_cast<const W8PathAI*>(record));
-    case W8_AI_RECORD_MISSILE:
-        return CopyAIMissile(static_cast<const W8AIMissile*>(record));
-    default:
-        return 0;
-    }
 }
 
 // FUNCTION: WIZ8 0x004a9bb0
@@ -595,7 +545,3 @@ float PathAIGetScale(W8PathAI* path)
 }
 
 // FUNCTION: WIZ8 0x004a9750
-W8PathAI* CreatePathAI()
-{
-    return new W8PathAI{};
-}

@@ -134,7 +134,7 @@ W8AniMesh* W8SpellVisual::GetCurrentAniMesh()
     if (emitter == 0) {
         srAssertFail("pao", "C:\\Projects\\Wizardry 8\\Engine Code\\Spells.cpp", 0x653, 0);
     }
-    return emitter->entries[this->host->m_bLOD];
+    return emitter->entries[this->host->m_bLOD].get();
 }
 
 /* How many emitters the host has, counted by testing each for null. */
@@ -395,7 +395,7 @@ W8SpellEmitterHost::W8SpellEmitterHost(const W8SpellEmitterHost& other)
             emitters[emitter] = 0;
             emitter_playback_scales[emitter] = 15.0f;
         } else {
-            emitters[emitter] = CloneAnimObj(other.emitters[emitter]);
+            emitters[emitter] = new W8AnimObj(*other.emitters[emitter]);
             emitter_playback_scales[emitter] = other.emitter_playback_scales[emitter];
         }
     }
@@ -429,7 +429,7 @@ unsigned char W8SpellEmitterHost::ReadCycleData(W8ReadLevelInfo* info, W8SpellVi
         srAssertFail("pInfo && pInfo->hFile && pSpell",
                      "C:\\Projects\\Wizardry 8\\Engine Code\\Spells.cpp", 0x25a, 0);
     }
-    animation = CreateAnimObj();
+    animation = new W8AnimObj;
     success = AnimObjReadFromFile(info, animation, 1, lights, 1);
     emitter = static_cast<signed char>(animation->cycle);
 
@@ -580,7 +580,7 @@ bool LoadSpellVisualResource(const W8GrCycleLoadContext* context, const char* na
             index = FindSpellCycleByName(pac_name);
             if (*visual != 0 && (*visual)->IsCycleSupported(static_cast<signed char>(index))) {
                 sprintf(wave_path, "Data\\Spells\\Sounds\\%s.WAV", pac_value);
-                event = CreateSoundEvent(sound_type, index, frame, 0, wave_path,
+                event = std::make_unique<W8SoundEvent>(sound_type, index, frame, 0, wave_path,
                                          _stricmp(loop_name, "LOOP") == 0);
                 if (event != 0) {
                     (*visual)->AddSoundEvent(std::move(event));
@@ -1087,7 +1087,7 @@ W8SpellEmitterHost::~W8SpellEmitterHost()
 
     for (emitter = 0; emitter < SPELL_NUM_CYCLES; ++emitter) {
         if (emitters[emitter] != 0) {
-            DestroyAnimObj(emitters[emitter]);
+            delete emitters[emitter];
             emitters[emitter] = 0;
         }
     }

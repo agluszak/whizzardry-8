@@ -627,7 +627,7 @@ unsigned char ReadOrCloneMonsterCycles(const W8GrCycleLoadContext* context,
                         if (sound_type != W8_SOUND_EVENT_FOOTSTEP) {
                             sprintf(wave_path, "Data\\Sound\\Monsters\\%s.WAV", wave_name);
                         }
-                        auto sound = CreateSoundEvent(sound_type, sound_cycle, frame, subcycle - 1,
+                        auto sound = std::make_unique<W8SoundEvent>(sound_type, sound_cycle, frame, subcycle - 1,
                                                       wave_path, _stricmp(loop_name, "LOOP") == 0);
                         last_sound = sound.get();
                         if (last_sound != nullptr) {
@@ -1005,7 +1005,7 @@ unsigned char W8MonsterRep::ReadCycleData(W8ReadLevelInfo* info, W8Monster* mons
                      "C:\\Projects\\Wizardry 8\\Engine Code\\Monster.cpp", 0x22d, 0);
     }
 
-    animation = CreateAnimObj();
+    animation = new W8AnimObj;
     success = AnimObjReadFromFile(info, animation, load_all, lights, 0);
     if (cycle_index == W8_MONSTER_CYCLE_NONE) {
         cycle_index = static_cast<signed char>(animation->cycle);
@@ -1110,7 +1110,7 @@ W8MonsterRep::~W8MonsterRep()
         for (index = 0; index < count; ++index) {
             W8AnimObj* animation = animations[cycle][index];
             if (animation != 0) {
-                DestroyAnimObj(animation);
+                delete animation;
             }
         }
     }
@@ -1139,7 +1139,7 @@ void W8MonsterRep::CopyCycle(signed char cycle, const W8MonsterRep* other, signe
     int index;
 
     for (index = 0; index < static_cast<int>(other->animations[other_cycle].size()); ++index) {
-        animations[cycle].push_back(CloneAnimObj(other->animations[other_cycle][index]));
+        animations[cycle].push_back(new W8AnimObj(*other->animations[other_cycle][index]));
         animation_scales[cycle].push_back(other->animation_scales[other_cycle][index]);
     }
 
@@ -4442,7 +4442,7 @@ void MonsterSetHighlightColour(W8Monster* monster, glm::vec4 block)
 W8AIRecord* MonsterGetAIRecord(W8Monster* monster)
 {
     if (monster != 0) {
-        return monster->m_pAI;
+        return monster->m_pAI.get();
     }
     return 0;
 }
@@ -4769,7 +4769,7 @@ void W8Monster::CollectModelInstances(std::vector<stModelInstance*>& instances)
                 int list_index;
 
                 for (list_index = 0; list_index < 3; ++list_index) {
-                    W8AniMesh* mesh = animation->entries[list_index];
+                    W8AniMesh* mesh = animation->entries[list_index].get();
                     if (mesh != 0) {
                         int frame_count = AniMeshValue(mesh);
 
@@ -4788,7 +4788,8 @@ void W8Monster::CollectModelInstances(std::vector<stModelInstance*>& instances)
                 int list_index;
 
                 for (list_index = 0; list_index < 3; ++list_index) {
-                    for (auto* mesh : animation->meshes[list_index]) {
+                    for (const auto& owned_mesh : animation->meshes[list_index]) {
+                        auto* mesh = owned_mesh.get();
                         if (!mesh) continue;
                         const int frame_count = AniMeshValue(mesh);
                         for (int frame = 0; frame < frame_count; ++frame) {

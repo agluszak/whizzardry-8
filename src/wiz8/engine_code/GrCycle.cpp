@@ -361,7 +361,7 @@ try
             srAssertFail("fSuccess", "C:\\Projects\\Wizardry 8\\Engine Code\\GrCycle.cpp", 0x1e6,
                          0);
         } else {
-            (*cycle)->m_pAI = path;
+            (*cycle)->m_pAI.reset(path);
         }
     }
 
@@ -849,7 +849,7 @@ void W8GrCycle::ResetRepresentation()
     if (target == 0) {
         srAssertFail("pRep", "C:\\Projects\\Wizardry 8\\Engine Code\\GrCycle.cpp", 0x3ae, 0);
     }
-    PathAIResetRecord(static_cast<W8PathAI*>(m_pAI));
+    PathAIResetRecord(static_cast<W8PathAI*>(m_pAI.get()));
     target->frame_direction = W8_ANIMATION_FORWARD;
     target->subcycle = 0;
     target->timer = g_shared_timer_base->milliseconds();
@@ -1267,7 +1267,7 @@ srModelInstance* W8GrCycle::SelectCycleFrameLod(signed char cycle, signed char f
     }
     if (m_pAI != 0) {
         target = GetRepresentation();
-        PathAIApplyToRep(m_pAI, target);
+        PathAIApplyToRep(m_pAI.get(), target);
     }
     target = GetRepresentation();
     return target->SetCycleFrameLod(cycle, frame, lod);
@@ -1276,10 +1276,7 @@ srModelInstance* W8GrCycle::SelectCycleFrameLod(signed char cycle, signed char f
 // FUNCTION: WIZ8 0x004a8400
 unsigned char W8GrCycle::ReplacePath(W8PathAI* path)
 {
-    if (m_pAI != 0) {
-        DestroyOwnedPathAI(static_cast<W8PathAI*>(m_pAI));
-    }
-    m_pAI = path;
+    m_pAI.reset(path);
     return 1;
 }
 

@@ -25,6 +25,8 @@ enum W8SoundEventKind {
 class W8SoundEvent {
 public:
     W8SoundEvent() = default;
+    W8SoundEvent(W8SoundEventKind kind, int cycle, int frame, int subcycle,
+                 std::string wave_name, bool looping);
     W8SoundEvent(const W8SoundEvent&) = delete;
     W8SoundEvent& operator=(const W8SoundEvent&) = delete;
     ~W8SoundEvent();
@@ -48,8 +50,6 @@ public:
     int footstep_combat_volume = 30;
 };
 
-std::unique_ptr<W8SoundEvent> CreateSoundEvent(W8SoundEventKind kind, int cycle, int frame,
-                                             int subcycle, const char* wave_name, bool looping);
 
 void UpdateSoundEvents(const std::vector<std::unique_ptr<W8SoundEvent>>& events,
                        const srVector3T<float>& position, unsigned int event_mask,

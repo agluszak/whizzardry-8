@@ -494,7 +494,7 @@ void DestroyWorldCollections(W8World* world)
 
     if (world->plsCameras != 0) {
         wiz8::clear_and_dispose(*world->plsCameras, [](W8CameraPath* entry) {
-            DestroyPathAI(entry->path);
+            delete entry->path;
             free(entry);
         });
         delete world->plsCameras;

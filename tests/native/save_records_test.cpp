@@ -21,6 +21,8 @@
 #include "wiz8/engine_code/stScript.h"
 #include "wiz8/engine_code/PathAI.h"
 #include "wiz8/engine_code/AnimObj.h"
+#include "wiz8/engine_code/AniMesh.h"
+#include "wiz8/engine_code/stModelInstance.h"
 #include "wiz8/engine_code/ReadLevel.h"
 #include "wiz8/engine_code/GrObject.h"
 #include "wiz8/engine_code/SoundEvent.h"
@@ -197,8 +199,10 @@ static void path_record_contracts()
         CHECK(path->scales.size() == (version == 2 ? 2 : 0));
         if (version == 2) CHECK(path->scales[1].y == 3);
         path->timed = true;
-        std::unique_ptr<W8PathAI> copy(ClonePathAI(path.get()));
-        CHECK(!copy->timed && copy->nodes.data() != path->nodes.data());
+        auto copy = std::make_unique<W8PathAI>(*path);
+        auto restarted = path->Clone();
+        CHECK(!static_cast<W8PathAI*>(restarted.get())->timed);
+        CHECK(copy->timed && copy->nodes.data() != path->nodes.data());
         CHECK(copy->rotations.data() != path->rotations.data());
         if (version == 2) CHECK(copy->scales.data() != path->scales.data());
         copy->nodes[0].x = 99;
@@ -261,7 +265,7 @@ static void animation_record_contracts()
         auto file = wiz8::open_file(filename);
         W8ReadLevelInfo info{};
         info.hFile = file.get();
-        auto animation = std::unique_ptr<W8AnimObj, decltype(&DestroyAnimObj)>(CreateAnimObj(), DestroyAnimObj);
+        auto animation = std::make_unique<W8AnimObj>();
         CHECK(AnimObjReadFromFile(&info, animation.get(), 0, nullptr, 0));
         CHECK(animation->animation_playing == (flag != 0));
         CHECK(animation->random_play == (flag != 0));
@@ -270,14 +274,24 @@ static void animation_record_contracts()
         srVector3T<float> minimum, maximum;
         CHECK(AnimObjGetBounds(animation.get(), 0, 1, &minimum, &maximum));
         CHECK(minimum.y == -1000 && maximum.z == 1500);
-        animation->path = CreatePathAI();
+        animation->path = std::make_unique<W8PathAI>();
         PathAIAddPoint(*animation->path, srVector3T<float>(1, 2, 3));
-        animation->paths[0].push_back(ClonePathAI(animation->path));
-        auto copy = std::unique_ptr<W8AnimObj, decltype(&DestroyAnimObj)>(CloneAnimObj(animation.get()), DestroyAnimObj);
+        animation->paths[0].push_back(std::make_unique<W8PathAI>(*animation->path));
+        animation->entries[0] = std::make_unique<W8AniMesh>();
+        animation->entries[0]->filename = std::string(300, 'x');
+        animation->entries[0]->bitmap_directory = "Textures/";
+        animation->entries[0]->meshes.resize(2); // Deferred frames have no instances yet.
+        animation->meshes[0].push_back(std::make_unique<W8AniMesh>(*animation->entries[0]));
+        auto copy = std::make_unique<W8AnimObj>(*animation);
+        CHECK(copy->entries[0] != animation->entries[0]);
+        CHECK(copy->meshes[0][0] != animation->meshes[0][0]);
+        CHECK(copy->entries[0]->meshes.size() == 2);
         CHECK(copy->frame_bounds.data() != animation->frame_bounds.data());
         CHECK(copy->path != animation->path && copy->path->nodes[0].x == 1);
         CHECK(copy->paths[0][0] != animation->paths[0][0]);
         animation.reset();
+        CHECK(copy->entries[0]->filename == std::string(300, 'x'));
+        CHECK(copy->meshes[0][0]->bitmap_directory == "Textures/");
         CHECK(copy->paths[0][0]->nodes[0].z == 3);
         CHECK(AnimObjGetBounds(copy.get(), 0, 0, &minimum, &maximum));
         CHECK(minimum.x == -500 && maximum.x == 500);
@@ -290,18 +304,18 @@ static void animation_record_contracts()
 static void graphical_object_ownership_contracts()
 {
     W8GrObject original;
-    original.m_pAI = CreatePathAI();
-    PathAIAddPoint(*static_cast<W8PathAI*>(original.m_pAI), srVector3T<float>(1, 2, 3));
-    auto event = CreateSoundEvent(W8_SOUND_EVENT_FRAME, 1, 2, 3, "step.wav", true);
+    original.m_pAI = std::make_unique<W8PathAI>();
+    PathAIAddPoint(*static_cast<W8PathAI*>(original.m_pAI.get()), srVector3T<float>(1, 2, 3));
+    auto event = std::make_unique<W8SoundEvent>(W8_SOUND_EVENT_FRAME, 1, 2, 3, "step.wav", true);
     auto* first = event.get();
     original.AddSoundEvent(std::move(event));
     for (int i = 0; i < 20; ++i) {
-        original.AddSoundEvent(CreateSoundEvent(W8_SOUND_EVENT_CYCLE, i, 0, 0, "other.wav", false));
+        original.AddSoundEvent(std::make_unique<W8SoundEvent>(W8_SOUND_EVENT_CYCLE, i, 0, 0, "other.wav", false));
     }
     CHECK(original.sound_events.front().get() == first);
     W8GrObject copy(original);
     CHECK(copy.m_pAI != original.m_pAI);
-    CHECK(static_cast<W8PathAI*>(copy.m_pAI)->nodes[0].y == 2);
+    CHECK(static_cast<W8PathAI*>(copy.m_pAI.get())->nodes[0].y == 2);
     CHECK(copy.sound_events.size() == original.sound_events.size());
     CHECK(copy.sound_events.front().get() != first);
     CHECK(copy.sound_events.front()->wave_name == "step.wav");
@@ -310,11 +324,11 @@ static void graphical_object_ownership_contracts()
     CHECK(copy.sound_events.front()->wave_name == "step.wav");
     W8GrObject missile;
     auto* ai = new W8AIMissile{};
-    ai->kind = W8_AI_RECORD_MISSILE;
+    CHECK(ai->kind == W8_AI_RECORD_MISSILE);
     ai->speed_per_step = 5;
-    missile.m_pAI = ai;
+    missile.m_pAI.reset(ai);
     W8GrObject missile_copy(missile);
-    auto* cloned = static_cast<W8AIMissile*>(missile_copy.m_pAI);
+    auto* cloned = static_cast<W8AIMissile*>(missile_copy.m_pAI.get());
     CHECK(cloned != ai && cloned->speed_per_step == 5 && !cloned->missile);
 }
 

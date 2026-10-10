@@ -72,9 +72,7 @@ stLight::stLight(srNode* parent)
 stLight::~stLight()
 {
     delete m_definition;
-    if (path_ai != 0) {
-        DestroyOwnedPathAI(path_ai);
-    }
+    delete path_ai;
 }
 
 /* Assignment deep-copies both owned members - the definition through its
@@ -96,7 +94,8 @@ stLight& stLight::operator=(const stLight& other)
     m_unknown_238 = other.m_unknown_238;
     m_direction = other.m_direction;
     if (other.path_ai != 0) {
-        path_ai = ClonePathAI(other.path_ai);
+        path_ai = new W8PathAI(*other.path_ai);
+        path_ai->timed = false;
     } else {
         path_ai = 0;
     }

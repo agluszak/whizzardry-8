@@ -19,30 +19,31 @@ class W8Missile;
 /* The kind-3 record of the tagged AI family W8GrObject holds at +0x0c (the
    path record is kind 0). UpdateMissileAI ticks it: +0x04 is the
    per-step distance scale, +0x08 the remaining turn budget, +0x0c the missile
-   it steers (CopyAIMissile deliberately leaves it unset), +0x10 the
+   it steers (runtime clones start detached), +0x10 the
    half-tick baseline, +0x14 the elapsed flight clock, +0x18 the early-impact
    limit and +0x1c a trailing flag. */
 struct W8AIMissile : W8AIRecord {
+    W8AIMissile() : W8AIRecord(W8_AI_RECORD_MISSILE) {}
+    std::unique_ptr<W8AIRecord> Clone() const override;
+
     /* Gravity latch copied from the missile's gravity: when set, the
        vertical fall rate decays each step. */
-    bool gravity;
-    unsigned char padding_02[2];
+    bool gravity{};
     /* Per-step advance scale (speed units per step tick). */
-    float speed_per_step;
+    float speed_per_step{};
     /* Current vertical fall rate, seeded from launch pitch and decayed by
        gravity. */
-    float fall_speed;
-    W8Missile* missile;
+    float fall_speed{};
+    W8Missile* missile{};
     /* Half-tick baseline (milliseconds()>>1) the delta against the current
        half-tick is clamped to 0xfa. */
-    int last_half_tick;
-    float elapsed;
-    float limit;
-    bool unknown_1c;
+    int last_half_tick{};
+    float elapsed{};
+    float limit{};
+    bool unknown_1c{};
     unsigned char padding_1d[3];
 };
 
-W8AIMissile* CopyAIMissile(const W8AIMissile* source);
 unsigned char UpdateMissileAI(W8AIMissile* record);
 float AdvanceMissileAI(W8AIMissile* record, srVector3T<float>* out, unsigned int steps);
 

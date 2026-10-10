@@ -30,14 +30,14 @@ public:
     void AddSoundEvent(std::unique_ptr<W8SoundEvent> event);
 
 public:
-    unsigned char kind;                        /* 0x04 */
-    int id;                                    /* 0x08 */
-    W8AIRecord* m_pAI;                         /* 0x0c: GrObject::GetAI() assertion */
+    unsigned char kind;
+    int id;
+    std::unique_ptr<W8AIRecord> m_pAI;
     std::vector<std::unique_ptr<W8SoundEvent>> sound_events;
     // Prop and Item own their representation; the base never copies it.
     W8AnimRepBase* m_pRep;
 
-}; /* 0x18 */
+};
 
 /* The shared object-id counter both lifecycle callers advance. */
 int AllocateGrObjectId(void);

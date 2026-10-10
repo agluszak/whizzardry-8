@@ -23,10 +23,8 @@
 #define ANIM_OBJ_CPP "C:\\Projects\\Wizardry 8\\Engine Code\\AnimObj.cpp"
 
 // FUNCTION: WIZ8 0x004a01a0
-W8AnimObj* CreateAnimObj()
-{
-    return new W8AnimObj{};
-}
+W8AnimObj::W8AnimObj() = default;
+W8AnimObj::~W8AnimObj() = default;
 
 // FUNCTION: WIZ8 0x004a05c0
 bool AnimObjReadFromFile(W8ReadLevelInfo* info, W8AnimObj* animation, int load_all,
@@ -207,7 +205,7 @@ try
             path->discrete_mode = true;
             PathAISetAnimated(path, false);
             PathAISetScale(path, animation->playback_scale);
-            animation->path = path;
+            animation->path.reset(path);
             animation->frame_count = static_cast<unsigned char>(path->nodes.size());
         }
     }
@@ -220,15 +218,15 @@ try
         int mesh_index;
         for (mesh_index = 0; mesh_index < static_cast<signed char>(animation->group_count);
              ++mesh_index) {
-            W8AniMesh* mesh = CreateAniMesh();
+            auto mesh = std::make_unique<W8AniMesh>();
             signed char channel = 0;
 
             success = success && (handle->read(&channel, 1).bytes == static_cast<std::size_t>(1));
             mesh->list_index = channel;
-            if (!LoadAniMeshFromInfo(info, mesh, load_all)) {
+            if (!LoadAniMeshFromInfo(info, mesh.get(), load_all)) {
                 animation->entries[channel] = 0;
             } else {
-                animation->entries[channel] = mesh;
+                animation->entries[channel] = std::move(mesh);
             }
         }
     } else {
@@ -241,7 +239,7 @@ try
                 srAssertFail("fSuccess", ANIM_OBJ_CPP, 0x200, 0);
             }
             for (entry = 0; entry < entry_count; ++entry) {
-                W8AniMesh* mesh = CreateAniMesh();
+                auto mesh = std::make_unique<W8AniMesh>();
                 W8PathAI* path = 0;
                 signed char channel;
                 const char* saved_filename;
@@ -252,18 +250,19 @@ try
                 mesh->list_index = channel;
                 saved_filename = info->mesh_filename;
                 info->mesh_filename = 0;
-                success = LoadAniMeshFromInfo(info, mesh, 1);
+                success = LoadAniMeshFromInfo(info, mesh.get(), 1);
                 info->mesh_filename = saved_filename;
                 if (!success) {
                     srAssertFail("fSuccess", ANIM_OBJ_CPP, 0x20f, 0);
                 }
                 animation->meshes[channel].insert(animation->meshes[channel].begin() + entry,
-                                                   mesh);
+                                                   std::move(mesh));
                 success = LoadPathAI(&path, handle);
                 if (!success) {
                     srAssertFail("fSuccess", ANIM_OBJ_CPP, 0x217, 0);
                 }
-                animation->paths[channel].insert(animation->paths[channel].begin() + entry, path);
+                animation->paths[channel].insert(animation->paths[channel].begin() + entry,
+                                                 std::unique_ptr<W8PathAI>(path));
                 path->discrete_mode = true;
                 PathAISetAnimated(path, false);
                 PathAISetScale(path, animation->playback_scale);
@@ -273,12 +272,12 @@ try
     }
 
     if (animation->end_frame == 0) {
-        W8AniMesh* mesh = animation->entries[2];
+        W8AniMesh* mesh = animation->entries[2].get();
         if (mesh == 0) {
-            mesh = animation->entries[1];
+            mesh = animation->entries[1].get();
         }
         if (mesh == 0) {
-            mesh = animation->entries[0];
+            mesh = animation->entries[0].get();
         }
         if (mesh == 0) {
             animation->end_frame = animation->start_frame;
@@ -294,35 +293,31 @@ catch (const std::exception&) { return false; }
 
 /* Clone owned meshes and paths; bounds copy as ordinary values. */
 // FUNCTION: WIZ8 0x004a0320
-W8AnimObj* CloneAnimObj(const W8AnimObj* source)
+W8AnimObj::W8AnimObj(const W8AnimObj& other)
+    : group_count(other.group_count), animation_playing(other.animation_playing),
+      frame_method(other.frame_method), behaviour(other.behaviour), cycle(other.cycle),
+      path_lists(other.path_lists), playback_scale(other.playback_scale),
+      random_play(other.random_play), play_chance(other.play_chance),
+      start_frame(other.start_frame), end_frame(other.end_frame), frame_count(other.frame_count),
+      frame_bounds(other.frame_bounds)
 {
-    auto copy = std::unique_ptr<W8AnimObj, decltype(&DestroyAnimObj)>(CreateAnimObj(), DestroyAnimObj);
-    copy->group_count = source->group_count;
-    copy->animation_playing = source->animation_playing;
-    copy->frame_method = source->frame_method;
-    copy->behaviour = source->behaviour;
-    copy->cycle = source->cycle;
-    copy->path_lists = source->path_lists;
-    copy->playback_scale = source->playback_scale;
-    copy->random_play = source->random_play;
-    copy->play_chance = source->play_chance;
-    copy->start_frame = source->start_frame;
-    copy->end_frame = source->end_frame;
-    copy->frame_count = source->frame_count;
     for (int group = 0; group < 3; ++group) {
-        if (source->entries[group]) copy->entries[group] = CopyAniMesh(source->entries[group]);
-        copy->meshes[group].reserve(source->meshes[group].size());
-        for (auto* mesh : source->meshes[group]) {
-            copy->meshes[group].push_back(mesh ? CopyAniMesh(mesh) : nullptr);
+        if (other.entries[group]) entries[group] = std::make_unique<W8AniMesh>(*other.entries[group]);
+        meshes[group].reserve(other.meshes[group].size());
+        for (const auto& mesh : other.meshes[group]) {
+            meshes[group].push_back(mesh ? std::make_unique<W8AniMesh>(*mesh) : nullptr);
         }
-        copy->paths[group].reserve(source->paths[group].size());
-        for (auto* path : source->paths[group]) {
-            copy->paths[group].push_back(path ? ClonePathAI(path) : nullptr);
+        paths[group].reserve(other.paths[group].size());
+        for (const auto& source : other.paths[group]) {
+            auto copy = source ? std::make_unique<W8PathAI>(*source) : nullptr;
+            if (copy) copy->timed = false;
+            paths[group].push_back(std::move(copy));
         }
     }
-    if (source->path) copy->path = ClonePathAI(source->path);
-    copy->frame_bounds = source->frame_bounds;
-    return copy.release();
+    if (other.path) {
+        path = std::make_unique<W8PathAI>(*other.path);
+        path->timed = false;
+    }
 }
 
 /* The animation's bounding box for one frame, cached per frame once computed.
@@ -360,7 +355,7 @@ bool AnimObjGetBounds(W8AnimObj* animation, signed char list_index, unsigned int
         return true;
     }
     if (!animation->path_lists) {
-        return GetAniMeshBounds(animation->entries[list_index], minimum, maximum);
+        return GetAniMeshBounds(animation->entries[list_index].get(), minimum, maximum);
     }
     if (frame >= animation->frame_count) return false;
     if (animation->frame_bounds.size() < animation->frame_count) {
@@ -476,23 +471,7 @@ void TransformBounds(const glm::mat3* rotation, const srVector3T<float>* transla
 }
 
 // FUNCTION: WIZ8 0x004a01e0
-void DestroyAnimObj(W8AnimObj* animation)
-{
-    if (!animation) return;
-    for (auto* mesh : animation->entries) {
-        if (mesh) DestroyAniMesh(mesh);
-    }
-    for (const auto& meshes : animation->meshes) {
-        for (auto* mesh : meshes) {
-            if (mesh) DestroyAniMesh(mesh);
-        }
-    }
-    for (const auto& paths : animation->paths) {
-        for (auto* path : paths) DestroyPathAI(path);
-    }
-    DestroyPathAI(animation->path);
-    delete animation;
-}
+
 
 /* While the object is inactive the selected owned entry supplies the value;
    once active, AnimObj keeps the live value in its own byte at 0x16. */
@@ -503,7 +482,7 @@ unsigned int AnimObjValue(W8AnimObj* animation, signed char index)
         srAssertFail("pao", ANIM_OBJ_CPP, 0x291, 0);
     }
     if (!animation->path_lists) {
-        return AniMeshValue(animation->entries[index]);
+        return AniMeshValue(animation->entries[index].get());
     }
     return animation->frame_count;
 }
@@ -527,7 +506,7 @@ W8PathAI* AnimObjListEntry(W8AnimObj* animation, signed char list_index, signed 
     if (entry_index < 0 || std::cmp_greater_equal(entry_index, paths.size())) {
         return nullptr;
     }
-    return paths[entry_index];
+    return paths[entry_index].get();
 }
 
 // FUNCTION: WIZ8 0x004a1dc0
@@ -548,7 +527,7 @@ srModelInstance* AnimObjDispatch(W8AnimObj* animation, signed char list_index, u
         srAssertFail("pao", ANIM_OBJ_CPP, 0x243, 0);
     }
     if (!animation->path_lists) {
-        entry = animation->entries[list_index];
+        entry = animation->entries[list_index].get();
         // reinterpret-ok: VC6 debug CRT freed-block poison is compared as a pointer; never
         // dereferenced.
         if (entry != reinterpret_cast<W8AniMesh*>(WIZ8_DEBUG_FREED_HEAP_PATTERN) && entry != 0) {
@@ -577,7 +556,7 @@ srModelInstance* AnimObjDispatchList(W8AnimObj* animation, signed char list_inde
     if (animation->path_lists) {
         const auto& list = animation->meshes[list_index];
         if (entry_index >= 0 && std::cmp_less(entry_index, list.size())) {
-            entry = list[entry_index];
+            entry = list[entry_index].get();
             if (entry != 0) {
                 entry->list_index = list_index;
                 return GetAniMeshFrame(entry, 0);
@@ -594,14 +573,14 @@ W8AniMesh* AnimObjEntry(W8AnimObj* animation, signed char list_index, unsigned i
         srAssertFail("pao", ANIM_OBJ_CPP, 0x2bd, 0);
     }
     if (!animation->path_lists) {
-        return animation->entries[list_index];
+        return animation->entries[list_index].get();
     }
     const auto& meshes = animation->meshes[list_index];
     const auto frame = entry_index & 0xff;
     if (frame >= meshes.size()) {
         return nullptr;
     }
-    return meshes[frame];
+    return meshes[frame].get();
 }
 
 // FUNCTION: WIZ8 0x004A2220

@@ -32,17 +32,11 @@ W8SoundEvent::~W8SoundEvent()
 /* The wave name is copied into storage the event owns and its destructor
    releases. */
 // FUNCTION: WIZ8 0x004d57a0
-std::unique_ptr<W8SoundEvent> CreateSoundEvent(W8SoundEventKind kind, int cycle, int frame,
-                                             int subcycle, const char* wave_name, bool looping)
+W8SoundEvent::W8SoundEvent(W8SoundEventKind kind, int cycle, int frame, int subcycle,
+                         std::string wave_name, bool looping)
+    : kind(kind), cycle(cycle), frame(frame), subcycle(subcycle),
+      wave_name(std::move(wave_name)), looping(looping)
 {
-    auto event = std::make_unique<W8SoundEvent>();
-    event->kind = kind;
-    event->cycle = cycle;
-    event->frame = frame;
-    event->subcycle = subcycle;
-    event->wave_name = wave_name;
-    event->looping = looping;
-    return event;
 }
 
 // GLOBAL: WIZ8 0x0061095c

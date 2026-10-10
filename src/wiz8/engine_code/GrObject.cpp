@@ -12,17 +12,14 @@ W8GrObject::W8GrObject(const W8GrObject& other)
     sound_events.reserve(other.sound_events.size());
     for (const auto& event : other.sound_events) {
         // Clones start with fresh playback state, as in the original factory path.
-        sound_events.push_back(CreateSoundEvent(event->kind, event->cycle, event->frame,
+        sound_events.push_back(std::make_unique<W8SoundEvent>(event->kind, event->cycle, event->frame,
                                                event->subcycle, event->wave_name.c_str(), false));
     }
-    m_pAI = CloneAIRecord(other.m_pAI);
+    m_pAI = other.m_pAI ? other.m_pAI->Clone() : nullptr;
 }
 
 // FUNCTION: WIZ8 0x004b6b60
-W8GrObject::~W8GrObject()
-{
-    DestroyAIRecord(m_pAI);
-}
+W8GrObject::~W8GrObject() = default;
 
 // FUNCTION: WIZ8 0x004b6bd0
 void W8GrObject::AddSoundEvent(std::unique_ptr<W8SoundEvent> event)

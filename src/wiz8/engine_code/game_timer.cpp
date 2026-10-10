@@ -122,37 +122,18 @@ static void EnsureSharedGameTimer()
 }
 
 // FUNCTION: WIZ8 0x00439550
-W8GameTimer::W8GameTimer()
-{
-    Flags initial_flags = {false, false, 0, false, false, 0, 0};
-    m_clock_mode = W8_TIMER_CLOCK_SHARED;
-    m_flags = initial_flags;
-    m_shared = 0;
-    m_start = 0;
-    m_end = 0;
-    m_duration_seconds = 0;
-    m_duration_scale = 1.0f;
-
-    EnsureSharedGameTimer();
-    m_shared = g_shared_timer;
-    ++g_shared_timer_refs;
-
-    m_start = ReadClock();
-    m_end = m_start + 10000;
-    m_duration_seconds = 1.0f;
-    m_duration = 10000;
-}
+W8GameTimer::W8GameTimer() : W8GameTimer(1.0f, false) {}
 
 /* The startup status object uses the duration-bearing constructor at
    0x004397F0.  It differs from the default constructor only in the raw-time
    flag and in converting seconds to the timer's 1/10000-second units. */
 // FUNCTION: WIZ8 0x004397f0
-W8GameTimer::W8GameTimer(float duration, unsigned char raw_time)
+W8GameTimer::W8GameTimer(float duration, bool raw_time)
 {
     Flags initial_flags = {false, false, 0, false, false, 0, 0};
     m_clock_mode = W8_TIMER_CLOCK_SHARED;
     m_flags = initial_flags;
-    m_flags.raw_time = raw_time != 0;
+    m_flags.raw_time = raw_time;
     m_shared = 0;
     m_start = 0;
     m_end = 0;
@@ -272,9 +253,4 @@ float W8GameTimer::GetElapsedSeconds()
     return (static_cast<unsigned int>(sample - m_start) /
             static_cast<float>(static_cast<unsigned int>(m_end - m_start))) *
            m_duration_seconds;
-}
-
-W8GameTimer* CreateGameTimer(float duration, unsigned char raw_time)
-{
-    return new W8GameTimer(duration, raw_time);
 }
