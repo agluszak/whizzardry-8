@@ -3929,23 +3929,12 @@ void PruneSpellTargetMarkers(int spell_id, std::vector<int>& monster_markers)
 void TrackItemSpellSource(W8Character* character, int spell_id)
 {
     bool has_spell[0x96] = {false};
-    W8ItemInstance* item;
-    int count;
 
-    for (count = 0; count < 0xc; ++count) {
-        item = &character->EquippedItem[count];
-        int item_id = item->iItemNo;
-        if (item_id != -1 && g_item_records[item_id].spell_id != W8_SPELL_NONE &&
-            CanCharacterActivateItem(character, item) &&
-            ((g_item_records[item_id].quantity_kind != W8_ITEM_QUANTITY_SHOTS &&
-              g_item_records[item_id].quantity_kind != W8_ITEM_QUANTITY_CHARGES) ||
-             item->uses_or_charges != 0)) {
-            has_spell[g_item_records[item_id].spell_id] = 1;
-        }
-    }
-    for (count = 0; count < 8; ++count) {
-        item = &character->backpack[count];
-        int item_id = item->iItemNo;
+    // Equipped slots precede backpack slots in the original spell-use scan.
+    for (int index = 0; index < 20; ++index) {
+        W8ItemInstance* item = index < 12 ? &character->EquippedItem[index]
+                                          : &character->backpack[index - 12];
+        const int item_id = item->iItemNo;
         if (item_id != -1 && g_item_records[item_id].spell_id != W8_SPELL_NONE &&
             CanCharacterActivateItem(character, item) &&
             ((g_item_records[item_id].quantity_kind != W8_ITEM_QUANTITY_SHOTS &&
