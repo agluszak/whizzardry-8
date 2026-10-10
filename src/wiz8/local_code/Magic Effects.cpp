@@ -1858,8 +1858,8 @@ static bool ApplyConditionAttackToTarget(W8SpellEffectEntry* effect, W8CombatSlo
                                          unsigned int duration, bool verbose,
                                          W8MonsterInfo* monster_info)
 {
-    const int character_index = target->iChar;
     const bool monster = target->iType == W8_TARGET_KIND_MONSTER;
+    const int character_index = monster ? -1 : target->iChar;
     const unsigned int haste_turns = monster
         ? monster_info->enchantments[W8_ENCHANTMENT_HASTE].turns
         : g_status.buffers.Char[character_index].enchantments[W8_ENCHANTMENT_HASTE].turns;
