@@ -207,9 +207,21 @@ ReadResult File::read(void* data, std::size_t bytes)
         return {0, false};
     if (!data)
         throw std::invalid_argument("null read buffer");
-    if (extent_ && (bytes > static_cast<std::uint64_t>(size() - tell()) ||
-                   SDL_GetIOSize(require_stream()) < std::int64_t(extent_->offset) + extent_->length))
-        throw std::out_of_range("read exceeds SLF entry");
+    bool clamped = false;
+    if (extent_)
+    {
+        if (SDL_GetIOSize(stream) < std::int64_t(extent_->offset) + extent_->length)
+            throw std::out_of_range("SLF entry exceeds archive");
+        // Stop at the end of the entry like a plain file's EOF.
+        const auto remaining = static_cast<std::uint64_t>(std::max<std::int64_t>(size() - tell(), 0));
+        if (bytes > remaining)
+        {
+            bytes = static_cast<std::size_t>(remaining);
+            clamped = true;
+            if (!bytes)
+                return {0, true};
+        }
+    }
     std::size_t total = 0;
     while (total < bytes)
     {
@@ -220,7 +232,7 @@ ReadResult File::read(void* data, std::size_t bytes)
         if (status != SDL_IO_STATUS_READY)
             sdl_failure("read file");
     }
-    return {total, false};
+    return {total, clamped};
 }
 void File::read_exact(void* data, std::size_t bytes)
 {

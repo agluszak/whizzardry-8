@@ -2,6 +2,7 @@
 #include "compat/surfaces.h"
 #include "movie.h"
 #include "wiz8/engine_code/Video2.h"
+#include "wiz8/runtime_test_hooks.h"
 #include <cstdio>
 #include <cstring>
 #include <memory>
@@ -45,6 +46,8 @@ unsigned char W8BinkVideo::Open(const char* path, int flags)
     // Retail can open the next intro on the same owner. Stop the old audio first.
     delete m_handle;
     m_handle = nullptr;
+    WIZ8_TEST_HOOK(if (g_runtime_test_hooks.skip_movies) return 0;
+                   g_runtime_test_hooks.movie_clock = 0;)
     try
     {
         if (!path || flags)
@@ -66,7 +69,11 @@ unsigned char W8BinkVideo::UpdateFrame()
         return 0;
     try
     {
-        auto result = m_handle->update_now();
+        W8NativeVideo::Result result;
+        WIZ8_TEST_HOOK(if (g_runtime_test_hooks.movie_step_seconds > 0) result = m_handle->update(
+                           g_runtime_test_hooks.movie_clock += g_runtime_test_hooks.movie_step_seconds);
+                       else)
+        result = m_handle->update_now();
         if (result == W8NativeVideo::Done)
             return 1;
         if (result == W8NativeVideo::FrameReady)
@@ -74,6 +81,7 @@ unsigned char W8BinkVideo::UpdateFrame()
             if (!(m_target ? CopyFrameToTargetSurface() : CopyFrameToPrimarySurface()))
                 throw std::runtime_error("Movie surface does not support RGB555 output");
             m_handle->present(m_target ? m_target : g_primary_surface);
+            WIZ8_TEST_HOOK(++g_runtime_test_hooks.movie_frames_presented;)
         }
         return 0;
     }
