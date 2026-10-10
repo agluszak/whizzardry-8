@@ -1,15 +1,16 @@
 # Whizzardry 8
 
 Native Wizardry 8 and SurRender for 64-bit Linux, macOS and Windows, built with Clang and C++23.
-The build uses SDL3 GPU rendering, FFmpeg video decoding,
-miniaudio sound and zlib. All dependencies use the pinned vcpkg registry.
+The build uses SDL3 GPU rendering and CPU surfaces, SDL3_image 3.4.4 with JPEG,
+SDL3_mixer 3.2.4 with MP3, FFmpeg video decoding and zlib.
+All dependencies use the pinned vcpkg registry.
 Game data comes from an existing retail installation and is not distributed here.
 
 ## Build
 
 Install CMake 3.21+, Git, Ninja and Clang. The build bootstraps pinned vcpkg
-and installs SDL3, FFmpeg, zlib and the host shader compiler under the build
-tree. Miniaudio is fetched separately by CMake. Linux also needs SDL's system
+and installs SDL3, SDL3_image, SDL3_mixer, FFmpeg, zlib and the host shader compiler
+under the build tree. Linux also needs SDL's system
 X11/Wayland development interfaces, build tools (including NASM, pkg-config,
 autoconf, automake, autoconf-archive and libtool with libltdl development files)
 and a working Vulkan driver.
@@ -64,10 +65,12 @@ disc drives. The launcher writes diagnostics to the user root.
 ## Native tests
 
 The CTest suite covers portable file/SLF operations, SDL events/timers,
-CRT and pointer semantics, serialization, compression, blitters, JPEG transfer,
-audio and movie decoding, and SurRender interfaces. GPU tests need a working
+CRT and pointer semantics, serialization, compression, image decoding/virtual
+transfers, CPU surfaces, pixel/blitter differentials, offline/positional audio,
+debug allocation/container ownership, movie decoding and SurRender interfaces.
+GPU tests need a working
 display/Vulkan driver; `native_events` uses SDL's dummy driver.
-CI builds Linux, macOS and Windows x64 clang-cl; the first-party
+CI builds Linux and Windows x64 clang-cl; the first-party
 host-width wide-string import check runs only on Unix. macOS and interactive
 Windows graphics/gameplay remain unverified.
 

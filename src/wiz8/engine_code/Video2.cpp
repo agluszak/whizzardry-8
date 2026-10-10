@@ -164,17 +164,14 @@ srGERD* g_gerd;
 // GLOBAL: WIZ8 0x65971c
 srGERD* g_secondary_gerd;
 // GLOBAL: WIZ8 0x65969c
-LPDIRECTDRAW g_direct_draw;
 // GLOBAL: WIZ8 0x6596a0
-LPDIRECTDRAW2 g_direct_draw2;
 // GLOBAL: WIZ8 0x6596a4
-LPDIRECTDRAWSURFACE g_primary_surface1;
 // GLOBAL: WIZ8 0x6596a8
-LPDIRECTDRAWSURFACE2 g_primary_surface;
+std::unique_ptr<CpuSurface> primarySurfaceOwner;
+CpuSurface* g_primary_surface;
 // GLOBAL: WIZ8 0x6596ac
-LPDIRECTDRAWSURFACE g_video_primary_surface1;
 // GLOBAL: WIZ8 0x6596b0
-LPDIRECTDRAWSURFACE2 g_video_primary_surface2;
+std::unique_ptr<CpuSurface> videoSurfaceOwner;
 // GLOBAL: WIZ8 0x659610
 RECT g_window_rect;
 
@@ -316,11 +313,11 @@ void AssertFailureHandler(const char* expression, const char* file, w8_long line
 // FUNCTION: WIZ8 0x00421f70
 PTR LockPrimarySurface(UINT32* pitch)
 {
-    DDSURFACEDESC description;
+    SurfaceLock description{};
 
-    DDLockSurface(g_primary_surface, NULL, &description, 0, NULL);
-    *pitch = description.lPitch;
-    return description.lpSurface;
+    description = LockCpuSurface(*g_primary_surface);
+    *pitch = description.pitch;
+    return description.pixels;
 }
 
 /* Clear the software-facing frame and retire every transient 2D overlay.
@@ -330,14 +327,12 @@ PTR LockPrimarySurface(UINT32* pitch)
 // FUNCTION: WIZ8 0x00422b10
 void ResetVideoFrameState(void)
 {
-    DDSURFACEDESC description;
+    SurfaceLock description{};
     unsigned int active;
 
-    memset(&description, 0, sizeof(description));
-    description.dwSize = sizeof(description);
-    DDLockSurface(g_primary_surface, NULL, &description, 0, NULL);
-    memset(description.lpSurface, 0, description.lPitch * 480);
-    DDUnlockSurface(g_primary_surface, NULL);
+    description = LockCpuSurface(*g_primary_surface);
+    memset(description.pixels, 0, description.pitch * 480);
+    UnlockCpuSurface(*g_primary_surface);
     memset(g_tile_dirty_flags, 0, sizeof(g_tile_dirty_flags));
     memset(g_surface_nodes, 0, sizeof(g_surface_nodes));
     active = g_active_page;
@@ -373,7 +368,7 @@ unsigned char InitializeVideoManager(HINSTANCE instance, unsigned short show_com
     if (!CreateWizardryWindow()) {
         return 0;
     }
-    if (!InitializePrimaryDirectDrawSurface()) {
+    if (!InitializePrimaryCpuSurface()) {
         return 0;
     }
     if (!InitializeVideoDevice()) {
@@ -425,8 +420,8 @@ void ShutdownVideoManager(void)
     ShutdownStartupNavigation();
     SuspendVideoManager();
     HWND native_window = ghWindow;
-    DDReleaseSurface(&g_primary_surface1, &g_primary_surface);
-    DDReleaseSurface(&g_video_primary_surface1, &g_video_primary_surface2);
+    ReleasePrimaryCpuSurface();
+    videoSurfaceOwner.reset();
     if (ghWindow) {
         CloseWindow(ghWindow);
         ghWindow = 0;
@@ -452,7 +447,7 @@ void ShutdownVideoManager(void)
 }
 
 /* Releases the renderer scene graph and 2D objects created by the video
-   startup sequence; runs from ShutdownVideoManager before the DirectDraw
+   startup sequence; runs from ShutdownVideoManager before the CPU surface
    teardown. */
 // FUNCTION: WIZ8 0x00423f30
 void ShutdownVideoScenes(void)
@@ -529,38 +524,32 @@ unsigned char CreateWizardryWindow(void)
     return ghWindow != 0;
 }
 
-/* Creates the 640x480 system-memory DirectDraw surface that SurRender uses as
-   its color output.  Interface identities, flags and HRESULT semantics are
-   from the published DirectDraw headers; only the orchestration is Wiz8 code. */
+/* SDL owns the 640x480 CPU frame used as SurRender color output. */
 // FUNCTION: WIZ8 0x00426080
-unsigned char InitializePrimaryDirectDrawSurface(void)
+void ReleasePrimaryCpuSurface(void)
 {
-    DDSURFACEDESC description = {};
-    description.dwSize = sizeof(description);
-    description.dwFlags = DDSD_CAPS | DDSD_HEIGHT | DDSD_WIDTH | DDSD_PIXELFORMAT;
-    description.dwHeight = 480;
-    description.dwWidth = 640;
-    description.ddsCaps.dwCaps = DDSCAPS_OFFSCREENPLAIN | DDSCAPS_SYSTEMMEMORY;
-    description.ddpfPixelFormat.dwSize = sizeof(DDPIXELFORMAT);
-    description.ddpfPixelFormat.dwFlags = DDPF_RGB;
-    description.ddpfPixelFormat.dwRGBBitCount = 16;
-    description.ddpfPixelFormat.dwRBitMask = gusRedMask;
-    description.ddpfPixelFormat.dwGBitMask = gusGreenMask;
-    description.ddpfPixelFormat.dwBBitMask = gusBlueMask;
-    DDCreateSurface(0, &description, &g_primary_surface1, &g_primary_surface);
-    return g_primary_surface != 0;
+    primarySurfaceOwner.reset();
+    g_primary_surface = nullptr;
+}
+
+unsigned char InitializePrimaryCpuSurface(void)
+{
+    primarySurfaceOwner = CreateCpuSurface(640, 480, 16, gusRedMask, gusGreenMask, gusBlueMask);
+    g_primary_surface = primarySurfaceOwner.get();
+    return g_primary_surface != nullptr;
 }
 
 /* Selects and starts the configured SurRender display driver, binds it to the
-   top-level window, and retains the final 3DVideo.CFG line for the later sound
-   manager.  Driver and API names come from the SR export table and retail
-   strings; the file format is the five-line format emitted by 3DSetup.exe. */
+   top-level window. The final 3DVideo.CFG line still accepts "none" to disable
+   audio; other historical device names use the native mixer. Driver and API names
+   come from the SR export table and retail strings; the file format is the
+   five-line format emitted by 3DSetup.exe. */
 // FUNCTION: WIZ8 0x00422240
 unsigned char InitializeVideoDevice(void)
 {
     std::istringstream config;
     char device[100] = "";
-    char sound_provider[100] = "";
+    char audio_setting[100] = "";
     char line[10] = "";
     char* newline;
 
@@ -592,12 +581,12 @@ unsigned char InitializeVideoDevice(void)
         g_screen_height = atoi(line);
         config.getline(line, sizeof(line));
         g_screen_depth = atoi(line);
-        config.getline(sound_provider, sizeof(sound_provider));
-        newline = strchr(sound_provider, '\r');
+        config.getline(audio_setting, sizeof(audio_setting));
+        newline = strchr(audio_setting, '\r');
         if (newline) {
             *newline = '\0';
         }
-        newline = strchr(sound_provider, '\n');
+        newline = strchr(audio_setting, '\n');
         if (newline) {
             *newline = '\0';
         }
@@ -619,10 +608,8 @@ unsigned char InitializeVideoDevice(void)
     if (g_gerd->createContext(reinterpret_cast<w8_ulong_ptr>(ghWindow)) != srGERD::ERROR_NONE ||
         !OpenRendererWindow()) return 0;
     srAssertSetFunc(AssertFailureHandler);
-    if (_strnicmp(sound_provider, "none", 4) == 0) {
+    if (_strnicmp(audio_setting, "none", 4) == 0) {
         gfEnableStartup = FALSE;
-    } else {
-        Sound3DSetProvider(sound_provider);
     }
     InitializeVirtualFileImageImporters();
     return 1;
@@ -642,20 +629,19 @@ unsigned char OpenRendererWindow(void)
 }
 
 // FUNCTION: WIZ8 0x00423390
-IDirectDrawSurface2* BeginVideoPresentation(void)
+CpuSurface* BeginVideoPresentation(void)
 {
-    /* CPU movie output shares the native renderer's persistent window. */
-    DDSURFACEDESC description;
-    DDGetSurfaceDescription(g_primary_surface, &description);
-    DDCreateSurface(0, &description, &g_video_primary_surface1, &g_video_primary_surface2);
+    const auto& source = *g_primary_surface;
+    videoSurfaceOwner = CreateCpuSurface(source.surface->w, source.surface->h, 16,
+                                        source.redMask, source.greenMask, source.blueMask);
     g_flush_pending = false;
-    return g_video_primary_surface2;
+    return videoSurfaceOwner.get();
 }
 
 // FUNCTION: WIZ8 0x004234A0
 unsigned char FinishVideoPresentation(void)
 {
-    DDReleaseSurface(&g_video_primary_surface1, &g_video_primary_surface2);
+    videoSurfaceOwner.reset();
     g_flush_pending = true;
     InvalidateRegion(0, 0, 640, 480, 0);
     return 1;
@@ -784,7 +770,7 @@ unsigned char RestoreVideoManager(void)
 // FUNCTION: WIZ8 0x00421fb0
 void UnlockPrimarySurface(void)
 {
-    DDUnlockSurface(g_primary_surface, NULL);
+    UnlockCpuSurface(*g_primary_surface);
 }
 
 /* The mode the engine falls back to: 640x480 at 16bpp, reported height first.
@@ -797,18 +783,10 @@ void GetCurrentVideoSettings(unsigned short* height, unsigned short* width, unsi
     *depth = 0x10;
 }
 
-/* Clears the primary surface. The dword count the original computes - the pitch
-   times fifteen, masked, shifted left three - is VC6's inline memset over
-   pitch times 480 bytes, which is why the byte-remainder loop that follows it
-   runs zero times: the length is always a multiple of four. */
 // FUNCTION: WIZ8 0x00421ff0
 unsigned char ClearPrimarySurface(void)
 {
-    DDSURFACEDESC description;
-
-    DDLockSurface(g_primary_surface, NULL, &description, 0, NULL);
-    memset(description.lpSurface, 0, description.lPitch * 480);
-    DDUnlockSurface(g_primary_surface, NULL);
+    FillCpuSurface(*g_primary_surface, 0);
     return 1;
 }
 
@@ -1914,12 +1892,12 @@ void InvalidateScreenRects(W8ScreenRect* rects, unsigned int count, int flags)
 // FUNCTION: WIZ8 0x00425b40
 void FlushDirtyTiles(void)
 {
-    DDSURFACEDESC description;
+    SurfaceLock description{};
 
     if (g_dirty_tile_count == 0) {
         return;
     }
-    DDLockSurface(g_primary_surface, 0, &description, 0, 0);
+    description = LockCpuSurface(*g_primary_surface);
     for (int row = 0; row != 60; ++row) {
         int column = 0;
         while (column < 80) {
@@ -1938,7 +1916,7 @@ void FlushDirtyTiles(void)
                 ++height;
             }
 
-            g_surface_node->updateRectangle(g_gerd, description.lpSurface, description.lPitch,
+            g_surface_node->updateRectangle(g_gerd, description.pixels, description.pitch,
                                             column * 8, row * 8, (column + width) * 8,
                                             (row + height) * 8);
             for (int y = 0; y != height; ++y) {
@@ -1949,7 +1927,7 @@ void FlushDirtyTiles(void)
             column += width;
         }
     }
-    DDUnlockSurface(g_primary_surface, 0);
+    UnlockCpuSurface(*g_primary_surface);
     g_dirty_tile_count = 0;
 }
 
@@ -2041,7 +2019,7 @@ void PrintScreen(void)
 // FUNCTION: WIZ8 0x00427460
 void DrawVideoInspector(int left, unsigned int top)
 {
-    DDSURFACEDESC description;
+    SurfaceLock description{};
     srGERD::Statistics statistics;
     srVector3T<float> position;
     unsigned int bottom;
@@ -2059,17 +2037,17 @@ void DrawVideoInspector(int left, unsigned int top)
         height = 0x2c;
     }
     bottom = top + height;
-    DDLockSurface(g_primary_surface, NULL, &description, 0, NULL);
-    if (description.lpSurface != 0) {
+    description = LockCpuSurface(*g_primary_surface);
+    if (description.pixels != 0) {
         if (top < bottom) {
-            row = static_cast<unsigned char*>(description.lpSurface) + description.lPitch * top +
+            row = static_cast<unsigned char*>(description.pixels) + description.pitch * top +
                   left * 2;
             for (rows = bottom - top; rows != 0; --rows) {
                 memset(row, 0, 0x226);
-                row += description.lPitch;
+                row += description.pitch;
             }
         }
-        DDUnlockSurface(g_primary_surface, NULL);
+        UnlockCpuSurface(*g_primary_surface);
     }
     InvalidateRegion(left, top, left + 0x113, bottom, 0);
     if (g_gerd != 0) {
@@ -2216,7 +2194,7 @@ unsigned char InitializeMouseSurface(void)
 // FUNCTION: WIZ8 0x00423500
 unsigned char InitializeRendererSceneObjects(void)
 {
-    DDSURFACEDESC surface_description;
+    SurfaceLock surface_description{};
     srCamera::Rect view;
     srMaterial* material;
     srVector4T<float> material_value;
@@ -2308,13 +2286,11 @@ unsigned char InitializeRendererSceneObjects(void)
     g_dirty_tile_count = 0;
     g_viewport.bottom = 0;
 
-    memset(&surface_description, 0, sizeof(surface_description));
-    surface_description.dwSize = sizeof(surface_description);
-    DDLockSurface(g_primary_surface, 0, &surface_description, 0, 0);
-    DDUnlockSurface(g_primary_surface, 0);
+    surface_description = LockCpuSurface(*g_primary_surface);
+    UnlockCpuSurface(*g_primary_surface);
     g_primary_color_surface = SR_NEW(W8ColorSurface)(
-        srPixelConvert::SURFACE_ARGB1555, surface_description.lpSurface, 640UL, 480UL,
-        static_cast<w8_ulong>(surface_description.lPitch));
+        srPixelConvert::SURFACE_ARGB1555, surface_description.pixels, 640UL, 480UL,
+        static_cast<w8_ulong>(surface_description.pitch));
     if (!g_primary_color_surface)
         return 0;
 
@@ -2333,33 +2309,13 @@ unsigned char InitializeRendererSceneObjects(void)
     return 1;
 }
 
-/* Zero a rectangle of the primary surface, one row at a time. The span is
-   doubled because the surface holds sixteen-bit pixels, and the row clear is an
-   ordinary memset that VC6 expands into a dword run with a byte remainder.
-
-   Unlike the other lock site in this unit, the descriptor is not cleared before
-   locking. That is the original's own sequence, reproduced. */
 // FUNCTION: WIZ8 0x004263f0
 void ClearSurfaceRect(int left, unsigned int top, int right, unsigned int bottom)
 {
-    DDSURFACEDESC surface_description;
-    unsigned char* row;
-    int rows;
-
-    DDLockSurface(g_primary_surface, 0, &surface_description, 0, 0);
-    if (surface_description.lpSurface != 0) {
-        if (top < bottom) {
-            row = static_cast<unsigned char*>(surface_description.lpSurface) + left * 2 +
-                  surface_description.lPitch * top;
-            rows = bottom - top;
-            do {
-                memset(row, 0, (right - left) * 2);
-                row += surface_description.lPitch;
-                --rows;
-            } while (rows != 0);
-        }
-        DDUnlockSurface(g_primary_surface, 0);
-    }
+    if (top >= bottom || left >= right)
+        return;
+    const RECT rectangle{left, static_cast<LONG>(top), right, static_cast<LONG>(bottom)};
+    FillCpuSurface(*g_primary_surface, 0, &rectangle);
 }
 
 // FUNCTION: WIZ8 0x00426500
@@ -2562,7 +2518,7 @@ void VideoGetClientRect(RECT* rect)
 }
 
 // FUNCTION: WIZ8 0x00421f20
-IDirectDrawSurface2* GetFrameBufferObject(void)
+CpuSurface* GetFrameBufferObject(void)
 {
     return g_primary_surface;
 }
@@ -2589,12 +2545,6 @@ void UnlockMouseBuffer(void) {}
 
 /* The retail empty video-capture entry folds with the shared 0x4023a0 ret. */
 void VideoCaptureToggle(void) {}
-
-// FUNCTION: WIZ8 0x00421f30
-IDirectDraw2* GetDirectDraw2Object(void)
-{
-    return g_direct_draw2;
-}
 
 // GLOBAL: WIZ8 0x006596f4
 bool g_auto_capture;

@@ -3,8 +3,6 @@
 #include "surrender/srCore.h"
 #include "surrender/srExporter.h"
 
-#include "layout.h"
-
 class srJPEGImporter : public srSurfaceIOManager::SurfaceImporter,
                        public srSurfaceIOManager::SurfaceExporter {
 public:
@@ -18,13 +16,13 @@ public:
                                                const srSurfaceIOManager::ImportInfo& options);
     virtual void exportSurface(srBinOStream& stream, srColorSurfaceIFace& surface,
                                const srSurfaceIOManager::ExportInfo& options);
-
-private:
-    void initializeCodecOptions();
-    bool readHeader(void* input_cookie);
-
-    JpegCodecState codec_;
-    JpegExportOptions export_options_;
 };
 
-W8_ABI_ASSERT((sizeof(srJPEGImporter) == 0x44), "srJPEGImporter_must_be_0x44");
+class srTGAImporter : public srSurfaceIOManager::SurfaceImporter {
+public:
+    srTGAImporter();
+    ~srTGAImporter() override;
+    const char* getTypeName() const override;
+    srColorSurfaceIFace* importSurface(srBinIStream& stream,
+                                       const srSurfaceIOManager::ImportInfo& options) override;
+};

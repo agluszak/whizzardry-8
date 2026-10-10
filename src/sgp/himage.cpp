@@ -7,8 +7,12 @@
 #include "DEBUG.H"
 #include "FileMan.h"
 #include "himage.h"
-#include "impTGA.h"
-#include "pcx.h"
+#include <SDL3_image/SDL_image.h>
+#include <algorithm>
+#include <limits>
+#include <memory>
+#include <string>
+#include <vector>
 #include "STCI.h"
 #include "WCheck.h"
 #include "Compression.h"
@@ -43,51 +47,218 @@ typedef union {
     UINT32 uiValue;
 } SplitUINT32;
 
-// FUNCTION: WIZ8 0x0040f850
-HIMAGE CreateImage(SGPFILENAME ImageFile, UINT16 fContents)
+namespace
 {
-    HIMAGE hImage = NULL;
-    SGPFILENAME Extension;
-    CHAR8 ExtensionSep[] = ".";
-    STR StrPtr;
-    UINT32 iFileLoader;
+constexpr std::size_t max_image_bytes = 256 * 1024 * 1024;
 
-    // Depending on extension of filename, use different image readers
-    // Get extension
-    StrPtr = strstr(ImageFile, ExtensionSep);
+struct FileCloser
+{
+    HWFILE handle;
+    ~FileCloser() { if (handle) FileClose(handle); }
+};
 
-    if (StrPtr == NULL) {
-        // No extension given, use default internal loader extension
-        DbgMessage(TOPIC_HIMAGE, DBG_LEVEL_2, "No extension given, using default");
-        strcat(ImageFile, ".PCX");
-        strcpy(Extension, ".PCX");
-    } else {
-        strcpy(Extension, StrPtr + 1);
+struct ImageMemoryDeleter
+{
+    void operator()(void* data) const { if (data) MemFree(data); }
+};
+
+template<class T>
+using ImageMemory = std::unique_ptr<T, ImageMemoryDeleter>;
+using Surface = std::unique_ptr<SDL_Surface, decltype(&SDL_DestroySurface)>;
+
+bool safe_dimensions(std::size_t width, std::size_t height)
+{
+    return width && height && width <= std::numeric_limits<UINT16>::max() &&
+           height <= std::numeric_limits<UINT16>::max() &&
+           width * height <= max_image_bytes / 4;
+}
+
+unsigned little_word(const UINT8* bytes)
+{
+    return bytes[0] | (unsigned(bytes[1]) << 8);
+}
+
+bool valid_image_header(const std::vector<UINT8>& bytes, UINT32 loader)
+{
+    if (loader == PCX_FILE_READER)
+    {
+        if (bytes.size() < 128 || bytes[0] != 10 || bytes[2] > 1)
+            return false;
+        const auto left = little_word(bytes.data() + 4), top = little_word(bytes.data() + 6);
+        const auto right = little_word(bytes.data() + 8), bottom = little_word(bytes.data() + 10);
+        const auto stride = little_word(bytes.data() + 66);
+        return right >= left && bottom >= top && right < 32768 && bottom < 32768 &&
+               safe_dimensions(right - left + 1, bottom - top + 1) &&
+               bytes[3] == 8 && (bytes[65] == 1 || bytes[65] == 3) &&
+               stride >= right - left + 1 && stride < 32768;
+    }
+    if (loader == TGA_FILE_READER)
+    {
+        if (bytes.size() < 18)
+            return false;
+        if ((bytes[2] == 1 || bytes[2] == 9) &&
+            little_word(bytes.data() + 3) + little_word(bytes.data() + 5) > 256)
+            return false;
+        return (bytes[16] == 8 || bytes[16] == 16 || bytes[16] == 24) &&
+               safe_dimensions(little_word(bytes.data() + 12), little_word(bytes.data() + 14));
+    }
+    if (loader == JPEG_FILE_READER)
+    {
+        if (bytes.size() < 2 || bytes[0] != 0xff || bytes[1] != 0xd8)
+            return false;
+        std::size_t position = 2;
+        while (position < bytes.size())
+        {
+            if (bytes[position++] != 0xff)
+                return false;
+            while (position < bytes.size() && bytes[position] == 0xff)
+                ++position;
+            if (position == bytes.size())
+                return false;
+            const auto marker = bytes[position++];
+            if (marker == 0xda || marker == 0xd9)
+                return false;
+            if (marker == 1 || (marker >= 0xd0 && marker <= 0xd8))
+                continue;
+            if (bytes.size() - position < 2)
+                return false;
+            const std::size_t length = (unsigned(bytes[position]) << 8) | bytes[position + 1];
+            if (length < 2 || length > bytes.size() - position)
+                return false;
+            if (marker >= 0xc0 && marker <= 0xcf && marker != 0xc4 && marker != 0xc8 && marker != 0xcc)
+            {
+                if (length < 8)
+                    return false;
+                const auto height = (unsigned(bytes[position + 3]) << 8) | bytes[position + 4];
+                const auto width = (unsigned(bytes[position + 5]) << 8) | bytes[position + 6];
+                return safe_dimensions(width, height);
+            }
+            position += length;
+        }
+    }
+    return false;
+}
+
+BOOLEAN LoadOrdinaryImage(HIMAGE image, UINT16 contents)
+try
+{
+    const FileCloser file{FileOpen(image->ImageFile, FILE_ACCESS_READ | FILE_OPEN_EXISTING, FALSE)};
+    if (!file.handle)
+        return FALSE;
+    const auto size = FileGetSize(file.handle);
+    if (!size || size > max_image_bytes)
+        return FALSE;
+    std::vector<UINT8> bytes(size);
+    UINT32 read = 0;
+    if (!FileRead(file.handle, bytes.data(), size, &read) || read != size ||
+        !valid_image_header(bytes, image->iFileLoader))
+        return FALSE;
+
+    // A bounded owned buffer gives SDL an independent cursor even for SLF entries.
+    std::unique_ptr<SDL_IOStream, decltype(&SDL_CloseIO)> stream(
+        SDL_IOFromConstMem(bytes.data(), bytes.size()), SDL_CloseIO);
+    if (!stream)
+        return FALSE;
+    const char* type = image->iFileLoader == PCX_FILE_READER ? "PCX" :
+                       image->iFileLoader == TGA_FILE_READER ? "TGA" : "JPG";
+    Surface surface(IMG_LoadTyped_IO(stream.get(), false, type), SDL_DestroySurface);
+    if (!surface || !safe_dimensions(surface->w, surface->h))
+        return FALSE;
+
+    auto* palette = SDL_GetSurfacePalette(surface.get());
+    const bool indexed = surface->format == SDL_PIXELFORMAT_INDEX8 && palette;
+    const bool rgb555 = surface->format == SDL_PIXELFORMAT_XRGB1555;
+    if (!indexed && !rgb555)
+    {
+        Surface converted(SDL_ConvertSurface(surface.get(), SDL_PIXELFORMAT_RGB24), SDL_DestroySurface);
+        if (!converted)
+            return FALSE;
+        surface = std::move(converted);
+    }
+    const unsigned depth = indexed ? 8 : rgb555 ? 16 : 24;
+    const std::size_t row_bytes = surface->w * (depth / 8);
+    ImageMemory<UINT8> data;
+    ImageMemory<SGPPaletteEntry> colors;
+    ImageMemory<UINT16> packed_colors;
+    if (contents & IMAGE_BITMAPDATA)
+    {
+        data.reset(static_cast<UINT8*>(MemAlloc(row_bytes * surface->h)));
+        if (!data)
+            return FALSE;
+        for (int y = 0; y < surface->h; ++y)
+            memcpy(data.get() + y * row_bytes,
+                   static_cast<const UINT8*>(surface->pixels) + y * surface->pitch, row_bytes);
+    }
+    if (indexed && (contents & IMAGE_PALETTE))
+    {
+        colors.reset(static_cast<SGPPaletteEntry*>(MemAlloc(256 * sizeof(SGPPaletteEntry))));
+        if (!colors)
+            return FALSE;
+        memset(colors.get(), 0, 256 * sizeof(SGPPaletteEntry));
+        const unsigned first_color = image->iFileLoader == TGA_FILE_READER &&
+            (bytes[2] == 1 || bytes[2] == 9) ? little_word(bytes.data() + 3) : 0;
+        for (unsigned i = 0; i < std::min(unsigned(palette->ncolors), 256 - first_color); ++i)
+            colors.get()[first_color + i] = {palette->colors[i].r, palette->colors[i].g, palette->colors[i].b, 0};
+        packed_colors.reset(Create16BPPPalette(colors.get()));
+        if (!packed_colors)
+            return FALSE;
     }
 
-    // Determine type from Extension
-    do {
-        iFileLoader = UNKNOWN_FILE_READER;
+    // Publish only fully decoded data; failed reloads leave existing contents intact.
+    ReleaseImageData(image, contents & IMAGE_ALLIMAGEDATA);
+    image->usWidth = static_cast<UINT16>(surface->w);
+    image->usHeight = static_cast<UINT16>(surface->h);
+    image->ubBitDepth = static_cast<UINT8>(depth);
+    if (data)
+    {
+        image->p8BPPData = data.release();
+        image->fFlags |= IMAGE_BITMAPDATA;
+    }
+    if (colors)
+    {
+        image->pPalette = colors.release();
+        image->pui16BPPPalette = packed_colors.release();
+        image->fFlags |= IMAGE_PALETTE;
+    }
+    return TRUE;
+}
+catch (...)
+{
+    return FALSE;
+}
+}
 
-        if (_stricmp(Extension, "PCX") == 0) {
-            iFileLoader = PCX_FILE_READER;
-            break;
-        }
-
-        if (_stricmp(Extension, "TGA") == 0) {
-            iFileLoader = TGA_FILE_READER;
-            break;
-        }
-
-        if (_stricmp(Extension, "STI") == 0) {
-            iFileLoader = STCI_FILE_READER;
-            break;
-        }
-
-    } while (FALSE);
+// FUNCTION: WIZ8 0x0040f850
+HIMAGE CreateImage(SGPFILENAME ImageFile, UINT16 fContents)
+try
+{
+    if (!ImageFile)
+        return NULL;
+    std::string path(ImageFile);
+    const auto slash = path.find_last_of("/\\");
+    auto dot = path.find_last_of('.');
+    if (dot == std::string::npos || (slash != std::string::npos && dot < slash))
+    {
+        path += ".PCX";
+        dot = path.size() - 4;
+    }
+    if (path.size() >= sizeof(SGPFILENAME))
+        return NULL;
+    const auto extension = path.substr(dot + 1);
+    UINT32 iFileLoader = UNKNOWN_FILE_READER;
+    if (_stricmp(extension.c_str(), "PCX") == 0)
+        iFileLoader = PCX_FILE_READER;
+    else if (_stricmp(extension.c_str(), "TGA") == 0)
+        iFileLoader = TGA_FILE_READER;
+    else if (_stricmp(extension.c_str(), "STI") == 0)
+        iFileLoader = STCI_FILE_READER;
+    else if (_stricmp(extension.c_str(), "JPG") == 0 || _stricmp(extension.c_str(), "JPEG") == 0)
+        iFileLoader = JPEG_FILE_READER;
+    if (iFileLoader == UNKNOWN_FILE_READER)
+        return NULL;
 
     // Determine if resource exists before creating image structure
-    if (!FileExists(ImageFile)) {
+    if (!FileExists(path.data())) {
         //If in debig, make fatal!
         DbgMessage(TOPIC_HIMAGE, DBG_LEVEL_2,
                    String("Resource file %s does not exist.", ImageFile));
@@ -95,28 +266,28 @@ HIMAGE CreateImage(SGPFILENAME ImageFile, UINT16 fContents)
     }
 
     // Create memory for image structure
-    hImage = (HIMAGE)MemAlloc(sizeof(image_type));
+    std::unique_ptr<image_type, decltype(&DestroyImage)> hImage(
+        static_cast<image_type*>(MemAlloc(sizeof(image_type))), DestroyImage);
 
-    AssertMsg(hImage, "Failed to allocate memory for hImage in CreateImage");
+    if (!hImage)
+        return NULL;
     // Initialize some values
-    memset(hImage, 0, sizeof(image_type));
-
-    //hImage->fFlags = 0;
-    // Set data pointers to NULL
-    //hImage->pImageData = NULL;
-    //hImage->pPalette   = NULL;
-    //hImage->pui16BPPPalette = NULL;
+    memset(hImage.get(), 0, sizeof(image_type));
 
     // Set filename and loader
-    strcpy(hImage->ImageFile, ImageFile);
+    memcpy(hImage->ImageFile, path.c_str(), path.size() + 1);
     hImage->iFileLoader = iFileLoader;
 
-    if (!LoadImageData(hImage, fContents)) {
+    if (!LoadImageData(hImage.get(), fContents)) {
         return (NULL);
     }
 
     // All is fine, image is loaded and allocated, return pointer
-    return (hImage);
+    return hImage.release();
+}
+catch (...)
+{
+    return NULL;
 }
 
 // FUNCTION: WIZ8 0x0040f9f0
@@ -187,13 +358,9 @@ BOOLEAN LoadImageData(HIMAGE hImage, UINT16 fContents)
     // Switch on file loader
     switch (hImage->iFileLoader) {
     case TGA_FILE_READER:
-
-        fReturnVal = LoadTGAFileToImage(hImage, fContents);
-        break;
-
     case PCX_FILE_READER:
-
-        fReturnVal = LoadPCXFileToImage(hImage, fContents);
+    case JPEG_FILE_READER:
+        fReturnVal = LoadOrdinaryImage(hImage, fContents);
         break;
 
     case STCI_FILE_READER:
@@ -320,12 +487,15 @@ BOOLEAN Copy8BPPCompressedImageTo8BPPBuffer(HIMAGE hImage, BYTE* pDestBuf, UINT1
     // to blit has been done).
 
     // initialize the decompression routines
-    pDecompPtr =
-        DecompressInit((BYTE*)hImage->pCompressedImageData, hImage->usWidth * hImage->usHeight);
+    std::unique_ptr<void, decltype(&DecompressFini)> decompressor(
+        DecompressInit((BYTE*)hImage->pCompressedImageData, hImage->usWidth * hImage->usHeight),
+        DecompressFini);
+    pDecompPtr = decompressor.get();
     CHECKF(pDecompPtr);
 
     // Allocate memory for one scanline
-    pScanLine = (UINT8*)MemAlloc(hImage->usWidth);
+    ImageMemory<UINT8> scanline(static_cast<UINT8*>(MemAlloc(hImage->usWidth)));
+    pScanLine = scanline.get();
     CHECKF(pScanLine);
 
     // go past all the scanlines we don't need to process
@@ -348,7 +518,6 @@ BOOLEAN Copy8BPPCompressedImageTo8BPPBuffer(HIMAGE hImage, BYTE* pDestBuf, UINT1
     Assert(uiDecompressed == hImage->usWidth);
     //	memcpy( pDest, pScanLine + srcRect->iLeft, uiLineSize );
 
-    DecompressFini(pDecompPtr);
     return (TRUE);
 }
 
@@ -410,12 +579,15 @@ BOOLEAN Copy8BPPCompressedImageTo16BPPBuffer(HIMAGE hImage, BYTE* pDestBuf, UINT
     // to blit has been done).
 
     // initialize the decompression routines
-    pDecompPtr =
-        DecompressInit((BYTE*)hImage->pCompressedImageData, hImage->usWidth * hImage->usHeight);
+    std::unique_ptr<void, decltype(&DecompressFini)> decompressor(
+        DecompressInit((BYTE*)hImage->pCompressedImageData, hImage->usWidth * hImage->usHeight),
+        DecompressFini);
+    pDecompPtr = decompressor.get();
     CHECKF(pDecompPtr);
 
     // Allocate memory for one scanline
-    pScanLine = (UINT8*)MemAlloc(hImage->usWidth);
+    ImageMemory<UINT8> scanline(static_cast<UINT8*>(MemAlloc(hImage->usWidth)));
+    pScanLine = scanline.get();
     CHECKF(pScanLine);
 
     // go past all the scanlines we don't need to process
@@ -445,7 +617,6 @@ BOOLEAN Copy8BPPCompressedImageTo16BPPBuffer(HIMAGE hImage, BYTE* pDestBuf, UINT
 
     DbgMessage(TOPIC_HIMAGE, DBG_LEVEL_3, String("End Copying at %p", pDest));
 
-    DecompressFini(pDecompPtr);
     return (TRUE);
 }
 
@@ -616,6 +787,9 @@ UINT16* Create16BPPPalette(SGPPaletteEntry* pPalette)
     Assert(pPalette != NULL);
 
     p16BPPPalette = (UINT16*)MemAlloc(sizeof(UINT16) * 256);
+
+    if (!p16BPPPalette)
+        return NULL;
 
     for (cnt = 0; cnt < 256; cnt++) {
         r = pPalette[cnt].peRed;

@@ -5,32 +5,7 @@
 
 class stTextureFile;
 
-/* The Truevision TGA file header consumed by the texture loader. The struct
-   is naturally aligned, not packed: LoadSurfacePixels reads width at +0x0e,
-   height at +0x10, pixel_depth at +0x12 and image_descriptor at +0x13, which
-   fixes the 0x14-byte layout with pad bytes at +0x03 and +0x09. */
-struct W8TgaHeader {
-    unsigned char id_length;
-    unsigned char color_map_type;
-    unsigned char image_type;
-    unsigned short color_map_origin;
-    unsigned short color_map_length;
-    unsigned char color_map_entry_size;
-    unsigned short x_origin;
-    unsigned short y_origin;
-    unsigned short width;
-    unsigned short height;
-    unsigned char pixel_depth;
-    unsigned char image_descriptor;
-};
-
-static_assert(sizeof(W8TgaHeader) == 20, "W8TgaHeader_must_be_20");
-
-/* Both loaders clean their own stack arguments. LoadSurface's second
-   parameter is not dereferenced in the inspected body; the observed caller
-   passes the address of a zeroed dword. */
 srColorSurface* __stdcall LoadSurface(int handle, w8_long*);
-void __stdcall LoadSurfacePixels(int handle, srColorSurface* surface, const W8TgaHeader* header);
 
 /* Wizardry's virtual-file-backed texture. SR.DLL exports a parallel
    srTextureFile (id 0x2112) whose 17-slot vtable is:

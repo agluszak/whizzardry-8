@@ -50,6 +50,8 @@ set(SURRENDER_SOURCES
     triangulator.cpp
     type_registry.cpp
     video_manager.cpp
+    ../srext_jpegimporter/plugin.cpp
+    ../srext_jpegimporter/surface_transfer.cpp
     window.cpp
     window_out.cpp
     vector_processor.cpp
@@ -57,7 +59,6 @@ set(SURRENDER_SOURCES
 
 add_library(SURRENDER STATIC ${SURRENDER_SOURCES})
 target_compile_definitions(SURRENDER PRIVATE SURRENDER_BUILD)
-find_package(SDL3_image CONFIG REQUIRED)
 target_link_libraries(SURRENDER PRIVATE wiz8_native_settings SDL3::SDL3 SDL3_image::SDL3_image)
 if(UNIX AND NOT APPLE)
     target_link_options(SURRENDER PRIVATE -Wl,--no-undefined)

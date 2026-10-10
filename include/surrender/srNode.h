@@ -60,7 +60,7 @@ public:
         FLAG_IGNORE_TRANSFORM = 3
     };
 
-    enum e_notify { NOTIFY_BOUNDS_DIRTY = 0 };
+    enum e_notify { NOTIFY_BOUNDS_DIRTY = 0, NOTIFY_TRANSFORM_DIRTY = 1 };
 
     SR_DLL_IMPORT srNode(srNode* parent = 0);
 

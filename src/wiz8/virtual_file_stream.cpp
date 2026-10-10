@@ -97,5 +97,6 @@ W8VirtualFileStreamOpener g_virtual_file_stream_opener;
 void InitializeVirtualFileImageImporters(void)
 {
     srCore.getIStreamOpener()->addStreamType(&g_virtual_file_stream_opener, "jpg");
+    srCore.getIStreamOpener()->addStreamType(&g_virtual_file_stream_opener, "jpeg");
     srCore.getIStreamOpener()->addStreamType(&g_virtual_file_stream_opener, "tga");
 }

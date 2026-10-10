@@ -174,32 +174,26 @@ int main(int argc, char** argv)
             CHECK(reusable.update(0) == W8NativeVideo::FrameReady);
             CHECK(matchesFrame(reusable.frame().pixels, golden.data()));
         }
-        DDSURFACEDESC description{};
-        description.dwWidth = 640;
-        description.dwHeight = 480;
-        description.ddpfPixelFormat = {sizeof(DDPIXELFORMAT), DDPF_RGB, 16, 0x7c00, 0x3e0, 0x1f, 0};
-        IDirectDrawSurface* first = nullptr;
-        IDirectDrawSurface2* target = nullptr;
-        DDCreateSurface(nullptr, &description, &first, &target);
-        CHECK(target);
+        auto target = CreateCpuSurface(640, 480, 16, 0x7c00, 0x3e0, 0x1f);
+        SurfaceLock description{};
         {
             W8BinkVideo movie;
-            movie.SetTarget(target);
+            movie.SetTarget(target.get());
             CHECK(movie.Open("Movie.mkv", 0));
             CHECK(!movie.UpdateFrame());
-            DDLockSurface(target, nullptr, &description, 0, nullptr);
+            description = LockCpuSurface(*target);
             for (int y = 0; y < 24; ++y)
-                CHECK(std::memcmp(static_cast<unsigned char*>(description.lpSurface) +
-                                      y * description.lPitch,
+                CHECK(std::memcmp(static_cast<unsigned char*>(description.pixels) +
+                                      y * description.pitch,
                                   first_frame.data() + y * 32, 64) == 0);
-            DDUnlockSurface(target, nullptr);
+            UnlockCpuSurface(*target);
             CHECK(movie.Open("Data\\Packed.mkv",
                              0)); // Reopen stops the preceding PCM voice.
             CHECK(!movie.UpdateFrame());
             CHECK(!movie.Open("Movie.mkv", 1));
             CHECK(!movie.Open("missing.bik", 0));
         }
-        DDReleaseSurface(&first, &target);
+        target.reset();
         std::vector<float> silence(8192 * 2);
         CHECK(w8_native::audio_render_for_test(silence.data(), 8192));
         double residual = 0;
