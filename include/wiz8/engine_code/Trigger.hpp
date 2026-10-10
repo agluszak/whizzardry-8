@@ -353,7 +353,7 @@ void ReleaseAllTriggers(void);
 void UpdateWorldTriggers(W8World* world);
 Trigger* FindTriggerForProp(W8World* world, W8Prop* prop);
 
-stLight* FindLightByName(const char* name, const srRuntimeClass* relative_to);
+stLight* FindLightByName(const char* name);
 void DestroyAllWorldTriggers(W8World* world);
 /* Walk the world's triggers for a type-0x34 RunDestination trigger whose
    annulus contains the position; answers true when one does. */

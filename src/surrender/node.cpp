@@ -131,9 +131,9 @@ void srNode::updateBounds()
 // FUNCTION: SURRENDER 0x10050510
 void srNode::getLocalBounds(BoundInfo& bounds)
 {
-    bounds.minimum.SetZero();
-    bounds.maximum.SetZero();
-    bounds.center.SetZero();
+    bounds.minimum = glm::vec3(0);
+    bounds.maximum = glm::vec3(0);
+    bounds.center = glm::vec3(0);
     bounds.radius = 0.0f;
     if (testFlag(FLAG_GLOBAL) != 0) {
         bounds.state = 2;

@@ -64,9 +64,9 @@ public:
     const srVector3T<float>* positions;
     const srVector3T<float>* vertex_extras;
     float sort_bias;
-    srVector3T<float> bounds_minimum;
-    srVector3T<float> bounds_maximum;
-    srVector3T<float> bounds_center;
+    glm::vec3 bounds_minimum;
+    glm::vec3 bounds_maximum;
+    glm::vec3 bounds_center;
     float bounds_radius;
     e_boundsSource bounds_source;
     w8_ulong unknown_70;

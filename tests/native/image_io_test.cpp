@@ -1,3 +1,4 @@
+#include <catch2/catch_test_macros.hpp>
 #include "surrender/srIO.h"
 #include "surrender/srColorSurface.h"
 #include "surrender/srCore.h"
@@ -11,13 +12,6 @@
 #include <stdexcept>
 #include <vector>
 
-#define CHECK(expression) \
-    do { \
-        if (!(expression)) { \
-            fprintf(stderr, "line %d: %s\n", __LINE__, #expression); \
-            exit(1); \
-        } \
-    } while (0)
 
 static const w8_ulong colors[] = {0xff123456, 0xffabcdef, 0xff2468ac, 0xfffedcba};
 
@@ -26,10 +20,10 @@ static void CheckImage(const char* name, const std::vector<unsigned char>& bytes
 {
     auto stream = srIO::own(SDL_IOFromConstMem(bytes.data(), static_cast<w8_ulong>(bytes.size())));
     auto surface = srImage::load(name, stream.get());
-    CHECK(surface && surface->getWidth() == 2 && surface->getHeight() == 2);
+    REQUIRE((surface && surface->getWidth() == 2 && surface->getHeight() == 2));
     for (int y = 0; y < 2; ++y)
         for (int x = 0; x < 2; ++x)
-            CHECK(surface->getPixel(x, y) == expected[y * 2 + x]);
+            REQUIRE(surface->getPixel(x, y) == expected[y * 2 + x]);
 }
 
 static std::vector<unsigned char> Targa(bool top, bool rle, bool alpha)
@@ -100,21 +94,21 @@ public:
 static void CheckJPEG()
 {
     auto source = std::make_unique<PixelOnlySurface>();
-    CHECK(!source->getDataPtr());
+    REQUIRE(!source->getDataPtr());
     auto output = srIO::own(SDL_IOFromDynamicMem());
     srImage::save("screenshot.JPG", output.get(), *source);
-    CHECK((SDL_GetIOStatus(output.get()) == SDL_IO_STATUS_READY) && SDL_GetIOSize(output.get()) > 2);
-    CHECK(static_cast<unsigned char*>(SDL_GetPointerProperty(SDL_GetIOProperties(output.get()), SDL_PROP_IOSTREAM_DYNAMIC_MEMORY_POINTER, nullptr))[0] == 255 &&
-          static_cast<unsigned char*>(SDL_GetPointerProperty(SDL_GetIOProperties(output.get()), SDL_PROP_IOSTREAM_DYNAMIC_MEMORY_POINTER, nullptr))[1] == 216);
+    REQUIRE(((SDL_GetIOStatus(output.get()) == SDL_IO_STATUS_READY) && SDL_GetIOSize(output.get()) > 2));
+    REQUIRE((static_cast<unsigned char*>(SDL_GetPointerProperty(SDL_GetIOProperties(output.get()), SDL_PROP_IOSTREAM_DYNAMIC_MEMORY_POINTER, nullptr))[0] == 255 &&
+          static_cast<unsigned char*>(SDL_GetPointerProperty(SDL_GetIOProperties(output.get()), SDL_PROP_IOSTREAM_DYNAMIC_MEMORY_POINTER, nullptr))[1] == 216));
     auto input = srIO::own(SDL_IOFromConstMem(SDL_GetPointerProperty(SDL_GetIOProperties(output.get()), SDL_PROP_IOSTREAM_DYNAMIC_MEMORY_POINTER, nullptr), SDL_GetIOSize(output.get())));
     auto decoded = srImage::load("screenshot.jpeg", input.get());
-    CHECK(decoded && decoded->getWidth() == 16 && decoded->getHeight() == 16);
+    REQUIRE((decoded && decoded->getWidth() == 16 && decoded->getHeight() == 16));
     for (int y = 0; y < 16; ++y)
         for (int x = 0; x < 16; ++x) {
             auto pixel = decoded->getPixel(x, y);
-            CHECK(abs(int((pixel >> 16) & 255) - 248) <= 4);
-            CHECK(abs(int((pixel >> 8) & 255) - 32) <= 4);
-            CHECK(abs(int(pixel & 255) - 16) <= 4);
+            REQUIRE(abs(int((pixel >> 16) & 255) - 248) <= 4);
+            REQUIRE(abs(int((pixel >> 8) & 255) - 32) <= 4);
+            REQUIRE(abs(int(pixel & 255) - 16) <= 4);
         }
 }
 
@@ -126,23 +120,23 @@ static void CheckLossless(const char* name)
             source.setPixel(x, y, colors[y * 2 + x]);
     auto output = srIO::own(SDL_IOFromDynamicMem());
     srImage::save(name, output.get(), source);
-    CHECK((SDL_GetIOStatus(output.get()) == SDL_IO_STATUS_READY) && SDL_GetIOSize(output.get()));
+    REQUIRE(((SDL_GetIOStatus(output.get()) == SDL_IO_STATUS_READY) && SDL_GetIOSize(output.get())));
     const auto* bytes = static_cast<const unsigned char*>(SDL_GetPointerProperty(SDL_GetIOProperties(output.get()), SDL_PROP_IOSTREAM_DYNAMIC_MEMORY_POINTER, nullptr));
     CheckImage(name, {bytes, bytes + SDL_GetIOSize(output.get())});
     auto input = srIO::own(SDL_IOFromConstMem(SDL_GetPointerProperty(SDL_GetIOProperties(output.get()), SDL_PROP_IOSTREAM_DYNAMIC_MEMORY_POINTER, nullptr), SDL_GetIOSize(output.get())));
     SDL_SeekIO(input.get(), 7, SDL_IO_SEEK_SET);
     srColorSurfaceIFace::SurfaceDesc description;
-    CHECK(srImage::describe(description, name, input.get()));
-    CHECK(description.width == 2 && description.height == 2 && SDL_TellIO(input.get()) == 7);
+    REQUIRE(srImage::describe(description, name, input.get()));
+    REQUIRE((description.width == 2 && description.height == 2 && SDL_TellIO(input.get()) == 7));
     unsigned char signature = 0;
     SDL_SeekIO(input.get(), 0, SDL_IO_SEEK_SET);
     srIO::readExact(input.get(), &signature, 1);
-    CHECK((SDL_GetIOStatus(input.get()) == SDL_IO_STATUS_READY));
+    REQUIRE((SDL_GetIOStatus(input.get()) == SDL_IO_STATUS_READY));
     if (strstr(name, "PNG")) {
-        CHECK(signature == 0x89);
+        REQUIRE(signature == 0x89);
         CheckImage("without-extension", {bytes, bytes + SDL_GetIOSize(output.get())});
     } else {
-        CHECK(signature == 'B');
+        REQUIRE(signature == 'B');
     }
 }
 
@@ -154,7 +148,7 @@ static void CheckErrors()
         bool rejected = false;
         try { srImage::save(path, output.get(), source); }
         catch (const std::runtime_error&) { rejected = true; }
-        CHECK(rejected && SDL_TellIO(output.get()) == 0 && SDL_GetIOSize(output.get()) == 0);
+        REQUIRE((rejected && SDL_TellIO(output.get()) == 0 && SDL_GetIOSize(output.get()) == 0));
     }
     for (const char* path : {static_cast<const char*>(nullptr), ""}) {
         auto bytes = Bitmap();
@@ -162,21 +156,21 @@ static void CheckErrors()
         bool rejected = false;
         try { srImage::load(path, input.get()); }
         catch (const std::runtime_error&) { rejected = true; }
-        CHECK(rejected && SDL_TellIO(input.get()) == 0);
+        REQUIRE((rejected && SDL_TellIO(input.get()) == 0));
     }
     unsigned char corrupt[] = {1, 2, 3};
     auto input = srIO::own(SDL_IOFromConstMem(corrupt, sizeof(corrupt)));
     SDL_SeekIO(input.get(), 1, SDL_IO_SEEK_SET);
     srColorSurfaceIFace::SurfaceDesc description;
-    CHECK(!srImage::describe(description, "bad.jpg", input.get()) && SDL_TellIO(input.get()) == 1);
+    REQUIRE((!srImage::describe(description, "bad.jpg", input.get()) && SDL_TellIO(input.get()) == 1));
 }
 
-int main()
+TEST_CASE("image_io_test")
 {
-    CHECK(srExit());
+    REQUIRE(srExit());
     for (int cycle = 0; cycle < 3; ++cycle) {
-        CHECK(srInit() && srCore.isInitialized());
-        CHECK(srInit());
+        REQUIRE((srInit() && srCore.isInitialized()));
+        REQUIRE(srInit());
         for (bool top : {false, true})
             for (bool rle : {false, true})
                 CheckImage("test.TGA", Targa(top, rle, false));
@@ -194,10 +188,11 @@ int main()
         unsigned char corrupt[] = {1, 2, 3};
         for (const char* name : {"bad.jpg", "bad.tga", "bad.bmp", "bad.pcx"}) {
             auto stream = srIO::own(SDL_IOFromConstMem(corrupt, sizeof(corrupt)));
-            CHECK(!srImage::load(name, stream.get()));
+            REQUIRE(!srImage::load(name, stream.get()));
         }
-        CHECK(srExit() && !srCore.isInitialized());
-        CHECK(srExit());
+        REQUIRE((srExit() && !srCore.isInitialized()));
+        REQUIRE(srExit());
     }
     puts("ok: direct image loading, JPEG export and SurRender reinitialization");
+
 }

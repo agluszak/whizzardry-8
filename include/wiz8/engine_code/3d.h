@@ -25,9 +25,6 @@ void AddItemToWorld(W8World*, W8Item* item);
 void RemoveItemFromWorld(W8World*, W8Item* item);
 void SetModelInstanceChainExclusionMask(srModelInstance* node, int value);
 stModelInstance* DuplicateModelInstance(stModelInstance* instance);
-void ExpandBounds(srVector3T<float>* minimum, srVector3T<float>* maximum,
-                  const srVector3T<float>* candidate_minimum,
-                  const srVector3T<float>* candidate_maximum);
 void UpdateWorldMonsters(W8World* world);
 void WorldUpdateProps(W8World* world);
 int WorldGetPropCount(W8World*);             /* 0x0046E600 */

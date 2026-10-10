@@ -132,6 +132,5 @@ private:
     void AllocateParticles(unsigned int count);
 };
 
-stParticle* FindRegisteredParticle(const char* name);
 void SaveParticleStates(wiz8::File* handle);
 void LoadParticleStates(wiz8::File* handle);

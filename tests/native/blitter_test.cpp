@@ -1,3 +1,4 @@
+#include <catch2/catch_test_macros.hpp>
 #include <wiz8/filesystem.h>
 #include <sstream>
 // The same inputs run against the legacy assembly and the native C++ paths.
@@ -23,7 +24,6 @@ static UINT16 palette[256];
 static UINT8 encoded[4096];
 static unsigned cases;
 static std::istringstream reference;
-static bool capture;
 
 static void reset()
 {
@@ -45,10 +45,6 @@ static bool check(const char* name, int variant, BOOLEAN result, const SDL_Rect&
             rect.x, rect.y, (rect.x + rect.w), (rect.y + rect.h),
             static_cast<unsigned>(hash >> 32), static_cast<unsigned>(hash));
     ++cases;
-    if (capture) {
-        fputs(actual, stdout);
-        return true;
-    }
     std::string expected_line;
     const bool has_line = bool(std::getline(reference, expected_line));
     if (!expected_line.empty() && expected_line.back() == '\r') expected_line.pop_back();
@@ -94,21 +90,12 @@ static void sprite_data(ETRLEObject& frame, int variant)
     frame.uiDataLength = out - frame.uiDataOffset;
 }
 
-int main(int argc, char** argv)
+TEST_CASE("blitter_test")
 {
-    capture = argc == 2 && strcmp(argv[1], "--capture") == 0;
-    if (!capture && argc != 2) {
-        fprintf(stderr, "usage: blitter_test --capture | REFERENCE\n");
-        return 1;
-    }
-    if (!capture) {
-        try {
-            auto file = wiz8::open_host_file(wiz8::path_from_utf8(argv[1]));
-            std::string text(static_cast<std::size_t>(file->size()), '\0');
-            if (file->read(text.data(), text.size()).bytes != text.size()) return 2;
-            reference.str(text);
-        } catch (const std::exception&) { return 2; }
-    }
+    auto file = wiz8::open_host_file(wiz8::path_from_utf8(WIZ8_BLITTER_EXPECTED));
+    std::string text(static_cast<std::size_t>(file->size()), '\0');
+    REQUIRE(file->read(text.data(), text.size()).bytes == text.size());
+    reference.str(text);
     for (unsigned i = 0; i < 65536; ++i) {
         ShadeTable[i] = static_cast<UINT16>((i * 37) ^ 0x1234);
         IntensityTable[i] = static_cast<UINT16>((i * 83) ^ 0x5678);
@@ -284,7 +271,7 @@ int main(int argc, char** argv)
         ok = !DecodeVideoObjectSprites(nullptr, {}, {}) && ok;
     }
 
-    if (!capture) {
+    {
         if (reference.peek() != EOF) {
             fprintf(stderr, "unexpected trailing cases\n");
             ok = false;
@@ -292,5 +279,5 @@ int main(int argc, char** argv)
 
         printf("%u blitter cases checked against legacy assembly output\n", cases);
     }
-    return ok ? 0 : 1;
+    REQUIRE(ok);
 }

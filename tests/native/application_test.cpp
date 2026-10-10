@@ -1,3 +1,4 @@
+#include <catch2/catch_test_macros.hpp>
 #include "wiz8/application.h"
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/asset_paths.h"
@@ -11,22 +12,18 @@
 #include <filesystem>
 #include <stdexcept>
 
-#define CHECK(expression) do { if (!(expression)) { \
-    fprintf(stderr, "%s:%d: %s\n", __FILE__, __LINE__, #expression); \
-    std::exit(1); \
-} } while (0)
 
 static void CheckStopped()
 {
-    CHECK(SDL_WasInit(0) == 0);
-    CHECK(!gfProgramIsRunning && !gfGameInitialized && !gfApplicationActive);
-    CHECK(ghWindow == nullptr);
-    CHECK(std::all_of(ButtonList.begin(), ButtonList.end(), [](const auto& button) {
+    REQUIRE(SDL_WasInit(0) == 0);
+    REQUIRE((!gfProgramIsRunning && !gfGameInitialized && !gfApplicationActive));
+    REQUIRE(ghWindow == nullptr);
+    REQUIRE(std::all_of(ButtonList.begin(), ButtonList.end(), [](const auto& button) {
         return !button;
     }));
 }
 
-int main()
+TEST_CASE("application_test")
 {
     const auto temporary = make_temporary_directory("wiz8-application");
     auto roots = w8_native::path_roots();
@@ -43,7 +40,7 @@ int main()
             rejected = std::string_view(failure.what()).find("requires a filename") !=
                 std::string_view::npos;
         }
-        CHECK(rejected);
+        REQUIRE(rejected);
         CheckStopped();
     }
 
@@ -56,13 +53,13 @@ int main()
         } catch (const std::runtime_error&) {
             failed = true;
         }
-        CHECK(failed);
-        CHECK(gzStringDataOverride == "string data.wiz");
-        CHECK(std::string_view(VideoGetConfigFile()) == "C:\\missing video.cfg");
+        REQUIRE(failed);
+        REQUIRE(gzStringDataOverride == "string data.wiz");
+        REQUIRE(std::string_view(VideoGetConfigFile()) == "C:\\missing video.cfg");
         CheckStopped();
     }
 
-    CHECK(SDL_SetEnvironmentVariable(SDL_GetEnvironment(), "SDL_VIDEODRIVER",
+    REQUIRE(SDL_SetEnvironmentVariable(SDL_GetEnvironment(), "SDL_VIDEODRIVER",
                                      "wiz8-invalid-driver", true));
     bool failed = false;
     try {
@@ -70,9 +67,9 @@ int main()
     } catch (const std::runtime_error&) {
         failed = true;
     }
-    CHECK(failed);
+    REQUIRE(failed);
     CheckStopped();
-    CHECK(SDL_SetEnvironmentVariable(SDL_GetEnvironment(), "SDL_VIDEODRIVER", "dummy", true));
+    REQUIRE(SDL_SetEnvironmentVariable(SDL_GetEnvironment(), "SDL_VIDEODRIVER", "dummy", true));
 
     bool reported = false;
     try {
@@ -80,8 +77,9 @@ int main()
     } catch (const std::runtime_error& failure) {
         reported = std::string_view(failure.what()) == "native initialization failure";
     }
-    CHECK(reported && gfIgnoreMessages);
+    REQUIRE((reported && gfIgnoreMessages));
     CheckStopped();
     std::filesystem::remove_all(temporary);
-    return 0;
+
+
 }

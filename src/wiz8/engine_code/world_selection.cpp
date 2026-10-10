@@ -1,4 +1,5 @@
 #include "wiz8/engine_code/World.h"
+#include "surrender/srScene.h"
 
 /* World selection. Live query: 0x00451280 sits in the gap between
    Engine Code\3dapi.cpp (upper 0x004511D0) and Engine Code\Navigator.cpp
@@ -19,4 +20,35 @@ void SetCurrentWorld(W8World* world)
 void SetSecondaryWorld(W8World* world)
 {
     g_secondary_world = world;
+}
+
+static void VisitNodes(srNode* node, w8_ulong class_id, const std::function<void(srNode*)>& visit)
+{
+    for (; node != 0; node = node->getNext()) {
+        if (node->matchClassID(class_id)) {
+            visit(node);
+        }
+        VisitNodes(node->getChild(), class_id, visit);
+    }
+}
+
+srNode* FindWorldNode(std::string_view name, w8_ulong class_id)
+{
+    for (W8World* world : {g_world, g_secondary_world}) {
+        if (world != 0 && world->static_scene != 0) {
+            if (srNode* node = world->static_scene->findChildByNameAndType(name, class_id)) {
+                return node;
+            }
+        }
+    }
+    return 0;
+}
+
+void ForEachWorldNode(w8_ulong class_id, const std::function<void(srNode*)>& visit)
+{
+    for (W8World* world : {g_world, g_secondary_world}) {
+        if (world != 0 && world->static_scene != 0) {
+            VisitNodes(world->static_scene->getChild(), class_id, visit);
+        }
+    }
 }

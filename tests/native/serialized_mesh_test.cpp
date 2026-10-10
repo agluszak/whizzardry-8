@@ -1,3 +1,4 @@
+#include <catch2/catch_test_macros.hpp>
 #include "surrender/srCore.h"
 #include "surrender/srModelInstance.h"
 #include "wiz8/engine_code/OctMeshModel.h"
@@ -11,8 +12,6 @@
 #include <filesystem>
 #include <memory>
 
-#define CHECK(expression) do { if (!(expression)) { \
-    std::fprintf(stderr, "line %d: %s\n", __LINE__, #expression); return false; } } while (0)
 
 namespace {
 template<class T> void Write(wiz8::File& file, const T& value)
@@ -95,23 +94,23 @@ bool LoadAnimated(const std::filesystem::path& path)
     W8World world{};
     W8ReadLevelInfo info{&world, file.get(), "", nullptr};
     srModelInstance* first = nullptr;
-    CHECK(ReadSingleLevelMesh(&info, &first, 0, 0, "animated fixture", true));
-    CHECK(first);
+    REQUIRE((ReadSingleLevelMesh(&info, &first, 0, 0, "animated fixture", true)));
+    REQUIRE((first));
     auto* model = static_cast<stMeshModel*>(first->getModel());
-    CHECK(model->frames.size() == 2);
-    CHECK(model->GetVertexLocations(0, true, 0)[1].x == 1.0f);
-    CHECK(model->GetVertexLocations(1, true, 0)[1].x == 3.0f);
+    REQUIRE((model->frames.size() == 2));
+    REQUIRE((model->GetVertexLocations(0, true, 0)[1].x == 1.0f));
+    REQUIRE((model->GetVertexLocations(1, true, 0)[1].x == 3.0f));
     srModelInstance* second = nullptr;
     // Cached models still consume and validate their serialized record.
     file->seek(0, wiz8::SeekOrigin::begin);
-    CHECK(ReadSingleLevelMesh(&info, &second, 0, 0, "animated fixture", true));
-    CHECK(second && second->getModel() == model);
+    REQUIRE((ReadSingleLevelMesh(&info, &second, 0, 0, "animated fixture", true)));
+    REQUIRE((second && second->getModel() == model));
     srModelInstance* truncated = nullptr;
-    CHECK(!ReadSingleLevelMesh(&info, &truncated, 0, 0, "animated fixture", true));
-    CHECK(!truncated);
+    REQUIRE((!ReadSingleLevelMesh(&info, &truncated, 0, 0, "animated fixture", true)));
+    REQUIRE((!truncated));
     delete first;
     delete second;
-    CHECK(g_mesh_models.empty() && g_decompressed_mesh_bytes == 0);
+    REQUIRE((g_mesh_models.empty() && g_decompressed_mesh_bytes == 0));
     ReleaseReadMeshScratch();
     return true;
 }
@@ -126,29 +125,31 @@ bool LoadCycles(const std::filesystem::path& path)
         info.bitmap_folder = "";
         info.hFile = file.get();
         srModelInstance* instances[4]{};
-        CHECK(ReadMultipleLevelMeshes(&info, instances, 4, "serialized linked mesh"));
-        CHECK(instances[0] && instances[1] && !instances[2] && !instances[3]);
+        REQUIRE((ReadMultipleLevelMeshes(&info, instances, 4, "serialized linked mesh")));
+        REQUIRE((instances[0] && instances[1] && !instances[2] && !instances[3]));
         auto* head = static_cast<stMeshModel*>(instances[0]->getModel());
-        CHECK(head->parts.size() == 2);
-        CHECK(head->parts[0]->head == head && head->parts[1]->head == head);
-        CHECK(head->getPolyVertex()[0].x == 0 && head->getPolyVertex()[0].z == 2);
-        CHECK(head->getVertexLoc()[1].x == 1);
-        CHECK(head->parts[0]->vertex_location_count == 3);
+        REQUIRE((head->parts.size() == 2));
+        REQUIRE((head->parts[0]->head == head && head->parts[1]->head == head));
+        REQUIRE((head->getPolyVertex()[0].x == 0 && head->getPolyVertex()[0].z == 2));
+        REQUIRE((head->getVertexLoc()[1].x == 1));
+        REQUIRE((head->parts[0]->vertex_location_count == 3));
         delete instances[0];
         delete instances[1];
-        CHECK(g_mesh_models.empty());
+        REQUIRE((g_mesh_models.empty()));
         // Later loads reuse the default snapshot taken by the first read.
         if (cycle == 2) {
             ReleaseOctMeshDefaults();
         }
         ReleaseReadMeshScratch();
-        CHECK(srCore.getRegistry()->getNumberOfInstances(stMaterial::sGetClassNode(), 0) == (cycle == 2 ? 0 : 1));
+        // Released meshes drop their references; only the default snapshot may remain.
+        REQUIRE((cycle == 2 ? !g_oct_mesh_default.material
+                         : g_oct_mesh_default.material.use_count() == 1));
     }
     return true;
 }
 }
 
-int main()
+TEST_CASE("serialized_mesh_test")
 {
     if (!srInit()) return 1;
     const std::filesystem::path directory = make_temporary_directory("wiz8-mesh-fixture");
@@ -178,6 +179,6 @@ int main()
     ReleaseOctMeshDefaults();
     std::filesystem::remove_all(directory);
     srExit();
-    if (!ok) return 1;
+    REQUIRE(ok);
     std::puts("ok: serialized mesh loading, linked successors, unloading, reloading and invalid links");
 }

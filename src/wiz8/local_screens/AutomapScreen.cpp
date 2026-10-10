@@ -128,7 +128,7 @@ stModelInstance2D* g_automap_text_marker;
 std::vector<srClass*>* g_automap_markers;
 
 // GLOBAL: WIZ8 0x0068f220
-std::vector<srClipPlane*> g_automap_created_layers;
+std::vector<std::unique_ptr<srClipPlane>> g_automap_created_layers;
 // GLOBAL: WIZ8 0x0068f24c
 W8DialogButton** g_automap_buttons;
 struct W8AutomapState {
@@ -687,14 +687,12 @@ unsigned char AutomapScreenEnter(void)
     g_automap_layers.push_back(0);
     std::string layer_name;
     layer_name = fmt::format("LAYER {:d}", layer_number);
-    srClipPlane* layer = static_cast<srClipPlane*>(
-        srCore.getRegistry()->find(srClipPlane::sGetClassNode(), layer_name.c_str(), 0));
+    srClipPlane* layer = FindWorldNode<srClipPlane>(layer_name.c_str());
     while (layer) {
         g_automap_layers.push_back(layer);
         ++layer_number;
         layer_name = fmt::format("LAYER {:d}", layer_number);
-        layer = static_cast<srClipPlane*>(
-            srCore.getRegistry()->find(srClipPlane::sGetClassNode(), layer_name.c_str(), 0));
+        layer = FindWorldNode<srClipPlane>(layer_name.c_str());
     }
     unsigned int monster_count = gXStatus.monsters.size();
     for (unsigned int index = 0; index < monster_count; ++index) {
@@ -761,21 +759,20 @@ unsigned char AutomapScreenEnter(void)
                     excluded_textures.push_back(text);
                 } else {
                     float height = static_cast<float>(atof(text.c_str() + 6));
-                    srClipPlane* clip = new srClipPlane(static_cast<srNode*>(0));
-                    if (clip) {
-                        layer_name = fmt::format("LAYER {:d}", layer_number);
-                        clip->setName(layer_name.c_str());
-                        glm::vec4 plane(0.0f, 1.0f, 0.0f, 0.0f);
-                        clip->setClipPlane(plane);
-                        srVector3T<double> position(0.0, static_cast<double>(height * 500.0f), 0.0);
-                        clip->setLocation(position);
-                        clip->setFlag(static_cast<srNode::e_flag>(2));
-                        clip->setClipType(srClipPlane::CLIP_POSITIONAL_0);
-                        clip->setFlag(static_cast<srNode::e_flag>(0));
-                        g_automap_layers.push_back(clip);
-                        ++layer_number;
-                        g_automap_created_layers.push_back(clip);
-                    }
+                    srClipPlane* clip =
+                        g_automap_created_layers.emplace_back(std::make_unique<srClipPlane>()).get();
+                    layer_name = fmt::format("LAYER {:d}", layer_number);
+                    clip->setName(layer_name.c_str());
+                    glm::vec4 plane;
+                    plane = glm::vec4(0.0f, 1.0f, 0.0f, 0.0f);
+                    clip->setClipPlane(plane);
+                    srVector3T<double> position(0.0, static_cast<double>(height * 500.0f), 0.0);
+                    clip->setLocation(position);
+                    clip->setFlag(static_cast<srNode::e_flag>(2));
+                    clip->setClipType(srClipPlane::CLIP_POSITIONAL_0);
+                    clip->setFlag(static_cast<srNode::e_flag>(0));
+                    g_automap_layers.push_back(clip);
+                    ++layer_number;
                 }
             }
             for (unsigned int mesh = 0; mesh < g_world->octree->m_meshCount; ++mesh) {
@@ -1036,13 +1033,6 @@ unsigned char AutomapScreenLeave(int)
     MarkRendererReady();
     SetOverlayViewport(0);
     ResumeMainGameWorld();
-    srClass* clipping_plane = static_cast<srClass*>(srCore.getRegistry()->find(
-        srClipPlane::sGetClassNode(), "Clipping Plane 1", 0));
-    if (clipping_plane) {
-        g_world->level->setParent(g_world->static_scene, 1);
-        g_world->dynamic_scene->setParent(g_world->static_scene, 1);
-        delete clipping_plane;
-    }
     gfTrackMousePos = 0;
     g_automap_surface.reset();
     ClearAutomapMarkers();
@@ -1060,7 +1050,7 @@ unsigned char AutomapScreenLeave(int)
             model->ClearAutomapPolygonFilter();
         }
     }
-    wiz8::remove_all_and_delete_in_order(g_automap_created_layers);
+    g_automap_created_layers.clear();
     return 1;
 }
 

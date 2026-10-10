@@ -1,5 +1,6 @@
 #include <fmt/format.h>
 #include "wiz8/unicode.h"
+#include "surrender/srBoundingBox.h"
 #include "wiz8/utility.h"
 #include "wiz8/engine_code/3d.h"
 #include "wiz8/float_constants.h"
@@ -181,28 +182,12 @@ unsigned char LoadAniMeshFromInfo(W8ReadLevelInfo* info, W8AniMesh* mesh, unsign
 // FUNCTION: WIZ8 0x004b5c10
 float GetAniMeshFrameRadius(W8AniMesh* mesh, unsigned char frame)
 {
-    stModelInstance* instance = GetAniMeshFrame(mesh, frame);
-
-    if (instance != 0) {
-        stMeshModel* model = static_cast<stMeshModel*>(instance->getModel());
-
-        if (model != 0) {
-            srVector3T<float> minimum(0.0f, 0.0f, 0.0f);
-            srVector3T<float> maximum(0.0f, 0.0f, 0.0f);
-
-            do {
-                srVector3T<float> model_minimum;
-                srVector3T<float> model_maximum;
-
-                model->getBoundingBox(model_minimum, model_maximum);
-                ExpandBounds(&minimum, &maximum, &model_minimum, &model_maximum);
-                model = model->Next();
-            } while (model != 0);
-
-            return static_cast<float>((minimum - maximum).Length() * g_double_half);
-        }
-    }
-    return g_float_zero;
+    auto* instance = GetAniMeshFrame(mesh, frame);
+    if (!instance || !instance->getModel())
+        return g_float_zero;
+    srBoundingBox bounds;
+    instance->getModel()->getBoundingBox(bounds.minimum, bounds.maximum);
+    return static_cast<float>(glm::distance(bounds.minimum, bounds.maximum) * g_double_half);
 }
 
 // FUNCTION: WIZ8 0x004b5d00
@@ -321,22 +306,22 @@ try
         }
     }
 
-    mesh->bounds_minimum.SetZero();
-    mesh->bounds_maximum.SetZero();
+    srBoundingBox bounds;
+    bool has_bounds = false;
     for (frame_index = 0; frame_index < mesh->frame_count; ++frame_index) {
-        stModelInstance* frame = GetAniMeshFrame(mesh, frame_index);
-        if (frame != 0) {
-            stMeshModel* frame_model = static_cast<stMeshModel*>(frame->getModel());
-            while (frame_model != 0) {
-                srVector3T<float> minimum;
-                srVector3T<float> maximum;
-
-                frame_model->getBoundingBox(minimum, maximum);
-                ExpandBounds(&mesh->bounds_minimum, &mesh->bounds_maximum, &minimum, &maximum);
-                frame_model = frame_model->Next();
-            }
-        }
+        auto* instance = GetAniMeshFrame(mesh, frame_index);
+        if (!instance || !instance->getModel())
+            continue;
+        srBoundingBox frame_bounds;
+        instance->getModel()->getBoundingBox(frame_bounds.minimum, frame_bounds.maximum);
+        if (has_bounds)
+            bounds.include(frame_bounds);
+        else
+            bounds = frame_bounds;
+        has_bounds = true;
     }
+    mesh->bounds_minimum = bounds.minimum;
+    mesh->bounds_maximum = bounds.maximum;
     mesh->flags.radius_loaded = true;
 
     if (file == 0) {

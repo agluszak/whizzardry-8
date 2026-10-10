@@ -1,5 +1,8 @@
 #include "surrender/srTriangleCuller.h"
 #include <algorithm>
+#include <cmath>
+#include <array>
+#include <numeric>
 #include "surrender/srRendererDefs.h"
 
 #include "surrender/srClip.h"
@@ -7,10 +10,10 @@
 #include <cassert>
 
 // FUNCTION: SURRENDER 0x10029740
-glm::vec4 srTriangleCuller::transformClipPlane(const glm::vec4& plane, const glm::mat4& matrix,
-                                               srRendererDefs::e_scaleType scale_type)
+glm::vec4 srTriangleCuller::transformClipPlane(const glm::vec4& plane,
+                                               const glm::mat4& plane_matrix)
 {
-    const glm::vec4 transformed = glm::transpose(glm::inverse(matrix)) * plane;
+    const glm::vec4 transformed = plane_matrix * plane;
     const float length = glm::length(glm::vec3(transformed));
     return length == 0 ? transformed : transformed / length;
 }
@@ -21,43 +24,11 @@ int srTriangleCuller::setClipFlags(w8_ulong* clip_flags, float* distances,
                                    w8_ulong shift, w8_ulong count, int first)
 {
     w8_ulong collected = 0;
-    for (std::size_t i = 0; i < count; ++i)
+    for (w8_ulong i = 0; i < count; ++i) {
         distances[i] = glm::dot(vertices[i].glmValue(), glm::vec3(plane)) + plane.w;
-    /* reinterpret-ok: the outside test reads the distances' IEEE sign bits. */
-    const w8_ulong* bits = reinterpret_cast<const w8_ulong*>(distances);
-    w8_ulong index = 0;
-    if (first == 0) {
-        for (; index < (count & ~3UL); index += 4) {
-            w8_ulong bit_0 = (bits[index] >> 0x1f) << shift;
-            w8_ulong bit_1 = (bits[index + 1] >> 0x1f) << shift;
-            w8_ulong bit_2 = (bits[index + 2] >> 0x1f) << shift;
-            w8_ulong bit_3 = (bits[index + 3] >> 0x1f) << shift;
-            clip_flags[index] |= bit_0;
-            clip_flags[index + 1] |= bit_1;
-            clip_flags[index + 2] |= bit_2;
-            clip_flags[index + 3] |= bit_3;
-            collected |= bit_0 | bit_1 | bit_2 | bit_3;
-        }
-        for (; index < count; ++index) {
-            clip_flags[index] |= (bits[index] >> 0x1f) << shift;
-            collected |= (bits[index] >> 0x1f) << shift;
-        }
-    } else {
-        for (; index < (count & ~3UL); index += 4) {
-            w8_ulong bit_0 = (bits[index] >> 0x1f) << shift;
-            w8_ulong bit_1 = (bits[index + 1] >> 0x1f) << shift;
-            w8_ulong bit_2 = (bits[index + 2] >> 0x1f) << shift;
-            w8_ulong bit_3 = (bits[index + 3] >> 0x1f) << shift;
-            clip_flags[index] = bit_0;
-            clip_flags[index + 1] = bit_1;
-            clip_flags[index + 2] = bit_2;
-            clip_flags[index + 3] = bit_3;
-            collected |= bit_0 | bit_1 | bit_2 | bit_3;
-        }
-        for (; index < count; ++index) {
-            clip_flags[index] = (bits[index] >> 0x1f) << shift;
-            collected |= (bits[index] >> 0x1f) << shift;
-        }
+        const w8_ulong flag = std::signbit(distances[i]) ? 1u << shift : 0;
+        clip_flags[i] = first ? flag : clip_flags[i] | flag;
+        collected |= flag;
     }
     return collected != 0;
 }
@@ -69,139 +40,44 @@ int srTriangleCuller::setClipFlagsObjectSpace(w8_ulong* clip_flags, const srVect
                                               w8_ulong plane_count, w8_ulong vertex_count,
                                               w8_ulong& shared_out)
 {
-    float distances[256];
+    std::array<float, 256> distances;
     w8_ulong shared = 0xffffffff;
     shared_out = 0;
-    for (w8_ulong base = 0; base < vertex_count; base += 0x100) {
-        w8_ulong limit = base + 0x100;
-        if (vertex_count < limit) {
-            limit = vertex_count;
-        }
-        for (w8_ulong plane = 0; plane < plane_count; ++plane) {
-            shared_out |= setClipFlags(clip_flags + base, distances, vertices + base, planes[plane],
-                                       plane_bits[plane], limit - base, plane == 0);
-        }
-        w8_ulong index = base;
-        while (shared != 0 && index < limit) {
-            shared &= clip_flags[index];
-            ++index;
-        }
+    for (w8_ulong base = 0; base < vertex_count; base += distances.size()) {
+        const auto count = std::min(w8_ulong(distances.size()), vertex_count - base);
+        for (w8_ulong plane = 0; plane < plane_count; ++plane)
+            shared_out |= setClipFlags(clip_flags + base, distances.data(), vertices + base,
+                                       planes[plane], plane_bits[plane], count, plane == 0);
+        for (w8_ulong i = 0; i < count; ++i)
+            shared &= clip_flags[base + i];
     }
     return shared == 0;
 }
 
 // FUNCTION: SURRENDER 0x10029FC0
-w8_ulong srTriangleCuller::getClipMask(const srVector3& center, float radius,
-                                            const glm::vec4* planes, w8_ulong mask,
-                                            float& depth)
+w8_ulong srTriangleCuller::getClipMask(const glm::vec3& center, float radius,
+                                       const glm::vec4* planes, w8_ulong mask, float& depth)
 {
-    depth = 0.0f;
     w8_ulong clip = 0;
-    if (planes[srRendererDefs::CLIP_LEFT].z * center.z +
-            planes[srRendererDefs::CLIP_LEFT].x * center.x <=
-        radius) {
-        clip |= (1UL << srRendererDefs::CLIP_LEFT);
-    }
-    if (planes[srRendererDefs::CLIP_RIGHT].z * center.z +
-            planes[srRendererDefs::CLIP_RIGHT].x * center.x <=
-        radius) {
-        clip |= (1UL << srRendererDefs::CLIP_RIGHT);
-    }
-    if (planes[srRendererDefs::CLIP_BOTTOM].z * center.z +
-            planes[srRendererDefs::CLIP_BOTTOM].y * center.y <=
-        radius) {
-        clip |= (1UL << srRendererDefs::CLIP_BOTTOM);
-    }
-    if (planes[srRendererDefs::CLIP_TOP].y * center.y +
-            planes[srRendererDefs::CLIP_TOP].z * center.z <=
-        radius) {
-        clip |= (1UL << srRendererDefs::CLIP_TOP);
-    }
-    if (planes[srRendererDefs::CLIP_NEAR].z * center.z + planes[srRendererDefs::CLIP_NEAR].w <=
-        radius) {
-        clip |= (1UL << srRendererDefs::CLIP_NEAR);
-    }
-    if (planes[srRendererDefs::CLIP_FAR].z * center.z + planes[srRendererDefs::CLIP_FAR].w <=
-        radius) {
-        clip |= (1UL << srRendererDefs::CLIP_FAR);
-    }
-    w8_ulong remaining = mask & ~srRendererDefs::FRUSTUM_CLIP_MASK;
-    const glm::vec4* plane = planes + srRendererDefs::FIRST_USER_CLIP_PLANE;
-    for (w8_ulong bit = srRendererDefs::FIRST_USER_CLIP_PLANE; remaining != 0 && bit < 0x20;
-         ++bit, ++plane) {
-        w8_ulong plane_bit = 1 << bit;
-        if ((remaining & plane_bit) != 0) {
-            if (plane->y * center.y + plane->x * center.x + plane->z * center.z + plane->w <=
-                radius) {
-                clip |= plane_bit;
-            }
-            remaining &= ~plane_bit;
+    float visible = 1;
+    const glm::vec4 point(center, 1);
+    for (unsigned i = 0; i < 32; ++i) {
+        const w8_ulong bit = 1u << i;
+        if (!(mask & bit))
+            continue;
+        const float distance = glm::dot(planes[i], point);
+        if (distance > radius)
+            continue;
+        clip |= bit;
+        if (i < 4) {
+            const float fraction = radius > 0      ? (distance + radius) / (2 * radius)
+                                   : distance >= 0 ? 1.0f
+                                                   : 0.0f;
+            visible *= std::clamp(fraction, 0.0f, 1.0f);
         }
     }
-    if ((clip & srRendererDefs::FRUSTUM_CLIP_MASK) == 0) {
-        return clip;
-    }
-    depth = 1.0f;
-    if ((clip & (1UL << srRendererDefs::CLIP_LEFT)) != 0) {
-        depth = (planes[srRendererDefs::CLIP_LEFT].z * center.z +
-                 planes[srRendererDefs::CLIP_LEFT].x * center.x + radius) /
-                (radius + radius);
-    }
-    if ((clip & (1UL << srRendererDefs::CLIP_RIGHT)) != 0) {
-        depth = ((planes[srRendererDefs::CLIP_RIGHT].z * center.z +
-                  planes[srRendererDefs::CLIP_RIGHT].x * center.x + radius) /
-                 (radius + radius)) *
-                depth;
-    }
-    if ((clip & (1UL << srRendererDefs::CLIP_BOTTOM)) != 0) {
-        depth = ((planes[srRendererDefs::CLIP_BOTTOM].z * center.z +
-                  planes[srRendererDefs::CLIP_BOTTOM].y * center.y + radius) /
-                 (radius + radius)) *
-                depth;
-    }
-    if ((clip & (1UL << srRendererDefs::CLIP_TOP)) != 0) {
-        depth = ((planes[srRendererDefs::CLIP_TOP].y * center.y +
-                  planes[srRendererDefs::CLIP_TOP].z * center.z + radius) /
-                 (radius + radius)) *
-                depth;
-    }
-    depth = 1.0f - depth;
+    depth = 1 - visible;
     return clip;
-}
-
-// FUNCTION: SURRENDER 0x1002A1B0
-w8_ulong srTriangleCuller::collectNegative(w8_ulong* indices, const float* distances,
-                                                w8_ulong first, w8_ulong count)
-{
-    w8_ulong* destination = indices;
-    /* reinterpret-ok: the negative test reads the distances' IEEE sign bits. */
-    const w8_ulong* bits = reinterpret_cast<const w8_ulong*>(distances);
-    w8_ulong collected = 0;
-    if (count != 0) {
-        int total = count;
-        int bound = total & ~3;
-        int index = 0;
-        for (; index < bound; index += 4) {
-            *destination = first + index;
-            destination += bits[index] >> 0x1f;
-            *destination = first + index + 1;
-            destination += bits[index + 1] >> 0x1f;
-            *destination = first + index + 2;
-            destination += bits[index + 2] >> 0x1f;
-            *destination = first + index + 3;
-            destination += bits[index + 3] >> 0x1f;
-        }
-        for (; index < total; ++index) {
-            if ((bits[index] & 0x80000000) != 0) {
-                *destination = first + index;
-                ++destination;
-            }
-        }
-        collected = static_cast<w8_ulong>((reinterpret_cast<w8_ulong_ptr>(destination) -
-                                           reinterpret_cast<w8_ulong_ptr>(indices)) >>
-                                          2);
-    }
-    return collected;
 }
 
 // FUNCTION: SURRENDER 0x1002A260
@@ -216,30 +92,11 @@ w8_ulong srTriangleCuller::cullNoClipAPT(w8_ulong* indices, const w8_ulong* acti
                                               const glm::vec4* projected, const glm::vec4& constant,
                                               w8_ulong count)
 {
-    float distances[256];
     w8_ulong collected = 0;
-    for (w8_ulong base = 0; base < count; base += 0x100) {
-        w8_ulong chunk = count - base;
-        if (0x100 < chunk) {
-            chunk = 0x100;
-        }
-        for (std::size_t i = 0; i < chunk; ++i)
-            distances[i] = glm::dot(projected[active[base + i]], constant);
-        w8_ulong found = collectNegative(indices + collected, distances, base, chunk);
-        if (found != 0) {
-            w8_ulong* destination = indices + collected;
-            w8_ulong index = 0;
-            for (; index < (found & ~3UL); index += 4) {
-                destination[index] = active[destination[index]];
-                destination[index + 1] = active[destination[index + 1]];
-                destination[index + 2] = active[destination[index + 2]];
-                destination[index + 3] = active[destination[index + 3]];
-            }
-            for (; index < found; ++index) {
-                destination[index] = active[destination[index]];
-            }
-        }
-        collected += found;
+    for (w8_ulong i = 0; i < count; ++i) {
+        const auto index = active[i];
+        if (glm::dot(projected[index], constant) < 0)
+            indices[collected++] = index;
     }
     return collected;
 }
@@ -248,62 +105,14 @@ w8_ulong srTriangleCuller::cullNoClipAPT(w8_ulong* indices, const w8_ulong* acti
 w8_ulong srTriangleCuller::collectCF(w8_ulong* indices, const w8_ulong* clip_flags,
                                           const srVector3i* triangles, w8_ulong count)
 {
-    if ((reinterpret_cast<w8_ulong_ptr>(indices) & 3) == 0) {
-        w8_ulong collected = 0;
-        for (w8_ulong index = 0; index < count; ++index) {
-            w8_ulong triangle = indices[index];
-            indices[collected] = triangle;
-            collected += (clip_flags[triangles[triangle].x] & clip_flags[triangles[triangle].y] &
-                          clip_flags[triangles[triangle].z]) == 0;
-        }
-        return collected;
-    }
     w8_ulong collected = 0;
-    w8_ulong index = 0;
-    for (; index < (count & ~3UL); index += 4) {
-        w8_ulong triangle = indices[index];
-        if ((clip_flags[triangles[triangle].x] & clip_flags[triangles[triangle].y] &
-             clip_flags[triangles[triangle].z]) == 0) {
-            indices[collected] = triangle;
-            ++collected;
-        }
-        triangle = indices[index + 1];
-        if ((clip_flags[triangles[triangle].x] & clip_flags[triangles[triangle].y] &
-             clip_flags[triangles[triangle].z]) == 0) {
-            indices[collected] = triangle;
-            ++collected;
-        }
-        triangle = indices[index + 2];
-        if ((clip_flags[triangles[triangle].x] & clip_flags[triangles[triangle].y] &
-             clip_flags[triangles[triangle].z]) == 0) {
-            indices[collected] = triangle;
-            ++collected;
-        }
-        triangle = indices[index + 3];
-        if ((clip_flags[triangles[triangle].x] & clip_flags[triangles[triangle].y] &
-             clip_flags[triangles[triangle].z]) == 0) {
-            indices[collected] = triangle;
-            ++collected;
-        }
-    }
-    for (; index < count; ++index) {
-        w8_ulong triangle = indices[index];
-        if ((clip_flags[triangles[triangle].x] & clip_flags[triangles[triangle].y] &
-             clip_flags[triangles[triangle].z]) == 0) {
-            indices[collected] = triangle;
-            ++collected;
-        }
+    for (w8_ulong i = 0; i < count; ++i) {
+        const auto index = indices[i];
+        const auto& triangle = triangles[index];
+        if (!(clip_flags[triangle.x] & clip_flags[triangle.y] & clip_flags[triangle.z]))
+            indices[collected++] = index;
     }
     return collected;
-}
-
-// FUNCTION: SURRENDER 0x1002A5C0
-w8_ulong srTriangleCuller::cullClip(w8_ulong* indices, const w8_ulong* clip_flags,
-                                         const glm::vec4* projected, const srVector3i* triangles,
-                                         const glm::vec4& constant, w8_ulong count)
-{
-    w8_ulong culled = srRender::collectOutside({indices, count}, constant, {projected, count});
-    return collectCF(indices, clip_flags, triangles, culled);
 }
 
 // FUNCTION: SURRENDER 0x1002A600
@@ -324,20 +133,8 @@ w8_ulong srTriangleCuller::clip(w8_ulong* indices, const w8_ulong* clip_flags,
 // FUNCTION: SURRENDER 0x1002A650
 void srTriangleCuller::setupLinearArray(w8_ulong* indices, w8_ulong count)
 {
-    w8_ulong index = 0;
-    for (; index < (count & ~7UL); index += 8) {
-        indices[index] = index;
-        indices[index + 1] = index + 1;
-        indices[index + 2] = index + 2;
-        indices[index + 3] = index + 3;
-        indices[index + 4] = index + 4;
-        indices[index + 5] = index + 5;
-        indices[index + 6] = index + 6;
-        indices[index + 7] = index + 7;
-    }
-    for (; index < count; ++index) {
-        indices[index] = index;
-    }
+    if (count)
+        std::iota(indices, indices + count, w8_ulong{0});
 }
 
 // FUNCTION: SURRENDER 0x1002A6C0
@@ -345,115 +142,79 @@ w8_ulong srTriangleCuller::buildAVT(w8_ulong* avt, w8_ulong* vertex_scratch,
                                          const w8_ulong* indices, const srVector3i* triangles,
                                          w8_ulong triangle_count, w8_ulong vertex_count)
 {
-    /* reinterpret-ok: the scratch holds one byte flag per vertex here, then is
-       reused as the dword inverse remap after collecting the active indices. */
-    auto* flags = reinterpret_cast<SRBYTE*>(vertex_scratch);
-    std::fill_n(flags, vertex_count, SRBYTE{});
+    std::fill_n(vertex_scratch, vertex_count, w8_ulong{0});
     for (w8_ulong i = 0; i < triangle_count; ++i) {
         const auto& triangle = triangles[indices[i]];
-        flags[triangle.x] = flags[triangle.y] = flags[triangle.z] = 1;
+        vertex_scratch[triangle.x] = vertex_scratch[triangle.y] = vertex_scratch[triangle.z] = 1;
     }
     w8_ulong count = 0;
     for (w8_ulong i = 0; i < vertex_count; ++i)
-        if (flags[i])
+        if (vertex_scratch[i])
             avt[count++] = i;
     for (w8_ulong i = 0; i < count; ++i)
         vertex_scratch[avt[i]] = i;
-
     return count;
 }
 
 // FUNCTION: SURRENDER 0x1002A720
 int srTriangleCuller::cull(Output& output, const Input& input)
 {
-    if (input.triangle_count == 0) {
-        return 0;
-    }
-    w8_ulong clip_mask = input.clip_mask;
-    const glm::mat4& inverse_model_view = *input.inverse_model_view;
-    w8_ulong* clip_flags = output.vertex_remap;
     output.linear = 1;
-    output.triangle_count = 0;
-    output.vertex_count = 0;
-    glm::vec4 constant;
-    if (input.cull_mode == 0) {
-        constant = glm::vec4(-inverse_model_view[3][0], -inverse_model_view[3][1],
-                             -inverse_model_view[3][2], -inverse_model_view[3][3]);
-    } else if (input.cull_mode == 1) {
-        constant = glm::vec4(inverse_model_view[3][0], inverse_model_view[3][1],
-                             inverse_model_view[3][2], inverse_model_view[3][3]);
-    } else {
-        constant = glm::vec4(0);
-    }
-    int clipped = clip_mask != 0;
-    if (input.active_triangles == 0) {
-        if (clipped != 0) {
-            w8_ulong plane_bits[32];
-            glm::vec4 planes[32];
-            w8_ulong plane_count = 0;
-            w8_ulong remaining = clip_mask;
-            const glm::vec4* plane = input.clip_planes;
-            for (w8_ulong bit = 0; remaining != 0; ++bit, ++plane) {
-                w8_ulong plane_bit = 1 << bit;
-                if ((remaining & plane_bit) != 0) {
-                    glm::vec4 source = *plane;
-                    planes[plane_count] =
-                        transformClipPlane(source, inverse_model_view, input.scale_type);
-                    plane_bits[plane_count] = bit;
-                    ++plane_count;
-                    remaining &= ~plane_bit;
-                }
-            }
-            w8_ulong shared = 0;
-            if (setClipFlagsObjectSpace(clip_flags, input.vertices, planes, plane_bits, plane_count,
-                                        input.vertex_count, shared) == 0) {
-                return 0;
-            }
-            clipped = shared != 0;
-        }
-    } else {
-        clipped = 0;
-    }
-    if (input.active_triangles == 0) {
-        if (clipped != 0) {
-            if (input.cull_mode == 2) {
-                output.triangle_count =
-                    clip(output.indices, clip_flags, input.triangles, input.triangle_count);
-            } else {
-                output.triangle_count =
-                    cullClip(output.indices, clip_flags, input.projected_vertices, input.triangles,
-                             constant, input.triangle_count);
-            }
+    output.triangle_count = output.vertex_count = 0;
+    if (!input.triangle_count)
+        return false;
+    const auto& inverse_model_view = *input.inverse_model_view;
+    const glm::vec4 facing = input.cull_mode == 0 ? -inverse_model_view[3] : inverse_model_view[3];
+    auto* clip_flags = output.vertex_remap;
+    if (input.active_triangles) {
+        if (input.cull_mode == 2) {
+            if (output.indices != input.active_triangles)
+                std::copy_n(input.active_triangles, input.active_triangle_count, output.indices);
+            output.triangle_count = input.active_triangle_count;
         } else {
-            if (input.cull_mode == 2) {
-                setupLinearArray(output.indices, input.triangle_count);
-                output.triangle_count = input.triangle_count;
-            } else {
-                output.triangle_count = cullNoClip(output.indices, input.projected_vertices,
-                                                   constant, input.triangle_count);
-            }
+            output.triangle_count =
+                cullNoClipAPT(output.indices, input.active_triangles, input.projected_vertices,
+                              facing, input.active_triangle_count);
         }
     } else {
-        w8_ulong active_count = input.active_triangle_count;
-        if (active_count == 0) {
-            return 0;
+        bool clipped = false;
+        if (input.clip_mask) {
+            const auto plane_matrix = glm::transpose(*input.model_view);
+            std::array<glm::vec4, 32> planes;
+            std::array<w8_ulong, 32> bits;
+            w8_ulong count = 0;
+            for (unsigned i = 0; i < 32; ++i)
+                if (input.clip_mask & (1u << i)) {
+                    planes[count] = transformClipPlane(input.clip_planes[i], plane_matrix);
+                    bits[count++] = i;
+                }
+            w8_ulong outside = 0;
+            if (!setClipFlagsObjectSpace(clip_flags, input.vertices, planes.data(), bits.data(),
+                                         count, input.vertex_count, outside))
+                return false;
+            clipped = outside != 0;
         }
         if (input.cull_mode == 2) {
-            if (active_count != 0 && output.indices != input.active_triangles) {
-                std::copy_n(input.active_triangles, active_count, output.indices);
+            if (clipped)
+                output.triangle_count =
+                    clip(output.indices, clip_flags, input.triangles, input.triangle_count);
+            else {
+                setupLinearArray(output.indices, input.triangle_count);
+                output.triangle_count = input.triangle_count;
             }
-            output.triangle_count = active_count;
         } else {
-            output.triangle_count = cullNoClipAPT(output.indices, input.active_triangles,
-                                                  input.projected_vertices, constant, active_count);
+            output.triangle_count =
+                cullNoClip(output.indices, input.projected_vertices, facing, input.triangle_count);
+            if (clipped)
+                output.triangle_count =
+                    collectCF(output.indices, clip_flags, input.triangles, output.triangle_count);
         }
     }
-    if (output.triangle_count != 0) {
-        output.vertex_count = buildAVT(output.avt, clip_flags, output.indices, input.triangles,
-                                       output.triangle_count, input.vertex_count);
-        return 1;
-    }
-    return 0;
+    if (!output.triangle_count)
+        return false;
+    output.vertex_count = buildAVT(output.avt, clip_flags, output.indices, input.triangles,
+                                   output.triangle_count, input.vertex_count);
+    return true;
 }
 
 // FUNCTION: SURRENDER 0x10068DE0

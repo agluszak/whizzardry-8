@@ -1,12 +1,14 @@
 #include <algorithm>
 
-#include "wiz8/compat/unaligned.h"
 #include "surrender/srModeler.h"
 
 #include "surrender/srDebug.h"
 #include "surrender/srTriangulator.h"
 
-#include <math.h>
+#include <cmath>
+#include <limits>
+#include <bit>
+#include <glm/gtc/constants.hpp>
 
 /* autoSmooth's worker: buckets triangle indices by deduplicated shade vertex, turns every triangle
    pair coincident at a vertex into a candidate edge weighted by the facing/material test, floods
@@ -20,11 +22,8 @@ public:
                  srModeler::VertexHash* hash, double threshold, int smooth);
     void smooth();
 
-    /* Per shade-group vertex: the triangles sharing that vertex, filled by a
-       count/allocate/fill pass. */
+    /* Triangles sharing one shade-group vertex. */
     struct VertexEntry {
-        w8_long count;
-        w8_long fill;
         std::vector<w8_ulong> triangles;
     };
 
@@ -42,9 +41,7 @@ public:
     struct TriangleEntry {
         TriangleEntry() : blocked(0), groups(0) {}
 
-        w8_long count;
         std::vector<w8_ulong> edges;
-        w8_long fill;
         w8_ulong blocked;
         w8_ulong groups;
     };
@@ -56,8 +53,6 @@ public:
     srModeler::Triangle* triangles;
     w8_ulong triangle_count;
     srModeler::VertexHash* hash;
-    w8_long vertex_count;
-    w8_ulong edge_count;
     std::vector<VertexEntry> vertices;
     std::vector<Edge> edges;
     std::vector<TriangleEntry> entries;
@@ -66,93 +61,27 @@ public:
 // FUNCTION: SURRENDER 0x100370B0
 AutoSmoother::AutoSmoother(srModeler::Triangle* triangles, w8_ulong triangle_count,
                            srModeler::VertexHash* hash, double threshold, int smooth)
-    : triangles(triangles), triangle_count(triangle_count), hash(hash), vertex_count(0)
+    : triangles(triangles), triangle_count(triangle_count), hash(hash)
 {
-    w8_ulong index;
-    w8_ulong vertex;
-    /* The adjacency table is indexed by the representative shade index, not
-       the unique ordinal: vertices duplicated across triangles share one. */
-    for (index = 0; index < this->hash->unique_count; ++index) {
-        if (vertex_count < this->hash->entries[index].shade_index) {
-            vertex_count = this->hash->entries[index].shade_index;
-        }
-    }
-    ++vertex_count;
+    // Shade indices identify positions shared by triangles, including attribute seams.
+    std::size_t vertex_count = 0;
+    for (w8_ulong i = 0; i < hash->unique_count; ++i)
+        vertex_count = std::max(vertex_count, std::size_t(hash->entries[i].shade_index) + 1);
     vertices.resize(vertex_count);
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wsign-compare"
-    for (vertex = 0; vertex < vertex_count; ++vertex) {
-        vertices[vertex].count = 0;
-        vertices[vertex].fill = 0;
-    }
-    srModeler::VertexHash::Entry** entries = this->hash->table.data();
-    for (index = 0; index < this->triangle_count; ++index) {
-        ++vertices[entries[0]->shade_index].count;
-        ++vertices[entries[1]->shade_index].count;
-        ++vertices[entries[2]->shade_index].count;
-        entries += 3;
-    }
-    for (vertex = 0; vertex < vertex_count; ++vertex) {
-        vertices[vertex].triangles.resize(vertices[vertex].count);
-    }
-    entries = this->hash->table.data();
-    for (index = 0; index < this->triangle_count; ++index) {
-        VertexEntry* group = &vertices[entries[0]->shade_index];
-        group->triangles[group->fill++] = index;
-        group = &vertices[entries[1]->shade_index];
-        group->triangles[group->fill++] = index;
-        group = &vertices[entries[2]->shade_index];
-        group->triangles[group->fill++] = index;
-        entries += 3;
-    }
-    edge_count = 0;
-    for (vertex = 0; vertex < vertex_count; ++vertex) {
-        edge_count += (vertices[vertex].count - 1) * vertices[vertex].count / 2;
-    }
-    edges.resize(edge_count);
-    double cosine = cos(threshold);
-    w8_ulong edge = 0;
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wunused-but-set-variable"
-    /* Counted but never read. */
-    w8_long smooth_edges = 0;
-#pragma clang diagnostic pop
-    for (vertex = 0; vertex < vertex_count; ++vertex) {
-        for (w8_long i = 0; i < vertices[vertex].count - 1; ++i) {
-            for (w8_long j = i + 1; j < vertices[vertex].count; ++j) {
-                edges[edge].group = -1;
-                edges[edge].first = vertices[vertex].triangles[i];
-                edges[edge].second = vertices[vertex].triangles[j];
-                edges[edge].smooth =
-                    isSmooth(edges[edge].first, edges[edge].second, cosine, smooth);
-                if (edges[edge].smooth != 0) {
-                    ++smooth_edges;
-                }
-                ++edge;
+    for (w8_ulong i = 0; i < triangle_count; ++i)
+        for (int corner = 0; corner < 3; ++corner)
+            vertices[hash->table[i * 3 + corner]->shade_index].triangles.push_back(i);
+    entries.resize(triangle_count);
+    const double cosine = std::cos(threshold);
+    for (const auto& vertex : vertices)
+        for (std::size_t i = 0; i < vertex.triangles.size(); ++i)
+            for (std::size_t j = i + 1; j < vertex.triangles.size(); ++j) {
+                const auto first = vertex.triangles[i], second = vertex.triangles[j];
+                const auto index = static_cast<w8_ulong>(edges.size());
+                edges.push_back({isSmooth(first, second, cosine, smooth), -1, first, second});
+                entries[first].edges.push_back(index);
+                entries[second].edges.push_back(index);
             }
-        }
-    }
-#pragma clang diagnostic pop
-    this->entries.resize(this->triangle_count);
-    for (index = 0; index < this->triangle_count; ++index) {
-        this->entries[index].count = 0;
-    }
-    for (edge = 0; edge < edge_count; ++edge) {
-        ++this->entries[edges[edge].first].count;
-        ++this->entries[edges[edge].second].count;
-    }
-    for (index = 0; index < this->triangle_count; ++index) {
-        this->entries[index].groups = 0;
-        this->entries[index].blocked = 0;
-        this->entries[index].edges.resize(this->entries[index].count);
-        this->entries[index].fill = 0;
-    }
-    for (edge = 0; edge < edge_count; ++edge) {
-        TriangleEntry* first = &this->entries[edges[edge].first];
-        first->edges[first->fill++] = edge;
-        TriangleEntry* second = &this->entries[edges[edge].second];
-        second->edges[second->fill++] = edge;
-    }
 }
 
 // FUNCTION: SURRENDER 0x100375D0
@@ -173,43 +102,27 @@ int AutoSmoother::isSmooth(w8_ulong first, w8_ulong second, double cosine, int s
             }
         }
     }
-    srVector3T<float> first_normal = srVector3T{glm::cross(
-        (first_triangle->vertices[0].position - first_triangle->vertices[1].position).glmValue(),
-        (first_triangle->vertices[2].position - first_triangle->vertices[1].position).glmValue())};
-    srVector3T<float> second_normal = srVector3T{glm::cross(
-        (second_triangle->vertices[0].position - second_triangle->vertices[1].position).glmValue(),
-        (second_triangle->vertices[2].position - second_triangle->vertices[1].position)
-            .glmValue())};
-    float magnitude = first_normal.Length() * second_normal.Length();
-    if (0.0 < magnitude) {
-        if (glm::dot(first_normal.glmValue(), second_normal.glmValue()) / magnitude <= cosine) {
-            return 0;
-        }
-        return 1;
-    }
-    return 1;
+    const auto normal = [](const srModeler::Triangle& triangle) {
+        const auto& v = triangle.vertices;
+        return glm::cross(v[0].position - v[1].position, v[2].position - v[1].position);
+    };
+    const auto first_normal = normal(*first_triangle);
+    const auto second_normal = normal(*second_triangle);
+    const float magnitude = glm::length(first_normal) * glm::length(second_normal);
+    return magnitude == 0 || glm::dot(first_normal, second_normal) / magnitude > cosine;
 }
 
 // FUNCTION: SURRENDER 0x100378B0
 void AutoSmoother::markEdge(Edge* edge, w8_long group)
 {
     edge->group = group;
-    w8_ulong bit = 1 << (group & 0x1f);
-    entries[edge->first].groups |= bit;
-    entries[edge->second].groups |= bit;
-    w8_long index;
-    for (index = 0; index < entries[edge->first].count; ++index) {
-        Edge* other = &edges[entries[edge->first].edges[index]];
-        if (other->smooth == 0) {
-            w8_ulong triangle = other->first == edge->first ? other->second : other->first;
-            entries[triangle].blocked |= bit;
-        }
-    }
-    for (index = 0; index < entries[edge->second].count; ++index) {
-        Edge* other = &edges[entries[edge->second].edges[index]];
-        if (other->smooth == 0) {
-            w8_ulong triangle = other->first == edge->second ? other->second : other->first;
-            entries[triangle].blocked |= bit;
+    const w8_ulong bit = 1u << (group & 0x1f);
+    for (const auto triangle : {edge->first, edge->second}) {
+        entries[triangle].groups |= bit;
+        for (const auto index : entries[triangle].edges) {
+            const auto& other = edges[index];
+            if (!other.smooth)
+                entries[other.first == triangle ? other.second : other.first].blocked |= bit;
         }
     }
 }
@@ -219,7 +132,7 @@ void AutoSmoother::assignGroups(w8_long group)
 {
     if (group >= 0x1f) {
         srErr << "Warning: srModeler::autoSmooth() ran out of groups." << std::endl;
-        for (w8_ulong index = 0; index < edge_count; ++index) {
+        for (w8_ulong index = 0; index < edges.size(); ++index) {
             if (edges[index].group == -1) {
                 entries[edges[index].first].groups |= 0x80000000;
                 entries[edges[index].second].groups |= 0x80000000;
@@ -228,17 +141,17 @@ void AutoSmoother::assignGroups(w8_long group)
         }
         return;
     }
-    for (w8_ulong index = 0; index < edge_count; ++index) {
+    for (w8_ulong index = 0; index < edges.size(); ++index) {
         Edge* edge = &edges[index];
         if (edge->smooth != 0 && edge->group == -1) {
             ++group;
             markEdge(edge, group);
             /* Rescan from the seed edge: a smooth edge with no hard-edge
                neighbour blocking this group joins it immediately. */
-            for (w8_ulong scan = index; scan < edge_count; ++scan) {
+            for (w8_ulong scan = index; scan < edges.size(); ++scan) {
                 Edge* other = &edges[scan];
                 if (other->smooth != 0 && other->group == -1) {
-                    w8_ulong bit = 1 << (group & 0x1f);
+                    w8_ulong bit = 1u << (group & 0x1f);
                     if ((entries[other->first].blocked & bit) == 0 &&
                         (entries[other->second].blocked & bit) == 0) {
                         markEdge(other, group);
@@ -254,44 +167,21 @@ void AutoSmoother::assignGroups(w8_long group)
 void AutoSmoother::smooth()
 {
     w8_ulong flags = 0;
-    for (w8_ulong index = 0; index < triangle_count; ++index) {
-        flags |= triangles[index].flags;
-    }
-    if (flags != 0) {
-        /* The flood starts one below the highest set flag bit so the first
-           smooth group reuses that slot. */
-        w8_ulong bit = 0;
-        if ((flags & 0xffff0000) != 0) {
-            bit = 0x10;
-            flags >>= 0x10;
-        }
-        if ((flags & 0xff00) != 0) {
-            bit += 8;
-            flags >>= 8;
-        }
-        if ((flags & 0xf0) != 0) {
-            bit += 4;
-            flags >>= 4;
-        }
-        if ((flags & 0xc) != 0) {
-            bit += 2;
-            flags >>= 2;
-        }
-        if ((flags & 0x2) != 0) {
-            bit += 1;
-        }
-        if (bit < 0x1f) {
-            assignGroups(bit - 1);
-            for (w8_ulong index = 0; index < triangle_count; ++index) {
-                triangles[index].flags = entries[index].groups;
-            }
-        }
+    for (w8_ulong i = 0; i < triangle_count; ++i)
+        flags |= triangles[i].flags;
+    if (!flags)
+        return;
+    // Start one below the highest occupied group so the seed reuses that slot.
+    const int highest = std::bit_width(flags) - 1;
+    if (highest < 31) {
+        assignGroups(highest - 1);
+        for (w8_ulong i = 0; i < triangle_count; ++i)
+            triangles[i].flags = entries[i].groups;
     }
 }
 
 } // namespace
 
-static const double pi = 3.141592653589793;
 
 // FUNCTION: SURRENDER 0x10037BC0
 // RECOMP: ??0Vertex@srModeler@@QAE@XZ
@@ -303,83 +193,30 @@ srModeler::Vertex::Vertex()
 // FUNCTION: SURRENDER 0x100386A0
 void srModeler::Vertex::reset()
 {
-    position.SetZero();
-    for (int pass = 0; pass < 4; ++pass) {
-        dig[pass].SetZero();
-        dcg[pass] = 1.0f;
-        scg[pass] = 1.0f;
-        weights[pass] = 1.0f;
-        materials[pass][0] = 0;
-        materials[pass][1] = 0;
-        for (int layer = 0; layer < 2; ++layer) {
-            uv[pass * 2 + layer] = glm::vec2(0);
-        }
-    }
+    position = glm::vec3(0);
     shade_index = 0;
-}
-
-// FUNCTION: SURRENDER 0x10038240
-int srModeler::Vertex::operator==(const Vertex& other) const
-{
-    if (!(position == other.position)) {
-        return 0;
+    for (int pass = 0; pass < 4; ++pass) {
+        dig[pass] = glm::vec3(0);
+        dcg[pass] = scg[pass] = glm::vec3(1);
+        weights[pass] = 1;
+        for (int side = 0; side < 2; ++side)
+            materials[pass][side].reset();
     }
-    if (shade_index == other.shade_index) {
-        for (int pass = 0; pass < 4; ++pass) {
-            if (!(dcg[pass] == other.dcg[pass] && dig[pass] == other.dig[pass] &&
-                  scg[pass] == other.scg[pass] && weights[pass] == other.weights[pass])) {
-                return 0;
-            }
-            for (int side = 0; side < 2; ++side) {
-                if (materials[pass][side] != other.materials[pass][side]) {
-                    return 0;
-                }
-            }
-            for (int layer = 0; layer < 2; ++layer) {
-                if (uv[pass * 2 + layer].x != other.uv[pass * 2 + layer].x ||
-                    uv[pass * 2 + layer].y != other.uv[pass * 2 + layer].y) {
-                    return 0;
-                }
-            }
-        }
-        return 1;
-    }
-    return 0;
-}
-
-// FUNCTION: SURRENDER 0x10038680
-int srModeler::Vertex::operator!=(const Vertex& other) const
-{
-    return !(*this == other);
+    std::fill(std::begin(uv), std::end(uv), glm::vec2(0));
 }
 
 // FUNCTION: SURRENDER 0x10038420
 void srModeler::Vertex::interpolate(const Vertex& first, const Vertex& second, float fraction)
 {
-    position.x = (second.position.x - first.position.x) * fraction + first.position.x;
-    position.y = (second.position.y - first.position.y) * fraction + first.position.y;
-    position.z = (second.position.z - first.position.z) * fraction + first.position.z;
+    position = glm::mix(first.position, second.position, fraction);
     for (int pass = 0; pass < 4; ++pass) {
-        dig[pass].x = (second.dig[pass].x - first.dig[pass].x) * fraction + first.dig[pass].x;
-        dig[pass].y = (second.dig[pass].y - first.dig[pass].y) * fraction + first.dig[pass].y;
-        dig[pass].z = (second.dig[pass].z - first.dig[pass].z) * fraction + first.dig[pass].z;
-        scg[pass].x = (second.scg[pass].x - first.scg[pass].x) * fraction + first.scg[pass].x;
-        scg[pass].y = (second.scg[pass].y - first.scg[pass].y) * fraction + first.scg[pass].y;
-        scg[pass].z = (second.scg[pass].z - first.scg[pass].z) * fraction + first.scg[pass].z;
-        dcg[pass].x = (second.dcg[pass].x - first.dcg[pass].x) * fraction + first.dcg[pass].x;
-        dcg[pass].y = (second.dcg[pass].y - first.dcg[pass].y) * fraction + first.dcg[pass].y;
-        dcg[pass].z = (second.dcg[pass].z - first.dcg[pass].z) * fraction + first.dcg[pass].z;
-        weights[pass] =
-            (second.weights[pass] - first.weights[pass]) * fraction + first.weights[pass];
-        for (int layer = 0; layer < 2; ++layer) {
-            uv[pass * 2 + layer].x =
-                (second.uv[pass * 2 + layer].x - first.uv[pass * 2 + layer].x) * fraction +
-                first.uv[pass * 2 + layer].x;
-            uv[pass * 2 + layer].y =
-                (second.uv[pass * 2 + layer].y - first.uv[pass * 2 + layer].y) * fraction +
-                first.uv[pass * 2 + layer].y;
-        }
+        dig[pass] = glm::mix(first.dig[pass], second.dig[pass], fraction);
+        scg[pass] = glm::mix(first.scg[pass], second.scg[pass], fraction);
+        dcg[pass] = glm::mix(first.dcg[pass], second.dcg[pass], fraction);
+        weights[pass] = glm::mix(first.weights[pass], second.weights[pass], fraction);
     }
+    for (int slot = 0; slot < 8; ++slot)
+        uv[slot] = glm::mix(first.uv[slot], second.uv[slot], fraction);
     shade_index = 0;
 }
 
@@ -408,10 +245,7 @@ void srModeler::Triangle::reset()
 // FUNCTION: SURRENDER 0x10038840
 void srModeler::Triangle::flipFacing()
 {
-    Vertex temporary;
-    temporary = vertices[1];
-    vertices[1] = vertices[2];
-    vertices[2] = temporary;
+    std::swap(vertices[1], vertices[2]);
 }
 
 // FUNCTION: SURRENDER 0x10038890
@@ -518,11 +352,8 @@ void srModeler::flipTriangle(w8_ulong triangle)
 // FUNCTION: SURRENDER 0x10039C40
 void srModeler::flipTriangles()
 {
-    Triangle* triangle = triangles.data();
-    for (w8_ulong index = 0; index < triangle_count; ++index) {
-        triangle->flipFacing();
-        ++triangle;
-    }
+    for (auto& triangle : triangles)
+        triangle.flipFacing();
 }
 
 // FUNCTION: SURRENDER 0x1003A420
@@ -544,15 +375,8 @@ void srModeler::disableTriangle(w8_ulong triangle)
 // FUNCTION: SURRENDER 0x1003A0F0
 w8_ulong srModeler::getEnabledTriangleCount()
 {
-    w8_ulong enabled = 0;
-    Triangle* triangle = triangles.data();
-    for (w8_ulong index = triangle_count; index != 0; --index) {
-        if (triangle->disabled == 0) {
-            ++enabled;
-        }
-        ++triangle;
-    }
-    return enabled;
+    return std::count_if(triangles.begin(), triangles.end(),
+                         [](const Triangle& triangle) { return !triangle.disabled; });
 }
 
 // FUNCTION: SURRENDER 0x1003A130
@@ -565,72 +389,54 @@ void srModeler::removeDisabledTriangles()
 // FUNCTION: SURRENDER 0x1003A240
 void srModeler::disableDegenerateTriangles()
 {
-    Triangle* triangle = triangles.data();
-    for (w8_ulong index = 0; index < triangle_count; ++index) {
-        if (triangle->vertices[0].position == triangle->vertices[1].position ||
-            triangle->vertices[1].position == triangle->vertices[2].position ||
-            triangle->vertices[0].position == triangle->vertices[2].position) {
-            triangle->disabled = 1;
-        }
-        ++triangle;
+    for (auto& triangle : triangles) {
+        const auto& vertices = triangle.vertices;
+        const auto normal = glm::cross(vertices[1].position - vertices[0].position,
+                                       vertices[2].position - vertices[0].position);
+        if (normal == glm::vec3(0))
+            triangle.disabled = 1;
     }
 }
 
 // FUNCTION: SURRENDER 0x10038D60
 void srModeler::addFromModeler(srModeler& other)
 {
-    Triangle triangle;
-    w8_long count = other.triangle_count;
-    for (w8_long index = 0; index < count; ++index) {
-        other.getTriangle(index, triangle);
-        addTriangle(triangle);
-    }
+    // Copy first so appending the modeler to itself is safe.
+    const auto incoming = other.triangles;
+    triangles.insert(triangles.end(), incoming.begin(), incoming.end());
+    triangle_count = static_cast<w8_ulong>(triangles.size());
 }
 
 // FUNCTION: SURRENDER 0x10039E10
-void srModeler::scale(const srVector3T<float>& scale)
+void srModeler::scale(const glm::vec3& scale)
 {
-    Triangle* triangle = triangles.data();
-    for (w8_ulong index = 0; index < triangle_count; ++index) {
-        for (int vertex = 0; vertex < 3; ++vertex) {
-            triangle->vertices[vertex].position *= scale;
-        }
-        ++triangle;
-    }
+    for (auto& triangle : triangles)
+        for (auto& vertex : triangle.vertices)
+            vertex.position *= scale;
 }
 
 // FUNCTION: SURRENDER 0x10039F90
-void srModeler::scale(w8_ulong triangle, const srVector3T<float>& scale)
+void srModeler::scale(w8_ulong triangle, const glm::vec3& scale)
 {
-    if (triangle < triangle_count) {
-        Triangle* element = &triangles[triangle];
-        for (int index = 0; index < 3; ++index) {
-            element->vertices[index].position *= scale;
-        }
-    }
+    if (triangle < triangles.size())
+        for (auto& vertex : triangles[triangle].vertices)
+            vertex.position *= scale;
 }
 
 // FUNCTION: SURRENDER 0x10039E90
-void srModeler::move(const srVector3T<float>& delta)
+void srModeler::move(const glm::vec3& delta)
 {
-    Triangle* triangle = triangles.data();
-    for (w8_ulong index = 0; index < triangle_count; ++index) {
-        for (int vertex = 0; vertex < 3; ++vertex) {
-            triangle->vertices[vertex].position += delta;
-        }
-        ++triangle;
-    }
+    for (auto& triangle : triangles)
+        for (auto& vertex : triangle.vertices)
+            vertex.position += delta;
 }
 
 // FUNCTION: SURRENDER 0x10039F10
-void srModeler::move(w8_ulong triangle, const srVector3T<float>& delta)
+void srModeler::move(w8_ulong triangle, const glm::vec3& delta)
 {
-    if (triangle < triangle_count) {
-        Triangle* element = &triangles[triangle];
-        for (int index = 0; index < 3; ++index) {
-            element->vertices[index].position += delta;
-        }
-    }
+    if (triangle < triangles.size())
+        for (auto& vertex : triangles[triangle].vertices)
+            vertex.position += delta;
 }
 
 // FUNCTION: SURRENDER 0x10039D20
@@ -638,7 +444,7 @@ void srModeler::rotate(const glm::mat3& matrix)
 {
     for (auto& triangle : triangles)
         for (auto& vertex : triangle.vertices)
-            vertex.position = matrix * vertex.position.glmValue();
+            vertex.position = matrix * vertex.position;
 }
 
 // FUNCTION: SURRENDER 0x1003A010
@@ -646,121 +452,70 @@ void srModeler::rotate(w8_ulong triangle, const glm::mat3& matrix)
 {
     if (triangle < triangle_count)
         for (auto& vertex : triangles[triangle].vertices)
-            vertex.position = matrix * vertex.position.glmValue();
+            vertex.position = matrix * vertex.position;
 }
 
 // FUNCTION: SURRENDER 0x10039A90
-int srModeler::findVertex(const srVector3T<float>& position, w8_ulong& triangle,
-                          w8_ulong& vertex, w8_ulong start_triangle)
+int srModeler::findVertex(const glm::vec3& position, w8_ulong& triangle, w8_ulong& vertex,
+                          w8_ulong start_triangle)
 {
-    if (start_triangle < triangle_count) {
-        Triangle* current = triangles.data() + start_triangle;
-        for (w8_ulong index = start_triangle; index < triangle_count; ++index) {
-            for (w8_ulong slot = 0; slot < 3; ++slot) {
-                if (current->vertices[slot].position == position) {
-                    triangle = index;
-                    vertex = slot;
-                    return 1;
-                }
+    for (w8_ulong index = start_triangle; index < triangles.size(); ++index)
+        for (w8_ulong slot = 0; slot < 3; ++slot)
+            if (triangles[index].vertices[slot].position == position) {
+                triangle = index;
+                vertex = slot;
+                return true;
             }
-            ++current;
-        }
-    }
-    return 0;
+    return false;
 }
 
 // FUNCTION: SURRENDER 0x10039B40
-void srModeler::findClosestVertex(const srVector3T<float>& position, w8_ulong& triangle,
-                                  w8_ulong& vertex)
+void srModeler::findClosestVertex(const glm::vec3& position, w8_ulong& triangle, w8_ulong& vertex)
 {
-    triangle = 0;
-    vertex = 0;
-    if (triangle_count != 0) {
-        Triangle* current = triangles.data();
-        /* Retail keeps the differences and squared lengths on the x87 stack
-           and the best distance in a double; nothing is rounded to float. */
-        const srVector3T<float>& first = current->vertices[0].position;
-        srVector3T<double> delta(first.x - position.x, first.y - position.y, first.z - position.z);
-        double best = delta.LengthSquared();
-        for (w8_ulong index = 0; index < triangle_count; ++index) {
-            for (w8_ulong slot = 0; slot < 3; ++slot) {
-                const srVector3T<float>& location = current->vertices[slot].position;
-                srVector3T<double> offset(location.x - position.x, location.y - position.y,
-                                          location.z - position.z);
-                double distance = offset.LengthSquared();
-                if (distance < best) {
-                    triangle = index;
-                    vertex = slot;
-                    best = distance;
-                }
+    triangle = vertex = 0;
+    double best = std::numeric_limits<double>::infinity();
+    for (w8_ulong index = 0; index < triangles.size(); ++index)
+        for (w8_ulong slot = 0; slot < 3; ++slot) {
+            const auto offset =
+                glm::dvec3(triangles[index].vertices[slot].position) - glm::dvec3(position);
+            const double distance = glm::dot(offset, offset);
+            if (distance < best) {
+                triangle = index;
+                vertex = slot;
+                best = distance;
             }
-            ++current;
         }
-    }
 }
 
 // FUNCTION: SURRENDER 0x1003AA80
 double srModeler::getMaxVertexDist()
 {
-    if (triangle_count == 0) {
-        return 0.0;
-    }
-    Triangle* triangle = triangles.data();
-    double maximum = 0.0;
-    for (w8_ulong index = 0; index < triangle_count; ++index) {
-        for (int vertex = 0; vertex < 3; ++vertex) {
-            /* Retail compares and keeps the unrounded register sum. */
-            double distance = glm::dot((triangle->vertices[vertex].position).glmValue(),
-                                       (triangle->vertices[vertex].position).glmValue());
-            if (distance > maximum) {
-                maximum = distance;
-            }
+    double maximum = 0;
+    for (const auto& triangle : triangles)
+        for (const auto& vertex : triangle.vertices) {
+            const glm::dvec3 position(vertex.position);
+            maximum = std::max(maximum, glm::dot(position, position));
         }
-        ++triangle;
-    }
-    return sqrt(maximum);
+    return std::sqrt(maximum);
 }
 
 // FUNCTION: SURRENDER 0x1003AB30
 void srModeler::getAxialBounds(e_axis axis, float& minimum, float& maximum)
 {
-    if (0 <= axis && axis < 3) {
-        if (triangle_count == 0) {
-            minimum = 0.0f;
-            maximum = 0.0f;
-            return;
+    if (axis < AXIS_X || axis > AXIS_Z)
+        return;
+    minimum = maximum = triangles.empty() ? 0 : triangles.front().vertices[0].position[axis];
+    for (const auto& triangle : triangles)
+        for (const auto& vertex : triangle.vertices) {
+            minimum = std::min(minimum, vertex.position[axis]);
+            maximum = std::max(maximum, vertex.position[axis]);
         }
-        for (w8_ulong index = 0; index < triangle_count; ++index) {
-            for (int vertex = 0; vertex < 3; ++vertex) {
-                const srVector3T<float>& position = triangles[index].vertices[vertex].position;
-                float component = axis == AXIS_X ? position.x :
-                                  axis == AXIS_Y ? position.y : position.z;
-                if (index == 0 && vertex == 0) {
-                    minimum = component;
-                    maximum = component;
-                } else {
-                    if (component < minimum) {
-                        minimum = component;
-                    }
-                    if (maximum < component) {
-                        maximum = component;
-                    }
-                }
-            }
-        }
-    }
 }
 
 // FUNCTION: SURRENDER 0x1003BB00
 void srModeler::setPassCount(w8_long passes)
 {
-    pass_count = passes;
-    if (passes < 0) {
-        pass_count = 0;
-    }
-    if (pass_count > 4) {
-        pass_count = 4;
-    }
+    pass_count = std::clamp(passes, w8_long{0}, w8_long{4});
 }
 
 // FUNCTION: SURRENDER 0x1003BB30
@@ -791,7 +546,8 @@ std::unique_ptr<srModeler::VertexHash> srModeler::getUniqueVertexList()
     Triangle* triangle = triangles.data();
     w8_ulong unique = 0;
     w8_ulong slot = 0;
-    double scale = 1.0 / getMaxVertexDist();
+    const double radius = getMaxVertexDist();
+    const double scale = radius > 0 ? 1.0 / radius : 1.0;
     for (w8_ulong index = 0; index < triangle_count; ++index) {
         w8_ulong flags = triangle->flags;
         for (int vertex = 0; vertex < 3; ++vertex) {
@@ -802,9 +558,10 @@ std::unique_ptr<srModeler::VertexHash> srModeler::getUniqueVertexList()
             VertexHash::Entry* entry;
             for (entry = hash->buckets[bucket]; entry != 0; entry = entry->next) {
                 Vertex* other = entry->vertex;
-                if (fabs((source->position.x - other->position.x) * scale) < 0.0001f &&
-                    fabs((source->position.y - other->position.y) * scale) < 0.0001f &&
-                    fabs((source->position.z - other->position.z) * scale) < 0.0001f &&
+                if (glm::all(glm::lessThan(
+                        glm::abs((glm::dvec3(source->position) - glm::dvec3(other->position)) *
+                                 scale),
+                        glm::dvec3(0.0001f))) &&
                     (entry->flags & flags) != 0 && source->shade_index == other->shade_index) {
                     group = entry->shade_index;
                 }
@@ -846,242 +603,134 @@ w8_ulong srModeler::getUniqueVertexCount()
 // FUNCTION: SURRENDER 0x1003A4A0
 int srModeler::isClockwise(glm::vec2* points, int count)
 {
-    double accumulated = 0.0;
-    int index = 1;
-    glm::vec2* current = points;
-    if (1 < count) {
-        do {
-            float dx1 = current->x - current[1].x;
-            float dy1 = current->y - current[1].y;
-            ++index;
-            float dx2 = points[index % count].x - current[1].x;
-            float dy2 = points[index % count].y - current[1].y;
-            double argument = 0.0;
-            float magnitude = sqrt(dx2 * dx2 + dy2 * dy2) * sqrt(dx1 * dx1 + dy1 * dy1);
-            if (magnitude > 0.0) {
-                argument = (dx1 * dx2 + dy1 * dy2) / magnitude;
-            }
-            if (argument > 1.0) {
-                argument = 1.0;
-            }
-            if (argument < -1.0) {
-                argument = -1.0;
-            }
-            if (0.0 < dx1 * dy2 - dx2 * dy1) {
-                accumulated -= acos(argument);
-            } else {
-                accumulated += acos(argument);
-            }
-            ++current;
-        } while (index < count);
-        if (accumulated < 0.0) {
-            return 0;
-        }
+    // The signed polygon area gives the winding without normalizing every edge.
+    double area = 0;
+    for (int i = 0; i < count; ++i) {
+        const glm::dvec2 a(points[i]), b(points[(i + 1) % count]);
+        area += a.x * b.y - a.y * b.x;
     }
-    return 1;
+    return area <= 0;
 }
 
 // FUNCTION: SURRENDER 0x1003A650
 void srModeler::addPolygon(const Polygon& polygon)
 {
-    Triangle triangle;
-    int count = polygon.vertex_count;
-    if (count < 3) {
+    const int count = polygon.vertex_count;
+    if (count < 3)
         return;
-    }
+    Triangle triangle;
     triangle.flags = polygon.flags;
     triangle.disabled = polygon.disabled;
     for (int pass = 0; pass < 4; ++pass) {
         triangle.shaders[pass] = polygon.shaders[pass];
-        triangle.textures[pass][0] = polygon.textures[pass][0];
-        triangle.textures[pass][1] = polygon.textures[pass][1];
+        for (int layer = 0; layer < 2; ++layer)
+            triangle.textures[pass][layer] = polygon.textures[pass][layer];
     }
     if (count == 3) {
-        triangle.vertices[0] = polygon.vertices[0];
-        triangle.vertices[1] = polygon.vertices[1];
-        triangle.vertices[2] = polygon.vertices[2];
+        std::copy_n(polygon.vertices.begin(), 3, std::begin(triangle.vertices));
         addTriangle(triangle);
-    } else {
-        float abs_x = 0.0f;
-        float abs_y = 0.0f;
-        float abs_z = 0.0f;
-        for (int index = 1; index < count; ++index) {
-            const Vertex* previous = &polygon.vertices[index - 1];
-            const Vertex* current = &polygon.vertices[index];
-            const Vertex* next = &polygon.vertices[(index + 1) % count];
-            float first_x = previous->position.x - current->position.x;
-            float first_y = previous->position.y - current->position.y;
-            float first_z = previous->position.z - current->position.z;
-            float second_x = next->position.x - current->position.x;
-            float second_y = next->position.y - current->position.y;
-            float second_z = next->position.z - current->position.z;
-            abs_x += (float)fabs(first_y * second_z - first_z * second_y);
-            abs_y += (float)fabs(first_z * second_x - first_x * second_z);
-            abs_z += (float)fabs(first_x * second_y - first_y * second_x);
-        }
-        std::vector<glm::vec2> points(count);
-        if (abs_x <= abs_y) {
-            if (abs_y <= abs_z) {
-                for (int index = 0; index < count; ++index) {
-                    points[index].x = polygon.vertices[index].position.x;
-                    points[index].y = polygon.vertices[index].position.y;
-                }
-            } else {
-                for (int index = 0; index < count; ++index) {
-                    points[index].x = polygon.vertices[index].position.x;
-                    points[index].y = polygon.vertices[index].position.z;
-                }
-            }
-        } else {
-            if (abs_x <= abs_z) {
-                for (int index = 0; index < count; ++index) {
-                    points[index].x = polygon.vertices[index].position.x;
-                    points[index].y = polygon.vertices[index].position.y;
-                }
-            } else {
-                for (int index = 0; index < count; ++index) {
-                    points[index].x = polygon.vertices[index].position.y;
-                    points[index].y = polygon.vertices[index].position.z;
-                }
-            }
-        }
-        if (isClockwise(points.data(), count)) {
-            for (int index = 0; index < count; ++index) {
-                points[index].y *= -1.0;
-            }
-        }
-        srTriangulator triangulator(points.data(), count);
-        srVector3i indices = triangulator.next();
-        while (indices.x != -1) {
-            triangle.vertices[0] = polygon.vertices[indices.x];
-            triangle.vertices[1] = polygon.vertices[indices.y];
-            triangle.vertices[2] = polygon.vertices[indices.z];
-            addTriangle(triangle);
-            indices = triangulator.next();
-        }
+        return;
+    }
+    glm::vec3 normal(0);
+    for (int i = 0; i < count; ++i) {
+        const auto& a = polygon.vertices[(i + count - 1) % count].position;
+        const auto& b = polygon.vertices[i].position;
+        const auto& c = polygon.vertices[(i + 1) % count].position;
+        normal += glm::abs(glm::cross(a - b, c - b));
+    }
+    const int omitted_axis = normal.z >= normal.x && normal.z >= normal.y ? 2
+                             : normal.y >= normal.x                       ? 1
+                                                                          : 0;
+    const int u = omitted_axis == 0 ? 1 : 0;
+    const int v = omitted_axis == 2 ? 1 : 2;
+    std::vector<glm::vec2> points(count);
+    for (int i = 0; i < count; ++i)
+        points[i] = {polygon.vertices[i].position[u], polygon.vertices[i].position[v]};
+    if (isClockwise(points.data(), count))
+        for (auto& point : points)
+            point.y = -point.y;
+    srTriangulator triangulator(points.data(), count);
+    for (auto indices = triangulator.next(); indices.x != -1; indices = triangulator.next()) {
+        for (int i = 0; i < 3; ++i)
+            triangle.vertices[i] = polygon.vertices[indices[i]];
+        addTriangle(triangle);
     }
 }
 
 // FUNCTION: SURRENDER 0x1003AC00
 void srModeler::planarMap(w8_long pass, w8_long layer, const MappingInfo& mapping)
 {
-    if (0 <= pass && pass < 4 && 0 <= layer && layer < 2 && triangle_count != 0) {
-        float u_minimum, u_maximum, v_minimum, v_maximum;
-        getAxialBounds(mapping.axis_u, u_minimum, u_maximum);
-        getAxialBounds(mapping.axis_v, v_minimum, v_maximum);
-        float u_scale = 0.0f;
-        if (u_maximum - u_minimum != 0.0f) {
-            u_scale = mapping.u_scale / (u_maximum - u_minimum);
-        }
-        float v_scale = 0.0f;
-        if (v_maximum - v_minimum != 0.0f) {
-            v_scale = mapping.v_scale / (v_maximum - v_minimum);
-        }
-        Triangle* triangle = triangles.data();
-        for (w8_ulong index = 0; index < triangle_count; ++index) {
-            for (int vertex = 0; vertex < 3; ++vertex) {
-                w8_unaligned_float* position = &triangle->vertices[vertex].position.x;
-                triangle->vertices[vertex].uv[pass * 2 + layer].x =
-                    (position[mapping.axis_u] - u_minimum) * u_scale + mapping.u_offset;
-                triangle->vertices[vertex].uv[pass * 2 + layer].y =
-                    (-position[mapping.axis_v] - v_minimum) * v_scale + mapping.v_offset;
-            }
-            ++triangle;
-        }
-    }
+    if (pass < 0 || pass >= 4 || layer < 0 || layer >= 2 || triangles.empty() ||
+        mapping.axis_u < AXIS_X || mapping.axis_u > AXIS_Z || mapping.axis_v < AXIS_X ||
+        mapping.axis_v > AXIS_Z)
+        return;
+    glm::vec2 minimum, maximum;
+    getAxialBounds(mapping.axis_u, minimum.x, maximum.x);
+    getAxialBounds(mapping.axis_v, minimum.y, maximum.y);
+    const auto extent = maximum - minimum;
+    const glm::vec2 scale(extent.x != 0 ? mapping.u_scale / extent.x : 0,
+                          extent.y != 0 ? mapping.v_scale / extent.y : 0);
+    for (auto& triangle : triangles)
+        for (auto& vertex : triangle.vertices)
+            vertex.uv[pass * 2 + layer] =
+                (glm::vec2(vertex.position[mapping.axis_u], -vertex.position[mapping.axis_v]) -
+                 minimum) *
+                    scale +
+                glm::vec2(mapping.u_offset, mapping.v_offset);
 }
 
 // FUNCTION: SURRENDER 0x1003AD60
 void srModeler::planarMapAbsolute(w8_long pass, w8_long layer, const MappingInfo& mapping)
 {
-    if (0 <= pass && pass < 4 && 0 <= layer && layer < 2 && triangle_count != 0) {
-        Triangle* triangle = triangles.data();
-        for (w8_ulong index = 0; index < triangle_count; ++index) {
-            for (int vertex = 0; vertex < 3; ++vertex) {
-                w8_unaligned_float* position = &triangle->vertices[vertex].position.x;
-                triangle->vertices[vertex].uv[pass * 2 + layer].x =
-                    position[mapping.axis_u] * mapping.u_scale + mapping.u_offset;
-                /* Retail scales v by u_scale too (both fmuls read
-                   MappingInfo+8); v_scale is unused here. */
-                triangle->vertices[vertex].uv[pass * 2 + layer].y =
-                    -(position[mapping.axis_v] * mapping.u_scale) + mapping.v_offset;
-            }
-            ++triangle;
-        }
-    }
+    if (pass < 0 || pass >= 4 || layer < 0 || layer >= 2 || mapping.axis_u < AXIS_X ||
+        mapping.axis_u > AXIS_Z || mapping.axis_v < AXIS_X || mapping.axis_v > AXIS_Z)
+        return;
+    // Absolute mapping historically uses u_scale for both axes.
+    for (auto& triangle : triangles)
+        for (auto& vertex : triangle.vertices)
+            vertex.uv[pass * 2 + layer] =
+                glm::vec2(vertex.position[mapping.axis_u], -vertex.position[mapping.axis_v]) *
+                    mapping.u_scale +
+                glm::vec2(mapping.u_offset, mapping.v_offset);
 }
 
 // FUNCTION: SURRENDER 0x1003AE30
 void srModeler::removeMapping(w8_long pass, w8_long layer)
 {
-    if (0 <= pass && pass < 4 && 0 <= layer && layer < 2 && triangle_count != 0) {
-        Triangle* triangle = triangles.data();
-        for (w8_ulong index = 0; index < triangle_count; ++index) {
-            for (int vertex = 0; vertex < 3; ++vertex) {
-                triangle->vertices[vertex].uv[pass * 2 + layer] = glm::vec2(0);
-            }
-            ++triangle;
-        }
-    }
+    if (pass >= 0 && pass < 4 && layer >= 0 && layer < 2)
+        for (auto& triangle : triangles)
+            for (auto& vertex : triangle.vertices)
+                vertex.uv[pass * 2 + layer] = glm::vec2(0);
 }
 
 // FUNCTION: SURRENDER 0x1003AEC0
 void srModeler::cylinderMap(w8_long pass, w8_long layer, const MappingInfo& mapping)
 {
-    if (pass < 0 || pass > 3 || layer < 0 || layer > 1 || triangle_count == 0) {
+    if (pass < 0 || pass >= 4 || layer < 0 || layer >= 2 || triangles.empty() ||
+        mapping.axis_u < AXIS_X || mapping.axis_u > AXIS_Z)
         return;
-    }
-    e_axis axis = mapping.axis_u;
-    e_axis second_axis;
-    e_axis third_axis;
-    switch (axis) {
-    case AXIS_X:
-        second_axis = AXIS_Y;
-        third_axis = AXIS_Z;
-        break;
-    case AXIS_Y:
-        second_axis = AXIS_X;
-        third_axis = AXIS_Z;
-        break;
-    default:
-        second_axis = AXIS_X;
-        third_axis = AXIS_Y;
-        break;
-    }
-    float u_minimum, u_maximum;
-    getAxialBounds(axis, u_minimum, u_maximum);
-    float u_scale;
-    if (u_maximum - u_minimum == 0.0f) {
-        u_scale = 0.0f;
-    } else {
-        u_scale = mapping.u_scale / (u_maximum - u_minimum);
-    }
-    Triangle* triangle = triangles.data();
-    int vertex;
-    for (w8_ulong index = 0; index < triangle_count; ++index) {
-        for (vertex = 0; vertex < 3; ++vertex) {
-            w8_unaligned_float* position = &triangle->vertices[vertex].position.x;
-            glm::vec2* uv = &triangle->vertices[vertex].uv[pass * 2 + layer];
-            /* fpatan with the third axis in ST(1): atan2(third, second),
-               kept at register precision. */
-            double angle = atan2(position[third_axis], position[second_axis]);
-            uv->x = (position[axis] - u_minimum) * u_scale + mapping.u_offset;
-            uv->y = -(angle / (pi * 2.0)) * mapping.v_scale + mapping.v_offset;
+    const int axis = mapping.axis_u;
+    const int second = axis == AXIS_X ? AXIS_Y : AXIS_X;
+    const int third = axis == AXIS_Z ? AXIS_Y : AXIS_Z;
+    float minimum, maximum;
+    getAxialBounds(mapping.axis_u, minimum, maximum);
+    const float scale = maximum != minimum ? mapping.u_scale / (maximum - minimum) : 0;
+    const int slot = pass * 2 + layer;
+    for (auto& triangle : triangles) {
+        for (auto& vertex : triangle.vertices) {
+            const auto& position = vertex.position;
+            const double angle = std::atan2(position[third], position[second]);
+            vertex.uv[slot] = {
+                (position[axis] - minimum) * scale + mapping.u_offset,
+                float(-angle / glm::two_pi<double>() * mapping.v_scale + mapping.v_offset)};
         }
-        float* previous = &triangle->vertices[0].uv[pass * 2 + layer].y;
-        /* Edges 0-1, 1-2 and the closing edge 2-0. */
-        for (vertex = 1; vertex < 4; ++vertex) {
-            float* current = &triangle->vertices[vertex % 3].uv[pass * 2 + layer].y;
-            if (mapping.v_scale * 0.8f < fabs(*current - *previous)) {
-                if (*previous <= *current) {
-                    *previous += mapping.v_scale;
-                } else {
-                    *current += mapping.v_scale;
-                }
-            }
-            previous = current;
+        // Keep each triangle continuous across the cylindrical seam.
+        for (int i = 0; i < 3; ++i) {
+            auto& a = triangle.vertices[i].uv[slot].y;
+            auto& b = triangle.vertices[(i + 1) % 3].uv[slot].y;
+            if (std::abs(a - b) > mapping.v_scale * 0.8f)
+                (a <= b ? a : b) += mapping.v_scale;
         }
-        ++triangle;
     }
 }
 
@@ -1089,151 +738,83 @@ void srModeler::cylinderMap(w8_long pass, w8_long layer, const MappingInfo& mapp
 void srModeler::createGrid(w8_long columns, w8_long rows)
 {
     discard();
-    if (columns < 1) {
-        columns = 1;
-    }
-    if (rows < 1) {
-        rows = 1;
-    }
-    int row;
-    for (row = 0; row < rows; ++row) {
-        int column = 0;
-        if (0 < columns) {
-            float top = (row + 1) / static_cast<double>(rows) - 0.5;
-            float bottom = row / static_cast<double>(rows) - 0.5;
-            do {
-                Triangle triangle;
-                w8_long column_position = column;
-                ++column;
-                float left = column_position / static_cast<double>(columns) - 0.5;
-                float right = column / static_cast<double>(columns) - 0.5;
-                triangle.vertices[0].position.Set(left, bottom, 0.0);
-                triangle.vertices[1].position.Set(left, top, 0.0);
-                triangle.vertices[2].position.Set(right, top, 0.0);
-                addTriangle(triangle);
-                triangle.vertices[1].position.Set(right, bottom, 0.0);
-                triangle.flipFacing();
-                addTriangle(triangle);
-            } while (column < columns);
+    columns = std::max(columns, w8_long{1});
+    rows = std::max(rows, w8_long{1});
+    for (int row = 0; row < rows; ++row)
+        for (int column = 0; column < columns; ++column) {
+            const float left = float(column) / columns - 0.5f;
+            const float right = float(column + 1) / columns - 0.5f;
+            const float bottom = float(row) / rows - 0.5f;
+            const float top = float(row + 1) / rows - 0.5f;
+            Triangle triangle;
+            triangle.vertices[0].position = {left, bottom, 0};
+            triangle.vertices[1].position = {left, top, 0};
+            triangle.vertices[2].position = {right, top, 0};
+            addTriangle(triangle);
+            triangle.vertices[1].position = {right, bottom, 0};
+            triangle.flipFacing();
+            addTriangle(triangle);
         }
-    }
 }
 
 // FUNCTION: SURRENDER 0x10039580
 void srModeler::createSphere(w8_long detail)
 {
-    Triangle triangle;
     discard();
-    if (detail < 3) {
-        detail = 3;
-    }
-    int bands = detail / 2;
-    double fraction = 0.0;
-    double band_count = (double)bands;
-    if (0 < bands) {
-        do {
-            double angle = 0.0;
-            double height1 = sin(pi * fraction * 0.5);
-            double next_fraction = 1.0 / band_count + fraction;
-            double height2 = sin(next_fraction * pi * 0.5);
-            double radius1 = 1.0 - height1 * height1;
-            if (0.0 <= radius1) {
-                radius1 = sqrt(radius1);
-            }
-            double radius2 = 1.0 - height2 * height2;
-            if (0.0 <= radius2) {
-                radius2 = sqrt(radius2);
-            }
-            radius2 = radius2 * 0.5;
-            if (0 < detail) {
-                float z1 = (float)(height1 * 0.5);
-                float z2 = (float)(height2 * 0.5);
-                float nz1 = -z1;
-                float nz2 = -z2;
-                w8_long segment = detail;
-                do {
-                    double cosine = cos(angle);
-                    double sine = sin(angle);
-                    angle = angle + (pi * 2.0) / detail;
-                    double next_cosine = cos(angle);
-                    double next_sine = sin(angle);
-                    double ring = radius1 * 0.5;
-                    triangle.vertices[0].position.Set(cosine * ring, sine * ring, z1);
-                    triangle.vertices[1].position.Set(next_cosine * ring, next_sine * ring, z1);
-                    triangle.vertices[2].position.Set(cosine * radius2, sine * radius2, z2);
-                    addTriangle(triangle);
-                    triangle.vertices[0].position.Set(next_cosine * radius2, next_sine * radius2,
-                                                      z2);
+    detail = std::max(detail, w8_long{3});
+    const int bands = detail / 2;
+    const auto point = [=](int band, int segment, float hemisphere) {
+        if (band == bands)
+            return glm::vec3(0, 0, hemisphere * 0.5f);
+        segment %= detail;
+        const double latitude = glm::half_pi<double>() * band / bands;
+        const double longitude = glm::two_pi<double>() * segment / detail;
+        return glm::vec3(0.5 * std::cos(latitude) * std::cos(longitude),
+                         0.5 * std::cos(latitude) * std::sin(longitude),
+                         hemisphere * 0.5 * std::sin(latitude));
+    };
+    for (int band = 0; band < bands; ++band)
+        for (int segment = 0; segment < detail; ++segment)
+            for (float hemisphere : {1.0f, -1.0f}) {
+                Triangle triangle;
+                triangle.vertices[0].position = point(band, segment, hemisphere);
+                triangle.vertices[1].position = point(band, segment + 1, hemisphere);
+                triangle.vertices[2].position = point(band + 1, segment, hemisphere);
+                if (hemisphere < 0)
                     triangle.flipFacing();
-                    addTriangle(triangle);
-                    triangle.vertices[0].position.Set(cosine * ring, sine * ring, nz1);
-                    triangle.vertices[1].position.Set(next_cosine * ring, next_sine * ring, nz1);
-                    triangle.vertices[2].position.Set(cosine * radius2, sine * radius2, nz2);
-                    triangle.flipFacing();
-                    addTriangle(triangle);
-                    triangle.vertices[0].position.Set(next_cosine * radius2, next_sine * radius2,
-                                                      nz2);
-                    triangle.flipFacing();
-                    addTriangle(triangle);
-                    --segment;
-                } while (segment != 0);
+                addTriangle(triangle);
+                triangle.vertices[0].position = point(band + 1, segment + 1, hemisphere);
+                triangle.flipFacing();
+                addTriangle(triangle);
             }
-            fraction = next_fraction;
-            --bands;
-        } while (bands != 0);
-    }
 }
 
 // FUNCTION: SURRENDER 0x10039360
 void srModeler::createTorus(w8_long major_segments, w8_long minor_segments, double radius)
 {
-    Triangle triangle;
     discard();
-    if (major_segments < 3) {
-        major_segments = 3;
-    }
-    if (minor_segments < 3) {
-        minor_segments = 3;
-    }
-    radius = fabs(radius);
-    if (1.0 < radius) {
-        radius = 1.0;
-    }
-    radius = radius * 0.5;
-    double major_angle = 0.0;
-    if (0 < major_segments) {
-        w8_long major_count = major_segments;
-        do {
-            double cosine = cos(major_angle);
-            double minor_angle = 0.0;
-            double sine = sin(major_angle);
-            major_angle = major_angle + (pi * 2.0) / major_segments;
-            double next_cosine = cos(major_angle);
-            double next_sine = sin(major_angle);
-            w8_long minor_count = minor_segments;
-            if (0 < minor_segments) {
-                do {
-                    double tube = cos(minor_angle) * radius + 0.5;
-                    double next_minor = (pi * 2.0) / minor_segments + minor_angle;
-                    double next_tube = cos(next_minor) * radius + 0.5;
-                    double depth = sin(minor_angle) * radius;
-                    double next_depth = sin(next_minor) * radius;
-                    triangle.vertices[0].position.Set(tube * cosine, tube * sine, depth);
-                    triangle.vertices[1].position.Set(tube * next_cosine, tube * next_sine, depth);
-                    triangle.vertices[2].position.Set(next_tube * cosine, next_tube * sine,
-                                                      next_depth);
-                    addTriangle(triangle);
-                    triangle.vertices[0].position.Set(next_tube * next_cosine,
-                                                      next_tube * next_sine, next_depth);
-                    triangle.flipFacing();
-                    addTriangle(triangle);
-                    minor_angle = next_minor;
-                    --minor_count;
-                } while (minor_count != 0);
-            }
-            --major_count;
-        } while (major_count != 0);
-    }
+    major_segments = std::max(major_segments, w8_long{3});
+    minor_segments = std::max(minor_segments, w8_long{3});
+    radius = std::clamp(std::abs(radius), 0.0, 1.0) * 0.5;
+    const auto point = [=](int major, int minor) {
+        major %= major_segments;
+        minor %= minor_segments;
+        const double u = glm::two_pi<double>() * major / major_segments;
+        const double v = glm::two_pi<double>() * minor / minor_segments;
+        const double ring = 0.5 + radius * std::cos(v);
+        return glm::vec3(ring * std::cos(u), ring * std::sin(u), radius * std::sin(v));
+    };
+    for (int major = 0; major < major_segments; ++major)
+        for (int minor = 0; minor < minor_segments; ++minor) {
+            Triangle triangle;
+            triangle.vertices[0].position = point(major, minor);
+            triangle.vertices[1].position = point(major + 1, minor);
+            triangle.vertices[2].position = point(major, minor + 1);
+            addTriangle(triangle);
+            triangle.vertices[0].position = point(major + 1, minor + 1);
+            triangle.flipFacing();
+            addTriangle(triangle);
+        }
 }
 
 // FUNCTION: SURRENDER 0x10039130
@@ -1246,13 +827,8 @@ void srModeler::tesselateEdges(w8_ulong triangle, double threshold)
         int vertex;
         for (vertex = 0; vertex < 3; ++vertex) {
             int next = (vertex + 1) % 3;
-            double dx =
-                source->vertices[vertex].position.x - (double)source->vertices[next].position.x;
-            double dy =
-                source->vertices[vertex].position.y - (double)source->vertices[next].position.y;
-            double dz =
-                source->vertices[vertex].position.z - (double)source->vertices[next].position.z;
-            double distance = sqrt(dx * dx + dy * dy + dz * dz);
+            const double distance = glm::distance(glm::dvec3(source->vertices[vertex].position),
+                                                  glm::dvec3(source->vertices[next].position));
             if (longest < distance) {
                 longest = distance;
                 edge = vertex;
@@ -1291,6 +867,8 @@ void srModeler::tesselateEdges(double threshold)
 // FUNCTION: SURRENDER 0x1003B940
 void srModeler::autoSmooth(double threshold, int smooth)
 {
+    if (triangles.empty())
+        return;
     auto hash = getUniqueVertexList();
     AutoSmoother smoother(triangles.data(), triangle_count, hash.get(), threshold, smooth);
     smoother.smooth();
@@ -1299,245 +877,116 @@ void srModeler::autoSmooth(double threshold, int smooth)
 // FUNCTION: SURRENDER 0x1003BB40
 void srModeler::setMaterial(std::shared_ptr<srMaterialIFace> material, w8_long pass, srMeshModel::e_side side)
 {
-    if (0 <= pass && pass < 4 &&
-        (side == srMeshModel::SIDE_FRONT || side == srMeshModel::SIDE_BACK)) {
-        Triangle* triangle = triangles.data();
-        for (w8_long index = 0; index < (w8_long)triangle_count; ++index) {
-            for (int vertex = 0; vertex < 3; ++vertex) {
-                triangle->vertices[vertex].materials[pass][side] = material;
-            }
-            ++triangle;
-        }
-    }
+    if (pass >= 0 && pass < 4 &&
+        (side == srMeshModel::SIDE_FRONT || side == srMeshModel::SIDE_BACK))
+        for (auto& triangle : triangles)
+            for (auto& vertex : triangle.vertices)
+                vertex.materials[pass][side] = material;
 }
 
 // FUNCTION: SURRENDER 0x1003BBC0
 void srModeler::setTexture(std::shared_ptr<srTextureIFace> texture, w8_long pass, w8_long layer)
 {
-    if (0 <= pass && pass < 4 && 0 <= layer && layer < 2) {
-        Triangle* triangle = triangles.data();
-        for (w8_long index = 0; index < (w8_long)triangle_count; ++index) {
-            triangle->textures[pass][layer] = texture;
-            ++triangle;
-        }
-    }
+    if (pass >= 0 && pass < 4 && layer >= 0 && layer < 2)
+        for (auto& triangle : triangles)
+            triangle.textures[pass][layer] = texture;
 }
 
 // FUNCTION: SURRENDER 0x1003BC20
 void srModeler::setShader(srShader shader, w8_long pass)
 {
-    if (0 <= pass && pass < 4) {
-        Triangle* triangle = triangles.data();
-        for (w8_long index = 0; index < (w8_long)triangle_count; ++index) {
-            triangle->shaders[pass] = shader;
-            ++triangle;
-        }
-    }
+    if (pass >= 0 && pass < 4)
+        for (auto& triangle : triangles)
+            triangle.shaders[pass] = shader;
 }
 
 // FUNCTION: SURRENDER 0x1003B160
 void srModeler::convert(srMeshModel& model, int remove_degenerate)
 {
-    if (remove_degenerate != 0) {
+    if (remove_degenerate) {
         disableDegenerateTriangles();
         removeDisabledTriangles();
     }
-    if (triangle_count == 0 || pass_count == 0) {
+    if (triangles.empty() || pass_count == 0) {
         model.reset(0, 0);
         return;
     }
     auto hash = getUniqueVertexList();
-    model.reset(triangle_count, hash->unique_count);
-    model.clearDirty(srMeshModel::DIRTY_POLYGON_NORMALS);
-    model.clearDirty(srMeshModel::DIRTY_VERTEX_NORMALS);
+    const auto unique = hash->unique_count;
+    model.reset(triangle_count, unique);
     model.pass_count = pass_count;
-    if (pass_count < 1) {
-        model.pass_count = 1;
-    } else if (4 < pass_count) {
-        model.pass_count = 4;
-    }
-    w8_ulong unique = hash->unique_count;
-    w8_ulong count = triangle_count;
-    w8_ulong index;
-    w8_long layer;
-    w8_long side;
-    Vertex* vertex;
-    VertexHash::Entry* entry;
-    for (w8_long pass = 0; pass < pass_count; ++pass) {
-        char same_shader = 1;
-        char same_material[2];
-        char same_texture[2];
-        char same_uv[2];
-        bool same_dcg = true;
-        bool same_scg = true;
-        bool same_dig = true;
-        same_material[0] = 1;
-        same_material[1] = 1;
-        same_texture[0] = 1;
-        same_texture[1] = 1;
-        srShader shader;
-        Triangle* triangle = triangles.data();
-        shader = triangle->shaders[pass];
-        std::shared_ptr<srTextureIFace> texture[2];
-        texture[0] = triangle->textures[pass][0];
-        texture[1] = triangle->textures[pass][1];
-        if (1 < count) {
-            triangle = &triangles[1];
-            for (index = count - 1; index != 0; --index) {
-                for (layer = 0; layer < 2; ++layer) {
-                    if (triangle->textures[pass][layer] != texture[layer]) {
-                        same_texture[layer] = 0;
-                    }
-                }
-                if (triangle->shaders[pass].value != shader.value) {
-                    same_shader = 0;
-                }
-                ++triangle;
-            }
-        }
-        for (layer = 0; layer < 2; ++layer) {
-            model.setTexture(texture[layer], pass, layer);
-        }
+    for (int pass = 0; pass < pass_count; ++pass) {
+        const auto shader = triangles.front().shaders[pass];
         model.setShader(shader, pass);
-        if (same_shader == 0) {
-            srShader* table = model.getPolyShader(pass, 1);
-            triangle = triangles.data();
-            for (index = count; index != 0; --index) {
-                *table = triangle->shaders[pass];
-                ++table;
-                ++triangle;
+        if (std::any_of(triangles.begin(), triangles.end(), [&](const Triangle& triangle) {
+                return triangle.shaders[pass].value != shader.value;
+            })) {
+            auto* table = model.getPolyShader(pass, 1);
+            for (std::size_t i = 0; i < triangles.size(); ++i)
+                table[i] = triangles[i].shaders[pass];
+        }
+        for (int layer = 0; layer < 2; ++layer) {
+            const auto texture = triangles.front().textures[pass][layer];
+            model.setTexture(texture, pass, layer);
+            if (std::any_of(triangles.begin(), triangles.end(), [&](const Triangle& triangle) {
+                    return triangle.textures[pass][layer] != texture;
+                })) {
+                auto* table = model.getPolyTexture(pass, layer, 1);
+                for (std::size_t i = 0; i < triangles.size(); ++i)
+                    table[i] = triangles[i].textures[pass][layer];
             }
         }
-        for (layer = 0; layer < 2; ++layer) {
-            if (same_texture[layer] == 0) {
-                std::shared_ptr<srTextureIFace>* table = model.getPolyTexture(pass, layer, 1);
-                triangle = triangles.data();
-                for (index = count; index != 0; --index) {
-                    *table = triangle->textures[pass][layer];
-                    ++table;
-                    ++triangle;
-                }
+        bool has_dcg = false, has_dig = false, has_scg = false;
+        std::array<bool, 2> has_uv{};
+        for (w8_ulong i = 0; i < unique; ++i) {
+            const auto& vertex = *hash->entries[i].vertex;
+            has_dcg |= vertex.dcg[pass] != glm::vec3(1) || vertex.weights[pass] != 1;
+            has_dig |= vertex.dig[pass] != glm::vec3(0);
+            has_scg |= vertex.scg[pass] != glm::vec3(1);
+            for (int layer = 0; layer < 2; ++layer)
+                has_uv[layer] |= vertex.uv[pass * 2 + layer] != glm::vec2(0);
+        }
+        auto* dcg = has_dcg ? model.getVertexDCG(pass, 1) : nullptr;
+        auto* dig = has_dig ? model.getVertexDIG(pass, 1) : nullptr;
+        auto* scg = has_scg ? model.getVertexSCG(pass, 1) : nullptr;
+        for (w8_ulong i = 0; i < unique; ++i) {
+            const auto& vertex = *hash->entries[i].vertex;
+            if (dcg)
+                dcg[i] = glm::vec4(vertex.dcg[pass], vertex.weights[pass]);
+            if (dig)
+                dig[i] = vertex.dig[pass];
+            if (scg)
+                scg[i] = glm::vec4(vertex.scg[pass], 1);
+        }
+        for (int side = 0; side < 2; ++side) {
+            const auto material = hash->entries[0].vertex->materials[pass][side];
+            const auto facing = static_cast<srMeshModel::e_side>(side);
+            model.setMaterial(material, pass, facing);
+            bool different = false;
+            for (w8_ulong i = 1; i < unique; ++i)
+                different |= hash->entries[i].vertex->materials[pass][side] != material;
+            if (different) {
+                auto* table = model.getVertexMaterial(pass, facing, 1);
+                for (w8_ulong i = 0; i < unique; ++i)
+                    table[i] = hash->entries[i].vertex->materials[pass][side];
             }
         }
-        same_uv[0] = 1;
-        same_uv[1] = 1;
-        std::shared_ptr<srMaterialIFace> material_front;
-        std::shared_ptr<srMaterialIFace> material_back;
-        for (index = 0; index < unique; ++index) {
-            vertex = hash->entries[index].vertex;
-            if (index == 0) {
-                material_front = vertex->materials[pass][0];
-                material_back = vertex->materials[pass][1];
+        for (int layer = 0; layer < 2; ++layer)
+            if (has_uv[layer]) {
+                auto* table = model.getVertexTexCoords(pass, layer, 1);
+                for (w8_ulong i = 0; i < unique; ++i)
+                    table[i] = hash->entries[i].vertex->uv[pass * 2 + layer];
             }
-            if (vertex->dcg[pass].x != 1.0f || vertex->dcg[pass].y != 1.0f ||
-                vertex->dcg[pass].z != 1.0f || vertex->weights[pass] != 1.0f) {
-                same_dcg = false;
-            }
-            if (vertex->dig[pass].x != 0.0f || vertex->dig[pass].y != 0.0f ||
-                vertex->dig[pass].z != 0.0f) {
-                same_dig = false;
-            }
-            if (vertex->scg[pass].x != 1.0f || vertex->scg[pass].y != 1.0f ||
-                vertex->scg[pass].z != 1.0f) {
-                same_scg = false;
-            }
-            if (vertex->materials[pass][0] != material_front) {
-                same_material[0] = 0;
-            }
-            if (vertex->materials[pass][1] != material_back) {
-                same_material[1] = 0;
-            }
-            for (layer = 0; layer < 2; ++layer) {
-                if (vertex->uv[pass * 2 + layer].x != 0.0f ||
-                    vertex->uv[pass * 2 + layer].y != 0.0f) {
-                    same_uv[layer] = 0;
-                }
-            }
-        }
-        if (!same_dcg) {
-            glm::vec4* table = model.getVertexDCG(pass, 1);
-            entry = hash->entries.data();
-            for (index = unique; index != 0; --index) {
-                vertex = entry->vertex;
-                table->x = vertex->dcg[pass].x;
-                table->y = vertex->dcg[pass].y;
-                table->z = vertex->dcg[pass].z;
-                table->w = vertex->weights[pass];
-                ++table;
-                ++entry;
-            }
-        }
-        if (!same_scg) {
-            glm::vec4* table = model.getVertexSCG(pass, 1);
-            entry = hash->entries.data();
-            for (index = unique; index != 0; --index) {
-                vertex = entry->vertex;
-                table->x = vertex->scg[pass].x;
-                table->y = vertex->scg[pass].y;
-                table->z = vertex->scg[pass].z;
-                table->w = 1.0f;
-                ++table;
-                ++entry;
-            }
-        }
-        if (!same_dig) {
-            srVector3T<float>* table = model.getVertexDIG(pass, 1);
-            entry = hash->entries.data();
-            for (index = unique; index != 0; --index) {
-                vertex = entry->vertex;
-                table->x = vertex->dig[pass].x;
-                table->y = vertex->dig[pass].y;
-                table->z = vertex->dig[pass].z;
-                ++table;
-                ++entry;
-            }
-        }
-        model.setMaterial(material_front, pass, srMeshModel::SIDE_FRONT);
-        model.setMaterial(material_back, pass, srMeshModel::SIDE_BACK);
-        for (side = 0; side < 2; ++side) {
-            if (same_material[side] == 0) {
-                std::shared_ptr<srMaterialIFace>* table =
-                    model.getVertexMaterial(pass, static_cast<srMeshModel::e_side>(side), 1);
-                if (unique != 0) {
-                    entry = hash->entries.data();
-                    for (index = unique; index != 0; --index) {
-                        *table = entry->vertex->materials[pass][side];
-                        ++table;
-                        ++entry;
-                    }
-                }
-            }
-        }
-        for (layer = 0; layer < 2; ++layer) {
-            if (same_uv[layer] == 0) {
-                glm::vec2* table = model.getVertexTexCoords(pass, layer, 1);
-                if (unique != 0) {
-                    entry = hash->entries.data();
-                    for (index = unique; index != 0; --index) {
-                        *table = entry->vertex->uv[pass * 2 + layer];
-                        ++table;
-                        ++entry;
-                    }
-                }
-            }
-        }
     }
-    srVector3T<float>* locations = model.getVertexLoc();
-    for (index = 0; index < unique; ++index) {
-        locations[index] = hash->entries[index].vertex->position;
+    auto* locations = model.getVertexLoc();
+    auto* shades = model.getVertexShadeIndex(1);
+    for (w8_ulong i = 0; i < unique; ++i) {
+        locations[i] = hash->entries[i].vertex->position;
+        shades[i] = hash->entries[i].shade_index;
     }
-    srVector3i* polygons = model.getPolyVertex();
-    for (index = 0; index < count; ++index) {
-        polygons[index].x = hash->table[index * 3]->index;
-        polygons[index].y = hash->table[index * 3 + 1]->index;
-        polygons[index].z = hash->table[index * 3 + 2]->index;
-    }
-    w8_ulong* shades = model.getVertexShadeIndex(1);
-    for (index = 0; index < unique; ++index) {
-        shades[index] = hash->entries[index].shade_index;
-    }
-    model.setDirty(srMeshModel::DIRTY_BOUNDS);
-    model.setDirty(srMeshModel::DIRTY_POLYGON_NORMALS);
-    model.setDirty(srMeshModel::DIRTY_VERTEX_NORMALS);
-    model.setDirty(srMeshModel::DIRTY_TRI_MESH);
+    auto* polygons = model.getPolyVertex();
+    for (w8_ulong i = 0; i < triangle_count; ++i)
+        polygons[i] = srVector3i(hash->table[i * 3]->index, hash->table[i * 3 + 1]->index,
+                                 hash->table[i * 3 + 2]->index);
+    model.setDirtyAll();
 }

@@ -29,9 +29,7 @@ void srIlluminator::process(const ProcessInfo& info, e_processType type)
     srGERD* renderer = info.renderer;
     if (type == PROCESS_PUSH || type == PROCESS_PUSH_GLOBAL) {
         applyWorldSpaceMatrix(*renderer);
-        srVector3T<float> origin;
-        origin.SetZero();
-        const glm::vec4 location = renderer->getEyeSpaceLocation(origin);
+        const glm::vec4 location = renderer->getEyeSpaceLocation(glm::vec3(0));
         eye_location = glm::vec3(location);
         renderer->popMatrix();
         renderer->pushVertexProcessor(*this);

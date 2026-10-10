@@ -1,12 +1,11 @@
+#include <catch2/catch_test_macros.hpp>
 #include "surrender/srTypeRegistry.h"
 
 #include <algorithm>
 #include <cstdio>
 #include <cstdlib>
 #include <memory>
-#include <sstream>
 #include <string>
-#include <string_view>
 #include <vector>
 
 // The focused fixture can link just type_registry.cpp while the rest of SurRender is changing.
@@ -35,262 +34,73 @@ void __cdecl srAssertFail(const char* expression, const char* path, w8_long line
 }
 #endif
 
-#define CHECK(expression)                                                                          \
-    do {                                                                                           \
-        if (!(expression)) {                                                                       \
-            std::fprintf(stderr, "line %d: %s\n", __LINE__, #expression);                            \
-            std::abort();                                                                          \
-        }                                                                                          \
-    } while (0)
 
 namespace {
 struct Registered : srClassSupport<Registered, srClass, 0x7ff001> {
     static const char* sGetClassName() { return "Registry ownership fixture"; }
 };
 
-struct Inherited : srClassSupport<Inherited, Registered, 0x7ff002> {
-    static const char* sGetClassName() { return "Inherited registry fixture"; }
-};
-
-struct IndexedDerived : srClassSupport<IndexedDerived, Registered, 0x7ff003> {
-    static const char* sGetClassName() { return "Indexed derived registry fixture"; }
-};
-
-struct Branch : srClassSupport<Branch, srClass, 0x7ff004> {
-    static const char* sGetClassName() { return "Sibling registry fixture"; }
-};
-
-void growth()
+void names()
 {
-    srRegistry* registry = srCore.getRegistry();
-    auto* node = Registered::sGetClassNode();
-    const auto before = registry->getNumberOfInstances(node, 0);
-    std::vector<std::unique_ptr<Registered>> objects;
-    std::vector<w8_ulong> ids;
-    for (int index = 0; index < 2048; ++index) {
-        auto object = std::make_unique<Registered>();
-        object->setName(index % 2 == 0 ? "duplicate" : "unique-" + std::to_string(index));
-        ids.push_back(object->getID());
-        objects.push_back(std::move(object));
-        // Index growth must not move ClassNodes or reverse existing duplicate order.
-        CHECK(registry->getClassNode(Registered::CLASS_ID) == node);
-        CHECK(registry->find(node, ids.front()) == objects.front().get());
-        CHECK(registry->find(node, "duplicate", nullptr) == objects[index - index % 2].get());
-    }
-    CHECK(registry->getNumberOfInstances(node, 0) == before + 2048);
-    CHECK(registry->getNumberOfInstances(node, 1) == before + 2048);
-    const srRuntimeClass* relative = nullptr;
-    for (int index = 2047; index >= 0; --index) {
-        auto* found = registry->find(node, relative);
-        CHECK(found == objects[index].get());
-        CHECK(found->getID() == ids[index]);
-        CHECK(registry->findExact(node, ids[index]) == found);
-        relative = found;
-    }
-    CHECK(registry->find(node, relative) == nullptr);
-    relative = nullptr;
-    for (int index = 2046; index >= 0; index -= 2) {
-        auto* found = registry->find(node, "duplicate", relative);
-        CHECK(found == objects[index].get());
-        relative = found;
-    }
-    CHECK(registry->find(node, "duplicate", relative) == nullptr);
-
-    // Erasing interior/head/tail entries must not invalidate links to surviving instances.
-    for (int index = 0; index < 2048; index += 3) {
-        objects[index].reset();
-        CHECK(registry->find(node, ids[index]) == nullptr);
-    }
-    relative = nullptr;
-    for (int index = 2047; index >= 0; --index) {
-        if (!objects[index]) continue;
-        auto* found = registry->find(node, relative);
-        CHECK(found == objects[index].get());
-        relative = found;
-    }
-    CHECK(registry->find(node, relative) == nullptr);
-    objects.clear();
-    CHECK(registry->getNumberOfInstances(node, 0) == before);
-    CHECK(registry->find(node, static_cast<const srRuntimeClass*>(nullptr)) == nullptr);
-    CHECK(registry->find(node, "duplicate", nullptr) == nullptr);
-
-    // Repopulate after the last removal: no stale pool head or recycled pointer may remain.
-    Registered fresh;
-    fresh.setName("duplicate");
-    CHECK(fresh.getID() > ids.back());
-    CHECK(registry->find(node, fresh.getID()) == &fresh);
-    CHECK(registry->find(node, "duplicate", nullptr) == &fresh);
-    CHECK(registry->find(node, &fresh) == nullptr);
-}
-
-void renaming()
-{
-    srRegistry* registry = srCore.getRegistry();
-    auto* node = Registered::sGetClassNode();
     Registered first, second, unnamed;
-    CHECK(!unnamed.isNamed() && unnamed.getName() == "anonymous");
-    CHECK(registry->find(node, "anonymous", nullptr) == nullptr);
+    REQUIRE((!unnamed.isNamed() && unnamed.getName() == "anonymous"));
     std::string source(256, 'a');
     first.setName(source);
     source[0] = 'b';
-    CHECK(first.getName()[0] == 'a');
-    first.setName(first.getName()); // Setter owns its argument before changing the index/name.
-    CHECK(first.getName() == std::string(256, 'a'));
-    CHECK(registry->find(node, first.getName(), nullptr) == &first);
-    first.setName(first.getName().c_str() + 128);
-    CHECK(first.getName() == std::string(128, 'a'));
-    CHECK(registry->find(node, std::string(256, 'a'), nullptr) == nullptr);
-
-    first.setName("same");
-    second.setName("same");
-    CHECK(registry->find(node, "same", nullptr) == &second);
-    CHECK(registry->find(node, "same", &second) == &first);
-    CHECK(registry->find(node, "same", &first) == nullptr);
-    CHECK(registry->find(node, "Same", nullptr) == nullptr);
-    // Lookups borrow a bounded view, not a nullable or necessarily terminated C string.
-    const std::string surrounded = "xsamez";
-    CHECK(registry->find(node, std::string_view(surrounded).substr(1, 4), nullptr) == &second);
-    CHECK(registry->find(node, "same", &unnamed) == &second);
-    first.setName(first.getName());
-    CHECK(registry->find(node, "same", nullptr) == &first);
-    CHECK(registry->find(node, "same", &first) == &second);
-    first.setName("different");
-    CHECK(registry->find(node, "same", nullptr) == &second);
-    CHECK(registry->find(node, "same", &first) == nullptr);
+    REQUIRE((first.getName() == std::string(256, 'a')));
+    first.setName(first.getName()); // Setter owns its argument before replacing the name.
+    REQUIRE((first.getName() == std::string(256, 'a')));
     first.setName({});
-    CHECK(!first.isNamed() && first.getName() == "anonymous");
-    CHECK(registry->find(node, "different", nullptr) == nullptr);
-    CHECK(registry->find(node, first.getID()) == &first);
+    REQUIRE((!first.isNamed() && first.getName() == "anonymous"));
 
-    // Assignment copies the name, not the fallback display name or the instance ID.
-    const auto first_id = first.getID();
+    // Assignment copies the name, not the fallback display name.
+    second.setName("same");
     first.srClass::operator=(second);
-    CHECK(first.isNamed() && first.getName() == "same" && first.getID() == first_id);
+    REQUIRE((first.isNamed() && first.getName() == "same"));
     first.srClass::operator=(unnamed);
-    CHECK(!first.isNamed() && first.getID() == first_id);
-    std::ostringstream stream;
-    first.getUniqueName(stream);
-    CHECK(stream.str() == "anonymous[" + std::to_string(first_id) + "]");
-}
-
-void inherited_and_relative()
-{
-    srRegistry* registry = srCore.getRegistry();
-    auto* base = Registered::sGetClassNode();
-    auto* inherited = Inherited::sGetClassNode();
-    auto* indexed = IndexedDerived::sGetClassNode();
-    const auto total = registry->getNumberOfInstances(base, 0);
-    {
-        Registered exact;
-        Inherited derived;
-        IndexedDerived own_index;
-        exact.setName("shared");
-        derived.setName("shared");
-        own_index.setName("shared");
-        CHECK(registry->getNumberOfInstances(base, 0) == total + 3);
-        CHECK(registry->getNumberOfInstances(base, 1) == total + 1);
-        CHECK(registry->getNumberOfInstances(inherited, 1) == 1);
-        CHECK(registry->find(base, "shared", nullptr) == &own_index);
-        CHECK(registry->find(base, "shared", &own_index) == &derived);
-        CHECK(registry->find(base, "shared", &derived) == &exact);
-        CHECK(registry->findExact(base, "shared", nullptr) == &exact);
-        CHECK(registry->find(inherited, "shared", nullptr) == &derived);
-        CHECK(registry->findExact(inherited, "shared", nullptr) == &derived);
-        CHECK(registry->find(inherited, own_index.getID()) == nullptr);
-        CHECK(registry->findExact(base, own_index.getID()) == nullptr);
-        CHECK(registry->find(indexed, own_index.getID()) == &own_index);
-        CHECK(registry->find(base, static_cast<const srRuntimeClass*>(nullptr)) == &own_index);
-        CHECK(registry->find(base, &own_index) == &derived);
-        CHECK(registry->findExact(base, static_cast<const srRuntimeClass*>(nullptr)) == &exact);
-        CHECK(registry->findExact(inherited, static_cast<const srRuntimeClass*>(nullptr)) == &derived);
-
-        own_index.setName("renamed");
-        CHECK(registry->find(base, "shared", nullptr) == &derived);
-        CHECK(registry->find(indexed, "shared", nullptr) == nullptr);
-        CHECK(registry->find(base, "renamed", nullptr) == &own_index);
-        CHECK(registry->find(indexed, "renamed", nullptr) == &own_index);
-        own_index.setName({});
-        CHECK(registry->find(base, "renamed", nullptr) == nullptr);
-        CHECK(registry->find(indexed, "renamed", nullptr) == nullptr);
-        CHECK(registry->find(indexed, own_index.getID()) == &own_index);
-    }
-    CHECK(registry->getNumberOfInstances(base, 0) == total);
-    CHECK(registry->getNumberOfInstances(inherited, 0) == 0);
-    CHECK(registry->getNumberOfInstances(indexed, 0) == 0);
-    CHECK(registry->find(base, "shared", nullptr) == nullptr);
-
-    // Iteration visits newest objects first and continues across sibling classes.
-    auto* parent = srClass::sGetClassNode();
-    std::vector<srRuntimeClass*> existing;
-    for (auto* object = registry->find(parent, static_cast<const srRuntimeClass*>(nullptr));
-         object != nullptr; object = registry->find(parent, object)) {
-        CHECK(existing.size() < static_cast<std::size_t>(registry->getNumberOfInstances(parent, 0)));
-        existing.push_back(object);
-    }
-    Registered first, second;
-    Branch sibling;
-    first.setName("tree");
-    second.setName("tree");
-    sibling.setName("tree");
-    CHECK(registry->find(parent, "tree", nullptr) == &sibling);
-    CHECK(registry->find(parent, "tree", &sibling) == &second);
-    CHECK(registry->find(parent, "tree", &second) == &first);
-    CHECK(registry->find(parent, "tree", &first) == nullptr);
-    CHECK(registry->find(parent, &sibling) == &second);
-    CHECK(registry->find(parent, &second) == &first);
-    // srInit also registers the default material, palette, surface, texture and root node.
-    auto* next = registry->find(parent, &first);
-    for (auto* expected : existing) {
-        CHECK(next == expected);
-        next = registry->find(parent, next);
-    }
-    CHECK(next == nullptr);
-    CHECK(registry->findExact(parent, "tree", nullptr) == nullptr);
-    CHECK(srClass::find("tree", static_cast<const srClass*>(nullptr)) == &sibling);
-    CHECK(srClass::find("tree", Registered::CLASS_ID, nullptr) == &second);
+    REQUIRE((!first.isNamed()));
+    Registered copy(second);
+    REQUIRE((copy.getName() == "same" && copy.getClassID() == Registered::CLASS_ID));
 }
 
 void class_tree()
 {
     srRegistry registry;
-    CHECK(registry.getRootNode()->children.empty());
+    REQUIRE((registry.getRootNode()->children.empty()));
     auto* root = registry.getRootNode();
     std::vector<srRegistry::ClassNode*> nodes;
     for (w8_ulong id = 1; id <= 1024; ++id) {
         std::string name = "owned-class-" + std::to_string(id);
         nodes.push_back(registry.registerClass(name.c_str(), root, id));
         name.assign("changed producer buffer");
-        CHECK(std::string(registry.getClassName(nodes.back())) == "owned-class-" + std::to_string(id));
-        CHECK(registry.getClassNode(1) == nodes.front());
-        CHECK(registry.registerClass("ignored duplicate ID", root, id) == nodes.back());
-        CHECK(root->children.front() == nodes.back());
+        REQUIRE((std::string(registry.getClassName(nodes.back())) == "owned-class-" + std::to_string(id)));
+        REQUIRE((registry.getClassNode(1) == nodes.front()));
+        REQUIRE((registry.registerClass("ignored duplicate ID", root, id) == nodes.back()));
+        REQUIRE((root->children.front() == nodes.back()));
     }
-    CHECK(root->children.size() == nodes.size());
-    CHECK(std::equal(root->children.begin(), root->children.end(), nodes.rbegin()));
-    CHECK(registry.getClassNode(0) == nullptr);
-    CHECK(nodes.front()->children.empty());
+    REQUIRE((root->children.size() == nodes.size()));
+    REQUIRE((std::equal(root->children.begin(), root->children.end(), nodes.rbegin())));
+    REQUIRE((registry.getClassNode(0) == nullptr));
+    REQUIRE((nodes.front()->children.empty()));
     // Ownership is flat, so teardown does not recursively delete a potentially deep class tree.
     auto* parent = nodes.front();
     for (w8_ulong id = 2048; id < 4096; ++id) {
         parent = registry.registerClass("deep descendant", parent, id);
     }
-    CHECK(registry.isDerivedOrSame(nodes.front(), parent));
+    REQUIRE((registry.isDerivedOrSame(nodes.front(), parent)));
 }
 
 } // namespace
 
-int main()
+TEST_CASE("registry_ownership_test")
 {
     class_tree();
-    w8_ulong previous_id = 0;
     for (int cycle = 0; cycle < 3; ++cycle) {
-        CHECK(srInit());
-        CHECK(srCore.getRegistry()->allocateID() > previous_id);
-        growth();
-        renaming();
-        inherited_and_relative();
-        previous_id = srCore.getRegistry()->allocateID();
-        CHECK(srExit());
+        REQUIRE((srInit()));
+        REQUIRE((srCore.getRegistry()->getClassNode(Registered::CLASS_ID) == nullptr));
+        names();
+        REQUIRE((srCore.getRegistry()->getClassNode(Registered::CLASS_ID) == Registered::sGetClassNode()));
+        REQUIRE((srExit()));
     }
-    std::puts("ok: registry growth, owned/aliased names, duplicate and relative lookup, teardown");
+    std::puts("ok: registry class tree, owned names, teardown");
 }

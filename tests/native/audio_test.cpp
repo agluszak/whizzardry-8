@@ -1,3 +1,4 @@
+#include <catch2/catch_test_macros.hpp>
 /* Native soundman -> SDL3_mixer, with deterministic offline mixing. */
 #include "native/audio_test.h"
 #include "wiz8/slf.h"
@@ -15,15 +16,6 @@
 #include <fstream>
 #include "temporary_directory.h"
 #include <vector>
-#define CHECK(x)                                                                                   \
-    do                                                                                             \
-    {                                                                                              \
-        if (!(x))                                                                                  \
-        {                                                                                          \
-            fprintf(stderr, "line %d: %s\n", __LINE__, #x);                                        \
-            return 1;                                                                              \
-        }                                                                                          \
-    } while (0)
 static unsigned callbacks = 0;
 static void ended(void* data)
 {
@@ -80,13 +72,13 @@ static void write(const std::filesystem::path& name, const std::vector<unsigned 
 {
     std::ofstream file(name, std::ios::binary);
     if (!file.write(reinterpret_cast<const char*>(bytes.data()), bytes.size()))
-        abort();
+        FAIL("Audio fixture or offline mixer failed");
 }
 static std::vector<float> mix(size_t frames)
 {
     std::vector<float> samples(frames * 2);
     if (!w8_native::audio_render_for_test(samples.data(), frames))
-        abort();
+        FAIL("Audio fixture or offline mixer failed");
     return samples;
 }
 static double energy(const std::vector<float>& values, int channel)
@@ -107,7 +99,8 @@ static bool near(double value, double expected, double tolerance = 0.02)
 {
     return std::abs(value - expected) <= tolerance * std::max(1.0, std::abs(expected));
 }
-int main(int argc, char**)
+
+static void exercise_audio(bool output_device)
 {
     const auto temporary = make_temporary_directory("wiz8-audio");
     auto asset = std::filesystem::path(temporary) / "assets",
@@ -144,27 +137,27 @@ int main(int argc, char**)
     {
         char packed[] = "data\\PACKED.WAV";
         auto entry = [&]() { try { return wiz8::open_file(packed, wiz8::OpenMode::read); } catch (const std::exception&) { return std::unique_ptr<wiz8::File>{}; } }();
-        CHECK(entry);
+        REQUIRE(entry);
         auto first = wiz8::open_file(packed), second = wiz8::open_file(packed);
         entry.reset();
-        CHECK(first && second && first->tell() == 0 && second->tell() == 0);
+        REQUIRE((first && second && first->tell() == 0 && second->tell() == 0));
         auto loose = wiz8::open_file("C:\\TONE.wav");
         unsigned char bytes[64]{};
-        CHECK(first->read(bytes, sizeof(bytes)).bytes == sizeof(bytes));
-        CHECK(std::memcmp(bytes, wave.data(), sizeof(bytes)) == 0);
-        CHECK(second->tell() == 0 && loose->tell() == 0);
-        CHECK(second->read(bytes, 32).bytes == 32);
-        CHECK(std::memcmp(bytes, wave.data(), 32) == 0);
+        REQUIRE(first->read(bytes, sizeof(bytes)).bytes == sizeof(bytes));
+        REQUIRE(std::memcmp(bytes, wave.data(), sizeof(bytes)) == 0);
+        REQUIRE((second->tell() == 0 && loose->tell() == 0));
+        REQUIRE(second->read(bytes, 32).bytes == 32);
+        REQUIRE(std::memcmp(bytes, wave.data(), 32) == 0);
         first.reset();
-        CHECK(second->seek(wave.size() - 32, wiz8::SeekOrigin::begin) ==
+        REQUIRE(second->seek(wave.size() - 32, wiz8::SeekOrigin::begin) ==
               int64_t(wave.size() - 32));
-        CHECK(second->read(bytes, 32).bytes == 32);
-        CHECK(std::memcmp(bytes, wave.data() + wave.size() - 32, 32) == 0);
-        CHECK(loose->read(bytes, sizeof(bytes)).bytes == sizeof(bytes));
-        CHECK(std::memcmp(bytes, wave.data(), sizeof(bytes)) == 0);
+        REQUIRE(second->read(bytes, 32).bytes == 32);
+        REQUIRE(std::memcmp(bytes, wave.data() + wave.size() - 32, 32) == 0);
+        REQUIRE(loose->read(bytes, sizeof(bytes)).bytes == sizeof(bytes));
+        REQUIRE(std::memcmp(bytes, wave.data(), sizeof(bytes)) == 0);
     }
     w8_native::audio_offline_for_test(true);
-    CHECK(InitializeSoundManager());
+    REQUIRE(InitializeSoundManager());
     // Variant selection accepts a bounded, read-only name and does not append
     // into its backing storage or consume the characters beyond the view.
     const auto combat = asset / "Data" / "Sound" / "Combat";
@@ -183,40 +176,40 @@ int main(int argc, char**)
         auto packedInput = w8_native::open_audio_input("Data\\Packed.wav");
         auto loopInput = w8_native::open_audio_input("data\\PACKED.WAV");
         auto badInput = w8_native::open_audio_input("Data\\Truncated.wav");
-        CHECK(looseInput && packedInput && loopInput && badInput);
-        CHECK(SDL_GetIOSize(packedInput.get()) == Sint64(wave.size()));
-        CHECK(SDL_SeekIO(packedInput.get(), wave.size() + 1, SDL_IO_SEEK_SET) == -1);
-        CHECK(SDL_SeekIO(packedInput.get(), 0, SDL_IO_SEEK_SET) == 0);
-        CHECK(!w8_native::open_audio_input("missing.wav"));
+        REQUIRE((looseInput && packedInput && loopInput && badInput));
+        REQUIRE(SDL_GetIOSize(packedInput.get()) == Sint64(wave.size()));
+        REQUIRE(SDL_SeekIO(packedInput.get(), wave.size() + 1, SDL_IO_SEEK_SET) == -1);
+        REQUIRE(SDL_SeekIO(packedInput.get(), 0, SDL_IO_SEEK_SET) == 0);
+        REQUIRE(!w8_native::open_audio_input("missing.wav"));
         w8_native::Track loose(MIX_CreateTrack(w8_native::audio_mixer()));
         w8_native::Track packed(MIX_CreateTrack(w8_native::audio_mixer()));
         w8_native::Track looping(MIX_CreateTrack(w8_native::audio_mixer()));
         w8_native::Track bad(MIX_CreateTrack(w8_native::audio_mixer()));
-        CHECK(loose && packed && looping && bad);
-        CHECK(MIX_SetTrackIOStream(loose.get(), looseInput.get(), false));
-        CHECK(MIX_SetTrackIOStream(packed.get(), packedInput.get(), false));
-        CHECK(MIX_SetTrackIOStream(looping.get(), loopInput.get(), false));
-        CHECK(!MIX_SetTrackIOStream(bad.get(), badInput.get(), false));
+        REQUIRE((loose && packed && looping && bad));
+        REQUIRE(MIX_SetTrackIOStream(loose.get(), looseInput.get(), false));
+        REQUIRE(MIX_SetTrackIOStream(packed.get(), packedInput.get(), false));
+        REQUIRE(MIX_SetTrackIOStream(looping.get(), loopInput.get(), false));
+        REQUIRE(!MIX_SetTrackIOStream(bad.get(), badInput.get(), false));
         for (auto track : {loose.get(), packed.get()})
         {
-            CHECK(MIX_GetTrackPlaybackPosition(track) == 0);
-            CHECK(MIX_PlayTrack(track, 0));
-            CHECK(MIX_TrackFramesToMS(track, MIX_GetTrackRemaining(track)) == 100);
+            REQUIRE(MIX_GetTrackPlaybackPosition(track) == 0);
+            REQUIRE(MIX_PlayTrack(track, 0));
+            REQUIRE(MIX_TrackFramesToMS(track, MIX_GetTrackRemaining(track)) == 100);
         }
         auto properties = SDL_CreateProperties();
-        CHECK(SDL_SetNumberProperty(properties, MIX_PROP_PLAY_LOOPS_NUMBER, -1));
-        CHECK(MIX_PlayTrack(looping.get(), properties));
+        REQUIRE(SDL_SetNumberProperty(properties, MIX_PROP_PLAY_LOOPS_NUMBER, -1));
+        REQUIRE(MIX_PlayTrack(looping.get(), properties));
         SDL_DestroyProperties(properties);
         auto samples = mix(8192);
-        CHECK(energy(samples, 0) + energy(samples, 1) > 10);
-        CHECK(!MIX_TrackPlaying(loose.get()));
-        CHECK(!MIX_TrackPlaying(packed.get()));
-        CHECK(MIX_TrackPlaying(looping.get()));
+        REQUIRE(energy(samples, 0) + energy(samples, 1) > 10);
+        REQUIRE(!MIX_TrackPlaying(loose.get()));
+        REQUIRE(!MIX_TrackPlaying(packed.get()));
+        REQUIRE(MIX_TrackPlaying(looping.get()));
         loose.reset();
         packed.reset();
         samples = mix(8192);
-        CHECK(MIX_TrackPlaying(looping.get()));
-        CHECK(energy(samples, 0) + energy(samples, 1) > 10);
+        REQUIRE(MIX_TrackPlaying(looping.get()));
+        REQUIRE(energy(samples, 0) + energy(samples, 1) > 10);
     }
     SOUNDPARMS options;
     memset(&options, 0xff, sizeof(options));
@@ -229,55 +222,55 @@ int main(int argc, char**)
     options.pCallbackData = &callback_data;
     char path[] = "TONE.WAV";
     auto sound = SoundPlay(path, &options);
-    CHECK(sound != SOUND_ERROR && SoundIsPlaying(sound));
-    CHECK(SoundFileIsPlaying(path));
+    REQUIRE((sound != SOUND_ERROR && SoundIsPlaying(sound)));
+    REQUIRE(SoundFileIsPlaying(path));
     UINT32 total, current;
-    CHECK(SoundGetMilliSecondPosition(sound, &total, &current));
-    CHECK(total == 100);
+    REQUIRE(SoundGetMilliSecondPosition(sound, &total, &current));
+    REQUIRE(total == 100);
     auto samples = mix(2048);
-    CHECK(energy(samples, 0) > 10 && energy(samples, 1) < 0.001);
-    CHECK(SoundGetMilliSecondPosition(sound, &total, &current));
-    CHECK(current > 0 && current <= 100);
-    CHECK(SoundGetVolume(sound) == 127);
-    CHECK(SoundSetVolume(sound, 64));
-    CHECK(SoundGetVolume(sound) == 64);
+    REQUIRE((energy(samples, 0) > 10 && energy(samples, 1) < 0.001));
+    REQUIRE(SoundGetMilliSecondPosition(sound, &total, &current));
+    REQUIRE((current > 0 && current <= 100));
+    REQUIRE(SoundGetVolume(sound) == 127);
+    REQUIRE(SoundSetVolume(sound, 64));
+    REQUIRE(SoundGetVolume(sound) == 64);
     mix(8192);
-    CHECK(!SoundIsPlaying(sound));
+    REQUIRE(!SoundIsPlaying(sound));
     SoundServiceStreams();
-    CHECK(callbacks == 1 && callback_data == 1);
+    REQUIRE((callbacks == 1 && callback_data == 1));
     SoundServiceStreams();
-    CHECK(callbacks == 1);
+    REQUIRE(callbacks == 1);
     /* The all-ones callback sentinel must not become a callable LP64 address. */
     memset(&options, 0xff, sizeof(options));
     options.uiLoop = 2;
     sound = SoundPlay(path, &options);
-    CHECK(sound != SOUND_ERROR);
+    REQUIRE(sound != SOUND_ERROR);
     mix(6000);
-    CHECK(SoundIsPlaying(sound));
+    REQUIRE(SoundIsPlaying(sound));
     mix(6000);
     SoundServiceStreams();
-    CHECK(!SoundIsPlaying(sound));
+    REQUIRE(!SoundIsPlaying(sound));
     options.uiLoop = 0;
     options.uiVolume = 127;
     sound = SoundPlayStreamedFile(path, &options);
-    CHECK(sound != SOUND_ERROR);
+    REQUIRE(sound != SOUND_ERROR);
     mix(12000);
-    CHECK(SoundIsPlaying(sound));
+    REQUIRE(SoundIsPlaying(sound));
     SoundSetMusic(sound);
-    CHECK(SoundStopMusic());
-    CHECK(!SoundIsPlaying(sound));
+    REQUIRE(SoundStopMusic());
+    REQUIRE(!SoundIsPlaying(sound));
     sound = SoundPlay(path, &options);
-    CHECK(sound != SOUND_ERROR);
-    CHECK(SoundSetFadeVolume(sound, 0, 0, TRUE));
+    REQUIRE(sound != SOUND_ERROR);
+    REQUIRE(SoundSetFadeVolume(sound, 0, 0, TRUE));
     for (int i = 0; i < 130; ++i)
         SoundServiceStreams();
-    CHECK(!SoundIsPlaying(sound));
+    REQUIRE(!SoundIsPlaying(sound));
     options.uiLoop = 0;
     options.uiPriority = 42;
     auto first = SoundPlay(path, &options), second = SoundPlayStreamedFile(path, &options);
-    CHECK(first != SOUND_ERROR && second != SOUND_ERROR);
-    CHECK(SoundStopGroup(42));
-    CHECK(!SoundIsPlaying(first) && !SoundIsPlaying(second));
+    REQUIRE((first != SOUND_ERROR && second != SOUND_ERROR));
+    REQUIRE(SoundStopGroup(42));
+    REQUIRE((!SoundIsPlaying(first) && !SoundIsPlaying(second)));
     SOUND3DPARMS spatial;
     memset(&spatial, 0xff, sizeof(spatial));
     memset(&spatial.Pos, 0, sizeof(spatial.Pos));
@@ -287,54 +280,54 @@ int main(int argc, char**)
     spatial.uiVolume = 127;
     spatial.uiLoop = 1;
     sound = Sound3DPlay(path, &spatial);
-    CHECK(sound != SOUND_ERROR && SoundIsPlaying(sound));
+    REQUIRE((sound != SOUND_ERROR && SoundIsPlaying(sound)));
     samples = mix(1024);
-    CHECK(energy(samples, 0) + energy(samples, 1) > 1);
+    REQUIRE(energy(samples, 0) + energy(samples, 1) > 1);
     Sound3DSetPosition(sound, 1, 0, -3);
     Sound3DSetDirection(sound, 0, 0, -1, 0, 1, 0);
-    CHECK(SoundStop(sound));
-    CHECK(SoundEmptyCache());
+    REQUIRE(SoundStop(sound));
+    REQUIRE(SoundEmptyCache());
     char packed[] = "Data\\Packed.wav";
     memset(&options, 0xff, sizeof(options));
     options.uiLoop = 1;
     sound = SoundPlayStreamedFile(packed, &options);
-    CHECK(sound != SOUND_ERROR);
-    CHECK(SoundGetMilliSecondPosition(sound, &total, &current) && total == 100);
+    REQUIRE(sound != SOUND_ERROR);
+    REQUIRE((SoundGetMilliSecondPosition(sound, &total, &current) && total == 100));
     samples = mix(8192);
-    CHECK(energy(samples, 0) + energy(samples, 1) > 10);
+    REQUIRE(energy(samples, 0) + energy(samples, 1) > 10);
     SoundServiceStreams();
-    CHECK(!SoundIsPlaying(sound));
+    REQUIRE(!SoundIsPlaying(sound));
     options.uiLoop = 0;
     options.uiPriority = 123;
     for (int i = 0; i < 32; ++i)
-        CHECK(SoundPlay(path, &options) != SOUND_ERROR);
-    CHECK(SoundPlay(path, &options) == SOUND_ERROR);
-    CHECK(SoundStopGroup(123));
+        REQUIRE(SoundPlay(path, &options) != SOUND_ERROR);
+    REQUIRE(SoundPlay(path, &options) == SOUND_ERROR);
+    REQUIRE(SoundStopGroup(123));
     RANDOMPARMS random;
     memset(&random, 0xff, sizeof(random));
     random.uiTimeMin = random.uiTimeMax = 0;
     auto random_id = SoundPlayRandom(path, &random);
-    CHECK(random_id != SOUND_ERROR);
-    CHECK(SoundRandomShouldPlay(random_id));
-    CHECK(SoundStartRandom(random_id) != SOUND_ERROR);
-    CHECK(!SoundRandomShouldPlay(random_id));
+    REQUIRE(random_id != SOUND_ERROR);
+    REQUIRE(SoundRandomShouldPlay(random_id));
+    REQUIRE(SoundStartRandom(random_id) != SOUND_ERROR);
+    REQUIRE(!SoundRandomShouldPlay(random_id));
     mix(8192);
     SoundServiceStreams();
-    CHECK(SoundRandomShouldPlay(random_id));
+    REQUIRE(SoundRandomShouldPlay(random_id));
     /* The recovered function clears flags but always returns FALSE. */
-    CHECK(!SoundStopAllRandom());
-    CHECK(!SoundRandomShouldPlay(random_id));
-    CHECK(SoundEmptyCache());
+    REQUIRE(!SoundStopAllRandom());
+    REQUIRE(!SoundRandomShouldPlay(random_id));
+    REQUIRE(SoundEmptyCache());
     memset(&options, 0xff, sizeof(options));
     options.uiLoop = 0;
     sound = SoundPlay(path, &options);
-    CHECK(sound != SOUND_ERROR);
+    REQUIRE(sound != SOUND_ERROR);
     SoundSetMusic(sound);
-    CHECK(SoundEmptyCache());
+    REQUIRE(SoundEmptyCache());
     samples = mix(12000);
-    CHECK(SoundIsPlaying(sound));
-    CHECK(energy(samples, 0) + energy(samples, 1) > 10);
-    CHECK(SoundStopMusic());
+    REQUIRE(SoundIsPlaying(sound));
+    REQUIRE(energy(samples, 0) + energy(samples, 1) > 10);
+    REQUIRE(SoundStopMusic());
     // Old backend: 2048 frames at full gain = 137.670993 per ear; front = 1/4 power.
     const double baseline = 137.670993;
     spatial.uiLoop = 0;
@@ -343,12 +336,12 @@ int main(int argc, char**)
     {
         spatial.Pos.flX = x;
         sound = Sound3DPlay(path, &spatial);
-        CHECK(sound != SOUND_ERROR);
+        REQUIRE(sound != SOUND_ERROR);
         samples = mix(2048);
         const auto left = energy(samples, 0), right = energy(samples, 1);
-        CHECK(near(left, baseline * (x > 0 ? 0.04 : 1)));
-        CHECK(near(right, baseline * (x < 0 ? 0.04 : 1)));
-        CHECK(SoundStop(sound));
+        REQUIRE(near(left, baseline * (x > 0 ? 0.04 : 1)));
+        REQUIRE(near(right, baseline * (x < 0 ? 0.04 : 1)));
+        REQUIRE(SoundStop(sound));
     }
     spatial.Pos.flX = 0;
     spatial.Pos.flFalloffMin = 1;
@@ -357,158 +350,158 @@ int main(int argc, char**)
     {
         spatial.Pos.flZ = -distance;
         sound = Sound3DPlay(path, &spatial);
-        CHECK(sound != SOUND_ERROR);
+        REQUIRE(sound != SOUND_ERROR);
         samples = mix(2048);
-        CHECK(near(energy(samples, 0), baseline * 0.25));
-        CHECK(near(energy(samples, 1), baseline * 0.25));
-        CHECK(SoundStop(sound));
+        REQUIRE(near(energy(samples, 0), baseline * 0.25));
+        REQUIRE(near(energy(samples, 1), baseline * 0.25));
+        REQUIRE(SoundStop(sound));
     }
     spatial.Pos.flX = 3; spatial.Pos.flZ = 0;
     Sound3DSetListenerOrientation(0, 0, 1, 0, 1, 0);
     sound = Sound3DPlay(path, &spatial);
-    CHECK(sound != SOUND_ERROR);
+    REQUIRE(sound != SOUND_ERROR);
     samples = mix(2048);
-    CHECK(near(energy(samples, 0), baseline) && near(energy(samples, 1), baseline * 0.04));
+    REQUIRE((near(energy(samples, 0), baseline) && near(energy(samples, 1), baseline * 0.04)));
     Sound3DSetListenerOrientation(0, 0, -1, 0, 1, 0);
     samples = mix(2048);
-    CHECK(energy(samples, 1) > energy(samples, 0) * 20);
+    REQUIRE(energy(samples, 1) > energy(samples, 0) * 20);
     Sound3DSetListener(6, 0, 0);
     samples = mix(2048);
-    CHECK(energy(samples, 0) > energy(samples, 1) * 20);
-    CHECK(SoundStop(sound));
+    REQUIRE(energy(samples, 0) > energy(samples, 1) * 20);
+    REQUIRE(SoundStop(sound));
     Sound3DSetListener(0, 0, 0);
     // Velocity was normally zero at game callers; retain OpenAL-style doppler for nonzero inputs.
     spatial.Pos.flVelX = -100;
     spatial.uiLoop = 1;
     sound = Sound3DPlay(path, &spatial);
-    CHECK(sound != SOUND_ERROR);
+    REQUIRE(sound != SOUND_ERROR);
     samples = mix(2048);
-    CHECK(crossings(samples, 1) >= 27 && crossings(samples, 1) <= 30);
-    CHECK(SoundStop(sound));
+    REQUIRE((crossings(samples, 1) >= 27 && crossings(samples, 1) <= 30));
+    REQUIRE(SoundStop(sound));
     spatial.Pos.flVelX = 0;
     Sound3DSetListenerVelocity(100, 0, 0);
     sound = Sound3DPlay(path, &spatial);
-    CHECK(sound != SOUND_ERROR);
+    REQUIRE(sound != SOUND_ERROR);
     samples = mix(2048);
-    CHECK(crossings(samples, 1) >= 25 && crossings(samples, 1) <= 28);
-    CHECK(SoundStop(sound));
+    REQUIRE((crossings(samples, 1) >= 25 && crossings(samples, 1) <= 28));
+    REQUIRE(SoundStop(sound));
     Sound3DSetListenerVelocity(0, 0, 0);
 
     memset(&options, 0xff, sizeof(options));
     options.uiLoop = 1;
     options.uiVolume = 127;
     sound = SoundPlay(path, &options);
-    CHECK(sound != SOUND_ERROR);
+    REQUIRE(sound != SOUND_ERROR);
     samples = mix(2048);
-    CHECK(near(energy(samples, 0), baseline) && near(energy(samples, 1), baseline));
-    CHECK(SoundStop(sound));
+    REQUIRE((near(energy(samples, 0), baseline) && near(energy(samples, 1), baseline)));
+    REQUIRE(SoundStop(sound));
     options.uiVolume = 64;
     sound = SoundPlay(path, &options);
-    CHECK(sound != SOUND_ERROR);
+    REQUIRE(sound != SOUND_ERROR);
     samples = mix(2048);
-    CHECK(near(energy(samples, 0), baseline * std::pow(64.0 / 127, 2)));
-    CHECK(SoundStop(sound));
+    REQUIRE(near(energy(samples, 0), baseline * std::pow(64.0 / 127, 2)));
+    REQUIRE(SoundStop(sound));
     options.uiVolume = 127;
     options.uiSpeed = 88200;
     sound = SoundPlay(path, &options);
-    CHECK(sound != SOUND_ERROR);
+    REQUIRE(sound != SOUND_ERROR);
     samples = mix(2048);
-    CHECK(crossings(samples) >= 40 && crossings(samples) <= 42);
+    REQUIRE((crossings(samples) >= 40 && crossings(samples) <= 42));
     mix(1024);
-    CHECK(!SoundIsPlaying(sound));
+    REQUIRE(!SoundIsPlaying(sound));
     SoundServiceStreams();
     options.uiSpeed = 22050;
     sound = SoundPlayStreamedFile(path, &options);
-    CHECK(sound != SOUND_ERROR);
+    REQUIRE(sound != SOUND_ERROR);
     samples = mix(2048);
-    CHECK(crossings(samples) >= 10 && crossings(samples) <= 11);
+    REQUIRE((crossings(samples) >= 10 && crossings(samples) <= 11));
     mix(4000);
-    CHECK(SoundIsPlaying(sound));
+    REQUIRE(SoundIsPlaying(sound));
     mix(4000);
-    CHECK(!SoundIsPlaying(sound));
+    REQUIRE(!SoundIsPlaying(sound));
     SoundServiceStreams();
     options.uiSpeed = SOUND_ERROR;
     options.uiLoop = 2;
     sound = SoundPlayStreamedFile(packed, &options);
-    CHECK(sound != SOUND_ERROR);
+    REQUIRE(sound != SOUND_ERROR);
     mix(6000);
-    CHECK(SoundIsPlaying(sound));
+    REQUIRE(SoundIsPlaying(sound));
     mix(6000);
     SoundServiceStreams();
-    CHECK(!SoundIsPlaying(sound));
+    REQUIRE(!SoundIsPlaying(sound));
     char stereo[] = "stereo.wav";
     options.uiLoop = 1;
     sound = SoundPlay(stereo, &options);
-    CHECK(sound != SOUND_ERROR);
+    REQUIRE(sound != SOUND_ERROR);
     samples = mix(2048);
-    CHECK(near(energy(samples, 1) / energy(samples, 0), 0.25));
-    CHECK(SoundStop(sound));
+    REQUIRE(near(energy(samples, 1) / energy(samples, 0), 0.25));
+    REQUIRE(SoundStop(sound));
     options.uiPan = 127;
     sound = SoundPlay(stereo, &options);
-    CHECK(sound != SOUND_ERROR);
+    REQUIRE(sound != SOUND_ERROR);
     samples = mix(2048);
-    CHECK(energy(samples, 0) < 0.001 && near(energy(samples, 1), baseline * 0.25));
-    CHECK(SoundStop(sound));
+    REQUIRE((energy(samples, 0) < 0.001 && near(energy(samples, 1), baseline * 0.25)));
+    REQUIRE(SoundStop(sound));
     char fallback[] = "fallback.wav";
     options.uiPan = 64;
     sound = SoundPlay(fallback, &options);
-    CHECK(sound != SOUND_ERROR);
+    REQUIRE(sound != SOUND_ERROR);
     samples = mix(8192);
-    CHECK(energy(samples, 0) + energy(samples, 1) > 1);
+    REQUIRE(energy(samples, 0) + energy(samples, 1) > 1);
     SoundServiceStreams();
-    CHECK(!SoundIsPlaying(sound));
+    REQUIRE(!SoundIsPlaying(sound));
     char bad[] = "bad.wav", truncated[] = "Data\\Truncated.wav";
-    CHECK(SoundPlay(bad, &options) == SOUND_ERROR);
-    CHECK(SoundPlayStreamedFile(bad, &options) == SOUND_ERROR);
-    CHECK(SoundPlay(truncated, &options) == SOUND_ERROR);
-    CHECK(SoundPlayStreamedFile(truncated, &options) == SOUND_ERROR);
-    CHECK(SoundPlay({}, &options) == SOUND_ERROR);
-    CHECK(SoundPlayStreamedFile({}, &options) == SOUND_ERROR);
-    CHECK(!SoundRandomShouldPlay(NO_SAMPLE));
-    CHECK(SoundStartRandom(NO_SAMPLE) == SOUND_ERROR);
+    REQUIRE(SoundPlay(bad, &options) == SOUND_ERROR);
+    REQUIRE(SoundPlayStreamedFile(bad, &options) == SOUND_ERROR);
+    REQUIRE(SoundPlay(truncated, &options) == SOUND_ERROR);
+    REQUIRE(SoundPlayStreamedFile(truncated, &options) == SOUND_ERROR);
+    REQUIRE(SoundPlay({}, &options) == SOUND_ERROR);
+    REQUIRE(SoundPlayStreamedFile({}, &options) == SOUND_ERROR);
+    REQUIRE(!SoundRandomShouldPlay(NO_SAMPLE));
+    REQUIRE(SoundStartRandom(NO_SAMPLE) == SOUND_ERROR);
     sound = SoundPlayStreamedFile(fallback, &options);
-    CHECK(sound != SOUND_ERROR);
+    REQUIRE(sound != SOUND_ERROR);
     samples = mix(8192);
-    CHECK(energy(samples, 0) + energy(samples, 1) > 1);
+    REQUIRE(energy(samples, 0) + energy(samples, 1) > 1);
     SoundServiceStreams();
-    CHECK(!SoundIsPlaying(sound));
+    REQUIRE(!SoundIsPlaying(sound));
     RestartOnEnd restart{path, options};
     restart.options.EOSCallback = nullptr;
     options.EOSCallback = RestartOnEnd::callback;
     options.pCallbackData = &restart;
     sound = SoundPlay(path, &options);
-    CHECK(sound != SOUND_ERROR);
+    REQUIRE(sound != SOUND_ERROR);
     mix(8192);
     SoundServiceStreams();
-    CHECK(restart.calls == 1 && restart.restarted != SOUND_ERROR && SoundIsPlaying(restart.restarted));
+    REQUIRE((restart.calls == 1 && restart.restarted != SOUND_ERROR && SoundIsPlaying(restart.restarted)));
     SoundServiceStreams();
-    CHECK(restart.calls == 1);
-    CHECK(SoundStop(restart.restarted));
+    REQUIRE(restart.calls == 1);
+    REQUIRE(SoundStop(restart.restarted));
     options.EOSCallback = nullptr;
 
-    CHECK(SoundEmptyCache());
+    REQUIRE(SoundEmptyCache());
     {
-        CHECK(w8_native::movie_audio_available());
+        REQUIRE(w8_native::movie_audio_available());
         w8_native::MovieAudio movie(44100, 1);
         movie.start();
         samples = mix(1024);
-        CHECK(energy(samples, 0) + energy(samples, 1) == 0);
+        REQUIRE(energy(samples, 0) + energy(samples, 1) == 0);
         std::vector<float> pcm(4096);
         for (size_t i = 0; i < pcm.size(); ++i) pcm[i] = float(std::sin(i * 2 * 3.14159265 * 440 / 44100) * 0.25);
         movie.append(pcm.data(), pcm.size());
         samples = mix(2048);
-        CHECK(energy(samples, 0) + energy(samples, 1) > 1);
+        REQUIRE(energy(samples, 0) + energy(samples, 1) > 1);
         mix(8192);
         movie.append(pcm.data(), pcm.size());
         movie.finish();
-        CHECK(!movie.drained());
+        REQUIRE(!movie.drained());
         mix(8192);
-        CHECK(movie.drained());
+        REQUIRE(movie.drained());
         // No second mixer when soundman is reset while a movie is still alive.
         const auto* sharedMixer = w8_native::audio_mixer();
         ShutdownSoundManager();
-        CHECK(InitializeSoundManager());
-        CHECK(sharedMixer == w8_native::audio_mixer());
+        REQUIRE(InitializeSoundManager());
+        REQUIRE(sharedMixer == w8_native::audio_mixer());
     }
     {
         w8_native::MovieAudio movie(48000, 2);
@@ -516,14 +509,14 @@ int main(int argc, char**)
         movie.append(pcm.data(), pcm.size() / 2);
         movie.start();
         samples = mix(1024);
-        CHECK(energy(samples, 0) > 1 && energy(samples, 1) > 1);
+        REQUIRE((energy(samples, 0) > 1 && energy(samples, 1) > 1));
         movie.finish();
         mix(8192);
-        CHECK(movie.drained());
+        REQUIRE(movie.drained());
         bool rejected = false;
         try { movie.append(pcm.data(), pcm.size() / 2); }
         catch (const std::exception&) { rejected = true; }
-        CHECK(rejected);
+        REQUIRE(rejected);
     }
     {
         w8_native::MovieAudio movie(44100, 1);
@@ -534,28 +527,28 @@ int main(int argc, char**)
         // Destroy an active queued movie, then mix again to catch stale input access.
     }
     samples = mix(8192);
-    CHECK(energy(samples, 0) + energy(samples, 1) == 0);
+    REQUIRE(energy(samples, 0) + energy(samples, 1) == 0);
     unsigned before_shutdown = callbacks;
     options.EOSCallback = ended;
     options.pCallbackData = &callback_data;
-    CHECK(SoundPlay(path, &options) != SOUND_ERROR);
+    REQUIRE(SoundPlay(path, &options) != SOUND_ERROR);
     ShutdownSoundManager();
-    CHECK(callbacks == before_shutdown);
+    REQUIRE(callbacks == before_shutdown);
     ShutdownSoundManager();
-    CHECK(InitializeSoundManager());
+    REQUIRE(InitializeSoundManager());
     ShutdownSoundManager();
-    if (argc > 1)
+    if (output_device)
     {
         w8_native::audio_offline_for_test(false);
-        CHECK(InitializeSoundManager());
-        CHECK(w8_native::audio_mixer());
+        REQUIRE(InitializeSoundManager());
+        REQUIRE(w8_native::audio_mixer());
         memset(&options, 0xff, sizeof(options));
         options.uiLoop = 1;
         sound = SoundPlay(path, &options);
-        CHECK(sound != SOUND_ERROR);
+        REQUIRE(sound != SOUND_ERROR);
         SDL_Delay(250);
         SoundServiceStreams();
-        CHECK(!SoundIsPlaying(sound));
+        REQUIRE(!SoundIsPlaying(sound));
         ShutdownSoundManager();
         puts("ok: native output device opened and completed playback");
     }
@@ -564,4 +557,14 @@ int main(int argc, char**)
     std::filesystem::remove_all(temporary);
     puts("ok: native audio samples, streams, loops, pans, fades, callbacks, spatialization and "
          "lifetime");
+}
+
+TEST_CASE("audio")
+{
+    exercise_audio(false);
+}
+
+TEST_CASE("audio-device", "[.manual]")
+{
+    exercise_audio(true);
 }

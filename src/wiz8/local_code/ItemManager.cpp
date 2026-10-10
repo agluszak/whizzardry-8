@@ -650,7 +650,6 @@ void ActivateItem(W8WorldItem* item)
     std::string zItemName;
     std::string zItemFullPath;
     std::string name;
-    srRegistry::ClassNode* node;
     srNode* sun;
     stModelInstance* mesh;
 
@@ -708,8 +707,7 @@ void ActivateItem(W8WorldItem* item)
     item->fActive = true;
     ++gXStatus.item_manager_pending;
 
-    node = srNode::sGetClassNode();
-    sun = static_cast<srNode*>(srCore.getRegistry()->find(node, "SUN", 0));
+    sun = FindWorldNode<srNode>("SUN");
     if (sun != 0) {
         sun_position = glm::vec3(sun->getLocation());
         mesh = static_cast<stModelInstance*>(item->p3D->GetMesh());
