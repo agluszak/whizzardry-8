@@ -14,7 +14,6 @@
 #include "FileMan.h"
 #include "DbMan.h"
 #include "soundman.h"
-#include "pcx.h"
 #include "line.h"
 #include "Font.h"
 #include "english.h"

@@ -10,6 +10,18 @@
       ]
     },
     {
+      "name": "sdl3-image",
+      "features": [
+        "jpeg"
+      ]
+    },
+    {
+      "name": "sdl3-mixer",
+      "features": [
+        "mpg123"
+      ]
+    },
+    {
       "name": "ffmpeg",
       "default-features": false,
       "features": [

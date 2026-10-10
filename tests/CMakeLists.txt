@@ -2,6 +2,10 @@ add_executable(native_compression_test "${PROJECT_SOURCE_DIR}/tests/native/compr
 target_link_libraries(native_compression_test PRIVATE WIZ8_SGP)
 add_test(NAME native_compression COMMAND native_compression_test)
 
+add_executable(native_images_test native/images_test.cpp)
+target_link_libraries(native_images_test PRIVATE WIZ8_SGP)
+add_test(NAME native_images COMMAND native_images_test)
+
 add_executable(native_files_test "${PROJECT_SOURCE_DIR}/tests/native/files_test.cpp")
 target_link_libraries(native_files_test PRIVATE WIZ8_SGP SURRENDER)
 add_test(NAME native_files COMMAND native_files_test)
@@ -43,7 +47,7 @@ add_test(NAME native_save_records COMMAND native_save_records_test)
 add_executable(native_jpeg_transfer_test "${PROJECT_SOURCE_DIR}/tests/native/jpeg_transfer_test.cpp"
     "${PROJECT_SOURCE_DIR}/src/srext_jpegimporter/plugin.cpp" "${PROJECT_SOURCE_DIR}/src/srext_jpegimporter/surface_transfer.cpp")
 target_include_directories(native_jpeg_transfer_test PRIVATE "${PROJECT_SOURCE_DIR}/src/srext_jpegimporter")
-target_link_libraries(native_jpeg_transfer_test PRIVATE SURRENDER wiz8_native_settings)
+target_link_libraries(native_jpeg_transfer_test PRIVATE SURRENDER wiz8_native_settings SDL3_image::SDL3_image)
 add_test(NAME native_jpeg_transfer COMMAND native_jpeg_transfer_test)
 
 add_executable(native_blitter_test "${PROJECT_SOURCE_DIR}/tests/native/blitter_test.cpp")

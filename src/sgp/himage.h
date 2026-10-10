@@ -20,6 +20,7 @@
 #define TGA_FILE_READER 0x2
 #define STCI_FILE_READER 0x4
 #define TRLE_FILE_READER 0x8
+#define JPEG_FILE_READER 0x10
 #define UNKNOWN_FILE_READER 0x200
 
 // Defines for buffer bit depth
@@ -136,8 +137,11 @@ typedef struct {
 extern "C" {
 #endif
 
-// This function will return NULL if it fails, and call SetLastError() to set
-// error information
+// Virtual game paths (including SLF entries), never host paths. The final
+// basename extension selects STI or SDL_image PCX/TGA/JPEG; extensionless names
+// default to PCX without changing the caller's path. Ordinary images are tight,
+// top-down INDEX8 + palettes, packed RGB555 (16-bit TGA), or RGB24.
+// Returns NULL on failure without retaining image allocations.
 HIMAGE CreateImage(SGPFILENAME ImageFile, UINT16 fContents);
 
 // This function destroys the HIMAGE structure as well as its contents
