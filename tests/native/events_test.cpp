@@ -7,7 +7,7 @@
 #include <vector>
 #include <cstdio>
 
-#include "sgp.h"
+#include "wiz8/application.h"
 #include "wiz8/engine_code/GameData.h"
 #include "native/input_events.h"
 #include "input.h"
@@ -29,7 +29,6 @@ HWND ghWindow = nullptr;
 static int screenshots = 0, captures = 0, suspensions = 0, restorations = 0, resizes = 0;
 static std::thread::id dispatch_thread;
 static std::vector<int> clock_actions;
-BOOLEAN gfProgramIsRunning = TRUE, gfApplicationActive = TRUE, gfIgnoreMessages = FALSE;
 void PrintScreen() { ++screenshots; }
 void VideoCaptureToggle() { ++captures; }
 BOOLEAN VideoInspectorIsEnabled() { return FALSE; }
@@ -107,6 +106,8 @@ static void expect(const InputAtom& atom, UINT16 kind, UINT32 parameter, UINT16 
 }
 int main()
 {
+    gfProgramIsRunning = gfApplicationActive = TRUE;
+    gfIgnoreMessages = FALSE;
     /* No GPU is needed to validate events and timers. */
     CHECK(SDL_Init(SDL_INIT_VIDEO));
     SDL_Window* window = SDL_CreateWindow("Whizzardry input test", 1280, 960, SDL_WINDOW_HIDDEN);
@@ -344,7 +345,7 @@ int main()
     CHECK(!gfProgramIsRunning);
     gfIgnoreMessages = FALSE;
     SetInputWindow(nullptr);
-    ShutdownInputManager();
+
     SDL_DestroyWindow(window);
     SDL_Quit();
     puts("ok: SDL events feed input, strings, repeats, focus, resize, quit and main-thread clock");

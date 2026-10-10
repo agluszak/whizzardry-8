@@ -289,7 +289,7 @@ void DrawWorldCursorNodeLabel(W8WorldCursorNode* entry)
         SetFontDestBuffer(FontDestBuffer, 0, 0, surface->getWidth(), surface->getHeight(),
                           static_cast<unsigned char>(FontDestWrap));
         SetFont(g_smfnt_font);
-        SetFontObjectPalette16BPP(g_smfnt_font, g_font_palette_smfnt);
+        SetFontObjectPalette16BPP(g_smfnt_font, GetFontObject(g_smfnt_font)->ownedPalette.get());
         for (int index = 0; index < 3; ++index) {
             wchar_t text[20];
             swprintf(text, g_format_d, entry->parameters[index]);

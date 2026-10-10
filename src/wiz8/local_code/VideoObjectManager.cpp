@@ -838,11 +838,11 @@ void EnsureCatalogFrameLoaded(int object, int frame)
         }
         if (record->storage_kind == W8_VIDEO_STORAGE_OBJECT) {
             request_a.fCreateFlags = VOBJECT_CREATE_FROMFILE;
-            strcpy(request_a.ImageFile, record->path);
+            request_a.ImageFile = record->path;
             loaded_ok = AddVideoObject(&request_a, &handle);
         } else {
             request_b.fCreateFlags = VSURFACE_CREATE_FROMFILE;
-            strcpy(request_b.ImageFile, record->path);
+            request_b.ImageFile = record->path;
             loaded_ok = AddVideoSurface(&request_b, &handle);
         }
         if (loaded_ok == 0) {
@@ -862,20 +862,15 @@ void EnsureCatalogFrameLoaded(int object, int frame)
    table.  The allocation is intentionally retained when the source API says
    the object has no palette, matching the shipped failure path. */
 // FUNCTION: WIZ8 0x005492e0
-unsigned short* CopyCatalogImagePalette16BPP(int object, int frame)
+std::unique_ptr<UINT16[]> CopyCatalogImagePalette16BPP(int object, int frame)
 {
-    unsigned short* palette;
-
     if (!gfVideoObjectsInit) {
         srAssertFail("VideoObjectsInitialized()", VIDEO_OBJECT_MANAGER_CPP, 0xaf, 0);
     }
-    palette = static_cast<unsigned short*>(malloc(0x100 * sizeof(*palette)));
-    if (!palette) {
-        return 0;
-    }
+    auto palette = std::make_unique<UINT16[]>(256);
     EnsureCatalogFrameLoaded(object, frame);
-    if (!CopyVideoObjectPalette16BPP(GetCatalogVideoObjectHandle(object, frame), palette)) {
-        return 0;
+    if (!CopyVideoObjectPalette16BPP(GetCatalogVideoObjectHandle(object, frame), palette.get())) {
+        return nullptr;
     }
     return palette;
 }

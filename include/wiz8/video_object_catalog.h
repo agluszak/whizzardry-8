@@ -1,5 +1,6 @@
 #ifndef WIZ8_VIDEO_OBJECT_CATALOG_H
 #define WIZ8_VIDEO_OBJECT_CATALOG_H
+#include <memory>
 
 #include "vobject.h"
 #include "vsurface.h"
@@ -39,7 +40,7 @@ unsigned char BlitCatalogSurfaceRectTo16BPP(UINT32 target, int left, int top, in
                                             int object, int source_x, int source_y);
 
 void EnsureCatalogFrameLoaded(int object, int frame);
-unsigned short* CopyCatalogImagePalette16BPP(int object, int frame);
+std::unique_ptr<unsigned short[]> CopyCatalogImagePalette16BPP(int object, int frame);
 /* 0x005498A0 / 0x00549950: lock a surface-backed catalog frame's pixel
    buffer (pitch out), then release that lock. */
 void* LockCatalogFrameSurface(unsigned int object, unsigned int frame, w8_long* pitch);

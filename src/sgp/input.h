@@ -92,7 +92,6 @@ INT32 ToLowercaseWideChar(INT32 character);
 INT32 CompareWideTextIgnoreAsciiCase(const wchar_t* first, const wchar_t* second);
 
 extern BOOLEAN InitializeInputManager(void);
-extern void ShutdownInputManager(void);
 extern BOOLEAN DequeueEvent(InputAtom* Event);
 extern void QueueEvent(UINT16 ubInputEvent, UINT32 usParam, UINT32 uiParam);
 

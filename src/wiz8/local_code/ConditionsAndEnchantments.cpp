@@ -1,3 +1,4 @@
+#include "random.h"
 #include "wiz8/compat/unaligned.h"
 #include "wiz8/engine_code/AnimRep.hpp"
 #include "wiz8/monster_cycles.h"

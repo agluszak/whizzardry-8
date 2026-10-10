@@ -1983,7 +1983,7 @@ void RenderAutomapMarkers(void)
         SGPRect clip = {0xc, 0x20, 0x1d3, 0x1d3};
         SetClippingRect(&clip);
         SetFont(g_wiz_text_font_secondary);
-        SetObjectShade(g_wiz_text_font_secondary_object, 4);
+        SetObjectShade(GetFontObject(g_wiz_text_font_secondary), 4);
         SetFontDestClip(0xc, 0x20, 0x1d3, 0x1d3);
         int font_height = GetFontHeight(g_wiz_text_font_secondary);
         unsigned int count = g_automap_notes->GetCount();

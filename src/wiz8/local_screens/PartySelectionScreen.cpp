@@ -356,11 +356,11 @@ void W8PartySelectionListControl::Redraw(bool full_redraw)
         top += 1;
         SetFont(g_wiz_text_font_secondary);
         for (int row = m_first_visible; row < end; ++row) {
-            unsigned short* colour = g_font_state_palettes[W8_FONT_PALETTE_BLUE];
+            unsigned short* colour = g_font_state_palettes[W8_FONT_PALETTE_BLUE].get();
             if (row != m_selection) {
-                colour = g_wiz_text_font_secondary_palette;
+                colour = GetFontObject(g_wiz_text_font_secondary)->ownedPalette.get();
                 if (row == m_hovered) {
-                    colour = g_font_state_palettes[W8_FONT_PALETTE_YELLOW];
+                    colour = g_font_state_palettes[W8_FONT_PALETTE_YELLOW].get();
                 }
             }
             SetFontObjectPalette16BPP(g_wiz_text_font_secondary, colour);
@@ -368,7 +368,7 @@ void W8PartySelectionListControl::Redraw(bool full_redraw)
                     *g_party_selection_character_collection->names.GetAt(row));
             top += 0x0e;
         }
-        SetFontObjectPalette16BPP(g_wiz_text_font_secondary, g_wiz_text_font_secondary_palette);
+        SetFontObjectPalette16BPP(g_wiz_text_font_secondary, GetFontObject(g_wiz_text_font_secondary)->ownedPalette.get());
         SetFontDestBuffer(FRAME_BUFFER, 0, 0, 0x280, 0x1e0, 0);
         m_dirty = false;
     }
@@ -683,7 +683,7 @@ void W8PartySelectionCharacterRow::Redraw(bool full_redraw)
                      VO_BLT_SRCTRANSPARENCY, 0);
     if (character->fInParty) {
         ShadowVideoSurfaceRect(FRAME_BUFFER, left + 2, top + 2, left + 0x2e, top + 0x25);
-        SetObjectShade(g_wiz_text_font_secondary_object, 6);
+        SetObjectShade(GetFontObject(g_wiz_text_font_secondary), 6);
     }
 
     left += 0x36;
@@ -694,7 +694,7 @@ void W8PartySelectionCharacterRow::Redraw(bool full_redraw)
     gprintf(left, top + 0x18, g_format_s_space_s,
             gppStringList[g_gender_name_message_rows[character->gender][0]],
             gppStringList[g_race_name_message_ids[character->iRace]]);
-    SetObjectShade(g_wiz_text_font_secondary_object, 4);
+    SetObjectShade(GetFontObject(g_wiz_text_font_secondary), 4);
 }
 
 // FUNCTION: WIZ8 0x005beb90
@@ -1017,7 +1017,7 @@ void W8PartySelectionCharacterSummaryPanel::Redraw()
     }
 
     SetFont(g_wiz_text_font_secondary);
-    SetObjectShade(g_wiz_text_font_secondary_object, 4);
+    SetObjectShade(GetFontObject(g_wiz_text_font_secondary), 4);
 
     const wchar_t* level_text = gppStringList[0x6b9];
     const wchar_t* profession =
@@ -2017,8 +2017,8 @@ unsigned char PartySelectionScreenEnter(void)
     MSYS_Init();
     ResetRegions();
     UpdateHeldItemCursor();
-    SetFontObjectPalette16BPP(g_wiz_text_font_secondary, g_wiz_text_font_secondary_palette);
-    SetFontObjectPalette16BPP(g_wiz_text_bold_font, g_font_palette_wiz_text_bold);
+    SetFontObjectPalette16BPP(g_wiz_text_font_secondary, GetFontObject(g_wiz_text_font_secondary)->ownedPalette.get());
+    SetFontObjectPalette16BPP(g_wiz_text_bold_font, GetFontObject(g_wiz_text_bold_font)->ownedPalette.get());
 
     W8PartySelectionCharacterCollection* collection = g_party_selection_character_collection;
     if (!collection) {

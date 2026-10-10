@@ -5,7 +5,8 @@
 #include "compat/video.h"
 #include "native/input_events.h"
 #include <wiz8/asset_paths.h>
-#include "sgp.h"
+#include "wiz8/application.h"
+#include "input.h"
 #include "surrender/srGERD.h"
 #include "surrender/srImageIO.h"
 #include "surrender/srTriMeshPipeline.h"
@@ -84,7 +85,7 @@ int main(int argc, char** argv)
         CHECK(InitializeVideoObjectManager());
         VOBJECT_DESC image{};
         image.fCreateFlags = VOBJECT_CREATE_FROMFILE;
-        strcpy(image.ImageFile, argc > 1 ? argv[1] : "Data\\MAIN INTERFACE\\BOTTOM.STI");
+        image.ImageFile = argc > 1 ? argv[1] : "Data\\MAIN INTERFACE\\BOTTOM.STI";
         UINT32 image_id;
         CHECK(AddVideoObject(&image, &image_id));
         CHECK(BltVideoObjectFromIndex(FRAME_BUFFER, image_id, 0, 0, 0, VO_BLT_SRCTRANSPARENCY,
@@ -96,7 +97,7 @@ int main(int argc, char** argv)
             memcpy(expected.data() + y * 640, reinterpret_cast<BYTE*>(pixels) + y * pitch, 1280);
         UnlockPrimarySurface();
         CHECK(InitializeMouseCursorScene());
-        strcpy(image.ImageFile, "Data\\CURSORS\\2D-CURSORS.STI");
+        image.ImageFile = "Data\\CURSORS\\2D-CURSORS.STI";
         UINT32 cursor_id;
         CHECK(AddVideoObject(&image, &cursor_id));
         CHECK(SetMouseCursorFromVideoObject(cursor_id, 0, 0, 0));
@@ -222,7 +223,7 @@ int main(int argc, char** argv)
         srExit();
         ReleasePrimaryCpuSurface();
         W8DestroyGameWindow(window);
-        ShutdownInputManager();
+
         wiz8::clear_asset_archives();
 
         SDL_Quit();

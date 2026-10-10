@@ -5,6 +5,7 @@
 
 #include "Types.h"
 #include <vector>
+#include <string_view>
 #include "himage.h"
 #include "vobject.h"
 
@@ -41,11 +42,6 @@
 
 // typedefs
 
-typedef struct {
-    UINT16 usNumberOfSymbols;
-    std::vector<UINT16> DynamicArrayOf16BitValues;
-
-} FontTranslationTable;
 
 extern INT32 FontDefault;
 extern UINT32 FontDestBuffer;
@@ -92,13 +88,13 @@ extern BOOLEAN SetFontDestBuffer(UINT32 DestBuffer, INT32 x1, INT32 y1, INT32 x2
                                  BOOLEAN wrap);
 extern BOOLEAN SetFont(INT32 iFontIndex);
 
-extern INT32 LoadFontFile(UINT8* pFileName);
+extern INT32 LoadFontFile(std::string_view filename);
 extern UINT16 GetFontHeight(INT32 FontNum);
-extern BOOLEAN InitializeFontManager(UINT16 usDefaultPixDepth, const FontTranslationTable& pTransTable);
+extern BOOLEAN InitializeFontManager(const std::vector<UINT16>& translation);
 extern void ShutdownFontManager(void);
 extern void UnloadFont(UINT32 FontIndex);
 
-extern FontTranslationTable CreateEnglishTransTable();
+extern std::vector<UINT16> CreateEnglishTransTable();
 
 extern INT16 GetIndex(UINT16 siChar);
 extern UINT32 GetWidth(HVOBJECT hSrcVObject, INT16 ssIndex);

@@ -1,3 +1,4 @@
+#include "random.h"
 #include "wiz8/level_specific_code/Trynnie1.h"
 #include "wiz8/engine_code/Monster.h"
 #include "wiz8/engine_code/Trigger.hpp"
