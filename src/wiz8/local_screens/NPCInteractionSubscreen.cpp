@@ -337,13 +337,15 @@ using KeywordFile = std::vector<KeywordLine*>;
 
 static void ReleaseKeywordLine(KeywordLine* line)
 {
-    for (int i = 0; i < static_cast<int>(line->size()); ++i) free((*line)[i]);
+    for (int i = 0; i < static_cast<int>(line->size()); ++i)
+        free((*line)[i]);
     delete line;
 }
 
 static void ReleaseKeywordFile(KeywordFile* file)
 {
-    for (int i = 0; i < static_cast<int>(file->size()); ++i) ReleaseKeywordLine((*file)[i]);
+    for (int i = 0; i < static_cast<int>(file->size()); ++i)
+        ReleaseKeywordLine((*file)[i]);
     delete file;
 }
 
@@ -1286,7 +1288,8 @@ void EndNpcDialogueSession(bool skip_exit_actions)
     }
     RequestRedrawCombatBar();
     RequestRedraw(W8_MAIN_REDRAW_SUBMENU_BUTTONS);
-    for (unsigned int index = 0; index < (gXStatus.plsMonsterList ? static_cast<unsigned int>(gXStatus.plsMonsterList->size()) : 0); index++) {
+    for (unsigned int index = 0;
+         index < (gXStatus.plsMonsterList ? gXStatus.plsMonsterList->size() : 0); index++) {
         ClearMonsterCharm(MonsterGetScriptPartByLocationIndex(index));
     }
     GetNpcMonsterInfo(g_npc_interaction_state->dialogue_npc);
@@ -3908,7 +3911,8 @@ bool IsDialoguePlaceKeyword(const wchar_t* name)
 // FUNCTION: WIZ8 0x00575070
 void ClearNpcDialogueTranscript(void)
 {
-    for (int index = 0; index < static_cast<int>(g_npc_interaction_state->dialogue_transcript.size()); ++index) {
+    for (int index = 0;
+         index < static_cast<int>(g_npc_interaction_state->dialogue_transcript.size()); ++index) {
         free(g_npc_interaction_state->dialogue_transcript[index]);
     }
     g_npc_interaction_state->dialogue_transcript.clear();
@@ -3956,9 +3960,9 @@ unsigned char SaveNpcDialogueTranscript(wiz8::File* file)
     (file->write(&version, 1), bytes_written = 1, true);
     text_length = static_cast<int>(g_npc_interaction_state->dialogue_transcript.size());
     (file->write(&text_length, 4), bytes_written = 4, true);
-    for (index = 0; index < static_cast<int>(g_npc_interaction_state->dialogue_transcript.size()); ++index) {
-        W8DialogueTranscriptRecord* record =
-            g_npc_interaction_state->dialogue_transcript[index];
+    for (index = 0; index < static_cast<int>(g_npc_interaction_state->dialogue_transcript.size());
+         ++index) {
+        W8DialogueTranscriptRecord* record = g_npc_interaction_state->dialogue_transcript[index];
         text_length = wcslen(record->text);
         (file->write(&text_length, 4), bytes_written = 4, true);
         (file->write(record, text_length * 2 + 2), bytes_written = text_length * 2 + 2, true);
@@ -4505,7 +4509,8 @@ void FlushPendingNoticeLines(void)
     wchar_t npc_name[100];
     int index;
 
-    for (index = 0; index < static_cast<int>(g_npc_interaction_state->pending_notice_lines.size()); ++index) {
+    for (index = 0; index < static_cast<int>(g_npc_interaction_state->pending_notice_lines.size());
+         ++index) {
         W8PendingNoticeLine* line = g_npc_interaction_state->pending_notice_lines[index];
         if (line->npc_kind != -1 &&
             line->npc_kind != g_npc_interaction_state->last_notice_npc_kind) {
@@ -4518,10 +4523,10 @@ void FlushPendingNoticeLines(void)
         }
         ShowNotice(line->npc_kind == -1 ? 0xb : 0xf, line->text, 3, GetTextBoxScrollRange());
     }
-    while (static_cast<int>(g_npc_interaction_state->pending_notice_lines.size()) > 0) {
-        const auto removed_entry = g_npc_interaction_state->pending_notice_lines[0];
-        g_npc_interaction_state->pending_notice_lines.erase(g_npc_interaction_state->pending_notice_lines.begin() + 0);
-        W8PendingNoticeLine* line = removed_entry;
+    while (!g_npc_interaction_state->pending_notice_lines.empty()) {
+        W8PendingNoticeLine* line = g_npc_interaction_state->pending_notice_lines[0];
+        g_npc_interaction_state->pending_notice_lines.erase(
+            g_npc_interaction_state->pending_notice_lines.begin());
         free(line->text);
         delete line;
     }
@@ -4922,9 +4927,10 @@ void AddDialogueTranscriptKeyword(const wchar_t* name, signed char category)
                                                        : W8_DIALOGUE_CATEGORY_MISC;
         }
     }
-    for (int index = 0; index < static_cast<int>(g_npc_interaction_state->dialogue_transcript.size()); ++index) {
+    for (int index = 0;
+         index < static_cast<int>(g_npc_interaction_state->dialogue_transcript.size()); ++index) {
         if (CompareWideTextIgnoreAsciiCase(
-                (g_npc_interaction_state->dialogue_transcript[index])->text, keyword) == 0) {
+                g_npc_interaction_state->dialogue_transcript[index]->text, keyword) == 0) {
             return;
         }
     }

@@ -55,9 +55,8 @@ unsigned char W8WorldCursorNode::GetLocation(srVector3T<float>* position)
     return 0;
 }
 
-/* The cursor's node table is a real W8GrowableVector object: its static
-   initializer at 0x0048D020 constructs it with capacity five and its
-   destructor is run through atexit. */
+/* Cursor nodes are allocated separately so their addresses survive
+   changes to the node table. */
 // GLOBAL: WIZ8 0x0065ba58
 std::vector<W8WorldCursorNode*> g_world_cursor_nodes;
 
@@ -230,7 +229,9 @@ void DestroyWorldCursorCube(W8WorldCursorNode* entry)
         entry->userdata_size = 0;
         entry->node->setParent(0, 1);
         entry->node->release();
-        if (const auto found = std::ranges::find(g_world_cursor_nodes, entry); found != g_world_cursor_nodes.end()) g_world_cursor_nodes.erase(found);
+        if (const auto found = std::ranges::find(g_world_cursor_nodes, entry);
+            found != g_world_cursor_nodes.end())
+            g_world_cursor_nodes.erase(found);
         delete entry;
     }
 }
@@ -503,7 +504,8 @@ unsigned int LoadWorldCursorNodeStates(wiz8::File* handle)
             int cube_index;
 
             handle->read_exact(name, sizeof(name));
-            for (cube_index = 0; cube_index < static_cast<int>(g_world_cursor_nodes.size()); ++cube_index) {
+            for (cube_index = 0; cube_index < static_cast<int>(g_world_cursor_nodes.size());
+                 ++cube_index) {
                 W8WorldCursorNode* candidate = g_world_cursor_nodes[cube_index];
                 if (strcmp(candidate->name, name) == 0) {
                     cube = candidate;
@@ -712,16 +714,10 @@ unsigned char SaveWorldCursorNodes(wiz8::File* handle)
 }
 
 // FUNCTION: WIZ8 0x0048ED00
-int GetWorldCursorNodeCount(void)
-{
-    return static_cast<int>(g_world_cursor_nodes.size());
-}
+int GetWorldCursorNodeCount(void) { return static_cast<int>(g_world_cursor_nodes.size()); }
 
 // FUNCTION: WIZ8 0x0048ED10
-W8WorldCursorNode* GetWorldCursorNode(int index)
-{
-    return g_world_cursor_nodes[index];
-}
+W8WorldCursorNode* GetWorldCursorNode(int index) { return g_world_cursor_nodes[index]; }
 
 /* Attach or detach the node's scene node under the world's dynamic scene. */
 // FUNCTION: WIZ8 0x0048ED30
@@ -903,7 +899,7 @@ bool SelectWorldCursorNode(void)
 // FUNCTION: WIZ8 0x0048DB30
 void ReleaseWorldCursorNodes(void)
 {
-    while (static_cast<int>(g_world_cursor_nodes.size()) != 0) {
+    while (!g_world_cursor_nodes.empty()) {
         W8WorldCursorNode* entry = g_world_cursor_nodes[0];
 
         DestroyWorldCursorCube(entry);

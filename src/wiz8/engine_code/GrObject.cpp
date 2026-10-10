@@ -42,8 +42,8 @@ W8GrObject::W8GrObject(const W8GrObject& other)
         for (index = 0; index < count; ++index) {
             W8SoundEvent* pse = (*other.m_plsSoundEvents)[index];
 
-            m_plsSoundEvents->push_back(CreateSoundEvent(pse->kind, pse->cycle, pse->frame, pse->subcycle,
-                                                               pse->m_pacWaveName, false));
+            m_plsSoundEvents->push_back(CreateSoundEvent(pse->kind, pse->cycle, pse->frame,
+                                                         pse->subcycle, pse->m_pacWaveName, false));
         }
     } else {
         m_plsSoundEvents = 0;

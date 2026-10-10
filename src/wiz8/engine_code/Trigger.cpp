@@ -421,7 +421,8 @@ bool Trigger::Save(wiz8::File* hFile)
                 action_flags |= 0x200;
             }
             hFile->write(&action_flags, sizeof(action_flags));
-            if (m_lData1 != 0 && m_pEvent != 0 && (std::ranges::find(g_timed_events, m_pEvent) != g_timed_events.end())) {
+            if (m_lData1 != 0 && m_pEvent != 0 &&
+                (std::ranges::find(g_timed_events, m_pEvent) != g_timed_events.end())) {
                 float progress = m_pEvent->timer.GetProgress();
                 if (progress <= g_trigger_progress_limit) {
                     progress_delay = static_cast<unsigned int>(
@@ -1192,8 +1193,7 @@ void InitializeStateDrivenPropVariables(Trigger* trigger)
     if (trigger->m_pacStateToMod == 0) {
         return;
     }
-    for (slot = 0; slot < static_cast<signed char>(static_cast<int>(trigger->m_pProp->Rep()->slots.size()));
-         ++slot) {
+    for (slot = 0; slot < static_cast<signed char>(trigger->m_pProp->Rep()->slots.size()); ++slot) {
         char name[132];
 
         if (trigger->m_bRepType != W8_TRIGGER_REP_PROP) {
@@ -2098,7 +2098,9 @@ void Trigger::FinishAction()
         break;
 
     case 0x23: {
-        if (const auto found = std::ranges::find(g_timed_events, m_pEvent); found != g_timed_events.end()) g_timed_events.erase(found);
+        if (const auto found = std::ranges::find(g_timed_events, m_pEvent);
+            found != g_timed_events.end())
+            g_timed_events.erase(found);
         action_completed = true;
         break;
     }
@@ -2607,7 +2609,8 @@ void Trigger::Run(int source)
             }
 
             if (m_lData1 != 0) {
-                if (m_pEvent != 0 && (std::ranges::find(g_timed_events, m_pEvent) != g_timed_events.end())) {
+                if (m_pEvent != 0 &&
+                    (std::ranges::find(g_timed_events, m_pEvent) != g_timed_events.end())) {
                     m_pEvent->timer.Restart();
                     if (m_pEvent->m_pCountdown != 0) {
                         m_pEvent->m_pCountdown->Restart();
@@ -3002,10 +3005,13 @@ void Trigger::Run(int source)
             return;
         }
         monster_id = atoi(m_pacRecipients);
-        for (index = 0; index < static_cast<int>((gXStatus.plsMonsterGroupList ? static_cast<unsigned int>(gXStatus.plsMonsterGroupList->size()) : 0)); ++index) {
-            group = static_cast<W8MonsterGroup*>((gXStatus.plsMonsterGroupList && static_cast<std::size_t>(index) < gXStatus.plsMonsterGroupList->size() ? (*gXStatus.plsMonsterGroupList)[index] : nullptr));
+        for (index = 0;
+             index < static_cast<int>(
+                         (gXStatus.plsMonsterGroupList ? gXStatus.plsMonsterGroupList->size() : 0));
+             ++index) {
+            group = (*gXStatus.plsMonsterGroupList)[index];
             if (group->monster_id == monster_id) {
-                int location_id = (group->monsters.operator->() && static_cast<std::size_t>(0) < group->monsters->size() ? (*group->monsters)[0] : -1);
+                int location_id = group->MemberLocationId(0);
                 unsigned int monster_index = MonsterGetIndexByLocationID(
                     0x7aa, "C:\\Projects\\Wizardry 8\\Engine Code\\Trigger.cpp", location_id, true);
 
@@ -3579,7 +3585,8 @@ bool Trigger::SelectAction()
         }
 
         if (linked_trigger_blocked) {
-            if (m_pEvent == 0 || (std::ranges::find(g_timed_events, m_pEvent) == g_timed_events.end())) {
+            if (m_pEvent == 0 ||
+                (std::ranges::find(g_timed_events, m_pEvent) == g_timed_events.end())) {
                 return false;
             }
             m_pEvent->timer.Restart();
@@ -3677,12 +3684,16 @@ Trigger::~Trigger()
     }
 
     if (m_pEvent != 0) {
-        if (const auto found = std::ranges::find(g_timed_events, m_pEvent); found != g_timed_events.end()) g_timed_events.erase(found);
+        if (const auto found = std::ranges::find(g_timed_events, m_pEvent);
+            found != g_timed_events.end())
+            g_timed_events.erase(found);
         delete m_pEvent;
     }
 
     if (m_pWorld != 0 && m_pWorld->triggers != 0) {
-        if (const auto found = std::ranges::find((*m_pWorld->triggers), this); found != m_pWorld->triggers->end()) m_pWorld->triggers->erase(found);
+        if (const auto found = std::ranges::find((*m_pWorld->triggers), this);
+            found != m_pWorld->triggers->end())
+            m_pWorld->triggers->erase(found);
     }
 
     if (world_item_group != 0) {
@@ -3711,9 +3722,9 @@ int ResetNextTriggerId(void)
 void DestroyAllWorldTriggers(W8World* world)
 {
     if (world != 0 && world->triggers != 0) {
-        while (static_cast<int>(world->triggers->size()) != 0) {
+        while (!world->triggers->empty()) {
             Trigger* trigger = (*world->triggers)[0];
-            world->triggers->erase(world->triggers->begin() + 0);
+            world->triggers->erase(world->triggers->begin());
             if (trigger != 0) {
                 trigger->release();
             }
@@ -3727,14 +3738,10 @@ int GetLocationVarIDByName(const char* name)
 {
     int variable_count = static_cast<int>(g_location_variable_names.size());
     int variable_id;
-    char** variable_name;
-    int* variable_level;
 
     for (variable_id = 0; variable_id < variable_count; ++variable_id) {
-        variable_name = (g_location_variable_names.data() + variable_id);
-        if (_stricmp(*variable_name, name) == 0) {
-            variable_level = (g_location_variable_levels.data() + variable_id);
-            if (*variable_level == g_status.current_level) {
+        if (_stricmp(g_location_variable_names[variable_id], name) == 0) {
+            if (g_location_variable_levels[variable_id] == g_status.current_level) {
                 return variable_id;
             }
         }
@@ -3900,7 +3907,7 @@ bool AnyPropTriggerInView(W8World* world)
         srAssertFail("pWorld", "C:\\Projects\\Wizardry 8\\Engine Code\\Trigger.cpp", 0x1395, 0);
     }
     GetCameraPosition(&position);
-    prop_count = (world->plsProps ? static_cast<unsigned int>(world->plsProps->size()) : 0);
+    prop_count = (world->plsProps ? world->plsProps->size() : 0);
     if (0 <= s_last_prop_index && s_last_prop_index < static_cast<int>(prop_count)) {
         W8Prop* prop = GetWorldProp(world, s_last_prop_index);
 

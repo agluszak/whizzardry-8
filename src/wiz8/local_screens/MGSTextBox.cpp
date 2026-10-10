@@ -143,9 +143,9 @@ void W8MessageStorageRecord::RebuildEntries()
         entries = new std::vector<W8NoticeWord*>;
     } else {
         std::vector<W8NoticeWord*>* list = entries;
-        int count = (list ? static_cast<unsigned int>(list->size()) : 0);
+        int count = (list ? list->size() : 0);
         for (int index = 0; index < count; ++index) {
-            free((list && static_cast<std::size_t>(index) < list->size() ? (*list)[index] : nullptr));
+            free((*list)[index]);
         }
         list->clear();
     }
@@ -233,9 +233,9 @@ static void AppendNoticeLine(unsigned char font_palette, const wchar_t* text, sh
         }
         if (first->entries) {
             std::vector<W8NoticeWord*>* entries = first->entries;
-            int count = (entries ? static_cast<unsigned int>(entries->size()) : 0);
+            int count = (entries ? entries->size() : 0);
             for (int index = 0; index < count; ++index) {
-                free((entries && static_cast<std::size_t>(index) < entries->size() ? (*entries)[index] : nullptr));
+                free((*entries)[index]);
             }
             entries->clear();
             delete first->entries;
@@ -414,9 +414,9 @@ void W8MessageStorageRecord::ClearEntries()
 {
     std::vector<W8NoticeWord*>* list = entries;
     if (list) {
-        unsigned int count = (list ? static_cast<unsigned int>(list->size()) : 0);
+        unsigned int count = (list ? list->size() : 0);
         for (unsigned int entry = 0; entry < count; ++entry) {
-            free((list && static_cast<std::size_t>(entry) < list->size() ? (*list)[entry] : nullptr));
+            free((*list)[entry]);
         }
         list->clear();
         delete list;
@@ -2268,9 +2268,9 @@ static void DrawNoticeWordOverlays(W8MessageStorageRecord* line, int x, int y)
     if (line->entries == 0) {
         return;
     }
-    unsigned int count = (line->entries ? static_cast<unsigned int>(line->entries->size()) : 0);
+    unsigned int count = (line->entries ? line->entries->size() : 0);
     for (int i = 0; i < static_cast<int>(count); ++i) {
-        W8NoticeWord* word = static_cast<W8NoticeWord*>((line->entries && static_cast<std::size_t>(i) < line->entries->size() ? (*line->entries)[i] : nullptr));
+        W8NoticeWord* word = (*line->entries)[i];
         if (word->keyword != W8_NOTICE_WORD_NORMAL) {
             unsigned short* palette = word->keyword == W8_NOTICE_WORD_SELECTED
                                           ? g_font_state_palettes[W8_FONT_PALETTE_BLUE].get()
@@ -2296,9 +2296,9 @@ static void ClearNoticeWordState(int text_box, bool selected, bool redraw)
     for (int i = 0; i < 0x15e; ++i) {
         std::vector<W8NoticeWord*>* list = g_message_storage[text_box][i].entries;
         if (list != 0) {
-            unsigned int count = (list ? static_cast<unsigned int>(list->size()) : 0);
+            unsigned int count = (list ? list->size() : 0);
             for (int j = 0; j < static_cast<int>(count); ++j) {
-                W8NoticeWord* word = static_cast<W8NoticeWord*>((list && static_cast<std::size_t>(j) < list->size() ? (*list)[j] : nullptr));
+                W8NoticeWord* word = (*list)[j];
                 if ((word->keyword == W8_NOTICE_WORD_SELECTED) == selected) {
                     word->keyword = W8_NOTICE_WORD_NORMAL;
                     word->redraw = true;
@@ -2353,10 +2353,10 @@ void HighlightNoticeWordAt(int text_box, unsigned short x, unsigned short y)
         if (line < static_cast<int>(g_status.text_box_lines_shown[text_box])) {
             x_base = GetNoticeLineLeft(text_box, line);
             list = g_message_storage[text_box][line].entries;
-            count = (list ? static_cast<unsigned int>(list->size()) : 0);
+            count = (list ? list->size() : 0);
             offset = x - x_base;
             for (int i = 0; i < static_cast<int>(count); ++i) {
-                W8NoticeWord* word = static_cast<W8NoticeWord*>((list && static_cast<std::size_t>(i) < list->size() ? (*list)[i] : nullptr));
+                W8NoticeWord* word = (*list)[i];
                 if (word->x_start <= offset && offset <= word->x_end &&
                     word->keyword != W8_NOTICE_WORD_SELECTED) {
                     word->keyword = W8_NOTICE_WORD_HOVERED;
@@ -2382,10 +2382,10 @@ W8NoticeWord* HitTestNoticeWord(int text_box, unsigned short x, unsigned short y
         if (line < static_cast<int>(g_status.text_box_lines_shown[text_box])) {
             x_base = GetNoticeLineLeft(text_box, line);
             list = g_message_storage[text_box][line].entries;
-            count = (list ? static_cast<unsigned int>(list->size()) : 0);
+            count = (list ? list->size() : 0);
             offset = x - x_base;
             for (int i = 0; i < static_cast<int>(count); ++i) {
-                word = static_cast<W8NoticeWord*>((list && static_cast<std::size_t>(i) < list->size() ? (*list)[i] : nullptr));
+                word = (*list)[i];
                 if (word->x_start <= offset && offset <= word->x_end) {
                     *line_out = line;
                     return word;

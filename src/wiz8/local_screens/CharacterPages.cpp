@@ -237,15 +237,10 @@ W8CharacterPage::W8CharacterPage(int catalog_object)
 W8CharacterPage::~W8CharacterPage()
 {
     DestroyAllControls();
-    while (static_cast<int>(m_entries.size()) > 0) {
-        {
-            const auto erase_index = static_cast<int>(m_entries.size()) - 1;
-            if (static_cast<std::size_t>(erase_index) < m_entries.size()) {
-                auto* object = m_entries[erase_index];
-                m_entries.erase(m_entries.begin() + erase_index);
-                delete object;
-            }
-        }
+    while (!m_entries.empty()) {
+        auto* object = m_entries.back();
+        m_entries.pop_back();
+        delete object;
     }
 }
 
@@ -263,7 +258,7 @@ void W8CharacterPage::Redraw()
 {
     Controls::Redraw();
     for (int index = 0; index < static_cast<int>(m_entries.size()); ++index) {
-        (m_entries[index])->Redraw();
+        m_entries[index]->Redraw();
     }
 }
 
@@ -286,10 +281,7 @@ void W8CharacterPage::Prepare()
 }
 
 // FUNCTION: WIZ8 0x005affc0
-void W8CharacterPage::AddEntry(W8CharacterPageEntry* entry)
-{
-    m_entries.push_back(entry);
-}
+void W8CharacterPage::AddEntry(W8CharacterPageEntry* entry) { m_entries.push_back(entry); }
 
 void W8CharacterPage::HandleInput(InputAtom*) {}
 void W8CharacterPage::Refresh() {}

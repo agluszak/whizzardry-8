@@ -390,7 +390,7 @@ bool AllSpellEffectsStillRunning(void)
     int index;
 
     for (index = 0; index < static_cast<int>(g_spell_effects.size()); ++index) {
-        if ((g_spell_effects[index])->turns_remaining == 0) {
+        if (g_spell_effects[index]->turns_remaining == 0) {
             return false;
         }
     }
@@ -429,7 +429,9 @@ void TickSpellEffects(void)
         if (effect->turns_remaining != 0) {
             --effect->turns_remaining;
             if (effect->turns_remaining == 0 && effect->kind == W8_SPELL_HYPNOTIC_LURE) {
-                for (monster_index = 0; monster_index < (gXStatus.plsMonsterList ? static_cast<unsigned int>(gXStatus.plsMonsterList->size()) : 0);
+                for (monster_index = 0;
+                     monster_index <
+                     (gXStatus.plsMonsterList ? gXStatus.plsMonsterList->size() : 0);
                      ++monster_index) {
                     monster_info = MonsterGetScriptPartByLocationIndex(monster_index);
                     if (monster_info != 0 && !monster_info->p3D->IsDying()) {
@@ -549,10 +551,12 @@ void StartCharacterBreathAttack(int party_slot)
 // FUNCTION: WIZ8 0x00500460
 void AbsorbMissileDamage(W8Missile* missile)
 {
-    for (int effect_index = 0; effect_index < static_cast<int>(g_spell_effects.size()); ++effect_index) {
+    for (int effect_index = 0; effect_index < static_cast<int>(g_spell_effects.size());
+         ++effect_index) {
         W8SpellEffectEntry* effect = g_spell_effects[effect_index];
 
-        for (int missile_index = 0; missile_index < static_cast<int>(effect->missiles.size()); ++missile_index) {
+        for (int missile_index = 0; missile_index < static_cast<int>(effect->missiles.size());
+             ++missile_index) {
             if (effect->missiles[missile_index] == missile) {
                 effect->result.count += missile->result.count;
                 effect->result.amount += missile->result.amount;
@@ -560,11 +564,11 @@ void AbsorbMissileDamage(W8Missile* missile)
                     effect->result.condition_counts[condition] +=
                         missile->result.condition_counts[condition];
                 }
-                while (static_cast<int>(missile->result.reports.size()) >= 1) {
-                    const auto removed_entry = missile->result.reports[0];
-                    missile->result.reports.erase(missile->result.reports.begin() + 0);
-                    effect->result.reports.push_back(removed_entry);
-                }
+                auto& source_reports = missile->result.reports;
+                auto& destination_reports = effect->result.reports;
+                destination_reports.insert(destination_reports.end(), source_reports.begin(),
+                                           source_reports.end());
+                source_reports.clear();
                 return;
             }
         }
@@ -572,10 +576,7 @@ void AbsorbMissileDamage(W8Missile* missile)
 }
 
 // FUNCTION: WIZ8 0x005008a0
-void AddSpellEffect(W8SpellEffectEntry* effect)
-{
-    g_spell_effects.push_back(effect);
-}
+void AddSpellEffect(W8SpellEffectEntry* effect) { g_spell_effects.push_back(effect); }
 
 void FinishSpellEffect(W8SpellEffectEntry* effect);
 
@@ -601,21 +602,23 @@ void UpdateSpellEffects(void)
         W8SpellEffectEntry* effect = g_spell_effects[index];
         bool alive = true;
 
-        for (int visual_index = 0; visual_index < static_cast<int>(effect->spell_visuals.size()) && alive;
+        for (int visual_index = 0;
+             visual_index < static_cast<int>(effect->spell_visuals.size()) && alive;
              ++visual_index) {
             W8SpellVisual* visual = effect->spell_visuals[visual_index];
             if (!visual->finished) {
                 alive = false;
             }
         }
-        for (int missile_index = 0; missile_index < static_cast<int>(effect->missiles.size()) && alive;
-             ++missile_index) {
+        for (int missile_index = 0;
+             missile_index < static_cast<int>(effect->missiles.size()) && alive; ++missile_index) {
             W8Missile* missile = effect->missiles[missile_index];
             if (!missile->flight_done) {
                 alive = false;
             }
         }
-        for (int monster_index = 0; monster_index < static_cast<int>(effect->target_indices.size()) && alive;
+        for (int monster_index = 0;
+             monster_index < static_cast<int>(effect->target_indices.size()) && alive;
              ++monster_index) {
             int entry = effect->target_indices[monster_index];
             if (gXStatus.monster_manager_entries[entry].effect_icon_active) {
@@ -632,8 +635,8 @@ void UpdateSpellEffects(void)
             if (effect->missiles_pending) {
                 W8Missile* missile = 0;
 
-                for (int missile_index = 0; missile_index < static_cast<int>(effect->missiles.size());
-                     ++missile_index) {
+                for (int missile_index = 0;
+                     missile_index < static_cast<int>(effect->missiles.size()); ++missile_index) {
                     missile = effect->missiles[missile_index];
                     missile->block_released = 1;
                     effect->missiles.erase(effect->missiles.begin() + missile_index);
@@ -698,8 +701,8 @@ void UpdateSpellEffects(void)
         if (effect->kind == W8_SPELL_BOILING_BLOOD) {
             FinishSpellEffect(effect);
         }
-        for (int release_visual = 0; release_visual < static_cast<int>(effect->spell_visuals.size());
-             ++release_visual) {
+        for (int release_visual = 0;
+             release_visual < static_cast<int>(effect->spell_visuals.size()); ++release_visual) {
             W8SpellVisual* visual = effect->spell_visuals[release_visual];
             visual->auto_release = true;
             if (effect->sustained) {
@@ -728,7 +731,8 @@ void DetachMissileReferences(W8Missile* missile)
         W8SpellEffectEntry* effect = g_spell_effects[index];
         const auto found = std::ranges::find(effect->missiles, missile);
         const bool was_removed = found != effect->missiles.end();
-        if (was_removed) effect->missiles.erase(found);
+        if (was_removed)
+            effect->missiles.erase(found);
         if (was_removed) {
             return;
         }
@@ -2107,9 +2111,9 @@ void ReportSpellResult(W8SpellEffectEntry* effect)
         }
     }
 
-    while (static_cast<int>(effect->result.reports.size()) > 0) {
+    while (!effect->result.reports.empty()) {
         W8SpellDamageReport* report = effect->result.reports[0];
-        effect->result.reports.erase(effect->result.reports.begin() + 0);
+        effect->result.reports.erase(effect->result.reports.begin());
         if (report != 0) {
             if (report->kind == 1) {
                 SetTextBoxMode(0, -1);
@@ -2143,8 +2147,7 @@ bool ValidateSpellTarget(int party_slot, int spell_id, unsigned int power, bool 
                                &party, 0);
 
     bool valid = true;
-    bool has_targets =
-        spell_id == W8_SPELL_SONIC_BOOM || static_cast<int>(monsters.size()) != 0 || static_cast<int>(party.size()) != 0;
+    bool has_targets = spell_id == W8_SPELL_SONIC_BOOM || !monsters.empty() || !party.empty();
     if (!has_targets) {
         W8SpellTargetType target_type = GetSpellTargetType(spell_id, false);
         has_targets =
@@ -2714,8 +2717,7 @@ finish_difficulty_adjustment:
 // FUNCTION: WIZ8 0x004FB4C0
 int CastSpellFromSource(int spell_id, W8TargetSource* source, W8CombatSlot* target,
                         unsigned int power_level, int power_cast_bonus, unsigned int failure_chance,
-                        bool recast, int* out_power, int cast_kind,
-                        std::vector<int>* party_targets,
+                        bool recast, int* out_power, int cast_kind, std::vector<int>* party_targets,
                         std::vector<int>* monster_targets)
 {
     srVector3T<float> point;
@@ -2977,7 +2979,7 @@ int CastSpellFromSource(int spell_id, W8TargetSource* source, W8CombatSlot* targ
             switch (target_type) {
             case W8_TARGET_TYPE_RADIUS:
                 if (spell_id == W8_SPELL_BOILING_BLOOD_EXPLOSION) {
-                    if (static_cast<int>(party_markers.size()) == 0) {
+                    if (party_markers.empty()) {
                         point.y = target->point.y - g_float_one_thousand;
                         target->point.y = point.y;
                         point.x = target->point.x;
@@ -3058,7 +3060,7 @@ int CastSpellFromSource(int spell_id, W8TargetSource* source, W8CombatSlot* targ
                                                           power_level, monster, 0, 0);
                         owner->AddVisual(visual);
                     }
-                    if (static_cast<int>(party_markers.size()) != 0) {
+                    if (!party_markers.empty()) {
                         for (index = 0; index < static_cast<int>(party_markers.size()); ++index) {
                             if (MonsterCanAimSpell(spell_id)) {
                                 icon_flag = source->fBackfire;
@@ -3099,7 +3101,7 @@ int CastSpellFromSource(int spell_id, W8TargetSource* source, W8CombatSlot* targ
                                                       power_level, monster, 0, 0);
                     owner->AddVisual(visual);
                 }
-                if (static_cast<int>(party_markers.size()) != 0) {
+                if (!party_markers.empty()) {
                     visual = SpawnCameraSpellEffect(g_spell_records[spell_id].resource_name,
                                                     power_level, 0, 0);
                     owner->AddVisual(visual);
@@ -3135,7 +3137,9 @@ int CastSpellFromSource(int spell_id, W8TargetSource* source, W8CombatSlot* targ
                 if (previous->kind == 0x26) {
                     if (previous != 0) {
                         previous->turns_remaining = 0;
-                        for (monster_index = 0; monster_index < (gXStatus.plsMonsterList ? static_cast<unsigned int>(gXStatus.plsMonsterList->size()) : 0);
+                        for (monster_index = 0;
+                             monster_index <
+                             (gXStatus.plsMonsterList ? gXStatus.plsMonsterList->size() : 0);
                              ++monster_index) {
                             monster_info = MonsterGetScriptPartByLocationIndex(monster_index);
                             if (monster_info != 0 && !monster_info->p3D->IsDying()) {
@@ -3154,7 +3158,7 @@ int CastSpellFromSource(int spell_id, W8TargetSource* source, W8CombatSlot* targ
             ProcessSpellEffectTargets(owner);
             if (gXStatus.fNpcDialogueMode || gXStatus.fCampMode) {
                 for (index = 0; index < static_cast<int>(owner->spell_visuals.size()); ++index) {
-                    (owner->spell_visuals[index])->auto_release = '\x01';
+                    owner->spell_visuals[index]->auto_release = '\x01';
                 }
             }
         }
@@ -3440,7 +3444,7 @@ int PickBackfireTarget(int spell_id, W8TargetSource* source, W8CombatSlot* targe
         }
     }
     index = 0;
-    while ((gXStatus.plsMonsterList ? static_cast<unsigned int>(gXStatus.plsMonsterList->size()) : 0) != 0 && index < (gXStatus.plsMonsterList ? static_cast<unsigned int>(gXStatus.plsMonsterList->size()) : 0)) {
+    while (gXStatus.plsMonsterList && index < gXStatus.plsMonsterList->size()) {
         monster_info = MonsterGetScriptPartByLocationIndex(index);
         if (monster_info->fActive && monster_info->fInCombat && monster_info->hp_current != 0 &&
             (!TargetSourceIsMonster(source, 0) ||
@@ -3466,7 +3470,7 @@ int PickBackfireTarget(int spell_id, W8TargetSource* source, W8CombatSlot* targe
         }
     }
     index = 0;
-    while ((gXStatus.plsMonsterList ? static_cast<unsigned int>(gXStatus.plsMonsterList->size()) : 0) != 0 && index < (gXStatus.plsMonsterList ? static_cast<unsigned int>(gXStatus.plsMonsterList->size()) : 0)) {
+    while (gXStatus.plsMonsterList && index < gXStatus.plsMonsterList->size()) {
         monster_info = MonsterGetScriptPartByLocationIndex(index);
         if (monster_info->fActive && monster_info->fInCombat && monster_info->hp_current != 0 &&
             (!TargetSourceIsMonster(source, 0) ||
@@ -3773,8 +3777,8 @@ void PopulateSpellTargetMarkers(int spell_id, int power_level, W8TargetSource* s
                 return;
             }
             index = 0;
-            while ((group->monsters.operator->() ? static_cast<unsigned int>(group->monsters->size()) : 0) != 0 && index < (group->monsters.operator->() ? static_cast<unsigned int>(group->monsters->size()) : 0)) {
-                slot = (group->monsters.operator->() && static_cast<std::size_t>(index) < group->monsters->size() ? (*group->monsters)[index] : -1);
+            while (index < group->MemberIds().size()) {
+                slot = group->MemberLocationId(index);
                 member = MonsterInfoFromID(0x9aa, MAGIC_CPP, slot, true);
                 if (member->ubDisposition == group->ubDisposition) {
                     monster_markers->push_back(slot);
@@ -3839,8 +3843,7 @@ void PopulateSpellTargetMarkers(int spell_id, int power_level, W8TargetSource* s
         }
         CollectConeMonsterTargets(source, &eye, heading, elevation, monster_markers,
                                   static_cast<unsigned char>(side), sight_flag);
-        if (static_cast<int>(monster_markers->size()) == 0 &&
-            (g_combat_state == 0 || !g_combat_state->enemies_engaged) &&
+        if (monster_markers->empty() && (g_combat_state == 0 || !g_combat_state->enemies_engaged) &&
             TargetSourceIsCharacter(source, 0) && static_cast<char>(side) == 1 &&
             !AnyMonsterEngaged()) {
             CollectConeMonsterTargets(source, &eye, heading, elevation, monster_markers, 3,
@@ -3880,8 +3883,7 @@ void PopulateSpellTargetMarkers(int spell_id, int power_level, W8TargetSource* s
         }
         CollectMonstersWithinRadius(&trace, &target_point, monster_markers, radius,
                                     static_cast<char>(side), static_cast<char>(highlighting));
-        if (static_cast<int>(monster_markers->size()) == 0 &&
-            (g_combat_state == 0 || !g_combat_state->enemies_engaged) &&
+        if (monster_markers->empty() && (g_combat_state == 0 || !g_combat_state->enemies_engaged) &&
             TargetSourceIsCharacter(source, 0) && static_cast<char>(side) == 1 &&
             !AnyMonsterEngaged()) {
             CollectMonstersWithinRadius(&trace, &target_point, monster_markers, radius, 3,
@@ -3911,8 +3913,7 @@ void PopulateSpellTargetMarkers(int spell_id, int power_level, W8TargetSource* s
         }
         CollectMonstersWithinRadius(&centre, &eye, monster_markers, radius, static_cast<char>(side),
                                     static_cast<char>(highlighting));
-        if (static_cast<int>(monster_markers->size()) == 0 &&
-            (g_combat_state == 0 || !g_combat_state->enemies_engaged) &&
+        if (monster_markers->empty() && (g_combat_state == 0 || !g_combat_state->enemies_engaged) &&
             TargetSourceIsCharacter(source, 0) && static_cast<char>(side) == 1 &&
             !AnyMonsterEngaged()) {
             CollectMonstersWithinRadius(&centre, &eye, monster_markers, radius, 3,

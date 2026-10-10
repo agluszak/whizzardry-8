@@ -374,10 +374,10 @@ void DestroyNpcDatabase(void)
         for (index = 0; index < gXStatus.uiNpcsInDatabase; ++index) {
             if (g_npc_records[index].item_stock_rules) {
                 std::vector<W8NpcItemStockRule*>* rules = g_npc_records[index].item_stock_rules;
-                while ((rules ? static_cast<unsigned int>(rules->size()) : 0) != 0) {
-                    const auto removed_entry = (*rules)[0];
-                    rules->erase(rules->begin() + 0);
-                    delete static_cast<W8NpcItemStockRule*>(removed_entry);
+                while (!rules->empty()) {
+                    auto* entry = (*rules)[0];
+                    rules->erase(rules->begin());
+                    delete entry;
                 }
                 rules->clear();
                 delete rules;

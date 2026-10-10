@@ -1,3 +1,4 @@
+#include <utility>
 #include "wiz8/filesystem.h"
 #include "wiz8/compat/debug_heap.h"
 #include "wiz8/engine_code/AnimObj.h"
@@ -184,7 +185,7 @@ try
                     if (static_cast<int>(typed->key_frames.size()) == 1) {
                         typed->frame_sums.push_back(frame);
                     } else {
-                        typed->frame_sums.push_back(typed->frame_sums[static_cast<int>(typed->frame_sums.size()) - 1] + frame);
+                        typed->frame_sums.push_back(typed->frame_sums.back() + frame);
                     }
                 }
                 definition = typed;
@@ -221,7 +222,7 @@ try
             PathAISetAnimated(path, 0);
             PathAISetScale(path, animation->playback_scale);
             animation->path = path;
-            animation->frame_count = static_cast<unsigned char>(static_cast<int>(path->nodes->size()));
+            animation->frame_count = static_cast<unsigned char>(path->nodes->size());
         }
     }
     if (version > 9) {
@@ -274,7 +275,8 @@ try
                 if (!success) {
                     srAssertFail("fSuccess", ANIM_OBJ_CPP, 0x20f, 0);
                 }
-                animation->meshes[channel]->insert(animation->meshes[channel]->begin() + entry, mesh);
+                animation->meshes[channel]->insert(animation->meshes[channel]->begin() + entry,
+                                                   mesh);
                 success = LoadPathAI(&path, handle);
                 if (!success) {
                     srAssertFail("fSuccess", ANIM_OBJ_CPP, 0x217, 0);
@@ -283,7 +285,7 @@ try
                 path->discrete_mode = 1;
                 PathAISetAnimated(path, 0);
                 PathAISetScale(path, animation->playback_scale);
-                animation->frame_count = static_cast<unsigned char>(static_cast<int>(path->nodes->size()));
+                animation->frame_count = static_cast<unsigned char>(path->nodes->size());
             }
         }
     }
@@ -352,20 +354,20 @@ W8AnimObj* CloneAnimObj(const W8AnimObj* source)
     for (index = 0; index < 3; ++index) {
         if (source->meshes[index] != 0) {
             copy->meshes[index] = new std::vector<W8AniMesh*>;
-            count = static_cast<int>((source->meshes[index] ? static_cast<unsigned int>(source->meshes[index]->size()) : 0));
+            count = static_cast<int>((source->meshes[index] ? source->meshes[index]->size() : 0));
             for (entry = 0; entry < count; ++entry) {
-                copy->meshes[index]->push_back(CopyAniMesh(static_cast<W8AniMesh*>(
-                                                                       (source->meshes[index] && static_cast<std::size_t>(entry) < source->meshes[index]->size() ? (*source->meshes[index])[entry] : nullptr))));
+                copy->meshes[index]->push_back(
+                    CopyAniMesh(static_cast<W8AniMesh*>((*source->meshes[index])[entry])));
             }
         }
     }
     for (index = 0; index < 3; ++index) {
         if (source->paths[index] != 0) {
             copy->paths[index] = new std::vector<W8PathAI*>;
-            count = static_cast<int>((source->paths[index] ? static_cast<unsigned int>(source->paths[index]->size()) : 0));
+            count = static_cast<int>((source->paths[index] ? source->paths[index]->size() : 0));
             for (entry = 0; entry < count; ++entry) {
-                copy->paths[index]->push_back(ClonePathAI(static_cast<W8PathAI*>(
-                                                                      (source->paths[index] && static_cast<std::size_t>(entry) < source->paths[index]->size() ? (*source->paths[index])[entry] : nullptr))));
+                copy->paths[index]->push_back(
+                    ClonePathAI(static_cast<W8PathAI*>((*source->paths[index])[entry])));
             }
         }
     }
@@ -433,7 +435,7 @@ unsigned char AnimObjGetBounds(W8AnimObj* animation, signed char list_index, uns
         if (animation->path_lists == 0) {
             mesh = animation->entries[list_index];
         } else {
-            mesh = static_cast<W8AniMesh*>((animation->meshes[list_index] && frame & 0xff >= 0 && frame & 0xff < static_cast<int>(animation->meshes[list_index]->size()) ? (*animation->meshes[list_index])[frame & 0xff] : nullptr));
+            mesh = AnimObjEntry(animation, list_index, frame & 0xff);
         }
         return GetAniMeshBounds(mesh, minimum, maximum);
     }
@@ -467,35 +469,24 @@ unsigned char AnimObjGetBounds(W8AnimObj* animation, signed char list_index, uns
     if (animation->meshes[list_index] == 0) {
         count = 0;
     } else {
-        count = (animation->meshes[list_index] ? static_cast<unsigned int>(animation->meshes[list_index]->size()) : 0);
+        count = (animation->meshes[list_index] ? animation->meshes[list_index]->size() : 0);
     }
-    if ((animation->meshes[list_index] && static_cast<std::size_t>(0) < animation->meshes[list_index]->size() ? (*animation->meshes[list_index])[0] : nullptr) == 0) {
+    if (AnimObjEntry(animation, list_index, 0) == 0) {
         return 0;
     }
-    GetAniMeshBounds(static_cast<W8AniMesh*>((animation->meshes[list_index] && static_cast<std::size_t>(0) < animation->meshes[list_index]->size() ? (*animation->meshes[list_index])[0] : nullptr)), minimum,
-                     maximum);
+    GetAniMeshBounds(AnimObjEntry(animation, list_index, 0), minimum, maximum);
     for (index = 0; static_cast<unsigned int>(index) < count; ++index) {
         if (index != 0) {
-            GetAniMeshBounds(static_cast<W8AniMesh*>((animation->meshes[list_index] && static_cast<std::size_t>(index) < animation->meshes[list_index]->size() ? (*animation->meshes[list_index])[index] : nullptr)),
-                             &mesh_minimum, &mesh_maximum);
+            GetAniMeshBounds(AnimObjEntry(animation, list_index, index), &mesh_minimum,
+                             &mesh_maximum);
         }
         if (animation == 0) {
             srAssertFail("pao", ANIM_OBJ_CPP, 0x26c, 0);
         }
-        if (animation->path_lists == 1 && animation->meshes[list_index] != 0 &&
-            (mesh = static_cast<W8AniMesh*>(
-                 (animation->meshes[list_index] && static_cast<signed char>(index) >= 0 && static_cast<signed char>(index) < static_cast<int>(animation->meshes[list_index]->size()) ? (*animation->meshes[list_index])[static_cast<signed char>(index)] : nullptr))) != 0) {
-            mesh->list_index = list_index;
-            instance = GetAniMeshFrame(mesh, 0);
-        } else {
-            instance = 0;
-        }
-        if (animation == 0) {
-            srAssertFail("pao", ANIM_OBJ_CPP, 0x2d3, 0);
-        }
-        if (animation->path_lists != 0 &&
-            (path = static_cast<W8PathAI*>(
-                 (animation->paths[list_index] && static_cast<signed char>(index) >= 0 && static_cast<signed char>(index) < static_cast<int>(animation->paths[list_index]->size()) ? (*animation->paths[list_index])[static_cast<signed char>(index)] : nullptr))) != 0) {
+        instance = static_cast<stModelInstance*>(
+            AnimObjDispatchList(animation, list_index, static_cast<signed char>(index)));
+        path = AnimObjListEntry(animation, list_index, static_cast<signed char>(index));
+        if (path) {
             float saved = PathAIGetValue(path);
 
             PathAISetValue(path, static_cast<float>(index));
@@ -629,31 +620,29 @@ void DestroyAnimObj(W8AnimObj* animation)
             std::vector<W8PathAI*>* paths;
 
             if (meshes != 0) {
-                count = static_cast<int>((meshes ? static_cast<unsigned int>(meshes->size()) : 0));
+                count = static_cast<int>((meshes ? meshes->size() : 0));
                 for (entry = 0; entry < count; ++entry) {
-                    W8AniMesh* mesh = static_cast<W8AniMesh*>((meshes && static_cast<std::size_t>(entry) < meshes->size() ? (*meshes)[entry] : nullptr));
+                    W8AniMesh* mesh = (*meshes)[entry];
 
                     if (mesh != 0) {
                         DestroyAniMesh(mesh);
                     }
-                    count = static_cast<int>((meshes ? static_cast<unsigned int>(meshes->size()) : 0));
+                    count = static_cast<int>((meshes ? meshes->size() : 0));
                 }
                 delete meshes;
-
             }
             paths = animation->paths[index];
             if (paths != 0) {
-                count = static_cast<int>((paths ? static_cast<unsigned int>(paths->size()) : 0));
+                count = static_cast<int>((paths ? paths->size() : 0));
                 for (entry = 0; entry < count; ++entry) {
-                    W8PathAI* path = static_cast<W8PathAI*>((paths && static_cast<std::size_t>(entry) < paths->size() ? (*paths)[entry] : nullptr));
+                    W8PathAI* path = (*paths)[entry];
 
                     if (path != 0) {
                         DestroyPathAI(path);
                     }
-                    count = static_cast<int>((paths ? static_cast<unsigned int>(paths->size()) : 0));
+                    count = static_cast<int>((paths ? paths->size() : 0));
                 }
                 delete paths;
-
             }
         }
     }
@@ -691,7 +680,7 @@ unsigned int AnimObjListCount(W8AnimObj* animation, signed char index)
     }
     list = animation->meshes[index];
     if (list != 0) {
-        return (list ? static_cast<unsigned int>(list->size()) : 0);
+        return list->size();
     }
     return 0;
 }
@@ -705,7 +694,11 @@ W8PathAI* AnimObjListEntry(W8AnimObj* animation, signed char list_index, signed 
     if (animation->path_lists == 0) {
         return 0;
     }
-    return static_cast<W8PathAI*>((animation->paths[list_index] && static_cast<std::size_t>(entry_index) < animation->paths[list_index]->size() ? (*animation->paths[list_index])[entry_index] : nullptr));
+    const auto* paths = animation->paths[list_index];
+    if (!paths || entry_index < 0 || std::cmp_greater_equal(entry_index, paths->size())) {
+        return nullptr;
+    }
+    return (*paths)[entry_index];
 }
 
 // FUNCTION: WIZ8 0x004a1dc0
@@ -734,7 +727,7 @@ srModelInstance* AnimObjDispatch(W8AnimObj* animation, signed char list_index, u
             return GetAniMeshFrame(entry, value);
         }
     } else {
-        entry = static_cast<W8AniMesh*>((animation->meshes[list_index] && static_cast<std::size_t>(0) < animation->meshes[list_index]->size() ? (*animation->meshes[list_index])[0] : nullptr));
+        entry = AnimObjEntry(animation, list_index, 0);
         if (entry != 0) {
             entry->list_index = list_index;
             return GetAniMeshFrame(entry, value);
@@ -755,8 +748,8 @@ srModelInstance* AnimObjDispatchList(W8AnimObj* animation, signed char list_inde
     }
     if (animation->path_lists == 1) {
         list = animation->meshes[list_index];
-        if (list != 0) {
-            entry = static_cast<W8AniMesh*>((list && static_cast<std::size_t>(entry_index) < list->size() ? (*list)[entry_index] : nullptr));
+        if (list && entry_index >= 0 && std::cmp_less(entry_index, list->size())) {
+            entry = (*list)[entry_index];
             if (entry != 0) {
                 entry->list_index = list_index;
                 return GetAniMeshFrame(entry, 0);
@@ -775,7 +768,12 @@ W8AniMesh* AnimObjEntry(W8AnimObj* animation, signed char list_index, unsigned i
     if (animation->path_lists == 0) {
         return animation->entries[list_index];
     }
-    return static_cast<W8AniMesh*>((animation->meshes[list_index] && entry_index & 0xff >= 0 && entry_index & 0xff < static_cast<int>(animation->meshes[list_index]->size()) ? (*animation->meshes[list_index])[entry_index & 0xff] : nullptr));
+    const auto* meshes = animation->meshes[list_index];
+    const auto frame = entry_index & 0xff;
+    if (!meshes || frame >= meshes->size()) {
+        return nullptr;
+    }
+    return (*meshes)[frame];
 }
 
 // FUNCTION: WIZ8 0x004A2220
@@ -809,7 +807,7 @@ stLightDefinition* stKeyframedLightDefinition::Clone() const
 // FUNCTION: WIZ8 0x004a2580
 bool stKeyframedLightDefinition::IsEnabledForSubcycle(unsigned char subcycle)
 {
-    if (key_frames[0] <= time && time <= key_frames[static_cast<int>(key_frames.size()) - 1]) {
+    if (key_frames[0] <= time && time <= key_frames.back()) {
         return true;
     }
     return false;

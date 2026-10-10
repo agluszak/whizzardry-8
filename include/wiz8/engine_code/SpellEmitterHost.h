@@ -30,7 +30,7 @@ public:
     unsigned char unknown_0b4[0x24];
     W8AnimObj* emitters[28];                                       /* 0x0d8 */
     float emitter_playback_scales[28];                             /* 0x148 */
-    std::vector<std::vector<stLight*>*> light_lists[28]; /* 0x1b8 */
+    std::vector<std::vector<stLight*>*> light_lists[28];           /* 0x1b8 */
     /* Set for spawned visuals: UpdateRepresentation then adds the
        camera-facing yaw rotation on top of the mode's orientation. */
     bool billboard;

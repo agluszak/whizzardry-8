@@ -80,7 +80,8 @@ void W8Searchable::Reveal()
         trigger->Run(-1);
         trigger->flags |= W8_TRIGGER_SEARCHED;
     }
-    if (const auto found = std::ranges::find(g_searchables, this); found != g_searchables.end()) g_searchables.erase(found);
+    if (const auto found = std::ranges::find(g_searchables, this); found != g_searchables.end())
+        g_searchables.erase(found);
     delete this;
 }
 
@@ -119,7 +120,7 @@ W8SearchableView* CollectSearchablesInView(void)
             }
         }
     }
-    return static_cast<int>(g_search_view.items.size()) != 0 ? &g_search_view : 0;
+    return !g_search_view.items.empty() ? &g_search_view : 0;
 }
 
 /* Register one searchable world item. The item pointer lands in the record's
@@ -153,7 +154,9 @@ void UnregisterSearchableTrigger(Trigger* trigger)
     for (int index = 0; index < static_cast<int>(g_searchables.size()); ++index) {
         W8Searchable* searchable = g_searchables[index];
         if (searchable->trigger == trigger) {
-            if (const auto found = std::ranges::find(g_searchables, searchable); found != g_searchables.end()) g_searchables.erase(found);
+            if (const auto found = std::ranges::find(g_searchables, searchable);
+                found != g_searchables.end())
+                g_searchables.erase(found);
             delete searchable;
             return;
         }
@@ -196,10 +199,7 @@ void W8Searchable::GetPosition(srVector3T<float>* position)
 }
 
 // FUNCTION: WIZ8 0x005171b0
-void ClearSearchables()
-{
-    g_searchables.clear();
-}
+void ClearSearchables() { g_searchables.clear(); }
 
 /* The 500ms search sweep: while nothing is interacting or surprising the
    party, walk the in-view searchables, pick the best searcher for each, queue

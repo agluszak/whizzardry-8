@@ -406,7 +406,9 @@ void UpdateWorldMissiles(W8World* world)
                 missile->UpdateRepresentation(world);
                 missile->UpdateNavigation(0, false);
             } else {
-                if (const auto found = std::ranges::find((*world->missiles), missile); found != world->missiles->end()) world->missiles->erase(found);
+                if (const auto found = std::ranges::find((*world->missiles), missile);
+                    found != world->missiles->end())
+                    world->missiles->erase(found);
                 missile->DestroyMissile();
                 --index;
                 --count;
@@ -818,9 +820,9 @@ W8MissileRep::W8MissileRep(const W8MissileRep& other)
     for (emitter = 0; emitter < 2; ++emitter) {
         int list_index;
 
-        for (list_index = 0; list_index < static_cast<int>(other.light_lists[emitter].size()); ++list_index) {
-            std::vector<stLight*>* source_lights =
-                other.light_lists[emitter][list_index];
+        for (list_index = 0; list_index < static_cast<int>(other.light_lists[emitter].size());
+             ++list_index) {
+            std::vector<stLight*>* source_lights = other.light_lists[emitter][list_index];
             std::vector<stLight*>* copied_lights =
                 CloneAnimationLightList(source_lights, MISSILE_CPP, 0x184, 0x18c);
             light_lists[emitter].push_back(copied_lights);
@@ -850,7 +852,7 @@ unsigned char W8MissileRep::ReadCycleData(W8ReadLevelInfo* info, W8Missile* miss
     success = AnimObjReadFromFile(info, animation, 1, lights, 1);
     emitter = static_cast<signed char>(animation->cycle);
 
-    if (static_cast<int>(lights->size()) == 0) {
+    if (lights->empty()) {
         delete lights;
         lights = 0;
     } else {
@@ -1018,9 +1020,8 @@ void W8Missile::DestroyMissile()
         int count = static_cast<int>(m_plsLights->size());
 
         while (count != 0) {
-            const auto removed_entry = (*m_plsLights)[0];
-            m_plsLights->erase(m_plsLights->begin() + 0);
-            stLight* light = removed_entry;
+            stLight* light = (*m_plsLights)[0];
+            m_plsLights->erase(m_plsLights->begin());
             WorldRemoveLight(g_world, light);
             --count;
         }
@@ -1037,13 +1038,15 @@ void W8Missile::DestroyMissile()
 // FUNCTION: WIZ8 0x004a4210
 void DestroyAllMissiles(W8World* world)
 {
-    while (static_cast<int>(world->missiles->size()) != 0) {
+    while (!world->missiles->empty()) {
         W8Missile* missile = (*world->missiles)[0];
 
         if (missile == 0) {
             srAssertFail("pMissile", MISSILE_CPP, 0x4ab, 0);
         }
-        if (const auto found = std::ranges::find((*g_world->missiles), missile); found != g_world->missiles->end()) g_world->missiles->erase(found);
+        if (const auto found = std::ranges::find((*g_world->missiles), missile);
+            found != g_world->missiles->end())
+            g_world->missiles->erase(found);
         missile->DestroyMissile();
     }
 }
@@ -1065,7 +1068,8 @@ W8MissileRep::~W8MissileRep()
     for (emitter = 0; emitter < 2; ++emitter) {
         int light_list;
 
-        for (light_list = 0; light_list < static_cast<int>(light_lists[emitter].size()); ++light_list) {
+        for (light_list = 0; light_list < static_cast<int>(light_lists[emitter].size());
+             ++light_list) {
             DestroyLightVector(light_lists[emitter][light_list]);
         }
         light_lists[emitter].clear();

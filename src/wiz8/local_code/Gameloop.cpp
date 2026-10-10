@@ -148,8 +148,8 @@ void GameLoop(void)
     }
     if (g_pending_screen_state.id != W8_SCREEN_NONE && g_pending_screen_state.id != state) {
         /* Retail tests only the low byte of the count. */
-        if (static_cast<unsigned char>(static_cast<int>(gXStatus.character_event_queue->active_events.size())) !=
-            0) {
+        if (static_cast<unsigned char>(
+                static_cast<int>(gXStatus.character_event_queue->active_events.size())) != 0) {
             gXStatus.character_event_queue->CompleteFirstActiveEvent();
             state = g_current_screen_state.id;
         }

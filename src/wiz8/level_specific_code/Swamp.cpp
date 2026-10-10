@@ -121,7 +121,7 @@ static bool SwampGasFireSpawn(Trigger* pTrigger)
                    g_double_quarter);
     position = center;
     group = SpawnMonsters(0x1b5, 1, &position, 0, true, false, false);
-    index = (group->monsters.operator->() && static_cast<std::size_t>(0) < group->monsters->size() ? (*group->monsters)[0] : -1);
+    index = group->MemberLocationId(0);
     if (index != 0) {
         monster_info = MonsterGetScriptPartByLocationIndex(
             MonsterGetIndexByLocationID(0x8f, SWAMP_CPP, index, true));
@@ -135,7 +135,7 @@ static bool SwampGasFireSpawn(Trigger* pTrigger)
             look_target.y += monster_info->p3D->movement.height_offset;
             g_gd_camera->LookAt(&look_target, false);
             g_npc_dialogue_closed = false;
-            g_master_functions->push_back(SwampGasFireItemDrop);
+            g_master_functions.push_back(SwampGasFireItemDrop);
         }
     }
     npc = FindNpcBindingForMonster(MonsterGetIndexByLocationID(0xa3, SWAMP_CPP, index, true));
@@ -157,7 +157,7 @@ static void SwampGasFireItemDrop(int command)
     if (command != 0) {
         if (command == static_cast<int>(0xEFFFFFFF)) {
             g_npc_dialogue_closed = false;
-            g_master_functions->push_back(SwampGasFireItemDrop);
+            g_master_functions.push_back(SwampGasFireItemDrop);
         }
         return;
     }

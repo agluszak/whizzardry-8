@@ -449,7 +449,7 @@ try
     chunks.OpenChunk(0x54584554, 0); /* TEXT */
     SaveMessageStorage(chunks.m_hFile.get());
     chunks.ReleaseCurrentChunk();
-    if (static_cast<int>(g_location_variable_values.size()) != 0) {
+    if (!g_location_variable_values.empty()) {
         chunks.OpenChunk(0x52415654, 0); /* TVAR */
         SaveLocationVariables(chunks.m_hFile.get());
         chunks.ReleaseCurrentChunk();
@@ -631,7 +631,7 @@ try
     chunks->ReleaseCurrentChunk();
 
     chunks->OpenChunk(0x4d455449, 0); /* ITEM */
-    count = (gXStatus.plsItemList ? static_cast<unsigned int>(gXStatus.plsItemList->size()) : 0);
+    count = (gXStatus.plsItemList ? gXStatus.plsItemList->size() : 0);
     chunks->Write(&count, sizeof(count), 0);
     for (index = 0; index < count; ++index) {
         if (!SaveItemFile(chunks->m_hFile.get(), ItemInfo(index))) {
@@ -669,7 +669,7 @@ try
     SaveAutomapNotes(chunks->m_hFile.get());
     chunks->ReleaseCurrentChunk();
 
-    if (static_cast<int>(g_world->triggers->size()) != 0) {
+    if (!g_world->triggers->empty()) {
         chunks->OpenChunk(0x47495254, 0); /* TRIG */
         SaveWorldTriggers(g_world, chunks->m_hFile.get());
         chunks->ReleaseCurrentChunk();
@@ -724,12 +724,14 @@ try
     W8MonsterGroup* group;
 
     group_count =
-        (gXStatus.plsMonsterGroupList ? static_cast<unsigned int>(gXStatus.plsMonsterGroupList->size()) : 0) + (gXStatus.plsMonsterGroupEncounterList ? static_cast<unsigned int>(gXStatus.plsMonsterGroupEncounterList->size()) : 0);
-    monster_count = (gXStatus.plsMonsterList ? static_cast<unsigned int>(gXStatus.plsMonsterList->size()) : 0) + (gXStatus.plsUnbornMonsterList ? static_cast<unsigned int>(gXStatus.plsUnbornMonsterList->size()) : 0);
+        (gXStatus.plsMonsterGroupList ? gXStatus.plsMonsterGroupList->size() : 0) +
+        (gXStatus.plsMonsterGroupEncounterList ? gXStatus.plsMonsterGroupEncounterList->size() : 0);
+    monster_count = (gXStatus.plsMonsterList ? gXStatus.plsMonsterList->size() : 0) +
+                    (gXStatus.plsUnbornMonsterList ? gXStatus.plsUnbornMonsterList->size() : 0);
     chunks->Write(&group_count, 4, 0);
     chunks->Write(&monster_count, 4, 0);
     for (index = 0; index < group_count; ++index) {
-        if (index < (gXStatus.plsMonsterGroupList ? static_cast<unsigned int>(gXStatus.plsMonsterGroupList->size()) : 0)) {
+        if (index < (gXStatus.plsMonsterGroupList ? gXStatus.plsMonsterGroupList->size() : 0)) {
             unsigned char encountered;
 
             group = GetMonsterGroupByListIndex(index);
@@ -740,13 +742,15 @@ try
             record_size = 0x12b;
             chunks->Write(&record_size, 4, 0);
             chunks->Write(group, record_size, 0);
-            encountered = (std::ranges::find((*gXStatus.plsMonsterGroupEncounterList), group) != gXStatus.plsMonsterGroupEncounterList->end());
+            encountered = (std::ranges::find((*gXStatus.plsMonsterGroupEncounterList), group) !=
+                           gXStatus.plsMonsterGroupEncounterList->end());
             chunks->Write(&encountered, 1, 0);
         } else {
             unsigned char encountered;
 
-            group =
-                GetMonsterGroupByListIndex(index - (gXStatus.plsMonsterGroupList ? static_cast<unsigned int>(gXStatus.plsMonsterGroupList->size()) : 0) + 0x2710);
+            group = GetMonsterGroupByListIndex(
+                index - (gXStatus.plsMonsterGroupList ? gXStatus.plsMonsterGroupList->size() : 0) +
+                0x2710);
             if (group == 0) {
                 goto fail;
             }
@@ -754,17 +758,21 @@ try
             record_size = 0x12b;
             chunks->Write(&record_size, 4, 0);
             chunks->Write(group, record_size, 0);
-            encountered = (std::ranges::find((*gXStatus.plsMonsterGroupEncounterList), group) != gXStatus.plsMonsterGroupEncounterList->end());
+            encountered = (std::ranges::find((*gXStatus.plsMonsterGroupEncounterList), group) !=
+                           gXStatus.plsMonsterGroupEncounterList->end());
             chunks->Write(&encountered, 1, 0);
         }
     }
     for (index = 0; index < monster_count; ++index) {
-        if (index < (gXStatus.plsMonsterList ? static_cast<unsigned int>(gXStatus.plsMonsterList->size()) : 0)) {
+        if (index < (gXStatus.plsMonsterList ? gXStatus.plsMonsterList->size() : 0)) {
             if (!SaveMonsterRecord(chunks, index)) {
                 goto fail;
             }
         } else {
-            if (!SaveMonsterRecord(chunks, index - (gXStatus.plsMonsterList ? static_cast<unsigned int>(gXStatus.plsMonsterList->size()) : 0) + 0x2710)) {
+            if (!SaveMonsterRecord(
+                    chunks, index -
+                                (gXStatus.plsMonsterList ? gXStatus.plsMonsterList->size() : 0) +
+                                0x2710)) {
                 goto fail;
             }
         }
@@ -836,7 +844,8 @@ try
             chunks->Write(&script_flag, 1, 0);
         }
     }
-    unborn = (std::ranges::find((*gXStatus.plsUnbornMonsterList), info) != gXStatus.plsUnbornMonsterList->end());
+    unborn = (std::ranges::find((*gXStatus.plsUnbornMonsterList), info) !=
+              gXStatus.plsUnbornMonsterList->end());
     chunks->Write(&unborn, 1, 0);
     monster = info->p3D;
     monster->SaveMovementState(chunks->m_hFile.get());
@@ -1329,10 +1338,8 @@ try
         monster->SetScript(script_name, false);
         monster->script_wait = script_wait;
         monster->script_line = script_line;
-        while (static_cast<int>(script_conditions.size()) != 0) {
-            monster->script_conditions.push_back(script_conditions[0]);
-            script_conditions.erase(script_conditions.begin() + 0);
-        }
+        monster->script_conditions.insert(monster->script_conditions.end(),
+                                          script_conditions.begin(), script_conditions.end());
     }
     if (record->deleted != 0) {
         RemoveMonster(list_index, true);
@@ -1373,10 +1380,9 @@ void ResetLiveSessionForLoad(void)
     ResetMainGameScreenState();
     ClearNpcMessageQueue();
     ResetMainScreenStateBlock();
-    for (auto index = g_spell_effects.size(); index-- > 0;) {
-        if (index >= g_spell_effects.size()) continue;
-        auto* object = g_spell_effects[index];
-        g_spell_effects.erase(g_spell_effects.begin() + index);
+    while (!g_spell_effects.empty()) {
+        auto* object = g_spell_effects.back();
+        g_spell_effects.pop_back();
         delete object;
     }
     ReleaseAllTriggers();

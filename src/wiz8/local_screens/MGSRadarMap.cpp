@@ -197,10 +197,9 @@ void ReleaseRadarMap(void)
     for (int sector = 0; sector < 18; ++sector) {
         std::vector<stModelInstance2D*>* pool = &g_radar_icon_pools[sector];
 
-        while (static_cast<int>(pool->size()) != 0) {
-            const auto removed_entry = (*pool)[0];
-            pool->erase(pool->begin() + 0);
-            stModelInstance2D* icon = removed_entry;
+        while (!pool->empty()) {
+            stModelInstance2D* icon = (*pool)[0];
+            pool->erase(pool->begin());
             if (icon != 0) {
                 icon->release();
             }

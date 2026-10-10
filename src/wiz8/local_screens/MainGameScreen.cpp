@@ -2801,12 +2801,13 @@ void W8NpcDialogueTextController::RestoreTranscriptEntries()
     W8NpcDialogueTextController* controller;
     int index;
 
-    for (index = 0; index < static_cast<int>(g_npc_interaction_state->dialogue_transcript.size()); ++index) {
+    for (index = 0; index < static_cast<int>(g_npc_interaction_state->dialogue_transcript.size());
+         ++index) {
         record = g_npc_interaction_state->dialogue_transcript[index];
         AddTranscriptEntry(record->text, record->category, 0);
     }
     Invalidate(0);
-    if (static_cast<int>(g_npc_interaction_state->dialogue_transcript.size()) == 0) {
+    if (g_npc_interaction_state->dialogue_transcript.empty()) {
         g_npc_interaction_state->dialogue_category_filter = W8_DIALOGUE_CATEGORY_ALL;
         controller =
             static_cast<W8NpcDialogueTextController*>(g_npc_interaction_state->dialogue_panels[2]);
@@ -3323,7 +3324,7 @@ render_world:
         }
         ProcessMonsterManagerFrame();
         if (g_debug_monster_cycle) {
-            W8Monster* monster = GetMonsterByLocationID((static_cast<std::size_t>(0) < g_mipe_state->monster_ids.size() ? g_mipe_state->monster_ids[0] : -1));
+            W8Monster* monster = GetMonsterByLocationID(g_mipe_state->SelectedMonsterLocationId());
             if (monster) {
                 ClearSurfaceRect(0x122, 0x159, 0x226, 0x168);
                 SetFont(g_wiz_text_font_secondary);
@@ -3969,7 +3970,7 @@ void RedrawCombatMonsterList(void)
     if (gXStatus.active_monster_count != 0) {
         SetFont(g_wiz_text_font_secondary);
         group_list_index = 0;
-        list_length = (gXStatus.plsMonsterGroupList ? static_cast<unsigned int>(gXStatus.plsMonsterGroupList->size()) : 0);
+        list_length = (gXStatus.plsMonsterGroupList ? gXStatus.plsMonsterGroupList->size() : 0);
         if (list_length != 0) {
             do {
                 monster_group = GetMonsterGroupByListIndex(group_list_index);
@@ -4030,7 +4031,8 @@ void RedrawCombatMonsterList(void)
                     }
                 }
                 ++group_list_index;
-                list_length = (gXStatus.plsMonsterGroupList ? static_cast<unsigned int>(gXStatus.plsMonsterGroupList->size()) : 0);
+                list_length =
+                    (gXStatus.plsMonsterGroupList ? gXStatus.plsMonsterGroupList->size() : 0);
             } while (group_list_index < list_length);
         }
     }

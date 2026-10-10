@@ -6,8 +6,7 @@
 #include "wiz8/mgs_commands.h"
 #include "surrender/srMath.h"
 #include <vector>
-#include <algorithm>
-#include "wiz8/index_algorithms.h"
+#include <unordered_map>
 
 #pragma pack(push, 1)
 struct MGSKeyBinding {
@@ -37,8 +36,8 @@ public:
     unsigned char LoadDefaults(const char* path);
 
 private:
-    std::vector<MGSKeyBinding*> m_bindings;
-    std::unordered_map<unsigned int, MGSKeyBinding*> m_command_index;
+  std::vector<MGSKeyBinding*> m_bindings;
+  std::unordered_map<unsigned int, MGSKeyBinding*> m_command_index;
 };
 
 W8_ABI_ASSERT(sizeof(MGSKeyboard) == 0x24, "MGSKeyboard_size");

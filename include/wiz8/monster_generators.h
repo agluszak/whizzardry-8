@@ -10,11 +10,11 @@
 struct W8EncounterTableRuntime {
     ~W8EncounterTableRuntime();
 
-    std::vector<unsigned short> species_ids;    /* 0x000 */
-    std::vector<unsigned char> rarity_class;    /* 0x010: 3, 7, 20, or 70 */
-    std::vector<unsigned char> time_condition;  /* 0x020 */
-    std::vector<unsigned char> challenge_level; /* 0x030: 1 through 50 */
-    std::vector<W8EncounterScriptName*> script_names;   /* 0x040 */
+    std::vector<unsigned short> species_ids;          /* 0x000 */
+    std::vector<unsigned char> rarity_class;          /* 0x010: 3, 7, 20, or 70 */
+    std::vector<unsigned char> time_condition;        /* 0x020 */
+    std::vector<unsigned char> challenge_level;       /* 0x030: 1 through 50 */
+    std::vector<W8EncounterScriptName*> script_names; /* 0x040 */
     char name[256];                                  /* 0x050 */
     unsigned int category;           /* 0x150: encounter category; MIPE filters on it */
     unsigned char version_two_flags; /* 0x154 */

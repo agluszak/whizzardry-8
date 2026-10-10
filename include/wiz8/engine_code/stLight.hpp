@@ -145,7 +145,7 @@ public:
     std::vector<int> frame_sums;
     std::vector<int> key_frames;
     std::vector<float> key_intensities;
-    std::vector<srVector3T<float> > key_colors;
+    std::vector<srVector3T<float>> key_colors;
     int keyframe_index;
     float time;
     int start_frame;
@@ -257,8 +257,8 @@ void LoadLightStates(wiz8::File* handle);
 /* Animation copies retain per-light position before assignment, detach the new
    light and register it with the world before adding it to the owned list. */
 inline std::vector<stLight*>* CloneAnimationLightList(std::vector<stLight*>* source,
-                                                           const char* file, int list_line,
-                                                           int light_line)
+                                                      const char* file, int list_line,
+                                                      int light_line)
 {
     std::vector<stLight*>* copy = 0;
     if (source != 0) {

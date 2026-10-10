@@ -23,10 +23,10 @@ struct W8Chunk {
     std::unique_ptr<wiz8::File> m_hFile;                            /* 0x00 */
     bool m_fWriting;                        /* 0x04 */
     unsigned char padding_05[3];            /* 0x05 */
-    std::vector<W8ChunkHead*> m_heads;         /* 0x08 */
-    std::vector<int> m_group_counts;   /* 0x18 */
-    std::vector<int> m_offsets;        /* 0x28 */
-    std::vector<int> m_group_progress; /* 0x38 */
+    std::vector<W8ChunkHead*> m_heads;      /* 0x08 */
+    std::vector<int> m_group_counts;        /* 0x18 */
+    std::vector<int> m_offsets;             /* 0x28 */
+    std::vector<int> m_group_progress;      /* 0x38 */
 
     W8Chunk();
     ~W8Chunk();

@@ -536,7 +536,7 @@ void ProcessNpcScriptingFrame(void)
                 return;
             }
         }
-        if (static_cast<int>(g_npc_scripting.message_lines.size()) == 0) {
+        if (g_npc_scripting.message_lines.empty()) {
             if (g_npc_scripting.restore_staged_session) {
                 g_npc_scripting.staging_restore.staged_short = g_staged_short;
                 g_npc_scripting.quote_active = g_staged_flag;
@@ -873,7 +873,7 @@ bool ShouldDeferCharacterEventForNpcScript(bool require_group_entry)
         return false;
     }
     if (g_npc_scripting.quote_active == 0 && !g_npc_scripting.portrait_message_active &&
-        static_cast<int>(g_npc_scripting.message_lines.size()) == 0) {
+        g_npc_scripting.message_lines.empty()) {
         return false;
     }
     if (g_npc_scripting.npc == 0) {
@@ -886,10 +886,7 @@ bool ShouldDeferCharacterEventForNpcScript(bool require_group_entry)
 }
 
 // FUNCTION: WIZ8 0x00525E50
-bool IsMessageBoxLineQueueEmpty(void)
-{
-    return static_cast<int>(g_npc_scripting.message_lines.size()) == 0;
-}
+bool IsMessageBoxLineQueueEmpty(void) { return g_npc_scripting.message_lines.empty(); }
 
 // FUNCTION: WIZ8 0x00525E60
 int ComputePortraitMessageDuration(wchar_t* text)
@@ -1012,11 +1009,13 @@ void RunNpcScriptLine(int script_line, bool force_npc_voice)
                     close_dialogue_extra.text = 0;
                     AddMessageBoxLine(W8_NPC_MSG_CLOSE_DIALOGUE, close_dialogue_payload,
                                       close_dialogue_extra);
-                    for (index = 0; index < static_cast<int>(g_npc_scripting.message_lines.size()); index++) {
+                    for (index = 0; index < static_cast<int>(g_npc_scripting.message_lines.size());
+                         index++) {
                         line = g_npc_scripting.message_lines[index];
                         if (line->type == W8_NPC_MSG_SHOW_DIALOGUE_PANEL) {
                             delete line;
-                            g_npc_scripting.message_lines.erase(g_npc_scripting.message_lines.begin() + index);
+                            g_npc_scripting.message_lines.erase(
+                                g_npc_scripting.message_lines.begin() + index);
                             break;
                         }
                     }
@@ -1341,12 +1340,14 @@ void ProcessMessageBoxQueue(void)
         if (g_message_queue_idle) {
             g_message_queue_idle = false;
             if (g_npc_scripting.npc->record->voice_script == 0) {
-                for (index = 0; index < static_cast<int>(g_npc_scripting.message_lines.size()); ++index) {
+                for (index = 0; index < static_cast<int>(g_npc_scripting.message_lines.size());
+                     ++index) {
                     W8MessageBoxLine* queued = g_npc_scripting.message_lines[index];
                     if (queued->type == W8_NPC_MSG_QUOTE &&
                         static_cast<char>(queued->suppress_entries) == 0) {
                         for (int pending = 0;
-                             pending < static_cast<int>(g_npc_scripting.pending_script_values.size());
+                             pending <
+                             static_cast<int>(g_npc_scripting.pending_script_values.size());
                              ++pending) {
                             if (*g_npc_scripting.pending_script_values[pending] ==
                                 queued->quote_index) {
@@ -1371,7 +1372,8 @@ void ProcessMessageBoxQueue(void)
                     }
                 }
             }
-            for (index = 0; index < static_cast<int>(g_npc_scripting.pending_script_values.size()); ++index) {
+            for (index = 0; index < static_cast<int>(g_npc_scripting.pending_script_values.size());
+                 ++index) {
                 delete g_npc_scripting.pending_script_values[index];
             }
             g_npc_scripting.pending_script_values.clear();
@@ -1397,7 +1399,9 @@ void ProcessMessageBoxQueue(void)
                     RunNpcScriptLine(0x12, false);
                     g_npc_interaction_state->script_busy = 0xff;
                     QueueNpcQuoteEntry(&quote->entries[index], line->quote_index, true);
-                    if (const auto found = std::ranges::find(g_npc_scripting.message_lines, line); found != g_npc_scripting.message_lines.end()) g_npc_scripting.message_lines.erase(found);
+                    if (const auto found = std::ranges::find(g_npc_scripting.message_lines, line);
+                        found != g_npc_scripting.message_lines.end())
+                        g_npc_scripting.message_lines.erase(found);
                     delete line;
                     return;
                 }
@@ -1406,7 +1410,9 @@ void ProcessMessageBoxQueue(void)
         if (script != 0) {
             RunNpcScriptLine(line->quote_index, false);
         }
-        if (const auto found = std::ranges::find(g_npc_scripting.message_lines, line); found != g_npc_scripting.message_lines.end()) g_npc_scripting.message_lines.erase(found);
+        if (const auto found = std::ranges::find(g_npc_scripting.message_lines, line);
+            found != g_npc_scripting.message_lines.end())
+            g_npc_scripting.message_lines.erase(found);
         delete line;
         return;
     }
@@ -1829,7 +1835,7 @@ void ProcessMessageBoxQueue(void)
         srVector3T<float> position;
         if (FindEntityByName("NP_DS1", &position, 0, 0)) {
             W8MonsterGroup* group = SpawnMonsters(0x234, 1, &position, 0, true, false, false);
-            int location_id = (group->monsters.operator->() && static_cast<std::size_t>(0) < group->monsters->size() ? (*group->monsters)[0] : -1);
+            int location_id = group->MemberLocationId(0);
             if (location_id != 0) {
                 unsigned int monster_index = MonsterGetIndexByLocationID(
                     0xa9e, "C:\\Projects\\Wizardry 8\\Local Code\\NPC Scripting.cpp", location_id,
@@ -1878,7 +1884,7 @@ void ProcessMessageBoxQueue(void)
             srVector3T<float> position;
             if (FindEntityByName("NP_VI1", &position, 0, 0)) {
                 W8MonsterGroup* group = SpawnMonsters(0x1b9, 1, &position, 2, true, false, false);
-                int location_id = (group->monsters.operator->() && static_cast<std::size_t>(0) < group->monsters->size() ? (*group->monsters)[0] : -1);
+                int location_id = group->MemberLocationId(0);
                 if (location_id != 0) {
                     unsigned int monster_index = MonsterGetIndexByLocationID(
                         0xafc, "C:\\Projects\\Wizardry 8\\Local Code\\NPC Scripting.cpp",
@@ -2030,7 +2036,9 @@ void ProcessMessageBoxQueue(void)
     }
     }
 
-    if (const auto found = std::ranges::find(g_npc_scripting.message_lines, line); found != g_npc_scripting.message_lines.end()) g_npc_scripting.message_lines.erase(found);
+    if (const auto found = std::ranges::find(g_npc_scripting.message_lines, line);
+        found != g_npc_scripting.message_lines.end())
+        g_npc_scripting.message_lines.erase(found);
     delete line;
 }
 
@@ -2056,7 +2064,7 @@ void QueueNpcScriptLine(int quote, bool mark_pending, bool prepend, bool suppres
     if (!prepend) {
         g_npc_scripting.message_lines.push_back(msg_line);
     } else {
-        g_npc_scripting.message_lines.insert(g_npc_scripting.message_lines.begin() + 0, msg_line);
+        g_npc_scripting.message_lines.insert(g_npc_scripting.message_lines.begin(), msg_line);
     }
 }
 
@@ -2207,7 +2215,7 @@ void QueueNpcQuoteEntry(W8NpcQuoteEntry* entry, int continuation_quote, bool pre
     if (!prepend) {
         g_npc_scripting.message_lines.push_back(line);
     } else {
-        g_npc_scripting.message_lines.insert(g_npc_scripting.message_lines.begin() + 0, line);
+        g_npc_scripting.message_lines.insert(g_npc_scripting.message_lines.begin(), line);
     }
 }
 
@@ -2522,7 +2530,7 @@ void ResolveSedexusCapture(void)
     SetTriggerVariableByName("LezboDemonAppeared", 0);
     if (FindEntityByName("np_al-adryian51", &position, 0, 0)) {
         group = SpawnMonsters(0xd8, 1, &position, 2, true, false, false);
-        location_id = (group->monsters.operator->() && static_cast<std::size_t>(0) < group->monsters->size() ? (*group->monsters)[0] : -1);
+        location_id = group->MemberLocationId(0);
         if (location_id != 0) {
             monster_list_index = MonsterGetIndexByLocationID(
                 0x10e0, "C:\\Projects\\Wizardry 8\\Local Code\\NPC Scripting.cpp", location_id,
@@ -2557,7 +2565,7 @@ void NpcScriptHenchmanArrives(W8Monster* monster)
     if (FindEntityByName("NP_HENCHMEN", &position, 0, 0)) {
         PointCameraAtTarget(&position, false, true);
         W8MonsterGroup* group = SpawnMonsters(0xdc, 1, &position, 2, true, false, false);
-        int location_id = (group->monsters.operator->() && static_cast<std::size_t>(0) < group->monsters->size() ? (*group->monsters)[0] : -1);
+        int location_id = group->MemberLocationId(0);
         if (location_id != 0) {
             W8MonsterInfo* monster_info =
                 MonsterGetScriptPartByLocationIndex(MonsterGetIndexByLocationID(

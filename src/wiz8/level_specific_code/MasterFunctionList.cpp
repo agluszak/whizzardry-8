@@ -65,7 +65,7 @@
 static W8WorldCursorNode* g_active_cursor_node;
 
 // GLOBAL: WIZ8 0x006834d8
-std::vector<W8MasterFunction>* g_master_functions;
+std::vector<W8MasterFunction> g_master_functions;
 // GLOBAL: WIZ8 0x006834dc
 bool g_remove_current_master_function;
 
@@ -79,12 +79,12 @@ const float g_sound_node_full_volume = 127.0f;
 // FUNCTION: WIZ8 0x004D8E40
 void RunMasterFunctions(void)
 {
-    int count = static_cast<int>(g_master_functions->size());
+    int count = static_cast<int>(g_master_functions.size());
 
     for (int index = 0; index < count; ++index) {
-        ((*g_master_functions)[index])(0);
+        g_master_functions[index](0);
         if (g_remove_current_master_function) {
-            g_master_functions->erase(g_master_functions->begin() + index);
+            g_master_functions.erase(g_master_functions.begin() + index);
             --count;
             --index;
         }
@@ -97,10 +97,10 @@ void RunMasterFunctions(void)
 // FUNCTION: WIZ8 0x004D8EC0
 void SaveMasterFunctions(void)
 {
-    int count = static_cast<int>(g_master_functions->size());
+    int count = static_cast<int>(g_master_functions.size());
 
     for (int index = 0; index < count; ++index) {
-        ((*g_master_functions)[index])(-1);
+        g_master_functions[index](-1);
     }
 }
 
@@ -655,25 +655,7 @@ void InitializeLevelMasterFunctions(int level)
 {
     Trigger* pTrigger;
 
-    if (g_master_functions == 0) {
-        g_master_functions = new std::vector<W8MasterFunction>();
-    } else {
-        /* Retail caches the count and removes one entry per iteration; the
-           clearing loop leaves it at zero. */
-        int count = static_cast<int>(g_master_functions->size());
-        for (int index = 0; index < count; ++index) {
-            g_master_functions->erase(g_master_functions->begin() + 0);
-        }
-    }
-    /* Retail still walks the now-empty vector from the top and deletes each
-       unlinked entry; the loop cannot run, but its instructions are present,
-       so it is preserved rather than dropped. */
-    for (int index = static_cast<int>(g_master_functions->size()) - 1; index >= 0; --index) {
-        const auto removed_entry = (*g_master_functions)[index];
-        g_master_functions->erase(g_master_functions->begin() + index);
-        void* entry = reinterpret_cast<void*>(removed_entry); /* reinterpret-ok: function entry stored as data */
-        operator delete(entry);
-    }
+    g_master_functions.clear();
     g_running_trigger_from_script = false;
     g_npc_dialogue_closed = true;
     g_sea_caves_slope_override_enabled = false;

@@ -122,8 +122,8 @@ W8CameraShakeEffect* CreateCameraShakeEffect(float duration, bool preset, float 
 /* Fire the effects one animation event names. An effect already on the live
    list is not added twice, but it is repositioned and restarted either way. */
 // FUNCTION: WIZ8 0x004ae170
-void TriggerShakeEffects(std::vector<W8CameraShakeEffect*>* effects, int cycle,
-                         unsigned int frame, int subcycle, const srVector3T<float>* position)
+void TriggerShakeEffects(std::vector<W8CameraShakeEffect*>* effects, int cycle, unsigned int frame,
+                         int subcycle, const srVector3T<float>* position)
 {
     int index;
 
@@ -156,7 +156,9 @@ void StopShakeEffects(std::vector<W8CameraShakeEffect*>* effects)
         if (effect->flags.active) {
             W8CameraShakeEffect::Flags flags;
 
-            if (const auto found = std::ranges::find((*g_shake_effects), effect); found != g_shake_effects->end()) g_shake_effects->erase(found);
+            if (const auto found = std::ranges::find((*g_shake_effects), effect);
+                found != g_shake_effects->end())
+                g_shake_effects->erase(found);
             flags = effect->flags;
             effect->flags.active = false;
             if (flags.list_owns && effect != 0) {
@@ -178,7 +180,7 @@ void UpdateShakeEffects()
         g_shake_timer->GetProgress() < g_float_one) {
         return;
     }
-    if (static_cast<int>(g_shake_effects->size()) != 0) {
+    if (!g_shake_effects->empty()) {
         float intensity = 0.0f;
         srVector3T<float> camera;
         GetCameraPosition(&camera);
@@ -369,7 +371,7 @@ try
         std::vector<stParticle*> particles;
 
         success = ReadWorldParticles(info, g_world->dynamic_scene, &particles);
-        if (static_cast<int>(particles.size()) != 0) {
+        if (!particles.empty()) {
             int index;
 
             if ((*cycle)->m_plsParticles == 0) {
@@ -460,7 +462,7 @@ W8GrCycle::W8GrCycle(const W8GrCycle& other) : W8GrObject(other), W8Navigator(ot
     scale = other.scale;
     m_ground_shadow = 0;
     frame_fraction = 0;
-    if (other.m_plsLights != 0 && static_cast<int>(other.m_plsLights->size()) != 0 && m_fDeleteLights) {
+    if (other.m_plsLights != 0 && !other.m_plsLights->empty() && m_fDeleteLights) {
         count = static_cast<int>(other.m_plsLights->size());
         m_plsLights = new std::vector<stLight*>();
         for (index = 0; index < count; ++index) {
@@ -489,7 +491,7 @@ W8GrCycle::W8GrCycle(const W8GrCycle& other) : W8GrObject(other), W8Navigator(ot
             m_plsLights->push_back(copied_light);
         }
     }
-    if (other.m_plsShakeEvents != 0 && static_cast<int>(other.m_plsShakeEvents->size()) != 0) {
+    if (other.m_plsShakeEvents != 0 && !other.m_plsShakeEvents->empty()) {
         count = static_cast<int>(other.m_plsShakeEvents->size());
         m_plsShakeEvents = new std::vector<W8CameraShakeEffect*>();
         if (m_plsShakeEvents == 0) {
@@ -497,8 +499,7 @@ W8GrCycle::W8GrCycle(const W8GrCycle& other) : W8GrObject(other), W8Navigator(ot
                          0xe3, 0);
         }
         for (index = 0; index < count; ++index) {
-            W8CameraShakeEffect* event =
-                new W8CameraShakeEffect(*(*other.m_plsShakeEvents)[index]);
+            W8CameraShakeEffect* event = new W8CameraShakeEffect(*(*other.m_plsShakeEvents)[index]);
 
             if (event == 0) {
                 srAssertFail("pEvent", "C:\\Projects\\Wizardry 8\\Engine Code\\GrCycle.cpp", 0xe9,
@@ -507,7 +508,7 @@ W8GrCycle::W8GrCycle(const W8GrCycle& other) : W8GrObject(other), W8Navigator(ot
             m_plsShakeEvents->push_back(event);
         }
     }
-    if (other.m_plsParticles != 0 && static_cast<int>(other.m_plsParticles->size()) != 0) {
+    if (other.m_plsParticles != 0 && !other.m_plsParticles->empty()) {
         count = static_cast<int>(other.m_plsParticles->size());
         m_plsParticles = new std::vector<W8GrCycleParticleAttachment*>();
         if (m_plsParticles == 0) {
@@ -654,7 +655,7 @@ void W8GrCycle::TickAnimation(float scale)
             }
         }
 
-        if (m_plsLights != 0 && static_cast<int>(m_plsLights->size()) != 0) {
+        if (m_plsLights != 0 && !m_plsLights->empty()) {
             UpdateLights();
         }
         last_subcycle = representation->subcycle;
@@ -1345,7 +1346,9 @@ void W8GrCycle::DetachCycleLights(std::vector<stLight*>* lights)
 
             light->setParent(0, 1);
             if (light->definition() != 0) {
-                if (const auto found = std::ranges::find((*g_world->lights_to_update), light); found != g_world->lights_to_update->end()) g_world->lights_to_update->erase(found);
+                if (const auto found = std::ranges::find((*g_world->lights_to_update), light);
+                    found != g_world->lights_to_update->end())
+                    g_world->lights_to_update->erase(found);
             }
         }
     }
@@ -1392,7 +1395,7 @@ const char* W8GrCycle::GetRegisteredName() const
 
     for (name_index = 0; name_index < static_cast<int>(g_grcycles_by_name.size()); ++name_index) {
         std::vector<W8GrCycle*>* cycles = g_grcycles_by_name[name_index];
-        if (static_cast<int>(cycles->size()) == 0) {
+        if (cycles->empty()) {
             srAssertFail("plsCyclesOfAName->Length()",
                          "C:\\Projects\\Wizardry 8\\Engine Code\\GrCycle.cpp", 0x6c4, 0);
         }
@@ -1410,7 +1413,7 @@ bool W8GrCycle::IsSoleRegisteredCycleForName() const
 
     for (name_index = 0; name_index < static_cast<int>(g_grcycles_by_name.size()); ++name_index) {
         std::vector<W8GrCycle*>* cycles = g_grcycles_by_name[name_index];
-        if (static_cast<int>(cycles->size()) == 0) {
+        if (cycles->empty()) {
             srAssertFail("plsCyclesOfAName->Length()",
                          "C:\\Projects\\Wizardry 8\\Engine Code\\GrCycle.cpp", 0x6e6, 0);
         }
@@ -1429,7 +1432,7 @@ W8GrCycle* FindFirstGrCycleByName(const char* name)
     for (name_index = 0; name_index < static_cast<int>(g_grcycle_names.size()); ++name_index) {
         if (_stricmp(name, g_grcycle_names[name_index]) == 0) {
             std::vector<W8GrCycle*>* cycles = g_grcycles_by_name[name_index];
-            if (static_cast<int>(cycles->size()) == 0) {
+            if (cycles->empty()) {
                 srAssertFail("plsCyclesOfThisName->Length()",
                              "C:\\Projects\\Wizardry 8\\Engine Code\\GrCycle.cpp", 0x709, 0);
             }
@@ -1446,7 +1449,7 @@ unsigned char UnregisterGrCycle(W8GrCycle* cycle)
 
     for (name_index = 0; name_index < static_cast<int>(g_grcycles_by_name.size()); ++name_index) {
         std::vector<W8GrCycle*>* cycles = g_grcycles_by_name[name_index];
-        if (static_cast<int>(cycles->size()) == 0) {
+        if (cycles->empty()) {
             srAssertFail("plsCyclesOfAName->Length()",
                          "C:\\Projects\\Wizardry 8\\Engine Code\\GrCycle.cpp", 0x726, 0);
         }
@@ -1454,14 +1457,13 @@ unsigned char UnregisterGrCycle(W8GrCycle* cycle)
         int cycle_index = (found == cycles->end() ? -1 : static_cast<int>(found - cycles->begin()));
         if (cycle_index != -1) {
             cycles->erase(cycles->begin() + cycle_index);
-            if (static_cast<int>(cycles->size()) != 0) {
+            if (!cycles->empty()) {
                 return 0;
             }
             g_grcycles_by_name.erase(g_grcycles_by_name.begin() + name_index);
             delete cycles;
-            const auto removed_entry = g_grcycle_names[name_index];
+            char* name = g_grcycle_names[name_index];
             g_grcycle_names.erase(g_grcycle_names.begin() + name_index);
-            char* name = removed_entry;
             delete[] name;
             return 1;
         }
@@ -1477,7 +1479,7 @@ void RegisterGrCycle(const char* name, W8GrCycle* cycle)
     for (name_index = 0; name_index < static_cast<int>(g_grcycle_names.size()); ++name_index) {
         if (_stricmp(name, g_grcycle_names[name_index]) == 0) {
             std::vector<W8GrCycle*>* cycles = g_grcycles_by_name[name_index];
-            if (static_cast<int>(cycles->size()) == 0) {
+            if (cycles->empty()) {
                 srAssertFail("plsCyclesOfThisName->Length()",
                              "C:\\Projects\\Wizardry 8\\Engine Code\\GrCycle.cpp", 0x763, 0);
             }
@@ -1506,7 +1508,9 @@ void DestroyLightVector(std::vector<stLight*>* vector)
             stLight* light = (*vector)[index];
 
             if (light->definition() != 0) {
-                if (const auto found = std::ranges::find((*g_world->lights_to_update), light); found != g_world->lights_to_update->end()) g_world->lights_to_update->erase(found);
+                if (const auto found = std::ranges::find((*g_world->lights_to_update), light);
+                    found != g_world->lights_to_update->end())
+                    g_world->lights_to_update->erase(found);
             }
             light->setParent(0, 1);
             WorldRemoveLight(g_world, light);

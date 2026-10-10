@@ -603,7 +603,7 @@ W8GDSurface* W8GameData::ProbePropsAlongMotion(srVector3T<float>* direction,
     srVector3T<float> along_normal;
 
     nearest_surface = 0;
-    if (static_cast<int>(g_world->collidable_props->size()) == 0) {
+    if (g_world->collidable_props->empty()) {
         return 0;
     }
     /* Function-local static plane ResolveCollision reads through hit_plane;
@@ -1169,7 +1169,7 @@ bool W8GameData::TestProp(int prop_id, W8OctreeTrace* trace, char skip_flag, cha
             gd_prop = prop->m_gd_prop;
         }
     } else {
-        gd_prop = static_cast<GDProp*>((*g_oct_pre_tree->props)[prop_id]);
+        gd_prop = (*g_oct_pre_tree->props)[prop_id];
     }
     m_pSurfaces = gd_prop->m_pGDSurfaces;
     m_pVertices = gd_prop->m_pVertices;

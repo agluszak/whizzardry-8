@@ -210,14 +210,15 @@ void AssociateWorldLights(W8World* world)
 {
     int light_index;
 
-    for (light_index = 0; light_index < static_cast<int>(world->lights_to_update->size()); ++light_index) {
+    for (light_index = 0; light_index < static_cast<int>(world->lights_to_update->size());
+         ++light_index) {
         stLight* light = (*world->lights_to_update)[light_index];
         stLightDefinition* definition = light->m_definition;
 
         if (definition != 0 && definition->kind == W8_LIGHT_DEFINITION_PARAMETRIC &&
             (static_cast<stParametricLightDefinition*>(definition)->flags &
              W8_PARAM_LIGHT_FLICKER) != 0) {
-            int prop_count = (world->plsProps ? static_cast<unsigned int>(world->plsProps->size()) : 0);
+            int prop_count = (world->plsProps ? world->plsProps->size() : 0);
             int prop_index;
 
             for (prop_index = 0; prop_index < prop_count; ++prop_index) {
@@ -550,7 +551,8 @@ try
 
         if (mark_model_instances && prop != 0) {
             prop->CollectModelInstances(&model_instances);
-            for (model_index = 0; model_index < static_cast<int>(model_instances.size()); ++model_index) {
+            for (model_index = 0; model_index < static_cast<int>(model_instances.size());
+                 ++model_index) {
                 stModelInstance* instance = model_instances[model_index];
                 if (instance != 0) {
                     instance->render_flags |= stModelInstance::RENDER_NO_PICK;
@@ -696,7 +698,7 @@ try
         if (group == 0) {
             continue;
         }
-        location_id = (group->monsters.operator->() && static_cast<std::size_t>(0) < group->monsters->size() ? (*group->monsters)[0] : -1);
+        location_id = group->MemberLocationId(0);
         monster_index = MonsterGetIndexByLocationID(0x315, READ_LEVEL_CPP, location_id, true);
         monster_info = MonsterGetScriptPartByLocationIndex(monster_index);
         ActivateMonster(monster_info, W8_MONSTER_LOAD_ALL_CYCLES);
@@ -1184,7 +1186,7 @@ try
     CHECK_PVL_OFFSET("Wrong offset in .pvl file after automap nodes.");
 
     g_environment_offset = environment_offset;
-    prop_count = (world->plsProps ? static_cast<unsigned int>(world->plsProps->size()) : 0);
+    prop_count = (world->plsProps ? world->plsProps->size() : 0);
     for (index = 0; index < static_cast<int>(prop_count); ++index) {
         W8Prop* prop = GetWorldProp(world, index);
         W8AnimObj* animation = prop->Rep()->animation;

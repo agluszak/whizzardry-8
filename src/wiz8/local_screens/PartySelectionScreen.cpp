@@ -1,3 +1,4 @@
+#include <utility>
 #include "Types.h"
 #include "mousesystem.h"
 #include "wiz8/layouts/screen_state.h"
@@ -185,13 +186,10 @@ int W8PartySelectionCharacterCollection::FindPartySlot(int index)
 // FUNCTION: WIZ8 0x005c34d0
 void W8PartySelectionCharacterCollection::DeleteAt(int index)
 {
-    {
-        const auto erase_index = index;
-        if (static_cast<std::size_t>(erase_index) < characters.size()) {
-            auto* object = characters[erase_index];
-            characters.erase(characters.begin() + erase_index);
-            delete object;
-        }
+    if (index >= 0 && std::cmp_less(index, characters.size())) {
+        auto* object = characters[index];
+        characters.erase(characters.begin() + index);
+        delete object;
     }
 }
 
@@ -240,7 +238,7 @@ static void SortPartySelectionCharactersByTime(W8Character** characters, wiz8::D
             wiz8::DiskFileTime time = times[next];
             W8Character* character = characters[next];
             int insert = next;
-            while (insert > first && ((&times[insert - 1])->ticks() < (&time)->ticks() ? -1 : (&times[insert - 1])->ticks() > (&time)->ticks() ? 1 : 0) < 0) {
+            while (insert > first && times[insert - 1].ticks() < time.ticks()) {
                 times[insert] = times[insert - 1];
                 characters[insert] = characters[insert - 1];
                 --insert;
@@ -257,10 +255,10 @@ static void SortPartySelectionCharactersByTime(W8Character** characters, wiz8::D
     for (;;) {
         do {
             ++left;
-        } while (left < last && ((&times[left])->ticks() < (&pivot)->ticks() ? -1 : (&times[left])->ticks() > (&pivot)->ticks() ? 1 : 0) > 0);
+        } while (left < last && times[left].ticks() > pivot.ticks());
         do {
             --right;
-        } while (right > first && ((&times[right])->ticks() < (&pivot)->ticks() ? -1 : (&times[right])->ticks() > (&pivot)->ticks() ? 1 : 0) < 0);
+        } while (right > first && times[right].ticks() < pivot.ticks());
         if (left >= right) {
             break;
         }
@@ -291,8 +289,7 @@ void W8PartySelectionCharacterCollection::SortCharactersByWriteTime()
         return;
     }
 
-    wiz8::DiskFileTime* times = new wiz8::DiskFileTime[static_cast<int>(characters.size())];
-    memset(times, 0, static_cast<int>(characters.size()) * sizeof(wiz8::DiskFileTime));
+    std::vector<wiz8::DiskFileTime> times(characters.size());
     for (int index = 0; index < static_cast<int>(characters.size()); ++index) {
         char path[128];
         BuildCharacterPath(path, characters[index]->name, -1);
@@ -303,8 +300,8 @@ void W8PartySelectionCharacterCollection::SortCharactersByWriteTime()
             handle.reset();
         }
     }
-    SortPartySelectionCharactersByTime(characters.data(), times, 0, static_cast<int>(characters.size()) - 1);
-    delete[] times;
+    SortPartySelectionCharactersByTime(characters.data(), times.data(), 0,
+                                       static_cast<int>(characters.size()) - 1);
 }
 
 class W8PartySelectionListControl;
@@ -370,8 +367,7 @@ void W8PartySelectionListControl::Redraw(bool full_redraw)
                 }
             }
             SetFontObjectPalette16BPP(g_wiz_text_font_secondary, colour);
-            gprintf(left + 2, top, L"%S",
-                    g_party_selection_character_collection->names[row]);
+            gprintf(left + 2, top, L"%S", g_party_selection_character_collection->names[row]);
             top += 0x0e;
         }
         SetFontObjectPalette16BPP(g_wiz_text_font_secondary, GetFontObject(g_wiz_text_font_secondary)->ownedPalette.get());
@@ -638,12 +634,15 @@ W8PartySelectionController* g_party_selection_controller;
 // FUNCTION: WIZ8 0x005C33C0
 void RefreshPartySelectionPortrait(unsigned int party_slot)
 {
-    W8TextControl** buttons = g_party_selection_controller->m_control1->m_control.m_lsButtons.data();
-    if (static_cast<int>(party_slot - 2) <
-        static_cast<int>(g_party_selection_controller->m_control1->m_control.m_lsButtons.size())) {
-        buttons += party_slot - 2;
+    const auto& buttons = g_party_selection_controller->m_control1->m_control.m_lsButtons;
+    if (buttons.empty()) {
+        return;
     }
-    W8PartySelectionPartySlotRow* row = static_cast<W8PartySelectionPartySlotRow*>(*buttons);
+    unsigned int index = party_slot - 2;
+    if (index >= buttons.size()) {
+        index = 0;
+    }
+    auto* row = static_cast<W8PartySelectionPartySlotRow*>(buttons[index]);
     Controls* panel = row->m_pPanel;
     int portrait = g_status.buffers.Char[row->m_row + 2].portrait_index;
     unsigned int flags = VO_BLT_SRCTRANSPARENCY;
@@ -669,7 +668,8 @@ W8PartySelectionCharacterRow::W8PartySelectionCharacterRow(Controls* panel, int 
 {
     AddLayoutFlags(0x11);
     m_character_index = g_party_selection_character_collection->first_visible + m_row;
-    SetActive(m_character_index < static_cast<int>(g_party_selection_character_collection->characters.size()));
+    SetActive(m_character_index <
+              static_cast<int>(g_party_selection_character_collection->characters.size()));
     Invalidate(false);
 }
 
@@ -806,7 +806,8 @@ void W8PartySelectionCharacterPanel::SetSelectedRow(int selection)
     if (visible < 0 || visible > 5 ||
         static_cast<int>(g_party_selection_character_collection->characters.size()) <
             g_party_selection_character_collection->first_visible + 6) {
-        int maximum = static_cast<int>(g_party_selection_character_collection->characters.size()) - 6;
+        int maximum =
+            static_cast<int>(g_party_selection_character_collection->characters.size()) - 6;
         int first = selection < maximum ? selection : maximum;
         if (first < 0) {
             first = 0;
@@ -1184,15 +1185,10 @@ unsigned char W8PartySelectionInputHandler::HandleInput(const InputAtom* input)
 void W8PartySelectionOptionPanel::SetOptionPanelMode(W8PartyCreationPage page)
 {
     m_page = page;
-    while (static_cast<int>(m_entries.size()) > 0) {
-        {
-            const auto erase_index = static_cast<int>(m_entries.size()) - 1;
-            if (static_cast<std::size_t>(erase_index) < m_entries.size()) {
-                auto* object = m_entries[erase_index];
-                m_entries.erase(m_entries.begin() + erase_index);
-                delete object;
-            }
-        }
+    while (!m_entries.empty()) {
+        auto* object = m_entries.back();
+        m_entries.pop_back();
+        delete object;
     }
     for (int index = 0; index < static_cast<int>(m_controls.size()); ++index) {
         ControlAt(index)->SetActive(page == W8_PARTY_CREATION_OPTIONS);
@@ -1203,22 +1199,22 @@ void W8PartySelectionOptionPanel::SetOptionPanelMode(W8PartyCreationPage page)
 
     if (page == W8_PARTY_CREATION_OPTIONS) {
         m_entries.push_back(new W8TextBuffer(&bounds, gppStringList[0x7f7], g_options_detail_font,
-                                               g_W8TextBufferAlignTop | g_W8TextBufferAlignLeft, 4));
+                                             g_W8TextBufferAlignTop | g_W8TextBufferAlignLeft, 4));
 
         bounds.right = m_bounds.left + 0x155;
         m_entries.push_back(new W8TextBuffer(&bounds, gppStringList[0x7f8], g_options_detail_font,
-                                               g_W8TextBufferAlignRight | g_W8TextBufferAlignTop, 4));
+                                             g_W8TextBufferAlignRight | g_W8TextBufferAlignTop, 4));
         bounds.top += 0x16;
         m_entries.push_back(new W8TextBuffer(&bounds, gppStringList[0x7f9], g_options_detail_font,
-                                               g_W8TextBufferAlignRight | g_W8TextBufferAlignTop, 4));
+                                             g_W8TextBufferAlignRight | g_W8TextBufferAlignTop, 4));
         bounds.top += 0x16;
         m_entries.push_back(new W8TextBuffer(&bounds, gppStringList[0x7fa], g_options_detail_font,
-                                               g_W8TextBufferAlignRight | g_W8TextBufferAlignTop, 4));
+                                             g_W8TextBufferAlignRight | g_W8TextBufferAlignTop, 4));
 
         bounds.right = m_bounds.left + 0x16e;
         bounds.top += 0x2c;
         m_entries.push_back(new W8TextBuffer(&bounds, gppStringList[0x80b], g_options_detail_font,
-                                               g_W8TextBufferAlignTop | g_W8TextBufferAlignLeft, 4));
+                                             g_W8TextBufferAlignTop | g_W8TextBufferAlignLeft, 4));
 
         bounds.top += 0x2c;
         W8TextBuffer* text =
@@ -1229,7 +1225,7 @@ void W8PartySelectionOptionPanel::SetOptionPanelMode(W8PartyCreationPage page)
 
         bounds.top += 0x42;
         m_entries.push_back(new W8TextBuffer(&bounds, gppStringList[0x6ce], g_options_detail_font,
-                                               g_W8TextBufferAlignTop | g_W8TextBufferAlignLeft, 4));
+                                             g_W8TextBufferAlignTop | g_W8TextBufferAlignLeft, 4));
 
         bounds.top += 0x2c;
         text = new W8TextBuffer(&bounds, gppStringList[0x6cf], g_options_detail_font,
@@ -1351,15 +1347,10 @@ void W8PartySelectionController::Setup()
 W8PartySelectionOptionPanel::~W8PartySelectionOptionPanel()
 {
     DestroyAllControls();
-    while (static_cast<int>(m_entries.size()) > 0) {
-        {
-            const auto erase_index = static_cast<int>(m_entries.size()) - 1;
-            if (static_cast<std::size_t>(erase_index) < m_entries.size()) {
-                auto* object = m_entries[erase_index];
-                m_entries.erase(m_entries.begin() + erase_index);
-                delete object;
-            }
-        }
+    while (!m_entries.empty()) {
+        auto* object = m_entries.back();
+        m_entries.pop_back();
+        delete object;
     }
 }
 
@@ -1415,7 +1406,8 @@ void W8PartySelectionController::SetMode(W8PartySelectionMode mode)
 
         m_character_panel->m_range = m_range;
         m_range->m_listener = m_character_panel;
-        int maximum = static_cast<int>(g_party_selection_character_collection->characters.size()) - 6;
+        int maximum =
+            static_cast<int>(g_party_selection_character_collection->characters.size()) - 6;
         if (maximum < 0) {
             maximum = 0;
         }
@@ -1431,13 +1423,15 @@ void W8PartySelectionController::SetMode(W8PartySelectionMode mode)
         }
         m_character_panel->m_control.SetSelected(selected);
         m_character_panel->m_control.m_selectionListener = m_character_panel;
-        for (int index = 0; index < static_cast<int>(m_character_panel->m_controls.size()); ++index) {
+        for (int index = 0; index < static_cast<int>(m_character_panel->m_controls.size());
+             ++index) {
             W8PartySelectionCharacterRow* row =
                 static_cast<W8PartySelectionCharacterRow*>(m_character_panel->ControlAt(index));
             row->m_character_index =
                 g_party_selection_character_collection->first_visible + row->m_row;
-            row->SetActive(row->m_character_index <
-                           static_cast<int>(g_party_selection_character_collection->characters.size()));
+            row->SetActive(
+                row->m_character_index <
+                static_cast<int>(g_party_selection_character_collection->characters.size()));
             row->Invalidate(false);
         }
 
@@ -1454,7 +1448,7 @@ void W8PartySelectionController::SetMode(W8PartySelectionMode mode)
         break;
     }
     case W8_PARTY_SELECT_IMPORT: {
-        if (static_cast<int>(g_party_selection_character_collection->names.size()) == 0) {
+        if (g_party_selection_character_collection->names.empty()) {
             for (const auto& entry : wiz8::list_directory("Saves\\Import", "*.*")) {
                 const auto status = wiz8::file_status("Saves\\Import\\" + entry);
                 if (status && status->info.type == SDL_PATHTYPE_FILE) {
@@ -1488,8 +1482,8 @@ void W8PartySelectionController::SetMode(W8PartySelectionMode mode)
         m_import_panel->EnableRegionSet(true);
 
         m_range->m_listener = m_list;
-        int maximum =
-            static_cast<int>(g_party_selection_character_collection->names.size()) - m_list->m_visible_rows;
+        int maximum = static_cast<int>(g_party_selection_character_collection->names.size()) -
+                      m_list->m_visible_rows;
         if (maximum < 0) {
             maximum = 0;
         }
@@ -1572,7 +1566,8 @@ void W8PartySelectionController::SetSelection(int selection, bool party_slot, bo
             int character_index = -1;
             if (selection >= 0 && g_status.buffers.XChar[selection + 2].fOccupied) {
                 for (int index = 0;
-                     index < static_cast<int>(g_party_selection_character_collection->characters.size());
+                     index <
+                     static_cast<int>(g_party_selection_character_collection->characters.size());
                      ++index) {
                     if (g_party_selection_character_collection->GetCharacter(index) ==
                         m_character) {
@@ -1890,7 +1885,7 @@ void W8PartySelectionController::ApplyPartySelectionConfirmation(W8PartyConfirma
         m_range->SetRange(0, maximum);
         m_range->SetRangeEnabled(maximum > 0);
         m_range->Invalidate(0);
-        if (selected > 0 || static_cast<int>(collection->characters.size()) == 0) {
+        if (selected > 0 || collection->characters.empty()) {
             --selected;
         }
         SetSelection(selected, false, true);
@@ -2158,7 +2153,9 @@ void PartySelectionScreenFrame(void)
             case VK_DOWN:
                 if (controller->m_mode == W8_PARTY_SELECT_CHARACTERS &&
                     controller->m_character_panel->m_selected_row <
-                        static_cast<int>(g_party_selection_character_collection->characters.size()) - 1) {
+                        static_cast<int>(
+                            g_party_selection_character_collection->characters.size()) -
+                            1) {
                     controller->SetSelection(controller->m_character_panel->m_selected_row + 1,
                                              false, true);
                 }

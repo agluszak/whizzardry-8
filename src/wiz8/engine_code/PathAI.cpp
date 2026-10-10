@@ -167,10 +167,10 @@ void DestroyPathAI(W8PathAI* path)
     if (path != 0) {
         nodes = path->nodes;
         if (nodes != 0) {
-            while (static_cast<int>(nodes->size()) != 0) {
-                const auto removed_entry = (*nodes)[static_cast<int>(nodes->size()) - 1];
-                nodes->erase(nodes->begin() + static_cast<int>(nodes->size()) - 1);
-                std::free(removed_entry);
+            while (!nodes->empty()) {
+                const auto entry = nodes->back();
+                nodes->pop_back();
+                std::free(entry);
                 nodes = path->nodes;
             }
             if (path->rotations != 0) {
@@ -296,10 +296,10 @@ void PathAIClearOwned(W8PathAI* path)
     if (path != 0) {
         nodes = path->nodes;
         if (nodes != 0) {
-            while (static_cast<int>(nodes->size()) != 0) {
-                const auto removed_entry = (*nodes)[static_cast<int>(nodes->size()) - 1];
-                nodes->erase(nodes->begin() + static_cast<int>(nodes->size()) - 1);
-                std::free(removed_entry);
+            while (!nodes->empty()) {
+                const auto entry = nodes->back();
+                nodes->pop_back();
+                std::free(entry);
                 nodes = path->nodes;
             }
         }
@@ -325,7 +325,7 @@ unsigned char PathAIAddPoint(W8PathAI* path, const srVector3T<float>* point)
         srAssertFail("pPathAI->plsPoints", PATH_AI_CPP, 0x297, 0);
     }
     *copy = *point;
-    if (static_cast<int>(path->nodes->size()) == 0) {
+    if (path->nodes->empty()) {
         path->position = 0;
         path->interpolation_fraction = 0;
         path->distance_travelled = 0;
@@ -384,7 +384,7 @@ unsigned char PathAINextPoint(W8PathAI* path, srVector3T<float>* point)
     if (path == 0 || path->nodes == 0) {
         return 0;
     }
-    if (path->point_index >= static_cast<unsigned int>(static_cast<int>(path->nodes->size()))) {
+    if (path->point_index >= static_cast<unsigned int>(path->nodes->size())) {
         if (path->looping == 0) {
             return 0;
         }
@@ -399,7 +399,7 @@ unsigned char PathAINextPoint(W8PathAI* path, srVector3T<float>* point)
 bool PathAIIsComplete(W8PathAI* path)
 {
     if (path != 0 && path->nodes != 0 &&
-        (path->point_index < static_cast<unsigned int>(static_cast<int>(path->nodes->size())) ||
+        (path->point_index < static_cast<unsigned int>(path->nodes->size()) ||
          path->looping != 0)) {
         return false;
     }
@@ -540,7 +540,7 @@ unsigned char PathAITick(W8PathAI* path, signed char direction)
             if (path->timed != 0) {
                 PathAIAdvanceNormalized(path, elapsed * g_float_one_thousandth);
             } else {
-                point_count = static_cast<float>(static_cast<int>(path->nodes->size()));
+                point_count = static_cast<float>(path->nodes->size());
                 PathAIAdvanceByDistance(path, path->total_length / point_count * path->speed *
                                                   elapsed * g_float_one_thousandth);
             }
@@ -559,7 +559,7 @@ unsigned char PathAITick(W8PathAI* path, signed char direction)
         }
         path->position += amount;
         if (path->position >= g_float_zero) {
-            point_count = static_cast<float>(static_cast<int>(path->nodes->size()));
+            point_count = static_cast<float>(path->nodes->size());
             if (path->position < point_count) {
                 path->last_update_tick = now;
                 return 1;
@@ -596,7 +596,8 @@ void PathAIPosition(W8PathAI* path, srVector3T<float>* value)
     }
     if (path->animated == 0) {
         if (path->discrete_mode == 0) {
-            index = srFloatToInt((static_cast<int>(path->nodes->size()) - 1) * path->position + g_double_half);
+            index = srFloatToInt((static_cast<int>(path->nodes->size()) - 1) * path->position +
+                                 g_double_half);
         } else {
             index = srFloatToInt(path->position + g_double_one_tenth);
         }
@@ -613,7 +614,7 @@ void PathAIPosition(W8PathAI* path, srVector3T<float>* value)
     }
 
     index = path->point_index;
-    if (static_cast<unsigned int>(index) < static_cast<unsigned int>(static_cast<int>(path->nodes->size()) - 1)) {
+    if (index >= 0 && index + 1 < static_cast<int>(path->nodes->size())) {
         second = (*path->nodes)[index + 1];
         first = (*path->nodes)[index];
         first_weight = g_float_one - path->interpolation_fraction;

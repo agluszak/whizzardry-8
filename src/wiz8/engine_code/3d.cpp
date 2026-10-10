@@ -52,10 +52,10 @@ void UpdateWorldMonsters(W8World* world)
     srVector3T<float> position;
     position = camera_location;
 
-    unsigned int count = (world->plsMonsters ? static_cast<unsigned int>(world->plsMonsters->size()) : 0);
+    unsigned int count = (world->plsMonsters ? world->plsMonsters->size() : 0);
     UpdateNearestMonsterGroupMembers();
     for (int index = 0; index < static_cast<int>(count); ++index) {
-        W8Monster* monster = static_cast<W8Monster*>((world->plsMonsters && static_cast<std::size_t>(index) < world->plsMonsters->size() ? (*world->plsMonsters)[index] : nullptr));
+        W8Monster* monster = (*world->plsMonsters)[index];
         if (monster != 0) {
             monster->DetachRepresentation(world);
             monster->SelectLOD(&position);
@@ -76,9 +76,9 @@ void DetachWorldItemMeshes(W8World* world)
     if (world->plsItems == 0) {
         srAssertFail("pWorld->plsItems", THREE_D_CPP, 0x136, 0);
     }
-    unsigned int count = (world->plsItems ? static_cast<unsigned int>(world->plsItems->size()) : 0);
+    unsigned int count = (world->plsItems ? world->plsItems->size() : 0);
     for (int index = 0; index < static_cast<int>(count); ++index) {
-        W8Item* item = static_cast<W8Item*>((world->plsItems && static_cast<std::size_t>(index) < world->plsItems->size() ? (*world->plsItems)[index] : nullptr));
+        W8Item* item = (*world->plsItems)[index];
         if (item != 0) {
             item->DetachMesh(world);
             item->UpdateAnimation();
@@ -96,16 +96,19 @@ void DestroyWorldLights(W8World* world)
 {
     std::vector<stLight*>* lights = &world->transient_lights;
 
-    while ((lights ? static_cast<unsigned int>(lights->size()) : 0) != 0) {
-        stLight* light = static_cast<stLight*>((lights && static_cast<std::size_t>(0) < lights->size() ? (*lights)[0] : nullptr));
+    while (!lights->empty()) {
+        stLight* light = (*lights)[0];
         if (world == 0) {
             srAssertFail("pWorld", THREE_D_CPP, 0x278, 0);
         }
         if (light == 0) {
             srAssertFail("pLight", THREE_D_CPP, 0x279, 0);
         }
-        if (const auto found = std::ranges::find((*lights), light); found != lights->end()) lights->erase(found);
-        if (const auto found = std::ranges::find((*world->lights_to_update), light); found != world->lights_to_update->end()) world->lights_to_update->erase(found);
+        if (const auto found = std::ranges::find((*lights), light); found != lights->end())
+            lights->erase(found);
+        if (const auto found = std::ranges::find((*world->lights_to_update), light);
+            found != world->lights_to_update->end())
+            world->lights_to_update->erase(found);
         if (light != 0) {
             light->release();
         }
@@ -693,8 +696,12 @@ void WorldRemoveLight(W8World* world, stLight* light)
     if (light == 0) {
         srAssertFail("pLight", THREE_D_CPP, 0x279, 0);
     }
-    if (const auto found = std::ranges::find(world->transient_lights, light); found != world->transient_lights.end()) world->transient_lights.erase(found);
-    if (const auto found = std::ranges::find((*world->lights_to_update), light); found != world->lights_to_update->end()) world->lights_to_update->erase(found);
+    if (const auto found = std::ranges::find(world->transient_lights, light);
+        found != world->transient_lights.end())
+        world->transient_lights.erase(found);
+    if (const auto found = std::ranges::find((*world->lights_to_update), light);
+        found != world->lights_to_update->end())
+        world->lights_to_update->erase(found);
     if (light != 0) {
         light->release();
     }
@@ -724,7 +731,7 @@ void WorldUpdateProps(W8World* world)
         srAssertFail("pWorld && pWorld->plsProps", "C:\\Projects\\Wizardry 8\\Engine Code\\3d.cpp",
                      0x158, 0);
     }
-    count = static_cast<int>((world->plsProps ? static_cast<unsigned int>(world->plsProps->size()) : 0));
+    count = static_cast<int>((world->plsProps ? world->plsProps->size() : 0));
     for (index = 0; index < count; index++) {
         prop = GetWorldProp(world, index);
         if (prop) {
@@ -741,8 +748,7 @@ void WorldUpdateLights(W8World* world)
     int count = static_cast<int>(world->lights_to_update->size());
 
     for (int index = 0; index < count; ++index) {
-        stLight** light = (world->lights_to_update->data() + index);
-        (*light)->Update();
+        (*world->lights_to_update)[index]->Update();
     }
 }
 
@@ -751,31 +757,24 @@ void WorldUpdateLights(W8World* world)
    this global instead. */
 
 // FUNCTION: WIZ8 0x0046e580
-void AddMonsterToWorld(W8World*, W8Monster* monster)
-{
-    g_world->plsMonsters->push_back(monster);
-}
+void AddMonsterToWorld(W8World*, W8Monster* monster) { g_world->plsMonsters->push_back(monster); }
 
 // FUNCTION: WIZ8 0x0046e5c0
-void AddItemToWorld(W8World*, W8Item* item)
-{
-    g_world->plsItems->push_back(item);
-}
+void AddItemToWorld(W8World*, W8Item* item) { g_world->plsItems->push_back(item); }
 
 // FUNCTION: WIZ8 0x0046e5e0
 void RemoveItemFromWorld(W8World*, W8Item* item)
 {
-    if (const auto found = std::ranges::find((*g_world->plsItems), item); found != g_world->plsItems->end()) g_world->plsItems->erase(found);
+    if (const auto found = std::ranges::find((*g_world->plsItems), item);
+        found != g_world->plsItems->end())
+        g_world->plsItems->erase(found);
 }
 
 /* How many props the world holds, and the one at a position - both answers
    discarded by the wrapper itself, which is what makes these thin forwarders
    rather than accessors. */
 // FUNCTION: WIZ8 0x0046e600
-int WorldGetPropCount(W8World*)
-{
-    return (g_world->plsProps ? static_cast<unsigned int>(g_world->plsProps->size()) : 0);
-}
+int WorldGetPropCount(W8World*) { return (g_world->plsProps ? g_world->plsProps->size() : 0); }
 
 // FUNCTION: WIZ8 0x0046e620
 W8Prop* WorldGetPropAt(W8World*, int index)
@@ -947,7 +946,9 @@ double WorldGetFarClip(W8World* world)
 // FUNCTION: WIZ8 0x0046E5A0
 void RemoveMonsterFromWorldList(W8World*, W8Monster* monster)
 {
-    if (const auto found = std::ranges::find((*g_world->plsMonsters), monster); found != g_world->plsMonsters->end()) g_world->plsMonsters->erase(found);
+    if (const auto found = std::ranges::find((*g_world->plsMonsters), monster);
+        found != g_world->plsMonsters->end())
+        g_world->plsMonsters->erase(found);
 }
 
 // FUNCTION: WIZ8 0x0046DC90

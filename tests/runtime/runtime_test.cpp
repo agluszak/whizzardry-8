@@ -392,8 +392,7 @@ void SpendPool(Game& game, const char* step, int page_index, const bool& complet
 {
     W8CharacterPage* page = g_character_screen->m_pages[page_index];
     REQUIRE(step, page && !page->m_entries.empty());
-    for (int index = 0; index < static_cast<int>(page->m_entries.size()) && !complete; ++index)
-    {
+    for (int index = 0; index < static_cast<int>(page->m_entries.size()) && !complete; ++index) {
         W8CharacterPageEntry* entry = page->m_entries[index];
         if (!entry || !entry->m_enabled || !entry->m_second || !entry->m_third ||
             (page_index == 2 && !entry->m_increment_allowed))
@@ -790,7 +789,8 @@ void LoadGameScenario(const fs::path& fixture)
             return false;
         // Panel set 4 holds the single load panel (W8OptionsSaveLoadPanel 11).
         W8OptionsPanelSet* set = g_options_screen->m_panel[4];
-        if (!set || set->m_current < 0 || static_cast<std::size_t>(set->m_current) >= set->m_panels.size())
+        if (!set || set->m_current < 0 ||
+            static_cast<std::size_t>(set->m_current) >= set->m_panels.size())
             return false;
         panel = static_cast<W8OptionsSaveLoadPanel*>(set->m_panels[set->m_current]);
         return panel->m_panel == 11 && !panel->m_rows.empty();

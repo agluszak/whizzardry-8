@@ -187,9 +187,8 @@ unsigned int InitializeEncounterTables(void)
 // FUNCTION: WIZ8 0x0048ac60
 W8EncounterTableRuntime::~W8EncounterTableRuntime()
 {
-    while (static_cast<int>(script_names.size()) != 0) {
-        free(script_names[0]);
-        script_names.erase(script_names.begin() + 0);
+    for (auto* name : script_names) {
+        free(name);
     }
 }
 
@@ -217,8 +216,7 @@ enum { W8_ENCOUNTER_STALE_SECONDS = 36000 };
    retail falls back to raw rarity plus the day/night condition. A random
    candidate is moved to slot zero because GenerateEncounter consumes slot zero. */
 // FUNCTION: WIZ8 0x0048B9A0
-int MonGen::SelectEncounterCandidates(W8EncounterTableRuntime* table,
-                                      std::vector<int>* candidates)
+int MonGen::SelectEncounterCandidates(W8EncounterTableRuntime* table, std::vector<int>* candidates)
 {
     int rarity_roll;
     int rarity_class;
@@ -266,7 +264,7 @@ int MonGen::SelectEncounterCandidates(W8EncounterTableRuntime* table,
         }
     }
 
-    if (static_cast<int>(candidates->size()) == 0) {
+    if (candidates->empty()) {
         for (index = 0; index < static_cast<int>(table->species_ids.size()); ++index) {
             unsigned char time = table->time_condition[index];
             if (table->rarity_class[index] == rarity_class && (time == 2 || time == night)) {
@@ -277,10 +275,9 @@ int MonGen::SelectEncounterCandidates(W8EncounterTableRuntime* table,
 
     if (static_cast<int>(candidates->size()) > 1) {
         const auto removed_index = Random(static_cast<int>(candidates->size()));
-        const auto removed_entry = (*candidates)[removed_index];
+        int selected = (*candidates)[removed_index];
         candidates->erase(candidates->begin() + removed_index);
-        int selected = removed_entry;
-        candidates->insert(candidates->begin() + 0, selected);
+        candidates->insert(candidates->begin(), selected);
     }
     return static_cast<int>(candidates->size());
 }
@@ -360,7 +357,7 @@ unsigned char MonGen::GenerateEncounter(const srVector3T<float>* position)
 
     selected_index = candidates[0];
     species = table->species_ids[selected_index];
-    script = (table->script_names[selected_index])->value;
+    script = table->script_names[selected_index]->value;
     spawn_position = *position;
     record = MonsterDBFromSpecies(species);
     if (record == 0) {
@@ -404,7 +401,8 @@ unsigned char MonGen::GenerateEncounter(const srVector3T<float>* position)
     group = CreateGroup(species, count, &spawn_position, false, false, true);
     group->encounter_registered = true;
     SetMonsterGroupFormation(group, &this->spawn_position);
-    if (group != 0 && group->encounter_registered && (std::ranges::find(g_active_groups, group) == g_active_groups.end())) {
+    if (group != 0 && group->encounter_registered &&
+        (std::ranges::find(g_active_groups, group) == g_active_groups.end())) {
         g_active_groups.push_back(group);
     }
 
@@ -559,8 +557,8 @@ void UpdateRandomEncounterBudget(bool reset_budget)
 // FUNCTION: WIZ8 0x0048c9f0
 void DespawnAllActiveMonsterGroups(void)
 {
-    while (static_cast<int>(g_active_groups.size()) > 0) {
-        DespawnMonsterGroup(g_active_groups[static_cast<int>(g_active_groups.size()) - 1]);
+    while (!g_active_groups.empty()) {
+        DespawnMonsterGroup(g_active_groups.back());
     }
 }
 
@@ -632,10 +630,7 @@ void CullExpiredEncounters(void)
 
 /* How many monster generators the loaded world carries. */
 // FUNCTION: WIZ8 0x0048bd80
-int GetMonsterGeneratorCount(void)
-{
-    return static_cast<int>(g_world->monster_generators->size());
-}
+int GetMonsterGeneratorCount(void) { return static_cast<int>(g_world->monster_generators->size()); }
 
 /* One of them by index. Out of range answers null, which is why the bounds test
    appears twice: once here, rejecting the index outright, and once inside the
@@ -665,10 +660,7 @@ W8EncounterTableRuntime* GetEncounterTable(int index)
 /* Appends through the world's ordinary growable vector. Add is header-visible,
    so VC6 expands both it and Grow into this caller just as the image does. */
 // FUNCTION: WIZ8 0x0048be30
-void AddMonsterGenerator(MonGen* generator)
-{
-    g_world->monster_generators->push_back(generator);
-}
+void AddMonsterGenerator(MonGen* generator) { g_world->monster_generators->push_back(generator); }
 
 /* Destroys every generator and empties the list. The count is taken once up
    front and the list is emptied by resetting it rather than by removing
@@ -826,7 +818,8 @@ void UnregisterActiveEncounterGroup(W8MonsterGroup* group)
     }
     const auto found = std::ranges::find(g_active_groups, group);
     const bool was_removed = found != g_active_groups.end();
-    if (was_removed) g_active_groups.erase(found);
+    if (was_removed)
+        g_active_groups.erase(found);
     unsigned char removed = was_removed;
     if (!gXStatus.fCombatMode || removed == 0) {
         return;
@@ -845,7 +838,8 @@ void UnregisterActiveEncounterGroup(W8MonsterGroup* group)
 // FUNCTION: WIZ8 0x0048c750
 void RegisterActiveEncounterGroup(W8MonsterGroup* group)
 {
-    if (group == 0 || !group->encounter_registered || (std::ranges::find(g_active_groups, group) != g_active_groups.end())) {
+    if (group == 0 || !group->encounter_registered ||
+        (std::ranges::find(g_active_groups, group) != g_active_groups.end())) {
         return;
     }
     g_active_groups.push_back(group);
@@ -968,9 +962,8 @@ void RemoveMonsterGenerator(MonGen* generator)
     if (index == -1) {
         return;
     }
-    const auto removed_entry = (*generators)[index];
+    removed = (*generators)[index];
     generators->erase(generators->begin() + index);
-    removed = removed_entry;
     delete removed;
 }
 
@@ -1079,8 +1072,8 @@ void SaveEncounterState(wiz8::File* handle)
 // FUNCTION: WIZ8 0x0048ca20
 void RollRandomEncounters(void)
 {
-    while (static_cast<int>(g_active_groups.size()) > 0) {
-        DespawnMonsterGroup(g_active_groups[static_cast<int>(g_active_groups.size()) - 1]);
+    while (!g_active_groups.empty()) {
+        DespawnMonsterGroup(g_active_groups.back());
     }
 
     std::vector<MonGen*> generators(*g_world->monster_generators);

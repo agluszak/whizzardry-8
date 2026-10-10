@@ -228,7 +228,9 @@ void ReleaseWorldCursor(void)
     delta = cursor->position - camera;
     g_cursor_projection_distance = delta.Length();
 
-    if (const auto found = std::ranges::find((*g_world->plsMonsters), cursor->monster); found != g_world->plsMonsters->end()) g_world->plsMonsters->erase(found);
+    if (const auto found = std::ranges::find((*g_world->plsMonsters), cursor->monster);
+        found != g_world->plsMonsters->end())
+        g_world->plsMonsters->erase(found);
     DetachMonsterRepresentation(cursor->monster, g_world);
     DeleteMonster(cursor->monster);
     ReleaseRendererObject(cursor->particle);
@@ -291,7 +293,9 @@ void HideWorldCursor(void)
     }
     monster = cursor->monster;
     world = g_world;
-    if (const auto found = std::ranges::find((*world->plsMonsters), monster); found != world->plsMonsters->end()) world->plsMonsters->erase(found);
+    if (const auto found = std::ranges::find((*world->plsMonsters), monster);
+        found != world->plsMonsters->end())
+        world->plsMonsters->erase(found);
     DetachMonsterRepresentation(monster, world);
     cursor->enabled = false;
     if (cursor->particle != 0) {
@@ -462,7 +466,7 @@ void BindCursorMonsterToGroup(void)
         }
         index = GetMonsterGroupIndexByID(0x237, CURSOR3D_CPP, gp3DCursor->monster_group_id, false);
         if (index == 0xffffffff) {
-            index = (gXStatus.plsMonsterGroupList ? static_cast<unsigned int>(gXStatus.plsMonsterGroupList->size()) : 0);
+            index = (gXStatus.plsMonsterGroupList ? gXStatus.plsMonsterGroupList->size() : 0);
             if (index == 0) {
                 return;
             }

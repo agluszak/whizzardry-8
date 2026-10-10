@@ -346,13 +346,14 @@ void UpdateWorldSpellVisuals(W8World* world)
                 visual->UpdateRepresentation(world);
                 visual->UpdateNavigation(0, false);
             } else {
-                if (const auto found = std::ranges::find((*world->spell_visuals), visual); found != world->spell_visuals->end()) world->spell_visuals->erase(found);
+                if (const auto found = std::ranges::find((*world->spell_visuals), visual);
+                    found != world->spell_visuals->end())
+                    world->spell_visuals->erase(found);
                 if (visual->m_plsLights != 0) {
                     int light_count = static_cast<int>(visual->m_plsLights->size());
                     while (light_count != 0) {
-                        const auto removed_entry = (*visual->m_plsLights)[0];
-                        visual->m_plsLights->erase(visual->m_plsLights->begin() + 0);
-                        stLight* light = removed_entry;
+                        stLight* light = (*visual->m_plsLights)[0];
+                        visual->m_plsLights->erase(visual->m_plsLights->begin());
                         WorldRemoveLight(g_world, light);
                         --light_count;
                     }
@@ -406,9 +407,9 @@ W8SpellEmitterHost::W8SpellEmitterHost(const W8SpellEmitterHost& other)
     for (emitter = 0; emitter < SPELL_NUM_CYCLES; ++emitter) {
         int list_index;
 
-        for (list_index = 0; list_index < static_cast<int>(other.light_lists[emitter].size()); ++list_index) {
-            std::vector<stLight*>* source_lights =
-                other.light_lists[emitter][list_index];
+        for (list_index = 0; list_index < static_cast<int>(other.light_lists[emitter].size());
+             ++list_index) {
+            std::vector<stLight*>* source_lights = other.light_lists[emitter][list_index];
             std::vector<stLight*>* copied_lights = CloneAnimationLightList(
                 source_lights, "C:\\Projects\\Wizardry 8\\Engine Code\\Spells.cpp", 0x198, 0x1a0);
             light_lists[emitter].push_back(copied_lights);
@@ -433,7 +434,7 @@ unsigned char W8SpellEmitterHost::ReadCycleData(W8ReadLevelInfo* info, W8SpellVi
     success = AnimObjReadFromFile(info, animation, 1, lights, 1);
     emitter = static_cast<signed char>(animation->cycle);
 
-    if (static_cast<int>(lights->size()) == 0) {
+    if (lights->empty()) {
         delete lights;
         lights = 0;
     } else {
@@ -624,7 +625,9 @@ W8SpellVisual::~W8SpellVisual()
     SetLights(0);
     delete host;
 
-    if (const auto found = std::ranges::find((*g_world->spell_visuals), this); found != g_world->spell_visuals->end()) g_world->spell_visuals->erase(found);
+    if (const auto found = std::ranges::find((*g_world->spell_visuals), this);
+        found != g_world->spell_visuals->end())
+        g_world->spell_visuals->erase(found);
     UnregisterGrCycle(this);
 }
 
@@ -633,20 +636,21 @@ W8SpellVisual::~W8SpellVisual()
 // FUNCTION: WIZ8 0x004ac3d0
 void DestroyAllSpellVisuals(W8World* world)
 {
-    while (static_cast<int>(world->spell_visuals->size()) != 0) {
+    while (!world->spell_visuals->empty()) {
         W8SpellVisual* spell = (*world->spell_visuals)[0];
 
         if (spell == 0) {
             srAssertFail("pSpell", "C:\\Projects\\Wizardry 8\\Engine Code\\Spells.cpp", 0x51c, 0);
         }
-        if (const auto found = std::ranges::find((*g_world->spell_visuals), spell); found != g_world->spell_visuals->end()) g_world->spell_visuals->erase(found);
+        if (const auto found = std::ranges::find((*g_world->spell_visuals), spell);
+            found != g_world->spell_visuals->end())
+            g_world->spell_visuals->erase(found);
         if (spell->m_plsLights != 0) {
             int count = static_cast<int>(spell->m_plsLights->size());
 
             while (count != 0) {
-                const auto removed_entry = (*spell->m_plsLights)[0];
-                spell->m_plsLights->erase(spell->m_plsLights->begin() + 0);
-                stLight* light = removed_entry;
+                stLight* light = (*spell->m_plsLights)[0];
+                spell->m_plsLights->erase(spell->m_plsLights->begin());
                 WorldRemoveLight(g_world, light);
                 --count;
             }
@@ -1109,7 +1113,8 @@ W8SpellEmitterHost::~W8SpellEmitterHost()
         }
     }
     for (emitter = 0; emitter < SPELL_NUM_CYCLES; ++emitter) {
-        for (light_list = 0; light_list < static_cast<int>(light_lists[emitter].size()); ++light_list) {
+        for (light_list = 0; light_list < static_cast<int>(light_lists[emitter].size());
+             ++light_list) {
             DestroyLightVector(light_lists[emitter][light_list]);
         }
         light_lists[emitter].clear();
@@ -1199,18 +1204,22 @@ void SetMonsterSpellIcon(W8Monster* pMonster, W8MonsterSpellIconId iIcon, bool a
         if (ppl == 0) {
             return;
         }
-        count = (ppl ? static_cast<unsigned int>(ppl->size()) : 0);
+        count = (ppl ? ppl->size() : 0);
         for (index = 0; index < count; ++index) {
-            pSpellMI = static_cast<W8MonsterSpellIcon*>((ppl && static_cast<std::size_t>(index) < ppl->size() ? (*ppl)[index] : nullptr));
+            pSpellMI = (*ppl)[index];
             if (pSpellMI->icon == iIcon) {
-                if (const auto found = std::ranges::find((*ppl), pSpellMI); found != ppl->end()) ppl->erase(found);
+                if (const auto found = std::ranges::find((*ppl), pSpellMI); found != ppl->end())
+                    ppl->erase(found);
                 if (pSpellMI == 0) {
                     srAssertFail("pSpellMI", "C:\\Projects\\Wizardry 8\\Engine Code\\Spells.cpp",
                                  0x81b, 0);
                 }
                 if (pSpellMI->psrBMO != 0) {
                     pSpellMI->psrBMO->DetachMesh(g_world);
-                    if (const auto found = std::ranges::find((*g_world->plsItems), pSpellMI->psrBMO); found != g_world->plsItems->end()) g_world->plsItems->erase(found);
+                    if (const auto found =
+                            std::ranges::find((*g_world->plsItems), pSpellMI->psrBMO);
+                        found != g_world->plsItems->end())
+                        g_world->plsItems->erase(found);
                     if (pSpellMI->psrBMO != 0) {
                         delete pSpellMI->psrBMO;
                     }
@@ -1281,7 +1290,9 @@ stSound3D::~stSound3D()
     if (sound_handle != -1) {
         SoundStop(sound_handle);
     }
-    if (const auto found = std::ranges::find(g_sound3d_instances, this); found != g_sound3d_instances.end()) g_sound3d_instances.erase(found);
+    if (const auto found = std::ranges::find(g_sound3d_instances, this);
+        found != g_sound3d_instances.end())
+        g_sound3d_instances.erase(found);
 }
 
 // FUNCTION: WIZ8 0x004AE8B0
@@ -1450,16 +1461,18 @@ void ClearMonsterSpellIcons(W8Monster* monster)
     }
     std::vector<W8MonsterSpellIcon*>* list = rep->spell_icons;
     if (list != 0) {
-        unsigned int count = (list ? static_cast<unsigned int>(list->size()) : 0);
+        unsigned int count = (list ? list->size() : 0);
         for (int index = 0; index < static_cast<int>(count); ++index) {
-            W8MonsterSpellIcon* entry = static_cast<W8MonsterSpellIcon*>((list && static_cast<std::size_t>(index) < list->size() ? (*list)[index] : nullptr));
+            W8MonsterSpellIcon* entry = (*list)[index];
             if (entry == 0) {
                 srAssertFail("pSpellMI", "C:\\Projects\\Wizardry 8\\Engine Code\\Spells.cpp", 0x81b,
                              0);
             }
             if (entry->psrBMO != 0) {
                 entry->psrBMO->DetachMesh(g_world);
-                if (const auto found = std::ranges::find((*g_world->plsItems), entry->psrBMO); found != g_world->plsItems->end()) g_world->plsItems->erase(found);
+                if (const auto found = std::ranges::find((*g_world->plsItems), entry->psrBMO);
+                    found != g_world->plsItems->end())
+                    g_world->plsItems->erase(found);
                 delete entry->psrBMO;
             }
             free(entry);

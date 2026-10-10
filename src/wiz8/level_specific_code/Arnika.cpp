@@ -109,7 +109,7 @@ void ArnikaLevelSetup(void)
             g_lazer_prop = pTrigger->GetProp();
             g_laser_scanning = 1;
             BeginScriptedWorldAction();
-            g_master_functions->push_back(ArnikaLaserScanMaster);
+            g_master_functions.push_back(ArnikaLaserScanMaster);
         }
     }
     if (GetLocationVarIDByName("WarningSound") != -1) {
@@ -152,7 +152,7 @@ bool ArnikaLazerScanner(Trigger* pTrigger)
     }
     g_laser_scanning = 1;
     BeginScriptedWorldAction();
-    g_master_functions->push_back(ArnikaLaserScanMaster);
+    g_master_functions.push_back(ArnikaLaserScanMaster);
     return true;
 }
 
@@ -173,7 +173,7 @@ void ArnikaLaserScanMaster(int command)
         }
         g_laser_scanning = 1;
         BeginScriptedWorldAction();
-        g_master_functions->push_back(ArnikaLaserScanMaster);
+        g_master_functions.push_back(ArnikaLaserScanMaster);
         return;
     }
     g_remove_current_master_function = false;
@@ -240,7 +240,7 @@ void ArnikaWarningSound(int command)
             CreateAndPlaySoundNode("Data\\Sound\\VOCs\\VOC_HLLIntruder\\VOC_HLLIntruder_003.wav",
                                    position, 1.0f, 75.0f, true);
         if (g_warning_loop != 0 || g_warning_oneshot != 0) {
-            g_master_functions->push_back(ArnikaWarningSound);
+            g_master_functions.push_back(ArnikaWarningSound);
         }
     }
     if (g_warning_oneshot != 0) {
@@ -292,14 +292,14 @@ bool ArnikaMookholo(Trigger* pTrigger)
         } else {
             CreateLocationVar("ScregActive", 1);
         }
-        location_id = (group->monsters.operator->() && static_cast<std::size_t>(0) < group->monsters->size() ? (*group->monsters)[0] : -1);
+        location_id = group->MemberLocationId(0);
         if (location_id != 0) {
             info = MonsterGetScriptPartByLocationIndex(
                 MonsterGetIndexByLocationID(0x193, ARNIKA_CPP, location_id, true));
             if (info != 0) {
                 g_mookholo_monster = info->p3D;
                 g_npc_dialogue_closed = false;
-                g_master_functions->push_back(ArnikaMookholoWatch);
+                g_master_functions.push_back(ArnikaMookholoWatch);
             }
             QueueNpcScriptNotice(FindNpcBindingForMonster(MonsterGetIndexByLocationID(
                                      0x199, ARNIKA_CPP, location_id, true)),
@@ -318,7 +318,7 @@ void ArnikaMookholoWatch(int command)
     if (command != 0) {
         if (command == static_cast<int>(0xEFFFFFFF)) {
             g_npc_dialogue_closed = false;
-            g_master_functions->push_back(ArnikaMookholoWatch);
+            g_master_functions.push_back(ArnikaMookholoWatch);
         }
         return;
     }
@@ -401,13 +401,13 @@ bool ArnikaExitButton(Trigger* pTrigger)
     if (GetLocationVarIDByName("Teleporting") != -1) {
         if (GetLocationVarValueByName("Teleporting") == 0) {
             SetTriggerVariableByName("Teleporting", 1);
-            g_master_functions->push_back(ArnikaTeleportWatch);
+            g_master_functions.push_back(ArnikaTeleportWatch);
         } else {
             SetTriggerVariableByName("Teleporting", 0);
         }
     } else {
         CreateLocationVar("Teleporting", 1);
-        g_master_functions->push_back(ArnikaTeleportWatch);
+        g_master_functions.push_back(ArnikaTeleportWatch);
     }
     g_trigger_feedback = true;
     SetFact(W8_FACT_ARNIKA_VAULT_TELEPORT, 1, false);
@@ -523,7 +523,7 @@ void ArnikaElevator1Setup(void)
             gEl01.pProp = gEl01.pBottomDoor->GetProp();
             break;
         }
-        g_master_functions->push_back(ArnikaEl1Moving);
+        g_master_functions.push_back(ArnikaEl1Moving);
     }
     if (gEl01.button_down != 0) {
         ArnikaEl1Button(gEl01.button_down);
@@ -581,7 +581,7 @@ void ArnikaEl1Button(int command)
         if (g_el01_button_prop == 0) {
             return;
         }
-        g_master_functions->push_back(ArnikaEl1Button);
+        g_master_functions.push_back(ArnikaEl1Button);
         if (command != static_cast<int>(0xEFFFFFFF)) {
             gEl01.button_down = command;
         } else {
@@ -733,7 +733,7 @@ void ArnikaElevator2Setup(void)
             gEl02.pProp = gEl02.pBottomDoor->GetProp();
             break;
         }
-        g_master_functions->push_back(ArnikaEl2Moving);
+        g_master_functions.push_back(ArnikaEl2Moving);
     }
     if (gEl02.button_down != 0) {
         ArnikaEl2Button(gEl02.button_down);
@@ -775,7 +775,7 @@ void ArnikaEl2Button(int command)
         if (g_el02_button_prop == 0) {
             return;
         }
-        g_master_functions->push_back(ArnikaEl2Button);
+        g_master_functions.push_back(ArnikaEl2Button);
         if (command != static_cast<int>(0xEFFFFFFF)) {
             gEl02.button_down = command;
         } else {
@@ -904,13 +904,13 @@ void ArnikaElevatorAdvance(int which)
         SetTriggerVariableByName("El01State", el->state);
         gEl01.pProp = prop;
         if (prop != 0) {
-            g_master_functions->push_back(ArnikaEl1Moving);
+            g_master_functions.push_back(ArnikaEl1Moving);
         }
     } else {
         SetTriggerVariableByName("El02State", el->state);
         gEl02.pProp = prop;
         if (prop != 0) {
-            g_master_functions->push_back(ArnikaEl2Moving);
+            g_master_functions.push_back(ArnikaEl2Moving);
         }
     }
 }

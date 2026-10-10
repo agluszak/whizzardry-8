@@ -530,7 +530,8 @@ void AdvanceTimedEffects(unsigned int minutes)
         TickRadiusBlastEffectSlots(g_combat_state->effect_slots0);
     }
 
-    for (unsigned int index = 0; index < (gXStatus.plsMonsterList ? static_cast<unsigned int>(gXStatus.plsMonsterList->size()) : 0); ++index) {
+    for (unsigned int index = 0;
+         index < (gXStatus.plsMonsterList ? gXStatus.plsMonsterList->size() : 0); ++index) {
         W8MonsterInfo* monster_info = MonsterGetScriptPartByLocationIndex(index);
         if (monster_info->highest_condition < W8_CONDITION_DEAD) {
             AgeMonsterSight(monster_info, minutes, 0);

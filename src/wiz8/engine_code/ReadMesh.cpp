@@ -106,9 +106,7 @@ static srTextureIFace** g_multi_mesh_textures;
 
 // GLOBAL: WIZ8 0x0065BA04
 static srShader* g_multi_mesh_render_flags;
-/* The retained-texture list is a W8GrowableVector at 0x0065B9D0,
-   constructed with capacity five by the initializer at 0x00485AF0.
-   Both retention passes store srTextureIFace pointers and release them
+/* Both retention passes keep texture pointers here and release them
    through the inherited srClass interface. */
 // GLOBAL: WIZ8 0x0065b9d0
 static std::vector<srTextureIFace*> g_retained_textures;
@@ -485,11 +483,12 @@ void OptimizeMeshOrder(srMeshModel* model, w8_ulong flags)
 }
 
 // FUNCTION: WIZ8 0x00488650
-stMeshModel*
-BuildSingleLevelMesh(int face_count, W8ReadMeshFace* faces, int vertex_count, int material_count,
-                     srMaterialIFace** materials, srTextureIFace** textures, srShader* render_flags,
-                     unsigned int* mesh_count, int*** vertex_maps, unsigned int* vertex_map_count,
-                     std::vector<short>* mapped_values, std::vector<short>* mapped_keys)
+stMeshModel* BuildSingleLevelMesh(int face_count, W8ReadMeshFace* faces, int vertex_count,
+                                  int material_count, srMaterialIFace** materials,
+                                  srTextureIFace** textures, srShader* render_flags,
+                                  unsigned int* mesh_count, int*** vertex_maps,
+                                  unsigned int* vertex_map_count, std::vector<short>* mapped_values,
+                                  std::vector<short>* mapped_keys)
 {
     std::vector<srShader> polygon_types;
     std::unordered_map<unsigned int, int> vertex_indices[8];
@@ -520,7 +519,8 @@ BuildSingleLevelMesh(int face_count, W8ReadMeshFace* faces, int vertex_count, in
     }
 
     for (int material = 0; material < material_count; ++material) {
-        if ((std::ranges::find(polygon_types, render_flags[material].value, &srShader::value) == polygon_types.end())) {
+        if ((std::ranges::find(polygon_types, render_flags[material].value, &srShader::value) ==
+             polygon_types.end())) {
             int capacity = 0;
             for (face_index = 0; face_index < face_count; ++face_index) {
                 W8ReadMeshFace& face = faces[face_index];
@@ -541,7 +541,7 @@ BuildSingleLevelMesh(int face_count, W8ReadMeshFace* faces, int vertex_count, in
     if (mesh_count != 0) {
         *mesh_count = static_cast<int>(polygon_types.size());
     }
-    *vertex_maps = static_cast<int**>(malloc(static_cast<int>(polygon_types.size()) * sizeof(int*)));
+    *vertex_maps = static_cast<int**>(malloc(polygon_types.size() * sizeof(int*)));
     if (vertex_map_count != 0) {
         *vertex_map_count = static_cast<int>(polygon_types.size());
     }
@@ -567,8 +567,10 @@ BuildSingleLevelMesh(int face_count, W8ReadMeshFace* faces, int vertex_count, in
 
     for (face_index = 0; face_index < face_count; ++face_index) {
         W8ReadMeshFace& face = faces[face_index];
-        const auto found = std::ranges::find(polygon_types, render_flags[face.material_index].value, &srShader::value);
-        type = (found == polygon_types.end() ? -1 : static_cast<int>(found - polygon_types.begin()));
+        const auto found = std::ranges::find(polygon_types, render_flags[face.material_index].value,
+                                             &srShader::value);
+        type =
+            (found == polygon_types.end() ? -1 : static_cast<int>(found - polygon_types.begin()));
         if (type < 0) {
             srAssertFail("iPolyType >=0", "C:\\Projects\\Wizardry 8\\Engine Code\\ReadMesh.cpp",
                          0x45b, 0);
@@ -715,7 +717,7 @@ BuildSingleLevelMesh(int face_count, W8ReadMeshFace* faces, int vertex_count, in
         free(vertex_shades[type]);
 
         model->setDirtyAll();
-        if (((polygon_types.data() + type)->value & 0x6000) == 0x4000) {
+        if ((polygon_types[type].value & 0x6000) == 0x4000) {
             model->flags |= W8_MESH_SORTED_RENDERING;
             model->enable(srMeshModel::CONTROL_SORTED_RENDERING);
         } else {
@@ -1184,9 +1186,9 @@ try
 // FUNCTION: WIZ8 0x00489920
 void ReleaseRetainedMaterials()
 {
-    while (static_cast<int>(g_retained_textures.size()) != 0) {
-        (g_retained_textures[0])->release();
-        g_retained_textures.erase(g_retained_textures.begin() + 0);
+    while (!g_retained_textures.empty()) {
+        g_retained_textures[0]->release();
+        g_retained_textures.erase(g_retained_textures.begin());
     }
 }
 

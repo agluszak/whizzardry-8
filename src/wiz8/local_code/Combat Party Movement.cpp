@@ -318,7 +318,7 @@ void AlignCombatantsToPartyMovementPhase(void)
             RoundPhaseToStep(&row->phase, g_combat_state->round_counter);
         }
     }
-    unsigned int monster_count = (gXStatus.plsMonsterList ? static_cast<unsigned int>(gXStatus.plsMonsterList->size()) : 0);
+    unsigned int monster_count = (gXStatus.plsMonsterList ? gXStatus.plsMonsterList->size() : 0);
     for (unsigned int monster_index = 0; monster_index < monster_count; ++monster_index) {
         W8MonsterInfo* monster_info = MonsterGetScriptPartByLocationIndex(monster_index);
         if (monster_info->fInCombat &&
@@ -326,7 +326,7 @@ void AlignCombatantsToPartyMovementPhase(void)
             !monster_info->pCombat->active) {
             RoundPhaseToStep(&monster_info->pCombat->phase, g_combat_state->round_counter);
         }
-        monster_count = (gXStatus.plsMonsterList ? static_cast<unsigned int>(gXStatus.plsMonsterList->size()) : 0);
+        monster_count = (gXStatus.plsMonsterList ? gXStatus.plsMonsterList->size() : 0);
     }
 }
 

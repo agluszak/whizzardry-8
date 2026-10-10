@@ -5,7 +5,6 @@
 struct W8AniMesh;
 struct W8PathAI;
 
-#include <vector>
 #include <algorithm>
 #include "surrender/srMath.h"
 
@@ -38,7 +37,7 @@ struct W8AnimObj {
        meshes, released the same way; the second group's are paths, released
        through DestroyPathAI. */
     std::vector<W8AniMesh*>* meshes[3]; /* 0x28 */
-    std::vector<W8PathAI*>* paths[3];  /* 0x34 */
+    std::vector<W8PathAI*>* paths[3];   /* 0x34 */
     /* Named by 0x004A1710's own assertion,
        "pao->pfKnownBBoxFrames && pao->pvecBoundMin && pao->pvecBoundMax".
        One byte a frame saying whether that frame's bounds are already known,

@@ -238,7 +238,8 @@ void SetNavigatorLinkMode(unsigned char mode)
                         navigator->linked_update_time = 0;
                         g_navigator_group.clear();
                         navigator->CollectGroupNavigators(&g_navigator_group);
-                        for (int group_index = 0; group_index < static_cast<int>(g_navigator_group.size());
+                        for (int group_index = 0;
+                             group_index < static_cast<int>(g_navigator_group.size());
                              ++group_index) {
                             W8Navigator* group_navigator = g_navigator_group[group_index];
 
@@ -496,7 +497,9 @@ W8Navigator::~W8Navigator()
     if (path_ai != 0) {
         DestroyOwnedPathAI(path_ai);
     }
-    if (const auto found = std::ranges::find(g_registered_navigators, this); found != g_registered_navigators.end()) g_registered_navigators.erase(found);
+    if (const auto found = std::ranges::find(g_registered_navigators, this);
+        found != g_registered_navigators.end())
+        g_registered_navigators.erase(found);
     delete owned_object;
     owned_object = 0;
     if (movement.location_id != 0 && g_octree != 0) {
@@ -1579,7 +1582,7 @@ unsigned char W8Navigator::LinkToNavigator(W8Navigator* target, double separatio
             g_navigator_group.clear();
             CollectGroupNavigators(&g_navigator_group);
             for (int index = 0; index < static_cast<int>(g_navigator_group.size()); ++index) {
-                (g_navigator_group[index])->movement_stopped = false;
+                g_navigator_group[index]->movement_stopped = false;
             }
         }
     }
@@ -1972,7 +1975,7 @@ void W8Navigator::CollectGroupNavigators(std::vector<W8Navigator*>* navigators)
         GetMonsterGroupIndexByID(0xe7c, NAVIGATOR_CPP, monster_info->monster_group_id, true));
 
     for (member = 0; member < group->member_count; ++member) {
-        int location_id = (group->monsters.operator->() && static_cast<std::size_t>(member) < group->monsters->size() ? (*group->monsters)[member] : -1);
+        int location_id = group->MemberLocationId(member);
         if (location_id != movement.location_id) {
             monster_info = MonsterGetScriptPartByLocationIndex(
                 MonsterGetIndexByLocationID(0xe82, NAVIGATOR_CPP, location_id, true));
@@ -1986,7 +1989,7 @@ void W8Navigator::CollectGroupNavigators(std::vector<W8Navigator*>* navigators)
                 0xe8a, NAVIGATOR_CPP, group->allied_group_ids[ally], true));
             for (member = 0; member < allied_group->member_count; ++member) {
                 monster_info = MonsterGetScriptPartByLocationIndex(MonsterGetIndexByLocationID(
-                    0xe8e, NAVIGATOR_CPP, (allied_group->monsters.operator->() && static_cast<std::size_t>(member) < allied_group->monsters->size() ? (*allied_group->monsters)[member] : -1), true));
+                    0xe8e, NAVIGATOR_CPP, allied_group->MemberLocationId(member), true));
                 navigators->push_back(monster_info->p3D);
             }
         }
@@ -2134,8 +2137,9 @@ void W8Navigator::UpdateNavigation(unsigned char skip_movement, bool slowed)
                         int index;
                         g_navigator_group.clear();
                         CollectGroupNavigators(&g_navigator_group);
-                        for (index = 0; index < static_cast<int>(g_navigator_group.size()); ++index) {
-                            (g_navigator_group[index])->movement_stopped = false;
+                        for (index = 0; index < static_cast<int>(g_navigator_group.size());
+                             ++index) {
+                            g_navigator_group[index]->movement_stopped = false;
                         }
                     }
                 }
@@ -2255,7 +2259,7 @@ int W8Navigator::ResolveMovement()
                     g_navigator_group.clear();
                     CollectGroupNavigators(&g_navigator_group);
                     for (index = 0; index < static_cast<int>(g_navigator_group.size()); ++index) {
-                        (g_navigator_group[index])->movement_stopped = false;
+                        g_navigator_group[index]->movement_stopped = false;
                     }
                 }
                 halted = false;

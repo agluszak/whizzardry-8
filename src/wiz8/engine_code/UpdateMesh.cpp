@@ -292,7 +292,7 @@ void UpdateWorldMeshFromQuads(W8World* world)
         W8QuadCell* cell =
             &quad->rows[g_visible_quad_rows[index]].cells[g_visible_quad_columns[index]];
         if (cell != 0 && cell->polygon_indices != 0) {
-            polygon_count += (cell->polygon_indices ? static_cast<unsigned int>(cell->polygon_indices->size()) : 0);
+            polygon_count += (cell->polygon_indices ? cell->polygon_indices->size() : 0);
         }
     }
     mesh->setActivePolygonCount(polygon_count);
@@ -305,9 +305,10 @@ void UpdateWorldMeshFromQuads(W8World* world)
             w8_long j;
             if (cell->objects != 0 && cell->dirty_stamp < quad->dirty) {
                 cell->dirty_stamp = quad->dirty;
-                w8_long object_count = static_cast<w8_long>((cell->objects ? static_cast<unsigned int>(cell->objects->size()) : 0));
+                w8_long object_count =
+                    static_cast<w8_long>((cell->objects ? cell->objects->size() : 0));
                 for (j = 0; j < object_count; ++j) {
-                    char* item = reinterpret_cast<char*>((cell->objects && static_cast<std::size_t>(j) < cell->objects->size() ? (*cell->objects)[j] : nullptr));
+                    char* item = reinterpret_cast<char*>((*cell->objects)[j]);
                     if (item[0] == 1) {
                         w8_long entry =
                             *reinterpret_cast< // reinterpret-ok: quad-cell object producer/lifetime
@@ -322,9 +323,10 @@ void UpdateWorldMeshFromQuads(W8World* world)
                     }
                 }
             }
-            w8_long index_count = static_cast<w8_long>((cell->polygon_indices ? static_cast<unsigned int>(cell->polygon_indices->size()) : 0));
+            w8_long index_count =
+                static_cast<w8_long>((cell->polygon_indices ? cell->polygon_indices->size() : 0));
             for (j = 0; j < index_count; ++j) {
-                table[offset] = (cell->polygon_indices && static_cast<std::size_t>(j) < cell->polygon_indices->size() ? (*cell->polygon_indices)[j] : -1);
+                table[offset] = (*cell->polygon_indices)[j];
                 ++offset;
             }
         }

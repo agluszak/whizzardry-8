@@ -1239,7 +1239,8 @@ unsigned int W8Octree::SampleRegionLinks(const srVector3T<float>* point, bool de
             if (bit != 0) {
                 do {
                     unsigned int cell = static_cast<unsigned int>(bit - 1);
-                    meshes.push_back(static_cast<stModelInstance*>(g_world->psrMeshes[m_pSubmeshes[cell].mesh]));
+                    meshes.push_back(
+                        static_cast<stModelInstance*>(g_world->psrMeshes[m_pSubmeshes[cell].mesh]));
                     if (!m_projected_regions->Test(cell)) {
                         auto slot = m_pRegionLinks->equal_range(key).first;
                         while (slot != m_pRegionLinks->end() && slot->second !=
@@ -1485,7 +1486,7 @@ void W8Octree::BuildRegionLinks(bool rebuild_all)
         m_point_count = 0;
     }
     world->camera->setViewPlane(saved_width, saved_height);
-    unsigned int camera_count = (world->plsCameras ? static_cast<unsigned int>(world->plsCameras->size()) : 0);
+    unsigned int camera_count = (world->plsCameras ? world->plsCameras->size() : 0);
     if (!aborted && world->plsCameras != 0 && camera_count != 0) {
         for (int camera_index = 0; camera_index < static_cast<int>(camera_count); ++camera_index) {
             W8CameraPath* entry = GetWorldCameraPath(world, camera_index);

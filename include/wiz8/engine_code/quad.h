@@ -5,7 +5,6 @@ struct W8QuadObject;
 
 #include "surrender/srMath.h"
 
-#include <vector>
 #include <algorithm>
 
 class srModelInstance;

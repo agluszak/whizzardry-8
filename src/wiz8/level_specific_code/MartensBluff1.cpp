@@ -305,7 +305,7 @@ bool MartensBluff1TransportSpawn(void)
     CreateAndPlaySoundNode("Data\\Sound\\Ambients\\TrangTransporter.wav", position_a, 0.7f, 30.0f,
                            false);
     group = SpawnMonsters(0x177, 1, &position_a, 0, true, false, false);
-    location_id = (group->monsters.operator->() && static_cast<std::size_t>(0) < group->monsters->size() ? (*group->monsters)[0] : -1);
+    location_id = group->MemberLocationId(0);
     if (location_id != 0) {
         info = MonsterGetScriptPartByLocationIndex(
             MonsterGetIndexByLocationID(0x1fd, MARTENSBLUFF1_CPP, location_id, true));
@@ -341,7 +341,7 @@ void MartensBluff1Transporter(int command)
                 g_transport_gate->SetProgress(GetLocationVarValueByName("TransportSpawn") *
                                               g_movement_speed_step);
             }
-            g_master_functions->push_back(MartensBluff1Transporter);
+            g_master_functions.push_back(MartensBluff1Transporter);
             return;
         }
         if (command != -1) {

@@ -322,8 +322,7 @@ void ReloadKeywordLists(void);
 /* Release every file list, its lines and its words. */
 void ClearKeywordLists(void);
 /* Load one keyword file into a file list. */
-unsigned char LoadKeywordFile(const char* path,
-                              std::vector<std::vector<wchar_t*>*>* file);
+unsigned char LoadKeywordFile(const char* path, std::vector<std::vector<wchar_t*>*>* file);
 /* Copy the next '/'-terminated field out of a keyword line into
    the caller's buffer and return the cursor past it, or null at the end. */
 wchar_t* ParseKeywordToken(wchar_t* line, wchar_t* field);

@@ -89,13 +89,10 @@ struct W8MonsterRep : public W8EmitterHost {
 
     /* The spell-icon list; named by the SetMonsterSpellIcon assert
        "pMonRep->GetSpellIcons()". */
-    std::vector<W8MonsterSpellIcon*>* GetSpellIcons()
-    {
-        return spell_icons;
-    }
+    std::vector<W8MonsterSpellIcon*>* GetSpellIcons() { return spell_icons; }
 
-    std::vector<W8AnimObj*> animations[W8_MONSTER_CYCLE_COUNT];                   /* 0x0ac */
-    std::vector<float> animation_scales[W8_MONSTER_CYCLE_COUNT];                  /* 0x25c */
+    std::vector<W8AnimObj*> animations[W8_MONSTER_CYCLE_COUNT];              /* 0x0ac */
+    std::vector<float> animation_scales[W8_MONSTER_CYCLE_COUNT];             /* 0x25c */
     std::vector<std::vector<stLight*>*> light_lists[W8_MONSTER_CYCLE_COUNT]; /* 0x40c */
     /* 0x5bc: per-party-member highlight bitmask - bit N set while party
        member N has the monster highlighted/targeted. */
@@ -321,7 +318,7 @@ public:
     unsigned char padding_292[2];
     float patrol_distance;
     float patrol_variation;
-    std::vector<srVector3T<float> > vector;
+    std::vector<srVector3T<float>> vector;
     signed char patrol_index;
     unsigned char padding_2ad[3];
     float direction_x;

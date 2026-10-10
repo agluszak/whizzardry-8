@@ -4,7 +4,6 @@
 #include <vector>
 struct W8WorldItem;
 
-#include <vector>
 #include <algorithm>
 #include "wiz8/engine_code/OctPath.h"
 #include "wiz8/geometry.h"

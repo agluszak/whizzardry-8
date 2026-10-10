@@ -7,7 +7,6 @@ struct W8AniMesh;
 #include <stddef.h>
 
 #include "surrender/srMath.h"
-#include <vector>
 #include <algorithm>
 
 class stModelInstance;

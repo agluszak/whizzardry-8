@@ -14,10 +14,7 @@ struct stScriptLabel {
     int line;
 };
 
-/* Engine Code\stScript.cpp. Construction at 0x004CF020 installs each
-   growable-vector base table, then its W8Vector table, at +0x18 and +0x28.
-   Load allocates eight-byte lines and 0x24-byte labels; Clear frees those
-   pointed-to records before the vector storage. */
+/* Owns parsed script lines and labels. Clear frees the records and their text. */
 class stScript : public srClassSupport<stScript, srClass, 0x1000d> {
 public:
     static const char* sGetClassName()

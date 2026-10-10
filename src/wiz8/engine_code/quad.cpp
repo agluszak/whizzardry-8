@@ -27,7 +27,6 @@ void DestroyWorldQuad(W8Quad* quad)
         if (cells != 0) {
             if (cells->polygon_indices != 0) {
                 delete cells->polygon_indices;
-
             }
 
             delete cells->objects;

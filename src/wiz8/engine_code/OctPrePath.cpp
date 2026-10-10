@@ -6,7 +6,6 @@
 #include "wiz8/float_constants.h"
 #include "wiz8/local_screens/AutomapScreen.h"
 #include <vector>
-#include <algorithm>
 #include "wiz8/sr_api.h"
 
 #include <algorithm>

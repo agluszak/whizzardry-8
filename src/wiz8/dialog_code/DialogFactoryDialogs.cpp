@@ -150,7 +150,8 @@ void W8ListBoxDialog::SetCurrentLine(int line)
     int visible = GetVisibleLineCount();
     if (target < m_first_visible_line) {
         SetFirstVisibleLine(target);
-    } else if (target < static_cast<int>(m_lines.size()) && m_first_visible_line - 1 + visible < target) {
+    } else if (target < static_cast<int>(m_lines.size()) &&
+               m_first_visible_line - 1 + visible < target) {
         SetFirstVisibleLine(target - visible + 1);
     }
     m_selected_line = target;
@@ -385,7 +386,7 @@ void W8ListBoxDialog::Draw()
                  GetButtonY(m_second_text_button);
     unsigned int visible_lines;
     if (static_cast<int>(m_lines.size()) < height / static_cast<int>(static_cast<unsigned int>(
-                                          GetFontHeight(g_dialog_interface_font)))) {
+                                                        GetFontHeight(g_dialog_interface_font)))) {
         m_scrollable = false;
         visible_lines = static_cast<int>(m_lines.size());
     } else {
@@ -436,7 +437,8 @@ void W8ListBoxDialog::Draw()
     SaveFontSettings();
     SetFontDestBuffer(FRAME_BUFFER, rect.x + 3, rect.y + 3, (rect.x + rect.w) - 3,
                       (rect.y + rect.h) - 3, 0);
-    if (static_cast<int>(m_lines.size()) <= static_cast<int>(visible_lines + m_first_visible_line)) {
+    if (static_cast<int>(m_lines.size()) <=
+        static_cast<int>(visible_lines + m_first_visible_line)) {
         visible_lines = static_cast<int>(m_lines.size()) - m_first_visible_line;
     }
     for (index = 0; index < static_cast<int>(visible_lines); ++index) {
@@ -1131,7 +1133,7 @@ void W8TriggerItemPickerDialog::TransferSelectedItems(int destination)
         SoundPlay("Data\\Sound\\Misc\beep2.wav", 0);
     }
     RefreshScrollButtons();
-    if (static_cast<int>(items.size()) == 0) {
+    if (items.empty()) {
         m_keep_open = false;
     }
 }
@@ -1406,15 +1408,15 @@ void W8TriggerItemPickerDialog::SetItemGroup(W8WorldItem* group)
 // FUNCTION: WIZ8 0x005cf110
 W8WorldItem* W8TriggerItemPickerDialog::ReturnItemsToGroup()
 {
-    if (static_cast<int>(items.size()) == 0) {
+    if (items.empty()) {
         return m_item_group;
     }
     do {
         W8WorldItem* item = items[0];
-        items.erase(items.begin() + 0);
-        flags.erase(flags.begin() + 0);
+        items.erase(items.begin());
+        flags.erase(flags.begin());
         ItemInfoAddToGroup(m_item_group, item);
-    } while (static_cast<int>(items.size()) != 0);
+    } while (!items.empty());
     return m_item_group;
 }
 
@@ -1446,7 +1448,8 @@ int W8TriggerItemPickerDialog::AddItem(W8WorldItem* item)
                 ++index;
             }
             if (index < static_cast<int>(items.size())) {
-                while (index < static_cast<int>(items.size()) && other->item.iItemNo != instance->iItemNo) {
+                while (index < static_cast<int>(items.size()) &&
+                       other->item.iItemNo != instance->iItemNo) {
                     other = items[index];
                     ++index;
                 }
@@ -1596,7 +1599,7 @@ void W8TriggerItemPickerDialog::Draw()
             continue;
         }
         button->Draw();
-        if (static_cast<int>(items.size()) == 0) {
+        if (items.empty()) {
             continue;
         }
         int item_index = m_first_item + row;

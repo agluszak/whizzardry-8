@@ -7,7 +7,6 @@ class W8Monster;
 
 #include "input.h"
 #include "surrender/srMath.h"
-#include <vector>
 #include <algorithm>
 #include "input.h"
 #include "wiz8/engine_code/stCube.h"
@@ -48,6 +47,13 @@ W8_ABI_ASSERT(sizeof(W8MipeEditField) == 0x18, "W8MipeEditField_size");
 
 /* The editor owns selected monster IDs and borrows its waypoint monsters. */
 struct W8MipeState {
+    int SelectedMonsterLocationId() const
+    {
+        if (monster_ids.empty())
+            return -1;
+        return monster_ids.front();
+    }
+
     std::vector<int> monster_ids;
 
     int selected_group_id; /* group id of the last group pick; W8_MIPE_NO_GROUP = none */

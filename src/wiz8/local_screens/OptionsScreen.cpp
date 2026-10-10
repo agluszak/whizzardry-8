@@ -204,10 +204,9 @@ W8OptionsPanelSet::W8OptionsPanelSet()
 
 W8OptionsPanelSet::~W8OptionsPanelSet()
 {
-    for (auto index = m_panels.size(); index-- > 0;) {
-        if (index >= m_panels.size()) continue;
-        auto* object = m_panels[index];
-        m_panels.erase(m_panels.begin() + index);
+    while (!m_panels.empty()) {
+        auto* object = m_panels.back();
+        m_panels.pop_back();
         delete object;
     }
 }
@@ -286,9 +285,10 @@ void W8OptionsSaveLoadPanel::Populate()
     int page = 0;
     int selected = 0;
     if (m_panel == 11 && g_options_last_save_name[0] != 0) {
-        for (int index = 1; index < static_cast<int>(g_options_screen->m_save_slots.size()); ++index) {
-            if (wcscmp(g_options_last_save_name,
-                       (g_options_screen->m_save_slots[index])->name) == 0) {
+        for (int index = 1; index < static_cast<int>(g_options_screen->m_save_slots.size());
+             ++index) {
+            if (wcscmp(g_options_last_save_name, g_options_screen->m_save_slots[index]->name) ==
+                0) {
                 page = (index - 1) / 5;
                 selected = (index - 1) % 5;
             }
@@ -389,7 +389,7 @@ void W8OptionsSaveLoadPanel::OnDialogClosed(bool accepted, int value)
             selected_slot = m_current;
         } else if (value == 3) {
             selected_slot = m_current * 5 + m_selection.m_selectedIndex;
-            wcscpy((g_options_screen->m_save_slots[selected_slot])->name, m_previous_name);
+            wcscpy(g_options_screen->m_save_slots[selected_slot]->name, m_previous_name);
             W8OptionsSaveRow* row = m_rows[m_selection.m_selectedIndex];
             row->SetSave(g_options_screen->m_save_slots[selected_slot]);
             if (g_options_screen->m_text_editor != 0 || m_panel != 12 ||
@@ -437,9 +437,9 @@ void W8OptionsSaveLoadPanel::OnDialogClosed(bool accepted, int value)
 void W8OptionsSaveLoadPanel::OnTextEditComplete(W8OptionsTextEditor*, unsigned char cancelled)
 {
     int selected_slot = m_current * 5 + m_selection.m_selectedIndex;
-    (m_rows[m_editing_row])->m_editing = false;
+    m_rows[m_editing_row]->m_editing = false;
     if (cancelled != 0) {
-        (m_rows[m_selection.m_selectedIndex])->Invalidate(false);
+        m_rows[m_selection.m_selectedIndex]->Invalidate(false);
         return;
     }
 
@@ -469,11 +469,10 @@ void W8OptionsSaveLoadPanel::OnTextEditComplete(W8OptionsTextEditor*, unsigned c
 void W8OptionsSaveLoadPanel::OnEditSaveName(W8OptionsSaveRow*)
 {
     int selected_slot = m_current * 5 + m_selection.m_selectedIndex;
-    g_options_screen->BeginSaveNameEdit(
-        this, m_selection.m_selectedIndex,
-        (g_options_screen->m_save_slots[selected_slot])->name);
+    g_options_screen->BeginSaveNameEdit(this, m_selection.m_selectedIndex,
+                                        g_options_screen->m_save_slots[selected_slot]->name);
     m_editing_row = m_selection.m_selectedIndex;
-    (m_rows[m_editing_row])->m_editing = true;
+    m_rows[m_editing_row]->m_editing = true;
 }
 
 // FUNCTION: WIZ8 0x005ab230
@@ -867,8 +866,7 @@ void W8OptionsKeyboardPanel::OnSelectionChanged(W8ControlSelection*, int selecte
         return;
     }
 
-    W8Widget** control = (m_controls.data() + selected);
-    m_captured_button = static_cast<W8OptionsKeyButton*>(*control);
+    m_captured_button = static_cast<W8OptionsKeyButton*>(m_controls[selected]);
     g_options_screen->m_key_capture = this;
 }
 
@@ -1284,7 +1282,7 @@ void W8OptionsUnavailablePanel::Populate()
     W8TextBuffer* text = new W8TextBuffer(&bounds, gppStringList[m_message], g_options_detail_font,
                                           g_W8TextBufferAlignTop | g_W8TextBufferAlignCenter, 4);
     m_text_buffers.push_back(text);
-    (m_text_buffers[0])->SetLineHeight(22);
+    m_text_buffers[0]->SetLineHeight(22);
 }
 
 // FUNCTION: WIZ8 0x005a9090
@@ -1339,10 +1337,9 @@ W8OptionsScreen::~W8OptionsScreen()
 {
     int index;
     SelectPanel(-1, true);
-    for (auto index = m_save_slots.size(); index-- > 0;) {
-        if (index >= m_save_slots.size()) continue;
-        auto* object = m_save_slots[index];
-        m_save_slots.erase(m_save_slots.begin() + index);
+    while (!m_save_slots.empty()) {
+        auto* object = m_save_slots.back();
+        m_save_slots.pop_back();
         delete object;
     }
     delete m_controls;
@@ -1368,7 +1365,7 @@ void W8OptionsScreen::SelectPanel(int selected, bool notify)
     }
     if (m_selected_panel != -1) {
         W8OptionsPanelSet* previous = m_panel[m_selected_panel];
-        (previous->m_panels[previous->m_current])->SetActive(false);
+        previous->m_panels[previous->m_current]->SetActive(false);
         previous->m_active = false;
     }
     m_selected_panel = selected;
@@ -1388,7 +1385,7 @@ void W8OptionsScreen::SelectPanel(int selected, bool notify)
         if (!current->m_active) {
             current->m_current = 0;
         }
-        (current->m_panels[current->m_current])->SetActive(true);
+        current->m_panels[current->m_current]->SetActive(true);
         current->m_active = true;
         m_menu_set->m_pMenuSet = m_panel[m_selected_panel];
         m_menu_set->UpdateMenuSet();
@@ -1475,7 +1472,7 @@ void W8OptionsScreen::Redraw()
     if (m_selected_panel != -1) {
         W8OptionsPanelSet* panel_set = m_panel[m_selected_panel];
         if (panel_set->m_active) {
-            (panel_set->m_panels[panel_set->m_current])->Redraw();
+            panel_set->m_panels[panel_set->m_current]->Redraw();
         }
     }
     m_controls->Redraw();
@@ -1701,16 +1698,14 @@ void W8OptionsSelection::OnPrimary(W8TextControl* control)
 W8OptionsPanel::~W8OptionsPanel()
 {
     DestroyAllControls();
-    for (auto index = m_text_buffers.size(); index-- > 0;) {
-        if (index >= m_text_buffers.size()) continue;
-        auto* object = m_text_buffers[index];
-        m_text_buffers.erase(m_text_buffers.begin() + index);
+    while (!m_text_buffers.empty()) {
+        auto* object = m_text_buffers.back();
+        m_text_buffers.pop_back();
         delete object;
     }
-    for (auto index = m_option_selections.size(); index-- > 0;) {
-        if (index >= m_option_selections.size()) continue;
-        auto* object = m_option_selections[index];
-        m_option_selections.erase(m_option_selections.begin() + index);
+    while (!m_option_selections.empty()) {
+        auto* object = m_option_selections.back();
+        m_option_selections.pop_back();
         delete object;
     }
 }
@@ -1798,7 +1793,7 @@ void W8OptionsPanel::Redraw()
     Controls::Redraw();
     if (redraw_text) {
         for (int index = 0; index < static_cast<int>(m_text_buffers.size()); ++index) {
-            (m_text_buffers[index])->RenderToTarget(0, true, FRAME_BUFFER);
+            m_text_buffers[index]->RenderToTarget(0, true, FRAME_BUFFER);
         }
     }
 }
@@ -1885,10 +1880,10 @@ void W8OptionsPanelSet::Advance()
     if (m_page_count == 0) {
         current = m_current;
         if (current < static_cast<int>(m_panels.size()) - 1) {
-            (m_panels[current])->SetActive(false);
+            m_panels[current]->SetActive(false);
             current = m_current + 1;
             m_current = current;
-            (m_panels[current])->SetActive(true);
+            m_panels[current]->SetActive(true);
         }
     } else if (m_panels[0]->m_current < m_page_count - 1) {
         m_panels[0]->SetCurrent(m_panels[0]->m_current + 1);
@@ -1903,10 +1898,10 @@ void W8OptionsPanelSet::Retreat()
     if (m_page_count == 0) {
         current = m_current;
         if (current > 0) {
-            (m_panels[current])->SetActive(false);
+            m_panels[current]->SetActive(false);
             current = m_current - 1;
             m_current = current;
-            (m_panels[current])->SetActive(true);
+            m_panels[current]->SetActive(true);
         }
     } else if (m_panels[0]->m_current > 0) {
         m_panels[0]->SetCurrent(m_panels[0]->m_current - 1);
@@ -2118,7 +2113,7 @@ void OptionsScreenFrame()
             if (screen->m_selected_panel != -1) {
                 W8OptionsPanelSet* panel_set = screen->m_panel[screen->m_selected_panel];
                 if (panel_set->m_active) {
-                    (panel_set->m_panels[panel_set->m_current])->Invalidate(0);
+                    panel_set->m_panels[panel_set->m_current]->Invalidate(0);
                 }
                 screen->m_menu_set->Invalidate(0);
             }

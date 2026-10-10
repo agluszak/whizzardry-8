@@ -74,7 +74,6 @@ GDProp::~GDProp()
     }
     if (m_supported_items != 0) {
         delete m_supported_items;
-
     }
 }
 
@@ -235,10 +234,9 @@ void GDProp::Initialize(srModelInstance* instance, bool attach, unsigned short p
     }
 
     if (m_supported_items != 0) {
-        unsigned int count = (m_supported_items ? static_cast<unsigned int>(m_supported_items->size()) : 0);
+        unsigned int count = (m_supported_items ? m_supported_items->size() : 0);
         for (unsigned int index = 0; index < count; ++index) {
-            W8WorldItem* item =
-                static_cast<W8WorldItem*>((m_supported_items && static_cast<int>(index) >= 0 && static_cast<int>(index) < static_cast<int>(m_supported_items->size()) ? (*m_supported_items)[static_cast<int>(index)] : nullptr));
+            W8WorldItem* item = (*m_supported_items)[index];
             if (item != 0) {
                 SetWorldItemFalling(item, true);
             }
@@ -448,7 +446,8 @@ void AddItemToSector(int sector, W8WorldItem* item)
         if (gd->m_supported_items == 0) {
             gd->m_supported_items = new std::vector<W8WorldItem*>;
         }
-        if (gd->m_supported_items != 0 && (std::ranges::find((*gd->m_supported_items), item) == gd->m_supported_items->end())) {
+        if (gd->m_supported_items != 0 &&
+            (std::ranges::find((*gd->m_supported_items), item) == gd->m_supported_items->end())) {
             gd->m_supported_items->push_back(item);
         }
     }
@@ -461,7 +460,9 @@ void RemoveItemFromSector(int sector, W8WorldItem* item)
     if (item != 0 && sector >= 0) {
         W8Prop* prop = (*g_world->collidable_props)[sector];
         if (prop != 0 && prop->m_gd_prop != 0 && prop->m_gd_prop->m_supported_items != 0) {
-            if (const auto found = std::ranges::find((*prop->m_gd_prop->m_supported_items), item); found != prop->m_gd_prop->m_supported_items->end()) prop->m_gd_prop->m_supported_items->erase(found);
+            if (const auto found = std::ranges::find((*prop->m_gd_prop->m_supported_items), item);
+                found != prop->m_gd_prop->m_supported_items->end())
+                prop->m_gd_prop->m_supported_items->erase(found);
         }
     }
 }
@@ -470,7 +471,7 @@ void RemoveItemFromSector(int sector, W8WorldItem* item)
 // FUNCTION: WIZ8 0x004B7BA0
 bool GDProp::HasSupportedItems()
 {
-    if (m_supported_items != 0 && static_cast<int>((m_supported_items ? static_cast<unsigned int>(m_supported_items->size()) : 0)) > 0) {
+    if (m_supported_items && !m_supported_items->empty()) {
         return true;
     }
     return false;

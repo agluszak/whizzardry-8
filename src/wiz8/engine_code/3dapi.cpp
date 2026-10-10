@@ -284,9 +284,7 @@ unsigned char LoadWorld(W8World* world, char* level_file_name, const char* level
 W8World* CreateWorld()
 {
     W8World* world = new W8World{};
-    if (world == 0) {
-        srAssertFail("pWorld", THREE_D_API_CPP, 0xa0, 0);
-    }
+    world->environment_colour.SetZero();
 
     world->static_scene = new srScene(static_cast<srNode*>(0));
     if (world->static_scene == 0) {
@@ -364,9 +362,9 @@ void UpdateWorld(W8World* world)
     }
 
     std::vector<srNode*>* nodes = &world->nodes_to_disable;
-    int count = static_cast<short>((nodes ? static_cast<unsigned int>(nodes->size()) : 0));
+    int count = static_cast<short>((nodes ? nodes->size() : 0));
     for (int index = 0; index < count; ++index) {
-        srNode* node = static_cast<srNode*>((nodes && static_cast<std::size_t>(index) < nodes->size() ? (*nodes)[index] : nullptr));
+        srNode* node = (*nodes)[index];
         node->setFlag(srNode::FLAG_DISABLE);
     }
     nodes->clear();
@@ -458,9 +456,9 @@ void DestroyWorldCollections(W8World* world)
     }
 
     if (world->plsMonsters != 0) {
-        while ((world->plsMonsters ? static_cast<unsigned int>(world->plsMonsters->size()) : 0) != 0) {
-            W8Monster* object = static_cast<W8Monster*>((world->plsMonsters && static_cast<std::size_t>(0) < world->plsMonsters->size() ? (*world->plsMonsters)[0] : nullptr));
-            world->plsMonsters->erase(world->plsMonsters->begin() + 0);
+        while (!world->plsMonsters->empty()) {
+            W8Monster* object = (*world->plsMonsters)[0];
+            world->plsMonsters->erase(world->plsMonsters->begin());
             delete object;
         }
         delete world->plsMonsters;
@@ -470,9 +468,9 @@ void DestroyWorldCollections(W8World* world)
     if (g_world_cleanup_flag)
         RenderFrame();
     if (world->plsItems != 0) {
-        while ((world->plsItems ? static_cast<unsigned int>(world->plsItems->size()) : 0) != 0) {
-            W8Item* object = static_cast<W8Item*>((world->plsItems && static_cast<std::size_t>(0) < world->plsItems->size() ? (*world->plsItems)[0] : nullptr));
-            world->plsItems->erase(world->plsItems->begin() + 0);
+        while (!world->plsItems->empty()) {
+            W8Item* object = (*world->plsItems)[0];
+            world->plsItems->erase(world->plsItems->begin());
             delete object;
         }
         delete world->plsItems;
@@ -482,9 +480,9 @@ void DestroyWorldCollections(W8World* world)
     if (g_world_cleanup_flag)
         RenderFrame();
     if (world->plsProps != 0) {
-        while ((world->plsProps ? static_cast<unsigned int>(world->plsProps->size()) : 0) != 0) {
+        while (!world->plsProps->empty()) {
             W8Prop* object = GetWorldProp(world, 0);
-            world->plsProps->erase(world->plsProps->begin() + 0);
+            world->plsProps->erase(world->plsProps->begin());
             delete object;
         }
         delete world->plsProps;
@@ -503,9 +501,9 @@ void DestroyWorldCollections(W8World* world)
         RenderFrame();
 
     if (world->plsCameras != 0) {
-        while ((world->plsCameras ? static_cast<unsigned int>(world->plsCameras->size()) : 0) != 0) {
+        while (!world->plsCameras->empty()) {
             W8CameraPath* entry = GetWorldCameraPath(world, 0);
-            world->plsCameras->erase(world->plsCameras->begin() + 0);
+            world->plsCameras->erase(world->plsCameras->begin());
             DestroyPathAI(entry->path);
             free(entry);
         }
@@ -516,9 +514,9 @@ void DestroyWorldCollections(W8World* world)
 
     StopAllAmbientSounds();
     if (world->plsAmbientSounds != 0) {
-        while ((world->plsAmbientSounds ? static_cast<unsigned int>(world->plsAmbientSounds->size()) : 0) != 0) {
+        while (!world->plsAmbientSounds->empty()) {
             W8AmbientSound* ambient_sound = GetWorldAmbientSound(world, 0);
-            world->plsAmbientSounds->erase(world->plsAmbientSounds->begin() + 0);
+            world->plsAmbientSounds->erase(world->plsAmbientSounds->begin());
             DestroyAmbientSound(ambient_sound);
         }
         delete world->plsAmbientSounds;
@@ -529,15 +527,15 @@ void DestroyWorldCollections(W8World* world)
         RenderFrame();
 
     if (world->particles != 0) {
-        while (static_cast<int>(world->particles->size()) != 0) {
+        while (!world->particles->empty()) {
             ((*world->particles)[0])->release();
-            world->particles->erase(world->particles->begin() + 0);
+            world->particles->erase(world->particles->begin());
         }
     }
     if (world->named_positions != 0) {
-        while (static_cast<int>(world->named_positions->size()) != 0) {
+        while (!world->named_positions->empty()) {
             delete (*world->named_positions)[0];
-            world->named_positions->erase(world->named_positions->begin() + 0);
+            world->named_positions->erase(world->named_positions->begin());
         }
     }
 
@@ -589,7 +587,8 @@ void DestroyWorld(W8World* world)
     if (IsWorldCursorVisible())
         HideWorldCursor();
 
-    if (const auto found = std::ranges::find(g_worlds, world); found != g_worlds.end()) g_worlds.erase(found);
+    if (const auto found = std::ranges::find(g_worlds, world); found != g_worlds.end())
+        g_worlds.erase(found);
     ReleaseRendererObject(world->static_scene);
     delete world;
 }
@@ -679,7 +678,7 @@ void UpdateWorldCameraAndPaths(W8World* world, unsigned int flags)
         world->camera->setRotation(s_saved_camera_rotation);
     }
     SetCameraSwayMode(world->camera, 0);
-    camera_count = static_cast<int>((world->plsCameras ? static_cast<unsigned int>(world->plsCameras->size()) : 0));
+    camera_count = static_cast<int>((world->plsCameras ? world->plsCameras->size() : 0));
     if (world->plsCameras != 0 && camera_count != 0) {
         for (index = 0; index < camera_count; ++index) {
             camera_path = GetWorldCameraPath(world, index);

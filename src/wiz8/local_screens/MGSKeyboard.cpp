@@ -1,3 +1,4 @@
+#include <utility>
 #include "wiz8/fonts.h"
 #include <stdio.h>
 #include "wiz8/local_screens/MGSKeyboard.h"
@@ -105,22 +106,25 @@ W8MGSCommand MGSKeyboard::FindCommandForEvent(const InputAtom* event) const
 // FUNCTION: WIZ8 0x0055d300
 MGSKeyBinding* MGSKeyboard::GetBinding(int index) const
 {
-    if (index >= 0) {
-        MGSKeyBinding* const* binding = m_bindings.data();
-        if (index < static_cast<int>(m_bindings.size())) {
-            binding += index;
-        }
-        return *binding;
+    if (index < 0 || m_bindings.empty()) {
+        return nullptr;
     }
-    return 0;
+    // Preserve the binding table's fallback to its first entry.
+    if (std::cmp_greater_equal(index, m_bindings.size())) {
+        return m_bindings.front();
+    }
+    return m_bindings[index];
 }
 
 // FUNCTION: WIZ8 0x0055d320
 bool MGSKeyboard::IsCommandPressed(W8MGSCommand command) const
 {
-    unsigned int command_key = command;
-    MGSKeyBinding* binding = LookupIndexValue(m_command_index, command_key);
-    if (binding != 0 && gfKeyState[binding->key] != 0) {
+    const auto found = m_command_index.find(command);
+    if (found == m_command_index.end()) {
+        return false;
+    }
+    const auto* binding = found->second;
+    if (gfKeyState[binding->key] != 0) {
         unsigned short modifiers = 0;
         if (gfKeyState[VK_SHIFT] != 0) {
             modifiers |= SHIFT_DOWN;
@@ -152,10 +156,9 @@ void DrainInputEventQueue(void)
 // FUNCTION: WIZ8 0x0055D3F0
 void MGSKeyboard::Clear()
 {
-    for (auto index = m_bindings.size(); index-- > 0;) {
-        if (index >= m_bindings.size()) continue;
-        auto* object = m_bindings[index];
-        m_bindings.erase(m_bindings.begin() + index);
+    while (!m_bindings.empty()) {
+        auto* object = m_bindings.back();
+        m_bindings.pop_back();
         delete object;
     }
     m_command_index.clear();
@@ -177,22 +180,13 @@ try
 
         int old_index = FindBinding(binding->command);
         if (old_index != -1) {
-            unsigned int command = binding->command;
-            {
-                const auto erase_index = old_index;
-                if (static_cast<std::size_t>(erase_index) < m_bindings.size()) {
-                    auto* object = m_bindings[erase_index];
-                    m_bindings.erase(m_bindings.begin() + erase_index);
-                    delete object;
-                }
-            }
-            m_command_index.erase(command);
+            auto* object = m_bindings[old_index];
+            m_bindings.erase(m_bindings.begin() + old_index);
+            delete object;
+            m_command_index.erase(binding->command);
         }
         m_bindings.push_back(binding);
-         {
-            unsigned int command = binding->command;
-            m_command_index.emplace(command, binding);
-        }
+        m_command_index.emplace(binding->command, binding);
     }
     return 1;
 }

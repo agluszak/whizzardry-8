@@ -874,8 +874,7 @@ W8NpcState* FindNpcStateByName(const char* name)
 // FUNCTION: WIZ8 0x0050C7D0
 void AdvanceNpcTimers(unsigned int elapsed)
 {
-    for (unsigned int index = 0; index < static_cast<unsigned int>(static_cast<int>(g_npc_states->size()));
-         ++index) {
+    for (unsigned int index = 0; index < static_cast<unsigned int>(g_npc_states->size()); ++index) {
         W8NpcState* npc = (*g_npc_states)[index];
         if (npc->binding_unavailable == 0) {
             if (npc->dismissed_flag) {
@@ -1272,7 +1271,7 @@ bool SaveNpcItemLists(wiz8::File* file)
     for (npc_index = 0; npc_index < count; ++npc_index) {
         npc = (*g_npc_states)[npc_index];
         if (npc->items != 0) {
-            item_count = (npc->items.operator->() ? static_cast<unsigned int>(npc->items->size()) : 0);
+            item_count = (npc->items ? npc->items->size() : 0);
         } else {
             item_count = 0;
         }
@@ -1280,7 +1279,7 @@ bool SaveNpcItemLists(wiz8::File* file)
             return false;
         }
         for (index = 0; index < item_count; ++index) {
-            entry = static_cast<W8NpcItemEntry*>((npc->items.operator->() && static_cast<std::size_t>(index) < npc->items->size() ? (*npc->items)[index] : nullptr));
+            entry = (*npc->items)[index];
             if ((file->write(entry, sizeof(*entry)), written = sizeof(*entry), true) == 0 ||
                 written != sizeof(*entry)) {
                 return false;
@@ -1330,7 +1329,9 @@ W8NpcState* CreateNpcRuntimeNode(int npc_id)
         released = (*g_npc_states)[index];
         if (released != 0 && released->binding_unavailable != 0) {
             g_npc_states->insert(g_npc_states->begin() + index, npc);
-            if (const auto found = std::ranges::find((*g_npc_states), released); found != g_npc_states->end()) g_npc_states->erase(found);
+            if (const auto found = std::ranges::find((*g_npc_states), released);
+                found != g_npc_states->end())
+                g_npc_states->erase(found);
             npc->partner_index = static_cast<unsigned char>(index);
             return npc;
         }
@@ -1944,7 +1945,7 @@ W8NpcPickpocketResult AttemptNpcPickpocket(W8Character* character, W8NpcState* n
         }
     }
     char score;
-    if (static_cast<int>(candidates.size()) == 0 || Random(100) < 0x21) {
+    if (candidates.empty() || Random(100) < 0x21) {
         empty_pick = true;
         score = ScoreNpcTheft(character, npc, -1, 0);
     } else {
@@ -1977,7 +1978,7 @@ W8NpcPickpocketResult AttemptNpcPickpocket(W8Character* character, W8NpcState* n
             *gold_out = taken;
             return W8_PICKPOCKET_GOLD_TAKEN;
         }
-        if (static_cast<int>(candidates.size()) == 0) {
+        if (candidates.empty()) {
             return W8_PICKPOCKET_EMPTY;
         }
         return W8_PICKPOCKET_FAILED;
@@ -2303,8 +2304,8 @@ void RestoreNamedNpcAtLevel(int kind, char level, const char* entity_name)
 // FUNCTION: WIZ8 0x0050c270
 void ClearPendingNpcLevelFlags(void)
 {
-    for (unsigned int npc_index = 0;
-         npc_index < static_cast<unsigned int>(static_cast<int>(g_npc_states->size())); ++npc_index) {
+    for (unsigned int npc_index = 0; npc_index < static_cast<unsigned int>(g_npc_states->size());
+         ++npc_index) {
         W8NpcState* npc = (*g_npc_states)[npc_index];
 
         if (npc->pending_restore && npc->binding_unavailable == 0 &&
@@ -2340,8 +2341,8 @@ static void ReleaseNpcCompanionMonster(W8NpcState* npc)
 // FUNCTION: WIZ8 0x0050c2e0
 void ReleaseNpcMonsterBindings(void)
 {
-    for (unsigned int npc_index = 0;
-         npc_index < static_cast<unsigned int>(static_cast<int>(g_npc_states->size())); ++npc_index) {
+    for (unsigned int npc_index = 0; npc_index < static_cast<unsigned int>(g_npc_states->size());
+         ++npc_index) {
         W8NpcState* npc = (*g_npc_states)[npc_index];
 
         if (npc->pending_release && npc->binding_unavailable == 0 &&
@@ -2527,8 +2528,8 @@ void HandleMarkedNpcEvent(W8NpcState* npc, char mode)
 // FUNCTION: WIZ8 0x0050da00
 void ReleaseMarkedNpcBindings(void)
 {
-    for (unsigned int npc_index = 0;
-         npc_index < static_cast<unsigned int>(static_cast<int>(g_npc_states->size())); ++npc_index) {
+    for (unsigned int npc_index = 0; npc_index < static_cast<unsigned int>(g_npc_states->size());
+         ++npc_index) {
         W8NpcState* npc = (*g_npc_states)[npc_index];
 
         if (npc->binding_unavailable == 0) {
@@ -2572,8 +2573,7 @@ void RebindNpcLevelTriggers(void)
 {
     unsigned int npc_index;
 
-    for (npc_index = 0; npc_index < static_cast<unsigned int>(static_cast<int>(g_npc_states->size()));
-         ++npc_index) {
+    for (npc_index = 0; npc_index < static_cast<unsigned int>(g_npc_states->size()); ++npc_index) {
         W8NpcState* npc = (*g_npc_states)[npc_index];
 
         if (npc->has_monster &&
@@ -2587,8 +2587,7 @@ void RebindNpcLevelTriggers(void)
         }
     }
 
-    for (npc_index = 0; npc_index < static_cast<unsigned int>(static_cast<int>(g_npc_states->size()));
-         ++npc_index) {
+    for (npc_index = 0; npc_index < static_cast<unsigned int>(g_npc_states->size()); ++npc_index) {
         W8NpcState* npc = (*g_npc_states)[npc_index];
         char trigger_name[40];
 

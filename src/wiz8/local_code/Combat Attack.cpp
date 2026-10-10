@@ -534,7 +534,8 @@ int ResolveGuardianInterception(W8TargetSource* source, W8CombatSlot* target)
             }
         }
     }
-    for (unsigned int monster_index = 0; monster_index < (gXStatus.plsMonsterList ? static_cast<unsigned int>(gXStatus.plsMonsterList->size()) : 0);
+    for (unsigned int monster_index = 0;
+         monster_index < (gXStatus.plsMonsterList ? gXStatus.plsMonsterList->size() : 0);
          ++monster_index) {
         W8MonsterInfo* monster_info = MonsterGetScriptPartByLocationIndex(monster_index);
         W8MonsterRecord* record = GetMonsterDataForInfo(monster_info);
@@ -550,7 +551,7 @@ int ResolveGuardianInterception(W8TargetSource* source, W8CombatSlot* target)
             candidates.push_back(guardian);
         }
     }
-    if (static_cast<int>(candidates.size()) == 0) {
+    if (candidates.empty()) {
         return 0;
     }
     if (target->iType == W8_TARGET_KIND_CHARACTER) {
@@ -563,7 +564,7 @@ int ResolveGuardianInterception(W8TargetSource* source, W8CombatSlot* target)
         srAssertFail("FALSE", COMBAT_ATTACK_CPP, 0x181a, 0);
     }
     for (i = 0; i < static_cast<int>(candidates.size()); ++i) {
-        W8TargetSource* candidate = (candidates.data() + i);
+        W8TargetSource* candidate = &candidates[i];
         if (candidate->iType == W8_TARGET_SOURCE_CHARACTER) {
             W8Character* defender = &g_status.buffers.Char[candidate->iChar];
             guardian_score = GetCharacterProtectionScore(defender);
@@ -603,10 +604,10 @@ int ResolveGuardianInterception(W8TargetSource* source, W8CombatSlot* target)
             interposers.push_back(*candidate);
         }
     }
-    if (static_cast<int>(interposers.size()) == 0) {
-        if (g_settings.verbose_combat_messages != 0 && static_cast<int>(candidates.size()) != 0) {
+    if (interposers.empty()) {
+        if (g_settings.verbose_combat_messages != 0 && !candidates.empty()) {
             for (i = 0; i < static_cast<int>(candidates.size()); ++i) {
-                W8TargetSource* candidate = (candidates.data() + i);
+                W8TargetSource* candidate = &candidates[i];
                 swprintf(g_combat_state->attack_message, gppStringList[0x219], target_name);
                 if (candidate->iType == W8_TARGET_SOURCE_CHARACTER) {
                     PostCharacterNotice(candidate->iChar, g_combat_state->attack_message);
@@ -624,7 +625,7 @@ int ResolveGuardianInterception(W8TargetSource* source, W8CombatSlot* target)
     if (uiSuccessfulCnt <= 0) {
         srAssertFail("uiSuccessfulCnt > 0", COMBAT_ATTACK_CPP, 0x187c, 0);
     }
-    W8TargetSource* interposer = (interposers.data() + Random(uiSuccessfulCnt));
+    W8TargetSource* interposer = &interposers[Random(uiSuccessfulCnt)];
     swprintf(g_combat_state->attack_message, gppStringList[0x21a], target_name);
     if (interposer->iType == W8_TARGET_SOURCE_CHARACTER) {
         int slot = interposer->iChar;
@@ -800,7 +801,8 @@ void ResolveSpellMissileHit(W8Missile* missile)
             srVector3T<float> center = monster_info->p3D->GetPosition();
             ResetCombatSlot(&struck);
             struck.iType = W8_TARGET_KIND_MONSTER;
-            for (index = 0; index < (gXStatus.plsMonsterList ? static_cast<unsigned int>(gXStatus.plsMonsterList->size()) : 0); ++index) {
+            for (index = 0; index < (gXStatus.plsMonsterList ? gXStatus.plsMonsterList->size() : 0);
+                 ++index) {
                 monster_info = MonsterGetScriptPartByLocationIndex(index);
                 if (monster_info->fActive) {
                     MonsterGetLocation(monster_info->p3D, &location);
@@ -1525,10 +1527,9 @@ void ReportCharacterAttackResult(int party_slot, W8SpellEffectResult* report)
             }
         }
     }
-    while (static_cast<int>(report->reports.size()) > 0) {
-        const auto removed_entry = report->reports[0];
-        report->reports.erase(report->reports.begin() + 0);
-        entry = removed_entry;
+    while (!report->reports.empty()) {
+        entry = report->reports[0];
+        report->reports.erase(report->reports.begin());
         if (entry != nullptr) {
             if (entry->kind == 1) {
                 PostCharacterNotice(entry->value, g_format_s_bang,
@@ -1548,7 +1549,7 @@ static int GetCombatFumbleChance(std::vector<W8CombatSlot*>* targets, int attack
     int chance;
     if (attack_score < 100) {
         chance = static_cast<int>(pow(100 - attack_score, 3.0) * 1e-5 + 0.5);
-        unsigned int count = (targets ? static_cast<unsigned int>(targets->size()) : 0);
+        unsigned int count = (targets ? targets->size() : 0);
         if (count == 0) {
             srAssertFail("uiNumTargets > 0", COMBAT_ATTACK_CPP, 0x11d0, 0);
         }
@@ -1562,11 +1563,11 @@ static int GetCombatFumbleChance(std::vector<W8CombatSlot*>* targets, int attack
 
 static W8CombatSlot ChooseCombatFumbleTarget(std::vector<W8CombatSlot*>* targets)
 {
-    unsigned int count = (targets ? static_cast<unsigned int>(targets->size()) : 0);
+    unsigned int count = (targets ? targets->size() : 0);
     if (count == 0) {
         srAssertFail("uiChoices > 0", COMBAT_ATTACK_CPP, 0x127e, 0);
     }
-    W8CombatSlot* target = static_cast<W8CombatSlot*>((targets && Random(count) >= 0 && Random(count) < static_cast<int>(targets->size()) ? (*targets)[Random(count)] : nullptr));
+    W8CombatSlot* target = (*targets)[Random(count)];
     if (target == nullptr) {
         srAssertFail("pListElement != NULL", COMBAT_ATTACK_CPP, 0x1282, 0);
     }
@@ -2072,10 +2073,9 @@ void ReportMonsterAttackResult(W8MonsterInfo* monster_info, W8SpellEffectResult*
             }
         }
     }
-    while (static_cast<int>(report->reports.size()) > 0) {
-        const auto removed_entry = report->reports[0];
-        report->reports.erase(report->reports.begin() + 0);
-        entry = removed_entry;
+    while (!report->reports.empty()) {
+        entry = report->reports[0];
+        report->reports.erase(report->reports.begin());
         if (entry != nullptr) {
             if (entry->kind == 1) {
                 PostCharacterNotice(entry->value, g_format_s_bang,
@@ -3160,7 +3160,8 @@ void ApplyEffectConditions(W8TargetSource* source, W8CombatSlot* target,
 
 /* Appends one slot-headed target record to a candidate list; both retargeting
    builders share it, so its asserts report these fixed source lines. */
-static void AppendCombatTargetEntry(std::vector<W8CombatSlot*>* out_list, W8TargetKind kind, int iChar, int iMonsterID)
+static void AppendCombatTargetEntry(std::vector<W8CombatSlot*>* out_list, W8TargetKind kind,
+                                    int iChar, int iMonsterID)
 {
     W8CombatSlot* pTarget = static_cast<W8CombatSlot*>(malloc(sizeof(*pTarget)));
     if (pTarget == nullptr) {
@@ -3199,7 +3200,7 @@ void BuildCharacterTargetList(int party_slot, int action, std::vector<W8CombatSl
         }
     }
     unsigned int monster_list_index = 0;
-    while (monster_list_index < (gXStatus.plsMonsterList ? static_cast<unsigned int>(gXStatus.plsMonsterList->size()) : 0)) {
+    while (monster_list_index < (gXStatus.plsMonsterList ? gXStatus.plsMonsterList->size() : 0)) {
         W8MonsterInfo* monster_info = MonsterGetScriptPartByLocationIndex(monster_list_index);
         if (monster_info->fActive && monster_info->hp_current != 0 && monster_info->fInCombat &&
             (g_status.buffers.XChar[party_slot].target_out_of_combat.iType !=
@@ -3231,7 +3232,7 @@ void BuildMonsterTargetList(W8MonsterInfo* monster_info, W8MonsterRecord* record
         }
     }
     unsigned int monster_list_index = 0;
-    while (monster_list_index < (gXStatus.plsMonsterList ? static_cast<unsigned int>(gXStatus.plsMonsterList->size()) : 0)) {
+    while (monster_list_index < (gXStatus.plsMonsterList ? gXStatus.plsMonsterList->size() : 0)) {
         W8MonsterInfo* candidate = MonsterGetScriptPartByLocationIndex(monster_list_index);
         if (candidate->fActive && candidate->hp_current != 0 && candidate->fInCombat) {
             if (candidate == monster_info) {

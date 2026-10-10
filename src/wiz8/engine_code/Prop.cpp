@@ -127,7 +127,7 @@ void UpdateWorldProps(W8World* world)
         srAssertFail("pWorld && pWorld->plsProps",
                      "C:\\Projects\\Wizardry 8\\Engine Code\\Prop.cpp", 0x969, 0);
     }
-    count = (world->plsProps ? static_cast<unsigned int>(world->plsProps->size()) : 0);
+    count = (world->plsProps ? world->plsProps->size() : 0);
     for (index = 0; index < static_cast<int>(count); ++index) {
         W8Prop* prop = GetWorldProp(world, index);
         Trigger* trigger;
@@ -156,7 +156,7 @@ W8Prop* FindPropByName(W8World* world, const char* name)
     int index;
 
     if (world != 0 && name != 0) {
-        unsigned int count = (world->plsProps ? static_cast<unsigned int>(world->plsProps->size()) : 0);
+        unsigned int count = (world->plsProps ? world->plsProps->size() : 0);
 
         for (index = 0; index < static_cast<int>(count); ++index) {
             W8Prop* prop = GetWorldProp(world, index);
@@ -319,7 +319,7 @@ bool ResolvePickedProp(W8World* world)
 
     valid = true;
     GetCameraPosition(&camera_position);
-    prop_count = (world->plsProps ? static_cast<unsigned int>(world->plsProps->size()) : 0);
+    prop_count = (world->plsProps ? world->plsProps->size() : 0);
     for (prop_index = 0; prop_index < static_cast<int>(prop_count); ++prop_index) {
         W8Prop* prop;
         W8PropRepresentation* representation;
@@ -446,7 +446,7 @@ int W8PropRepresentation::FindCurrentAnimationSlot()
     int index;
 
     for (index = 0; index < static_cast<int>(slots.size()); ++index) {
-        if ((slots[index])->frame == first_frame) {
+        if (slots[index]->frame == first_frame) {
             return index;
         }
     }
@@ -466,7 +466,7 @@ unsigned char W8PropRepresentation::AdvanceAnimationSegment()
     }
     segment = -1;
     for (index = 0; index < count; ++index) {
-        if ((slots[index])->frame == first_frame) {
+        if (slots[index]->frame == first_frame) {
             segment = index;
             break;
         }
@@ -479,8 +479,8 @@ unsigned char W8PropRepresentation::AdvanceAnimationSegment()
     } else {
         ++segment;
     }
-    first_frame = (slots[segment])->frame;
-    last_frame = (slots[segment + 1])->frame;
+    first_frame = slots[segment]->frame;
+    last_frame = slots[segment + 1]->frame;
     frame_direction = W8_ANIMATION_FORWARD;
     animation_playing = 1;
     subcycle = first_frame;
@@ -1818,9 +1818,9 @@ void W8Prop::CollectModelInstances(std::vector<stModelInstance*>* instances)
             if (meshes == 0) {
                 continue;
             }
-            int mesh_count = (meshes ? static_cast<unsigned int>(meshes->size()) : 0);
+            int mesh_count = (meshes ? meshes->size() : 0);
             for (int index = 0; index < mesh_count; ++index) {
-                W8AniMesh* mesh = static_cast<W8AniMesh*>((meshes && static_cast<std::size_t>(index) < meshes->size() ? (*meshes)[index] : nullptr));
+                W8AniMesh* mesh = (*meshes)[index];
                 if (mesh == 0) {
                     continue;
                 }
@@ -1852,7 +1852,7 @@ void SaveWorldProps(W8World* world, wiz8::File* handle)
     version = 1;
     handle->write(&signature, 4);
     handle->write(&version, 4);
-    count = static_cast<int>((world->plsProps ? static_cast<unsigned int>(world->plsProps->size()) : 0));
+    count = static_cast<int>((world->plsProps ? world->plsProps->size() : 0));
     handle->write(&count, 4);
     for (index = 0; index < count; ++index) {
         prop = GetWorldProp(world, index);
@@ -1891,7 +1891,7 @@ void LoadWorldProps(W8World* world, wiz8::File* handle)
         for (index = 0; index < count; ++index) {
             handle->read_exact(&key, 4);
             prop = 0;
-            entries = static_cast<int>((world->plsProps ? static_cast<unsigned int>(world->plsProps->size()) : 0));
+            entries = static_cast<int>((world->plsProps ? world->plsProps->size() : 0));
             for (int entry_index = 0; entry_index < entries; ++entry_index) {
                 entry = GetWorldProp(world, entry_index);
                 if (entry->id == key) {

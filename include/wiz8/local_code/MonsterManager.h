@@ -14,7 +14,6 @@ struct W8VisibilityRecord;
 
 
 #include "surrender/srMath.h"
-#include <vector>
 #include <algorithm>
 #include "wiz8/layouts/character.h"
 #include "wiz8/character_skills.h"

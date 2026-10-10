@@ -140,14 +140,12 @@ void RecordFactChangeForJournal(W8FactId fact_id)
     SoundPlay("Data\\Sound\\Misc\\Journal Entry.wav", 0);
 }
 
-/* Write the fact journal into the open JRNL chunk: the entry count, a format
-   dword, then each 0x0c-byte entry. */
+/* Write the JRNL format dword, entry count, then each 0x0c-byte entry. */
 // FUNCTION: WIZ8 0x00558A90
 void SaveFactJournal(wiz8::File* file)
 {
     int format = 1;
     int count;
-    int index;
 
     if (g_fact_journal_entries == 0) {
         InitializeFactJournal();
@@ -155,28 +153,24 @@ void SaveFactJournal(wiz8::File* file)
     count = static_cast<int>(g_fact_journal_entries->size());
     file->write(&format, 4);
     file->write(&count, 4);
-    for (index = 0; index < count; ++index) {
-        file->write((g_fact_journal_entries->data() + index), sizeof(W8JournalEntry));
+    for (const auto& entry : *g_fact_journal_entries) {
+        file->write(&entry, sizeof(entry));
     }
 }
 
-/* Read the fact journal back from the open JRNL chunk: a format dword, the
-   entry count, then each 0x0c-byte entry straight into the vector. The vector
-   grows to the serialized count first; a failed grow leaves the count
-   unstored, the same outcome a failed load leaves behind. */
+/* Resize the live journal entries before reading the JRNL records. */
 // FUNCTION: WIZ8 0x00558B20
 void LoadJournalEntries(wiz8::File* file)
 {
     int format;
     int count;
-    int index;
 
     InitializeFactJournal();
     file->read_exact(&format, 4);
     file->read_exact(&count, 4);
     g_fact_journal_entries->resize(count);
-    for (index = 0; index < count; ++index) {
-        file->read_exact((g_fact_journal_entries->data() + index), sizeof(W8JournalEntry));
+    for (auto& entry : *g_fact_journal_entries) {
+        file->read_exact(&entry, sizeof(entry));
     }
 }
 
@@ -241,7 +235,7 @@ void W8JournalPanel::Refresh()
         int previous_level = -1;
         int y = 0x39;
         for (int index = first; index <= last; ++index, y += 0x1e) {
-            const W8JournalEntry* entry = (g_journal_entries->data() + index);
+            const W8JournalEntry* entry = &(*g_journal_entries)[index];
             const W8FactDatabaseRecord* fact = &g_fact_records[entry->fact];
             int active = fact->highlight_when_true && GetFact(entry->fact);
             const wchar_t* description =

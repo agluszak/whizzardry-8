@@ -368,7 +368,7 @@ public:
     void UpdateFacing(bool immediate);                                    /* 0x00454780 */
     void UpdateLinkedNavigator();                                         /* 0x00454D70 */
     bool UpdateLinkedPosition();
-    void CollectGroupNavigators(std::vector<W8Navigator*>* navigators); /* 0x00455140 */
+    void CollectGroupNavigators(std::vector<W8Navigator*>* navigators);      /* 0x00455140 */
     int ResolveMovement();                                                   /* 0x00455CC0 */
     void ClearMovement();                                                    /* 0x004537E0 */
     /* Modes 1 and 4 clear pitch/roll; 2, 3 and 5 enable pitch; 6 enables

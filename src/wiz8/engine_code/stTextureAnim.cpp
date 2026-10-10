@@ -66,9 +66,9 @@ stTextureAnim::~stTextureAnim()
         ReleaseReadMeshScratch();
     }
 
-    while (static_cast<int>(textures->size()) != 0) {
+    while (!textures->empty()) {
         ((*textures)[0])->release();
-        textures->erase(textures->begin() + 0);
+        textures->erase(textures->begin());
     }
     delete textures;
 }
@@ -98,8 +98,8 @@ void stTextureAnim::UpdateFrame()
 
     if (trigger_mode == W8_TEXTURE_TRIGGER_RANDOM_FRAME) {
         if (rand() / static_cast<float>(RAND_MAX) < probability) {
-            this->frame =
-                static_cast<int>(rand() / static_cast<float>(RAND_MAX) * static_cast<int>(textures->size()));
+            this->frame = static_cast<int>(rand() / static_cast<float>(RAND_MAX) *
+                                           static_cast<int>(textures->size()));
         }
         return;
     }
@@ -111,10 +111,10 @@ void stTextureAnim::UpdateFrame()
             this->frame = 0;
             frame_tick = w8_get_ticks();
         }
-        if (!running || static_cast<int>(textures->size()) == 0) {
+        if (!running || textures->empty()) {
             return;
         }
-    } else if (static_cast<int>(textures->size()) == 0) {
+    } else if (textures->empty()) {
         return;
     }
 
@@ -131,7 +131,8 @@ void stTextureAnim::UpdateFrame()
     } else if (animation_mode == W8_TEXTURE_ANIM_PING_PONG) {
         if ((elapsed_frames / static_cast<int>(textures->size()) & 1) != 0) {
             direction = -1;
-            this->frame = static_cast<int>(textures->size()) - elapsed_frames % static_cast<int>(textures->size()) - 1;
+            this->frame = static_cast<int>(textures->size()) -
+                          elapsed_frames % static_cast<int>(textures->size()) - 1;
         } else {
             if (direction == -1) {
                 running = false;
@@ -143,7 +144,9 @@ void stTextureAnim::UpdateFrame()
     } else if (animation_mode == W8_TEXTURE_ANIM_PLAY_ONCE) {
         if (elapsed_frames >= static_cast<int>(textures->size())) {
             running = false;
-            this->frame = static_cast<int>(textures->size()) - 1 < 0 ? 0 : static_cast<int>(textures->size()) - 1;
+            this->frame = static_cast<int>(textures->size()) - 1 < 0
+                              ? 0
+                              : static_cast<int>(textures->size()) - 1;
         } else {
             this->frame = elapsed_frames;
         }
@@ -176,10 +179,7 @@ w8_ulong stTextureAnim::getTextureFrameHandle()
 }
 
 // FUNCTION: WIZ8 0x00484D60
-float stTextureAnim::getPriority()
-{
-    return ((*textures)[frame])->getPriority();
-}
+float stTextureAnim::getPriority() { return ((*textures)[frame])->getPriority(); }
 
 // FUNCTION: WIZ8 0x00484D80
 void stTextureAnim::getDimensions(Dimensions& dimensions)
@@ -206,10 +206,7 @@ void stTextureAnim::getTextureParms(Parameters& parameters)
 }
 
 // FUNCTION: WIZ8 0x00484E40
-const char* stTextureAnim::getTextureName()
-{
-    return ((*textures)[frame])->getTextureName();
-}
+const char* stTextureAnim::getTextureName() { return ((*textures)[frame])->getTextureName(); }
 
 void stTextureAnim::invalidate() {}
 

@@ -40,11 +40,12 @@ void ReleaseRetainedMaterials();
 bool IsReadMeshMaterial(const srClass* material);
 unsigned char ReadSingleLevelMeshBody(W8ReadLevelInfo* info, srModelInstance** instance, int, int,
                                       const char* name, bool load_materials);
-stMeshModel*
-BuildSingleLevelMesh(int face_count, W8ReadMeshFace* faces, int vertex_count, int material_count,
-                     srMaterialIFace** materials, srTextureIFace** textures, srShader* render_flags,
-                     unsigned int* mesh_count, int*** vertex_maps, unsigned int* vertex_map_count,
-                     std::vector<short>* mapped_values, std::vector<short>* mapped_keys);
+stMeshModel* BuildSingleLevelMesh(int face_count, W8ReadMeshFace* faces, int vertex_count,
+                                  int material_count, srMaterialIFace** materials,
+                                  srTextureIFace** textures, srShader* render_flags,
+                                  unsigned int* mesh_count, int*** vertex_maps,
+                                  unsigned int* vertex_map_count, std::vector<short>* mapped_values,
+                                  std::vector<short>* mapped_keys);
 
 enum {
     W8_MESH_ORDER_POLYGONS = 1UL,

@@ -7,7 +7,6 @@ struct W8NpcItemEntry;
 #include "compat/ptr32.h"
 #include "wiz8/layouts/gameplay_databases.h"
 #include "wiz8/layouts/item_instance.h"
-#include <vector>
 #include <algorithm>
 
 struct W8Character;
@@ -32,7 +31,7 @@ struct W8NpcState {
        sentinel normalized to zero on load. */
     unsigned short spawned;
     W8_PTR32(W8NpcDatabaseRecord) record; /* 0x06 */
-    W8_PTR32(std::vector<W8NpcItemEntry*>) items;              /* 0x0a: W8NpcItemEntry* elements */
+    W8_PTR32(std::vector<W8NpcItemEntry*>) items; /* 0x0a: W8NpcItemEntry* elements */
     /* 0x0e and 0x12: two world-clock stamps, both set when the stock is first
        populated. The stock-rule pass reruns once the first is more than 0xa8c0
        old, and the decay and restock pass once the second is more than 0x15180

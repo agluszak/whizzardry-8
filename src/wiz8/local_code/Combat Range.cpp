@@ -88,7 +88,8 @@ bool CanPartySlotAttackAnyTarget(int party_slot, W8TargetingContext category, in
     bool live_groups = CombatAllowsLiveGroups();
     if (flag != 1) {
         unsigned int index;
-        for (index = 0; index < (gXStatus.plsMonsterList ? static_cast<unsigned int>(gXStatus.plsMonsterList->size()) : 0); ++index) {
+        for (index = 0; index < (gXStatus.plsMonsterList ? gXStatus.plsMonsterList->size() : 0);
+             ++index) {
             W8MonsterInfo* monster_info = MonsterGetScriptPartByLocationIndex(index);
             if (monster_info->fActive && monster_info->hp_current != 0 &&
                 monster_info->highest_condition < W8_CONDITION_DEAD &&
@@ -566,7 +567,7 @@ bool MonsterAttackReachesAnyone(W8MonsterInfo* monster_info, unsigned int attack
         }
     }
 
-    count = (gXStatus.plsMonsterList ? static_cast<unsigned int>(gXStatus.plsMonsterList->size()) : 0);
+    count = (gXStatus.plsMonsterList ? gXStatus.plsMonsterList->size() : 0);
     for (index = 0; index < count; ++index) {
         other = MonsterGetScriptPartByLocationIndex(index);
         GetMonsterDataForInfo(other);
@@ -576,7 +577,7 @@ bool MonsterAttackReachesAnyone(W8MonsterInfo* monster_info, unsigned int attack
             MonsterAttackReachesMonster(monster_info, record, attack, other)) {
             return true;
         }
-        count = (gXStatus.plsMonsterList ? static_cast<unsigned int>(gXStatus.plsMonsterList->size()) : 0);
+        count = (gXStatus.plsMonsterList ? gXStatus.plsMonsterList->size() : 0);
     }
     return false;
 }
@@ -1098,7 +1099,7 @@ float MonsterChooseTarget(W8MonsterInfo* monster_info, W8CombatSlot* out, int ki
         out->iType = W8_TARGET_KIND_CHARACTER;
     }
     if (out->iType == W8_TARGET_KIND_NONE || !monster_info->pCombat->reconsider_action) {
-        unsigned int count = (gXStatus.plsMonsterList ? static_cast<unsigned int>(gXStatus.plsMonsterList->size()) : 0);
+        unsigned int count = (gXStatus.plsMonsterList ? gXStatus.plsMonsterList->size() : 0);
 
         for (unsigned int index = 0; index < count; ++index) {
             W8MonsterInfo* other = MonsterGetScriptPartByLocationIndex(index);
@@ -1116,7 +1117,7 @@ float MonsterChooseTarget(W8MonsterInfo* monster_info, W8CombatSlot* out, int ki
                     }
                 }
             }
-            count = (gXStatus.plsMonsterList ? static_cast<unsigned int>(gXStatus.plsMonsterList->size()) : 0);
+            count = (gXStatus.plsMonsterList ? gXStatus.plsMonsterList->size() : 0);
         }
     }
     return best;
@@ -1172,8 +1173,8 @@ int FindNearestVisibleGroupMonster(W8MonsterInfo* monster_info, int group_id, in
     float best = 999999.0f;
     unsigned int index = GetMonsterGroupIndexByID(0x520, COMBAT_RANGE_CPP, group_id, true);
     W8MonsterGroup* group = GetMonsterGroupByListIndex(index);
-    for (index = 0; index < (group->monsters.operator->() ? static_cast<unsigned int>(group->monsters->size()) : 0); ++index) {
-        int location_id = (group->monsters.operator->() && static_cast<std::size_t>(index) < group->monsters->size() ? (*group->monsters)[index] : -1);
+    for (index = 0; index < group->MemberIds().size(); ++index) {
+        int location_id = group->MemberLocationId(index);
         unsigned int list_index =
             MonsterGetIndexByLocationID(0x525, COMBAT_RANGE_CPP, location_id, true);
         W8MonsterInfo* target = MonsterGetScriptPartByLocationIndex(list_index);

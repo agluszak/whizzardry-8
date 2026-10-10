@@ -1,3 +1,4 @@
+#include <utility>
 #include "wiz8/local_screens/MGSKeyboard.h"
 #include "input.h"
 #include "wiz8/local_screens/CreditsScreen.h"
@@ -98,22 +99,14 @@ unsigned char MGSKeyboard::LoadDefaults(const char* path)
         binding->command = command;
 
         int old_index = FindBinding(command);
-        unsigned int command_key = command;
         if (old_index != -1) {
-            {
-                const auto erase_index = old_index;
-                if (static_cast<std::size_t>(erase_index) < m_bindings.size()) {
-                    auto* object = m_bindings[erase_index];
-                    m_bindings.erase(m_bindings.begin() + erase_index);
-                    delete object;
-                }
-            }
-            m_command_index.erase(command_key);
+            auto* object = m_bindings[old_index];
+            m_bindings.erase(m_bindings.begin() + old_index);
+            delete object;
+            m_command_index.erase(command);
         }
         m_bindings.push_back(binding);
-         {
-            m_command_index.emplace(command_key, binding);
-        }
+        m_command_index.emplace(command, binding);
         loaded_binding = true;
     }
     if (handle) handle->close();

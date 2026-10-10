@@ -1,3 +1,4 @@
+#include <utility>
 #include "wiz8/fonts.h"
 #include "wiz8/engine_code/Camera.h"
 #include "wiz8/integer_constants.h"
@@ -503,51 +504,32 @@ W8CharacterEventQueue::~W8CharacterEventQueue()
 void W8CharacterEventQueue::DestroyAllEvents()
 {
     CompleteAllActiveEvents();
-    while (static_cast<int>(npc_deferred_events.size()) > 0) {
-        {
-            const auto erase_index = 0;
-            if (static_cast<std::size_t>(erase_index) < npc_deferred_events.size()) {
-                auto* object = npc_deferred_events[erase_index];
-                npc_deferred_events.erase(npc_deferred_events.begin() + erase_index);
-                delete object;
-            }
-        }
+    while (!npc_deferred_events.empty()) {
+        auto* object = npc_deferred_events.front();
+        npc_deferred_events.erase(npc_deferred_events.begin());
+        delete object;
     }
-    while (static_cast<int>(pending_events.size()) > 0) {
-        {
-            const auto erase_index = 0;
-            if (static_cast<std::size_t>(erase_index) < pending_events.size()) {
-                auto* object = pending_events[erase_index];
-                pending_events.erase(pending_events.begin() + erase_index);
-                delete object;
-            }
-        }
+    while (!pending_events.empty()) {
+        auto* object = pending_events.front();
+        pending_events.erase(pending_events.begin());
+        delete object;
     }
-    while (static_cast<int>(vector0.size()) > 0) {
-        {
-            const auto erase_index = 0;
-            if (static_cast<std::size_t>(erase_index) < vector0.size()) {
-                auto* object = vector0[erase_index];
-                vector0.erase(vector0.begin() + erase_index);
-                delete object;
-            }
-        }
+    while (!vector0.empty()) {
+        auto* object = vector0.front();
+        vector0.erase(vector0.begin());
+        delete object;
     }
 }
 
-static void DeleteQueuedCharacterEvents(std::vector<W8CharacterEvent*>& events, W8Character* character)
+static void DeleteQueuedCharacterEvents(std::vector<W8CharacterEvent*>& events,
+                                        W8Character* character)
 {
     for (int index = 0; index < static_cast<int>(events.size()); ++index) {
         W8CharacterEvent* entry = events[index];
         if (entry->character == character) {
-            {
-                const auto erase_index = index;
-                if (static_cast<std::size_t>(erase_index) < events.size()) {
-                    auto* object = events[erase_index];
-                    events.erase(events.begin() + erase_index);
-                    delete object;
-                }
-            }
+            auto* object = events[index];
+            events.erase(events.begin() + index);
+            delete object;
             --index;
         }
     }
@@ -576,10 +558,10 @@ void W8CharacterEventQueue::RemoveCharacterEvents(W8Character* character)
 // FUNCTION: WIZ8 0x0052DB30
 void W8CharacterEventQueue::CompleteAllActiveEvents()
 {
-    while (static_cast<int>(active_events.size()) > 0) {
-        const auto removed_entry = active_events[0];
-        active_events.erase(active_events.begin() + 0);
-        removed_entry->Complete();
+    while (!active_events.empty()) {
+        const auto entry = active_events[0];
+        active_events.erase(active_events.begin());
+        entry->Complete();
     }
 }
 
@@ -588,7 +570,7 @@ void W8CharacterEventQueue::CompleteFirstActiveEvent()
 {
     W8CharacterEvent* entry;
 
-    if (static_cast<int>(active_events.size()) > 0) {
+    if (!active_events.empty()) {
         entry = active_events[0];
         CompleteActiveEvent(entry);
     }
@@ -1157,7 +1139,9 @@ int W8CharacterEventQueue::QueueEntry(W8CharacterEvent* entry)
     if (entry->event_type > 0x91 && (entry->flags & W8_EVENT_NO_PREEMPT) == 0) {
         W8MonsterManagerEntry* slot = &gXStatus.monster_manager_entries[party_slot];
         if (slot->active_character_event != 0) {
-            if (const auto found = std::ranges::find(active_events, slot->active_character_event); found != active_events.end()) active_events.erase(found);
+            if (const auto found = std::ranges::find(active_events, slot->active_character_event);
+                found != active_events.end())
+                active_events.erase(found);
             RestartFollowUpClock(slot->active_character_event);
             slot->active_character_event->Complete();
             delete slot->active_character_event;
@@ -1167,7 +1151,7 @@ int W8CharacterEventQueue::QueueEntry(W8CharacterEvent* entry)
     }
     if (entry->event_type == 0x21) {
         int index;
-        if (static_cast<int>(active_events.size()) > 0 && active_events[0]->event_type == 0x21) {
+        if (!active_events.empty() && active_events[0]->event_type == 0x21) {
             delete entry;
             return 0;
         }
@@ -1251,10 +1235,7 @@ unsigned char W8CharacterEventQueue::TryAdjustQueuedEvent(W8CharacterEvent* entr
 }
 
 // FUNCTION: WIZ8 0x0052E460
-bool W8CharacterEventQueue::HasActiveEvents()
-{
-    return static_cast<int>(active_events.size()) > 0;
-}
+bool W8CharacterEventQueue::HasActiveEvents() { return !active_events.empty(); }
 
 // FUNCTION: WIZ8 0x0052E470
 bool W8CharacterEventQueue::IsMainQueueEmpty() const
@@ -1278,7 +1259,7 @@ void W8CharacterEventQueue::ProcessDeferredCharacterEvents()
         return;
     }
 
-    if (static_cast<int>(npc_deferred_events.size()) > 0 && !ShouldDeferCharacterEventForNpcScript(false) &&
+    if (!npc_deferred_events.empty() && !ShouldDeferCharacterEventForNpcScript(false) &&
         !IsNpcScriptSessionActive()) {
         for (index = 0; index < static_cast<int>(npc_deferred_events.size()); ++index) {
             QueueEntry(npc_deferred_events[index]);
@@ -1286,7 +1267,7 @@ void W8CharacterEventQueue::ProcessDeferredCharacterEvents()
         npc_deferred_events.clear();
     }
 
-    if (static_cast<int>(pending_events.size()) != 0) {
+    if (!pending_events.empty()) {
         conflict_count = 1;
         baseline = pending_events[0];
         conflict_indices = new int[static_cast<int>(pending_events.size())];
@@ -1312,13 +1293,11 @@ void W8CharacterEventQueue::ProcessDeferredCharacterEvents()
             }
             for (index = conflict_count - 1; index >= 0; --index) {
                 if (conflict_indices[index] != -1) {
-                    {
-                        const auto erase_index = conflict_indices[index];
-                        if (static_cast<std::size_t>(erase_index) < pending_events.size()) {
-                            auto* object = pending_events[erase_index];
-                            pending_events.erase(pending_events.begin() + erase_index);
-                            delete object;
-                        }
+                    if (conflict_indices[index] >= 0 &&
+                        std::cmp_less(conflict_indices[index], pending_events.size())) {
+                        auto* object = pending_events[conflict_indices[index]];
+                        pending_events.erase(pending_events.begin() + conflict_indices[index]);
+                        delete object;
                     }
                 }
             }
@@ -1326,7 +1305,7 @@ void W8CharacterEventQueue::ProcessDeferredCharacterEvents()
         delete[] conflict_indices;
     }
 
-    if (static_cast<int>(pending_events.size()) == 0) {
+    if (pending_events.empty()) {
         UpdateNpcDialogueVoiceAndCursor();
         if (PartyPortraitEventsIdle() != 0) {
             ProcessNpcScriptingFrame();
@@ -1371,7 +1350,9 @@ void W8CharacterEventQueue::ProcessDeferredCharacterEvents()
             }
         }
 
-        if (const auto found = std::ranges::find(pending_events, entry); found != pending_events.end()) pending_events.erase(found);
+        if (const auto found = std::ranges::find(pending_events, entry);
+            found != pending_events.end())
+            pending_events.erase(found);
         return;
     }
 }

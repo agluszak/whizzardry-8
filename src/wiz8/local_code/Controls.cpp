@@ -175,7 +175,9 @@ void W8Widget::SetPanel(Controls* panel)
     int index;
 
     if (m_pPanel != 0) {
-        if (const auto found = std::ranges::find(m_pPanel->m_controls, this); found != m_pPanel->m_controls.end()) m_pPanel->m_controls.erase(found);
+        if (const auto found = std::ranges::find(m_pPanel->m_controls, this);
+            found != m_pPanel->m_controls.end())
+            m_pPanel->m_controls.erase(found);
     }
 
     m_pPanel = panel;
@@ -1950,16 +1952,16 @@ void Controls::SetEnabled(bool enable)
 // FUNCTION: WIZ8 0x004f2da0
 void Controls::RemoveControl(W8Widget* control)
 {
-    if (const auto found = std::ranges::find(m_controls, control); found != m_controls.end()) m_controls.erase(found);
+    if (const auto found = std::ranges::find(m_controls, control); found != m_controls.end())
+        m_controls.erase(found);
 }
 
 // FUNCTION: WIZ8 0x004f2df0
 void Controls::DestroyAllControls()
 {
-    for (auto index = m_controls.size(); index-- > 0;) {
-        if (index >= m_controls.size()) continue;
-        auto* object = m_controls[index];
-        m_controls.erase(m_controls.begin() + index);
+    while (!m_controls.empty()) {
+        auto* object = m_controls.back();
+        m_controls.pop_back();
         delete object;
     }
 }
@@ -2154,7 +2156,6 @@ int W8ControlSelection::AddEntry(W8TextControl* entry)
 // FUNCTION: WIZ8 0x004f5540
 void W8ControlSelection::SetSelected(int iSelected)
 {
-    W8TextControl** entry;
     int previous;
 
     if (iSelected >= static_cast<int>(m_lsButtons.size())) {
@@ -2166,13 +2167,11 @@ void W8ControlSelection::SetSelected(int iSelected)
         return;
     }
     if (previous != -1) {
-        entry = (m_lsButtons.data() + previous);
-        (*entry)->DisableSecondaryState(false);
+        m_lsButtons[previous]->DisableSecondaryState(false);
     }
     m_selectedIndex = iSelected;
     if (iSelected != -1) {
-        entry = (m_lsButtons.data() + iSelected);
-        (*entry)->EnableSecondaryState(false);
+        m_lsButtons[iSelected]->EnableSecondaryState(false);
     }
     if (m_selectionListener != 0) {
         m_selectionListener->OnSelectionChanged(this, m_selectedIndex);

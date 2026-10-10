@@ -13,7 +13,6 @@ class Trigger;
 #include "wiz8/fonts.h"
 #include "wiz8/dialog_code/DialogBase.h"
 
-#include <vector>
 #include <algorithm>
 
 struct W8MonsterInfo;

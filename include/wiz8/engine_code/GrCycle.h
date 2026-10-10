@@ -85,8 +85,8 @@ W8CameraShakeEffect* CreateCameraShakeEffect(float duration, bool preset, float 
                                              float distance_cap, const srVector3T<float>* position);
 /* Fire every effect in one cycle's vector whose key matches, moving it onto the
    live list and restarting its timer. */
-void TriggerShakeEffects(std::vector<W8CameraShakeEffect*>* effects, int cycle,
-                         unsigned int frame, int subcycle, const srVector3T<float>* position);
+void TriggerShakeEffects(std::vector<W8CameraShakeEffect*>* effects, int cycle, unsigned int frame,
+                         int subcycle, const srVector3T<float>* position);
 /* Take every active effect in one cycle's vector back off the live list, and
    release the ones that list owned. */
 void StopShakeEffects(std::vector<W8CameraShakeEffect*>* effects);
@@ -170,7 +170,7 @@ public:
 
 public:
     srModelInstance* current_model_instance;
-    std::vector<stLight*>* m_plsLights;          /* 0x1ac */
+    std::vector<stLight*>* m_plsLights;                  /* 0x1ac */
     std::vector<W8CameraShakeEffect*>* m_plsShakeEvents; /* 0x1b0 */
     bool m_fDeleteLights;                             /* 0x1b4: named by GrCycle.cpp:1656 */
     /* 0x1b5: the subcycle the last update pass left on the representation. */

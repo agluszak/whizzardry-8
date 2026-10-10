@@ -45,7 +45,8 @@ void RecountCombatMonsters(void)
 {
     gXStatus.hostile_monster_count = 0;
     gXStatus.hostile_group_count = 0;
-    for (unsigned int index = 0; index < (gXStatus.plsMonsterList ? static_cast<unsigned int>(gXStatus.plsMonsterList->size()) : 0); ++index) {
+    for (unsigned int index = 0;
+         index < (gXStatus.plsMonsterList ? gXStatus.plsMonsterList->size() : 0); ++index) {
         W8MonsterInfo* monster = MonsterGetScriptPartByLocationIndex(index);
         if (monster->fActive && monster->fInCombat) {
             if (monster->ubDisposition == W8_DISPOSITION_HOSTILE) {
@@ -180,7 +181,7 @@ void ProvokeListedMonsterGroups(W8TargetSource* source, std::vector<int>* monste
     W8CombatSlot target;
     ResetCombatSlot(&target);
     target.iType = W8_TARGET_KIND_MONSTER;
-    for (unsigned int index = 0; index < static_cast<unsigned int>(static_cast<int>(monsters->size())); ++index) {
+    for (unsigned int index = 0; index < static_cast<unsigned int>(monsters->size()); ++index) {
         int monster_id = (*monsters)[index];
         if (monster_id == own_monster_id) {
             continue;
@@ -223,18 +224,18 @@ void MakeTargetGroupHostile(W8TargetSource* source, W8CombatSlot* target)
             GetMonsterGroupIndexByID(0x1ef, COMBAT_HOSTILITY_CPP, target->iGroupID, true);
         group = GetMonsterGroupByListIndex(group_list_index);
         unsigned int index = 0;
-        if ((group->monsters.operator->() ? static_cast<unsigned int>(group->monsters->size()) : 0) == 0) {
+        if (group->MemberIds().empty()) {
             return;
         }
         while (true) {
-            int monster_id = (group->monsters.operator->() && static_cast<std::size_t>(index) < group->monsters->size() ? (*group->monsters)[index] : -1);
+            int monster_id = group->MemberLocationId(index);
             unsigned int monster_list_index =
                 MonsterGetIndexByLocationID(500, COMBAT_HOSTILITY_CPP, monster_id, true);
             W8MonsterInfo* monster_info = MonsterGetScriptPartByLocationIndex(monster_list_index);
             if (monster_info->uiCondition[W8_CONDITION_TURNCOAT] == 0) {
                 break;
             }
-            if ((group->monsters.operator->() ? static_cast<unsigned int>(group->monsters->size()) : 0) <= ++index) {
+            if (group->MemberIds().size() <= ++index) {
                 return;
             }
         }
@@ -404,8 +405,8 @@ void SetMonsterGroupHostility(W8MonsterGroup* group, unsigned int hostility, boo
     if (previous != 0) {
         SetTargetToGroup(group->group_id, true);
     }
-    for (unsigned int index = 0; index < (group->monsters.operator->() ? static_cast<unsigned int>(group->monsters->size()) : 0); ++index) {
-        int location_id = (group->monsters.operator->() && static_cast<std::size_t>(index) < group->monsters->size() ? (*group->monsters)[index] : -1);
+    for (unsigned int index = 0; index < group->MemberIds().size(); ++index) {
+        int location_id = group->MemberLocationId(index);
         W8MonsterInfo* monster = MonsterGetScriptPartByLocationIndex(
             MonsterGetIndexByLocationID(0x245, COMBAT_HOSTILITY_CPP, location_id, true));
         SetMonsterHostility(monster, static_cast<unsigned char>(hostility));
@@ -471,7 +472,8 @@ bool CanPartySlotTurnUndead(int party_slot)
         g_combat_state == 0 || g_combat_state->characters[party_slot].turn_undead_used) {
         return false;
     }
-    for (unsigned int index = 0; index < (gXStatus.plsMonsterList ? static_cast<unsigned int>(gXStatus.plsMonsterList->size()) : 0); ++index) {
+    for (unsigned int index = 0;
+         index < (gXStatus.plsMonsterList ? gXStatus.plsMonsterList->size() : 0); ++index) {
         W8MonsterInfo* monster = MonsterGetScriptPartByLocationIndex(index);
         if (monster->fActive && monster->fInCombat &&
             monster->ubDisposition == W8_DISPOSITION_HOSTILE && monster->hp_current != 0 &&
@@ -512,7 +514,7 @@ int TurnUndead(int party_slot, int* out_cost, bool check)
     W8CombatSlot target;
     ResetCombatSlot(&target);
     PopulateSpellTargetMarkers(W8_SPELL_DISPEL_UNDEAD, 1, &source, &target, &monsters, &party, 0);
-    if (static_cast<int>(monsters.size()) == 0) {
+    if (monsters.empty()) {
         return 0;
     }
     SetTextBoxMode(1, -1);
@@ -540,7 +542,8 @@ bool CanPartySlotPray(int party_slot)
         g_combat_state == 0 || g_combat_state->characters[party_slot].pray_used) {
         return false;
     }
-    for (unsigned int index = 0; index < (gXStatus.plsMonsterList ? static_cast<unsigned int>(gXStatus.plsMonsterList->size()) : 0); ++index) {
+    for (unsigned int index = 0;
+         index < (gXStatus.plsMonsterList ? gXStatus.plsMonsterList->size() : 0); ++index) {
         W8MonsterInfo* monster = MonsterGetScriptPartByLocationIndex(index);
         if (monster->fActive && monster->fInCombat &&
             monster->ubDisposition == W8_DISPOSITION_HOSTILE && monster->hp_current != 0) {
@@ -783,7 +786,8 @@ int CharacterPrayAction(int party_slot)
             const float range =
                 CalcRangeDistance(g_spell_records[W8_SPELL_MAGIC_MISSILES].range_category);
             in_range = 0;
-            for (index = 0; index < (gXStatus.plsMonsterList ? static_cast<unsigned int>(gXStatus.plsMonsterList->size()) : 0); ++index) {
+            for (index = 0; index < (gXStatus.plsMonsterList ? gXStatus.plsMonsterList->size() : 0);
+                 ++index) {
                 W8MonsterInfo* monster = MonsterGetScriptPartByLocationIndex(index);
                 if (monster->fActive && monster->fInCombat &&
                     monster->ubDisposition == W8_DISPOSITION_HOSTILE && monster->hp_current != 0 &&
@@ -793,7 +797,9 @@ int CharacterPrayAction(int party_slot)
             }
             if (in_range != 0) {
                 pick = Random(in_range) + 1;
-                for (index = 0; index < (gXStatus.plsMonsterList ? static_cast<unsigned int>(gXStatus.plsMonsterList->size()) : 0); ++index) {
+                for (index = 0;
+                     index < (gXStatus.plsMonsterList ? gXStatus.plsMonsterList->size() : 0);
+                     ++index) {
                     W8MonsterInfo* monster = MonsterGetScriptPartByLocationIndex(index);
                     if (monster->fActive && monster->fInCombat &&
                         monster->ubDisposition == W8_DISPOSITION_HOSTILE &&
@@ -862,7 +868,8 @@ int CharacterPrayAction(int party_slot)
             }
             break;
         case 0xb:
-            for (index = 0; index < (gXStatus.plsMonsterList ? static_cast<unsigned int>(gXStatus.plsMonsterList->size()) : 0); ++index) {
+            for (index = 0; index < (gXStatus.plsMonsterList ? gXStatus.plsMonsterList->size() : 0);
+                 ++index) {
                 W8MonsterInfo* monster = MonsterGetScriptPartByLocationIndex(index);
                 if (monster->fActive && monster->fInCombat &&
                     monster->ubDisposition == W8_DISPOSITION_HOSTILE && monster->hp_current != 0 &&
@@ -885,7 +892,9 @@ int CharacterPrayAction(int party_slot)
             {
                 const float range =
                     CalcRangeDistance(g_spell_records[W8_SPELL_FALLING_STARS].range_category);
-                for (index = 0; index < (gXStatus.plsMonsterList ? static_cast<unsigned int>(gXStatus.plsMonsterList->size()) : 0); ++index) {
+                for (index = 0;
+                     index < (gXStatus.plsMonsterList ? gXStatus.plsMonsterList->size() : 0);
+                     ++index) {
                     W8MonsterInfo* monster = MonsterGetScriptPartByLocationIndex(index);
                     if (monster->fActive && monster->fInCombat &&
                         monster->ubDisposition == W8_DISPOSITION_HOSTILE &&
@@ -914,7 +923,9 @@ void AlertSameFactionGroups(W8MonsterGroup* monster_group)
 {
     W8MonsterRecord* record = MonsterGroupGetRecord(monster_group);
     if (record->faction_id != 0) {
-        for (unsigned int index = 0; index < (gXStatus.plsMonsterGroupList ? static_cast<unsigned int>(gXStatus.plsMonsterGroupList->size()) : 0); ++index) {
+        for (unsigned int index = 0;
+             index < (gXStatus.plsMonsterGroupList ? gXStatus.plsMonsterGroupList->size() : 0);
+             ++index) {
             W8MonsterGroup* other = GetMonsterGroupByListIndex(index);
             W8MonsterRecord* other_record = MonsterGroupGetRecord(other);
             if (other != monster_group &&

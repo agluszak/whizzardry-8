@@ -138,7 +138,7 @@ catch (const std::exception&) { return false; }
 unsigned char CreditsScreenLeave(int)
 {
     for (int index = 0; index < static_cast<int>(g_credit_lines->size()); ++index) {
-        W8CreditLine* entry = (g_credit_lines->data() + index);
+        W8CreditLine* entry = &(*g_credit_lines)[index];
         if (entry->primary != 0) {
             free(entry->primary);
         }
@@ -191,8 +191,9 @@ void CreditsScreenFrame(void)
 
     DrawCatalogImage(FRAME_BUFFER, 0xe9, 0, 0, 0, 0, VO_BLT_SRCTRANSPARENCY, 0);
     int y = g_credit_y;
-    for (int index = g_credit_line; index < static_cast<int>(g_credit_lines->size()) && y <= 0x1df; ++index) {
-        const W8CreditLine* entry = (g_credit_lines->data() + index);
+    for (int index = g_credit_line; index < static_cast<int>(g_credit_lines->size()) && y <= 0x1df;
+         ++index) {
+        const W8CreditLine* entry = &(*g_credit_lines)[index];
         if ((entry->flags & 4) == 0) {
             SetFont((entry->flags & 1) ? g_options_title_font : g_options_detail_font);
             if ((entry->flags & 2) == 0) {

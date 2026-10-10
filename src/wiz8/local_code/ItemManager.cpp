@@ -237,7 +237,7 @@ int GenerateItemsFromTable(std::vector<W8WorldItem*>* output_items, unsigned int
             item_record = &g_item_records[table->entries[entry_index].item_id];
             if (table->entries[entry_index].weight == 0) {
                 output_items->push_back(CreateTableItem(
-                                    g_item_tables[table_id]->entries[entry_index].item_id, &position));
+                    g_item_tables[table_id]->entries[entry_index].item_id, &position));
             } else if (table->level_scaled == 0) {
                 candidates.push_back(entry_index);
             } else {
@@ -272,7 +272,7 @@ int GenerateItemsFromTable(std::vector<W8WorldItem*>* output_items, unsigned int
 
     selected_count = 0;
     while (selected_count < maximum_items) {
-        if (static_cast<int>(candidates.size()) == 0) {
+        if (candidates.empty()) {
             break;
         }
         position_index = Random(static_cast<int>(candidates.size()));
@@ -341,7 +341,8 @@ W8WorldItem* GetNextWorldItem(bool restart)
         g_world_item_cursor = 0;
     }
     index = g_world_item_cursor;
-    if (static_cast<unsigned int>(index) < (gXStatus.plsItemList ? static_cast<unsigned int>(gXStatus.plsItemList->size()) : 0)) {
+    if (static_cast<unsigned int>(index) <
+        (gXStatus.plsItemList ? gXStatus.plsItemList->size() : 0)) {
         ++g_world_item_cursor;
         return GetWorldItemListEntry(index);
     }
@@ -438,9 +439,10 @@ W8WorldItem* ItemInfo(unsigned int item_list_index)
 {
     W8WorldItem* item;
 
-    if (item_list_index >= (gXStatus.plsItemList ? static_cast<unsigned int>(gXStatus.plsItemList->size()) : 0)) {
-        srAssertFail("uiItemListIndex < (UINT32) (gXStatus.plsItemList ? static_cast<unsigned int>(gXStatus.plsItemList->size()) : 0)", ITEM_MANAGER_CPP,
-                     961, 0);
+    if (item_list_index >= (gXStatus.plsItemList ? gXStatus.plsItemList->size() : 0)) {
+        srAssertFail(
+            "uiItemListIndex < (UINT32) (gXStatus.plsItemList ? gXStatus.plsItemList->size() : 0)",
+            ITEM_MANAGER_CPP, 961, 0);
     }
     item = GetWorldItemListEntry(item_list_index);
     if (item == 0) {
@@ -456,7 +458,7 @@ unsigned int ItemIndex(int runtime_id)
 {
     unsigned int index;
 
-    for (index = 0; index < (gXStatus.plsItemList ? static_cast<unsigned int>(gXStatus.plsItemList->size()) : 0); ++index) {
+    for (index = 0; index < (gXStatus.plsItemList ? gXStatus.plsItemList->size() : 0); ++index) {
         if (ItemInfo(index)->runtime_id == runtime_id) {
             return index;
         }
@@ -791,7 +793,7 @@ int PickNearestItemUnderCursor(int cursor_x, int cursor_y, float max_distance)
 
     result = -1;
     best_distance = 999999.0f;
-    for (index = 0; index < (gXStatus.plsItemList ? static_cast<unsigned int>(gXStatus.plsItemList->size()) : 0); ++index) {
+    for (index = 0; index < (gXStatus.plsItemList ? gXStatus.plsItemList->size() : 0); ++index) {
         W8WorldItem* item = ItemInfo(index);
         float distance;
 
@@ -824,7 +826,7 @@ void UpdateNearbyWorldItems(void)
     unsigned int count;
 
     WorldGetCameraLocation(GetWorld(), &camera);
-    count = (gXStatus.plsItemList ? static_cast<unsigned int>(gXStatus.plsItemList->size()) : 0);
+    count = (gXStatus.plsItemList ? gXStatus.plsItemList->size() : 0);
     for (index = 0; index < count; ++index) {
         W8WorldItem* item = ItemInfo(index);
 
@@ -856,7 +858,7 @@ void UpdateNearbyWorldItems(void)
             }
         }
     next_item:
-        count = (gXStatus.plsItemList ? static_cast<unsigned int>(gXStatus.plsItemList->size()) : 0);
+        count = (gXStatus.plsItemList ? gXStatus.plsItemList->size() : 0);
     }
 }
 
@@ -1000,9 +1002,8 @@ unsigned char InteractWithWorldItem(int runtime_id)
         DeactivateWorldItem(item);
     }
     FreeWorldItemGroup(item);
-    const auto removed_entry = (*gXStatus.plsItemList)[index];
+    void* status = (*gXStatus.plsItemList)[index];
     gXStatus.plsItemList->erase(gXStatus.plsItemList->begin() + index);
-    void* status = removed_entry;
     if (status == 0) {
         srAssertFail("fStatus", ITEM_MANAGER_CPP, 893, 0);
     }
@@ -1020,13 +1021,14 @@ unsigned char ReleaseItemLists(void)
     if (gXStatus.plsItemList == 0) {
         srAssertFail("gXStatus.plsItemList != NULL", ITEM_MANAGER_CPP, 0x126, 0);
     }
-    count = (gXStatus.plsItemList ? static_cast<unsigned int>(gXStatus.plsItemList->size()) : 0);
+    count = (gXStatus.plsItemList ? gXStatus.plsItemList->size() : 0);
     while (static_cast<int>(count) >= 1) {
         W8WorldItem* item;
 
-        count = (gXStatus.plsItemList ? static_cast<unsigned int>(gXStatus.plsItemList->size()) : 0);
+        count = (gXStatus.plsItemList ? gXStatus.plsItemList->size() : 0);
         if (count == 0) {
-            srAssertFail("uiItemListIndex < (UINT32) (gXStatus.plsItemList ? static_cast<unsigned int>(gXStatus.plsItemList->size()) : 0)",
+            srAssertFail("uiItemListIndex < (UINT32) (gXStatus.plsItemList ? "
+                         "gXStatus.plsItemList->size() : 0)",
                          ITEM_MANAGER_CPP, 0x3c1, 0);
         }
         item = GetWorldItemListEntry(0);
@@ -1047,12 +1049,12 @@ unsigned char ReleaseItemLists(void)
             free(item);
             item = next;
         }
-        const auto removed_entry = (*gXStatus.plsItemList)[0];
-        gXStatus.plsItemList->erase(gXStatus.plsItemList->begin() + 0);
-        if (removed_entry == 0) {
+        const auto entry = (*gXStatus.plsItemList)[0];
+        gXStatus.plsItemList->erase(gXStatus.plsItemList->begin());
+        if (entry == 0) {
             return 0;
         }
-        count = (gXStatus.plsItemList ? static_cast<unsigned int>(gXStatus.plsItemList->size()) : 0);
+        count = (gXStatus.plsItemList ? gXStatus.plsItemList->size() : 0);
     }
     delete gXStatus.plsItemList;
 
@@ -1123,7 +1125,7 @@ bool AnyWorldItemVisible(void)
         return false;
     }
     GetCameraPosition(&camera);
-    count = (gXStatus.plsItemList ? static_cast<unsigned int>(gXStatus.plsItemList->size()) : 0);
+    count = (gXStatus.plsItemList ? gXStatus.plsItemList->size() : 0);
     if (0 <= g_last_visible_world_item && g_last_visible_world_item < count) {
         W8WorldItem* item = GetWorldItemListEntry(g_last_visible_world_item);
         if (IsWorldItemMarkerVisible(item, camera)) {
@@ -1245,7 +1247,7 @@ void RebuildAllWorldItemInstances(void)
     unsigned int index;
     W8WorldItem* item;
 
-    for (index = 0; index < (gXStatus.plsItemList ? static_cast<unsigned int>(gXStatus.plsItemList->size()) : 0); ++index) {
+    for (index = 0; index < (gXStatus.plsItemList ? gXStatus.plsItemList->size() : 0); ++index) {
         item = ItemInfo(index);
         ReplaceOrCreateItem(&item->item, item->item.iItemNo, false, false, false);
     }

@@ -122,7 +122,8 @@ try
                         handle.reset();
                         return 0;
                     }
-                    g_npc_records[index].item_stock_rules->insert(g_npc_records[index].item_stock_rules->begin() + entry, element);
+                    g_npc_records[index].item_stock_rules->insert(
+                        g_npc_records[index].item_stock_rules->begin() + entry, element);
                 }
             }
         }

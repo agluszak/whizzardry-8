@@ -621,10 +621,9 @@ unsigned char LoadLevel(int requested_level, int entrance, bool restoring_game)
             ResetAndRefreshAllSight();
             AgeAllMonsterSight();
         }
-        for (auto index = g_spell_effects.size(); index-- > 0;) {
-            if (index >= g_spell_effects.size()) continue;
-            auto* object = g_spell_effects[index];
-            g_spell_effects.erase(g_spell_effects.begin() + index);
+        while (!g_spell_effects.empty()) {
+            auto* object = g_spell_effects.back();
+            g_spell_effects.pop_back();
             delete object;
         }
     } else {

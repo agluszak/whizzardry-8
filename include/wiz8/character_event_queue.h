@@ -128,7 +128,9 @@ struct W8CharacterEventQueue {
     // FUNCTION: WIZ8 0x0052D8D0
     void CompleteActiveEvent(W8CharacterEvent* entry)
     {
-        if (const auto found = std::ranges::find(active_events, entry); found != active_events.end()) active_events.erase(found);
+        if (const auto found = std::ranges::find(active_events, entry);
+            found != active_events.end())
+            active_events.erase(found);
         RestartFollowUpClock(entry);
         entry->Complete();
         delete entry;

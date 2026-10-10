@@ -1,6 +1,8 @@
 #ifndef WIZ8_XSTATUS_H
 #define WIZ8_XSTATUS_H
 
+#include <utility>
+
 #include <vector>
 struct W8MonsterGroup;
 struct W8MonsterInfo;
@@ -9,7 +11,6 @@ struct W8WorldItem;
 #include "Types.h"
 #include <stddef.h>
 
-#include <vector>
 #include <algorithm>
 #include "wiz8/layouts/gameplay_databases.h"
 #include "wiz8/layouts/item_instance.h"
@@ -54,10 +55,10 @@ struct W8XStatus {
        Retail compares it unsigned (JA/JBE/SETA), never signed. */
     unsigned int hostile_monster_count;
     int item_manager_pending;              /* 0x8f1 */
-    std::vector<W8MonsterInfo*>* plsMonsterList;               /* 0x8f5: 0x00683FAD */
+    std::vector<W8MonsterInfo*>* plsMonsterList;                /* 0x8f5: 0x00683FAD */
     std::vector<W8MonsterGroup*>* plsMonsterGroupList;          /* 0x8f9: 0x00683FB1 */
-    std::vector<W8WorldItem*>* plsItemList;                  /* 0x8fd */
-    std::vector<W8MonsterInfo*>* plsUnbornMonsterList;         /* 0x901 */
+    std::vector<W8WorldItem*>* plsItemList;                     /* 0x8fd */
+    std::vector<W8MonsterInfo*>* plsUnbornMonsterList;          /* 0x901 */
     std::vector<W8MonsterGroup*>* plsMonsterGroupEncounterList; /* 0x905 */
     unsigned char unknown_049[4];
     bool fSurprisePossible; /* 0x90d: 0x00683FC5 */
@@ -85,7 +86,7 @@ struct W8XStatus {
        live formation here on open, edits the copy, and either reconciles it
        back or diffs it against live on accept. */
     W8PartyFormationState edited_formation;
-    std::vector<int> target_markers;     /* 0x9b7: 0x0068406F */
+    std::vector<int> target_markers;          /* 0x9b7: 0x0068406F */
     srVector3T<float> target_position;        /* 0x9c7: 0x0068407F */
     W8CombatSlot shared_target;               /* 0x9d3: 0x0068408B */
     W8ActionDetailBlock shared_action_detail; /* 0x9f3: 0x006840AB */
@@ -188,22 +189,38 @@ inline void ClearItemDrag(void)
 /* Typed element access for the homogeneous gXStatus lists. */
 inline W8MonsterInfo* GetMonsterListEntry(int index)
 {
-    return static_cast<W8MonsterInfo*>((gXStatus.plsMonsterList && static_cast<std::size_t>(index) < gXStatus.plsMonsterList->size() ? (*gXStatus.plsMonsterList)[index] : nullptr));
+    if (!gXStatus.plsMonsterList || index < 0 ||
+        std::cmp_greater_equal(index, gXStatus.plsMonsterList->size())) {
+        return nullptr;
+    }
+    return (*gXStatus.plsMonsterList)[index];
 }
 
 inline W8MonsterInfo* GetUnbornMonsterEntry(int index)
 {
-    return static_cast<W8MonsterInfo*>((gXStatus.plsUnbornMonsterList && static_cast<std::size_t>(index) < gXStatus.plsUnbornMonsterList->size() ? (*gXStatus.plsUnbornMonsterList)[index] : nullptr));
+    if (!gXStatus.plsUnbornMonsterList || index < 0 ||
+        std::cmp_greater_equal(index, gXStatus.plsUnbornMonsterList->size())) {
+        return nullptr;
+    }
+    return (*gXStatus.plsUnbornMonsterList)[index];
 }
 
 inline W8WorldItem* GetWorldItemListEntry(int index)
 {
-    return static_cast<W8WorldItem*>((gXStatus.plsItemList && static_cast<std::size_t>(index) < gXStatus.plsItemList->size() ? (*gXStatus.plsItemList)[index] : nullptr));
+    if (!gXStatus.plsItemList || index < 0 ||
+        std::cmp_greater_equal(index, gXStatus.plsItemList->size())) {
+        return nullptr;
+    }
+    return (*gXStatus.plsItemList)[index];
 }
 
 inline W8MonsterGroup* GetMonsterGroupEncounter(int index)
 {
-    return static_cast<W8MonsterGroup*>((gXStatus.plsMonsterGroupEncounterList && static_cast<std::size_t>(index) < gXStatus.plsMonsterGroupEncounterList->size() ? (*gXStatus.plsMonsterGroupEncounterList)[index] : nullptr));
+    if (!gXStatus.plsMonsterGroupEncounterList || index < 0 ||
+        std::cmp_greater_equal(index, gXStatus.plsMonsterGroupEncounterList->size())) {
+        return nullptr;
+    }
+    return (*gXStatus.plsMonsterGroupEncounterList)[index];
 }
 
 #endif

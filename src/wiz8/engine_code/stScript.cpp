@@ -76,25 +76,17 @@ stScript::~stScript()
 // FUNCTION: WIZ8 0x004CF690
 void stScript::Clear()
 {
-    while (static_cast<int>(lines.size()) != 0) {
-        const auto removed_entry = lines[0];
-        lines.erase(lines.begin() + 0);
-        stScriptLine* line = removed_entry;
-        if (line != 0) {
+    for (auto* line : lines) {
+        if (line) {
             free(line->text);
             delete line;
         }
     }
-    while (static_cast<int>(labels.size()) != 0) {
-        {
-            const auto erase_index = 0;
-            if (static_cast<std::size_t>(erase_index) < labels.size()) {
-                auto* object = labels[erase_index];
-                labels.erase(labels.begin() + erase_index);
-                delete object;
-            }
-        }
+    lines.clear();
+    for (auto* label : labels) {
+        delete label;
     }
+    labels.clear();
 }
 
 // FUNCTION: WIZ8 0x004CF3B0

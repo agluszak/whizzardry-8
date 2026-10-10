@@ -293,7 +293,8 @@ void SetAutomapToolCursor(int tool)
 // FUNCTION: WIZ8 0x00581000
 bool HasAutomapLayer(int layer)
 {
-    return static_cast<std::size_t>(layer) < g_automap_layers.size() && g_automap_layers[layer] != 0;
+    return static_cast<std::size_t>(layer) < g_automap_layers.size() &&
+           g_automap_layers[layer] != 0;
 }
 
 /* The first live clip plane below a height, or the layer count when none
@@ -302,7 +303,7 @@ static int FindAutomapLayerAtHeight(double height)
 {
     int layer;
     for (layer = 0; layer < static_cast<int>(g_automap_layers.size()); ++layer) {
-        if (HasAutomapLayer(layer) && (g_automap_layers[layer])->getLocation().y < height) {
+        if (HasAutomapLayer(layer) && g_automap_layers[layer]->getLocation().y < height) {
             break;
         }
     }
@@ -316,7 +317,9 @@ static void ClearAutomapMarkers()
     while (static_cast<int>(g_automap_markers->size())) {
         srClass* object = (*g_automap_markers)[0];
         object->release();
-        if (const auto found = std::ranges::find(*g_automap_markers, object); found != g_automap_markers->end()) g_automap_markers->erase(found);
+        if (const auto found = std::ranges::find(*g_automap_markers, object);
+            found != g_automap_markers->end())
+            g_automap_markers->erase(found);
     }
 }
 
@@ -342,11 +345,11 @@ unsigned char AutomapBackgroundRegionEvent(const InputAtom* event, W8Region* reg
 
 static void ClearAutomapNotes()
 {
-    while (static_cast<int>(g_automap_notes->size()) != 0) {
+    while (!g_automap_notes->empty()) {
         W8AutomapNote* note = (*g_automap_notes)[0];
         free(note->text);
         delete note;
-        g_automap_notes->erase(g_automap_notes->begin() + 0);
+        g_automap_notes->erase(g_automap_notes->begin());
     }
 }
 
@@ -692,7 +695,7 @@ unsigned char AutomapScreenEnter(void)
         layer = static_cast<srClipPlane*>(
             srCore.getRegistry()->find(srClipPlane::sGetClassNode(), layer_name, 0));
     }
-    unsigned int monster_count = (gXStatus.plsMonsterList ? static_cast<unsigned int>(gXStatus.plsMonsterList->size()) : 0);
+    unsigned int monster_count = (gXStatus.plsMonsterList ? gXStatus.plsMonsterList->size() : 0);
     for (unsigned int index = 0; index < monster_count; ++index) {
         W8MonsterInfo* monster = GetMonsterListEntry(index);
         if (monster->p3D)
@@ -745,13 +748,13 @@ unsigned char AutomapScreenEnter(void)
         int line = 0;
         int section = -1;
         while (section < g_status.current_level && line < static_cast<int>(script.lines.size())) {
-            if (strchr((script.lines[line])->text, '['))
+            if (strchr(script.lines[line]->text, '['))
                 ++section;
             ++line;
         }
         if (line < static_cast<int>(script.lines.size()) && section == g_status.current_level) {
             for (; line < static_cast<int>(script.lines.size()); ++line) {
-                char* text = (script.lines[line])->text;
+                char* text = script.lines[line]->text;
                 if (strchr(text, '['))
                     break;
                 if (!strstr(text, "LAYER=")) {
@@ -901,7 +904,7 @@ void AutomapScreenFrame(void)
                 if (GetCursorPositionInViewport(&point)) {
                     int layer = g_automap_layer + 1;
                     if (HasAutomapLayer(layer)) {
-                        (g_automap_layers[layer])->getLocationY();
+                        g_automap_layers[layer]->getLocationY();
                     }
                     glm::vec2 location;
                     location = glm::vec2((point.x - 0.5f) * g_automap_zoom + g_automap_position.x,
@@ -911,7 +914,9 @@ void AutomapScreenFrame(void)
             } else if (g_automap_tool == 3) {
                 W8AutomapNote* note = FindAutomapNoteUnderCursor();
                 if (note) {
-                    if (const auto found = std::ranges::find(*g_automap_notes, note); found != g_automap_notes->end()) g_automap_notes->erase(found);
+                    if (const auto found = std::ranges::find(*g_automap_notes, note);
+                        found != g_automap_notes->end())
+                        g_automap_notes->erase(found);
                     free(note->text);
                     delete note;
                     if (g_automap_hovered_note == note)
@@ -1064,8 +1069,8 @@ unsigned char AutomapScreenLeave(int)
     }
     while (static_cast<int>(g_automap_created_layers.size())) {
         if (g_automap_created_layers[0])
-            (g_automap_created_layers[0])->release();
-        g_automap_created_layers.erase(g_automap_created_layers.begin() + 0);
+            g_automap_created_layers[0]->release();
+        g_automap_created_layers.erase(g_automap_created_layers.begin());
     }
     return 1;
 }
@@ -1200,8 +1205,8 @@ void SetAutomapLayer(int layer)
     if (!HasAutomapLayer(layer)) {
         g_automap_near_clip = 1.0f;
     } else {
-        float height = g_automap_position.y -
-                       static_cast<float>((g_automap_layers[layer])->getLocation().y);
+        float height =
+            g_automap_position.y - static_cast<float>(g_automap_layers[layer]->getLocation().y);
         if (height < 1.0f) {
             g_automap_near_clip = 1.0f;
         } else {
@@ -1213,7 +1218,8 @@ void SetAutomapLayer(int layer)
     g_automap_overlay_redraw = true;
     if (g_automap_buttons != 0) {
         if (g_automap_buttons[9] != 0) {
-            g_automap_buttons[9]->SetEnabled(layer != static_cast<int>(g_automap_layers.size()) - 1);
+            g_automap_buttons[9]->SetEnabled(layer !=
+                                             static_cast<int>(g_automap_layers.size()) - 1);
         }
         if (g_automap_buttons[8] != 0) {
             g_automap_buttons[8]->SetEnabled(layer != 0);
@@ -1259,9 +1265,9 @@ unsigned char ZoomAutomapIn(const srVector3T<float>* point)
     float ground;
     if (g_octree_game_data->octree->TraceLineOfSight(&from, &to, true, -3, -3, true, 0) == 0) {
         ground = g_automap_grid_min.y;
-        if (static_cast<int>(g_automap_layers.size()) != 0 && 1 < static_cast<int>(g_automap_layers.size()) &&
+        if (!g_automap_layers.empty() && 1 < static_cast<int>(g_automap_layers.size()) &&
             g_automap_layers[1] != 0) {
-            ground = static_cast<float>((g_automap_layers[1])->getLocationY());
+            ground = static_cast<float>(g_automap_layers[1]->getLocationY());
         }
     } else {
         ground = to.y;
@@ -1605,7 +1611,7 @@ unsigned char ShowAutomapNoteTooltip(W8AutomapNote* note)
     } else if (layer < static_cast<int>(g_automap_layers.size())) {
         floor_y = static_cast<float>(g_automap_layers[layer]->getLocationY());
     } else {
-        floor_y = static_cast<float>((*g_automap_layers.data())->getLocationY());
+        floor_y = static_cast<float>(g_automap_layers.front()->getLocationY());
     }
     int index = FindAutomapLayerAtHeight(floor_y);
     if (index - 1 == g_automap_layer) {
@@ -1757,7 +1763,7 @@ unsigned char GetAutomapPositionUnderCursor(srVector3T<float>* position)
         int layer = g_automap_layer + 1;
         float height;
         if (HasAutomapLayer(layer)) {
-            height = static_cast<float>((g_automap_layers[layer])->getLocationY());
+            height = static_cast<float>(g_automap_layers[layer]->getLocationY());
         } else {
             height = g_automap_grid_min.y;
         }
@@ -1781,11 +1787,11 @@ W8AutomapNote* FindAutomapNoteUnderCursor(void)
     if (g_automap_page != 2 && GetCursorPositionInViewport(&point) != 0) {
         int layer = g_automap_layer + 1;
         if (HasAutomapLayer(layer)) {
-            (g_automap_layers[layer])->getLocationY();
+            g_automap_layers[layer]->getLocationY();
         }
         float x = (point.x - g_float_half) * g_automap_zoom + g_automap_position.x;
         float y = g_automap_position.z - (point.y - g_float_half) * g_automap_zoom;
-        for (unsigned int index = 0; index < static_cast<unsigned int>(static_cast<int>(g_automap_notes->size()));
+        for (unsigned int index = 0; index < static_cast<unsigned int>(g_automap_notes->size());
              ++index) {
             W8AutomapNote* note = (*g_automap_notes)[index];
             if (note->layer == g_automap_layer) {
@@ -1909,7 +1915,7 @@ void RenderAutomapMarkers(void)
         g_automap_party_marker->setParent(0, 1);
         g_automap_party_marker->setParent(g_scene_square, 1);
     }
-    unsigned int count = (gXStatus.plsMonsterList ? static_cast<unsigned int>(gXStatus.plsMonsterList->size()) : 0);
+    unsigned int count = (gXStatus.plsMonsterList ? gXStatus.plsMonsterList->size() : 0);
     for (unsigned int index = 0; index < count; ++index) {
         W8MonsterInfo* info = GetMonsterListEntry(index);
         W8Monster* monster = info->p3D;
@@ -1992,7 +1998,7 @@ void RenderAutomapMarkers(void)
             W8AutomapNote* note = (*g_automap_notes)[index];
             int layer = note->layer + 1;
             if (HasAutomapLayer(layer)) {
-                (g_automap_layers[layer])->getLocationY();
+                g_automap_layers[layer]->getLocationY();
             }
             left = g_automap_position.x - g_automap_zoom * g_float_half;
             top = g_automap_position.z - g_automap_zoom * g_float_half;
@@ -2170,7 +2176,7 @@ unsigned char HandleAutomapNoteInput(const InputAtom* input)
             if (GetCursorPositionInViewport(&point) != 0) {
                 int layer = g_automap_layer + 1;
                 if (HasAutomapLayer(layer)) {
-                    (g_automap_layers[layer])->getLocationY();
+                    g_automap_layers[layer]->getLocationY();
                 }
                 g_automap_editing_note->position =
                     glm::vec2(
@@ -2199,7 +2205,9 @@ unsigned char HandleAutomapNoteInput(const InputAtom* input)
         } else if (input->usParam == VK_RETURN) {
             g_automap_editing_note->text[last] = 0;
             if (wcslen(g_automap_editing_note->text) == 0) {
-                if (const auto found = std::ranges::find(*g_automap_notes, g_automap_editing_note); found != g_automap_notes->end()) g_automap_notes->erase(found);
+                if (const auto found = std::ranges::find(*g_automap_notes, g_automap_editing_note);
+                    found != g_automap_notes->end())
+                    g_automap_notes->erase(found);
                 free(g_automap_editing_note->text);
                 delete g_automap_editing_note;
                 if (g_automap_hovered_note == g_automap_editing_note) {
@@ -2215,7 +2223,9 @@ unsigned char HandleAutomapNoteInput(const InputAtom* input)
             g_automap_editing_note = 0;
             g_automap_redraw = true;
         } else if (input->usParam == VK_ESCAPE) {
-            if (const auto found = std::ranges::find(*g_automap_notes, g_automap_editing_note); found != g_automap_notes->end()) g_automap_notes->erase(found);
+            if (const auto found = std::ranges::find(*g_automap_notes, g_automap_editing_note);
+                found != g_automap_notes->end())
+                g_automap_notes->erase(found);
             free(g_automap_editing_note->text);
             delete g_automap_editing_note;
             if (g_automap_hovered_note == g_automap_editing_note) {

@@ -59,15 +59,11 @@ void InitializeAniMeshCache(int primary_limit, int secondary_limit)
     }
     g_animesh_cache_list.clear();
     g_animesh_cache_list.reserve(10);
-
 }
 
 /* Releases every cached ani-mesh entry and clears the list. */
 // FUNCTION: WIZ8 0x004B57D0
-void FreeAniMeshCache(void)
-{
-    g_animesh_cache_list.clear();
-}
+void FreeAniMeshCache(void) { g_animesh_cache_list.clear(); }
 
 // FUNCTION: WIZ8 0x004b57e0
 W8AniMesh* CreateAniMesh()
@@ -561,13 +557,13 @@ void SetAniMeshCacheProtected(W8AniMesh* mesh, bool enabled)
 // FUNCTION: WIZ8 0x004b6770
 void EnforceAniMeshMemoryLimit(W8AniMesh* current)
 {
-    while (g_animesh_cache_bytes > g_animesh_cache_limit && static_cast<unsigned int>(g_animesh_cache_list.size()) != 0) {
+    while (g_animesh_cache_bytes > g_animesh_cache_limit && !g_animesh_cache_list.empty()) {
         W8AniMesh* oldest = 0;
         int oldest_index = -1;
         unsigned int count = static_cast<unsigned int>(g_animesh_cache_list.size());
 
         for (unsigned int index = 0; index < count; ++index) {
-            W8AniMesh* candidate = static_cast<W8AniMesh*>((static_cast<std::size_t>(index) < g_animesh_cache_list.size() ? g_animesh_cache_list[index] : nullptr));
+            W8AniMesh* candidate = static_cast<W8AniMesh*>(g_animesh_cache_list[index]);
 
             if (candidate != current) {
                 if (candidate == 0) {

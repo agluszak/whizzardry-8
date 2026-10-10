@@ -181,7 +181,7 @@ void AscensionAvalanche(bool command)
                 SetFact(W8_FACT_LANDSLIDE_WILD_SIDE, 1, false);
             }
         }
-        g_master_functions->push_back(AscensionLandShaker);
+        g_master_functions.push_back(AscensionLandShaker);
     }
 }
 
@@ -410,7 +410,8 @@ bool AscensionPath1Camera(Trigger* pTrigger)
     if (GetLocationVarIDByName("AP_DSSpawned") == -1) {
         return false;
     }
-    for (index = 0; index < (gXStatus.plsMonsterList ? static_cast<unsigned int>(gXStatus.plsMonsterList->size()) : 0); ++index) {
+    for (index = 0; index < (gXStatus.plsMonsterList ? gXStatus.plsMonsterList->size() : 0);
+         ++index) {
         W8MonsterInfo* info = MonsterGetScriptPartByLocationIndex(index);
 
         if (info->fActive && info->fInCombat && info->ubDisposition == W8_DISPOSITION_HOSTILE &&

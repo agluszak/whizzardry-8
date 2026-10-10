@@ -368,7 +368,8 @@ void ResetCombatEffects(void)
         if (g_combat_state->effect_slots[i].active) {
             ResetPartyEffectBlock(&g_combat_state->effect_slots[i]);
         }
-        for (index = 0; index < (gXStatus.plsMonsterList ? static_cast<unsigned int>(gXStatus.plsMonsterList->size()) : 0); ++index) {
+        for (index = 0; index < (gXStatus.plsMonsterList ? gXStatus.plsMonsterList->size() : 0);
+             ++index) {
             monster_info = MonsterGetScriptPartByLocationIndex(index);
             if (monster_info->fActive && monster_info->fInCombat) {
                 slot = &monster_info->pCombat->combat_effects[i];
@@ -382,7 +383,8 @@ void ResetCombatEffects(void)
         if (g_combat_state->effect_slots0[i].active) {
             ResetPartyEffectBlock(&g_combat_state->effect_slots0[i]);
         }
-        for (index = 0; index < (gXStatus.plsMonsterList ? static_cast<unsigned int>(gXStatus.plsMonsterList->size()) : 0); ++index) {
+        for (index = 0; index < (gXStatus.plsMonsterList ? gXStatus.plsMonsterList->size() : 0);
+             ++index) {
             monster_info = MonsterGetScriptPartByLocationIndex(index);
             if (monster_info->fActive && monster_info->fInCombat) {
                 slot = &monster_info->pCombat->combat_effects_2[i];
@@ -782,8 +784,8 @@ void ApplySummonElementalEffect(W8SpellEffectEntry* effect)
     SetMonsterGroupHostility(group, disposition, false);
     if (disposition == W8_DISPOSITION_FRIENDLY) {
         for (index = 0; index < group->member_count; ++index) {
-            member = MonsterInfoFromID(0xfdb, MAGIC_EFFECTS_CPP, (group->monsters.operator->() && static_cast<std::size_t>(index) < group->monsters->size() ? (*group->monsters)[index] : -1),
-                                       true);
+            member =
+                MonsterInfoFromID(0xfdb, MAGIC_EFFECTS_CPP, group->MemberLocationId(index), true);
             if (member == 0) {
                 srAssertFail("pMonsterInfo", MAGIC_EFFECTS_CPP, 0xfdc, 0);
             }
@@ -794,8 +796,8 @@ void ApplySummonElementalEffect(W8SpellEffectEntry* effect)
         }
     } else {
         for (index = 0; index < group->member_count; ++index) {
-            member = MonsterInfoFromID(0xfdb, MAGIC_EFFECTS_CPP, (group->monsters.operator->() && static_cast<std::size_t>(index) < group->monsters->size() ? (*group->monsters)[index] : -1),
-                                       true);
+            member =
+                MonsterInfoFromID(0xfdb, MAGIC_EFFECTS_CPP, group->MemberLocationId(index), true);
             if (member == 0) {
                 srAssertFail("pMonsterInfo", MAGIC_EFFECTS_CPP, 0xfdc, 0);
             }
@@ -1132,8 +1134,8 @@ void ApplyConditionToTargets(W8SpellEffectEntry* effect, W8EnchantmentSlot slot)
         }
     }
     for (index = 0; index < static_cast<int>(effect->monster_ids.size()); ++index) {
-        location_id = MonsterGetIndexByLocationID(0x5c8, MAGIC_EFFECTS_CPP,
-                                                  effect->monster_ids[index], true);
+        location_id =
+            MonsterGetIndexByLocationID(0x5c8, MAGIC_EFFECTS_CPP, effect->monster_ids[index], true);
         monster_info = MonsterGetScriptPartByLocationIndex(location_id);
         if (monster_info == 0) {
             srAssertFail("pMonsterInfo", MAGIC_EFFECTS_CPP, 0x5c9, 0);
@@ -1190,9 +1192,9 @@ static void ReportSpellDeaths(W8SpellEffectEntry* effect)
 {
     W8SpellDamageReport* report;
 
-    while (static_cast<int>(effect->result.reports.size()) > 0) {
+    while (!effect->result.reports.empty()) {
         report = effect->result.reports[0];
-        effect->result.reports.erase(effect->result.reports.begin() + 0);
+        effect->result.reports.erase(effect->result.reports.begin());
         if (report != 0) {
             if (report->kind == 1) {
                 PostCharacterNotice(report->value, L"%s!",
@@ -1226,7 +1228,9 @@ void ReportSpellEffectResult(W8SpellEffectEntry* effect)
             AppendToLastTextLine(!effect->reported ? L" -- " : L", ", -1);
             SetTextBoxMode(1, -1);
         }
-        if (static_cast<int>(effect->target_indices.size()) + static_cast<int>(effect->monster_ids.size()) == 1) {
+        if (static_cast<int>(effect->target_indices.size()) +
+                static_cast<int>(effect->monster_ids.size()) ==
+            1) {
             AppendToLastTextLine(FormatWideString(gppStringList[0x19a], effect->result.amount, -1),
                                  -1);
         } else {
@@ -1940,7 +1944,9 @@ void InflictConditionAttack(W8SpellEffectEntry* effect, W8Condition condition, i
         AppendToLastTextLine(!effect->reported ? L" -- " : L", ", -1);
         SetTextBoxMode(1, -1);
     }
-    if (static_cast<int>(effect->monster_ids.size()) + static_cast<int>(effect->target_indices.size()) != 1) {
+    if (static_cast<int>(effect->monster_ids.size()) +
+            static_cast<int>(effect->target_indices.size()) !=
+        1) {
         if (affected == 1) {
             notice = gppStringList[g_condition_notices[condition].singular];
         } else {
@@ -1991,7 +1997,7 @@ void ApplyBeingEffectSlot(W8SpellEffectEntry* effect)
             return;
         }
     }
-    if (static_cast<int>(effect->target_indices.size()) != 0) {
+    if (!effect->target_indices.empty()) {
         slot = &g_status.effect_slots[slot_index];
         slot->Activate(effect->kind, effect->definition.duration_scale, duration);
         RebuildPartyEffectBlock();
@@ -2104,7 +2110,7 @@ void ApplyCombatEffectSlot(W8SpellEffectEntry* effect)
     if (spell_id != *table) {
         srAssertFail("fFound", MAGIC_EFFECTS_CPP, 0x35f, 0);
     } else {
-        if (static_cast<int>(effect->target_indices.size()) != 0) {
+        if (!effect->target_indices.empty()) {
             slot = &g_combat_state->effect_slots[slot_index];
             slot->Activate(spell_id, effect->definition.duration_scale, duration);
             RebuildPartyEffectBlock();
@@ -2175,7 +2181,7 @@ void ApplyDefenseEffectSlot(W8SpellEffectEntry* effect)
             return;
         }
     }
-    if (static_cast<int>(effect->target_indices.size()) != 0) {
+    if (!effect->target_indices.empty()) {
         slot = &g_combat_state->effect_slots0[slot_index];
         slot->Activate(spell_id, effect->definition.duration_scale, duration);
         RebuildPartyEffectBlock();
@@ -2365,7 +2371,9 @@ void DamageTargetsAndReport(W8SpellEffectEntry* effect)
                 AppendToLastTextLine(!effect->reported ? L" -- " : L", ", -1);
                 SetTextBoxMode(1, -1);
             }
-            if (static_cast<int>(effect->monster_ids.size()) + static_cast<int>(effect->target_indices.size()) == 1) {
+            if (static_cast<int>(effect->monster_ids.size()) +
+                    static_cast<int>(effect->target_indices.size()) ==
+                1) {
                 AppendToLastTextLine(FormatWideString(gppStringList[0x1a6], total, -1), -1);
             } else {
                 AppendToLastTextLine(FormatWideString(gppStringList[0x1a7], hits, total / hits, -1),
@@ -2446,7 +2454,7 @@ void DestroyConsumablesOnTargets(W8SpellEffectEntry* effect)
             DestroyItemConsumables(item, character, chance, totals);
         }
     }
-    if (static_cast<int>(effect->target_indices.size()) > 0) {
+    if (!effect->target_indices.empty()) {
         for (index = 0; static_cast<unsigned int>(index) < g_status.party_item_count; ++index) {
             item = &g_status.party_item_pool[index];
             DestroyItemConsumables(item, 0, chance, totals);
@@ -2740,7 +2748,7 @@ void ReduceCombatEffectDurations(W8SpellEffectEntry* effect)
                      g_spell_records[*table].spell_level + duration;
             if (reduce > 0) {
                 slot = &g_combat_state->effect_slots[slot_index];
-                if (static_cast<int>(effect->target_indices.size()) != 0 && slot->active) {
+                if (!effect->target_indices.empty() && slot->active) {
                     if (static_cast<unsigned int>(reduce) < slot->duration) {
                         slot->duration -= reduce;
                     } else {
@@ -2749,8 +2757,7 @@ void ReduceCombatEffectDurations(W8SpellEffectEntry* effect)
                     effect->applied = true;
                 }
                 for (index = 0; index < static_cast<int>(effect->monster_ids.size()); ++index) {
-                    monster_info =
-                        GetEffectMonsterTarget(effect->monster_ids[index], 0x3a7, 0x3a8);
+                    monster_info = GetEffectMonsterTarget(effect->monster_ids[index], 0x3a7, 0x3a8);
                     slot = &monster_info->pCombat->combat_effects[slot_index];
                     if (slot->active) {
                         if (static_cast<unsigned int>(reduce) < slot->duration) {
@@ -2888,8 +2895,8 @@ void TickRadiusBlastEffectSlots(W8EffectSlot* effect_slots)
                 CollectMonstersWithinRadius(&centre, &centre, &found, radius + reach, 1, 0);
             }
             for (index = 0; index < static_cast<int>(found.size()); ++index) {
-                monster_index = MonsterGetIndexByLocationID(0x11a6, MAGIC_EFFECTS_CPP,
-                                                            found[index], true);
+                monster_index =
+                    MonsterGetIndexByLocationID(0x11a6, MAGIC_EFFECTS_CPP, found[index], true);
                 monster_info = MonsterGetScriptPartByLocationIndex(monster_index);
                 if (monster_info == 0) {
                     srAssertFail("pMonsterInfo", MAGIC_EFFECTS_CPP, 0x11a7, 0);
@@ -2927,7 +2934,7 @@ void TickRadiusBlastEffectSlots(W8EffectSlot* effect_slots)
                 index = static_cast<int>(local_result.reports.size());
                 while (0 < index) {
                     W8SpellDamageReport* report = local_result.reports[0];
-                    local_result.reports.erase(local_result.reports.begin() + 0);
+                    local_result.reports.erase(local_result.reports.begin());
                     if (report != 0) {
                         if (report->kind == 1) {
                             PostCharacterNotice(
@@ -3682,11 +3689,9 @@ void ProcessSpellEffectTargets(W8SpellEffectEntry* effect)
 
 static void QueueCombatDamageReports(W8SpellEffectResult* result)
 {
-    while (static_cast<int>(result->reports.size()) > 0) {
-        W8SpellDamageReport* report = result->reports[0];
-        result->reports.erase(result->reports.begin() + 0);
-        g_combat_state->attack_report.reports.push_back(report);
-    }
+    auto& queued = g_combat_state->attack_report.reports;
+    queued.insert(queued.end(), result->reports.begin(), result->reports.end());
+    result->reports.clear();
 }
 
 /* Damage from the target-side enchantment: the enchantment's power scales the
