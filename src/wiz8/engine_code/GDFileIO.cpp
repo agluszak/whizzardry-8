@@ -27,7 +27,10 @@
 #include "wiz8/wiz8_windows.h"
 #include <new>
 #include "wiz8/engine_code/3d.h"
-#include "compat/platform.h"
+#include "wiz8/filesystem.h"
+#include <memory>
+#include <limits>
+#include <stdexcept>
 
 // GLOBAL: WIZ8 0x005ec1a8
 const float g_float_negative_one_third = -0.3333333432674408f;
@@ -59,28 +62,44 @@ const float g_path_endpoint_scale = 0.9900000095367432f;
 
 /* Opens a game-data file, builds its record, and pulls the polygon and
    vertex banks through the record reader. */
-// FUNCTION: WIZ8 0x00447570
-W8GameData* ReadGameData(const char* path, bool secondary)
+static W8GameData* ReadGeometry(std::unique_ptr<wiz8::File> file, bool secondary)
 {
-    HANDLE file = W8CreateFile(path, GENERIC_READ, 0, 0, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, 0);
-    W8GameData* game_data;
-    unsigned char got_polygons;
-    unsigned char got_vertices;
-
-    if (file == INVALID_HANDLE_VALUE) {
-        return 0;
-    }
-    game_data = new W8GameData(0, secondary);
-    if (game_data == 0) {
-        srAssertFail("pGameData", "C:\\Projects\\Wizardry 8\\Engine Code\\GDFileIO.cpp", 0xa7, 0);
-    }
-    got_polygons = game_data->ReadWGDList(file, 0);
-    got_vertices = game_data->ReadWGDList(file, 1);
+    auto game_data = std::make_unique<W8GameData>(0, secondary);
+    const auto got_polygons = game_data->ReadWGDList(*file, 0);
+    const auto got_vertices = game_data->ReadWGDList(*file, 1);
     if (got_vertices == 0 && got_polygons == 0) {
         ReportBuildStatus(7, "ReadGameData: No polygons or vertices in GameData!\n");
     }
-    W8CloseHandle(file);
-    return game_data;
+    file->close();
+    return game_data.release();
+}
+
+// FUNCTION: WIZ8 0x00447570
+W8GameData* ReadGameData(const char* path, bool secondary)
+{
+    try {
+        return ReadGeometry(wiz8::open_file(path), secondary);
+    } catch (const std::exception& error) {
+        ReportBuildStatus(7, error.what());
+        return 0;
+    }
+}
+
+W8GameData* ReadHostGameData(const std::filesystem::path& path, bool secondary)
+{
+    try {
+        return ReadGeometry(wiz8::open_host_file(path), secondary);
+    } catch (const std::exception& error) {
+        ReportBuildStatus(7, error.what());
+        return 0;
+    }
+}
+
+static void ReadGeometryRecord(wiz8::File& file, void* record, std::size_t bytes)
+{
+    if (file.read(record, bytes).bytes != bytes) {
+        throw std::runtime_error("ReadGameData: Truncated WGD record.");
+    }
 }
 
 /* The WGD face record's fixed head: three vertex indexes, the source plane,
@@ -121,90 +140,75 @@ static_assert(sizeof(W8GDExtendedFace) == 0x44, "W8GDExtendedFace_must_be_0x44")
    other type grows the existing banks and also consumes each face's extended
    name record into the interface tables. */
 // FUNCTION: WIZ8 0x00447660
-unsigned char W8GameData::ReadWGDList(HANDLE file, int poly_type)
+unsigned char W8GameData::ReadWGDList(wiz8::File& file, int poly_type)
 {
-    DWORD bytes_read;
     int vertex_count;
     int face_count;
     int record_count;
-    int* cond_faces;
+    std::unique_ptr<int, decltype(&free)> cond_faces(nullptr, &free);
     int index;
     int name_index;
-    unsigned char success;
-    char message[100];
     srVector3T<float> bounds[2];
 
     record_count = 0;
     if (poly_type < 0 || 2 < poly_type) {
-        ReportBuildStatus(7, "ReadWGDList: Invalid poly type.\n");
+        throw std::runtime_error("ReadWGDList: Invalid poly type.");
     }
-    success = W8ReadFile(file, &vertex_count, 4, &bytes_read, 0) & 1;
-    success &= W8ReadFile(file, &face_count, 4, &bytes_read, 0);
-    if (success == 0) {
-        srAssertFail("fSuccess", "C:\\Projects\\Wizardry 8\\Engine Code\\GDFileIO.cpp", 0xe5,
-                     "Error reading counts from WGD file.");
+    ReadGeometryRecord(file, &vertex_count, 4);
+    ReadGeometryRecord(file, &face_count, 4);
+    if (vertex_count < 0 || face_count < 0) {
+        throw std::runtime_error("ReadWGDList: Negative geometry count.");
+    }
+    if (vertex_count > 200000 || face_count > 200000 ||
+        m_iNumVertices > std::numeric_limits<int>::max() - vertex_count ||
+        m_iNumSurfaces > std::numeric_limits<int>::max() - face_count) {
+        throw std::runtime_error("ReadWGDList: Too many geometry records.");
     }
     if (face_count > 0 && vertex_count > 0) {
         if (face_count < 0x30d41) {
             if (vertex_count < 0x30d41) {
                 if (poly_type == 0) {
                     m_pVertices = new srVector3T<float>[vertex_count];
-                    if (m_pVertices == 0) {
-                        srAssertFail("m_pVertices",
-                                     "C:\\Projects\\Wizardry 8\\Engine Code\\GDFileIO.cpp", 0x114,
-                                     "ReadWGDList: Could not allocate vertices.");
-                    }
+                    if (m_pVertices == nullptr) throw std::bad_alloc();
                     m_pSurfaces =
                         static_cast<W8GDSurface*>(malloc(face_count * sizeof(W8GDSurface)));
                     if (m_pSurfaces == 0) {
-                        srAssertFail("m_pSurfaces",
-                                     "C:\\Projects\\Wizardry 8\\Engine Code\\GDFileIO.cpp", 0x116,
-                                     "ReadWGDList: Could not allocate surfaces.");
+                        throw std::bad_alloc();
                     }
                 } else {
                     W8GDSurface* old_surfaces = m_pSurfaces;
                     srVector3T<float>* old_vertices = m_pVertices;
-                    m_pVertices = new srVector3T<float>[m_iNumVertices + vertex_count];
-                    if (m_pVertices == 0) {
-                        srAssertFail("m_pVertices",
-                                     "C:\\Projects\\Wizardry 8\\Engine Code\\GDFileIO.cpp", 0x101,
-                                     "ReadWGDList: Could not allocate vertices.");
+                    auto vertices = std::make_unique<srVector3T<float>[]>(m_iNumVertices + vertex_count);
+                    if (!vertices) throw std::bad_alloc();
+                    std::unique_ptr<W8GDSurface, decltype(&free)> surfaces(
+                        static_cast<W8GDSurface*>(malloc((m_iNumSurfaces + face_count) * sizeof(W8GDSurface))), &free);
+                    if (!surfaces) throw std::bad_alloc();
+                    if (m_iNumVertices != 0) {
+                        memcpy(vertices.get(), old_vertices, m_iNumVertices * sizeof(srVector3T<float>));
                     }
-                    memcpy(m_pVertices, old_vertices, m_iNumVertices * sizeof(srVector3T<float>));
+                    if (m_iNumSurfaces != 0) {
+                        memcpy(surfaces.get(), old_surfaces, m_iNumSurfaces * sizeof(W8GDSurface));
+                    }
                     delete[] old_vertices;
-                    m_pSurfaces = static_cast<W8GDSurface*>(
-                        malloc((m_iNumSurfaces + face_count) * sizeof(W8GDSurface)));
-                    if (m_pSurfaces == 0) {
-                        srAssertFail("m_pSurfaces",
-                                     "C:\\Projects\\Wizardry 8\\Engine Code\\GDFileIO.cpp", 0x106,
-                                     "ReadWGDList: Could not allocate surfaces.");
-                    }
-                    memcpy(m_pSurfaces, old_surfaces, m_iNumSurfaces * sizeof(W8GDSurface));
                     free(old_surfaces);
-                    cond_faces = static_cast<int*>(malloc(face_count * (3 * sizeof(*cond_faces))));
+                    m_pVertices = vertices.release();
+                    m_pSurfaces = surfaces.release();
+                    cond_faces.reset(static_cast<int*>(malloc(face_count * 3 * sizeof(int))));
                     if (cond_faces == 0) {
-                        srAssertFail("pCondFaces",
-                                     "C:\\Projects\\Wizardry 8\\Engine Code\\GDFileIO.cpp", 0x10c,
-                                     "ReadWGDList: Could not allocate pCondFaces.");
+                        throw std::bad_alloc();
                     }
-                    m_ppNames = static_cast<char**>(malloc(face_count * sizeof(char*)));
-                    if (m_ppNames == 0) {
-                        srAssertFail("m_ppNames",
-                                     "C:\\Projects\\Wizardry 8\\Engine Code\\GDFileIO.cpp", 0x10e,
-                                     "ReadWGDList: Could not allocate name list.");
+                    auto names = static_cast<char**>(calloc(m_iNumNames + face_count, sizeof(char*)));
+                    if (!names) throw std::bad_alloc();
+                    if (m_iNumNames != 0) {
+                        memcpy(names, m_ppNames, m_iNumNames * sizeof(char*));
                     }
-                    memset(m_ppNames, 0, face_count * sizeof(char*));
+                    free(m_ppNames);
+                    m_ppNames = names;
                 }
                 index = m_iNumVertices;
-                name_index = 0;
                 while (index < m_iNumVertices + vertex_count) {
                     srVector3T<float> vertex;
-                    success &= W8ReadFile(file, &vertex, 0xc, &bytes_read, 0);
-                    if (success == 0) {
-                        srAssertFail("fSuccess",
-                                     "C:\\Projects\\Wizardry 8\\Engine Code\\GDFileIO.cpp", 0x120,
-                                     "Error reading vertex from WGD file.");
-                    }
+                    ReadGeometryRecord(file, &vertex, 0xc);
                     m_pVertices[index].Set(vertex.x * g_world_scale, vertex.y * g_world_scale,
                                            vertex.z * g_world_scale);
                     if (index == m_iNumVertices) {
@@ -233,25 +237,26 @@ unsigned char W8GameData::ReadWGDList(HANDLE file, int poly_type)
                     ++index;
                 }
                 index = m_iNumSurfaces;
-                int* record = cond_faces;
+                int* record = cond_faces.get();
                 while (index < m_iNumSurfaces + face_count) {
                     W8GDFaceHeader header;
                     W8GDFaceData data;
                     W8GDExtendedFace extended;
-                    success = W8ReadFile(file, &header, 0x1c, &bytes_read, 0);
+                    ReadGeometryRecord(file, &header, 0x1c);
                     if (header.version != 2) {
-                        srAssertFail("(tfFace.iVersion == 2 )",
-                                     "C:\\Projects\\Wizardry 8\\Engine Code\\GDFileIO.cpp", 0x142,
-                                     "Wrong version of WGD data--Get new plugin.");
+                        throw std::runtime_error("ReadWGDList: Wrong WGD version.");
                     }
-                    success &= W8ReadFile(file, &data, 0x18, &bytes_read, 0);
+                    for (int vertex : header.vertex_indices) {
+                        if (vertex < 0 || vertex >= vertex_count) {
+                            throw std::runtime_error("ReadWGDList: Invalid vertex index.");
+                        }
+                    }
+                    ReadGeometryRecord(file, &data, 0x18);
                     if (poly_type != 0) {
-                        success &= W8ReadFile(file, &extended, 0x44, &bytes_read, 0);
-                    }
-                    if (success == 0) {
-                        srAssertFail("fSuccess",
-                                     "C:\\Projects\\Wizardry 8\\Engine Code\\GDFileIO.cpp", 0x146,
-                                     "Error reading face from WGD file.");
+                        ReadGeometryRecord(file, &extended, 0x44);
+                        if (memchr(extended.name, '\0', sizeof(extended.name)) == nullptr) {
+                            throw std::runtime_error("ReadWGDList: Unterminated interface name.");
+                        }
                     }
                     W8GDSurface* surface = &m_pSurfaces[index];
                     surface->contact_margin = data.contact_margin;
@@ -297,9 +302,7 @@ unsigned char W8GameData::ReadWGDList(HANDLE file, int poly_type)
                             name_index = m_iNumNames;
                             m_ppNames[name_index] = static_cast<char*>(malloc(0x40));
                             if (m_ppNames[name_index] == 0) {
-                                srAssertFail("m_ppNames[i2]",
-                                             "C:\\Projects\\Wizardry 8\\Engine Code\\GDFileIO.cpp",
-                                             0x187, "ReadWGDList: Couldn't allocate name string.");
+                                throw std::bad_alloc();
                             }
                             strcpy(m_ppNames[name_index], extended.name);
                             if (m_iNumInterfaces == 0) {
@@ -315,12 +318,8 @@ unsigned char W8GameData::ReadWGDList(HANDLE file, int poly_type)
                     }
                     ++index;
                 }
-                W8ReadFile(file, &bounds[1].x, 4, &bytes_read, 0);
-                W8ReadFile(file, &bounds[1].y, 4, &bytes_read, 0);
-                W8ReadFile(file, &bounds[1].z, 4, &bytes_read, 0);
-                W8ReadFile(file, &bounds[0].x, 4, &bytes_read, 0);
-                W8ReadFile(file, &bounds[0].y, 4, &bytes_read, 0);
-                W8ReadFile(file, &bounds[0].z, 4, &bytes_read, 0);
+                ReadGeometryRecord(file, &bounds[1], 0xc);
+                ReadGeometryRecord(file, &bounds[0], 0xc);
                 for (index = 0; index < 3; ++index) {
                     (&bounds[1].x)[index] = (&bounds[1].x)[index] * g_world_scale;
                     (&bounds[0].x)[index] *= g_world_scale;
@@ -344,18 +343,13 @@ unsigned char W8GameData::ReadWGDList(HANDLE file, int poly_type)
                     maximum.z = bounds[0].z;
                 }
                 if (m_ppNames != 0 && cond_faces != 0) {
-                    CompileGDInterfaces(cond_faces, record_count);
-                    free(cond_faces);
+                    CompileGDInterfaces(cond_faces.get(), record_count);
                 }
                 m_iNumVertices += vertex_count;
                 m_iNumSurfaces += face_count;
                 return 1;
             }
-            sprintf(message, "Too many GameData vertices: %d!\n", vertex_count);
-        } else {
-            sprintf(message, "Too many GameData polygons: %d!\n", face_count);
         }
-        ReportBuildStatus(7, message);
     }
     return 0;
 }
@@ -368,10 +362,10 @@ unsigned char W8GameData::ReadWGDList(HANDLE file, int poly_type)
 void W8GameData::CompileGDInterfaces(const int* records, int count)
 {
     int states[3000];
-    int group_ids[100];
+    int group_ids[100]{};
     int group_counts[100];
     int group_polys[100 * 100];
-    int poly_scratch[5001];
+    int poly_scratch[5001]{};
     int record_index;
     int group;
     int poly;
@@ -379,8 +373,7 @@ void W8GameData::CompileGDInterfaces(const int* records, int count)
     m_pInterfaces =
         static_cast<W8GDInterface*>(malloc((m_iNumInterfaces + 2) * sizeof(W8GDInterface)));
     if (m_pInterfaces == 0) {
-        srAssertFail("m_pInterfaces", "C:\\Projects\\Wizardry 8\\Engine Code\\GDFileIO.cpp", 0x1df,
-                     "CompileGDInterfaces: Couldn't allocate GD Interfaces.");
+        throw std::bad_alloc();
     }
     memset(m_pInterfaces, 0, (m_iNumInterfaces + 2) * sizeof(W8GDInterface));
     memset(states, 0, sizeof(states));
@@ -398,6 +391,9 @@ void W8GameData::CompileGDInterfaces(const int* records, int count)
                 bool found = false;
                 for (group = 0; group < group_count; ++group) {
                     if (record[2] == group_ids[group]) {
+                        if (group_counts[group] == 100) {
+                            throw std::runtime_error("CompileGDInterfaces: Too many faces in state.");
+                        }
                         group_polys[group * 100 + group_counts[group]] = record[1];
                         ++group_counts[group];
                         found = true;
@@ -405,6 +401,9 @@ void W8GameData::CompileGDInterfaces(const int* records, int count)
                     }
                 }
                 if (!found) {
+                    if (group == 100) {
+                        throw std::runtime_error("CompileGDInterfaces: Too many state groups.");
+                    }
                     group_ids[group] = record[2];
                     group_polys[group * 100 + group_counts[group]] = record[1];
                     ++group_counts[group];
@@ -414,27 +413,28 @@ void W8GameData::CompileGDInterfaces(const int* records, int count)
         }
         gd_interface->state_count = group_count;
         for (group = 0; group < group_count; ++group) {
+            if (m_iNumStates == 1000 || m_iNumCondPolys + group_counts[group] + 1 >= 5001) {
+                throw std::runtime_error("CompileGDInterfaces: Too many conditional records.");
+            }
             states[m_iNumStates * 3] = group_ids[group];
             states[m_iNumStates * 3 + 1] = group_counts[group];
             states[m_iNumStates * 3 + 2] = m_iNumCondPolys;
             ++m_iNumStates;
             for (poly = 0; poly < group_counts[group]; ++poly) {
-                poly_scratch[++m_iNumCondPolys] = group_polys[group * 100 + poly];
+                poly_scratch[m_iNumCondPolys++] = group_polys[group * 100 + poly];
             }
-            poly_scratch[++m_iNumCondPolys] = 0;
+            poly_scratch[m_iNumCondPolys++] = 0;
         }
     }
     m_pStates =
         static_cast<W8GDInterfaceState*>(malloc((m_iNumStates + 2) * sizeof(W8GDInterfaceState)));
     if (m_pStates == 0) {
-        srAssertFail("m_pStates", "C:\\Projects\\Wizardry 8\\Engine Code\\GDFileIO.cpp", 0x20e,
-                     "CompileGDInterfaces: Couldn't allocate GDState array.");
+        throw std::bad_alloc();
     }
     memcpy(m_pStates, states, m_iNumStates * sizeof(W8GDInterfaceState));
-    m_piCondPolys = static_cast<int*>(malloc(m_iNumCondPolys * sizeof(*m_piCondPolys) + 2 * sizeof(*m_piCondPolys)));
+    m_piCondPolys = static_cast<int*>(calloc(m_iNumCondPolys + 2, sizeof(*m_piCondPolys)));
     if (m_piCondPolys == 0) {
-        srAssertFail("m_piCondPolys", "C:\\Projects\\Wizardry 8\\Engine Code\\GDFileIO.cpp", 0x211,
-                     "CompileGDInterfaces: Couldn't allocate Conditional poly array.");
+        throw std::bad_alloc();
     }
     memcpy(m_piCondPolys, poly_scratch, m_iNumCondPolys * sizeof(int));
     for (interface_id = 1; interface_id < m_iNumInterfaces; ++interface_id) {

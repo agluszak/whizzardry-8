@@ -62,6 +62,11 @@
 #include "wiz8/location_variables.h"
 #include "wiz8/npc_interaction.h"
 #include "wiz8/npc_script_file.h"
+#include "wiz8/filesystem.h"
+#include "wiz8/file_time.h"
+#include <ctime>
+#include <memory>
+#include <string>
 #include "wiz8/layouts/npc_state.h"
 #include "wiz8/layouts/gameplay_databases.h"
 #include "wiz8/character_event_queue.h"
@@ -76,7 +81,6 @@
 #include <stdio.h>
 #include <string.h>
 #include <wchar.h>
-#include "compat/platform.h"
 
 struct W8NpcScriptRegionName {
     wchar_t name[50];
@@ -2252,20 +2256,14 @@ void RunNpcQuoteDeclineActions(int quote_index)
    per-script plus grand totals to data\quotereport.txt. Raising
    g_status.quote_audit makes ShowNotice maintain
    g_notice_line_count and g_status.long_quote. The
-   report handle is used unchecked after the appending fopen, which is the
-   original's own error handling. */
+   report streams are owned and failures leave quote-audit mode disabled. */
 // FUNCTION: WIZ8 0x00529660
 void AuditNpcScriptQuotes(void)
 {
-    FILE* file;
-    FILE* log_file;
     W8NpcScriptFile* script;
     W8NpcScriptQuote* quote;
-    GETFILESTRUCT find;
     char date[128];
-    char line[200];
     char path[512];
-    char pattern[512];
     wchar_t display[2048];
     char* text;
     int file_lines;
@@ -2275,69 +2273,72 @@ void AuditNpcScriptQuotes(void)
     int total_scripts;
     int record_index;
     int sub_index;
-    BOOLEAN found;
 
     total_lines = 0;
     total_quotes = 0;
     total_scripts = 0;
-    file = fopen("data\\longquotes.txt", "w");
-    if (file != 0) {
-        fclose(file);
-    }
-    file = fopen("data\\quotereport.txt", "w");
-    if (file != 0) {
-        fclose(file);
-    }
-    W8GetDateFormat(LOCALE_SYSTEM_DEFAULT, 0, 0, "dddd',' MMMM dd',' yyyy", date, 0x80);
-    file = fopen("data\\quotereport.txt", "a+t");
-    g_status.quote_audit = 1;
-    sprintf(pattern, "Data\\NPC Scripts\\*.nsf");
-    fprintf(file, "Script Report File: %s\n", date);
-    fprintf(file, "-------------------------------------------------\n");
-    found = GetFileFirst(pattern, &find);
-    while (found != 0) {
-        sprintf(path, "Data\\NPC Scripts\\%s", find.zFileName);
-        script = LoadNpcScriptFile(path);
-        if (script != 0) {
-            file_lines = 0;
-            file_quotes = 0;
-            for (record_index = 0; record_index < script->quote_count; ++record_index) {
-                quote = &script->quotes[record_index];
-                for (sub_index = 0; sub_index < quote->subquote_count; ++sub_index) {
-                    text = quote->subquotes[sub_index];
-                    if (strlen(text) != 0 && _stricmp(text, "EMPTY") != 0 &&
-                        _stricmp(text, "BLANK") != 0 && _stricmp(text, "UNKNOWN") != 0 &&
-                        _stricmp(text, "CLASSIFIED") != 0) {
-                        swprintf(display, L" \"%S\"", text);
-                        ShowNotice(W8_FONT_PALETTE_RED, display, 0, GetTextBoxScrollRange());
-                        if (g_status.long_quote != 0) {
-                            sprintf(line, "Long Quote: #%d, subquote: #%d, script file: %s \n",
-                                    record_index, sub_index, find.zFileName);
-                            log_file = fopen("data\\longquotes.txt", "a+t");
-                            if (log_file != 0) {
-                                fprintf(log_file, "%s\n", line);
-                                fclose(log_file);
+    try {
+        auto log_file = wiz8::open_file("data\\longquotes.txt", wiz8::OpenMode::replace);
+        auto file = wiz8::open_file("data\\quotereport.txt", wiz8::OpenMode::replace);
+        const auto today = wiz8::current_local_time();
+        std::tm calendar{};
+        calendar.tm_year = today.year - 1900;
+        calendar.tm_mon = today.month - 1;
+        calendar.tm_mday = today.day;
+        calendar.tm_wday = today.day_of_week;
+        if (std::strftime(date, sizeof(date), "%A, %B %d, %Y", &calendar) == 0) {
+            snprintf(date, sizeof(date), "%04d-%02d-%02d", today.year, today.month, today.day);
+        }
+        const auto write_report = [&](const std::string& text) { file->write(text.data(), text.size()); };
+        g_status.quote_audit = 1;
+        write_report(std::string("Script Report File: ") + date + "\n");
+        write_report("-------------------------------------------------\n");
+        for (const auto& name : wiz8::list_directory("Data\\NPC Scripts", "*.nsf")) {
+            if (name.size() + sizeof("Data\\NPC Scripts\\") > sizeof(path)) continue;
+            sprintf(path, "Data\\NPC Scripts\\%s", name.c_str());
+            script = LoadNpcScriptFile(path);
+            std::unique_ptr<W8NpcScriptFile, decltype(&ReleaseNpcScriptFile)> script_owner(script, &ReleaseNpcScriptFile);
+            if (script != 0) {
+                file_lines = 0;
+                file_quotes = 0;
+                for (record_index = 0; record_index < script->quote_count; ++record_index) {
+                    quote = &script->quotes[record_index];
+                    for (sub_index = 0; sub_index < quote->subquote_count; ++sub_index) {
+                        text = quote->subquotes[sub_index];
+                        if (strlen(text) != 0 && _stricmp(text, "EMPTY") != 0 &&
+                            _stricmp(text, "BLANK") != 0 && _stricmp(text, "UNKNOWN") != 0 &&
+                            _stricmp(text, "CLASSIFIED") != 0) {
+                            swprintf(display, L" \"%S\"", text);
+                            ShowNotice(W8_FONT_PALETTE_RED, display, 0, GetTextBoxScrollRange());
+                            if (g_status.long_quote != 0) {
+                                const std::string line = "Long Quote: #" + std::to_string(record_index) +
+                                    ", subquote: #" + std::to_string(sub_index) + ", script file: " +
+                                    name + " \n\n";
+                                log_file->write(line.data(), line.size());
                             }
+                            file_lines += g_notice_line_count;
+                            total_lines += g_notice_line_count;
+                            ++total_quotes;
+                            ++file_quotes;
                         }
-                        file_lines += g_notice_line_count;
-                        total_lines += g_notice_line_count;
-                        ++total_quotes;
-                        ++file_quotes;
                     }
                 }
+                write_report("Script: " + name + "\n");
+                write_report("  #quotes: " + std::to_string(file_quotes) + "\n  #lines: " +
+                             std::to_string(file_lines) + "\n");
+                ++total_scripts;
             }
-            fprintf(file, "Script: %s\n", find.zFileName);
-            fprintf(file, "  #quotes: %d\n  #lines: %d\n", file_quotes, file_lines);
-            ReleaseNpcScriptFile(script);
-            ++total_scripts;
         }
-        found = GetFileNext(&find);
+        write_report("Total lines: " + std::to_string(total_lines) + "\nTotal Quotes: " +
+                     std::to_string(total_quotes) + "\nTotal Scripts: " + std::to_string(total_scripts));
+        file->close();
+        log_file->close();
+        ShowNotice(W8_FONT_PALETTE_RED, L"Quote test complete. See log file for results",
+                   W8_NOTICE_TEXT_BOX_AUTOMATIC, GetTextBoxScrollRange());
+    } catch (const std::exception&) {
+        ShowNotice(W8_FONT_PALETTE_RED, L"Quote test failed. Could not write report",
+                   W8_NOTICE_TEXT_BOX_AUTOMATIC, GetTextBoxScrollRange());
     }
-    ShowNotice(W8_FONT_PALETTE_RED, L"Quote test complete. See log file for results",
-               W8_NOTICE_TEXT_BOX_AUTOMATIC, GetTextBoxScrollRange());
-    fprintf(file, "Total lines: %d\nTotal Quotes: %d\nTotal Scripts: %d", total_lines, total_quotes,
-            total_scripts);
-    fclose(file);
     g_status.quote_audit = 0;
 }
 /* Queue `text` as a floating portrait message: the string is copied so the
