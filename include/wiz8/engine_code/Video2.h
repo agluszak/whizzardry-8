@@ -289,7 +289,6 @@ void SetWorldModelPickingEnabled(bool enabled);
 bool RendererBufferIsLockable(void);
 void SetRendererAutoFlipEnabled(bool enabled);
 bool HasEnoughFreeDiskSpace(void);
-int GetUsedPageFileBytes(void);
 srModelInstance* GetPickedModelInstance(void);
 void SetPickedModelInstance(srModelInstance* value);
 bool IsCursorInsideViewport(void);      /* 0x00428070 */

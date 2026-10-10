@@ -16,7 +16,6 @@ BOOL W8VideoShowWindow(HWND window, int command);
 BOOL W8VideoRaiseWindow(HWND window);
 BOOL W8VideoCloseWindow(HWND window);
 unsigned int W8TotalPhysicalMemory();
-int W8UsedPageFileBytes();
 bool W8HasEnoughSaveSpace();
 
 int W8ReadProfileInt(const char* path, const char* section, const char* key, int fallback);

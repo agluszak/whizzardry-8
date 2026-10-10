@@ -1212,12 +1212,6 @@ void GetWorldColour(EnvironmentColour* colour)
     colour->SetZero();
 }
 
-// FUNCTION: WIZ8 0x00428e20
-int GetUsedPageFileBytes(void)
-{
-    return W8UsedPageFileBytes();
-}
-
 // FUNCTION: WIZ8 0x00427260
 bool RendererBufferIsLockable(void)
 {
@@ -2097,8 +2091,7 @@ void DrawVideoInspector(int left, unsigned int top)
             gprintfDirty(left, top + 0x5a, L"RM: %dK", g_gerd->getResidentTextureMemUsed() >> 10);
             gprintfDirty(left, top + 0x64, L"TM: %dK", g_gerd->getTextureCacheUsed());
             gprintfDirty(left, top + 0x6e, L"DR: %3d", GetCameraYawAndRotation(0));
-            gprintfDirty(left, top + 0x78, L"MU: %dK", W8UsedPageFileBytes() >> 10);
-            gprintfDirty(left, top + 0x82, L"MM: %dK",
+            gprintfDirty(left, top + 0x78, L"MM: %dK",
                          static_cast<unsigned int>(g_decompressed_mesh_bytes) >> 10);
             return;
         }

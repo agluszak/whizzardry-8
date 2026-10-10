@@ -1002,7 +1002,6 @@ W8MonsterGroup* CreateGroup(unsigned int monster_id, unsigned int count,
     W8PList* list;
     unsigned int index;
     unsigned int created;
-    int registry_before;
     float yaw;
 
     if (count > 9) {
@@ -1060,7 +1059,6 @@ W8MonsterGroup* CreateGroup(unsigned int monster_id, unsigned int count,
     if (record->unborn != 0) {
         list = gXStatus.plsMonsterGroupEncounterList;
     }
-    registry_before = GetUsedPageFileBytes();
     if (PLAdoptAppend(list, group) == -1) {
         free(group);
         return 0;
@@ -1096,10 +1094,9 @@ W8MonsterGroup* CreateGroup(unsigned int monster_id, unsigned int count,
     SetMonsterGroupHostility(group, MonsterGroupCalcDefaultDisposition(group), false);
 
     if (announce_spawn && g_dev_mode) {
-        int registry_after = GetUsedPageFileBytes();
         const wchar_t* verb = count == 1 ? L"appears" : L"appear";
-        ShowNoticef(W8_FONT_PALETTE_RUST, L"%d %s %s nearby! (%dK)", count,
-                    GetMonsterGroupName(group), verb, (registry_after - registry_before) >> 10);
+        ShowNoticef(W8_FONT_PALETTE_RUST, L"%d %s %s nearby!", count,
+                    GetMonsterGroupName(group), verb);
     }
 
     return group;
