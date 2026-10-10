@@ -3,6 +3,8 @@
 #include "surrender/srScene.h"
 #include "wiz8/engine_code/stMeshModel.h"
 #include "wiz8/engine_code/stModelInstance.h"
+#include "wiz8/character_event_queue.h"
+#include "wiz8/local_screens/NPCInteractionSubscreen.h"
 
 #include <cstdio>
 #include <cstdlib>
@@ -137,8 +139,26 @@ static bool npc_script_teardown()
     return true;
 }
 
+static bool queued_state_teardown()
+{
+    {
+        W8CharacterEventQueue queue;
+        queue.pending_events.Add(new W8CharacterEvent(nullptr, 0, 0, 0, 0));
+        queue.npc_deferred_events.Add(new W8CharacterEvent(nullptr, 0, 0, 0, 0));
+        queue.vector0.Add(new W8CharacterEvent(nullptr, 0, 0, 0, 0));
+        queue.vector1.Add(new W8CharacterEvent(nullptr, 0, 0, 0, 0));
+    } // Every pending vector is owning, even when no frame dispatched it.
+    AddDialogueTranscriptKeyword(L"Monastery", 0);
+    AddDialogueTranscriptKeyword(L"Arnika", 0);
+    CHECK(g_npc_interaction_state->dialogue_transcript.GetCount() == 2);
+    ClearNpcDialogueTranscript();
+    ClearNpcDialogueTranscript();
+    CHECK(g_npc_interaction_state->dialogue_transcript.GetCount() == 0);
+    return true;
+}
+
 int main()
 {
-    if (!shutdown_survivors() || !shutdown_survivors() || !reusable_factory_boundary() || !npc_script_teardown()) return 1;
+    if (!shutdown_survivors() || !shutdown_survivors() || !reusable_factory_boundary() || !npc_script_teardown() || !queued_state_teardown()) return 1;
     std::puts("ok: detached resource destruction, interrupted scenes, reinitialization and reuse ownership");
 }

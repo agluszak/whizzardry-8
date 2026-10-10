@@ -3,6 +3,9 @@
 #include "runtime_instrumentation.h"
 #endif
 #include "wiz8/character_event_queue.h"
+#include "wiz8/npc_interaction.h"
+#include "wiz8/local_screens/NPCInteractionSubscreen.h"
+#include "wiz8/local_screens/MGSTextBox.h"
 #include "wiz8/xstatus.h"
 #include "wiz8/layouts/screen_state.h"
 #include "wiz8/local_code/Gameloop.h"
@@ -111,8 +114,11 @@ void ShutdownGame(size_t initialized_screens, bool save_configuration)
     }
     g_screen_return_stack.clear();
     ReleaseAllTriggers();
-    FreeStringTable();
     DestroyGameplayObjects();
+    ClearNpcMessageQueue();
+    ClearNpcDialogueTranscript();
+    ReleaseMessageStorage();
+    FreeStringTable();
     FreeStatusBuffers(&g_status.buffers);
     if (save_configuration)
         SaveGameConfiguration();
@@ -192,6 +198,10 @@ void GameLoop(void)
 void GameloopExit(unsigned char release_screens)
 {
     W8ScreenId state;
+
+    // Complete voice events before leaving gameplay unloads its UI.
+    if (gXStatus.character_event_queue)
+        gXStatus.character_event_queue->DestroyAllEvents();
 
     SetFontObjectPalette16BPP(g_smfnt_font, GetFontObject(g_smfnt_font)->ownedPalette.get());
     SetFontObjectPalette16BPP(g_calligraphy_font, GetFontObject(g_calligraphy_font)->ownedPalette.get());
