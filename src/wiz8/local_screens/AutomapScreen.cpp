@@ -1963,12 +1963,13 @@ static void ScaleAutomapMarker(stModelInstance2D* marker, float factor)
 stModelInstance2D* CreateAutomapItemMarker(int item_id)
 {
     int object = g_item_video_objects.GetOrCreateVideoObject(item_id);
-    ETRLEObject properties;
     unsigned short region = GetCatalogVideoObjectYOffset(object);
     unsigned int handle = GetCatalogVideoObjectHandle(object, 0);
-    if (!GetVideoObjectETRLEPropertiesFromIndex(handle, &properties, region)) {
+    HVOBJECT video_object;
+    if (!GetVideoObject(&video_object, handle) || region >= video_object->sprites.size()) {
         return 0;
     }
+    const SpriteFrame& properties = video_object->sprites[region];
     auto surface = std::make_shared<srColorSurface>(srPixelConvert::SURFACE_ARGB1555, 0x40, 0x40);
     surface->fill(0);
     surface->setFilter(&srBSplineFilter);

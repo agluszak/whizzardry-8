@@ -5,7 +5,11 @@
 #include "wiz8/unicode.h"
 #include "wiz8/containers.h"
 #include <wiz8/filesystem.h>
+#include <algorithm>
+#include <iterator>
+#include <limits>
 #include <sstream>
+#include <vector>
 #include <memory>
 #include <bit>
 #include <SDL3/SDL_stdinc.h>
@@ -312,12 +316,12 @@ bool LoadKeywordFile(std::string_view path, KeywordFile& file)
 try
 {
     auto input = wiz8::open_file(path);
-    if (input->size() > 16 * 1024 * 1024) return false;
+    if (input->size() < 0 || input->size() > 16 * 1024 * 1024) return false;
     const auto bytes = input->read_text();
     if (bytes.find('\0') != std::string::npos) return false;
     std::istringstream stream(bytes);
     std::string line;
-    std::getline(stream, line); // Header.
+    std::getline(stream, line);
     KeywordFile pending;
     while (std::getline(stream, line)) {
         // Retail's line limit and eleven-character metadata prefix are format constraints.
@@ -3770,44 +3774,72 @@ try
 {
     auto read = [&](auto& value) { return file->read(&value, sizeof(value)).bytes == sizeof(value); };
     unsigned char version;
-    std::uint32_t count;
-    ClearNpcDialogueTranscript();
-    if (!read(version) || !read(count) || count > 100000) return false;
-    for (std::uint32_t i = 0; i < count; ++i) {
-        std::uint32_t units;
-        if (!read(units) || units > 1024 * 1024) { ClearNpcDialogueTranscript(); return false; }
-        std::vector<std::byte> bytes((static_cast<std::size_t>(units) + 1) * 2);
-        auto record = std::make_unique<W8DialogueTranscriptRecord>();
-        if (file->read(bytes.data(), bytes.size()).bytes != bytes.size() || !read(record->category)) {
-            ClearNpcDialogueTranscript(); return false;
-        }
-        record->text = wiz8::text::from_utf16le(bytes);
-        g_npc_interaction_state->dialogue_transcript.push_back(record.release());
+    int record_count;
+    file->read_exact(&version, sizeof(version));
+    file->read_exact(&record_count, sizeof(record_count));
+    if (version < 1 || version > 2 || record_count < 0 ||
+        record_count > (file->size() - file->tell() - (version > 1 ? 2 : 0)) / 7) {
+        return 0;
     }
-    if (version > 1 && (!read(g_npc_interaction_state->dialogue_category_filter) ||
-        !read(g_npc_interaction_state->transcript_sorted))) { ClearNpcDialogueTranscript(); return false; }
-    return true;
+    using RecordOwner = std::unique_ptr<W8DialogueTranscriptRecord>;
+    std::vector<RecordOwner> pending;
+    pending.reserve(record_count);
+    for (int index = 0; index < record_count; ++index) {
+        int text_length;
+        file->read_exact(&text_length, sizeof(text_length));
+        if (text_length < 0 || text_length >= 100) return 0;
+        auto record = std::make_unique<W8DialogueTranscriptRecord>();
+        std::vector<std::byte> bytes((std::size_t(text_length) + 1) * 2);
+        file->read_exact(bytes.data(), bytes.size());
+        record->text = wiz8::text::from_utf16le(bytes);
+        if (bytes[bytes.size()-1] != std::byte{} || bytes[bytes.size()-2] != std::byte{} ||
+            wiz8::text::to_utf16(record->text).size() != std::size_t(text_length)) return false;
+        file->read_exact(&record->category, sizeof(record->category));
+        pending.push_back(std::move(record));
+    }
+    signed char category_filter = g_npc_interaction_state->dialogue_category_filter;
+    unsigned char sorted = g_npc_interaction_state->transcript_sorted;
+    if (version > 1) {
+        file->read_exact(&category_filter, sizeof(category_filter));
+        file->read_exact(&sorted, sizeof(sorted));
+        if (category_filter < W8_DIALOGUE_CATEGORY_ALL || category_filter > W8_DIALOGUE_CATEGORY_MISC ||
+            sorted > 1) return 0;
+    }
+    auto& transcript = g_npc_interaction_state->dialogue_transcript;
+    transcript.reserve(record_count);
+    ClearNpcDialogueTranscript();
+    for (auto& record : pending) {
+        transcript.push_back(record.get());
+        (void)record.release();
+    }
+    g_npc_interaction_state->dialogue_category_filter = category_filter;
+    g_npc_interaction_state->transcript_sorted = sorted != 0;
+    return 1;
 }
-catch (const std::exception&) { ClearNpcDialogueTranscript(); return false; }
+catch (const std::exception&) { return false; }
 
 // FUNCTION: WIZ8 0x00575290
 unsigned char SaveNpcDialogueTranscript(wiz8::File* file)
 try
 {
-    auto write = [&](const auto& value) { file->write(&value, sizeof(value)); };
     const unsigned char version = 2;
-    const std::uint32_t count = static_cast<int>(g_npc_interaction_state->dialogue_transcript.size());
-    write(version); write(count);
-    for (std::uint32_t i = 0; i < count; ++i) {
-        const auto* record = g_npc_interaction_state->dialogue_transcript[i];
-        const std::uint32_t units = wiz8::text::to_utf16(record->text).size();
-        std::vector<std::byte> bytes((static_cast<std::size_t>(units) + 1) * 2);
+    const int record_count = static_cast<int>(g_npc_interaction_state->dialogue_transcript.size());
+    file->write(&version, sizeof(version));
+    file->write(&record_count, sizeof(record_count));
+    for (int index = 0; index < record_count; ++index) {
+        W8DialogueTranscriptRecord* record = g_npc_interaction_state->dialogue_transcript[index];
+        const int text_length = wiz8::text::to_utf16(record->text).size();
+        if (text_length >= 100) return false;
+        std::vector<std::byte> bytes((std::size_t(text_length) + 1) * 2);
         wiz8::text::to_utf16le(record->text, bytes);
-        write(units); file->write(bytes.data(), bytes.size()); write(record->category);
+        file->write(&text_length, sizeof(text_length));
+        file->write(bytes.data(), bytes.size());
+        file->write(&record->category, sizeof(record->category));
     }
-    write(g_npc_interaction_state->dialogue_category_filter);
-    write(g_npc_interaction_state->transcript_sorted);
-    return true;
+    file->write(&g_npc_interaction_state->dialogue_category_filter, 1);
+    const unsigned char sorted = g_npc_interaction_state->transcript_sorted;
+    file->write(&sorted, sizeof(sorted));
+    return 1;
 }
 catch (const std::exception&) { return false; }
 

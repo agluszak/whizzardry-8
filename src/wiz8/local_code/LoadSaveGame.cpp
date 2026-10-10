@@ -76,7 +76,10 @@
 #include "wiz8/filesystem.h"
 #include "wiz8/file_time.h"
 #include <memory>
+#include <stdexcept>
+#include <limits>
 #include <string>
+#include <vector>
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -172,42 +175,26 @@ bool LoadCharacter(std::string_view name, W8Character* character, int slot, bool
 try
 {
     std::string path;
-    std::string directory;
-    unsigned int size;
-    unsigned int transferred;
     bool loaded = false;
-    std::unique_ptr<wiz8::File> handle;
 
-    if (g_status.game_started) {
-        if (slot != -1 && g_status.flags[slot] == 0) {
-            path = fmt::format("{}\\{}", "Saves\\NPCs", name);
+    try {
+        path = BuildCharacterFilePath(name, slot);
+        if (g_status.game_started && (slot == -1 || g_status.flags[slot] != 0)) {
+            loaded = LoadCharacterFromCurrentGame(path, character);
         } else {
-            path = name;
-        }
-    } else {
-        directory = slot != -1 ? "Saves\\NPCs" : "Saves\\Characters";
-        path = fmt::format("{}\\{}", directory, name);
-    }
-
-    if (g_status.game_started && (slot == -1 || g_status.flags[slot] != 0)) {
-        loaded = LoadCharacterFromCurrentGame(path, character);
-    } else {
-        handle = [&]() { try { return wiz8::open_file(path, wiz8::OpenMode::read); } catch (const std::exception&) { return std::unique_ptr<wiz8::File>{}; } }();
-        if (handle != 0) {
-            *character = W8Character{};
-            if (((transferred = handle->read(&size, 4).bytes) == static_cast<std::size_t>(4)) &&
-                ([&] {
-                    if (size > wiz8::retail::kCharacterBytes) return false;
-                    std::vector<std::byte> image(size);
-                    if (handle->read(image.data(), size).bytes != size) return false;
-                    wiz8::retail::decode<W8Character>(image, *character);
-                    return true;
-                }())) {
+            auto handle = wiz8::open_file(path);
+            *character = {};
+            unsigned int size;
+            handle->read_exact(&size, sizeof(size));
+            if (size <= W8_CHARACTER_SERIALIZED_SIZE) {
+                W8Character saved{};
+                wiz8::retail::read_exact(*handle, saved, size);
+                *character = std::move(saved);
                 loaded = true;
             }
-            if (handle) handle->close();
-            handle.reset();
         }
+    } catch (const std::exception&) {
+        loaded = false;
     }
     if (loaded) {
         return true;
@@ -258,6 +245,10 @@ try
                 auto slot_owner = std::make_unique<W8SaveSlot>();
                 W8SaveSlot* slot = slot_owner.get();
                 W8GlobalStatus status{};
+                W8Character characters[8]{};
+                W8PartySlotRow party_rows[8]{};
+                status.buffers.Char = characters;
+                status.buffers.XChar = party_rows;
                 bool has_status = false;
                 slot->screenshot.capture_result = 0;
                 slot->version_major = 1;
@@ -269,19 +260,17 @@ try
                     if (!chunks.CurrentChunkAtEnd()) {
                         switch (chunks.CurrentChunkId()) {
                         case 0x41545347:
-                            AllocateStatusBuffers(&status.buffers);
                             LoadGameStatus(&chunks, &status);
-                            FreeStatusBuffers(&status.buffers);
                             has_status = true;
                             slot->dev_flagged = status.dev_flagged;
                             break;
                         case 0x52455647:
-                            chunks.Read(&slot->version_major, 4, 0);
-                            chunks.Read(&slot->version_minor, 4, 0);
-                            chunks.Read(&slot->version_patch, 4, 0);
+                            chunks.m_hFile->read_exact(&slot->version_major, 4);
+                            chunks.m_hFile->read_exact(&slot->version_minor, 4);
+                            chunks.m_hFile->read_exact(&slot->version_patch, 4);
                             break;
                         case 0x544f4853:
-                            chunks.Read(&slot->screenshot, 0x2588, 0);
+                            chunks.m_hFile->read_exact(&slot->screenshot, 0x2588);
                             break;
                         }
                     }
@@ -324,10 +313,15 @@ catch (const std::exception&) { return false; }
    chunk is skipped and released without being materialized. */
 // FUNCTION: WIZ8 0x00512290
 int GetSaveGameLevel(std::string_view slot_name)
+try
 {
     W8Chunk chunks;
     std::string path;
-    W8GlobalStatus status;
+    W8GlobalStatus status{};
+    W8Character characters[8]{};
+    W8PartySlotRow party_rows[8]{};
+    status.buffers.Char = characters;
+    status.buffers.XChar = party_rows;
     int count;
     int index;
 
@@ -337,9 +331,7 @@ int GetSaveGameLevel(std::string_view slot_name)
         for (index = 0; index < count; ++index) {
             chunks.OpenChunk(0, 0);
             if (!chunks.CurrentChunkAtEnd() && chunks.CurrentChunkId() == 0x41545347) {
-                AllocateStatusBuffers(&status.buffers);
                 LoadGameStatus(&chunks, &status);
-                FreeStatusBuffers(&status.buffers);
                 chunks.Close();
                 return status.current_level;
             }
@@ -350,6 +342,7 @@ int GetSaveGameLevel(std::string_view slot_name)
     }
     return 0;
 }
+catch (const std::exception&) { return 0; }
 
 /* Write one whole save file: the live status block, the version triple, the
    SHOT screenshot (rendered through an offscreen surface when the caller did
@@ -361,36 +354,37 @@ int GetSaveGameLevel(std::string_view slot_name)
    functions save, and an iron-man game additionally stores the file's creation
    time XOR-masked by the two data constants. A save of anything but
    CurrentGame first absorbs the loose character chunks from
-   Saves\CurrentGame.SAV through ReadSaveChunks. The NPCI section is the only
-   writer whose failure aborts the whole save; a failed header write leaves the
-   file open and returns zero. */
+   Saves\CurrentGame.SAV through ReadSaveChunks. Every write and finalization failure aborts
+   the staged replacement. */
 // FUNCTION: WIZ8 0x005123F0
-bool SaveGame(std::string_view name, W8SaveScreenshot* screenshot)
+namespace {
+// The save transaction owns both RIFF finalization and publication.
+class SaveTransaction {
+    wiz8::StagedFile staged;
+public:
+    W8Chunk chunks;
+    explicit SaveTransaction(std::string_view path) : staged(path) {
+        if (!chunks.OpenWrite(staged.file())) throw std::runtime_error("open staged save");
+    }
+    void commit() { chunks.Close(); staged.commit(); }
+};
+}
+static bool WriteGame(std::string_view name, W8SaveScreenshot* screenshot,
+                      W8Chunk& chunks)
 try
 {
-    W8Chunk chunks;
     W8Chunk current_game;
     W8ScreenRect bounds;
-    wiz8::DiskFileTime creation_time;
-    wiz8::DiskFileTime access_time;
-    wiz8::DiskFileTime write_time;
-    std::unique_ptr<srColorSurface> surface;
-    std::string path;
-    bool generated;
+    std::unique_ptr<W8SaveScreenshot> generated_screenshot;
     short cursor;
-    int saved;
     int version_major;
     int version_minor;
     int version_patch;
     int region;
     unsigned int index;
 
-    path = fmt::format("{}\\{}.{}", "Saves", name, g_save_extension);
-    if (!chunks.OpenWrite(path)) {
-        return false;
-    }
-    if (CompareTextIgnoreAsciiCase(name, "CurrentGame") != 0 &&
-        current_game.OpenRead("Saves\\CurrentGame.SAV") != 0) {
+    if (CompareTextIgnoreAsciiCase(name, "CurrentGame") != 0 && wiz8::file_status("Saves\\CurrentGame.SAV")) {
+        if (!current_game.OpenRead("Saves\\CurrentGame.SAV")) return false;
         ReadSaveChunks(&current_game, &chunks);
         current_game.Close();
     }
@@ -407,51 +401,54 @@ try
     g_status.buffers.save_version = 1.1f;
     g_status.difficulty = g_settings.difficulty;
     if (g_status.iron_man) {
-        [&]() { const auto times = chunks.m_hFile->times(); *(&creation_time) = times.created; *(&access_time) = times.accessed; *(&write_time) = times.modified; return true; }();
+        const auto creation_time = chunks.m_hFile->times().created;
         g_status.save_filetime_xor[0] = creation_time.low ^ g_save_filetime_xor_low;
         g_status.save_filetime_xor[1] = creation_time.high ^ g_save_filetime_xor_high;
     }
     cursor = g_status.text_line_cursor;
     if (cursor == 2) {
-        saved = 2;
-        cursor = 2;
         g_status.text_line_cursor = 0;
-        static_cast<void>(saved);
     }
-    SaveGlobalStatus(&chunks, &g_status);
+    try {
+        SaveGlobalStatus(&chunks, &g_status);
+    } catch (...) {
+        g_status.text_line_cursor = cursor;
+        throw;
+    }
     g_status.text_line_cursor = cursor;
     chunks.OpenChunk(0x52455647, 0); /* GVER */
     version_major = 1;
     version_minor = 2;
     version_patch = 4;
-    chunks.Write(&version_major, 4, 0);
-    chunks.Write(&version_minor, 4, 0);
-    chunks.Write(&version_patch, 4, 0);
+    chunks.m_hFile->write(&version_major, 4);
+    chunks.m_hFile->write(&version_minor, 4);
+    chunks.m_hFile->write(&version_patch, 4);
     chunks.ReleaseCurrentChunk();
-    generated = screenshot == 0;
-    if (generated) {
-        screenshot = new W8SaveScreenshot;
+    if (!screenshot) {
+        generated_screenshot = std::make_unique<W8SaveScreenshot>();
+        screenshot = generated_screenshot.get();
         screenshot->version = 1.0f;
         bounds.left = 0;
         bounds.top = 0;
         bounds.right = 0x280;
         bounds.bottom = 0x1e0;
-        surface = std::make_unique<srColorSurface>(srPixelConvert::SURFACE_ARGB1555, screenshot->pixels, 0x50,
-                                     0x3c, 0xa0);
+        auto surface = std::make_unique<srColorSurface>(
+            srPixelConvert::SURFACE_ARGB1555, screenshot->pixels, 0x50, 0x3c, 0xa0);
         SetRendererAutoFlipEnabled(false);
-        screenshot->capture_result = RenderWorldToSurface(surface.get(), &bounds, true);
-        RenderFrame();
+        try {
+            screenshot->capture_result = RenderWorldToSurface(surface.get(), &bounds, true);
+            RenderFrame();
+        } catch (...) {
+            SetRendererAutoFlipEnabled(true);
+            throw;
+        }
         SetRendererAutoFlipEnabled(true);
-        surface.reset();
     }
     chunks.OpenChunk(0x544f4853, 0); /* SHOT */
-    chunks.Write(screenshot, 0x2588, 0);
+    chunks.m_hFile->write(screenshot, 0x2588);
     chunks.ReleaseCurrentChunk();
-    if (generated) {
-        delete screenshot;
-    }
     chunks.OpenChunk(0x54584554, 0); /* TEXT */
-    SaveMessageStorage(chunks.m_hFile.get());
+    if (!SaveMessageStorage(chunks.m_hFile.get())) return false;
     chunks.ReleaseCurrentChunk();
     if (!g_location_variable_values.empty()) {
         chunks.OpenChunk(0x52415654, 0); /* TVAR */
@@ -465,7 +462,7 @@ try
     }
     chunks.ReleaseCurrentChunk();
     chunks.OpenChunk(0x5443504e, 0); /* NPCT */
-    SaveNpcStates(&chunks);
+    if (!SaveNpcStates(&chunks)) return false;
     chunks.ReleaseCurrentChunk();
     chunks.OpenChunk(0x4643504e, 0); /* NPCF */
     SaveFactState(chunks.m_hFile.get());
@@ -484,7 +481,18 @@ try
     if (!SaveStatusHeader(&chunks)) {
         return false;
     }
-    chunks.Close();
+    return true;
+}
+catch (const std::exception&) { return false; }
+
+bool SaveGame(std::string_view name, W8SaveScreenshot* screenshot)
+try
+{
+    if (name.empty()) return false;
+    const std::string path = fmt::format("Saves\\{}.{}", name, g_save_extension);
+    SaveTransaction transaction(path);
+    if (!WriteGame(name, screenshot, transaction.chunks)) return false;
+    transaction.commit();
     return true;
 }
 catch (const std::exception&) { return false; }
@@ -518,18 +526,15 @@ std::string BuildLevelStatusPath(unsigned int level)
 bool LoadStatusHeader(W8Chunk* chunk)
 try
 {
-    unsigned int transferred;
     W8StatusHeader header;
 
-    InitializeMonsterManagerState();
-    InitializeItemManagerState();
-    ResetNextTriggerId();
-    if (!chunk->Read(&header, sizeof(header), &transferred)) {
-        return false;
-    }
+    chunk->m_hFile->read_exact(&header, sizeof(header));
     if (header.version != 2.0f) {
         return false;
     }
+    InitializeMonsterManagerState();
+    InitializeItemManagerState();
+    ResetNextTriggerId();
     g_status.next_group_id = header.next_group_id;
     g_status.next_monster_location_id = header.next_monster_location_id;
     g_status.next_world_item_id = header.next_world_item_id;
@@ -555,39 +560,36 @@ try
 }
 catch (const std::exception&) { return false; }
 
-/* Persist the current game status to one path. An existing current-game save
-   that holds more than half its bytes in already-consumed level sections is
-   first rolled into a CleanUp save and renamed into place; any other existing
-   file is reopened for append. A fresh path is created outright. */
+/* Stage a compacted status file, retaining active records for other levels.
+   Finalize the RIFF before replacing the published save. */
 // FUNCTION: WIZ8 0x00513160
 bool SaveLevelStatus(const char* path)
 try
 {
-    W8Chunk chunk;
-    bool opened;
-    bool result = false;
-
-    if (!chunk.OpenReadWrite(const_cast<char*>(path))) {
-        opened = chunk.OpenWrite(const_cast<char*>(path));
-    } else {
-        unsigned int empty_percent;
-
-        MeasureLevelStatusChunks(&chunk, g_status.current_level, &empty_percent);
-        chunk.Close();
-        if (empty_percent > 0x32 && _stricmp(path, "Saves\\CurrentGame.SAV") == 0) {
-            SaveGame("CleanUp", 0);
-            if ((wiz8::copy_file("Saves\\CleanUp.SAV", "Saves\\CurrentGame.SAV", wiz8::CopyMode::replace), true)) {
-                wiz8::remove_file("Saves\\CleanUp.SAV");
+    if (!path) return false;
+    SaveTransaction transaction(path);
+    W8Chunk source;
+    if (wiz8::file_status(path)) {
+        if (!source.OpenRead(path)) return false;
+        for (int index = 0; index < source.ChunkCount(); ++index) {
+            source.OpenChunk(0, 0);
+            bool replace = source.CurrentChunkAtEnd();
+            if (source.CurrentChunkId() == 0x534c564c) {
+                source.OpenGroup();
+                int level;
+                source.m_hFile->read_exact(&level, sizeof(level));
+                replace |= level == int(g_status.current_level);
+                source.ReleaseGroup();
+                source.RewindCurrentChunk();
             }
-            return false;
+            if (!replace && !transaction.chunks.CopyCurrentChunkFrom(&source)) return false;
+            source.SkipCurrentChunk(); source.ReleaseCurrentChunk();
         }
-        opened = chunk.OpenAppend(const_cast<char*>(path));
+        source.Close();
     }
-    if (opened) {
-        result = SaveStatusHeader(&chunk);
-        chunk.Close();
-    }
-    return result;
+    if (!SaveStatusHeader(&transaction.chunks)) return false;
+    transaction.commit();
+    return true;
 }
 catch (const std::exception&) { return false; }
 
@@ -607,7 +609,7 @@ try
     DestroyUngroupedMonsters();
     chunks->OpenChunk(0x534c564c, 0); /* LVLS */
     chunks->OpenGroup();
-    chunks->Write(&g_status.current_level, sizeof(g_status.current_level), 0);
+    chunks->m_hFile->write(&g_status.current_level, sizeof(g_status.current_level));
 
     chunks->OpenChunk(0x54415453, 0); /* STAT */
     memset(&header, 0, sizeof(header));
@@ -619,13 +621,13 @@ try
     std::memcpy(header.status_block, g_status.status_header_prefix, sizeof(g_status.status_header_prefix));
     std::memcpy(header.status_block + 0xd4, &g_status.uiTurnsElapsed, sizeof(g_status.uiTurnsElapsed));
     std::memcpy(header.status_block + 0xd8, g_status.status_header_suffix, sizeof(g_status.status_header_suffix));
-    if (!chunks->Write(&header, sizeof(header), &count)) {
-        chunks->ReleaseCurrentChunk();
-    }
+    chunks->m_hFile->write(&header, sizeof(header));
     chunks->ReleaseCurrentChunk();
 
     chunks->OpenChunk(0x534e4f4d, 0); /* MONS */
-    SaveMonsterStatus(chunks);
+    if (!SaveMonsterStatus(chunks)) {
+        return false;
+    }
     chunks->ReleaseCurrentChunk();
 
     chunks->OpenChunk(0x4d455449, 0); /* ITEM */
@@ -633,8 +635,7 @@ try
     chunks->Write(&count, sizeof(count), 0);
     for (index = 0; index < count; ++index) {
         if (!SaveItemFile(chunks->m_hFile.get(), ItemInfo(index))) {
-            chunks->ReleaseCurrentChunk();
-            break;
+            return false;
         }
     }
     chunks->ReleaseCurrentChunk();
@@ -656,11 +657,9 @@ try
         chunks->OpenChunk(0x53455254, 0); /* TRES */
         SaveTriggerActionData(g_world, chunks->m_hFile.get());
         chunks->ReleaseCurrentChunk();
-        if (g_level_status_loading) {
-            chunks->ReleaseGroup();
-            chunks->ReleaseCurrentChunk();
-            return true;
-        }
+        chunks->ReleaseGroup();
+        chunks->ReleaseCurrentChunk();
+        return true;
     }
 
     chunks->OpenChunk(0x4f545541, 0); /* AUTO */
@@ -790,90 +789,69 @@ catch (const std::exception&) { return false; }
 static bool SaveMonsterRecord(W8Chunk* chunks, unsigned int index)
 try
 {
-    char script_name[0x40] = {0};
-    memcpy(script_name, &g_empty_ambient_name, sizeof(g_empty_ambient_name));
-    W8MonsterScriptCommand script_wait = MONSCR_NONE;
-    int script_line = -1;
-    unsigned char has_script = 0;
-    unsigned int record_version = 7;
-    unsigned int record_size;
-    int queue_count;
-    int point_count;
-    int i;
-    int component;
-    float patrol_value;
-    unsigned char unborn;
-    unsigned char value;
-    bool script_flag;
-    srVector3T<float> location;
-    srVector3T<float> point;
-    W8MonsterInfo* info;
-    W8Monster* monster;
-
-    info = MonsterGetScriptPartByLocationIndex(index);
-    chunks->Write(&record_version, 4, 0);
+    auto* info = MonsterGetScriptPartByLocationIndex(index);
+    if (!info || !info->p3D) {
+        return false;
+    }
+    W8Monster* monster = info->p3D;
+    const unsigned int record_version = 7;
+    const unsigned int record_size = sizeof(*info);
     if (info->fActive) {
-        MonsterGetLocation(info->p3D, &location);
-        location.y = SettlePositionToGround(&location, 0);
-        info->position = location;
-        info->derived = MonsterGetYaw(info->p3D);
+        MonsterGetLocation(monster, &info->position);
+        info->position.y = SettlePositionToGround(&info->position, 0);
+        info->derived = MonsterGetYaw(monster);
     }
-    record_size = sizeof(*info);
-    chunks->Write(&record_size, 4, 0);
-    chunks->Write(info, record_size, 0);
-    if (info->p3D->script == 0) {
-        chunks->Write(&has_script, 1, 0);
-    } else {
-        has_script = 1;
-        chunks->Write(&has_script, 1, 0);
-        memset(script_name, 0, sizeof(script_name));
-        wiz8::text::write_utf8_field(info->p3D->script->getName(), script_name);
-        script_wait = info->p3D->script_wait;
-        script_line = info->p3D->script_line;
-        chunks->Write(script_name, 0x40, 0);
-        chunks->Write(&script_wait, 4, 0);
-        chunks->Write(&script_line, 4, 0);
-        queue_count = static_cast<int>(info->p3D->script_conditions.size());
-        chunks->Write(&queue_count, 4, 0);
-        for (i = 0; i < queue_count; ++i) {
-            script_flag = info->p3D->script_conditions[i];
-            chunks->Write(&script_flag, 1, 0);
+    chunks->m_hFile->write(&record_version, sizeof(record_version));
+    chunks->m_hFile->write(&record_size, sizeof(record_size));
+    chunks->m_hFile->write(info, record_size);
+    const unsigned char has_script = monster->script != nullptr;
+    chunks->m_hFile->write(&has_script, sizeof(has_script));
+    if (has_script) {
+        char script_name[0x40]{};
+        const auto& name = monster->script->getName();
+        if (name.size() >= sizeof(script_name)) {
+            return false;
+        }
+        memcpy(script_name, name.c_str(), name.size());
+        chunks->m_hFile->write(script_name, sizeof(script_name));
+        chunks->m_hFile->write(&monster->script_wait, sizeof(monster->script_wait));
+        chunks->m_hFile->write(&monster->script_line, sizeof(monster->script_line));
+        const int queue_count = static_cast<int>(monster->script_conditions.size());
+        chunks->m_hFile->write(&queue_count, sizeof(queue_count));
+        for (int i = 0; i < queue_count; ++i) {
+            const bool script_flag = monster->script_conditions[i];
+            chunks->m_hFile->write(&script_flag, sizeof(script_flag));
         }
     }
-    unborn = std::ranges::contains(gXStatus.unborn_monsters, info);
-    chunks->Write(&unborn, 1, 0);
-    monster = info->p3D;
-    monster->SaveMovementState(chunks->m_hFile.get());
-    script_flag = monster->defining_orders;
-    chunks->Write(&script_flag, 1, 0);
-    value = monster->order_mode;
-    chunks->Write(&value, 1, 0);
-    script_flag = monster->orders_finished;
-    chunks->Write(&script_flag, 1, 0);
-    script_flag = monster->deaf;
-    chunks->Write(&script_flag, 1, 0);
-    patrol_value = monster->patrol_distance;
-    chunks->Write(&patrol_value, 4, 0);
-    patrol_value = monster->patrol_variation;
-    chunks->Write(&patrol_value, 4, 0);
-    value = monster->patrol_index;
-    chunks->Write(&value, 1, 0);
-    point_count = static_cast<int>(monster->vector.size());
-    chunks->Write(&point_count, 4, 0);
-    for (i = 0; i < point_count; ++i) {
-        point = monster->vector[i];
-        for (component = 0; component < 3; ++component) {
-            chunks->Write(&point.x + component, 4, 0);
-        }
+    const unsigned char unborn = std::ranges::contains(gXStatus.unborn_monsters, info);
+    chunks->m_hFile->write(&unborn, sizeof(unborn));
+    const unsigned char has_movement =
+        !monster->linked_navigator && (monster->flags & 0x20000000) != 0;
+    chunks->m_hFile->write(&has_movement, sizeof(has_movement));
+    if (has_movement) {
+        chunks->m_hFile->write(&monster->minimum_height, sizeof(monster->minimum_height));
+        chunks->m_hFile->write(&monster->maximum_height, sizeof(monster->maximum_height));
+        chunks->m_hFile->write(&monster->patrol_home, sizeof(monster->patrol_home));
+        chunks->m_hFile->write(&monster->movement.attachment->path_destination,
+                             sizeof(monster->movement.attachment->path_destination));
     }
+    chunks->m_hFile->write(&monster->defining_orders, sizeof(monster->defining_orders));
+    chunks->m_hFile->write(&monster->order_mode, sizeof(monster->order_mode));
+    chunks->m_hFile->write(&monster->orders_finished, sizeof(monster->orders_finished));
+    chunks->m_hFile->write(&monster->deaf, sizeof(monster->deaf));
+    chunks->m_hFile->write(&monster->patrol_distance, sizeof(monster->patrol_distance));
+    chunks->m_hFile->write(&monster->patrol_variation, sizeof(monster->patrol_variation));
+    chunks->m_hFile->write(&monster->patrol_index, sizeof(monster->patrol_index));
+    const int point_count = static_cast<int>(monster->vector.size());
+    chunks->m_hFile->write(&point_count, sizeof(point_count));
+    for (int i = 0; i < point_count; ++i) {
+        chunks->m_hFile->write(&monster->vector[i], sizeof(srVector3T<float>));
+    }
+    srVector3T<float> point;
     point.Set(monster->direction_x, monster->direction_y, monster->direction_z);
-    for (component = 0; component < 3; ++component) {
-        chunks->Write(&point.x + component, 4, 0);
-    }
-    script_flag = monster->face_party;
-    chunks->Write(&script_flag, 1, 0);
-    script_flag = monster->stay_home;
-    chunks->Write(&script_flag, 1, 0);
+    chunks->m_hFile->write(&point, sizeof(point));
+    chunks->m_hFile->write(&monster->face_party, sizeof(monster->face_party));
+    chunks->m_hFile->write(&monster->stay_home, sizeof(monster->stay_home));
     return true;
 }
 catch (const std::exception&) { return false; }
@@ -906,50 +884,58 @@ bool LoadItemStatus(W8Chunk* chunk, int level)
 try
 {
     unsigned int file_level;
-    W8Chunk* stream = chunk;
     bool result = false;
-    int outer_count = stream->ChunkCount();
+    int outer_count = chunk->ChunkCount();
     unsigned int index;
 
     for (int outer = 0; outer < outer_count; ++outer) {
         if (result) {
             return result;
         }
-        stream->OpenChunk(0, 0);
-        if (stream->CurrentChunkId() == 0x534c564c) { /* LVLS */
-            if (stream->CurrentChunkAtEnd() != 0) {
-                stream->OpenGroup();
-                stream->Read(&file_level, 4, 0);
-                stream->SkipCurrentChunk();
+        chunk->OpenChunk(0, 0);
+        if (chunk->CurrentChunkId() == 0x534c564c) { /* LVLS */
+            if (chunk->CurrentChunkAtEnd() != 0) {
+                chunk->OpenGroup();
+                chunk->m_hFile->read_exact(&file_level, 4);
+                chunk->SkipCurrentChunk();
             } else {
-                stream->OpenGroup();
-                stream->Read(&file_level, 4, 0);
+                chunk->OpenGroup();
+                chunk->m_hFile->read_exact(&file_level, 4);
                 if (level == static_cast<int>(file_level)) {
                     if (!g_level_status_loading) {
                         LoadDefaultLevelStatus(level);
                     }
                     result = true;
-                    for (int inner = stream->ChunkCount(); inner > 0; --inner) {
-                        stream->OpenChunk(0, 0);
-                        if (stream->CurrentChunkAtEnd() == 0) {
-                            w8_ulong chunk_id = stream->CurrentChunkId();
+                    for (int inner = chunk->ChunkCount(); inner > 0; --inner) {
+                        chunk->OpenChunk(0, 0);
+                        if (chunk->CurrentChunkAtEnd() == 0) {
+                            w8_ulong chunk_id = chunk->CurrentChunkId();
 
                             if (chunk_id == 0x54415453) { /* STAT */
-                                LoadStatusHeader(stream);
+                                if (!LoadStatusHeader(chunk)) {
+                                    return false;
+                                }
                             } else if (chunk_id == 0x534e4f4d) { /* MONS */
                                 unsigned int group_count;
                                 unsigned int monster_count;
 
-                                stream->Read(&group_count, 4, 0);
-                                stream->Read(&monster_count, 4, 0);
+                                chunk->m_hFile->read_exact(&group_count, 4);
+                                chunk->m_hFile->read_exact(&monster_count, 4);
+                                const std::int64_t remaining =
+                                    chunk->CurrentChunkEnd() - chunk->m_hFile->tell();
+                                if (remaining < 0 ||
+                                    std::uint64_t{group_count} * 4 + std::uint64_t{monster_count} * 9 >
+                                        static_cast<std::uint64_t>(remaining)) {
+                                    return false;
+                                }
                                 for (index = 0; index < group_count; ++index) {
-                                    if (!LoadMonsterGroup(stream)) {
-                                        goto chunk_done;
+                                    if (!LoadMonsterGroup(chunk)) {
+                                        return false;
                                     }
                                 }
                                 for (index = 0; index < monster_count; ++index) {
-                                    if (!LoadMonster(stream)) {
-                                        goto chunk_done;
+                                    if (!LoadMonster(chunk)) {
+                                        return false;
                                     }
                                 }
                                 ReapplyMonsterGroupFormations();
@@ -958,58 +944,63 @@ try
                             } else if (chunk_id == 0x4d455449) { /* ITEM */
                                 unsigned int item_count;
 
-                                stream->Read(&item_count, 4, 0);
+                                chunk->m_hFile->read_exact(&item_count, 4);
+                                const std::int64_t remaining =
+                                    chunk->CurrentChunkEnd() - chunk->m_hFile->tell();
+                                if (remaining < 0 || item_count > static_cast<std::uint64_t>(remaining) /
+                                                                     sizeof(W8WorldItem)) {
+                                    return false;
+                                }
                                 for (index = 0; index < item_count; ++index) {
-                                    if (LoadItem(stream->m_hFile.get(), true) == 0) {
-                                        break;
+                                    if (LoadItem(chunk->m_hFile.get(), true) == 0) {
+                                        return false;
                                     }
                                 }
                             } else if (chunk_id == 0x45425543) { /* CUBE */
                                 if (!g_level_status_loading) {
                                     ReleaseWorldCursorNodes();
                                 }
-                                LoadWorldCursorNodes(stream->m_hFile.get());
+                                LoadWorldCursorNodes(chunk->m_hFile.get());
                                 if (g_level_status_loading) {
-                                    LoadWorldCursorNodeStates(stream->m_hFile.get());
+                                    LoadWorldCursorNodeStates(chunk->m_hFile.get());
                                 }
                             } else if (chunk_id == 0x474e4f4d) { /* MONG */
                                 if (!g_level_status_loading) {
                                     DestroyMonsterGenerators();
                                 }
-                                MonGen::LoadAll(stream->m_hFile.get());
+                                MonGen::LoadAll(chunk->m_hFile.get());
                             } else if (chunk_id == 0x4b434f4c || /* LOCK */
                                        chunk_id == 0x534b434c) { /* LCKS */
-                                LoadTriggerRuntimeStates(stream->m_hFile.get());
+                                LoadTriggerRuntimeStates(chunk->m_hFile.get());
                             } else if (chunk_id == 0x53455254) { /* TRES */
-                                LoadTriggerActionData(stream->m_hFile.get());
+                                LoadTriggerActionData(chunk->m_hFile.get());
                             } else if (chunk_id == 0x4f545541) { /* AUTO */
-                                LoadAutomapNotes(stream->m_hFile.get());
+                                LoadAutomapNotes(chunk->m_hFile.get());
                             } else if (chunk_id == 0x47495254) { /* TRIG */
-                                LoadWorldTriggers(g_world, stream->m_hFile.get());
+                                LoadWorldTriggers(g_world, chunk->m_hFile.get());
                             } else if (chunk_id == 0x54535041) { /* APST */
-                                LoadWorldProps(g_world, stream->m_hFile.get());
+                                LoadWorldProps(g_world, chunk->m_hFile.get());
                             } else if (chunk_id == 0x53425543) { /* CUBS */
-                                LoadWorldCursorNodeStates(stream->m_hFile.get());
+                                LoadWorldCursorNodeStates(chunk->m_hFile.get());
                             } else if (chunk_id == 0x534e474d) { /* MGNS */
-                                LoadMonsterGenerators(stream->m_hFile.get());
+                                LoadMonsterGenerators(chunk->m_hFile.get());
                             } else if (chunk_id == 0x53424d41) { /* AMBS */
-                                LoadAmbientSoundList(stream->m_hFile.get());
+                                LoadAmbientSoundList(chunk->m_hFile.get());
                             } else if (chunk_id == 0x54524150) { /* PART */
-                                LoadParticleStates(stream->m_hFile.get());
+                                LoadParticleStates(chunk->m_hFile.get());
                             } else if (chunk_id == 0x5448474c) { /* LGHT */
-                                LoadLightStates(stream->m_hFile.get());
+                                LoadLightStates(chunk->m_hFile.get());
                             }
                         }
-                    chunk_done:
-                        stream->SkipCurrentChunk();
-                        stream->ReleaseCurrentChunk();
+                        chunk->SkipCurrentChunk();
+                        chunk->ReleaseCurrentChunk();
                     }
                 }
             }
-            stream->ReleaseGroup();
+            chunk->ReleaseGroup();
         }
-        stream->SkipCurrentChunk();
-        stream->ReleaseCurrentChunk();
+        chunk->SkipCurrentChunk();
+        chunk->ReleaseCurrentChunk();
     }
     return result;
 }
@@ -1050,7 +1041,7 @@ try
     if (chunk.OpenRead(path)) {
         chunk.OpenChunk(0, 0);
         chunk.OpenGroup();
-        chunk.Read(&file_level, 4, 0);
+        chunk.m_hFile->read_exact(&file_level, 4);
         for (count = chunk.ChunkCount(); count > 0; --count) {
             chunk.OpenChunk(0, 0);
             if (chunk.CurrentChunkAtEnd() == 0) {
@@ -1095,52 +1086,51 @@ bool LoadMonsterGroup(W8Chunk* chunk)
 try
 {
     unsigned int record_size;
-    W8MonsterGroup* group;
-    W8MonsterRecord* record;
-    W8Chunk* stream;
-    char is_encounter = 0;
-
-    group = static_cast<W8MonsterGroup*>(malloc(sizeof(W8MonsterGroup)));
-    if (group == 0) {
+    unsigned char is_encounter = 0;
+    std::unique_ptr<W8MonsterGroup, decltype(&free)> group(
+        static_cast<W8MonsterGroup*>(calloc(1, sizeof(W8MonsterGroup))), &free);
+    if (!group) {
         return false;
     }
-    memset(group, 0, sizeof(W8MonsterGroup));
-    stream = chunk;
-    stream->Read(&record_size, 4, 0);
+    chunk->m_hFile->read_exact(&record_size, sizeof(record_size));
     if (record_size > sizeof(W8MonsterGroup)) {
-        srAssertFail("uiSize <= sizeof(*pMonsterGroup)", LOADSAVEGAME_CPP, 0x5ed, 0);
+        return false;
     }
-    stream->Read(group, record_size, 0);
+    chunk->m_hFile->read_exact(group.get(), record_size);
     if (group->version >= 2) {
-        stream->Read(&is_encounter, 1, 0);
+        chunk->m_hFile->read_exact(&is_encounter, sizeof(is_encounter));
     }
     if (group->version < 3) {
         group->forced_neutral = false;
     }
-    record = MonsterDBFromSpecies(group->monster_id);
-    if (record == 0) {
-        free(group);
+    const std::int64_t chunk_end =
+        chunk->CurrentChunkEnd();
+    if (chunk->m_hFile->tell() > chunk_end) {
         return false;
     }
-    if (record->deleted == 0) {
-        group->monsters = new std::vector<int>;
-        if (group->monsters == 0) {
-            free(group);
-            return false;
-        }
-        group->member_count = 0;
-        group->active_member_count = 0;
-        group->members_active = false;
-        group->fInCombat = false;
-        if (is_encounter) {
-            gXStatus.encounter_groups.push_back(group);
-        } else {
-            gXStatus.monster_groups.push_back(group);
-        }
-        ActivateGroupMembers(group, W8_MONSTER_LOAD_ALL_CYCLES);
-        if (group->encounter_registered && group->leader_group_id == 0) {
-            RegisterActiveEncounterGroup(group);
-        }
+    if (static_cast<unsigned int>(group->monster_id) >= std::size(gXStatus.monster_record_cache)) {
+        return false;
+    }
+    const auto* record = MonsterDBFromSpecies(group->monster_id);
+    if (!record) {
+        return false;
+    }
+    if (record->deleted) {
+        return true;
+    }
+    auto members = std::make_unique<std::vector<int>>();
+    group->monsters = members.get();
+    group->member_count = 0;
+    group->active_member_count = 0;
+    group->members_active = false;
+    group->fInCombat = false;
+    auto& list = is_encounter ? gXStatus.encounter_groups : gXStatus.monster_groups;
+    list.push_back(group.get());
+    (void)members.release();
+    auto* loaded = group.release();
+    ActivateGroupMembers(loaded, W8_MONSTER_LOAD_ALL_CYCLES);
+    if (loaded->encounter_registered && loaded->leader_group_id == 0) {
+        RegisterActiveEncounterGroup(loaded);
     }
     return true;
 }
@@ -1157,90 +1147,147 @@ catch (const std::exception&) { return false; }
 bool LoadMonster(W8Chunk* chunk)
 try
 {
-    W8MonsterInfo* monster_info;
-    W8MonsterRecord* record;
-    W8MonsterGroup* monster_group;
-    W8Monster* monster;
-    std::vector<unsigned char> script_conditions;
-    srVector3T<float> read_point;
-    srVector3T<float> point;
-    std::string script_name;
+    std::unique_ptr<W8MonsterInfo, decltype(&free)> owner(
+        static_cast<W8MonsterInfo*>(calloc(1, sizeof(W8MonsterInfo))), &free);
+    if (!owner) {
+        return false;
+    }
+    auto* monster_info = owner.get();
+    const std::int64_t chunk_end =
+        chunk->CurrentChunkEnd();
     unsigned int record_version;
     unsigned int record_size;
-    unsigned int transferred;
-    W8MonsterScriptCommand script_wait;
-    int script_line;
-    int queue_count;
-    int point_count;
-    int index;
-    int component;
-    unsigned char unborn = 0;
     unsigned char has_script;
-    unsigned char value;
-    bool script_flag;
-    float patrol_value;
+    unsigned char unborn = 0;
+    char script_name[0x40]{};
+    W8MonsterScriptCommand script_wait{};
+    int script_line = 0;
+    std::vector<unsigned char> script_conditions;
 
-    script_name = "";
-    chunk->Read(&record_version, 4, 0);
-    monster_info = static_cast<W8MonsterInfo*>(malloc(sizeof(W8MonsterInfo)));
-    if (monster_info == 0) {
-        return false;
-    }
-    memset(monster_info, 0, sizeof(W8MonsterInfo));
-    chunk->Read(&record_size, 4, 0);
+    chunk->m_hFile->read_exact(&record_version, sizeof(record_version));
+    chunk->m_hFile->read_exact(&record_size, sizeof(record_size));
     if (record_size > sizeof(W8MonsterInfo)) {
-        srAssertFail("uiSize <= sizeof(*pMonsterInfo)", LOADSAVEGAME_CPP, 0x65e, 0);
-    }
-    chunk->Read(monster_info, record_size, 0);
-    chunk->Read(&has_script, 1, 0);
-    if (has_script != 0) {
-        std::array<char, 0x40> stored_script{};
-        chunk->Read(stored_script.data(), stored_script.size(), &transferred);
-        const auto end = std::find(stored_script.begin(), stored_script.end(), '\0');
-        script_name.assign(stored_script.begin(), end);
-        chunk->Read(&script_wait, 4, &transferred);
-        chunk->Read(&script_line, 4, &transferred);
-        chunk->Read(&queue_count, 4, 0);
-        for (index = 0; index < queue_count; ++index) {
-            chunk->Read(&script_flag, 1, 0);
-            script_conditions.push_back(script_flag);
-        }
-    }
-    monster_info->fActive = false;
-    monster_info->p3D = 0;
-    monster_info->fInCombat = false;
-    monster_info->pCombat = 0;
-    if (record_version >= 5) {
-        chunk->Read(&unborn, 1, 0);
-    }
-    auto& monsters = unborn ? gXStatus.unborn_monsters : gXStatus.monsters;
-    const auto list_index = static_cast<int>(monsters.size());
-    monsters.push_back(monster_info);
-    record = MonsterDBFromSpecies(monster_info->monster_species);
-    if (record == 0) {
-        free(monster_info);
         return false;
     }
-    if (record->deleted == 0) {
-        monster_group = GetMonsterGroupByListIndex(GetMonsterGroupIndexByID(
-            0x698, LOADSAVEGAME_CPP, monster_info->monster_group_id, true));
-        if (monster_group == 0) {
-            free(monster_info);
+    chunk->m_hFile->read_exact(monster_info, record_size);
+    chunk->m_hFile->read_exact(&has_script, sizeof(has_script));
+    if (has_script) {
+        chunk->m_hFile->read_exact(script_name, sizeof(script_name));
+        if (!memchr(script_name, '\0', sizeof(script_name))) {
             return false;
         }
-        monster_group->monsters->push_back(monster_info->location_id);
-        if (static_cast<unsigned int>(monster_group->leader_location_id) ==
-                WIZ8_DEBUG_UNINITIALIZED_HEAP_PATTERN ||
-            static_cast<unsigned int>(monster_group->leader_location_id) <
-                static_cast<unsigned int>(monster_info->location_id)) {
-            monster_group->leader_location_id = monster_info->location_id;
+        chunk->m_hFile->read_exact(&script_wait, sizeof(script_wait));
+        chunk->m_hFile->read_exact(&script_line, sizeof(script_line));
+        int queue_count;
+        chunk->m_hFile->read_exact(&queue_count, sizeof(queue_count));
+        if (queue_count < 0 || queue_count > chunk_end - chunk->m_hFile->tell()) {
+            return false;
         }
-        ++monster_group->member_count;
-        RequestRedrawParty();
-        if (monster_info->highest_condition < W8_CONDITION_TURNCOAT) {
-            ++monster_group->active_member_count;
+        script_conditions.resize(queue_count);
+        chunk->m_hFile->read_exact(script_conditions.data(), script_conditions.size());
+    }
+    monster_info->fActive = false;
+    monster_info->p3D = nullptr;
+    monster_info->fInCombat = false;
+    monster_info->pCombat = nullptr;
+    if (record_version >= 5) {
+        chunk->m_hFile->read_exact(&unborn, sizeof(unborn));
+    }
+
+    unsigned char has_movement = 0;
+    float minimum_height = 0;
+    float maximum_height = 0;
+    srVector3T<float> patrol_home{};
+    srVector3T<float> movement_target{};
+    if (record_version >= 2) {
+        chunk->m_hFile->read_exact(&has_movement, sizeof(has_movement));
+        if (has_movement) {
+            chunk->m_hFile->read_exact(&minimum_height, sizeof(minimum_height));
+            chunk->m_hFile->read_exact(&maximum_height, sizeof(maximum_height));
+            chunk->m_hFile->read_exact(&patrol_home, sizeof(patrol_home));
+            chunk->m_hFile->read_exact(&movement_target, sizeof(movement_target));
         }
     }
+    unsigned char defining_orders = 0;
+    unsigned char order_mode = 0;
+    unsigned char orders_finished = 0;
+    unsigned char deaf = 0;
+    float patrol_distance = 0;
+    float patrol_variation = 0;
+    unsigned char patrol_index = 0;
+    std::vector<srVector3T<float>> points;
+    srVector3T<float> direction{};
+    unsigned char face_party = 0;
+    unsigned char stay_home = 0;
+    if (record_version >= 3) {
+        chunk->m_hFile->read_exact(&defining_orders, sizeof(defining_orders));
+        chunk->m_hFile->read_exact(&order_mode, sizeof(order_mode));
+        chunk->m_hFile->read_exact(&orders_finished, sizeof(orders_finished));
+        chunk->m_hFile->read_exact(&deaf, sizeof(deaf));
+        chunk->m_hFile->read_exact(&patrol_distance, sizeof(patrol_distance));
+        chunk->m_hFile->read_exact(&patrol_variation, sizeof(patrol_variation));
+        chunk->m_hFile->read_exact(&patrol_index, sizeof(patrol_index));
+        int point_count;
+        chunk->m_hFile->read_exact(&point_count, sizeof(point_count));
+        if (point_count < 0 ||
+            point_count > (chunk_end - chunk->m_hFile->tell()) /
+                              static_cast<std::int64_t>(sizeof(srVector3T<float>))) {
+            return false;
+        }
+        points.resize(point_count);
+        chunk->m_hFile->read_exact(points.data(), points.size() * sizeof(points[0]));
+        if (record_version >= 4) {
+            chunk->m_hFile->read_exact(&direction, sizeof(direction));
+        }
+        if (record_version >= 6) {
+            chunk->m_hFile->read_exact(&face_party, sizeof(face_party));
+        }
+        if (record_version >= 7) {
+            chunk->m_hFile->read_exact(&stay_home, sizeof(stay_home));
+        }
+    }
+    if (chunk->m_hFile->tell() > chunk_end) {
+        return false;
+    }
+    for (const auto& effect : monster_info->effect_slots) {
+        if (effect.duration && static_cast<unsigned int>(effect.effect_id) >=
+                std::size(g_effect_visual_table)) {
+            return false;
+        }
+    }
+    if (monster_info->monster_species >= std::size(gXStatus.monster_record_cache)) {
+        return false;
+    }
+    auto* record = MonsterDBFromSpecies(monster_info->monster_species);
+    if (!record) {
+        return false;
+    }
+    if (record->deleted) {
+        return true;
+    }
+    auto* monster_group = GetMonsterGroupByListIndex(GetMonsterGroupIndexByID(
+        0x698, LOADSAVEGAME_CPP, monster_info->monster_group_id, true));
+    if (!monster_group) {
+        return false;
+    }
+    auto& monsters = unborn ? gXStatus.unborn_monsters : gXStatus.monsters;
+    monsters.reserve(monsters.size() + 1);
+    monster_group->monsters->push_back(monster_info->location_id);
+    monsters.push_back(monster_info);
+    (void)owner.release();
+    if (static_cast<unsigned int>(monster_group->leader_location_id) ==
+            WIZ8_DEBUG_UNINITIALIZED_HEAP_PATTERN ||
+        static_cast<unsigned int>(monster_group->leader_location_id) <
+            static_cast<unsigned int>(monster_info->location_id)) {
+        monster_group->leader_location_id = monster_info->location_id;
+    }
+    ++monster_group->member_count;
+    RequestRedrawParty();
+    if (monster_info->highest_condition < W8_CONDITION_TURNCOAT) {
+        ++monster_group->active_member_count;
+    }
+    W8Monster* monster;
+    int index;
     ActivateMonster(monster_info, W8_MONSTER_LOAD_ALL_CYCLES);
     ActivateMonsterInWorld(monster_info);
     monster = monster_info->p3D;
@@ -1270,48 +1317,44 @@ try
     if (monster_info->summoned != W8_MONSTER_SUMMON_NONE) {
         SetMonsterSpellIcon(monster, SPELL_ICON_SUMMONED, true);
     }
-    if (record_version >= 2) {
-        monster->LoadMovementState(chunk->m_hFile.get());
+    if (has_movement) {
+        monster->minimum_height = minimum_height;
+        monster->maximum_height = maximum_height;
+        monster->patrol_home = patrol_home;
+        monster->movement.attachment->InitializeSegment(&monster->movement.position, &movement_target);
+        monster->movement_target = movement_target;
+        monster->flags |= 0x20000000;
+        monster->movement.attachment->flags |= W8_NAV_ATTACHMENT_IGNORE_LINKED_NAVIGATOR;
+        monster->movement.target_position = patrol_home;
+        if (monster->SetMovementTarget(&monster->movement_target, true)) {
+            monster->flags |= 0x6;
+            monster->ClearMovementStopped();
+            monster->halted = false;
+            monster->movement_target = monster->movement.attachment->path_destination;
+        }
     }
     if (record_version >= 3) {
-        chunk->Read(&script_flag, 1, 0);
-        monster->defining_orders = script_flag;
-        chunk->Read(&value, 1, 0);
-        monster->order_mode = value;
-        chunk->Read(&script_flag, 1, 0);
-        monster->orders_finished = script_flag;
-        chunk->Read(&script_flag, 1, 0);
-        monster->deaf = script_flag;
-        chunk->Read(&patrol_value, 4, 0);
-        monster->patrol_distance = patrol_value;
-        chunk->Read(&patrol_value, 4, 0);
-        monster->patrol_variation = patrol_value;
-        chunk->Read(&value, 1, 0);
-        monster->patrol_index = value;
-        chunk->Read(&point_count, 4, 0);
-        for (index = 0; index < point_count; ++index) {
-            for (component = 0; component < 3; ++component) {
-                chunk->Read(&read_point.x + component, 4, 0);
-            }
-            point = read_point;
+        monster->defining_orders = defining_orders != 0;
+        monster->order_mode = order_mode;
+        monster->orders_finished = orders_finished != 0;
+        monster->deaf = deaf != 0;
+        monster->patrol_distance = patrol_distance;
+        monster->patrol_variation = patrol_variation;
+        monster->patrol_index = patrol_index;
+        monster->vector.reserve(points.size());
+        for (const auto& point : points) {
             monster->vector.push_back(point);
         }
         if (record_version >= 4) {
-            for (component = 0; component < 3; ++component) {
-                chunk->Read(&read_point.x + component, 4, 0);
-            }
-            point = read_point;
-            monster->direction_x = point.x;
-            monster->direction_y = point.y;
-            monster->direction_z = point.z;
+            monster->direction_x = direction.x;
+            monster->direction_y = direction.y;
+            monster->direction_z = direction.z;
         }
         if (record_version >= 6) {
-            chunk->Read(&script_flag, 1, 0);
-            monster->face_party = script_flag;
+            monster->face_party = face_party != 0;
         }
         if (record_version >= 7) {
-            chunk->Read(&script_flag, 1, 0);
-            monster->stay_home = script_flag;
+            monster->stay_home = stay_home != 0;
         }
         monster_info->ai_mode |= W8_MONSTER_AI_REAPPLY_MODE;
     }
@@ -1320,12 +1363,12 @@ try
         monster->SetScript(script_name, false);
         monster->script_wait = script_wait;
         monster->script_line = script_line;
-        monster->script_conditions.insert(monster->script_conditions.end(),
-                                          script_conditions.begin(), script_conditions.end());
+        monster->script_conditions.reserve(script_conditions.size());
+        for (const auto condition : script_conditions) {
+            monster->script_conditions.push_back(condition != 0);
+        }
     }
-    if (record->deleted != 0) {
-        RemoveMonster(list_index, true);
-    } else if (monster_info->hp_current == 0) {
+    if (monster_info->hp_current == 0) {
         MonsterStartsDying(monster_info, true);
     }
     return true;
@@ -1385,80 +1428,73 @@ bool VerifyDataSubdirs(void)
     return true;
 }
 
-/* Walks the item's sibling chain and writes each record whole. Two reads go
-   through the head of the chain instead of the item being written: the
-   representation flags copied into the current record are read from the head's
-   rep, and the bit-3 clear lands on the head rather than the cursor. */
+/* Write each sibling record with its own live position and representation flags. */
 // FUNCTION: WIZ8 0x00514be0
 bool SaveItemFile(wiz8::File* handle, W8WorldItem* item_info)
+try
 {
-    W8WorldItem* item = item_info;
-    unsigned int bytes_written;
-
-    while (item != 0) {
+    for (auto* item = item_info; item; item = item->next) {
         item->saved_marker = 1;
         if (item->fActive) {
-            srVector3T<float> position;
-            item->p3D->m_pRep->GetLocation(&position);
-            item->position = position;
-            item->entity_flags = static_cast<W8ItemRep*>(item_info->p3D->m_pRep)->flags;
-        }
-        if (g_level_status_loading) {
-            item_info->entity_flags &= ~W8_ITEM_ENTITY_RADAR_SEEN;
-        }
-        if (!(handle->write(item, sizeof(W8WorldItem)), bytes_written = sizeof(W8WorldItem), true)) {
-            return false;
-        }
-        item = item->next;
-    }
-    return true;
-}
-
-/* Reads the same chain back. Each record carries its predecessor's next
-   pointer as a file-resident flag: a non-null value only means another record
-   follows, and the real link is rebuilt here. Every failure after the first
-   allocation abandons the partial chain, which the original does too. */
-// FUNCTION: WIZ8 0x00514c80
-W8WorldItem* LoadItem(wiz8::File* handle, bool add_to_list)
-{
-    W8WorldItem* previous = 0;
-    W8WorldItem* first = 0;
-    W8WorldItem* item;
-    unsigned int done;
-
-    item = static_cast<W8WorldItem*>(malloc(sizeof(W8WorldItem)));
-    while (item != 0) {
-        if (first == 0) {
-            first = item;
-        }
-        if (!((done = handle->read(item, sizeof(W8WorldItem)).bytes) == static_cast<std::size_t>(sizeof(W8WorldItem)))) {
-            return 0;
-        }
-        // The saved pointer is a chain-presence marker, not a native handle.
-        const bool has_next = W8SerializedPointerPresent(item->next);
-        item->next = 0;
-        item->sector_id = -2;
-        item->fActive = false;
-        item->p3D = 0;
-        if (ItemHasFlags(item, W8_WORLD_ITEM_HIDDEN)) {
-            RegisterSearchableWorldItem(item);
-        }
-        if (previous != 0) {
-            previous->next = item;
-        } else if (add_to_list) {
-            gXStatus.world_items.push_back(item);
+            item->p3D->m_pRep->GetLocation(&item->position);
+            item->entity_flags = static_cast<W8ItemRep*>(item->p3D->m_pRep)->flags;
         }
         if (g_level_status_loading) {
             item->entity_flags &= ~W8_ITEM_ENTITY_RADAR_SEEN;
         }
-        previous = item;
-        if (!has_next) {
-            return first;
-        }
-        item = static_cast<W8WorldItem*>(malloc(sizeof(W8WorldItem)));
+        handle->write(item, sizeof(W8WorldItem));
     }
-    return 0;
+    return true;
 }
+catch (const std::exception&) { return false; }
+
+/* Saved next pointers only mark the presence of another record. Stage the
+   complete chain before publishing it to the item list or search registry. */
+// FUNCTION: WIZ8 0x00514c80
+W8WorldItem* LoadItem(wiz8::File* handle, bool add_to_list)
+try
+{
+    std::vector<std::unique_ptr<W8WorldItem, decltype(&free)>> items;
+    std::vector<std::unique_ptr<W8Searchable>> searchables;
+    bool has_next;
+    do {
+        std::unique_ptr<W8WorldItem, decltype(&free)> item(
+            static_cast<W8WorldItem*>(malloc(sizeof(W8WorldItem))), &free);
+        if (!item) {
+            return nullptr;
+        }
+        handle->read_exact(item.get(), sizeof(W8WorldItem));
+        has_next = W8SerializedPointerPresent(item->next);
+        item->next = nullptr;
+        item->sector_id = -2;
+        item->fActive = false;
+        item->p3D = nullptr;
+        if (g_level_status_loading) {
+            item->entity_flags &= ~W8_ITEM_ENTITY_RADAR_SEEN;
+        }
+        if (ItemHasFlags(item.get(), W8_WORLD_ITEM_HIDDEN)) {
+            auto searchable = std::make_unique<W8Searchable>();
+            searchable->world_item = item.get();
+            searchables.push_back(std::move(searchable));
+        }
+        if (!items.empty()) {
+            items.back()->next = item.get();
+        }
+        items.push_back(std::move(item));
+    } while (has_next);
+
+    g_searchables.reserve(g_searchables.size() + searchables.size());
+    auto* first = items.front().get();
+    if (add_to_list) gXStatus.world_items.push_back(first);
+    for (auto& searchable : searchables) {
+        g_searchables.push_back(searchable.release());
+    }
+    for (auto& item : items) {
+        (void)item.release();
+    }
+    return first;
+}
+catch (const std::exception&) { return nullptr; }
 
 /* Reports whether any save exists other than the autosave. The main menu stores
    this and greys its second item out when it is clear, which is what makes the
@@ -1488,21 +1524,27 @@ bool SaveCharacter(W8Character* character, int slot, bool report_failure,
                    void (*continuation)(void))
 try
 {
+    std::string path;
+    bool saved = false;
+
     character->record_version = 1;
-    const auto path = BuildCharacterPath(character->name, slot);
-    bool saved;
+    path = BuildCharacterPath(character->name, slot);
+
     try {
-        if (g_status.game_started) {
-            saved = SaveCharacterToCurrentGame(path, slot, character);
-        } else {
-            if (const auto status = wiz8::file_status(path); status && status->read_only)
+        if (!g_status.game_started) {
+            const auto status = wiz8::file_status(path);
+            if (status && status->read_only) {
                 wiz8::clear_read_only(path);
-            auto file = wiz8::open_file(path, wiz8::OpenMode::replace);
-            const unsigned int size = wiz8::retail::kCharacterBytes;
-            file->write(&size, sizeof(size));
-            wiz8::retail::write(*file, *character);
-            file->close();
+            }
+            wiz8::StagedFile staged(path);
+            auto handle = staged.file();
+            const unsigned int size = W8_CHARACTER_SERIALIZED_SIZE;
+            handle->write(&size, sizeof(size));
+            wiz8::retail::write(*handle, *character);
+            staged.commit();
             saved = true;
+        } else {
+            saved = SaveCharacterToCurrentGame(path, slot, character);
         }
     } catch (const std::exception&) {
         saved = false;
@@ -1527,58 +1569,42 @@ catch (const std::exception&) { return false; }
    comparison spells them. */
 enum { W8_SAVE_TAG_CHAR = 0x52414843, W8_SAVE_TAG_LVLS = 0x534c564c };
 
-/* Find a live char chunk in Saves\\CurrentGame.SAV whose 64-byte name matches
-   and mark it consumed so a later append can supersede it. */
-// FUNCTION: WIZ8 0x005154a0
-bool MarkCurrentGameCharacterChunkConsumed(std::string_view path)
-try
-{
-    W8Chunk chunk;
-    char name[64];
-    bool found = false;
-    int index;
-    int count;
-
-    if (chunk.OpenReadWrite(const_cast<char*>("Saves\\CurrentGame.SAV")) != 0) {
-        count = chunk.ChunkCount();
-        for (index = 0; index < count && !found; ++index) {
-            chunk.OpenChunk(0, 0);
-            if (chunk.CurrentChunkAtEnd() == 0 && chunk.CurrentChunkId() == W8_SAVE_TAG_CHAR) {
-                chunk.Read(name, 0x40, 0);
-                if (CompareTextIgnoreAsciiCase(std::string_view(name, strnlen(name, sizeof(name))), path) == 0) {
-                    chunk.SetCurrentChunkAtEnd();
-                    found = true;
-                }
-            }
-        }
-        chunk.Close();
-    }
-    return found ? 1 : 0;
-}
-catch (const std::exception&) { return false; }
-
-/* Append one character record to Saves\\CurrentGame.SAV. Retail writes the
-   64-byte name, size and body without opening a char chunk header first; the
-   matching load walk still keys on char tags produced by other writers. */
+/* Replace all historical records with this name in one scan. Publication of
+   the finalized RIFF is atomic; a failed replacement leaves the old save intact.
+   Malformed CHAR payloads are skipped by loading and can be replaced normally. */
 // FUNCTION: WIZ8 0x005155b0
 bool SaveCharacterToCurrentGame(std::string_view path, int /*slot*/, W8Character* character)
 try
 {
-    W8Chunk chunk;
-    char name[64];
-    unsigned int size;
-
-    MarkCurrentGameCharacterChunkConsumed(path);
-    wiz8::text::write_utf8_field(path, name);
-    if (chunk.OpenAppend(const_cast<char*>("Saves\\CurrentGame.SAV")) != 0) {
-        chunk.Write(name, 0x40, 0);
-        size = W8_CHARACTER_SERIALIZED_SIZE;
-        chunk.Write(&size, 4, 0);
-        wiz8::retail::write(chunk, *character);
-        chunk.Close();
-        return true;
+    if (path.empty() || !character || path.size() >= 64) return false;
+    W8Chunk source;
+    if (!source.OpenRead("Saves\\CurrentGame.SAV")) return false;
+    SaveTransaction transaction("Saves\\CurrentGame.SAV");
+    for (int index = 0; index < source.ChunkCount(); ++index) {
+        source.OpenChunk(0, 0);
+        bool replace = false;
+        if (source.CurrentChunkId() == W8_SAVE_TAG_CHAR && source.CurrentChunkExtent() >= 64) {
+            char name[64];
+            source.m_hFile->read_exact(name, sizeof(name));
+            replace = memchr(name, '\0', sizeof(name)) && CompareTextIgnoreAsciiCase(name, path) == 0;
+            source.RewindCurrentChunk();
+        }
+        if (!replace && !source.CurrentChunkAtEnd() && !transaction.chunks.CopyCurrentChunkFrom(&source))
+            throw std::runtime_error("copy character save chunk");
+        source.SkipCurrentChunk();
+        source.ReleaseCurrentChunk();
     }
-    return false;
+    source.Close();
+    char name[64]{};
+    std::copy(path.begin(), path.end(), name);
+    const unsigned size = W8_CHARACTER_SERIALIZED_SIZE;
+    transaction.chunks.OpenChunk(W8_SAVE_TAG_CHAR, 0);
+    transaction.chunks.m_hFile->write(name, sizeof(name));
+    transaction.chunks.m_hFile->write(&size, sizeof(size));
+    wiz8::retail::write(*transaction.chunks.m_hFile, *character);
+    transaction.chunks.ReleaseCurrentChunk();
+    transaction.commit();
+    return true;
 }
 catch (const std::exception&) { return false; }
 
@@ -1587,33 +1613,32 @@ catch (const std::exception&) { return false; }
 bool LoadCharacterFromCurrentGame(std::string_view path, W8Character* character)
 try
 {
+    if (path.empty() || !character) return false;
     W8Chunk chunk;
-    char name[64];
+    if (!chunk.OpenRead("Saves\\CurrentGame.SAV")) return false;
+    W8Character saved{};
     bool found = false;
-    unsigned int size;
-    int index;
-    int count;
-
-    if (chunk.OpenRead(const_cast<char*>("Saves\\CurrentGame.SAV")) != 0) {
-        count = chunk.ChunkCount();
-        for (index = 0; index < count && !found; ++index) {
-            chunk.OpenChunk(0, 0);
-            if (chunk.CurrentChunkAtEnd() == 0 && chunk.CurrentChunkId() == W8_SAVE_TAG_CHAR) {
-                chunk.Read(name, 0x40, 0);
-                if (CompareTextIgnoreAsciiCase(std::string_view(name, strnlen(name, sizeof(name))), path) == 0) {
-                    *character = W8Character{};
-                    chunk.Read(&size, 4, 0);
-                    if (size > W8_CHARACTER_SERIALIZED_SIZE) {
-                        srAssertFail("uiSize <= sizeof(*pPC)", LOADSAVEGAME_CPP, 0xba2, 0);
-                    }
-                    wiz8::retail::read(chunk, *character, size);
-                    found = true;
-                }
+    for (int index = 0; index < chunk.ChunkCount(); ++index) {
+        chunk.OpenChunk(0, 0);
+        if (!chunk.CurrentChunkAtEnd() && chunk.CurrentChunkId() == W8_SAVE_TAG_CHAR &&
+            chunk.CurrentChunkExtent() >= 68) {
+            char name[64];
+            unsigned size;
+            chunk.m_hFile->read_exact(name, sizeof(name));
+            chunk.m_hFile->read_exact(&size, sizeof(size));
+            if (memchr(name, '\0', sizeof(name)) && CompareTextIgnoreAsciiCase(name, path) == 0 &&
+                size <= W8_CHARACTER_SERIALIZED_SIZE && size <= unsigned(chunk.CurrentChunkExtent() - 68)) {
+                saved = {};
+                wiz8::retail::read_exact(*chunk.m_hFile, saved, size);
+                found = true;
             }
         }
-        chunk.Close();
+        chunk.SkipCurrentChunk();
+        chunk.ReleaseCurrentChunk();
     }
-    return found ? 1 : 0;
+    chunk.Close();
+    if (found) *character = saved;
+    return found;
 }
 catch (const std::exception&) { return false; }
 
@@ -1708,8 +1733,9 @@ unsigned char SaveSlotFileExists(std::string_view slot_name)
 {
     std::string path;
 
-    path = fmt::format("{}\\{}.{}", "Saves", slot_name, g_save_extension);
-    return [&]() { const auto status = wiz8::file_status(path); return status && status->info.type == SDL_PATHTYPE_FILE; }();
+    path = fmt::format("Saves\\{}.{}", slot_name, g_save_extension);
+    const auto status = wiz8::file_status(path);
+    return status && status->info.type == SDL_PATHTYPE_FILE;
 }
 
 /* Note that the save could not be written. The notice is only shown on the
@@ -1807,17 +1833,17 @@ void SaveMonsterControlSpellEffect(W8Chunk* chunks)
     if (lure == 0) {
         srAssertFail("pLure", LOADSAVEGAME_CPP, 0xdb3, 0);
     }
-    chunks->Write(&lure->kind, 4, 0);
-    chunks->Write(&lure->turns_remaining, 4, 0);
-    chunks->Write(&lure->Source, sizeof(lure->Source), 0);
-    chunks->Write(&lure->target, sizeof(lure->target), 0);
-    chunks->Write(&lure->OrigSource, sizeof(lure->OrigSource), 0);
-    chunks->Write(&lure->OrigTarget, sizeof(lure->OrigTarget), 0);
-    chunks->Write(&lure->recast, 1, 0);
-    chunks->Write(&lure->sustained, 1, 0);
-    chunks->Write(&lure->missiles_pending, 1, 0);
-    chunks->Write(&lure->targets_resolved, 1, 0);
-    chunks->Write(&lure->definition, sizeof(lure->definition), 0);
+    chunks->m_hFile->write(&lure->kind, 4);
+    chunks->m_hFile->write(&lure->turns_remaining, 4);
+    chunks->m_hFile->write(&lure->Source, sizeof(lure->Source));
+    chunks->m_hFile->write(&lure->target, sizeof(lure->target));
+    chunks->m_hFile->write(&lure->OrigSource, sizeof(lure->OrigSource));
+    chunks->m_hFile->write(&lure->OrigTarget, sizeof(lure->OrigTarget));
+    chunks->m_hFile->write(&lure->recast, 1);
+    chunks->m_hFile->write(&lure->sustained, 1);
+    chunks->m_hFile->write(&lure->missiles_pending, 1);
+    chunks->m_hFile->write(&lure->targets_resolved, 1);
+    chunks->m_hFile->write(&lure->definition, sizeof(lure->definition));
 }
 
 /* Choose the numbered quick-save slot that the next quick save should write.
@@ -1827,36 +1853,23 @@ void SaveMonsterControlSpellEffect(W8Chunk* chunks)
 std::optional<std::string> SelectQuickSaveSlotForWrite()
 try
 {
-    std::string slot_name;
-    wiz8::DiskFileTime creation_time;
-    wiz8::DiskFileTime access_time;
-    wiz8::DiskFileTime write_time;
-    wiz8::DiskFileTime oldest_write_time;
+    wiz8::DiskFileTime oldest_write_time{};
     int write_slot = 1;
-    int slot;
-    std::unique_ptr<wiz8::File> handle;
 
-    for (slot = 1; slot <= 3; ++slot) {
-        slot_name = fmt::format("{}\\{} {:d}.{}", "Saves", "Quick", slot, g_save_extension);
-        handle = [&]() { try { return wiz8::open_file(slot_name, wiz8::OpenMode::read); } catch (const std::exception&) { return std::unique_ptr<wiz8::File>{}; } }();
-        if (!handle) {
+    for (int slot = 1; slot <= 3; ++slot) {
+        const std::string path = "Saves\\Quick " + std::to_string(slot) + "." + g_save_extension;
+        if (!wiz8::file_status(path)) {
             write_slot = slot;
             break;
         }
-        [&]() { const auto times = handle->times(); *(&creation_time) = times.created; *(&access_time) = times.accessed; *(&write_time) = times.modified; return slot_name; }();
-        if (handle) handle->close();
-        handle.reset();
-        if (slot > 1) {
-            if (((&write_time)->ticks() < (&oldest_write_time)->ticks() ? -1 : (&write_time)->ticks() > (&oldest_write_time)->ticks() ? 1 : 0) < 0) {
-                oldest_write_time = write_time;
-                write_slot = slot;
-            }
-        } else {
+        const auto handle = wiz8::open_file(path);
+        const auto write_time = handle->times().modified;
+        if (slot == 1 || write_time.ticks() < oldest_write_time.ticks()) {
             oldest_write_time = write_time;
+            write_slot = slot;
         }
     }
-    slot_name = fmt::format("{} {:d}", "Quick", write_slot);
-    return slot_name;
+    return fmt::format("Quick {}", write_slot);
 }
 catch (const std::exception&) { return {}; }
 
@@ -1869,40 +1882,27 @@ try
 {
     std::string slot_name;
     int newest_slot = 0;
-    wiz8::DiskFileTime creation_time;
-    wiz8::DiskFileTime access_time;
-    wiz8::DiskFileTime write_time;
-    wiz8::DiskFileTime newest_write_time;
-    std::string path;
-    int slot;
-    std::unique_ptr<wiz8::File> handle;
+    wiz8::DiskFileTime newest_write_time{};
 
-    for (slot = 1; slot <= 3; ++slot) {
-        slot_name = fmt::format("{}\\{} {:d}.{}", "Saves", "Quick", slot, g_save_extension);
-        handle = [&]() { try { return wiz8::open_file(slot_name, wiz8::OpenMode::read); } catch (const std::exception&) { return std::unique_ptr<wiz8::File>{}; } }();
-        if (handle) {
-            [&]() { const auto times = handle->times(); *(&creation_time) = times.created; *(&access_time) = times.accessed; *(&write_time) = times.modified; return slot_name; }();
-            if (handle) handle->close();
-            handle.reset();
-            if (newest_slot > 0) {
-                if (((&write_time)->ticks() < (&newest_write_time)->ticks() ? -1 : (&write_time)->ticks() > (&newest_write_time)->ticks() ? 1 : 0) > 0) {
-                    newest_write_time = write_time;
-                    newest_slot = slot;
-                }
-            } else {
-                newest_write_time = write_time;
-                newest_slot = slot;
-            }
+    for (int slot = 1; slot <= 3; ++slot) {
+        const std::string path = "Saves\\Quick " + std::to_string(slot) + "." + g_save_extension;
+        const auto status = wiz8::file_status(path);
+        if (!status || status->info.type != SDL_PATHTYPE_FILE) {
+            continue;
+        }
+        const auto handle = wiz8::open_file(path);
+        const auto write_time = handle->times().modified;
+        if (newest_slot == 0 || write_time.ticks() > newest_write_time.ticks()) {
+            newest_write_time = write_time;
+            newest_slot = slot;
         }
     }
     if (newest_slot > 0) {
-        slot_name = fmt::format("{} {:d}", "Quick", newest_slot);
-        return slot_name;
+        return fmt::format("Quick {}", newest_slot);
     }
-    path = fmt::format("{}\\{}.{}", "Saves", "Quick", g_save_extension);
-    if ([&]() { const auto status = wiz8::file_status(path); return status && status->info.type == SDL_PATHTYPE_FILE; }()) {
-        slot_name = "Quick";
-        return slot_name;
+    const auto status = wiz8::file_status(std::string("Saves\\Quick.") + g_save_extension);
+    if (status && status->info.type == SDL_PATHTYPE_FILE) {
+        return "Quick";
     }
     return {};
 }
@@ -1928,7 +1928,7 @@ void ReadSaveChunks(W8Chunk* source, W8Chunk* destination)
                     destination->CopyCurrentChunkFrom(source);
                 } else if (tag == W8_SAVE_TAG_LVLS) {
                     source->OpenGroup();
-                    source->Read(&level, 4, 0);
+                    source->m_hFile->read_exact(&level, 4);
                     if (level != g_status.current_level) {
                         source->RewindCurrentChunk();
                         destination->CopyCurrentChunkFrom(source);
@@ -1943,52 +1943,6 @@ void ReadSaveChunks(W8Chunk* source, W8Chunk* destination)
     }
 }
 
-/* Walk every top-level chunk of an already-open save. A matching LVLS section
-   is marked consumed in place, and the caller receives the percentage of the
-   file that sits in at-end sections, which is what decides whether the save
-   is rolled into CleanUp. Retail wraps the percentage in an unguarded DIV, so
-   a zero total would trap there as well. */
-// FUNCTION: WIZ8 0x00514df0
-bool MeasureLevelStatusChunks(W8Chunk* chunk, int level, unsigned int* empty_percent)
-try
-{
-    bool found = false;
-    unsigned int total = 0;
-    unsigned int empty_total = 0;
-    int remaining = chunk->ChunkCount();
-
-    if (remaining > 0) {
-        do {
-            chunk->OpenChunk(0, 0);
-            total += chunk->CurrentChunkExtent();
-            if (chunk->CurrentChunkAtEnd() != 0) {
-                empty_total += chunk->CurrentChunkExtent();
-            } else if (chunk->CurrentChunkId() == 0x534c564c) { /* LVLS */
-                int stored_level;
-
-                chunk->OpenGroup();
-                chunk->Read(&stored_level, 4, 0);
-                if (stored_level == level) {
-                    found = true;
-                    chunk->SetCurrentChunkAtEnd();
-                }
-                chunk->SkipCurrentChunk();
-                chunk->ReleaseGroup();
-            }
-            chunk->SkipCurrentChunk();
-            chunk->ReleaseCurrentChunk();
-            --remaining;
-        } while (remaining != 0);
-    }
-    if (empty_percent != 0) {
-        /* The binary divides by the accumulated extent with no
-           zero test; an empty chunk file reaches this unsigned DIV. */
-        *empty_percent = empty_total * 100 / total;
-    }
-    return found;
-}
-catch (const std::exception&) { return false; }
-
 /* Read the complete GSTA payload and its two eight-record collections. The
    pointers at the head of the fixed block are process ownership, so they are
    preserved across the serialized read. Old status blocks get the one retail
@@ -2000,77 +1954,83 @@ void LoadGameStatus(W8Chunk* chunks, W8GlobalStatus* status)
 {
     W8Character* characters = status->buffers.Char;
     W8PartySlotRow* party_rows = status->buffers.XChar;
+    if (!characters || !party_rows) {
+        throw std::runtime_error("missing status buffers");
+    }
+    W8GlobalStatus saved{};
+    W8Character saved_characters[8]{};
+    W8PartySlotRow saved_rows[8]{};
     unsigned int size;
-    unsigned int slot;
 
-    if (characters == 0) {
-        srAssertFail("pStatus->Char != NULL", LOADSAVEGAME_CPP, 0xcc6, 0);
-    }
-    if (party_rows == 0) {
-        srAssertFail("pStatus->XChar != NULL", LOADSAVEGAME_CPP, 0xcc7, 0);
-    }
-
-    *status = W8GlobalStatus{};
-    chunks->Read(&size, sizeof(size), 0);
+    chunks->m_hFile->read_exact(&size, sizeof(size));
     if (size > wiz8::retail::kGlobalStatusBytes) {
-        srAssertFail("uiSize <= wiz8::retail::kGlobalStatusBytes", LOADSAVEGAME_CPP, 0xccd, 0);
+        throw std::runtime_error("oversized global status record");
     }
-    wiz8::retail::read(*chunks, *status, size);
-
-    if (status->buffers.save_version < 1.1f) {
-        for (slot = 0; slot != 3; ++slot) {
-            status->text_box_lines_used[slot] = status->legacy_text_box_lines[0][slot];
-            status->text_box_lines_shown[slot] = status->legacy_text_box_lines[1][slot];
+    wiz8::retail::read_exact(*chunks->m_hFile, saved, size);
+    if (saved.buffers.save_version < 1.1f) {
+        for (int box = 0; box < 3; ++box) {
+            saved.text_box_lines_used[box] = saved.legacy_text_box_lines[0][box];
+            saved.text_box_lines_shown[box] = saved.legacy_text_box_lines[1][box];
         }
-        status->text_box_lines_used[3] = 0;
-        status->text_box_lines_shown[3] = 0;
+        saved.text_box_lines_used[3] = 0;
+        saved.text_box_lines_shown[3] = 0;
     }
-
-    status->buffers.Char = characters;
-    status->buffers.XChar = party_rows;
-
-    W8Character* character = characters;
-    for (slot = 0; slot != 8; ++slot, ++character) {
-        *character = W8Character{};
-        chunks->Read(&size, sizeof(size), 0);
+    for (int box = 0; box < 4; ++box) {
+        if (saved.text_box_lines_used[box] > std::size(g_message_storage[box]) ||
+            saved.text_box_lines_shown[box] > std::size(g_message_storage[box])) {
+            throw std::runtime_error("invalid message storage count");
+        }
+    }
+    for (auto& character : saved_characters) {
+        chunks->m_hFile->read_exact(&size, sizeof(size));
         if (size > wiz8::retail::kCharacterBytes) {
-            srAssertFail("uiSize <= wiz8::retail::kCharacterBytes", LOADSAVEGAME_CPP, 0xce4, 0);
+            throw std::runtime_error("oversized character status record");
         }
-        wiz8::retail::read(*chunks, *character, size);
-        if (character->record_version < 2 &&
-            character->original_profession == W8_PROFESSION_FIGHTER &&
-            character->profession_levels[W8_PROFESSION_FIGHTER] == 0) {
-            character->original_profession = character->iProfession;
+        wiz8::retail::read_exact(*chunks->m_hFile, character, size);
+        if (character.record_version < 2 &&
+            character.original_profession == W8_PROFESSION_FIGHTER &&
+            character.profession_levels[W8_PROFESSION_FIGHTER] == 0) {
+            character.original_profession = character.iProfession;
         }
     }
-
-    W8PartySlotRow* party_row = party_rows;
-    for (slot = 0; slot != 8; ++slot, ++party_row) {
-        *party_row = W8PartySlotRow{};
-        chunks->Read(&size, sizeof(size), 0);
+    for (auto& party_row : saved_rows) {
+        chunks->m_hFile->read_exact(&size, sizeof(size));
         if (size > wiz8::retail::kPartySlotBytes) {
-            srAssertFail("uiSize <= wiz8::retail::kPartySlotBytes", LOADSAVEGAME_CPP, 0xcf2, 0);
+            throw std::runtime_error("oversized party status record");
         }
-        if (!wiz8::retail::read(*chunks, *party_row, size))
-            throw std::runtime_error("Truncated party slot record");
+        wiz8::retail::read_exact(*chunks->m_hFile, party_row, size);
+    }
+    const std::int64_t chunk_end =
+        chunks->CurrentChunkEnd();
+    if (chunks->m_hFile->tell() > chunk_end) {
+        throw std::runtime_error("status record exceeds chunk extent");
+    }
+    saved.buffers.Char = characters;
+    saved.buffers.XChar = party_rows;
+    std::move(std::begin(saved_characters), std::end(saved_characters), characters);
+    std::copy(std::begin(saved_rows), std::end(saved_rows), party_rows);
+    *status = std::move(saved);
+    RebuildPartyStatus(&status->formation, party_rows);
 
-        if (status == &g_status) {
-            W8ItemInstance* item = 0;
-            signed char origin = static_cast<signed char>(party_row->item_origin);
-            short item_slot = static_cast<short>(party_row->item_slot);
-            if (party_row->fOccupied && party_row->pending_action == W8_ACTION_USE_ITEM &&
+    if (status == &g_status) {
+        for (int slot = 0; slot < 8; ++slot) {
+            auto& party_row = party_rows[slot];
+            W8ItemInstance* item = nullptr;
+            const auto origin = static_cast<signed char>(party_row.item_origin);
+            const auto item_slot = static_cast<short>(party_row.item_slot);
+            if (party_row.fOccupied && party_row.pending_action == W8_ACTION_USE_ITEM &&
                 origin != -1 && item_slot != -1) {
                 item = FindCharacterItemAt(slot, static_cast<unsigned char>(origin),
-                                           static_cast<unsigned short>(item_slot));
+                                          static_cast<unsigned short>(item_slot));
             }
-            party_row->pending_action_detail.item_use.item = item;
-            party_row->action_detail1.item_use.item = 0;
-            party_row->spell_target.pPCItem = 0;
-            party_row->item_target.pPCItem = 0;
-            party_row->breath_target.pPCItem = 0;
+            party_row.pending_action_detail.item_use.item = item;
+            party_row.action_detail1.item_use.item = nullptr;
+            party_row.spell_target.pPCItem = nullptr;
+            party_row.item_target.pPCItem = nullptr;
+            party_row.breath_target.pPCItem = nullptr;
         }
+        RebuildPartyStatus(&status->formation, party_rows);
     }
-    RebuildPartyStatus(&status->formation, party_rows);
 }
 
 /* Write the global status as one GSTA chunk. The two pointed-to collections
@@ -2084,17 +2044,17 @@ void SaveGlobalStatus(W8Chunk* chunks, W8GlobalStatus* status)
 
     chunks->OpenChunk(0x41545347, 0);
     size = wiz8::retail::kGlobalStatusBytes;
-    chunks->Write(&size, sizeof(size), 0);
-    wiz8::retail::write(*chunks, *status);
+    chunks->m_hFile->write(&size, sizeof(size));
+    wiz8::retail::write(*chunks->m_hFile, *status);
     for (slot = 0; slot != 8; ++slot) {
         size = wiz8::retail::kCharacterBytes;
-        chunks->Write(&size, sizeof(size), 0);
-        wiz8::retail::write(*chunks, status->buffers.Char[slot]);
+        chunks->m_hFile->write(&size, sizeof(size));
+        wiz8::retail::write(*chunks->m_hFile, status->buffers.Char[slot]);
     }
     for (slot = 0; slot != 8; ++slot) {
         size = wiz8::retail::kPartySlotBytes;
-        chunks->Write(&size, sizeof(size), 0);
-        wiz8::retail::write(*chunks, status->buffers.XChar[slot]);
+        chunks->m_hFile->write(&size, sizeof(size));
+        wiz8::retail::write(*chunks->m_hFile, status->buffers.XChar[slot]);
     }
     chunks->ReleaseCurrentChunk();
 }
@@ -2128,24 +2088,34 @@ try
         if (chunk.CurrentChunkId() == 0x534c564c) { /* LVLS */
             if (chunk.CurrentChunkAtEnd() != 0) {
                 chunk.OpenGroup();
-                chunk.Read(&file_level, 4, 0);
+                chunk.m_hFile->read_exact(&file_level, 4);
                 chunk.SkipCurrentChunk();
             } else {
                 chunk.OpenGroup();
-                chunk.Read(&file_level, 4, 0);
+                chunk.m_hFile->read_exact(&file_level, 4);
                 if (level == static_cast<int>(file_level)) {
                     found = true;
                     for (inner = chunk.ChunkCount(); inner > 0; --inner) {
                         chunk.OpenChunk(0, 0);
                         if (chunk.CurrentChunkAtEnd() == 0 &&
                             chunk.CurrentChunkId() == 0x4d455449) { /* ITEM */
-                            chunk.Read(&item_count, 4, 0);
+                            chunk.m_hFile->read_exact(&item_count, 4);
+                            const std::int64_t remaining =
+                                chunk.CurrentChunkEnd() - chunk.m_hFile->tell();
+                            if (remaining < 0 || item_count > static_cast<std::uint64_t>(remaining) /
+                                                                 sizeof(W8WorldItem) ||
+                                item_count > static_cast<unsigned int>(
+                                    std::numeric_limits<int>::max() - static_cast<int>(items.size()))) {
+                                return false;
+                            }
+                            items.reserve(items.size() + item_count);
                             for (index = 0; index < item_count; ++index) {
                                 W8WorldItem* item = LoadItem(chunk.m_hFile.get(), false);
 
-                                if (item != 0) {
-                                    items.push_back(item);
+                                if (!item) {
+                                    return false;
                                 }
+                                items.push_back(item);
                             }
                         }
                         chunk.SkipCurrentChunk();
@@ -2169,14 +2139,16 @@ catch (const std::exception&) { return false; }
    slots are taken. */
 // FUNCTION: WIZ8 0x00516890
 std::optional<std::string> FindFreeEndingSaveName()
+try
 {
     for (int index = 0; index <= 20; ++index) {
-        auto name = index == 0 ? std::string("Ending") : fmt::format("Ending{:d}", index);
+        auto name = index == 0 ? std::string("Ending") : fmt::format("Ending{}", index);
         const auto status = wiz8::file_status(fmt::format("Saves\\{}.{}", name, g_save_extension));
         if (!status || status->info.type != SDL_PATHTYPE_FILE) return name;
     }
-    return std::nullopt;
+    return {};
 }
+catch (const std::exception&) { return {}; }
 
 /* Write a full save slot: repair the target's read-only bit, fold the running
    CurrentGame sections forward unless this save is CurrentGame itself, refresh
@@ -2203,9 +2175,8 @@ try
     int box;
 
     ResetLiveSessionForLoad();
-    path = fmt::format("{}\\{}.{}", "Saves", slot_name, g_save_extension);
-    wiz8::remove_file("Saves\\CurrentGame.SAV");
-    (wiz8::copy_file(path, "Saves\\CurrentGame.SAV", wiz8::CopyMode::replace), true);
+    path = fmt::format("Saves\\{}.{}", slot_name, g_save_extension);
+    wiz8::copy_file(path, "Saves\\CurrentGame.SAV", wiz8::CopyMode::replace);
     if (chunks.OpenRead(const_cast<char*>("Saves\\CurrentGame.SAV")) == 0) {
         return false;
     }
@@ -2278,20 +2249,21 @@ catch (const std::exception&) { return false; }
 // FUNCTION: WIZ8 0x00516310
 void LoadMonsterControlSpellEffect(W8Chunk* chunks)
 {
-    W8SpellEffectEntry* effect = new W8SpellEffectEntry;
+    auto effect = std::make_unique<W8SpellEffectEntry>();
 
-    chunks->Read(&effect->kind, 4, 0);
-    chunks->Read(&effect->turns_remaining, 4, 0);
-    chunks->Read(&effect->Source, 0x34, 0);
-    chunks->Read(&effect->target, 0x20, 0);
-    chunks->Read(&effect->OrigSource, 0x34, 0);
-    chunks->Read(&effect->OrigTarget, 0x20, 0);
-    chunks->Read(&effect->recast, 1, 0);
-    chunks->Read(&effect->sustained, 1, 0);
-    chunks->Read(&effect->missiles_pending, 1, 0);
-    chunks->Read(&effect->targets_resolved, 1, 0);
-    chunks->Read(&effect->definition, sizeof(effect->definition), 0);
-    AddSpellEffect(effect);
+    chunks->m_hFile->read_exact(&effect->kind, 4);
+    chunks->m_hFile->read_exact(&effect->turns_remaining, 4);
+    chunks->m_hFile->read_exact(&effect->Source, 0x34);
+    chunks->m_hFile->read_exact(&effect->target, 0x20);
+    chunks->m_hFile->read_exact(&effect->OrigSource, 0x34);
+    chunks->m_hFile->read_exact(&effect->OrigTarget, 0x20);
+    chunks->m_hFile->read_exact(&effect->recast, 1);
+    chunks->m_hFile->read_exact(&effect->sustained, 1);
+    chunks->m_hFile->read_exact(&effect->missiles_pending, 1);
+    chunks->m_hFile->read_exact(&effect->targets_resolved, 1);
+    chunks->m_hFile->read_exact(&effect->definition, sizeof(effect->definition));
+    AddSpellEffect(effect.get());
+    (void)effect.release();
 }
 
 /* Write the monster-control spell effect as the HYPN record: the same fields

@@ -3,7 +3,11 @@
 #include <string_view>
 #include "wiz8/engine_code/stScript.h"
 #include "wiz8/virtual_file.h"
-#include "wiz8/filesystem.h"
+
+#include <limits>
+#include <memory>
+#include <string>
+#include <vector>
 
 #include <stdlib.h>
 #include <string.h>
@@ -16,43 +20,25 @@
 unsigned char ReadTextLine(wiz8::File* handle, char* destination, int capacity, unsigned char* more)
 try
 {
-    unsigned char result;
-    unsigned int transferred;
-    char character;
-    int length = 0;
-
+    *more = 0;
+    if (capacity <= 0) return 0;
     destination[0] = 0;
+    if (capacity == 1) return 0;
     *more = 1;
-
+    int length = 0;
     for (;;) {
-        result = ((transferred = handle->read(&character, 1).bytes) == static_cast<std::size_t>(1));
-        if (transferred == 0) {
-            result = length != 0;
+        char character;
+        if (handle->read(&character, sizeof(character)).eof) {
             *more = 0;
             break;
         }
-        if (result == 0) {
-            *more = 0;
-        } else {
-            if (character == '\n') {
-                break;
-            }
-            destination[length++] = character;
-        }
-        if (length >= capacity - 1) {
-            result = 0;
-            break;
-        }
-        if (result == 0) {
-            break;
-        }
+        if (character == '\n') break;
+        destination[length++] = character;
+        destination[length] = 0;
+        if (length == capacity - 1) return 0;
     }
-
-    destination[length] = 0;
-    if (length != 0 && destination[length - 1] == '\r') {
-        destination[length - 1] = 0;
-    }
-    return result;
+    if (length != 0 && destination[length - 1] == '\r') destination[length - 1] = 0;
+    return *more != 0 || length != 0;
 }
 catch (const std::exception&) { *more = 0; return false; }
 
@@ -70,8 +56,10 @@ try {
         return false;
     std::istringstream input(wiz8::open_file(path)->read_text());
     std::string text;
+    stScript pending;
     int source_line = 0;
     while (std::getline(input, text)) {
+        if (source_line == std::numeric_limits<int>::max()) return false;
         ++source_line;
         if (text.ends_with('\r'))
             text.pop_back();
@@ -83,12 +71,17 @@ try {
                                (stop == text.npos ? text.size() : stop) - start);
         if (token.ends_with(':')) {
             token.remove_suffix(1);
-            if (FindLabelLine(token) == -1)
-                labels.push_back({std::string(token), static_cast<int>(lines.size())});
+            if (FindLabelLine(token) == -1 && pending.FindLabelLine(token) == -1)
+                pending.labels.push_back({std::string(token), static_cast<int>(lines.size() + pending.lines.size())});
         } else {
-            lines.push_back({std::move(text), source_line});
+            if (lines.size() + pending.lines.size() >= static_cast<std::size_t>(std::numeric_limits<int>::max())) return false;
+            pending.lines.push_back({std::move(text), source_line});
         }
     }
+    lines.reserve(lines.size() + pending.lines.size());
+    labels.reserve(labels.size() + pending.labels.size());
+    for (auto& line : pending.lines) lines.push_back(std::move(line));
+    for (auto& label : pending.labels) labels.push_back(std::move(label));
     return true;
 } catch (const std::exception&) {
     return false;

@@ -15,6 +15,7 @@
 #include "wiz8/application.h"
 #include "native/input_events.h"
 #include "temporary_directory.h"
+#include "file_faults.h"
 #include "surrender/srGERD.h"
 #include "surrender/srModelInstance.h"
 #include "wiz8/engine_code/stMeshModel.h"
@@ -601,6 +602,46 @@ fs::path QuickSave(Game& game)
     game.command(W8_MGS_COMMAND_QUICK_SAVE);
     const auto saves = SaveFiles(game.user_root());
     REQUIRE("quick-save", saves.size() == 1 && fs::file_size(saves[0]) > 0);
+    // Exercise the real quick-save writer, including RIFF extent/count patches.
+    W8SaveScreenshot screenshot{};
+    const auto name = saves[0].stem().string();
+    auto snapshot = [&] {
+        auto file = wiz8::open_host_file(saves[0]);
+        std::string bytes(file->size(), '\0');
+        file->read_exact(bytes.data(), bytes.size());
+        return bytes;
+    };
+    std::size_t operations;
+    { FileFaults trace; REQUIRE("save-trace", SaveGame(name.c_str(), &screenshot)); operations = trace.operations; }
+    const auto before = snapshot();
+    for (std::size_t operation = 1; operation <= operations; ++operation) {
+        { FileFaults fault(operation); REQUIRE("failed-save", !SaveGame(name.c_str(), &screenshot)); REQUIRE("fault-fired", fault.fired); }
+        REQUIRE("save-rollback", snapshot() == before);
+    }
+    REQUIRE("ordinary-save", SaveGame("TransactionRoundtrip", &screenshot));
+    REQUIRE("ordinary-load", GetSaveGameLevel("TransactionRoundtrip") == int(g_status.current_level));
+    wiz8::remove_file("Saves\\TransactionRoundtrip.SAV");
+    // The same transaction handles level-status compaction, including publish failure.
+    REQUIRE("current-save", SaveGame("CurrentGame", &screenshot));
+    REQUIRE("current-load", GetSaveGameLevel("CurrentGame") == int(g_status.current_level));
+    auto current_snapshot = [] {
+        auto file = wiz8::open_file("Saves\\CurrentGame.SAV");
+        std::string bytes(file->size(), '\0');
+        file->read_exact(bytes.data(), bytes.size());
+        return bytes;
+    };
+    std::size_t cleanup_operations;
+    { FileFaults trace; REQUIRE("cleanup-save", SaveLevelStatus("Saves\\CurrentGame.SAV")); cleanup_operations = trace.operations; }
+    const auto current_before = current_snapshot();
+    for (std::size_t operation = 1; operation <= cleanup_operations; ++operation) {
+        { FileFaults fault(operation); REQUIRE("failed-cleanup", !SaveLevelStatus("Saves\\CurrentGame.SAV")); REQUIRE("cleanup-fault-fired", fault.fired); }
+        REQUIRE("cleanup-rollback", current_snapshot() == current_before);
+    }
+    REQUIRE("cleanup-load", GetSaveGameLevel("CurrentGame") == int(g_status.current_level));
+    REQUIRE("cleanup-repeat", SaveLevelStatus("Saves\\CurrentGame.SAV"));
+    REQUIRE("cleanup-repeat-load", GetSaveGameLevel("CurrentGame") == int(g_status.current_level));
+    std::printf("cleanup: preserved the save at all %zu failure points\n", cleanup_operations);
+    std::printf("quick-save: preserved the published save at all %zu I/O failure points\n", operations);
     return saves[0];
 }
 

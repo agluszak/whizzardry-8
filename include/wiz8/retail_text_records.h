@@ -540,6 +540,15 @@ template<class T> auto encode(const T& runtime)
         });
     return image;
 }
+template<class T> void read_exact(File& file, T& runtime,
+                                 std::size_t bytes = sizeof(typename Record<T>::Disk))
+{
+    if (bytes > sizeof(typename Record<T>::Disk))
+        throw std::runtime_error("Oversized retail record");
+    std::array<std::byte, sizeof(typename Record<T>::Disk)> image{};
+    file.read_exact(image.data(), bytes);
+    decode<T>(std::span(image).first(bytes), runtime);
+}
 template<class T> ReadResult read(File& file, T& runtime)
 {
     std::array<std::byte, sizeof(typename Record<T>::Disk)> image{};

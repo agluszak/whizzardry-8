@@ -277,7 +277,7 @@ void UnloadFont(UINT32 FontIndex)
 
 UINT32 GetWidth(HVOBJECT hSrcVObject, INT16 ssIndex)
 {
-    ETRLEObject* pTrav;
+    SpriteFrame* pTrav;
 
     // Assertions
     Assert(hSrcVObject != nullptr);
@@ -286,7 +286,7 @@ UINT32 GetWidth(HVOBJECT hSrcVObject, INT16 ssIndex)
     }
 
     // Get Offsets from Index into structure
-    pTrav = &(hSrcVObject->pETRLEObject[ssIndex]);
+    pTrav = &(hSrcVObject->sprites[ssIndex]);
     return ((UINT32)(pTrav->usWidth + pTrav->sOffsetX));
 }
 
@@ -365,13 +365,13 @@ void RestoreFontSettings(void)
 
 UINT32 GetHeight(HVOBJECT hSrcVObject, INT16 ssIndex)
 {
-    ETRLEObject* pTrav;
+    SpriteFrame* pTrav;
 
     // Assertions
     Assert(hSrcVObject != nullptr);
 
     // Get Offsets from Index into structure
-    pTrav = &(hSrcVObject->pETRLEObject[ssIndex]);
+    pTrav = &(hSrcVObject->sprites[ssIndex]);
     return ((UINT32)(pTrav->usHeight + pTrav->sOffsetY));
 }
 // GetFontHeight
@@ -445,23 +445,10 @@ static void DrawTextToBuffer(UINT8* buffer, UINT32 pitch, UINT32 font_index, INT
             destx = x;
             y += GetHeight(font, glyph);
         }
-        if (mono) {
-            if (gbPixelDepth == 8)
-                Blt8BPPDataTo8BPPBufferMonoShadowClip(buffer, pitch, font, destx, y, glyph,
-                                                      &FontDestRegion, FontForeground8,
-                                                      FontBackground8);
-            else
-                Blt8BPPDataTo16BPPBufferMonoShadowClip(
-                    reinterpret_cast<UINT16*>(buffer), pitch, font, destx, y, glyph,
-                    &FontDestRegion, FontForeground16, FontBackground16, FontShadow16);
-        } else {
-            if (gbPixelDepth == 8)
-                Blt8BPPDataTo8BPPBufferTransparentClip(reinterpret_cast<UINT16*>(buffer), pitch,
-                                                       font, destx, y, glyph, &FontDestRegion);
-            else
-                Blt8BPPDataTo16BPPBufferTransparentClip(reinterpret_cast<UINT16*>(buffer), pitch,
-                                                        font, destx, y, glyph, &FontDestRegion);
-        }
+        BltSpriteTo16BPPBuffer(reinterpret_cast<UINT16*>(buffer), pitch, font->sprites[glyph],
+                              font->pShadeCurrent, destx, y, &FontDestRegion, false,
+                              mono ? SpriteDrawOp::MonoShadow : SpriteDrawOp::Transparent,
+                              FontForeground16, FontBackground16, FontShadow16);
         destx += GetWidth(font, glyph);
     }
 }
