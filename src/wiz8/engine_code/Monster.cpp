@@ -1884,6 +1884,15 @@ void W8Monster::ProcessScript()
             continue;
         }
 
+        const auto resolveNamedPosition = [&](srVector3T<float>& position) {
+            if (ResolveScriptPosition(token.c_str(), &position))
+                return true;
+            ShutdownWithErrorBox(fmt::format(
+                "MonScript {} Line {:d}: Unknown location {}", script->getName(),
+                script->GetSourceLine(script_line - 1), token));
+            return false;
+        };
+
         if (!defining_orders) {
             switch (command) {
             case MONSCR_GOTO: {
@@ -1904,10 +1913,7 @@ void W8Monster::ProcessScript()
                 if (!tokens) {
                     break;
                 }
-                if (!ResolveScriptPosition(token.c_str(), &position)) {
-                    ShutdownWithErrorBox(fmt::format(
-                        "MonScript {} Line {:d}: Unknown location {}", script->getName(),
-                        script->GetSourceLine(script_line - 1), token));
+                if (!resolveNamedPosition(position)) {
                     break;
                 }
                 if (_stricmp(token.c_str(), "PARTY") == 0) {
@@ -1929,10 +1935,7 @@ void W8Monster::ProcessScript()
                 if (!tokens) {
                     break;
                 }
-                if (!ResolveScriptPosition(token.c_str(), &position)) {
-                    ShutdownWithErrorBox(fmt::format(
-                        "MonScript {} Line {:d}: Unknown location {}", script->getName(),
-                        script->GetSourceLine(script_line - 1), token));
+                if (!resolveNamedPosition(position)) {
                     break;
                 }
                 AimAtPosition(&position);
@@ -2034,10 +2037,7 @@ void W8Monster::ProcessScript()
                 srVector3T<float> position;
                 tokens >> token;
                 if (tokens) {
-                    if (!ResolveScriptPosition(token.c_str(), &position)) {
-                        ShutdownWithErrorBox(fmt::format(
-                            "MonScript {} Line {:d}: Unknown location {}", script->getName(),
-                            script->GetSourceLine(script_line - 1), token));
+                    if (!resolveNamedPosition(position)) {
                         break;
                     }
                     SetPositionInternal(&position);
@@ -2328,10 +2328,7 @@ void W8Monster::ProcessScript()
                 tokens >> token;
                 if (tokens) {
                     srVector3T<float> position;
-                    if (!ResolveScriptPosition(token.c_str(), &position)) {
-                        ShutdownWithErrorBox(fmt::format(
-                            "MonScript {} Line {:d}: Unknown location {}", script->getName(),
-                            script->GetSourceLine(script_line - 1), token));
+                    if (!resolveNamedPosition(position)) {
                         break;
                     }
                     vector.clear();
@@ -2343,10 +2340,7 @@ void W8Monster::ProcessScript()
             case MONSCR_RANDOMPOINTPATROL: {
                 while (tokens >> token) {
                     srVector3T<float> position;
-                    if (!ResolveScriptPosition(token.c_str(), &position)) {
-                        ShutdownWithErrorBox(fmt::format(
-                            "MonScript {} Line {:d}: Unknown location {}", script->getName(),
-                            script->GetSourceLine(script_line - 1), token));
+                    if (!resolveNamedPosition(position)) {
                         continue;
                     }
                     if (patrol_points == 0) {
