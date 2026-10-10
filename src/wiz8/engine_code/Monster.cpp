@@ -312,6 +312,18 @@ const char* g_monster_script_commands[MONSCR_COUNT] = {"GOTO",
 
 // VTABLE: WIZ8 0x005ed200
 // class W8MonsterRep
+/* The skin and skinswap directives both initialize the original skin stage. */
+static int InitializeMonsterBaseSkin(W8Monster* monster, const char* monster_name)
+{
+    const int damage_stage = monster->AddDamageStage(monster_name, 0);
+    std::vector<stModelInstance*> instances;
+    monster->CollectModelInstances(instances);
+    for (stModelInstance* instance : instances) {
+        instance->damage_stage = damage_stage;
+    }
+    return damage_stage;
+}
+
 /* Read the text-side monster representation. A named representation is shared
    by cloning its first live cycle; otherwise the MLS file supplies scalar
    movement settings, visual flags, sound/shake events, skin stages, lights,
@@ -520,12 +532,7 @@ unsigned char ReadOrCloneMonsterCycles(const W8GrCycleLoadContext* context,
             } else if (_stricmp(command, "skin") == 0) {
                 if (!skins_started) {
                     skin_stage = 0;
-                    damage_stage = (*monster)->AddDamageStage(monster_name, 0);
-                    std::vector<stModelInstance*> instances;
-                    (*monster)->CollectModelInstances(instances);
-                    for (int index = 0; index < static_cast<int>(instances.size()); ++index) {
-                        instances[index]->damage_stage = damage_stage;
-                    }
+                    damage_stage = InitializeMonsterBaseSkin(*monster, monster_name);
                     skins_started = true;
                 }
                 if (_stricmp(argument, "default") != 0) {
@@ -539,12 +546,7 @@ unsigned char ReadOrCloneMonsterCycles(const W8GrCycleLoadContext* context,
                    creates the base stage first, then swaps into that stage. */
                 if (!skins_started) {
                     skin_stage = 0;
-                    damage_stage = (*monster)->AddDamageStage(monster_name, 0);
-                    std::vector<stModelInstance*> instances;
-                    (*monster)->CollectModelInstances(instances);
-                    for (int index = 0; index < static_cast<int>(instances.size()); ++index) {
-                        instances[index]->damage_stage = damage_stage;
-                    }
+                    damage_stage = InitializeMonsterBaseSkin(*monster, monster_name);
                     skins_started = true;
                 }
                 sscanf(line, "%s %s %s", command, old_name, new_name);
