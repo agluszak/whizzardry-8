@@ -405,8 +405,3 @@ TEST_CASE("files_test")
     fs::remove_all(root);
     puts("ok: native game streams, immutable assets, user overlays, UTF-8 imports and bounded SLF records");
 }
-catch (const std::exception& error)
-{
-    fprintf(stderr, "native file fixture: %s\n", error.what());
-    return 1;
-}
