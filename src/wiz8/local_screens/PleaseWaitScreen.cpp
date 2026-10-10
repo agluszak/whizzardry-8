@@ -36,7 +36,6 @@
 #include "line.h"
 #include "wiz8/local_code/NPCManager.h"
 #include "LibraryDataBase.h"
-#include "compat/platform.h"
 
 /* The screen's descriptor. The entry handler mallocs it, clears it and fills the
    tail from the screen-state record it was entered with; the frame handler reads
@@ -117,7 +116,7 @@ unsigned char PleaseWaitScreenEnter(void)
             InitializeFactState();
             g_load_descriptor->parameter = SelectNewGameStartLevel();
             ReleaseMessageStorage();
-            W8DeleteFile("Saves\\CurrentGame.SAV");
+            FileDelete("Saves\\CurrentGame.SAV");
             break;
         case 1:
             g_load_descriptor->parameter = g_current_screen_state.parameter;

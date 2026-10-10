@@ -71,7 +71,10 @@
 #include "timer.h"
 
 #include "wiz8/wiz8_windows.h"
-#include <errno.h>
+#include "wiz8/filesystem.h"
+#include "wiz8/file_time.h"
+#include <memory>
+#include <string>
 #include <malloc.h>
 #include <stdio.h>
 #include <string.h>
@@ -90,14 +93,6 @@
 #include "wiz8/local_screens/JournalScreen.h"
 #include "wiz8/cursor.h"
 #include "wiz8/local_code/ConditionsAndEnchantments.h"
-#include "compat/platform.h"
-
-/* The attribute word this gate tests is a Windows attribute word, so the two
-   constants come from windows.h and are not restated here. Ghidra labels the
-   pair with the vendored SFI release's SGP names, which number those bits
-   differently; take the labels as belonging to that release rather than to this
-   image. Read as Windows attributes the tests say "is a directory" and "is not
-   read-only", which is what a function that verifies save directories asks. */
 
 /* 0x004F8130, ItemManager.cpp line 998: asserts the item is non-null, then
    reports whether the flag word at +0x29 has any of the caller's bits set. */
@@ -224,11 +219,6 @@ bool LoadCharacter(const char* name, W8Character* character, int slot, bool repo
                 loaded = true;
             }
             FileClose(handle);
-            /* The same read-only repair VerifyDataSubdirs makes, for the one errno
-               that means exactly that. */
-            if (_access(path, 2) != 0 && errno == EACCES) {
-                _chmod(path, _S_IREAD | _S_IWRITE);
-            }
         }
     }
     if (loaded) {
@@ -241,6 +231,18 @@ bool LoadCharacter(const char* name, W8Character* character, int slot, bool repo
     return false;
 }
 
+static void SetSaveSlotCalendar(SYSTEMTIME& destination, const wiz8::CivilTime& time)
+{
+    destination.wYear = static_cast<std::uint16_t>(time.year);
+    destination.wMonth = static_cast<std::uint16_t>(time.month);
+    destination.wDay = static_cast<std::uint16_t>(time.day);
+    destination.wDayOfWeek = static_cast<std::uint16_t>(time.day_of_week);
+    destination.wHour = static_cast<std::uint16_t>(time.hour);
+    destination.wMinute = static_cast<std::uint16_t>(time.minute);
+    destination.wSecond = static_cast<std::uint16_t>(time.second);
+    destination.wMilliseconds = static_cast<std::uint16_t>(time.fraction_100ns / 10000);
+}
+
 // FUNCTION: WIZ8 0x00511df0
 void FillCurrentSaveSlot(W8SaveSlot* slot)
 {
@@ -249,7 +251,12 @@ void FillCurrentSaveSlot(W8SaveSlot* slot)
     slot->game_time_ms = g_status.game_time_ms;
     slot->game_time_days = g_status.game_time_days;
     slot->iron_man = g_status.iron_man;
-    W8GetLocalTime(&slot->timestamp);
+    const auto now = wiz8::current_local_time();
+    SetSaveSlotCalendar(slot->timestamp,
+        {now.year, static_cast<unsigned>(now.month), static_cast<unsigned>(now.day),
+         static_cast<unsigned>(now.hour), static_cast<unsigned>(now.minute),
+         static_cast<unsigned>(now.second), static_cast<unsigned>(now.nanosecond / 100),
+         static_cast<unsigned>(now.day_of_week)});
     CaptureSaveScreenshot(&slot->screenshot);
     slot->version_major = 1;
     slot->version_minor = 2;
@@ -260,20 +267,20 @@ void FillCurrentSaveSlot(W8SaveSlot* slot)
 bool EnumerateSaveSlots(W8GrowableVector<W8SaveSlot*>* slots)
 {
     W8Chunk chunks;
-    WIN32_FIND_DATAA find_data;
-    char path[260];
-    W8GlobalStatus status;
-
-    sprintf(path, "%s\\*.%s", "Saves", g_save_extension);
     int first = slots->GetCount();
-    memset(&find_data, 0, sizeof(find_data));
-    HANDLE search = W8FindFirstFile(path, &find_data);
-    if (search != INVALID_HANDLE_VALUE) {
-        do {
-            sprintf(path, "%s\\%s", "Saves", find_data.cFileName);
-            if (strcmp(path, "Saves\\CurrentGame.SAV") != 0 && strlen(find_data.cFileName) < 64 &&
-                chunks.OpenRead(path)) {
-                W8SaveSlot* slot = new W8SaveSlot;
+    try {
+        if (!wiz8::file_status("Saves")) return true;
+        const auto utc_offset = wiz8::current_utc_offset_seconds();
+        for (const auto& name : wiz8::list_directory("Saves", std::string("*.") + g_save_extension)) {
+            std::string path = "Saves\\" + name;
+            const auto metadata = wiz8::file_status(path);
+            if (!metadata || metadata->info.type != SDL_PATHTYPE_FILE) continue;
+            if (_stricmp(name.c_str(), "CurrentGame.SAV") != 0 && name.size() < 64 &&
+                chunks.OpenRead(path.data())) {
+                auto slot_owner = std::make_unique<W8SaveSlot>();
+                W8SaveSlot* slot = slot_owner.get();
+                W8GlobalStatus status{};
+                bool has_status = false;
                 slot->screenshot.capture_result = 0;
                 slot->version_major = 1;
                 slot->version_minor = 0;
@@ -287,6 +294,7 @@ bool EnumerateSaveSlots(W8GrowableVector<W8SaveSlot*>* slots)
                             AllocateStatusBuffers(&status.buffers);
                             LoadGameStatus(&chunks, &status);
                             FreeStatusBuffers(&status.buffers);
+                            has_status = true;
                             slot->dev_flagged = status.dev_flagged;
                             break;
                         case 0x52455647:
@@ -303,15 +311,14 @@ bool EnumerateSaveSlots(W8GrowableVector<W8SaveSlot*>* slots)
                     chunks.ReleaseCurrentChunk();
                 }
                 chunks.Close();
-                if (!status.flag && !status.endgame_started) {
-                    char* extension = strrchr(find_data.cFileName, '.');
-                    if (extension != 0) {
-                        *extension = 0;
-                    }
-                    find_data.cFileName[63] = 0;
-                    swprintf(slot->name, L"%hs", find_data.cFileName);
-                    W8FileTimeToLocalFileTime(&find_data.ftLastWriteTime, &slot->local_write_time);
-                    W8FileTimeToSystemTime(&slot->local_write_time, &slot->timestamp);
+                if (has_status && !status.flag && !status.endgame_started) {
+                    const auto stem = name.substr(0, name.find_last_of('.'));
+                    swprintf(slot->name, L"%hs", stem.c_str());
+                    const auto local_time = wiz8::file_time_with_legacy_local_bias(
+                        wiz8::file_time_from_sdl(metadata->info.modify_time), utc_offset);
+                    slot->local_write_time.dwLowDateTime = local_time.low;
+                    slot->local_write_time.dwHighDateTime = local_time.high;
+                    SetSaveSlotCalendar(slot->timestamp, wiz8::file_time_to_utc(local_time));
                     slot->level_id = status.current_level;
                     slot->game_time_ms = status.game_time_ms;
                     slot->iron_man = status.iron_man;
@@ -323,12 +330,14 @@ bool EnumerateSaveSlots(W8GrowableVector<W8SaveSlot*>* slots)
                             break;
                         }
                     }
-                    slots->InsertAt(position, slot);
+                    if (!slots->InsertAt(position, slot)) return false;
+                    (void)slot_owner.release();
                 }
             }
-        } while (W8FindNextFile(search, &find_data));
+        }
+    } catch (const std::exception&) {
+        return false;
     }
-    W8FindClose(search);
     return true;
 }
 
@@ -398,9 +407,6 @@ bool SaveGame(const char* name, W8SaveScreenshot* screenshot)
     unsigned int index;
 
     sprintf(path, "%s\\%s.%s", "Saves", name, g_save_extension);
-    if (_access(path, 2) != 0 && errno == EACCES) {
-        _chmod(path, _S_IREAD | _S_IWRITE);
-    }
     if (!chunks.OpenWrite(path)) {
         return false;
     }
@@ -1372,40 +1378,20 @@ void ResetLiveSessionForLoad(void)
     ResetGameplayStatusBlock();
 }
 
-/* Makes sure the three save directories exist and are writable before anything
-   is written to them. The names are a table of fixed 60-byte slots terminated
-   by an empty one rather than a count, which is why the walk asks strlen and
-   not an index: the canonical steps a cursor by 0x3C and re-runs the inlined
-   strlen at the bottom of the loop.
-   The empty fourth slot is initialized from a string literal, not zeroed in
-   place, so it is spelled as one here. */
+/* Materialize save directories in the mutable overlay, never chmod assets. */
 // FUNCTION: WIZ8 0x00512d00
 bool VerifyDataSubdirs(void)
 {
-    char directories[4][60] = {"Saves", "Saves\\Characters", "Saves\\NPCs", ""};
-    char* directory;
-    unsigned int attributes;
-
-    for (directory = directories[0]; strlen(directory) != 0; directory += 60) {
-        if (!DirectoryExists(directory) && !MakeFileManDirectory(directory)) {
-            return false;
+    try {
+        for (const char* directory : {"Saves", "Saves\\Characters", "Saves\\NPCs"}) {
+            wiz8::create_directory(directory);
+            const auto entry = wiz8::file_status(directory);
+            if (!entry || entry->info.type != SDL_PATHTYPE_DIRECTORY || !entry->writable) {
+                return false;
+            }
         }
-        /* A read-only directory left behind by an earlier install is repaired
-           rather than reported, but only for the one errno that means exactly
-           that. */
-        if (_access(directory, 2) != 0 && errno == EACCES) {
-            _chmod(directory, _S_IREAD | _S_IWRITE);
-        }
-        attributes = FileGetAttributes(directory);
-        if (attributes == 0xffffffff) {
-            return false;
-        }
-        if (!(attributes & FILE_ATTRIBUTE_DIRECTORY)) {
-            return false;
-        }
-        if (attributes & FILE_ATTRIBUTE_READONLY) {
-            return false;
-        }
+    } catch (const std::exception&) {
+        return false;
     }
     return true;
 }
@@ -1708,10 +1694,7 @@ bool g_save_pending;
 // GLOBAL: WIZ8 0x0061A144
 char g_save_extension[] = "SAV";
 
-/* Delete both files a current game occupies: the slot the current save name
-   selects, and the fixed CurrentGame file. Each delete is preceded by the same
-   read-only repair the rest of this unit makes - EACCES from _access is the one
-   errno that means the file is there but not writable. */
+/* Delete the mutable slot and CurrentGame files; installed assets stay intact. */
 // FUNCTION: WIZ8 0x00515920
 void DeleteCurrentSaveFiles(void)
 {
@@ -1719,13 +1702,7 @@ void DeleteCurrentSaveFiles(void)
 
     sprintf(path, "%s\\%s.%s", "Saves", ConvertWideStringToString(GetLastSaveName()),
             g_save_extension);
-    if (_access(path, 2) != 0 && errno == EACCES) {
-        _chmod(path, _S_IREAD | _S_IWRITE);
-    }
     FileDelete(path);
-    if (_access("Saves\\CurrentGame.SAV", 2) != 0 && errno == EACCES) {
-        _chmod("Saves\\CurrentGame.SAV", _S_IREAD | _S_IWRITE);
-    }
     FileDelete("Saves\\CurrentGame.SAV");
 }
 
@@ -1942,7 +1919,7 @@ bool FindStartupQuickSave(char* slot_name)
         if (handle) {
             GetFileManFileTime(handle, &creation_time, &access_time, &write_time);
             FileClose(handle);
-            if (slot > 1) {
+            if (newest_slot > 0) {
                 if (CompareSGPFileTimes(&write_time, &newest_write_time) > 0) {
                     newest_write_time = write_time;
                     newest_slot = slot;
@@ -2265,14 +2242,8 @@ bool LoadGame(const char* slot_name)
 
     ResetLiveSessionForLoad();
     sprintf(path, "%s\\%s.%s", "Saves", slot_name, g_save_extension);
-    if (_access("Saves\\CurrentGame.SAV", 2) != 0 && errno == EACCES) {
-        _chmod("Saves\\CurrentGame.SAV", _S_IREAD | _S_IWRITE);
-    }
     FileDelete("Saves\\CurrentGame.SAV");
     FileCopy(path, "Saves\\CurrentGame.SAV", 0);
-    if (_access("Saves\\CurrentGame.SAV", 2) != 0 && errno == EACCES) {
-        _chmod("Saves\\CurrentGame.SAV", _S_IREAD | _S_IWRITE);
-    }
     if (chunks.OpenRead(const_cast<char*>("Saves\\CurrentGame.SAV")) == 0) {
         return false;
     }

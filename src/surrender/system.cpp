@@ -1,10 +1,11 @@
 #include "surrender/srSystem.h"
 
 #include "surrender/srStringTable.h"
-#include "compat/platform.h"
 #include "platform_paths.h"
+#include "wiz8/filesystem.h"
 
 #include <string>
+#include <memory>
 #include <stdlib.h>
 #include <string.h>
 
@@ -28,12 +29,16 @@ w8_long srSystem::scanFiles(srStringTable& files, const char* path)
 
 char* srSystem::getCwd(char* path, w8_long size)
 {
-    return w8_getcwd(path, size);
+    if (path == nullptr || size <= 0) return nullptr;
+    const auto cwd = w8_native::current_directory();
+    if (cwd.size() >= static_cast<std::size_t>(size)) return nullptr;
+    memcpy(path, cwd.c_str(), cwd.size() + 1);
+    return path;
 }
 
 w8_long srSystem::chDir(const char* path)
 {
-    return w8_chdir(path);
+    return w8_native::change_directory(path);
 }
 
 w8_long srSystem::scanLibraries(srStringTable&, const char*, const char*)
@@ -48,19 +53,41 @@ w8_long srSystem::scanFiles(srStringTable& files, const char* directory, const c
         return 0;
     }
     std::string base = directory != nullptr ? directory : ".";
-    if (!base.empty() && base.back() != '/' && base.back() != '\\') base += '\\';
-    WIN32_FIND_DATAA entry;
-    HANDLE search = W8FindFirstFile((base + pattern).c_str(), &entry);
-    if (search == INVALID_HANDLE_VALUE) return 0;
     w8_long count = 0;
-    do {
-        if (!(entry.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)) {
-            const std::string full = w8_native::full_path((base + entry.cFileName).c_str());
-            files.addString(full.c_str());
-            ++count;
+    try {
+        const auto host = wiz8::path_from_utf8(base);
+        const bool virtual_drive = base.size() >= 2 && base[1] == ':' &&
+            ((base[0] >= 'C' && base[0] <= 'F') || (base[0] >= 'c' && base[0] <= 'f'));
+        if (!virtual_drive && host.is_absolute()) {
+            const std::string host_path = wiz8::path_to_utf8(host);
+            std::unique_ptr<char*, decltype(&SDL_free)> entries(
+                SDL_GlobDirectory(host_path.c_str(), strcmp(pattern, "*.*") == 0 ? "*" : pattern,
+                                  SDL_GLOB_CASEINSENSITIVE, nullptr), &SDL_free);
+            if (!entries) return 0;
+            for (char** entry = entries.get(); *entry; ++entry) {
+                const auto path = host / wiz8::path_from_utf8(*entry);
+                const auto info = wiz8::host_file_status(path);
+                if (info && info->info.type == SDL_PATHTYPE_FILE) {
+                    const auto full = wiz8::path_to_utf8(path);
+                    files.addString(full.c_str());
+                    ++count;
+                }
+            }
+            return count;
         }
-    } while (W8FindNextFile(search, &entry));
-    W8FindClose(search);
+        if (!base.empty() && base.back() != '/' && base.back() != '\\') base += '\\';
+        for (const auto& name : wiz8::list_directory(base, pattern)) {
+            const std::string game_path = base + name;
+            const auto entry = wiz8::file_status(game_path);
+            if (entry && entry->info.type == SDL_PATHTYPE_FILE) {
+                const std::string full = w8_native::full_path(game_path.c_str());
+                files.addString(full.c_str());
+                ++count;
+            }
+        }
+    } catch (const std::exception&) {
+        return count;
+    }
     return count;
 }
 
@@ -91,15 +118,13 @@ void srSystem::makePath(char* path, const char* drive, const char* directory, co
 
 char* srSystem::fullPath(char* absolute_path, const char* path, w8_ulong size)
 {
-    if (absolute_path == 0) {
-        absolute_path = new char[4096];
-        size = 4096;
-    }
     const std::string full = w8_native::full_path(path);
     if (full.empty()) return 0;
+    if (absolute_path == 0) size = 4096;
     if (full.size() + 1 > size) {
         return 0;
     }
+    if (absolute_path == 0) absolute_path = new char[size];
     strcpy(absolute_path, full.c_str());
     return absolute_path;
 }
@@ -107,5 +132,20 @@ char* srSystem::fullPath(char* absolute_path, const char* path, w8_ulong size)
 void srSystem::splitPath(const char* path, char* drive, char* directory, char* filename,
                          char* extension)
 {
-    w8_splitpath(path, drive, directory, filename, extension);
+    std::string text = path != nullptr ? path : "";
+    std::string prefix;
+    if (text.size() >= 2 && text[1] == ':') {
+        prefix = text.substr(0, 2);
+        text.erase(0, 2);
+    }
+    const auto slash = text.find_last_of("/\\");
+    const std::string folder = slash == std::string::npos ? "" : text.substr(0, slash + 1);
+    const std::string leaf = slash == std::string::npos ? text : text.substr(slash + 1);
+    const auto dot = leaf.find_last_of('.');
+    const std::string stem = dot == std::string::npos ? leaf : leaf.substr(0, dot);
+    const std::string suffix = dot == std::string::npos ? "" : leaf.substr(dot);
+    if (drive) strcpy(drive, prefix.c_str());
+    if (directory) strcpy(directory, folder.c_str());
+    if (filename) strcpy(filename, stem.c_str());
+    if (extension) strcpy(extension, suffix.c_str());
 }
