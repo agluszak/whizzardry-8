@@ -5,6 +5,9 @@
 
 // Exercise the adapter against the same signed 32-bit slot SGP exposes.
 // The full button implementation also depends on the platform/video shell.
+// This isolated stub never registers a mouse region. Actual registration and
+// destruction are exercised by owner_test, which links the game core.
+_MOUSE_REGION::~_MOUSE_REGION() = default;
 static GUI_BUTTON button;
 void MSYS_SetBtnUserData(INT32 number, INT32 index, INT32 data)
 {
