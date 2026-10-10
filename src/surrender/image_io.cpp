@@ -11,7 +11,7 @@
 
 namespace srImage {
 bool copyRows(const SDL_Surface& source, srColorSurfaceIFace& destination,
-                     unsigned bytes_per_pixel, bool mirror = false)
+                     unsigned bytes_per_pixel, bool mirror)
 {
     const size_t row_bytes = size_t(source.w) * bytes_per_pixel;
     if (source.w <= 0 || source.h <= 0 || !source.pixels || !destination.getDataPtr() ||
