@@ -142,7 +142,7 @@ struct W8GlobalStatus {
     /* 0x244b: the save file's creation-time pair XOR-masked by SaveGame's
        two data constants; both halves are written as dwords. */
     unsigned int save_filetime_xor[2];
-    wchar_t monster_name_buffer[22];
+    char monster_name_buffer[3 * 22 + 1];
     /* 0x247f: party slot selected by the Sedexus path before rpc_active
        is armed; later capture, fact and death handling reuse the same slot. */
     int sedexus_party_slot;

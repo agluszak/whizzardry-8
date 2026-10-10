@@ -36,7 +36,7 @@ public:
 private:
     /* Write a digit character at the caret position and re-parse
        the text into m_value, rejecting results above m_maximum. */
-    void TypeDigit(wchar_t digit);
+    void TypeDigit(char digit);
     void NotifyValueChanged();
     /* VK_DELETE — remove the character right of the caret. */
     void DeleteForward();
@@ -70,7 +70,7 @@ public:
     virtual void DestroyControls() override;
     virtual void Draw() override;
     virtual W8DialogKind GetDialogType() override;
-    virtual void SetText(const wchar_t* text) override;
+    virtual void SetText(const char* text) override;
     virtual bool ProcessInput() override;
 
 private:
@@ -94,7 +94,7 @@ private:
 
 public:
     /* The displayed text lines; the dialog owns and frees each one. */
-    W8GrowableVector<wchar_t*> m_lines;
+    W8GrowableVector<char*> m_lines;
     W8GrowableVector<void (*)(int)> m_field_064;
     int m_field_074;
     float m_field_078; /* 0.05 */

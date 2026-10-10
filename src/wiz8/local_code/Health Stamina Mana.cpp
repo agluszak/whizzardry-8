@@ -74,7 +74,6 @@
 
 #include <stdio.h>
 #include <stdlib.h>
-#include <wchar.h>
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/local_screens/OptionsScreen.h"
 
@@ -136,7 +135,7 @@ unsigned int ApplyDamageToCharacter(int party_slot, unsigned int amount, bool qu
             ShowNoticef(W8_FONT_PALETTE_RUST, gppStringList[0x254], amount);
         } else {
             PostCharacterNotice(party_slot, gppStringList[0x255], amount,
-                                quiet ? gppStringList[0x257] : &g_empty_wide_string);
+                                quiet ? gppStringList[0x257] : &g_empty_text);
         }
     }
 
@@ -319,7 +318,7 @@ void RestorePartySpellPoints(int amount)
 /* Suffix the damage notice carries when a poison tick is what hurt the
    monster. */
 // GLOBAL: WIZ8 0x0061C964
-wchar_t g_poison_suffix[] = L"POISON ";
+char g_poison_suffix[] = "POISON ";
 
 /* Roll the dice once for every live monster inside the radius of a point and
    apply each roll as damage through the monster-side effect pass. */
@@ -393,14 +392,14 @@ unsigned int ApplyDamageToMonster(W8MonsterInfo* monster_info, unsigned int amou
             }
             if (in_combat != 0) {
                 if (c) {
-                    ShowNoticef(category, FormatWideString(g_format_s_space_s,
+                    ShowNoticef(category, FormatText(g_format_s_space_s,
                                                            GetMonsterName(monster_info, 0, 0),
                                                            gppStringList[0x268], amount));
                 } else if (a != 0) {
                     ShowNoticef(category, gppStringList[0x254], amount);
                 } else {
                     ShowNoticef(category, gppStringList[0x256], GetMonsterName(monster_info, 0, 0),
-                                amount, quiet ? g_poison_suffix : &g_empty_wide_string);
+                                amount, quiet ? g_poison_suffix : &g_empty_text);
                 }
             }
         }
@@ -423,7 +422,7 @@ unsigned int ApplyDamageToMonster(W8MonsterInfo* monster_info, unsigned int amou
                 if (report != 0) {
                     memset(report, 0, sizeof(W8SpellDamageReport));
                     report->kind = 3;
-                    wcscpy(report->text, GetMonsterName(monster_info, 0, 0));
+                    strcpy(report->text, GetMonsterName(monster_info, 0, 0));
                     result_stats->reports.Add(report);
                 }
             }

@@ -209,7 +209,7 @@ void W8PartySelectionCharacterCollection::LoadExternalCharacters()
             int slot;
             for (slot = 2; slot < 8; ++slot) {
                 if (g_status.buffers.XChar[slot].fOccupied &&
-                    wcscmp(g_status.buffers.Char[slot].name, character->name) == 0) {
+                    strcmp(g_status.buffers.Char[slot].name, character->name) == 0) {
                     break;
                 }
             }
@@ -364,7 +364,7 @@ void W8PartySelectionListControl::Redraw(bool full_redraw)
                 }
             }
             SetFontObjectPalette16BPP(g_wiz_text_font_secondary, colour);
-            gprintf(left + 2, top, L"%S",
+            gprintf(left + 2, top, "%s",
                     *g_party_selection_character_collection->names.GetAt(row));
             top += 0x0e;
         }
@@ -587,7 +587,7 @@ public:
 
     void SetMode(W8PartySelectionMode mode);
     void SetSelection(int selection, bool highlighted, bool refresh);
-    void OpenNotification(const wchar_t* message, bool allow_cancel,
+    void OpenNotification(const char* message, bool allow_cancel,
                           W8PartyConfirmationAction action);
     void Setup();
     void InvalidatePartySelectionComposition();
@@ -689,7 +689,7 @@ void W8PartySelectionCharacterRow::Redraw(bool full_redraw)
     left += 0x36;
     SetFont(g_wiz_text_font_secondary);
     gprintf(left, top + 4, g_format_s, character->name);
-    gprintf(left, top + 0x0e, L"%s %d %s", gppStringList[0x6b9], character->uiExpLevel,
+    gprintf(left, top + 0x0e, "%s %d %s", gppStringList[0x6b9], character->uiExpLevel,
             gppStringList[g_profession_name_message_ids[character->iProfession]]);
     gprintf(left, top + 0x18, g_format_s_space_s,
             gppStringList[g_gender_name_message_rows[character->gender][0]],
@@ -1011,7 +1011,7 @@ void W8PartySelectionCharacterSummaryPanel::Redraw()
     {
         W8ControlsRect name_bounds = {0x84, 0xc8, 0x139, 0xed};
         W8TextBuffer name(
-            &name_bounds, FormatWideString(L"%s (%s)", character->name_part_2, character->name),
+            &name_bounds, FormatText("%s (%s)", character->name_part_2, character->name),
             g_wiz_text_bold_font, g_W8TextBufferAlignMiddle | g_W8TextBufferAlignCenter, 4);
         name.RenderToTarget(0, false, FRAME_BUFFER);
     }
@@ -1019,23 +1019,23 @@ void W8PartySelectionCharacterSummaryPanel::Redraw()
     SetFont(g_wiz_text_font_secondary);
     SetObjectShade(GetFontObject(g_wiz_text_font_secondary), 4);
 
-    const wchar_t* level_text = gppStringList[0x6b9];
-    const wchar_t* profession =
+    const char* level_text = gppStringList[0x6b9];
+    const char* profession =
         gppStringList[g_profession_name_message_ids[character->iProfession]];
-    wchar_t* level_line =
-        FormatWideString(L"%s %d %s", level_text, character->uiExpLevel, profession);
+    char* level_line =
+        FormatText("%s %d %s", level_text, character->uiExpLevel, profession);
     int width = StringPixLength(level_line, g_wiz_text_font_secondary);
-    gprintf((0xbf - width) / 2 + 0x78, 0xef, L"%s %d %s", level_text, character->uiExpLevel,
+    gprintf((0xbf - width) / 2 + 0x78, 0xef, "%s %d %s", level_text, character->uiExpLevel,
             profession);
 
-    const wchar_t* gender = gppStringList[g_gender_name_message_rows[character->gender][0]];
-    const wchar_t* race = gppStringList[g_race_name_message_ids[character->iRace]];
-    wchar_t* race_line = FormatWideString(g_format_s_space_s, gender, race);
+    const char* gender = gppStringList[g_gender_name_message_rows[character->gender][0]];
+    const char* race = gppStringList[g_race_name_message_ids[character->iRace]];
+    char* race_line = FormatText(g_format_s_space_s, gender, race);
     width = StringPixLength(race_line, g_wiz_text_font_secondary);
     gprintf((0xbf - width) / 2 + 0x7f, 0xfd, g_format_s_space_s, gender, race);
 
-    const wchar_t* personality = gppStringList[g_personality_message_ids[character->personality]];
-    width = StringPixLength(const_cast<wchar_t*>(personality), g_wiz_text_font_secondary);
+    const char* personality = gppStringList[g_personality_message_ids[character->personality]];
+    width = StringPixLength(const_cast<char*>(personality), g_wiz_text_font_secondary);
     gprintf((0xbf - width) / 2 + 0x82, 0x10b, g_format_s, personality);
 
     gprintf(0x96, 0x127, gppStringList[0x6ba]);
@@ -1255,7 +1255,7 @@ void W8PartySelectionOptionPanel::SetOptionPanelMode(W8PartyCreationPage page)
     InitTextInputModeWithScheme(1);
     AddTextInputField(m_render_left + 2, m_render_top + 2,
                       static_cast<unsigned short>(m_image_width) - 4,
-                      static_cast<unsigned short>(m_image_height) - 4, 0x7f, L"", 0x28, 0x0f, 1);
+                      static_cast<unsigned short>(m_image_height) - 4, 0x7f, "", 0x28, 0x0f, 1);
     SetActiveField(0);
     controller->m_input_handler = input_handler;
     input_handler->m_listener = controller;
@@ -1383,7 +1383,7 @@ void W8PartySelectionController::SetMode(W8PartySelectionMode mode)
     m_bottom_panel->EnableRegionSet(true);
     m_control1->SetEnabled(true);
 
-    const wchar_t* label = 0;
+    const char* label = 0;
     switch (m_mode) {
     case W8_PARTY_SELECT_CHARACTERS: {
         m_range->SetEnabled(true);
@@ -1572,7 +1572,7 @@ void W8PartySelectionController::SetSelection(int selection, bool party_slot, bo
 
     m_control2->m_character = m_character;
     m_control2->Invalidate(0);
-    wchar_t* text = gppStringList[((!m_character || !m_character->fInParty) ? 0x1b18 : 0x1b1c) / 4];
+    char* text = gppStringList[((!m_character || !m_character->fInParty) ? 0x1b18 : 0x1b1c) / 4];
     m_add_remove_button->m_textBuffer.SetText(text, g_wiz_text_font_secondary);
     bool have_character = m_character != 0;
     m_add_remove_button->SetEnabled(have_character);
@@ -1623,7 +1623,7 @@ void W8PartySelectionController::OnPrimary(W8TextControl* control)
         return;
     }
     if (control == m_delete_button) {
-        OpenNotification(FormatWideString(L"%s %s %s?", gppStringList[0x6d4], m_character->name,
+        OpenNotification(FormatText("%s %s %s?", gppStringList[0x6d4], m_character->name,
                                           gppStringList[0x6d5]),
                          true, W8_PARTY_CONFIRM_DELETE_CHARACTER);
         return;
@@ -1652,7 +1652,7 @@ void W8PartySelectionController::OnPrimary(W8TextControl* control)
         switch (m_mode) {
         case W8_PARTY_SELECT_CHARACTERS:
             if (static_cast<unsigned int>(CountActiveCharacters()) < 6) {
-                OpenNotification(FormatWideString(gppStringList[0x6d9], CountActiveCharacters()),
+                OpenNotification(FormatText(gppStringList[0x6d9], CountActiveCharacters()),
                                  true, W8_PARTY_CONFIRM_PROCEED_TO_OPTIONS);
                 return;
             }
@@ -1721,9 +1721,9 @@ void W8PartySelectionController::OnSelectionChanged(W8PartySelectionListControl*
 void W8PartySelectionController::OnDecision(W8PartySelectionInputHandler*, unsigned char accepted)
 {
     if (!accepted) {
-        wchar_t slot_name[64];
-        Get16BitStringFromField(0, slot_name);
-        if (SaveSlotFileExists(ConvertWideStringToString(slot_name))) {
+        char slot_name[3 * (64) + 1];
+        GetTextFromField(0, slot_name);
+        if (SaveSlotFileExists(CopyText(slot_name))) {
             OpenNotification(gppStringList[0x829], true, W8_PARTY_CONFIRM_START_WITH_SAVE_NAME);
             return;
         }
@@ -1816,7 +1816,7 @@ void W8PartySelectionController::DrawPartySelectionComposition()
 /* Install the party-selection confirmation/notification dialog and retain the value
    consumed by ApplyPartySelectionConfirmation after the modal closes. */
 // FUNCTION: WIZ8 0x005c25e0
-void W8PartySelectionController::OpenNotification(const wchar_t* message, bool allow_cancel,
+void W8PartySelectionController::OpenNotification(const char* message, bool allow_cancel,
                                                   W8PartyConfirmationAction action)
 {
     m_confirmation_action = action;
@@ -1828,7 +1828,7 @@ void W8PartySelectionController::OpenNotification(const wchar_t* message, bool a
     m_dialog->SetExtent(0xa0, 100);
     m_dialog->SetBackground("Data\\Dialogs\\DialogBackground.sti", 0);
     m_dialog->SetClientExtent(0xfa, 200);
-    m_dialog->SetMessage(const_cast<wchar_t*>(message), 1, 0x32, true, allow_cancel, true, true, 0,
+    m_dialog->SetMessage(const_cast<char*>(message), 1, 0x32, true, allow_cancel, true, true, 0,
                          0x15e);
     ActivateDialogRegion(0x138);
 }
@@ -1877,8 +1877,8 @@ void W8PartySelectionController::ApplyPartySelectionConfirmation(W8PartyConfirma
         return;
     }
     case W8_PARTY_CONFIRM_START_WITH_SAVE_NAME: {
-        wchar_t slot_name[64];
-        Get16BitStringFromField(0, slot_name);
+        char slot_name[3 * (64) + 1];
+        GetTextFromField(0, slot_name);
         if (m_input_handler) {
             delete m_input_handler;
         }
@@ -1920,7 +1920,7 @@ void W8PartySelectionController::LoadImportedPartyFile(int selection)
     W8PartySelectionCharacterCollection* collection = g_party_selection_character_collection;
     if (selection >= 0 && selection < collection->names.GetCount()) {
         char path[128];
-        sprintf(path, "%s\\%s", "Saves\\Import", *collection->names.GetAt(selection));
+        snprintf(path, sizeof(path), "%s\\%s", "Saves\\Import", *collection->names.GetAt(selection));
         int result = ImportWizardry7Party(path);
         if (result != 0) {
             ResetForNewGame();

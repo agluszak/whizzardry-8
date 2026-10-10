@@ -1,3 +1,4 @@
+#include "wiz8/retail_text_records.h"
 #include "wiz8/filesystem.h"
 #include "wiz8/engine_code/AnimRep.hpp"
 
@@ -514,7 +515,7 @@ bool LoadSpellVisualResource(const W8GrCycleLoadContext* context, const char* na
     unsigned char more = 1;
     bool success = true;
     char path[100];
-    sprintf(path, "data\\Spells\\%s.mls", name);
+    snprintf(path, sizeof(path), "data\\Spells\\%s.mls", name);
     std::unique_ptr<wiz8::File> handle = [&]() { try { return wiz8::open_file(path, wiz8::OpenMode::read); } catch (const std::exception&) { return std::unique_ptr<wiz8::File>{}; } }();
     *visual = 0;
     if (handle == 0) {
@@ -586,7 +587,7 @@ bool LoadSpellVisualResource(const W8GrCycleLoadContext* context, const char* na
             sscanf(line, "%s %s %d %s %s", pac_command, pac_name, &frame, pac_value, loop_name);
             index = FindSpellCycleByName(pac_name);
             if (*visual != 0 && (*visual)->IsCycleSupported(static_cast<signed char>(index))) {
-                sprintf(wave_path, "Data\\Spells\\Sounds\\%s.WAV", pac_value);
+                snprintf(wave_path, sizeof(wave_path), "Data\\Spells\\Sounds\\%s.WAV", pac_value);
                 event = CreateSoundEvent(sound_type, index, frame, 0, wave_path,
                                          _stricmp(loop_name, "LOOP") == 0);
                 if (event != 0) {
@@ -1237,7 +1238,7 @@ void SetMonsterSpellIcon(W8Monster* pMonster, W8MonsterSpellIconId iIcon, bool a
         pSpellMI = static_cast<W8MonsterSpellIcon*>(malloc(sizeof(*pSpellMI)));
         pSpellMI->icon = SPELL_ICON_DRAINED;
         pSpellMI->psrBMO = 0;
-        sprintf(path, "%s\\%s_A.TGA", "Data\\Icons\\MonsterSpells",
+        snprintf(path, sizeof(path), "%s\\%s_A.TGA", "Data\\Icons\\MonsterSpells",
                 g_monster_spell_icon_names[iIcon]);
         pSpellMI->icon = iIcon;
         pSpellMI->psrBMO = CreateMonsterIconItem(g_world, path, 1);
@@ -1564,7 +1565,7 @@ try
         }
         ok = false;
         if ((handle->seek(0x101, wiz8::SeekOrigin::current), true) &&
-            (handle->read(&g_spell_records[index], sizeof(W8SpellRuntimeRecord)).bytes == static_cast<std::size_t>(sizeof(W8SpellRuntimeRecord)))) {
+            (wiz8::retail::read(*handle, g_spell_records[index]).bytes == wiz8::retail::size<W8SpellRuntimeRecord>)) {
             ok = true;
         }
     }

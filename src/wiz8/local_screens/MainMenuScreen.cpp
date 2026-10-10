@@ -31,7 +31,6 @@
 #include "mousesystem.h"
 #include "vsurface.h"
 
-#include <wchar.h>
 
 /* The screen's own state. */
 // GLOBAL: WIZ8 0x0069c4ba
@@ -49,7 +48,7 @@ unsigned int g_main_menu_overlay_surface;
 // GLOBAL: WIZ8 0x0069c4b0
 unsigned int g_main_menu_hover_region;
 // GLOBAL: WIZ8 0x0069c4bc
-wchar_t* g_pending_main_menu_message;
+char* g_pending_main_menu_message;
 // GLOBAL: WIZ8 0x0069c4c0
 W8MessageDialogBase* g_main_menu_dialog;
 
@@ -146,10 +145,10 @@ unsigned char MainMenuScreenInitialize(void)
 unsigned char MainMenuScreenEnter(void)
 {
     char text[64];
-    wchar_t wide[64];
+    char wide[3 * (64) + 1];
     unsigned short colour;
     W8MessageDialogBase* dialog;
-    wchar_t* pending;
+    char* pending;
     short measured;
 
     ResetVideoFrameState();
@@ -173,7 +172,7 @@ unsigned char MainMenuScreenEnter(void)
     DrawMainMenuItem(g_main_menu_selected_item, 1);
 
     FormatVersionBanner(text, false, false, false);
-    wcscpy(wide, ConvertStringToWide(text));
+    strcpy(wide, CopyText(text));
     SetFont(g_wiz_text_font_secondary);
     SetFontObjectPalette16BPP(g_wiz_text_font_secondary,
                               g_font_state_palettes[W8_FONT_PALETTE_WHITE].get());
@@ -262,7 +261,7 @@ void MainMenuScreenFrame()
                         SetFont(g_wiz_text_font_secondary);
                         SetFontObjectPalette16BPP(g_wiz_text_font_secondary,
                                                   GetFontObject(g_wiz_text_font_secondary)->ownedPalette.get());
-                        gprintfDirty(5, 5, L"Developer mode enabled.");
+                        gprintfDirty(5, 5, "Developer mode enabled.");
                     }
                 } else {
                     switch (input.usParam) {
@@ -372,10 +371,10 @@ unsigned char MainMenuScreenLeave(int)
 }
 
 // FUNCTION: WIZ8 0x005bd010
-void SetMainMenuMessage(const wchar_t* message)
+void SetMainMenuMessage(const char* message)
 {
-    g_pending_main_menu_message = new wchar_t[wcslen(message) + 1];
-    wcscpy(g_pending_main_menu_message, message);
+    g_pending_main_menu_message = new char[strlen(message) + 1];
+    strcpy(g_pending_main_menu_message, message);
 }
 
 static void UpdateMainMenuItem(const InputAtom* event, W8Region* region, short item)

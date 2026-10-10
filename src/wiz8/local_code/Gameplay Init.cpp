@@ -1,3 +1,4 @@
+#include "wiz8/retail_text_records.h"
 #include "wiz8/layouts/screen_state.h"
 #include "soundman.h"
 #include "wiz8/local_screens/Screens.h"
@@ -78,7 +79,7 @@ try
     std::unique_ptr<wiz8::File> handle;
     W8NpcItemStockRule* element;
 
-    sprintf(path, "%s\\%s.%s", "Data\\Databases", "NPC", "DBS");
+    snprintf(path, sizeof(path), "%s\\%s.%s", "Data\\Databases", "NPC", "DBS");
     handle = [&]() { try { return wiz8::open_file(path, wiz8::OpenMode::read); } catch (const std::exception&) { return std::unique_ptr<wiz8::File>{}; } }();
     if (!handle) {
         return 0;
@@ -94,7 +95,7 @@ try
         return 0;
     }
     for (index = 0; index < gXStatus.uiNpcsInDatabase; ++index) {
-        if (!((transferred = handle->read(&g_npc_records[index], sizeof(*g_npc_records)).bytes) == static_cast<std::size_t>(sizeof(*g_npc_records)))) {
+        if (!((transferred = wiz8::retail::read(*handle, g_npc_records[index]).bytes) == wiz8::retail::size<W8NpcDatabaseRecord>)) {
             if (handle) handle->close();
             handle.reset();
             return 0;
@@ -149,7 +150,7 @@ try
     unsigned int transferred;
     std::unique_ptr<wiz8::File> handle;
 
-    sprintf(path, "%s\\%s.%s", "Data\\Databases", "FACT", "DBS");
+    snprintf(path, sizeof(path), "%s\\%s.%s", "Data\\Databases", "FACT", "DBS");
     handle = [&]() { try { return wiz8::open_file(path, wiz8::OpenMode::read); } catch (const std::exception&) { return std::unique_ptr<wiz8::File>{}; } }();
     if (!handle) {
         return 0;
@@ -165,7 +166,7 @@ try
         return 0;
     }
     for (index = 0; index < gXStatus.uiFactsInDatabase; ++index) {
-        if (!((transferred = handle->read(&g_fact_records[index], sizeof(*g_fact_records)).bytes) == static_cast<std::size_t>(sizeof(*g_fact_records)))) {
+        if (!((transferred = wiz8::retail::read(*handle, g_fact_records[index]).bytes) == wiz8::retail::size<W8FactDatabaseRecord>)) {
             if (handle) handle->close();
             handle.reset();
             return 0;
@@ -193,7 +194,7 @@ try
     unsigned int transferred;
     std::unique_ptr<wiz8::File> handle;
 
-    sprintf(path, "%s\\%s.%s", "Data\\Databases", "LEVELS", "DBS");
+    snprintf(path, sizeof(path), "%s\\%s.%s", "Data\\Databases", "LEVELS", "DBS");
     handle = [&]() { try { return wiz8::open_file(path, wiz8::OpenMode::read); } catch (const std::exception&) { return std::unique_ptr<wiz8::File>{}; } }();
     if (!handle) {
         return 0;
@@ -209,7 +210,7 @@ try
         return 0;
     }
     for (index = 0; index < gXStatus.uiLevelsInDatabase; ++index) {
-        if (!((transferred = handle->read(&g_level_records[index], sizeof(*g_level_records)).bytes) == static_cast<std::size_t>(sizeof(*g_level_records)))) {
+        if (!((transferred = wiz8::retail::read(*handle, g_level_records[index]).bytes) == wiz8::retail::size<W8LevelDatabaseRecord>)) {
             if (handle) handle->close();
             handle.reset();
             return 0;
@@ -347,7 +348,7 @@ void ResetForNewGame(void)
    runs a fixed opening sequence. The two calls into 0x00482720 and 0x00482740
    share one stack cleanup, as consecutive cdecl calls do. */
 // FUNCTION: WIZ8 0x0054b250
-void RunNewGameOpeningSequence(bool notify, const wchar_t* target)
+void RunNewGameOpeningSequence(bool notify, const char* target)
 {
     g_status.game_started = true;
     if (target) {

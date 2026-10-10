@@ -32,7 +32,6 @@
 #include <float.h>
 #include <stdio.h>
 #include <string.h>
-#include <wchar.h>
 #include <stdlib.h>
 #include "wiz8/layouts/game_status.h"
 
@@ -62,7 +61,7 @@ static bool g_message_box_accepted;
 static thread_local char g_format_string_buffer[8][512];
 static thread_local unsigned int g_format_string_index;
 // GLOBAL: WIZ8 0x00689FD0
-static wchar_t g_wide_string_buffer[4096];
+static char g_text_buffer[3 * (4096) + 1];
 
 // FUNCTION: WIZ8 0x00517950
 void SetDice(W8Dice* dice, unsigned char count, unsigned char sides, short base)
@@ -184,42 +183,32 @@ char* FormatString(const char* format, ...)
 }
 
 // FUNCTION: WIZ8 0x00517a90
-wchar_t* FormatWideString(const wchar_t* format, ...)
+char* FormatText(const char* format, ...)
 {
     va_list arguments;
 
     va_start(arguments, format);
-    vswprintf(g_wide_string_buffer, format, arguments);
-    return g_wide_string_buffer;
+    vsnprintf(g_text_buffer, sizeof(g_text_buffer), format, arguments);
+    va_end(arguments);
+    return g_text_buffer;
 }
 
-// FUNCTION: WIZ8 0x00517ab0
-wchar_t* ConvertStringToWide(const char* string)
+char* CopyText(const char* string)
 {
-    swprintf(g_wide_string_buffer, g_combat_log_format, string);
-    return g_wide_string_buffer;
-}
-
-// FUNCTION: WIZ8 0x00517ad0
-char* ConvertWideStringToString(const wchar_t* string)
-{
-    char* output = reinterpret_cast<char*>(g_wide_string_buffer);
-    if (wcstombs(output, string, sizeof(g_wide_string_buffer) - 1) == static_cast<size_t>(-1)) {
-        output[0] = 0;
-    }
-    output[sizeof(g_wide_string_buffer) - 1] = 0;
-    return output;
+    static thread_local std::string output;
+    output = string;
+    return output.data();
 }
 
 // FUNCTION: WIZ8 0x00517af0
-wchar_t* FormatUnsignedIntegerWithCommas(wchar_t* output, unsigned int value)
+char* FormatUnsignedIntegerWithCommas(char* output, unsigned int value)
 {
     bool first_group = true;
-    wchar_t group[10];
+    char group[3 * (10) + 1];
     unsigned int divisor;
     int exponent;
 
-    wcscpy(output, &g_empty_wide_string);
+    strcpy(output, &g_empty_text);
     exponent = 9;
     do {
         unsigned int threshold;
@@ -231,15 +220,15 @@ wchar_t* FormatUnsignedIntegerWithCommas(wchar_t* output, unsigned int value)
             unsigned int group_value;
 
             if (!first_group) {
-                wcscat(output, L",");
+                strcat(output, ",");
             }
             group_value = value / divisor;
-            swprintf(group, first_group ? g_format_d : L"%03d", group_value);
-            wcscat(output, group);
+            snprintf(group, sizeof(group), first_group ? g_format_d : "%03d", group_value);
+            strcat(output, group);
             value -= divisor * group_value;
             first_group = false;
         } else if (!first_group) {
-            wcscat(output, L",000");
+            strcat(output, ",000");
         }
         exponent -= 3;
     } while (exponent >= 0);
@@ -327,12 +316,12 @@ bool ScreenPointInRect(const W8ScreenRect* rect, const POINT* point)
 }
 
 // FUNCTION: WIZ8 0x00517ea0
-void StripMonsterNameSuffix(wchar_t* name)
+void StripMonsterNameSuffix(char* name)
 {
-    wchar_t* suffix = wcschr(name, L'#');
+    char* suffix = strchr(name, '#');
 
     if (suffix != 0) {
-        *suffix = L'\0';
+        *suffix = '\0';
     }
 }
 
@@ -553,7 +542,7 @@ void FormatDebugMessage(int channel, const char* format, ...)
 
     (void)channel;
     va_start(arguments, format);
-    vsprintf(message, format, arguments);
+    vsnprintf(message, sizeof(message), format, arguments);
 }
 
 // FUNCTION: WIZ8 0x00518310
@@ -576,20 +565,11 @@ int RPCPtrToPCSlot(const W8MonsterManagerEntry* rpc)
 // FUNCTION: WIZ8 0x005184b0
 void FreeStringTable(void)
 {
-    if (gppStringList != 0) {
-        for (int index = 0; index < giStringListLen; ++index) {
-            if (gppStringList[index] != 0) {
-                free(gppStringList[index]);
-            }
-        }
-        free(gppStringList);
-        gppStringList = 0;
-        giStringListLen = 0;
-    }
+    ReleaseLocalizedStrings();
 }
 
 // FUNCTION: WIZ8 0x00518510
-bool CreateMessageBox(wchar_t* text, int font, unsigned int shade, bool has_accept, bool has_cancel,
+bool CreateMessageBox(char* text, int font, unsigned int shade, bool has_accept, bool has_cancel,
                       void (*callback)(void))
 {
     SGPRect rect;

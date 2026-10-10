@@ -1,3 +1,4 @@
+#include "wiz8/retail_text_records.h"
 #include "wiz8/compat/debug_heap.h"
 #include "wiz8/engine_code/AmbientSound.h"
 #include "wiz8/local_code/Sight.h"
@@ -156,9 +157,9 @@ void BuildCharacterFilePath(char* destination, const char* filename, int slot)
 }
 
 // FUNCTION: WIZ8 0x00514ec0
-void BuildCharacterPath(char* destination, const wchar_t* name, int slot)
+void BuildCharacterPath(char* destination, const char* name, int slot)
 {
-    const std::string filename = std::string(ConvertWideStringToString(name)) + ".CHR";
+    const std::string filename = std::string(CopyText(name)) + ".CHR";
     BuildCharacterFilePath(destination, filename.c_str(), slot);
 }
 
@@ -183,13 +184,13 @@ try
 
     if (g_status.game_started) {
         if (slot != -1 && g_status.flags[slot] == 0) {
-            sprintf(path, "%s\\%s", "Saves\\NPCs", name);
+            snprintf(path, sizeof(path), "%s\\%s", "Saves\\NPCs", name);
         } else {
             strcpy(path, name);
         }
     } else {
         strcpy(directory, slot != -1 ? "Saves\\NPCs" : "Saves\\Characters");
-        sprintf(path, "%s\\%s", directory, name);
+        snprintf(path, sizeof(path), "%s\\%s", directory, name);
     }
 
     if (g_status.game_started && (slot == -1 || g_status.flags[slot] != 0)) {
@@ -199,7 +200,13 @@ try
         if (handle != 0) {
             memset(character, 0, sizeof(W8Character));
             if (((transferred = handle->read(&size, 4).bytes) == static_cast<std::size_t>(4)) &&
-                ((transferred = handle->read(character, size).bytes) == static_cast<std::size_t>(size))) {
+                ([&] {
+                    if (size > wiz8::retail::size<W8Character>) return false;
+                    std::vector<std::byte> image(size);
+                    if (handle->read(image.data(), size).bytes != size) return false;
+                    wiz8::retail::decode<W8Character>(image, *character);
+                    return true;
+                }())) {
                 loaded = true;
             }
             if (handle) handle->close();
@@ -210,7 +217,7 @@ try
         return true;
     }
     if (report_failure) {
-        CreateMessageBox(FormatWideString(gppStringList[W8_NOTICE_CHARACTER_LOAD_FAILED], name),
+        CreateMessageBox(FormatText(gppStringList[W8_NOTICE_CHARACTER_LOAD_FAILED], name),
                          g_small_font, 1, true, false, 0);
     }
     return false;
@@ -300,7 +307,7 @@ try
                 chunks.Close();
                 if (has_status && !status.flag && !status.endgame_started) {
                     const auto stem = name.substr(0, name.find_last_of('.'));
-                    swprintf(slot->name, L"%hs", stem.c_str());
+                    sprintf(slot->name, "%s", stem.c_str());
                     const auto local_time = wiz8::file_time_with_legacy_local_bias(
                         wiz8::file_time_from_sdl(metadata->info.modify_time), utc_offset);
                     slot->local_write_time.dwLowDateTime = local_time.low;
@@ -340,7 +347,7 @@ int GetSaveGameLevel(const char* slot_name)
     int count;
     int index;
 
-    sprintf(path, "%s\\%s.%s", "Saves", slot_name, g_save_extension);
+    snprintf(path, sizeof(path), "%s\\%s.%s", "Saves", slot_name, g_save_extension);
     if (chunks.OpenRead(path)) {
         count = chunks.ChunkCount();
         for (index = 0; index < count; ++index) {
@@ -394,7 +401,7 @@ try
     int region;
     unsigned int index;
 
-    sprintf(path, "%s\\%s.%s", "Saves", name, g_save_extension);
+    snprintf(path, sizeof(path), "%s\\%s.%s", "Saves", name, g_save_extension);
     if (!chunks.OpenWrite(path)) {
         return false;
     }
@@ -519,13 +526,13 @@ void BuildLevelStatusPath(char* path, unsigned int level)
     *strchr(info.level_file_name, '.') = '\0';
     if (level < 57) {
         if (level == 56) {
-            sprintf(path, "%s\\Test\\DefaultLevel.%s", "Levels", "STS");
+            snprintf(path, sizeof(path), "%s\\Test\\DefaultLevel.%s", "Levels", "STS");
         } else {
-            sprintf(path, "%s\\%s\\%s.%s", "Levels", g_level_folders[level].folder_name,
+            snprintf(path, sizeof(path), "%s\\%s\\%s.%s", "Levels", g_level_folders[level].folder_name,
                     g_level_folders[level].level_name, "STS");
         }
     } else {
-        sprintf(path, "%s\\Test\\Level%c.%s", "Levels", level - 56, "STS");
+        snprintf(path, sizeof(path), "%s\\Test\\Level%c.%s", "Levels", level - 56, "STS");
     }
 }
 
@@ -1048,13 +1055,13 @@ try
     *strchr(info.level_file_name + 4, '.') = '\0';
     if (level < 0x39) {
         if (level == 0x38) {
-            sprintf(path, "%s\\Test\\DefaultLevel.%s", "Levels", "STS");
+            snprintf(path, sizeof(path), "%s\\Test\\DefaultLevel.%s", "Levels", "STS");
         } else {
-            sprintf(path, "%s\\%s\\%s.%s", "Levels", g_level_folders[level].folder_name,
+            snprintf(path, sizeof(path), "%s\\%s\\%s.%s", "Levels", g_level_folders[level].folder_name,
                     g_level_folders[level].level_name, "STS");
         }
     } else {
-        sprintf(path, "%s\\Test\\Level%c.%s", "Levels", level - 0x38, "STS");
+        snprintf(path, sizeof(path), "%s\\Test\\Level%c.%s", "Levels", level - 0x38, "STS");
     }
     if (chunk.OpenRead(path)) {
         chunk.OpenChunk(0, 0);
@@ -1196,7 +1203,7 @@ try
     bool script_flag;
     float patrol_value;
 
-    sprintf(script_name, "");
+    snprintf(script_name, sizeof(script_name), "");
     chunk->Read(&record_version, 4, 0);
     monster_info = static_cast<W8MonsterInfo*>(malloc(sizeof(W8MonsterInfo)));
     if (monster_info == 0) {
@@ -1527,9 +1534,9 @@ try
             if (handle == 0) {
                 saved = false;
             } else {
-                size = sizeof(W8Character);
+                size = wiz8::retail::size<W8Character>;
                 if ((handle->write(&size, 4), transferred = 4, true) == 0 ||
-                    (handle->write(character, sizeof(W8Character)), transferred = sizeof(W8Character), true) == 0) {
+                    (wiz8::retail::write(*handle, *character), transferred = wiz8::retail::size<W8Character>, true) == 0) {
                     saved = false;
                 }
                 if (handle) handle->close();
@@ -1544,7 +1551,7 @@ try
     }
     if (report_failure) {
         CreateMessageBox(
-            FormatWideString(gppStringList[W8_NOTICE_CHARACTER_SAVE_FAILED], character->name),
+            FormatText(gppStringList[W8_NOTICE_CHARACTER_SAVE_FAILED], character->name),
             g_small_font, 1, true, false, continuation);
         return false;
     }
@@ -1607,7 +1614,7 @@ try
         chunk.Write(name, 0x40, 0);
         size = W8_CHARACTER_SERIALIZED_SIZE;
         chunk.Write(&size, 4, 0);
-        chunk.Write(character, size, 0);
+        wiz8::retail::write(chunk, *character);
         chunk.Close();
         return true;
     }
@@ -1639,7 +1646,7 @@ try
                     if (size > W8_CHARACTER_SERIALIZED_SIZE) {
                         srAssertFail("uiSize <= sizeof(*pPC)", LOADSAVEGAME_CPP, 0xba2, 0);
                     }
-                    chunk.Read(character, size, 0);
+                    wiz8::retail::read(chunk, *character, size);
                     found = true;
                 }
             }
@@ -1695,7 +1702,7 @@ void DeleteCurrentSaveFiles(void)
 {
     char path[260];
 
-    sprintf(path, "%s\\%s.%s", "Saves", ConvertWideStringToString(GetLastSaveName()),
+    snprintf(path, sizeof(path), "%s\\%s.%s", "Saves", CopyText(GetLastSaveName()),
             g_save_extension);
     wiz8::remove_file(path);
     wiz8::remove_file("Saves\\CurrentGame.SAV");
@@ -1721,7 +1728,7 @@ bool AutoSaveIfAllowed(bool forced)
         ((g_settings.auto_save != 0 && !forced) || g_status.iron_man) && !gXStatus.fCombatMode &&
         !IsSightRangeOverridden() && CanInterruptLevelMovement() && !gXStatus.fNpcDialogueMode &&
         !gXStatus.fCampMode) {
-        strcpy(name, g_status.iron_man ? ConvertWideStringToString(GetLastSaveName()) : "AutoSave");
+        strcpy(name, g_status.iron_man ? CopyText(GetLastSaveName()) : "AutoSave");
         return SaveGame(name, 0);
     }
     return true;
@@ -1745,7 +1752,7 @@ unsigned char SaveSlotFileExists(const char* slot_name)
 {
     char path[260];
 
-    sprintf(path, "%s\\%s.%s", "Saves", slot_name, g_save_extension);
+    snprintf(path, sizeof(path), "%s\\%s.%s", "Saves", slot_name, g_save_extension);
     return [&]() { const auto status = wiz8::file_status(path); return status && status->info.type == SDL_PATHTYPE_FILE; }();
 }
 
@@ -1814,7 +1821,7 @@ void ProcessMainGameAutoSave(void)
         !IsSightRangeOverridden() && CanInterruptLevelMovement() && !gXStatus.fNpcDialogueMode &&
         !gXStatus.fCampMode) {
         if (g_status.iron_man) {
-            strcpy(name, ConvertWideStringToString(GetLastSaveName()));
+            strcpy(name, CopyText(GetLastSaveName()));
         } else {
             strcpy(name, "AutoSave");
         }
@@ -1934,7 +1941,7 @@ try
         sprintf(slot_name, "%s %d", "Quick", newest_slot);
         return true;
     }
-    sprintf(path, "%s\\%s.%s", "Saves", "Quick", g_save_extension);
+    snprintf(path, sizeof(path), "%s\\%s.%s", "Saves", "Quick", g_save_extension);
     if ([&]() { const auto status = wiz8::file_status(path); return status && status->info.type == SDL_PATHTYPE_FILE; }()) {
         strcpy(slot_name, "Quick");
         return true;
@@ -2047,10 +2054,10 @@ void LoadGameStatus(W8Chunk* chunks, W8GlobalStatus* status)
 
     memset(status, 0, sizeof(*status));
     chunks->Read(&size, sizeof(size), 0);
-    if (size > sizeof(*status)) {
+    if (size > wiz8::retail::size<W8GlobalStatus>) {
         srAssertFail("uiSize <= sizeof(*pStatus)", LOADSAVEGAME_CPP, 0xccd, 0);
     }
-    chunks->Read(status, size, 0);
+    wiz8::retail::read(*chunks, *status, size);
 
     if (status->buffers.save_version < 1.1f) {
         for (slot = 0; slot != 3; ++slot) {
@@ -2068,10 +2075,10 @@ void LoadGameStatus(W8Chunk* chunks, W8GlobalStatus* status)
     for (slot = 0; slot != 8; ++slot, ++character) {
         memset(character, 0, sizeof(*character));
         chunks->Read(&size, sizeof(size), 0);
-        if (size > sizeof(*character)) {
+        if (size > wiz8::retail::size<W8Character>) {
             srAssertFail("uiSize <= sizeof(*&pStatus->Char[uiChar])", LOADSAVEGAME_CPP, 0xce4, 0);
         }
-        chunks->Read(character, size, 0);
+        wiz8::retail::read(*chunks, *character, size);
         if (character->record_version < 2 &&
             character->original_profession == W8_PROFESSION_FIGHTER &&
             character->profession_levels[W8_PROFESSION_FIGHTER] == 0) {
@@ -2117,13 +2124,13 @@ void SaveGlobalStatus(W8Chunk* chunks, W8GlobalStatus* status)
     unsigned int slot;
 
     chunks->OpenChunk(0x41545347, 0);
-    size = sizeof(*status);
+    size = wiz8::retail::size<W8GlobalStatus>;
     chunks->Write(&size, sizeof(size), 0);
-    chunks->Write(status, size, 0);
+    wiz8::retail::write(*chunks, *status);
     for (slot = 0; slot != 8; ++slot) {
-        size = sizeof(W8Character);
+        size = wiz8::retail::size<W8Character>;
         chunks->Write(&size, sizeof(size), 0);
-        chunks->Write(&status->buffers.Char[slot], size, 0);
+        wiz8::retail::write(*chunks, status->buffers.Char[slot]);
     }
     for (slot = 0; slot != 8; ++slot) {
         size = sizeof(W8PartySlotRow);
@@ -2208,13 +2215,13 @@ bool FindFreeEndingSaveName(char* name)
     int index;
 
     strcpy(name, "Ending");
-    sprintf(path, "%s\\%s.%s", "Saves", name, g_save_extension);
+    snprintf(path, sizeof(path), "%s\\%s.%s", "Saves", name, g_save_extension);
     if ([&]() { const auto status = wiz8::file_status(path); return status && status->info.type == SDL_PATHTYPE_FILE; }() == 0) {
         return true;
     }
     for (index = 1; index <= 20; ++index) {
-        sprintf(name, "%s%d", "Ending", index);
-        sprintf(path, "%s\\%s.%s", "Saves", name, g_save_extension);
+        snprintf(name, sizeof(name), "%s%d", "Ending", index);
+        snprintf(path, sizeof(path), "%s\\%s.%s", "Saves", name, g_save_extension);
         if ([&]() { const auto status = wiz8::file_status(path); return status && status->info.type == SDL_PATHTYPE_FILE; }() == 0) {
             return true;
         }
@@ -2247,7 +2254,7 @@ try
     int box;
 
     ResetLiveSessionForLoad();
-    sprintf(path, "%s\\%s.%s", "Saves", slot_name, g_save_extension);
+    snprintf(path, sizeof(path), "%s\\%s.%s", "Saves", slot_name, g_save_extension);
     wiz8::remove_file("Saves\\CurrentGame.SAV");
     (wiz8::copy_file(path, "Saves\\CurrentGame.SAV", wiz8::CopyMode::replace), true);
     if (chunks.OpenRead(const_cast<char*>("Saves\\CurrentGame.SAV")) == 0) {

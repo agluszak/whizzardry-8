@@ -327,7 +327,7 @@ void EndSurprise(void)
     ClearActiveRegionIfMatches(0x137);
     DisableRegionInput(0x137);
 
-    const wchar_t* text;
+    const char* text;
     if (!gXStatus.surprise_unengaged) {
         if (gXStatus.surprise_deadline_turns == 0) {
             text = gppStringList[0x793];

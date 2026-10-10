@@ -1,3 +1,5 @@
+#include "wiz8/unicode.h"
+#include <algorithm>
 #include "wiz8/wiz8_windows.h"
 #include "wiz8/cursor.h"
 #include "Font.h"
@@ -19,7 +21,6 @@
 #include <stddef.h>
 #include <memory>
 #include <string.h>
-#include <wchar.h>
 #include "wiz8/local_screens/OptionsScreen.h"
 
 /*
@@ -46,9 +47,10 @@ struct TEXTINPUTNODE {
     unsigned char ubID;
     unsigned char _padding01;
     short usInputType;
-    unsigned char ubMaxChars;
+    unsigned char ubMaxChars; // capacity in UTF-8 bytes
+    std::size_t max_code_units; // retail name/editor limit
     unsigned char _padding05[3];
-    std::unique_ptr<wchar_t[]> szString;
+    std::unique_ptr<char[]> szString;
     unsigned char ubStrLen;
     // bool-byte-ok: JA2 declares fEnabled as BOOLEAN (UINT8)
     unsigned char fEnabled;
@@ -292,7 +294,7 @@ void KillTextInputMode(void)
 }
 
 // FUNCTION: WIZ8 0x005D39B0
-char AddTextInputField(int left, int top, int width, int height, int priority, const wchar_t* text,
+char AddTextInputField(int left, int top, int width, int height, int priority, const char* text,
                        unsigned char capacity, short input_type,
                        unsigned char use_inactive_text_field_color)
 {
@@ -301,13 +303,15 @@ char AddTextInputField(int left, int top, int width, int height, int priority, c
     field->usInputType = input_type;
     if (input_type == 0x1002)
         capacity = 6;
-    field->szString = std::make_unique<wchar_t[]>(capacity + 1);
+    field->max_code_units = capacity;
+    capacity = static_cast<unsigned char>(std::min<unsigned>(3u * capacity, 255));
+    field->szString = std::make_unique<char[]>(capacity + 1);
     if (text == 0) {
         field->ubStrLen = 0;
-        swprintf(field->szString.get(), &g_empty_wide_string);
+        sprintf(field->szString.get(), &g_empty_text);
     } else {
-        field->ubStrLen = static_cast<unsigned char>(wcslen(text));
-        swprintf(field->szString.get(), text);
+        wiz8::text::copy(field->szString.get(), capacity + 1, text);
+        field->ubStrLen = static_cast<unsigned char>(strlen(field->szString.get()));
     }
     field->ubMaxChars = capacity;
     if (gpTextInputHead == 0) {
@@ -368,21 +372,17 @@ void RemoveTextInputField(int index)
 }
 
 // FUNCTION: WIZ8 0x005D3C10
-void SetInputFieldStringWith16BitString(unsigned char index, wchar_t* text)
+void SetInputFieldText(unsigned char index, char* text)
 {
     TEXTINPUTNODE* field = gpTextInputHead.get();
     while (field != 0) {
         if (field->ubID == index) {
             if (text != 0) {
-                /* Retail 0x005D3C10 stores (unsigned char)wcslen(text) and
-                   calls wcsncpy(szString, text, ubMaxChars) with no separate
-                   max-length assertion or terminator store in this function.
-                   This differs from the SFI source oracle. */
-                field->ubStrLen = static_cast<unsigned char>(wcslen(text));
-                wcsncpy(field->szString.get(), text, field->ubMaxChars);
+                wiz8::text::copy(field->szString.get(), field->ubMaxChars + 1, text);
+                field->ubStrLen = static_cast<unsigned char>(strlen(field->szString.get()));
             } else if (!field->fUserField) {
                 field->ubStrLen = 0;
-                swprintf(field->szString.get(), &g_empty_wide_string);
+                sprintf(field->szString.get(), &g_empty_text);
             }
             gfHiliteMode = false;
             SetTextInputCursor(0);
@@ -401,17 +401,17 @@ short GetActiveTextInputField(void)
 }
 
 // FUNCTION: WIZ8 0x005D3CC0
-void Get16BitStringFromField(unsigned char index, wchar_t* text)
+void GetTextFromField(unsigned char index, std::span<char> text)
 {
     TEXTINPUTNODE* field = gpTextInputHead.get();
     while (field != 0) {
         if (field->ubID == index) {
-            swprintf(text, field->szString.get());
+            wiz8::text::copy(text.data(), text.size(), field->szString.get());
             return;
         }
         field = field->next.get();
     }
-    *text = L'\0';
+    if (!text.empty()) text[0] = '\0';
 }
 
 // FUNCTION: WIZ8 0x005D3D00
@@ -518,7 +518,7 @@ static void DeleteHighlightedText(unsigned char first, unsigned char last)
         last = swap;
     }
     memmove(gpActive->szString.get() + first, gpActive->szString.get() + last,
-            (gpActive->ubStrLen - last + 1) * sizeof(wchar_t));
+            (gpActive->ubStrLen - last + 1) * sizeof(char));
     gpActive->ubStrLen -= last - first;
     gubStartHilite = 0;
     gubEndHilite = 0;
@@ -547,7 +547,7 @@ unsigned int HandleTextInput(const InputAtom* input)
                 gubStartHilite = gubCursorPos;
             }
             if (gubCursorPos != 0) {
-                --gubCursorPos;
+                gubCursorPos = static_cast<unsigned char>(wiz8::text::previous(gpActive->szString.get(), gubCursorPos));
                 gubParkingPos = CalculateCursorPos(
                     gpActive->region.RegionBottomRightX - gpActive->region.RegionTopLeftX - 10,
                     gubCursorPos, gpActive->szString.get(), &gsCursorX, &guiVisibleCount);
@@ -564,7 +564,7 @@ unsigned int HandleTextInput(const InputAtom* input)
             return 1;
         }
         if (gubCursorPos != 0) {
-            --gubCursorPos;
+            gubCursorPos = static_cast<unsigned char>(wiz8::text::previous(gpActive->szString.get(), gubCursorPos));
             gubParkingPos = CalculateCursorPos(
                 gpActive->region.RegionBottomRightX - gpActive->region.RegionTopLeftX - 10,
                 gubCursorPos, gpActive->szString.get(), &gsCursorX, &guiVisibleCount);
@@ -578,7 +578,9 @@ unsigned int HandleTextInput(const InputAtom* input)
                 gubStartHilite = gubCursorPos;
             }
             if (gubCursorPos < gpActive->ubStrLen) {
-                ++gubCursorPos;
+                { std::size_t next = gubCursorPos;
+                wiz8::text::next(gpActive->szString.get(), next);
+                gubCursorPos = static_cast<unsigned char>(next); }
                 gubParkingPos = CalculateCursorPos(
                     gpActive->region.RegionBottomRightX - gpActive->region.RegionTopLeftX - 10,
                     gubCursorPos, gpActive->szString.get(), &gsCursorX, &guiVisibleCount);
@@ -595,7 +597,9 @@ unsigned int HandleTextInput(const InputAtom* input)
             return 1;
         }
         if (gubCursorPos < gpActive->ubStrLen) {
-            ++gubCursorPos;
+            { std::size_t next = gubCursorPos;
+                wiz8::text::next(gpActive->szString.get(), next);
+                gubCursorPos = static_cast<unsigned char>(next); }
             gubParkingPos = CalculateCursorPos(
                 gpActive->region.RegionBottomRightX - gpActive->region.RegionTopLeftX - 10,
                 gubCursorPos, gpActive->szString.get(), &gsCursorX, &guiVisibleCount);
@@ -638,7 +642,7 @@ unsigned int HandleTextInput(const InputAtom* input)
 
     case 0x2e: /* Delete */
         if ((input->usKeyState & CTRL_DOWN) != 0) {
-            gpActive->szString[0] = L'\0';
+            gpActive->szString[0] = '\0';
             gpActive->ubStrLen = 0;
             gubCursorPos = 0;
             gubStartHilite = 0;
@@ -653,12 +657,11 @@ unsigned int HandleTextInput(const InputAtom* input)
                string. The retail's one SetTextInputCursor call in this function
                is on the highlighted path below. */
             if (gubCursorPos < gpActive->ubStrLen) {
-                unsigned char index = gubCursorPos;
-                do {
-                    gpActive->szString[index] = gpActive->szString[index + 1];
-                    ++index;
-                } while (index < gpActive->ubStrLen);
-                --gpActive->ubStrLen;
+                std::size_t end = gubCursorPos;
+                wiz8::text::next(gpActive->szString.get(), end);
+                memmove(gpActive->szString.get() + gubCursorPos, gpActive->szString.get() + end,
+                        gpActive->ubStrLen - end + 1);
+                gpActive->ubStrLen -= end - gubCursorPos;
             }
             return 1;
         }
@@ -671,13 +674,14 @@ unsigned int HandleTextInput(const InputAtom* input)
     case 8:
         if (!gfHiliteMode) {
             if (gubCursorPos != 0) {
-                --gubCursorPos;
+                const auto old_position = gubCursorPos;
+                gubCursorPos = static_cast<unsigned char>(wiz8::text::previous(gpActive->szString.get(), gubCursorPos));
+                memmove(gpActive->szString.get() + gubCursorPos, gpActive->szString.get() + old_position,
+                        gpActive->ubStrLen - old_position + 1);
+                gpActive->ubStrLen -= old_position - gubCursorPos;
                 gubParkingPos = CalculateCursorPos(
                     gpActive->region.RegionBottomRightX - gpActive->region.RegionTopLeftX - 10,
                     gubCursorPos, gpActive->szString.get(), &gsCursorX, &guiVisibleCount);
-                memmove(gpActive->szString.get() + gubCursorPos, gpActive->szString.get() + gubCursorPos + 1,
-                        (gpActive->ubStrLen - gubCursorPos) * sizeof(wchar_t));
-                --gpActive->ubStrLen;
                 return 1;
             }
         } else {
@@ -709,15 +713,15 @@ unsigned int HandleTextInput(const InputAtom* input)
             HandleExclusiveInput(static_cast<unsigned short>(character));
             return 1;
         }
-        if (character == L' ' && (input_type & 4) != 0) {
-            AddChar(L' ');
+        if (character == ' ' && (input_type & 4) != 0) {
+            AddChar(' ');
             return 1;
         }
-        if (character == L'-' && (input_type & 2) != 0 && gubCursorPos == 0) {
-            AddChar(L'-');
+        if (character == '-' && (input_type & 2) != 0 && gubCursorPos == 0) {
+            AddChar('-');
             return 1;
         }
-        if (character >= L'0' && character <= L'9' && (input_type & 1) != 0) {
+        if (character >= '0' && character <= '9' && (input_type & 1) != 0) {
             AddChar(static_cast<unsigned short>(character));
             return 1;
         }
@@ -751,10 +755,10 @@ void HandleExclusiveInput(unsigned short character)
     short input_type = gpActive->usInputType;
     if (input_type == 0x1000) {
         if (IsUppercaseWideChar(character) == 0 && IsLowercaseWideChar(character) == 0 &&
-            (character < L'0' || character > L'9') && character != L'_' && character != L'.') {
+            (character < '0' || character > '9') && character != '_' && character != '.') {
             return;
         }
-        if (gubCursorPos == 0 && character >= L'0' && character <= L'9')
+        if (gubCursorPos == 0 && character >= '0' && character <= '9')
             return;
         AddChar(character);
         return;
@@ -770,47 +774,49 @@ void HandleExclusiveInput(unsigned short character)
             AddChar(static_cast<unsigned short>(ToLowercaseWideChar(character)));
             return;
         }
-        if (character >= L'0' && character <= L'9')
+        if (character >= '0' && character <= '9')
             AddChar(character);
         return;
     }
     if (input_type != 0x1002)
         return;
     if (gubCursorPos == 0) {
-        if (character >= L'0' && character <= L'2')
+        if (character >= '0' && character <= '2')
             AddChar(character);
         return;
     }
     if (gubCursorPos == 1) {
-        if (character >= L'0' && character <= L'9') {
-            if (gpActive->szString[0] != L'2' || character <= L'3')
+        if (character >= '0' && character <= '9') {
+            if (gpActive->szString[0] != '2' || character <= '3')
                 AddChar(character);
         }
-        if (gpActive->szString[2] == L'\0') {
-            AddChar(L':');
+        if (gpActive->szString[2] == '\0') {
+            AddChar(':');
             return;
         }
-        ++gubCursorPos;
+        { std::size_t next = gubCursorPos;
+                wiz8::text::next(gpActive->szString.get(), next);
+                gubCursorPos = static_cast<unsigned char>(next); }
         SetTextInputCursor(gubCursorPos);
         return;
     }
     if (gubCursorPos == 2) {
-        if (character == L':') {
-            AddChar(L':');
+        if (character == ':') {
+            AddChar(':');
             return;
         }
-        if (character < L'0' || character > L'9')
+        if (character < '0' || character > '9')
             return;
-        AddChar(L':');
+        AddChar(':');
         AddChar(character);
         return;
     }
     if (gubCursorPos == 3) {
-        if (character >= L'0' && character <= L'5')
+        if (character >= '0' && character <= '5')
             AddChar(character);
         return;
     }
-    if (gubCursorPos == 4 && character >= L'0' && character <= L'9') {
+    if (gubCursorPos == 4 && character >= '0' && character <= '9') {
         AddChar(character);
     }
 }
@@ -818,26 +824,16 @@ void HandleExclusiveInput(unsigned short character)
 // FUNCTION: WIZ8 0x005D4B70
 void AddChar(unsigned short character)
 {
-    unsigned char length = gpActive->ubStrLen;
-    if (gpActive->ubMaxChars <= length) {
-        gpActive->ubStrLen = gpActive->ubMaxChars;
-        gpActive->szString[gpActive->ubStrLen - 1] = character;
-        gpActive->szString[gpActive->ubStrLen] = L'\0';
-        return;
-    }
-    if (gubCursorPos == length) {
-        gpActive->szString[length] = character;
-        gpActive->szString[length + 1] = L'\0';
-        ++gpActive->ubStrLen;
-        gubCursorPos = gpActive->ubStrLen;
-    } else {
-        for (int position = length + 1; position >= gubCursorPos; --position) {
-            gpActive->szString[position + 1] = gpActive->szString[position];
-        }
-        gpActive->szString[gubCursorPos] = character;
-        ++gpActive->ubStrLen;
-        ++gubCursorPos;
-    }
+    const auto scalar = static_cast<char16_t>(character);
+    const auto bytes = wiz8::text::from_utf16(std::u16string_view(&scalar, 1));
+    const auto length = gpActive->ubStrLen;
+    if (length + bytes.size() > gpActive->ubMaxChars ||
+        wiz8::text::to_utf16(gpActive->szString.get()).size() + 1 > gpActive->max_code_units) return;
+    memmove(gpActive->szString.get() + gubCursorPos + bytes.size(),
+            gpActive->szString.get() + gubCursorPos, length - gubCursorPos + 1);
+    memcpy(gpActive->szString.get() + gubCursorPos, bytes.data(), bytes.size());
+    gpActive->ubStrLen += bytes.size();
+    gubCursorPos += bytes.size();
     gubParkingPos = CalculateCursorPos(
         gpActive->region.RegionBottomRightX - gpActive->region.RegionTopLeftX - 10, gubCursorPos,
         gpActive->szString.get(), &gsCursorX, &guiVisibleCount);
@@ -854,7 +850,9 @@ static unsigned char FindTextInputMousePosition(TEXTINPUTNODE* field, unsigned c
         do {
             if (field->ubStrLen <= position)
                 break;
-            ++position;
+            std::size_t advance = position;
+            wiz8::text::next(field->szString.get(), advance);
+            position = static_cast<unsigned char>(advance);
             ++count;
             width = StringPixLengthArg(pColors->usFont, count, field->szString.get() + start);
             int midpoint = (width - previous_width) / 2 + previous_width;
@@ -966,7 +964,9 @@ void MouseClickedInTextRegionCallback(MOUSE_REGION* region, int reason)
                 int count = 1;
                 int previous_width = width / 2;
                 do {
-                    position = static_cast<unsigned char>(position + 1);
+                    std::size_t advance = position;
+                    wiz8::text::next(field->szString.get(), advance);
+                    position = static_cast<unsigned char>(advance);
                     ++count;
                     width = StringPixLengthArg(pColors->usFont, count, field->szString.get() + start);
                     int midpoint = (width - previous_width) / 2 + previous_width;
@@ -1079,7 +1079,7 @@ void RenderActiveTextField(void)
     if (gfLeftButtonState != 0) {
         if (static_cast<int>(gusMouseXPos) < field->region.RegionTopLeftX) {
             if (gubCursorPos != 0) {
-                --gubCursorPos;
+                gubCursorPos = static_cast<unsigned char>(wiz8::text::previous(gpActive->szString.get(), gubCursorPos));
                 gubParkingPos = CalculateCursorPos(
                     field->region.RegionBottomRightX - field->region.RegionTopLeftX - 10,
                     gubCursorPos, field->szString.get(), &gsCursorX, &guiVisibleCount);
@@ -1088,7 +1088,9 @@ void RenderActiveTextField(void)
                 gubStartHilite = gubVisibleStart;
         } else if (field->region.RegionBottomRightX < static_cast<int>(gusMouseXPos)) {
             if (gubCursorPos < field->ubStrLen) {
-                ++gubCursorPos;
+                { std::size_t next = gubCursorPos;
+                wiz8::text::next(gpActive->szString.get(), next);
+                gubCursorPos = static_cast<unsigned char>(next); }
                 gubParkingPos = CalculateCursorPos(
                     field->region.RegionBottomRightX - field->region.RegionTopLeftX - 10,
                     gubCursorPos, field->szString.get(), &gsCursorX, &guiVisibleCount);
@@ -1105,16 +1107,7 @@ void RenderActiveTextField(void)
         (field->region.RegionBottomRightY - field->region.RegionTopLeftY - font_height) / 2;
     RenderBackgroundField(field);
 
-    wchar_t escaped[256];
-    wchar_t visible[512];
-    int escaped_length = 0;
-    for (const wchar_t* source = field->szString.get(); *source != L'\0'; ++source) {
-        if (*source == L'%')
-            escaped[escaped_length++] = L'%';
-        escaped[escaped_length++] = *source;
-    }
-    escaped[escaped_length] = L'\0';
-    wcscpy(visible, escaped + gubParkingPos);
+    const char* visible = field->szString.get() + gubParkingPos;
 
     bool has_selection = gfHiliteMode && gubStartHilite != gubEndHilite;
     unsigned char selection_first = gubEndHilite;
@@ -1124,8 +1117,8 @@ void RenderActiveTextField(void)
         selection_last = gubEndHilite;
     }
 
-    for (size_t index = 0; index < guiVisibleCount; ++index) {
-        short prefix = StringPixLengthArg(pColors->usFont, index, visible);
+    for (size_t index = 0; index < guiVisibleCount && visible[index];) {
+        short prefix = StringNPixLength(const_cast<char*>(visible), index, pColors->usFont);
         unsigned char background;
         if (has_selection &&
             static_cast<int>(selection_first - gubParkingPos) <= static_cast<int>(index) &&
@@ -1139,13 +1132,12 @@ void RenderActiveTextField(void)
             background = 0;
         }
         SetFontBackground(background);
-        if (visible[index] == L'%') {
-            mprintf(field->region.RegionTopLeftX + prefix + 3,
-                    field->region.RegionTopLeftY + vertical_offset, L"%%");
-        } else {
-            mprintf(field->region.RegionTopLeftX + prefix + 3,
-                    field->region.RegionTopLeftY + vertical_offset, L"%c", visible[index]);
-        }
+        std::size_t end = index;
+        wiz8::text::next(visible, end);
+        const std::string glyph(visible + index, end - index);
+        mprintf(field->region.RegionTopLeftX + prefix + 3,
+                field->region.RegionTopLeftY + vertical_offset, "%s", glyph.c_str());
+        index = end;
     }
 
     if (gfEditingText && field->szString != 0 && gfLeftButtonState == 0 &&
@@ -1182,27 +1174,16 @@ void RenderInactiveTextFieldNode(TEXTINPUTNODE* field)
     SetFontBackground(0);
     RenderBackgroundField(field);
 
-    wchar_t escaped[256];
-    int escaped_length = 0;
-    for (const wchar_t* source = field->szString.get(); *source != L'\0'; ++source) {
-        if (*source == L'%')
-            escaped[escaped_length++] = L'%';
-        escaped[escaped_length++] = *source;
-    }
-    escaped[escaped_length] = L'\0';
-
-    for (size_t index = 0; index < wcslen(escaped); ++index) {
-        short prefix = StringPixLengthArg(pColors->usFont, index, escaped);
-        if (field->region.RegionBottomRightX - field->region.RegionTopLeftX - 10 < prefix + 3) {
-            break;
-        }
-        if (escaped[index] == L'%') {
-            mprintf(field->region.RegionTopLeftX + prefix + 3,
-                    field->region.RegionTopLeftY + vertical_offset, L"%%");
-        } else {
-            mprintf(field->region.RegionTopLeftX + prefix + 3,
-                    field->region.RegionTopLeftY + vertical_offset, L"%c", escaped[index]);
-        }
+    const char* visible = field->szString.get();
+    for (size_t index = 0; visible[index];) {
+        short prefix = StringNPixLength(field->szString.get(), index, pColors->usFont);
+        if (field->region.RegionBottomRightX - field->region.RegionTopLeftX - 10 < prefix + 3) break;
+        std::size_t end = index;
+        wiz8::text::next(visible, end);
+        const std::string glyph(visible + index, end - index);
+        mprintf(field->region.RegionTopLeftX + prefix + 3,
+                field->region.RegionTopLeftY + vertical_offset, "%s", glyph.c_str());
+        index = end;
     }
     RestoreFontSettings();
 
@@ -1243,35 +1224,37 @@ bool EditingText(void)
 }
 
 // FUNCTION: WIZ8 0x005D5A10
-unsigned int CalculateCursorPos(int width, int cursor, const wchar_t* text, int* cursor_width,
+unsigned int CalculateCursorPos(int width, int cursor, const char* text, int* cursor_width,
                                 size_t* visible_count)
 {
-    wchar_t buffer[512];
+    char buffer[3 * (512) + 1];
     if (cursor < gubVisibleStart)
         gubVisibleStart = static_cast<unsigned char>(cursor);
 
     unsigned int start = gubVisibleStart;
-    wcscpy(buffer, text + start);
-    buffer[cursor - start] = L'\0';
+    strcpy(buffer, text + start);
+    buffer[cursor - start] = '\0';
     int measured = StringPixLength(buffer, pColors->usFont);
-    size_t count = wcslen(buffer);
+    size_t count = strlen(buffer);
     unsigned char retained_start;
 
     if (width < measured) {
-        wchar_t* suffix = buffer;
+        char* suffix = buffer;
         do {
-            ++suffix;
-            ++start;
+            std::size_t advance = 0;
+            wiz8::text::next(suffix, advance);
+            suffix += advance;
+            start += advance;
             measured = StringPixLength(suffix, pColors->usFont);
         } while (width < measured);
         retained_start = static_cast<unsigned char>(start);
 
         if (gubVisibleStart < start) {
-            wcscpy(buffer, text + start);
-            size_t length = wcslen(buffer);
+            strcpy(buffer, text + start);
+            size_t length = strlen(buffer);
             count = length;
-            for (size_t index = 0; index < wcslen(buffer); ++index) {
-                short prefix = StringPixLengthArg(pColors->usFont, index, buffer);
+            for (size_t index = 0; index < strlen(buffer); wiz8::text::next(buffer, index)) {
+                short prefix = StringNPixLength(buffer, index, pColors->usFont);
                 count = index;
                 if (width < prefix + 3)
                     break;
@@ -1279,12 +1262,12 @@ unsigned int CalculateCursorPos(int width, int cursor, const wchar_t* text, int*
             }
         }
     } else {
-        wcscpy(buffer, text + start);
-        size_t length = wcslen(buffer);
+        strcpy(buffer, text + start);
+        size_t length = strlen(buffer);
         count = length;
         retained_start = gubVisibleStart;
-        for (size_t index = 0; index < wcslen(buffer); ++index) {
-            short prefix = StringPixLengthArg(pColors->usFont, index, buffer);
+        for (size_t index = 0; index < strlen(buffer); wiz8::text::next(buffer, index)) {
+            short prefix = StringNPixLength(buffer, index, pColors->usFont);
             retained_start = gubVisibleStart;
             count = index;
             if (width < prefix + 3)
@@ -1302,6 +1285,7 @@ unsigned int CalculateCursorPos(int width, int cursor, const wchar_t* text, int*
 // FUNCTION: WIZ8 0x005D5BF0
 void SetTextInputCursor(unsigned char cursor)
 {
+    if (gpActive) cursor = static_cast<unsigned char>(wiz8::text::prefix(gpActive->szString.get(), cursor));
     gubCursorPos = cursor;
     if (gpActive != 0) {
         gubParkingPos = CalculateCursorPos(
@@ -1322,14 +1306,14 @@ void SelectAllText(void)
         position = FindTextInputMousePosition(field, position, mouse_offset);
     }
 
-    if (field->szString[position] == L' ')
+    if (field->szString[position] == ' ')
         return;
     unsigned char first = 0;
     if (position != 0) {
         unsigned int scan = position;
-        const wchar_t* character = field->szString.get() + position;
+        const char* character = field->szString.get() + position;
         do {
-            if (*character == L' ') {
+            if (*character == ' ') {
                 first = static_cast<unsigned char>(scan + 1);
                 break;
             }
@@ -1338,9 +1322,9 @@ void SelectAllText(void)
         } while (scan != 0);
     }
 
-    unsigned char last = static_cast<unsigned char>(wcslen(field->szString.get()));
-    for (unsigned int scan = position + 1; scan < wcslen(field->szString.get()); ++scan) {
-        if (field->szString[scan] == L' ') {
+    unsigned char last = static_cast<unsigned char>(strlen(field->szString.get()));
+    for (unsigned int scan = position + 1; scan < strlen(field->szString.get()); ++scan) {
+        if (field->szString[scan] == ' ') {
             last = static_cast<unsigned char>(scan);
             break;
         }

@@ -117,7 +117,7 @@ void ResolveMonsterGroupAttack(int special_attack_kind, W8TargetSource* pSource,
     unsigned int uiDamage;
     int extra;
     bool resolved;
-    wchar_t* text;
+    char* text;
 
     announce = static_cast<char>(g_settings.verbose_combat_messages);
     if (pSource->iType == W8_TARGET_SOURCE_CHARACTER) {
@@ -402,31 +402,31 @@ void ResolveMonsterGroupAttack(int special_attack_kind, W8TargetSource* pSource,
                         continue;
                     }
                     if (i == 1 && uiHits[0] != 0) {
-                        AppendToLastTextLine(L",", -1);
+                        AppendToLastTextLine(",", -1);
                     }
                     switch (g_special_attack_table[special_attack_kind][i]) {
                     case 1:
-                        text = FormatWideString(
-                            L"%ld %s", uiHits[i],
+                        text = FormatText(
+                            "%d %s", uiHits[i],
                             gppStringList[g_condition_notices[g_special_attack_condition_table
                                                                   [special_attack_kind][i]]
                                               .plural],
                             -1);
                         break;
                     case 2:
-                        text = FormatWideString(gppStringList[0x1c1], uiHits[i],
+                        text = FormatText(gppStringList[0x1c1], uiHits[i],
                                                 uiTotals[i] / uiHits[i], -1);
                         break;
                     case 3:
-                        text = FormatWideString(gppStringList[0x1c2], uiHits[i],
+                        text = FormatText(gppStringList[0x1c2], uiHits[i],
                                                 uiTotals[i] / uiHits[i], -1);
                         break;
                     case 4:
-                        text = FormatWideString(gppStringList[0x1c3], uiHits[i],
+                        text = FormatText(gppStringList[0x1c3], uiHits[i],
                                                 uiTotals[i] / uiHits[i], -1);
                         break;
                     case 5:
-                        text = FormatWideString(gppStringList[0x199], uiHits[i],
+                        text = FormatText(gppStringList[0x199], uiHits[i],
                                                 uiTotals[i] / uiHits[i], -1);
                         break;
                     default:

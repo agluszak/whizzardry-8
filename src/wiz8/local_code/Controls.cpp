@@ -20,7 +20,6 @@
 #include "input.h"
 #include "vsurface.h"
 
-#include <wchar.h>
 
 /* Original Local Code\Controls.cpp translation unit. Keep these implementations
    together and preserve their order. Retail assertions identify m_uiRegionSetId
@@ -28,7 +27,7 @@
 #define REGSET_NULL 0
 
 // GLOBAL: WIZ8 0x00617C90
-wchar_t g_W8LineBreakCharacters[] = L"\n";
+char g_W8LineBreakCharacters[] = "\n";
 
 // GLOBAL: WIZ8 0x005ED548
 extern const unsigned int g_W8TextBufferAlignLeft = 0x01;
@@ -105,11 +104,11 @@ Controls::~Controls() {}
 
 /* 0x00562A50 takes the redraw-request mask the panel raises. */
 // GLOBAL: WIZ8 0x0060CC74
-wchar_t g_W8TextSeparator[] = L" ";
+char g_W8TextSeparator[] = " ";
 // GLOBAL: WIZ8 0x00617C88
 /* Newlines are hard breaks: text can carry them, and a previous layout pass
    leaves its own wraps in the buffer. Measuring one as a glyph is an error. */
-static wchar_t g_W8TextBreakCharacters[] = L" \n";
+static char g_W8TextBreakCharacters[] = " \n";
 
 // GLOBAL: WIZ8 0x005ebb38
 const float g_float_one = 1.0f;
@@ -340,7 +339,7 @@ void W8Widget::SetRegion(unsigned int region)
 /*
  * The class at vtable 0x005ED5B8. It owns a wide-string buffer at +0x34, which
  * is the one field the encodings name for themselves: the destructor frees it
- * and 0x004F33A0 fills it with wcscpy. Everything else the constructor touches
+ * and 0x004F33A0 fills it with strcpy. Everything else the constructor touches
  * is positional.
  */
 
@@ -377,14 +376,14 @@ W8TextBuffer::W8TextBuffer()
 }
 
 // FUNCTION: WIZ8 0x004f34d0
-void W8TextBuffer::SetText(const wchar_t* text, int font)
+void W8TextBuffer::SetText(const char* text, int font)
 {
     m_font = font;
     m_lineCount = 0;
     delete[] m_buffer;
     if (text != 0) {
-        m_buffer = new wchar_t[wcslen(text) + 1];
-        wcscpy(m_buffer, text);
+        m_buffer = new char[strlen(text) + 1];
+        strcpy(m_buffer, text);
         UpdateLayout();
         m_geometryDirty = true;
         return;
@@ -394,7 +393,7 @@ void W8TextBuffer::SetText(const wchar_t* text, int font)
 }
 
 // FUNCTION: WIZ8 0x004f33a0
-W8TextBuffer::W8TextBuffer(const W8ControlsRect* bounds, const wchar_t* text, int font,
+W8TextBuffer::W8TextBuffer(const W8ControlsRect* bounds, const char* text, int font,
                            unsigned int layout_mode, int render_mode)
 {
     m_buffer = 0;
@@ -443,19 +442,19 @@ void W8TextBuffer::SetLayoutBounds(const W8ControlsRect* bounds, bool copy_pendi
 void W8TextBuffer::UpdateLayout()
 {
     unsigned int available_width = m_layoutBounds.right - m_layoutBounds.left;
-    wchar_t* line = m_buffer;
+    char* line = m_buffer;
     unsigned int accumulated_width = 0;
-    wchar_t* previous_break = 0;
-    short separator_width = StringPixLength(const_cast<wchar_t*>(g_W8TextSeparator), m_font);
+    char* previous_break = 0;
+    short separator_width = StringPixLength(const_cast<char*>(g_W8TextSeparator), m_font);
 
     m_lineCount = 1;
     if ((m_layoutMode & 0x40) == 0) {
         m_maxLineWidth = 0;
-        size_t span = wcscspn(line, g_W8TextBreakCharacters);
-        wchar_t* break_at = line + span;
-        while (*break_at != L'\0') {
-            const wchar_t separator = *break_at;
-            *break_at = L'\0';
+        size_t span = strcspn(line, g_W8TextBreakCharacters);
+        char* break_at = line + span;
+        while (*break_at != '\0') {
+            const char separator = *break_at;
+            *break_at = '\0';
             short word_width = StringPixLength(line, m_font);
             if (static_cast<unsigned int>(static_cast<int>(word_width) + accumulated_width) <
                 available_width) {
@@ -464,7 +463,7 @@ void W8TextBuffer::UpdateLayout()
                 previous_break = break_at;
             } else {
                 if (previous_break != 0) {
-                    *previous_break = L'\n';
+                    *previous_break = '\n';
                 }
                 unsigned int completed_width =
                     accumulated_width - static_cast<int>(separator_width);
@@ -476,7 +475,7 @@ void W8TextBuffer::UpdateLayout()
                 previous_break = 0;
                 ++m_lineCount;
             }
-            if (separator == L'\n') {
+            if (separator == '\n') {
                 unsigned int completed_width =
                     accumulated_width - static_cast<int>(separator_width);
                 if (m_maxLineWidth < completed_width) {
@@ -488,14 +487,14 @@ void W8TextBuffer::UpdateLayout()
             }
             line += span + 1;
             *break_at = separator;
-            span = wcscspn(line, g_W8TextBreakCharacters);
+            span = strcspn(line, g_W8TextBreakCharacters);
             break_at = line + span;
         }
         short final_width = StringPixLength(line, m_font);
         unsigned int total_width = static_cast<int>(final_width) + accumulated_width;
         if (available_width <= total_width) {
             if (previous_break != 0) {
-                *previous_break = L'\n';
+                *previous_break = '\n';
             }
             if (m_maxLineWidth < accumulated_width) {
                 m_maxLineWidth = accumulated_width;
@@ -508,7 +507,7 @@ void W8TextBuffer::UpdateLayout()
         }
         return;
     }
-    m_maxLineWidth = wcslen(m_buffer);
+    m_maxLineWidth = strlen(m_buffer);
 }
 
 /* Resolves one measured line against the horizontal alignment flags. */
@@ -588,7 +587,7 @@ void W8TextBuffer::FillBounds(int colour)
 void W8TextBuffer::RenderText(unsigned char* buffer, unsigned int pitch, int x_offset, int y_offset,
                               bool force)
 {
-    wchar_t* line = m_buffer;
+    char* line = m_buffer;
     if (line == 0 || (!force && !m_geometryDirty)) {
         return;
     }
@@ -608,30 +607,30 @@ void W8TextBuffer::RenderText(unsigned char* buffer, unsigned int pitch, int x_o
                       m_pendingBounds.right, m_pendingBounds.bottom, FontDestWrap);
 
     int y = GetVerticalPosition();
-    size_t span = wcscspn(line, g_W8LineBreakCharacters);
-    while (line[span] != L'\0') {
-        line[span] = L'\0';
+    size_t span = strcspn(line, g_W8LineBreakCharacters);
+    while (line[span] != '\0') {
+        line[span] = '\0';
         int x = GetHorizontalPosition(StringPixLength(line, m_font));
         if (m_alternateRenderer == 0) {
-            gprintf_buffer(buffer, pitch, m_font, x + x_offset, y + y_offset, L"%s", line);
+            gprintf_buffer(buffer, pitch, m_font, x + x_offset, y + y_offset, "%s", line);
         } else {
-            mprintf_buffer(buffer, pitch, m_font, x + x_offset, y + y_offset, L"%s", line);
+            mprintf_buffer(buffer, pitch, m_font, x + x_offset, y + y_offset, "%s", line);
         }
         y += GetLineHeight();
-        line[span] = L'\n';
+        line[span] = '\n';
         if (m_layoutBounds.bottom <= y) {
             goto done;
         }
         line += span + 1;
-        span = wcscspn(line, g_W8LineBreakCharacters);
+        span = strcspn(line, g_W8LineBreakCharacters);
     }
 
     {
         int x = GetHorizontalPosition(StringPixLength(line, m_font));
         if (m_alternateRenderer == 0) {
-            gprintf_buffer(buffer, pitch, m_font, x + x_offset, y + y_offset, L"%s", line);
+            gprintf_buffer(buffer, pitch, m_font, x + x_offset, y + y_offset, "%s", line);
         } else {
-            mprintf_buffer(buffer, pitch, m_font, x + x_offset, y + y_offset, L"%s", line);
+            mprintf_buffer(buffer, pitch, m_font, x + x_offset, y + y_offset, "%s", line);
         }
     }
 
@@ -647,7 +646,7 @@ done:
 // FUNCTION: WIZ8 0x004f39b0
 void W8TextBuffer::RenderToTarget(int offset, bool force, unsigned int target)
 {
-    wchar_t* line = m_buffer;
+    char* line = m_buffer;
     if (line == 0 || (!force && !m_geometryDirty)) {
         return;
     }
@@ -669,23 +668,23 @@ void W8TextBuffer::RenderToTarget(int offset, bool force, unsigned int target)
     }
 
     int y = GetVerticalPosition();
-    size_t span = wcscspn(line, g_W8LineBreakCharacters);
-    while (line[span] != L'\0') {
-        line[span] = L'\0';
+    size_t span = strcspn(line, g_W8LineBreakCharacters);
+    while (line[span] != '\0') {
+        line[span] = '\0';
         int x = GetHorizontalPosition(StringPixLength(line, m_font));
-        gprintf(x + offset, y + offset, L"%s", line);
+        gprintf(x + offset, y + offset, "%s", line);
         y += GetLineHeight();
-        line[span] = L'\n';
+        line[span] = '\n';
         if (m_layoutBounds.bottom <= y) {
             goto done;
         }
         line += span + 1;
-        span = wcscspn(line, g_W8LineBreakCharacters);
+        span = strcspn(line, g_W8LineBreakCharacters);
     }
 
     {
         int x = GetHorizontalPosition(StringPixLength(line, m_font));
-        gprintf(x + offset, y + offset, L"%s", line);
+        gprintf(x + offset, y + offset, "%s", line);
     }
 
 done:
@@ -699,9 +698,9 @@ done:
 /* Copies the owned text into caller storage. The caller supplies the capacity;
    the canonical method performs the same unbounded wide-string copy. */
 // FUNCTION: WIZ8 0x004f3990
-void W8TextBuffer::CopyTextTo(wchar_t* destination)
+void W8TextBuffer::CopyTextTo(char* destination)
 {
-    wcscpy(destination, m_buffer);
+    strcpy(destination, m_buffer);
 }
 
 /* Returns the cached line height, falling back to the active font's 16-bit
@@ -1322,7 +1321,7 @@ W8HelpTextControl::W8HelpTextControl(Controls* panel, unsigned int region, int l
                                      int right, int bottom)
     : W8TextControl(panel, region, left, top, right, bottom, -1, -1, -1, -1, -1, -1, -1)
 {
-    wcscpy(m_regionHelp, &g_empty_wide_string);
+    strcpy(m_regionHelp, &g_empty_text);
 }
 
 class W8RangeControl;
@@ -1684,10 +1683,10 @@ void W8RangeButton::AdjustValue(int steps)
 }
 
 // FUNCTION: WIZ8 0x004f6680
-void W8HelpTextControl::SetRegionHelp(const wchar_t* text)
+void W8HelpTextControl::SetRegionHelp(const char* text)
 {
-    if (wcslen(text) < 200) {
-        wcscpy(m_regionHelp, text);
+    if (strlen(text) < 200) {
+        strcpy(m_regionHelp, text);
     }
 }
 
@@ -1696,7 +1695,7 @@ void W8HelpTextControl::OnMouseEnter(int event)
 {
     PushButtonSoundScheme(0, true);
     W8TextControl::OnMouseEnter(event);
-    if (wcslen(m_regionHelp) > 1 && m_region != -1) {
+    if (strlen(m_regionHelp) > 1 && m_region != -1) {
         ::SetRegionHelpText(m_regionHelp);
         ::EnableRegionHelp(m_region);
         return;

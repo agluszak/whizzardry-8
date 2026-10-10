@@ -16,7 +16,7 @@
 unsigned int g_dialog_text_layout_mask = g_W8TextBufferNoWrap;
 
 // FUNCTION: WIZ8 0x005d1050
-W8DialogTextEntry::W8DialogTextEntry(const wchar_t* prefix, const wchar_t* text,
+W8DialogTextEntry::W8DialogTextEntry(const char* prefix, const char* text,
                                      unsigned int prefix_palette, unsigned int text_palette,
                                      const W8ControlsRect* bounds, int font, unsigned char category,
                                      unsigned int layout_mode, unsigned char shorten)
@@ -33,26 +33,26 @@ W8DialogTextEntry::W8DialogTextEntry(const wchar_t* prefix, const wchar_t* text,
     SetLayoutBounds(bounds, true, true);
     SetLayoutMode(layout_mode);
     m_shorten_mask = shorten;
-    m_prefix_length = prefix ? wcslen(prefix) + 2 : 0;
-    m_buffer = new wchar_t[wcslen(text) + m_prefix_length + 1];
+    m_prefix_length = prefix ? strlen(prefix) + 2 : 0;
+    m_buffer = new char[strlen(text) + m_prefix_length + 1];
     if (m_prefix_length != 0) {
-        wcscpy(m_buffer, prefix);
-        wcscat(m_buffer, L": ");
+        strcpy(m_buffer, prefix);
+        strcat(m_buffer, ": ");
     } else {
-        wcscpy(m_buffer, &g_empty_wide_string);
+        strcpy(m_buffer, &g_empty_text);
     }
-    wcscat(m_buffer, text);
+    strcat(m_buffer, text);
     UpdateLayout();
 }
 
-int W8DialogTextEntry::DrawLine(wchar_t* line, size_t span, int prefix_remaining, int y)
+int W8DialogTextEntry::DrawLine(char* line, size_t span, int prefix_remaining, int y)
 {
     int x = GetHorizontalPosition(StringPixLength(line, m_font));
     if (prefix_remaining > 0) {
         if (prefix_remaining < static_cast<int>(span)) {
-            wchar_t saved = line[prefix_remaining];
-            line[prefix_remaining] = L'\0';
-            gprintf(x, y, L"%s", line);
+            char saved = line[prefix_remaining];
+            line[prefix_remaining] = '\0';
+            gprintf(x, y, "%s", line);
             x += StringPixLength(line, m_font);
             line[prefix_remaining] = saved;
             if (!m_selected) {
@@ -65,7 +65,7 @@ int W8DialogTextEntry::DrawLine(wchar_t* line, size_t span, int prefix_remaining
         }
         prefix_remaining -= span;
     }
-    gprintf(x, y, L"%s", line);
+    gprintf(x, y, "%s", line);
     return prefix_remaining;
 }
 
@@ -77,8 +77,8 @@ void W8DialogTextEntry::Draw(bool force)
     if (m_buffer == 0 || (!force && !m_geometryDirty)) {
         return;
     }
-    wchar_t* copy = new wchar_t[wcslen(m_buffer) + 5];
-    wcscpy(copy, m_buffer);
+    char* copy = new char[strlen(m_buffer) + 5];
+    strcpy(copy, m_buffer);
     if (m_shorten_mask) {
         ShortenTextToWidth(copy, m_buffer, width - 5, m_font);
     }
@@ -104,18 +104,18 @@ void W8DialogTextEntry::Draw(bool force)
     SetFontDestBuffer(FRAME_BUFFER, m_pendingBounds.left, m_pendingBounds.top,
                       m_pendingBounds.right, m_pendingBounds.bottom, 0);
     int y = GetVerticalPosition();
-    wchar_t* line = copy;
-    size_t span = wcscspn(line, g_W8LineBreakCharacters);
-    while (line[span] != L'\0') {
-        line[span] = L'\0';
+    char* line = copy;
+    size_t span = strcspn(line, g_W8LineBreakCharacters);
+    while (line[span] != '\0') {
+        line[span] = '\0';
         prefix_remaining = DrawLine(line, span, prefix_remaining, y);
         y += GetLineHeight();
-        line[span] = L'\n';
+        line[span] = '\n';
         if (m_layoutBounds.bottom <= y) {
             goto done;
         }
         line += span + 1;
-        span = wcscspn(line, g_W8LineBreakCharacters);
+        span = strcspn(line, g_W8LineBreakCharacters);
     }
     DrawLine(line, span, prefix_remaining, y);
 done:

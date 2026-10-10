@@ -74,7 +74,6 @@
 
 #include <stdio.h>
 #include <stdlib.h>
-#include <wchar.h>
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/local_screens/OptionsScreen.h"
 #include "wiz8/local_screens/PartySelectionScreen.h"
@@ -146,7 +145,7 @@ unsigned int g_event_range_min = g_first_remapped_event + 21;
    message reader admits at most 0x7D0 code units, so the buffer holds exactly
    the two thousand characters that reach the next global at 0x0068D520. */
 // GLOBAL: WIZ8 0x0068C580
-static wchar_t g_character_text[2000];
+static char g_character_text[3 * (2000) + 1];
 /* The quote file-name stem per personality, a twenty-byte fixed
    buffer each. The nine personas end exactly at the next global; the quote
    lookup composes Data\Quotes\PCs\<m|f>_<stem><1|2>0.MSG from them. */
@@ -425,7 +424,7 @@ bool FormatCharacterQuoteText(W8Character* character, unsigned int event_type,
                               unsigned int* metadata)
 {
     char path[80];
-    wchar_t text[500];
+    char text[3 * (500) + 1];
     int npc_index;
     bool has_npc;
 
@@ -445,7 +444,7 @@ bool FormatCharacterQuoteText(W8Character* character, unsigned int event_type,
     if (!has_npc) {
         char gender_code =
             static_cast<char>(((character->gender != W8_GENDER_MALE) - 1U & 7) + 0x66);
-        sprintf(path, "Data\\Quotes\\PCs\\%c_%s%d0.MSG", gender_code,
+        snprintf(path, sizeof(path), "Data\\Quotes\\PCs\\%c_%s%d0.MSG", gender_code,
                 g_quote_personality_names[character->personality], (character->voice != 0) + 1);
         if (![&]() { const auto status = wiz8::file_status(path); return status && status->info.type == SDL_PATHTYPE_FILE; }()) {
             g_character_text[0] = 0;
@@ -453,8 +452,8 @@ bool FormatCharacterQuoteText(W8Character* character, unsigned int event_type,
         }
         GetStringFromStringDatabase(path, event_type, g_character_text, 0, metadata);
         /* Retail does not test the reader result or length before storing
-           zero at buffer[wcslen(buffer) - 1]. */
-        g_character_text[wcslen(g_character_text) - 1] = 0;
+           zero at buffer[strlen(buffer) - 1]. */
+        g_character_text[strlen(g_character_text) - 1] = 0;
     } else {
         W8NpcState* npc = GetNpcState(npc_index);
         if (GetNpcQuoteText(npc, event_type, g_character_text) == 0) {
@@ -463,18 +462,18 @@ bool FormatCharacterQuoteText(W8Character* character, unsigned int event_type,
         }
     }
 
-    if (wcslen(g_character_text) == 0) {
+    if (strlen(g_character_text) == 0) {
         return false;
     }
-    swprintf(text, L"\"%s\"", g_character_text);
-    wcscpy(g_character_text, text);
+    snprintf(text, sizeof(text), "\"%s\"", g_character_text);
+    strcpy(g_character_text, text);
     return true;
 }
 
 /* The quote text builder fills the shared wide buffer; the final character
    page's description area displays it. */
 // FUNCTION: WIZ8 0x0052D240
-wchar_t* W8CharacterEvent::GetQuoteText()
+char* W8CharacterEvent::GetQuoteText()
 {
     FormatCharacterQuoteText(character, event_type, 0);
     return g_character_text;
@@ -692,7 +691,7 @@ static bool CanDispatchCharacterEvent(unsigned int party_slot, unsigned int even
 
 /* What a character says in place of a missing voice sample. */
 // STRING: WIZ8 0x0061cae4
-#define FALLBACK_VOICE_TEXT L"Ouch play this sound."
+#define FALLBACK_VOICE_TEXT "Ouch play this sound."
 
 // FUNCTION: WIZ8 0x0052D260
 unsigned char W8CharacterEvent::PlayEventSound()
@@ -717,15 +716,15 @@ unsigned char W8CharacterEvent::PlayEventSound()
         g_current_screen_state.id == W8_SCREEN_CHARACTER) {
         char gender_code =
             static_cast<char>(((character->gender != W8_GENDER_MALE) - 1U & 7) + 0x66);
-        sprintf(voice_stem, "%c_%s%d0", gender_code,
+        snprintf(voice_stem, sizeof(voice_stem), "%c_%s%d0", gender_code,
                 g_quote_personality_names[character->personality], character->voice + 1);
-        sprintf(sound_path, "Data\\Sound\\PCs\\%s\\%s_%03d.wav", voice_stem, voice_stem,
+        snprintf(sound_path, sizeof(sound_path), "Data\\Sound\\PCs\\%s\\%s_%03d.wav", voice_stem, voice_stem,
                 sound_event);
     } else {
         npc = GetNpcState(npc_index);
         if (npc != 0) {
             FormatNpcVoiceSoundPath(npc, npc_sound_name);
-            sprintf(sound_path, "Data\\Sound\\PCs\\%s\\%s_%03d.wav", npc_sound_name, npc_sound_name,
+            snprintf(sound_path, sizeof(sound_path), "Data\\Sound\\PCs\\%s\\%s_%03d.wav", npc_sound_name, npc_sound_name,
                     sound_event);
         }
     }
@@ -738,7 +737,7 @@ unsigned char W8CharacterEvent::PlayEventSound()
     record->voice_sound_handle = sound_handle;
     if (sound_handle == SOUND_ERROR) {
         if (event_type > 0x91) {
-            wchar_t fallback_text[] = FALLBACK_VOICE_TEXT;
+            char fallback_text[] = FALLBACK_VOICE_TEXT;
             record->voice_time_remaining_ms = ComputePortraitMessageDuration(fallback_text);
         } else {
             record->voice_time_remaining_ms = ComputePortraitMessageDuration(g_character_text);
@@ -870,7 +869,7 @@ finish_without_dispatch:
    laying out the quote bubble and posting subtitle notices when one ends. */
 // FUNCTION: WIZ8 0x0052F890
 void SetPartyPortraitEventState(unsigned int party_slot, bool active, unsigned int event_type,
-                                const wchar_t* quote_text, int show_quote)
+                                const char* quote_text, int show_quote)
 {
     W8MonsterManagerEntry* record = &gXStatus.monster_manager_entries[party_slot];
     W8PortraitQuoteState* quote = &record->quote;
@@ -904,9 +903,9 @@ void SetPartyPortraitEventState(unsigned int party_slot, bool active, unsigned i
         unsigned int mapped_event = stored_event;
         if (static_cast<int>(g_normal_event_count) < static_cast<int>(mapped_event)) {
         show_deactivate_quote:
-            wchar_t formatted[100];
-            const wchar_t* character_name = g_status.buffers.Char[party_slot].name;
-            swprintf(formatted, L"%s", character_name);
+            char formatted[3 * (100) + 1];
+            const char* character_name = g_status.buffers.Char[party_slot].name;
+            snprintf(formatted, sizeof(formatted), "%s", character_name);
             int scroll_range = GetTextBoxScrollRange();
             ShowNotice(W8_FONT_PALETTE_GREEN, formatted, 3, scroll_range);
             /* Retail 0x0052fc82..0x0052fc9b: the quote line follows the

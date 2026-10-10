@@ -32,7 +32,7 @@ union W8MessageBoxPayload {
     /* Owned wide text (delete[]) for the PORTRAIT_*, SKILL_NOTICES and
        LEVEL_UP kinds. FINISH_ACTION and RESET_LEVEL_STATE use argument
        as their zero/nonzero flag. */
-    wchar_t* text;
+    char* text;
     W8ItemInstance* item;                  /* payload: REMOVE_SCRIPT_ITEM */
     int argument;                          /* payload: QueueNpcMessageLine tag */
     W8SkillNoticePayload* skill_notices;   /* extra: SKILL_NOTICES; delete */

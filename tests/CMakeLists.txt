@@ -52,9 +52,9 @@ add_executable(native_surrender_test native/surrender_test.cpp)
 target_link_libraries(native_surrender_test PRIVATE SURRENDER wiz8_native_settings)
 add_test(NAME native_surrender COMMAND native_surrender_test)
 
-add_executable(native_crt_test "${PROJECT_SOURCE_DIR}/tests/native/crt_test.cpp")
-target_link_libraries(native_crt_test PRIVATE wiz8_native_settings)
-add_test(NAME native_crt COMMAND native_crt_test)
+add_executable(native_unicode_test "${PROJECT_SOURCE_DIR}/tests/native/unicode_test.cpp")
+target_link_libraries(native_unicode_test PRIVATE wiz8_native_settings)
+add_test(NAME native_unicode COMMAND native_unicode_test)
 
 add_executable(native_pointer_test "${PROJECT_SOURCE_DIR}/tests/native/pointer_test.cpp")
 target_link_libraries(native_pointer_test PRIVATE wiz8_native_settings)
@@ -122,7 +122,7 @@ add_test(NAME native_blitters COMMAND native_blitter_test
 if(UNIX)
     add_test(NAME native_no_glibc_wide_strings
         COMMAND "${CMAKE_COMMAND}" "-DNM=${CMAKE_NM}"
-            "-DOBJECT_DIRS=${PROJECT_BINARY_DIR}/CMakeFiles/wiz8_compat.dir;${PROJECT_BINARY_DIR}/src/surrender/CMakeFiles/SURRENDER.dir;${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/native_crt_test.dir"
+            "-DOBJECT_DIRS=${PROJECT_BINARY_DIR}/CMakeFiles/wiz8_compat.dir;${PROJECT_BINARY_DIR}/src/surrender/CMakeFiles/SURRENDER.dir;${PROJECT_BINARY_DIR}/src/sgp/CMakeFiles/WIZ8_SGP.dir;${PROJECT_BINARY_DIR}/src/wiz8/CMakeFiles/WIZ8_GAME_CORE.dir"
             -P "${CMAKE_CURRENT_SOURCE_DIR}/no_host_wide_strings.cmake")
 endif()
 
@@ -173,11 +173,11 @@ target_link_libraries(native_world_graphics PRIVATE WIZ8_GAME_CORE SDL3::SDL3)
 
 # Scenarios through the real game loop against installed retail assets
 # (WIZ8_ASSET_ROOT); skipped when it is unset. bink_video.cpp is recompiled
-# with WIZ8_RUNTIME_TESTS (as is native_crt.cpp, the game clock) so their test
+# with WIZ8_RUNTIME_TESTS (as is native_helpers.cpp, the game clock) so their test
 # hooks replace the archives' objects.
 add_executable(native_runtime_test runtime/runtime_test.cpp
     "${PROJECT_SOURCE_DIR}/src/native/bink_video.cpp"
-    "${PROJECT_SOURCE_DIR}/src/compat/native_crt.cpp")
+    "${PROJECT_SOURCE_DIR}/src/compat/native_helpers.cpp")
 target_compile_definitions(native_runtime_test PRIVATE WIZ8_RUNTIME_TESTS=1)
 target_include_directories(native_runtime_test PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/native")
 target_link_libraries(native_runtime_test PRIVATE WIZ8_GAME_CORE SDL3::SDL3)

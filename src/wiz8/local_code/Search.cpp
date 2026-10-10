@@ -248,8 +248,8 @@ void RunSearchPulse(void)
                                         folder = "Test";
                                     }
                                     char path[512];
-                                    sprintf(path, "Data\\Messages\\%s.msg", folder);
-                                    wchar_t text[0x7ce];
+                                    snprintf(path, sizeof(path), "Data\\Messages\\%s.msg", folder);
+                                    char text[3 * (0x7ce) + 1];
                                     if (GetStringFromStringDatabase(path, message, text, 0, 0) !=
                                         0) {
                                         ShowString(text);

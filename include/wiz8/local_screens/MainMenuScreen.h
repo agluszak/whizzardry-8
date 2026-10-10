@@ -12,10 +12,10 @@ extern bool g_main_menu_overlay_enabled;
 extern unsigned int g_main_menu_overlay_surface;
 extern unsigned int g_main_menu_hover_region;
 extern W8MessageDialogBase* g_main_menu_dialog;
-extern wchar_t* g_pending_main_menu_message;
+extern char* g_pending_main_menu_message;
 
 unsigned char DrawMainMenuItem(short item, short state);
-void SetMainMenuMessage(const wchar_t* message);
+void SetMainMenuMessage(const char* message);
 unsigned char MainMenuIntroduction(const InputAtom* event, W8Region* region);
 unsigned char MainMenuNewGame(const InputAtom* event, W8Region* region);
 unsigned char MainMenuLoadGame(const InputAtom* event, W8Region* region);

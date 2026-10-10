@@ -87,7 +87,7 @@ extern unsigned int g_current_region_index;
 extern unsigned int g_captured_region_index;
 extern unsigned int g_hover_region_index;
 extern bool g_region_help_force_enabled;
-extern wchar_t* g_default_help_text;
+extern char* g_default_help_text;
 
 unsigned int GetForcedRegion(void);
 void ReleaseDefaultHelpText(void);
@@ -113,7 +113,7 @@ void SetRegionHelp(unsigned int region_index, bool enabled, int help_text_id);
 void ClearHotRegion(void);
 void UpdateRegionHelp(void);
 void ShowRegionHelp(unsigned int region_index);
-void SetRegionHelpText(const wchar_t* text);
+void SetRegionHelpText(const char* text);
 void ResetRegionHelp(bool delayed);
 void SetRegionHelpDelay(int delay_ms);
 void EnableRegionHelp(unsigned int region_index);

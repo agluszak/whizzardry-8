@@ -2,7 +2,6 @@
 #define WIZ8_UTILITY_H
 
 #include "wiz8/local_code/ControlsRect.h"
-#include <wchar.h>
 #include "wiz8/wiz8_windows.h"
 #include "wiz8/application.h"
 
@@ -31,10 +30,9 @@ int CompareUnsignedDescending(const void* first, const void* second);
 int CompareSignedAscending(const void* first, const void* second);
 int CompareSignedDescending(const void* first, const void* second);
 char* FormatString(const char* format, ...);
-wchar_t* FormatWideString(const wchar_t* format, ...);
-wchar_t* ConvertStringToWide(const char* string);
-char* ConvertWideStringToString(const wchar_t* string);
-wchar_t* FormatUnsignedIntegerWithCommas(wchar_t* output, unsigned int value);
+char* FormatText(const char* format, ...);
+char* CopyText(const char* string);
+char* FormatUnsignedIntegerWithCommas(char* output, unsigned int value);
 char* TitleCaseString(char* string);
 float ShortestAngleDistance(float first, float second);
 void UnionScreenRects(const W8ScreenRect* first, const W8ScreenRect* second, W8ScreenRect* result);

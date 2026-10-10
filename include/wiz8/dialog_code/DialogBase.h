@@ -1,7 +1,6 @@
 #pragma once
 
 #include "wiz8/local_code/Widget.h"
-#include <wchar.h>
 
 enum W8DialogKind {
     W8_DIALOG_BASIC = 0,
@@ -35,7 +34,7 @@ public:
     virtual void DestroyControls();
     virtual void Draw();
     virtual W8DialogKind GetDialogType(); /* Base=0, modal=1, list=3 */
-    virtual void SetText(const wchar_t* text);
+    virtual void SetText(const char* text);
     virtual void SetOrigin(int x, int y);
     virtual void SetExtent(int width, int height);
     virtual void SetBackground(const char* path, int flags);
@@ -59,7 +58,7 @@ protected:
 
     int m_error;
     int m_resource;
-    wchar_t* m_text;
+    char* m_text;
     int m_font;
     unsigned char m_foreground;
     unsigned char m_background;

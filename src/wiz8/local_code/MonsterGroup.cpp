@@ -47,7 +47,6 @@
 #include "wiz8/dialog_code/SpellInfoDialog.h"
 #include "wiz8/engine_code/GameData.h"
 
-#include <wchar.h>
 #include <string.h>
 #include <math.h>
 
@@ -210,7 +209,7 @@ static unsigned char MonsterGroupCalcDefaultDisposition(W8MonsterGroup* monster_
             0x75a, MONSTER_GROUP_CPP, IListGetAt(monster_group->monsters, 0), true));
         if (npc_record == 0) {
             srAssertFail("FALSE", MONSTER_GROUP_CPP, 0x75d,
-                         FormatString("MonsterGroupCalcDefaultDisposition: Monster species %d(%ls) "
+                         FormatString("MonsterGroupCalcDefaultDisposition: Monster species %d(%s) "
                                       "NPC data not found",
                                       monster_group->monster_id, record));
         } else {
@@ -681,7 +680,7 @@ void RetireMonsterGroupAndAllies(W8MonsterGroup* monster_group)
 
    Its opening assertion is followed immediately by MonsterGroupGetRecord's own. */
 // FUNCTION: WIZ8 0x00510280
-wchar_t* GetMonsterGroupName(W8MonsterGroup* monster_group)
+char* GetMonsterGroupName(W8MonsterGroup* monster_group)
 {
     W8MonsterRecord* record;
     unsigned int name_form;
@@ -692,14 +691,14 @@ wchar_t* GetMonsterGroupName(W8MonsterGroup* monster_group)
     record = MonsterGroupGetRecord(monster_group);
     name_form = monster_group->member_count != W8_MONSTER_GROUP_SINGULAR;
     if (record->record_id == W8_MONSTER_RECORD_ALTERNATE_NAME) {
-        swprintf(g_status.monster_name_buffer, g_format_al_s,
+        sprintf(g_status.monster_name_buffer, g_format_al_s,
                  g_status.buffers.Char[g_status.sedexus_party_slot].name);
         return g_status.monster_name_buffer;
     }
     if (monster_group->alternate_name) {
-        return record->name0 + name_form * W8_MONSTER_NAME_STRIDE;
+        return (name_form ? record->name1 : record->name0);
     }
-    return record->name2 + name_form * W8_MONSTER_NAME_STRIDE;
+    return (name_form ? record->name3 : record->name2);
 }
 
 /* Takes a whole group out of combat: every member leaves individually, the
@@ -1094,8 +1093,8 @@ W8MonsterGroup* CreateGroup(unsigned int monster_id, unsigned int count,
     SetMonsterGroupHostility(group, MonsterGroupCalcDefaultDisposition(group), false);
 
     if (announce_spawn && g_dev_mode) {
-        const wchar_t* verb = count == 1 ? L"appears" : L"appear";
-        ShowNoticef(W8_FONT_PALETTE_RUST, L"%d %s %s nearby!", count,
+        const char* verb = count == 1 ? "appears" : "appear";
+        ShowNoticef(W8_FONT_PALETTE_RUST, "%d %s %s nearby!", count,
                     GetMonsterGroupName(group), verb);
     }
 
@@ -1560,7 +1559,7 @@ void ShowMonsterGroupInfoNotice(int group_id)
 {
     W8MonsterGroup* group = GetMonsterGroupByListIndex(
         GetMonsterGroupIndexByID(0x801, MONSTER_GROUP_CPP, group_id, true));
-    const wchar_t* name = GetMonsterGroupName(group);
+    const char* name = GetMonsterGroupName(group);
 
     ShowNoticef(W8_FONT_PALETTE_BEIGE, g_format_d_s, group->member_count, name);
     if (!group->alternate_name) {

@@ -69,7 +69,6 @@
 #include <new>
 #include <stdlib.h>
 #include <string.h>
-#include <wchar.h>
 #include "wiz8/local_code/ThingEditorShared.h"
 // GLOBAL: WIZ8 0x005ed4f0
 const float g_monster_record_float_scale = 20.0f;
@@ -385,7 +384,7 @@ void RecordMonsterKill(W8MonsterInfo* monster_info, bool announce)
     }
     if (announce && !monster_info->death_processed &&
         monster_info->party_threat.sight_state != W8_SIGHT_UNSEEN) {
-        ShowNoticef(notice_channel, L"%s %s!", GetMonsterName(monster_info, 0, 0),
+        ShowNoticef(notice_channel, "%s %s!", GetMonsterName(monster_info, 0, 0),
                     gppStringList[g_condition_notices[W8_CONDITION_DEAD].singular]);
     }
     ReleaseMonsterConditionBindings(monster_info);
@@ -1323,7 +1322,7 @@ void MonsterInfoLeaveCombat(W8MonsterInfo* monster_info)
 // FUNCTION: WIZ8 0x004e6c10
 void TogglePartyCombatStance(void)
 {
-    const wchar_t* message;
+    const char* message;
 
     if (!g_status.game_started) {
         g_settings.continuous_combat = (g_settings.continuous_combat == 0);
@@ -1444,7 +1443,7 @@ void StartMonsterCycle(W8MonsterInfo* monster_info, int cycle, int behavior)
             srAssertFail(
                 "FALSE", MONSTER_MANAGER_CPP, 0x497,
                 FormatString(
-                    "%ls starting new cycle (%s) with an uninterruptable cycle pending (%s)!",
+                    "%s starting new cycle (%s) with an uninterruptable cycle pending (%s)!",
                     GetMonsterName(monster_info, 0, 0),
                     g_cycle_names[static_cast<signed char>(cycle)].name,
                     g_cycle_names[static_cast<signed char>(pending)].name));
@@ -1554,7 +1553,7 @@ void ProcessMonsterManagerFrame(void)
    wide characters apart. A monster with no group at all is a bug unless it is
    already dying, and says so on the debug channel rather than asserting. */
 // FUNCTION: WIZ8 0x004e5150
-wchar_t* GetMonsterName(W8MonsterInfo* monster_info, W8MonsterRecord* record,
+char* GetMonsterName(W8MonsterInfo* monster_info, W8MonsterRecord* record,
                         unsigned char name_form)
 {
     W8MonsterGroup* monster_group;
@@ -1563,7 +1562,7 @@ wchar_t* GetMonsterName(W8MonsterInfo* monster_info, W8MonsterRecord* record,
         record = GetMonsterDataForInfo(monster_info);
     }
     if (record->record_id == W8_MONSTER_RECORD_ALTERNATE_NAME) {
-        swprintf(g_status.monster_name_buffer, g_format_al_s,
+        sprintf(g_status.monster_name_buffer, g_format_al_s,
                  g_status.buffers.Char[g_status.sedexus_party_slot].name);
         return g_status.monster_name_buffer;
     }
@@ -1578,10 +1577,10 @@ wchar_t* GetMonsterName(W8MonsterInfo* monster_info, W8MonsterRecord* record,
             srAssertFail("pMonsterGroup", MONSTER_MANAGER_CPP, 0x54d, 0);
         }
         if (monster_group->alternate_name) {
-            return record->name0 + name_form * 24;
+            return (name_form ? record->name1 : record->name0);
         }
     }
-    return record->name2 + name_form * 24;
+    return (name_form ? record->name3 : record->name2);
 }
 
 // FUNCTION: WIZ8 0x004EFB60
@@ -1623,7 +1622,7 @@ unsigned int GetBestPartySkillLevel(W8Skill skill_index, int* party_slot)
    records can suppress exact values, and ordinary monsters expose current and
    maximum HP independently at knowledge thresholds ten and five. */
 // FUNCTION: WIZ8 0x004e52c0
-void FormatMonsterHealth(W8MonsterInfo* monster_info, wchar_t* health_text)
+void FormatMonsterHealth(W8MonsterInfo* monster_info, char* health_text)
 {
     bool suppress_exact_health = false;
     unsigned int health_knowledge;
@@ -1664,21 +1663,21 @@ void FormatMonsterHealth(W8MonsterInfo* monster_info, wchar_t* health_text)
     }
 
     if (g_dev_mode) {
-        wcscpy(health_text, FormatWideString(g_format_d_slash_d, monster_info->hp_current,
+        strcpy(health_text, FormatText(g_format_d_slash_d, monster_info->hp_current,
                                              monster_info->uiHPMax));
         return;
     }
     if (health_knowledge < 10 || suppress_exact_health) {
-        wcscpy(health_text, L"?");
+        strcpy(health_text, "?");
     } else {
-        wcscpy(health_text, FormatWideString(g_format_d, monster_info->hp_current));
+        strcpy(health_text, FormatText(g_format_d, monster_info->hp_current));
     }
-    wcscat(health_text, L"/");
+    strcat(health_text, "/");
     if (health_knowledge > 4 && !suppress_exact_health) {
-        wcscat(health_text, FormatWideString(g_format_d, monster_info->uiHPMax));
+        strcat(health_text, FormatText(g_format_d, monster_info->uiHPMax));
         return;
     }
-    wcscat(health_text, L"?");
+    strcat(health_text, "?");
 }
 
 // FUNCTION: WIZ8 0x004e4ab0
@@ -1728,24 +1727,24 @@ void DetectMonsterGroups(void)
                 group->alternate_name = true;
                 bool vowel;
                 switch (towupper(*GetMonsterGroupName(group))) {
-                case L'A':
-                case L'E':
-                case L'I':
-                case L'O':
-                case L'U':
+                case 'A':
+                case 'E':
+                case 'I':
+                case 'O':
+                case 'U':
                     vowel = true;
                     break;
                 default:
                     vowel = false;
                     break;
                 }
-                wchar_t* article;
+                char* article;
                 if (group->member_count == 1) {
                     article = vowel ? gppStringList[0x1cc] : gppStringList[0x1cb];
                 } else {
                     article = gppStringList[0x1cd];
                 }
-                ShowNoticef(W8_FONT_PALETTE_WHITE, L"%s %s!", article, GetMonsterGroupName(group));
+                ShowNoticef(W8_FONT_PALETTE_WHITE, "%s %s!", article, GetMonsterGroupName(group));
                 noticed = true;
             }
         }

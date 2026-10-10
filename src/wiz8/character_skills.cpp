@@ -32,12 +32,11 @@
 #include "wiz8/xstatus.h"
 #include <stdio.h>
 #include <string.h>
-#include <wchar.h>
 
 /* Original translation-unit ownership is unknown; surrounding anchors do not resolve it. */
 
 // GLOBAL: WIZ8 0x0061ec94
-static wchar_t g_format_s_possessive[] = L"%s's";
+static char g_format_s_possessive[] = "%s's";
 
 unsigned int GetCharacterSkillNoticeValue(W8Character* character, W8Skill skill_id)
 {
@@ -61,41 +60,41 @@ void PostSkillIncreaseNotices(const W8SkillNoticePayload* notices)
 }
 
 // FUNCTION: WIZ8 0x00554170
-void AppendSkillIncreaseNoticeText(wchar_t* text, unsigned int* length, int party_slot,
+void AppendSkillIncreaseNoticeText(char* text, unsigned int* length, int party_slot,
                                    bool continue_line, W8Skill skill_id)
 {
     unsigned int skill_level;
     W8Character* character = &g_status.buffers.Char[party_slot];
 
     if (continue_line) {
-        text[*length] = L' ';
+        text[*length] = ' ';
         *length += 1;
-        text[*length] = L'\n';
+        text[*length] = '\n';
         *length += 1;
-        text[*length] = L' ';
+        text[*length] = ' ';
         *length += 1;
     }
-    text[*length] = L' ';
+    text[*length] = ' ';
     *length += 1;
     text[*length] = 0xb4; /* font glyph */
     *length += 1;
     text[*length] = GetPartyOrderTextColor(
         static_cast<signed char>(g_status.buffers.XChar[party_slot].party_order_index));
     *length += 1;
-    text[*length] = L' ';
+    text[*length] = ' ';
     *length += 1;
-    swprintf(text + *length, g_format_s_possessive, character->name);
-    *length = static_cast<unsigned int>(wcslen(text));
-    text[*length] = L' ';
+    sprintf(text + *length, g_format_s_possessive, character->name);
+    *length = static_cast<unsigned int>(strlen(text));
+    text[*length] = ' ';
     *length += 1;
     text[*length] = 0xb5; /* font glyph */
     *length += 1;
-    text[*length] = L' ';
+    text[*length] = ' ';
     *length += 1;
     skill_level = GetCharacterSkillNoticeValue(character, skill_id);
-    swprintf(text + *length, gppStringList[0x1db],
+    sprintf(text + *length, gppStringList[0x1db],
              gppStringList[g_character_skill_name_ids[skill_id]], skill_level);
-    *length = static_cast<unsigned int>(wcslen(text));
+    *length = static_cast<unsigned int>(strlen(text));
 }
 
 // FUNCTION: WIZ8 0x005542E0
@@ -103,7 +102,7 @@ void FlushDeferredSkillNotices(void)
 {
     int count;
     bool have_line;
-    wchar_t* text;
+    char* text;
     W8SkillNoticePayload* extra;
     int slot;
     unsigned int skill_id;
@@ -115,7 +114,7 @@ void FlushDeferredSkillNotices(void)
     if (!gXStatus.deferred_skill_notices) {
         return;
     }
-    text = new wchar_t[0x200];
+    text = new char[0x200];
     memset(text, 0, 0x400);
     extra = new W8SkillNoticePayload;
     for (slot = 0; slot < 8; ++slot) {
@@ -145,7 +144,7 @@ void FlushDeferredSkillNotices(void)
                 count = 0;
                 length = 0;
                 have_line = false;
-                text = new wchar_t[0x200];
+                text = new char[0x200];
                 memset(text, 0, 0x400);
                 extra = new W8SkillNoticePayload;
             }
@@ -547,7 +546,7 @@ void ApplyAttributeChange(W8Character* character, W8Attribute attribute)
             }
             if (g_current_screen_state.id == W8_SCREEN_MAIN_GAME) {
                 ShowMainGameNoticeLine(
-                    FormatWideString(gppStringList[0x1d6],
+                    FormatText(gppStringList[0x1d6],
                                      gppStringList[g_character_description_first_ids[attribute]],
                                      character->name,
                                      gppStringList[g_character_skill_name_ids[skill_id]]),
@@ -707,7 +706,7 @@ void PracticeCharacterSkill(W8Character* character, W8Skill skill_id, int usage_
                 if (!gXStatus.fCombatMode && !IsModalOpen() && !gXStatus.item_pick_pending &&
                     g_current_screen_state.id == W8_SCREEN_MAIN_GAME && IsScreenIdle() &&
                     !suppress_notification) {
-                    wchar_t* text = new wchar_t[0x200];
+                    char* text = new char[0x200];
                     memset(text, 0, 0x400);
                     unsigned int length = 0;
                     AppendSkillIncreaseNoticeText(text, &length, slot, false, skill_id);

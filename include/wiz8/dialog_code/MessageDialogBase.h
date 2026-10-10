@@ -18,7 +18,7 @@ public:
 
     /* Called on this object from outside the class by the Please Wait screen,
        which is what puts it here rather than under protected. */
-    void SetMessage(const wchar_t* message, int line_count, unsigned short characters_per_line,
+    void SetMessage(const char* message, int line_count, unsigned short characters_per_line,
                     bool confirmation, bool cancel, bool size_to_message, bool wrap_message,
                     int maximum_width, int maximum_height);
     /* The party-selection screen calls this centering helper on a freshly
@@ -26,7 +26,7 @@ public:
        a derived-only helper. */
     void SetClientExtent(int width, int height);
 
-    unsigned int WrapMessage(const wchar_t* message);
+    unsigned int WrapMessage(const char* message);
 
     friend void MessageDialogConfirmCallback(GUI_BUTTON* button, int reason);
     friend void MessageDialogCancelCallback(GUI_BUTTON* button, int reason);
@@ -45,7 +45,7 @@ protected:
     int m_cancel_button;
     int m_cancel_image;
     unsigned char unknown_07c[0x10];
-    wchar_t** m_lines;
+    char** m_lines;
     unsigned int m_line_count;
     bool m_show_confirm;
     bool allow_cancel; /* changes Escape handling */

@@ -221,12 +221,12 @@ bool W8DialogButton::ConfigureVObjButton(HVOBJECT object, int base_frame,
 }
 
 // FUNCTION: WIZ8 0x005DB350
-bool W8DialogButton::ConfigureTextButton(const wchar_t* text, unsigned int font, short fore_color,
+bool W8DialogButton::ConfigureTextButton(const char* text, unsigned int font, short fore_color,
                                          short shadow_color, short x, short y, short width,
                                          short height, W8DialogButtonCallback left_callback,
                                          int user_data)
 {
-    INT32 handle = CreateTextButton(const_cast<wchar_t*>(text), font, fore_color, shadow_color, -1,
+    INT32 handle = CreateTextButton(const_cast<char*>(text), font, fore_color, shadow_color, -1,
                                     x, y, width, height, BUTTON_NO_TOGGLE, MSYS_PRIORITY_HIGHEST,
                                     DialogButtonCallback, DialogButtonCallback);
     m_button_handle = handle;

@@ -9,12 +9,11 @@
 
 #include "wiz8/layouts/plist.h"
 #include "wiz8/dice.h"
-#include <wchar.h>
 
 /*
- * The on-disk gameplay records. Everything here is a file format read by
- * seeking to a record index and fixed stride, so the sizes are part of the
- * format rather than incidental layout.
+ * Runtime views of gameplay database records. Text is decoded UTF-8.
+ * Offsets in comments describe the retail file, not these runtime views.
+ * retail_text_records.h owns the UTF-16LE fields and disk strides.
  */
 
 /* The fifteen professions, in the game's fixed class order. A character's
@@ -204,7 +203,7 @@ struct W8SpellRuntimeRecord {
     int spell_level;              /* 0x056: zero through seven */
     unsigned char wizardry_spell; /* 0x05a */
     char resource_name[64];       /* 0x05b: visual/MLS resource basename */
-    wchar_t display_name[64];     /* 0x09b */
+    char display_name[3 * (64) + 1];     /* 0x09b */
     unsigned char unknown_11b[4];
     unsigned char divinity_spell; /* 0x11f */
     unsigned char psionics_spell; /* 0x120 */
@@ -260,8 +259,8 @@ struct W8FactDatabaseRecord {
     signed char visibility;
     /* 0x038 and 0x100: the alternate and normal journal descriptions, wide,
        selected by the fact's current value. */
-    wchar_t alternate_description[0x64];
-    wchar_t description[0x6c];
+    char alternate_description[3 * (0x64) + 1];
+    char description[3 * (0x6c) + 1];
 }; /* 0x1d8 */
 
 W8_ABI_ASSERT(sizeof(W8FactDatabaseRecord) == 0x1d8, "W8FactDatabaseRecord_size_must_be_0x1d8");
@@ -278,9 +277,8 @@ struct W8NpcItemStockRule {
 /* The RPC-character block a record with has_group carries; it is expanded
    into a W8Character when the NPC joins. */
 struct W8NpcCharacterTemplate {
-    wchar_t name[10];       /* 0x000, record 0x0c4 */
-    wchar_t name_part_2[6]; /* 0x014, record 0x0d8 */
-    unsigned char unknown_01a[0x44];
+    char name[3 * (10) + 1];       /* 0x000, record 0x0c4 */
+    char name_part_2[3 * 40 + 1]; /* 0x014, record 0x0d8 */
     W8Profession
         profession;     /* 0x064, record 0x128: index into profession_levels[W8_PROFESSION_COUNT] */
     W8Race race;        /* 0x068, record 0x12c */
@@ -310,7 +308,7 @@ struct W8NpcDatabaseRecord {
     short trade_pool;
     /* 0x004: the wide source name the level-entry rebinding prefixes with an
        underscore to build the NPC's trigger name. */
-    wchar_t source_name[0x28];
+    char source_name[3 * (0x28) + 1];
     /* 0x054: monster-bound NPC: no standalone runtime node is created, its
        state comes through the monster binding, and releasing the binding
        marks it unavailable. */
@@ -392,7 +390,7 @@ W8_ABI_ASSERT(offsetof(W8NpcDatabaseRecord, allow_dismissed_departure_dialogue) 
 /* One Data\Databases\LEVELS.DBS record. The loader retains the disk row;
    all 60 canonical rows begin with a terminated UTF-16 display name. */
 struct W8LevelDatabaseRecord {
-    wchar_t display_name[30];
+    char display_name[3 * (30) + 1];
     /* 0x3c..0x50: the per-level random-encounter budget parameters, all five
        read by UpdateRandomEncounterBudget and the sixth by the culling pass. */
     int maximum_random_encounters; /* 0x3c */
@@ -451,10 +449,10 @@ enum W8MonsterRecordFlag {
 };
 
 struct W8MonsterRecord {
-    wchar_t name0[24]; /* 0x000: suffix after '#' removed at load */
-    wchar_t name1[24]; /* 0x030: suffix after '#' removed at load */
-    wchar_t name2[24]; /* 0x060: suffix after '#' removed at load */
-    wchar_t name3[24]; /* 0x090: suffix after '#' removed at load */
+    char name0[3 * (24) + 1]; /* 0x000: suffix after '#' removed at load */
+    char name1[3 * (24) + 1]; /* 0x030: suffix after '#' removed at load */
+    char name2[3 * (24) + 1]; /* 0x060: suffix after '#' removed at load */
+    char name3[3 * (24) + 1]; /* 0x090: suffix after '#' removed at load */
     /* Cosmic Forge's Monster Editor exposes this byte as 'Can open doors'. */
     unsigned char can_open_doors;
     /* 0x0c1: rolled by the group-attack summon to size the spawned group. */

@@ -100,7 +100,7 @@ enum W8ItemCategory {
 };
 
 struct W8ItemDatabaseRecord {
-    wchar_t display_name[30]; /* 0x000 */
+    char display_name[3 * (30) + 1]; /* 0x000 */
     /* 0x03c: the item number the Wizardry 7 import matches imported item ids
        against (Party Import.cpp). */
     short legacy_item_number;

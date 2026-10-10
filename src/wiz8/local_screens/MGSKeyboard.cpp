@@ -58,8 +58,6 @@
 #include "input.h"
 
 #include <string.h>
-#include <wchar.h>
-#include <wctype.h>
 
 /* Local Screens\MGSKeyboard.cpp owns the binding vector, its command-keyed
    lookup and the singleton ResetMGSKeyboardBindings installs.
@@ -308,9 +306,9 @@ void DispatchMGSCommand(W8MGSCommand command)
                 delay += 0xfa - delay % 0xfa;
             }
             g_settings.combat_delay_ms = delay;
-            ShowNoticef(W8_FONT_PALETTE_BEIGE, L"%s %d", gppStringList[0x7ba], 0x14 - delay / 0xfa);
+            ShowNoticef(W8_FONT_PALETTE_BEIGE, "%s %d", gppStringList[0x7ba], 0x14 - delay / 0xfa);
         } else {
-            ShowNoticef(W8_FONT_PALETTE_BEIGE, L"%s (%d)", gppStringList[0x7bb],
+            ShowNoticef(W8_FONT_PALETTE_BEIGE, "%s (%d)", gppStringList[0x7bb],
                         0x14 - delay / 0xfa);
         }
         break;
@@ -324,9 +322,9 @@ void DispatchMGSCommand(W8MGSCommand command)
                 delay -= delay % 0xfa;
             }
             g_settings.combat_delay_ms = delay;
-            ShowNoticef(W8_FONT_PALETTE_BEIGE, L"%s %d", gppStringList[0x7ba], 0x14 - delay / 0xfa);
+            ShowNoticef(W8_FONT_PALETTE_BEIGE, "%s %d", gppStringList[0x7ba], 0x14 - delay / 0xfa);
         } else {
-            ShowNoticef(W8_FONT_PALETTE_BEIGE, L"%s (%d)", gppStringList[0x7bc],
+            ShowNoticef(W8_FONT_PALETTE_BEIGE, "%s (%d)", gppStringList[0x7bc],
                         0x14 - delay / 0xfa);
         }
         break;
@@ -340,9 +338,9 @@ void DispatchMGSCommand(W8MGSCommand command)
                 delay += 0xfa - delay % 0xfa;
             }
             g_settings.text_display_delay_ms = delay;
-            ShowNoticef(W8_FONT_PALETTE_BEIGE, L"%s %d", gppStringList[0x7b7], 0x14 - delay / 0xfa);
+            ShowNoticef(W8_FONT_PALETTE_BEIGE, "%s %d", gppStringList[0x7b7], 0x14 - delay / 0xfa);
         } else {
-            ShowNoticef(W8_FONT_PALETTE_BEIGE, L"%s (%d)", gppStringList[0x7b8],
+            ShowNoticef(W8_FONT_PALETTE_BEIGE, "%s (%d)", gppStringList[0x7b8],
                         0x14 - delay / 0xfa);
         }
         break;
@@ -356,9 +354,9 @@ void DispatchMGSCommand(W8MGSCommand command)
                 delay -= delay % 0xfa;
             }
             g_settings.text_display_delay_ms = delay;
-            ShowNoticef(W8_FONT_PALETTE_BEIGE, L"%s %d", gppStringList[0x7b7], 0x14 - delay / 0xfa);
+            ShowNoticef(W8_FONT_PALETTE_BEIGE, "%s %d", gppStringList[0x7b7], 0x14 - delay / 0xfa);
         } else {
-            ShowNoticef(W8_FONT_PALETTE_BEIGE, L"%s (%d)", gppStringList[0x7b9],
+            ShowNoticef(W8_FONT_PALETTE_BEIGE, "%s (%d)", gppStringList[0x7b9],
                         0x14 - delay / 0xfa);
         }
         break;
@@ -366,7 +364,7 @@ void DispatchMGSCommand(W8MGSCommand command)
     case W8_MGS_COMMAND_SHOW_VERSION: {
         char version_text[0x40];
         FormatVersionBanner(version_text, true, true, true);
-        ShowNotice(W8_FONT_PALETTE_BEIGE, ConvertStringToWide(version_text));
+        ShowNotice(W8_FONT_PALETTE_BEIGE, CopyText(version_text));
         break;
     }
     case W8_MGS_COMMAND_LOOK_LEVEL:
@@ -471,7 +469,7 @@ void DispatchMGSCommand(W8MGSCommand command)
         }
         SelectQuickSaveSlotForWrite(slot_name);
         if (SaveGame(slot_name, 0)) {
-            SetLastSaveName(ConvertStringToWide(slot_name));
+            SetLastSaveName(CopyText(slot_name));
             ShowNotice(W8_FONT_PALETTE_BEIGE, gppStringList[0x6f5]);
         } else {
             ShowNotice(W8_FONT_PALETTE_BEIGE, gppStringList[0x6f6]);
@@ -488,7 +486,7 @@ void DispatchMGSCommand(W8MGSCommand command)
             break;
         }
         if (FindStartupQuickSave(slot_name)) {
-            SetLastSaveName(ConvertStringToWide(slot_name));
+            SetLastSaveName(CopyText(slot_name));
             ClearHeldItemDisplay();
             g_pending_screen_state.mode = 1;
             strcpy(g_pending_screen_state.name, slot_name);
@@ -1055,7 +1053,7 @@ unsigned char KeyboardMenuRowRegionEvent(const InputAtom* event, W8Region* regio
     unsigned short row_id;
     W8PartySlotRow* party_row;
     W8ItemInstance* item;
-    wchar_t* name;
+    char* name;
     int power;
 
     if (row == 0) {
@@ -1097,7 +1095,7 @@ unsigned char KeyboardMenuRowRegionEvent(const InputAtom* event, W8Region* regio
                        .display_name;
             power = GetAffordableSpellPowerLevel(g_selected_party_slot);
             SetRegionHelpText(
-                FormatWideString(g_format_s_colon_s_paren_d, gppStringList[0x5a], name, power));
+                FormatText(g_format_s_colon_s_paren_d, gppStringList[0x5a], name, power));
             return 1;
         }
         if (g_keyboard_menu_pages[row_id] != W8_SUBMENU_ITEMS) {
@@ -1115,7 +1113,7 @@ unsigned char KeyboardMenuRowRegionEvent(const InputAtom* event, W8Region* regio
         item = FindCharacterItemAt(g_selected_party_slot, party_row->item_origin,
                                    party_row->item_slot);
         name = FormatItemDisplayName(item, false);
-        SetRegionHelpText(FormatWideString(g_format_s_colon_s, gppStringList[0x5d], name));
+        SetRegionHelpText(FormatText(g_format_s_colon_s, gppStringList[0x5d], name));
         return 1;
     }
     return 0;

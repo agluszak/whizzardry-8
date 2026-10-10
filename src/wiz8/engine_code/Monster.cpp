@@ -206,7 +206,7 @@ const double g_monster_facing_tolerance = 0.78539815;
 const double g_monster_group_nearest_range = 12500.0;
 // GLOBAL: WIZ8 0x0060f684
 static char g_warning_missing_spell_vertex[] =
-    "WARNING: %ls does not have a SPELL vertex marked! --> Lee";
+    "WARNING: %s does not have a SPELL vertex marked! --> Lee";
 // GLOBAL: WIZ8 0x0060EA08
 W8CycleNameRow g_cycle_names[W8_MONSTER_CYCLE_COUNT] = {
     {"BIRTH", 5},
@@ -380,7 +380,7 @@ unsigned char ReadOrCloneMonsterCycles(const W8GrCycleLoadContext* context,
     bool skins_started = false;
 
     char path[256];
-    sprintf(path, "data\\Monsters\\%s.mls", monster_name);
+    snprintf(path, sizeof(path), "data\\Monsters\\%s.mls", monster_name);
     std::unique_ptr<wiz8::File> handle = [&]() { try { return wiz8::open_file(path, wiz8::OpenMode::read); } catch (const std::exception&) { return std::unique_ptr<wiz8::File>{}; } }();
     if (handle == 0) {
         srAssertFail("hFile", MONSTER_CPP, 0x50f,
@@ -626,7 +626,7 @@ unsigned char ReadOrCloneMonsterCycles(const W8GrCycleLoadContext* context,
                         char wave_path[256];
                         wave_path[0] = '\0';
                         if (sound_type != W8_SOUND_EVENT_FOOTSTEP) {
-                            sprintf(wave_path, "Data\\Sound\\Monsters\\%s.WAV", wave_name);
+                            snprintf(wave_path, sizeof(wave_path), "Data\\Sound\\Monsters\\%s.WAV", wave_name);
                         }
                         last_sound = CreateSoundEvent(sound_type, sound_cycle, frame, subcycle - 1,
                                                       wave_path, _stricmp(loop_name, "LOOP") == 0);
@@ -1737,7 +1737,7 @@ bool W8Monster::GetProjectilePosition(srVector3T<float>* position)
         if (g_dev_mode) {
             W8MonsterInfo* info = MonsterGetScriptPartByLocationIndex(
                 MonsterGetIndexByLocationID(0x18c3, MONSTER_CPP, location_id, true));
-            FormatDebugMessage(0, "WARNING: %ls does not have a MISSILE vertex marked --> Lee!",
+            FormatDebugMessage(0, "WARNING: %s does not have a MISSILE vertex marked --> Lee!",
                                GetMonsterDataForInfo(info));
         }
         missile_point_warned = true;
@@ -2759,7 +2759,7 @@ void SetMonsterPartySlotMarker(int party_slot, int location_id, char on)
         }
     } else {
         if (rep->objects[party_slot] == 0) {
-            sprintf(path, g_monster_bitmap_path_format,
+            snprintf(path, sizeof(path), g_monster_bitmap_path_format,
                     g_party_target_marker_bitmaps[g_status.buffers.XChar[party_slot]
                                                       .party_order_index]);
             rep->objects[party_slot] = CreateMonsterIconItem(g_world, path, 1);
@@ -3429,14 +3429,14 @@ void W8Monster::SetCycle(signed char cycle)
             W8MonsterInfo* monster_info = MonsterGetScriptPartByLocationIndex(
                 MonsterGetIndexByLocationID(0xb26, MONSTER_CPP, location_id, true));
             srAssertFail("FALSE", MONSTER_CPP, 0xb26,
-                         FormatString("ERROR: Monster %ls has no IDLE cycle!",
+                         FormatString("ERROR: Monster %s has no IDLE cycle!",
                                       GetMonsterName(monster_info, 0, 0)));
             return;
         }
 
         W8MonsterInfo* monster_info = MonsterGetScriptPartByLocationIndex(
             MonsterGetIndexByLocationID(0xb1d, MONSTER_CPP, location_id, true));
-        FormatDebugMessage(0, "WARNING: Monster %ls is missing anim cycle %s",
+        FormatDebugMessage(0, "WARNING: Monster %s is missing anim cycle %s",
                            GetMonsterName(monster_info, 0, 0), g_cycle_names[cycle].name);
         m_pRep->CopyCycle(cycle, m_pRep, 1);
         count = animations->GetCount();
@@ -3979,7 +3979,7 @@ prepare_attack:
     attack = &record->attacks[attack_index];
     missile_type = attack->missile_type;
     if (static_cast<unsigned int>(missile_type) >= g_missile_table_count) {
-        FormatDebugMessage(0, "WARNING: %ls has invalid missile type %d for attack %d", record,
+        FormatDebugMessage(0, "WARNING: %s has invalid missile type %d for attack %d", record,
                            missile_type, attack_index);
         missile_type = 0;
     }
@@ -4865,7 +4865,7 @@ bool W8Monster::ReplaceSkinTexture(int stage, const char* old_name, const char* 
     char path[200];
     bool replaced = false;
 
-    sprintf(path, "Data\\Monsters\\Bitmaps\\%s", new_name);
+    snprintf(path, sizeof(path), "Data\\Monsters\\Bitmaps\\%s", new_name);
     srTextureIFace* texture = LoadTextureFromPath(path, 0, true);
     if (texture == 0) {
         ShutdownWithErrorBox(FormatString("Missing skin texture: %s", new_name));
@@ -4900,7 +4900,7 @@ int W8Monster::AddDamageStage(const char* base_name, int stage)
     int result = -1;
     W8Vector<stModelInstance*> instances;
 
-    sprintf(name, "%s%d", base_name, stage);
+    snprintf(name, sizeof(name), "%s%d", base_name, stage);
     CollectModelInstances(&instances);
     for (int index = 0; index < instances.GetCount(); ++index) {
         stModelInstance* instance = *instances.GetAt(index);
@@ -4976,7 +4976,7 @@ void W8Monster::SpawnDamageNumber(unsigned int amount)
     surface->fill(0);
     unsigned char* data = static_cast<unsigned char*>(surface->getDataPtr());
     if (data != 0) {
-        wchar_t text[20];
+        char text[3 * (20) + 1];
         srVector3T<float> position;
         srVector3T<float> camera_position;
         srVector3T<float> facing;
@@ -4997,7 +4997,7 @@ void W8Monster::SpawnDamageNumber(unsigned int amount)
         SetFontDestBuffer(FontDestBuffer, 0, 0, surface->getWidth(), surface->getHeight(),
                           static_cast<unsigned char>(FontDestWrap));
         SetFont(g_monster_damage_font);
-        swprintf(text, g_format_d, amount);
+        snprintf(text, sizeof(text), g_format_d, amount);
         gprintf_buffer(data, surface->getPitch(), g_monster_damage_font,
                        0x80 - StringPixLength(text, g_monster_damage_font) / 2,
                        0x80 - GetFontHeight(g_monster_damage_font) / 2, text);

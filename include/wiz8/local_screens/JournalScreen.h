@@ -2,7 +2,7 @@
 
 #include "wiz8/filesystem.h"
 
-extern wchar_t g_default_level[];
+extern char g_default_level[];
 #include "wiz8/fact_state.h"
 #include "wiz8/layouts/screen_state.h"
 #include "wiz8/vector.h"
@@ -43,7 +43,7 @@ W8_ABI_ASSERT(sizeof(W8JournalEntry) == 0x0c, "W8JournalEntry_size");
 extern W8GrowableVector<W8JournalEntry>* g_fact_journal_entries;
 /* The "%d / %d" current-over-max format shared by journal pages
    and debug stat readouts. */
-extern wchar_t g_journal_page_format[];
+extern char g_journal_page_format[];
 void InitializeFactJournal(void);
 /* Append one changed fact to the journal and, unless notices are
    suppressed, post the fact's own journal entry. */

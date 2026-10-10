@@ -33,13 +33,12 @@
 #include <ctype.h>
 #include <stdlib.h>
 #include <string.h>
-#include <wchar.h>
 
 void W8ListBoxDialog::ClearLines()
 {
     int line_count = m_lines.GetCount();
     for (int index = 0; index < line_count; ++index) {
-        wchar_t* line = *m_lines.GetAt(index);
+        char* line = *m_lines.GetAt(index);
         if (line != 0) {
             free(line);
         }
@@ -92,10 +91,10 @@ W8ListBoxDialog::~W8ListBoxDialog()
 }
 
 // FUNCTION: WIZ8 0x005cbd70
-void W8ListBoxDialog::SetText(const wchar_t* text)
+void W8ListBoxDialog::SetText(const char* text)
 {
     if (m_text_button != -1) {
-        SpecifyButtonText(m_text_button, const_cast<wchar_t*>(text));
+        SpecifyButtonText(m_text_button, const_cast<char*>(text));
         W8DialogBase::SetText(0);
         return;
     }
@@ -441,7 +440,7 @@ void W8ListBoxDialog::Draw()
     }
     for (index = 0; index < static_cast<int>(visible_lines); ++index) {
         line = m_first_visible_line + index;
-        wchar_t* text = *m_lines.GetAt(line);
+        char* text = *m_lines.GetAt(line);
         if (line == m_selected_line) {
             ColorFillVideoSurfaceArea(
                 FRAME_BUFFER, m_x + 3 + dx,
@@ -738,9 +737,9 @@ void W8SplitAmountDialog::Draw()
 // FUNCTION: WIZ8 0x005da000
 void W8SplitAmountDialog::UpdateTextBuffers()
 {
-    wchar_t text[12];
+    char text[3 * (12) + 1];
 
-    swprintf(text, g_format_d, m_remaining);
+    snprintf(text, sizeof(text), g_format_d, m_remaining);
     m_text_buffers[2]->SetText(text, g_wiz_text_font_secondary);
     m_buttons[2]->m_dirty = true;
     m_text_buffers[2]->SetGeometryDirty();
@@ -1610,15 +1609,15 @@ void W8TriggerItemPickerDialog::Draw()
                          VO_BLT_SRCTRANSPARENCY, 0);
         SetFont(g_wiz_text_font);
         if (item->stack_count > 1) {
-            wchar_t* name = GetItemDisplayName(item);
-            gprintf(button->GetX() + 0x3c, button->GetY() + 6, L"%s(%d)", name, item->stack_count);
+            char* name = GetItemDisplayName(item);
+            gprintf(button->GetX() + 0x3c, button->GetY() + 6, "%s(%d)", name, item->stack_count);
         } else {
-            wchar_t* name = GetItemDisplayName(item);
+            char* name = GetItemDisplayName(item);
             gprintf(button->GetX() + 0x3c, button->GetY() + 6, name);
         }
         unsigned short weight = g_item_records[item->iItemNo].weight;
         gprintf(button->GetX() + 0x3c, button->GetY() + GetFontHeight(g_wiz_text_font) + 6,
-                L"%4.1f lbs", weight * 0.1f);
+                "%4.1f lbs", weight * 0.1f);
     }
 }
 

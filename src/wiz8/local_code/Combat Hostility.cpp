@@ -396,7 +396,7 @@ void SetMonsterGroupHostility(W8MonsterGroup* group, unsigned int hostility, boo
     group->forced_neutral = false;
     if (MonsterGroupHasVisibleThreat(group)) {
         ShowNoticef(
-            9, L"%s %s %s!", GetMonsterGroupName(group),
+            9, "%s %s %s!", GetMonsterGroupName(group),
             gppStringList[0x1d7 + (group->member_count != 1)],
             gppStringList[g_group_hostility_notice_ids[static_cast<unsigned char>(hostility)]]);
     }
@@ -560,7 +560,7 @@ static int g_pray_roll_weights[14] = {5, 5, 10, 10, 10, 20, 10, 10, 10, 5, 5, 5,
 static int g_pray_roll_sums[PRAY_ROLL_TIERS + 1];
 
 // GLOBAL: WIZ8 0x00619788
-static wchar_t g_pray_dash[] = L" -- ";
+static char g_pray_dash[] = " -- ";
 
 /* Pray: the trait-eleven once-per-combat divine intervention. The flat
    weight table is folded into cumulative sums on first use - the block's
@@ -680,7 +680,7 @@ int CharacterPrayAction(int party_slot)
                         member->enchantments[W8_ENCHANTMENT_GUARDIAN_ANGEL].power == 0 &&
                         --pick == 0) {
                         AppendToLastTextLine(
-                            FormatWideString(gppStringList[0x17a], member->name, -1), -1);
+                            FormatText(gppStringList[0x17a], member->name, -1), -1);
                         target.iType = W8_TARGET_KIND_CHARACTER;
                         if (power_level > 6) {
                             power_level = 7;
@@ -868,7 +868,7 @@ int CharacterPrayAction(int party_slot)
                     monster->ubDisposition == W8_DISPOSITION_HOSTILE && monster->hp_current != 0 &&
                     monster->uiCondition[W8_CONDITION_AFRAID] == 0) {
                     AppendToLastTextLine(
-                        FormatWideString(
+                        FormatText(
                             gppStringList[0x17c],
                             gppStringList[g_gender_name_message_rows[character->gender][2]], -1),
                         -1);

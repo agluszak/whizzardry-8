@@ -46,7 +46,7 @@ public:
         delete m_first_text;
         delete m_second_text;
     }
-    void SetContent(unsigned int id, const wchar_t* label, unsigned int* first, int* second,
+    void SetContent(unsigned int id, const char* label, unsigned int* first, int* second,
                     int* third, int help_id);
     void SetEnabled(bool enabled);
     void SetIncrementAllowed(bool allowed);
@@ -354,8 +354,8 @@ struct W8SpellRealmAnimation {
     unsigned int initial_frame;
 };
 extern W8SpellRealmAnimation g_spell_realm_animations[6];
-extern wchar_t g_format_s_space_s[];
-extern wchar_t g_format_s_colon[];
+extern char g_format_s_space_s[];
+extern char g_format_s_colon[];
 
 /* The six realm-icon object ids; the definition is the GLOBAL in
    CGSStatsPage.cpp. The camp screen's character block reuses them. */
@@ -411,7 +411,7 @@ public:
     void SyncCharacterForPage(int index);
     bool CommitCharacter();
     void DrawHeader();
-    void ShowMessage(wchar_t* text, int confirmation, int response);
+    void ShowMessage(char* text, int confirmation, int response);
     void HandleDialogResult(int response, unsigned char accepted);
     bool ValidateName();
 
@@ -471,7 +471,7 @@ void RefreshCharacterScreenPartySlot(unsigned int party_slot);
 unsigned char CharacterScreenEnter(void);
 void CharacterScreenFrame(void);
 unsigned char CharacterScreenLeave(int leaving);
-extern wchar_t g_dash[];
-extern wchar_t g_format_d[];
-extern wchar_t g_format_d_slash_d[];
-extern wchar_t g_format_plus_d[];
+extern char g_dash[];
+extern char g_format_d[];
+extern char g_format_d_slash_d[];
+extern char g_format_plus_d[];

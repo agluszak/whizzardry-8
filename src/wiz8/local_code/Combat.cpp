@@ -106,11 +106,11 @@ W8CombatState* g_combat_state;
 // GLOBAL: WIZ8 0x0068d810
 static bool g_combat_log_enabled;
 // GLOBAL: WIZ8 0x00617664
-wchar_t g_combat_log_format[] = L"%hs";
+char g_combat_log_format[] = "%s";
 // GLOBAL: WIZ8 0x006175B0
-static wchar_t g_format_s_dash_dash[] = L"%s -- ";
+static char g_format_s_dash_dash[] = "%s -- ";
 // GLOBAL: WIZ8 0x006175C0
-wchar_t g_format_s_bang[] = L"%s!";
+char g_format_s_bang[] = "%s!";
 // GLOBAL: WIZ8 0x0061EC8C
 static int g_breath_notice_id = 0x65b;
 
@@ -404,7 +404,7 @@ bool QueueNpcCombatScript(void)
         }
         if (hostile_group_present && CanPlaceNpcNearParty(slot)) {
             BeginScriptedWorldAction();
-            ShowString(FormatWideString(g_format_s_space_s, npc->record->source_name,
+            ShowString(FormatText(g_format_s_space_s, npc->record->source_name,
                                         gppStringList[0x272]));
             QueueNpcMessageLine(W8_NPC_MSG_PARTY_SLOT_EVENT_18, slot);
             QueueNpcMessageLine(W8_NPC_MSG_CLEAR_NPC_COMBAT, slot);
@@ -552,7 +552,7 @@ void BeginCombatExecution(void)
     }
     g_combat_state->round_counter = GetPhaseStep();
     if (CombatMayAdvanceContinuously()) {
-        ShowNotice(W8_FONT_PALETTE_BEIGE, &g_empty_wide_string);
+        ShowNotice(W8_FONT_PALETTE_BEIGE, &g_empty_text);
         ShowNoticef(W8_FONT_PALETTE_BEIGE, gppStringList[0x227], g_combat_state->round_count);
     }
 
@@ -732,7 +732,7 @@ void CombatLog(const char* format, ...)
     va_list arguments;
 
     va_start(arguments, format);
-    vsprintf(line, format, arguments);
+    vsnprintf(line, sizeof(line), format, arguments);
     if (g_combat_log_enabled) {
         ShowNoticef(W8_FONT_PALETTE_BROWN, g_combat_log_format, line);
     }
@@ -2012,7 +2012,7 @@ int CheckCombatEnd(unsigned int end_if_no_hostiles)
             ShowNotice(W8_FONT_PALETTE_BEIGE, gppStringList[0x22c], 0);
             FormatNotice(W8_FONT_PALETTE_BEIGE, 0, gppStringList[0x22d],
                          g_combat_state->combat_result,
-                         g_combat_state->combat_result == 1 ? L"kill" : L"kills");
+                         g_combat_state->combat_result == 1 ? "kill" : "kills");
             StartMusicResource("CombatWin.MPL", 0, 1);
             ServiceMusicPlaylist();
             StartLevelMusic(1, 0);
@@ -2218,7 +2218,7 @@ void ExecuteCharacterAction(int party_slot)
                 }
                 target = PickReachableSlotByDisposition(party_slot, relationship);
                 if (target == -1) {
-                    FormatDebugMessage(1, "ERROR: %ls is attacking friends with nobody in range",
+                    FormatDebugMessage(1, "ERROR: %s is attacking friends with nobody in range",
                                        character->name);
                     slot->pending_action = W8_ACTION_NONE;
                     action = W8_ACTION_NONE;
@@ -2303,7 +2303,7 @@ void ExecuteCharacterAction(int party_slot)
     case W8_ACTION_EQUIP:
         break;
     default:
-        FormatDebugMessage(1, "ERROR: Char %d executed %ls as a character action for char %d",
+        FormatDebugMessage(1, "ERROR: Char %d executed %s as a character action for char %d",
                            party_slot, gppStringList[g_action_kind_message_ids[action]]);
         break;
     }
@@ -2464,7 +2464,7 @@ void ExecuteMonsterAction(W8MonsterInfo* monster_info, W8MonsterRecord* record)
             if (!ChooseRandomMonsterAction(monster_info, true, false, berserked)) {
                 if (interrupt == 8) {
                     FormatDebugMessage(
-                        1, "ERROR: %ls (ID %d) is attacking friends with nobody in range",
+                        1, "ERROR: %s (ID %d) is attacking friends with nobody in range",
                         record->name0, monster_info->location_id);
                 }
                 monster_info->action_kind = W8_MONSTER_ACTION_NONE;
@@ -2666,7 +2666,7 @@ bool MonsterFleeAction(W8MonsterInfo* monster_info, W8MonsterRecord* record)
     monster_info->pCombat->special_ready = false;
     StartMonsterCycle(monster_info, W8_MONSTER_CYCLE_ATTACK_SPECIAL, W8_ANIMATION_PLAY_ONCE);
     if (g_settings.verbose_combat_messages != 0) {
-        ShowNoticef(9, L"%s %s!", GetMonsterName(monster_info, nullptr, 0),
+        ShowNoticef(9, "%s %s!", GetMonsterName(monster_info, nullptr, 0),
                     gppStringList[g_monster_special_attack_name_ids[record->special_attack_kind]]);
         return true;
     }
@@ -2805,7 +2805,7 @@ bool CreateCharacterBreathEffect(int party_slot)
                                &char_targets, 0);
     if (monster_targets.GetCount() == 0) {
         PostCharacterNotice(party_slot,
-                            FormatWideString(gppStringList[0x1b7],
+                            FormatText(gppStringList[0x1b7],
                                              g_spell_records[W8_SPELL_DRACON_BREATH].display_name));
         return false;
     }

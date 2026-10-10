@@ -88,7 +88,7 @@ public:
     /* Create an SGP text button (BUTTON_NO_TOGGLE, priority 0x7f),
        store this in its user-data slot 0 and the payload in slot 1 (read back
        by GetUserData), then install the left-click callback. */
-    bool ConfigureTextButton(const wchar_t* text, unsigned int font, short fore_color,
+    bool ConfigureTextButton(const char* text, unsigned int font, short fore_color,
                              short shadow_color, short x, short y, short width, short height,
                              W8DialogButtonCallback left_callback, int user_data);
     /* Configure from an already-loaded vobject; the five state

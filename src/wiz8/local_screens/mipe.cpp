@@ -5,7 +5,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <wchar.h>
 
 #include "input.h"
 
@@ -150,13 +149,13 @@ void ToggleMipePanel(void)
     ResetEditorStatusLine(-1);
     g_mipe_active = true;
     ResetEditorStatusLine(-1);
-    ShowNoticef(W8_FONT_PALETTE_PINK, L"What would you like to do?", 0);
-    ShowNoticef(W8_FONT_PALETTE_TEXT_BOX, L"1) Create a monster.", 0);
-    ShowNoticef(W8_FONT_PALETTE_TEXT_BOX, L"2) Create an item.", 0);
-    ShowNoticef(W8_FONT_PALETTE_TEXT_BOX, L"3) Edit object(s).", 0);
-    ShowNoticef(W8_FONT_PALETTE_TEXT_BOX, L"4) Monster Generators.", 0);
-    ShowNoticef(W8_FONT_PALETTE_TEXT_BOX, L"5) Select object(s).", 0);
-    ShowNoticef(W8_FONT_PALETTE_TEXT_BOX, L"6) Handle triggers.", 0);
+    ShowNoticef(W8_FONT_PALETTE_PINK, "What would you like to do?", 0);
+    ShowNoticef(W8_FONT_PALETTE_TEXT_BOX, "1) Create a monster.", 0);
+    ShowNoticef(W8_FONT_PALETTE_TEXT_BOX, "2) Create an item.", 0);
+    ShowNoticef(W8_FONT_PALETTE_TEXT_BOX, "3) Edit object(s).", 0);
+    ShowNoticef(W8_FONT_PALETTE_TEXT_BOX, "4) Monster Generators.", 0);
+    ShowNoticef(W8_FONT_PALETTE_TEXT_BOX, "5) Select object(s).", 0);
+    ShowNoticef(W8_FONT_PALETTE_TEXT_BOX, "6) Handle triggers.", 0);
     g_mipe_mode = 0;
     InitializeWorldCursor();
     g_mipe_active = true;
@@ -177,7 +176,7 @@ void ToggleMipePanel(void)
         if (entry == 0) {
             srAssertFail("pMonRec", "C:\\Projects\\Wizardry 8\\Local Screens\\mipe.cpp", 0xeab, 0);
         }
-        wcscpy(entry->name, records[index].name0);
+        strcpy(entry->name, records[index].name0);
         entry->kind = records[index].kind;
         entry->selectable = records[index].deleted == 0 && records[index].editor_index == -1;
         PLAdoptAppend(g_mipe_monster_entries, entry);
@@ -266,70 +265,70 @@ static int g_mipe_scale_plane;
 /* Lock/trap kind names for the selected trigger's lock_type, printed by the
    prop-edit menu and the locks & traps editor. */
 // GLOBAL: WIZ8 0x0064a1d0
-static const wchar_t* g_lock_type_names[4] = {L"None", L"Pickable Lock", L"Trap", L"Key Lock"};
+static const char* g_lock_type_names[4] = {"None", "Pickable Lock", "Trap", "Key Lock"};
 
 /* Mode-1 status: monster being placed, count being accumulated and the
    creation method. */
 // FUNCTION: WIZ8 0x00577bf0
 static void ShowMipeMonsterStatus(void)
 {
-    wchar_t name[100];
-    const wchar_t* method;
+    char name[3 * (100) + 1];
+    const char* method;
 
-    wcscpy(name, static_cast<const wchar_t*>(
+    strcpy(name, static_cast<const char*>(
                      PLGet(g_mipe_monster_entries, static_cast<int>(g_mipe_monster_index))));
     ResetEditorStatusLine(-1);
-    ShowNoticef(W8_FONT_PALETTE_PINK, L"Type # to specify how many, then ENTER,");
-    ShowNoticef(W8_FONT_PALETTE_PINK, L"OR type C to change what monster to place.  ");
-    ShowNoticef(W8_FONT_PALETTE_PINK, L"OR type O to edit the creation method.      ");
-    ShowNoticef(W8_FONT_PALETTE_BLUE, L"How many: %d", g_mipe_count);
-    ShowNoticef(W8_FONT_PALETTE_TEXT_BOX, &g_empty_wide_string);
+    ShowNoticef(W8_FONT_PALETTE_PINK, "Type # to specify how many, then ENTER,");
+    ShowNoticef(W8_FONT_PALETTE_PINK, "OR type C to change what monster to place.  ");
+    ShowNoticef(W8_FONT_PALETTE_PINK, "OR type O to edit the creation method.      ");
+    ShowNoticef(W8_FONT_PALETTE_BLUE, "How many: %d", g_mipe_count);
+    ShowNoticef(W8_FONT_PALETTE_TEXT_BOX, &g_empty_text);
     if (g_mipe_state->creation_method == 0) {
-        method = L"Creation Method: Exact #";
+        method = "Creation Method: Exact #";
     } else if (g_mipe_state->creation_method == 1) {
-        method = L"Creation Method: Placeholder";
+        method = "Creation Method: Placeholder";
     } else {
         if (g_mipe_state->creation_method != 2) {
-            ShowNoticef(W8_FONT_PALETTE_TEXT_BOX, L"Monster:   %s        ", name);
+            ShowNoticef(W8_FONT_PALETTE_TEXT_BOX, "Monster:   %s        ", name);
             return;
         }
-        method = L"Creation Method: Selection";
+        method = "Creation Method: Selection";
     }
     ShowNoticef(W8_FONT_PALETTE_TEXT_BOX, method);
-    ShowNoticef(W8_FONT_PALETTE_TEXT_BOX, L"Monster:   %s        ", name);
+    ShowNoticef(W8_FONT_PALETTE_TEXT_BOX, "Monster:   %s        ", name);
 }
 
 /* Mode-2 status: item being placed, count and the hidden/visible toggles. */
 // FUNCTION: WIZ8 0x00577cb0
 static void ShowMipeItemStatus(void)
 {
-    wchar_t name[100];
-    const wchar_t* line;
+    char name[3 * (100) + 1];
+    const char* line;
     unsigned int palette;
 
-    wcscpy(name, g_item_records[g_mipe_item_index].display_name);
+    strcpy(name, g_item_records[g_mipe_item_index].display_name);
     ResetEditorStatusLine(-1);
-    ShowNoticef(W8_FONT_PALETTE_PINK, L"Type # to specify how many, then ENTER,");
-    ShowNoticef(W8_FONT_PALETTE_PINK, L"OR type C to change what item to place.  ");
-    ShowNoticef(W8_FONT_PALETTE_BLUE, L"How many: %d", g_mipe_count);
-    ShowNoticef(W8_FONT_PALETTE_TEXT_BOX, &g_empty_wide_string);
+    ShowNoticef(W8_FONT_PALETTE_PINK, "Type # to specify how many, then ENTER,");
+    ShowNoticef(W8_FONT_PALETTE_PINK, "OR type C to change what item to place.  ");
+    ShowNoticef(W8_FONT_PALETTE_BLUE, "How many: %d", g_mipe_count);
+    ShowNoticef(W8_FONT_PALETTE_TEXT_BOX, &g_empty_text);
     if (!g_hide_invisible_items) {
-        line = L"A - All invisible items  will be blue.";
+        line = "A - All invisible items  will be blue.";
         palette = 3;
     } else {
-        line = L"A - All invisible items will be hidden.";
+        line = "A - All invisible items will be hidden.";
         palette = 8;
     }
     ShowNoticef(palette, line);
     if (!g_mipe_item_hidden) {
-        line = L"H - Item will be visible.";
+        line = "H - Item will be visible.";
         palette = 5;
     } else {
-        line = L"H - Item will be hidden.";
+        line = "H - Item will be hidden.";
         palette = 8;
     }
     ShowNoticef(palette, line);
-    ShowNoticef(W8_FONT_PALETTE_TEXT_BOX, L"Item:   %s        ", name);
+    ShowNoticef(W8_FONT_PALETTE_TEXT_BOX, "Item:   %s        ", name);
 }
 
 /* Six visible rows of `list` starting at the table base; the selected row is
@@ -345,10 +344,10 @@ void ShowMipeTableRows(W8PList* list)
         for (row = 0; row < 6; ++row) {
             entry = PLGet(list, g_mipe_table_base + row);
             if (entry == 0) {
-                ShowNoticef(W8_FONT_PALETTE_TEXT_BOX, &g_empty_wide_string);
+                ShowNoticef(W8_FONT_PALETTE_TEXT_BOX, &g_empty_text);
             } else {
                 palette = row == g_mipe_table_row ? 3 : 0xf;
-                ShowNoticef(palette, L"    %s", entry);
+                ShowNoticef(palette, "    %s", entry);
             }
         }
     }
@@ -356,26 +355,26 @@ void ShowMipeTableRows(W8PList* list)
 
 /* Mode-9 menu: pick a monster or item to edit, showing the one/group choice
    the 'C' key toggles. */
-static void ShowMipeSelectionMenu(const wchar_t* title)
+static void ShowMipeSelectionMenu(const char* title)
 {
     ResetEditorStatusLine(-1);
     ShowNoticef(W8_FONT_PALETTE_PINK, title);
-    ShowNoticef(W8_FONT_PALETTE_TEXT_BOX, L"Type C to change how to choose.");
-    ShowNoticef(W8_FONT_PALETTE_TEXT_BOX, &g_empty_wide_string);
-    ShowNoticef(W8_FONT_PALETTE_TEXT_BOX, &g_empty_wide_string);
-    ShowNoticef(W8_FONT_PALETTE_TEXT_BOX, &g_empty_wide_string);
-    ShowNoticef(W8_FONT_PALETTE_TEXT_BOX, &g_empty_wide_string);
+    ShowNoticef(W8_FONT_PALETTE_TEXT_BOX, "Type C to change how to choose.");
+    ShowNoticef(W8_FONT_PALETTE_TEXT_BOX, &g_empty_text);
+    ShowNoticef(W8_FONT_PALETTE_TEXT_BOX, &g_empty_text);
+    ShowNoticef(W8_FONT_PALETTE_TEXT_BOX, &g_empty_text);
+    ShowNoticef(W8_FONT_PALETTE_TEXT_BOX, &g_empty_text);
     if (g_mipe_choose_group) {
-        ShowNoticef(W8_FONT_PALETTE_TEXT_BOX, L"Choosing: Group");
+        ShowNoticef(W8_FONT_PALETTE_TEXT_BOX, "Choosing: Group");
         return;
     }
-    ShowNoticef(W8_FONT_PALETTE_TEXT_BOX, L"Choosing: One");
+    ShowNoticef(W8_FONT_PALETTE_TEXT_BOX, "Choosing: One");
 }
 
 // FUNCTION: WIZ8 0x00577de0
 void ShowMipeChooseMenu(void)
 {
-    ShowMipeSelectionMenu(L"Choose monster or item to edit.");
+    ShowMipeSelectionMenu("Choose monster or item to edit.");
 }
 
 /* Mode-5 menu: which kind of object to edit. */
@@ -383,23 +382,23 @@ void ShowMipeChooseMenu(void)
 void ShowMipeEditMenu(void)
 {
     ResetEditorStatusLine(-1);
-    ShowNoticef(W8_FONT_PALETTE_PINK, L"What do you want to edit?.");
-    ShowNoticef(W8_FONT_PALETTE_TEXT_BOX, L"1) Monster");
-    ShowNoticef(W8_FONT_PALETTE_TEXT_BOX, L"2) Prop");
-    ShowNoticef(W8_FONT_PALETTE_TEXT_BOX, L"3) Item");
-    ShowNoticef(W8_FONT_PALETTE_TEXT_BOX, L"4) Move object(s)");
+    ShowNoticef(W8_FONT_PALETTE_PINK, "What do you want to edit?.");
+    ShowNoticef(W8_FONT_PALETTE_TEXT_BOX, "1) Monster");
+    ShowNoticef(W8_FONT_PALETTE_TEXT_BOX, "2) Prop");
+    ShowNoticef(W8_FONT_PALETTE_TEXT_BOX, "3) Item");
+    ShowNoticef(W8_FONT_PALETTE_TEXT_BOX, "4) Move object(s)");
 }
 
 static void ShowMipeMonsterEditMenu()
 {
     ResetEditorStatusLine(-1);
-    ShowNoticef(W8_FONT_PALETTE_PINK, L"Edit Monster");
-    ShowNoticef(W8_FONT_PALETTE_TEXT_BOX, L"1) Slow <<");
-    ShowNoticef(W8_FONT_PALETTE_TEXT_BOX, L"2) Fast >>");
-    ShowNoticef(W8_FONT_PALETTE_TEXT_BOX, L"3) Set Speed");
-    ShowNoticef(W8_FONT_PALETTE_TEXT_BOX, L"4) Assign Path");
-    ShowNoticef(W8_FONT_PALETTE_TEXT_BOX, L"5) Next Cycle");
-    ShowNoticef(W8_FONT_PALETTE_TEXT_BOX, L"6) Direction");
+    ShowNoticef(W8_FONT_PALETTE_PINK, "Edit Monster");
+    ShowNoticef(W8_FONT_PALETTE_TEXT_BOX, "1) Slow <<");
+    ShowNoticef(W8_FONT_PALETTE_TEXT_BOX, "2) Fast >>");
+    ShowNoticef(W8_FONT_PALETTE_TEXT_BOX, "3) Set Speed");
+    ShowNoticef(W8_FONT_PALETTE_TEXT_BOX, "4) Assign Path");
+    ShowNoticef(W8_FONT_PALETTE_TEXT_BOX, "5) Next Cycle");
+    ShowNoticef(W8_FONT_PALETTE_TEXT_BOX, "6) Direction");
 }
 
 /* Mode-0xd menu: prop field-editing choices (locks & traps, treasure table). */
@@ -407,13 +406,13 @@ static void ShowMipeMonsterEditMenu()
 void ShowMipePropMenu(void)
 {
     ResetEditorStatusLine(-1);
-    ShowNoticef(W8_FONT_PALETTE_PINK, L"Choose how you want to edit prop.");
-    ShowNoticef(W8_FONT_PALETTE_TEXT_BOX, L"1) Locks & Traps");
-    ShowNoticef(W8_FONT_PALETTE_TEXT_BOX, L"2) Treasure Table");
-    ShowNoticef(W8_FONT_PALETTE_TEXT_BOX, L"3) .");
-    ShowNoticef(W8_FONT_PALETTE_TEXT_BOX, L"4) .");
-    ShowNoticef(W8_FONT_PALETTE_TEXT_BOX, L"5) .");
-    ShowNoticef(W8_FONT_PALETTE_TEXT_BOX, L"6) .");
+    ShowNoticef(W8_FONT_PALETTE_PINK, "Choose how you want to edit prop.");
+    ShowNoticef(W8_FONT_PALETTE_TEXT_BOX, "1) Locks & Traps");
+    ShowNoticef(W8_FONT_PALETTE_TEXT_BOX, "2) Treasure Table");
+    ShowNoticef(W8_FONT_PALETTE_TEXT_BOX, "3) .");
+    ShowNoticef(W8_FONT_PALETTE_TEXT_BOX, "4) .");
+    ShowNoticef(W8_FONT_PALETTE_TEXT_BOX, "5) .");
+    ShowNoticef(W8_FONT_PALETTE_TEXT_BOX, "6) .");
 }
 
 /* Mode-0xc menu: trigger actions plus the selected trigger's kind and the
@@ -421,40 +420,40 @@ void ShowMipePropMenu(void)
 // FUNCTION: WIZ8 0x00578000
 static void ShowMipeTriggerMenu(void)
 {
-    const wchar_t* status;
+    const char* status;
     int kind;
 
     ResetEditorStatusLine(-1);
-    ShowNoticef(W8_FONT_PALETTE_PINK, L"Select what you want to do.");
-    ShowNoticef(W8_FONT_PALETTE_TEXT_BOX, L"1) Create trigger.");
-    ShowNoticef(W8_FONT_PALETTE_TEXT_BOX, L"2) Delete trigger.");
-    ShowNoticef(W8_FONT_PALETTE_TEXT_BOX, L"3) ");
-    ShowNoticef(W8_FONT_PALETTE_TEXT_BOX, L"4) Select trigger.");
+    ShowNoticef(W8_FONT_PALETTE_PINK, "Select what you want to do.");
+    ShowNoticef(W8_FONT_PALETTE_TEXT_BOX, "1) Create trigger.");
+    ShowNoticef(W8_FONT_PALETTE_TEXT_BOX, "2) Delete trigger.");
+    ShowNoticef(W8_FONT_PALETTE_TEXT_BOX, "3) ");
+    ShowNoticef(W8_FONT_PALETTE_TEXT_BOX, "4) Select trigger.");
     ShowNoticef(W8_FONT_PALETTE_TEXT_BOX, !g_mipe_trigger_display
-                                              ? L"5) Toggle trigger display [now off]."
-                                              : L"5) Toggle trigger display [now on].");
-    ShowNoticef(W8_FONT_PALETTE_TEXT_BOX, L"6) Volume Triggers.");
+                                              ? "5) Toggle trigger display [now off]."
+                                              : "5) Toggle trigger display [now on].");
+    ShowNoticef(W8_FONT_PALETTE_TEXT_BOX, "6) Volume Triggers.");
     if (g_mipe_state->trigger == 0) {
         if (g_mipe_state->selecting == 0) {
             return;
         }
-        status = L"---> SELECTING TRIGGER <---";
+        status = "---> SELECTING TRIGGER <---";
     } else {
         kind = g_mipe_state->trigger->trigger_kind;
         if (kind == 1) {
-            status = L"Trigger is Switch";
+            status = "Trigger is Switch";
             if (g_mipe_state->selecting == 0) {
                 ShowNoticef(W8_FONT_PALETTE_WHITE, status);
                 return;
             }
         } else if (kind == 2) {
-            status = L"Trigger is Invisible";
+            status = "Trigger is Invisible";
             if (g_mipe_state->selecting == 0) {
                 ShowNoticef(W8_FONT_PALETTE_WHITE, status);
                 return;
             }
         } else {
-            status = L"Trigger Type Unknown";
+            status = "Trigger Type Unknown";
             if (g_mipe_state->selecting == 0) {
                 ShowNoticef(W8_FONT_PALETTE_TEXT_BOX, status);
                 return;
@@ -472,14 +471,14 @@ void ShowMonsterSpeedStatus(void)
     float speed;
 
     ResetEditorStatusLine(-1);
-    ShowNoticef(W8_FONT_PALETTE_PINK, L"Type ',' to decrease speed, '.' to increase.");
-    ShowNoticef(W8_FONT_PALETTE_PINK, L"Type 'k' to decrease increment, 'l' to increase.");
-    ShowNoticef(W8_FONT_PALETTE_TEXT_BOX, &g_empty_wide_string);
-    ShowNoticef(W8_FONT_PALETTE_TEXT_BOX, L"Increment: %g", g_mipe_state->speed_step);
-    ShowNoticef(W8_FONT_PALETTE_TEXT_BOX, &g_empty_wide_string);
-    ShowNoticef(W8_FONT_PALETTE_TEXT_BOX, &g_empty_wide_string);
+    ShowNoticef(W8_FONT_PALETTE_PINK, "Type ',' to decrease speed, '.' to increase.");
+    ShowNoticef(W8_FONT_PALETTE_PINK, "Type 'k' to decrease increment, 'l' to increase.");
+    ShowNoticef(W8_FONT_PALETTE_TEXT_BOX, &g_empty_text);
+    ShowNoticef(W8_FONT_PALETTE_TEXT_BOX, "Increment: %g", g_mipe_state->speed_step);
+    ShowNoticef(W8_FONT_PALETTE_TEXT_BOX, &g_empty_text);
+    ShowNoticef(W8_FONT_PALETTE_TEXT_BOX, &g_empty_text);
     if (g_mipe_state->monster == 0) {
-        ShowNoticef(W8_FONT_PALETTE_WHITE, L"No monster available.");
+        ShowNoticef(W8_FONT_PALETTE_WHITE, "No monster available.");
         return;
     }
     path = static_cast<W8PathAI*>(MonsterGetAIRecord(g_mipe_state->monster));
@@ -487,12 +486,12 @@ void ShowMonsterSpeedStatus(void)
         speed = PathAIGetScale(path);
     } else {
         if (g_mipe_state->monster == 0) {
-            ShowNoticef(W8_FONT_PALETTE_WHITE, L"Monster has no path AI.");
+            ShowNoticef(W8_FONT_PALETTE_WHITE, "Monster has no path AI.");
             return;
         }
         speed = MonsterGetNavigatorMovementScale(g_mipe_state->monster);
     }
-    ShowNoticef(W8_FONT_PALETTE_TEXT_BOX, L"Current speed: %g", speed);
+    ShowNoticef(W8_FONT_PALETTE_TEXT_BOX, "Current speed: %g", speed);
 }
 
 /* The "Parameters" pane for the selected volume cube. */
@@ -501,30 +500,30 @@ void ShowCubeParameters(void)
 {
     ResetEditorStatusLine(-1);
     if (g_mipe_cube == 0) {
-        ShowNoticef(W8_FONT_PALETTE_PINK, L"No cube selected.");
+        ShowNoticef(W8_FONT_PALETTE_PINK, "No cube selected.");
         return;
     }
-    ShowNoticef(W8_FONT_PALETTE_PINK, L"Parameters:");
+    ShowNoticef(W8_FONT_PALETTE_PINK, "Parameters:");
     if (g_mipe_cube_param == 0) {
-        ShowNoticef(W8_FONT_PALETTE_RED, L"Message: %d",
+        ShowNoticef(W8_FONT_PALETTE_RED, "Message: %d",
                     GetWorldCursorNodeParameter(g_mipe_cube, 0));
     } else {
-        ShowNoticef(W8_FONT_PALETTE_TEXT_BOX, L"Message: %d",
+        ShowNoticef(W8_FONT_PALETTE_TEXT_BOX, "Message: %d",
                     GetWorldCursorNodeParameter(g_mipe_cube, 0));
     }
     if (g_mipe_cube_param == 1) {
-        ShowNoticef(W8_FONT_PALETTE_RED, L"Search: %d",
+        ShowNoticef(W8_FONT_PALETTE_RED, "Search: %d",
                     GetWorldCursorNodeParameter(g_mipe_cube, 1));
     } else {
-        ShowNoticef(W8_FONT_PALETTE_TEXT_BOX, L"Search: %d",
+        ShowNoticef(W8_FONT_PALETTE_TEXT_BOX, "Search: %d",
                     GetWorldCursorNodeParameter(g_mipe_cube, 1));
     }
     if (g_mipe_cube_param == 2) {
-        ShowNoticef(W8_FONT_PALETTE_RED, L"Function: %d",
+        ShowNoticef(W8_FONT_PALETTE_RED, "Function: %d",
                     GetWorldCursorNodeParameter(g_mipe_cube, 2));
         return;
     }
-    ShowNoticef(W8_FONT_PALETTE_TEXT_BOX, L"Function: %d",
+    ShowNoticef(W8_FONT_PALETTE_TEXT_BOX, "Function: %d",
                 GetWorldCursorNodeParameter(g_mipe_cube, 2));
 }
 
@@ -535,33 +534,33 @@ void ShowMonsterGeneratorStatus(void)
     const char* state;
 
     ResetEditorStatusLine(-1);
-    ShowNoticef(W8_FONT_PALETTE_PINK, L"Monster Generators (%d)", GetMonsterGeneratorCount());
-    ShowNoticef(W8_FONT_PALETTE_TEXT_BOX, L"1) Create 2) Delete");
-    ShowNoticef(W8_FONT_PALETTE_TEXT_BOX, L"3) Edit   4) Select");
+    ShowNoticef(W8_FONT_PALETTE_PINK, "Monster Generators (%d)", GetMonsterGeneratorCount());
+    ShowNoticef(W8_FONT_PALETTE_TEXT_BOX, "1) Create 2) Delete");
+    ShowNoticef(W8_FONT_PALETTE_TEXT_BOX, "3) Edit   4) Select");
     state = "On";
     if (!g_mipe_mongen_visible) {
         state = "Off";
     }
-    ShowNoticef(W8_FONT_PALETTE_TEXT_BOX, L"5) Toggle Display [%s]", state);
+    ShowNoticef(W8_FONT_PALETTE_TEXT_BOX, "5) Toggle Display [%s]", state);
     state = "Off";
     if (g_generator_save_flag == 0) {
         state = "On";
     }
-    ShowNoticef(W8_FONT_PALETTE_TEXT_BOX, L"6) Toggle Active  [%s]", state);
-    ShowNoticef(W8_FONT_PALETTE_TEXT_BOX, &g_empty_wide_string);
+    ShowNoticef(W8_FONT_PALETTE_TEXT_BOX, "6) Toggle Active  [%s]", state);
+    ShowNoticef(W8_FONT_PALETTE_TEXT_BOX, &g_empty_text);
     if (g_mipe_state->generator != 0) {
         if (g_mipe_state->selecting != 0) {
-            ShowNoticef(W8_FONT_PALETTE_BLUE, L"<--- MOUSE OVER MONGEN --->");
+            ShowNoticef(W8_FONT_PALETTE_BLUE, "<--- MOUSE OVER MONGEN --->");
             return;
         }
-        ShowNoticef(W8_FONT_PALETTE_WHITE, L"MONGEN selected");
+        ShowNoticef(W8_FONT_PALETTE_WHITE, "MONGEN selected");
         return;
     }
     if (g_mipe_state->selecting != 0) {
-        ShowNoticef(W8_FONT_PALETTE_BLUE, L"---> SELECTING MONGEN <---");
+        ShowNoticef(W8_FONT_PALETTE_BLUE, "---> SELECTING MONGEN <---");
         return;
     }
-    ShowNoticef(W8_FONT_PALETTE_TEXT_BOX, &g_empty_wide_string);
+    ShowNoticef(W8_FONT_PALETTE_TEXT_BOX, &g_empty_text);
 }
 
 /* The "Edit Monster Generator" pane. */
@@ -574,36 +573,36 @@ void ShowMonsterGeneratorEditor(void)
     int chance;
     short interval;
     int color;
-    const wchar_t* format;
+    const char* format;
 
     ResetEditorStatusLine(-1);
-    ShowNoticef(W8_FONT_PALETTE_PINK, L"Edit Monster Generator");
-    ShowNoticef(W8_FONT_PALETTE_TEXT_BOX, L"1) Name: %hs", g_mipe_state->generator->name);
+    ShowNoticef(W8_FONT_PALETTE_PINK, "Edit Monster Generator");
+    ShowNoticef(W8_FONT_PALETTE_TEXT_BOX, "1) Name: %s", g_mipe_state->generator->name);
     if (g_mipe_state->generator->encounter_table_index == -1) {
-        ShowNoticef(W8_FONT_PALETTE_TEXT_BOX, L"2) Table: Not Selected");
+        ShowNoticef(W8_FONT_PALETTE_TEXT_BOX, "2) Table: Not Selected");
     } else {
         table = GetEncounterTable(g_mipe_state->generator->encounter_table_index);
-        ShowNoticef(W8_FONT_PALETTE_TEXT_BOX, L"2) Table: %hs", table->name);
+        ShowNoticef(W8_FONT_PALETTE_TEXT_BOX, "2) Table: %s", table->name);
     }
     state = "On";
     if (g_mipe_state->generator->generation_enabled == 0) {
         state = "Off";
     }
-    ShowNoticef(W8_FONT_PALETTE_TEXT_BOX, L"3) Toggle Active [%s]", state);
+    ShowNoticef(W8_FONT_PALETTE_TEXT_BOX, "3) Toggle Active [%s]", state);
     generator = g_mipe_state->generator;
     if ((generator->flags >> 3 & 1) == 0) {
         interval = generator->custom_interval_seconds;
         chance = generator->custom_spawn_chance;
-        format = L" Custom: %d (4-/5+) chance every %d (6-/7+) s";
+        format = " Custom: %d (4-/5+) chance every %d (6-/7+) s";
         color = 5;
     } else {
         chance = g_generator_interval_min;
-        format = L" Default: %d (4-/5+) chance every %d (6-/7+) s";
+        format = " Default: %d (4-/5+) chance every %d (6-/7+) s";
         color = 8;
         interval = g_generator_default_interval;
     }
     ShowNoticef(color, format, chance, static_cast<int>(interval));
-    ShowNoticef(W8_FONT_PALETTE_TEXT_BOX, L"8) to toggle chance default");
+    ShowNoticef(W8_FONT_PALETTE_TEXT_BOX, "8) to toggle chance default");
 }
 
 template <class Entry> static void ShowMipeNamedTableRows(W8PList* list)
@@ -612,10 +611,10 @@ template <class Entry> static void ShowMipeNamedTableRows(W8PList* list)
         for (int row = 0; row < 6; ++row) {
             Entry* entry = static_cast<Entry*>(PLGet(list, g_mipe_table_base + row));
             if (entry == 0) {
-                ShowNoticef(W8_FONT_PALETTE_TEXT_BOX, &g_empty_wide_string);
+                ShowNoticef(W8_FONT_PALETTE_TEXT_BOX, &g_empty_text);
             } else {
                 unsigned int palette = row == g_mipe_table_row ? 3 : 0xf;
-                ShowNoticef(palette, L"    %S", entry->name);
+                ShowNoticef(palette, "    %s", entry->name);
             }
         }
     }
@@ -626,7 +625,7 @@ template <class Entry> static void ShowMipeNamedTableRows(W8PList* list)
 void ShowMipeEncounterCategory(void)
 {
     ResetEditorStatusLine(-1);
-    ShowNoticef(W8_FONT_PALETTE_PINK, L"Category: %S",
+    ShowNoticef(W8_FONT_PALETTE_PINK, "Category: %s",
                 *g_encounter_names.GetAt(g_mipe_category & 0xff));
     ShowMipeNamedTableRows<W8EncounterTableRuntime>(g_mipe_category_list);
 }
@@ -636,7 +635,7 @@ void ShowMipeEncounterCategory(void)
 void ShowMipeItemTableCategory(void)
 {
     ResetEditorStatusLine(-1);
-    ShowNoticef(W8_FONT_PALETTE_PINK, L"Category: %S",
+    ShowNoticef(W8_FONT_PALETTE_PINK, "Category: %s",
                 g_item_table_category_names[g_mipe_category & 0xff]);
     ShowMipeNamedTableRows<W8ItemTableRecord>(g_mipe_category_list);
 }
@@ -832,7 +831,7 @@ static bool MoveMipeTableSelection(unsigned short key)
 static void ShowMipeNamedCategory(W8PList* list, const unsigned short* name_ids)
 {
     ResetEditorStatusLine(-1);
-    ShowNoticef(W8_FONT_PALETTE_PINK, L"Category: %s",
+    ShowNoticef(W8_FONT_PALETTE_PINK, "Category: %s",
                 gppStringList[name_ids[g_mipe_category & 0xff]]);
     ShowMipeTableRows(list);
 }
@@ -1270,34 +1269,34 @@ speed_done:
 static void ShowMipeWaypointStatus()
 {
     ResetEditorStatusLine(-1);
-    ShowNoticef(W8_FONT_PALETTE_PINK, L"Type 'C' to create a waypoint.");
-    ShowNoticef(W8_FONT_PALETTE_TEXT_BOX, &g_empty_wide_string);
-    ShowNoticef(W8_FONT_PALETTE_BLUE, L"Laying down waypoint %d", g_mipe_state->waypoint_count);
-    ShowNoticef(W8_FONT_PALETTE_TEXT_BOX, &g_empty_wide_string);
-    ShowNoticef(W8_FONT_PALETTE_TEXT_BOX, &g_empty_wide_string);
-    ShowNoticef(W8_FONT_PALETTE_TEXT_BOX, &g_empty_wide_string);
-    ShowNoticef(W8_FONT_PALETTE_TEXT_BOX, L"Type X to delete last waypoint.");
+    ShowNoticef(W8_FONT_PALETTE_PINK, "Type 'C' to create a waypoint.");
+    ShowNoticef(W8_FONT_PALETTE_TEXT_BOX, &g_empty_text);
+    ShowNoticef(W8_FONT_PALETTE_BLUE, "Laying down waypoint %d", g_mipe_state->waypoint_count);
+    ShowNoticef(W8_FONT_PALETTE_TEXT_BOX, &g_empty_text);
+    ShowNoticef(W8_FONT_PALETTE_TEXT_BOX, &g_empty_text);
+    ShowNoticef(W8_FONT_PALETTE_TEXT_BOX, &g_empty_text);
+    ShowNoticef(W8_FONT_PALETTE_TEXT_BOX, "Type X to delete last waypoint.");
 }
 
 static void ShowMipeLockTrapStatus()
 {
     Trigger* trigger;
     int key_id;
-    const wchar_t* key_name;
+    const char* key_name;
 
     trigger = g_mipe_state->prop->GetTrigger();
     ResetEditorStatusLine(-1);
-    ShowNoticef(W8_FONT_PALETTE_PINK, L"Edit Locks & Traps");
-    ShowNoticef(W8_FONT_PALETTE_TEXT_BOX, L"1) Type: %s",
+    ShowNoticef(W8_FONT_PALETTE_PINK, "Edit Locks & Traps");
+    ShowNoticef(W8_FONT_PALETTE_TEXT_BOX, "1) Type: %s",
                 g_lock_type_names[trigger->lock_state.lock_type]);
     key_id = trigger->lock_state.key_id;
     if (key_id < 0) {
-        key_name = &g_empty_wide_string;
+        key_name = &g_empty_text;
     } else {
         key_name = g_item_records[key_id].display_name;
     }
-    ShowNoticef(W8_FONT_PALETTE_TEXT_BOX, L"2) Key Id: (%d) %s", key_id, key_name);
-    ShowNoticef(W8_FONT_PALETTE_TEXT_BOX, L" Difficulty (3+/4-): %d",
+    ShowNoticef(W8_FONT_PALETTE_TEXT_BOX, "2) Key Id: (%d) %s", key_id, key_name);
+    ShowNoticef(W8_FONT_PALETTE_TEXT_BOX, " Difficulty (3+/4-): %d",
                 trigger->lock_state.difficulty);
 }
 
@@ -1438,13 +1437,13 @@ void HandleMipePropEditKey(unsigned short key)
 static void ShowMipeCubeMenu()
 {
     ResetEditorStatusLine(-1);
-    ShowNoticef(W8_FONT_PALETTE_PINK, L"Choose an action:");
-    ShowNoticef(W8_FONT_PALETTE_TEXT_BOX, L"1) Create cube.");
-    ShowNoticef(W8_FONT_PALETTE_TEXT_BOX, L"2) Delete cube.");
-    ShowNoticef(W8_FONT_PALETTE_TEXT_BOX, L"3) Edit cube parameters.");
-    ShowNoticef(W8_FONT_PALETTE_TEXT_BOX, L"4) Move cube.");
-    ShowNoticef(W8_FONT_PALETTE_TEXT_BOX, L"5) Scale cube.");
-    ShowNoticef(W8_FONT_PALETTE_TEXT_BOX, L"6) Select cube.");
+    ShowNoticef(W8_FONT_PALETTE_PINK, "Choose an action:");
+    ShowNoticef(W8_FONT_PALETTE_TEXT_BOX, "1) Create cube.");
+    ShowNoticef(W8_FONT_PALETTE_TEXT_BOX, "2) Delete cube.");
+    ShowNoticef(W8_FONT_PALETTE_TEXT_BOX, "3) Edit cube parameters.");
+    ShowNoticef(W8_FONT_PALETTE_TEXT_BOX, "4) Move cube.");
+    ShowNoticef(W8_FONT_PALETTE_TEXT_BOX, "5) Scale cube.");
+    ShowNoticef(W8_FONT_PALETTE_TEXT_BOX, "6) Select cube.");
 }
 
 /* The volume cube top menu: create, delete, edit parameters, move, scale and
@@ -1452,7 +1451,7 @@ static void ShowMipeCubeMenu()
 // FUNCTION: WIZ8 0x0057a310
 int HandleCubeMenuKey(unsigned int key)
 {
-    const wchar_t* prompt;
+    const char* prompt;
     srVector3T<float> position;
     srVector3T<float> anchor;
     char* name;
@@ -1496,12 +1495,12 @@ int HandleCubeMenuKey(unsigned int key)
         }
         g_mipe_mode = 0x11;
         ResetEditorStatusLine(-1);
-        ShowNoticef(W8_FONT_PALETTE_PINK, L"Move Volume Trigger.");
+        ShowNoticef(W8_FONT_PALETTE_PINK, "Move Volume Trigger.");
         if (g_mipe_cube == 0) {
-            ShowNoticef(W8_FONT_PALETTE_TEXT_BOX, L"Click on trigger to move.");
+            ShowNoticef(W8_FONT_PALETTE_TEXT_BOX, "Click on trigger to move.");
         } else {
-            ShowNoticef(W8_FONT_PALETTE_TEXT_BOX, L"Move trigger. Hold down SHIFT to");
-            ShowNoticef(W8_FONT_PALETTE_TEXT_BOX, L"change elevation.");
+            ShowNoticef(W8_FONT_PALETTE_TEXT_BOX, "Move trigger. Hold down SHIFT to");
+            ShowNoticef(W8_FONT_PALETTE_TEXT_BOX, "change elevation.");
         }
         g_mipe_menu_active = false;
         ShowWorldCursor();
@@ -1520,24 +1519,24 @@ int HandleCubeMenuKey(unsigned int key)
         scale_planes[1] = 'Y';
         scale_planes[2] = 'Z';
         ResetEditorStatusLine(-1);
-        ShowNoticef(W8_FONT_PALETTE_PINK, L"Scale Volume Trigger.");
+        ShowNoticef(W8_FONT_PALETTE_PINK, "Scale Volume Trigger.");
         if (g_mipe_cube != 0) {
-            ShowNoticef(W8_FONT_PALETTE_TEXT_BOX, L"Scaling in the %c plane. ",
+            ShowNoticef(W8_FONT_PALETTE_TEXT_BOX, "Scaling in the %c plane. ",
                         static_cast<int>(scale_planes[g_mipe_scale_plane]));
-            ShowNoticef(W8_FONT_PALETTE_TEXT_BOX, L"Press X/Y/Z to change plane.");
+            ShowNoticef(W8_FONT_PALETTE_TEXT_BOX, "Press X/Y/Z to change plane.");
             g_mipe_menu_active = false;
             return 1;
         }
-        prompt = L"Click on trigger to scale.";
+        prompt = "Click on trigger to scale.";
         break;
     case 0x36:
         g_mipe_mode = 0x13;
         ResetEditorStatusLine(-1);
-        ShowNoticef(W8_FONT_PALETTE_PINK, L"Select cube:");
+        ShowNoticef(W8_FONT_PALETTE_PINK, "Select cube:");
         if (g_mipe_cube == 0) {
-            prompt = L"Click on a cube to select it.";
+            prompt = "Click on a cube to select it.";
         } else {
-            prompt = L"Click on another cube to select it.";
+            prompt = "Click on another cube to select it.";
         }
         break;
     }
@@ -1618,14 +1617,14 @@ int HandleCubeScaleKey(unsigned short key)
         scale_planes[1] = 'Y';
         scale_planes[2] = 'Z';
         ResetEditorStatusLine(-1);
-        ShowNoticef(W8_FONT_PALETTE_PINK, L"Scale Volume Trigger.");
+        ShowNoticef(W8_FONT_PALETTE_PINK, "Scale Volume Trigger.");
         if (g_mipe_cube == 0) {
-            ShowNoticef(W8_FONT_PALETTE_TEXT_BOX, L"Click on trigger to scale.");
+            ShowNoticef(W8_FONT_PALETTE_TEXT_BOX, "Click on trigger to scale.");
             return 1;
         }
-        ShowNoticef(W8_FONT_PALETTE_TEXT_BOX, L"Scaling in the %c plane. ",
+        ShowNoticef(W8_FONT_PALETTE_TEXT_BOX, "Scaling in the %c plane. ",
                     static_cast<int>(scale_planes[g_mipe_scale_plane]));
-        ShowNoticef(W8_FONT_PALETTE_TEXT_BOX, L"Press X/Y/Z to change plane.");
+        ShowNoticef(W8_FONT_PALETTE_TEXT_BOX, "Press X/Y/Z to change plane.");
         return 1;
     default:
         return 0;
@@ -1708,7 +1707,7 @@ static int HandleMonsterGeneratorKey(unsigned short key)
         generator->SetState(&position);
         generator->Reload(1, false);
         generator->Reset();
-        sprintf(name, "MonGen%3.3d", gXStatus.saved_encounter_budget++);
+        snprintf(name, sizeof(name), "MonGen%3.3d", gXStatus.saved_encounter_budget++);
         generator->SetName(name);
         AddMonsterGenerator(generator);
         for (index = 0; index < GetMonsterGeneratorCount(); ++index) {
@@ -1803,8 +1802,8 @@ int HandleMonsterGeneratorEditKey(unsigned short key)
     case 0x31:
         g_mipe_mode = 0x19;
         ResetEditorStatusLine(-1);
-        ShowNoticef(W8_FONT_PALETTE_PINK, L"Enter the name for this generator:");
-        ShowNoticef(W8_FONT_PALETTE_TEXT_BOX, L"%S", g_mipe_state->generator->name);
+        ShowNoticef(W8_FONT_PALETTE_PINK, "Enter the name for this generator:");
+        ShowNoticef(W8_FONT_PALETTE_TEXT_BOX, "%s", g_mipe_state->generator->name);
         return 1;
     case 0x32:
         current_index = g_mipe_state->generator->encounter_table_index;
@@ -1830,7 +1829,7 @@ int HandleMonsterGeneratorEditKey(unsigned short key)
         }
         g_mipe_mode = 0x17;
         ResetEditorStatusLine(-1);
-        ShowNoticef(W8_FONT_PALETTE_PINK, L"Category: %S",
+        ShowNoticef(W8_FONT_PALETTE_PINK, "Category: %s",
                     *g_encounter_names.GetAt(g_mipe_category & 0xff));
         if (g_mipe_category_list == 0) {
             return 1;
@@ -1839,9 +1838,9 @@ int HandleMonsterGeneratorEditKey(unsigned short key)
             entry = static_cast<W8EncounterTableRuntime*>(
                 PLGet(g_mipe_category_list, g_mipe_table_base + slot));
             if (entry == 0) {
-                ShowNoticef(W8_FONT_PALETTE_TEXT_BOX, &g_empty_wide_string);
+                ShowNoticef(W8_FONT_PALETTE_TEXT_BOX, &g_empty_text);
             } else {
-                ShowNoticef(slot == g_mipe_table_row ? 3 : 0xf, L"    %S", entry->name);
+                ShowNoticef(slot == g_mipe_table_row ? 3 : 0xf, "    %s", entry->name);
             }
         }
         return 1;
@@ -2039,7 +2038,7 @@ void EditMonsterGeneratorName(unsigned short key)
         name[length + 1] = '\0';
     }
     ResetEditorStatusLine(-1);
-    ShowNoticef(W8_FONT_PALETTE_PINK, L"Enter the name for this generator:");
+    ShowNoticef(W8_FONT_PALETTE_PINK, "Enter the name for this generator:");
     ShowNoticef(W8_FONT_PALETTE_TEXT_BOX, g_format_S, g_mipe_state->generator->name);
 }
 
@@ -2092,7 +2091,7 @@ void HandleMipeLockTrapKey(unsigned short key)
         g_mipe_mode = 0x1c;
         trigger = g_mipe_state->prop->GetTrigger();
         ResetEditorStatusLine(-1);
-        ShowNoticef(W8_FONT_PALETTE_PINK, L"Enter Key ID:");
+        ShowNoticef(W8_FONT_PALETTE_PINK, "Enter Key ID:");
         ShowNoticef(W8_FONT_PALETTE_TEXT_BOX, g_format_d, trigger->lock_state.key_id);
         return;
     case 0x33:
@@ -2164,7 +2163,7 @@ void EditTriggerKeyID(unsigned int key)
     }
     trigger = g_mipe_state->prop->GetTrigger();
     ResetEditorStatusLine(-1);
-    ShowNoticef(W8_FONT_PALETTE_PINK, L"Enter Key ID:");
+    ShowNoticef(W8_FONT_PALETTE_PINK, "Enter Key ID:");
     ShowNoticef(W8_FONT_PALETTE_TEXT_BOX, g_format_d, trigger->lock_state.key_id);
 }
 
@@ -2525,13 +2524,13 @@ unsigned char HandleMipeKey(const InputAtom* event)
         switch (key) {
         case 0x30:
             ResetEditorStatusLine(-1);
-            ShowNoticef(W8_FONT_PALETTE_PINK, L"What would you like to do?");
-            ShowNoticef(W8_FONT_PALETTE_TEXT_BOX, L"1) Create a monster.");
-            ShowNoticef(W8_FONT_PALETTE_TEXT_BOX, L"2) Create an item.");
-            ShowNoticef(W8_FONT_PALETTE_TEXT_BOX, L"3) Edit object(s).");
-            ShowNoticef(W8_FONT_PALETTE_TEXT_BOX, L"4) Monster Generators.");
-            ShowNoticef(W8_FONT_PALETTE_TEXT_BOX, L"5) Select object(s).");
-            ShowNoticef(W8_FONT_PALETTE_TEXT_BOX, L"6) Handle triggers.");
+            ShowNoticef(W8_FONT_PALETTE_PINK, "What would you like to do?");
+            ShowNoticef(W8_FONT_PALETTE_TEXT_BOX, "1) Create a monster.");
+            ShowNoticef(W8_FONT_PALETTE_TEXT_BOX, "2) Create an item.");
+            ShowNoticef(W8_FONT_PALETTE_TEXT_BOX, "3) Edit object(s).");
+            ShowNoticef(W8_FONT_PALETTE_TEXT_BOX, "4) Monster Generators.");
+            ShowNoticef(W8_FONT_PALETTE_TEXT_BOX, "5) Select object(s).");
+            ShowNoticef(W8_FONT_PALETTE_TEXT_BOX, "6) Handle triggers.");
             g_mipe_mode = 0;
             return handled;
         case 0x31:
@@ -2594,7 +2593,7 @@ unsigned char HandleMipeKey(const InputAtom* event)
             return handled;
         }
         if (key == 0x34) {
-            ShowMipeSelectionMenu(L"MOVE IT!!");
+            ShowMipeSelectionMenu("MOVE IT!!");
             g_mipe_mode = 4;
             g_mipe_state->selecting = 1;
             HideWorldCursor();
@@ -2607,7 +2606,7 @@ unsigned char HandleMipeKey(const InputAtom* event)
             if (g_mipe_state != 0) {
                 IListClear(&g_mipe_state->monster_ids);
             }
-            ShowMipeSelectionMenu(L"MOVE IT!!");
+            ShowMipeSelectionMenu("MOVE IT!!");
             return handled;
         }
         break;
@@ -2632,7 +2631,7 @@ unsigned char HandleMipeKey(const InputAtom* event)
             if (g_mipe_state != 0) {
                 IListClear(&g_mipe_state->monster_ids);
             }
-            ShowMipeSelectionMenu(L"Choose monster or item to edit.");
+            ShowMipeSelectionMenu("Choose monster or item to edit.");
             return handled;
         }
         break;
@@ -2690,7 +2689,7 @@ unsigned char HandleMipeKey(const InputAtom* event)
         switch (key) {
         case 0x20:
             ResetEditorStatusLine(-1);
-            ShowNoticef(W8_FONT_PALETTE_PINK, L"Enter the limit for random encounters:");
+            ShowNoticef(W8_FONT_PALETTE_PINK, "Enter the limit for random encounters:");
             ShowNoticef(W8_FONT_PALETTE_TEXT_BOX, g_format_d, g_random_encounter_limit);
             return handled;
         case 8:
@@ -2712,7 +2711,7 @@ unsigned char HandleMipeKey(const InputAtom* event)
             return handled;
         }
         ResetEditorStatusLine(-1);
-        ShowNoticef(W8_FONT_PALETTE_PINK, L"Enter the limit for random encounters:");
+        ShowNoticef(W8_FONT_PALETTE_PINK, "Enter the limit for random encounters:");
         ShowNoticef(W8_FONT_PALETTE_TEXT_BOX, g_format_d, g_random_encounter_limit);
         return handled;
     case 0x19:
@@ -2722,13 +2721,13 @@ unsigned char HandleMipeKey(const InputAtom* event)
         switch (key) {
         case 0x20:
             ResetEditorStatusLine(-1);
-            ShowNoticef(W8_FONT_PALETTE_PINK, L"Enter the encounter culling time (sec):");
+            ShowNoticef(W8_FONT_PALETTE_PINK, "Enter the encounter culling time (sec):");
             shown = g_encounter_culling_time_seconds;
             break;
         case 8:
             g_encounter_culling_time_seconds /= 10;
             ResetEditorStatusLine(-1);
-            ShowNoticef(W8_FONT_PALETTE_PINK, L"Enter the encounter culling time (sec):");
+            ShowNoticef(W8_FONT_PALETTE_PINK, "Enter the encounter culling time (sec):");
             shown = g_encounter_culling_time_seconds;
             break;
         case 0x30:
@@ -2743,7 +2742,7 @@ unsigned char HandleMipeKey(const InputAtom* event)
         case 0x39:
             g_encounter_culling_time_seconds = (key - 0x30) + g_encounter_culling_time_seconds * 10;
             ResetEditorStatusLine(-1);
-            ShowNoticef(W8_FONT_PALETTE_PINK, L"Enter the encounter culling time (sec):");
+            ShowNoticef(W8_FONT_PALETTE_PINK, "Enter the encounter culling time (sec):");
             ShowNoticef(W8_FONT_PALETTE_TEXT_BOX, g_format_d, g_encounter_culling_time_seconds);
             return handled;
         default:
@@ -2977,11 +2976,11 @@ bool MipeWorldViewEvent(int event, const POINT* point)
                 RefreshWorldCursorNodeLabel(g_mipe_cube);
             }
             ResetEditorStatusLine(-1);
-            ShowNoticef(W8_FONT_PALETTE_PINK, L"Select cube:");
+            ShowNoticef(W8_FONT_PALETTE_PINK, "Select cube:");
             if (g_mipe_cube == 0) {
-                ShowNoticef(W8_FONT_PALETTE_TEXT_BOX, L"Click on a cube to select it.");
+                ShowNoticef(W8_FONT_PALETTE_TEXT_BOX, "Click on a cube to select it.");
             } else {
-                ShowNoticef(W8_FONT_PALETTE_TEXT_BOX, L"Click on another cube to select it.");
+                ShowNoticef(W8_FONT_PALETTE_TEXT_BOX, "Click on another cube to select it.");
             }
         }
         break;

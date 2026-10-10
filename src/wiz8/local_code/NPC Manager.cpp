@@ -1,3 +1,4 @@
+#include "wiz8/retail_text_records.h"
 #include "wiz8/compat/unaligned.h"
 #include "wiz8/engine_code/AnimRep.hpp"
 #include "wiz8/conditions.h"
@@ -64,7 +65,6 @@
 #include "wiz8/filesystem.h"
 
 #include <stdio.h>
-#include <wchar.h>
 #include <string.h>
 #include <stdlib.h>
 #include "wiz8/layouts/game_status.h"
@@ -1242,9 +1242,9 @@ try
         npc = *g_npc_states->GetAt(index);
         chunks->Write(npc, sizeof(*npc), 0);
         if (npc->character != 0) {
-            size = sizeof(*npc->character);
+            size = wiz8::retail::size<W8Character>;
             chunks->Write(&size, 4, 0);
-            chunks->Write(npc->character, size, 0);
+            wiz8::retail::write(*chunks, *npc->character);
         }
     }
     return SaveNpcItemLists(chunks->m_hFile.get());
@@ -1443,8 +1443,8 @@ bool InitializeNpcCharacter(W8NpcState* npc, W8Character* character)
     for (index = 0; index < 8; ++index) {
         EmptyItemRecord(&character->backpack[index], 0, true);
     }
-    wcscpy(character->name, source->name);
-    wcscpy(character->name_part_2, source->name_part_2);
+    strcpy(character->name, source->name);
+    strcpy(character->name_part_2, source->name_part_2);
     character->iProfession = source->profession;
     character->original_profession = source->profession;
     character->profession_levels[source->profession] = source->level;
@@ -1591,14 +1591,14 @@ void LoadNpcStates(W8Chunk* chunks)
             npc->character = new W8Character;
             if (version < 3) {
                 memset(npc->character, 0, sizeof(*npc->character));
-                chunks->Read(npc->character, 0x185c, 0);
+                wiz8::retail::read(*chunks, *npc->character, 0x185c);
             } else {
                 memset(npc->character, 0, sizeof(*npc->character));
                 chunks->Read(&size, 4, 0);
-                if (size > sizeof(*npc->character)) {
+                if (size > wiz8::retail::size<W8Character>) {
                     srAssertFail("uiSize <= sizeof(*pNode->pPCData)", NPC_MANAGER_CPP, 0x217, 0);
                 }
-                chunks->Read(npc->character, size, 0);
+                wiz8::retail::read(*chunks, *npc->character, size);
             }
         }
         if (npc->name_style == 0) {
@@ -2594,7 +2594,7 @@ void RebindNpcLevelTriggers(void)
         char trigger_name[40];
 
         if (npc->record->merchant != 0 || npc->record->voice_script != 0) {
-            sprintf(trigger_name, "_%S", npc->record->source_name);
+            snprintf(trigger_name, sizeof(trigger_name), "_%s", npc->record->source_name);
             Trigger* trigger = FindTriggerByName(trigger_name);
 
             if (trigger != 0) {
