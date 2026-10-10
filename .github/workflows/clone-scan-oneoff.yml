@@ -4,6 +4,9 @@ on:
   push:
     branches:
       - analysis/clone-scan-20261011
+  pull_request:
+    paths:
+      - .github/workflows/clone-scan-oneoff.yml
 
 permissions:
   contents: read
