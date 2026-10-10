@@ -183,17 +183,13 @@ void stLight::Update()
         stKeyframedLightDefinition* definition =
             static_cast<stKeyframedLightDefinition*>(m_definition);
         float time = definition->time;
-        int count = definition->key_frames.GetCount();
-        int last = count - 1;
-        int* slot = definition->key_frames.GetAt(last);
-        if (time <= *slot) {
+        int count = static_cast<int>(definition->key_frames.size());
+        if (time <= definition->key_frames.back()) {
             definition->keyframe_index = 0;
-            if (definition->key_frames.GetCount() != 1 &&
-                -1 < definition->key_frames.GetCount() - 1) {
+            if (count > 1) {
                 do {
                     int next = definition->keyframe_index + 1;
-                    slot = definition->key_frames.GetAt(next);
-                    if (*slot <= time) {
+                    if (definition->key_frames[next] <= time) {
                         definition->keyframe_index = next;
                     } else {
                         break;
@@ -201,30 +197,29 @@ void stLight::Update()
                 } while (definition->keyframe_index < count - 1);
             }
         } else {
-            slot = definition->key_frames.GetAt(last);
-            time = *slot;
+            time = definition->key_frames.back();
             definition->keyframe_index = count - 2;
         }
-        if (*definition->key_frames.data <= time) {
+        if (definition->key_frames.front() <= time) {
             int index = definition->keyframe_index;
             if (count - 2 <= index) {
                 return;
             }
-            int* from = definition->key_frames.GetAt(index);
-            int* to = definition->key_frames.GetAt(index + 1);
-            float span = *to - *from;
+            const int from = definition->key_frames[index];
+            const int to = definition->key_frames[index + 1];
+            float span = to - from;
             float blend = g_float_one;
             if (span != g_float_zero) {
-                blend = (time - *from) / span;
+                blend = (time - from) / span;
             }
-            float* key_from = definition->key_intensities.GetAt(index);
-            float* key_to = definition->key_intensities.GetAt(index + 1);
+            const float key_from = definition->key_intensities[index];
+            const float key_to = definition->key_intensities[index + 1];
             float inverse = g_float_one - blend;
-            intensity = inverse * *key_from + blend * *key_to;
+            intensity = inverse * key_from + blend * key_to;
             index = definition->keyframe_index;
-            srVector3T<float>* color_to = definition->key_colors.GetAt(index + 1);
-            srVector3T<float>* color_from = definition->key_colors.GetAt(index);
-            diffuse = glm::min(glm::mix(color_from->glmValue(), color_to->glmValue(), blend),
+            const auto& color_to = definition->key_colors[index + 1];
+            const auto& color_from = definition->key_colors[index];
+            diffuse = glm::min(glm::mix(color_from.glmValue(), color_to.glmValue(), blend),
                                glm::vec3(1));
             return;
         }

@@ -137,7 +137,6 @@ add_library(WIZ8_GAME_CORE STATIC
     "local_code/Gameplay Init.cpp"
     dialog_code/DialogInterface.cpp
     dialog_code/PortraitQuote.cpp
-    3d_code/IList.cpp
     local_code/ItemManager.cpp
     engine_code/game_timer.cpp
     engine_code/materials.cpp
@@ -147,7 +146,6 @@ add_library(WIZ8_GAME_CORE STATIC
     engine_code/stScript.cpp
     engine_code/LevelFile.cpp
     local_code/Targeting.cpp
-    3d_code/PList.cpp
     engine_code/3d.cpp
     engine_code/gap.c
     level_specific_code/MasterFunctionList.cpp

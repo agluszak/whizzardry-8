@@ -2,11 +2,12 @@
 
 #include "wiz8/filesystem.h"
 
-#include "wiz8/vector.h"
+#include <vector>
+#include <algorithm>
 
-extern W8GrowableVector<char*> g_location_variable_names;
-extern W8GrowableVector<int> g_location_variable_levels;
-extern W8GrowableVector<int> g_location_variable_values;
+extern std::vector<char*> g_location_variable_names;
+extern std::vector<int> g_location_variable_levels;
+extern std::vector<int> g_location_variable_values;
 
 int GetLocationVarIDByName(const char* name);
 void SetTriggerVariableByName(const char* name, int value);

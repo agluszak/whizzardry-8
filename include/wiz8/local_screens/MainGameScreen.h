@@ -7,9 +7,9 @@ class stModelInstance2D;
 #include "input.h"
 #include "wiz8/dialog_code/DialogBase.h"
 #include "wiz8/layouts/item_instance.h"
-#include "wiz8/vector.h"
+#include <vector>
+#include <algorithm>
 
-struct W8IList;
 struct W8MipeState;
 struct W8NpcQuoteEntry;
 struct W8NpcState;

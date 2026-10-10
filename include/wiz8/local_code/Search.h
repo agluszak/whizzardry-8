@@ -1,7 +1,8 @@
 #pragma once
 
 #include "Types.h"
-#include "wiz8/vector.h"
+#include <vector>
+#include <algorithm>
 #include "surrender/srMath.h"
 
 class Trigger;
@@ -38,12 +39,12 @@ struct W8SearchableView {
     W8SearchableView();
 
     int cursor;
-    W8Vector<W8Searchable*> items;
+    std::vector<W8Searchable*> items;
 };
 
 W8_ABI_ASSERT(sizeof(W8SearchableView) == 0x14, "W8SearchableView_must_be_0x14");
 
-extern W8Vector<W8Searchable*> g_searchables;
+extern std::vector<W8Searchable*> g_searchables;
 extern W8SearchableView g_search_view;
 /* 500ms pulse clock arming the search-mode sweep. */
 extern uint64_t g_search_pulse_clock;

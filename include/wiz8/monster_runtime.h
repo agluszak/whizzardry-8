@@ -1,7 +1,8 @@
 #ifndef WIZ8_MONSTER_RUNTIME_H
 #define WIZ8_MONSTER_RUNTIME_H
 
-#include "wiz8/3d_code/PList.h"
+#include <vector>
+#include <algorithm>
 #include "wiz8/layouts/gameplay_databases.h"
 
 extern const float g_monster_record_float_scale; /* 0x005ED4F0 */

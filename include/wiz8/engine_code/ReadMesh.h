@@ -10,7 +10,8 @@
 struct W8MaterialRecord;
 struct W8MeshMaterial;
 
-#include "wiz8/vector.h"
+#include <vector>
+#include <algorithm>
 
 struct W8ReadLevelInfo;
 
@@ -44,7 +45,7 @@ unsigned char ReadSingleLevelMeshBody(W8ReadLevelInfo* info, srModelInstance** i
 std::shared_ptr<stMeshModel>
 BuildSingleLevelMesh(int face_count, W8ReadMeshFace* faces, int vertex_count,
                      const std::vector<W8MeshMaterial>& materials, unsigned int* mesh_count, std::vector<std::vector<int>>& vertex_maps,
-                     W8GrowableVector<short>* mapped_values, W8GrowableVector<short>* mapped_keys);
+                     std::vector<short>* mapped_values, std::vector<short>* mapped_keys);
 
 void OptimizeMeshOrder(srMeshModel* model);
 

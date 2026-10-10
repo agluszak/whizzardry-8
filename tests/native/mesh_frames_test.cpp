@@ -258,7 +258,7 @@ static bool loaded_model_ownership()
             faces[face].vertices[corner] = face * 3 + corner;
         }
     }
-    W8GrowableVector<short> mapped_values, mapped_keys;
+    std::vector<short> mapped_values, mapped_keys;
     unsigned int mesh_count = 0;
     std::vector<std::vector<int>> maps;
     auto model = BuildSingleLevelMesh(3, faces, 9, materials, &mesh_count, maps, &mapped_values,

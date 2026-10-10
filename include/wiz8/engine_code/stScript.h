@@ -1,8 +1,7 @@
 #pragma once
 
+#include <vector>
 #include <string>
-
-#include "wiz8/vector.h"
 
 struct stScriptLine {
     char* text;
@@ -14,10 +13,7 @@ struct stScriptLabel {
     int line;
 };
 
-/* Engine Code\stScript.cpp. Construction at 0x004CF020 installs each
-   growable-vector base table, then its W8Vector table, at +0x18 and +0x28.
-   Load allocates eight-byte lines and 0x24-byte labels; Clear frees those
-   pointed-to records before the vector storage. */
+/* Owns parsed script lines and labels. */
 class stScript {
 public:
     ~stScript();
@@ -37,6 +33,6 @@ public:
     void Clear();
 
     std::string name;
-    W8Vector<stScriptLine*> lines;   /* 0x18 */
-    W8Vector<stScriptLabel*> labels; /* 0x28 */
+    std::vector<stScriptLine*> lines;   /* 0x18 */
+    std::vector<stScriptLabel*> labels; /* 0x28 */
 };

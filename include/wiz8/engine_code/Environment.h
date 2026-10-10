@@ -14,7 +14,8 @@ unsigned char GetEnvironmentFlag(void); /* 0x00482A10 */
 #include "Types.h"
 #include "surrender/srVertexProcessor.h"
 #include "wiz8/layouts/world.h"
-#include "wiz8/vector.h"
+#include <vector>
+#include <algorithm>
 
 class stTextureAnim;
 
@@ -152,7 +153,7 @@ extern srVector3T<float> g_celestial_origin;
 
 /* The registered environment lights, ambient-filled by ApplyEnvironmentColour.
    The vector count occupies 0x0065B99C. */
-extern W8Vector<stLight*> g_environment_lights;
+extern std::vector<stLight*> g_environment_lights;
 
 void SetGameTimeDays(int value);
 void AdvanceEnvironmentTime(int elapsed); /* 0x00482A20 */

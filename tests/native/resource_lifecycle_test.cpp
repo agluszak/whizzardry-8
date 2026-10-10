@@ -114,17 +114,17 @@ static bool queued_state_teardown()
 {
     {
         W8CharacterEventQueue queue;
-        queue.pending_events.Add(new W8CharacterEvent(nullptr, 0, 0, 0, 0));
-        queue.npc_deferred_events.Add(new W8CharacterEvent(nullptr, 0, 0, 0, 0));
-        queue.vector0.Add(new W8CharacterEvent(nullptr, 0, 0, 0, 0));
-        queue.vector1.Add(new W8CharacterEvent(nullptr, 0, 0, 0, 0));
+        queue.pending_events.push_back(new W8CharacterEvent(nullptr, 0, 0, 0, 0));
+        queue.npc_deferred_events.push_back(new W8CharacterEvent(nullptr, 0, 0, 0, 0));
+        queue.vector0.push_back(new W8CharacterEvent(nullptr, 0, 0, 0, 0));
+        queue.vector1.push_back(new W8CharacterEvent(nullptr, 0, 0, 0, 0));
     } // Every pending vector is owning, even when no frame dispatched it.
     AddDialogueTranscriptKeyword(L"Monastery", 0);
     AddDialogueTranscriptKeyword(L"Arnika", 0);
-    CHECK(g_npc_interaction_state->dialogue_transcript.GetCount() == 2);
+    CHECK(g_npc_interaction_state->dialogue_transcript.size() == 2);
     ClearNpcDialogueTranscript();
     ClearNpcDialogueTranscript();
-    CHECK(g_npc_interaction_state->dialogue_transcript.GetCount() == 0);
+    CHECK(g_npc_interaction_state->dialogue_transcript.size() == 0);
     for (auto kind : {W8_NPC_MSG_PORTRAIT_MESSAGE, W8_NPC_MSG_PORTRAIT_EXTRA,
                       W8_NPC_MSG_SKILL_NOTICES, W8_NPC_MSG_LEVEL_UP}) {
         W8MessageBoxPayload text{}, extra{};

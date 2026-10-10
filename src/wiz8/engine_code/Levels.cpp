@@ -1,3 +1,4 @@
+#include "wiz8/containers.h"
 #include "wiz8/engine_code/stModelInstance.h"
 #include "wiz8/engine_code/3dapi.h"
 
@@ -616,7 +617,7 @@ unsigned char LoadLevel(int requested_level, int entrance, bool restoring_game)
             ResetAndRefreshAllSight();
             AgeAllMonsterSight();
         }
-        g_spell_effects.RemoveAllAndDelete();
+        wiz8::remove_all_and_delete(g_spell_effects);
     } else {
         W8SpellEffectEntry* effect = FindMonsterControlSpellEffect();
 
@@ -659,25 +660,23 @@ unsigned char UnloadLevel(const char* save_directory)
         RenderFrame();
     }
 
-    if (gXStatus.plsMonsterList != 0) {
-        if (ReleaseItemLists() == 0) {
-            return 0;
-        }
-        if (g_world_cleanup_flag) {
-            RenderFrame();
-        }
-        if (ShutdownMonsterManager() == 0) {
-            return 0;
-        }
-        if (g_world_cleanup_flag) {
-            RenderFrame();
-        }
-        if (ScreenLifecycleSuccess() == 0) {
-            return 0;
-        }
-        if (g_world_cleanup_flag) {
-            RenderFrame();
-        }
+    if (ReleaseItemLists() == 0) {
+        return 0;
+    }
+    if (g_world_cleanup_flag) {
+        RenderFrame();
+    }
+    if (ShutdownMonsterManager() == 0) {
+        return 0;
+    }
+    if (g_world_cleanup_flag) {
+        RenderFrame();
+    }
+    if (ScreenLifecycleSuccess() == 0) {
+        return 0;
+    }
+    if (g_world_cleanup_flag) {
+        RenderFrame();
     }
 
     ReleaseWorldCursorNodes();

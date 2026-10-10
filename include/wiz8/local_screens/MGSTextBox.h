@@ -1,6 +1,9 @@
 #pragma once
 
 #include "Types.h"
+#include <vector>
+struct W8NoticeWord;
+
 #include "wiz8/filesystem.h"
 
 class Trigger;
@@ -10,7 +13,7 @@ class Trigger;
 #include "wiz8/fonts.h"
 #include "wiz8/dialog_code/DialogBase.h"
 
-#include "wiz8/3d_code/PList.h"
+#include <algorithm>
 
 struct W8MonsterInfo;
 struct W8Region;
@@ -52,7 +55,7 @@ struct W8MessageStorageRecord {
     int length; /* wString length, -1 when unset */
     /* Live list pointer; save preserves its 32-bit representation and
        load discards the serialized word instead of reconstructing a pointer. */
-    W8PList* entries;
+    std::vector<W8NoticeWord*>* entries;
     unsigned char unknown_1c[8];
 };
 
