@@ -99,11 +99,11 @@ void PrepareSpellTarget(int spell_id, W8TargetSource* source, W8CombatSlot* targ
    final flag enables radius highlighting rather than plain line-of-sight
    collection. */
 void PopulateSpellTargetMarkers(int spell_id, int power_level, W8TargetSource* source,
-                                W8CombatSlot* target, std::vector<int>* monster_markers,
-                                std::vector<int>* party_markers, int highlighting);
+                                W8CombatSlot* target, std::vector<int>& monster_markers,
+                                std::vector<int>& party_markers, int highlighting);
 /* Drop every marker that no longer names a live, targetable
    monster; a few spell ids prune on extra monster-record rules. */
-void PruneSpellTargetMarkers(int spell_id, std::vector<int>* monster_markers);
+void PruneSpellTargetMarkers(int spell_id, std::vector<int>& monster_markers);
 int GetProfessionCasterLevel(const W8Character* character, W8Profession profession_id);
 /* The highest power level this slot can afford to cast the spell
    at for its current target; zero when none is castable. */

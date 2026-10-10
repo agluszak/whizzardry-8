@@ -1,3 +1,4 @@
+#include "wiz8/containers.h"
 #include "wiz8/compat/unaligned.h"
 #include <vector>
 #include <algorithm>
@@ -94,24 +95,8 @@ void DetachWorldItemMeshes(W8World* world)
 // FUNCTION: WIZ8 0x0046e4a0
 void DestroyWorldLights(W8World* world)
 {
-    std::vector<stLight*>* lights = &world->transient_lights;
-
-    while (!lights->empty()) {
-        stLight* light = (*lights)[0];
-        if (world == 0) {
-            srAssertFail("pWorld", THREE_D_CPP, 0x278, 0);
-        }
-        if (light == 0) {
-            srAssertFail("pLight", THREE_D_CPP, 0x279, 0);
-        }
-        if (const auto found = std::ranges::find((*lights), light); found != lights->end())
-            lights->erase(found);
-        if (const auto found = std::ranges::find((*world->lights_to_update), light);
-            found != world->lights_to_update->end())
-            world->lights_to_update->erase(found);
-        if (light != 0) {
-            light->release();
-        }
+    while (!world->transient_lights.empty()) {
+        WorldRemoveLight(world, world->transient_lights.front());
     }
 }
 
@@ -685,8 +670,7 @@ stLight* CreateRangedWorldLight(W8World* world, const char* name)
     return light;
 }
 
-/* Take a light out of both of the world's light collections and release it.
-   The update list's Remove is the inlined growable-vector search-and-shift. */
+/* Take a light out of both world collections and release it. */
 // FUNCTION: WIZ8 0x0046e250
 void WorldRemoveLight(W8World* world, stLight* light)
 {
@@ -696,12 +680,8 @@ void WorldRemoveLight(W8World* world, stLight* light)
     if (light == 0) {
         srAssertFail("pLight", THREE_D_CPP, 0x279, 0);
     }
-    if (const auto found = std::ranges::find(world->transient_lights, light);
-        found != world->transient_lights.end())
-        world->transient_lights.erase(found);
-    if (const auto found = std::ranges::find((*world->lights_to_update), light);
-        found != world->lights_to_update->end())
-        world->lights_to_update->erase(found);
+    wiz8::erase_first(world->transient_lights, light);
+    wiz8::erase_first(*world->lights_to_update, light);
     if (light != 0) {
         light->release();
     }
@@ -765,9 +745,7 @@ void AddItemToWorld(W8World*, W8Item* item) { g_world->plsItems->push_back(item)
 // FUNCTION: WIZ8 0x0046e5e0
 void RemoveItemFromWorld(W8World*, W8Item* item)
 {
-    if (const auto found = std::ranges::find((*g_world->plsItems), item);
-        found != g_world->plsItems->end())
-        g_world->plsItems->erase(found);
+    wiz8::erase_first(*g_world->plsItems, item);
 }
 
 /* How many props the world holds, and the one at a position - both answers
@@ -946,9 +924,7 @@ double WorldGetFarClip(W8World* world)
 // FUNCTION: WIZ8 0x0046E5A0
 void RemoveMonsterFromWorldList(W8World*, W8Monster* monster)
 {
-    if (const auto found = std::ranges::find((*g_world->plsMonsters), monster);
-        found != g_world->plsMonsters->end())
-        g_world->plsMonsters->erase(found);
+    wiz8::erase_first(*g_world->plsMonsters, monster);
 }
 
 // FUNCTION: WIZ8 0x0046DC90

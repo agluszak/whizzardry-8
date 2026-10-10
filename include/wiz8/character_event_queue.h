@@ -1,6 +1,7 @@
 #ifndef WIZ8_CHARACTER_EVENT_QUEUE_H
 #define WIZ8_CHARACTER_EVENT_QUEUE_H
 
+#include "wiz8/containers.h"
 #include "timer.h"
 
 #include "wiz8/layouts/item_instance.h"
@@ -128,9 +129,7 @@ struct W8CharacterEventQueue {
     // FUNCTION: WIZ8 0x0052D8D0
     void CompleteActiveEvent(W8CharacterEvent* entry)
     {
-        if (const auto found = std::ranges::find(active_events, entry);
-            found != active_events.end())
-            active_events.erase(found);
+        wiz8::erase_first(active_events, entry);
         RestartFollowUpClock(entry);
         entry->Complete();
         delete entry;

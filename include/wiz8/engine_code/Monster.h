@@ -182,7 +182,7 @@ public:
     bool IsDying();                              /* 0x004CA4C0 */
     bool IsCycleInterruptable(signed char cycle);
     void ApplyRemovalStateEffects();
-    void CollectModelInstances(std::vector<stModelInstance*>* instances);
+    void CollectModelInstances(std::vector<stModelInstance*>& instances);
     void SetDamageStage(int stage);
     int GetDamageStageCount();
     bool ReplaceSkinTexture(int stage, const char* old_name, const char* new_name);

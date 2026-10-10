@@ -1,3 +1,4 @@
+#include "wiz8/containers.h"
 #include <wiz8/filesystem.h>
 #include <sstream>
 #include <memory>
@@ -1289,7 +1290,7 @@ void EndNpcDialogueSession(bool skip_exit_actions)
     RequestRedrawCombatBar();
     RequestRedraw(W8_MAIN_REDRAW_SUBMENU_BUTTONS);
     for (unsigned int index = 0;
-         index < (gXStatus.plsMonsterList ? gXStatus.plsMonsterList->size() : 0); index++) {
+         index < gXStatus.monsters.size(); index++) {
         ClearMonsterCharm(MonsterGetScriptPartByLocationIndex(index));
     }
     GetNpcMonsterInfo(g_npc_interaction_state->dialogue_npc);
@@ -4523,13 +4524,11 @@ void FlushPendingNoticeLines(void)
         }
         ShowNotice(line->npc_kind == -1 ? 0xb : 0xf, line->text, 3, GetTextBoxScrollRange());
     }
-    while (!g_npc_interaction_state->pending_notice_lines.empty()) {
-        W8PendingNoticeLine* line = g_npc_interaction_state->pending_notice_lines[0];
-        g_npc_interaction_state->pending_notice_lines.erase(
-            g_npc_interaction_state->pending_notice_lines.begin());
-        free(line->text);
-        delete line;
-    }
+    wiz8::clear_and_dispose(g_npc_interaction_state->pending_notice_lines,
+                           [](W8PendingNoticeLine* line) {
+                               free(line->text);
+                               delete line;
+                           });
 }
 
 // FUNCTION: WIZ8 0x005767f0

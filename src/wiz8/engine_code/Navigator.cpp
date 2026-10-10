@@ -1,3 +1,4 @@
+#include "wiz8/containers.h"
 #include "wiz8/filesystem.h"
 #include "wiz8/engine_code/Navigator.h"
 #include "wiz8/engine_code/3d.h"
@@ -237,7 +238,7 @@ void SetNavigatorLinkMode(unsigned char mode)
                          g_combat_inactive != 0)) {
                         navigator->linked_update_time = 0;
                         g_navigator_group.clear();
-                        navigator->CollectGroupNavigators(&g_navigator_group);
+                        navigator->CollectGroupNavigators(g_navigator_group);
                         for (int group_index = 0;
                              group_index < static_cast<int>(g_navigator_group.size());
                              ++group_index) {
@@ -497,9 +498,7 @@ W8Navigator::~W8Navigator()
     if (path_ai != 0) {
         DestroyOwnedPathAI(path_ai);
     }
-    if (const auto found = std::ranges::find(g_registered_navigators, this);
-        found != g_registered_navigators.end())
-        g_registered_navigators.erase(found);
+    wiz8::erase_first(g_registered_navigators, this);
     delete owned_object;
     owned_object = 0;
     if (movement.location_id != 0 && g_octree != 0) {
@@ -624,7 +623,7 @@ void W8Navigator::ClearMovementStopped()
     movement_stopped = false;
     if (g_combat_inactive != 0 && linked_navigator == 0) {
         g_navigator_group.clear();
-        CollectGroupNavigators(&g_navigator_group);
+        CollectGroupNavigators(g_navigator_group);
         for (int index = 0; index < static_cast<int>(g_navigator_group.size()); ++index) {
             g_navigator_group[index]->movement_stopped = false;
         }
@@ -711,9 +710,8 @@ void W8Navigator::CopyPathToGroup()
 {
     linked_update_time = 0;
     g_navigator_group.clear();
-    CollectGroupNavigators(&g_navigator_group);
-    for (int index = 0; index < static_cast<int>(g_navigator_group.size()); ++index) {
-        W8Navigator* navigator = g_navigator_group[index];
+    CollectGroupNavigators(g_navigator_group);
+    for (W8Navigator* navigator : g_navigator_group) {
         navigator->movement.attachment->CopyPathFrom(movement.attachment);
         navigator->patrol_home = patrol_home;
         navigator->movement.attachment->flags &=
@@ -1580,7 +1578,7 @@ unsigned char W8Navigator::LinkToNavigator(W8Navigator* target, double separatio
         result = 1;
         if (g_combat_inactive != 0 && linked_navigator == 0) {
             g_navigator_group.clear();
-            CollectGroupNavigators(&g_navigator_group);
+            CollectGroupNavigators(g_navigator_group);
             for (int index = 0; index < static_cast<int>(g_navigator_group.size()); ++index) {
                 g_navigator_group[index]->movement_stopped = false;
             }
@@ -1958,7 +1956,7 @@ void W8Navigator::AimAtPosition(const srVector3T<float>* target)
 }
 
 // FUNCTION: WIZ8 0x00455140
-void W8Navigator::CollectGroupNavigators(std::vector<W8Navigator*>* navigators)
+void W8Navigator::CollectGroupNavigators(std::vector<W8Navigator*>& navigators)
 {
     W8MonsterInfo* monster_info;
     W8MonsterGroup* group;
@@ -1979,7 +1977,7 @@ void W8Navigator::CollectGroupNavigators(std::vector<W8Navigator*>* navigators)
         if (location_id != movement.location_id) {
             monster_info = MonsterGetScriptPartByLocationIndex(
                 MonsterGetIndexByLocationID(0xe82, NAVIGATOR_CPP, location_id, true));
-            navigators->push_back(monster_info->p3D);
+            navigators.push_back(monster_info->p3D);
         }
     }
 
@@ -1990,7 +1988,7 @@ void W8Navigator::CollectGroupNavigators(std::vector<W8Navigator*>* navigators)
             for (member = 0; member < allied_group->member_count; ++member) {
                 monster_info = MonsterGetScriptPartByLocationIndex(MonsterGetIndexByLocationID(
                     0xe8e, NAVIGATOR_CPP, allied_group->MemberLocationId(member), true));
-                navigators->push_back(monster_info->p3D);
+                navigators.push_back(monster_info->p3D);
             }
         }
     }
@@ -2136,7 +2134,7 @@ void W8Navigator::UpdateNavigation(unsigned char skip_movement, bool slowed)
                     if (g_combat_inactive != 0 && linked_navigator == 0) {
                         int index;
                         g_navigator_group.clear();
-                        CollectGroupNavigators(&g_navigator_group);
+                        CollectGroupNavigators(g_navigator_group);
                         for (index = 0; index < static_cast<int>(g_navigator_group.size());
                              ++index) {
                             g_navigator_group[index]->movement_stopped = false;
@@ -2257,7 +2255,7 @@ int W8Navigator::ResolveMovement()
                 movement_stopped = false;
                 if (linked_navigator == 0) {
                     g_navigator_group.clear();
-                    CollectGroupNavigators(&g_navigator_group);
+                    CollectGroupNavigators(g_navigator_group);
                     for (index = 0; index < static_cast<int>(g_navigator_group.size()); ++index) {
                         g_navigator_group[index]->movement_stopped = false;
                     }

@@ -410,8 +410,7 @@ bool AscensionPath1Camera(Trigger* pTrigger)
     if (GetLocationVarIDByName("AP_DSSpawned") == -1) {
         return false;
     }
-    for (index = 0; index < (gXStatus.plsMonsterList ? gXStatus.plsMonsterList->size() : 0);
-         ++index) {
+    for (index = 0; index < gXStatus.monsters.size(); ++index) {
         W8MonsterInfo* info = MonsterGetScriptPartByLocationIndex(index);
 
         if (info->fActive && info->fInCombat && info->ubDisposition == W8_DISPOSITION_HOSTILE &&

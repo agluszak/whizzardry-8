@@ -532,7 +532,7 @@ void LoadAwayCampChest(void)
     if (pContainer == 0) {
         srAssertFail("pContainer", MASTER_FUNCTION_CPP, 0x5a8, 0);
     }
-    LoadSavedLevelItems(0x26, &items);
+    LoadSavedLevelItems(0x26, items);
     for (index = 0; index < static_cast<int>(items.size()); ++index) {
         W8WorldItem* item = items[index];
 
@@ -541,7 +541,7 @@ void LoadAwayCampChest(void)
                 W8WorldItem* next = ItemInfoGroupGetNext(item);
 
                 if (next != 0) {
-                    ItemInfoMakeGroupList(next, &items);
+                    ItemInfoMakeGroupList(next, items);
                 }
             }
             free(item);

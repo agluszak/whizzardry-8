@@ -1,3 +1,4 @@
+#include "wiz8/containers.h"
 #include "surrender/srMath.h"
 #include "wiz8/xstatus.h"
 #include "wiz8/world_cursor.h"
@@ -229,9 +230,7 @@ void DestroyWorldCursorCube(W8WorldCursorNode* entry)
         entry->userdata_size = 0;
         entry->node->setParent(0, 1);
         entry->node->release();
-        if (const auto found = std::ranges::find(g_world_cursor_nodes, entry);
-            found != g_world_cursor_nodes.end())
-            g_world_cursor_nodes.erase(found);
+        wiz8::erase_first(g_world_cursor_nodes, entry);
         delete entry;
     }
 }

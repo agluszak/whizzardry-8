@@ -104,7 +104,7 @@ bool MonsterHasNoVisibleEnemy(W8MonsterInfo* monster_info, bool party_only);
    monster; the monster's action fields carry the spell while the probe runs
    and are restored after. */
 void CollectMonsterSpellTargets(W8MonsterInfo* monster_info, int spell_id,
-                                std::vector<W8CombatSlot>* targets);
+                                std::vector<W8CombatSlot>& targets);
 /* Whether at least half of the group's live in-combat members the caster is
    hostile to accept the spell. */
 bool MonsterGroupHalfSpellTargetsValid(W8MonsterInfo* monster_info, int spell_id,

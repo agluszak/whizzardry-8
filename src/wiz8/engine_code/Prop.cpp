@@ -1791,7 +1791,7 @@ int W8Prop::GetAnimationState() const
    frame of each mesh entry (a single-instance mesh contributes frame zero
    only), or one per frame of every mesh in each mesh list. */
 // FUNCTION: WIZ8 0x0044e570
-void W8Prop::CollectModelInstances(std::vector<stModelInstance*>* instances)
+void W8Prop::CollectModelInstances(std::vector<stModelInstance*>& instances)
 {
     W8AnimObj* animation = Rep()->animation;
     if (animation == 0) {
@@ -1805,10 +1805,10 @@ void W8Prop::CollectModelInstances(std::vector<stModelInstance*>* instances)
             }
             int frame_count = AniMeshValue(mesh);
             if (mesh->flags.single_instance) {
-                instances->push_back(GetAniMeshFrame(mesh, 0));
+                instances.push_back(GetAniMeshFrame(mesh, 0));
             } else {
                 for (int frame = 0; frame < frame_count; ++frame) {
-                    instances->push_back(GetAniMeshFrame(mesh, frame));
+                    instances.push_back(GetAniMeshFrame(mesh, frame));
                 }
             }
         }
@@ -1826,7 +1826,7 @@ void W8Prop::CollectModelInstances(std::vector<stModelInstance*>* instances)
                 }
                 int frame_count = AniMeshValue(mesh);
                 for (int frame = 0; frame < frame_count; ++frame) {
-                    instances->push_back(GetAniMeshFrame(mesh, frame));
+                    instances.push_back(GetAniMeshFrame(mesh, frame));
                 }
             }
         }

@@ -158,7 +158,7 @@ public:
        `world` is accepted but never read. */
     bool IsPickedProp(W8World* world); /* 0x0044D680 */
     void GetBounds(srVector3T<float>* minimum, srVector3T<float>* maximum);
-    void CollectModelInstances(std::vector<stModelInstance*>* instances);
+    void CollectModelInstances(std::vector<stModelInstance*>& instances);
     /* Run trigger when its action is one of the missile-impact kinds
        (0x3a..0x3c); the record hands Run the missile's table index. */
     void RunMissileTrigger(W8AIMissile* record);

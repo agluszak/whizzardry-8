@@ -394,7 +394,7 @@ void W8Octree::UpdateVisibility()
    does (0x0042FD40 reads [array + bit*4 - 8], 0x0042FD8C reads
    [array + bit*4 - 4]), so it stays. */
 // FUNCTION: WIZ8 0x0042f9a0
-int W8Octree::CollectModelsNearPoint(std::vector<stModelInstance*>* out,
+int W8Octree::CollectModelsNearPoint(std::vector<stModelInstance*>& out,
                                      const srVector3T<float>* point, float radius,
                                      unsigned int flags, bool only_accumulated)
 {
@@ -474,7 +474,7 @@ int W8Octree::CollectModelsNearPoint(std::vector<stModelInstance*>* out,
                     W8BoundingBox bounds;
                     model->getBoundingBox(bounds.minimum, bounds.maximum);
                     if (SphereNearBounds(point, radius, &bounds)) {
-                        out->push_back(instance);
+                        out.push_back(instance);
                     }
                 }
             }
@@ -503,14 +503,14 @@ int W8Octree::CollectModelsNearPoint(std::vector<stModelInstance*>* out,
                             (center.y - point->y) * (center.y - point->y) +
                             (center.z - point->z) * (center.z - point->z) <
                         sphere_radius * sphere_radius) {
-                        out->push_back(static_cast<stModelInstance*>(instance));
+                        out.push_back(static_cast<stModelInstance*>(instance));
                     }
                 }
             }
             bit = m_linked_props->NextSetBit(false);
         }
     }
-    return static_cast<int>(out->size());
+    return static_cast<int>(out.size());
 }
 
 /* Add every particle and prop linked to one mesh to the live visibility sets.

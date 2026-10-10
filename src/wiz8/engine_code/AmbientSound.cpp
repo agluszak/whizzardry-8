@@ -1,3 +1,4 @@
+#include "wiz8/containers.h"
 #include "wiz8/engine_code/Quality.h"
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/sr_api.h"
@@ -369,11 +370,7 @@ W8AmbientSound* W8AmbientSound::FindNextMatching(const char* match_name, W8Ambie
     if (previous == 0) {
         index = 0;
     } else {
-        const auto found = std::ranges::find((*g_world->plsAmbientSounds), previous);
-        index = (found == g_world->plsAmbientSounds->end()
-                     ? -1
-                     : static_cast<int>(found - g_world->plsAmbientSounds->begin())) +
-                1;
+        index = wiz8::index_of(*g_world->plsAmbientSounds, previous) + 1;
         if (index < 0 || index > count) {
             return 0;
         }

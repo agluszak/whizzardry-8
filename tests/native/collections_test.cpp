@@ -1,3 +1,5 @@
+#include "wiz8/containers.h"
+#include "wiz8/xstatus.h"
 #include "wiz8/local_code/Controls.h"
 #include "wiz8/local_code/MonsterGroup.h"
 #include "wiz8/level_specific_code/MasterFunctionList.h"
@@ -71,6 +73,17 @@ static bool ownershipAndCallbacks()
     owner.m_controls.clear();
     delete borrowed;
     CHECK(unlinked && destroyed.back() == 4);
+
+    // Ordered destruction also unlinks first and tolerates a destructor deleting
+    // the next entry. A detached snapshot would double-delete that entry.
+    destroyed.clear();
+    second = new Entry(owner, destroyed, unlinked, 2);
+    first = new Entry(owner, destroyed, unlinked, 1, second);
+    third = new Entry(owner, destroyed, unlinked, 3);
+    owner.m_controls = {first, second, third};
+    wiz8::remove_all_and_delete_in_order(owner.m_controls);
+    CHECK(owner.m_controls.empty() && unlinked);
+    CHECK((destroyed == std::vector<int>{1, 2, 3}));
     return true;
 }
 
@@ -121,6 +134,28 @@ static bool groupMemberLookup()
     CHECK(group.MemberLocationId(2) == -1 && group.MemberLocationId(-1) == -1);
     members.erase(members.begin());
     CHECK(group.MemberLocationId(0) == 202);
+    return true;
+}
+
+static bool gameplayCollectionLifetime()
+{
+    W8MonsterInfo monster{};
+    W8MonsterGroup group{};
+    CHECK(gXStatus.monsters.empty() && GetMonsterListEntry(0) == nullptr);
+    gXStatus.monsters.push_back(&monster);
+    gXStatus.unborn_monsters.push_back(&monster);
+    gXStatus.encounter_groups.push_back(&group);
+    CHECK(GetMonsterListEntry(0) == &monster);
+    CHECK(GetMonsterListEntry(-1) == nullptr && GetMonsterListEntry(1) == nullptr);
+    CHECK(GetUnbornMonsterEntry(0) == &monster && GetUnbornMonsterEntry(1) == nullptr);
+    CHECK(GetMonsterGroupEncounter(0) == &group && GetMonsterGroupEncounter(1) == nullptr);
+    // Reset releases vector storage and leaves immediately reusable collections.
+    gXStatus = {};
+    CHECK(GetMonsterListEntry(0) == nullptr && GetUnbornMonsterEntry(0) == nullptr);
+    CHECK(GetMonsterGroupEncounter(0) == nullptr);
+    gXStatus.monsters.push_back(&monster);
+    CHECK(GetMonsterListEntry(0) == &monster);
+    gXStatus.monsters.clear();
     return true;
 }
 
@@ -255,8 +290,9 @@ static bool journalSerialization()
 
 int main()
 {
-    return ownershipAndCallbacks() && masterFunctionMutation() && groupMemberLookup() &&
-                   npcStockOrdering() && keyboardBindingReplacement() && journalSerialization()
+    return ownershipAndCallbacks() && gameplayCollectionLifetime() && masterFunctionMutation() &&
+                   groupMemberLookup() && npcStockOrdering() && keyboardBindingReplacement() &&
+                   journalSerialization()
                ? 0
                : 1;
 }

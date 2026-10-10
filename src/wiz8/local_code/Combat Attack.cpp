@@ -534,9 +534,7 @@ int ResolveGuardianInterception(W8TargetSource* source, W8CombatSlot* target)
             }
         }
     }
-    for (unsigned int monster_index = 0;
-         monster_index < (gXStatus.plsMonsterList ? gXStatus.plsMonsterList->size() : 0);
-         ++monster_index) {
+    for (unsigned int monster_index = 0; monster_index < gXStatus.monsters.size(); ++monster_index) {
         W8MonsterInfo* monster_info = MonsterGetScriptPartByLocationIndex(monster_index);
         W8MonsterRecord* record = GetMonsterDataForInfo(monster_info);
         if (monster_info->fActive && monster_info->fInCombat && monster_info->hp_current != 0 &&
@@ -801,8 +799,7 @@ void ResolveSpellMissileHit(W8Missile* missile)
             srVector3T<float> center = monster_info->p3D->GetPosition();
             ResetCombatSlot(&struck);
             struck.iType = W8_TARGET_KIND_MONSTER;
-            for (index = 0; index < (gXStatus.plsMonsterList ? gXStatus.plsMonsterList->size() : 0);
-                 ++index) {
+            for (index = 0; index < gXStatus.monsters.size(); ++index) {
                 monster_info = MonsterGetScriptPartByLocationIndex(index);
                 if (monster_info->fActive) {
                     MonsterGetLocation(monster_info->p3D, &location);
@@ -1544,12 +1541,12 @@ void ReportCharacterAttackResult(int party_slot, W8SpellEffectResult* report)
     *report = {};
 }
 
-static int GetCombatFumbleChance(std::vector<W8CombatSlot*>* targets, int attack_score)
+static int GetCombatFumbleChance(const std::vector<W8CombatSlot>& targets, int attack_score)
 {
     int chance;
     if (attack_score < 100) {
         chance = static_cast<int>(pow(100 - attack_score, 3.0) * 1e-5 + 0.5);
-        unsigned int count = (targets ? targets->size() : 0);
+        unsigned int count = targets.size();
         if (count == 0) {
             srAssertFail("uiNumTargets > 0", COMBAT_ATTACK_CPP, 0x11d0, 0);
         }
@@ -1561,17 +1558,13 @@ static int GetCombatFumbleChance(std::vector<W8CombatSlot*>* targets, int attack
     return chance;
 }
 
-static W8CombatSlot ChooseCombatFumbleTarget(std::vector<W8CombatSlot*>* targets)
+static W8CombatSlot ChooseCombatFumbleTarget(const std::vector<W8CombatSlot>& targets)
 {
-    unsigned int count = (targets ? targets->size() : 0);
+    unsigned int count = targets.size();
     if (count == 0) {
         srAssertFail("uiChoices > 0", COMBAT_ATTACK_CPP, 0x127e, 0);
     }
-    W8CombatSlot* target = (*targets)[Random(count)];
-    if (target == nullptr) {
-        srAssertFail("pListElement != NULL", COMBAT_ATTACK_CPP, 0x1282, 0);
-    }
-    return *target;
+    return targets[Random(count)];
 }
 
 static int RollBackstabExtraDice(int chance)
@@ -1645,7 +1638,6 @@ int ContinueMonsterAttack(W8MonsterInfo* monster_info, W8MonsterRecord* record)
     int to_hit = 0;
     int roll = 0;
     W8RangeCategory range;
-    std::vector<W8CombatSlot*>* fumble_list;
     const wchar_t* location_text;
 
     SetTargetSourceToMonster(monster_info, &source);
@@ -1659,10 +1651,7 @@ int ContinueMonsterAttack(W8MonsterInfo* monster_info, W8MonsterRecord* record)
         roll = Random(100) + 1;
         guaranteed_hit = roll <= 5;
         swing_missed = roll > 95;
-        fumble_list = new std::vector<W8CombatSlot*>;
-        if (fumble_list == nullptr) {
-            srAssertFail("plsFumbleTargetList != NULL", COMBAT_ATTACK_CPP, 0x7dc, 0);
-        }
+        std::vector<W8CombatSlot> fumble_list;
         BuildMonsterTargetList(monster_info, record, attack_index, fumble_list);
         int redirect_chance = GetMonsterAttackScore(monster_info, attack, action_detail, 1);
         int fumble_chance = GetCombatFumbleChance(fumble_list, redirect_chance);
@@ -1685,8 +1674,6 @@ int ContinueMonsterAttack(W8MonsterInfo* monster_info, W8MonsterRecord* record)
             g_combat_state->TargetHit = monster_info->Target;
             guaranteed_penetration = guaranteed_hit;
         }
-        delete fumble_list;
-
     } else {
         if (!monster_info->fMissileReleased) {
             srAssertFail("pMonsterInfo->fMissileReleased", COMBAT_ATTACK_CPP, 0x80b,
@@ -3158,32 +3145,23 @@ void ApplyEffectConditions(W8TargetSource* source, W8CombatSlot* target,
     }
 }
 
-/* Appends one slot-headed target record to a candidate list; both retargeting
-   builders share it, so its asserts report these fixed source lines. */
-static void AppendCombatTargetEntry(std::vector<W8CombatSlot*>* out_list, W8TargetKind kind,
-                                    int iChar, int iMonsterID)
+static void AppendCombatTargetEntry(std::vector<W8CombatSlot>& targets, W8TargetKind kind,
+                                    int character, int monster_id)
 {
-    W8CombatSlot* pTarget = static_cast<W8CombatSlot*>(malloc(sizeof(*pTarget)));
-    if (pTarget == nullptr) {
-        srAssertFail("pTarget", COMBAT_ATTACK_CPP, 0x1262, 0);
-    }
-    pTarget->iType = kind;
-    pTarget->iChar = iChar;
-    pTarget->iMonsterID = iMonsterID;
-    int iListIndex = static_cast<int>(out_list->size());
-    out_list->push_back(pTarget);
-    if (iListIndex == -1) {
-        srAssertFail("iListIndex != BAD_INDEX", COMBAT_ATTACK_CPP, 0x1273, 0);
-    }
+    auto& target = targets.emplace_back();
+    ResetCombatSlot(&target);
+    target.iType = kind;
+    target.iChar = character;
+    target.iMonsterID = monster_id;
 }
 
 /* Builds the retargeting candidate list for a character: every live party
    member except the one already aimed at, plus self, then every active
    in-combat monster except the aimed one. */
 // FUNCTION: WIZ8 0x00543dc0
-void BuildCharacterTargetList(int party_slot, int action, std::vector<W8CombatSlot*>* out_list)
+void BuildCharacterTargetList(int party_slot, int action, std::vector<W8CombatSlot>& out_list)
 {
-    for (int i = 0; i < 8; i = i + 1) {
+    for (int i = 0; i < W8_PARTY_SLOT_COUNT; ++i) {
         W8PartySlotRow* row = &g_status.buffers.XChar[i];
         if (CanPartySlotParticipate(i)) {
             if (i == party_slot) {
@@ -3199,9 +3177,7 @@ void BuildCharacterTargetList(int party_slot, int action, std::vector<W8CombatSl
             }
         }
     }
-    unsigned int monster_list_index = 0;
-    while (monster_list_index < (gXStatus.plsMonsterList ? gXStatus.plsMonsterList->size() : 0)) {
-        W8MonsterInfo* monster_info = MonsterGetScriptPartByLocationIndex(monster_list_index);
+    for (W8MonsterInfo* monster_info : gXStatus.monsters) {
         if (monster_info->fActive && monster_info->hp_current != 0 && monster_info->fInCombat &&
             (g_status.buffers.XChar[party_slot].target_out_of_combat.iType !=
                  W8_TARGET_KIND_MONSTER ||
@@ -3212,7 +3188,7 @@ void BuildCharacterTargetList(int party_slot, int action, std::vector<W8CombatSl
             AppendCombatTargetEntry(out_list, W8_TARGET_KIND_MONSTER, -1,
                                     monster_info->location_id);
         }
-        ++monster_list_index;
+
     }
 }
 
@@ -3221,9 +3197,9 @@ void BuildCharacterTargetList(int party_slot, int action, std::vector<W8CombatSl
    rather than the candidate's id (0x005441aa..0x005441b2). */
 // FUNCTION: WIZ8 0x00544010
 void BuildMonsterTargetList(W8MonsterInfo* monster_info, W8MonsterRecord* record,
-                            unsigned int attack, std::vector<W8CombatSlot*>* out_list)
+                            unsigned int attack, std::vector<W8CombatSlot>& out_list)
 {
-    for (int i = 0; i < 8; i = i + 1) {
+    for (int i = 0; i < W8_PARTY_SLOT_COUNT; ++i) {
         if (CanPartySlotParticipate(i) &&
             (monster_info->Target.iType != W8_TARGET_KIND_CHARACTER ||
              monster_info->Target.iChar != i) &&
@@ -3231,9 +3207,7 @@ void BuildMonsterTargetList(W8MonsterInfo* monster_info, W8MonsterRecord* record
             AppendCombatTargetEntry(out_list, W8_TARGET_KIND_CHARACTER, i, -1);
         }
     }
-    unsigned int monster_list_index = 0;
-    while (monster_list_index < (gXStatus.plsMonsterList ? gXStatus.plsMonsterList->size() : 0)) {
-        W8MonsterInfo* candidate = MonsterGetScriptPartByLocationIndex(monster_list_index);
+    for (W8MonsterInfo* candidate : gXStatus.monsters) {
         if (candidate->fActive && candidate->hp_current != 0 && candidate->fInCombat) {
             if (candidate == monster_info) {
                 AppendCombatTargetEntry(out_list, W8_TARGET_KIND_MONSTER, -1,
@@ -3242,14 +3216,14 @@ void BuildMonsterTargetList(W8MonsterInfo* monster_info, W8MonsterRecord* record
                 if ((monster_info->Target.iType == W8_TARGET_KIND_MONSTER &&
                      monster_info->Target.iMonsterID == monster_info->location_id) ||
                     !MonsterAttackReachesMonster(monster_info, record, attack, candidate)) {
-                    ++monster_list_index;
+
                     continue;
                 }
                 AppendCombatTargetEntry(out_list, W8_TARGET_KIND_MONSTER, -1,
                                         candidate->location_id);
             }
         }
-        ++monster_list_index;
+
     }
 }
 
@@ -3938,10 +3912,7 @@ int ResolveCharacterAttack(int party_slot)
             roll = Random(100) + 1;
             guaranteed_hit = roll <= 5;
             swing_missed = roll > 95;
-            std::vector<W8CombatSlot*>* fumble_list = new std::vector<W8CombatSlot*>;
-            if (fumble_list == nullptr) {
-                srAssertFail("plsFumbleTargetList != NULL", COMBAT_ATTACK_CPP, 0x359, 0);
-            }
+            std::vector<W8CombatSlot> fumble_list;
             BuildCharacterTargetList(party_slot, hand, fumble_list);
             int redirect_chance = GetTargetAttackAttributes(party_slot, hand, attack_mode, 1);
             int fumble_chance = GetCombatFumbleChance(fumble_list, redirect_chance);
@@ -3968,11 +3939,10 @@ int ResolveCharacterAttack(int party_slot)
                 roll = Random(100) + 1;
                 g_combat_state->unaware = 0;
                 g_combat_state->natural_attack = 0;
-                delete fumble_list;
 
             } else {
                 g_combat_state->TargetHit = party_row->target_out_of_combat;
-                delete fumble_list;
+
 
                 guaranteed_penetration = guaranteed_hit;
             }

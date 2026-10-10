@@ -1,3 +1,4 @@
+#include "wiz8/containers.h"
 #include <utility>
 #include "input.h"
 #include "wiz8/local_code/ControlsRect.h"
@@ -46,8 +47,7 @@ void W8DialogTextArea::Configure(const W8ControlsRect* bounds, int font, unsigne
     m_relayout_needed = true;
     m_behavior_flags = flags;
     m_font = font;
-    for (int index = 0; index < static_cast<int>(m_all_lines.size()); ++index) {
-        W8DialogTextEntry* entry = m_all_lines[index];
+    for (W8DialogTextEntry* entry : m_all_lines) {
         entry->m_pendingBounds = m_bounds;
     }
 }
@@ -486,9 +486,5 @@ W8DialogTextArea::W8DialogTextArea()
 // FUNCTION: WIZ8 0x005d1590
 W8DialogTextArea::~W8DialogTextArea()
 {
-    while (!m_all_lines.empty()) {
-        auto* object = m_all_lines.back();
-        m_all_lines.pop_back();
-        delete object;
-    }
+    wiz8::remove_all_and_delete(m_all_lines);
 }

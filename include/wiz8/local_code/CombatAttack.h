@@ -146,7 +146,7 @@ int ResolveMonsterAttackDamage(W8MonsterInfo* monster_info, W8MonsterAttack* att
 /* Build the candidate list the monster's fumbled or repicked
    attack chooses a new target from. */
 void BuildMonsterTargetList(W8MonsterInfo* monster_info, W8MonsterRecord* record,
-                            unsigned int attack, std::vector<W8CombatSlot*>* out_list);
+                            unsigned int attack, std::vector<W8CombatSlot>& out_list);
 /* Announce a friendly-fire strike and highlight the name on the
    other side's notice palette when the two sides differ. */
 void AnnounceAccidentalStrike(W8TargetSource* source, W8CombatSlot* target);

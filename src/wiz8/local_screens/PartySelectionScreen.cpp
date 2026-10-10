@@ -1,3 +1,4 @@
+#include "wiz8/containers.h"
 #include <utility>
 #include "Types.h"
 #include "mousesystem.h"
@@ -1185,11 +1186,7 @@ unsigned char W8PartySelectionInputHandler::HandleInput(const InputAtom* input)
 void W8PartySelectionOptionPanel::SetOptionPanelMode(W8PartyCreationPage page)
 {
     m_page = page;
-    while (!m_entries.empty()) {
-        auto* object = m_entries.back();
-        m_entries.pop_back();
-        delete object;
-    }
+    wiz8::remove_all_and_delete(m_entries);
     for (int index = 0; index < static_cast<int>(m_controls.size()); ++index) {
         ControlAt(index)->SetActive(page == W8_PARTY_CREATION_OPTIONS);
     }
@@ -1347,11 +1344,7 @@ void W8PartySelectionController::Setup()
 W8PartySelectionOptionPanel::~W8PartySelectionOptionPanel()
 {
     DestroyAllControls();
-    while (!m_entries.empty()) {
-        auto* object = m_entries.back();
-        m_entries.pop_back();
-        delete object;
-    }
+    wiz8::remove_all_and_delete(m_entries);
 }
 
 // FUNCTION: WIZ8 0x005c1590

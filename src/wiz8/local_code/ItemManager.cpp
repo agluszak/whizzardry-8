@@ -1,3 +1,4 @@
+#include "wiz8/containers.h"
 #include "wiz8/local_code/ItemManager.h"
 #include "wiz8/local_code/PC_Item.h"
 #include "wiz8/layouts/game_status.h"
@@ -88,12 +89,8 @@ bool InitializeItemManagerState()
     if (g_current_screen_state.id == W8_SCREEN_MAIN_GAME && g_level_block != 0) {
         g_level_block->selected_item = -1;
     }
-    if (gXStatus.plsItemList != 0) {
-        gXStatus.plsItemList->clear();
-        return gXStatus.plsItemList != 0;
-    }
-    gXStatus.plsItemList = new std::vector<W8WorldItem*>;
-    return gXStatus.plsItemList != 0;
+    gXStatus.world_items.clear();
+    return true;
 }
 
 // FUNCTION: WIZ8 0x004f8130
@@ -213,7 +210,7 @@ static W8WorldItem* CreateTableItem(int item_id, const srVector3T<float>* positi
 }
 
 // FUNCTION: WIZ8 0x004f88f0
-int GenerateItemsFromTable(std::vector<W8WorldItem*>* output_items, unsigned int table_id,
+int GenerateItemsFromTable(std::vector<W8WorldItem*>& output_items, unsigned int table_id,
                            unsigned int maximum_items)
 {
     unsigned int party_level = GetAveragePartyLevel();
@@ -236,7 +233,7 @@ int GenerateItemsFromTable(std::vector<W8WorldItem*>* output_items, unsigned int
         if (table->entries[entry_index].selector != 0) {
             item_record = &g_item_records[table->entries[entry_index].item_id];
             if (table->entries[entry_index].weight == 0) {
-                output_items->push_back(CreateTableItem(
+                output_items.push_back(CreateTableItem(
                     g_item_tables[table_id]->entries[entry_index].item_id, &position));
             } else if (table->level_scaled == 0) {
                 candidates.push_back(entry_index);
@@ -281,13 +278,13 @@ int GenerateItemsFromTable(std::vector<W8WorldItem*>* output_items, unsigned int
         entry = &table->entries[entry_index];
         random_value = Random(total_weight);
         if (random_value <= entry->weight) {
-            output_items->push_back(CreateTableItem(entry->item_id, &position));
+            output_items.push_back(CreateTableItem(entry->item_id, &position));
             candidates.erase(candidates.begin() + position_index);
             ++selected_count;
         }
     }
 
-    return static_cast<int>(output_items->size());
+    return static_cast<int>(output_items.size());
 }
 
 /* The cursor the iterator below resumes from. */
@@ -342,7 +339,7 @@ W8WorldItem* GetNextWorldItem(bool restart)
     }
     index = g_world_item_cursor;
     if (static_cast<unsigned int>(index) <
-        (gXStatus.plsItemList ? gXStatus.plsItemList->size() : 0)) {
+        gXStatus.world_items.size()) {
         ++g_world_item_cursor;
         return GetWorldItemListEntry(index);
     }
@@ -439,16 +436,16 @@ W8WorldItem* ItemInfo(unsigned int item_list_index)
 {
     W8WorldItem* item;
 
-    if (item_list_index >= (gXStatus.plsItemList ? gXStatus.plsItemList->size() : 0)) {
+    if (item_list_index >= gXStatus.world_items.size()) {
         srAssertFail(
-            "uiItemListIndex < (UINT32) (gXStatus.plsItemList ? gXStatus.plsItemList->size() : 0)",
+            "uiItemListIndex < (UINT32) gXStatus.world_items.size()",
             ITEM_MANAGER_CPP, 961, 0);
     }
     item = GetWorldItemListEntry(item_list_index);
     if (item == 0) {
         srAssertFail("pItemInfo != NULL", ITEM_MANAGER_CPP, 965,
                      FormatString("ItemInfo: ERROR - missing entry, index %d, pList %d",
-                                  item_list_index, gXStatus.plsItemList));
+                                  item_list_index, &gXStatus.world_items));
     }
     return item;
 }
@@ -458,7 +455,7 @@ unsigned int ItemIndex(int runtime_id)
 {
     unsigned int index;
 
-    for (index = 0; index < (gXStatus.plsItemList ? gXStatus.plsItemList->size() : 0); ++index) {
+    for (index = 0; index < gXStatus.world_items.size(); ++index) {
         if (ItemInfo(index)->runtime_id == runtime_id) {
             return index;
         }
@@ -472,7 +469,7 @@ unsigned int ItemIndex(int runtime_id)
    selection the item manager resets. */
 
 // FUNCTION: WIZ8 0x004f8440
-int ItemInfoMakeGroupList(W8WorldItem* item, std::vector<W8WorldItem*>* out)
+int ItemInfoMakeGroupList(W8WorldItem* item, std::vector<W8WorldItem*>& out)
 {
     W8WorldItem* next;
 
@@ -481,12 +478,12 @@ int ItemInfoMakeGroupList(W8WorldItem* item, std::vector<W8WorldItem*>* out)
                      "Bad ITEM_STRUCT in ItemInfoMakeGroupList");
     }
 
-    out->push_back(item);
+    out.push_back(item);
 
     for (next = item->next; next != 0; next = next->next) {
-        out->push_back(next);
+        out.push_back(next);
     }
-    return static_cast<int>(out->size());
+    return static_cast<int>(out.size());
 }
 
 /* The generic 3D model names ActivateItem falls back to when a
@@ -793,7 +790,7 @@ int PickNearestItemUnderCursor(int cursor_x, int cursor_y, float max_distance)
 
     result = -1;
     best_distance = 999999.0f;
-    for (index = 0; index < (gXStatus.plsItemList ? gXStatus.plsItemList->size() : 0); ++index) {
+    for (index = 0; index < gXStatus.world_items.size(); ++index) {
         W8WorldItem* item = ItemInfo(index);
         float distance;
 
@@ -826,7 +823,7 @@ void UpdateNearbyWorldItems(void)
     unsigned int count;
 
     WorldGetCameraLocation(GetWorld(), &camera);
-    count = (gXStatus.plsItemList ? gXStatus.plsItemList->size() : 0);
+    count = gXStatus.world_items.size();
     for (index = 0; index < count; ++index) {
         W8WorldItem* item = ItemInfo(index);
 
@@ -858,7 +855,7 @@ void UpdateNearbyWorldItems(void)
             }
         }
     next_item:
-        count = (gXStatus.plsItemList ? gXStatus.plsItemList->size() : 0);
+        count = gXStatus.world_items.size();
     }
 }
 
@@ -944,7 +941,7 @@ static void OnItemPickerDialogDestroyed(W8DialogBase* dialog)
         if (item->p3D == 0) {
             ActivateItem(item);
         }
-        gXStatus.plsItemList->push_back(item);
+        gXStatus.world_items.push_back(item);
         group->next = 0;
     } else if (ItemInfoGetNumInGroup(group) != 1) {
         return;
@@ -958,7 +955,7 @@ static void OnItemPickerDialogDestroyed(W8DialogBase* dialog)
         DeactivateWorldItem(item);
     }
     FreeWorldItemGroup(item);
-    gXStatus.plsItemList->erase(gXStatus.plsItemList->begin() + index);
+    gXStatus.world_items.erase(gXStatus.world_items.begin() + index);
 }
 
 /* Interact with one world item by runtime id. Records flagged 0x20 open the
@@ -1002,63 +999,23 @@ unsigned char InteractWithWorldItem(int runtime_id)
         DeactivateWorldItem(item);
     }
     FreeWorldItemGroup(item);
-    void* status = (*gXStatus.plsItemList)[index];
-    gXStatus.plsItemList->erase(gXStatus.plsItemList->begin() + index);
-    if (status == 0) {
-        srAssertFail("fStatus", ITEM_MANAGER_CPP, 893, 0);
-    }
+    gXStatus.world_items.erase(gXStatus.world_items.begin() + index);
     return result;
 }
 
-/* Push every live world item back to its sector and free the whole list. The
-   list is reduced from its head until empty and then destroyed; only the
-   destroy failure keeps the global pointing at it. */
+/* Detach and release all world item groups. */
 // FUNCTION: WIZ8 0x004f6a50
 unsigned char ReleaseItemLists(void)
 {
-    unsigned int count;
-
-    if (gXStatus.plsItemList == 0) {
-        srAssertFail("gXStatus.plsItemList != NULL", ITEM_MANAGER_CPP, 0x126, 0);
-    }
-    count = (gXStatus.plsItemList ? gXStatus.plsItemList->size() : 0);
-    while (static_cast<int>(count) >= 1) {
-        W8WorldItem* item;
-
-        count = (gXStatus.plsItemList ? gXStatus.plsItemList->size() : 0);
-        if (count == 0) {
-            srAssertFail("uiItemListIndex < (UINT32) (gXStatus.plsItemList ? "
-                         "gXStatus.plsItemList->size() : 0)",
-                         ITEM_MANAGER_CPP, 0x3c1, 0);
-        }
-        item = GetWorldItemListEntry(0);
-        if (item == 0) {
-            srAssertFail("pItemInfo != NULL", ITEM_MANAGER_CPP, 0x3c5,
-                         FormatString("ItemInfo: ERROR - missing entry, index %d, pList %d", 0,
-                                      gXStatus.plsItemList));
-        }
+    wiz8::clear_and_dispose(gXStatus.world_items, [](W8WorldItem* item) {
         if (item->sector_id >= 0) {
             RemoveItemFromSector(item->sector_id, item);
         }
         if (item->fActive) {
             DeactivateWorldItem(item);
         }
-        while (item != 0) {
-            W8WorldItem* next = item->next;
-
-            free(item);
-            item = next;
-        }
-        const auto entry = (*gXStatus.plsItemList)[0];
-        gXStatus.plsItemList->erase(gXStatus.plsItemList->begin());
-        if (entry == 0) {
-            return 0;
-        }
-        count = (gXStatus.plsItemList ? gXStatus.plsItemList->size() : 0);
-    }
-    delete gXStatus.plsItemList;
-
-    gXStatus.plsItemList = 0;
+        FreeWorldItemGroup(item);
+    });
     return 1;
 }
 
@@ -1125,7 +1082,7 @@ bool AnyWorldItemVisible(void)
         return false;
     }
     GetCameraPosition(&camera);
-    count = (gXStatus.plsItemList ? gXStatus.plsItemList->size() : 0);
+    count = gXStatus.world_items.size();
     if (0 <= g_last_visible_world_item && g_last_visible_world_item < count) {
         W8WorldItem* item = GetWorldItemListEntry(g_last_visible_world_item);
         if (IsWorldItemMarkerVisible(item, camera)) {
@@ -1247,7 +1204,7 @@ void RebuildAllWorldItemInstances(void)
     unsigned int index;
     W8WorldItem* item;
 
-    for (index = 0; index < (gXStatus.plsItemList ? gXStatus.plsItemList->size() : 0); ++index) {
+    for (index = 0; index < gXStatus.world_items.size(); ++index) {
         item = ItemInfo(index);
         ReplaceOrCreateItem(&item->item, item->item.iItemNo, false, false, false);
     }
@@ -1277,7 +1234,7 @@ W8WorldItem* CreateWorldItem(W8ItemInstance* item, const srVector3T<float>* posi
         CopyItemInstance(&result->item, item, 0, true);
     }
     if (add_to_world) {
-        gXStatus.plsItemList->push_back(result);
+        gXStatus.world_items.push_back(result);
     }
     return result;
 }
@@ -1344,7 +1301,7 @@ void DropMonsterLoot(W8MonsterInfo* monster_info, int value)
                                 items.push_back(item);
                             }
                         } else if (entry->type == 1) {
-                            GenerateItemsFromTable(&items, entry->item_id, rolls);
+                            GenerateItemsFromTable(items, entry->item_id, rolls);
                         }
                     }
                 }
@@ -1406,7 +1363,7 @@ void DropMonsterLoot(W8MonsterInfo* monster_info, int value)
         }
         if (static_cast<int>(items.size()) <= 1) {
             item = items[0];
-            gXStatus.plsItemList->push_back(item);
+            gXStatus.world_items.push_back(item);
             item->position = position;
         } else {
             W8WorldItem* container;

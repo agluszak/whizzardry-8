@@ -122,7 +122,7 @@ void KillTrynnieGroups(void)
 
     for (index = 0;
          index < static_cast<int>(
-                     (gXStatus.plsMonsterGroupList ? gXStatus.plsMonsterGroupList->size() : 0));
+                     gXStatus.monster_groups.size());
          ++index) {
         group = GetMonsterGroupByListIndex(index);
         if (group != 0 && group->members_active &&

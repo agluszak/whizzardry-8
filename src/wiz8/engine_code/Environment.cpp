@@ -793,8 +793,7 @@ void ApplyEnvironmentColour(W8World* world, float intensity, const EnvironmentCo
         world->environment_colour = *colour;
         world->environment_intensity = intensity;
     }
-    for (int index = 0; index < static_cast<int>(g_environment_lights.size()); ++index) {
-        stLight* light = g_environment_lights[index];
+    for (stLight* light : g_environment_lights) {
         srVector3T<float> scaled(colour->x, colour->y, colour->z);
 
         scaled *= static_cast<double>(intensity);

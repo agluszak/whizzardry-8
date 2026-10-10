@@ -339,7 +339,7 @@ void MSYS_AddRegionToList(MOUSE_REGION* region)
 //	Scan region list for presence of a node with the same region ID number
 INT32 MSYS_RegionInList(MOUSE_REGION* region)
 {
-    return std::find(MSYS_RegList.begin(), MSYS_RegList.end(), region) != MSYS_RegList.end();
+    return std::ranges::contains(MSYS_RegList, region);
 }
 
 //	MSYS_DeleteRegionFromList

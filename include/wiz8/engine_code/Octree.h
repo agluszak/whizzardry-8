@@ -450,7 +450,7 @@ public:
     void MarkMeshLinksVisible(unsigned int mesh);
     /* Collect the model instances whose bounds reach within `radius` of
        `point`, through the region cells and volumes the sphere touches. */
-    int CollectModelsNearPoint(std::vector<stModelInstance*>* out, const srVector3T<float>* point,
+    int CollectModelsNearPoint(std::vector<stModelInstance*>& out, const srVector3T<float>* point,
                                float radius, unsigned int flags,
                                bool only_accumulated); /* 0x0042F9A0 */
     unsigned char CollectVisibleRegions(srVector3T<float>* location, srVector3T<int>* cells,

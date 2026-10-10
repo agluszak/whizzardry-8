@@ -88,8 +88,7 @@ bool CanPartySlotAttackAnyTarget(int party_slot, W8TargetingContext category, in
     bool live_groups = CombatAllowsLiveGroups();
     if (flag != 1) {
         unsigned int index;
-        for (index = 0; index < (gXStatus.plsMonsterList ? gXStatus.plsMonsterList->size() : 0);
-             ++index) {
+        for (index = 0; index < gXStatus.monsters.size(); ++index) {
             W8MonsterInfo* monster_info = MonsterGetScriptPartByLocationIndex(index);
             if (monster_info->fActive && monster_info->hp_current != 0 &&
                 monster_info->highest_condition < W8_CONDITION_DEAD &&
@@ -567,7 +566,7 @@ bool MonsterAttackReachesAnyone(W8MonsterInfo* monster_info, unsigned int attack
         }
     }
 
-    count = (gXStatus.plsMonsterList ? gXStatus.plsMonsterList->size() : 0);
+    count = gXStatus.monsters.size();
     for (index = 0; index < count; ++index) {
         other = MonsterGetScriptPartByLocationIndex(index);
         GetMonsterDataForInfo(other);
@@ -577,7 +576,7 @@ bool MonsterAttackReachesAnyone(W8MonsterInfo* monster_info, unsigned int attack
             MonsterAttackReachesMonster(monster_info, record, attack, other)) {
             return true;
         }
-        count = (gXStatus.plsMonsterList ? gXStatus.plsMonsterList->size() : 0);
+        count = gXStatus.monsters.size();
     }
     return false;
 }
@@ -1099,7 +1098,7 @@ float MonsterChooseTarget(W8MonsterInfo* monster_info, W8CombatSlot* out, int ki
         out->iType = W8_TARGET_KIND_CHARACTER;
     }
     if (out->iType == W8_TARGET_KIND_NONE || !monster_info->pCombat->reconsider_action) {
-        unsigned int count = (gXStatus.plsMonsterList ? gXStatus.plsMonsterList->size() : 0);
+        unsigned int count = gXStatus.monsters.size();
 
         for (unsigned int index = 0; index < count; ++index) {
             W8MonsterInfo* other = MonsterGetScriptPartByLocationIndex(index);
@@ -1117,7 +1116,7 @@ float MonsterChooseTarget(W8MonsterInfo* monster_info, W8CombatSlot* out, int ki
                     }
                 }
             }
-            count = (gXStatus.plsMonsterList ? gXStatus.plsMonsterList->size() : 0);
+            count = gXStatus.monsters.size();
         }
     }
     return best;

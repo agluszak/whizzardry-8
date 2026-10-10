@@ -1,3 +1,4 @@
+#include "wiz8/containers.h"
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/engine_code/BitArray.h"
 #include "wiz8/index_algorithms.h"
@@ -317,9 +318,7 @@ static void ClearAutomapMarkers()
     while (static_cast<int>(g_automap_markers->size())) {
         srClass* object = (*g_automap_markers)[0];
         object->release();
-        if (const auto found = std::ranges::find(*g_automap_markers, object);
-            found != g_automap_markers->end())
-            g_automap_markers->erase(found);
+        wiz8::erase_first(*g_automap_markers, object);
     }
 }
 
@@ -345,12 +344,10 @@ unsigned char AutomapBackgroundRegionEvent(const InputAtom* event, W8Region* reg
 
 static void ClearAutomapNotes()
 {
-    while (!g_automap_notes->empty()) {
-        W8AutomapNote* note = (*g_automap_notes)[0];
+    wiz8::clear_and_dispose(*g_automap_notes, [](W8AutomapNote* note) {
         free(note->text);
         delete note;
-        g_automap_notes->erase(g_automap_notes->begin());
-    }
+    });
 }
 
 /* Rebuild the automap view for the level that just loaded: release every
@@ -695,7 +692,7 @@ unsigned char AutomapScreenEnter(void)
         layer = static_cast<srClipPlane*>(
             srCore.getRegistry()->find(srClipPlane::sGetClassNode(), layer_name, 0));
     }
-    unsigned int monster_count = (gXStatus.plsMonsterList ? gXStatus.plsMonsterList->size() : 0);
+    unsigned int monster_count = gXStatus.monsters.size();
     for (unsigned int index = 0; index < monster_count; ++index) {
         W8MonsterInfo* monster = GetMonsterListEntry(index);
         if (monster->p3D)
@@ -914,9 +911,7 @@ void AutomapScreenFrame(void)
             } else if (g_automap_tool == 3) {
                 W8AutomapNote* note = FindAutomapNoteUnderCursor();
                 if (note) {
-                    if (const auto found = std::ranges::find(*g_automap_notes, note);
-                        found != g_automap_notes->end())
-                        g_automap_notes->erase(found);
+                    wiz8::erase_first(*g_automap_notes, note);
                     free(note->text);
                     delete note;
                     if (g_automap_hovered_note == note)
@@ -1447,9 +1442,8 @@ void LightAutomapCell(const srVector3T<float>* position)
     std::vector<srVector3T<float>> vertices;
     float range = g_automap_range;
 
-    if (g_world->octree->CollectModelsNearPoint(&instances, position, range, 0, false) != 0) {
-        for (int index = 0; index < static_cast<int>(instances.size()); ++index) {
-            stModelInstance* instance = instances[index];
+    if (g_world->octree->CollectModelsNearPoint(instances, position, range, 0, false) != 0) {
+        for (stModelInstance* instance : instances) {
             if (instance == 0) {
                 continue;
             }
@@ -1915,7 +1909,7 @@ void RenderAutomapMarkers(void)
         g_automap_party_marker->setParent(0, 1);
         g_automap_party_marker->setParent(g_scene_square, 1);
     }
-    unsigned int count = (gXStatus.plsMonsterList ? gXStatus.plsMonsterList->size() : 0);
+    unsigned int count = gXStatus.monsters.size();
     for (unsigned int index = 0; index < count; ++index) {
         W8MonsterInfo* info = GetMonsterListEntry(index);
         W8Monster* monster = info->p3D;
@@ -2205,9 +2199,7 @@ unsigned char HandleAutomapNoteInput(const InputAtom* input)
         } else if (input->usParam == VK_RETURN) {
             g_automap_editing_note->text[last] = 0;
             if (wcslen(g_automap_editing_note->text) == 0) {
-                if (const auto found = std::ranges::find(*g_automap_notes, g_automap_editing_note);
-                    found != g_automap_notes->end())
-                    g_automap_notes->erase(found);
+                wiz8::erase_first(*g_automap_notes, g_automap_editing_note);
                 free(g_automap_editing_note->text);
                 delete g_automap_editing_note;
                 if (g_automap_hovered_note == g_automap_editing_note) {
@@ -2223,9 +2215,7 @@ unsigned char HandleAutomapNoteInput(const InputAtom* input)
             g_automap_editing_note = 0;
             g_automap_redraw = true;
         } else if (input->usParam == VK_ESCAPE) {
-            if (const auto found = std::ranges::find(*g_automap_notes, g_automap_editing_note);
-                found != g_automap_notes->end())
-                g_automap_notes->erase(found);
+            wiz8::erase_first(*g_automap_notes, g_automap_editing_note);
             free(g_automap_editing_note->text);
             delete g_automap_editing_note;
             if (g_automap_hovered_note == g_automap_editing_note) {

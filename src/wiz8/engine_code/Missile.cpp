@@ -1,3 +1,4 @@
+#include "wiz8/containers.h"
 #include "wiz8/engine_code/AnimRep.hpp"
 #include "wiz8/spell_ids.h"
 #include "wiz8/engine_code/AnimObj.h"
@@ -406,9 +407,7 @@ void UpdateWorldMissiles(W8World* world)
                 missile->UpdateRepresentation(world);
                 missile->UpdateNavigation(0, false);
             } else {
-                if (const auto found = std::ranges::find((*world->missiles), missile);
-                    found != world->missiles->end())
-                    world->missiles->erase(found);
+                wiz8::erase_first(*world->missiles, missile);
                 missile->DestroyMissile();
                 --index;
                 --count;
@@ -1017,14 +1016,9 @@ void W8Missile::StartIfHostActive()
 void W8Missile::DestroyMissile()
 {
     if (m_plsLights != 0) {
-        int count = static_cast<int>(m_plsLights->size());
-
-        while (count != 0) {
-            stLight* light = (*m_plsLights)[0];
-            m_plsLights->erase(m_plsLights->begin());
+        wiz8::clear_and_dispose(*m_plsLights, [](stLight* light) {
             WorldRemoveLight(g_world, light);
-            --count;
-        }
+        });
     }
     if (m_pAI != 0) {
         free(m_pAI);
@@ -1038,17 +1032,9 @@ void W8Missile::DestroyMissile()
 // FUNCTION: WIZ8 0x004a4210
 void DestroyAllMissiles(W8World* world)
 {
-    while (!world->missiles->empty()) {
-        W8Missile* missile = (*world->missiles)[0];
-
-        if (missile == 0) {
-            srAssertFail("pMissile", MISSILE_CPP, 0x4ab, 0);
-        }
-        if (const auto found = std::ranges::find((*g_world->missiles), missile);
-            found != g_world->missiles->end())
-            g_world->missiles->erase(found);
+    wiz8::clear_and_dispose(*world->missiles, [](W8Missile* missile) {
         missile->DestroyMissile();
-    }
+    });
 }
 
 /* Release the two owned animations and every light vector before the ordinary

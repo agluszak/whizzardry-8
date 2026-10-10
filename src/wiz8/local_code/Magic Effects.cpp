@@ -368,8 +368,7 @@ void ResetCombatEffects(void)
         if (g_combat_state->effect_slots[i].active) {
             ResetPartyEffectBlock(&g_combat_state->effect_slots[i]);
         }
-        for (index = 0; index < (gXStatus.plsMonsterList ? gXStatus.plsMonsterList->size() : 0);
-             ++index) {
+        for (index = 0; index < gXStatus.monsters.size(); ++index) {
             monster_info = MonsterGetScriptPartByLocationIndex(index);
             if (monster_info->fActive && monster_info->fInCombat) {
                 slot = &monster_info->pCombat->combat_effects[i];
@@ -383,8 +382,7 @@ void ResetCombatEffects(void)
         if (g_combat_state->effect_slots0[i].active) {
             ResetPartyEffectBlock(&g_combat_state->effect_slots0[i]);
         }
-        for (index = 0; index < (gXStatus.plsMonsterList ? gXStatus.plsMonsterList->size() : 0);
-             ++index) {
+        for (index = 0; index < gXStatus.monsters.size(); ++index) {
             monster_info = MonsterGetScriptPartByLocationIndex(index);
             if (monster_info->fActive && monster_info->fInCombat) {
                 slot = &monster_info->pCombat->combat_effects_2[i];
@@ -2892,7 +2890,7 @@ void TickRadiusBlastEffectSlots(W8EffectSlot* effect_slots)
                 float reach = CalcRangeDistance(W8_RANGE_SHORT);
                 float radius = g_startup_world->radius;
                 srVector3T<float> centre = g_startup_world->GetPosition();
-                CollectMonstersWithinRadius(&centre, &centre, &found, radius + reach, 1, 0);
+                CollectMonstersWithinRadius(&centre, &centre, found, radius + reach, 1, 0);
             }
             for (index = 0; index < static_cast<int>(found.size()); ++index) {
                 monster_index =

@@ -1,3 +1,4 @@
+#include "wiz8/containers.h"
 #include "wiz8/sr_api.h"
 #include <vector>
 #include <algorithm>
@@ -65,12 +66,7 @@ W8GrObject::~W8GrObject()
         free(m_pAI);
     }
     if (m_plsSoundEvents != 0) {
-        int count = static_cast<int>(m_plsSoundEvents->size());
-        int index;
-
-        for (index = 0; index < count; ++index) {
-            delete (*m_plsSoundEvents)[index];
-        }
+        wiz8::remove_all_and_delete_in_order(*m_plsSoundEvents);
         delete m_plsSoundEvents;
     }
 }

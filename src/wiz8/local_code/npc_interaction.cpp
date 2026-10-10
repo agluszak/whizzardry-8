@@ -1,3 +1,4 @@
+#include "wiz8/containers.h"
 #include "wiz8/layouts/character.h"
 #include "wiz8/character_skills.h"
 #include "wiz8/local_code/CharGeneration.h"
@@ -54,10 +55,6 @@ bool IsPartySlotEligible(int slot)
 // FUNCTION: WIZ8 0x00524c50
 void ClearNpcMessageQueue(void)
 {
-    int index;
-
-    for (index = 0; index < static_cast<int>(g_npc_scripting.message_lines.size()); ++index) {
-        delete g_npc_scripting.message_lines[index];
-    }
+    wiz8::remove_all_and_delete_in_order(g_npc_scripting.message_lines);
     g_npc_scripting = {};
 }

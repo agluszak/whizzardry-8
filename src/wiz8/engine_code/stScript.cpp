@@ -1,3 +1,4 @@
+#include "wiz8/containers.h"
 #include "wiz8/engine_code/stScript.h"
 #include "surrender/srCore.h"
 #include "wiz8/sr_api.h"
@@ -83,10 +84,7 @@ void stScript::Clear()
         }
     }
     lines.clear();
-    for (auto* label : labels) {
-        delete label;
-    }
-    labels.clear();
+    wiz8::remove_all_and_delete_in_order(labels);
 }
 
 // FUNCTION: WIZ8 0x004CF3B0

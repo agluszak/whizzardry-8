@@ -1,3 +1,4 @@
+#include "wiz8/containers.h"
 #include "wiz8/engine_code/AnimRep.hpp"
 #include "wiz8/conditions.h"
 #include "wiz8/monster_cycles.h"
@@ -1372,11 +1373,7 @@ void ProcessMessageBoxQueue(void)
                     }
                 }
             }
-            for (index = 0; index < static_cast<int>(g_npc_scripting.pending_script_values.size());
-                 ++index) {
-                delete g_npc_scripting.pending_script_values[index];
-            }
-            g_npc_scripting.pending_script_values.clear();
+            wiz8::remove_all_and_delete_in_order(g_npc_scripting.pending_script_values);
         }
 
         line = g_npc_scripting.message_lines[0];
@@ -1399,9 +1396,7 @@ void ProcessMessageBoxQueue(void)
                     RunNpcScriptLine(0x12, false);
                     g_npc_interaction_state->script_busy = 0xff;
                     QueueNpcQuoteEntry(&quote->entries[index], line->quote_index, true);
-                    if (const auto found = std::ranges::find(g_npc_scripting.message_lines, line);
-                        found != g_npc_scripting.message_lines.end())
-                        g_npc_scripting.message_lines.erase(found);
+                    wiz8::erase_first(g_npc_scripting.message_lines, line);
                     delete line;
                     return;
                 }
@@ -1410,9 +1405,7 @@ void ProcessMessageBoxQueue(void)
         if (script != 0) {
             RunNpcScriptLine(line->quote_index, false);
         }
-        if (const auto found = std::ranges::find(g_npc_scripting.message_lines, line);
-            found != g_npc_scripting.message_lines.end())
-            g_npc_scripting.message_lines.erase(found);
+        wiz8::erase_first(g_npc_scripting.message_lines, line);
         delete line;
         return;
     }
@@ -2036,9 +2029,7 @@ void ProcessMessageBoxQueue(void)
     }
     }
 
-    if (const auto found = std::ranges::find(g_npc_scripting.message_lines, line);
-        found != g_npc_scripting.message_lines.end())
-        g_npc_scripting.message_lines.erase(found);
+    wiz8::erase_first(g_npc_scripting.message_lines, line);
     delete line;
 }
 

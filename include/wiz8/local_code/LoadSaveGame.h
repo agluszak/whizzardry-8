@@ -45,7 +45,7 @@ W8_ABI_ASSERT(offsetof(W8SaveSlot, screenshot) == 0xa8, "W8SaveSlot_screenshot_o
 
 void CaptureSaveScreenshot(W8SaveScreenshot* screenshot);
 void FillCurrentSaveSlot(W8SaveSlot* slot);
-bool EnumerateSaveSlots(std::vector<W8SaveSlot*>* slots);
+bool EnumerateSaveSlots(std::vector<W8SaveSlot*>& slots);
 
 bool SaveGame(const char* name, W8SaveScreenshot* screenshot);
 

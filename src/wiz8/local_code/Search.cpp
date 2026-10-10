@@ -1,3 +1,4 @@
+#include "wiz8/containers.h"
 #include "wiz8/fonts.h"
 #include "wiz8/local_code/Search.h"
 #include "wiz8/integer_constants.h"
@@ -80,8 +81,7 @@ void W8Searchable::Reveal()
         trigger->Run(-1);
         trigger->flags |= W8_TRIGGER_SEARCHED;
     }
-    if (const auto found = std::ranges::find(g_searchables, this); found != g_searchables.end())
-        g_searchables.erase(found);
+    wiz8::erase_first(g_searchables, this);
     delete this;
 }
 
@@ -154,9 +154,7 @@ void UnregisterSearchableTrigger(Trigger* trigger)
     for (int index = 0; index < static_cast<int>(g_searchables.size()); ++index) {
         W8Searchable* searchable = g_searchables[index];
         if (searchable->trigger == trigger) {
-            if (const auto found = std::ranges::find(g_searchables, searchable);
-                found != g_searchables.end())
-                g_searchables.erase(found);
+            wiz8::erase_first(g_searchables, searchable);
             delete searchable;
             return;
         }

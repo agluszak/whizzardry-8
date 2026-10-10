@@ -1,3 +1,4 @@
+#include "wiz8/containers.h"
 #include "wiz8/engine_code/ReadMesh.h"
 #include "wiz8/engine_code/stTextureAnim.h"
 #include "wiz8/engine_code/GrCycle.h"
@@ -66,10 +67,7 @@ stTextureAnim::~stTextureAnim()
         ReleaseReadMeshScratch();
     }
 
-    while (!textures->empty()) {
-        ((*textures)[0])->release();
-        textures->erase(textures->begin());
-    }
+    wiz8::clear_and_dispose(*textures, [](auto* value) { value->release(); });
     delete textures;
 }
 

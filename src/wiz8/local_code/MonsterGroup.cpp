@@ -1,3 +1,4 @@
+#include "wiz8/containers.h"
 #include "wiz8/fonts.h"
 #include "wiz8/local_code/GameplayCode.h"
 #include "wiz8/integer_constants.h"
@@ -337,20 +338,19 @@ W8MonsterGroup* GetMonsterGroupByListIndex(unsigned int group_list_index)
     if (group_list_index < W8_ENCOUNTER_GROUP_INDEX_BIAS ||
         group_list_index >= 2 * W8_ENCOUNTER_GROUP_INDEX_BIAS) {
         if (group_list_index >=
-            (gXStatus.plsMonsterGroupList ? gXStatus.plsMonsterGroupList->size() : 0)) {
+            gXStatus.monster_groups.size()) {
             return 0;
         }
-        result = (*gXStatus.plsMonsterGroupList)[group_list_index];
+        result = gXStatus.monster_groups[group_list_index];
         if (result != 0) {
             return result;
         }
         detail = FormatString("GroupInfo: ERROR - missing entry, index %d, pList %d",
-                              group_list_index, gXStatus.plsMonsterGroupList);
+                              group_list_index, &gXStatus.monster_groups);
         line = 0x3dc;
     } else {
         if (group_list_index - W8_ENCOUNTER_GROUP_INDEX_BIAS >=
-            (gXStatus.plsMonsterGroupEncounterList ? gXStatus.plsMonsterGroupEncounterList->size()
-                                                   : 0)) {
+            gXStatus.encounter_groups.size()) {
             return 0;
         }
         result = GetMonsterGroupEncounter(group_list_index - W8_ENCOUNTER_GROUP_INDEX_BIAS);
@@ -358,7 +358,7 @@ W8MonsterGroup* GetMonsterGroupByListIndex(unsigned int group_list_index)
             return result;
         }
         detail = FormatString("GroupInfo: ERROR - missing entry, index %d, pList %d",
-                              group_list_index, gXStatus.plsMonsterGroupList);
+                              group_list_index, &gXStatus.monster_groups);
         line = 0x3d1;
     }
     srAssertFail("pMonsterGroup != NULL", MONSTER_GROUP_CPP, line, detail);
@@ -376,19 +376,14 @@ unsigned int GetMonsterGroupIndexByID(int caller_line, const char* caller_file, 
     unsigned int index;
     W8MonsterGroup* group;
 
-    for (index = 0;
-         index < (gXStatus.plsMonsterGroupList ? gXStatus.plsMonsterGroupList->size() : 0);
-         ++index) {
+    for (index = 0; index < gXStatus.monster_groups.size(); ++index) {
         group = GetMonsterGroupByListIndex(index);
         if (group->group_id == group_id) {
             return index;
         }
     }
 
-    for (index = 0; index < (gXStatus.plsMonsterGroupEncounterList
-                                 ? gXStatus.plsMonsterGroupEncounterList->size()
-                                 : 0);
-         ++index) {
+    for (index = 0; index < gXStatus.encounter_groups.size(); ++index) {
         group = GetMonsterGroupEncounter(index);
         if (group->group_id == group_id) {
             return index + W8_ENCOUNTER_GROUP_INDEX_BIAS;
@@ -565,7 +560,7 @@ W8MonsterGroup* GetLiveMonsterGroupAtIndex(int index)
 {
     W8MonsterGroup* group = 0;
     unsigned int group_list_index = 0;
-    unsigned int count = (gXStatus.plsMonsterGroupList ? gXStatus.plsMonsterGroupList->size() : 0);
+    unsigned int count = gXStatus.monster_groups.size();
 
     if (count != 0) {
         do {
@@ -577,7 +572,7 @@ W8MonsterGroup* GetLiveMonsterGroupAtIndex(int index)
                 --index;
             }
             ++group_list_index;
-            count = (gXStatus.plsMonsterGroupList ? gXStatus.plsMonsterGroupList->size() : 0);
+            count = gXStatus.monster_groups.size();
         } while (group_list_index < count);
     }
     return group;
@@ -620,7 +615,7 @@ void ReapplyMonsterGroupFormations(void)
 
     for (group_list_index = 0;
          group_list_index <
-         (gXStatus.plsMonsterGroupList ? gXStatus.plsMonsterGroupList->size() : 0);
+         gXStatus.monster_groups.size();
          ++group_list_index) {
         monster_group = GetMonsterGroupByListIndex(group_list_index);
         monster_info =
@@ -783,13 +778,10 @@ void ResetMonsterGroupTurnState(void)
     unsigned int index;
     W8MonsterInfo* monster_info;
 
-    for (index = 0;
-         index < (gXStatus.plsMonsterGroupList ? gXStatus.plsMonsterGroupList->size() : 0);
-         ++index) {
+    for (index = 0; index < gXStatus.monster_groups.size(); ++index) {
         GetMonsterGroupByListIndex(index)->hostility_set_at = 0;
     }
-    for (index = 0; index < (gXStatus.plsMonsterList ? gXStatus.plsMonsterList->size() : 0);
-         ++index) {
+    for (index = 0; index < gXStatus.monsters.size(); ++index) {
         monster_info = MonsterGetScriptPartByLocationIndex(index);
         monster_info->player_visibility.last_seen_clock = 0;
         monster_info->party_threat.last_seen_clock = 0;
@@ -802,9 +794,7 @@ void ResetMonsterGroupTurnState(void)
 // FUNCTION: WIZ8 0x005115B0
 void RebindMonsterGroupScripts(void)
 {
-    for (unsigned int index = 0;
-         index < (gXStatus.plsMonsterGroupList ? gXStatus.plsMonsterGroupList->size() : 0);
-         ++index) {
+    for (unsigned int index = 0; index < gXStatus.monster_groups.size(); ++index) {
         W8MonsterGroup* group = GetMonsterGroupByListIndex(index);
         W8MonsterInfo* info =
             MonsterInfoFromID(0x7f3, MONSTER_GROUP_CPP, group->leader_location_id, true);
@@ -928,7 +918,7 @@ void RepairMonsterGroupLeaderLinks(void)
     W8MonsterGroup* monster_group;
     int ally;
 
-    count = (gXStatus.plsMonsterGroupList ? gXStatus.plsMonsterGroupList->size() : 0);
+    count = gXStatus.monster_groups.size();
     for (group_list_index = 0; group_list_index < count; ++group_list_index) {
         monster_group = GetMonsterGroupByListIndex(group_list_index);
         if (monster_group->leader_group_id == monster_group->group_id) {
@@ -1068,9 +1058,9 @@ W8MonsterGroup* CreateGroup(unsigned int monster_id, unsigned int count,
         return 0;
     }
 
-    list = gXStatus.plsMonsterGroupList;
+    list = &gXStatus.monster_groups;
     if (record->unborn != 0) {
-        list = gXStatus.plsMonsterGroupEncounterList;
+        list = &gXStatus.encounter_groups;
     }
     list->push_back(group);
 
@@ -1141,10 +1131,10 @@ bool DestroyMonsterGroup(W8MonsterGroup* monster_group, W8MonsterInfo* monster_i
     delete monster_group->monsters;
     group_list_index =
         GetMonsterGroupIndexByID(0xf3, MONSTER_GROUP_CPP, monster_group->group_id, true);
-    list = gXStatus.plsMonsterGroupList;
+    list = &gXStatus.monster_groups;
     if (group_list_index >= W8_ENCOUNTER_GROUP_INDEX_BIAS) {
         group_list_index -= W8_ENCOUNTER_GROUP_INDEX_BIAS;
-        list = gXStatus.plsMonsterGroupEncounterList;
+        list = &gXStatus.encounter_groups;
     }
     removed = (*list)[group_list_index];
     list->erase(list->begin() + group_list_index);
@@ -1166,7 +1156,7 @@ void ApplyDefaultMonsterGroupSounds(void)
     W8MonsterGroup* monster_group;
     W8MonsterInfo* lead;
 
-    count = (gXStatus.plsMonsterGroupList ? gXStatus.plsMonsterGroupList->size() : 0);
+    count = gXStatus.monster_groups.size();
     for (group_list_index = 0; group_list_index < count; ++group_list_index) {
         monster_group = GetMonsterGroupByListIndex(group_list_index);
         lead = MonsterInfoFromID(0x501, MONSTER_GROUP_CPP, monster_group->leader_location_id, true);
@@ -1182,18 +1172,13 @@ W8MonsterGroup* FindFirstMonsterByID(int monster_id)
     unsigned int index;
     W8MonsterGroup* group;
 
-    for (index = 0;
-         index < (gXStatus.plsMonsterGroupList ? gXStatus.plsMonsterGroupList->size() : 0);
-         ++index) {
+    for (index = 0; index < gXStatus.monster_groups.size(); ++index) {
         group = GetMonsterGroupByListIndex(index);
         if (group->monster_id == monster_id) {
             return group;
         }
     }
-    for (index = 0; index < (gXStatus.plsMonsterGroupEncounterList
-                                 ? gXStatus.plsMonsterGroupEncounterList->size()
-                                 : 0);
-         ++index) {
+    for (index = 0; index < gXStatus.encounter_groups.size(); ++index) {
         group = GetMonsterGroupEncounter(index);
         if (group->monster_id == monster_id) {
             return group;
@@ -1215,22 +1200,13 @@ W8MonsterGroup* FindNextExistingMonsterByID(int monster_id, W8MonsterGroup* prev
     W8MonsterGroup* group;
 
     if (previous != 0) {
-        const auto found = std::ranges::find((*gXStatus.plsMonsterGroupList), previous);
-        index = (found == gXStatus.plsMonsterGroupList->end()
-                     ? -1
-                     : static_cast<int>(found - gXStatus.plsMonsterGroupList->begin()));
-        if (index >= static_cast<int>((
-                         gXStatus.plsMonsterGroupList ? gXStatus.plsMonsterGroupList->size() : 0)) -
+        index = wiz8::index_of(gXStatus.monster_groups, previous);
+        if (index >= static_cast<int>(gXStatus.monster_groups.size()) -
                          1) {
             goto search_encounters;
         }
         if (index == -1) {
-            const auto found =
-                std::ranges::find((*gXStatus.plsMonsterGroupEncounterList), previous);
-            index =
-                (found == gXStatus.plsMonsterGroupEncounterList->end()
-                     ? -1
-                     : static_cast<int>(found - gXStatus.plsMonsterGroupEncounterList->begin()));
+            index = wiz8::index_of(gXStatus.encounter_groups, previous);
             if (index == -1) {
                 return 0;
             }
@@ -1240,7 +1216,7 @@ W8MonsterGroup* FindNextExistingMonsterByID(int monster_id, W8MonsterGroup* prev
         ++index;
     }
     for (; static_cast<unsigned int>(index) <
-           (gXStatus.plsMonsterGroupList ? gXStatus.plsMonsterGroupList->size() : 0);
+           gXStatus.monster_groups.size();
          ++index) {
         group = GetMonsterGroupByListIndex(index);
         if (group->monster_id == monster_id) {
@@ -1250,9 +1226,7 @@ W8MonsterGroup* FindNextExistingMonsterByID(int monster_id, W8MonsterGroup* prev
 search_encounters:
     index = 0;
 resume_encounters:
-    for (; static_cast<unsigned int>(index) < (gXStatus.plsMonsterGroupEncounterList
-                                                   ? gXStatus.plsMonsterGroupEncounterList->size()
-                                                   : 0);
+    for (; static_cast<unsigned int>(index) < gXStatus.encounter_groups.size();
          ++index) {
         group = GetMonsterGroupEncounter(index);
         if (group->monster_id == monster_id) {
@@ -1486,7 +1460,7 @@ void MonsterGroupEnterCombat(W8MonsterGroup* monster_group)
                 unsigned int live_groups = 0;
                 unsigned int group_list_index = 0;
                 while (group_list_index <
-                       (gXStatus.plsMonsterGroupList ? gXStatus.plsMonsterGroupList->size() : 0)) {
+                       gXStatus.monster_groups.size()) {
                     W8MonsterGroup* other = GetMonsterGroupByListIndex(group_list_index);
                     if (other->members_active && other->fInCombat && other->member_count != 0 &&
                         (other->ubDisposition == W8_DISPOSITION_HOSTILE ||
@@ -1641,12 +1615,9 @@ unsigned char GiveBirthToMonster(W8MonsterGroup* monster_group)
     if (monster_group == 0) {
         srAssertFail("pMonsterGroup", MONSTER_GROUP_CPP, 0x87a, 0);
     }
-    const auto found = std::ranges::find((*gXStatus.plsMonsterGroupEncounterList), monster_group);
-    const bool was_removed = found != gXStatus.plsMonsterGroupEncounterList->end();
-    if (was_removed)
-        gXStatus.plsMonsterGroupEncounterList->erase(found);
+    const bool was_removed = wiz8::erase_first(gXStatus.encounter_groups, monster_group);
     if (was_removed != 0) {
-        gXStatus.plsMonsterGroupList->push_back(monster_group);
+        gXStatus.monster_groups.push_back(monster_group);
         for (index = 0; index < monster_group->MemberIds().size(); ++index) {
             location_id = monster_group->MemberLocationId(index);
             member_info = MonsterGetScriptPartByLocationIndex(

@@ -1,3 +1,4 @@
+#include "wiz8/containers.h"
 #include "wiz8/layouts/character.h"
 #include "wiz8/character_skills.h"
 #include "wiz8/local_code/CharGeneration.h"
@@ -237,11 +238,7 @@ W8CharacterPage::W8CharacterPage(int catalog_object)
 W8CharacterPage::~W8CharacterPage()
 {
     DestroyAllControls();
-    while (!m_entries.empty()) {
-        auto* object = m_entries.back();
-        m_entries.pop_back();
-        delete object;
-    }
+    wiz8::remove_all_and_delete(m_entries);
 }
 
 // FUNCTION: WIZ8 0x005aff00
@@ -266,8 +263,7 @@ void W8CharacterPage::Redraw()
 void W8CharacterPage::Invalidate(const W8ControlsRect* rect)
 {
     Controls::Invalidate(rect);
-    for (int index = 0; index < static_cast<int>(m_entries.size()); ++index) {
-        W8CharacterPageEntry* entry = m_entries[index];
+    for (W8CharacterPageEntry* entry : m_entries) {
         entry->MarkDirty();
     }
 }

@@ -113,7 +113,7 @@ void UpdateTargetMarkerHighlight(void);
    of `centre` that are visible from `eye` (unless highlighting is on, which
    takes them without the sight check and tints instead). */
 void CollectMonstersWithinRadius(const srVector3T<float>* centre, const srVector3T<float>* eye,
-                                 std::vector<int>* found, float radius, char side,
+                                 std::vector<int>& found, float radius, char side,
                                  char highlighting);
 
 class W8Monster;
@@ -136,13 +136,13 @@ bool TargetInRangeAndArcs(const srVector3T<float>* target, float bonus,
    aim cone to `found`, filtered by disposition (3 admits all); returns how many
    were added. */
 int CollectConeMonsterTargets(const W8TargetSource* source, const srVector3T<float>* eye,
-                              float heading, float elevation, std::vector<int>* found,
+                              float heading, float elevation, std::vector<int>& found,
                               unsigned char disposition, int sight_flag);
 /* Whether the pending item use needs a target picked. */
 bool ItemUseNeedsTarget(int party_slot);
 void RefreshSpellTargetHighlightsAtRange(void);
 void PopulateTargetMarkerForCurrentAction(const srVector3T<float>* position,
-                                          std::vector<int>* marker_vector, int enabled);
+                                          std::vector<int>& marker_vector, int enabled);
 W8TargetingContext GetCombatActionContext(int party_slot);
 void ReconcilePartyEquipmentAfterCombat(void);
 bool TargetIsInPlay(int party_slot, int hand,

@@ -37,7 +37,7 @@ W8Disposition CharacterVsCharacterDisposition(int first, int second);
 W8Disposition GetOppositeDisposition(W8TargetSource* source);
 /* Run the listed monster ids (skipping the source itself) through
    MakeTargetGroupHostile so each one's group turns on the source. */
-void ProvokeListedMonsterGroups(W8TargetSource* source, std::vector<int>* monsters);
+void ProvokeListedMonsterGroups(W8TargetSource* source, const std::vector<int>& monsters);
 W8Disposition MonsterVsCharDisposition(int character_slot, W8MonsterInfo* monster_info);
 /* Give every other same-faction group that can see this one its disposition -
    one group going hostile brings the rest of its faction with it. */

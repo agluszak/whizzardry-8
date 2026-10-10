@@ -550,7 +550,7 @@ try
         }
 
         if (mark_model_instances && prop != 0) {
-            prop->CollectModelInstances(&model_instances);
+            prop->CollectModelInstances(model_instances);
             for (model_index = 0; model_index < static_cast<int>(model_instances.size());
                  ++model_index) {
                 stModelInstance* instance = model_instances[model_index];

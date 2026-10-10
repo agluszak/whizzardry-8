@@ -103,8 +103,7 @@ void RefreshOutwardSightForAllMonsters(void)
 {
     unsigned int index;
 
-    for (index = 0; index < (gXStatus.plsMonsterList ? gXStatus.plsMonsterList->size() : 0);
-         ++index) {
+    for (index = 0; index < gXStatus.monsters.size(); ++index) {
         UpdateMonsterSight(MonsterGetScriptPartByLocationIndex(index), true, false);
     }
     if (gXStatus.fCombatMode) {
@@ -119,8 +118,7 @@ void RefreshInwardSightForAllMonsters(void)
 {
     unsigned int index;
 
-    for (index = 0; index < (gXStatus.plsMonsterList ? gXStatus.plsMonsterList->size() : 0);
-         ++index) {
+    for (index = 0; index < gXStatus.monsters.size(); ++index) {
         UpdateMonsterSight(MonsterGetScriptPartByLocationIndex(index), false, false);
     }
 }
@@ -134,8 +132,7 @@ void RefreshAllSight(void)
     unsigned int index;
 
     RefreshOutwardSightForAllMonsters();
-    for (index = 0; index < (gXStatus.plsMonsterList ? gXStatus.plsMonsterList->size() : 0);
-         ++index) {
+    for (index = 0; index < gXStatus.monsters.size(); ++index) {
         UpdateMonsterSight(MonsterGetScriptPartByLocationIndex(index), false, false);
     }
 }
@@ -256,9 +253,7 @@ void ReleaseMonToMonVisibilityInfoAbout(int location_id)
     W8MonsterInfo* monster_info;
     W8VisibilityRecord* visibility;
 
-    for (monster_index = 0;
-         monster_index < (gXStatus.plsMonsterList ? gXStatus.plsMonsterList->size() : 0);
-         ++monster_index) {
+    for (monster_index = 0; monster_index < gXStatus.monsters.size(); ++monster_index) {
         monster_info = MonsterGetScriptPartByLocationIndex(monster_index);
         if (!monster_info->fActive) {
             continue;
@@ -387,14 +382,13 @@ unsigned int AgeAllMonsterSight(void)
     if (steps == 0) {
         return 0;
     }
-    for (index = 0; index < (gXStatus.plsMonsterList ? gXStatus.plsMonsterList->size() : 0);
-         ++index) {
+    for (index = 0; index < gXStatus.monsters.size(); ++index) {
         monster_info = MonsterGetScriptPartByLocationIndex(index);
         if (monster_info->highest_condition < W8_CONDITION_DEAD) {
             AgeMonsterSight(monster_info, steps, 1);
         }
     }
-    return (gXStatus.plsMonsterList ? gXStatus.plsMonsterList->size() : 0);
+    return gXStatus.monsters.size();
 }
 
 /* What one monster has recorded about another, if anything. Both monsters have
@@ -433,23 +427,20 @@ void ResetAndRefreshAllSight(void)
 {
     unsigned int index;
 
-    for (index = 0; index < (gXStatus.plsMonsterList ? gXStatus.plsMonsterList->size() : 0);
-         ++index) {
+    for (index = 0; index < gXStatus.monsters.size(); ++index) {
         W8MonsterInfo* monster_info = MonsterGetScriptPartByLocationIndex(index);
 
         memset(&monster_info->party_threat, 0, sizeof(monster_info->party_threat));
         memset(&monster_info->player_visibility, 0, sizeof(monster_info->player_visibility));
     }
-    for (index = 0; index < (gXStatus.plsMonsterList ? gXStatus.plsMonsterList->size() : 0);
-         ++index) {
+    for (index = 0; index < gXStatus.monsters.size(); ++index) {
         UpdateMonsterSight(MonsterGetScriptPartByLocationIndex(index), true, false);
     }
     if (gXStatus.fCombatMode) {
         RefreshFlaggedMainGameState();
         RefreshAllPartyTargets();
     }
-    for (index = 0; index < (gXStatus.plsMonsterList ? gXStatus.plsMonsterList->size() : 0);
-         ++index) {
+    for (index = 0; index < gXStatus.monsters.size(); ++index) {
         UpdateMonsterSight(MonsterGetScriptPartByLocationIndex(index), false, false);
     }
 }
@@ -498,8 +489,7 @@ void UpdateMonsterSight(W8MonsterInfo* monster_info, bool direction, bool use_bo
         if (!gXStatus.fCombatMode) {
             return;
         }
-        for (index = 0; index < (gXStatus.plsMonsterList ? gXStatus.plsMonsterList->size() : 0);
-             ++index) {
+        for (index = 0; index < gXStatus.monsters.size(); ++index) {
             W8MonsterInfo* other = MonsterGetScriptPartByLocationIndex(index);
 
             if (other != monster_info && other->fInCombat && other->fActive &&

@@ -1,3 +1,4 @@
+#include "wiz8/containers.h"
 #include "wiz8/compat/unaligned.h"
 #include "wiz8/engine_code/3d.h"
 #include "wiz8/engine_code/ReadMesh.h"
@@ -519,8 +520,7 @@ stMeshModel* BuildSingleLevelMesh(int face_count, W8ReadMeshFace* faces, int ver
     }
 
     for (int material = 0; material < material_count; ++material) {
-        if ((std::ranges::find(polygon_types, render_flags[material].value, &srShader::value) ==
-             polygon_types.end())) {
+        if (!std::ranges::contains(polygon_types, render_flags[material].value, &srShader::value)) {
             int capacity = 0;
             for (face_index = 0; face_index < face_count; ++face_index) {
                 W8ReadMeshFace& face = faces[face_index];
@@ -1186,10 +1186,7 @@ try
 // FUNCTION: WIZ8 0x00489920
 void ReleaseRetainedMaterials()
 {
-    while (!g_retained_textures.empty()) {
-        g_retained_textures[0]->release();
-        g_retained_textures.erase(g_retained_textures.begin());
-    }
+    wiz8::clear_and_dispose(g_retained_textures, [](auto* value) { value->release(); });
 }
 
 // FUNCTION: WIZ8 0x00489980

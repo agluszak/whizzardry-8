@@ -1,3 +1,4 @@
+#include "wiz8/containers.h"
 #include "wiz8/local_screens/MGSRadarMap.h"
 
 #include <math.h>
@@ -101,12 +102,12 @@ static unsigned char PlaceRadarBlip(srVector3T<float>* delta, int group, bool li
 static void ResetRadarBlips()
 {
     for (int sector = 0; sector < 18; ++sector) {
-        std::vector<stModelInstance2D*>* pool = &g_radar_icon_pools[sector];
-        int count = static_cast<int>(pool->size());
+        auto& pool = g_radar_icon_pools[sector];
+        int count = static_cast<int>(pool.size());
 
         g_radar_icon_cursors[sector] = 0;
         for (int index = 0; index < count; ++index) {
-            ((*pool)[index])->setFlag(srNode::FLAG_DISABLE);
+            (pool[index])->setFlag(srNode::FLAG_DISABLE);
         }
     }
 }
@@ -139,17 +140,17 @@ void EnsureRadarMapOverlay(void)
 // FUNCTION: WIZ8 0x005a21b0
 static stModelInstance2D* AcquireRadarBlip(int sector, bool lit)
 {
-    std::vector<stModelInstance2D*>* pool = &g_radar_icon_pools[sector];
+    auto& pool = g_radar_icon_pools[sector];
     stModelInstance2D* icon;
     int cursor = g_radar_icon_cursors[sector];
 
-    if (cursor < static_cast<int>(pool->size())) {
+    if (cursor < static_cast<int>(pool.size())) {
         g_radar_icon_cursors[sector] = cursor + 1;
-        icon = (*pool)[cursor];
+        icon = pool[cursor];
     } else {
         icon = new stModelInstance2D(0);
-        *icon = *(*pool)[0];
-        pool->push_back(icon);
+        *icon = *pool[0];
+        pool.push_back(icon);
     }
     if (icon != 0) {
         icon->clearFlag(srNode::FLAG_DISABLE);
@@ -195,15 +196,11 @@ void ReleaseRadarMap(void)
         g_radar_compass = 0;
     }
     for (int sector = 0; sector < 18; ++sector) {
-        std::vector<stModelInstance2D*>* pool = &g_radar_icon_pools[sector];
+        auto& pool = g_radar_icon_pools[sector];
 
-        while (!pool->empty()) {
-            stModelInstance2D* icon = (*pool)[0];
-            pool->erase(pool->begin());
-            if (icon != 0) {
-                icon->release();
-            }
-        }
+        wiz8::clear_and_dispose(pool, [](auto* value) {
+            if (value) value->release();
+        });
     }
     ReleaseRendererObject(g_radar_backdrop);
 }

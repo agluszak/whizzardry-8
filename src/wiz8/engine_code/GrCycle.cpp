@@ -1,3 +1,4 @@
+#include "wiz8/containers.h"
 #include "wiz8/engine_code/AnimRep.hpp"
 #include "wiz8/engine_code/SoundEvent.h"
 #include "wiz8/engine_code/GrObject.h"
@@ -156,9 +157,7 @@ void StopShakeEffects(std::vector<W8CameraShakeEffect*>* effects)
         if (effect->flags.active) {
             W8CameraShakeEffect::Flags flags;
 
-            if (const auto found = std::ranges::find((*g_shake_effects), effect);
-                found != g_shake_effects->end())
-                g_shake_effects->erase(found);
+            wiz8::erase_first(*g_shake_effects, effect);
             flags = effect->flags;
             effect->flags.active = false;
             if (flags.list_owns && effect != 0) {
@@ -551,11 +550,8 @@ W8GrCycle::~W8GrCycle()
         m_plsLights = 0;
     }
     if (m_plsShakeEvents != 0) {
-        count = static_cast<int>(m_plsShakeEvents->size());
         StopShakeEffects(m_plsShakeEvents);
-        for (index = 0; index < count; ++index) {
-            delete (*m_plsShakeEvents)[index];
-        }
+        wiz8::remove_all_and_delete_in_order(*m_plsShakeEvents);
         delete m_plsShakeEvents;
         m_plsShakeEvents = 0;
     }
@@ -1341,14 +1337,11 @@ void W8GrCycleParticleAttachment::SelectCycle(signed char selected_cycle)
 void W8GrCycle::DetachCycleLights(std::vector<stLight*>* lights)
 {
     if (lights != 0) {
-        for (int index = 0; index < static_cast<int>(lights->size()); ++index) {
-            stLight* light = (*lights)[index];
+        for (stLight* light : *lights) {
 
             light->setParent(0, 1);
             if (light->definition() != 0) {
-                if (const auto found = std::ranges::find((*g_world->lights_to_update), light);
-                    found != g_world->lights_to_update->end())
-                    g_world->lights_to_update->erase(found);
+                wiz8::erase_first(*g_world->lights_to_update, light);
             }
         }
     }
@@ -1357,8 +1350,7 @@ void W8GrCycle::DetachCycleLights(std::vector<stLight*>* lights)
 void W8GrCycle::AttachCycleLights(std::vector<stLight*>* lights)
 {
     if (g_render_missile_lights && lights != 0) {
-        for (int index = 0; index < static_cast<int>(lights->size()); ++index) {
-            stLight* light = (*lights)[index];
+        for (stLight* light : *lights) {
 
             light->setParent(g_world->dynamic_scene, 1);
             if (light->definition() != 0) {
@@ -1399,7 +1391,7 @@ const char* W8GrCycle::GetRegisteredName() const
             srAssertFail("plsCyclesOfAName->Length()",
                          "C:\\Projects\\Wizardry 8\\Engine Code\\GrCycle.cpp", 0x6c4, 0);
         }
-        if ((std::ranges::find((*cycles), const_cast<W8GrCycle*>(this)) != cycles->end())) {
+        if (std::ranges::contains(*cycles, const_cast<W8GrCycle*>(this))) {
             return g_grcycle_names[name_index];
         }
     }
@@ -1417,7 +1409,7 @@ bool W8GrCycle::IsSoleRegisteredCycleForName() const
             srAssertFail("plsCyclesOfAName->Length()",
                          "C:\\Projects\\Wizardry 8\\Engine Code\\GrCycle.cpp", 0x6e6, 0);
         }
-        if ((std::ranges::find((*cycles), const_cast<W8GrCycle*>(this)) != cycles->end())) {
+        if (std::ranges::contains(*cycles, const_cast<W8GrCycle*>(this))) {
             return static_cast<int>(cycles->size()) == 1;
         }
     }
@@ -1453,10 +1445,7 @@ unsigned char UnregisterGrCycle(W8GrCycle* cycle)
             srAssertFail("plsCyclesOfAName->Length()",
                          "C:\\Projects\\Wizardry 8\\Engine Code\\GrCycle.cpp", 0x726, 0);
         }
-        const auto found = std::ranges::find((*cycles), cycle);
-        int cycle_index = (found == cycles->end() ? -1 : static_cast<int>(found - cycles->begin()));
-        if (cycle_index != -1) {
-            cycles->erase(cycles->begin() + cycle_index);
+        if (wiz8::erase_first(*cycles, cycle)) {
             if (!cycles->empty()) {
                 return 0;
             }
@@ -1508,9 +1497,7 @@ void DestroyLightVector(std::vector<stLight*>* vector)
             stLight* light = (*vector)[index];
 
             if (light->definition() != 0) {
-                if (const auto found = std::ranges::find((*g_world->lights_to_update), light);
-                    found != g_world->lights_to_update->end())
-                    g_world->lights_to_update->erase(found);
+                wiz8::erase_first(*g_world->lights_to_update, light);
             }
             light->setParent(0, 1);
             WorldRemoveLight(g_world, light);

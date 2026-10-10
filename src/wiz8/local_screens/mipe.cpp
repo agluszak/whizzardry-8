@@ -147,16 +147,13 @@ void ToggleMipePanel(void)
         if (g_mipe_cube != 0) {
             SetWorldCursorNodeColorComponents(g_mipe_cube, 0.0f, 0.0f, 0.5f);
         }
-        for (unsigned int monster_list_index = 0;
-             monster_list_index < (gXStatus.plsMonsterList ? gXStatus.plsMonsterList->size() : 0);
-             ++monster_list_index) {
+        for (unsigned int monster_list_index = 0; monster_list_index < gXStatus.monsters.size(); ++monster_list_index) {
             W8MonsterInfo* monster = GetMonsterListEntry(monster_list_index);
             if (monster != 0 && monster->fInCombat) {
                 SetMonsterHighlight(0, monster->location_id, false);
             }
         }
-        for (unsigned int entry_index = 0; entry_index < gXStatus.uiMonstersInDatabase;
-             ++entry_index) {
+        for (unsigned int entry_index = 0; entry_index < gXStatus.uiMonstersInDatabase; ++entry_index) {
             free((*g_mipe_monster_entries)[entry_index]);
         }
         delete g_mipe_monster_entries;
@@ -775,9 +772,7 @@ static unsigned int FindMipeVisibleItem(int visible)
 {
     int found = 0;
     unsigned int item_index;
-    for (item_index = 0;
-         static_cast<int>(item_index) < static_cast<int>(gXStatus.uiItemsInDatabase);
-         ++item_index) {
+    for (item_index = 0; static_cast<int>(item_index) < static_cast<int>(gXStatus.uiItemsInDatabase); ++item_index) {
         if (g_item_records[item_index].equip_class == g_mipe_category &&
             g_item_records[item_index].editor_excluded == 0) {
             if (found == visible) {
@@ -1003,8 +998,7 @@ unsigned char HandleMipeItemCreateKey(unsigned short key)
     case 0x41:
         show_invisible = !g_hide_invisible_items;
         g_hide_invisible_items = show_invisible;
-        for (item_index = 0; item_index < (gXStatus.plsItemList ? gXStatus.plsItemList->size() : 0);
-             ++item_index) {
+        for (item_index = 0; item_index < gXStatus.world_items.size(); ++item_index) {
             world_item = ItemInfo(item_index);
             if (ItemHasFlags(world_item, W8_WORLD_ITEM_HIDDEN)) {
                 if (show_invisible) {
@@ -1412,8 +1406,7 @@ void HandleMipePropEditKey(unsigned short key)
                     g_mipe_table_row = 0;
                     if (g_mipe_category_list != 0) {
                         g_mipe_category_list->clear();
-                        for (index = 0; index < static_cast<int>(gXStatus.uiItemTablesInDatabase);
-                             ++index) {
+                        for (index = 0; index < static_cast<int>(gXStatus.uiItemTablesInDatabase); ++index) {
                             table = g_item_tables[index];
                             if (table->category_id == 0) {
                                 list->push_back(table);
@@ -1425,8 +1418,7 @@ void HandleMipePropEditKey(unsigned short key)
                     g_mipe_category = category;
                     if (g_mipe_category_list != 0) {
                         g_mipe_category_list->clear();
-                        for (index = 0; index < static_cast<int>(gXStatus.uiItemTablesInDatabase);
-                             ++index) {
+                        for (index = 0; index < static_cast<int>(gXStatus.uiItemTablesInDatabase); ++index) {
                             table = g_item_tables[index];
                             if (table->category_id == static_cast<unsigned int>(category)) {
                                 list->push_back(table);
@@ -2244,8 +2236,7 @@ void HandleMipeItemTableKey(unsigned short key)
             g_mipe_category = category - 1;
             if (g_mipe_category_list != 0) {
                 g_mipe_category_list->clear();
-                for (index = 0; index < static_cast<int>(gXStatus.uiItemTablesInDatabase);
-                     ++index) {
+                for (index = 0; index < static_cast<int>(gXStatus.uiItemTablesInDatabase); ++index) {
                     table = g_item_tables[index];
                     if (table->category_id == static_cast<unsigned int>(category - 1)) {
                         list->push_back(table);
@@ -2269,8 +2260,7 @@ void HandleMipeItemTableKey(unsigned short key)
             }
             if (g_mipe_category_list != 0) {
                 g_mipe_category_list->clear();
-                for (index = 0; index < static_cast<int>(gXStatus.uiItemTablesInDatabase);
-                     ++index) {
+                for (index = 0; index < static_cast<int>(gXStatus.uiItemTablesInDatabase); ++index) {
                     table = g_item_tables[index];
                     if (table->category_id == static_cast<unsigned int>(g_mipe_category & 0xff)) {
                         list->push_back(table);
@@ -2898,7 +2888,7 @@ void UpdateMipeSelection(void)
         g_mipe_state->monster_ids.clear();
         for (index = 0;
              index <
-             static_cast<int>((gXStatus.plsMonsterList ? gXStatus.plsMonsterList->size() : 0));
+             static_cast<int>(gXStatus.monsters.size());
              ++index) {
             info = GetMonsterListEntry(index);
             if (info->fActive && info->monster_group_id == group_id) {
@@ -2918,8 +2908,7 @@ void UpdateMipeSelection(void)
         SetWorldCursorGroupId(group_id);
         return;
     }
-    if (location_id != -1 && (std::ranges::find(g_mipe_state->monster_ids, location_id) !=
-                              g_mipe_state->monster_ids.end())) {
+    if (location_id != -1 && std::ranges::contains(g_mipe_state->monster_ids, location_id)) {
         return;
     }
     if (!g_mipe_state->monster_ids.empty()) {

@@ -1,3 +1,4 @@
+#include "wiz8/containers.h"
 #include "soundman.h"
 #include "Font.h"
 #include "Types.h"
@@ -204,11 +205,7 @@ W8OptionsPanelSet::W8OptionsPanelSet()
 
 W8OptionsPanelSet::~W8OptionsPanelSet()
 {
-    while (!m_panels.empty()) {
-        auto* object = m_panels.back();
-        m_panels.pop_back();
-        delete object;
-    }
+    wiz8::remove_all_and_delete(m_panels);
 }
 
 /* Standalone JMP thunk onto Controls::~Controls emitted for this TU. */
@@ -1298,7 +1295,7 @@ W8OptionsScreen::W8OptionsScreen()
     if (g_status.game_started) {
         FillCurrentSaveSlot(current);
     }
-    EnumerateSaveSlots(&m_save_slots);
+    EnumerateSaveSlots(m_save_slots);
 }
 
 // FUNCTION: WIZ8 0x005a98b0
@@ -1337,11 +1334,7 @@ W8OptionsScreen::~W8OptionsScreen()
 {
     int index;
     SelectPanel(-1, true);
-    while (!m_save_slots.empty()) {
-        auto* object = m_save_slots.back();
-        m_save_slots.pop_back();
-        delete object;
-    }
+    wiz8::remove_all_and_delete(m_save_slots);
     delete m_controls;
     delete m_menu_set;
     delete m_menu_selection;
@@ -1698,16 +1691,8 @@ void W8OptionsSelection::OnPrimary(W8TextControl* control)
 W8OptionsPanel::~W8OptionsPanel()
 {
     DestroyAllControls();
-    while (!m_text_buffers.empty()) {
-        auto* object = m_text_buffers.back();
-        m_text_buffers.pop_back();
-        delete object;
-    }
-    while (!m_option_selections.empty()) {
-        auto* object = m_option_selections.back();
-        m_option_selections.pop_back();
-        delete object;
-    }
+    wiz8::remove_all_and_delete(m_text_buffers);
+    wiz8::remove_all_and_delete(m_option_selections);
 }
 
 // FUNCTION: WIZ8 0x005a84e0

@@ -1,3 +1,4 @@
+#include "wiz8/containers.h"
 #include <utility>
 #include "wiz8/fonts.h"
 #include "wiz8/engine_code/Camera.h"
@@ -504,21 +505,9 @@ W8CharacterEventQueue::~W8CharacterEventQueue()
 void W8CharacterEventQueue::DestroyAllEvents()
 {
     CompleteAllActiveEvents();
-    while (!npc_deferred_events.empty()) {
-        auto* object = npc_deferred_events.front();
-        npc_deferred_events.erase(npc_deferred_events.begin());
-        delete object;
-    }
-    while (!pending_events.empty()) {
-        auto* object = pending_events.front();
-        pending_events.erase(pending_events.begin());
-        delete object;
-    }
-    while (!vector0.empty()) {
-        auto* object = vector0.front();
-        vector0.erase(vector0.begin());
-        delete object;
-    }
+    wiz8::remove_all_and_delete_in_order(npc_deferred_events);
+    wiz8::remove_all_and_delete_in_order(pending_events);
+    wiz8::remove_all_and_delete_in_order(vector0);
 }
 
 static void DeleteQueuedCharacterEvents(std::vector<W8CharacterEvent*>& events,
@@ -1139,9 +1128,7 @@ int W8CharacterEventQueue::QueueEntry(W8CharacterEvent* entry)
     if (entry->event_type > 0x91 && (entry->flags & W8_EVENT_NO_PREEMPT) == 0) {
         W8MonsterManagerEntry* slot = &gXStatus.monster_manager_entries[party_slot];
         if (slot->active_character_event != 0) {
-            if (const auto found = std::ranges::find(active_events, slot->active_character_event);
-                found != active_events.end())
-                active_events.erase(found);
+            wiz8::erase_first(active_events, slot->active_character_event);
             RestartFollowUpClock(slot->active_character_event);
             slot->active_character_event->Complete();
             delete slot->active_character_event;
@@ -1350,9 +1337,7 @@ void W8CharacterEventQueue::ProcessDeferredCharacterEvents()
             }
         }
 
-        if (const auto found = std::ranges::find(pending_events, entry);
-            found != pending_events.end())
-            pending_events.erase(found);
+        wiz8::erase_first(pending_events, entry);
         return;
     }
 }

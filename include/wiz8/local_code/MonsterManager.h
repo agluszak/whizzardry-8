@@ -240,7 +240,7 @@ struct W8MonsterCombatState {
     bool berserk;
     /* The queue of actions the monster's AI has decided on, one
        W8MonsterAction each. The AI owns the list and destroys it outright. */
-    std::vector<W8MonsterAction*>* plsCombatActionList;
+    std::vector<W8MonsterAction>* actions;
     int character_hate[9];
     W8EffectSlot combat_effects[9];   /* 0x03e .. 0x0d7 */
     W8EffectSlot combat_effects_2[6]; /* 0x0d7 .. 0x13d */

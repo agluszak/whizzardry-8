@@ -1,3 +1,4 @@
+#include "wiz8/containers.h"
 #include "wiz8/local_code/ItemManager.h"
 /* Engine Code\GDProp.cpp */
 
@@ -37,7 +38,6 @@ GDProp::GDProp(srModelInstance* instance, const char* path_name, unsigned short 
     m_path_waypoint_count = 0;
     m_path_edges = 0;
     m_path_waypoints = 0;
-    m_supported_items = 0;
     m_path_range.sentinel = -10000000.0f;
     m_path_bounds.max_z = 0;
     m_path_bounds.min_z = 0;
@@ -71,9 +71,6 @@ GDProp::~GDProp()
     }
     if (m_path_waypoints != 0) {
         free(m_path_waypoints);
-    }
-    if (m_supported_items != 0) {
-        delete m_supported_items;
     }
 }
 
@@ -233,13 +230,9 @@ void GDProp::Initialize(srModelInstance* instance, bool attach, unsigned short p
         }
     }
 
-    if (m_supported_items != 0) {
-        unsigned int count = (m_supported_items ? m_supported_items->size() : 0);
-        for (unsigned int index = 0; index < count; ++index) {
-            W8WorldItem* item = (*m_supported_items)[index];
-            if (item != 0) {
-                SetWorldItemFalling(item, true);
-            }
+    for (W8WorldItem* item : m_supported_items) {
+        if (item) {
+            SetWorldItemFalling(item, true);
         }
     }
 }
@@ -443,12 +436,8 @@ void AddItemToSector(int sector, W8WorldItem* item)
                 return;
             }
         }
-        if (gd->m_supported_items == 0) {
-            gd->m_supported_items = new std::vector<W8WorldItem*>;
-        }
-        if (gd->m_supported_items != 0 &&
-            (std::ranges::find((*gd->m_supported_items), item) == gd->m_supported_items->end())) {
-            gd->m_supported_items->push_back(item);
+        if (!std::ranges::contains(gd->m_supported_items, item)) {
+            gd->m_supported_items.push_back(item);
         }
     }
 }
@@ -459,22 +448,17 @@ void RemoveItemFromSector(int sector, W8WorldItem* item)
 {
     if (item != 0 && sector >= 0) {
         W8Prop* prop = (*g_world->collidable_props)[sector];
-        if (prop != 0 && prop->m_gd_prop != 0 && prop->m_gd_prop->m_supported_items != 0) {
-            if (const auto found = std::ranges::find((*prop->m_gd_prop->m_supported_items), item);
-                found != prop->m_gd_prop->m_supported_items->end())
-                prop->m_gd_prop->m_supported_items->erase(found);
+        if (prop != 0 && prop->m_gd_prop != 0) {
+            wiz8::erase_first(prop->m_gd_prop->m_supported_items, item);
         }
     }
 }
 
-/* Whether the optional owned list currently contains an entry. */
+/* Whether any world items are supported by this prop. */
 // FUNCTION: WIZ8 0x004B7BA0
 bool GDProp::HasSupportedItems()
 {
-    if (m_supported_items && !m_supported_items->empty()) {
-        return true;
-    }
-    return false;
+    return !m_supported_items.empty();
 }
 
 /* The array-element ctor for `new GDPreProp[n]`; the base default runs

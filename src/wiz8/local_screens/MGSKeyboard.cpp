@@ -1,3 +1,4 @@
+#include "wiz8/containers.h"
 #include <utility>
 #include "wiz8/fonts.h"
 #include <stdio.h>
@@ -156,11 +157,7 @@ void DrainInputEventQueue(void)
 // FUNCTION: WIZ8 0x0055D3F0
 void MGSKeyboard::Clear()
 {
-    while (!m_bindings.empty()) {
-        auto* object = m_bindings.back();
-        m_bindings.pop_back();
-        delete object;
-    }
+    wiz8::remove_all_and_delete(m_bindings);
     m_command_index.clear();
 }
 

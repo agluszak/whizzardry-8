@@ -1,3 +1,4 @@
+#include "wiz8/containers.h"
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/local_screens/OptionsScreen.h"
 #include "wiz8/local_code/ControlsRect.h"
@@ -175,9 +176,7 @@ void W8Widget::SetPanel(Controls* panel)
     int index;
 
     if (m_pPanel != 0) {
-        if (const auto found = std::ranges::find(m_pPanel->m_controls, this);
-            found != m_pPanel->m_controls.end())
-            m_pPanel->m_controls.erase(found);
+        wiz8::erase_first(m_pPanel->m_controls, this);
     }
 
     m_pPanel = panel;
@@ -194,22 +193,8 @@ void W8Widget::SetPanel(Controls* panel)
     }
 }
 
-/*
- * The full constructor. Places the widget in its owner, gives the region the
- * owner-relative rectangle translated by the owner's origin, appends the
- * widget to the owner's array growing it by exactly one, and - only if the
- * widget has no region of its own - takes one from the owner's region set and
- * points it back here.
- *
- * The array grows by one element per insertion, so filling an owner is
- * quadratic. That is what the image does.
- *
- * If the allocation fails the old array is put back and the index is left -1,
- * which then skips the append but still falls into the region-set branch. The
- * widget is not in the owner's array at that point and the callback id is the
- * -1 truncated to a word, so the failure path registers a region against an
- * index that does not exist. Preserved as found.
- */
+/* Register the widget with its owner and allocate a region when needed.
+   Region bounds are relative to the owner's origin. */
 // FUNCTION: WIZ8 0x004f3dd0
 W8Widget::W8Widget(Controls* owner, unsigned int region, int left, int top, int right, int bottom)
 {
@@ -1952,18 +1937,13 @@ void Controls::SetEnabled(bool enable)
 // FUNCTION: WIZ8 0x004f2da0
 void Controls::RemoveControl(W8Widget* control)
 {
-    if (const auto found = std::ranges::find(m_controls, control); found != m_controls.end())
-        m_controls.erase(found);
+    wiz8::erase_first(m_controls, control);
 }
 
 // FUNCTION: WIZ8 0x004f2df0
 void Controls::DestroyAllControls()
 {
-    while (!m_controls.empty()) {
-        auto* object = m_controls.back();
-        m_controls.pop_back();
-        delete object;
-    }
+    wiz8::remove_all_and_delete(m_controls);
 }
 
 /* Adds a rectangle to the panel's pending redraw. A null rectangle means the
@@ -2183,8 +2163,7 @@ void W8ControlSelection::OnPrimary(W8TextControl* entry)
 {
     int iIndex;
 
-    const auto found = std::ranges::find(m_lsButtons, entry);
-    iIndex = (found == m_lsButtons.end() ? -1 : static_cast<int>(found - m_lsButtons.begin()));
+    iIndex = wiz8::index_of(m_lsButtons, entry);
     if (iIndex == -1) {
         srAssertFail("iIndex != -1", "C:\\Projects\\Wizardry 8\\Local Code\\Controls.cpp", 0xa9e,
                      0);

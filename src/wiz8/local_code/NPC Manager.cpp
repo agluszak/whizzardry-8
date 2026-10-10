@@ -1,3 +1,4 @@
+#include "wiz8/containers.h"
 #include "wiz8/compat/unaligned.h"
 #include "wiz8/engine_code/AnimRep.hpp"
 #include "wiz8/conditions.h"
@@ -244,8 +245,7 @@ W8NpcState* GetNpcState(int index)
 // FUNCTION: WIZ8 0x0050b830
 W8NpcState* GetNpcStateByKind(int kind)
 {
-    for (int index = 0; index < static_cast<int>(g_npc_states->size()); ++index) {
-        W8NpcState* npc = (*g_npc_states)[index];
+    for (W8NpcState* npc : *g_npc_states) {
         if (npc->record->kind == kind) {
             return npc;
         }
@@ -874,8 +874,7 @@ W8NpcState* FindNpcStateByName(const char* name)
 // FUNCTION: WIZ8 0x0050C7D0
 void AdvanceNpcTimers(unsigned int elapsed)
 {
-    for (unsigned int index = 0; index < static_cast<unsigned int>(g_npc_states->size()); ++index) {
-        W8NpcState* npc = (*g_npc_states)[index];
+    for (W8NpcState* npc : *g_npc_states) {
         if (npc->binding_unavailable == 0) {
             if (npc->dismissed_flag) {
                 npc->dismissed_timer += elapsed;
@@ -913,8 +912,7 @@ void ProcessNpcPendingEvents(void)
     if (!gXStatus.fCombatMode && !gXStatus.fSurprisePossible) {
         if (g_status.infatuation_pending) {
             bool flagged = false;
-            for (int index = 0; index < static_cast<int>(g_npc_states->size()); ++index) {
-                W8NpcState* candidate = (*g_npc_states)[index];
+            for (W8NpcState* candidate : *g_npc_states) {
                 if (candidate->record->kind == 0x42) {
                     if (candidate != 0 && static_cast<unsigned char>(candidate->spawned) != 0) {
                         flagged = true;
@@ -1329,9 +1327,7 @@ W8NpcState* CreateNpcRuntimeNode(int npc_id)
         released = (*g_npc_states)[index];
         if (released != 0 && released->binding_unavailable != 0) {
             g_npc_states->insert(g_npc_states->begin() + index, npc);
-            if (const auto found = std::ranges::find((*g_npc_states), released);
-                found != g_npc_states->end())
-                g_npc_states->erase(found);
+            wiz8::erase_first(*g_npc_states, released);
             npc->partner_index = static_cast<unsigned char>(index);
             return npc;
         }
@@ -2059,8 +2055,7 @@ void TriggerBelaVoice(W8Monster* monster)
 
     W8NpcState* npc = 0;
 
-    for (int index = 0; index < static_cast<int>(g_npc_states->size()); ++index) {
-        W8NpcState* candidate = (*g_npc_states)[index];
+    for (W8NpcState* candidate : *g_npc_states) {
         if (candidate->record->kind == 0x89) {
             npc = candidate;
             break;
@@ -2134,8 +2129,7 @@ void UpdateNpcEvents(void)
             unsigned int kind = npc->name_style;
 
             partner = 0;
-            for (int search = 0; search < static_cast<int>(g_npc_states->size()); ++search) {
-                W8NpcState* candidate = (*g_npc_states)[search];
+            for (W8NpcState* candidate : *g_npc_states) {
                 if (static_cast<unsigned int>(candidate->record->kind) == kind) {
                     partner = candidate;
                     break;
@@ -2164,8 +2158,7 @@ void UpdateNpcEvents(void)
         bool run_event = GetFact(W8_FACT_VI_IS_DEAD) != 0;
 
         if (!run_event) {
-            for (int search = 0; search < static_cast<int>(g_npc_states->size()); ++search) {
-                W8NpcState* candidate = (*g_npc_states)[search];
+            for (W8NpcState* candidate : *g_npc_states) {
                 if (candidate->record->kind == 99) {
                     if (candidate != 0 && static_cast<unsigned char>(candidate->spawned) != 0) {
                         run_event = true;
@@ -2176,8 +2169,7 @@ void UpdateNpcEvents(void)
         }
         if (run_event) {
             g_status.vi_event_stage = 0;
-            for (int search = 0; search < static_cast<int>(g_npc_states->size()); ++search) {
-                W8NpcState* candidate = (*g_npc_states)[search];
+            for (W8NpcState* candidate : *g_npc_states) {
                 if (candidate->record->kind == 0x8d) {
                     if (candidate != 0) {
                         BeginNpcDialogue(candidate, 0, 0, 0, 0);

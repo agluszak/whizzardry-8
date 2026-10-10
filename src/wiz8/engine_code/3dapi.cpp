@@ -1,3 +1,4 @@
+#include "wiz8/containers.h"
 #include "wiz8/engine_code/3d.h"
 #include "wiz8/engine_code/3dapi.h"
 #include "wiz8/engine_code/AmbientSound.h"
@@ -361,13 +362,11 @@ void UpdateWorld(W8World* world)
         UpdateSpellEffects();
     }
 
-    std::vector<srNode*>* nodes = &world->nodes_to_disable;
-    int count = static_cast<short>((nodes ? nodes->size() : 0));
-    for (int index = 0; index < count; ++index) {
-        srNode* node = (*nodes)[index];
+    auto& nodes = world->nodes_to_disable;
+    for (srNode* node : nodes) {
         node->setFlag(srNode::FLAG_DISABLE);
     }
-    nodes->clear();
+    nodes.clear();
 }
 
 // VTABLE: WIZ8 0x005EC208
@@ -456,11 +455,7 @@ void DestroyWorldCollections(W8World* world)
     }
 
     if (world->plsMonsters != 0) {
-        while (!world->plsMonsters->empty()) {
-            W8Monster* object = (*world->plsMonsters)[0];
-            world->plsMonsters->erase(world->plsMonsters->begin());
-            delete object;
-        }
+        wiz8::remove_all_and_delete_in_order(*world->plsMonsters);
         delete world->plsMonsters;
 
         world->plsMonsters = 0;
@@ -468,11 +463,7 @@ void DestroyWorldCollections(W8World* world)
     if (g_world_cleanup_flag)
         RenderFrame();
     if (world->plsItems != 0) {
-        while (!world->plsItems->empty()) {
-            W8Item* object = (*world->plsItems)[0];
-            world->plsItems->erase(world->plsItems->begin());
-            delete object;
-        }
+        wiz8::remove_all_and_delete_in_order(*world->plsItems);
         delete world->plsItems;
 
         world->plsItems = 0;
@@ -480,11 +471,7 @@ void DestroyWorldCollections(W8World* world)
     if (g_world_cleanup_flag)
         RenderFrame();
     if (world->plsProps != 0) {
-        while (!world->plsProps->empty()) {
-            W8Prop* object = GetWorldProp(world, 0);
-            world->plsProps->erase(world->plsProps->begin());
-            delete object;
-        }
+        wiz8::remove_all_and_delete_in_order(*world->plsProps);
         delete world->plsProps;
 
         world->plsProps = 0;
@@ -501,12 +488,10 @@ void DestroyWorldCollections(W8World* world)
         RenderFrame();
 
     if (world->plsCameras != 0) {
-        while (!world->plsCameras->empty()) {
-            W8CameraPath* entry = GetWorldCameraPath(world, 0);
-            world->plsCameras->erase(world->plsCameras->begin());
+        wiz8::clear_and_dispose(*world->plsCameras, [](W8CameraPath* entry) {
             DestroyPathAI(entry->path);
             free(entry);
-        }
+        });
         delete world->plsCameras;
 
         world->plsCameras = 0;
@@ -514,11 +499,7 @@ void DestroyWorldCollections(W8World* world)
 
     StopAllAmbientSounds();
     if (world->plsAmbientSounds != 0) {
-        while (!world->plsAmbientSounds->empty()) {
-            W8AmbientSound* ambient_sound = GetWorldAmbientSound(world, 0);
-            world->plsAmbientSounds->erase(world->plsAmbientSounds->begin());
-            DestroyAmbientSound(ambient_sound);
-        }
+        wiz8::clear_and_dispose(*world->plsAmbientSounds, DestroyAmbientSound);
         delete world->plsAmbientSounds;
 
         world->plsAmbientSounds = 0;
@@ -527,16 +508,10 @@ void DestroyWorldCollections(W8World* world)
         RenderFrame();
 
     if (world->particles != 0) {
-        while (!world->particles->empty()) {
-            ((*world->particles)[0])->release();
-            world->particles->erase(world->particles->begin());
-        }
+        wiz8::clear_and_dispose(*world->particles, [](auto* value) { value->release(); });
     }
     if (world->named_positions != 0) {
-        while (!world->named_positions->empty()) {
-            delete (*world->named_positions)[0];
-            world->named_positions->erase(world->named_positions->begin());
-        }
+        wiz8::remove_all_and_delete_in_order(*world->named_positions);
     }
 
     DestroyAllMissiles(world);
@@ -587,8 +562,7 @@ void DestroyWorld(W8World* world)
     if (IsWorldCursorVisible())
         HideWorldCursor();
 
-    if (const auto found = std::ranges::find(g_worlds, world); found != g_worlds.end())
-        g_worlds.erase(found);
+    wiz8::erase_first(g_worlds, world);
     ReleaseRendererObject(world->static_scene);
     delete world;
 }

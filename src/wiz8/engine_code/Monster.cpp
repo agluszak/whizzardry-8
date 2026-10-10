@@ -1,3 +1,4 @@
+#include "wiz8/containers.h"
 #include "wiz8/engine_code/AnimRep.hpp"
 #include "wiz8/engine_code/Camera.h"
 #include "wiz8/local_code/MonsterGroup.h"
@@ -516,7 +517,7 @@ unsigned char ReadOrCloneMonsterCycles(const W8GrCycleLoadContext* context,
                     skin_stage = 0;
                     damage_stage = (*monster)->AddDamageStage(monster_name, 0);
                     std::vector<stModelInstance*> instances;
-                    (*monster)->CollectModelInstances(&instances);
+                    (*monster)->CollectModelInstances(instances);
                     for (int index = 0; index < static_cast<int>(instances.size()); ++index) {
                         instances[index]->damage_stage = damage_stage;
                     }
@@ -535,7 +536,7 @@ unsigned char ReadOrCloneMonsterCycles(const W8GrCycleLoadContext* context,
                     skin_stage = 0;
                     damage_stage = (*monster)->AddDamageStage(monster_name, 0);
                     std::vector<stModelInstance*> instances;
-                    (*monster)->CollectModelInstances(&instances);
+                    (*monster)->CollectModelInstances(instances);
                     for (int index = 0; index < static_cast<int>(instances.size()); ++index) {
                         instances[index]->damage_stage = damage_stage;
                     }
@@ -745,9 +746,8 @@ unsigned char ReadOrCloneMonsterCycles(const W8GrCycleLoadContext* context,
     }
     if (glow > 0.0f) {
         std::vector<stModelInstance*> instances;
-        (*monster)->CollectModelInstances(&instances);
-        for (int index = 0; index < static_cast<int>(instances.size()); ++index) {
-            stModelInstance* instance = instances[index];
+        (*monster)->CollectModelInstances(instances);
+        for (stModelInstance* instance : instances) {
             instance->emissive_override_enabled = true;
             instance->emissive_override = glow;
         }
@@ -1122,11 +1122,7 @@ W8MonsterRep::~W8MonsterRep()
         }
         light_lists[cycle].clear();
     }
-    while (!linked_runtime_objects.empty()) {
-        auto* object = linked_runtime_objects.front();
-        linked_runtime_objects.erase(linked_runtime_objects.begin());
-        delete object;
-    }
+    wiz8::remove_all_and_delete_in_order(linked_runtime_objects);
     delete monster_light;
     delete[] name;
 }
@@ -1322,7 +1318,7 @@ void W8Monster::Update()
     if (sunlit_state == W8_MONSTER_SUNLIGHT_UNKNOWN || g_monster_light_scale < g_float_one) {
         current_scale = 0.75f;
         g_monster_model_instances.clear();
-        CollectModelInstances(&g_monster_model_instances);
+        CollectModelInstances(g_monster_model_instances);
         for (index = 0; index < static_cast<int>(g_monster_model_instances.size()); ++index) {
             stModelInstance* model = g_monster_model_instances[index];
             model->light_scale = 0.75f;
@@ -1376,7 +1372,7 @@ void W8Monster::Update()
             }
         }
         g_monster_model_instances.clear();
-        CollectModelInstances(&g_monster_model_instances);
+        CollectModelInstances(g_monster_model_instances);
         for (index = 0; index < static_cast<int>(g_monster_model_instances.size()); ++index) {
             stModelInstance* model = g_monster_model_instances[index];
             model->light_scale = current_scale;
@@ -2752,9 +2748,7 @@ void SetMonsterPartySlotMarker(int party_slot, int location_id, char on)
         item = rep->objects[party_slot];
         if (item != 0) {
             item->DetachMesh(g_world);
-            if (const auto found = std::ranges::find((*g_world->plsItems), item);
-                found != g_world->plsItems->end())
-                g_world->plsItems->erase(found);
+            wiz8::erase_first(*g_world->plsItems, item);
             delete item;
             rep->objects[party_slot] = 0;
             --rep->icon_count;
@@ -2968,9 +2962,7 @@ void UpdateNearestMonsterGroupMembers()
     unsigned int group_index;
 
     GetCameraPosition(&player_position);
-    for (group_index = 0;
-         group_index < (gXStatus.plsMonsterGroupList ? gXStatus.plsMonsterGroupList->size() : 0);
-         ++group_index) {
+    for (group_index = 0; group_index < gXStatus.monster_groups.size(); ++group_index) {
         W8MonsterGroup* group = GetMonsterGroupByListIndex(group_index);
 
         if (group != 0) {
@@ -3472,9 +3464,7 @@ void W8Monster::SetCycle(signed char cycle)
 
                 light->setParent(0, 1);
                 if (light->definition() != 0) {
-                    if (const auto found = std::ranges::find((*g_world->lights_to_update), light);
-                        found != g_world->lights_to_update->end())
-                        g_world->lights_to_update->erase(found);
+                    wiz8::erase_first(*g_world->lights_to_update, light);
                 }
             }
         }
@@ -3537,7 +3527,7 @@ void W8Monster::SetCycle(signed char cycle)
     }
 
     g_monster_model_instances.clear();
-    CollectModelInstances(&g_monster_model_instances);
+    CollectModelInstances(g_monster_model_instances);
     for (index = 0; index < static_cast<int>(g_monster_model_instances.size()); ++index) {
         stModelInstance* model = g_monster_model_instances[index];
         model->light_scale = current_scale;
@@ -3774,10 +3764,7 @@ void W8Monster::UpdateAttachedObjects()
                 poster->setLocation(location);
                 ++poster_index;
             } else {
-                if (const auto found =
-                        std::ranges::find(representation->linked_runtime_objects, poster);
-                    found != representation->linked_runtime_objects.end())
-                    representation->linked_runtime_objects.erase(found);
+                wiz8::erase_first(representation->linked_runtime_objects, poster);
                 delete poster;
                 --poster_count;
             }
@@ -4783,7 +4770,7 @@ void MonsterAimAtMonster(W8Monster* monster, W8Monster* target, bool alternate)
    element type: AniMesh's frame lookup returns stModelInstance objects and the
    consumers read their first-party fields beyond the srModelInstance base. */
 // FUNCTION: WIZ8 0x004c6350
-void W8Monster::CollectModelInstances(std::vector<stModelInstance*>* instances)
+void W8Monster::CollectModelInstances(std::vector<stModelInstance*>& instances)
 {
     int cycle;
 
@@ -4793,15 +4780,15 @@ void W8Monster::CollectModelInstances(std::vector<stModelInstance*>* instances)
 
         for (subcycle = 0; subcycle < m_pRep->GetNumSubsPerCycle(static_cast<signed char>(cycle));
              ++subcycle) {
-            std::vector<W8AnimObj*>* cycle_animations = &m_pRep->animations[cycle];
+            auto& cycle_animations = m_pRep->animations[cycle];
             W8AnimObj* animation;
 
-            if (subcycle >= static_cast<int>(cycle_animations->size())) {
+            if (subcycle >= static_cast<int>(cycle_animations.size())) {
                 ShutdownWithErrorBox(
                     FormatString("Monster %s: Missing CYCLE_%s, sub-cycle %d", m_pRep->name,
                                g_cycle_names[cycle].name, subcycle));
             }
-            animation = (*cycle_animations)[subcycle];
+            animation = cycle_animations[subcycle];
             if (animation == 0) {
                 continue;
             }
@@ -4815,12 +4802,12 @@ void W8Monster::CollectModelInstances(std::vector<stModelInstance*>* instances)
                         int frame_count = AniMeshValue(mesh);
 
                         if (mesh->flags.single_instance) {
-                            instances->push_back(GetAniMeshFrame(mesh, 0));
+                            instances.push_back(GetAniMeshFrame(mesh, 0));
                         } else {
                             int frame;
 
                             for (frame = 0; frame < frame_count; ++frame) {
-                                instances->push_back(GetAniMeshFrame(mesh, frame));
+                                instances.push_back(GetAniMeshFrame(mesh, frame));
                             }
                         }
                     }
@@ -4841,7 +4828,7 @@ void W8Monster::CollectModelInstances(std::vector<stModelInstance*>* instances)
                                 int frame_count = AniMeshValue(mesh);
 
                                 for (frame = 0; frame < frame_count; ++frame) {
-                                    instances->push_back(GetAniMeshFrame(mesh, frame));
+                                    instances.push_back(GetAniMeshFrame(mesh, frame));
                                 }
                             }
                         }
@@ -4868,7 +4855,7 @@ bool W8Monster::ReplaceSkinTexture(int stage, const char* old_name, const char* 
     }
 
     std::vector<stModelInstance*> instances;
-    CollectModelInstances(&instances);
+    CollectModelInstances(instances);
     for (int index = 0; index < static_cast<int>(instances.size()); ++index) {
         if (instances[index]->ReplaceDamageStageTexture(stage, old_name, texture) != 0) {
             replaced = true;
@@ -4876,8 +4863,7 @@ bool W8Monster::ReplaceSkinTexture(int stage, const char* old_name, const char* 
     }
 
     if (!replaced && m_plsParticles != 0) {
-        for (int index = 0; index < static_cast<int>(m_plsParticles->size()); ++index) {
-            W8GrCycleParticleAttachment* event = (*m_plsParticles)[index];
+        for (W8GrCycleParticleAttachment* event : *m_plsParticles) {
             if (event->m_pstParticles->ReplaceTexture(old_name, texture) != 0) {
                 replaced = true;
             }
@@ -4896,9 +4882,8 @@ int W8Monster::AddDamageStage(const char* base_name, int stage)
     std::vector<stModelInstance*> instances;
 
     sprintf(name, "%s%d", base_name, stage);
-    CollectModelInstances(&instances);
-    for (int index = 0; index < static_cast<int>(instances.size()); ++index) {
-        stModelInstance* instance = instances[index];
+    CollectModelInstances(instances);
+    for (stModelInstance* instance : instances) {
         if (instance->FindDamageStage(name) == -1) {
             result = instance->AddDamageStage(name);
         } else {
@@ -4917,7 +4902,7 @@ void W8Monster::RemoveCycleSkinTables()
     std::vector<stModelInstance*> instances;
 
     if (cycle_name != 0) {
-        CollectModelInstances(&instances);
+        CollectModelInstances(instances);
         for (int index = 0; index < static_cast<int>(instances.size()); ++index) {
             stMeshModel* mesh = static_cast<stMeshModel*>(instances[index]->getModel());
             for (; mesh != 0; mesh = mesh->next) {
@@ -4935,7 +4920,7 @@ void W8Monster::SetDamageStage(int stage)
     std::vector<stModelInstance*> instances;
     int index;
 
-    CollectModelInstances(&instances);
+    CollectModelInstances(instances);
     for (index = 0; index < static_cast<int>(instances.size()); ++index) {
         instances[index]->damage_stage = stage;
     }
@@ -4948,7 +4933,7 @@ int W8Monster::GetDamageStageCount()
 {
     std::vector<stModelInstance*> instances;
 
-    CollectModelInstances(&instances);
+    CollectModelInstances(instances);
     if (!instances.empty()) {
         return static_cast<int>(instances[0]->damage_stage_tables.size());
     }

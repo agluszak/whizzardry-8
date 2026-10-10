@@ -8,7 +8,7 @@
 struct W8WorldItem;
 
 int FindItemTableByName(const char* name);
-int GenerateItemsFromTable(std::vector<W8WorldItem*>* output_items, unsigned int table_id,
+int GenerateItemsFromTable(std::vector<W8WorldItem*>& output_items, unsigned int table_id,
                            unsigned int maximum_items); /* 0x004F88F0 */
 
 #endif

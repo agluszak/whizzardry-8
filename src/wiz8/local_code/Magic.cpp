@@ -1,3 +1,4 @@
+#include "wiz8/containers.h"
 #include "wiz8/compat/unaligned.h"
 #include "wiz8/engine_code/AnimRep.hpp"
 #include "wiz8/conditions.h"
@@ -431,7 +432,7 @@ void TickSpellEffects(void)
             if (effect->turns_remaining == 0 && effect->kind == W8_SPELL_HYPNOTIC_LURE) {
                 for (monster_index = 0;
                      monster_index <
-                     (gXStatus.plsMonsterList ? gXStatus.plsMonsterList->size() : 0);
+                     gXStatus.monsters.size();
                      ++monster_index) {
                     monster_info = MonsterGetScriptPartByLocationIndex(monster_index);
                     if (monster_info != 0 && !monster_info->p3D->IsDying()) {
@@ -659,7 +660,7 @@ void UpdateSpellEffects(void)
                 effect->targets_resolved = true;
                 if (MonsterCanAimSpell(effect->kind) && !effect->Source.fBackfire &&
                     !effect->Source.fReflection) {
-                    ProvokeListedMonsterGroups(&effect->Source, &effect->monster_ids);
+                    ProvokeListedMonsterGroups(&effect->Source, effect->monster_ids);
                 }
                 ProcessSpellEffectTargets(effect);
                 if (TargetSourceIsMonster(&effect->OrigSource, 0)) {
@@ -727,12 +728,8 @@ void UpdateSpellEffects(void)
 // FUNCTION: WIZ8 0x005019a0
 void DetachMissileReferences(W8Missile* missile)
 {
-    for (int index = 0; index < static_cast<int>(g_spell_effects.size()); ++index) {
-        W8SpellEffectEntry* effect = g_spell_effects[index];
-        const auto found = std::ranges::find(effect->missiles, missile);
-        const bool was_removed = found != effect->missiles.end();
-        if (was_removed)
-            effect->missiles.erase(found);
+    for (W8SpellEffectEntry* effect : g_spell_effects) {
+        const bool was_removed = wiz8::erase_first(effect->missiles, missile);
         if (was_removed) {
             return;
         }
@@ -2143,8 +2140,8 @@ bool ValidateSpellTarget(int party_slot, int spell_id, unsigned int power, bool 
     W8TargetSource source;
     SetTargetSourceToCharacter(party_slot, &source);
     PopulateSpellTargetMarkers(spell_id, power, &source,
-                               &g_status.buffers.XChar[party_slot].target_out_of_combat, &monsters,
-                               &party, 0);
+                               &g_status.buffers.XChar[party_slot].target_out_of_combat, monsters,
+                               party, 0);
 
     bool valid = true;
     bool has_targets = spell_id == W8_SPELL_SONIC_BOOM || !monsters.empty() || !party.empty();
@@ -2826,8 +2823,8 @@ int CastSpellFromSource(int spell_id, W8TargetSource* source, W8CombatSlot* targ
         }
         if (party_targets == 0) {
             if (monster_targets == 0) {
-                PopulateSpellTargetMarkers(spell_id, power_level, source, target, &monster_markers,
-                                           &party_markers, 0);
+                PopulateSpellTargetMarkers(spell_id, power_level, source, target, monster_markers,
+                                           party_markers, 0);
                 if (spell_id == W8_SPELL_SUMMON_ELEMENTAL) {
                     ground_point.y = target->point.y - g_float_one_thousand;
                     target->point.y = ground_point.y;
@@ -3139,7 +3136,7 @@ int CastSpellFromSource(int spell_id, W8TargetSource* source, W8CombatSlot* targ
                         previous->turns_remaining = 0;
                         for (monster_index = 0;
                              monster_index <
-                             (gXStatus.plsMonsterList ? gXStatus.plsMonsterList->size() : 0);
+                             gXStatus.monsters.size();
                              ++monster_index) {
                             monster_info = MonsterGetScriptPartByLocationIndex(monster_index);
                             if (monster_info != 0 && !monster_info->p3D->IsDying()) {
@@ -3444,7 +3441,7 @@ int PickBackfireTarget(int spell_id, W8TargetSource* source, W8CombatSlot* targe
         }
     }
     index = 0;
-    while (gXStatus.plsMonsterList && index < gXStatus.plsMonsterList->size()) {
+    while (index < gXStatus.monsters.size()) {
         monster_info = MonsterGetScriptPartByLocationIndex(index);
         if (monster_info->fActive && monster_info->fInCombat && monster_info->hp_current != 0 &&
             (!TargetSourceIsMonster(source, 0) ||
@@ -3470,7 +3467,7 @@ int PickBackfireTarget(int spell_id, W8TargetSource* source, W8CombatSlot* targe
         }
     }
     index = 0;
-    while (gXStatus.plsMonsterList && index < gXStatus.plsMonsterList->size()) {
+    while (index < gXStatus.monsters.size()) {
         monster_info = MonsterGetScriptPartByLocationIndex(index);
         if (monster_info->fActive && monster_info->fInCombat && monster_info->hp_current != 0 &&
             (!TargetSourceIsMonster(source, 0) ||
@@ -3611,8 +3608,8 @@ void CheckSpellBackfire(int spell_id, W8TargetSource* source, W8CombatSlot* targ
    radius, a cone or a whole side goes into the vectors. */
 // FUNCTION: WIZ8 0x004FD030
 void PopulateSpellTargetMarkers(int spell_id, int power_level, W8TargetSource* source,
-                                W8CombatSlot* target, std::vector<int>* monster_markers,
-                                std::vector<int>* party_markers, int highlighting)
+                                W8CombatSlot* target, std::vector<int>& monster_markers,
+                                std::vector<int>& party_markers, int highlighting)
 {
     srVector3T<float> player_pos;
     srVector3T<float> camera;
@@ -3691,9 +3688,9 @@ void PopulateSpellTargetMarkers(int spell_id, int power_level, W8TargetSource* s
     case W8_TARGET_TYPE_CASTER:
     case W8_TARGET_TYPE_ENEMY:
         if (target->iType == W8_TARGET_KIND_CHARACTER) {
-            party_markers->push_back(target->iChar);
+            party_markers.push_back(target->iChar);
         } else if (target->iType == W8_TARGET_KIND_MONSTER) {
-            monster_markers->push_back(target->iMonsterID);
+            monster_markers.push_back(target->iMonsterID);
         } else if (target_type == W8_TARGET_TYPE_ENEMY) {
             FormatDebugMessage(1,
                                "InvalidMagicTarget: Spell %d(%ls), Target Type %d(char %d, monster "
@@ -3707,9 +3704,9 @@ void PopulateSpellTargetMarkers(int spell_id, int power_level, W8TargetSource* s
     case W8_TARGET_TYPE_ALLY:
         if (target->iType == W8_TARGET_KIND_CHARACTER ||
             target->iType == W8_TARGET_KIND_CHARACTER_INDIRECT) {
-            party_markers->push_back(target->iChar);
+            party_markers.push_back(target->iChar);
         } else if (target->iType == W8_TARGET_KIND_MONSTER) {
-            monster_markers->push_back(target->iMonsterID);
+            monster_markers.push_back(target->iMonsterID);
         } else {
             FormatDebugMessage(1,
                                "InvalidMagicTarget: Spell %d(%ls), Target Type %d(char %d, monster "
@@ -3781,7 +3778,7 @@ void PopulateSpellTargetMarkers(int spell_id, int power_level, W8TargetSource* s
                 slot = group->MemberLocationId(index);
                 member = MonsterInfoFromID(0x9aa, MAGIC_CPP, slot, true);
                 if (member->ubDisposition == group->ubDisposition) {
-                    monster_markers->push_back(slot);
+                    monster_markers.push_back(slot);
                 }
                 ++index;
             }
@@ -3843,7 +3840,7 @@ void PopulateSpellTargetMarkers(int spell_id, int power_level, W8TargetSource* s
         }
         CollectConeMonsterTargets(source, &eye, heading, elevation, monster_markers,
                                   static_cast<unsigned char>(side), sight_flag);
-        if (monster_markers->empty() && (g_combat_state == 0 || !g_combat_state->enemies_engaged) &&
+        if (monster_markers.empty() && (g_combat_state == 0 || !g_combat_state->enemies_engaged) &&
             TargetSourceIsCharacter(source, 0) && static_cast<char>(side) == 1 &&
             !AnyMonsterEngaged()) {
             CollectConeMonsterTargets(source, &eye, heading, elevation, monster_markers, 3,
@@ -3883,7 +3880,7 @@ void PopulateSpellTargetMarkers(int spell_id, int power_level, W8TargetSource* s
         }
         CollectMonstersWithinRadius(&trace, &target_point, monster_markers, radius,
                                     static_cast<char>(side), static_cast<char>(highlighting));
-        if (monster_markers->empty() && (g_combat_state == 0 || !g_combat_state->enemies_engaged) &&
+        if (monster_markers.empty() && (g_combat_state == 0 || !g_combat_state->enemies_engaged) &&
             TargetSourceIsCharacter(source, 0) && static_cast<char>(side) == 1 &&
             !AnyMonsterEngaged()) {
             CollectMonstersWithinRadius(&trace, &target_point, monster_markers, radius, 3,
@@ -3913,7 +3910,7 @@ void PopulateSpellTargetMarkers(int spell_id, int power_level, W8TargetSource* s
         }
         CollectMonstersWithinRadius(&centre, &eye, monster_markers, radius, static_cast<char>(side),
                                     static_cast<char>(highlighting));
-        if (monster_markers->empty() && (g_combat_state == 0 || !g_combat_state->enemies_engaged) &&
+        if (monster_markers.empty() && (g_combat_state == 0 || !g_combat_state->enemies_engaged) &&
             TargetSourceIsCharacter(source, 0) && static_cast<char>(side) == 1 &&
             !AnyMonsterEngaged()) {
             CollectMonstersWithinRadius(&centre, &eye, monster_markers, radius, 3,
@@ -3928,7 +3925,7 @@ void PopulateSpellTargetMarkers(int spell_id, int power_level, W8TargetSource* s
             if (CanPartySlotParticipate(slot) &&
                 (g_status.buffers.Char[slot].uiCondition[W8_CONDITION_TURNCOAT] == 0 ||
                  !MonsterCanAimSpell(spell_id) || static_cast<char>(side) == 3)) {
-                party_markers->push_back(slot);
+                party_markers.push_back(slot);
             }
         }
     }
@@ -3938,40 +3935,28 @@ void PopulateSpellTargetMarkers(int spell_id, int power_level, W8TargetSource* s
 /* Drop every marker that no longer names a live, targetable monster. Spells
    0x16, 0x4d and 0x81 also drop markers whose monster kind they do not affect. */
 // FUNCTION: WIZ8 0x00501B70
-void PruneSpellTargetMarkers(int spell_id, std::vector<int>* monster_markers)
+void PruneSpellTargetMarkers(int spell_id, std::vector<int>& monster_markers)
 {
-    W8MonsterInfo* monster_info;
-    W8MonsterRecord* record;
-    int index;
-
-    for (index = static_cast<int>(monster_markers->size()) - 1; index >= 0; --index) {
-        monster_info = MonsterGetScriptPartByLocationIndex(
-            MonsterGetIndexByLocationID(0x1595, MAGIC_CPP, (*monster_markers)[index], true));
-        record = GetMonsterDataForInfo(monster_info);
-        if (!monster_info->fActive || monster_info->hp_current == 0 ||
-            monster_info->uiCondition[W8_CONDITION_DEAD] > 0 || record->untargetable != 0) {
-            monster_markers->erase(monster_markers->begin() + index);
-            continue;
+    std::erase_if(monster_markers, [spell_id](int monster_id) {
+        W8MonsterInfo* monster = MonsterGetScriptPartByLocationIndex(
+            MonsterGetIndexByLocationID(0x1595, MAGIC_CPP, monster_id, true));
+        W8MonsterRecord* record = GetMonsterDataForInfo(monster);
+        if (!monster->fActive || monster->hp_current == 0 ||
+            monster->uiCondition[W8_CONDITION_DEAD] > 0 || record->untargetable != 0) {
+            return true;
         }
         switch (spell_id) {
         case W8_SPELL_HOLY_WATER:
-            if (record->kind != 0x14 && record->kind != 0x15) {
-                monster_markers->erase(monster_markers->begin() + index);
-            }
-            break;
+            return record->kind != 0x14 && record->kind != 0x15;
         case W8_SPELL_BANISH:
-            if (record->kind != 0x14 && record->kind != 0x15 && record->kind != 0x1c &&
-                monster_info->summoned == W8_MONSTER_SUMMON_NONE) {
-                monster_markers->erase(monster_markers->begin() + index);
-            }
-            break;
+            return record->kind != 0x14 && record->kind != 0x15 && record->kind != 0x1c &&
+                   monster->summoned == W8_MONSTER_SUMMON_NONE;
         case W8_SPELL_DISPEL_UNDEAD:
-            if (record->kind != 0x14) {
-                monster_markers->erase(monster_markers->begin() + index);
-            }
-            break;
+            return record->kind != 0x14;
+        default:
+            return false;
         }
-    }
+    });
 }
 
 // FUNCTION: WIZ8 0x00501D20

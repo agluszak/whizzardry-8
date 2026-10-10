@@ -118,9 +118,7 @@ void ReleaseMonsterConditionBindings(W8MonsterInfo* monster_info)
                 }
             }
             if (!cleared && slot_kind == 0) {
-                for (unsigned int index = 0;
-                     index < (gXStatus.plsMonsterList ? gXStatus.plsMonsterList->size() : 0);
-                     ++index) {
+                for (unsigned int index = 0; index < gXStatus.monsters.size(); ++index) {
                     W8MonsterInfo* bound = MonsterGetScriptPartByLocationIndex(index);
                     if (bound->elemental_summon == monster_info->location_id) {
                         bound->elemental_summon = -1;
@@ -1011,9 +1009,7 @@ void RemoveConditionFromEveryone(W8Condition condition)
 
     RemoveConditionFromParty(condition);
 
-    for (monster_index = 0;
-         monster_index < (gXStatus.plsMonsterList ? gXStatus.plsMonsterList->size() : 0);
-         ++monster_index) {
+    for (monster_index = 0; monster_index < gXStatus.monsters.size(); ++monster_index) {
         monster_info = MonsterGetScriptPartByLocationIndex(monster_index);
         if (monster_info->uiCondition[condition] != 0) {
             ClearMonsterCondition(monster_info->location_id, condition);
@@ -1038,8 +1034,7 @@ void RemoveAllEnchantments(void)
                                               static_cast<W8EnchantmentSlot>(enchantment));
             }
         }
-        for (unsigned int index = 0;
-             index < (gXStatus.plsMonsterList ? gXStatus.plsMonsterList->size() : 0); ++index) {
+        for (unsigned int index = 0; index < gXStatus.monsters.size(); ++index) {
             W8MonsterInfo* monster_info = MonsterGetScriptPartByLocationIndex(index);
 
             if (monster_info->enchantments[enchantment].turns != 0) {

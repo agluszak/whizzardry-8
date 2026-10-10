@@ -1,3 +1,4 @@
+#include "wiz8/containers.h"
 #include "wiz8/sr_api.h"
 #include "wiz8/chunk.h"
 #include "wiz8/virtual_file.h"
@@ -19,11 +20,7 @@ W8Chunk::W8Chunk() : m_fWriting(false) {}
 // FUNCTION: WIZ8 0x0055bde0
 W8Chunk::~W8Chunk()
 {
-    while (!m_heads.empty()) {
-        auto* object = m_heads.back();
-        m_heads.pop_back();
-        delete object;
-    }
+    wiz8::remove_all_and_delete(m_heads);
 }
 
 // FUNCTION: WIZ8 0x0055ca20
@@ -80,11 +77,7 @@ try
 }
 catch (const std::exception&)
 {
-    while (!m_heads.empty()) {
-        auto* object = m_heads.back();
-        m_heads.pop_back();
-        delete object;
-    }
+    wiz8::remove_all_and_delete(m_heads);
     m_group_counts.clear();
     m_offsets.clear();
     m_group_progress.clear();
@@ -116,11 +109,7 @@ try
 }
 catch (const std::exception&)
 {
-    while (!m_heads.empty()) {
-        auto* object = m_heads.back();
-        m_heads.pop_back();
-        delete object;
-    }
+    wiz8::remove_all_and_delete(m_heads);
     m_group_counts.clear();
     m_offsets.clear();
     m_group_progress.clear();

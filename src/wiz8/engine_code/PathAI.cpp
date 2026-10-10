@@ -167,12 +167,10 @@ void DestroyPathAI(W8PathAI* path)
     if (path != 0) {
         nodes = path->nodes;
         if (nodes != 0) {
-            while (!nodes->empty()) {
-                const auto entry = nodes->back();
-                nodes->pop_back();
-                std::free(entry);
-                nodes = path->nodes;
+            for (auto* node : *nodes) {
+                std::free(node);
             }
+            nodes->clear();
             if (path->rotations != 0) {
                 free(path->rotations);
                 path->rotations = 0;
@@ -296,12 +294,10 @@ void PathAIClearOwned(W8PathAI* path)
     if (path != 0) {
         nodes = path->nodes;
         if (nodes != 0) {
-            while (!nodes->empty()) {
-                const auto entry = nodes->back();
-                nodes->pop_back();
-                std::free(entry);
-                nodes = path->nodes;
+            for (auto* node : *nodes) {
+                std::free(node);
             }
+            nodes->clear();
         }
         if (path->rotations != 0) {
             free(path->rotations);

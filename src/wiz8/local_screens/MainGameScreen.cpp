@@ -3970,7 +3970,7 @@ void RedrawCombatMonsterList(void)
     if (gXStatus.active_monster_count != 0) {
         SetFont(g_wiz_text_font_secondary);
         group_list_index = 0;
-        list_length = (gXStatus.plsMonsterGroupList ? gXStatus.plsMonsterGroupList->size() : 0);
+        list_length = gXStatus.monster_groups.size();
         if (list_length != 0) {
             do {
                 monster_group = GetMonsterGroupByListIndex(group_list_index);
@@ -4032,7 +4032,7 @@ void RedrawCombatMonsterList(void)
                 }
                 ++group_list_index;
                 list_length =
-                    (gXStatus.plsMonsterGroupList ? gXStatus.plsMonsterGroupList->size() : 0);
+                    gXStatus.monster_groups.size();
             } while (group_list_index < list_length);
         }
     }

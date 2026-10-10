@@ -59,7 +59,7 @@ int ItemInfoGetNumInGroup(W8WorldItem* item);
 void ItemInfoAddToGroup(W8WorldItem* group, W8WorldItem* item);
 W8WorldItem* ItemInfoRemoveFromGroup(W8WorldItem* group, W8WorldItem* item);
 W8WorldItem* ItemInfoGroupGetNext(W8WorldItem* item);
-int ItemInfoMakeGroupList(W8WorldItem* item, std::vector<W8WorldItem*>* out);
+int ItemInfoMakeGroupList(W8WorldItem* item, std::vector<W8WorldItem*>& out);
 bool ItemInfoIsWorldPersistent(const W8WorldItem* item);
 void FreeWorldItemGroup(W8WorldItem* item);
 void ActivateItem(W8WorldItem* item);

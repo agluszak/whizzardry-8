@@ -1,3 +1,4 @@
+#include "wiz8/containers.h"
 #include "wiz8/filesystem.h"
 #include "wiz8/engine_code/AnimRep.hpp"
 #include "wiz8/float_constants.h"
@@ -220,8 +221,7 @@ void W8SpellVisual::SetCycle(signed char cycle)
     AttachCycleLights(lights);
 
     if (m_plsParticles != 0) {
-        for (int index = 0; index < static_cast<int>(m_plsParticles->size()); ++index) {
-            W8GrCycleParticleAttachment* event = (*m_plsParticles)[index];
+        for (W8GrCycleParticleAttachment* event : *m_plsParticles) {
             event->SelectCycle(cycle);
         }
     }
@@ -323,6 +323,17 @@ void W8SpellVisual::UpdateRepresentation(W8World* world)
     W8GrCycle::UpdateRepresentation(world);
 }
 
+static void DestroySpellVisual(W8World* world, W8SpellVisual* visual)
+{
+    wiz8::erase_first(*world->spell_visuals, visual);
+    if (visual->m_plsLights) {
+        wiz8::clear_and_dispose(*visual->m_plsLights, [world](stLight* light) {
+            WorldRemoveLight(world, light);
+        });
+    }
+    delete visual;
+}
+
 /* Step every live spell visual and drop the finished ones.
 
    A visual that has not finished, or that an owning spell effect still
@@ -346,19 +357,7 @@ void UpdateWorldSpellVisuals(W8World* world)
                 visual->UpdateRepresentation(world);
                 visual->UpdateNavigation(0, false);
             } else {
-                if (const auto found = std::ranges::find((*world->spell_visuals), visual);
-                    found != world->spell_visuals->end())
-                    world->spell_visuals->erase(found);
-                if (visual->m_plsLights != 0) {
-                    int light_count = static_cast<int>(visual->m_plsLights->size());
-                    while (light_count != 0) {
-                        stLight* light = (*visual->m_plsLights)[0];
-                        visual->m_plsLights->erase(visual->m_plsLights->begin());
-                        WorldRemoveLight(g_world, light);
-                        --light_count;
-                    }
-                }
-                delete visual;
+                DestroySpellVisual(world, visual);
                 --index;
                 --count;
             }
@@ -625,9 +624,7 @@ W8SpellVisual::~W8SpellVisual()
     SetLights(0);
     delete host;
 
-    if (const auto found = std::ranges::find((*g_world->spell_visuals), this);
-        found != g_world->spell_visuals->end())
-        g_world->spell_visuals->erase(found);
+    wiz8::erase_first(*g_world->spell_visuals, this);
     UnregisterGrCycle(this);
 }
 
@@ -637,25 +634,7 @@ W8SpellVisual::~W8SpellVisual()
 void DestroyAllSpellVisuals(W8World* world)
 {
     while (!world->spell_visuals->empty()) {
-        W8SpellVisual* spell = (*world->spell_visuals)[0];
-
-        if (spell == 0) {
-            srAssertFail("pSpell", "C:\\Projects\\Wizardry 8\\Engine Code\\Spells.cpp", 0x51c, 0);
-        }
-        if (const auto found = std::ranges::find((*g_world->spell_visuals), spell);
-            found != g_world->spell_visuals->end())
-            g_world->spell_visuals->erase(found);
-        if (spell->m_plsLights != 0) {
-            int count = static_cast<int>(spell->m_plsLights->size());
-
-            while (count != 0) {
-                stLight* light = (*spell->m_plsLights)[0];
-                spell->m_plsLights->erase(spell->m_plsLights->begin());
-                WorldRemoveLight(g_world, light);
-                --count;
-            }
-        }
-        delete spell;
+        DestroySpellVisual(world, world->spell_visuals->front());
     }
 }
 
@@ -1208,18 +1187,14 @@ void SetMonsterSpellIcon(W8Monster* pMonster, W8MonsterSpellIconId iIcon, bool a
         for (index = 0; index < count; ++index) {
             pSpellMI = (*ppl)[index];
             if (pSpellMI->icon == iIcon) {
-                if (const auto found = std::ranges::find((*ppl), pSpellMI); found != ppl->end())
-                    ppl->erase(found);
+                wiz8::erase_first(*ppl, pSpellMI);
                 if (pSpellMI == 0) {
                     srAssertFail("pSpellMI", "C:\\Projects\\Wizardry 8\\Engine Code\\Spells.cpp",
                                  0x81b, 0);
                 }
                 if (pSpellMI->psrBMO != 0) {
                     pSpellMI->psrBMO->DetachMesh(g_world);
-                    if (const auto found =
-                            std::ranges::find((*g_world->plsItems), pSpellMI->psrBMO);
-                        found != g_world->plsItems->end())
-                        g_world->plsItems->erase(found);
+                    wiz8::erase_first(*g_world->plsItems, pSpellMI->psrBMO);
                     if (pSpellMI->psrBMO != 0) {
                         delete pSpellMI->psrBMO;
                     }
@@ -1290,9 +1265,7 @@ stSound3D::~stSound3D()
     if (sound_handle != -1) {
         SoundStop(sound_handle);
     }
-    if (const auto found = std::ranges::find(g_sound3d_instances, this);
-        found != g_sound3d_instances.end())
-        g_sound3d_instances.erase(found);
+    wiz8::erase_first(g_sound3d_instances, this);
 }
 
 // FUNCTION: WIZ8 0x004AE8B0
@@ -1470,9 +1443,7 @@ void ClearMonsterSpellIcons(W8Monster* monster)
             }
             if (entry->psrBMO != 0) {
                 entry->psrBMO->DetachMesh(g_world);
-                if (const auto found = std::ranges::find((*g_world->plsItems), entry->psrBMO);
-                    found != g_world->plsItems->end())
-                    g_world->plsItems->erase(found);
+                wiz8::erase_first(*g_world->plsItems, entry->psrBMO);
                 delete entry->psrBMO;
             }
             free(entry);
