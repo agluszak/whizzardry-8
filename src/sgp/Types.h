@@ -5,6 +5,7 @@
 
 #ifdef __cplusplus
 #include <SDL3/SDL_log.h>
+#include <SDL3/SDL_rect.h>
 #include <cstdlib>
 
 #define Assert(condition) AssertMsg(condition, "Assertion failed: " #condition)
@@ -75,20 +76,6 @@ typedef CHAR8 SGPFILENAME[SGPFILENAME_LEN];
 #define PI 3.1415926
 
 #define ST_EPSILON 0.00001 // define a sir-tech epsilon value
-
-typedef struct {
-    INT32 iLeft;
-    INT32 iTop;
-    INT32 iRight;
-    INT32 iBottom;
-
-} SGPRect;
-
-typedef struct {
-    INT32 iX;
-    INT32 iY;
-
-} SGPPoint;
 
 typedef struct {
     INT32 Min;

@@ -344,13 +344,13 @@ catch (const std::exception& error)
 // FUNCTION: WIZ8 0x0040fad0
 bool CopyImageToBuffer(const image_type& image, UINT32 buffer_type, std::span<UINT8> destination,
                        std::size_t dest_width, std::size_t dest_height, std::size_t x, std::size_t y,
-                       const SGPRect& rect)
+                       const SDL_Rect& rect)
 {
-    if (rect.iLeft < 0 || rect.iTop < 0 || rect.iRight <= rect.iLeft || rect.iBottom <= rect.iTop ||
-        rect.iRight > image.usWidth || rect.iBottom > image.usHeight || x >= dest_width || y >= dest_height)
+    if (rect.x < 0 || rect.y < 0 || rect.w <= 0 || rect.h <= 0 ||
+        (rect.x + rect.w) > image.usWidth || (rect.y + rect.h) > image.usHeight || x >= dest_width || y >= dest_height)
         return false;
-    const std::size_t width = rect.iRight - rect.iLeft;
-    const std::size_t height = rect.iBottom - rect.iTop;
+    const std::size_t width = rect.w;
+    const std::size_t height = rect.h;
     if (width > dest_width - x || height > dest_height - y || (image.fFlags & IMAGE_TRLECOMPRESSED))
         return false;
     const std::size_t source_depth = image.ubBitDepth / 8;
@@ -391,7 +391,7 @@ bool CopyImageToBuffer(const image_type& image, UINT32 buffer_type, std::span<UI
     // FUNCTION: WIZ8 0x0040ff30
     // FUNCTION: WIZ8 0x00410050
     for (std::size_t row = 0; row < height; ++row) {
-        const auto input = source.subspan(((rect.iTop + row) * image.usWidth + rect.iLeft) * source_depth,
+        const auto input = source.subspan(((rect.y + row) * image.usWidth + rect.x) * source_depth,
                                          width * source_depth);
         auto output = destination.subspan(((y + row) * dest_width + x) * target_depth, width * target_depth);
         if (source_depth == target_depth) {

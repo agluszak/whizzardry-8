@@ -4228,7 +4228,7 @@ void RefreshNpcTradePrice(void)
 // FUNCTION: WIZ8 0x00575C50
 void DrainNpcDialogueDeferralInput(void)
 {
-    SGPPoint mouse;
+    SDL_Point mouse;
     InputAtom input;
     W8NpcDialogueLayout prior_layout;
     bool reopen_topics;
@@ -4237,8 +4237,8 @@ void DrainNpcDialogueDeferralInput(void)
         return;
     }
     SGPMouseGetPos(&mouse);
-    MSYS_SGP_Mouse_Handler_Hook(MOUSE_POS, static_cast<unsigned short>(mouse.iX),
-                                static_cast<unsigned short>(mouse.iY), gfLeftButtonState,
+    MSYS_SGP_Mouse_Handler_Hook(MOUSE_POS, static_cast<unsigned short>(mouse.x),
+                                static_cast<unsigned short>(mouse.y), gfLeftButtonState,
                                 gfRightButtonState);
     while (DequeueEvent(&input) == 1) {
         if (input.usEvent == KEY_DOWN) {
@@ -4869,15 +4869,15 @@ void ClearMainGameTargetState(void)
 // FUNCTION: WIZ8 0x00577560
 void FlushInputWhileWorldCursorGate(void)
 {
-    SGPPoint mouse;
+    SDL_Point mouse;
     InputAtom input;
 
     if (g_status.world_cursor_gate == 0) {
         return;
     }
     SGPMouseGetPos(&mouse);
-    MSYS_SGP_Mouse_Handler_Hook(MOUSE_POS, static_cast<unsigned short>(mouse.iX),
-                                static_cast<unsigned short>(mouse.iY), gfLeftButtonState,
+    MSYS_SGP_Mouse_Handler_Hook(MOUSE_POS, static_cast<unsigned short>(mouse.x),
+                                static_cast<unsigned short>(mouse.y), gfLeftButtonState,
                                 gfRightButtonState);
     while (DequeueEvent(&input) == 1) {
     }

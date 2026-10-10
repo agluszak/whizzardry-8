@@ -794,29 +794,29 @@ void DrawCampSkillsPage(void)
                     lost = 0;
                     level = base;
                 }
-                SGPRect saved_clip;
+                SDL_Rect saved_clip;
                 GetClippingRect(&saved_clip);
-                SGPRect clip;
-                clip.iTop = 0;
-                clip.iBottom = 0x1e0;
+                SDL_Rect clip;
+                clip.y = 0;
+                clip.h = 0x1e0;
                 if (level != 0) {
-                    clip.iLeft = left + 0x6f;
-                    clip.iRight = level + 0x6f + left;
+                    clip.x = left + 0x6f;
+                    clip.w = level;
                     SetClippingRect(&clip);
                     DrawCatalogImage(FRAME_BUFFER, 0x143, 0, 0, left + 0x6f, top + 2,
                                      VO_BLT_SRCTRANSPARENCY, 0);
                 }
                 if (gained == 0) {
                     if (lost != 0) {
-                        clip.iLeft = level + 0x6f + left;
-                        clip.iRight = lost + level + 0x6f + left;
+                        clip.x = level + 0x6f + left;
+                        clip.w = lost;
                         SetClippingRect(&clip);
                         DrawCatalogImageAndInvalidate(FRAME_BUFFER, 0x143, 0, 2, left + 0x6f,
                                                       top + 2, VO_BLT_SRCTRANSPARENCY, 0);
                     }
                 } else {
-                    clip.iLeft = level + 0x6f + left;
-                    clip.iRight = gained + level + 0x6f + left;
+                    clip.x = level + 0x6f + left;
+                    clip.w = gained;
                     SetClippingRect(&clip);
                     DrawCatalogImage(FRAME_BUFFER, 0x143, 0, 1, left + 0x6f, top + 2,
                                      VO_BLT_SRCTRANSPARENCY, 0);

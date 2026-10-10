@@ -1552,11 +1552,9 @@ void DrawHatchOnButton(GUI_BUTTON* b)
 {
     UINT8* pDestBuf;
     UINT32 uiDestPitchBYTES;
-    SGPRect ClipRect;
-    ClipRect.iLeft = b->Area.RegionTopLeftX;
-    ClipRect.iRight = b->Area.RegionBottomRightX - 1;
-    ClipRect.iTop = b->Area.RegionTopLeftY;
-    ClipRect.iBottom = b->Area.RegionBottomRightY - 1;
+    SDL_Rect ClipRect{b->Area.RegionTopLeftX, b->Area.RegionTopLeftY,
+                            b->Area.RegionBottomRightX - 1 - b->Area.RegionTopLeftX,
+                            b->Area.RegionBottomRightY - 1 - b->Area.RegionTopLeftY};
     pDestBuf = LockVideoSurface(ButtonDestBuffer, &uiDestPitchBYTES);
     Blt16BPPBufferHatchRect((UINT16*)pDestBuf, uiDestPitchBYTES, &ClipRect);
     UnLockVideoSurface(ButtonDestBuffer);
@@ -1566,11 +1564,9 @@ void DrawShadeOnButton(GUI_BUTTON* b)
 {
     UINT8* pDestBuf;
     UINT32 uiDestPitchBYTES;
-    SGPRect ClipRect;
-    ClipRect.iLeft = b->Area.RegionTopLeftX;
-    ClipRect.iRight = b->Area.RegionBottomRightX - 1;
-    ClipRect.iTop = b->Area.RegionTopLeftY;
-    ClipRect.iBottom = b->Area.RegionBottomRightY - 1;
+    SDL_Rect ClipRect{b->Area.RegionTopLeftX, b->Area.RegionTopLeftY,
+                            b->Area.RegionBottomRightX - 1 - b->Area.RegionTopLeftX,
+                            b->Area.RegionBottomRightY - 1 - b->Area.RegionTopLeftY};
     pDestBuf = LockVideoSurface(ButtonDestBuffer, &uiDestPitchBYTES);
     Blt16BPPBufferShadowRect((UINT16*)pDestBuf, uiDestPitchBYTES, &ClipRect);
     UnLockVideoSurface(ButtonDestBuffer);
@@ -1664,7 +1660,7 @@ void DrawIconOnButton(GUI_BUTTON* b)
 {
     INT32 xp, yp, width, height, IconX, IconY;
     INT32 IconW, IconH;
-    SGPRect NewClip, OldClip;
+    SDL_Rect NewClip, OldClip;
     ETRLEObject* pTrav;
     HVOBJECT hvObject;
 
@@ -1675,49 +1671,15 @@ void DrawIconOnButton(GUI_BUTTON* b)
         height = b->Area.RegionBottomRightY - b->Area.RegionTopLeftY;
 
         // Compute viewable area (inside borders)
-        NewClip.iLeft = b->XLoc + 3;
-        NewClip.iRight = b->XLoc + width - 3;
-        NewClip.iTop = b->YLoc + 2;
-        NewClip.iBottom = b->YLoc + height - 2;
+        NewClip = {b->XLoc + 3, b->YLoc + 2, width - 6, height - 4};
 
         // Get Icon's blit start coordinates
-        IconX = NewClip.iLeft;
-        IconY = NewClip.iTop;
+        IconX = NewClip.x;
+        IconY = NewClip.y;
 
-        // Get current clip area
+        // Get current clip area and clip the viewable area to it
         GetClippingRect(&OldClip);
-
-        // Clip button's viewable area coords to screen
-        if (NewClip.iLeft < OldClip.iLeft)
-            NewClip.iLeft = OldClip.iLeft;
-
-        // Is button right off the right side of the screen?
-        if (NewClip.iLeft > OldClip.iRight)
-            return;
-
-        if (NewClip.iRight > OldClip.iRight)
-            NewClip.iRight = OldClip.iRight;
-
-        // Is button completely off the left side of the screen?
-        if (NewClip.iRight < OldClip.iLeft)
-            return;
-
-        if (NewClip.iTop < OldClip.iTop)
-            NewClip.iTop = OldClip.iTop;
-
-        // Are we right off the bottom of the screen?
-        if (NewClip.iTop > OldClip.iBottom)
-            return;
-
-        if (NewClip.iBottom > OldClip.iBottom)
-            NewClip.iBottom = OldClip.iBottom;
-
-        // Are we off the top?
-        if (NewClip.iBottom < OldClip.iTop)
-            return;
-
-        // Did we clip the viewable area out of existance?
-        if ((NewClip.iRight <= NewClip.iLeft) || (NewClip.iBottom <= NewClip.iTop))
+        if (!SDL_GetRectIntersection(&NewClip, &OldClip, &NewClip))
             return;
 
         // Get the width and height of the icon itself
@@ -1767,7 +1729,7 @@ void DrawIconOnButton(GUI_BUTTON* b)
 void DrawTextOnButton(GUI_BUTTON* b)
 {
     INT32 xp, yp, width, height, TextX, TextY;
-    SGPRect NewClip, OldClip;
+    SDL_Rect NewClip, OldClip;
 
     // If this button actually has a string to print
     if (b->string) {
@@ -1776,54 +1738,20 @@ void DrawTextOnButton(GUI_BUTTON* b)
         height = b->Area.RegionBottomRightY - b->Area.RegionTopLeftY;
 
         // Compute the viewable area on this button
-        NewClip.iLeft = b->XLoc + 3;
-        NewClip.iRight = b->XLoc + width - 3;
-        NewClip.iTop = b->YLoc + 2;
-        NewClip.iBottom = b->YLoc + height - 2;
+        NewClip = {b->XLoc + 3, b->YLoc + 2, width - 6, height - 4};
 
         // Get the starting coordinates to print
-        TextX = NewClip.iLeft;
-        TextY = NewClip.iTop;
+        TextX = NewClip.x;
+        TextY = NewClip.y;
 
-        // Get the current clipping area
+        // Get the current clipping area and clip the viewable area to it
         GetClippingRect(&OldClip);
-
-        // Clip the button's viewable area to the screen
-        if (NewClip.iLeft < OldClip.iLeft)
-            NewClip.iLeft = OldClip.iLeft;
-
-        // Are we off hte right side?
-        if (NewClip.iLeft > OldClip.iRight)
-            return;
-
-        if (NewClip.iRight > OldClip.iRight)
-            NewClip.iRight = OldClip.iRight;
-
-        // Are we off the left side?
-        if (NewClip.iRight < OldClip.iLeft)
-            return;
-
-        if (NewClip.iTop < OldClip.iTop)
-            NewClip.iTop = OldClip.iTop;
-
-        // Are we off the bottom of the screen?
-        if (NewClip.iTop > OldClip.iBottom)
-            return;
-
-        if (NewClip.iBottom > OldClip.iBottom)
-            NewClip.iBottom = OldClip.iBottom;
-
-        // Are we off the top?
-        if (NewClip.iBottom < OldClip.iTop)
-            return;
-
-        // Did we clip the viewable area out of existance?
-        if ((NewClip.iRight <= NewClip.iLeft) || (NewClip.iBottom <= NewClip.iTop))
+        if (!SDL_GetRectIntersection(&NewClip, &OldClip, &NewClip))
             return;
 
         // Set the font printing settings to the buttons viewable area
-        SetFontDestBuffer(ButtonDestBuffer, NewClip.iLeft, NewClip.iTop, NewClip.iRight,
-                          NewClip.iBottom, FALSE);
+        SetFontDestBuffer(ButtonDestBuffer, NewClip.x, NewClip.y, (NewClip.x + NewClip.w),
+                          (NewClip.y + NewClip.h), FALSE);
 
         // Compute the coordinates to center the text
         if (b->bTextYOffset == -1)
@@ -1836,7 +1764,7 @@ void DrawTextOnButton(GUI_BUTTON* b)
                 xp = TextX + 3;
                 break;
             case BUTTON_TEXT_RIGHT:
-                xp = NewClip.iRight - StringPixLength(b->string.get(), b->usFont) - 3;
+                xp = (NewClip.x + NewClip.w) - StringPixLength(b->string.get(), b->usFont) - 3;
                 break;
             case BUTTON_TEXT_CENTER:
             default:
@@ -1893,7 +1821,7 @@ void DrawGenericButton(GUI_BUTTON* b)
     HVOBJECT BPic;
     UINT32 uiDestPitchBYTES;
     UINT8* pDestBuf;
-    SGPRect ClipRect;
+    SDL_Rect ClipRect;
     ETRLEObject* pTrav;
 
     // Select the graphics to use depending on the current state of the button
@@ -2238,7 +2166,7 @@ void ShowButton(INT32 iButtonNum)
 }
 
 // FUNCTION: WIZ8 0x0040eec0
-BOOLEAN GetButtonArea(INT32 iButtonID, SGPRect* pRect)
+BOOLEAN GetButtonArea(INT32 iButtonID, SDL_Rect* pRect)
 {
     GUI_BUTTON* b;
 
@@ -2252,10 +2180,9 @@ BOOLEAN GetButtonArea(INT32 iButtonID, SGPRect* pRect)
     if ((pRect == nullptr) || (b == nullptr))
         return (FALSE);
 
-    pRect->iLeft = b->Area.RegionTopLeftX;
-    pRect->iTop = b->Area.RegionTopLeftY;
-    pRect->iRight = b->Area.RegionBottomRightX;
-    pRect->iBottom = b->Area.RegionBottomRightY;
+    *pRect = {b->Area.RegionTopLeftX, b->Area.RegionTopLeftY,
+              b->Area.RegionBottomRightX - b->Area.RegionTopLeftX,
+              b->Area.RegionBottomRightY - b->Area.RegionTopLeftY};
 
     return (TRUE);
 }

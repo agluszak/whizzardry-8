@@ -760,7 +760,7 @@ void ShowRegionHelp(unsigned int region_index)
     W8Region* region;
     unsigned int mode;
     wchar_t* text;
-    SGPPoint anchor;
+    SDL_Point anchor;
     int width;
     int height;
 
@@ -788,20 +788,20 @@ void ShowRegionHelp(unsigned int region_index)
     width = g_help_box_width + W8_HELP_MARGIN;
     height = g_help_box_height + W8_HELP_MARGIN;
     SGPMouseGetPos(&anchor);
-    anchor.iY -= height;
-    if (anchor.iX < 0) {
-        anchor.iX = W8_HELP_MARGIN;
+    anchor.y -= height;
+    if (anchor.x < 0) {
+        anchor.x = W8_HELP_MARGIN;
     }
-    if (anchor.iX + width > W8_SCREEN_WIDTH - 1) {
-        anchor.iX = W8_SCREEN_WIDTH - width;
+    if (anchor.x + width > W8_SCREEN_WIDTH - 1) {
+        anchor.x = W8_SCREEN_WIDTH - width;
     }
-    if (anchor.iY < 0) {
-        anchor.iY = W8_HELP_MARGIN;
+    if (anchor.y < 0) {
+        anchor.y = W8_HELP_MARGIN;
     }
-    if (anchor.iY + height > W8_SCREEN_HEIGHT - 1) {
-        anchor.iY = W8_SCREEN_HEIGHT - height;
+    if (anchor.y + height > W8_SCREEN_HEIGHT - 1) {
+        anchor.y = W8_SCREEN_HEIGHT - height;
     }
-    VideoPositionToolTip(anchor.iX, anchor.iY);
+    VideoPositionToolTip(anchor.x, anchor.y);
     region->flags |= W8_REGION_HELP_SHOWN;
 }
 
@@ -1137,7 +1137,7 @@ void SetRegionHelp(unsigned int region_index, bool enabled, int help_text_id)
 // FUNCTION: WIZ8 0x004f2a80
 void ClearHotRegion(void)
 {
-    SGPPoint mouse;
+    SDL_Point mouse;
     InputAtom event;
 
     SGPMouseGetPos(&mouse);
@@ -1145,7 +1145,7 @@ void ClearHotRegion(void)
     event.usKeyState = gfAltState | gfCtrlState | gfShiftState;
     event.usEvent = MOUSE_POS;
     event.uiParam =
-        (static_cast<unsigned int>(mouse.iY) << 16) | (static_cast<unsigned int>(mouse.iX) & 0xffff);
+        (static_cast<unsigned int>(mouse.y) << 16) | (static_cast<unsigned int>(mouse.x) & 0xffff);
 
     if (g_current_region_index != 0) {
         W8Region* region = &g_regions[g_current_region_index];

@@ -10,7 +10,7 @@ bool W8ConfigureGameWindow(SDL_Window* window, bool fullscreen, int width, int h
 srDD* W8CreateNativeRenderDevice();
 /* Fills rect with the game's fixed 640x480 client space; real window scaling
    happens in the SDL input adapters. */
-bool W8VideoGetClientRect(SDL_Window* window, SGPRect* rect);
+bool W8VideoGetClientRect(SDL_Window* window, SDL_Rect* rect);
 unsigned int W8TotalPhysicalMemory();
 bool W8HasEnoughSaveSpace();
 

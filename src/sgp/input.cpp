@@ -21,7 +21,7 @@
 BOOLEAN gfKeyState[256]; // TRUE = Pressed, FALSE = Not Pressed
 // GLOBAL: WIZ8 0x00650db8
 BOOLEAN fCursorWasClipped = FALSE;
-SGPRect gCursorClipRect;
+SDL_Rect gCursorClipRect;
 
 // The gsKeyTranslationTables basically translates scan codes to our own key value table. Please note that the table is 2 bytes
 // wide per entry. This will be used since we will use 2 byte characters for translation purposes.
@@ -156,7 +156,7 @@ unsigned short g_key_remap_5ff51c[14] = {0x0069, 0x0063, 0x0061, 0x0067, 0x0064,
 // FUNCTION: WIZ8 0x00402270
 void KeyChange(UINT32 key, UINT32 flags, UINT8 pressed)
 {
-    SGPPoint point;
+    SDL_Point point;
     unsigned int packed;
     unsigned int code;
 
@@ -168,7 +168,7 @@ void KeyChange(UINT32 key, UINT32 flags, UINT8 pressed)
         key = 0x6c;
     }
     GetGameMousePosition(&point);
-    packed = ((unsigned int)point.iY << 0x10) | ((unsigned int)point.iX & 0xffff);
+    packed = ((unsigned int)point.y << 0x10) | ((unsigned int)point.x & 0xffff);
     code = key & 0xffff;
     if (code >= std::size(gfKeyState))
         return;
@@ -272,10 +272,10 @@ void HandleSingleClicksAndButtonRepeats(void)
     if (gfLeftButtonState) {
         if ((guiLeftButtonRepeatTimer > 0) && (guiLeftButtonRepeatTimer <= uiTimer)) {
             UINT32 uiTmpLParam;
-            SGPPoint MousePos;
+            SDL_Point MousePos;
 
             GetGameMousePosition(&MousePos);
-            uiTmpLParam = ((MousePos.iY << 16) & 0xffff0000) | (MousePos.iX & 0x0000ffff);
+            uiTmpLParam = ((MousePos.y << 16) & 0xffff0000) | (MousePos.x & 0x0000ffff);
             QueueEvent(LEFT_BUTTON_REPEAT, 0, uiTmpLParam);
             guiLeftButtonRepeatTimer = uiTimer + BUTTON_REPEAT_TIME;
         }
@@ -287,10 +287,10 @@ void HandleSingleClicksAndButtonRepeats(void)
     if (gfRightButtonState) {
         if ((guiRightButtonRepeatTimer > 0) && (guiRightButtonRepeatTimer <= uiTimer)) {
             UINT32 uiTmpLParam;
-            SGPPoint MousePos;
+            SDL_Point MousePos;
 
             GetGameMousePosition(&MousePos);
-            uiTmpLParam = ((MousePos.iY << 16) & 0xffff0000) | (MousePos.iX & 0x0000ffff);
+            uiTmpLParam = ((MousePos.y << 16) & 0xffff0000) | (MousePos.x & 0x0000ffff);
             QueueEvent(RIGHT_BUTTON_REPEAT, 0, uiTmpLParam);
             guiRightButtonRepeatTimer = uiTimer + BUTTON_REPEAT_TIME;
         }

@@ -126,12 +126,12 @@ int main()
     CHECK(gusMouseXPos == 320 && gusMouseYPos == 240);
 
     CHECK(WarpGameMouse(window, 123, 321));
-    SGPPoint position;
+    SDL_Point position;
     GetGameMousePosition(&position);
-    CHECK(position.iX == 123 && position.iY == 321);
+    CHECK(position.x == 123 && position.y == 321);
     CHECK(WarpGameMouse(window, -10, 600));
     GetGameMousePosition(&position);
-    CHECK(position.iX == 0 && position.iY == 479);
+    CHECK(position.x == 0 && position.y == 479);
     CHECK(WarpGameMouse(window, 320, 240));
     drain_events();
 
@@ -302,10 +302,10 @@ int main()
     push(resize);
     drain_events();
     CHECK(resizes == 1);
-    SGPPoint point{};
+    SDL_Point point{};
     CHECK(WarpGameMouse(window, 320, 240));
     GetGameMousePosition(&point);
-    CHECK(point.iX == 320 && point.iY == 240);
+    CHECK(point.x == 320 && point.y == 240);
     drain_events();
     input();
 

@@ -476,11 +476,11 @@ unsigned char JournalScreenLeave(int)
 // FUNCTION: WIZ8 0x005be110
 void JournalScreenFrame(void)
 {
-    SGPPoint point;
+    SDL_Point point;
     InputAtom input;
 
     SGPMouseGetPos(&point);
-    UpdateRegionMousePosition(point.iX, point.iY);
+    UpdateRegionMousePosition(point.x, point.y);
     while (DequeueEvent(&input) == 1) {
         if (!DispatchRegionInput(&input) && input.usEvent == KEY_DOWN) {
             if (input.usParam == VK_ESCAPE) {

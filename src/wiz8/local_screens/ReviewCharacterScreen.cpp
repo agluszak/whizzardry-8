@@ -545,8 +545,8 @@ void DrawCampCharacterInfo(void)
     int realm;
     int top;
     unsigned int filled;
-    SGPRect clip;
-    SGPRect previous_clip;
+    SDL_Rect clip;
+    SDL_Rect previous_clip;
 
     if (state->info_page != W8_CAMP_INFO_PAGE_ITEMS) {
         state->character_info->Invalidate(0);
@@ -563,10 +563,7 @@ void DrawCampCharacterInfo(void)
         }
         if (filled != 0) {
             GetClippingRect(&previous_clip);
-            clip.iLeft = 0x1c0;
-            clip.iTop = 0;
-            clip.iRight = 0x1c0 + filled;
-            clip.iBottom = 0x1e0;
+            clip = {0x1c0, 0, static_cast<int>(filled), 0x1e0};
             SetClippingRect(&clip);
             DrawCatalogImageAndInvalidate(FRAME_BUFFER, 0x11d, 0, 0, 0x1c0, 0x26,
                                           VO_BLT_SRCTRANSPARENCY, 0);
@@ -1406,9 +1403,9 @@ void CampScreenFrame(void)
         !gXStatus.fCombatMode && !IsScreenTransitionPending()) {
         RefreshLevelUpReadyNotices();
     }
-    SGPPoint point;
+    SDL_Point point;
     SGPMouseGetPos(&point);
-    g_camp_screen->hover_region = UpdateRegionMousePosition(point.iX, point.iY);
+    g_camp_screen->hover_region = UpdateRegionMousePosition(point.x, point.y);
     InputAtom input;
     while (DequeueEvent(&input) == 1) {
         if (!DispatchRegionInput(&input) && input.usEvent == KEY_DOWN) {

@@ -51,7 +51,7 @@ CHAR8* VideoGetConfigFile(void);
 void VideoSetConfigFile(const CHAR8* path);
 int VideoDumpMemoryLeaks(void);
 BOOLEAN CheckCdPresent(void);
-void VideoGetClientRect(SGPRect* rect);
+void VideoGetClientRect(SDL_Rect* rect);
 void VideoToolTip(CHAR16* text);
 extern INT32 g_help_box_width;
 extern INT32 g_help_box_height;
@@ -68,7 +68,7 @@ static __inline INT32 VideoGetToolTipHeight(void)
 void VideoPositionToolTip(INT32 x, INT32 y);
 void VideoRemoveToolTip(void);
 
-void SGPMouseGetPos(SGPPoint* point);
+void SGPMouseGetPos(SDL_Point* point);
 
 /* Tooltip ownership query: nonzero while a VideoToolTip object is alive. */
 bool HasScreenTransitionObjects(void); /* 0x004297D0 */

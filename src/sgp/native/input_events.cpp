@@ -15,7 +15,7 @@ namespace
 bool restore_pending = false;
 SDL_Window* input_window = nullptr;
 SDL_Keymod current_modifiers = SDL_KMOD_NONE;
-SGPPoint mouse_position{};
+SDL_Point mouse_position{};
 bool focused = false;
 float wheel_remainder = 0;
 
@@ -33,14 +33,14 @@ void set_mouse_position(float x, float y)
     int width = 0, height = 0;
     if (!SDL_GetWindowSize(input_window, &width, &height) || width <= 0 || height <= 0)
         return;
-    mouse_position.iX = std::clamp(int(std::floor(x * 640 / width)), 0, 639);
-    mouse_position.iY = std::clamp(int(std::floor(y * 480 / height)), 0, 479);
-    gusMouseXPos = mouse_position.iX;
-    gusMouseYPos = mouse_position.iY;
+    mouse_position.x = std::clamp(int(std::floor(x * 640 / width)), 0, 639);
+    mouse_position.y = std::clamp(int(std::floor(y * 480 / height)), 0, 479);
+    gusMouseXPos = mouse_position.x;
+    gusMouseYPos = mouse_position.y;
 }
 UINT32 packed_mouse_position()
 {
-    return (UINT32(mouse_position.iY) << 16) | UINT32(mouse_position.iX);
+    return (UINT32(mouse_position.y) << 16) | UINT32(mouse_position.x);
 }
 void set_modifiers(SDL_Keymod value)
 {
@@ -201,26 +201,26 @@ void SetInputWindow(SDL_Window* window)
     focused = window && (SDL_GetWindowFlags(window) & SDL_WINDOW_INPUT_FOCUS);
     mouse_position = {};
 }
-void GetGameMousePosition(SGPPoint* point)
+void GetGameMousePosition(SDL_Point* point)
 {
     if (point)
-        *point = focused ? mouse_position : SGPPoint{};
+        *point = focused ? mouse_position : SDL_Point{};
 }
-bool SetGameCursorRect(const SGPRect* rect)
+bool SetGameCursorRect(const SDL_Rect* rect)
 {
     if (!input_window)
         return false;
     if (!rect)
         return SDL_SetWindowMouseRect(input_window, nullptr);
-    if (!focused || rect->iLeft < 0 || rect->iTop < 0 || rect->iRight <= rect->iLeft ||
-        rect->iBottom <= rect->iTop || rect->iRight > 640 || rect->iBottom > 480)
+    if (!focused || rect->x < 0 || rect->y < 0 || rect->w <= 0 ||
+        rect->h <= 0 || (rect->x + rect->w) > 640 || (rect->y + rect->h) > 480)
         return false;
     int width, height;
     if (!SDL_GetWindowSize(input_window, &width, &height))
         return false;
-    int left = rect->iLeft * width / 640, top = rect->iTop * height / 480;
-    SDL_Rect native{left, top, rect->iRight * width / 640 - left,
-                    rect->iBottom * height / 480 - top};
+    int left = rect->x * width / 640, top = rect->y * height / 480;
+    SDL_Rect native{left, top, (rect->x + rect->w) * width / 640 - left,
+                    (rect->y + rect->h) * height / 480 - top};
     return SDL_SetWindowMouseRect(input_window, &native);
 }
 bool WarpGameMouse(SDL_Window* window, int x, int y)

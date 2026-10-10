@@ -171,11 +171,11 @@ bool W8CharacterSummaryDialog::HandleInputEvent(const InputAtom* input)
 // FUNCTION: WIZ8 0x005e0920
 bool W8CharacterSummaryDialog::ProcessInput()
 {
-    SGPPoint mouse;
+    SDL_Point mouse;
     InputAtom input;
 
     SGPMouseGetPos(&mouse);
-    MSYS_SGP_Mouse_Handler_Hook(MOUSE_POS, mouse.iX, mouse.iY, gfLeftButtonState, gfRightButtonState);
+    MSYS_SGP_Mouse_Handler_Hook(MOUSE_POS, mouse.x, mouse.y, gfLeftButtonState, gfRightButtonState);
     if (!m_voice_started && m_portrait_clock + 750 < w8_get_ticks()) {
         m_voice_started = true;
         W8Character* character = m_use_original_character ? m_character : g_status.buffers.Char;
@@ -187,7 +187,7 @@ bool W8CharacterSummaryDialog::ProcessInput()
             input.usEvent == RIGHT_BUTTON_DOWN) {
             m_keep_open = false;
         }
-        if (!DispatchDialogMouseInput(input.usEvent, mouse.iX, mouse.iY)) {
+        if (!DispatchDialogMouseInput(input.usEvent, mouse.x, mouse.y)) {
             return HandleInputEvent(&input);
         }
     }

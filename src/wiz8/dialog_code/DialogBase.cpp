@@ -222,13 +222,13 @@ void W8DialogBase::DestroyControls()
 // FUNCTION: WIZ8 0x005dcce0
 bool W8DialogBase::ProcessInput()
 {
-    SGPPoint mouse;
+    SDL_Point mouse;
     InputAtom input;
 
     SGPMouseGetPos(&mouse);
-    MSYS_SGP_Mouse_Handler_Hook(MOUSE_POS, mouse.iX, mouse.iY, gfLeftButtonState, gfRightButtonState);
+    MSYS_SGP_Mouse_Handler_Hook(MOUSE_POS, mouse.x, mouse.y, gfLeftButtonState, gfRightButtonState);
     while (DequeueEvent(&input)) {
-        if (DispatchDialogMouseInput(input.usEvent, mouse.iX, mouse.iY)) {
+        if (DispatchDialogMouseInput(input.usEvent, mouse.x, mouse.y)) {
             if (input.usEvent == RIGHT_BUTTON_DOWN) {
                 OnRightButtonDown();
             } else if (input.usEvent == RIGHT_BUTTON_UP) {

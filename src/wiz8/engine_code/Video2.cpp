@@ -1530,28 +1530,28 @@ void GetCursorScaledPosition(srVector3T<float>* position)
 // FUNCTION: WIZ8 0x00428340
 void SyncSystemCursor(void)
 {
-    SGPPoint cursor;
+    SDL_Point cursor;
 
     GetGameMousePosition(&cursor);
     if (!g_fullscreen) {
         /* GetGameMousePosition already returns design-space coordinates. */
-        if (cursor.iX != g_cursor_width || cursor.iY != g_cursor_height) {
-            PositionMouseCursor(cursor.iX, cursor.iY, true);
+        if (cursor.x != g_cursor_width || cursor.y != g_cursor_height) {
+            PositionMouseCursor(cursor.x, cursor.y, true);
         }
         return;
     }
 
-    if (cursor.iX < 1)
-        cursor.iX = 0;
-    else if (cursor.iX >= 640)
-        cursor.iX = 640;
-    if (cursor.iY < 1)
-        cursor.iY = 0;
-    else if (cursor.iY >= 480)
-        cursor.iY = 480;
-    if (cursor.iX != g_cursor_width || cursor.iY != g_cursor_height) {
-        PositionMouseCursor(cursor.iX, cursor.iY, true);
-        WarpGameMouse(ghWindow, cursor.iX, cursor.iY);
+    if (cursor.x < 1)
+        cursor.x = 0;
+    else if (cursor.x >= 640)
+        cursor.x = 640;
+    if (cursor.y < 1)
+        cursor.y = 0;
+    else if (cursor.y >= 480)
+        cursor.y = 480;
+    if (cursor.x != g_cursor_width || cursor.y != g_cursor_height) {
+        PositionMouseCursor(cursor.x, cursor.y, true);
+        WarpGameMouse(ghWindow, cursor.x, cursor.y);
     }
 }
 
@@ -1559,22 +1559,22 @@ void SyncSystemCursor(void)
    refresh that recomputes them. Fifty callers reach this; what the two pairs
    mean is not established beyond the sum, so both keep address-qualified names. */
 // FUNCTION: WIZ8 0x004284f0
-void SGPMouseGetPos(SGPPoint* point)
+void SGPMouseGetPos(SDL_Point* point)
 {
     if (point != 0) {
         SyncSystemCursor();
-        point->iX = g_cursor_hotspot_x + g_cursor_width;
-        point->iY = g_cursor_hotspot_y + g_cursor_height;
+        point->x = g_cursor_hotspot_x + g_cursor_width;
+        point->y = g_cursor_hotspot_y + g_cursor_height;
     }
 }
 
 // FUNCTION: WIZ8 0x00428520
 bool IsCursorInRectangle(int left, int top, int right, int bottom)
 {
-    SGPPoint point;
+    SDL_Point point;
 
     SGPMouseGetPos(&point);
-    return point.iX >= left && point.iX <= right && point.iY >= top && point.iY <= bottom;
+    return point.x >= left && point.x <= right && point.y >= top && point.y <= bottom;
 }
 
 /* The atom's packed mouse position plus the cursor hotspot, split into the
@@ -2223,7 +2223,8 @@ void ClearSurfaceRect(int left, unsigned int top, int right, unsigned int bottom
 {
     if (top >= bottom || left >= right)
         return;
-    const SGPRect rectangle{left, static_cast<INT32>(top), right, static_cast<INT32>(bottom)};
+    const SDL_Rect rectangle{left, static_cast<INT32>(top), right - left,
+                             static_cast<INT32>(bottom - top)};
     FillCpuSurface(*g_primary_surface, 0, &rectangle);
 }
 
@@ -2419,7 +2420,7 @@ BOOLEAN CheckCdPresent(void)
 }
 
 // FUNCTION: WIZ8 0x00427a70
-void VideoGetClientRect(SGPRect* rect)
+void VideoGetClientRect(SDL_Rect* rect)
 {
     *rect = {0, 0, 640, 480};
 }
