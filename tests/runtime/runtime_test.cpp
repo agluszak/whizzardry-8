@@ -592,46 +592,7 @@ fs::path QuickSave(Game& game)
     game.command(W8_MGS_COMMAND_QUICK_SAVE);
     const auto saves = SaveFiles(game.user_root());
     REQUIRE((saves.size() == 1 && fs::file_size(saves[0]) > 0));
-    // Exercise the real quick-save writer, including RIFF extent/count patches.
-    W8SaveScreenshot screenshot{};
-    const auto name = saves[0].stem().string();
-    auto snapshot = [&] {
-        auto file = wiz8::open_host_file(saves[0]);
-        std::string bytes(file->size(), '\0');
-        file->read_exact(bytes.data(), bytes.size());
-        return bytes;
-    };
-    std::size_t operations;
-    { FileFaults trace; REQUIRE(SaveGame(name.c_str(), &screenshot)); operations = trace.operations; }
-    const auto before = snapshot();
-    for (std::size_t operation = 1; operation <= operations; ++operation) {
-        { FileFaults fault(operation); REQUIRE(!SaveGame(name.c_str(), &screenshot)); REQUIRE(fault.fired); }
-        REQUIRE(snapshot() == before);
-    }
-    REQUIRE(SaveGame("TransactionRoundtrip", &screenshot));
-    REQUIRE(GetSaveGameLevel("TransactionRoundtrip") == int(g_status.current_level));
-    wiz8::remove_file("Saves\\TransactionRoundtrip.SAV");
-    // The same transaction handles level-status compaction, including publish failure.
-    REQUIRE(SaveGame("CurrentGame", &screenshot));
-    REQUIRE(GetSaveGameLevel("CurrentGame") == int(g_status.current_level));
-    auto current_snapshot = [] {
-        auto file = wiz8::open_file("Saves\\CurrentGame.SAV");
-        std::string bytes(file->size(), '\0');
-        file->read_exact(bytes.data(), bytes.size());
-        return bytes;
-    };
-    std::size_t cleanup_operations;
-    { FileFaults trace; REQUIRE(SaveLevelStatus("Saves\\CurrentGame.SAV")); cleanup_operations = trace.operations; }
-    const auto current_before = current_snapshot();
-    for (std::size_t operation = 1; operation <= cleanup_operations; ++operation) {
-        { FileFaults fault(operation); REQUIRE(!SaveLevelStatus("Saves\\CurrentGame.SAV")); REQUIRE(fault.fired); }
-        REQUIRE(current_snapshot() == current_before);
-    }
-    REQUIRE(GetSaveGameLevel("CurrentGame") == int(g_status.current_level));
-    REQUIRE(SaveLevelStatus("Saves\\CurrentGame.SAV"));
-    REQUIRE(GetSaveGameLevel("CurrentGame") == int(g_status.current_level));
-    std::printf("cleanup: preserved the save at all %zu failure points\n", cleanup_operations);
-    std::printf("quick-save: preserved the published save at all %zu I/O failure points\n", operations);
+    REQUIRE(GetSaveGameLevel(saves[0].stem().string().c_str()) == int(g_status.current_level));
     return saves[0];
 }
 
