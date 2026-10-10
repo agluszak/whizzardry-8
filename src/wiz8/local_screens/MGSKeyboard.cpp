@@ -175,7 +175,8 @@ try
         }
         auto* borrowed = binding.get();
         m_bindings.push_back(std::move(binding));
-        m_command_index.emplace(borrowed->command, borrowed);
+        // Copy the packed disk field before unordered_map binds its arguments.
+        m_command_index.emplace(static_cast<unsigned int>(borrowed->command), borrowed);
     }
     return 1;
 }
