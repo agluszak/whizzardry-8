@@ -9,6 +9,7 @@
 #include "surrender/srMemoryAllocator.h"
 #include "surrender/srModeler.h"
 #include "surrender/srQuadWord.h"
+#include "surrender/srScene.h"
 #include "surrender/srTextureFile.h"
 #include "surrender/srVP_generic.h"
 #include <cfenv>
@@ -39,10 +40,12 @@ static void assertion(const char* expression, const char* path, w8_long line, co
     }
     ++assertions;
 }
+static int destroyed_nodes = 0;
 struct ClientNode : srNode
 {
     ~ClientNode() override
     {
+        ++destroyed_nodes;
     }
 };
 struct ClientMaterial : srMaterial
@@ -123,6 +126,14 @@ int main()
     srAssertSetFunc(assertion);
     CHECK(srInit());
     {
+        const int before_destruction = destroyed_nodes;
+        srScene* scene = new srClientSupport<srScene, 0x1010>;
+        auto child = new ClientNode;
+        child->setParent(scene, 0);
+        CHECK(scene->getChildCount() == 1);
+        delete scene;
+        CHECK(destroyed_nodes == before_destruction + 1);
+
         struct alignas(16) PackedVectors
         {
             char padding;
