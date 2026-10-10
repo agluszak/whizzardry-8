@@ -29,7 +29,7 @@ public:
                          W8DialogBase* dialog, W8DialogButton* button);
     void SetValue(int value);
     void SetActive(bool active);
-    void SetActive(bool active, const SGPPoint* point);
+    void SetActive(bool active, const SDL_Point* point);
     void Draw(bool force);
     bool HandleInput(const InputAtom* input);
 

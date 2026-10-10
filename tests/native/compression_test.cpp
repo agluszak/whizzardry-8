@@ -29,7 +29,7 @@ try
     image.pui16BPPPalette = std::make_unique<UINT16[]>(256);
     for (unsigned i = 0; i < 256; ++i)
         image.pui16BPPPalette[i] = 0x8000 | i;
-    const SGPRect rect{3, 2, 13, 7};
+    const SDL_Rect rect{3, 2, 10, 5};
     std::array<UINT8, 200> destination8;
     std::array<UINT8, 401> destination16;
     auto output16 = std::span(destination16).subspan(1);
@@ -66,7 +66,7 @@ try
     CHECK(!CopyImageToBuffer(image, BUFFER_16BPP, output16.first(10), 20, 10, 1, 1, rect));
     CHECK(!CopyImageToBuffer(image, BUFFER_16BPP, output16, 20, 10, 19, 1, rect));
     CHECK(!CopyImageToBuffer(image, BUFFER_16BPP, output16, 20, 10, 1, 9, rect));
-    CHECK(!CopyImageToBuffer(image, BUFFER_16BPP, output16, 20, 10, 1, 1, {-1, 2, 3, 7}));
+    CHECK(!CopyImageToBuffer(image, BUFFER_16BPP, output16, 20, 10, 1, 1, {-1, 2, 4, 5}));
     CHECK(!CopyImageToBuffer(image, BUFFER_16BPP, output16, 20, 10, 1, 1, {0, 0, 501, 1}));
     image.pImageData = original;
     --image.usHeight;

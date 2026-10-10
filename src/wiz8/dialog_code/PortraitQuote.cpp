@@ -476,7 +476,7 @@ int LayoutPortraitQuoteBubble(int quote_handle, unsigned char background_index,
     UINT32 source_pitch;
     HVOBJECT object;
     HVSURFACE source_surface;
-    SGPRect rect;
+    SDL_Rect rect;
 
     if (static_cast<unsigned short>(max_width) >= 0x280) {
         return -1;
@@ -587,14 +587,11 @@ int LayoutPortraitQuoteBubble(int quote_handle, unsigned char background_index,
         bubble->created = true;
         bubble->width = static_cast<unsigned short>(max_width);
         bubble->height = static_cast<unsigned short>(height);
-        rect.iLeft = 0;
-        rect.iTop = 0;
         width_px = max_width & 0xffff;
         height_px = height & 0xffff;
         *out_width = static_cast<unsigned short>(max_width);
         *out_height = static_cast<unsigned short>(height);
-        rect.iRight = width_px;
-        rect.iBottom = height_px;
+        rect = {0, 0, width_px, height_px};
         if (bubble->flags & QUOTE_BUBBLE_FLAT_BACKGROUND) {
             SetVideoSurfaceTransparency(bubble->surface, 0xffff);
             pixels = reinterpret_cast<UINT16*>( // reinterpret-ok: raw locked pixel memory

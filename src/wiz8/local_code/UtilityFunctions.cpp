@@ -317,13 +317,13 @@ void UnionScreenRects(const W8ScreenRect* first, const W8ScreenRect* second, W8S
 }
 
 // FUNCTION: WIZ8 0x00517e70
-bool ScreenPointInRect(const W8ScreenRect* rect, const SGPPoint* point)
+bool ScreenPointInRect(const W8ScreenRect* rect, const SDL_Point* point)
 {
-    if (rect != 0 && point != 0 && point->iX >= rect->left && point->iX < rect->right &&
-        point->iY >= rect->top && point->iY < rect->bottom) {
-        return true;
-    }
-    return false;
+    if (rect == nullptr || point == nullptr)
+        return false;
+    const SDL_Rect bounds{rect->left, rect->top, rect->right - rect->left,
+                        rect->bottom - rect->top};
+    return SDL_PointInRect(point, &bounds);
 }
 
 // FUNCTION: WIZ8 0x00517ea0
@@ -592,7 +592,7 @@ void FreeStringTable(void)
 bool CreateMessageBox(wchar_t* text, int font, unsigned int shade, bool has_accept, bool has_cancel,
                       void (*callback)(void))
 {
-    SGPRect rect;
+    SDL_Rect rect;
     char filename[32];
     if (g_message_box_state != 0) {
         return false;
@@ -656,13 +656,13 @@ bool CreateMessageBox(wchar_t* text, int font, unsigned int shade, bool has_acce
     g_message_box_state = 2;
     g_message_box_callback = callback;
     GetButtonArea(g_message_box_background_button, &rect);
-    InvalidateRegion(rect.iLeft, rect.iTop, rect.iRight, rect.iBottom, 0x11);
+    InvalidateRegion(rect.x, rect.y, (rect.x + rect.w), (rect.y + rect.h), 0x11);
     return true;
 }
 
 static void ReleaseMessageBoxControls()
 {
-    SGPRect rect;
+    SDL_Rect rect;
     if (g_message_box_accept_button != -1) {
         RemoveButton(g_message_box_accept_button);
         UnloadButtonImage(g_message_box_accept_image);
@@ -673,8 +673,8 @@ static void ReleaseMessageBoxControls()
     }
     if (g_message_box_background_button != -1) {
         GetButtonArea(g_message_box_background_button, &rect);
-        ClearSurfaceRect(rect.iLeft, rect.iTop, rect.iRight, rect.iBottom);
-        InvalidateRegion(rect.iLeft, rect.iTop, rect.iRight, rect.iBottom, 1);
+        ClearSurfaceRect(rect.x, rect.y, (rect.x + rect.w), (rect.y + rect.h));
+        InvalidateRegion(rect.x, rect.y, (rect.x + rect.w), (rect.y + rect.h), 1);
         RemoveButton(g_message_box_background_button);
     }
     if (g_message_box_background_image != -1) {
@@ -700,9 +700,9 @@ void CloseMessageBox(void)
 void MessageBoxAcceptMoveCallback(GUI_BUTTON* button, INT32 reason)
 {
     if (reason & (MSYS_CALLBACK_REASON_GAIN_MOUSE | MSYS_CALLBACK_REASON_LOST_MOUSE)) {
-        SGPRect rect;
+        SDL_Rect rect;
         GetButtonArea(g_message_box_accept_button, &rect);
-        InvalidateRegion(rect.iLeft, rect.iTop, rect.iRight, rect.iBottom, 1);
+        InvalidateRegion(rect.x, rect.y, (rect.x + rect.w), (rect.y + rect.h), 1);
     }
 }
 
@@ -723,9 +723,9 @@ void MessageBoxAcceptClickCallback(GUI_BUTTON* button, INT32 reason)
 void MessageBoxCancelMoveCallback(GUI_BUTTON* button, INT32 reason)
 {
     if (reason & (MSYS_CALLBACK_REASON_GAIN_MOUSE | MSYS_CALLBACK_REASON_LOST_MOUSE)) {
-        SGPRect rect;
+        SDL_Rect rect;
         GetButtonArea(g_message_box_cancel_button, &rect);
-        InvalidateRegion(rect.iLeft, rect.iTop, rect.iRight, rect.iBottom, 1);
+        InvalidateRegion(rect.x, rect.y, (rect.x + rect.w), (rect.y + rect.h), 1);
     }
 }
 
@@ -783,17 +783,17 @@ void RenderMessageBox(void)
 // FUNCTION: WIZ8 0x00518b30
 void ProcessMessageBoxInput(void)
 {
-    SGPPoint point;
+    SDL_Point point;
     InputAtom input;
     SGPMouseGetPos(&point);
-    MSYS_SGP_Mouse_Handler_Hook(MOUSE_POS, point.iX, point.iY, gfLeftButtonState, gfRightButtonState);
+    MSYS_SGP_Mouse_Handler_Hook(MOUSE_POS, point.x, point.y, gfLeftButtonState, gfRightButtonState);
     while (DequeueEvent(&input) == 1) {
         switch (input.usEvent) {
         case LEFT_BUTTON_DOWN:
         case LEFT_BUTTON_UP:
         case RIGHT_BUTTON_DOWN:
         case RIGHT_BUTTON_UP:
-            MSYS_SGP_Mouse_Handler_Hook(input.usEvent, point.iX, point.iY, gfLeftButtonState,
+            MSYS_SGP_Mouse_Handler_Hook(input.usEvent, point.x, point.y, gfLeftButtonState,
                                         gfRightButtonState);
             break;
         case KEY_DOWN:

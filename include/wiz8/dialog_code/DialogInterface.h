@@ -32,19 +32,19 @@ template <class Dialog, class Field>
 void ProcessNumericDialogInputEvents(Dialog* dialog, Field*& active_field,
                                      bool (Dialog::*handle_event)(const InputAtom*))
 {
-    SGPPoint mouse;
+    SDL_Point mouse;
     InputAtom input;
 
     SGPMouseGetPos(&mouse);
-    MSYS_SGP_Mouse_Handler_Hook(MOUSE_POS, mouse.iX, mouse.iY, gfLeftButtonState, gfRightButtonState);
+    MSYS_SGP_Mouse_Handler_Hook(MOUSE_POS, mouse.x, mouse.y, gfLeftButtonState, gfRightButtonState);
     while (DequeueEvent(&input) == 1) {
         if (input.usEvent == LEFT_BUTTON_UP && active_field != 0) {
             active_field->SetActive(false);
         }
         if (input.usEvent == LEFT_BUTTON_REPEAT || input.usEvent == RIGHT_BUTTON_REPEAT) {
-            MSYS_SGP_Mouse_Handler_Hook(input.usEvent, mouse.iX, mouse.iY, gfLeftButtonState,
+            MSYS_SGP_Mouse_Handler_Hook(input.usEvent, mouse.x, mouse.y, gfLeftButtonState,
                                         gfRightButtonState);
-        } else if (!DispatchDialogMouseInput(input.usEvent, mouse.iX, mouse.iY)) {
+        } else if (!DispatchDialogMouseInput(input.usEvent, mouse.x, mouse.y)) {
             (dialog->*handle_event)(&input);
         }
     }

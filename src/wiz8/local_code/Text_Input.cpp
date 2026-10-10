@@ -1205,11 +1205,11 @@ void RenderInactiveTextFieldNode(TEXTINPUTNODE* field)
     RestoreFontSettings();
 
     if (disabled) {
-        SGPRect rectangle = {
+        SDL_Rect rectangle = {
             field->region.RegionTopLeftX,
             field->region.RegionTopLeftY,
-            field->region.RegionBottomRightX,
-            field->region.RegionBottomRightY,
+            field->region.RegionBottomRightX - field->region.RegionTopLeftX,
+            field->region.RegionBottomRightY - field->region.RegionTopLeftY,
         };
         unsigned int pitch;
         void* pixels = LockVideoSurface(FRAME_BUFFER, &pitch);
