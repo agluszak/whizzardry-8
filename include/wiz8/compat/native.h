@@ -121,6 +121,7 @@ int w8_vswprintf(wchar_t* buffer, const wchar_t* format, va_list arguments);
 #define S_ISDIR(mode) (((mode) & _S_IFMT) == _S_IFDIR)
 #endif
 
+#ifdef __cplusplus
 #define wcslen w8_wcslen
 #define wcscpy w8_wcscpy
 #define wcsncpy w8_wcsncpy
@@ -141,3 +142,4 @@ int w8_vswprintf(wchar_t* buffer, const wchar_t* format, va_list arguments);
 #define wcstombs w8_wcstombs
 #define swprintf w8_swprintf
 #define vswprintf w8_vswprintf
+#endif
