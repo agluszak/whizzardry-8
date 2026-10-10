@@ -1,9 +1,21 @@
 #include <fmt/format.h>
 #include <glm/gtc/quaternion.hpp>
+#include <glm/ext/quaternion_common.hpp>
+#include <glm/ext/quaternion_geometric.hpp>
+#include <glm/ext/scalar_constants.hpp>
+#include <glm/glm.hpp>
+#include <vector>
+#include <algorithm>
+#include <cmath>
+#include <cstdlib>
+#include <cstring>
+#include <exception>
+#include <memory>
+#include <string>
+
 #include "wiz8/engine_code/AnimRep.hpp"
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/engine_code/GDProp.h"
-#include "wiz8/engine_code/GDCamera.h"
 #include "wiz8/engine_code/GrObject.h"
 #include "wiz8/engine_code/Prop.h"
 #include "wiz8/float_constants.h"
@@ -12,11 +24,6 @@
 #include "wiz8/sr_api.h"
 #include "wiz8/engine_code/World.h"
 #include "wiz8/engine_code/Navigator.h"
-#include <vector>
-#include <algorithm>
-
-#include <string.h>
-
 #include "wiz8/engine_code/3d.h"
 #include "wiz8/engine_code/AniMesh.h"
 #include "wiz8/engine_code/Missile.h"
@@ -25,24 +32,18 @@
 #include "wiz8/engine_code/stModelInstance.h"
 #include "wiz8/engine_code/Trigger.hpp"
 #include "wiz8/engine_code/stMeshModel.h"
-#include "wiz8/utility.h"
-#include "wiz8/virtual_file.h"
 #include "wiz8/xstatus.h"
 #include "surrender/srCamera.h"
 #include "surrender/srModelInstance.h"
 #include "surrender/srNode.h"
-
 #include "wiz8/filesystem.h"
-
-
-#include <math.h>
-#include <new>
-#include <stdlib.h>
 #include "wiz8/engine_code/GameData.h"
-#include "wiz8/geometry.h"
 #include "wiz8/local_code/Configuration.h"
-#include "wiz8/local_screens/MainGameScreen.h"
 #include "random.h"
+#include "application.h"
+#include "compat/native.h"
+#include "layouts/world.h"
+#include "surrender/srModel.h"
 
 /* Reset before the world Prop update; set when a Prop whose animation
    behaviour is 1 rebuilds its pathing geometry.  GameData keeps the world

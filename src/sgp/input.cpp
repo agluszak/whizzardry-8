@@ -1,20 +1,23 @@
 #include <utf8proc.h>
+#include <SDL3/SDL_rect.h>
+#include <SDL3/SDL_video.h>
 #include <string_view>
+#include <algorithm>
+#include <queue>
+#include <iterator>
+#include <cstddef>
+
 /* Modified for the Wizardry 8 reconstruction: 2026-10-03, 2026-10-04, 2026-10-06, 2026-10-07, 2026-10-09.
    Distributed under the accompanying SFI Source Code license agreement. */
 #include "Types.h"
 #include "native/input_events.h"
-#include <algorithm>
-#include <queue>
-#include <iterator>
 #include "input.h"
 #include "english.h"
 #include "Video2.h"
+#include "compat/native.h"
 
 // Make sure to refer to the translation table which is within one of the following files (depending
 // on the language used). ENGLISH.C, JAPANESE.C, FRENCH.C, GERMAN.C, SPANISH.C, etc...
-
-#include "wiz8/application.h"
 
 // The gfKeyState table is used to track which of the keys is up or down at any one time. This is used while polling
 // the interface.

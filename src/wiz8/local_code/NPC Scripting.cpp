@@ -1,44 +1,35 @@
+#include <fmt/chrono.h> // IWYU pragma: keep - std::tm formatter specialization.
 #include <fmt/format.h>
 #include <fmt/printf.h>
-#include <fmt/chrono.h>
-#include "wiz8/unicode.h"
-#include "wiz8/unicode.h"
 #include <string_view>
-#include "wiz8/utility.h"
+#include <vector>
+#include <ctime>
+#include <memory>
+#include <string>
+#include <cstdint>
+#include <cstring>
+#include <exception>
+#include <utility>
+
+#include "wiz8/unicode.h"
 #include "wiz8/containers.h"
 #include "wiz8/engine_code/AnimRep.hpp"
 #include "wiz8/conditions.h"
 #include "wiz8/monster_cycles.h"
 #include "wiz8/fonts.h"
-#include "wiz8/cursor.h"
-#include "wiz8/bink_video.h"
 #include "wiz8/integer_constants.h"
-
 #include "cursor.h"
 #include "input.h"
 #include "random.h"
 #include "soundman.h"
-
 #include "wiz8/layouts/character.h"
 #include "wiz8/character_skills.h"
 #include "wiz8/fact_state.h"
-#include "wiz8/local_code/CharGeneration.h"
-#include "wiz8/local_code/Combat.h"
-#include "wiz8/local_code/CombatAttack.h"
 #include "wiz8/local_code/ConditionsAndEnchantments.h"
 #include "wiz8/local_code/GameplayCode.h"
-#include "wiz8/local_code/GameplayMods.h"
-#include "wiz8/local_code/HealthStaminaMana.h"
-#include "wiz8/local_code/Magic.h"
-#include "wiz8/local_code/MagicEffects.h"
-#include "wiz8/local_code/party_encumbrance.h"
 #include "wiz8/local_code/PC_Item.h"
-#include "wiz8/local_code/UtilityFunctions.h"
 #include "wiz8/layouts/combat_state.h"
-#include "wiz8/local_code/CombatRange.h"
 #include "wiz8/local_code/Gameloop.h"
-#include <vector>
-#include <algorithm>
 #include "wiz8/engine_code/GameData.h"
 #include "wiz8/engine_code/Camera.h"
 #include "wiz8/engine_code/Environment.h"
@@ -49,7 +40,6 @@
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/local_code/NPCScripting.h"
 #include "wiz8/dialog_code/DialogInterface.h"
-#include "wiz8/dialog_code/NpcDialog.h"
 #include "wiz8/local_code/NPCManager.h"
 #include "wiz8/local_code/MonsterGroup.h"
 #include "wiz8/local_code/CombatHostility.h"
@@ -61,21 +51,15 @@
 #include "wiz8/local_screens/MGSTextBox.h"
 #include "wiz8/local_screens/Screens.h"
 #include "wiz8/local_screens/IntroScreen.h"
-#include "wiz8/local_screens/CharacterScreen.h"
 #include "wiz8/local_screens/ReviewCharacterScreen.h"
 #include "wiz8/level_specific_code/MasterFunctionList.h"
 #include "wiz8/level_specific_code/Ascension.h"
 #include "wiz8/message_box.h"
-#include "wiz8/engine_code/Spells.h"
-#include "wiz8/notices.h"
 #include "wiz8/location_variables.h"
 #include "wiz8/npc_interaction.h"
 #include "wiz8/npc_script_file.h"
 #include "wiz8/filesystem.h"
 #include "wiz8/file_time.h"
-#include <ctime>
-#include <memory>
-#include <string>
 #include "wiz8/layouts/npc_state.h"
 #include "wiz8/layouts/gameplay_databases.h"
 #include "wiz8/character_event_queue.h"
@@ -83,11 +67,20 @@
 #include "wiz8/local_code/Targeting.h"
 #include "wiz8/xstatus.h"
 #include "wiz8/sr_api.h"
+#include "Types.h"
+#include "compat/native.h"
+#include "compat/ptr32.h"
+#include "layouts/item_instance.h"
+#include "layouts/npc_dialogue.h"
+#include "layouts/screen_state.h"
+#include "layouts/targeting.h"
+#include "local_code/Factions.h"
+#include "local_code/MonsterManager.h"
+#include "monster_actions.h"
+#include "mouth_gap.h"
+#include "surrender/srMath.h"
 
-#include "wiz8/filesystem.h"
-
-#include <stdio.h>
-#include <string.h>
+class W8DialogBase;
 
 struct W8NpcScriptRegionName {
     std::string name;

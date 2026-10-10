@@ -1,5 +1,6 @@
-#include <vector>
 #pragma once
+
+#include <vector>
 
 /* Local Code\GroupAttacks.cpp. The pair resolves a monster group's special
    attack: one kind-table driven pass over the character targets and monster
@@ -7,7 +8,7 @@
 
 struct W8TargetSource;
 struct W8CombatSlot;
-template <class T> class srVector3T;
+
 /* Resolve one special-attack entry against every character and monster target.
    Its two effect slots each roll against a per-target miss chance and dispatch
    on the effect style; the hit/damage tallies are summarized to the text box

@@ -1,11 +1,15 @@
 #include <fmt/format.h>
+#include <glm/glm.hpp>
 #include <string>
+#include <cstring>
+#include <memory>
+#include <vector>
+
 #include "wiz8/dialog_code/MonsterInfoDialog.h"
 #include "wiz8/dialog_code/SpellInfoDialog.h"
 #include "wiz8/engine_code/Monster.h"
 #include "wiz8/engine_code/Navigator.h"
 #include "wiz8/engine_code/OctBuildPreTree.h"
-#include "wiz8/engine_code/Video2.h"
 #include "wiz8/engine_code/stCube.h"
 #include "wiz8/engine_code/stScript.h"
 #include "wiz8/float_constants.h"
@@ -22,16 +26,23 @@
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_code/NPCManager.h"
 #include "wiz8/local_code/Strings.h"
-#include "wiz8/local_screens/CharacterScreen.h"
-#include "wiz8/local_screens/JournalScreen.h"
-#include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/regions.h"
 #include "wiz8/startup_world.h"
 #include "wiz8/utility.h"
-#include "wiz8/video_object_catalog.h"
 #include "Font.h"
-
-#include <string.h>
+#include "Types.h"
+#include "character_skills.h"
+#include "compat/ptr32.h"
+#include "conditions.h"
+#include "dialog_code/DialogBase.h"
+#include "dialog_code/DialogButton.h"
+#include "dialog_code/DialogScrollBar.h"
+#include "dialog_code/DialogTextArea.h"
+#include "gameplay_modifiers.h"
+#include "layouts/character.h"
+#include "local_code/Factions.h"
+#include "monster_actions.h"
+#include "surrender/srMath.h"
 
 // STRING: WIZ8 0x0064F6B0
 #define MONSTER_INFO_DIALOG_CPP "C:\\Projects\\Wizardry 8\\Dialog Code\\MonsterInfoDialog.cpp"

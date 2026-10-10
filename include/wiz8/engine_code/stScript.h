@@ -3,6 +3,7 @@
 #include <vector>
 #include <string>
 #include <string_view>
+#include <utility>
 
 struct stScriptLine {
     std::string text;

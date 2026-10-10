@@ -1,4 +1,8 @@
 #include <string_view>
+#include <cstring>
+#include <memory>
+#include <vector>
+
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/local_code/MonsterManager.h"
@@ -12,22 +16,22 @@
 #include "wiz8/local_screens/MGSPortraits.h"
 #include "wiz8/local_screens/MGSTextBox.h"
 #include "wiz8/local_screens/RCSCommon.h"
-#include "wiz8/notices.h"
 #include "wiz8/xstatus.h"
 #include "wiz8/cursor.h"
 #include "wiz8/item_video_object_vector.h"
 #include "wiz8/video_object_catalog.h"
 #include "wiz8/dialog_code/DialogBase.h"
 #include "wiz8/dialog_code/DialogTextArea.h"
-#include "wiz8/local_code/Controls.h"
 #include "wiz8/engine_code/stTextureAnim.h"
 #include "wiz8/fonts.h"
 #include "wiz8/regions.h"
 #include "wiz8/sr_api.h"
 #include "wiz8/utility.h"
-#include "timer.h"
-
-#include <string.h>
+#include "Font.h"
+#include "compat/native.h"
+#include "layouts/item_instance.h"
+#include "layouts/main_game_screen.h"
+#include "layouts/targeting.h"
 
 /* Query whether scrolling is possible, or scroll and invalidate the transcript. */
 // FUNCTION: WIZ8 0x0055EBB0

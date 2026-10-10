@@ -1,5 +1,9 @@
 #include "wiz8/local_screens/MGSPartyMovement.h"
 
+#include <SDL3/SDL_rect.h>
+#include <string>
+#include <vector>
+
 #include "timer.h"
 #include "vobject_blitters.h"
 #include "wiz8/engine_code/GameData.h"
@@ -24,6 +28,14 @@
 #include "wiz8/sr_api.h"
 #include "wiz8/video_object_catalog.h"
 #include "wiz8/xstatus.h"
+#include "compat/native.h"
+#include "compat/ptr32.h"
+#include "conditions.h"
+#include "layouts/character.h"
+#include "layouts/main_game_screen.h"
+#include "layouts/targeting.h"
+#include "vobject.h"
+#include "vsurface.h"
 
 #define PARTY_MOVEMENT_CPP "C:\\Projects\\Wizardry 8\\Local Screens\\MGSPartyMovement.cpp"
 

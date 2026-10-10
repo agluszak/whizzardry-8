@@ -1,25 +1,15 @@
-#include "wiz8/containers.h"
+#include <vector>
+
 #include "wiz8/layouts/character.h"
-#include "wiz8/character_skills.h"
-#include "wiz8/local_code/CharGeneration.h"
-#include "wiz8/local_code/Combat.h"
-#include "wiz8/local_code/CombatAttack.h"
-#include "wiz8/local_code/ConditionsAndEnchantments.h"
-#include "wiz8/local_code/GameplayCode.h"
-#include "wiz8/local_code/GameplayMods.h"
-#include "wiz8/local_code/HealthStaminaMana.h"
-#include "wiz8/local_code/Magic.h"
-#include "wiz8/local_code/MagicEffects.h"
-#include "wiz8/local_code/party_encumbrance.h"
-#include "wiz8/local_code/UtilityFunctions.h"
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
-#include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/npc_interaction.h"
-#include "wiz8/layouts/npc_state.h"
 #include "wiz8/local_code/NPCScripting.h"
 #include "wiz8/message_box.h"
 #include "soundman.h"
+#include "compat/ptr32.h"
+#include "conditions.h"
+#include "mouth_gap.h"
 
 // GLOBAL: WIZ8 0x0068C430
 W8NpcScriptingState g_npc_scripting;

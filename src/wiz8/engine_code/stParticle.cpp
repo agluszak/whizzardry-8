@@ -1,8 +1,13 @@
-#include "surrender/srBoundingBox.h"
+#include <glm/glm.hpp>
+#include <glm/gtc/matrix_access.hpp>
 #include <cstdlib>
+#include <cmath>
+#include <cstring>
+#include <string>
+#include <utility>
 
+#include "surrender/srBoundingBox.h"
 #include "wiz8/engine_code/stTextureFile.h"
-#include "wiz8/engine_code/GDCamera.h"
 #include "wiz8/engine_code/stParticle.h"
 #include "wiz8/engine_code/game_timer.h"
 #include "wiz8/engine_code/Monster.h"
@@ -10,19 +15,24 @@
 #include "wiz8/engine_code/stTextureAnim.h"
 #include "wiz8/engine_code/World.h"
 #include "wiz8/float_constants.h"
-#include "wiz8/geometry.h"
 #include "wiz8/sr_api.h"
-#include "wiz8/virtual_file.h"
-#include "surrender/srCore.h"
 #include "surrender/srGERD.h"
 #include "surrender/srNode.h"
 #include "surrender/srTriMeshPipeline.h"
 #include "wiz8/filesystem.h"
-#include <math.h>
-#include <stdlib.h>
-#include <string.h>
 #include "wiz8/engine_code/GameData.h"
 #include "wiz8/engine_code/PolyPick.h"
+#include "compat/native.h"
+#include "glm/ext/matrix_double4x4.hpp"
+#include "glm/ext/matrix_float3x3.hpp"
+#include "glm/ext/vector_double3.hpp"
+#include "glm/ext/vector_float3.hpp"
+#include "glm/ext/vector_float4.hpp"
+#include "layouts/world.h"
+#include "particle_modes.h"
+#include "surrender/srClock.h"
+#include "surrender/srVertexPipe.h"
+
 // GLOBAL: WIZ8 0x005ebc60
 const float g_float_one_five_hundredth = 0.0020000000949949026f;
 // GLOBAL: WIZ8 0x005ec438

@@ -1,18 +1,28 @@
-#include "wiz8/utility.h"
-#include "wiz8/unicode.h"
+#include <wiz8/filesystem.h>
+#include <glm/glm.hpp>
+#include <cmath>
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
+#include <exception>
+#include <memory>
+#include <utility>
+#include <vector>
+
 #include "wiz8/engine_code/OctBuildPreTree.h"
 #include "wiz8/engine_code/3d.h"
 #include "wiz8/engine_code/materials.h"
 #include "wiz8/engine_code/Octree.h"
-#include "wiz8/engine_code/ReadLevel.h"
 #include "wiz8/engine_code/LevelFile.h"
 #include "wiz8/float_constants.h"
 #include "wiz8/sr_api.h"
-#include <math.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <wiz8/filesystem.h>
+#include "OctBuildTree.h"
+#include "OctPreTree.h"
+#include "ReadMesh.h"
+#include "compat/native.h"
+#include "geometry.h"
+#include "index_algorithms.h"
+
 // GLOBAL: WIZ8 0x0065be60
 int g_build_node_instances;
 // GLOBAL: WIZ8 0x0065be58

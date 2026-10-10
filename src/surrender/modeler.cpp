@@ -1,14 +1,33 @@
+#include <glm/gtc/constants.hpp>
+#include <glm/glm.hpp>
 #include <algorithm>
-
-#include "surrender/srModeler.h"
-
-#include "surrender/srDebug.h"
-#include "surrender/srTriangulator.h"
-
 #include <cmath>
 #include <limits>
 #include <bit>
-#include <glm/gtc/constants.hpp>
+#include <array>
+#include <cstddef>
+#include <iterator>
+#include <memory>
+#include <ostream>
+#include <utility>
+#include <vector>
+
+#include "surrender/srModeler.h"
+#include "surrender/srDebug.h"
+#include "surrender/srTriangulator.h"
+#include "compat/compiler.h"
+#include "glm/ext/matrix_float3x3.hpp"
+#include "glm/ext/vector_double2.hpp"
+#include "glm/ext/vector_double3.hpp"
+#include "glm/ext/vector_float2.hpp"
+#include "glm/ext/vector_float3.hpp"
+#include "glm/ext/vector_float4.hpp"
+#include "surrender/srMath.h"
+#include "surrender/srMeshModel.h"
+#include "surrender/srShader.h"
+
+class srMaterialIFace;
+class srTextureIFace;
 
 /* autoSmooth's worker: buckets triangle indices by deduplicated shade vertex, turns every triangle
    pair coincident at a vertex into a candidate edge weighted by the facing/material test, floods

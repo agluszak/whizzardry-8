@@ -1,14 +1,17 @@
-/* Modified for the Wizardry 8 reconstruction: 2026-10-03, 2026-10-06, 2026-10-07.
-   Distributed under the accompanying SFI Source Code license agreement. */
 #ifndef __IMAGE_H
 #define __IMAGE_H
 
-#include "Types.h"
+/* Modified for the Wizardry 8 reconstruction: 2026-10-03, 2026-10-06, 2026-10-07.
+   Distributed under the accompanying SFI Source Code license agreement. */
+
+#include <SDL3/SDL_rect.h>
 #include <memory>
 #include <string>
 #include <vector>
 #include <span>
-#include "imgfmt.h"
+#include <cstddef>
+
+#include "Types.h"
 
 // The HIMAGE module provides a common interface for managing image data. This module
 // includes:

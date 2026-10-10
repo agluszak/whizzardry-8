@@ -60,6 +60,9 @@ cmake --preset linux
 The script analyzes `src/` and `tests/` using the preset's compile commands,
 excluding downloaded dependencies. It writes raw suggestions to
 `build/linux/iwyu-report.txt`; review them before applying changes.
+`tools/iwyu.imp` maps dependency implementation headers to their public entry
+points. Required formatter specializations and declarations use narrowly scoped
+`IWYU pragma: keep` comments where the analyzer suggests removing them.
 Pass a build directory and optional report path to analyze another preset.
 Set `IWYU_JOBS` to change the default four concurrent processes.
 

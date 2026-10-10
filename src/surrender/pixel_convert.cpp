@@ -1,16 +1,17 @@
-#include "surrender/srPixelConvert.h"
+#include <SDL3/SDL_pixels.h>
+#include <glm/glm.hpp>
 #include <algorithm>
 #include <iterator>
 #include <cstring>
+#include <cstdio>
+
+#include "surrender/srPixelConvert.h"
 #include "wiz8/compat/surfaces.h"
-
-#include <stdlib.h>
-#include <stdio.h>
-#include <string.h>
-
 #include "surrender/srARGB.h"
 #include "surrender/srMath.h"
 #include "surrender/srPalette.h"
+#include "compat/compiler.h"
+#include "compat/native.h"
 
 /* Conversion routines stored in the format table. The generic pair is
    selected by PixelFormat::color_model; the per-entry overrides cover

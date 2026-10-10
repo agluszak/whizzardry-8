@@ -1,16 +1,11 @@
-#include "wiz8/layouts/screen_state.h"
 #include "wiz8/local_screens/Screens.h"
-#include "surrender/srNode.h"
 #include "wiz8/engine_code/AniMesh.h"
 #include "wiz8/engine_code/Navigator.h"
 #include "wiz8/engine_code/Quality.h"
 #include "wiz8/startup_world.h"
 #include "wiz8/engine_code/Environment.h"
 #include "wiz8/engine_code/Levels.h"
-
-#include <new>
-#include <stdlib.h>
-#include <string.h>
+#include "float_constants.h"
 
 // GLOBAL: WIZ8 0x00659c0c
 W8Navigator* g_startup_world;

@@ -1,11 +1,12 @@
 #include <string>
 #include <utility>
+
 #include "input.h"
 #include "wiz8/local_code/ControlsRect.h"
 #include "wiz8/local_code/TextBuffer.h"
 #include "wiz8/dialog_code/DialogTextArea.h"
-#include "wiz8/utility.h"
 #include "Font.h"
+#include "dialog_code/DialogTextEntry.h"
 
 /* Reconstructed logical owner; original translation-unit identity is unproven.
    Live query: 0x005D14D0/0x005D1640 sit in the gap between DialogInterface.cpp
@@ -480,4 +481,3 @@ W8DialogTextArea::W8DialogTextArea()
     m_relayout_needed = false;
     m_sorted = false;
 }
-

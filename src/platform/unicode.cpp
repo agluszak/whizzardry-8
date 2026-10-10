@@ -1,9 +1,12 @@
 #include "wiz8/unicode.h"
-#include <algorithm>
+
 #include <utf8.h>
 #include <utf8proc.h>
+#include <algorithm>
 #include <cstring>
 #include <stdexcept>
+#include <cstdint>
+#include <iterator>
 
 namespace wiz8::text {
 char32_t next(std::string_view text, std::size_t& offset)

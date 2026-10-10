@@ -2,7 +2,7 @@
 
 #include <memory>
 
-#include "wiz8/geometry.h"
+#include "compat/native.h"
 
 class W8Monster;
 class W8Prop;
@@ -17,6 +17,9 @@ class stModelInstance;
 struct W8Item;
 struct W8GameData;
 struct W8OctRegionVolume;
+struct W8BoundingBox;
+struct W8Plane;
+template <class T> class srVector3T;
 
 void SetSceneAmbientLightWhite(srScene* scene);
 void RemoveMonsterFromWorldList(W8World*, W8Monster* monster);

@@ -1,5 +1,9 @@
+#include <glm/glm.hpp>
 #include <algorithm>
-#include <cstdlib>
+#include <cmath>
+#include <cstddef>
+#include <iterator>
+#include <string>
 
 #include "wiz8/engine_code/stTextureFile.h"
 #include "wiz8/engine_code/stModelInstance.h"
@@ -7,20 +11,21 @@
 #include "wiz8/engine_code/stTextureAnim.h"
 #include "wiz8/float_constants.h"
 #include "wiz8/engine_code/stMeshModel.h"
-#include "surrender/srCore.h"
 #include "surrender/srGERD.h"
 #include "surrender/srMaterial.h"
 #include "surrender/srNode.h"
 #include "surrender/srTriMeshPipeline.h"
 #include "wiz8/engine_code/Octree.h"
 #include "wiz8/engine_code/Video2.h"
-#include "wiz8/sr_api.h"
-#include <math.h>
-#include <new>
-
-#include <string.h>
 #include "surrender/srMath.h"
-#include <cassert>
+#include "AnimRep.hpp"
+#include "compat/native.h"
+#include "glm/ext/matrix_float3x3.hpp"
+#include "glm/ext/matrix_float4x4.hpp"
+#include "glm/ext/vector_float3.hpp"
+#include "surrender/srFlags.h"
+#include "surrender/srShader.h"
+#include "surrender/srTextureIFace.h"
 
 #define ST_MODEL_INSTANCE_CPP "C:\\Projects\\Wizardry 8\\Engine Code\\stModelInstance.cpp"
 

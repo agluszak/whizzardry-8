@@ -1,11 +1,22 @@
 #include <catch2/catch_test_macros.hpp>
-#include "compat/surfaces.h"
-#include "vsurface.h"
+#include <SDL3/SDL_pixels.h>
+#include <SDL3/SDL_rect.h>
+#include <SDL3/SDL_surface.h>
 #include <algorithm>
 #include <array>
 #include <cstdio>
 #include <cstring>
 #include <stdexcept>
+#include <cstdint>
+#include <memory>
+#include <optional>
+#include <span>
+#include <utility>
+#include <vector>
+
+#include "compat/surfaces.h"
+#include "vsurface.h"
+#include "Types.h"
 
 BOOLEAN ClipReleatedSrcAndDestRectangles(HVSURFACE, HVSURFACE, SDL_Rect*, SDL_Rect*);
 

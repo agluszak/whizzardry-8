@@ -1,8 +1,11 @@
-#include <string>
-#include <string_view>
 #pragma once
 
-#include "wiz8/regions.h"
+#include <string>
+#include <string_view>
+
+#include "input.h"
+
+struct W8Region;
 
 class W8MessageDialogBase;
 

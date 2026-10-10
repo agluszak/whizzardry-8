@@ -1,5 +1,7 @@
-#include "surrender/srMath.h"
-#include "wiz8/compat/surfaces.h"
+#include <SDL3/SDL_pixels.h>
+#include <SDL3/SDL_rect.h>
+#include <SDL3/SDL_surface.h>
+#include <glm/glm.hpp>
 #include <algorithm>
 #include <cstdlib>
 #include <cstring>
@@ -7,15 +9,23 @@
 #include <memory>
 #include <new>
 #include <utility>
-
-#include "surrender/srColorSurface.h"
-
-#include <math.h>
 #include <ostream>
+#include <cmath>
+#include <string>
+#include <vector>
 
+#include "surrender/srMath.h"
+#include "wiz8/compat/surfaces.h"
+#include "surrender/srColorSurface.h"
 #include "surrender/srCore.h"
 #include "surrender/srFilter.h"
 #include "surrender/srPalette.h"
+#include "compat/compiler.h"
+#include "glm/ext/vector_float4.hpp"
+#include "surrender/srARGB.h"
+#include "surrender/srColorSurfaceIFace.h"
+#include "surrender/srPixelConvert.h"
+#include "surrender/srTypeRegistry.h"
 
 // FUNCTION: SURRENDER 0x100571F0
 srColorSurfaceIFace::srColorSurfaceIFace()

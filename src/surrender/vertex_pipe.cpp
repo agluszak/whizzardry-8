@@ -1,14 +1,24 @@
+#include <glm/glm.hpp>
 #include <algorithm>
+#include <cstddef>
+#include <memory>
+#include <span>
+#include <vector>
 
 #include "surrender/srVertexPipe.h"
-
 #include "surrender/srCore.h"
 #include "surrender/srMaterial.h"
 #include "surrender/srMaterialIFace.h"
-#include "surrender/srPalette.h"
 #include "surrender/srShader.h"
 #include "surrender/srMath.h"
-#include <cassert>
+#include "compat/compiler.h"
+#include "glm/ext/vector_float2.hpp"
+#include "glm/ext/vector_float3.hpp"
+#include "glm/ext/vector_float4.hpp"
+#include "surrender/srARGB.h"
+#include "surrender/srFlags.h"
+#include "surrender/srStatisticsManager.h"
+#include "surrender/srVertexProcessor.h"
 
 // FUNCTION: SURRENDER 0x1002AA50
 srFlags<srVertexProcessor::e_channel> srVertexPipe::getShaderDisableMask(const srShader& shader)

@@ -1,8 +1,16 @@
 #include <glm/gtc/quaternion.hpp>
+#include <glm/ext/quaternion_common.hpp>
+#include <glm/ext/quaternion_geometric.hpp>
+#include <glm/ext/quaternion_trigonometric.hpp>
+#include <glm/ext/scalar_constants.hpp>
+#include <glm/glm.hpp>
+#include <algorithm>
+#include <cmath>
+#include <cstddef>
+#include <exception>
+
 #include "wiz8/filesystem.h"
 #include "surrender/srMath.h"
-#include <cstdlib>
-
 #include "wiz8/engine_code/PathAI.h"
 #include "wiz8/engine_code/AnimRep.hpp"
 #include "wiz8/float_constants.h"
@@ -10,11 +18,9 @@
 #include "wiz8/engine_code/GDCamera.h"
 #include "wiz8/engine_code/OctPath.h"
 #include "wiz8/sr_api.h"
-#include "wiz8/virtual_file.h"
 #include "surrender/srNode.h"
-
-#include <math.h>
-#include <stdlib.h>
+#include "GrCycle.h"
+#include "compat/native.h"
 
 #define PATH_AI_CPP "C:\\Projects\\Wizardry 8\\Engine Code\\PathAI.CPP"
 

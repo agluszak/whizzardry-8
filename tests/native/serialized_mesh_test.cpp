@@ -1,16 +1,26 @@
 #include <catch2/catch_test_macros.hpp>
+#include <array>
+#include <cstdio>
+#include <filesystem>
+#include <memory>
+#include <string>
+#include <vector>
+
 #include "surrender/srCore.h"
 #include "surrender/srModelInstance.h"
 #include "wiz8/engine_code/OctMeshModel.h"
 #include "wiz8/engine_code/ReadLevel.h"
 #include "wiz8/engine_code/stMeshModel.h"
 #include "temporary_directory.h"
-#include "wiz8/engine_code/World.h"
-
-#include <array>
-#include <cstdio>
-#include <filesystem>
-#include <memory>
+#include "LevelFile.h"
+#include "ReadMesh.h"
+#include "filesystem.h"
+#include "glm/ext/vector_float2.hpp"
+#include "glm/ext/vector_float4.hpp"
+#include "layouts/world.h"
+#include "materials.h"
+#include "quad.h"
+#include "surrender/srMath.h"
 
 
 namespace {

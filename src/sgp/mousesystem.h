@@ -1,3 +1,6 @@
+#ifndef _MOUSE_SYSTEM_H_
+#define _MOUSE_SYSTEM_H_
+
 #include <string>
 #include <string_view>
 /* Modified for the Wizardry 8 reconstruction: 2026-10-03, 2026-10-06, 2026-10-07.
@@ -20,11 +23,10 @@
 //
 // *****************************************************************************
 
-#include "mousesystem_macros.h"
 #include <memory>
 
-#ifndef _MOUSE_SYSTEM_H_
-#define _MOUSE_SYSTEM_H_
+#include "Types.h"
+
 
 // *****************************************************************************
 //

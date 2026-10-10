@@ -1,6 +1,7 @@
 #pragma once
 
-#include "Types.h"
+#include <cstdint>
+
 #include "input.h"
 
 struct Controls;

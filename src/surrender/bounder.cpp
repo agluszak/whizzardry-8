@@ -1,11 +1,15 @@
+#include <glm/glm.hpp>
+#include <ostream>
+
 #include "surrender/srBoundingBox.h"
 #include "surrender/srBounder.h"
 #include "surrender/srStreamFlags.h"
-
-#include "surrender/srCore.h"
 #include "surrender/srGERD.h"
-
-#include <ostream>
+#include "compat/compiler.h"
+#include "glm/ext/matrix_float4x4.hpp"
+#include "glm/ext/vector_float3.hpp"
+#include "surrender/srNode.h"
+#include "surrender/srTypeRegistry.h"
 
 // FUNCTION: SURRENDER 0x1004a5a0
 srBounder::srBounder(srNode* parent)

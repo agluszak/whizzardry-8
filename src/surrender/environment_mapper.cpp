@@ -1,10 +1,13 @@
-#include "surrender/srEnvironmentMapper.h"
+#include <glm/glm.hpp>
 
+#include "surrender/srEnvironmentMapper.h"
 #include "surrender/srCore.h"
 #include "surrender/srVertexPipe.h"
-#include <math.h>
-
-#include "surrender/srMath.h"
+#include "compat/compiler.h"
+#include "glm/ext/vector_float2.hpp"
+#include "glm/ext/vector_float3.hpp"
+#include "surrender/srStatisticsManager.h"
+#include "surrender/srVertexProcessor.h"
 
 // FUNCTION: SURRENDER 0x100352e0
 int srEnvironmentMapper::isActive(srVertexPipe&)

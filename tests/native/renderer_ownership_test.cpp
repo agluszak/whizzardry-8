@@ -1,21 +1,29 @@
 #include <catch2/catch_test_macros.hpp>
+#include <glm/glm.hpp>
+#include <array>
+#include <chrono>
+#include <cmath>
+#include <cstdint>
+#include <future>
+#include <memory>
+#include <thread>
+#include <vector>
+#include <cstddef>
+#include <span>
+
 #include "surrender/srCore.h"
 #include "surrender/srDD_SDLGPU.h"
 #include "surrender/srGERD.h"
 #include "surrender/srMaterialIFace.h"
 #include "surrender/srNode.h"
 #include "surrender/srVertexPipe.h"
-#include <array>
-
-#include <chrono>
-#include <cmath>
-#include <cstdio>
-#include <cstdint>
-#include <future>
-#include <memory>
-#include <thread>
-#include <vector>
 #include "surrender/srMath.h"
+#include "compat/compiler.h"
+#include "glm/ext/matrix_float4x4.hpp"
+#include "glm/ext/vector_float2.hpp"
+#include "glm/ext/vector_float4.hpp"
+#include "surrender/srTriMeshPipeline.h"
+#include "surrender/srVertexProcessor.h"
 
 
 namespace {

@@ -1,10 +1,18 @@
-#include "native/input_events.h"
+#include <SDL3/SDL_error.h>
+#include <SDL3/SDL_init.h>
+#include <SDL3/SDL_log.h>
+#include <SDL3/SDL_mouse.h>
+#include <SDL3/SDL_stdinc.h>
+#include <stdexcept>
+#include <cstddef>
+#include <exception>
+#include <span>
+#include <string>
+#include <string_view>
+
 #include "wiz8/application.h"
-#include "wiz8/engine_code/GameData.h"
 #include "wiz8/engine_code/Video2.h"
 #include "input.h"
-
-#include "compat/video.h"
 #include "Font.h"
 #include "vobject.h"
 #include "vsurface.h"
@@ -16,8 +24,7 @@
 #include "wiz8/game_init.h"
 #include "wiz8/local_code/Gameloop.h"
 #include "wiz8/engine_code/Octree.h"
-#include <stdexcept>
-#include <cstdio>
+#include "Types.h"
 
 namespace {
 

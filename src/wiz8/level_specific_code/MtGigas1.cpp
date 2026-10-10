@@ -1,4 +1,5 @@
 #include "wiz8/level_specific_code/MtGigas1.h"
+
 #include "wiz8/level_specific_code/MasterFunctionList.h"
 #include "wiz8/location_variables.h"
 #include "wiz8/engine_code/Trigger.hpp"
@@ -6,14 +7,17 @@
 #include "wiz8/engine_code/GDProp.h"
 #include "wiz8/engine_code/World.h"
 #include "wiz8/local_code/NPCManager.h"
-#include "wiz8/local_code/MonsterGroup.h"
-#include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/local_screens/NPCInteractionSubscreen.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/xstatus.h"
-#include "wiz8/sr_api.h"
 #include "surrender/srCamera.h"
 #include "soundman.h"
+#include "AnimRep.hpp"
+#include "layouts/world.h"
+#include "surrender/srMath.h"
+
+struct W8ItemInstance;
+struct W8NpcState;
 
 /* Level Specific Code\MtGigas1.cpp (level 0x0c).
 

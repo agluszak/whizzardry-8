@@ -1,8 +1,3 @@
-#include "surrender/srMath.h"
-
-#include "surrender/srPalette.h"
-#include "surrender/srStreamFlags.h"
-
 #include <algorithm>
 #include <array>
 #include <cstdlib>
@@ -10,9 +5,14 @@
 #include <ostream>
 #include <vector>
 
+#include "surrender/srMath.h"
+#include "surrender/srPalette.h"
+#include "surrender/srStreamFlags.h"
 #include "surrender/srColorSurfaceIFace.h"
-#include "surrender/srCore.h"
 #include "surrender/srImageIO.h"
+#include "compat/compiler.h"
+#include "surrender/srARGB.h"
+#include "surrender/srTypeRegistry.h"
 
 /* Squared channel distance scaled by the luma weights 299/587/114; the biased
    pointers index by (channel - reference) so negative differences work. */

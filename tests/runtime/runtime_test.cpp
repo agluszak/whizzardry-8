@@ -1,4 +1,32 @@
 #include <catch2/catch_test_macros.hpp>
+#include <SDL3/SDL_events.h>
+#include <SDL3/SDL_keycode.h>
+#include <SDL3/SDL_log.h>
+#include <SDL3/SDL_mouse.h>
+#include <SDL3/SDL_pixels.h>
+#include <SDL3/SDL_stdinc.h>
+#include <SDL3/SDL_surface.h>
+#include <SDL3/SDL_video.h>
+#include <chrono>
+#include <cmath>
+#include <cstdio>
+#include <filesystem>
+#include <fstream>
+#include <functional>
+#include <iomanip>
+#include <limits>
+#include <optional>
+#include <stdexcept>
+#include <string>
+#include <vector>
+#include <compare>
+#include <cstdint>
+#include <iterator>
+#include <memory>
+#include <string_view>
+#include <system_error>
+#include <utility>
+
 /* Runtime scenarios against installed retail assets.
 
    The scenario drives the real game loop on this thread: it injects SDL input
@@ -16,11 +44,9 @@
 #include "wiz8/application.h"
 #include "native/input_events.h"
 #include "temporary_directory.h"
-#include "file_faults.h"
 #include "surrender/srGERD.h"
 #include "surrender/srModelInstance.h"
 #include "wiz8/engine_code/stMeshModel.h"
-#include "wiz8/engine_code/stModelInstance.h"
 #include "wiz8/engine_code/materials.h"
 #include "wiz8/asset_paths.h"
 #include "wiz8/filesystem.h"
@@ -50,24 +76,24 @@
 #include "wiz8/xstatus.h"
 #include "wiz8/local_code/TextControl.h"
 #include "wiz8/local_screens/CharacterScreen.h"
-#include "wiz8/local_screens/IntroScreen.h"
 #include "wiz8/local_screens/MainMenuScreen.h"
 #include "wiz8/local_screens/PartySelectionScreen.h"
 #include "wiz8/local_screens/Screens.h"
-#include <SDL3/SDL.h>
-#include <chrono>
-#include <cmath>
-#include <cstdio>
-#include <cstring>
-#include <filesystem>
-#include <fstream>
-#include <functional>
-#include <iomanip>
-#include <limits>
-#include <optional>
-#include <stdexcept>
-#include <string>
-#include <vector>
+#include "Types.h"
+#include "catch2/catch_message.hpp"
+#include "compat/ptr32.h"
+#include "conditions.h"
+#include "layouts/gameplay_databases.h"
+#include "layouts/targeting.h"
+#include "layouts/world.h"
+#include "local_code/CharGeneration.h"
+#include "local_code/ControlSelection.h"
+#include "local_code/Factions.h"
+#include "local_code/SpellEffect.h"
+#include "mgs_commands.h"
+#include "surrender/srColorSurfaceIFace.h"
+#include "surrender/srMath.h"
+#include "surrender/srNode.h"
 
 W8RuntimeTestHooks g_runtime_test_hooks;
 

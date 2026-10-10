@@ -1,11 +1,14 @@
 #pragma once
 
-#include "surrender/srMath.h"
+#include "glm/ext/matrix_float3x3.hpp"
+#include "glm/ext/vector_float2.hpp"
+#include "glm/ext/vector_float3.hpp"
 
 struct W8Item;
 struct W8WorldItem;
 struct W8ItemInstance;
 struct W8MonsterInfo;
+template <class T> class srVector3T;
 
 /* When set, world items flagged invisible are not activated;
    MIPE's item-create 'A' key toggles it ("hidden" versus "blue"). */

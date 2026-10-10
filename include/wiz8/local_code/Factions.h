@@ -1,6 +1,9 @@
-#include "wiz8/filesystem.h"
 #ifndef WIZ8_LOCAL_CODE_FACTIONS_H
 #define WIZ8_LOCAL_CODE_FACTIONS_H
+
+namespace wiz8 {
+class File;
+}
 
 /* The factions. The name table, the runtime score array and the relationship
    matrix keep one row per id. The last two ids name no faction. */

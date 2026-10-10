@@ -1,9 +1,9 @@
 #pragma once
-#include "Types.h"
-#include "compat/surfaces.h"
+#include <SDL3/SDL_rect.h>
+
 struct SDL_Window;
 class srDD;
-class srGERD;
+
 SDL_Window* W8CreateGameWindow(int width, int height, bool fullscreen);
 void W8DestroyGameWindow(SDL_Window* window);
 bool W8ConfigureGameWindow(SDL_Window* window, bool fullscreen, int width, int height);

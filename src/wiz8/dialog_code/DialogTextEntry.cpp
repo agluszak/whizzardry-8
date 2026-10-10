@@ -1,16 +1,17 @@
 #include <fmt/format.h>
+#include <array>
+#include <cstring>
+#include <memory>
+#include <string>
+
 #include "vsurface.h"
 #include "wiz8/local_code/ControlsRect.h"
 #include "wiz8/local_code/TextBuffer.h"
 #include "wiz8/dialog_code/DialogTextEntry.h"
 #include "wiz8/engine_code/Video2.h"
-#include "wiz8/layouts/screen_state.h"
 #include "wiz8/fonts.h"
-#include "wiz8/utility.h"
 #include "Font.h"
-#include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/local_screens/NPCInteractionSubscreen.h"
-#include "wiz8/local_screens/OptionsScreen.h"
 
 /* Retail initializer 0x005D1010 copies the Controls layout constant. */
 // GLOBAL: WIZ8 0x0069c5d0

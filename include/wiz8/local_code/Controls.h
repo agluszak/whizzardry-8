@@ -1,12 +1,15 @@
 #pragma once
 
+#include <vector>
+
 #include "wiz8/local_code/ControlsRect.h"
 #include "wiz8/local_code/Widget.h"
 #include "wiz8/regions.h"
-#include <vector>
 #include <memory>
 #include <algorithm>
 #include "input.h"
+
+struct W8Region;
 
 /* The single-space separator wrapped notice lines are re-joined with. */
 extern char g_W8TextSeparator[];

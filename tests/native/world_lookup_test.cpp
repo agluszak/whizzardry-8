@@ -1,6 +1,12 @@
 #include <catch2/catch_test_macros.hpp>
+#include <cstdio>
+#include <cstring>
+#include <filesystem>
+#include <memory>
+#include <vector>
+#include <string>
+
 #include "surrender/srClipPlane.h"
-#include "surrender/srCore.h"
 #include "surrender/srScene.h"
 #include "temporary_directory.h"
 #include "wiz8/engine_code/stLight.hpp"
@@ -9,12 +15,12 @@
 #include "wiz8/engine_code/World.h"
 #include "wiz8/engine_code/game_timer.h"
 #include "surrender/srClock.h"
-
-#include <cstdio>
-#include <cstring>
-#include <filesystem>
-#include <memory>
-#include <vector>
+#include "filesystem.h"
+#include "layouts/world.h"
+#include "quad.h"
+#include "sr_api.h"
+#include "surrender/srNode.h"
+#include "surrender/srTypeRegistry.h"
 
 
 namespace {

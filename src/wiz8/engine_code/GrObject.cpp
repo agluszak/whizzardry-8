@@ -1,4 +1,8 @@
 #include "wiz8/engine_code/GrObject.h"
+
+#include <string>
+#include <utility>
+
 #include "wiz8/engine_code/PathAI.h"
 #include "wiz8/engine_code/SoundEvent.h"
 

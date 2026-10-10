@@ -1,4 +1,18 @@
 #include <catch2/catch_test_macros.hpp>
+#include <array>
+#include <cstdlib>
+#include <cstring>
+#include <filesystem>
+#include <fstream>
+#include <limits>
+#include <string>
+#include <cstddef>
+#include <cstdint>
+#include <exception>
+#include <memory>
+#include <type_traits>
+#include <vector>
+
 #include "wiz8/retail_text_records.h"
 #include "wiz8/asset_paths.h"
 #include "wiz8/filesystem.h"
@@ -15,15 +29,10 @@
 #include "wiz8/packed_bits.h"
 #include "temporary_directory.h"
 #include "file_faults.h"
-
-#include <array>
-#include <cstdio>
-#include <cstdlib>
-#include <cstring>
-#include <filesystem>
-#include <fstream>
-#include <limits>
-#include <string>
+#include "GDFileIO.h"
+#include "float_constants.h"
+#include "geometry.h"
+#include "surrender/srMath.h"
 
 
 static std::filesystem::path fixture_root;
@@ -506,4 +515,3 @@ TEST_CASE_METHOD(LoaderFixture, "Malformed octree files", "[loader][records]")
 {
     malformed_octrees();
 }
-

@@ -1,4 +1,10 @@
 #include <fmt/format.h>
+#include <glm/glm.hpp>
+#include <vector>
+#include <cmath>
+#include <span>
+#include <string>
+
 #include "wiz8/compat/unaligned.h"
 #include "wiz8/spell_ids.h"
 #include "wiz8/engine_code/stMeshModel.h"
@@ -12,7 +18,6 @@
 #include "wiz8/local_code/CombatAttack.h"
 #include "wiz8/local_code/CombatRange.h"
 #include "wiz8/layouts/combat_state.h"
-#include "wiz8/local_code/Combat.h"
 #include "wiz8/character_skills.h"
 #include "wiz8/engine_code/GDCamera.h"
 #include "wiz8/engine_code/3d.h"
@@ -25,14 +30,10 @@
 #include "wiz8/float_constants.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/startup_world.h"
-#include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/local_screens/mipe.h"
 #include "wiz8/xstatus.h"
-#include <vector>
-#include <algorithm>
 #include "wiz8/engine_code/Spells.h"
 #include "wiz8/local_code/Magic.h"
-#include "wiz8/local_code/MagicEffects.h"
 #include "wiz8/local_code/SpellEffect.h"
 #include "wiz8/engine_code/SpellVisual.h"
 #include "wiz8/regions.h"
@@ -42,13 +43,19 @@
 #include "wiz8/local_code/GroupAttacks.h"
 #include "wiz8/local_code/MonsterAI.h"
 #include "wiz8/level_specific_code/MasterFunctionList.h"
-
 #include "wiz8/application.h"
-
-#include <math.h>
-#include <stdlib.h>
-#include <string.h>
 #include "wiz8/engine_code/GameData.h"
+#include "compat/ptr32.h"
+#include "conditions.h"
+#include "gameplay_modifiers.h"
+#include "layouts/character.h"
+#include "layouts/gameplay_databases.h"
+#include "layouts/targeting.h"
+#include "local_code/Factions.h"
+#include "monster_actions.h"
+#include "monster_cycles.h"
+#include "sight_state.h"
+#include "surrender/srMath.h"
 
 #define MONSTER_AI_CPP "C:\\Projects\\Wizardry 8\\Local Code\\MonsterAI.cpp"
 
@@ -76,7 +83,6 @@ static void QueueMonsterAction(W8MonsterInfo* monster_info, W8MonsterActionKind 
 // GLOBAL: WIZ8 0x00617AE8
 int g_noise_investigate_radius_cap = 125000;
 
-struct W8SpellEffectEntry;
 /* Two dwords per special-attack kind; only the leading dword is
    read here. */
 // GLOBAL: WIZ8 0x0061EEFC

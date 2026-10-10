@@ -1,17 +1,16 @@
+#include <glm/glm.hpp>
+#include <vector>
+#include <string>
+
 #include "wiz8/containers.h"
 #include "surrender/srBoundingBox.h"
 #include "wiz8/compat/unaligned.h"
-#include <vector>
-#include <algorithm>
 #include "wiz8/engine_code/3d.h"
-#include "wiz8/engine_code/GDCamera.h"
 #include "wiz8/engine_code/Item.h"
 #include "wiz8/engine_code/Monster.h"
 #include "wiz8/engine_code/OctPreTree.h"
 #include "wiz8/engine_code/Octree.h"
 #include "wiz8/engine_code/Prop.h"
-#include "wiz8/engine_code/GameData.h"
-#include "wiz8/index_algorithms.h"
 #include "wiz8/engine_code/stModelInstance.h"
 #include "wiz8/engine_code/World.h"
 #include "wiz8/engine_code/Environment.h"
@@ -22,16 +21,21 @@
 #include "wiz8/geometry.h"
 #include "wiz8/sr_api.h"
 #include "surrender/srCamera.h"
-#include "surrender/srIlluminator.h"
 #include "surrender/srMaterial.h"
 #include "surrender/srScene.h"
-#include <algorithm>
-#include <new>
-#include <stdlib.h>
-
-#include <string.h>
 #include "surrender/srMath.h"
-#include <cassert>
+#include "compat/compiler.h"
+#include "glm/ext/matrix_float3x3.hpp"
+#include "glm/ext/matrix_float4x4.hpp"
+#include "glm/ext/vector_float3.hpp"
+#include "glm/ext/vector_float4.hpp"
+#include "layouts/world.h"
+#include "surrender/srLight.h"
+#include "surrender/srMeshModel.h"
+#include "surrender/srModelInstance.h"
+#include "surrender/srNode.h"
+#include "surrender/srShader.h"
+#include "surrender/srTypeRegistry.h"
 
 #define THREE_D_CPP "C:\\Projects\\Wizardry 8\\Engine Code\\3d.cpp"
 

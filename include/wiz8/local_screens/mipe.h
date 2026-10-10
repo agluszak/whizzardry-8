@@ -1,22 +1,16 @@
-#include <string>
 #pragma once
 
-#include <vector>
-class W8Monster;
+#include <SDL3/SDL_rect.h>
+#include <string>
 
-#include <stddef.h>
+#include <vector>
 
 #include "input.h"
 #include "surrender/srMath.h"
-#include <algorithm>
-#include "input.h"
-#include "wiz8/engine_code/stCube.h"
-#include "Types.h"
 
 class Trigger;
 class W8Monster;
 class W8Prop;
-class W8WorldCursorNode;
 struct MonGen;
 
 enum { W8_MIPE_NO_GROUP = 1000000 };

@@ -4,6 +4,7 @@
 #include "wiz8/local_code/RangeControl.h"
 #include "wiz8/local_code/TextControl.h"
 #include "input.h"
+#include "compat/compiler.h"
 
 struct W8Region;
 

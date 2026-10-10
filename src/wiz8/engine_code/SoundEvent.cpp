@@ -1,22 +1,23 @@
 #include "wiz8/engine_code/SoundEvent.h"
+
+#include <glm/ext/quaternion_trigonometric.hpp>
+#include <glm/glm.hpp>
+#include <glm/gtc/quaternion.hpp>
+#include <vector>
+#include <cmath>
+#include <cstring>
+#include <utility>
+
 #include "wiz8/engine_code/AmbientSound.h"
-#include "wiz8/engine_code/GDCamera.h"
 #include "wiz8/engine_code/Monster.h"
 #include "wiz8/float_constants.h"
-#include "wiz8/local_code/GameplayCode.h"
 #include "wiz8/xstatus.h"
 #include "wiz8/local_code/MonsterManager.h"
-#include "wiz8/sr_api.h"
-#include <vector>
-#include <algorithm>
 #include "random.h"
 #include "soundman.h"
-#include <math.h>
-
-#include <new>
-#include <string.h>
 #include "wiz8/engine_code/GameData.h"
-#include <glm/gtc/matrix_transform.hpp>
+#include "glm/ext/matrix_float3x3.hpp"
+#include "glm/ext/vector_float3.hpp"
 
 #define SOUNDEVENT_CPP "C:\\Projects\\Wizardry 8\\Engine Code\\SoundEvent.cpp"
 

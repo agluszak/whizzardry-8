@@ -1,8 +1,8 @@
+#include <cstdint>
+#include <string>
+
 #include "wiz8/local_code/Configuration.h"
 #include "wiz8/regions.h"
-
-#include <stdlib.h>
-#include <string.h>
 
 /* Original translation-unit ownership is unknown; surrounding anchors do not resolve it. */
 

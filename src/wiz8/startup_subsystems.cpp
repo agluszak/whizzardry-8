@@ -1,19 +1,15 @@
-#include "wiz8/layouts/screen_state.h"
+#include <tuple>
+#include <array>
+#include <cstddef>
+#include <memory>
+
 #include "wiz8/fonts.h"
 #include "wiz8/dialog_code/DialogInterface.h"
-#include "wiz8/local_screens/MGSTextBox.h"
-#include "wiz8/local_screens/ReviewCharacterScreen.h"
-#include "wiz8/local_screens/MainMenuScreen.h"
-#include "wiz8/regions.h"
 #include "wiz8/video_object_catalog.h"
 #include "wiz8/engine_code/Video2.h"
 #include "Font.h"
-#include <tuple>
-#include "wiz8/filesystem.h"
 #include "vobject.h"
-
-#include <stdlib.h>
-#include <string.h>
+#include "Types.h"
 
 /* Original translation-unit ownership is unknown; surrounding anchors do not resolve it. */
 

@@ -1,3 +1,10 @@
+#include <glm/glm.hpp>
+#include <glm/gtc/matrix_access.hpp>
+#include <cmath>
+#include <memory>
+#include <string>
+#include <vector>
+
 #include "wiz8/engine_code/materials.h"
 #include "wiz8/engine_code/Octree.h"
 #include "wiz8/engine_code/stMeshModel.h"
@@ -5,16 +12,23 @@
 #include "wiz8/ground_shadow.h"
 #include "wiz8/layouts/world.h"
 #include "wiz8/local_code/Configuration.h"
-
 #include "surrender/srCore.h"
 #include "surrender/srMaterial.h"
 #include "surrender/srModelInstance.h"
 #include "surrender/srStatisticsManager.h"
 #include "surrender/srTexture.h"
 #include "surrender/srVertexPipe.h"
-
-#include <math.h>
-#include <new>
+#include "compat/compiler.h"
+#include "glm/ext/matrix_float2x2.hpp"
+#include "glm/ext/vector_float2.hpp"
+#include "surrender/srGERD.h"
+#include "surrender/srMath.h"
+#include "surrender/srMeshModel.h"
+#include "surrender/srNode.h"
+#include "surrender/srShader.h"
+#include "surrender/srTextureIFace.h"
+#include "surrender/srTypeRegistry.h"
+#include "surrender/srVertexProcessor.h"
 
 /* The SR.DLL registry string is the original runtime class identity. */
 
@@ -225,4 +239,3 @@ void stGroundShadow::renderGroundShadow(srGERD* renderer)
     }
     renderer->setPolygonOffset(saved_offset);
 }
-

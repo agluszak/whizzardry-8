@@ -1,11 +1,26 @@
+#include <glm/glm.hpp>
+#include <ostream>
+#include <cmath>
+#include <memory>
+#include <string>
+#include <vector>
+
 #include "surrender/srModelInstance.h"
 #include "surrender/srStreamFlags.h"
-
 #include "surrender/srCore.h"
 #include "surrender/srDebug.h"
 #include "surrender/srGERD.h"
-
-#include <ostream>
+#include "compat/compiler.h"
+#include "glm/ext/matrix_float3x3.hpp"
+#include "glm/ext/matrix_float4x4.hpp"
+#include "glm/ext/vector_float3.hpp"
+#include "glm/ext/vector_float4.hpp"
+#include "surrender/srFlags.h"
+#include "surrender/srMath.h"
+#include "surrender/srModel.h"
+#include "surrender/srNode.h"
+#include "surrender/srStatisticsManager.h"
+#include "surrender/srTypeRegistry.h"
 
 // FUNCTION: SURRENDER 0x1004F920
 srModelInstance::srModelInstance(srNode* parent)

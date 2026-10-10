@@ -1,14 +1,12 @@
 #pragma once
 
-#include "wiz8/layouts/game_status.h"
-#include "wiz8/layouts/gameplay_databases.h"
+struct W8MonsterRecord;
 
 bool LoadMonsterDatabase(W8MonsterRecord** records);
 bool LoadMonsterDatabaseRange(unsigned int uiStartIndex, unsigned int uiEndIndex,
                               W8MonsterRecord* records);
 bool LoadMonsterDatabaseRecord(unsigned int monster_species, W8MonsterRecord* record);
 
-class W8GameTimer;
 extern unsigned int g_starting_item_ids[];
 
 bool InitializeItemDatabase(void);

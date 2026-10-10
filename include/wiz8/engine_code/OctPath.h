@@ -1,17 +1,15 @@
 #pragma once
 
-#include "wiz8/filesystem.h"
-
-#include "wiz8/navigation_flags.h"
-
-#include "surrender/srMath.h"
-#include "wiz8/packed_bits.h"
 #include <queue>
 #include <vector>
-#include "wiz8/index_algorithms.h"
-#include "wiz8/geometry.h"
+#include <unordered_map>
 
-#include <stddef.h>
+#include "surrender/srMath.h"
+#include "wiz8/geometry.h"
+#include "compat/compiler.h"
+#include "compat/native.h"
+#include "glm/ext/vector_float2.hpp"
+#include "glm/ext/vector_uint2.hpp"
 
 class stModelInstance;
 class GDProp;
@@ -22,6 +20,7 @@ class OctPreTree;
 class W8Monster;
 struct W8LevelFile;
 struct W8LevelFileNamedPosition;
+namespace wiz8 { class File; }
 
 /* The .oct path hash array: one packed X/Z key and its height/state word.
    Build-time producers and the loader agree on an eight-byte stride. */

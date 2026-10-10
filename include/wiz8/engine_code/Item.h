@@ -1,17 +1,19 @@
 #pragma once
 
-#include <stddef.h>
+#include <cstdint>
 
-#include "Types.h"
-#include "surrender/srMath.h"
-#include "surrender/srModelInstance.h"
 #include "wiz8/engine_code/AnimRep.hpp"
 #include "wiz8/engine_code/GrObject.h"
+#include "compat/compiler.h"
+#include "glm/ext/vector_float3.hpp"
 
 struct W8World;
 struct W8ReadLevelInfo;
 struct W8Item;
 class Trigger;
+class srModelInstance;
+class srNode;
+template <class T> class srVector3T;
 
 /* Bit masks in W8ItemRep::flags and the saved W8WorldItem::entity_flags.
    The world item's own flags are a separate domain. */

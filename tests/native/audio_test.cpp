@@ -1,21 +1,35 @@
 #include <catch2/catch_test_macros.hpp>
-/* Native soundman -> SDL3_mixer, with deterministic offline mixing. */
-#include "native/audio_test.h"
-#include "wiz8/slf.h"
-#include "wiz8/local_code/CombatSound.h"
 #include <wiz8/native_audio.h>
-#include "native/movie_audio.h"
 #include <wiz8/filesystem.h>
 #include <wiz8/asset_paths.h>
-#include "soundman.h"
+#include <SDL3/SDL_iostream.h>
+#include <SDL3/SDL_properties.h>
+#include <SDL3/SDL_stdinc.h>
+#include <SDL3/SDL_timer.h>
+#include <SDL3_mixer/SDL_mixer.h>
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
 #include <cstring>
 #include <filesystem>
 #include <fstream>
-#include "temporary_directory.h"
 #include <vector>
+#include <cstdint>
+#include <exception>
+#include <memory>
+#include <string>
+#include <string_view>
+
+/* Native soundman -> SDL3_mixer, with deterministic offline mixing. */
+#include "native/audio_test.h"
+#include "wiz8/slf.h"
+#include "wiz8/local_code/CombatSound.h"
+#include "native/movie_audio.h"
+#include "soundman.h"
+#include "temporary_directory.h"
+#include "Types.h"
+#include "catch2/catch_message.hpp"
+
 static unsigned callbacks = 0;
 static void ended(void* data)
 {

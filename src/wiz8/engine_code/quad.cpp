@@ -1,7 +1,7 @@
 #include "wiz8/engine_code/quad.h"
-#include "wiz8/float_constants.h"
 
 #include <cmath>
+#include <cstddef>
 
 #include "surrender/srMeshModel.h"
 #include "surrender/srModelInstance.h"

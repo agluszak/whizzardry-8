@@ -1,12 +1,15 @@
-#include <string>
 #ifndef WIZ8_LOCAL_CODE_MONSTER_GROUP_H
 #define WIZ8_LOCAL_CODE_MONSTER_GROUP_H
+
+#include <string>
+#include <cstddef>
+
+#include "surrender/srMath.h"
 
 #include <vector>
 #include <span>
 
 #include "compat/ptr32.h"
-#include "wiz8/geometry.h"
 #include "wiz8/monster_actions.h"
 #include "wiz8/local_code/Factions.h"
 

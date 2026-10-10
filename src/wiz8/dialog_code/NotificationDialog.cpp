@@ -1,6 +1,11 @@
 #include "wiz8/dialog_code/NotificationDialog.h"
+
+#include <string>
+#include <vector>
+
 #include "wiz8/local_code/Strings.h"
 #include "wiz8/regions.h"
+#include "dialog_code/MessageDialogBase.h"
 
 /* Dialog Code. W8NotificationDialog is a modal popup built on the unnamed base
    constructed by 0x005D25B0 and destroyed by 0x005D2610. The source owns the

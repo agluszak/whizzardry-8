@@ -1,3 +1,8 @@
+#include <glm/glm.hpp>
+#include <algorithm>
+#include <cmath>
+#include <cstring>
+
 #include "wiz8/engine_code/GDCamera.h"
 #include "wiz8/engine_code/GameData.h"
 #include "wiz8/engine_code/OctMeshModel.h"
@@ -32,20 +37,24 @@
 #include "wiz8/engine_code/Prop.h"
 #include "wiz8/engine_code/GDProp.h"
 #include "wiz8/float_constants.h"
-#include "wiz8/engine_code/OctPath.h"
 #include "wiz8/engine_code/stMeshModel.h"
 #include "wiz8/engine_code/stModelInstance.h"
 #include "surrender/srShader.h"
 #include "wiz8/sr_api.h"
-#include "wiz8/utility.h"
-#include "surrender/srCamera.h"
 #include "random.h"
-#include <math.h>
-
-#include <stdlib.h>
-#include <string.h>
-#include <new>
 #include "wiz8/engine_code/3d.h"
+#include "application.h"
+#include "camera_motion.h"
+#include "compat/ptr32.h"
+#include "geometry.h"
+#include "glm/ext/matrix_float2x2.hpp"
+#include "glm/ext/vector_float2.hpp"
+#include "layouts/world.h"
+#include "local_code/Combat.h"
+#include "surrender/srMeshModel.h"
+
+class srMaterialIFace;
+class srTextureIFace;
 
 // GLOBAL: WIZ8 0x00652da8
 unsigned int* g_level_flags;

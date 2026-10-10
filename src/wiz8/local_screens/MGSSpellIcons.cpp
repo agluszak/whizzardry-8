@@ -1,13 +1,13 @@
 #include <fmt/format.h>
 #include <fmt/printf.h>
+#include <string>
+#include <vector>
+
 #include "wiz8/local_screens/MGSSpellIcons.h"
-#include "wiz8/sr_api.h"
-#include "wiz8/utility.h"
 #include "wiz8/local_code/Strings.h"
 #include "wiz8/local_code/ButtonSound.h"
 #include "wiz8/layouts/gameplay_databases.h"
 #include "wiz8/layouts/combat_state.h"
-#include "wiz8/local_screens/CharacterScreen.h"
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/layouts/screen_state.h"
@@ -19,6 +19,8 @@
 #include "wiz8/regions.h"
 #include "wiz8/xstatus.h"
 #include "wiz8/engine_code/3dapi.h"
+#include "gameplay_modifiers.h"
+#include "layouts/main_game_screen.h"
 
 // GLOBAL: WIZ8 0x0069c260
 static unsigned int g_effect_icon_help_duration;

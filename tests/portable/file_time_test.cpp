@@ -1,13 +1,15 @@
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/generators/catch_generators.hpp>
-#include "wiz8/file_time.h"
-
 #include <SDL3/SDL_init.h>
-#include <cstdio>
-#include <cstdlib>
+#include <SDL3/SDL_stdinc.h>
 #include <limits>
 #include <random>
-#include <stdexcept>
+#include <cstdint>
+#include <exception>
+#include <optional>
+
+#include "wiz8/file_time.h"
+#include "catch2/catch_message.hpp"
 
 
 using namespace wiz8;

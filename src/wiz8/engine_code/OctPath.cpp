@@ -1,9 +1,30 @@
 #include <fmt/format.h>
-#include "wiz8/unicode.h"
+#include <wiz8/filesystem.h>
+#include <SDL3/SDL_filesystem.h>
+#include <glm/ext/quaternion_trigonometric.hpp>
+#include <glm/glm.hpp>
+#include <glm/gtc/quaternion.hpp>
+#include <algorithm>
+#include <ranges>
+#include <span>
+#include <tuple>
+#include <cstdint>
+#include <limits>
+#include <memory>
+#include <string>
+#include <vector>
+#include <array>
+#include <cctype>
+#include <cmath>
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
+#include <exception>
+#include <functional>
+#include <optional>
+#include <utility>
+
 #include "wiz8/local_screens/MGSTextBox.h"
-#include "wiz8/layouts/combat_state.h"
-#include "wiz8/local_code/Combat.h"
-#include "wiz8/local_code/CombatAttack.h"
 #include "wiz8/local_code/CombatRange.h"
 #include "wiz8/engine_code/3d.h"
 #include "wiz8/engine_code/OctPath.h"
@@ -27,11 +48,8 @@
 #include "wiz8/virtual_file.h"
 #include "surrender/srNode.h"
 #include "surrender/srScene.h"
-#include "surrender/srModelInstance.h"
 #include "wiz8/engine_code/GDProp.h"
 #include "wiz8/engine_code/GDFileIO.h"
-#include "wiz8/engine_code/quad.h"
-#include "wiz8/engine_code/OctPreTree.h"
 #include "wiz8/engine_code/OctBuildPreTree.h"
 #include "wiz8/engine_code/GameTimeAccumulator.h"
 #include "wiz8/engine_code/GDCamera.h"
@@ -46,28 +64,24 @@
 #include "wiz8/local_code/Sight.h"
 #include "random.h"
 #include "Font.h"
-
 #include "input.h"
 #include "wiz8/application.h"
+#include "compat/ptr32.h"
+#include "geometry.h"
+#include "glm/ext/matrix_float3x3.hpp"
+#include "glm/ext/vector_float3.hpp"
+#include "index_algorithms.h"
+#include "layouts/gameplay_databases.h"
+#include "layouts/world.h"
+#include "local_code/Factions.h"
+#include "navigation_flags.h"
+#include "packed_bits.h"
+#include "surrender/srMeshModel.h"
+#include "surrender/srShader.h"
 
-#include <algorithm>
-#include <ranges>
-#include <span>
-#include <tuple>
-#include <ctype.h>
+class srMaterialIFace;
+class srTextureIFace;
 
-#include <math.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <wiz8/filesystem.h>
-#include <algorithm>
-#include <cstdint>
-#include <limits>
-#include <memory>
-#include <stdexcept>
-#include <string>
-#include <vector>
 // GLOBAL: WIZ8 0x005ebc30
 const double g_double_one = 1.0;
 // GLOBAL: WIZ8 0x005ec020

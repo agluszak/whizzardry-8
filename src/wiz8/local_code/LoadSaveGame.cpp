@@ -1,7 +1,21 @@
 #include <fmt/format.h>
 #include <fmt/printf.h>
-#include "wiz8/unicode.h"
+#include <SDL3/SDL_filesystem.h>
+#include <SDL3/SDL_stdinc.h>
 #include <string_view>
+#include <vector>
+#include <algorithm>
+#include <memory>
+#include <stdexcept>
+#include <limits>
+#include <string>
+#include <cstdint>
+#include <cstdlib>
+#include <cstring>
+#include <exception>
+#include <iterator>
+#include <utility>
+
 #include "wiz8/retail_text_records.h"
 #include "wiz8/containers.h"
 #include "wiz8/compat/debug_heap.h"
@@ -15,20 +29,14 @@
 #include "wiz8/engine_code/Trigger.hpp"
 #include "wiz8/engine_code/Levels.h"
 #include "wiz8/engine_code/stParticle.h"
-#include "wiz8/local_code/GameplayDatabase.h"
 #include "wiz8/local_code/LoadSaveGame.h"
 #include "wiz8/local_screens/OptionsScreen.h"
 #include "wiz8/local_code/Search.h"
 #include "wiz8/local_code/Configuration.h"
-#include <vector>
-#include <algorithm>
 #include "wiz8/engine_code/Navigator.h"
 #include "wiz8/engine_code/Monster.h"
 #include "wiz8/engine_code/stScript.h"
 #include "wiz8/layouts/combat_state.h"
-#include "wiz8/local_code/Combat.h"
-#include "wiz8/local_code/CombatAttack.h"
-#include "wiz8/local_code/CombatRange.h"
 #include "wiz8/xstatus.h"
 #include "wiz8/local_code/Strings.h"
 #include "wiz8/notices.h"
@@ -42,8 +50,6 @@
 #include "wiz8/local_code/Gameloop.h"
 #include "wiz8/fonts.h"
 #include "wiz8/utility.h"
-#include "wiz8/virtual_file.h"
-
 #include "wiz8/filesystem.h"
 #include "wiz8/local_code/PC_Item.h"
 #include "wiz8/local_screens/AutomapScreen.h"
@@ -58,8 +64,6 @@
 #include "wiz8/local_code/GameplayInit.h"
 #include "wiz8/float_constants.h"
 #include "wiz8/engine_code/game_timer.h"
-#include "wiz8/engine_code/Video2.h"
-#include "surrender/srColorSurface.h"
 #include "wiz8/location_variables.h"
 #include "wiz8/fact_state.h"
 #include "wiz8/level_specific_code/MasterFunctionList.h"
@@ -68,21 +72,8 @@
 #include "wiz8/local_code/NPCManager.h"
 #include "wiz8/local_screens/JournalScreen.h"
 #include "wiz8/local_code/ConditionsAndEnchantments.h"
-#include "wiz8/engine_code/stScript.h"
-#include "surrender/srTypeRegistry.h"
-
 #include "timer.h"
-
-#include "wiz8/filesystem.h"
 #include "wiz8/file_time.h"
-#include <memory>
-#include <stdexcept>
-#include <limits>
-#include <string>
-#include <vector>
-#include <stdlib.h>
-#include <stdio.h>
-#include <string.h>
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/local_code/SpellEffect.h"
 #include "wiz8/character_event_queue.h"
@@ -90,14 +81,27 @@
 #include "wiz8/local_screens/NPCInteractionSubscreen.h"
 #include "wiz8/npc_interaction.h"
 #include "soundman.h"
-#include "timer.h"
-#include "wiz8/engine_code/Octree.h"
 #include "wiz8/local_screens/MGSTextBox.h"
-#include "wiz8/local_code/NPCManager.h"
-#include "wiz8/local_code/Factions.h"
-#include "wiz8/local_screens/JournalScreen.h"
-#include "wiz8/cursor.h"
-#include "wiz8/local_code/ConditionsAndEnchantments.h"
+#include "AnimRep.hpp"
+#include "Item.h"
+#include "Types.h"
+#include "compat/native.h"
+#include "compat/ptr32.h"
+#include "conditions.h"
+#include "gameplay_modifiers.h"
+#include "input.h"
+#include "item_spawning.h"
+#include "layouts/character.h"
+#include "layouts/gameplay_databases.h"
+#include "layouts/item_instance.h"
+#include "layouts/levels.h"
+#include "layouts/targeting.h"
+#include "layouts/world.h"
+#include "monster_actions.h"
+#include "monster_spell_icons.h"
+#include "retail_records.h"
+#include "surrender/srMath.h"
+#include "surrender/srPixelConvert.h"
 
 /* 0x004F8130, ItemManager.cpp line 998: asserts the item is non-null, then
    reports whether the flag word at +0x29 has any of the caller's bits set. */

@@ -1,10 +1,14 @@
+#include <glm/glm.hpp>
+#include <cstdlib>
+#include <cstring>
+
 #include "wiz8/engine_code/OctBuildPreTree.h"
 #include "wiz8/engine_code/OctPreTree.h"
 #include "wiz8/engine_code/materials.h"
 #include "wiz8/float_constants.h"
-
-#include <stdlib.h>
-#include <string.h>
+#include "compat/compiler.h"
+#include "geometry.h"
+#include "surrender/srMath.h"
 
 /* Test the polygon's representative point against six frustum planes; inside
    means every plane distance is non-negative. */

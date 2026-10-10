@@ -1,21 +1,24 @@
 #include <fmt/format.h>
+#include <glm/glm.hpp>
+#include <vector>
+#include <algorithm>
+#include <cmath>
+#include <cstdlib>
+#include <cstring>
+#include <functional>
+#include <span>
+#include <string>
+
 #include "wiz8/engine_code/Monster.h"
 #include "wiz8/local_code/PC_Item.h"
 #include "wiz8/local_code/MonsterGroup.h"
-#include "wiz8/engine_code/AnimRep.hpp"
 #include "wiz8/engine_code/GDCamera.h"
-#include "wiz8/engine_code/quad.h"
 #include "wiz8/cursor.h"
 #include "wiz8/local_screens/Screens.h"
 #include "wiz8/local_screens/MGSTextBox.h"
-#include "wiz8/local_screens/RCSItemsPage.h"
 #include "wiz8/float_constants.h"
 #include "wiz8/xstatus.h"
-#include <vector>
-#include <algorithm>
-#include "wiz8/local_code/GameplayDatabase.h"
 #include "wiz8/local_code/Configuration.h"
-#include "wiz8/local_code/HealthStaminaMana.h"
 #include "wiz8/layouts/item_tables.h"
 #include "wiz8/local_code/Factions.h"
 #include "wiz8/local_code/Targeting.h"
@@ -23,17 +26,9 @@
 #include "wiz8/npc_interaction.h"
 #include "wiz8/startup_world.h"
 #include "wiz8/layouts/character.h"
-#include "wiz8/character_skills.h"
-#include "wiz8/local_code/CharGeneration.h"
 #include "wiz8/local_code/Combat.h"
 #include "wiz8/local_code/CombatAttack.h"
-#include "wiz8/local_code/ConditionsAndEnchantments.h"
-#include "wiz8/local_code/GameplayCode.h"
-#include "wiz8/local_code/GameplayMods.h"
 #include "wiz8/local_code/Magic.h"
-#include "wiz8/local_code/MagicEffects.h"
-#include "wiz8/local_code/party_encumbrance.h"
-#include "wiz8/local_code/UtilityFunctions.h"
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/local_screens/MainGameScreen.h"
@@ -43,7 +38,6 @@
 #include "wiz8/engine_code/Spells.h"
 #include "wiz8/layouts/screen_state.h"
 #include "wiz8/local_code/Gameloop.h"
-#include "wiz8/monster_runtime.h"
 #include "wiz8/utility.h"
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/engine_code/World.h"
@@ -54,14 +48,23 @@
 #include "wiz8/local_code/character_events.h"
 #include "wiz8/engine_code/Cursor3d.h"
 #include "wiz8/engine_code/3d.h"
-#include "wiz8/geometry.h"
 #include "wiz8/local_code/Sight.h"
 #include "wiz8/regions.h"
-#include <math.h>
-#include <stdlib.h>
-#include <string.h>
 #include "wiz8/engine_code/GameData.h"
 #include "wiz8/engine_code/PolyPick.h"
+#include "Navigator.h"
+#include "compat/native.h"
+#include "compat/ptr32.h"
+#include "conditions.h"
+#include "equipment_slots.h"
+#include "glm/ext/vector_double3.hpp"
+#include "glm/ext/vector_float4.hpp"
+#include "layouts/item_instance.h"
+#include "layouts/main_game_screen.h"
+#include "layouts/targeting.h"
+#include "layouts/world.h"
+#include "spell_ids.h"
+#include "surrender/srMath.h"
 
 #define TARGETING_CPP "C:\\Projects\\Wizardry 8\\Local Code\\Targeting.cpp"
 

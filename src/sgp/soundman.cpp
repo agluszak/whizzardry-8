@@ -1,26 +1,32 @@
-#include <string_view>
-#include <SDL3/SDL_log.h>
 /* Modified for the Wizardry 8 reconstruction: 2026-10-03, 2026-10-06, 2026-10-07, 2026-10-09.
    Distributed under the accompanying SFI Source Code license agreement. */
-/*********************************************************************************
-* SGP Digital Sound Module
-*
-*		This module handles the playing of digital samples, preloaded or streamed.
-*
-* Derek Beland, May 28, 1997
-*********************************************************************************/
-#include <stdio.h>
-#include <string.h>
-#include "soundman.h"
-#include "wiz8/filesystem.h"
-#include "Types.h"
-
+#include <SDL3/SDL_log.h>
 #include <wiz8/native_audio.h>
+#include <SDL3/SDL_audio.h>
+#include <SDL3/SDL_filesystem.h>
+#include <SDL3/SDL_iostream.h>
+#include <SDL3/SDL_properties.h>
+#include <SDL3/SDL_stdinc.h>
+#include <SDL3_mixer/SDL_mixer.h>
+#include <string_view>
 #include <algorithm>
 #include <cmath>
 #include <string>
 #include <vector>
+#include <cstdint>
+#include <cstdlib>
+#include <cstring>
+#include <exception>
+#include <memory>
+#include <optional>
+#include <utility>
+
+#include "soundman.h"
+#include "wiz8/filesystem.h"
+#include "Types.h"
 #include "random.h"
+#include "compat/compiler.h"
+#include "compat/native.h"
 
 #define SOUND_DEFAULT_MEMORY (8048 * 1024) // default memory limit
 #define SOUND_DEFAULT_THRESH (256 * 8024)  // size for sample to be double-buffered

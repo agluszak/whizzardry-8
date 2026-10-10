@@ -1,6 +1,12 @@
-#include "wiz8/filesystem.h"
 #ifndef WIZ8_ENGINE_CODE_LEVELFILE_H
 #define WIZ8_ENGINE_CODE_LEVELFILE_H
+
+#include "compat/compiler.h"
+#include "glm/ext/vector_float4.hpp"
+#include "surrender/srMath.h"
+
+class OctMeshModel;
+namespace wiz8 { class File; }
 
 /* Engine Code\LevelFile.cpp. The level-editor serializer: ReadLevelFile loads
    a complete 0x279d-byte level workspace plus all sub-records, WriteLevelFile
@@ -9,9 +15,6 @@
 
 #include "Types.h"
 #include "wiz8/engine_code/materials.h"
-#include "wiz8/engine_code/OctMeshModel.h"
-
-#include <stddef.h>
 
 enum W8LevelMeshFlag {
     W8_LEVEL_MESH_LOD_VERTICES = 1,
@@ -655,7 +658,5 @@ BOOLEAN ReadParticleSystemFile(wiz8::File* hFile, W8LevelFileParticleSystem* pSy
 BOOLEAN WriteParticleSystemFile(wiz8::File* hFile, W8LevelFileParticleSystem* pSystem);
 BOOLEAN ReadLevelFileBlock(wiz8::File* hFile, W8LevelFileBlock* pBlock);
 BOOLEAN WriteLevelFileBlock(wiz8::File* hFile, W8LevelFileBlock* pBlock);
-
-#include "wiz8/evidence/LevelFile_layout.inc"
 
 #endif

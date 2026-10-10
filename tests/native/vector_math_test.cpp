@@ -1,14 +1,19 @@
 #include <catch2/catch_test_macros.hpp>
-#include "surrender/srClip.h"
-#include "surrender/srLight.h"
-#include "surrender/srMath.h"
+#include <glm/ext/matrix_transform.hpp>
+#include <glm/glm.hpp>
 #include <array>
 #include <bit>
 #include <cmath>
 #include <cstdio>
-
-#include <cstdlib>
 #include <limits>
+#include <cstddef>
+#include <iterator>
+#include <span>
+
+#include "surrender/srClip.h"
+#include "surrender/srLight.h"
+#include "surrender/srMath.h"
+#include "glm/fwd.hpp"
 
 
 static void CheckFloats(float actual, float expected)

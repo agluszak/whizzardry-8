@@ -1,10 +1,12 @@
 #include <fmt/format.h>
 #include <string>
+#include <cctype>
+#include <cstdlib>
+
 #include "wiz8/dialog_code/DialogFactoryDialogs.h"
 #include "wiz8/dialog_code/ButtonUserData.h"
 #include "wiz8/dialog_code/DialogButton.h"
 #include "wiz8/dialog_code/DialogInterface.h"
-#include "wiz8/layouts/screen_state.h"
 #include "wiz8/local_screens/Screens.h"
 #include "wiz8/cursor.h"
 #include "wiz8/utility.h"
@@ -12,16 +14,13 @@
 #include "wiz8/item_spawning.h"
 #include "wiz8/item_video_object_vector.h"
 #include "wiz8/layouts/item_tables.h"
-#include "wiz8/local_code/GameplayCode.h"
 #include "wiz8/local_code/ItemManager.h"
 #include "wiz8/local_code/Strings.h"
 #include "wiz8/xstatus.h"
 #include "wiz8/local_code/PC_Item.h"
-#include "wiz8/local_screens/CharacterScreen.h"
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/local_screens/NPCInteractionSubscreen.h"
 #include "wiz8/video_object_catalog.h"
-
 #include "Button System.h"
 #include "Font.h"
 #include "english.h"
@@ -30,10 +29,16 @@
 #include "mousesystem_macros.h"
 #include "soundman.h"
 #include "vsurface.h"
-
-#include <ctype.h>
-#include <stdlib.h>
-#include <string.h>
+#include "Video2.h"
+#include "compat/ptr32.h"
+#include "dialog_code/DialogBase.h"
+#include "layouts/character.h"
+#include "layouts/game_status.h"
+#include "layouts/item_instance.h"
+#include "local_code/ControlsRect.h"
+#include "local_code/TextBuffer.h"
+#include "mousesystem.h"
+#include "vobject.h"
 
 void W8ListBoxDialog::ClearLines()
 {

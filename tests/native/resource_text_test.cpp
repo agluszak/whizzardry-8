@@ -1,4 +1,11 @@
 #include <catch2/catch_test_macros.hpp>
+#include <cstdio>
+#include <filesystem>
+#include <string>
+#include <memory>
+#include <string_view>
+#include <vector>
+
 #include "wiz8/asset_paths.h"
 #include "wiz8/filesystem.h"
 #include "wiz8/engine_code/stScript.h"
@@ -6,10 +13,6 @@
 #include "wiz8/sr_api.h"
 #include "wiz8/local_code/CombatSound.h"
 #include "temporary_directory.h"
-#include <cstdio>
-#include <cstdlib>
-#include <filesystem>
-#include <string>
 
 static void write_text(std::string_view path, std::string_view text)
 {

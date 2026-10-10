@@ -1,19 +1,18 @@
-#include "wiz8/cursor.h"
+#include <SDL3/SDL_rect.h>
+#include <cstdlib>
+#include <cstring>
+
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/dialog_code/DialogBase.h"
 #include "wiz8/dialog_code/DialogButton.h"
 #include "wiz8/dialog_code/DialogTextArea.h"
 #include "wiz8/video_object_catalog.h"
 #include "wiz8/dialog_code/DialogInterface.h"
-
-#include "wiz8/utility.h"
-
 #include "input.h"
 #include "mousesystem_macros.h"
 #include "Button System.h"
-
-#include <stdlib.h>
-#include <string.h>
+#include "mousesystem.h"
+#include "vsurface.h"
 
 // GLOBAL: WIZ8 0x0069CA28
 int g_live_dialog_count;

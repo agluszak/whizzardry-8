@@ -1,13 +1,14 @@
-#include <SDL3/SDL_log.h>
 /* Modified for the Wizardry 8 reconstruction: 2026-10-03, 2026-10-06, 2026-10-07.
    Distributed under the accompanying SFI Source Code license agreement. */
-#include <math.h>
-#include <stdlib.h>
-#include "Types.h"
-#include "string.h"
-#include "wiz8/filesystem.h"
-#include "himage.h"
+#include <SDL3/SDL_log.h>
 #include <SDL3_image/SDL_image.h>
+#include <zlib.h>
+#include <SDL3/SDL_error.h>
+#include <SDL3/SDL_iostream.h>
+#include <SDL3/SDL_pixels.h>
+#include <SDL3/SDL_stdinc.h>
+#include <SDL3/SDL_surface.h>
+#include <zconf.h>
 #include <algorithm>
 #include <limits>
 #include <memory>
@@ -19,9 +20,13 @@
 #include <cstring>
 #include <stdexcept>
 #include <span>
-#include <zlib.h>
-#include "WCheck.h"
-#include "vobject.h"
+#include <cstdlib>
+#include <exception>
+
+#include "Types.h"
+#include "wiz8/filesystem.h"
+#include "himage.h"
+#include "imgfmt.h"
 
 // This is the color substituted to keep a 24bpp -> 16bpp color
 // from going transparent (0x0000) -- DB

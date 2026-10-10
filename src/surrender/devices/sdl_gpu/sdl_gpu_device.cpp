@@ -1,16 +1,30 @@
-#include "wiz8/utility.h"
-#include "surrender/srDD_SDLGPU.h"
-
-#include <SDL3/SDL.h>
 #include <glm/gtc/type_ptr.hpp>
-#include <stdint.h>
-#include <string.h>
-
+#include <SDL3/SDL_error.h>
+#include <SDL3/SDL_gpu.h>
+#include <SDL3/SDL_log.h>
+#include <SDL3/SDL_pixels.h>
+#include <SDL3/SDL_platform.h>
+#include <SDL3/SDL_rect.h>
+#include <SDL3/SDL_stdinc.h>
+#include <SDL3/SDL_video.h>
+#include <glm/glm.hpp>
 #include <map>
 #include <vector>
+#include <cstddef>
+#include <cstdint>
+#include <cstring>
+#include <utility>
 
+#include "surrender/srDD_SDLGPU.h"
 #include "sr_fragment.spv.h"
 #include "sr_vertex.spv.h"
+#include "compat/compiler.h"
+#include "surrender/srDD.h"
+#include "surrender/srFlags.h"
+#include "surrender/srPixelConvert.h"
+#include "surrender/srRendererDefs.h"
+#include "surrender/srShader.h"
+#include "glm/fwd.hpp"
 
 /* SurRender drives a device the way it drove OpenGL 1.x: state setters,
    client-side vertex arrays and immediate draws, interleaved with clears and

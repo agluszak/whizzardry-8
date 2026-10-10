@@ -1,8 +1,10 @@
 #ifndef WIZ8_LOCAL_CODE_GAMELOOP_H
 #define WIZ8_LOCAL_CODE_GAMELOOP_H
 
-#include "wiz8/layouts/screen_state.h"
 #include <vector>
+#include <cstddef>
+
+#include "wiz8/layouts/screen_state.h"
 
 void ShutdownGame(size_t initialized_screens, bool save_configuration);
 void GameLoop(void);

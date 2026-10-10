@@ -1,7 +1,13 @@
+#include <SDL3/SDL_rect.h>
 #include <string_view>
+#include <vector>
+#include <array>
+#include <cstring>
+#include <memory>
+#include <string>
+
 #include "wiz8/containers.h"
 #include "wiz8/local_screens/MainGameScreen.h"
-#include "wiz8/local_screens/OptionsScreen.h"
 #include "wiz8/local_code/ControlsRect.h"
 #include "wiz8/local_code/TextBuffer.h"
 #include "wiz8/local_code/Widget.h"
@@ -10,19 +16,17 @@
 #include "wiz8/local_code/ControlSelection.h"
 #include "wiz8/float_constants.h"
 #include "wiz8/fonts.h"
-#include "wiz8/cursor.h"
 #include "wiz8/local_code/ButtonSound.h"
 #include "wiz8/local_code/Controls.h"
 #include "wiz8/regions.h"
 #include "wiz8/engine_code/Video2.h"
-#include "wiz8/utility.h"
 #include "wiz8/sr_api.h"
-#include <vector>
-#include <algorithm>
 #include "wiz8/video_object_catalog.h"
 #include "Font.h"
 #include "input.h"
 #include "vsurface.h"
+#include "layouts/main_game_screen.h"
+#include "vobject.h"
 
 
 unsigned char DispatchButtonRegionEvent(const InputAtom* event, W8Region* region,
@@ -1300,8 +1304,6 @@ W8HelpTextControl::W8HelpTextControl(Controls* panel, unsigned int region, int l
 {
     m_regionHelp.clear();
 }
-
-class W8RangeControl;
 
 // VTABLE: WIZ8 0x005ed6b4
 class W8VerticalRangeThumb : public W8Widget {

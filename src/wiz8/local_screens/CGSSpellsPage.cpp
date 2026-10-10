@@ -1,26 +1,32 @@
 #include <fmt/format.h>
+#include <SDL3/SDL_rect.h>
 #include <string>
+#include <array>
+#include <memory>
+#include <vector>
+
 #include "wiz8/character_skills.h"
 #include "wiz8/layouts/gameplay_databases.h"
 #include "wiz8/local_code/Widget.h"
 #include "wiz8/local_code/RangeControl.h"
 #include "wiz8/local_screens/CharacterScreen.h"
-#include "wiz8/local_screens/ReviewCharacterScreen.h"
-#include "wiz8/local_screens/MainGameScreen.h"
-
-#include "wiz8/cursor.h"
 #include "wiz8/local_code/ButtonSound.h"
 #include "wiz8/local_code/Strings.h"
-#include "wiz8/local_code/Magic.h"
-#include "wiz8/local_code/MagicEffects.h"
-#include "wiz8/layouts/screen_state.h"
 #include "wiz8/fonts.h"
 #include "wiz8/sr_api.h"
-#include "wiz8/utility.h"
 #include "wiz8/video_object_catalog.h"
 #include "Font.h"
-
-#include <new>
+#include "Video2.h"
+#include "compat/compiler.h"
+#include "game_timer.h"
+#include "layouts/character.h"
+#include "local_code/CharGeneration.h"
+#include "local_code/Controls.h"
+#include "local_code/ControlsRect.h"
+#include "local_code/HealthStaminaMana.h"
+#include "local_code/TextBuffer.h"
+#include "vobject.h"
+#include "vsurface.h"
 
 // GLOBAL: WIZ8 0x0069c534
 static unsigned int g_character_spells_region_set;

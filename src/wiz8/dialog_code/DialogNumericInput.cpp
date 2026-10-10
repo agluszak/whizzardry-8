@@ -1,18 +1,22 @@
 #include <fmt/format.h>
+#include <SDL3/SDL_rect.h>
 #include <charconv>
-#include "wiz8/utility.h"
 #include <string>
+#include <algorithm>
+#include <cstddef>
+#include <string_view>
+
 #include "vsurface.h"
 #include "wiz8/dialog_code/DialogFactoryDialogs.h"
 #include "wiz8/engine_code/Video2.h"
-#include "wiz8/local_screens/CharacterScreen.h"
-#include "wiz8/local_screens/MainGameScreen.h"
-
 #include "Font.h"
 #include "input.h"
 #include "line.h"
-#include <algorithm>
 #include "vobject.h"
+#include "Types.h"
+#include "dialog_code/DialogBase.h"
+#include "dialog_code/DialogButton.h"
+#include "local_code/ControlsRect.h"
 
 
 /* Dialog Code numeric entry field, reconstructed logical owner: the original

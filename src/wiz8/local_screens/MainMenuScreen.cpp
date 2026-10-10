@@ -1,5 +1,10 @@
+#include <SDL3/SDL_rect.h>
 #include <string_view>
 #include <string>
+#include <array>
+#include <memory>
+#include <vector>
+
 #include "wiz8/local_code/LoadSaveGame.h"
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/regions.h"
@@ -22,15 +27,14 @@
 #include "wiz8/dialog_code/MessageDialogBase.h"
 #include "wiz8/utility.h"
 #include "wiz8/version.h"
-
 #include "input.h"
 #include "english.h"
 #include "Font.h"
 #include "himage.h"
-#include "wiz8/application.h"
-#include "Types.h"
 #include "mousesystem.h"
 #include "vsurface.h"
+#include "dialog_code/DialogBase.h"
+#include "vobject.h"
 
 
 /* The screen's own state. */

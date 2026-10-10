@@ -1,3 +1,5 @@
+#include <vector>
+
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/level_specific_code/MtGigasOuter.h"
 #include "wiz8/level_specific_code/MasterFunctionList.h"
@@ -11,13 +13,18 @@
 #include "wiz8/local_code/PC_Item.h"
 #include "wiz8/local_code/MonsterGroup.h"
 #include "wiz8/local_code/Factions.h"
-#include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/local_screens/NPCInteractionSubscreen.h"
 #include "wiz8/cursor.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/float_constants.h"
 #include "wiz8/sr_api.h"
 #include "surrender/srCamera.h"
+#include "glm/ext/vector_float3.hpp"
+#include "layouts/world.h"
+#include "surrender/srMath.h"
+
+struct W8ItemInstance;
+struct W8NpcState;
 
 #define MTGIGASOUTER_CPP "C:\\Projects\\Wizardry 8\\Level Specific Code\\MtGigasOuter.cpp"
 

@@ -1,13 +1,17 @@
-#include <fmt/format.h>
-#include "wiz8/utility.h"
 #include <SDL3/SDL_log.h>
+#include <SDL3/SDL_pixels.h>
+#include <SDL3/SDL_surface.h>
+#include <algorithm>
+#include <map>
+#include <cstddef>
+#include <iterator>
+#include <optional>
+#include <span>
+#include <utility>
+
 /* Modified for the Wizardry 8 reconstruction: 2026-10-03, 2026-10-06, 2026-10-07, 2026-10-09.
    Distributed under the accompanying SFI Source Code license agreement. */
 #include "compat/surfaces.h"
-#include <stdio.h>
-#include <stdlib.h>
-#include <algorithm>
-#include <map>
 #include "Video2.h"
 #include "himage.h"
 #include "vsurface.h"

@@ -1,13 +1,23 @@
+#include <SDL3_image/SDL_image.h>
+#include <SDL3/SDL_iostream.h>
+#include <SDL3/SDL_pixels.h>
+#include <SDL3/SDL_properties.h>
+#include <SDL3/SDL_stdinc.h>
+#include <SDL3/SDL_surface.h>
+#include <stdexcept>
+#include <algorithm>
+#include <cstddef>
+#include <memory>
+
 #include "surrender/srImageIO.h"
 #include "surrender/srCore.h"
 #include "image_helpers.h"
 #include "jpeg_validate.h"
 #include "surrender/srIO.h"
 #include "wiz8/filesystem.h"
-
-#include <SDL3_image/SDL_image.h>
-#include <stdexcept>
-#include <cstring>
+#include "surrender/srColorSurface.h"
+#include "surrender/srColorSurfaceIFace.h"
+#include "surrender/srPixelConvert.h"
 
 namespace srImage {
 bool copyRows(const SDL_Surface& source, srColorSurfaceIFace& destination,

@@ -1,6 +1,9 @@
 #include <fmt/printf.h>
-#include "wiz8/utility.h"
+#include <fmt/format.h>
 #include <string>
+#include <cstring>
+#include <vector>
+
 #include "wiz8/local_code/Factions.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/layouts/gameplay_databases.h"
@@ -8,14 +11,7 @@
 #include "wiz8/local_code/Strings.h"
 #include "wiz8/local_screens/MGSTextBox.h"
 #include "wiz8/sr_api.h"
-#include "wiz8/layouts/game_status.h"
-#include "wiz8/local_code/Strings.h"
-#include "wiz8/local_screens/MGSTextBox.h"
 #include "wiz8/filesystem.h"
-
-#include <stdio.h>
-#include <string.h>
-#include <stdio.h>
 
 /* Local Code\Factions.cpp. The unit is named by the two assertions this body
    embeds, and the 0..20 domain they bound is the same one the contiguous

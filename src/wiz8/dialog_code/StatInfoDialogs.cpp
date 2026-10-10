@@ -1,21 +1,24 @@
 #include <fmt/printf.h>
+#include <fmt/format.h>
+#include <memory>
+#include <string>
+#include <vector>
+
 #include "wiz8/dialog_code/StatInfoDialogs.h"
 #include "wiz8/dialog_code/MonsterInfoDialog.h"
 #include "Font.h"
 #include "wiz8/layouts/character.h"
-#include "wiz8/local_code/UtilityFunctions.h"
 #include "wiz8/local_screens/CharacterScreen.h"
-#include "wiz8/local_screens/MainGameScreen.h"
-#include "wiz8/dialog_code/DialogInterface.h"
-#include "wiz8/engine_code/Video2.h"
 #include "wiz8/fonts.h"
 #include "wiz8/local_code/Strings.h"
-#include "wiz8/layouts/screen_state.h"
-#include "wiz8/utility.h"
-#include "wiz8/local_screens/Screens.h"
 #include "wiz8/sr_api.h"
-#include "wiz8/video_object_catalog.h"
-#include "wiz8/local_screens/OptionsScreen.h"
+#include "Types.h"
+#include "character_skills.h"
+#include "dialog_code/DialogBase.h"
+#include "dialog_code/DialogButton.h"
+#include "dialog_code/DialogScrollBar.h"
+#include "dialog_code/DialogTextArea.h"
+#include "local_code/ControlsRect.h"
 
 /* Dialog Code\StatInfoDialogs.cpp. Two attribute-info dialogs whose
    constructors are the same body twice over: the canonical pair differs only
@@ -208,4 +211,3 @@ W8SecondaryAttributeInfoDialog::W8SecondaryAttributeInfoDialog(unsigned int uiIn
     m_title_id = g_character_description_first_ids[16 + uiIndex];
     m_detail_id = g_attr_table1[uiIndex];
 }
-

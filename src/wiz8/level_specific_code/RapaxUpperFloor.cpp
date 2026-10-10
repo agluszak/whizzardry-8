@@ -1,18 +1,21 @@
 #include "wiz8/level_specific_code/RapaxUpperFloor.h"
+
+#include <string>
+#include <vector>
+
 #include "wiz8/engine_code/Trigger.hpp"
 #include "wiz8/engine_code/World.h"
 #include "wiz8/cursor.h"
 #include "wiz8/fact_state.h"
 #include "wiz8/item_spawning.h"
 #include "wiz8/layouts/game_status.h"
-#include "wiz8/level_specific_code/MasterFunctionList.h"
 #include "wiz8/location_variables.h"
 #include "wiz8/local_code/Factions.h"
-#include "wiz8/local_code/ItemManager.h"
 #include "wiz8/local_code/PC_Item.h"
 #include "wiz8/local_code/Strings.h"
 #include "wiz8/string_database.h"
 #include "surrender/srMath.h"
+#include "Item.h"
 
 /* Level Specific Code for RapaxUpperFloor.LVL (level 0x13) — the Rapax
    castle upper floor treasure vault.

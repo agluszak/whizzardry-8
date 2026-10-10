@@ -1,43 +1,34 @@
-#include "wiz8/audio_resources.h"
-#include <string>
 #ifndef WIZ8_LOCAL_CODE_MONSTER_MANAGER_H
 #define WIZ8_LOCAL_CODE_MONSTER_MANAGER_H
 
+#include "wiz8/audio_resources.h"
+
+#include <string>
+#include <cstdint>
+
+#include "compat/compiler.h"
+#include "conditions.h"
+#include "layouts/targeting.h"
+
+class W8Monster;
+struct W8MonsterGroup;
+struct W8MonsterInfo;
+struct W8MonsterRecord;
+
 #include <unordered_map>
-#include "Types.h"
 #include <vector>
-struct W8MonsterAction;
-struct W8VisibilityRecord;
 
 #include "compat/ptr32.h"
-#include <stddef.h>
-
 #include "wiz8/monster_actions.h"
 #include "wiz8/sight_state.h"
-
-
 #include "surrender/srMath.h"
-#include <algorithm>
 #include "wiz8/layouts/character.h"
 #include "wiz8/character_skills.h"
-#include "wiz8/local_code/CharGeneration.h"
-#include "wiz8/local_code/Combat.h"
-#include "wiz8/local_code/CombatAttack.h"
-#include "wiz8/local_code/ConditionsAndEnchantments.h"
-#include "wiz8/local_code/GameplayMods.h"
-#include "wiz8/local_code/HealthStaminaMana.h"
-#include "wiz8/local_code/Magic.h"
-#include "wiz8/local_code/MagicEffects.h"
-#include "wiz8/local_code/UtilityFunctions.h"
-#include "wiz8/engine_code/Monster.h"
 #include "wiz8/local_code/Factions.h"
 #include "wiz8/gameplay_modifiers.h"
-#include "wiz8/layouts/gameplay_databases.h"
 #include "wiz8/mouth_gap.h"
-#include "wiz8/local_code/Targeting.h"
 
 struct W8CharacterEvent;
-struct W8NpcState;
 
 struct W8PortraitQuoteState {
     int quote_handle;

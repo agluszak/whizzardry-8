@@ -1,12 +1,16 @@
 #include <catch2/catch_test_macros.hpp>
-/* SDL -> the native input queue and main-thread clock. Capture entry points below
-   record calls for this test; they are not a native video implementation. */
-#include <SDL3/SDL.h>
-#include <algorithm>
-#include <chrono>
+#include <SDL3/SDL_events.h>
+#include <SDL3/SDL_init.h>
+#include <SDL3/SDL_keycode.h>
+#include <SDL3/SDL_mouse.h>
+#include <SDL3/SDL_rect.h>
+#include <SDL3/SDL_stdinc.h>
+#include <SDL3/SDL_timer.h>
+#include <SDL3/SDL_video.h>
 #include <thread>
 #include <vector>
 #include <cstdio>
+#include <cstdint>
 
 #include "wiz8/application.h"
 #include "wiz8/engine_code/GameData.h"
@@ -14,6 +18,9 @@
 #include "input.h"
 #include "timer.h"
 #include "Video2.h"
+#include "Types.h"
+#include "compat/native.h"
+#include "vsurface.h"
 
 
 SDL_Window* ghWindow = nullptr;

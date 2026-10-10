@@ -1,5 +1,6 @@
 #include "wiz8/file_time.h"
 
+#include <SDL3/SDL_error.h>
 #include <chrono>
 #include <limits>
 #include <stdexcept>

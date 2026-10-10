@@ -1,18 +1,20 @@
 #pragma once
 
-#include "wiz8/filesystem.h"
+#include <vector>
 
 #include "surrender/srLight.h"
 #include "wiz8/sr_api.h"
-#include <vector>
-#include <algorithm>
 #include "wiz8/layouts/world.h"
-
-#include <stddef.h>
+#include "compat/compiler.h"
+#include "glm/ext/vector_float3.hpp"
+#include "surrender/srMath.h"
+#include "surrender/srNode.h"
+#include "surrender/srTypeRegistry.h"
 
 class W8Prop;
-class Trigger;
 struct W8PathAI;
+namespace wiz8 { class File; }
+
 extern unsigned int g_light_update_flags;
 
 enum W8ParametricLightFlag {

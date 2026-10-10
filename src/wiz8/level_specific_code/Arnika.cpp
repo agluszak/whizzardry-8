@@ -1,6 +1,8 @@
 #include "wiz8/level_specific_code/Arnika.h"
+
 #include <vector>
-#include <algorithm>
+#include <string>
+
 #include "wiz8/engine_code/IntervalGate.h"
 #include "wiz8/engine_code/Trigger.hpp"
 #include "wiz8/engine_code/GDCamera.h"
@@ -18,7 +20,6 @@
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_code/NPCManager.h"
 #include "wiz8/local_code/PC_Item.h"
-#include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/local_screens/NPCInteractionSubscreen.h"
 #include "wiz8/location_variables.h"
 #include "wiz8/sr_api.h"
@@ -26,6 +27,11 @@
 #include "wiz8/layouts/game_status.h"
 #include "surrender/srMath.h"
 #include "soundman.h"
+#include "compat/ptr32.h"
+#include "layouts/item_instance.h"
+#include "monster_actions.h"
+
+struct W8NpcState;
 
 #define ARNIKA_CPP "C:\\Projects\\Wizardry 8\\Level Specific Code\\Arnika.cpp"
 

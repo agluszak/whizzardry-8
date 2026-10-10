@@ -3,7 +3,6 @@
 #include "input.h"
 
 struct Controls;
-struct W8Region;
 
 /* Parent strip for the top-row spell icons (0x19d,0)-(0x280,0x12). */
 extern Controls* g_spell_icon_strip;

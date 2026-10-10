@@ -1,9 +1,8 @@
 #include <fmt/format.h>
-#include <math.h>
-#include <stdlib.h>
-#include <string.h>
+#include <cmath>
+#include <string>
+#include <string_view>
 
-#include "wiz8/engine_code/3dapi.h"
 #include "wiz8/engine_code/Prop.h"
 #include "wiz8/engine_code/Trigger.hpp"
 #include "wiz8/float_constants.h"

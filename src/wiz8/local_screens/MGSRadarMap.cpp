@@ -1,17 +1,15 @@
+#include <glm/gtx/rotate_vector.hpp>
+#include <glm/glm.hpp>
+#include <vector>
+#include <cmath>
+
 #include "wiz8/containers.h"
 #include "wiz8/local_screens/MGSRadarMap.h"
-
-#include <math.h>
-
 #include "surrender/srMath.h"
 #include "surrender/srNode.h"
 #include "surrender/srScene.h"
 #include "wiz8/layouts/combat_state.h"
-#include "wiz8/local_code/Combat.h"
-#include "wiz8/local_code/CombatAttack.h"
 #include "wiz8/local_code/CombatRange.h"
-#include "wiz8/engine_code/GDCamera.h"
-#include "wiz8/engine_code/GrCycle.h"
 #include "wiz8/engine_code/Item.h"
 #include "wiz8/engine_code/Missile.h"
 #include "wiz8/engine_code/Monster.h"
@@ -19,22 +17,25 @@
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/engine_code/stModelInstance.h"
 #include "wiz8/float_constants.h"
-#include <glm/gtx/rotate_vector.hpp>
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/item_spawning.h"
 #include "wiz8/local_code/ControlsRect.h"
-#include "wiz8/local_code/FormationAndFacing.h"
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_screens/MainGameScreen.h"
-#include "wiz8/engine_code/Spells.h"
 #include "wiz8/local_code/Magic.h"
-#include "wiz8/local_code/MagicEffects.h"
 #include "wiz8/startup_world.h"
-#include <vector>
-#include <algorithm>
 #include "wiz8/video_object_catalog.h"
 #include "wiz8/xstatus.h"
 #include "wiz8/engine_code/GameData.h"
+#include "AnimRep.hpp"
+#include "compat/ptr32.h"
+#include "glm/ext/vector_float4.hpp"
+#include "layouts/gameplay_databases.h"
+#include "layouts/main_game_screen.h"
+#include "layouts/party_formation.h"
+#include "sight_state.h"
+#include "vobject.h"
+#include "vsurface.h"
 
 /* The blip palette, six classes of three distance rings. Items
    take class 4 and missiles class 5; monsters take their disposition-mapped

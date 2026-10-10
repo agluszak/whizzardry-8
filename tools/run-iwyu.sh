@@ -20,6 +20,7 @@ include-what-you-use --version
 # Directory selectors omit downloaded dependencies but retain first-party tests.
 # Keep the raw IWYU format so the report can be reviewed with fix_includes.py.
 status=0
-"$driver" -p "$build" -j "${IWYU_JOBS:-4}" "$root/src" "$root/tests" >"$report" 2>&1 || status=$?
+"$driver" -p "$build" -j "${IWYU_JOBS:-4}" "$root/src" "$root/tests" -- \
+    -Xiwyu "--mapping_file=$root/tools/iwyu.imp" >"$report" 2>&1 || status=$?
 echo "IWYU report: $report"
 exit "$status"

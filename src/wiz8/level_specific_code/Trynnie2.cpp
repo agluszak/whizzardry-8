@@ -1,9 +1,11 @@
+#include <string>
+#include <vector>
+
 #include "wiz8/fonts.h"
 #include "wiz8/level_specific_code/Trynnie2.h"
 #include "wiz8/level_specific_code/Trynnie1.h"
 #include "wiz8/level_specific_code/MasterFunctionList.h"
 #include "wiz8/engine_code/Monster.h"
-#include "wiz8/engine_code/Trigger.hpp"
 #include "wiz8/engine_code/World.h"
 #include "wiz8/fact_state.h"
 #include "wiz8/item_spawning.h"
@@ -12,16 +14,20 @@
 #include "wiz8/layouts/item_instance.h"
 #include "wiz8/cursor.h"
 #include "wiz8/local_code/GameplayCode.h"
-#include "wiz8/local_code/ItemManager.h"
 #include "wiz8/local_code/MonsterGenerator.h"
 #include "wiz8/local_code/MonsterGroup.h"
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_code/PC_Item.h"
 #include "wiz8/local_code/Strings.h"
 #include "wiz8/local_screens/MGSTextBox.h"
-#include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/local_screens/NPCInteractionSubscreen.h"
 #include "wiz8/string_database.h"
+#include "Item.h"
+#include "compat/ptr32.h"
+#include "conditions.h"
+#include "surrender/srMath.h"
+
+class Trigger;
 
 /* Level Specific Code\Trynnie2.cpp (level 0x1a).
 

@@ -1,15 +1,22 @@
 /* D:\srsdk1x\sources\corelib\srMaterial.cpp */
 
+#include <glm/glm.hpp>
+#include <ostream>
+#include <cstddef>
+
 #include "surrender/srMaterial.h"
 #include "surrender/srStreamFlags.h"
-
 #include "surrender/srCore.h"
 #include "surrender/srDebug.h"
-#include <ostream>
-#include "surrender/srMath.h"
-#include <algorithm>
-
-#include <cassert>
+#include "compat/compiler.h"
+#include "glm/ext/vector_float4.hpp"
+#include "surrender/srFlags.h"
+#include "surrender/srMaterialIFace.h"
+#include "surrender/srShader.h"
+#include "surrender/srStatisticsManager.h"
+#include "surrender/srTypeRegistry.h"
+#include "surrender/srVertexPipe.h"
+#include "surrender/srVertexProcessor.h"
 
 /* Comma-separated operation names srMaterial::dump walks while printing the operations bits; never
    assigned. */

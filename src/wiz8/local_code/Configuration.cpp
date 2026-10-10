@@ -1,20 +1,15 @@
 #include <fmt/format.h>
-#include "wiz8/unicode.h"
-#include "wiz8/local_code/GameplayDatabase.h"
+#include <exception>
+#include <memory>
+#include <string>
+
 #include "wiz8/sr_api.h"
-#include "surrender/srGERD.h"
 #include "wiz8/local_code/Configuration.h"
 #include "wiz8/local_code/GameplayInit.h"
 #include "wiz8/local_screens/MGSKeyboard.h"
 #include "wiz8/chunk.h"
 #include "wiz8/engine_code/AmbientSound.h"
-#include "wiz8/music_playlist.h"
 #include "wiz8/engine_code/Quality.h"
-#include "wiz8/utility.h"
-#include "soundman.h"
-
-#include <stdio.h>
-#include <string.h>
 #include "wiz8/engine_code/Video2.h"
 
 // GLOBAL: WIZ8 0x006850c8

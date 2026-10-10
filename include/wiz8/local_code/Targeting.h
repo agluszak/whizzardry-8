@@ -1,13 +1,15 @@
-#include <vector>
 #pragma once
+
+#include <vector>
 
 #include "wiz8/layouts/targeting.h"
 #include "wiz8/layouts/gameplay_databases.h"
 
-struct W8CombatSlot;
 struct W8MonsterInfo;
 struct W8MonsterGroup;
 template <class T> class srVector3T;
+struct W8ItemInstance;
+
 void ResetCombatSlot(W8CombatSlot* slot);
 
 /* Answer which of the real contexts applies right now. Kept after the enum so
@@ -117,6 +119,7 @@ void CollectMonstersWithinRadius(const srVector3T<float>* centre, const srVector
                                  char highlighting);
 
 class W8Monster;
+
 /* Whether `monster` is within `max_distance` of the player and
    still projects on screen. `position` is unused. */
 bool IsMonsterVisibleWithinDistance(W8Monster* monster, const srVector3T<float>* position,

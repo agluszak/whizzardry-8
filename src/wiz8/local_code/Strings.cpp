@@ -1,11 +1,17 @@
 #include <regex>
-#include "wiz8/sr_api.h"
+#include <vector>
+#include <stdexcept>
+#include <cstddef>
+#include <cstdint>
+#include <exception>
+#include <memory>
+#include <span>
+#include <utility>
+
 #include "wiz8/local_code/Strings.h"
 #include "wiz8/string_database.h"
 #include "wiz8/filesystem.h"
 #include "wiz8/unicode.h"
-#include <vector>
-#include <stdexcept>
 
 // GLOBAL: WIZ8 0x0068c098
 int giStringListLen;

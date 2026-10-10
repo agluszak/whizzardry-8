@@ -1,17 +1,24 @@
 #include <fmt/format.h>
-#include "input.h"
+#include <glm/glm.hpp>
 #include <string_view>
-#include "wiz8/unicode.h"
+#include <vector>
+#include <algorithm>
+#include <cmath>
+#include <cstdio>
+#include <cstring>
+#include <exception>
+#include <memory>
+#include <string>
+
+#include "input.h"
 #include "wiz8/containers.h"
 #include "wiz8/engine_code/AnimRep.hpp"
 #include "wiz8/engine_code/SoundEvent.h"
 #include "wiz8/engine_code/GrObject.h"
 #include "wiz8/engine_code/GrCycle.h"
-#include "wiz8/engine_code/GDCamera.h"
 #include "wiz8/engine_code/Trigger.hpp"
 #include "wiz8/float_constants.h"
 #include "random.h"
-#include "wiz8/engine_code/World.h"
 #include "wiz8/engine_code/3d.h"
 #include "wiz8/engine_code/stLight.hpp"
 #include "wiz8/engine_code/stModelInstance.h"
@@ -26,22 +33,24 @@
 #include "wiz8/engine_code/AnimObj.h"
 #include "wiz8/engine_code/AniMesh.h"
 #include "wiz8/engine_code/game_timer.h"
-#include "wiz8/engine_code/Environment.h"
 #include "wiz8/engine_code/Quality.h"
-#include "wiz8/engine_code/Video2.h"
 #include "wiz8/sr_api.h"
-#include "wiz8/utility.h"
-#include <vector>
-#include <algorithm>
-#include "wiz8/virtual_file.h"
 #include "surrender/srModelInstance.h"
 #include "surrender/srCore.h"
 #include "wiz8/filesystem.h"
-#include <math.h>
-#include <new>
-#include <stdio.h>
-#include <string.h>
 #include "wiz8/engine_code/GameData.h"
+#include "Emitter.h"
+#include "Navigator.h"
+#include "SpellEmitterHost.h"
+#include "application.h"
+#include "glm/ext/matrix_double3x3.hpp"
+#include "glm/ext/vector_double3.hpp"
+#include "glm/ext/vector_float3.hpp"
+#include "layouts/world.h"
+#include "particle_modes.h"
+#include "surrender/srClock.h"
+#include "surrender/srNode.h"
+
 // GLOBAL: WIZ8 0x005ebc3c
 const float g_float_one_tenth = 0.10000000149011612f;
 // GLOBAL: WIZ8 0x005ec390

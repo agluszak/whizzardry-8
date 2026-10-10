@@ -1,9 +1,12 @@
+#include <SDL3/SDL_rect.h>
+#include <utility>
+
 #include "wiz8/dialog_code/DialogButton.h"
 #include "wiz8/dialog_code/DialogScrollBar.h"
 #include "wiz8/dialog_code/ButtonUserData.h"
-#include "wiz8/cursor.h"
-#include "wiz8/utility.h"
-#include <utility>
+#include "Video2.h"
+#include "local_code/ControlsRect.h"
+#include "mousesystem.h"
 
 /* Reconstructed logical owner; original translation-unit identity is unproven.
    Live query: 0x005E0C40 sits in the gap after StatInfoDialogs.cpp (upper

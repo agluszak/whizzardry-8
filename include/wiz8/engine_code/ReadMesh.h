@@ -1,19 +1,17 @@
 #pragma once
 
+#include <glm/glm.hpp>
 #include <vector>
-
 #include <memory>
 
-#include "wiz8/filesystem.h"
+#include "compat/compiler.h"
+#include "glm/fwd.hpp"
 
-#include "surrender/srMath.h"
 struct W8MaterialRecord;
 struct W8MeshMaterial;
-
-#include <vector>
-#include <algorithm>
-
 struct W8ReadLevelInfo;
+namespace wiz8 { class File; }
+template <class T> class srVector3T;
 
 #pragma pack(push, 1)
 struct W8SerializedMeshFace {
@@ -44,13 +42,9 @@ inline W8ReadMeshFace DecodeMeshFace(const W8SerializedMeshFace& record) {
     return face;
 }
 
-class srMaterialIFace;
 class srModelInstance;
-class srTextureIFace;
-class srShader;
 class stMeshModel;
 class srMeshModel;
-class srClass;
 
 unsigned char ReadSingleLevelMesh(W8ReadLevelInfo* info, srModelInstance** instance,
                                   int unused_first, int unused_second, const char* name,

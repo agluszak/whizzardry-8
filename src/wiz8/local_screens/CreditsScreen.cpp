@@ -1,26 +1,30 @@
+#include <SDL3/SDL_rect.h>
 #include <optional>
 #include <stdexcept>
 #include <string>
-#include "wiz8/unicode.h"
 #include <vector>
 #include <array>
+#include <cstddef>
+#include <cstdint>
+#include <exception>
+#include <memory>
+#include <span>
+#include <utility>
+
+#include "wiz8/unicode.h"
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/local_screens/CreditsScreen.h"
 #include "wiz8/local_screens/Screens.h"
-
-#include "wiz8/cursor.h"
 #include "wiz8/music_playlist.h"
 #include "wiz8/regions.h"
-#include "wiz8/utility.h"
 #include "wiz8/video_object_catalog.h"
 #include "wiz8/fonts.h"
-#include "wiz8/virtual_file.h"
-
 #include "wiz8/filesystem.h"
 #include "Font.h"
 #include "input.h"
-
-#include <stdlib.h>
+#include "compat/native.h"
+#include "vobject.h"
+#include "vsurface.h"
 
 // GLOBAL: WIZ8 0x0069C4A8
 static std::vector<W8CreditLine> g_credit_lines;

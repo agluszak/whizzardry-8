@@ -1,7 +1,10 @@
 #include <fmt/format.h>
-#include "wiz8/utility.h"
-#include "wiz8/unicode.h"
-#include "wiz8/layouts/combat_state.h"
+#include <cstdint>
+#include <cstdlib>
+#include <cstring>
+#include <string>
+#include <vector>
+
 #include "wiz8/xstatus.h"
 #include "wiz8/engine_code/stScript.h"
 #include "wiz8/local_code/Configuration.h"
@@ -9,10 +12,8 @@
 #include "wiz8/regions.h"
 #include "random.h"
 #include "soundman.h"
-
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
+#include "compat/native.h"
+#include "local_screens/Screens.h"
 
 /* Original translation-unit ownership is unknown; surrounding anchors do not resolve it. */
 

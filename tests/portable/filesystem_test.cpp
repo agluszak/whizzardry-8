@@ -1,16 +1,27 @@
 #include <catch2/catch_test_macros.hpp>
-#include "wiz8/filesystem.h"
 #include <wiz8/asset_paths.h>
-
 #include <SDL3/SDL_init.h>
+#include <SDL3/SDL_filesystem.h>
+#include <SDL3/SDL_stdinc.h>
 #include <algorithm>
 #include <cstdio>
-#include <cstdlib>
 #include <fstream>
 #include <limits>
 #include <random>
 #include <stdexcept>
 #include <type_traits>
+#include <cstdint>
+#include <exception>
+#include <filesystem>
+#include <iterator>
+#include <memory>
+#include <optional>
+#include <string>
+#include <system_error>
+#include <utility>
+#include <vector>
+
+#include "wiz8/filesystem.h"
 
 namespace fs = std::filesystem;
 using namespace wiz8;

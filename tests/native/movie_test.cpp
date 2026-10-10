@@ -1,21 +1,29 @@
 #include <catch2/catch_test_macros.hpp>
-#include "../../src/native/movie.h"
-#include "wiz8/filesystem.h"
-#include "wiz8/slf.h"
-#include "compat/surfaces.h"
-#include "native/audio_test.h"
 #include <wiz8/asset_paths.h>
-#include "soundman.h"
-#include "wiz8/bink_video.h"
+#include <SDL3/SDL_stdinc.h>
 #include <algorithm>
-#include <cmath>
 #include <cstdio>
 #include <cstring>
 #include <filesystem>
 #include <fstream>
 #include <stdexcept>
-#include "temporary_directory.h"
 #include <vector>
+#include <cstdint>
+#include <cstdlib>
+#include <exception>
+#include <memory>
+#include <string>
+#include <system_error>
+
+#include "../../src/native/movie.h"
+#include "wiz8/filesystem.h"
+#include "wiz8/slf.h"
+#include "compat/surfaces.h"
+#include "native/audio_test.h"
+#include "soundman.h"
+#include "wiz8/bink_video.h"
+#include "temporary_directory.h"
+
 std::vector<unsigned char> read(const char* path)
 {
     std::ifstream file(path, std::ios::binary | std::ios::ate);

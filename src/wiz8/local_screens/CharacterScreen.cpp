@@ -1,18 +1,17 @@
 #include <fmt/format.h>
 #include <fmt/printf.h>
+#include <SDL3/SDL_filesystem.h>
+#include <SDL3/SDL_rect.h>
 #include <string_view>
+#include <cstring>
+#include <optional>
+#include <string>
+
 #include "soundman.h"
 #include "wiz8/layouts/character.h"
 #include "wiz8/character_skills.h"
 #include "wiz8/local_code/CharGeneration.h"
-#include "wiz8/local_code/Combat.h"
-#include "wiz8/local_code/CombatAttack.h"
 #include "wiz8/local_code/GameplayCode.h"
-#include "wiz8/local_code/GameplayMods.h"
-#include "wiz8/local_code/HealthStaminaMana.h"
-#include "wiz8/local_code/Magic.h"
-#include "wiz8/local_code/MagicEffects.h"
-#include "wiz8/local_code/party_encumbrance.h"
 #include "wiz8/local_code/PC_Item.h"
 #include "wiz8/local_code/UtilityFunctions.h"
 #include "wiz8/layouts/screen_state.h"
@@ -28,7 +27,6 @@
 #include "wiz8/local_screens/CharacterScreen.h"
 #include "wiz8/character_event_queue.h"
 #include "wiz8/xstatus.h"
-
 #include "wiz8/cursor.h"
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/dialog_code/MessageDialogBase.h"
@@ -39,23 +37,19 @@
 #include "wiz8/local_code/Strings.h"
 #include "wiz8/local_code/LoadSaveGame.h"
 #include "wiz8/music_playlist.h"
-#include "wiz8/sound_man.h"
 #include "wiz8/regions.h"
 #include "wiz8/fonts.h"
-#include "wiz8/utility.h"
 #include "wiz8/video_object_catalog.h"
-
 #include "input.h"
-#include "Types.h"
 #include "mousesystem.h"
-
 #include "Font.h"
-
-#include <new>
-#include <string.h>
-
 #include "wiz8/filesystem.h"
-#include "wiz8/local_screens/OptionsScreen.h"
+#include "compat/ptr32.h"
+#include "dialog_code/DialogBase.h"
+#include "local_code/Controls.h"
+#include "mousesystem_macros.h"
+#include "vobject.h"
+#include "vsurface.h"
 
 // GLOBAL: WIZ8 0x0061e3a4
 unsigned short g_character_description_first_ids[22] = {

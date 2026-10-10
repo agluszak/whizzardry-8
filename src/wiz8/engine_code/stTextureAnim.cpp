@@ -1,12 +1,12 @@
-#include "wiz8/engine_code/ReadMesh.h"
+#include <algorithm>
+#include <cstdlib>
+#include <utility>
+
 #include "wiz8/engine_code/stTextureAnim.h"
 #include "wiz8/engine_code/GrCycle.h"
-
-#include "wiz8/engine_code/ReadLevel.h"
 #include "wiz8/engine_code/stTextureFile.h"
-
-#include <algorithm>
-#include <stdlib.h>
+#include "compat/native.h"
+#include "texture_animation.h"
 
 // VTABLE: WIZ8 0x005EC9C0
 // class stTextureAnim

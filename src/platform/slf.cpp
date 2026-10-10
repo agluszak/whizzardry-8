@@ -1,15 +1,25 @@
 #include "slf.h"
-#include "wiz8/slf.h"
-#include "path_resolver.h"
-#include "wiz8/asset_paths.h"
 
+#include <SDL3/SDL_log.h>
+#include <SDL3/SDL_filesystem.h>
+#include <SDL3/SDL_stdinc.h>
 #include <algorithm>
 #include <array>
 #include <cstring>
 #include <limits>
 #include <mutex>
 #include <stdexcept>
-#include <SDL3/SDL_log.h>
+#include <compare>
+#include <exception>
+#include <memory>
+#include <string>
+#include <utility>
+#include <vector>
+
+#include "wiz8/slf.h"
+#include "path_resolver.h"
+#include "wiz8/asset_paths.h"
+#include "wiz8/filesystem.h"
 
 namespace wiz8
 {

@@ -1,6 +1,10 @@
 #include <fmt/format.h>
+#include <SDL3/SDL_rect.h>
 #include <string_view>
 #include <string>
+#include <vector>
+#include <memory>
+
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/local_screens/NPCInteractionSubscreen.h"
 #include "wiz8/local_code/Targeting.h"
@@ -12,9 +16,7 @@
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/xstatus.h"
 #include "wiz8/local_screens/JournalScreen.h"
-#include "wiz8/dialog_code/DialogInterface.h"
 #include "wiz8/local_screens/Screens.h"
-
 #include "wiz8/cursor.h"
 #include "wiz8/engine_code/Levels.h"
 #include "wiz8/fonts.h"
@@ -24,24 +26,19 @@
 #include "wiz8/local_code/NPCScripting.h"
 #include "wiz8/local_code/Strings.h"
 #include "wiz8/local_screens/MGSTextBox.h"
-#include "wiz8/notices.h"
 #include "wiz8/regions.h"
-#include "wiz8/utility.h"
 #include "wiz8/video_object_catalog.h"
-#include <vector>
-#include <algorithm>
-
 #include "Font.h"
 #include "soundman.h"
 #include "wiz8/filesystem.h"
-
 #include "input.h"
 #include "Types.h"
 #include "mousesystem.h"
-
-#include <new>
-#include <stdlib.h>
-#include "wiz8/local_screens/OptionsScreen.h"
+#include "difficulty.h"
+#include "local_code/Controls.h"
+#include "message_box.h"
+#include "vobject.h"
+#include "vsurface.h"
 
 // GLOBAL: WIZ8 0x0064df38
 int g_journal_page = -1;

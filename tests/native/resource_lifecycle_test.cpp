@@ -1,4 +1,10 @@
 #include <catch2/catch_test_macros.hpp>
+#include <cstdio>
+#include <memory>
+#include <stdexcept>
+#include <string>
+#include <vector>
+
 #include "surrender/srColorSurface.h"
 #include "surrender/srCore.h"
 #include "surrender/srScene.h"
@@ -8,12 +14,9 @@
 #include "wiz8/message_box.h"
 #include "wiz8/npc_interaction.h"
 #include "wiz8/local_screens/NPCInteractionSubscreen.h"
-
-#include <cstdio>
-#include <cstdlib>
 #include "wiz8/npc_script_file.h"
-#include <memory>
-#include <stdexcept>
+#include "local_code/NPCScripting.h"
+#include "surrender/srPixelConvert.h"
 
 extern std::shared_ptr<srColorSurface> g_mouse_surface;
 extern std::unique_ptr<srColorSurface> g_automap_surface;

@@ -1,5 +1,9 @@
 #include <fmt/format.h>
 #include <fmt/printf.h>
+#include <vector>
+#include <span>
+#include <string>
+
 #include "random.h"
 #include "wiz8/spell_ids.h"
 #include "wiz8/local_code/CombatHostility.h"
@@ -9,17 +13,13 @@
 #include "wiz8/layouts/item_tables.h"
 #include "wiz8/layouts/targeting.h"
 #include "wiz8/local_code/Combat.h"
-#include "wiz8/local_code/CombatAttack.h"
 #include "wiz8/local_code/CombatRange.h"
-#include "wiz8/local_code/GameplayCode.h"
 #include "wiz8/xstatus.h"
 #include "wiz8/engine_code/Spells.h"
 #include "wiz8/local_code/Magic.h"
 #include "wiz8/local_code/MagicEffects.h"
 #include "wiz8/local_code/PC_Item.h"
 #include "wiz8/sr_api.h"
-#include <vector>
-#include <algorithm>
 #include "wiz8/engine_code/Monster.h"
 #include "wiz8/local_code/MonsterGroup.h"
 #include "wiz8/local_code/Sight.h"
@@ -34,6 +34,15 @@
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/local_code/MonsterAI.h"
 #include "wiz8/utility.h"
+#include "character_skills.h"
+#include "compat/ptr32.h"
+#include "conditions.h"
+#include "difficulty.h"
+#include "gameplay_modifiers.h"
+#include "layouts/item_instance.h"
+#include "local_code/Factions.h"
+#include "local_code/HealthStaminaMana.h"
+#include "monster_actions.h"
 
 // STRING: WIZ8 0x0061DC60
 #define COMBAT_HOSTILITY_CPP "C:\\Projects\\Wizardry 8\\Local Code\\Combat Hostility.cpp"

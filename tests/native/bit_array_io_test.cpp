@@ -1,12 +1,16 @@
 #include <catch2/catch_test_macros.hpp>
-#include "wiz8/packed_bits.h"
-#include "surrender/srIO.h"
-#include "wiz8/filesystem.h"
-#include "temporary_directory.h"
-
+#include <SDL3/SDL_iostream.h>
+#include <SDL3/SDL_stdinc.h>
 #include <cstdio>
 #include <fstream>
 #include <vector>
+#include <filesystem>
+#include <memory>
+#include <string>
+
+#include "wiz8/packed_bits.h"
+#include "wiz8/filesystem.h"
+#include "temporary_directory.h"
 
 
 TEST_CASE("packed bit IO")

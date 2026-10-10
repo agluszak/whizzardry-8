@@ -1,20 +1,22 @@
 #include <catch2/catch_test_macros.hpp>
+#include <glm/glm.hpp>
+#include <array>
+#include <cstddef>
+#include <memory>
+#include <type_traits>
+#include <vector>
+
 #include "surrender/srCore.h"
 #include "surrender/srDD_SDLGPU.h"
 #include "surrender/srGERD.h"
 #include "surrender/srMeshModel.h"
 #include "surrender/srTextureMap.h"
 #include "surrender/srTriMeshPipeline.h"
-#include <array>
-#include <cstddef>
-#include <cstdio>
-
-#include <memory>
-#include <type_traits>
-#include <vector>
 #include "surrender/srMath.h"
-#include <algorithm>
-#include <cassert>
+#include "glm/ext/vector_float2.hpp"
+#include "surrender/srMaterial.h"
+#include "surrender/srShader.h"
+#include "surrender/srVertexPipe.h"
 
 
 static_assert(std::is_same_v<decltype(srMeshModel::poly_vertices), std::vector<srVector3i>>);

@@ -1,11 +1,9 @@
 /* Modified for the Wizardry 8 reconstruction: 2026-10-03, 2026-10-06, 2026-10-07.
    Distributed under the accompanying SFI Source Code license agreement. */
-#include <stdio.h>
-#include "Video2.h"
+#include <cstring>
+
 #include "himage.h"
 #include "vobject.h"
-#include "WCheck.h"
-#include "vobject_blitters.h"
 #include "shading.h"
 
 void FindMaskIndecies(UINT8*, UINT8*, UINT8*);

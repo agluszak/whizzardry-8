@@ -1,11 +1,10 @@
 #include <catch2/catch_test_macros.hpp>
-#include "surrender/srIO.h"
-
+#include <SDL3/SDL_iostream.h>
+#include <SDL3/SDL_stdinc.h>
 #include <cstdio>
-#include <memory>
 #include <string>
-#include <string_view>
-#include <vector>
+
+#include "surrender/srIO.h"
 
 
 TEST_CASE("strings_test")

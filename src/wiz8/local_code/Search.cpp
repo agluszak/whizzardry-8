@@ -1,13 +1,11 @@
 #include <fmt/format.h>
-#include "wiz8/unicode.h"
+#include <glm/glm.hpp>
 #include <string>
+
 #include "wiz8/containers.h"
 #include "wiz8/fonts.h"
 #include "wiz8/local_code/Search.h"
 #include "wiz8/integer_constants.h"
-
-#include <stdio.h>
-
 #include "wiz8/character_event_queue.h"
 #include "wiz8/character_skills.h"
 #include "wiz8/engine_code/Camera.h"
@@ -18,8 +16,6 @@
 #include "wiz8/engine_code/Octree.h"
 #include "wiz8/engine_code/Prop.h"
 #include "wiz8/engine_code/Trigger.hpp"
-#include "wiz8/engine_code/World.h"
-#include "wiz8/engine_code/quad.h"
 #include "wiz8/engine_code/stCube.h"
 #include "wiz8/engine_code/PolyPick.h"
 #include "wiz8/float_constants.h"
@@ -28,13 +24,10 @@
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/level_specific_code/MasterFunctionList.h"
-#include "wiz8/local_code/ConditionsAndEnchantments.h"
 #include "wiz8/local_code/PC_Item.h"
 #include "wiz8/local_code/Strings.h"
 #include "wiz8/local_code/character_events.h"
 #include "wiz8/local_screens/MGSTextBox.h"
-#include "wiz8/local_screens/ReviewCharacterScreen.h"
-#include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/notices.h"
 #include "wiz8/string_database.h"
 #include "wiz8/utility.h"
@@ -42,6 +35,12 @@
 #include "wiz8/sr_api.h"
 #include "random.h"
 #include "timer.h"
+#include "compat/native.h"
+#include "compat/ptr32.h"
+#include "conditions.h"
+#include "gameplay_modifiers.h"
+#include "layouts/item_instance.h"
+#include "surrender/srMath.h"
 
 /* Local Code\search.cpp. The assertion in RegisterSearchableTrigger at source
    line 337 establishes the original translation unit. */

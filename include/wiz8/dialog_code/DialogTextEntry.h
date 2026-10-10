@@ -1,7 +1,12 @@
 #pragma once
 
-#include "wiz8/local_code/ControlsRect.h"
+#include <cstddef>
+#include <string_view>
+
 #include "wiz8/local_code/TextBuffer.h"
+#include "compat/compiler.h"
+
+struct W8ControlsRect;
 
 extern unsigned int g_dialog_text_layout_mask;
 

@@ -1,4 +1,8 @@
 #include <string_view>
+#include <string>
+#include <utility>
+#include <vector>
+
 #include "wiz8/dialog_code/DialogBase.h"
 #include "wiz8/dialog_code/DialogButton.h"
 #include "wiz8/dialog_code/ButtonUserData.h"
@@ -11,6 +15,7 @@
 #include "input.h"
 #include "mousesystem.h"
 #include "mousesystem_macros.h"
+#include "Types.h"
 
 bool UpdateDialogArrowState(GUI_BUTTON* button, INT32 reason)
 {

@@ -1,12 +1,16 @@
 #include <catch2/catch_test_macros.hpp>
 #include <memory>
-#include "surrender/srClipPlane.h"
-#include "surrender/srFog.h"
-#include "surrender/srLight.h"
-
 #include <cstdio>
 #include <cstring>
 #include <string>
+
+#include "surrender/srClipPlane.h"
+#include "surrender/srFog.h"
+#include "surrender/srLight.h"
+#include "surrender/srCore.h"
+#include "surrender/srTypeRegistry.h"
+
+class srNode;
 
 
 static bool identity()

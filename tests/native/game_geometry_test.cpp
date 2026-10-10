@@ -1,4 +1,18 @@
 #include <catch2/catch_test_macros.hpp>
+#include <glm/gtc/constants.hpp>
+#include <glm/ext/matrix_clip_space.hpp>
+#include <glm/ext/matrix_transform.hpp>
+#include <glm/glm.hpp>
+#include <glm/gtx/euler_angles.hpp>
+#include <array>
+#include <cmath>
+#include <limits>
+#include <cstddef>
+#include <memory>
+#include <span>
+#include <string>
+#include <vector>
+
 #include "surrender_test_fixture.h"
 #include "surrender/srBoundingBox.h"
 #include "surrender/srMaterial.h"
@@ -10,21 +24,19 @@
 #include "wiz8/engine_code/stLight.hpp"
 #include "wiz8/engine_code/stMeshModel.h"
 #include "wiz8/engine_code/stModelInstance.h"
-#include "wiz8/sr_api.h"
 #include "wiz8/direction_angles.h"
 #include "wiz8/engine_code/GDCamera.h"
 #include "wiz8/engine_code/GameData.h"
 #include "wiz8/engine_code/Navigator.h"
 #include "wiz8/engine_code/SoundEvent.h"
-#include "wiz8/engine_code/PolyPick.h"
 #include "wiz8/engine_code/IntervalGate.h"
 #include "wiz8/local_code/ItemManager.h"
-#include <glm/gtc/constants.hpp>
-#include <array>
-#include <cmath>
-#include <limits>
-#include <cstdio>
-#include <cstdlib>
+#include "compat/compiler.h"
+#include "geometry.h"
+#include "surrender/srMath.h"
+#include "surrender/srMeshModel.h"
+#include "surrender/srShader.h"
+#include "glm/fwd.hpp"
 
 
 static bool close(const glm::vec3& actual, const glm::vec3& expected, float tolerance = 1e-4f)

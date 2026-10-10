@@ -1,6 +1,8 @@
 #ifndef WIZ8_ENGINE_CODE_CAMERA_H
 #define WIZ8_ENGINE_CODE_CAMERA_H
 
+#include "compat/compiler.h"
+
 struct W8World;
 struct W8PathAI;
 struct W8MonsterInfo;

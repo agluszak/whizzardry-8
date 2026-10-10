@@ -1,4 +1,24 @@
 #include <catch2/catch_test_macros.hpp>
+#include <SDL3/SDL_iostream.h>
+#include <SDL3/SDL_pixels.h>
+#include <SDL3/SDL_properties.h>
+#include <SDL3/SDL_surface.h>
+#include <glm/glm.hpp>
+#include <cfenv>
+#include <algorithm>
+#include <array>
+#include <limits>
+#include <cstdio>
+#include <cstring>
+#include <cassert>
+#include <cstddef>
+#include <cstdint>
+#include <cstdlib>
+#include <iterator>
+#include <memory>
+#include <string>
+#include <utility>
+
 #include "surrender/srIO.h"
 #include "surrender/srMath.h"
 /* Native consumer-side linking and lifetime for the renderer contracts used
@@ -16,17 +36,19 @@
 #include "surrender/srScene.h"
 #include "surrender/srTextureFile.h"
 #include "surrender/srTextureMap.h"
-#include <cfenv>
-#include <algorithm>
-#include <array>
-#include <string_view>
-#include <cmath>
-#include <initializer_list>
-#include <limits>
 #include "wiz8/sr_api.h"
-#include <cstdio>
-#include <cstring>
-#include <cassert>
+#include "compat/compiler.h"
+#include "glm/ext/vector_float3.hpp"
+#include "glm/ext/vector_float4.hpp"
+#include "surrender/srARGB.h"
+#include "surrender/srColorSurface.h"
+#include "surrender/srColorSurfaceIFace.h"
+#include "surrender/srNode.h"
+#include "surrender/srPalette.h"
+#include "surrender/srPixelConvert.h"
+#include "surrender/srTextureIFace.h"
+
+class srModel;
 
 static int assertions = 0;
 static void assertion(const char* expression, const char* path, w8_long line, const char* message)

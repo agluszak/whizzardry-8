@@ -1,8 +1,12 @@
 #include "compat/surfaces.h"
+
+#include <SDL3/SDL_blendmode.h>
+#include <SDL3/SDL_error.h>
 #include <algorithm>
 #include <cstring>
 #include <stdexcept>
 #include <limits>
+#include <utility>
 
 namespace
 {

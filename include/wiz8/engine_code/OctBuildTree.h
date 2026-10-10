@@ -2,7 +2,10 @@
 #define WIZ8_ENGINE_CODE_OCT_BUILD_TREE_H
 
 #include "wiz8/engine_code/OctPreTree.h"
-#include "wiz8/geometry.h"
+#include "compat/compiler.h"
+
+struct W8GDSurface;
+template <class T> class srVector3T;
 
 struct W8OctBuildLink {
     void* surface; /* region polygons and GD surfaces share the build links */

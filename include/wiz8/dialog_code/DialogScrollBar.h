@@ -2,6 +2,8 @@
 
 #include "Button System.h"
 #include "wiz8/local_code/ControlsRect.h"
+#include "Types.h"
+#include "compat/compiler.h"
 
 class W8DialogBase;
 

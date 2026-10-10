@@ -1,21 +1,23 @@
-#include "wiz8/unicode.h"
-#include "wiz8/filesystem.h"
-#include "wiz8/engine_code/3d.h"
+#include <glm/ext/quaternion_trigonometric.hpp>
+#include <glm/glm.hpp>
+#include <glm/gtc/quaternion.hpp>
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
-#include "wiz8/utility.h"
-#include "wiz8/geometry.h"
 #include <vector>
-#include <algorithm>
+#include <exception>
+#include <memory>
+#include <string>
+#include <utility>
 
+#include "wiz8/filesystem.h"
+#include "wiz8/engine_code/3d.h"
+#include "wiz8/geometry.h"
 #include "wiz8/engine_code/AnimObj.h"
-
 #include "wiz8/engine_code/PathAI.h"
 #include "surrender/srClipPlane.h"
 #include "wiz8/engine_code/Environment.h"
-#include "wiz8/engine_code/GDCamera.h"
 #include "wiz8/engine_code/Level.h"
 #include "wiz8/engine_code/Monster.h"
 #include "wiz8/engine_code/Octree.h"
@@ -33,7 +35,6 @@
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/item_spawning.h"
 #include "wiz8/sr_api.h"
-#include "wiz8/virtual_file.h"
 #include "wiz8/float_constants.h"
 #include "surrender/srCamera.h"
 #include "surrender/srGERD.h"
@@ -42,7 +43,33 @@
 #include "wiz8/engine_code/stMeshModel.h"
 #include "wiz8/engine_code/3dapi.h"
 #include "wiz8/local_screens/AutomapScreen.h"
-#include <glm/gtc/matrix_transform.hpp>
+#include "Item.h"
+#include "LevelFile.h"
+#include "ReadMesh.h"
+#include "application.h"
+#include "compat/compiler.h"
+#include "compat/native.h"
+#include "compat/ptr32.h"
+#include "environment_colour.h"
+#include "glm/ext/matrix_float3x3.hpp"
+#include "glm/ext/vector_double3.hpp"
+#include "glm/ext/vector_float3.hpp"
+#include "glm/ext/vector_float4.hpp"
+#include "layouts/world.h"
+#include "local_code/MonsterGroup.h"
+#include "monster_actions.h"
+#include "named_position.h"
+#include "particle_modes.h"
+#include "surrender/srFlags.h"
+#include "surrender/srMath.h"
+#include "surrender/srMeshModel.h"
+#include "surrender/srModelInstance.h"
+#include "surrender/srNode.h"
+#include "surrender/srShader.h"
+#include "surrender/srTypeRegistry.h"
+#include "texture_animation.h"
+
+class srTextureIFace;
 
 #define READ_LEVEL_CPP "C:\\Projects\\Wizardry 8\\Engine Code\\ReadLevel.cpp"
 

@@ -1,11 +1,16 @@
 #include <fmt/format.h>
+#include <wiz8/filesystem.h>
+#include <SDL3/SDL_filesystem.h>
+#include <SDL3/SDL_rect.h>
 #include <string_view>
 #include <string>
-#include "wiz8/unicode.h"
+#include <cctype>
+#include <cstring>
+#include <optional>
+
 #include "wiz8/containers.h"
 #include "soundman.h"
 #include "Font.h"
-#include "Types.h"
 #include "mousesystem.h"
 #include "wiz8/engine_code/Quality.h"
 #include "wiz8/engine_code/Video2.h"
@@ -17,29 +22,22 @@
 #include "wiz8/local_screens/JournalScreen.h"
 #include "wiz8/local_screens/MGSKeyboard.h"
 #include "wiz8/xstatus.h"
-
-#include "wiz8/layouts/combat_state.h"
 #include "wiz8/cursor.h"
 #include "wiz8/local_screens/Screens.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/local_code/GameplayCode.h"
-#include "wiz8/local_code/GameplayDatabase.h"
 #include "wiz8/local_code/LoadSaveGame.h"
 #include "wiz8/local_code/Configuration.h"
 #include "wiz8/local_code/character_events.h"
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/engine_code/AmbientSound.h"
 #include "wiz8/engine_code/Levels.h"
-#include "wiz8/sound_man.h"
-#include "wiz8/engine_code/World.h"
-#include "wiz8/geometry.h"
 #include "wiz8/music_playlist.h"
 #include "wiz8/regions.h"
 #include "wiz8/layouts/screen_state.h"
 #include "wiz8/local_code/Gameloop.h"
 #include "wiz8/fonts.h"
 #include "wiz8/sr_api.h"
-#include "wiz8/utility.h"
 #include "wiz8/video_object_catalog.h"
 #include "wiz8/text_input.h"
 #include "wiz8/local_code/Strings.h"
@@ -47,11 +45,17 @@
 #include "himage.h"
 #include "input.h"
 #include "surrender/srColorSurface.h"
-
-#include <string.h>
-#include <ctype.h>
-#include <stdio.h>
-#include <wiz8/filesystem.h>
+#include "dialog_code/MessageDialogBase.h"
+#include "dialog_code/NotificationDialog.h"
+#include "difficulty.h"
+#include "file_time.h"
+#include "layouts/world.h"
+#include "local_code/Controls.h"
+#include "local_code/RangeControl.h"
+#include "mgs_commands.h"
+#include "mousesystem_macros.h"
+#include "surrender/srPixelConvert.h"
+#include "vobject.h"
 
 // GLOBAL: WIZ8 0x0069C130
 static unsigned int* g_options_panel_region_sets;

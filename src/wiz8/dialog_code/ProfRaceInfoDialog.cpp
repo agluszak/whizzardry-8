@@ -1,21 +1,28 @@
 #include <fmt/format.h>
 #include <fmt/printf.h>
 #include <string_view>
+#include <string>
+#include <vector>
+
 #include "wiz8/dialog_code/ProfRaceInfoDialog.h"
-#include "wiz8/engine_code/Video2.h"
 #include "wiz8/fonts.h"
 #include "wiz8/layouts/character.h"
 #include "wiz8/layouts/item_tables.h"
-#include "wiz8/layouts/screen_state.h"
 #include "wiz8/local_code/CharGeneration.h"
 #include "wiz8/local_code/Strings.h"
 #include "wiz8/local_code/TextBuffer.h"
 #include "wiz8/local_screens/CharacterScreen.h"
-#include "wiz8/local_screens/OptionsScreen.h"
-#include "wiz8/local_screens/Screens.h"
 #include "wiz8/sr_api.h"
-#include "wiz8/utility.h"
 #include "wiz8/video_object_catalog.h"
+#include "character_skills.h"
+#include "dialog_code/DialogBase.h"
+#include "dialog_code/DialogButton.h"
+#include "dialog_code/DialogScrollBar.h"
+#include "dialog_code/DialogTextArea.h"
+#include "layouts/gameplay_databases.h"
+#include "local_code/ControlsRect.h"
+#include "vobject.h"
+#include "vsurface.h"
 
 // GLOBAL: WIZ8 0x00614cf0
 W8AttributeMinimums g_race_attribute_minimums[W8_RACE_PLAYABLE_COUNT] = {

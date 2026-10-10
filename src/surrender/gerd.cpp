@@ -1,27 +1,52 @@
-#include "surrender/srMath.h"
+#include <glm/ext/matrix_clip_space.hpp>
+#include <glm/ext/matrix_transform.hpp>
+#include <glm/glm.hpp>
 #include <cstdlib>
 #include <algorithm>
 #include <array>
 #include <bit>
 #include <cstdint>
+#include <ostream>
+#include <memory>
+#include <vector>
+#include <cmath>
+#include <condition_variable>
+#include <cstdio>
+#include <cstring>
+#include <iterator>
+#include <list>
+#include <mutex>
+#include <span>
+#include <string>
+#include <thread>
+#include <unordered_map>
+#include <utility>
+
+#include "surrender/srMath.h"
 #include "surrender/srGERD.h"
-
 #include "surrender/srColorSurface.h"
-
 #include "surrender/srCore.h"
 #include "surrender/srDebug.h"
 #include "surrender/srWindow.h"
 #include "surrender/srPalette.h"
-#include <ctype.h>
-#include <ostream>
-
-#include <memory>
-#include <vector>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
 #include "surrender/srClip.h"
-#include <cassert>
+#include "compat/compiler.h"
+#include "compat/native.h"
+#include "surrender/srARGB.h"
+#include "surrender/srClock.h"
+#include "surrender/srColorSurfaceIFace.h"
+#include "surrender/srDD.h"
+#include "surrender/srFlags.h"
+#include "surrender/srPixelConvert.h"
+#include "surrender/srRendererDefs.h"
+#include "surrender/srShader.h"
+#include "surrender/srTexture.h"
+#include "surrender/srTextureIFace.h"
+#include "surrender/srTypeRegistry.h"
+#include "glm/fwd.hpp"
+
+class srModelInstance;
+class srVertexProcessor;
 
 // GLOBAL: SURRENDER 0x100A4780
 srGERD* srGERD::first;

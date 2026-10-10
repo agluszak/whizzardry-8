@@ -1,12 +1,16 @@
+#include <glm/glm.hpp>
+#include <cstdlib>
+#include <cstring>
+
 #include "wiz8/compat/unaligned.h"
 #include "wiz8/engine_code/OctBuildTree.h"
 #include "wiz8/engine_code/GameData.h"
 #include "wiz8/engine_code/materials.h"
 #include "wiz8/float_constants.h"
 #include "wiz8/sr_api.h"
-
-#include <stdlib.h>
-#include <string.h>
+#include "OctPreTree.h"
+#include "geometry.h"
+#include "surrender/srMath.h"
 
 #define OCT_BUILD_TREE_CPP "C:\\Projects\\Wizardry 8\\Engine Code\\OctBuildTree.cpp"
 

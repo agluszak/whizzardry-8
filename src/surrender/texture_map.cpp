@@ -1,6 +1,12 @@
-#include "surrender/srTextureMap.h"
-
 #include <ostream>
+#include <memory>
+#include <string>
+#include <utility>
+
+#include "surrender/srTextureMap.h"
+#include "compat/compiler.h"
+#include "surrender/srColorSurfaceIFace.h"
+#include "surrender/srTexture.h"
 
 // FUNCTION: SURRENDER 0x10060270
 srTextureMap::srTextureMap(std::shared_ptr<srColorSurfaceIFace> surface)
@@ -84,4 +90,3 @@ void srTextureMap::dump(std::ostream& stream)
     stream << "  Surface: " << surface->getName() << '\n';
     stream.flags(static_cast<std::ios::fmtflags>(flags & 0x7fff));
 }
-

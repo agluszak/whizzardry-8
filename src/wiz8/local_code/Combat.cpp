@@ -1,8 +1,15 @@
 #include <fmt/format.h>
 #include <fmt/printf.h>
+#include <glm/ext/quaternion_trigonometric.hpp>
+#include <glm/glm.hpp>
+#include <glm/gtc/quaternion.hpp>
 #include <new>
-
 #include <string_view>
+#include <vector>
+#include <cmath>
+#include <cstring>
+#include <string>
+
 #include "wiz8/compat/unaligned.h"
 #include "wiz8/engine_code/AnimRep.hpp"
 #include "wiz8/conditions.h"
@@ -13,21 +20,17 @@
 #include "wiz8/integer_constants.h"
 #include "wiz8/layouts/character.h"
 #include "wiz8/character_skills.h"
-#include "wiz8/local_code/CharGeneration.h"
 #include "wiz8/local_code/Combat.h"
 #include "wiz8/local_code/Configuration.h"
 #include "wiz8/local_code/Search.h"
 #include "wiz8/local_code/CombatAttack.h"
 #include "wiz8/local_code/ConditionsAndEnchantments.h"
 #include "wiz8/local_code/GameplayCode.h"
-#include "wiz8/local_code/GameplayMods.h"
 #include "wiz8/local_code/HealthStaminaMana.h"
 #include "wiz8/local_code/GroupAttacks.h"
 #include "wiz8/local_code/Magic.h"
 #include "wiz8/local_code/MagicEffects.h"
-#include "wiz8/local_code/party_encumbrance.h"
 #include "wiz8/local_code/PC_Item.h"
-#include "wiz8/local_code/UtilityFunctions.h"
 #include "wiz8/engine_code/Monster.h"
 #include "wiz8/engine_code/Octree.h"
 #include "wiz8/engine_code/Spells.h"
@@ -36,7 +39,6 @@
 #include "wiz8/local_code/Targeting.h"
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_screens/MainGameScreen.h"
-#include "wiz8/notices.h"
 #include "wiz8/xstatus.h"
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/local_code/CombatPartyMovement.h"
@@ -57,8 +59,6 @@
 #include "wiz8/local_screens/MGSTextBox.h"
 #include "wiz8/local_screens/MGSPartyMovement.h"
 #include "wiz8/local_screens/MGSSpellCasting.h"
-#include <vector>
-#include <algorithm>
 #include "wiz8/engine_code/Environment.h"
 #include "wiz8/layouts/screen_state.h"
 #include "wiz8/local_code/Gameloop.h"
@@ -83,17 +83,31 @@
 #include "wiz8/local_code/character_events.h"
 #include "wiz8/local_code/Noise.h"
 #include "wiz8/local_screens/NPCInteractionSubscreen.h"
-#include "wiz8/local_screens/OptionsScreen.h"
 #include "wiz8/string_database.h"
 #include "wiz8/utility.h"
 #include "wiz8/character_event_queue.h"
-#include "wiz8/local_screens/ReviewCharacterScreen.h"
 #include "wiz8/cursor.h"
-#include <glm/gtc/matrix_transform.hpp>
-
-#include <stdarg.h>
-#include <stdio.h>
 #include "wiz8/layouts/game_status.h"
+#include "attack_modes.h"
+#include "compat/native.h"
+#include "compat/ptr32.h"
+#include "equipment_slots.h"
+#include "gameplay_modifiers.h"
+#include "glm/ext/matrix_float3x3.hpp"
+#include "glm/ext/vector_float3.hpp"
+#include "layouts/gameplay_databases.h"
+#include "layouts/item_instance.h"
+#include "layouts/levels.h"
+#include "layouts/main_game_screen.h"
+#include "layouts/npc_state.h"
+#include "layouts/targeting.h"
+#include "layouts/world.h"
+#include "local_code/Factions.h"
+#include "local_screens/MGSPortraitCombat.h"
+#include "message_box.h"
+#include "monster_actions.h"
+#include "sight_state.h"
+#include "surrender/srMath.h"
 
 // GLOBAL: WIZ8 0x006836a8
 W8CombatState* g_combat_state;

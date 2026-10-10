@@ -1,9 +1,13 @@
 #include <memory>
-#include "wiz8/surface2d.h"
 
-#include "surrender/srCore.h"
+#include "wiz8/surface2d.h"
 #include "surrender/srGERD.h"
 #include "wiz8/float_constants.h"
+#include "surrender/srFlags.h"
+#include "surrender/srMath.h"
+#include "surrender/srRendererDefs.h"
+#include "surrender/srShader.h"
+#include "surrender/srTextureIFace.h"
 
 stTexture2D::stTexture2D()
     : srClassSupport<stTexture2D, srTexture, 0x1000f>(), left(0), top(0), right(128),

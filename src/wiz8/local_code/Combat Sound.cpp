@@ -1,26 +1,33 @@
+#include <fmt/format.h>
+#include <SDL3/SDL_filesystem.h>
 #include <array>
 #include <sstream>
-#include <fmt/format.h>
-#include "wiz8/unicode.h"
+#include <cstring>
+#include <exception>
+#include <memory>
+#include <optional>
+#include <string>
+#include <string_view>
+#include <utility>
+
 #include "wiz8/local_code/CombatSound.h"
 #include "wiz8/local_code/Configuration.h"
 #include "wiz8/local_code/MonsterManager.h"
-#include "wiz8/local_code/PC_Item.h"
 #include "wiz8/engine_code/Missile.h"
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/layouts/gameplay_databases.h"
 #include "wiz8/layouts/item_tables.h"
 #include "wiz8/sr_api.h"
-#include "wiz8/utility.h"
 #include "wiz8/filesystem.h"
 #include "random.h"
 #include "soundman.h"
-
-#include <ctype.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
+#include "attack_modes.h"
+#include "compat/ptr32.h"
+#include "equipment_slots.h"
+#include "layouts/character.h"
+#include "layouts/item_instance.h"
+#include "layouts/targeting.h"
 
 #define COMBAT_SOUND_CPP "C:\\Projects\\Wizardry 8\\Local Code\\Combat Sound.cpp"
 

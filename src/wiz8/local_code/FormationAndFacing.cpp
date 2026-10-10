@@ -1,13 +1,16 @@
 #include <fmt/printf.h>
+#include <fmt/format.h>
+#include <cmath>
+#include <cstring>
+#include <string>
+#include <vector>
+
 #include "wiz8/fonts.h"
 #include "wiz8/local_code/FormationAndFacing.h"
 #include "wiz8/local_code/Configuration.h"
 #include "wiz8/local_code/Strings.h"
-#include "wiz8/engine_code/GDCamera.h"
 #include "wiz8/engine_code/PolyPick.h"
-#include "wiz8/engine_code/quad.h"
 #include "wiz8/local_code/MonsterManager.h"
-#include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/local_screens/MGSFormation.h"
 #include "wiz8/local_screens/MGSRadarMap.h"
 #include "wiz8/local_screens/MGSTextBox.h"
@@ -16,31 +19,19 @@
 #include "wiz8/startup_world.h"
 #include "wiz8/xstatus.h"
 #include "wiz8/layouts/character.h"
-#include "wiz8/character_skills.h"
-#include "wiz8/local_code/CharGeneration.h"
-#include "wiz8/local_code/Combat.h"
-#include "wiz8/local_code/CombatAttack.h"
-#include "wiz8/local_code/GameplayCode.h"
-#include "wiz8/local_code/GameplayMods.h"
-#include "wiz8/local_code/HealthStaminaMana.h"
-#include "wiz8/local_code/Magic.h"
-#include "wiz8/local_code/MagicEffects.h"
-#include "wiz8/local_code/party_encumbrance.h"
-#include "wiz8/local_code/PC_Item.h"
-#include "wiz8/local_code/UtilityFunctions.h"
 #include "wiz8/layouts/combat_state.h"
-#include "wiz8/local_code/CombatRange.h"
-#include "wiz8/notices.h"
 #include "wiz8/utility.h"
 #include "surrender/srMath.h"
-
-#include <math.h>
-#include <string.h>
 #include "wiz8/sr_api.h"
-#include "wiz8/local_screens/ReviewCharacterScreen.h"
-#include "wiz8/local_screens/RCSCommon.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/engine_code/GameData.h"
+#include "Monster.h"
+#include "Navigator.h"
+#include "compat/ptr32.h"
+#include "conditions.h"
+#include "layouts/main_game_screen.h"
+#include "layouts/party_formation.h"
+#include "layouts/targeting.h"
 
 /* Original translation unit: Local Code\Formation & Facing.cpp. */
 

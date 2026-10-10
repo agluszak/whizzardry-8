@@ -1,10 +1,15 @@
-#include "native/input_events.h"
-#include <utf8proc.h>
 #include <utf8.h>
-#include "wiz8/utility.h"
+#include <SDL3/SDL_rect.h>
 #include <string>
-#include "wiz8/unicode.h"
 #include <algorithm>
+#include <memory>
+#include <cstddef>
+#include <iterator>
+#include <string_view>
+#include <utility>
+
+#include "native/input_events.h"
+#include "wiz8/unicode.h"
 #include "wiz8/cursor.h"
 #include "Font.h"
 #include "input.h"
@@ -12,19 +17,12 @@
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/fonts.h"
 #include "wiz8/text_input.h"
-#include "wiz8/dialog_code/DialogInterface.h"
 #include "wiz8/local_screens/Screens.h"
-
 #include "himage.h"
-#include "Types.h"
 #include "mousesystem.h"
 #include "vobject_blitters.h"
 #include "vsurface.h"
-
-#include <stddef.h>
-#include <memory>
-#include <string.h>
-#include "wiz8/local_screens/OptionsScreen.h"
+#include "compat/native.h"
 
 /*
  * Wizardry's product fork of Sir-Tech's released Utils/Text_Input.c.

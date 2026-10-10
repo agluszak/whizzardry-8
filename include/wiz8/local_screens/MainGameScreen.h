@@ -3,20 +3,13 @@
 #include "wiz8/audio_resources.h"
 
 #include <string_view>
-class Trigger;
-class srClass;
-class stModelInstance2D;
 
 #include "input.h"
 #include "wiz8/dialog_code/DialogBase.h"
-#include "wiz8/layouts/item_instance.h"
-#include <vector>
-#include <algorithm>
+#include "compat/compiler.h"
+#include "layouts/targeting.h"
 
-struct W8MipeState;
-struct W8NpcQuoteEntry;
-struct W8NpcState;
-struct W8NpcScriptQuote;
+class Trigger;
 struct W8ScreenRect;
 
 void RequestRedrawParty(void);
@@ -34,7 +27,6 @@ extern const float g_float_half_turn_degrees;
    trigger's trap type for the disarm/spring notices. */
 extern unsigned short g_trap_name_string_ids[];
 #include "wiz8/layouts/screen_state.h"
-
 #include "wiz8/local_code/ControlsRect.h"
 #include "wiz8/local_code/TextBuffer.h"
 #include "wiz8/local_code/Widget.h"
@@ -46,10 +38,7 @@ extern unsigned short g_trap_name_string_ids[];
 #include "wiz8/local_screens/Screens.h"
 #include "wiz8/dialog_code/DialogTextArea.h"
 
-#include <cstddef>
-
 class W8MainGameScreen;
-class W8MainGameTextPanel;
 
 // VTABLE: WIZ8 0x005eeafc
 class W8MainGameTextKeyHandler : public W8Widget, public W8RangeListener {
@@ -431,7 +420,6 @@ extern W8MainGameScreen* g_main_game_screen;
 extern double g_world_cursor_extent_table[18];
 extern signed char g_spell_power_extent_index[8];
 
-class W8DialogBase;
 struct W8ItemInstance;
 
 extern W8DialogBase* g_modal_owner;
@@ -450,9 +438,6 @@ void OnLeaveGameConfirmClosed(W8DialogBase* dialog);
 void PauseMainGameWorld(void);
 void ResumeMainGameWorld(void);
 void ResetMainGameScreenState(void);
-
-struct W8NpcScriptQuote;
-struct W8NpcQuoteEntry;
 
 void RefreshTrackedPortraitOverlay(void);
 /* Which party portrait the pointer is over, if any. */

@@ -1,24 +1,23 @@
+#include <glm/glm.hpp>
 #include <memory>
 #include <utility>
+#include <vector>
+#include <cstddef>
+#include <exception>
+
 #include "wiz8/filesystem.h"
 #include "wiz8/compat/debug_heap.h"
 #include "wiz8/engine_code/AnimObj.h"
 #include "wiz8/engine_code/AniMesh.h"
 #include "wiz8/engine_code/PathAI.h"
 #include "wiz8/engine_code/ReadLevel.h"
-#include "wiz8/engine_code/World.h"
 #include "wiz8/engine_code/3d.h"
 #include "wiz8/float_constants.h"
-#include <vector>
-#include <algorithm>
 #include "wiz8/engine_code/stLight.hpp"
 #include "wiz8/engine_code/stModelInstance.h"
-#include "surrender/srModelInstance.h"
 #include "wiz8/sr_api.h"
-#include "wiz8/virtual_file.h"
-
-#include <stdlib.h>
-#include <string.h>
+#include "glm/ext/vector_float3.hpp"
+#include "surrender/srNode.h"
 
 #define ANIM_OBJ_CPP "C:\\Projects\\Wizardry 8\\Engine Code\\AnimObj.cpp"
 

@@ -1,6 +1,18 @@
 #include <catch2/catch_test_macros.hpp>
 #include <fmt/format.h>
 #include <fmt/printf.h>
+#include <SDL3/SDL_rect.h>
+#include <algorithm>
+#include <array>
+#include <cstring>
+#include <filesystem>
+#include <fstream>
+#include <memory>
+#include <string>
+#include <vector>
+#include <cstdint>
+#include <string_view>
+
 #include "wiz8/fonts.h"
 #include "wiz8/local_screens/MGSTextBox.h"
 #include "wiz8/local_screens/MainGameScreen.h"
@@ -11,7 +23,6 @@
 #include "wiz8/layouts/character.h"
 #include "wiz8/xstatus.h"
 #include "wiz8/video_object_catalog.h"
-#include "wiz8/utility.h"
 #include "Button System.h"
 #include "wiz8/dialog_code/DialogButton.h"
 #include "wiz8/dialog_code/ButtonUserData.h"
@@ -20,20 +31,19 @@
 #include "input.h"
 #include "mousesystem_macros.h"
 #include "imgfmt.h"
-#include "wiz8/filesystem.h"
 #include "temporary_directory.h"
 #include "wiz8/asset_paths.h"
 #include "wiz8/text_input.h"
-#include <algorithm>
-#include <array>
-#include <cstdio>
-#include <cstdlib>
-#include <cstring>
-#include <filesystem>
-#include <fstream>
-#include <memory>
-#include <string>
-#include <vector>
+#include "Types.h"
+#include "application.h"
+#include "himage.h"
+#include "layouts/main_game_screen.h"
+#include "layouts/screen_state.h"
+#include "local_code/RangeControl.h"
+#include "local_screens/RCSStatsPage.h"
+#include "mousesystem.h"
+#include "vobject.h"
+#include "vsurface.h"
 
 
 extern GUI_BUTTON* gpAnchoredButton;

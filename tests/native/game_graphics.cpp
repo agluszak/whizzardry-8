@@ -1,12 +1,26 @@
 #include <catch2/catch_test_macros.hpp>
 #include <wiz8/filesystem.h>
+#include <SDL3/SDL_events.h>
+#include <SDL3/SDL_hints.h>
+#include <SDL3/SDL_init.h>
+#include <SDL3/SDL_stdinc.h>
+#include <SDL3/SDL_video.h>
 /* Real SLF/STI -> recovered SGP surfaces -> recovered stSurface2D -> SDL GPU.
    Also checks a movie-owned surface and restoration of the game primary. */
 
+#include <wiz8/asset_paths.h>
+#include <cstdio>
+#include <cstring>
+#include <filesystem>
+#include <vector>
+#include <cstdint>
+#include <cstdlib>
+#include <memory>
+#include <string>
+#include <system_error>
+
 #include "compat/video.h"
 #include "native/input_events.h"
-#include <wiz8/asset_paths.h>
-#include "wiz8/application.h"
 #include "input.h"
 #include "surrender/srGERD.h"
 #include "surrender/srImageIO.h"
@@ -16,13 +30,15 @@
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/sr_api.h"
 #include "wiz8/surface2d.h"
-#include <SDL3/SDL.h>
-#include <cstdio>
-#include <cstring>
-#include <exception>
-#include <filesystem>
 #include "temporary_directory.h"
-#include <vector>
+#include "Types.h"
+#include "surrender/srColorSurfaceIFace.h"
+#include "surrender/srFlags.h"
+#include "vobject.h"
+#include "vsurface.h"
+
+class srScene;
+
 void PresentMenuOverlayFrame();
 void SaveJpegScreenshot();
 extern unsigned char g_fullscreen;

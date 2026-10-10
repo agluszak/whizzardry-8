@@ -1,11 +1,22 @@
-#include "surrender/srCamera.h"
-#include "surrender/srStreamFlags.h"
-
-#include "surrender/srCore.h"
-#include "surrender/srGERD.h"
-
+#include <glm/glm.hpp>
+#include <glm/gtc/matrix_access.hpp>
 #include <ostream>
 #include <algorithm>
+#include <cmath>
+
+#include "surrender/srCamera.h"
+#include "surrender/srStreamFlags.h"
+#include "surrender/srGERD.h"
+#include "compat/compiler.h"
+#include "glm/ext/matrix_double3x3.hpp"
+#include "glm/ext/matrix_double4x4.hpp"
+#include "glm/ext/vector_double2.hpp"
+#include "glm/ext/vector_double3.hpp"
+#include "glm/ext/vector_float3.hpp"
+#include "surrender/srFlags.h"
+#include "surrender/srMath.h"
+#include "surrender/srNode.h"
+#include "surrender/srTypeRegistry.h"
 
 /* Flag-name table; never assigned, so dump prints numeric bit indices. */
 static const char* flag_names;

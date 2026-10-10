@@ -20,8 +20,6 @@ extern W8TextControl* g_use_item_select_scroll_buttons[3];
 /* Action/icon controls indexed by region callback_id (0..8). */
 extern W8TextControl* g_use_item_select_controls[9];
 
-struct W8ItemInstance;
-
 extern W8MainUiMode g_use_item_select_return_mode;
 extern W8ItemInstance* g_use_item_selected;
 extern W8ItemInstance* g_use_item_select_override_item;

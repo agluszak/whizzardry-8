@@ -1,19 +1,20 @@
 #pragma once
 
-#include "wiz8/dialog_code/DialogBase.h"
-#include "wiz8/dialog_code/DialogButton.h"
-#include "wiz8/local_code/ControlsRect.h"
-#include "wiz8/local_code/TextBuffer.h"
+#include <SDL3/SDL_rect.h>
 #include <vector>
-#include <algorithm>
+#include <string_view>
 
+#include "wiz8/dialog_code/DialogBase.h"
+#include "wiz8/local_code/ControlsRect.h"
 #include "Button System.h"
 #include "input.h"
 #include "Types.h"
+#include "compat/compiler.h"
 
 struct W8WorldItem;
 struct W8ItemInstance;
-class Trigger;
+class W8DialogButton;
+class W8TextBuffer;
 
 enum W8ItemSplitMode { W8_ITEM_SPLIT_INVENTORY = 0, W8_ITEM_SPLIT_SELL = 1, W8_ITEM_SPLIT_BUY = 2 };
 

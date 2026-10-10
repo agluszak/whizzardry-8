@@ -1,10 +1,13 @@
-#include <string_view>
 #pragma once
+
+#include <SDL3/SDL_rect.h>
+#include <string_view>
 
 #include "wiz8/dialog_code/DialogBase.h"
 #include "wiz8/engine_code/Video2.h"
 #include "input.h"
 #include "mousesystem_macros.h"
+#include "Types.h"
 
 /* Standard dialog button events: held left clicks repeat the press. Numeric
    dialogs forward their distinct repeat events before using this dispatcher. */
@@ -53,7 +56,6 @@ void ProcessNumericDialogInputEvents(Dialog* dialog, Field*& active_field,
 
 class W8MessageDialogBase;
 struct W8Character;
-class W8MessageDialogBase;
 
 /* ConfigureDialogFont writes these four; every dialog draw/text path reads
    them. Declared here because this unit owns their definitions. */

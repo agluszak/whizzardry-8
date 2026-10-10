@@ -1,9 +1,11 @@
+#include <glm/glm.hpp>
+#include <vector>
+#include <string>
+
 #include "wiz8/spell_ids.h"
 #include "wiz8/level_specific_code/MartensBluff1.h"
 #include "wiz8/engine_code/Trigger.hpp"
 #include "wiz8/engine_code/World.h"
-#include <vector>
-#include <algorithm>
 #include "wiz8/engine_code/IntervalGate.h"
 #include "wiz8/engine_code/Monster.h"
 #include "wiz8/engine_code/Octree.h"
@@ -29,6 +31,9 @@
 #include "surrender/srCamera.h"
 #include "soundman.h"
 #include "random.h"
+#include "compat/ptr32.h"
+#include "glm/ext/vector_float3.hpp"
+#include "layouts/world.h"
 
 #define MARTENSBLUFF1_CPP "C:\\Projects\\Wizardry 8\\Level Specific Code\\MartensBluff1.cpp"
 
