@@ -69,13 +69,13 @@ static T* MipeCategoryValue(const std::vector<W8MipeCategoryEntry>* rows, int in
     return value ? *value : nullptr;
 }
 
-static const wchar_t* MipeCategoryWideName(const std::vector<W8MipeCategoryEntry>* rows, int index)
+static std::string_view MipeCategoryName(const std::vector<W8MipeCategoryEntry>* rows, int index)
 {
     if (auto* monster = MipeCategoryValue<W8MipeMonsterEntry>(rows, index))
         return monster->name;
     if (auto* item = MipeCategoryValue<W8ItemDatabaseRecord>(rows, index))
         return item->display_name;
-    return nullptr;
+    return {};
 }
 
 #define MIPE_CPP "C:\\Projects\\Wizardry 8\\Local Screens\\mipe.cpp"
@@ -353,14 +353,14 @@ static void ShowMipeItemStatus(void)
 // FUNCTION: WIZ8 0x00577d80
 void ShowMipeTableRows(std::vector<W8MipeCategoryEntry>* list)
 {
-    const wchar_t* entry;
+    std::string_view entry;
     int row;
     unsigned int palette;
 
     if (list != 0) {
         for (row = 0; row < 6; ++row) {
-            entry = MipeCategoryWideName(list, g_mipe_table_base + row);
-            if (entry == 0) {
+            entry = MipeCategoryName(list, g_mipe_table_base + row);
+            if (entry.empty()) {
                 ShowNotice(W8_FONT_PALETTE_TEXT_BOX, "");
             } else {
                 palette = row == g_mipe_table_row ? 3 : 0xf;
