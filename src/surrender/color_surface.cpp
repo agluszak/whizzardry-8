@@ -2306,6 +2306,45 @@ struct SampleContributions {
     }
 };
 
+/* Build the same filter-weight table for rows and columns. Horizontal
+   magnification samples half a pixel earlier; all other cases use +0.5. */
+static void BuildScaleContributions(srColorSurfaceIFace& source, srFilter& filter,
+                                    std::vector<SampleContributions>& contributions,
+                                    std::vector<SampleWeight>& sample_storage,
+                                    w8_long destination_count, w8_long source_count,
+                                    bool horizontal)
+{
+    const double scale = (double)destination_count / source_count;
+    const bool magnifying = 1.0 <= scale;
+    const double support = filter.getSupport();
+    const double effective_support = magnifying ? support : support / scale;
+    const double inverse = magnifying ? 1.0 : 1.0 / scale;
+    const w8_long entries = 1 - (w8_long)(effective_support * -2.0);
+    sample_storage.resize(entries * destination_count);
+
+    for (w8_long coordinate = 0; coordinate < destination_count; ++coordinate) {
+        SampleContributions& entry = contributions[coordinate];
+        entry.count = 0;
+        entry.samples = sample_storage.data() + coordinate * entries;
+
+        const double center = coordinate / scale + (horizontal && magnifying ? -0.5 : 0.5);
+        double total = 0.0;
+        w8_long first = (w8_long)ceil(center - effective_support);
+        w8_long last = (w8_long)floor(center + effective_support);
+        for (; first <= last; ++first) {
+            const double weight = magnifying ? filter.getWeight(center - first)
+                                             : filter.getWeight((center - first) / inverse) / inverse;
+            if (0.0 < weight) {
+                const w8_long index = horizontal ? source.getClampedX(first)
+                                                : source.getClampedY(first);
+                entry.append(index, weight);
+                total = weight + total;
+            }
+        }
+        entry.normalize(total);
+    }
+}
+
 // FUNCTION: SURRENDER 0x10059AC0
 void srColorSurfaceIFace::scaleHorizontal(srColorSurfaceIFace& source)
 {
@@ -2313,8 +2352,6 @@ void srColorSurfaceIFace::scaleHorizontal(srColorSurfaceIFace& source)
     w8_long width = this->width;
     w8_long source_width = source.width;
     if (width != source_width) {
-        double support = source.filter->getSupport();
-        double scale = (double)width / source_width;
         std::vector<SampleContributions> contributions(width);
         SampleContributions* counts = contributions.data();
         std::vector<srARGB> source_row_storage(source_width);
@@ -2325,54 +2362,8 @@ void srColorSurfaceIFace::scaleHorizontal(srColorSurfaceIFace& source)
         w8_ulong* row = (w8_ulong*)row_colors;
         std::vector<glm::vec4> channel_vectors(source_width);
         std::vector<SampleWeight> sample_storage;
-        SampleWeight* storage;
-        if (1.0 <= scale) {
-            w8_long entries = 1 - (w8_long)(support * -2.0);
-            sample_storage.resize(entries * width);
-            storage = sample_storage.data();
-            for (w8_long x = 0; x < width; x++) {
-                SampleContributions* entry = counts + x;
-                entry->count = 0;
-                entry->samples = storage + x * entries;
-                double center = x / scale - 0.5;
-                double total = 0.0;
-                w8_long first = (w8_long)ceil(center - support);
-                w8_long last = (w8_long)floor(center + support);
-                for (; first <= last; first++) {
-                    double weight = source.filter->getWeight(center - first);
-                    if (0.0 < weight) {
-                        w8_long index = source.getClampedX(first);
-                        entry->append(index, weight);
-                        total = weight + total;
-                    }
-                }
-                entry->normalize(total);
-            }
-        } else {
-            double scaled_support = support / scale;
-            double inverse = 1.0 / scale;
-            w8_long entries = 1 - (w8_long)(scaled_support * -2.0);
-            sample_storage.resize(entries * width);
-            storage = sample_storage.data();
-            for (w8_long x = 0; x < width; x++) {
-                SampleContributions* entry = counts + x;
-                entry->count = 0;
-                entry->samples = storage + x * entries;
-                double center = x / scale + 0.5;
-                double total = 0.0;
-                w8_long first = (w8_long)ceil(center - scaled_support);
-                w8_long last = (w8_long)floor(center + scaled_support);
-                for (; first <= last; first++) {
-                    double weight = source.filter->getWeight((center - first) / inverse) / inverse;
-                    if (0.0 < weight) {
-                        w8_long index = source.getClampedX(first);
-                        entry->append(index, weight);
-                        total = weight + total;
-                    }
-                }
-                entry->normalize(total);
-            }
-        }
+        BuildScaleContributions(source, *source.filter, contributions, sample_storage,
+                                width, source_width, true);
         for (w8_long y = 0; y < height; y++) {
             source.getPixelRow(source_row, y, 0, source_width);
             w8_long x;
@@ -2420,8 +2411,6 @@ void srColorSurfaceIFace::scaleVertical(srColorSurfaceIFace& source)
     w8_long height = this->height;
     w8_long source_height = source.height;
     if (height != source_height) {
-        double support = source.filter->getSupport();
-        double scale = height / (double)source_height;
         std::vector<SampleContributions> contributions(height);
         SampleContributions* counts = contributions.data();
         std::vector<srARGB> source_column_storage(source_height);
@@ -2432,56 +2421,8 @@ void srColorSurfaceIFace::scaleVertical(srColorSurfaceIFace& source)
         w8_ulong* column = (w8_ulong*)column_colors;
         std::vector<glm::vec4> channel_vectors(source_height);
         std::vector<SampleWeight> sample_storage;
-        SampleWeight* storage;
-        /* Unlike scaleHorizontal, both branches center the source window at y / scale + 0.5
-           (retail 0x1005A501 and 0x1005A3AD). */
-        if (1.0 <= scale) {
-            w8_long entries = 1 - (w8_long)(support * -2.0);
-            sample_storage.resize(entries * height);
-            storage = sample_storage.data();
-            for (w8_long y = 0; y < height; y++) {
-                SampleContributions* entry = counts + y;
-                entry->count = 0;
-                entry->samples = storage + y * entries;
-                double center = y / scale + 0.5;
-                double total = 0.0;
-                w8_long first = (w8_long)ceil(center - support);
-                w8_long last = (w8_long)floor(center + support);
-                for (; first <= last; first++) {
-                    double weight = source.filter->getWeight(center - first);
-                    if (0.0 < weight) {
-                        w8_long index = source.getClampedY(first);
-                        entry->append(index, weight);
-                        total = weight + total;
-                    }
-                }
-                entry->normalize(total);
-            }
-        } else {
-            double scaled_support = support / scale;
-            double inverse = 1.0 / scale;
-            w8_long entries = 1 - (w8_long)(scaled_support * -2.0);
-            sample_storage.resize(entries * height);
-            storage = sample_storage.data();
-            for (w8_long y = 0; y < height; y++) {
-                SampleContributions* entry = counts + y;
-                entry->count = 0;
-                entry->samples = storage + y * entries;
-                double center = y / scale + 0.5;
-                double total = 0.0;
-                w8_long first = (w8_long)ceil(center - scaled_support);
-                w8_long last = (w8_long)floor(center + scaled_support);
-                for (; first <= last; first++) {
-                    double weight = source.filter->getWeight((center - first) / inverse) / inverse;
-                    if (0.0 < weight) {
-                        w8_long index = source.getClampedY(first);
-                        entry->append(index, weight);
-                        total = weight + total;
-                    }
-                }
-                entry->normalize(total);
-            }
-        }
+        BuildScaleContributions(source, *source.filter, contributions, sample_storage,
+                                height, source_height, false);
         for (w8_long x = 0; x < width; x++) {
             source.getPixelColumn(source_column, x, 0, source_height);
             w8_long y;
