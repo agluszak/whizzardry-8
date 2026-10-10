@@ -1624,6 +1624,15 @@ std::string FormatMonsterHealth(W8MonsterInfo* monster_info)
     return fmt::format("{}/{}", current, maximum);
 }
 
+/* Blind, incapacitated and unoccupied party members cannot sense monsters. */
+static bool CanNoticeMonsterGroup(unsigned int slot)
+{
+    const W8Character& character = g_status.buffers.Char[slot];
+    return g_status.buffers.XChar[slot].fOccupied && character.hp_current != 0 &&
+           character.highest_condition < W8_CONDITION_INSANE &&
+           character.uiCondition[W8_CONDITION_BLIND] == 0;
+}
+
 // FUNCTION: WIZ8 0x004e4ab0
 void DetectMonsterGroups(void)
 {
@@ -1641,12 +1650,9 @@ void DetectMonsterGroups(void)
             int best_slot = -1;
             unsigned int best_margin = 0;
             for (unsigned int slot = 0; slot < 8; ++slot) {
-                W8Character* character = &g_status.buffers.Char[slot];
-                if (!g_status.buffers.XChar[slot].fOccupied || character->hp_current == 0 ||
-                    character->highest_condition >= W8_CONDITION_INSANE ||
-                    character->uiCondition[W8_CONDITION_BLIND] != 0) {
+                if (!CanNoticeMonsterGroup(slot))
                     continue;
-                }
+                W8Character* character = &g_status.buffers.Char[slot];
                 int score =
                     (character->monster_awareness[group->monster_id] - record->effective_level) *
                         3 +
@@ -1695,12 +1701,9 @@ void DetectMonsterGroups(void)
         }
         if (group->group_state[0] == 0) {
             for (unsigned int slot = 0; slot < 8; ++slot) {
-                W8Character* character = &g_status.buffers.Char[slot];
-                if (!g_status.buffers.XChar[slot].fOccupied || character->hp_current == 0 ||
-                    character->highest_condition >= W8_CONDITION_INSANE ||
-                    character->uiCondition[W8_CONDITION_BLIND] != 0) {
+                if (!CanNoticeMonsterGroup(slot))
                     continue;
-                }
+                W8Character* character = &g_status.buffers.Char[slot];
                 unsigned int awareness =
                     character->monster_awareness[group->monster_id] + group->member_count;
                 if (awareness > 0xff) {

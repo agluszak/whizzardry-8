@@ -773,56 +773,38 @@ void W8PathingService::SetConditionalPathFrame(unsigned int path_handle, unsigne
         return;
     }
 
-    lookup_index = path_handle;
-    while (m_pulCondLookup[lookup_index] != 0) {
-        if (m_pusCondNodeFrames[lookup_index] != frame) {
-            unsigned int key_index = m_pulCondLookup[lookup_index];
-            while (m_pulCondNodeKeys[key_index] != 0) {
-                unsigned int key = m_pulCondNodeKeys[key_index];
-                unsigned int current_value =
-                    FindConditionalPathValue(key, m_pulCondNodeValues[key_index]);
-                if ((m_pulCondNodeValues[key_index] & W8_PATH_CELL_BLOCKING_FRAME) != 0) {
-                    if ((current_value & W8_PATH_CELL_INACTIVE) != 0) {
-                        RemoveIndexValue(*index, key, current_value);
-                        m_pulCondNodeValues[key_index] &= 0xefffffff;
-                        current_value &= 0xefffffff;
-                        InsertIndexValue(*index, key, current_value);
-                    }
-                } else if ((current_value & W8_PATH_CELL_INACTIVE) == 0) {
-                    RemoveIndexValue(*index, key, current_value);
-                    m_pulCondNodeValues[key_index] |= W8_PATH_CELL_INACTIVE;
-                    current_value |= W8_PATH_CELL_INACTIVE;
-                    InsertIndexValue(*index, key, current_value);
-                }
-                ++key_index;
-            }
-        }
-        ++lookup_index;
-    }
+    // Non-selected frames update the persisted flags first. The selected
+    // frame changes only the live index, as in the original two passes.
+    for (int pass = 0; pass < 2; ++pass) {
+        const bool selected_frame = pass == 1;
+        for (unsigned int lookup = path_handle; m_pulCondLookup[lookup] != 0; ++lookup) {
+            if ((m_pusCondNodeFrames[lookup] == frame) != selected_frame)
+                continue;
 
-    lookup_index = path_handle;
-    while (m_pulCondLookup[lookup_index] != 0) {
-        if (m_pusCondNodeFrames[lookup_index] == frame) {
-            unsigned int key_index = m_pulCondLookup[lookup_index];
-            while (m_pulCondNodeKeys[key_index] != 0) {
-                unsigned int key = m_pulCondNodeKeys[key_index];
-                unsigned int current_value =
-                    FindConditionalPathValue(key, m_pulCondNodeValues[key_index]);
-                if ((m_pulCondNodeValues[key_index] & W8_PATH_CELL_BLOCKING_FRAME) != 0) {
-                    if ((current_value & W8_PATH_CELL_INACTIVE) == 0) {
-                        RemoveIndexValue(*index, key, current_value);
-                        current_value |= W8_PATH_CELL_INACTIVE;
-                        InsertIndexValue(*index, key, current_value);
-                    }
-                } else if ((current_value & W8_PATH_CELL_INACTIVE) != 0) {
-                    RemoveIndexValue(*index, key, current_value);
-                    current_value &= 0xefffffff;
-                    InsertIndexValue(*index, key, current_value);
+            for (unsigned int key_index = m_pulCondLookup[lookup];
+                 m_pulCondNodeKeys[key_index] != 0; ++key_index) {
+                const unsigned int key = m_pulCondNodeKeys[key_index];
+                unsigned int& stored = m_pulCondNodeValues[key_index];
+                unsigned int current = FindConditionalPathValue(key, stored);
+                const bool blocking_frame = (stored & W8_PATH_CELL_BLOCKING_FRAME) != 0;
+                const bool should_be_inactive = blocking_frame == selected_frame;
+                const bool is_inactive = (current & W8_PATH_CELL_INACTIVE) != 0;
+                if (should_be_inactive == is_inactive)
+                    continue;
+
+                RemoveIndexValue(*index, key, current);
+                if (should_be_inactive) {
+                    current |= W8_PATH_CELL_INACTIVE;
+                    if (!selected_frame)
+                        stored |= W8_PATH_CELL_INACTIVE;
+                } else {
+                    current &= ~W8_PATH_CELL_INACTIVE;
+                    if (!selected_frame)
+                        stored &= ~W8_PATH_CELL_INACTIVE;
                 }
-                ++key_index;
+                InsertIndexValue(*index, key, current);
             }
         }
-        ++lookup_index;
     }
 }
 
@@ -1287,6 +1269,21 @@ bool W8PathingService::BuildAttachmentPath(W8NavigatorAttachment* attachment, un
     return false;
 }
 
+/* Both recursive path searches finish with the same attachment updates. */
+static void FinalizeWaypointRoute(W8NavigatorAttachment* attachment, bool has_start_waypoint,
+                                  const srVector3T<float>& waypoint)
+{
+    if (1 < attachment->path_position_index) {
+        --attachment->path_position_index;
+        attachment->path_destination = attachment->path[attachment->path_position_index].position;
+    }
+    if (has_start_waypoint) {
+        attachment->start_waypoint = waypoint;
+        attachment->flags |= W8_NAV_ATTACHMENT_START_WAYPOINT;
+    }
+    attachment->flags |= 0x20000;
+}
+
 /* Link the attachment's recorded route to `target`: seeds the search state
    from the attachment's start waypoint, runs the recursive link search, and
    when that fails falls back to the A* FindPath when the straight-line cost
@@ -1349,15 +1346,7 @@ bool W8PathingService::LinkAttachmentTarget(W8NavigatorAttachment* attachment, u
     }
     AppendScratchPath(attachment, count);
     attachment->TruncatePathAtRadius(target, separation);
-    if (1 < attachment->path_position_index) {
-        --attachment->path_position_index;
-        attachment->path_destination = attachment->path[attachment->path_position_index].position;
-    }
-    if (start_waypoint != 0) {
-        attachment->start_waypoint = m_probe_position;
-        attachment->flags |= W8_NAV_ATTACHMENT_START_WAYPOINT;
-    }
-    attachment->flags |= 0x20000;
+    FinalizeWaypointRoute(attachment, start_waypoint != 0, m_probe_position);
     return true;
 }
 
@@ -1521,15 +1510,7 @@ bool W8PathingService::BuildPatrolPath(W8NavigatorAttachment* attachment, unsign
         ++count;
     } while (previous != static_cast<unsigned short>(current));
     AppendScratchPath(attachment, count);
-    if (1 < attachment->path_position_index) {
-        --attachment->path_position_index;
-        attachment->path_destination = attachment->path[attachment->path_position_index].position;
-    }
-    if (start_waypoint != 0) {
-        attachment->start_waypoint = m_probe_position;
-        attachment->flags |= W8_NAV_ATTACHMENT_START_WAYPOINT;
-    }
-    attachment->flags |= 0x20000;
+    FinalizeWaypointRoute(attachment, start_waypoint != 0, m_probe_position);
     return true;
 }
 
@@ -1889,46 +1870,30 @@ void W8PathingService::AdjustFinalPathEndpoint(W8NavigatorMovementState* movemen
 void W8PathingService::UpdateConditionalPathFlags(unsigned int path_handle, unsigned short frame,
                                                   unsigned int flags)
 {
-    std::unordered_multimap<unsigned int, unsigned int>* index = m_pPathValues;
-    unsigned int lookup_index = path_handle;
+    auto& index = *m_pPathValues;
+    // First clear inactive frames, then apply the active frame's flags.
+    for (int pass = 0; pass < 2; ++pass) {
+        const bool active_frame = pass == 1;
+        for (unsigned int lookup = path_handle; m_pulCondLookup[lookup] != 0; ++lookup) {
+            if ((m_pusCondNodeFrames[lookup] == frame) != active_frame)
+                continue;
 
-    while (m_pulCondLookup[lookup_index] != 0) {
-        if (m_pusCondNodeFrames[lookup_index] != frame) {
-            unsigned int key_index = m_pulCondLookup[lookup_index];
-            while (m_pulCondNodeKeys[key_index] != 0) {
-                unsigned int key = m_pulCondNodeKeys[key_index];
-                unsigned int wanted_value = m_pulCondNodeValues[key_index];
-                unsigned int current_value = FindConditionalPathValue(key, wanted_value);
+            for (unsigned int key_index = m_pulCondLookup[lookup];
+                 m_pulCondNodeKeys[key_index] != 0; ++key_index) {
+                const unsigned int key = m_pulCondNodeKeys[key_index];
+                const unsigned int wanted = m_pulCondNodeValues[key_index];
+                const unsigned int current = FindConditionalPathValue(key, wanted);
+                const bool update = active_frame ? (flags & current) == 0
+                                                 : (current & W8_PATH_CELL_DOOR) != 0;
+                if (!update)
+                    continue;
 
-                if ((current_value & W8_PATH_CELL_DOOR) != 0) {
-                    RemoveIndexValue(*index, key, current_value);
-                    current_value &= ~(W8_PATH_CELL_DOOR | W8_PATH_CELL_BLOCKED);
-                    InsertIndexValue(*index, key, current_value);
-                }
-                ++key_index;
+                const unsigned int next = active_frame
+                    ? current | flags : current & ~(W8_PATH_CELL_DOOR | W8_PATH_CELL_BLOCKED);
+                RemoveIndexValue(index, key, current);
+                InsertIndexValue(index, key, next);
             }
         }
-        ++lookup_index;
-    }
-
-    lookup_index = path_handle;
-    while (m_pulCondLookup[lookup_index] != 0) {
-        if (m_pusCondNodeFrames[lookup_index] == frame) {
-            unsigned int key_index = m_pulCondLookup[lookup_index];
-            while (m_pulCondNodeKeys[key_index] != 0) {
-                unsigned int key = m_pulCondNodeKeys[key_index];
-                unsigned int wanted_value = m_pulCondNodeValues[key_index];
-                unsigned int current_value = FindConditionalPathValue(key, wanted_value);
-
-                if ((flags & current_value) == 0) {
-                    RemoveIndexValue(*index, key, current_value);
-                    current_value |= flags;
-                    InsertIndexValue(*index, key, current_value);
-                }
-                ++key_index;
-            }
-        }
-        ++lookup_index;
     }
 }
 
@@ -2910,18 +2875,7 @@ unsigned int W8PathingService::StepAlongPath(W8NavigatorMovementState* movement,
         return arrived;
     }
     arrived = false;
-    if ((flags & W8_NAV_HUGE) == 0) {
-        W8Monster* monster =
-            GetMonsterByLocationID(static_cast<unsigned int>(movement->location_id));
-        W8Navigator* linked = monster->linked_navigator;
-        if (linked == 0) {
-            m_linked_attachment = 0;
-        } else {
-            m_linked_attachment = linked->movement.attachment.get();
-        }
-    } else {
-        m_linked_attachment = 0;
-    }
+    ResolveLinkedNavigatorAttachment(movement, (flags & W8_NAV_HUGE) == 0);
     if ((attachment->path_cursor == 1) || (attachment->path[attachment->path_cursor].value == 0)) {
         bool ignore_linked_navigator =
             (attachment->flags & W8_NAV_ATTACHMENT_IGNORE_LINKED_NAVIGATOR) != 0;
@@ -3070,6 +3024,20 @@ transitioned: {
     return arrived;
 }
 
+/* Find the moving monster's linked route, if this movement mode allows it. */
+void W8PathingService::ResolveLinkedNavigatorAttachment(W8NavigatorMovementState* movement,
+                                                        bool enabled)
+{
+    m_linked_attachment = nullptr;
+    if (!enabled)
+        return;
+
+    W8Monster* monster = GetMonsterByLocationID(static_cast<unsigned int>(movement->location_id));
+    W8Navigator* linked = monster->linked_navigator;
+    if (linked)
+        m_linked_attachment = linked->movement.attachment.get();
+}
+
 /* Rebuild the attachment route against the linked navigator's recorded path.
    The linked attachment is resolved through the moving monster's link (or
    cleared when the 0x800000 flag or a missing link says there is none), the
@@ -3080,18 +3048,8 @@ transitioned: {
 bool W8PathingService::PrepareLinkedNavigator(W8NavigatorMovementState* movement)
 {
     W8NavigatorAttachment* attachment = movement->attachment.get();
-    if ((attachment->flags & W8_NAV_ATTACHMENT_IGNORE_LINKED_NAVIGATOR) == 0) {
-        W8Monster* monster =
-            GetMonsterByLocationID(static_cast<unsigned int>(movement->location_id));
-        W8Navigator* linked = monster->linked_navigator;
-        if (linked == 0) {
-            m_linked_attachment = 0;
-        } else {
-            m_linked_attachment = linked->movement.attachment.get();
-        }
-    } else {
-        m_linked_attachment = 0;
-    }
+    ResolveLinkedNavigatorAttachment(
+        movement, (attachment->flags & W8_NAV_ATTACHMENT_IGNORE_LINKED_NAVIGATOR) == 0);
     W8NavigatorAttachment* linked_attachment = m_linked_attachment;
     if (linked_attachment == 0) {
         return false;
@@ -3451,6 +3409,38 @@ unsigned int W8PathingService::FindPathCell(srVector3T<float>* position, glm::uv
     return selected_key;
 }
 
+/* The two near-cell operations share the height window and optional
+   snap. Clearance additionally requires an active cell and its packed flags. */
+bool W8PathingService::FindNearbyPathCell(srVector3T<float>* position, bool snap_to_cell,
+                                          bool require_active, unsigned int* packed_out)
+{
+    const int vertical_window = cell_count * 2;
+    const unsigned int height = static_cast<unsigned int>(
+        static_cast<int>((position->y - level_bounds.minimum.y) / span)) + 1;
+    srVector2i cell;
+    const unsigned int key = PositionToPathKey(this, position, &cell);
+    auto slot = m_pPathValues->equal_range(key).first;
+
+    while (slot != m_pPathValues->end()) {
+        const unsigned int packed = slot->second;
+        const unsigned int matched_height = packed & W8_PATH_CELL_HEIGHT_MASK;
+        const int delta = static_cast<int>(height - matched_height);
+        if ((!require_active || (packed & W8_PATH_CELL_INACTIVE) == 0) &&
+            -vertical_window < delta && delta < vertical_window) {
+            if (snap_to_cell) {
+                position->Set((cell.x + g_float_half) * grid_scale + level_bounds.minimum.x,
+                              (matched_height - 1) * span + level_bounds.minimum.y,
+                              (cell.y + g_float_half) * grid_scale + level_bounds.minimum.z);
+            }
+            if (packed_out)
+                *packed_out = packed;
+            return true;
+        }
+        slot = NextIndexValue(*m_pPathValues, key, slot);
+    }
+    return false;
+}
+
 /* Test whether a position lies in the vertical neighborhood represented by its
    X/Z path-index cell, optionally snapping it onto that indexed cell.
 
@@ -3460,34 +3450,7 @@ unsigned int W8PathingService::FindPathCell(srVector3T<float>* position, glm::uv
 // FUNCTION: WIZ8 0x00462e60
 bool W8PathingService::SnapWaypointPosition(srVector3T<float>* position, bool snap_to_cell)
 {
-    int vertical_window = cell_count * 2;
-    unsigned int height = static_cast<unsigned int>(
-                              static_cast<int>(((position->y - level_bounds.minimum.y) / span))) +
-                          1;
-    srVector2i cell;
-    unsigned int key = PositionToPathKey(this, position, &cell);
-    unsigned int matched_height = height;
-    bool found = false;
-    std::unordered_multimap<unsigned int, unsigned int>* index = m_pPathValues;
-    auto slot = index->equal_range(key).first;
-
-    while (slot != index->end() && !found) {
-        matched_height = slot->second & W8_PATH_CELL_HEIGHT_MASK;
-        int delta = static_cast<int>(height - matched_height);
-
-        if (-vertical_window < delta && delta < vertical_window) {
-            found = true;
-            break;
-        }
-        slot = NextIndexValue(*index, key, slot);
-    }
-
-    if (snap_to_cell && found) {
-        position->Set((cell.x + g_float_half) * grid_scale + level_bounds.minimum.x,
-                      (matched_height - 1) * span + level_bounds.minimum.y,
-                      (cell.y + g_float_half) * grid_scale + level_bounds.minimum.z);
-    }
-    return found;
+    return FindNearbyPathCell(position, snap_to_cell, false, nullptr);
 }
 
 /* Test the first static path-index value in the position's vertical
@@ -3499,44 +3462,13 @@ bool W8PathingService::SnapWaypointPosition(srVector3T<float>* position, bool sn
 bool W8PathingService::TestPathCellClearance(srVector3T<float>* position, float clearance,
                                              bool snap_to_cell)
 {
-    int vertical_window = cell_count * 2;
-    unsigned int height = static_cast<unsigned int>(
-                              static_cast<int>(((position->y - level_bounds.minimum.y) / span))) +
-                          1;
-    srVector2i cell;
-    unsigned int key = PositionToPathKey(this, position, &cell);
-    unsigned int packed = 0;
-    unsigned int matched_height = height;
-    bool found = false;
-    std::unordered_multimap<unsigned int, unsigned int>* index = m_pPathValues;
-    auto slot = index->equal_range(key).first;
-
-    while (slot != index->end() && !found) {
-        packed = slot->second;
-        matched_height = packed & W8_PATH_CELL_HEIGHT_MASK;
-        int delta = static_cast<int>(height - matched_height);
-
-        if ((packed & W8_PATH_CELL_INACTIVE) == 0 && -vertical_window < delta &&
-            delta < vertical_window) {
-            found = true;
-            break;
-        }
-        slot = NextIndexValue(*index, key, slot);
-    }
-
-    if (!found) {
+    unsigned int packed;
+    if (!FindNearbyPathCell(position, snap_to_cell, true, &packed))
         return false;
-    }
-    if (snap_to_cell) {
-        position->Set((cell.x + g_float_half) * grid_scale + level_bounds.minimum.x,
-                      (matched_height - 1) * span + level_bounds.minimum.y,
-                      (cell.y + g_float_half) * grid_scale + level_bounds.minimum.z);
-    }
 
     float direction = g_float_zero;
-    if ((packed & W8_PATH_CELL_HAS_DIRECTIONS) == 0) {
+    if ((packed & W8_PATH_CELL_HAS_DIRECTIONS) == 0)
         direction = static_cast<float>((packed >> 16) & 0xff);
-    }
     return clearance < direction * g_world_scale + grid_scale * g_float_half;
 }
 
@@ -3985,46 +3917,31 @@ bool W8PathingService::TestWaypointSpan(const srVector3T<float>* source,
     std::unordered_multimap<unsigned int, unsigned int>* path_index = m_pPathValues;
 
     if (cell_key == destination_key) {
-        unsigned int height = static_cast<unsigned int>(
-                                  static_cast<int>(((source->y - level_bounds.minimum.y) / span))) +
-                              1;
-        auto slot = path_index->equal_range(cell_key).first;
+        const auto findCellAtHeight = [&](const srVector3T<float>& position, unsigned int& result) {
+            const unsigned int height = static_cast<unsigned int>(
+                static_cast<int>((position.y - level_bounds.minimum.y) / span)) + 1;
+            auto slot = path_index->equal_range(cell_key).first;
+            bool found = false;
+            while (slot != path_index->end() && !found) {
+                const unsigned int value = slot->second;
+                const int difference = (value & W8_PATH_CELL_HEIGHT_MASK) - height;
+                if ((value & W8_PATH_CELL_INACTIVE) == 0 &&
+                    -cell_count < difference && difference < cell_count) {
+                    result = value;
+                    found = true;
+                }
+                slot = NextIndexValue(*path_index, cell_key, slot);
+            }
+            return found;
+        };
+
         unsigned int source_value = 0;
-        bool found = false;
-
-        while (slot != path_index->end() && !found) {
-            unsigned int value = slot->second;
-            int difference = (value & W8_PATH_CELL_HEIGHT_MASK) - height;
-            if ((value & W8_PATH_CELL_INACTIVE) == 0 && -cell_count < difference &&
-                difference < cell_count) {
-                source_value = value;
-                found = true;
-            }
-            slot = NextIndexValue(*path_index, cell_key, slot);
-        }
-        if (!found) {
+        if (!findCellAtHeight(*source, source_value))
             return false;
-        }
-
         m_waypoint_neighbor_mask = ComputeWaypointNeighborMask(&cell, source_value);
-        height = static_cast<unsigned int>(
-                     static_cast<int>(((destination->y - level_bounds.minimum.y) / span))) +
-                 1;
-        slot = path_index->equal_range(cell_key).first;
-        found = false;
         unsigned int destination_value;
-
-        while (slot != path_index->end() && !found) {
-            unsigned int value = slot->second;
-            int difference = (value & W8_PATH_CELL_HEIGHT_MASK) - height;
-            if ((value & W8_PATH_CELL_INACTIVE) == 0 && -cell_count < difference &&
-                difference < cell_count) {
-                destination_value = value;
-                found = true;
-            }
-            slot = NextIndexValue(*path_index, cell_key, slot);
-        }
-        return found && destination_value == source_value;
+        return findCellAtHeight(*destination, destination_value) &&
+               destination_value == source_value;
     }
 
     glm::vec2 walk_source;
@@ -4045,6 +3962,16 @@ bool W8PathingService::TestWaypointSpan(const srVector3T<float>* source,
     unsigned int previous_key = 0;
     unsigned int previous_value;
     int iteration = 0;
+    const auto updateNeighborMask = [&](unsigned int current_key, unsigned int current_value) {
+        const unsigned int key = previous_key == 0 ? current_key : previous_key;
+        const unsigned int value = previous_key == 0 ? current_value : previous_value;
+        if (previous_key != 0 || current_key != 0) {
+            srVector2i cell;
+            cell.x = key & 0xffff;
+            cell.y = key >> 16;
+            m_waypoint_neighbor_mask = ComputeWaypointNeighborMask(&cell, value);
+        }
+    };
 
     while (iteration < walk.count && !blocked) {
         auto slot = path_index->equal_range(cell_key).first;
@@ -4073,18 +4000,7 @@ bool W8PathingService::TestWaypointSpan(const srVector3T<float>* source,
         }
 
         if (!found) {
-            unsigned int mask_key = previous_key;
-            unsigned int mask_value = previous_value;
-            if (previous_key == 0) {
-                mask_key = cell_key;
-                mask_value = path_value;
-            }
-            if (previous_key != 0 || cell_key != 0) {
-                srVector2i mask_cell;
-                mask_cell.x = mask_key & 0xffff;
-                mask_cell.y = mask_key >> 16;
-                m_waypoint_neighbor_mask = ComputeWaypointNeighborMask(&mask_cell, mask_value);
-            }
+            updateNeighborMask(cell_key, path_value);
             blocked = true;
         }
 
@@ -4127,18 +4043,7 @@ bool W8PathingService::TestWaypointSpan(const srVector3T<float>* source,
         if (cell_key == destination_key) {
             iteration = walk.count;
         } else if (direction_mask != 0 && (direction_mask & 1 << (direction & 0x1f)) == 0) {
-            unsigned int mask_key = previous_key;
-            unsigned int mask_value = previous_value;
-            if (previous_key == 0) {
-                mask_key = cell_key;
-                mask_value = path_value;
-            }
-            if (previous_key != 0 || cell_key != 0) {
-                srVector2i mask_cell;
-                mask_cell.x = mask_key & 0xffff;
-                mask_cell.y = mask_key >> 16;
-                m_waypoint_neighbor_mask = ComputeWaypointNeighborMask(&mask_cell, mask_value);
-            }
+            updateNeighborMask(cell_key, path_value);
             blocked = true;
         }
 
