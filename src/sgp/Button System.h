@@ -118,13 +118,6 @@ typedef struct _GUI_BUTTON : std::enable_shared_from_this<_GUI_BUTTON> {
     INT8 bTextYSubOffSet;
     BOOLEAN fShiftText;
     INT16 sWrappedWidth;
-    //For buttons with icons (don't confuse this with quickbuttons which have up to 5 states )
-    INT32 iIconID;
-    INT16 usIconIndex;
-    INT8 bIconXOffset;   //-1 means horizontally centered
-    INT8 bIconYOffset;   //-1 means vertically centered
-    BOOLEAN fShiftImage; //if true, icon is shifted +1,+1 when button state is down.
-
     bool ubToggleButtonOldState; // Varibles for new toggle buttons that work
     bool ubToggleButtonActivated;
 
@@ -194,7 +187,6 @@ void DrawQuickButton(GUI_BUTTON* b);
 void DrawCheckBoxButton(GUI_BUTTON* b);
 //Additional layers on buttons that can exist in any combination on generic or quick buttons
 //To do so, use the new specify functions below.
-void DrawIconOnButton(GUI_BUTTON* b);
 void DrawTextOnButton(GUI_BUTTON* b);
 
 extern BOOLEAN gfRenderHilights;

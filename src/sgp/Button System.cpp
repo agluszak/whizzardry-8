@@ -44,7 +44,6 @@
 #define FONT_MCOLOR_BLACK 0
 #define COLOR_DKGREY 136
 
-#define MAX_BUTTON_ICONS 40
 
 
 // GLOBAL: WIZ8 0x006e1940
@@ -153,7 +152,6 @@ _GUI_BUTTON::~_GUI_BUTTON()
 static GenericButtonImage default_generic_image;
 
 // GLOBAL: WIZ8 0x006e1020
-std::array<std::unique_ptr<SGPVObject>, MAX_BUTTON_ICONS> GenericButtonIcons;
 
 // flag to state we wish to render buttons on the one after the next pass through render buttons
 // GLOBAL: WIZ8 0x00650EA8
@@ -444,9 +442,6 @@ BOOLEAN InitializeButtonImageManager(INT32 DefaultBuffer, INT32 DefaultPitch, IN
 
     default_generic_image = std::make_shared<GenericButtonImages>();
 
-    // Blank out all icon images
-    for (x = 0; x < MAX_BUTTON_ICONS; x++)
-        GenericButtonIcons[x] = nullptr;
 
     const std::array<const char*, 6> filenames{
         DEFAULT_GENERIC_BUTTON_OFF, DEFAULT_GENERIC_BUTTON_ON, nullptr,
@@ -533,11 +528,6 @@ void ShutdownButtonImageManager(void)
 
     default_generic_image.reset();
 
-    // Remove all button icons
-    for (x = 0; x < MAX_BUTTON_ICONS; x++) {
-        if (GenericButtonIcons[x] != nullptr)
-            GenericButtonIcons[x] = nullptr;
-    }
 }
 
 //	InitButtonSystem
@@ -701,12 +691,6 @@ GUIButton CreateTextButton(std::string_view string, UINT32 uiFont, INT16 sForeCo
     b->bTextXSubOffSet = 0;
     b->bTextYSubOffSet = 0;
     b->fShiftText = TRUE;
-    //Init icon
-    b->iIconID = -1;
-    b->usIconIndex = -1;
-    b->bIconXOffset = -1;
-    b->bIconYOffset = -1;
-    b->fShiftImage = TRUE;
 
     // Set the button click callback function (if any)
     if (ClickCallback != BUTTON_NO_CALLBACK) {
@@ -804,12 +788,6 @@ GUIButton QuickCreateButton(ButtonImage Image, INT16 xloc, INT16 yloc, INT32 Typ
     b->bTextXSubOffSet = 0;
     b->bTextYSubOffSet = 0;
     b->fShiftText = TRUE;
-    //Init icon
-    b->iIconID = -1;
-    b->usIconIndex = -1;
-    b->bIconXOffset = -1;
-    b->bIconYOffset = -1;
-    b->fShiftImage = TRUE;
     //Init quickbutton
     b->IDNum = next_button_id++;
     b->quick_image = Image;
@@ -1124,9 +1102,6 @@ void DrawButtonFromPtr(GUI_BUTTON* b)
         DrawCheckBoxButton(b);
         break;
     }
-    //If button has an icon, overlay it on current button.
-    if (b->iIconID != -1)
-        DrawIconOnButton(b);
     //If button has text, draw it now
     if (!b->string.empty())
         DrawTextOnButton(b);
@@ -1299,73 +1274,7 @@ void DrawCheckBoxButton(GUI_BUTTON* b)
 }
 
 // FUNCTION: WIZ8 0x0040e3b0
-void DrawIconOnButton(GUI_BUTTON* b)
-{
-    INT32 xp, yp, width, height, IconX, IconY;
-    INT32 IconW, IconH;
-    SDL_Rect NewClip, OldClip;
-    SpriteFrame* pTrav;
-    HVOBJECT hvObject;
 
-    // If there's an actual icon on this button, try to show it.
-    if (b->iIconID >= 0) {
-        // Get width and height of button area
-        width = b->Area.RegionBottomRightX - b->Area.RegionTopLeftX;
-        height = b->Area.RegionBottomRightY - b->Area.RegionTopLeftY;
-
-        // Compute viewable area (inside borders)
-        NewClip = {b->XLoc + 3, b->YLoc + 2, width - 6, height - 4};
-
-        // Get Icon's blit start coordinates
-        IconX = NewClip.x;
-        IconY = NewClip.y;
-
-        // Get current clip area and clip the viewable area to it
-        GetClippingRect(&OldClip);
-        if (!SDL_GetRectIntersection(&NewClip, &OldClip, &NewClip))
-            return;
-
-        // Get the width and height of the icon itself
-        if (b->uiFlags & BUTTON_GENERIC)
-            pTrav = &(GenericButtonIcons[b->iIconID]->sprites[b->usIconIndex]);
-        else {
-            GetVideoObject(&hvObject, b->iIconID);
-            pTrav = &(hvObject->sprites[b->usIconIndex]);
-        }
-        IconH = (UINT32)(pTrav->usHeight + pTrav->sOffsetY);
-        IconW = (UINT32)(pTrav->usWidth + pTrav->sOffsetX);
-
-        // Compute coordinates for centering the icon on the button or
-        // use the offset system.
-        if (b->bIconXOffset == -1)
-            xp = (((width - 6) - IconW) / 2) + IconX;
-        else
-            xp = b->Area.RegionTopLeftX + b->bIconXOffset;
-        if (b->bIconYOffset == -1)
-            yp = (((height - 4) - IconH) / 2) + IconY;
-        else
-            yp = b->Area.RegionTopLeftY + b->bIconYOffset;
-
-        // Was the button clicked on? if so, move the image slightly for the illusion
-        // that the image moved into the screen.
-        if (b->uiFlags & BUTTON_CLICKED_ON && b->fShiftImage) {
-            xp++;
-            yp++;
-        }
-
-        // Set the clipping rectangle to the viewable area of the button
-        SetClippingRect(&NewClip);
-        // Blit the icon
-        if (b->uiFlags & BUTTON_GENERIC)
-            BltVideoObject(ButtonDestBuffer, GenericButtonIcons[b->iIconID].get(), b->usIconIndex,
-                           (INT16)xp, (INT16)yp, VO_BLT_SRCTRANSPARENCY, nullptr);
-        else
-            BltVideoObject(ButtonDestBuffer, hvObject, b->usIconIndex, (INT16)xp, (INT16)yp,
-                           VO_BLT_SRCTRANSPARENCY, nullptr);
-        // Restore previous clip region
-        SetClippingRect(&OldClip);
-    }
-}
 
 //If a button has text attached to it, then it'll draw it last.
 // FUNCTION: WIZ8 0x0040e5d0
