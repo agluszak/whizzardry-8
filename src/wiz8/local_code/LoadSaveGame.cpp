@@ -488,8 +488,8 @@ catch (const std::exception&) { return false; }
 bool SaveGame(std::string_view name, W8SaveScreenshot* screenshot)
 try
 {
-    if (!name) return false;
-    const std::string path = std::string("Saves\\") + name + "." + g_save_extension;
+    if (name.empty()) return false;
+    const std::string path = fmt::format("Saves\\{}.{}", name, g_save_extension);
     SaveTransaction transaction(path);
     if (!WriteGame(name, screenshot, transaction.chunks)) return false;
     transaction.commit();
@@ -1596,7 +1596,7 @@ try
     }
     source.Close();
     char name[64]{};
-    strcpy(name, path);
+    std::copy(path.begin(), path.end(), name);
     const unsigned size = W8_CHARACTER_SERIALIZED_SIZE;
     transaction.chunks.OpenChunk(W8_SAVE_TAG_CHAR, 0);
     transaction.chunks.m_hFile->write(name, sizeof(name));
