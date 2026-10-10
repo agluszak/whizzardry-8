@@ -24,6 +24,7 @@
 #include "surrender/srScene.h"
 #include "surrender/srVectorProcessor.h"
 
+#include <algorithm>
 #include <new>
 #include <stdlib.h>
 #include <string.h>
@@ -188,8 +189,7 @@ unsigned char BakeInstanceVertexLighting(stModelInstance* instance, srNode* ligh
                 return 0;
             }
             if (count != 0 && world_vertices != vertices) {
-                srVectorProcessor::memcopy(world_vertices, vertices,
-                                           count * sizeof(srVector3T<float>));
+                std::copy_n(vertices, count, world_vertices);
             }
             if (rotation.vectors[0].x == g_float_one && rotation.vectors[1].y == g_float_one &&
                 rotation.vectors[2].z == g_float_one && rotation.vectors[0].y == g_float_zero &&
@@ -256,7 +256,7 @@ unsigned char BakeInstanceVertexLighting(stModelInstance* instance, srNode* ligh
                     }
                     if (light_position.x == g_float_zero && light_position.y == g_float_zero &&
                         light_position.z == g_float_zero) {
-                        CopyDwordBuffer(directions, world_vertices, count * 3);
+                        std::copy_n(world_vertices, count, directions);
                     } else {
                         srVector3T<float> offset(-light_position.x, -light_position.y,
                                                  -light_position.z);
@@ -1120,9 +1120,6 @@ bool BoundsInsideFrustum(const W8OctRegionVolume* volume, const W8BoundingBox* b
     }
     return false;
 }
-
-/* Scalar-delete array teardown shared by the Sampler symbol array and other
-   folded array instantiations. The primary template lives in srArray.h. */
 
 /* srMatrix4T<float>::Set emitted for this TU (BakeInstanceVertexLighting's
    transform builds); the primary template lives in srMath.h. */

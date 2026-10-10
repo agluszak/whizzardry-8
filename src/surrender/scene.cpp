@@ -21,8 +21,6 @@ srScene::srScene(srNode* parent)
 {
     ambient_light = 0.2f;
     fog_color.Set(0.1f, 0.2f, 0.4f);
-    traversal.entry_count = 0;
-    traversal.node_count = 0;
     traversal.renderer = 0;
     enabled.value = 0;
     if (parent != 0) {
@@ -30,8 +28,6 @@ srScene::srScene(srNode* parent)
     }
     resetStatistics();
 }
-
-srScene::~srScene() = default;
 
 // FUNCTION: SURRENDER 0x100566F0
 srScene& srScene::operator=(const srScene& other)
@@ -54,10 +50,7 @@ void srScene::traverse(TraverseInfo& info)
         next_sibling_->traverse(info);
     }
     if (!testFlag(FLAG_DISABLE) && !testFlag(FLAG_TERMINATE) && first_child_ != 0) {
-        TraverseInfo::Entry& entry = info.entries[info.entry_count];
-        entry.node = this;
-        entry.value = 0;
-        ++info.entry_count;
+        info.entries.push_back({this, 0});
     }
 }
 
@@ -67,17 +60,12 @@ void srScene::process(const ProcessInfo& info, e_processType type)
     if (first_child_ == 0) {
         return;
     }
-    traversal.entry_count = 0;
-    traversal.node_count = 0;
-    traversal.renderer = 0;
+    traversal.entries.clear();
+    traversal.nodes.clear();
     traversal.renderer = info.renderer;
     first_child_->traverse(traversal);
-    traversal.nodes.ensureIndex(0);
-    srNode** nodes = traversal.nodes.data;
-    traversal.entries.ensureIndex(0);
-    TraverseInfo::Entry* entries = traversal.entries.data;
-    w8_long node_count = traversal.node_count;
-    w8_long entry_count = traversal.entry_count;
+    const auto node_count = static_cast<w8_long>(traversal.nodes.size());
+    const auto entry_count = static_cast<w8_long>(traversal.entries.size());
     srGERD* renderer = info.renderer;
     w8_ulong_ptr pick_key = renderer->getPickKey();
     srVector4T<float> fog_color;
@@ -87,30 +75,19 @@ void srScene::process(const ProcessInfo& info, e_processType type)
     renderer->setFogColor(this->fog_color);
     renderer->setAmbientLight(this->ambient_light);
     ProcessInfo process_info = info;
-    w8_long count = node_count;
-    while (count > 0) {
-        (*nodes)->process(process_info, PROCESS_PUSH_GLOBAL);
-        --count;
-        ++nodes;
+    for (w8_long index = 0; index < node_count; ++index) {
+        traversal.nodes[index]->process(process_info, PROCESS_PUSH_GLOBAL);
     }
-    w8_long remaining = entry_count;
-    while (remaining > 0) {
+    for (w8_long index = 0; index < entry_count; ++index) {
+        const auto entry = traversal.entries[index];
         if ((enabled.value & 1) != 0) {
             // reinterpret-ok: the pick key is the node pointer itself.
-            renderer->setPickKey(reinterpret_cast<w8_ulong_ptr>(entries->node));
+            renderer->setPickKey(reinterpret_cast<w8_ulong_ptr>(entry.node));
         }
-        entries->node->process(process_info, static_cast<e_processType>(entries->value));
-        ++entries;
-        --remaining;
+        entry.node->process(process_info, static_cast<e_processType>(entry.value));
     }
-    if (node_count - 1 >= 0) {
-        nodes = traversal.nodes.data + node_count - 1;
-        count = node_count;
-        do {
-            (*nodes)->process(process_info, PROCESS_POP_GLOBAL);
-            --nodes;
-            --count;
-        } while (count != 0);
+    for (w8_long index = node_count; index > 0; --index) {
+        traversal.nodes[index - 1]->process(process_info, PROCESS_POP_GLOBAL);
     }
     renderer->setFogColor(fog_color);
     renderer->setAmbientLight(ambient_light);
@@ -154,7 +131,7 @@ void srScene::getStatistics(Statistics& statistics)
 // FUNCTION: SURRENDER 0x10056550
 void srScene::resetStatistics()
 {
-    memset(&statistics, 0, sizeof(statistics));
+    statistics = {};
     statistics.elapsed = srCore.getTimer()->getTime(srTimer::TIMER_READ_DEFAULT);
 }
 

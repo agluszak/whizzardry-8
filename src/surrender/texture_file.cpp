@@ -1,25 +1,21 @@
 #include "surrender/srTextureFile.h"
 
 #include <ostream>
-#include <string.h>
+#include <utility>
 
 #include "surrender/srCore.h"
 #include "surrender/srImporter.h"
 
 // FUNCTION: SURRENDER 0x1005F8E0
-srTextureFile::srTextureFile(const char* file_name, int cached)
-    : cached(0), file_name(0), surface(0), frame_handle(getNewFrameHandle())
+srTextureFile::srTextureFile(std::string file_name, int cached)
+    : cached(cached != 0), surface(0), frame_handle(getNewFrameHandle())
 {
-    this->cached = 0;
-    if (cached != 0) {
-        this->cached = 1;
-    }
-    setFileName(file_name);
-    if (file_name != 0) {
-        setName(file_name);
-    }
-    if (cached != 0 && file_name != 0) {
-        setupDefaultValues();
+    setFileName(std::move(file_name));
+    if (!this->file_name.empty()) {
+        setName(this->file_name.c_str());
+        if (cached != 0) {
+            setupDefaultValues();
+        }
     }
 }
 
@@ -28,10 +24,7 @@ srTextureFile& srTextureFile::operator=(const srTextureFile& other)
 {
     if (this != &other) {
         srTexture::operator=(other);
-        setFileName(0);
-        if (other.file_name != 0) {
-            setFileName(other.file_name);
-        }
+        setFileName(other.file_name);
         cached = other.cached;
     }
     return *this;
@@ -41,34 +34,25 @@ srTextureFile& srTextureFile::operator=(const srTextureFile& other)
 srTextureFile::~srTextureFile()
 {
     invalidate();
-    setFileName(0);
 }
 
 // FUNCTION: SURRENDER 0x1005FF20
 srClass* srTextureFile::vInstance()
 {
-    return new srTextureFile(0, 0);
+    return new srTextureFile({}, 0);
 }
 
 // FUNCTION: SURRENDER 0x1005F9F0
-const char* srTextureFile::getFileName() const
+const std::string& srTextureFile::getFileName() const
 {
     return file_name;
 }
 
 // FUNCTION: SURRENDER 0x1005FA00
-void srTextureFile::setFileName(const char* file_name)
+void srTextureFile::setFileName(std::string file_name)
 {
     invalidate();
-    if (this->file_name != 0) {
-        ::operator delete(this->file_name);
-    }
-    if (file_name == 0 || *file_name == 0) {
-        this->file_name = 0;
-    } else {
-        this->file_name = static_cast<char*>(::operator new(strlen(file_name) + 1));
-        memcpy(this->file_name, file_name, strlen(file_name) + 1);
-    }
+    this->file_name = std::move(file_name);
     texture_flags_ &= ~1;
     texture_flags_ |= 1 << FLAG_DIRTY_DEFAULTS;
 }
@@ -95,12 +79,12 @@ void srTextureFile::loadSurface()
     if (surface != 0) {
         invalidate();
     }
-    if (file_name != 0) {
+    if (!file_name.empty()) {
         surface = 0;
         try {
             srSurfaceIOManager::ImportInfo info;
             info.unknown_00 = 0;
-            surface = srCore.getSurfaceIOManager()->importSurface(file_name, info);
+            surface = srCore.getSurfaceIOManager()->importSurface(file_name.c_str(), info);
         } catch (const srIOManager::Error&) {
             texture_flags_ |= 1 << FLAG_GENERATESURFACE_FAILURE;
             surface = 0;

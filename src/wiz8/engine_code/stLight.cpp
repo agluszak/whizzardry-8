@@ -125,13 +125,9 @@ void stLight::traverse(srNode::TraverseInfo& info)
             }
         } else if (m_definition != 0) {
             if (!testFlag(FLAG_GLOBAL)) {
-                srNode::TraverseInfo::Entry& entry = info.entries[info.entry_count];
-                entry.node = this;
-                entry.value = 1;
-                ++info.entry_count;
+                info.entries.push_back({this, 1});
             } else {
-                info.nodes[info.node_count] = this;
-                ++info.node_count;
+                info.nodes.push_back(this);
             }
 
             if (first_child_ != 0) {
@@ -139,10 +135,7 @@ void stLight::traverse(srNode::TraverseInfo& info)
             }
 
             if (!testFlag(FLAG_GLOBAL)) {
-                srNode::TraverseInfo::Entry& entry = info.entries[info.entry_count];
-                entry.node = this;
-                entry.value = 2;
-                ++info.entry_count;
+                info.entries.push_back({this, 2});
             }
         }
     }

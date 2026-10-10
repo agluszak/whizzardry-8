@@ -1,5 +1,9 @@
 #include "surrender/srMath.h"
 #include <cstdlib>
+#include <algorithm>
+#include <array>
+#include <bit>
+#include <cstdint>
 
 #include "surrender/srGERD.h"
 
@@ -13,7 +17,6 @@
 #include "surrender/srVectorProcessor.h"
 
 #include <ctype.h>
-#include <new>
 #include <ostream>
 #include <memory>
 #include <vector>
@@ -28,19 +31,7 @@ srGERD* srGERD::first;
 srGERD* srGERD::firstOpen;
 
 // FUNCTION: SURRENDER 0x1001EEA0
-srGERD::TexturePool::TexturePool() : count(0), free(0), pool_count(0) {}
-
-// FUNCTION: SURRENDER 0x1001F0B0
-void srGERD::TexturePool::release()
-{
-    for (w8_ulong index = 0; index < pool_count; ++index) {
-        std::free(chunks[index]);
-    }
-    chunks.release();
-    free = 0;
-    pool_count = 0;
-    count = 0;
-}
+srGERD::TexturePool::TexturePool() : count(0), free(nullptr) {}
 
 srGERD::Texture* srGERD::TexturePool::allocate()
 {
@@ -51,9 +42,9 @@ srGERD::Texture* srGERD::TexturePool::allocate()
         } else if (0xff < (w8_long)chunk_count) {
             chunk_count = 0x100;
         }
-        Texture* chunk = static_cast<Texture*>(std::malloc(chunk_count * sizeof(Texture)));
+        chunks.emplace_back(chunk_count);
+        Texture* chunk = chunks.back().data();
         free = chunk;
-        chunks[pool_count++] = chunk;
         Texture* link = chunk;
         for (w8_ulong index = chunk_count; index != 0; --index) {
             link->prev = link + 1;
@@ -76,7 +67,8 @@ void srGERD::TexturePool::release(Texture* texture)
     texture->prev = free;
     free = texture;
     if (count == 0) {
-        release();
+        chunks.clear();
+        free = nullptr;
     }
 }
 
@@ -86,7 +78,13 @@ srGERD::MatrixStack::MatrixStack() : depth(0) {}
 
 // FUNCTION: SURRENDER 0x10019320
 srGERD::srGERD(srDD* device, const char* device_name)
-    : dirty(0), state_flags(0), vertex_arrays_dirty(0)
+    : dirty(0), state_flags(0), device{}, state{}, frame_statistics{}, statistics{},
+      lock_surface(nullptr), buffer_lock_count(0), clear_state{}, texture_slots{},
+      texture_parms{}, device_palette{}, texture_state{}, polygon_mode(POLYGON_FILL),
+      polygon_offset(0), texture_deleted(nullptr), texture_head(nullptr),
+      texture_default(nullptr), texture_cache_used(0), texture_cache_size(0),
+      texture_sequence(0), texture_reduction(0), texture_hash_enabled(false),
+      vertex_arrays_dirty(0)
 {
     owner_thread = std::this_thread::get_id();
     this->device.dd = device;
@@ -104,23 +102,44 @@ srGERD::srGERD(srDD* device, const char* device_name)
         vertex_arrays.strides[index] = 0;
         vertex_arrays.arrays[index] = 0;
     }
-    /* The retail byte counts cover these member runs in the 32-bit layout. */
-    srZeroMemory(&state, sizeof(state));
-    srZeroMemory(&accum_buffer, reinterpret_cast<char*>(&texture_slots) -
-                                    reinterpret_cast<char*>(&accum_buffer));
-    srZeroMemory(&texture_slots, reinterpret_cast<char*>(&polygon_offset + 1) -
-                                     reinterpret_cast<char*>(&texture_slots));
-    srZeroMemory(&this->device.info, sizeof(this->device.info));
-    this->device.texture_formats = 0;
-    this->device.texture_format_count = 0;
-    this->device.display_modes = 0;
-    this->device.display_mode_count = 0;
-    srZeroMemory(&this->device.driver_info, sizeof(this->device.driver_info));
+    for (auto& plane : state.clip_planes) {
+        plane = 0.0f;
+    }
+    for (auto& row : state.project_clip_near.vectors) {
+        row = 0.0f;
+    }
+    state.modelview_scale_type = static_cast<srMatrix4T<float>::e_scaleType>(0);
+    state.max_modelview_scale = 0.0f;
+    for (auto& color : global_palette) {
+        color.blue = color.green = color.red = color.alpha = 0;
+    }
+    auto& info = this->device.info;
+    info.max_back_buffer_width = 0;
+    info.max_back_buffer_height = 0;
+    info.unknown_08_ = 0;
+    info.unknown_0c_ = 0;
+    info.unknown_10_ = 0.0f;
+    info.unknown_14_ = 0.0f;
+    info.flags = 0;
+    info.renderer_batch_limit = 0;
+    info.unknown_20_ = 0;
+    info.texture_ram = 0;
+    info.max_texture_stages = 0;
+    info.texture_min_dim = 0;
+    info.texture_max_dim = 0;
+    info.texture_max_aspect = 0;
+    info.hardware_id = 0;
+    for (auto& text : info.text) {
+        std::fill(std::begin(text), std::end(text), '\0');
+    }
+    this->device.driver_info.driver_id = 0;
+    std::fill(std::begin(this->device.driver_info.name),
+              std::end(this->device.driver_info.name), '\0');
+    std::fill(std::begin(this->device.driver_info.api_name),
+              std::end(this->device.driver_info.api_name), '\0');
     if (device_name != 0) {
         strncpy(this->device.info.text[0], device_name, 0x3f);
     }
-    polygon_mode = POLYGON_FILL;
-    polygon_offset = 0;
     state_section = new srCriticalSection;
     pick.pick_key = 0;
     exclusion_mask = 0;
@@ -148,10 +167,6 @@ srGERD::srGERD(srDD* device, const char* device_name)
         this->device.driver_info.flags = 1;
     }
     getDD()->getDriverInfo(this->device.driver_info);
-    texture_hash_enabled = false;
-    texture_cache_size = 0;
-    texture_default = 0;
-    texture_reduction = 0;
     initClearColors();
     initLights();
     initMatrices();
@@ -200,7 +215,6 @@ srGERD::~srGERD()
     }
     deleteContext();
     delete device.dd;
-    device.dd = 0;
     if (prev != 0) {
         prev->next = next;
     }
@@ -210,12 +224,8 @@ srGERD::~srGERD()
     if (this == first) {
         first = next;
     }
-    prev = 0;
-    next = 0;
     delete renderers_section;
-    renderers_section = 0;
     delete state_section;
-    state_section = 0;
     srCore.getRegistry()->unregisterInstance(sGetClassNode(), this);
 }
 
@@ -284,7 +294,7 @@ w8_ulong srGERD::getTextureCacheUsed() const
 w8_long srGERD::getDisplayMode(w8_ulong width, w8_ulong height, w8_ulong depth) const
 {
     if ((state_flags & STATE_CONTEXT_CREATED) != 0) {
-        for (w8_long i = 0; i < device.display_mode_count; i++) {
+        for (w8_long i = 0; i < static_cast<w8_long>(device.display_modes.size()); i++) {
             const srDD::WindowInfo& mode = device.display_modes[i];
             if (mode.width == width && mode.height == height && mode.depth == depth) {
                 return i;
@@ -317,8 +327,7 @@ void srGERD::getStatistics(Statistics& statistics)
             }
         }
     }
-    srDD::Statistics device;
-    memset(&device, 0, sizeof(device));
+    srDD::Statistics device{};
     getDD()->getStatistics(device);
     this->statistics.texture_transfer = device.texture_transfer;
     this->statistics.pixels_drawn = device.pixels_drawn;
@@ -335,7 +344,7 @@ void srGERD::getStatistics(Statistics& statistics)
 // FUNCTION: SURRENDER 0x1001ACD0
 void srGERD::resetStatistics()
 {
-    memset(&statistics, 0, sizeof(statistics));
+    statistics = {};
     getDD()->resetStatistics();
     srCriticalSectionAccess access(renderers_section);
     for (RendererEntry* entry = renderers; entry != 0; entry = entry->next) {
@@ -576,18 +585,13 @@ void srGERD::drawElements(srRendererDefs::e_primitive primitive, w8_ulong count,
 // FUNCTION: SURRENDER 0x1001CEC0
 w8_ulong srGERD::getVertexProcessorCount() const
 {
-    return vertex_processors.count;
+    return static_cast<w8_ulong>(vertex_processors.size());
 }
 
 // FUNCTION: SURRENDER 0x1001CED0
-void srGERD::getVertexProcessors(srVertexProcessor** processors) const
+const std::vector<srVertexProcessor*>& srGERD::getVertexProcessors() const
 {
-    if (processors != 0) {
-        w8_ulong count = vertex_processors.count;
-        for (w8_ulong i = 0; i < count; i++) {
-            processors[i] = vertex_processors.data[i];
-        }
-    }
+    return vertex_processors;
 }
 
 // FUNCTION: SURRENDER 0x1001CFC0
@@ -638,7 +642,7 @@ void srGERD::invalidateTexture(Texture& texture)
 void srGERD::invalidateResidentTexture(Texture& texture)
 {
     if (texture.device.resident_data != 0) {
-        if (texture.surface_data == 0 || std::this_thread::get_id() != owner_thread) {
+        if (texture.surface_data.empty() || std::this_thread::get_id() != owner_thread) {
             invalidateTexture(texture);
         } else {
             getDD()->deleteTexture(texture.device);
@@ -784,7 +788,7 @@ void srGERD::setTextureSubImage(srTextureIFace* texture, w8_long mipmap, w8_long
         w8_ulong bytes_per_pixel =
             static_cast<w8_ulong>(resident->pixel_format.pixel_size) + 1;
         w8_ulong pitch = bytes_per_pixel * level_width;
-        if (resident->surface_data == 0) {
+        if (resident->surface_data.empty()) {
             std::vector<unsigned char> staging(
                 static_cast<std::size_t>(bytes_per_pixel) * level_height * level_width);
             auto release_surface = [](srColorSurface* surface) { surface->release(); };
@@ -1107,7 +1111,8 @@ void srGERD::flipFrame(const Rectangle* first, const Rectangle* second, w8_ulong
     w8_ulong window_width = srWindow::getWidth(getWindowHandle());
     w8_ulong window_height = srWindow::getHeight(getWindowHandle());
     if (isFullScreen() == 0 && count != 0) {
-        srDD::Scissor* first_scissors = new srDD::Scissor[count * 2];
+        std::vector<srDD::Scissor> scissors(count * 2);
+        srDD::Scissor* first_scissors = scissors.data();
         srDD::Scissor* second_scissors = first_scissors + count;
         for (w8_ulong i = 0; i < count; i++) {
             first_scissors[i].left = first[i].x;
@@ -1120,7 +1125,6 @@ void srGERD::flipFrame(const Rectangle* first, const Rectangle* second, w8_ulong
             second_scissors[i].bottom = second[i].y + second[i].height;
         }
         getDD()->flipFrame(first_scissors, second_scissors, count);
-        delete[] first_scissors;
     } else {
         srDD::Scissor window_scissor;
         window_scissor.left = 0;
@@ -1315,7 +1319,8 @@ void srGERD::performPickTest(const PickInput& input)
     if (depth == 0) {
         return;
     }
-    srVector4T<float>* vertices = pick_vertices.ensure(input.vertex_count);
+    pick_vertices.resize(input.vertex_count);
+    srVector4T<float>* vertices = pick_vertices.data();
     for (w8_ulong index = 0; index < input.vertex_count; index++) {
         float inv_w = 1.0f / input.positions[index].w;
         vertices[index].w = inv_w < 0.0f ? -1.0f : 1.0f;
@@ -1684,28 +1689,20 @@ short srGERD::accumConvert(float value) const
 // FUNCTION: SURRENDER 0x1001F7F0
 void srGERD::accumAlloc()
 {
-    if (getWidth() != 0) {
-        if (getHeight() != 0) {
-            accum_buffer = static_cast<AccumPixel*>(std::malloc(getWidth() * getHeight() * sizeof(*accum_buffer)));
-            w8_ulong* scratch = static_cast<w8_ulong*>(std::malloc(getWidth() * sizeof(*scratch)));
-            if (scratch != 0) {
-                accum_scratch = scratch;
-                accumClear();
-                return;
-            }
-            accum_scratch = 0;
-            accumClear();
-        }
+    if (getWidth() != 0 && getHeight() != 0) {
+        accum_buffer.resize(static_cast<std::size_t>(getWidth()) * getHeight());
+        accum_scratch.resize(getWidth());
+        accumClear();
     }
 }
 
 // FUNCTION: SURRENDER 0x1001F8D0
 void srGERD::accumClear()
 {
-    if (accum_buffer == 0) {
+    if (accum_buffer.empty()) {
         accumAlloc();
     }
-    if (accum_buffer == 0) {
+    if (accum_buffer.empty()) {
         return;
     }
     short first = accumConvert(clear_state.clear_values.accum.x);
@@ -1716,31 +1713,21 @@ void srGERD::accumClear()
     w8_ulong top = state.scissor.top;
     w8_ulong width = state.scissor.right - left;
     w8_ulong height = state.scissor.bottom - top;
-    /* reinterpret-ok: 16-bit accumulation pixels are filled as dword lanes. */
-    SRDWORD* row = reinterpret_cast<SRDWORD*>(accum_buffer) + (getWidth() * top + left) * 2;
+    AccumPixel* row = accum_buffer.data() + getWidth() * top + left;
     if (width == 0 || height == 0) {
         return;
     }
+    AccumPixel value{fourth, first, second, third};
     if (first == third && second == fourth) {
-        SRDWORD constant = first * 0x10000 + second;
-        for (; height != 0; height--) {
-            if (width * 2 != 0) {
-                srVectorProcessor::copy(row, constant, width * 2);
-            }
-            row += getWidth() * 2;
-        }
-        return;
+        /* Preserve the retail dword fill, including its signed low-lane carry. */
+        std::uint32_t constant = static_cast<std::uint32_t>(first) * 0x10000u +
+                                 static_cast<std::uint32_t>(second);
+        const auto lanes = std::bit_cast<std::array<short, 2>>(constant);
+        value = {lanes[0], lanes[1], lanes[0], lanes[1]};
     }
     for (; height != 0; height--) {
-        if (width != 0) {
-            row[0] = (first << 16) | (fourth & 0xffff);
-            row[1] = (third << 16) | (second & 0xffff);
-            w8_ulong words = (width * 8 - 5) >> 2;
-            for (w8_ulong i = 0; i < words; i++) {
-                row[i + 2] = row[i];
-            }
-        }
-        row += getWidth() * 2;
+        std::fill_n(row, width, value);
+        row += getWidth();
     }
 }
 
@@ -1795,8 +1782,7 @@ private:
 // FUNCTION: SURRENDER 0x100205D0
 srGERD::LockSurface::LockSurface(srGERD* gerd, const srPixelConvert::PixelFormat& format)
 {
-    SurfaceDesc description;
-    memset(&description, 0, sizeof(description));
+    SurfaceDesc description{};
     description.width = gerd->getWidth();
     description.height = gerd->getHeight();
     description.pitch = (format.pixel_size + 1) * description.width;
@@ -2813,16 +2799,14 @@ void srGERD::setEnvironmentScaleFactor(float scale, float inverse_scale)
 // FUNCTION: SURRENDER 0x1001CE00
 void srGERD::pushVertexProcessor(srVertexProcessor& processor)
 {
-    w8_ulong count = vertex_processors.count;
-    vertex_processors[count] = &processor;
-    vertex_processors.count += 1;
+    vertex_processors.push_back(&processor);
 }
 
 // FUNCTION: SURRENDER 0x1001CEA0
 void srGERD::popVertexProcessor()
 {
-    if (vertex_processors.count > 0) {
-        vertex_processors.count--;
+    if (!vertex_processors.empty()) {
+        vertex_processors.pop_back();
     }
 }
 
@@ -3031,10 +3015,7 @@ void srGERD::releaseTextureSurfaceData(Texture& texture)
     for (w8_long index = 0; index < 12; ++index) {
         texture.device.levels[index] = 0;
     }
-    if (texture.surface_data != 0) {
-        std::free(texture.surface_data);
-        texture.surface_data = 0;
-    }
+    decltype(texture.surface_data){}.swap(texture.surface_data);
     texture_cache_used -= texture.device.size;
     texture.device.size = 0;
 }
@@ -3059,10 +3040,7 @@ void srGERD::deleteTexture(Texture& texture)
     }
     texture_lookup.Remove(&texture.id);
     getDD()->deleteTexture(texture.device);
-    if (texture.name != 0) {
-        std::free(texture.name);
-        texture.name = 0;
-    }
+    texture.name.clear();
     texture.device.resident_data = 0;
     texture.device.resident_size = 0;
     texture.prev = 0;
@@ -3072,7 +3050,6 @@ void srGERD::deleteTexture(Texture& texture)
     texture.palette = 0;
     texture.id = 0;
     texture.device.reset();
-    texture.~Texture();
     texture_pool.release(&texture);
 }
 
@@ -3112,7 +3089,7 @@ srGERD::Texture* srGERD::findLowestPriority()
 // FUNCTION: SURRENDER 0x10028990
 srGERD::Texture* srGERD::allocTexture(w8_ulong id)
 {
-    Texture* texture = new (texture_pool.allocate()) Texture{};
+    Texture* texture = texture_pool.allocate();
     texture->id = id;
     texture->palette = 0;
     texture_lookup.Insert(&texture->id, &texture);
@@ -3123,7 +3100,7 @@ srGERD::Texture* srGERD::allocTexture(w8_ulong id)
     }
     texture_head = texture;
     texture->device.reset();
-    texture->name = 0;
+    texture->name.clear();
     texture->device.resident = 0;
     texture->device.deleted = 0;
     return texture;
@@ -3228,7 +3205,7 @@ bound:
     texture_slots[stage] = found;
     if (previous != found) {
         getDD()->bindTexture(stage, found->device);
-        if (found != texture_default && found->device.resident == 0 && found->surface_data != 0 &&
+        if (found != texture_default && found->device.resident == 0 && !found->surface_data.empty() &&
             (device.info.flags & srDD::Info::RELEASE_SURFACE_AFTER_BIND) != 0) {
             releaseTextureSurfaceData(*found);
         }
@@ -3310,18 +3287,15 @@ void srGERD::convertPixelFormat(srDD::PixelFormat& device,
 // FUNCTION: SURRENDER 0x10018F30
 void srGERD::initTextureFormats()
 {
-    device.texture_formats = 0;
-    device.texture_format_count = 0;
-    srDD::PixelFormatList list;
+    srDD::PixelFormatList list{};
     getDD()->getTextureFormats(list);
     w8_long count = list.count;
+    device.texture_formats.resize(count);
     if (count != 0) {
-        device.texture_formats = new srPixelConvert::PixelFormat[count];
         w8_long i;
         for (i = 0; i < count; i++) {
             device.texture_formats[i].fourcc = 0;
         }
-        device.texture_format_count = count;
         for (i = 0; i < count; i++) {
             convertPixelFormat(device.texture_formats[i], list.formats[i]);
         }
@@ -3331,15 +3305,10 @@ void srGERD::initTextureFormats()
 // FUNCTION: SURRENDER 0x10018FE0
 void srGERD::initDisplayModeList()
 {
-    srDD::WindowInfoList list;
-    list.count = 0;
-    list.entries = 0;
+    srDD::WindowInfoList list{};
     getDD()->getWindowList(list);
-    device.display_modes = 0;
-    device.display_mode_count = 0;
+    device.display_modes.resize(list.count);
     if (list.count != 0) {
-        device.display_modes = new srDD::WindowInfo[list.count];
-        device.display_mode_count = list.count;
         for (w8_long i = 0; i < list.count; i++) {
             device.display_modes[i].width = list.entries[i].width;
             device.display_modes[i].height = list.entries[i].height;
@@ -3351,7 +3320,11 @@ void srGERD::initDisplayModeList()
 // FUNCTION: SURRENDER 0x10019080
 void srGERD::initDDInfo()
 {
-    memset(&device.info, 0, sizeof(device.info));
+    device.info.max_back_buffer_width = 0;
+    device.info.max_back_buffer_height = 0;
+    for (auto& text : device.info.text) {
+        std::fill(std::begin(text), std::end(text), '\0');
+    }
     device.info.flags = 0;
     device.info.hardware_id = 1;
     device.info.texture_min_dim = 1;
@@ -3628,10 +3601,10 @@ void srGERD::dumpTextureCache(std::ostream& stream)
                        entry->device.last_level - entry->device.first_level + 1,
                        entry->device.priority, entry->device.last_use, srBoolToString(resident),
                        entry->id);
-        if (entry->name == 0) {
+        if (entry->name.empty()) {
             srStreamPrintf(stream, "anon\n");
         } else {
-            srStreamPrintf(stream, "%s\n", entry->name);
+            srStreamPrintf(stream, "%s\n", entry->name.c_str());
         }
     }
 }
@@ -3675,16 +3648,8 @@ void srGERD::deleteContext()
     if ((state_flags & STATE_CONTEXT_CREATED) != 0) {
         closeWindow(static_cast<e_closeHint>(0));
         closeTexCache();
-        if (device.texture_formats != 0) {
-            delete[] device.texture_formats;
-        }
-        if (device.display_modes != 0) {
-            delete[] device.display_modes;
-        }
-        device.texture_formats = 0;
-        device.display_modes = 0;
-        device.texture_format_count = 0;
-        device.display_mode_count = 0;
+        device.texture_formats.clear();
+        device.display_modes.clear();
         getDD()->deleteContext();
         state_flags &= ~STATE_CONTEXT_CREATED;
         device.window = 0;
@@ -3700,19 +3665,6 @@ void srGERD::deleteRenderers()
         delete renderers->renderer;
         delete renderers;
         renderers = next;
-    }
-}
-
-// FUNCTION: SURRENDER 0x1001F880
-void srGERD::accumRelease()
-{
-    if (accum_buffer != 0) {
-        std::free(accum_buffer);
-        accum_buffer = 0;
-    }
-    if (accum_scratch != 0) {
-        std::free(accum_scratch);
-        accum_scratch = 0;
     }
 }
 
@@ -3766,8 +3718,9 @@ void srGERD::closeWindow(e_closeHint hint)
         closeTexCache();
         getDD()->closeWindow();
         resetStatistics();
-        accumRelease();
-        memset(&device.open_info, 0, sizeof(device.open_info));
+        decltype(accum_buffer){}.swap(accum_buffer);
+        decltype(accum_scratch){}.swap(accum_scratch);
+        device.open_info = {};
         state_flags &= ~STATE_WINDOW_OPEN;
         device.back_buffer_type = static_cast<e_backBuffer>(0);
         if (prev_open != 0) {
@@ -3785,7 +3738,7 @@ void srGERD::closeWindow(e_closeHint hint)
         shader = srShader();
         texture_iface[0] = 0;
         texture_iface[1] = 0;
-        pick_vertices.release();
+        decltype(pick_vertices){}.swap(pick_vertices);
     }
 }
 
@@ -3834,7 +3787,7 @@ srGERD::e_error srGERD::openWindow(w8_long mode)
     if (srWindow::isWindow(device.window) == 0) {
         return ERROR_INVALID_WHANDLE;
     }
-    if (device.display_mode_count <= mode) {
+    if (static_cast<w8_long>(device.display_modes.size()) <= mode) {
         return ERROR_WINDOW_OPEN_FAILED;
     }
     const srDD::WindowInfo& entry = device.display_modes[mode];
@@ -3861,12 +3814,13 @@ srGERD::e_error srGERD::openWindowInternal(const OpenInfo& info)
         if (srWindow::isWindow(device.window) == 0) {
             return ERROR_INVALID_WHANDLE;
         }
-        if (info.display_mode < -1 || device.display_mode_count <= info.display_mode ||
+        if (info.display_mode < -1 ||
+            static_cast<w8_long>(device.display_modes.size()) <= info.display_mode ||
             device.info.max_back_buffer_width < (w8_ulong)info.width ||
             device.info.max_back_buffer_height < (w8_ulong)info.height) {
             return ERROR_INVALID_VALUE;
         }
-        memset(&device.open_info, 0, sizeof(device.open_info));
+        device.open_info = {};
         srDD::OpenInfo dd_info;
         dd_info.width = (w8_ulong)info.width;
         dd_info.height = (w8_ulong)info.height;
@@ -3946,7 +3900,6 @@ void srGERD::closeTexCache()
         deleteTexture(*texture_default);
         texture_default = 0;
         texture_lookup.Clear();
-        texture_pool.release();
         texture_deleted = 0;
         texture_head = 0;
         texture_cache_used = 0;
@@ -3962,7 +3915,6 @@ void srGERD::initTexCache()
         texture_head = 0;
         texture_deleted = 0;
         texture_cache_used = 0;
-        texture_pool.release();
         resetCurrentTexPointers();
         texture_default = createNewTexture(srCore.getTexture());
         texture_default->device.priority = 1.1f;
@@ -4049,8 +4001,8 @@ void srGERD::evaluateTexturePixelFormat(Texture& texture,
     }
     texture.device.resident = (dimensions.hints >> srTextureIFace::HINT_RESIDENT) & 1;
     convertPixelFormat(texture.device.format, format);
-    w8_ulong index =
-        format.match(device.texture_formats, (w8_ulong)device.texture_format_count);
+    w8_ulong index = format.match(device.texture_formats.data(),
+                                 static_cast<w8_ulong>(device.texture_formats.size()));
     texture.device.format_index = index;
     texture.pixel_format = device.texture_formats[index];
     if (texture.pixel_format.color_model == srPixelConvert::COLOR_INDEXED) {
@@ -4106,11 +4058,11 @@ void srGERD::allocTextureData(Texture& texture)
         releaseTextureMemory((w8_long)(size - texture_cache_size + texture_cache_used));
         texture.device.priority = priority;
     }
-    texture.surface_data = std::malloc(size);
+    texture.surface_data.resize(size);
     texture.device.size = size;
     texture_cache_used += size;
     w8_long bytes_per_pixel = texture.pixel_format.pixel_size;
-    unsigned char* data = (unsigned char*)texture.surface_data;
+    unsigned char* data = texture.surface_data.data();
     w8_ulong width = texture.device.width;
     w8_ulong height = texture.device.height;
     w8_ulong level = texture.device.first_level;
@@ -4138,18 +4090,12 @@ srGERD::Texture* srGERD::createNewTexture(srTextureIFace* texture)
     srPixelConvert::mapPixelFormat(srPixelConvert::SURFACE_ARGB4444, dimensions.format);
     Texture* result = allocTexture(texture->getTextureFrameHandle());
     const char* name = texture->getName();
-    if (name == 0 || *name == 0) {
-        result->name = 0;
-    } else {
-        char* copy = (char*)std::malloc(strlen(name) + 1);
-        result->name = copy;
-        strcpy(copy, name);
-    }
+    result->name = name != nullptr ? name : "";
     dimensions.compression = texture_state.default_compression;
     dimensions.width = 1;
     dimensions.height = 1;
     dimensions.palette = 0;
-    dimensions.format = *device.texture_formats;
+    dimensions.format = device.texture_formats.front();
     dimensions.filter = 0;
     dimensions.hints = 0;
     texture->getDimensions(dimensions);
@@ -4570,7 +4516,7 @@ w8_ulong srGERD::getSwapInterval() const
 // FUNCTION: SURRENDER 0x1001D210
 void srGERD::getTextureFormat(w8_ulong index, srPixelConvert::PixelFormat& format) const
 {
-    if (device.texture_format_count <= (w8_long)index) {
+    if (static_cast<w8_long>(device.texture_formats.size()) <= (w8_long)index) {
         index = 0;
     }
     format = device.texture_formats[index];
@@ -4579,13 +4525,13 @@ void srGERD::getTextureFormat(w8_ulong index, srPixelConvert::PixelFormat& forma
 // FUNCTION: SURRENDER 0x1001D240
 w8_ulong srGERD::getTextureFormatCount() const
 {
-    return device.texture_format_count;
+    return static_cast<w8_ulong>(device.texture_formats.size());
 }
 
 // FUNCTION: SURRENDER 0x1001D250
 void srGERD::getDisplayModeInfo(w8_long index, DisplayModeInfo& info) const
 {
-    if (device.display_mode_count <= index) {
+    if (static_cast<w8_long>(device.display_modes.size()) <= index) {
         index = 0;
     }
     info.width = device.display_modes[index].width;
@@ -4596,7 +4542,7 @@ void srGERD::getDisplayModeInfo(w8_long index, DisplayModeInfo& info) const
 // FUNCTION: SURRENDER 0x1001D290
 w8_ulong srGERD::getDisplayModeCount() const
 {
-    return device.display_mode_count;
+    return static_cast<w8_ulong>(device.display_modes.size());
 }
 
 // FUNCTION: SURRENDER 0x1001D330
@@ -4846,9 +4792,9 @@ void srGERD::accumulate(e_accum operation, float scale)
     if (width == 0 || height == 0) {
         return;
     }
-    if (accum_buffer == 0) {
+    if (accum_buffer.empty()) {
         accumAlloc();
-        if (accum_buffer == 0) {
+        if (accum_buffer.empty()) {
             return;
         }
     }
@@ -4858,10 +4804,8 @@ void srGERD::accumulate(e_accum operation, float scale)
         setError(ERROR_BUFFER_LOCK_FAILED);
         return;
     }
-    AccumPixel* row = accum_buffer + getWidth() * state.scissor.top + state.scissor.left;
-    /* reinterpret-ok: the accum row scratch is raw dword storage reused as
-       an ARGB pixel row. */
-    srARGB* pixels = reinterpret_cast<srARGB*>(accum_scratch);
+    AccumPixel* row = accum_buffer.data() + getWidth() * state.scissor.top + state.scissor.left;
+    srARGB* pixels = accum_scratch.data();
     {
         short addend = accumConvert(scale);
         switch (operation) {

@@ -1,6 +1,6 @@
 #pragma once
 
-#include "srArray.h"
+#include <vector>
 #include "srBinStream.h"
 #include "srQuadWord.h"
 
@@ -40,9 +40,8 @@ public:
 private:
     virtual w8_ulong vwrite(const void* source, w8_ulong size) override;
 
-    srArray<unsigned char> buffer;
+    std::vector<unsigned char> buffer;
     w8_ulong position0;
-    w8_ulong size;
 };
 
 W8_ABI_ASSERT(sizeof(srBinOStream) == 0x18, "srBinOStream_must_be_0x18");

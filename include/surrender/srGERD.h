@@ -1,8 +1,9 @@
 #pragma once
 
+#include <string>
 #include <thread>
+#include <vector>
 
-#include "srArray.h"
 #include "srHash.h"
 #include "srTexture.h"
 #include "srTypeRegistry.h"
@@ -113,24 +114,13 @@ public:
         };
         /* Texture-set interning cache; the map's value is the index into sets. */
         struct TextureSetCache {
-            srHashTable<TextureSetKey, w8_ulong>* map;
-            srArray<TextureSet> sets;
-            w8_ulong count;
+            srHashTable<TextureSetKey, w8_ulong> map;
+            std::vector<TextureSet> sets;
 
-            TextureSetCache() : count(0)
-            {
-                map = new srHashTable<TextureSetKey, w8_ulong>;
-            }
-            ~TextureSetCache()
-            {
-                clear();
-                delete map;
-            }
             void clear()
             {
-                map->Clear();
-                sets.release();
-                count = 0;
+                map.Clear();
+                sets.clear();
             }
             w8_ulong intern(const TextureSetKey& key);
         };
@@ -144,13 +134,13 @@ public:
         /* Accumulated primitive work. alloc() reserves count entries plus 0x40 headroom across all
            four streams; reset() always clears the count and only frees when asked. */
         struct IndexBatch {
-            srArray<srVector3i> triangles;
-            srArray<w8_ulong> texture_set;
-            srArray<w8_ulong> sort_key;
-            srArray<w8_ulong> aux;
+            std::vector<srVector3i> triangles;
+            std::vector<w8_ulong> texture_set;
+            std::vector<w8_ulong> sort_key;
+            std::vector<w8_ulong> aux;
             w8_ulong count;
 
-            IndexBatch() : texture_set(0), sort_key(0), aux(0), count(0) {}
+            IndexBatch() : count(0) {}
             void alloc(IndexWrite& write, w8_ulong count);
             void reset(int release);
         };
@@ -158,20 +148,16 @@ public:
            (positions {0,0,0,1}, st {0,0}, q 1.0); bind() points an srVertexArray at the reserved
            range. */
         struct VertexArrays {
-            srArray<srVector4T<float> > diffuse;
-            srArray<srVector4T<float> > specular;
-            srArray<srVector4T<float> > positions;
-            srArray<srVector2T<float> > st[2];
-            srArray<float> q[2];
-            srArray<unsigned char> attributes;
+            std::vector<srVector4T<float> > diffuse;
+            std::vector<srVector4T<float> > specular;
+            std::vector<srVector4T<float> > positions;
+            std::vector<srVector2T<float> > st[2];
+            std::vector<float> q[2];
+            std::vector<unsigned char> attributes;
             /* isBatchFull compares this signed against batch_limit. */
             w8_long count;
-            w8_ulong capacity;
 
-            VertexArrays()
-                : diffuse(0), specular(0), positions(0), attributes(0), count(0), capacity(0)
-            {
-            }
+            VertexArrays() : count(0) {}
             void alloc(srVertexArray& arrays, w8_ulong count);
             void bind(srVertexArray& arrays, w8_ulong base);
             void reset(int release);
@@ -218,12 +204,12 @@ public:
         void resetStatistics();
         void getStatistics(w8_ulong* statistics);
 
-        /* Checked-free heap buffers: ~Renderer null-checks before freeing them. */
-        srHeapBuffer<unsigned char> bytes;
-        srHeapBuffer<w8_ulong> dwords;
+        /* CPU scratch streams owned by the renderer. */
+        std::vector<unsigned char> bytes;
+        std::vector<w8_ulong> dwords;
         /* render()'s per-corner dedup scratch (six slots per triangle). */
-        srHeapBuffer<w8_ulong> remap;
-        srHeapBuffer<TexCoordQ> stq[2];
+        std::vector<w8_ulong> remap;
+        std::vector<TexCoordQ> stq[2];
         /* submit() bumps [4] per call and accumulates the vertex count into [5] and the index-batch
            count into [6]. */
         w8_ulong statistics[7];
@@ -480,7 +466,7 @@ public:
     srColorSurfaceIFace* lockBuffer();
     void unlockBuffer();
     w8_ulong getVertexProcessorCount() const;
-    void getVertexProcessors(srVertexProcessor** processors) const;
+    const std::vector<srVertexProcessor*>& getVertexProcessors() const;
     void getAmbientLight(srVector4T<float>& light);
     void getFogColor(srVector4T<float>& color) const;
     void getEnvironmentRange(float& minimum, float& maximum) const;
@@ -742,9 +728,9 @@ private:
         w8_ulong id;
         /* evaluateTexturePixelFormat copies the matched device format here. */
         srPixelConvert::PixelFormat pixel_format;
-        void* surface_data;
+        std::vector<unsigned char> surface_data;
         srPtr<srPalette> palette;
-        char* name;
+        std::string name;
         srDD::Texture device;
     };
     W8_ABI_ASSERT(sizeof(Texture) == 0xa8, "srGERD_Texture_must_be_0xa8");
@@ -843,7 +829,6 @@ private:
     void accumAlloc();
     short accumConvert(float value) const;
     void accumClear();
-    void accumRelease();
     /* MMX row kernels for accumulate(). */
     static void __cdecl accumAccum_MMX(AccumPixel* accum, const srARGB* pixels, w8_long scale,
                                        w8_long count);
@@ -864,36 +849,18 @@ private:
     class LockSurface;
     friend class LockSurface;
 
-    /* Texture pool: live-texture count, free-list head and the chunk-pointer array. */
+    /* Texture pool: live-texture count, free-list head and owned chunks. */
     struct TexturePool {
         TexturePool();
 
-        ~TexturePool()
-        {
-            release();
-        }
-
-        /* Frees every chunk, releases the chunk array and zeroes the record. */
-        void release();
         Texture* allocate();
         void release(Texture* texture);
 
         w8_ulong count;
         Texture* free;
-        srArray<Texture*> chunks;
-        w8_ulong pool_count;
+        std::vector<std::vector<Texture>> chunks;
     };
     friend struct TexturePool;
-
-    /* The registered srVertexProcessor pointers plus the live count. */
-    struct VertexProcessors : public srArray<srVertexProcessor*> {
-        VertexProcessors() : count(0)
-        {
-            release();
-        }
-
-        w8_ulong count;
-    };
 
     static srGERD* first;
     static srGERD* firstOpen;
@@ -913,10 +880,8 @@ private:
         /* getDriverInfo target; getDDAPIVersion/getDriverID/getDriverName
            (pre-context) and getApiVersion read its trailing fields. */
         srDD::DriverInfo driver_info;
-        srPixelConvert::PixelFormat* texture_formats;
-        w8_long texture_format_count;
-        srDD::WindowInfo* display_modes;
-        w8_long display_mode_count;
+        std::vector<srPixelConvert::PixelFormat> texture_formats;
+        std::vector<srDD::WindowInfo> display_modes;
         /* setHint/getHint index this by e_hint. */
         e_hintMode hints[1];
         w8_ulong_ptr window;
@@ -929,8 +894,6 @@ private:
     };
 
     struct State {
-        State() : scissor_flags(0) {}
-
         /* Per-mode current matrices; pushMatrix indexes by mode. */
         srMatrix4T<float> matrix_current[2];
         /* Per-mode 32-deep matrix stacks. */
@@ -1079,9 +1042,9 @@ private:
     Statistics frame_statistics;
     /* getDD counts each device access, so the live counters are mutable. */
     mutable Statistics statistics;
-    /* Accumulation buffer: width*height pixels plus a width*4 scratch block. */
-    AccumPixel* accum_buffer;
-    w8_ulong* accum_scratch;
+    /* Accumulation buffer: width*height pixels plus one ARGB scratch row. */
+    std::vector<AccumPixel> accum_buffer;
+    std::vector<srARGB> accum_scratch;
     LockSurface* lock_surface;
     /* Buffer-lock nesting depth; _lockBuffer only locks the device on the
        first entry and _unlockBuffer unlocks when this returns to zero. */
@@ -1119,14 +1082,14 @@ private:
     srVector4T<float> ambient_light;
     Environment environment;
     EnvironmentState environment_state;
-    VertexProcessors vertex_processors;
+    std::vector<srVertexProcessor*> vertex_processors;
     w8_ulong exclusion_mask;
     enum { DIRTY_VERTEX_ARRAY_INFO = 0x01u };
     w8_ulong vertex_arrays_dirty;
     srRendererDefs::VertexArrayInfo vertex_arrays;
     /* performPickTest's w-normalized {x,y,z,sign(w)} scratch per vertex;
-       released by closeWindow. */
-    srHeapBuffer<srVector4T<float> > pick_vertices;
+       cleared by closeWindow. */
+    std::vector<srVector4T<float> > pick_vertices;
 };
 
 // FUNCTION: SURRENDER 0x10027BF0 SYMBOL

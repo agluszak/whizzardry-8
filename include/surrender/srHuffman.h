@@ -1,6 +1,6 @@
 #pragma once
 
-#include "srArray.h"
+#include <vector>
 #include "srBinIStream.h"
 #include "srBinOStream.h"
 #include "srHash.h"
@@ -59,7 +59,8 @@ public:
             w8_ulong frequency;
         };
 
-        SR_DLL_IMPORT Sampler();
+        // FUNCTION: SURRENDER 0x10001840
+        SR_DLL_IMPORT Sampler() = default;
 
         SR_DLL_IMPORT void insert(w8_ulong symbol);
         SR_DLL_IMPORT w8_ulong getNumSymbols() const;
@@ -68,8 +69,7 @@ public:
 
     private:
         srHashTable<w8_ulong, int> table;
-        srArray<Symbol> symbols;
-        int count;
+        std::vector<Symbol> symbols;
     };
 
     class Compressor {
@@ -84,7 +84,6 @@ public:
         };
 
         SR_DLL_IMPORT Compressor(const Sampler& sampler);
-        SR_DLL_IMPORT ~Compressor();
 
         SR_DLL_IMPORT void storeSymbolTable(BitOStream& stream);
         SR_DLL_IMPORT void buildSymbolTree();
@@ -100,7 +99,7 @@ public:
         }
 
         srHashTable<w8_ulong, Node*> table;
-        Node* nodes;
+        std::vector<Node> nodes;
         Node* free_list;
         Node* root;
         w8_ulong num_symbols;
@@ -119,7 +118,6 @@ public:
     class Decompressor {
     public:
         SR_DLL_IMPORT Decompressor(BitIStream& stream);
-        SR_DLL_IMPORT ~Decompressor();
         SR_DLL_IMPORT w8_ulong decompressSymbol();
         SR_DLL_IMPORT w8_ulong getDataCount() const;
 
@@ -135,7 +133,7 @@ public:
         void setupSymbolTable(Symbol* node);
 
         BitIStream* stream;
-        Symbol* symbols;
+        std::vector<Symbol> symbols;
         w8_ulong next_node;
         w8_ulong code_width;
         w8_ulong unknown_10;

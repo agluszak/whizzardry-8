@@ -3,6 +3,9 @@
 #include "srARGB.h"
 #include "srTypeRegistry.h"
 
+#include <memory>
+#include <vector>
+
 class srColorSurfaceIFace;
 
 // VTABLE: SURRENDER 0x100753EC
@@ -22,8 +25,9 @@ public:
         {
             setPalette(colors, color_count, duplicates, red_bits, green_bits, blue_bits);
         }
-        Quantizer(const Quantizer& other);
-        ~Quantizer();
+        // FUNCTION: SURRENDER 0x10004D00
+        Quantizer(const Quantizer& other) = default;
+        // Retail destructor: SURRENDER 0x10004B80 (implicit destruction).
 
         void setPalette(srARGB* colors, w8_long color_count, unsigned char* duplicates,
                         unsigned char red_bits, unsigned char green_bits, unsigned char blue_bits);
@@ -75,8 +79,9 @@ public:
         };
 
         Sampler(w8_long sample_limit = 0);
-        Sampler(const Sampler& other);
-        ~Sampler();
+        // FUNCTION: SURRENDER 0x10004BA0
+        Sampler(const Sampler& other) = default;
+        // Retail destructor: SURRENDER 0x10006930 (implicit destruction).
 
         w8_long getColorCount();
         w8_long getOutputPaletteSize();
@@ -111,8 +116,8 @@ public:
         w8_long output_palette_size;        /* 0x020 */
         unsigned char mask_flags[0x100]; /* 0x024 */
         srARGB mask_colors[0x100];       /* 0x124 */
-        ColorEntry* colors;              /* 0x524 */
-        w8_long* links;                     /* 0x528 */
+        std::vector<ColorEntry> colors;
+        std::vector<w8_long> links;
         w8_long buckets[0x8000];            /* 0x52c */
     };
 
@@ -134,16 +139,12 @@ public:
 
     private:
         struct HashEntry {
-            HashEntry() {}
-
             HashEntry* next;
             w8_ulong color;
             w8_long count;
         };
 
         struct Leaf {
-            Leaf() {}
-
             w8_ulong color;
             w8_long weight;
             double error;
@@ -204,15 +205,16 @@ public:
     SR_DLL_IMPORT void update();
 
 protected:
-    virtual SR_DLL_IMPORT ~srPalette() override;
+    // FUNCTION: SURRENDER 0x10004610
+    virtual SR_DLL_IMPORT ~srPalette() override = default;
 
 private:
     SR_DLL_IMPORT void updateQuantizer();
 
     w8_ulong flags;
-    srARGB* colors;
+    std::vector<srARGB> colors;
     w8_long color_count;
-    Quantizer* quantizer;
+    std::unique_ptr<Quantizer> quantizer;
 };
 
 W8_ABI_ASSERT(sizeof(srPalette::Quantizer) == 0x21918, "Quantizer_must_be_0x21918");

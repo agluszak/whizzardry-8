@@ -3,10 +3,12 @@
 #include "surrender/srPalette.h"
 #include "surrender/srStreamFlags.h"
 
-#include <new>
+#include <algorithm>
+#include <array>
+#include <cstdlib>
+#include <memory>
 #include <ostream>
-#include <stdlib.h>
-#include <string.h>
+#include <vector>
 
 #include "surrender/srColorSurfaceIFace.h"
 #include "surrender/srCore.h"
@@ -212,7 +214,7 @@ void srPalette::Quantizer::partitionRGB(w8_long blue_lo, w8_long blue_hi)
                 return;
             }
         }
-        memset(lut_row + blue_lo + 1, lut_row[blue_lo], blue_hi - blue_lo - 1);
+        std::fill_n(lut_row + blue_lo + 1, blue_hi - blue_lo - 1, lut_row[blue_lo]);
     }
 }
 
@@ -252,17 +254,19 @@ void srPalette::Quantizer::setPalette(srARGB* colors, w8_long color_count_, unsi
     lut_row = 0;
     red_bits = red_bits_;
     green_bits = green_bits_;
-    memset(palette, 0, sizeof(palette));
-    memset(duplicate, 0, sizeof(duplicate));
-    memset(entries, 0, sizeof(entries));
-    memset(rg_dist, 0, sizeof(rg_dist));
-    memset(lut_rg, 0, sizeof(lut_rg));
-    memset(lut_rgb, 0, sizeof(lut_rgb));
+    srARGB empty_color;
+    empty_color.blue = empty_color.green = empty_color.red = empty_color.alpha = 0;
+    std::fill_n(palette, 0x100, empty_color);
+    std::fill_n(duplicate, 0x100, 0);
+    std::fill_n(entries, 0x100, Entry{});
+    std::fill_n(rg_dist, 0x100, 0);
+    std::fill_n(lut_rg, 0x10000, 0);
+    std::fill_n(lut_rgb, 0x10000, 0);
     if (duplicates != 0) {
-        memcpy(duplicate, duplicates, sizeof(duplicate));
+        std::copy_n(duplicates, 0x100, duplicate);
     }
-    if (0 < color_count * 4) {
-        memcpy(palette, colors, color_count * 4);
+    if (color_count > 0) {
+        std::copy_n(colors, color_count, palette);
     }
     w8_long index;
     for (index = 0; index < color_count; ++index) {
@@ -280,9 +284,9 @@ void srPalette::Quantizer::setPalette(srARGB* colors, w8_long color_count_, unsi
     createRGTable();
     createRGBTable();
     if (duplicates != 0) {
-        memcpy(duplicate, duplicates, sizeof(duplicate));
+        std::copy_n(duplicates, 0x100, duplicate);
     } else {
-        memset(duplicate, 0, sizeof(duplicate));
+        std::fill_n(duplicate, 0x100, 0);
     }
 }
 
@@ -311,39 +315,6 @@ void srPalette::Quantizer::quantize(unsigned char* indices, const srARGB* colors
 srPalette::Quantizer::Quantizer()
 {
     color_count = 0;
-}
-
-// FUNCTION: SURRENDER 0x10004B80
-srPalette::Quantizer::~Quantizer() {}
-
-// FUNCTION: SURRENDER 0x10004D00
-srPalette::Quantizer::Quantizer(const Quantizer& other)
-{
-    w8_long index;
-    for (index = 0; index < 0x10000; ++index) {
-        lut_rg[index] = other.lut_rg[index];
-    }
-    for (index = 0; index < 0x10000; ++index) {
-        lut_rgb[index] = other.lut_rgb[index];
-    }
-    for (index = 0; index < 0x100; ++index) {
-        palette[index] = other.palette[index];
-    }
-    for (index = 0; index < 0x100; ++index) {
-        duplicate[index] = other.duplicate[index];
-    }
-    color_count = other.color_count;
-    red_bits = other.red_bits;
-    green_bits = other.green_bits;
-    blue_bits = other.blue_bits;
-    for (index = 0; index < 0x100; ++index) {
-        entries[index] = other.entries[index];
-    }
-    entry_count = other.entry_count;
-    lut_row = other.lut_row;
-    for (index = 0; index < 0x100; ++index) {
-        rg_dist[index] = other.rg_dist[index];
-    }
 }
 
 // FUNCTION: SURRENDER 0x10004160
@@ -386,20 +357,14 @@ srPalette* srPalette::findMatchingPalette(const srARGB* const colors, w8_long co
 // FUNCTION: SURRENDER 0x10004210
 void srPalette::releaseQuantizer()
 {
-    if (quantizer != 0) {
-        delete quantizer;
-    }
-    quantizer = 0;
+    quantizer.reset();
     flags = flags | 1;
 }
 
 // FUNCTION: SURRENDER 0x10004240
 void srPalette::updateQuantizer()
 {
-    if (quantizer != 0) {
-        delete quantizer;
-    }
-    quantizer = new Quantizer(colors, color_count, 0, '\b', '\b', '\b');
+    quantizer = std::make_unique<Quantizer>(colors.data(), color_count, nullptr, '\b', '\b', '\b');
 }
 
 // FUNCTION: SURRENDER 0x10004300
@@ -414,11 +379,9 @@ void srPalette::update()
    count gets a linear ramp. */
 // FUNCTION: SURRENDER 0x10004310
 srPalette::srPalette(srARGB* colors, w8_long color_count)
-    : srClassSupport<srPalette, srClass, 1, 0x2900>(), flags(0)
+    : srClassSupport<srPalette, srClass, 1, 0x2900>(), flags(0), colors(color_count),
+      color_count(color_count)
 {
-    this->colors = new srARGB[color_count];
-    this->color_count = color_count;
-    quantizer = 0;
     if (colors == 0) {
         if (color_count == 0x100) {
             w8_long index = 0;
@@ -460,23 +423,10 @@ srPalette::srPalette(srARGB* colors, w8_long color_count)
                 color.blue = static_cast<unsigned char>(srFloatToInt(value));
             }
         }
-    } else if (0 < color_count * 4) {
-        memcpy(this->colors, colors, color_count * 4);
+    } else if (color_count > 0) {
+        std::copy_n(colors, color_count, this->colors.begin());
     }
     flags = flags | 1;
-}
-
-// FUNCTION: SURRENDER 0x10004610
-srPalette::~srPalette()
-{
-    if (colors != 0) {
-        delete[] colors;
-        colors = 0;
-    }
-    if (quantizer != 0) {
-        delete quantizer;
-        quantizer = 0;
-    }
 }
 
 // FUNCTION: SURRENDER 0x100046E0
@@ -485,25 +435,11 @@ srPalette& srPalette::operator=(const srPalette& other)
     if (this == &other) {
         return *this;
     }
-    if (colors != 0) {
-        delete[] colors;
-        colors = 0;
-    }
-    if (quantizer != 0) {
-        delete quantizer;
-        quantizer = 0;
-    }
     srClass::operator=(other);
     flags = other.flags;
     color_count = other.color_count;
-    colors = 0;
-    if (0 < color_count) {
-        colors = new srARGB[color_count];
-        for (w8_long index = 0; index < color_count; ++index) {
-            colors[index] = other.colors[index];
-        }
-    }
-    quantizer = 0;
+    colors = other.colors;
+    quantizer.reset();
     flags = flags | 1;
     return *this;
 }
@@ -517,7 +453,7 @@ void srPalette::dump(std::ostream& stream)
     stream.width(0x20);
     stream << "  Colors: " << color_count << '\n';
     stream.width(0x20);
-    stream << "  Dataptr: " << static_cast<void*>(colors) << '\n';
+    stream << "  Dataptr: " << static_cast<void*>(colors.data()) << '\n';
     stream.flags(static_cast<std::ios::fmtflags>(flags & 0x7fff));
 }
 
@@ -574,7 +510,7 @@ void srPalette::quantize(unsigned char* const indices, const srARGB* const color
 // FUNCTION: SURRENDER 0x10004950
 const srARGB* srPalette::getPaletteDataPtr()
 {
-    return colors;
+    return colors.data();
 }
 
 // FUNCTION: SURRENDER 0x10004960
@@ -599,36 +535,11 @@ srPalette::Sampler::Sampler(w8_long sample_limit)
     setOutputPaletteSize(0x100);
     setSampleFactor(0.05);
     setSampleBits(6);
-    colors = 0;
-    links = 0;
     discard();
-    memset(mask_flags, 0, 0x100);
-    memset(mask_colors, 0, 0x400);
-}
-
-/* The copy aliases the source's colors/links tables, so destroying either object leaves the other's
-   pointers dangling. */
-// FUNCTION: SURRENDER 0x10004BA0
-srPalette::Sampler::Sampler(const Sampler& other)
-{
-    sample_limit = other.sample_limit;
-    sample_factor = other.sample_factor;
-    sample_bits = other.sample_bits;
-    color_count = other.color_count;
-    sample_count = other.sample_count;
-    capacity = other.capacity;
-    output_palette_size = other.output_palette_size;
-    memcpy(mask_flags, other.mask_flags, 0x100);
-    memcpy(mask_colors, other.mask_colors, 0x400);
-    colors = other.colors;
-    links = other.links;
-    memcpy(buckets, other.buckets, 0x20000);
-}
-
-// FUNCTION: SURRENDER 0x10006930
-srPalette::Sampler::~Sampler()
-{
-    discard();
+    std::fill_n(mask_flags, 0x100, 0);
+    srARGB empty_color;
+    empty_color.blue = empty_color.green = empty_color.red = empty_color.alpha = 0;
+    std::fill_n(mask_colors, 0x100, empty_color);
 }
 
 // FUNCTION: SURRENDER 0x10004AF0
@@ -700,45 +611,21 @@ void srPalette::Sampler::setSampleFactor(double factor)
 // FUNCTION: SURRENDER 0x100068D0
 void srPalette::Sampler::discard()
 {
-    for (w8_long index = 0; index < 0x8000; ++index) {
-        buckets[index] = -1;
-    }
-    if (colors != 0) {
-        delete[] colors;
-    }
-    if (links != 0) {
-        delete[] links;
-    }
+    std::fill_n(buckets, 0x8000, -1);
+    colors.clear();
+    links.clear();
     color_count = 0;
     sample_count = 0;
-    colors = 0;
-    links = 0;
     capacity = 0;
 }
 
 // FUNCTION: SURRENDER 0x10006630
 void srPalette::Sampler::reallocColors(w8_long new_capacity)
 {
-    ColorEntry* new_colors = new ColorEntry[new_capacity];
-    /* Only the first allocation is tested, and failure is ignored. */
-    w8_long* new_links = new w8_long[new_capacity];
     srARGB empty_color;
-    memset(&empty_color, 0, sizeof(empty_color));
-    for (w8_long index = 0; index < new_capacity; ++index) {
-        new_colors[index].color = empty_color;
-        new_colors[index].count = 0;
-        new_links[index] = -1;
-    }
-    if (colors != 0) {
-        for (w8_long index = 0; index < color_count; ++index) {
-            new_colors[index] = colors[index];
-            new_links[index] = links[index];
-        }
-        delete[] colors;
-        delete[] links;
-    }
-    colors = new_colors;
-    links = new_links;
+    empty_color.blue = empty_color.green = empty_color.red = empty_color.alpha = 0;
+    colors.resize(new_capacity, ColorEntry{empty_color, 0});
+    links.resize(new_capacity, -1);
     capacity = new_capacity;
 }
 
@@ -878,13 +765,12 @@ void srPalette::Sampler::addSurface(srColorSurfaceIFace& surface, w8_long weight
         samples = 1;
     }
     if (sample_factor == 1.0) {
-        srARGB* pixels = new srARGB[width];
+        std::vector<srARGB> pixels(width);
         for (w8_long y = 0; y < height; ++y) {
             /* reinterpret-ok: the surface API exchanges packed srARGB rows as dwords */
-            surface.getPixelRow(reinterpret_cast<w8_ulong*>(pixels), y, 0, width);
-            addColors(pixels, width, weight);
+            surface.getPixelRow(reinterpret_cast<w8_ulong*>(pixels.data()), y, 0, width);
+            addColors(pixels.data(), width, weight);
         }
-        delete[] pixels;
         return;
     }
     for (; samples > 0; --samples) {
@@ -922,7 +808,7 @@ srPalette* srPalette::Sampler::createOptimalPalette()
     if ((color_count <= 0) || (info.palette_size = output_palette_size, output_palette_size <= 0)) {
         return 0;
     }
-    info.colors = colors;
+    info.colors = colors.data();
     info.mask_colors = 0;
     info.mask_flags = 0;
     info.mask_count = 0;
@@ -1041,18 +927,16 @@ srPalette* srPalette::Optimizer::createOptimalPalette(const PaletteInfo& info)
         return 0;
     }
 
-    HashEntry** buckets = new HashEntry*[0x8000];
-    HashEntry* entries = new HashEntry[info.color_count];
-    HashEntry** rehash = new HashEntry*[0x8000];
-    srARGB* palette_colors = new srARGB[info.palette_size];
-    /* lut is never deleted. */
-    LUT* lut = new LUT;
-    srZeroMemory(palette_colors, info.palette_size * 4);
-    srZeroMemory(buckets, 0x20000);
-    srZeroMemory(rehash, 0x20000);
+    std::vector<HashEntry*> buckets(0x8000, nullptr);
+    std::vector<HashEntry> entries(info.color_count);
+    std::vector<HashEntry*> rehash(0x8000, nullptr);
+    srARGB empty_color;
+    empty_color.blue = empty_color.green = empty_color.red = empty_color.alpha = 0;
+    std::vector<srARGB> palette_colors(info.palette_size, empty_color);
+    auto lut = std::make_unique<LUT>();
 
     w8_long distinct = 0;
-    HashEntry* entry = entries;
+    HashEntry* entry = entries.data();
     w8_long index;
     for (index = 0; index < info.color_count; ++index) {
         w8_long weight = info.colors[index].count;
@@ -1097,10 +981,9 @@ srPalette* srPalette::Optimizer::createOptimalPalette(const PaletteInfo& info)
         }
     }
 
-    Node* leaf_pool = new Node[leaf_nodes];
-    Leaf* leaves = new Leaf[distinct];
-    Node** leaf_map = new Node*[0x8000];
-    srZeroMemory(leaf_map, 0x20000);
+    auto leaf_pool = std::make_unique<Node[]>(leaf_nodes);
+    std::vector<Leaf> leaves(distinct);
+    std::vector<Node*> leaf_map(0x8000, nullptr);
 
     w8_ulong dominant_color = 0;
     w8_long dominant_weight = 0;
@@ -1109,10 +992,10 @@ srPalette* srPalette::Optimizer::createOptimalPalette(const PaletteInfo& info)
     for (index = 0; index < 0x8000; ++index) {
         HashEntry* link = rehash[index];
         if (link != 0) {
-            Node* node = leaf_pool + used_nodes;
+            Node* node = leaf_pool.get() + used_nodes;
             ++used_nodes;
             leaf_map[index] = node;
-            node->leaves = leaves + used_leaves;
+            node->leaves = leaves.data() + used_leaves;
             w8_ulong bounds_lo = 0xffffffff;
             w8_ulong bounds_hi = 0;
             w8_long count = 0;
@@ -1153,17 +1036,12 @@ srPalette* srPalette::Optimizer::createOptimalPalette(const PaletteInfo& info)
         }
     }
 
-    delete[] rehash;
-    delete[] entries;
-    delete[] buckets;
-
     static const w8_ulong level_node_counts[] = {1, 8, 0x40, 0x200, 0x1000, 0x8000};
-    Node* levels[5];
+    std::array<std::unique_ptr<Node[]>, 5> levels;
     for (w8_long level = 4; level >= 0; --level) {
         w8_long dim = 1 << level;
-        Node* nodes = new Node[level_node_counts[level]];
-        levels[level] = nodes;
-        srZeroMemory(nodes, level_node_counts[level] * sizeof(Node));
+        levels[level] = std::make_unique<Node[]>(level_node_counts[level]);
+        Node* nodes = levels[level].get();
         for (w8_long z = 0; z < dim; ++z) {
             for (w8_long y = 0; y < dim; ++y) {
                 Node* node = nodes + (z * dim + y) * dim;
@@ -1195,7 +1073,7 @@ srPalette* srPalette::Optimizer::createOptimalPalette(const PaletteInfo& info)
                         if (level == 4) {
                             link = leaf_map[child_index];
                         } else {
-                            link = levels[level + 1] + child_index;
+                            link = levels[level + 1].get() + child_index;
                         }
                         if ((link != 0) && (link->leaf_count == 0)) {
                             link = 0;
@@ -1228,8 +1106,6 @@ srPalette* srPalette::Optimizer::createOptimalPalette(const PaletteInfo& info)
         }
     }
 
-    delete[] leaf_map;
-
     for (index = 0; index < 0x200; ++index) {
         float delta = index - 256.0f;
         delta = delta * delta;
@@ -1239,7 +1115,7 @@ srPalette* srPalette::Optimizer::createOptimalPalette(const PaletteInfo& info)
     }
 
     if (info.mask_count < 1) {
-        levels[0]->color = dominant_color;
+        levels[0][0].color = dominant_color;
     } else {
         w8_long limit = info.palette_size;
         if (info.mask_count < limit) {
@@ -1249,25 +1125,18 @@ srPalette* srPalette::Optimizer::createOptimalPalette(const PaletteInfo& info)
             if (info.mask_flags[index] != 0) {
                 palette_colors[index] = info.mask_colors[index];
                 setupLUT(*lut, palette_colors[index]);
-                findOptimalColor(levels[0], *lut);
+                findOptimalColor(levels[0].get(), *lut);
             }
         }
     }
     for (index = 0; index < info.palette_size; ++index) {
         if ((info.mask_flags == 0) || (info.mask_count <= index) || (info.mask_flags[index] == 0)) {
             palette_colors[index] = reinterpret_cast<srARGB&>(
-                levels[0]->color); /* reinterpret-ok: packed color dword */
+                levels[0][0].color); /* reinterpret-ok: packed color dword */
             setupLUT(*lut, palette_colors[index]);
-            findOptimalColor(levels[0], *lut);
+            findOptimalColor(levels[0].get(), *lut);
         }
     }
 
-    srPalette* palette = new srPalette(palette_colors, info.palette_size);
-    delete[] palette_colors;
-    delete[] leaf_pool;
-    delete[] leaves;
-    for (index = 0; index < 5; ++index) {
-        delete[] levels[index];
-    }
-    return palette;
+    return new srPalette(palette_colors.data(), info.palette_size);
 }

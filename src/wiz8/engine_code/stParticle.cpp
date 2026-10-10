@@ -753,10 +753,7 @@ void stParticle::traverse(srNode::TraverseInfo& info)
 
     if (!testFlag(FLAG_DISABLE)) {
         if ((emitting != 0 || active_particle_count != 0) && traversal_enabled) {
-            srNode::TraverseInfo::Entry& entry = info.entries[info.entry_count];
-            entry.node = this;
-            entry.value = 0;
-            ++info.entry_count;
+            info.entries.push_back({this, 0});
         }
     }
 

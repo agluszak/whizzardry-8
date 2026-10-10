@@ -58,6 +58,8 @@
 #include "surrender/srMeshModel.h"
 #include "surrender/srVectorProcessor.h"
 
+#include <algorithm>
+#include <vector>
 #include <stdlib.h>
 #include <wchar.h>
 #include <stdio.h>
@@ -1435,8 +1437,8 @@ void UpdateAutomapBounds(void)
 void LightAutomapCell(const srVector3T<float>* position)
 {
     W8Vector<stModelInstance*> instances(5);
-    srArray<float> distances;
-    srArray<srVector3T<float> > vertices;
+    std::vector<float> distances;
+    std::vector<srVector3T<float>> vertices;
     float range = g_automap_range;
 
     if (g_world->octree->CollectModelsNearPoint(&instances, position, range, 0, false) != 0) {
@@ -1460,31 +1462,22 @@ void LightAutomapCell(const srVector3T<float>* position)
                 srVector3T<float>* source = model->getVertexLoc();
                 int count = model->vertex_location_count;
                 if (inside) {
-                    float light_value = 1.0f;
-                    // reinterpret-ok: vertex-light floats filled via dword fill.
-                    srVectorProcessor::copy(reinterpret_cast<SRDWORD*>(lights),
-                                            // reinterpret-ok: fill pattern read as dword.
-                                            reinterpret_cast<SRDWORD&>(light_value),
-                                            static_cast<SRDWORD>(count) * 3);
+                    std::fill_n(lights, count, srVector3T<float>(1.0f, 1.0f, 1.0f));
                 } else {
-                    if (static_cast<int>(distances.capacity) < count) {
-                        distances.setCapacity(count);
-                    }
-                    if (static_cast<int>(vertices.capacity) < count) {
-                        vertices.setCapacity(count);
-                    }
-                    srVector3T<float>* transformed = &vertices[0];
+                    distances.resize(count);
+                    vertices.resize(count);
+                    srVector3T<float>* transformed = vertices.data();
                     if (IsZeroVector(position) != 0) {
-                        CopyDwordBuffer(transformed, source, count * 3);
+                        std::copy_n(source, count, transformed);
                     } else {
                         srVector3T<float> offset = -*position;
                         OffsetVertices(transformed, source, &offset, count);
                     }
                     if (count != 0) {
-                        srVectorProcessor::length(&distances[0], &vertices[0],
+                        srVectorProcessor::length(distances.data(), vertices.data(),
                                                   static_cast<SRDWORD>(count));
                     }
-                    float* distance = &distances[0];
+                    float* distance = distances.data();
                     if (count != 0) {
                         srVector3T<float>* light = lights;
                         unsigned int vertex = 0;
@@ -1497,13 +1490,8 @@ void LightAutomapCell(const srVector3T<float>* position)
                             }
                             unsigned int lit_count = lit - vertex;
                             if (lit_count != 0) {
-                                float light_value = 1.0f;
-                                // reinterpret-ok: vertex-light floats filled via
-                                // dword fill.
-                                srVectorProcessor::copy(reinterpret_cast<SRDWORD*>(light),
-                                                        // reinterpret-ok: fill pattern as dword.
-                                                        reinterpret_cast<SRDWORD&>(light_value),
-                                                        lit_count * 3);
+                                std::fill_n(light, lit_count,
+                                            srVector3T<float>(1.0f, 1.0f, 1.0f));
                                 light += lit_count;
                                 vertex = lit;
                             }

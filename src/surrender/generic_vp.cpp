@@ -72,13 +72,6 @@ void srVP_generic::_toFloat(float* destination, const SRBYTE* source, SRDWORD co
     }
 }
 
-// FUNCTION: SURRENDER 0x10065A60
-void srVP_generic::_copy(SRDWORD* destination, SRDWORD constant, SRDWORD count)
-{
-    for (SRDWORD index = 0; index < count; ++index) {
-        destination[index] = constant;
-    }
-}
 
 // FUNCTION: SURRENDER 0x10065A80
 void srVP_generic::_and(SRDWORD* destination, const SRDWORD* source, SRDWORD constant,
@@ -165,17 +158,6 @@ void srVP_generic::_copyIndexed(SRDWORD* destination, const SRDWORD* source, con
     }
 }
 
-// FUNCTION: SURRENDER 0x10065C40
-void srVP_generic::_swap(void* first, void* second, SRDWORD bytes)
-{
-    SRBYTE* first_bytes = static_cast<SRBYTE*>(first);
-    SRBYTE* second_bytes = static_cast<SRBYTE*>(second);
-    for (SRDWORD index = 0; index < bytes; ++index) {
-        SRBYTE value = first_bytes[index];
-        first_bytes[index] = second_bytes[index];
-        second_bytes[index] = value;
-    }
-}
 
 // FUNCTION: SURRENDER 0x10065C70
 SRDWORD srVP_generic::_max(const SRDWORD* source, SRDWORD count)
@@ -201,26 +183,6 @@ SRDWORD srVP_generic::_min(const SRDWORD* source, SRDWORD count)
     return minimum;
 }
 
-// FUNCTION: SURRENDER 0x10065CD0
-void srVP_generic::_reverse(SRDWORD* destination, const SRDWORD* source, SRDWORD count)
-{
-    SRDWORD half = count >> 1;
-    if (half != 0) {
-        SRDWORD* front = destination;
-        SRDWORD* back = destination + (count - 1);
-        SRDWORD remaining = half;
-        do {
-            SRDWORD temp = source[front - destination];
-            *front = source[back - destination];
-            *back = temp;
-            ++front;
-            --back;
-        } while (--remaining != 0);
-    }
-    if ((count & 1) != 0) {
-        destination[half] = source[half];
-    }
-}
 
 // FUNCTION: SURRENDER 0x10065D30
 void srVP_generic::_asr(SRDWORD* destination, const SRDWORD* source, SRDWORD shift, SRDWORD count)
@@ -590,13 +552,6 @@ void srVP_generic::_neg(float* destination, const float* source, SRDWORD count)
     }
 }
 
-// FUNCTION: SURRENDER 0x10066610
-void srVP_generic::_copy(srVector2* destination, const srVector2& constant, SRDWORD count)
-{
-    for (SRDWORD index = 0; index < count; ++index) {
-        destination[index] = constant;
-    }
-}
 
 // FUNCTION: SURRENDER 0x10066640
 void srVP_generic::_copyIndexed(srVector2* destination, const srVector2* source,
@@ -650,13 +605,6 @@ void srVP_generic::_copy(srVector3* destination, const srVector4* source, SRDWOR
     }
 }
 
-// FUNCTION: SURRENDER 0x100667A0
-void srVP_generic::_copy(srVector3* destination, const srVector3& constant, SRDWORD count)
-{
-    for (SRDWORD index = 0; index < count; ++index) {
-        destination[index] = constant;
-    }
-}
 
 // FUNCTION: SURRENDER 0x100667D0
 void srVP_generic::_add(srVector3* destination, const srVector3& constant,
@@ -983,13 +931,6 @@ void srVP_generic::_copy(srVector4* destination, const srVector3* source, float 
     }
 }
 
-// FUNCTION: SURRENDER 0x10067190
-void srVP_generic::_copy(srVector4* destination, const srVector4& constant, SRDWORD count)
-{
-    for (SRDWORD index = 0; index < count; ++index) {
-        destination[index] = constant;
-    }
-}
 
 // FUNCTION: SURRENDER 0x100671D0
 void srVP_generic::_add(srVector4* destination, const srVector4& constant,
@@ -1552,56 +1493,10 @@ void srVP_generic::_minMax(const srVector4* source, srVector4& minimum, srVector
     }
 }
 
-// FUNCTION: SURRENDER 0x100684C0
-void srVP_generic::_memcopy(void* destination, const void* source, SRDWORD bytes)
-{
-    SRBYTE* destination_bytes = static_cast<SRBYTE*>(destination);
-    const SRBYTE* source_bytes = static_cast<const SRBYTE*>(source);
-    for (SRDWORD index = 0; index < bytes; ++index) {
-        destination_bytes[index] = source_bytes[index];
-    }
-}
 
-// FUNCTION: SURRENDER 0x100684E0
-void srVP_generic::_memcopy(void* destination, int source, SRDWORD bytes)
-{
-    if (bytes <= 0) {
-        return;
-    }
-    memset(destination, source, bytes);
-}
 
-// FUNCTION: SURRENDER 0x10068520
-int srVP_generic::_memcmp(const void* source_0, const void* source_1, SRDWORD bytes)
-{
-    const SRBYTE* first = static_cast<const SRBYTE*>(source_0);
-    const SRBYTE* second = static_cast<const SRBYTE*>(source_1);
-    for (SRDWORD index = 0; index < bytes; ++index) {
-        if (first[index] != second[index]) {
-            return 0;
-        }
-    }
-    return 1;
-}
 
-// FUNCTION: SURRENDER 0x10068560
-void srVP_generic::_prefetch(const void*, SRDWORD, SRDWORD) {}
 
-// FUNCTION: SURRENDER 0x10068570
-void srVP_generic::_copyInterleaved(void* destination, const void* source,
-                                    SRDWORD destination_pitch, SRDWORD source_pitch, SRDWORD width,
-                                    SRDWORD count)
-{
-    SRBYTE* destination_bytes = static_cast<SRBYTE*>(destination);
-    const SRBYTE* source_bytes = static_cast<const SRBYTE*>(source);
-    for (SRDWORD row = 0; row < count; ++row) {
-        for (SRDWORD column = 0; column < width; ++column) {
-            destination_bytes[column] = source_bytes[column];
-        }
-        destination_bytes += destination_pitch;
-        source_bytes += source_pitch;
-    }
-}
 
 /* The per-column term order of each product is a.x, a.y, a.w, a.z. */
 // FUNCTION: SURRENDER 0x100685C0

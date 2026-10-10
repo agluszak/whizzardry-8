@@ -82,7 +82,6 @@ w8_ulong srBinIMStream::getSize()
 // FUNCTION: SURRENDER 0x10030E00
 srBinOMStream::srBinOMStream()
 {
-    size = 0;
     position0 = 0;
     setState(SR_STREAM_OK);
 }
@@ -90,13 +89,13 @@ srBinOMStream::srBinOMStream()
 // FUNCTION: SURRENDER 0x10030EC0
 void* srBinOMStream::getPtr()
 {
-    return &buffer[0];
+    return buffer.data();
 }
 
 // FUNCTION: SURRENDER 0x10030F30
 w8_ulong srBinOMStream::getSize()
 {
-    return size;
+    return static_cast<w8_ulong>(buffer.size());
 }
 
 // FUNCTION: SURRENDER 0x10030F40
@@ -111,7 +110,7 @@ srBinStream& srBinOMStream::seek(w8_ulong position, e_seekDir direction)
         new_position = position0 + position;
         break;
     case SR_SEEK_END:
-        new_position = size - position;
+        new_position = getSize() - position;
         break;
     }
     seek(new_position);
@@ -135,15 +134,15 @@ w8_ulong srBinOMStream::tell()
 w8_ulong srBinOMStream::vwrite(const void* source, w8_ulong size)
 {
     if (size != 0) {
-        buffer[position0 + size];
-        unsigned char* destination = &buffer[position0];
+        const auto end = static_cast<std::size_t>(position0) + size;
+        if (buffer.size() < end) {
+            buffer.resize(end);
+        }
+        unsigned char* destination = buffer.data() + position0;
         if (static_cast<int>(size) > 0) {
             memcpy(destination, source, size);
         }
         position0 += size;
-        if (this->size < position0) {
-            this->size = position0;
-        }
         return size;
     }
     return 0;

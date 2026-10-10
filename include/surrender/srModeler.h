@@ -1,6 +1,8 @@
 #pragma once
 
-#include "srArray.h"
+#include <array>
+#include <memory>
+#include <vector>
 #include "srMaterialIFace.h"
 #include "srMath.h"
 #include "srMeshModel.h"
@@ -68,7 +70,6 @@ public:
     class Polygon {
     public:
         Polygon(int vertices);
-        ~Polygon();
         void reset();
         void reAllocate(int vertices);
 
@@ -76,15 +77,15 @@ public:
         srShader shaders[4];
         /* Engine Code\stCube.cpp assigns positions and UVs through this table
            after Polygon(4) allocates it. */
-        Vertex* vertices;
+        std::vector<Vertex> vertices;
         int vertex_count;
         w8_ulong flags;
         w8_ulong disabled;
-        int capacity;
     };
 
     srModeler();
-    virtual ~srModeler();
+    // FUNCTION: SURRENDER 0x1003BC70
+    virtual ~srModeler() = default;
 
     void discard();
 
@@ -144,7 +145,7 @@ public:
        coincident corners before building the mesh (the game passes 1). */
     void convert(srMeshModel& model, int remove_degenerate);
 
-    /* getUniqueVertexList's deduplication table: a raw entry pool, 1024
+    /* getUniqueVertexList's deduplication table: an entry pool, 1024
        position-hash buckets chaining entries, and the per-source-vertex
        result table written through during hashing. entries[i].shade_index is
        the representative index convert() copies into the mesh's vertex shade
@@ -161,22 +162,21 @@ public:
         };
 
         VertexHash(w8_ulong vertex_count);
-        ~VertexHash();
 
         static w8_ulong hash(double x, double y, double z);
 
-        Entry* entries;
-        Entry* buckets[1024];
-        Entry** table;
+        std::vector<Entry> entries;
+        std::array<Entry*, 1024> buckets{};
+        std::vector<Entry*> table;
         w8_ulong unique_count;
     };
 
 private:
-    VertexHash* getUniqueVertexList();
+    std::unique_ptr<VertexHash> getUniqueVertexList();
     int isClockwise(srVector2T<float>* points, int count);
 
     w8_ulong triangle_count;
-    srArray<Triangle> triangles;
+    std::vector<Triangle> triangles;
     w8_long pass_count;
 };
 

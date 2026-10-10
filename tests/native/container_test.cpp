@@ -174,6 +174,7 @@ static void borrowed_data_and_shutdown()
     struct Borrowed
     {
         unsigned& destructions;
+        explicit Borrowed(unsigned& destructions) : destructions(destructions) {}
         ~Borrowed() { ++destructions; }
     };
     auto owned = std::make_unique<Borrowed>(destructions);

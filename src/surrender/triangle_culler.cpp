@@ -1,4 +1,5 @@
 #include "surrender/srTriangleCuller.h"
+#include <algorithm>
 
 #include "surrender/srVectorProcessor.h"
 #include "surrender/srRendererDefs.h"
@@ -409,7 +410,7 @@ w8_ulong srTriangleCuller::buildAVT(w8_ulong* avt, w8_ulong* vertex_scratch,
                                          w8_ulong triangle_count, w8_ulong vertex_count)
 {
     srVP* processor = srVectorProcessor::vp;
-    processor->_memcopy(vertex_scratch, 0, vertex_count);
+    std::fill_n(reinterpret_cast<SRBYTE*>(vertex_scratch), vertex_count, SRBYTE{});
     /* reinterpret-ok: the flag scratch holds one SRBYTE per vertex here and is reused as the dword
        inverse remap below. */
     processor->_srSetIndexed(reinterpret_cast<SRBYTE*>(vertex_scratch), triangles, indices,
@@ -497,8 +498,7 @@ int srTriangleCuller::cull(Output& output, const Input& input)
         }
         if (input.cull_mode == 2) {
             if (active_count != 0 && output.indices != input.active_triangles) {
-                srVectorProcessor::vp->_memcopy(output.indices, input.active_triangles,
-                                                active_count * 4);
+                std::copy_n(input.active_triangles, active_count, output.indices);
             }
             output.triangle_count = active_count;
         } else {

@@ -1,8 +1,9 @@
-#include <cstdlib>
+#include <memory>
+#include <utility>
+#include <vector>
 
 #include "surrender/srTypeRegistry.h"
 
-#include "surrender/srArray.h"
 #include "surrender/srDebug.h"
 #include "surrender/srHash.h"
 
@@ -34,25 +35,9 @@ struct srRegistry::ClassNode::NameIndex {
         srRuntimeClass* instance;
     };
 
-    NameIndex() : entries(0), free(0), buckets(0), count(0), bucket_count(0), case_sensitive(1)
+    NameIndex() : free(0), count(0), bucket_count(0), case_sensitive(1)
     {
         resize(4);
-    }
-
-    ~NameIndex()
-    {
-        if (buckets != 0) {
-            ::operator delete(buckets);
-        }
-        if (entries != 0) {
-            ::operator delete(entries);
-        }
-        buckets = 0;
-        entries = 0;
-        free = 0;
-        count = 0;
-        bucket_count = 0;
-        by_instance.Clear();
     }
 
     // FUNCTION: SURRENDER 0x10010E70
@@ -155,22 +140,15 @@ private:
         free = 0;
         /* Every live instance is re-inserted with its new NameEntry below. */
         by_instance.Clear();
-        NameEntry* entries = 0;
-        NameEntry** buckets = 0;
+        std::vector<NameEntry> entries(bucket_count);
+        std::vector<NameEntry*> buckets(bucket_count);
         if (bucket_count != 0) {
-            entries = static_cast<NameEntry*>(::operator new(bucket_count * sizeof(NameEntry)));
-            buckets = static_cast<NameEntry**>(::operator new(bucket_count * sizeof(NameEntry*)));
             for (w8_ulong index = 0; index < bucket_count; ++index) {
-                buckets[index] = 0;
-                entries[index].next = &entries[index + 1];
-                entries[index].previous = 0;
-                entries[index].bucket = 0;
-                entries[index].name = 0;
-                entries[index].instance = 0;
+                entries[index].next = entries.data() + index + 1;
             }
             entries[bucket_count - 1].next = 0;
-            free = entries;
-            if (this->buckets != 0 && old_bucket_count != 0) {
+            free = entries.data();
+            if (!this->buckets.empty() && old_bucket_count != 0) {
                 for (w8_ulong bucket = 0; bucket < old_bucket_count; ++bucket) {
                     for (NameEntry* entry = this->buckets[bucket]; entry != 0;
                          entry = entry->next) {
@@ -191,24 +169,14 @@ private:
                 }
             }
         }
-        if (this->buckets != 0) {
-            ::operator delete(this->buckets);
-        }
-        if (this->entries != 0) {
-            ::operator delete(this->entries);
-        }
-        this->buckets = 0;
-        this->entries = 0;
-        if (bucket_count != 0) {
-            this->buckets = buckets;
-            this->entries = entries;
-        }
+        this->buckets = std::move(buckets);
+        this->entries = std::move(entries);
     }
 
     srHashTable<srRuntimeClass*, NameEntry*> by_instance;
-    NameEntry* entries;
+    std::vector<NameEntry> entries;
     NameEntry* free;
-    NameEntry** buckets;
+    std::vector<NameEntry*> buckets;
     w8_ulong count;
     w8_ulong bucket_count;
     int case_sensitive;
@@ -236,13 +204,7 @@ struct srRegistry::ClassNode::IDIndex {
     W8_ABI_ASSERT(sizeof(InstanceLink) == 0x10,
                   "srRegistry_ClassNode_IDIndex_InstanceLink_must_be_0x10");
 
-    IDIndex() : active_count(0), free(0), block_count(0), first(0), last(0), list_count(0) {}
-
-    ~IDIndex();
-
-    /* Full teardown: drains the link list, clears the block pool, then runs the destructor in
-       place. Unused; ~ClassNode performs the same steps itself. */
-    void destroy();
+    IDIndex() : active_count(0), free(0), first(0), last(0) {}
 
     InstanceLink* add(srRuntimeClass* instance)
     {
@@ -261,7 +223,6 @@ struct srRegistry::ClassNode::IDIndex {
         by_id.Remove(&id);
         unlink(link);
         recycle(link);
-        --list_count;
     }
 
     srRuntimeClass* find(w8_ulong id) const
@@ -285,15 +246,11 @@ struct srRegistry::ClassNode::IDIndex {
         return link;
     }
 
-    /* ~ClassNode tears an IDIndex down in place (by_id release,
-       clearLinks, delete) rather than through a single call. */
     friend class srRegistry::ClassNode;
 
 private:
     InstanceLink* insert(InstanceLink* after, srRuntimeClass*& instance);
 
-    /* remove and clearLinks share the same list unlink and pool return.
-       Keep list_count updates and clearLinks' null guard at their callers. */
     void unlink(InstanceLink* link)
     {
         if (link->previous == 0) {
@@ -314,7 +271,8 @@ private:
         link->free = free;
         free = link;
         if (active_count == 0) {
-            clearBlocks();
+            blocks.clear();
+            free = nullptr;
         }
     }
 
@@ -324,32 +282,21 @@ private:
         if (count > 0xff) {
             count = 0x100;
         }
-        InstanceLink* block =
-            static_cast<InstanceLink*>(std::malloc(count * sizeof(InstanceLink)));
+        blocks.push_back(std::make_unique<InstanceLink[]>(count));
+        InstanceLink* block = blocks.back().get();
         free = block;
-        w8_ulong index = block_count;
-        block_count = index + 1;
-        blocks[index] = block;
         for (int i = 0; i < count; ++i) {
-            block[i].free = &block[i + 1];
+            block[i].free = block + i + 1;
         }
         block[count - 1].free = 0;
     }
 
-    void clearLinks();
-
-    /* Resets only the block bookkeeping and active_count; callers maintain first, last and
-       list_count. */
-    void clearBlocks();
-
     w8_ulong active_count;
     InstanceLink* free;
-    srArray<InstanceLink*> blocks;
-    w8_ulong block_count;
+    std::vector<std::unique_ptr<InstanceLink[]>> blocks;
     InstanceLink* first;
     InstanceLink* last;
-    w8_ulong list_count;
-    srHashTableBase<w8_ulong, InstanceLink*> by_id;
+    srHashTable<w8_ulong, InstanceLink*> by_id;
 };
 
 W8_ABI_ASSERT(sizeof(srRegistry::ClassNode::IDIndex) == 0x30,
@@ -383,50 +330,7 @@ srRegistry::ClassNode::IDIndex::insert(InstanceLink* after, srRuntimeClass*& ins
     if (link->next == 0) {
         last = link;
     }
-    ++list_count;
     return link;
-}
-
-// FUNCTION: SURRENDER 0x10010A90
-void srRegistry::ClassNode::IDIndex::clearBlocks()
-{
-    for (w8_ulong index = 0; index < block_count; ++index) {
-        std::free(blocks[index]);
-    }
-    blocks.release();
-    free = 0;
-    block_count = 0;
-    active_count = 0;
-}
-
-// FUNCTION: SURRENDER 0x100108E0
-void srRegistry::ClassNode::IDIndex::clearLinks()
-{
-    while (first != 0) {
-        InstanceLink* link = first;
-        unlink(link);
-        if (link != 0) {
-            recycle(link);
-        }
-        --list_count;
-    }
-    clearBlocks();
-}
-
-/* member-dtor-ok: the implicit member teardown releases blocks again. */
-// FUNCTION: SURRENDER 0x100109F0
-srRegistry::ClassNode::IDIndex::~IDIndex()
-{
-    clearBlocks();
-}
-
-// FUNCTION: SURRENDER 0x10010670
-void srRegistry::ClassNode::IDIndex::destroy()
-{
-    clearLinks();
-    clearBlocks();
-    // member-dtor-ok: in-place destruction of a live index.
-    this->~IDIndex();
 }
 
 struct srRegistry::ClassIndex : srHashTable<w8_ulong, srRegistry::ClassNode*> {};
@@ -1100,12 +1004,7 @@ srRegistry::ClassNode::~ClassNode()
         delete link->node;
     }
     delete named_instances;
-    IDIndex* index = instances_by_id;
-    if (index != 0) {
-        index->by_id.Release();
-        index->clearLinks();
-        delete index;
-    }
+    delete instances_by_id;
 }
 
 // FUNCTION: SURRENDER 0x1000F7E0

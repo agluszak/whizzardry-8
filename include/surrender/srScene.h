@@ -15,7 +15,7 @@ class SR_DLL_IMPORT srScene : public srClassSupport<srScene, srNode, 0, 0x1010> 
 public:
     enum e_enable { ENABLE_NODE_PICK_KEYS = 0 };
 
-    virtual ~srScene() override;
+
 
     struct Statistics {
         double elapsed;              /* seconds since the last reset */
