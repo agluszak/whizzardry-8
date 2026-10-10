@@ -55,9 +55,10 @@ void PostNewGameLoad(void)
 void LoadFactState(wiz8::File* save_handle)
 {
     W8NpcState* npc;
-    unsigned int bytes_read;
+    unsigned char values[sizeof(g_fact_values)];
 
-    ((bytes_read = save_handle->read(g_fact_values, 1000).bytes) == static_cast<std::size_t>(1000));
+    save_handle->read_exact(values, sizeof(values));
+    memcpy(g_fact_values, values, sizeof(values));
     if (GetFact(W8_FACT_RFS81_HAS_BEEN_FIXED)) {
         npc = GetNpcStateByKind(0x20);
         if (npc && npc->has_monster) {
