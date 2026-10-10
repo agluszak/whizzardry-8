@@ -5,7 +5,7 @@
 
 #include "surrender/srCore.h"
 #include "surrender/srDebug.h"
-#include "surrender/srVectorProcessor.h"
+#include "surrender/srVectorMath.h"
 #include "surrender/srVertexPipe.h"
 
 #include <ostream>
@@ -108,23 +108,23 @@ void srFog::process(srVertexPipe& pipe)
                         std::copy_n(distances, count, values);
                     }
                 } else {
-                    srVectorProcessor::add(values, -start, distances, count);
+                    srMath::add({values, static_cast<std::size_t>(count)}, -start, distances);
                 }
                 if (scale != 1.0f) {
                     if (scale == 0.0f) {
                         std::fill_n(values, count, 0.0f);
                     } else {
-                        srVectorProcessor::mul(values, scale, values, count);
+                        srMath::mul({values, static_cast<std::size_t>(count)}, scale, values);
                     }
                 }
-                srVectorProcessor::clampUnit(values, values, count);
+                srMath::clampUnit({values, static_cast<std::size_t>(count)}, values);
             }
             density = this->density;
             if ((count != 0) && (density != 1.0f)) {
                 if (density == 0.0f) {
                     std::fill_n(values, count, 0.0f);
                 } else {
-                    srVectorProcessor::mul(values, density, values, count);
+                    srMath::mul({values, static_cast<std::size_t>(count)}, density, values);
                 }
             }
             pipe.applyFog(values);
@@ -139,11 +139,11 @@ void srFog::process(srVertexPipe& pipe)
                 if (density == 0.0f) {
                     std::fill_n(fog, count, 0.0f);
                 } else {
-                    srVectorProcessor::mul(fog, density, fog, count);
+                    srMath::mul({fog, static_cast<std::size_t>(count)}, density, fog);
                 }
             }
             if ((count != 0) && (this->density != 0.0f)) {
-                srVectorProcessor::add(fog, this->density, fog, count);
+                srMath::add({fog, static_cast<std::size_t>(count)}, this->density, fog);
             }
         }
     }

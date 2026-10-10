@@ -22,7 +22,7 @@
 #include "surrender/srIlluminator.h"
 #include "surrender/srMaterial.h"
 #include "surrender/srScene.h"
-#include "surrender/srVectorProcessor.h"
+#include "surrender/srVectorMath.h"
 
 #include <algorithm>
 #include <new>
@@ -198,14 +198,16 @@ unsigned char BakeInstanceVertexLighting(stModelInstance* instance, srNode* ligh
                 rotation.vectors[2].y == g_float_zero) {
                 if (count != 0 && (location.x != g_float_zero || location.y != g_float_zero ||
                                    location.z != g_float_zero)) {
-                    srVectorProcessor::add(world_vertices, location, world_vertices,
-                                           static_cast<SRDWORD>(count));
+                    srMath::add(
+                        {world_vertices, static_cast<std::size_t>(static_cast<SRDWORD>(count))},
+                        location, world_vertices);
                 }
             } else if (count != 0) {
                 srMatrix4T<float> transform;
                 transform.Set(rotation, location);
-                srVectorProcessor::transform(world_vertices, world_vertices, transform,
-                                             static_cast<SRDWORD>(count));
+                srMath::transform(
+                    {world_vertices, static_cast<std::size_t>(static_cast<SRDWORD>(count))},
+                    world_vertices, transform);
             }
         }
 
@@ -226,8 +228,9 @@ unsigned char BakeInstanceVertexLighting(stModelInstance* instance, srNode* ligh
             if (count != 0) {
                 srMatrix4T<float> transform;
                 transform.Set(rotation, origin);
-                srVectorProcessor::transform(world_normals, normals, transform,
-                                             static_cast<SRDWORD>(count));
+                srMath::transform(
+                    {world_normals, static_cast<std::size_t>(static_cast<SRDWORD>(count))}, normals,
+                    transform);
             }
         }
 

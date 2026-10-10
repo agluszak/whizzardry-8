@@ -1,10 +1,9 @@
 #include "surrender/srCore.h"
 #include "surrender/srDD_SDLGPU.h"
-#include "surrender/srDebugVP.h"
 #include "surrender/srGERD.h"
 #include "surrender/srMaterialIFace.h"
 #include "surrender/srNode.h"
-#include "surrender/srVP_generic.h"
+#include "surrender/srVectorMath.h"
 #include "surrender/srVertexPipe.h"
 
 #include <array>
@@ -303,16 +302,6 @@ bool rendererOwnership()
     return true;
 }
 
-bool debugInitialization()
-{
-    srVP_generic base;
-    srDebugVP debug(&base);
-    const float input[] = {4, 9};
-    float output[2];
-    debug._sqrt(output, input, 2);
-    CHECK(output[0] == 2 && output[1] == 3);
-    return true;
-}
 } // namespace
 
 int main()
@@ -320,7 +309,7 @@ int main()
     for (int cycle = 0; cycle < 2; ++cycle) {
         if (!srInit()) { return 1; }
         const bool passed = recursiveSceneGraph() && processorOwnership() &&
-                            rendererOwnership() && debugInitialization();
+                            rendererOwnership();
         const bool exited = srExit();
         if (!passed || !exited || srGERD::getFirst() != nullptr) { return 1; }
     }

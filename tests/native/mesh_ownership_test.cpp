@@ -3,7 +3,7 @@
 #include "surrender/srGERD.h"
 #include "surrender/srMeshModel.h"
 #include "surrender/srTriMeshPipeline.h"
-#include "surrender/srVP_generic.h"
+#include "surrender/srVectorMath.h"
 
 #include <array>
 #include <cstddef>
@@ -59,11 +59,10 @@ static bool defaults()
 
 static bool zeroNormals()
 {
-    srVP_generic processor;
     std::array<srVector4, 2> normals;
     normals[0].Set(0, 0, 0, 0);
     normals[1].Set(0, 0, 0, 2);
-    processor._normalize(normals.data(), normals.data(), 1.0f, normals.size());
+    srMath::normalize(normals, normals.data(), 1.0f);
     CHECK(normals[0].x == 0 && normals[0].y == 0 && normals[0].z == 0 && normals[0].w == 0);
     CHECK(normals[1].x == 0 && normals[1].y == 0 && normals[1].z == 0 && normals[1].w == 1);
     return true;

@@ -5,8 +5,7 @@
 
 #include "surrender/srCore.h"
 #include "surrender/srDebug.h"
-#include "surrender/srVP.h"
-#include "surrender/srVectorProcessor.h"
+#include "surrender/srVectorMath.h"
 
 #include <ostream>
 
@@ -195,9 +194,8 @@ void srMaterial::postProcess(srVertexPipe& pipe)
                     }
                     color = pipe.vertex_array->specular + pipe.batch_base + pipe.sub_batch_offset;
                     if (vertex_count != 0) {
-                        srVectorProcessor::vp->_mul(color, color,
-                                                    pipe.scratch.depth_cue + pipe.sub_batch_offset,
-                                                    vertex_count);
+                        srMath::mul({color, static_cast<std::size_t>(vertex_count)}, color,
+                                    pipe.scratch.depth_cue + pipe.sub_batch_offset);
                     }
                     blend = 0;
                 }
@@ -215,9 +213,8 @@ void srMaterial::postProcess(srVertexPipe& pipe)
                     }
                     color = pipe.vertex_array->diffuse + pipe.batch_base + pipe.sub_batch_offset;
                     if (vertex_count != 0) {
-                        srVectorProcessor::vp->_mul(color, color,
-                                                    pipe.scratch.depth_cue + pipe.sub_batch_offset,
-                                                    vertex_count);
+                        srMath::mul({color, static_cast<std::size_t>(vertex_count)}, color,
+                                    pipe.scratch.depth_cue + pipe.sub_batch_offset);
                     }
                     blend = 0;
                 }
@@ -240,8 +237,8 @@ channels_done:
             }
             color = pipe.vertex_array->diffuse + pipe.batch_base + pipe.sub_batch_offset;
             if (vertex_count != 0) {
-                srVectorProcessor::vp->_mul(
-                    color, color, pipe.scratch.depth_cue + pipe.sub_batch_offset, vertex_count);
+                srMath::mul({color, static_cast<std::size_t>(vertex_count)}, color,
+                            pipe.scratch.depth_cue + pipe.sub_batch_offset);
             }
         }
         if ((pipe.channel_mask & (1UL << srVertexProcessor::CHANNEL_SPECULAR)) != 0) {
@@ -254,8 +251,8 @@ channels_done:
             }
             color = pipe.vertex_array->specular + pipe.batch_base + pipe.sub_batch_offset;
             if (vertex_count != 0) {
-                srVectorProcessor::vp->_mul(
-                    color, color, pipe.scratch.depth_cue + pipe.sub_batch_offset, vertex_count);
+                srMath::mul({color, static_cast<std::size_t>(vertex_count)}, color,
+                            pipe.scratch.depth_cue + pipe.sub_batch_offset);
             }
         }
     }
@@ -270,8 +267,8 @@ channels_done:
         }
         channel = pipe.scratch.alpha + pipe.sub_batch_offset;
         if (vertex_count != 0) {
-            srVectorProcessor::vp->_mul(
-                channel, channel, pipe.scratch.depth_cue + pipe.sub_batch_offset, vertex_count);
+            srMath::mul({channel, static_cast<std::size_t>(vertex_count)}, channel,
+                        pipe.scratch.depth_cue + pipe.sub_batch_offset);
         }
     }
 }

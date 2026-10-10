@@ -8,7 +8,7 @@
 
 #include "surrender/srCore.h"
 #include "surrender/srGERD.h"
-#include "surrender/srVectorProcessor.h"
+#include "surrender/srVectorMath.h"
 #include "surrender/srVertexPipe.h"
 
 /* Derived-state bits: bit0 = pushed as an active vertex processor this frame, bit1 = spotlight cone
@@ -382,29 +382,34 @@ void srLight::process(srVertexPipe& pipe)
     float* attenuation = 0;
 
     if ((derived_flags & srLight::DERIVED_DIRECTIONAL) == 0) {
-        srVectorProcessor::copy(
-            directions, pipe.eye_space_locations + pipe.batch_base + pipe.sub_batch_offset, count);
-        srVectorProcessor::sub(directions, eye_location, directions, count);
-        srVectorProcessor::dir(directions, distances, directions, count);
+        srMath::copy({directions, static_cast<std::size_t>(count)},
+                     pipe.eye_space_locations + pipe.batch_base + pipe.sub_batch_offset);
+        srMath::sub({directions, static_cast<std::size_t>(count)}, eye_location, directions);
+        srMath::dir({directions, static_cast<std::size_t>(count)}, distances, directions);
         if (attenuation_model == ATTENUATION_3DSTUDIO_MAX) {
             if ((enable_flags & (1UL << srLight::ENABLE_RANGE_NEAR)) != 0) {
-                srVectorProcessor::add(attenuation_bank, -scaled_near_start, distances, count);
-                srVectorProcessor::mul(attenuation_bank, near_attenuation, attenuation_bank, count);
-                srVectorProcessor::clampUnit(attenuation_bank, attenuation_bank, count);
+                srMath::add({attenuation_bank, static_cast<std::size_t>(count)}, -scaled_near_start,
+                            distances);
+                srMath::mul({attenuation_bank, static_cast<std::size_t>(count)}, near_attenuation,
+                            attenuation_bank);
+                srMath::clampUnit({attenuation_bank, static_cast<std::size_t>(count)},
+                                  attenuation_bank);
                 attenuation = attenuation_bank;
             }
             if ((enable_flags & (1UL << srLight::ENABLE_RANGE_FAR)) != 0) {
                 float* far_bank = attenuation != 0 ? spot_factors : attenuation_bank;
-                srVectorProcessor::sub(far_bank, scaled_far_end, distances, count);
-                srVectorProcessor::mul(far_bank, far_attenuation, far_bank, count);
-                srVectorProcessor::clampUnit(far_bank, far_bank, count);
+                srMath::sub({far_bank, static_cast<std::size_t>(count)}, scaled_far_end, distances);
+                srMath::mul({far_bank, static_cast<std::size_t>(count)}, far_attenuation, far_bank);
+                srMath::clampUnit({far_bank, static_cast<std::size_t>(count)}, far_bank);
                 if (far_bank == spot_factors) {
-                    srVectorProcessor::mul(attenuation_bank, attenuation_bank, spot_factors, count);
+                    srMath::mul({attenuation_bank, static_cast<std::size_t>(count)},
+                                attenuation_bank, spot_factors);
                 } else {
                     attenuation = far_bank;
                 }
             }
-            if (attenuation != 0 && srVectorProcessor::isZero(attenuation, count)) {
+            if (attenuation != 0 &&
+                srMath::isZero({attenuation, static_cast<std::size_t>(count)})) {
                 return;
             }
         } else if (attenuation_model == ATTENUATION_OPENGL) {
@@ -413,28 +418,33 @@ void srLight::process(srVertexPipe& pipe)
                     float constant = 1.0f / opengl_attenuation.x;
                     std::fill_n(attenuation_bank, count, constant);
                 } else {
-                    srVectorProcessor::invPoly(attenuation_bank, distances, opengl_attenuation,
-                                               count);
+                    srMath::invPoly({attenuation_bank, static_cast<std::size_t>(count)}, distances,
+                                    opengl_attenuation);
                 }
-                srVectorProcessor::clampUnit(attenuation_bank, attenuation_bank, count);
+                srMath::clampUnit({attenuation_bank, static_cast<std::size_t>(count)},
+                                  attenuation_bank);
                 attenuation = attenuation_bank;
             }
         }
         if ((derived_flags & srLight::DERIVED_SPOT) != 0) {
             srVector3T<float> negated(-spot_direction_eye.x, -spot_direction_eye.y,
                                       -spot_direction_eye.z);
-            srVectorProcessor::dot(spot_factors, negated, directions, count);
-            srVectorProcessor::add(spot_factors, -spot_cutoff, spot_factors, count);
-            srVectorProcessor::mul(spot_factors, 1.0f / (1.0f - spot_cutoff), spot_factors, count);
-            srVectorProcessor::clampMin(spot_factors, spot_factors, 0.0f, count);
-            if (srVectorProcessor::isZero(spot_factors, count)) {
+            srMath::dot({spot_factors, static_cast<std::size_t>(count)}, negated, directions);
+            srMath::add({spot_factors, static_cast<std::size_t>(count)}, -spot_cutoff,
+                        spot_factors);
+            srMath::mul({spot_factors, static_cast<std::size_t>(count)},
+                        1.0f / (1.0f - spot_cutoff), spot_factors);
+            srMath::clampMin({spot_factors, static_cast<std::size_t>(count)}, spot_factors, 0.0f);
+            if (srMath::isZero({spot_factors, static_cast<std::size_t>(count)})) {
                 return;
             }
             if (spot_exponent != 1.0f) {
-                srVectorProcessor::srSpecularPow(spot_factors, spot_factors, spot_exponent, count);
+                srMath::srSpecularPow({spot_factors, static_cast<std::size_t>(count)}, spot_factors,
+                                      spot_exponent);
             }
             if (attenuation != 0) {
-                srVectorProcessor::mul(attenuation, attenuation, spot_factors, count);
+                srMath::mul({attenuation, static_cast<std::size_t>(count)}, attenuation,
+                            spot_factors);
             } else {
                 attenuation = spot_factors;
             }
@@ -443,16 +453,17 @@ void srLight::process(srVertexPipe& pipe)
             if ((scratch->flags & srVertexPipe::Scratch::READY_EYE_NORMALS) == 0) {
                 pipe.setupEyeSpaceNormal();
             }
-            srVectorProcessor::dot(dots, scratch->normals + pipe.sub_batch_offset, directions,
-                                   count);
-            srVectorProcessor::clampMin(dots, dots, 0.0f, count);
+            srMath::dot({dots, static_cast<std::size_t>(count)},
+                        scratch->normals + pipe.sub_batch_offset, directions);
+            srMath::clampMin({dots, static_cast<std::size_t>(count)}, dots, 0.0f);
         }
     } else if (need_normals) {
         if ((scratch->flags & srVertexPipe::Scratch::READY_EYE_NORMALS) == 0) {
             pipe.setupEyeSpaceNormal();
         }
-        srVectorProcessor::dot(dots, eye_location, scratch->normals + pipe.sub_batch_offset, count);
-        srVectorProcessor::clampUnit(dots, dots, count);
+        srMath::dot({dots, static_cast<std::size_t>(count)}, eye_location,
+                    scratch->normals + pipe.sub_batch_offset);
+        srMath::clampUnit({dots, static_cast<std::size_t>(count)}, dots);
     }
 
     if ((channels & (1UL << srVertexProcessor::CHANNEL_LIGHT_AMBIENT)) != 0) {
@@ -467,7 +478,7 @@ void srLight::process(srVertexPipe& pipe)
     if (!need_normals) {
         return;
     }
-    if (srVectorProcessor::isZero(dots, count)) {
+    if (srMath::isZero({dots, static_cast<std::size_t>(count)})) {
         return;
     }
     if ((channels & (1UL << srVertexProcessor::CHANNEL_LIGHT_DIFFUSE)) != 0) {
@@ -480,9 +491,9 @@ void srLight::process(srVertexPipe& pipe)
         srVector4T<float>* out =
             pipe.vertex_array->diffuse + pipe.batch_base + pipe.sub_batch_offset;
         if (attenuation != 0) {
-            srVectorProcessor::axpy(out, out, diffuse, attenuation, dots, count);
+            srMath::axpy({out, static_cast<std::size_t>(count)}, out, diffuse, attenuation, dots);
         } else {
-            srVectorProcessor::axpy(out, out, diffuse, dots, count);
+            srMath::axpy({out, static_cast<std::size_t>(count)}, out, diffuse, dots);
         }
     }
     if ((channels & (1UL << srVertexProcessor::CHANNEL_SPECULAR)) == 0) {
@@ -500,20 +511,22 @@ void srLight::process(srVertexPipe& pipe)
     }
     if (count * 3 != 0) {
         // reinterpret-ok: elementwise float subtraction across the vector array.
-        srVectorProcessor::sub(
-            reinterpret_cast<float*>(directions), reinterpret_cast<const float*>(directions),
-            reinterpret_cast<const float*>(scratch->dir + pipe.sub_batch_offset), count * 3);
+        srMath::sub({reinterpret_cast<float*>(directions), static_cast<std::size_t>(count * 3)},
+                    reinterpret_cast<const float*>(directions),
+                    reinterpret_cast<const float*>(scratch->dir + pipe.sub_batch_offset));
     }
-    srVectorProcessor::normalize(directions, directions, 1.0f, count);
+    srMath::normalize({directions, static_cast<std::size_t>(count)}, directions, 1.0f);
     if ((scratch->flags & srVertexPipe::Scratch::READY_EYE_NORMALS) == 0) {
         pipe.setupEyeSpaceNormal();
     }
-    srVectorProcessor::dot(distances, scratch->normals + pipe.sub_batch_offset, directions, count);
-    srVectorProcessor::clampMin(distances, distances, 0.0f, count);
+    srMath::dot({distances, static_cast<std::size_t>(count)},
+                scratch->normals + pipe.sub_batch_offset, directions);
+    srMath::clampMin({distances, static_cast<std::size_t>(count)}, distances, 0.0f);
     if (pipe.material_info.shininess > 1.0f) {
-        srVectorProcessor::srSpecularPow(distances, distances, pipe.material_info.shininess, count);
+        srMath::srSpecularPow({distances, static_cast<std::size_t>(count)}, distances,
+                              pipe.material_info.shininess);
     }
-    srVectorProcessor::mul(distances, distances, dots, count);
+    srMath::mul({distances, static_cast<std::size_t>(count)}, distances, dots);
     srVector4T<float> specular;
     specular = scaled_specular * pipe.material_info.specular;
     srCore.getStatisticsManager()->statistics.specular_operations += count;
@@ -522,9 +535,9 @@ void srLight::process(srVertexPipe& pipe)
     }
     srVector4T<float>* out = pipe.vertex_array->specular + pipe.batch_base + pipe.sub_batch_offset;
     if (attenuation != 0) {
-        srVectorProcessor::axpy(out, out, specular, attenuation, distances, count);
+        srMath::axpy({out, static_cast<std::size_t>(count)}, out, specular, attenuation, distances);
     } else {
-        srVectorProcessor::axpy(out, out, specular, distances, count);
+        srMath::axpy({out, static_cast<std::size_t>(count)}, out, specular, distances);
     }
 }
 

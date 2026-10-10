@@ -8,7 +8,6 @@
 #include "srVertexProcessor.h"
 
 class srMaterialIFace;
-class srVP;
 
 class srVertexPipe {
     friend class W8GroundShadowMapper;
@@ -186,7 +185,6 @@ private:
     w8_ulong sub_batch_offset;                /* 0x84 */
     w8_ulong vertex_count;                    /* 0x88 */
     w8_ulong batch_count;                     /* 0x8c */
-    srVP* vector_processor;                        /* 0x98 */
 };
 
 W8_ABI_ASSERT(sizeof(srVertexPipe) == 0x9c, "srVertexPipe_must_be_0x9c");

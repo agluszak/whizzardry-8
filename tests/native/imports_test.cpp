@@ -12,7 +12,7 @@
 #include "surrender/srQuadWord.h"
 #include "surrender/srScene.h"
 #include "surrender/srTextureFile.h"
-#include "surrender/srVP_generic.h"
+#include "surrender/srVectorMath.h"
 #include <cfenv>
 #include <algorithm>
 #include <array>
@@ -240,8 +240,7 @@ int main()
         vectors.values[0].Set(5, -2, 7);
         vectors.values[1].Set(-3, 9, 1);
         CHECK(reinterpret_cast<uintptr_t>(&vectors.values[0]) % alignof(float) != 0);
-        srVP_generic processor;
-        processor._minMax(vectors.values, vectors.minimum, vectors.maximum, 2);
+        srMath::minMax(vectors.values, vectors.minimum, vectors.maximum);
         CHECK(vectors.minimum.x == -3 && vectors.minimum.y == -2 && vectors.minimum.z == 1);
         CHECK(vectors.maximum.x == 5 && vectors.maximum.y == 9 && vectors.maximum.z == 7);
         // File names own their text, including an aliased setter argument.

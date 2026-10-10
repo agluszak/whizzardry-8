@@ -1,7 +1,7 @@
 #include "surrender/srEnvironmentMapper.h"
 
 #include "surrender/srCore.h"
-#include "surrender/srVectorProcessor.h"
+#include "surrender/srVectorMath.h"
 #include "surrender/srVertexPipe.h"
 
 #include <math.h>

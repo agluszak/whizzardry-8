@@ -15,7 +15,7 @@
 #include "surrender/srMath.h"
 #include "surrender/srPalette.h"
 #include "surrender/srVariableTimer.h"
-#include "surrender/srVectorProcessor.h"
+#include "surrender/srVectorMath.h"
 
 /* RGB24 rows contain a word at every third byte, including odd addresses. */
 static inline unsigned short readPackedWord(const unsigned char* bytes)
@@ -1296,15 +1296,15 @@ void __cdecl readBGRA(const srPixelConvert::ConversionInfo& info)
 // FUNCTION: SURRENDER 0x1000A9B0
 void __cdecl writeBGRX(const srPixelConvert::ConversionInfo& info)
 {
-    srVectorProcessor::bitwiseAnd(static_cast<SRDWORD*>(info.dest),
-                                  static_cast<const SRDWORD*>(info.source), 0xffffff, info.count);
+    srMath::bitwiseAnd({static_cast<SRDWORD*>(info.dest), static_cast<std::size_t>(info.count)},
+                       static_cast<const SRDWORD*>(info.source), 0xffffff);
 }
 
 // FUNCTION: SURRENDER 0x1000A9E0
 void __cdecl readBGRX(const srPixelConvert::ConversionInfo& info)
 {
-    srVectorProcessor::bitwiseOr(static_cast<SRDWORD*>(info.dest),
-                                 static_cast<const SRDWORD*>(info.source), 0xff000000, info.count);
+    srMath::bitwiseOr({static_cast<SRDWORD*>(info.dest), static_cast<std::size_t>(info.count)},
+                      static_cast<const SRDWORD*>(info.source), 0xff000000);
 }
 
 /* format_table[srPixelConvert::SURFACE_RGBA32] write/read: rotate each BGRA pixel one byte lane so

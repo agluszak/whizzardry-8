@@ -3,7 +3,6 @@
 #include "surrender/srColorSurface.h"
 #include "surrender/srCore.h"
 #include "surrender/srImageIO.h"
-#include "surrender/srVectorProcessor.h"
 #include "wiz8/sr_api.h"
 
 #include <cstdio>
@@ -187,7 +186,6 @@ int main()
     for (int cycle = 0; cycle < 3; ++cycle) {
         CHECK(srInit() && srCore.isInitialized());
         CHECK(srInit());
-        CHECK(srVectorProcessor::getName());
         for (bool top : {false, true})
             for (bool rle : {false, true})
                 CheckImage("test.TGA", Targa(top, rle, false));
@@ -208,7 +206,6 @@ int main()
             CHECK(!srImage::load(name, stream));
         }
         CHECK(srExit() && !srCore.isInitialized());
-        CHECK(!srVectorProcessor::getName());
         CHECK(srExit());
     }
     puts("ok: direct image loading, JPEG export and SurRender reinitialization");
