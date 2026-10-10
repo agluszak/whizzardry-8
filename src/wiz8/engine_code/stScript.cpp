@@ -1,6 +1,7 @@
-#include "wiz8/containers.h"
+#include <sstream>
+#include "input.h"
+#include <string_view>
 #include "wiz8/engine_code/stScript.h"
-#include "wiz8/sr_api.h"
 #include "wiz8/virtual_file.h"
 
 #include <limits>
@@ -41,137 +42,63 @@ try
 }
 catch (const std::exception&) { *more = 0; return false; }
 
-// FUNCTION: WIZ8 0x004CF260
-stScript::~stScript()
-{
-    Clear();
-}
-
 // FUNCTION: WIZ8 0x004CF690
 void stScript::Clear()
 {
-    for (auto* line : lines) {
-        if (line) {
-            free(line->text);
-            delete line;
-        }
-    }
     lines.clear();
-    wiz8::remove_all_and_delete_in_order(labels);
+    labels.clear();
 }
 
 // FUNCTION: WIZ8 0x004CF3B0
 unsigned char stScript::Load(const char* path)
-try
-{
-    if (path == nullptr) return 0;
-    auto handle = wiz8::open_file(path, wiz8::OpenMode::read);
-    auto release_line = [](stScriptLine* line) {
-        free(line->text);
-        delete line;
-    };
-    using LineOwner = std::unique_ptr<stScriptLine, decltype(release_line)>;
-    std::vector<LineOwner> pending_lines;
-    std::vector<std::unique_ptr<stScriptLabel>> pending_labels;
-    unsigned char more = 1;
+try {
+    if (!path)
+        return false;
+    std::istringstream input(wiz8::open_file(path)->read_text());
+    std::string text;
+    stScript pending;
     int source_line = 0;
-    int script_line = 0;
-    char buffer[256];
-    while (more != 0) {
-        if (!ReadTextLine(handle.get(), buffer, sizeof(buffer), &more)) {
-            if (more != 0 || handle->tell() < handle->size()) return 0;
-            break;
-        }
-        if (source_line == std::numeric_limits<int>::max()) return 0;
+    while (std::getline(input, text)) {
+        if (source_line == std::numeric_limits<int>::max()) return false;
         ++source_line;
-        const std::string text(buffer);
-        char* token = strtok(buffer, " \t");
-        if (token == nullptr || token[0] == '*') continue;
-        const auto length = strlen(token);
-        if (token[length - 1] == ':') {
-            token[length - 1] = 0;
-            bool add_label = true;
-            for (int index = 0; index < static_cast<int>(labels.size()); ++index) {
-                stScriptLabel* existing = labels[index];
-                if (_strnicmp(existing->name, token, 0x1f) == 0) {
-                    add_label = existing->line == -1;
-                    break;
-                }
-            }
-            for (const auto& existing : pending_labels) {
-                if (_strnicmp(existing->name, token, 0x1f) == 0) {
-                    add_label = false;
-                    break;
-                }
-            }
-            if (add_label) {
-                auto label = std::make_unique<stScriptLabel>();
-                strncpy(label->name, token, 0x1f);
-                label->name[0x1f] = 0;
-                label->line = script_line;
-                pending_labels.push_back(std::move(label));
-            }
+        if (text.ends_with('\r'))
+            text.pop_back();
+        const auto start = text.find_first_not_of(" \t");
+        if (start == text.npos || text[start] == '*')
             continue;
+        const auto stop = text.find_first_of(" \t", start);
+        std::string_view token(text.data() + start,
+                               (stop == text.npos ? text.size() : stop) - start);
+        if (token.ends_with(':')) {
+            token.remove_suffix(1);
+            if (FindLabelLine(token) == -1 && pending.FindLabelLine(token) == -1)
+                pending.labels.push_back({std::string(token), static_cast<int>(lines.size() + pending.lines.size())});
+        } else {
+            if (lines.size() + pending.lines.size() >= static_cast<std::size_t>(std::numeric_limits<int>::max())) return false;
+            pending.lines.push_back({std::move(text), source_line});
         }
-        LineOwner line(new stScriptLine{}, release_line);
-        line->text = static_cast<char*>(malloc(text.size() + 1));
-        if (line->text == nullptr) throw std::bad_alloc();
-        memcpy(line->text, text.c_str(), text.size() + 1);
-        line->source_line = source_line;
-        pending_lines.push_back(std::move(line));
-        ++script_line;
     }
-    if (pending_lines.size() > static_cast<std::size_t>(std::numeric_limits<int>::max() - static_cast<int>(lines.size())) ||
-        pending_labels.size() > static_cast<std::size_t>(std::numeric_limits<int>::max() - static_cast<int>(labels.size()))) return 0;
-    lines.reserve(lines.size() + pending_lines.size());
-    labels.reserve(labels.size() + pending_labels.size());
-    for (auto& line : pending_lines) {
-        lines.push_back(line.get());
-        (void)line.release();
-    }
-    for (auto& label : pending_labels) {
-        labels.push_back(label.get());
-        (void)label.release();
-    }
-    return 1;
+    lines.reserve(lines.size() + pending.lines.size());
+    labels.reserve(labels.size() + pending.labels.size());
+    for (auto& line : pending.lines) lines.push_back(std::move(line));
+    for (auto& label : pending.labels) labels.push_back(std::move(label));
+    return true;
+} catch (const std::exception&) {
+    return false;
 }
-catch (const std::exception&) { return false; }
 
-/* The label table stores fixed 31-character, case-insensitive identifiers and
-   the script line to resume at. A null query or a miss has the source's -1
-   sentinel. */
 // FUNCTION: WIZ8 0x004CF730
-int stScript::FindLabelLine(const char* label) const
+int stScript::FindLabelLine(std::string_view label) const
 {
-    int index;
-
-    if (label != 0) {
-        for (index = 0; index < static_cast<int>(labels.size()); ++index) {
-            stScriptLabel* entry = labels[index];
-            if (_strnicmp(entry->name, label, 0x1f) == 0) {
-                return entry->line;
-            }
-        }
-    }
+    for (const auto& entry : labels)
+        if (CompareTextIgnoreAsciiCase(entry.name, label) == 0)
+            return entry.line;
     return -1;
 }
 
-/* Diagnostics report the original file line carried by each parsed script
-   line. Invalid or empty entries use the same -1 sentinel as label lookup. */
 // FUNCTION: WIZ8 0x004CF790
 int stScript::GetSourceLine(int line) const
 {
-    stScriptLine* entry;
-
-    if (line < 0) {
-        return -1;
-    }
-    if (line >= static_cast<int>(lines.size())) {
-        return -1;
-    }
-    entry = lines[line];
-    if (entry != 0) {
-        return entry->source_line;
-    }
-    return -1;
+    return line >= 0 && static_cast<std::size_t>(line) < lines.size() ? lines[line].source_line
+                                                                      : -1;
 }

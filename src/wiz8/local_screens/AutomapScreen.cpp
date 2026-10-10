@@ -746,19 +746,19 @@ unsigned char AutomapScreenEnter(void)
         int line = 0;
         int section = -1;
         while (section < g_status.current_level && line < static_cast<int>(script.lines.size())) {
-            if (strchr(script.lines[line]->text, '['))
+            if (script.lines[line].text.contains('['))
                 ++section;
             ++line;
         }
         if (line < static_cast<int>(script.lines.size()) && section == g_status.current_level) {
             for (; line < static_cast<int>(script.lines.size()); ++line) {
-                char* text = script.lines[line]->text;
-                if (strchr(text, '['))
+                const auto& text = script.lines[line].text;
+                if (text.contains('['))
                     break;
-                if (!strstr(text, "LAYER=")) {
+                if (!text.contains("LAYER=")) {
                     excluded_textures.push_back(text);
                 } else {
-                    float height = static_cast<float>(atof(text + 6));
+                    float height = static_cast<float>(atof(text.c_str() + 6));
                     srClipPlane* clip =
                         g_automap_created_layers.emplace_back(std::make_unique<srClipPlane>()).get();
                     layer_name = fmt::format("LAYER {:d}", layer_number);

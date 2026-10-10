@@ -264,3 +264,7 @@ elseif(UNIX)
     target_link_options(native_collections_test PRIVATE -Wl,--gc-sections -Wl,-z,start-stop-gc)
 endif()
 add_test(NAME native_collections COMMAND native_collections_test)
+
+add_executable(native_resource_text_test native/resource_text_test.cpp)
+target_link_libraries(native_resource_text_test PRIVATE WIZ8_GAME_CORE)
+add_test(NAME native_resource_text COMMAND native_resource_text_test)

@@ -217,7 +217,7 @@ public:
     bool GetProjectilePosition(srVector3T<float>* position);
     bool GetSpellPosition(srVector3T<float>* position);
     bool GetCycleMappedPosition(signed char cycle, int mapped_index, srVector3T<float>* position);
-    bool EvaluateScriptCondition(const char* expression);
+    bool EvaluateScriptCondition(std::string_view expression);
     bool CanContinueScript();
     bool SetScriptLabel(const char* label);
     bool IsPendingFinalize() const;

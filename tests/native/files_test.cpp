@@ -103,14 +103,15 @@ TEST_CASE("files_test")
     auto file = wiz8::open_file("DATA/mixedcase.bin");
     auto independent = wiz8::open_file("C:/data/MixedCase.BIN");
     REQUIRE((file->size() == 12 && independent->tell() == 0));
-    REQUIRE(read_bytes(*file, 64) == "retail bytes");
+    REQUIRE((read_bytes(*file, 64) == "retail bytes"));
     REQUIRE((file->tell() == 12 && read_bytes(*file, 1).empty()));
-    REQUIRE(fails([&] { char byte; file->read_exact(&byte, 1); }));
+    REQUIRE((fails([&] { char byte; file->read_exact(&byte, 1); })));
     REQUIRE((independent->tell() == 0 && read_bytes(*independent, 6) == "retail"));
-    REQUIRE(fails([&] { file->write("x", 1); }));
-    REQUIRE(file->seek(-5, wiz8::SeekOrigin::end) == 7);
-    REQUIRE(read_bytes(*file, 5) == "bytes");
-    REQUIRE(fails([&] { file->seek(-99, wiz8::SeekOrigin::current); }));
+    REQUIRE((fails([&] { file->write("x", 1); })));
+    REQUIRE((file->seek(-5, wiz8::SeekOrigin::end) == 7));
+    REQUIRE((file->read_text() == "bytes"));
+    REQUIRE((file->read_text().empty()));
+    REQUIRE((fails([&] { file->seek(-99, wiz8::SeekOrigin::current); })));
     file->seek(0, wiz8::SeekOrigin::begin);
     REQUIRE(file->read(nullptr, 0).bytes == 0);
     REQUIRE(fails([&] { file->read(nullptr, 1); }));
@@ -309,8 +310,9 @@ TEST_CASE("files_test")
     REQUIRE(fails([&] { second->seek(-9, wiz8::SeekOrigin::end); }));
     REQUIRE(second->tell() == 4);
     wiz8::clear_asset_archives();
-    REQUIRE(read_bytes(*archived, 1) == "!");
-    REQUIRE(read_bytes(*second, 4) == "ive!");
+    REQUIRE((read_bytes(*archived, 1) == "!"));
+    REQUIRE((second->read_text() == "ive!"));
+    REQUIRE((second->read_text().empty()));
     archived.reset(); second.reset();
     wiz8::mount_slf("Data/DATA.SLF");
     file = wiz8::open_file("Data/Override.bin");
@@ -329,7 +331,8 @@ TEST_CASE("files_test")
     REQUIRE(read_bytes(*file, 8) == "latest!!"); file.reset();
     fixture(assets / "data" / "ArchiveOnly.bin", "loose archive");
     file = wiz8::open_file("Data/archiveonly.bin");
-    REQUIRE(read_bytes(*file, 32) == "loose archive"); file.reset();
+    REQUIRE((file->read_text() == "loose archive"));
+    file.reset();
     fs::remove(assets / "data" / "ArchiveOnly.bin");
     for (std::size_t length : {std::size_t(20), archive_bytes.size() - 1}) {
         fixture(assets / "data" / "Truncated.slf", archive_bytes.substr(0, length));

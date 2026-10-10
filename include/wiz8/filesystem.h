@@ -61,6 +61,8 @@ public:
 
     ReadResult read(void* data, std::size_t bytes);
     void read_exact(void* data, std::size_t bytes);
+    // Read the remaining bytes as owned text, without encoding or newline conversion.
+    std::string read_text();
     void write(const void* data, std::size_t bytes);
     std::int64_t seek(std::int64_t offset, SeekOrigin origin);
     std::int64_t tell() const;
