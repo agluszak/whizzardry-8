@@ -194,17 +194,17 @@ try
     }
 
     loaded_instance->setName("AniMeshReallyReadFromFile");
-    stModelInstance* instance = static_cast<stModelInstance*>(loaded_instance);
+    auto instance = std::unique_ptr<stModelInstance>(static_cast<stModelInstance*>(loaded_instance));
     stMeshModel* model = static_cast<stMeshModel*>(instance->getModel());
 
     if (model->frames.size() > 1) {
         mesh->flags.single_instance = true;
         mesh->meshes.clear();
-        mesh->meshes.emplace_back(instance);
+        mesh->meshes.push_back(std::move(instance));
     } else {
         mesh->meshes.clear();
         mesh->meshes.resize(frame_count);
-        mesh->meshes[0].reset(instance);
+        mesh->meshes[0] = std::move(instance);
 
         loaded_count = 1;
         while (loaded_count < frame_count) {

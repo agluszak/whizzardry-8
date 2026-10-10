@@ -13,8 +13,8 @@ class srModelInstance;
 
 struct W8FrameBounds {
     bool known = false;
-    srVector3T<float> minimum;
-    srVector3T<float> maximum;
+    srVector3T<float> minimum{0, 0, 0};
+    srVector3T<float> maximum{0, 0, 0};
 };
 
 struct W8AnimObj {

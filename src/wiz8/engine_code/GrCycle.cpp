@@ -853,7 +853,7 @@ void W8GrCycle::ResetRepresentation()
     if (target == 0) {
         srAssertFail("pRep", "C:\\Projects\\Wizardry 8\\Engine Code\\GrCycle.cpp", 0x3ae, 0);
     }
-    PathAIResetRecord(static_cast<W8PathAI*>(m_pAI.get()));
+    PathAIResetRecord(m_pAI.get());
     target->frame_direction = W8_ANIMATION_FORWARD;
     target->subcycle = 0;
     target->timer = g_shared_timer_base->milliseconds();

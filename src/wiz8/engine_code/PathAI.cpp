@@ -18,10 +18,6 @@
 
 #define PATH_AI_CPP "C:\\Projects\\Wizardry 8\\Engine Code\\PathAI.CPP"
 
-/* Retail shares one no-op stub at 0x004023a0 across arities;
-   PathAIApplyToRep calls this typed overload with two arguments. */
-void NoOp(W8AIRecord*, W8AnimRepBase*) {}
-
 /* Retail shares this empty body with the stub at 0x004023a0. */
 
 void NoOp(void) {}
@@ -90,10 +86,10 @@ try
 }
 
 // FUNCTION: WIZ8 0x004a9720
-void PathAIResetRecord(W8PathAI* path)
+void PathAIResetRecord(W8AIRecord* record)
 {
-    if (path != 0 && path->kind == W8_AI_RECORD_PATH) {
-        path->position = 0;
+    if (record && record->kind == W8_AI_RECORD_PATH) {
+        static_cast<W8PathAI*>(record)->position = 0;
     }
 }
 
@@ -102,9 +98,6 @@ void PathAIResetRecord(W8PathAI* path)
 void PathAIApplyToRep(W8AIRecord* record, W8AnimRepBase* representation)
 {
     if (record->kind != W8_AI_RECORD_PATH) {
-        if (record->kind == W8_AI_RECORD_MISSILE) {
-            NoOp(record, representation);
-        }
         return;
     }
     W8PathAI* path = static_cast<W8PathAI*>(record);

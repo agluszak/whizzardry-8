@@ -55,7 +55,7 @@ struct W8PathAI : W8AIRecord {
 /* Tagged-record dispatchers: the body switches on kind and hands the
    record to the path or missile implementation. */
 bool PathAIUpdate(W8AIRecord* record, signed char direction);
-void PathAIResetRecord(W8PathAI* path);
+void PathAIResetRecord(W8AIRecord* record);
 void PathAIApplyToRep(W8AIRecord* record, W8AnimRepBase* representation);
 /* Places one srNode (model instance, light, camera, …) through a path. The
    body only calls srNode child/location/rotation/scale APIs; retail callers
