@@ -1,47 +1,29 @@
 #pragma once
 
+#include <memory>
 #include <vector>
-struct W8QuadObject;
 
 #include "surrender/srMath.h"
 
-#include <algorithm>
-
 class srModelInstance;
-class srScene;
 
-struct W8QuadCell {
-    std::vector<int>* polygon_indices;
-    std::vector<W8QuadObject*>* objects;
-    unsigned int dirty_stamp;
-    bool occupied;
-    unsigned char padding_0d[3];
-};
-
-W8_ABI_ASSERT(sizeof(W8QuadCell) == 0x10, "W8QuadCell_must_be_0x10");
-
-struct W8QuadRow {
-    W8QuadCell* cells;
-    unsigned int count;
-};
-
-W8_ABI_ASSERT(sizeof(W8QuadRow) == 0x8, "W8QuadRow_must_be_0x8");
-
+/* A grid of square cells over the level mesh, each listing the polygons whose
+   centroid falls inside it. Rows run along x, columns along z. */
 struct W8Quad {
     unsigned int row_count;
     unsigned int column_count;
-    glm::vec2 origin;
+    glm::vec2 origin; /* minimum x and z */
     float cell_size;
-    W8QuadRow* rows;
-    unsigned int dirty;
+    std::vector<std::vector<int>> cells; /* row-major polygon indices */
+
+    std::vector<int>& Cell(unsigned int row, unsigned int column)
+    {
+        return cells[row * column_count + column];
+    }
 };
 
-W8_ABI_ASSERT(sizeof(W8Quad) == 0x1c, "W8Quad_must_be_0x1c");
-
-void DestroyWorldQuad(W8Quad* quad);
-W8Quad* BuildWorldQuad(srModelInstance* instance, int, float minimum_x, float minimum_y,
-                       float minimum_z, float maximum_x, float maximum_y, float maximum_z,
-                       srScene* scene, int);
+std::unique_ptr<W8Quad> BuildWorldQuad(srModelInstance* instance, const srVector3T<float>& minimum,
+                                       const srVector3T<float>& maximum);
 
 /* Pick-angle helpers (GetHeadingAngle, GetElevationAngle, HeadingToTargetCPP,
    ElevationToTargetCPP) are declared in wiz8/engine_code/PolyPick.h. */

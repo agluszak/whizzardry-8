@@ -1,34 +1,37 @@
 #ifndef WIZ8_LAYOUTS_ITEM_TABLES_H
 #define WIZ8_LAYOUTS_ITEM_TABLES_H
 
+#include <array>
+#include <string>
+
 #include "wiz8/attack_modes.h"
 #include "wiz8/dice.h"
+#include "wiz8/retail_item_payloads.h"
+
 
 #pragma pack(push, 1)
-
 struct W8ItemTableEntry {
-    short selector;         /* 0x00: zero disables the slot */
-    unsigned short item_id; /* 0x02: index into Items.dbs */
-    unsigned char weight;   /* 0x04 */
-}; /* 0x05 */
+    short selector;         /* Retail offset 0x00: zero disables the slot */
+    unsigned short item_id; /* Retail offset 0x02: index into Items.dbs */
+    unsigned char weight;   /* Retail offset 0x04 */
+};
+#pragma pack(pop) /* Retail offset 0x05 */
 
+#pragma pack(push, 1)
 struct W8ItemTableRecord {
-    char name[256];               /* 0x000 */
-    unsigned int category_id;     /* 0x100 */
-    W8ItemTableEntry entries[40]; /* 0x104 */
-    unsigned char level_scaled;   /* 0x1cc */
-    W8Dice item_count_dice;       /* 0x1cd */
+    char name[256];               /* Retail offset 0x000 */
+    unsigned int category_id;     /* Retail offset 0x100 */
+    W8ItemTableEntry entries[40]; /* Retail offset 0x104 */
+    unsigned char level_scaled;   /* Retail offset 0x1cc */
+    W8Dice item_count_dice;       /* Retail offset 0x1cd */
     unsigned char unknown_1d1[4];
-    W8Dice gold_dice; /* 0x1d5 */
+    W8Dice gold_dice; /* Retail offset 0x1d5 */
     unsigned char unknown_1d9[0x18];
-}; /* 0x1f1 */
+};
+#pragma pack(pop) /* Retail offset 0x1f1 */
 
 /* One "you need this much of that" entry. CanCharacterUseItem walks two of
    these for attributes and two for skills, stopping at an id of 0xff. */
-struct W8ItemRequirement {
-    unsigned char stat_id; /* 0xff when the entry is unused */
-    unsigned char minimum;
-}; /* 0x02 */
 
 /* Equipment classes. Labels 1087..1112 name classes 0..25; labels
    1114..1119 name classes 26..31. Stored as a byte. */
@@ -99,104 +102,23 @@ enum W8ItemCategory {
     W8_ITEM_CATEGORY_CASTER_ITEM_8 = 8
 };
 
-struct W8ItemDatabaseRecord {
-    wchar_t display_name[30]; /* 0x000 */
-    /* 0x03c: the item number the Wizardry 7 import matches imported item ids
-       against (Party Import.cpp). */
-    short legacy_item_number;
-    unsigned char equip_class;              /* 0x03e: W8ItemEquipClass */
-    unsigned short unidentified_name_index; /* 0x03f */
-    unsigned char flags;                    /* 0x041: W8ItemFlag bits */
-    unsigned char category;                 /* 0x042: W8ItemCategory */
-    unsigned char unknown_043[3];
-    signed char weapon_skill; /* 0x046: -1 when the item grants none */
-    /* 0x047: the W8RangeCategory band the weapon attacks at. GetCharAttackRange
-       returns it, the Assay caption names it, and paired weapons/ammunition
-       must share it. */
-    unsigned char range_category;
-    signed char attack_damage_bonus; /* 0x048 */
-    signed char attack_hit_bonus;    /* 0x049 */
-    W8Dice damage_dice;              /* 0x04a */
-    unsigned short attack_flags;
-    /* 0x050..0x05f: the item's missile-attack modifier block; the missile
-       resolver sums it byte-wise across the wielded and paired weapons into
-       the fired effect definition's condition_chances. */
-    unsigned char missile_values[W8_ATTACK_EFFECT_COUNT];
-    /* 0x060: the item's missile bonus, summed across both weapons into the
-       effect definition's value_1c. */
-    unsigned char missile_magnitude;
-    /* 0x061: the monster kind the weapon slays for an extra damage die,
-       compared against W8MonsterRecord::kind by the character damage
-       resolver; 0xff means the weapon slays nothing. */
-    unsigned char slays_kind;
-    signed char armor_class_bonus; /* 0x062 */
-    unsigned char spell_id;        /* 0x063 */
-    /* 0x064: the cast spell's power level - Assay prints "(Pwr %d)" and the
-       use path consumes it as the casting power. */
-    unsigned char spell_power;
-    unsigned char unknown_065;
-    unsigned char quantity_kind; /* 0x066: W8ItemQuantityKind */
-    W8Dice initial_quantity;     /* 0x067 */
-    /* The stack merge path clamps quantity-kind 1 items to this byte. */
-    unsigned char maximum_quantity; /* 0x06b */
-    /* 0x06c..0x06e: three per-item modifier bytes the equipment fold adds to
-       the derived block's own unknowns; 0x06f..0x074 are the six resistance
-       bonuses it sums and clamps. */
-    signed char health_regen_bonus;
-    signed char stamina_regen_bonus;
-    signed char spell_regen_bonus;
-    signed char resistance_bonus[6]; /* 0x06f .. 0x074 */
-    unsigned char property;          /* assay special-property label index */
-    unsigned short profession_mask;  /* 0x076 */
-    unsigned int race_mask;          /* 0x078 */
-    /* 0x07c: one bit per sex; three admits either, and
-       CanCharacterUseItem indexes it with the character's own field. */
-    unsigned char gender_mask;
-    W8ItemRequirement attribute_requirements[2]; /* 0x07d */
-    W8ItemRequirement skill_requirements[2];     /* 0x081 */
-    unsigned char identify_difficulty;           /* 0x085 */
-    unsigned int value;                          /* 0x086 */
-    unsigned short weight;                       /* 0x08a */
-    unsigned char binds_on_equip;                /* 0x08c */
-    char internal_name[0x20];                    /* 0x08d .. 0x0ac */
-    /* 0x0ad: extra swings the weapon grants when the wielder starts an
-       attack. */
-    int swings_bonus;
-    /* 0x0b1/0x0b3: the item's (index, value) modifier pairs the equipment
-       fold adds to the derived block's two byte tables. 0xff is no pair. */
-    signed char modifier_0b1_index;
-    signed char modifier_0b1_value;
-    signed char modifier_0b3_index;
-    signed char modifier_0b3_value;
-    unsigned char unknown_0b5[4]; /* 0x0b5 .. 0x0b8 */
-    int merge_component_a;        /* 0x0b9: first item kind MergeItems combines into this one */
-    int merge_component_b;        /* 0x0bd: the other kind; either order is accepted */
-    /* 0x0c1: the item's material index; combat sound reads it on the struck
-       item to pick the impact table's material column (0..11). */
-    int material;
-    /* 0x0c5: the weapon's attack sound class; combat sound bounds it against
-       the 38-entry swing table and the 28 impact rows. */
-    int weapon_sound_class;
-    signed char merge_skill;         /* 0x0c9: skill required to create this item, -1 for none */
-    unsigned char merge_skill_level; /* 0x0ca: level of merge_skill required */
-    unsigned char editor_excluded;   /* hidden from the MIPE item list */
-    /* 0x0cc: the missile table entry the item fires; the missile resolver
-       bounds it against g_missile_table_count. */
-    signed char missile_type;
-    char video_object_name[0x18]; /* 0x0cd: the item image */
-    char sound_name[0x28];        /* 0x0e5: played when the item's spell is cast */
-}; /* 0x10d */
+// Runtime ownership is naturally aligned; only the invariant numeric payloads
+// retain their format-defined representation. No raw serialization of this type.
+struct W8ItemDatabaseRecord : wiz8::retail::ItemProperties, wiz8::retail::ItemEffects {
+    std::string display_name;
+    std::string internal_name;
+    std::string video_object_name;
+    std::string sound_name;
+};
 
-W8_ABI_ASSERT(sizeof(W8ItemDatabaseRecord) == 0x10d, "W8ItemDatabaseRecord_size_must_be_0x10d");
-W8_ABI_ASSERT(sizeof(W8ItemTableRecord) == 0x1f1, "W8ItemTableRecord_size_must_be_0x1f1");
 
-#pragma pack(pop)
+
 
 /* GameplayDatabase.cpp owns the runtime Items.dbs and ItemTables.dbs roots.
    Keeping their declarations beside the record layouts gives item consumers a
    direct owner beside the file-format types they index. */
 extern W8ItemDatabaseRecord* g_item_records;
-extern W8ItemTableRecord** g_item_tables;
-extern char** g_item_table_category_names;
+extern W8ItemTableRecord* g_item_tables;
+extern std::string* g_item_table_category_names;
 
 #endif

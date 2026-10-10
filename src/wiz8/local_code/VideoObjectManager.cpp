@@ -1,3 +1,4 @@
+#include <fmt/format.h>
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/sr_api.h"
 #include "wiz8/video_object_catalog.h"
@@ -10,7 +11,6 @@
 #include "vsurface.h"
 
 W8_ABI_ASSERT(sizeof(W8VideoObjectSlot) == 8, "W8VideoObjectSlot_size_must_be_8");
-W8_ABI_ASSERT(sizeof(W8VideoFrame) == 0x3c, "W8VideoFrame_size_must_be_0x3c");
 
 /* The retail catalog's omitted fields - the loaded flag, its alignment bytes
    and the handle - are zero in the data image; only the path and mode are
@@ -849,8 +849,8 @@ void EnsureCatalogFrameLoaded(int object, int frame)
                 srAssertFail("VideoObjectsInitialized()", VIDEO_OBJECT_MANAGER_CPP, 0xdd, 0);
             }
             srAssertFail("fReturnCode", VIDEO_OBJECT_MANAGER_CPP, 0x68,
-                         FormatString("LoadVideoObject: ERROR - Add %s failed, type %d",
-                                      record->path, record->storage_kind));
+                         fmt::format("LoadVideoObject: ERROR - Add {} failed, type {:d}",
+                                     record->path, fmt::underlying(record->storage_kind)));
         }
         record->handle = handle;
         record->loaded = true;
@@ -1008,8 +1008,8 @@ void GetCatalogImagePosition(int object, int frame, int image, short* x, short* 
     }
     if (record->storage_kind == W8_VIDEO_STORAGE_OBJECT) {
         GetVideoObject(&video_object, record->handle);
-        *x = video_object->pETRLEObject[subimage].sOffsetX;
-        *y = video_object->pETRLEObject[subimage].sOffsetY;
+        *x = video_object->sprites[subimage].sOffsetX;
+        *y = video_object->sprites[subimage].sOffsetY;
     }
 }
 

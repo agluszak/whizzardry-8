@@ -1,3 +1,4 @@
+#include <string>
 #ifndef WIZ8_LOCAL_CODE_SPELL_EFFECT_H
 #define WIZ8_LOCAL_CODE_SPELL_EFFECT_H
 
@@ -20,7 +21,7 @@ class W8Missile;
 struct W8SpellDamageReport {
     int kind;
     int value;
-    wchar_t text[50];
+    std::string text;
 };
 
 W8_ABI_ASSERT(sizeof(W8SpellDamageReport) == 0x6c, "W8SpellDamageReport_must_be_0x6c");
@@ -53,7 +54,6 @@ W8_ABI_ASSERT(sizeof(W8SpellEffectDefinition) == 0x30, "W8SpellEffectDefinition_
    amount, the number of hits, one count per condition, and the report records
    handed to the message pass. Both the missile and the effect embed this at
    their own offset. */
-#pragma pack(push, 1)
 struct W8SpellEffectResult {
     unsigned int amount;
     unsigned int count;
@@ -73,7 +73,6 @@ struct W8SpellEffectResult {
        replaces it with the rerolled victim. */
     W8CombatSlot target;
 };
-#pragma pack(pop)
 
 W8_ABI_ASSERT(sizeof(W8SpellEffectResult) == 0xa2, "W8SpellEffectResult_must_be_0xa2");
 

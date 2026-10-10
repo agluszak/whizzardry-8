@@ -1,3 +1,4 @@
+#include <string_view>
 #pragma once
 
 #include "Button System.h"
@@ -88,7 +89,7 @@ public:
     /* Create an SGP text button (BUTTON_NO_TOGGLE, priority 0x7f),
        store this in its user-data slot 0 and the payload in slot 1 (read back
        by GetUserData), then install the left-click callback. */
-    bool ConfigureTextButton(const wchar_t* text, unsigned int font, short fore_color,
+    bool ConfigureTextButton(std::string_view text, unsigned int font, short fore_color,
                              short shadow_color, short x, short y, short width, short height,
                              W8DialogButtonCallback left_callback, int user_data);
     /* Configure from an already-loaded vobject; the five state
@@ -109,7 +110,7 @@ private:
     int m_on_hover_frame;
     int m_image_handle;  /* loaded button-image handle */
     int m_button_handle; /* SGP button handle */
-    int m_tooltip_index; /* gppStringList index, or -1 */
+    int m_tooltip_index; /* g_localized_strings index, or -1 */
     W8DialogButtonCallback m_left_callback;
     W8DialogButtonCallback m_right_callback;
     W8DialogButtonCallback m_move_callback;

@@ -1,9 +1,9 @@
+#include <string_view>
 #pragma once
 
 #include "wiz8/filesystem.h"
 
 #include <vector>
-#include <algorithm>
 
 struct W8ChunkHead {
     unsigned int chunk_id; /* 0x00 */
@@ -15,27 +15,29 @@ struct W8ChunkHead {
 
 W8_ABI_ASSERT(sizeof(W8ChunkHead) == 0x0c, "W8ChunkHead_size_must_be_0x0c");
 
-/* Local Code\chunk.cpp. The constructor at 0x0055BCE0 initializes this complete
-   0x48-byte object: the asserted direction state, one head-pointer vector and
-   three std::vector<int> navigation stacks. W8Chunk itself removes and
-   deletes heads; the vector destructor releases only its backing storage. */
+// Runtime navigation is owned value storage; only the ten-byte disk header
+// and four-byte counts form the serialized contract.
 struct W8Chunk {
-    std::unique_ptr<wiz8::File> m_hFile;                            /* 0x00 */
-    bool m_fWriting;                        /* 0x04 */
-    unsigned char padding_05[3];            /* 0x05 */
-    std::vector<W8ChunkHead*> m_heads;      /* 0x08 */
-    std::vector<int> m_group_counts;        /* 0x18 */
-    std::vector<int> m_offsets;             /* 0x28 */
-    std::vector<int> m_group_progress;      /* 0x38 */
+    std::shared_ptr<wiz8::File> m_hFile;
+private:
+    bool m_fWriting = false;
+    std::vector<W8ChunkHead> m_heads;
+    std::vector<int> m_group_counts;
+    std::vector<std::int64_t> m_offsets;
+    std::vector<int> m_group_progress;
 
-    W8Chunk();
-    ~W8Chunk();
+public:
+    W8Chunk() = default;
+    W8Chunk(const W8Chunk&) = delete;
+    W8Chunk& operator=(const W8Chunk&) = delete;
+    ~W8Chunk() = default;
 
-    bool OpenRead(const char* path);
-    bool OpenExistingRiff(const char* path, wiz8::OpenMode mode);
-    bool OpenWrite(const char* path);
-    bool OpenReadWrite(const char* path);
-    bool OpenAppend(const char* path);
+    bool OpenRead(std::string_view path);
+    bool OpenExistingRiff(std::string_view path, wiz8::OpenMode mode);
+    bool OpenWrite(std::string_view path);
+    bool OpenReadWrite(std::string_view path);
+    bool OpenAppend(std::string_view path);
+    bool OpenWrite(std::shared_ptr<wiz8::File> file);
     void Close();
     bool CopyCurrentChunkFrom(W8Chunk* source);
     bool SkipCurrentChunk();
@@ -43,6 +45,7 @@ struct W8Chunk {
     bool ReleaseGroup();
     unsigned int CurrentChunkId();
     int CurrentChunkExtent();
+    std::int64_t CurrentChunkEnd() const;
     int ChunkCount();
     bool OpenChunk(unsigned int chunk_id, unsigned char grouped);
     unsigned char Read(void* buffer, unsigned int size, unsigned int* transferred);
@@ -51,6 +54,6 @@ struct W8Chunk {
     void SetCurrentChunkAtEnd();
     bool ReleaseCurrentChunk();
     unsigned char CurrentChunkAtEnd();
+private:
+    W8ChunkHead& CurrentHead();
 };
-
-W8_ABI_ASSERT(sizeof(W8Chunk) == 0x48, "W8Chunk_size_must_be_0x48");

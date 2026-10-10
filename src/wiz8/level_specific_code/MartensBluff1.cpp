@@ -86,7 +86,7 @@ void MartensBluff1Setup(void)
             FindTriggerByName("Lift2Marten2");
             if (GetLocationVarIDByName("LiftArrived") == -1) {
                 CreateLocationVar("LiftArrived", 1);
-                ShowString(gppStringList[0x71b]);
+                ShowString(g_localized_strings[0x71b]);
             }
         }
     }

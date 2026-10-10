@@ -15,6 +15,7 @@
 #include "wiz8/application.h"
 #include "native/input_events.h"
 #include "temporary_directory.h"
+#include "file_faults.h"
 #include "surrender/srGERD.h"
 #include "surrender/srModelInstance.h"
 #include "wiz8/engine_code/stMeshModel.h"
@@ -265,6 +266,14 @@ class Game
     void key(SDL_Keycode code)
     {
         hold_key(code, true);
+        if (NativeTextInputEnabled() && code >= 32 && code < 127) {
+            const char text[] = {static_cast<char>(code), 0};
+            SDL_Event committed{};
+            committed.type = SDL_EVENT_TEXT_INPUT;
+            committed.text.windowID = SDL_GetWindowID(window_);
+            committed.text.text = text;
+            HandleGameEvent(committed);
+        }
         frame();
         hold_key(code, false);
         frame();
@@ -460,13 +469,7 @@ std::string CreateCharacter(Game& game)
     for (SDL_Keycode key : {SDLK_P, SDLK_R, SDLK_O, SDLK_B, SDLK_E, SDLK_TAB, SDLK_V, SDLK_I})
         game.key(key);
     const W8Character& typed = g_character_screen->m_character;
-    std::string name;
-    for (wchar_t c : typed.name)
-    {
-        if (!c)
-            break;
-        name += char(c);
-    }
+    const std::string name = typed.name;
     REQUIRE("name", !name.empty());
 
     game.click("commit", ControlRegion(g_character_screen->m_next));
@@ -571,14 +574,13 @@ void StartPremadeGame(Game& game)
     W8Character character{};
     REQUIRE("premade", LoadCharacter("vi.CHR", &character, -1, false));
     REQUIRE("premade", character.record_version == 1 && character.uiExpLevel == 1);
-    REQUIRE("premade", character.name[0] == L'v' && character.name[1] == L'i' &&
-                           character.name[2] == 0);
+    REQUIRE("premade", character.name == "vi");
     REQUIRE("premade", character.iProfession == W8_PROFESSION_FIGHTER &&
                            character.iRace == W8_RACE_HUMAN && character.gender == W8_GENDER_MALE);
     REQUIRE("premade", character.hp_current == 18 && character.experience == 0);
     REQUIRE("premade", AddCharacterToParty(&character, -1) >= 0);
     REQUIRE("premade", CountActiveCharacters() == 1);
-    RunNewGameOpeningSequence(false, nullptr);
+    RunNewGameOpeningSequence(false, {});
     WaitMainGame(game, "premade-main-game");
 }
 
@@ -600,6 +602,46 @@ fs::path QuickSave(Game& game)
     game.command(W8_MGS_COMMAND_QUICK_SAVE);
     const auto saves = SaveFiles(game.user_root());
     REQUIRE("quick-save", saves.size() == 1 && fs::file_size(saves[0]) > 0);
+    // Exercise the real quick-save writer, including RIFF extent/count patches.
+    W8SaveScreenshot screenshot{};
+    const auto name = saves[0].stem().string();
+    auto snapshot = [&] {
+        auto file = wiz8::open_host_file(saves[0]);
+        std::string bytes(file->size(), '\0');
+        file->read_exact(bytes.data(), bytes.size());
+        return bytes;
+    };
+    std::size_t operations;
+    { FileFaults trace; REQUIRE("save-trace", SaveGame(name.c_str(), &screenshot)); operations = trace.operations; }
+    const auto before = snapshot();
+    for (std::size_t operation = 1; operation <= operations; ++operation) {
+        { FileFaults fault(operation); REQUIRE("failed-save", !SaveGame(name.c_str(), &screenshot)); REQUIRE("fault-fired", fault.fired); }
+        REQUIRE("save-rollback", snapshot() == before);
+    }
+    REQUIRE("ordinary-save", SaveGame("TransactionRoundtrip", &screenshot));
+    REQUIRE("ordinary-load", GetSaveGameLevel("TransactionRoundtrip") == int(g_status.current_level));
+    wiz8::remove_file("Saves\\TransactionRoundtrip.SAV");
+    // The same transaction handles level-status compaction, including publish failure.
+    REQUIRE("current-save", SaveGame("CurrentGame", &screenshot));
+    REQUIRE("current-load", GetSaveGameLevel("CurrentGame") == int(g_status.current_level));
+    auto current_snapshot = [] {
+        auto file = wiz8::open_file("Saves\\CurrentGame.SAV");
+        std::string bytes(file->size(), '\0');
+        file->read_exact(bytes.data(), bytes.size());
+        return bytes;
+    };
+    std::size_t cleanup_operations;
+    { FileFaults trace; REQUIRE("cleanup-save", SaveLevelStatus("Saves\\CurrentGame.SAV")); cleanup_operations = trace.operations; }
+    const auto current_before = current_snapshot();
+    for (std::size_t operation = 1; operation <= cleanup_operations; ++operation) {
+        { FileFaults fault(operation); REQUIRE("failed-cleanup", !SaveLevelStatus("Saves\\CurrentGame.SAV")); REQUIRE("cleanup-fault-fired", fault.fired); }
+        REQUIRE("cleanup-rollback", current_snapshot() == current_before);
+    }
+    REQUIRE("cleanup-load", GetSaveGameLevel("CurrentGame") == int(g_status.current_level));
+    REQUIRE("cleanup-repeat", SaveLevelStatus("Saves\\CurrentGame.SAV"));
+    REQUIRE("cleanup-repeat-load", GetSaveGameLevel("CurrentGame") == int(g_status.current_level));
+    std::printf("cleanup: preserved the save at all %zu failure points\n", cleanup_operations);
+    std::printf("quick-save: preserved the published save at all %zu I/O failure points\n", operations);
     return saves[0];
 }
 

@@ -71,11 +71,10 @@ wiz8::Application::Application(std::span<const std::string_view> arguments)
         gfIgnoreMessages = FALSE;
         gfLoadAtStartup = gfUsingBoundsChecker = gfCapturingVideo = FALSE;
         gzStringDataOverride.clear();
-        gzErrorMsg[0] = '\0';
+        gzErrorMsg.clear();
         SoundEnableSound(TRUE);
         ParseArguments(arguments);
         wiz8::refresh_asset_archives();
-        gbPixelDepth = W8ReadProfileInt("sgp.ini", "SGP", "PIXEL_DEPTH", PIXEL_DEPTH);
         if (!InitializeInputManager())
             throw std::runtime_error("Input initialization failed");
         if (!InitializeVideoManager())

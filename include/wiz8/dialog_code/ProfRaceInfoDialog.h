@@ -1,3 +1,4 @@
+#include <string_view>
 #pragma once
 
 #include "wiz8/dialog_code/DialogBase.h"
@@ -52,14 +53,14 @@ private:
     /* Renders one text line at a dialog-relative rectangle through a scratch
        W8TextBuffer. */
     void DrawTextLine(unsigned int layout_mode, int left, int top, int width, int height,
-                      const wchar_t* text, int font);
+                      std::string_view text, int font);
 
 protected:
     unsigned int m_uiTitleId;   /* video object catalog id */
     unsigned int m_uiSummaryId; /* image inside the catalog object */
-    unsigned int m_uiNameId;    /* gppStringList index */
-    unsigned int m_uiHeadingId; /* gppStringList index */
-    unsigned int m_uiDetailId;  /* gppStringList index */
+    unsigned int m_uiNameId;    /* g_localized_strings index */
+    unsigned int m_uiHeadingId; /* g_localized_strings index */
+    unsigned int m_uiDetailId;  /* g_localized_strings index */
     int m_minimums[W8_DIALOG_ATTRIBUTE_COUNT];
     W8DialogScrollBar m_scroll_bar;
     W8DialogButton m_button;

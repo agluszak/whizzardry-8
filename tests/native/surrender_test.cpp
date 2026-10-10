@@ -127,16 +127,13 @@ static bool interfaces()
                 CHECK(std::abs(delta[col][row]) < 1e-14);
         srScene scene;
         scene.setAmbientLight(0.3f, 0.4f, 0.5f);
-        CHECK(scene.getAmbientLight() == srVector3T<float>(0.3f, 0.4f, 0.5f));
-        scene.setAmbientLight(srVector3T<float>(0.6f, 0.7f, 0.8f));
-        srVector3T<float> color;
-        scene.getAmbientLight(color);
-        CHECK(color == srVector3T<float>(0.6f, 0.7f, 0.8f));
+        CHECK(scene.getAmbientLight() == glm::vec3(0.3f, 0.4f, 0.5f));
+        scene.setAmbientLight(glm::vec3(0.6f, 0.7f, 0.8f));
+        CHECK(scene.getAmbientLight() == glm::vec3(0.6f, 0.7f, 0.8f));
         scene.setFogColor(0.1f, 0.2f, 0.3f);
-        CHECK(scene.getFogColor() == srVector3T<float>(0.1f, 0.2f, 0.3f));
-        scene.setFogColor(srVector3T<float>(0.4f, 0.5f, 0.6f));
-        scene.getFogColor(color);
-        CHECK(color == scene.getFogColor());
+        CHECK(scene.getFogColor() == glm::vec3(0.1f, 0.2f, 0.3f));
+        scene.setFogColor(glm::vec3(0.4f, 0.5f, 0.6f));
+        CHECK(scene.getFogColor() == glm::vec3(0.4f, 0.5f, 0.6f));
 
         srLight light;
         light.setAmbient(glm::vec3(0.1f, 0.2f, 0.3f));

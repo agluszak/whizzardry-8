@@ -1,3 +1,5 @@
+#include <string>
+#include <string_view>
 #pragma once
 
 #include "Types.h"
@@ -7,7 +9,6 @@
 
 extern "C" {
 extern BOOLEAN gfProgramIsRunning;
-extern UINT8 gbPixelDepth;
 extern BOOLEAN gfLoadAtStartup;
 extern std::string gzStringDataOverride;
 extern BOOLEAN gfUsingBoundsChecker;
@@ -15,12 +16,12 @@ extern BOOLEAN gfCapturingVideo;
 extern BOOLEAN gfApplicationActive;
 extern BOOLEAN gfGameInitialized;
 extern BOOLEAN gfIgnoreMessages;
-extern CHAR8 gzErrorMsg[2048];
+extern std::string gzErrorMsg;
 
 union SDL_Event;
 void HandleGameEvent(const SDL_Event& event);
 bool PumpGameEvents(bool wait = false);
-[[noreturn]] void ShutdownWithErrorBox(const CHAR8* message);
+[[noreturn]] void ShutdownWithErrorBox(std::string_view message);
 }
 
 namespace wiz8 {

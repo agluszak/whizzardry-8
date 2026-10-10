@@ -1,4 +1,7 @@
-#include "wiz8/sgp_text.h"
+#include <fmt/format.h>
+#include <fmt/printf.h>
+#include "wiz8/unicode.h"
+#include <string_view>
 #include "surrender/srCore.h"
 #include "surrender/srGERD.h"
 #include "surrender/srMaterial.h"
@@ -157,7 +160,7 @@ static srVector3T<float> g_weld_min;
 // GLOBAL: WIZ8 0x0065BACC
 static srVector3T<float> g_weld_max;
 // GLOBAL: WIZ8 0x0065BADC
-static char g_log_path[0x200];
+static std::string g_log_path;
 // GLOBAL: WIZ8 0x0065BCDC
 static unsigned int g_weld_stride_x;
 // GLOBAL: WIZ8 0x0065BCE0
@@ -165,7 +168,7 @@ static unsigned int g_weld_stride_y;
 // GLOBAL: WIZ8 0x0065BCE4
 static unsigned int g_weld_stride_z;
 // GLOBAL: WIZ8 0x0065BCE8
-static unsigned short* g_status_lines[6];
+static std::string g_status_lines[6];
 // GLOBAL: WIZ8 0x0065BD0C
 static int g_oct_node_count;
 // GLOBAL: WIZ8 0x0065BD10
@@ -234,7 +237,7 @@ char W8Octree::BuildPreprocessedFiles(const char* level_path)
     int move_oct;
 
     strcpy(level_name, level_path);
-    sprintf(stem, "OctBuild Version %d\n\n", 0x22);
+    snprintf(stem, sizeof(stem), "OctBuild Version %d\n\n", 0x22);
     ReportStartupMessage(stem);
     extension = strrchr(level_name, '.');
     if (extension != 0) {
@@ -243,9 +246,9 @@ char W8Octree::BuildPreprocessedFiles(const char* level_path)
     OctBuildOptions(level_name);
     strcpy(stem, level_name);
     strcat(level_name, ".lvl");
-    sprintf(line, "Processing level %s.\n", level_name);
+    snprintf(line, sizeof(line), "Processing level %s.\n", level_name);
     ReportBuildStatus(6, line);
-    sprintf(line, "%s.log", stem);
+    snprintf(line, sizeof(line), "%s.log", stem);
     ReportBuildStatus(0, line);
     ReportBuildStatus(6, "Now chewing level.\n\n");
     handle = [&]() { try { return wiz8::open_file(level_name, wiz8::OpenMode::read); } catch (const std::exception&) { return std::unique_ptr<wiz8::File>{}; } }();
@@ -257,20 +260,20 @@ char W8Octree::BuildPreprocessedFiles(const char* level_path)
         if (handle) handle->close();
         handle.reset();
         if (built != 0) {
-            sprintf(line, "%s.pvl", stem);
+            snprintf(line, sizeof(line), "%s.pvl", stem);
             if ([&]() { const auto status = wiz8::file_status(line); return status && status->info.type == SDL_PATHTYPE_FILE; }() != 0) {
                 (wiz8::clear_read_only(line), true);
                 wiz8::remove_file(line);
             }
             move_pvl = (wiz8::copy_file("NewLevel.lvl", line, wiz8::CopyMode::replace), true);
             if (move_pvl) wiz8::remove_file("NewLevel.lvl");
-            sprintf(line, "%s.rlk", stem);
+            snprintf(line, sizeof(line), "%s.rlk", stem);
             if ([&]() { const auto status = wiz8::file_status(line); return status && status->info.type == SDL_PATHTYPE_FILE; }() != 0) {
                 ReportStartupMessage(
                     "LINK FILE (.RLK) FOUND! IF THE GEOMETRY HAS CHANGED, THE LINK FILE MAY BE "
                     "OBSOLETE!!!\n");
             }
-            sprintf(line, "%s.oct", stem);
+            snprintf(line, sizeof(line), "%s.oct", stem);
             if ([&]() { const auto status = wiz8::file_status(line); return status && status->info.type == SDL_PATHTYPE_FILE; }() != 0) {
                 (wiz8::clear_read_only(line), true);
                 wiz8::remove_file(line);
@@ -287,8 +290,8 @@ char W8Octree::BuildPreprocessedFiles(const char* level_path)
             }
         }
     }
-    ReportBuildStatus(8, 0);
-    ReportStartupMessage(0);
+    ReportBuildStatus(8, {});
+    ReportStartupMessage({});
     return result;
 }
 
@@ -400,7 +403,7 @@ static unsigned char PreprocessLevel(wiz8::File* handle, char* stem)
                         ++redundant;
                     }
                     if (report) {
-                        sprintf(message, "  %d%% Complete:  %d Redundant Vertices  \r", mark,
+                        snprintf(message, sizeof(message), "  %d%% Complete:  %d Redundant Vertices  \r", mark,
                                 redundant);
                         ReportStartupMessage(message);
                     }
@@ -408,13 +411,13 @@ static unsigned char PreprocessLevel(wiz8::File* handle, char* stem)
                     vertices[i - 1].m_visited = false;
                 } while (i < mesh->num_vertices);
             }
-            sprintf(message, "\n\nNumber of Verticies: %d   Number of polygons: %d\n",
+            snprintf(message, sizeof(message), "\n\nNumber of Verticies: %d   Number of polygons: %d\n",
                     mesh->num_vertices, mesh->num_faces);
             ReportBuildStatus(6, message);
-            sprintf(message, "Number of Redundant Verticies: %d\n", redundant);
+            snprintf(message, sizeof(message), "Number of Redundant Verticies: %d\n", redundant);
             ReportBuildStatus(6, message);
             ReportBuildStatus(6, "\nReading GameData...\n");
-            sprintf(message, "%s.wgd", stem);
+            snprintf(message, sizeof(message), "%s.wgd", stem);
             value = ReadGameData(message, true);
             if (value == 0) {
                 ReportBuildStatus(7, "\n Error -- Cannot load or find game data.\n");
@@ -480,27 +483,27 @@ static unsigned char PreprocessLevel(wiz8::File* handle, char* stem)
                         sun_count = last_sun;
                     }
                     ReportBuildStatus(6, "\nOctree Statistics:\n==========================\n");
-                    sprintf(message, "Width of Level: %f\t\tTree Depth: %d\n",
+                    snprintf(message, sizeof(message), "Width of Level: %f\t\tTree Depth: %d\n",
                             build_tree->spatial.m_extent, build_tree->spatial.m_depth);
                     ReportBuildStatus(6, message);
-                    sprintf(message, "Width of Leaves: %f,  %f metres\n",
+                    snprintf(message, sizeof(message), "Width of Leaves: %f,  %f metres\n",
                             build_tree->spatial.m_node_extent,
                             (build_tree->spatial.m_node_extent * g_float_one_five_hundredth));
                     ReportBuildStatus(6, message);
-                    sprintf(message, "Width of auto-generated regions: %f metres\n",
+                    snprintf(message, sizeof(message), "Width of auto-generated regions: %f metres\n",
                             (build_tree->spatial.m_region_grid_cell * g_float_one_five_hundredth));
                     g_oct_node_count = GetBuildNodeInstanceCount();
                     g_oct_max_objects = build_tree->deepest_link_list;
                     ReportBuildStatus(3, message);
-                    sprintf(message, "World Minimum Corner: \t%f  \t%f  \t%f\n",
+                    snprintf(message, sizeof(message), "World Minimum Corner: \t%f  \t%f  \t%f\n",
                             build_tree->spatial.m_minimum.x, build_tree->spatial.m_minimum.y,
                             build_tree->spatial.m_minimum.z);
                     ReportBuildStatus(6, message);
-                    sprintf(message, "World Maximum Corner: \t%f  \t%f  \t%f\n",
+                    snprintf(message, sizeof(message), "World Maximum Corner: \t%f  \t%f  \t%f\n",
                             build_tree->spatial.m_maximum.x, build_tree->spatial.m_maximum.y,
                             build_tree->spatial.m_maximum.z);
                     ReportBuildStatus(6, message);
-                    sprintf(message, "World Dimensions:\n\tX: %fm  \tY: %fm  \tZ: %fm\n",
+                    snprintf(message, sizeof(message), "World Dimensions:\n\tX: %fm  \tY: %fm  \tZ: %fm\n",
                             ((build_tree->spatial.m_clipped_maximum.x -
                               build_tree->spatial.m_clipped_minimum.x) *
                              g_float_one_five_hundredth),
@@ -525,25 +528,25 @@ static unsigned char PreprocessLevel(wiz8::File* handle, char* stem)
                         value->AddLinkedRecord(record->vertices, record->normal_scale,
                                                record->forward_scale, &record->linked_face);
                     }
-                    value->geometry_index = build_tree;
+                    value->geometry_index.reset(build_tree);
                     value->CompileGameData();
-                    for (i = 0; i < value->m_iNumSurfaces; ++i) {
+                    for (i = 0; i < value->SurfacesCount(); ++i) {
                         W8OctRegionPolygon* surface = g_gd_polygons + i;
                         if (build_tree->InsertSurface(surface, 3) == 0) {
-                            sprintf(message,
+                            snprintf(message, sizeof(message),
                                     "Warning: GD Polygon %d cannot be inserted into tree\n", i);
                             ReportBuildStatus(6, message);
-                            sprintf(message, "\tVertex 1: \t%f  \t%f  \t%f\n",
+                            snprintf(message, sizeof(message), "\tVertex 1: \t%f  \t%f  \t%f\n",
                                     surface->vertices[0]->position.x,
                                     surface->vertices[0]->position.y,
                                     surface->vertices[0]->position.z);
                             ReportBuildStatus(6, message);
-                            sprintf(message, "\tVertex 2: \t%f  \t%f  \t%f\n",
+                            snprintf(message, sizeof(message), "\tVertex 2: \t%f  \t%f  \t%f\n",
                                     surface->vertices[1]->position.x,
                                     surface->vertices[1]->position.y,
                                     surface->vertices[1]->position.z);
                             ReportBuildStatus(6, message);
-                            sprintf(message, "\tVertex 3: \t%f  \t%f  \t%f\n\n",
+                            snprintf(message, sizeof(message), "\tVertex 3: \t%f  \t%f  \t%f\n\n",
                                     surface->vertices[2]->position.x,
                                     surface->vertices[2]->position.y,
                                     surface->vertices[2]->position.z);
@@ -581,7 +584,7 @@ static unsigned char PreprocessLevel(wiz8::File* handle, char* stem)
                     tree->m_spatial.SetWorkingBounds(&g_weld_min, &g_weld_max);
                     tree->m_alpha_polygon_count = alpha_polys;
                     value->octree = tree;
-                    sprintf(message, "Poly List Len: %d\n", static_cast<int>(tree->polygon_cursor));
+                    snprintf(message, sizeof(message), "Poly List Len: %d\n", static_cast<int>(tree->polygon_cursor));
                     ReportBuildStatus(6, message);
                     tree->m_spatial.m_polygon_count = geometry.m_polygon_count;
                     SetOctreeGameData(value);
@@ -595,7 +598,7 @@ static unsigned char PreprocessLevel(wiz8::File* handle, char* stem)
                                 (i * g_octree_cell_scale / geometry.vertex_count));
                             if (mark + 10 < percent) {
                                 mark += 10;
-                                sprintf(message, "  %d%% Complete:  %d Vertices Lit \r", mark, i);
+                                snprintf(message, sizeof(message), "  %d%% Complete:  %d Vertices Lit \r", mark, i);
                                 ReportStartupMessage(message);
                             }
                             if (AccumulateVertexLight(tree, vertices + i, light_total, lights,
@@ -615,38 +618,38 @@ static unsigned char PreprocessLevel(wiz8::File* handle, char* stem)
                             }
                         }
                         int combinations = live_lights * i;
-                        sprintf(message, "\n\n%d vertices, %d lights\n",
+                        snprintf(message, sizeof(message), "\n\n%d vertices, %d lights\n",
                                 static_cast<int>(geometry.vertex_count), light_total);
                         ReportBuildStatus(6, message);
-                        sprintf(message, "%d possible light/vertex combinations \n", combinations);
+                        snprintf(message, sizeof(message), "%d possible light/vertex combinations \n", combinations);
                         ReportBuildStatus(6, message);
                         if (combinations != 0) {
-                            sprintf(message,
+                            snprintf(message, sizeof(message),
                                     "%d (%d percent) combinations within lighting "
                                     "distance\n",
                                     g_light_candidates, g_light_candidates * 100 / combinations);
                             ReportBuildStatus(6, message);
                         }
                         if (g_light_candidates != 0) {
-                            sprintf(message, "%d (%d percent) of these face light\n",
+                            snprintf(message, sizeof(message), "%d (%d percent) of these face light\n",
                                     g_lights_facing, g_lights_facing * 100 / g_light_candidates);
                             ReportBuildStatus(6, message);
                         }
                         if (g_lights_facing != 0) {
-                            sprintf(message,
+                            snprintf(message, sizeof(message),
                                     "%d (%d percent) of these were blocked by vertex "
                                     "shadowing\n",
                                     g_lights_facing - g_lights_unblocked,
                                     100 - g_lights_unblocked * 100 / g_lights_facing);
                             ReportBuildStatus(6, message);
-                            sprintf(message,
+                            snprintf(message, sizeof(message),
                                     "%d (%d percent) submitted were not blocked by "
                                     "shadowing\n",
                                     g_lights_unblocked, g_lights_unblocked * 100 / g_lights_facing);
                             ReportBuildStatus(6, message);
                         }
                         if (geometry.vertex_count != 0) {
-                            sprintf(message,
+                            snprintf(message, sizeof(message),
                                     "%d (%d percent) of vertices actually receive "
                                     "light\n",
                                     lit_vertices,
@@ -679,7 +682,7 @@ static unsigned char PreprocessLevel(wiz8::File* handle, char* stem)
                                     }
                                 }
                             }
-                            sprintf(message, "%d of %d props receive sunlight\n",
+                            snprintf(message, sizeof(message), "%d of %d props receive sunlight\n",
                                     sun_bits->CountSetBits(),
                                     static_cast<char>((level->nProps << 1)));
                             ReportBuildStatus(6, message);
@@ -691,7 +694,7 @@ static unsigned char PreprocessLevel(wiz8::File* handle, char* stem)
                     if (result == 0) {
                         ReportBuildStatus(7, "Could not generate polygon list by regions.\n");
                     } else {
-                        sprintf(message, "%d Textures, \t%d Materials\n",
+                        snprintf(message, sizeof(message), "%d Textures, \t%d Materials\n",
                                 static_cast<int>(geometry.m_texture_count),
                                 static_cast<int>(geometry.m_material_count));
                         ReportBuildStatus(6, message);
@@ -701,10 +704,10 @@ static unsigned char PreprocessLevel(wiz8::File* handle, char* stem)
                         } else {
                             ReportBuildStatus(6, "\nCreating Submeshes ------------------------\n");
                             submeshes = tree->CreateSubMeshes(&geometry);
-                            sprintf(message, "Number of Submeshes: %d\n",
+                            snprintf(message, sizeof(message), "Number of Submeshes: %d\n",
                                     static_cast<int>(tree->GetMeshCount()));
                             ReportBuildStatus(6, message);
-                            sprintf(message,
+                            snprintf(message, sizeof(message),
                                     "   %d Normal,   %d Sutractive Alpha,   %d "
                                     "Additive Alpha\n",
                                     static_cast<int>(tree->m_root_mesh_count),
@@ -729,10 +732,10 @@ static unsigned char PreprocessLevel(wiz8::File* handle, char* stem)
                             } else {
                                 tree->m_spatial.GetWorkingBounds(&bound_min, &bound_max);
                                 ReportBuildStatus(6, "Graphic Data Bounding Box:\n");
-                                sprintf(message, "     Minimum: %f   %f   %f\n", bound_min.x,
+                                snprintf(message, sizeof(message), "     Minimum: %f   %f   %f\n", bound_min.x,
                                         bound_min.y, bound_min.z);
                                 ReportBuildStatus(6, message);
-                                sprintf(message, "     Maximum: %f   %f   %f\n\n", bound_max.x,
+                                snprintf(message, sizeof(message), "     Maximum: %f   %f   %f\n\n", bound_max.x,
                                         bound_max.y, bound_max.z);
                                 ReportBuildStatus(6, message);
                                 ReportBuildStatus(6, "\nWriting Oct File...\n");
@@ -756,7 +759,7 @@ static unsigned char PreprocessLevel(wiz8::File* handle, char* stem)
                                 fmt = "Submesh %d:  \t%d Faces,  \t%d Vertices  "
                                       "\t(Additive Alpha)";
                             }
-                            sprintf(message, fmt, i, submeshes[i].m_polygon_count,
+                            snprintf(message, sizeof(message), fmt, i, submeshes[i].m_polygon_count,
                                     submeshes[i].m_vertex_count);
                             strcat(message, static_cast<int>(tree->m_spatial.m_region_count) <= i
                                                 ? "\n"
@@ -765,10 +768,10 @@ static unsigned char PreprocessLevel(wiz8::File* handle, char* stem)
                             total_vertices += submeshes[i].m_vertex_count;
                             total_faces += submeshes[i].m_polygon_count;
                         }
-                        sprintf(message, "Totals:      \t%d Faces,  \t%d Vertices\n", total_faces,
+                        snprintf(message, sizeof(message), "Totals:      \t%d Faces,  \t%d Vertices\n", total_faces,
                                 total_vertices);
                         ReportBuildStatus(6, message);
-                        sprintf(message, "Total duplicated vertices: %d\n",
+                        snprintf(message, sizeof(message), "Total duplicated vertices: %d\n",
                                 total_vertices - static_cast<int>(geometry.vertex_count));
                         ReportBuildStatus(6, message);
                         file = [&]() { try { return wiz8::open_file("NewLevel.lvl", wiz8::OpenMode::replace); } catch (const std::exception&) { return std::unique_ptr<wiz8::File>{}; } }();
@@ -828,23 +831,23 @@ static unsigned char PreprocessLevel(wiz8::File* handle, char* stem)
 }
 
 // FUNCTION: WIZ8 0x00497690
-void ReportBuildStatus(short channel, const char* message)
+void ReportBuildStatus(short channel, std::string_view message)
 {
-    char line[120];
+    std::string line;
 
-    auto log = [](const char* text) { g_log_file->write(text, strlen(text)); };
+    auto log = [](std::string_view text) { g_log_file->write(text.data(), text.size()); };
     try {
     switch (channel) {
     case 0:
         if (g_log_file == 0) {
             g_progress_total = 0;
             g_progress_done = 0;
-            if (message == 0) {
+            if (message.empty()) {
                 g_log_file = wiz8::open_file(g_log_path, wiz8::OpenMode::replace);
                 return;
             }
-            if (*message != '\0') {
-                strcpy(g_log_path, message);
+            if (!message.empty()) {
+                g_log_path = message;
                 if (g_option_logging) {
                     g_log_file = wiz8::open_file(message, wiz8::OpenMode::replace);
                     return;
@@ -861,7 +864,6 @@ void ReportBuildStatus(short channel, const char* message)
         break;
     case 7:
         if (g_log_file != 0) {
-            sprintf(line, "ERROR: %s", message);
             log("\n\n");
             log(message);
             if (g_log_file) g_log_file->close();
@@ -874,7 +876,7 @@ void ReportBuildStatus(short channel, const char* message)
         if (g_progress_mark + 10 <
             static_cast<unsigned int>((g_progress_done * 100.0f / g_progress_total))) {
             g_progress_mark += 10;
-            sprintf(line, "  %d%% Complete \r", g_progress_mark);
+            line = fmt::format("  {:d}% Complete \r", g_progress_mark);
             ReportStartupMessage(line);
             return;
         }
@@ -885,10 +887,10 @@ void ReportBuildStatus(short channel, const char* message)
     case 3:
         if (g_log_file != 0) {
             log(message);
-            snprintf(line, sizeof(line), "Number of Nodes: %d             Number of Leaves: %d\n",
-                    g_oct_node_count, g_progress_total);
+            line = fmt::format("Number of Nodes: {:d}             Number of Leaves: {:d}\n",
+                               g_oct_node_count, g_progress_total);
             log(line);
-            snprintf(line, sizeof(line), "Most Objects in Any Node: %d\n\n", g_oct_max_objects);
+            line = fmt::format("Most Objects in Any Node: {:d}\n\n", g_oct_max_objects);
             log(line);
             return;
         }
@@ -913,11 +915,11 @@ void ReportBuildStatus(short channel, const char* message)
 }
 
 // FUNCTION: WIZ8 0x004969D0
-void ReportStartupMessage(const char* message)
+void ReportStartupMessage(std::string_view message)
 {
     static EnvironmentColour s_black;
     static EnvironmentColour s_saved_colour;
-    unsigned short* line;
+    std::string* line;
     short length;
     bool scroll;
     bool scrolled;
@@ -925,10 +927,10 @@ void ReportStartupMessage(const char* message)
     int top;
 
     scrolled = false;
-    if (message == 0) {
+    if (message.empty()) {
         if (!g_status_buffers_freed) {
             for (index = 0; index < 6; ++index) {
-                delete g_status_lines[index];
+                g_status_lines[index].clear();
             }
             g_status_buffers_freed = true;
         }
@@ -937,9 +939,7 @@ void ReportStartupMessage(const char* message)
     }
     if (g_status_buffers_freed) {
         for (index = 0; index < 6; ++index) {
-            unsigned short* buffer = new unsigned short[0x100];
-            g_status_lines[index] = buffer;
-            memset(buffer, 0, 0x100 * sizeof(unsigned short));
+            g_status_lines[index].clear();
         }
         GetWorldColour(&s_saved_colour);
         PublishLightDirection(&s_black);
@@ -948,32 +948,21 @@ void ReportStartupMessage(const char* message)
     if (g_status_cursor < 6) {
         index = g_status_cursor;
         ++g_status_cursor;
-        line = g_status_lines[index];
+        line = &g_status_lines[index];
     } else {
-        line = g_status_lines[5];
+        line = &g_status_lines[5];
         if (g_status_scroll) {
-            unsigned short* oldest = g_status_lines[0];
-            for (index = 0; index < 5; ++index) {
-                g_status_lines[index] = g_status_lines[index + 1];
-            }
-            g_status_lines[5] = oldest;
+            std::rotate(std::begin(g_status_lines), std::begin(g_status_lines) + 1,
+                        std::end(g_status_lines));
             scrolled = true;
-            line = oldest;
+            line = &g_status_lines[5];
         }
     }
-    scroll = true;
-    length = 0;
-    while (*message != '\0') {
-        if (*message > '\x1f') {
-            line[length] = static_cast<unsigned short>(*message);
-            ++length;
-        }
-        if (*message == '\r' && message[1] == '\0') {
-            scroll = false;
-        }
-        ++message;
+    scroll = !message.ends_with('\r');
+    line->clear();
+    for (const unsigned char byte : message) {
+        if (byte > 0x1f) line->push_back(static_cast<char>(byte));
     }
-    line[length] = 0;
     SetFont(g_smfnt_font);
     SetRGBFontShadow(0, 0, 0);
     SetFontObjectPalette16BPP(g_smfnt_font, g_font_state_palettes[W8_FONT_PALETTE_YELLOW].get());
@@ -981,7 +970,7 @@ void ReportStartupMessage(const char* message)
         ClearSurfaceRect(0, 400, 0x27f, 0x1df);
         index = 0x191;
         for (top = 0; top < 6; ++top) {
-            gprintfDirty(1, index, const_cast<CHAR16*>(L"%s"), g_status_lines[top]);
+            DrawFontTextDirty(1, index, fmt::sprintf(const_cast<char*>("%s"), g_status_lines[top]));
             index += 0xd;
         }
         InvalidateRegion(0, 400, 0x27f, 0x1df, 4);
@@ -989,7 +978,7 @@ void ReportStartupMessage(const char* message)
         index = (g_status_cursor - 1) * 0xd;
         top = index + 400;
         ClearSurfaceRect(0, top, 0x27f, g_status_cursor * 0xd + 400);
-        gprintfDirty(1, index + 0x191, const_cast<CHAR16*>(L"%s"), line);
+        DrawFontTextDirty(1, index + 0x191, *line);
         InvalidateRegion(0, top, 0x27f, g_status_cursor * 0xd + 400, 4);
     }
     g_status_scroll = scroll;
@@ -1117,7 +1106,7 @@ static int BuildRegionPolygons(W8LevelFile* level, W8OctPreTreeGeometry* geometr
     W8OctRegionPolygon* polygons;
     W8OctRegionPolygon* polygon;
     W8OctRegionPolygon* back;
-    W8ReadMeshFace* face;
+    W8SerializedMeshFace* face;
     W8OctPreTreeVertex* current;
     W8OctPreTreeVertex* created;
 
@@ -1143,7 +1132,7 @@ static int BuildRegionPolygons(W8LevelFile* level, W8OctPreTreeGeometry* geometr
         do {
             if (last_percent < static_cast<int>((ordinal * 100.0f / poly_total))) {
                 ++last_percent;
-                sprintf(message, "  %d%% Complete:  %d Polygons processed \r", last_percent,
+                snprintf(message, sizeof(message), "  %d%% Complete:  %d Polygons processed \r", last_percent,
                         ordinal);
                 ReportStartupMessage(message);
             }
@@ -1151,21 +1140,21 @@ static int BuildRegionPolygons(W8LevelFile* level, W8OctPreTreeGeometry* geometr
             ++face->vertices[1];
             ++face->vertices[2];
             if (face->vertices[0] < 1 || mesh->num_vertices <= face->vertices[0]) {
-                sprintf(message, "Mesh Read: Polygon %d Vertex 0 has invalid index: %d.", ordinal,
+                snprintf(message, sizeof(message), "Mesh Read: Polygon %d Vertex 0 has invalid index: %d.", ordinal,
                         face->vertices[0]);
                 goto invalid;
             }
             if (face->vertices[1] < 1 || mesh->num_vertices <= face->vertices[1]) {
-                sprintf(message, "Mesh Read: Polygon %d Vertex 1 has invalid index: %d.", ordinal,
+                snprintf(message, sizeof(message), "Mesh Read: Polygon %d Vertex 1 has invalid index: %d.", ordinal,
                         face->vertices[1]);
                 goto invalid;
             }
             if (face->vertices[2] < 1 || mesh->num_vertices <= face->vertices[2]) {
-                sprintf(message, "Mesh Read: Polygon %d Vertex 2 has invalid index: %d.", ordinal,
+                snprintf(message, sizeof(message), "Mesh Read: Polygon %d Vertex 2 has invalid index: %d.", ordinal,
                         face->vertices[2]);
                 goto invalid;
             }
-            polygon->face = *face;
+            polygon->face = DecodeMeshFace(*face);
             polygon->ordinal = ordinal;
             polygon->material = face->material_index;
             for (corner = 0; corner < 3; ++corner) {
@@ -1296,8 +1285,8 @@ static int BuildRegionPolygons(W8LevelFile* level, W8OctPreTreeGeometry* geometr
                         back->face.vertices[0] = vertex_index[1];
                         back->face.vertices[1] = vertex_index[0];
                         back->face.vertices[2] = vertex_index[2];
-                        back->face.texture_coordinates[0] = face->texture_coordinates[1];
-                        back->face.texture_coordinates[1] = face->texture_coordinates[0];
+                        back->face.texture_coordinates[0] = polygon->face.texture_coordinates[1];
+                        back->face.texture_coordinates[1] = polygon->face.texture_coordinates[0];
                         ++mesh->num_faces;
                     }
                 }
@@ -1310,18 +1299,18 @@ static int BuildRegionPolygons(W8LevelFile* level, W8OctPreTreeGeometry* geometr
     geometry->vertex_count = mesh->num_vertices;
     geometry->m_polygon_count = mesh->num_faces;
     geometry->m_polygons = polygons;
-    sprintf(message, "  100%% Complete:  %d Polygons processed \r", ordinal);
+    snprintf(message, sizeof(message), "  100%% Complete:  %d Polygons processed \r", ordinal);
     ReportBuildStatus(6, message);
-    sprintf(message, "Number of Two-sided Polys (Polys added): %d\n", mesh->num_faces - poly_total);
+    snprintf(message, sizeof(message), "Number of Two-sided Polys (Polys added): %d\n", mesh->num_faces - poly_total);
     ReportBuildStatus(6, message);
-    sprintf(message, "Number of Non-Alpha Polys: %d\n", kind_counts[0]);
+    snprintf(message, sizeof(message), "Number of Non-Alpha Polys: %d\n", kind_counts[0]);
     ReportBuildStatus(6, message);
-    sprintf(message, "Number of Subtractive Alpha Polys: %d\n", kind_counts[1]);
+    snprintf(message, sizeof(message), "Number of Subtractive Alpha Polys: %d\n", kind_counts[1]);
     ReportBuildStatus(6, message);
-    sprintf(message, "Number of Additive Alpha Polys: %d\n", kind_counts[2]);
+    snprintf(message, sizeof(message), "Number of Additive Alpha Polys: %d\n", kind_counts[2]);
     ReportBuildStatus(6, message);
     if (degenerate_count != 0) {
-        sprintf(message, "Number of Degenerate Polys: %d\n", degenerate_count);
+        snprintf(message, sizeof(message), "Number of Degenerate Polys: %d\n", degenerate_count);
         ReportBuildStatus(6, message);
     }
     ReportBuildStatus(6, "\n");
@@ -1433,7 +1422,7 @@ static unsigned char SplitVerticesByMaterial(W8OctPreTreeGeometry* geometry)
     }
     memset(vertices, 0, slot * sizeof(*vertices));
     memcpy(vertices, split, slot * sizeof(*vertices));
-    sprintf(message, "Split %d vertices into %d new vertices--ratio is 1 to %.1f.\n\n",
+    snprintf(message, sizeof(message), "Split %d vertices into %d new vertices--ratio is 1 to %.1f.\n\n",
             static_cast<int>(geometry->vertex_count), next,
             next / static_cast<double>(geometry->vertex_count));
     ReportBuildStatus(6, message);
@@ -1560,7 +1549,7 @@ static unsigned char* ClassifyTextures(W8MaterialRecord* textures, int count, ch
 {
     char folder[1024];
     char texture[1024];
-    char path[1024];
+    std::string path;
     char message[1024];
     unsigned char more;
     unsigned char* kinds;
@@ -1621,36 +1610,36 @@ static unsigned char* ClassifyTextures(W8MaterialRecord* textures, int count, ch
             if (texture[0] == '\0') {
                 kind = 3;
             } else {
-                sprintf(path, "%s%s", folder, texture);
+                path = fmt::format("{}{}", folder, texture);
                 file = [&]() { try { return wiz8::open_file(path, wiz8::OpenMode::read); } catch (const std::exception&) { return std::unique_ptr<wiz8::File>{}; } }();
                 if (file == 0) {
                     g_prop_sun_bits->Set(index);
                     ++missing;
-                    sprintf(message, "Could not find texture file %s.\n", path);
+                    snprintf(message, sizeof(message), "Could not find texture file %s.\n", path.c_str());
                     ReportBuildStatus(5, message);
                 } else {
-                    if (_stricmp(path + strlen(path) - 4, "ifl") == 0) {
+                    if (path.size() >= 4 && SDL_strcasecmp(path.c_str() + path.size() - 4, ".ifl") == 0) {
                         ReadTextLine(file.get(), texture, 0x3ff, &more);
                         if (file) file->close();
                         file.reset();
-                        sprintf(path, "%s%s", folder, texture);
+                        path = fmt::format("{}{}", folder, texture);
                         file = [&]() { try { return wiz8::open_file(path, wiz8::OpenMode::read); } catch (const std::exception&) { return std::unique_ptr<wiz8::File>{}; } }();
                     }
                     if (file == 0) {
                         g_prop_sun_bits->Set(index);
                         ++missing;
-                        sprintf(message, "Could not find texture file %s.\n", path);
+                        snprintf(message, sizeof(message), "Could not find texture file %s.\n", path.c_str());
                         ReportBuildStatus(5, message);
                     } else {
                         if (file) file->close();
                         file.reset();
                         if (probe == 0) {
-                            probe = new stTextureFile(path, 1);
+                            probe = new stTextureFile(path.c_str(), 1);
                         } else {
-                            probe->setFileName(path);
+                            probe->setFileName(path.c_str());
                         }
                         if (probe == 0) {
-                            sprintf(message, "Could not create stTextureFile object.\n");
+                            snprintf(message, sizeof(message), "Could not create stTextureFile object.\n");
                             ReportBuildStatus(7, message);
                             return 0;
                         }
@@ -1664,7 +1653,7 @@ static unsigned char* ClassifyTextures(W8MaterialRecord* textures, int count, ch
             kinds[index] = kind;
         }
         if (missing != 0) {
-            sprintf(message, "%d missing texture names found!\n", missing);
+            snprintf(message, sizeof(message), "%d missing texture names found!\n", missing);
             ReportBuildStatus(6, message);
         }
     }
@@ -1752,7 +1741,7 @@ static unsigned char MaterialSort(W8OctPreTreeGeometry* geometry, W8MaterialReco
                 strcpy(texture_names + scan * 0x200, name);
                 ++texture_count;
             }
-            sprintf(name, "Mat:%1.2f %1.2f %1.2f %1.2f %1.2f %1.2f %1.2f %1.2f %1.2f %d %c",
+            snprintf(name, sizeof(name), "Mat:%1.2f %1.2f %1.2f %1.2f %1.2f %1.2f %1.2f %1.2f %1.2f %d %c",
                     record->diffuse.x, record->diffuse.y, record->diffuse.z, record->specular.x,
                     record->specular.y, record->specular.z, record->shininess, record->opacity,
                     record->emission, static_cast<int>(record->surface_flags), classify[index]);
@@ -1794,7 +1783,7 @@ static unsigned char MaterialSort(W8OctPreTreeGeometry* geometry, W8MaterialReco
             polygon->material = material_lookup[polygon->material];
         }
         if (missing != 0) {
-            sprintf(name, "\nWARNING!!! Missing textures assigned to %d polys!\n", missing);
+            snprintf(name, sizeof(name), "\nWARNING!!! Missing textures assigned to %d polys!\n", missing);
             ReportBuildStatus(6, name);
         }
     }
@@ -1816,8 +1805,7 @@ void W8Octree::OctBuildOptions(char* stem)
     bool done = g_build_level_links;
     EnvironmentColour colour_saved;
     EnvironmentColour colour_backup;
-    char* lines[7];
-    unsigned short* wide[7];
+    std::string lines[7];
     char log_state[8];
     char rename_state[8];
     char mesh_state[8];
@@ -1840,12 +1828,6 @@ void W8Octree::OctBuildOptions(char* stem)
     SetFontObjectPalette16BPP(g_smfnt_font, g_font_state_palettes[W8_FONT_PALETTE_YELLOW].get());
     edit_char[0] = 0;
     edit_char[4] = 0;
-    for (index = 0; index < 7; ++index) {
-        lines[index] = new char[0x100];
-        memset(lines[index], 0, 0x100);
-        wide[index] = new unsigned short[0x100];
-        memset(wide[index], 0, 0x200);
-    }
     strcpy(log_state, "OFF");
     if (!g_option_pathing) {
         strcpy(pathing_state, "OFF");
@@ -1860,28 +1842,29 @@ void W8Octree::OctBuildOptions(char* stem)
         edit_mode = 0;
         for (;;) {
             const char* prompt;
-            sprintf(lines[0], "OCTBUILD VERSION %d -- OPTIONS: ", 0x22);
-            sprintf(lines[1], "(L)og %s               ", log_state);
+            lines[0] = fmt::format("OCTBUILD VERSION {:d} -- OPTIONS: ", 0x22);
+            lines[1] = fmt::format("(L)og {}               ", log_state);
             if (!g_option_pathing) {
-                sprintf(lines[2], "(P)athing %s                                         ",
-                        pathing_state);
+                lines[2] = fmt::format("(P)athing {}                                         ",
+                                       pathing_state);
             } else {
-                sprintf(lines[2],
-                        "(P)athing %s    (N)ode Spacing: %5.2fm    (H)ead Room:   %5.2fm"
-                        "    (D)elete Percentage: %d",
-                        pathing_state, (g_option_path_node_spacing * g_float_one_five_hundredth),
-                        (g_option_path_head_room * g_float_one_five_hundredth),
-                        g_option_delete_percentage);
+                lines[2] = fmt::format("(P)athing {}    (N)ode Spacing: {:5.2f}m    (H)ead Room:   "
+                                       "{:5.2f}m    (D)elete Percentage: {:d}",
+                                       pathing_state,
+                                       (g_option_path_node_spacing * g_float_one_five_hundredth),
+                                       (g_option_path_head_room * g_float_one_five_hundredth),
+                                       g_option_delete_percentage);
             }
-            sprintf(lines[3], "(R)ename Alphas %s    (M)esh Linking %s", rename_state, mesh_state);
-            sprintf(lines[4],
-                    "Min. Leaf (S)ize %5.2fm    Max. Leaf (C)ount %d    (A)uto Region"
-                    " Size %5.2fm     ",
-                    (g_option_min_leaf_size * g_float_one_five_hundredth), g_option_max_leaf_count,
-                    (g_option_auto_region_size * g_float_one_five_hundredth));
-            sprintf(lines[5], "Hit ENTER to accept,  ESC to cancel and exit");
+            lines[3] =
+                fmt::format("(R)ename Alphas {}    (M)esh Linking {}", rename_state, mesh_state);
+            lines[4] = fmt::format("Min. Leaf (S)ize {:5.2f}m    Max. Leaf (C)ount {:d}    (A)uto "
+                                   "Region Size {:5.2f}m     ",
+                                   (g_option_min_leaf_size * g_float_one_five_hundredth),
+                                   g_option_max_leaf_count,
+                                   (g_option_auto_region_size * g_float_one_five_hundredth));
+            lines[5] = "Hit ENTER to accept,  ESC to cancel and exit";
             if (edit_mode == 0) {
-                sprintf(lines[6], "                                            ");
+                lines[6] = "                                            ";
             } else {
                 if (edit_mode == 1) {
                     prompt = " Path Node Spacing: %s"
@@ -1902,19 +1885,13 @@ void W8Octree::OctBuildOptions(char* stem)
                     prompt = " Delete path node groups less than this %% of the total: %s"
                              "       ";
                 }
-                sprintf(lines[6], prompt, edit_buffer);
+                lines[6] = fmt::sprintf(prompt, edit_buffer);
             }
             ClearSurfaceRect(0, 0x183, 0x27f, 0x1df);
             for (line = 0; line < 7; ++line) {
-                for (length = 0; lines[line][length] != '\0' && length < 0x5a; ++length) {
-                    wide[line][length] = static_cast<short>(lines[line][length]);
-                }
-                while (length < 0x5a) {
-                    wide[line][length] = 0x20;
-                    ++length;
-                }
-                wide[line][length] = 0;
-                gprintfDirty(1, 0x184 + line * 0xd, Wiz8ToSgpWideText(g_format_s), wide[line]);
+                auto display = lines[line].substr(0, wiz8::text::codepoint_prefix(lines[line], 90));
+                if (display.size() < 90) display.append(90 - display.size(), ' ');
+                DrawFontTextDirty(1, 0x184 + line * 0xd, display);
             }
             InvalidateRegion(0, 0x183, 0x27f, 0x1df, 4);
             while (gfProgramIsRunning && DequeueEvent(&atom) == 0) {
@@ -2027,23 +2004,13 @@ void W8Octree::OctBuildOptions(char* stem)
     }
 accepted:
     ClearSurfaceRect(0, 0x183, 0x27f, 0x1df);
-    sprintf(lines[1], "OCTBUILD VERSION %d -- Preprocessing %s: ", 0x22, stem);
-    for (length = 0; lines[1][length] != '\0' && length < 0x5a; ++length) {
-        wide[1][length] = static_cast<short>(lines[1][length]);
-    }
-    while (length < 0x5a) {
-        wide[1][length] = 0x20;
-        ++length;
-    }
-    wide[1][length] = 0;
-    gprintfDirty(1, 0x184, Wiz8ToSgpWideText(g_format_s), wide[1]);
+    lines[1] = fmt::format("OCTBUILD VERSION {:d} -- Preprocessing {}: ", 0x22, stem);
+    auto display = lines[1].substr(0, wiz8::text::codepoint_prefix(lines[1], 90));
+    if (display.size() < 90) display.append(90 - display.size(), ' ');
+    DrawFontTextDirty(1, 0x184, display);
     InvalidateRegion(0, 0x183, 0x27f, 0x1df, 4);
     RenderFrame();
     RenderFrame();
-    for (index = 0; index < 7; ++index) {
-        delete[] lines[index];
-        delete[] wide[index];
-    }
     PublishLightDirection(&colour_saved);
 }
 
@@ -2079,7 +2046,7 @@ W8MeshMaterial LoadMaterial(const char* bitmap_folder, const W8MaterialRecord& r
             if (bitmap_folder[0] == '\0') {
                 strcpy(texture_path, source->texture_names[index]);
             } else {
-                sprintf(texture_path, "%s\\%s", bitmap_folder, source->texture_names[index]);
+                snprintf(texture_path, sizeof(texture_path), "%s\\%s", bitmap_folder, source->texture_names[index]);
             }
             texture_index = index;
             /* Retail 0x004b8c93: a texture found only in the fourth slot marks
@@ -2138,7 +2105,7 @@ W8MeshMaterial LoadMaterial(const char* bitmap_folder, const W8MaterialRecord& r
         render_flags->value &= ~8UL;
     }
 
-    sprintf(material_name,
+    snprintf(material_name, sizeof(material_name),
             "Mt%1.2f%1.2f%1.2f%1.2f%1.2f%1.2f%1.2f%1.2f%1.2f"
             "%1.2f%1.2f%1.2f%1.2f%1.2f%d%c",
             source->ambient.x, source->ambient.y, source->ambient.z, source->diffuse.x,
@@ -2240,7 +2207,7 @@ std::shared_ptr<srTextureIFace> LoadTextureFromPath(const char* path, const W8Ma
     strcpy(texture_file, file_name);
     strcat(texture_file, extension);
 
-    if (strlen(path) > 3 && _strnicmp(extension, ".IFL", 4) == 0) {
+    if (std::strlen(path) > 3 && _strnicmp(extension, ".IFL", 4) == 0) {
         return LoadAnimatedTexture(texture_folder, texture_file, source, required);
     }
     return LoadTextureFromFolder(texture_folder, texture_file, required);
@@ -2249,49 +2216,46 @@ std::shared_ptr<srTextureIFace> LoadTextureFromPath(const char* path, const W8Ma
 // FUNCTION: WIZ8 0x004B95D0
 std::shared_ptr<srTexture> LoadTextureFromFolder(const char* folder, const char* name, bool required)
 {
-    char path[_MAX_PATH];
-    char* extension;
+    std::string path;
 
     if (g_current_screen_state.id == W8_SCREEN_PLEASE_WAIT) {
         UpdatePleaseWaitLoadFrame();
     }
-    strcpy(path, folder);
-    strcat(path, name);
-    extension = path + strlen(path) - 3;
-    *extension = '\0';
+    path = folder;
+    path += name;
+    const auto dot = path.find_last_of('.');
+    if (dot == std::string::npos) path += '.';
+    const auto extension = dot == std::string::npos ? path.size() : dot + 1;
+    path.resize(extension);
 
     std::shared_ptr<stTextureFile> texture = g_texture_files.find(name);
     if (texture == 0) {
-        strcat(extension, "tga");
+        path += "tga";
         if (required) {
-            texture = std::make_shared<stTextureFile>(path, g_texture_cache_enabled);
+            texture = std::make_shared<stTextureFile>(path.c_str(), g_texture_cache_enabled);
             if (g_gerd != 0) {
                 g_gerd->setTexture(texture.get(), 0);
                 g_gerd->setTexture(0, 0);
             }
             if (texture->getTextureFrameHandle() == 0) {
-                *extension = '\0';
-                strcat(extension, "jpg");
-                texture->setFileName(path);
+                path.replace(extension, std::string::npos, "jpg");
+                texture->setFileName(path.c_str());
                 if (g_gerd != 0) {
                     g_gerd->setTexture(texture.get(), 0);
                     g_gerd->setTexture(0, 0);
                 }
                 if (texture->getTextureFrameHandle() == 0) {
-                    ShutdownWithErrorBox(
-                        FormatString("Missing texture file: %s", path));
+                    ShutdownWithErrorBox(fmt::format("Missing texture file: {}", path));
                 }
             }
         } else {
             if (![&]() { const auto status = wiz8::file_status(path); return status && status->info.type == SDL_PATHTYPE_FILE; }()) {
-                *extension = '\0';
-                strcat(extension, "jpg");
+                path.replace(extension, std::string::npos, "jpg");
                 if (![&]() { const auto status = wiz8::file_status(path); return status && status->info.type == SDL_PATHTYPE_FILE; }()) {
-                    ShutdownWithErrorBox(
-                        FormatString("Missing texture file: %s", path));
+                    ShutdownWithErrorBox(fmt::format("Missing texture file: {}", path));
                 }
             }
-            texture = std::make_shared<stTextureFile>(path, g_texture_cache_enabled);
+            texture = std::make_shared<stTextureFile>(path.c_str(), g_texture_cache_enabled);
         }
         texture->setName(name);
         g_texture_files.insert(name, texture);
@@ -2311,8 +2275,7 @@ std::shared_ptr<stTextureAnim> LoadAnimatedTexture(const char* folder, const cha
     strcat(buffer, name);
     handle = [&]() { try { return wiz8::open_file(buffer, wiz8::OpenMode::read); } catch (const std::exception&) { return std::unique_ptr<wiz8::File>{}; } }();
     if (handle == 0) {
-        ShutdownWithErrorBox(
-            FormatString("Cannot load/find material: %s", buffer));
+        ShutdownWithErrorBox(fmt::format("Cannot load/find material: {}", buffer));
     }
 
     auto animation = std::make_shared<stTextureAnim>();

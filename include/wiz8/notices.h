@@ -1,6 +1,5 @@
 #pragma once
 
-#include <wchar.h>
 
 /* Entries in the localized notice table at 0x0068C09C. */
 enum W8NoticeId {

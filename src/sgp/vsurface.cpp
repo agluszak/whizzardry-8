@@ -1,3 +1,4 @@
+#include <fmt/format.h>
 #include "wiz8/utility.h"
 #include <SDL3/SDL_log.h>
 /* Modified for the Wizardry 8 reconstruction: 2026-10-03, 2026-10-06, 2026-10-07, 2026-10-09.
@@ -318,10 +319,10 @@ BOOLEAN ImageFillVideoSurfaceArea(UINT32 uiDestVSurface, INT32 iDestX1, INT32 iD
                                   INT16 Ox, INT16 Oy)
 {
     INT16 xc, yc, hblits, wblits, aw, pw, ah, ph, w, h, xo, yo;
-    ETRLEObject* pTrav;
+    SpriteFrame* pTrav;
     SDL_Rect NewClip, OldClip;
 
-    pTrav = &(BkgrndImg->pETRLEObject[Index]);
+    pTrav = &(BkgrndImg->sprites[Index]);
     ph = (INT16)(pTrav->usHeight + pTrav->sOffsetY);
     pw = (INT16)(pTrav->usWidth + pTrav->sOffsetX);
 
@@ -879,8 +880,8 @@ BOOLEAN MakeVSurfaceFromVObject(UINT32 uiVObject, UINT16 usSubIndex, UINT32* pui
 
     if (GetVideoObject(&hSrcVObject, uiVObject)) {
         hDesc.fCreateFlags = VSURFACE_CREATE_DEFAULT;
-        hDesc.usWidth = hSrcVObject->pETRLEObject[usSubIndex].usWidth;
-        hDesc.usHeight = hSrcVObject->pETRLEObject[usSubIndex].usHeight;
+        hDesc.usWidth = hSrcVObject->sprites[usSubIndex].usWidth;
+        hDesc.usHeight = hSrcVObject->sprites[usSubIndex].usHeight;
         hDesc.ubBitDepth = PIXEL_DEPTH;
 
         if (AddVideoSurface(&hDesc, &uiVSurface)) {
@@ -945,9 +946,9 @@ void CheckValidVSurfaceIndex(UINT32 uiIndex)
             break;
         }
         if (uiIndex == 0xffffffff) {
-            AssertMsg(0, FormatString("Trying to %s with deleted index -1.", str));
+            AssertMsg(0, fmt::format("Trying to {} with deleted index -1.", str));
         } else {
-            AssertMsg(0, FormatString("Trying to %s using a VOBJECT ID %d!", str, uiIndex));
+            AssertMsg(0, fmt::format("Trying to {} using a VOBJECT ID {:d}!", str, uiIndex));
         }
     }
 }

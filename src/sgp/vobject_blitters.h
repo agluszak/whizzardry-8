@@ -8,71 +8,35 @@
 #include "vobject.h"
 
 #ifdef __cplusplus
+#include <span>
+
 extern "C" {
 #endif
 
 extern SDL_Rect ClippingRect;
-extern UINT32 guiTranslucentMask;
-extern UINT16 White16BPPPalette[256];
 
 extern void SetClippingRect(SDL_Rect* clip);
 void GetClippingRect(SDL_Rect* clip);
 
 BOOLEAN BltIsClipped(HVOBJECT hSrcVObject, INT32 iX, INT32 iY, UINT16 usIndex, SDL_Rect* clipregion);
 
-// 8-Bit to 8-Bit Blitters
+// Per-pixel operation applied by BltSpriteTo16BPPBuffer to each opaque sprite
+// pixel. MonoShadow additionally paints mono_background into transparent
+// pixels when it is nonzero.
+enum class SpriteDrawOp { Transparent, Shadow, MonoShadow };
 
-//BOOLEAN Blt8BPPDataTo8BPPBufferTransZIncClip( UINT16 *pBuffer, UINT32 uiDestPitchBYTES, UINT16 *pZBuffer, UINT16 usZValue, HVOBJECT hSrcVObject, INT32 iX, INT32 iY, UINT16 usIndex, SDL_Rect *clipregion);
+// Draws one decoded sprite frame into a 16-bit destination. The sprite rect
+// (position plus frame offsets) is intersected with clipregion, or with the
+// global ClippingRect when clipregion is nullptr, so clipped, unclipped, and
+// mirrored draws all take the same path. mono_* colors apply only to
+// SpriteDrawOp::MonoShadow.
+BOOLEAN BltSpriteTo16BPPBuffer(UINT16* pBuffer, UINT32 uiDestPitchBYTES,
+                               const SpriteFrame& frame, const UINT16* palette, INT32 iX, INT32 iY,
+                               const SDL_Rect* clipregion, bool fMirror, SpriteDrawOp op,
+                               UINT16 mono_foreground = 0, UINT16 mono_background = 0,
+                               UINT16 mono_shadow = 0);
 
-// pixelation blitters
 
-BOOLEAN Blt8BPPDataTo8BPPBufferMonoShadowClip(UINT8* pBuffer, UINT32 uiDestPitchBYTES,
-                                              HVOBJECT hSrcVObject, INT32 iX, INT32 iY,
-                                              UINT16 usIndex, SDL_Rect* clipregion,
-                                              UINT8 ubForeground, UINT8 ubBackground);
-
-BOOLEAN Blt8BPPDataTo8BPPBufferTransparent(UINT16* pBuffer, UINT32 uiDestPitchBYTES,
-                                           HVOBJECT hSrcVObject, INT32 iX, INT32 iY,
-                                           UINT16 usIndex);
-BOOLEAN Blt8BPPDataTo8BPPBufferTransparentClip(UINT16* pBuffer, UINT32 uiDestPitchBYTES,
-                                               HVOBJECT hSrcVObject, INT32 iX, INT32 iY,
-                                               UINT16 usIndex, SDL_Rect* clipregion);
-BOOLEAN Blt8BPPDataTo16BPPBufferTransMirror(UINT16* pBuffer, UINT32 uiDestPitchBYTES,
-                                            HVOBJECT hSrcVObject, INT32 iX, INT32 iY,
-                                            UINT16 usIndex);
-
-BOOLEAN Blt8BPPDataTo8BPPBufferShadowClip(UINT16* pBuffer, UINT32 uiDestPitchBYTES,
-                                          HVOBJECT hSrcVObject, INT32 iX, INT32 iY, UINT16 usIndex,
-                                          SDL_Rect* clipregion);
-BOOLEAN Blt8BPPDataTo8BPPBufferShadow(UINT16* pBuffer, UINT32 uiDestPitchBYTES,
-                                      HVOBJECT hSrcVObject, INT32 iX, INT32 iY, UINT16 usIndex);
-
-// 8-Bit to 16-Bit Blitters
-
-// pixelation blitters
-
-// translucency blitters
-BOOLEAN Blt8BPPDataTo16BPPBufferMonoShadowClip(UINT16* pBuffer, UINT32 uiDestPitchBYTES,
-                                               HVOBJECT hSrcVObject, INT32 iX, INT32 iY,
-                                               UINT16 usIndex, SDL_Rect* clipregion,
-                                               UINT16 usForeground, UINT16 usBackground,
-                                               UINT16 usShadow);
-
-// Next blitters are for blitting mask as intensity
-
-BOOLEAN Blt8BPPDataTo16BPPBufferTransparentClip(UINT16* pBuffer, UINT32 uiDestPitchBYTES,
-                                                HVOBJECT hSrcVObject, INT32 iX, INT32 iY,
-                                                UINT16 usIndex, SDL_Rect* clipregion);
-BOOLEAN Blt8BPPDataTo16BPPBufferTransparent(UINT16* pBuffer, UINT32 uiDestPitchBYTES,
-                                            HVOBJECT hSrcVObject, INT32 iX, INT32 iY,
-                                            UINT16 usIndex);
-
-BOOLEAN Blt8BPPDataTo16BPPBufferShadowClip(UINT16* pBuffer, UINT32 uiDestPitchBYTES,
-                                           HVOBJECT hSrcVObject, INT32 iX, INT32 iY, UINT16 usIndex,
-                                           SDL_Rect* clipregion);
-BOOLEAN DDBlt8BPPDataTo16BPPBufferShadow(HVOBJECT hDestVObject, HVOBJECT hSrcVObject, UINT8 level,
-                                         COLORVAL maskrgb, UINT16 usX, UINT16 usY,
-                                         SDL_Rect* srcRect);
 
 BOOLEAN Blt8BPPTo8BPP(UINT8* pDest, UINT32 uiDestPitch, UINT8* pSrc, UINT32 uiSrcPitch,
                       INT32 iDestXPos, INT32 iDestYPos, INT32 iSrcXPos, INT32 iSrcYPos,
@@ -83,25 +47,9 @@ BOOLEAN Blt16BPPTo16BPP(UINT16* pDest, UINT32 uiDestPitch, UINT16* pSrc, UINT32 
 BOOLEAN Blt16BPPTo16BPPTrans(UINT16* pDest, UINT32 uiDestPitch, UINT16* pSrc, UINT32 uiSrcPitch,
                              INT32 iDestXPos, INT32 iDestYPos, INT32 iSrcXPos, INT32 iSrcYPos,
                              UINT32 uiWidth, UINT32 uiHeight, UINT16 usTrans);
-BOOLEAN Blt16BPPTo16BPPFog(UINT16* pDest, UINT32 uiDestPitch, UINT16* pSrc, UINT32 uiSrcPitch,
-                           INT32 iDestXPos, INT32 iDestYPos, INT32 iSrcXPos, INT32 iSrcYPos,
-                           UINT32 uiWidth, UINT32 uiHeight, UINT8* pFog, UINT16 usFogPitch);
 BOOLEAN Blt16BPPTo16BPPMirror(UINT16* pDest, UINT32 uiDestPitch, UINT16* pSrc, UINT32 uiSrcPitch,
                               INT32 iDestXPos, INT32 iDestYPos, INT32 iSrcXPos, INT32 iSrcYPos,
                               UINT32 uiWidth, UINT32 uiHeight);
-
-BOOLEAN Blt8BPPDataTo16BPPBufferFogZ(UINT16* pBuffer, UINT32 uiDestPitchBYTES, UINT16* pZBuffer,
-                                     UINT16 usZValue, HVOBJECT hSrcVObject, INT32 iX, INT32 iY,
-                                     UINT16 usIndex);
-BOOLEAN Blt8BPPDataTo16BPPBufferFogZClip(UINT16* pBuffer, UINT32 uiDestPitchBYTES, UINT16* pZBuffer,
-                                         UINT16 usZValue, HVOBJECT hSrcVObject, INT32 iX, INT32 iY,
-                                         UINT16 usIndex, SDL_Rect* clipregion);
-BOOLEAN Blt8BPPDataTo16BPPBufferFogZNB(UINT16* pBuffer, UINT32 uiDestPitchBYTES, UINT16* pZBuffer,
-                                       UINT16 usZValue, HVOBJECT hSrcVObject, INT32 iX, INT32 iY,
-                                       UINT16 usIndex);
-BOOLEAN Blt8BPPDataTo16BPPBufferFogZNBClip(UINT16* pBuffer, UINT32 uiDestPitchBYTES,
-                                           UINT16* pZBuffer, UINT16 usZValue, HVOBJECT hSrcVObject,
-                                           INT32 iX, INT32 iY, UINT16 usIndex, SDL_Rect* clipregion);
 
 BOOLEAN Blt16BPPBufferPixelateRectWithColor(UINT16* pBuffer, UINT32 uiDestPitchBYTES, SDL_Rect* area,
                                             UINT8 Pattern[8][8], UINT16 usColor);
@@ -109,28 +57,9 @@ BOOLEAN Blt16BPPBufferPixelateRectWithColor(UINT16* pBuffer, UINT32 uiDestPitchB
 BOOLEAN Blt16BPPBufferHatchRect(UINT16* pBuffer, UINT32 uiDestPitchBYTES, SDL_Rect* area);
 BOOLEAN Blt16BPPBufferShadowRect(UINT16* pBuffer, UINT32 uiDestPitchBYTES, SDL_Rect* area);
 
-BOOLEAN Blt8BPPDataTo16BPPBufferShadow(UINT16* pBuffer, UINT32 uiDestPitchBYTES,
-                                       HVOBJECT hSrcVObject, INT32 iX, INT32 iY, UINT16 usIndex);
-
 BOOLEAN Blt8BPPDataSubTo16BPPBuffer(UINT16* pBuffer, UINT32 uiDestPitchBYTES,
                                     HVSURFACE hSrcVSurface, UINT8* pSrcBuffer, UINT32 uiSrcPitch,
                                     INT32 iX, INT32 iY, SDL_Rect* pRect);
-
-// Blits from flat 8bpp source, to 16bpp dest, divides in half
-BOOLEAN DDBlt8BPPDataTo16BPPBuffer(HVOBJECT hDestVObject, HVOBJECT hSrcVObject, UINT16 usX,
-                                   UINT16 usY, SDL_Rect* srcRect);
-BOOLEAN DDBlt8BPPDataTo16BPPBufferFullTransparent(HVOBJECT hDestVObject, HVOBJECT hSrcVObject,
-                                                  UINT16 usX, UINT16 usY, SDL_Rect* srcRect);
-BOOLEAN DDFillSurface(HVOBJECT hDestVObject, blt_fx* pBltFx);
-BOOLEAN DDFillSurfaceRect(HVOBJECT hDestVObject, blt_fx* pBltFx);
-BOOLEAN BltVObjectUsingDD(HVOBJECT hDestVObject, HVOBJECT hSrcVObject, UINT32 fBltFlags,
-                          INT32 iDestX, INT32 iDestY, SDL_Rect* SrcRect);
-
-// New 16/16 blitters
-
-BOOLEAN Blt16BPPDataTo16BPPBufferTransparent(UINT16* pBuffer, UINT32 uiDestPitchBYTES,
-                                             HVOBJECT hSrcVObject, INT32 iX, INT32 iY,
-                                             UINT16 usIndex);
 
 // ATE: New blitters for showing an outline at color 254
 
@@ -140,6 +69,14 @@ BOOLEAN FillRect16BPP(UINT16* pBuffer, UINT32 uiDestPitchBYTES, INT32 x1, INT32 
 
 #ifdef __cplusplus
 }
+
+// Decode every ETRLE frame once from the compressed source into SpriteFrame
+// pixels (transparent runs become SpriteFrame::kTransparent, literal index 0
+// stays opaque). The object keeps only the decoded representation; decoding
+// is transactional, so hVObject->sprites is replaced only on success.
+// Returns FALSE on malformed or truncated data.
+BOOLEAN DecodeVideoObjectSprites(HVOBJECT hVObject, std::span<const ETRLEObject> frames,
+                                 std::span<const UINT8> data);
 #endif
 
 #endif

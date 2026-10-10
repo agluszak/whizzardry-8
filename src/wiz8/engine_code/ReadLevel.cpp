@@ -1,3 +1,4 @@
+#include "wiz8/unicode.h"
 #include "wiz8/filesystem.h"
 #include "wiz8/engine_code/3d.h"
 #include <cmath>
@@ -1153,8 +1154,7 @@ try
     if (use_octree) {
         srMeshModel* model = static_cast<srMeshModel*>(level_mesh->getModel());
         model->getBoundingBox(minimum, maximum);
-        world->quads = BuildWorldQuad(level_mesh, 0, minimum.x, minimum.y, minimum.z, maximum.x,
-                                      maximum.y, maximum.z, world->static_scene, 0);
+        world->quads = BuildWorldQuad(level_mesh, minimum, maximum);
     }
     RefreshEnvironment();
     FinalizeStaticScene(world->static_scene);

@@ -11,8 +11,6 @@ unsigned char InitializeNpcDatabase(void);
 void DestroyFactDatabase(void);
 void DestroyLevelDatabase(void);
 void DestroyNpcDatabase(void);
-unsigned char AllocateStatusBuffers(W8StatusBuffers* status);
-void FreeStatusBuffers(W8StatusBuffers* status);
 void ResetPartySlotRow(int slot);
 void ResetGameplayStatusBlock(void);
 void ResetTargetingState(void);
@@ -21,4 +19,4 @@ void ResetForNewGame(void);
 void ResetGameplaySlot(unsigned int slot);
 void ResetGameplaySettings(void);
 
-void RunNewGameOpeningSequence(bool notify, const wchar_t* target);
+void RunNewGameOpeningSequence(bool notify, std::string_view target);

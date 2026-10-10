@@ -1,3 +1,4 @@
+#include <string_view>
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/local_code/MonsterManager.h"
@@ -313,7 +314,7 @@ void SetItemCursor(int overlay_video_object)
 
 /* Dispatch one already-built notice line to the camp or main-game dialog. */
 // FUNCTION: WIZ8 0x0055F260
-void ShowNoticeLine(wchar_t* text, W8DialogDestroyCallback callback, bool confirmation, bool cancel)
+void ShowNoticeLine(std::string_view text, W8DialogDestroyCallback callback, bool confirmation, bool cancel)
 {
     switch (g_current_screen_state.id) {
     case W8_SCREEN_CAMP:

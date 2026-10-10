@@ -1,3 +1,4 @@
+#include <string_view>
 #pragma once
 
 #include "wiz8/filesystem.h"
@@ -155,11 +156,11 @@ W8NpcPickpocketResult AttemptNpcPickpocket(W8Character* character, W8NpcState* n
 void ClearNpcItemId(W8NpcState* npc, int item_id);
 /* The live NPC state whose display (or fact-substituted) name
    matches case-insensitively; 0 when none does. */
-W8NpcState* FindNpcStateByName(const char* name);
+W8NpcState* FindNpcStateByName(std::string_view name);
 W8MonsterManagerEntry* GetNpcGroupEntry(W8NpcState* npc);
-const char* GetNpcDisplayName(W8NpcState* npc);
+std::string GetNpcDisplayName(W8NpcState* npc);
 void ReleaseNpcMonsterBinding(W8NpcState* npc, char level);
-void RestoreNamedNpcAtLevel(int kind, char level, const char* entity_name);
+void RestoreNamedNpcAtLevel(int kind, char level, std::string_view entity_name);
 bool ClearNpcScheduledItem(W8NpcState* npc, int item_id, W8ItemInstance* out);
 void ReleaseNpcMonsterByKind(int kind);
 /* Record that the NPC has told the party the given fact. */

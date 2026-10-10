@@ -1,3 +1,4 @@
+#include <string>
 #ifndef WIZ8_LOCAL_CODE_MONSTER_MANAGER_H
 #define WIZ8_LOCAL_CODE_MONSTER_MANAGER_H
 
@@ -47,7 +48,7 @@ struct W8PortraitQuoteState {
 
 /* One party-slot record; eight of these lead gXStatus. The reset clears a
    record wholesale despite its vector member. */
-#pragma pack(push, 1)
+// Runtime-only state: natural alignment is required for the embedded vector.
 struct W8MonsterManagerEntry {
     bool portrait_event_active;
     unsigned int voice_sound_handle;
@@ -137,7 +138,7 @@ struct W8MonsterManagerEntry {
     bool item_swap_in_progress;
     unsigned int pending_event_type; /* last queued portrait event type */
 };
-#pragma pack(pop)
+
 
 W8_ABI_ASSERT(sizeof(W8PortraitQuoteState) == 0x0c, "W8PortraitQuoteState_size");
 W8_ABI_ASSERT(offsetof(W8MonsterManagerEntry, mouth_gap) == 0x05,
@@ -499,7 +500,7 @@ void InitializeMonsterRuntimeStats(void);
 float CalculateMonsterScale(W8MonsterInfo* monster_info);
 void TryStartMonsterCycle2(W8MonsterInfo* monster_info, W8Monster* monster, int query_state);
 void ProcessMonsterManagerFrame(void);
-void FormatMonsterHealth(W8MonsterInfo* monster_info, wchar_t* health_text);
+std::string FormatMonsterHealth(W8MonsterInfo* monster_info);
 unsigned int GetMonsterExperience(const W8MonsterRecord* record);
 bool AnyMonsterDying(void);
 float GetAveragePartyMemberLevel(void);
@@ -511,7 +512,7 @@ void StartMonsterCycle(W8MonsterInfo* monster_info, int cycle, int behavior);
 void MonsterInfoLeaveCombat(W8MonsterInfo* monster_info);
 unsigned char ShutdownMonsterManager(void);
 
-wchar_t* GetMonsterName(W8MonsterInfo* monster_info, W8MonsterRecord* record,
+std::string GetMonsterName(W8MonsterInfo* monster_info, W8MonsterRecord* record,
                         unsigned char name_form);
 bool RemoveMonster(unsigned int monster_list_index, bool destroy_monster);
 void MonsterInfoEnterCombat(W8MonsterInfo* monster_info);

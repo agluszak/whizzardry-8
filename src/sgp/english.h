@@ -5,7 +5,7 @@
 
 #include "Types.h"
 
-#define SHIFT 16
+inline constexpr int SHIFT = 16;
 #define CTRL 17
 #define ALT 18
 

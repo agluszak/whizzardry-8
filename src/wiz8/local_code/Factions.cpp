@@ -1,3 +1,6 @@
+#include <fmt/printf.h>
+#include "wiz8/utility.h"
+#include <string>
 #include "wiz8/local_code/Factions.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/layouts/gameplay_databases.h"
@@ -135,7 +138,7 @@ W8FactionDisposition GetFactionDisposition(signed char faction)
     return W8_FACTION_FRIENDLY;
 }
 
-/* The gppStringList name id for each faction row; the two filler
+/* The g_localized_strings name id for each faction row; the two filler
    factions reuse the unaligned name. */
 // GLOBAL: WIZ8 0x0061EACC
 static unsigned short g_faction_name_ids[W8_FACTION_COUNT] = {
@@ -149,7 +152,7 @@ static unsigned short g_faction_name_ids[W8_FACTION_COUNT] = {
 // FUNCTION: WIZ8 0x00535B40
 void SetFactionDispositionBand(signed char faction, signed char band)
 {
-    wchar_t notice[20];
+    std::string notice;
     W8FactionDisposition old_band;
     char palette;
 
@@ -168,14 +171,14 @@ void SetFactionDispositionBand(signed char faction, signed char band)
     if (band != old_band) {
         g_factions[faction].band_changed_clock = g_status.world_clock;
         if (band < old_band) {
-            swprintf(notice, gppStringList[0x245]);
+            notice = g_localized_strings[0x245];
             palette = 0;
         } else {
-            swprintf(notice, gppStringList[0x246]);
+            notice = g_localized_strings[0x246];
             palette = 5;
         }
-        ShowNoticef(palette, gppStringList[0x247], gppStringList[g_faction_name_ids[faction]],
-                    notice);
+        ShowNotice(palette, fmt::sprintf(g_localized_strings[0x247],
+                                         g_localized_strings[g_faction_name_ids[faction]], notice));
     }
 }
 
@@ -276,7 +279,7 @@ void RecordFactionOffense(signed char faction, unsigned int victim_location_inde
 // FUNCTION: WIZ8 0x00535EA0
 void AdjustFactionDisposition(signed char faction, char delta)
 {
-    wchar_t notice[20];
+    std::string notice;
     signed char score;
     signed char old_score;
     W8FactionDisposition old_band;
@@ -299,15 +302,16 @@ void AdjustFactionDisposition(signed char faction, char delta)
         g_factions[faction].band_changed_clock = g_status.world_clock;
     }
     if (g_factions[faction].disposition_score < old_score) {
-        swprintf(notice, gppStringList[0x245]);
+        notice = g_localized_strings[0x245];
         palette = 0;
     } else if (g_factions[faction].disposition_score > old_score) {
-        swprintf(notice, gppStringList[0x246]);
+        notice = g_localized_strings[0x246];
         palette = 5;
     } else {
         return;
     }
-    ShowNoticef(palette, gppStringList[0x247], gppStringList[g_faction_name_ids[faction]], notice);
+    ShowNotice(palette, fmt::sprintf(g_localized_strings[0x247],
+                                     g_localized_strings[g_faction_name_ids[faction]], notice));
 }
 
 /* Write both faction tables into the open FATA chunk: the 21x21 relation
@@ -315,10 +319,8 @@ void AdjustFactionDisposition(signed char faction, char delta)
 // FUNCTION: WIZ8 0x00536030
 void SaveFactionState(wiz8::File* file)
 {
-    unsigned int written;
-
-    file->write(g_faction_relations, sizeof(g_faction_relations)), written = sizeof(g_faction_relations);
-    file->write(g_factions, sizeof(g_factions)), written = sizeof(g_factions);
+    file->write(g_faction_relations, sizeof(g_faction_relations));
+    file->write(g_factions, sizeof(g_factions));
 }
 
 /* Read the relation matrix and runtime disposition records back from the open
@@ -326,9 +328,12 @@ void SaveFactionState(wiz8::File* file)
 // FUNCTION: WIZ8 0x00536070
 void LoadFactionState(wiz8::File* file)
 {
-    unsigned int transferred;
+    unsigned char relations[W8_FACTION_COUNT][W8_FACTION_COUNT];
+    W8FactionRuntimeRecord factions[W8_FACTION_COUNT];
 
-    ((transferred = file->read(g_faction_relations, sizeof(g_faction_relations)).bytes) == static_cast<std::size_t>(sizeof(g_faction_relations)));
-    ((transferred = file->read(g_factions, sizeof(g_factions)).bytes) == static_cast<std::size_t>(sizeof(g_factions)));
+    file->read_exact(relations, sizeof(relations));
+    file->read_exact(factions, sizeof(factions));
+    memcpy(g_faction_relations, relations, sizeof(relations));
+    memcpy(g_factions, factions, sizeof(factions));
     g_factions[W8_FACTION_PARTY].disposition_score = 100;
 }

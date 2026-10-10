@@ -125,7 +125,7 @@ void InitializeCharacterCreation(W8Character* character, W8CharacterCreationStat
     g_skill_point_bonus = 0;
     g_spell_point_bonus = 0;
     g_gender_locked = false;
-    memset(character, 0, sizeof(*character));
+    *character = W8Character{};
     character->gender = W8_GENDER_UNSET;
     character->iProfession = W8_PROFESSION_NONE;
     character->iRace = W8_RACE_NONE;

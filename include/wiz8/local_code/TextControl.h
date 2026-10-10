@@ -1,3 +1,5 @@
+#include <string_view>
+#include <string>
 #pragma once
 
 #include "wiz8/local_code/Widget.h"
@@ -119,7 +121,7 @@ public:
     W8HelpTextControl(Controls* panel, unsigned int region, int left, int top, int right,
                       int bottom);
 
-    void SetRegionHelp(const wchar_t* text);
+    void SetRegionHelp(std::string_view text);
     virtual void OnMouseEnter(int event) override;
     virtual void OnLeftButtonDown(int event) override;
     virtual void OnRightButtonDown(int event) override;
@@ -128,7 +130,7 @@ public:
     virtual void OnLeftButtonDoubleClick(int event) override;
 
 protected:
-    wchar_t m_regionHelp[200];
+    std::string m_regionHelp;
 };
 W8_ABI_ASSERT(sizeof(W8HelpTextControl) == 0x248, "W8HelpTextControl_size");
 

@@ -1,3 +1,5 @@
+#include <fmt/format.h>
+#include "wiz8/unicode.h"
 #include "wiz8/utility.h"
 #include "wiz8/sr_api.h"
 #include <algorithm>
@@ -299,7 +301,7 @@ try
     header.m_leaf_count = m_leaf_count;
     header.m_polygon_count = geometry->m_polygon_count;
     header.m_vertex_count = geometry->vertex_count;
-    header.m_surface_count = game_data->m_iNumSurfaces;
+    header.m_surface_count = game_data->SurfacesCount();
     header.m_gd_surface_stream_len = m_gd_surface_stream_len;
     header.m_leaf_polygon_stream_len = polygon_cursor;
     header.m_trigger_count = m_trigger_count;
@@ -1492,7 +1494,7 @@ char OctPreTree::TestPathPropBounds(const srVector3T<float>* minimum,
     bounds[1] = *maximum;
     int count = QueryObjects(&ids, minimum, maximum, 3, -1);
     for (int i = 0; i < count && hit == 0; ++i) {
-        W8GDSurface* surface = g_octree_game_data->m_pSurfaces + ids[i];
+        W8GDSurface* surface = g_octree_game_data->m_pSurfaces.data() + ids[i];
         if ((surface->flags & W8_GD_SURFACE_CROSSING_MASK) == 0) {
             triangle[0] = g_octree_game_data->m_pVertices[surface->vertex_indices[0]];
             triangle[1] = g_octree_game_data->m_pVertices[surface->vertex_indices[1]];
@@ -1597,8 +1599,8 @@ int OctPreTree::CreatePathProps(W8LevelFile* level, W8PreProp** preprops)
                             "(UINT16)(pLVL->pProps[i].bNumFrames))", /* c-style-cast-ok: verbatim
                                 retail assertion text, kept for .rdata match */
                             OCTPRETREE_CPP, 0x8b4,
-                            FormatString("%s Prop Error:Segment frame number %d is out of range",
-                                       prop->name, frame));
+                            fmt::format("{} Prop Error:Segment frame number {:d} is out of range",
+                                        prop->name, frame));
                     }
                     record->pStopMeshes[j].ApplyAnimFrame(frame, &prop->anim_obj);
                     record->pStopMeshes[j].ComputeBounds(&bounds.minimum, &bounds.maximum);

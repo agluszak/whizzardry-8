@@ -1,5 +1,7 @@
+#include <fmt/format.h>
+#include <string_view>
+#include <string>
 #include "wiz8/local_screens/MainGameScreen.h"
-#include "wiz8/sgp_text.h"
 #include "wiz8/local_screens/NPCInteractionSubscreen.h"
 #include "wiz8/local_code/Targeting.h"
 #include "wiz8/engine_code/Video2.h"
@@ -46,9 +48,7 @@ int g_journal_page = -1;
 // GLOBAL: WIZ8 0x0069c4e0
 bool g_journal_show_all;
 // GLOBAL: WIZ8 0x0064d7b8
-wchar_t g_default_level[] = L"Default Level";
-// GLOBAL: WIZ8 0x0064d7f0
-wchar_t g_journal_page_format[] = L"%d / %d";
+char g_default_level[] = "Default Level";
 // GLOBAL: WIZ8 0x0064df40
 signed char g_journal_factions[12] = {4, 5, 6, 7, 8, 9, 12, 11, 13, 15, 16, 0};
 // GLOBAL: WIZ8 0x0064df4c
@@ -56,7 +56,7 @@ int g_journal_faction_name_indices[11] = {
     0x6e0, 0x6e1, 0x6e2, 0x6e3, 0x6e4, 0x6e5, 0x6e6, 0x6e7, 0x6e8, 0x6e9, 0x6ea,
 };
 // GLOBAL: WIZ8 0x0064df78
-wchar_t g_journal_alternate_page[] = L"1 / 1";
+char g_journal_alternate_page[] = "1 / 1";
 // GLOBAL: WIZ8 0x0064df3c
 int g_journal_page_count = -1;
 // GLOBAL: WIZ8 0x0069C4CC
@@ -117,9 +117,9 @@ void RecordFactChangeForJournal(W8FactId fact_id)
     if (record->visibility > visibility) {
         return;
     }
-    const wchar_t* description =
+    std::string description =
         GetFact(fact_id) ? record->alternate_description : record->description;
-    if (*description == 0 || g_level_block == 0) {
+    if (description.empty() || g_level_block == 0) {
         return;
     }
     if (gXStatus.fNpcDialogueMode) {
@@ -127,7 +127,7 @@ void RecordFactChangeForJournal(W8FactId fact_id)
         return;
     }
     int range = GetTextBoxScrollRange();
-    ShowNotice(W8_FONT_PALETTE_BLUE, gppStringList[0x74a], 2, range);
+    ShowNotice(W8_FONT_PALETTE_BLUE, g_localized_strings[0x74a], 2, range);
     SoundPlay("Data\\Sound\\Misc\\Journal Entry.wav", 0);
 }
 
@@ -163,7 +163,7 @@ void LoadJournalEntries(wiz8::File* file)
 }
 
 // FUNCTION: WIZ8 0x005bdd00
-void DrawJournalLine(const wchar_t* text, int column, int y, int palette, bool centered)
+void DrawJournalLine(std::string_view text, int column, int y, int palette, bool centered)
 {
     int left;
     int right;
@@ -179,7 +179,7 @@ void DrawJournalLine(const wchar_t* text, int column, int y, int palette, bool c
     if (!centered) {
         x = 5;
     } else {
-        x = (right - StringPixLength(const_cast<wchar_t*>(text), g_journal_font)) / 2;
+        x = (right - StringPixLength(text, g_journal_font)) / 2;
         if (x < 0) {
             x = 0;
         }
@@ -191,7 +191,7 @@ void DrawJournalLine(const wchar_t* text, int column, int y, int palette, bool c
     } else if (palette == 1) {
         SetFontObjectPalette16BPP(g_journal_font, g_journal_font_palette.get());
     }
-    gprintf(left + x, y, g_format_s, text);
+    DrawFontText(left + x, y, text);
 }
 
 // FUNCTION: WIZ8 0x005bd860
@@ -208,12 +208,12 @@ void W8JournalPanel::Refresh()
         m_next->SetEnabled(g_journal_page < last_page);
         m_previous->SetEnabled(g_journal_page > 0);
 
-        wchar_t page_text[20];
-        swprintf(page_text, g_journal_page_format, g_journal_page + 1, page_count);
+        std::string page_text;
+        page_text = fmt::format("{:d} / {:d}", g_journal_page + 1, page_count);
         m_page_text->SetText(page_text, g_options_detail_font);
         DrawCatalogImageAndInvalidate(FRAME_BUFFER, 0x1b8, 0, 0, 0, 0, VO_BLT_SRCTRANSPARENCY, 0);
-        DrawJournalLine(gppStringList[0x6db], 0, 0x19, 0, true);
-        DrawJournalLine(gppStringList[0x6dc], 1, 0x19, 0, true);
+        DrawJournalLine(g_localized_strings[0x6db], 0, 0x19, 0, true);
+        DrawJournalLine(g_localized_strings[0x6dc], 1, 0x19, 0, true);
 
         int first = g_journal_page * 12;
         int last = first + 11;
@@ -226,15 +226,15 @@ void W8JournalPanel::Refresh()
             const W8JournalEntry* entry = &g_journal_entries[index];
             const W8FactDatabaseRecord* fact = &g_fact_records[entry->fact];
             int active = fact->highlight_when_true && GetFact(entry->fact);
-            const wchar_t* description =
+            std::string description =
                 entry->alternate_text ? fact->alternate_description : fact->description;
-            const wchar_t* level_name;
+            std::string level_name;
             if (entry->level == 0x38) {
                 level_name = g_default_level;
             } else if (entry->level == -1) {
-                level_name = gppStringList[0x6dd];
+                level_name = g_localized_strings[0x6dd];
             } else {
-                level_name = gppStringList[g_level_name_indices[entry->level]];
+                level_name = g_localized_strings[g_level_name_indices[entry->level]];
             }
             if (entry->level != previous_level) {
                 DrawJournalLine(level_name, 0, y, 0, true);
@@ -247,30 +247,30 @@ void W8JournalPanel::Refresh()
         m_previous->SetEnabled(false);
         m_page_text->SetText(g_journal_alternate_page, g_options_detail_font);
         DrawCatalogImageAndInvalidate(FRAME_BUFFER, 0x1b8, 0, 0, 0, 0, VO_BLT_SRCTRANSPARENCY, 0);
-        DrawJournalLine(gppStringList[0x6de], 0, 0x19, 0, true);
-        DrawJournalLine(gppStringList[0x6df], 1, 0x19, 0, true);
+        DrawJournalLine(g_localized_strings[0x6de], 0, 0x19, 0, true);
+        DrawJournalLine(g_localized_strings[0x6df], 1, 0x19, 0, true);
 
         int y = 0x39;
         for (int index = 0; index < 11; ++index) {
             signed char faction = g_journal_factions[index];
             if (GetFactionFlag(faction)) {
                 W8FactionDisposition disposition = GetFactionDisposition(faction);
-                const wchar_t* disposition_name = 0;
+                std::string disposition_name;
                 switch (disposition) {
                 case W8_FACTION_HOSTILE:
-                    disposition_name = gppStringList[0x200];
+                    disposition_name = g_localized_strings[0x200];
                     break;
                 case W8_FACTION_NEUTRAL:
-                    disposition_name = gppStringList[0x1ff];
+                    disposition_name = g_localized_strings[0x1ff];
                     break;
                 case W8_FACTION_FRIENDLY:
-                    disposition_name = gppStringList[0x201];
+                    disposition_name = g_localized_strings[0x201];
                     break;
                 }
-                if (disposition_name != 0) {
+                if (!disposition_name.empty()) {
                     DrawJournalLine(disposition_name, 0, y, 0, true);
                 }
-                DrawJournalLine(gppStringList[g_journal_faction_name_indices[index]], 1, y, 0,
+                DrawJournalLine(g_localized_strings[g_journal_faction_name_indices[index]], 1, y, 0,
                                 false);
                 y += 0x1e;
             }
@@ -303,7 +303,7 @@ W8JournalPanel::W8JournalPanel(unsigned int* region_set)
     m_next->m_listener = this;
 
     W8ControlsRect bounds = {m_bounds.left, m_bounds.top, m_bounds.right, m_bounds.bottom};
-    m_page_text = new W8TextBuffer(&bounds, &g_empty_wide_string, g_options_detail_font,
+    m_page_text = new W8TextBuffer(&bounds, "", g_options_detail_font,
                                    g_W8TextBufferAlignMiddle | g_W8TextBufferAlignCenter, 4);
 
     m_mode = new W8TextControl(this, 0xffffffff, 0x1b0, -2, 0, 0, 0x1bb, 0, 0, 2, 1, 2, 3);
@@ -424,9 +424,9 @@ unsigned char JournalScreenEnter(void)
     g_journal_entries.clear();
     for (const auto& entry : g_fact_journal_entries) {
         const W8FactDatabaseRecord* fact = &g_fact_records[entry.fact];
-        const wchar_t* description =
+        std::string description =
             entry.alternate_text ? fact->alternate_description : fact->description;
-        if ((g_journal_show_all || fact->visibility <= maximum_visibility) && *description != 0) {
+        if ((g_journal_show_all || fact->visibility <= maximum_visibility) && !description.empty()) {
             g_journal_entries.push_back(entry);
         }
     }

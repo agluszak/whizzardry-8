@@ -1,3 +1,5 @@
+#include <string>
+#include <string_view>
 /* Modified for the Wizardry 8 reconstruction: 2026-10-03, 2026-10-06, 2026-10-07.
    Distributed under the accompanying SFI Source Code license agreement. */
 //*****************************************************************************************************
@@ -93,7 +95,7 @@ typedef struct _GUI_BUTTON {
     //Button disabled style
     INT8 bDisabledStyle;
     //For buttons with text
-    std::unique_ptr<CHAR16[]> string; //the string
+    std::string string; //the string
     UINT16 usFont;       //font for text
     BOOLEAN fMultiColor; //font is a multi-color font
     INT16 sForeColor;    //text colors if there is text
@@ -157,15 +159,15 @@ INT16 FindFreeGenericSlot(void);
 INT32 GetNextButtonNumber(void);
 
 // Now used by Wizardry -- DB
-void SetButtonFastHelpText(INT32 iButton, CHAR16* Text);
+void SetButtonFastHelpText(INT32 iButton, std::string_view Text);
 
-INT32 LoadButtonImage(UINT8* filename, INT32 Grayed, INT32 OffNormal, INT32 OffHilite,
+INT32 LoadButtonImage(std::string_view filename, INT32 Grayed, INT32 OffNormal, INT32 OffHilite,
                       INT32 OnNormal, INT32 OnHilite);
 INT32 UseVObjAsButtonImage(HVOBJECT hVObject, INT32 Grayed, INT32 OffNormal, INT32 OffHilite,
                            INT32 OnNormal, INT32 OnHilite);
 void UnloadButtonImage(INT32 Index);
-INT16 LoadGenericButtonImages(UINT8* GrayName, UINT8* OffNormName, UINT8* OffHiliteName,
-                              UINT8* OnNormName, UINT8* OnHiliteName, UINT8* BkGrndName,
+INT16 LoadGenericButtonImages(std::string_view GrayName, std::string_view OffNormName, std::string_view OffHiliteName,
+                              std::string_view OnNormName, std::string_view OnHiliteName, std::string_view BkGrndName,
                               INT16 Index, INT16 OffsetX, INT16 OffsetY);
 BOOLEAN UnloadGenericButtonImage(INT16 GenImg);
 
@@ -201,11 +203,11 @@ INT32 QuickCreateButton(UINT32 Image, INT16 xloc, INT16 yloc, INT32 Type, INT16 
 //choose also determines the type of button (toggle, notoggle, or newtoggle)
 //Same as above, but accepts specify toggle type
 //Same as above, but accepts priority specification.
-INT32 CreateTextButton(CHAR16* string, UINT32 uiFont, INT16 sForeColor, INT16 sShadowColor,
+INT32 CreateTextButton(std::string_view string, UINT32 uiFont, INT16 sForeColor, INT16 sShadowColor,
                        INT16 GenImg, INT16 xloc, INT16 yloc, INT16 w, INT16 h, INT32 Type,
                        INT16 Priority, GUI_CALLBACK MoveCallback, GUI_CALLBACK ClickCallback);
 //New functions
-void SpecifyButtonText(INT32 iButtonID, CHAR16* string);
+void SpecifyButtonText(INT32 iButtonID, std::string_view string);
 void SpecifyButtonMultiColorFont(INT32 iButtonID, BOOLEAN fMultiColor);
 void SpecifyButtonTextOffsets(INT32 iButtonID, INT8 bTextXOffset, INT8 bTextYOffset,
                               BOOLEAN fShiftText);

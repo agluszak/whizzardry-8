@@ -1,3 +1,6 @@
+#include <fmt/format.h>
+#include <string_view>
+#include "wiz8/unicode.h"
 #include <memory>
 #include "surrender/srMath.h"
 #include <wiz8/filesystem.h>
@@ -810,14 +813,8 @@ void RenderScene(srScene* scene, srCamera* camera, const int* viewport, bool pre
 #endif
     }
     if (!preserve_fog) {
-        srVector3T<float> fog;
-        if (g_world == 0) {
-            fog.SetZero();
-        } else {
-            g_world->static_scene->getFogColor(fog);
-            SaturateColor(&fog);
-        }
-        scene->setFogColor(fog);
+        const auto fog = g_world ? g_world->static_scene->getFogColor() : glm::vec3(0);
+        scene->setFogColor(glm::clamp(fog, 0.0f, 1.0f));
     }
     scene->render(*g_gerd, camera);
     g_gerd->flushRenderers();
@@ -900,12 +897,8 @@ void RenderFrame(void)
         if (!IsSkyEnabled()) {
             GetWorldLightValue(g_world, &clear_color);
         } else {
-            {
-                const auto color_value = (g_world->static_scene->getFogColor()).glmValue();
-                static_cast<srVector3T<float>&>(clear_color) =
-                    glm::mix(glm::clamp(color_value, float(0), float(1)), glm::vec3(0),
-                             glm::lessThanEqual(color_value, glm::vec3(0)));
-            }
+            static_cast<srVector3&>(clear_color) =
+                glm::clamp(g_world->static_scene->getFogColor(), 0.0f, 1.0f);
         }
     }
 
@@ -1125,10 +1118,10 @@ void PublishLightDirection(const EnvironmentColour* direction)
         g_gerd->setFogColor(*direction);
     }
     if (g_world != 0) {
-        g_world->static_scene->setFogColor(*direction);
+        g_world->static_scene->setFogColor(direction->glmValue());
     }
     if (g_secondary_world != 0) {
-        g_secondary_world->static_scene->setFogColor(*direction);
+        g_secondary_world->static_scene->setFogColor(direction->glmValue());
     }
 }
 
@@ -1149,13 +1142,8 @@ void SetRendererAutoFlipEnabled(bool enabled)
 void GetWorldColour(EnvironmentColour* colour)
 {
     if (g_world != 0) {
-        const srVector3T<float> fog = g_world->static_scene->getFogColor();
-        {
-            const auto color_value = fog.glmValue();
-            static_cast<srVector3T<float>&>(*colour) =
-                glm::mix(glm::clamp(color_value, float(0), float(1)), glm::vec3(0),
-                         glm::lessThanEqual(color_value, glm::vec3(0)));
-        }
+        static_cast<srVector3&>(*colour) =
+            glm::clamp(g_world->static_scene->getFogColor(), 0.0f, 1.0f);
         return;
     }
     colour->SetZero();
@@ -1285,12 +1273,11 @@ BOOLEAN BlitVideoObjectToColorSurface(UINT32 video_object, UINT16 region,
                                       srColorSurface* destination, UINT16 x, UINT16 y)
 {
     HVOBJECT object;
-    ETRLEObject properties;
 
     if (!GetVideoObject(&object, video_object)) {
         return FALSE;
     }
-    if (!GetVideoObjectETRLEProperties(object, &properties, region)) {
+    if (region >= object->sprites.size()) {
         return FALSE;
     }
     BltVideoObjectToBuffer(static_cast<UINT16*>(destination->getDataPtr()), destination->getPitch(),
@@ -1305,9 +1292,7 @@ BOOLEAN BlitVideoObjectToColorSurface(UINT32 video_object, UINT16 region,
 BOOLEAN BlitHVObjectToColorSurface(HVOBJECT object, UINT16 region, srColorSurface* destination,
                                    int x, int y)
 {
-    ETRLEObject properties;
-
-    if (!GetVideoObjectETRLEProperties(object, &properties, region)) {
+    if (region >= object->sprites.size()) {
         return FALSE;
     }
     BltVideoObjectToBuffer(static_cast<UINT16*>(destination->getDataPtr()), destination->getPitch(),
@@ -1385,16 +1370,17 @@ void SetMouseCursorHotspot(short hotspot_x, short hotspot_y)
 BOOLEAN SetMouseCursorFromVideoObject(UINT32 video_object, UINT16 region, INT16 offset_x,
                                       INT16 offset_y)
 {
-    ETRLEObject properties;
+    HVOBJECT object;
     int x;
     int y;
 
     if (!gfVideoObjectsInit) {
         return FALSE;
     }
-    if (!GetVideoObjectETRLEPropertiesFromIndex(video_object, &properties, region)) {
+    if (!GetVideoObject(&object, video_object) || region >= object->sprites.size()) {
         return FALSE;
     }
+    const SpriteFrame& properties = object->sprites[region];
     if (!ResizeMouseCursorSurface(properties.usWidth + 1, properties.usHeight + 1)) {
         return FALSE;
     }
@@ -1954,21 +1940,31 @@ void DrawVideoInspector(int left, unsigned int top)
         g_gerd->getStatistics(statistics);
         SetFont(g_smfnt_font);
         SetFontObjectPalette16BPP(g_smfnt_font, g_font_state_palettes[W8_FONT_PALETTE_YELLOW].get());
-        gprintfDirty(left, top, L"FR: %4.1f", g_frames_per_second);
+        DrawFontTextDirty(left, top, fmt::format("FR: {:4.1f}", g_frames_per_second));
         if (g_video_inspector_mode == 2) {
-            gprintfDirty(left, top + 0xa, L"OC: %d", g_world->level->m_submitted_polygons);
-            gprintfDirty(left, top + 0x14, L"PI: %d", statistics.input_triangles);
-            gprintfDirty(left, top + 0x1e, L"PO: %d", statistics.device_triangles);
-            gprintfDirty(left, top + 0x28, L"VI: %d", statistics.input_vertices);
-            gprintfDirty(left, top + 0x32, L"VO: %d", statistics.device_vertices);
-            gprintfDirty(left, top + 0x3c, L"DD: %d", statistics.device_calls);
-            gprintfDirty(left, top + 0x46, L"TC: %d", statistics.texture_binds);
-            gprintfDirty(left, top + 0x50, L"TT: %d", statistics.texture_transfer);
-            gprintfDirty(left, top + 0x5a, L"RM: %dK", g_gerd->getResidentTextureMemUsed() >> 10);
-            gprintfDirty(left, top + 0x64, L"TM: %dK", g_gerd->getTextureCacheUsed());
-            gprintfDirty(left, top + 0x6e, L"DR: %3d", GetCameraYawAndRotation(0));
-            gprintfDirty(left, top + 0x78, L"MM: %dK",
-                         static_cast<unsigned int>(g_decompressed_mesh_bytes) >> 10);
+            DrawFontTextDirty(left, top + 0xa,
+                              fmt::format("OC: {:d}", g_world->level->m_submitted_polygons));
+            DrawFontTextDirty(left, top + 0x14,
+                              fmt::format("PI: {:d}", statistics.input_triangles));
+            DrawFontTextDirty(left, top + 0x1e,
+                              fmt::format("PO: {:d}", statistics.device_triangles));
+            DrawFontTextDirty(left, top + 0x28, fmt::format("VI: {:d}", statistics.input_vertices));
+            DrawFontTextDirty(left, top + 0x32,
+                              fmt::format("VO: {:d}", statistics.device_vertices));
+            DrawFontTextDirty(left, top + 0x3c, fmt::format("DD: {:d}", statistics.device_calls));
+            DrawFontTextDirty(left, top + 0x46, fmt::format("TC: {:d}", statistics.texture_binds));
+            DrawFontTextDirty(left, top + 0x50,
+                              fmt::format("TT: {:.0f}", statistics.texture_transfer));
+            DrawFontTextDirty(left, top + 0x5a,
+                              fmt::format("RM: {:d}K", g_gerd->getResidentTextureMemUsed() >> 10));
+            DrawFontTextDirty(left, top + 0x64,
+                              fmt::format("TM: {:d}K", g_gerd->getTextureCacheUsed()));
+            DrawFontTextDirty(left, top + 0x6e,
+                              fmt::format("DR: {:3d}", GetCameraYawAndRotation(0)));
+            DrawFontTextDirty(
+                left, top + 0x78,
+                fmt::format("MM: {:d}K",
+                            static_cast<unsigned int>(g_decompressed_mesh_bytes) >> 10));
             return;
         }
         if (g_video_inspector_mode == 3) {
@@ -1981,9 +1977,9 @@ void DrawVideoInspector(int left, unsigned int top)
                 position.y = position.z * g_world_cursor_scale;
                 position.z = scaled;
             }
-            gprintfDirty(left, top + 0xa, L" X: %.2f", position.x);
-            gprintfDirty(left, top + 0x14, L" Y: %.2f", position.y);
-            gprintfDirty(left, top + 0x1e, L" Z: %.2f", position.z);
+            DrawFontTextDirty(left, top + 0xa, fmt::format(" X: {:.2f}", position.x));
+            DrawFontTextDirty(left, top + 0x14, fmt::format(" Y: {:.2f}", position.y));
+            DrawFontTextDirty(left, top + 0x1e, fmt::format(" Z: {:.2f}", position.z));
         }
     }
 }
@@ -2841,7 +2837,7 @@ srModelInstance* Video2DRectToPolygon(const W8ControlsRect* rect, void* source, 
    tooltip objects and positions them above the cursor. Only one tooltip is
    alive at a time. */
 // FUNCTION: WIZ8 0x00429290
-void VideoToolTip(CHAR16* text)
+void VideoToolTip(std::string_view text)
 {
     if (!g_tooltip_nodes.empty()) {
         return;
@@ -2949,7 +2945,6 @@ unsigned int GetTotalPhysicalMemory(void)
 std::shared_ptr<stTextureAnim> VideoVObjectToTextureAnim(HVOBJECT object, unsigned short start_frame,
                                          unsigned short frame_count, bool use_argb1555)
 {
-    ETRLEObject properties;
     unsigned short frame;
     unsigned short end_frame;
     w8_ulong extent;
@@ -2966,7 +2961,8 @@ std::shared_ptr<stTextureAnim> VideoVObjectToTextureAnim(HVOBJECT object, unsign
     frame = start_frame;
     end_frame = static_cast<unsigned short>(start_frame + frame_count);
     while (frame < end_frame) {
-        if (GetVideoObjectETRLEProperties(object, &properties, frame)) {
+        if (frame < object->sprites.size()) {
+            const SpriteFrame& properties = object->sprites[frame];
             largest = properties.usHeight;
             if (properties.usHeight < properties.usWidth) {
                 largest = properties.usWidth;

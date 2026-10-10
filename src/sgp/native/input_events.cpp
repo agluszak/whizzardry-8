@@ -1,3 +1,6 @@
+#include "wiz8/unicode.h"
+#include <string>
+#include <string_view>
 #include "wiz8/application.h"
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/engine_code/GameData.h"
@@ -17,6 +20,7 @@ SDL_Window* input_window = nullptr;
 SDL_Keymod current_modifiers = SDL_KMOD_NONE;
 SDL_Point mouse_position{};
 bool focused = false;
+bool text_input_requested = false;
 float wheel_remainder = 0;
 
 void reset_held_input()
@@ -193,6 +197,16 @@ UINT32 game_key(SDL_Keycode key, bool& extended)
 
 } // namespace
 
+void SetNativeTextInputEnabled(bool enabled)
+{
+    text_input_requested = enabled;
+    if (input_window) {
+        if (enabled) SDL_StartTextInput(input_window);
+        else SDL_StopTextInput(input_window);
+    }
+}
+bool NativeTextInputEnabled() { return text_input_requested; }
+
 void SetInputWindow(SDL_Window* window)
 {
     restore_pending = false;
@@ -200,6 +214,7 @@ void SetInputWindow(SDL_Window* window)
     input_window = window;
     focused = window && (SDL_GetWindowFlags(window) & SDL_WINDOW_INPUT_FOCUS);
     mouse_position = {};
+    SetNativeTextInputEnabled(text_input_requested);
 }
 void GetGameMousePosition(SDL_Point* point)
 {
@@ -255,6 +270,15 @@ void HandleInputEvent(const SDL_Event& event)
         return;
     switch (event.type)
     {
+    case SDL_EVENT_TEXT_INPUT:
+    {
+        if (!text_input_requested) break;
+        std::string_view text(event.text.text);
+        std::size_t offset = 0;
+        while (offset < text.size()) QueueEvent(KEY_DOWN, wiz8::text::next(text, offset), NATIVE_TEXT_INPUT_FLAG);
+        gfSGPInputReceived = TRUE;
+        break;
+    }
     case SDL_EVENT_KEY_DOWN:
     case SDL_EVENT_KEY_UP:
     {
@@ -330,17 +354,14 @@ BOOLEAN gfProgramIsRunning = FALSE;
 // GLOBAL: WIZ8 0x006505a9
 BOOLEAN gfGameInitialized = FALSE;
 // GLOBAL: WIZ8 0x006505ac
-CHAR8 gzErrorMsg[2048] = "";
+std::string gzErrorMsg;
 // GLOBAL: WIZ8 0x00650dac
 BOOLEAN gfIgnoreMessages = FALSE;
-// GLOBAL: WIZ8 0x005ff450
-UINT8 gbPixelDepth = PIXEL_DEPTH;
-
 
 // FUNCTION: WIZ8 0x00401920
-[[noreturn]] void ShutdownWithErrorBox(const CHAR8* message)
+[[noreturn]] void ShutdownWithErrorBox(std::string_view message)
 {
-    SDL_strlcpy(gzErrorMsg, message, sizeof(gzErrorMsg));
+    gzErrorMsg = message;
     gfIgnoreMessages = TRUE;
     throw std::runtime_error(gzErrorMsg);
 }

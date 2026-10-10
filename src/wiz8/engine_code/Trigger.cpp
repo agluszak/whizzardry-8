@@ -1,3 +1,6 @@
+#include <fmt/format.h>
+#include "wiz8/unicode.h"
+#include <string>
 #include "wiz8/containers.h"
 #include "wiz8/spell_ids.h"
 #include "wiz8/fonts.h"
@@ -1206,7 +1209,7 @@ void InitializeStateDrivenPropVariables(Trigger* trigger)
             srAssertFail("m_bRepType == TRIGGER_REP_PROP", "..\\Engine Code\\Include\\Trigger.hpp",
                          0x3ed, 0);
         }
-        sprintf(name, "%s%d", trigger->m_pacStateToMod, slot);
+        snprintf(name, sizeof(name), "%s%d", trigger->m_pacStateToMod, slot);
         CreateLocationVar(name, slot == 0);
     }
 }
@@ -1923,15 +1926,15 @@ Trigger* Trigger::CreateAndLoadLevelTrigger(wiz8::File* handle, W8World* world)
                 trigger->m_lData1 >= static_cast<int>(g_missile_table_count)) {
                 srAssertFail("((pTrigger->m_lData1 >= 0) && (pTrigger->m_lData1 < "
                              "Missile::GetNumTypes()))",
-                    "C:\\Projects\\Wizardry 8\\Engine Code\\Trigger.cpp", 0xf14,
-                    FormatString(
-                        "Trigger %s: You must enter a valid missile number", trigger->name));
+                             "C:\\Projects\\Wizardry 8\\Engine Code\\Trigger.cpp", 0xf14,
+                             fmt::format("Trigger {}: You must enter a valid missile number",
+                                         trigger->name));
             }
             if (trigger->m_lData2 == -1) {
                 srAssertFail(
                     "(pTrigger->m_lData2!=(-1))",
                     "C:\\Projects\\Wizardry 8\\Engine Code\\Trigger.cpp", 0xf15,
-                    FormatString("Trigger %s: You must enter a time value in Data2", trigger->name));
+                    fmt::format("Trigger {}: You must enter a time value in Data2", trigger->name));
             }
             if (trigger->m_lData2 < 0) {
                 trigger->m_pEvent = new W8TriggerEvent;
@@ -2278,13 +2281,13 @@ show_action_message:
 
         if (message_id != -1) {
             char path[512];
-            wchar_t text[1996];
+            std::string text;
 
             if (level_folder == 0) {
                 level_folder = "";
             }
-            sprintf(path, "Data\\Messages\\%s.msg", level_folder);
-            if (GetStringFromStringDatabase(path, message_id, text, 0, 0) != 0) {
+            snprintf(path, sizeof(path), "Data\\Messages\\%s.msg", level_folder);
+            if ((!(text = GetStringFromStringDatabase(path, message_id, 0, 0)).empty()) != 0) {
                 ShowString(text);
             }
         }
@@ -2388,7 +2391,7 @@ void Trigger::GenerateItemGroup()
         return;
     }
 
-    maximum_items = RollDice(&g_item_tables[table_id]->item_count_dice);
+    maximum_items = RollDice(&g_item_tables[table_id].item_count_dice);
     GenerateItemsFromTable(items, table_id, maximum_items);
     if (world_item_group == 0) {
         world_item_group = SpawnItem(0x23c, &position, 0, false);
@@ -2396,7 +2399,7 @@ void Trigger::GenerateItemGroup()
     for (index = 0; index < static_cast<int>(items.size()); ++index) {
         ItemInfoAddToGroup(world_item_group, items[index]);
     }
-    gold = RollDice(&g_item_tables[table_id]->gold_dice);
+    gold = RollDice(&g_item_tables[table_id].gold_dice);
     items_generated = 1;
 }
 
@@ -2423,10 +2426,10 @@ void Trigger::PrintNothingHappenedOrSpecialItemRequired()
         return;
     }
     if (required_item_id != -1) {
-        ShowNotice(W8_FONT_PALETTE_TEXT_BOX, gppStringList[0x96b]);
+        ShowNotice(W8_FONT_PALETTE_TEXT_BOX, g_localized_strings[0x96b]);
         return;
     }
-    ShowNotice(W8_FONT_PALETTE_TEXT_BOX, gppStringList[0x964]);
+    ShowNotice(W8_FONT_PALETTE_TEXT_BOX, g_localized_strings[0x964]);
 }
 
 /* Execute the selected Trigger action. The original keeps the three trigger
@@ -2509,7 +2512,7 @@ void Trigger::Run(int source)
             if (camera != -1) {
                 char name[24];
 
-                sprintf(name, "Camera0%d", camera);
+                snprintf(name, sizeof(name), "Camera0%d", camera);
                 UpdateCameraPathStateByName(m_pWorld, name, 1);
             }
             FinishAction();
@@ -2596,7 +2599,7 @@ void Trigger::Run(int source)
             }
             if (action_data != 0 && action_data->locked && action_data->item != -1) {
                 if (!FindItemOnParty(action_data->item, 0, 0, 2, 0)) {
-                    ShowNoticef(W8_FONT_PALETTE_BLUE, L"Your party doesn't have required key.");
+                    ShowNotice(W8_FONT_PALETTE_BLUE, "Your party doesn't have required key.");
                     break;
                 }
                 action_data->locked = false;
@@ -2670,7 +2673,7 @@ void Trigger::Run(int source)
             }
             if (action_data != 0 && action_data->locked && action_data->item != -1) {
                 if (!FindItemOnParty(action_data->item, 0, 0, 2, 0)) {
-                    ShowNoticef(W8_FONT_PALETTE_BLUE, L"Your party doesn't have required key.");
+                    ShowNotice(W8_FONT_PALETTE_BLUE, "Your party doesn't have required key.");
                     break;
                 }
                 action_data->locked = false;
@@ -3134,7 +3137,7 @@ void Trigger::Run(int source)
                 PlayActionSound("Data\\Sound\\misc\\fountain_magic.wav", 0);
             } else if (action == 0x27) {
                 RestorePartySpellPoints(m_lData3);
-                ShowString(gppStringList[0x722]);
+                ShowString(g_localized_strings[0x722]);
                 PlayActionSound("Data\\Sound\\misc\\fountain_magic.wav", 0);
             } else {
                 W8SpellId spell_id;
@@ -3279,7 +3282,7 @@ void Trigger::Run(int source)
         if (m_pacStateToMod != 0) {
             char state_name[132];
 
-            sprintf(state_name, "%s%d", m_pacStateToMod,
+            snprintf(state_name, sizeof(state_name), "%s%d", m_pacStateToMod,
                     static_cast<int>(static_cast<signed char>(state_index)));
             SetTriggerVariableByName(state_name, 0);
         }
@@ -3288,7 +3291,7 @@ void Trigger::Run(int source)
         if (m_pacStateToMod != 0) {
             char state_name[132];
 
-            sprintf(state_name, "%s%d", m_pacStateToMod,
+            snprintf(state_name, sizeof(state_name), "%s%d", m_pacStateToMod,
                     static_cast<int>(static_cast<signed char>(state_index)));
             SetTriggerVariableByName(state_name, 1);
         }

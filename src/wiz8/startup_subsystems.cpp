@@ -1,5 +1,4 @@
 #include "wiz8/layouts/screen_state.h"
-#include "wiz8/sgp_text.h"
 #include "wiz8/fonts.h"
 #include "wiz8/dialog_code/DialogInterface.h"
 #include "wiz8/local_screens/MGSTextBox.h"

@@ -1,3 +1,4 @@
+#include <string_view>
 #include <SDL3/SDL_log.h>
 /* Modified for the Wizardry 8 reconstruction: 2026-10-03, 2026-10-06, 2026-10-07.
    Distributed under the accompanying SFI Source Code license agreement. */
@@ -27,7 +28,6 @@
 #include "Video2.h"
 
 // The following should be moved from here
-#define GETPIXELDEPTH() (gbPixelDepth) // From "utilities.h" in JA2
 #define COLOR_RED 162                  // From "lighting.h" in JA2
 #define COLOR_BLUE 203
 #define COLOR_YELLOW 144
@@ -212,38 +212,38 @@ INT32 FindFreeButtonSlot(void)
 //	LoadButtonImage
 //	Load images for use with QuickButtons.
 // FUNCTION: WIZ8 0x0040c230
-INT32 LoadButtonImage(UINT8* filename, INT32 Grayed, INT32 OffNormal, INT32 OffHilite,
+INT32 LoadButtonImage(std::string_view filename, INT32 Grayed, INT32 OffNormal, INT32 OffHilite,
                       INT32 OnNormal, INT32 OnHilite)
 {
     VOBJECT_DESC vo_desc;
     INT32 UseSlot;
-    ETRLEObject* pTrav;
+    SpriteFrame* pTrav;
     UINT32 MaxHeight, MaxWidth, ThisHeight, ThisWidth;
 
-    AssertMsg(filename != BUTTON_NO_FILENAME, "Attempting to LoadButtonImage() with null filename.");
-    Assert(filename[0] != '\0');
+    AssertMsg(!filename.empty(), "Attempting to LoadButtonImage() with null filename.");
+    Assert(!filename.empty() && filename.front() != '\0');
 
     // is there ANY file to open?
     if ((Grayed == BUTTON_NO_IMAGE) && (OffNormal == BUTTON_NO_IMAGE) &&
         (OffHilite == BUTTON_NO_IMAGE) && (OnNormal == BUTTON_NO_IMAGE) &&
         (OnHilite == BUTTON_NO_IMAGE)) {
-        SDL_LogDebug(SDL_LOG_CATEGORY_APPLICATION, "No button pictures selected for %s", filename);
+        SDL_LogDebug(SDL_LOG_CATEGORY_APPLICATION, "No button pictures selected for %s", std::string(filename).c_str());
         return (-1);
     }
 
     // Get a button image slot
     if ((UseSlot = FindFreeButtonSlot()) == BUTTON_NO_SLOT) {
-        SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Out of button image slots for %s", filename);
+        SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Out of button image slots for %s", std::string(filename).c_str());
         return (-1);
     }
 
     // Load the image
     vo_desc.fCreateFlags = VOBJECT_CREATE_FROMFILE;
-    vo_desc.ImageFile = (char*)filename;
+    vo_desc.ImageFile = filename;
 
     ButtonPictures[UseSlot].ownedObject.reset(CreateVideoObject(&vo_desc));
     if (!ButtonPictures[UseSlot].ownedObject) {
-        SDL_LogDebug(SDL_LOG_CATEGORY_APPLICATION, "Couldn't create VOBJECT for %s", filename);
+        SDL_LogDebug(SDL_LOG_CATEGORY_APPLICATION, "Couldn't create VOBJECT for %s", std::string(filename).c_str());
         return (-1);
     }
 
@@ -257,7 +257,7 @@ INT32 LoadButtonImage(UINT8* filename, INT32 Grayed, INT32 OffNormal, INT32 OffH
     // Fit the button size to the largest image in the set
     MaxWidth = MaxHeight = 0;
     if (Grayed != BUTTON_NO_IMAGE) {
-        pTrav = &(ButtonPictures[UseSlot].object()->pETRLEObject[Grayed]);
+        pTrav = &(ButtonPictures[UseSlot].object()->sprites[Grayed]);
         ThisHeight = (UINT32)(pTrav->usHeight + pTrav->sOffsetY);
         ThisWidth = (UINT32)(pTrav->usWidth + pTrav->sOffsetX);
 
@@ -268,7 +268,7 @@ INT32 LoadButtonImage(UINT8* filename, INT32 Grayed, INT32 OffNormal, INT32 OffH
     }
 
     if (OffNormal != BUTTON_NO_IMAGE) {
-        pTrav = &(ButtonPictures[UseSlot].object()->pETRLEObject[OffNormal]);
+        pTrav = &(ButtonPictures[UseSlot].object()->sprites[OffNormal]);
         ThisHeight = (UINT32)(pTrav->usHeight + pTrav->sOffsetY);
         ThisWidth = (UINT32)(pTrav->usWidth + pTrav->sOffsetX);
 
@@ -279,7 +279,7 @@ INT32 LoadButtonImage(UINT8* filename, INT32 Grayed, INT32 OffNormal, INT32 OffH
     }
 
     if (OffHilite != BUTTON_NO_IMAGE) {
-        pTrav = &(ButtonPictures[UseSlot].object()->pETRLEObject[OffHilite]);
+        pTrav = &(ButtonPictures[UseSlot].object()->sprites[OffHilite]);
         ThisHeight = (UINT32)(pTrav->usHeight + pTrav->sOffsetY);
         ThisWidth = (UINT32)(pTrav->usWidth + pTrav->sOffsetX);
 
@@ -290,7 +290,7 @@ INT32 LoadButtonImage(UINT8* filename, INT32 Grayed, INT32 OffNormal, INT32 OffH
     }
 
     if (OnNormal != BUTTON_NO_IMAGE) {
-        pTrav = &(ButtonPictures[UseSlot].object()->pETRLEObject[OnNormal]);
+        pTrav = &(ButtonPictures[UseSlot].object()->sprites[OnNormal]);
         ThisHeight = (UINT32)(pTrav->usHeight + pTrav->sOffsetY);
         ThisWidth = (UINT32)(pTrav->usWidth + pTrav->sOffsetX);
 
@@ -301,7 +301,7 @@ INT32 LoadButtonImage(UINT8* filename, INT32 Grayed, INT32 OffNormal, INT32 OffH
     }
 
     if (OnHilite != BUTTON_NO_IMAGE) {
-        pTrav = &(ButtonPictures[UseSlot].object()->pETRLEObject[OnHilite]);
+        pTrav = &(ButtonPictures[UseSlot].object()->sprites[OnHilite]);
         ThisHeight = (UINT32)(pTrav->usHeight + pTrav->sOffsetY);
         ThisWidth = (UINT32)(pTrav->usWidth + pTrav->sOffsetX);
 
@@ -332,7 +332,7 @@ INT32 UseVObjAsButtonImage(HVOBJECT hVObject, INT32 Grayed, INT32 OffNormal, INT
                            INT32 OnNormal, INT32 OnHilite)
 {
     INT32 UseSlot;
-    ETRLEObject* pTrav;
+    SpriteFrame* pTrav;
     UINT32 MaxHeight, MaxWidth, ThisHeight, ThisWidth;
 
     // Is button image index given valid?
@@ -366,7 +366,7 @@ INT32 UseVObjAsButtonImage(HVOBJECT hVObject, INT32 Grayed, INT32 OffNormal, INT
     // Fit the button size to the largest image in the set
     MaxWidth = MaxHeight = 0;
     if (Grayed != BUTTON_NO_IMAGE) {
-        pTrav = &(ButtonPictures[UseSlot].object()->pETRLEObject[Grayed]);
+        pTrav = &(ButtonPictures[UseSlot].object()->sprites[Grayed]);
         ThisHeight = (UINT32)(pTrav->usHeight + pTrav->sOffsetY);
         ThisWidth = (UINT32)(pTrav->usWidth + pTrav->sOffsetX);
 
@@ -377,7 +377,7 @@ INT32 UseVObjAsButtonImage(HVOBJECT hVObject, INT32 Grayed, INT32 OffNormal, INT
     }
 
     if (OffNormal != BUTTON_NO_IMAGE) {
-        pTrav = &(ButtonPictures[UseSlot].object()->pETRLEObject[OffNormal]);
+        pTrav = &(ButtonPictures[UseSlot].object()->sprites[OffNormal]);
         ThisHeight = (UINT32)(pTrav->usHeight + pTrav->sOffsetY);
         ThisWidth = (UINT32)(pTrav->usWidth + pTrav->sOffsetX);
 
@@ -388,7 +388,7 @@ INT32 UseVObjAsButtonImage(HVOBJECT hVObject, INT32 Grayed, INT32 OffNormal, INT
     }
 
     if (OffHilite != BUTTON_NO_IMAGE) {
-        pTrav = &(ButtonPictures[UseSlot].object()->pETRLEObject[OffHilite]);
+        pTrav = &(ButtonPictures[UseSlot].object()->sprites[OffHilite]);
         ThisHeight = (UINT32)(pTrav->usHeight + pTrav->sOffsetY);
         ThisWidth = (UINT32)(pTrav->usWidth + pTrav->sOffsetX);
 
@@ -399,7 +399,7 @@ INT32 UseVObjAsButtonImage(HVOBJECT hVObject, INT32 Grayed, INT32 OffNormal, INT
     }
 
     if (OnNormal != BUTTON_NO_IMAGE) {
-        pTrav = &(ButtonPictures[UseSlot].object()->pETRLEObject[OnNormal]);
+        pTrav = &(ButtonPictures[UseSlot].object()->sprites[OnNormal]);
         ThisHeight = (UINT32)(pTrav->usHeight + pTrav->sOffsetY);
         ThisWidth = (UINT32)(pTrav->usWidth + pTrav->sOffsetX);
 
@@ -410,7 +410,7 @@ INT32 UseVObjAsButtonImage(HVOBJECT hVObject, INT32 Grayed, INT32 OffNormal, INT
     }
 
     if (OnHilite != BUTTON_NO_IMAGE) {
-        pTrav = &(ButtonPictures[UseSlot].object()->pETRLEObject[OnHilite]);
+        pTrav = &(ButtonPictures[UseSlot].object()->sprites[OnHilite]);
         ThisHeight = (UINT32)(pTrav->usHeight + pTrav->sOffsetY);
         ThisWidth = (UINT32)(pTrav->usWidth + pTrav->sOffsetX);
 
@@ -547,7 +547,7 @@ BOOLEAN InitializeButtonImageManager(INT32 DefaultBuffer, INT32 DefaultPitch, IN
         images[index]->reset(LoadButtonVideoObject(filenames[index]));
         // Default highlights are optional even when their files are missing.
         if (!*images[index] && index < 2) {
-            SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Couldn't create VOBJECT for %s", filenames[index]);
+            SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Couldn't create VOBJECT for %s", std::string(filenames[index]).c_str());
             if (GenericButtonOffNormal[0])
                 UnloadGenericButtonImage(0);
             return false;
@@ -561,10 +561,7 @@ BOOLEAN InitializeButtonImageManager(INT32 DefaultBuffer, INT32 DefaultPitch, IN
         return false;
     }
 
-    if (GETPIXELDEPTH() == 16)
-        GenericButtonFillColors[0] = GenericButtonOffNormal[0]->p16BPPPalette[Pix];
-    else if (GETPIXELDEPTH() == 8)
-        GenericButtonFillColors[0] = COLOR_DKGREY;
+    GenericButtonFillColors[0] = GenericButtonOffNormal[0]->p16BPPPalette[Pix];
 
     return (TRUE);
 }
@@ -611,11 +608,11 @@ BOOLEAN UnloadGenericButtonImage(INT16 GenImg)
 //	LoadGenericButtonImages
 //	Loads the image files required for displaying a generic button.
 // FUNCTION: WIZ8 0x0040cb70
-INT16 LoadGenericButtonImages(UINT8* GrayName, UINT8* OffNormName, UINT8* OffHiliteName,
-                              UINT8* OnNormName, UINT8* OnHiliteName, UINT8* BkGrndName,
+INT16 LoadGenericButtonImages(std::string_view GrayName, std::string_view OffNormName, std::string_view OffHiliteName,
+                              std::string_view OnNormName, std::string_view OnHiliteName, std::string_view BkGrndName,
                               INT16 Index, INT16 OffsetX, INT16 OffsetY)
 {
-    if (!OffNormName || !OnNormName) {
+    if (OffNormName.empty() || OnNormName.empty()) {
         SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "LoadGenericButtonImages: Missing normal-state filenames");
         return -1;
     }
@@ -624,16 +621,16 @@ INT16 LoadGenericButtonImages(UINT8* GrayName, UINT8* OffNormName, UINT8* OffHil
         SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "LoadGenericButtonImages: Out of generic button slots");
         return -1;
     }
-    const std::array<const UINT8*, 6> filenames{
+    const std::array<std::string_view, 6> filenames{
         OffNormName, OnNormName, GrayName, OffHiliteName, OnHiliteName, BkGrndName};
     std::array<std::unique_ptr<SGPVObject>, 6> loaded;
     for (size_t index = 0; index < filenames.size(); ++index) {
-        if (!filenames[index])
+        if (filenames[index].empty())
             continue;
-        loaded[index].reset(LoadButtonVideoObject(reinterpret_cast<const char*>(filenames[index])));
+        loaded[index].reset(LoadButtonVideoObject(std::string(filenames[index]).c_str()));
         if (!loaded[index]) {
             SDL_LogError(SDL_LOG_CATEGORY_APPLICATION,
-                         "LoadGenericButtonImages: Couldn't create VOBJECT for %s", filenames[index]);
+                         "LoadGenericButtonImages: Couldn't create VOBJECT for %s", std::string(filenames[index]).c_str());
             return -1;
         }
     }
@@ -886,7 +883,7 @@ void SetButtonPosition(INT32 iButtonID, INT16 x, INT16 y)
 
 //Creates a generic button with text on it.
 // FUNCTION: WIZ8 0x0040d350
-INT32 CreateTextButton(CHAR16* string, UINT32 uiFont, INT16 sForeColor, INT16 sShadowColor,
+INT32 CreateTextButton(std::string_view string, UINT32 uiFont, INT16 sForeColor, INT16 sShadowColor,
                        INT16 GenImg, INT16 xloc, INT16 yloc, INT16 w, INT16 h, INT32 Type,
                        INT16 Priority, GUI_CALLBACK MoveCallback, GUI_CALLBACK ClickCallback)
 {
@@ -923,12 +920,7 @@ INT32 CreateTextButton(CHAR16* string, UINT32 uiFont, INT16 sForeColor, INT16 sS
     b = owner.get();
 
     // Allocate memory for the button's text string...
-    b->string = nullptr;
-    if (string && wcslen(string)) {
-        b->string = std::make_unique<CHAR16[]>(wcslen(string) + 1);
-        AssertMsg(b->string, "Out of memory error:  Couldn't allocate string in CreateTextButton.");
-        wcscpy(b->string.get(), string);
-    }
+    b->string = string;
 
     // Init the button structure variables
     b->uiFlags = BUTTON_DIRTY;
@@ -1061,7 +1053,7 @@ INT32 QuickCreateButton(UINT32 Image, INT16 xloc, INT16 yloc, INT32 Type, INT16 
 
     b->Group = -1;
     //Init string
-    b->string = nullptr;
+    b->string.clear();
     b->usFont = 0;
     b->fMultiColor = FALSE;
     b->sForeColor = 0;
@@ -1136,22 +1128,12 @@ INT32 QuickCreateButton(UINT32 Image, INT16 xloc, INT16 yloc, INT32 Type, INT16 
 
 //New functions
 // FUNCTION: WIZ8 0x0040d850
-void SpecifyButtonText(INT32 iButtonID, CHAR16* string)
+void SpecifyButtonText(INT32 iButtonID, std::string_view string)
 {
-    GUI_BUTTON* b;
-
-    Assert(iButtonID >= 0);
-    Assert(iButtonID < MAX_BUTTONS);
-
-    b = ButtonList[iButtonID].get();
-
-    std::unique_ptr<CHAR16[]> text;
-    if (string && wcslen(string)) {
-        text = std::make_unique<CHAR16[]>(wcslen(string) + 1);
-        wcscpy(text.get(), string);
-        b->uiFlags |= BUTTON_DIRTY;
-    }
-    b->string = std::move(text);
+    Assert(iButtonID >= 0 && iButtonID < MAX_BUTTONS);
+    auto* button = ButtonList[iButtonID].get();
+    button->string = string;
+    button->uiFlags |= BUTTON_DIRTY;
 }
 
 // FUNCTION: WIZ8 0x0040d8c0
@@ -1184,7 +1166,7 @@ void SpecifyButtonTextOffsets(INT32 iButtonID, INT8 bTextXOffset, INT8 bTextYOff
 //	SetButtonFastHelpText
 //	Set the text that will be displayed as the FastHelp
 // FUNCTION: WIZ8 0x0040d910
-void SetButtonFastHelpText(INT32 iButton, CHAR16* Text)
+void SetButtonFastHelpText(INT32 iButton, std::string_view Text)
 {
     GUI_BUTTON* b;
     if (iButton < 0 || iButton > MAX_BUTTONS)
@@ -1446,14 +1428,14 @@ BOOLEAN DrawButton(INT32 iButtonID)
     if (!ButtonList[iButtonID])
         return FALSE;
 
-    if (ButtonList[iButtonID]->string)
+    if (!ButtonList[iButtonID]->string.empty())
         SaveFontSettings();
     // Draw this button
     if (ButtonList[iButtonID]->Area.uiFlags & MSYS_REGION_ENABLED) {
         DrawButtonFromPtr(ButtonList[iButtonID].get());
     }
 
-    if (ButtonList[iButtonID]->string)
+    if (!ButtonList[iButtonID]->string.empty())
         RestoreFontSettings();
     return TRUE;
 }
@@ -1485,7 +1467,7 @@ void DrawButtonFromPtr(GUI_BUTTON* b)
     if (b->iIconID != -1)
         DrawIconOnButton(b);
     //If button has text, draw it now
-    if (b->string)
+    if (!b->string.empty())
         DrawTextOnButton(b);
     //If the button is disabled, and a style has been calculated, then
     //draw the style last.
@@ -1534,7 +1516,7 @@ void DrawQuickButton(GUI_BUTTON* b)
         UseImage = ButtonPictures[b->ImageNum].OffNormal;
         switch (b->bDisabledStyle) {
         case DISABLED_STYLE_DEFAULT:
-            gbDisabledButtonStyle = b->string ? DISABLED_STYLE_SHADED : DISABLED_STYLE_HATCHED;
+            gbDisabledButtonStyle = !b->string.empty() ? DISABLED_STYLE_SHADED : DISABLED_STYLE_HATCHED;
             break;
         case DISABLED_STYLE_HATCHED:
         case DISABLED_STYLE_SHADED:
@@ -1661,7 +1643,7 @@ void DrawIconOnButton(GUI_BUTTON* b)
     INT32 xp, yp, width, height, IconX, IconY;
     INT32 IconW, IconH;
     SDL_Rect NewClip, OldClip;
-    ETRLEObject* pTrav;
+    SpriteFrame* pTrav;
     HVOBJECT hvObject;
 
     // If there's an actual icon on this button, try to show it.
@@ -1684,10 +1666,10 @@ void DrawIconOnButton(GUI_BUTTON* b)
 
         // Get the width and height of the icon itself
         if (b->uiFlags & BUTTON_GENERIC)
-            pTrav = &(GenericButtonIcons[b->iIconID]->pETRLEObject[b->usIconIndex]);
+            pTrav = &(GenericButtonIcons[b->iIconID]->sprites[b->usIconIndex]);
         else {
             GetVideoObject(&hvObject, b->iIconID);
-            pTrav = &(hvObject->pETRLEObject[b->usIconIndex]);
+            pTrav = &(hvObject->sprites[b->usIconIndex]);
         }
         IconH = (UINT32)(pTrav->usHeight + pTrav->sOffsetY);
         IconW = (UINT32)(pTrav->usWidth + pTrav->sOffsetX);
@@ -1732,7 +1714,7 @@ void DrawTextOnButton(GUI_BUTTON* b)
     SDL_Rect NewClip, OldClip;
 
     // If this button actually has a string to print
-    if (b->string) {
+    if (!b->string.empty()) {
         // Get the width and height of this button
         width = b->Area.RegionBottomRightX - b->Area.RegionTopLeftX;
         height = b->Area.RegionBottomRightY - b->Area.RegionTopLeftY;
@@ -1764,11 +1746,11 @@ void DrawTextOnButton(GUI_BUTTON* b)
                 xp = TextX + 3;
                 break;
             case BUTTON_TEXT_RIGHT:
-                xp = (NewClip.x + NewClip.w) - StringPixLength(b->string.get(), b->usFont) - 3;
+                xp = (NewClip.x + NewClip.w) - StringPixLength(b->string, b->usFont) - 3;
                 break;
             case BUTTON_TEXT_CENTER:
             default:
-                xp = (((width - 6) - StringPixLength(b->string.get(), b->usFont)) / 2) + TextX;
+                xp = (((width - 6) - StringPixLength(b->string, b->usFont)) / 2) + TextX;
                 break;
             }
         } else
@@ -1802,9 +1784,9 @@ void DrawTextOnButton(GUI_BUTTON* b)
             yp++;
         }
         if (b->fMultiColor)
-            gprintf(xp, yp, b->string.get());
+            DrawFontText(xp, yp, b->string);
         else
-            mprintf(xp, yp, b->string.get());
+            DrawMonoFontText(xp, yp, b->string);
         // Restore the old text printing settings
     }
 }
@@ -1822,7 +1804,7 @@ void DrawGenericButton(GUI_BUTTON* b)
     UINT32 uiDestPitchBYTES;
     UINT8* pDestBuf;
     SDL_Rect ClipRect;
-    ETRLEObject* pTrav;
+    SpriteFrame* pTrav;
 
     // Select the graphics to use depending on the current state of the button
     if (b->uiFlags & BUTTON_ENABLED) {
@@ -1847,7 +1829,7 @@ void DrawGenericButton(GUI_BUTTON* b)
         BPic = GenericButtonOffNormal[b->ImageNum].get();
         switch (b->bDisabledStyle) {
         case DISABLED_STYLE_DEFAULT:
-            gbDisabledButtonStyle = b->string ? DISABLED_STYLE_SHADED : DISABLED_STYLE_HATCHED;
+            gbDisabledButtonStyle = !b->string.empty() ? DISABLED_STYLE_SHADED : DISABLED_STYLE_HATCHED;
             break;
         case DISABLED_STYLE_HATCHED:
         case DISABLED_STYLE_SHADED:
@@ -1864,7 +1846,7 @@ void DrawGenericButton(GUI_BUTTON* b)
     // The 3x2 size was a bit limiting. JA2 should default to the original
     // size, unchanged
 
-    pTrav = &(BPic->pETRLEObject[0]);
+    pTrav = &(BPic->sprites[0]);
     iBorderHeight = (INT32)pTrav->usHeight;
     iBorderWidth = (INT32)pTrav->usWidth;
 
@@ -1912,93 +1894,57 @@ void DrawGenericButton(GUI_BUTTON* b)
         else
             ImgNum = 1;
 
-        if (gbPixelDepth == 16) {
-            Blt8BPPDataTo16BPPBufferTransparentClip((UINT16*)pDestBuf, uiDestPitchBYTES, BPic,
-                                                    (INT32)(b->XLoc + (q * iBorderWidth)),
-                                                    (INT32)b->YLoc, (UINT16)ImgNum, &ClipRect);
-        } else if (gbPixelDepth == 8) {
-            Blt8BPPDataTo8BPPBufferTransparentClip((UINT16*)pDestBuf, uiDestPitchBYTES, BPic,
-                                                   (INT32)(b->XLoc + (q * iBorderWidth)),
-                                                   (INT32)b->YLoc, (UINT16)ImgNum, &ClipRect);
-        }
+        BltSpriteTo16BPPBuffer((UINT16*)pDestBuf, uiDestPitchBYTES,
+                                   BPic->sprites[(UINT16)ImgNum], BPic->pShadeCurrent,
+                                   (INT32)(b->XLoc + (q * iBorderWidth)), (INT32)b->YLoc, &ClipRect, false,
+                                   SpriteDrawOp::Transparent);
 
         if (q == 0)
             ImgNum = 5;
         else
             ImgNum = 6;
 
-        if (gbPixelDepth == 16) {
-            Blt8BPPDataTo16BPPBufferTransparentClip((UINT16*)pDestBuf, uiDestPitchBYTES, BPic,
-                                                    (INT32)(b->XLoc + (q * iBorderWidth)), cy,
-                                                    (UINT16)ImgNum, &ClipRect);
-        } else if (gbPixelDepth == 8) {
-            Blt8BPPDataTo8BPPBufferTransparentClip((UINT16*)pDestBuf, uiDestPitchBYTES, BPic,
-                                                   (INT32)(b->XLoc + (q * iBorderWidth)), cy,
-                                                   (UINT16)ImgNum, &ClipRect);
-        }
+        BltSpriteTo16BPPBuffer((UINT16*)pDestBuf, uiDestPitchBYTES,
+                                   BPic->sprites[(UINT16)ImgNum], BPic->pShadeCurrent,
+                                   (INT32)(b->XLoc + (q * iBorderWidth)), cy, &ClipRect, false,
+                                   SpriteDrawOp::Transparent);
     }
     // Blit the right side corners
-    if (gbPixelDepth == 16) {
-        Blt8BPPDataTo16BPPBufferTransparentClip((UINT16*)pDestBuf, uiDestPitchBYTES, BPic, cx,
-                                                (INT32)b->YLoc, 2, &ClipRect);
-    } else if (gbPixelDepth == 8) {
-        Blt8BPPDataTo8BPPBufferTransparentClip((UINT16*)pDestBuf, uiDestPitchBYTES, BPic, cx,
-                                               (INT32)b->YLoc, 2, &ClipRect);
-    }
+    BltSpriteTo16BPPBuffer((UINT16*)pDestBuf, uiDestPitchBYTES,
+                               BPic->sprites[2], BPic->pShadeCurrent,
+                               cx, (INT32)b->YLoc, &ClipRect, false,
+                               SpriteDrawOp::Transparent);
 
-    if (gbPixelDepth == 16) {
-        Blt8BPPDataTo16BPPBufferTransparentClip((UINT16*)pDestBuf, uiDestPitchBYTES, BPic, cx, cy,
-                                                7, &ClipRect);
-    } else if (gbPixelDepth == 8) {
-        Blt8BPPDataTo8BPPBufferTransparentClip((UINT16*)pDestBuf, uiDestPitchBYTES, BPic, cx, cy, 7,
-                                               &ClipRect);
-    }
+    BltSpriteTo16BPPBuffer((UINT16*)pDestBuf, uiDestPitchBYTES,
+                               BPic->sprites[7], BPic->pShadeCurrent,
+                               cx, cy, &ClipRect, false,
+                               SpriteDrawOp::Transparent);
     // Draw the vertical members of the button's borders
     NumChunksHigh--;
 
     if (hremain != 0) {
         q = NumChunksHigh;
-        if (gbPixelDepth == 16) {
-            Blt8BPPDataTo16BPPBufferTransparentClip(
-                (UINT16*)pDestBuf, uiDestPitchBYTES, BPic, (INT32)b->XLoc,
-                (INT32)(b->YLoc + (q * iBorderHeight) - (iBorderHeight - hremain)), 3, &ClipRect);
-        } else if (gbPixelDepth == 8) {
-            Blt8BPPDataTo8BPPBufferTransparentClip(
-                (UINT16*)pDestBuf, uiDestPitchBYTES, BPic, (INT32)b->XLoc,
-                (INT32)(b->YLoc + (q * iBorderHeight) - (iBorderHeight - hremain)), 3, &ClipRect);
-        }
+        BltSpriteTo16BPPBuffer((UINT16*)pDestBuf, uiDestPitchBYTES,
+                                   BPic->sprites[3], BPic->pShadeCurrent,
+                                   (INT32)b->XLoc, (INT32)(b->YLoc + (q * iBorderHeight) - (iBorderHeight - hremain)), &ClipRect, false,
+                                   SpriteDrawOp::Transparent);
 
-        if (gbPixelDepth == 16) {
-            Blt8BPPDataTo16BPPBufferTransparentClip(
-                (UINT16*)pDestBuf, uiDestPitchBYTES, BPic, cx,
-                (INT32)(b->YLoc + (q * iBorderHeight) - (iBorderHeight - hremain)), 4, &ClipRect);
-        } else if (gbPixelDepth == 8) {
-            Blt8BPPDataTo8BPPBufferTransparentClip(
-                (UINT16*)pDestBuf, uiDestPitchBYTES, BPic, cx,
-                (INT32)(b->YLoc + (q * iBorderHeight) - (iBorderHeight - hremain)), 4, &ClipRect);
-        }
+        BltSpriteTo16BPPBuffer((UINT16*)pDestBuf, uiDestPitchBYTES,
+                                   BPic->sprites[4], BPic->pShadeCurrent,
+                                   cx, (INT32)(b->YLoc + (q * iBorderHeight) - (iBorderHeight - hremain)), &ClipRect, false,
+                                   SpriteDrawOp::Transparent);
     }
 
     for (q = 1; q < NumChunksHigh; q++) {
-        if (gbPixelDepth == 16) {
-            Blt8BPPDataTo16BPPBufferTransparentClip(
-                (UINT16*)pDestBuf, uiDestPitchBYTES, BPic, (INT32)b->XLoc,
-                (INT32)(b->YLoc + (q * iBorderHeight)), 3, &ClipRect);
-        } else if (gbPixelDepth == 8) {
-            Blt8BPPDataTo8BPPBufferTransparentClip(
-                (UINT16*)pDestBuf, uiDestPitchBYTES, BPic, (INT32)b->XLoc,
-                (INT32)(b->YLoc + (q * iBorderHeight)), 3, &ClipRect);
-        }
+        BltSpriteTo16BPPBuffer((UINT16*)pDestBuf, uiDestPitchBYTES,
+                                   BPic->sprites[3], BPic->pShadeCurrent,
+                                   (INT32)b->XLoc, (INT32)(b->YLoc + (q * iBorderHeight)), &ClipRect, false,
+                                   SpriteDrawOp::Transparent);
 
-        if (gbPixelDepth == 16) {
-            Blt8BPPDataTo16BPPBufferTransparentClip((UINT16*)pDestBuf, uiDestPitchBYTES, BPic, cx,
-                                                    (INT32)(b->YLoc + (q * iBorderHeight)), 4,
-                                                    &ClipRect);
-        } else if (gbPixelDepth == 8) {
-            Blt8BPPDataTo8BPPBufferTransparentClip((UINT16*)pDestBuf, uiDestPitchBYTES, BPic, cx,
-                                                   (INT32)(b->YLoc + (q * iBorderHeight)), 4,
-                                                   &ClipRect);
-        }
+        BltSpriteTo16BPPBuffer((UINT16*)pDestBuf, uiDestPitchBYTES,
+                                   BPic->sprites[4], BPic->pShadeCurrent,
+                                   cx, (INT32)(b->YLoc + (q * iBorderHeight)), &ClipRect, false,
+                                   SpriteDrawOp::Transparent);
     }
 
     // Unlock buffer
