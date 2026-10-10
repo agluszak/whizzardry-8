@@ -5,7 +5,7 @@
 #include "wiz8/engine_code/Levels.h"
 #include "wiz8/engine_code/OctBuildTree.h"
 #include "wiz8/engine_code/GameTimeAccumulator.h"
-#include "wiz8/engine_code/BitArray.h"
+#include "wiz8/packed_bits.h"
 #include "wiz8/engine_code/game_timer.h"
 #include "wiz8/engine_code/Trigger.hpp"
 #include "wiz8/engine_code/Video2.h"
@@ -864,10 +864,10 @@ unsigned char W8GameData::AdvanceEnvironmentMotion()
     adjusted_position.y = camera_position.y;
 
     if (m_iNumTriggers != 0) {
-        if (active_trigger_bits == 0) {
+        if (active_trigger_bits.empty()) {
             IntegrateTriggers();
         } else {
-            active_trigger_bits->ClearAll();
+            std::ranges::fill(active_trigger_bits, false);
         }
     }
 
@@ -1065,16 +1065,15 @@ unsigned char W8GameData::AdvanceEnvironmentMotion()
             g_environ->ground_latch = g_environ_ground_latch;
 
             if (m_iNumTriggers != 0) {
-                index = pending_trigger_bits->NextSetBit(true);
-                while (index != 0) {
-                    unsigned int trigger_index = static_cast<unsigned int>(index - 1);
-                    if (!active_trigger_bits->Test(trigger_index)) {
+                for (unsigned int trigger_index = 0; trigger_index < pending_trigger_bits.size();
+                     ++trigger_index) {
+                    if (pending_trigger_bits[trigger_index] &&
+                        !TestBit(active_trigger_bits, trigger_index)) {
                         if (!m_ppTriggers.empty()) {
                             m_ppTriggers[trigger_index]->FinishAction();
                         }
-                        pending_trigger_bits->Clear(trigger_index);
+                        pending_trigger_bits[trigger_index] = false;
                     }
-                    index = pending_trigger_bits->NextSetBit(false);
                 }
             }
             return g_environment_motion_active;
@@ -1339,24 +1338,24 @@ void W8GameData::ProcessCrossedSurface(W8GDSurface* surface)
     if (surface->distance < 0.0f) {
         direction = -1;
     }
-    if (m_ppTriggers.empty() || active_trigger_bits->Set(surface->trigger_index) ||
-        pending_trigger_bits->Set(surface->trigger_index)) {
+    if (m_ppTriggers.empty() || SetBit(active_trigger_bits, surface->trigger_index) ||
+        SetBit(pending_trigger_bits, surface->trigger_index)) {
         return;
     }
     trigger = m_ppTriggers[surface->trigger_index];
     if (trigger->initial_action == 0x10 && surface->contact_margin > 0.0f) {
         surface->contact_margin = 0.0f;
         if (direction == 1) {
-            active_trigger_bits->Clear(surface->trigger_index);
-            pending_trigger_bits->Clear(surface->trigger_index);
+            ClearBit(active_trigger_bits, surface->trigger_index);
+            ClearBit(pending_trigger_bits, surface->trigger_index);
             return;
         }
     }
     if (direction != 0) {
         trigger->Run(direction);
         if (trigger->action_state == 1 || trigger->action_state == 4) {
-            active_trigger_bits->Clear(surface->trigger_index);
-            pending_trigger_bits->Clear(surface->trigger_index);
+            ClearBit(active_trigger_bits, surface->trigger_index);
+            ClearBit(pending_trigger_bits, surface->trigger_index);
         }
     }
 }
@@ -1370,7 +1369,7 @@ void W8GameData::ProcessCrossedSurface(W8GDSurface* surface)
 // FUNCTION: WIZ8 0x0041c930
 stModelInstance* W8GameData::CreateTraceModel()
 {
-    BitArray selected(SurfacesCount() * 3 + 10);
+    std::vector<bool> selected(SurfacesCount() * 3 + 10);
     auto mesh = std::make_shared<stMeshModel>(SurfacesCount(), SurfacesCount() * 3);
     if (mesh == 0) {
         srAssertFail("pstMeshModel", "C:\\Projects\\Wizardry 8\\Engine Code\\GameData.cpp", 0x56d,
@@ -1389,9 +1388,9 @@ stModelInstance* W8GameData::CreateTraceModel()
         W8GDSurface* surface = m_pSurfaces.data() + index;
         poly_textures[index] = g_oct_mesh_default.texture;
         if ((surface->flags & W8_GD_SURFACE_WALKABLE) != 0) {
-            selected.Set(vertex);
-            selected.Set(vertex + 1);
-            selected.Set(vertex + 2);
+            selected[vertex] = true;
+            selected[vertex + 1] = true;
+            selected[vertex + 2] = true;
         }
         texcoords[vertex] = glm::vec2(0);
         vertex_materials[vertex] = g_oct_mesh_default.material;
@@ -1415,7 +1414,7 @@ stModelInstance* W8GameData::CreateTraceModel()
     srVector3T<float>* normals = mesh->getVertexNormal();
     srVector3T<float>* dig = mesh->getVertexDIG(0, 1);
     for (int i = 0; i < vertex; ++i) {
-        if (selected.Test(i)) {
+        if (selected[i]) {
             dig[i] = normals[i];
             if (dig[i].y < g_float_half) {
                 dig[i].y = 0.0f;

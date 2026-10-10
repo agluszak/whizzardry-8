@@ -230,7 +230,7 @@ struct W8OctFileHeader {
     srVector3T<w8_ulong> m_grid_dims;
     unsigned short m_depth;
     /* Auto-region id bound; the reader sizes the region-indexed
-       m_owned_154/m_pfRegsVisited arrays from it. */
+       m_pfRegsVisited array from it. */
     unsigned short m_region_id_bound;
     /* The finished submesh record bound (the octree's +0x74), not a
        mesh-file count. */

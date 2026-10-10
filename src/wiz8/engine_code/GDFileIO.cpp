@@ -11,7 +11,6 @@
 #include "wiz8/engine_code/LevelFile.h"
 #include "wiz8/index_algorithms.h"
 #include "wiz8/engine_code/GameTimeAccumulator.h"
-#include "wiz8/engine_code/BitArray.h"
 #include "wiz8/engine_code/game_timer.h"
 #include "wiz8/engine_code/Trigger.hpp"
 #include "wiz8/engine_code/Levels.h"
@@ -400,8 +399,8 @@ void W8GameData::IntegrateTriggers()
             index < SurfacesCount() ? &m_pSurfaces[index] : &m_pTrigSurfaces[index - SurfacesCount()];
         geometry_index->InsertSurface(surface, 3);
     }
-    pending_trigger_bits = std::make_unique<BitArray>(m_iNumTriggers);
-    active_trigger_bits = std::make_unique<BitArray>(m_iNumTriggers);
+    pending_trigger_bits.assign(m_iNumTriggers, false);
+    active_trigger_bits.assign(m_iNumTriggers, false);
 }
 
 /* The CompileGameData counterpart of IntegrateTriggers: folds the
@@ -605,8 +604,8 @@ void W8GameData::ReadProcessedGameData(wiz8::File* handle)
                 throw std::runtime_error("invalid processed conditional surface");
         }
     }
-    auto pending_bits = std::make_unique<BitArray>(header.trigger_count);
-    auto active_bits = std::make_unique<BitArray>(header.trigger_count);
+    std::vector<bool> pending_bits(header.trigger_count);
+    std::vector<bool> active_bits(header.trigger_count);
     if (!environs.empty() && environs[0].RescaleToReference(0) != 0) {
         for (std::size_t index = 1; index < environs.size(); ++index) {
             environs[index].RescaleToReference(&environs[0]);
@@ -657,8 +656,6 @@ W8GameData::W8GameData(wiz8::File* handle, bool secondary)
 
 
     m_iNumTriggers = 0;
-    pending_trigger_bits = 0;
-    active_trigger_bits = 0;
     last_hit_surface = 0;
 
     trace_flag4_gate = false;
