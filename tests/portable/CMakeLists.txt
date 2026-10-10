@@ -1,6 +1,8 @@
+link_libraries(Catch2::Catch2WithMain)
+
 add_executable(portable_filesystem_test filesystem_test.cpp)
 target_link_libraries(portable_filesystem_test PRIVATE wiz8_filesystem)
-add_test(NAME portable_filesystem COMMAND portable_filesystem_test)
+add_test(NAME portable_filesystem COMMAND portable_filesystem_test filesystem)
 add_test(NAME portable_default_roots COMMAND portable_filesystem_test default-roots)
 
 add_executable(portable_file_time_test file_time_test.cpp)

@@ -1,3 +1,4 @@
+#include <catch2/catch_test_macros.hpp>
 #include "surrender/srCore.h"
 #include "surrender/srDD_SDLGPU.h"
 #include "surrender/srGERD.h"
@@ -16,13 +17,6 @@
 #include <vector>
 #include "surrender/srMath.h"
 
-#define CHECK(expression)                                                      \
-    do {                                                                       \
-        if (!(expression)) {                                                   \
-            std::fprintf(stderr, "line %d: %s\n", __LINE__, #expression);        \
-            return false;                                                      \
-        }                                                                      \
-    } while (0)
 
 namespace {
 class TestNode : public srNode {
@@ -45,15 +39,15 @@ bool recursiveSceneGraph()
 
     srNode::lockSceneGraph();
     srNode::lockSceneGraph();
-    CHECK(srNode::isSceneGraphLocked());
-    CHECK(child->setParent(&second, 1));
-    CHECK(child->getParent() == &second);
-    CHECK(std::abs(child->getWorldSpaceLocation().x - world.x) < 1e-6);
-    CHECK(!second.setParent(child, 0));
-    CHECK(!child->setParent(child, 0));
+    REQUIRE(srNode::isSceneGraphLocked());
+    REQUIRE(child->setParent(&second, 1));
+    REQUIRE(child->getParent() == &second);
+    REQUIRE(std::abs(child->getWorldSpaceLocation().x - world.x) < 1e-6);
+    REQUIRE(!second.setParent(child, 0));
+    REQUIRE(!child->setParent(child, 0));
     *child = first; // assignment must also recurse through the explicit lock
     srNode::unlockSceneGraph();
-    CHECK(srNode::isSceneGraphLocked());
+    REQUIRE(srNode::isSceneGraphLocked());
 
     std::promise<void> started;
     std::promise<void> finished;
@@ -68,8 +62,8 @@ bool recursiveSceneGraph()
                          std::future_status::timeout;
     srNode::unlockSceneGraph();
     worker.join();
-    CHECK(blocked && !srNode::isSceneGraphLocked());
-    CHECK(child->getParent() == &first);
+    REQUIRE((blocked && !srNode::isSceneGraphLocked()));
+    REQUIRE(child->getParent() == &first);
 
     // Parent destruction recurses into child destruction under the same mutex.
     const int before = TestNode::destroyed;
@@ -77,7 +71,7 @@ bool recursiveSceneGraph()
         TestNode parent;
         new TestNode(new TestNode(&parent));
     }
-    CHECK(TestNode::destroyed == before + 3);
+    REQUIRE(TestNode::destroyed == before + 3);
     return true;
 }
 
@@ -185,32 +179,32 @@ bool processorOwnership()
         srVertexPipe pipe;
         srVertexPipe other;
         pipe.process(input);
-        CHECK(probe.valid && probe.calls == 3 && active.calls == 3 && inactive.calls == 0);
+        REQUIRE((probe.valid && probe.calls == 3 && active.calls == 3 && inactive.calls == 0));
         const float* first_scratch = probe.first_alpha;
         other.process(input);
-        CHECK(probe.valid && probe.first_alpha != first_scratch);
+        REQUIRE((probe.valid && probe.first_alpha != first_scratch));
         for (auto& position : positions) { position.z += 2; }
         probe.z_bias = 2;
         pipe.process(input); // all lazy batch flags and alpha/fog must reset
-        CHECK(probe.valid && probe.calls == 9);
+        REQUIRE((probe.valid && probe.calls == 9));
 
         std::vector<srVertexProcessor*> many(129, &active);
         input.processors = many.data();
         input.processor_count = many.size();
         pipe.process(input);
-        CHECK(active.calls == 9 + 129 * 3);
+        REQUIRE(active.calls == 9 + 129 * 3);
         active.enabled = false;
         pipe.process(input);
-        CHECK(active.calls == 9 + 129 * 3);
+        REQUIRE(active.calls == 9 + 129 * 3);
         input.processors = nullptr;
         input.processor_count = 0;
         pipe.process(input); // no retained active pointers after shrinking to zero
-        CHECK(active.calls == 9 + 129 * 3);
+        REQUIRE(active.calls == 9 + 129 * 3);
     }
     // The pipe owns the pointer list, never the processors.
     active.enabled = true;
     srVertexPipe empty;
-    CHECK(active.isActive(empty));
+    REQUIRE(active.isActive(empty));
     return true;
 }
 
@@ -222,11 +216,11 @@ bool rendererOwnership()
         for (std::size_t index = 0; index < borrowed.size(); ++index) {
             borrowed[index] = growing.lockRenderer();
             for (std::size_t previous = 0; previous < index; ++previous) {
-                CHECK(borrowed[index] != borrowed[previous]);
+                REQUIRE(borrowed[index] != borrowed[previous]);
             }
         }
         for (auto* renderer : borrowed) growing.unlockRenderer(renderer, 0);
-        CHECK(growing.lockRenderer() == borrowed.back());
+        REQUIRE(growing.lockRenderer() == borrowed.back());
         growing.unlockRenderer(borrowed.back(), 0);
     }
     // No context or window is opened: these checks only exercise CPU ownership
@@ -236,7 +230,7 @@ bool rendererOwnership()
     gerd.unlockRenderer(renderer, 1);
     w8_ulong statistics[7];
     renderer->getStatistics(statistics);
-    CHECK(statistics[4] == 1);
+    REQUIRE(statistics[4] == 1);
 
     for (int mode = 0; mode < 4; ++mode) {
         std::promise<srGERD::Renderer*> acquired;
@@ -258,9 +252,9 @@ bool rendererOwnership()
         else if (mode == 2) { gerd.resetStatistics(); }
         else { gerd.flushRenderers(); }
         worker.join();
-        CHECK(borrowed == renderer);
+        REQUIRE(borrowed == renderer);
         renderer->getStatistics(statistics);
-        CHECK(statistics[4] == (mode == 0 ? 2u : mode == 1 ? 3u : mode == 2 ? 0u : 1u));
+        REQUIRE(statistics[4] == (mode == 0 ? 2u : mode == 1 ? 3u : mode == 2 ? 0u : 1u));
         if (mode == 2) {
             // Reuse the CPU renderer as a sorted renderer without opening a
             // window, to exercise flushSort's worker-release wait as well.
@@ -270,7 +264,7 @@ bool rendererOwnership()
     }
 
     // Sorted acquisition must wait without monopolizing the mutex or handing out a busy batch.
-    CHECK(gerd.lockRenderer() == renderer);
+    REQUIRE(gerd.lockRenderer() == renderer);
     std::promise<srGERD::Renderer*> acquired;
     auto ready = acquired.get_future();
     std::jthread contender([&] {
@@ -282,7 +276,7 @@ bool rendererOwnership()
     gerd.unlockRenderer(renderer, 0);
     auto* resumed = ready.get();
     contender.join();
-    CHECK(waited && resumed == renderer);
+    REQUIRE((waited && resumed == renderer));
 
     srGERD::Renderer::IndexWrite write;
     renderer->indices.alloc(write, 2);
@@ -291,12 +285,12 @@ bool rendererOwnership()
     const auto index_capacity = renderer->indices.triangles.capacity();
     const auto vertex_capacity = renderer->vertices.positions.capacity();
     renderer->reset(0);
-    CHECK(renderer->indices.count == 0 && renderer->vertices.count == 0);
-    CHECK(renderer->indices.triangles.capacity() == index_capacity);
-    CHECK(renderer->vertices.positions.capacity() == vertex_capacity);
+    REQUIRE((renderer->indices.count == 0 && renderer->vertices.count == 0));
+    REQUIRE(renderer->indices.triangles.capacity() == index_capacity);
+    REQUIRE(renderer->vertices.positions.capacity() == vertex_capacity);
     renderer->reset(1); // real eviction remains distinct from ordinary reset
-    CHECK(renderer->indices.triangles.capacity() == 0);
-    CHECK(renderer->vertices.positions.capacity() == 0);
+    REQUIRE(renderer->indices.triangles.capacity() == 0);
+    REQUIRE(renderer->vertices.positions.capacity() == 0);
     return true;
 }
 
@@ -347,9 +341,9 @@ bool pipelineRecordTexcoords()
     pipeline->vertex_pipe->process(input);
     for (unsigned channel = 0; channel < output.size(); ++channel)
         for (unsigned vertex = 0; vertex < positions.size(); ++vertex) {
-            CHECK(output[channel][vertex].x == source[channel][indices[vertex]].x);
-            CHECK(output[channel][vertex].y == source[channel][indices[vertex]].y);
-            CHECK(q[channel][vertex] == 1.0f);
+            REQUIRE(output[channel][vertex].x == source[channel][indices[vertex]].x);
+            REQUIRE(output[channel][vertex].y == source[channel][indices[vertex]].y);
+            REQUIRE(q[channel][vertex] == 1.0f);
         }
     pipeline->Reset(&renderer);
     return true;
@@ -357,14 +351,15 @@ bool pipelineRecordTexcoords()
 
 } // namespace
 
-int main()
+TEST_CASE("renderer_ownership_test")
 {
     for (int cycle = 0; cycle < 2; ++cycle) {
-        if (!srInit()) { return 1; }
-        const bool passed = recursiveSceneGraph() && processorOwnership() &&
-                            rendererOwnership() && pipelineRecordTexcoords();
-        const bool exited = srExit();
-        if (!passed || !exited || srGERD::getFirst() != nullptr) { return 1; }
+        REQUIRE(srInit());
+        REQUIRE(recursiveSceneGraph());
+        REQUIRE(processorOwnership());
+        REQUIRE(rendererOwnership());
+        REQUIRE(pipelineRecordTexcoords());
+        REQUIRE(srExit());
+        REQUIRE(srGERD::getFirst() == nullptr);
     }
-    std::puts("ok: recursive scene/renderer locks, processor scratch and reset ownership");
 }
