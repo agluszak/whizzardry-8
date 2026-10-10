@@ -5939,6 +5939,17 @@ unsigned char RadarMapButtonRegionEvent(const InputAtom* event, W8Region* region
     return 1;
 }
 
+/* Restore the cursor and clear the mouse-look state on both exit paths. */
+static void StopWorldMouseLook()
+{
+    WarpSystemCursor(g_mouselook_cursor_pos.x, g_mouselook_cursor_pos.y);
+    EnableCursorScene();
+    g_mouselook_active = false;
+    g_mouselook_left_held = false;
+    gfTrackMousePos = 0;
+    g_mouselook_manual = false;
+}
+
 /* Region 23: the 3D world view. Mouse-move refreshes the combat hover, the
    world-item hover and the portrait strip; left-up runs the targeting, item
    and monster dispatch; right-down opens monster info or the assay dialog or
@@ -5962,12 +5973,7 @@ unsigned char WorldViewRegionEvent(const InputAtom* event, W8Region* region)
     if (us_event > RIGHT_BUTTON_DOWN) {
         if (us_event == RIGHT_BUTTON_UP) {
             if (g_mouselook_active && g_settings.mouselook_toggle == 0) {
-                WarpSystemCursor(g_mouselook_cursor_pos.x, g_mouselook_cursor_pos.y);
-                EnableCursorScene();
-                g_mouselook_active = false;
-                g_mouselook_left_held = false;
-                gfTrackMousePos = 0;
-                g_mouselook_manual = false;
+                StopWorldMouseLook();
                 return 1;
             }
             if (!IsMipeActive()) {
@@ -6046,12 +6052,7 @@ unsigned char WorldViewRegionEvent(const InputAtom* event, W8Region* region)
         if (!IsWorldCursorVisible() && !gXStatus.fNpcDialogueMode) {
             if (g_settings.mouselook_toggle != 0) {
                 if (g_mouselook_active) {
-                    WarpSystemCursor(g_mouselook_cursor_pos.x, g_mouselook_cursor_pos.y);
-                    EnableCursorScene();
-                    g_mouselook_active = false;
-                    g_mouselook_left_held = false;
-                    gfTrackMousePos = 0;
-                    g_mouselook_manual = false;
+                    StopWorldMouseLook();
                     return 1;
                 }
             } else if (g_mouselook_active) {
