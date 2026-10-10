@@ -1,6 +1,7 @@
 #include "wiz8/application.h"
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/compat/unaligned.h"
+#include <algorithm>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -91,7 +92,7 @@ void W8Octree::UpdatePathVisualization()
 }
 
 // GLOBAL: WIZ8 0x00659760
-static int g_octree_query_slot;
+static W8OctreeIndex::iterator g_octree_query_slot;
 // GLOBAL: WIZ8 0x00659766
 static unsigned short g_octree_query_id;
 
@@ -594,9 +595,9 @@ short W8Octree::ProjectLinkedRegionsForLocation(srVector3T<float>* location,
             }
             ++match_count;
             unsigned int key = region_index;
-            for (int slot = m_pRegionLinks->FindNextEntry(&key, -1); slot != -1;
-                 slot = m_pRegionLinks->FindNextEntry(&key, slot)) {
-                m_projected_regions->Set(m_pRegionLinks->entries[slot].value);
+            for (auto slot = m_pRegionLinks->equal_range(key).first; slot != m_pRegionLinks->end();
+                 slot = NextIndexValue(*m_pRegionLinks, key, slot)) {
+                m_projected_regions->Set(slot->second);
                 m_projected_regions_valid = true;
             }
         }
@@ -633,9 +634,9 @@ short W8Octree::ProjectLinkedRegionsForLocation(srVector3T<float>* location,
         m_projected_regions_valid = false;
         match_count = 1;
         unsigned int key = region_index;
-        for (int slot = m_pRegionLinks->FindNextEntry(&key, -1); slot != -1;
-             slot = m_pRegionLinks->FindNextEntry(&key, slot)) {
-            m_projected_regions->Set(m_pRegionLinks->entries[slot].value);
+        for (auto slot = m_pRegionLinks->equal_range(key).first; slot != m_pRegionLinks->end();
+             slot = NextIndexValue(*m_pRegionLinks, key, slot)) {
+            m_projected_regions->Set(slot->second);
             m_projected_regions_valid = true;
         }
     }
@@ -728,10 +729,10 @@ unsigned char W8Octree::CollectVisibleRegions(srVector3T<float>* location, srVec
         if (level == m_spatial.m_leaf_level) {
             unsigned int key =
                 ((m_region_mask * 0x100 + link_cell.x) * 0x100 + link_cell.y) * 0x100 + link_cell.z;
-            int slot = m_pRegionLinks->FindNextEntry(&key, -1);
-            while (slot != -1) {
-                m_projected_regions->Set(m_pRegionLinks->entries[slot].value);
-                slot = m_pRegionLinks->FindNextEntry(&key, slot);
+            auto slot = m_pRegionLinks->equal_range(key).first;
+            while (slot != m_pRegionLinks->end()) {
+                m_projected_regions->Set(slot->second);
+                slot = NextIndexValue(*m_pRegionLinks, key, slot);
                 m_projected_regions_valid = true;
             }
         }
@@ -1072,11 +1073,11 @@ try
         return false;
     }
     if (m_pRegionLinks == 0) {
-        m_pRegionLinks = new W8HashTable<unsigned int, unsigned short>;
+        m_pRegionLinks = new std::unordered_multimap<unsigned int, unsigned short>;
     }
     for (unsigned int index = 0; index < count; ++index) {
-        m_pRegionLinks->Remove(&keys[index], &values[index]);
-        m_pRegionLinks->Insert(&keys[index], &values[index]);
+        RemoveIndexValue(*m_pRegionLinks, keys[index], values[index]);
+        InsertIndexValue(*m_pRegionLinks, keys[index], values[index]);
     }
     result = true;
     if (file) file->close();
@@ -1138,11 +1139,11 @@ void W8Octree::RecordRegionMeshLinks(unsigned int region_key)
     char text[256];
     do {
         unsigned short mesh = static_cast<unsigned short>(bit - 1);
-        int slot = m_pRegionLinks->FindNextEntry(&region_key, -1);
-        while (slot != -1 && m_pRegionLinks->entries[slot].value != mesh) {
-            slot = m_pRegionLinks->FindNextEntry(&region_key, slot);
+        auto slot = m_pRegionLinks->equal_range(region_key).first;
+        while (slot != m_pRegionLinks->end() && slot->second != mesh) {
+            slot = NextIndexValue(*m_pRegionLinks, region_key, slot);
         }
-        if (slot == -1) {
+        if (slot == m_pRegionLinks->end()) {
             if (!reported) {
                 if (region_key < m_spatial.m_region_count) {
                     sprintf(text, "Pre-generated Region %d linked to meshes: ", region_key);
@@ -1156,7 +1157,7 @@ void W8Octree::RecordRegionMeshLinks(unsigned int region_key)
             }
             sprintf(text, "%d, ", mesh);
             NoOp();
-            m_pRegionLinks->Insert(&region_key, &mesh);
+            InsertIndexValue(*m_pRegionLinks, region_key, mesh);
         }
         bit = m_projected_regions->NextSetBit(false);
     } while (bit != 0);
@@ -1239,12 +1240,12 @@ unsigned int W8Octree::SampleRegionLinks(const srVector3T<float>* point, bool de
                     meshes.Add(
                         static_cast<stModelInstance*>(g_world->psrMeshes[m_pSubmeshes[cell].mesh]));
                     if (!m_projected_regions->Test(cell)) {
-                        int slot = m_pRegionLinks->FindNextEntry(&key, -1);
-                        while (slot != -1 && m_pRegionLinks->entries[slot].value !=
+                        auto slot = m_pRegionLinks->equal_range(key).first;
+                        while (slot != m_pRegionLinks->end() && slot->second !=
                                                  static_cast<unsigned short>(cell)) {
-                            slot = m_pRegionLinks->FindNextEntry(&key, slot);
+                            slot = NextIndexValue(*m_pRegionLinks, key, slot);
                         }
-                        if (slot == -1) {
+                        if (slot == m_pRegionLinks->end()) {
                             if (cell != 0) {
                                 m_pSubmeshes[cell].flags |= 0x28;
                                 srNode* node = g_world->psrMeshes[m_pSubmeshes[cell].mesh];
@@ -1360,8 +1361,8 @@ void W8Octree::BuildRegionLinks(bool rebuild_all)
     bool aborted = false;
     unsigned int last_key = 0;
     time_t started = time(0);
-    W8HashTable<unsigned int, unsigned short>* links =
-        new W8HashTable<unsigned int, unsigned short>;
+    std::unordered_multimap<unsigned int, unsigned short>* links =
+        new std::unordered_multimap<unsigned int, unsigned short>;
     unsigned short z_step = rebuild_all ? 1 : 3;
     float stride = z_step * m_region_cell;
     unsigned short rows =
@@ -1394,8 +1395,8 @@ void W8Octree::BuildRegionLinks(bool rebuild_all)
             node->setFlag(srNode::FLAG_TERMINATE);
         }
     }
-    links->Clear();
-    W8HashTable<unsigned int, unsigned short>* saved_links = m_pRegionLinks;
+    links->clear();
+    std::unordered_multimap<unsigned int, unsigned short>* saved_links = m_pRegionLinks;
     m_pRegionLinks = links;
     if (rows != 0) {
         for (unsigned short x_index = 0; x_index < rows; ++x_index) {
@@ -1459,7 +1460,7 @@ void W8Octree::BuildRegionLinks(bool rebuild_all)
     }
     g_render_untextured = false;
     EnableAllRenderOptions();
-    W8HashTable<unsigned int, unsigned short>* stale;
+    std::unordered_multimap<unsigned int, unsigned short>* stale;
     if (!rebuild_all) {
         if (!aborted) {
             for (unsigned int point_index = 0; point_index < m_point_count; ++point_index) {
@@ -1551,18 +1552,14 @@ BOOLEAN W8Octree::SaveRegionLinks(char* path)
 try
 {
     unsigned char result = 1;
-    unsigned int* keys = 0;
-    unsigned short* values = 0;
+    std::vector<unsigned int> keys;
+    std::vector<unsigned short> values;
     std::unique_ptr<wiz8::File> file = 0;
 
     if (m_pRegionLinks == 0) {
         return 0;
     }
     if (path == 0) {
-        return 0;
-    }
-    unsigned int capacity = m_pRegionLinks->bucket_count;
-    if (capacity == 0) {
         return 0;
     }
     char name[256];
@@ -1574,21 +1571,17 @@ try
     strcat(name, g_region_link_extension);
     file = [&]() { try { return wiz8::open_file(name, wiz8::OpenMode::replace); } catch (const std::exception&) { return std::unique_ptr<wiz8::File>{}; } }();
     if (file == 0) {
-        goto cleanup;
+        return result;
     }
-    keys = static_cast<unsigned int*>(malloc(capacity * sizeof(unsigned int)));
-    values = static_cast<unsigned short*>(malloc(capacity * sizeof(*values)));
-    if (keys == 0 || values == 0) {
-        result = 0;
-        goto cleanup;
-    }
+    keys.reserve(m_pRegionLinks->size());
+    values.reserve(m_pRegionLinks->size());
     {
         unsigned int count = 0;
         for (unsigned int key = 1; key < m_spatial.m_region_count; ++key) {
-            for (int slot = m_pRegionLinks->FindNextEntry(&key, -1); slot != -1;
-                 slot = m_pRegionLinks->FindNextEntry(&key, slot)) {
-                keys[count] = key;
-                values[count] = m_pRegionLinks->entries[slot].value;
+            for (auto slot = m_pRegionLinks->equal_range(key).first; slot != m_pRegionLinks->end();
+                 slot = NextIndexValue(*m_pRegionLinks, key, slot)) {
+                keys.push_back(key);
+                values.push_back(slot->second);
                 ++count;
             }
         }
@@ -1601,10 +1594,10 @@ try
             for (unsigned int y = 0; y < extent; ++y) {
                 for (unsigned int z = 0; z < extent; ++z) {
                     unsigned int key = (x << 16) + (y << 8) + z + base;
-                    for (int slot = m_pRegionLinks->FindNextEntry(&key, -1); slot != -1;
-                         slot = m_pRegionLinks->FindNextEntry(&key, slot)) {
-                        keys[count] = key;
-                        values[count] = m_pRegionLinks->entries[slot].value;
+                    for (auto slot = m_pRegionLinks->equal_range(key).first; slot != m_pRegionLinks->end();
+                         slot = NextIndexValue(*m_pRegionLinks, key, slot)) {
+                        keys.push_back(key);
+                        values.push_back(slot->second);
                         ++count;
                     }
                 }
@@ -1613,19 +1606,11 @@ try
         if ((file->write(&count, 4), true) == 0) {
             return 0;
         }
-        unsigned char wrote_keys = (file->write(keys, count * 4), true);
-        unsigned char wrote_values = (file->write(values, count * 2), true);
+        unsigned char wrote_keys = (file->write(keys.data(), count * 4), true);
+        unsigned char wrote_values = (file->write(values.data(), count * 2), true);
         result = wrote_keys | wrote_values;
     }
-cleanup:
-    if (file) file->close();
-    file.reset();
-    if (keys != 0) {
-        free(keys);
-    }
-    if (values != 0) {
-        free(values);
-    }
+    file->close();
     return result;
 }
 catch (const std::exception&) { return false; }
@@ -2593,10 +2578,10 @@ unsigned char W8OctreeObjectRegistry::MoveObjectToCell(W8OctreeObjectKind kind, 
     int object_value = static_cast<int>(object_key);
     int cell_value = static_cast<int>(cell_key);
 
-    by_object->Remove(&object_key, &cell_value);
-    by_object->Insert(&object_key, &cell_value);
-    by_cell->Remove(&cell_key, &object_value);
-    by_cell->Insert(&cell_key, &object_value);
+    RemoveIndexValue(*by_object, object_key, cell_value);
+    InsertIndexValue(*by_object, object_key, cell_value);
+    RemoveIndexValue(*by_cell, cell_key, object_value);
+    InsertIndexValue(*by_cell, cell_key, object_value);
     return 1;
 }
 
@@ -2605,18 +2590,16 @@ unsigned char W8OctreeObjectRegistry::UnregisterObject(W8OctreeObjectKind kind, 
 {
     unsigned int object_key = PackOctreeObjectKey(kind, id);
     int object_value = static_cast<int>(object_key);
-    bool removed = false;
-
-    int slot = by_object->FindNextEntry(&object_key, -1);
-    while (slot != -1) {
-        unsigned int cell_key = static_cast<unsigned int>(by_object->entries[slot].value);
-        by_object->RemoveAt(slot);
-        by_cell->Remove(&cell_key, &object_value);
-        removed = true;
-        // Retail traverses from the removed slot after its link became a free-list link.
-        slot = by_object->FindNextEntry(&object_key, slot);
+    const auto slot = by_object->equal_range(object_key).first;
+    if (slot == by_object->end()) {
+        return 0;
     }
-    return removed;
+    const auto cell_key = static_cast<unsigned int>(slot->second);
+    by_object->erase(slot);
+    RemoveIndexValue(*by_cell, cell_key, object_value);
+    // Retail advances through the erased slot's free-list link and normally
+    // ends here. Preserve the single-pair removal without dereferencing erase.
+    return 1;
 }
 
 /* Record that one object now occupies one cell.
@@ -2635,7 +2618,7 @@ unsigned char W8OctreeObjectRegistry::RegisterObjectCell(W8OctreeObjectKind kind
                                                          const srVector3T<int>* point)
 {
     unsigned int object_key = PackOctreeObjectKey(kind & 0xffff, id);
-    int occupied = by_object->Lookup(&object_key);
+    int occupied = LookupIndexValue(*by_object, object_key);
 
     if (occupied != 0) {
         /* Retail only recognizes a repeat of (0,0,z): x is not decoded,
@@ -2646,26 +2629,26 @@ unsigned char W8OctreeObjectRegistry::RegisterObjectCell(W8OctreeObjectKind kind
         }
         unsigned int occupied_key = static_cast<unsigned int>(occupied);
         int object_value = static_cast<int>(object_key);
-        by_object->Remove(&object_key);
-        by_cell->Remove(&occupied_key, &object_value);
+        RemoveIndexValue(*by_object, object_key);
+        RemoveIndexValue(*by_cell, occupied_key, object_value);
     } else if (static_cast<short>(kind) == W8_OCTREE_KIND_LOCATION) {
         unsigned int cell_key = PackOctreeCellKey(point->x, point->y, point->z);
         int cell_value = static_cast<int>(cell_key);
         unsigned int tagged_key = PackOctreeObjectKey(W8_OCTREE_KIND_NAVIGATOR, id);
         int tagged_value = static_cast<int>(tagged_key);
-        by_object->Remove(&tagged_key, &cell_value);
-        by_object->Insert(&tagged_key, &cell_value);
-        by_cell->Remove(&cell_key, &tagged_value);
-        by_cell->Insert(&cell_key, &tagged_value);
+        RemoveIndexValue(*by_object, tagged_key, cell_value);
+        InsertIndexValue(*by_object, tagged_key, cell_value);
+        RemoveIndexValue(*by_cell, cell_key, tagged_value);
+        InsertIndexValue(*by_cell, cell_key, tagged_value);
     }
 
     unsigned int cell_key = PackOctreeCellKey(point->x, point->y, point->z);
     int cell_value = static_cast<int>(cell_key);
     int object_value = static_cast<int>(object_key);
-    by_object->Remove(&object_key, &cell_value);
-    by_object->Insert(&object_key, &cell_value);
-    by_cell->Remove(&cell_key, &object_value);
-    by_cell->Insert(&cell_key, &object_value);
+    RemoveIndexValue(*by_object, object_key, cell_value);
+    InsertIndexValue(*by_object, object_key, cell_value);
+    RemoveIndexValue(*by_cell, cell_key, object_value);
+    InsertIndexValue(*by_cell, cell_key, object_value);
     return 1;
 }
 
@@ -2710,11 +2693,11 @@ void W8Octree::AddCollidablePropBounds(int index, const W8BoundingBox* bounds)
                 int cell_value = static_cast<int>(cell_key);
                 int prop_value = static_cast<int>(prop_key);
                 by_prop = object_registry->by_object;
-                by_prop->Remove(&prop_key, &cell_value);
-                by_prop->Insert(&prop_key, &cell_value);
+                RemoveIndexValue(*by_prop, prop_key, cell_value);
+                InsertIndexValue(*by_prop, prop_key, cell_value);
                 by_cell = object_registry->by_cell;
-                by_cell->Remove(&cell_key, &prop_value);
-                by_cell->Insert(&cell_key, &prop_value);
+                RemoveIndexValue(*by_cell, cell_key, prop_value);
+                InsertIndexValue(*by_cell, cell_key, prop_value);
             }
         }
     }
@@ -3125,7 +3108,7 @@ w8_ulong* W8Octree::CollectPolygonsNearPoint(srVector3T<float>* center, float ra
     }
     m_aulGDObjs[count] = 0;
     if (count != 0) {
-        QuickSort(m_aulGDObjs, 0, count - 1);
+        std::sort(m_aulGDObjs, m_aulGDObjs + count);
     }
     return m_aulGDObjs;
 }
@@ -3899,8 +3882,8 @@ void W8Octree::Initialize(const W8OctFileHeader* header)
         m_owned_19c = new BitArray(header->m_polygon_count);
 
         object_registry = new W8OctreeObjectRegistry;
-        m_pRegionLinks = new W8HashTable<unsigned int, unsigned short>;
-        m_pRegionLinks->Clear();
+        m_pRegionLinks = new std::unordered_multimap<unsigned int, unsigned short>;
+        m_pRegionLinks->clear();
 
         unsigned int visited_size = header->m_region_id_bound + 1;
         m_pfRegsVisited = static_cast<unsigned char*>(malloc(visited_size));
@@ -3999,7 +3982,7 @@ W8Octree::~W8Octree()
     }
 
     if (m_pRegionLinks != 0) {
-        m_pRegionLinks->Clear();
+        m_pRegionLinks->clear();
         delete m_pRegionLinks;
         m_pRegionLinks = 0;
     }
@@ -4362,7 +4345,8 @@ unsigned int W8Octree::CollectObjectsInCell(const srVector3T<int>* cell, unsigne
 {
     unsigned int found = 0;
     unsigned int leaf_index;
-    int slot;
+    W8OctreeIndex::iterator slot;
+
 
     switch (kind) {
     case W8_OCTREE_KIND_SURFACE:
@@ -4392,14 +4376,13 @@ unsigned int W8Octree::CollectObjectsInCell(const srVector3T<int>* cell, unsigne
         if (W8_OCTREE_KIND_LOCATION < kind) {
             if (cell != 0) {
                 g_octree_query_cell = PackOctreeCellKey(cell->x, cell->y, cell->z);
-                g_octree_query_slot = -1;
+                g_octree_query_slot = object_registry->by_cell->end();
             }
-            slot =
-                object_registry->by_cell->FindNextEntry(&g_octree_query_cell, g_octree_query_slot);
+            slot = NextIndexValue(*object_registry->by_cell, g_octree_query_cell, g_octree_query_slot);
             g_octree_query_slot = slot;
-            if (slot >= 0) {
+            if (slot != object_registry->by_cell->end()) {
                 unsigned int packed =
-                    static_cast<unsigned int>(object_registry->by_cell->entries[slot].value);
+                    static_cast<unsigned int>(slot->second);
                 g_octree_query_id = static_cast<unsigned short>(packed);
                 while (m_gd_result_count < 10000) {
                     short entry_kind = static_cast<short>(OctreeKeyKind(packed));
@@ -4409,14 +4392,13 @@ unsigned int W8Octree::CollectObjectsInCell(const srVector3T<int>* cell, unsigne
                         g_octree_state[m_gd_result_count] = g_octree_query_id - 1;
                         ++m_gd_result_count;
                     }
-                    slot = object_registry->by_cell->FindNextEntry(&g_octree_query_cell,
-                                                                   g_octree_query_slot);
+                    slot = NextIndexValue(*object_registry->by_cell, g_octree_query_cell, g_octree_query_slot);
                     g_octree_query_slot = slot;
-                    if (slot < 0) {
+                    if (slot == object_registry->by_cell->end()) {
                         return 0;
                     }
                     packed =
-                        static_cast<unsigned int>(object_registry->by_cell->entries[slot].value);
+                        static_cast<unsigned int>(slot->second);
                     g_octree_query_id = static_cast<unsigned short>(packed);
                 }
             }
@@ -4428,13 +4410,13 @@ unsigned int W8Octree::CollectObjectsInCell(const srVector3T<int>* cell, unsigne
     case W8_OCTREE_KIND_LOCATION:
         if (cell != 0) {
             g_octree_query_cell = PackOctreeCellKey(cell->x, cell->y, cell->z);
-            g_octree_query_slot = -1;
+            g_octree_query_slot = object_registry->by_cell->end();
         }
-        slot = object_registry->by_cell->FindNextEntry(&g_octree_query_cell, g_octree_query_slot);
+        slot = NextIndexValue(*object_registry->by_cell, g_octree_query_cell, g_octree_query_slot);
         g_octree_query_slot = slot;
-        if (slot >= 0) {
+        if (slot != object_registry->by_cell->end()) {
             unsigned int packed =
-                static_cast<unsigned int>(object_registry->by_cell->entries[slot].value);
+                static_cast<unsigned int>(slot->second);
             g_octree_query_id = static_cast<unsigned short>(packed);
             while (m_gd_result_count < 10000) {
                 if ((static_cast<unsigned short>(OctreeKeyKind(packed)) == kind) &&
@@ -4442,13 +4424,12 @@ unsigned int W8Octree::CollectObjectsInCell(const srVector3T<int>* cell, unsigne
                     g_octree_state[m_gd_result_count] = g_octree_query_id - 1;
                     ++m_gd_result_count;
                 }
-                slot = object_registry->by_cell->FindNextEntry(&g_octree_query_cell,
-                                                               g_octree_query_slot);
+                slot = NextIndexValue(*object_registry->by_cell, g_octree_query_cell, g_octree_query_slot);
                 g_octree_query_slot = slot;
-                if (slot < 0) {
+                if (slot == object_registry->by_cell->end()) {
                     return 0;
                 }
-                packed = static_cast<unsigned int>(object_registry->by_cell->entries[slot].value);
+                packed = static_cast<unsigned int>(slot->second);
                 g_octree_query_id = static_cast<unsigned short>(packed);
             }
         }

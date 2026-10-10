@@ -7,7 +7,7 @@
 #include "wiz8/engine_code/OctPreTree.h"
 #include "wiz8/engine_code/Octree.h"
 #include "wiz8/engine_code/LevelFile.h"
-#include "wiz8/engine_code/stHash.hpp"
+#include "wiz8/index_algorithms.h"
 #include "wiz8/engine_code/GameTimeAccumulator.h"
 #include "wiz8/engine_code/BitArray.h"
 #include "wiz8/engine_code/game_timer.h"
@@ -1216,7 +1216,7 @@ W8GameData::~W8GameData()
 }
 
 bool ShareSurfaceEdge(W8GDSurface* first, W8GDSurface* second, srVector3T<float>* vertices);
-static void LinkSurfaceEdge(int polygon, int edge, W8HashTable<unsigned int, int>* table,
+static void LinkSurfaceEdge(int polygon, int edge, std::unordered_multimap<unsigned int, int>* table,
                             W8GDSurface* surfaces, unsigned int multiplier,
                             srVector3T<float>* vertices);
 
@@ -1244,8 +1244,8 @@ static void InitializeCompiledSurface(W8GDSurface* compiled, const W8GDSurface* 
 // FUNCTION: WIZ8 0x00449D10
 void W8GameData::CompileGameData()
 {
-    W8HashTable<unsigned int, int> weld_table;
-    W8HashTable<unsigned int, int> edge_table;
+    std::unordered_map<unsigned int, int> weld_table;
+    std::unordered_multimap<unsigned int, int> edge_table;
     char message[1024];
     int i;
     int j;
@@ -1309,10 +1309,10 @@ void W8GameData::CompileGameData()
                 vertex->position.z * g_float_one_five_hundredth * g_vertex_sort_z_weight +
                 vertex->position.y * g_float_one_five_hundredth * g_vertex_sort_y_weight +
                 vertex->position.x * g_float_one_five_hundredth * g_vertex_sort_x_weight);
-            int linked = weld_table.Lookup(&key);
+            int linked = LookupIndexValue(weld_table, key);
             if (linked == 0) {
                 int vertex_id = i + 1;
-                weld_table.Insert(&key, &vertex_id);
+                weld_table.insert_or_assign(key, vertex_id);
             } else {
                 int last = 0;
                 while (linked != 0) {
@@ -1490,7 +1490,7 @@ bool ShareSurfaceEdge(W8GDSurface* first, W8GDSurface* second, srVector3T<float>
    pair key; when an earlier polygon carries the same key the pair is handed
    to ShareSurfaceEdge to link. */
 // FUNCTION: WIZ8 0x0044A7D0
-static void LinkSurfaceEdge(int polygon, int edge, W8HashTable<unsigned int, int>* table,
+static void LinkSurfaceEdge(int polygon, int edge, std::unordered_multimap<unsigned int, int>* table,
                             W8GDSurface* surfaces, unsigned int multiplier,
                             srVector3T<float>* vertices)
 {
@@ -1503,24 +1503,14 @@ static void LinkSurfaceEdge(int polygon, int edge, W8HashTable<unsigned int, int
         high = edge;
     }
     unsigned int key = surface->vertex_indices[low] * multiplier + surface->vertex_indices[high];
-    int index = table->Lookup(&key);
-    if (index != 0) {
-        bool linked = false;
-        do {
-            if (linked) {
-                return;
-            }
-            if (ShareSurfaceEdge(surfaces + index, surface, vertices)) {
-                linked = true;
-            } else {
-                index = table->FindNextEntry(&key, index);
-            }
-        } while (index != 0);
-        if (linked) {
+    const auto [first, last] = table->equal_range(key);
+    for (auto candidate = first; candidate != last; ++candidate) {
+        if (candidate->second != 0 &&
+            ShareSurfaceEdge(surfaces + candidate->second, surface, vertices)) {
             return;
         }
     }
-    table->Insert(&key, &polygon);
+    InsertIndexValue(*table, key, polygon);
 }
 
 // FUNCTION: WIZ8 0x0044aa40

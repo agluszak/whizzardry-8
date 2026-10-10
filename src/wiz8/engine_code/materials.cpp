@@ -18,7 +18,7 @@
 #include "wiz8/engine_code/Octree.h"
 #include "wiz8/engine_code/ReadLevel.h"
 #include "wiz8/engine_code/ReadMesh.h"
-#include "wiz8/engine_code/stHash.hpp"
+#include "wiz8/index_algorithms.h"
 #include "wiz8/engine_code/stTextureAnim.h"
 #include "wiz8/engine_code/stTextureFile.h"
 #include "wiz8/float_constants.h"
@@ -232,7 +232,7 @@ static unsigned char PreprocessLevel(wiz8::File* handle, char* stem);
 /* The following helpers retain distinct retail call boundaries. Their source
    names, internal linkage and placement here are provisional; lack of /Ob2
    PDB procedures does not establish that they were authored inline. */
-static int WeldVertex(W8HashTable<unsigned int, int>* table, W8OctPreTreeVertex* vertices,
+static int WeldVertex(std::unordered_multimap<unsigned int, int>* table, W8OctPreTreeVertex* vertices,
                       unsigned int index, unsigned int link);
 static int AccumulateVertexLight(OctPreTree* tree, W8OctPreTreeVertex* vertex, short light_count,
                                  W8LevelFileLight* lights, int* sun_map);
@@ -361,8 +361,7 @@ static unsigned char PreprocessLevel(wiz8::File* handle, char* stem)
     sun_map = 0;
     lights = 0;
     {
-        W8HashTable<unsigned int, int> weld;
-        weld.Clear();
+        std::unordered_multimap<unsigned int, int> weld;
         sun_pool = 0;
         level = ReadLevelFile(handle);
         if (level == 0) {
@@ -1028,7 +1027,7 @@ void ReportStartupMessage(const char* message)
    key with value index + 1.  A `link` of -1 maintains the vertex self-link or
    redirect fields. */
 // FUNCTION: WIZ8 0x00494800
-static int WeldVertex(W8HashTable<unsigned int, int>* table, W8OctPreTreeVertex* vertices,
+static int WeldVertex(std::unordered_multimap<unsigned int, int>* table, W8OctPreTreeVertex* vertices,
                       unsigned int index, unsigned int link)
 {
     unsigned int vertex = link;
@@ -1039,7 +1038,7 @@ static int WeldVertex(W8HashTable<unsigned int, int>* table, W8OctPreTreeVertex*
     unsigned int start_x;
     unsigned int start_y;
     unsigned int start_z;
-    int slot;
+
     bool found;
     bool matched;
     unsigned int scan_x;
@@ -1080,9 +1079,9 @@ static int WeldVertex(W8HashTable<unsigned int, int>* table, W8OctPreTreeVertex*
             for (scan_z = start_z; scan_z <= cell_z + 1; ++scan_z) {
                 scan_key =
                     scan_z * g_weld_stride_z + scan_y * g_weld_stride_y + scan_x * g_weld_stride_x;
-                slot = table->FindNextEntry(&scan_key, -1);
-                while (slot != -1) {
-                    match_index = table->entries[slot].value - 1;
+                auto slot = table->equal_range(scan_key).first;
+                while (slot != table->end()) {
+                    match_index = slot->second - 1;
                     if (match_index >= 0 && !matched) {
                         candidate = vertices + match_index;
                         if (fabs(current->position.x - candidate->position.x) <
@@ -1098,7 +1097,7 @@ static int WeldVertex(W8HashTable<unsigned int, int>* table, W8OctPreTreeVertex*
                             found = true;
                         }
                     }
-                    slot = table->FindNextEntry(&scan_key, slot);
+                    slot = NextIndexValue(*table, scan_key, slot);
                 }
             }
         }
@@ -1107,7 +1106,7 @@ static int WeldVertex(W8HashTable<unsigned int, int>* table, W8OctPreTreeVertex*
         return match_index + 1;
     }
     int vertex_id = index + 1;
-    table->Insert(&key, &vertex_id);
+    InsertIndexValue(*table, key, vertex_id);
     if (link == 0xffffffff) {
         vertices[index].m_vertex_index = index;
     }
@@ -1146,8 +1145,7 @@ static int BuildRegionPolygons(W8LevelFile* level, W8OctPreTreeGeometry* geometr
     W8OctPreTreeVertex* current;
     W8OctPreTreeVertex* created;
 
-    W8HashTable<unsigned int, int> weld_table;
-    weld_table.Clear();
+    std::unordered_multimap<unsigned int, int> weld_table;
     kind_counts[0] = 0;
     kind_counts[1] = 0;
     kind_counts[2] = 0;

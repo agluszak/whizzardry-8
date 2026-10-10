@@ -1,4 +1,9 @@
 #include "wiz8/utility.h"
+#include "wiz8/sr_api.h"
+#include <algorithm>
+#include <ranges>
+#include <span>
+#include <tuple>
 #include <cstdlib>
 
 #include "wiz8/engine_code/OctPreTree.h"
@@ -40,9 +45,6 @@ const float g_region_axis_alignment_threshold = 0.9998999834060669f;
 
 // GLOBAL: WIZ8 0x00659c74
 OctPreTree* g_oct_pre_tree = 0;
-
-/* Paired item/key sorts shared through stHash.hpp; these emissions are this
-   file's unsigned long and unsigned short instantiations. */
 
 /* The build-time runtime tree extends the ordinary 0x29c octree with transfer
    bookkeeping and one separately owned pointer vector.  Its only recovered
@@ -836,10 +838,12 @@ w8_ulong OctPreTree::SplitMeshes(W8OctPreTreeGeometry* geometry, W8OctSubmeshBui
             }
             record->vertex_count = vertex_count;
 
-            QuickSortByKey(record->m_polygon_ids, keys, 0,
-                           static_cast<int>(record->m_polygon_count) - 1);
-            QuickSortByKey(record->m_poly_vertices, scratch, 0,
-                           static_cast<int>(record->m_polygon_count) - 1);
+            std::ranges::sort(
+                std::views::zip(std::span(keys, record->m_polygon_count), std::span(record->m_polygon_ids, record->m_polygon_count)), {},
+                [](const auto& entry) { return std::get<0>(entry); });
+            std::ranges::sort(
+                std::views::zip(std::span(scratch, record->m_polygon_count), std::span(record->m_poly_vertices, record->m_polygon_count)), {},
+                [](const auto& entry) { return std::get<0>(entry); });
 
             for (w8_ulong i = 0; i < vertex_count; ++i) {
                 w8_ulong material = geometry->m_vertices[vertex_ids[i]].m_material;
@@ -847,10 +851,16 @@ w8_ulong OctPreTree::SplitMeshes(W8OctPreTreeGeometry* geometry, W8OctSubmeshBui
                 keys[i] = material;
                 order[i] = i;
             }
-            QuickSortByKey(vertex_ids, scratch, 0, static_cast<int>(vertex_count) - 1);
+            std::ranges::sort(
+                std::views::zip(std::span(scratch, vertex_count), std::span(vertex_ids, vertex_count)), {},
+                [](const auto& entry) { return std::get<0>(entry); });
             memcpy(scratch, order, vertex_count * sizeof(*scratch));
-            QuickSortByKey(scratch, keys, 0, static_cast<int>(vertex_count) - 1);
-            QuickSortByKey(order, scratch, 0, static_cast<int>(vertex_count) - 1);
+            std::ranges::sort(
+                std::views::zip(std::span(keys, vertex_count), std::span(scratch, vertex_count)), {},
+                [](const auto& entry) { return std::get<0>(entry); });
+            std::ranges::sort(
+                std::views::zip(std::span(scratch, vertex_count), std::span(order, vertex_count)), {},
+                [](const auto& entry) { return std::get<0>(entry); });
 
             for (w8_ulong face = 0; face < record->m_polygon_count; ++face) {
                 for (int c = 0; c < 3; ++c) {
@@ -1067,10 +1077,10 @@ w8_ulong OctPreTree::AllocateSubMesh(W8OctSubmeshBuild* records)
             record->m_polygon_count = found;
         }
         unsigned short key = static_cast<unsigned short>(index);
-        W8HashTable<unsigned short, w8_ulong>* cells = automesh_cells;
-        int slot = cells->FindNextEntry(&key, -1);
-        while (slot != -1) {
-            w8_ulong cell = cells->entries[slot].value;
+        std::unordered_multimap<unsigned short, w8_ulong>* cells = automesh_cells;
+        auto slot = cells->equal_range(key).first;
+        while (slot != cells->end()) {
+            w8_ulong cell = slot->second;
             float cell_x =
                 ((cell >> 0x10) & 0xff) * m_spatial.m_region_grid_cell + m_spatial.m_minimum.x;
             float cell_y =
@@ -1081,7 +1091,7 @@ w8_ulong OctPreTree::AllocateSubMesh(W8OctSubmeshBuild* records)
                 cell_z + m_spatial.m_region_grid_cell < minimum.z || maximum.z < cell_z) {
                 ReportBuildStatus(7, "AutoMesh has no vertices inside region.");
             }
-            slot = cells->FindNextEntry(&key, slot);
+            slot = NextIndexValue(*cells, key, slot);
         }
     }
     return m_spatial.submesh_count;
@@ -1126,10 +1136,10 @@ void OctPreTree::VerifyAutoMeshes(W8OctPreTreeGeometry* geometry, W8OctSubmeshBu
 {
     for (w8_ulong mesh = 1; mesh < m_meshCount; ++mesh) {
         unsigned short key = static_cast<unsigned short>(mesh);
-        int slot = automesh_cells->FindNextEntry(&key, -1);
-        while (slot != -1) {
+        auto slot = automesh_cells->equal_range(key).first;
+        while (slot != automesh_cells->end()) {
             unsigned int cell[4];
-            w8_ulong packed = automesh_cells->entries[slot].value;
+            w8_ulong packed = slot->second;
             cell[0] = packed >> 0x18;
             cell[1] = packed >> 0x10 & 0xff;
             cell[2] = packed >> 8 & 0xff;
@@ -1175,7 +1185,7 @@ void OctPreTree::VerifyAutoMeshes(W8OctPreTreeGeometry* geometry, W8OctSubmeshBu
                     ReportBuildStatus(7, "AutoMesh has no vertices inside region.");
                 }
             }
-            slot = automesh_cells->FindNextEntry(&key, slot);
+            slot = NextIndexValue(*automesh_cells, key, slot);
         }
     }
 }
@@ -1189,8 +1199,8 @@ void OctPreTree::VerifyAutoMeshes(W8OctPreTreeGeometry* geometry, W8OctSubmeshBu
 unsigned char OctPreTree::BuildPathLists(W8GameData* game_data, W8LevelFile* level,
                                          unsigned int min_component_percent)
 {
-    W8HashTable<unsigned int, int> node_map;
-    W8HashTable<unsigned int, CondPathNode*> cond_map;
+    std::unordered_map<unsigned int, int> node_map;
+    std::unordered_multimap<unsigned int, CondPathNode*> cond_map;
     char message[0x400];
     W8PreProp* preprops = 0;
     srVector3T<float> node;
@@ -1256,9 +1266,9 @@ unsigned char OctPreTree::BuildPathLists(W8GameData* game_data, W8LevelFile* lev
                                                    prop_count)) {
                             record->level_flags |= W8_PATH_CELL_CONDITIONAL;
                         }
-                        int slot = node_map.FindNextEntry(&cell, -1);
-                        if (slot == -1 || node_map.entries[slot].value == 0) {
-                            node_map.Insert(&cell, &path_node_count);
+                        auto slot = node_map.equal_range(cell).first;
+                        if (slot == node_map.end() || slot->second == 0) {
+                            node_map.insert_or_assign(cell, path_node_count);
                             record->level_flags |= W8_PATH_CELL_INACTIVE;
                         }
                         ++path_node_count;
@@ -1400,7 +1410,7 @@ char OctPreTree::PathNodeObstructed(const srVector3T<float>* node)
    conditional-node map keyed by (stop-mesh frame << 16 | preprop index + 1).
    Blocker nodes are flagged 0x2000000. */
 // FUNCTION: WIZ8 0x0046b9d0
-unsigned char OctPreTree::InsertConditionalNodes(W8HashTable<unsigned int, CondPathNode*>* nodes,
+unsigned char OctPreTree::InsertConditionalNodes(std::unordered_multimap<unsigned int, CondPathNode*>* nodes,
                                                  unsigned int cell, unsigned int node,
                                                  W8PreProp* preprops, int preprop_count)
 {
@@ -1427,7 +1437,7 @@ unsigned char OctPreTree::InsertConditionalNodes(W8HashTable<unsigned int, CondP
                 }
                 cond_node->value = node;
                 cond_node->cell = cell;
-                nodes->Insert(&key, &cond_node);
+                InsertIndexValue(*nodes, key, cond_node);
                 found = true;
             }
         }
@@ -1456,7 +1466,7 @@ unsigned char OctPreTree::InsertConditionalNodes(W8HashTable<unsigned int, CondP
                 }
                 cond_node->value = node | W8_PATH_CELL_BLOCKING_FRAME;
                 cond_node->cell = cell;
-                nodes->Insert(&key, &cond_node);
+                InsertIndexValue(*nodes, key, cond_node);
                 found = true;
             }
         }

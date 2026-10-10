@@ -6,8 +6,9 @@
 
 #include "surrender/srMath.h"
 #include "wiz8/engine_code/BitArray.h"
-#include "wiz8/engine_code/stHeap.hpp"
-#include "wiz8/engine_code/stHash.hpp"
+#include <queue>
+#include <vector>
+#include "wiz8/index_algorithms.h"
 #include "wiz8/geometry.h"
 
 #include <stddef.h>
@@ -270,30 +271,26 @@ struct W8PathSearchNode {
 struct W8PathHeapEntry {
     unsigned int node;
     unsigned int priority;
+};
 
-    bool operator<=(const W8PathHeapEntry& other) const
+struct W8PathHeapCompare {
+    bool operator()(const W8PathHeapEntry& left, const W8PathHeapEntry& right) const
     {
-        return priority <= other.priority;
+        return left.priority > right.priority;
     }
 };
 
-typedef stHeap<W8PathHeapEntry> W8PathHeap;
+using W8PathOpenSet =
+    std::priority_queue<W8PathHeapEntry, std::vector<W8PathHeapEntry>, W8PathHeapCompare>;
 
 struct W8PathHeapHandle {
-    ~W8PathHeapHandle()
-    {
-        delete heap;
-    }
-
-    W8PathHeap* heap;
-    unsigned int root_node;
+    W8PathOpenSet open;
+    unsigned int root_node = 0;
 
     void DeleteRoot(W8PathSearchNode* node);
 };
 
 W8_ABI_ASSERT(sizeof(W8PathHeapEntry) == 8, "W8PathHeapEntry_must_be_8");
-W8_ABI_ASSERT(sizeof(W8PathHeap) == 0x10, "W8PathHeap_must_be_0x10");
-W8_ABI_ASSERT(sizeof(W8PathHeapHandle) == 8, "W8PathHeapHandle_must_be_8");
 
 W8_ABI_ASSERT(sizeof(W8PathSearchNode) == 0x2c, "W8PathSearchNode_must_be_0x2c");
 
@@ -322,7 +319,7 @@ public:
     unsigned int FindConditionalPathValue(unsigned int key, unsigned int value);
     void
     LinkCollideableProps(int lNumProps, W8PreProp* pPreProps,
-                         W8HashTable<unsigned int, CondPathNode*>* pCondValues); /* 0x004CE510 */
+                         std::unordered_multimap<unsigned int, CondPathNode*>* pCondValues); /* 0x004CE510 */
     unsigned char HandlePathEdgeTransition(W8NavigatorMovementState* movement);
     void ReduceWaypointCosts(unsigned int waypoint, float amount);
     bool AdvanceAttachmentWaypoint(const srVector3T<float>* source,
@@ -499,11 +496,11 @@ public:
        and keeps the signed value the octree registry also instantiates. The
        template only copies and compares values, so the two instantiations are
        body-equivalent and retail's linker folds them. */
-    W8HashTable<unsigned int, unsigned int>* m_pPathValues; /* 0x64 */
+    std::unordered_multimap<unsigned int, unsigned int>* m_pPathValues; /* 0x64 */
     const char* level_name;                                 /* 0x68 */
     W8PathHeapHandle* path_heap;                            /* 0x6c */
     float m_path_cost_limit;                                /* 0x70: starts 1.0e10f */
-    W8HashTable<unsigned int, int>* m_pVisitedCells;        /* 0x74 */
+    std::unordered_map<unsigned int, int>* m_pVisitedCells;        /* 0x74 */
     unsigned int m_probe_cell_key;                          /* 0x78 */
     srVector3T<float> m_probe_position;                     /* 0x7c */
     unsigned int m_probe_limit;                             /* 0x88 */
@@ -618,7 +615,7 @@ public:
     /* Hands out the next path-node record, allocating a new chunk when the
        current one fills. */
     W8PrePathNode* GetPathNode();
-    unsigned char BuildPathList(W8PrePathNode* nodes, W8HashTable<unsigned int, int>* cell_map);
+    unsigned char BuildPathList(W8PrePathNode* nodes, std::unordered_map<unsigned int, int>* cell_map);
     W8PrePathNode* FindAdjacentPathNode(const W8PrePathNode* node, int direction);
     unsigned char LinkPathNodes();
     void PropagatePathNodeClearance(W8PrePathNode* node, unsigned int depth);
@@ -632,7 +629,7 @@ public:
     void* owned_248;
     int named_position_count;
     srVector3T<float>* named_positions;
-    W8HashTable<unsigned int, int>* cell_map;
+    std::unordered_map<unsigned int, int>* cell_map;
     /* Embedded chunk table: each slot is a malloc'd run of
        W8_PREPATH_NODES_PER_CHUNK path-node records. The constructor fills slot 0, and the
        destructor frees every slot through chunk_index inclusive. */

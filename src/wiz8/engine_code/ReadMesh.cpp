@@ -21,6 +21,10 @@
 #include "surrender/srNode.h"
 #include "surrender/srVectorMath.h"
 
+#include <algorithm>
+#include <ranges>
+#include <span>
+#include <tuple>
 #include <stdlib.h>
 #include <math.h>
 #include <string.h>
@@ -152,17 +156,13 @@ struct W8MeshStripBuilder {
 
     unsigned int EdgeKey(const W8MeshStripPolygon* polygon, int edge);
     int CountNeighbors(int index);
-    W8MeshStripPolygon* EdgePolygon(int slot);
     void BuildEdgeTable();
 
     srVector3i* polygon_vertices;
     W8MeshStripPolygon* polygons;
     unsigned int count;
-    W8HashTable<unsigned int, W8MeshStripPolygon*> edges;
+    std::unordered_multimap<unsigned int, W8MeshStripPolygon*> edges;
 };
-
-/* The paired-sort templates live in stHash.hpp so every octree TU sees the
-   same definitions; the marker pairs below bind this file's emissions. */
 
 /* The names below are recomp pairing selectors, not original symbol or
    argument-type evidence. BuildSingleLevelMesh's local type bank calls the
@@ -184,11 +184,15 @@ static void SortGroupsByKey(w8_ulong* order, w8_ulong* keys, w8_ulong* groups,
     unsigned int start = 0;
     for (index = 1; index < static_cast<w8_ulong>(count); ++index) {
         if (groups[index] != groups[index - 1]) {
-            SortByKey(order + start, keys + start, index - start);
+            std::ranges::sort(
+                std::views::zip(std::span(keys + start, index - start), std::span(order + start, index - start)), {},
+                [](const auto& entry) { return std::get<0>(entry); });
             start = index;
         }
     }
-    SortByKey(order + start, keys + start, count - start);
+    std::ranges::sort(
+        std::views::zip(std::span(keys + start, count - start), std::span(order + start, count - start)), {},
+        [](const auto& entry) { return std::get<0>(entry); });
 
     int group = 0;
     groups[0] = 0;
@@ -239,11 +243,6 @@ unsigned int W8MeshStripBuilder::EdgeKey(const W8MeshStripPolygon* polygon, int 
     return (second << 8) ^ first;
 }
 
-W8MeshStripPolygon* W8MeshStripBuilder::EdgePolygon(int slot)
-{
-    return edges.entries[slot].value;
-}
-
 // FUNCTION: WIZ8 0x00487880
 int W8MeshStripBuilder::CountNeighbors(int index)
 {
@@ -251,9 +250,9 @@ int W8MeshStripBuilder::CountNeighbors(int index)
     int neighbors = 0;
     for (int edge = 0; edge < 3; ++edge) {
         unsigned int key = EdgeKey(polygon, edge);
-        for (int slot = edges.FindNextEntry(&key, -1); slot != -1;
-             slot = edges.FindNextEntry(&key, slot)) {
-            if (edges.entries[slot].value != polygon) {
+        for (auto slot = edges.equal_range(key).first; slot != edges.end();
+             slot = NextIndexValue(edges, key, slot)) {
+            if (slot->second != polygon) {
                 ++neighbors;
                 break;
             }
@@ -265,13 +264,13 @@ int W8MeshStripBuilder::CountNeighbors(int index)
 // FUNCTION: WIZ8 0x004879C0
 void W8MeshStripBuilder::BuildEdgeTable()
 {
-    edges.Clear();
+    edges.clear();
 
     for (unsigned int index = 0; index < count; ++index) {
         W8MeshStripPolygon* polygon = polygons + index;
         for (int edge = 0; edge < 3; ++edge) {
             unsigned int key = EdgeKey(polygon, edge);
-            edges.Insert(&key, &polygon);
+            InsertIndexValue(edges, key, polygon);
         }
     }
 }
@@ -342,7 +341,9 @@ static W8MeshOrder* ComputeMeshOrder(W8MeshOrderInfo* info, w8_ulong flags)
                     for (index = 0; index < builder.count; ++index) {
                         neighbors[index] = builder.CountNeighbors(index);
                     }
-                    SortByKey(builder.polygons, neighbors, builder.count);
+                    std::ranges::sort(
+                        std::views::zip(std::span(neighbors, builder.count), std::span(builder.polygons, builder.count)), {},
+                        [](const auto& entry) { return std::get<0>(entry); });
                     builder.BuildEdgeTable();
                     delete[] neighbors;
 
@@ -357,9 +358,9 @@ static W8MeshOrder* ComputeMeshOrder(W8MeshOrderInfo* info, w8_ulong flags)
                             W8MeshStripPolygon* next = 0;
                             for (int edge = 0; edge < 3 && next == 0; ++edge) {
                                 unsigned int key = builder.EdgeKey(current, edge);
-                                for (int slot = builder.edges.FindNextEntry(&key, -1); slot != -1;
-                                     slot = builder.edges.FindNextEntry(&key, slot)) {
-                                    W8MeshStripPolygon* candidate = builder.EdgePolygon(slot);
+                                for (auto slot = builder.edges.equal_range(key).first; slot != builder.edges.end();
+                                     slot = NextIndexValue(builder.edges, key, slot)) {
+                                    W8MeshStripPolygon* candidate = slot->second;
                                     if (candidate->visited == 0) {
                                         next = candidate;
                                         break;
@@ -417,11 +418,16 @@ static W8MeshOrder* ComputeMeshOrder(W8MeshOrderInfo* info, w8_ulong flags)
         unsigned int start = 0;
         for (index = 1; index < static_cast<w8_ulong>(info->vertex_count); ++index) {
             if (vertex_groups[index] != vertex_groups[index - 1]) {
-                SortByKey(order->vertices + start, first_use + start, index - start);
+                std::ranges::sort(
+                    std::views::zip(std::span(first_use + start, index - start), std::span(order->vertices + start, index - start)), {},
+                    [](const auto& entry) { return std::get<0>(entry); });
                 start = index;
             }
         }
-        SortByKey(order->vertices + start, first_use + start, info->vertex_count - start);
+        std::ranges::sort(
+            std::views::zip(std::span(first_use + start, info->vertex_count - start),
+                            std::span(order->vertices + start, info->vertex_count - start)), {},
+            [](const auto& entry) { return std::get<0>(entry); });
 
         delete[] remapped;
         delete[] inverse;
@@ -490,7 +496,7 @@ BuildSingleLevelMesh(int face_count, W8ReadMeshFace* faces, int vertex_count, in
                      W8GrowableVector<short>* mapped_values, W8GrowableVector<short>* mapped_keys)
 {
     W8GrowableVector<srShader> polygon_types;
-    W8OctreeIndex vertex_indices[8];
+    std::unordered_map<unsigned int, int> vertex_indices[8];
     W8GrowableVector<int> duplicated_from[8];
     W8GrowableVector<int> duplicated_to[8];
     W8GrowableVector<short> mapped_meshes;
@@ -577,11 +583,11 @@ BuildSingleLevelMesh(int face_count, W8ReadMeshFace* faces, int vertex_count, in
             unsigned int key =
                 (static_cast<unsigned int>(reinterpret_cast<w8_ulong_ptr>(materials[face.material_index])) & 0xfff) |
                 (original_vertex << 12);
-            int vertex = vertex_indices[type].Lookup(&key) - 1;
+            int vertex = LookupIndexValue(vertex_indices[type], key) - 1;
             if (vertex == -1) {
                 vertex = vertex_counts[type];
                 int stored_vertex = vertex + 1;
-                vertex_indices[type].Insert(&key, &stored_vertex);
+                vertex_indices[type].emplace(key, stored_vertex);
                 vertex_materials[type][vertex] = materials[face.material_index];
                 vertex_uvs[type][vertex] = face.texture_coordinates[corner];
                 (corner == 0 ? poly.x : (corner == 1 ? poly.y : poly.z)) = vertex;
