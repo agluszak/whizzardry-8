@@ -31,7 +31,7 @@ static void write(const fs::path& path, const Bytes& bytes)
 }
 static Bytes grayFixture()
 {
-    std::ifstream input(fs::path(__FILE__).parent_path() / "gray.jpg", std::ios::binary);
+    std::ifstream input(fs::path(WIZ8_IMAGE_IMPORT_FIXTURE_DIR) / "gray.jpg", std::ios::binary);
     CHECK(input.good());
     return {std::istreambuf_iterator<char>(input), {}};
 }

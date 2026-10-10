@@ -22,7 +22,7 @@ static OwnedSurface owned(srColorSurfaceIFace* p)
 }
 static Bytes fixture(const char* name)
 {
-    std::ifstream input(std::filesystem::path(__FILE__).parent_path() / "image_import" / name,
+    std::ifstream input(std::filesystem::path(WIZ8_IMAGE_IMPORT_FIXTURE_DIR) / name,
                         std::ios::binary);
     CHECK(input.good());
     return {std::istreambuf_iterator<char>(input), {}};

@@ -46,11 +46,13 @@ add_test(NAME native_save_records COMMAND native_save_records_test)
 
 add_executable(native_jpeg_transfer_test "${PROJECT_SOURCE_DIR}/tests/native/jpeg_transfer_test.cpp")
 target_include_directories(native_jpeg_transfer_test PRIVATE "${PROJECT_SOURCE_DIR}/src/srext_jpegimporter")
+target_compile_definitions(native_jpeg_transfer_test PRIVATE WIZ8_IMAGE_IMPORT_FIXTURE_DIR="${PROJECT_SOURCE_DIR}/tests/native/image_import")
 target_link_libraries(native_jpeg_transfer_test PRIVATE SURRENDER wiz8_native_settings SDL3_image::SDL3_image)
 add_test(NAME native_jpeg_transfer COMMAND native_jpeg_transfer_test)
 
 add_executable(native_virtual_image_transfer_test native/image_import/virtual_transfer_test.cpp)
 target_include_directories(native_virtual_image_transfer_test PRIVATE "${PROJECT_SOURCE_DIR}/src/srext_jpegimporter")
+target_compile_definitions(native_virtual_image_transfer_test PRIVATE WIZ8_IMAGE_IMPORT_FIXTURE_DIR="${PROJECT_SOURCE_DIR}/tests/native/image_import")
 target_link_libraries(native_virtual_image_transfer_test PRIVATE WIZ8_GAME_CORE WIZ8_SGP WIZ8_GAME_CORE SDL3_image::SDL3_image)
 if(APPLE)
     target_link_options(native_virtual_image_transfer_test PRIVATE -Wl,-dead_strip)
@@ -141,6 +143,7 @@ elseif(UNIX)
     target_link_options(native_movie_test PRIVATE -Wl,--gc-sections -Wl,-z,start-stop-gc)
 endif()
 add_test(NAME native_movies COMMAND native_movie_test)
+set_tests_properties(native_audio native_movies PROPERTIES ENVIRONMENT "SDL_AUDIO_DRIVER=wiz8-offline")
 
 # Installed level/character integration; supplied assets and a display are required.
 add_executable(native_world_graphics "${PROJECT_SOURCE_DIR}/tests/native/world_graphics.cpp")

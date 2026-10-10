@@ -70,21 +70,18 @@ bool initialize_audio()
     if (mixer) return true;
     mixer = retained_mixer.lock();
     if (mixer) return true;
-    if (!SDL_InitSubSystem(SDL_INIT_AUDIO)) return false;
-    if (!MIX_Init()) { SDL_QuitSubSystem(SDL_INIT_AUDIO); return false; }
+    if (!MIX_Init()) return false;
     const SDL_AudioSpec spec{SDL_AUDIO_F32, 2, 44100};
     auto* created = offline ? MIX_CreateMixer(&spec) :
                               MIX_CreateMixerDevice(SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK, &spec);
     if (!created)
     {
         MIX_Quit();
-        SDL_QuitSubSystem(SDL_INIT_AUDIO);
         return false;
     }
     mixer = std::shared_ptr<MIX_Mixer>(created, [](MIX_Mixer* value) {
         MIX_DestroyMixer(value);
         MIX_Quit();
-        SDL_QuitSubSystem(SDL_INIT_AUDIO);
     });
     retained_mixer = mixer;
     return true;
