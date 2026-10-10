@@ -2300,6 +2300,34 @@ void AnnounceMonsterAttack(W8MonsterInfo* monster_info, W8MonsterRecord* record,
     OrientMonsterTowardTarget(monster_info, false);
 }
 
+/* Shared combat attribute differential used by pre-hit and hit-location rolls. */
+static int SumCharacterCombatAttributes(const W8Character& character)
+{
+    return character.attributes[W8_ATTRIBUTE_SENSES].effective +
+           character.attributes[W8_ATTRIBUTE_SPEED].effective +
+           character.attributes[W8_ATTRIBUTE_DEXTERITY].effective +
+           character.attributes[W8_ATTRIBUTE_INTELLIGENCE].effective;
+}
+
+static int SumTargetCombatAttributes(const W8CombatSlot& target)
+{
+    if (target.iType == W8_TARGET_KIND_MONSTER) {
+        const unsigned int index =
+            MonsterGetIndexByLocationID(0xf2b, COMBAT_ATTACK_CPP, target.iMonsterID, true);
+        W8MonsterInfo* monster = MonsterGetScriptPartByLocationIndex(index);
+        return monster->attributes[W8_MONSTER_ATTRIBUTE_SENSES] +
+               monster->attributes[W8_MONSTER_ATTRIBUTE_SPEED] +
+               monster->attributes[W8_MONSTER_ATTRIBUTE_DEXTERITY] +
+               monster->attributes[W8_MONSTER_ATTRIBUTE_INTELLIGENCE];
+    }
+    if (target.iType == W8_TARGET_KIND_CHARACTER)
+        return SumCharacterCombatAttributes(g_status.buffers.Char[target.iChar]);
+    DebugMessage(1, fmt::format(
+        "GetTargetAttackAttributes: Invalid Target Type {:d}(char {:d}, ID {:d})",
+        fmt::underlying(target.iType), target.iChar, target.iMonsterID));
+    return 0;
+}
+
 /* The character-side attack score against the pending action's target: the
    hand attack's own score plus five per point of hit and modifier-block
    bonus, the attack-mode term, the caught-unaware and natural-attack bonuses,
@@ -2320,8 +2348,6 @@ static int GetTargetAttackAttributes(int party_slot, int hand, W8AttackMode atta
     int target_sum;
     int attacker_sum;
     unsigned int fatigue;
-    unsigned int monster_list_index;
-    W8MonsterInfo* monster_info;
 
     score = attack->attack_score + attack->hit_bonus * 5;
     score += character->bonus.hit_bonus * 5;
@@ -2354,33 +2380,8 @@ static int GetTargetAttackAttributes(int party_slot, int hand, W8AttackMode atta
     if (ignore_target_defenses == 0) {
         target = &g_status.buffers.XChar[party_slot].target_out_of_combat;
         score -= GetTargetArmorClass(target, attack_mode) * 5;
-        if (target->iType == W8_TARGET_KIND_MONSTER) {
-            monster_list_index =
-                MonsterGetIndexByLocationID(0xf2b, COMBAT_ATTACK_CPP, target->iMonsterID, true);
-            monster_info = MonsterGetScriptPartByLocationIndex(monster_list_index);
-            target_sum = monster_info->attributes[W8_MONSTER_ATTRIBUTE_SENSES] +
-                         monster_info->attributes[W8_MONSTER_ATTRIBUTE_SPEED] +
-                         monster_info->attributes[W8_MONSTER_ATTRIBUTE_DEXTERITY] +
-                         monster_info->attributes[W8_MONSTER_ATTRIBUTE_INTELLIGENCE];
-        } else if (target->iType == W8_TARGET_KIND_CHARACTER) {
-            target_sum =
-                g_status.buffers.Char[target->iChar].attributes[W8_ATTRIBUTE_SENSES].effective +
-                g_status.buffers.Char[target->iChar].attributes[W8_ATTRIBUTE_SPEED].effective +
-                g_status.buffers.Char[target->iChar].attributes[W8_ATTRIBUTE_DEXTERITY].effective +
-                g_status.buffers.Char[target->iChar]
-                    .attributes[W8_ATTRIBUTE_INTELLIGENCE]
-                    .effective;
-        } else {
-            DebugMessage(
-                1, fmt::format(
-                       "GetTargetAttackAttributes: Invalid Target Type {:d}(char {:d}, ID {:d})",
-                       fmt::underlying(target->iType), target->iChar, target->iMonsterID));
-            target_sum = 0;
-        }
-        attacker_sum = character->attributes[W8_ATTRIBUTE_SENSES].effective +
-                       character->attributes[W8_ATTRIBUTE_SPEED].effective +
-                       character->attributes[W8_ATTRIBUTE_DEXTERITY].effective +
-                       character->attributes[W8_ATTRIBUTE_INTELLIGENCE].effective;
+        target_sum = SumTargetCombatAttributes(*target);
+        attacker_sum = SumCharacterCombatAttributes(*character);
         score += (attacker_sum - target_sum) / 10;
     }
     if (character->uiCondition[W8_CONDITION_BLIND] != 0 && score > 10) {
@@ -2411,8 +2412,6 @@ int GetTargetHitAttackAttributes(int party_slot, int hand, W8AttackMode attack_m
     int score;
     int target_sum;
     int attacker_sum;
-    unsigned int monster_list_index;
-    W8MonsterInfo* monster_info;
     W8CombatSlot* target = &g_combat_state->TargetHit;
 
     score = attack->attack_score + attack->hit_bonus * 5;
@@ -2424,31 +2423,8 @@ int GetTargetHitAttackAttributes(int party_slot, int hand, W8AttackMode attack_m
         score -= FatigueArmorPenalty(character->fatigue_band);
     }
     score -= TargetArmorClassAtLocation(target, attack_mode, hit_location) * 5;
-    if (target->iType == W8_TARGET_KIND_MONSTER) {
-        monster_list_index =
-            MonsterGetIndexByLocationID(0xf2b, COMBAT_ATTACK_CPP, target->iMonsterID, true);
-        monster_info = MonsterGetScriptPartByLocationIndex(monster_list_index);
-        target_sum = monster_info->attributes[W8_MONSTER_ATTRIBUTE_SPEED] +
-                     monster_info->attributes[W8_MONSTER_ATTRIBUTE_SENSES] +
-                     monster_info->attributes[W8_MONSTER_ATTRIBUTE_DEXTERITY] +
-                     monster_info->attributes[W8_MONSTER_ATTRIBUTE_INTELLIGENCE];
-    } else if (target->iType == W8_TARGET_KIND_CHARACTER) {
-        target_sum =
-            g_status.buffers.Char[target->iChar].attributes[W8_ATTRIBUTE_SENSES].effective +
-            g_status.buffers.Char[target->iChar].attributes[W8_ATTRIBUTE_SPEED].effective +
-            g_status.buffers.Char[target->iChar].attributes[W8_ATTRIBUTE_DEXTERITY].effective +
-            g_status.buffers.Char[target->iChar].attributes[W8_ATTRIBUTE_INTELLIGENCE].effective;
-    } else {
-        DebugMessage(
-            1,
-            fmt::format("GetTargetAttackAttributes: Invalid Target Type {:d}(char {:d}, ID {:d})",
-                        fmt::underlying(target->iType), target->iChar, target->iMonsterID));
-        target_sum = 0;
-    }
-    attacker_sum = character->attributes[W8_ATTRIBUTE_SENSES].effective +
-                   character->attributes[W8_ATTRIBUTE_SPEED].effective +
-                   character->attributes[W8_ATTRIBUTE_DEXTERITY].effective +
-                   character->attributes[W8_ATTRIBUTE_INTELLIGENCE].effective;
+    target_sum = SumTargetCombatAttributes(*target);
+    attacker_sum = SumCharacterCombatAttributes(*character);
     score += (attacker_sum - target_sum) / 10;
     ScaleValueForCharacterDifficulty(party_slot, &score);
     return score;
