@@ -1,6 +1,6 @@
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/engine_code/BitArray.h"
-#include "wiz8/engine_code/stHash.hpp"
+#include "wiz8/index_algorithms.h"
 #include "wiz8/local_screens/AutomapScreen.h"
 #include "wiz8/layouts/screen_state.h"
 #include "wiz8/local_screens/Screens.h"
@@ -103,7 +103,7 @@ unsigned int* g_automap_cell_keys;
 
 /* Packed cell key -> cell number + 1. */
 // GLOBAL: WIZ8 0x0068F284
-W8HashTable<unsigned int, int>* g_automap_cell_index;
+std::unordered_map<unsigned int, int>* g_automap_cell_index;
 // GLOBAL: WIZ8 0x0068F29C
 stModelInstance2D* g_automap_party_marker;
 // GLOBAL: WIZ8 0x0068F2A0
@@ -397,14 +397,14 @@ void ResetAutomapView(void)
     GetCameraPosition(&camera);
     srVector3T<float> relative = camera - g_automap_grid_origin;
     unsigned int key = AutomapNodeKey(&relative);
-    int cell = g_automap_cell_index->Lookup(&key);
+    int cell = LookupIndexValue(*g_automap_cell_index, key);
     if (cell > 1) {
         g_automap_visited_cells->Set(cell - 1);
         return;
     }
     relative.y = camera.y + g_automap_grid_cell_size - g_automap_grid_origin.y;
     key = AutomapNodeKey(&relative);
-    cell = g_automap_cell_index->Lookup(&key);
+    cell = LookupIndexValue(*g_automap_cell_index, key);
     if (cell > 1) {
         g_automap_visited_cells->Set(cell - 1);
     }
@@ -418,7 +418,7 @@ bool AutomapHasCellAt(const srVector3T<float>* position)
 {
     srVector3T<float> relative = *position - g_automap_grid_origin;
     unsigned int key = AutomapNodeKey(&relative);
-    int cell = g_automap_cell_index->Lookup(&key);
+    int cell = LookupIndexValue(*g_automap_cell_index, key);
     if (cell > 1) {
         if (!g_automap_visited_cells->Set(cell - 1)) {
             return true;
@@ -427,7 +427,7 @@ bool AutomapHasCellAt(const srVector3T<float>* position)
     }
     relative.y = position->y + g_automap_grid_cell_size - g_automap_grid_origin.y;
     key = AutomapNodeKey(&relative);
-    cell = g_automap_cell_index->Lookup(&key);
+    cell = LookupIndexValue(*g_automap_cell_index, key);
     if (cell > 1) {
         if (!g_automap_visited_cells->Set(cell - 1)) {
             return true;
@@ -1092,7 +1092,7 @@ unsigned char AutomapScreenFinalize(void)
         free(g_automap_cell_keys);
         g_automap_cell_keys = 0;
     }
-    W8HashTable<unsigned int, int>* record = g_automap_cell_index;
+    std::unordered_map<unsigned int, int>* record = g_automap_cell_index;
     if (record) {
         delete record;
         g_automap_cell_index = 0;
@@ -2428,7 +2428,7 @@ try
         g_automap_cell_keys = static_cast<unsigned int*>(malloc(sizeof(*g_automap_cell_keys)));
         *g_automap_cell_keys = 0;
         g_automap_cell_count = 1;
-        g_automap_cell_index = new W8HashTable<unsigned int, int>();
+        g_automap_cell_index = new std::unordered_map<unsigned int, int>();
         return ok;
     }
 
@@ -2462,10 +2462,10 @@ try
     if (ok != 0) {
         success = (hFile->read(g_automap_cell_keys, g_automap_cell_count * sizeof(*g_automap_cell_keys)).bytes == static_cast<std::size_t>(g_automap_cell_count * sizeof(*g_automap_cell_keys)));
     }
-    g_automap_cell_index = new W8HashTable<unsigned int, int>();
+    g_automap_cell_index = new std::unordered_map<unsigned int, int>();
     for (int index = 0; index < g_automap_cell_count; ++index) {
         int value = index + 1;
-        g_automap_cell_index->Insert(g_automap_cell_keys + index, &value);
+        g_automap_cell_index->insert_or_assign(g_automap_cell_keys[index], value);
     }
     return success;
 }

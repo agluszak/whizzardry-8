@@ -213,3 +213,12 @@ endforeach()
 # One saved game shared by the load scenarios, written once per run.
 set_tests_properties(runtime_save-fixture PROPERTIES FIXTURES_SETUP runtime_save)
 set_tests_properties(runtime_load-game PROPERTIES FIXTURES_REQUIRED runtime_save)
+
+add_executable(native_indexes_test native/indexes_test.cpp)
+target_link_libraries(native_indexes_test PRIVATE WIZ8_GAME_CORE SURRENDER wiz8_native_settings)
+if(APPLE)
+    target_link_options(native_indexes_test PRIVATE -Wl,-dead_strip)
+elseif(UNIX)
+    target_link_options(native_indexes_test PRIVATE -Wl,--gc-sections -Wl,-z,start-stop-gc)
+endif()
+add_test(NAME native_indexes COMMAND native_indexes_test)

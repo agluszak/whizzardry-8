@@ -152,16 +152,15 @@ struct W8MeshStripBuilder {
 
     unsigned int EdgeKey(const W8MeshStripPolygon* polygon, int edge);
     int CountNeighbors(int index);
-    W8MeshStripPolygon* EdgePolygon(int slot);
     void BuildEdgeTable();
 
     srVector3i* polygon_vertices;
     W8MeshStripPolygon* polygons;
     unsigned int count;
-    W8HashTable<unsigned int, W8MeshStripPolygon*> edges;
+    std::unordered_multimap<unsigned int, W8MeshStripPolygon*> edges;
 };
 
-/* The paired-sort templates live in stHash.hpp so every octree TU sees the
+/* The paired-sort templates live in indexed_sort.h so every octree TU sees the
    same definitions; the marker pairs below bind this file's emissions. */
 
 /* The names below are recomp pairing selectors, not original symbol or
@@ -239,11 +238,6 @@ unsigned int W8MeshStripBuilder::EdgeKey(const W8MeshStripPolygon* polygon, int 
     return (second << 8) ^ first;
 }
 
-W8MeshStripPolygon* W8MeshStripBuilder::EdgePolygon(int slot)
-{
-    return edges.entries[slot].value;
-}
-
 // FUNCTION: WIZ8 0x00487880
 int W8MeshStripBuilder::CountNeighbors(int index)
 {
@@ -251,9 +245,9 @@ int W8MeshStripBuilder::CountNeighbors(int index)
     int neighbors = 0;
     for (int edge = 0; edge < 3; ++edge) {
         unsigned int key = EdgeKey(polygon, edge);
-        for (int slot = edges.FindNextEntry(&key, -1); slot != -1;
-             slot = edges.FindNextEntry(&key, slot)) {
-            if (edges.entries[slot].value != polygon) {
+        for (auto slot = edges.equal_range(key).first; slot != edges.end();
+             slot = NextIndexValue(edges, key, slot)) {
+            if (slot->second != polygon) {
                 ++neighbors;
                 break;
             }
@@ -265,13 +259,13 @@ int W8MeshStripBuilder::CountNeighbors(int index)
 // FUNCTION: WIZ8 0x004879C0
 void W8MeshStripBuilder::BuildEdgeTable()
 {
-    edges.Clear();
+    edges.clear();
 
     for (unsigned int index = 0; index < count; ++index) {
         W8MeshStripPolygon* polygon = polygons + index;
         for (int edge = 0; edge < 3; ++edge) {
             unsigned int key = EdgeKey(polygon, edge);
-            edges.Insert(&key, &polygon);
+            InsertIndexValue(edges, key, polygon);
         }
     }
 }
@@ -357,9 +351,9 @@ static W8MeshOrder* ComputeMeshOrder(W8MeshOrderInfo* info, w8_ulong flags)
                             W8MeshStripPolygon* next = 0;
                             for (int edge = 0; edge < 3 && next == 0; ++edge) {
                                 unsigned int key = builder.EdgeKey(current, edge);
-                                for (int slot = builder.edges.FindNextEntry(&key, -1); slot != -1;
-                                     slot = builder.edges.FindNextEntry(&key, slot)) {
-                                    W8MeshStripPolygon* candidate = builder.EdgePolygon(slot);
+                                for (auto slot = builder.edges.equal_range(key).first; slot != builder.edges.end();
+                                     slot = NextIndexValue(builder.edges, key, slot)) {
+                                    W8MeshStripPolygon* candidate = slot->second;
                                     if (candidate->visited == 0) {
                                         next = candidate;
                                         break;
@@ -490,7 +484,7 @@ BuildSingleLevelMesh(int face_count, W8ReadMeshFace* faces, int vertex_count, in
                      W8GrowableVector<short>* mapped_values, W8GrowableVector<short>* mapped_keys)
 {
     W8GrowableVector<srShader> polygon_types;
-    W8OctreeIndex vertex_indices[8];
+    std::unordered_map<unsigned int, int> vertex_indices[8];
     W8GrowableVector<int> duplicated_from[8];
     W8GrowableVector<int> duplicated_to[8];
     W8GrowableVector<short> mapped_meshes;
@@ -577,11 +571,11 @@ BuildSingleLevelMesh(int face_count, W8ReadMeshFace* faces, int vertex_count, in
             unsigned int key =
                 (static_cast<unsigned int>(reinterpret_cast<w8_ulong_ptr>(materials[face.material_index])) & 0xfff) |
                 (original_vertex << 12);
-            int vertex = vertex_indices[type].Lookup(&key) - 1;
+            int vertex = LookupIndexValue(vertex_indices[type], key) - 1;
             if (vertex == -1) {
                 vertex = vertex_counts[type];
                 int stored_vertex = vertex + 1;
-                vertex_indices[type].Insert(&key, &stored_vertex);
+                vertex_indices[type].emplace(key, stored_vertex);
                 vertex_materials[type][vertex] = materials[face.material_index];
                 vertex_uvs[type][vertex] = face.texture_coordinates[corner];
                 (corner == 0 ? poly.x : (corner == 1 ? poly.y : poly.z)) = vertex;

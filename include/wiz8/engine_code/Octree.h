@@ -5,7 +5,8 @@
 #include "surrender/srMath.h"
 #include "wiz8/engine_code/BitArray.h"
 #include "wiz8/engine_code/OctPreTree.h"
-#include "wiz8/engine_code/stHash.hpp"
+#include "wiz8/engine_code/indexed_sort.h"
+#include "wiz8/index_algorithms.h"
 #include "wiz8/geometry.h"
 #include "wiz8/vector.h"
 #include "Types.h"
@@ -15,8 +16,7 @@ class W8Prop;
 class stParticle;
 class stModelInstance;
 class srNode;
-typedef W8HashTable<unsigned int, int> W8OctreeIndex;
-typedef W8HashEntry<unsigned int, int> W8OctreeEntry;
+typedef std::unordered_multimap<unsigned int, int> W8OctreeIndex;
 
 class W8PathingService;
 class PrePathing;
@@ -540,7 +540,7 @@ public:
     w8_ulong m_depth_mask;
     unsigned short* m_region_index_stream;
     unsigned char* m_pfRegsVisited;
-    W8HashTable<unsigned int, unsigned short>* m_pRegionLinks;
+    std::unordered_multimap<unsigned int, unsigned short>* m_pRegionLinks;
     BitArray* m_owned_154;
     w8_ulong m_padding_158;
     BitArray* m_projected_regions;
@@ -603,7 +603,7 @@ public:
 
     /* Automesh index -> packed cell (z | y<<8 | x<<16 | mask<<24) map the
        verify passes walk to bound-check each automesh's vertices. */
-    W8HashTable<unsigned short, w8_ulong>* automesh_cells;
+    std::unordered_multimap<unsigned short, w8_ulong>* automesh_cells;
     PrePathing* pre_pathing;
     /* The path-node scratch block BuildPathLists/PathNodeObstructed fill:
        created-node count, then the runs of registered prop ids the node
@@ -653,7 +653,7 @@ public:
     unsigned char BuildPathLists(W8GameData* game_data, W8LevelFile* level,
                                  unsigned int min_component_percent);
     char PathNodeObstructed(const srVector3T<float>* node_position);
-    unsigned char InsertConditionalNodes(W8HashTable<unsigned int, CondPathNode*>* nodes,
+    unsigned char InsertConditionalNodes(std::unordered_multimap<unsigned int, CondPathNode*>* nodes,
                                          unsigned int cell, unsigned int node, W8PreProp* preprops,
                                          int preprop_count);
     /* Tests the bounds box against static surfaces and registered props;
