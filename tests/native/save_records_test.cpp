@@ -373,36 +373,36 @@ static void path_record_contracts()
         }
         auto file = wiz8::open_file(filename);
         W8PathAI* loaded = nullptr;
-        CHECK(LoadPathAI(&loaded, file.get()) && loaded);
+        REQUIRE((LoadPathAI(&loaded, file.get()) && loaded));
         std::unique_ptr<W8PathAI> path(loaded);
-        CHECK(path->nodes.size() == 2 && path->rotations.size() == 2);
-        CHECK(path->nodes[1].x == 500 && path->total_length == 500);
-        CHECK(path->unknown_08 == 17 && path->rotations[0] == glm::mat3(1));
-        CHECK(path->scales.size() == (version == 2 ? 2 : 0));
-        if (version == 2) CHECK(path->scales[1].y == 3);
+        REQUIRE((path->nodes.size() == 2 && path->rotations.size() == 2));
+        REQUIRE((path->nodes[1].x == 500 && path->total_length == 500));
+        REQUIRE((path->unknown_08 == 17 && path->rotations[0] == glm::mat3(1)));
+        REQUIRE((path->scales.size() == (version == 2 ? 2 : 0)));
+        if (version == 2) REQUIRE((path->scales[1].y == 3));
         path->timed = true;
         auto copy = std::make_unique<W8PathAI>(*path);
         auto restarted = path->Clone();
-        CHECK(!static_cast<W8PathAI*>(restarted.get())->timed);
-        CHECK(copy->timed && copy->nodes.data() != path->nodes.data());
-        CHECK(copy->rotations.data() != path->rotations.data());
-        if (version == 2) CHECK(copy->scales.data() != path->scales.data());
+        REQUIRE((!static_cast<W8PathAI*>(restarted.get())->timed));
+        REQUIRE((copy->timed && copy->nodes.data() != path->nodes.data()));
+        REQUIRE((copy->rotations.data() != path->rotations.data()));
+        if (version == 2) REQUIRE((copy->scales.data() != path->scales.data()));
         copy->nodes[0].x = 99;
-        CHECK(path->nodes[0].x == 0);
+        REQUIRE((path->nodes[0].x == 0));
         PathAIClearOwned(copy.get());
         PathAIClearOwned(copy.get());
-        CHECK(copy->nodes.empty() && copy->rotations.empty() && copy->scales.empty());
+        REQUIRE((copy->nodes.empty() && copy->rotations.empty() && copy->scales.empty()));
         srVector3T<float> point;
         copy->looping = true;
-        CHECK(!PathAINextPoint(copy.get(), &point));
-        CHECK(PathAINextPoint(path.get(), &point) && point.x == 0);
-        CHECK(PathAINextPoint(path.get(), &point) && point.x == 500);
-        CHECK(!PathAINextPoint(path.get(), &point));
+        REQUIRE((!PathAINextPoint(copy.get(), &point)));
+        REQUIRE((PathAINextPoint(path.get(), &point) && point.x == 0));
+        REQUIRE((PathAINextPoint(path.get(), &point) && point.x == 500));
+        REQUIRE((!PathAINextPoint(path.get(), &point)));
         path->animated = true;
         path->point_index = 0;
         path->interpolation_fraction = 0.25f;
         PathAIPosition(path.get(), &point);
-        CHECK(point.x == 125);
+        REQUIRE((point.x == 125));
     }
     for (int count : {-1, 0, 1}) {
         {
@@ -412,10 +412,10 @@ static void path_record_contracts()
         auto file = wiz8::open_file(filename);
         W8PathAI existing{};
         auto* output = &existing;
-        CHECK(LoadPathAI(&output, file.get()) == (count == 0));
-        CHECK(output == (count == 0 ? nullptr : &existing));
+        REQUIRE((LoadPathAI(&output, file.get()) == (count == 0)));
+        REQUIRE((output == (count == 0 ? nullptr : &existing)));
     }
-    CHECK(wiz8::remove_file(filename));
+    REQUIRE((wiz8::remove_file(filename)));
 }
 
 static void animation_record_contracts()
@@ -448,14 +448,14 @@ static void animation_record_contracts()
         W8ReadLevelInfo info{};
         info.hFile = file.get();
         auto animation = std::make_unique<W8AnimObj>();
-        CHECK(AnimObjReadFromFile(&info, animation.get(), 0, nullptr, 0));
-        CHECK(animation->animation_playing == (flag != 0));
-        CHECK(animation->random_play == (flag != 0));
-        CHECK(AnimationIsRunning(animation.get()) == (flag != 0));
-        CHECK(animation->frame_bounds.size() == 2);
+        REQUIRE((AnimObjReadFromFile(&info, animation.get(), 0, nullptr, 0)));
+        REQUIRE((animation->animation_playing == (flag != 0)));
+        REQUIRE((animation->random_play == (flag != 0)));
+        REQUIRE((AnimationIsRunning(animation.get()) == (flag != 0)));
+        REQUIRE((animation->frame_bounds.size() == 2));
         srVector3T<float> minimum, maximum;
-        CHECK(AnimObjGetBounds(animation.get(), 0, 1, &minimum, &maximum));
-        CHECK(minimum.y == -1000 && maximum.z == 1500);
+        REQUIRE((AnimObjGetBounds(animation.get(), 0, 1, &minimum, &maximum)));
+        REQUIRE((minimum.y == -1000 && maximum.z == 1500));
         animation->path = std::make_unique<W8PathAI>();
         PathAIAddPoint(*animation->path, srVector3T<float>(1, 2, 3));
         animation->paths[0].push_back(std::make_unique<W8PathAI>(*animation->path));
@@ -465,33 +465,33 @@ static void animation_record_contracts()
         animation->entries[0]->meshes.resize(2); // Deferred frames have no instances yet.
         animation->meshes[0].push_back(std::make_unique<W8AniMesh>(*animation->entries[0]));
         auto copy = std::make_unique<W8AnimObj>(*animation);
-        CHECK(copy->entries[0] != animation->entries[0]);
-        CHECK(copy->meshes[0][0] != animation->meshes[0][0]);
-        CHECK(copy->entries[0]->meshes.size() == 2);
-        CHECK(copy->frame_bounds.data() != animation->frame_bounds.data());
-        CHECK(copy->path != animation->path && copy->path->nodes[0].x == 1);
-        CHECK(copy->paths[0][0] != animation->paths[0][0]);
+        REQUIRE((copy->entries[0] != animation->entries[0]));
+        REQUIRE((copy->meshes[0][0] != animation->meshes[0][0]));
+        REQUIRE((copy->entries[0]->meshes.size() == 2));
+        REQUIRE((copy->frame_bounds.data() != animation->frame_bounds.data()));
+        REQUIRE((copy->path != animation->path && copy->path->nodes[0].x == 1));
+        REQUIRE((copy->paths[0][0] != animation->paths[0][0]));
         animation.reset();
-        CHECK(copy->entries[0]->filename == std::string(300, 'x'));
-        CHECK(copy->meshes[0][0]->bitmap_directory == "Textures/");
-        CHECK(copy->paths[0][0]->nodes[0].z == 3);
-        CHECK(AnimObjGetBounds(copy.get(), 0, 0, &minimum, &maximum));
-        CHECK(minimum.x == -500 && maximum.x == 500);
+        REQUIRE((copy->entries[0]->filename == std::string(300, 'x')));
+        REQUIRE((copy->meshes[0][0]->bitmap_directory == "Textures/"));
+        REQUIRE((copy->paths[0][0]->nodes[0].z == 3));
+        REQUIRE((AnimObjGetBounds(copy.get(), 0, 0, &minimum, &maximum)));
+        REQUIRE((minimum.x == -500 && maximum.x == 500));
         copy->path_lists = true;
-        CHECK(!AnimObjGetBounds(copy.get(), 0, 2, &minimum, &maximum));
+        REQUIRE((!AnimObjGetBounds(copy.get(), 0, 2, &minimum, &maximum)));
     }
-    CHECK(wiz8::remove_file(filename));
+    REQUIRE((wiz8::remove_file(filename)));
 }
 
 static void animated_mesh_cache_contracts()
 {
-    CHECK(g_animesh_cache_list.empty());
+    REQUIRE((g_animesh_cache_list.empty()));
     const int old_limit = g_animesh_cache_limit;
     const int old_bytes = g_animesh_cache_bytes;
     {
         W8AniMesh original;
-        CHECK(original.meshes.empty() && original.filename.empty());
-        CHECK(original.bounds_minimum == srVector3T<float>(0, 0, 0));
+        REQUIRE((original.meshes.empty() && original.filename.empty()));
+        REQUIRE((original.bounds_minimum == glm::vec3(0)));
         original.flags.loaded = true;
         original.flags.keep_loaded = true;
         original.flags.cache_protected = true;
@@ -500,19 +500,19 @@ static void animated_mesh_cache_contracts()
         g_animesh_cache_list.push_back(&original);
         {
             W8AniMesh copy(original);
-            CHECK(g_animesh_cache_bytes == old_bytes + 64);
-            CHECK(g_animesh_cache_list.size() == 2);
+            REQUIRE((g_animesh_cache_bytes == old_bytes + 64));
+            REQUIRE((g_animesh_cache_list.size() == 2));
             g_animesh_cache_limit = old_bytes;
             EnforceAniMeshMemoryLimit(&original); // All candidates protected: no invalid erase.
-            CHECK(copy.flags.loaded);
+            REQUIRE((copy.flags.loaded));
             copy.flags.cache_protected = false;
             EnforceAniMeshMemoryLimit(&original);
-            CHECK(!copy.flags.loaded && original.flags.loaded);
-            CHECK(g_animesh_cache_bytes == old_bytes + 32);
-            CHECK(g_animesh_cache_list.size() == 1);
+            REQUIRE((!copy.flags.loaded && original.flags.loaded));
+            REQUIRE((g_animesh_cache_bytes == old_bytes + 32));
+            REQUIRE((g_animesh_cache_list.size() == 1));
         }
     }
-    CHECK(g_animesh_cache_bytes == old_bytes && g_animesh_cache_list.empty());
+    REQUIRE((g_animesh_cache_bytes == old_bytes && g_animesh_cache_list.empty()));
     g_animesh_cache_limit = old_limit;
 }
 
@@ -527,24 +527,24 @@ static void graphical_object_ownership_contracts()
     for (int i = 0; i < 20; ++i) {
         original.AddSoundEvent(std::make_unique<W8SoundEvent>(W8_SOUND_EVENT_CYCLE, i, 0, 0, "other.wav", false));
     }
-    CHECK(original.sound_events.front().get() == first);
+    REQUIRE((original.sound_events.front().get() == first));
     W8GrObject copy(original);
-    CHECK(copy.m_pAI != original.m_pAI);
-    CHECK(static_cast<W8PathAI*>(copy.m_pAI.get())->nodes[0].y == 2);
-    CHECK(copy.sound_events.size() == original.sound_events.size());
-    CHECK(copy.sound_events.front().get() != first);
-    CHECK(copy.sound_events.front()->wave_name == "step.wav");
-    CHECK(!copy.sound_events.front()->looping && copy.sound_events.front()->sound_handle == -1);
+    REQUIRE((copy.m_pAI != original.m_pAI));
+    REQUIRE((static_cast<W8PathAI*>(copy.m_pAI.get())->nodes[0].y == 2));
+    REQUIRE((copy.sound_events.size() == original.sound_events.size()));
+    REQUIRE((copy.sound_events.front().get() != first));
+    REQUIRE((copy.sound_events.front()->wave_name == "step.wav"));
+    REQUIRE((!copy.sound_events.front()->looping && copy.sound_events.front()->sound_handle == -1));
     original.sound_events.clear();
-    CHECK(copy.sound_events.front()->wave_name == "step.wav");
+    REQUIRE((copy.sound_events.front()->wave_name == "step.wav"));
     W8GrObject missile;
     auto* ai = new W8AIMissile{};
-    CHECK(ai->kind == W8_AI_RECORD_MISSILE);
+    REQUIRE((ai->kind == W8_AI_RECORD_MISSILE));
     ai->speed_per_step = 5;
     missile.m_pAI.reset(ai);
     W8GrObject missile_copy(missile);
     auto* cloned = static_cast<W8AIMissile*>(missile_copy.m_pAI.get());
-    CHECK(cloned != ai && cloned->speed_per_step == 5 && !cloned->missile);
+    REQUIRE((cloned != ai && cloned->speed_per_step == 5 && !cloned->missile));
 }
 
 static void script_record_contracts()
@@ -558,22 +558,22 @@ static void script_record_contracts()
         file->write(text.data(), text.size());
     }
     stScript script;
-    CHECK(script.Load(path));
-    CHECK(script.lines.size() == 4 && script.labels.size() == 2);
-    CHECK(script.lines[0].text == "  MOVE 10" && script.lines[3].text == "FINAL");
-    CHECK(script.FindLabelLine("START") == 0 && script.FindLabelLine(prefix.c_str()) == 2);
-    CHECK(script.FindLabelLine("missing") == -1 && script.FindLabelLine(nullptr) == -1);
-    CHECK(script.GetSourceLine(0) == 4 && script.GetSourceLine(3) == 10);
-    CHECK(script.GetSourceLine(-1) == -1 && script.GetSourceLine(4) == -1);
+    REQUIRE((script.Load(path)));
+    REQUIRE((script.lines.size() == 4 && script.labels.size() == 3));
+    REQUIRE((script.lines[0].text == "  MOVE 10" && script.lines[3].text == "FINAL"));
+    REQUIRE((script.FindLabelLine("START") == 0 && script.FindLabelLine(prefix + "first") == 2 && script.FindLabelLine(prefix + "second") == 3));
+    REQUIRE((script.FindLabelLine("missing") == -1 && script.FindLabelLine({}) == -1));
+    REQUIRE((script.GetSourceLine(0) == 4 && script.GetSourceLine(3) == 10));
+    REQUIRE((script.GetSourceLine(-1) == -1 && script.GetSourceLine(4) == -1));
     // Copies own their text and remain valid after the original is cleared.
     auto copy = script;
     script.Clear();
     script.Clear();
-    CHECK(script.lines.empty() && script.labels.empty());
-    CHECK(copy.lines[0].text == "  MOVE 10" && copy.FindLabelLine("start") == 0);
-    CHECK(script.Load(path) && script.lines.size() == 4);
-    CHECK(wiz8::remove_file(path));
-    CHECK(!script.Load(path));
+    REQUIRE((script.lines.empty() && script.labels.empty()));
+    REQUIRE((copy.lines[0].text == "  MOVE 10" && copy.FindLabelLine("start") == 0));
+    REQUIRE((script.Load(path) && script.lines.size() == 4));
+    REQUIRE((wiz8::remove_file(path)));
+    REQUIRE((!script.Load(path)));
 }
 
 static void encounter_table_contracts()
