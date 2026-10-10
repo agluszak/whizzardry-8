@@ -7,6 +7,7 @@
 #include <memory>
 #include <string>
 #include <vector>
+#include <span>
 #include "imgfmt.h"
 
 // The HIMAGE module provides a common interface for managing image data. This module
@@ -17,14 +18,6 @@
 // - A set of blitters which blt the data to memory
 // - A comprehensive automatic blitter which blits the appropriate type based on the
 //   image header.
-
-// Defines for type of file readers
-#define PCX_FILE_READER 0x1
-#define TGA_FILE_READER 0x2
-#define STCI_FILE_READER 0x4
-#define TRLE_FILE_READER 0x8
-#define JPEG_FILE_READER 0x10
-#define UNKNOWN_FILE_READER 0x200
 
 // Defines for buffer bit depth
 #define BUFFER_8BPP 0x1
@@ -88,7 +81,6 @@ typedef struct {
     UINT8 ubBitDepth;
     UINT16 fFlags;
     std::string ImageFile;
-    UINT32 iFileLoader;
     std::unique_ptr<SGPPaletteEntry[]> pPalette;
     std::unique_ptr<UINT16[]> pui16BPPPalette;
     std::vector<UINT8> pAppData;
@@ -114,39 +106,13 @@ typedef struct {
 // Returns NULL on failure without retaining image allocations.
 std::unique_ptr<image_type> CreateImage(const char* ImageFile, UINT16 fContents);
 
-// This function releases data allocated to various parts of the image based
-// on the contents flags passed as a parameter.  If a contents flag is given
-// and the image does not contain that data, no error is raised
-BOOLEAN ReleaseImageData(HIMAGE hImage, UINT16 fContents);
-
 // This function will attept to Load data from an existing image object's filename
 // In this way, dynamic loading of image data can be done
-BOOLEAN LoadImageData(HIMAGE hImage, UINT16 fContents);
+bool LoadImageData(HIMAGE hImage, UINT16 fContents);
 
-// This function will run the appropriate copy function based on the type of HIMAGE object
-BOOLEAN CopyImageToBuffer(HIMAGE hImage, UINT32 fBufferType, BYTE* pDestBuf, UINT16 usDestWidth,
-                          UINT16 usDestHeight, UINT16 usX, UINT16 usY, SGPRect* srcRect);
-
-// The following blitters are used by the function above as well as clients
-#ifndef NO_ZLIB_COMPRESSION
-BOOLEAN Copy8BPPCompressedImageTo8BPPBuffer(HIMAGE hImage, BYTE* pDestBuf, UINT16 usDestWidth,
-                                            UINT16 usDestHeight, UINT16 usX, UINT16 usY,
-                                            SGPRect* srcRect);
-BOOLEAN Copy8BPPCompressedImageTo16BPPBuffer(HIMAGE hImage, BYTE* pDestBuf, UINT16 usDestWidth,
-                                             UINT16 usDestHeight, UINT16 usX, UINT16 usY,
-                                             SGPRect* srcRect);
-BOOLEAN Copy16BPPCompressedImageTo16BPPBuffer(HIMAGE hImage, BYTE* pDestBuf, UINT16 usDestWidth,
-                                              UINT16 usDestHeight, UINT16 usX, UINT16 usY,
-                                              SGPRect* srcRect);
-// This function will extract a compressed image into a non-compressed buffer
-#endif
-
-BOOLEAN Copy8BPPImageTo8BPPBuffer(HIMAGE hImage, BYTE* pDestBuf, UINT16 usDestWidth,
-                                  UINT16 usDestHeight, UINT16 usX, UINT16 usY, SGPRect* srcRect);
-BOOLEAN Copy8BPPImageTo16BPPBuffer(HIMAGE hImage, BYTE* pDestBuf, UINT16 usDestWidth,
-                                   UINT16 usDestHeight, UINT16 usX, UINT16 usY, SGPRect* srcRect);
-BOOLEAN Copy16BPPImageTo16BPPBuffer(HIMAGE hImage, BYTE* pDestBuf, UINT16 usDestWidth,
-                                    UINT16 usDestHeight, UINT16 usX, UINT16 usY, SGPRect* srcRect);
+bool CopyImageToBuffer(const image_type& image, UINT32 buffer_type, std::span<UINT8> destination,
+                       std::size_t dest_width, std::size_t dest_height, std::size_t x, std::size_t y,
+                       const SGPRect& source_rect);
 
 // UTILITY FUNCTIONS
 
@@ -162,11 +128,5 @@ extern UINT16 gusBlueMask;
 extern INT16 gusRedShift;
 extern INT16 gusBlueShift;
 extern INT16 gusGreenShift;
-
-// used to convert 565 RGB data into different bit-formats
-void ConvertRGBDistribution565To555(UINT16* p16BPPData, UINT32 uiNumberOfPixels);
-void ConvertRGBDistribution565To655(UINT16* p16BPPData, UINT32 uiNumberOfPixels);
-void ConvertRGBDistribution565To556(UINT16* p16BPPData, UINT32 uiNumberOfPixels);
-void ConvertRGBDistribution565ToAny(UINT16* p16BPPData, UINT32 uiNumberOfPixels);
 
 #endif

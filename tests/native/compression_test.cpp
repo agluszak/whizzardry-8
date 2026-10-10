@@ -1,83 +1,98 @@
-// Round-trips data through system zlib and SGP's streaming decompressor.
-#include "Compression.h"
 #include "himage.h"
 
 #include <algorithm>
-#include <iterator>
-#include <stdio.h>
-#include <string.h>
+#include <array>
+#include <cstdio>
+#include <cstring>
+#include <stdexcept>
 #include <vector>
 #include <zlib.h>
 
+#define CHECK(expression) do { if (!(expression)) throw std::runtime_error(#expression); } while (0)
+
 int main()
+try
 {
-    std::vector<unsigned char> original(100000);
-    for (size_t index = 0; index < original.size(); ++index) {
-        original[index] = static_cast<unsigned char>((index * 7) ^ (index >> 5));
-    }
-    uLongf packed_size = compressBound(original.size());
-    std::vector<unsigned char> packed(packed_size);
-    if (compress2(packed.data(), &packed_size, original.data(), original.size(), 9) != Z_OK) {
-        fprintf(stderr, "compress2 failed\n");
-        return 1;
-    }
-
-    auto stream = DecompressInit(packed.data(), static_cast<UINT32>(packed_size));
-    if (stream == NULL) {
-        fprintf(stderr, "DecompressInit failed\n");
-        return 1;
-    }
-    /* Decompress in uneven chunks to exercise the streaming state. */
-    std::vector<unsigned char> unpacked(original.size());
-    UINT32 total = 0;
-    while (total < unpacked.size()) {
-        UINT32 chunk = static_cast<UINT32>(unpacked.size() - total);
-        if (chunk > 7919) {
-            chunk = 7919;
-        }
-        UINT32 produced = Decompress(stream.get(), unpacked.data() + total, chunk);
-        if (produced == 0) {
-            break;
-        }
-        total += produced;
-    }
-    stream.reset();
-
-    if (total != original.size() || memcmp(unpacked.data(), original.data(), total) != 0) {
-        fprintf(stderr, "round trip mismatch: %u of %zu bytes\n", total, original.size());
-        return 1;
-    }
     image_type image{};
     image.usWidth = 500;
     image.usHeight = 200;
-    image.pImageData.resize(packed_size);
-    std::copy_n(packed.data(), packed_size, image.pImageData.data());
-
+    image.ubBitDepth = 8;
+    image.fFlags = IMAGE_BITMAPDATA | IMAGE_COMPRESSED;
+    std::vector<UINT8> original(std::size_t(image.usWidth) * image.usHeight);
+    for (std::size_t i = 0; i < original.size(); ++i)
+        original[i] = (i * 7) ^ (i >> 5);
+    uLongf packed_size = compressBound(original.size());
+    std::vector<UINT8> packed(packed_size);
+    CHECK(compress2(packed.data(), &packed_size, original.data(), original.size(), 9) == Z_OK);
+    packed.resize(packed_size);
+    image.pImageData = packed;
     image.pui16BPPPalette = std::make_unique<UINT16[]>(256);
-    unsigned char destination8[200];
-    std::fill_n(destination8, 200, 0xa5);
-    UINT16 destination16[200]{};
-    SGPRect rectangle{3, 2, 13, 7};
+    for (unsigned i = 0; i < 256; ++i)
+        image.pui16BPPPalette[i] = 0x8000 | i;
+    const SGPRect rect{3, 2, 13, 7};
+    std::array<UINT8, 200> destination8;
+    std::array<UINT8, 401> destination16;
+    auto output16 = std::span(destination16).subspan(1);
     for (unsigned repeat = 0; repeat < 3; ++repeat) {
-        if (!Copy8BPPCompressedImageTo8BPPBuffer(&image, destination8, 20, 10, 1, 1, &rectangle) ||
-            !Copy8BPPCompressedImageTo16BPPBuffer(&image, reinterpret_cast<BYTE*>(destination16),
-                                                20, 10, 1, 1, &rectangle)) {
-            fputs("compressed blitter cleanup failed\n", stderr);
-            return 1;
+        destination8.fill(0xa5);
+        destination16.fill(0xa5);
+        CHECK(CopyImageToBuffer(image, BUFFER_8BPP, destination8, 20, 10, 1, 1, rect));
+        CHECK(std::all_of(destination8.begin(), destination8.end(), [](UINT8 value) { return value == 0xa5; }));
+        CHECK(CopyImageToBuffer(image, BUFFER_16BPP, output16, 20, 10, 1, 1, rect));
+        for (std::size_t y = 0; y < 10; ++y) {
+            for (std::size_t x = 0; x < 20; ++x) {
+                UINT16 pixel;
+                std::memcpy(&pixel, output16.data() + (y * 20 + x) * 2, sizeof(pixel));
+                const auto expected = x >= 1 && x < 11 && y >= 1 && y < 6 ?
+                    image.pui16BPPPalette[original[(y + 1) * image.usWidth + x + 2]] : 0xa5a5;
+                CHECK(pixel == expected);
+            }
         }
+        CHECK(destination16.front() == 0xa5);
     }
-    image.pImageData = {0};
+    for (unsigned corrupt = 0; corrupt < 5; ++corrupt) {
+        image.pImageData = packed;
+        if (corrupt == 0) image.pImageData = {0};
+        if (corrupt == 1) image.pImageData.pop_back();
+        if (corrupt == 2) image.pImageData.back() ^= 1;
+        if (corrupt == 3) image.pImageData.push_back(0);
+        if (corrupt == 4) ++image.usHeight;
+        destination16.fill(0xa5);
+        CHECK(!CopyImageToBuffer(image, BUFFER_16BPP, output16, 20, 10, 1, 1, rect));
+        CHECK(std::all_of(destination16.begin(), destination16.end(), [](UINT8 value) { return value == 0xa5; }));
+        CHECK(CopyImageToBuffer(image, BUFFER_8BPP, destination8, 20, 10, 1, 1, rect));
+    }
+    CHECK(!CopyImageToBuffer(image, BUFFER_8BPP, destination8, 20, 10, 20, 1, rect));
+    CHECK(!CopyImageToBuffer(image, BUFFER_16BPP, output16.first(10), 20, 10, 1, 1, rect));
+    CHECK(!CopyImageToBuffer(image, BUFFER_16BPP, output16, 20, 10, 19, 1, rect));
+    CHECK(!CopyImageToBuffer(image, BUFFER_16BPP, output16, 20, 10, 1, 9, rect));
+    CHECK(!CopyImageToBuffer(image, BUFFER_16BPP, output16, 20, 10, 1, 1, {-1, 2, 3, 7}));
+    CHECK(!CopyImageToBuffer(image, BUFFER_16BPP, output16, 20, 10, 1, 1, {0, 0, 501, 1}));
+    image.pImageData = original;
+    --image.usHeight;
+    image.fFlags = IMAGE_BITMAPDATA;
+    destination16.fill(0xa5);
+    CHECK(CopyImageToBuffer(image, BUFFER_16BPP, output16, 20, 10, 1, 1, rect));
+    CHECK(CopyImageToBuffer(image, BUFFER_8BPP, destination8, 20, 10, 1, 1, rect));
+    CHECK(destination8[5 * 20 + 10] == original[6 * image.usWidth + 12]);
+    image.pui16BPPPalette.reset();
+    CHECK(!CopyImageToBuffer(image, BUFFER_16BPP, output16, 20, 10, 1, 1, rect));
+    image.pImageData.clear();
+    CHECK(!CopyImageToBuffer(image, BUFFER_8BPP, destination8, 20, 10, 1, 1, rect));
 
-    if (!Copy8BPPCompressedImageTo8BPPBuffer(&image, destination8, 20, 10, 1, 1, &rectangle) ||
-        !std::all_of(std::begin(destination8), std::end(destination8),
-                     [](unsigned char pixel) { return pixel == 0xa5; })) {
-        fputs("8-bit compressed blitter must not decode or modify its destination\n", stderr);
-        return 1;
-    }
-    if (Copy8BPPCompressedImageTo8BPPBuffer(&image, destination8, 20, 10, 20, 1, &rectangle)) {
-        fputs("8-bit compressed blitter must still validate destination coordinates\n", stderr);
-        return 1;
-    }
-    printf("ok: %u bytes via zlib %s\n", total, zlibVersion());
+    image.usWidth = image.usHeight = 2;
+    image.ubBitDepth = 16;
+    image.pImageData = {1, 2, 3, 4, 5, 6, 7, 8};
+    destination16.fill(0xa5);
+    CHECK(CopyImageToBuffer(image, BUFFER_16BPP, output16, 20, 10, 17, 8, {0, 0, 2, 2}));
+    CHECK(!std::memcmp(output16.data() + (8 * 20 + 17) * 2, image.pImageData.data(), 4));
+    CHECK(!std::memcmp(output16.data() + (9 * 20 + 17) * 2, image.pImageData.data() + 4, 4));
+    CHECK(!CopyImageToBuffer(image, BUFFER_8BPP, destination8, 20, 10, 1, 1, {0, 0, 2, 2}));
+    puts("bounded image copies and zlib failure handling passed");
     return 0;
+}
+catch (const std::exception& error)
+{
+    fprintf(stderr, "%s\n", error.what());
+    return 1;
 }
