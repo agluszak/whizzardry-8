@@ -922,20 +922,12 @@ bool CanCharacterUseItem(const W8Character* character, int item_id)
         if (spell_id == W8_SPELL_NONE) {
             srAssertFail("uiSpell != SPELL_NONE", PC_ITEM_CPP, 1844, 0);
         }
-        if (record->category == W8_ITEM_CATEGORY_CASTER_ITEM_6) {
-            minimum_caster_level = GetMinimumCasterLevelForSpell(spell_id);
-            if (static_cast<unsigned int>(
-                    character->profession_levels[W8_CASTER_PROFESSION_INDEX_9]) <
-                minimum_caster_level) {
-                return false;
-            }
-        } else {
-            minimum_caster_level = GetMinimumCasterLevelForSpell(spell_id);
-            if (static_cast<unsigned int>(
-                    character->profession_levels[W8_CASTER_PROFESSION_INDEX_8]) <
-                minimum_caster_level) {
-                return false;
-            }
+        minimum_caster_level = GetMinimumCasterLevelForSpell(spell_id);
+        const int profession = record->category == W8_ITEM_CATEGORY_CASTER_ITEM_6
+                                   ? W8_CASTER_PROFESSION_INDEX_9 : W8_CASTER_PROFESSION_INDEX_8;
+        if (static_cast<unsigned int>(character->profession_levels[profession]) <
+            minimum_caster_level) {
+            return false;
         }
     }
     return true;
