@@ -1304,35 +1304,23 @@ char W8GameData::SetInterfaceState(int iID, int state)
 // FUNCTION: WIZ8 0x0041c770
 void W8GameData::ProcessCrossedSurface(W8GDSurface* surface)
 {
-    W8EnvironRecord* record;
-    W8EnvironRecord* current;
     Trigger* trigger;
     int direction;
 
     if ((surface->flags & W8_GD_SURFACE_ENVIRONMENT) != 0) {
-        if (surface->distance > 0.0f) {
-            current = g_environ;
-            record = m_ppEnvirons[surface->trigger_index].get();
-            record->ground_latch = current->ground_latch;
-            record->airborne = current->airborne;
-            record->value_08 = current->value_08;
-            record->scale = current->scale;
-            record->motion_factor = current->motion_factor;
-            record->vector = current->vector;
-            g_environ = record;
+        const bool entering = surface->distance > 0.0f;
+        if (!entering && g_environ != m_ppEnvirons[surface->trigger_index].get())
             return;
-        }
-        current = g_environ;
-        if (current == m_ppEnvirons[surface->trigger_index].get()) {
-            record = m_ppEnvirons[0].get();
-            record->ground_latch = current->ground_latch;
-            record->airborne = current->airborne;
-            record->value_08 = current->value_08;
-            record->scale = current->scale;
-            record->motion_factor = current->motion_factor;
-            record->vector = current->vector;
-            g_environ = record;
-        }
+
+        W8EnvironRecord* record = m_ppEnvirons[entering ? surface->trigger_index : 0].get();
+        const W8EnvironRecord* current = g_environ;
+        record->ground_latch = current->ground_latch;
+        record->airborne = current->airborne;
+        record->value_08 = current->value_08;
+        record->scale = current->scale;
+        record->motion_factor = current->motion_factor;
+        record->vector = current->vector;
+        g_environ = record;
         return;
     }
     direction = 1;
