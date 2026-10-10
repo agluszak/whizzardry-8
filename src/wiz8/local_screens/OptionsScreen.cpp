@@ -1335,6 +1335,8 @@ W8OptionsScreen::~W8OptionsScreen()
     int index;
     SelectPanel(-1, true);
     m_save_slots.RemoveAllAndDelete();
+    if (m_controls)
+        m_controls->DestroyAllControls();
     delete m_controls;
     delete m_menu_set;
     delete m_menu_selection;
