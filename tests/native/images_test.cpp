@@ -208,6 +208,8 @@ int main() try
     wiz8::mount_slf("Data\\Data.slf");
     rgb555();
     {
+        static_assert(sizeof(STCIHeader) == 64);
+        static_assert(offsetof(STCIHeader, uiAppDataSize) == 48);
         STCIHeader header{};
         memcpy(header.cID, STCI_ID_STRING, STCI_ID_LEN);
         header.fFlags = STCI_RGB;
@@ -232,6 +234,7 @@ int main() try
         CHECK(!memcmp(image->pImageData.data(), expected, sizeof(expected)));
         CHECK(load("native-rgb.sti", 0));
         header.RGB.uiRedMask = 0xf800;
+        header.RGB.uiGreenMask = 0x07e0;
         write_rgb();
         image = load("native-rgb.sti");
         CHECK(image && image->pImageData.size() == 4);
@@ -352,7 +355,7 @@ int main() try
         CHECK(IMG_SaveJPG(surface.get(), wiz8::path_to_utf8(assets / "test.JpEg").c_str(), 100));
         auto image = load("test.jpeg");
         CHECK(image && image->usWidth == 8 && image->usHeight == 8 && image->ubBitDepth == 24);
-        CHECK(image->iFileLoader == JPEG_FILE_READER && image->fFlags == IMAGE_BITMAPDATA);
+        CHECK(image->fFlags == IMAGE_BITMAPDATA);
         for (unsigned i = 0; i < 64; ++i)
         {
             CHECK(abs(int(image->pImageData[i * 3]) - 240) < 4);
@@ -391,6 +394,15 @@ int main() try
         image->ImageFile = "invalid.pcx";
         CHECK(!LoadImageData(image.get(), IMAGE_ALLIMAGEDATA) && image->pImageData.data() == data);
         check_pcx(*image);
+        auto* palette = image->pPalette.get();
+        image->ImageFile = "invalid.tga";
+        CHECK(!LoadImageData(image.get(), IMAGE_ALLDATA));
+        CHECK(image->pImageData.data() == data && image->pPalette.get() == palette);
+        check_pcx(*image);
+        image->ImageFile = "test.tga";
+        CHECK(LoadImageData(image.get(), IMAGE_ALLDATA));
+        CHECK(image->ubBitDepth == 24 && !image->pPalette && !image->pui16BPPPalette);
+        CHECK(image->fFlags == IMAGE_BITMAPDATA && !image->pETRLEObject.size());
     }
     fixture(assets / "invalid.jpg", {0xff, 0xd8, 0xff});
     CHECK(!load("invalid.jpg") && !load("missing.pcx") && !load("unsupported.png"));

@@ -524,7 +524,7 @@ BOOLEAN SetVideoSurfaceDataFromHImage(HVSURFACE hVSurface, HIMAGE hImage, UINT16
     BYTE* pDest;
     UINT32 fBufferBPP = 0;
     UINT32 uiPitch;
-    UINT16 usEffectiveWidth;
+    std::size_t usEffectiveWidth;
     SGPRect aRect;
 
     // Assertions
@@ -562,7 +562,7 @@ BOOLEAN SetVideoSurfaceDataFromHImage(HVSURFACE hVSurface, HIMAGE hImage, UINT16
     pDest = LockVideoSurfaceBuffer(hVSurface, &uiPitch);
 
     // Effective width ( in PIXELS ) is Pitch ( in bytes ) converted to pitch ( IN PIXELS )
-    usEffectiveWidth = (UINT16)(uiPitch / (hVSurface->ubBitDepth / 8));
+    usEffectiveWidth = uiPitch / (hVSurface->ubBitDepth / 8);
 
     CHECKF(pDest != nullptr);
 
@@ -581,8 +581,8 @@ BOOLEAN SetVideoSurfaceDataFromHImage(HVSURFACE hVSurface, HIMAGE hImage, UINT16
     }
 
     // This HIMAGE function will transparently copy buffer
-    if (!CopyImageToBuffer(hImage, fBufferBPP, pDest, usEffectiveWidth, hVSurface->usHeight, usX,
-                           usY, &aRect)) {
+    if (!CopyImageToBuffer(*hImage, fBufferBPP, {pDest, std::size_t(uiPitch) * hVSurface->usHeight},
+                           usEffectiveWidth, hVSurface->usHeight, usX, usY, aRect)) {
         SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Error Occured Copying HIMAGE to HVSURFACE");
         UnLockVideoSurfaceBuffer(hVSurface);
         return (FALSE);
