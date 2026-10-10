@@ -69,7 +69,8 @@ disc drives. The launcher writes diagnostics to the user root.
 
 ## Native tests
 
-CI runs the asset-backed `runtime_video` and `runtime_character` scenarios when
+CI runs the asset-backed `runtime_video`, `runtime_character`,
+`runtime_game-start`, and `runtime_world` scenarios when
 the `WIZ8_INPUTS_TOKEN` and `WIZ8_CACHE_KEY` repository secrets are configured.
 Use the same private GOG-release access token and encryption key as the decomp CI.
 The installer is hash-checked, and only encrypted game files are stored in the
