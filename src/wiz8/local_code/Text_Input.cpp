@@ -343,7 +343,7 @@ char AddTextInputField(int left, int top, int width, int height, int priority, c
     MSYS_DefineRegion(&field->region, static_cast<unsigned short>(left),
                       static_cast<unsigned short>(top), static_cast<unsigned short>(left + width),
                       static_cast<unsigned short>(top + height), static_cast<signed char>(priority),
-                      MSYS_NO_CURSOR, MouseMovedInTextRegionCallback,
+                      MouseMovedInTextRegionCallback,
                       MouseClickedInTextRegionCallback);
     MSYS_SetRegionUserData(&field->region, 0, field->ubID);
     field->fUseInactiveTextFieldColor = use_inactive_text_field_color;

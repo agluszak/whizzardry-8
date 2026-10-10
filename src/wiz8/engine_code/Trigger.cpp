@@ -53,7 +53,6 @@
 #include "wiz8/xstatus.h"
 #include "wiz8/save_game.h"
 #include "random.h"
-#include "DEBUG.H"
 #include "FileMan.h"
 #include "surrender/srCamera.h"
 #include "surrender/srCore.h"
@@ -1923,15 +1922,14 @@ Trigger* Trigger::CreateAndLoadLevelTrigger(int handle, W8World* world)
                 srAssertFail(
                     "((pTrigger->m_lData1 >= 0) && (pTrigger->m_lData1 < Missile::GetNumTypes()))",
                     "C:\\Projects\\Wizardry 8\\Engine Code\\Trigger.cpp", 0xf14,
-                    reinterpret_cast<const char*>(String(
-                        "Trigger %s: You must enter a valid missile number", trigger->name)));
+                    FormatString(
+                        "Trigger %s: You must enter a valid missile number", trigger->name));
             }
             if (trigger->m_lData2 == -1) {
                 srAssertFail(
                     "(pTrigger->m_lData2!=(-1))",
                     "C:\\Projects\\Wizardry 8\\Engine Code\\Trigger.cpp", 0xf15,
-                    reinterpret_cast<const char*>(
-                        String("Trigger %s: You must enter a time value in Data2", trigger->name)));
+                    FormatString("Trigger %s: You must enter a time value in Data2", trigger->name));
             }
             if (trigger->m_lData2 < 0) {
                 trigger->m_pEvent = new W8TriggerEvent;

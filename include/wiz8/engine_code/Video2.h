@@ -8,7 +8,6 @@
 #include "wiz8/wiz8_windows.h"
 #include "compat/surfaces.h"
 
-#include "DEBUG.H"
 #include "Types.h"
 #include "vsurface.h"
 #include "Mutex Manager.h"

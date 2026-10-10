@@ -1,9 +1,10 @@
+#include "wiz8/utility.h"
+#include <SDL3/SDL_log.h>
 #include <wiz8/filesystem.h>
 #include <sstream>
 /* Modified for the Wizardry 8 reconstruction: 2026-10-03, 2026-10-06, 2026-10-07.
    Distributed under the accompanying SFI Source Code license agreement. */
 #include <stdio.h>
-#include "DEBUG.H"
 #include "Video2.h"
 #include "himage.h"
 #include "vobject.h"
@@ -26,9 +27,6 @@
 // Defines
 // *******************************************************************************
 
-// This define is sent to CreateList SGP function. It dynamically re-sizes if
-// the list gets larger
-#define DEFAULT_VIDEO_OBJECT_LIST_SIZE 10
 
 #define COMPRESS_TRANSPARENT 0x80
 #define COMPRESS_RUN_MASK 0x7F
@@ -45,7 +43,6 @@
 // LOCAL global variables
 // *******************************************************************************
 
-HLIST ghVideoObjects = NULL;
 // GLOBAL: WIZ8 0x00650e20
 BOOLEAN gfVideoObjectsInit = FALSE;
 
@@ -104,7 +101,6 @@ BOOLEAN InitializeVideoObjectManager()
     //Call shutdown first...
     Assert(!gpVObjectHead);
     Assert(!gpVObjectTail);
-    RegisterDebugTopic(TOPIC_VIDEOOBJECT, "Video Object Manager");
     gpVObjectHead = gpVObjectTail = NULL;
     gfVideoObjectsInit = TRUE;
     return TRUE;
@@ -131,7 +127,6 @@ BOOLEAN ShutdownVideoObjectManager()
     guiVObjectIndex = 1;
     guiVObjectSize = 0;
     guiVObjectTotalAdded = 0;
-    UnRegisterDebugTopic(TOPIC_VIDEOOBJECT, "Video Objects");
     gfVideoObjectsInit = FALSE;
     return TRUE;
 }
@@ -291,7 +286,7 @@ BOOLEAN DeleteVideoObjectFromIndex(UINT32 uiVObject)
     return FALSE;
 }
 
-// Given an index to the dest and src vobject contained in ghVideoObjects
+// Given indices to the destination and source video objects
 // Based on flags, blit accordingly
 // There are two types, a BltFast and a Blt. BltFast is 10% faster, uses no
 // clipping lists
@@ -352,14 +347,14 @@ HVOBJECT CreateVideoObject(VOBJECT_DESC* VObjectDesc)
 
             if (hImage == NULL) {
                 MemFree(hVObject);
-                DbgMessage(TOPIC_VIDEOOBJECT, DBG_LEVEL_2, "Invalid Image Filename given");
+                SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "%s", "Invalid Image Filename given");
                 return (NULL);
             }
         } else { // create video object from provided hImage
             hImage = VObjectDesc->hImage;
             if (hImage == NULL) {
                 MemFree(hVObject);
-                DbgMessage(TOPIC_VIDEOOBJECT, DBG_LEVEL_2, "Invalid hImage pointer given");
+                SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "%s", "Invalid hImage pointer given");
                 return (NULL);
             }
         }
@@ -367,7 +362,7 @@ HVOBJECT CreateVideoObject(VOBJECT_DESC* VObjectDesc)
         // Check if returned himage is TRLE compressed - return error if not
         if (!(hImage->fFlags & IMAGE_TRLECOMPRESSED)) {
             MemFree(hVObject);
-            DbgMessage(TOPIC_VIDEOOBJECT, DBG_LEVEL_2, "Invalid Image format given.");
+            SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "%s", "Invalid Image format given.");
             DestroyImage(hImage);
             return (NULL);
         }
@@ -399,7 +394,7 @@ HVOBJECT CreateVideoObject(VOBJECT_DESC* VObjectDesc)
         //		break;
     } else {
         MemFree(hVObject);
-        DbgMessage(TOPIC_VIDEOOBJECT, DBG_LEVEL_2, "Invalid VObject creation flags given.");
+        SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "%s", "Invalid VObject creation flags given.");
         return (NULL);
     }
 
@@ -410,7 +405,7 @@ HVOBJECT CreateVideoObject(VOBJECT_DESC* VObjectDesc)
     //	while( FALSE );
 
     // All is well
-    //  DbgMessage( TOPIC_VIDEOOBJECT, DBG_LEVEL_3, String("Success in Creating Video Object" ) );
+
 
     return (hVObject);
 }
@@ -446,7 +441,6 @@ BOOLEAN SetVideoObjectPalette(HVOBJECT hVObject, SGPPaletteEntry* pSrcPalette)
     hVObject->p16BPPPalette = Create16BPPPalette(pSrcPalette);
     hVObject->pShadeCurrent = hVObject->p16BPPPalette;
 
-    //  DbgMessage(TOPIC_VIDEOOBJECT, DBG_LEVEL_3, String("Video Object Palette change successfull" ));
     return (TRUE);
 }
 
@@ -733,8 +727,7 @@ UINT16 SetObjectShade(HVOBJECT pObj, UINT32 uiShade)
     Assert(uiShade < HVOBJECT_SHADE_TABLES);
 
     if (pObj->pShades[uiShade] == NULL) {
-        DbgMessage(TOPIC_VIDEOOBJECT, DBG_LEVEL_2,
-                   String("Attempt to set shade level to NULL table"));
+        SDL_LogDebug(SDL_LOG_CATEGORY_APPLICATION, "Attempt to set shade level to NULL table");
         return (FALSE);
     }
 
@@ -929,9 +922,9 @@ void CheckValidVObjectIndex(UINT32 uiIndex)
             break;
         }
         if (uiIndex == 0xffffffff) {
-            AssertMsg(0, String("Trying to %s with deleted index -1.", str));
+            AssertMsg(0, FormatString("Trying to %s with deleted index -1.", str));
         } else {
-            AssertMsg(0, String("Trying to %s using a VSURFACE ID %d!", str, uiIndex));
+            AssertMsg(0, FormatString("Trying to %s using a VSURFACE ID %d!", str, uiIndex));
         }
     }
 }

@@ -34,7 +34,6 @@
 #include "wiz8/utility.h"
 #include "wiz8/virtual_file.h"
 
-#include "DEBUG.H"
 #include "FileMan.h"
 #include "Font.h"
 #include "input.h"
@@ -2349,7 +2348,7 @@ srTexture* LoadTextureFromFolder(const char* folder, const char* name, bool requ
                 }
                 if (texture->getTextureFrameHandle() == 0) {
                     ShutdownWithErrorBox(
-                        reinterpret_cast<const char*>(String("Missing texture file: %s", path)));
+                        FormatString("Missing texture file: %s", path));
                 }
             }
         } else {
@@ -2358,7 +2357,7 @@ srTexture* LoadTextureFromFolder(const char* folder, const char* name, bool requ
                 strcat(extension, "jpg");
                 if (!FileExists(path)) {
                     ShutdownWithErrorBox(
-                        reinterpret_cast<const char*>(String("Missing texture file: %s", path)));
+                        FormatString("Missing texture file: %s", path));
                 }
             }
             texture = new stTextureFile(path, g_texture_cache_enabled);
@@ -2387,7 +2386,7 @@ stTextureAnim* LoadAnimatedTexture(const char* folder, const char* name,
     handle = FileOpen(buffer, 0x41, 0);
     if (handle == 0) {
         ShutdownWithErrorBox(
-            reinterpret_cast<const char*>(String("Cannot load/find material: %s", buffer)));
+            FormatString("Cannot load/find material: %s", buffer));
     }
 
     animation = new stTextureAnim;

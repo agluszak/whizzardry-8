@@ -60,7 +60,6 @@
 #include "wiz8/3d_code/PList.h"
 #include "wiz8/layouts/gameplay_databases.h"
 #include "wiz8/sr_api.h"
-#include "DEBUG.H"
 #include "random.h"
 #include "wiz8/engine_code/Octree.h"
 #include "wiz8/engine_code/PolyPick.h"

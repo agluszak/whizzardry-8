@@ -1,3 +1,4 @@
+#include <SDL3/SDL_log.h>
 /* Modified for the Wizardry 8 reconstruction: 2026-10-03, 2026-10-06, 2026-10-07, 2026-10-09.
    Distributed under the accompanying SFI Source Code license agreement. */
 // font.c
@@ -11,7 +12,6 @@
 #include "MemMan.h"
 #include "FileMan.h"
 #include "Font.h"
-#include "DEBUG.H"
 
 #include "Video2.h"
 
@@ -238,10 +238,10 @@ INT32 LoadFontFile(UINT8* filename)
     UINT32 LoadIndex;
 
     Assert(filename != NULL);
-    Assert(strlen(filename));
+    Assert(filename[0] != '\0');
 
     if ((LoadIndex = FindFreeFont()) == (-1)) {
-        DbgMessage(TOPIC_FONT_HANDLER, DBG_LEVEL_0, String("Out of font slots (%s)", filename));
+        SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Out of font slots (%s)", filename);
         return (-1);
     }
 
@@ -249,8 +249,7 @@ INT32 LoadFontFile(UINT8* filename)
     strcpy(vo_desc.ImageFile, (char*)filename);
 
     if ((FontObjs[LoadIndex] = CreateVideoObject(&vo_desc)) == NULL) {
-        DbgMessage(TOPIC_FONT_HANDLER, DBG_LEVEL_0,
-                   String("Error creating VOBJECT (%s)", filename));
+        SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Error creating VOBJECT (%s)", filename);
         return (-1);
     }
 
@@ -462,8 +461,7 @@ INT16 GetIndex(UINT16 siChar)
     }
 
     // If here, present warning and give the first index
-    DbgMessage(TOPIC_FONT_HANDLER, DBG_LEVEL_0,
-               String("Error: Invalid character given %d", siChar));
+    SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Error: Invalid character given %d", siChar);
 
     // Return 0 here, NOT -1 - we should see A's here now...
     return 0;
@@ -858,7 +856,6 @@ BOOLEAN InitializeFontManager(UINT16 usDefaultPixelDepth, FontTranslationTable* 
     if (pTransTable == NULL) {
         return FALSE;
     }
-    RegisterDebugTopic(TOPIC_FONT_HANDLER, "Font Manager");
 
     if ((pFManager = (FontManager*)MemAlloc(sizeof(FontManager))) == NULL) {
         return FALSE;
@@ -888,7 +885,6 @@ void ShutdownFontManager(void)
 {
     INT32 count;
 
-    UnRegisterDebugTopic(TOPIC_FONT_HANDLER, "Font Manager");
     if (pFManager)
         MemFree(pFManager);
 

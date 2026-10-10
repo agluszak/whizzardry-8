@@ -5,7 +5,6 @@
 #include <stdio.h>
 #include <string.h>
 
-#include "DEBUG.H"
 #include "FileMan.h"
 #include "random.h"
 #include "sgp.h"
@@ -219,8 +218,7 @@ bool LoadItemFromFile(const W8ReadLevelInfo* context, const char* name, W8Item**
     HWFILE file = FileOpen(filename, FILE_ACCESS_READ | FILE_OPEN_EXISTING, 0);
     if (file == 0) {
         ShutdownWithErrorBox(
-            reinterpret_cast< // reinterpret-ok: SGP String returns unsigned text bytes
-                const char*>(String("Couldn't load %s", filename)));
+            FormatString("Couldn't load %s", filename));
         return false;
     }
 

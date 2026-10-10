@@ -1,3 +1,4 @@
+#include <SDL3/SDL_log.h>
 /* Modified for the Wizardry 8 reconstruction: 2026-10-03, 2026-10-04, 2026-10-06, 2026-10-07, 2026-10-09.
    Distributed under the accompanying SFI Source Code license agreement. */
 #include "Types.h"
@@ -7,7 +8,6 @@
 #include <stdarg.h>
 #include <string.h>
 #include "sgp.h"
-#include "RegInst.h"
 #include "vobject.h"
 #include "Font.h"
 #include "FileMan.h"
@@ -81,64 +81,53 @@ BOOLEAN InitializeStandardGamingPlatform(HINSTANCE hInstance, int sCommandShow)
     // now required by all (even JA2) in order to call ShutdownSGP
     atexit(SGPExit);
 
-    // First, initialize the registry keys.
-    InitializeRegistryKeys("Wizardry8", "Wizardry8key");
-
     // For rendering DLLs etc.
 
     // Second, read in settings
     GetRuntimeSettings();
 
-    // Initialize the Debug Manager - success doesn't matter
-    InitializeDebugManager();
-
     // Now start up everything else.
-    RegisterDebugTopic(TOPIC_SGP, "Standard Gaming Platform");
 
-    // this one needs to go ahead of all others (except Debug), for MemDebugCounter to work right...
-    FastDebugMsg("Initializing Memory Manager");
+    SDL_LogDebug(SDL_LOG_CATEGORY_APPLICATION, "%s", "Initializing Memory Manager");
     // Initialize the Memory Manager
     if (InitializeMemoryManager() == FALSE) { // We were unable to initialize the memory manager
-        FastDebugMsg("FAILED : Initializing Memory Manager");
+        SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "%s", "FAILED : Initializing Memory Manager");
         return FALSE;
     }
 
-    FastDebugMsg("Initializing File Manager");
+    SDL_LogDebug(SDL_LOG_CATEGORY_APPLICATION, "%s", "Initializing File Manager");
     // Initialize the File Manager
     if (InitializeFileManager(NULL) == FALSE) { // We were unable to initialize the file manager
-        FastDebugMsg("FAILED : Initializing File Manager");
+        SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "%s", "FAILED : Initializing File Manager");
         return FALSE;
     }
 
-    FastDebugMsg("Initializing Containers Manager");
-    InitializeContainers();
-
-    FastDebugMsg("Initializing Input Manager");
+    SDL_LogDebug(SDL_LOG_CATEGORY_APPLICATION, "%s", "Initializing Input Manager");
     // Initialize the Input Manager
     if (InitializeInputManager() == FALSE) { // We were unable to initialize the input manager
-        FastDebugMsg("FAILED : Initializing Input Manager");
+        SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "%s", "FAILED : Initializing Input Manager");
         return FALSE;
     }
 
-    FastDebugMsg("Initializing Video Manager");
+    SDL_LogDebug(SDL_LOG_CATEGORY_APPLICATION, "%s", "Initializing Video Manager");
     // Initialize DirectDraw (DirectX 2)
     if (InitializeVideoManager(hInstance, (UINT16)sCommandShow) ==
         FALSE) { // We were unable to initialize the video manager
-        FastDebugMsg("FAILED : Initializing Video Manager");
+        SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "%s", "FAILED : Initializing Video Manager");
         return FALSE;
     }
 
     // Initialize Video Object Manager
-    FastDebugMsg("Initializing Video Object Manager");
+    SDL_LogDebug(SDL_LOG_CATEGORY_APPLICATION, "%s", "Initializing Video Object Manager");
     if (!InitializeVideoObjectManager()) {
-        FastDebugMsg("FAILED : Initializing Video Object Manager");
+        SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "%s", "FAILED : Initializing Video Object Manager");
         return FALSE;
     }
 
     // Initialize Video Surface Manager
-    FastDebugMsg("Initializing Video Surface Manager");
+    SDL_LogDebug(SDL_LOG_CATEGORY_APPLICATION, "%s", "Initializing Video Surface Manager");
     if (!InitializeVideoSurfaceManager()) {
-        FastDebugMsg("FAILED : Initializing Video Surface Manager");
+        SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "%s", "FAILED : Initializing Video Surface Manager");
         return FALSE;
     }
 
@@ -153,30 +142,30 @@ BOOLEAN InitializeStandardGamingPlatform(HINSTANCE hInstance, int sCommandShow)
     }
 
     // Initialize Font Manager
-    FastDebugMsg("Initializing the Font Manager");
+    SDL_LogDebug(SDL_LOG_CATEGORY_APPLICATION, "%s", "Initializing the Font Manager");
     // Init the manager and copy the TransTable stuff into it.
     if (!InitializeFontManager(8, pFontTable)) {
-        FastDebugMsg("FAILED : Initializing Font Manager");
+        SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "%s", "FAILED : Initializing Font Manager");
         return FALSE;
     }
     // Don't need this thing anymore, so get rid of it (but don't de-alloc the contents)
     MemFree(pFontTable);
 
-    FastDebugMsg("Initializing Sound Manager");
+    SDL_LogDebug(SDL_LOG_CATEGORY_APPLICATION, "%s", "Initializing Sound Manager");
     // Initialize the Sound Manager (DirectSound)
     if (InitializeSoundManager() == FALSE) { // We were unable to initialize the sound manager
-        FastDebugMsg("FAILED : Initializing Sound Manager");
+        SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "%s", "FAILED : Initializing Sound Manager");
         return FALSE;
     }
 
-    FastDebugMsg("Initializing Random");
+    SDL_LogDebug(SDL_LOG_CATEGORY_APPLICATION, "%s", "Initializing Random");
     // Initialize random number generator
     InitializeRandom(); // no Shutdown
 
-    FastDebugMsg("Initializing Game Manager");
+    SDL_LogDebug(SDL_LOG_CATEGORY_APPLICATION, "%s", "Initializing Game Manager");
     // Initialize the Game
     if (InitializeGame() == FALSE) { // We were unable to initialize the game
-        FastDebugMsg("FAILED : Initializing Game Manager");
+        SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "%s", "FAILED : Initializing Game Manager");
         return FALSE;
     }
 
@@ -223,19 +212,13 @@ void ShutdownStandardGamingPlatform(void)
     ShutdownVideoManager();
 
     ShutdownInputManager();
-    ShutdownContainers();
     ShutdownFileManager();
 
 #ifdef EXTREME_MEMORY_DEBUGGING
     DumpMemoryInfoIntoFile("ExtremeMemoryDump.txt", FALSE);
 #endif
 
-    ShutdownMemoryManager(); // must go last (except for Debug), for MemDebugCounter to work right...
-    // Make sure we unregister the last remaining debug topic before shutting
-    // down the debugging layer
-    UnRegisterDebugTopic(TOPIC_SGP, "Standard Gaming Platform");
-
-    ShutdownDebugManager();
+    ShutdownMemoryManager(); // must go last, for MemDebugCounter to work right...
 }
 
 

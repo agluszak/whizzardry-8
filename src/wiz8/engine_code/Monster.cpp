@@ -385,7 +385,7 @@ unsigned char ReadOrCloneMonsterCycles(const W8GrCycleLoadContext* context,
     int handle = FileOpen(path, FILE_ACCESS_READ | FILE_OPEN_EXISTING, 0);
     if (handle == 0) {
         srAssertFail("hFile", MONSTER_CPP, 0x50f,
-                     reinterpret_cast<char*>(String("Couldn't open %s", path)));
+                     FormatString("Couldn't open %s", path));
     }
     *monster = 0;
 
@@ -549,10 +549,9 @@ unsigned char ReadOrCloneMonsterCycles(const W8GrCycleLoadContext* context,
                 sscanf(line, "%s %s %s", command, old_name, new_name);
                 if (damage_stage != -1 &&
                     !(*monster)->ReplaceSkinTexture(damage_stage, old_name, new_name)) {
-                    ShutdownWithErrorBox(reinterpret_cast<const char*>(
-                        String( // reinterpret-ok: String returns a logging buffer
+                    ShutdownWithErrorBox(FormatString(
                             "The skin texture %s not found in monster %s!", old_name,
-                            monster_name)));
+                            monster_name));
                 }
             } else {
                 /* 0x004C10FB: the length test is on the whole line, not the argument. */
@@ -591,10 +590,9 @@ unsigned char ReadOrCloneMonsterCycles(const W8GrCycleLoadContext* context,
                                 /* 0x004C128A: a missing subcycle is fatal, as in
                                    every other retail cycle lookup. */
                                 if (rep->animations[cycle].GetCount() <= current) {
-                                    ShutdownWithErrorBox(reinterpret_cast<const char*>(
-                                        String( // reinterpret-ok: String returns a logging buffer
+                                    ShutdownWithErrorBox(FormatString(
                                             "Monster %s: Missing CYCLE_%s, sub-cycle %d", rep->name,
-                                            g_cycle_names[cycle].name, current)));
+                                            g_cycle_names[cycle].name, current));
                                 }
                                 W8AnimObj* animation =
                                     *(*monster)->m_pRep->animations[cycle].GetAt(current);
@@ -726,9 +724,9 @@ unsigned char ReadOrCloneMonsterCycles(const W8GrCycleLoadContext* context,
     }
     if (representation->animations[1].GetCount() < 1) {
         ShutdownWithErrorBox(
-            reinterpret_cast<const char*>(String( // reinterpret-ok: String returns a logging buffer
+            FormatString(
                 "Monster %s: Missing CYCLE_%s, sub-cycle %d", representation->name,
-                g_cycle_names[1].name, 0)));
+                g_cycle_names[1].name, 0));
     }
     W8AnimObj* idle = *representation->animations[1].GetAt(0);
     if (idle != 0) {
@@ -1790,9 +1788,8 @@ bool W8Monster::GetCycleMappedPosition(signed char cycle, int mapped_index,
     animations = &m_pRep->animations[cycle];
     if (animations->GetCount() <= subcycle) {
         ShutdownWithErrorBox(
-            reinterpret_cast<const char*>( // reinterpret-ok: String returns a logging buffer
-                String("Monster %s: Missing CYCLE_%s, sub-cycle %d", m_pRep->name,
-                       g_cycle_names[cycle].name, subcycle)));
+            FormatString("Monster %s: Missing CYCLE_%s, sub-cycle %d", m_pRep->name,
+                       g_cycle_names[cycle].name, subcycle));
     }
     animation = *animations->GetAt(subcycle);
 
@@ -4807,10 +4804,8 @@ void W8Monster::CollectModelInstances(W8GrowableVector<stModelInstance*>* instan
 
             if (subcycle >= cycle_animations->GetCount()) {
                 ShutdownWithErrorBox(
-                    reinterpret_cast<
-                        const char*>( // reinterpret-ok: String returns a logging buffer
-                        String("Monster %s: Missing CYCLE_%s, sub-cycle %d", m_pRep->name,
-                               g_cycle_names[cycle].name, subcycle)));
+                    FormatString("Monster %s: Missing CYCLE_%s, sub-cycle %d", m_pRep->name,
+                               g_cycle_names[cycle].name, subcycle));
             }
             animation = *cycle_animations->GetAt(subcycle);
             if (animation == 0) {

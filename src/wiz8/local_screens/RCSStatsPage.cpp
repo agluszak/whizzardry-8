@@ -37,7 +37,6 @@
 #include "wiz8/dialog_code/StatInfoDialogs.h"
 #include "wiz8/dialog_code/SpellInfoDialog.h"
 
-#include "Container.h"
 #include "Font.h"
 #include "input.h"
 #include "vobject_blitters.h"
@@ -64,7 +63,6 @@ unsigned int g_camp_skill_regions;
 
 static unsigned char CampStatsMouseWheel(const InputAtom* event, W8Region*);
 void DrawCampEffectList(void);
-struct W8CampEffectEntry;
 void DrawCampEffectEntry(W8CampEffectEntry* entry, int* line_out);
 
 /* The five skill-category blocks shared by the camp skills page: (x, y)
@@ -111,21 +109,6 @@ static W8PortraitGroup g_portrait_groups[12] = {
     {4, {52, 53, 54, 55}},
     {2, {56, 57}},
 };
-
-/* One row of the stats page's effect list: a character condition, an
-   enchantment, or the modifiers of one equipped item. */
-struct W8CampEffectEntry {
-    unsigned char items; /* 1 when the row lists an equipped item */
-    bool visible;        /* passes the current filter */
-    unsigned char beneficial;
-    unsigned char detrimental;
-    int kind;        /* 0 condition, 1 enchantment, 2 equipment */
-    int index;       /* condition, enchantment or equipment-slot index */
-    int enchantment; /* the enchantment id for kind 1 */
-    int turns;       /* remaining turns; 9999 is permanent */
-    int lines;       /* rendered height in 0xe-pixel lines */
-};
-static_assert(sizeof(W8CampEffectEntry) == 0x18, "W8CampEffectEntry_size");
 
 // FUNCTION: WIZ8 0x005c4430
 W8CampStatsRange::W8CampStatsRange()
@@ -389,14 +372,11 @@ unsigned int CountEquipItemPenalties(int slot)
 /* Descriptive name for appending an effect and updating both category counts. */
 static void AddCampEffectEntry(W8CampScreenState* screen, W8CampEffectEntry* entry)
 {
-    auto list = AddtoList(screen->effect_list, entry, ListSize(screen->effect_list));
-    if (!list)
-        return;
-    screen->effect_list = list;
-    if (entry->beneficial != 0) {
+    screen->effect_list.push_back(*entry);
+    if (entry->beneficial) {
         ++screen->effect_beneficial_count;
     }
-    if (entry->detrimental != 0) {
+    if (entry->detrimental) {
         ++screen->effect_detrimental_count;
     }
 }
@@ -405,11 +385,7 @@ static void AddCampEffectEntry(W8CampScreenState* screen, W8CampEffectEntry* ent
 void RebuildCampEffectList(void)
 {
     W8CampScreenState* screen = g_camp_screen;
-    if (screen->effect_list != 0) {
-        DeleteList(screen->effect_list);
-        screen->effect_list = 0;
-    }
-    screen->effect_list = CreateList(10, sizeof(W8CampEffectEntry));
+    screen->effect_list.clear();
     screen->effect_beneficial_count = 0;
     screen->effect_detrimental_count = 0;
     screen->effect_selection = 0;
@@ -420,10 +396,9 @@ void RebuildCampEffectList(void)
     W8Character* character = g_review_character;
     for (int condition = 0x13; condition >= 0; --condition) {
         if (character->uiCondition[condition] != 0) {
-            W8CampEffectEntry entry;
-            memset(&entry, 0, sizeof(entry));
+            W8CampEffectEntry entry{};
             entry.kind = 0;
-            entry.detrimental = 1;
+            entry.detrimental = true;
             entry.turns = character->uiCondition[condition];
             entry.lines = 1;
             if (entry.turns == W8_CONDITION_INDEFINITE) {
@@ -443,10 +418,9 @@ void RebuildCampEffectList(void)
     }
     for (int index = 7; index >= 0; --index) {
         if (character->enchantments[index].turns != 0) {
-            W8CampEffectEntry entry;
-            memset(&entry, 0, sizeof(entry));
+            W8CampEffectEntry entry{};
             entry.kind = 1;
-            entry.beneficial = 1;
+            entry.beneficial = true;
             entry.enchantment = character->enchantments[index].power;
             entry.turns = character->enchantments[index].turns;
             entry.lines = 2;
@@ -460,12 +434,11 @@ void RebuildCampEffectList(void)
             int beneficial = CountEquipItemBenefits(slot);
             int detrimental = CountEquipItemPenalties(slot);
             if (beneficial != 0 || detrimental != 0) {
-                W8CampEffectEntry entry;
-                memset(&entry, 0, sizeof(entry));
+                W8CampEffectEntry entry{};
                 entry.beneficial = beneficial != 0;
                 entry.detrimental = detrimental != 0;
                 entry.lines = detrimental + beneficial + 1;
-                entry.items = 1;
+                entry.items = true;
                 entry.kind = 2;
                 entry.turns = W8_CONDITION_INDEFINITE;
                 entry.index = slot;
@@ -485,18 +458,15 @@ void FilterCampEffectList(void)
     W8CampScreenState* screen = g_camp_screen;
     screen->effect_visible_lines = 0;
     bool any_visible = false;
-    unsigned int count = ListSize(screen->effect_list);
+    unsigned int count = screen->effect_list.size();
     for (unsigned int pos = 0; pos < count; ++pos) {
-        W8CampEffectEntry entry;
-        if (PeekList(screen->effect_list, &entry, pos) == 0) {
-            return;
-        }
+        auto& entry = screen->effect_list[pos];
         entry.visible = false;
         if (entry.items == screen->effect_items_only &&
             (screen->effect_filter == W8_CAMP_EFFECT_FILTER_ALL ||
-             (screen->effect_filter == W8_CAMP_EFFECT_FILTER_BENEFICIAL && entry.beneficial != 0) ||
+             (screen->effect_filter == W8_CAMP_EFFECT_FILTER_BENEFICIAL && entry.beneficial) ||
              (screen->effect_filter == W8_CAMP_EFFECT_FILTER_DETRIMENTAL &&
-              entry.detrimental != 0))) {
+              entry.detrimental))) {
             entry.visible = true;
             if (!any_visible) {
                 screen->effect_first_visible = pos;
@@ -507,8 +477,6 @@ void FilterCampEffectList(void)
         if (entry.visible) {
             screen->effect_visible_lines += entry.lines + 1;
         }
-        StoreListNode(screen->effect_list, &entry, pos);
-        count = ListSize(screen->effect_list);
     }
     int second = screen->effect_visible_lines - 0x11;
     W8RangeControl* range = screen->stats_range->m_range;
@@ -534,15 +502,12 @@ void DrawCampEffectList(void)
     W8CampScreenState* screen = g_camp_screen;
     SetFontDestBuffer(0xfffffff2, 0, 0xbe, 0x280, 0x1ac, 0);
     int line = -screen->effect_scroll;
-    unsigned int count = ListSize(screen->effect_list);
+    unsigned int count = screen->effect_list.size();
     for (unsigned int pos = 0; pos < count; ++pos) {
         if (line > 0x10) {
             break;
         }
-        W8CampEffectEntry entry;
-        if (PeekList(screen->effect_list, &entry, pos) == 0) {
-            return;
-        }
+        auto& entry = screen->effect_list[pos];
         if (entry.visible) {
             if (line + entry.lines < 0) {
                 line += entry.lines + 1;
@@ -550,7 +515,6 @@ void DrawCampEffectList(void)
                 DrawCampEffectEntry(&entry, &line);
             }
         }
-        count = ListSize(screen->effect_list);
     }
     SetFontDestBuffer(0xfffffff2, 0, 0, 0x280, 0x1e0, 0);
 }

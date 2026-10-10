@@ -1,3 +1,4 @@
+#include <SDL3/SDL_log.h>
 /* Modified for the Wizardry 8 reconstruction: 2026-10-03, 2026-10-06, 2026-10-07, 2026-10-09.
    Distributed under the accompanying SFI Source Code license agreement. */
 /*********************************************************************************
@@ -12,7 +13,6 @@
 #include "soundman.h"
 #include "FileMan.h"
 #include "LibraryDataBase.h"
-#include "DEBUG.H"
 #include <wiz8/native_audio.h>
 #include <algorithm>
 #include <cmath>
@@ -1310,7 +1310,7 @@ UINT32 Sound3DPlay(STR pFilename, SOUND3DPARMS* pParms)
                 return (Sound3DStartSample(uiSample, uiChannel, pParms));
             }
         } else {
-            FastDebugMsg(String("Sound3DPlay: ERROR: Failed loading sample %s\n", pFilename));
+            SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Sound3DPlay: ERROR: Failed loading sample %s\n", pFilename);
         }
     }
 

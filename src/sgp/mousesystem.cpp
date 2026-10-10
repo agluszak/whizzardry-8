@@ -1,3 +1,4 @@
+#include <SDL3/SDL_log.h>
 /* Modified for the Wizardry 8 reconstruction: 2026-10-03, 2026-10-04, 2026-10-06, 2026-10-07.
    Distributed under the accompanying SFI Source Code license agreement. */
 
@@ -12,16 +13,14 @@
 #include "compat/kernel32.h"
 #include <stdio.h>
 #include <memory.h>
-#include "DEBUG.H"
 #include "input.h"
 #include "MemMan.h"
 #include "line.h"
 #include "Video2.h"
-#define BASE_REGION_FLAGS MSYS_REGION_ENABLED // Wiz doesn't ever want MSYS_SET_CURSOR to be on...
+#define BASE_REGION_FLAGS MSYS_REGION_ENABLED
 #include "english.h"
 // Include mouse system defs and macros
 #include "mousesystem.h"
-#include "Cursor Control.h"
 #include "Button System.h"
 
 //Kris:	Nov 31, 1999 -- Added support for double clicking
@@ -104,7 +103,6 @@ MOUSE_REGION MSYS_SystemBaseRegion = {MSYS_ID_SYSTEM,
                                       0,
                                       0,
                                       0,
-                                      0,
                                       MSYS_NO_CALLBACK,
                                       MSYS_NO_CALLBACK,
                                       {0, 0, 0, 0},
@@ -133,7 +131,6 @@ BOOLEAN gfIgnoreShutdownAssertions;
 // FUNCTION: WIZ8 0x0040b290
 INT32 MSYS_Init(void)
 {
-    RegisterDebugTopic(TOPIC_MOUSE_SYSTEM, "Mouse Region System");
 
 #ifdef MOUSESYSTEM_DEBUGGING
     gfIgnoreShutdownAssertions = FALSE;
@@ -169,7 +166,6 @@ INT32 MSYS_Init(void)
     MSYS_SystemBaseRegion.RelativeXPos = 0;
     MSYS_SystemBaseRegion.RelativeYPos = 0;
     MSYS_SystemBaseRegion.ButtonState = 0;
-    MSYS_SystemBaseRegion.Cursor = 0;
     MSYS_SystemBaseRegion.UserData[0] = 0;
     MSYS_SystemBaseRegion.UserData[1] = 0;
     MSYS_SystemBaseRegion.UserData[2] = 0;
@@ -205,7 +201,6 @@ void MSYS_Shutdown(void)
     MSYS_SystemInitialized = FALSE;
     MSYS_UseMouseHandlerHook = FALSE;
     MSYS_TrashRegList();
-    UnRegisterDebugTopic(TOPIC_MOUSE_SYSTEM, "Mouse Region System");
 }
 
 //	MSYS_SGP_Mouse_Handler_Hook
@@ -296,7 +291,7 @@ void MSYS_SGP_Mouse_Handler_Hook(UINT16 Type, UINT16 Xcoord, UINT16 Ycoord, BOOL
         break;
 
     default:
-        DbgMessage(TOPIC_MOUSE_SYSTEM, DBG_LEVEL_0, "ERROR -- MSYS 2 SGP Mouse Hook got bad type");
+        SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "%s", "ERROR -- MSYS 2 SGP Mouse Hook got bad type");
         break;
     }
 }
@@ -482,8 +477,6 @@ void MSYS_UpdateMouseRegion(void)
 {
     INT32 found;
     UINT32 ButtonReason;
-    MOUSE_REGION* pTempRegion;
-    BOOLEAN fFound = FALSE;
     found = FALSE;
 
     // Check previous region!
@@ -562,30 +555,6 @@ void MSYS_UpdateMouseRegion(void)
                 }
             }
 
-            // if the cursor is set and is not set to no cursor
-            if (MSYS_CurrRegion->uiFlags & MSYS_REGION_ENABLED &&
-                MSYS_CurrRegion->uiFlags & MSYS_SET_CURSOR &&
-                MSYS_CurrRegion->Cursor != MSYS_NO_CURSOR) {
-                MSYS_SetCurrentCursor(MSYS_CurrRegion->Cursor);
-            } else {
-                // Addition Oct 10/1997 Carter, patch for mouse cursor
-                // start at region and find another region encompassing
-                pTempRegion = MSYS_CurrRegion->next;
-                while ((pTempRegion != NULL) && (!fFound)) {
-                    if ((pTempRegion->uiFlags & MSYS_REGION_ENABLED) &&
-                        (pTempRegion->RegionTopLeftX <= MSYS_CurrentMX) &&
-                        (pTempRegion->RegionTopLeftY <= MSYS_CurrentMY) &&
-                        (pTempRegion->RegionBottomRightX >= MSYS_CurrentMX) &&
-                        (pTempRegion->RegionBottomRightY >= MSYS_CurrentMY) &&
-                        (pTempRegion->uiFlags & MSYS_SET_CURSOR)) {
-                        fFound = TRUE;
-                        if (pTempRegion->Cursor != MSYS_NO_CURSOR) {
-                            MSYS_SetCurrentCursor(pTempRegion->Cursor);
-                        }
-                    }
-                    pTempRegion = pTempRegion->next;
-                }
-            }
         }
 
         // OK, if we do not have a button down, any button is game!
@@ -732,7 +701,7 @@ void MSYS_UpdateMouseRegion(void)
 //	Inits a MOUSE_REGION structure for use with the mouse system
 // FUNCTION: WIZ8 0x0040be10
 void MSYS_DefineRegion(MOUSE_REGION* region, UINT16 tlx, UINT16 tly, UINT16 brx, UINT16 bry,
-                       INT8 priority, UINT16 crsr, MOUSE_CALLBACK movecallback,
+                       INT8 priority, MOUSE_CALLBACK movecallback,
                        MOUSE_CALLBACK buttoncallback)
 {
 #ifdef MOUSESYSTEM_DEBUGGING
@@ -761,9 +730,6 @@ void MSYS_DefineRegion(MOUSE_REGION* region, UINT16 tlx, UINT16 tly, UINT16 brx,
     if (buttoncallback != MSYS_NO_CALLBACK)
         region->uiFlags |= MSYS_BUTTON_CALLBACK;
 
-    region->Cursor = crsr;
-    if (crsr != MSYS_NO_CURSOR)
-        region->uiFlags |= MSYS_SET_CURSOR;
 
     region->RegionTopLeftX = tlx;
     region->RegionTopLeftY = tly;
@@ -858,13 +824,6 @@ void MSYS_DisableRegion(MOUSE_REGION* region)
     region->uiFlags &= (~MSYS_REGION_ENABLED);
 }
 
-//	MSYS_SetCurrentCursor
-//	Sets the mouse cursor to the regions defined value.
-void MSYS_SetCurrentCursor(UINT16 Cursor)
-{
-    SetCurrentCursorFromDatabase(Cursor);
-}
-
 //	MSYS_SetRegionUserData
 //	Sets one of the four user data entries in a mouse region
 // FUNCTION: WIZ8 0x0040bf80
@@ -957,7 +916,7 @@ void SetRegionFastHelpText(MOUSE_REGION* region, CHAR16* szText)
     //	region->FastHelpTimer = 0;
     if (!(region->uiFlags & MSYS_REGION_EXISTS)) {
         return;
-        //AssertMsg( 0, String( "Attempting to set fast help text, \"%S\" to an inactive region.", szText ) );
+        //AssertMsg( 0, FormatString( "Attempting to set fast help text, \"%S\" to an inactive region.", szText ) );
     }
 
     if (!szText || !wcslen(szText))

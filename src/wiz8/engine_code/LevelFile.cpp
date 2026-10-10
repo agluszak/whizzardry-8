@@ -1,3 +1,4 @@
+#include "wiz8/utility.h"
 #include "wiz8/engine_code/stLight.hpp"
 #include "wiz8/engine_code/LevelFile.h"
 #include "wiz8/engine_code/ReadMesh.h"
@@ -7,7 +8,6 @@
 #include "wiz8/float_constants.h"
 
 #include "FileMan.h"
-#include "DEBUG.H"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -272,9 +272,8 @@ W8LevelFile* ReadLevelFile(int hFile)
             W8LevelFileNamedPosition* pPosition = pLevel->pNamedPositions + i;
             ReportBuildStatus(
                 5,
-                reinterpret_cast<const char*>( // reinterpret-ok: String returns a logging buffer
-                    String("Named Position: %s (%f, %f, %f)\n", pPosition->name,
-                           pPosition->position.x, pPosition->position.y, pPosition->position.z)));
+                FormatString("Named Position: %s (%f, %f, %f)\n", pPosition->name,
+                           pPosition->position.x, pPosition->position.y, pPosition->position.z));
         }
     }
 
@@ -875,16 +874,14 @@ BOOLEAN ReadTriggerFile(int hFile, W8LevelFileTrigger* pTrigger)
         }
         ReportBuildStatus(
             5,
-            reinterpret_cast< // reinterpret-ok: String returns a logging buffer
-                const char*>(String(
-                "Switch Trigger: %s, recipients: %s\n", // reinterpret-ok: String returns a logging buffer
-                pSwitch->name, pSwitch->recipients)));
+            FormatString(
+                "Switch Trigger: %s, recipients: %s\n",
+                pSwitch->name, pSwitch->recipients));
         if (pSwitch->version > 1) {
             fSuccess &= FileRead(hFile, &pSwitch->minimum_range, 4, 0);
             fSuccess &= FileRead(hFile, pSwitch->surface_id, sizeof(pSwitch->surface_id), 0);
             ReportBuildStatus(
-                5, reinterpret_cast<const char*>( // reinterpret-ok: String returns a logging buffer
-                       String("Switch Trigger name: %s\n", pSwitch->surface_id)));
+                5, FormatString("Switch Trigger name: %s\n", pSwitch->surface_id));
         }
         if (pSwitch->version > 2) {
             fSuccess &= FileRead(hFile, &pSwitch->has_door_trigger, 1, 0);
@@ -925,10 +922,9 @@ BOOLEAN ReadTriggerFile(int hFile, W8LevelFileTrigger* pTrigger)
         fSuccess &= FileRead(hFile, pInvis->recipients, sizeof(pInvis->recipients), 0);
         ReportBuildStatus(
             5,
-            reinterpret_cast< // reinterpret-ok: String returns a logging buffer
-                const char*>(String(
-                "Invisible Trigger: %s, recipients: %s\n", // reinterpret-ok: String returns a logging buffer
-                pInvis->name, pInvis->recipients)));
+            FormatString(
+                "Invisible Trigger: %s, recipients: %s\n",
+                pInvis->name, pInvis->recipients));
         if (pInvis->version > 1) {
             fSuccess &= FileRead(hFile, &pInvis->plane_flag, 1, 0);
             pInvis->pPlane = static_cast<W8LevelFilePlane*>(malloc(sizeof(W8LevelFilePlane)));
@@ -1012,10 +1008,8 @@ BOOLEAN ReadTriggerFile(int hFile, W8LevelFileTrigger* pTrigger)
         if (pSound->version > 3) {
             fSuccess &= FileRead(hFile, pSound->name, sizeof(pSound->name), 0);
             ReportBuildStatus(
-                5, reinterpret_cast< // reinterpret-ok: String returns a logging buffer
-                       const char*>(
-                       String("Sound Trigger: %s\n",
-                              pSound->name))); // reinterpret-ok: String returns a logging buffer
+                5, FormatString("Sound Trigger: %s\n",
+                              pSound->name));
         }
         if (pSound->version > 4) {
             fSuccess &= FileRead(hFile, &pSound->shared, 1, 0);
@@ -1206,8 +1200,7 @@ BOOLEAN ReadSuperTriggerFile(int hFile, W8LevelFileTrigger* pTrigger)
     }
     ReportBuildStatus(
         5,
-        reinterpret_cast<const char*>( // reinterpret-ok: String returns a logging buffer
-            String("Super Trigger: %s, recipients: %s\n", pSuper->name, pSuper->recipients)));
+        FormatString("Super Trigger: %s, recipients: %s\n", pSuper->name, pSuper->recipients));
     if (pSuper->version >= 2) {
         fSuccess &= FileRead(hFile, pSuper->size, sizeof(pSuper->size), 0);
         fSuccess &= FileRead(hFile, &pSuper->direction, 4, 0);
@@ -1966,10 +1959,8 @@ W8LevelFileProp* ReadPropsFile(int hFile, int count)
         if (pProp->version >= 7) {
             fSuccess &= FileRead(hFile, pProp->name, sizeof(pProp->name), 0);
             ReportBuildStatus(
-                5, reinterpret_cast< // reinterpret-ok: String returns a logging buffer
-                       const char*>(
-                       String("Prop: %s\n",
-                              pProp->name))); // reinterpret-ok: String returns a logging buffer
+                5, FormatString("Prop: %s\n",
+                              pProp->name));
         }
         if (fSuccess == 0) {
             srAssertFail("fSuccess", LEVELFILE_CPP, 0x918, 0);
@@ -1982,10 +1973,8 @@ W8LevelFileProp* ReadPropsFile(int hFile, int count)
                 if (pProp->usFrame_Pos == 0) {
                     srAssertFail(
                         "pProps[i1].usFrame_Pos", LEVELFILE_CPP, 0x91f,
-                        reinterpret_cast< // reinterpret-ok: String returns a logging buffer
-                            const char*>( // reinterpret-ok: String returns a logging buffer
-                            String("Could not allocate %d segments for prop '%s'!",
-                                   static_cast<int>(pProp->num_frame_pos), pProp->name)));
+                        FormatString("Could not allocate %d segments for prop '%s'!",
+                                   static_cast<int>(pProp->num_frame_pos), pProp->name));
                 }
                 fSuccess &= FileRead(hFile, pProp->usFrame_Pos, pProp->num_frame_pos << 2, 0);
             }
@@ -2119,11 +2108,10 @@ BOOLEAN ReadParticleSystemFile(int hFile, W8LevelFileParticleSystem* pSystem)
     }
     ReportBuildStatus(
         5,
-        reinterpret_cast<const char*>( // reinterpret-ok: String returns a logging buffer
-            String("Particle System: %s, Position %f, %f, %f\n", pSystem->particle.name,
+        FormatString("Particle System: %s, Position %f, %f, %f\n", pSystem->particle.name,
                    pSystem->particle.location.x * g_world_scale,
                    pSystem->particle.location.y * g_world_scale,
-                   pSystem->particle.location.z * g_world_scale)));
+                   pSystem->particle.location.z * g_world_scale));
     return fSuccess;
 }
 

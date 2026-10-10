@@ -4,7 +4,7 @@
 #define __VSURFACE_H
 
 #include "Types.h"
-#include "Container.h"
+#include <vector>
 #include "himage.h"
 #include "vobject.h"
 #include "compat/surfaces.h"
@@ -77,7 +77,7 @@ typedef struct {
 
 //
 // The following structure is used to define a region of the video Surface
-// These regions are stored via a HLIST
+// Regions are owned by the video surface
 //
 
 typedef struct {
@@ -88,7 +88,7 @@ typedef struct {
 } VSURFACE_REGION;
 
 //
-// This structure is a video Surface. Contains a HLIST of regions
+// This structure is a video Surface. Owns its regions
 //
 
 typedef struct SGPVSurface {
@@ -102,7 +102,7 @@ typedef struct SGPVSurface {
     bool hasPalette = false;
     UINT16* p16BPPPalette;
     COLORVAL TransparentColor;
-    HLIST RegionList;          // A List of regions within the video Surface
+    std::vector<VSURFACE_REGION> RegionList;          // A List of regions within the video Surface
 
 } SGPVSurface, *HVSURFACE;
 

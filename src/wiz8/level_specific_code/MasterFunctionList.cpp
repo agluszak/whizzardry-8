@@ -58,7 +58,6 @@
 #include <stdlib.h>
 #include <wchar.h>
 
-#include "DEBUG.H"
 
 /* The world-cursor node the party is standing in, tracked across the
    command-0 sweep so enter/leave commands fire once per crossing. */
@@ -646,9 +645,8 @@ static void BindLevelTrigger(const char* name, Trigger::ActivationCallback callb
     Trigger* trigger = FindTriggerByName(name);
     if (trigger == 0) {
         srAssertFail("pTrigger", MASTER_FUNCTION_CPP, line,
-                     reinterpret_cast<const char*>(
-                         String(/* reinterpret-ok: SGP rotating debug buffer */
-                                "Missing trigger '%s'! It's not in the LVL file!", name)));
+                     FormatString(/* reinterpret-ok: SGP rotating debug buffer */
+                                "Missing trigger '%s'! It's not in the LVL file!", name));
     }
     trigger->activation_callback = callback;
 }
@@ -988,64 +986,57 @@ void InitializeLevelMasterFunctions(int level)
         pTrigger = FindTriggerByName("fire_trig_plane01");
         if (pTrigger == 0) {
             srAssertFail("pTrigger", MASTER_FUNCTION_CPP, 0x5ee,
-                         reinterpret_cast<const char*>(
-                             String(/* reinterpret-ok: SGP rotating debug buffer */
+                         FormatString(/* reinterpret-ok: SGP rotating debug buffer */
                                     "Missing trigger '%s'! It's not in the LVL file!",
-                                    "fire_trig_plane01")));
+                                    "fire_trig_plane01"));
         }
         pTrigger->activation_callback = SwampFirePlane;
         pTrigger = FindTriggerByName("fire_trig_plane02");
         if (pTrigger == 0) {
             srAssertFail("pTrigger", MASTER_FUNCTION_CPP, 0x5ee,
-                         reinterpret_cast<const char*>(
-                             String(/* reinterpret-ok: SGP rotating debug buffer */
+                         FormatString(/* reinterpret-ok: SGP rotating debug buffer */
                                     "Missing trigger '%s'! It's not in the LVL file!",
-                                    "fire_trig_plane02")));
+                                    "fire_trig_plane02"));
         }
         pTrigger->activation_callback = SwampFirePlane;
         pTrigger = FindTriggerByName("fire_trig_plane03");
         if (pTrigger == 0) {
             srAssertFail("pTrigger", MASTER_FUNCTION_CPP, 0x5ee,
-                         reinterpret_cast<const char*>(
-                             String(/* reinterpret-ok: SGP rotating debug buffer */
+                         FormatString(/* reinterpret-ok: SGP rotating debug buffer */
                                     "Missing trigger '%s'! It's not in the LVL file!",
-                                    "fire_trig_plane03")));
+                                    "fire_trig_plane03"));
         }
         pTrigger->activation_callback = SwampFirePlane;
         pTrigger = FindTriggerByName("fire_trig_plane04");
         if (pTrigger == 0) {
             srAssertFail("pTrigger", MASTER_FUNCTION_CPP, 0x5ee,
-                         reinterpret_cast<const char*>(
-                             String(/* reinterpret-ok: SGP rotating debug buffer */
+                         FormatString(/* reinterpret-ok: SGP rotating debug buffer */
                                     "Missing trigger '%s'! It's not in the LVL file!",
-                                    "fire_trig_plane04")));
+                                    "fire_trig_plane04"));
         }
         pTrigger->activation_callback = SwampFirePlane;
         pTrigger = FindTriggerByName("fire_trig_plane05");
         if (pTrigger == 0) {
             srAssertFail("pTrigger", MASTER_FUNCTION_CPP, 0x5ee,
-                         reinterpret_cast<const char*>(
-                             String(/* reinterpret-ok: SGP rotating debug buffer */
+                         FormatString(/* reinterpret-ok: SGP rotating debug buffer */
                                     "Missing trigger '%s'! It's not in the LVL file!",
-                                    "fire_trig_plane05")));
+                                    "fire_trig_plane05"));
         }
         pTrigger->activation_callback = SwampFirePlane;
         pTrigger = FindTriggerByName("fire_trig_plane06");
         if (pTrigger == 0) {
             srAssertFail("pTrigger", MASTER_FUNCTION_CPP, 0x5ee,
-                         reinterpret_cast<const char*>(
-                             String(/* reinterpret-ok: SGP rotating debug buffer */
+                         FormatString(/* reinterpret-ok: SGP rotating debug buffer */
                                     "Missing trigger '%s'! It's not in the LVL file!",
-                                    "fire_trig_plane06")));
+                                    "fire_trig_plane06"));
         }
         pTrigger->activation_callback = SwampFirePlane;
         pTrigger = FindTriggerByName("fire_trig_plane07");
         if (pTrigger == 0) {
             srAssertFail("pTrigger", MASTER_FUNCTION_CPP, 0x5ee,
-                         reinterpret_cast<const char*>(
-                             String(/* reinterpret-ok: SGP rotating debug buffer */
+                         FormatString(/* reinterpret-ok: SGP rotating debug buffer */
                                     "Missing trigger '%s'! It's not in the LVL file!",
-                                    "fire_trig_plane07")));
+                                    "fire_trig_plane07"));
         }
         pTrigger->activation_callback = SwampFirePlane;
         return;

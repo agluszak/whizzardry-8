@@ -5,7 +5,6 @@
 #include "native/input_events.h"
 #include <stdio.h>
 #include <memory.h>
-#include "DEBUG.H"
 #include "input.h"
 #include "MemMan.h"
 #include "english.h"
@@ -108,7 +107,6 @@ void AdjustMouseForWindowOrigin(void);
 BOOLEAN InitializeInputManager(void)
 {
     // Link to debugger
-    RegisterDebugTopic(TOPIC_INPUT, "Input Manager");
     // Initialize the gfKeyState table to FALSE everywhere
     memset(gfKeyState, FALSE, 256);
     // Initialize the Event Queue
@@ -146,7 +144,6 @@ BOOLEAN InitializeInputManager(void)
 void ShutdownInputManager(void)
 { // There's very little to do when shutting down the input manager. In the future, this is where the keyboard and
     // mouse hooks will be destroyed
-    UnRegisterDebugTopic(TOPIC_INPUT, "Input Manager");
 }
 
 // FUNCTION: WIZ8 0x00401f90

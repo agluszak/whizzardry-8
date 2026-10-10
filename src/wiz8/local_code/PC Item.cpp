@@ -1972,8 +1972,7 @@ void ReplaceOrCreateItem(W8ItemInstance* item, int item_id, bool maximum_quantit
     if (static_cast<unsigned int>(item_id) >= gXStatus.uiItemsInDatabase) {
         srAssertFail(
             "uiItemNo < gXStatus.uiItemsInDatabase", PC_ITEM_CPP, 564,
-            reinterpret_cast<const char*>( // reinterpret-ok: String returns a logging buffer
-                String("InitNewItem: error, invalid item # %ld specified", item_id)));
+            FormatString("InitNewItem: error, invalid item # %ld specified", item_id));
     }
 
     EmptyItemRecord(item, 0, true);
@@ -3762,8 +3761,8 @@ int CastItemSpell(W8Character* character, W8ItemInstance* item, unsigned int pow
         static_cast<unsigned char>(GetSpellDifficulty(caster_figure, spell_id, power));
 
     if (strlen(record->sound_name) != 0) {
-        // reinterpret-ok: SGP's String returns UINT8* and SoundPlay takes char*
-        SoundPlay(reinterpret_cast<char*>(String(s_spell_sound_format, record->sound_name)), 0);
+
+        SoundPlay(FormatString(s_spell_sound_format, record->sound_name), 0);
     }
 
     {

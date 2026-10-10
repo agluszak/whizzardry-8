@@ -1,3 +1,5 @@
+#include "wiz8/utility.h"
+#include <SDL3/SDL_log.h>
 #include <wiz8/filesystem.h>
 #include <sstream>
 /* Modified for the Wizardry 8 reconstruction: 2026-10-03, 2026-10-06, 2026-10-07, 2026-10-09.
@@ -5,7 +7,6 @@
 #include "compat/surfaces.h"
 #include <stdio.h>
 #include <stdlib.h>
-#include "DEBUG.H"
 #include "Video2.h"
 #include "himage.h"
 #include "vsurface.h"
@@ -19,11 +20,6 @@ extern void GetClippingRect(SGPRect* clip);
 // Video Surface SGP Module
 // Second Revision: Dec 10, 1996, Andrew Emmons
 // Defines
-// This define is sent to CreateList SGP function. It dynamically re-sizes if
-// the list gets larger
-
-#define DEFAULT_NUM_REGIONS 5
-#define DEFAULT_VIDEO_SURFACE_LIST_SIZE 10
 // LOCAL functions
 
 BOOLEAN ClipReleatedSrcAndDestRectangles(HVSURFACE hDestVSurface, HVSURFACE hSrcVSurface,
@@ -83,10 +79,6 @@ void CheckValidVSurfaceIndex(UINT32 uiIndex);
 // GLOBAL: WIZ8 0x006ef4c0
 INT32 giMemUsedInSurfaces;
 
-//OBSOLETE!!!!!!!!!
-HLIST ghVideoSurfaces = NULL;
-//OBSOLETE!!!!!!!!!
-
 // GLOBAL: WIZ8 0x00650dd4
 HVSURFACE ghPrimary = NULL;
 // GLOBAL: WIZ8 0x00650dd8
@@ -104,14 +96,13 @@ BOOLEAN InitializeVideoSurfaceManager()
     //Call shutdown first...
     Assert(!gpVSurfaceHead);
     Assert(!gpVSurfaceTail);
-    RegisterDebugTopic(TOPIC_VIDEOSURFACE, "Video Surface Manager");
     gpVSurfaceHead = gpVSurfaceTail = NULL;
 
     giMemUsedInSurfaces = 0;
 
     // Create primary and backbuffer from globals
     if (!SetPrimaryVideoSurfaces()) {
-        DbgMessage(TOPIC_VIDEOSURFACE, DBG_LEVEL_1, String("Could not create primary surfaces"));
+        SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Could not create primary surfaces");
         return FALSE;
     }
 
@@ -123,7 +114,7 @@ BOOLEAN ShutdownVideoSurfaceManager()
 {
     VSURFACE_NODE* curr;
 
-    DbgMessage(TOPIC_VIDEOSURFACE, DBG_LEVEL_0, "Shutting down the Video Surface manager");
+    SDL_LogDebug(SDL_LOG_CATEGORY_APPLICATION, "%s", "Shutting down the Video Surface manager");
 
     // Delete primary viedeo surfaces
     DeletePrimaryVideoSurfaces();
@@ -145,7 +136,6 @@ BOOLEAN ShutdownVideoSurfaceManager()
     guiVSurfaceIndex = 0;
     guiVSurfaceSize = 0;
     guiVSurfaceTotalAdded = 0;
-    UnRegisterDebugTopic(TOPIC_VIDEOSURFACE, "Video Objects");
     return TRUE;
 }
 
@@ -593,7 +583,6 @@ HVSURFACE CreateVideoSurface(VSURFACE_DESC* VSurfaceDesc)
     result->usHeight = height;
     result->ubBitDepth = bits;
     result->fFlags = VSURFACE_SYSTEM_MEM_USAGE;
-    result->RegionList = CreateList(DEFAULT_NUM_REGIONS, sizeof(VSURFACE_REGION));
     result->TransparentColor = FROMRGB(0, 0, 0);
     if (image) {
         if (image->fFlags & IMAGE_PALETTE)
@@ -705,8 +694,7 @@ BOOLEAN SetVideoSurfaceDataFromHImage(HVSURFACE hVSurface, HIMAGE hImage, UINT16
     // This HIMAGE function will transparently copy buffer
     if (!CopyImageToBuffer(hImage, fBufferBPP, pDest, usEffectiveWidth, hVSurface->usHeight, usX,
                            usY, &aRect)) {
-        DbgMessage(TOPIC_VIDEOSURFACE, DBG_LEVEL_2,
-                   String("Error Occured Copying HIMAGE to HVSURFACE"));
+        SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Error Occured Copying HIMAGE to HVSURFACE");
         UnLockVideoSurfaceBuffer(hVSurface);
         return (FALSE);
     }
@@ -804,7 +792,6 @@ BOOLEAN DeleteVideoSurfaceFromIndex(UINT32 uiIndex)
 BOOLEAN DeleteVideoSurface(HVSURFACE hVSurface)
 {
     CHECKF(hVSurface != NULL);
-    DeleteList(hVSurface->RegionList);
     if (hVSurface->p16BPPPalette)
         MemFree(hVSurface->p16BPPPalette);
     if (hVSurface->ownedSurface)
@@ -837,11 +824,11 @@ BOOLEAN GetVSurfaceRegion(HVSURFACE hVSurface, UINT16 usIndex, VSURFACE_REGION* 
 {
     Assert(hVSurface != NULL);
 
-    if (!PeekList(hVSurface->RegionList, aRegion, usIndex)) {
-        return (FALSE);
+    if (!aRegion || usIndex >= hVSurface->RegionList.size()) {
+        return FALSE;
     }
-
-    return (TRUE);
+    *aRegion = hVSurface->RegionList[usIndex];
+    return TRUE;
 }
 
 BOOLEAN GetVSurfaceRect(HVSURFACE hVSurface, RECT* pRect)
@@ -880,7 +867,7 @@ BOOLEAN BltVideoSurfaceToVideoSurface(HVSURFACE hDestVSurface, HVSURFACE hSrcVSu
 
     // Check that both region and subrect are not given
     if ((fBltFlags & VS_BLT_SRCREGION) && (fBltFlags & VS_BLT_SRCSUBRECT)) {
-        DbgMessage(TOPIC_VIDEOSURFACE, DBG_LEVEL_2, String("Inconsistant blit flags given"));
+        SDL_LogDebug(SDL_LOG_CATEGORY_APPLICATION, "Inconsistant blit flags given");
         return (FALSE);
     }
 
@@ -936,13 +923,11 @@ BOOLEAN BltVideoSurfaceToVideoSurface(HVSURFACE hDestVSurface, HVSURFACE hSrcVSu
         // Here, use default, which is entire Video Surface
         // Check Sizes, SRC size MUST be <= DEST size
         if (hDestVSurface->usHeight < hSrcVSurface->usHeight) {
-            DbgMessage(TOPIC_VIDEOSURFACE, DBG_LEVEL_2,
-                       String("Incompatible height size given in Video Surface blit"));
+            SDL_LogDebug(SDL_LOG_CATEGORY_APPLICATION, "Incompatible height size given in Video Surface blit");
             return (FALSE);
         }
         if (hDestVSurface->usWidth < hSrcVSurface->usWidth) {
-            DbgMessage(TOPIC_VIDEOSURFACE, DBG_LEVEL_2,
-                       String("Incompatible height size given in Video Surface blit"));
+            SDL_LogDebug(SDL_LOG_CATEGORY_APPLICATION, "Incompatible height size given in Video Surface blit");
             return (FALSE);
         }
 
@@ -1000,16 +985,14 @@ BOOLEAN BltVideoSurfaceToVideoSurface(HVSURFACE hDestVSurface, HVSURFACE hSrcVSu
         if (fBltFlags & VS_BLT_MIRROR_Y) {
             if ((pSrcSurface16 = (UINT16*)LockVideoSurfaceBuffer(hSrcVSurface, &uiSrcPitch)) ==
                 NULL) {
-                DbgMessage(TOPIC_VIDEOSURFACE, DBG_LEVEL_2,
-                           String("Failed on lock of 16BPP surface for blitting"));
+                SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Failed on lock of 16BPP surface for blitting");
                 return (FALSE);
             }
 
             if ((pDestSurface16 = (UINT16*)LockVideoSurfaceBuffer(hDestVSurface, &uiDestPitch)) ==
                 NULL) {
                 UnLockVideoSurfaceBuffer(hSrcVSurface);
-                DbgMessage(TOPIC_VIDEOSURFACE, DBG_LEVEL_2,
-                           String("Failed on lock of 16BPP dest surface for blitting"));
+                SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Failed on lock of 16BPP dest surface for blitting");
                 return (FALSE);
             }
 
@@ -1026,8 +1009,7 @@ BOOLEAN BltVideoSurfaceToVideoSurface(HVSURFACE hDestVSurface, HVSURFACE hSrcVSu
         return BltVSurfaceUsingSDL(hDestVSurface, hSrcVSurface, fBltFlags,
                                   iDestX, iDestY, &SrcRect);
     } else {
-        DbgMessage(TOPIC_VIDEOSURFACE, DBG_LEVEL_2,
-                   String("Incompatible BPP values with src and dest Video Surfaces for blitting"));
+        SDL_LogDebug(SDL_LOG_CATEGORY_APPLICATION, "Incompatible BPP values with src and dest Video Surfaces for blitting");
         return (FALSE);
     }
 
@@ -1056,7 +1038,6 @@ HVSURFACE CreateVideoSurfaceFromCpuSurface(CpuSurface* cpuSurface)
     result->ubBitDepth = SDL_BYTESPERPIXEL(surface.format) * 8;
     result->surface = cpuSurface;
     result->fFlags = VSURFACE_SYSTEM_MEM_USAGE | VSURFACE_RESERVED_SURFACE;
-    result->RegionList = CreateList(DEFAULT_NUM_REGIONS, sizeof(VSURFACE_REGION));
     if (const auto* palette = SDL_GetSurfacePalette(cpuSurface->surface.get())) {
         for (int i = 0; i < std::min(256, palette->ncolors); ++i)
             result->palette[i] = {palette->colors[i].r, palette->colors[i].g,
@@ -1345,9 +1326,9 @@ void CheckValidVSurfaceIndex(UINT32 uiIndex)
             break;
         }
         if (uiIndex == 0xffffffff) {
-            AssertMsg(0, String("Trying to %s with deleted index -1.", str));
+            AssertMsg(0, FormatString("Trying to %s with deleted index -1.", str));
         } else {
-            AssertMsg(0, String("Trying to %s using a VOBJECT ID %d!", str, uiIndex));
+            AssertMsg(0, FormatString("Trying to %s using a VOBJECT ID %d!", str, uiIndex));
         }
     }
 }

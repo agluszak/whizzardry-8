@@ -1,3 +1,4 @@
+#include "wiz8/utility.h"
 #include "wiz8/engine_code/OctPreTree.h"
 #include "wiz8/engine_code/3d.h"
 #include "wiz8/engine_code/GDProp.h"
@@ -13,7 +14,6 @@
 #include "wiz8/vector.h"
 
 #include "FileMan.h"
-#include "DEBUG.H"
 
 #include <math.h>
 #include <stdio.h>
@@ -1584,9 +1584,8 @@ int OctPreTree::CreatePathProps(W8LevelFile* level, W8PreProp** preprops)
                             "(UINT16)(pLVL->pProps[i].bNumFrames))", /* c-style-cast-ok: verbatim
                                 retail assertion text, kept for .rdata match */
                             OCTPRETREE_CPP, 0x8b4,
-                            reinterpret_cast<const char*>( // reinterpret-ok: String returns UINT8*
-                                String("%s Prop Error:Segment frame number %d is out of range",
-                                       prop->name, frame)));
+                            FormatString("%s Prop Error:Segment frame number %d is out of range",
+                                       prop->name, frame));
                     }
                     record->pStopMeshes[j].ApplyAnimFrame(frame, &prop->anim_obj);
                     record->pStopMeshes[j].ComputeBounds(&bounds.minimum, &bounds.maximum);

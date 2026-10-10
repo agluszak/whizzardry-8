@@ -1,10 +1,10 @@
+#include <SDL3/SDL_log.h>
 /* Modified for the Wizardry 8 reconstruction: 2026-10-03, 2026-10-06, 2026-10-07, 2026-10-09, 2026-10-10.
    Distributed under the accompanying SFI Source Code license agreement. */
 // Filename: MemMan.cpp
 // Purpose: engine memory allocation diagnostics
 
 #include "MemMan.h"
-#include "DEBUG.H"
 #include <cstdlib>
 #if defined(_DEBUG) || defined(EXTREME_MEMORY_DEBUGGING)
 #include <map>
@@ -44,9 +44,8 @@ PTR AllocateTracked(UINT32 size, const char* sourceFile, INT32 line, PTR special
 
     const std::lock_guard lock(allocationMutex);
     if (!fMemManagerInit) {
-        DbgMessage(TOPIC_MEMORY_MANAGER, DBG_LEVEL_0,
-                   String("MemAlloc: memory manager not initialized (line %d file %s)",
-                          line, sourceFile));
+        SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "MemAlloc: memory manager not initialized (line %d file %s)",
+                          line, sourceFile);
     }
 
     // Payloads remain ordinary malloc blocks; metadata never changes their alignment.
@@ -66,9 +65,8 @@ PTR AllocateTracked(UINT32 size, const char* sourceFile, INT32 line, PTR special
     guiMemTotal += size;
     guiMemAlloced += size;
 #ifdef DEBUG_MEM_LEAKS
-    DbgMessage(TOPIC_MEMORY_MANAGER, DBG_LEVEL_1,
-               String("MemAlloc %p: %u requested bytes (line %d file %s)",
-                      ptr, size, line, sourceFile));
+    SDL_LogDebug(SDL_LOG_CATEGORY_APPLICATION, "MemAlloc %p: %u requested bytes (line %d file %s)",
+                      ptr, size, line, sourceFile);
 #endif
     return ptr;
 }
@@ -82,9 +80,8 @@ void FreeTracked(PTR ptr, [[maybe_unused]] const char* sourceFile,
     const auto found = allocations.find(ptr);
     if (found != allocations.end()) {
 #ifdef DEBUG_MEM_LEAKS
-        DbgMessage(TOPIC_MEMORY_MANAGER, DBG_LEVEL_1,
-                   String("MemFree %p: %u requested bytes (line %d file %s)",
-                          ptr, found->second.size, line, sourceFile));
+        SDL_LogDebug(SDL_LOG_CATEGORY_APPLICATION, "MemFree %p: %u requested bytes (line %d file %s)",
+                          ptr, found->second.size, line, sourceFile);
 #endif
         guiMemTotal -= found->second.size;
         guiMemFreed += found->second.size;
@@ -137,9 +134,8 @@ PTR ReallocateTracked(PTR ptr, UINT32 size, const char* sourceFile, INT32 line, 
     guiMemFreed += oldSize;
     guiMemAlloced += size;
 #ifdef DEBUG_MEM_LEAKS
-    DbgMessage(TOPIC_MEMORY_MANAGER, DBG_LEVEL_1,
-               String("MemRealloc %p: %u -> %u requested bytes (line %d file %s)",
-                      replacement, oldSize, size, line, sourceFile));
+    SDL_LogDebug(SDL_LOG_CATEGORY_APPLICATION, "MemRealloc %p: %u -> %u requested bytes (line %d file %s)",
+                      replacement, oldSize, size, line, sourceFile);
 #endif
     return replacement;
 }
@@ -153,7 +149,6 @@ BOOLEAN InitializeMemoryManager(void)
 #endif
     if (fMemManagerInit)
         return TRUE;
-    RegisterDebugTopic(TOPIC_MEMORY_MANAGER, "Memory Manager");
 #if defined(_DEBUG) || defined(EXTREME_MEMORY_DEBUGGING)
     if (allocations.empty())
 #endif
@@ -173,15 +168,12 @@ void ShutdownMemoryManager(void)
     const std::lock_guard lock(allocationMutex);
 #endif
     if (MemDebugCounter != 0) {
-        DbgMessage(TOPIC_MEMORY_MANAGER, DBG_LEVEL_0,
-                   String("MEMORY LEAK: %u tracked blocks, %llu requested bytes still allocated",
-                          MemDebugCounter, static_cast<unsigned long long>(guiMemTotal)));
-        DbgMessage(TOPIC_MEMORY_MANAGER, DBG_LEVEL_0,
-                   String("%llu requested bytes allocated, %llu requested bytes freed",
+        SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "MEMORY LEAK: %u tracked blocks, %llu requested bytes still allocated",
+                          MemDebugCounter, static_cast<unsigned long long>(guiMemTotal));
+        SDL_LogDebug(SDL_LOG_CATEGORY_APPLICATION, "%llu requested bytes allocated, %llu requested bytes freed",
                           static_cast<unsigned long long>(guiMemAlloced),
-                          static_cast<unsigned long long>(guiMemFreed)));
+                          static_cast<unsigned long long>(guiMemFreed));
     }
-    UnRegisterDebugTopic(TOPIC_MEMORY_MANAGER, "Memory Manager Un-initialized");
     fMemManagerInit = FALSE;
 }
 

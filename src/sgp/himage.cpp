@@ -1,10 +1,10 @@
+#include <SDL3/SDL_log.h>
 /* Modified for the Wizardry 8 reconstruction: 2026-10-03, 2026-10-06, 2026-10-07.
    Distributed under the accompanying SFI Source Code license agreement. */
 #include <math.h>
 #include <stdlib.h>
 #include "Types.h"
 #include "string.h"
-#include "DEBUG.H"
 #include "FileMan.h"
 #include "himage.h"
 #include <SDL3_image/SDL_image.h>
@@ -260,8 +260,7 @@ try
     // Determine if resource exists before creating image structure
     if (!FileExists(path.data())) {
         //If in debig, make fatal!
-        DbgMessage(TOPIC_HIMAGE, DBG_LEVEL_2,
-                   String("Resource file %s does not exist.", ImageFile));
+        SDL_LogDebug(SDL_LOG_CATEGORY_APPLICATION, "Resource file %s does not exist.", ImageFile);
         return (NULL);
     }
 
@@ -369,11 +368,11 @@ BOOLEAN LoadImageData(HIMAGE hImage, UINT16 fContents)
 
     default:
 
-        DbgMessage(TOPIC_HIMAGE, DBG_LEVEL_2, "Unknown image loader was specified.");
+        SDL_LogDebug(SDL_LOG_CATEGORY_APPLICATION, "%s", "Unknown image loader was specified.");
     }
 
     if (!fReturnVal) {
-        DbgMessage(TOPIC_HIMAGE, DBG_LEVEL_2, "Error occured while reading image data.");
+        SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "%s", "Error occured while reading image data.");
     }
 
     return (fReturnVal);
@@ -389,14 +388,14 @@ BOOLEAN CopyImageToBuffer(HIMAGE hImage, UINT32 fBufferType, BYTE* pDestBuf, UIN
     if (hImage->ubBitDepth == 8 && fBufferType == BUFFER_8BPP) {
 #ifndef NO_ZLIB_COMPRESSION
         if (hImage->fFlags & IMAGE_COMPRESSED) {
-            DbgMessage(TOPIC_HIMAGE, DBG_LEVEL_2, "Copying Compressed 8 BPP Imagery.");
+            SDL_LogDebug(SDL_LOG_CATEGORY_APPLICATION, "%s", "Copying Compressed 8 BPP Imagery.");
             return (Copy8BPPCompressedImageTo8BPPBuffer(hImage, pDestBuf, usDestWidth, usDestHeight,
                                                         usX, usY, srcRect));
         }
 #endif
 
         // Default do here
-        DbgMessage(TOPIC_HIMAGE, DBG_LEVEL_2, "Copying 8 BPP Imagery.");
+        SDL_LogDebug(SDL_LOG_CATEGORY_APPLICATION, "%s", "Copying 8 BPP Imagery.");
         return (Copy8BPPImageTo8BPPBuffer(hImage, pDestBuf, usDestWidth, usDestHeight, usX, usY,
                                           srcRect));
     }
@@ -404,15 +403,14 @@ BOOLEAN CopyImageToBuffer(HIMAGE hImage, UINT32 fBufferType, BYTE* pDestBuf, UIN
     if (hImage->ubBitDepth == 8 && fBufferType == BUFFER_16BPP) {
 #ifndef NO_ZLIB_COMPRESSION
         if (hImage->fFlags & IMAGE_COMPRESSED) {
-            DbgMessage(TOPIC_HIMAGE, DBG_LEVEL_3,
-                       "Copying Compressed 8 BPP Imagery to 16BPP Buffer.");
+            SDL_LogDebug(SDL_LOG_CATEGORY_APPLICATION, "%s", "Copying Compressed 8 BPP Imagery to 16BPP Buffer.");
             return (Copy8BPPCompressedImageTo16BPPBuffer(hImage, pDestBuf, usDestWidth,
                                                          usDestHeight, usX, usY, srcRect));
         }
 #endif
 
         // Default do here
-        DbgMessage(TOPIC_HIMAGE, DBG_LEVEL_3, "Copying 8 BPP Imagery to 16BPP Buffer.");
+        SDL_LogDebug(SDL_LOG_CATEGORY_APPLICATION, "%s", "Copying 8 BPP Imagery to 16BPP Buffer.");
         return (Copy8BPPImageTo16BPPBuffer(hImage, pDestBuf, usDestWidth, usDestHeight, usX, usY,
                                            srcRect));
     }
@@ -420,14 +418,13 @@ BOOLEAN CopyImageToBuffer(HIMAGE hImage, UINT32 fBufferType, BYTE* pDestBuf, UIN
     if (hImage->ubBitDepth == 16 && fBufferType == BUFFER_16BPP) {
 #ifndef NO_ZLIB_COMPRESSION
         if (hImage->fFlags & IMAGE_COMPRESSED) {
-            DbgMessage(TOPIC_HIMAGE, DBG_LEVEL_3,
-                       "Automatically Copying Compressed 16 BPP Imagery.");
+            SDL_LogDebug(SDL_LOG_CATEGORY_APPLICATION, "%s", "Automatically Copying Compressed 16 BPP Imagery.");
             return (Copy16BPPCompressedImageTo16BPPBuffer(hImage, pDestBuf, usDestWidth,
                                                           usDestHeight, usX, usY, srcRect));
         }
 #endif
 
-        DbgMessage(TOPIC_HIMAGE, DBG_LEVEL_3, "Automatically Copying 16 BPP Imagery.");
+        SDL_LogDebug(SDL_LOG_CATEGORY_APPLICATION, "%s", "Automatically Copying 16 BPP Imagery.");
         return (Copy16BPPImageTo16BPPBuffer(hImage, pDestBuf, usDestWidth, usDestHeight, usX, usY,
                                             srcRect));
     }
@@ -466,7 +463,7 @@ BOOLEAN Copy8BPPCompressedImageTo8BPPBuffer(HIMAGE hImage, BYTE* pDestBuf, UINT1
     CHECKF(srcRect->iRight > srcRect->iLeft);
     CHECKF(srcRect->iBottom > srcRect->iTop);
 
-    DbgMessage(TOPIC_HIMAGE, DBG_LEVEL_3, "8BPP to 8BPP Compressed Blitter Called!");
+    SDL_LogDebug(SDL_LOG_CATEGORY_APPLICATION, "%s", "8BPP to 8BPP Compressed Blitter Called!");
     // determine where to start Copying and rectangle size
     uiDestStart = usY * usDestWidth + usX;
     uiNumLines = srcRect->iBottom - srcRect->iTop;
@@ -546,7 +543,7 @@ BOOLEAN Copy8BPPCompressedImageTo16BPPBuffer(HIMAGE hImage, BYTE* pDestBuf, UINT
     // Assertions
     Assert(hImage != NULL);
     Assert(hImage->pCompressedImageData != NULL);
-    DbgMessage(TOPIC_HIMAGE, DBG_LEVEL_3, "Start check");
+    SDL_LogDebug(SDL_LOG_CATEGORY_APPLICATION, "%s", "Start check");
     // Validations
     CHECKF(usX >= 0);
     CHECKF(usX < usDestWidth);
@@ -554,7 +551,7 @@ BOOLEAN Copy8BPPCompressedImageTo16BPPBuffer(HIMAGE hImage, BYTE* pDestBuf, UINT
     CHECKF(usY < usDestHeight);
     CHECKF(srcRect->iRight > srcRect->iLeft);
     CHECKF(srcRect->iBottom > srcRect->iTop);
-    DbgMessage(TOPIC_HIMAGE, DBG_LEVEL_3, "End check");
+    SDL_LogDebug(SDL_LOG_CATEGORY_APPLICATION, "%s", "End check");
     p16BPPPalette = hImage->pui16BPPPalette;
 
     // determine where to start Copying and rectangle size
@@ -567,7 +564,7 @@ BOOLEAN Copy8BPPCompressedImageTo16BPPBuffer(HIMAGE hImage, BYTE* pDestBuf, UINT
 
     pDest = (UINT16*)pDestBuf;
     pDest += uiDestStart;
-    DbgMessage(TOPIC_HIMAGE, DBG_LEVEL_3, String("Start Copying at %p", pDest));
+    SDL_LogDebug(SDL_LOG_CATEGORY_APPLICATION, "Start Copying at %p", pDest);
 
     // Copying a portion of a compressed image is rather messy
     // because we have to decompress past all the data we want
@@ -592,12 +589,12 @@ BOOLEAN Copy8BPPCompressedImageTo16BPPBuffer(HIMAGE hImage, BYTE* pDestBuf, UINT
 
     // go past all the scanlines we don't need to process
     for (uiLine = 0; uiLine < (UINT32)srcRect->iTop; uiLine++) {
-        DbgMessage(TOPIC_HIMAGE, DBG_LEVEL_3, "Skipping scanline");
+        SDL_LogDebug(SDL_LOG_CATEGORY_APPLICATION, "%s", "Skipping scanline");
         uiDecompressed = Decompress(pDecompPtr, pScanLine, hImage->usWidth);
         Assert(uiDecompressed == hImage->usWidth);
     }
 
-    DbgMessage(TOPIC_HIMAGE, DBG_LEVEL_3, "Actually Copying");
+    SDL_LogDebug(SDL_LOG_CATEGORY_APPLICATION, "%s", "Actually Copying");
     // now we start Copying
     for (uiLine = 0; uiLine < uiNumLines - 1; uiLine++) {
         // decompress a scanline
@@ -615,7 +612,7 @@ BOOLEAN Copy8BPPCompressedImageTo16BPPBuffer(HIMAGE hImage, BYTE* pDestBuf, UINT
         pDest += usDestWidth;
     }
 
-    DbgMessage(TOPIC_HIMAGE, DBG_LEVEL_3, String("End Copying at %p", pDest));
+    SDL_LogDebug(SDL_LOG_CATEGORY_APPLICATION, "End Copying at %p", pDest);
 
     return (TRUE);
 }
@@ -625,8 +622,7 @@ BOOLEAN Copy16BPPCompressedImageTo16BPPBuffer(HIMAGE hImage, BYTE* pDestBuf, UIN
                                               SGPRect* srcRect)
 {
     // 16BPP Compressed image has not been implemented yet
-    DbgMessage(TOPIC_HIMAGE, DBG_LEVEL_2,
-               "16BPP Compressed imagery blitter has not been implemented yet.");
+    SDL_LogDebug(SDL_LOG_CATEGORY_APPLICATION, "%s", "16BPP Compressed imagery blitter has not been implemented yet.");
     return (FALSE);
 }
 #endif //NO_ZLIB_COMPRESSION
@@ -755,7 +751,7 @@ BOOLEAN Copy8BPPImageTo16BPPBuffer(HIMAGE hImage, BYTE* pDestBuf, UINT16 usDestW
     // Convert to Pixel specification
     pDest = (UINT16*)pDestBuf + uiDestStart;
     pSrc = hImage->p8BPPData + uiSrcStart;
-    DbgMessage(TOPIC_HIMAGE, DBG_LEVEL_3, String("Start Copying at %p", pDest));
+    SDL_LogDebug(SDL_LOG_CATEGORY_APPLICATION, "Start Copying at %p", pDest);
 
     // For every entry, look up into 16BPP palette
     for (rows = 0; rows < uiNumLines - 1; rows++) {
@@ -772,7 +768,7 @@ BOOLEAN Copy8BPPImageTo16BPPBuffer(HIMAGE hImage, BYTE* pDestBuf, UINT16 usDestW
         pSrc += hImage->usWidth;
     }
     // Do last line
-    DbgMessage(TOPIC_HIMAGE, DBG_LEVEL_3, String("End Copying at %p", pDest));
+    SDL_LogDebug(SDL_LOG_CATEGORY_APPLICATION, "End Copying at %p", pDest);
 
     return (TRUE);
 }
