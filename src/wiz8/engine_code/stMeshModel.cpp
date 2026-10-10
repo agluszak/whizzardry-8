@@ -94,67 +94,49 @@ int stMeshModel::getBoundingBox(srVector3T<float>& minimum, srVector3T<float>& m
 // FUNCTION: WIZ8 0x00471E10
 void stMeshModel::CalculateLinkedBounds()
 {
-    bounds_minimum.SetZero();
-    bounds_maximum.SetZero();
-    bounds_center.SetZero();
-    bounds_radius = 0;
-
     stMeshModel* first = head ? head : this;
-    srVector3T<float> minimum;
-    srVector3T<float> maximum;
-    minimum.SetZero();
-    maximum.SetZero();
-    for (stMeshModel* model : Meshes(first)) {
-        for (unsigned int frame = 0; frame < std::max(size_t{1}, model->frames.size()); ++frame) {
-            srVector3T<float> frame_minimum;
-            srVector3T<float> frame_maximum;
-            if ((model->flags & W8_MESH_HAS_FRAME_STORAGE) == 0) {
-                model->srMeshModel::getBoundingBox(frame_minimum, frame_maximum);
-            } else {
-                model->GetFrameBounds(frame, &frame_minimum, &frame_maximum);
-            }
-            if (frame_minimum.x < minimum.x) {
-                minimum.x = frame_minimum.x;
-            }
-            if (frame_minimum.y < minimum.y) {
-                minimum.y = frame_minimum.y;
-            }
-            if (frame_minimum.z < minimum.z) {
-                minimum.z = frame_minimum.z;
-            }
-            if (maximum.x < frame_maximum.x) {
-                maximum.x = frame_maximum.x;
-            }
-            if (maximum.y < frame_maximum.y) {
-                maximum.y = frame_maximum.y;
-            }
-            if (maximum.z < frame_maximum.z) {
-                maximum.z = frame_maximum.z;
-            }
+
+    srBoundingBox box;
+    bool has_vertices = false;
+    for (auto* model : Meshes(first)) {
+        if (model->vertex_location_count == 0)
+            continue;
+        for (std::size_t frame = 0; frame < std::max(size_t{1}, model->frames.size()); ++frame) {
+            srVector3 minimum, maximum;
+            if (model->flags & W8_MESH_HAS_FRAME_STORAGE)
+                model->GetFrameBounds(frame, &minimum, &maximum);
+            else
+                model->srMeshModel::getBoundingBox(minimum, maximum);
+            const srBoundingBox frame_box{minimum.glmValue(), maximum.glmValue()};
+            if (has_vertices)
+                box.include(frame_box);
+            else
+                box = frame_box;
+            has_vertices = true;
         }
     }
-
-    srVector3T<float> center;
-    center.Set((maximum.x + minimum.x) * g_double_half, (maximum.y + minimum.y) * g_double_half,
-               (maximum.z + minimum.z) * g_double_half);
-    float radius = static_cast<float>(sqrt((maximum.x - center.x) * (maximum.x - center.x) +
-                                           (maximum.y - center.y) * (maximum.y - center.y) +
-                                           (maximum.z - center.z) * (maximum.z - center.z)));
-    float minimum_distance =
-        static_cast<float>(sqrt((minimum.x - center.x) * (minimum.x - center.x) +
-                                (minimum.y - center.y) * (minimum.y - center.y) +
-                                (minimum.z - center.z) * (minimum.z - center.z)));
-    if (radius < minimum_distance) {
-        radius = minimum_distance;
-    }
-    for (stMeshModel* model : Meshes(first)) {
-        model->setBounds(minimum, maximum, center, radius);
-    }
+    const auto center = box.center();
+    const float radius = glm::distance(box.maximum, center);
+    for (auto* model : Meshes(first))
+        model->setBounds(box.minimum, box.maximum, center, radius);
 }
 
-/* Bounds `frame`'s vertex table into `minimum`/`maximum`. When the frame is
-   not resident it is decompressed into a scratch array that is released
-   afterward; empty tables produce the zero vector on both outputs. */
+/* Reveal nearby vertices in world space, preserving already explored vertices. */
+void stMeshModel::RevealVerticesNear(const glm::vec3& position, float range, const glm::mat4& world)
+{
+    if (vertex_location_count == 0 || !(range >= 0))
+        return;
+    auto* lights = GetVertexLights(true, -1);
+    const auto* vertices =
+        (flags & W8_MESH_HAS_FRAME_STORAGE) ? GetVertexLocations(0, true, 0.0f) : getVertexLoc();
+    for (int i = 0; i < vertex_location_count; ++i) {
+        const auto point = glm::vec3(world * glm::vec4(vertices[i].glmValue(), 1));
+        if (glm::distance(point, position) <= range) {
+            lights[i] = 1.0f;
+            flags |= W8_MESH_VERTEX_LIGHTING_DIRTY;
+        }
+    }
+}
 // FUNCTION: WIZ8 0x00473190
 void stMeshModel::GetFrameBounds(int frame, srVector3T<float>* minimum, srVector3T<float>* maximum)
 {
@@ -564,20 +546,7 @@ int __fastcall IsZeroVector(const srVector3T<float>* vector)
 /* Copy or translate `count` vertices: a zero offset is a plain copy and a
    nonzero one goes through the vp constant-vector add. */
 // FUNCTION: WIZ8 0x00470040
-void OffsetVertices(srVector3T<float>* destination, const srVector3T<float>* source,
-                    const srVector3T<float>* offset, int count)
-{
-    if (count != 0) {
-        if (IsZeroVector(offset) != 0) {
-            if (destination != source) {
-                std::copy_n(source, count, destination);
-            }
-        } else {
-            for (int i = 0; i < count; ++i)
-                destination[i] = offset->glmValue() + source[i].glmValue();
-        }
-    }
-}
+
 
 static bool MeshNameEquals(std::string_view left, std::string_view right)
 {

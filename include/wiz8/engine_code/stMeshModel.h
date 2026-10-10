@@ -45,6 +45,7 @@ public:
     /* Recomputes the union bounds over the head and its parts and pushes them
        to each mesh via srMeshModel::setBounds. */
     void CalculateLinkedBounds();                 /* 0x00471e10 */
+    void RevealVerticesNear(const glm::vec3& position, float range, const glm::mat4& world);
     virtual const TriMesh& getTriMesh() override; /* 0x00472270 */
     virtual void renderTriMesh(class srGERD& renderer,
                                const TriMesh& mesh) override; /* 0x00470360 */
@@ -179,13 +180,8 @@ extern int g_decompressed_mesh_bytes; /* 0x0065A0E8 */
    RenderTriMeshWithEquations when an equation table is supplied. */
 extern std::vector<w8_ulong> g_software_cull_active_polygons; /* 0x00659CE0 */
 
-/* True when all three components of the vector are zero; the vertex-lighting
-   code uses it to decide between a plain copy and a per-vertex offset. */
+/* True when all three components of the vector are zero. */
 int __fastcall IsZeroVector(const srVector3T<float>* vector);
-/* dest[i] = source[i] + offset for `count` vectors, or a plain copy when the
-   offset is zero. */
-void OffsetVertices(srVector3T<float>* destination, const srVector3T<float>* source,
-                    const srVector3T<float>* offset, int count);
 /* Release least-recently-used decompressed frame caches until `needed` bytes
    have been freed; 0 when the registry cannot supply them. A requesting model
    is retained because its renderer may already hold borrowed frame pointers. */
