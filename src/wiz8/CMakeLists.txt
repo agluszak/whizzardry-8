@@ -250,6 +250,14 @@ if(WIZ8_UNITY_BUILD)
     # in a unity source would introduce a duplicate definition.
     set_source_files_properties(engine_code/OctPreTree.cpp
         PROPERTIES SKIP_UNITY_BUILD_INCLUSION ON)
+    # Tests intentionally override symbols from these large components. They
+    # must remain separate archive members so the linker can omit them when
+    # the test supplies its own implementation.
+    set_source_files_properties(
+        ../sgp/vsurface.cpp
+        engine_code/GameData.cpp
+        engine_code/Video2.cpp
+        PROPERTIES SKIP_UNITY_BUILD_INCLUSION ON)
     set_target_properties(WIZ8_GAME_CORE PROPERTIES
         UNITY_BUILD ON UNITY_BUILD_BATCH_SIZE ${WIZ8_UNITY_BATCH_SIZE})
 endif()
