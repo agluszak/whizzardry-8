@@ -425,8 +425,9 @@ static W8MeshOrder* ComputeMeshOrder(W8MeshOrderInfo* info, w8_ulong flags)
             }
         }
         std::ranges::sort(
-        std::views::zip(std::span(first_use + start, info->vertex_count - start), std::span(order->vertices + start, info->vertex_count - start)), {},
-        [](const auto& entry) { return std::get<0>(entry); });
+            std::views::zip(std::span(first_use + start, info->vertex_count - start),
+                            std::span(order->vertices + start, info->vertex_count - start)), {},
+            [](const auto& entry) { return std::get<0>(entry); });
 
         delete[] remapped;
         delete[] inverse;

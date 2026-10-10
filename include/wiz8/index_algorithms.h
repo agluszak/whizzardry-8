@@ -3,7 +3,7 @@
 #include <algorithm>
 #include <iterator>
 #include <unordered_map>
-#include <vector>
+#include <utility>
 
 // These indexes store borrowed pointers or numeric IDs. Standard containers
 // own only the index nodes; their values keep the existing game ownership.
@@ -12,19 +12,14 @@
 template<class Index>
 void InsertIndexValue(Index& index, typename Index::key_type key, typename Index::mapped_type value)
 {
-    auto [first, last] = index.equal_range(key);
+    const auto first = index.equal_range(key).first;
     const auto inserted = index.emplace_hint(first, key, value);
-    auto [begin, end] = index.equal_range(key);
-    // A conforming implementation may ignore the hint. Explicitly rotate the
-    // new value to the front rather than depend on library insertion order.
-    if (inserted != begin) {
-        std::vector<typename Index::mapped_type> values{value};
-        for (auto item = begin; item != end; ++item) {
-            if (item != inserted) values.push_back(item->second);
-        }
-        auto output = values.begin();
-        for (auto item = begin; item != end; ++item) item->second = *output++;
+    // A conforming implementation may ignore the hint. Shift preceding values
+    // one slot back so the new value is first without allocating scratch storage.
+    for (auto item = index.equal_range(key).first; item != inserted; ++item) {
+        std::swap(value, item->second);
     }
+    inserted->second = value;
 }
 
 template<class Index>

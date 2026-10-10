@@ -362,7 +362,6 @@ static unsigned char PreprocessLevel(wiz8::File* handle, char* stem)
     lights = 0;
     {
         std::unordered_multimap<unsigned int, int> weld;
-        weld.clear();
         sun_pool = 0;
         level = ReadLevelFile(handle);
         if (level == 0) {
@@ -1147,7 +1146,6 @@ static int BuildRegionPolygons(W8LevelFile* level, W8OctPreTreeGeometry* geometr
     W8OctPreTreeVertex* created;
 
     std::unordered_multimap<unsigned int, int> weld_table;
-    weld_table.clear();
     kind_counts[0] = 0;
     kind_counts[1] = 0;
     kind_counts[2] = 0;
