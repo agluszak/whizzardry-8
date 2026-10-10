@@ -383,7 +383,7 @@ static void SubMenuButtonToggleCombat(W8DialogButton* button)
 void DestroySubMenuPanel()
 {
     DestroyControlPanel(gpSubMenuPanel);
-    DestroyTextControls(g_submenu_rows, 5);
+    for (auto& row : g_submenu_rows) row = nullptr;
 }
 
 /* Drop the combat-end notification and tear down the panel and its rows.

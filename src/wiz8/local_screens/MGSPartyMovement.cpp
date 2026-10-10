@@ -96,8 +96,8 @@ void ReleasePartyMovement(void)
     }
     RequestRedraw(W8_MAIN_REDRAW_PORTRAIT_PANEL);
     RegionSetDisable(0x1c);
-    DestroyTextControls(g_party_movement_buttons, 2);
     DestroyControlPanel(g_party_movement_panel);
+    for (auto& button : g_party_movement_buttons) button = nullptr;
     if (g_party_movement_caption != 0) {
         delete g_party_movement_caption;
         g_party_movement_caption = 0;

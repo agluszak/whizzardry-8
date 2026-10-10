@@ -728,7 +728,7 @@ void CloseKeyboardMenu(void)
                          g_keyboard_menu_panel->m_bounds.top + 0x4a, 0);
     }
     DestroyControlPanel(g_keyboard_menu_panel);
-    DestroyTextControls(g_keyboard_menu_rows, 13);
+    for (auto& row : g_keyboard_menu_rows) row = nullptr;
     RequestRedraw(1 << g_selected_party_slot);
 }
 
@@ -768,7 +768,7 @@ unsigned char BuildKeyboardMenu(void)
             g_keyboard_menu_rows[row] = control;
             if (control == 0) {
                 DestroyControlPanel(g_keyboard_menu_panel);
-                DestroyTextControls(g_keyboard_menu_rows, 13);
+                for (auto& row : g_keyboard_menu_rows) row = nullptr;
                 return 0;
             }
             AssignKeyboardMenuCallback(menu, item, control);

@@ -844,7 +844,7 @@ void DestroyMainGameInterfaceButtons(void)
     DestroyDialogButtons(g_submenu_scroll_buttons, 2);
     DestroyDialogButtons(g_submenu_panel_buttons, 2);
     DestroyControlPanel(gpSubMenuPanel);
-    DestroyTextControls(g_submenu_rows, 5);
+    for (auto& row : g_submenu_rows) row = nullptr;
     if (g_options_disk_button != 0) {
         delete g_options_disk_button;
         g_options_disk_button = 0;
