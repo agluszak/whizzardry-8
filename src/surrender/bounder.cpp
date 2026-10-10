@@ -9,7 +9,7 @@
 
 // FUNCTION: SURRENDER 0x1004a5a0
 srBounder::srBounder(srNode* parent)
-    : srClassSupport<srBounder, srNode, false, 0x1600>(static_cast<srNode*>(0))
+    : srClassSupport<srBounder, srNode, 0x1600>(static_cast<srNode*>(0))
 {
     bound_mode = BOUND_MODE_DYNAMIC;
     bounds.state = 2;

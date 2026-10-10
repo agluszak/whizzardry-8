@@ -3,14 +3,13 @@
 #include "srNode.h"
 
 // VTABLE: SURRENDER 0x10076EF4
-// class srClassSupport<srClipPlane, srNode, 0, 5376>
+// class srClassSupport<srClipPlane, srNode, 5376>
 
 // VTABLE: SURRENDER 0x10076EC0 srClipPlane
 // class srClipPlane
 class SR_DLL_IMPORT srClipPlane
-    : public srClassSupport<srClipPlane, srNode, false, 0x1500> {
+    : public srClassSupport<srClipPlane, srNode, 0x1500> {
 public:
-    typedef srClientSupport<srClipPlane, 0x1500> ClientType;
 
     enum e_clip { CLIP_POSITIONAL_0 = 0 };
 

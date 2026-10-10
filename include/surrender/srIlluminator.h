@@ -4,12 +4,12 @@
 #include "srVertexProcessor.h"
 
 // VTABLE: SURRENDER 0x10077028
-// class srClassSupport<srIlluminator, srNode, 0, 4608>
+// class srClassSupport<srIlluminator, srNode, 4608>
 
 // VTABLE: SURRENDER 0x10077068 srVertexProcessor
-// VTABLE: SURRENDER 0x10077074 srClassSupport<srIlluminator, srNode, 0, 4608>
+// VTABLE: SURRENDER 0x10077074 srClassSupport<srIlluminator, srNode, 4608>
 // class srIlluminator
-class srIlluminator : public srClassSupport<srIlluminator, srNode, false, 0x1200>,
+class srIlluminator : public srClassSupport<srIlluminator, srNode, 0x1200>,
                                     public srVertexProcessor {
 public:
     using srVertexProcessor::process;

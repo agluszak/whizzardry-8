@@ -87,11 +87,11 @@ void W8GroundShadowMapper::process(srVertexPipe& pipe)
 }
 
 // VTABLE: WIZ8 0x005ed3f8
-// class srClassSupport<stGroundShadow,srNode,0,65552>
+// class srClassSupport<stGroundShadow,srNode,65552>
 
 // FUNCTION: WIZ8 0x004D61B0
 stGroundShadow::stGroundShadow(srNode* parent)
-    : srClassSupport<stGroundShadow, srNode, false, 0x10010>(static_cast<srNode*>(0))
+    : srClassSupport<stGroundShadow, srNode, 0x10010>(static_cast<srNode*>(0))
 {
     angle = 0;
     depth = 500.0f;
@@ -106,7 +106,7 @@ stGroundShadow::stGroundShadow(srNode* parent)
         g_ground_shadow_texture->setWrapS(srTextureIFace::WRAP_CLAMP);
         g_ground_shadow_texture->setWrapT(srTextureIFace::WRAP_CLAMP);
 
-        srMaterial* material = SR_NEW(srMaterial);
+        srMaterial* material = new srMaterial;
         g_ground_shadow_material = material;
         material->setMapper(&g_ground_shadow_material_parameters);
         g_ground_shadow_shader.value = (g_ground_shadow_shader.value & 0xfeff9277UL) | 0x00808260UL;
@@ -115,7 +115,7 @@ stGroundShadow::stGroundShadow(srNode* parent)
 
 // FUNCTION: WIZ8 0x004d6430
 stGroundShadow::stGroundShadow(const stGroundShadow& other)
-    : srClassSupport<stGroundShadow, srNode, false, 0x10010>(static_cast<srNode*>(0))
+    : srClassSupport<stGroundShadow, srNode, 0x10010>(static_cast<srNode*>(0))
 {
     setParent(other.parent_, 1);
     setName(other.isNamed() ? other.getName() : std::string{});

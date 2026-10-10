@@ -16,7 +16,7 @@ srColorSurface* __stdcall LoadSurface(wiz8::File* handle, w8_long*)
 // class stTextureFile
 
 // VTABLE: WIZ8 0x005EC63C
-// class srClassSupport<stTextureFile,srTexture,0,65537>
+// class srClassSupport<stTextureFile,srTexture,65537>
 
 /* The TGA loader instantiates srClassSupport for the imported srPalette
    (class id 0x2900); its registry and clone slots are emitted in this TU. */

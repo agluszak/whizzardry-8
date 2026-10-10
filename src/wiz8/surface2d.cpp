@@ -5,7 +5,7 @@
 #include "wiz8/float_constants.h"
 
 stTexture2D::stTexture2D()
-    : srClassSupport<stTexture2D, srTexture, false, 0x1000f>(), left(0), top(0), right(128),
+    : srClassSupport<stTexture2D, srTexture, 0x1000f>(), left(0), top(0), right(128),
       bottom(128), frame_handle(getNewFrameHandle()), surface(0)
 {
     setMipmap(MIPMAP_NONE);
@@ -67,7 +67,7 @@ void stTexture2D::setupDefaultValues()
 // FUNCTION: WIZ8 0x0047DAE0
 stSurface2D::stSurface2D(srColorSurfaceIFace* source, int source_width, int source_height,
                          srNode* parent, int tile_extent)
-    : srClassSupport<stSurface2D, srNode, false, 0x1000e>(static_cast<srNode*>(0)),
+    : srClassSupport<stSurface2D, srNode, 0x1000e>(static_cast<srNode*>(0)),
       source_surface(source), vertex_array_mask(1 << srRendererDefs::VERTEX_ARRAY_TEXCOORD0),
       shader_bits(0x100a017), tile_size(tile_extent),
       columns((source_width + tile_extent - 1) / tile_extent),

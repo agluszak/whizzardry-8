@@ -67,7 +67,7 @@ srColorSurface* loadJpeg(srImage::Stream& bridge, SDL_IOStream* io)
                                                                        SDL_PIXELFORMAT_BGR24), SDL_DestroySurface);
     if (!bgr)
         return nullptr;
-    auto* result = SR_NEW(srColorSurface)(header.components == 1 ? srPixelConvert::SURFACE_L8 :
+    auto* result = new srColorSurface(header.components == 1 ? srPixelConvert::SURFACE_L8 :
                                         four_channels ? srPixelConvert::SURFACE_BGRA32 :
                                                         srPixelConvert::SURFACE_BGR24,
                                           header.width, header.height);
@@ -128,7 +128,7 @@ void saveImage(OutputFormat output, srImage::Stream& bridge, srColorSurfaceIFace
         Uint64(source.getWidth()) * source.getHeight() > 64 * 1024 * 1024)
         throw std::runtime_error("Image output dimensions are invalid");
     const bool jpeg = output == OutputFormat::jpeg;
-    auto* copy = SR_NEW(srColorSurface)(jpeg ? srPixelConvert::SURFACE_RGB24 : srPixelConvert::SURFACE_BGRA32,
+    auto* copy = new srColorSurface(jpeg ? srPixelConvert::SURFACE_RGB24 : srPixelConvert::SURFACE_BGRA32,
                                       source.getWidth(), source.getHeight());
     std::unique_ptr<srColorSurface, void(*)(srColorSurface*)> owned(copy, [](srColorSurface* p) {
         if (p) p->release();

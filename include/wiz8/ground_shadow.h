@@ -6,7 +6,7 @@
 /* The retained registry name, class id, concrete vtable, allocation size and
    clone/factory slots identify this first-party srNode subclass. */
 // VTABLE: WIZ8 0x005ed3c4
-class stGroundShadow : public srClassSupport<stGroundShadow, srNode, false, 0x10010> {
+class stGroundShadow : public srClassSupport<stGroundShadow, srNode, 0x10010> {
 public:
     static const char* sGetClassName()
     {

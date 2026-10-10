@@ -24,8 +24,8 @@ enum W8MeshModelFlag {
 };
 
 // VTABLE: WIZ8 0x005ec454 stMeshModel
-// VTABLE: WIZ8 0x005ec4b0 srClassSupport<stMeshModel, srMeshModel, 0, 65539>
-class stMeshModel : public srClassSupport<stMeshModel, srMeshModel, false, 0x10003> {
+// VTABLE: WIZ8 0x005ec4b0 srClassSupport<stMeshModel, srMeshModel, 65539>
+class stMeshModel : public srClassSupport<stMeshModel, srMeshModel, 0x10003> {
 public:
     static const char* sGetClassName()
     {

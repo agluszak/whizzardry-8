@@ -16,7 +16,7 @@ srClass* srScene::vInstance()
 
 // FUNCTION: SURRENDER 0x100565D0
 srScene::srScene(srNode* parent)
-    : srClassSupport<srScene, srNode, 0, 0x1010>(static_cast<srNode*>(0))
+    : srClassSupport<srScene, srNode, 0x1010>(static_cast<srNode*>(0))
 {
     ambient_light = 0.2f;
     fog_color.Set(0.1f, 0.2f, 0.4f);

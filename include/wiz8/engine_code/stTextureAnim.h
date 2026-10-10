@@ -10,7 +10,7 @@ enum W8TextureTriggerMode {
     W8_TEXTURE_TRIGGER_RANDOM_START = 2
 };
 
-class stTextureAnim : public srClassSupport<stTextureAnim, srTexture, 0, 0x10000> {
+class stTextureAnim : public srClassSupport<stTextureAnim, srTexture, 0x10000> {
 public:
     static const char* sGetClassName()
     {

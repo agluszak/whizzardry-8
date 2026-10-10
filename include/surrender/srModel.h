@@ -7,11 +7,11 @@
 class srGERD;
 
 // VTABLE: SURRENDER 0x10076CE8
-// class srClassSupport<srModel, srClass, 1, 8192>
+// class srClassSupport<srModel, srClass, 8192>
 
 // VTABLE: SURRENDER 0x10076D08 srModel
 // class srModel
-class SR_DLL_IMPORT srModel : public srClassSupport<srModel, srClass, true, 0x2000> {
+class SR_DLL_IMPORT srModel : public srClassSupport<srModel, srClass, 0x2000> {
 public:
     // VTABLE: SURRENDER 0x10076CD8 Client
     // class Client

@@ -8,7 +8,7 @@
 
 // FUNCTION: SURRENDER 0x10049B90
 srClipPlane::srClipPlane(srNode* parent)
-    : srClassSupport<srClipPlane, srNode, false, 0x1500>(static_cast<srNode*>(0))
+    : srClassSupport<srClipPlane, srNode, 0x1500>(static_cast<srNode*>(0))
 {
     clip_plane_.Set(0.0f, 0.0f, 1.0f, 0.0f);
     clip_type_ = CLIP_POSITIONAL_0;

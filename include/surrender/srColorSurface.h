@@ -6,11 +6,11 @@
 #include <vector>
 
 // VTABLE: SURRENDER 0x100773A0
-// class srClassSupport<srColorSurface, srColorSurfaceIFace, 0, 12560>
+// class srClassSupport<srColorSurface, srColorSurfaceIFace, 12560>
 
 // VTABLE: SURRENDER 0x100772D0 srColorSurface
 class srColorSurface
-    : public srClassSupport<srColorSurface, srColorSurfaceIFace, 0, 0x3110> {
+    : public srClassSupport<srColorSurface, srColorSurfaceIFace, 0x3110> {
 public:
     SR_DLL_IMPORT srColorSurface(const srPixelConvert::PixelFormat& format, w8_ulong width,
                                  w8_ulong height);
@@ -99,6 +99,3 @@ private:
 };
 
 W8_ABI_ASSERT((sizeof(srColorSurface) == 0x5c), "srColorSurface_must_be_0x5c");
-
-/* Wizardry's client-side srColorSurface. */
-typedef srClientSupport<srColorSurface, 0x3110> W8ColorSurface;

@@ -5,8 +5,8 @@
 #include "surrender/srTexture.h"
 
 // VTABLE: WIZ8 0x005EC6C0 stTexture2D
-// VTABLE: WIZ8 0x005EC704 srClassSupport<stTexture2D, srTexture, 0, 65551>
-class stTexture2D : public srClassSupport<stTexture2D, srTexture, false, 0x1000f> {
+// VTABLE: WIZ8 0x005EC704 srClassSupport<stTexture2D, srTexture, 65551>
+class stTexture2D : public srClassSupport<stTexture2D, srTexture, 0x1000f> {
 public:
     static const char* sGetClassName()
     {
@@ -35,8 +35,8 @@ public:
 };
 
 // VTABLE: WIZ8 0x005EC748 stSurface2D
-// VTABLE: WIZ8 0x005EC77C srClassSupport<stSurface2D, srNode, 0, 65550>
-class stSurface2D : public srClassSupport<stSurface2D, srNode, false, 0x1000e> {
+// VTABLE: WIZ8 0x005EC77C srClassSupport<stSurface2D, srNode, 65550>
+class stSurface2D : public srClassSupport<stSurface2D, srNode, 0x1000e> {
 public:
     enum { UPDATE_FULL_TILE = 1 };
 

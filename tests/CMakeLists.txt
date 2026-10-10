@@ -48,6 +48,10 @@ target_link_libraries(native_renderer_platform_test PRIVATE SURRENDER wiz8_nativ
 add_test(NAME native_renderer_platform COMMAND native_renderer_platform_test)
 set_tests_properties(native_renderer_platform PROPERTIES TIMEOUT 10)
 
+add_executable(native_runtime_lookup_test native/runtime_lookup_test.cpp)
+target_link_libraries(native_runtime_lookup_test PRIVATE SURRENDER wiz8_native_settings)
+add_test(NAME native_runtime_lookup COMMAND native_runtime_lookup_test)
+
 add_executable(native_surrender_test native/surrender_test.cpp)
 target_link_libraries(native_surrender_test PRIVATE SURRENDER wiz8_native_settings)
 add_test(NAME native_surrender COMMAND native_surrender_test)

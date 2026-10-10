@@ -111,7 +111,7 @@ double srCamera::getAspectRatio() const
 
 // FUNCTION: SURRENDER 0x10048450
 srCamera::srCamera(srNode* parent)
-    : srClassSupport<srCamera, srNode, 0, 0x1400>(static_cast<srNode*>(0))
+    : srClassSupport<srCamera, srNode, 0x1400>(static_cast<srNode*>(0))
 {
     flags.value = 0;
     near_clip = 0.1;

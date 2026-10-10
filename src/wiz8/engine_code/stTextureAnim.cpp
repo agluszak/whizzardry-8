@@ -12,7 +12,7 @@
 // class stTextureAnim
 
 // VTABLE: WIZ8 0x005ECA04
-// class srClassSupport<stTextureAnim,srTexture,0,65536>
+// class srClassSupport<stTextureAnim,srTexture,65536>
 
 // FUNCTION: WIZ8 0x00484BE0
 stTextureAnim::stTextureAnim()

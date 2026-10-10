@@ -1,14 +1,15 @@
 #pragma once
 
-// Constructs a SurRender type's client implementation; the original spelling is unknown.
-#define SR_NEW(Type) new Type::ClientType
-
 #include <iosfwd>
+#include <new>
+#include <functional>
+#include <list>
 #include <map>
 #include <memory>
 #include <mutex>
 #include <string>
 #include <string_view>
+#include <unordered_map>
 #include <vector>
 
 #include "srCore.h"
@@ -17,97 +18,66 @@ class srRuntimeClass;
 class srNode;
 class srColorSurfaceIFace;
 
+// Class IDs and names are game-format identities, independent of C++ RTTI.
+// This facade keeps the existing format-facing queries; objects are indexed once.
 class srRegistry {
 public:
-    class ClassNode {
-        friend class srRegistry;
-
-    public:
-        // FUNCTION: SURRENDER 0x1000F670
-        ~ClassNode() = default;
-
-    private:
-        int isSame(ClassNode* other) const;
-        int isDerivedOrSame(ClassNode* derived) const;
-        w8_long getNumberOfInstances(int exact) const;
-        w8_ulong getClassID() const;
-        ClassNode* getParent() const;
-        ClassNode* getLookupNode();
-        void addName(srRuntimeClass* instance);
-        void removeName(srRuntimeClass* instance);
-        void enableInstanceLookup();
-        void registerInstance(srRuntimeClass* instance);
-        void unregisterInstance(srRuntimeClass* instance);
-        srRuntimeClass* findByName(ClassNode* requested_class, std::string_view name, int exact,
-                                   const srRuntimeClass* relative_to);
-        srRuntimeClass* findRelative(ClassNode* requested_class, int exact,
-                                     const srRuntimeClass* relative_to);
-        srRuntimeClass* findByID(ClassNode* requested_class, w8_ulong id, int exact);
-        void dump(std::ostream& stream, int indent);
-
-        ClassNode(ClassNode* parent, const char* class_name, w8_ulong class_id);
-        // Nodes are owned by the registry's class map; traversal is newest child first.
-        std::vector<ClassNode*> children;
+    struct ClassNode {
         ClassNode* parent;
         w8_ulong class_id;
         std::string class_name;
-        bool instance_lookup_enabled = false;
-        std::map<std::string, std::vector<srRuntimeClass*>, std::less<>> named_instances;
-        // IDs increase on construction; reverse traversal visits newest instances first.
-        std::map<w8_ulong, srRuntimeClass*> instances_by_id;
-        w8_long instance_count = 0;
+        std::vector<ClassNode*> children;
     };
 
-    SR_DLL_IMPORT srRegistry();
-    SR_DLL_IMPORT ~srRegistry();
+    srRegistry();
+    ~srRegistry() = default;
+    srRegistry(const srRegistry&) = delete;
+    srRegistry& operator=(const srRegistry&) = delete;
 
-    SR_DLL_IMPORT w8_ulong allocateID();
-    SR_DLL_IMPORT int checkValidity();
-    SR_DLL_IMPORT void dumpClassHierarchy(std::ostream& stream);
-    SR_DLL_IMPORT void dumpInstanceNames(ClassNode* node, std::ostream& stream, int indent);
-    SR_DLL_IMPORT ClassNode* getClassNode(w8_ulong class_id);
-    SR_DLL_IMPORT w8_ulong getClassID(ClassNode* node);
-    SR_DLL_IMPORT const char* getClassName(ClassNode* node);
-    SR_DLL_IMPORT ClassNode* getChildClass(ClassNode* parent, ClassNode* child);
-    SR_DLL_IMPORT w8_long getNumberOfInstances(ClassNode* node, int exact);
-    SR_DLL_IMPORT ClassNode* getRootClass();
-    SR_DLL_IMPORT ClassNode* getRootNode();
-    SR_DLL_IMPORT int isDerivedOrSame(ClassNode* base, ClassNode* derived);
-    /* Nonzero gives the node its own instance lookup tables. */
-    SR_DLL_IMPORT ClassNode* registerClass(const char* class_name, ClassNode* parent,
-                                           w8_ulong class_id, int register_instances);
-    SR_DLL_IMPORT void registerInstance(ClassNode* node, srRuntimeClass* instance);
-    SR_DLL_IMPORT void unregisterInstance(ClassNode* node, srRuntimeClass* instance);
-    SR_DLL_IMPORT srRuntimeClass* find(ClassNode* node, std::string_view name,
-                                       const srRuntimeClass* relative_to);
-    SR_DLL_IMPORT srRuntimeClass* find(ClassNode* node, const srRuntimeClass* relative_to);
-    SR_DLL_IMPORT srRuntimeClass* find(ClassNode* node, w8_ulong id);
-    SR_DLL_IMPORT srRuntimeClass* findExact(ClassNode* node, std::string_view name,
-                                            const srRuntimeClass* relative_to);
-    SR_DLL_IMPORT srRuntimeClass* findExact(ClassNode* node, const srRuntimeClass* relative_to);
-    SR_DLL_IMPORT srRuntimeClass* findExact(ClassNode* node, w8_ulong id);
+    w8_ulong allocateID();
+    void dumpClassHierarchy(std::ostream& stream);
+    void dumpInstanceNames(ClassNode* node, std::ostream& stream, int indent);
+    ClassNode* getClassNode(w8_ulong class_id);
+    w8_ulong getClassID(ClassNode* node);
+    const char* getClassName(ClassNode* node);
+    w8_long getNumberOfInstances(ClassNode* node, int exact);
+    ClassNode* getRootNode();
+    int isDerivedOrSame(ClassNode* base, ClassNode* derived);
+    ClassNode* registerClass(const char* class_name, ClassNode* parent, w8_ulong class_id);
+    srRuntimeClass* find(ClassNode* node, std::string_view name, const srRuntimeClass* relative_to);
+    srRuntimeClass* find(ClassNode* node, const srRuntimeClass* relative_to);
+    srRuntimeClass* find(ClassNode* node, w8_ulong id);
+    srRuntimeClass* findExact(ClassNode* node, std::string_view name, const srRuntimeClass* relative_to);
+    srRuntimeClass* findExact(ClassNode* node, const srRuntimeClass* relative_to);
+    srRuntimeClass* findExact(ClassNode* node, w8_ulong id);
 
 private:
     friend class srRuntimeClass;
-    SR_DLL_IMPORT void renameInstance(ClassNode* node, srRuntimeClass* instance, std::string name);
+    struct Instance {
+        srRuntimeClass* object;
+        std::string name;
+    };
 
-    SR_DLL_IMPORT ClassNode* addToTree(ClassNode* parent, const char* class_name,
-                                       w8_ulong class_id);
+    void registerInstance(srRuntimeClass* instance);
+    void unregisterInstance(srRuntimeClass* instance);
+    void renameInstance(srRuntimeClass* instance, std::string name);
+    bool matches(ClassNode* node, srRuntimeClass* instance, bool exact);
+    srRuntimeClass* findName(ClassNode* node, std::string_view name,
+                             const srRuntimeClass* relative_to, bool exact);
+    srRuntimeClass* findNext(ClassNode* node, const srRuntimeClass* relative_to, bool exact);
+    srRuntimeClass* findID(ClassNode* node, w8_ulong id, bool exact);
 
-    std::recursive_mutex critical_section;
-    std::map<w8_ulong, std::unique_ptr<ClassNode>> class_index;
-    ClassNode* root;
+    ClassNode root{nullptr, 0, "root", {}};
+    std::unordered_map<w8_ulong, std::unique_ptr<ClassNode>> classes;
+    // Newest first, as in the original instance lists. Names may be shared.
+    std::map<w8_ulong, Instance, std::greater<w8_ulong>> instances;
+    std::unordered_map<std::string, std::list<srRuntimeClass*>> names;
+    std::recursive_mutex mutex;
 };
-
-W8_ABI_ASSERT(sizeof(srRegistry::ClassNode) == 0x2c, "srRegistry_ClassNode_must_be_0x2c");
-W8_ABI_ASSERT(sizeof(srRegistry) == 0x10, "srRegistry_must_be_0x10");
-
-/* Empty common root; its original name is unknown. */
-class srRuntimeClassEmptyBase {};
 
 // VTABLE: SURRENDER 0x100754E4 srRuntimeClass
 // class srRuntimeClass
-class srRuntimeClass : public srRuntimeClassEmptyBase {
+class srRuntimeClass {
 public:
     enum e_verify { VERIFY_DEFAULT = 0 };
 
@@ -140,13 +110,10 @@ private:
     w8_ulong id;
 };
 
-W8_ABI_ASSERT(sizeof(srRuntimeClass) == 0x0c, "srRuntimeClass_must_be_0x0c");
 
 class srClass : public srRuntimeClass {
 public:
     typedef srClass RegistryClass;
-
-    typedef void(__cdecl* UpdateCallBack)(srClass* instance, double time, double elapsed);
 
     static SR_DLL_IMPORT const char* sGetClassName();
     static SR_DLL_IMPORT srRegistry::ClassNode* sGetClassNode();
@@ -155,7 +122,6 @@ public:
                                        const srRuntimeClass* relative_to);
     static SR_DLL_IMPORT srClass* find(std::string_view name, const srClass* relative_to);
     static SR_DLL_IMPORT srClass* find(const srClass* relative_to);
-    static SR_DLL_IMPORT void performUpdates(double time);
 
     /* Assignment copies only the instance name. */
     SR_DLL_IMPORT srClass& operator=(const srClass& other);
@@ -186,127 +152,24 @@ public:
     SR_DLL_IMPORT void autoRelease();
     SR_DLL_IMPORT void touch();
     SR_DLL_IMPORT w8_ulong getTimestamp() const;
-    SR_DLL_IMPORT UpdateCallBack getUpdateCallBack();
-    SR_DLL_IMPORT double getUpdateInterval();
-    SR_DLL_IMPORT void setUpdate(UpdateCallBack callback, double interval);
-    SR_DLL_IMPORT void setUpdatesTime(double time);
 
 protected:
     SR_DLL_IMPORT srClass();
     SR_DLL_IMPORT w8_ulong allocateTimeStamps(w8_ulong count) const;
 
 private:
-    struct Update {
-        double last_update_time;
-        double interval;
-        UpdateCallBack callback;
-        srClass* instance;
-        Update* previous;
-        Update* next;
-    };
-
-    W8_ABI_ASSERT(sizeof(Update) == 0x20, "srClass_Update_must_be_0x20");
-
-    static SR_DLL_IMPORT Update* _firstUpdate;
-    static SR_DLL_IMPORT double _lastUpdateTime;
     static SR_DLL_IMPORT w8_ulong _timestampCtr;
 
     mutable w8_long reference_count;
     w8_ulong timestamp;
-    Update* update;
 };
 
-W8_ABI_ASSERT(sizeof(srClass) == 0x18, "srClass_must_be_0x18");
 
-/* The concrete client class a canonical SurRender type hands out through ClientType. It supplies
-   the registry identity and clone surface without the registration lifecycle; the imported base
-   constructor already registers the object. */
-template <class Base, w8_ulong ClassID> class srClientSupport : public Base {
-private:
-    /* A client type for the canonical class itself reuses that class's registry node; a descendant
-       such as srFog registers its own ClassID. */
-    static char selfType(Base*);
-    static w8_long selfType(...);
-    enum {
-        BaseOwnsClass =
-            sizeof(selfType(static_cast<typename Base::RegistryClass*>(0))) == sizeof(char)
-    };
-
-public:
-    typedef Base RegistryClass;
-    typedef srClientSupport ClientType;
-
-    static srRegistry::ClassNode* sGetClassNode()
-    {
-        if (BaseOwnsClass) {
-            return Base::sGetClassNode();
-        }
-        srRegistry* registry = srCore.getRegistry();
-        srRegistry::ClassNode* node = registry->getClassNode(ClassID);
-        if (node == 0) {
-            node =
-                registry->registerClass(Base::sGetClassName(), Base::sGetClassNode(), ClassID, 0);
-        }
-        return node;
-    }
-
-    virtual const char* getClassName() const override
-    {
-        return Base::sGetClassName();
-    }
-
-    virtual w8_ulong getClassID() const override
-    {
-        return ClassID;
-    }
-
-    virtual srRegistry::ClassNode* getClassNode() const override
-    {
-        return sGetClassNode();
-    }
-
-public:
-    srClientSupport() {}
-
-    explicit srClientSupport(srNode* parent) : Base(parent) {}
-
-    explicit srClientSupport(srColorSurfaceIFace* arg_surface) : Base(arg_surface) {}
-
-    template <class A0, class A1>
-    srClientSupport(A0 first_argument, A1 second_argument) : Base(first_argument, second_argument)
-    {
-    }
-
-    template <class A0, class A1, class A2>
-    srClientSupport(A0 first_argument, A1 second_argument, A2 third_argument)
-        : Base(first_argument, second_argument, third_argument)
-    {
-    }
-
-    template <class A0, class A1, class A2, class A3, class A4>
-    srClientSupport(A0 first_argument, A1 second_argument, A2 third_argument, A3 fourth_argument,
-                    A4 fifth_argument)
-        : Base(first_argument, second_argument, third_argument, fourth_argument, fifth_argument)
-    {
-    }
-
-public:
-    /* Same clone slot as the provider layer. */
-    virtual srClass* vClone() override
-    {
-        Base* copy = static_cast<Base*>(this->vInstance());
-        *copy = *static_cast<const Base*>(this);
-        return copy;
-    }
-};
-
-/* Supplies registry identity, instance registration and the clone slot for a class derived from an
-   existing registry class. */
-template <class Derived, class Base, bool RegisterInstances, w8_ulong ClassID>
+/* Supplies format identity and cloning for a concrete scene/data type. */
+template <class Derived, class Base, w8_ulong ClassID>
 class srClassSupport : public Base {
 public:
     typedef Derived RegistryClass;
-    typedef srClientSupport<Derived, ClassID> ClientType;
     enum { CLASS_ID = ClassID };
 
     static srRegistry::ClassNode* sGetClassNode()
@@ -315,8 +178,7 @@ public:
         srRegistry::ClassNode* node = registry->getClassNode(ClassID);
 
         if (node == 0) {
-            node = registry->registerClass(Derived::sGetClassName(), Base::sGetClassNode(), ClassID,
-                                           RegisterInstances);
+            node = registry->registerClass(Derived::sGetClassName(), Base::sGetClassNode(), ClassID);
         }
         return node;
     }
@@ -339,16 +201,15 @@ public:
 public:
     srClassSupport()
     {
-        srRegistry* registry = srCore.getRegistry();
-        registry->registerInstance(sGetClassNode(), this);
+        sGetClassNode();
     }
 
-    /* Default-constructs Base, registers, then assigns Derived before Derived's members are
-       copy-constructed; this touches unconstructed derived state. */
+    /* Give the copy its own identity and scene links. Derived members are copied by
+       the concrete constructor after this base has been initialized. */
     srClassSupport(const Derived& other) : Base()
     {
-        srCore.getRegistry()->registerInstance(sGetClassNode(), this);
-        *static_cast<Derived*>(this) = other;
+        sGetClassNode();
+        Base::operator=(other);
     }
 
 public:
@@ -356,23 +217,20 @@ public:
        lacks a given constructor does not instantiate a forwarding body for it. */
     template <class A0> explicit srClassSupport(A0 first_argument) : Base(first_argument)
     {
-        srRegistry* registry = srCore.getRegistry();
-        registry->registerInstance(sGetClassNode(), this);
+        sGetClassNode();
     }
 
     template <class A0, class A1>
     srClassSupport(A0 first_argument, A1 second_argument) : Base(first_argument, second_argument)
     {
-        srRegistry* registry = srCore.getRegistry();
-        registry->registerInstance(sGetClassNode(), this);
+        sGetClassNode();
     }
 
     template <class A0, class A1, class A2>
     srClassSupport(A0 first_argument, A1 second_argument, A2 third_argument)
         : Base(first_argument, second_argument, third_argument)
     {
-        srRegistry* registry = srCore.getRegistry();
-        registry->registerInstance(sGetClassNode(), this);
+        sGetClassNode();
     }
 
     template <class A0, class A1, class A2, class A3, class A4>
@@ -380,18 +238,13 @@ public:
                    A4 fifth_argument)
         : Base(first_argument, second_argument, third_argument, fourth_argument, fifth_argument)
     {
-        srRegistry* registry = srCore.getRegistry();
-        registry->registerInstance(sGetClassNode(), this);
+        sGetClassNode();
     }
 
     srClassSupport& operator=(const srClassSupport&) = default;
 
 protected:
-    virtual ~srClassSupport() override
-    {
-        srRegistry* registry = srCore.getRegistry();
-        registry->unregisterInstance(sGetClassNode(), this);
-    }
+    ~srClassSupport() override = default;
 
 public:
     /* Slot 7 of every registry class; returns srClass* at every level. */

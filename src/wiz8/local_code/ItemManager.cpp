@@ -704,11 +704,7 @@ void ActivateItem(W8WorldItem* item)
     item->fActive = true;
     ++gXStatus.item_manager_pending;
 
-    node = srCore.getRegistry()->getClassNode(0x1000);
-    if (node == 0) {
-        node = srCore.getRegistry()->registerClass(srNode::sGetClassName(),
-                                                   srClass::sGetClassNode(), 0x1000, 1);
-    }
+    node = srNode::sGetClassNode();
     sun = static_cast<srNode*>(srCore.getRegistry()->find(node, "SUN", 0));
     if (sun != 0) {
         sun_position = sun->getLocation();

@@ -17,7 +17,7 @@ extern W8GrowableVector<stSound3D*> g_sound3d_instances;
    and OctBuildPreTree.cpp (from 0x004B19F0) above, so a dedicated audio
    translation unit is at least as likely; no body carries a source-path
    string to settle it. Move the bodies when the gap is attributed. */
-class stSound3D : public srClassSupport<stSound3D, srNode, 0, 0x1000b> {
+class stSound3D : public srClassSupport<stSound3D, srNode, 0x1000b> {
 public:
     static const char* sGetClassName()
     {
