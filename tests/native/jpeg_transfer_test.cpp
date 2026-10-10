@@ -410,6 +410,6 @@ TEST_CASE("jpeg_transfer_test")
     streamTests();
     srExit();
     puts("SDL_image JPEG/TGA formats, transfer, origins/RLE/palettes, pitch and checked streams passed");
-    
+
 
 }

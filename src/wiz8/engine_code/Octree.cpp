@@ -1,5 +1,6 @@
 #include <fmt/format.h>
 #include "wiz8/unicode.h"
+#include "surrender/srBoundingBox.h"
 #include "wiz8/application.h"
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/compat/unaligned.h"
@@ -387,57 +388,37 @@ void W8Octree::UpdateVisibility()
     m_previous_regions->CopyFrom(*m_current_regions);
 }
 
-/* Collect every model instance whose bounds come within `radius` of `point`.
-
-   The region-grid cells under the sphere (one cell of slack on each side)
-   contribute their leaf regions; every pre-generated region whose frustum the
-   sphere reaches contributes its bit. Each marked region then offers up its
-   mesh instance when the instance's bounding box is inside the radius, and -
-   while the flag byte of `flags` is set - each linked prop's instance when the
-   prop's bounding sphere, shifted to the prop position and fattened by
-   `radius`, contains the point. `only_accumulated` restricts the marking to
-   regions the camera pass already accumulated.
-
-   The prop path toggles m_papProps[bit - 2] but positions m_papProps[bit - 1]:
-   the animation and the sphere test land one prop apart. That is what retail
-   does (0x0042FD40 reads [array + bit*4 - 8], 0x0042FD8C reads
-   [array + bit*4 - 4]), so it stays. */
+/* Collect mesh and prop instances whose world-space bounds intersect the query sphere.
+   The grid and pre-generated frusta supply candidate regions. */
 // FUNCTION: WIZ8 0x0042f9a0
 int W8Octree::CollectModelsNearPoint(std::vector<stModelInstance*>& out,
                                      const srVector3T<float>* point, float radius,
                                      unsigned int flags, bool only_accumulated)
 {
-    unsigned int level_mask = m_region_mask;
-    unsigned int limit = m_spatial.m_region_cells_per_axis - 1;
-
-    srVector3T<int> first;
-    srVector3T<unsigned int> last;
-    int axis;
-    for (axis = 0; axis < 3; ++axis) {
-        (&first.x)[axis] =
-            static_cast<int>(((&point->x)[axis] - radius - (&m_spatial.m_minimum.x)[axis]) /
-                             m_spatial.m_region_grid_cell) -
-            1;
-        if ((&first.x)[axis] < 0) {
-            (&first.x)[axis] = 0;
-        }
-        (&last.x)[axis] = static_cast<unsigned int>(
-                              ((&point->x)[axis] + radius - (&m_spatial.m_minimum.x)[axis]) /
-                              m_spatial.m_region_grid_cell) +
-                          1;
-        if (limit < (&last.x)[axis]) {
-            (&last.x)[axis] = limit;
-        }
-    }
-
+    const auto center = point->glmValue();
+    if (!(radius >= 0) || glm::any(glm::isnan(center)) || glm::any(glm::isinf(center)) ||
+        m_spatial.m_region_cells_per_axis == 0 || !(m_spatial.m_region_grid_cell > 0))
+        return static_cast<int>(out.size());
+    const auto relative = (center - m_spatial.m_minimum.glmValue()) / m_spatial.m_region_grid_cell;
+    const float reach = radius / m_spatial.m_region_grid_cell;
+    const glm::vec3 limit(m_spatial.m_region_cells_per_axis - 1);
+    const glm::ivec3 first(glm::clamp(glm::floor(relative - reach) - 1.0f, glm::vec3(0), limit));
+    const glm::ivec3 last(glm::clamp(glm::floor(relative + reach) + 1.0f, glm::vec3(0), limit));
+    const auto intersects = [&](srModelInstance* instance) {
+        if (!instance || !instance->getModel())
+            return false;
+        srBoundingBox bounds;
+        instance->getModel()->getBoundingBox(bounds.minimum, bounds.maximum);
+        glm::mat4 world;
+        instance->getWorldSpaceMatrix(world);
+        return bounds.transformed(world).intersectsSphere(center, radius);
+    };
+    const unsigned int level_mask = m_region_mask;
     m_current_regions->ClearAll();
-    /* last and cell are unsigned, and the region loops compare them as such:
-       0x0042FB3C, 0x0042FB51 and 0x0042FB5E are all jbe, not jle. first stays
-       signed because it is the one clamped against zero above. */
-    srVector3T<unsigned int> cell;
-    for (cell.x = static_cast<unsigned int>(first.x); cell.x <= last.x; ++cell.x) {
-        for (cell.y = static_cast<unsigned int>(first.y); cell.y <= last.y; ++cell.y) {
-            for (cell.z = static_cast<unsigned int>(first.z); cell.z <= last.z; ++cell.z) {
+    glm::ivec3 cell;
+    for (cell.x = first.x; cell.x <= last.x; ++cell.x) {
+        for (cell.y = first.y; cell.y <= last.y; ++cell.y) {
+            for (cell.z = first.z; cell.z <= last.z; ++cell.z) {
                 unsigned int masked_cell[4];
                 masked_cell[0] = level_mask;
                 masked_cell[1] = cell.x;
@@ -477,16 +458,8 @@ int W8Octree::CollectModelsNearPoint(std::vector<stModelInstance*>& out,
         if (submesh != 0) {
             stModelInstance* instance =
                 static_cast<stModelInstance*>(g_world->psrMeshes[m_pSubmeshes[submesh].mesh]);
-            if (instance != 0) {
-                srModel* model = instance->getModel();
-                if (model != 0) {
-                    W8BoundingBox bounds;
-                    model->getBoundingBox(bounds.minimum, bounds.maximum);
-                    if (SphereNearBounds(point, radius, &bounds)) {
-                        out.push_back(instance);
-                    }
-                }
-            }
+            if (intersects(instance))
+                out.push_back(instance);
             if ((flags & 0xff) != 0) {
                 MarkMeshLinksVisible(submesh);
             }
@@ -498,24 +471,8 @@ int W8Octree::CollectModelsNearPoint(std::vector<stModelInstance*>& out,
         bit = m_linked_props->NextSetBit(true);
         while (bit != 0) {
             srModelInstance* instance = m_papProps[bit - 2]->ToggleRepAnimationDefault();
-            if (instance != 0) {
-                srModel* model = instance->getModel();
-                if (model != 0) {
-                    srVector3T<float> center;
-                    float sphere_radius;
-                    model->getBoundingSphere(center, sphere_radius);
-                    srVector3T<float> prop_position;
-                    m_papProps[bit - 1]->GetPosition(&prop_position);
-                    center += prop_position;
-                    sphere_radius += radius;
-                    if ((center.x - point->x) * (center.x - point->x) +
-                            (center.y - point->y) * (center.y - point->y) +
-                            (center.z - point->z) * (center.z - point->z) <
-                        sphere_radius * sphere_radius) {
-                        out.push_back(static_cast<stModelInstance*>(instance));
-                    }
-                }
-            }
+            if (intersects(instance))
+                out.push_back(static_cast<stModelInstance*>(instance));
             bit = m_linked_props->NextSetBit(false);
         }
     }
@@ -1621,58 +1578,28 @@ int W8Octree::CountBadRegionMeshLinks(W8OctSpatialState* spatial)
                 stModelInstance* mesh =
                     static_cast<stModelInstance*>(g_world->psrMeshes[m_pSubmeshes[link].mesh]);
                 if (mesh != 0) {
-                    stMeshModel* model = static_cast<stMeshModel*>(mesh->getModel());
-                    srVector3T<float> minimum;
-                    srVector3T<float> maximum;
-                    minimum.x = minimum.y = minimum.z = 1.0e7f;
-                    maximum.x = maximum.y = maximum.z = -1.0e7f;
-                    for (; model != 0; model = model->Next()) {
-                        srVector3T<float> box_minimum;
-                        srVector3T<float> box_maximum;
-                        model->getBoundingBox(box_minimum, box_maximum);
-                        if (box_minimum.x < minimum.x) {
-                            minimum.x = box_minimum.x;
-                        }
-                        if (maximum.x < box_maximum.x) {
-                            maximum.x = box_maximum.x;
-                        }
-                        if (box_minimum.y < minimum.y) {
-                            minimum.y = box_minimum.y;
-                        }
-                        if (maximum.y < box_maximum.y) {
-                            maximum.y = box_maximum.y;
-                        }
-                        if (box_minimum.z < minimum.z) {
-                            minimum.z = box_minimum.z;
-                        }
-                        if (maximum.z < box_maximum.z) {
-                            maximum.z = box_maximum.z;
-                        }
-                    }
-                    if (maximum.x < spatial->m_minimum.x || spatial->m_maximum.x < minimum.x ||
-                        maximum.y < spatial->m_minimum.y || spatial->m_maximum.y < minimum.y ||
-                        maximum.z < spatial->m_minimum.z || spatial->m_maximum.z < minimum.z) {
-                        bad_links = 1;
+                    if (auto* model = mesh->getModel()) {
+                        srBoundingBox bounds;
+                        model->getBoundingBox(bounds.minimum, bounds.maximum);
+                        glm::mat4 world;
+                        mesh->getWorldSpaceMatrix(world);
+                        const srBoundingBox cell{spatial->m_minimum.glmValue(),
+                                                 spatial->m_maximum.glmValue()};
+                        bad_links = !bounds.transformed(world).overlaps(cell);
                     }
                 }
             }
         } else {
-            short child = 0;
-            for (int x = 0; x < 2; ++x) {
-                for (int y = 0; y < 2; ++y) {
-                    for (int z = 0; z < 2; ++z, ++child) {
-                        local.m_node_index = m_branches[spatial->m_node_index].children[child];
-                        if (local.m_node_index != 0) {
-                            local.m_minimum.x = x * local.m_extent + spatial->m_minimum.x;
-                            local.m_maximum.x = local.m_minimum.x + local.m_extent;
-                            local.m_minimum.y = y * local.m_extent + spatial->m_minimum.y;
-                            local.m_maximum.y = local.m_minimum.y + local.m_extent;
-                            local.m_minimum.z = z * local.m_extent + spatial->m_minimum.z;
-                            local.m_maximum.z = local.m_minimum.z + local.m_extent;
-                            bad_links += CountBadRegionMeshLinks(&local);
-                        }
-                    }
-                }
+            const auto minimum = spatial->m_minimum.glmValue();
+            for (unsigned child = 0; child < 8; ++child) {
+                local.m_node_index = m_branches[spatial->m_node_index].children[child];
+                if (!local.m_node_index)
+                    continue;
+                const glm::vec3 offset((child >> 2) & 1, (child >> 1) & 1, child & 1);
+                const auto corner = minimum + offset * local.m_extent;
+                local.m_minimum = corner;
+                local.m_maximum = corner + local.m_extent;
+                bad_links += CountBadRegionMeshLinks(&local);
             }
         }
     } else {
@@ -4495,43 +4422,6 @@ char GrowBoundsByPoint(const srVector3T<float>* point, srVector3T<float>* minimu
         return 1;
     }
     return changed;
-}
-
-/* Whether `point` lies within `radius` of the bounds box, as the squared
-   distance from the box-clamped point. Retail's z clamp picks bounds->minimum.z
-   where bounds->maximum.z is meant when the point sits above the box
-   (0x0043871B FLDs [ECX+8]) - the proven quirk stays. */
-// FUNCTION: WIZ8 0x004386a0
-bool SphereNearBounds(const srVector3T<float>* point, float radius, const W8BoundingBox* bounds)
-{
-    float closest_x;
-    float closest_y;
-    float closest_z;
-    if (point->x < bounds->minimum.x) {
-        closest_x = bounds->minimum.x;
-    } else if (point->x <= bounds->maximum.x) {
-        closest_x = point->x;
-    } else {
-        closest_x = bounds->maximum.x;
-    }
-    if (point->y < bounds->minimum.y) {
-        closest_y = bounds->minimum.y;
-    } else if (point->y <= bounds->maximum.y) {
-        closest_y = point->y;
-    } else {
-        closest_y = bounds->maximum.y;
-    }
-    if (point->z < bounds->minimum.z) {
-        closest_z = bounds->minimum.z;
-    } else if (point->z <= bounds->maximum.z) {
-        closest_z = point->z;
-    } else {
-        closest_z = bounds->minimum.z;
-    }
-    float distance_squared = (point->y - closest_y) * (point->y - closest_y) +
-                             (point->x - closest_x) * (point->x - closest_x) +
-                             (point->z - closest_z) * (point->z - closest_z);
-    return distance_squared < radius * radius;
 }
 
 unsigned int W8Octree::QueryNearbyLocations(const srVector3T<float>* position, float spacing,

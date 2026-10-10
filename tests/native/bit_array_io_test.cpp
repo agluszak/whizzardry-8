@@ -74,6 +74,6 @@ TEST_CASE("bit_array_io_test")
     }
     std::filesystem::remove_all(root);
     puts("ok: SDL BitArray framing, Huffman round trip and truncation");
-    
+
 
 }

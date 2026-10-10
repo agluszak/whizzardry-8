@@ -209,7 +209,8 @@ TEST_CASE("imports_test")
         for (int row = 0; row < 2; ++row)
         {
             for (int vertex = 0; vertex < 3; ++vertex)
-                triangle.vertices[vertex].position.Set(row * 10 + vertex, row * 20 + vertex, -vertex);
+                triangle.vertices[vertex].position =
+                    glm::vec3(row * 10 + vertex, row * 20 + vertex, -vertex);
             modeler.addTriangle(triangle);
         }
         float minimum, maximum;

@@ -216,6 +216,6 @@ TEST_CASE("game graphics")
         wiz8::clear_asset_archives();
 
         SDL_Quit();
-        
+
 
 }

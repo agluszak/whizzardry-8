@@ -209,7 +209,7 @@ TEST_CASE("world graphics")
                 SaveFrame((std::string(output) + "." + std::to_string(angle) + ".ppm").c_str(), pixels);
             }
         }
-        
+
     application.reset();
     if (have_overlay)
         std::filesystem::remove_all(temporary);

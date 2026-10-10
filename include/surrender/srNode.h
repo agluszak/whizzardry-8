@@ -36,9 +36,9 @@ public:
     /* Bounds record: box, sphere and a trailing state of 0 (empty), 1 (box+sphere) or 2
        (FLAG_GLOBAL). */
     struct BoundInfo {
-        srVector3T<float> minimum;
-        srVector3T<float> maximum;
-        srVector3T<float> center;
+        glm::vec3 minimum;
+        glm::vec3 maximum;
+        glm::vec3 center;
         float radius;
         int state;
     };

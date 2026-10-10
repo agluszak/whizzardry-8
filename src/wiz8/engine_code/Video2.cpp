@@ -1178,7 +1178,6 @@ srModelInstance* MakePolygonBrush(srNode* parent, std::shared_ptr<srColorSurface
 {
     std::shared_ptr<srMeshModel> model;
     stModelInstance2D* instance;
-    srVector3T<float> scale;
     srShader shader;
 
     model = std::make_shared<srMeshModel>(0L, 0L);
@@ -1188,8 +1187,7 @@ srModelInstance* MakePolygonBrush(srNode* parent, std::shared_ptr<srColorSurface
     srModeler::MappingInfo mapping(srModeler::AXIS_X, srModeler::AXIS_Y, mapping_width,
                                    mapping_height, mapping_x, mapping_y);
     g_modeler->planarMap(0, 0, mapping);
-    scale.Set(static_cast<float>(width), static_cast<float>(height), 1.0f);
-    g_modeler->scale(scale);
+    g_modeler->scale(glm::vec3(static_cast<float>(width), static_cast<float>(height), 1.0f));
     g_modeler->convert(*model, 1);
     g_modeler->discard();
 
@@ -1228,7 +1226,6 @@ stModelInstance2D* CreateSpriteFromTexture(std::shared_ptr<srTextureIFace> textu
                                            bool keep_aspect, bool overlay)
 {
     srShader shader;
-    srVector3T<float> scale;
     int w = static_cast<int>(width * 640.0);
     int h = static_cast<int>(height * 480.0);
 
@@ -1241,8 +1238,7 @@ stModelInstance2D* CreateSpriteFromTexture(std::shared_ptr<srTextureIFace> textu
                                    g_float_one - (step + step), g_float_one - (step + step), step,
                                    step);
     g_modeler->planarMap(0, 0, mapping);
-    scale.Set(static_cast<float>(width), static_cast<float>(height), 1.0f);
-    g_modeler->scale(scale);
+    g_modeler->scale(glm::vec3(static_cast<float>(width), static_cast<float>(height), 1.0f));
     g_modeler->convert(*model, 1);
     g_modeler->discard();
 
@@ -2641,9 +2637,7 @@ stModelInstance2D* CreateColoredPolygonSprite(int width, int height, const glm::
     auto model = std::make_shared<srMeshModel>(0L, 0L);
 
     g_modeler->createGrid(1, 1);
-    srVector3T<float> scale;
-    scale.Set(static_cast<float>(scale_x), static_cast<float>(scale_y), 1.0f);
-    g_modeler->scale(scale);
+    g_modeler->scale(glm::vec3(static_cast<float>(scale_x), static_cast<float>(scale_y), 1.0f));
     g_modeler->convert(*model, 1);
     g_modeler->discard();
 
@@ -3178,9 +3172,7 @@ srNode* MakePosterQuad(std::shared_ptr<srTextureIFace> texture, float width, flo
     srModeler::MappingInfo mapping(srModeler::AXIS_X, srModeler::AXIS_Y, g_float_one - extent_w,
                                    g_float_one - extent_h, extent_w, extent_h);
     g_modeler->planarMap(0, 0, mapping);
-    srVector3T<float> scale;
-    scale.Set(width, height, 1.0f);
-    g_modeler->scale(scale);
+    g_modeler->scale(glm::vec3(width, height, 1.0f));
     g_modeler->convert(*model, 1);
     g_modeler->discard();
 

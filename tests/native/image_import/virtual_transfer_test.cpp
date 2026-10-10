@@ -244,6 +244,6 @@ TEST_CASE("virtual_transfer_test")
     wiz8::clear_asset_archives(); (void)0;
     fs::remove_all(root);
     puts("Virtual image streams: direct load/save, reinit, C-F, retail case folding, overlays, SLF bounds, independent cursors and borrowed handles passed");
-    
+
 
 }

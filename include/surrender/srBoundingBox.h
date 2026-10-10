@@ -31,6 +31,14 @@ struct srBoundingBox {
                glm::all(glm::greaterThanEqual(box.maximum, minimum));
     }
 
+    bool intersectsSphere(const glm::vec3& center, float radius) const
+    {
+        if (!(radius >= 0))
+            return false;
+        const auto offset = center - glm::clamp(center, minimum, maximum);
+        return glm::dot(offset, offset) <= radius * radius;
+    }
+
     glm::vec3 center() const
     {
         return (minimum + maximum) * 0.5f;

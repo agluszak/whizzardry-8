@@ -143,6 +143,6 @@ TEST_CASE("binary_io_test")
     catch (const std::out_of_range&) { rejected = true; }
     REQUIRE(rejected);
     puts("ok: SDL scalar formats, EOF and Huffman cursor/cache bounds");
-    
+
 
 }

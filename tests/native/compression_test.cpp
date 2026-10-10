@@ -88,6 +88,6 @@ TEST_CASE("compression_test")
     REQUIRE(!std::memcmp(output16.data() + (9 * 20 + 17) * 2, image.pImageData.data() + 4, 4));
     REQUIRE(!CopyImageToBuffer(image, BUFFER_8BPP, destination8, 20, 10, 1, 1, {0, 0, 2, 2}));
     puts("bounded image copies and zlib failure handling passed");
-    
+
 
 }

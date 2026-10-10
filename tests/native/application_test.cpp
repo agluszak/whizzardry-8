@@ -80,6 +80,6 @@ TEST_CASE("application_test")
     REQUIRE((reported && gfIgnoreMessages));
     CheckStopped();
     std::filesystem::remove_all(temporary);
-    
+
 
 }

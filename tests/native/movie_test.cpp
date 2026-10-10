@@ -224,7 +224,7 @@ static void exercise_movie(const char* retail_movie)
 
         printf("movie: loose/SLF RGB555 golden frames, timed EOF, PCM audio, "
                "reopen and bounded failure passed\n");
-        
+
 
 }
 
