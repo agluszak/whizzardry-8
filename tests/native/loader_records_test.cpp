@@ -11,7 +11,6 @@
 #include "wiz8/engine_code/OctPreTree.h"
 #include "wiz8/engine_code/OctBuildTree.h"
 #include "wiz8/engine_code/BitArray.h"
-#include "surrender/srVectorMath.h"
 #include "temporary_directory.h"
 #include "file_faults.h"
 
