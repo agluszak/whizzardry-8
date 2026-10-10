@@ -671,25 +671,24 @@ void W8TextBuffer::RenderToTarget(int offset, bool force, unsigned int target)
 
     int y = GetVerticalPosition();
     size_t span = strcspn(line, g_W8LineBreakCharacters);
-    while (line[span] != '\0') {
-        line[span] = '\0';
-        int x = GetHorizontalPosition(StringPixLength(line, m_font));
+    for (;;) {
+        const bool has_next_line = line[span] != '\0';
+        if (has_next_line)
+            line[span] = '\0';
+
+        const int x = GetHorizontalPosition(StringPixLength(line, m_font));
         DrawFontText(x + offset, y + offset, line);
+
+        if (!has_next_line)
+            break;
         y += GetLineHeight();
         line[span] = '\n';
-        if (m_layoutBounds.bottom <= y) {
-            goto done;
-        }
+        if (m_layoutBounds.bottom <= y)
+            break;
         line += span + 1;
         span = strcspn(line, g_W8LineBreakCharacters);
     }
 
-    {
-        int x = GetHorizontalPosition(StringPixLength(line, m_font));
-        DrawFontText(x + offset, y + offset, line);
-    }
-
-done:
     SetFontObjectPalette16BPP(m_font, previous_state);
     InvalidateRegion(m_layoutBounds.left, m_layoutBounds.top, m_layoutBounds.right,
                      m_layoutBounds.bottom, 0);
