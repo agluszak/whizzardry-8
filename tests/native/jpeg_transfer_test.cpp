@@ -1,7 +1,8 @@
+#include "surrender/srIO.h"
 /* Actual SDL_image decoding and byte-exact transfer. gray.jpg/cmyk.jpg are
    synthetic 3x2, quality-100 JPEGs with samples 20 + 9*i. */
 #include "surrender/srImageIO.h"
-#include "image_stream.h"
+#include "image_helpers.h"
 #include <SDL3_image/SDL_image.h>
 #include "wiz8/sr_api.h"
 #include <array>
@@ -37,18 +38,19 @@ static void checkFormat(const srColorSurfaceIFace& surface, srPixelConvert::e_su
 }
 static OwnedSurface loadJpeg(const Bytes& data)
 {
-    srBinIMStream input(data.data(), data.size());
-    auto result = owned(srImage::load("sample.jpg", input));
-    CHECK(input.getSize() == data.size());
+    if (data.empty()) return owned(nullptr);
+    auto input = srIO::own(SDL_IOFromConstMem(data.data(), data.size()));
+    auto result = owned(srImage::load("sample.jpg", input.get()));
+    CHECK(SDL_GetIOSize(input.get()) == Sint64(data.size()));
     return result;
 }
 static Bytes encode(srColorSurfaceIFace& surface, int quality = 100)
 {
-    srBinOMStream output;
-    srImage::save("sample.jpg", output, surface, quality);
-    CHECK(output.good() && output.getSize() > 2);
-    auto* data = static_cast<const Uint8*>(output.getPtr());
-    return {data, data + output.getSize()};
+    auto output = srIO::own(SDL_IOFromDynamicMem());
+    srImage::save("sample.jpg", output.get(), surface, quality);
+    CHECK((SDL_GetIOStatus(output.get()) == SDL_IO_STATUS_READY) && SDL_GetIOSize(output.get()) > 2);
+    auto* data = static_cast<const Uint8*>(SDL_GetPointerProperty(SDL_GetIOProperties(output.get()), SDL_PROP_IOSTREAM_DYNAMIC_MEMORY_POINTER, nullptr));
+    return {data, data + SDL_GetIOSize(output.get())};
 }
 static void jpegTests()
 {
@@ -71,17 +73,17 @@ static void jpegTests()
         const bool monochrome = data == &gray;
         const bool four_channels = data == &cmyk;
         const unsigned pixel_bytes = four_channels ? 4 : 3;
-        srBinIMStream input(data->data(), data->size());
-        input.seek(7);
+        auto input = srIO::own(SDL_IOFromConstMem(data->data(), data->size()));
+        SDL_SeekIO(input.get(), 7, SDL_IO_SEEK_SET);
         srColorSurfaceIFace::SurfaceDesc description;
-        CHECK(srImage::describe(description, "sample.JPEG", input));
-        CHECK(input.tell() == 7 && input.good());
+        CHECK(srImage::describe(description, "sample.JPEG", input.get()));
+        CHECK(SDL_TellIO(input.get()) == 7 && SDL_GetIOStatus(input.get()) != SDL_IO_STATUS_ERROR);
         CHECK(description.width == 3 && description.height == 2);
         auto surface = loadJpeg(*data);
         CHECK(surface && surface->getWidth() == 3 && surface->getHeight() == 2);
         checkFormat(*surface, monochrome ? srPixelConvert::SURFACE_L8 :
                               four_channels ? srPixelConvert::SURFACE_BGRA32 : srPixelConvert::SURFACE_BGR24);
-        srImage::IO io(SDL_IOFromConstMem(data->data(), data->size()), SDL_CloseIO);
+        auto io = srIO::own(SDL_IOFromConstMem(data->data(), data->size()));
         srImage::Surface decoded(IMG_LoadJPG_IO(io.get()), SDL_DestroySurface);
         CHECK(decoded);
         srImage::Surface reference(SDL_ConvertSurface(decoded.get(), four_channels ? SDL_PIXELFORMAT_BGRA32 :
@@ -107,7 +109,7 @@ static void jpegTests()
         }
         CHECK(!encode(*surface).empty());
     }
-    // SDL/libjpeg tolerates missing EOI; our stream bridge must not accept it.
+    // SDL/libjpeg tolerates missing EOI; the SDL entry point must reject it.
     for (size_t length : {size_t(0), size_t(1), size_t(2), size_t(18), rgb.size() / 2, rgb.size() - 2})
         CHECK(!loadJpeg(Bytes(rgb.begin(), rgb.begin() + length)));
     auto invalid = rgb;
@@ -221,9 +223,9 @@ static TgaFixture tgaFixture(unsigned depth, bool indexed, bool rle, unsigned or
 }
 static OwnedSurface loadTga(const Bytes& data)
 {
-    srBinIMStream input(data.data(), data.size());
-    auto result = owned(srImage::loadTga(input));
-    CHECK(input.getSize() == data.size());
+    auto input = srIO::own(SDL_IOFromConstMem(data.data(), data.size()));
+    auto result = owned(srImage::loadTga(input.get()));
+    CHECK(SDL_GetIOSize(input.get()) == Sint64(data.size()));
     return result;
 }
 static void checkTga(const TgaFixture& fixture, srColorSurfaceIFace& surface)
@@ -298,73 +300,72 @@ static void tgaTests()
     CHECK(!loadTga(invalid));
 }
 
-class FaultInput : public srBinIMStream {
-public:
-    FaultInput(const Bytes& data, int fault) : srBinIMStream(data.data(), data.size()), fault(fault) {}
-    w8_ulong getSize() override { if (fault == 1) throw 0; return srBinIMStream::getSize(); }
-    srBinStream& seek(w8_ulong position) override
-    {
-        if (fault == 2) { setState(SR_STREAM_ERROR); return *this; }
-        return srBinIMStream::seek(position);
-    }
-private:
-    w8_ulong vread(void*, w8_ulong) override { if (fault == 3) throw 0; return 0; }
+// Faults are supplied at SDL's backend boundary, where production callers
+// receive short transfers and SDL status rather than C++ virtual methods.
+struct FaultIO {
+    const Bytes& data;
     int fault;
-};
-class FaultOutput : public srBinOMStream {
-public:
-    explicit FaultOutput(bool throws) : throws(throws) {}
-private:
-    w8_ulong vwrite(const void*, w8_ulong bytes) override
-    {
-        if (throws) throw 0;
-        return bytes - 1;
+    Sint64 position = 0;
+    static Sint64 SDLCALL size(void* cookie) {
+        auto& self = *static_cast<FaultIO*>(cookie);
+        return self.fault == 1 ? -1 : Sint64(self.data.size());
     }
-    bool throws;
+    static Sint64 SDLCALL seek(void* cookie, Sint64 offset, SDL_IOWhence whence) {
+        auto& self = *static_cast<FaultIO*>(cookie);
+        if (self.fault == 2) return -1;
+        const Sint64 base = whence == SDL_IO_SEEK_SET ? 0 :
+            whence == SDL_IO_SEEK_CUR ? self.position : Sint64(self.data.size());
+        if (offset < -base || offset > Sint64(self.data.size()) - base) return -1;
+        return self.position = base + offset;
+    }
+    static size_t SDLCALL read(void* cookie, void*, size_t, SDL_IOStatus* status) {
+        *status = static_cast<FaultIO*>(cookie)->fault == 3 ? SDL_IO_STATUS_ERROR : SDL_IO_STATUS_EOF;
+        return 0;
+    }
+    static size_t SDLCALL write(void* cookie, const void*, size_t bytes, SDL_IOStatus* status) {
+        if (static_cast<FaultIO*>(cookie)->fault == 5) {
+            *status = SDL_IO_STATUS_ERROR;
+            return 0;
+        }
+        return bytes ? bytes - 1 : 0;
+    }
+    srIO::IO open() {
+        SDL_IOStreamInterface interface;
+        SDL_INIT_INTERFACE(&interface);
+        interface.size = size; interface.seek = seek;
+        interface.read = read; interface.write = write;
+        return srIO::own(SDL_OpenIO(&interface, this));
+    }
 };
 static void streamTests()
 {
     const Bytes data{1, 2, 3, 4};
-    srBinIMStream source(data.data(), data.size());
-    {
-        srImage::Stream bridge{source, &source};
-        auto io = bridge.open();
-        CHECK(io && SDL_GetIOSize(io.get()) == 4);
-        CHECK(SDL_SeekIO(io.get(), -1, SDL_IO_SEEK_END) == 3);
-        Uint8 bytes[8]{};
-        CHECK(SDL_ReadIO(io.get(), bytes, 8) == 1 && bytes[0] == 4);
-        CHECK(SDL_ReadIO(io.get(), bytes, 8) == 0 && bridge.eof);
-        CHECK(SDL_GetIOStatus(io.get()) == SDL_IO_STATUS_EOF && !bridge.failed);
-    }
-    CHECK(source.good() && source.getSize() == data.size());
-    source.seek(0);
-    {
-        srImage::Stream bridge{source, &source};
-        auto io = bridge.open();
-        CHECK(SDL_SeekIO(io.get(), std::numeric_limits<Sint64>::max(), SDL_IO_SEEK_CUR) == -1);
-        CHECK(bridge.failed && source.tell() == 0);
-    }
-    {
-        srImage::Stream bridge{source, &source};
-        auto io = bridge.open();
-        CHECK(SDL_SeekIO(io.get(), std::numeric_limits<Sint64>::min(), SDL_IO_SEEK_END) == -1);
-        CHECK(bridge.failed);
-    }
+    auto source = srIO::own(SDL_IOFromConstMem(data.data(), data.size()));
+    CHECK(SDL_GetIOSize(source.get()) == 4);
+    CHECK(SDL_SeekIO(source.get(), -1, SDL_IO_SEEK_END) == 3);
+    Uint8 bytes[8]{};
+    CHECK(SDL_ReadIO(source.get(), bytes, 8) == 1 && bytes[0] == 4);
+    CHECK(SDL_ReadIO(source.get(), bytes, 8) == 0);
+    CHECK(SDL_GetIOStatus(source.get()) == SDL_IO_STATUS_EOF);
+    CHECK(SDL_SeekIO(source.get(), 0, SDL_IO_SEEK_SET) == 0);
+    // SDL's const-memory backend clamps out-of-range seeks. Archive entry
+    // backends reject them; those bounds are tested in virtual_transfer_test.
     const auto jpeg = fixture("gray.jpg");
     for (int fault : {0, 1, 2, 3}) {
-        FaultInput input(jpeg, fault);
-        CHECK(!srImage::load("sample.jpg", input));
-        CHECK(input.tell() <= jpeg.size());
-        FaultInput description_input(jpeg, fault);
+        FaultIO backend{jpeg, fault};
+        auto input = backend.open();
+        CHECK(!srImage::load("sample.jpg", input.get()));
+        CHECK(SDL_TellIO(input.get()) <= Sint64(jpeg.size()));
         srColorSurfaceIFace::SurfaceDesc description;
-        CHECK(!srImage::describe(description, "sample.jpg", description_input));
+        CHECK(!srImage::describe(description, "sample.jpg", input.get()));
     }
     auto surface = loadJpeg(jpeg);
     CHECK(surface);
-    for (bool throws : {false, true}) {
-        FaultOutput output(throws);
+    for (int fault : {4, 5}) {
+        FaultIO backend{jpeg, fault};
+        auto output = backend.open();
         bool rejected = false;
-        try { srImage::save("sample.jpg", output, *surface); }
+        try { srImage::save("sample.jpg", output.get(), *surface); }
         catch (...) { rejected = true; }
         CHECK(rejected);
     }

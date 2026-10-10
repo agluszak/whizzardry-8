@@ -7,7 +7,6 @@ set(SURRENDER_SOURCES
     environment_mapper.cpp
     fog.cpp
     vertex_pipe.cpp
-    file_stream.cpp
     filter.cpp
     color_surface.cpp
     vector_math.cpp
@@ -26,7 +25,6 @@ set(SURRENDER_SOURCES
     modeler.cpp
     node.cpp
     scene.cpp
-    stream.cpp
     system.cpp
     palette.cpp
     pixel_convert.cpp

@@ -5,7 +5,7 @@
 #include <wiz8/file_time.h>
 #include <SDL3/SDL_stdinc.h>
 #include "surrender/srSystem.h"
-#include "surrender/srBinFStream.h"
+#include "surrender/srIO.h"
 #include "wiz8/chunk.h"
 #include "temporary_directory.h"
 
@@ -228,64 +228,40 @@ int main() try
     CHECK(names.size() == 5 && std::find(names.begin(), names.end(), "NoExtension") != names.end());
     CHECK(wiz8::list_directory("Data", "*.absent").empty());
     char directory[512];
-    // Renderer callers share the same namespace, without inspecting their adapters.
+    // SDL consumers use the same virtual namespace and copy-up policy.
     {
-        srBinIFStream input("DATA\\mixedcase.bin");
-        CHECK(input.isOpen());
-        CHECK(input.getPath() == "DATA\\mixedcase.bin");
-        input.read(directory, 12);
+        auto input = wiz8::open_file("DATA\\mixedcase.bin");
+        srIO::readExact(input->io(), directory, 12);
         CHECK(!memcmp(directory, "retail bytes", 12));
-        input.close();
-        CHECK(!input.isOpen() && input.getPath().empty());
-        input.close();
+        input->close();
+        CHECK(!input->is_open());
+        input->close();
         const std::string bounded_path = "Data/MixedCase.BINignored suffix";
-        input.open(std::string_view(bounded_path.data(), 18));
-        CHECK(input.isOpen() && input.getPath() == "Data/MixedCase.BIN");
-        input.close();
-        input.open({});
-        CHECK(!input.isOpen() && input.getPath().empty());
-        input.open("Data/missing-renderer.bin");
-        CHECK(!input.isOpen() && !input.good() && input.getPath().empty());
-        input.open("");
-        CHECK(!input.isOpen() && !input.good());
-        srBinOFStream output("Saves\\Renderer.SAV");
-        CHECK(output.isOpen());
-        output.write("renderer save", 13);
-        output.close();
-        CHECK(contents(user / "Saves" / "Renderer.SAV") == "renderer save");
+        input = wiz8::open_file(std::string_view(bounded_path.data(), 18));
+        CHECK(input->is_open());
         {
-            // The File owner must close/flush on polymorphic destruction, even
-            // with stream exceptions enabled; destruction is not a state change.
-            std::unique_ptr<srBinOStream> scoped(
-                new srBinOFStream("Saves/RendererScoped.SAV"));
-            CHECK(scoped->good());
-            scoped->exceptions(true);
-            scoped->write("scoped save", 11);
+            auto output = wiz8::open_file("Saves/RendererScoped.SAV", wiz8::OpenMode::replace);
+            srIO::writeExact(output->io(), "scoped save", 11);
         }
         CHECK(contents(user / "Saves" / "RendererScoped.SAV") == "scoped save");
-
         fixture(assets / "data" / "RendererUpdate.bin", "asset bytes");
-        srBinIOFStream update("C:\\data\\rendererupdate.bin");
-        CHECK(update.isOpen() && update.good());
-        update.write("USER!", 5);
-        update.seek(0);
-        update.read(directory, 11);
-        CHECK(update.good() && !memcmp(directory, "USER! bytes", 11));
-        update.close();
+        auto update = wiz8::open_file("C:/data/rendererupdate.bin", wiz8::OpenMode::update);
+        srIO::writeExact(update->io(), "USER!", 5);
+        CHECK(SDL_SeekIO(update->io(), 0, SDL_IO_SEEK_SET) == 0);
+        srIO::readExact(update->io(), directory, 11);
+        CHECK(!memcmp(directory, "USER! bytes", 11));
+        update->close();
         CHECK(contents(assets / "data" / "RendererUpdate.bin") == "asset bytes");
-        input.open("Data/RENDERERUPDATE.BIN");
-        CHECK(input.isOpen() && input.good());
-        input.read(directory, 11);
-        CHECK(input.good() && !memcmp(directory, "USER! bytes", 11));
-        input.close();
-
-        srBinIFStream disc_input("D:\\levels\\levels.slf");
-        CHECK(disc_input.isOpen() && disc_input.good());
-        disc_input.read(directory, 10);
-        CHECK(disc_input.good() && !memcmp(directory, "disc bytes", 10));
-        srBinOFStream disc_output("D:/Levels/LEVELS.SLF");
-        CHECK(!disc_output.isOpen() && !disc_output.good());
-        CHECK(contents(disc / "Levels" / "LEVELS.SLF") == "disc bytes");
+        input = wiz8::open_file("Data/RENDERERUPDATE.BIN");
+        srIO::readExact(input->io(), directory, 11);
+        CHECK(!memcmp(directory, "USER! bytes", 11));
+        auto disc_input = wiz8::open_file("D:/levels/levels.slf");
+        srIO::readExact(disc_input->io(), directory, 10);
+        CHECK(!memcmp(directory, "disc bytes", 10));
+        bool rejected = false;
+        try { wiz8::open_file("D:/Levels/LEVELS.SLF", wiz8::OpenMode::replace); }
+        catch (const std::exception&) { rejected = true; }
+        CHECK(rejected && contents(disc / "Levels" / "LEVELS.SLF") == "disc bytes");
     }
     std::vector<std::string> table{"existing"};
     CHECK(srSystem::scanFiles(table, "Data\\*.SLF") == 1);
@@ -301,15 +277,13 @@ int main() try
 
     for (const char* path : {"Data/archiveonly.bin", "Data\\archiveonly.bin",
                              "C:/Data\\archiveonly.bin"}) {
-        srBinIFStream input(path);
-        CHECK(input.good() && input.getSize() == 8);
+        auto input = wiz8::open_file(path);
+        CHECK(SDL_GetIOSize(input->io()) == 8);
         char bytes[8];
-        input.read(bytes, sizeof(bytes));
-        CHECK(input.good() && input.tell() == sizeof(bytes));
+        srIO::readExact(input->io(), bytes, sizeof(bytes));
+        CHECK(SDL_TellIO(input->io()) == sizeof(bytes));
         CHECK(!memcmp(bytes, "archive!", sizeof(bytes)));
     }
-    CHECK(!srBinIFStream(std::string_view{}).good());
-    CHECK(!srBinIFStream("").good());
 
 
     CHECK(wiz8::file_status("Data/archiveonly.bin")->archived);

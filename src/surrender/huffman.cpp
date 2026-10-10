@@ -1,6 +1,8 @@
 #include "surrender/srHuffman.h"
 
 #include <algorithm>
+#include <limits>
+#include <utility>
 #include <string.h>
 
 static void sortSymbolPairs(srHuffman::Sampler::Symbol* pairs, w8_ulong count);
@@ -9,9 +11,12 @@ static void sortSymbolPairs(srHuffman::Sampler::Symbol* pairs, w8_ulong count);
 void srHuffman::BitIStream::fetchCache(w8_long position)
 {
     cache_base = position;
-    stream->seek(position);
-    stream->read(cache, 0x80);
-    stream->setState(srBinStream::SR_STREAM_OK);
+    if (SDL_SeekIO(stream, position, SDL_IO_SEEK_SET) < 0)
+        throw std::runtime_error(SDL_GetError());
+    std::fill(std::begin(cache), std::end(cache), 0);
+    cache_valid = SDL_ReadIO(stream, cache, sizeof(cache));
+    if (SDL_GetIOStatus(stream) == SDL_IO_STATUS_ERROR)
+        throw std::runtime_error(SDL_GetError());
 }
 
 // FUNCTION: SURRENDER 0x100015C0
@@ -22,6 +27,7 @@ w8_ulong srHuffman::BitIStream::getByte(w8_long position)
         fetchCache(position);
         offset = 0;
     }
+    if (offset >= cache_valid) throw std::runtime_error("Truncated Huffman bits");
     return cache[offset];
 }
 
@@ -33,9 +39,8 @@ w8_ulong srHuffman::BitIStream::getDWord(w8_long position)
         fetchCache(position);
         offset = 0;
     }
-    w8_ulong value;
-    memcpy(&value, cache + offset, sizeof(value));
-    return value;
+    return w8_ulong(cache[offset]) | (w8_ulong(cache[offset + 1]) << 8) |
+           (w8_ulong(cache[offset + 2]) << 16) | (w8_ulong(cache[offset + 3]) << 24);
 }
 
 // FUNCTION: SURRENDER 0x10001340
@@ -44,27 +49,39 @@ w8_ulong srHuffman::BitIStream::getWordOrLess(w8_ulong bits)
     w8_long position = bit_pos / 8;
     w8_ulong shift = bit_pos & 7;
     w8_ulong data = getDWord(position);
+    if (size_t(position - cache_base) + (shift + bits + 7) / 8 > cache_valid)
+        throw std::runtime_error("Truncated Huffman bits");
     bit_pos += bits;
     return (data & ((1 << (shift + bits)) - 1)) >> shift;
 }
 
 // FUNCTION: SURRENDER 0x100010A0
-srHuffman::BitIStream::BitIStream(srBinIStream& stream)
+srHuffman::BitIStream::BitIStream(SDL_IOStream* stream)
 {
-    this->stream = &stream;
+    this->stream = stream;
     cache_base = -0x100;
-    bit_pos = this->stream->tell() << 3;
+    const auto position = SDL_TellIO(stream);
+    if (position < 0 || position > std::numeric_limits<w8_long>::max() / 8)
+        throw std::runtime_error("Invalid Huffman cursor");
+    bit_pos = static_cast<w8_long>(position * 8);
 }
 
 // FUNCTION: SURRENDER 0x100010E0
 w8_ulong srHuffman::BitIStream::get(w8_ulong bits)
 {
+    if (bits == 0) return 0;
+    if (bits > 32) throw std::runtime_error("Invalid Huffman bit width");
     if (bits <= 0x10) {
         return getWordOrLess(bits);
     }
     w8_ulong low = getWordOrLess(0x10);
     w8_ulong high = getWordOrLess(bits - 0x10);
     return (high << 0x10) | low;
+}
+
+w8_ulong srHuffman::BitIStream::peekByte()
+{
+    return (getDWord(bit_pos / 8) >> (bit_pos & 7)) & 0xff;
 }
 
 // FUNCTION: SURRENDER 0x10001290
@@ -89,9 +106,9 @@ srHuffman::BitOStream& srHuffman::BitOStream::operator=(const BitOStream& stream
 }
 
 // FUNCTION: SURRENDER 0x100016D0
-srHuffman::BitOStream::BitOStream(srBinOStream& stream)
+srHuffman::BitOStream::BitOStream(SDL_IOStream* stream)
 {
-    this->stream = &stream;
+    this->stream = stream;
     pending = 0;
     bit_count = 0;
     bytes = 0;
@@ -101,7 +118,7 @@ srHuffman::BitOStream::BitOStream(srBinOStream& stream)
 // FUNCTION: SURRENDER 0x10001730
 srHuffman::BitOStream::~BitOStream()
 {
-    flush();
+    try { flush(); } catch (...) { /* Explicit flush reports failures to the caller. */ }
 }
 
 // FUNCTION: SURRENDER 0x10001760
@@ -139,9 +156,9 @@ void srHuffman::BitOStream::flushByte()
 void srHuffman::BitOStream::flushBuffer()
 {
     if (buffered != 0) {
-        stream->write(buffer, buffered);
+        const auto count = std::exchange(buffered, 0);
+        srIO::writeExact(stream, buffer, count);
     }
-    buffered = 0;
 }
 
 // FUNCTION: SURRENDER 0x10001810
@@ -391,8 +408,8 @@ w8_ulong srHuffman::Decompressor::getDataCount() const
 w8_ulong srHuffman::Decompressor::decompressSymbol()
 {
     BitIStream* stream = this->stream;
-    w8_ulong key = stream->get(8);
-    stream->rewind(8 - depth[key]);
+    w8_ulong key = stream->peekByte();
+    stream->get(depth[key]);
     Symbol* node = lookup[key];
     while (node->children[0] != 0) {
         node = node->children[stream->getBit()];

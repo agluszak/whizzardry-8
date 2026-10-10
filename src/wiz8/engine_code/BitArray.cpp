@@ -97,64 +97,32 @@ void BitArray::CopyFrom(BitArray& other)
 
 /* Packed Huffman payload used by the octree alpha-bit and prop-sun-bit
    arrays. Magic 0xDEADD00D frames the bit count, the packed size, and a
-   trailing copy of the magic. An allocation failure after SetSize still
-   recounts and answers success, matching retail. */
+   trailing copy of the magic. Decode into owned memory before committing
+   the result, so truncated SDL input cannot publish a partial array. */
 // FUNCTION: WIZ8 0x0043aec0
 unsigned char BitArray::Load(wiz8::File* handle)
 try
 {
-    unsigned int magic;
-    unsigned int packed_size;
-    void* packed;
-    unsigned int file_bit_count;
-    w8_ulong* decoded;
-    w8_ulong remaining;
-    w8_ulong* cursor;
-
-    if ((handle->read(&magic, 4).bytes == static_cast<std::size_t>(4)) == 0 || magic != 0xdeadd00d) {
+    auto* io = handle->io();
+    if (srIO::readInteger<Uint32>(io) != 0xdeadd00d) return 0;
+    const auto file_bit_count = srIO::readInteger<Uint32>(io);
+    if (!file_bit_count) return 0;
+    const auto packed_size = srIO::readInteger<Uint32>(io);
+    const auto position = SDL_TellIO(io), length = SDL_GetIOSize(io);
+    if (position < 0 || length < position || Uint64(packed_size) + 4 > Uint64(length - position))
         return 0;
-    }
-    if ((handle->read(&file_bit_count, 4).bytes == static_cast<std::size_t>(4)) == 0 || file_bit_count == 0) {
-        return 0;
-    }
+    std::vector<unsigned char> packed(packed_size);
+    srIO::readExact(io, packed.data(), packed.size());
+    auto stream = srIO::own(SDL_IOFromConstMem(packed.data(), packed.size()));
+    srHuffman::BitIStream bits(stream.get());
+    srHuffman::Decompressor decoder(bits);
+    const auto expected_words = file_bit_count / 32 + 1;
+    if (decoder.getDataCount() != expected_words) return 0;
+    std::vector<w8_ulong> decoded(expected_words);
+    for (auto& word : decoded) word = decoder.decompressSymbol();
+    if (srIO::readInteger<Uint32>(io) != 0xdeadd00d) return 0;
     SetSize(file_bit_count);
-    if ((handle->read(&packed_size, 4).bytes == static_cast<std::size_t>(4)) == 0) {
-        return 0;
-    }
-    packed = operator new(packed_size);
-    if (packed != 0) {
-        if ((handle->read(packed, packed_size).bytes == static_cast<std::size_t>(packed_size)) == 0) {
-            operator delete(packed);
-            return 0;
-        }
-
-        decoded = 0;
-        {
-            srBinIMStream stream(packed, packed_size);
-            {
-                srHuffman::BitIStream bits(stream);
-                srHuffman::Decompressor decoder(bits);
-                remaining = decoder.getDataCount();
-                if (remaining != 0) {
-                    decoded = static_cast<w8_ulong*>(operator new(remaining * sizeof(*decoded)));
-                    if (remaining > 0)
-                        cursor = decoded;
-                    while (remaining > 0) {
-                        *cursor = decoder.decompressSymbol();
-                        ++cursor;
-                        --remaining;
-                    }
-                }
-            }
-            memcpy(puiIndex, decoded, word_count * sizeof(unsigned int));
-            operator delete(decoded);
-            operator delete(packed);
-            magic = 0;
-            if ((handle->read(&magic, 4).bytes == static_cast<std::size_t>(4)) == 0 || magic != 0xdeadd00d) {
-                return 0;
-            }
-        }
-    }
+    memcpy(puiIndex, decoded.data(), decoded.size() * sizeof(decoded[0]));
 
     set_count = 0;
     if (NextSetBit(true) != 0) {
@@ -184,16 +152,12 @@ unsigned char BitArray::Save(wiz8::File* handle)
         return 0;
     }
 
-    if ((handle->write(&magic, 4), true) == 0) {
-        return 0;
-    }
-    if ((handle->write(&bit_count, 4), true) == 0) {
-        return 0;
-    }
+    srIO::writeInteger(handle->io(), magic);
+    srIO::writeInteger(handle->io(), bit_count);
 
-    srBinOMStream stream;
+    auto stream = srIO::own(SDL_IOFromDynamicMem());
     {
-        srHuffman::BitOStream bits(stream);
+        srHuffman::BitOStream bits(stream.get());
         srHuffman::Sampler sampler;
         count = word_count;
         words = puiIndex;
@@ -220,18 +184,14 @@ unsigned char BitArray::Save(wiz8::File* handle)
                 --remaining;
             } while (remaining != 0);
         }
+        bits.flush();
     }
 
-    packed_size = stream.getSize();
-    if ((handle->write(&packed_size, 4), true) == 0) {
-        return 0;
-    }
-    if ((handle->write(stream.getPtr(), packed_size), true) == 0) {
-        return 0;
-    }
-    if ((handle->write(&magic, 4), true) == 0) {
-        return 0;
-    }
+    packed_size = static_cast<w8_ulong>(SDL_GetIOSize(stream.get()));
+    srIO::writeInteger(handle->io(), packed_size);
+    srIO::writeExact(handle->io(), SDL_GetPointerProperty(SDL_GetIOProperties(stream.get()),
+                     SDL_PROP_IOSTREAM_DYNAMIC_MEMORY_POINTER, nullptr), packed_size);
+    srIO::writeInteger(handle->io(), magic);
     return 1;
 }
 

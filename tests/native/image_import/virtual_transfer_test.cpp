@@ -1,5 +1,5 @@
 #include "surrender/srImageIO.h"
-#include "image_stream.h"
+#include "image_helpers.h"
 #include "wiz8/engine_code/stTextureFile.h"
 #include "wiz8/sr_api.h"
 #include "wiz8/slf.h"
@@ -192,20 +192,31 @@ int main() try
         CHECK(!srImage::describe(desc, "broken.jpg", *broken) && broken->tell() == 7);
         CHECK(!srImage::load("broken.jpg", *broken) && broken->is_open());
         {
-            srImage::Stream bridge{*first};
-            auto io = bridge.open();
-            CHECK(io && SDL_GetIOSize(io.get()) == Sint64(jpeg.size()));
-            CHECK(SDL_SeekIO(io.get(), -1, SDL_IO_SEEK_END) == Sint64(jpeg.size() - 1));
+            auto* io = first->io();
+            CHECK(io && SDL_GetIOSize(io) == Sint64(jpeg.size()));
+            CHECK(SDL_SeekIO(io, -1, SDL_IO_SEEK_END) == Sint64(jpeg.size() - 1));
             unsigned char bytes[8];
-            CHECK(SDL_ReadIO(io.get(), bytes, sizeof(bytes)) == 1 && bytes[0] == 0xd9);
-            CHECK(SDL_ReadIO(io.get(), bytes, sizeof(bytes)) == 0 && bridge.eof && !bridge.failed);
+            CHECK(SDL_ReadIO(io, bytes, sizeof(bytes)) == 1 && bytes[0] == 0xd9);
+            CHECK(SDL_ReadIO(io, bytes, sizeof(bytes)) == 0 && SDL_GetIOStatus(io) == SDL_IO_STATUS_EOF);
         }
         for (const auto offset : {std::numeric_limits<Sint64>::min(), std::numeric_limits<Sint64>::max()}) {
             first->seek(9, wiz8::SeekOrigin::begin);
-            srImage::Stream bridge{*first};
-            auto io = bridge.open();
-            CHECK(SDL_SeekIO(io.get(), offset, SDL_IO_SEEK_CUR) == -1 && bridge.failed);
+            auto* io = first->io();
+            CHECK(SDL_SeekIO(io, offset, SDL_IO_SEEK_CUR) == -1);
             CHECK(first->tell() == 9);
+        }
+        // The bounded SDL backend owns its context independently of the File
+        // object's address, so moves preserve the borrowed stream and cursor.
+        {
+            auto archived = wiz8::open_file("Data/archive.jpg");
+            auto* borrowed = archived->io();
+            wiz8::File moved(std::move(*archived));
+            archived.reset();
+            CHECK(moved.io() == borrowed && SDL_GetIOSize(borrowed) == Sint64(jpeg.size()));
+            CHECK(SDL_SeekIO(borrowed, 9, SDL_IO_SEEK_SET) == 9 && moved.tell() == 9);
+            unsigned char byte;
+            CHECK(SDL_ReadIO(borrowed, &byte, 1) == 1 && moved.tell() == 10);
+            CHECK(SDL_WriteIO(borrowed, &byte, 1) == 0);
         }
         first->close();
         CHECK(!srImage::load("archive.jpg", *first));
@@ -224,6 +235,14 @@ int main() try
         auto overlay = wiz8::open_file("Data/loose.jpeg");
         CHECK(!srImage::load("loose.jpeg", *overlay) && overlay->is_open());
         checkTga("Data/Broken.tga", false);
+    }
+    {
+        auto archived = wiz8::open_file("Data/archive.jpg");
+        fs::resize_file(archived->physical_path(), 0);
+        unsigned char byte;
+        CHECK(SDL_ReadIO(archived->io(), &byte, 1) == 0);
+        CHECK(SDL_GetIOStatus(archived->io()) == SDL_IO_STATUS_ERROR);
+        write(assets / "data" / "DATA.SLF", archive(jpeg, tga));
     }
     srExit();
     checkUninitialized();

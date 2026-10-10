@@ -22,6 +22,70 @@ namespace
 {
     throw std::runtime_error(std::string(operation) + ": " + SDL_GetError());
 }
+// SLF bounds belong to the stream, so every SDL consumer sees the same entry.
+struct ArchiveIO
+{
+    SDL_IOStream* source;
+    Sint64 offset, length, position = 0;
+
+    static Sint64 SDLCALL size(void* cookie)
+    {
+        return static_cast<ArchiveIO*>(cookie)->length;
+    }
+    static Sint64 SDLCALL seek(void* cookie, Sint64 offset, SDL_IOWhence whence)
+    {
+        auto& self = *static_cast<ArchiveIO*>(cookie);
+        const Sint64 base = whence == SDL_IO_SEEK_SET ? 0 :
+                            whence == SDL_IO_SEEK_CUR ? self.position :
+                            whence == SDL_IO_SEEK_END ? self.length : -1;
+        if (base < 0 || offset < -base || offset > self.length - base) {
+            SDL_SetError("Seek outside SLF entry");
+            return -1;
+        }
+        const Sint64 destination = base + offset;
+        if (SDL_SeekIO(self.source, self.offset + destination, SDL_IO_SEEK_SET) < 0)
+            return -1;
+        return self.position = destination;
+    }
+    static size_t SDLCALL read(void* cookie, void* data, size_t bytes, SDL_IOStatus* status)
+    {
+        auto& self = *static_cast<ArchiveIO*>(cookie);
+        if (SDL_GetIOSize(self.source) < self.offset + self.length) {
+            SDL_SetError("SLF entry exceeds archive");
+            *status = SDL_IO_STATUS_ERROR;
+            return 0;
+        }
+        const size_t wanted = static_cast<size_t>(std::min<Uint64>(bytes, self.length - self.position));
+        const size_t count = wanted ? SDL_ReadIO(self.source, data, wanted) : 0;
+        self.position += count;
+        if (count < wanted) {
+            SDL_SetError("Short SLF archive read");
+            *status = SDL_IO_STATUS_ERROR;
+        } else if (count < bytes) {
+            *status = SDL_IO_STATUS_EOF;
+        }
+        return count;
+    }
+    static bool SDLCALL close(void* cookie)
+    {
+        std::unique_ptr<ArchiveIO> self(static_cast<ArchiveIO*>(cookie));
+        return SDL_CloseIO(self->source);
+    }
+};
+SDL_IOStream* archive_io(SDL_IOStream* source, Sint64 offset, Sint64 length)
+{
+    auto context = std::make_unique<ArchiveIO>(source, offset, length);
+    SDL_IOStreamInterface interface;
+    SDL_INIT_INTERFACE(&interface);
+    interface.size = ArchiveIO::size;
+    interface.seek = ArchiveIO::seek;
+    interface.read = ArchiveIO::read;
+    interface.close = ArchiveIO::close;
+    auto* io = SDL_OpenIO(&interface, context.get());
+    if (!io) sdl_failure("open SLF stream");
+    context.release();
+    return io;
+}
 const fs::path& write_destination(const w8_native::ResolvedPath& path)
 {
     if (path.writable.empty())
@@ -207,32 +271,18 @@ ReadResult File::read(void* data, std::size_t bytes)
         return {0, false};
     if (!data)
         throw std::invalid_argument("null read buffer");
-    bool clamped = false;
-    if (extent_)
-    {
-        if (SDL_GetIOSize(stream) < std::int64_t(extent_->offset) + extent_->length)
-            throw std::out_of_range("SLF entry exceeds archive");
-        // Stop at the end of the entry like a plain file's EOF.
-        const auto remaining = static_cast<std::uint64_t>(std::max<std::int64_t>(size() - tell(), 0));
-        if (bytes > remaining)
-        {
-            bytes = static_cast<std::size_t>(remaining);
-            clamped = true;
-            if (!bytes)
-                return {0, true};
-        }
-    }
     std::size_t total = 0;
     while (total < bytes)
     {
-        total += SDL_ReadIO(stream, static_cast<std::byte*>(data) + total, bytes - total);
+        const auto count = SDL_ReadIO(stream, static_cast<std::byte*>(data) + total, bytes - total);
+        total += count;
         const auto status = SDL_GetIOStatus(stream);
         if (status == SDL_IO_STATUS_EOF)
             return {total, true};
-        if (status != SDL_IO_STATUS_READY)
+        if (!count || status != SDL_IO_STATUS_READY)
             sdl_failure("read file");
     }
-    return {total, clamped};
+    return {total, false};
 }
 void File::read_exact(void* data, std::size_t bytes)
 {
@@ -270,7 +320,7 @@ std::int64_t File::seek(std::int64_t offset, SeekOrigin origin)
     const auto destination = base + offset;
     if (extent_ && destination > extent_->length)
         throw std::out_of_range("seek exceeds SLF entry");
-    const auto physical = destination + (extent_ ? extent_->offset : 0);
+    const auto physical = destination;
     const auto position = SDL_SeekIO(require_stream(), physical, SDL_IO_SEEK_SET);
     if (position != physical)
         sdl_failure("seek file");
@@ -281,11 +331,10 @@ std::int64_t File::tell() const
     const auto position = SDL_TellIO(require_stream());
     if (position < 0)
         sdl_failure("tell file");
-    return position - (extent_ ? extent_->offset : 0);
+    return position;
 }
 std::int64_t File::size() const
 {
-    if (extent_) { require_stream(); return extent_->length; }
     const auto bytes = SDL_GetIOSize(require_stream());
     if (bytes < 0)
         sdl_failure("size file");
@@ -301,6 +350,7 @@ void File::close()
     if (stream_ && !SDL_CloseIO(std::exchange(stream_, nullptr)))
         sdl_failure("close file");
 }
+SDL_IOStream* File::io() const { return require_stream(); }
 bool File::is_open() const noexcept { return stream_ != nullptr; }
 const fs::path& File::physical_path() const noexcept { return path_; }
 FileStatus File::status() const
@@ -348,6 +398,7 @@ std::unique_ptr<File> open_file(std::string_view game_path, OpenMode mode)
             if (std::int64_t(entry->offset) + entry->length > file->size())
                 throw std::runtime_error("truncated SLF entry");
             file->seek(entry->offset, SeekOrigin::begin);
+            file->stream_ = archive_io(file->stream_, entry->offset, entry->length);
             file->extent_ = File::Extent{entry->offset, entry->length, entry->modified};
             return file;
         }
