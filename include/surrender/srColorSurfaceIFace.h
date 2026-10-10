@@ -48,13 +48,6 @@ public:
     virtual SR_DLL_IMPORT void setPixel(w8_long x, w8_long y, w8_ulong pixel);
     virtual SR_DLL_IMPORT w8_ulong getPixelRaw(w8_long x, w8_long y);
     virtual SR_DLL_IMPORT void setPixelRaw(w8_long x, w8_long y, w8_ulong pixel);
-    virtual SR_DLL_IMPORT void getPixels(w8_ulong* pixels, const srVector2i* positions,
-                                         w8_long count);
-    virtual SR_DLL_IMPORT void setPixels(const w8_ulong* pixels, const srVector2i* positions,
-                                         w8_long count);
-    virtual SR_DLL_IMPORT void getPixelsRaw(void* pixels, const srVector2i* positions, w8_long count);
-    virtual SR_DLL_IMPORT void setPixelsRaw(const void* pixels, const srVector2i* positions,
-                                            w8_long count);
     virtual SR_DLL_IMPORT void getPixelColumn(w8_ulong* pixels, w8_long x, w8_long y_start,
                                               w8_long y_end);
     virtual SR_DLL_IMPORT void setPixelColumn(const w8_ulong* pixels, w8_long x, w8_long y_start,
@@ -74,7 +67,6 @@ public:
     virtual SR_DLL_IMPORT void blit(w8_long x, w8_long y, srColorSurfaceIFace& source, w8_long source_x,
                                     w8_long source_y, w8_long width, w8_long height);
     virtual SR_DLL_IMPORT void copy(srColorSurfaceIFace& source);
-    virtual SR_DLL_IMPORT void swapPixelRows(w8_long x0, w8_long y0, w8_long x1, w8_long y1, w8_long count);
     virtual SR_DLL_IMPORT void flipRectangle(const Rectangle& rectangle);
     virtual void getPixelRow(w8_ulong* pixels, w8_long y, w8_long x_start, w8_long x_end) = 0;
     virtual void setPixelRow(const w8_ulong* pixels, w8_long y, w8_long x_start, w8_long x_end) = 0;
@@ -84,16 +76,10 @@ public:
     SR_DLL_IMPORT void clampCoordinates(w8_long& x, w8_long& y);
     SR_DLL_IMPORT void flipHorizontal();
     SR_DLL_IMPORT void flipVertical();
-    SR_DLL_IMPORT w8_ulong getAlphaBits() const;
     SR_DLL_IMPORT double getAspectRatio() const;
-    SR_DLL_IMPORT w8_long getBitsPerPixel() const;
-    SR_DLL_IMPORT w8_long getBlueBits() const;
-    SR_DLL_IMPORT w8_long getBytesPerPixel() const;
     SR_DLL_IMPORT w8_long getClampedX(w8_long x) const;
     SR_DLL_IMPORT w8_long getClampedY(w8_long y) const;
     SR_DLL_IMPORT srFilter* getFilter() const;
-    SR_DLL_IMPORT w8_long getGreenBits() const;
-    SR_DLL_IMPORT int getHClampMode() const;
 // FUNCTION: SURRENDER 0x100598F0 SYMBOL
 // RECOMP: ?getHeight@srColorSurfaceIFace@@QBEJXZ
 
@@ -115,7 +101,6 @@ public:
     {
         format = pixel_format;
     }
-    SR_DLL_IMPORT w8_long getRedBits() const;
 // FUNCTION: SURRENDER 0x10059A10 SYMBOL
 // RECOMP: ?getSurfaceDesc@srColorSurfaceIFace@@QBEXAAUSurfaceDesc@1@@Z
 
@@ -128,7 +113,6 @@ public:
         description.filter = filter;
         description.pixel_format = pixel_format;
     }
-    SR_DLL_IMPORT int getVClampMode() const;
 // FUNCTION: SURRENDER 0x10059A60 SYMBOL
 // RECOMP: ?getWidth@srColorSurfaceIFace@@QBEJXZ
 
@@ -136,9 +120,6 @@ public:
     {
         return width;
     }
-    SR_DLL_IMPORT int isAlpha() const;
-    SR_DLL_IMPORT int isPaletted() const;
-    SR_DLL_IMPORT void rotate180();
 // FUNCTION: SURRENDER 0x10059A90 SYMBOL
 // RECOMP: ?setFilter@srColorSurfaceIFace@@QAEXPAVsrFilter@@@Z
 

@@ -185,13 +185,6 @@ TEST_CASE("SurRender uses shared packed surface operations")
                 REQUIRE(clone.getPixelRaw(x, y) == source.getPixelRaw(inside ? 5 - x : x,
                                                                     inside ? 4 - y : y));
             }
-        const srVector2i positions[]{{0, 0}, {6, 4}, {3, 2}};
-        unsigned char scattered[12]{};
-        source.getPixelsRaw(scattered, positions, 3);
-        clone.setPixelsRaw(scattered, positions, 3);
-        for (const auto& position : positions)
-            REQUIRE(clone.getPixelRaw(position.x, position.y) ==
-                    source.getPixelRaw(position.x, position.y));
         for (int width : {3, 7, 14, 17}) {
             srColorSurface scaled(format, width, 9);
             scaled.copy(source);

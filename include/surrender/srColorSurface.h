@@ -34,14 +34,6 @@ public:
 
     virtual SR_DLL_IMPORT w8_ulong getPixelRaw(w8_long x, w8_long y) override;
     virtual SR_DLL_IMPORT void setPixelRaw(w8_long x, w8_long y, w8_ulong pixel) override;
-    virtual SR_DLL_IMPORT void getPixels(w8_ulong* pixels, const srVector2i* positions,
-                                         w8_long count) override;
-    virtual SR_DLL_IMPORT void setPixels(const w8_ulong* pixels, const srVector2i* positions,
-                                         w8_long count) override;
-    virtual SR_DLL_IMPORT void getPixelsRaw(void* pixels, const srVector2i* positions,
-                                            w8_long count) override;
-    virtual SR_DLL_IMPORT void setPixelsRaw(const void* pixels, const srVector2i* positions,
-                                            w8_long count) override;
     virtual SR_DLL_IMPORT void getPixelColumn(w8_ulong* pixels, w8_long x, w8_long y_start,
                                               w8_long y_end) override;
     virtual SR_DLL_IMPORT void setPixelColumn(const w8_ulong* pixels, w8_long x, w8_long y_start,
@@ -61,8 +53,6 @@ public:
                                         w8_ulong pixel) override;
     virtual SR_DLL_IMPORT void blit(w8_long x, w8_long y, srColorSurfaceIFace& source, w8_long source_x,
                                     w8_long source_y, w8_long width, w8_long height) override;
-    virtual SR_DLL_IMPORT void swapPixelRows(w8_long x0, w8_long y0, w8_long x1, w8_long y1,
-                                             w8_long count) override;
     virtual SR_DLL_IMPORT void flipRectangle(const Rectangle& rectangle) override;
     virtual SR_DLL_IMPORT void getPixelRow(w8_ulong* pixels, w8_long y, w8_long x_start,
                                            w8_long x_end) override;
@@ -73,10 +63,6 @@ public:
     virtual SR_DLL_IMPORT void setPixelRowRaw(const void* pixels, w8_long y, w8_long x_start,
                                               w8_long x_end) override;
 
-    SR_DLL_IMPORT srPixelConvert::ConversionFunc getPixelReadFunc() const;
-    SR_DLL_IMPORT srPixelConvert::ConversionFunc getPixelWriteFunc() const;
-    SR_DLL_IMPORT void setPixelReadFunc(srPixelConvert::ConversionFunc function);
-    SR_DLL_IMPORT void setPixelWriteFunc(srPixelConvert::ConversionFunc function);
 
 private:
     virtual SR_DLL_IMPORT void copyNoScaling(srColorSurfaceIFace& source) override;
@@ -91,6 +77,7 @@ private:
                                            w8_ulong count);
     SR_DLL_IMPORT int isCompatible(srColorSurfaceIFace& source);
 
+    void fillRectangle(SDL_Rect rect, w8_ulong pixel);
     void allocate();
     void adopt(SDL_Surface* storage);
     /* Caller memory or a shared surface cannot be reallocated. */
