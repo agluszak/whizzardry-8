@@ -494,10 +494,7 @@ W8CharacterEventQueue::W8CharacterEventQueue()
 // FUNCTION: WIZ8 0x0052d5b0
 W8CharacterEventQueue::~W8CharacterEventQueue()
 {
-    active_events.RemoveAllAndDelete();
-    npc_deferred_events.RemoveAllAndDelete();
-    pending_events.RemoveAllAndDelete();
-    vector0.RemoveAllAndDelete();
+    DestroyAllEvents();
     delete[] event_character_masks;
 }
 
