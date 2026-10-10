@@ -1,3 +1,4 @@
+#include <algorithm>
 #include "wiz8/utility.h"
 #include <SDL3/SDL_log.h>
 #include <SDL3/SDL_surface.h>
