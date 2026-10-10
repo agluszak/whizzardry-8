@@ -116,7 +116,7 @@ int W8ListBoxDialog::GetVisibleLineCount()
    the selected row. */
 void W8ListBoxDialog::SetFirstVisibleLine(int requested)
 {
-    if (m_area_button != 0) {
+    if (m_area_button) {
         int first = requested;
         if (static_cast<int>(m_lines.size()) - GetVisibleLineCount() < requested) {
             first = static_cast<int>(m_lines.size()) - GetVisibleLineCount();

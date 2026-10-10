@@ -54,6 +54,7 @@ typedef struct _MOUSE_REGION {
     MOUSE_CALLBACK
     ButtonCallback;    // Pointer to callback function if button action occured in this region
     INT32 UserData[4]; // User Data, can be set to anything!
+    std::weak_ptr<void> dispatch_owner; // non-owning callback context
 
     //Fast help vars.
     INT16 FastHelpTimer;  // Countdown timer for FastHelp text

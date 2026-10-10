@@ -15,7 +15,6 @@
 #include <array>
 #include <memory>
 #include <vector>
-#include <unordered_map>
 #include <algorithm>
 #include "english.h"
 #include "vobject.h"
@@ -57,6 +56,9 @@ CHAR8 str[128];
 //an already deleted button, or it's images, etc.  It will also ensure that you don't create
 //the same button that already exists.
 //TO REMOVE ALL DEBUG FUNCTIONALITY:  simply comment out BUTTONSYSTEM_DEBUGGING definition
+
+static std::vector<std::weak_ptr<GUI_BUTTON>> active_buttons;
+static INT32 next_button_id = 1;
 
 #ifdef BUTTONSYSTEM_DEBUGGING
 BOOLEAN gfIgnoreShutdownAssertions;
@@ -135,9 +137,6 @@ UINT32 ButtonDestBPP = 16;
 // GLOBAL: WIZ8 0x006e1240
 // Buttons are owned by their C++ clients. Rendering and mouse dispatch only
 // retain weak references, so a button does not require a global numeric slot.
-static std::vector<std::weak_ptr<GUI_BUTTON>> active_buttons;
-static std::unordered_map<MOUSE_REGION*, std::weak_ptr<GUI_BUTTON>> region_buttons;
-static INT32 next_button_id = 1;
 
 size_t RegisteredButtonCount()
 {
@@ -147,7 +146,6 @@ size_t RegisteredButtonCount()
 
 _GUI_BUTTON::~_GUI_BUTTON()
 {
-    region_buttons.erase(&Area);
     if (Area.uiFlags & MSYS_REGION_EXISTS) MSYS_RemoveRegion(&Area);
     if (gpAnchoredButton == this) gpAnchoredButton = nullptr;
     if (gpPrevAnchoredButton == this) gpPrevAnchoredButton = nullptr;
@@ -190,8 +188,8 @@ BOOLEAN fDisableHelpTextRestoreFlag = FALSE;
 // Mouse callbacks hold a strong reference until the current dispatch returns.
 static std::shared_ptr<GUI_BUTTON> ButtonFromRegion(MOUSE_REGION* region)
 {
-    auto it = region_buttons.find(region);
-    return it == region_buttons.end() ? std::shared_ptr<GUI_BUTTON>{} : it->second.lock();
+    if (!region) return {};
+    return std::static_pointer_cast<GUI_BUTTON>(region->dispatch_owner.lock());
 }
 
 extern MOUSE_REGION* MSYS_PrevRegion;
@@ -673,7 +671,6 @@ void ShutdownButtonImageManager(void)
 // FUNCTION: WIZ8 0x0040cf60
 BOOLEAN InitButtonSystem(void)
 {
-    Assert(g_button_dispatch_depth == 0);
     ShutdownButtonSystem();
 
 #ifdef BUTTONSYSTEM_DEBUGGING
@@ -702,7 +699,6 @@ void ShutdownButtonSystem(void)
         }
     }
     active_buttons.clear();
-    region_buttons.clear();
     ShutdownButtonImageManager();
 }
 
@@ -874,7 +870,7 @@ GUIButton CreateTextButton(std::string_view string, UINT32 uiFont, INT16 sForeCo
 #ifdef BUTTONSYSTEM_DEBUGGING
     AssertFailIfIdenticalButtonAttributesFound(b);
 #endif
-    region_buttons[&b->Area] = owner;
+    b->Area.dispatch_owner = owner;
     active_buttons.push_back(owner);
 
 
@@ -994,7 +990,7 @@ GUIButton QuickCreateButton(UINT32 Image, INT16 xloc, INT16 yloc, INT32 Type, IN
 #ifdef BUTTONSYSTEM_DEBUGGING
     AssertFailIfIdenticalButtonAttributesFound(b);
 #endif
-    region_buttons[&b->Area] = owner;
+    b->Area.dispatch_owner = owner;
     active_buttons.push_back(owner);
 
 
