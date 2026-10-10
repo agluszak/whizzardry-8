@@ -677,43 +677,23 @@ BOOLEAN BltVideoSurfaceToVideoSurface(HVSURFACE hDestVSurface, HVSURFACE hSrcVSu
     if (!SDL_HasRectIntersection(&destination, &bounds))
         return FALSE;
 
-    // Ordinary blits clip once in BltVSurfaceUsingSDL; mirrored blits retain
-    // their own coordinate mapping and clipping.
-    // Same-depth operations use the SDL surface path.
-    // First check BPP values for compatibility
-    if (hDestVSurface->ubBitDepth == 16 && hSrcVSurface->ubBitDepth == 16) {
-        if (fBltFlags & VS_BLT_MIRROR_Y) {
-            if ((pSrcSurface16 = (UINT16*)LockVideoSurfaceBuffer(hSrcVSurface, &uiSrcPitch)) ==
-                nullptr) {
-                SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Failed on lock of 16BPP surface for blitting");
-                return (FALSE);
-            }
-
-            if ((pDestSurface16 = (UINT16*)LockVideoSurfaceBuffer(hDestVSurface, &uiDestPitch)) ==
-                nullptr) {
-                UnLockVideoSurfaceBuffer(hSrcVSurface);
-                SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Failed on lock of 16BPP dest surface for blitting");
-                return (FALSE);
-            }
-
-            Blt16BPPTo16BPPMirror(pDestSurface16, uiDestPitch, pSrcSurface16, uiSrcPitch, iDestX,
-                                  iDestY, SrcRect.x, SrcRect.y, SrcRect.w, SrcRect.h);
+    CHECKF(hDestVSurface->ubBitDepth == hSrcVSurface->ubBitDepth &&
+           (hDestVSurface->ubBitDepth == 8 || hDestVSurface->ubBitDepth == 16));
+    if (hDestVSurface->ubBitDepth == 16 && (fBltFlags & VS_BLT_MIRROR_Y)) {
+        pSrcSurface16 = (UINT16*)LockVideoSurfaceBuffer(hSrcVSurface, &uiSrcPitch);
+        CHECKF(pSrcSurface16);
+        pDestSurface16 = (UINT16*)LockVideoSurfaceBuffer(hDestVSurface, &uiDestPitch);
+        if (!pDestSurface16) {
             UnLockVideoSurfaceBuffer(hSrcVSurface);
-            UnLockVideoSurfaceBuffer(hDestVSurface);
-            return (TRUE);
+            return FALSE;
         }
-        CHECKF(
-            BltVSurfaceUsingSDL(hDestVSurface, hSrcVSurface, fBltFlags, iDestX, iDestY, &SrcRect));
-
-    } else if (hDestVSurface->ubBitDepth == 8 && hSrcVSurface->ubBitDepth == 8) {
-        return BltVSurfaceUsingSDL(hDestVSurface, hSrcVSurface, fBltFlags,
-                                  iDestX, iDestY, &SrcRect);
-    } else {
-        SDL_LogDebug(SDL_LOG_CATEGORY_APPLICATION, "Incompatible BPP values with src and dest Video Surfaces for blitting");
-        return (FALSE);
+        Blt16BPPTo16BPPMirror(pDestSurface16, uiDestPitch, pSrcSurface16, uiSrcPitch,
+                             iDestX, iDestY, SrcRect.x, SrcRect.y, SrcRect.w, SrcRect.h);
+        UnLockVideoSurfaceBuffer(hSrcVSurface);
+        UnLockVideoSurfaceBuffer(hDestVSurface);
+        return TRUE;
     }
-
-    return (TRUE);
+    return BltVSurfaceUsingSDL(hDestVSurface, hSrcVSurface, fBltFlags, iDestX, iDestY, &SrcRect);
 }
 
 // ******************************************************************************************
@@ -757,19 +737,9 @@ BOOLEAN ClipReleatedSrcAndDestRectangles(HVSURFACE hDestVSurface, HVSURFACE hSrc
     Assert(hDestVSurface != nullptr);
     Assert(hSrcVSurface != nullptr);
 
-    const auto clip = [](SDL_Rect& rect, SDL_Rect& paired, const SDL_Rect& bounds) {
-        SDL_Rect intersection;
-        if (!SDL_GetRectIntersection(&rect, &bounds, &intersection))
-            return false;
-        paired.x += intersection.x - rect.x;
-        paired.y += intersection.y - rect.y;
-        paired.w = intersection.w;
-        paired.h = intersection.h;
-        rect = intersection;
-        return true;
-    };
-    return clip(*SrcRect, *DestRect, {0, 0, hSrcVSurface->usWidth, hSrcVSurface->usHeight}) &&
-           clip(*DestRect, *SrcRect, {0, 0, hDestVSurface->usWidth, hDestVSurface->usHeight});
+    return ClipCpuBlit(*DestRect, *SrcRect,
+                       {0, 0, hDestVSurface->usWidth, hDestVSurface->usHeight},
+                       {0, 0, hSrcVSurface->usWidth, hSrcVSurface->usHeight});
 }
 
 BOOLEAN FillSurface(HVSURFACE hDestVSurface, blt_vs_fx* pBltFx)

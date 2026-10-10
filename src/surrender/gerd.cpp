@@ -78,8 +78,8 @@ srGERD::MatrixStack::MatrixStack() : depth(0) {}
 class srGERD::LockSurface : public srClassSupport<LockSurface, srColorSurfaceIFace, 0x3111> {
 public:
     LockSurface(srGERD* gerd, const srPixelConvert::PixelFormat& format);
-    virtual ~LockSurface() override;
     LockSurface& operator=(const LockSurface&) = default;
+    w8_long getDataSize() override { return 0; }
     // FUNCTION: SURRENDER 0x1001F780
     static const char* sGetClassName()
     {
@@ -88,8 +88,6 @@ public:
     /* Cannot construct a LockSurface without the owning GERD and pixel format. */
     virtual void getPixelColumn(w8_ulong* pixels, w8_long x, w8_long y0, w8_long y1) override;
     virtual void setPixelColumn(const w8_ulong* pixels, w8_long x, w8_long y0, w8_long y1) override;
-    virtual void* getDataPtr() override;
-    virtual w8_long getDataSize() override;
     virtual void setHLine(w8_long y, w8_long x0, w8_long x1, w8_ulong pixel) override;
     virtual void getPixelRow(w8_ulong* pixels, w8_long y, w8_long x0, w8_long x1) override;
     virtual void setPixelRow(const w8_ulong* pixels, w8_long y, w8_long x0, w8_long x1) override;
@@ -99,6 +97,8 @@ public:
                     w8_ulong bottom);
 
 private:
+    void transferPixels(void* pixels, w8_long fixed, w8_long begin, w8_long end,
+                        bool vertical, bool write, bool raw = false);
     srGERD* gerd;
     w8_ulong left;
     w8_ulong top;
@@ -1634,23 +1634,6 @@ srGERD::LockSurface::LockSurface(srGERD* gerd, const srPixelConvert::PixelFormat
     argb32 = 0;
 }
 
-// FUNCTION: SURRENDER 0x1001F610
-srGERD::LockSurface::~LockSurface()
-{
-}
-
-// FUNCTION: SURRENDER 0x1001F750
-void* srGERD::LockSurface::getDataPtr()
-{
-    return 0;
-}
-
-// FUNCTION: SURRENDER 0x1001F760
-w8_long srGERD::LockSurface::getDataSize()
-{
-    return 0;
-}
-
 // FUNCTION: SURRENDER 0x100207A0
 void srGERD::LockSurface::setHLine(w8_long y, w8_long x0, w8_long x1, w8_ulong pixel)
 {
@@ -1680,188 +1663,74 @@ void srGERD::LockSurface::setHLine(w8_long y, w8_long x0, w8_long x1, w8_ulong p
     gerd->getDD()->bufferOp(command);
 }
 
+void srGERD::LockSurface::transferPixels(void* pixels, w8_long fixed, w8_long begin,
+                                        w8_long end, bool vertical, bool write, bool raw)
+{
+    const w8_long fixedMin = vertical ? left : top;
+    const w8_long fixedMax = vertical ? right : bottom;
+    const w8_long start = vertical ? top : left;
+    const w8_long stop = vertical ? bottom : right;
+    if (fixed < fixedMin || fixed >= fixedMax)
+        return;
+    // Raw reads historically skip one byte per clipped pixel; raw writes skip
+    // a complete packed pixel. Keep that device-interface behavior here.
+    const size_t stride = raw ? (write ? pixel_format.pixel_size + 1 : 1) : sizeof(w8_ulong);
+    if (begin < start) {
+        pixels = static_cast<unsigned char*>(pixels) + size_t(start - begin) * stride;
+        begin = start;
+    }
+    end = std::min(end, stop);
+    if (begin >= end)
+        return;
+    const bool convert = !raw && !argb32;
+    const w8_long count = end - begin;
+    if (convert && write)
+        scratch.setPixelRow(static_cast<const w8_ulong*>(pixels), 0, 0, count);
+    srDD::BufferCommand command{};
+    command.opcode = (vertical ? 6 : 2) + (write ? 1 : 0);
+    command.x = vertical ? fixed : begin;
+    command.y = vertical ? begin : fixed;
+    command.count = count;
+    command.data = convert ? scratch.getDataPtr() : pixels;
+    gerd->getDD()->bufferOp(command);
+    if (convert && !write)
+        scratch.getPixelRow(static_cast<w8_ulong*>(pixels), 0, 0, count);
+}
+
 // FUNCTION: SURRENDER 0x10020990
 void srGERD::LockSurface::getPixelRow(w8_ulong* pixels, w8_long y, w8_long x0, w8_long x1)
 {
-    if (y < (w8_long)top || y >= (w8_long)bottom) {
-        return;
-    }
-    if (x0 < (w8_long)left) {
-        pixels += left - x0;
-        x0 = left;
-    }
-    if (x1 > (w8_long)right) {
-        x1 = right;
-    }
-    if (x0 >= x1) {
-        return;
-    }
-    w8_long count = x1 - x0;
-    srDD::BufferCommand command;
-    command.flags = 0;
-    command.opcode = 2;
-    command.x = x0;
-    command.y = y;
-    command.count = count;
-    if (argb32 != 0) {
-        command.data = pixels;
-        gerd->getDD()->bufferOp(command);
-        return;
-    }
-    command.data = scratch.getDataPtr();
-    gerd->getDD()->bufferOp(command);
-    scratch.getPixelRow(pixels, 0, 0, count);
+    transferPixels(pixels, y, x0, x1, false, false);
 }
 
 // FUNCTION: SURRENDER 0x10020840
 void srGERD::LockSurface::setPixelRow(const w8_ulong* pixels, w8_long y, w8_long x0, w8_long x1)
 {
-    if (y < (w8_long)top || y >= (w8_long)bottom) {
-        return;
-    }
-    if (x0 < (w8_long)left) {
-        pixels += left - x0;
-        x0 = left;
-    }
-    if (x1 > (w8_long)right) {
-        x1 = right;
-    }
-    if (x0 >= x1) {
-        return;
-    }
-    w8_long count = x1 - x0;
-    srDD::BufferCommand command;
-    command.flags = 0;
-    command.opcode = 3;
-    command.x = x0;
-    command.y = y;
-    command.count = count;
-    if (argb32 != 0) {
-        command.data = (void*)pixels;
-        gerd->getDD()->bufferOp(command);
-        return;
-    }
-    scratch.setPixelRow(pixels, 0, 0, count);
-    command.data = scratch.getDataPtr();
-    gerd->getDD()->bufferOp(command);
+    transferPixels(const_cast<w8_ulong*>(pixels), y, x0, x1, false, true);
 }
 
 // FUNCTION: SURRENDER 0x10020A70
 void srGERD::LockSurface::getPixelRowRaw(void* pixels, w8_long y, w8_long x0, w8_long x1)
 {
-    if (y < (w8_long)top || y >= (w8_long)bottom) {
-        return;
-    }
-    if (x0 < (w8_long)left) {
-        pixels = (char*)pixels + (left - x0);
-        x0 = left;
-    }
-    if (x1 > (w8_long)right) {
-        x1 = right;
-    }
-    if (x0 >= x1) {
-        return;
-    }
-    srDD::BufferCommand command;
-    command.flags = 0;
-    command.opcode = 2;
-    command.data = pixels;
-    command.x = x0;
-    command.y = y;
-    command.count = x1 - x0;
-    gerd->getDD()->bufferOp(command);
+    transferPixels(pixels, y, x0, x1, false, false, true);
 }
 
 // FUNCTION: SURRENDER 0x10020900
 void srGERD::LockSurface::setPixelRowRaw(const void* pixels, w8_long y, w8_long x0, w8_long x1)
 {
-    if (y < (w8_long)top || y >= (w8_long)bottom) {
-        return;
-    }
-    if (x0 < (w8_long)left) {
-        pixels = static_cast<const char*>(pixels) + (pixel_format.pixel_size + 1) * (left - x0);
-        x0 = left;
-    }
-    if (x1 > (w8_long)right) {
-        x1 = right;
-    }
-    if (x0 >= x1) {
-        return;
-    }
-    srDD::BufferCommand command;
-    command.flags = 0;
-    command.opcode = 3;
-    command.data = (void*)pixels;
-    command.x = x0;
-    command.y = y;
-    command.count = x1 - x0;
-    gerd->getDD()->bufferOp(command);
+    transferPixels(const_cast<void*>(pixels), y, x0, x1, false, true, true);
 }
 
 // FUNCTION: SURRENDER 0x10020BB0
 void srGERD::LockSurface::getPixelColumn(w8_ulong* pixels, w8_long x, w8_long y0, w8_long y1)
 {
-    if (x < (w8_long)left || x >= (w8_long)right) {
-        return;
-    }
-    if (y0 < (w8_long)top) {
-        pixels += top - y0;
-        y0 = top;
-    }
-    if (y1 >= (w8_long)bottom) {
-        y1 = bottom;
-    }
-    if (y0 >= y1) {
-        return;
-    }
-    w8_long count = y1 - y0;
-    srDD::BufferCommand command;
-    command.flags = 0;
-    command.opcode = 6;
-    command.x = x;
-    command.y = y0;
-    command.count = count;
-    if (argb32 != 0) {
-        command.data = pixels;
-        gerd->getDD()->bufferOp(command);
-        return;
-    }
-    command.data = scratch.getDataPtr();
-    gerd->getDD()->bufferOp(command);
-    scratch.getPixelRow(pixels, 0, 0, count);
+    transferPixels(pixels, x, y0, y1, true, false);
 }
 
 // FUNCTION: SURRENDER 0x10020AF0
 void srGERD::LockSurface::setPixelColumn(const w8_ulong* pixels, w8_long x, w8_long y0, w8_long y1)
 {
-    if (x < (w8_long)left || x >= (w8_long)right) {
-        return;
-    }
-    if (y0 < (w8_long)top) {
-        pixels += top - y0;
-        y0 = top;
-    }
-    if (y1 >= (w8_long)bottom) {
-        y1 = bottom;
-    }
-    if (y0 >= y1) {
-        return;
-    }
-    w8_long count = y1 - y0;
-    srDD::BufferCommand command;
-    command.flags = 0;
-    command.opcode = 7;
-    command.x = x;
-    command.y = y0;
-    command.count = count;
-    if (argb32 != 0) {
-        command.data = (void*)pixels;
-        gerd->getDD()->bufferOp(command);
-        return;
-    }
-    scratch.setPixelRow(pixels, 0, 0, count);
-    command.data = scratch.getDataPtr();
-    gerd->getDD()->bufferOp(command);
+    transferPixels(const_cast<w8_ulong*>(pixels), x, y0, y1, true, true);
 }
 
 // FUNCTION: SURRENDER 0x10020780

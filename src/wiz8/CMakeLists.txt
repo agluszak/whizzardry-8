@@ -6,7 +6,6 @@ add_library(WIZ8_GAME_CORE STATIC
     ../sgp/native/input_events.cpp
     ../sgp/soundman.cpp
     ../sgp/native/audio.cpp
-    ../sgp/native/surfaces.cpp
     ../sgp/native/video.cpp
     ../sgp/vsurface.cpp
     ../sgp/Font.cpp
