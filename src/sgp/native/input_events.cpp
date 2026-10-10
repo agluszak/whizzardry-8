@@ -333,9 +333,6 @@ BOOLEAN gfGameInitialized = FALSE;
 CHAR8 gzErrorMsg[2048] = "";
 // GLOBAL: WIZ8 0x00650dac
 BOOLEAN gfIgnoreMessages = FALSE;
-// GLOBAL: WIZ8 0x005ff450
-UINT8 gbPixelDepth = PIXEL_DEPTH;
-
 
 // FUNCTION: WIZ8 0x00401920
 [[noreturn]] void ShutdownWithErrorBox(const CHAR8* message)

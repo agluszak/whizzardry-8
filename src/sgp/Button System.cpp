@@ -27,7 +27,6 @@
 #include "Video2.h"
 
 // The following should be moved from here
-#define GETPIXELDEPTH() (gbPixelDepth) // From "utilities.h" in JA2
 #define COLOR_RED 162                  // From "lighting.h" in JA2
 #define COLOR_BLUE 203
 #define COLOR_YELLOW 144
@@ -561,10 +560,7 @@ BOOLEAN InitializeButtonImageManager(INT32 DefaultBuffer, INT32 DefaultPitch, IN
         return false;
     }
 
-    if (GETPIXELDEPTH() == 16)
-        GenericButtonFillColors[0] = GenericButtonOffNormal[0]->p16BPPPalette[Pix];
-    else if (GETPIXELDEPTH() == 8)
-        GenericButtonFillColors[0] = COLOR_DKGREY;
+    GenericButtonFillColors[0] = GenericButtonOffNormal[0]->p16BPPPalette[Pix];
 
     return (TRUE);
 }
@@ -1984,93 +1980,57 @@ void DrawGenericButton(GUI_BUTTON* b)
         else
             ImgNum = 1;
 
-        if (gbPixelDepth == 16) {
-            Blt8BPPDataTo16BPPBufferTransparentClip((UINT16*)pDestBuf, uiDestPitchBYTES, BPic,
-                                                    (INT32)(b->XLoc + (q * iBorderWidth)),
-                                                    (INT32)b->YLoc, (UINT16)ImgNum, &ClipRect);
-        } else if (gbPixelDepth == 8) {
-            Blt8BPPDataTo8BPPBufferTransparentClip((UINT16*)pDestBuf, uiDestPitchBYTES, BPic,
-                                                   (INT32)(b->XLoc + (q * iBorderWidth)),
-                                                   (INT32)b->YLoc, (UINT16)ImgNum, &ClipRect);
-        }
+        BltSpriteTo16BPPBuffer((UINT16*)pDestBuf, uiDestPitchBYTES,
+                                   BPic->sprites[(UINT16)ImgNum], BPic->pShadeCurrent,
+                                   (INT32)(b->XLoc + (q * iBorderWidth)), (INT32)b->YLoc, &ClipRect, false,
+                                   SpriteDrawOp::Transparent);
 
         if (q == 0)
             ImgNum = 5;
         else
             ImgNum = 6;
 
-        if (gbPixelDepth == 16) {
-            Blt8BPPDataTo16BPPBufferTransparentClip((UINT16*)pDestBuf, uiDestPitchBYTES, BPic,
-                                                    (INT32)(b->XLoc + (q * iBorderWidth)), cy,
-                                                    (UINT16)ImgNum, &ClipRect);
-        } else if (gbPixelDepth == 8) {
-            Blt8BPPDataTo8BPPBufferTransparentClip((UINT16*)pDestBuf, uiDestPitchBYTES, BPic,
-                                                   (INT32)(b->XLoc + (q * iBorderWidth)), cy,
-                                                   (UINT16)ImgNum, &ClipRect);
-        }
+        BltSpriteTo16BPPBuffer((UINT16*)pDestBuf, uiDestPitchBYTES,
+                                   BPic->sprites[(UINT16)ImgNum], BPic->pShadeCurrent,
+                                   (INT32)(b->XLoc + (q * iBorderWidth)), cy, &ClipRect, false,
+                                   SpriteDrawOp::Transparent);
     }
     // Blit the right side corners
-    if (gbPixelDepth == 16) {
-        Blt8BPPDataTo16BPPBufferTransparentClip((UINT16*)pDestBuf, uiDestPitchBYTES, BPic, cx,
-                                                (INT32)b->YLoc, 2, &ClipRect);
-    } else if (gbPixelDepth == 8) {
-        Blt8BPPDataTo8BPPBufferTransparentClip((UINT16*)pDestBuf, uiDestPitchBYTES, BPic, cx,
-                                               (INT32)b->YLoc, 2, &ClipRect);
-    }
+    BltSpriteTo16BPPBuffer((UINT16*)pDestBuf, uiDestPitchBYTES,
+                               BPic->sprites[2], BPic->pShadeCurrent,
+                               cx, (INT32)b->YLoc, &ClipRect, false,
+                               SpriteDrawOp::Transparent);
 
-    if (gbPixelDepth == 16) {
-        Blt8BPPDataTo16BPPBufferTransparentClip((UINT16*)pDestBuf, uiDestPitchBYTES, BPic, cx, cy,
-                                                7, &ClipRect);
-    } else if (gbPixelDepth == 8) {
-        Blt8BPPDataTo8BPPBufferTransparentClip((UINT16*)pDestBuf, uiDestPitchBYTES, BPic, cx, cy, 7,
-                                               &ClipRect);
-    }
+    BltSpriteTo16BPPBuffer((UINT16*)pDestBuf, uiDestPitchBYTES,
+                               BPic->sprites[7], BPic->pShadeCurrent,
+                               cx, cy, &ClipRect, false,
+                               SpriteDrawOp::Transparent);
     // Draw the vertical members of the button's borders
     NumChunksHigh--;
 
     if (hremain != 0) {
         q = NumChunksHigh;
-        if (gbPixelDepth == 16) {
-            Blt8BPPDataTo16BPPBufferTransparentClip(
-                (UINT16*)pDestBuf, uiDestPitchBYTES, BPic, (INT32)b->XLoc,
-                (INT32)(b->YLoc + (q * iBorderHeight) - (iBorderHeight - hremain)), 3, &ClipRect);
-        } else if (gbPixelDepth == 8) {
-            Blt8BPPDataTo8BPPBufferTransparentClip(
-                (UINT16*)pDestBuf, uiDestPitchBYTES, BPic, (INT32)b->XLoc,
-                (INT32)(b->YLoc + (q * iBorderHeight) - (iBorderHeight - hremain)), 3, &ClipRect);
-        }
+        BltSpriteTo16BPPBuffer((UINT16*)pDestBuf, uiDestPitchBYTES,
+                                   BPic->sprites[3], BPic->pShadeCurrent,
+                                   (INT32)b->XLoc, (INT32)(b->YLoc + (q * iBorderHeight) - (iBorderHeight - hremain)), &ClipRect, false,
+                                   SpriteDrawOp::Transparent);
 
-        if (gbPixelDepth == 16) {
-            Blt8BPPDataTo16BPPBufferTransparentClip(
-                (UINT16*)pDestBuf, uiDestPitchBYTES, BPic, cx,
-                (INT32)(b->YLoc + (q * iBorderHeight) - (iBorderHeight - hremain)), 4, &ClipRect);
-        } else if (gbPixelDepth == 8) {
-            Blt8BPPDataTo8BPPBufferTransparentClip(
-                (UINT16*)pDestBuf, uiDestPitchBYTES, BPic, cx,
-                (INT32)(b->YLoc + (q * iBorderHeight) - (iBorderHeight - hremain)), 4, &ClipRect);
-        }
+        BltSpriteTo16BPPBuffer((UINT16*)pDestBuf, uiDestPitchBYTES,
+                                   BPic->sprites[4], BPic->pShadeCurrent,
+                                   cx, (INT32)(b->YLoc + (q * iBorderHeight) - (iBorderHeight - hremain)), &ClipRect, false,
+                                   SpriteDrawOp::Transparent);
     }
 
     for (q = 1; q < NumChunksHigh; q++) {
-        if (gbPixelDepth == 16) {
-            Blt8BPPDataTo16BPPBufferTransparentClip(
-                (UINT16*)pDestBuf, uiDestPitchBYTES, BPic, (INT32)b->XLoc,
-                (INT32)(b->YLoc + (q * iBorderHeight)), 3, &ClipRect);
-        } else if (gbPixelDepth == 8) {
-            Blt8BPPDataTo8BPPBufferTransparentClip(
-                (UINT16*)pDestBuf, uiDestPitchBYTES, BPic, (INT32)b->XLoc,
-                (INT32)(b->YLoc + (q * iBorderHeight)), 3, &ClipRect);
-        }
+        BltSpriteTo16BPPBuffer((UINT16*)pDestBuf, uiDestPitchBYTES,
+                                   BPic->sprites[3], BPic->pShadeCurrent,
+                                   (INT32)b->XLoc, (INT32)(b->YLoc + (q * iBorderHeight)), &ClipRect, false,
+                                   SpriteDrawOp::Transparent);
 
-        if (gbPixelDepth == 16) {
-            Blt8BPPDataTo16BPPBufferTransparentClip((UINT16*)pDestBuf, uiDestPitchBYTES, BPic, cx,
-                                                    (INT32)(b->YLoc + (q * iBorderHeight)), 4,
-                                                    &ClipRect);
-        } else if (gbPixelDepth == 8) {
-            Blt8BPPDataTo8BPPBufferTransparentClip((UINT16*)pDestBuf, uiDestPitchBYTES, BPic, cx,
-                                                   (INT32)(b->YLoc + (q * iBorderHeight)), 4,
-                                                   &ClipRect);
-        }
+        BltSpriteTo16BPPBuffer((UINT16*)pDestBuf, uiDestPitchBYTES,
+                                   BPic->sprites[4], BPic->pShadeCurrent,
+                                   cx, (INT32)(b->YLoc + (q * iBorderHeight)), &ClipRect, false,
+                                   SpriteDrawOp::Transparent);
     }
 
     // Unlock buffer

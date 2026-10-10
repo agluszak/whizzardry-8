@@ -1286,12 +1286,11 @@ BOOLEAN BlitVideoObjectToColorSurface(UINT32 video_object, UINT16 region,
                                       srColorSurface* destination, UINT16 x, UINT16 y)
 {
     HVOBJECT object;
-    ETRLEObject properties;
 
     if (!GetVideoObject(&object, video_object)) {
         return FALSE;
     }
-    if (!GetVideoObjectETRLEProperties(object, &properties, region)) {
+    if (region >= object->sprites.size()) {
         return FALSE;
     }
     BltVideoObjectToBuffer(static_cast<UINT16*>(destination->getDataPtr()), destination->getPitch(),
@@ -1306,9 +1305,7 @@ BOOLEAN BlitVideoObjectToColorSurface(UINT32 video_object, UINT16 region,
 BOOLEAN BlitHVObjectToColorSurface(HVOBJECT object, UINT16 region, srColorSurface* destination,
                                    int x, int y)
 {
-    ETRLEObject properties;
-
-    if (!GetVideoObjectETRLEProperties(object, &properties, region)) {
+    if (region >= object->sprites.size()) {
         return FALSE;
     }
     BltVideoObjectToBuffer(static_cast<UINT16*>(destination->getDataPtr()), destination->getPitch(),
@@ -1388,16 +1385,17 @@ void SetMouseCursorHotspot(short hotspot_x, short hotspot_y)
 BOOLEAN SetMouseCursorFromVideoObject(UINT32 video_object, UINT16 region, INT16 offset_x,
                                       INT16 offset_y)
 {
-    ETRLEObject properties;
+    HVOBJECT object;
     int x;
     int y;
 
     if (!gfVideoObjectsInit) {
         return FALSE;
     }
-    if (!GetVideoObjectETRLEPropertiesFromIndex(video_object, &properties, region)) {
+    if (!GetVideoObject(&object, video_object) || region >= object->sprites.size()) {
         return FALSE;
     }
+    const SpriteFrame& properties = object->sprites[region];
     if (!ResizeMouseCursorSurface(properties.usWidth + 1, properties.usHeight + 1)) {
         return FALSE;
     }
@@ -3033,7 +3031,6 @@ unsigned int GetTotalPhysicalMemory(void)
 stTextureAnim* VideoVObjectToTextureAnim(HVOBJECT object, unsigned short start_frame,
                                          unsigned short frame_count, bool use_argb1555)
 {
-    ETRLEObject properties;
     unsigned short frame;
     unsigned short end_frame;
     w8_ulong extent;
@@ -3051,7 +3048,8 @@ stTextureAnim* VideoVObjectToTextureAnim(HVOBJECT object, unsigned short start_f
     frame = start_frame;
     end_frame = static_cast<unsigned short>(start_frame + frame_count);
     while (frame < end_frame) {
-        if (GetVideoObjectETRLEProperties(object, &properties, frame)) {
+        if (frame < object->sprites.size()) {
+            const SpriteFrame& properties = object->sprites[frame];
             largest = properties.usHeight;
             if (properties.usHeight < properties.usWidth) {
                 largest = properties.usWidth;

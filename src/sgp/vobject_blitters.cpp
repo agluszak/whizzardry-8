@@ -1,6 +1,4 @@
-#include <SDL3/SDL_log.h>
-#include <SDL3/SDL_pixels.h>
-#include <SDL3/SDL_surface.h>
+#include <SDL3/SDL_rect.h>
 /* Modified for the Wizardry 8 reconstruction: 2026-10-03, 2026-10-06, 2026-10-07, 2026-10-09.
    Distributed under the accompanying SFI Source Code license agreement. */
 #include <stdio.h>
@@ -28,73 +26,42 @@ void NativeWriteWord(UINT8* data, UINT16 value)
     memcpy(data, &value, sizeof(value));
 }
 
-// Walk a decoded sprite over the destination span. mask is the explicit
-// opacity (1 = opaque) for frames that wrote a literal index 0 inside an
-// opaque run; elsewhere a nonzero pixel is opaque. src_step mirrors the
-// draw when negative.
-template <class Opaque, class Transparent>
-void NativeBltSprite(const UINT8* pixels, int pitch, const UINT8* mask,
-                     UINT8* dest, int left, int top, int width, int height,
-                     int dest_step, int src_step, UINT32 line_skip,
-                     Opaque opaque, Transparent transparent)
-{
-    const int x0 = src_step < 0 ? width - 1 - left : left;
-    const UINT8* row = pixels + top * pitch + x0;
-    const UINT8* mrow = mask ? mask + top * pitch + x0 : nullptr;
-    for (int y = 0; y < height; ++y) {
-        int sx = 0;
-        for (int x = 0; x < width; ++x, sx += src_step) {
-            const UINT8 index = row[sx];
-            if (mrow ? mrow[sx] : index) {
-                opaque(dest, index);
-            } else {
-                transparent(dest);
-            }
-            dest += dest_step;
-        }
-        row += pitch;
-        if (mrow)
-            mrow += pitch;
-        dest += line_skip;
-    }
-}
 } // namespace
 
 
 // GLOBAL: WIZ8 0x00600078
 SGPRect ClippingRect = {0, 0, 640, 480};
 
-// Decode every ETRLE frame once into an INDEX8 SDL surface, each strictly
-// inside its own recorded byte range. Transparent runs decode to index 0.
-// A frame whose opaque runs contain a literal index 0 gets an explicit
-// per-pixel opacity mask because index 0 alone cannot tell it from a
-// transparent run. Returns FALSE on malformed data.
+// Decode every ETRLE frame once into SpriteFrame pixels, each strictly
+// inside its own recorded byte range. Transparent runs become
+// SpriteFrame::kTransparent so a literal index 0 stays distinguishable.
+// Every scanline must account for the full frame width before its
+// terminator. Decoding is transactional: hVObject->sprites is replaced
+// only after all frames validate.
 BOOLEAN DecodeVideoObjectSprites(HVOBJECT hVObject, std::span<const ETRLEObject> frames,
-                                 const UINT8* data, UINT32 size)
+                                 std::span<const UINT8> data)
 {
-    hVObject->sprites.clear();
-    if (!frames.empty() && data == nullptr) {
+    if (!frames.empty() && data.empty()) {
         return (FALSE);
     }
-    hVObject->sprites.reserve(frames.size());
+    std::vector<SpriteFrame> decoded;
+    decoded.reserve(frames.size());
     for (const ETRLEObject& frame : frames) {
-        SpriteFrame& out = hVObject->sprites.emplace_back();
+        SpriteFrame& out = decoded.emplace_back();
         out.sOffsetX = frame.sOffsetX;
         out.sOffsetY = frame.sOffsetY;
         out.usWidth = frame.usWidth;
         out.usHeight = frame.usHeight;
         if (frame.usWidth == 0 || frame.usHeight == 0)
             continue;
-        if (frame.uiDataOffset >= size || frame.uiDataLength > size - frame.uiDataOffset)
+        if (frame.uiDataOffset >= data.size() ||
+            frame.uiDataLength > data.size() - frame.uiDataOffset)
             return (FALSE);
-        out.surface.reset(SDL_CreateSurface(frame.usWidth, frame.usHeight,
-                                            SDL_PIXELFORMAT_INDEX8));
-        if (!out.surface)
-            return (FALSE);
-        const UINT8* src = data + frame.uiDataOffset;
+        const UINT8* src = data.data() + frame.uiDataOffset;
         const UINT8* const end = src + frame.uiDataLength;
-        UINT8* row = static_cast<UINT8*>(out.surface->pixels);
-        bool literal_zero = false;
+        out.pixels.assign(static_cast<size_t>(frame.usWidth) * frame.usHeight,
+                          SpriteFrame::kTransparent);
+        UINT16* row = out.pixels.data();
         for (UINT32 y = 0; y < frame.usHeight; ++y) {
             UINT32 x = 0;
             for (;;) {
@@ -115,487 +82,20 @@ BOOLEAN DecodeVideoObjectSprites(HVOBJECT hVObject, std::span<const ETRLEObject>
                     if (count > static_cast<UINT32>(end - src)) {
                         return (FALSE);
                     }
-                    for (UINT32 n = 0; n < count; ++n) {
-                        const UINT8 value = *src++;
-                        literal_zero |= (value == 0);
-                        row[x++] = value;
-                    }
+                    for (UINT32 n = 0; n < count; ++n)
+                        row[x++] = *src++;
                 }
             }
-            row += out.surface->pitch;
-        }
-        if (literal_zero) {
-            // Index 0 is ambiguous in this frame: record an explicit opacity
-            // mask so opaque zeros still draw their palette entry.
-            out.opacity.assign(static_cast<size_t>(out.surface->pitch) * frame.usHeight, 0);
-            const UINT8* re = data + frame.uiDataOffset;
-            UINT8* mrow = out.opacity.data();
-            for (UINT32 y = 0; y < frame.usHeight; ++y) {
-                UINT32 x = 0;
-                UINT8 control;
-                while ((control = *re++) != 0) {
-                    const UINT32 count = control & 0x7f;
-                    if (control & 0x80) {
-                        x += count;
-                    } else {
-                        re += count;
-                        for (UINT32 n = 0; n < count; ++n)
-                            mrow[x++] = 1;
-                    }
-                }
-                mrow += out.surface->pitch;
+            if (x != frame.usWidth) {
+                return (FALSE);
             }
+            row += frame.usWidth;
         }
     }
+    hVObject->sprites = std::move(decoded);
     return (TRUE);
 }
 
-//*Experimental**********************************************************************
-
-/***********************************************************************************/
-
-//** 8 Bit Blitters
-//**
-
-/**********************************************************************************************
- Blt8BPPDataTo8BPPBufferMonoShadowClip
-
-	Uses a bitmap an 8BPP template for blitting. Anywhere a 1 appears in the bitmap, a shadow
-	is blitted to the destination (a black pixel). Any other value above zero is considered a
-	forground color, and zero is background. If the parameter for the background color is zero,
-	transparency is used for the background.
-
-	**********************************************************************************************/
-// FUNCTION: WIZ8 0x00410750
-BOOLEAN Blt8BPPDataTo8BPPBufferMonoShadowClip(UINT8* pBuffer, UINT32 uiDestPitchBYTES,
-                                              HVOBJECT hSrcVObject, INT32 iX, INT32 iY,
-                                              UINT16 usIndex, SGPRect* clipregion,
-                                              UINT8 ubForeground, UINT8 ubBackground)
-{
-    UINT32 usHeight, usWidth;
-    UINT8 *DestPtr;
-    UINT32 LineSkip;
-    const SpriteFrame* pTrav;
-    INT32 iTempX, iTempY, LeftSkip, RightSkip, TopSkip, BottomSkip, BlitLength, BlitHeight;
-    INT32 ClipX1, ClipY1, ClipX2, ClipY2;
-
-    // Assertions
-    Assert(hSrcVObject != nullptr);
-    Assert(pBuffer != nullptr);
-
-    // Get Offsets from Index into structure
-    pTrav = &hSrcVObject->sprites[usIndex];
-    usHeight = (UINT32)pTrav->usHeight;
-    usWidth = (UINT32)pTrav->usWidth;
-
-    // Add to start position of dest buffer
-    iTempX = iX + pTrav->sOffsetX;
-    iTempY = iY + pTrav->sOffsetY;
-
-    if (clipregion == nullptr) {
-        ClipX1 = ClippingRect.iLeft;
-        ClipY1 = ClippingRect.iTop;
-        ClipX2 = ClippingRect.iRight;
-        ClipY2 = ClippingRect.iBottom;
-    } else {
-        ClipX1 = clipregion->iLeft;
-        ClipY1 = clipregion->iTop;
-        ClipX2 = clipregion->iRight;
-        ClipY2 = clipregion->iBottom;
-    }
-
-    // Calculate rows hanging off each side of the screen
-    LeftSkip = std::min(ClipX1 - std::min(ClipX1, iTempX), (INT32)usWidth);
-    RightSkip = std::min(std::max(ClipX2, (iTempX + (INT32)usWidth)) - ClipX2, (INT32)usWidth);
-    TopSkip = std::min(ClipY1 - std::min(ClipY1, iTempY), (INT32)usHeight);
-    BottomSkip = std::min(std::max(ClipY2, (iTempY + (INT32)usHeight)) - ClipY2, (INT32)usHeight);
-
-    // calculate the remaining rows and columns to blit
-    BlitLength = ((INT32)usWidth - LeftSkip - RightSkip);
-    BlitHeight = ((INT32)usHeight - TopSkip - BottomSkip);
-
-    // check if whole thing is clipped
-    if ((LeftSkip >= (INT32)usWidth) || (RightSkip >= (INT32)usWidth))
-        return (TRUE);
-
-    // check if whole thing is clipped
-    if ((TopSkip >= (INT32)usHeight) || (BottomSkip >= (INT32)usHeight))
-        return (TRUE);
-
-    DestPtr = (UINT8*)pBuffer + (uiDestPitchBYTES * (iTempY + TopSkip)) + ((iTempX + LeftSkip));
-    LineSkip = (uiDestPitchBYTES - (BlitLength));
-
-    auto opaque = [&](UINT8* dest, UINT8 index) {
-        if (index == 1) { *dest = 0; }
-        else if (index != 0) { *dest = ubForeground; }
-        else if (ubBackground != 0) { *dest = ubBackground; }
-    };
-    auto transparent = [&](UINT8* dest) { if (ubBackground != 0) { *dest = ubBackground; } };
-    if (!pTrav->surface)
-        return (TRUE);
-    NativeBltSprite(static_cast<const UINT8*>(pTrav->surface->pixels), pTrav->surface->pitch,
-                    pTrav->mask(), DestPtr, LeftSkip, TopSkip, BlitLength,
-                    BlitHeight, 1, 1, LineSkip, opaque, transparent);
-
-    return (TRUE);
-}
-
-/******************************************************************************
- Blt8BPPDataTo8BPPBufferTransparentClip
-
-	Blits an image into the destination buffer, using an ETRLE brush as a source, and a 16-bit
-	buffer as a destination. Clips the brush.
-
-*******************************************************************************/
-// FUNCTION: WIZ8 0x004109f0
-BOOLEAN Blt8BPPDataTo8BPPBufferTransparentClip(UINT16* pBuffer, UINT32 uiDestPitchBYTES,
-                                               HVOBJECT hSrcVObject, INT32 iX, INT32 iY,
-                                               UINT16 usIndex, SGPRect* clipregion)
-{
-    UINT32 usHeight, usWidth;
-    UINT8 *DestPtr;
-    UINT32 LineSkip;
-    const SpriteFrame* pTrav;
-    INT32 iTempX, iTempY, LeftSkip, RightSkip, TopSkip, BottomSkip, BlitLength, BlitHeight;
-    INT32 ClipX1, ClipY1, ClipX2, ClipY2;
-    UINT8* pPal8BPP;
-
-    // Assertions
-    Assert(hSrcVObject != nullptr);
-    Assert(pBuffer != nullptr);
-
-    // Get Offsets from Index into structure
-    pTrav = &hSrcVObject->sprites[usIndex];
-    usHeight = (UINT32)pTrav->usHeight;
-    usWidth = (UINT32)pTrav->usWidth;
-
-    // Add to start position of dest buffer
-    iTempX = iX + pTrav->sOffsetX;
-    iTempY = iY + pTrav->sOffsetY;
-
-    if (clipregion == nullptr) {
-        ClipX1 = ClippingRect.iLeft;
-        ClipY1 = ClippingRect.iTop;
-        ClipX2 = ClippingRect.iRight;
-        ClipY2 = ClippingRect.iBottom;
-    } else {
-        ClipX1 = clipregion->iLeft;
-        ClipY1 = clipregion->iTop;
-        ClipX2 = clipregion->iRight;
-        ClipY2 = clipregion->iBottom;
-    }
-
-    // Calculate rows hanging off each side of the screen
-    LeftSkip = std::min(ClipX1 - std::min(ClipX1, iTempX), (INT32)usWidth);
-    RightSkip = std::min(std::max(ClipX2, (iTempX + (INT32)usWidth)) - ClipX2, (INT32)usWidth);
-    TopSkip = std::min(ClipY1 - std::min(ClipY1, iTempY), (INT32)usHeight);
-    BottomSkip = std::min(std::max(ClipY2, (iTempY + (INT32)usHeight)) - ClipY2, (INT32)usHeight);
-
-    // calculate the remaining rows and columns to blit
-    BlitLength = ((INT32)usWidth - LeftSkip - RightSkip);
-    BlitHeight = ((INT32)usHeight - TopSkip - BottomSkip);
-
-    // check if whole thing is clipped
-    if ((LeftSkip >= (INT32)usWidth) || (RightSkip >= (INT32)usWidth))
-        return (TRUE);
-
-    // check if whole thing is clipped
-    if ((TopSkip >= (INT32)usHeight) || (BottomSkip >= (INT32)usHeight))
-        return (TRUE);
-
-    DestPtr = (UINT8*)pBuffer + (uiDestPitchBYTES * (iTempY + TopSkip)) + ((iTempX + LeftSkip));
-    LineSkip = (uiDestPitchBYTES - (BlitLength));
-    pPal8BPP = hSrcVObject->pShade8;
-
-    auto opaque = [&](UINT8* dest, UINT8 index) { *dest = pPal8BPP[index]; };
-    auto transparent = [](UINT8*) {};
-    if (!pTrav->surface)
-        return (TRUE);
-    NativeBltSprite(static_cast<const UINT8*>(pTrav->surface->pixels), pTrav->surface->pitch,
-                    pTrav->mask(), DestPtr, LeftSkip, TopSkip, BlitLength,
-                    BlitHeight, 1, 1, LineSkip, opaque, transparent);
-
-    return (TRUE);
-}
-
-/**********************************************************************************************
- Blt8BPPDataTo8BPPBufferTransparent
-
-	Blits an image into the destination buffer, using an ETRLE brush as a source, and a 16-bit
-	buffer as a destination.
-
-**********************************************************************************************/
-// FUNCTION: WIZ8 0x00410ca0
-BOOLEAN Blt8BPPDataTo8BPPBufferTransparent(UINT16* pBuffer, UINT32 uiDestPitchBYTES,
-                                           HVOBJECT hSrcVObject, INT32 iX, INT32 iY, UINT16 usIndex)
-{
-    UINT32 usHeight, usWidth;
-    UINT8 *DestPtr, *pPal8BPP;
-    UINT32 LineSkip;
-    const SpriteFrame* pTrav;
-    INT32 iTempX, iTempY;
-
-    // Assertions
-    Assert(hSrcVObject != nullptr);
-    Assert(pBuffer != nullptr);
-
-    // Get Offsets from Index into structure
-    pTrav = &hSrcVObject->sprites[usIndex];
-    usHeight = (UINT32)pTrav->usHeight;
-    usWidth = (UINT32)pTrav->usWidth;
-
-    // Add to start position of dest buffer
-    iTempX = iX + pTrav->sOffsetX;
-    iTempY = iY + pTrav->sOffsetY;
-
-    // Validations
-    CHECKF(iTempX >= 0);
-    CHECKF(iTempY >= 0);
-
-    DestPtr = (UINT8*)pBuffer + (uiDestPitchBYTES * iTempY) + (iTempX);
-    LineSkip = (uiDestPitchBYTES - (usWidth));
-    pPal8BPP = hSrcVObject->pShade8;
-
-    auto opaque = [&](UINT8* dest, UINT8 index) { *dest = pPal8BPP[index]; };
-    auto transparent = [](UINT8*) {};
-    if (!pTrav->surface)
-        return (TRUE);
-    NativeBltSprite(static_cast<const UINT8*>(pTrav->surface->pixels), pTrav->surface->pitch,
-                    pTrav->mask(), DestPtr, 0, 0, usWidth, usHeight, 1,
-                    1, LineSkip, opaque, transparent);
-
-    return (TRUE);
-}
-
-/**********************************************************************************************
- Blt8BPPDataTo8BPPBufferShadow
-
-	Modifies the destination buffer. Darkens the destination pixels by 25%, using the source
-	image as a mask. Any Non-zero index pixels are used to darken destination pixels.
-
-**********************************************************************************************/
-// FUNCTION: WIZ8 0x00410db0
-BOOLEAN Blt8BPPDataTo8BPPBufferShadow(UINT16* pBuffer, UINT32 uiDestPitchBYTES,
-                                      HVOBJECT hSrcVObject, INT32 iX, INT32 iY, UINT16 usIndex)
-{
-    UINT32 usHeight, usWidth;
-    UINT8 *DestPtr;
-    UINT32 LineSkip;
-    const SpriteFrame* pTrav;
-    INT32 iTempX, iTempY;
-
-    // Assertions
-    Assert(hSrcVObject != nullptr);
-    Assert(pBuffer != nullptr);
-
-    // Get Offsets from Index into structure
-    pTrav = &hSrcVObject->sprites[usIndex];
-    usHeight = (UINT32)pTrav->usHeight;
-    usWidth = (UINT32)pTrav->usWidth;
-
-    // Add to start position of dest buffer
-    iTempX = iX + pTrav->sOffsetX;
-    iTempY = iY + pTrav->sOffsetY;
-
-    // Validations
-    CHECKF(iTempX >= 0);
-    CHECKF(iTempY >= 0);
-
-    DestPtr = (UINT8*)pBuffer + (uiDestPitchBYTES * iTempY) + (iTempX);
-    LineSkip = (uiDestPitchBYTES - (usWidth));
-
-    auto opaque = [](UINT8* dest, UINT8) { NativeWriteWord(dest, ShadeTable[NativeReadWord(dest)]); };
-    auto transparent = [](UINT8*) {};
-    if (!pTrav->surface)
-        return (TRUE);
-    NativeBltSprite(static_cast<const UINT8*>(pTrav->surface->pixels), pTrav->surface->pitch,
-                    pTrav->mask(), DestPtr, 0, 0, usWidth, usHeight, 2,
-                    1, LineSkip, opaque, transparent);
-
-    return (TRUE);
-}
-
-/**********************************************************************************************
- Blt8BPPDataTo8BPPBufferShadowClip
-
-	Modifies the destination buffer. Darkens the destination pixels by 25%, using the source
-	image as a mask. Any Non-zero index pixels are used to darken destination pixels. Blitter
-	clips brush if it doesn't fit on the viewport.
-
-**********************************************************************************************/
-// FUNCTION: WIZ8 0x00410ed0
-BOOLEAN Blt8BPPDataTo8BPPBufferShadowClip(UINT16* pBuffer, UINT32 uiDestPitchBYTES,
-                                          HVOBJECT hSrcVObject, INT32 iX, INT32 iY, UINT16 usIndex,
-                                          SGPRect* clipregion)
-{
-    UINT8* pPal8BPP;
-    UINT32 usHeight, usWidth;
-    UINT8 *DestPtr;
-    UINT32 LineSkip;
-    const SpriteFrame* pTrav;
-    INT32 iTempX, iTempY, LeftSkip, RightSkip, TopSkip, BottomSkip, BlitLength, BlitHeight;
-    INT32 ClipX1, ClipY1, ClipX2, ClipY2;
-
-    // Assertions
-    Assert(hSrcVObject != nullptr);
-    Assert(pBuffer != nullptr);
-
-    // Get Offsets from Index into structure
-    pTrav = &hSrcVObject->sprites[usIndex];
-    usHeight = (UINT32)pTrav->usHeight;
-    usWidth = (UINT32)pTrav->usWidth;
-
-    // Add to start position of dest buffer
-    iTempX = iX + pTrav->sOffsetX;
-    iTempY = iY + pTrav->sOffsetY;
-
-    if (clipregion == nullptr) {
-        ClipX1 = ClippingRect.iLeft;
-        ClipY1 = ClippingRect.iTop;
-        ClipX2 = ClippingRect.iRight;
-        ClipY2 = ClippingRect.iBottom;
-    } else {
-        ClipX1 = clipregion->iLeft;
-        ClipY1 = clipregion->iTop;
-        ClipX2 = clipregion->iRight;
-        ClipY2 = clipregion->iBottom;
-    }
-
-    // Calculate rows hanging off each side of the screen
-    LeftSkip = std::min(ClipX1 - std::min(ClipX1, iTempX), (INT32)usWidth);
-    RightSkip = std::min(std::max(ClipX2, (iTempX + (INT32)usWidth)) - ClipX2, (INT32)usWidth);
-    TopSkip = std::min(ClipY1 - std::min(ClipY1, iTempY), (INT32)usHeight);
-    BottomSkip = std::min(std::max(ClipY2, (iTempY + (INT32)usHeight)) - ClipY2, (INT32)usHeight);
-
-    // calculate the remaining rows and columns to blit
-    BlitLength = ((INT32)usWidth - LeftSkip - RightSkip);
-    BlitHeight = ((INT32)usHeight - TopSkip - BottomSkip);
-
-    // whole thing is clipped
-    if ((LeftSkip >= (INT32)usWidth) || (RightSkip >= (INT32)usWidth))
-        return (TRUE);
-
-    // whole thing is clipped
-    if ((TopSkip >= (INT32)usHeight) || (BottomSkip >= (INT32)usHeight))
-        return (TRUE);
-
-    DestPtr = (UINT8*)pBuffer + (uiDestPitchBYTES * (iTempY + TopSkip)) + ((iTempX + LeftSkip));
-    pPal8BPP = hSrcVObject->pShade8;
-    LineSkip = (uiDestPitchBYTES - (BlitLength));
-
-    auto opaque = [&](UINT8* dest, UINT8) {
-        // Retail reads a word at a byte offset into pShade8. Its caller
-        // must supply destination indices within that palette's storage.
-        NativeWriteWord(dest, NativeReadWord(pPal8BPP + NativeReadWord(dest)));
-    };
-    auto transparent = [](UINT8*) {};
-    if (!pTrav->surface)
-        return (TRUE);
-    NativeBltSprite(static_cast<const UINT8*>(pTrav->surface->pixels), pTrav->surface->pitch,
-                    pTrav->mask(), DestPtr, LeftSkip, TopSkip, BlitLength,
-                    BlitHeight, 2, 1, LineSkip, opaque, transparent);
-
-    return (TRUE);
-}
-
-//** 16 Bit Blitters
-//**
-
-/**********************************************************************************************
- Blt8BPPDataTo16BPPBufferMonoShadowClip
-
-	Uses a bitmap an 8BPP template for blitting. Anywhere a 1 appears in the bitmap, a shadow
-	is blitted to the destination (a black pixel). Any other value above zero is considered a
-	forground color, and zero is background. If the parameter for the background color is zero,
-	transparency is used for the background.
-
-**********************************************************************************************/
-// FUNCTION: WIZ8 0x00411190
-BOOLEAN Blt8BPPDataTo16BPPBufferMonoShadowClip(UINT16* pBuffer, UINT32 uiDestPitchBYTES,
-                                               HVOBJECT hSrcVObject, INT32 iX, INT32 iY,
-                                               UINT16 usIndex, SGPRect* clipregion,
-                                               UINT16 usForeground, UINT16 usBackground,
-                                               UINT16 usShadow)
-{
-    UINT32 usHeight, usWidth;
-    UINT8 *DestPtr;
-    UINT32 LineSkip;
-    const SpriteFrame* pTrav;
-    INT32 iTempX, iTempY, LeftSkip, RightSkip, TopSkip, BottomSkip, BlitLength, BlitHeight;
-    INT32 ClipX1, ClipY1, ClipX2, ClipY2;
-
-    // Assertions
-    Assert(hSrcVObject != nullptr);
-    Assert(pBuffer != nullptr);
-
-    // Get Offsets from Index into structure
-    pTrav = &hSrcVObject->sprites[usIndex];
-    usHeight = (UINT32)pTrav->usHeight;
-    usWidth = (UINT32)pTrav->usWidth;
-
-    // Add to start position of dest buffer
-    iTempX = iX + pTrav->sOffsetX;
-    iTempY = iY + pTrav->sOffsetY;
-
-    if (clipregion == nullptr) {
-        ClipX1 = ClippingRect.iLeft;
-        ClipY1 = ClippingRect.iTop;
-        ClipX2 = ClippingRect.iRight;
-        ClipY2 = ClippingRect.iBottom;
-    } else {
-        ClipX1 = clipregion->iLeft;
-        ClipY1 = clipregion->iTop;
-        ClipX2 = clipregion->iRight;
-        ClipY2 = clipregion->iBottom;
-    }
-
-    // Calculate rows hanging off each side of the screen
-    LeftSkip = std::min(ClipX1 - std::min(ClipX1, iTempX), (INT32)usWidth);
-    RightSkip = std::min(std::max(ClipX2, (iTempX + (INT32)usWidth)) - ClipX2, (INT32)usWidth);
-    TopSkip = std::min(ClipY1 - std::min(ClipY1, iTempY), (INT32)usHeight);
-    BottomSkip = std::min(std::max(ClipY2, (iTempY + (INT32)usHeight)) - ClipY2, (INT32)usHeight);
-
-    // calculate the remaining rows and columns to blit
-    BlitLength = ((INT32)usWidth - LeftSkip - RightSkip);
-    BlitHeight = ((INT32)usHeight - TopSkip - BottomSkip);
-
-    // check if whole thing is clipped
-    if ((LeftSkip >= (INT32)usWidth) || (RightSkip >= (INT32)usWidth))
-        return (TRUE);
-
-    // check if whole thing is clipped
-    if ((TopSkip >= (INT32)usHeight) || (BottomSkip >= (INT32)usHeight))
-        return (TRUE);
-
-    DestPtr = (UINT8*)pBuffer + (uiDestPitchBYTES * (iTempY + TopSkip)) + ((iTempX + LeftSkip) * 2);
-    LineSkip = (uiDestPitchBYTES - (BlitLength * 2));
-
-    auto opaque = [&](UINT8* dest, UINT8 index) {
-        if (index == 1) {
-            if (usShadow != 0) { NativeWriteWord(dest, usShadow); }
-        } else if (index != 0) { NativeWriteWord(dest, usForeground); }
-        else if (usBackground != 0) { NativeWriteWord(dest, usBackground); }
-    };
-    auto transparent = [&](UINT8* dest) {
-        if (usBackground != 0) { NativeWriteWord(dest, usBackground); }
-    };
-    if (!pTrav->surface)
-        return (TRUE);
-    NativeBltSprite(static_cast<const UINT8*>(pTrav->surface->pixels), pTrav->surface->pitch,
-                    pTrav->mask(), DestPtr, LeftSkip, TopSkip, BlitLength,
-                    BlitHeight, 2, 1, LineSkip, opaque, transparent);
-
-    return (TRUE);
-}
-
-/**********************************************************************************************
-	Blt16BPPTo16BPP
-
-	Copies a rect of 16 bit data from a video buffer to a buffer position of the brush
-	in the data area, for later blitting. Used to copy background information for mercs
-	etc. to their unblit buffer, for later reblitting. Does NOT clip.
-
-**********************************************************************************************/
 // FUNCTION: WIZ8 0x00411430
 BOOLEAN Blt16BPPTo16BPP(UINT16* pDest, UINT32 uiDestPitch, UINT16* pSrc, UINT32 uiSrcPitch,
                         INT32 iDestXPos, INT32 iDestYPos, INT32 iSrcXPos, INT32 iSrcYPos,
@@ -907,6 +407,73 @@ void GetClippingRect(SGPRect* clip)
 }
 
 /**********************************************************************************************
+ BltSpriteTo16BPPBuffer
+
+	Draws one decoded sprite frame into a 16-bit destination. The sprite rect
+	(position plus frame offsets) is intersected with clipregion, or with the
+	global ClippingRect when clipregion is nullptr; clipped, unclipped, and
+	mirrored draws all take this same path.
+
+	op selects the per-pixel effect: Transparent draws palette-indexed pixels,
+	Shadow darkens destination pixels through the sprite mask, and MonoShadow
+	turns the sprite into a mono stencil (index 1 = shadow, other opaque
+	indices = foreground, transparent = background when nonzero).
+
+**********************************************************************************************/
+BOOLEAN BltSpriteTo16BPPBuffer(UINT16* pBuffer, UINT32 uiDestPitchBYTES,
+                               const SpriteFrame& frame, const UINT16* palette, INT32 iX, INT32 iY,
+                               const SGPRect* clipregion, bool fMirror, SpriteDrawOp op,
+                               UINT16 mono_foreground, UINT16 mono_background, UINT16 mono_shadow)
+{
+    Assert(pBuffer != nullptr);
+
+    const SGPRect* clip = clipregion ? clipregion : &ClippingRect;
+    // Mirroring flips the sprite about its anchor, so the offset sign flips
+    // too and clipping (not rejection) handles edges that leave the buffer.
+    const SDL_Rect sprite{fMirror ? iX - frame.sOffsetX : iX + frame.sOffsetX,
+                          iY + frame.sOffsetY, frame.usWidth, frame.usHeight};
+    const SDL_Rect bounds{clip->iLeft, clip->iTop, clip->iRight - clip->iLeft,
+                          clip->iBottom - clip->iTop};
+    SDL_Rect visible;
+    if (!SDL_GetRectIntersection(&sprite, &bounds, &visible)) {
+        return (TRUE);
+    }
+
+    const UINT16* const pixels = frame.pixels.data();
+    for (INT32 dy = visible.y; dy < visible.y + visible.h; ++dy) {
+        const UINT16* row = pixels + (dy - sprite.y) * frame.usWidth;
+        UINT16* dest = reinterpret_cast<UINT16*>(reinterpret_cast<UINT8*>(pBuffer) +
+                                                 dy * uiDestPitchBYTES) +
+                       visible.x;
+        const INT32 left = visible.x - sprite.x;
+        for (INT32 dx = 0; dx < visible.w; ++dx, ++dest) {
+            const INT32 sx = fMirror ? frame.usWidth - 1 - left - dx : left + dx;
+            const UINT16 index = row[sx];
+            switch (op) {
+            case SpriteDrawOp::Transparent:
+                if (index != SpriteFrame::kTransparent)
+                    *dest = palette[index];
+                break;
+            case SpriteDrawOp::Shadow:
+                if (index != SpriteFrame::kTransparent)
+                    *dest = ShadeTable[*dest];
+                break;
+            case SpriteDrawOp::MonoShadow:
+                if (index == 1) {
+                    if (mono_shadow)
+                        *dest = mono_shadow;
+                } else if (index != SpriteFrame::kTransparent && index != 0)
+                    *dest = mono_foreground;
+                else if (mono_background)
+                    *dest = mono_background;
+                break;
+            }
+        }
+    }
+    return (TRUE);
+}
+
+/**********************************************************************************************
 	Blt16BPPBufferPixelateRectWithColor
 
 		Given an 8x8 pattern and a color, pixelates an area by repeatedly "applying the color" to pixels whereever there
@@ -975,247 +542,6 @@ BOOLEAN Blt16BPPBufferHatchRect(UINT16* pBuffer, UINT32 uiDestPitchBYTES, SGPRec
         {1, 0, 1, 0, 1, 0, 1, 0}, {0, 1, 0, 1, 0, 1, 0, 1}};
     return Blt16BPPBufferPixelateRectWithColor(pBuffer, uiDestPitchBYTES, area, Pattern, 0);
 }
-
-/**********************************************************************************************
- Blt8BPPDataTo16BPPBufferShadow
-
-	Modifies the destination buffer. Darkens the destination pixels by 25%, using the source
-	image as a mask. Any Non-zero index pixels are used to darken destination pixels.
-
-**********************************************************************************************/
-// FUNCTION: WIZ8 0x00411a60
-BOOLEAN Blt8BPPDataTo16BPPBufferShadow(UINT16* pBuffer, UINT32 uiDestPitchBYTES,
-                                       HVOBJECT hSrcVObject, INT32 iX, INT32 iY, UINT16 usIndex)
-{
-    UINT32 usHeight, usWidth;
-    UINT8 *DestPtr;
-    UINT32 LineSkip;
-    const SpriteFrame* pTrav;
-    INT32 iTempX, iTempY;
-
-    // Assertions
-    Assert(hSrcVObject != nullptr);
-    Assert(pBuffer != nullptr);
-
-    // Get Offsets from Index into structure
-    pTrav = &hSrcVObject->sprites[usIndex];
-    usHeight = (UINT32)pTrav->usHeight;
-    usWidth = (UINT32)pTrav->usWidth;
-
-    // Add to start position of dest buffer
-    iTempX = iX + pTrav->sOffsetX;
-    iTempY = iY + pTrav->sOffsetY;
-
-    // Validations
-    CHECKF(iTempX >= 0);
-    CHECKF(iTempY >= 0);
-
-    DestPtr = (UINT8*)pBuffer + (uiDestPitchBYTES * iTempY) + (iTempX * 2);
-    LineSkip = (uiDestPitchBYTES - (usWidth * 2));
-
-    auto opaque = [](UINT8* dest, UINT8) { NativeWriteWord(dest, ShadeTable[NativeReadWord(dest)]); };
-    auto transparent = [](UINT8*) {};
-    if (!pTrav->surface)
-        return (TRUE);
-    NativeBltSprite(static_cast<const UINT8*>(pTrav->surface->pixels), pTrav->surface->pitch,
-                    pTrav->mask(), DestPtr, 0, 0, usWidth, usHeight, 2,
-                    1, LineSkip, opaque, transparent);
-
-    return (TRUE);
-}
-
-/**********************************************************************************************
- Blt8BPPDataTo16BPPBufferTransparent
-
-	Blits an image into the destination buffer, using an ETRLE brush as a source, and a 16-bit
-	buffer as a destination.
-
-**********************************************************************************************/
-
-// FUNCTION: WIZ8 0x00411b80
-BOOLEAN Blt8BPPDataTo16BPPBufferTransparent(UINT16* pBuffer, UINT32 uiDestPitchBYTES,
-                                            HVOBJECT hSrcVObject, INT32 iX, INT32 iY,
-                                            UINT16 usIndex)
-{
-    UINT16* p16BPPPalette;
-    UINT32 usHeight, usWidth;
-    UINT8 *DestPtr;
-    UINT32 LineSkip;
-    const SpriteFrame* pTrav;
-    INT32 iTempX, iTempY;
-
-    // Assertions
-    Assert(hSrcVObject != nullptr);
-    Assert(pBuffer != nullptr);
-
-    // Get Offsets from Index into structure
-    pTrav = &hSrcVObject->sprites[usIndex];
-    usHeight = (UINT32)pTrav->usHeight;
-    usWidth = (UINT32)pTrav->usWidth;
-
-    // Add to start position of dest buffer
-    iTempX = iX + pTrav->sOffsetX;
-    iTempY = iY + pTrav->sOffsetY;
-
-    // Validations
-    CHECKF(iTempX >= 0);
-    CHECKF(iTempY >= 0);
-
-    DestPtr = (UINT8*)pBuffer + (uiDestPitchBYTES * iTempY) + (iTempX * 2);
-    p16BPPPalette = hSrcVObject->pShadeCurrent;
-    LineSkip = (uiDestPitchBYTES - (usWidth * 2));
-
-    if (!pTrav->surface)
-        return (TRUE);
-    NativeBltSprite(static_cast<const UINT8*>(pTrav->surface->pixels), pTrav->surface->pitch,
-                    pTrav->mask(), DestPtr, 0, 0, usWidth, usHeight, 2, 1,
-                    LineSkip,
-        [&](UINT8* dest, UINT8 index) { NativeWriteWord(dest, p16BPPPalette[index]); },
-        [](UINT8*) {});
-
-    return (TRUE);
-}
-
-// Blt8BPPDataTo16BPPBufferTransMirror
-// Blits an 8bpp ETRLE to a 16-bit buffer, mirroring the image, with transparency.
-// Returns BOOLEAN            - TRUE if successful
-//  UINT16 *pBuffer           - 16bpp Destination buffer
-// UINT32 uiDestPitchBYTES    - Destination pitch in bytes
-// HVOBJECT hSrcVObject       - Source VOBJECT handle
-// INT32 iX                   - X-location of blit
-// INT32 iY                   - Y-location of blit
-// UINT16 usIndex             - VOBJECT image index to blit from
-// Created:  7/28/99 Derek Beland
-
-// FUNCTION: WIZ8 0x00411cb0
-BOOLEAN Blt8BPPDataTo16BPPBufferTransMirror(UINT16* pBuffer, UINT32 uiDestPitchBYTES,
-                                            HVOBJECT hSrcVObject, INT32 iX, INT32 iY,
-                                            UINT16 usIndex)
-{
-    UINT16* p16BPPPalette;
-    UINT32 usHeight, usWidth;
-    const SpriteFrame* pTrav;
-    INT32 iTempX, iTempY;
-
-    // Assertions
-    Assert(hSrcVObject != nullptr);
-    Assert(pBuffer != nullptr);
-
-    // Get Offsets from Index into structure
-    pTrav = &hSrcVObject->sprites[usIndex];
-    usHeight = (UINT32)pTrav->usHeight;
-    usWidth = (UINT32)pTrav->usWidth;
-
-    // Add to start position of dest buffer
-    //	iTempX = iX + pTrav->sOffsetX;
-    iTempX = iX + usWidth - pTrav->sOffsetX - 1;
-    iTempY = iY + pTrav->sOffsetY;
-
-    // Validations
-    CHECKF(iTempX >= 0);
-    CHECKF(iTempY >= 0);
-
-    p16BPPPalette = hSrcVObject->pShadeCurrent;
-
-    // Mirroring walks the decoded sprite right to left; no mirrored copy.
-    // The mirrored span is [iX - sOffsetX, iTempX], so reject when that
-    // left edge leaves the buffer.
-    if (!pTrav->surface || iX - pTrav->sOffsetX < 0)
-        return (TRUE);
-    NativeBltSprite(static_cast<const UINT8*>(pTrav->surface->pixels), pTrav->surface->pitch,
-                    pTrav->mask(),
-                    (UINT8*)pBuffer + uiDestPitchBYTES * iTempY + (iX - pTrav->sOffsetX) * 2, 0, 0,
-                    usWidth, usHeight, 2, -1, uiDestPitchBYTES - usWidth * 2,
-        [&](UINT8* dest, UINT8 index) { NativeWriteWord(dest, p16BPPPalette[index]); },
-        [](UINT8*) {});
-
-    return (TRUE);
-}
-
-/**********************************************************************************************
- Blt8BPPDataTo16BPPBufferTransparentClip
-
-	Blits an image into the destination buffer, using an ETRLE brush as a source, and a 16-bit
-	buffer as a destination. Clips the brush.
-
-**********************************************************************************************/
-// FUNCTION: WIZ8 0x00411de0
-BOOLEAN Blt8BPPDataTo16BPPBufferTransparentClip(UINT16* pBuffer, UINT32 uiDestPitchBYTES,
-                                                HVOBJECT hSrcVObject, INT32 iX, INT32 iY,
-                                                UINT16 usIndex, SGPRect* clipregion)
-{
-    UINT16* p16BPPPalette;
-    UINT32 usHeight, usWidth;
-    UINT8 *DestPtr;
-    UINT32 LineSkip;
-    const SpriteFrame* pTrav;
-    INT32 iTempX, iTempY, LeftSkip, RightSkip, TopSkip, BottomSkip, BlitLength, BlitHeight;
-    INT32 ClipX1, ClipY1, ClipX2, ClipY2;
-
-    // Assertions
-    Assert(hSrcVObject != nullptr);
-    Assert(pBuffer != nullptr);
-
-    // Get Offsets from Index into structure
-    pTrav = &hSrcVObject->sprites[usIndex];
-    usHeight = (UINT32)pTrav->usHeight;
-    usWidth = (UINT32)pTrav->usWidth;
-
-    // Add to start position of dest buffer
-    iTempX = iX + pTrav->sOffsetX;
-    iTempY = iY + pTrav->sOffsetY;
-
-    if (clipregion == nullptr) {
-        ClipX1 = ClippingRect.iLeft;
-        ClipY1 = ClippingRect.iTop;
-        ClipX2 = ClippingRect.iRight;
-        ClipY2 = ClippingRect.iBottom;
-    } else {
-        ClipX1 = clipregion->iLeft;
-        ClipY1 = clipregion->iTop;
-        ClipX2 = clipregion->iRight;
-        ClipY2 = clipregion->iBottom;
-    }
-
-    // Calculate rows hanging off each side of the screen
-    LeftSkip = std::min(ClipX1 - std::min(ClipX1, iTempX), (INT32)usWidth);
-    RightSkip = std::min(std::max(ClipX2, (iTempX + (INT32)usWidth)) - ClipX2, (INT32)usWidth);
-    TopSkip = std::min(ClipY1 - std::min(ClipY1, iTempY), (INT32)usHeight);
-    BottomSkip = std::min(std::max(ClipY2, (iTempY + (INT32)usHeight)) - ClipY2, (INT32)usHeight);
-
-    // calculate the remaining rows and columns to blit
-    BlitLength = ((INT32)usWidth - LeftSkip - RightSkip);
-    BlitHeight = ((INT32)usHeight - TopSkip - BottomSkip);
-
-    // check if whole thing is clipped
-    if ((LeftSkip >= (INT32)usWidth) || (RightSkip >= (INT32)usWidth))
-        return (TRUE);
-
-    // check if whole thing is clipped
-    if ((TopSkip >= (INT32)usHeight) || (BottomSkip >= (INT32)usHeight))
-        return (TRUE);
-
-    DestPtr = (UINT8*)pBuffer + (uiDestPitchBYTES * (iTempY + TopSkip)) + ((iTempX + LeftSkip) * 2);
-    p16BPPPalette = hSrcVObject->pShadeCurrent;
-    LineSkip = (uiDestPitchBYTES - (BlitLength * 2));
-
-    if (!pTrav->surface)
-        return (TRUE);
-    NativeBltSprite(static_cast<const UINT8*>(pTrav->surface->pixels), pTrav->surface->pitch,
-                    pTrav->mask(), DestPtr, LeftSkip, TopSkip, BlitLength,
-                    BlitHeight, 2, 1, LineSkip,
-        [&](UINT8* dest, UINT8 index) { NativeWriteWord(dest, p16BPPPalette[index]); },
-        [](UINT8*) {});
-
-    return (TRUE);
-}
-
-/**********************************************************************************************
- BltIsClipped
-
-	Determines whether a given blit will need clipping or not. Returns TRUE/FALSE.
-
-**********************************************************************************************/
 // FUNCTION: WIZ8 0x004120b0
 BOOLEAN BltIsClipped(HVOBJECT hSrcVObject, INT32 iX, INT32 iY, UINT16 usIndex, SGPRect* clipregion)
 {
@@ -1263,94 +589,6 @@ BOOLEAN BltIsClipped(HVOBJECT hSrcVObject, INT32 iX, INT32 iY, UINT16 usIndex, S
 
     return (FALSE);
 }
-
-/**********************************************************************************************
- Blt8BPPDataTo16BPPBufferShadowClip
-
-	Modifies the destination buffer. Darkens the destination pixels by 25%, using the source
-	image as a mask. Any Non-zero index pixels are used to darken destination pixels. Blitter
-	clips brush if it doesn't fit on the viewport.
-
-**********************************************************************************************/
-// FUNCTION: WIZ8 0x004121e0
-BOOLEAN Blt8BPPDataTo16BPPBufferShadowClip(UINT16* pBuffer, UINT32 uiDestPitchBYTES,
-                                           HVOBJECT hSrcVObject, INT32 iX, INT32 iY, UINT16 usIndex,
-                                           SGPRect* clipregion)
-{
-    UINT32 usHeight, usWidth;
-    UINT8 *DestPtr;
-    UINT32 LineSkip;
-    const SpriteFrame* pTrav;
-    INT32 iTempX, iTempY, LeftSkip, RightSkip, TopSkip, BottomSkip, BlitLength, BlitHeight;
-    INT32 ClipX1, ClipY1, ClipX2, ClipY2;
-
-    // Assertions
-    Assert(hSrcVObject != nullptr);
-    Assert(pBuffer != nullptr);
-
-    // Get Offsets from Index into structure
-    pTrav = &hSrcVObject->sprites[usIndex];
-    usHeight = (UINT32)pTrav->usHeight;
-    usWidth = (UINT32)pTrav->usWidth;
-
-    // Add to start position of dest buffer
-    iTempX = iX + pTrav->sOffsetX;
-    iTempY = iY + pTrav->sOffsetY;
-
-    if (clipregion == nullptr) {
-        ClipX1 = ClippingRect.iLeft;
-        ClipY1 = ClippingRect.iTop;
-        ClipX2 = ClippingRect.iRight;
-        ClipY2 = ClippingRect.iBottom;
-    } else {
-        ClipX1 = clipregion->iLeft;
-        ClipY1 = clipregion->iTop;
-        ClipX2 = clipregion->iRight;
-        ClipY2 = clipregion->iBottom;
-    }
-
-    // Calculate rows hanging off each side of the screen
-    LeftSkip = std::min(ClipX1 - std::min(ClipX1, iTempX), (INT32)usWidth);
-    RightSkip = std::min(std::max(ClipX2, (iTempX + (INT32)usWidth)) - ClipX2, (INT32)usWidth);
-    TopSkip = std::min(ClipY1 - std::min(ClipY1, iTempY), (INT32)usHeight);
-    BottomSkip = std::min(std::max(ClipY2, (iTempY + (INT32)usHeight)) - ClipY2, (INT32)usHeight);
-
-    // calculate the remaining rows and columns to blit
-    BlitLength = ((INT32)usWidth - LeftSkip - RightSkip);
-    BlitHeight = ((INT32)usHeight - TopSkip - BottomSkip);
-
-    // whole thing is clipped
-    if ((LeftSkip >= (INT32)usWidth) || (RightSkip >= (INT32)usWidth))
-        return (TRUE);
-
-    // whole thing is clipped
-    if ((TopSkip >= (INT32)usHeight) || (BottomSkip >= (INT32)usHeight))
-        return (TRUE);
-
-    DestPtr = (UINT8*)pBuffer + (uiDestPitchBYTES * (iTempY + TopSkip)) + ((iTempX + LeftSkip) * 2);
-    LineSkip = (uiDestPitchBYTES - (BlitLength * 2));
-
-    auto opaque = [](UINT8* dest, UINT8) { NativeWriteWord(dest, ShadeTable[NativeReadWord(dest)]); };
-    auto transparent = [](UINT8*) {};
-    if (!pTrav->surface)
-        return (TRUE);
-    NativeBltSprite(static_cast<const UINT8*>(pTrav->surface->pixels), pTrav->surface->pitch,
-                    pTrav->mask(), DestPtr, LeftSkip, TopSkip, BlitLength,
-                    BlitHeight, 2, 1, LineSkip, opaque, transparent);
-
-    return (TRUE);
-}
-
-/**********************************************************************************************
-	Blt16BPPBufferShadowRect
-
-		Darkens a rectangular area by 25%. This blitter is used by ShadowVideoObjectRect.
-
-	pBuffer						Pointer to a 16BPP buffer
-	uiDestPitchBytes	Pitch of the destination surface
-	area							An SGPRect, the area to darken
-
-*********************************************************************************************/
 // FUNCTION: WIZ8 0x004124a0
 BOOLEAN Blt16BPPBufferShadowRect(UINT16* pBuffer, UINT32 uiDestPitchBYTES, SGPRect* area)
 {

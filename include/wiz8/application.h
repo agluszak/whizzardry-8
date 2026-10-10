@@ -7,7 +7,6 @@
 
 extern "C" {
 extern BOOLEAN gfProgramIsRunning;
-extern UINT8 gbPixelDepth;
 extern BOOLEAN gfLoadAtStartup;
 extern std::string gzStringDataOverride;
 extern BOOLEAN gfUsingBoundsChecker;

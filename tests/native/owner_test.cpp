@@ -384,8 +384,9 @@ void image_and_sprite_ownership()
     for (unsigned i = 0; i < ids.size(); ++i) {
         CHECK(AddVideoObject(&desc, &ids[i]));
         CHECK(GetVideoObject(&views[i], ids[i]));
-        CHECK(views[i]->sprites.size() == 1 && views[i]->sprites[0].surface);
-        CHECK(views[i]->sprites[0].surface->pixels != image.pImageData.data());
+        CHECK(views[i]->sprites.size() == 1 && views[i]->sprites[0].pixels.size() == 1);
+        CHECK(reinterpret_cast<const UINT8*>(views[i]->sprites[0].pixels.data()) !=
+              image.pImageData.data());
         CHECK(views[i]->pPaletteEntry.get() != image.pPalette.get());
         (void)CreateObjectPaletteTables(views[i], HVOBJECT_GLOW_GREEN);
         CHECK(views[i]->pShades[0] && views[i]->pShades[15]);
@@ -401,8 +402,7 @@ void image_and_sprite_ownership()
     }
     image.pImageData[1] = 2;
     image.pETRLEObject[0].usWidth = 2;
-    CHECK(static_cast<UINT8*>(views[0]->sprites[0].surface->pixels)[0] == 1 &&
-          views[0]->sprites[0].usWidth == 1);
+    CHECK(views[0]->sprites[0].pixels[0] == 1 && views[0]->sprites[0].usWidth == 1);
     image.pETRLEObject[0].uiDataOffset = 0xffffffffu;
     CHECK(!CreateVideoObject(&desc));
     CHECK(image.pImageData[1] == 2 && image.pETRLEObject[0].uiDataOffset == 0xffffffffu);
@@ -415,8 +415,7 @@ void image_and_sprite_ownership()
     }
     HVOBJECT surviving = nullptr;
     CHECK(GetVideoObject(&surviving, ids[32]) && surviving == views[32]);
-    CHECK(static_cast<UINT8*>(surviving->sprites[0].surface->pixels)[0] == 1 &&
-          surviving->sprites[0].usWidth == 1);
+    CHECK(surviving->sprites[0].pixels[0] == 1 && surviving->sprites[0].usWidth == 1);
     UINT16 borrowed[256]{};
     surviving->p16BPPPalette = borrowed;
     CHECK(DestroyObjectPaletteTables(surviving));
@@ -617,8 +616,7 @@ void generic_button_images()
         desc.ImageFile = long_image_path;
         std::unique_ptr<SGPVObject> sprite(CreateVideoObject(&desc));
         CHECK(sprite && sprite->sprites.size() == 3);
-        CHECK(sprite->sprites[2].usWidth == 1 &&
-              static_cast<UINT8*>(sprite->sprites[2].surface->pixels)[0] == 1);
+        CHECK(sprite->sprites[2].usWidth == 1 && sprite->sprites[2].pixels[0] == 1);
         CHECK(sprite->pPaletteEntry[1].peRed == 255);
     }
     for (bool corrupt_length : {false, true}) {

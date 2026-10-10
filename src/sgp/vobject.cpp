@@ -241,14 +241,10 @@ HVOBJECT CreateVideoObject(VOBJECT_DESC* VObjectDesc)
     if (hImage->ubBitDepth == 8) {
         if (!hImage->pPalette || !SetVideoObjectPalette(owner.get(), hImage->pPalette.get()))
             return nullptr;
-        owner->pShade8 = ubColorTables[DEFAULT_SHADE_LEVEL];
-        owner->pGlow8 = ubColorTables[0];
     }
     // ETRLE data decodes once here; the compressed bytes are never kept
     // on the video object.
-    if (!DecodeVideoObjectSprites(owner.get(), hImage->pETRLEObject,
-                                  hImage->pImageData.data(),
-                                  static_cast<UINT32>(hImage->pImageData.size()))) {
+    if (!DecodeVideoObjectSprites(owner.get(), hImage->pETRLEObject, hImage->pImageData)) {
         return nullptr;
     }
     return owner.release();
@@ -414,58 +410,21 @@ BOOLEAN BltVideoObjectToBuffer(UINT16* pBuffer, UINT32 uiDestPitchBYTES, HVOBJEC
     case 8:
 
         // Switch based on flags given
-        do {
-            if (gbPixelDepth == 16) {
-                if (fBltFlags & VO_BLT_MIRROR_Y) {
-                    if (!BltIsClipped(hSrcVObject, iDestX, iDestY, usIndex, &ClippingRect))
-                        Blt8BPPDataTo16BPPBufferTransMirror(pBuffer, uiDestPitchBYTES, hSrcVObject,
-                                                            iDestX, iDestY, usIndex);
-                    // CLipping version not done -- DB
-                    //								Blt8BPPDataTo16BPPBufferTransMirrorClip( pBuffer, uiDestPitchBYTES, hSrcVObject, iDestX, iDestY, usIndex, &ClippingRect);
-                    break;
-                } else if (fBltFlags & VO_BLT_SRCTRANSPARENCY) {
-                    if (BltIsClipped(hSrcVObject, iDestX, iDestY, usIndex, &ClippingRect))
-                        Blt8BPPDataTo16BPPBufferTransparentClip(pBuffer, uiDestPitchBYTES,
-                                                                hSrcVObject, iDestX, iDestY,
-                                                                usIndex, &ClippingRect);
-                    else
-                        Blt8BPPDataTo16BPPBufferTransparent(pBuffer, uiDestPitchBYTES, hSrcVObject,
-                                                            iDestX, iDestY, usIndex);
-                    break;
-                } else if (fBltFlags & VO_BLT_SHADOW) {
-                    if (BltIsClipped(hSrcVObject, iDestX, iDestY, usIndex, &ClippingRect))
-                        Blt8BPPDataTo16BPPBufferShadowClip(pBuffer, uiDestPitchBYTES, hSrcVObject,
-                                                           iDestX, iDestY, usIndex, &ClippingRect);
-                    else
-                        Blt8BPPDataTo16BPPBufferShadow(pBuffer, uiDestPitchBYTES, hSrcVObject,
-                                                       iDestX, iDestY, usIndex);
-                    break;
-                }
-
-            } else if (gbPixelDepth == 8) {
-                if (fBltFlags & VO_BLT_SRCTRANSPARENCY) {
-                    if (BltIsClipped(hSrcVObject, iDestX, iDestY, usIndex, &ClippingRect))
-                        Blt8BPPDataTo8BPPBufferTransparentClip(pBuffer, uiDestPitchBYTES,
-                                                               hSrcVObject, iDestX, iDestY, usIndex,
-                                                               &ClippingRect);
-                    else
-                        Blt8BPPDataTo8BPPBufferTransparent(pBuffer, uiDestPitchBYTES, hSrcVObject,
-                                                           iDestX, iDestY, usIndex);
-                    break;
-                } else if (fBltFlags & VO_BLT_SHADOW) {
-                    if (BltIsClipped(hSrcVObject, iDestX, iDestY, usIndex, &ClippingRect))
-                        Blt8BPPDataTo8BPPBufferShadowClip(pBuffer, uiDestPitchBYTES, hSrcVObject,
-                                                          iDestX, iDestY, usIndex, &ClippingRect);
-                    else
-                        Blt8BPPDataTo8BPPBufferShadow(pBuffer, uiDestPitchBYTES, hSrcVObject,
-                                                      iDestX, iDestY, usIndex);
-                    break;
-                }
-            }
-            // Use default blitter here
-            //Blt8BPPDataTo16BPPBuffer( hDestVObject, hSrcVObject, (UINT16)iDestX, (UINT16)iDestY, (SGPRect*)&SrcRect );
-
-        } while (FALSE);
+        if (usIndex < hSrcVObject->sprites.size()) {
+            const SpriteFrame& frame = hSrcVObject->sprites[usIndex];
+            if (fBltFlags & VO_BLT_MIRROR_Y)
+                BltSpriteTo16BPPBuffer(pBuffer, uiDestPitchBYTES, frame,
+                                       hSrcVObject->pShadeCurrent, iDestX, iDestY, nullptr, true,
+                                       SpriteDrawOp::Transparent);
+            else if (fBltFlags & VO_BLT_SRCTRANSPARENCY)
+                BltSpriteTo16BPPBuffer(pBuffer, uiDestPitchBYTES, frame,
+                                       hSrcVObject->pShadeCurrent, iDestX, iDestY, nullptr, false,
+                                       SpriteDrawOp::Transparent);
+            else if (fBltFlags & VO_BLT_SHADOW)
+                BltSpriteTo16BPPBuffer(pBuffer, uiDestPitchBYTES, frame,
+                                       hSrcVObject->pShadeCurrent, iDestX, iDestY, nullptr, false,
+                                       SpriteDrawOp::Shadow);
+        }
 
         break;
     }
@@ -527,24 +486,8 @@ BOOLEAN GetETRLEPixelValue(UINT8* pDest, HVOBJECT hVObject, UINT16 usETRLEIndex,
 
     CHECKF(usX < frame.usWidth);
     CHECKF(usY < frame.usHeight);
-    CHECKF(frame.surface);
-
-    // Transparent runs decode to index 0, which is also what a literal
-    // index 0 reads back as, so a plain pixel read is the whole query.
-    *pDest = static_cast<const UINT8*>(frame.surface->pixels)[usY * frame.surface->pitch + usX];
-    return (TRUE);
-}
-
-// FUNCTION: WIZ8 0x00406a10
-BOOLEAN GetVideoObjectETRLEProperties(HVOBJECT hVObject, ETRLEObject* pETRLEObject, UINT16 usIndex)
-{
-    CHECKF(usIndex >= 0);
-    CHECKF(usIndex < hVObject->sprites.size());
-
-    const SpriteFrame& frame = hVObject->sprites[usIndex];
-    *pETRLEObject = ETRLEObject{0, 0, frame.sOffsetX, frame.sOffsetY, frame.usHeight,
-                              frame.usWidth};
-
+    const UINT16 value = frame.pixels[usY * frame.usWidth + usX];
+    *pDest = (value == SpriteFrame::kTransparent) ? 0 : static_cast<UINT8>(value);
     return (TRUE);
 }
 
@@ -553,35 +496,16 @@ BOOLEAN GetVideoObjectETRLESubregionProperties(UINT32 uiVideoObject, UINT16 usIn
                                                UINT16* pusWidth, UINT16* pusHeight)
 {
     HVOBJECT hVObject;
-    ETRLEObject ETRLEObject;
 
     // Get video object
 #ifdef _DEBUG
     gubVODebugCode = DEBUGSTR_GETVIDEOOBJECTETRLESUBREGIONPROPERTIES;
 #endif
     CHECKF(GetVideoObject(&hVObject, uiVideoObject));
+    CHECKF(usIndex < hVObject->sprites.size());
 
-    CHECKF(GetVideoObjectETRLEProperties(hVObject, &ETRLEObject, usIndex));
-
-    *pusWidth = ETRLEObject.usWidth;
-    *pusHeight = ETRLEObject.usHeight;
-
-    return (TRUE);
-}
-
-// FUNCTION: WIZ8 0x00406ad0
-BOOLEAN GetVideoObjectETRLEPropertiesFromIndex(UINT32 uiVideoObject, ETRLEObject* pETRLEObject,
-                                               UINT16 usIndex)
-{
-    HVOBJECT hVObject;
-
-    // Get video object
-#ifdef _DEBUG
-    gubVODebugCode = DEBUGSTR_GETVIDEOOBJECTETRLEPROPERTIESFROMINDEX;
-#endif
-    CHECKF(GetVideoObject(&hVObject, uiVideoObject));
-
-    CHECKF(GetVideoObjectETRLEProperties(hVObject, pETRLEObject, usIndex));
+    *pusWidth = hVObject->sprites[usIndex].usWidth;
+    *pusHeight = hVObject->sprites[usIndex].usHeight;
 
     return (TRUE);
 }

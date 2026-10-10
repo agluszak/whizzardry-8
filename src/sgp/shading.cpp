@@ -10,10 +10,6 @@
 
 void FindMaskIndecies(UINT8*, UINT8*, UINT8*);
 
-SGPPaletteEntry Shaded8BPPPalettes[HVOBJECT_SHADE_TABLES + 3][256];
-// GLOBAL: WIZ8 0x006bdaa0
-UINT8 ubColorTables[HVOBJECT_SHADE_TABLES + 3][256];
-
 // GLOBAL: WIZ8 0x0069da80
 UINT16 IntensityTable[65536];
 // GLOBAL: WIZ8 0x006c0da0

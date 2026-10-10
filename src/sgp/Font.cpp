@@ -526,15 +526,11 @@ UINT32 mprintf(INT32 x, INT32 y, const CHAR16* pFontString, ...)
         }
 
         // Blit directly
-        if (gbPixelDepth == 8) {
-            Blt8BPPDataTo8BPPBufferMonoShadowClip(pDestBuf, uiDestPitchBYTES, FontObjs[FontDefault].get(),
-                                                  destx, desty, transletter, &FontDestRegion,
-                                                  FontForeground8, FontBackground8);
-        } else {
-            Blt8BPPDataTo16BPPBufferMonoShadowClip(
-                (UINT16*)pDestBuf, uiDestPitchBYTES, FontObjs[FontDefault].get(), destx, desty,
-                transletter, &FontDestRegion, FontForeground16, FontBackground16, FontShadow16);
-        }
+        HVOBJECT font_obj = FontObjs[FontDefault].get();
+        BltSpriteTo16BPPBuffer((UINT16*)pDestBuf, uiDestPitchBYTES,
+                               font_obj->sprites[transletter], font_obj->pShadeCurrent, destx,
+                               desty, &FontDestRegion, false, SpriteDrawOp::MonoShadow,
+                               FontForeground16, FontBackground16, FontShadow16);
         destx += GetWidth(FontObjs[FontDefault].get(), transletter);
     }
 
@@ -640,15 +636,10 @@ UINT32 gprintf(INT32 x, INT32 y, const CHAR16* pFontString, ...)
         }
 
         // Blit directly
-        if (gbPixelDepth == 8) {
-            Blt8BPPDataTo8BPPBufferTransparentClip((UINT16*)pDestBuf, uiDestPitchBYTES,
-                                                   FontObjs[FontDefault].get(), destx, desty, transletter,
-                                                   &FontDestRegion);
-        } else {
-            Blt8BPPDataTo16BPPBufferTransparentClip((UINT16*)pDestBuf, uiDestPitchBYTES,
-                                                    FontObjs[FontDefault].get(), destx, desty,
-                                                    transletter, &FontDestRegion);
-        }
+        HVOBJECT font_obj = FontObjs[FontDefault].get();
+        BltSpriteTo16BPPBuffer((UINT16*)pDestBuf, uiDestPitchBYTES,
+                               font_obj->sprites[transletter], font_obj->pShadeCurrent, destx,
+                               desty, &FontDestRegion, false, SpriteDrawOp::Transparent);
         destx += GetWidth(FontObjs[FontDefault].get(), transletter);
     }
 
@@ -692,15 +683,10 @@ UINT32 gprintfDirty(INT32 x, INT32 y, const CHAR16* pFontString, ...)
         }
 
         // Blit directly
-        if (gbPixelDepth == 8) {
-            Blt8BPPDataTo8BPPBufferTransparentClip((UINT16*)pDestBuf, uiDestPitchBYTES,
-                                                   FontObjs[FontDefault].get(), destx, desty, transletter,
-                                                   &FontDestRegion);
-        } else {
-            Blt8BPPDataTo16BPPBufferTransparentClip((UINT16*)pDestBuf, uiDestPitchBYTES,
-                                                    FontObjs[FontDefault].get(), destx, desty,
-                                                    transletter, &FontDestRegion);
-        }
+        HVOBJECT font_obj = FontObjs[FontDefault].get();
+        BltSpriteTo16BPPBuffer((UINT16*)pDestBuf, uiDestPitchBYTES,
+                               font_obj->sprites[transletter], font_obj->pShadeCurrent, destx,
+                               desty, &FontDestRegion, false, SpriteDrawOp::Transparent);
         destx += GetWidth(FontObjs[FontDefault].get(), transletter);
     }
 
@@ -749,15 +735,10 @@ UINT32 gprintf_buffer(UINT8* pDestBuf, UINT32 uiDestPitchBYTES, UINT32 FontType,
         }
 
         // Blit directly
-        if (gbPixelDepth == 8) {
-            Blt8BPPDataTo8BPPBufferTransparentClip((UINT16*)pDestBuf, uiDestPitchBYTES,
-                                                   FontObjs[FontDefault].get(), destx, desty, transletter,
-                                                   &FontDestRegion);
-        } else {
-            Blt8BPPDataTo16BPPBufferTransparentClip((UINT16*)pDestBuf, uiDestPitchBYTES,
-                                                    FontObjs[FontDefault].get(), destx, desty,
-                                                    transletter, &FontDestRegion);
-        }
+        HVOBJECT font_obj = FontObjs[FontDefault].get();
+        BltSpriteTo16BPPBuffer((UINT16*)pDestBuf, uiDestPitchBYTES,
+                               font_obj->sprites[transletter], font_obj->pShadeCurrent, destx,
+                               desty, &FontDestRegion, false, SpriteDrawOp::Transparent);
 
         destx += GetWidth(FontObjs[FontType].get(), transletter);
     }
@@ -795,15 +776,11 @@ UINT32 mprintf_buffer(UINT8* pDestBuf, UINT32 uiDestPitchBYTES, UINT32 FontType,
         }
 
         // Blit directly
-        if (gbPixelDepth == 8) {
-            Blt8BPPDataTo8BPPBufferMonoShadowClip(pDestBuf, uiDestPitchBYTES, FontObjs[FontDefault].get(),
-                                                  destx, desty, transletter, &FontDestRegion,
-                                                  FontForeground8, FontBackground8);
-        } else {
-            Blt8BPPDataTo16BPPBufferMonoShadowClip(
-                (UINT16*)pDestBuf, uiDestPitchBYTES, FontObjs[FontDefault].get(), destx, desty,
-                transletter, &FontDestRegion, FontForeground16, FontBackground16, FontShadow16);
-        }
+        HVOBJECT font_obj = FontObjs[FontDefault].get();
+        BltSpriteTo16BPPBuffer((UINT16*)pDestBuf, uiDestPitchBYTES,
+                               font_obj->sprites[transletter], font_obj->pShadeCurrent, destx,
+                               desty, &FontDestRegion, false, SpriteDrawOp::MonoShadow,
+                               FontForeground16, FontBackground16, FontShadow16);
         destx += GetWidth(FontObjs[FontDefault].get(), transletter);
     }
 

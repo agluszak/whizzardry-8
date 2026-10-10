@@ -14,9 +14,6 @@ extern "C" {
 void BuildShadeTable(void);
 void SetShadeTablePercent(FLOAT uiShadePercent);
 
-extern SGPPaletteEntry Shaded8BPPPalettes[HVOBJECT_SHADE_TABLES + 3][256];
-extern UINT8 ubColorTables[HVOBJECT_SHADE_TABLES + 3][256];
-
 extern UINT16 IntensityTable[65536];
 extern UINT16 ShadeTable[65536];
 extern UINT16 White16BPPPalette[256];
@@ -26,7 +23,5 @@ extern FLOAT guiBrightPercent;
 #ifdef __cplusplus
 }
 #endif
-
-#define DEFAULT_SHADE_LEVEL 4
 
 #endif
