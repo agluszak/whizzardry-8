@@ -62,7 +62,7 @@ target_compile_definitions(SURRENDER PRIVATE
     SURRENDER_BUILD
     SR_LIBRARY_EXTENSION="${CMAKE_SHARED_LIBRARY_SUFFIX}"
 )
-target_link_libraries(SURRENDER PRIVATE wiz8_native_settings SDL3::SDL3)
+target_link_libraries(SURRENDER PRIVATE wiz8_native_settings SDL3::SDL3 SDL3_image::SDL3_image)
 if(UNIX AND NOT APPLE)
     target_link_options(SURRENDER PRIVATE -Wl,--no-undefined)
 endif()

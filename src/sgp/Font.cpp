@@ -8,7 +8,6 @@
 #include <stdarg.h>
 #include <wchar.h>
 #include "sgp.h"
-#include "pcx.h"
 #include "MemMan.h"
 #include "FileMan.h"
 #include "Font.h"
