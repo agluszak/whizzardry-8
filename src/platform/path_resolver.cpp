@@ -1,4 +1,7 @@
 #include <wiz8/asset_paths.h>
+#include "path_resolver.h"
+#include <stdexcept>
+#include <system_error>
 
 #include <algorithm>
 #include <filesystem>
@@ -278,11 +281,6 @@ std::string locate(const std::string& root, const std::string& relative)
     }
     return utf8(cursor);
 }
-std::string locate_physical(const std::string& path)
-{
-    const fs::path physical = native_path(path);
-    return locate(utf8(physical.root_path()), utf8(physical.relative_path()));
-}
 bool exists(const std::string& path)
 {
     std::error_code error;
@@ -293,7 +291,7 @@ std::string read(const Path& path)
     if (path.drive < 0)
         return "";
     if (!path.physical.empty())
-        return locate_physical(path.physical);
+        return path.physical;
     if (path.drive != 0)
     {
         const auto& root = roots.discs[path.drive - 1];
@@ -350,11 +348,6 @@ std::string full_path(const char* input)
     std::replace(result.begin() + 3, result.end(), '/', '\\');
     return result;
 }
-std::string read_path(const char* input)
-{
-    std::lock_guard<std::recursive_mutex> guard(lock);
-    return read(parse(input));
-}
 std::string existing_legacy_user_root(const std::string& preferred)
 {
     fs::path app = native_path(preferred).lexically_normal();
@@ -369,141 +362,60 @@ std::string existing_legacy_user_root(const std::string& preferred)
         return absolute(utf8(candidate));
     return "";
 }
-std::string host_read_path(const std::string& path)
+ResolvedPath resolve_path(std::string_view input, PathDomain domain)
 {
+    if (input.empty() || input.find('\0') != std::string_view::npos)
+        throw std::invalid_argument("empty file path or embedded NUL");
     std::lock_guard<std::recursive_mutex> guard(lock);
     initialize();
-    if (path.empty())
-    {
-        errno = ENOENT;
-        return "";
-    }
-    const std::string full = absolute(path);
-    return full;
-}
-std::string host_write_path(const std::string& path)
-{
-    std::lock_guard<std::recursive_mutex> guard(lock);
-    initialize();
-    const std::string destination = host_read_path(path);
-    if (destination.empty() || immutable(path) || immutable(destination) ||
-        (ancestry(path, roots.user, false) && !within(destination, roots.user)))
-    {
-        errno = EACCES;
-        return "";
-    }
-    return destination;
-}
-std::string mutation_path(const char* input)
-{
-    std::lock_guard<std::recursive_mutex> guard(lock);
-    Path path = parse(input);
+    const std::string text(input);
+    if (domain == PathDomain::game && !(text.size() >= 2 && text[1] == ':') &&
+        native_path(text).is_absolute())
+        throw std::invalid_argument("native absolute paths require the host import API");
+    const Path path = domain == PathDomain::host ? Path{0, {}, absolute(text)} : parse(text.c_str());
     if (path.drive < 0)
-        return "";
-    if (!path.physical.empty())
-        return host_write_path(path.physical);
-    if (path.drive != 0 || roots.user.empty())
+        throw std::system_error(errno ? errno : EINVAL, std::generic_category(), "resolve file path");
+
+    ResolvedPath result;
+    if (domain == PathDomain::host || !path.physical.empty())
     {
-        errno = EACCES;
-        return "";
+        result.readable = native_path(path.physical);
+        if (!path.physical.empty() && !immutable(text) && !immutable(path.physical) &&
+            !(ancestry(text, roots.user, false) && !within(path.physical, roots.user)))
+            result.writable = result.readable;
+        result.directories.push_back(result.readable);
     }
-    const std::string destination = locate(roots.user, path.relative);
-    if (!within(destination, roots.user) || immutable(destination))
-    {
-        errno = EACCES;
-        return "";
-    }
-    return destination;
-}
-std::string write_path(const char* input, bool preserve)
-{
-    std::lock_guard<std::recursive_mutex> guard(lock);
-    Path path = parse(input);
-    if (path.drive < 0)
-        return "";
-    if (!path.physical.empty())
-        return host_write_path(path.physical);
-    if (path.drive != 0 || roots.user.empty())
-    {
-        errno = EACCES;
-        return "";
-    }
-    std::string destination = locate(roots.user, path.relative);
-    const std::string source = read(path);
-    if (!within(absolute(destination), roots.user) || immutable(destination))
-    {
-        errno = EACCES;
-        return "";
-    }
-    std::error_code error;
-    /* Materialize root and only parents that already exist in the virtual tree.
-       This keeps CreateFile from silently creating arbitrary directories. */
-    const fs::path parent = native_path(path.relative).parent_path();
-    Path parent_path = path;
-    parent_path.relative = utf8(parent);
-    if (!fs::is_directory(native_path(read(parent_path)), error))
-    {
-        errno = ENOTDIR;
-        return "";
-    }
-    fs::create_directories(native_path(destination).parent_path(), error);
-    if (error)
-    {
-        errno = error.value();
-        return "";
-    }
-    if (preserve && source != destination && exists(source))
-    {
-        fs::copy_file(native_path(source), native_path(destination), fs::copy_options::none, error);
-        if (error)
-        {
-            errno = error.value();
-            return "";
-        }
-        /* A copied read-only asset remains read-only until explicitly cleared. */
-    }
-    return destination;
-}
-std::vector<std::string> directory_entries(const char* input)
-{
-    std::lock_guard<std::recursive_mutex> guard(lock);
-    Path path = parse(input);
-    std::vector<std::string> names;
-    std::vector<std::string> bases;
-    if (path.drive < 0)
-        return names;
-    if (!path.physical.empty() || path.drive != 0)
-        bases.push_back(read(path));
     else
     {
-        if (!roots.user.empty())
-            bases.push_back(locate(roots.user, path.relative));
-        bases.push_back(locate(roots.assets, path.relative));
-    }
-    for (const auto& base : bases)
-    {
-        std::error_code error;
-        std::vector<std::string> next;
-        for (fs::directory_iterator it(native_path(base), error), end; !error && it != end; it.increment(error))
-            next.push_back(utf8(it->path().filename()));
-        std::sort(next.begin(), next.end());
-        for (const auto& name : next)
+        result.readable = native_path(read(path));
+        if (path.drive == 0)
         {
-            bool duplicate = false;
-            for (const auto& previous : names)
-                if (folded(name) == folded(previous))
-                    duplicate = true;
-            if (!duplicate)
-                names.push_back(name);
+            result.overlay = true;
+            if (!roots.user.empty())
+            {
+                const auto destination = locate(roots.user, path.relative);
+                if (within(destination, roots.user) && !immutable(destination))
+                    result.writable = native_path(destination);
+                result.directories.push_back(native_path(destination));
+            }
+            result.directories.push_back(native_path(locate(roots.assets, path.relative)));
+            Path parent = path;
+            parent.relative = utf8(native_path(path.relative).parent_path());
+            result.readable_parent = native_path(read(parent));
         }
+        else
+            result.directories.push_back(result.readable);
     }
-    std::sort(names.begin(), names.end());
-    return names;
+    if (result.readable.empty())
+        throw std::system_error(errno ? errno : ENOENT, std::generic_category(), "resolve file path");
+    result.writable_source = !result.writable.empty() && result.readable == result.writable;
+    return result;
 }
+
 int change_directory(const char* input)
 {
     std::lock_guard<std::recursive_mutex> guard(lock);
-    const std::string physical = read_path(input);
+    const std::string physical = read(parse(input));
     std::error_code error;
     if (!fs::is_directory(native_path(physical), error))
     {
@@ -525,18 +437,5 @@ std::string current_directory()
     std::lock_guard<std::recursive_mutex> guard(lock);
     initialize();
     return cwd;
-}
-bool is_read_only_path(const char* input)
-{
-    std::lock_guard<std::recursive_mutex> guard(lock);
-    Path path = parse(input);
-    if (path.drive < 0 || path.drive != 0)
-        return true;
-    if (!path.physical.empty())
-        return immutable(path.physical);
-    if (roots.user.empty())
-        return true;
-    const std::string source = read(path);
-    return source != locate(roots.user, path.relative) || !within(absolute(source), roots.user);
 }
 } // namespace w8_native

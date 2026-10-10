@@ -33,6 +33,8 @@ struct FileStatus
     SDL_PathInfo info{};
     // Mutable-layer policy for the resolved path, not host permission guarantees.
     bool writable = false;
+    // Host permission bits, separate from immutable/overlay access policy.
+    bool read_only = false;
 };
 
 // Owns one SDL stream. No shared cursor or global handle registry. Operations
@@ -95,6 +97,8 @@ std::optional<FileStatus> host_file_status(const std::filesystem::path& path);
 // again. No tombstones or recursive deletion of installed assets are performed.
 bool remove_file(std::string_view game_path);
 void create_directory(std::string_view game_path);
+// Materializes an overlay when needed; installed files remain untouched.
+void clear_read_only(std::string_view game_path);
 // Basenames, merged overlay-first, ASCII case-insensitive * / ? matching.
 // *.* also matches extensionless game files. Missing directories throw.
 std::vector<std::string> list_directory(std::string_view game_directory,

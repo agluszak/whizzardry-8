@@ -1,5 +1,5 @@
 #include "wiz8/filesystem.h"
-#include <wiz8/asset_paths.h>
+#include "path_resolver.h"
 
 #include <SDL3/SDL_error.h>
 
@@ -21,34 +21,25 @@ namespace
 {
     throw std::runtime_error(std::string(operation) + ": " + SDL_GetError());
 }
-std::string checked_path(std::string path)
+const fs::path& write_destination(const w8_native::ResolvedPath& path)
 {
-    if (path.empty())
-        throw std::system_error(errno ? errno : EINVAL, std::generic_category(), "resolve file path");
-    return path;
+    if (path.writable.empty())
+        throw std::system_error(std::make_error_code(std::errc::permission_denied), "immutable file path");
+    return path.writable;
 }
-std::string path_text(std::string_view text)
+void prepare_write(const w8_native::ResolvedPath& path, bool preserve)
 {
-    if (text.empty() || text.find('\0') != std::string_view::npos)
-        throw std::invalid_argument("empty file path or embedded NUL");
-    return std::string(text);
-}
-std::string game_path_text(std::string_view text)
-{
-    auto name = path_text(text);
-    if (!(name.size() >= 2 && name[1] == ':') && path_from_utf8(name).is_absolute())
-        throw std::invalid_argument("native absolute paths require the host import API");
-    return name;
-}
-fs::path read_destination(std::string_view text)
-{
-    const auto name = game_path_text(text);
-    return path_from_utf8(checked_path(w8_native::read_path(name.c_str())));
-}
-fs::path mutation_destination(std::string_view text)
-{
-    const auto name = game_path_text(text);
-    return path_from_utf8(checked_path(w8_native::mutation_path(name.c_str())));
+    const auto& destination = write_destination(path);
+    if (!path.overlay)
+        return;
+    if (!fs::is_directory(path.readable_parent))
+        throw std::system_error(std::make_error_code(std::errc::not_a_directory), "game parent directory");
+    fs::create_directories(destination.parent_path());
+    if (preserve && !fs::exists(destination) && fs::exists(path.readable))
+    {
+        fs::copy_file(path.readable, destination);
+        fs::permissions(destination, fs::perms::owner_write, fs::perm_options::add);
+    }
 }
 std::optional<FileStatus> physical_status(const fs::path& path, bool writable)
 {
@@ -58,7 +49,8 @@ std::optional<FileStatus> physical_status(const fs::path& path, bool writable)
     SDL_PathInfo info{};
     if (!SDL_GetPathInfo(path_to_utf8(path).c_str(), &info))
         sdl_failure("query file metadata");
-    return FileStatus{info, writable};
+    const auto write_bits = fs::perms::owner_write | fs::perms::group_write | fs::perms::others_write;
+    return FileStatus{info, writable, (status.permissions() & write_bits) == fs::perms::none};
 }
 char fold(char value)
 {
@@ -298,44 +290,35 @@ std::optional<SDL_Time> File::opened_writer_create_time() const noexcept
 }
 std::unique_ptr<File> open_file(std::string_view game_path, OpenMode mode)
 {
-    const auto name = game_path_text(game_path);
-    std::string physical;
+    const auto path = w8_native::resolve_path(game_path);
     if (mode == OpenMode::read)
-        physical = checked_path(w8_native::read_path(name.c_str()));
-    else
-    {
-        if (mode == OpenMode::update && !file_status(game_path))
-            throw std::system_error(std::make_error_code(std::errc::no_such_file_or_directory),
-                                    "update existing game file");
-        const bool copy_up = mode != OpenMode::replace &&
-                             !fs::exists(mutation_destination(game_path)) && file_status(game_path);
-        physical = checked_path(w8_native::write_path(name.c_str(), mode != OpenMode::replace));
-        if (copy_up)
-            fs::permissions(path_from_utf8(physical), fs::perms::owner_write, fs::perm_options::add);
-    }
-    return std::unique_ptr<File>(new File(path_from_utf8(physical), mode));
+        return std::unique_ptr<File>(new File(path.readable, mode));
+    if (mode == OpenMode::update && !fs::exists(path.readable))
+        throw std::system_error(std::make_error_code(std::errc::no_such_file_or_directory),
+                                "update existing game file");
+    prepare_write(path, mode != OpenMode::replace);
+    return std::unique_ptr<File>(new File(write_destination(path), mode));
 }
 std::unique_ptr<File> open_host_file(const fs::path& path, OpenMode mode)
 {
-    const auto name = path_text(path_to_utf8(path));
-    const auto physical = checked_path(mode == OpenMode::read ? w8_native::host_read_path(name)
-                                                            : w8_native::host_write_path(name));
-    return std::unique_ptr<File>(new File(path_from_utf8(physical), mode));
+    const auto resolved = w8_native::resolve_path(path_to_utf8(path), w8_native::PathDomain::host);
+    return std::unique_ptr<File>(new File(mode == OpenMode::read ? resolved.readable
+                                                               : write_destination(resolved), mode));
 }
 std::optional<FileStatus> file_status(std::string_view game_path)
 {
-    const auto name = game_path_text(game_path);
-    return physical_status(read_destination(game_path), !w8_native::is_read_only_path(name.c_str()));
+    const auto path = w8_native::resolve_path(game_path);
+    return physical_status(path.readable, path.writable_source);
 }
 std::optional<FileStatus> host_file_status(const fs::path& path)
 {
-    const auto name = path_text(path_to_utf8(path));
-    const auto physical = checked_path(w8_native::host_read_path(name));
-    return physical_status(path_from_utf8(physical), !w8_native::host_write_path(name).empty());
+    const auto resolved = w8_native::resolve_path(path_to_utf8(path), w8_native::PathDomain::host);
+    return physical_status(resolved.readable, resolved.writable_source);
 }
 bool remove_file(std::string_view game_path)
 {
-    const auto destination = mutation_destination(game_path);
+    const auto path = w8_native::resolve_path(game_path);
+    const auto& destination = write_destination(path);
     const auto info = physical_status(destination, true);
     if (!info)
         return false;
@@ -347,34 +330,71 @@ bool remove_file(std::string_view game_path)
 }
 void create_directory(std::string_view game_path)
 {
-    const auto destination = mutation_destination(game_path);
-    if (!SDL_CreateDirectory(path_to_utf8(destination).c_str()))
+    const auto path = w8_native::resolve_path(game_path);
+    if (!SDL_CreateDirectory(path_to_utf8(write_destination(path)).c_str()))
         sdl_failure("create game directory");
+}
+void clear_read_only(std::string_view game_path)
+{
+    const auto path = w8_native::resolve_path(game_path);
+    const auto status = physical_status(path.readable, path.writable_source);
+    if (!status)
+        throw std::system_error(std::make_error_code(std::errc::no_such_file_or_directory));
+    const auto& destination = write_destination(path);
+    if (status->info.type == SDL_PATHTYPE_DIRECTORY)
+    {
+        if (!SDL_CreateDirectory(path_to_utf8(destination).c_str()))
+            sdl_failure("create writable game directory");
+    }
+    else if (!path.writable_source)
+    {
+        prepare_write(path, false);
+        copy_physical(path.readable, destination, CopyMode::replace);
+    }
+    fs::permissions(destination, fs::perms::owner_write, fs::perm_options::add);
 }
 std::vector<std::string> list_directory(std::string_view directory, std::string_view pattern)
 {
-    const auto name = game_path_text(directory);
-    const auto status = file_status(directory);
+    const auto path = w8_native::resolve_path(directory);
+    const auto status = physical_status(path.readable, path.writable_source);
     if (!status || status->info.type != SDL_PATHTYPE_DIRECTORY)
         throw std::invalid_argument("list_directory requires an existing directory");
-    auto entries = w8_native::directory_entries(name.c_str());
-    entries.erase(std::remove_if(entries.begin(), entries.end(), [&](const std::string& entry)
-                                 { return !matches(entry, pattern); }), entries.end());
+    std::vector<std::string> entries;
+    for (const auto& base : path.directories)
+    {
+        std::error_code error;
+        std::vector<std::string> next;
+        for (fs::directory_iterator it(base, error), end; !error && it != end; it.increment(error))
+            next.push_back(path_to_utf8(it->path().filename()));
+        std::sort(next.begin(), next.end());
+        for (const auto& name : next)
+            if (matches(name, pattern) &&
+                std::none_of(entries.begin(), entries.end(), [&](const auto& previous) {
+                    return previous.size() == name.size() &&
+                           std::equal(previous.begin(), previous.end(), name.begin(),
+                                      [](char a, char b) { return fold(a) == fold(b); });
+                }))
+                entries.push_back(name);
+    }
+    std::sort(entries.begin(), entries.end());
     return entries;
 }
 void copy_file(std::string_view source, std::string_view destination, CopyMode mode)
 {
-    if (mode == CopyMode::fail_if_exists && file_status(destination))
+    const auto from = w8_native::resolve_path(source);
+    const auto to = w8_native::resolve_path(destination);
+    if (mode == CopyMode::fail_if_exists && fs::exists(to.readable))
         throw std::system_error(std::make_error_code(std::errc::file_exists), "copy game file");
-    const auto target = game_path_text(destination);
-    const auto physical = path_from_utf8(checked_path(w8_native::write_path(target.c_str(), false)));
-    copy_physical(read_destination(source), physical, mode);
+    prepare_write(to, false);
+    copy_physical(from.readable, write_destination(to), mode);
 }
 void replace_file(File& destination, std::string_view source)
 {
-    const auto path = destination.physical_path();
-    const auto target = checked_path(w8_native::host_write_path(path_to_utf8(path)));
+    const auto from = w8_native::resolve_path(source);
+    const auto to = w8_native::resolve_path(path_to_utf8(destination.physical_path()),
+                                          w8_native::PathDomain::host);
+    const auto& target = write_destination(to);
     destination.close();
-    copy_physical(read_destination(source), path_from_utf8(target), CopyMode::replace);
+    copy_physical(from.readable, target, CopyMode::replace);
 }
 } // namespace wiz8

@@ -116,7 +116,7 @@ UINT32 attributes(const wiz8::FileStatus& status, std::string_view name, bool en
     UINT32 bits = status.info.type == SDL_PATHTYPE_DIRECTORY
                       ? (enumeration ? FILE_IS_DIRECTORY : FILE_ATTRIBUTES_DIRECTORY)
                       : (enumeration ? FILE_IS_NORMAL : FILE_ATTRIBUTES_NORMAL);
-    if (!status.writable)
+    if (!status.writable || status.read_only)
         bits |= enumeration ? FILE_IS_READONLY : FILE_ATTRIBUTES_READONLY;
     const auto slash = name.find_last_of("/\\");
     const auto base = slash == std::string_view::npos ? name : name.substr(slash + 1);
@@ -491,16 +491,7 @@ UINT32 FileGetAttributes(STR filename)
         const auto status = wiz8::file_status(filename);
         if (!status)
             return UINT32(-1);
-        auto bits = attributes(*status, filename, false);
-        if (status->writable)
-        {
-            const auto physical = w8_native::mutation_path(filename);
-            const auto permissions = std::filesystem::status(wiz8::path_from_utf8(physical)).permissions();
-            using P = std::filesystem::perms;
-            if ((permissions & (P::owner_write | P::group_write | P::others_write)) == P::none)
-                bits |= FILE_ATTRIBUTES_READONLY;
-        }
-        return bits;
+        return attributes(*status, filename, false);
     }
     catch (...) { return UINT32(-1); }
 }
@@ -511,22 +502,7 @@ BOOLEAN FileClearAttributes(STR filename)
         return FALSE;
     try
     {
-        const auto status = wiz8::file_status(filename);
-        if (!status)
-            return FALSE;
-        if (status->info.type == SDL_PATHTYPE_DIRECTORY)
-            wiz8::create_directory(filename);
-        else if (!status->writable)
-        {
-            // Copying through owned streams creates a writable overlay even
-            // when the installed source has read-only host permissions.
-            wiz8::copy_file(filename, filename, wiz8::CopyMode::replace);
-        }
-        const auto physical = w8_native::mutation_path(filename);
-        if (physical.empty())
-            return FALSE;
-        std::filesystem::permissions(wiz8::path_from_utf8(physical), std::filesystem::perms::owner_write,
-                                     std::filesystem::perm_options::add);
+        wiz8::clear_read_only(filename);
         return TRUE;
     }
     catch (...) { return FALSE; }
