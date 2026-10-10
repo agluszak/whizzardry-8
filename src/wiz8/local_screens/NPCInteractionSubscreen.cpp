@@ -249,7 +249,7 @@ void W8NpcDialogueOptionsPanel::SetEnabled(bool enable)
     int index;
 
     m_fEnabled = enable;
-    for (index = 0; index < static_cast<int>(m_controls.size()); ++index) {
+    for (index = 0; index < static_cast<int>(ControlCount()); ++index) {
         if (enable &&
             (ControlAt(index) ==
                  g_npc_interaction_state->dialogue_controls[W8_NPC_CONTROL_OPTION_BUTTONS + 0] ||

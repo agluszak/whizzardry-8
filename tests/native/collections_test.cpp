@@ -27,76 +27,50 @@
 
 
 struct Entry : W8Widget {
-    Controls& owner;
     std::vector<int>& destroyed;
-    bool& unlinked;
     int id;
     Entry* erase_also;
-    Entry(Controls& owner, std::vector<int>& destroyed, bool& unlinked, int id,
-          Entry* erase_also = nullptr)
-        : owner(owner), destroyed(destroyed), unlinked(unlinked), id(id), erase_also(erase_also)
-    {
-    }
+    Entry(Controls& owner, std::vector<int>& destroyed, int id, Entry* erase_also = nullptr)
+        : W8Widget(&owner, -1u, 0, 0, 0, 0), destroyed(destroyed), id(id), erase_also(erase_also) {}
     ~Entry() override
     {
-        unlinked = unlinked && std::ranges::find(owner.m_controls, this) == owner.m_controls.end();
         destroyed.push_back(id);
         if (erase_also) {
-            owner.RemoveControl(erase_also);
-            delete erase_also;
+            auto sibling = erase_also->m_pPanel->TakeControl(erase_also);
         }
     }
 };
 
 static bool ownershipAndCallbacks()
 {
-    Controls owner;
     std::vector<int> destroyed;
-    bool unlinked = true;
-    auto* first = new Entry(owner, destroyed, unlinked, 1);
-    auto* second = new Entry(owner, destroyed, unlinked, 2);
-    auto* third = new Entry(owner, destroyed, unlinked, 3, second);
-    owner.m_controls = {first, second, third};
-    // Exercise the real UI owner's teardown, including a destructor that
-    // removes and destroys its neighbor from the same collection.
+    Controls owner;
+    new Entry(owner, destroyed, 1);
+    auto* second = new Entry(owner, destroyed, 2);
+    new Entry(owner, destroyed, 3, second);
     owner.DestroyAllControls();
-    REQUIRE((owner.m_controls.empty() && unlinked));
+    REQUIRE(owner.ControlCount() == 0);
     REQUIRE((destroyed == std::vector<int>{3, 2, 1}));
 
-    auto* borrowed = new Entry(owner, destroyed, unlinked, 4);
-    owner.m_controls = {borrowed, nullptr, borrowed};
-    owner.RemoveControl(borrowed);
-    REQUIRE((owner.m_controls == std::vector<W8Widget*>{nullptr, borrowed}));
-    REQUIRE(destroyed.size() == 3); // unlinking removes only the first borrowed pointer
-    owner.RemoveControl(borrowed);
-    owner.m_controls.clear();
-    delete borrowed;
-    REQUIRE((unlinked && destroyed.back() == 4));
-
-    // Ordered destruction also unlinks first and tolerates a destructor deleting
-    // the next entry. A detached snapshot would double-delete that entry.
-    destroyed.clear();
-    second = new Entry(owner, destroyed, unlinked, 2);
-    first = new Entry(owner, destroyed, unlinked, 1, second);
-    third = new Entry(owner, destroyed, unlinked, 3);
-    owner.m_controls = {first, second, third};
-    wiz8::remove_all_and_delete_in_order(owner.m_controls);
-    REQUIRE((owner.m_controls.empty() && unlinked));
-    REQUIRE((destroyed == std::vector<int>{1, 2, 3}));
-
-    // Panels release their children at end of lifetime without an explicit
-    // DestroyAllControls call.
-    std::vector<int> automatically_destroyed;
-    bool automatically_unlinked = true;
+    auto* child = new Entry(owner, destroyed, 4);
+    auto detached = owner.TakeControl(child);
+    REQUIRE(detached.get() == child);
+    REQUIRE(child->m_pPanel == nullptr);
+    REQUIRE(owner.ControlCount() == 0);
+    REQUIRE(destroyed.size() == 3);
+    Controls destination;
+    destination.AdoptControl(std::move(detached));
+    REQUIRE(!detached);
+    REQUIRE(destination.ControlAt(0) == child);
+    REQUIRE(child->m_pPanel == &destination);
+    destination.DestroyAllControls();
+    REQUIRE(destroyed.back() == 4);
     {
         Controls automatic_owner;
-        automatic_owner.m_controls.push_back(
-            new Entry(automatic_owner, automatically_destroyed, automatically_unlinked, 4));
-        automatic_owner.m_controls.push_back(
-            new Entry(automatic_owner, automatically_destroyed, automatically_unlinked, 5));
+        new Entry(automatic_owner, destroyed, 5);
+        new Entry(automatic_owner, destroyed, 6);
     }
-    REQUIRE(automatically_unlinked);
-    REQUIRE((automatically_destroyed == std::vector<int>{5, 4}));
+    REQUIRE((destroyed == std::vector<int>{3, 2, 1, 4, 6, 5}));
     return true;
 }
 
@@ -124,8 +98,8 @@ struct RecordingWidget : W8Widget {
 TEST_CASE("widget_region_lifetimes")
 {
     struct RestoreCatalog {
-        unsigned region_count = g_region_count, set_count = g_region_set_count;
-        ~RestoreCatalog() { g_region_count = region_count; g_region_set_count = set_count; }
+        unsigned region_count = g_regions.size(), set_count = g_region_sets.size();
+        ~RestoreCatalog() { g_regions.resize(region_count); g_region_sets.resize(set_count); }
     } restore;
     std::vector<int> events;
     auto first_panel = std::make_unique<Controls>();
@@ -136,23 +110,23 @@ TEST_CASE("widget_region_lifetimes")
     auto* third = new RecordingWidget(*first_panel, events, 3);
     const auto third_region = third->m_region;
     delete first;
-    REQUIRE(first_panel->m_controls.size() == 2);
+    REQUIRE(first_panel->ControlCount() == 2);
     InputAtom event{};
     event.usEvent = LEFT_BUTTON_DOWN;
     REQUIRE(DispatchControlRegionEvent(&event, &g_regions[third_region]) == 1);
     REQUIRE(events.back() == 3);
 
     Controls second_panel;
-    third->SetPanel(&second_panel);
-    third->SetPanel(&second_panel);
-    REQUIRE(second_panel.m_controls.size() == 1);
-    REQUIRE(first_panel->m_controls.size() == 1);
+    third->SetPanel(second_panel);
+    third->SetPanel(second_panel);
+    REQUIRE(second_panel.ControlCount() == 1);
+    REQUIRE(first_panel->ControlCount() == 1);
     const auto second_region = second->m_region;
-    first_panel->RemoveControl(second);
+    auto detached_second = first_panel->TakeControl(second);
     REQUIRE(second->m_pPanel == nullptr);
     REQUIRE(g_regions[second_region].widget == nullptr);
     first_panel.reset();
-    delete second; // Detached widgets do not retain a dead panel pointer.
+    detached_second.reset(); // Detached widgets do not retain a dead panel pointer.
     REQUIRE(DispatchControlRegionEvent(&event, &g_regions[third_region]) == 1);
     REQUIRE(events.back() == 3);
 
@@ -164,9 +138,9 @@ TEST_CASE("widget_region_lifetimes")
     Controls failing_panel;
     unsigned failing_set = 0;
     failing_panel.AcquireRegionSet(&failing_set);
-    const auto failed_region = g_region_count;
+    const auto failed_region = g_regions.size();
     REQUIRE_THROWS_AS(new FailingWidget(failing_panel), std::runtime_error);
-    REQUIRE(failing_panel.m_controls.empty());
+    REQUIRE(failing_panel.ControlCount() == 0);
     REQUIRE(g_regions[failed_region].widget == nullptr);
     REQUIRE(g_regions[failed_region].callback == nullptr);
 
@@ -204,7 +178,7 @@ TEST_CASE("widget_region_lifetimes")
     g_captured_region_index = g_current_region_index = g_hover_region_index = reused_region;
     delete replacement;
     REQUIRE((g_captured_region_index == 0 && g_current_region_index == 0 && g_hover_region_index == 0));
-    REQUIRE(replacement_panel.m_controls.empty());
+    REQUIRE(replacement_panel.ControlCount() == 0);
     REQUIRE(DispatchControlRegionEvent(&event, &g_regions[reused_region]) == 0);
 
     Controls hover_panel;
@@ -479,4 +453,42 @@ TEST_CASE("collections_test")
     REQUIRE(keyboardBindingReplacement());
     REQUIRE(journalSerialization());
     REQUIRE(visibilityRecordLifetime());
+}
+
+TEST_CASE("region_storage_grows_without_aliasing_sets")
+{
+    struct RestoreCatalog {
+        size_t regions = g_regions.size(), sets = g_region_sets.size();
+        ~RestoreCatalog() { g_regions.resize(regions); g_region_sets.resize(sets); }
+    } restore;
+    const auto first = CreateRegionSet();
+    const auto second = CreateRegionSet();
+    const auto a = AddRegionToSet(first);
+    const auto b = AddRegionToSet(second);
+    const auto c = AddRegionToSet(first);
+    REQUIRE(a != b);
+    REQUIRE(b != c);
+    REQUIRE(a != c);
+    REQUIRE(g_region_sets[first].Regions().size() == 2);
+    REQUIRE(g_region_sets[second].Regions().size() == 1);
+    DisableRegionSetInput(first);
+    REQUIRE(g_regions[a].flags & W8_REGION_INPUT_DISABLED);
+    REQUIRE(g_regions[c].flags & W8_REGION_INPUT_DISABLED);
+    REQUIRE(!(g_regions[b].flags & W8_REGION_INPUT_DISABLED));
+    EnableRegionSetInput(first);
+    REQUIRE(!(g_regions[c].flags & W8_REGION_INPUT_DISABLED));
+    ResetRegionSet(first);
+    REQUIRE(g_region_sets[first].Regions().empty());
+    REQUIRE(AddRegionToSet(first) == a);
+    REQUIRE(AddRegionToSet(first) == c);
+
+    auto* region = &g_regions[a];
+    auto* set = &g_region_sets[first];
+    for (int i = 0; i < 1600; ++i) AddRegionToSet(first);
+    for (int i = 0; i < 320; ++i) CreateRegionSet();
+    REQUIRE(&g_regions[a] == region);
+    REQUIRE(&g_region_sets[first] == set);
+    REQUIRE(g_regions.size() > 1500);
+    REQUIRE(g_region_sets.size() > 300);
+    REQUIRE(g_region_sets[second].Regions()[0] == b);
 }

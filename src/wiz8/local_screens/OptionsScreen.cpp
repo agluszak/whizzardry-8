@@ -859,13 +859,13 @@ void W8OptionsKeyboardPanel::OnSelectionChanged(W8ControlSelection*, int selecte
         return;
     }
 
-    m_captured_button = static_cast<W8OptionsKeyButton*>(m_controls[selected]);
+    m_captured_button = static_cast<W8OptionsKeyButton*>(ControlAt(selected));
     g_options_screen->m_key_capture = this;
 }
 
 void W8OptionsKeyboardPanel::RefreshBindingLabels()
 {
-    int count = static_cast<int>(m_controls.size()) - 1;
+    int count = static_cast<int>(ControlCount()) - 1;
     for (int index = 0; index < count; ++index) {
         W8OptionsKeyButton* button = static_cast<W8OptionsKeyButton*>(ControlAt(index));
         MGSKeyBinding* binding =

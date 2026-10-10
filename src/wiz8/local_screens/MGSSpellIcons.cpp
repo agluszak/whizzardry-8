@@ -78,14 +78,12 @@ unsigned char CreateSpellIconHudControls(void)
 }
 
 /* Strip rows are detached before destruction. Destruction can change the
-   live panel/count, so each iteration reads them again; slots stay dangling. */
+   live panel/count, so each iteration reads them again and clears the observer slot. */
 static void DestroyEffectIconRows(Controls*& panel, W8TextControl** rows, const unsigned int& count)
 {
     for (unsigned int index = 0; index < count; ++index) {
-        panel->RemoveControl(rows[index]);
-        if (rows[index] != 0) {
-            delete rows[index];
-        }
+        auto row = panel->TakeControl(rows[index]);
+        rows[index] = nullptr;
     }
 }
 

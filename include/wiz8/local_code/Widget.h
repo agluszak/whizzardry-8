@@ -25,7 +25,8 @@ public:
     W8Widget(const W8Widget&) = delete;
     W8Widget& operator=(const W8Widget&) = delete;
 
-    void SetPanel(Controls* panel);
+    // Transfer a panel-owned child; detach with Controls::TakeControl instead.
+    void SetPanel(Controls& panel);
     void SetRegion(unsigned int region);
     void Invalidate(bool immediate);
     void SetActive(bool active);

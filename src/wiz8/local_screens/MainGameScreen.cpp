@@ -1529,7 +1529,7 @@ W8MainGameTextEntry::W8MainGameTextEntry(Controls* panel, int index)
     m_right = m_measured_w + left;
     m_bottom = m_measured_h + top;
     m_top = top;
-    SetPanel(panel);
+    SetPanel(*panel);
     AddLayoutFlags(g_W8TextControlLayoutLatchedImage | g_W8TextControlLayoutToggle);
 }
 
