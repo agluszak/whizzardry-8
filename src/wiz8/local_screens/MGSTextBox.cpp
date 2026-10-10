@@ -1,7 +1,7 @@
 #include "random.h"
 #include "wiz8/compat/unaligned.h"
-#include "wiz8/3d_code/PList.h"
-#include "wiz8/3d_code/IList.h"
+#include <vector>
+#include <algorithm>
 #include "wiz8/local_screens/MGSTextBox.h"
 #include "wiz8/sgp_text.h"
 #include "wiz8/local_screens/MainGameScreen.h"
@@ -86,8 +86,6 @@ W8_ABI_ASSERT(offsetof(W8MessageStorageDiskRecord, serialized_entries_18_bits) =
 W8_ABI_ASSERT(offsetof(W8MessageStorageDiskRecord, trailing_bytes) == 0x1c,
               "W8MessageStorageDiskRecord_trailing_offset");
 W8_ABI_ASSERT(sizeof(w8_ulong) == 4, "W8MessageStorageDiskRecord_requires_32_bit_words");
-W8_ABI_ASSERT(sizeof(W8PList*) == sizeof(w8_ulong),
-              "W8MessageStorageDiskRecord_requires_32_bit_live_pointers");
 
 // GLOBAL: WIZ8 0x0069b7b8
 static unsigned char g_text_box_mode;
@@ -142,14 +140,14 @@ static int GetNextNoticeWord(int cursor, const wchar_t* text, W8NoticeWord* word
 void W8MessageStorageRecord::RebuildEntries()
 {
     if (entries == 0) {
-        entries = PLCreate();
+        entries = new std::vector<W8NoticeWord*>;
     } else {
-        W8PList* list = entries;
-        int count = PLLength(list);
+        std::vector<W8NoticeWord*>* list = entries;
+        int count = (list ? list->size() : 0);
         for (int index = 0; index < count; ++index) {
-            free(PLGet(list, index));
+            free((*list)[index]);
         }
-        PListClear(list);
+        list->clear();
     }
     int cursor = 0;
     W8NoticeWord word;
@@ -158,7 +156,7 @@ void W8MessageStorageRecord::RebuildEntries()
         *stored = word;
         stored->keyword = W8_NOTICE_WORD_NORMAL;
         stored->redraw = false;
-        PLAdoptAppend(entries, stored);
+        entries->push_back(stored);
     }
 }
 
@@ -179,12 +177,22 @@ void ResetMessageStorage(void)
     }
 }
 
+static void ReleaseMessageRow(int row)
+{
+    for (auto& record : g_message_storage[row]) {
+        free(record.wString);
+        record.ClearEntries();
+        record = {};
+    }
+}
+
 // FUNCTION: WIZ8 0x0058AA20
 void ResetEditorStatusLine(short line)
 {
     if (line == -1) {
         line = g_status.text_line_cursor;
     }
+    ReleaseMessageRow(line);
     g_status.text_box_lines_used[line] = 0;
     g_status.text_box_lines_shown[line] = 0;
     if (!IsNpcDialogueTextInputActive()) {
@@ -234,13 +242,14 @@ static void AppendNoticeLine(unsigned char font_palette, const wchar_t* text, sh
             first->wString = 0;
         }
         if (first->entries) {
-            W8PList* entries = first->entries;
-            int count = PLLength(entries);
+            std::vector<W8NoticeWord*>* entries = first->entries;
+            int count = (entries ? entries->size() : 0);
             for (int index = 0; index < count; ++index) {
-                free(PLGet(entries, index));
+                free((*entries)[index]);
             }
-            PListClear(entries);
-            PLDestroy(first->entries);
+            entries->clear();
+            delete first->entries;
+
             first->entries = 0;
         }
         memmove(first, first + 1, 349 * sizeof(*first));
@@ -253,14 +262,17 @@ static void AppendNoticeLine(unsigned char font_palette, const wchar_t* text, sh
             }
         }
     }
-    unsigned int index = g_status.text_box_lines_used[text_box]++;
+    unsigned int index = g_status.text_box_lines_used[text_box];
     W8MessageStorageRecord* record = &g_message_storage[text_box][index];
-    record->wString = static_cast<wchar_t*>(malloc((wcslen(text) + 1) * sizeof(wchar_t)));
-    if (record->wString) {
-        wcscpy(record->wString, text);
-        record->entries = 0;
-        record->RebuildEntries();
-    }
+    auto* replacement = static_cast<wchar_t*>(malloc((wcslen(text) + 1) * sizeof(wchar_t)));
+    if (!replacement)
+        return;
+    wcscpy(replacement, text);
+    record->ClearEntries();
+    free(record->wString);
+    record->wString = replacement;
+    record->RebuildEntries();
+    ++g_status.text_box_lines_used[text_box];
     record->font_palette = font_palette;
     record->highlight_color = 0xff;
     record->link = wrapped_line;
@@ -413,14 +425,15 @@ void ShowNotice(unsigned int font_palette, const wchar_t* text, short text_box,
 
 void W8MessageStorageRecord::ClearEntries()
 {
-    W8PList* list = entries;
+    std::vector<W8NoticeWord*>* list = entries;
     if (list) {
-        unsigned int count = PLLength(list);
+        unsigned int count = (list ? list->size() : 0);
         for (unsigned int entry = 0; entry < count; ++entry) {
-            free(PLGet(list, entry));
+            free((*list)[entry]);
         }
-        PListClear(list);
-        PLDestroy(list);
+        list->clear();
+        delete list;
+
         entries = 0;
     }
 }
@@ -429,14 +442,7 @@ void W8MessageStorageRecord::ClearEntries()
 void ReleaseMessageStorage(void)
 {
     for (int row = 0; row < 4; ++row) {
-        for (int index = 0; index < 0x15e; ++index) {
-            W8MessageStorageRecord* record = &g_message_storage[row][index];
-            if (record->wString) {
-                free(record->wString);
-            }
-            record->ClearEntries();
-            memset(record, 0, sizeof(*record));
-        }
+        ReleaseMessageRow(row);
     }
 }
 
@@ -1619,7 +1625,7 @@ unsigned char TextBoxBodyRegionEvent(const InputAtom* event, W8Region* region)
 // FUNCTION: WIZ8 0x0058EFD0
 unsigned char TextBoxChannelTabRegionEvent(const InputAtom* event, W8Region* region)
 {
-    SGPPoint mouse_pos;
+    SDL_Point mouse_pos;
 
     PushButtonSoundScheme(0, true);
     SGPMouseGetPos(&mouse_pos);
@@ -1996,8 +2002,8 @@ void RedrawTextBoxBody(bool skip_invalidate)
 // FUNCTION: WIZ8 0x0058CC10
 void RedrawTextBoxScrollChrome(void)
 {
-    SGPRect saved_clip;
-    SGPRect clip;
+    SDL_Rect saved_clip;
+    SDL_Rect clip;
     short text_box;
     unsigned int scroll;
     unsigned int line_count;
@@ -2006,7 +2012,7 @@ void RedrawTextBoxScrollChrome(void)
 
     GetClippingRect(&saved_clip);
     clip = saved_clip;
-    clip.iBottom = 0x1db;
+    clip.h = (0x1db) - clip.y;
     SetClippingRect(&clip);
 
     if (g_level_block->action_panel_visible != 0) {
@@ -2268,9 +2274,9 @@ static void DrawNoticeWordOverlays(W8MessageStorageRecord* line, int x, int y)
     if (line->entries == 0) {
         return;
     }
-    unsigned int count = PLLength(line->entries);
+    unsigned int count = (line->entries ? line->entries->size() : 0);
     for (int i = 0; i < static_cast<int>(count); ++i) {
-        W8NoticeWord* word = static_cast<W8NoticeWord*>(PLGet(line->entries, i));
+        W8NoticeWord* word = (*line->entries)[i];
         if (word->keyword != W8_NOTICE_WORD_NORMAL) {
             unsigned short* palette = word->keyword == W8_NOTICE_WORD_SELECTED
                                           ? g_font_state_palettes[W8_FONT_PALETTE_BLUE].get()
@@ -2294,11 +2300,11 @@ static void DrawNoticeWordOverlays(W8MessageStorageRecord* line, int x, int y)
 static void ClearNoticeWordState(int text_box, bool selected, bool redraw)
 {
     for (int i = 0; i < 0x15e; ++i) {
-        W8PList* list = g_message_storage[text_box][i].entries;
+        std::vector<W8NoticeWord*>* list = g_message_storage[text_box][i].entries;
         if (list != 0) {
-            unsigned int count = PLLength(list);
+            unsigned int count = (list ? list->size() : 0);
             for (int j = 0; j < static_cast<int>(count); ++j) {
-                W8NoticeWord* word = static_cast<W8NoticeWord*>(PLGet(list, j));
+                W8NoticeWord* word = (*list)[j];
                 if ((word->keyword == W8_NOTICE_WORD_SELECTED) == selected) {
                     word->keyword = W8_NOTICE_WORD_NORMAL;
                     word->redraw = true;
@@ -2344,7 +2350,7 @@ void HighlightNoticeWordAt(int text_box, unsigned short x, unsigned short y)
     int line;
     int x_base;
     int offset;
-    W8PList* list;
+    std::vector<W8NoticeWord*>* list;
     unsigned int count;
 
     ClearNoticeWordHover(text_box, false);
@@ -2353,10 +2359,10 @@ void HighlightNoticeWordAt(int text_box, unsigned short x, unsigned short y)
         if (line < static_cast<int>(g_status.text_box_lines_shown[text_box])) {
             x_base = GetNoticeLineLeft(text_box, line);
             list = g_message_storage[text_box][line].entries;
-            count = PLLength(list);
+            count = (list ? list->size() : 0);
             offset = x - x_base;
             for (int i = 0; i < static_cast<int>(count); ++i) {
-                W8NoticeWord* word = static_cast<W8NoticeWord*>(PLGet(list, i));
+                W8NoticeWord* word = (*list)[i];
                 if (word->x_start <= offset && offset <= word->x_end &&
                     word->keyword != W8_NOTICE_WORD_SELECTED) {
                     word->keyword = W8_NOTICE_WORD_HOVERED;
@@ -2373,7 +2379,7 @@ W8NoticeWord* HitTestNoticeWord(int text_box, unsigned short x, unsigned short y
     int line;
     int x_base;
     int offset;
-    W8PList* list;
+    std::vector<W8NoticeWord*>* list;
     unsigned int count;
     W8NoticeWord* word;
 
@@ -2382,10 +2388,10 @@ W8NoticeWord* HitTestNoticeWord(int text_box, unsigned short x, unsigned short y
         if (line < static_cast<int>(g_status.text_box_lines_shown[text_box])) {
             x_base = GetNoticeLineLeft(text_box, line);
             list = g_message_storage[text_box][line].entries;
-            count = PLLength(list);
+            count = (list ? list->size() : 0);
             offset = x - x_base;
             for (int i = 0; i < static_cast<int>(count); ++i) {
-                word = static_cast<W8NoticeWord*>(PLGet(list, i));
+                word = (*list)[i];
                 if (word->x_start <= offset && offset <= word->x_end) {
                     *line_out = line;
                     return word;

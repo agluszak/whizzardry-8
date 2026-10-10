@@ -8,12 +8,6 @@
 
 #include <ostream>
 
-// FUNCTION: SURRENDER 0x10056BB0
-srClass* srScene::vInstance()
-{
-    return new srScene(static_cast<srNode*>(0));
-}
-
 // FUNCTION: SURRENDER 0x100565D0
 srScene::srScene(srNode* parent)
     : srClassSupport<srScene, srNode, 0x1010>(static_cast<srNode*>(0))
@@ -67,8 +61,8 @@ void srScene::process(const ProcessInfo& info, e_processType type)
     const auto entry_count = static_cast<w8_long>(traversal.entries.size());
     srGERD* renderer = info.renderer;
     w8_ulong_ptr pick_key = renderer->getPickKey();
-    srVector4T<float> fog_color;
-    srVector4T<float> ambient_light;
+    glm::vec4 fog_color;
+    glm::vec4 ambient_light;
     renderer->getFogColor(fog_color);
     renderer->getAmbientLight(ambient_light);
     renderer->setFogColor(this->fog_color);

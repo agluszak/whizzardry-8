@@ -615,8 +615,8 @@ void W8SplitItemDialog::OnCancel(W8DialogButton* button)
 void W8SplitItemDialog::OnCountFieldClick(W8DialogButton* button)
 {
     W8SplitItemDialog* dialog;
-    SGPPoint mouse;
-    SGPPoint point;
+    SDL_Point mouse;
+    SDL_Point point;
 
     if (button == 0) {
         return;
@@ -626,13 +626,13 @@ void W8SplitItemDialog::OnCountFieldClick(W8DialogButton* button)
     if (dialog->m_count_input == 0) {
         return;
     }
-    point.iX = mouse.iX - dialog->m_x;
-    point.iY = mouse.iY - dialog->m_y;
+    point.x = mouse.x - dialog->m_x;
+    point.y = mouse.y - dialog->m_y;
     if (!ScreenPointInRect(&g_split_count_field_bounds, &point)) {
         return;
     }
-    point.iX -= g_split_count_field_bounds.left;
-    point.iY -= g_split_count_field_bounds.top;
+    point.x -= g_split_count_field_bounds.left;
+    point.y -= g_split_count_field_bounds.top;
     dialog->m_count_input->SetActive(true, &point);
     dialog->m_active_input = dialog->m_count_input;
 }

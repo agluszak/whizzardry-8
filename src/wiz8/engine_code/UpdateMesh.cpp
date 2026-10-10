@@ -3,15 +3,16 @@
 #include "wiz8/engine_code/Octree.h"
 #include "wiz8/engine_code/quad.h"
 #include "wiz8/engine_code/3dapi.h"
-#include "wiz8/3d_code/PList.h"
-#include "wiz8/3d_code/IList.h"
+#include <vector>
+#include <algorithm>
 #include "wiz8/sr_api.h"
-
 #include <math.h>
 
 #include "surrender/srMeshModel.h"
+
 #include "surrender/srModelInstance.h"
 #include "surrender/srCamera.h"
+#include <glm/gtc/matrix_transform.hpp>
 
 /* Convert the mesh view half-angle from degrees to radians. */
 // GLOBAL: WIZ8 0x005ED168
@@ -48,26 +49,22 @@ void CollectViewQuadCells(W8World* world, w8_long* x_list, w8_long* y_list, w8_l
     w8_long cam_x = static_cast<w8_long>((world->camera->getLocationX() - quad->origin.x) / cell_size);
     w8_long cam_y = static_cast<w8_long>((world->camera->getLocationZ() - quad->origin.y) / cell_size);
 
-    srMatrix3T<float> rotation;
+    glm::mat3 rotation;
     world->camera->getRotation(rotation);
 
     srVector3T<float> direction(0.0f, 0.0f, world->render_range);
-    srMatrix3T<float> work = rotation;
+    glm::mat3 work = rotation;
     double angle = -g_mesh_view_half_angle_degrees * g_mesh_view_degrees_to_radians;
-    if (angle != 0.0) {
-        work.RotateAboutY(sin(angle), cos(angle));
-    }
-    direction = work.Transform(direction);
+    work *= glm::mat3_cast(glm::angleAxis(float(angle), glm::vec3(0, 1, 0)));
+    direction = work * direction.glmValue();
     w8_long edge1_x = cam_x + static_cast<w8_long>(direction.x / cell_size);
     w8_long edge1_y = cam_y + static_cast<w8_long>(direction.z / cell_size);
 
     direction.Set(0.0f, 0.0f, world->render_range);
     work = rotation;
     angle = g_mesh_view_half_angle_degrees * g_mesh_view_degrees_to_radians;
-    if (angle != 0.0) {
-        work.RotateAboutY(sin(angle), cos(angle));
-    }
-    direction = work.Transform(direction);
+    work *= glm::mat3_cast(glm::angleAxis(float(angle), glm::vec3(0, 1, 0)));
+    direction = work * direction.glmValue();
     w8_long edge2_x = cam_x + static_cast<w8_long>(direction.x / cell_size);
     w8_long edge2_y = cam_y + static_cast<w8_long>(direction.z / cell_size);
 
@@ -295,7 +292,7 @@ void UpdateWorldMeshFromQuads(W8World* world)
         W8QuadCell* cell =
             &quad->rows[g_visible_quad_rows[index]].cells[g_visible_quad_columns[index]];
         if (cell != 0 && cell->polygon_indices != 0) {
-            polygon_count += ILLength(cell->polygon_indices);
+            polygon_count += (cell->polygon_indices ? cell->polygon_indices->size() : 0);
         }
     }
     mesh->setActivePolygonCount(polygon_count);
@@ -308,25 +305,28 @@ void UpdateWorldMeshFromQuads(W8World* world)
             w8_long j;
             if (cell->objects != 0 && cell->dirty_stamp < quad->dirty) {
                 cell->dirty_stamp = quad->dirty;
-                w8_long object_count = static_cast<w8_long>(PLLength(cell->objects));
+                w8_long object_count =
+                    static_cast<w8_long>((cell->objects ? cell->objects->size() : 0));
                 for (j = 0; j < object_count; ++j) {
-                    char* item = static_cast<char*>(PLGet(cell->objects, j));
+                    char* item = reinterpret_cast<char*>((*cell->objects)[j]);
                     if (item[0] == 1) {
                         w8_long entry =
-                            *reinterpret_cast< // reinterpret-ok: quad-cell object producer/lifetime is unresolved; retail reads entry at +0x14
+                            *reinterpret_cast< // reinterpret-ok: quad-cell object producer/lifetime
+                                               // is unresolved; retail reads entry at +0x14
                                 w8_long*>(item + 0x14);
-                        void** nodes =
-                            *reinterpret_cast< // reinterpret-ok: embedded pair-table at +0x1c resolved by retail offset
+                        void** nodes = *reinterpret_cast< // reinterpret-ok: embedded pair-table at
+                                                          // +0x1c resolved by retail offset
                                 void***>(item + entry * 8 + 0x1c);
                         w8_long slot = *reinterpret_cast< // reinterpret-ok: slot index field at +0x30
                             w8_long*>(item + 0x30);
-                        PLAdoptAppend(&world->nodes_to_disable, nodes[slot]);
+                        world->nodes_to_disable.push_back(static_cast<srNode*>(nodes[slot]));
                     }
                 }
             }
-            w8_long index_count = static_cast<w8_long>(ILLength(cell->polygon_indices));
+            w8_long index_count =
+                static_cast<w8_long>((cell->polygon_indices ? cell->polygon_indices->size() : 0));
             for (j = 0; j < index_count; ++j) {
-                table[offset] = IListGetAt(cell->polygon_indices, j);
+                table[offset] = (*cell->polygon_indices)[j];
                 ++offset;
             }
         }

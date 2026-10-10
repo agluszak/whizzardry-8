@@ -5,9 +5,10 @@
 #include "surrender/srMath.h"
 #include "wiz8/engine_code/BitArray.h"
 #include "wiz8/engine_code/OctPreTree.h"
-#include "wiz8/engine_code/stHash.hpp"
+#include "wiz8/index_algorithms.h"
 #include "wiz8/geometry.h"
-#include "wiz8/vector.h"
+#include <vector>
+#include <algorithm>
 #include "Types.h"
 
 class GDProp;
@@ -15,8 +16,7 @@ class W8Prop;
 class stParticle;
 class stModelInstance;
 class srNode;
-typedef W8HashTable<unsigned int, int> W8OctreeIndex;
-typedef W8HashEntry<unsigned int, int> W8OctreeEntry;
+typedef std::unordered_multimap<unsigned int, int> W8OctreeIndex;
 
 class W8PathingService;
 class PrePathing;
@@ -65,12 +65,12 @@ struct W8OctreeTrace {
 W8_ABI_ASSERT(sizeof(W8OctreeTrace) == 0x30, "W8OctreeTrace_must_be_0x30");
 /* Bulk .oct vector I/O. Writers stage at most 0x100 records per FileWrite;
    the raw twelve-byte reader serves float vectors and polygon index triples. */
-BOOLEAN WriteVector4Array(wiz8::File* file, const srVector4T<float>* values, int count);
+BOOLEAN WriteVector4Array(wiz8::File* file, const glm::vec4* values, int count);
 BOOLEAN WriteVector3Array(wiz8::File* file, const srVector3T<float>* values, int count);
-BOOLEAN WriteVector2Array(wiz8::File* file, const srVector2T<float>* values, int count);
-bool ReadVector4Array(wiz8::File* file, srVector4T<float>* values, int count);
+BOOLEAN WriteVector2Array(wiz8::File* file, const glm::vec2* values, int count);
+bool ReadVector4Array(wiz8::File* file, glm::vec4* values, int count);
 bool ReadVector3Array(wiz8::File* file, void* values, int count);
-bool ReadVector2Array(wiz8::File* file, srVector2T<float>* values, int count);
+bool ReadVector2Array(wiz8::File* file, glm::vec2* values, int count);
 /* Distance from `point` to the `from`-`to` segment, shared by the trace
    resolver and the GameData surface walk. When `clamp_point` is set the
    closest segment point is written back over `point`; `out_t` returns the
@@ -79,8 +79,7 @@ float PointToSegmentDistance(srVector3T<float>* point, const srVector3T<float>* 
                              const srVector3T<float>* to, bool clamp_point, float* out_t);
 /* XY-plane sibling over two-component vectors; the pathfinding code measures
    edge distances in plan view. */
-float PointToSegmentDistance2D(srVector2T<float>* point, const srVector2T<float>* from,
-                               const srVector2T<float>* to, bool clamp_point,
+float PointToSegmentDistance2D(glm::vec2* point, const glm::vec2* from, const glm::vec2* to, bool clamp_point,
                                float* out_t); /* 0x00437760 */
 /* Grow `minimum`/`maximum` to include `point`, returning whether any bound
    moved. */
@@ -94,11 +93,11 @@ inline bool ReadVectorArray(wiz8::File* file, void* values, int count)
 {
     return ReadVector3Array(file, values, count);
 }
-inline bool ReadVectorArray(wiz8::File* file, srVector4T<float>* values, int count)
+inline bool ReadVectorArray(wiz8::File* file, glm::vec4* values, int count)
 {
     return ReadVector4Array(file, values, count);
 }
-inline bool ReadVectorArray(wiz8::File* file, srVector2T<float>* values, int count)
+inline bool ReadVectorArray(wiz8::File* file, glm::vec2* values, int count)
 {
     return ReadVector2Array(file, values, count);
 }
@@ -116,11 +115,11 @@ inline BOOLEAN WriteVectorArray(wiz8::File* file, const srVector3T<float>* value
 {
     return WriteVector3Array(file, values, count);
 }
-inline BOOLEAN WriteVectorArray(wiz8::File* file, const srVector4T<float>* values, int count)
+inline BOOLEAN WriteVectorArray(wiz8::File* file, const glm::vec4* values, int count)
 {
     return WriteVector4Array(file, values, count);
 }
-inline BOOLEAN WriteVectorArray(wiz8::File* file, const srVector2T<float>* values, int count)
+inline BOOLEAN WriteVectorArray(wiz8::File* file, const glm::vec2* values, int count)
 {
     return WriteVector2Array(file, values, count);
 }
@@ -451,8 +450,8 @@ public:
     void MarkMeshLinksVisible(unsigned int mesh);
     /* Collect the model instances whose bounds reach within `radius` of
        `point`, through the region cells and volumes the sphere touches. */
-    int CollectModelsNearPoint(W8GrowableVector<stModelInstance*>* out,
-                               const srVector3T<float>* point, float radius, unsigned int flags,
+    int CollectModelsNearPoint(std::vector<stModelInstance*>& out, const srVector3T<float>* point,
+                               float radius, unsigned int flags,
                                bool only_accumulated); /* 0x0042F9A0 */
     unsigned char CollectVisibleRegions(srVector3T<float>* location, srVector3T<int>* cells,
                                         srVector3T<float>* depth, unsigned char mode);
@@ -540,7 +539,7 @@ public:
     w8_ulong m_depth_mask;
     unsigned short* m_region_index_stream;
     unsigned char* m_pfRegsVisited;
-    W8HashTable<unsigned int, unsigned short>* m_pRegionLinks;
+    std::unordered_multimap<unsigned int, unsigned short>* m_pRegionLinks;
     BitArray* m_owned_154;
     w8_ulong m_padding_158;
     BitArray* m_projected_regions;
@@ -603,7 +602,7 @@ public:
 
     /* Automesh index -> packed cell (z | y<<8 | x<<16 | mask<<24) map the
        verify passes walk to bound-check each automesh's vertices. */
-    W8HashTable<unsigned short, w8_ulong>* automesh_cells;
+    std::unordered_multimap<unsigned short, w8_ulong>* automesh_cells;
     PrePathing* pre_pathing;
     /* The path-node scratch block BuildPathLists/PathNodeObstructed fill:
        created-node count, then the runs of registered prop ids the node
@@ -626,7 +625,7 @@ public:
     float path_node_extent;
     /* The registered prop objects the path-bounds test collides against;
        0x0046BEC0 reads m_surface_count and the collidable flag on each. */
-    W8GrowableVector<GDProp*>* props;
+    std::vector<GDProp*>* props;
 
     /* Walks the `from`-`to` segment through the leaf grid, collecting each
        visited leaf's region-polygon ids and plane/slab-testing them. Answers
@@ -653,7 +652,7 @@ public:
     unsigned char BuildPathLists(W8GameData* game_data, W8LevelFile* level,
                                  unsigned int min_component_percent);
     char PathNodeObstructed(const srVector3T<float>* node_position);
-    unsigned char InsertConditionalNodes(W8HashTable<unsigned int, CondPathNode*>* nodes,
+    unsigned char InsertConditionalNodes(std::unordered_multimap<unsigned int, CondPathNode*>* nodes,
                                          unsigned int cell, unsigned int node, W8PreProp* preprops,
                                          int preprop_count);
     /* Tests the bounds box against static surfaces and registered props;

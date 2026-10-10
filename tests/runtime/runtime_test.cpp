@@ -15,8 +15,12 @@
 #include "wiz8/application.h"
 #include "native/input_events.h"
 #include "temporary_directory.h"
+#include "file_faults.h"
 #include "surrender/srGERD.h"
 #include "surrender/srModelInstance.h"
+#include "wiz8/engine_code/stMeshModel.h"
+#include "wiz8/engine_code/stModelInstance.h"
+#include "wiz8/engine_code/materials.h"
 #include "wiz8/asset_paths.h"
 #include "wiz8/filesystem.h"
 #include "wiz8/regions.h"
@@ -31,6 +35,7 @@
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/local_code/Combat.h"
+#include "wiz8/local_code/Configuration.h"
 #include "wiz8/local_code/GameplayCode.h"
 #include "wiz8/local_code/GameplayInit.h"
 #include "wiz8/local_code/Gameloop.h"
@@ -390,10 +395,9 @@ W8CharacterStatsPage* StatsPage()
 void SpendPool(Game& game, const char* step, int page_index, const bool& complete)
 {
     W8CharacterPage* page = g_character_screen->m_pages[page_index];
-    REQUIRE(step, page && page->m_entries.count > 0);
-    for (int index = 0; index < page->m_entries.count && !complete; ++index)
-    {
-        W8CharacterPageEntry* entry = page->m_entries.data[index];
+    REQUIRE(step, page && !page->m_entries.empty());
+    for (int index = 0; index < static_cast<int>(page->m_entries.size()) && !complete; ++index) {
+        W8CharacterPageEntry* entry = page->m_entries[index];
         if (!entry || !entry->m_enabled || !entry->m_second || !entry->m_third ||
             (page_index == 2 && !entry->m_increment_allowed))
             continue;
@@ -435,7 +439,7 @@ std::string CreateCharacter(Game& game)
     game.click("gender", ControlRegion(stats->m_gender_row->m_increment));
     REQUIRE("gender", game.within_frames(2, [&] { return stats->m_gender_row->m_index != -1; }));
     REQUIRE("attributes", game.within_frames(2, [&] {
-        return stats->m_entries.count > 0 && stats->m_entries.data[0]->m_enabled;
+        return !stats->m_entries.empty() && stats->m_entries[0]->m_enabled;
     }));
     SpendPool(game, "attributes", 0, g_character_screen->m_creation_state.attributes_complete);
 
@@ -443,7 +447,7 @@ std::string CreateCharacter(Game& game)
     game.click("to-skills", ControlRegion(g_character_screen->m_next));
     game.wait("skills", [&] {
         W8CharacterPage* page = g_character_screen->m_pages[2];
-        return g_character_screen->m_page_index == 2 && page && page->m_entries.count > 0;
+        return g_character_screen->m_page_index == 2 && page && !page->m_entries.empty();
     });
     SpendPool(game, "skills", 2, g_character_screen->m_creation_state.skills_complete);
 
@@ -458,7 +462,9 @@ std::string CreateCharacter(Game& game)
         game.key(key);
     const W8Character& typed = g_character_screen->m_character;
     std::string name;
-    for (wchar_t c : typed.name)
+    std::array<wchar_t, 10> short_name;
+    std::memcpy(short_name.data(), static_cast<const void*>(typed.name), sizeof(short_name));
+    for (wchar_t c : short_name)
     {
         if (!c)
             break;
@@ -597,6 +603,46 @@ fs::path QuickSave(Game& game)
     game.command(W8_MGS_COMMAND_QUICK_SAVE);
     const auto saves = SaveFiles(game.user_root());
     REQUIRE("quick-save", saves.size() == 1 && fs::file_size(saves[0]) > 0);
+    // Exercise the real quick-save writer, including RIFF extent/count patches.
+    W8SaveScreenshot screenshot{};
+    const auto name = saves[0].stem().string();
+    auto snapshot = [&] {
+        auto file = wiz8::open_host_file(saves[0]);
+        std::string bytes(file->size(), '\0');
+        file->read_exact(bytes.data(), bytes.size());
+        return bytes;
+    };
+    std::size_t operations;
+    { FileFaults trace; REQUIRE("save-trace", SaveGame(name.c_str(), &screenshot)); operations = trace.operations; }
+    const auto before = snapshot();
+    for (std::size_t operation = 1; operation <= operations; ++operation) {
+        { FileFaults fault(operation); REQUIRE("failed-save", !SaveGame(name.c_str(), &screenshot)); REQUIRE("fault-fired", fault.fired); }
+        REQUIRE("save-rollback", snapshot() == before);
+    }
+    REQUIRE("ordinary-save", SaveGame("TransactionRoundtrip", &screenshot));
+    REQUIRE("ordinary-load", GetSaveGameLevel("TransactionRoundtrip") == int(g_status.current_level));
+    wiz8::remove_file("Saves\\TransactionRoundtrip.SAV");
+    // The same transaction handles level-status compaction, including publish failure.
+    REQUIRE("current-save", SaveGame("CurrentGame", &screenshot));
+    REQUIRE("current-load", GetSaveGameLevel("CurrentGame") == int(g_status.current_level));
+    auto current_snapshot = [] {
+        auto file = wiz8::open_file("Saves\\CurrentGame.SAV");
+        std::string bytes(file->size(), '\0');
+        file->read_exact(bytes.data(), bytes.size());
+        return bytes;
+    };
+    std::size_t cleanup_operations;
+    { FileFaults trace; REQUIRE("cleanup-save", SaveLevelStatus("Saves\\CurrentGame.SAV")); cleanup_operations = trace.operations; }
+    const auto current_before = current_snapshot();
+    for (std::size_t operation = 1; operation <= cleanup_operations; ++operation) {
+        { FileFaults fault(operation); REQUIRE("failed-cleanup", !SaveLevelStatus("Saves\\CurrentGame.SAV")); REQUIRE("cleanup-fault-fired", fault.fired); }
+        REQUIRE("cleanup-rollback", current_snapshot() == current_before);
+    }
+    REQUIRE("cleanup-load", GetSaveGameLevel("CurrentGame") == int(g_status.current_level));
+    REQUIRE("cleanup-repeat", SaveLevelStatus("Saves\\CurrentGame.SAV"));
+    REQUIRE("cleanup-repeat-load", GetSaveGameLevel("CurrentGame") == int(g_status.current_level));
+    std::printf("cleanup: preserved the save at all %zu failure points\n", cleanup_operations);
+    std::printf("quick-save: preserved the published save at all %zu I/O failure points\n", operations);
     return saves[0];
 }
 
@@ -613,9 +659,12 @@ void ExpectAt(const char* step, const srVector3T<float>& expected)
 
 /* --- Scenarios ----------------------------------------------------------- */
 
-void VideoScenario()
+void VideoScenario(bool intro_seen)
 {
     Game game(true);
+    // The asset root can contain a returning player's Wiz8.CFG.
+    // Set the scenario explicitly after startup loads that configuration.
+    g_settings.intro_seen = intro_seen;
     // The startup logo movie plays on the intro screen.
     game.wait("logo", [] { return g_runtime_test_hooks.movie_frames_presented >= 1; });
     REQUIRE("logo", g_current_screen_state.id == W8_SCREEN_INTRO);
@@ -628,15 +677,20 @@ void VideoScenario()
         return lit > 1000;
     });
     const unsigned logo_frames = g_runtime_test_hooks.movie_frames_presented;
-    // Escape moves on to the title movie, which also plays...
     game.key(SDLK_ESCAPE);
-    game.wait("title", [&] {
-        return g_runtime_test_hooks.movie_frames_presented >= logo_frames + 5;
-    });
-    REQUIRE("title", g_current_screen_state.id == W8_SCREEN_INTRO);
-    // ...and Escape again leaves for the main menu.
-    game.key(SDLK_ESCAPE);
+    if (!intro_seen)
+    {
+        // On a first launch, skipping the logo starts the title movie.
+        game.wait("title", [&] {
+            return g_runtime_test_hooks.movie_frames_presented >= logo_frames + 5;
+        });
+        REQUIRE("title", g_current_screen_state.id == W8_SCREEN_INTRO);
+        game.key(SDLK_ESCAPE);
+    }
     game.wait_screen("main-menu", W8_SCREEN_MAIN_MENU);
+    REQUIRE("main-menu", g_settings.intro_seen);
+    if (intro_seen)
+        REQUIRE("skip-title", g_runtime_test_hooks.movie_frames_presented == logo_frames);
     std::printf("video: %u movie frames presented\n", g_runtime_test_hooks.movie_frames_presented);
 }
 
@@ -707,6 +761,53 @@ void WorldRenderScenario()
     // The sky is a separate pass and stays in the control frame; the world
     // (ground, cliffs, water at the Monastery start) covers about half the view.
     REQUIRE("world", changed > viewport / 4);
+}
+
+// Load and render the retail level, evict resident textures, then reload the
+// saved level through the shipped loading screen. Leave gameplay resident at
+// scope exit so Application shutdown exercises the same owners as gameplay.
+void ResourceLifecycleScenario()
+{
+    Game game(false);
+    StartPremadeGame(game);
+    const int level = g_status.current_level;
+    const auto anchor = Walk(game, "settle-before-save", 2.0f);
+    QuickSave(game);
+    for (int cycle = 0; cycle != 2; ++cycle) {
+        auto* world = GetWorld();
+        REQUIRE("resident-level", world && world->octree && world->level);
+        unsigned linked = 0, animated = 0;
+        for (unsigned i = 0; i <= world->octree->GetMeshCount(); ++i) {
+            auto* instance = world->psrMeshes[i];
+            if (!instance) continue;
+            auto* model = static_cast<stMeshModel*>(instance->getModel());
+            if (model && !model->parts.empty()) ++linked;
+            if (model && MeshHasAnimatedTexture(model)) ++animated;
+        }
+        std::printf("resource-lifecycle: cycle %d, %u linked heads, %u animated textures\n",
+                    cycle, linked, animated);
+        REQUIRE("linked-level-meshes", linked > 0);
+        REQUIRE("animated-level-textures", animated > 0);
+        for (int frame = 0; frame != 4; ++frame) game.frame();
+        RenderFrame();
+        REQUIRE("render-level", world->level->m_submitted_polygons > 0);
+        REQUIRE("resident-textures", g_gerd->getTextureCacheUsed() > 0);
+        g_gerd->invalidateTextureCache();
+        RenderFrame();
+        REQUIRE("recreated-textures", g_gerd->getTextureCacheUsed() > 0);
+        REQUIRE("render-after-eviction", world->level->m_submitted_polygons > 0);
+        game.command(W8_MGS_COMMAND_QUICK_LOAD);
+        bool loading = false;
+        game.wait("reload-level", [&] {
+            loading = loading || g_current_screen_state.id == W8_SCREEN_PLEASE_WAIT;
+            return loading && g_current_screen_state.id == W8_SCREEN_MAIN_GAME && game.settled();
+        });
+        Settle(game, "reload-level");
+        REQUIRE("reloaded-level", g_status.current_level == level);
+        ExpectAt("reloaded-position", anchor);
+    }
+    RenderFrame();
+    REQUIRE("shutdown-resident", g_gerd->getTextureCacheUsed() > 0);
 }
 
 /* Quick save, walk away, quick load: the party is back where it saved. */
@@ -781,13 +882,14 @@ void LoadGameScenario(const fs::path& fixture)
             return false;
         // Panel set 4 holds the single load panel (W8OptionsSaveLoadPanel 11).
         W8OptionsPanelSet* set = g_options_screen->m_panel[4];
-        if (!set || set->m_current < 0 || set->m_current >= set->m_panels.GetCount())
+        if (!set || set->m_current < 0 ||
+            static_cast<std::size_t>(set->m_current) >= set->m_panels.size())
             return false;
-        panel = static_cast<W8OptionsSaveLoadPanel*>(*set->m_panels.GetAt(set->m_current));
-        return panel->m_panel == 11 && panel->m_rows.GetCount() > 0;
+        panel = static_cast<W8OptionsSaveLoadPanel*>(set->m_panels[set->m_current]);
+        return panel->m_panel == 11 && !panel->m_rows.empty();
     });
     // The only save is the first row; select it, then press Load.
-    game.click("select-save", ControlRegion(*panel->m_rows.GetAt(0)));
+    game.click("select-save", ControlRegion(panel->m_rows[0]));
     REQUIRE("select-save", panel->m_selection.m_selectedIndex == 0);
     game.click("load", ControlRegion(panel->m_action_button));
     WaitMainGame(game, "loaded");
@@ -856,7 +958,7 @@ void CombatScenario()
     game.command(W8_MGS_COMMAND_TOGGLE_COMBAT);
     REQUIRE("reenter-combat", game.within_frames(4, [] { return gXStatus.fCombatMode != 0; }));
     REQUIRE("reenter-combat", g_combat_state && g_combat_state->round_count == 0);
-    REQUIRE("reenter-combat", g_combat_state->attack_report.reports.GetCount() == 0);
+    REQUIRE("reenter-combat", g_combat_state->attack_report.reports.empty());
     game.command(W8_MGS_COMMAND_TOGGLE_COMBAT);
     game.wait("leave-combat-again", [] { return gXStatus.fCombatMode == 0; }, 10);
     REQUIRE("leave-combat-again", !g_combat_state);
@@ -870,7 +972,7 @@ int main(int argc, char** argv)
     if (argc < 2)
     {
         std::fprintf(stderr,
-                     "usage: %s video|character|game-start|world|quick-save|combat\n"
+                     "usage: %s video|video-seen|character|game-start|world|quick-save|combat\n"
                      "       %s save-fixture|load-game FIXTURE_DIR\n",
                      argv[0], argv[0]);
         return 2;
@@ -878,14 +980,21 @@ int main(int argc, char** argv)
     const std::string scenario = argv[1];
     try
     {
+        const char* assets = SDL_getenv("WIZ8_ASSET_ROOT");
+        if (!assets || !fs::is_directory(assets))
+            throw std::invalid_argument("WIZ8_ASSET_ROOT is not set");
         if (scenario == "video")
-            VideoScenario();
+            VideoScenario(false);
+        else if (scenario == "video-seen")
+            VideoScenario(true);
         else if (scenario == "character")
             CharacterScenario();
         else if (scenario == "game-start")
             GameStartScenario();
         else if (scenario == "world")
             WorldRenderScenario();
+        else if (scenario == "resource-lifecycle")
+            ResourceLifecycleScenario();
         else if (scenario == "quick-save")
             QuickSaveScenario();
         else if (scenario == "combat")

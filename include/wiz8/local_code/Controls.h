@@ -3,14 +3,13 @@
 #include "wiz8/local_code/ControlsRect.h"
 #include "wiz8/local_code/Widget.h"
 #include "wiz8/regions.h"
-#include "wiz8/vector.h"
+#include <vector>
+#include <algorithm>
 #include "input.h"
 
 /* The single-space separator wrapped notice lines are re-joined with. */
 extern wchar_t g_W8TextSeparator[];
 
-// VTABLE: WIZ8 0x005ed5b0
-// class W8Vector<W8Widget*>
 
 /* The region callback a widget without its own region is given. It answers
    whether the event was consumed; the screen-input dispatcher returns that
@@ -73,7 +72,7 @@ struct Controls {
     int m_catalogImage;      /* subimage within the frame */
     W8ControlsRect m_dirtyRect;
     bool m_fWholeAreaDirty; /* set when a caller passes no rectangle */
-    W8Vector<W8Widget*> m_controls;
+    std::vector<W8Widget*> m_controls;
     unsigned int m_uiRegionSetId;
 
     void EnableRegionSet(bool enable);
@@ -87,15 +86,12 @@ struct Controls {
        it answers element zero rather than failing, which is what the canonical
        `p = m_ppControls; if (i < m_nControls) p += i;` compiles from and why
        the guard shows up once per use rather than once per loop. */
-    inline W8Widget* ControlAt(int index)
-    {
-        return *m_controls.GetAt(index);
-    }
+    inline W8Widget* ControlAt(int index) { return m_controls[index]; }
 
-protected:
+  protected:
     void RedrawChildren(bool full_redraw)
     {
-        for (int index = 0; index < m_controls.GetCount(); ++index) {
+        for (int index = 0; index < static_cast<int>(m_controls.size()); ++index) {
             if (ControlAt(index)->m_active) {
                 ControlAt(index)->Redraw(full_redraw);
             }

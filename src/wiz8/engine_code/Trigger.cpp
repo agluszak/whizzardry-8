@@ -1,3 +1,4 @@
+#include "wiz8/containers.h"
 #include "wiz8/spell_ids.h"
 #include "wiz8/fonts.h"
 #include "soundman.h"
@@ -15,8 +16,8 @@
 #include "wiz8/engine_code/Levels.h"
 #include "wiz8/local_code/Configuration.h"
 #include "wiz8/sound_man.h"
-#include "wiz8/3d_code/IList.h"
-#include "wiz8/3d_code/PList.h"
+#include <vector>
+#include <algorithm>
 #include "wiz8/location_variables.h"
 #include "wiz8/string_database.h"
 #include "wiz8/local_code/Strings.h"
@@ -48,7 +49,6 @@
 #include "wiz8/monster_runtime.h"
 #include "wiz8/sr_api.h"
 #include "wiz8/utility.h"
-#include "wiz8/vector.h"
 #include "wiz8/virtual_file.h"
 #include "wiz8/xstatus.h"
 #include "wiz8/save_game.h"
@@ -66,7 +66,7 @@
 #include <string.h>
 
 // GLOBAL: WIZ8 0x006599B8
-static W8GrowableVector<W8TriggerEvent*> g_timed_events;
+static std::vector<W8TriggerEvent*> g_timed_events;
 
 // GLOBAL: WIZ8 0x006599C8
 bool g_trigger_action_active;
@@ -75,11 +75,11 @@ srVector3T<float> g_trigger_action_scene_offset;
 // GLOBAL: WIZ8 0x00659908
 static char g_trigger_parse_buffer[0x88];
 // GLOBAL: WIZ8 0x006598E0
-W8GrowableVector<int> g_location_variable_levels;
+std::vector<int> g_location_variable_levels;
 // GLOBAL: WIZ8 0x006598F8
-W8GrowableVector<char*> g_location_variable_names;
+std::vector<char*> g_location_variable_names;
 // GLOBAL: WIZ8 0x00659990
-W8GrowableVector<int> g_location_variable_values;
+std::vector<int> g_location_variable_values;
 
 // GLOBAL: WIZ8 0x00606994
 bool g_trigger_feedback = true;
@@ -126,10 +126,10 @@ Trigger* FindTriggerForProp(W8World* world, W8Prop* prop)
             return trigger;
         }
         if (trigger->trigger_kind == 1 || trigger->trigger_kind == 2) {
-            int trigger_count = world->triggers->GetCount();
+            int trigger_count = static_cast<int>(world->triggers->size());
 
             for (int index = 0; index < trigger_count; ++index) {
-                Trigger* other = *world->triggers->GetAt(index);
+                Trigger* other = (*world->triggers)[index];
                 Trigger* previous = trigger;
                 int hops = 0;
 
@@ -206,10 +206,10 @@ bool W8LockState::ConsumeCountdown()
 // FUNCTION: WIZ8 0x00445940
 bool InsideDestinationTrigger(float x, float y, float z)
 {
-    int count = g_world->triggers->GetCount();
+    int count = static_cast<int>(g_world->triggers->size());
 
     for (int index = 0; index < count; ++index) {
-        Trigger* trigger = *g_world->triggers->GetAt(index);
+        Trigger* trigger = (*g_world->triggers)[index];
         if (trigger->initial_action != 0x34) {
             continue;
         }
@@ -228,14 +228,14 @@ bool InsideDestinationTrigger(float x, float y, float z)
 // FUNCTION: WIZ8 0x0043cb30
 void SaveTriggerRuntimeStates(W8World* world, wiz8::File* handle, bool restoring)
 {
-    int trigger_count = world->triggers->GetCount();
+    int trigger_count = static_cast<int>(world->triggers->size());
     int saved_count = 0;
     int index;
     int version = 2;
     int restoring_value = restoring;
 
     for (index = 0; index < trigger_count; ++index) {
-        Trigger* trigger = *world->triggers->GetAt(index);
+        Trigger* trigger = (*world->triggers)[index];
         if (trigger->lock_state.lock_type != 0) {
             ++saved_count;
         }
@@ -246,7 +246,7 @@ void SaveTriggerRuntimeStates(W8World* world, wiz8::File* handle, bool restoring
     handle->write(&restoring_value, sizeof(restoring_value));
 
     for (index = 0; index < trigger_count; ++index) {
-        Trigger* trigger = *world->triggers->GetAt(index);
+        Trigger* trigger = (*world->triggers)[index];
         if (trigger->lock_state.lock_type != 0) {
             handle->write(trigger->name, 0x80);
             handle->write(&version, sizeof(version));
@@ -347,8 +347,9 @@ try
             return true;
         }
     }
+} catch (const std::exception&) {
+    return false;
 }
-catch (const std::exception&) { return false; }
 
 /* Serialize one trigger for the save file. The header carries a version byte
    and the action-state block; the action payload follows only when one is
@@ -358,7 +359,7 @@ catch (const std::exception&) { return false; }
 bool Trigger::Save(wiz8::File* hFile)
 {
     unsigned char version = 5;
-    int trigger_count = g_world->triggers->GetCount();
+    int trigger_count = static_cast<int>(g_world->triggers->size());
     bool header_ok;
     W8TriggerActionData* action_data;
     unsigned char has_action_data;
@@ -421,7 +422,8 @@ bool Trigger::Save(wiz8::File* hFile)
                 action_flags |= 0x200;
             }
             hFile->write(&action_flags, sizeof(action_flags));
-            if (m_lData1 != 0 && m_pEvent != 0 && g_timed_events.IndexOf(m_pEvent) != -1) {
+            if (m_lData1 != 0 && m_pEvent != 0 &&
+                std::ranges::contains(g_timed_events, m_pEvent)) {
                 float progress = m_pEvent->timer.GetProgress();
                 if (progress <= g_trigger_progress_limit) {
                     progress_delay = static_cast<unsigned int>(
@@ -578,8 +580,8 @@ try
                         m_pEvent->repeat = true;
                     }
                     m_pEvent->timer.SetProgress(progress_delay * g_float_one_thousandth);
-                    if (g_timed_events.IndexOf(m_pEvent) == -1) {
-                        g_timed_events.Add(m_pEvent);
+                    if (!std::ranges::contains(g_timed_events, m_pEvent)) {
+                        g_timed_events.push_back(m_pEvent);
                     }
                 }
                 hFile->read_exact(&item, 2);
@@ -604,8 +606,9 @@ try
         hFile->seek(0x1d, wiz8::SeekOrigin::current);
     }
     return header_ok;
+} catch (const std::exception&) {
+    return false;
 }
-catch (const std::exception&) { return false; }
 
 /* Read every trigger record of the save file's trigger chunk. Tags 1-4 update
    the matching in-place trigger, tag 5 names its trigger and is consumed
@@ -615,7 +618,7 @@ catch (const std::exception&) { return false; }
 bool LoadWorldTriggers(W8World* world, wiz8::File* hFile)
 try
 {
-    int trigger_count = world->triggers->GetCount();
+    int trigger_count = static_cast<int>(world->triggers->size());
     int index = 0;
     bool header_ok = true;
     bool finished = false;
@@ -637,7 +640,7 @@ try
             finished = true;
             hFile->seek(-1, wiz8::SeekOrigin::current);
         } else if (tag < 5) {
-            Trigger* trigger = *world->triggers->GetAt(index);
+            Trigger* trigger = (*world->triggers)[index];
 
             ++index;
             if (!header_ok || !trigger->Load(hFile, tag)) {
@@ -675,18 +678,19 @@ try
             return false;
         }
     }
+} catch (const std::exception&) {
+    return false;
 }
-catch (const std::exception&) { return false; }
 
 /* Write every trigger of a world for the save file's trigger chunk. A trigger
    whose own serialization reports failure stops the walk. */
 // FUNCTION: WIZ8 0x0043C810
 void SaveWorldTriggers(W8World* world, wiz8::File* hFile)
 {
-    W8GrowableVector<Trigger*>* triggers = world->triggers;
+    std::vector<Trigger*>* triggers = world->triggers;
 
-    for (int index = 0; index < triggers->GetCount(); ++index) {
-        if (!(*triggers->GetAt(index))->Save(hFile)) {
+    for (int index = 0; index < static_cast<int>(triggers->size()); ++index) {
+        if (!((*triggers)[index])->Save(hFile)) {
             return;
         }
     }
@@ -695,13 +699,13 @@ void SaveWorldTriggers(W8World* world, wiz8::File* hFile)
 // FUNCTION: WIZ8 0x0043d120
 void SaveTriggerActionData(W8World* world, wiz8::File* handle)
 {
-    int trigger_count = world->triggers->GetCount();
+    int trigger_count = static_cast<int>(world->triggers->size());
     int saved_count = 0;
     int index;
     int version = 1;
 
     for (index = 0; index < trigger_count; ++index) {
-        Trigger* trigger = *world->triggers->GetAt(index);
+        Trigger* trigger = (*world->triggers)[index];
         if (trigger->inline_action_data[0] != '\0') {
             ++saved_count;
         }
@@ -711,7 +715,7 @@ void SaveTriggerActionData(W8World* world, wiz8::File* handle)
     handle->write(&saved_count, sizeof(saved_count));
 
     for (index = 0; index < trigger_count; ++index) {
-        Trigger* trigger = *world->triggers->GetAt(index);
+        Trigger* trigger = (*world->triggers)[index];
         if (trigger->inline_action_data[0] != '\0') {
             handle->write(trigger->name, 0x80);
             handle->write(trigger->inline_action_data, sizeof(trigger->inline_action_data));
@@ -751,8 +755,9 @@ try
             return true;
         }
     }
+} catch (const std::exception&) {
+    return false;
 }
-catch (const std::exception&) { return false; }
 
 // VTABLE: WIZ8 0x005ec12c
 // class W8TriggerEvent
@@ -799,9 +804,9 @@ void UpdateWorldTriggers(W8World* world)
     bool running = false;
 
     GetCameraPosition(&camera);
-    int count = world->triggers->GetCount();
+    int count = static_cast<int>(world->triggers->size());
     for (int index = 0; index < count; ++index) {
-        Trigger* trigger = *world->triggers->GetAt(index);
+        Trigger* trigger = (*world->triggers)[index];
         if ((trigger->flags & W8_TRIGGER_ITEM_PICKER) != 0 && trigger->m_pProp != 0 &&
             (trigger->m_pProp->GetAnimationState() < 2 ||
              trigger->m_pProp->Rep()->animation_playing == 0)) {
@@ -859,11 +864,11 @@ static void OnItemDialogClosed(W8DialogBase* base)
 // FUNCTION: WIZ8 0x00443D30
 void UpdateTimedTriggerEvents(void)
 {
-    for (int index = 0; index < g_timed_events.GetCount(); ++index) {
-        W8TriggerEvent* event = *g_timed_events.GetAt(index);
+    for (int index = 0; index < static_cast<int>(g_timed_events.size()); ++index) {
+        W8TriggerEvent* event = g_timed_events[index];
         event->Update();
         if (event->completed) {
-            g_timed_events.RemoveAt(index);
+            g_timed_events.erase(g_timed_events.begin() + index);
             --index;
             if (event->trigger != 0) {
                 event->trigger->m_pEvent = 0;
@@ -928,7 +933,7 @@ bool CreateTriggerShakeEvent(int intensity, float duration, float countdown_dura
     pEvent->timer.SetDuration(duration * g_float_one_thousandth);
     pEvent->timer.Restart();
     pEvent->reverse = reverse;
-    g_timed_events.Add(pEvent);
+    g_timed_events.push_back(pEvent);
     return true;
 }
 
@@ -959,7 +964,7 @@ void Trigger::Activate()
             running = false;
         } else {
             W8TriggerEvent* event = m_pEvent;
-            if (event != 0 && g_timed_events.IndexOf(event) != -1) {
+            if (event != 0 && std::ranges::contains(g_timed_events, event)) {
                 event->timer.Restart();
                 if (event->m_pCountdown != 0) {
                     event->m_pCountdown->Restart();
@@ -1041,13 +1046,13 @@ bool Trigger::PlayActionSound(const char* sound_name, int volume)
     stSound3D* sound = new stSound3D(sound_name, 0);
     if (sound != 0) {
         srVector3T<double> sound_position;
-        sound_position.SetFromFloat(&position);
+        sound_position = glm::dvec3(position.glmValue());
         sound->volume = volume;
         sound->setLocation(sound_position);
         if (sound->Play(false, true) != 0) {
             return true;
         }
-        sound->release();
+        delete sound;
     }
     return false;
 }
@@ -1106,25 +1111,25 @@ void W8TriggerEvent::Update()
             srVector3T<float> target;
             srVector3T<float> transformed;
             srVector3T<float> axis;
-            srMatrix3T<float> rotation;
+                glm::mat3 rotation;
 
             source = trigger->position;
             target = source;
             target.z += 100.0f;
 
             axis.Set(0.0, 0.0, 1.0);
-            rotation.vectors[0].Set(trigger->direction.x, trigger->direction.y,
-                                    trigger->direction.z);
-            rotation.vectors[1].Set(1.0, 0.0, 0.0);
-            rotation.vectors[2].Set(0.0, 1.0, 0.0);
+            rotation = glm::transpose(glm::mat3(trigger->direction.glmValue(),
+                                                    glm::vec3(1, 0, 0), glm::vec3(0, 1, 0)));
 
-            if (trigger->angle != 0.0f) {
-                rotation.RotateAroundAxis(sin(trigger->angle), cos(trigger->angle), axis);
-            }
+                if (trigger->angle != 0.0f) {
+                    rotation *= glm::mat3_cast(
+                        glm::angleAxis(float(std::atan2(sin(trigger->angle), cos(trigger->angle))),
+                                       normalizedOrZero(glm::vec3(axis.glmValue()))));
+                }
 
-            transformed.x = DotProduct(rotation.vectors[1], target);
-            transformed.y = DotProduct(rotation.vectors[2], target);
-            transformed.z = DotProduct(axis, target);
+                transformed.x = glm::dot(glm::row(rotation, 1), target.glmValue());
+                transformed.y = glm::dot(glm::row(rotation, 2), target.glmValue());
+            transformed.z = glm::dot(axis.glmValue(), target.glmValue());
             FireMissile(static_cast<unsigned int>(trigger->m_lData1), &source, &transformed, 0, 1,
                         1, 50000.0f);
         }
@@ -1189,8 +1194,7 @@ void InitializeStateDrivenPropVariables(Trigger* trigger)
     if (trigger->m_pacStateToMod == 0) {
         return;
     }
-    for (slot = 0; slot < static_cast<signed char>(trigger->m_pProp->Rep()->slots.GetCount());
-         ++slot) {
+    for (slot = 0; slot < static_cast<signed char>(trigger->m_pProp->Rep()->slots.size()); ++slot) {
         char name[132];
 
         if (trigger->m_bRepType != W8_TRIGGER_REP_PROP) {
@@ -1208,12 +1212,12 @@ void InitializeStateDrivenPropVariables(Trigger* trigger)
 // FUNCTION: WIZ8 0x00444030
 void SetTriggerVariableByName(const char* name, int value)
 {
-    int count = g_location_variable_names.GetCount();
+    int count = static_cast<int>(g_location_variable_names.size());
     int index;
 
     for (index = 0; index < count; ++index) {
-        if (_stricmp(*g_location_variable_names.GetAt(index), name) == 0 &&
-            *g_location_variable_levels.GetAt(index) == g_status.current_level) {
+        if (_stricmp(g_location_variable_names[index], name) == 0 &&
+            g_location_variable_levels[index] == g_status.current_level) {
             break;
         }
     }
@@ -1222,8 +1226,8 @@ void SetTriggerVariableByName(const char* name, int value)
         srAssertFail("iVar != BAD_INDEX", "C:\\Projects\\Wizardry 8\\Engine Code\\Trigger.cpp",
                      0x10c9, 0);
     }
-    if (index < g_location_variable_values.GetCount()) {
-        *g_location_variable_values.GetAt(index) = value;
+    if (index < static_cast<int>(g_location_variable_values.size())) {
+        g_location_variable_values[index] = value;
     }
 }
 
@@ -1467,7 +1471,7 @@ Trigger* Trigger::CreateAndLoadLevelTrigger(wiz8::File* handle, W8World* world)
             trigger->flags |= W8_TRIGGER_FIRE_LINKED;
         else
             trigger->flags &= ~W8_TRIGGER_FIRE_LINKED;
-        world->triggers->Add(trigger);
+        world->triggers->push_back(trigger);
         if (trigger->name[0] != 0) {
             trigger->setName(trigger->name);
         }
@@ -1586,7 +1590,7 @@ Trigger* Trigger::CreateAndLoadLevelTrigger(wiz8::File* handle, W8World* world)
             trigger->range_minimum = 0.0f;
             trigger->range_maximum = 0.0f;
         }
-        world->triggers->Add(trigger);
+        world->triggers->push_back(trigger);
         if (trigger->name[0] != 0) {
             trigger->setName(trigger->name);
         }
@@ -1902,7 +1906,7 @@ Trigger* Trigger::CreateAndLoadLevelTrigger(wiz8::File* handle, W8World* world)
             trigger->range_minimum = 0.0f;
             trigger->range_maximum = 0.0f;
         }
-        world->triggers->Add(trigger);
+        world->triggers->push_back(trigger);
         if (trigger->name[0] != 0) {
             trigger->setName(trigger->name);
         }
@@ -1912,8 +1916,8 @@ Trigger* Trigger::CreateAndLoadLevelTrigger(wiz8::File* handle, W8World* world)
         if (trigger->initial_action == 0x0c) {
             if (trigger->m_lData1 < 0 ||
                 trigger->m_lData1 >= static_cast<int>(g_missile_table_count)) {
-                srAssertFail(
-                    "((pTrigger->m_lData1 >= 0) && (pTrigger->m_lData1 < Missile::GetNumTypes()))",
+                srAssertFail("((pTrigger->m_lData1 >= 0) && (pTrigger->m_lData1 < "
+                             "Missile::GetNumTypes()))",
                     "C:\\Projects\\Wizardry 8\\Engine Code\\Trigger.cpp", 0xf14,
                     FormatString(
                         "Trigger %s: You must enter a valid missile number", trigger->name));
@@ -1935,7 +1939,7 @@ Trigger* Trigger::CreateAndLoadLevelTrigger(wiz8::File* handle, W8World* world)
                 trigger->m_pEvent->timer.Restart();
                 trigger->m_pEvent->trigger = trigger;
                 trigger->flags |= W8_TRIGGER_RUNNING;
-                g_timed_events.Add(trigger->m_pEvent);
+                g_timed_events.push_back(trigger->m_pEvent);
             }
         } else if (trigger->initial_action > 0x24 && trigger->initial_action < 0x2c &&
                    trigger->m_lData1 >= 0) {
@@ -2095,7 +2099,7 @@ void Trigger::FinishAction()
         break;
 
     case 0x23: {
-        g_timed_events.Remove(m_pEvent);
+        wiz8::erase_first(g_timed_events, m_pEvent);
         action_completed = true;
         break;
     }
@@ -2240,7 +2244,7 @@ void Trigger::CommitActionResult(bool apply_state_changes)
                 srAssertFail("iVar != BAD_INDEX",
                              "C:\\Projects\\Wizardry 8\\Engine Code\\Trigger.cpp", 4317, 0);
             }
-            state_value = *g_location_variable_values.GetAt(state_id) == 0;
+            state_value = g_location_variable_values[state_id] == 0;
             state_id = GetLocationVarIDByName(m_pacStateToMod);
             if (state_id == -1) {
                 srAssertFail("iVar != BAD_INDEX",
@@ -2249,7 +2253,7 @@ void Trigger::CommitActionResult(bool apply_state_changes)
         } else {
             goto show_action_message;
         }
-        g_location_variable_values.SetAt(state_id, state_value);
+        g_location_variable_values[state_id] = state_value;
     }
 
 show_action_message:
@@ -2295,7 +2299,7 @@ void Trigger::RunDestination(const char* destination)
     srVector3T<float> destination_position;
     srVector3T<float> destination_direction;
     srVector3T<float> source_position;
-    srMatrix3T<float> rotation;
+    glm::mat3 rotation;
     /* Retail's named-entity path reads saved storage for these integers;
        natively a named entity stays in the current level. */
     int location_id;
@@ -2347,9 +2351,11 @@ void Trigger::RunDestination(const char* destination)
     g_octree->AdjustPortalDestination(&destination_position, &source_position);
     SetWorldScenePosition(GetWorld(), &destination_position);
 
-    rotation.SetIdentity();
+    rotation = glm::mat3(1);
     if (angle != 0.0f) {
-        rotation.RotateAroundAxis(sin(angle), cos(angle), destination_direction);
+        rotation *= glm::mat3_cast(
+            glm::angleAxis(float(std::atan2(sin(angle), cos(angle))),
+                           normalizedOrZero(glm::vec3(destination_direction.glmValue()))));
     }
     ApplyCameraRotation(&rotation);
     SpawnCameraSpellEffect("set_portal", 1, 0, 0);
@@ -2361,7 +2367,7 @@ void Trigger::RunDestination(const char* destination)
 // FUNCTION: WIZ8 0x00445500
 void Trigger::GenerateItemGroup()
 {
-    W8Vector<W8WorldItem*> items(5);
+    std::vector<W8WorldItem*> items;
     srVector3T<float> position;
     unsigned int table_id;
     unsigned int maximum_items;
@@ -2377,15 +2383,15 @@ void Trigger::GenerateItemGroup()
         return;
     }
 
-    maximum_items = RollDice(&g_item_tables[table_id]->item_count_dice);
-    GenerateItemsFromTable(&items, table_id, maximum_items);
+    maximum_items = RollDice(&g_item_tables[table_id].item_count_dice);
+    GenerateItemsFromTable(items, table_id, maximum_items);
     if (world_item_group == 0) {
         world_item_group = SpawnItem(0x23c, &position, 0, false);
     }
-    for (index = 0; index < items.GetCount(); ++index) {
-        ItemInfoAddToGroup(world_item_group, *items.GetAt(index));
+    for (index = 0; index < static_cast<int>(items.size()); ++index) {
+        ItemInfoAddToGroup(world_item_group, items[index]);
     }
-    gold = RollDice(&g_item_tables[table_id]->gold_dice);
+    gold = RollDice(&g_item_tables[table_id].gold_dice);
     items_generated = 1;
 }
 
@@ -2546,7 +2552,7 @@ void Trigger::Run(int source)
                 m_pEvent->action = static_cast<short>(action);
                 m_pEvent->timer.SetDuration(0.5f);
             } else {
-                if (g_timed_events.IndexOf(m_pEvent) != -1) {
+                if (std::ranges::contains(g_timed_events, m_pEvent)) {
                     srAssertFail("glsTimedEvents.Find(m_pEvent) == -1",
                                  "C:\\Projects\\Wizardry 8\\Engine Code\\Trigger.cpp", 0x603, 0);
                 }
@@ -2555,7 +2561,7 @@ void Trigger::Run(int source)
             if (m_pEvent->m_pCountdown != 0) {
                 m_pEvent->m_pCountdown->Restart();
             }
-            g_timed_events.Add(m_pEvent);
+            g_timed_events.push_back(m_pEvent);
             flags |= W8_TRIGGER_RUNNING;
             goto commit_action;
 
@@ -2602,7 +2608,8 @@ void Trigger::Run(int source)
             }
 
             if (m_lData1 != 0) {
-                if (m_pEvent != 0 && g_timed_events.IndexOf(m_pEvent) != -1) {
+                if (m_pEvent != 0 &&
+                    std::ranges::contains(g_timed_events, m_pEvent)) {
                     m_pEvent->timer.Restart();
                     if (m_pEvent->m_pCountdown != 0) {
                         m_pEvent->m_pCountdown->Restart();
@@ -2616,7 +2623,7 @@ void Trigger::Run(int source)
                 m_pEvent->timer.SetDuration(m_lData1 < 0 ? 10.0f : static_cast<float>(m_lData1));
                 m_pEvent->timer.Restart();
                 m_pEvent->repeat = true;
-                g_timed_events.Add(m_pEvent);
+                g_timed_events.push_back(m_pEvent);
             }
             goto commit_action;
         }
@@ -2997,10 +3004,13 @@ void Trigger::Run(int source)
             return;
         }
         monster_id = atoi(m_pacRecipients);
-        for (index = 0; index < static_cast<int>(PLLength(gXStatus.plsMonsterGroupList)); ++index) {
-            group = static_cast<W8MonsterGroup*>(PLGet(gXStatus.plsMonsterGroupList, index));
+        for (index = 0;
+             index < static_cast<int>(
+                         gXStatus.monster_groups.size());
+             ++index) {
+            group = gXStatus.monster_groups[index];
             if (group->monster_id == monster_id) {
-                int location_id = IListGetAt(group->monsters, 0);
+                int location_id = group->MemberLocationId(0);
                 unsigned int monster_index = MonsterGetIndexByLocationID(
                     0x7aa, "C:\\Projects\\Wizardry 8\\Engine Code\\Trigger.cpp", location_id, true);
 
@@ -3063,7 +3073,7 @@ void Trigger::Run(int source)
         }
 
         if ((flags & W8_TRIGGER_RUNNING) == 0) {
-            g_timed_events.Add(m_pEvent);
+            g_timed_events.push_back(m_pEvent);
             if (trigger_kind == 2) {
                 flags |= W8_TRIGGER_RUNNING;
             } else if (m_lData3 == -1) {
@@ -3161,7 +3171,7 @@ void Trigger::Run(int source)
                 m_pEvent->timer.Restart();
                 m_pEvent->trigger = this;
                 m_pEvent->timer.SetMode(W8_TIMER_CLOCK_GAME);
-                g_timed_events.Add(m_pEvent);
+                g_timed_events.push_back(m_pEvent);
             }
         }
         if (trigger_kind == 2) {
@@ -3178,20 +3188,22 @@ void Trigger::Run(int source)
             srVector3T<float> source_position;
             srVector3T<float> target_position;
             srVector3T<float> transformed;
-            srMatrix3T<float> rotation;
+                glm::mat3 rotation;
 
             source_position.Set(this->position.x, this->position.y, this->position.z);
             target_position = source_position;
             target_position.z += 100.0f;
-            rotation.SetIdentity();
+            rotation = glm::mat3(1);
             /* Retail rotates the identity matrix around the trigger's direction
                field (ebp+0x100), not around identity Z. */
             if (angle != 0.0f) {
-                rotation.RotateAroundAxis(sin(angle), cos(angle), direction);
-            }
-            transformed = rotation.Transform(target_position);
-            FireMissile(static_cast<unsigned int>(m_lData1), &source_position, &transformed, 0, 1,
-                        1, 50000.0f);
+                rotation *= glm::mat3_cast(
+                        glm::angleAxis(float(std::atan2(sin(angle), cos(angle))),
+                                       normalizedOrZero(glm::vec3(direction.glmValue()))));
+                }
+                transformed = rotation * target_position.glmValue();
+                FireMissile(static_cast<unsigned int>(m_lData1), &source_position, &transformed, 0,
+                            1, 1, 50000.0f);
         } else if (m_pEvent == 0) {
             float duration = abs(m_lData2) * 0.001f;
 
@@ -3209,7 +3221,7 @@ void Trigger::Run(int source)
             m_pEvent->timer.Restart();
             m_pEvent->trigger = this;
             flags |= W8_TRIGGER_RUNNING;
-            g_timed_events.Add(m_pEvent);
+            g_timed_events.push_back(m_pEvent);
         }
         break;
 
@@ -3240,7 +3252,7 @@ void Trigger::Run(int source)
             m_pEvent->trigger = this;
             m_pEvent->repeat = true;
         } else {
-            if (g_timed_events.IndexOf(m_pEvent) != -1) {
+            if (std::ranges::contains(g_timed_events, m_pEvent)) {
                 srAssertFail("glsTimedEvents.Find(m_pEvent) == -1",
                              "C:\\Projects\\Wizardry 8\\Engine Code\\Trigger.cpp", 0x8ae, 0);
             }
@@ -3249,7 +3261,7 @@ void Trigger::Run(int source)
                 m_pEvent->m_pCountdown->Restart();
             }
         }
-        g_timed_events.Add(m_pEvent);
+        g_timed_events.push_back(m_pEvent);
         if (trigger_kind == 2) {
             flags |= W8_TRIGGER_RUNNING;
         }
@@ -3352,7 +3364,7 @@ void Trigger::Run(int source)
             srAssertFail("m_pEvent", "C:\\Projects\\Wizardry 8\\Engine Code\\Trigger.cpp", 0x940,
                          0);
         }
-        g_timed_events.Add(m_pEvent);
+        g_timed_events.push_back(m_pEvent);
         m_pEvent->trigger = this;
         m_pEvent->action = static_cast<short>(action);
         delete m_pEvent->m_pCountdown;
@@ -3495,7 +3507,7 @@ bool Trigger::SelectAction()
                 srAssertFail("iVar != BAD_INDEX",
                              "C:\\Projects\\Wizardry 8\\Engine Code\\Trigger.cpp", 4317, 0);
             }
-            if (*g_location_variable_values.GetAt(state_id) == 0) {
+            if (g_location_variable_values[state_id] == 0) {
                 action = fallback_action;
                 action_state = 4;
                 fallback_selected = true;
@@ -3527,7 +3539,7 @@ bool Trigger::SelectAction()
                     srAssertFail("iVar != BAD_INDEX",
                                  "C:\\Projects\\Wizardry 8\\Engine Code\\Trigger.cpp", 4317, 0);
                 }
-                if (*g_location_variable_values.GetAt(state_id) == 0) {
+                if (g_location_variable_values[state_id] == 0) {
                     action = fallback_action;
                     action_state = 4;
                     fallback_selected = true;
@@ -3572,7 +3584,8 @@ bool Trigger::SelectAction()
         }
 
         if (linked_trigger_blocked) {
-            if (m_pEvent == 0 || g_timed_events.IndexOf(m_pEvent) == -1) {
+            if (m_pEvent == 0 ||
+                !std::ranges::contains(g_timed_events, m_pEvent)) {
                 return false;
             }
             m_pEvent->timer.Restart();
@@ -3646,12 +3659,6 @@ bool Trigger::SelectAction()
     return result;
 }
 
-// FUNCTION: WIZ8 0x0043bc10
-srClass* Trigger::vInstance()
-{
-    return new Trigger;
-}
-
 // FUNCTION: WIZ8 0x0043bca0
 Trigger::~Trigger()
 {
@@ -3670,12 +3677,12 @@ Trigger::~Trigger()
     }
 
     if (m_pEvent != 0) {
-        g_timed_events.Remove(m_pEvent);
+        wiz8::erase_first(g_timed_events, m_pEvent);
         delete m_pEvent;
     }
 
     if (m_pWorld != 0 && m_pWorld->triggers != 0) {
-        m_pWorld->triggers->Remove(this);
+        wiz8::erase_first(*m_pWorld->triggers, this);
     }
 
     if (world_item_group != 0) {
@@ -3704,30 +3711,19 @@ int ResetNextTriggerId(void)
 void DestroyAllWorldTriggers(W8World* world)
 {
     if (world != 0 && world->triggers != 0) {
-        while (world->triggers->GetCount() != 0) {
-            Trigger* trigger = *world->triggers->GetAt(0);
-            world->triggers->RemoveAt(0);
-            if (trigger != 0) {
-                trigger->release();
-            }
-        }
-        world->triggers->Clear();
+        wiz8::remove_all_and_delete_in_order(*world->triggers);
     }
 }
 
 // FUNCTION: WIZ8 0x00444170
 int GetLocationVarIDByName(const char* name)
 {
-    int variable_count = g_location_variable_names.GetCount();
+    int variable_count = static_cast<int>(g_location_variable_names.size());
     int variable_id;
-    char** variable_name;
-    int* variable_level;
 
     for (variable_id = 0; variable_id < variable_count; ++variable_id) {
-        variable_name = g_location_variable_names.GetAt(variable_id);
-        if (_stricmp(*variable_name, name) == 0) {
-            variable_level = g_location_variable_levels.GetAt(variable_id);
-            if (*variable_level == g_status.current_level) {
+        if (_stricmp(g_location_variable_names[variable_id], name) == 0) {
+            if (g_location_variable_levels[variable_id] == g_status.current_level) {
                 return variable_id;
             }
         }
@@ -3747,10 +3743,10 @@ void CreateLocationVar(const char* name, int value)
     if (name == 0) {
         srAssertFail("pacName", "C:\\Projects\\Wizardry 8\\Engine Code\\Trigger.cpp", 0x1094, 0);
     }
-    variable_count = g_location_variable_names.GetCount();
+    variable_count = static_cast<int>(g_location_variable_names.size());
     for (index = 0; index < variable_count; ++index) {
-        if (_stricmp(*g_location_variable_names.GetAt(index), name) == 0 &&
-            *g_location_variable_levels.GetAt(index) == g_status.current_level) {
+        if (_stricmp(g_location_variable_names[index], name) == 0 &&
+            g_location_variable_levels[index] == g_status.current_level) {
             break;
         }
     }
@@ -3766,9 +3762,9 @@ void CreateLocationVar(const char* name, int value)
                      0x109c, 0);
     }
     strcpy(copy, name);
-    g_location_variable_names.Add(copy);
-    g_location_variable_values.Add(value);
-    g_location_variable_levels.Add(g_status.current_level);
+    g_location_variable_names.push_back(copy);
+    g_location_variable_values.push_back(value);
+    g_location_variable_levels.push_back(g_status.current_level);
 }
 
 /* The current level's value of the named location variable; asserts when the
@@ -3779,10 +3775,10 @@ int GetLocationVarValueByName(const char* name)
     int index;
     int variable_count;
 
-    variable_count = g_location_variable_names.GetCount();
+    variable_count = static_cast<int>(g_location_variable_names.size());
     for (index = 0; index < variable_count; ++index) {
-        if (_stricmp(*g_location_variable_names.GetAt(index), name) == 0 &&
-            *g_location_variable_levels.GetAt(index) == g_status.current_level) {
+        if (_stricmp(g_location_variable_names[index], name) == 0 &&
+            g_location_variable_levels[index] == g_status.current_level) {
             break;
         }
     }
@@ -3793,14 +3789,14 @@ int GetLocationVarValueByName(const char* name)
         srAssertFail("iVar != BAD_INDEX", "C:\\Projects\\Wizardry 8\\Engine Code\\Trigger.cpp",
                      0x10dd, 0);
     }
-    return *g_location_variable_values.GetAt(index);
+    return g_location_variable_values[index];
 }
 
 /* Write the count then each location variable's value, name and level. */
 // FUNCTION: WIZ8 0x004441e0
 void SaveLocationVariables(wiz8::File* handle)
 {
-    int variable_count = g_location_variable_names.GetCount();
+    int variable_count = static_cast<int>(g_location_variable_names.size());
     bool written;
 
     written = (handle->write(&variable_count, sizeof(variable_count)), true) != 0;
@@ -3812,9 +3808,9 @@ void SaveLocationVariables(wiz8::File* handle)
         if (!written) {
             return;
         }
-        value = *g_location_variable_values.GetAt(index);
-        strcpy(name, *g_location_variable_names.GetAt(index));
-        level = *g_location_variable_levels.GetAt(index);
+        value = g_location_variable_values[index];
+        strcpy(name, g_location_variable_names[index]);
+        level = g_location_variable_levels[index];
         written = (handle->write(&value, sizeof(value)), true) &&
                   (handle->write(name, sizeof(name)), true) &&
                   (handle->write(&level, sizeof(level)), true);
@@ -3852,25 +3848,26 @@ try
                          0);
         }
         strcpy(copy, name);
-        g_location_variable_names.Add(copy);
-        g_location_variable_values.Add(value);
-        g_location_variable_levels.Add(level);
+        g_location_variable_names.push_back(copy);
+        g_location_variable_values.push_back(value);
+        g_location_variable_levels.push_back(level);
     }
     return read_ok;
+} catch (const std::exception&) {
+    return false;
 }
-catch (const std::exception&) { return false; }
 
 // FUNCTION: WIZ8 0x004445b0
 void ReleaseAllTriggers(void)
 {
     int index;
 
-    for (index = 0; index < g_location_variable_names.GetCount(); ++index) {
-        delete[] *g_location_variable_names.GetAt(index);
+    for (index = 0; index < static_cast<int>(g_location_variable_names.size()); ++index) {
+        delete[] g_location_variable_names[index];
     }
-    g_location_variable_values.Clear();
-    g_location_variable_names.Clear();
-    g_location_variable_levels.Clear();
+    g_location_variable_values.clear();
+    g_location_variable_names.clear();
+    g_location_variable_levels.clear();
 }
 
 /* Index of the prop whose trigger last tested in view; -1 until a prop
@@ -3892,7 +3889,7 @@ bool AnyPropTriggerInView(W8World* world)
         srAssertFail("pWorld", "C:\\Projects\\Wizardry 8\\Engine Code\\Trigger.cpp", 0x1395, 0);
     }
     GetCameraPosition(&position);
-    prop_count = PLLength(world->plsProps);
+    prop_count = (world->plsProps ? world->plsProps->size() : 0);
     if (0 <= s_last_prop_index && s_last_prop_index < static_cast<int>(prop_count)) {
         W8Prop* prop = GetWorldProp(world, s_last_prop_index);
 

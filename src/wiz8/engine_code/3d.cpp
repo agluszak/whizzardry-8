@@ -1,5 +1,7 @@
+#include "wiz8/containers.h"
 #include "wiz8/compat/unaligned.h"
-#include "wiz8/3d_code/PList.h"
+#include <vector>
+#include <algorithm>
 #include "wiz8/engine_code/3d.h"
 #include "wiz8/engine_code/GDCamera.h"
 #include "wiz8/engine_code/Item.h"
@@ -8,7 +10,7 @@
 #include "wiz8/engine_code/Octree.h"
 #include "wiz8/engine_code/Prop.h"
 #include "wiz8/engine_code/GameData.h"
-#include "wiz8/engine_code/stHash.hpp"
+#include "wiz8/index_algorithms.h"
 #include "wiz8/engine_code/stModelInstance.h"
 #include "wiz8/engine_code/World.h"
 #include "wiz8/engine_code/Environment.h"
@@ -22,12 +24,13 @@
 #include "surrender/srIlluminator.h"
 #include "surrender/srMaterial.h"
 #include "surrender/srScene.h"
-#include "surrender/srVectorMath.h"
-
 #include <algorithm>
 #include <new>
 #include <stdlib.h>
+
 #include <string.h>
+#include "surrender/srMath.h"
+#include <cassert>
 
 #define THREE_D_CPP "C:\\Projects\\Wizardry 8\\Engine Code\\3d.cpp"
 
@@ -50,10 +53,10 @@ void UpdateWorldMonsters(W8World* world)
     srVector3T<float> position;
     position = camera_location;
 
-    unsigned int count = PLLength(world->plsMonsters);
+    unsigned int count = (world->plsMonsters ? world->plsMonsters->size() : 0);
     UpdateNearestMonsterGroupMembers();
     for (int index = 0; index < static_cast<int>(count); ++index) {
-        W8Monster* monster = static_cast<W8Monster*>(PLGet(world->plsMonsters, index));
+        W8Monster* monster = (*world->plsMonsters)[index];
         if (monster != 0) {
             monster->DetachRepresentation(world);
             monster->SelectLOD(&position);
@@ -74,9 +77,9 @@ void DetachWorldItemMeshes(W8World* world)
     if (world->plsItems == 0) {
         srAssertFail("pWorld->plsItems", THREE_D_CPP, 0x136, 0);
     }
-    unsigned int count = PLLength(world->plsItems);
+    unsigned int count = (world->plsItems ? world->plsItems->size() : 0);
     for (int index = 0; index < static_cast<int>(count); ++index) {
-        W8Item* item = static_cast<W8Item*>(PLGet(world->plsItems, index));
+        W8Item* item = (*world->plsItems)[index];
         if (item != 0) {
             item->DetachMesh(world);
             item->UpdateAnimation();
@@ -92,21 +95,8 @@ void DetachWorldItemMeshes(W8World* world)
 // FUNCTION: WIZ8 0x0046e4a0
 void DestroyWorldLights(W8World* world)
 {
-    W8PList* lights = &world->transient_lights;
-
-    while (PLLength(lights) != 0) {
-        stLight* light = static_cast<stLight*>(PLGet(lights, 0));
-        if (world == 0) {
-            srAssertFail("pWorld", THREE_D_CPP, 0x278, 0);
-        }
-        if (light == 0) {
-            srAssertFail("pLight", THREE_D_CPP, 0x279, 0);
-        }
-        PListRemove(lights, light);
-        world->lights_to_update->Remove(light);
-        if (light != 0) {
-            light->release();
-        }
+    while (!world->transient_lights.empty()) {
+        WorldRemoveLight(world, world->transient_lights.front());
     }
 }
 
@@ -118,8 +108,8 @@ void FinalizeStaticScene(srScene* scene)
     srNode* node;
 
     for (node = scene->first_child_; node != 0; node = node->next_sibling_) {
-        if (node->getClassID() == srLight::CLASS_ID) {
-            static_cast<srIlluminator*>(node)->setGroupMask(1);
+        if (auto* light = sr_cast<srLight>(node)) {
+            light->setGroupMask(1);
         }
     }
     if (g_world != 0 && g_world->camera_light != 0) {
@@ -141,22 +131,22 @@ unsigned char BakeInstanceVertexLighting(stModelInstance* instance, srNode* ligh
     bool locations_allocated = false;
     stMeshModel* mesh = static_cast<stMeshModel*>(instance->getModel());
     srVector3T<float> location;
-    location = instance->getWorldSpaceLocation();
+    location = glm::vec3(instance->getWorldSpaceLocation());
     srVector3T<float> minimum;
     srVector3T<float> maximum;
     mesh->getBoundingBox(minimum, maximum);
     maximum += location;
     minimum += location;
-    srMatrix3T<float> rotation;
+    glm::mat3 rotation;
     instance->getWorldSpaceRotation(rotation);
 
     while (mesh != 0) {
         srVector3T<float>* vertex_lights = mesh->GetVertexLights(true, -1);
         mesh->GetVertexSunlight(true);
-        srPtr<srMaterialIFace>* vertex_materials =
+        std::shared_ptr<srMaterialIFace>* vertex_materials =
             mesh->getVertexMaterial(0, srMeshModel::SIDE_FRONT, 0);
         srMaterialIFace* material_iface = mesh->getMaterial(0, srMeshModel::SIDE_FRONT);
-        srVector4T<float> material_diffuse;
+        glm::vec4 material_diffuse;
         if (material_iface != 0) {
             material_diffuse = static_cast<srMaterial*>(material_iface)->parms.diffuse;
         }
@@ -176,11 +166,11 @@ unsigned char BakeInstanceVertexLighting(stModelInstance* instance, srNode* ligh
         w8_ulong count = mesh->vertex_location_count;
 
         srVector3T<float>* world_vertices = vertices;
-        if (rotation.vectors[0].x != g_float_one || rotation.vectors[1].y != g_float_one ||
-            rotation.vectors[2].z != g_float_one || rotation.vectors[0].y != g_float_zero ||
-            rotation.vectors[0].z != g_float_zero || rotation.vectors[1].x != g_float_zero ||
-            rotation.vectors[1].z != g_float_zero || rotation.vectors[2].x != g_float_zero ||
-            rotation.vectors[2].y != g_float_zero || location.x != g_float_zero ||
+        if (rotation[0][0] != g_float_one || rotation[1][1] != g_float_one ||
+            rotation[2][2] != g_float_one || rotation[1][0] != g_float_zero ||
+            rotation[2][0] != g_float_zero || rotation[0][1] != g_float_zero ||
+            rotation[2][1] != g_float_zero || rotation[0][2] != g_float_zero ||
+            rotation[1][2] != g_float_zero || location.x != g_float_zero ||
             location.y != g_float_zero || location.z != g_float_zero) {
             locations_allocated = true;
             world_vertices =
@@ -191,32 +181,37 @@ unsigned char BakeInstanceVertexLighting(stModelInstance* instance, srNode* ligh
             if (count != 0 && world_vertices != vertices) {
                 std::copy_n(vertices, count, world_vertices);
             }
-            if (rotation.vectors[0].x == g_float_one && rotation.vectors[1].y == g_float_one &&
-                rotation.vectors[2].z == g_float_one && rotation.vectors[0].y == g_float_zero &&
-                rotation.vectors[0].z == g_float_zero && rotation.vectors[1].x == g_float_zero &&
-                rotation.vectors[1].z == g_float_zero && rotation.vectors[2].x == g_float_zero &&
-                rotation.vectors[2].y == g_float_zero) {
+            if (rotation[0][0] == g_float_one && rotation[1][1] == g_float_one &&
+                rotation[2][2] == g_float_one && rotation[1][0] == g_float_zero &&
+                rotation[2][0] == g_float_zero && rotation[0][1] == g_float_zero &&
+                rotation[2][1] == g_float_zero && rotation[0][2] == g_float_zero &&
+                rotation[1][2] == g_float_zero) {
                 if (count != 0 && (location.x != g_float_zero || location.y != g_float_zero ||
                                    location.z != g_float_zero)) {
-                    srMath::add(
-                        {world_vertices, static_cast<std::size_t>(static_cast<SRDWORD>(count))},
-                        location, world_vertices);
+                    for (std::size_t i = 0; i < count; ++i)
+                        world_vertices[i] = location + world_vertices[i];
                 }
             } else if (count != 0) {
-                srMatrix4T<float> transform;
-                transform.Set(rotation, location);
-                srMath::transform(
-                    {world_vertices, static_cast<std::size_t>(static_cast<SRDWORD>(count))},
-                    world_vertices, transform);
+                glm::mat4 transform;
+                {
+                    transform = glm::mat4(rotation);
+                    transform[3] = glm::vec4(location.glmValue(), 1);
+                };
+                {
+                    const auto transform_matrix = transform;
+                    for (std::size_t i = 0; i < count; ++i)
+                        world_vertices[i] = glm::vec3(
+                            transform_matrix * glm::vec4(world_vertices[i].glmValue(), 1.0f));
+                }
             }
         }
 
         srVector3T<float>* world_normals;
-        if (rotation.vectors[0].x == g_float_one && rotation.vectors[1].y == g_float_one &&
-            rotation.vectors[2].z == g_float_one && rotation.vectors[0].y == g_float_zero &&
-            rotation.vectors[0].z == g_float_zero && rotation.vectors[1].x == g_float_zero &&
-            rotation.vectors[1].z == g_float_zero && rotation.vectors[2].x == g_float_zero &&
-            rotation.vectors[2].y == g_float_zero) {
+        if (rotation[0][0] == g_float_one && rotation[1][1] == g_float_one &&
+            rotation[2][2] == g_float_one && rotation[1][0] == g_float_zero &&
+            rotation[2][0] == g_float_zero && rotation[0][1] == g_float_zero &&
+            rotation[2][1] == g_float_zero && rotation[0][2] == g_float_zero &&
+            rotation[1][2] == g_float_zero) {
             world_normals = normals;
         } else {
             world_normals =
@@ -226,25 +221,30 @@ unsigned char BakeInstanceVertexLighting(stModelInstance* instance, srNode* ligh
             }
             srVector3T<float> origin(0.0f, 0.0f, 0.0f);
             if (count != 0) {
-                srMatrix4T<float> transform;
-                transform.Set(rotation, origin);
-                srMath::transform(
-                    {world_normals, static_cast<std::size_t>(static_cast<SRDWORD>(count))}, normals,
-                    transform);
+                glm::mat4 transform;
+                {
+                    transform = glm::mat4(rotation);
+                    transform[3] = glm::vec4(origin.glmValue(), 1);
+                };
+                {
+                    const auto transform_matrix = transform;
+                    for (std::size_t i = 0; i < count; ++i)
+                        world_normals[i] =
+                            glm::vec3(transform_matrix * glm::vec4(normals[i].glmValue(), 1.0f));
+                }
             }
         }
 
         srNode* light_node = lights;
         while (light_node != 0) {
-            if (light_node->getClassID() == stLight::CLASS_ID &&
-                _strnicmp(light_node->getName().c_str(), "Sun", 3) != 0) {
-                stLight* light = static_cast<stLight*>(light_node);
+            stLight* light = sr_cast<stLight>(light_node);
+            if (light != 0 && _strnicmp(light->getName().c_str(), "Sun", 3) != 0) {
                 srVector3T<float> attenuation = light->opengl_attenuation;
                 float range =
                     static_cast<float>(g_light_range_attenuation_numerator /
                                        (attenuation.y * g_light_range_attenuation_denominator));
                 srVector3T<float> light_position;
-                light_position = light_node->getWorldSpaceLocation();
+                light_position = glm::vec3(light_node->getWorldSpaceLocation());
                 srVector3T<float> light_min(light_position.x - range, light_position.y - range,
                                             light_position.z - range);
                 srVector3T<float> light_max(light_position.x + range, light_position.y + range,
@@ -272,12 +272,13 @@ unsigned char BakeInstanceVertexLighting(stModelInstance* instance, srNode* ligh
                         float distance = direction.Length();
                         if (distance <= range) {
                             direction.Normalize();
-                            float facing = DotProduct(direction, world_normals[index]);
+                            float facing =
+                                glm::dot(direction.glmValue(), world_normals[index].glmValue());
                             if (facing < g_double_zero) {
                                 double contribution =
                                     -facing * intensity * (g_double_one - distance / range);
                                 if (vertex_materials != 0) {
-                                    srMaterialIFace* vertex_material = vertex_materials[index];
+                                    srMaterialIFace* vertex_material = vertex_materials[index].get();
                                     if (vertex_material != 0) {
                                         material_diffuse = static_cast<srMaterial*>(vertex_material)
                                                                ->parms.diffuse;
@@ -315,11 +316,11 @@ unsigned char BakeInstanceVertexLighting(stModelInstance* instance, srNode* ligh
         if (locations_allocated) {
             free(world_vertices);
         }
-        if (rotation.vectors[0].x != g_float_one || rotation.vectors[1].y != g_float_one ||
-            rotation.vectors[2].z != g_float_one || rotation.vectors[0].y != g_float_zero ||
-            rotation.vectors[0].z != g_float_zero || rotation.vectors[1].x != g_float_zero ||
-            rotation.vectors[1].z != g_float_zero || rotation.vectors[2].x != g_float_zero ||
-            rotation.vectors[2].y != g_float_zero) {
+        if (rotation[0][0] != g_float_one || rotation[1][1] != g_float_one ||
+            rotation[2][2] != g_float_one || rotation[1][0] != g_float_zero ||
+            rotation[2][0] != g_float_zero || rotation[0][1] != g_float_zero ||
+            rotation[2][1] != g_float_zero || rotation[0][2] != g_float_zero ||
+            rotation[1][2] != g_float_zero) {
             free(world_normals);
         }
         if (directions != 0) {
@@ -327,7 +328,7 @@ unsigned char BakeInstanceVertexLighting(stModelInstance* instance, srNode* ligh
             directions = 0;
             mesh->flags |= W8_MESH_VERTEX_LIGHTING_DIRTY;
         }
-        mesh = mesh->next;
+        mesh = mesh->Next();
     }
     return 1;
 }
@@ -342,8 +343,7 @@ unsigned char FinalizeWorldScenes(srNode* node, srNode* dynamic_scene)
         if (node->first_child_ != 0) {
             FinalizeWorldScenes(node->first_child_, dynamic_scene);
         }
-        if (node->getClassID() == stModelInstance::CLASS_ID) {
-            stModelInstance* instance = static_cast<stModelInstance*>(node);
+        if (auto* instance = sr_cast<stModelInstance>(node)) {
             BakeInstanceVertexLightingIfNeeded(instance, dynamic_scene);
         }
     }
@@ -372,8 +372,7 @@ unsigned char BakeInstanceVertexLightingIfNeeded(stModelInstance* instance, srNo
 void SetWorldMeshVertexLightTable(W8World* world, int table)
 {
     if (world->octree == 0) {
-        for (stMeshModel* model = static_cast<stMeshModel*>(world->update_mesh_source->getModel());
-             model != 0; model = model->next) {
+        for (stMeshModel* model : stMeshModel::Meshes(static_cast<stMeshModel*>(world->update_mesh_source->getModel()))) {
             model->vertex_light_table = table;
             model->flags |= W8_MESH_VERTEX_LIGHTING_DIRTY;
         }
@@ -381,8 +380,7 @@ void SetWorldMeshVertexLightTable(W8World* world, int table)
         for (unsigned int mesh = 0; mesh < world->octree->m_meshCount; ++mesh) {
             srModelInstance* instance = world->psrMeshes[mesh];
             if (instance != 0) {
-                for (stMeshModel* model = static_cast<stMeshModel*>(instance->getModel());
-                     model != 0; model = model->next) {
+                for (stMeshModel* model : stMeshModel::Meshes(static_cast<stMeshModel*>(instance->getModel()))) {
                     model->vertex_light_table = table;
                     model->flags |= W8_MESH_VERTEX_LIGHTING_DIRTY;
                 }
@@ -556,11 +554,9 @@ void ExpandBounds(srVector3T<float>* minimum, srVector3T<float>* maximum,
     maximum->z = maximum->z > candidate_maximum->z ? maximum->z : candidate_maximum->z;
 }
 
-/* Build the concrete first-party instance used for an already-created mesh.
-   Its model assignment goes through srModel::Client, exactly as the ordinary
-   SurRender ownership interface requires. */
+/* Build the concrete first-party instance used for an already-created mesh. */
 // FUNCTION: WIZ8 0x0046F5C0
-stModelInstance* CreateModelInstance(stMeshModel* model)
+stModelInstance* CreateModelInstance(std::shared_ptr<stMeshModel> model)
 {
     stModelInstance* instance;
 
@@ -590,7 +586,6 @@ stModelInstance* DuplicateModelInstance(stModelInstance* instance)
     }
     *copy = *instance;
     copy->setName("ST_CreateInstance");
-    copy->setModel(instance->getModel());
     return copy;
 }
 
@@ -632,7 +627,7 @@ stLight* CreateWorldLight(W8World* world, const char* name)
     light->enable_flags |= (1UL << srLight::ENABLE_BOUNDING_SPHERE);
 
     if (world != 0) {
-        PLAdoptAppend(&world->transient_lights, light);
+        world->transient_lights.push_back(light);
     }
     return light;
 }
@@ -664,12 +659,11 @@ stLight* CreateRangedWorldLight(W8World* world, const char* name)
     light->far_end = 1500.0;
     light->safe_range = 5000.0f;
     light->setLinearAttenuation(1500.0f, 0.0019569471f);
-    PLAdoptAppend(&world->transient_lights, light);
+    world->transient_lights.push_back(light);
     return light;
 }
 
-/* Take a light out of both of the world's light collections and release it.
-   The update list's Remove is the inlined growable-vector search-and-shift. */
+/* Take a light out of both world collections and release it. */
 // FUNCTION: WIZ8 0x0046e250
 void WorldRemoveLight(W8World* world, stLight* light)
 {
@@ -679,10 +673,10 @@ void WorldRemoveLight(W8World* world, stLight* light)
     if (light == 0) {
         srAssertFail("pLight", THREE_D_CPP, 0x279, 0);
     }
-    PListRemove(&world->transient_lights, light);
-    world->lights_to_update->Remove(light);
+    wiz8::erase_first(world->transient_lights, light);
+    wiz8::erase_first(*world->lights_to_update, light);
     if (light != 0) {
-        light->release();
+        delete light;
     }
 }
 
@@ -710,7 +704,7 @@ void WorldUpdateProps(W8World* world)
         srAssertFail("pWorld && pWorld->plsProps", "C:\\Projects\\Wizardry 8\\Engine Code\\3d.cpp",
                      0x158, 0);
     }
-    count = static_cast<int>(PLLength(world->plsProps));
+    count = static_cast<int>((world->plsProps ? world->plsProps->size() : 0));
     for (index = 0; index < count; index++) {
         prop = GetWorldProp(world, index);
         if (prop) {
@@ -724,11 +718,10 @@ void WorldUpdateProps(W8World* world)
 // FUNCTION: WIZ8 0x0046df50
 void WorldUpdateLights(W8World* world)
 {
-    int count = world->lights_to_update->GetCount();
+    int count = static_cast<int>(world->lights_to_update->size());
 
     for (int index = 0; index < count; ++index) {
-        stLight** light = world->lights_to_update->GetAt(index);
-        (*light)->Update();
+        (*world->lights_to_update)[index]->Update();
     }
 }
 
@@ -737,31 +730,22 @@ void WorldUpdateLights(W8World* world)
    this global instead. */
 
 // FUNCTION: WIZ8 0x0046e580
-void AddMonsterToWorld(W8World*, W8Monster* monster)
-{
-    PLAdoptAppend(g_world->plsMonsters, monster);
-}
+void AddMonsterToWorld(W8World*, W8Monster* monster) { g_world->plsMonsters->push_back(monster); }
 
 // FUNCTION: WIZ8 0x0046e5c0
-void AddItemToWorld(W8World*, W8Item* item)
-{
-    PLAdoptAppend(g_world->plsItems, item);
-}
+void AddItemToWorld(W8World*, W8Item* item) { g_world->plsItems->push_back(item); }
 
 // FUNCTION: WIZ8 0x0046e5e0
 void RemoveItemFromWorld(W8World*, W8Item* item)
 {
-    PListRemove(g_world->plsItems, item);
+    wiz8::erase_first(*g_world->plsItems, item);
 }
 
 /* How many props the world holds, and the one at a position - both answers
    discarded by the wrapper itself, which is what makes these thin forwarders
    rather than accessors. */
 // FUNCTION: WIZ8 0x0046e600
-int WorldGetPropCount(W8World*)
-{
-    return PLLength(g_world->plsProps);
-}
+int WorldGetPropCount(W8World*) { return (g_world->plsProps ? g_world->plsProps->size() : 0); }
 
 // FUNCTION: WIZ8 0x0046e620
 W8Prop* WorldGetPropAt(W8World*, int index)
@@ -789,10 +773,8 @@ void SetSceneMeshShaderBit3(srNode* node, int argument)
 {
     srShader shader;
     for (; node != 0; node = node->next_sibling_) {
-        if (node->getClassID() == stModelInstance::CLASS_ID) {
-            stModelInstance* instance = static_cast<stModelInstance*>(node);
-            for (stMeshModel* mesh = static_cast<stMeshModel*>(instance->getModel()); mesh != 0;
-                 mesh = mesh->next) {
+        if (auto* instance = sr_cast<stModelInstance>(node)) {
+            for (stMeshModel* mesh : stMeshModel::Meshes(static_cast<stMeshModel*>(instance->getModel()))) {
                 srShader* polygon_shader = mesh->getPolyShader(0, 0);
                 bool clear = argument == 0 || (mesh->flags & W8_MESH_SORTED_RENDERING) != 0;
 
@@ -828,10 +810,8 @@ void SetSceneMeshShaderLowBits(srNode* node, int argument)
 {
     srShader shader;
     for (; node != 0; node = node->next_sibling_) {
-        if (node->getClassID() == stModelInstance::CLASS_ID) {
-            stModelInstance* instance = static_cast<stModelInstance*>(node);
-            for (stMeshModel* mesh = static_cast<stMeshModel*>(instance->getModel()); mesh != 0;
-                 mesh = mesh->next) {
+        if (auto* instance = sr_cast<stModelInstance>(node)) {
+            for (stMeshModel* mesh : stMeshModel::Meshes(static_cast<stMeshModel*>(instance->getModel()))) {
                 if ((mesh->flags & W8_MESH_SORTED_RENDERING) != 0) {
                     continue;
                 }
@@ -933,7 +913,7 @@ double WorldGetFarClip(W8World* world)
 // FUNCTION: WIZ8 0x0046E5A0
 void RemoveMonsterFromWorldList(W8World*, W8Monster* monster)
 {
-    PListRemove(g_world->plsMonsters, monster);
+    wiz8::erase_first(*g_world->plsMonsters, monster);
 }
 
 // FUNCTION: WIZ8 0x0046DC90
@@ -1084,7 +1064,8 @@ bool SphereInsideFrustum(const srVector3T<float>* point, float radius, const W8P
     bool inside = true;
 
     for (short plane = 0; plane < 6 && inside; ++plane) {
-        if (DotProduct(*point, planes[plane].normal) + planes[plane].w < -radius) {
+        if (glm::dot(point->glmValue(), planes[plane].normal.glmValue()) + planes[plane].w <
+            -radius) {
             inside = false;
         }
     }
@@ -1124,5 +1105,5 @@ bool BoundsInsideFrustum(const W8OctRegionVolume* volume, const W8BoundingBox* b
     return false;
 }
 
-/* srMatrix4T<float>::Set emitted for this TU (BakeInstanceVertexLighting's
+/* glm::mat4::Set emitted for this TU (BakeInstanceVertexLighting's
    transform builds); the primary template lives in srMath.h. */

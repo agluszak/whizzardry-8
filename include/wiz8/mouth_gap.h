@@ -37,6 +37,7 @@ extern "C" { /* C-LINKAGE: src/wiz8/engine_code/gap.c is a C translation unit */
 
 /* Engine Code\gap.c: mouth-gap companions to voice .wav files. */
 void LoadMouthGapTrack(char* path, W8MouthGapTrack* track);              /* 0x005E2D10 */
+// Tracks must initially be zero-initialized; loading replaces their ranges.
 void FreeMouthGapTrack(W8MouthGapTrack* track);                          /* 0x005E2EF0 */
 void UpdateMouthGapTrack(unsigned int sound_id, W8MouthGapTrack* track); /* 0x005E2F40 */
 

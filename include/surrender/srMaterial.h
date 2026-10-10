@@ -32,7 +32,6 @@ public:
 
     virtual void dump(std::ostream& stream) override;
     virtual void verify(srRuntimeClass::e_verify mode) override;
-    virtual srClass* vInstance() override;
 
     virtual void getMaterialInfo(srVertexProcessor::MaterialInfo& info) override;
     virtual void preProcess(srVertexPipe& pipe) override;
@@ -47,35 +46,35 @@ public:
     srMaterial& operator=(const srMaterial& other);
     void disable(e_oper operation);
     void enable(e_oper operation);
-    srVector4T<float> getAmbient() const;
-    void getAmbient(srVector4T<float>& ambient) const;
-    srVector4T<float> getDiffuse() const;
-    void getDiffuse(srVector4T<float>& diffuse) const;
-    srVector4T<float> getEmissive() const;
-    void getEmissive(srVector4T<float>& emissive) const;
+    glm::vec4 getAmbient() const;
+    void getAmbient(glm::vec4& ambient) const;
+    glm::vec4 getDiffuse() const;
+    void getDiffuse(glm::vec4& diffuse) const;
+    glm::vec4 getEmissive() const;
+    void getEmissive(glm::vec4& emissive) const;
     srVertexProcessor* getMapper() const;
     float getOpacity() const;
     float getShininess() const;
-    srVector4T<float> getSpecular() const;
-    void getSpecular(srVector4T<float>& specular) const;
+    glm::vec4 getSpecular() const;
+    void getSpecular(glm::vec4& specular) const;
     float getTranslucency() const;
     int isEnabled(e_oper operation) const;
     // FUNCTION: SURRENDER 0x10034930 SYMBOL
     // RECOMP: ?setAmbient@srMaterial@@QAEXABV?$srVector4T@M@@@Z
-    void setAmbient(const srVector4T<float>& ambient)
+    void setAmbient(const glm::vec4& ambient)
     {
         setVector(parms.ambient, ambient);
     }
-    void setAmbientAndDiffuse(const srVector4T<float>& color);
+    void setAmbientAndDiffuse(const glm::vec4& color);
     // FUNCTION: SURRENDER 0x10034960 SYMBOL
     // RECOMP: ?setDiffuse@srMaterial@@QAEXABV?$srVector4T@M@@@Z
-    inline void setDiffuse(const srVector4T<float>& diffuse)
+    inline void setDiffuse(const glm::vec4& diffuse)
     {
         setVector(parms.diffuse, diffuse);
     }
     // FUNCTION: SURRENDER 0x10034990 SYMBOL
     // RECOMP: ?setEmissive@srMaterial@@QAEXABV?$srVector4T@M@@@Z
-    inline void setEmissive(const srVector4T<float>& emissive)
+    inline void setEmissive(const glm::vec4& emissive)
     {
         setVector(parms.emissive, emissive);
     }
@@ -95,14 +94,14 @@ public:
     void setShininess(double shininess);
     // FUNCTION: SURRENDER 0x100349C0 SYMBOL
     // RECOMP: ?setSpecular@srMaterial@@QAEXABV?$srVector4T@M@@@Z
-    inline void setSpecular(const srVector4T<float>& specular)
+    inline void setSpecular(const glm::vec4& specular)
     {
         setVector(parms.specular, specular);
     }
     void setTranslucency(double translucency);
 
 protected:
-    void setVector(srVector4T<float>& destination, const srVector4T<float>& source);
+    void setVector(glm::vec4& destination, const glm::vec4& source);
 
 public:
     srVertexProcessor::MaterialInfo parms; /* 0x18 */
@@ -111,4 +110,3 @@ public:
     int dirty;                             /* 0x74 */
 };
 
-W8_ABI_ASSERT((sizeof(srMaterial) == 0x78), "srMaterial_must_be_0x78");

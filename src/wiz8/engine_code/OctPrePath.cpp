@@ -5,9 +5,10 @@
 #include "wiz8/engine_code/materials.h"
 #include "wiz8/float_constants.h"
 #include "wiz8/local_screens/AutomapScreen.h"
-#include "wiz8/vector.h"
+#include <vector>
 #include "wiz8/sr_api.h"
 
+#include <algorithm>
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -181,7 +182,7 @@ W8PrePathNode* PrePathing::GetPathNode()
 
 // FUNCTION: WIZ8 0x004CD2C0
 unsigned char PrePathing::BuildPathList(W8PrePathNode* nodes,
-                                        W8HashTable<unsigned int, int>* cell_map)
+                                        std::unordered_map<unsigned int, int>* cell_map)
 {
     this->cell_map = cell_map;
     path_log = new OctPrePathLog(grid_scale, &level_bounds);
@@ -211,7 +212,7 @@ W8PrePathNode* PrePathing::FindAdjacentPathNode(const W8PrePathNode* node, int d
     StepPathCell(&x, &z, direction);
     unsigned int key = (z << 0x10) + x;
     W8PrePathNode* target = 0;
-    unsigned int index = cell_map->Lookup(&key);
+    unsigned int index = LookupIndexValue(*cell_map, key);
     if (index != 0 && index < static_cast<unsigned int>(path_node_count)) {
         target = path_node_list[index];
     }
@@ -374,7 +375,7 @@ unsigned int PrePathing::DeleteUnreachableAreas()
                         bool first_probe = true;
                         StepPathCell(&x, &z, direction);
                         unsigned int key = (z << 0x10) + x;
-                        unsigned int next_index = cell_map->Lookup(&key);
+                        unsigned int next_index = LookupIndexValue(*cell_map, key);
                         if (static_cast<unsigned int>(path_node_count) <= next_index) {
                             next_index = 0;
                         }
@@ -455,13 +456,13 @@ unsigned int PrePathing::DeleteUnreachableAreas()
     component_done:
         m_visited_path_nodes->UnionWith(*m_collected_path_nodes);
     }
-    cell_map->Clear();
+    cell_map->clear();
     int kept = 1;
     for (unsigned int j = 1; j < static_cast<unsigned int>(path_node_count); ++j) {
         W8PrePathNode* node = path_node_list[j];
         if ((node->level_flags & W8_PREPATH_NODE_PRUNED) == 0) {
             path_node_list[kept] = node;
-            cell_map->Insert(&node->cell, &kept);
+            cell_map->insert_or_assign(node->cell, kept);
             if (j != static_cast<unsigned int>(kept)) {
                 path_node_list[j] = 0;
             }
@@ -521,8 +522,8 @@ int PrePathing::CreatePathNodeArray()
 unsigned char PrePathing::CreateAutomapNodes(W8LevelFile* level)
 {
     int last_percent = 0;
-    W8GrowableVector<int> node_keys;
-    W8HashTable<unsigned int, unsigned char> used_keys;
+    std::vector<int> node_keys;
+    std::unordered_map<unsigned int, unsigned char> used_keys;
     char message[0x400];
 
     if (path_node_list == 0) {
@@ -545,17 +546,17 @@ unsigned char PrePathing::CreateAutomapNodes(W8LevelFile* level)
                      (node->level_flags & W8_PATH_CELL_HEIGHT_MASK) * span,
                      (node->cell >> 0x10) * grid_scale);
         unsigned int key = AutomapNodeKey(&position);
-        if (used_keys.FindNextEntry(&key, -1) == -1) {
-            node_keys.Add(key);
+        if (!used_keys.contains(key)) {
+            node_keys.push_back(key);
             unsigned char present = 1;
-            used_keys.Insert(&key, &present);
+            used_keys.emplace(key, present);
             ++created;
         }
     }
-    used_keys.Clear();
-    level->num_automap_nodes = node_keys.GetCount();
+    used_keys.clear();
+    level->num_automap_nodes = static_cast<int>(node_keys.size());
     sprintf(message, "Creating Automap Nodes:  100%% Complete:  %d Automap Nodes created  \n",
-            node_keys.GetCount());
+            static_cast<int>(node_keys.size()));
     ReportStartupMessage(message);
     sprintf(message, "  %d Total Automap Nodes.\n", level->num_automap_nodes);
     ReportBuildStatus(6, message);
@@ -564,9 +565,9 @@ unsigned char PrePathing::CreateAutomapNodes(W8LevelFile* level)
         level->num_automap_nodes = 0;
     } else {
         for (i = 0; i < static_cast<unsigned int>(level->num_automap_nodes); ++i) {
-            level->automap_nodes[i] = *node_keys.GetAt(i);
+            level->automap_nodes[i] = node_keys[i];
         }
-        QuickSort(level->automap_nodes, 0, level->num_automap_nodes - 1);
+        std::sort(level->automap_nodes, level->automap_nodes + level->num_automap_nodes);
     }
     for (i = 1; i < static_cast<unsigned int>(path_node_count); ++i) {
         path_node_list[i] = 0;
@@ -578,7 +579,7 @@ unsigned char PrePathing::CreateAutomapNodes(W8LevelFile* level)
 
 // FUNCTION: WIZ8 0x004CE510
 void W8PathingService::LinkCollideableProps(int lNumProps, W8PreProp* pPreProps,
-                                            W8HashTable<unsigned int, CondPathNode*>* pCondValues)
+                                            std::unordered_multimap<unsigned int, CondPathNode*>* pCondValues)
 {
     int aiLookup[10000];
     unsigned int aulKeys[10000];
@@ -589,9 +590,9 @@ void W8PathingService::LinkCollideableProps(int lNumProps, W8PreProp* pPreProps,
     m_ulNumCondPaths = 1;
     m_ulNumCondNodes = 1;
     m_ulNumCondFrames = 1;
-    m_pPathValues = new W8HashTable<unsigned int, unsigned int>;
+    m_pPathValues = new std::unordered_multimap<unsigned int, unsigned int>;
     for (i = 0; i < path_node_count; ++i) {
-        m_pPathValues->Insert(&file_path_nodes[i].cell, &file_path_nodes[i].level_flags);
+        InsertIndexValue(*m_pPathValues, file_path_nodes[i].cell, file_path_nodes[i].level_flags);
     }
 
     GDPropCondPaths** ppCondPaths = static_cast<GDPropCondPaths**>(malloc((lNumProps + 2) * sizeof(*ppCondPaths)));
@@ -611,10 +612,10 @@ void W8PathingService::LinkCollideableProps(int lNumProps, W8PreProp* pPreProps,
                 unsigned int key =
                     (static_cast<unsigned int>(pProp->pStopMeshes[j].m_prop_number) << 16) |
                     (i + 1);
-                int slot = pCondValues->FindNextEntry(&key, -1);
-                if (slot != -1) {
+                auto slot = pCondValues->equal_range(key).first;
+                if (slot != pCondValues->end()) {
                     do {
-                        CondPathNode* puValue = pCondValues->entries[slot].value;
+                        CondPathNode* puValue = slot->second;
                         if ((puValue != 0) &&
                             (FindConditionalPathValue(puValue->cell, puValue->value) != 0)) {
                             if (ppCondPaths[i] == 0) {
@@ -654,8 +655,8 @@ void W8PathingService::LinkCollideableProps(int lNumProps, W8PreProp* pPreProps,
                             }
                             free(puValue);
                         }
-                        slot = pCondValues->FindNextEntry(&key, slot);
-                    } while (slot != -1);
+                        slot = NextIndexValue(*pCondValues, key, slot);
+                    } while (slot != pCondValues->end());
                 }
                 if (bWroteFrame) {
                     aulKeys[m_ulNumCondNodes] = 0;

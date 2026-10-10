@@ -68,17 +68,17 @@ public:
     void SetLocation(const srVector3T<float>* location);
     void GetLocation(srVector3T<float>* location) const;
     void GetLocalLocation(srVector3T<float>* location) const;
-    void SetRotation(const srMatrix3T<float>* rotation);
-    void GetRotation(srMatrix3T<float>* rotation);
+    void SetRotation(const glm::mat3* rotation);
+    void GetRotation(glm::mat3* rotation);
 
 public:
     srVector3T<float> location;
     srVector3T<float> local_location;
     srVector3T<float> parent_location;
-    srMatrix3T<float> rotation;
+    glm::mat3 rotation;
     /* RGBA highlight colour; GrCycle copies it into the 3D mesh instance,
        which renders it as its highlight material's emissive colour. */
-    srVector4T<float> highlight_colour;
+    glm::vec4 highlight_colour;
     /* Set by monster scale transitions; GrCycle copies it to model instances
        only when +0x61 enables that path. A value of one clears the instance
        scale flag instead of storing a redundant scale. */

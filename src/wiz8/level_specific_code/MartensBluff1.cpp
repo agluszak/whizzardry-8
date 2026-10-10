@@ -2,7 +2,8 @@
 #include "wiz8/level_specific_code/MartensBluff1.h"
 #include "wiz8/engine_code/Trigger.hpp"
 #include "wiz8/engine_code/World.h"
-#include "wiz8/3d_code/IList.h"
+#include <vector>
+#include <algorithm>
 #include "wiz8/engine_code/IntervalGate.h"
 #include "wiz8/engine_code/Monster.h"
 #include "wiz8/engine_code/Octree.h"
@@ -77,7 +78,7 @@ void MartensBluff1Setup(void)
         CreateLocationVar("DialState", 0x470111);
     }
     MartensBluff1Transporter(static_cast<int>(0xEFFFFFFF));
-    position = GetWorld()->camera->getLocation();
+    position = glm::vec3(GetWorld()->camera->getLocation());
     pTrigger = FindTriggerByName("MR101");
     if (pTrigger != 0 && (pTrigger->flags & W8_TRIGGER_POSITIONED) != 0) {
         pTrigger->GetPosition(&trigger_position);
@@ -256,7 +257,7 @@ bool MartensBluff1JDoorController(Trigger* pTrigger)
         g_gas_sound1 = CreateAndPlaySoundNode("Data\\Sound\\Ambients\\Air_Escaping_Loop.wav",
                                               position, 0.3f, 30.0f, true);
     }
-    position = GetWorld()->camera->getLocation();
+    position = glm::vec3(GetWorld()->camera->getLocation());
     PointCastSpell(position, W8_SPELL_FREEZE_FLESH, 5);
     state |= 0x10000000;
     SetTriggerVariableByName("DialState", state);
@@ -304,7 +305,7 @@ bool MartensBluff1TransportSpawn(void)
     CreateAndPlaySoundNode("Data\\Sound\\Ambients\\TrangTransporter.wav", position_a, 0.7f, 30.0f,
                            false);
     group = SpawnMonsters(0x177, 1, &position_a, 0, true, false, false);
-    location_id = IListGetAt(group->monsters, 0);
+    location_id = group->MemberLocationId(0);
     if (location_id != 0) {
         info = MonsterGetScriptPartByLocationIndex(
             MonsterGetIndexByLocationID(0x1fd, MARTENSBLUFF1_CPP, location_id, true));
@@ -340,7 +341,7 @@ void MartensBluff1Transporter(int command)
                 g_transport_gate->SetProgress(GetLocationVarValueByName("TransportSpawn") *
                                               g_movement_speed_step);
             }
-            g_master_functions->Add(MartensBluff1Transporter);
+            g_master_functions.push_back(MartensBluff1Transporter);
             return;
         }
         if (command != -1) {

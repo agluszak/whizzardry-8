@@ -61,17 +61,12 @@ void stParticle::SetRenderFlags(srShader flags)
 // FUNCTION: WIZ8 0x0049ADB0
 stParticle* FindRegisteredParticle(const char* name)
 {
-    stParticle* particle = 0;
-    char* uppercase_name = static_cast<char*>(malloc(strlen(name) + 1));
-
-    if (uppercase_name != 0) {
-        strcpy(uppercase_name, name);
-        _strupr(uppercase_name);
-        particle = static_cast<stParticle*>(
-            srCore.getRegistry()->find(stParticle::sGetClassNode(), uppercase_name, 0));
+    std::string uppercase_name = name;
+    for (char& character : uppercase_name) {
+        character = static_cast<char>(toupper(static_cast<unsigned char>(character)));
     }
-    free(uppercase_name);
-    return particle;
+    return static_cast<stParticle*>(
+        srCore.getRegistry()->find(stParticle::sGetClassNode(), uppercase_name, 0));
 }
 
 // FUNCTION: WIZ8 0x0049AE90
@@ -144,229 +139,72 @@ void LoadParticleStates(wiz8::File* handle)
     }
 }
 
-static void SetParticleQuadTriangles(srVector3i* triangles, unsigned int vertex)
+void stParticle::AllocateParticles(unsigned int count)
 {
-    triangles[0].x = vertex;
-    triangles[0].y = vertex + 1;
-    triangles[0].z = vertex + 2;
-    triangles[1].x = vertex + 2;
-    triangles[1].y = vertex + 3;
-    triangles[1].z = vertex;
+    if (count >= 10000) {
+        srAssertFail("cnt < 10000", ST_PARTICLE_CPP, 0x41, 0);
+    }
+    particle_count = count;
+    particle_positions.assign(count, srVector3T<float>(0.0f, 0.0f, 0.0f));
+    velocities.resize(count);
+    birth_ticks.resize(count);
+    particle_active.assign(count, false);
+    active_triangles.resize(count * 2);
+    vertex_positions.resize(count * 4);
+    texcoords.resize(count * 4);
+    alphas.assign(count * 4, 1.0f);
+    triangles.resize(count * 2);
+    for (unsigned int index = 0; index < count; ++index) {
+        int vertex = static_cast<int>(index * 4);
+        triangles[index * 2] = srVector3i{vertex, vertex + 1, vertex + 2};
+        triangles[index * 2 + 1] = srVector3i{vertex + 2, vertex + 3, vertex};
+        texcoords[vertex] = glm::vec2(0.0f, 0.0f);
+        texcoords[vertex + 1] = glm::vec2(1.0f, 0.0f);
+        texcoords[vertex + 2] = glm::vec2(1.0f, 1.0f);
+        texcoords[vertex + 3] = glm::vec2(0.0f, 1.0f);
+    }
 }
 
 // FUNCTION: WIZ8 0x00497AF0
 stParticle::stParticle(srNode* parent, int count)
     : srClassSupport<stParticle, srNode, 0x10009>(static_cast<srNode*>(0))
 {
-    persisted = false;
-    update_flags = 0;
-    attachment_key = -1;
-    start_frame = -1;
-    end_frame = -1;
-    callback = 0;
-    size_scale = 1.0f;
-
     setParent(parent, 1);
-
-    particle_count = count;
-    particle_positions = 0;
-    texcoords = 0;
-    vertex_positions = 0;
-    vertex_extras = 0;
-    triangles = 0;
-    colors = 0;
-    texture = 0;
-    requires_sorted_renderer = 0;
-    particle_size = 1.0;
-
     if (count == 0) {
         return;
     }
-
-    if (count >= 10000) {
-        srAssertFail("cnt < 10000", ST_PARTICLE_CPP, 0x41, 0);
-    }
-
-    particle_positions =
-        static_cast<srVector3T<float>*>(std::malloc(count * sizeof(srVector3T<float>)));
-    /* 0x00497C57 and 0x00498360 test the count parameter signed, while every
-       comparison against the stored particle_count (0x00497D6C, 0x00497E74)
-       and vertex_count (0x00497EA8) is unsigned. */
-    int i;
-    for (i = 0; i < count; ++i) {
-        particle_positions[i] = 0.0f;
-    }
-
-    vertex_count = count * 4;
-    texture_frame_count = count * 2;
-    texcoords =
-        static_cast<srVector2T<float>*>(std::malloc(vertex_count * sizeof(srVector2T<float>)));
-    vertex_positions =
-        static_cast<srVector3T<float>*>(std::malloc(vertex_count * sizeof(srVector3T<float>)));
-    triangles = static_cast<srVector3i*>(std::malloc(count * 2 * sizeof(srVector3i)));
-    alphas = new float[vertex_count];
-    texture_frames = 0;
-
-    for (i = 0; i < count; ++i) {
-        unsigned int vertex = i * 4;
-        unsigned int triangle = i * 2;
-        SetParticleQuadTriangles(triangles + triangle, vertex);
-
-        particle_positions[i] = 0.0f;
-
-        texcoords[vertex].SetZero();
-        texcoords[vertex + 1].Set(1.0f, 0.0f);
-        texcoords[vertex + 2].Set(1.0f, 1.0f);
-        texcoords[vertex + 3].Set(0.0f, 1.0f);
-    }
-
-    for (unsigned int v = 0; v < vertex_count; ++v) {
-        alphas[v] = 1.0f;
-    }
-
-    emitting = 1;
-    traversal_enabled = true;
-    material = 0;
-    emission_limit = 0;
-    release_when_done = false;
-    replace_when_full = false;
-    emission_count = 0;
-    active_triangles = new w8_ulong[texture_frame_count];
-    active_particle_count = 0;
-    velocities =
-        static_cast<srVector3T<float>*>(std::malloc(count * sizeof(srVector3T<float>)));
-    birth_ticks = new unsigned int[count];
-    particle_active = new bool[count];
-    memset(particle_active, 0, count);
-
-    has_acceleration = 0;
-    expiry_mode = W8_PARTICLE_EXPIRY_TIMED;
-    emission_mode = W8_PARTICLE_EMISSION_NONE;
-    los_check_enabled = 0;
-    direction_mode = W8_PARTICLE_DIRECTION_CONE;
-    camera_relative = 0;
-    emission_interval = 50;
-    lifetime_ms = 1500;
-    bounds_mode = W8_PARTICLE_BOUNDS_SPHERE;
-    speed_mode = W8_PARTICLE_SPEED_RANDOM;
-    emission_minimum = -250.0f;
-    emission_maximum = 250.0f;
-    direction.Set(0.0f, -1.0f, 0.0f);
-    initial_speed = 500.0f;
-    acceleration.Set(0.0f, -4905.0f, 0.0f);
-    flutter_mode = W8_PARTICLE_FLUTTER_NONE;
-    m_pflFlutterAngle = 0;
-    flutter_amplitude = 0.0f;
-    flutter_period = 0;
-    speed_max = 4000.0f;
-    cone_yaw = 0.39269906f;
-    cone_pitch = 0.39269906f;
-    speed_min = 1000.0f;
-    lifetime_minimum = -1000.0f;
-    lifetime_maximum = 1000.0f;
-    bounds_origin.SetZero();
-    bounds_radius = 2000.0f;
-    update_flags = 0;
+    AllocateParticles(count);
     last_integration_tick = g_shared_timer_base->milliseconds();
     last_emission_tick = last_integration_tick;
-    emission_gap = 25;
-    last_emitted_at = 0;
 }
 
+/* A copy shares material and static texture, but starts with no live
+   particles, fresh animation frames and fresh timing. */
 // FUNCTION: WIZ8 0x00498180
 stParticle::stParticle(const stParticle& other)
     : srClassSupport<stParticle, srNode, 0x10009>(static_cast<srNode*>(0))
 {
     persisted = other.persisted;
-    update_flags = 0;
     start_frame = other.start_frame;
     end_frame = other.end_frame;
     emission_gap = other.emission_gap;
     size_scale = other.size_scale;
-
-    /* The copied count is compared signed at 0x00498360 even though the member
-       it comes from is stored and compared unsigned. */
-    int count = other.particle_count;
-    if (count == 0) {
+    if (other.particle_count == 0) {
         return;
     }
 
     setParent(other.getParent(), 1);
     setName(other.isNamed() ? other.getName() : std::string{});
-    particle_count = count;
-    particle_positions = 0;
-    texcoords = 0;
-    vertex_positions = 0;
-    vertex_extras = 0;
-    triangles = 0;
-    colors = 0;
-    texture = 0;
+    AllocateParticles(other.particle_count);
     requires_sorted_renderer = other.requires_sorted_renderer;
     particle_size = other.particle_size;
-    texture_frames = 0;
     material = other.material;
-    material->addReference();
-    SetRenderFlags(other.GetRenderFlags());
-
-    particle_positions =
-        static_cast<srVector3T<float>*>(std::malloc(count * sizeof(srVector3T<float>)));
-    if (particle_positions == 0) {
-        srAssertFail("pLoc", ST_PARTICLE_CPP, 0xda, 0);
-    }
-    /* 0x00497C57 and 0x00498360 test the count parameter signed, while every
-       comparison against the stored particle_count (0x00497D6C, 0x00497E74)
-       and vertex_count (0x00497EA8) is unsigned. */
-    int i;
-    for (i = 0; i < count; ++i) {
-        particle_positions[i] = 0.0f;
-    }
-
-    vertex_count = count * 4;
-    texture_frame_count = count * 2;
+    render_flags = other.render_flags;
     SetTexture(other.texture);
-    texcoords =
-        static_cast<srVector2T<float>*>(std::malloc(vertex_count * sizeof(srVector2T<float>)));
-    if (texcoords == 0) {
-        srAssertFail("vUV", ST_PARTICLE_CPP, 0xe4, 0);
-    }
-    vertex_positions =
-        static_cast<srVector3T<float>*>(std::malloc(vertex_count * sizeof(srVector3T<float>)));
-    if (vertex_positions == 0) {
-        srAssertFail("vLoc", ST_PARTICLE_CPP, 0xe5, 0);
-    }
-    triangles = static_cast<srVector3i*>(std::malloc(texture_frame_count * sizeof(srVector3i)));
-    if (triangles == 0) {
-        srAssertFail("pVertex", ST_PARTICLE_CPP, 0xe7, 0);
-    }
-    alphas = new float[vertex_count];
-
-    for (i = 0; i < count; ++i) {
-        unsigned int vertex = i * 4;
-        unsigned int triangle = i * 2;
-        SetParticleQuadTriangles(triangles + triangle, vertex);
-
-        particle_positions[i] = 0.0f;
-        texcoords[vertex].Set(0.0f, 0.0f);
-        texcoords[vertex + 1].Set(1.0f, 0.0f);
-        texcoords[vertex + 2].Set(1.0f, 1.0f);
-        texcoords[vertex + 3].Set(0.0f, 1.0f);
-    }
-    for (unsigned int v = 0; v < vertex_count; ++v) {
-        alphas[v] = 1.0f;
-    }
-
     emission_limit = other.emission_limit;
-    emission_count = 0;
-    active_particle_count = 0;
     release_when_done = other.release_when_done;
     replace_when_full = other.replace_when_full;
-    particle_active = new bool[count];
-    memset(particle_active, 0, count);
-    velocities =
-        static_cast<srVector3T<float>*>(std::malloc(count * sizeof(srVector3T<float>)));
-    birth_ticks = new unsigned int[count];
     emitting = other.emitting;
-    traversal_enabled = true;
     bounds_mode = other.bounds_mode;
     has_acceleration = other.has_acceleration;
     expiry_mode = other.expiry_mode;
@@ -375,7 +213,6 @@ stParticle::stParticle(const stParticle& other)
     direction_mode = other.direction_mode;
     speed_mode = other.speed_mode;
     camera_relative = other.camera_relative;
-    m_pflFlutterAngle = 0;
     flutter_amplitude = other.flutter_amplitude;
     flutter_period = other.flutter_period;
     SetFlutter(other.flutter_mode);
@@ -395,26 +232,19 @@ stParticle::stParticle(const stParticle& other)
     bounds_origin = other.bounds_origin;
     bounds_radius = other.bounds_radius;
     update_flags = W8_PARTICLE_ACTIVE_TRIANGLES_DIRTY;
-    active_triangles = new w8_ulong[texture_frame_count];
     last_integration_tick = g_shared_timer_base->milliseconds();
     last_emission_tick = last_integration_tick;
     attachment_key = other.attachment_key;
-    callback = 0;
 
     setLocation(other.getLocation());
-    srMatrix3T<float> rotation;
+    glm::mat3 rotation;
     other.getRotation(rotation);
     setRotation(rotation);
 
-    srMatrix4T<float> source_world;
+    glm::mat4 source_world;
     other.getWorldSpaceMatrix(source_world);
-    srMatrix4T<double> world;
-    for (i = 0; i < 4; ++i) {
-        world.vectors[i].Set(source_world.vectors[i].x, source_world.vectors[i].y,
-                             source_world.vectors[i].z, source_world.vectors[i].w);
-    }
+    const glm::dmat4 world(source_world);
     setWorldSpaceMatrix(world);
-    last_emitted_at = 0;
 }
 
 // FUNCTION: WIZ8 0x00499A50
@@ -483,9 +313,9 @@ unsigned char stParticle::ActivateParticle(unsigned int* out_index, bool replace
         angle = ((rand() & 0x7fff) * g_particle_random_unit_scale - g_float_half) * cone_yaw;
         direction.RotateAboutY(sin(angle), cos(angle));
 
-        srMatrix3T<float> rotation;
+            glm::mat3 rotation;
         getWorldSpaceRotation(rotation);
-        velocity = rotation.Transform(direction);
+        velocity = rotation * direction.glmValue();
         break;
     }
 
@@ -509,11 +339,11 @@ unsigned char stParticle::ActivateParticle(unsigned int* out_index, bool replace
     srVector3T<double> location = getLocation();
     particle_positions[index] = location;
 
-    if (m_pflFlutterAngle != 0) {
-        m_pflFlutterAngle[index] = (rand() & 0x7fff) * g_particle_flutter_angle_random_scale;
+    if (!flutter_angles.empty()) {
+        flutter_angles[index] = (rand() & 0x7fff) * g_particle_flutter_angle_random_scale;
     }
-    if (texture_frames != 0) {
-        texture_frames[index * 2]->SetFrame(0);
+    if (!texture_frames.empty()) {
+        static_cast<stTextureAnim*>(texture_frames[index * 2].get())->SetFrame(0);
     }
 
     unsigned int vertex = index * 4;
@@ -531,9 +361,8 @@ unsigned char stParticle::ActivateParticle(unsigned int* out_index, bool replace
 // FUNCTION: WIZ8 0x00499F70
 void stParticle::DeactivateParticle(unsigned int index)
 {
-    bool* active = particle_active + index;
-    if (*active != 0) {
-        *active = 0;
+    if (particle_active[index]) {
+        particle_active[index] = false;
         update_flags |= W8_PARTICLE_ACTIVE_TRIANGLES_DIRTY;
         --active_particle_count;
     }
@@ -551,19 +380,11 @@ void stParticle::Update()
     if (active_particle_count != 0) {
         unsigned int elapsed_ticks = now - last_integration_tick;
 
-        srMatrix3T<float> rotation;
+        glm::mat3 rotation;
         getRotation(rotation);
 
-        srMatrix4T<float> transform;
-        transform.vectors[0].Set(rotation.vectors[0].x, rotation.vectors[0].y,
-                                 rotation.vectors[0].z, 0.0f);
-        transform.vectors[1].Set(rotation.vectors[1].x, rotation.vectors[1].y,
-                                 rotation.vectors[1].z, 0.0f);
-        transform.vectors[2].Set(rotation.vectors[2].x, rotation.vectors[2].y,
-                                 rotation.vectors[2].z, 0.0f);
-        transform.vectors[3].Set(0.0f, 0.0f, 0.0f, 1.0f);
-
-        transform.Invert();
+        glm::mat4 transform(rotation);
+        transform = glm::inverse(transform);
 
         srVector3T<float> node_location;
         getLocation(node_location);
@@ -596,13 +417,13 @@ void stParticle::Update()
                     }
                 }
             } else if (expiry_mode == W8_PARTICLE_EXPIRY_TEXTURE) {
-                if (texture_frames == 0) {
+                if (texture_frames.empty()) {
                     expiry_mode = W8_PARTICLE_EXPIRY_TIMED;
                     if (lifetime_ms == 0) {
                         lifetime_ms = 1000;
                     }
                 } else {
-                    stTextureAnim* animation = texture_frames[index * 2];
+                    auto* animation = static_cast<stTextureAnim*>(texture_frames[index * 2].get());
                     animation->UpdateFrame();
                     if (animation->IsFinished() != 0) {
                         particle_active[index] = 0;
@@ -628,7 +449,8 @@ void stParticle::Update()
                     bounds_origin.z == g_float_zero) {
                     distance = (candidate - node_location).Length();
                 } else {
-                    srVector3T<float> center = rotation.Transform(bounds_origin) + node_location;
+                    srVector3T<float> center =
+                        rotation * bounds_origin.glmValue() + node_location.glmValue();
                     srVector3T<float> difference = candidate - center;
                     distance = difference.Length();
                 }
@@ -641,9 +463,9 @@ void stParticle::Update()
                 }
             } else if (bounds_mode == W8_PARTICLE_BOUNDS_BOX) {
                 srVector3T<float> local = candidate - node_location;
-                srVector4T<float> transformed = transform.Transform(local);
+                glm::vec4 transformed = glm::vec4{transform * glm::vec4(local.glmValue(), 1)};
                 srVector3T<float> local_point;
-                local_point = transformed.xyz();
+                local_point = glm::vec3(transformed);
                 if (!PointInsideBounds(&local_point, &lifetime_minimum, &lifetime_maximum)) {
                     particle_active[index] = 0;
                     update_flags |= W8_PARTICLE_ACTIVE_TRIANGLES_DIRTY;
@@ -728,20 +550,14 @@ void stParticle::InitializeParticlePosition(srVector3T<float>* output)
 
     *output *= size_scale;
 
-    srMatrix3T<float> rotation;
+    glm::mat3 rotation;
     getRotation(rotation);
-    output->Transform(rotation);
+    (*output) = rotation * (*output).glmValue();
 
     srVector3T<double> location = getLocation();
     output->x += static_cast<float>(location.x);
     output->y += static_cast<float>(location.y);
     output->z += static_cast<float>(location.z);
-}
-
-// FUNCTION: WIZ8 0x004980E0
-srClass* stParticle::vInstance()
-{
-    return new stParticle(0, 0);
 }
 
 // FUNCTION: WIZ8 0x00498C40
@@ -784,24 +600,24 @@ void stParticle::process(const ProcessInfo& info, e_processType)
 /* Build the four camera-facing offsets once per call, then expand every
    particle center into a quad. */
 // FUNCTION: WIZ8 0x00498DD0
-void stParticle::PrepareRenderer(srMatrix4T<float>& view)
+void stParticle::PrepareRenderer(glm::mat4& view)
 {
     static srVector3T<float> corners[4] = {
         srVector3T<float>(-0.5f, 0.5f, 0.0f), srVector3T<float>(0.5f, 0.5f, 0.0f),
         srVector3T<float>(0.5f, -0.5f, 0.0f), srVector3T<float>(-0.5f, -0.5f, 0.0f)};
     static srVector3T<float> offsets[4];
 
-    view.vectors[0].w = 0.0f;
-    view.vectors[1].w = 0.0f;
-    view.vectors[2].w = 0.0f;
+    view[3][0] = 0.0f;
+    view[3][1] = 0.0f;
+    view[3][2] = 0.0f;
 
-    float normalization = static_cast<float>(g_double_one / view.vectors[0].Length());
-    view.vectors[0] *= normalization;
-    view.vectors[1] *= normalization;
-    view.vectors[2] *= normalization;
+    float normalization = static_cast<float>(g_double_one / glm::length(glm::row(view, 0)));
+    view = glm::row(view, 0, glm::row(view, 0) * (normalization));
+    view = glm::row(view, 1, glm::row(view, 1) * (normalization));
+    view = glm::row(view, 2, glm::row(view, 2) * (normalization));
 
     for (unsigned int index = 0; index < 4; ++index) {
-        srVector4T<float> transformed = view.Transform(corners[index]);
+        glm::vec4 transformed = glm::vec4{view * glm::vec4(corners[index].glmValue(), 1)};
 
         float scale = static_cast<float>(particle_size) * size_scale;
         offsets[index] = srVector3T<float>(transformed.x, transformed.y, transformed.z) *
@@ -844,7 +660,7 @@ void stParticle::PrepareRenderer(srMatrix4T<float>& view)
                 position.x = scale * g_particle_flutter_displacement_scale * flutter;
             }
 
-            double angle = m_pflFlutterAngle[particle_index];
+            double angle = flutter_angles[particle_index];
             position.RotateAboutY(sin(angle), cos(angle));
             position += particle_positions[particle_index];
         }
@@ -876,7 +692,7 @@ void stParticle::SubmitToRenderer(srGERD* renderer)
         position = camera_position + camera_offset;
 
         srVector3T<double> placed;
-        placed.SetFromFloat(&position);
+        placed = glm::dvec3(position.glmValue());
         setLocation(placed);
     } else {
         /* Bound rather than copied: the three conversions read through the
@@ -896,12 +712,12 @@ void stParticle::SubmitToRenderer(srGERD* renderer)
             callback->RestoreAnimation();
         }
         if (release_when_done) {
-            release();
+            delete this;
         }
         return;
     }
 
-    srMatrix3T<float> rotation;
+    glm::mat3 rotation;
 
     if (bounds_mode == W8_PARTICLE_BOUNDS_SPHERE) {
         srGERD::e_visibility visibility;
@@ -912,7 +728,7 @@ void stParticle::SubmitToRenderer(srGERD* renderer)
             visibility = renderer->testBoundingSphere(position, size_scale * bounds_radius);
         } else {
             getRotation(rotation);
-            srVector3T<float> center = rotation.Transform(extent) + position;
+            srVector3T<float> center = rotation * extent.glmValue() + position.glmValue();
             visibility = renderer->testBoundingSphere(center, size_scale * bounds_radius);
         }
         if (visibility == srGERD::VISIBILITY_OUTSIDE) {
@@ -922,8 +738,8 @@ void stParticle::SubmitToRenderer(srGERD* renderer)
 
     if (bounds_mode == W8_PARTICLE_BOUNDS_BOX) {
         getRotation(rotation);
-        srVector3T<float> minimum = rotation.Transform(lifetime_minimum) + position;
-        srVector3T<float> maximum = rotation.Transform(lifetime_maximum) + position;
+        srVector3T<float> minimum = rotation * lifetime_minimum.glmValue() + position.glmValue();
+        srVector3T<float> maximum = rotation * lifetime_maximum.glmValue() + position.glmValue();
 
         srGERD::e_visibility visibility = renderer->testBoundingBox(minimum, maximum);
         if (visibility == srGERD::VISIBILITY_OUTSIDE) {
@@ -947,9 +763,9 @@ void stParticle::SubmitToRenderer(srGERD* renderer)
     renderer->pushEnable();
     renderer->matrixMode(srGERD::MATRIX_MODELVIEW);
 
-    srMatrix4T<float> view;
+    glm::mat4 view;
     renderer->getMatrix(srGERD::MATRIX_MODELVIEW, view);
-    view.Invert();
+    view = glm::inverse(view);
     PrepareRenderer(view);
 
     if (requires_sorted_renderer != 0 && !renderer->isEnabled(srGERD::ENABLE_SORTED_RENDERING)) {
@@ -962,53 +778,36 @@ void stParticle::SubmitToRenderer(srGERD* renderer)
 
     /* Three array/count pairs: the index pairs rebuilt above, the polygon
        index list, and the transformed vertex positions. */
-    pipeline->active_triangles = active_triangles;
+    pipeline->active_triangles = active_triangles.data();
     pipeline->active_triangle_count = active_particle_count * 2;
-    pipeline->triangles = triangles;
-    pipeline->triangle_count = texture_frame_count;
-    pipeline->positions = vertex_positions;
-    pipeline->vertex_count = vertex_count;
-    if (vertex_extras != 0) {
-        pipeline->vertex_extras = vertex_extras;
-    }
+    pipeline->triangles = triangles.data();
+    pipeline->triangle_count = triangles.size();
+    pipeline->positions = vertex_positions.data();
+    pipeline->vertex_count = vertex_positions.size();
 
     pipeline->current_record->flags = 0;
     pipeline->current_pass->shaders = 0;
     pipeline->current_pass->texture_tables[0] = 0;
     pipeline->current_pass->texture_tables[1] = 0;
 
-    if (colors != 0) {
-        pipeline->current_record->color_source.colors = colors;
-        pipeline->current_record->color_source.format =
-            srVertexPipe::Record::ColorSource::FORMAT_VECTOR3;
-        pipeline->current_record->flags |= srVertexPipe::Record::HAS_COLORS;
-    }
-    if (alphas != 0) {
-        pipeline->current_record->alpha_source = alphas;
-        pipeline->current_record->flags |= srVertexPipe::Record::HAS_ALPHA;
-    }
+    pipeline->current_record->alpha_source = alphas.data();
+    pipeline->current_record->flags |= srVertexPipe::Record::HAS_ALPHA;
 
     /* The particle material reaches
        both the pipeline and the record it is about to submit. */
-    pipeline->material = material;
-    pipeline->current_record->material = material;
+    pipeline->material = material.get();
+    pipeline->current_record->material = material.get();
 
     pipeline->SetFlags(render_flags);
 
-    if (texcoords != 0) {
-        pipeline->current_record->st_source[0] = texcoords;
-        pipeline->current_record->flags |= srVertexPipe::Record::HAS_TEXCOORD0;
-    }
+    pipeline->current_record->st_source[0] = texcoords.data();
+    pipeline->current_record->flags |= srVertexPipe::Record::HAS_TEXCOORD0;
 
-    if (texture_frames != 0) {
-        pipeline->current_pass->texture_tables[0] = texture_frames;
-    } else {
-        srTextureIFace* texture = this->texture;
-
-        if (texture != 0) {
-            pipeline->texture0 = texture;
-            pipeline->current_pass->textures[0] = texture;
-        }
+    if (!texture_frames.empty()) {
+        pipeline->current_pass->texture_tables[0] = texture_frames.data();
+    } else if (texture != 0) {
+        pipeline->texture0 = texture.get();
+        pipeline->current_pass->textures[0] = texture.get();
     }
 
     ++pipeline->slot_count;
@@ -1026,85 +825,17 @@ void stParticle::SubmitToRenderer(srGERD* renderer)
     renderer->popEnable();
 }
 
-// FUNCTION: WIZ8 0x00498A20
-stParticle::~stParticle()
-{
-    if (particle_positions != 0) {
-        std::free(particle_positions);
-    }
-    if (vertex_extras != 0) {
-        std::free(vertex_extras);
-    }
-    if (texcoords != 0) {
-        std::free(texcoords);
-    }
-    if (vertex_positions != 0) {
-        std::free(vertex_positions);
-    }
-    if (triangles != 0) {
-        std::free(triangles);
-    }
-    if (colors != 0) {
-        std::free(colors);
-    }
-    if (alphas != 0) {
-        delete[] alphas;
-    }
-    if (material != 0) {
-        material->release();
-    }
-    if (velocities != 0) {
-        std::free(velocities);
-    }
-    if (birth_ticks != 0) {
-        delete[] birth_ticks;
-    }
-    if (active_triangles != 0) {
-        delete[] active_triangles;
-    }
-    if (particle_active != 0) {
-        delete[] particle_active;
-    }
-    if (texture_frames != 0) {
-        for (unsigned int i = 0; i < texture_frame_count; i += 2) {
-            texture_frames[i]->release();
-        }
-        delete[] texture_frames;
-    }
-    if (m_pflFlutterAngle != 0) {
-        delete[] m_pflFlutterAngle;
-    }
-    texture->release();
-    setParent(0, 1);
-}
-
 // FUNCTION: WIZ8 0x0049AB00
-void stParticle::SetTexture(srTextureIFace* texture)
+void stParticle::SetTexture(std::shared_ptr<srTextureIFace> texture)
 {
-    unsigned int i;
-
-    if (this->texture != 0) {
-        if (texture_frames != 0) {
-            for (i = 0; i < texture_frame_count; i += 2) {
-                texture_frames[i]->release();
-            }
-            delete[] texture_frames;
-            texture_frames = 0;
-        }
-        this->texture->release();
-    }
-
-    if (texture != 0 && texture->getClassID() == stTextureAnim::CLASS_ID) {
-        texture_frames = new stTextureAnim*[texture_frame_count];
-        for (i = 0; i < texture_frame_count; i += 2) {
-            stTextureAnim* frame = new stTextureAnim(*static_cast<stTextureAnim*>(texture));
-            texture_frames[i] = frame;
-            texture_frames[i + 1] = frame;
+    texture_frames.clear();
+    if (auto* animation = sr_cast<stTextureAnim>(texture)) {
+        texture_frames.resize(particle_count * 2);
+        for (unsigned int i = 0; i < texture_frames.size(); i += 2) {
+            texture_frames[i] = texture_frames[i + 1] = std::make_shared<stTextureAnim>(*animation);
         }
     }
-
-    this->texture = texture;
-    texture->addReference();
+    this->texture = std::move(texture);
 }
 
 // FUNCTION: WIZ8 0x0049acd0
@@ -1119,48 +850,30 @@ void stParticle::SetActive(unsigned char active)
 }
 
 // FUNCTION: WIZ8 0x0049ac30
-unsigned char stParticle::ReplaceTexture(const char* old_name, srTextureIFace* replacement)
+unsigned char stParticle::ReplaceTexture(const char* old_name,
+                                         std::shared_ptr<srTextureIFace> replacement)
 {
-    if (texture != 0 &&
-        (texture->getClassID() == stTextureFile::CLASS_ID ||
-         texture->getClassID() == stTextureAnim::CLASS_ID) &&
+    if ((sr_cast<stTextureFile>(texture) || sr_cast<stTextureAnim>(texture)) &&
         _stricmp(texture->getName().c_str(), old_name) == 0) {
-        SetTexture(replacement);
+        SetTexture(std::move(replacement));
         return 1;
     }
     return 0;
 }
 
 // FUNCTION: WIZ8 0x0049ACA0
-void stParticle::SetMaterial(srMaterialIFace* new_material)
+void stParticle::SetMaterial(std::shared_ptr<srMaterialIFace> new_material)
 {
-    if (material != 0) {
-        material->release();
-    }
-    material = new_material;
-    if (new_material != 0) {
-        new_material->addReference();
-    }
+    material = std::move(new_material);
 }
 
 // FUNCTION: WIZ8 0x0049AD10
 void stParticle::SetFlutter(W8ParticleFlutterMode mode)
 {
-    unsigned int i;
-
     flutter_mode = mode;
     if (mode == W8_PARTICLE_FLUTTER_NONE) {
-        if (m_pflFlutterAngle != 0) {
-            delete[] m_pflFlutterAngle;
-            m_pflFlutterAngle = 0;
-        }
-    } else if (m_pflFlutterAngle == 0) {
-        m_pflFlutterAngle = new float[particle_count];
-        if (m_pflFlutterAngle == 0) {
-            srAssertFail("m_pflFlutterAngle", ST_PARTICLE_CPP, 1210, 0);
-        }
-        for (i = 0; i < particle_count; ++i) {
-            m_pflFlutterAngle[i] = 0.0f;
-        }
+        flutter_angles.clear();
+    } else if (flutter_angles.empty()) {
+        flutter_angles.assign(particle_count, 0.0f);
     }
 }

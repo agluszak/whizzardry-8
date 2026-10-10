@@ -1,9 +1,10 @@
+#include "surrender/srMath.h"
 #pragma once
 
-#include "surrender/srMath.h"
 #include "wiz8/geometry.h"
 #include "wiz8/float_constants.h"
 #include "wiz8/engine_code/World.h"
+#include <glm/gtx/euler_angles.hpp>
 
 /* Orientation limits shared by the inline setters and GDCamera.cpp. */
 extern const float g_camera_angle_period0;
@@ -16,7 +17,7 @@ class srCamera;
 class W8IntervalGate;
 struct W8LevelDataRecord;
 
-W8_ABI_ASSERT(sizeof(srMatrix3T<float>) == 0x24, "srMatrix3T_float_must_be_0x24");
+W8_ABI_ASSERT(sizeof(glm::mat3) == 0x24, "srMatrix3T_float_must_be_0x24");
 
 /* Reconstructed owner with unproven TU identity. The cluster 0x476140-
    0x478EB0 sits in the gap between stMeshModel.cpp and AmbientSound.cpp and
@@ -42,7 +43,7 @@ public:
     GDCamera(); /* 0x00476140 */
 
     srCamera* CreateOrAttachCamera(srNode* parent, srCamera* camera); /* 0x00476440 */
-    void ApplyRotationMatrix(srMatrix3T<float>* rotation,
+    void ApplyRotationMatrix(glm::mat3* rotation,
                              W8LevelDataRecord* context);                       /* 0x00476610 */
     void SnapToTarget(const srVector3T<float>* target);                         /* 0x00476950 */
     void SetOrientationImmediate(float pitch, float angle);                     /* 0x00476C30 */
@@ -58,39 +59,19 @@ public:
     // FUNCTION: WIZ8 0x004784C0
     void SetPitch(float pitch)
     {
-        if (pitch > g_camera_pitch_upper) {
-            pitch = g_camera_pitch_upper;
-        }
-        if (pitch < g_camera_pitch_lower) {
-            pitch = g_camera_pitch_lower;
-        }
-        m_pitch = pitch;
-
-        m_pitch_rotation.SetIdentity();
-        if (pitch != g_double_zero) {
-            m_pitch_rotation.RotateAboutX(sin(pitch), cos(pitch));
-        }
+        m_pitch = glm::clamp(pitch, g_camera_pitch_lower, g_camera_pitch_upper);
+        m_pitch_rotation = glm::mat3(glm::eulerAngleX(m_pitch));
         MarkRendererReady();
     }
     // FUNCTION: WIZ8 0x00478720
     void SetYaw(float angle)
     {
-        while (angle > g_camera_angle_period0) {
-            angle -= g_camera_angle_period0;
-        }
-        while (angle < g_camera_angle_lower) {
-            angle += g_camera_angle_period0;
-        }
-        m_yaw = angle;
-
-        m_yaw_rotation.SetIdentity();
-        if (angle != g_double_zero) {
-            m_yaw_rotation.RotateAboutY(sin(angle), cos(angle));
-        }
+        m_yaw = glm::mod(angle, g_camera_angle_period0);
+        m_yaw_rotation = glm::mat3(glm::eulerAngleY(m_yaw));
         MarkRendererReady();
     }
     void SetOrientation(float angle, float pitch);                   /* 0x004788E0 */
-    void GetRotationMatrix(srMatrix3T<float>* output);               /* 0x00478BD0 */
+    void GetRotationMatrix(glm::mat3* output);               /* 0x00478BD0 */
     void BeginLeveling();                                            /* 0x00478CC0 */
     void GetForwardPoint(float distance, srVector3T<float>* output); /* 0x00478CE0 */
     void SetManualControlActive(bool enabled);                       /* 0x00478E00 */
@@ -98,15 +79,15 @@ public:
     w8_ulong m_orientation_flags;
     float m_yaw;                        /* 0x004 */
     float m_pitch;                      /* 0x008 */
-    srMatrix3T<float> m_pitch_rotation; /* 0x00c */
-    srMatrix3T<float> m_yaw_rotation;   /* 0x030 */
-    srMatrix3T<float> m_rotation;       /* 0x054 */
-    srVector3T<float> m_direction;      /* 0x078 */
+    glm::mat3 m_pitch_rotation;    /* 0x00c */
+    glm::mat3 m_yaw_rotation;      /* 0x030 */
+    glm::mat3 m_rotation;       /* 0x054 */
+    glm::vec3 m_direction;      /* 0x078 */
     float m_frame_elapsed;              /* 0x084 */
     bool m_transition_active;           /* 0x088 */
     bool m_forced_transition;           /* 0x089 */
     unsigned char m_padding_08a[2];
-    srVector3T<float> m_position;         /* 0x08c */
+    glm::vec3 m_position;                 /* 0x08c */
     float m_target_yaw;                   /* 0x098 */
     float m_target_pitch;                 /* 0x09c */
     float m_start_yaw;                    /* 0x0a0 */
@@ -117,6 +98,9 @@ public:
     float m_pitch_distance;               /* 0x0b4 */
     float m_transition_duration;          /* 0x0b8 */
     W8IntervalGate* m_manual_input_timer; /* 0x0bc */
+
+private:
+    bool CanTrackTarget() const;
 };
 
 extern GDCamera* g_gd_camera;

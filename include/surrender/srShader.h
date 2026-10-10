@@ -2,7 +2,6 @@
 
 #include <iosfwd>
 
-
 class srShader;
 
 SR_DLL_IMPORT std::ostream& operator<<(std::ostream& stream, const srShader& shader);
@@ -122,4 +121,3 @@ public:
     w8_ulong value;
 };
 
-W8_ABI_ASSERT(sizeof(srShader) == 0x04, "srShader_must_be_0x04");

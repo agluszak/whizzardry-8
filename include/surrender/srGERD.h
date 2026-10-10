@@ -8,7 +8,7 @@
 #include <thread>
 #include <vector>
 
-#include "srHash.h"
+#include <unordered_map>
 #include "srTexture.h"
 #include "srTypeRegistry.h"
 #include "srVertexPipe.h"
@@ -20,7 +20,7 @@
 #include "srDD.h"
 #include "srTriMeshPipeline.h"
 #include "srColorSurfaceIFace.h"
-#include "srPtr.h"
+#include <memory>
 #include "srARGB.h"
 class srColorSurface;
 class srModelInstance;
@@ -40,7 +40,7 @@ public:
     };
 
     struct ClipPlanes {
-        srVector4T<float> planes[32];
+        glm::vec4 planes[32];
         w8_ulong mask;
         w8_ulong mode1_mask;
     };
@@ -73,7 +73,7 @@ public:
             const w8_ulong* vertices;
             const srTriMeshPipeline::Pass* passes;
             int direct_vertex_indices;
-            const srMatrix4T<float>* project_clip_near;
+            const glm::mat4* project_clip_near;
             float sort_bias;
         };
 
@@ -86,10 +86,9 @@ public:
 
         /* Per-stage {st,q} scratch for drivers that want combined texture-coordinate and w streams. */
         struct TexCoordQ {
-            srVector2T<float> st;
+            glm::vec2 st;
             float q;
         };
-        W8_ABI_ASSERT(sizeof(TexCoordQ) == 0xc, "TexCoordQ_must_be_0xc");
 
         /* The interned record additionally carries a blend class derived from the shader's DSTBLEND
            field (ZERO -> 0, SRC_ALPHA pair -> 1, ONE -> 2, SRC_COLOR pair -> 3). */
@@ -108,6 +107,14 @@ public:
                 return !(*this == other);
             }
         };
+        struct TextureSetHash {
+            size_t operator()(const TextureSetKey& key) const noexcept
+            {
+                return std::hash<srTextureIFace*>{}(key.texture0) ^
+                       (std::hash<srTextureIFace*>{}(key.texture1) << 1) ^
+                       (std::hash<w8_ulong>{}(key.shader.value) << 2);
+            }
+        };
         struct TextureSet {
             srTextureIFace* texture0;
             srTextureIFace* texture1;
@@ -116,12 +123,12 @@ public:
         };
         /* Texture-set interning cache; the map's value is the index into sets. */
         struct TextureSetCache {
-            srHashTable<TextureSetKey, w8_ulong> map;
+            std::unordered_map<TextureSetKey, w8_ulong, TextureSetHash> map;
             std::vector<TextureSet> sets;
 
             void clear()
             {
-                map.Clear();
+                map.clear();
                 sets.clear();
             }
             w8_ulong intern(const TextureSetKey& key);
@@ -150,10 +157,10 @@ public:
            (positions {0,0,0,1}, st {0,0}, q 1.0); bind() points an srVertexArray at the reserved
            range. */
         struct VertexArrays {
-            std::vector<srVector4T<float> > diffuse;
-            std::vector<srVector4T<float> > specular;
-            std::vector<srVector4T<float> > positions;
-            std::vector<srVector2T<float> > st[2];
+            std::vector<glm::vec4> diffuse;
+            std::vector<glm::vec4> specular;
+            std::vector<glm::vec4> positions;
+            std::vector<glm::vec2> st[2];
             std::vector<float> q[2];
             std::vector<unsigned char> attributes;
             /* isBatchFull compares this signed against batch_limit. */
@@ -234,11 +241,6 @@ public:
         w8_long batch_limit;
         w8_ulong texture_stages;
     };
-    W8_ABI_ASSERT(sizeof(Renderer) == 0xe4, "srGERD_Renderer_must_be_0xe4");
-    W8_ABI_ASSERT(sizeof(Renderer::Parameters) == 0x10, "srGERD_Renderer_Parameters_must_be_0x10");
-    W8_ABI_ASSERT(sizeof(Renderer::TextureSetKey) == 0x0c,
-                  "srGERD_Renderer_TextureSetKey_must_be_0x0c");
-    W8_ABI_ASSERT(sizeof(Renderer::IndexWrite) == 0x10, "srGERD_Renderer_IndexWrite_must_be_0x10");
 
     enum e_error {
         ERROR_NONE = 0,
@@ -419,14 +421,14 @@ public:
     void getStatistics(Statistics& statistics);
     w8_ulong getTextureCacheUsed() const;
     w8_ulong getResidentTextureMemUsed() const;
-    void setClearColor(const srVector4T<float>& color);
+    void setClearColor(const glm::vec4& color);
     void setClearColor(float red, float green, float blue, float alpha);
     void setClearDepth(double depth);
     void setAmbientLight(float red, float green, float blue, float alpha);
-    void setAmbientLight(const srVector4T<float>& light);
+    void setAmbientLight(const glm::vec4& light);
     void setAmbientLight(const srVector3T<float>& light);
     void setFogColor(const srVector3T<float>& color);
-    void setFogColor(const srVector4T<float>& color);
+    void setFogColor(const glm::vec4& color);
     void setScissor(w8_ulong x, w8_ulong y, w8_ulong width, w8_ulong height);
     /* Dirty-rectangle pair handed to flipFrame in {x,y,width,height} form;
        GERD converts each to srDD::Scissor left/top/right/bottom. */
@@ -439,22 +441,22 @@ public:
     void setViewPort(w8_ulong x, w8_ulong y, w8_ulong width, w8_ulong height);
     void matrixMode(e_matrixMode mode);
     e_matrixMode getMatrixMode() const;
-    void getMatrix(srMatrix4T<float>& matrix);
-    void getMatrix(srMatrix4T<double>& matrix);
-    void getMatrix(e_matrixMode mode, srMatrix4T<float>& matrix);
-    void getMatrix(e_matrixMode mode, srMatrix4T<double>& matrix);
+    void getMatrix(glm::mat4& matrix);
+    void getMatrix(glm::dmat4& matrix);
+    void getMatrix(e_matrixMode mode, glm::mat4& matrix);
+    void getMatrix(e_matrixMode mode, glm::dmat4& matrix);
     void getEyeSpaceBounds(srVector3T<float>& center, float& radius,
                            const srVector3T<float>& object_center, float object_radius);
-    srVector4T<float> getEyeSpaceLocation(const srVector3T<float>& object_location);
+    glm::vec4 getEyeSpaceLocation(const srVector3T<float>& object_location);
     void pushVertexProcessor(srVertexProcessor& processor);
     void popVertexProcessor();
-    void getInverseModelViewMatrix(srMatrix4T<float>& matrix);
+    void getInverseModelViewMatrix(glm::mat4& matrix);
     void getClipPlanes(ClipPlanes& planes);
-    void pushClipPlane(const srVector4T<float>& plane, e_clipMode mode);
+    void pushClipPlane(const glm::vec4& plane, e_clipMode mode);
     void popClipPlane();
-    void getProjectClipNearMatrix(srMatrix4T<float>& matrix);
-    void getNormalMatrix(srMatrix4T<float>& matrix);
-    srMatrix4T<float>::e_scaleType getModelViewScaleType();
+    void getProjectClipNearMatrix(glm::mat4& matrix);
+    void getNormalMatrix(glm::mat4& matrix);
+    srRendererDefs::e_scaleType getModelViewScaleType();
 
     float getMaxModelViewScale();
     e_cullMode getCullMode() const;
@@ -466,8 +468,8 @@ public:
     void unlockBuffer();
     w8_ulong getVertexProcessorCount() const;
     const std::vector<srVertexProcessor*>& getVertexProcessors() const;
-    void getAmbientLight(srVector4T<float>& light);
-    void getFogColor(srVector4T<float>& color) const;
+    void getAmbientLight(glm::vec4& light);
+    void getFogColor(glm::vec4& color) const;
     void getEnvironmentRange(float& minimum, float& maximum) const;
     void getEnvironmentScaleFactor(float& scale, float& inverse_scale);
     w8_ulong getExclusionMask() const;
@@ -497,13 +499,13 @@ public:
         return 0x20;
     }
     void pushMatrix();
-    void pushMultMatrix(const srMatrix4x3T<float>& matrix);
+    void pushMultMatrix(const glm::mat4x3& matrix);
     void popMatrix();
     void pushEnable();
     void popEnable();
     void loadIdentity();
-    void multMatrix(const srMatrix4T<float>& matrix);
-    void multMatrix(const srMatrix4T<double>& matrix);
+    void multMatrix(const glm::mat4& matrix);
+    void multMatrix(const glm::dmat4& matrix);
     void perspective(double fov_y, double aspect, double near_plane, double far_plane);
     void rotate(double angle, const srVector3T<float>& axis);
     void rotate(double angle, const srVector3T<double>& axis);
@@ -526,10 +528,10 @@ public:
     void frustum(double left, double right, double bottom, double top, double near_plane,
                  double far_plane);
     void frustum(const Frustum& frustum);
-    void loadMatrix(const srMatrix4T<double>& matrix);
-    void loadMatrix(const srMatrix4T<float>& matrix);
-    void loadMatrix(const srMatrix3T<double>& matrix);
-    void loadMatrix(const srMatrix3T<float>& matrix);
+    void loadMatrix(const glm::dmat4& matrix);
+    void loadMatrix(const glm::mat4& matrix);
+    void loadMatrix(const glm::dmat3& matrix);
+    void loadMatrix(const glm::mat3& matrix);
     void getScissor(w8_ulong& x, w8_ulong& y, w8_ulong& width,
                     w8_ulong& height) const;
     void getViewPort(w8_ulong& x, w8_ulong& y, w8_ulong& width,
@@ -558,6 +560,8 @@ public:
     void invalidateResidentTexture(srTextureIFace* texture);
     void invalidateTextureCache();
     void invalidateTexture(srTextureIFace* texture);
+    /* Clears every open renderer's binding of a texture being destroyed. */
+    static void unbindTexture(const srTextureIFace* texture);
     void invalidateTextureByFrameHandle(w8_ulong handle);
     w8_ulong getTextureCacheSize() const;
     void setTextureCacheSize(w8_ulong bytes);
@@ -607,9 +611,9 @@ public:
     void getDepthRange(double& minimum, double& maximum) const;
     void setPolygonMode(e_polygonMode mode);
     e_polygonMode getPolygonMode() const;
-    void getClearColor(srVector4T<float>& color) const;
-    void getClearAccum(srVector4T<float>& color) const;
-    void setClearAccum(const srVector4T<float>& color);
+    void getClearColor(glm::vec4& color) const;
+    void getClearAccum(glm::vec4& color) const;
+    void setClearAccum(const glm::vec4& color);
     void setClearAccum(float red, float green, float blue, float alpha);
     double getClearDepth() const;
     void setClearStencil(w8_ulong stencil);
@@ -728,11 +732,10 @@ private:
         /* evaluateTexturePixelFormat copies the matched device format here. */
         srPixelConvert::PixelFormat pixel_format;
         std::vector<unsigned char> surface_data;
-        srPtr<srPalette> palette;
+        std::shared_ptr<srPalette> palette;
         std::string name;
         srDD::Texture device;
     };
-    W8_ABI_ASSERT(sizeof(Texture) == 0xa8, "srGERD_Texture_must_be_0xa8");
 
     /* Pick batch view: indices selects triangles out of the caller's stream, vertices remaps each
        corner to a position index, positions is the renderer's vec4 stream base. */
@@ -741,7 +744,7 @@ private:
         const srVector3i* triangles;
         w8_ulong triangle_count;
         const w8_ulong* vertices;
-        const srVector4T<float>* positions;
+        const glm::vec4* positions;
         w8_ulong vertex_count;
     };
 
@@ -865,7 +868,7 @@ private:
     struct MatrixStack {
         MatrixStack();
 
-        srMatrix4T<float> stack[32];
+        glm::mat4 stack[32];
         w8_ulong depth;
     };
 
@@ -890,12 +893,12 @@ private:
 
     struct State {
         /* Per-mode current matrices; pushMatrix indexes by mode. */
-        srMatrix4T<float> matrix_current[2];
+        glm::mat4 matrix_current[2];
         /* Per-mode 32-deep matrix stacks. */
         MatrixStack matrix_stacks[2];
         /* Entries [0..5] are the eye-space frustum planes and [6..31] the user planes pushed by
            pushClipPlane (mask bits 6..31 of clip_mask). */
-        srVector4T<float> clip_planes[32];
+        glm::vec4 clip_planes[32];
         /* Depth range forwarded into srDD::ViewPort by applyViewStateChanges;
            initView resets it to [0.0, 1.0] and setDepthRange clamps it. */
         double depth_min;
@@ -918,13 +921,13 @@ private:
         w8_long clip_plane_count;
         /* Bit 1: recalcScissor marks the scissor as the full view. */
         w8_ulong scissor_flags;
-        srMatrix4T<float> inverse_modelview;
-        srMatrix4T<float> project_clip_near;
-        srMatrix4T<float> normal_matrix;
-        srMatrix4T<float>::e_scaleType modelview_scale_type;
+        glm::mat4 inverse_modelview;
+        glm::mat4 project_clip_near;
+        glm::mat4 normal_matrix;
+        srRendererDefs::e_scaleType modelview_scale_type;
         float max_modelview_scale;
         /* classifyMatrix writes the per-mode projection-shape class here. */
-        srMatrix4T<float>::e_type matrix_class[2];
+        srRendererDefs::e_matrixType matrix_class[2];
         unsigned char unknown_13c4_[4];
     };
 
@@ -1042,7 +1045,7 @@ private:
     /* Accumulation buffer: width*height pixels plus one ARGB scratch row. */
     std::vector<AccumPixel> accum_buffer;
     std::vector<srARGB> accum_scratch;
-    LockSurface* lock_surface;
+    std::unique_ptr<LockSurface> lock_surface;
     /* Buffer-lock nesting depth; _lockBuffer only locks the device on the
        first entry and _unlockBuffer unlocks when this returns to zero. */
     w8_long buffer_lock_count;
@@ -1057,15 +1060,16 @@ private:
     /* Device palette record handed to bindPalette/deletePalette. */
     srDD::Palette device_palette;
     TextureState texture_state;
-    srPtr<srPalette> palette;
+    std::shared_ptr<srPalette> palette;
     e_polygonMode polygon_mode;
     w8_long polygon_offset;
-    srVector4T<float> fog_color;
+    glm::vec4 fog_color;
     srShader shader;
-    /* Texture interfaces requested through setTexture for stages 0/1. */
-    srPtr<srTextureIFace> texture_iface[2];
+    /* Borrowed texture interfaces requested through setTexture for stages 0/1;
+       a texture clears its bindings when destroyed. */
+    srTextureIFace* texture_iface[2];
     /* Live textures keyed by the texture interface's frame handle. */
-    srHashTable<w8_ulong, Texture*> texture_lookup;
+    std::unordered_map<w8_ulong, Texture*> texture_lookup;
     TexturePool texture_pool;
     Texture* texture_deleted;
     Texture* texture_head;
@@ -1076,7 +1080,7 @@ private:
     w8_long texture_reduction;
     bool texture_hash_enabled;
     unsigned char unknown_2045_[3];
-    srVector4T<float> ambient_light;
+    glm::vec4 ambient_light;
     Environment environment;
     EnvironmentState environment_state;
     std::vector<srVertexProcessor*> vertex_processors;
@@ -1086,23 +1090,6 @@ private:
     srRendererDefs::VertexArrayInfo vertex_arrays;
     /* performPickTest's w-normalized {x,y,z,sign(w)} scratch per vertex;
        cleared by closeWindow. */
-    std::vector<srVector4T<float> > pick_vertices;
+    std::vector<glm::vec4> pick_vertices;
 };
 
-// FUNCTION: SURRENDER 0x10027BF0 SYMBOL
-// RECOMP: ?srHashValue@@YAIABUTextureSetKey@Renderer@srGERD@@@Z
-inline unsigned int srHashValue(const srGERD::Renderer::TextureSetKey& key)
-{
-    // reinterpret-ok: the hash mixes the stored interface addresses.
-    return ((key.shader.value >> 10 ^
-             static_cast<w8_ulong>(reinterpret_cast<w8_ulong_ptr>(key.texture1))) >>
-                1 ^
-            // reinterpret-ok: as above.
-            static_cast<w8_ulong>(reinterpret_cast<w8_ulong_ptr>(key.texture0))) >>
-               5 ^
-           key.shader.value;
-}
-
-W8_ABI_ASSERT(sizeof(srGERD) == 0x2238, "srGERD_must_be_0x2238");
-W8_ABI_ASSERT(sizeof(srGERD::ClipPlanes) == 0x208, "srGERD_ClipPlanes_must_be_0x208");
-W8_ABI_ASSERT(sizeof(srGERD::Renderer::TriInput) == 0x28, "srGERD_Renderer_TriInput_must_be_0x28");

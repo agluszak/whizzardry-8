@@ -47,8 +47,8 @@
 
 typedef struct {
     COLORVAL ColorFill; // Used for fill effect
-    SGPRect SrcRect;    // Given SRC subrect instead of srcregion
-    SGPRect FillRect;   // Given SRC subrect instead of srcregion
+    SDL_Rect SrcRect;    // Given SRC subrect instead of srcregion
+    SDL_Rect FillRect;   // Given SRC subrect instead of srcregion
     UINT16 DestRegion;  // Given a DEST region for dest positions within the VO
 
 } blt_vs_fx;
@@ -82,8 +82,8 @@ typedef struct {
 //
 
 typedef struct {
-    SGPRect RegionCoords; // Rectangle describing coordinates of region
-    SGPPoint Origin;      // Origin used for hot spots, etc
+    SDL_Rect RegionCoords; // Rectangle describing coordinates of region
+    SDL_Point Origin;      // Origin used for hot spots, etc
     UINT8 ubHitMask;      // Byte flags for hit detection
 
 } VSURFACE_REGION;
@@ -194,7 +194,7 @@ void UnLockVideoSurfaceBuffer(HVSURFACE hVSurface);
 
 // Set data from HIMAGE.
 BOOLEAN SetVideoSurfaceDataFromHImage(HVSURFACE hVSurface, HIMAGE hImage, UINT16 usX, UINT16 usY,
-                                      SGPRect* pSrcRect);
+                                      SDL_Rect* pSrcRect);
 
 // Sets the packed source color key
 BOOLEAN SetVideoSurfaceTransparencyColor(HVSURFACE hVSurface, COLORVAL TransColor);
@@ -226,7 +226,7 @@ BOOLEAN DeleteVideoSurfaceFromIndex(UINT32 uiIndex);
 //
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-BOOLEAN SetClipList(HVSURFACE hVSurface, SGPRect* RegionData, UINT16 usNumRegions);
+BOOLEAN SetClipList(HVSURFACE hVSurface, SDL_Rect* RegionData, UINT16 usNumRegions);
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////
 //

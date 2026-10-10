@@ -3,6 +3,9 @@
 #include "runtime_instrumentation.h"
 #endif
 #include "wiz8/character_event_queue.h"
+#include "wiz8/npc_interaction.h"
+#include "wiz8/local_screens/NPCInteractionSubscreen.h"
+#include "wiz8/local_screens/MGSTextBox.h"
 #include "wiz8/xstatus.h"
 #include "wiz8/layouts/screen_state.h"
 #include "wiz8/local_code/Gameloop.h"
@@ -13,6 +16,7 @@
 #include "wiz8/local_screens/PartySelectionScreen.h"
 #include "wiz8/local_screens/ReviewCharacterScreen.h"
 #include "wiz8/local_screens/MainGameScreen.h"
+#include "wiz8/local_screens/NPCInteractionSubscreen.h"
 #include "wiz8/local_screens/AutomapScreen.h"
 #include "wiz8/local_screens/CreditsScreen.h"
 #include "wiz8/local_screens/OptionsScreen.h"
@@ -23,6 +27,10 @@
 #include "Font.h"
 #include "wiz8/application.h"
 #include "wiz8/engine_code/Video2.h"
+#include "wiz8/engine_code/ReadMesh.h"
+#include "wiz8/character_event_queue.h"
+#include "wiz8/npc_interaction.h"
+#include "wiz8/local_screens/MGSTextBox.h"
 #include "surrender/srTypeRegistry.h"
 
 #include <string.h>
@@ -91,6 +99,8 @@ void ShutdownGame(size_t initialized_screens, bool save_configuration)
 {
     int index;
 
+    if (gXStatus.character_event_queue)
+        gXStatus.character_event_queue->DestroyAllEvents();
     ReleaseHitSoundDatabase();
     ReleaseGenericItemNames();
     ReleaseNpcStates();
@@ -111,8 +121,13 @@ void ShutdownGame(size_t initialized_screens, bool save_configuration)
     }
     g_screen_return_stack.clear();
     ReleaseAllTriggers();
-    FreeStringTable();
     DestroyGameplayObjects();
+    ReleaseReadMeshScratch();
+    ClearNpcMessageQueue();
+    ClearNpcDialogueTranscript();
+    ReleaseMessageStorage();
+    FreeStringTable();
+    FreeStatusBuffers(&g_status.buffers);
     if (save_configuration)
         SaveGameConfiguration();
 }
@@ -148,8 +163,8 @@ void GameLoop(void)
     }
     if (g_pending_screen_state.id != W8_SCREEN_NONE && g_pending_screen_state.id != state) {
         /* Retail tests only the low byte of the count. */
-        if (static_cast<unsigned char>(gXStatus.character_event_queue->active_events.GetCount()) !=
-            0) {
+        if (static_cast<unsigned char>(
+                static_cast<int>(gXStatus.character_event_queue->active_events.size())) != 0) {
             gXStatus.character_event_queue->CompleteFirstActiveEvent();
             state = g_current_screen_state.id;
         }
@@ -191,6 +206,10 @@ void GameLoop(void)
 void GameloopExit(unsigned char release_screens)
 {
     W8ScreenId state;
+
+    // Complete voice events before leaving gameplay unloads its UI.
+    if (gXStatus.character_event_queue)
+        gXStatus.character_event_queue->DestroyAllEvents();
 
     SetFontObjectPalette16BPP(g_smfnt_font, GetFontObject(g_smfnt_font)->ownedPalette.get());
     SetFontObjectPalette16BPP(g_calligraphy_font, GetFontObject(g_calligraphy_font)->ownedPalette.get());

@@ -37,15 +37,15 @@
 
 void W8ListBoxDialog::ClearLines()
 {
-    int line_count = m_lines.GetCount();
+    int line_count = static_cast<int>(m_lines.size());
     for (int index = 0; index < line_count; ++index) {
-        wchar_t* line = *m_lines.GetAt(index);
+        wchar_t* line = m_lines[index];
         if (line != 0) {
             free(line);
         }
     }
-    m_lines.Clear();
-    m_field_064.Clear();
+    m_lines.clear();
+    m_field_064.clear();
     m_selected_line = -1;
     m_field_074 = 0;
     m_scrollable = false;
@@ -118,13 +118,13 @@ void W8ListBoxDialog::SetFirstVisibleLine(int requested)
 {
     if (m_area_button != 0) {
         int first = requested;
-        if (m_lines.GetCount() - GetVisibleLineCount() < requested) {
-            first = m_lines.GetCount() - GetVisibleLineCount();
+        if (static_cast<int>(m_lines.size()) - GetVisibleLineCount() < requested) {
+            first = static_cast<int>(m_lines.size()) - GetVisibleLineCount();
         }
         if (first < 0) {
             first = 0;
-        } else if (m_lines.GetCount() - GetVisibleLineCount() < requested) {
-            first = m_lines.GetCount() - GetVisibleLineCount();
+        } else if (static_cast<int>(m_lines.size()) - GetVisibleLineCount() < requested) {
+            first = static_cast<int>(m_lines.size()) - GetVisibleLineCount();
         }
         if (first != m_first_visible_line) {
             m_first_visible_line = first;
@@ -144,13 +144,14 @@ void W8ListBoxDialog::SetCurrentLine(int line)
         return;
     }
     int target = line < 0 ? 0 : line;
-    if (m_lines.GetCount() - 1 < target) {
-        target = m_lines.GetCount() - 1;
+    if (static_cast<int>(m_lines.size()) - 1 < target) {
+        target = static_cast<int>(m_lines.size()) - 1;
     }
     int visible = GetVisibleLineCount();
     if (target < m_first_visible_line) {
         SetFirstVisibleLine(target);
-    } else if (target < m_lines.GetCount() && m_first_visible_line - 1 + visible < target) {
+    } else if (target < static_cast<int>(m_lines.size()) &&
+               m_first_visible_line - 1 + visible < target) {
         SetFirstVisibleLine(target - visible + 1);
     }
     m_selected_line = target;
@@ -168,7 +169,7 @@ bool W8ListBoxDialog::HandleInputEvent(const InputAtom* input)
         if (m_selected_line > 0) {
             SetCurrentLine(m_selected_line - 1);
         }
-    } else if (gfKeyState[VK_DOWN] != 0 && m_selected_line < m_lines.GetCount()) {
+    } else if (gfKeyState[VK_DOWN] != 0 && m_selected_line < static_cast<int>(m_lines.size())) {
         SetCurrentLine(m_selected_line + 1);
     }
 
@@ -192,7 +193,7 @@ bool W8ListBoxDialog::HandleInputEvent(const InputAtom* input)
         SetCurrentLine(0);
         return m_keep_open;
     case VK_END:
-        SetCurrentLine(m_lines.GetCount() - 1);
+        SetCurrentLine(static_cast<int>(m_lines.size()) - 1);
         return m_keep_open;
     default:
         return m_keep_open;
@@ -368,7 +369,7 @@ void W8ListBoxDialog::DestroyControls()
 // FUNCTION: WIZ8 0x005cc690
 void W8ListBoxDialog::Draw()
 {
-    SGPRect rect;
+    SDL_Rect rect;
     int index;
     int line;
 
@@ -384,20 +385,20 @@ void W8ListBoxDialog::Draw()
     int height = -6 - GetButtonY(m_text_button) - GetButtonHeight(m_text_button) +
                  GetButtonY(m_second_text_button);
     unsigned int visible_lines;
-    if (m_lines.GetCount() < height / static_cast<int>(static_cast<unsigned int>(
-                                          GetFontHeight(g_dialog_interface_font)))) {
+    if (static_cast<int>(m_lines.size()) < height / static_cast<int>(static_cast<unsigned int>(
+                                                        GetFontHeight(g_dialog_interface_font)))) {
         m_scrollable = false;
-        visible_lines = m_lines.GetCount();
+        visible_lines = static_cast<int>(m_lines.size());
     } else {
         int rows = height / static_cast<int>(
                                 static_cast<unsigned int>(GetFontHeight(g_dialog_interface_font)));
-        if (m_lines.GetCount() > rows) {
+        if (static_cast<int>(m_lines.size()) > rows) {
             width = width + (-7 - GetButtonWidth(m_up_button));
             m_scrollable = true;
             visible_lines = rows;
         } else {
             m_scrollable = false;
-            visible_lines = m_lines.GetCount();
+            visible_lines = static_cast<int>(m_lines.size());
         }
     }
     ResizeButton(m_area_button, static_cast<short>(width), static_cast<short>(height));
@@ -411,7 +412,7 @@ void W8ListBoxDialog::Draw()
             GetButtonHeight(m_area_button) +
                 ((height - GetButtonHeight(m_up_button) - GetButtonHeight(m_down_button) - 7) *
                  m_selected_line) /
-                    m_lines.GetCount() +
+                    static_cast<int>(m_lines.size()) +
                 m_y + 3 + dy);
         ColorFillVideoSurfaceArea(
             FRAME_BUFFER, m_x + width + dx, m_y + dy + GetButtonHeight(m_up_button),
@@ -434,14 +435,15 @@ void W8ListBoxDialog::Draw()
     SetFont(g_dialog_interface_font);
     GetButtonArea(m_area_button, &rect);
     SaveFontSettings();
-    SetFontDestBuffer(FRAME_BUFFER, rect.iLeft + 3, rect.iTop + 3, rect.iRight - 3,
-                      rect.iBottom - 3, 0);
-    if (m_lines.GetCount() <= static_cast<int>(visible_lines + m_first_visible_line)) {
-        visible_lines = m_lines.GetCount() - m_first_visible_line;
+    SetFontDestBuffer(FRAME_BUFFER, rect.x + 3, rect.y + 3, (rect.x + rect.w) - 3,
+                      (rect.y + rect.h) - 3, 0);
+    if (static_cast<int>(m_lines.size()) <=
+        static_cast<int>(visible_lines + m_first_visible_line)) {
+        visible_lines = static_cast<int>(m_lines.size()) - m_first_visible_line;
     }
     for (index = 0; index < static_cast<int>(visible_lines); ++index) {
         line = m_first_visible_line + index;
-        wchar_t* text = *m_lines.GetAt(line);
+        wchar_t* text = m_lines[line];
         if (line == m_selected_line) {
             ColorFillVideoSurfaceArea(
                 FRAME_BUFFER, m_x + 3 + dx,
@@ -463,7 +465,7 @@ void W8ListBoxDialog::Draw()
 // FUNCTION: WIZ8 0x005cd470
 bool W8ListBoxDialog::ProcessInput()
 {
-    SGPPoint mouse;
+    SDL_Point mouse;
     InputAtom input;
 
     if (gfLeftButtonState != 0) {
@@ -480,9 +482,9 @@ bool W8ListBoxDialog::ProcessInput()
         }
     }
     SGPMouseGetPos(&mouse);
-    MSYS_SGP_Mouse_Handler_Hook(MOUSE_POS, mouse.iX, mouse.iY, gfLeftButtonState, gfRightButtonState);
+    MSYS_SGP_Mouse_Handler_Hook(MOUSE_POS, mouse.x, mouse.y, gfLeftButtonState, gfRightButtonState);
     while (DequeueEvent(&input) == 1) {
-        if (DispatchDialogMouseInput(input.usEvent, mouse.iX, mouse.iY)) {
+        if (DispatchDialogMouseInput(input.usEvent, mouse.x, mouse.y)) {
             continue;
         }
         if (input.usEvent == MOUSE_WHEEL) {
@@ -899,20 +901,20 @@ void W8SplitAmountDialog::SplitCancel(W8DialogButton* button)
 // FUNCTION: WIZ8 0x005da5c0
 void W8SplitAmountDialog::SplitActivateField(W8DialogButton* button)
 {
-    SGPPoint mouse;
-    SGPPoint point;
+    SDL_Point mouse;
+    SDL_Point point;
 
     if (button != 0) {
         W8SplitAmountDialog* dialog = static_cast<W8SplitAmountDialog*>(button->m_owner);
         SGPMouseGetPos(&mouse);
         if (dialog->m_split_input != 0) {
-            point.iX = mouse.iX - dialog->m_x;
-            point.iY = mouse.iY - dialog->m_y;
+            point.x = mouse.x - dialog->m_x;
+            point.y = mouse.y - dialog->m_y;
             if (!ScreenPointInRect(&g_split_amount_field_bounds, &point)) {
                 return;
             }
-            point.iX -= g_split_amount_field_bounds.left;
-            point.iY -= g_split_amount_field_bounds.top;
+            point.x -= g_split_amount_field_bounds.left;
+            point.y -= g_split_amount_field_bounds.top;
             dialog->m_split_input->SetActive(true, &point);
             dialog->m_active_field = dialog->m_split_input;
         }
@@ -1037,13 +1039,13 @@ void W8TriggerItemPickerDialog::RefreshScrollButtons()
     int index;
     W8DialogButton** button;
 
-    if (items.GetCount() <= 4) {
+    if (static_cast<int>(items.size()) <= 4) {
         m_first_item = 0;
     }
     button = &m_buttons[5];
     for (index = 0; index < 4; ++index) {
         int item = m_first_item + index;
-        if (item < items.GetCount()) {
+        if (item < static_cast<int>(items.size())) {
             (*button)->SetPressed(IsItemSelected(item));
         } else if ((*button)->IsPressed() != 0) {
             (*button)->SetPressed(false);
@@ -1055,11 +1057,11 @@ void W8TriggerItemPickerDialog::RefreshScrollButtons()
 
 void W8TriggerItemPickerDialog::SetFirstVisible(int index)
 {
-    if (items.GetCount() <= 4) {
+    if (static_cast<int>(items.size()) <= 4) {
         m_first_item = 0;
         return;
     }
-    if (index < 0 || index > items.GetCount() - 4) {
+    if (index < 0 || index > static_cast<int>(items.size()) - 4) {
         return;
     }
     m_first_item = index;
@@ -1068,16 +1070,16 @@ void W8TriggerItemPickerDialog::SetFirstVisible(int index)
 
 bool W8TriggerItemPickerDialog::IsItemSelected(int index)
 {
-    if (index < 0 || index >= items.GetCount()) {
+    if (index < 0 || index >= static_cast<int>(items.size())) {
         return false;
     }
-    return *flags.GetAt(index) != 0;
+    return flags[index] != 0;
 }
 
 void W8TriggerItemPickerDialog::SetItemSelected(int index, bool selected)
 {
-    if (index >= 0 && index < items.GetCount()) {
-        flags.SetAt(index, selected);
+    if (static_cast<std::size_t>(index) < items.size()) {
+        flags[index] = selected;
         if (index >= m_first_item && index <= m_first_item + 3) {
             m_buttons[5 + index - m_first_item]->SetPressed(selected);
             m_buttons[5 + index - m_first_item]->m_dirty = true;
@@ -1088,7 +1090,7 @@ void W8TriggerItemPickerDialog::SetItemSelected(int index, bool selected)
 void W8TriggerItemPickerDialog::ToggleItem(int index, W8DialogButton* button)
 {
     bool selected = !IsItemSelected(index);
-    if (index < 0 || index >= items.GetCount()) {
+    if (index < 0 || index >= static_cast<int>(items.size())) {
         button->SetPressed(false);
     } else {
         SetItemSelected(index, selected);
@@ -1106,9 +1108,9 @@ void W8TriggerItemPickerDialog::TransferSelectedItems(int destination)
     int index;
     bool failed = false;
 
-    for (index = 0; index < items.GetCount(); ++index) {
-        if (*flags.GetAt(index) != 0) {
-            W8ItemInstance* instance = CopyWorldItemInstance(*items.GetAt(index));
+    for (index = 0; index < static_cast<int>(items.size()); ++index) {
+        if (flags[index] != 0) {
+            W8ItemInstance* instance = CopyWorldItemInstance(items[index]);
             bool added;
             if (destination == -1) {
                 added = AddItemToParty(instance, true, false);
@@ -1117,8 +1119,8 @@ void W8TriggerItemPickerDialog::TransferSelectedItems(int destination)
                                            true, false);
             }
             if (added) {
-                items.RemoveAt(index);
-                flags.RemoveAt(index);
+                items.erase(items.begin() + index);
+                flags.erase(flags.begin() + index);
                 --index;
                 m_dirty_flags |= W8_DIALOG_DIRTY_REDRAW;
             } else {
@@ -1131,7 +1133,7 @@ void W8TriggerItemPickerDialog::TransferSelectedItems(int destination)
         SoundPlay("Data\\Sound\\Misc\beep2.wav", 0);
     }
     RefreshScrollButtons();
-    if (items.GetCount() == 0) {
+    if (items.empty()) {
         m_keep_open = false;
     }
 }
@@ -1147,16 +1149,16 @@ void W8TriggerItemPickerDialog::ToggleAllItems(W8DialogButton* button)
         int index;
         bool all_selected = true;
 
-        for (index = 0; index < dialog->items.GetCount(); ++index) {
+        for (index = 0; index < static_cast<int>(dialog->items.size()); ++index) {
             if (!all_selected) {
                 break;
             }
-            if (*dialog->flags.GetAt(index) == 0) {
+            if (dialog->flags[index] == 0) {
                 all_selected = false;
             }
         }
         bool selected = !all_selected;
-        for (index = 0; index < dialog->items.GetCount(); ++index) {
+        for (index = 0; index < static_cast<int>(dialog->items.size()); ++index) {
             dialog->SetItemSelected(index, selected);
         }
     }
@@ -1199,7 +1201,7 @@ void W8TriggerItemPickerDialog::ToggleVisibleItem1(W8DialogButton* button)
     if (button != 0) {
         W8TriggerItemPickerDialog* dialog =
             static_cast<W8TriggerItemPickerDialog*>(button->m_owner);
-        if (dialog->m_first_item < dialog->items.GetCount() + 1) {
+        if (dialog->m_first_item < static_cast<int>(dialog->items.size()) + 1) {
             dialog->ToggleItem(dialog->m_first_item + 1, button);
         }
     }
@@ -1211,7 +1213,7 @@ void W8TriggerItemPickerDialog::ToggleVisibleItem2(W8DialogButton* button)
     if (button != 0) {
         W8TriggerItemPickerDialog* dialog =
             static_cast<W8TriggerItemPickerDialog*>(button->m_owner);
-        if (dialog->m_first_item < dialog->items.GetCount() + 2) {
+        if (dialog->m_first_item < static_cast<int>(dialog->items.size()) + 2) {
             dialog->ToggleItem(dialog->m_first_item + 2, button);
         }
     }
@@ -1223,7 +1225,7 @@ void W8TriggerItemPickerDialog::ToggleVisibleItem3(W8DialogButton* button)
     if (button != 0) {
         W8TriggerItemPickerDialog* dialog =
             static_cast<W8TriggerItemPickerDialog*>(button->m_owner);
-        if (dialog->m_first_item < dialog->items.GetCount() + 3) {
+        if (dialog->m_first_item < static_cast<int>(dialog->items.size()) + 3) {
             dialog->ToggleItem(dialog->m_first_item + 3, button);
         }
     }
@@ -1236,9 +1238,9 @@ void W8TriggerItemPickerDialog::ShowVisibleItemInfo(W8DialogButton* button, int 
     if (button != 0) {
         W8TriggerItemPickerDialog* dialog =
             static_cast<W8TriggerItemPickerDialog*>(button->m_owner);
-        if (dialog->m_first_item < dialog->items.GetCount() + row) {
+        if (dialog->m_first_item < static_cast<int>(dialog->items.size()) + row) {
             W8ItemInstance* instance =
-                CopyWorldItemInstance(*dialog->items.GetAt(dialog->m_first_item + row));
+                CopyWorldItemInstance(dialog->items[dialog->m_first_item + row]);
             OpenAssayDialog(instance, -1);
         }
     }
@@ -1295,7 +1297,7 @@ void W8TriggerItemPickerDialog::ScrollItemsDown(W8DialogButton* button)
 // FUNCTION: WIZ8 0x005ceaf0
 void W8TriggerItemPickerDialog::ScrollItemsToMouse(W8DialogButton* button)
 {
-    SGPPoint point;
+    SDL_Point point;
     int top;
     int bottom;
     int index;
@@ -1317,13 +1319,13 @@ void W8TriggerItemPickerDialog::ScrollItemsToMouse(W8DialogButton* button)
         bottom += dialog->m_buttons[9] != 0 ? dialog->m_buttons[9]->GetHeight() : -1;
         top -= (dialog->m_buttons[10] != 0 ? dialog->m_buttons[10]->GetHeight() : -1) +
                (dialog->m_buttons[11] != 0 ? dialog->m_buttons[11]->GetHeight() : -1);
-        if (point.iY < bottom) {
-            point.iY = bottom;
+        if (point.y < bottom) {
+            point.y = bottom;
         }
-        if (point.iY > top) {
-            point.iY = top;
+        if (point.y > top) {
+            point.y = top;
         }
-        index = (point.iY - bottom) * dialog->items.GetCount() / (top - bottom);
+        index = (point.y - bottom) * static_cast<int>(dialog->items.size()) / (top - bottom);
         dialog->SetFirstVisible(index);
     }
 }
@@ -1356,14 +1358,14 @@ bool W8TriggerItemPickerDialog::HandleInputEvent(const InputAtom* input)
         }
         case VK_NEXT: {
             int target = m_first_item + 4;
-            if (target > items.GetCount() - 4) {
-                target = items.GetCount() - 4;
+            if (target > static_cast<int>(items.size()) - 4) {
+                target = static_cast<int>(items.size()) - 4;
             }
             SetFirstVisible(target);
             return m_keep_open;
         }
         case VK_END:
-            SetFirstVisible(items.GetCount() - 4);
+            SetFirstVisible(static_cast<int>(items.size()) - 4);
             return m_keep_open;
         case VK_HOME:
             SetFirstVisible(0);
@@ -1373,7 +1375,7 @@ bool W8TriggerItemPickerDialog::HandleInputEvent(const InputAtom* input)
         case '3':
         case '4': {
             int index = m_first_item + input->usParam - '1';
-            if (index < items.GetCount()) {
+            if (index < static_cast<int>(items.size())) {
                 SetItemSelected(index, !IsItemSelected(index));
             }
             break;
@@ -1406,15 +1408,15 @@ void W8TriggerItemPickerDialog::SetItemGroup(W8WorldItem* group)
 // FUNCTION: WIZ8 0x005cf110
 W8WorldItem* W8TriggerItemPickerDialog::ReturnItemsToGroup()
 {
-    if (items.GetCount() == 0) {
+    if (items.empty()) {
         return m_item_group;
     }
     do {
-        W8WorldItem* item = *items.GetAt(0);
-        items.RemoveAt(0);
-        flags.RemoveAt(0);
+        W8WorldItem* item = items[0];
+        items.erase(items.begin());
+        flags.erase(flags.begin());
         ItemInfoAddToGroup(m_item_group, item);
-    } while (items.GetCount() != 0);
+    } while (!items.empty());
     return m_item_group;
 }
 
@@ -1432,33 +1434,34 @@ int W8TriggerItemPickerDialog::AddItem(W8WorldItem* item)
         int index;
 
         PartyAttemptsToIdentifyItem(instance, 0);
-        for (index = 0; index < items.GetCount(); ++index) {
-            W8WorldItem* other = *items.GetAt(index);
+        for (index = 0; index < static_cast<int>(items.size()); ++index) {
+            W8WorldItem* other = items[index];
             if (ItemsShareEquipClass(instance, &other->item)) {
                 break;
             }
         }
-        if (index < items.GetCount()) {
-            W8WorldItem* other = *items.GetAt(index);
-            while (index < items.GetCount() &&
+        if (index < static_cast<int>(items.size())) {
+            W8WorldItem* other = items[index];
+            while (index < static_cast<int>(items.size()) &&
                    !ItemsShareUnidentifiedName(instance, &other->item)) {
-                other = *items.GetAt(index);
+                other = items[index];
                 ++index;
             }
-            if (index < items.GetCount()) {
-                while (index < items.GetCount() && other->item.iItemNo != instance->iItemNo) {
-                    other = *items.GetAt(index);
+            if (index < static_cast<int>(items.size())) {
+                while (index < static_cast<int>(items.size()) &&
+                       other->item.iItemNo != instance->iItemNo) {
+                    other = items[index];
                     ++index;
                 }
-                if (index < items.GetCount()) {
-                    items.InsertAt(index, item);
-                    flags.InsertAt(index, 0);
+                if (index < static_cast<int>(items.size())) {
+                    items.insert(items.begin() + index, item);
+                    flags.insert(flags.begin() + index, 0);
                     return -1;
                 }
             }
         }
-        items.Add(item);
-        flags.Add(0);
+        items.push_back(item);
+        flags.push_back(0);
     }
     return -1;
 }
@@ -1472,11 +1475,11 @@ int W8TriggerItemPickerDialog::AddItem(W8WorldItem* item)
 // FUNCTION: WIZ8 0x005cef00
 bool W8TriggerItemPickerDialog::ProcessInput()
 {
-    SGPPoint mouse;
+    SDL_Point mouse;
     InputAtom input;
 
     SGPMouseGetPos(&mouse);
-    MSYS_SGP_Mouse_Handler_Hook(MOUSE_POS, mouse.iX, mouse.iY, gfLeftButtonState, gfRightButtonState);
+    MSYS_SGP_Mouse_Handler_Hook(MOUSE_POS, mouse.x, mouse.y, gfLeftButtonState, gfRightButtonState);
     while (DequeueEvent(&input) == 1) {
         if ((input.usEvent == LEFT_BUTTON_DOWN || input.usEvent == RIGHT_BUTTON_DOWN) &&
             ProcessPendingEvent()) {
@@ -1485,7 +1488,7 @@ bool W8TriggerItemPickerDialog::ProcessInput()
         if (HitTestPartyPortrait(&input) != 0) {
             continue;
         }
-        if (DispatchDialogMouseInput(input.usEvent, mouse.iX, mouse.iY)) {
+        if (DispatchDialogMouseInput(input.usEvent, mouse.x, mouse.y)) {
             continue;
         }
         if (input.usEvent == MOUSE_WHEEL) {
@@ -1505,7 +1508,7 @@ bool W8TriggerItemPickerDialog::ProcessInput()
 // FUNCTION: WIZ8 0x005cdc70
 void W8TriggerItemPickerDialog::Draw()
 {
-    int count = items.GetCount();
+    int count = static_cast<int>(items.size());
     int visible_rows;
     if (count < 3) {
         visible_rows = 2;
@@ -1552,8 +1555,8 @@ void W8TriggerItemPickerDialog::Draw()
 
         int progress = 0;
         if (m_first_item != 0) {
-            progress = items.GetCount();
-            if (m_first_item + 4 < items.GetCount()) {
+            progress = static_cast<int>(items.size());
+            if (m_first_item + 4 < static_cast<int>(items.size())) {
                 progress = m_first_item + 2;
             }
         }
@@ -1561,7 +1564,7 @@ void W8TriggerItemPickerDialog::Draw()
                      m_buttons[10]->GetHeight() - m_buttons[11]->GetHeight();
         m_buttons[11]->SetPosition(m_buttons[9]->GetX(),
                                    m_buttons[9]->GetHeight() + m_buttons[12]->GetY() +
-                                       travel * progress / items.GetCount() + 1);
+                                       travel * progress / static_cast<int>(items.size()) + 1);
         m_buttons[11]->Draw();
     } else {
         m_buttons[12]->SetVisible(false);
@@ -1596,14 +1599,14 @@ void W8TriggerItemPickerDialog::Draw()
             continue;
         }
         button->Draw();
-        if (items.GetCount() == 0) {
+        if (items.empty()) {
             continue;
         }
         int item_index = m_first_item + row;
-        if (item_index >= items.GetCount()) {
+        if (item_index >= static_cast<int>(items.size())) {
             continue;
         }
-        W8WorldItem* world_item = *items.GetAt(item_index);
+        W8WorldItem* world_item = items[item_index];
         W8ItemInstance* item = &world_item->item;
         int video_object = g_item_video_objects.GetOrCreateVideoObject(item->iItemNo);
         DrawCatalogImage(FRAME_BUFFER, video_object, 0, 0, button->GetX() + 2, button->GetY() + 2,

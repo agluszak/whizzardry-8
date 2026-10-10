@@ -1,3 +1,4 @@
+#include "wiz8/containers.h"
 #include "wiz8/local_code/ItemManager.h"
 /* Engine Code\GDProp.cpp */
 
@@ -37,7 +38,6 @@ GDProp::GDProp(srModelInstance* instance, const char* path_name, unsigned short 
     m_path_waypoint_count = 0;
     m_path_edges = 0;
     m_path_waypoints = 0;
-    m_supported_items = 0;
     m_path_range.sentinel = -10000000.0f;
     m_path_bounds.max_z = 0;
     m_path_bounds.min_z = 0;
@@ -72,9 +72,6 @@ GDProp::~GDProp()
     if (m_path_waypoints != 0) {
         free(m_path_waypoints);
     }
-    if (m_supported_items != 0) {
-        PLDestroy(m_supported_items);
-    }
 }
 
 /* Resize the two geometry tables to the complete linked mesh. Surfaces use
@@ -88,7 +85,7 @@ void GDProp::PrepareGeometry(srModelInstance* instance)
     while (mesh != 0) {
         surface_count += mesh->polygon_count;
         vertex_count += mesh->vertex_location_count;
-        mesh = mesh->next;
+        mesh = mesh->Next();
     }
 
     if (m_surface_count != surface_count) {
@@ -134,7 +131,7 @@ void GDProp::Initialize(srModelInstance* instance, bool attach, unsigned short p
     }
 
     PrepareGeometry(instance);
-    srMatrix4T<float> world_matrix;
+    glm::mat4 world_matrix;
     instance->getWorldSpaceMatrix(world_matrix);
 
     int vertex_base = 0;
@@ -154,7 +151,7 @@ void GDProp::Initialize(srModelInstance* instance, bool attach, unsigned short p
         srVector3T<float>* source_vertices = mesh->getVertexLoc();
         for (int vertex = 0; vertex < mesh->vertex_location_count; ++vertex) {
             m_pVertices[vertex_base + vertex] =
-                world_matrix.TransformPoint(source_vertices[vertex]);
+                glm::vec3(world_matrix * glm::vec4(source_vertices[vertex].glmValue(), 1));
         }
         vertex_base += mesh->vertex_location_count;
 
@@ -194,7 +191,7 @@ void GDProp::Initialize(srModelInstance* instance, bool attach, unsigned short p
                 surface->contact_margin = 500.0f;
             }
         }
-        mesh = mesh->next;
+        mesh = mesh->Next();
     }
 
     W8PathingService* pathing = g_octree->pathing;
@@ -233,14 +230,9 @@ void GDProp::Initialize(srModelInstance* instance, bool attach, unsigned short p
         }
     }
 
-    if (m_supported_items != 0) {
-        unsigned int count = PLLength(m_supported_items);
-        for (unsigned int index = 0; index < count; ++index) {
-            W8WorldItem* item =
-                static_cast<W8WorldItem*>(PLGet(m_supported_items, static_cast<int>(index)));
-            if (item != 0) {
-                SetWorldItemFalling(item, true);
-            }
+    for (W8WorldItem* item : m_supported_items) {
+        if (item) {
+            SetWorldItemFalling(item, true);
         }
     }
 }
@@ -435,7 +427,7 @@ unsigned char GDProp::RegisterPathVertex(unsigned int index, const srVector2i* p
 void AddItemToSector(int sector, W8WorldItem* item)
 {
     if (item != 0 && sector >= 0) {
-        W8Prop* prop = *g_world->collidable_props->GetAt(sector);
+        W8Prop* prop = (*g_world->collidable_props)[sector];
         GDProp* gd = prop->m_gd_prop;
         if (gd == 0) {
             prop->BuildOrRefreshPathingRepresentation();
@@ -444,11 +436,8 @@ void AddItemToSector(int sector, W8WorldItem* item)
                 return;
             }
         }
-        if (gd->m_supported_items == 0) {
-            gd->m_supported_items = PLCreate();
-        }
-        if (gd->m_supported_items != 0 && PListIndexOf(gd->m_supported_items, item) < 0) {
-            PLAdoptAppend(gd->m_supported_items, item);
+        if (!std::ranges::contains(gd->m_supported_items, item)) {
+            gd->m_supported_items.push_back(item);
         }
     }
 }
@@ -458,21 +447,18 @@ void AddItemToSector(int sector, W8WorldItem* item)
 void RemoveItemFromSector(int sector, W8WorldItem* item)
 {
     if (item != 0 && sector >= 0) {
-        W8Prop* prop = *g_world->collidable_props->GetAt(sector);
-        if (prop != 0 && prop->m_gd_prop != 0 && prop->m_gd_prop->m_supported_items != 0) {
-            PListRemove(prop->m_gd_prop->m_supported_items, item);
+        W8Prop* prop = (*g_world->collidable_props)[sector];
+        if (prop != 0 && prop->m_gd_prop != 0) {
+            wiz8::erase_first(prop->m_gd_prop->m_supported_items, item);
         }
     }
 }
 
-/* Whether the optional owned list currently contains an entry. */
+/* Whether any world items are supported by this prop. */
 // FUNCTION: WIZ8 0x004B7BA0
 bool GDProp::HasSupportedItems()
 {
-    if (m_supported_items != 0 && static_cast<int>(PLLength(m_supported_items)) > 0) {
-        return true;
-    }
-    return false;
+    return !m_supported_items.empty();
 }
 
 /* The array-element ctor for `new GDPreProp[n]`; the base default runs
@@ -549,7 +535,7 @@ void GDProp::AppendMeshFaces(W8LevelFileMesh* mesh, int vertex_base)
             surface->vertex_indices[2] = faces[face].vertex_indices[2] + vertex_base;
         }
     } else {
-        W8ReadMeshFace* faces = mesh->pstFaces;
+        W8SerializedMeshFace* faces = mesh->pstFaces;
         for (int face = 0; face < mesh->num_faces; ++face) {
             W8GDSurface* surface = &m_pGDSurfaces[m_surface_count];
             ++m_surface_count;
@@ -571,15 +557,17 @@ void GDProp::TransformMeshGeometry(const W8LevelFileScaledPathNode* node, W8Leve
     int surface_base = m_surface_count;
 
     srVector3T<float> axis = node->path.axis;
-    srMatrix3T<float> rotation;
-    srMatrix4x3T<float> matrix;
+    glm::mat3 rotation;
+    glm::mat4x3 matrix;
     srVector3T<float> translation;
     srVector3T<float> scale;
     float factor;
 
-    rotation.SetIdentity();
+    rotation = glm::mat3(1);
     if (node->path.angle != g_double_zero) {
-        rotation.RotateAroundAxis(sin(node->path.angle), cos(node->path.angle), axis);
+        rotation *= glm::mat3_cast(
+            glm::angleAxis(float(std::atan2(sin(node->path.angle), cos(node->path.angle))),
+                           normalizedOrZero(glm::vec3(axis.glmValue()))));
     }
     translation.Set(node->path.position.x * g_double_five_hundred,
                     node->path.position.y * g_double_five_hundred,
@@ -593,9 +581,12 @@ void GDProp::TransformMeshGeometry(const W8LevelFileScaledPathNode* node, W8Leve
     }
     scale = node->scale * factor;
 
-    matrix.SetRotation(rotation);
-    matrix.SetTranslation(translation);
-    matrix.Scale(scale);
+    matrix = glm::mat4x3(rotation);
+    matrix[3] = translation.glmValue();
+    {
+        for (int column = 0; column < 3; ++column)
+            matrix[column] *= scale.glmValue()[column];
+    };
 
     if ((mesh->flags & W8_LEVEL_MESH_LOD_VERTICES) != 0) {
         for (int lod = 0; lod < mesh->num_lods; ++lod) {
@@ -603,16 +594,20 @@ void GDProp::TransformMeshGeometry(const W8LevelFileScaledPathNode* node, W8Leve
             if ((mesh->flags & W8_LEVEL_MESH_SHORT_LOD_VERTICES) != 0) {
                 short* vertices = mesh->lod_shorts[lod];
                 for (int vertex = 0; vertex < mesh->num_vertices; ++vertex) {
-                    m_pVertices[m_vertex_count] = matrix.TransformPoint(
-                        srVector3T<float>(static_cast<float>(vertices[vertex * 3]),
-                                          static_cast<float>(vertices[vertex * 3 + 1]),
-                                          static_cast<float>(vertices[vertex * 3 + 2])));
+                    m_pVertices[m_vertex_count] = glm::vec3(
+                        glm::mat4(matrix) *
+                        glm::vec4((srVector3T<float>(static_cast<float>(vertices[vertex * 3]),
+                                                     static_cast<float>(vertices[vertex * 3 + 1]),
+                                                     static_cast<float>(vertices[vertex * 3 + 2])))
+                                      .glmValue(),
+                                  1));
                     ++m_vertex_count;
                 }
             } else {
                 const srVector3T<float>* vertices = mesh->lods[lod];
                 for (int vertex = 0; vertex < mesh->num_vertices; ++vertex) {
-                    m_pVertices[m_vertex_count] = matrix.TransformPoint(vertices[vertex]);
+                    m_pVertices[m_vertex_count] =
+                        glm::vec3(glm::mat4(matrix) * glm::vec4(vertices[vertex].glmValue(), 1));
                     ++m_vertex_count;
                 }
             }
@@ -622,7 +617,8 @@ void GDProp::TransformMeshGeometry(const W8LevelFileScaledPathNode* node, W8Leve
         int vertex_base = m_vertex_count;
         const srVector3T<float>* vertices = mesh->pstVertices;
         for (int vertex = 0; vertex < mesh->num_vertices; ++vertex) {
-            m_pVertices[m_vertex_count] = matrix.TransformPoint(vertices[vertex]);
+            m_pVertices[m_vertex_count] =
+                glm::vec3(glm::mat4(matrix) * glm::vec4(vertices[vertex].glmValue(), 1));
             ++m_vertex_count;
         }
         AppendMeshFaces(mesh, vertex_base);
@@ -655,5 +651,5 @@ void GDProp::TransformMeshGeometry(const W8LevelFileScaledPathNode* node, W8Leve
     }
 }
 
-/* srMatrix4x3T<float>::SetTranslation/Scale emitted for this TU by
+/* glm::mat4x3::SetTranslation/Scale emitted for this TU by
    TransformMeshGeometry; the primary templates live in srMath.h. */

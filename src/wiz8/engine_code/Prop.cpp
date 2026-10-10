@@ -1,3 +1,4 @@
+#include <glm/gtc/quaternion.hpp>
 #include "wiz8/engine_code/AnimRep.hpp"
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/engine_code/GDProp.h"
@@ -10,7 +11,8 @@
 #include "wiz8/sr_api.h"
 #include "wiz8/engine_code/World.h"
 #include "wiz8/engine_code/Navigator.h"
-#include "wiz8/3d_code/PList.h"
+#include <vector>
+#include <algorithm>
 
 #include <string.h>
 
@@ -53,8 +55,6 @@ bool g_animated_prop_present;
 // class W8Prop
 // VTABLE: WIZ8 0x005ec1c8
 // class W8PropRepresentation
-// VTABLE: WIZ8 0x005ec1d0
-// class W8Vector<W8PropAnimationSegment*>
 /* Prop::Prop() - GrObject base, then m_pRep / m_pTimer and two identity
    rotation bases.  Retail expands PropRep after the AnimRep constructor:
    scalar field stores, the capacity-5 slot vector, then the PropRep vtable. */
@@ -71,8 +71,8 @@ W8Prop::W8Prop()
     m_pTimer = new W8GameTimer();
     animation_position.SetZero();
     previous_animation_position.SetZero();
-    previous_animation_rotation.SetIdentity();
-    animation_rotation.SetIdentity();
+    previous_animation_rotation = glm::mat3(1);
+    animation_rotation = glm::mat3(1);
     m_gd_prop = 0;
     if (m_pRep == 0) {
         srAssertFail("m_pRep", PROP_CPP, 0x30e, "Prop::Prop() out of memory allocating m_pRep");
@@ -89,7 +89,7 @@ W8PropRepresentation::W8PropRepresentation(const W8PropRepresentation& other)
     : W8AnimRep(), animation_speed(other.animation_speed), frame_index(other.frame_index),
       animation_running(other.animation_running), random_play(other.random_play),
       play_chance(other.play_chance), saved_subcycle(other.saved_subcycle),
-      frame_steps(other.frame_steps), slots(5), footstep_surface(other.footstep_surface),
+      frame_steps(other.frame_steps), slots(), footstep_surface(other.footstep_surface),
       footstep_material(other.footstep_material)
 {
     animation = CloneAnimObj(other.animation);
@@ -100,10 +100,10 @@ W8PropRepresentation::~W8PropRepresentation()
 {
     int index;
 
-    for (index = 0; index < slots.GetCount(); ++index) {
-        delete *slots.GetAt(index);
+    for (index = 0; index < static_cast<int>(slots.size()); ++index) {
+        delete slots[index];
     }
-    slots.Clear();
+    slots.clear();
     if (animation != 0) {
         DestroyAnimObj(animation);
     }
@@ -127,7 +127,7 @@ void UpdateWorldProps(W8World* world)
         srAssertFail("pWorld && pWorld->plsProps",
                      "C:\\Projects\\Wizardry 8\\Engine Code\\Prop.cpp", 0x969, 0);
     }
-    count = PLLength(world->plsProps);
+    count = (world->plsProps ? world->plsProps->size() : 0);
     for (index = 0; index < static_cast<int>(count); ++index) {
         W8Prop* prop = GetWorldProp(world, index);
         Trigger* trigger;
@@ -156,7 +156,7 @@ W8Prop* FindPropByName(W8World* world, const char* name)
     int index;
 
     if (world != 0 && name != 0) {
-        unsigned int count = PLLength(world->plsProps);
+        unsigned int count = (world->plsProps ? world->plsProps->size() : 0);
 
         for (index = 0; index < static_cast<int>(count); ++index) {
             W8Prop* prop = GetWorldProp(world, index);
@@ -319,7 +319,7 @@ bool ResolvePickedProp(W8World* world)
 
     valid = true;
     GetCameraPosition(&camera_position);
-    prop_count = PLLength(world->plsProps);
+    prop_count = (world->plsProps ? world->plsProps->size() : 0);
     for (prop_index = 0; prop_index < static_cast<int>(prop_count); ++prop_index) {
         W8Prop* prop;
         W8PropRepresentation* representation;
@@ -375,7 +375,7 @@ bool ResolvePickedProp(W8World* world)
 
                 AnimObjGetBounds(representation->animation, 2, representation->subcycle, &minimum,
                                  &maximum);
-                distance = ((minimum + maximum) * 0.5 - camera_position).Length();
+                distance = ((((minimum + maximum) * 0.5 - camera_position))).Length();
                 if (trigger->range_minimum <= distance) {
                     g_selected_prop_index = prop_index;
                     if (distance <= trigger->range_maximum) {
@@ -410,8 +410,8 @@ unsigned char W8PropRepresentation::SelectAnimationSlot(unsigned char tag)
 {
     int index;
 
-    for (index = 0; index < slots.GetCount(); ++index) {
-        W8PropAnimationSegment* slot = *slots.GetAt(index);
+    for (index = 0; index < static_cast<int>(slots.size()); ++index) {
+        W8PropAnimationSegment* slot = slots[index];
 
         if (slot->tag == tag) {
             signed char selected = slot->frame;
@@ -445,8 +445,8 @@ int W8PropRepresentation::FindCurrentAnimationSlot()
 {
     int index;
 
-    for (index = 0; index < slots.GetCount(); ++index) {
-        if ((*slots.GetAt(index))->frame == first_frame) {
+    for (index = 0; index < static_cast<int>(slots.size()); ++index) {
+        if (slots[index]->frame == first_frame) {
             return index;
         }
     }
@@ -460,13 +460,13 @@ unsigned char W8PropRepresentation::AdvanceAnimationSegment()
     int index;
     int segment;
 
-    count = slots.GetCount();
+    count = static_cast<int>(slots.size());
     if (count < 3) {
         return 0;
     }
     segment = -1;
     for (index = 0; index < count; ++index) {
-        if ((*slots.GetAt(index))->frame == first_frame) {
+        if (slots[index]->frame == first_frame) {
             segment = index;
             break;
         }
@@ -479,8 +479,8 @@ unsigned char W8PropRepresentation::AdvanceAnimationSegment()
     } else {
         ++segment;
     }
-    first_frame = (*slots.GetAt(segment))->frame;
-    last_frame = (*slots.GetAt(segment + 1))->frame;
+    first_frame = slots[segment]->frame;
+    last_frame = slots[segment + 1]->frame;
     frame_direction = W8_ANIMATION_FORWARD;
     animation_playing = 1;
     subcycle = first_frame;
@@ -980,9 +980,9 @@ void W8Prop::AttachAnimationInstances(W8World* world)
     srVector3T<float> rep_position;
     srVector3T<double> location;
     srVector3T<double> scale_location;
-    srMatrix3T<float> rotation;
-    srMatrix3T<float> next;
-    srMatrix3T<float> rep_rotation;
+    glm::mat3 rotation;
+    glm::mat3 next;
+    glm::mat3 rep_rotation;
     float inv;
 
     if (Rep()->active == 0) {
@@ -1025,11 +1025,23 @@ void W8Prop::AttachAnimationInstances(W8World* world)
             next = path->rotations[next_frame];
             instance->getRotation(previous_animation_rotation);
             if (!(rotation == next)) {
-                W8Quaternion::InterpolateRotation(rotation, next, anim_frame_fraction, &rotation);
+                const auto first_rotation = glm::dquat(glm::quat_cast(rotation));
+                auto next_rotation = glm::dquat(glm::quat_cast(next));
+                double rotation_dot = glm::dot(first_rotation, next_rotation);
+                if (rotation_dot < g_double_zero) {
+                    next_rotation = -next_rotation;
+                    rotation_dot = -rotation_dot;
+                }
+                const auto interpolated_rotation =
+                    g_double_one - rotation_dot <= g_slerp_epsilon
+                        ? first_rotation * (g_double_one - anim_frame_fraction) +
+                              next_rotation * double(anim_frame_fraction)
+                        : glm::slerp(first_rotation, next_rotation, double(anim_frame_fraction));
+                rotation = glm::mat3_cast(glm::normalize(interpolated_rotation));
             }
             animation_rotation = rotation;
-            current = **path->nodes->GetAt(Rep()->subcycle);
-            next_pos = **path->nodes->GetAt(next_frame);
+            current = *(*path->nodes)[Rep()->subcycle];
+            next_pos = *(*path->nodes)[next_frame];
             inv = g_float_one - anim_frame_fraction;
             position = current * inv + next_pos * anim_frame_fraction;
             if (path->scales != 0) {
@@ -1041,19 +1053,19 @@ void W8Prop::AttachAnimationInstances(W8World* world)
             node = instance->first_child_;
             if (node == 0) {
                 instance->setRotation(rotation);
-                location.SetFromFloat(&position);
+                location = glm::dvec3(position.glmValue());
                 instance->setLocation(location);
                 if (has_scales) {
-                    scale_location.SetFromFloat(&scale_vector);
+                    scale_location = glm::dvec3(scale_vector.glmValue());
                     instance->setScale(scale_location);
                 }
             } else {
                 do {
                     node->setRotation(rotation);
-                    location.SetFromFloat(&position);
+                    location = glm::dvec3(position.glmValue());
                     node->setLocation(location);
                     if (has_scales) {
-                        scale_location.SetFromFloat(&scale_vector);
+                        scale_location = glm::dvec3(scale_vector.glmValue());
                         node->setScale(scale_location);
                     }
                     node = node->next_sibling_;
@@ -1086,12 +1098,12 @@ void W8Prop::AttachAnimationInstances(W8World* world)
             Rep()->GetRotation(&rep_rotation);
             node = instance->first_child_;
             if (node == 0) {
-                location.SetFromFloat(&rep_position);
+                location = glm::dvec3(rep_position.glmValue());
                 instance->setLocation(location);
                 instance->setRotation(rep_rotation);
             } else {
                 do {
-                    location.SetFromFloat(&rep_position);
+                    location = glm::dvec3(rep_position.glmValue());
                     node->setLocation(location);
                     node->setRotation(rep_rotation);
                     node = node->next_sibling_;
@@ -1194,8 +1206,9 @@ try
         ApplyAnimationFrame();
     }
     return success;
+} catch (const std::exception&) {
+    return false;
 }
-catch (const std::exception&) { return false; }
 
 /* Union of the per-frame bounds over every frame of the rep's animation.
    The rep's current frame is saved, the bounds for frame zero seed the merge,
@@ -1546,7 +1559,7 @@ try
                                    prop->m_name, static_cast<unsigned int>(tag_tmp),
                                    static_cast<unsigned int>(frame_tmp)));
                 }
-                this->slots.Add(slot);
+                this->slots.push_back(slot);
             }
         }
         animation = CreateAnimObj();
@@ -1572,7 +1585,7 @@ try
             named = FormatString("Prop: %s", prop->m_name);
             instance->setName(named);
             mesh_model = static_cast<stMeshModel*>(instance->getModel());
-            for (; mesh_model != 0; mesh_model = mesh_model->next) {
+            for (; mesh_model != 0; mesh_model = mesh_model->Next()) {
                 if (AnimationIsRunning(animation) == 0) {
                     mesh_model->GetVertexSunlight(true);
                 }
@@ -1758,8 +1771,9 @@ fail:
 fail_with_result:
     srAssertFail("fSuccess", PROP_CPP, fail_line, 0);
     return result;
+} catch (const std::exception&) {
+    return false;
 }
-catch (const std::exception&) { return false; }
 
 /* The prop representation's current animation value, or -1 while it owns no
    animation. */
@@ -1777,7 +1791,7 @@ int W8Prop::GetAnimationState() const
    frame of each mesh entry (a single-instance mesh contributes frame zero
    only), or one per frame of every mesh in each mesh list. */
 // FUNCTION: WIZ8 0x0044e570
-void W8Prop::CollectModelInstances(W8GrowableVector<stModelInstance*>* instances)
+void W8Prop::CollectModelInstances(std::vector<stModelInstance*>& instances)
 {
     W8AnimObj* animation = Rep()->animation;
     if (animation == 0) {
@@ -1791,28 +1805,28 @@ void W8Prop::CollectModelInstances(W8GrowableVector<stModelInstance*>* instances
             }
             int frame_count = AniMeshValue(mesh);
             if (mesh->flags.single_instance) {
-                instances->Add(GetAniMeshFrame(mesh, 0));
+                instances.push_back(GetAniMeshFrame(mesh, 0));
             } else {
                 for (int frame = 0; frame < frame_count; ++frame) {
-                    instances->Add(GetAniMeshFrame(mesh, frame));
+                    instances.push_back(GetAniMeshFrame(mesh, frame));
                 }
             }
         }
     } else if (AnimationIsRunning(animation) == 1) {
         for (int group = 0; group < 3; ++group) {
-            W8PList* meshes = animation->meshes[group];
+            std::vector<W8AniMesh*>* meshes = animation->meshes[group];
             if (meshes == 0) {
                 continue;
             }
-            int mesh_count = PLLength(meshes);
+            int mesh_count = (meshes ? meshes->size() : 0);
             for (int index = 0; index < mesh_count; ++index) {
-                W8AniMesh* mesh = static_cast<W8AniMesh*>(PLGet(meshes, index));
+                W8AniMesh* mesh = (*meshes)[index];
                 if (mesh == 0) {
                     continue;
                 }
                 int frame_count = AniMeshValue(mesh);
                 for (int frame = 0; frame < frame_count; ++frame) {
-                    instances->Add(GetAniMeshFrame(mesh, frame));
+                    instances.push_back(GetAniMeshFrame(mesh, frame));
                 }
             }
         }
@@ -1838,7 +1852,7 @@ void SaveWorldProps(W8World* world, wiz8::File* handle)
     version = 1;
     handle->write(&signature, 4);
     handle->write(&version, 4);
-    count = static_cast<int>(PLLength(world->plsProps));
+    count = static_cast<int>((world->plsProps ? world->plsProps->size() : 0));
     handle->write(&count, 4);
     for (index = 0; index < count; ++index) {
         prop = GetWorldProp(world, index);
@@ -1877,7 +1891,7 @@ void LoadWorldProps(W8World* world, wiz8::File* handle)
         for (index = 0; index < count; ++index) {
             handle->read_exact(&key, 4);
             prop = 0;
-            entries = static_cast<int>(PLLength(world->plsProps));
+            entries = static_cast<int>((world->plsProps ? world->plsProps->size() : 0));
             for (int entry_index = 0; entry_index < entries; ++entry_index) {
                 entry = GetWorldProp(world, entry_index);
                 if (entry->id == key) {

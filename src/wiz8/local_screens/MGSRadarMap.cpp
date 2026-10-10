@@ -1,3 +1,4 @@
+#include "wiz8/containers.h"
 #include "wiz8/local_screens/MGSRadarMap.h"
 
 #include <math.h>
@@ -18,6 +19,7 @@
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/engine_code/stModelInstance.h"
 #include "wiz8/float_constants.h"
+#include <glm/gtx/rotate_vector.hpp>
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/item_spawning.h"
 #include "wiz8/local_code/ControlsRect.h"
@@ -28,7 +30,8 @@
 #include "wiz8/local_code/Magic.h"
 #include "wiz8/local_code/MagicEffects.h"
 #include "wiz8/startup_world.h"
-#include "wiz8/vector.h"
+#include <vector>
+#include <algorithm>
 #include "wiz8/video_object_catalog.h"
 #include "wiz8/xstatus.h"
 #include "wiz8/engine_code/GameData.h"
@@ -71,7 +74,7 @@ static stModelInstance2D* g_radar_compass = 0;
 // GLOBAL: WIZ8 0x0069c088
 static stModelInstance2D* g_radar_frame = 0;
 // GLOBAL: WIZ8 0x0069bf68
-static W8GrowableVector<stModelInstance2D*> g_radar_icon_pools[18];
+static std::vector<stModelInstance2D*> g_radar_icon_pools[18];
 // GLOBAL: WIZ8 0x0069c08c
 static int g_radar_icon_cursors[18];
 // GLOBAL: WIZ8 0x0069c0d4
@@ -100,12 +103,12 @@ static unsigned char PlaceRadarBlip(srVector3T<float>* delta, int group, bool li
 static void ResetRadarBlips()
 {
     for (int sector = 0; sector < 18; ++sector) {
-        W8GrowableVector<stModelInstance2D*>* pool = &g_radar_icon_pools[sector];
-        int count = pool->count;
+        auto& pool = g_radar_icon_pools[sector];
+        int count = static_cast<int>(pool.size());
 
         g_radar_icon_cursors[sector] = 0;
         for (int index = 0; index < count; ++index) {
-            (*pool->GetAt(index))->setFlag(srNode::FLAG_DISABLE);
+            (pool[index])->setFlag(srNode::FLAG_DISABLE);
         }
     }
 }
@@ -138,17 +141,17 @@ void EnsureRadarMapOverlay(void)
 // FUNCTION: WIZ8 0x005a21b0
 static stModelInstance2D* AcquireRadarBlip(int sector, bool lit)
 {
-    W8GrowableVector<stModelInstance2D*>* pool = &g_radar_icon_pools[sector];
+    auto& pool = g_radar_icon_pools[sector];
     stModelInstance2D* icon;
     int cursor = g_radar_icon_cursors[sector];
 
-    if (cursor < pool->count) {
+    if (cursor < static_cast<int>(pool.size())) {
         g_radar_icon_cursors[sector] = cursor + 1;
-        icon = *pool->GetAt(cursor);
+        icon = pool[cursor];
     } else {
         icon = new stModelInstance2D(0);
-        *icon = **pool->GetAt(0);
-        pool->Add(icon);
+        *icon = *pool[0];
+        pool.push_back(icon);
     }
     if (icon != 0) {
         icon->clearFlag(srNode::FLAG_DISABLE);
@@ -158,8 +161,8 @@ static stModelInstance2D* AcquireRadarBlip(int sector, bool lit)
         if (!lit) {
             icon->SetGlowEnabled(false);
         } else {
-            srVector4T<float> first;
-            srVector4T<float> second;
+            glm::vec4 first;
+            glm::vec4 second;
             int group = sector - sector % 3;
 
             icon->SetGlowEnabled(true);
@@ -171,7 +174,7 @@ static stModelInstance2D* AcquireRadarBlip(int sector, bool lit)
             first.x = g_radar_blip_colors[group][0];
             first.y = g_radar_blip_colors[group][1];
             first.z = g_radar_blip_colors[group][2];
-            icon->SetGlowColors(&first, &second);
+            icon->SetGlowColors(first, second);
             icon->render_state.render_depth = 1000;
         }
     }
@@ -194,14 +197,9 @@ void ReleaseRadarMap(void)
         g_radar_compass = 0;
     }
     for (int sector = 0; sector < 18; ++sector) {
-        W8GrowableVector<stModelInstance2D*>* pool = &g_radar_icon_pools[sector];
+        auto& pool = g_radar_icon_pools[sector];
 
-        while (pool->count != 0) {
-            stModelInstance2D* icon = pool->RemoveAt(0);
-            if (icon != 0) {
-                icon->release();
-            }
-        }
+        wiz8::remove_all_and_delete_in_order(pool);
     }
     ReleaseRendererObject(g_radar_backdrop);
 }
@@ -271,7 +269,7 @@ void RefreshRadarMap(void)
     SetModelInstance2DDisplayState(g_radar_map, 4);
 
     for (sector = 0; sector < 18; ++sector) {
-        srVector4T<float> color;
+        glm::vec4 color;
         stModelInstance2D* icon;
 
         color.x = g_radar_blip_colors[sector][0];
@@ -279,7 +277,7 @@ void RefreshRadarMap(void)
         color.z = g_radar_blip_colors[sector][2];
         color.w = 1.0f;
         icon = CreateColoredPolygonSprite(2, 2, &color, false);
-        g_radar_icon_pools[sector].Add(icon);
+        g_radar_icon_pools[sector].push_back(icon);
         icon->overlay_scene_flag |= 1;
     }
     UpdateRadarBlips();
@@ -433,7 +431,6 @@ void UpdateRadarBlips(void)
 static unsigned char PlaceRadarBlip(srVector3T<float>* delta, int group, bool lit)
 {
     int ring = 0;
-    srMatrix3T<float> rotation;
     int left;
     int top;
 
@@ -445,15 +442,8 @@ static unsigned char PlaceRadarBlip(srVector3T<float>* delta, int group, bool li
         ring = 1;
     }
 
-    rotation.SetIdentity();
-    double angle = g_radar_pi * g_float_inverse_half_turn_degrees * (0x168 - g_status.party_facing);
-    if (angle != g_double_zero) {
-        float cosine = static_cast<float>(cos(angle));
-        float sine = static_cast<float>(sin(angle));
-        rotation.RotateAboutY(sine, cosine);
-    }
-
-    delta->Transform(rotation);
+    const float angle = glm::radians(static_cast<float>(360 - g_status.party_facing));
+    *delta = glm::rotateY(delta->glmValue(), angle);
     delta->y = 0.0f;
 
     float distance = delta->Length();

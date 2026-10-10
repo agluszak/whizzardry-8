@@ -1,6 +1,8 @@
 #ifndef WIZ8_LAYOUTS_ITEM_TABLES_H
 #define WIZ8_LAYOUTS_ITEM_TABLES_H
 
+#include <array>
+
 #include "wiz8/attack_modes.h"
 #include "wiz8/dice.h"
 
@@ -196,7 +198,7 @@ W8_ABI_ASSERT(sizeof(W8ItemTableRecord) == 0x1f1, "W8ItemTableRecord_size_must_b
    Keeping their declarations beside the record layouts gives item consumers a
    direct owner beside the file-format types they index. */
 extern W8ItemDatabaseRecord* g_item_records;
-extern W8ItemTableRecord** g_item_tables;
-extern char** g_item_table_category_names;
+extern W8ItemTableRecord* g_item_tables;
+extern std::array<char, 0x100>* g_item_table_category_names;
 
 #endif

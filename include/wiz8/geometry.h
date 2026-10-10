@@ -88,159 +88,38 @@ struct W8GDSurface {
                           srVector3T<float>* direction, int collision_index);
     /* 0x0041E8E0: whether moving `from` to `to` pushes this surface's
        centroid away from surface `surface_index`'s centroid. */
-    bool CentroidsDiverging(int surface_index, const srVector3T<float>* from,
-                            const srVector3T<float>* to);
+    bool CentroidsDiverging(int surface_index, const glm::vec3& from, const glm::vec3& to);
     /* 0x0041EA90: environment response for a walkable contact surface;
        adjusts `direction` and the active environ record. */
-    bool ApplyEnvironContact(srVector3T<float>* direction);
+    bool ApplyEnvironContact(glm::vec3& direction);
 };
 
 W8_ABI_ASSERT(sizeof(W8GDSurface) == 0x4c, "W8GDSurface_must_be_0x4c");
 
-/* Newell cyclic normal plus centroid plane distance. Independent TUs:
-   GDFileIO BuildTrianglePlane 0x00449A40 and 3d BuildPlaneFromPoints
-   0x0046D660. Retail instruction streams match after register renaming in
-   the Newell and distance loops; the three-point copy lowers as unrolled
-   vector assignment in one TU and a component countdown in the other.
-   Counted fors are the authored form. No Wiz8 COMDAT. */
+/* Unit plane through three vertices. Degenerate triangles have a zero normal. */
 inline void SetPlaneFromThreePoints(W8Plane* plane, const srVector3T<float>* first,
                                     const srVector3T<float>* second, const srVector3T<float>* third)
 {
-    srVector3T<float> vertices[3];
-    vertices[0] = *first;
-    vertices[1] = *second;
-    vertices[2] = *third;
-
-    plane->normal.SetZero();
-    plane->w = 0.0f;
-
-    for (int index = 0; index < 3; ++index) {
-        const srVector3T<float>& current = vertices[index];
-        const srVector3T<float>& next = vertices[(index + 1) % 3];
-        const srVector3T<float>& previous = vertices[(index + 2) % 3];
-        plane->normal.x += current.y * (next.z - previous.z);
-        plane->normal.y += current.z * (next.x - previous.x);
-        plane->normal.z += current.x * (next.y - previous.y);
-    }
-
-    srVector3T<float> normal(plane->normal);
-    float scale = g_float_one / normal.Length();
-    plane->normal.x *= scale;
-    plane->normal.y *= scale;
-    plane->normal.z *= scale;
-
-    float distances[3];
-    for (int vertex_index = 0; vertex_index < 3; ++vertex_index) {
-        distances[vertex_index] = plane->normal.x * vertices[vertex_index].x +
-                                  plane->normal.y * vertices[vertex_index].y +
-                                  plane->normal.z * vertices[vertex_index].z;
-    }
-    plane->w = (distances[0] + distances[1] + distances[2]) * g_float_negative_one_third;
+    const auto origin = first->glmValue();
+    const auto normal =
+        normalizedOrZero(glm::cross(second->glmValue() - origin, third->glmValue() - origin));
+    plane->normal = normal;
+    plane->w = -glm::dot(normal, origin);
 }
 
 /* Signed plane distance n·p + w. Independent TUs: 3d.cpp PointInsideFrustum
    0x0046D880 and stLight ContainsPoint 0x0049E460. No Wiz8 COMDAT. */
 inline float SignedPlaneDistance(const W8Plane& plane, const srVector3T<float>& point)
 {
-    return plane.normal.x * point.x + plane.normal.y * point.y + plane.normal.z * point.z + plane.w;
-}
-
-/* Rotation keyframes interpolate through a quaternion: the scalar term is
-   first and the imaginary part shares the srVector3T operators. Retail
-   callers share the out-of-line matrix conversion at 0x0044ECA0. */
-class W8Quaternion {
-public:
-    W8Quaternion* SetFromMatrix(const srMatrix3T<float>& matrix); /* 0x0044ECA0 */
-    /* Short-arc slerp between two keyframe rotations expanded back into a
-       rotation matrix: the copy of `to` is sign-fixed so the dot stays
-       positive, a near-coincident pair falls back to a linear blend, and the
-       normalized quaternion is written out through the 2/norm^2 expansion.
-       Prop 0x0044C830 and PathAIApply 0x004AA520 inline the same sequence. */
-    static void InterpolateRotation(const srMatrix3T<float>& from, const srMatrix3T<float>& to,
-                                    double amount, srMatrix3T<float>* rotation);
-
-    float w;
-    srVector3T<float> v;
-};
-
-inline void W8Quaternion::InterpolateRotation(const srMatrix3T<float>& from,
-                                              const srMatrix3T<float>& to, double amount,
-                                              srMatrix3T<float>* rotation)
-{
-    W8Quaternion first;
-    W8Quaternion second;
-    W8Quaternion adjusted;
-    double dot;
-    double b;
-    double angle;
-    double sine;
-    double w;
-    double x;
-    double y;
-    double z;
-    double scale;
-    double sx;
-    double sy;
-    double sz;
-    double xx;
-    double xy;
-    double xz;
-    double yy;
-    double yz;
-    double zz;
-    double xw;
-    double yw;
-    double zw;
-
-    first.SetFromMatrix(from);
-    second.SetFromMatrix(to);
-    adjusted = second;
-    dot = first.w * second.w + first.v.x * second.v.x + first.v.y * second.v.y +
-          first.v.z * second.v.z;
-    if (dot < g_double_zero) {
-        dot = -dot;
-        adjusted.v = -adjusted.v;
-        adjusted.w = -adjusted.w;
-    }
-    if (g_double_one - dot <= g_slerp_epsilon) {
-        dot = g_double_one - amount;
-        b = amount;
-    } else {
-        angle = acos(dot);
-        sine = sin(angle);
-        dot = sin((g_double_one - amount) * angle) / sine;
-        b = sin(angle * amount) / sine;
-    }
-    adjusted.v = dot * first.v + b * adjusted.v;
-    w = first.w * dot + adjusted.w * b;
-    x = adjusted.v.x;
-    y = adjusted.v.y;
-    z = adjusted.v.z;
-    scale = g_quaternion_matrix_normalization / (w * w + x * x + y * y + z * z);
-    sx = scale * x;
-    sy = scale * y;
-    sz = scale * z;
-    xw = sx * w;
-    yw = sy * w;
-    zw = sz * w;
-    xx = sx * x;
-    xy = sx * y;
-    xz = sx * z;
-    yy = sy * y;
-    yz = sy * z;
-    zz = sz * z;
-    rotation->vectors[0].x = static_cast<float>(g_double_one - (yy + zz));
-    rotation->vectors[1].x = static_cast<float>(xy + zw);
-    rotation->vectors[2].x = static_cast<float>(xz - yw);
-    rotation->vectors[0].y = static_cast<float>(xy - zw);
-    rotation->vectors[1].y = static_cast<float>(g_double_one - (xx + zz));
-    rotation->vectors[2].y = static_cast<float>(yz + xw);
-    rotation->vectors[0].z = static_cast<float>(xz + yw);
-    rotation->vectors[1].z = static_cast<float>(yz - xw);
-    rotation->vectors[2].z = static_cast<float>(g_double_one - (xx + yy));
+    return glm::dot(plane.normal.glmValue(), point.glmValue()) + plane.w;
 }
 
 void ClassifySurfacePlane(const srVector3T<float>* vertices, W8GDSurface* surface);
 void BuildTrianglePlane(W8Plane* plane, const srVector3T<float>* first,
                         const srVector3T<float>* second, const srVector3T<float>* third);
+/* Segment intersection projected onto the plane perpendicular to axis. */
+bool SegmentCrossesEdge(const glm::vec3& seg_start, const glm::vec3& seg_end,
+                        const glm::vec3& edge_a, const glm::vec3& edge_b, unsigned int axis);
+
 #endif
+

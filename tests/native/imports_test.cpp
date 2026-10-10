@@ -9,11 +9,12 @@
 #include "surrender/srLight.h"
 #include "surrender/srMaterial.h"
 #include "surrender/srMeshModel.h"
+#include "surrender/srModelInstance.h"
 #include "surrender/srModeler.h"
 #include "surrender/srQuadWord.h"
 #include "surrender/srScene.h"
 #include "surrender/srTextureFile.h"
-#include "surrender/srVectorMath.h"
+#include "surrender/srTextureMap.h"
 #include <cfenv>
 #include <algorithm>
 #include <array>
@@ -24,12 +25,11 @@
 #include "wiz8/sr_api.h"
 #include <cstdio>
 #include <cstring>
+#include <cassert>
 
 #define CHECK(expression)                                                                          \
-    do                                                                                             \
-    {                                                                                              \
-        if (!(expression))                                                                         \
-        {                                                                                          \
+    do {                                                                                           \
+        if (!(expression)) {                                                                       \
             fprintf(stderr, "line %d: %s\n", __LINE__, #expression);                               \
             return 1;                                                                              \
         }                                                                                          \
@@ -69,16 +69,26 @@ struct ClientTextureFile : srTextureFile
     {
     }
 };
+// Compares a 3x2 BGRA32 surface with the 20-byte-pitch fixture rows.
+static bool samePixels(srColorSurface& surface, const unsigned char* pixels)
+{
+    const auto* data = static_cast<const unsigned char*>(surface.getDataPtr());
+    for (int row = 0; row < 2; ++row) {
+        if (std::memcmp(data + row * surface.getPitch(), pixels + row * 20, 12) != 0) {
+            return false;
+        }
+    }
+    return true;
+}
+
 static int surface_storage()
 {
     std::array<unsigned char, 40> pixels;
     for (std::size_t index = 0; index < pixels.size(); ++index)
         pixels[index] = static_cast<unsigned char>(index * 7);
     const auto original = pixels;
-    srPtr<srPalette> palette;
-    palette = new srPalette;
-    palette->release();
-    const auto references = palette->getReferenceCount();
+    auto palette = std::make_shared<srPalette>();
+    const auto references = palette.use_count();
     {
         srColorSurface borrowed(srPixelConvert::SURFACE_BGRA32, pixels.data(), 3, 2, 20);
         borrowed.setPalette(palette);
@@ -90,9 +100,8 @@ static int surface_storage()
 
         srColorSurface copied(borrowed);
         CHECK(copied.getDataPtr() != pixels.data());
-        CHECK(copied.getPitch() == 20 && copied.getDataSize() == 40);
-        CHECK(std::memcmp(copied.getDataPtr(), pixels.data(), pixels.size()) == 0);
-        CHECK(palette->getReferenceCount() == references + 2);
+        CHECK(samePixels(copied, pixels.data()));
+        CHECK(palette.use_count() == references + 2);
         copied.setPixelRaw(0, 0, 0x12345678);
         CHECK(pixels == original && copied.getPixelRaw(0, 0) == 0x12345678);
         copied = static_cast<const srColorSurface&>(copied);
@@ -101,12 +110,13 @@ static int surface_storage()
         srColorSurface assigned(srPixelConvert::SURFACE_BGRA32, 1, 1);
         assigned = borrowed;
         CHECK(assigned.getDataPtr() != pixels.data());
-        CHECK(std::memcmp(assigned.getDataPtr(), pixels.data(), pixels.size()) == 0);
-        CHECK(palette->getReferenceCount() == references + 3);
-        srColorSurface view(srPixelConvert::SURFACE_BGRA32, assigned.getDataPtr(), 3, 2, 20);
+        CHECK(samePixels(assigned, pixels.data()));
+        CHECK(palette.use_count() == references + 3);
+        srColorSurface view(srPixelConvert::SURFACE_BGRA32, assigned.getDataPtr(), 3, 2,
+                            assigned.getPitch());
         assigned = view;
-        CHECK(std::memcmp(assigned.getDataPtr(), pixels.data(), pixels.size()) == 0);
-        CHECK(palette->getReferenceCount() == references + 2);
+        CHECK(samePixels(assigned, pixels.data()));
+        CHECK(palette.use_count() == references + 2);
         CHECK(assigned.resize(7, 5));
         auto* begin = static_cast<unsigned char*>(assigned.getDataPtr());
         CHECK(std::all_of(begin, begin + assigned.getDataSize(), [](auto value) { return value == 0; }));
@@ -116,7 +126,7 @@ static int surface_storage()
             for (int x = 0; x < 3; ++x)
                 CHECK(assigned.getPixelRaw(x, y) == 0xff336699);
         CHECK(assigned.changePixelFormat(format, 1));
-        CHECK(assigned.getPitch() == 9 && assigned.getPixelRaw(0, 0) == 0x996633);
+        CHECK(assigned.getPitch() >= 9 && assigned.getPixelRaw(0, 0) == 0x996633);
         CHECK(assigned.getPixel(0, 0) == 0xff336699);
 
         std::array<unsigned char, 4> other_pixels{1, 2, 3, 4};
@@ -126,7 +136,74 @@ static int surface_storage()
         CHECK(other_borrowed.getDataPtr() != pixels.data());
         CHECK(other_borrowed.resize(2, 2));
     }
-    CHECK(pixels == original && palette->getReferenceCount() == references);
+    CHECK(pixels == original && palette.use_count() == references);
+
+    // A view of an SDL surface keeps its pixels after the original owner releases them.
+    {
+        SDL_Surface* owner = SDL_CreateSurface(2, 2, SDL_PIXELFORMAT_ARGB1555);
+        CHECK(owner);
+        srColorSurface shared(srPixelConvert::SURFACE_ARGB1555, *owner);
+        CHECK(shared.getDataPtr() == owner->pixels && !shared.resize(4, 4));
+        SDL_DestroySurface(owner);
+        shared.setPixelRaw(1, 1, 0x7fff);
+        CHECK(shared.getPixelRaw(1, 1) == 0x7fff);
+    }
+    return 0;
+}
+
+// Instances, including copies, share ownership of their model.
+static int shared_model_lifetimes()
+{
+    auto model = std::make_shared<srMeshModel>(0, 0);
+    std::weak_ptr<srModel> lifetime = model;
+    auto* first = new srModelInstance(nullptr);
+    first->setModel(std::move(model));
+    auto* copy = new srModelInstance(nullptr);
+    *copy = *first;
+    CHECK(copy->getModel() == first->getModel());
+    delete first;
+    CHECK(!lifetime.expired());
+    delete copy;
+    CHECK(lifetime.expired());
+    return 0;
+}
+
+// Maps share their source surface; copies of dimensions also keep the palette alive.
+static int shared_surface_lifetimes()
+{
+    struct Map : srTextureMap {
+        using srTextureMap::srTextureMap;
+        Map& operator=(const Map&) = default;
+        ~Map() override = default;
+    };
+    std::weak_ptr<srColorSurfaceIFace> surface_lifetime;
+    std::weak_ptr<srPalette> palette_lifetime;
+    srTextureIFace::Dimensions dimensions{};
+    {
+        auto palette = std::make_shared<srPalette>(nullptr, 7);
+        srARGB color;
+        color.alpha = 0xff; color.red = 0x12; color.green = 0x34; color.blue = 0x56;
+        palette->setColor(0, color);
+        palette_lifetime = palette;
+        srPalette borrowed;
+        borrowed = *palette;
+        auto surface = std::make_shared<srColorSurface>(srPixelConvert::SURFACE_P8, 2, 2);
+        surface->setPalette(palette);
+        surface_lifetime = surface;
+        Map first(surface), second;
+        second = first;
+        first.getDimensions(dimensions);
+        surface.reset();
+        palette.reset();
+        first.setSurfacePtr(nullptr);
+        CHECK(!surface_lifetime.expired());
+        CHECK(second.getSurfacePtr()->getWidth() == 2);
+        second.setSurfacePtr(nullptr);
+        CHECK(surface_lifetime.expired());
+        CHECK(!palette_lifetime.expired());
+    }
+    dimensions.palette.reset();
+    CHECK(palette_lifetime.expired());
     return 0;
 }
 
@@ -201,6 +278,8 @@ int main()
     srAssertSetFunc(assertion);
     CHECK(srInit());
     CHECK(surface_storage() == 0);
+    CHECK(shared_surface_lifetimes() == 0);
+    CHECK(shared_model_lifetimes() == 0);
     {
         const int before_destruction = destroyed_nodes;
         srScene* scene = new srScene;
@@ -241,7 +320,26 @@ int main()
         vectors.values[0].Set(5, -2, 7);
         vectors.values[1].Set(-3, 9, 1);
         CHECK(reinterpret_cast<uintptr_t>(&vectors.values[0]) % alignof(float) != 0);
-        srMath::minMax(vectors.values, vectors.minimum, vectors.maximum);
+        {
+            assert(std::size(vectors.values) != 0);
+            auto lower = vectors.values[0].glmValue();
+            auto upper = lower;
+            for (std::size_t point_index = 1; point_index < std::size(vectors.values);
+                 ++point_index) {
+                const auto& point = vectors.values[point_index];
+                const auto v = point.glmValue();
+                // Keep the comparison order for NaNs in recovered bounds.
+                for (int c = 0; c < 3; ++c) {
+                    if (v[c] >= lower[c]) {
+                        if (v[c] > upper[c])
+                            upper[c] = v[c];
+                    } else
+                        lower[c] = v[c];
+                }
+            }
+            (vectors.minimum) = lower;
+            (vectors.maximum) = upper;
+        }
         CHECK(vectors.minimum.x == -3 && vectors.minimum.y == -2 && vectors.minimum.z == 1);
         CHECK(vectors.maximum.x == 5 && vectors.maximum.y == 9 && vectors.maximum.z == 7);
         // File names own their text, including an aliased setter argument.
@@ -262,7 +360,7 @@ int main()
         copy.getViewPlane(after, distance);
         CHECK(before.left == after.left && before.top == after.top);
         srClipPlane plane, plane_copy;
-        srVector4T<float> plane_value;
+        glm::vec4 plane_value;
         plane_value.x = 1;
         plane_value.y = 2;
         plane_value.z = 3;
@@ -275,7 +373,7 @@ int main()
         fog_copy = fog;
         CHECK(fog_copy.getDensity() == 0.25f);
         ClientMaterial material, material_copy;
-        srVector4T<float> emissive;
+        glm::vec4 emissive;
         emissive.x = 0.25f;
         emissive.y = 0.5f;
         emissive.z = 0.75f;

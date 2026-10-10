@@ -9,18 +9,19 @@ extern float g_automap_grid_cell_size;
 #include "wiz8/layouts/main_game_screen.h"
 
 #include "surrender/srMath.h"
-#include "wiz8/vector.h"
+#include <vector>
+#include <algorithm>
 
 /* One map note. The text is separately malloc-owned and holds at most 39
    characters plus the terminator. */
 struct W8AutomapNote {
-    srVector2T<float> position;
+    glm::vec2 position;
     int layer;
     wchar_t* text;
 };
 W8_ABI_ASSERT(sizeof(W8AutomapNote) == 0x10, "W8AutomapNote_size");
 
-extern W8Vector<W8AutomapNote*>* g_automap_notes;
+extern std::vector<W8AutomapNote*>* g_automap_notes;
 extern W8MainUiMode g_ui_mode_current;
 extern W8MainUiMode g_ui_mode_saved;
 void SetCurrentAutomapUiMode(W8MainUiMode value);

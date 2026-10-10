@@ -9,7 +9,8 @@
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/layouts/item_instance.h"
 #include "wiz8/layouts/world.h"
-#include "wiz8/3d_code/PList.h"
+#include <vector>
+#include <algorithm>
 #include "wiz8/local_code/ConditionsAndEnchantments.h"
 #include "wiz8/local_code/HealthStaminaMana.h"
 #include "wiz8/local_code/MonsterGenerator.h"
@@ -18,7 +19,6 @@
 #include "wiz8/sr_api.h"
 #include "wiz8/utility.h"
 #include "wiz8/xstatus.h"
-#include "wiz8/vector.h"
 #include "soundman.h"
 
 /* Level Specific Code\Trynnie1.cpp (level 0x19).
@@ -120,7 +120,10 @@ void KillTrynnieGroups(void)
     int iNewTable;
     int index;
 
-    for (index = 0; index < static_cast<int>(PLLength(gXStatus.plsMonsterGroupList)); ++index) {
+    for (index = 0;
+         index < static_cast<int>(
+                     gXStatus.monster_groups.size());
+         ++index) {
         group = GetMonsterGroupByListIndex(index);
         if (group != 0 && group->members_active &&
             (record = MonsterGroupGetRecord(group), record->faction_id == 0xd) &&
@@ -137,8 +140,8 @@ void KillTrynnieGroups(void)
         srAssertFail("iNewTable!=(-1)", TRYNNIE1_CPP, 0x69,
                      "Can't find monster table 'Dead Trynnies'");
     }
-    for (index = 0; index < g_world->monster_generators->GetCount(); ++index) {
-        generator = *g_world->monster_generators->GetAt(index);
+    for (index = 0; index < static_cast<int>(g_world->monster_generators->size()); ++index) {
+        generator = (*g_world->monster_generators)[index];
         if (generator->encounter_table_index == iOldTable) {
             generator->SetEncounterTable(iNewTable);
         }

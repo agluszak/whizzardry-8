@@ -38,7 +38,7 @@ typedef UINT32 COLORVAL;
 // Effects structure for specialized blitting
 typedef struct {
     UINT32 uiShadowLevel;
-    SGPRect ClipRect;
+    SDL_Rect ClipRect;
 
 } blt_fx;
 

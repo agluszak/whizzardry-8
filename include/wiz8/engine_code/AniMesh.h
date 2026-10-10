@@ -1,3 +1,5 @@
+#include <vector>
+struct W8AniMesh;
 #include "wiz8/filesystem.h"
 #ifndef WIZ8_ENGINE_CODE_ANI_MESH_H
 #define WIZ8_ENGINE_CODE_ANI_MESH_H
@@ -5,7 +7,7 @@
 #include <stddef.h>
 
 #include "surrender/srMath.h"
-#include "wiz8/3d_code/PList.h"
+#include <algorithm>
 
 class stModelInstance;
 struct W8ReadLevelInfo;
@@ -48,7 +50,7 @@ extern int g_animesh_cache_stamp;
 extern int g_animesh_cache_bytes;
 extern int g_animesh_cache_limit;
 extern int g_animesh_cache_secondary_limit;
-extern W8PList g_animesh_cache_list;
+extern std::vector<W8AniMesh*> g_animesh_cache_list;
 
 void InitializeAniMeshCache(int primary_limit, int secondary_limit);
 void FreeAniMeshCache(void);

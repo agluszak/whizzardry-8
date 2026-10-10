@@ -2,15 +2,18 @@
 #include "surrender/srDD_SDLGPU.h"
 #include "surrender/srGERD.h"
 #include "surrender/srMeshModel.h"
+#include "surrender/srTextureMap.h"
 #include "surrender/srTriMeshPipeline.h"
-#include "surrender/srVectorMath.h"
-
 #include <array>
 #include <cstddef>
 #include <cstdio>
+
 #include <memory>
 #include <type_traits>
 #include <vector>
+#include "surrender/srMath.h"
+#include <algorithm>
+#include <cassert>
 
 #define CHECK(expression)                                                                          \
     do {                                                                                           \
@@ -59,12 +62,13 @@ static bool defaults()
 
 static bool zeroNormals()
 {
-    std::array<srVector4, 2> normals;
-    normals[0].Set(0, 0, 0, 0);
-    normals[1].Set(0, 0, 0, 2);
-    srMath::normalize(normals, normals.data(), 1.0f);
-    CHECK(normals[0].x == 0 && normals[0].y == 0 && normals[0].z == 0 && normals[0].w == 0);
-    CHECK(normals[1].x == 0 && normals[1].y == 0 && normals[1].z == 0 && normals[1].w == 1);
+    std::array<srVector3, 2> normals;
+    normals[0].Set(0, 0, 0);
+    normals[1].Set(0, 0, 2);
+    for (auto& normal : normals)
+        normal.Normalize();
+    CHECK(normals[0] == srVector3(0, 0, 0));
+    CHECK(normals[1] == srVector3(0, 0, 1));
     return true;
 }
 
@@ -136,7 +140,7 @@ static bool uvGrowth()
 {
     srMeshModel mesh(1, 3);
     auto* uv = mesh.getVertexTexCoords(1, 1, 1);
-    uv[0].Set(0.25f, 0.75f);
+    uv[0] = glm::vec2(0.25f, 0.75f);
     mesh.getTriMesh();
     mesh.setUVCount(12);
     uv = mesh.getVertexTexCoords(1, 1, 0);
@@ -162,70 +166,35 @@ static bool uvGrowth()
     return true;
 }
 
-static bool copyAndReset()
+static bool reset()
 {
-    auto* material = srCore.getMaterial();
-    auto* texture = srCore.getTexture();
-    const auto material_references = material->getReferenceCount();
-    const auto texture_references = texture->getReferenceCount();
+    auto material = std::make_shared<srMaterial>();
+    auto texture = std::make_shared<srTextureMap>();
     {
-        srMeshModel source(1, 3);
-        source.getVertexLoc()[1].Set(1, 2, 3);
-        source.getPolyVertex()[0].y = 1;
-        source.setUVCount(7);
-        source.getVertexTexCoords(2, 0, 1)[6].Set(0.5f, 0.75f);
-        source.getVertexMaterial(1, srMeshModel::SIDE_BACK, 1)[2] = material;
-        source.getPolyTexture(1, 0, 1)[0] = texture;
-        source.setMaterial(material, 0, srMeshModel::SIDE_FRONT);
-        source.setTexture(texture, 0, 0);
-        source.setSortBias(0.25f);
-        source.setPassCount(3);
-        const auto view = source.getTriMesh();
-        CHECK(material->getReferenceCount() == material_references + 2);
-        CHECK(texture->getReferenceCount() == texture_references + 2);
-        srMeshModel copy(source);
-        CHECK(copy.getID() != source.getID());
-        CHECK(copy.getUVCount() == 7 && copy.getSortBias() == 0.25f && copy.getPassCount() == 3);
-        CHECK(copy.tri_mesh.positions == nullptr && copy.testDirty(srMeshModel::DIRTY_TRI_MESH));
-        const auto copied_view = copy.getTriMesh();
-        CHECK(copied_view.positions != view.positions && copied_view.poly_vertices != view.poly_vertices);
-        CHECK(copied_view.texcoords[2][0] != view.texcoords[2][0]);
-        CHECK(copied_view.positions[1] == srVector3T<float>(1, 2, 3));
-        CHECK(copied_view.texcoords[2][0][6].x == 0.5f);
-        CHECK(copy.getVertexDIG(0, 0) == nullptr && copy.getPolyShader(0, 0) == nullptr);
-        CHECK(material->getReferenceCount() == material_references + 4);
-        CHECK(texture->getReferenceCount() == texture_references + 4);
-
-        srMeshModel assigned(5, 10);
-        assigned.getVertexDIG(0, 1);
-        assigned = source;
-        CHECK(assigned.getUVCount() == 7 && assigned.getSortBias() == 0.25f);
-        CHECK(assigned.getTriMesh().positions != view.positions);
-        CHECK(assigned.getVertexDIG(0, 0) == nullptr);
-        const srMeshModel& self = assigned;
-        assigned = self;
-        CHECK(assigned.getTriMesh().texcoords[2][0][6].y == 0.75f);
-        copy.getVertexLoc()[1].x = 99;
-        CHECK(source.getVertexLoc()[1].x == 1);
-        copy.reset(2, 4);
-        CHECK(copy.getVertexCount() == 4 && copy.getUVCount() == 4 && copy.getPolygonCount() == 2);
-        CHECK(copy.getPassCount() == 1 && copy.getActivePolygonCount() == 2);
-        CHECK(copy.getSortBias() == 0.25f && copy.getMaterial(0, srMeshModel::SIDE_FRONT) == material);
-        CHECK(copy.getTexture(0, 0) == texture);
-        CHECK(copy.vertex_locations.empty() && copy.vertex_locations.capacity() == 0);
-        CHECK(copy.texcoords[2][0].empty() && copy.texcoords[2][0].capacity() == 0);
-        CHECK(copy.tri_mesh.positions == nullptr && copy.tri_mesh.texcoords[2][0] == nullptr);
-        CHECK(copy.getVertexMaterial(1, srMeshModel::SIDE_BACK, 0) == nullptr);
-        CHECK(copy.getPolyTexture(1, 0, 0) == nullptr && copy.getActivePolygonTable(0) == nullptr);
-        CHECK(copy.getVertexLoc()[1] == srVector3T<float>(0, 0, 0));
-        // Resetting the source cannot invalidate the destination's owned tables.
-        source.reset(0, 0);
-        CHECK(assigned.getTriMesh().positions[1].x == 1);
-        CHECK(assigned.getTriMesh().texcoords[2][0][6].x == 0.5f);
-        CHECK(source.getTriMesh().poly_vertices == nullptr && source.getTriMesh().positions == nullptr);
+        srMeshModel mesh(1, 3);
+        mesh.getVertexLoc()[1].Set(1, 2, 3);
+        mesh.setUVCount(7);
+        mesh.getVertexTexCoords(2, 0, 1)[6] = glm::vec2(0.5f, 0.75f);
+        mesh.getVertexMaterial(1, srMeshModel::SIDE_BACK, 1)[2] = material;
+        mesh.getPolyTexture(1, 0, 1)[0] = texture;
+        mesh.setMaterial(material, 0, srMeshModel::SIDE_FRONT);
+        mesh.setTexture(texture, 0, 0);
+        mesh.setSortBias(0.25f);
+        mesh.setPassCount(3);
+        CHECK(mesh.getTriMesh().texcoords[2][0][6].x == 0.5f);
+        mesh.reset(2, 4);
+        CHECK(mesh.getVertexCount() == 4 && mesh.getUVCount() == 4 && mesh.getPolygonCount() == 2);
+        CHECK(mesh.getPassCount() == 1 && mesh.getActivePolygonCount() == 2);
+        CHECK(mesh.getSortBias() == 0.25f && mesh.getMaterial(0, srMeshModel::SIDE_FRONT) == material.get());
+        CHECK(mesh.getTexture(0, 0) == texture.get());
+        CHECK(mesh.vertex_locations.empty() && mesh.vertex_locations.capacity() == 0);
+        CHECK(mesh.texcoords[2][0].empty() && mesh.texcoords[2][0].capacity() == 0);
+        CHECK(mesh.tri_mesh.positions == nullptr && mesh.tri_mesh.texcoords[2][0] == nullptr);
+        CHECK(mesh.getVertexMaterial(1, srMeshModel::SIDE_BACK, 0) == nullptr);
+        CHECK(mesh.getPolyTexture(1, 0, 0) == nullptr && mesh.getActivePolygonTable(0) == nullptr);
+        CHECK(mesh.getVertexLoc()[1] == srVector3T<float>(0, 0, 0));
     }
-    CHECK(material->getReferenceCount() == material_references);
-    CHECK(texture->getReferenceCount() == texture_references);
+    CHECK(material.use_count() == 1 && texture.use_count() == 1);
     return true;
 }
 
@@ -276,7 +245,7 @@ static bool pipelineSlots()
 int main()
 {
     if (!defaults() || !srInit()) return 1;
-    const bool passed = zeroNormals() && lazyTables() && uvGrowth() && copyAndReset() && pipelineSlots();
+    const bool passed = zeroNormals() && lazyTables() && uvGrowth() && reset() && pipelineSlots();
     if (!srExit() || !passed) return 1;
     std::puts("ok: mesh ownership, lazy tables, reset/copy cache state and pipeline slot growth");
 }

@@ -10,7 +10,8 @@
 #include "wiz8/engine_code/GrObject.h"
 #include "wiz8/engine_code/Navigator.h"
 #include "wiz8/geometry.h"
-#include "wiz8/vector.h"
+#include <vector>
+#include <algorithm>
 
 class srModelInstance;
 struct W8World;
@@ -35,7 +36,7 @@ struct W8AnimObj;
 struct W8AniMesh;
 struct W8PathAI;
 
-void DestroyLightVector(W8GrowableVector<stLight*>* vector); /* 0x004A8C50 */
+void DestroyLightVector(std::vector<stLight*>* vector); /* 0x004A8C50 */
 
 /* Live-list membership and ownership are independent: Trigger retains its
    effect and clears LIST_OWNS before the live updater can release it. */
@@ -76,7 +77,7 @@ W8_ABI_ASSERT(sizeof(W8CameraShakeEffect) == 0x4c, "W8CameraShakeEffect_must_be_
 
 /* The live list every active effect is on, and the timer the first effect
    creates alongside it. Both are built lazily by the constructor. */
-extern W8Vector<W8CameraShakeEffect*>* g_shake_effects;
+extern std::vector<W8CameraShakeEffect*>* g_shake_effects;
 extern W8GameTimer* g_shake_timer;
 extern const float g_float_two_hundred_fifty;
 
@@ -84,11 +85,11 @@ W8CameraShakeEffect* CreateCameraShakeEffect(float duration, bool preset, float 
                                              float distance_cap, const srVector3T<float>* position);
 /* Fire every effect in one cycle's vector whose key matches, moving it onto the
    live list and restarting its timer. */
-void TriggerShakeEffects(W8GrowableVector<W8CameraShakeEffect*>* effects, int cycle,
-                         unsigned int frame, int subcycle, const srVector3T<float>* position);
+void TriggerShakeEffects(std::vector<W8CameraShakeEffect*>* effects, int cycle, unsigned int frame,
+                         int subcycle, const srVector3T<float>* position);
 /* Take every active effect in one cycle's vector back off the live list, and
    release the ones that list owned. */
-void StopShakeEffects(W8GrowableVector<W8CameraShakeEffect*>* effects);
+void StopShakeEffects(std::vector<W8CameraShakeEffect*>* effects);
 /* The per-frame shake update: retire finished live effects and turn the
    accumulated intensity into Trigger's action camera offset. */
 void UpdateShakeEffects();
@@ -108,7 +109,7 @@ public:
     /* 0x004A7E50 composes this into the model instance's own rotation with
        MultiplyBy, which is what makes it a matrix rather than 0x24
        opaque bytes. */
-    srMatrix3T<float> rotation;
+    glm::mat3 rotation;
 };
 
 W8_ABI_ASSERT(sizeof(W8GrCycleParticleAttachment) == 0x3c,
@@ -149,9 +150,9 @@ public:
 
     void SetSubCycle(unsigned char subcycle);
     void SetBehaviour(signed char bBehaviour);
-    void SetLights(W8GrowableVector<stLight*>* lights);
-    void DetachCycleLights(W8GrowableVector<stLight*>* lights);
-    void AttachCycleLights(W8GrowableVector<stLight*>* lights);
+    void SetLights(std::vector<stLight*>* lights);
+    void DetachCycleLights(std::vector<stLight*>* lights);
+    void AttachCycleLights(std::vector<stLight*>* lights);
     void AddShakeEffect(W8CameraShakeEffect* effect);
     void CreateGroundShadow(float width, float depth);
     void SetGroundShadowVisible(bool visible);
@@ -169,13 +170,13 @@ public:
 
 public:
     srModelInstance* current_model_instance;
-    W8GrowableVector<stLight*>* m_plsLights;          /* 0x1ac */
-    W8Vector<W8CameraShakeEffect*>* m_plsShakeEvents; /* 0x1b0 */
+    std::vector<stLight*>* m_plsLights;                  /* 0x1ac */
+    std::vector<W8CameraShakeEffect*>* m_plsShakeEvents; /* 0x1b0 */
     bool m_fDeleteLights;                             /* 0x1b4: named by GrCycle.cpp:1656 */
     /* 0x1b5: the subcycle the last update pass left on the representation. */
     unsigned char last_subcycle;
     unsigned char padding_1b6[2];
-    W8Vector<W8GrCycleParticleAttachment*>* m_plsParticles; /* 0x1b8 */
+    std::vector<W8GrCycleParticleAttachment*>* m_plsParticles; /* 0x1b8 */
     /* 0x1bc: set when the frame walk wrapped to first_frame; suppresses the
        per-subcycle light reset. */
     bool wrapped;

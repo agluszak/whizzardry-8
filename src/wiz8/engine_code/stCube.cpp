@@ -1,10 +1,12 @@
+#include "wiz8/containers.h"
 #include "surrender/srMath.h"
 #include "wiz8/xstatus.h"
 #include "wiz8/world_cursor.h"
 #include "wiz8/engine_code/World.h"
 #include "wiz8/engine_code/Monster.h"
 #include "wiz8/engine_code/GDCamera.h"
-#include "wiz8/3d_code/PList.h"
+#include <vector>
+#include <algorithm>
 #include "wiz8/engine_code/Environment.h"
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/local_screens/MainGameScreen.h"
@@ -18,7 +20,6 @@
 #include "wiz8/local_code/Controls.h"
 #include "wiz8/sr_api.h"
 #include "wiz8/utility.h"
-#include "wiz8/vector.h"
 #include "wiz8/geometry.h"
 #include "surrender/srNode.h"
 #include "surrender/srCamera.h"
@@ -55,11 +56,10 @@ unsigned char W8WorldCursorNode::GetLocation(srVector3T<float>* position)
     return 0;
 }
 
-/* The cursor's node table is a real W8GrowableVector object: its static
-   initializer at 0x0048D020 constructs it with capacity five and its
-   destructor is run through atexit. */
+/* Cursor nodes are allocated separately so their addresses survive
+   changes to the node table. */
 // GLOBAL: WIZ8 0x0065ba58
-W8GrowableVector<W8WorldCursorNode*> g_world_cursor_nodes(5);
+std::vector<W8WorldCursorNode*> g_world_cursor_nodes;
 
 /* The double selection range at 0x005ECAC8: node distances below it select the
    node. Read as 75000.0, not the zero a float view would give. */
@@ -84,7 +84,7 @@ W8WorldCursorNode* CreateWorldCursorCube(void)
 {
     srModeler modeller;
     srModeler::Polygon polygon(4);
-    stMeshModel* model = new stMeshModel(0, 0);
+    auto model = std::make_shared<stMeshModel>(0, 0);
     stModelInstance* instance = new stModelInstance(0);
     W8WorldCursorNode* entry = new W8WorldCursorNode;
     /* Polygon(4) already heap-allocates the modelled vertices; these four
@@ -93,10 +93,10 @@ W8WorldCursorNode* CreateWorldCursorCube(void)
     (void)unused;
     srModeler::Vertex* vertices = polygon.vertices.data();
 
-    vertices[0].uv[0].Set(1.0f, 1.0f);
-    vertices[1].uv[0].Set(0.0f, 1.0f);
-    vertices[2].uv[0].SetZero();
-    vertices[3].uv[0].Set(1.0f, 0.0f);
+    vertices[0].uv[0] = glm::vec2(1.0f, 1.0f);
+    vertices[1].uv[0] = glm::vec2(0.0f, 1.0f);
+    vertices[2].uv[0] = glm::vec2(0);
+    vertices[3].uv[0] = glm::vec2(1.0f, 0.0f);
 
     srVector3T<float> npp(-0.5f, 1.0f, 0.5f);
     srVector3T<float> ppp(0.5f, 1.0f, 0.5f);
@@ -143,34 +143,31 @@ W8WorldCursorNode* CreateWorldCursorCube(void)
     vertices[3].position = nnn;
     modeller.addPolygon(polygon);
 
-    srMaterial* material = new srMaterial;
+    auto material = std::make_shared<srMaterial>();
     material->setName("Cube Number Material");
-    material->autoRelease();
 
-    srVector4T<float> colour;
-    colour = 1.0f;
+    glm::vec4 colour;
+    colour = glm::vec4(1.0f);
     material->setAmbient(colour);
-    colour = 1.0f;
+    colour = glm::vec4(1.0f);
     material->setEmissive(colour);
-    colour = 1.0f;
+    colour = glm::vec4(1.0f);
     material->setDiffuse(colour);
-    colour = 0.0f;
+    colour = glm::vec4(0.0f);
     material->setSpecular(colour);
     material->parms.diffuse.w = 0.35f;
     material->parms.shininess = 1.0f;
     material->dirty = 1;
-    modeller.setMaterial(material, 0, srMeshModel::SIDE_FRONT);
+    modeller.setMaterial(std::move(material), 0, srMeshModel::SIDE_FRONT);
 
     srShader shader;
     shader.value = 0x0100c5b3; /* packed srShader: LEQUAL, color write, dst 1-srcA, fog, modulate */
     modeller.setShader(shader, 0);
 
-    srColorSurface* surface =
-        new srColorSurface(srPixelConvert::SURFACE_ARGB1555, 0x20UL, 0x20UL);
+    auto surface = std::make_shared<srColorSurface>(srPixelConvert::SURFACE_ARGB1555, 0x20UL, 0x20UL);
     if (surface == 0) {
         srAssertFail("psrSurface", ST_CUBE_CPP, 0xac, 0);
     }
-    surface->autoRelease();
 
     w8_ulong pixel;
     unsigned char* bytes =
@@ -182,15 +179,14 @@ W8WorldCursorNode* CreateWorldCursorCube(void)
     surface->fill(pixel);
     surface->setFilter(&srBoxFilter);
 
-    srTextureMap* texture = new srTextureMap(static_cast<srColorSurfaceIFace*>(0));
-    texture->autoRelease();
+    auto texture = std::make_shared<srTextureMap>();
     texture->setSurfacePtr(surface);
     texture->setMipmap(srTextureIFace::MIPMAP_NONE);
 
     srVector3T<float> scale(500.0f, 500.0f, 500.0f);
     modeller.scale(scale);
     modeller.convert(*model, 1);
-    model->setTexture(texture, 0, 0);
+    model->setTexture(std::move(texture), 0, 0);
 
     model->setDirty(srMeshModel::DIRTY_TRI_MESH);
     model->setDirty(srMeshModel::DIRTY_BOUNDS);
@@ -198,7 +194,6 @@ W8WorldCursorNode* CreateWorldCursorCube(void)
     srVector3T<float> minimum;
     srVector3T<float> maximum;
     model->getBoundingBox(minimum, maximum);
-    model->autoRelease();
     model->setName("stCube");
     instance->setModel(model);
     entry->node = instance;
@@ -215,7 +210,7 @@ W8WorldCursorNode* CreateWorldCursorCube(void)
     entry->userdata_size = 0;
     entry->name[0] = 0;
 
-    g_world_cursor_nodes.Add(entry);
+    g_world_cursor_nodes.push_back(entry);
     return entry;
 }
 
@@ -229,8 +224,8 @@ void DestroyWorldCursorCube(W8WorldCursorNode* entry)
         }
         entry->userdata_size = 0;
         entry->node->setParent(0, 1);
-        entry->node->release();
-        g_world_cursor_nodes.Remove(entry);
+        delete entry->node;
+        wiz8::erase_first(g_world_cursor_nodes, entry);
         delete entry;
     }
 }
@@ -361,8 +356,8 @@ void DrawWorldBox(W8World* world, srVector3T<float> minimum, srVector3T<float> m
     corners[6].Set(maximum.x, maximum.y, maximum.z);
     corners[7].Set(maximum.x, maximum.y, minimum.z);
 
-    srVector2T<float> viewport_minimum;
-    srVector2T<float> viewport_maximum;
+    glm::vec2 viewport_minimum;
+    glm::vec2 viewport_maximum;
     GetScaledViewportBounds(&viewport_minimum, &viewport_maximum);
     float viewport_width = viewport_maximum.x - viewport_minimum.x;
     float viewport_height = viewport_maximum.y - viewport_minimum.y;
@@ -433,10 +428,10 @@ W8WorldCursorNode* FindNearestWorldCursorNode(int x, int y)
 {
     float nearest = 999999.0f;
     W8WorldCursorNode* result = 0;
-    int count = g_world_cursor_nodes.GetCount();
+    int count = static_cast<int>(g_world_cursor_nodes.size());
 
     for (int index = 0; index < count; ++index) {
-        W8WorldCursorNode* entry = *g_world_cursor_nodes.GetAt(index);
+        W8WorldCursorNode* entry = g_world_cursor_nodes[index];
         if (entry != 0 && entry->node != 0 && entry->node == GetPickedModelInstance()) {
             srVector3T<double> camera;
             g_world->camera->getLocation(camera);
@@ -503,8 +498,9 @@ unsigned int LoadWorldCursorNodeStates(wiz8::File* handle)
             int cube_index;
 
             handle->read_exact(name, sizeof(name));
-            for (cube_index = 0; cube_index < g_world_cursor_nodes.GetCount(); ++cube_index) {
-                W8WorldCursorNode* candidate = *g_world_cursor_nodes.GetAt(cube_index);
+            for (cube_index = 0; cube_index < static_cast<int>(g_world_cursor_nodes.size());
+                 ++cube_index) {
+                W8WorldCursorNode* candidate = g_world_cursor_nodes[cube_index];
                 if (strcmp(candidate->name, name) == 0) {
                     cube = candidate;
                     break;
@@ -557,12 +553,12 @@ unsigned char SaveWorldCursorNodeStates(wiz8::File* handle)
     if (!(handle->write(&version, 4), true)) {
         return 0;
     }
-    count = g_world_cursor_nodes.GetCount();
+    count = static_cast<int>(g_world_cursor_nodes.size());
     if (!(handle->write(&count, 4), true)) {
         return 0;
     }
     for (index = 0; index < count && ok; ++index) {
-        node = *g_world_cursor_nodes.GetAt(index);
+        node = g_world_cursor_nodes[index];
         ok = (handle->write(node->name, sizeof(node->name)), true) &&
              (handle->write(&node->userdata_size, 4), true);
         if (node->userdata_size != 0) {
@@ -687,18 +683,18 @@ unsigned char SaveWorldCursorNodes(wiz8::File* handle)
         return 0;
     }
     handle->write(&gXStatus.mipe_cube_serial, 4);
-    count = g_world_cursor_nodes.GetCount();
+    count = static_cast<int>(g_world_cursor_nodes.size());
     if (!(handle->write(&count, 4), true)) {
         return 0;
     }
     for (index = 0; index < count && ok; ++index) {
-        node = *g_world_cursor_nodes.GetAt(index);
+        node = g_world_cursor_nodes[index];
         handle->write(node->name, sizeof(node->name));
         for (component = 0; component < 3 && ok; ++component) {
             ok = (handle->write(&node->parameters[component], 4), true);
         }
         node->node->getLocalBounds(bounds);
-        location = node->node->getLocation();
+        location = glm::vec3(node->node->getLocation());
         ok = ok && (handle->write(&bounds.minimum.x, 4), true) &&
              (handle->write(&bounds.minimum.y, 4), true) &&
              (handle->write(&bounds.minimum.z, 4), true) &&
@@ -712,16 +708,10 @@ unsigned char SaveWorldCursorNodes(wiz8::File* handle)
 }
 
 // FUNCTION: WIZ8 0x0048ED00
-int GetWorldCursorNodeCount(void)
-{
-    return g_world_cursor_nodes.GetCount();
-}
+int GetWorldCursorNodeCount(void) { return static_cast<int>(g_world_cursor_nodes.size()); }
 
 // FUNCTION: WIZ8 0x0048ED10
-W8WorldCursorNode* GetWorldCursorNode(int index)
-{
-    return *g_world_cursor_nodes.GetAt(index);
-}
+W8WorldCursorNode* GetWorldCursorNode(int index) { return g_world_cursor_nodes[index]; }
 
 /* Attach or detach the node's scene node under the world's dynamic scene. */
 // FUNCTION: WIZ8 0x0048ED30
@@ -751,10 +741,10 @@ void SetWorldCursorNodeName(W8WorldCursorNode* entry, const char* name)
 // FUNCTION: WIZ8 0x0048ED70
 void SetWorldCursorNodesVisible(bool visible)
 {
-    unsigned int count = g_world_cursor_nodes.GetCount();
+    unsigned int count = static_cast<int>(g_world_cursor_nodes.size());
 
     for (unsigned int index = 0; index < count; ++index) {
-        W8WorldCursorNode* entry = *g_world_cursor_nodes.GetAt(index);
+        W8WorldCursorNode* entry = g_world_cursor_nodes[index];
 
         if (entry != 0) {
             srNode* parent = 0;
@@ -773,11 +763,11 @@ void SetWorldCursorNodesVisible(bool visible)
 W8WorldCursorNode* FindWorldCursorNodeAtPoint(W8WorldCursorNode* after, srVector3T<float>* point)
 {
     unsigned int index = 0;
-    unsigned int count = g_world_cursor_nodes.GetCount();
+    unsigned int count = static_cast<int>(g_world_cursor_nodes.size());
 
     if (after != 0) {
         for (unsigned int i = 0; i < count; ++i) {
-            if (*g_world_cursor_nodes.GetAt(i) == after) {
+            if (g_world_cursor_nodes[i] == after) {
                 index = i + 1;
                 if (i == count - 1) {
                     return 0;
@@ -786,7 +776,7 @@ W8WorldCursorNode* FindWorldCursorNodeAtPoint(W8WorldCursorNode* after, srVector
         }
     }
     while (index < count) {
-        W8WorldCursorNode* entry = *g_world_cursor_nodes.GetAt(index);
+        W8WorldCursorNode* entry = g_world_cursor_nodes[index];
         if (entry->node != 0) {
             srNode::BoundInfo bounds;
             entry->node->getLocalBounds(bounds);
@@ -863,9 +853,9 @@ bool SelectWorldCursorNode(void)
         srVector3T<double> camera_location;
 
         GetCameraPosition(&camera_position);
-        camera_location.SetFromFloat(&camera_position);
+        camera_location = glm::dvec3(camera_position.glmValue());
         int selected = g_cursor_node_index;
-        if (selected >= 0 && selected < g_world_cursor_nodes.GetCount()) {
+        if (static_cast<std::size_t>(selected) < g_world_cursor_nodes.size()) {
             W8WorldCursorNode* entry = g_world_cursor_nodes[selected];
             srVector3T<double> target = entry->node->getLocation();
 
@@ -878,7 +868,7 @@ bool SelectWorldCursorNode(void)
                 }
             }
         }
-        int count = g_world_cursor_nodes.GetCount();
+        int count = static_cast<int>(g_world_cursor_nodes.size());
         for (int index = 0; index < count; ++index) {
             W8WorldCursorNode* entry = g_world_cursor_nodes[index];
             srVector3T<double> target = entry->node->getLocation();
@@ -903,7 +893,7 @@ bool SelectWorldCursorNode(void)
 // FUNCTION: WIZ8 0x0048DB30
 void ReleaseWorldCursorNodes(void)
 {
-    while (g_world_cursor_nodes.GetCount() != 0) {
+    while (!g_world_cursor_nodes.empty()) {
         W8WorldCursorNode* entry = g_world_cursor_nodes[0];
 
         DestroyWorldCursorCube(entry);

@@ -7,7 +7,8 @@
 #include "wiz8/engine_code/stMeshModel.h"
 #include "wiz8/sr_api.h"
 #include "wiz8/virtual_file.h"
-#include "wiz8/3d_code/PList.h"
+#include <vector>
+#include <algorithm>
 #include "wiz8/filesystem.h"
 #include <math.h>
 #include <stdio.h>
@@ -39,7 +40,7 @@ int g_animesh_cache_limit;
 // GLOBAL: WIZ8 0x0065be8c
 int g_animesh_cache_secondary_limit;
 // GLOBAL: WIZ8 0x0065be90
-W8PList g_animesh_cache_list;
+std::vector<W8AniMesh*> g_animesh_cache_list;
 
 /* The two caller-provided values override the original 16 MiB and 1 MiB
    defaults only when positive. Startup passes -1 for both. */
@@ -56,15 +57,13 @@ void InitializeAniMeshCache(int primary_limit, int secondary_limit)
     if (secondary_limit > 0) {
         g_animesh_cache_secondary_limit = secondary_limit;
     }
-    PListInit(&g_animesh_cache_list);
+    g_animesh_cache_list.clear();
+    g_animesh_cache_list.reserve(10);
 }
 
 /* Releases every cached ani-mesh entry and clears the list. */
 // FUNCTION: WIZ8 0x004B57D0
-void FreeAniMeshCache(void)
-{
-    PListFreeData(&g_animesh_cache_list);
-}
+void FreeAniMeshCache(void) { g_animesh_cache_list.clear(); }
 
 // FUNCTION: WIZ8 0x004b57e0
 W8AniMesh* CreateAniMesh()
@@ -195,7 +194,7 @@ float GetAniMeshFrameRadius(W8AniMesh* mesh, unsigned char frame)
 
                 model->getBoundingBox(model_minimum, model_maximum);
                 ExpandBounds(&minimum, &maximum, &model_minimum, &model_maximum);
-                model = model->next;
+                model = model->Next();
             } while (model != 0);
 
             return static_cast<float>((minimum - maximum).Length() * g_double_half);
@@ -333,7 +332,7 @@ try
 
                 frame_model->getBoundingBox(minimum, maximum);
                 ExpandBounds(&mesh->bounds_minimum, &mesh->bounds_maximum, &minimum, &maximum);
-                frame_model = frame_model->next;
+                frame_model = frame_model->Next();
             }
         }
     }
@@ -345,12 +344,13 @@ try
     }
     delete[] instance_name;
     if (mesh->flags.keep_loaded) {
-        PLAdoptAppend(&g_animesh_cache_list, mesh);
+        g_animesh_cache_list.push_back(mesh);
     }
     EnforceAniMeshMemoryLimit(mesh);
     return 1;
+} catch (const std::exception&) {
+    return false;
 }
-catch (const std::exception&) { return false; }
 
 /* Hands back the mesh's cached bounding box, loading the mesh first if it has
    not been. Touching it also stamps the storage clock, so asking for bounds
@@ -432,8 +432,9 @@ try
         opened.reset();
     }
     return success;
+} catch (const std::exception&) {
+    return false;
 }
-catch (const std::exception&) { return false; }
 
 // FUNCTION: WIZ8 0x004b63f0
 unsigned char UnloadAniMesh(W8AniMesh* mesh, bool force)
@@ -449,7 +450,7 @@ unsigned char UnloadAniMesh(W8AniMesh* mesh, bool force)
         return 0;
     }
     if (mesh->flags.single_instance) {
-        mesh->meshes[0]->release();
+        delete mesh->meshes[0];
     } else {
         if (!mesh->flags.frame_count_loaded) {
             if (LoadAniMesh(0, mesh, true) == 0) {
@@ -466,7 +467,7 @@ unsigned char UnloadAniMesh(W8AniMesh* mesh, bool force)
 
             instance->setParent(0, 1);
             instance->setFlag(srNode::FLAG_DISABLE);
-            instance->release();
+            delete instance;
         }
     }
     g_animesh_cache_bytes -= mesh->loaded_bytes;
@@ -556,13 +557,13 @@ void SetAniMeshCacheProtected(W8AniMesh* mesh, bool enabled)
 // FUNCTION: WIZ8 0x004b6770
 void EnforceAniMeshMemoryLimit(W8AniMesh* current)
 {
-    while (g_animesh_cache_bytes > g_animesh_cache_limit && PLLength(&g_animesh_cache_list) != 0) {
+    while (g_animesh_cache_bytes > g_animesh_cache_limit && !g_animesh_cache_list.empty()) {
         W8AniMesh* oldest = 0;
         int oldest_index = -1;
-        unsigned int count = PLLength(&g_animesh_cache_list);
+        unsigned int count = static_cast<unsigned int>(g_animesh_cache_list.size());
 
         for (unsigned int index = 0; index < count; ++index) {
-            W8AniMesh* candidate = static_cast<W8AniMesh*>(PLGet(&g_animesh_cache_list, index));
+            W8AniMesh* candidate = static_cast<W8AniMesh*>(g_animesh_cache_list[index]);
 
             if (candidate != current) {
                 if (candidate == 0) {
@@ -578,7 +579,7 @@ void EnforceAniMeshMemoryLimit(W8AniMesh* current)
         }
         if (oldest != current) {
             UnloadAniMesh(oldest, false);
-            PLRemoveAt(&g_animesh_cache_list, oldest_index);
+            g_animesh_cache_list.erase(g_animesh_cache_list.begin() + oldest_index);
         } else if (oldest_index == -1) {
             srAssertFail("0", ANI_MESH_CPP, 0x39d,
                          "mimp.cpp -> Tell a programmer : running out of monster memory.");

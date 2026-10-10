@@ -1,9 +1,12 @@
 #include "compat/surfaces.h"
+#include "vsurface.h"
 #include <algorithm>
 #include <array>
 #include <cstdio>
 #include <cstring>
 #include <stdexcept>
+
+BOOLEAN ClipReleatedSrcAndDestRectangles(HVSURFACE, HVSURFACE, SDL_Rect*, SDL_Rect*);
 
 #define CHECK(expression) do { if (!(expression)) throw std::runtime_error(#expression); } while (0)
 
@@ -41,39 +44,42 @@ void seed(CpuSurface& owner, unsigned salt)
 }
 
 // Reference is the previous packed-word contract, not SDL's pixel output.
-std::vector<BYTE> reference(CpuSurface& dest, const SGPRect& d, CpuSurface& source, const SGPRect& s,
+std::vector<BYTE> reference(CpuSurface& dest, const SDL_Rect& d, CpuSurface& source, const SDL_Rect& s,
                             bool sourceKey = false, bool destinationKey = false)
 {
     auto result = pixels(dest);
     const auto input = pixels(source);
     const unsigned bytes = SDL_BYTESPERPIXEL(dest.surface->format);
-    const auto regions = dest.clipRegions.value_or(std::vector<SGPRect>{d});
-    for (SGPRect region : regions)
+    const auto regions = dest.clipRegions.value_or(std::vector<SDL_Rect>{d});
+    for (SDL_Rect region : regions)
     {
-        region.iLeft = std::max({region.iLeft, d.iLeft, 0});
-        region.iTop = std::max({region.iTop, d.iTop, 0});
-        region.iRight = std::min({region.iRight, d.iRight, dest.surface->w});
-        region.iBottom = std::min({region.iBottom, d.iBottom, dest.surface->h});
-        if (region.iLeft >= region.iRight || region.iTop >= region.iBottom)
+        const INT32 left = std::max({region.x, d.x, 0});
+        const INT32 top = std::max({region.y, d.y, 0});
+        const INT32 right = std::min({region.x + region.w, d.x + d.w, dest.surface->w});
+        const INT32 bottom = std::min({region.y + region.h, d.y + d.h, dest.surface->h});
+        region = SDL_Rect{left, top, right - left, bottom - top};
+        if (region.w <= 0 || region.h <= 0)
             continue;
-        SGPRect sample = s;
+        SDL_Rect sample = s;
         if (dest.clipRegions)
         {
-            const float scaleX = float(s.iRight - s.iLeft) / (d.iRight - d.iLeft);
-            const float scaleY = float(s.iBottom - s.iTop) / (d.iBottom - d.iTop);
-            sample.iLeft += INT32((region.iLeft - d.iLeft) * scaleX);
-            sample.iTop += INT32((region.iTop - d.iTop) * scaleY);
-            sample.iRight -= INT32((d.iRight - region.iRight) * scaleX);
-            sample.iBottom -= INT32((d.iBottom - region.iBottom) * scaleY);
+            const float scaleX = float(s.w) / (d.w);
+            const float scaleY = float(s.h) / (d.h);
+            const INT32 left = INT32((region.x - d.x) * scaleX);
+            const INT32 top = INT32((region.y - d.y) * scaleY);
+            sample.x += left;
+            sample.y += top;
+            sample.w -= INT32(((d.x + d.w) - (region.x + region.w)) * scaleX) + left;
+            sample.h -= INT32(((d.y + d.h) - (region.y + region.h)) * scaleY) + top;
         }
         const auto mapping = dest.clipRegions ? region : d;
-        for (int y = region.iTop; y < region.iBottom; ++y)
-            for (int x = region.iLeft; x < region.iRight; ++x)
+        for (int y = region.y; y < (region.y + region.h); ++y)
+            for (int x = region.x; x < (region.x + region.w); ++x)
             {
-                const int sx = sample.iLeft + int(int64_t(x - mapping.iLeft) *
-                    (sample.iRight - sample.iLeft) / (mapping.iRight - mapping.iLeft));
-                const int sy = sample.iTop + int(int64_t(y - mapping.iTop) *
-                    (sample.iBottom - sample.iTop) / (mapping.iBottom - mapping.iTop));
+                const int sx = sample.x + int(int64_t(x - mapping.x) *
+                    (sample.w) / (mapping.w));
+                const int sy = sample.y + int(int64_t(y - mapping.y) *
+                    (sample.h) / (mapping.h));
                 const UINT32 value = read(input.data() + sy * source.surface->pitch + sx * bytes, bytes);
                 auto* target = result.data() + y * dest.surface->pitch + x * bytes;
                 if (sourceKey && value >= source.sourceKey->low && value <= source.sourceKey->high)
@@ -115,8 +121,8 @@ void differential()
             dest->clipRegions.reset();
             if (clipped == 1)
             {
-                const SGPRect clips[]{{0, 0, 9, 7}, {4, 3, 15, 12}, {0, 0, 9, 7},
-                                   {14, 0, 17, 3}, {8, 9, 8, 12}};
+                const SDL_Rect clips[]{{0, 0, 9, 7}, {4, 3, 11, 9}, {0, 0, 9, 7},
+                                   {14, 0, 3, 3}, {8, 9, 0, 3}};
                 SetSurfaceClipRegions(*dest, clips);
                 CHECK(dest->clipRegions->size() == 4);
             }
@@ -130,8 +136,8 @@ void differential()
                         seed(*dest, 3);
                         src->sourceKey = SurfaceColorKey{keys & 2 ? 0u : key, keys & 2 ? high / 2 : key};
                         dest->destinationKey = SurfaceColorKey{high / 4, UINT32(high * uint64_t(3) / 4)};
-                        const SGPRect d{origin[0], origin[1], width + origin[0], height + origin[1]};
-                        const SGPRect s{1, 0, 7, 5};
+                        const SDL_Rect d{origin[0], origin[1], width, height};
+                        const SDL_Rect s{1, 0, 6, 5};
                         const auto expected = reference(*dest, d, *src, s, keys & 1, keys & 2);
                         BlitCpuSurface(*dest, &d, *src, &s, keys & 1, keys & 2);
                         const auto actual = pixels(*dest);
@@ -152,10 +158,49 @@ void differential()
             CHECK(SDL_SetPaletteColors(SDL_GetSurfacePalette(dest->surface.get()), white.data(), 0, 256));
         }
         seed(*dest, 17);
-        const SGPRect s{0, 0, 12, 10}, d{3, 2, 15, 12};
+        const SDL_Rect s{0, 0, 12, 10}, d{3, 2, 12, 10};
         const auto expected = reference(*dest, d, *dest, s);
         BlitCpuSurface(*dest, &d, *dest, &s);
         CHECK(pixels(*dest) == expected);
+    }
+}
+
+void videoSurfaceClipping()
+{
+    auto source = CreateCpuSurface(8, 7, 16, 0x7c00, 0x3e0, 0x1f);
+    auto dest = CreateCpuSurface(8, 7, 16, 0x7c00, 0x3e0, 0x1f);
+    std::unique_ptr<SGPVSurface> sourceView(CreateVideoSurfaceFromCpuSurface(source.get()));
+    std::unique_ptr<SGPVSurface> destView(CreateVideoSurfaceFromCpuSurface(dest.get()));
+    SDL_Rect destination{-2, -1, 6, 5}, sample{1, 1, 6, 5};
+    CHECK(ClipReleatedSrcAndDestRectangles(destView.get(), sourceView.get(), &destination, &sample));
+    const SDL_Rect expectedDest{0, 0, 4, 4}, expectedSource{3, 2, 4, 4};
+    CHECK(SDL_RectsEqual(&destination, &expectedDest));
+    CHECK(SDL_RectsEqual(&sample, &expectedSource));
+    destination = {1, 1, 6, 5};
+    sample = {-2, -1, 6, 5};
+    CHECK(ClipReleatedSrcAndDestRectangles(destView.get(), sourceView.get(), &destination, &sample));
+    CHECK(SDL_RectsEqual(&destination, &expectedSource));
+    CHECK(SDL_RectsEqual(&sample, &expectedDest));
+    SDL_Rect clips[]{{2, 1, 3, 2}};
+    CHECK(SetClipList(destView.get(), clips, 1));
+    CHECK(dest->clipRegions->size() == 1);
+    CHECK(SDL_RectsEqual(&dest->clipRegions->front(), &clips[0]));
+    seed(*source, 5);
+    for (bool clipped : {false, true}) {
+        if (!clipped) dest->clipRegions.reset();
+        else CHECK(SetClipList(destView.get(), clips, 1));
+        for (int y : {-4, -1, 0, 3, 7})
+            for (int x : {-5, -1, 0, 4, 8}) {
+                seed(*dest, 17);
+                const SDL_Rect sample{1, 1, 6, 5}, mapping{x, y, 6, 5};
+                const auto expected = reference(*dest, mapping, *source, sample);
+                blt_vs_fx effects{};
+                effects.SrcRect = sample;
+                CHECK(BltVideoSurfaceToVideoSurface(destView.get(), sourceView.get(), 0,
+                                                    x, y, VS_BLT_SRCSUBRECT, &effects) ||
+                      x >= 8 || y >= 7);
+                CHECK(pixels(*dest) == expected);
+            }
     }
 }
 
@@ -169,7 +214,7 @@ void locksFillsAndKeys()
         CHECK(lock.pitch >= int(3 * bytes) && lock.pitch % 4 == 0);
         memset(lock.pixels, 0xa5, lock.pitch * lock.height);
         UnlockCpuSurface(*surface);
-        const SGPRect region{1, 1, 3, 3};
+        const SDL_Rect region{1, 1, 2, 2};
         lock = LockCpuSurface(*surface, &region);
         CHECK(lock.pixels == static_cast<BYTE*>(surface->surface->pixels) + lock.pitch + bytes);
         CHECK(lock.width == 2 && lock.height == 2);
@@ -178,7 +223,7 @@ void locksFillsAndKeys()
         CHECK(rejected);
         UnlockCpuSurface(*surface);
         const auto before = pixels(*surface);
-        const SGPRect clips[]{{1, 0, 3, 2}};
+        const SDL_Rect clips[]{{1, 0, 2, 2}};
         SetSurfaceClipRegions(*surface, clips);
         FillCpuSurface(*surface, 0xdeadbeef);
         const auto after = pixels(*surface);
@@ -212,6 +257,7 @@ int main()
     {
         differential();
         locksFillsAndKeys();
+        videoSurfaceClipping();
         puts("CPU surfaces: exact packed differential, palette, pitch, alpha, clips, keys and overlap passed");
         return 0;
     }

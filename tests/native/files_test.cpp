@@ -159,7 +159,7 @@ int main() try
         char path[] = "Saves/Native.SAV";
         fixture(user / "Saves" / "Native.SAV", "RIFF");
         W8Chunk chunk;
-        CHECK(!chunk.OpenRead(path) && !chunk.m_hFile && chunk.m_heads.GetCount() == 0);
+        CHECK(!chunk.OpenRead(path) && !chunk.m_hFile);
         CHECK(chunk.OpenWrite(path));
         const unsigned word = 0x12345678;
         CHECK(chunk.OpenChunk(0x54534554, false));

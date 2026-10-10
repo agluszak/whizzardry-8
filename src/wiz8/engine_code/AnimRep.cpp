@@ -25,8 +25,8 @@ W8AnimRepBase::W8AnimRepBase()
     location.SetZero();
     local_location.SetZero();
     parent_location.SetZero();
-    rotation.SetIdentity();
-    highlight_colour.Set(0.0f, 0.0f, 0.0f, 0.0f);
+    rotation = glm::mat3(1);
+    highlight_colour = glm::vec4(0.0f, 0.0f, 0.0f, 0.0f);
     instance_scale = 1.0f;
     flag = false;
     apply_instance_scale = false;
@@ -77,13 +77,13 @@ void W8AnimRepBase::GetLocalLocation(srVector3T<float>* location) const
 }
 
 // FUNCTION: WIZ8 0x004b88d0
-void W8AnimRepBase::SetRotation(const srMatrix3T<float>* rotation)
+void W8AnimRepBase::SetRotation(const glm::mat3* rotation)
 {
     this->rotation = *rotation;
 }
 
 // FUNCTION: WIZ8 0x004b88f0
-void W8AnimRepBase::GetRotation(srMatrix3T<float>* rotation)
+void W8AnimRepBase::GetRotation(glm::mat3* rotation)
 {
     *rotation = this->rotation;
 }

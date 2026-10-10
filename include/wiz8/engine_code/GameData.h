@@ -1,4 +1,8 @@
 #pragma once
+#include <memory>
+#include <span>
+#include <string>
+#include <vector>
 
 #include "wiz8/filesystem.h"
 
@@ -98,14 +102,15 @@ struct W8LevelDataRecord {
        party movement; returns non-zero when a clamp fired. */
     unsigned char ClampCameraToBounds(const srVector3T<float>* minimum,
                                       const srVector3T<float>* maximum);
-    /* 0x0041FF00: toggle setting-6e props referenced by primary_contact_prop_id/secondary_contact_prop_id. */
+    /* 0x0041FF00: toggle setting-6e props referenced by
+     * primary_contact_prop_id/secondary_contact_prop_id. */
     unsigned char ToggleBoundProps();
     /* 0x00420470: integrate camera_motion_velocity into motion_velocity/integrated_motion. */
     bool IntegrateCameraForward();
     /* 0x00420810: rotate motion_input by the saved yaw matrix and refresh
        motion_displacement; returns the updated fast-move latch. */
     unsigned char ApplySavedMotionMatrix(unsigned char prior_fast, bool fast_move,
-                                         const srMatrix3T<float>* saved);
+                                         const glm::mat3* saved);
     /* 0x0041FF90: advance movement progress / footstep state for one tick. */
     void UpdateMotionProgress(unsigned char fast_move, unsigned char moved);
     /* 0x00420A60: accumulate footstep distance and optionally play a step. */
@@ -169,7 +174,7 @@ struct W8EnvironRecord {
 
     unsigned char RescaleToReference(const W8EnvironRecord* reference);
     /* 0x00421800: store `motion` / scale as the per-frame vector. */
-    void SetScaledMotion(const srVector3T<float>* motion);
+    void SetScaledMotion(const glm::vec3& motion);
     /* 0x00421850: add vector * scale into `position`. */
     void AddScaledMotion(srVector3T<float>* position);
 };
@@ -214,7 +219,7 @@ struct W8GameData {
     unsigned char ReadWGDList(wiz8::File& file, int poly_type);
     /* Builds m_pInterfaces/m_pStates/m_piCondPolys from the {interface id,
        surface index, group} triples collected by ReadWGDList. */
-    void CompileGDInterfaces(const int* records, int count);
+
     /* Release the level-data record, game-time accumulator and companion
        level-data globals; runs first in ~W8GameData. */
     void ReleaseLevelData();
@@ -233,12 +238,11 @@ struct W8GameData {
     /* 0x0041F330: apply world-render camera-motion flags into `rotation` and
        mirror the result into `saved`. Retail call sites pass the owning
        W8GameData in ECX even though the body reads only globals. */
-    void ApplyCameraMotionFlags(unsigned int flags, srMatrix3T<float>* rotation,
-                                srMatrix3T<float>* saved);
+    void ApplyCameraMotionFlags(unsigned int flags, glm::mat3* rotation, glm::mat3* saved);
     /* 0x0041F5F0: advance the camera position under the same flag set; writes
        the delta into `delta` and answers whether the position changed. */
     unsigned char ApplyCameraMotion(unsigned int flags, srVector3T<float>* position,
-                                    srVector3T<float>* delta, srMatrix3T<float>* saved);
+                                    srVector3T<float>* delta, glm::mat3* saved);
     /* 0x0041AB40: advance camera under environment-load motion, tracing
        props/octree/geometry and applying crossed surfaces. */
     unsigned char AdvanceEnvironmentMotion();
@@ -250,42 +254,39 @@ struct W8GameData {
     W8GDSurface* ProbePropsAlongMotion(srVector3T<float>* direction, srVector3T<float>* position,
                                        srVector3T<float>* scratch, float* nearest_distance);
 
-    W8OctBuildTree* geometry_index;
+    std::unique_ptr<W8OctBuildTree> geometry_index;
     /* +0x04: the loading octree's back-pointer, stored by W8Octree's file-load
        finish path (retail writes [ESI+4], not +0) and tested by trigger
        integration. geometry_index above is untouched by that store. */
     W8Octree* octree;
     srVector3T<float> minimum;
     srVector3T<float> maximum;
-    /* Member names through m_ppEnvirons are proven by retail assertion strings
-       in ReadProcessedGameData/SetInterfaceState; each m_iNum* count pairs the
-       proven array member it counts. */
-    int m_iNumVertices;
-    srVector3T<float>* m_pVertices;
-    int m_iNumSurfaces;
+    // Contiguous owned banks; counts are derived from container sizes.
+    std::vector<srVector3T<float>> m_pVertices;
     int trigger_surface_base;
     int trigger_surface_count;
     int integrated_surface_count;
-    W8GDSurface* m_pSurfaces;
-    int m_iNumTrigSurfaces;
-    int m_iNumTrigVertices;
+    std::vector<W8GDSurface> m_pSurfaces;
+    int TrigSurfacesCount() const noexcept { return int(m_pTrigSurfaces.size()); }
+    int TrigVerticesCount() const noexcept { return int(m_pTrigVertices.size()); }
     int m_iNumTriggers;
-    W8GDSurface* m_pTrigSurfaces;
-    srVector3T<float>* m_pTrigVertices;
-    Trigger** m_ppTriggers;
+    std::vector<W8GDSurface> m_pTrigSurfaces;
+    std::vector<srVector3T<float>> m_pTrigVertices;
+    std::vector<Trigger*> m_ppTriggers;
     int last_hit_surface;
-    BitArray* pending_trigger_bits;
-    BitArray* active_trigger_bits;
-    int m_iNumInterfaces;
-    W8GDInterface* m_pInterfaces;
-    int m_iNumStates;
-    W8GDInterfaceState* m_pStates;
-    int m_iNumCondPolys;
-    int* m_piCondPolys;
-    int m_iNumNames;
-    char** m_ppNames;
-    int m_iNumEnvirons;
-    W8EnvironRecord** m_ppEnvirons;
+    std::unique_ptr<BitArray> pending_trigger_bits;
+    std::unique_ptr<BitArray> active_trigger_bits;
+    std::vector<W8GDInterface> m_pInterfaces;
+    std::vector<W8GDInterfaceState> m_pStates;
+    std::vector<int> m_piCondPolys;
+    int VerticesCount() const noexcept { return int(m_pVertices.size()); }
+    int SurfacesCount() const noexcept { return int(m_pSurfaces.size()); }
+    int InterfacesCount() const noexcept { return int(m_pInterfaces.size()); }
+    int StatesCount() const noexcept { return int(m_pStates.size()); }
+    int CondPolysCount() const noexcept { return int(m_piCondPolys.size()); }
+    int EnvironsCount() const noexcept { return int(m_ppEnvirons.size()); }
+    std::vector<std::string> interface_names;
+    std::vector<std::unique_ptr<W8EnvironRecord>> m_ppEnvirons;
     /* Set by W8Octree::SettleToGround around its TestTraceResult calls: while
        set, only flag-4 surfaces are admitted by the surface trace. */
     bool trace_flag4_gate;
@@ -305,7 +306,7 @@ struct W8GameData {
     /* Folds the trigger vertex/surface banks into the main arrays without
        rebuilding the spatial index; the CompileGameData path. */
     void IntegrateTriggerGeometry();
-    /* 1-based ordinal of the m_ppNames entry whose name matches, else -1. */
+    /* 1-based ordinal of the interface_names entry whose name matches, else -1. */
     int FindPointerByName(const char* name); /* 0x004482A0 */
     /* Registers one invisible-plane record; the OctBuild driver feeds it the
        level file's plane table. */
@@ -334,11 +335,12 @@ struct W8GameData {
        trace_flag4_gate, flag and mode filters apply; a closer hit stores index
        into last_hit_surface, the contact into the record's end and the distance
        into hit_limit. */
+    bool TestGeometryTrace(std::span<W8GDSurface> surfaces, std::span<const srVector3T<float>> vertices,
+                           int count, w8_ulong* surface_ids, W8OctreeTrace* trace, char skip_flag, int mode);
     bool TestTraceResult(int count, w8_ulong* surface_ids, W8OctreeTrace* trace,
                          char skip_flag, int mode); /* 0x0041C330 */
 };
 
-W8_ABI_ASSERT(sizeof(W8GameData) == 0x8c, "W8GameData_must_be_0x8c");
 
 W8_ABI_ASSERT(offsetof(W8LevelDataRecord, primary_contact_prop_id) == 0x04,
               "W8LevelDataRecord_primary_contact_prop_id");
@@ -400,26 +402,26 @@ float GetCameraYawInDegrees();
 float GetCameraYawRadians();
 float GetCameraPitchInDegrees();
 float GetCameraPitchRadians();
-void GetCameraOrientation(W8CameraAngleRecord angle, W8CameraAngleRecord pitch);
+void GetCameraOrientation(void* angle, void* pitch);
 void BeginManualCameraControl();
 void LevelCamera();
 void CameraLookAt(const srVector3T<float>* position);     /* 0x00420F90 */
 void CameraSnapToTarget(const srVector3T<float>* target); /* 0x00420FB0 */
 void TurnCameraToDegrees(float degrees);
 void SetCameraYawDegrees(float degrees);
-void ApplyCameraRotation(srMatrix3T<float>* rotation);
-void SetCameraOrientation(W8CameraAngleRecord angle, W8CameraAngleRecord pitch,
-                          srMatrix3T<float>* rotation);
+void ApplyCameraRotation(glm::mat3* rotation);
+void SetCameraOrientation(void* angle, void* pitch,
+                          glm::mat3* rotation);
 /* 0x00420F40: camera yaw in whole degrees plus an optional yaw-rotation
    matrix copy. */
-int GetCameraYawAndRotation(srMatrix3T<float>* rotation);
+int GetCameraYawAndRotation(glm::mat3* rotation);
 /* 0x00421440: project `vector` onto `onto` in place; fails on a degenerate
    target direction. */
-unsigned char ProjectVectorOntoVector(srVector3T<float>* vector, const srVector3T<float>* onto);
+glm::vec3 ProjectVectorOntoVector(const glm::vec3& vector, const glm::vec3& onto);
 /* 0x00421570: restore a saved yaw/pitch into the game camera, reading the
    world camera node's current rotation first and fetching the updated matrix
    (both into the same dead local in retail). */
-void RestoreWorldCameraOrientation(W8CameraAngleRecord angle, W8CameraAngleRecord pitch,
+void RestoreWorldCameraOrientation(void* angle, void* pitch,
                                    W8World* world);
 void GetCameraPosition(srVector3T<float>* position);
 int GetCameraYawDegrees(void);

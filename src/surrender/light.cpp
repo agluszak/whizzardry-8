@@ -8,8 +8,9 @@
 
 #include "surrender/srCore.h"
 #include "surrender/srGERD.h"
-#include "surrender/srVectorMath.h"
 #include "surrender/srVertexPipe.h"
+#include "surrender/srMath.h"
+#include <cassert>
 
 /* Derived-state bits: bit0 = pushed as an active vertex processor this frame, bit1 = spotlight cone
    active, bit2 = directional, bit3 = OpenGL attenuation active, bit4 = constant-only OpenGL
@@ -23,18 +24,16 @@ srLight::srLight(srNode* parent, e_preset preset)
     channel_mask = 0;
     setFlag(FLAG_GLOBAL);
     enable_flags = 0;
-    ambient.SetZero();
-    diffuse = 1.0f;
-    specular = 1.0f;
-    spot_direction.Set(0.0f, 0.0f, 1.0f);
+    ambient = glm::vec3(0.0f);
+    diffuse = glm::vec3(1.0f);
+    specular = glm::vec3(1.0f);
+    spot_direction = glm::vec3(0, 0, 1);
     spot_exponent = 1.0f;
     intensity = 1.0f;
     spot_angle = (float)(3.141592653589793 * 0.5);
     safe_range = 0.0f;
     attenuation_model = ATTENUATION_OPENGL;
-    opengl_attenuation.x = 1.0f;
-    opengl_attenuation.y = 0.0f;
-    opengl_attenuation.z = 0.0f;
+    opengl_attenuation = glm::vec3(1, 0, 0);
     near_start = 0.0;
     near_end = 0.0;
     far_start = 0.0;
@@ -212,66 +211,38 @@ void srLight::process(const ProcessInfo& info, e_processType type)
         return;
     }
     applyWorldSpaceMatrix(*renderer);
-    srMatrix4T<float> model_view;
+    glm::mat4 model_view;
     renderer->getMatrix(model_view);
     derived_flags = 0;
     derived_flags = srLight::DERIVED_ACTIVE;
     channel_mask = 0;
     if (ambient.x != 0.0f || ambient.y != 0.0f || ambient.z != 0.0f) {
         channel_mask |= (1UL << srVertexProcessor::CHANNEL_LIGHT_AMBIENT);
-        scaled_ambient.x = ambient.x * intensity;
-        scaled_ambient.y = ambient.y * intensity;
-        scaled_ambient.z = ambient.z * intensity;
-        scaled_ambient.w = 0.0f;
+        scaled_ambient = glm::vec4(ambient * intensity, 0.0f);
     }
     if (diffuse.x != 0.0f || diffuse.y != 0.0f || diffuse.z != 0.0f) {
         channel_mask |= (1UL << srVertexProcessor::CHANNEL_LIGHT_DIFFUSE);
-        scaled_diffuse.x = diffuse.x * intensity;
-        scaled_diffuse.y = diffuse.y * intensity;
-        scaled_diffuse.z = diffuse.z * intensity;
-        scaled_diffuse.w = 0.0f;
+        scaled_diffuse = glm::vec4(diffuse * intensity, 0.0f);
     }
     if (specular.x != 0.0f || specular.y != 0.0f || specular.z != 0.0f) {
         channel_mask |= (1UL << srVertexProcessor::CHANNEL_SPECULAR);
-        scaled_specular.x = specular.x * intensity;
-        scaled_specular.y = specular.y * intensity;
-        scaled_specular.z = specular.z * intensity;
-        scaled_specular.w = 0.0f;
+        scaled_specular = glm::vec4(specular * intensity, 0.0f);
     }
     if (channel_mask == 0) {
         derived_flags &= ~srLight::DERIVED_ACTIVE;
     }
     if ((enable_flags & (1UL << srLight::ENABLE_DIRECTIONAL)) != 0) {
         derived_flags |= srLight::DERIVED_DIRECTIONAL;
-        srVector3T<float> direction(-model_view.vectors[0].z, -model_view.vectors[1].z,
-                                    -model_view.vectors[2].z);
-        float length_squared = direction.LengthSquared();
-        if (length_squared != 1.0f) {
-            double scale = 1.0 / sqrt(length_squared);
-            direction *= scale;
-        }
-        eye_location = direction;
+        eye_location = normalizedOrZero(-glm::vec3(model_view[2]));
     } else {
         if ((enable_flags & (1UL << srLight::ENABLE_SPOT)) != 0 && spot_angle > 0.0f &&
             spot_exponent != 0.0f) {
-            srMatrix4T<float> inverse;
+            glm::mat4 inverse;
             renderer->getInverseModelViewMatrix(inverse);
             derived_flags |= srLight::DERIVED_SPOT;
             spot_cutoff = (float)cos(spot_angle);
-            spot_direction_eye.x = inverse.vectors[0].x * spot_direction.x +
-                                   inverse.vectors[1].x * spot_direction.y +
-                                   inverse.vectors[2].x * spot_direction.z;
-            spot_direction_eye.y = inverse.vectors[0].y * spot_direction.x +
-                                   inverse.vectors[1].y * spot_direction.y +
-                                   inverse.vectors[2].y * spot_direction.z;
-            spot_direction_eye.z = inverse.vectors[0].z * spot_direction.x +
-                                   inverse.vectors[1].z * spot_direction.y +
-                                   inverse.vectors[2].z * spot_direction.z;
-            float length_squared = spot_direction_eye.LengthSquared();
-            if (length_squared != 0.0f) {
-                double scale = 1.0 / sqrt(length_squared);
-                spot_direction_eye *= scale;
-            }
+            spot_direction_eye =
+                normalizedOrZero(glm::transpose(glm::mat3(inverse)) * spot_direction);
         }
         if (attenuation_model != ATTENUATION_NONE) {
             if (attenuation_model == ATTENUATION_OPENGL) {
@@ -300,7 +271,7 @@ void srLight::process(const ProcessInfo& info, e_processType type)
                 }
                 if ((enable_flags & (1UL << srLight::ENABLE_RANGE_FAR)) != 0) {
                     if ((enable_flags & (1UL << srLight::ENABLE_BOUNDING_SPHERE)) != 0) {
-                        srVector3T<float> origin(0.0f, 0.0f, 0.0f);
+                        srVector3 origin(0, 0, 0);
                         if (renderer->testBoundingSphere(origin, safe_range + far_end) == 0) {
                             derived_flags &= ~srLight::DERIVED_ACTIVE;
                         }
@@ -310,9 +281,7 @@ void srLight::process(const ProcessInfo& info, e_processType type)
                 }
             }
         }
-        eye_location.x = model_view.vectors[0].w;
-        eye_location.y = model_view.vectors[1].w;
-        eye_location.z = model_view.vectors[2].w;
+        eye_location = glm::vec3(model_view[3]);
     }
     renderer->popMatrix();
     if ((derived_flags & srLight::DERIVED_ACTIVE) != 0) {
@@ -328,23 +297,18 @@ int srLight::isActive(srVertexPipe& pipe)
         return 0;
     }
     if ((derived_flags & srLight::DERIVED_RANGE_CULL) != 0) {
-        float dx = eye_location.x - input->eye_center.x;
-        float dy = eye_location.y - input->eye_center.y;
-        float dz = eye_location.z - input->eye_center.z;
+        const auto offset = eye_location - input->eye_center.glmValue();
         float range = attenuation_range + input->eye_radius;
-        if (range * range <= dx * dx + dy * dy + dz * dz) {
+        if (range * range <= glm::dot(offset, offset)) {
             return 0;
         }
     }
     if ((derived_flags & srLight::DERIVED_SPOT) != 0) {
         float radius = input->eye_radius;
-        float dx = input->eye_center.x - eye_location.x;
-        float dy = input->eye_center.y - eye_location.y;
-        float dz = input->eye_center.z - eye_location.z;
-        float distance_squared = dx * dx + dy * dy + dz * dz;
+        const auto offset = input->eye_center.glmValue() - eye_location;
+        const float distance_squared = glm::dot(offset, offset);
         if (radius * radius < distance_squared &&
-            (dx * spot_direction_eye.x + dy * spot_direction_eye.y + dz * spot_direction_eye.z) /
-                        sqrtf(distance_squared) +
+            glm::dot(offset, spot_direction_eye) / sqrtf(distance_squared) +
                     radius / sqrtf(radius * radius + distance_squared) <
                 spot_cutoff) {
             return 0;
@@ -367,49 +331,44 @@ void srLight::process(srVertexPipe& pipe)
         need_normals = true;
     }
     SRDWORD count = pipe.vertex_count;
-    /* 32-byte aligned work area: five 64-entry banks (spot factors, attenuation, dot products,
-       distances, eye-space directions). */
-    float raw[0x1c0 + 8];
-    // reinterpret-ok: manual 32-byte alignment of raw VP scratch storage.
-    float* work = reinterpret_cast<float*>((reinterpret_cast<w8_ulong_ptr>(raw) + 0x1f) & ~static_cast<w8_ulong_ptr>(0x1f));
-    float* spot_factors = work;
-    float* attenuation_bank = work + 0x40;
-    float* dots = work + 0x80;
-    float* distances = work + 0xc0;
-    // reinterpret-ok: raw aligned scratch reinterpreted as the direction array.
-    srVector3T<float>* directions = reinterpret_cast<srVector3T<float>*>(work + 0x100);
+    float spot_factors[0x40];
+    float attenuation_bank[0x40];
+    float dots[0x40];
+    float distances[0x40];
+    glm::vec3 directions[0x40];
+    const auto light_position = eye_location;
     srVertexPipe::Scratch* scratch = &pipe.scratch;
     float* attenuation = 0;
 
     if ((derived_flags & srLight::DERIVED_DIRECTIONAL) == 0) {
-        srMath::copy({directions, static_cast<std::size_t>(count)},
-                     pipe.eye_space_locations + pipe.batch_base + pipe.sub_batch_offset);
-        srMath::sub({directions, static_cast<std::size_t>(count)}, eye_location, directions);
-        srMath::dir({directions, static_cast<std::size_t>(count)}, distances, directions);
+        for (SRDWORD i = 0; i < count; ++i) {
+            directions[i] =
+                light_position -
+                glm::vec3(pipe.eye_space_locations[pipe.batch_base + pipe.sub_batch_offset + i]);
+            distances[i] = glm::length(directions[i]);
+            directions[i] = normalizedOrZero(directions[i]);
+        }
         if (attenuation_model == ATTENUATION_3DSTUDIO_MAX) {
             if ((enable_flags & (1UL << srLight::ENABLE_RANGE_NEAR)) != 0) {
-                srMath::add({attenuation_bank, static_cast<std::size_t>(count)}, -scaled_near_start,
-                            distances);
-                srMath::mul({attenuation_bank, static_cast<std::size_t>(count)}, near_attenuation,
-                            attenuation_bank);
-                srMath::clampUnit({attenuation_bank, static_cast<std::size_t>(count)},
-                                  attenuation_bank);
+                for (SRDWORD i = 0; i < count; ++i)
+                    attenuation_bank[i] = glm::clamp(
+                        near_attenuation * (distances[i] - scaled_near_start), 0.0f, 1.0f);
                 attenuation = attenuation_bank;
             }
             if ((enable_flags & (1UL << srLight::ENABLE_RANGE_FAR)) != 0) {
                 float* far_bank = attenuation != 0 ? spot_factors : attenuation_bank;
-                srMath::sub({far_bank, static_cast<std::size_t>(count)}, scaled_far_end, distances);
-                srMath::mul({far_bank, static_cast<std::size_t>(count)}, far_attenuation, far_bank);
-                srMath::clampUnit({far_bank, static_cast<std::size_t>(count)}, far_bank);
+                for (SRDWORD i = 0; i < count; ++i)
+                    far_bank[i] =
+                        glm::clamp(far_attenuation * (scaled_far_end - distances[i]), 0.0f, 1.0f);
                 if (far_bank == spot_factors) {
-                    srMath::mul({attenuation_bank, static_cast<std::size_t>(count)},
-                                attenuation_bank, spot_factors);
+                    for (std::size_t i = 0; i < count; ++i)
+                        attenuation_bank[i] = attenuation_bank[i] * spot_factors[i];
                 } else {
                     attenuation = far_bank;
                 }
             }
-            if (attenuation != 0 &&
-                srMath::isZero({attenuation, static_cast<std::size_t>(count)})) {
+            if (attenuation != 0 && std::ranges::all_of(std::span<const float>{attenuation, count},
+                                                        [](float v) { return v == 0.0f; })) {
                 return;
             }
         } else if (attenuation_model == ATTENUATION_OPENGL) {
@@ -418,33 +377,35 @@ void srLight::process(srVertexPipe& pipe)
                     float constant = 1.0f / opengl_attenuation.x;
                     std::fill_n(attenuation_bank, count, constant);
                 } else {
-                    srMath::invPoly({attenuation_bank, static_cast<std::size_t>(count)}, distances,
-                                    opengl_attenuation);
+                    for (std::size_t i = 0; i < count; ++i)
+                        attenuation_bank[i] =
+                            1.0f / ((opengl_attenuation.z * distances[i] + opengl_attenuation.y) *
+                                        distances[i] +
+                                    opengl_attenuation.x);
                 }
-                srMath::clampUnit({attenuation_bank, static_cast<std::size_t>(count)},
-                                  attenuation_bank);
+                for (std::size_t i = 0; i < count; ++i)
+                    attenuation_bank[i] = glm::clamp(attenuation_bank[i], 0.0f, 1.0f);
                 attenuation = attenuation_bank;
             }
         }
         if ((derived_flags & srLight::DERIVED_SPOT) != 0) {
-            srVector3T<float> negated(-spot_direction_eye.x, -spot_direction_eye.y,
-                                      -spot_direction_eye.z);
-            srMath::dot({spot_factors, static_cast<std::size_t>(count)}, negated, directions);
-            srMath::add({spot_factors, static_cast<std::size_t>(count)}, -spot_cutoff,
-                        spot_factors);
-            srMath::mul({spot_factors, static_cast<std::size_t>(count)},
-                        1.0f / (1.0f - spot_cutoff), spot_factors);
-            srMath::clampMin({spot_factors, static_cast<std::size_t>(count)}, spot_factors, 0.0f);
-            if (srMath::isZero({spot_factors, static_cast<std::size_t>(count)})) {
+            const auto spot_direction = -spot_direction_eye;
+            const float spot_scale = 1.0f / (1.0f - spot_cutoff);
+            for (SRDWORD i = 0; i < count; ++i) {
+                const float factor =
+                    (glm::dot(directions[i], spot_direction) - spot_cutoff) * spot_scale;
+                spot_factors[i] = factor <= 0.0f ? 0.0f : factor;
+            }
+            if (std::ranges::all_of(std::span<const float>{spot_factors, count},
+                                    [](float v) { return v == 0.0f; })) {
                 return;
             }
             if (spot_exponent != 1.0f) {
-                srMath::srSpecularPow({spot_factors, static_cast<std::size_t>(count)}, spot_factors,
-                                      spot_exponent);
+                srLight::specularPower({spot_factors, count}, {spot_factors, count}, spot_exponent);
             }
             if (attenuation != 0) {
-                srMath::mul({attenuation, static_cast<std::size_t>(count)}, attenuation,
-                            spot_factors);
+                for (std::size_t i = 0; i < count; ++i)
+                    attenuation[i] = attenuation[i] * spot_factors[i];
             } else {
                 attenuation = spot_factors;
             }
@@ -453,21 +414,25 @@ void srLight::process(srVertexPipe& pipe)
             if ((scratch->flags & srVertexPipe::Scratch::READY_EYE_NORMALS) == 0) {
                 pipe.setupEyeSpaceNormal();
             }
-            srMath::dot({dots, static_cast<std::size_t>(count)},
-                        scratch->normals + pipe.sub_batch_offset, directions);
-            srMath::clampMin({dots, static_cast<std::size_t>(count)}, dots, 0.0f);
+            for (SRDWORD i = 0; i < count; ++i) {
+                const float dot =
+                    glm::dot(scratch->normals[pipe.sub_batch_offset + i], directions[i]);
+                dots[i] = dot <= 0.0f ? 0.0f : dot;
+            }
         }
     } else if (need_normals) {
         if ((scratch->flags & srVertexPipe::Scratch::READY_EYE_NORMALS) == 0) {
             pipe.setupEyeSpaceNormal();
         }
-        srMath::dot({dots, static_cast<std::size_t>(count)}, eye_location,
-                    scratch->normals + pipe.sub_batch_offset);
-        srMath::clampUnit({dots, static_cast<std::size_t>(count)}, dots);
+        for (std::size_t i = 0; i < count; ++i)
+            dots[i] =
+                glm::dot(scratch->normals[pipe.sub_batch_offset + i], light_position);
+        for (std::size_t i = 0; i < count; ++i)
+            dots[i] = glm::clamp(dots[i], 0.0f, 1.0f);
     }
 
     if ((channels & (1UL << srVertexProcessor::CHANNEL_LIGHT_AMBIENT)) != 0) {
-        srVector4T<float> ambient;
+        glm::vec4 ambient;
         ambient = scaled_ambient * pipe.material_info.ambient;
         if (attenuation != 0) {
             pipe.applyDiffuseLight(attenuation, ambient);
@@ -478,66 +443,71 @@ void srLight::process(srVertexPipe& pipe)
     if (!need_normals) {
         return;
     }
-    if (srMath::isZero({dots, static_cast<std::size_t>(count)})) {
+    if (std::ranges::all_of(std::span<const float>{dots, count},
+                            [](float v) { return v == 0.0f; })) {
         return;
     }
     if ((channels & (1UL << srVertexProcessor::CHANNEL_LIGHT_DIFFUSE)) != 0) {
-        srVector4T<float> diffuse;
+        glm::vec4 diffuse;
         diffuse = scaled_diffuse * pipe.material_info.diffuse;
+        const auto diffuse_color = diffuse;
         srCore.getStatisticsManager()->statistics.diffuse_operations += count;
         if ((pipe.lazy_setup_mask & (1UL << srVertexProcessor::CHANNEL_DIFFUSE)) == 0) {
             pipe.setupDiffuse();
         }
-        srVector4T<float>* out =
+        glm::vec4* out =
             pipe.vertex_array->diffuse + pipe.batch_base + pipe.sub_batch_offset;
         if (attenuation != 0) {
-            srMath::axpy({out, static_cast<std::size_t>(count)}, out, diffuse, attenuation, dots);
+            for (std::size_t i = 0; i < count; ++i)
+                out[i] = diffuse_color * attenuation[i] * dots[i] + out[i];
+
         } else {
-            srMath::axpy({out, static_cast<std::size_t>(count)}, out, diffuse, dots);
+            for (std::size_t i = 0; i < count; ++i)
+                out[i] = diffuse_color * dots[i] + out[i];
         }
     }
     if ((channels & (1UL << srVertexProcessor::CHANNEL_SPECULAR)) == 0) {
         return;
     }
     if ((derived_flags & srLight::DERIVED_DIRECTIONAL) != 0 && count != 0) {
-        srVector3 constant = eye_location;
-        if (constant.x == constant.y && constant.x == constant.z) {
-            constant.Set(eye_location.x, eye_location.x, eye_location.x);
-        }
-        std::fill_n(directions, count, constant);
+        std::fill_n(directions, count, light_position);
     }
     if ((scratch->flags & srVertexPipe::Scratch::READY_EYE_DIRECTION) == 0) {
         pipe.setupEyeSpaceDirAndDist();
     }
-    if (count * 3 != 0) {
-        // reinterpret-ok: elementwise float subtraction across the vector array.
-        srMath::sub({reinterpret_cast<float*>(directions), static_cast<std::size_t>(count * 3)},
-                    reinterpret_cast<const float*>(directions),
-                    reinterpret_cast<const float*>(scratch->dir + pipe.sub_batch_offset));
-    }
-    srMath::normalize({directions, static_cast<std::size_t>(count)}, directions, 1.0f);
+    for (std::size_t i = 0; i < count; ++i)
+        directions[i] = directions[i] - scratch->dir[pipe.sub_batch_offset + i];
+    for (std::size_t i = 0; i < count; ++i)
+        directions[i] = normalizedOrZero(directions[i]);
     if ((scratch->flags & srVertexPipe::Scratch::READY_EYE_NORMALS) == 0) {
         pipe.setupEyeSpaceNormal();
     }
-    srMath::dot({distances, static_cast<std::size_t>(count)},
-                scratch->normals + pipe.sub_batch_offset, directions);
-    srMath::clampMin({distances, static_cast<std::size_t>(count)}, distances, 0.0f);
-    if (pipe.material_info.shininess > 1.0f) {
-        srMath::srSpecularPow({distances, static_cast<std::size_t>(count)}, distances,
-                              pipe.material_info.shininess);
+    for (SRDWORD i = 0; i < count; ++i) {
+        const float dot =
+            glm::dot(scratch->normals[pipe.sub_batch_offset + i], directions[i]);
+        distances[i] = dot <= 0.0f ? 0.0f : dot;
     }
-    srMath::mul({distances, static_cast<std::size_t>(count)}, distances, dots);
-    srVector4T<float> specular;
+    if (pipe.material_info.shininess > 1.0f) {
+        srLight::specularPower({distances, count}, {distances, count},
+                               pipe.material_info.shininess);
+    }
+    for (std::size_t i = 0; i < count; ++i)
+        distances[i] = distances[i] * dots[i];
+    glm::vec4 specular;
     specular = scaled_specular * pipe.material_info.specular;
+    const auto specular_color = specular;
     srCore.getStatisticsManager()->statistics.specular_operations += count;
     if ((pipe.lazy_setup_mask & (1UL << srVertexProcessor::CHANNEL_SPECULAR)) == 0) {
         pipe.setupSpecular();
     }
-    srVector4T<float>* out = pipe.vertex_array->specular + pipe.batch_base + pipe.sub_batch_offset;
+    glm::vec4* out = pipe.vertex_array->specular + pipe.batch_base + pipe.sub_batch_offset;
     if (attenuation != 0) {
-        srMath::axpy({out, static_cast<std::size_t>(count)}, out, specular, attenuation, distances);
+        for (std::size_t i = 0; i < count; ++i)
+            out[i] = specular_color * attenuation[i] * distances[i] + out[i];
+
     } else {
-        srMath::axpy({out, static_cast<std::size_t>(count)}, out, specular, distances);
+        for (std::size_t i = 0; i < count; ++i)
+            out[i] = specular_color * distances[i] + out[i];
     }
 }
 
@@ -602,50 +572,45 @@ int srLight::isEnabled(e_enable flag) const
 }
 
 // FUNCTION: SURRENDER 0x1004E760
-void srLight::setAmbient(const srVector3T<float>& ambient)
+void srLight::setAmbient(const glm::vec3& ambient)
 {
     this->ambient = ambient;
 }
 
 // FUNCTION: SURRENDER 0x1004E670
-srVector3T<float> srLight::getAmbient() const
+glm::vec3 srLight::getAmbient() const
 {
     return ambient;
 }
 
 // FUNCTION: SURRENDER 0x1004E780
-void srLight::setDiffuse(const srVector3T<float>& diffuse)
+void srLight::setDiffuse(const glm::vec3& diffuse)
 {
     this->diffuse = diffuse;
 }
 
 // FUNCTION: SURRENDER 0x1004E6A0
-srVector3T<float> srLight::getDiffuse() const
+glm::vec3 srLight::getDiffuse() const
 {
     return diffuse;
 }
 
 // FUNCTION: SURRENDER 0x1004E7B0
-void srLight::setSpecular(const srVector3T<float>& specular)
+void srLight::setSpecular(const glm::vec3& specular)
 {
     this->specular = specular;
 }
 
 // FUNCTION: SURRENDER 0x1004E6E0
-srVector3T<float> srLight::getSpecular() const
+glm::vec3 srLight::getSpecular() const
 {
     return specular;
 }
 
 // FUNCTION: SURRENDER 0x1004E830
-void srLight::setSpotDirection(const srVector3T<float>& direction)
+void srLight::setSpotDirection(const glm::vec3& direction)
 {
-    spot_direction = direction;
-    float length_squared = spot_direction.LengthSquared();
-    if (length_squared != 0.0f) {
-        double scale = 1.0 / sqrt(length_squared);
-        spot_direction *= scale;
-    }
+    spot_direction = normalizedOrZero(direction);
 }
 
 // FUNCTION: SURRENDER 0x1004E7D0
@@ -673,7 +638,7 @@ void srLight::setSpotExponent(float exponent)
 }
 
 // FUNCTION: SURRENDER 0x1004E720
-srVector3T<float> srLight::getSpotDirection() const
+glm::vec3 srLight::getSpotDirection() const
 {
     return spot_direction;
 }
@@ -715,27 +680,13 @@ srLight::e_attenuationModel srLight::getAttenuationModel() const
 }
 
 // FUNCTION: SURRENDER 0x1004E920
-void srLight::setAttenuation(const srVector3T<float>& attenuation)
+void srLight::setAttenuation(const glm::vec3& attenuation)
 {
-    float z = attenuation.z;
-    if (z <= 0.0001f) {
-        z = 0.0001f;
-    }
-    float y = attenuation.y;
-    if (y <= 0.0001f) {
-        y = 0.0001f;
-    }
-    float x = attenuation.x;
-    if (x <= 0.0001f) {
-        x = 0.0001f;
-    }
-    opengl_attenuation.x = x;
-    opengl_attenuation.y = y;
-    opengl_attenuation.z = z;
+    opengl_attenuation = glm::max(attenuation, glm::vec3(0.0001f));
 }
 
 // FUNCTION: SURRENDER 0x1004E9A0
-srVector3T<float> srLight::getAttenuation() const
+glm::vec3 srLight::getAttenuation() const
 {
     return opengl_attenuation;
 }
@@ -778,4 +729,107 @@ void srLight::setSafeRange(float range)
 float srLight::getSafeRange() const
 {
     return safe_range;
+}
+
+namespace
+{
+constexpr double coefficients[0x12][4] = {
+    {0, 1e-14, 1, 0},
+    {-0.068979736114850004, 0.18179573075354999, 0.88948269483362996, -0.0032237222793199999},
+    {-0.12576753110003999, 0.34382063299797, 0.78571136674362996, -0.0053941615606599999},
+    {-0.17092256892982999, 0.48661079671178997, 0.68891153819327, -0.0067378060870700003},
+    {-0.20507900130076001, 0.61089353418348002, 0.59915069732755, -0.0074389531232600002},
+    {-0.22891455983919001, 0.71752488060732, 0.51637759148530005, -0.0076474469703200001},
+    {-0.24312703917604001, 0.80744183884992005, 0.44045304108798999, -0.00748496029462},
+    {-0.24841687096368001, 0.88162612503694004, 0.37117406021430999, -0.0070501036072999996},
+    {-0.24547440268178, 0.94107687822182995, 0.30829269047641, -0.0064225898414199999},
+    {-0.23497080142249999, 0.98679034859172998, 0.25153065736378, -0.0056666352687399996},
+    {-0.21755174140842001, 1.01974500915189, 0.20059072482958001, -0.0048337418349100004},
+    {-0.19383321994641001, 1.04089087244265, 0.15516544047627001, -0.0039649773154400002},
+    {-0.16439899158457999, 1.05114205735211, 0.11494381932562001, -0.0030928469032899999},
+    {-0.12979922349142001, 1.0513718575920701, 0.079616400344480004, -0.0022428316857099999},
+    {-0.090550063549559995, 1.0424097253979201, 0.048879020037899998, -0.0014346549735899999},
+    {-0.047133881807620001, 1.0250397112049401, 0.022435576368620001, -0.00068332584966999997},
+    {-1e-14, 1.00000000000001, 0, 0},
+    {-1e-14, 1.00000000000001, 0, 0},
+};
+constexpr float points[0x12][7] = {
+    {0.000999900047f, 0.0316211991f, 0.177823499f, 0.421691209f, 0.649377584f, 0.805839717f,
+     0.897685707f},
+    {0.00474390015f, 0.0688759983f, 0.262442291f, 0.512291312f, 0.715745211f, 0.846017301f,
+     0.919791996f},
+    {0.0081093004f, 0.0900517032f, 0.300086111f, 0.547801077f, 0.740135908f, 0.860311508f,
+     0.927529812f},
+    {0.0111445002f, 0.1055675f, 0.324911505f, 0.570010126f, 0.75499022f, 0.86890173f, 0.932148993f},
+    {0.0138889998f, 0.1178516f, 0.343295187f, 0.585914016f, 0.76545018f, 0.874900103f,
+     0.935360909f},
+    {0.0163755994f, 0.127967194f, 0.357724994f, 0.598101199f, 0.773370028f, 0.879414618f,
+     0.937771082f},
+    {0.0186313f, 0.136496499f, 0.369454414f, 0.607827604f, 0.779632986f, 0.882968307f,
+     0.939663887f},
+    {0.0206783991f, 0.143799901f, 0.379209489f, 0.615799904f, 0.784729183f, 0.885849416f,
+     0.941195726f},
+    {0.0225352999f, 0.150117606f, 0.387450188f, 0.622454882f, 0.788958073f, 0.888233185f,
+     0.942461193f},
+    {0.0242167003f, 0.155617207f, 0.394483387f, 0.628079116f, 0.792514384f, 0.890232801f,
+     0.9435215f},
+    {0.0257344991f, 0.160419807f, 0.400524408f, 0.632869899f, 0.795531213f, 0.891925573f,
+     0.944418073f},
+    {0.0270971991f, 0.164612293f, 0.405724406f, 0.636964977f, 0.798100889f, 0.893364906f,
+     0.94517982f},
+    {0.0283103995f, 0.168256894f, 0.410191387f, 0.640461802f, 0.800288618f, 0.89458847f,
+     0.945826888f},
+    {0.0293761995f, 0.171394899f, 0.413998604f, 0.643427312f, 0.802139223f, 0.895622194f,
+     0.946373224f},
+    {0.0302920006f, 0.174045995f, 0.417188197f, 0.645901084f, 0.803679705f, 0.896481812f,
+     0.946827292f},
+    {0.0310484003f, 0.176205605f, 0.419768512f, 0.647895396f, 0.804919481f, 0.897173107f,
+     0.947192192f},
+    {0.0316227004f, 0.177827701f, 0.421696186f, 0.649381399f, 0.805842102f, 0.897687078f,
+     0.947463512f},
+    {0.0316227004f, 0.177827701f, 0.421696186f, 0.649381399f, 0.805842102f, 0.897687078f,
+     0.947463512f},
+};
+} // namespace
+
+// FUNCTION: SURRENDER 0x10068A80
+void srLight::specularPower(std::span<float> destination, std::span<const float> source,
+                            float exponent)
+{
+    assert(source.size() >= destination.size());
+    const std::size_t count = destination.size();
+    SRDWORD squarings = 0;
+    if (exponent > 127.0) {
+        exponent = 127.0f;
+    }
+    while (exponent >= 2.0f) {
+        exponent *= 0.5f;
+        ++squarings;
+    }
+    float index_value = (exponent - 1.0f) * 16.0f;
+    int index = static_cast<int>(index_value);
+    index_value -= index;
+    double complement = 1.0 - index_value;
+    float coefficient_0 =
+        (float)(index_value * coefficients[index + 1][0] + complement * coefficients[index][0]);
+    float coefficient_1 =
+        (float)(index_value * coefficients[index + 1][1] + complement * coefficients[index][1]);
+    float coefficient_2 =
+        (float)(index_value * coefficients[index + 1][2] + complement * coefficients[index][2]);
+    float coefficient_3 =
+        (float)(index_value * coefficients[index + 1][3] + complement * coefficients[index][3]);
+    float threshold = points[index + 1][squarings];
+    for (std::size_t element = 0; element < count; ++element) {
+        if (source[element] > threshold) {
+            float value = source[element];
+            for (SRDWORD square = 0; square < squarings; ++square) {
+                value *= value;
+            }
+            destination[element] =
+                ((value * coefficient_0 + coefficient_1) * value + coefficient_2) * value +
+                coefficient_3;
+        } else {
+            destination[element] = 0.0f;
+        }
+    }
 }

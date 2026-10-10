@@ -9,7 +9,8 @@
 #include "wiz8/layouts/party_formation.h"
 #include "wiz8/layouts/targeting.h"
 #include "wiz8/local_code/SpellEffect.h"
-#include "wiz8/vector.h"
+#include <vector>
+#include <algorithm>
 
 struct W8Character;
 
@@ -194,6 +195,8 @@ W8_ABI_ASSERT(sizeof(W8CombatCharacterRow) == 0xd4, "W8CombatCharacterRow_must_b
 W8_ABI_ASSERT(offsetof(W8CombatCharacterRow, saved_attack_value) == 0x38,
               "W8CombatCharacterRow_saved_attack_value_offset");
 
+// Runtime state embeds owning containers and needs their natural alignment.
+#pragma pack(pop)
 /* The combat state, allocated when combat starts. */
 struct W8CombatState {
     /* 0x000: raised by BeginCombatExecution and cleared at the round
@@ -322,7 +325,6 @@ W8_ABI_ASSERT(offsetof(W8CombatState, npc_combat_script_pending) == 0xa58,
               "W8CombatState_npc_combat_script_pending_offset");
 W8_ABI_ASSERT(offsetof(W8CombatState, combat_update_count) == 0xa5c,
               "W8CombatState_combat_update_count_offset");
-#pragma pack(pop)
 
 extern W8CombatState* g_combat_state;
 

@@ -10,7 +10,8 @@ struct W8MonsterInfo;
 
 #include "surrender/srMath.h"
 #include "wiz8/geometry.h"
-#include "wiz8/vector.h"
+#include <vector>
+#include <algorithm>
 
 #include <stddef.h>
 #include <stdlib.h>
@@ -209,7 +210,7 @@ struct W8NavigatorMovementState {
     /* Reset installs the identity here; the constructor starts every row at
        zero before the owner calls Reset. MeasurePathDistance copies it as
        one 36-byte object (0x0045333F). */
-    srMatrix3T<float> basis;
+    glm::mat3 basis;
     W8NavigatorAttachment* attachment;
     /* Collision/path radius, initialized to 500 by the outer navigator and
        scaled with the navigator in SetScale. */
@@ -367,7 +368,7 @@ public:
     void UpdateFacing(bool immediate);                                    /* 0x00454780 */
     void UpdateLinkedNavigator();                                         /* 0x00454D70 */
     bool UpdateLinkedPosition();
-    void CollectGroupNavigators(W8GrowableVector<W8Navigator*>* navigators); /* 0x00455140 */
+    void CollectGroupNavigators(std::vector<W8Navigator*>& navigators);      /* 0x00455140 */
     int ResolveMovement();                                                   /* 0x00455CC0 */
     void ClearMovement();                                                    /* 0x004537E0 */
     /* Modes 1 and 4 clear pitch/roll; 2, 3 and 5 enable pitch; 6 enables
@@ -460,7 +461,7 @@ extern const float g_navigator_snap_angle;
 extern unsigned char g_combat_inactive;
 extern unsigned char g_navigator_link_mode;
 extern const float g_navigator_linked_radius_scale;
-extern W8GrowableVector<W8Navigator*> g_navigator_group;
+extern std::vector<W8Navigator*> g_navigator_group;
 /* Runtime scale applied to the startup navigator's radius when the trace
    resolver tests the camera sphere; written during startup, not a constant. */
 extern float g_camera_sphere_radius_scale;

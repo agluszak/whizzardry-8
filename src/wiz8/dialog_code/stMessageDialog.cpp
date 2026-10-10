@@ -1,3 +1,4 @@
+#include <vector>
 #include "wiz8/dialog_code/DialogButton.h"
 #include "wiz8/dialog_code/MessageDialogBase.h"
 #include "wiz8/sgp_text.h"
@@ -162,11 +163,8 @@ unsigned int W8MessageDialogBase::WrapMessage(const wchar_t* message)
     unsigned int maximum_width = static_cast<unsigned int>(m_width) + 0xf;
     unsigned int index;
 
-    remaining = new wchar_t[wcslen(message) + 1];
-    if (!remaining) {
-        srAssertFail("pRemainingText", "C:\\Projects\\Wizardry 8\\Dialog Code\\stMessageDialog.cpp",
-                     0xd5, 0);
-    }
+    std::vector<wchar_t> storage(wcslen(message) + 1);
+    remaining = storage.data();
     wcscpy(remaining, message);
     for (index = 0; index < 32; ++index) {
         wcscpy(lines[index], L"");
@@ -335,14 +333,14 @@ bool W8MessageDialogBase::HandleInput(const InputAtom* input)
 // FUNCTION: WIZ8 0x005d3080
 bool W8MessageDialogBase::ProcessInput()
 {
-    SGPPoint mouse;
+    SDL_Point mouse;
     InputAtom input;
 
     SGPMouseGetPos(&mouse);
-    MSYS_SGP_Mouse_Handler_Hook(MOUSE_POS, mouse.iX, mouse.iY, gfLeftButtonState, gfRightButtonState);
+    MSYS_SGP_Mouse_Handler_Hook(MOUSE_POS, mouse.x, mouse.y, gfLeftButtonState, gfRightButtonState);
 
     while (DequeueEvent(&input)) {
-        if (!DispatchDialogMouseInput(input.usEvent, mouse.iX, mouse.iY)) {
+        if (!DispatchDialogMouseInput(input.usEvent, mouse.x, mouse.y)) {
             return HandleInput(&input);
         }
     }

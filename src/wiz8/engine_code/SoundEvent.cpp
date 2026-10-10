@@ -7,14 +7,16 @@
 #include "wiz8/xstatus.h"
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/sr_api.h"
-#include "wiz8/vector.h"
+#include <vector>
+#include <algorithm>
 #include "random.h"
 #include "soundman.h"
-
 #include <math.h>
+
 #include <new>
 #include <string.h>
 #include "wiz8/engine_code/GameData.h"
+#include <glm/gtc/matrix_transform.hpp>
 
 #define SOUNDEVENT_CPP "C:\\Projects\\Wizardry 8\\Engine Code\\SoundEvent.cpp"
 
@@ -60,7 +62,7 @@ W8SoundEvent* CreateSoundEvent(W8SoundEventKind kind, int cycle, int frame, int 
    every mask bit, so it is cleared before each scan instead of reallocated;
    the static initializer constructs it with capacity five. */
 // GLOBAL: WIZ8 0x00683408
-W8GrowableVector<W8SoundEvent*> g_sound_event_candidates(5);
+std::vector<W8SoundEvent*> g_sound_event_candidates;
 
 /* The static initializer above emits this specialization's capacity ctor.
    0x005ED098 is its construction-phase table; the final table and both
@@ -79,7 +81,7 @@ static int g_previous_footstep_variant;
    own classification matches, then play one of them at random without
    repeating the previous choice for as long as a second candidate exists. */
 // FUNCTION: WIZ8 0x004d5890
-unsigned char UpdateSoundEvents(W8GrowableVector<W8SoundEvent*>* events,
+unsigned char UpdateSoundEvents(std::vector<W8SoundEvent*>* events,
                                 const srVector3T<float>* position, unsigned int event_mask,
                                 int cycle, int frame, int subcycle)
 {
@@ -88,7 +90,7 @@ unsigned char UpdateSoundEvents(W8GrowableVector<W8SoundEvent*>* events,
     if (events == 0) {
         return 0;
     }
-    int count = events->GetCount();
+    int count = static_cast<int>(events->size());
     if (count == 0) {
         return 0;
     }
@@ -97,9 +99,9 @@ unsigned char UpdateSoundEvents(W8GrowableVector<W8SoundEvent*>* events,
             int candidate_count = 0;
             int index;
 
-            g_sound_event_candidates.Clear();
+            g_sound_event_candidates.clear();
             for (index = 0; index < count; ++index) {
-                W8SoundEvent* event = *events->GetAt(index);
+                W8SoundEvent* event = (*events)[index];
                 unsigned int kind = event->kind;
 
                 if ((bit & kind) == 0 || (event_mask & kind) == 0) {
@@ -115,20 +117,20 @@ unsigned char UpdateSoundEvents(W8GrowableVector<W8SoundEvent*>* events,
                         continue;
                     }
                 }
-                g_sound_event_candidates.Add(event);
-                candidate_count = g_sound_event_candidates.GetCount();
+                g_sound_event_candidates.push_back(event);
+                candidate_count = static_cast<int>(g_sound_event_candidates.size());
             }
             if (candidate_count != 0) {
                 W8SoundEvent* selected;
 
                 do {
                     g_selected_sound_event = static_cast<int>(Random(candidate_count));
-                    if (g_sound_event_candidates.GetCount() < 2) {
+                    if (static_cast<int>(g_sound_event_candidates.size()) < 2) {
                         break;
                     }
-                    candidate_count = g_sound_event_candidates.GetCount();
+                    candidate_count = static_cast<int>(g_sound_event_candidates.size());
                 } while (g_selected_sound_event == g_last_sound_event);
-                selected = *g_sound_event_candidates.GetAt(g_selected_sound_event);
+                selected = g_sound_event_candidates[g_selected_sound_event];
                 if (selected->Play(event_mask, position, cycle, frame, subcycle)) {
                     g_last_sound_event = g_selected_sound_event;
                 }
@@ -178,15 +180,13 @@ unsigned char W8SoundEvent::Play(unsigned int mask, const srVector3T<float>* pos
                 static_cast<unsigned int>(Random(volume_max - volume_min + 1)) + volume_min;
         }
 
-        srMatrix3T<float> rotation;
+        glm::mat3 rotation;
 
-        rotation.SetIdentity();
-        if (angle != g_double_zero) {
-            rotation.RotateAboutY(sin(angle), cos(angle));
-        }
+        rotation = glm::mat3(1);
+        rotation *= glm::mat3_cast(glm::angleAxis(float(angle), glm::vec3(0, 1, 0)));
 
         srVector3T<float> offset = *position - camera_position;
-        srVector3T<float> transformed = rotation.Transform(offset);
+        srVector3T<float> transformed = rotation * offset.glmValue();
         float x = transformed.x;
         float y = transformed.y;
         float z = transformed.z;

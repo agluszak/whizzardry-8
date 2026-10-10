@@ -1,3 +1,4 @@
+#include "wiz8/containers.h"
 #include "wiz8/engine_code/3d.h"
 #include "wiz8/engine_code/3dapi.h"
 #include "wiz8/engine_code/AmbientSound.h"
@@ -6,6 +7,7 @@
 #include "wiz8/local_screens/AutomapScreen.h"
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/monster_generators.h"
+#include "wiz8/local_code/MonsterGenerator.h"
 #include "wiz8/engine_code/Environment.h"
 #include "wiz8/engine_code/Video2.h"
 #include <cstdlib>
@@ -15,8 +17,8 @@
 #include "wiz8/engine_code/Level.h"
 #include "wiz8/level_specific_code/MasterFunctionList.h"
 #include "wiz8/local_code/NPCManager.h"
-#include "wiz8/3d_code/IList.h"
-#include "wiz8/3d_code/PList.h"
+#include <vector>
+#include <algorithm>
 #include "wiz8/engine_code/Camera.h"
 #include "wiz8/engine_code/Item.h"
 #include "wiz8/engine_code/GDCamera.h"
@@ -77,7 +79,7 @@ class W8AmbientSound;
 // GLOBAL: WIZ8 0x00659757
 bool g_world_cleanup_flag;
 // GLOBAL: WIZ8 0x00659a80
-static W8GrowableVector<W8World*> g_worlds;
+static std::vector<W8World*> g_worlds;
 
 // GLOBAL: WIZ8 0x006081f8
 bool g_navigator_vertical_enabled = true;
@@ -95,19 +97,19 @@ bool g_world_update_requested = true;
 // FUNCTION: WIZ8 0x00450B10
 void ConstructWorldCollections(W8World* world)
 {
-    world->plsMonsters = PLCreate();
-    world->plsItems = PLCreate();
-    world->plsProps = PLCreate();
-    world->plsCameras = PLCreate();
-    world->plsAmbientSounds = PLCreate();
-    world->lights_to_update = new W8Vector<stLight*>;
-    world->collidable_props = new W8Vector<W8Prop*>;
-    world->monster_generators = new W8Vector<MonGen*>;
-    world->spell_visuals = new W8Vector<W8SpellVisual*>;
-    world->missiles = new W8Vector<W8Missile*>;
-    world->triggers = new W8Vector<Trigger*>;
-    world->particles = new W8Vector<stParticle*>;
-    world->named_positions = new W8Vector<W8NamedPosition*>;
+    world->plsMonsters = new std::vector<W8Monster*>;
+    world->plsItems = new std::vector<W8Item*>;
+    world->plsProps = new std::vector<W8Prop*>;
+    world->plsCameras = new std::vector<W8CameraPath*>;
+    world->plsAmbientSounds = new std::vector<W8AmbientSound*>;
+    world->lights_to_update = new std::vector<stLight*>;
+    world->collidable_props = new std::vector<W8Prop*>;
+    world->monster_generators = new std::vector<MonGen*>;
+    world->spell_visuals = new std::vector<W8SpellVisual*>;
+    world->missiles = new std::vector<W8Missile*>;
+    world->triggers = new std::vector<Trigger*>;
+    world->particles = new std::vector<stParticle*>;
+    world->named_positions = new std::vector<W8NamedPosition*>;
 
     if (world->plsMonsters == 0) {
         srAssertFail("pWorld->plsMonsters", THREE_D_API_CPP, 0x57e,
@@ -198,11 +200,15 @@ unsigned char LoadWorld(W8World* world, char* level_file_name, const char* level
     sprintf(material_path, "%s\\%s.mat", level_folder, level_file_name);
     sprintf(material_folder, "%s", asset_folder);
 
-    g_worlds.Add(world);
+    g_worlds.push_back(world);
 
     world->m_loaded = true;
-    PListInit(&world->nodes_to_disable);
-    PListInit(&world->transient_lights);
+    world->nodes_to_disable.clear();
+    world->nodes_to_disable.reserve(10);
+
+    world->transient_lights.clear();
+    world->transient_lights.reserve(10);
+
     world->game_data = 0;
 
     if (CheckLevelAssetSet(oct_path) >= 0) {
@@ -225,9 +231,9 @@ unsigned char LoadWorld(W8World* world, char* level_file_name, const char* level
     SetSceneAmbientLightWhite(world->static_scene);
     world->camera = CreateOrSetGameCamera(world->static_scene, 0);
     world->camera_light = CreateRangedWorldLight(world, "CameraLight");
-    world->camera_light->ambient.SetZero();
-    world->camera_light->diffuse.Set(1.0f, 0.85f, 0.39f);
-    world->camera_light->specular.SetZero();
+    world->camera_light->ambient = glm::vec3(0);
+    world->camera_light->diffuse = glm::vec3(1.0f, 0.85f, 0.39f);
+    world->camera_light->specular = glm::vec3(0);
     world->camera_light->intensity = 1.0f;
     world->camera_light->setGroupMask(2);
     ConfigureWorldLight(world->camera_light, 4000.0f);
@@ -279,15 +285,12 @@ unsigned char LoadWorld(W8World* world, char* level_file_name, const char* level
 // FUNCTION: WIZ8 0x0044F1C0
 W8World* CreateWorld()
 {
-    W8World* world = static_cast<W8World*>(malloc(sizeof(W8World)));
-    if (world == 0) {
-        srAssertFail("pWorld", THREE_D_API_CPP, 0xa0, 0);
-    }
-    memset(world, 0, sizeof(*world));
+    W8World* world = new W8World{};
+    world->environment_colour.SetZero();
 
     world->static_scene = new srScene(static_cast<srNode*>(0));
     if (world->static_scene == 0) {
-        free(world);
+        delete world;
         return 0;
     }
     world->static_scene->setName("Sir-Tech Scene Static Scene");
@@ -295,7 +298,7 @@ W8World* CreateWorld()
     world->level = new stLevel(world->static_scene);
     if (world->level == 0) {
         delete world->static_scene;
-        free(world);
+        delete world;
         return 0;
     }
     world->level->setName("Sir-Tech Level");
@@ -305,7 +308,7 @@ W8World* CreateWorld()
     if (world->dynamic_scene == 0) {
         delete world->static_scene;
         delete world->level;
-        free(world);
+        delete world;
         return 0;
     }
     world->dynamic_scene->setName("Sir-Tech Dynamic Scene");
@@ -324,9 +327,9 @@ void UpdateWorlds(void)
                                      (g_combat_state->round_active || gXStatus.fPartyMovementMode));
 
     {
-        int count = g_worlds.GetCount();
+        int count = static_cast<int>(g_worlds.size());
         for (int index = 0; index < count; ++index) {
-            UpdateWorld(*g_worlds.GetAt(index));
+            UpdateWorld(g_worlds[index]);
         }
     }
 
@@ -360,13 +363,11 @@ void UpdateWorld(W8World* world)
         UpdateSpellEffects();
     }
 
-    W8PList* nodes = &world->nodes_to_disable;
-    int count = static_cast<short>(PLLength(nodes));
-    for (int index = 0; index < count; ++index) {
-        srNode* node = static_cast<srNode*>(PLGet(nodes, index));
+    auto& nodes = world->nodes_to_disable;
+    for (srNode* node : nodes) {
         node->setFlag(srNode::FLAG_DISABLE);
     }
-    PListClear(nodes);
+    nodes.clear();
 }
 
 // VTABLE: WIZ8 0x005EC208
@@ -376,10 +377,10 @@ void UpdateWorld(W8World* world)
 // FUNCTION: WIZ8 0x0044f5b0
 void DetachAllWorldItems(void)
 {
-    int count = g_worlds.GetCount();
+    int count = static_cast<int>(g_worlds.size());
 
     for (int index = 0; index < count; ++index) {
-        DetachWorldItemMeshes(*g_worlds.GetAt(index));
+        DetachWorldItemMeshes(g_worlds[index]);
     }
 }
 
@@ -454,35 +455,30 @@ void DestroyWorldCollections(W8World* world)
         return;
     }
 
+    if (world->monster_generators) {
+        wiz8::remove_all_and_delete_in_order(*world->monster_generators);
+    }
+
     if (world->plsMonsters != 0) {
-        while (PLLength(world->plsMonsters) != 0) {
-            W8Monster* object = static_cast<W8Monster*>(PLGet(world->plsMonsters, 0));
-            PLRemoveAt(world->plsMonsters, 0);
-            delete object;
-        }
-        PLDestroy(world->plsMonsters);
+        wiz8::remove_all_and_delete_in_order(*world->plsMonsters);
+        delete world->plsMonsters;
+
         world->plsMonsters = 0;
     }
     if (g_world_cleanup_flag)
         RenderFrame();
     if (world->plsItems != 0) {
-        while (PLLength(world->plsItems) != 0) {
-            W8Item* object = static_cast<W8Item*>(PLGet(world->plsItems, 0));
-            PLRemoveAt(world->plsItems, 0);
-            delete object;
-        }
-        PLDestroy(world->plsItems);
+        wiz8::remove_all_and_delete_in_order(*world->plsItems);
+        delete world->plsItems;
+
         world->plsItems = 0;
     }
     if (g_world_cleanup_flag)
         RenderFrame();
     if (world->plsProps != 0) {
-        while (PLLength(world->plsProps) != 0) {
-            W8Prop* object = GetWorldProp(world, 0);
-            PLRemoveAt(world->plsProps, 0);
-            delete object;
-        }
-        PLDestroy(world->plsProps);
+        wiz8::remove_all_and_delete_in_order(*world->plsProps);
+        delete world->plsProps;
+
         world->plsProps = 0;
     }
     if (g_world_cleanup_flag)
@@ -497,50 +493,41 @@ void DestroyWorldCollections(W8World* world)
         RenderFrame();
 
     if (world->plsCameras != 0) {
-        while (PLLength(world->plsCameras) != 0) {
-            W8CameraPath* entry = GetWorldCameraPath(world, 0);
-            PLRemoveAt(world->plsCameras, 0);
+        wiz8::clear_and_dispose(*world->plsCameras, [](W8CameraPath* entry) {
             DestroyPathAI(entry->path);
             free(entry);
-        }
-        PLDestroy(world->plsCameras);
+        });
+        delete world->plsCameras;
+
         world->plsCameras = 0;
     }
 
     StopAllAmbientSounds();
     if (world->plsAmbientSounds != 0) {
-        while (PLLength(world->plsAmbientSounds) != 0) {
-            W8AmbientSound* ambient_sound = GetWorldAmbientSound(world, 0);
-            PLRemoveAt(world->plsAmbientSounds, 0);
-            DestroyAmbientSound(ambient_sound);
-        }
-        PLDestroy(world->plsAmbientSounds);
+        wiz8::clear_and_dispose(*world->plsAmbientSounds, DestroyAmbientSound);
+        delete world->plsAmbientSounds;
+
         world->plsAmbientSounds = 0;
     }
     if (g_world_cleanup_flag)
         RenderFrame();
 
     if (world->particles != 0) {
-        while (world->particles->GetCount() != 0) {
-            (*world->particles->GetAt(0))->release();
-            world->particles->RemoveAt(0);
-        }
+        wiz8::remove_all_and_delete_in_order(*world->particles);
     }
     if (world->named_positions != 0) {
-        while (world->named_positions->GetCount() != 0) {
-            delete *world->named_positions->GetAt(0);
-            world->named_positions->RemoveAt(0);
-        }
+        wiz8::remove_all_and_delete_in_order(*world->named_positions);
     }
 
     DestroyAllMissiles(world);
     DestroyAllSpellVisuals(world);
     DestroyWorldLights(world);
-    PListFreeData(&world->transient_lights);
-    PListFreeData(&world->nodes_to_disable);
+    world->transient_lights.clear();
+    world->nodes_to_disable.clear();
 
     delete world->lights_to_update;
     delete world->collidable_props;
+    wiz8::remove_all_and_delete(*world->monster_generators);
     delete world->monster_generators;
     delete world->spell_visuals;
     delete world->missiles;
@@ -581,9 +568,9 @@ void DestroyWorld(W8World* world)
     if (IsWorldCursorVisible())
         HideWorldCursor();
 
-    g_worlds.Remove(world);
+    wiz8::erase_first(g_worlds, world);
     ReleaseRendererObject(world->static_scene);
-    free(world);
+    delete world;
 }
 
 /* Per-frame camera / camera-path update for one world. Main-game frames the
@@ -594,14 +581,14 @@ void DestroyWorld(W8World* world)
 void UpdateWorldCameraAndPaths(W8World* world, unsigned int flags)
 {
     static srVector3T<float> s_last_automap_refresh_position;
-    static srMatrix3T<float> s_saved_camera_rotation;
+    static glm::mat3 s_saved_camera_rotation;
     srVector3T<float> camera_position;
     srVector3T<float> navigator_position;
     srVector3T<float> delta;
     srVector3T<double> render_position;
-    srMatrix3T<float> rotation;
-    srMatrix3T<float> path_rotation;
-    srMatrix3T<float> motion_saved;
+    glm::mat3 rotation;
+    glm::mat3 path_rotation;
+    glm::mat3 motion_saved;
     W8CameraPath* camera_path;
     W8PathAI* path;
     char sound_environment;
@@ -640,10 +627,10 @@ void UpdateWorldCameraAndPaths(W8World* world, unsigned int flags)
                                        camera_position.y - g_default_world_height,
                                        camera_position.z);
                 if (world->camera_light != 0) {
-                    render_position.SetFromFloat(&camera_position);
+                    render_position = glm::dvec3(camera_position.glmValue());
                     static_cast<srNode*>(world->camera_light)->setLocation(render_position);
                 }
-                render_position.SetFromFloat(&camera_position);
+                render_position = glm::dvec3(camera_position.glmValue());
                 static_cast<srNode*>(world->camera)->setLocation(render_position);
                 g_startup_world->SetPositionInternal(&navigator_position);
                 dx = camera_position.x - s_last_automap_refresh_position.x;
@@ -671,7 +658,7 @@ void UpdateWorldCameraAndPaths(W8World* world, unsigned int flags)
         world->camera->setRotation(s_saved_camera_rotation);
     }
     SetCameraSwayMode(world->camera, 0);
-    camera_count = static_cast<int>(PLLength(world->plsCameras));
+    camera_count = static_cast<int>((world->plsCameras ? world->plsCameras->size() : 0));
     if (world->plsCameras != 0 && camera_count != 0) {
         for (index = 0; index < camera_count; ++index) {
             camera_path = GetWorldCameraPath(world, index);
@@ -682,7 +669,7 @@ void UpdateWorldCameraAndPaths(W8World* world, unsigned int flags)
                 {
                     srVector3T<double> location = world->camera->getLocation();
                     srVector3T<float> party_point;
-                    party_point.SetFromDouble(&location);
+                    party_point = glm::vec3(location.glmValue());
                     PlacePartyAtPoint(&party_point);
                 }
                 world->camera->getRotation(path_rotation);
@@ -691,7 +678,7 @@ void UpdateWorldCameraAndPaths(W8World* world, unsigned int flags)
                 }
                 ApplyCameraRotation(&path_rotation);
                 if (path->discrete_mode != 0) {
-                    if (path->position >= path->nodes->GetCount() - g_float_one) {
+                    if (path->position >= static_cast<int>(path->nodes->size()) - g_float_one) {
                         UpdateCameraPathState(world, camera_path, 0);
                     }
                 } else if (path->position >= g_double_one) {
@@ -715,10 +702,10 @@ void MarkRendererReady(void)
 stParticle* FindParticleByName(W8World* world, const char* name)
 {
     if (world != 0 && world->particles != 0) {
-        int count = world->particles->GetCount();
+        int count = static_cast<int>(world->particles->size());
 
         for (int index = 0; index < count; ++index) {
-            stParticle* particle = *world->particles->GetAt(index);
+            stParticle* particle = (*world->particles)[index];
 
             if (_stricmp(particle->getName().c_str(), name) == 0) {
                 return particle;
@@ -766,12 +753,12 @@ void SetWorldScenePosition(W8World* world, const srVector3T<float>* location)
 
     position = *location;
     if (world->camera != 0) {
-        render_position.SetFromFloat(&position);
+        render_position = glm::dvec3(position.glmValue());
         static_cast<srNode*>(world->camera)->setLocation(render_position);
         PlacePartyAtPoint(&position);
     }
     if (world->camera_light != 0) {
-        render_position.SetFromFloat(&position);
+        render_position = glm::dvec3(position.glmValue());
         static_cast<srNode*>(world->camera_light)->setLocation(render_position);
     }
 }
@@ -812,7 +799,7 @@ void ReportAssertion(const char* expression, const char* source_path, w8_long li
    3dapi.cpp:976 names its camera member pWorld->psrCamera, which is what puts
    the camera at 0x44 rather than anywhere else. */
 // FUNCTION: WIZ8 0x004503c0
-void WorldGetCameraRotation(W8World* world, srMatrix3T<float>* rotation)
+void WorldGetCameraRotation(W8World* world, glm::mat3* rotation)
 {
     if (!world) {
         srAssertFail("pWorld", THREE_D_API_CPP, 0x3cf, 0);
@@ -834,12 +821,12 @@ void WorldSetCameraLocation(W8World* world, const srVector3T<float>* location)
         srAssertFail("pWorld", THREE_D_API_CPP, 0x422, 0);
     }
     if (world->camera != 0) {
-        position.SetFromFloat(location);
+        position = glm::dvec3(location->glmValue());
         world->camera->setLocation(position);
         PlacePartyAtPoint(location);
     }
     if (world->camera_light != 0) {
-        position.SetFromFloat(location);
+        position = glm::dvec3(location->glmValue());
         world->camera_light->setLocation(position);
     }
 }
@@ -852,7 +839,7 @@ void SetWorldCameraState(W8World* world, W8World* source_world, W8WorldCameraSta
 {
     srVector3T<float> location;
     srVector3T<double> position;
-    srMatrix3T<float> rotation;
+    glm::mat3 rotation;
 
     if (!world) {
         srAssertFail("pWorld", THREE_D_API_CPP, 0x43f, 0);
@@ -862,12 +849,12 @@ void SetWorldCameraState(W8World* world, W8World* source_world, W8WorldCameraSta
         }
         location = state->position;
         if (world->camera != 0) {
-            position.SetFromFloat(&location);
+            position = glm::dvec3(location.glmValue());
             ((srNode*)world->camera)->setLocation(position);
             PlacePartyAtPoint(&location);
         }
         if (world->camera_light != 0) {
-            position.SetFromFloat(&location);
+            position = glm::dvec3(location.glmValue());
             ((srNode*)world->camera_light)->setLocation(position);
         }
         world->camera->getRotation(rotation);
@@ -897,7 +884,7 @@ void RestoreWorldCameraState(W8World* world, W8World* source_world, W8WorldCamer
     }
     SetWorldCameraState(world, source_world, state);
     world->camera->getLocation(camera_location);
-    navigator_position.SetFromDouble(&camera_location);
+    navigator_position = glm::vec3(camera_location.glmValue());
     g_startup_world->SetAngles(GetCameraYawInDegrees());
     g_startup_world->SetPitch(GetCameraPitchInDegrees());
     navigator_position.y -= g_default_world_height;
@@ -1025,9 +1012,9 @@ bool FindEntityByName(const char* name, srVector3T<float>* position, float* angl
         return true;
     }
 
-    int count = g_world->named_positions->GetCount();
+    int count = static_cast<int>(g_world->named_positions->size());
     for (int index = 0; index < count; ++index) {
-        W8NamedPosition* entry = *g_world->named_positions->GetAt(index);
+        W8NamedPosition* entry = (*g_world->named_positions)[index];
         if (_stricmp(name, entry->name) == 0) {
             *position = entry->position;
             if (angle != 0) {

@@ -10,15 +10,17 @@
 #include "wiz8/fonts.h"
 #include "wiz8/virtual_file.h"
 
-#include "wiz8/filesystem.h"
 #include "Font.h"
 #include "input.h"
+
+#include <memory>
+#include <stdexcept>
 
 #include <stdlib.h>
 #include <wchar.h>
 
 // GLOBAL: WIZ8 0x0069C4A8
-static W8GrowableVector<W8CreditLine>* g_credit_lines;
+static std::vector<W8CreditLine>* g_credit_lines;
 // GLOBAL: WIZ8 0x0069C494
 static int g_credit_elapsed_steps;
 // GLOBAL: WIZ8 0x0069C498
@@ -37,94 +39,108 @@ static int g_credit_line;
 unsigned char ReadWideTextLine(wiz8::File* handle, wchar_t* destination, int capacity, unsigned char* more)
 try
 {
-    wchar_t* write = destination;
-    wchar_t current = 0;
-    int count = 0;
-    unsigned char ok;
-
-    *destination = 0;
+    *more = 0;
+    if (capacity <= 0) return 0;
+    destination[0] = 0;
+    if (capacity == 1) return 0;
     *more = 1;
+    int length = 0;
+    bool newline = false;
     for (;;) {
-        unsigned int bytes_read;
-        ok = ((bytes_read = handle->read(&current, sizeof(current)).bytes) == static_cast<std::size_t>(sizeof(current)));
-        if (bytes_read == 0) {
-            ok = 0;
+        wchar_t character;
+        if (handle->read(&character, sizeof(character)).bytes != sizeof(character)) {
             *more = 0;
-        } else if (ok == 0) {
-            *more = 0;
-        } else if (current == 10) {
-            break;
-        } else {
-            *write++ = current;
-            ++count;
-        }
-        if (count >= capacity - 1) {
-            ok = 0;
             break;
         }
-        if (ok == 0) {
+        if (character == L'\n') {
+            newline = true;
             break;
         }
+        destination[length++] = character;
+        destination[length] = 0;
+        if (length == capacity - 1) break;
     }
-    destination[count] = 0;
-    if (count != 0 && destination[count - 1] == 0xd) {
-        destination[count - 1] = 0;
-    }
-    return ok;
+    if (length != 0 && destination[length - 1] == L'\r') destination[length - 1] = 0;
+    return newline;
 }
-catch (const std::exception&) { return false; }
+catch (const std::exception&) { *more = 0; return false; }
 
 // FUNCTION: WIZ8 0x005bc130
 unsigned char CreditsScreenEnter(void)
 try
 {
-    std::unique_ptr<wiz8::File> handle;
-    wchar_t line[128];
-
     SetViewport(0, 0, 0x280, 0x1e0);
     ResetRegions();
     RegionSetEnable(2);
     DisableCursorScene();
-    g_credit_lines = new W8GrowableVector<W8CreditLine>();
-
-    handle = [&]() { try { return wiz8::open_file((char*)"Data\\Options\\Credits.txt", wiz8::OpenMode::read); } catch (const std::exception&) { return std::unique_ptr<wiz8::File>{}; } }();
-    if (handle != 0) {
-        unsigned char more;
-        handle->read_exact(line, sizeof(wchar_t));
-        while (!(handle->tell() >= handle->size())) {
-            if (ReadWideTextLine(handle.get(), line, 128, &more) && line[0] != L'*') {
-                W8CreditLine entry = {0, 0, 0, 0, 0};
-                bool blank = false;
-                bool bold = false;
-                if (line[0] == L'!') {
-                    bold = true;
-                    entry.flags = 1;
-                    entry.primary = _wcsdup(line + 1);
-                } else {
-                    wchar_t* separator = wcschr(line, L'&');
-                    if (separator != 0) {
-                        separator[-1] = L'\0';
-                        entry.flags = 2;
-                        entry.secondary = _wcsdup(separator + 2);
-                        entry.primary = _wcsdup(line);
-                    } else if (line[0] != L'\0') {
-                        entry.primary = _wcsdup(line);
-                    } else {
-                        blank = true;
-                        entry.flags = 4;
-                    }
-                }
-                if (!blank) {
-                    entry.pixel_width = StringPixLength(
-                        entry.primary, bold ? g_options_title_font : g_options_detail_font);
-                }
-                entry.line_height = 0x14 + (bold ? 5 : 0);
-                g_credit_lines->Add(entry);
-            }
+    auto release_lines = [](std::vector<W8CreditLine>* lines) {
+        for (int index = 0; index < static_cast<int>(lines->size()); ++index) {
+            W8CreditLine* line = &(*lines)[index];
+            free(line->primary);
+            free(line->secondary);
         }
-        if (handle) handle->close();
-        handle.reset();
+        delete lines;
+    };
+    std::unique_ptr<std::vector<W8CreditLine>, decltype(release_lines)> pending(
+        new std::vector<W8CreditLine>, release_lines);
+    std::unique_ptr<wiz8::File> handle;
+    try { handle = wiz8::open_file("Data\\Options\\Credits.txt", wiz8::OpenMode::read); }
+    catch (const std::exception&) {}
+    if (handle != nullptr) {
+        if (handle->size() % sizeof(wchar_t) != 0)
+            throw std::runtime_error("incomplete credits character");
+        wchar_t marker;
+        handle->read_exact(&marker, sizeof(marker));
+        if (marker != 0xfeff) handle->seek(0, wiz8::SeekOrigin::begin);
+        wchar_t line[128];
+        unsigned char more = 1;
+        while (more != 0) {
+            if (!ReadWideTextLine(handle.get(), line, 128, &more)) {
+                if (more != 0 || handle->tell() < handle->size())
+                    throw std::runtime_error("invalid credits line");
+                break;
+            }
+            if (line[0] == L'*') continue;
+            W8CreditLine entry{};
+            wchar_t* primary_text = line;
+            wchar_t* secondary_text = nullptr;
+            if (line[0] == L'!') {
+                entry.flags = 1;
+                ++primary_text;
+            } else {
+                wchar_t* separator = wcschr(line, L'&');
+                if (separator != nullptr) {
+                    if (separator == line || separator[1] == 0)
+                        throw std::runtime_error("invalid credits separator");
+                    separator[-1] = 0;
+                    secondary_text = separator + 2;
+                    entry.flags = 2;
+                } else if (line[0] == 0) {
+                    entry.flags = 4;
+                }
+            }
+            using TextOwner = std::unique_ptr<wchar_t, decltype(&free)>;
+            TextOwner primary(nullptr, free);
+            TextOwner secondary(nullptr, free);
+            if ((entry.flags & 4) == 0) {
+                primary.reset(_wcsdup(primary_text));
+                if (!primary) throw std::bad_alloc();
+                entry.primary = primary.get();
+                entry.pixel_width = StringPixLength(
+                    entry.primary, (entry.flags & 1) ? g_options_title_font : g_options_detail_font);
+            }
+            if (secondary_text != nullptr) {
+                secondary.reset(_wcsdup(secondary_text));
+                if (!secondary) throw std::bad_alloc();
+                entry.secondary = secondary.get();
+            }
+            entry.line_height = 0x14 + ((entry.flags & 1) ? 5 : 0);
+            pending->push_back(entry);
+            (void)primary.release();
+            (void)secondary.release();
+        }
     }
+    g_credit_lines = pending.release();
     g_credit_line = 0;
     g_credit_elapsed_steps = 0;
     g_credit_y = 0x1df;
@@ -132,13 +148,17 @@ try
     g_credit_redraw = true;
     return 1;
 }
-catch (const std::exception&) { return false; }
+catch (const std::exception&) {
+    ResetRegions();
+    EnableCursorScene();
+    return false;
+}
 
 // FUNCTION: WIZ8 0x005bc420
 unsigned char CreditsScreenLeave(int)
 {
-    for (int index = 0; index < g_credit_lines->GetCount(); ++index) {
-        W8CreditLine* entry = g_credit_lines->GetAt(index);
+    for (int index = 0; index < static_cast<int>(g_credit_lines->size()); ++index) {
+        W8CreditLine* entry = &(*g_credit_lines)[index];
         if (entry->primary != 0) {
             free(entry->primary);
         }
@@ -158,11 +178,15 @@ unsigned char CreditsScreenLeave(int)
 // FUNCTION: WIZ8 0x005bc530
 void CreditsScreenFrame(void)
 {
-    SGPPoint point;
+    if (g_credit_lines->empty()) {
+        RequestScreenTransition();
+        return;
+    }
+    SDL_Point point;
     InputAtom input;
 
     SGPMouseGetPos(&point);
-    UpdateRegionMousePosition(point.iX, point.iY);
+    UpdateRegionMousePosition(point.x, point.y);
     while (DequeueEvent(&input) == 1) {
         if (!DispatchRegionInput(&input) && input.usEvent == KEY_DOWN) {
             RequestScreenTransition();
@@ -173,15 +197,15 @@ void CreditsScreenFrame(void)
     if (steps >= 1) {
         g_credit_elapsed_steps += steps;
         g_credit_redraw = true;
-        W8CreditLine entry = *g_credit_lines->GetAt(g_credit_line);
+        W8CreditLine entry = (*g_credit_lines)[g_credit_line];
         g_credit_y -= steps;
         while (g_credit_y < 0) {
             ++g_credit_line;
-            if (g_credit_line >= g_credit_lines->GetCount()) {
+            if (g_credit_line >= static_cast<int>(g_credit_lines->size())) {
                 RequestScreenTransition();
                 break;
             }
-            entry = *g_credit_lines->GetAt(g_credit_line);
+            entry = (*g_credit_lines)[g_credit_line];
             g_credit_y += entry.line_height;
         }
     }
@@ -191,8 +215,9 @@ void CreditsScreenFrame(void)
 
     DrawCatalogImage(FRAME_BUFFER, 0xe9, 0, 0, 0, 0, VO_BLT_SRCTRANSPARENCY, 0);
     int y = g_credit_y;
-    for (int index = g_credit_line; index < g_credit_lines->GetCount() && y <= 0x1df; ++index) {
-        const W8CreditLine* entry = g_credit_lines->GetAt(index);
+    for (int index = g_credit_line; index < static_cast<int>(g_credit_lines->size()) && y <= 0x1df;
+         ++index) {
+        const W8CreditLine* entry = &(*g_credit_lines)[index];
         if ((entry->flags & 4) == 0) {
             SetFont((entry->flags & 1) ? g_options_title_font : g_options_detail_font);
             if ((entry->flags & 2) == 0) {

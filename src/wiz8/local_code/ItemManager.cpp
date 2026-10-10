@@ -1,3 +1,5 @@
+#include "wiz8/containers.h"
+#include <glm/gtx/rotate_vector.hpp>
 #include "wiz8/local_code/ItemManager.h"
 #include "wiz8/local_code/PC_Item.h"
 #include "wiz8/layouts/game_status.h"
@@ -13,7 +15,8 @@
 #include "wiz8/local_code/UtilityFunctions.h"
 #include "wiz8/engine_code/Octree.h"
 #include "wiz8/engine_code/Item.h"
-#include "wiz8/3d_code/PList.h"
+#include <vector>
+#include <algorithm>
 #include "wiz8/item_spawning.h"
 #include "wiz8/item_tables.h"
 #include "wiz8/local_code/MonsterManager.h"
@@ -39,7 +42,6 @@
 #include "wiz8/engine_code/GameTimeAccumulator.h"
 #include "wiz8/engine_code/PolyPick.h"
 #include "wiz8/geometry.h"
-#include "wiz8/3d_code/IList.h"
 #include "wiz8/xstatus.h"
 #include "wiz8/cursor.h"
 #include "soundman.h"
@@ -88,12 +90,8 @@ bool InitializeItemManagerState()
     if (g_current_screen_state.id == W8_SCREEN_MAIN_GAME && g_level_block != 0) {
         g_level_block->selected_item = -1;
     }
-    if (gXStatus.plsItemList != 0) {
-        PListClear(gXStatus.plsItemList);
-        return gXStatus.plsItemList != 0;
-    }
-    gXStatus.plsItemList = PLCreate();
-    return gXStatus.plsItemList != 0;
+    gXStatus.world_items.clear();
+    return true;
 }
 
 // FUNCTION: WIZ8 0x004f8130
@@ -184,7 +182,7 @@ int FindItemTableByName(const char* name)
     int index;
 
     for (index = 0; index < static_cast<int>(gXStatus.uiItemTablesInDatabase); ++index) {
-        if (_stricmp(name, g_item_tables[index]->name) == 0) {
+        if (_stricmp(name, g_item_tables[index].name) == 0) {
             return index;
         }
     }
@@ -213,12 +211,12 @@ static W8WorldItem* CreateTableItem(int item_id, const srVector3T<float>* positi
 }
 
 // FUNCTION: WIZ8 0x004f88f0
-int GenerateItemsFromTable(W8GrowableVector<W8WorldItem*>* output_items, unsigned int table_id,
+int GenerateItemsFromTable(std::vector<W8WorldItem*>& output_items, unsigned int table_id,
                            unsigned int maximum_items)
 {
     unsigned int party_level = GetAveragePartyLevel();
     srVector3T<float> position;
-    W8GrowableVector<int> candidates;
+    std::vector<int> candidates;
     W8ItemTableRecord* table;
     W8ItemTableEntry* entry;
     W8ItemDatabaseRecord* item_record;
@@ -232,14 +230,14 @@ int GenerateItemsFromTable(W8GrowableVector<W8WorldItem*>* output_items, unsigne
 
     table_id &= 0xffff;
     for (entry_index = 0; entry_index < 40; ++entry_index) {
-        table = g_item_tables[table_id];
+        table = &g_item_tables[table_id];
         if (table->entries[entry_index].selector != 0) {
             item_record = &g_item_records[table->entries[entry_index].item_id];
             if (table->entries[entry_index].weight == 0) {
-                output_items->Add(CreateTableItem(
-                    g_item_tables[table_id]->entries[entry_index].item_id, &position));
+                output_items.push_back(CreateTableItem(
+                    g_item_tables[table_id].entries[entry_index].item_id, &position));
             } else if (table->level_scaled == 0) {
-                candidates.Add(entry_index);
+                candidates.push_back(entry_index);
             } else {
                 item_value = item_record->value;
                 for (range = g_item_level_scale_ranges; range < g_item_level_scale_ranges + 7;
@@ -247,7 +245,7 @@ int GenerateItemsFromTable(W8GrowableVector<W8WorldItem*>* output_items, unsigne
                     if (range->minimum_party_level <= party_level &&
                         range->minimum_item_value <= item_value &&
                         item_value < range->maximum_item_value) {
-                        candidates.Add(entry_index);
+                        candidates.push_back(entry_index);
                         break;
                     }
                 }
@@ -255,39 +253,39 @@ int GenerateItemsFromTable(W8GrowableVector<W8WorldItem*>* output_items, unsigne
         }
     }
 
-    if (candidates.GetCount() < static_cast<int>(maximum_items) &&
-        g_item_tables[table_id]->level_scaled != 0) {
-        candidates.Clear();
+    if (static_cast<int>(candidates.size()) < static_cast<int>(maximum_items) &&
+        g_item_tables[table_id].level_scaled != 0) {
+        candidates.clear();
         for (entry_index = 0; entry_index < 40; ++entry_index) {
-            if (g_item_tables[table_id]->entries[entry_index].selector != 0) {
-                candidates.Add(entry_index);
+            if (g_item_tables[table_id].entries[entry_index].selector != 0) {
+                candidates.push_back(entry_index);
             }
         }
     }
 
     total_weight = 0;
-    for (entry_index = 0; entry_index < candidates.GetCount(); ++entry_index) {
-        total_weight += g_item_tables[table_id]->entries[*candidates.GetAt(entry_index)].weight;
+    for (entry_index = 0; entry_index < static_cast<int>(candidates.size()); ++entry_index) {
+        total_weight += g_item_tables[table_id].entries[candidates[entry_index]].weight;
     }
 
     selected_count = 0;
     while (selected_count < maximum_items) {
-        if (candidates.GetCount() == 0) {
+        if (candidates.empty()) {
             break;
         }
-        position_index = Random(candidates.GetCount());
-        entry_index = *candidates.GetAt(position_index);
-        table = g_item_tables[table_id];
+        position_index = Random(static_cast<int>(candidates.size()));
+        entry_index = candidates[position_index];
+        table = &g_item_tables[table_id];
         entry = &table->entries[entry_index];
         random_value = Random(total_weight);
         if (random_value <= entry->weight) {
-            output_items->Add(CreateTableItem(entry->item_id, &position));
-            candidates.RemoveAt(position_index);
+            output_items.push_back(CreateTableItem(entry->item_id, &position));
+            candidates.erase(candidates.begin() + position_index);
             ++selected_count;
         }
     }
 
-    return output_items->GetCount();
+    return static_cast<int>(output_items.size());
 }
 
 /* The cursor the iterator below resumes from. */
@@ -341,7 +339,8 @@ W8WorldItem* GetNextWorldItem(bool restart)
         g_world_item_cursor = 0;
     }
     index = g_world_item_cursor;
-    if (static_cast<unsigned int>(index) < PLLength(gXStatus.plsItemList)) {
+    if (static_cast<unsigned int>(index) <
+        gXStatus.world_items.size()) {
         ++g_world_item_cursor;
         return GetWorldItemListEntry(index);
     }
@@ -438,15 +437,16 @@ W8WorldItem* ItemInfo(unsigned int item_list_index)
 {
     W8WorldItem* item;
 
-    if (item_list_index >= PLLength(gXStatus.plsItemList)) {
-        srAssertFail("uiItemListIndex < (UINT32) PLLength(gXStatus.plsItemList)", ITEM_MANAGER_CPP,
-                     961, 0);
+    if (item_list_index >= gXStatus.world_items.size()) {
+        srAssertFail(
+            "uiItemListIndex < (UINT32) gXStatus.world_items.size()",
+            ITEM_MANAGER_CPP, 961, 0);
     }
     item = GetWorldItemListEntry(item_list_index);
     if (item == 0) {
         srAssertFail("pItemInfo != NULL", ITEM_MANAGER_CPP, 965,
-                     FormatString("ItemInfo: ERROR - PLGet failed, index %d, pList %d",
-                                  item_list_index, gXStatus.plsItemList));
+                     FormatString("ItemInfo: ERROR - missing entry, index %d, pList %d",
+                                  item_list_index, &gXStatus.world_items));
     }
     return item;
 }
@@ -456,7 +456,7 @@ unsigned int ItemIndex(int runtime_id)
 {
     unsigned int index;
 
-    for (index = 0; index < PLLength(gXStatus.plsItemList); ++index) {
+    for (index = 0; index < gXStatus.world_items.size(); ++index) {
         if (ItemInfo(index)->runtime_id == runtime_id) {
             return index;
         }
@@ -470,7 +470,7 @@ unsigned int ItemIndex(int runtime_id)
    selection the item manager resets. */
 
 // FUNCTION: WIZ8 0x004f8440
-int ItemInfoMakeGroupList(W8WorldItem* item, W8GrowableVector<W8WorldItem*>* out)
+int ItemInfoMakeGroupList(W8WorldItem* item, std::vector<W8WorldItem*>& out)
 {
     W8WorldItem* next;
 
@@ -479,12 +479,12 @@ int ItemInfoMakeGroupList(W8WorldItem* item, W8GrowableVector<W8WorldItem*>* out
                      "Bad ITEM_STRUCT in ItemInfoMakeGroupList");
     }
 
-    out->Add(item);
+    out.push_back(item);
 
     for (next = item->next; next != 0; next = next->next) {
-        out->Add(next);
+        out.push_back(next);
     }
-    return out->count;
+    return static_cast<int>(out.size());
 }
 
 /* The generic 3D model names ActivateItem falls back to when a
@@ -677,8 +677,13 @@ void ActivateItem(W8WorldItem* item)
     if (![&]() { const auto status = wiz8::file_status(zItemFullPath); return status && status->info.type == SDL_PATHTYPE_FILE; }()) {
         strcpy(zItemName, "questionmark");
         sprintf(zItemFullPath, "%s\\%s.ITM", "Data\\Items3D", zItemName);
-        if (![&]() { const auto status = wiz8::file_status(zItemFullPath); return status && status->info.type == SDL_PATHTYPE_FILE; }()) {
-            srAssertFail("[&]() { const auto status = wiz8::file_status(zItemFullPath); return status && status->info.type == SDL_PATHTYPE_FILE; }()", ITEM_MANAGER_CPP, 0x1ed,
+        if (![&]() {
+                const auto status = wiz8::file_status(zItemFullPath);
+                return status && status->info.type == SDL_PATHTYPE_FILE;
+            }()) {
+            srAssertFail("[&]() { const auto status = wiz8::file_status(zItemFullPath); return "
+                         "status && status->info.type == SDL_PATHTYPE_FILE; }()",
+                         ITEM_MANAGER_CPP, 0x1ed,
                          FormatString("ActivateItem: ERROR - missing ITM file %s, item %d",
                                       zItemFullPath, item->item.iItemNo));
         }
@@ -707,7 +712,7 @@ void ActivateItem(W8WorldItem* item)
     node = srNode::sGetClassNode();
     sun = static_cast<srNode*>(srCore.getRegistry()->find(node, "SUN", 0));
     if (sun != 0) {
-        sun_position = sun->getLocation();
+        sun_position = glm::vec3(sun->getLocation());
         mesh = static_cast<stModelInstance*>(item->p3D->GetMesh());
         if (mesh != 0) {
             if (g_octree->HasLineOfSight(&position, &sun_position, true)) {
@@ -786,7 +791,7 @@ int PickNearestItemUnderCursor(int cursor_x, int cursor_y, float max_distance)
 
     result = -1;
     best_distance = 999999.0f;
-    for (index = 0; index < PLLength(gXStatus.plsItemList); ++index) {
+    for (index = 0; index < gXStatus.world_items.size(); ++index) {
         W8WorldItem* item = ItemInfo(index);
         float distance;
 
@@ -819,7 +824,7 @@ void UpdateNearbyWorldItems(void)
     unsigned int count;
 
     WorldGetCameraLocation(GetWorld(), &camera);
-    count = PLLength(gXStatus.plsItemList);
+    count = gXStatus.world_items.size();
     for (index = 0; index < count; ++index) {
         W8WorldItem* item = ItemInfo(index);
 
@@ -851,8 +856,17 @@ void UpdateNearbyWorldItems(void)
             }
         }
     next_item:
-        count = PLLength(gXStatus.plsItemList);
+        count = gXStatus.world_items.size();
     }
+}
+
+glm::vec3 ItemThrowDirection(const glm::vec2& cursor, const glm::mat3& camera_rotation)
+{
+    const auto offset = (cursor - g_float_half) * g_float_nine_tenths;
+    const float yaw = glm::radians(offset.x * g_drop_item_yaw_scale);
+    const float pitch = glm::radians(g_float_five + offset.y * g_drop_item_pitch_scale);
+    const auto forward = glm::vec3(0, 0, g_double_twenty_five_hundred);
+    return camera_rotation * glm::rotateY(glm::rotateX(forward, pitch), yaw);
 }
 
 /* Toss the cursor-held item into the world. The tracked cursor position is
@@ -863,24 +877,9 @@ void UpdateNearbyWorldItems(void)
 // FUNCTION: WIZ8 0x004F7610
 void DropHeldItem(int)
 {
-    srVector3T<float> cursor;
-    GetCursorScaledPosition(&cursor);
-    cursor.y = (cursor.y - g_float_half) * g_float_nine_tenths;
-    cursor.z = (cursor.z - g_float_half) * g_float_nine_tenths;
-
-    double amplitude = g_throw_angle_amplitude * g_float_inverse_half_turn_degrees;
-    double pitch = amplitude * g_float_five + amplitude * cursor.z * g_drop_item_pitch_scale;
-    float base = static_cast<float>(cos(pitch) * g_double_twenty_five_hundred);
-    double yaw = amplitude * cursor.y * g_drop_item_yaw_scale;
-
-    srVector3T<float> direction;
-    direction.y = static_cast<float>(sin(pitch) * g_drop_item_vertical_scale);
-    direction.x = static_cast<float>(base * sin(yaw));
-    direction.z = static_cast<float>(base * cos(yaw));
-
-    srMatrix3T<float> rotation;
+    glm::mat3 rotation;
     WorldGetCameraRotation(g_world, &rotation);
-    direction = rotation.Transform(direction);
+    srVector3 direction = ItemThrowDirection(GetCursorScaledPosition(), rotation);
 
     srVector3T<float> camera;
     GetCameraPosition(&camera);
@@ -888,15 +887,7 @@ void DropHeldItem(int)
     g_octree->TraceLineOfSight(&camera, &direction, true, -3, -3, true, 0);
 
     srVector3T<float> delta = direction - camera;
-    float distance_squared = delta.LengthSquared();
-    float distance = static_cast<float>(sqrt(distance_squared)) - g_float_one_hundred_twenty_five;
-    if (distance < g_float_zero) {
-        distance = g_float_zero;
-    }
-    if (distance_squared != static_cast<float>(g_double_zero)) {
-        distance /= static_cast<float>(sqrt(distance_squared));
-        delta *= distance;
-    }
+    delta.SetLength(glm::max(delta.Length() - g_float_one_hundred_twenty_five, g_float_zero));
 
     srVector3T<float> position = camera + delta;
     position.y =
@@ -937,7 +928,7 @@ static void OnItemPickerDialogDestroyed(W8DialogBase* dialog)
         if (item->p3D == 0) {
             ActivateItem(item);
         }
-        PLAdoptAppend(gXStatus.plsItemList, item);
+        gXStatus.world_items.push_back(item);
         group->next = 0;
     } else if (ItemInfoGetNumInGroup(group) != 1) {
         return;
@@ -951,7 +942,7 @@ static void OnItemPickerDialogDestroyed(W8DialogBase* dialog)
         DeactivateWorldItem(item);
     }
     FreeWorldItemGroup(item);
-    PLRemoveAt(gXStatus.plsItemList, index);
+    gXStatus.world_items.erase(gXStatus.world_items.begin() + index);
 }
 
 /* Interact with one world item by runtime id. Records flagged 0x20 open the
@@ -995,60 +986,23 @@ unsigned char InteractWithWorldItem(int runtime_id)
         DeactivateWorldItem(item);
     }
     FreeWorldItemGroup(item);
-    void* status = PLRemoveAt(gXStatus.plsItemList, index);
-    if (status == 0) {
-        srAssertFail("fStatus", ITEM_MANAGER_CPP, 893, 0);
-    }
+    gXStatus.world_items.erase(gXStatus.world_items.begin() + index);
     return result;
 }
 
-/* Push every live world item back to its sector and free the whole list. The
-   list is reduced from its head until empty and then destroyed; only the
-   destroy failure keeps the global pointing at it. */
+/* Detach and release all world item groups. */
 // FUNCTION: WIZ8 0x004f6a50
 unsigned char ReleaseItemLists(void)
 {
-    unsigned int count;
-
-    if (gXStatus.plsItemList == 0) {
-        srAssertFail("gXStatus.plsItemList != NULL", ITEM_MANAGER_CPP, 0x126, 0);
-    }
-    count = PLLength(gXStatus.plsItemList);
-    while (static_cast<int>(count) >= 1) {
-        W8WorldItem* item;
-
-        count = PLLength(gXStatus.plsItemList);
-        if (count == 0) {
-            srAssertFail("uiItemListIndex < (UINT32) PLLength(gXStatus.plsItemList)",
-                         ITEM_MANAGER_CPP, 0x3c1, 0);
-        }
-        item = GetWorldItemListEntry(0);
-        if (item == 0) {
-            srAssertFail("pItemInfo != NULL", ITEM_MANAGER_CPP, 0x3c5,
-                         FormatString("ItemInfo: ERROR - PLGet failed, index %d, pList %d", 0,
-                                      gXStatus.plsItemList));
-        }
+    wiz8::clear_and_dispose(gXStatus.world_items, [](W8WorldItem* item) {
         if (item->sector_id >= 0) {
             RemoveItemFromSector(item->sector_id, item);
         }
         if (item->fActive) {
             DeactivateWorldItem(item);
         }
-        while (item != 0) {
-            W8WorldItem* next = item->next;
-
-            free(item);
-            item = next;
-        }
-        if (PLRemoveAt(gXStatus.plsItemList, 0) == 0) {
-            return 0;
-        }
-        count = PLLength(gXStatus.plsItemList);
-    }
-    if (PLDestroy(gXStatus.plsItemList) == 0) {
-        return 0;
-    }
-    gXStatus.plsItemList = 0;
+        FreeWorldItemGroup(item);
+    });
     return 1;
 }
 
@@ -1115,7 +1069,7 @@ bool AnyWorldItemVisible(void)
         return false;
     }
     GetCameraPosition(&camera);
-    count = PLLength(gXStatus.plsItemList);
+    count = gXStatus.world_items.size();
     if (0 <= g_last_visible_world_item && g_last_visible_world_item < count) {
         W8WorldItem* item = GetWorldItemListEntry(g_last_visible_world_item);
         if (IsWorldItemMarkerVisible(item, camera)) {
@@ -1237,7 +1191,7 @@ void RebuildAllWorldItemInstances(void)
     unsigned int index;
     W8WorldItem* item;
 
-    for (index = 0; index < PLLength(gXStatus.plsItemList); ++index) {
+    for (index = 0; index < gXStatus.world_items.size(); ++index) {
         item = ItemInfo(index);
         ReplaceOrCreateItem(&item->item, item->item.iItemNo, false, false, false);
     }
@@ -1266,8 +1220,8 @@ W8WorldItem* CreateWorldItem(W8ItemInstance* item, const srVector3T<float>* posi
     if (item != 0) {
         CopyItemInstance(&result->item, item, 0, true);
     }
-    if (add_to_world && PLAdoptAppend(gXStatus.plsItemList, result) == -1) {
-        return 0;
+    if (add_to_world) {
+        gXStatus.world_items.push_back(result);
     }
     return result;
 }
@@ -1307,7 +1261,7 @@ W8WorldItem* SpawnItem(int item_id, const srVector3T<float>* position, int entit
 // FUNCTION: WIZ8 0x004f8cb0
 void DropMonsterLoot(W8MonsterInfo* monster_info, int value)
 {
-    W8Vector<W8WorldItem*> items(5);
+    std::vector<W8WorldItem*> items;
     if (monster_info != 0) {
         W8MonsterRecord* record = GetMonsterDataForInfo(monster_info);
         srVector3T<float> position = monster_info->p3D->GetPosition();
@@ -1331,10 +1285,10 @@ void DropMonsterLoot(W8MonsterInfo* monster_info, int value)
                             item = SpawnItem(entry->item_id, &position,
                                              W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE, false);
                             if (item != 0) {
-                                items.Add(item);
+                                items.push_back(item);
                             }
                         } else if (entry->type == 1) {
-                            GenerateItemsFromTable(&items, entry->item_id, rolls);
+                            GenerateItemsFromTable(items, entry->item_id, rolls);
                         }
                     }
                 }
@@ -1351,7 +1305,7 @@ void DropMonsterLoot(W8MonsterInfo* monster_info, int value)
                     item = SpawnItem(npc->item_ids[index], &position,
                                      W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE, false);
                     if (item != 0) {
-                        items.Add(item);
+                        items.push_back(item);
                     }
                     npc->item_ids[index] = -1;
                 }
@@ -1382,7 +1336,7 @@ void DropMonsterLoot(W8MonsterInfo* monster_info, int value)
                         item = SpawnItem(npc->item_ids[pick], &position,
                                          W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE, false);
                         if (item != 0) {
-                            items.Add(item);
+                            items.push_back(item);
                         }
                         ++taken;
                         npc->item_ids[pick] = -1;
@@ -1394,9 +1348,9 @@ void DropMonsterLoot(W8MonsterInfo* monster_info, int value)
         if (gold != 0) {
             AddPartyGold(gold, true);
         }
-        if (items.GetCount() <= 1) {
-            item = *items.GetAt(0);
-            PLAdoptAppend(gXStatus.plsItemList, item);
+        if (static_cast<int>(items.size()) <= 1) {
+            item = items[0];
+            gXStatus.world_items.push_back(item);
             item->position = position;
         } else {
             W8WorldItem* container;
@@ -1407,8 +1361,8 @@ void DropMonsterLoot(W8MonsterInfo* monster_info, int value)
                 container =
                     SpawnItem(value, &position, W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE, true);
             }
-            for (item_index = 0; item_index < items.GetCount(); ++item_index) {
-                ItemInfoAddToGroup(container, *items.GetAt(item_index));
+            for (item_index = 0; item_index < static_cast<int>(items.size()); ++item_index) {
+                ItemInfoAddToGroup(container, items[item_index]);
             }
         }
     }

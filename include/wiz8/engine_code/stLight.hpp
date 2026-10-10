@@ -4,7 +4,8 @@
 
 #include "surrender/srLight.h"
 #include "wiz8/sr_api.h"
-#include "wiz8/vector.h"
+#include <vector>
+#include <algorithm>
 #include "wiz8/layouts/world.h"
 
 #include <stddef.h>
@@ -82,7 +83,7 @@ public:
         return false;
     }
 
-    void GetInterpolatedColor(float blend, srVector3T<float>* out) const;
+    glm::vec3 GetInterpolatedColor(float blend) const;
 
     /* flags bits 0-1 select the update mode (0 oscillating intensity, 1
        flicker, 3 one-way ramp); bit 3 lerps diffuse toward the target color,
@@ -141,10 +142,10 @@ public:
     virtual stLightDefinition* Clone() const override;
     virtual bool IsEnabledForSubcycle(unsigned char subcycle) override;
 
-    W8GrowableVector<int> frame_sums;
-    W8GrowableVector<int> key_frames;
-    W8GrowableVector<float> key_intensities;
-    W8GrowableVector<srVector3T<float> > key_colors;
+    std::vector<int> frame_sums;
+    std::vector<int> key_frames;
+    std::vector<float> key_intensities;
+    std::vector<srVector3T<float>> key_colors;
     int keyframe_index;
     float time;
     int start_frame;
@@ -177,6 +178,7 @@ class stLight : public srClassSupport<stLight, srLight, 0x10006> {
     friend class Trigger;
 
 public:
+    virtual ~stLight() override; /* 0x0049C430 */
     static const char* sGetClassName()
     {
         return "stLight";
@@ -186,11 +188,7 @@ public:
     explicit stLight(srNode* parent);         /* 0x0049C2C0 */
     stLight& operator=(const stLight& other); /* 0x0049C690 */
 
-protected:
-    virtual ~stLight() override; /* 0x0049C430 */
-
 public:
-    virtual srClass* vInstance() override;                      /* 0x0049E3A0 */
     virtual void traverse(srNode::TraverseInfo& info) override; /* 0x0049C7A0 */
     virtual void process(const srNode::ProcessInfo& info,
                          srNode::e_processType type) override; /* 0x0049C8D0 */
@@ -255,19 +253,19 @@ void LoadLightStates(wiz8::File* handle);
 
 /* Animation copies retain per-light position before assignment, detach the new
    light and register it with the world before adding it to the owned list. */
-inline W8GrowableVector<stLight*>* CloneAnimationLightList(W8GrowableVector<stLight*>* source,
-                                                           const char* file, int list_line,
-                                                           int light_line)
+inline std::vector<stLight*>* CloneAnimationLightList(std::vector<stLight*>* source,
+                                                      const char* file, int list_line,
+                                                      int light_line)
 {
-    W8GrowableVector<stLight*>* copy = 0;
+    std::vector<stLight*>* copy = 0;
     if (source != 0) {
-        copy = new W8Vector<stLight*>;
+        copy = new std::vector<stLight*>;
         if (copy == 0) {
             srAssertFail("plsNewLights", file, list_line,
                          "Out of memory creating monster light list");
         }
-        for (int index = 0; index < source->GetCount(); ++index) {
-            stLight* light = *source->GetAt(index);
+        for (int index = 0; index < static_cast<int>(source->size()); ++index) {
+            stLight* light = (*source)[index];
             float x = light->positionalX();
             float y = light->positionalY();
             float z = light->positionalZ();
@@ -282,8 +280,8 @@ inline W8GrowableVector<stLight*>* CloneAnimationLightList(W8GrowableVector<stLi
             copied_light->ConfigureMonsterCopy();
             copied_light->setLocation(x, y, z);
             copied_light->setParent(0, 0);
-            PLAdoptAppend(&g_world->transient_lights, copied_light);
-            copy->Add(copied_light);
+            g_world->transient_lights.push_back(copied_light);
+            copy->push_back(copied_light);
         }
     }
     return copy;

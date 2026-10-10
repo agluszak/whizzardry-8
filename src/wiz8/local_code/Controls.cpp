@@ -1,3 +1,4 @@
+#include "wiz8/containers.h"
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/local_screens/OptionsScreen.h"
 #include "wiz8/local_code/ControlsRect.h"
@@ -14,7 +15,8 @@
 #include "wiz8/regions.h"
 #include "wiz8/utility.h"
 #include "wiz8/sr_api.h"
-#include "wiz8/vector.h"
+#include <vector>
+#include <algorithm>
 #include "wiz8/video_object_catalog.h"
 #include "Font.h"
 #include "input.h"
@@ -174,11 +176,12 @@ void W8Widget::SetPanel(Controls* panel)
     int index;
 
     if (m_pPanel != 0) {
-        m_pPanel->m_controls.Remove(this);
+        wiz8::erase_first(m_pPanel->m_controls, this);
     }
 
     m_pPanel = panel;
-    index = panel->m_controls.Add(this);
+    index = static_cast<int>(panel->m_controls.size());
+    panel->m_controls.push_back(this);
     if (panel->m_uiRegionSetId != 0 && m_region == -1) {
         unsigned int region = AddRegionToSet(panel->m_uiRegionSetId);
         SetRegion(region);
@@ -190,22 +193,8 @@ void W8Widget::SetPanel(Controls* panel)
     }
 }
 
-/*
- * The full constructor. Places the widget in its owner, gives the region the
- * owner-relative rectangle translated by the owner's origin, appends the
- * widget to the owner's array growing it by exactly one, and - only if the
- * widget has no region of its own - takes one from the owner's region set and
- * points it back here.
- *
- * The array grows by one element per insertion, so filling an owner is
- * quadratic. That is what the image does.
- *
- * If the allocation fails the old array is put back and the index is left -1,
- * which then skips the append but still falls into the region-set branch. The
- * widget is not in the owner's array at that point and the callback id is the
- * -1 truncated to a word, so the failure path registers a region against an
- * index that does not exist. Preserved as found.
- */
+/* Register the widget with its owner and allocate a region when needed.
+   Region bounds are relative to the owner's origin. */
 // FUNCTION: WIZ8 0x004f3dd0
 W8Widget::W8Widget(Controls* owner, unsigned int region, int left, int top, int right, int bottom)
 {
@@ -233,7 +222,8 @@ W8Widget::W8Widget(Controls* owner, unsigned int region, int left, int top, int 
     }
 
     holder = m_pPanel;
-    index = holder->m_controls.Add(this);
+    index = static_cast<int>(holder->m_controls.size());
+    holder->m_controls.push_back(this);
     if (holder->m_uiRegionSetId != 0 && m_region == -1) {
         taken = AddRegionToSet(holder->m_uiRegionSetId);
         SetRegion(taken);
@@ -256,7 +246,7 @@ unsigned char DispatchControlRegionEvent(const InputAtom* event, W8Region* regio
     unsigned short index = region->callback_id;
     unsigned short reason = event->usEvent;
 
-    widget = *owner->m_controls.GetAt(index);
+    widget = owner->m_controls[index];
     if (widget == 0) {
         srAssertFail("pControl", "C:\\Projects\\Wizardry 8\\Local Code\\Controls.cpp", 0x1AA, 0);
     }
@@ -1557,9 +1547,9 @@ void W8VerticalRangeThumb::OnLeftButtonDown(int event)
 {
     PushButtonSoundScheme(0, true);
     if (m_enabled) {
-        SGPPoint cursor;
+        SDL_Point cursor;
         SGPMouseGetPos(&cursor);
-        int y = cursor.iY - m_pPanel->m_bounds.top - m_top;
+        int y = cursor.y - m_pPanel->m_bounds.top - m_top;
         if (!m_hovered) {
             m_hovered = true;
             m_position = ((y - m_thumbHeight / 2) / static_cast<float>(m_trackLength)) *
@@ -1591,9 +1581,9 @@ void W8VerticalRangeThumb::OnMouseMove(int event)
         return;
     }
 
-    SGPPoint cursor;
+    SDL_Point cursor;
     SGPMouseGetPos(&cursor);
-    int y = cursor.iY - m_pPanel->m_bounds.top - m_top;
+    int y = cursor.y - m_pPanel->m_bounds.top - m_top;
     if (m_dragging) {
         int half_height = m_thumbHeight / 2;
         if (y <= half_height) {
@@ -1808,9 +1798,9 @@ void W8HorizontalRangeThumb::OnLeftButtonDown(int event)
 {
     PushButtonSoundScheme(0, true);
     if (m_enabled) {
-        SGPPoint cursor;
+        SDL_Point cursor;
         SGPMouseGetPos(&cursor);
-        int x = cursor.iX - m_pPanel->m_bounds.left - m_left;
+        int x = cursor.x - m_pPanel->m_bounds.left - m_left;
         if (!m_hovered) {
             m_hovered = true;
             m_position = ((x - m_thumbWidth / 2) / static_cast<float>(m_trackLength)) *
@@ -1879,9 +1869,9 @@ void W8HorizontalRangeThumb::OnMouseMove(int event)
         return;
     }
 
-    SGPPoint cursor;
+    SDL_Point cursor;
     SGPMouseGetPos(&cursor);
-    int x = cursor.iX - m_pPanel->m_bounds.left - m_left;
+    int x = cursor.x - m_pPanel->m_bounds.left - m_left;
     if (m_dragging) {
         if (x < 0 || m_trackLength + m_thumbWidth / 2 < x) {
             return;
@@ -1937,7 +1927,7 @@ void Controls::SetEnabled(bool enable)
     int index;
 
     m_fEnabled = enable;
-    for (index = 0; index < m_controls.GetCount(); ++index) {
+    for (index = 0; index < static_cast<int>(m_controls.size()); ++index) {
         W8Widget* control = ControlAt(index);
 
         control->SetActive(enable);
@@ -1947,13 +1937,13 @@ void Controls::SetEnabled(bool enable)
 // FUNCTION: WIZ8 0x004f2da0
 void Controls::RemoveControl(W8Widget* control)
 {
-    m_controls.Remove(control);
+    wiz8::erase_first(m_controls, control);
 }
 
 // FUNCTION: WIZ8 0x004f2df0
 void Controls::DestroyAllControls()
 {
-    m_controls.RemoveAllAndDelete();
+    wiz8::remove_all_and_delete(m_controls);
 }
 
 /* Adds a rectangle to the panel's pending redraw. A null rectangle means the
@@ -2058,7 +2048,7 @@ void Controls::SetBounds(int left, int top, int new_right, int new_bottom)
     m_bounds.top = top;
     m_bounds.right = new_right;
     m_bounds.bottom = new_bottom;
-    for (index = 0; index < m_controls.GetCount(); ++index) {
+    for (index = 0; index < static_cast<int>(m_controls.size()); ++index) {
         ControlAt(index)->SetBounds(ControlAt(index)->m_left, ControlAt(index)->m_top,
                                     ControlAt(index)->m_right, ControlAt(index)->m_bottom);
     }
@@ -2128,7 +2118,9 @@ int W8ControlSelection::AddEntry(W8TextControl* entry)
 {
     entry->AddLayoutFlags(0x19);
     entry->m_listener = this;
-    return m_lsButtons.Add(entry);
+    const auto index = static_cast<int>(m_lsButtons.size());
+    m_lsButtons.push_back(entry);
+    return index;
 }
 
 /*
@@ -2144,10 +2136,9 @@ int W8ControlSelection::AddEntry(W8TextControl* entry)
 // FUNCTION: WIZ8 0x004f5540
 void W8ControlSelection::SetSelected(int iSelected)
 {
-    W8TextControl** entry;
     int previous;
 
-    if (iSelected >= m_lsButtons.GetCount()) {
+    if (iSelected >= static_cast<int>(m_lsButtons.size())) {
         srAssertFail("iSelected < m_lsButtons.Length()",
                      "C:\\Projects\\Wizardry 8\\Local Code\\Controls.cpp", 0xa77, 0);
     }
@@ -2156,13 +2147,11 @@ void W8ControlSelection::SetSelected(int iSelected)
         return;
     }
     if (previous != -1) {
-        entry = m_lsButtons.GetAt(previous);
-        (*entry)->DisableSecondaryState(false);
+        m_lsButtons[previous]->DisableSecondaryState(false);
     }
     m_selectedIndex = iSelected;
     if (iSelected != -1) {
-        entry = m_lsButtons.GetAt(iSelected);
-        (*entry)->EnableSecondaryState(false);
+        m_lsButtons[iSelected]->EnableSecondaryState(false);
     }
     if (m_selectionListener != 0) {
         m_selectionListener->OnSelectionChanged(this, m_selectedIndex);
@@ -2174,7 +2163,7 @@ void W8ControlSelection::OnPrimary(W8TextControl* entry)
 {
     int iIndex;
 
-    iIndex = m_lsButtons.IndexOf(entry);
+    iIndex = wiz8::index_of(m_lsButtons, entry);
     if (iIndex == -1) {
         srAssertFail("iIndex != -1", "C:\\Projects\\Wizardry 8\\Local Code\\Controls.cpp", 0xa9e,
                      0);

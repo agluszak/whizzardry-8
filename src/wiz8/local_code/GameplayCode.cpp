@@ -37,7 +37,8 @@
 #include "wiz8/layouts/npc_state.h"
 #include "wiz8/local_code/NPCManager.h"
 #include "wiz8/local_code/NPCScripting.h"
-#include "wiz8/3d_code/PList.h"
+#include <vector>
+#include <algorithm>
 #include "wiz8/layouts/item_instance.h"
 #include "wiz8/layouts/gameplay_databases.h"
 #include "wiz8/local_screens/Screens.h"
@@ -104,7 +105,7 @@ bool AnyMonsterEngaged(void)
     unsigned int index;
     const W8MonsterInfo* monster_info;
 
-    for (index = 0; index < PLLength(gXStatus.plsMonsterList); ++index) {
+    for (index = 0; index < gXStatus.monsters.size(); ++index) {
         monster_info = MonsterGetScriptPartByLocationIndex(index);
         if (monster_info->fInCombat && monster_info->ubDisposition == W8_DISPOSITION_HOSTILE &&
             monster_info->hp_current != 0 &&
@@ -1211,11 +1212,11 @@ void AwardPartyExperience(int amount, int alternate_message)
                 character->experience = static_cast<unsigned int>(-1);
             }
             if (g_status.current_level < W8_LEVEL_COUNT) {
-                unsigned int& gained =
-                    g_status.level_progress[g_status.current_level].experience_gained;
+                auto& progress = g_status.level_progress[g_status.current_level];
+                const unsigned int gained = progress.experience_gained;
                 total = gained + static_cast<unsigned int>(amount);
                 if (total > gained) {
-                    gained = total;
+                    progress.experience_gained = total;
                 }
             }
             gXStatus.level_up_notice = true;

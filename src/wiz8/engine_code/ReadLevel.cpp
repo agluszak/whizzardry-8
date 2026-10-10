@@ -6,9 +6,11 @@
 #include <cstring>
 #include "wiz8/utility.h"
 #include "wiz8/geometry.h"
-#include "wiz8/3d_code/IList.h"
+#include <vector>
+#include <algorithm>
 
 #include "wiz8/engine_code/AnimObj.h"
+
 #include "wiz8/engine_code/PathAI.h"
 #include "surrender/srClipPlane.h"
 #include "wiz8/engine_code/Environment.h"
@@ -39,6 +41,7 @@
 #include "wiz8/engine_code/stMeshModel.h"
 #include "wiz8/engine_code/3dapi.h"
 #include "wiz8/local_screens/AutomapScreen.h"
+#include <glm/gtc/matrix_transform.hpp>
 
 #define READ_LEVEL_CPP "C:\\Projects\\Wizardry 8\\Engine Code\\ReadLevel.cpp"
 
@@ -50,12 +53,6 @@ stLevel::stLevel(srNode* parent)
         setParent(parent, 1);
     }
     m_render_exclusion_mask = 0;
-}
-
-// FUNCTION: WIZ8 0x004BA3D0
-srClass* stLevel::vInstance()
-{
-    return new stLevel(0);
 }
 
 // FUNCTION: WIZ8 0x004BA0E0
@@ -81,7 +78,7 @@ void stLevel::process(const ProcessInfo& info, e_processType)
         renderer.setExclusionMask(m_render_exclusion_mask | old_exclusion_mask);
     }
 
-    srVector4T<float> ambient;
+    glm::vec4 ambient;
     renderer.getAmbientLight(ambient);
     srVector3T<float> ambient_color(ambient.x, ambient.y, ambient.z);
     m_submitted_polygons = 0;
@@ -119,8 +116,8 @@ void stLevel::process(const ProcessInfo& info, e_processType)
             }
 
             if (model->vertex_lighting_ready) {
-                srVector4T<float> dark;
-                dark.Set(0.0f, 0.0f, 0.0f, 0.0f);
+                glm::vec4 dark;
+                dark = glm::vec4(0.0f, 0.0f, 0.0f, 0.0f);
                 renderer.setAmbientLight(dark);
                 model->SetAmbientColor(ambient_color);
             }
@@ -131,7 +128,7 @@ void stLevel::process(const ProcessInfo& info, e_processType)
                 mesh.shaders[0].value &= 0xffff7fff;
                 mesh.poly_shaders[0] = 0;
             }
-            srPtr<srTextureIFace>*(*poly_textures)[2] = mesh.poly_textures;
+            std::shared_ptr<srTextureIFace>*(*poly_textures)[2] = mesh.poly_textures;
             if (poly_textures != 0 && mesh.active_polygons == 0) {
                 w8_long active_count;
                 w8_ulong* active = model->GetActivePolygons(&active_count, -1, false);
@@ -156,7 +153,7 @@ void stLevel::process(const ProcessInfo& info, e_processType)
             if (linked_child != 0 && linked_child->testFlag(FLAG_TERMINATE) != 0) {
                 break;
             }
-            model = model->next;
+            model = model->Next();
             if (linked_child != 0) {
                 linked_child = linked_child->first_child_;
             }
@@ -207,14 +204,15 @@ void AssociateWorldLights(W8World* world)
 {
     int light_index;
 
-    for (light_index = 0; light_index < world->lights_to_update->GetCount(); ++light_index) {
-        stLight* light = *world->lights_to_update->GetAt(light_index);
+    for (light_index = 0; light_index < static_cast<int>(world->lights_to_update->size());
+         ++light_index) {
+        stLight* light = (*world->lights_to_update)[light_index];
         stLightDefinition* definition = light->m_definition;
 
         if (definition != 0 && definition->kind == W8_LIGHT_DEFINITION_PARAMETRIC &&
             (static_cast<stParametricLightDefinition*>(definition)->flags &
              W8_PARAM_LIGHT_FLICKER) != 0) {
-            int prop_count = PLLength(world->plsProps);
+            int prop_count = (world->plsProps ? world->plsProps->size() : 0);
             int prop_index;
 
             for (prop_index = 0; prop_index < prop_count; ++prop_index) {
@@ -292,7 +290,7 @@ try
             } else {
                 light = CreateWorldLight(world, name);
                 light->m_definition = definition;
-                world->lights_to_update->Add(light);
+                world->lights_to_update->push_back(light);
                 if (path != 0) {
                     light->path_ai = path;
                 }
@@ -323,16 +321,16 @@ try
 
         if (light != 0) {
             if (_strnicmp(light->getName().c_str(), "Sun", 3) == 0) {
-                light->diffuse.SetZero();
-                light->ambient = record.colour;
+                light->diffuse = glm::vec3(0);
+                light->ambient = record.colour.glmValue();
                 light->setGroupMask(light->getGroupMask() | 4);
                 AddEnvironmentLight(light);
             } else {
-                light->diffuse = record.colour;
-                light->ambient.SetZero();
+                light->diffuse = record.colour.glmValue();
+                light->ambient = glm::vec3(0);
             }
 
-            light->specular.SetZero();
+            light->specular = glm::vec3(0);
             ConfigureWorldLight(light, record.range * g_world_scale);
             light->intensity = record.intensity;
             light->setLocation(record.location.x * g_world_scale, record.location.y * g_world_scale,
@@ -341,8 +339,9 @@ try
     }
 
     return success;
+} catch (const std::exception&) {
+    return false;
 }
-catch (const std::exception&) { return false; }
 
 // FUNCTION: WIZ8 0x004BC9D0
 unsigned char ReadWorldEnvironment(W8ReadLevelInfo* pInfo, W8World* pWorld)
@@ -354,7 +353,7 @@ try
     EnvironmentColour white;
     srVector3T<float> position;
     srVector3T<float> axis;
-    srMatrix3T<float> rotation;
+    glm::mat3 rotation;
     float intensity = 0.0f;
     float view_distance = 0.0f;
     float angle = 0.0f;
@@ -386,9 +385,11 @@ try
         position *= g_world_scale;
         SetWorldScenePosition(GetWorld(), &position);
 
-        rotation.SetIdentity();
+        rotation = glm::mat3(1);
         if (angle != 0.0f) {
-            rotation.RotateAroundAxis(sin(angle), cos(angle), axis);
+            rotation *=
+                glm::mat3_cast(glm::angleAxis(float(std::atan2(sin(angle), cos(angle))),
+                                              normalizedOrZero(glm::vec3(axis.glmValue()))));
         }
         ApplyCameraRotation(&rotation);
     }
@@ -426,16 +427,17 @@ try
         UpdateEnvironmentLight();
     }
     return success;
+} catch (const std::exception&) {
+    return false;
 }
-catch (const std::exception&) { return false; }
 
 // FUNCTION: WIZ8 0x004BCE20
 static unsigned char ReadWorldClipPlanes(W8ReadLevelInfo* pInfo, W8World* pWorld)
 try
 {
-    W8GrowableVector<srClipPlane*> clip_planes(5);
-    srVector4T<float> plane;
-    srVector4T<float> serialized_position;
+    std::vector<srClipPlane*> clip_planes;
+    glm::vec4 plane;
+    glm::vec4 serialized_position;
     srVector3T<double> position;
     srClipPlane* clip_plane;
     char name[64];
@@ -464,7 +466,7 @@ try
     }
 
     (pInfo->hFile->read(&version, sizeof(version)).bytes == static_cast<std::size_t>(sizeof(version)));
-    plane.Set(0.0f, 1.0f, 0.0f, 0.0f);
+    plane = glm::vec4(0.0f, 1.0f, 0.0f, 0.0f);
     for (index = 0; index < count; ++index) {
         clip_plane = new srClipPlane(pWorld->static_scene);
         if (clip_plane == 0) {
@@ -486,8 +488,9 @@ try
         clip_plane->setFlag(srNode::FLAG_DISABLE);
     }
     return 1;
+} catch (const std::exception&) {
+    return false;
 }
-catch (const std::exception&) { return false; }
 
 // FUNCTION: WIZ8 0x004BC5E0
 static unsigned char ReadWorldProps(W8ReadLevelInfo* pInfo, W8World* pWorld,
@@ -496,7 +499,7 @@ try
 {
     /* CollectModelInstances appends. The canonical body deliberately keeps
        this one vector across the complete prop loop. */
-    W8Vector<stModelInstance*> model_instances(5);
+    std::vector<stModelInstance*> model_instances;
     W8Prop* prop;
     W8BoundingBox bounds;
     int count;
@@ -529,10 +532,10 @@ try
                 }
                 g_octree->AddLoadedProp(prop);
             }
-            PLAdoptAppend(pWorld->plsProps, prop);
+            pWorld->plsProps->push_back(prop);
             if ((prop->flags & W8_PROP_COLLIDABLE) != 0) {
                 prop->GetBounds(&bounds.minimum, &bounds.maximum);
-                pWorld->collidable_props->Add(prop);
+                pWorld->collidable_props->push_back(prop);
                 if (pWorld->octree != 0) {
                     pWorld->octree->AddCollidablePropBounds(collidable_index, &bounds);
                     ++collidable_index;
@@ -541,9 +544,10 @@ try
         }
 
         if (mark_model_instances && prop != 0) {
-            prop->CollectModelInstances(&model_instances);
-            for (model_index = 0; model_index < model_instances.GetCount(); ++model_index) {
-                stModelInstance* instance = *model_instances.GetAt(model_index);
+            prop->CollectModelInstances(model_instances);
+            for (model_index = 0; model_index < static_cast<int>(model_instances.size());
+                 ++model_index) {
+                stModelInstance* instance = model_instances[model_index];
                 if (instance != 0) {
                     instance->render_flags |= stModelInstance::RENDER_NO_PICK;
                 }
@@ -554,8 +558,9 @@ try
         g_octree->TestPropSunBit(-1);
     }
     return success;
+} catch (const std::exception&) {
+    return false;
 }
-catch (const std::exception&) { return false; }
 
 // FUNCTION: WIZ8 0x004BC380
 unsigned char ReadWorldItems(W8ReadLevelInfo* pInfo, W8World* pWorld)
@@ -629,8 +634,9 @@ try
         }
     }
     return success;
+} catch (const std::exception&) {
+    return false;
 }
-catch (const std::exception&) { return false; }
 
 // FUNCTION: WIZ8 0x004BC140
 unsigned char ReadMonsterPaths(W8ReadLevelInfo* pInfo, W8World* pWorld)
@@ -686,7 +692,7 @@ try
         if (group == 0) {
             continue;
         }
-        location_id = IListGetAt(group->monsters, 0);
+        location_id = group->MemberLocationId(0);
         monster_index = MonsterGetIndexByLocationID(0x315, READ_LEVEL_CPP, location_id, true);
         monster_info = MonsterGetScriptPartByLocationIndex(monster_index);
         ActivateMonster(monster_info, W8_MONSTER_LOAD_ALL_CYCLES);
@@ -728,8 +734,9 @@ try
         monster->UpdateRepresentation(pWorld);
     }
     return success;
+} catch (const std::exception&) {
+    return false;
 }
-catch (const std::exception&) { return false; }
 
 // FUNCTION: WIZ8 0x004BC850
 unsigned char ReadWorldCameras(W8ReadLevelInfo* pInfo, W8World* pWorld)
@@ -774,28 +781,24 @@ try
         entry->path = 0;
         success = success && LoadPathAI(&entry->path, pInfo->hFile);
         PathAIEnableTimedMode(entry->path);
-        PLAdoptAppend(pWorld->plsCameras, entry);
+        pWorld->plsCameras->push_back(entry);
         entry->path->entry_index = index;
         PathAISetScale(entry->path, scale);
     }
     return 1;
+} catch (const std::exception&) {
+    return false;
 }
-catch (const std::exception&) { return false; }
 
 // FUNCTION: WIZ8 0x004BD0D0
 unsigned char ReadWorldParticles(W8ReadLevelInfo* pInfo, srNode* pScene,
-                                 W8GrowableVector<stParticle*>* pParticles)
+                                 std::vector<stParticle*>* pParticles)
 try
 {
     W8LevelParticleRecord record;
-    srMaterialIFace* material;
-    srTextureIFace* texture;
-    srShader render_flags;
     int count;
     int index;
 
-    material = 0;
-    texture = 0;
     (pInfo->hFile->read(&count, sizeof(count)).bytes == static_cast<std::size_t>(sizeof(count)));
     for (index = 0; index < count; ++index) {
         unsigned char version;
@@ -835,9 +838,9 @@ try
 
         _strupr(record.name);
         particle->setName(record.name);
-        axis.SetFromFloat(&record.rotation_axis);
+        axis = glm::dvec3((&record.rotation_axis)->glmValue());
         particle->rotate(record.rotation_angle, axis);
-        location.SetFromFloat(&record.location);
+        location = glm::dvec3((&record.location)->glmValue());
         location *= g_world_scale;
         particle->setLocation(location);
         particle->rotateX(1.5707963);
@@ -895,20 +898,22 @@ try
         if (record.direction_mode == W8_PARTICLE_DIRECTION_STATIONARY) {
             particle->direction_mode = W8_PARTICLE_DIRECTION_STATIONARY;
         } else if (record.direction_mode == W8_PARTICLE_DIRECTION_FIXED) {
-            srMatrix3T<float> rotation;
+            glm::mat3 rotation;
             srVector3T<float> direction;
             srVector3T<float> transformed;
             double angle = -1.5707963;
 
-            rotation.SetIdentity();
+            rotation = glm::mat3(1);
             if (record.rotation_angle != 0.0f) {
-                rotation.RotateAroundAxis(sin(record.rotation_angle), cos(record.rotation_angle),
-                                          record.rotation_axis);
+                rotation *= glm::mat3_cast(glm::angleAxis(
+                    float(std::atan2(sin(record.rotation_angle), cos(record.rotation_angle))),
+                    normalizedOrZero(glm::vec3(record.rotation_axis.glmValue()))));
             }
-            rotation.RotateAboutX(sin(angle), cos(angle));
+            rotation *= glm::mat3_cast(glm::angleAxis(float(angle), glm::vec3(1, 0, 0)));
+
             direction.Set(0.0, 0.0, -1.0);
-            transformed = rotation.Transform(direction);
-            transformed.Unitize();
+                transformed = rotation * direction.glmValue();
+                transformed.Unitize();
             particle->direction_mode = W8_PARTICLE_DIRECTION_FIXED;
             particle->direction = transformed;
         } else if (record.direction_mode == W8_PARTICLE_DIRECTION_NODE_FORWARD) {
@@ -946,12 +951,10 @@ try
         particle->emission_limit = record.emission_limit;
         particle->release_when_done = false;
 
-        LoadMaterial(pInfo->bitmap_folder, &record.material, &material, &texture, &render_flags, 1);
-        particle->SetMaterial(material);
-        srShader shader;
-        shader.value = render_flags.value;
-        particle->SetRenderFlags(shader);
-        particle->SetTexture(texture);
+        W8MeshMaterial material = LoadMaterial(pInfo->bitmap_folder, record.material);
+        particle->SetMaterial(std::move(material.material));
+        particle->SetRenderFlags(material.render_flags);
+        particle->SetTexture(std::move(material.texture));
 
         if (strncmp(record.name, "CLOUD", 5) == 0) {
             srVector3T<double> current = particle->getLocation();
@@ -961,15 +964,16 @@ try
         } else if (g_octree != 0) {
             g_octree->AddLoadedParticle(particle);
         }
-        pParticles->Add(particle);
+        pParticles->push_back(particle);
     }
     return 1;
+} catch (const std::exception&) {
+    return false;
 }
-catch (const std::exception&) { return false; }
 
 // FUNCTION: WIZ8 0x004BDC90
 static unsigned char ReadNamedPositions(W8ReadLevelInfo* pInfo,
-                                        W8GrowableVector<W8NamedPosition*>* named_positions)
+                                        std::vector<W8NamedPosition*>* named_positions)
 try
 {
     wiz8::File* hFile;
@@ -1000,15 +1004,17 @@ try
         hFile->read_exact(&pNamedPos->direction.x, sizeof(pNamedPos->direction.x));
         hFile->read_exact(&pNamedPos->direction.y, sizeof(pNamedPos->direction.y));
         hFile->read_exact(&pNamedPos->direction.z, sizeof(pNamedPos->direction.z));
-        named_positions->Add(pNamedPos);
+        named_positions->push_back(pNamedPos);
     }
     return 1;
+} catch (const std::exception&) {
+    return false;
 }
-catch (const std::exception&) { return false; }
 
 #define CHECK_PVL_OFFSET(message)                                                                  \
-    if (world->octree != 0 &&                                                                      \
-        (!(handle->read(&section_end, sizeof(section_end)).bytes == static_cast<std::size_t>(sizeof(section_end))) || section_end != -1)) {          \
+    if (world->octree != 0 && (!(handle->read(&section_end, sizeof(section_end)).bytes ==          \
+                                 static_cast<std::size_t>(sizeof(section_end))) ||                 \
+                               section_end != -1)) {                                               \
         sprintf(error_message, "%s\nTry deleting .PVL file and reloading.", message);              \
         ShutdownWithErrorBox(error_message);                                                       \
     }
@@ -1032,11 +1038,11 @@ try
 
     level_mesh = 0;
     if (world->update_mesh_source != 0) {
-        world->update_mesh_source->release();
+        delete world->update_mesh_source;
     }
     if (world->psrMeshes != 0) {
         while (world->psrMeshes[0] != 0) {
-            world->psrMeshes[0]->release();
+            delete world->psrMeshes[0];
             world->psrMeshes[0] = 0;
         }
         if (world->octree == 0) {
@@ -1167,7 +1173,7 @@ try
     CHECK_PVL_OFFSET("Wrong offset in .pvl file after automap nodes.");
 
     g_environment_offset = environment_offset;
-    prop_count = PLLength(world->plsProps);
+    prop_count = (world->plsProps ? world->plsProps->size() : 0);
     for (index = 0; index < static_cast<int>(prop_count); ++index) {
         W8Prop* prop = GetWorldProp(world, index);
         W8AnimObj* animation = prop->Rep()->animation;
@@ -1179,7 +1185,7 @@ try
                 srModelInstance* instance = prop->ToggleRepAnimation(animation_index);
                 stMeshModel* mesh = static_cast<stMeshModel*>(instance->getModel());
 
-                for (; mesh != 0; mesh = mesh->next) {
+                for (; mesh != 0; mesh = mesh->Next()) {
                     if (!AnimationIsRunning(animation)) {
                         mesh->GetVertexSunlight(true);
                         SetModelInstanceChainExclusionMask(instance, 5);
@@ -1187,19 +1193,17 @@ try
                         SetModelInstanceChainExclusionMask(instance, 4);
                     }
 
-                    srMaterialIFace* material_iface = mesh->getMaterial(0, srMeshModel::SIDE_FRONT);
-                    if (material_iface != 0) {
-                        srMaterial* material = static_cast<srMaterial*>(material_iface);
-                        srMaterial* copy = static_cast<srMaterial*>(material->clone());
+                    auto* material = sr_cast<stMaterial>(mesh->getMaterial(0, srMeshModel::SIDE_FRONT));
+                    if (material != 0) {
+                        auto copy = std::make_shared<stMaterial>(*material);
                         copy->setName("Unsunlit Prop Material");
-                        copy->autoRelease();
-                        copy->parms.ambient = 0.0f;
+                        copy->parms.ambient = glm::vec4(0.0f);
                         copy->dirty = 1;
                         copy->parms.emissive.x += g_environment_offset.x;
                         copy->parms.emissive.y += g_environment_offset.y;
                         copy->parms.emissive.z += g_environment_offset.z;
                         copy->dirty = 1;
-                        mesh->setMaterial(copy, 0, srMeshModel::SIDE_FRONT);
+                        mesh->setMaterial(std::move(copy), 0, srMeshModel::SIDE_FRONT);
                     }
                 }
             }
@@ -1209,8 +1213,9 @@ try
         g_octree->m_fAccumulating = false;
     }
     return success;
+} catch (const std::exception&) {
+    return false;
 }
-catch (const std::exception&) { return false; }
 
 // VTABLE: WIZ8 0x005ED180
 // class srClientSupport<srClipPlane,5376>

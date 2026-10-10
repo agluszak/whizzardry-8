@@ -18,9 +18,10 @@
 #include "wiz8/engine_code/Octree.h"
 #include "wiz8/engine_code/ReadLevel.h"
 #include "wiz8/engine_code/ReadMesh.h"
-#include "wiz8/engine_code/stHash.hpp"
+#include "wiz8/index_algorithms.h"
 #include "wiz8/engine_code/stTextureAnim.h"
 #include "wiz8/engine_code/stTextureFile.h"
+#include "wiz8/resource_cache.h"
 #include "wiz8/float_constants.h"
 #include "wiz8/engine_code/Environment.h"
 #include "wiz8/engine_code/Video2.h"
@@ -83,8 +84,8 @@ float g_material_emissive_override;
 // FUNCTION: WIZ8 0x004B89B0
 void W8NormalTexcoordMapper::process(srVertexPipe& pipe)
 {
-    const srVector3T<float>* normals;
-    srVector2T<float>* coordinates;
+    const glm::vec3* normals;
+    glm::vec2* coordinates;
     w8_ulong count;
     w8_ulong index;
 
@@ -96,7 +97,7 @@ void W8NormalTexcoordMapper::process(srVertexPipe& pipe)
     count = pipe.getVertexCount();
     srCore.getStatisticsManager()->statistics.texture_coordinate_operations += count;
     for (index = 0; index < count; ++index) {
-        coordinates[index].Set((normals[index].x + g_float_one) * g_float_half,
+        coordinates[index] = glm::vec2((normals[index].x + g_float_one) * g_float_half,
                                (normals[index].y + g_float_one) * g_float_half);
     }
 }
@@ -107,24 +108,6 @@ stMaterial::stMaterial()
     m_surface_flags = 0;
 }
 
-// FUNCTION: WIZ8 0x00492D00
-srClass* stMaterial::vInstance()
-{
-    return new stMaterial;
-}
-
-// FUNCTION: WIZ8 0x00492A00
-srClass* stMaterial::vClone()
-{
-    stMaterial* instance = static_cast<stMaterial*>(vInstance());
-
-    if (this != instance) {
-        *static_cast<srMaterial*>(instance) = *this;
-        instance->m_surface_flags = m_surface_flags;
-    }
-    return instance;
-}
-
 // FUNCTION: WIZ8 0x004928F0
 void stMaterial::getMaterialInfo(srVertexProcessor::MaterialInfo& info)
 {
@@ -133,18 +116,11 @@ void stMaterial::getMaterialInfo(srVertexProcessor::MaterialInfo& info)
         info.diffuse.w *= g_material_diffuse_scale;
     }
     if (g_material_emissive_override_enabled) {
-        info.emissive.Set(g_material_emissive_override, g_material_emissive_override,
+        info.emissive = glm::vec4(g_material_emissive_override, g_material_emissive_override,
                           g_material_emissive_override, 1.0f);
     }
 }
 
-// FUNCTION: WIZ8 0x00492720
-stMaterial::~stMaterial()
-{
-    if (IsReadMeshMaterial(this)) {
-        ReleaseReadMeshScratch();
-    }
-}
 
 /* ===== OctBuild level preprocessing =====
    The retail level preprocessor lives in this TU between the stMaterial
@@ -232,7 +208,7 @@ static unsigned char PreprocessLevel(wiz8::File* handle, char* stem);
 /* The following helpers retain distinct retail call boundaries. Their source
    names, internal linkage and placement here are provisional; lack of /Ob2
    PDB procedures does not establish that they were authored inline. */
-static int WeldVertex(W8HashTable<unsigned int, int>* table, W8OctPreTreeVertex* vertices,
+static int WeldVertex(std::unordered_multimap<unsigned int, int>* table, W8OctPreTreeVertex* vertices,
                       unsigned int index, unsigned int link);
 static int AccumulateVertexLight(OctPreTree* tree, W8OctPreTreeVertex* vertex, short light_count,
                                  W8LevelFileLight* lights, int* sun_map);
@@ -361,8 +337,7 @@ static unsigned char PreprocessLevel(wiz8::File* handle, char* stem)
     sun_map = 0;
     lights = 0;
     {
-        W8HashTable<unsigned int, int> weld;
-        weld.Clear();
+        std::unordered_multimap<unsigned int, int> weld;
         sun_pool = 0;
         level = ReadLevelFile(handle);
         if (level == 0) {
@@ -550,9 +525,9 @@ static unsigned char PreprocessLevel(wiz8::File* handle, char* stem)
                         value->AddLinkedRecord(record->vertices, record->normal_scale,
                                                record->forward_scale, &record->linked_face);
                     }
-                    value->geometry_index = build_tree;
+                    value->geometry_index.reset(build_tree);
                     value->CompileGameData();
-                    for (i = 0; i < value->m_iNumSurfaces; ++i) {
+                    for (i = 0; i < value->SurfacesCount(); ++i) {
                         W8OctRegionPolygon* surface = g_gd_polygons + i;
                         if (build_tree->InsertSurface(surface, 3) == 0) {
                             sprintf(message,
@@ -1028,7 +1003,7 @@ void ReportStartupMessage(const char* message)
    key with value index + 1.  A `link` of -1 maintains the vertex self-link or
    redirect fields. */
 // FUNCTION: WIZ8 0x00494800
-static int WeldVertex(W8HashTable<unsigned int, int>* table, W8OctPreTreeVertex* vertices,
+static int WeldVertex(std::unordered_multimap<unsigned int, int>* table, W8OctPreTreeVertex* vertices,
                       unsigned int index, unsigned int link)
 {
     unsigned int vertex = link;
@@ -1039,7 +1014,7 @@ static int WeldVertex(W8HashTable<unsigned int, int>* table, W8OctPreTreeVertex*
     unsigned int start_x;
     unsigned int start_y;
     unsigned int start_z;
-    int slot;
+
     bool found;
     bool matched;
     unsigned int scan_x;
@@ -1080,9 +1055,9 @@ static int WeldVertex(W8HashTable<unsigned int, int>* table, W8OctPreTreeVertex*
             for (scan_z = start_z; scan_z <= cell_z + 1; ++scan_z) {
                 scan_key =
                     scan_z * g_weld_stride_z + scan_y * g_weld_stride_y + scan_x * g_weld_stride_x;
-                slot = table->FindNextEntry(&scan_key, -1);
-                while (slot != -1) {
-                    match_index = table->entries[slot].value - 1;
+                auto slot = table->equal_range(scan_key).first;
+                while (slot != table->end()) {
+                    match_index = slot->second - 1;
                     if (match_index >= 0 && !matched) {
                         candidate = vertices + match_index;
                         if (fabs(current->position.x - candidate->position.x) <
@@ -1098,7 +1073,7 @@ static int WeldVertex(W8HashTable<unsigned int, int>* table, W8OctPreTreeVertex*
                             found = true;
                         }
                     }
-                    slot = table->FindNextEntry(&scan_key, slot);
+                    slot = NextIndexValue(*table, scan_key, slot);
                 }
             }
         }
@@ -1107,7 +1082,7 @@ static int WeldVertex(W8HashTable<unsigned int, int>* table, W8OctPreTreeVertex*
         return match_index + 1;
     }
     int vertex_id = index + 1;
-    table->Insert(&key, &vertex_id);
+    InsertIndexValue(*table, key, vertex_id);
     if (link == 0xffffffff) {
         vertices[index].m_vertex_index = index;
     }
@@ -1142,12 +1117,11 @@ static int BuildRegionPolygons(W8LevelFile* level, W8OctPreTreeGeometry* geometr
     W8OctRegionPolygon* polygons;
     W8OctRegionPolygon* polygon;
     W8OctRegionPolygon* back;
-    W8ReadMeshFace* face;
+    W8SerializedMeshFace* face;
     W8OctPreTreeVertex* current;
     W8OctPreTreeVertex* created;
 
-    W8HashTable<unsigned int, int> weld_table;
-    weld_table.Clear();
+    std::unordered_multimap<unsigned int, int> weld_table;
     kind_counts[0] = 0;
     kind_counts[1] = 0;
     kind_counts[2] = 0;
@@ -1191,7 +1165,7 @@ static int BuildRegionPolygons(W8LevelFile* level, W8OctPreTreeGeometry* geometr
                         face->vertices[2]);
                 goto invalid;
             }
-            polygon->face = *face;
+            polygon->face = DecodeMeshFace(*face);
             polygon->ordinal = ordinal;
             polygon->material = face->material_index;
             for (corner = 0; corner < 3; ++corner) {
@@ -1256,7 +1230,8 @@ static int BuildRegionPolygons(W8LevelFile* level, W8OctPreTreeGeometry* geometr
                 for (corner = 0; corner < 3; ++corner) {
                     current = vertices + vertex_index[corner];
                     if (current->m_normal_count != 0) {
-                        length = sqrt(current->m_normal.LengthSquared());
+                        length = sqrt(glm::dot((current->m_normal).glmValue(),
+                                               (current->m_normal).glmValue()));
                         if ((current->m_normal.z / length) * normal.z +
                                 (current->m_normal.y / length) * normal.y +
                                 (current->m_normal.x / length) * normal.x <
@@ -1321,8 +1296,8 @@ static int BuildRegionPolygons(W8LevelFile* level, W8OctPreTreeGeometry* geometr
                         back->face.vertices[0] = vertex_index[1];
                         back->face.vertices[1] = vertex_index[0];
                         back->face.vertices[2] = vertex_index[2];
-                        back->face.texture_coordinates[0] = face->texture_coordinates[1];
-                        back->face.texture_coordinates[1] = face->texture_coordinates[0];
+                        back->face.texture_coordinates[0] = polygon->face.texture_coordinates[1];
+                        back->face.texture_coordinates[1] = polygon->face.texture_coordinates[0];
                         ++mesh->num_faces;
                     }
                 }
@@ -2072,16 +2047,20 @@ accepted:
     PublishLightDirection(&colour_saved);
 }
 
+ResourceCache<stMaterial> g_materials;
+ResourceCache<stTextureFile> g_texture_files;
+ResourceCache<stTextureAnim> g_texture_animations;
+
 /* Select the first populated texture layer, load its file or IFL animation,
-   derive the renderer flags, and retain a registry-cached stMaterial keyed by
-   all serialized parameters that affect it. The sixth caller argument is an
-   established cdecl extra argument: retail 0x004B8A70 never reads it and
-   always passes required=1 to the texture loaders. */
+   derive the renderer flags, and share a cached stMaterial keyed by all
+   serialized parameters that affect it. */
 // FUNCTION: WIZ8 0x004B8A70
-unsigned char LoadMaterial(const char* bitmap_folder, const W8MaterialRecord* source,
-                           srMaterialIFace** material, srTextureIFace** texture,
-                           srShader* render_flags, int)
+W8MeshMaterial LoadMaterial(const char* bitmap_folder, const W8MaterialRecord& record)
 {
+    const W8MaterialRecord* source = &record;
+    W8MeshMaterial result;
+    std::shared_ptr<srTextureIFace>& texture = result.texture;
+    srShader* render_flags = &result.render_flags;
     char texture_path[80] = "";
     char material_name[80] = "";
     char drive[_MAX_PATH];
@@ -2122,21 +2101,18 @@ unsigned char LoadMaterial(const char* bitmap_folder, const W8MaterialRecord* so
         strcat(texture_file, extension);
 
         if (strlen(texture_path) > 3 && _strnicmp(extension, ".IFL", 4) == 0) {
-            *texture = LoadAnimatedTexture(texture_folder, texture_file, source, true);
+            texture = LoadAnimatedTexture(texture_folder, texture_file, source, true);
         } else {
-            *texture = LoadTextureFromFolder(texture_folder, texture_file, true);
+            texture = LoadTextureFromFolder(texture_folder, texture_file, true);
         }
-        if (*texture == 0) {
-            return 0;
+        if (texture == 0) {
+            return result;
         }
 
-        if ((*texture)->getClassID() == stTextureFile::CLASS_ID &&
-            static_cast<stTextureFile*>(*texture)->hasAlpha()) {
+        if (auto* file = sr_cast<stTextureFile>(texture); file && file->hasAlpha()) {
             has_alpha = true;
         }
-        if ((*texture)->getClassID() == stTextureAnim::CLASS_ID) {
-            stTextureAnim* animation = static_cast<stTextureAnim*>(*texture);
-
+        if (auto* animation = sr_cast<stTextureAnim>(texture)) {
             if (animation->Prepare()) {
                 has_alpha = true;
             }
@@ -2174,113 +2150,82 @@ unsigned char LoadMaterial(const char* bitmap_folder, const W8MaterialRecord* so
             static_cast<int>(reinterpret_cast<w8_ulong_ptr>( // reinterpret-ok: retail formats the pointer
                 texture_path[0] == '\0' ? "F" : "T")));
 
-    {
-        srRegistry* registry = srCore.getRegistry();
-        srRegistry::ClassNode* node = stMaterial::sGetClassNode();
-        stMaterial* concrete;
+    std::shared_ptr<stMaterial> concrete = g_materials.find(material_name);
+    if (concrete == 0) {
+        concrete = std::make_shared<stMaterial>();
+        concrete->setName(material_name);
+        g_materials.insert(material_name, concrete);
+        concrete->parms.specular = glm::vec4(source->specular.x, source->specular.y, source->specular.z,
+                                     0.0f);
+        concrete->dirty = 1;
+        concrete->parms.shininess = 1.0f;
+        concrete->dirty = 1;
 
-        concrete = static_cast<stMaterial*>(
-            registry->find(node, material_name, static_cast<const srRuntimeClass*>(0)));
-        *material = concrete;
-        if (concrete == 0) {
-            concrete = new stMaterial;
-            *material = concrete;
-            if (concrete == 0) {
-                srAssertFail("*ppstMaterial", MATERIALS_CPP, 0xe4, 0);
-            }
-            concrete->setName(material_name);
-            concrete->autoRelease();
+        concrete->parms.diffuse.x = source->diffuse.x;
+        concrete->parms.diffuse.y = source->diffuse.y;
+        concrete->parms.diffuse.z = source->diffuse.z;
+        concrete->parms.diffuse.w = source->opacity == 0.0f ? 0.7f : source->opacity;
+        concrete->dirty = 1;
+        concrete->setOpacity(source->opacity == 0.0f ? 0.7f : source->opacity);
 
-            concrete->parms.specular.Set(source->specular.x, source->specular.y, source->specular.z,
-                                         0.0f);
+        if (texture_path[0] == '\0') {
+            concrete->parms.ambient = glm::vec4(source->diffuse.x, source->diffuse.y, source->diffuse.z,
+                                        1.0f);
             concrete->dirty = 1;
-            concrete->parms.shininess = 1.0f;
+            concrete->parms.emissive = glm::vec4(0.0f);
+        } else {
+            concrete->parms.ambient = glm::vec4(source->ambient.x, source->ambient.y, source->ambient.z,
+                                        0.0f);
             concrete->dirty = 1;
-
-            concrete->parms.diffuse.x = source->diffuse.x;
-            concrete->parms.diffuse.y = source->diffuse.y;
-            concrete->parms.diffuse.z = source->diffuse.z;
-            concrete->parms.diffuse.w = source->opacity == 0.0f ? 0.7f : source->opacity;
-            concrete->dirty = 1;
-            concrete->setOpacity(source->opacity == 0.0f ? 0.7f : source->opacity);
-
-            if (texture_path[0] == '\0') {
-                concrete->parms.ambient.Set(source->diffuse.x, source->diffuse.y, source->diffuse.z,
-                                            1.0f);
-                concrete->dirty = 1;
-                concrete->parms.emissive = 0.0f;
-            } else {
-                concrete->parms.ambient.Set(source->ambient.x, source->ambient.y, source->ambient.z,
-                                            0.0f);
-                concrete->dirty = 1;
-                concrete->parms.emissive.Set(source->emission, source->emission, source->emission,
-                                             1.0f);
-            }
-            concrete->dirty = 1;
-            concrete->m_surface_flags = source->surface_flags;
-            if ((source->surface_flags & W8_MATERIAL_NORMAL_TEXCOORD_MASK) != 0) {
-                concrete->setMapper(&g_normal_texcoord_mapper);
-            }
+            concrete->parms.emissive = glm::vec4(source->emission, source->emission, source->emission,
+                                         1.0f);
+        }
+        concrete->dirty = 1;
+        concrete->m_surface_flags = source->surface_flags;
+        if ((source->surface_flags & W8_MATERIAL_NORMAL_TEXCOORD_MASK) != 0) {
+            concrete->setMapper(&g_normal_texcoord_mapper);
         }
     }
-    (*material)->addReference();
-    return 1;
+    result.material = std::move(concrete);
+    return result;
 }
 
 // STRING: WIZ8 0x0060e0f4
 #define DEFAULT_MATERIAL_NAME "Default Material"
 
 // FUNCTION: WIZ8 0x004B9280
-unsigned char CreateDefaultMaterial(srMaterialIFace** material, srTextureIFace** texture,
-                                    srShader* render_flags)
+W8MeshMaterial CreateDefaultMaterial()
 {
-    char name[64] = "";
-    srRegistry* registry;
-    srRegistry::ClassNode* node;
-    stMaterial* concrete;
-    srVector4T<float> color;
+    W8MeshMaterial result;
+    result.render_flags.value = 0x0100251b;
 
-    render_flags->value = 0x0100251b;
-    sprintf(name, DEFAULT_MATERIAL_NAME);
-    *texture = 0;
-
-    registry = srCore.getRegistry();
-    node = stMaterial::sGetClassNode();
-    concrete =
-        static_cast<stMaterial*>(registry->find(node, name, static_cast<const srRuntimeClass*>(0)));
-    *material = concrete;
-    if (concrete != 0) {
-        return 1;
-    }
-
-    concrete = new stMaterial;
-    *material = concrete;
+    std::shared_ptr<stMaterial> concrete = g_materials.find(DEFAULT_MATERIAL_NAME);
     if (concrete == 0) {
-        srAssertFail("*ppstMaterial", MATERIALS_CPP, 0x130, 0);
-    }
-    concrete->setName(name);
-    concrete->autoRelease();
+        concrete = std::make_shared<stMaterial>();
+        concrete->setName(DEFAULT_MATERIAL_NAME);
+        g_materials.insert(DEFAULT_MATERIAL_NAME, concrete);
 
-    color.Set(1.0f, 1.0f, 1.0f, 1.0f);
-    concrete->setAmbient(color);
-    color.Set(1.0f, 1.0f, 1.0f, 1.0f);
-    concrete->setDiffuse(color);
-    color.Set(0.0f, 0.0f, 0.0f, 0.0f);
-    concrete->setSpecular(color);
-    concrete->dirty = 1;
-    concrete->parms.shininess = 1.0f;
-    concrete->parms.diffuse.w = 1.0f;
-    concrete->dirty = 1;
-    concrete->parms.emissive = 0.0f;
-    concrete->dirty = 1;
-    concrete->m_surface_flags = 0;
-    return 1;
+        glm::vec4 color;
+        color = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f);
+        concrete->setAmbient(color);
+        concrete->setDiffuse(color);
+        color = glm::vec4(0.0f, 0.0f, 0.0f, 0.0f);
+        concrete->setSpecular(color);
+        concrete->parms.shininess = 1.0f;
+        concrete->parms.diffuse.w = 1.0f;
+        concrete->parms.emissive = glm::vec4(0.0f);
+        concrete->dirty = 1;
+        concrete->m_surface_flags = 0;
+    }
+    result.material = std::move(concrete);
+    return result;
 }
 
 /* Load a texture by full path: split it into folder and file, then take the
    animated loader for .IFL names and the plain one for everything else. */
 // FUNCTION: WIZ8 0x004B9460
-srTextureIFace* LoadTextureFromPath(const char* path, const W8MaterialRecord* source, bool required)
+std::shared_ptr<srTextureIFace> LoadTextureFromPath(const char* path, const W8MaterialRecord* source,
+                                                    bool required)
 {
     char drive[_MAX_PATH];
     char directory[_MAX_PATH];
@@ -2302,13 +2247,10 @@ srTextureIFace* LoadTextureFromPath(const char* path, const W8MaterialRecord* so
 }
 
 // FUNCTION: WIZ8 0x004B95D0
-srTexture* LoadTextureFromFolder(const char* folder, const char* name, bool required)
+std::shared_ptr<srTexture> LoadTextureFromFolder(const char* folder, const char* name, bool required)
 {
     char path[_MAX_PATH];
     char* extension;
-    srRegistry* registry;
-    srRegistry::ClassNode* node;
-    stTextureFile* texture;
 
     if (g_current_screen_state.id == W8_SCREEN_PLEASE_WAIT) {
         UpdatePleaseWaitLoadFrame();
@@ -2318,19 +2260,13 @@ srTexture* LoadTextureFromFolder(const char* folder, const char* name, bool requ
     extension = path + strlen(path) - 3;
     *extension = '\0';
 
-    registry = srCore.getRegistry();
-    node = stTextureFile::sGetClassNode();
-    texture = static_cast<stTextureFile*>(
-        registry->find(node, name, static_cast<const srRuntimeClass*>(0)));
+    std::shared_ptr<stTextureFile> texture = g_texture_files.find(name);
     if (texture == 0) {
         strcat(extension, "tga");
         if (required) {
-            texture = new stTextureFile(path, g_texture_cache_enabled);
-            if (texture == 0) {
-                srAssertFail("psrTexture", MATERIALS_CPP, 0x191, 0);
-            }
+            texture = std::make_shared<stTextureFile>(path, g_texture_cache_enabled);
             if (g_gerd != 0) {
-                g_gerd->setTexture(texture, 0);
+                g_gerd->setTexture(texture.get(), 0);
                 g_gerd->setTexture(0, 0);
             }
             if (texture->getTextureFrameHandle() == 0) {
@@ -2338,7 +2274,7 @@ srTexture* LoadTextureFromFolder(const char* folder, const char* name, bool requ
                 strcat(extension, "jpg");
                 texture->setFileName(path);
                 if (g_gerd != 0) {
-                    g_gerd->setTexture(texture, 0);
+                    g_gerd->setTexture(texture.get(), 0);
                     g_gerd->setTexture(0, 0);
                 }
                 if (texture->getTextureFrameHandle() == 0) {
@@ -2355,26 +2291,21 @@ srTexture* LoadTextureFromFolder(const char* folder, const char* name, bool requ
                         FormatString("Missing texture file: %s", path));
                 }
             }
-            texture = new stTextureFile(path, g_texture_cache_enabled);
-            if (texture == 0) {
-                srAssertFail("psrTexture", MATERIALS_CPP, 0x1a7, 0);
-            }
+            texture = std::make_shared<stTextureFile>(path, g_texture_cache_enabled);
         }
-        texture->autoRelease();
-        *extension = '\0';
         texture->setName(name);
+        g_texture_files.insert(name, texture);
     }
     return texture;
 }
 
 // FUNCTION: WIZ8 0x004B98F0
-stTextureAnim* LoadAnimatedTexture(const char* folder, const char* name,
-                                   const W8MaterialRecord* source, bool required)
+std::shared_ptr<stTextureAnim> LoadAnimatedTexture(const char* folder, const char* name,
+                                                   const W8MaterialRecord* source, bool required)
 {
     char buffer[_MAX_PATH];
     unsigned char more = 1;
     std::unique_ptr<wiz8::File> handle;
-    stTextureAnim* animation;
 
     strcpy(buffer, folder);
     strcat(buffer, name);
@@ -2384,17 +2315,16 @@ stTextureAnim* LoadAnimatedTexture(const char* folder, const char* name,
             FormatString("Cannot load/find material: %s", buffer));
     }
 
-    animation = new stTextureAnim;
-    animation->autoRelease();
+    auto animation = std::make_shared<stTextureAnim>();
     animation->setName(name);
+    g_texture_animations.insert(name, animation);
     while (more != 0) {
         ReadTextLine(handle.get(), buffer, 200, &more);
         if (strlen(buffer) <= 2) {
             more = 0;
         } else {
-            srTexture* texture = LoadTextureFromFolder(folder, buffer, required);
-            if (texture != 0) {
-                animation->AddTexture(texture);
+            if (auto texture = LoadTextureFromFolder(folder, buffer, required)) {
+                animation->AddTexture(std::move(texture));
             }
             if (more != 0) {
                 continue;
@@ -2421,15 +2351,13 @@ stTextureAnim* LoadAnimatedTexture(const char* folder, const char* name,
 bool MeshHasAnimatedTexture(srMeshModel* model)
 {
     if (model != 0) {
-        srPtr<srTextureIFace>* textures = model->getPolyTexture(0, 0, 0);
+        std::shared_ptr<srTextureIFace>* textures = model->getPolyTexture(0, 0, 0);
 
         if (textures != 0) {
             int polygon;
 
             for (polygon = 0; polygon < model->polygon_count; ++polygon) {
-                srTextureIFace* texture = textures[polygon].get();
-
-                if (texture != 0 && texture->getClassID() == stTextureAnim::CLASS_ID) {
+                if (sr_cast<stTextureAnim>(textures[polygon])) {
                     return true;
                 }
             }
@@ -2438,7 +2366,7 @@ bool MeshHasAnimatedTexture(srMeshModel* model)
     return false;
 }
 
-/* The model instance's srModel::Client base supplies its mesh model. The first
+/* The model instance supplies its mesh model. The first
    polygon texture is the shared animation object whose frame is restarted. */
 // FUNCTION: WIZ8 0x004b9b00
 void SetModelAnimatedTextureFrame(srModelInstance* instance, int frame)
@@ -2447,13 +2375,11 @@ void SetModelAnimatedTextureFrame(srModelInstance* instance, int frame)
         srMeshModel* model = static_cast<srMeshModel*>(instance->getModel());
 
         if (model != 0) {
-            srPtr<srTextureIFace>* textures = model->getPolyTexture(0, 0, 0);
+            std::shared_ptr<srTextureIFace>* textures = model->getPolyTexture(0, 0, 0);
 
             if (textures != 0) {
-                srTextureIFace* texture = textures[0].get();
-
-                if (texture != 0 && texture->getClassID() == stTextureAnim::CLASS_ID) {
-                    static_cast<stTextureAnim*>(texture)->SetFrame(frame);
+                if (auto* animation = sr_cast<stTextureAnim>(textures[0])) {
+                    animation->SetFrame(frame);
                 }
             }
         }
@@ -2467,14 +2393,10 @@ stTextureAnim* GetModelAnimatedTexture(srModelInstance* instance)
         srMeshModel* model = static_cast<srMeshModel*>(instance->getModel());
 
         if (model != 0) {
-            srPtr<srTextureIFace>* textures = model->getPolyTexture(0, 0, 0);
+            std::shared_ptr<srTextureIFace>* textures = model->getPolyTexture(0, 0, 0);
 
             if (textures != 0) {
-                srTextureIFace* texture = textures[0].get();
-
-                if (texture != 0 && texture->getClassID() == stTextureAnim::CLASS_ID) {
-                    return static_cast<stTextureAnim*>(texture);
-                }
+                return sr_cast<stTextureAnim>(textures[0]);
             }
         }
     }

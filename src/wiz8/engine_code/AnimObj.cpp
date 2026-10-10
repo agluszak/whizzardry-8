@@ -1,3 +1,4 @@
+#include <utility>
 #include "wiz8/filesystem.h"
 #include "wiz8/compat/debug_heap.h"
 #include "wiz8/engine_code/AnimObj.h"
@@ -7,7 +8,8 @@
 #include "wiz8/engine_code/World.h"
 #include "wiz8/engine_code/3d.h"
 #include "wiz8/float_constants.h"
-#include "wiz8/3d_code/PList.h"
+#include <vector>
+#include <algorithm>
 #include "wiz8/engine_code/stLight.hpp"
 #include "wiz8/engine_code/stModelInstance.h"
 #include "surrender/srModelInstance.h"
@@ -36,7 +38,7 @@ W8AnimObj* CreateAnimObj()
 
 // FUNCTION: WIZ8 0x004a05c0
 unsigned char AnimObjReadFromFile(W8ReadLevelInfo* info, W8AnimObj* animation, int load_all,
-                                  W8GrowableVector<stLight*>* light_list, int)
+                                  std::vector<stLight*>* light_list, int)
 try
 {
     /* Retail read `frames` uninitialised when its FileRead short-circuited; the recovery keeps
@@ -177,14 +179,13 @@ try
                         frame = static_cast<int>(typed->end_frame);
                     }
                     previous = frame;
-                    typed->key_frames.Add(frame);
-                    typed->key_intensities.Add(value);
-                    typed->key_colors.Add(vector);
-                    if (typed->key_frames.GetCount() == 1) {
-                        typed->frame_sums.Add(frame);
+                    typed->key_frames.push_back(frame);
+                    typed->key_intensities.push_back(value);
+                    typed->key_colors.push_back(vector);
+                    if (static_cast<int>(typed->key_frames.size()) == 1) {
+                        typed->frame_sums.push_back(frame);
                     } else {
-                        typed->frame_sums.Add(
-                            *typed->frame_sums.GetAt(typed->frame_sums.GetCount() - 1) + frame);
+                        typed->frame_sums.push_back(typed->frame_sums.back() + frame);
                     }
                 }
                 definition = typed;
@@ -195,15 +196,15 @@ try
                              "AnimObjReadFromFile: Where is the light list?");
             } else {
                 stLight* light = CreateWorldLight(0, "MonsterLight");
-                light->diffuse = color;
-                light->specular = srVector3T<float>(0.0f, 0.0f, 0.0f);
+                light->diffuse = color.glmValue();
+                light->specular = glm::vec3(0);
                 ConfigureWorldLight(light, range * g_world_scale);
                 light->intensity = intensity;
                 light->setLocation(position.x, position.y, position.z);
                 light->m_position = position;
                 light->m_definition = definition;
                 light->setGroupMask(2);
-                light_list->Add(light);
+                light_list->push_back(light);
             }
         }
     }
@@ -221,7 +222,7 @@ try
             PathAISetAnimated(path, 0);
             PathAISetScale(path, animation->playback_scale);
             animation->path = path;
-            animation->frame_count = static_cast<unsigned char>(path->nodes->GetCount());
+            animation->frame_count = static_cast<unsigned char>(path->nodes->size());
         }
     }
     if (version > 9) {
@@ -247,8 +248,8 @@ try
     } else {
         int group;
         for (index = 0; index < 3; ++index) {
-            animation->meshes[index] = PLCreate();
-            animation->paths[index] = PLCreate();
+            animation->meshes[index] = new std::vector<W8AniMesh*>;
+            animation->paths[index] = new std::vector<W8PathAI*>;
         }
         for (group = 0; group < static_cast<signed char>(animation->group_count); ++group) {
             signed char entry_count;
@@ -274,16 +275,17 @@ try
                 if (!success) {
                     srAssertFail("fSuccess", ANIM_OBJ_CPP, 0x20f, 0);
                 }
-                PListInsert(animation->meshes[channel], entry, mesh);
+                animation->meshes[channel]->insert(animation->meshes[channel]->begin() + entry,
+                                                   mesh);
                 success = LoadPathAI(&path, handle);
                 if (!success) {
                     srAssertFail("fSuccess", ANIM_OBJ_CPP, 0x217, 0);
                 }
-                PListInsert(animation->paths[channel], entry, path);
+                animation->paths[channel]->insert(animation->paths[channel]->begin() + entry, path);
                 path->discrete_mode = 1;
                 PathAISetAnimated(path, 0);
                 PathAISetScale(path, animation->playback_scale);
-                animation->frame_count = static_cast<unsigned char>(path->nodes->GetCount());
+                animation->frame_count = static_cast<unsigned char>(path->nodes->size());
             }
         }
     }
@@ -351,21 +353,21 @@ W8AnimObj* CloneAnimObj(const W8AnimObj* source)
     }
     for (index = 0; index < 3; ++index) {
         if (source->meshes[index] != 0) {
-            copy->meshes[index] = PLCreate();
-            count = static_cast<int>(PLLength(source->meshes[index]));
+            copy->meshes[index] = new std::vector<W8AniMesh*>;
+            count = static_cast<int>((source->meshes[index] ? source->meshes[index]->size() : 0));
             for (entry = 0; entry < count; ++entry) {
-                PLAdoptAppend(copy->meshes[index], CopyAniMesh(static_cast<W8AniMesh*>(
-                                                       PLGet(source->meshes[index], entry))));
+                copy->meshes[index]->push_back(
+                    CopyAniMesh(static_cast<W8AniMesh*>((*source->meshes[index])[entry])));
             }
         }
     }
     for (index = 0; index < 3; ++index) {
         if (source->paths[index] != 0) {
-            copy->paths[index] = PLCreate();
-            count = static_cast<int>(PLLength(source->paths[index]));
+            copy->paths[index] = new std::vector<W8PathAI*>;
+            count = static_cast<int>((source->paths[index] ? source->paths[index]->size() : 0));
             for (entry = 0; entry < count; ++entry) {
-                PLAdoptAppend(copy->paths[index], ClonePathAI(static_cast<W8PathAI*>(
-                                                      PLGet(source->paths[index], entry))));
+                copy->paths[index]->push_back(
+                    ClonePathAI(static_cast<W8PathAI*>((*source->paths[index])[entry])));
             }
         }
     }
@@ -404,7 +406,7 @@ W8AnimObj* CloneAnimObj(const W8AnimObj* source)
 unsigned char AnimObjGetBounds(W8AnimObj* animation, signed char list_index, unsigned int frame,
                                srVector3T<float>* minimum, srVector3T<float>* maximum)
 {
-    srMatrix3T<float> rotation;
+    glm::mat3 rotation;
     srVector3T<float> translation;
     srVector3T<float> scale;
     srVector3T<float> transformed_minimum;
@@ -433,7 +435,7 @@ unsigned char AnimObjGetBounds(W8AnimObj* animation, signed char list_index, uns
         if (animation->path_lists == 0) {
             mesh = animation->entries[list_index];
         } else {
-            mesh = static_cast<W8AniMesh*>(PLGet(animation->meshes[list_index], frame & 0xff));
+            mesh = AnimObjEntry(animation, list_index, frame & 0xff);
         }
         return GetAniMeshBounds(mesh, minimum, maximum);
     }
@@ -467,35 +469,24 @@ unsigned char AnimObjGetBounds(W8AnimObj* animation, signed char list_index, uns
     if (animation->meshes[list_index] == 0) {
         count = 0;
     } else {
-        count = PLLength(animation->meshes[list_index]);
+        count = (animation->meshes[list_index] ? animation->meshes[list_index]->size() : 0);
     }
-    if (PLGet(animation->meshes[list_index], 0) == 0) {
+    if (AnimObjEntry(animation, list_index, 0) == 0) {
         return 0;
     }
-    GetAniMeshBounds(static_cast<W8AniMesh*>(PLGet(animation->meshes[list_index], 0)), minimum,
-                     maximum);
+    GetAniMeshBounds(AnimObjEntry(animation, list_index, 0), minimum, maximum);
     for (index = 0; static_cast<unsigned int>(index) < count; ++index) {
         if (index != 0) {
-            GetAniMeshBounds(static_cast<W8AniMesh*>(PLGet(animation->meshes[list_index], index)),
-                             &mesh_minimum, &mesh_maximum);
+            GetAniMeshBounds(AnimObjEntry(animation, list_index, index), &mesh_minimum,
+                             &mesh_maximum);
         }
         if (animation == 0) {
             srAssertFail("pao", ANIM_OBJ_CPP, 0x26c, 0);
         }
-        if (animation->path_lists == 1 && animation->meshes[list_index] != 0 &&
-            (mesh = static_cast<W8AniMesh*>(
-                 PLGet(animation->meshes[list_index], static_cast<signed char>(index)))) != 0) {
-            mesh->list_index = list_index;
-            instance = GetAniMeshFrame(mesh, 0);
-        } else {
-            instance = 0;
-        }
-        if (animation == 0) {
-            srAssertFail("pao", ANIM_OBJ_CPP, 0x2d3, 0);
-        }
-        if (animation->path_lists != 0 &&
-            (path = static_cast<W8PathAI*>(
-                 PLGet(animation->paths[list_index], static_cast<signed char>(index)))) != 0) {
+        instance = static_cast<stModelInstance*>(
+            AnimObjDispatchList(animation, list_index, static_cast<signed char>(index)));
+        path = AnimObjListEntry(animation, list_index, static_cast<signed char>(index));
+        if (path) {
             float saved = PathAIGetValue(path);
 
             PathAISetValue(path, static_cast<float>(index));
@@ -504,9 +495,9 @@ unsigned char AnimObjGetBounds(W8AnimObj* animation, signed char list_index, uns
         }
         ((srNode*)instance)->getRotation(rotation);
         srVector3T<double> node_location = ((srNode*)instance)->getLocation();
-        translation.SetFromDouble(&node_location);
+        translation = glm::vec3(node_location.glmValue());
         srVector3T<double> node_scale = ((srNode*)instance)->getScale();
-        scale.SetFromDouble(&node_scale);
+        scale = glm::vec3(node_scale.glmValue());
         transformed_minimum = *minimum;
         transformed_maximum = *maximum;
         TransformBounds(&rotation, &translation, &scale, &transformed_minimum,
@@ -543,7 +534,7 @@ unsigned char AnimObjGetBounds(W8AnimObj* animation, signed char list_index, uns
    infinite box, which is why the loop carries the is-first test instead of
    pre-filling. */
 // FUNCTION: WIZ8 0x004a1df0
-void TransformBounds(const srMatrix3T<float>* rotation, const srVector3T<float>* translation,
+void TransformBounds(const glm::mat3* rotation, const srVector3T<float>* translation,
                      const srVector3T<float>* scale, srVector3T<float>* minimum,
                      srVector3T<float>* maximum)
 {
@@ -558,7 +549,7 @@ void TransformBounds(const srMatrix3T<float>* rotation, const srVector3T<float>*
         for (j = 0; j < 2; ++j) {
             for (k = 0; k < 2; ++k) {
                 srVector3T<float> point(corner[i].x, corner[j].y, corner[k].z);
-                srVector3T<float> transformed = rotation->Transform(point);
+                srVector3T<float> transformed = ((*rotation)) * point.glmValue();
                 float tx = (transformed.x + translation->x) * scale->x;
                 float ty = (transformed.y + translation->y) * scale->y;
                 float tz = (transformed.z + translation->z) * scale->z;
@@ -625,33 +616,33 @@ void DestroyAnimObj(W8AnimObj* animation)
     }
     if (animation->meshes != 0) {
         for (index = 0; index < 3; ++index) {
-            W8PList* meshes = animation->meshes[index];
-            W8PList* paths;
+            std::vector<W8AniMesh*>* meshes = animation->meshes[index];
+            std::vector<W8PathAI*>* paths;
 
             if (meshes != 0) {
-                count = static_cast<int>(PLLength(meshes));
+                count = static_cast<int>((meshes ? meshes->size() : 0));
                 for (entry = 0; entry < count; ++entry) {
-                    W8AniMesh* mesh = static_cast<W8AniMesh*>(PLGet(meshes, entry));
+                    W8AniMesh* mesh = (*meshes)[entry];
 
                     if (mesh != 0) {
                         DestroyAniMesh(mesh);
                     }
-                    count = static_cast<int>(PLLength(meshes));
+                    count = static_cast<int>((meshes ? meshes->size() : 0));
                 }
-                PLDestroy(meshes);
+                delete meshes;
             }
             paths = animation->paths[index];
             if (paths != 0) {
-                count = static_cast<int>(PLLength(paths));
+                count = static_cast<int>((paths ? paths->size() : 0));
                 for (entry = 0; entry < count; ++entry) {
-                    W8PathAI* path = static_cast<W8PathAI*>(PLGet(paths, entry));
+                    W8PathAI* path = (*paths)[entry];
 
                     if (path != 0) {
                         DestroyPathAI(path);
                     }
-                    count = static_cast<int>(PLLength(paths));
+                    count = static_cast<int>((paths ? paths->size() : 0));
                 }
-                PLDestroy(paths);
+                delete paths;
             }
         }
     }
@@ -682,14 +673,14 @@ unsigned int AnimObjValue(W8AnimObj* animation, signed char index)
 // FUNCTION: WIZ8 0x004a1620
 unsigned int AnimObjListCount(W8AnimObj* animation, signed char index)
 {
-    W8PList* list;
+    std::vector<W8AniMesh*>* list;
 
     if (animation == 0) {
         srAssertFail("pao", ANIM_OBJ_CPP, 0x2a7, 0);
     }
     list = animation->meshes[index];
     if (list != 0) {
-        return PLLength(list);
+        return list->size();
     }
     return 0;
 }
@@ -703,7 +694,11 @@ W8PathAI* AnimObjListEntry(W8AnimObj* animation, signed char list_index, signed 
     if (animation->path_lists == 0) {
         return 0;
     }
-    return static_cast<W8PathAI*>(PLGet(animation->paths[list_index], entry_index));
+    const auto* paths = animation->paths[list_index];
+    if (!paths || entry_index < 0 || std::cmp_greater_equal(entry_index, paths->size())) {
+        return nullptr;
+    }
+    return (*paths)[entry_index];
 }
 
 // FUNCTION: WIZ8 0x004a1dc0
@@ -725,13 +720,14 @@ srModelInstance* AnimObjDispatch(W8AnimObj* animation, signed char list_index, u
     }
     if (animation->path_lists == 0) {
         entry = animation->entries[list_index];
-        // reinterpret-ok: VC6 debug CRT freed-block poison is compared as a pointer; never dereferenced.
+        // reinterpret-ok: VC6 debug CRT freed-block poison is compared as a pointer; never
+        // dereferenced.
         if (entry != reinterpret_cast<W8AniMesh*>(WIZ8_DEBUG_FREED_HEAP_PATTERN) && entry != 0) {
             entry->list_index = list_index;
             return GetAniMeshFrame(entry, value);
         }
     } else {
-        entry = static_cast<W8AniMesh*>(PLGet(animation->meshes[list_index], 0));
+        entry = AnimObjEntry(animation, list_index, 0);
         if (entry != 0) {
             entry->list_index = list_index;
             return GetAniMeshFrame(entry, value);
@@ -745,15 +741,15 @@ srModelInstance* AnimObjDispatchList(W8AnimObj* animation, signed char list_inde
                                      signed char entry_index)
 {
     W8AniMesh* entry;
-    W8PList* list;
+    std::vector<W8AniMesh*>* list;
 
     if (animation == 0) {
         srAssertFail("pao", ANIM_OBJ_CPP, 0x26c, 0);
     }
     if (animation->path_lists == 1) {
         list = animation->meshes[list_index];
-        if (list != 0) {
-            entry = static_cast<W8AniMesh*>(PLGet(list, entry_index));
+        if (list && entry_index >= 0 && std::cmp_less(entry_index, list->size())) {
+            entry = (*list)[entry_index];
             if (entry != 0) {
                 entry->list_index = list_index;
                 return GetAniMeshFrame(entry, 0);
@@ -772,7 +768,12 @@ W8AniMesh* AnimObjEntry(W8AnimObj* animation, signed char list_index, unsigned i
     if (animation->path_lists == 0) {
         return animation->entries[list_index];
     }
-    return static_cast<W8AniMesh*>(PLGet(animation->meshes[list_index], entry_index & 0xff));
+    const auto* meshes = animation->meshes[list_index];
+    const auto frame = entry_index & 0xff;
+    if (!meshes || frame >= meshes->size()) {
+        return nullptr;
+    }
+    return (*meshes)[frame];
 }
 
 // FUNCTION: WIZ8 0x004A2220
@@ -790,11 +791,11 @@ stLightDefinition* stKeyframedLightDefinition::Clone() const
     if (copy == 0) {
         srAssertFail("pNew", "..\\Engine Code\\Include\\stLight.hpp", 0x93, 0);
     }
-    for (index = 0; index < key_frames.GetCount(); ++index) {
-        copy->frame_sums.Add(*frame_sums.GetAt(index));
-        copy->key_frames.Add(*key_frames.GetAt(index));
-        copy->key_intensities.Add(*key_intensities.GetAt(index));
-        copy->key_colors.Add(*key_colors.GetAt(index));
+    for (index = 0; index < static_cast<int>(key_frames.size()); ++index) {
+        copy->frame_sums.push_back(frame_sums[index]);
+        copy->key_frames.push_back(key_frames[index]);
+        copy->key_intensities.push_back(key_intensities[index]);
+        copy->key_colors.push_back(key_colors[index]);
     }
     copy->keyframe_index = keyframe_index;
     copy->time = time;
@@ -806,7 +807,7 @@ stLightDefinition* stKeyframedLightDefinition::Clone() const
 // FUNCTION: WIZ8 0x004a2580
 bool stKeyframedLightDefinition::IsEnabledForSubcycle(unsigned char subcycle)
 {
-    if (*key_frames.GetAt(0) <= time && time <= *key_frames.GetAt(key_frames.GetCount() - 1)) {
+    if (key_frames[0] <= time && time <= key_frames.back()) {
         return true;
     }
     return false;

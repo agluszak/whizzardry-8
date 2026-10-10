@@ -171,22 +171,9 @@ void stLight::SetDefinitionTime(float time)
    texture at a per-update probability. Any owned path advances once the
    elapsed seconds times the path rate exceed one whole step, wrapping or
    ping-ponging at the ends. */
-void stParametricLightDefinition::GetInterpolatedColor(float blend, srVector3T<float>* out) const
+glm::vec3 stParametricLightDefinition::GetInterpolatedColor(float blend) const
 {
-    float inverse = g_float_one - blend;
-    float red = blend * color_to.x + inverse * color.x;
-    float green = blend * color_to.y + inverse * color.y;
-    float blue = blend * color_to.z + inverse * color.z;
-    if (g_float_one < red) {
-        red = 1.0f;
-    }
-    if (g_float_one < green) {
-        green = 1.0f;
-    }
-    if (g_float_one < blue) {
-        blue = 1.0f;
-    }
-    out->Set(red, green, blue);
+    return glm::min(glm::mix(color.glmValue(), color_to.glmValue(), blend), glm::vec3(1));
 }
 
 // FUNCTION: WIZ8 0x0049C960
@@ -196,17 +183,13 @@ void stLight::Update()
         stKeyframedLightDefinition* definition =
             static_cast<stKeyframedLightDefinition*>(m_definition);
         float time = definition->time;
-        int count = definition->key_frames.GetCount();
-        int last = count - 1;
-        int* slot = definition->key_frames.GetAt(last);
-        if (time <= *slot) {
+        int count = static_cast<int>(definition->key_frames.size());
+        if (time <= definition->key_frames.back()) {
             definition->keyframe_index = 0;
-            if (definition->key_frames.GetCount() != 1 &&
-                -1 < definition->key_frames.GetCount() - 1) {
+            if (count > 1) {
                 do {
                     int next = definition->keyframe_index + 1;
-                    slot = definition->key_frames.GetAt(next);
-                    if (*slot <= time) {
+                    if (definition->key_frames[next] <= time) {
                         definition->keyframe_index = next;
                     } else {
                         break;
@@ -214,42 +197,30 @@ void stLight::Update()
                 } while (definition->keyframe_index < count - 1);
             }
         } else {
-            slot = definition->key_frames.GetAt(last);
-            time = *slot;
+            time = definition->key_frames.back();
             definition->keyframe_index = count - 2;
         }
-        if (*definition->key_frames.data <= time) {
+        if (definition->key_frames.front() <= time) {
             int index = definition->keyframe_index;
             if (count - 2 <= index) {
                 return;
             }
-            int* from = definition->key_frames.GetAt(index);
-            int* to = definition->key_frames.GetAt(index + 1);
-            float span = *to - *from;
+            const int from = definition->key_frames[index];
+            const int to = definition->key_frames[index + 1];
+            float span = to - from;
             float blend = g_float_one;
             if (span != g_float_zero) {
-                blend = (time - *from) / span;
+                blend = (time - from) / span;
             }
-            float* key_from = definition->key_intensities.GetAt(index);
-            float* key_to = definition->key_intensities.GetAt(index + 1);
+            const float key_from = definition->key_intensities[index];
+            const float key_to = definition->key_intensities[index + 1];
             float inverse = g_float_one - blend;
-            intensity = inverse * *key_from + blend * *key_to;
+            intensity = inverse * key_from + blend * key_to;
             index = definition->keyframe_index;
-            srVector3T<float>* color_to = definition->key_colors.GetAt(index + 1);
-            srVector3T<float>* color_from = definition->key_colors.GetAt(index);
-            float red = color_from->x * inverse + color_to->x * blend;
-            float green = color_from->y * inverse + color_to->y * blend;
-            float blue = color_from->z * inverse + color_to->z * blend;
-            if (g_float_one < red) {
-                red = 1.0f;
-            }
-            if (g_float_one < green) {
-                green = 1.0f;
-            }
-            if (g_float_one < blue) {
-                blue = 1.0f;
-            }
-            diffuse.Set(red, green, blue);
+            const auto& color_to = definition->key_colors[index + 1];
+            const auto& color_from = definition->key_colors[index];
+            diffuse = glm::min(glm::mix(color_from.glmValue(), color_to.glmValue(), blend),
+                               glm::vec3(1));
             return;
         }
         intensity = g_float_zero;
@@ -296,7 +267,7 @@ void stLight::Update()
             if ((definition->flags & W8_PARAM_LIGHT_COLOR) == 0) {
                 m_level_time = seconds;
             } else {
-                definition->GetInterpolatedColor(blend, &diffuse);
+                diffuse = definition->GetInterpolatedColor(blend);
                 m_level_time = seconds;
             }
         }
@@ -310,7 +281,7 @@ void stLight::Update()
                             definition->intensity;
                 m_level = level;
                 if ((definition->flags & W8_PARAM_LIGHT_COLOR) != 0) {
-                    definition->GetInterpolatedColor(blend, &diffuse);
+                    diffuse = definition->GetInterpolatedColor(blend);
                 }
                 m_level_time = seconds;
             }
@@ -327,7 +298,7 @@ void stLight::Update()
             }
         }
         if ((definition->flags & W8_PARAM_LIGHT_COLOR) != 0) {
-            diffuse = definition->color;
+            diffuse = definition->color.glmValue();
         }
         if (testFlag(FLAG_DISABLE) == 0) {
             setFlag(FLAG_DISABLE);
@@ -394,7 +365,7 @@ void stLight::Reset()
                 static_cast<stParametricLightDefinition*>(m_definition);
             intensity = definition->intensity;
             if ((definition->flags & W8_PARAM_LIGHT_COLOR) != 0) {
-                diffuse = definition->color;
+                diffuse = definition->color.glmValue();
             }
         }
     }
@@ -473,12 +444,6 @@ void LoadLightStates(wiz8::File* handle)
 
 /* The registry base's own destructor, emitted out of line here rather than
    inlined the way 0x0049C430 expands it. */
-
-// FUNCTION: WIZ8 0x0049E3A0
-srClass* stLight::vInstance()
-{
-    return new stLight(0);
-}
 
 /* Test a point against the six inward-facing planes of one region volume. */
 // FUNCTION: WIZ8 0x0049e460

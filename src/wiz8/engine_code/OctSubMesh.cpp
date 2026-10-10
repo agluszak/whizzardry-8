@@ -1,5 +1,9 @@
 #include "wiz8/filesystem.h"
+#include "wiz8/binary_reader.h"
+#include <algorithm>
 #include <cstdlib>
+#include <stdexcept>
+#include <vector>
 
 #include "wiz8/engine_code/OctMeshModel.h"
 #include "wiz8/engine_code/Octree.h"
@@ -11,7 +15,7 @@
 #include "wiz8/utility.h"
 #include "wiz8/virtual_file.h"
 #include "surrender/srMaterial.h"
-#include "surrender/srPtr.h"
+#include <memory>
 #include "surrender/srTexture.h"
 
 #include <stdlib.h>
@@ -20,15 +24,15 @@
    (lines 0x1ad and 0x1d2); the constructor and destructor immediately before
    it are the preceding attribution gap and stay here provisionally. */
 
-/* The first Read captures material[0], texture[0] and the render flags as
-   the default shader state later consumed by the path visualization and
-   trace models in OctPath.cpp and GameData.cpp. */
-// GLOBAL: WIZ8 0x00652dbc
-stMaterial* g_oct_mesh_default_material;
-// GLOBAL: WIZ8 0x00652dc0
-srTextureIFace* g_oct_mesh_default_texture;
-// GLOBAL: WIZ8 0x00652dc4
-srShader* g_oct_mesh_default_shader;
+/* The first Read captures a copy of material 0, its texture and render flags as
+   the default state later used by the path visualization and trace models in
+   OctPath.cpp and GameData.cpp. */
+W8MeshMaterial g_oct_mesh_default;
+
+void ReleaseOctMeshDefaults()
+{
+    g_oct_mesh_default = {};
+}
 
 /* The loader verifies every array the same way: a null getter result and a
    failed bulk read each stop with the call site's own diagnostic. */
@@ -206,129 +210,125 @@ bool OctMeshModel::Write(wiz8::File* hFile)
 }
 
 // FUNCTION: WIZ8 0x0049E9A0
-stMeshModel* OctMeshModel::Read(wiz8::File* file, srMaterialIFace** materials, srTextureIFace** textures,
-                                srShader* render_flags, stMeshModel** meshes, int material_count)
+std::unique_ptr<stMeshModel> OctMeshModel::Read(wiz8::File* file,
+                                                const std::vector<W8MeshMaterial>& materials)
 {
-    if (g_oct_mesh_default_material == 0) {
-        g_oct_mesh_default_material = new stMaterial;
-        g_oct_mesh_default_material->srMaterialIFace::operator=(*materials[0]);
-        g_oct_mesh_default_texture = textures[0];
-        delete g_oct_mesh_default_shader;
-        g_oct_mesh_default_shader = new srShader;
-        *g_oct_mesh_default_shader = render_flags[0];
-    }
-
-    unsigned char read_ok = 1;
-    read_ok &= (file->read(&m_packed_header, 4).bytes == static_cast<std::size_t>(4));
-    read_ok &= (file->read(&m_vertex_count, 4).bytes == static_cast<std::size_t>(4));
-    read_ok &= (file->read(&m_map_count, 4).bytes == static_cast<std::size_t>(4));
-    read_ok &= (file->read(&m_polygon_count, 4).bytes == static_cast<std::size_t>(4));
-    read_ok &= (file->read(&m_link_index, 4).bytes == static_cast<std::size_t>(4));
-    read_ok &= (file->read(&next_link, 4).bytes == static_cast<std::size_t>(4));
-    read_ok &= (file->read(&m_material_index, 4).bytes == static_cast<std::size_t>(4));
-    if (read_ok == 0) {
-        ShutdownWithErrorBox("OctMeshModel::Read -- Could not read Integer fields.\n");
-    }
+    const int material_count = static_cast<int>(materials.size());
+    if (materials.empty()) throw std::runtime_error("Missing mesh materials");
+    wiz8::BinaryReader input(*file);
+    m_packed_header = input.record<unsigned int>();
+    m_vertex_count = input.record<int>();
+    m_map_count = input.record<int>();
+    m_polygon_count = input.record<int>();
+    m_link_index = input.record<int>();
+    next_link = input.record<int>();
+    m_material_index = input.record<int>();
 
     unsigned int header = m_packed_header;
     bool unweighted = (header & 0xff) == 0;
     m_packed_header = header & 0xff;
     version = static_cast<short>((header >> 8) & 0xff);
 
-    int index_count = m_vertex_count;
-    if (index_count < m_polygon_count) {
-        index_count = m_polygon_count;
+    if (m_vertex_count < 0 || m_map_count < 0 || m_polygon_count < 0 ||
+        m_material_index < -1 || m_material_index >= material_count) {
+        throw std::runtime_error("Invalid mesh counts or material index");
     }
-    m_vertex_materials = static_cast<int*>(malloc(index_count * sizeof(int)));
-    if (m_vertex_materials == 0) {
-        ShutdownWithErrorBox("OctMeshModel::Read -- Could not allocate m_plVertMats.\n");
-    }
+    if (m_vertex_count == 0 && m_material_index < 0)
+        throw std::runtime_error("Missing mesh vertex material");
+    const auto vertex_bytes = static_cast<std::uint64_t>(m_vertex_count) *
+        (36 + (m_material_index < 0 ? 4 : 0) + (version != 0 ? 4 : 0));
+    const auto polygon_bytes = static_cast<std::uint64_t>(m_polygon_count) * 44;
+    input.require(vertex_bytes + static_cast<std::uint64_t>(m_map_count) * 8 + polygon_bytes + 4);
+    // Read destinations borrow the model's buffers. They must never become
+    // reader-owned Write workspace, including when a read throws midway.
+    std::vector<int> material_indices(std::max(m_vertex_count, m_polygon_count));
+    int* indices = material_indices.data();
+    srVector3T<float>* vertex_locations;
+    glm::vec2* vertex_map;
+    srVector3i* poly_uv_index;
+    srVector3i* poly_vertices;
+    srVector3T<float>* vertex_normals;
+    srVector3T<float>* vertex_lights;
+    glm::vec4* poly_equations;
 
-    stMeshModel* model = new stMeshModel(m_polygon_count, m_vertex_count);
-    if (model == 0) {
-        ShutdownWithErrorBox("OctMeshModel::Read -- Could not create pstMeshModel.\n");
-    }
-    model->autoRelease();
+    auto model = std::make_unique<stMeshModel>(m_polygon_count, m_vertex_count);
     if (unweighted) {
         model->flags &= ~W8_MESH_SORTED_RENDERING;
     } else {
         model->flags |= W8_MESH_SORTED_RENDERING;
     }
 
-    m_vertex_locations = model->getVertexLoc();
-    ReadMeshArray(file, m_vertex_locations, m_vertex_count,
+    vertex_locations = model->getVertexLoc();
+    ReadMeshArray(file, vertex_locations, m_vertex_count,
                   "OctMeshModel::Read -- Could not get vertex location array.\n",
                   "OctMeshModel::Read -- Could not read Integer fields.\n");
 
     model->setUVCount(m_map_count);
-    m_vertex_map = model->getVertexTexCoords(0, 0, 1);
-    ReadMeshArray(file, m_vertex_map, m_map_count,
+    vertex_map = model->getVertexTexCoords(0, 0, 1);
+    ReadMeshArray(file, vertex_map, m_map_count,
                   "OctMeshModel::Read -- Could not get vertex mapping array.\n",
                   "OctMeshModel::Read -- Could not read m_psrMap.");
 
     int selected_material = m_material_index;
     int index;
     if (m_material_index < 0) {
-        srPtr<srMaterialIFace>* vertex_materials =
+        std::shared_ptr<srMaterialIFace>* vertex_materials =
             model->getVertexMaterial(0, srMeshModel::SIDE_FRONT, 1);
         if (vertex_materials == 0) {
             ShutdownWithErrorBox("OctMeshModel::Read -- Could not get vertex material array.\n");
         }
-        if (!(file->read(m_vertex_materials, m_vertex_count * sizeof(int)).bytes == static_cast<std::size_t>(m_vertex_count * sizeof(int)))) {
+        if (!(file->read(indices, m_vertex_count * sizeof(int)).bytes == static_cast<std::size_t>(m_vertex_count * sizeof(int)))) {
             ShutdownWithErrorBox("OctMeshModel::Read -- Could not read m_plVertMats.\n");
         }
-        selected_material = m_vertex_materials[0];
+        selected_material = indices[0];
         for (index = 0; index < m_vertex_count; ++index) {
-            int material_index = m_vertex_materials[index];
-            if (material_index < 0) {
-                srAssertFail("m_plVertMats[iCount] >= 0",
-                             "C:\\Projects\\Wizardry 8\\Engine Code\\OctSubMesh.cpp", 0x1ad, 0);
+            int material_index = indices[index];
+            if (material_index < 0 || material_index >= material_count) {
+                throw std::runtime_error("Invalid mesh vertex material index");
             }
-            vertex_materials[index] = materials[material_index];
-            vertex_materials[index]->addReference();
+            vertex_materials[index] = materials[material_index].material;
         }
     } else {
-        model->setMaterial(materials[m_material_index], 0, srMeshModel::SIDE_FRONT);
+        model->setMaterial(materials[m_material_index].material, 0, srMeshModel::SIDE_FRONT);
     }
 
-    m_poly_uv_index = model->getPolyUVIndex(0, 1);
-    ReadMeshArray(file, m_poly_uv_index, m_polygon_count,
+    poly_uv_index = model->getPolyUVIndex(0, 1);
+    ReadMeshArray(file, poly_uv_index, m_polygon_count,
                   "OctMeshModel::Read -- Could not get poly-UV array.\n",
                   "OctMeshModel::Read -- Could not read m_psrPolyUVIndex.\n");
 
-    m_poly_vertices = model->getPolyVertex();
-    ReadMeshArray(file, m_poly_vertices, m_polygon_count,
+    poly_vertices = model->getPolyVertex();
+    ReadMeshArray(file, poly_vertices, m_polygon_count,
                   "OctMeshModel::Read -- Could not get poly-vertex array.\n",
                   "OctMeshModel::Read -- Could not read m_psrPolyVertex.\n");
 
-    srPtr<srTextureIFace>* polygon_textures = model->getPolyTexture(0, 0, 1);
+    std::shared_ptr<srTextureIFace>* polygon_textures = model->getPolyTexture(0, 0, 1);
     if (polygon_textures == 0) {
         ShutdownWithErrorBox("OctMeshModel::Read -- Could not get poly texture array.\n");
     }
-    if (!(file->read(m_vertex_materials, m_polygon_count * sizeof(int)).bytes == static_cast<std::size_t>(m_polygon_count * sizeof(int)))) {
+    if (!(file->read(indices, m_polygon_count * sizeof(int)).bytes == static_cast<std::size_t>(m_polygon_count * sizeof(int)))) {
         ShutdownWithErrorBox("OctMeshModel::Read -- Could not read m_plPolyTextures.\n");
     }
     for (index = 0; index < m_polygon_count; ++index) {
-        int texture_index = m_vertex_materials[index];
-        if (texture_index < 0) {
-            srAssertFail("m_plVertMats[iCount] >= 0",
-                         "C:\\Projects\\Wizardry 8\\Engine Code\\OctSubMesh.cpp", 0x1d2, 0);
+        int texture_index = indices[index];
+        if (texture_index < 0 || texture_index >= material_count) {
+            throw std::runtime_error("Invalid mesh polygon texture index");
         }
-        polygon_textures[index] = textures[texture_index];
+        polygon_textures[index] = materials[texture_index].texture;
     }
 
-    m_vertex_normals = model->getVertexNormal();
-    ReadMeshArray(file, m_vertex_normals, m_vertex_count,
+    vertex_normals = model->getVertexNormal();
+    ReadMeshArray(file, vertex_normals, m_vertex_count,
                   "OctMeshModel::Read -- Could not get vertex normal array.\n",
                   "OctMeshModel::Read -- Could not read m_pVertNorms.\n");
 
-    m_vertex_lights = model->GetVertexLights(true, -1);
-    ReadMeshArray(file, m_vertex_lights, m_vertex_count,
+    vertex_lights = model->GetVertexLights(true, -1);
+    ReadMeshArray(file, vertex_lights, m_vertex_count,
                   "OctMeshModel::Read -- Could not get static lighting array.\n",
                   "OctMeshModel::Read -- Could not read m_pVertLights.\n");
 
-    m_poly_equations = model->getPolyEq();
-    ReadMeshArray(file, m_poly_equations, m_polygon_count,
+    poly_equations = model->getPolyEq();
+    ReadMeshArray(file, poly_equations, m_polygon_count,
                   "OctMeshModel::Read -- Could not get poly equation array.\n",
                   "OctMeshModel::Read -- Could not read m_psrPolyEqtns.\n");
 
@@ -341,7 +341,7 @@ stMeshModel* OctMeshModel::Read(wiz8::File* file, srMaterialIFace** materials, s
     }
 
     w8_ulong* shade_indices = model->getVertexShadeIndex(1);
-    if (m_vertex_locations == 0) {
+    if (vertex_locations == 0) {
         ShutdownWithErrorBox("OctMeshModel::Read -- Could not get vertex location array.\n");
     }
     for (w8_ulong shade_index = 0; shade_index < static_cast<w8_ulong>(m_vertex_count);
@@ -355,8 +355,9 @@ stMeshModel* OctMeshModel::Read(wiz8::File* file, srMaterialIFace** materials, s
         ShutdownWithErrorBox("Mesh Model in .pvl file is wrong length.");
     }
 
-    model->setShader(render_flags[selected_material], 0);
-    if ((render_flags[selected_material].value & 0x6000) == 0x4000) {
+    const srShader render_flags = materials.at(selected_material).render_flags;
+    model->setShader(render_flags, 0);
+    if ((render_flags.value & 0x6000) == 0x4000) {
         if (unweighted) {
             ShutdownWithErrorBox("OctMeshModel::Read -- Wrong shader type.\n");
         } else {
@@ -366,19 +367,11 @@ stMeshModel* OctMeshModel::Read(wiz8::File* file, srMaterialIFace** materials, s
         model->enable(srMeshModel::CONTROL_SORTED_RENDERING);
     }
 
-    if (m_link_index >= 0) {
-        meshes[m_link_index]->LinkTo(model);
-        model->NotifyLinkedModel(meshes[m_link_index]);
+    if (!g_oct_mesh_default.material) {
+        auto material = std::make_shared<stMaterial>();
+        material->srClass::operator=(*materials[0].material);
+        g_oct_mesh_default = {std::move(material), materials[0].texture, materials[0].render_flags};
     }
 
-    m_vertex_locations = 0;
-    m_vertex_map = 0;
-    m_poly_vertices = 0;
-    m_poly_uv_index = 0;
-    m_vertex_normals = 0;
-    m_vertex_lights = 0;
-    m_poly_equations = 0;
-    free(m_vertex_materials);
-    m_vertex_materials = 0;
     return model;
 }

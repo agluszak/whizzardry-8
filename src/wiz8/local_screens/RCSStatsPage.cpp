@@ -1,3 +1,4 @@
+#include <algorithm>
 #include "wiz8/conditions.h"
 #include "wiz8/sgp_text.h"
 
@@ -794,29 +795,29 @@ void DrawCampSkillsPage(void)
                     lost = 0;
                     level = base;
                 }
-                SGPRect saved_clip;
+                SDL_Rect saved_clip;
                 GetClippingRect(&saved_clip);
-                SGPRect clip;
-                clip.iTop = 0;
-                clip.iBottom = 0x1e0;
+                SDL_Rect clip;
+                clip.y = 0;
+                clip.h = 0x1e0;
                 if (level != 0) {
-                    clip.iLeft = left + 0x6f;
-                    clip.iRight = level + 0x6f + left;
+                    clip.x = left + 0x6f;
+                    clip.w = level;
                     SetClippingRect(&clip);
                     DrawCatalogImage(FRAME_BUFFER, 0x143, 0, 0, left + 0x6f, top + 2,
                                      VO_BLT_SRCTRANSPARENCY, 0);
                 }
                 if (gained == 0) {
                     if (lost != 0) {
-                        clip.iLeft = level + 0x6f + left;
-                        clip.iRight = lost + level + 0x6f + left;
+                        clip.x = level + 0x6f + left;
+                        clip.w = lost;
                         SetClippingRect(&clip);
                         DrawCatalogImageAndInvalidate(FRAME_BUFFER, 0x143, 0, 2, left + 0x6f,
                                                       top + 2, VO_BLT_SRCTRANSPARENCY, 0);
                     }
                 } else {
-                    clip.iLeft = level + 0x6f + left;
-                    clip.iRight = gained + level + 0x6f + left;
+                    clip.x = level + 0x6f + left;
+                    clip.w = gained;
                     SetClippingRect(&clip);
                     DrawCatalogImage(FRAME_BUFFER, 0x143, 0, 1, left + 0x6f, top + 2,
                                      VO_BLT_SRCTRANSPARENCY, 0);
@@ -970,7 +971,7 @@ void W8CharacterPersonalityPage::SetCharacter(W8Character* character,
         entry->AddLayoutFlags(g_W8TextControlLayoutImageAtOrigin);
         m_voice_selection.AddEntry(entry);
     }
-    ClampInteger(&character->voice, 0, 1);
+    character->voice = std::clamp(int(character->voice), 0, 1);
     m_voice_selection.SetSelected(character->voice);
     m_voice_selection.m_selectionListener = this;
 }
@@ -1319,7 +1320,7 @@ void W8CharacterSkillsPage::Accept()
     Invalidate(0);
     m_dirty = true;
     m_screen->UpdateNavigation(this);
-    for (int index = 0; index < m_entries.GetCount(); ++index) {
+    for (int index = 0; index < static_cast<int>(m_entries.size()); ++index) {
         m_entries[index]->UpdateButtons();
     }
 }
@@ -1330,7 +1331,7 @@ void W8CharacterSkillsPage::GetNavigationState(bool* next_enabled, bool* exit_en
     *next_enabled = m_creation_state->skills_complete;
     *exit_enabled = m_creation_state->skill_points_remaining < m_creation_state->skill_points_total;
     if (*next_enabled != nav_next_state) {
-        for (int index = 0; index < m_entries.GetCount(); ++index) {
+        for (int index = 0; index < static_cast<int>(m_entries.size()); ++index) {
             m_entries[index]->SetIncrementAllowed(!*next_enabled);
         }
         nav_next_state = *next_enabled;

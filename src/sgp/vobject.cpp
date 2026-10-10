@@ -232,10 +232,6 @@ HVOBJECT CreateVideoObject(VOBJECT_DESC* VObjectDesc)
     }
     if (!hImage || !(hImage->fFlags & IMAGE_TRLECOMPRESSED))
         return nullptr;
-    for (const auto& frame : hImage->pETRLEObject) {
-        if (std::uint64_t(frame.uiDataOffset) + frame.uiDataLength > hImage->pImageData.size())
-            return nullptr;
-    }
     auto owner = std::make_unique<SGPVObject>();
     owner->ubBitDepth = hImage->ubBitDepth;
     if (hImage->ubBitDepth == 8) {
@@ -257,19 +253,9 @@ BOOLEAN SetVideoObjectPalette(HVOBJECT hVObject, SGPPaletteEntry* pSrcPalette)
     Assert(hVObject != nullptr);
     Assert(pSrcPalette != nullptr);
 
-    // Create palette object if not already done so
-    if (hVObject->pPaletteEntry == nullptr) {
-        // Create palette
+    if (!hVObject->pPaletteEntry)
         hVObject->pPaletteEntry = std::make_unique<SGPPaletteEntry[]>(256);
-        CHECKF(hVObject->pPaletteEntry != nullptr);
-
-        // Copy src into palette
-        memcpy(hVObject->pPaletteEntry.get(), pSrcPalette, sizeof(SGPPaletteEntry) * 256);
-
-    } else {
-        // Just Change entries
-        memcpy(hVObject->pPaletteEntry.get(), pSrcPalette, sizeof(SGPPaletteEntry) * 256);
-    }
+    std::copy_n(pSrcPalette, 256, hVObject->pPaletteEntry.get());
 
     std::shared_ptr<UINT16[]> palette = Create16BPPPalette(pSrcPalette);
     const auto* oldPalette = hVObject->ownedPalette.get();
@@ -396,38 +382,15 @@ BOOLEAN BltVideoObjectToBuffer(UINT16* pBuffer, UINT32 uiDestPitchBYTES, HVOBJEC
     // Assertions
     Assert(pBuffer != nullptr);
 
-    if (hSrcVObject == nullptr) {
-    }
-
     Assert(hSrcVObject != nullptr);
-
-    // Check For Flags and bit depths
-    switch (hSrcVObject->ubBitDepth) {
-    case 16:
-
-        break;
-
-    case 8:
-
-        // Switch based on flags given
-        if (usIndex < hSrcVObject->sprites.size()) {
-            const SpriteFrame& frame = hSrcVObject->sprites[usIndex];
-            if (fBltFlags & VO_BLT_MIRROR_Y)
-                BltSpriteTo16BPPBuffer(pBuffer, uiDestPitchBYTES, frame,
-                                       hSrcVObject->pShadeCurrent, iDestX, iDestY, nullptr, true,
-                                       SpriteDrawOp::Transparent);
-            else if (fBltFlags & VO_BLT_SRCTRANSPARENCY)
-                BltSpriteTo16BPPBuffer(pBuffer, uiDestPitchBYTES, frame,
-                                       hSrcVObject->pShadeCurrent, iDestX, iDestY, nullptr, false,
-                                       SpriteDrawOp::Transparent);
-            else if (fBltFlags & VO_BLT_SHADOW)
-                BltSpriteTo16BPPBuffer(pBuffer, uiDestPitchBYTES, frame,
-                                       hSrcVObject->pShadeCurrent, iDestX, iDestY, nullptr, false,
-                                       SpriteDrawOp::Shadow);
-        }
-
-        break;
-    }
+    if (hSrcVObject->ubBitDepth != 8 || usIndex >= hSrcVObject->sprites.size())
+        return TRUE;
+    const bool mirror = (fBltFlags & VO_BLT_MIRROR_Y) != 0;
+    const bool transparent = mirror || (fBltFlags & VO_BLT_SRCTRANSPARENCY);
+    if (transparent || (fBltFlags & VO_BLT_SHADOW))
+        return BltSpriteTo16BPPBuffer(pBuffer, uiDestPitchBYTES, hSrcVObject->sprites[usIndex],
+                                     hSrcVObject->pShadeCurrent, iDestX, iDestY, nullptr, mirror,
+                                     transparent ? SpriteDrawOp::Transparent : SpriteDrawOp::Shadow);
 
     return (TRUE);
 }

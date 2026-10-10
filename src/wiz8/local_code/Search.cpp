@@ -1,3 +1,4 @@
+#include "wiz8/containers.h"
 #include "wiz8/fonts.h"
 #include "wiz8/local_code/Search.h"
 #include "wiz8/integer_constants.h"
@@ -43,7 +44,7 @@
    line 337 establishes the original translation unit. */
 
 // GLOBAL: WIZ8 0x00689fa8
-W8Vector<W8Searchable*> g_searchables(5);
+std::vector<W8Searchable*> g_searchables;
 // GLOBAL: WIZ8 0x00689fb8
 W8SearchableView g_search_view;
 // GLOBAL: WIZ8 0x00689fcc
@@ -80,7 +81,7 @@ void W8Searchable::Reveal()
         trigger->Run(-1);
         trigger->flags |= W8_TRIGGER_SEARCHED;
     }
-    g_searchables.Remove(this);
+    wiz8::erase_first(g_searchables, this);
     delete this;
 }
 
@@ -90,19 +91,19 @@ void W8Searchable::Reveal()
 // FUNCTION: WIZ8 0x00516ba0
 W8SearchableView* CollectSearchablesInView(void)
 {
-    int total = g_searchables.GetCount();
+    int total = static_cast<int>(g_searchables.size());
     srVector3T<float> camera;
     GetCameraPosition(&camera);
-    g_search_view.items.Clear();
+    g_search_view.items.clear();
     g_search_view.cursor = -1;
     for (int index = 0; index < total; ++index) {
-        W8Searchable* searchable = *g_searchables.GetAt(index);
+        W8Searchable* searchable = g_searchables[index];
         srVector3T<float> position;
         searchable->GetPosition(&position);
         srVector3T<float> delta = camera - position;
         if (delta.Length() < g_search_radius) {
             if (searchable->world_item == 0 && searchable->trigger != 0) {
-                g_search_view.items.Add(searchable);
+                g_search_view.items.push_back(searchable);
             } else {
                 float half_cone = g_search_cone_angle * g_float_half;
                 srVector3T<float> from = camera;
@@ -115,11 +116,11 @@ W8SearchableView* CollectSearchablesInView(void)
                     !g_octree->HasLineOfSight(&camera, &position, true)) {
                     continue;
                 }
-                g_search_view.items.Add(searchable);
+                g_search_view.items.push_back(searchable);
             }
         }
     }
-    return g_search_view.items.GetCount() != 0 ? &g_search_view : 0;
+    return !g_search_view.items.empty() ? &g_search_view : 0;
 }
 
 /* Register one searchable world item. The item pointer lands in the record's
@@ -133,7 +134,7 @@ void RegisterSearchableWorldItem(W8WorldItem* item)
         srAssertFail("pSearchable", "C:\\Projects\\Wizardry 8\\Local Code\\search.cpp", 0x125, 0);
     }
     searchable->world_item = item;
-    g_searchables.Add(searchable);
+    g_searchables.push_back(searchable);
 }
 
 // FUNCTION: WIZ8 0x00516f00
@@ -144,16 +145,16 @@ void RegisterSearchableTrigger(Trigger* trigger)
         srAssertFail("pSearchable", "C:\\Projects\\Wizardry 8\\Local Code\\search.cpp", 0x151, 0);
     }
     searchable->trigger = trigger;
-    g_searchables.Add(searchable);
+    g_searchables.push_back(searchable);
 }
 
 // FUNCTION: WIZ8 0x00516fe0
 void UnregisterSearchableTrigger(Trigger* trigger)
 {
-    for (int index = 0; index < g_searchables.GetCount(); ++index) {
-        W8Searchable* searchable = *g_searchables.GetAt(index);
+    for (int index = 0; index < static_cast<int>(g_searchables.size()); ++index) {
+        W8Searchable* searchable = g_searchables[index];
         if (searchable->trigger == trigger) {
-            g_searchables.Remove(searchable);
+            wiz8::erase_first(g_searchables, searchable);
             delete searchable;
             return;
         }
@@ -198,7 +199,9 @@ void W8Searchable::GetPosition(srVector3T<float>* position)
 // FUNCTION: WIZ8 0x005171b0
 void ClearSearchables()
 {
-    g_searchables.Clear();
+    g_search_view.items.clear();
+    wiz8::remove_all_and_delete_in_order(g_searchables);
+    g_search_view.cursor = -1;
 }
 
 /* The 500ms search sweep: while nothing is interacting or surprising the
@@ -221,11 +224,11 @@ void RunSearchPulse(void)
             if (view != 0) {
                 for (;;) {
                     ++view->cursor;
-                    if (view->items.GetCount() <= view->cursor) {
+                    if (static_cast<int>(view->items.size()) <= view->cursor) {
                         --view->cursor;
                         break;
                     }
-                    W8Searchable* searchable = *view->items.GetAt(view->cursor);
+                    W8Searchable* searchable = view->items[view->cursor];
                     if (searchable == 0) {
                         break;
                     }

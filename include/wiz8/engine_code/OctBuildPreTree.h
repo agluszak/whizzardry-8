@@ -3,7 +3,7 @@
 
 #include "wiz8/engine_code/OctBuildTree.h"
 #include "wiz8/engine_code/ReadMesh.h"
-#include "wiz8/engine_code/stHash.hpp"
+#include "wiz8/index_algorithms.h"
 #include "wiz8/geometry.h"
 
 class BitArray;
@@ -144,12 +144,12 @@ struct OctBuildPreTree : W8OctBuildTree {
     unsigned short padding_11a;
     w8_ulong particle_count;
     w8_ulong prop_count;
-    W8HashTable<unsigned short, w8_ulong>* region_path_map;
+    std::unordered_multimap<unsigned short, w8_ulong>* region_path_map;
     /* Allocated next to region_path_map but never read, inserted into, or
        freed in recovered code - dead table kept for layout fidelity. */
-    W8HashTable<unsigned int, short>* positional;
-    W8HashTable<unsigned short, short>* inside_region_map;
-    W8HashTable<unsigned short, short>* overlap_region_map;
+    std::unordered_multimap<unsigned int, short>* positional;
+    std::unordered_multimap<unsigned short, short>* inside_region_map;
+    std::unordered_multimap<unsigned short, short>* overlap_region_map;
     W8OctPreTreeGeometry* game_data;
     w8_ulong unknown_138;
     w8_ulong unknown_13c;

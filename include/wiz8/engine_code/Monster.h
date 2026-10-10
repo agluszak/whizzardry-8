@@ -1,6 +1,10 @@
 #ifndef WIZ8_ENGINE_CODE_MONSTER_H
 #define WIZ8_ENGINE_CODE_MONSTER_H
 
+#include <vector>
+struct W8MonsterSpellIcon;
+
+#include <memory>
 #include "wiz8/monster_spell_icons.h"
 #include "wiz8/monster_actions.h"
 #include <stddef.h>
@@ -16,7 +20,6 @@
 
 struct W8AnimObj;
 struct W8ReadLevelInfo;
-struct W8PList;
 struct W8Item;
 class stModelInstance;
 class stLight;
@@ -87,14 +90,11 @@ struct W8MonsterRep : public W8EmitterHost {
 
     /* The spell-icon list; named by the SetMonsterSpellIcon assert
        "pMonRep->GetSpellIcons()". */
-    W8PList* GetSpellIcons()
-    {
-        return spell_icons;
-    }
+    std::vector<W8MonsterSpellIcon*>* GetSpellIcons() { return spell_icons; }
 
-    W8GrowableVector<W8AnimObj*> animations[W8_MONSTER_CYCLE_COUNT];                   /* 0x0ac */
-    W8GrowableVector<float> animation_scales[W8_MONSTER_CYCLE_COUNT];                  /* 0x25c */
-    W8GrowableVector<W8GrowableVector<stLight*>*> light_lists[W8_MONSTER_CYCLE_COUNT]; /* 0x40c */
+    std::vector<W8AnimObj*> animations[W8_MONSTER_CYCLE_COUNT];              /* 0x0ac */
+    std::vector<float> animation_scales[W8_MONSTER_CYCLE_COUNT];             /* 0x25c */
+    std::vector<std::vector<stLight*>*> light_lists[W8_MONSTER_CYCLE_COUNT]; /* 0x40c */
     /* 0x5bc: per-party-member highlight bitmask - bit N set while party
        member N has the monster highlighted/targeted. */
     unsigned char highlight_mask;
@@ -104,7 +104,7 @@ struct W8MonsterRep : public W8EmitterHost {
        attachment layout read by UpdateAttachedObjects. */
     int icon_count;
     W8Item* objects[8];   /* 0x5c8 */
-    W8PList* spell_icons; /* 0x5e8: W8MonsterSpellIcon records */
+    std::vector<W8MonsterSpellIcon*>* spell_icons; /* 0x5e8: W8MonsterSpellIcon records */
     float standing_height;
     float scale;
     float minimum_scale;
@@ -126,7 +126,7 @@ struct W8MonsterRep : public W8EmitterHost {
     /* 0x610: left-handed strike chance percent; Random(100) is rolled
        against it for the mirrored attack anim. */
     int left_handed;
-    W8Vector<stModelInstance*> linked_runtime_objects;
+    std::vector<stModelInstance*> linked_runtime_objects;
     class MonsterLight* monster_light;
 
     unsigned char GetNumSubsPerCycle(signed char bCycle);
@@ -145,8 +145,6 @@ W8_ABI_ASSERT(offsetof(W8MonsterRep, random_idle_fps_min) == 0x608,
 W8_ABI_ASSERT(offsetof(W8MonsterRep, random_idle_fps_max) == 0x60c,
               "W8MonsterRep_idle_fps_max_offset");
 
-W8_ABI_ASSERT(sizeof(W8GrowableVector<W8AnimObj*>) == 0x10,
-              "W8Monster_animation_vector_must_be_0x10");
 
 /* The GrCycle factory allocates 0x348 bytes and calls the constructor at
    0x004BFB00 for object type zero. Both constructors and the destructor install
@@ -185,7 +183,7 @@ public:
     bool IsDying();                              /* 0x004CA4C0 */
     bool IsCycleInterruptable(signed char cycle);
     void ApplyRemovalStateEffects();
-    void CollectModelInstances(W8GrowableVector<stModelInstance*>* instances);
+    void CollectModelInstances(std::vector<stModelInstance*>& instances);
     void SetDamageStage(int stage);
     int GetDamageStageCount();
     bool ReplaceSkinTexture(int stage, const char* old_name, const char* new_name);
@@ -304,10 +302,10 @@ public:
     unsigned char padding_22f;
     CycleCallback cycle_callback;
     int callback_cycle;
-    stScript* script;
+    std::shared_ptr<stScript> script;
     int script_line;
     W8MonsterScriptCommand script_wait;
-    W8GrowableVector<bool> script_conditions;
+    std::vector<unsigned char> script_conditions;
     W8GameTimer script_delay_timer;
     Trigger* trigger;
     int registry_weight;
@@ -321,7 +319,7 @@ public:
     unsigned char padding_292[2];
     float patrol_distance;
     float patrol_variation;
-    W8GrowableVector<srVector3T<float> > vector;
+    std::vector<srVector3T<float>> vector;
     signed char patrol_index;
     unsigned char padding_2ad[3];
     float direction_x;
@@ -359,7 +357,7 @@ public:
     bool hostility_preserved;
     unsigned char padding_333;
     stSound3D* sound;
-    W8GrowableVector<int> values;
+    std::vector<int> values;
 };
 
 W8MonsterCycle ParseMonsterCycleName(const char* name, signed char* subcycle = 0);
@@ -444,7 +442,7 @@ W8_ABI_ASSERT(sizeof(W8MonsterShakeCallback) == 0x10, "W8MonsterShakeCallback_si
 void MonsterStopAllNavigators(void);
 unsigned char MonsterGetHighlightMask(W8Monster* monster);
 void MonsterSetHighlightMask(W8Monster* monster, unsigned char flag);
-void MonsterSetHighlightColour(W8Monster* monster, srVector4T<float> block);
+void MonsterSetHighlightColour(W8Monster* monster, glm::vec4 block);
 unsigned char MonsterSetAnimating(W8Monster* monster, bool animating);
 unsigned char MonsterIsAnimating(W8Monster* monster);
 bool MonsterHasPendingCycle(W8Monster* monster); /* 0x004C5710 */
@@ -487,7 +485,8 @@ struct W8CycleNameRow {
     signed char prefix_length;
 };
 extern W8CycleNameRow g_cycle_names[];
-// bool-byte-ok: automap save/restore (0x0057E660/0x0057FB40) copies it through a byte array unnormalized
+// bool-byte-ok: automap save/restore (0x0057E660/0x0057FB40) copies it through a byte array
+// unnormalized
 extern unsigned char g_monster_shadow_updates_enabled;
 
 #endif

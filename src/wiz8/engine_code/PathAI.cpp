@@ -1,3 +1,4 @@
+#include <glm/gtc/quaternion.hpp>
 #include "wiz8/filesystem.h"
 #include "surrender/srMath.h"
 #include <cstdlib>
@@ -66,7 +67,7 @@ try
         return false;
     }
     memset(path, 0, sizeof(W8PathAI));
-    path->nodes = new W8Vector<srVector3T<float>*>(5);
+    path->nodes = new std::vector<srVector3T<float>*>();
 
     success = (handle->read(&path->version, 1).bytes == static_cast<std::size_t>(1));
     success = success && (handle->read(&path->position, 4).bytes == static_cast<std::size_t>(4));
@@ -78,7 +79,7 @@ try
         path = 0;
     } else {
         path->rotations =
-            static_cast<srMatrix3T<float>*>(malloc(point_count * sizeof(srMatrix3T<float>)));
+            static_cast<glm::mat3*>(malloc(point_count * sizeof(glm::mat3)));
         if (path->rotations == 0) {
             srAssertFail("pPathAI->pRotations", PATH_AI_CPP, 0x104, 0);
         }
@@ -94,7 +95,7 @@ try
                 static_cast<srVector3T<float>*>(std::malloc(sizeof(srVector3T<float>)));
             float angle;
             srVector3T<float> axis;
-            srMatrix3T<float> rotation;
+            glm::mat3 rotation;
 
             handle->read_exact(&point->x, 4);
             handle->read_exact(&point->y, 4);
@@ -106,9 +107,11 @@ try
             handle->read_exact(&axis.x, 4);
             handle->read_exact(&axis.y, 4);
             handle->read_exact(&axis.z, 4);
-            rotation.SetIdentity();
+            rotation = glm::mat3(1);
             if (angle != g_double_zero) {
-                rotation.RotateAroundAxis(sin(angle), cos(angle), axis);
+                rotation *=
+                    glm::mat3_cast(glm::angleAxis(float(std::atan2(sin(angle), cos(angle))),
+                                                  normalizedOrZero(glm::vec3(axis.glmValue()))));
             }
             path->rotations[index] = rotation;
             if (path->version == 2) {
@@ -121,8 +124,9 @@ try
 
     *output = path;
     return true;
+} catch (const std::exception&) {
+    return false;
 }
-catch (const std::exception&) { return false; }
 
 // FUNCTION: WIZ8 0x004a9720
 void PathAIResetRecord(W8PathAI* path)
@@ -158,15 +162,15 @@ void PathAIApplyToRep(W8AIRecord* record, W8AnimRepBase* representation)
 // FUNCTION: WIZ8 0x004a9810
 void DestroyPathAI(W8PathAI* path)
 {
-    W8GrowableVector<srVector3T<float>*>* nodes;
+    std::vector<srVector3T<float>*>* nodes;
 
     if (path != 0) {
         nodes = path->nodes;
         if (nodes != 0) {
-            while (nodes->GetCount() != 0) {
-                std::free(nodes->RemoveAt(nodes->GetCount() - 1));
-                nodes = path->nodes;
+            for (auto* node : *nodes) {
+                std::free(node);
             }
+            nodes->clear();
             if (path->rotations != 0) {
                 free(path->rotations);
                 path->rotations = 0;
@@ -225,31 +229,31 @@ W8PathAI* ClonePathAI(const W8PathAI* source)
     copy->animated = source->animated;
     copy->upright = source->upright;
     if (source->nodes != 0) {
-        count = source->nodes->GetCount();
+        count = static_cast<int>(source->nodes->size());
     } else {
         count = 0;
     }
     copy->nodes = 0;
     if (source->nodes != 0) {
-        copy->nodes = new W8Vector<srVector3T<float>*>();
+        copy->nodes = new std::vector<srVector3T<float>*>();
         for (index = 0; index < count; ++index) {
             srVector3T<float>* allocated =
                 static_cast<srVector3T<float>*>(std::malloc(sizeof(srVector3T<float>)));
             srVector3T<float>* point;
 
             if (allocated != 0) {
-                *allocated = **source->nodes->GetAt(index);
+                *allocated = *(*source->nodes)[index];
                 point = allocated;
             } else {
                 point = 0;
             }
-            copy->nodes->Add(point);
+            copy->nodes->push_back(point);
         }
     }
     copy->rotations = 0;
     if (source->rotations != 0) {
         copy->rotations =
-            static_cast<srMatrix3T<float>*>(malloc(count * sizeof(srMatrix3T<float>)));
+            static_cast<glm::mat3*>(malloc(count * sizeof(glm::mat3)));
         for (index = 0; index < count; ++index) {
             copy->rotations[index] = source->rotations[index];
         }
@@ -285,15 +289,15 @@ W8AIRecord* CloneAIRecord(const W8AIRecord* record)
 // FUNCTION: WIZ8 0x004a9bb0
 void PathAIClearOwned(W8PathAI* path)
 {
-    W8GrowableVector<srVector3T<float>*>* nodes;
+    std::vector<srVector3T<float>*>* nodes;
 
     if (path != 0) {
         nodes = path->nodes;
         if (nodes != 0) {
-            while (nodes->GetCount() != 0) {
-                std::free(nodes->RemoveAt(nodes->GetCount() - 1));
-                nodes = path->nodes;
+            for (auto* node : *nodes) {
+                std::free(node);
             }
+            nodes->clear();
         }
         if (path->rotations != 0) {
             free(path->rotations);
@@ -317,22 +321,22 @@ unsigned char PathAIAddPoint(W8PathAI* path, const srVector3T<float>* point)
         srAssertFail("pPathAI->plsPoints", PATH_AI_CPP, 0x297, 0);
     }
     *copy = *point;
-    if (path->nodes->GetCount() == 0) {
+    if (path->nodes->empty()) {
         path->position = 0;
         path->interpolation_fraction = 0;
         path->distance_travelled = 0;
         path->point_index = 0;
     }
-    path->nodes->Add(copy);
-    if (path->nodes->GetCount() < 2) {
+    path->nodes->push_back(copy);
+    if (static_cast<int>(path->nodes->size()) < 2) {
         path->total_length = 0;
         return 1;
     }
 
     total_length = g_float_zero;
-    for (index = 0; index < path->nodes->GetCount() - 1; ++index) {
-        const srVector3T<float>* first = *path->nodes->GetAt(index);
-        const srVector3T<float>* second = *path->nodes->GetAt(index + 1);
+    for (index = 0; index < static_cast<int>(path->nodes->size()) - 1; ++index) {
+        const srVector3T<float>* first = (*path->nodes)[index];
+        const srVector3T<float>* second = (*path->nodes)[index + 1];
         total_length += (*first - *second).Length();
     }
     path->total_length = total_length;
@@ -376,13 +380,13 @@ unsigned char PathAINextPoint(W8PathAI* path, srVector3T<float>* point)
     if (path == 0 || path->nodes == 0) {
         return 0;
     }
-    if (path->point_index >= static_cast<unsigned int>(path->nodes->GetCount())) {
+    if (path->point_index >= static_cast<unsigned int>(path->nodes->size())) {
         if (path->looping == 0) {
             return 0;
         }
         path->point_index = 0;
     }
-    *point = **path->nodes->GetAt(path->point_index);
+    *point = *(*path->nodes)[path->point_index];
     ++path->point_index;
     return 1;
 }
@@ -391,7 +395,7 @@ unsigned char PathAINextPoint(W8PathAI* path, srVector3T<float>* point)
 bool PathAIIsComplete(W8PathAI* path)
 {
     if (path != 0 && path->nodes != 0 &&
-        (path->point_index < static_cast<unsigned int>(path->nodes->GetCount()) ||
+        (path->point_index < static_cast<unsigned int>(path->nodes->size()) ||
          path->looping != 0)) {
         return false;
     }
@@ -404,7 +408,7 @@ unsigned int PathAIEntryCount(W8PathAI* path)
     if (path == 0) {
         srAssertFail("pPathAI", PATH_AI_CPP, 0x43b, 0);
     }
-    return path->nodes->GetCount();
+    return static_cast<int>(path->nodes->size());
 }
 
 // FUNCTION: WIZ8 0x004a9f60
@@ -457,14 +461,14 @@ void PathAIAdvanceByDistance(W8PathAI* path, float distance)
         path->position = g_float_one;
         path->interpolation_fraction = g_float_one;
         path->distance_travelled = path->total_length;
-        path->point_index = path->nodes->GetCount() - 1;
+        path->point_index = static_cast<int>(path->nodes->size()) - 1;
         return;
     }
     remaining = distance;
     while (true) {
         PathAIPosition(path, &position);
         index = path->point_index + 1;
-        next = *path->nodes->GetAt(index);
+        next = (*path->nodes)[index];
         segment = (position - *next).Length();
         if (remaining < segment) {
             break;
@@ -472,16 +476,16 @@ void PathAIAdvanceByDistance(W8PathAI* path, float distance)
         path->point_index = index;
         remaining -= segment;
         path->interpolation_fraction = g_float_zero;
-        if (path->nodes->GetCount() - 1U <= index) {
-            path->point_index = path->nodes->GetCount() - 1;
+        if (static_cast<int>(path->nodes->size()) - 1U <= index) {
+            path->point_index = static_cast<int>(path->nodes->size()) - 1;
             path->position = g_float_one;
             path->interpolation_fraction = g_float_one;
             return;
         }
     }
     index = path->point_index;
-    next = *path->nodes->GetAt(index + 1);
-    current = *path->nodes->GetAt(index);
+    next = (*path->nodes)[index + 1];
+    current = (*path->nodes)[index];
     segment = (*current - *next).Length();
     path->interpolation_fraction = (segment * path->interpolation_fraction + remaining) / segment;
 }
@@ -492,10 +496,10 @@ void PathAIAdvanceNormalized(W8PathAI* path, float amount)
     unsigned int index;
     float position;
 
-    position = amount * path->speed / path->nodes->GetCount() + path->position;
+    position = amount * path->speed / static_cast<int>(path->nodes->size()) + path->position;
     path->position = position;
     if (position < g_float_one) {
-        position *= path->nodes->GetCount();
+        position *= static_cast<int>(path->nodes->size());
         index = static_cast<unsigned int>(position);
         path->point_index = index;
         path->interpolation_fraction = position - index;
@@ -505,7 +509,7 @@ void PathAIAdvanceNormalized(W8PathAI* path, float amount)
         path->position = g_float_one;
         path->interpolation_fraction = g_float_one;
         path->distance_travelled = path->total_length;
-        path->point_index = path->nodes->GetCount() - 1;
+        path->point_index = static_cast<int>(path->nodes->size()) - 1;
         return;
     }
     path->position = g_float_zero;
@@ -532,7 +536,7 @@ unsigned char PathAITick(W8PathAI* path, signed char direction)
             if (path->timed != 0) {
                 PathAIAdvanceNormalized(path, elapsed * g_float_one_thousandth);
             } else {
-                point_count = static_cast<float>(path->nodes->GetCount());
+                point_count = static_cast<float>(path->nodes->size());
                 PathAIAdvanceByDistance(path, path->total_length / point_count * path->speed *
                                                   elapsed * g_float_one_thousandth);
             }
@@ -551,7 +555,7 @@ unsigned char PathAITick(W8PathAI* path, signed char direction)
         }
         path->position += amount;
         if (path->position >= g_float_zero) {
-            point_count = static_cast<float>(path->nodes->GetCount());
+            point_count = static_cast<float>(path->nodes->size());
             if (path->position < point_count) {
                 path->last_update_tick = now;
                 return 1;
@@ -563,7 +567,7 @@ unsigned char PathAITick(W8PathAI* path, signed char direction)
             }
         } else if (path->looping != 0) {
             path->last_update_tick = now;
-            path->position = path->nodes->GetCount() - g_float_one;
+            path->position = static_cast<int>(path->nodes->size()) - g_float_one;
             return 1;
         }
         path->position = g_float_zero;
@@ -588,15 +592,16 @@ void PathAIPosition(W8PathAI* path, srVector3T<float>* value)
     }
     if (path->animated == 0) {
         if (path->discrete_mode == 0) {
-            index = srFloatToInt((path->nodes->GetCount() - 1) * path->position + g_double_half);
+            index = srFloatToInt((static_cast<int>(path->nodes->size()) - 1) * path->position +
+                                 g_double_half);
         } else {
             index = srFloatToInt(path->position + g_double_one_tenth);
         }
-        if (index >= path->nodes->GetCount()) {
-            index = path->nodes->GetCount() - 1;
+        if (index >= static_cast<int>(path->nodes->size())) {
+            index = static_cast<int>(path->nodes->size()) - 1;
         }
         if (index >= 0) {
-            first = *path->nodes->GetAt(index);
+            first = (*path->nodes)[index];
             if (first != 0) {
                 *value = *first;
             }
@@ -605,14 +610,14 @@ void PathAIPosition(W8PathAI* path, srVector3T<float>* value)
     }
 
     index = path->point_index;
-    if (static_cast<unsigned int>(index) < static_cast<unsigned int>(path->nodes->GetCount() - 1)) {
-        second = *path->nodes->GetAt(index + 1);
-        first = *path->nodes->GetAt(index);
+    if (index >= 0 && index + 1 < static_cast<int>(path->nodes->size())) {
+        second = (*path->nodes)[index + 1];
+        first = (*path->nodes)[index];
         first_weight = g_float_one - path->interpolation_fraction;
         *value = *first * first_weight + *second * path->interpolation_fraction;
         return;
     }
-    first = *path->nodes->GetAt(index);
+    first = (*path->nodes)[index];
     if (first != 0) {
         *value = *first;
     }
@@ -635,8 +640,8 @@ void PathAIApply(W8PathAI* path, srNode* target)
     srVector3T<float>* scale_vector;
     srVector3T<float> position;
     srVector3T<double> location;
-    srMatrix3T<float> rotation;
-    srMatrix3T<float> next;
+    glm::mat3 rotation;
+    glm::mat3 next;
 
     if (target == 0) {
         return;
@@ -645,17 +650,17 @@ void PathAIApply(W8PathAI* path, srNode* target)
 
     node = target->first_child_;
     if (node == 0) {
-        location.SetFromFloat(&position);
+        location = glm::dvec3(position.glmValue());
         target->setLocation(location);
     } else {
         do {
-            location.SetFromFloat(&position);
+            location = glm::dvec3(position.glmValue());
             node->setLocation(location);
             node = node->next_sibling_;
         } while (node != 0);
     }
 
-    if (0 < path->nodes->GetCount()) {
+    if (0 < static_cast<int>(path->nodes->size())) {
         if (path->discrete_mode == 0) {
             blend = path->interpolation_fraction;
             index = path->point_index;
@@ -663,8 +668,8 @@ void PathAIApply(W8PathAI* path, srNode* target)
             index = srFloatToInt(path->position + g_double_one_tenth);
             blend = -1.0f;
         }
-        if (path->nodes->GetCount() - 1 <= index) {
-            index = path->nodes->GetCount() - 1;
+        if (static_cast<int>(path->nodes->size()) - 1 <= index) {
+            index = static_cast<int>(path->nodes->size()) - 1;
             blend = -1.0f;
         }
 
@@ -672,7 +677,18 @@ void PathAIApply(W8PathAI* path, srNode* target)
         if (g_float_zero < blend) {
             next = path->rotations[index + 1];
             if (!(rotation == next)) {
-                W8Quaternion::InterpolateRotation(rotation, next, blend, &rotation);
+                const auto first_rotation = glm::dquat(glm::quat_cast(rotation));
+                auto next_rotation = glm::dquat(glm::quat_cast(next));
+                double rotation_dot = glm::dot(first_rotation, next_rotation);
+                if (rotation_dot < g_double_zero) {
+                    next_rotation = -next_rotation;
+                    rotation_dot = -rotation_dot;
+                }
+                const auto interpolated_rotation =
+                    g_double_one - rotation_dot <= g_slerp_epsilon
+                        ? first_rotation * (g_double_one - blend) + next_rotation * double(blend)
+                        : glm::slerp(first_rotation, next_rotation, double(blend));
+                rotation = glm::mat3_cast(glm::normalize(interpolated_rotation));
             }
         }
 
@@ -690,11 +706,11 @@ void PathAIApply(W8PathAI* path, srNode* target)
             scale_vector = &path->scales[index];
             node = target->first_child_;
             if (node == 0) {
-                location.SetFromFloat(scale_vector);
+                location = glm::dvec3(scale_vector->glmValue());
                 target->setScale(location);
             } else {
                 do {
-                    location.SetFromFloat(scale_vector);
+                    location = glm::dvec3(scale_vector->glmValue());
                     node->setScale(location);
                     node = node->next_sibling_;
                 } while (node != 0);
@@ -747,6 +763,6 @@ W8PathAI* CreateRecord(int)
         return 0;
     }
     memset(path, 0, sizeof(W8PathAI));
-    path->nodes = new W8Vector<srVector3T<float>*>();
+    path->nodes = new std::vector<srVector3T<float>*>();
     return path;
 }

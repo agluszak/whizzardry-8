@@ -1,14 +1,17 @@
 #ifndef WIZ8_ENGINE_CODE_ANIM_OBJ_H
 #define WIZ8_ENGINE_CODE_ANIM_OBJ_H
 
-#include "wiz8/3d_code/PList.h"
+#include <vector>
+struct W8AniMesh;
+struct W8PathAI;
+
+#include <algorithm>
 #include "surrender/srMath.h"
 
 struct W8AniMesh;
 struct W8PathAI;
 struct W8ReadLevelInfo;
 class stLight;
-template <class T> class W8GrowableVector;
 class srModelInstance;
 
 struct W8AnimObj {
@@ -33,8 +36,8 @@ struct W8AnimObj {
     /* Six lists in two groups of three, not nine. The first group's entries are
        meshes, released the same way; the second group's are paths, released
        through DestroyPathAI. */
-    W8PList* meshes[3]; /* 0x28 */
-    W8PList* paths[3];  /* 0x34 */
+    std::vector<W8AniMesh*>* meshes[3]; /* 0x28 */
+    std::vector<W8PathAI*>* paths[3];   /* 0x34 */
     /* Named by 0x004A1710's own assertion,
        "pao->pfKnownBBoxFrames && pao->pvecBoundMin && pao->pvecBoundMax".
        One byte a frame saying whether that frame's bounds are already known,
@@ -50,7 +53,7 @@ W8_ABI_ASSERT(sizeof(W8AnimObj) == 0x4c, "W8AnimObj_size_must_be_0x4c");
 W8AnimObj* CreateAnimObj();
 void DestroyAnimObj(W8AnimObj* animation);
 W8AnimObj* CloneAnimObj(const W8AnimObj* source);
-void TransformBounds(const srMatrix3T<float>* rotation, const srVector3T<float>* translation,
+void TransformBounds(const glm::mat3* rotation, const srVector3T<float>* translation,
                      const srVector3T<float>* scale, srVector3T<float>* minimum,
                      srVector3T<float>* maximum);
 unsigned int AnimObjValue(W8AnimObj* animation, signed char index);
@@ -58,7 +61,7 @@ unsigned int AnimObjListCount(W8AnimObj* animation, signed char index);
 W8PathAI* AnimObjListEntry(W8AnimObj* animation, signed char list_index, signed char entry_index);
 unsigned char AnimationIsRunning(W8AnimObj* animation);
 unsigned char AnimObjReadFromFile(W8ReadLevelInfo* info, W8AnimObj* animation, int load_all,
-                                  W8GrowableVector<stLight*>* light_list, int);
+                                  std::vector<stLight*>* light_list, int);
 srModelInstance* AnimObjDispatch(W8AnimObj* animation, signed char list_index, unsigned char value);
 srModelInstance* AnimObjDispatchList(W8AnimObj* animation, signed char list_index,
                                      signed char entry_index);

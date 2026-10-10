@@ -1,8 +1,8 @@
 #include "wiz8/filesystem.h"
 #include <cstring>
 #include <math.h>
-
 #include "wiz8/engine_code/Environment.h"
+
 #include "wiz8/engine_code/3d.h"
 #include "wiz8/engine_code/Prop.h"
 #include "wiz8/engine_code/stLight.hpp"
@@ -27,6 +27,7 @@
 #include "wiz8/local_code/GameplayTime.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/engine_code/Monster.h"
+#include <glm/gtc/matrix_transform.hpp>
 
 #define ENVIRONMENT_CPP "C:\\Projects\\Wizardry 8\\Engine Code\\Environment.cpp"
 
@@ -52,7 +53,7 @@ static const float CAMERA_LIGHT_MAXIMUM_INTENSITY = 50.0f;
 // GLOBAL: WIZ8 0x0065B9B4
 static srFog* g_environment_object1;
 // GLOBAL: WIZ8 0x0065B998
-W8Vector<stLight*> g_environment_lights(5);
+std::vector<stLight*> g_environment_lights;
 
 /* 1/duration while the transition body at 0x00484300 runs, zero when idle.
    BeginWorldLightingFade stores 1/duration and sets the lighting mode to 1;
@@ -97,7 +98,7 @@ void W8MaterialMapper::process(srVertexPipe& pipe)
         return;
     }
     w8_ulong count = pipe.getVertexCount();
-    srVector2T<float>* coordinates = pipe.getST(0, 0);
+    glm::vec2* coordinates = pipe.getST(0, 0);
 
     offset_x = scroll_rate_u * g_frame_elapsed + scroll_u;
     scroll_u = offset_x - static_cast<float>(floor(offset_x));
@@ -157,15 +158,13 @@ void AdvanceEnvironmentTime(int elapsed)
     srVector3T<float> direction;
     direction.Set(0.0, g_celestial_orbit_radius, 0.0);
 
-    srMatrix3T<float> rotation;
-    rotation.SetIdentity();
+    glm::mat3 rotation;
+    rotation = glm::mat3(1);
 
     angle -= 3.141592653589793 * (1.0f / 180.0f) * 40.0;
-    if (angle != 0.0) {
-        rotation.RotateAboutZ(sin(angle), cos(angle));
-    }
+    rotation *= glm::mat3_cast(glm::angleAxis(float(angle), glm::vec3(0, 0, 1)));
 
-    srVector3T<float> position = rotation.Transform(direction) + g_celestial_origin;
+    srVector3T<float> position = rotation * direction.glmValue() + g_celestial_origin.glmValue();
 
     W8Prop* moving = day ? g_sun_prop : g_moon_prop;
     W8Prop* opposite = day ? g_moon_prop : g_sun_prop;
@@ -178,8 +177,8 @@ void AdvanceEnvironmentTime(int elapsed)
 
     unsigned int phase = ((g_status.game_time_ms / 1000U) << 8) / 86400U;
     for (int index = 0; index < 3; ++index) {
-        if (g_sky_gradient_animations[index] != 0) {
-            g_sky_gradient_animations[index]->frame = static_cast<int>(phase);
+        if (auto animation = g_sky_gradient_animations[index].lock()) {
+            animation->frame = static_cast<int>(phase);
         }
     }
 }
@@ -277,8 +276,9 @@ try
         ClampEnvironmentComponent(g_environment_colours1[index].z);
     }
     return 1;
+} catch (const std::exception&) {
+    return false;
 }
-catch (const std::exception&) { return false; }
 
 // FUNCTION: WIZ8 0x004830D0
 BOOLEAN ReadEnvironmentColourTable(wiz8::File* hFile)
@@ -301,8 +301,9 @@ try
         ClampEnvironmentComponent(g_environment_colours0[index].z);
     }
     return 1;
+} catch (const std::exception&) {
+    return false;
 }
-catch (const std::exception&) { return false; }
 
 // FUNCTION: WIZ8 0x00483210
 void BuildEnvironmentColourRamp(void)
@@ -671,9 +672,9 @@ void RefreshFogRanges(void)
 // FUNCTION: WIZ8 0x004826b0
 void ResetEnvironment(void)
 {
-    g_sky_gradient_animations[0] = 0;
-    g_sky_gradient_animations[1] = 0;
-    g_sky_gradient_animations[2] = 0;
+    g_sky_gradient_animations[0].reset();
+    g_sky_gradient_animations[1].reset();
+    g_sky_gradient_animations[2].reset();
     g_sun_prop = 0;
     g_moon_prop = 0;
     g_celestial_orbit_radius = -1.0f;
@@ -721,14 +722,14 @@ void ReleaseEnvironmentObjects(void)
 {
     ReleaseRendererObject(g_environment_object0);
     ReleaseRendererObject(g_environment_object1);
-    g_environment_lights.Clear();
+    g_environment_lights.clear();
 }
 
 // FUNCTION: WIZ8 0x00483F30
 void AddEnvironmentLight(stLight* light)
 {
     if (light != 0) {
-        g_environment_lights.Add(light);
+        g_environment_lights.push_back(light);
     }
 }
 
@@ -792,21 +793,15 @@ void ApplyEnvironmentColour(W8World* world, float intensity, const EnvironmentCo
         world->environment_colour = *colour;
         world->environment_intensity = intensity;
     }
-    for (int index = 0; index < g_environment_lights.GetCount(); ++index) {
-        stLight* light = *g_environment_lights.GetAt(index);
+    for (stLight* light : g_environment_lights) {
         srVector3T<float> scaled(colour->x, colour->y, colour->z);
 
         scaled *= static_cast<double>(intensity);
         SaturateColor(&scaled);
-        light->ambient = scaled;
+        light->ambient = scaled.glmValue();
     }
     {
-        srRegistry* registry = srCore.getRegistry();
-        srRegistry::ClassNode* node = stMaterial::sGetClassNode();
-
-        srMaterial* material = static_cast<srMaterial*>(
-            registry->find(node, "AnimatedCloudMaterial", static_cast<const srRuntimeClass*>(0)));
-        if (material != 0) {
+        if (auto material = g_materials.find("AnimatedCloudMaterial")) {
             double brightness =
                 g_double_one - fabs(g_status.game_time_ms - g_half_day_ms) * g_inverse_half_day_ms;
 
@@ -936,12 +931,7 @@ void InitializeLevelEnvironment(void)
             g_celestial_origin = midpoint;
             for (int index = 0; index < 3; ++index) {
                 const char* name = g_sky_gradient_names[index];
-                srRegistry* registry = srCore.getRegistry();
-                srRegistry::ClassNode* node = stTextureAnim::sGetClassNode();
-
-                stTextureAnim* animation = static_cast<stTextureAnim*>(
-                    registry->find(node, name, static_cast<const srRuntimeClass*>(0)));
-
+                std::shared_ptr<stTextureAnim> animation = g_texture_animations.find(name);
                 g_sky_gradient_animations[index] = animation;
                 if (animation != 0) {
                     animation->animation_mode = W8_TEXTURE_ANIM_MANUAL;

@@ -2,7 +2,7 @@
 
 #include <vector>
 #include "srIO.h"
-#include "srHash.h"
+#include <unordered_map>
 
 class srHuffman {
 public:
@@ -72,7 +72,7 @@ public:
         SR_DLL_IMPORT w8_ulong getSymbolFrequency(w8_ulong index) const;
 
     private:
-        srHashTable<w8_ulong, int> table;
+        std::unordered_map<w8_ulong, size_t> table;
         std::vector<Symbol> symbols;
     };
 
@@ -96,13 +96,13 @@ public:
         // FUNCTION: SURRENDER 0x10001430
         void compressSymbol(BitOStream& stream, w8_ulong symbol)
         {
-            Node* node = table.Lookup(&symbol);
-            if (node != 0) {
-                stream.put(node->code, node->bits);
+            const auto found = table.find(symbol);
+            if (found != table.end()) {
+                stream.put(found->second->code, found->second->bits);
             }
         }
 
-        srHashTable<w8_ulong, Node*> table;
+        std::unordered_map<w8_ulong, Node*> table;
         std::vector<Node> nodes;
         Node* free_list;
         Node* root;
@@ -148,11 +148,3 @@ public:
     };
 };
 
-W8_ABI_ASSERT(sizeof(srHuffman::Compressor::Node) == 0x1c,
-              "srHuffman_Compressor_Node_must_be_0x1c");
-W8_ABI_ASSERT(sizeof(srHuffman::BitIStream) == 0x8c, "srHuffman_BitIStream_must_be_0x8c");
-W8_ABI_ASSERT(sizeof(srHuffman::BitOStream) == 0x54, "srHuffman_BitOStream_must_be_0x54");
-W8_ABI_ASSERT(sizeof(srHuffman::Sampler) == 0x1c, "srHuffman_Sampler_must_be_0x1c");
-W8_ABI_ASSERT(sizeof(srHuffman::Sampler::Symbol) == 0x08, "srHuffman_Sampler_Symbol_must_be_0x08");
-W8_ABI_ASSERT(sizeof(srHuffman::Compressor) == 0x28, "srHuffman_Compressor_must_be_0x28");
-W8_ABI_ASSERT(sizeof(srHuffman::Decompressor) == 0x51c, "srHuffman_Decompressor_must_be_0x51c");

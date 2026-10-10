@@ -57,7 +57,7 @@ void W8DialogNumericInput::SetActive(bool active)
 }
 
 // FUNCTION: WIZ8 0x005e1500
-void W8DialogNumericInput::SetActive(bool active, const SGPPoint* point)
+void W8DialogNumericInput::SetActive(bool active, const SDL_Point* point)
 {
     SetActive(active);
     if (!active) {
@@ -70,7 +70,7 @@ void W8DialogNumericInput::SetActive(bool active, const SGPPoint* point)
     wchar_t* suffix = g_numeric_input_text + length - 1;
     for (; count < length; ++count, --suffix) {
         short suffix_width = StringPixLength(suffix, m_font);
-        if ((m_bounds.right - point->iX) - m_bounds.left < suffix_width) {
+        if ((m_bounds.right - point->x) - m_bounds.left < suffix_width) {
             m_caret = count;
             break;
         }

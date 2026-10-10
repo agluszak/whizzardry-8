@@ -26,7 +26,7 @@ srModelInstance& srModelInstance::operator=(const srModelInstance& other)
     if (this != &other) {
         srNode::operator=(other);
         alignment_flags = other.alignment_flags;
-        setModel(other.getModel());
+        model_ = other.model_;
         align_angle = other.align_angle;
         align_axis = other.align_axis;
         exclusion_mask = other.exclusion_mask;
@@ -36,12 +36,6 @@ srModelInstance& srModelInstance::operator=(const srModelInstance& other)
 
 // FUNCTION: SURRENDER 0x1004FA40
 srModelInstance::~srModelInstance() {}
-
-// FUNCTION: SURRENDER 0x1004FF80
-srClass* srModelInstance::vInstance()
-{
-    return new srModelInstance(static_cast<srNode*>(0));
-}
 
 // FUNCTION: SURRENDER 0x1004F3A0
 void srModelInstance::traverse(TraverseInfo& info)
@@ -70,14 +64,6 @@ void srModelInstance::getLocalBounds(BoundInfo& bounds)
     model->getBoundingSphere(bounds.center, bounds.radius);
 }
 
-// FUNCTION: SURRENDER 0x1004F320
-void srModelInstance::updateClient(srModel::Client::e_update update)
-{
-    if (update == srModel::Client::UPDATE_BOUNDS) {
-        notifyParents(srFlags<e_notify>(0));
-    }
-}
-
 // FUNCTION: SURRENDER 0x1004F4B0
 void srModelInstance::process(const ProcessInfo& info, e_processType type)
 {
@@ -88,50 +74,22 @@ void srModelInstance::process(const ProcessInfo& info, e_processType type)
     } else {
         renderer->matrixMode(srGERD::MATRIX_MODELVIEW);
         renderer->pushMatrix();
-        srMatrix4T<float> matrix;
+        glm::mat4 matrix;
         renderer->getMatrix(srGERD::MATRIX_MODELVIEW, matrix);
-        srVector3T<double> location = getWorldSpaceLocation();
-        float x = (float)location.x;
-        float y = (float)location.y;
-        float z = (float)location.z;
-        srVector3T<double> world_scale = getWorldSpaceScale();
-        srVector4T<float> position;
-        position.Set(matrix.vectors[0].x * x + matrix.vectors[0].z * z + matrix.vectors[0].y * y +
-                         matrix.vectors[0].w,
-                     matrix.vectors[1].x * x + matrix.vectors[1].z * z + matrix.vectors[1].y * y +
-                         matrix.vectors[1].w,
-                     matrix.vectors[2].x * x + matrix.vectors[2].z * z + matrix.vectors[2].y * y +
-                         matrix.vectors[2].w,
-                     matrix.vectors[3].x * x + matrix.vectors[3].z * z + matrix.vectors[3].y * y +
-                         matrix.vectors[3].w);
-        float length_x = (float)sqrt(matrix.vectors[0].x * matrix.vectors[0].x +
-                                     matrix.vectors[1].x * matrix.vectors[1].x +
-                                     matrix.vectors[2].x * matrix.vectors[2].x);
-        float length_y = (float)sqrt(matrix.vectors[0].y * matrix.vectors[0].y +
-                                     matrix.vectors[1].y * matrix.vectors[1].y +
-                                     matrix.vectors[2].y * matrix.vectors[2].y);
-        float length_z = (float)sqrt(matrix.vectors[0].z * matrix.vectors[0].z +
-                                     matrix.vectors[1].z * matrix.vectors[1].z +
-                                     matrix.vectors[2].z * matrix.vectors[2].z);
-        float determinant = matrix.vectors[0].x * (matrix.vectors[2].z * matrix.vectors[1].y -
-                                                   matrix.vectors[2].y * matrix.vectors[1].z) +
-                            matrix.vectors[1].x * (matrix.vectors[2].y * matrix.vectors[0].z -
-                                                   matrix.vectors[2].z * matrix.vectors[0].y) +
-                            matrix.vectors[2].x * (matrix.vectors[1].z * matrix.vectors[0].y -
-                                                   matrix.vectors[1].y * matrix.vectors[0].z);
-        if (determinant > 0.0f) {
-            length_x = -length_x;
-            length_y = -length_y;
-            length_z = -length_z;
-        }
+        const glm::vec4 position = matrix * glm::vec4(glm::vec3(getWorldSpaceLocation()), 1);
+        const auto world_scale = glm::vec3(getWorldSpaceScale());
+        glm::vec3 scale(glm::length(glm::vec3(matrix[0])), glm::length(glm::vec3(matrix[1])),
+                        glm::length(glm::vec3(matrix[2])));
+        if (glm::determinant(glm::mat3(matrix)) > 0)
+            scale = -scale;
         renderer->loadIdentity();
-        srVector3T<float> translation = position.xyz();
+        srVector3T<float> translation = glm::vec3(position);
         renderer->translate(translation);
         if (align_angle != 0.0f) {
             renderer->rotate(align_angle, align_axis);
         }
-        renderer->scale((float)world_scale.x * length_x, (float)world_scale.y * length_y,
-                        -((float)world_scale.z * length_z));
+        scale *= world_scale;
+        renderer->scale(scale.x, scale.y, -scale.z);
     }
     if (exclusion_mask != 0) {
         w8_ulong mask = renderer->getExclusionMask();

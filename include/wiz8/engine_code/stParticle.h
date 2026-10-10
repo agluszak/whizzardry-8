@@ -1,5 +1,8 @@
 #pragma once
 
+#include <memory>
+#include <vector>
+
 #include "wiz8/filesystem.h"
 
 #include "wiz8/engine_code/particle_modes.h"
@@ -19,8 +22,6 @@ public:
     {
         return "stParticle";
     }
-    /* 0x00497C57 compares count signed, while particle_count is stored and
-       compared unsigned, so the parameter is not the member's type. */
     stParticle(srNode* parent, int count); /* 0x00497AF0 */
     stParticle(const stParticle& other);   /* 0x00498180 */
     void SetActive(unsigned char active);
@@ -28,8 +29,8 @@ public:
     void DeactivateParticle(unsigned int index);
     unsigned char ActivateParticle(unsigned int* out_index, bool replace_when_full);
     void InitializeParticlePosition(srVector3T<float>* output);
-    void SetTexture(srTextureIFace* texture);
-    void SetMaterial(srMaterialIFace* material);
+    void SetTexture(std::shared_ptr<srTextureIFace> texture);
+    void SetMaterial(std::shared_ptr<srMaterialIFace> material);
     void SetRenderFlags(srShader flags);
     void SetFlutter(W8ParticleFlutterMode mode);
     void SetParticleScale(float scale);
@@ -37,119 +38,99 @@ public:
     /* The per-particle age/cull/move step and billboard-corner expansion used
        by the submitted batch. Their retail names remain unavailable. */
     void Update();                                 /* 0x00499FA0 */
-    void PrepareRenderer(srMatrix4T<float>& view); /* 0x00498DD0 */
+    void PrepareRenderer(glm::mat4& view); /* 0x00498DD0 */
     srShader GetRenderFlags() const;
-    unsigned char ReplaceTexture(const char* old_name, srTextureIFace* replacement);
-    virtual srClass* vInstance() override;                      /* 0x004980E0 */
+    unsigned char ReplaceTexture(const char* old_name, std::shared_ptr<srTextureIFace> replacement);
     virtual void traverse(srNode::TraverseInfo& info) override; /* 0x00498C40 */
     virtual void process(const srNode::ProcessInfo& info,
                          srNode::e_processType type) override; /* 0x00498D60 */
 
-protected:
-    virtual ~stParticle() override; /* 0x00498A20 */
-
-public:
     stParticle& operator=(const stParticle&) = default;
-    unsigned int requires_sorted_renderer;
-    unsigned char padding_13c[4];
-    double particle_size; /* 0x140: billboard quad scale from particle_size */
-    /* Per-particle world positions; the retail allocation assert spells the
-       buffer pParticle. */
-    srVector3T<float>* particle_positions;
-    /* Shared reference: setter and copy acquire it; destruction releases it. */
-    srMaterialIFace* material;
+
+    unsigned int requires_sorted_renderer = 0;
+    double particle_size = 1.0; /* billboard quad scale */
+    std::shared_ptr<srMaterialIFace> material;
     srShader render_flags;
-    srTextureIFace* texture;
-    unsigned int vertex_count;
-    /* particle_count * 2 - the billboard triangle count, and the length of
-       texture_frames where consecutive pairs share one frame. */
-    unsigned int texture_frame_count;
-    /* Per-vertex billboard corners (assert pVertex), texture UVs (pTexCoord)
-       and triangle index triples; malloc-allocated, vertex_count /
-       texture_frame_count long. */
-    srVector3T<float>* vertex_positions;
-    srVector2T<float>* texcoords;
-    srVector3i* triangles;
-    /* Optional per-vertex arrays handed to the record/pipeline color and
-       extra slots (dig-format vec3 colors and vertex extras/normals). Retail
-       never allocates them - both stay null in every recovered path. */
-    srVector3T<float>* colors;
-    srVector3T<float>* vertex_extras;
-    float* alphas;
-    stTextureAnim** texture_frames;
-    float* m_pflFlutterAngle; /* 0x17c */
-    unsigned int particle_count;
+    std::shared_ptr<srTextureIFace> texture;
+    unsigned int particle_count = 0;
+    /* Per-particle state. */
+    std::vector<srVector3T<float>> particle_positions;
+    std::vector<srVector3T<float>> velocities;
+    /* Unsigned millisecond birth ticks. */
+    std::vector<unsigned int> birth_ticks;
+    std::vector<bool> particle_active;
+    /* Flutter phase per particle; empty without flutter. */
+    std::vector<float> flutter_angles;
+    /* Billboard geometry: four vertices and two triangles per particle. */
+    std::vector<srVector3T<float>> vertex_positions;
+    std::vector<glm::vec2> texcoords;
+    std::vector<float> alphas;
+    std::vector<srVector3i> triangles;
+    /* Per-triangle animated texture copies; both triangles of a particle share
+       one. Empty unless the texture is animated. */
+    std::vector<std::shared_ptr<srTextureIFace>> texture_frames;
+    /* Two triangle indices per still-active particle, rebuilt whenever
+       update_flags carries W8_PARTICLE_ACTIVE_TRIANGLES_DIRTY. */
+    std::vector<w8_ulong> active_triangles;
     /* Both unsigned: 0x004994D0 gates the particle off with the unsigned
        `emission_limit != 0 && emission_limit <= emission_count` pair. */
-    unsigned int emission_limit;
-    unsigned int emission_count;
-    unsigned int active_particle_count;
-    bool release_when_done;
-    bool replace_when_full;
-    bool persisted;
-    unsigned char padding_193;
-    /* Per-particle liveness flag byte; the update loop retires it when the
-       birth tick plus lifetime expires. */
-    bool* particle_active;
-    /* Per-particle velocity; acceleration integrates it each update. */
-    srVector3T<float>* velocities;
-    /* Unsigned millisecond birth ticks, one per particle. */
-    unsigned int* birth_ticks;
-    unsigned char emitting;
-    bool traversal_enabled;
-    unsigned char padding_1a2[2];
-    W8ParticleBoundsMode bounds_mode;
-    int has_acceleration;
-    W8ParticleExpiryMode expiry_mode;
-    W8ParticleEmissionMode emission_mode;
-    int los_check_enabled;
-    W8ParticleDirectionMode direction_mode;
-    W8ParticleSpeedMode speed_mode;
-    W8ParticleFlutterMode flutter_mode;
-    int camera_relative;
+    unsigned int emission_limit = 0;
+    unsigned int emission_count = 0;
+    unsigned int active_particle_count = 0;
+    /* The particle deletes itself once it stops emitting and has no live particles. */
+    bool release_when_done = false;
+    bool replace_when_full = false;
+    bool persisted = false;
+    unsigned char emitting = 1;
+    bool traversal_enabled = true;
+    W8ParticleBoundsMode bounds_mode = W8_PARTICLE_BOUNDS_SPHERE;
+    int has_acceleration = 0;
+    W8ParticleExpiryMode expiry_mode = W8_PARTICLE_EXPIRY_TIMED;
+    W8ParticleEmissionMode emission_mode = W8_PARTICLE_EMISSION_NONE;
+    int los_check_enabled = 0;
+    W8ParticleDirectionMode direction_mode = W8_PARTICLE_DIRECTION_CONE;
+    W8ParticleSpeedMode speed_mode = W8_PARTICLE_SPEED_RANDOM;
+    W8ParticleFlutterMode flutter_mode = W8_PARTICLE_FLUTTER_NONE;
+    int camera_relative = 0;
     /* Emission interval; elapsed comparisons use unsigned subtraction. */
-    unsigned int emission_interval;
+    unsigned int emission_interval = 50;
     /* Lifetime added to each absolute unsigned birth tick. */
-    unsigned int lifetime_ms;
-    srVector3T<float> emission_minimum;
-    srVector3T<float> emission_maximum;
-    srVector3T<float> direction;
-    srVector3T<float> acceleration;
-    float flutter_amplitude;
+    unsigned int lifetime_ms = 1500;
+    srVector3T<float> emission_minimum{-250.0f, -250.0f, -250.0f};
+    srVector3T<float> emission_maximum{250.0f, 250.0f, 250.0f};
+    srVector3T<float> direction{0.0f, -1.0f, 0.0f};
+    srVector3T<float> acceleration{0.0f, -4905.0f, 0.0f};
+    float flutter_amplitude = 0.0f;
     /* 0x00498DD0 uses this as an unsigned modulus period. */
-    unsigned int flutter_period;
-    float cone_yaw;
-    float cone_pitch;
-    float initial_speed;
-    float speed_min;
-    float speed_max;
-    srVector3T<float> lifetime_minimum;
-    srVector3T<float> lifetime_maximum;
-    srVector3T<float> bounds_origin;
-    float bounds_radius;
+    unsigned int flutter_period = 0;
+    float cone_yaw = 0.39269906f;
+    float cone_pitch = 0.39269906f;
+    float initial_speed = 500.0f;
+    float speed_min = 1000.0f;
+    float speed_max = 4000.0f;
+    srVector3T<float> lifetime_minimum{-1000.0f, -1000.0f, -1000.0f};
+    srVector3T<float> lifetime_maximum{1000.0f, 1000.0f, 1000.0f};
+    srVector3T<float> bounds_origin{0.0f, 0.0f, 0.0f};
+    float bounds_radius = 2000.0f;
     /* Added to the camera position when camera_relative selects camera-relative
        placement. */
-    srVector3T<float> camera_offset;
-    unsigned int update_flags;
-    /* Index pairs, two per still-active particle, rebuilt whenever
-       update_flags carries bit 1. */
-    w8_ulong* active_triangles;
+    srVector3T<float> camera_offset{0.0f, 0.0f, 0.0f};
+    unsigned int update_flags = 0;
     /* Last accepted particle-integration tick. */
-    unsigned int last_integration_tick;
+    unsigned int last_integration_tick = 0;
     /* Emission schedule tick. */
-    unsigned int last_emission_tick;
-    short attachment_key;
-    unsigned char padding_262[2];
-    int start_frame;
-    int end_frame;
-    W8MonsterShakeCallback* callback;
-    unsigned int emission_gap;
-    unsigned int last_emitted_at;
-    float size_scale;
-    unsigned char padding_27c[4];
-};
+    unsigned int last_emission_tick = 0;
+    short attachment_key = -1;
+    int start_frame = -1;
+    int end_frame = -1;
+    W8MonsterShakeCallback* callback = nullptr;
+    unsigned int emission_gap = 25;
+    unsigned int last_emitted_at = 0;
+    float size_scale = 1.0f;
 
-W8_ABI_ASSERT(sizeof(stParticle) == 0x280, "stParticle_size_must_be_0x280");
+private:
+    void AllocateParticles(unsigned int count);
+};
 
 stParticle* FindRegisteredParticle(const char* name);
 void SaveParticleStates(wiz8::File* handle);

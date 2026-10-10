@@ -7,6 +7,10 @@ on:
 
 jobs:
   native:
+    strategy:
+      fail-fast: false
+      matrix:
+        preset: [linux, linux-asan]
     runs-on: ubuntu-26.04
     defaults:
       run:
@@ -43,21 +47,23 @@ jobs:
           sudo apt-get install -y \
             ./libsdl3-mixer0_3.2.4+ds-1_amd64.deb \
             ./libsdl3-mixer-dev_3.2.4+ds-1_amd64.deb
+      - name: Select software Vulkan driver
+        run: echo "VK_DRIVER_FILES=/usr/share/vulkan/icd.d/lvp_icd.json" >> "$GITHUB_ENV"
       - name: Create cache directories
         run: mkdir -p "$CCACHE_DIR"
       - uses: actions/cache/restore@0400d5f644dc74513175e3cd8d07132dd4860809 # v4.2.4
         id: ccache-cache
         with:
           path: ${{ env.CCACHE_DIR }}
-          key: linux-ccache-${{ github.run_id }}
+          key: linux-ccache-${{ matrix.preset }}-${{ github.run_id }}
           restore-keys: |
             linux-ccache-
       - name: Reset compiler cache statistics
         run: ccache --zero-stats
       - name: Configure
-        run: cmake --preset linux -DCMAKE_BUILD_TYPE=Debug -DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
+        run: cmake --preset ${{ matrix.preset }} -DCMAKE_BUILD_TYPE=Debug -DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
       - name: Build native game and fixtures
-        run: cmake --build --preset linux --parallel "$(nproc)"
+        run: cmake --build --preset ${{ matrix.preset }} --parallel "$(nproc)"
       # The canonical GOG installer is stored in the decomp project's private
       # wiz8-ci-inputs release. Never put decrypted game files in Actions cache.
       - name: Check access to licensed game assets
@@ -138,7 +144,14 @@ jobs:
           echo "WIZ8_ASSET_ROOT=$game_root" >> "$GITHUB_ENV"
 
       - name: Test native contracts and licensed runtime scenarios
-        run: ctest --preset linux --output-on-failure
+        run: |
+          if [[ '${{ matrix.preset }}' == linux-asan ]]; then
+            # SDL unloads the software Vulkan ICD before LSan scans globals.
+            # Keep Mesa and its dependencies mapped so process-lifetime driver
+            # allocations retain their real roots. Project leak checks stay on.
+            export LD_PRELOAD=/usr/lib/x86_64-linux-gnu/libvulkan_lvp.so
+          fi
+          ctest --preset ${{ matrix.preset }} --output-on-failure
 
       - name: Remove decrypted game assets
         if: always() && steps.game-assets.outputs.enabled == 'true'
@@ -150,4 +163,4 @@ jobs:
         if: always()
         with:
           path: ${{ env.CCACHE_DIR }}
-          key: linux-ccache-${{ github.run_id }}
+          key: linux-ccache-${{ matrix.preset }}-${{ github.run_id }}

@@ -1,3 +1,4 @@
+#include "wiz8/containers.h"
 #include "wiz8/layouts/character.h"
 #include "wiz8/character_skills.h"
 #include "wiz8/local_code/CharGeneration.h"
@@ -30,7 +31,16 @@
 #include "vsurface.h"
 
 #include <new>
+#include <cstring>
 #include <string.h>
+
+namespace {
+template<class T> T ReadStatValue(const void* address) {
+    T value;
+    std::memcpy(&value, address, sizeof(value));
+    return value;
+}
+}
 
 // GLOBAL: WIZ8 0x006483d0
 W8PortraitDescriptor g_portrait_descriptors[80] = {
@@ -142,8 +152,8 @@ void W8CharacterPageEntry::Redraw()
             DrawCatalogImageAndInvalidate(FRAME_BUFFER, 0x108, 0, 2, m_x, m_y,
                                           VO_BLT_SRCTRANSPARENCY, 0);
         }
-        m_first_text->SetText(FormatWideString(g_format_d, *m_first), g_wiz_text_font_secondary);
-        m_second_text->SetText(FormatWideString(g_format_d, *m_second), g_wiz_text_font_secondary);
+        m_first_text->SetText(FormatWideString(g_format_d, ReadStatValue<unsigned int>(m_first)), g_wiz_text_font_secondary);
+        m_second_text->SetText(FormatWideString(g_format_d, ReadStatValue<int>(m_second)), g_wiz_text_font_secondary);
         m_first_text->FillBounds(0x8000);
         m_second_text->FillBounds(0x8000);
         m_label->RenderToTarget(0, true, FRAME_BUFFER);
@@ -174,12 +184,12 @@ void W8CharacterPageEntry::MarkDirty()
 void W8CharacterPageEntry::UpdateButtons()
 {
     if (m_enabled) {
-        bool enabled = *m_second > 0;
+        bool enabled = ReadStatValue<int>(m_second) > 0;
         if (m_decrement->m_enabled != enabled) {
             m_decrement->SetEnabled(enabled);
             m_decrement->Invalidate(false);
         }
-        enabled = m_increment_allowed && *m_second < *m_third;
+        enabled = m_increment_allowed && ReadStatValue<int>(m_second) < ReadStatValue<int>(m_third);
         if (m_increment->m_enabled != enabled) {
             m_increment->SetEnabled(enabled);
             m_increment->Invalidate(false);
@@ -226,8 +236,6 @@ void W8CharacterPageEntry::OnSecondary(W8TextControl* control)
 // VTABLE: WIZ8 0x005ef1e4 W8CharacterPage
 // class W8CharacterPage
 
-// VTABLE: WIZ8 0x005ef218 W8GrowableVector<W8CharacterPageEntry*>
-// class W8GrowableVector<W8CharacterPageEntry*>
 
 // FUNCTION: WIZ8 0x005afd90
 W8CharacterPage::W8CharacterPage(int catalog_object)
@@ -239,9 +247,7 @@ W8CharacterPage::W8CharacterPage(int catalog_object)
 W8CharacterPage::~W8CharacterPage()
 {
     DestroyAllControls();
-    while (m_entries.GetCount() > 0) {
-        m_entries.RemoveAtAndDelete(m_entries.GetCount() - 1);
-    }
+    wiz8::remove_all_and_delete(m_entries);
 }
 
 // FUNCTION: WIZ8 0x005aff00
@@ -257,8 +263,8 @@ void W8CharacterPage::SetCharacter(W8Character* character, W8CharacterCreationSt
 void W8CharacterPage::Redraw()
 {
     Controls::Redraw();
-    for (int index = 0; index < m_entries.GetCount(); ++index) {
-        (*m_entries.GetAt(index))->Redraw();
+    for (int index = 0; index < static_cast<int>(m_entries.size()); ++index) {
+        m_entries[index]->Redraw();
     }
 }
 
@@ -266,8 +272,7 @@ void W8CharacterPage::Redraw()
 void W8CharacterPage::Invalidate(const W8ControlsRect* rect)
 {
     Controls::Invalidate(rect);
-    for (int index = 0; index < m_entries.GetCount(); ++index) {
-        W8CharacterPageEntry* entry = *m_entries.GetAt(index);
+    for (W8CharacterPageEntry* entry : m_entries) {
         entry->MarkDirty();
     }
 }
@@ -281,10 +286,7 @@ void W8CharacterPage::Prepare()
 }
 
 // FUNCTION: WIZ8 0x005affc0
-void W8CharacterPage::AddEntry(W8CharacterPageEntry* entry)
-{
-    m_entries.Add(entry);
-}
+void W8CharacterPage::AddEntry(W8CharacterPageEntry* entry) { m_entries.push_back(entry); }
 
 void W8CharacterPage::HandleInput(InputAtom*) {}
 void W8CharacterPage::Refresh() {}

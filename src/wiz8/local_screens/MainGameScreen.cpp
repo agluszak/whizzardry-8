@@ -63,8 +63,8 @@
 #include "wiz8/dialog_code/DialogInterface.h"
 #include "wiz8/dialog_code/MessageDialogBase.h"
 #include "wiz8/dialog_code/NpcDialog.h"
-#include "wiz8/3d_code/IList.h"
-#include "wiz8/3d_code/PList.h"
+#include <vector>
+#include <algorithm>
 #include "wiz8/cursor.h"
 #include "wiz8/engine_code/Octree.h"
 #include "wiz8/engine_code/Navigator.h"
@@ -186,7 +186,7 @@ bool g_mouselook_active;
 
 /* Saved mouse position while mouselook is latched (WarpSystemCursor restore). */
 // GLOBAL: WIZ8 0x0068edc0
-static SGPPoint g_mouselook_cursor_pos;
+static SDL_Point g_mouselook_cursor_pos;
 
 // GLOBAL: WIZ8 0x0068eddc
 W8MainGameMode g_main_game_mode;
@@ -1432,11 +1432,11 @@ void W8MainGameTextKeyHandler::OnMouseLeave(int event)
 // FUNCTION: WIZ8 0x00588010
 void W8MainGameTextKeyHandler::OnMouseMove(int)
 {
-    SGPPoint point;
+    SDL_Point point;
     int line;
 
     SGPMouseGetPos(&point);
-    line = (point.iY - m_pPanel->m_bounds.top - m_top) / 0xe + m_first_visible_line;
+    line = (point.y - m_pPanel->m_bounds.top - m_top) / 0xe + m_first_visible_line;
     if (line != m_hover_line) {
         m_hover_line = line;
         Invalidate(false);
@@ -1452,10 +1452,10 @@ void W8MainGameTextKeyHandler::AdjustValue(int steps)
 // FUNCTION: WIZ8 0x005880b0
 void W8MainGameTextKeyHandler::OnLeftButtonUp(int)
 {
-    SGPPoint point;
+    SDL_Point point;
 
     SGPMouseGetPos(&point);
-    SetSelectedLine((point.iY - m_pPanel->m_bounds.top - m_top) / 0xe + m_first_visible_line);
+    SetSelectedLine((point.y - m_pPanel->m_bounds.top - m_top) / 0xe + m_first_visible_line);
 }
 
 // FUNCTION: WIZ8 0x00588100
@@ -1684,8 +1684,8 @@ W8MainGameTextPanel::~W8MainGameTextPanel()
 // FUNCTION: WIZ8 0x00588830
 void W8MainGameTextPanel::Redraw()
 {
-    SGPRect previous;
-    SGPRect clip;
+    SDL_Rect previous;
+    SDL_Rect clip;
     int progress;
 
     if (m_fDirty) {
@@ -1704,7 +1704,7 @@ void W8MainGameTextPanel::Redraw()
                              m_text_bounds.bottom, 0);
             GetClippingRect(&previous);
             clip = previous;
-            clip.iBottom = m_text_bounds.left + m_progress_drawn;
+            clip.h = (m_text_bounds.left + m_progress_drawn) - clip.y;
             SetClippingRect(&clip);
             DrawCatalogImage(FRAME_BUFFER, 0x1b5, 0, 0, m_text_bounds.left, m_text_bounds.top,
                              VO_BLT_SRCTRANSPARENCY, 0);
@@ -2566,7 +2566,7 @@ unsigned char W8NpcDialogueTextController::AddTranscriptEntry(const wchar_t* tex
     int index;
     int added;
 
-    for (index = 0; index < text_area.m_all_lines.GetCount(); ++index) {
+    for (index = 0; index < static_cast<int>(text_area.m_all_lines.size()); ++index) {
         text_area.GetEntry(index);
         text_area.CopyEntryText(index, existing);
         if (CompareWideTextIgnoreAsciiCase(existing, text) == 0) {
@@ -2578,8 +2578,8 @@ unsigned char W8NpcDialogueTextController::AddTranscriptEntry(const wchar_t* tex
     if (mark != 0) {
         text_area.SetEntryMarked(added, true);
     }
-    if (1u < (unsigned)text_area.m_all_lines.GetCount()) {
-        for (index = 0; index < text_area.m_all_lines.GetCount(); ++index) {
+    if (1u < static_cast<int>((unsigned)text_area.m_all_lines.size())) {
+        for (index = 0; index < static_cast<int>(text_area.m_all_lines.size()); ++index) {
             text_area.GetEntry(index);
             text_area.CopyEntryText(index, existing);
             if (CompareWideTextIgnoreAsciiCase(existing, L" [No Keywords]") == 0) {
@@ -2801,12 +2801,13 @@ void W8NpcDialogueTextController::RestoreTranscriptEntries()
     W8NpcDialogueTextController* controller;
     int index;
 
-    for (index = 0; index < g_npc_interaction_state->dialogue_transcript.GetCount(); ++index) {
-        record = *g_npc_interaction_state->dialogue_transcript.GetAt(index);
+    for (index = 0; index < static_cast<int>(g_npc_interaction_state->dialogue_transcript.size());
+         ++index) {
+        record = g_npc_interaction_state->dialogue_transcript[index];
         AddTranscriptEntry(record->text, record->category, 0);
     }
     Invalidate(0);
-    if (g_npc_interaction_state->dialogue_transcript.GetCount() == 0) {
+    if (g_npc_interaction_state->dialogue_transcript.empty()) {
         g_npc_interaction_state->dialogue_category_filter = W8_DIALOGUE_CATEGORY_ALL;
         controller =
             static_cast<W8NpcDialogueTextController*>(g_npc_interaction_state->dialogue_panels[2]);
@@ -3077,10 +3078,10 @@ void SetMainGameMode(W8MainGameMode mode)
 // FUNCTION: WIZ8 0x005684E0
 unsigned char ProcessMainGameInput(void)
 {
-    SGPPoint mouse;
+    SDL_Point mouse;
     SGPMouseGetPos(&mouse);
     if (GetForcedRegion() == 0) {
-        MSYS_SGP_Mouse_Handler_Hook(MOUSE_POS, mouse.iX, mouse.iY, gfLeftButtonState,
+        MSYS_SGP_Mouse_Handler_Hook(MOUSE_POS, mouse.x, mouse.y, gfLeftButtonState,
                                     gfRightButtonState);
     }
 
@@ -3096,7 +3097,7 @@ unsigned char ProcessMainGameInput(void)
             case LEFT_BUTTON_UP:
             case RIGHT_BUTTON_DOWN:
             case RIGHT_BUTTON_UP:
-                MSYS_SGP_Mouse_Handler_Hook(input.usEvent, mouse.iX, mouse.iY, gfLeftButtonState,
+                MSYS_SGP_Mouse_Handler_Hook(input.usEvent, mouse.x, mouse.y, gfLeftButtonState,
                                             gfRightButtonState);
                 break;
             default:
@@ -3232,26 +3233,26 @@ update_screen:
     if (GetSecondaryWorld()) {
         WorldUpdateProps(GetSecondaryWorld());
     }
-    SGPPoint point;
-    SGPPoint current;
+    SDL_Point point;
+    SDL_Point current;
     SGPMouseGetPos(&point);
     if (!IsWorldCursorVisible()) {
         if (!g_modal_owner) {
             if ((!ShouldDeferCharacterEventForNpcScript(true) || !gXStatus.fNpcDialogueMode) &&
                 !g_status.world_cursor_gate) {
-                g_level_block->hover_region = UpdateRegionMousePosition(point.iX, point.iY);
+                g_level_block->hover_region = UpdateRegionMousePosition(point.x, point.y);
             } else {
                 g_level_block->hover_region = FindRegionAtPoint(
-                    static_cast<unsigned short>(point.iX), static_cast<unsigned short>(point.iY));
+                    static_cast<unsigned short>(point.x), static_cast<unsigned short>(point.y));
             }
         } else {
-            g_level_block->hover_region = FindRegionAtPoint(static_cast<unsigned short>(point.iX),
-                                                            static_cast<unsigned short>(point.iY));
+            g_level_block->hover_region = FindRegionAtPoint(static_cast<unsigned short>(point.x),
+                                                            static_cast<unsigned short>(point.y));
             for (int portrait = 0; portrait < 8; ++portrait) {
                 if (g_status.buffers.XChar[portrait].fOccupied &&
                     (g_level_block->hover_region == portrait * 6 + 0x24U ||
                      g_level_block->hover_region == portrait + 0x5aU)) {
-                    g_level_block->hover_region = UpdateRegionMousePosition(point.iX, point.iY);
+                    g_level_block->hover_region = UpdateRegionMousePosition(point.x, point.y);
                     break;
                 }
             }
@@ -3323,7 +3324,7 @@ render_world:
         }
         ProcessMonsterManagerFrame();
         if (g_debug_monster_cycle) {
-            W8Monster* monster = GetMonsterByLocationID(IListGetAt(&g_mipe_state->monster_ids, 0));
+            W8Monster* monster = GetMonsterByLocationID(g_mipe_state->SelectedMonsterLocationId());
             if (monster) {
                 ClearSurfaceRect(0x122, 0x159, 0x226, 0x168);
                 SetFont(g_wiz_text_font_secondary);
@@ -3470,7 +3471,7 @@ unsigned char MainGameScreenLeave(int leaving)
 
     if (static_cast<unsigned char>(leaving)) {
         for (index = 0; index < 17; ++index) {
-            ReleaseRendererObject(g_main_game_resource_slots[index].object);
+            g_main_game_resource_slots[index].object.reset();
         }
     }
 
@@ -3556,8 +3557,8 @@ void ApplyMainGameRedrawFlags(void)
     int text_box_variant;
     unsigned char text_box_mode;
     bool show_portraits;
-    SGPRect saved_clip;
-    SGPRect combat_clip;
+    SDL_Rect saved_clip;
+    SDL_Rect combat_clip;
     short health_percent;
     W8MainGameInvalidateRect* portrait_rect;
 
@@ -3612,10 +3613,7 @@ void ApplyMainGameRedrawFlags(void)
         gXStatus.fCombatMode && g_combat_state->round_active) {
         health_percent = GetCombatActionProgress(0);
         GetClippingRect(&saved_clip);
-        combat_clip.iRight = (health_percent * 0x11e) / 100 + 0xb1;
-        combat_clip.iTop = 0;
-        combat_clip.iBottom = 0x1e0;
-        combat_clip.iLeft = 0;
+        combat_clip = {0, 0, health_percent * 0x11e / 100 + 0xb1, 0x1e0};
         SetClippingRect(&combat_clip);
         DrawCatalogImageAndInvalidate(FRAME_BUFFER, 0x8d, 0, 0, 0xb1, 2, VO_BLT_SRCTRANSPARENCY, 0);
         SetClippingRect(&saved_clip);
@@ -3876,7 +3874,7 @@ void DrawMainGameScreen(void)
         }
         if (g_node_cull_pending) {
             for (node = g_world->level->first_child_; node != 0; node = node->next_sibling_) {
-                if (node->getClassID() == stModelInstance::CLASS_ID) {
+                if (sr_cast<stModelInstance>(node)) {
                     node->clearFlag(srNode::FLAG_DISABLE);
                 }
             }
@@ -3884,7 +3882,7 @@ void DrawMainGameScreen(void)
         RenderFrame();
         if (g_node_cull_pending) {
             for (node = g_world->level->first_child_; node != 0; node = node->next_sibling_) {
-                if (node->getClassID() == stModelInstance::CLASS_ID) {
+                if (sr_cast<stModelInstance>(node)) {
                     if (MeasureNodeRenderWithoutPositionalOption(node) == 0) {
                         node->setFlag(srNode::FLAG_DISABLE);
                     } else {
@@ -3972,7 +3970,7 @@ void RedrawCombatMonsterList(void)
     if (gXStatus.active_monster_count != 0) {
         SetFont(g_wiz_text_font_secondary);
         group_list_index = 0;
-        list_length = PLLength(gXStatus.plsMonsterGroupList);
+        list_length = gXStatus.monster_groups.size();
         if (list_length != 0) {
             do {
                 monster_group = GetMonsterGroupByListIndex(group_list_index);
@@ -4033,7 +4031,8 @@ void RedrawCombatMonsterList(void)
                     }
                 }
                 ++group_list_index;
-                list_length = PLLength(gXStatus.plsMonsterGroupList);
+                list_length =
+                    gXStatus.monster_groups.size();
             } while (group_list_index < list_length);
         }
     }
@@ -5973,7 +5972,7 @@ unsigned char RadarMapButtonRegionEvent(const InputAtom* event, W8Region* region
 // FUNCTION: WIZ8 0x00567800
 unsigned char WorldViewRegionEvent(const InputAtom* event, W8Region* region)
 {
-    SGPPoint cursor_pos;
+    SDL_Point cursor_pos;
     int cursor_x;
     int cursor_y;
     W8TargetNeed needed;
@@ -5989,7 +5988,7 @@ unsigned char WorldViewRegionEvent(const InputAtom* event, W8Region* region)
     if (us_event > RIGHT_BUTTON_DOWN) {
         if (us_event == RIGHT_BUTTON_UP) {
             if (g_mouselook_active && g_settings.mouselook_toggle == 0) {
-                WarpSystemCursor(g_mouselook_cursor_pos.iX, g_mouselook_cursor_pos.iY);
+                WarpSystemCursor(g_mouselook_cursor_pos.x, g_mouselook_cursor_pos.y);
                 EnableCursorScene();
                 g_mouselook_active = false;
                 g_mouselook_left_held = false;
@@ -6073,7 +6072,7 @@ unsigned char WorldViewRegionEvent(const InputAtom* event, W8Region* region)
         if (!IsWorldCursorVisible() && !gXStatus.fNpcDialogueMode) {
             if (g_settings.mouselook_toggle != 0) {
                 if (g_mouselook_active) {
-                    WarpSystemCursor(g_mouselook_cursor_pos.iX, g_mouselook_cursor_pos.iY);
+                    WarpSystemCursor(g_mouselook_cursor_pos.x, g_mouselook_cursor_pos.y);
                     EnableCursorScene();
                     g_mouselook_active = false;
                     g_mouselook_left_held = false;
@@ -6573,14 +6572,14 @@ void ApplyPendingTooltip(void)
     g_level_block->tooltip_kind = -1;
 }
 
-static void PositionSelectionToolTip(SGPPoint point)
+static void PositionSelectionToolTip(SDL_Point point)
 {
-    int y = point.iY - g_cursor_image_height / 2;
-    if (point.iX < 0) {
-        point.iX = 2;
+    int y = point.y - g_cursor_image_height / 2;
+    if (point.x < 0) {
+        point.x = 2;
     }
-    if (point.iX + g_help_box_width + 2 > 0x27f) {
-        point.iX = 0x280 - (g_help_box_width + 2);
+    if (point.x + g_help_box_width + 2 > 0x27f) {
+        point.x = 0x280 - (g_help_box_width + 2);
     }
     if (y < 0) {
         y = 2;
@@ -6588,7 +6587,7 @@ static void PositionSelectionToolTip(SGPPoint point)
     if (y + g_help_box_height + 2 > 0x1df) {
         y = 0x1e0 - (g_help_box_height + 2);
     }
-    VideoPositionToolTip(point.iX, y);
+    VideoPositionToolTip(point.x, y);
 }
 
 /* Re-picking the same monster while its tooltip clock is idle pops a
@@ -6604,7 +6603,7 @@ void SetCombatSelection(int value)
     if (value == current) {
         if (current != -1 && !TimeUntilDeadline(g_level_block->countdown1) &&
             !HasScreenTransitionObjects()) {
-            SGPPoint point;
+            SDL_Point point;
             wchar_t text[290];
             wchar_t health[32];
 
@@ -6715,7 +6714,7 @@ void SetCombatTarget(int value)
     }
     if (current != -1 && !TimeUntilDeadline(g_level_block->countdown1) &&
         !HasScreenTransitionObjects()) {
-        SGPPoint point;
+        SDL_Point point;
         W8WorldItem* item;
 
         SGPMouseGetPos(&point);
@@ -7184,12 +7183,10 @@ void LoadMainGameCursorResources(void)
                 slot->size_x = video_object->sprites[frame].usWidth;
                 slot->size_y = video_object->sprites[frame].usHeight;
             }
-            stTextureAnim* animation =
+            slot->object =
                 VideoVObjectToTextureAnim(video_object, static_cast<unsigned short>(frame),
                                           static_cast<unsigned short>(slot->frame_count), true);
-            slot->object = animation;
-            animation->addReference();
-            animation->animation_mode = W8_TEXTURE_ANIM_MANUAL;
+            slot->object->animation_mode = W8_TEXTURE_ANIM_MANUAL;
         }
     }
 }
@@ -7197,15 +7194,15 @@ void LoadMainGameCursorResources(void)
 // FUNCTION: WIZ8 0x00568950
 unsigned int DispatchMainGameMouseButtons(const InputAtom* input)
 {
-    SGPPoint point;
+    SDL_Point point;
     SGPMouseGetPos(&point);
     switch (input->usEvent) {
     case LEFT_BUTTON_DOWN:
     case LEFT_BUTTON_UP:
     case RIGHT_BUTTON_DOWN:
     case RIGHT_BUTTON_UP:
-        MSYS_SGP_Mouse_Handler_Hook(input->usEvent, static_cast<unsigned short>(point.iX),
-                                    static_cast<unsigned short>(point.iY), gfLeftButtonState,
+        MSYS_SGP_Mouse_Handler_Hook(input->usEvent, static_cast<unsigned short>(point.x),
+                                    static_cast<unsigned short>(point.y), gfLeftButtonState,
                                     gfRightButtonState);
         return 1;
     default:
@@ -7466,21 +7463,21 @@ void W8NpcDialogueTextController::SaveTranscriptEntries()
     int index;
 
     ClearNpcDialogueTranscript();
-    for (index = 0; index < text_area.m_all_lines.GetCount(); ++index) {
+    for (index = 0; index < static_cast<int>(text_area.m_all_lines.size()); ++index) {
         record =
             static_cast<W8DialogueTranscriptRecord*>(malloc(sizeof(W8DialogueTranscriptRecord)));
         memset(record, 0, sizeof(W8DialogueTranscriptRecord));
         entry = text_area.GetEntry(index);
         entry->CopyTextTo(record->text);
         record->category = entry->m_category;
-        g_npc_interaction_state->dialogue_transcript.Add(record);
+        g_npc_interaction_state->dialogue_transcript.push_back(record);
     }
 }
 
 // FUNCTION: WIZ8 0x0055EA40
 void W8NpcDialogueTextController::ClearTranscriptEntries()
 {
-    while (0u < (unsigned)text_area.m_all_lines.GetCount()) {
+    while (0u < static_cast<int>((unsigned)text_area.m_all_lines.size())) {
         text_area.RemoveEntry(0);
     }
     Invalidate(0);
@@ -8142,7 +8139,7 @@ const float g_fade_resume_scale = -500.0f;
 // GLOBAL: WIZ8 0x0068edca
 static bool g_surprise_fade_in;
 // GLOBAL: WIZ8 0x0068edf0
-static srColorSurfaceIFace* g_surprise_snapshot_surface;
+static std::shared_ptr<srColorSurfaceIFace> g_surprise_snapshot_surface;
 // GLOBAL: WIZ8 0x0068edf4
 static stSurface2D* g_surprise_snapshot_overlay;
 // GLOBAL: WIZ8 0x0068edf8
@@ -8173,10 +8170,10 @@ void ResetMainGameMode(void)
 void CreateSurpriseFade(void)
 {
     srShader shader;
-    srVector4T<float> color;
+    glm::vec4 color;
 
     SetFullscreenSceneLast(0);
-    color.Set(0.0f, 0.0f, 0.0f, 0.0f);
+    color = glm::vec4(0.0f, 0.0f, 0.0f, 0.0f);
     g_surprise_fade_node = CreateColoredPolygonSprite(0x280, 0x1e0, &color, true);
     Position2DNodeUnsnapped(g_surprise_fade_node, 0, 0);
     shader = static_cast<srMeshModel*>(g_surprise_fade_node->getModel())->getShader(0);
@@ -8216,7 +8213,7 @@ void ReverseSurpriseFade(void)
 void DestroySurpriseFade(void)
 {
     ReleaseRendererObject(g_surprise_snapshot_overlay);
-    ReleaseRendererObject(g_surprise_snapshot_surface);
+    g_surprise_snapshot_surface.reset();
     ReleaseRendererObject(g_surprise_fade_node);
     SetFullscreenSceneLast(1);
     g_world_render_enabled = 1;
@@ -8255,7 +8252,7 @@ unsigned char UpdateSurpriseFade(void)
         if (gXStatus.surprise_phase == 0) {
             w8_long pitch;
             void* pixels = LockCatalogFrameSurface(0x1e0, 0, &pitch);
-            srColorSurface* surface = new srColorSurface(srPixelConvert::SURFACE_ARGB1555,
+            auto surface = std::make_shared<srColorSurface>(srPixelConvert::SURFACE_ARGB1555,
                                                              pixels, 0x280, 0x1e0, pitch);
             g_surprise_snapshot_surface = surface;
             g_surprise_snapshot_overlay = new stSurface2D(g_surprise_snapshot_surface, 0x280, 0x1e0,
@@ -8265,10 +8262,9 @@ unsigned char UpdateSurpriseFade(void)
             g_world_render_enabled = 0;
             g_surprise_fade_tick_base = w8_get_ticks();
         } else {
-            g_surprise_snapshot_overlay->release();
+            delete g_surprise_snapshot_overlay;
             g_surprise_snapshot_overlay = 0;
-            g_surprise_snapshot_surface->release();
-            g_surprise_snapshot_surface = 0;
+            g_surprise_snapshot_surface.reset();
             g_world_render_enabled = 1;
         }
         return done;
@@ -8278,7 +8274,7 @@ unsigned char UpdateSurpriseFade(void)
             g_surprise_fade_node->setFlag(srNode::FLAG_DISABLE);
             return done;
         }
-        g_surprise_fade_node->release();
+        delete g_surprise_fade_node;
         g_surprise_fade_node = 0;
         SetFullscreenSceneLast(1);
     }

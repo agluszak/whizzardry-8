@@ -13,7 +13,6 @@
 #include "surrender/srARGB.h"
 #include "surrender/srMath.h"
 #include "surrender/srPalette.h"
-#include "surrender/srVectorMath.h"
 
 /* RGB24 rows contain a word at every third byte, including odd addresses. */
 static inline unsigned short readPackedWord(const unsigned char* bytes)
@@ -94,8 +93,6 @@ struct FormatEntry {
     FormatEntry* next;
 };
 
-W8_ABI_ASSERT(sizeof(FormatEntry) == 0x20, "srPixelConvert_FormatEntry_must_be_0x20");
-
 /* Lookup tables built by initPixelTables(): n-bit channel expansion (round(i * 255 / (2^n - 1))),
    8-bit channel reduction, the ordered-dither bias cube, the packed-chroma decode table and the
    fixed-point channel weight ramps. */
@@ -115,7 +112,6 @@ struct ExpandTables5And6 {
     unsigned char expand32[32];
     unsigned char expand64[64];
 };
-W8_ABI_ASSERT(sizeof(ExpandTables5And6) == 0x60, "ExpandTables5And6_must_be_0x60");
 // GLOBAL: SURRENDER 0x100A1ACC
 ExpandTables5And6 lutExpand5And6;
 // GLOBAL: SURRENDER 0x100A1B2C
@@ -681,8 +677,9 @@ void __cdecl writeYUV(const srPixelConvert::ConversionInfo& info)
         for (w8_ulong i = info.count; i != 0; --i, ++source) {
             srARGB pixel = *source;
             srVector3T<float> rgb((float)pixel.red, (float)pixel.green, (float)pixel.blue);
-            srVector3T<float> yuv(DotProduct(rgbToYUV[0], rgb), DotProduct(rgbToYUV[1], rgb),
-                                  DotProduct(rgbToYUV[2], rgb));
+            srVector3T<float> yuv(glm::dot(rgbToYUV[0].glmValue(), rgb.glmValue()),
+                                  glm::dot(rgbToYUV[1].glmValue(), rgb.glmValue()),
+                                  glm::dot(rgbToYUV[2].glmValue(), rgb.glmValue()));
             int y = srFloatToInt(yuv.x);
             int u = srFloatToInt(yuv.y);
             int v = srFloatToInt(yuv.z);
@@ -698,8 +695,9 @@ void __cdecl writeYUV(const srPixelConvert::ConversionInfo& info)
         for (w8_ulong i = info.count; i != 0; --i, ++source) {
             srARGB pixel = *source;
             srVector3T<float> rgb((float)pixel.red, (float)pixel.green, (float)pixel.blue);
-            srVector3T<float> yuv(DotProduct(rgbToYUV[0], rgb), DotProduct(rgbToYUV[1], rgb),
-                                  DotProduct(rgbToYUV[2], rgb));
+            srVector3T<float> yuv(glm::dot(rgbToYUV[0].glmValue(), rgb.glmValue()),
+                                  glm::dot(rgbToYUV[1].glmValue(), rgb.glmValue()),
+                                  glm::dot(rgbToYUV[2].glmValue(), rgb.glmValue()));
             int y = srFloatToInt(yuv.x);
             int u = srFloatToInt(yuv.y);
             int v = srFloatToInt(yuv.z);
@@ -715,8 +713,9 @@ void __cdecl writeYUV(const srPixelConvert::ConversionInfo& info)
         for (w8_ulong i = info.count; i != 0; --i, ++source) {
             srARGB pixel = *source;
             srVector3T<float> rgb((float)pixel.red, (float)pixel.green, (float)pixel.blue);
-            srVector3T<float> yuv(DotProduct(rgbToYUV[0], rgb), DotProduct(rgbToYUV[1], rgb),
-                                  DotProduct(rgbToYUV[2], rgb));
+            srVector3T<float> yuv(glm::dot(rgbToYUV[0].glmValue(), rgb.glmValue()),
+                                  glm::dot(rgbToYUV[1].glmValue(), rgb.glmValue()),
+                                  glm::dot(rgbToYUV[2].glmValue(), rgb.glmValue()));
             int y = srFloatToInt(yuv.x);
             int u = srFloatToInt(yuv.y);
             int v = srFloatToInt(yuv.z);
@@ -736,8 +735,9 @@ void __cdecl writeYUV(const srPixelConvert::ConversionInfo& info)
         for (w8_ulong i = info.count; i != 0; --i, ++source) {
             srARGB pixel = *source;
             srVector3T<float> rgb((float)pixel.red, (float)pixel.green, (float)pixel.blue);
-            srVector3T<float> yuv(DotProduct(rgbToYUV[0], rgb), DotProduct(rgbToYUV[1], rgb),
-                                  DotProduct(rgbToYUV[2], rgb));
+            srVector3T<float> yuv(glm::dot(rgbToYUV[0].glmValue(), rgb.glmValue()),
+                                  glm::dot(rgbToYUV[1].glmValue(), rgb.glmValue()),
+                                  glm::dot(rgbToYUV[2].glmValue(), rgb.glmValue()));
             int y = srFloatToInt(yuv.x);
             int u = srFloatToInt(yuv.y);
             int v = srFloatToInt(yuv.z);
@@ -783,8 +783,9 @@ void __cdecl readYUV(const srPixelConvert::ConversionInfo& info)
             srVector3T<float> yuv((float)luts[0][(pixel >> shifts[0]) & masks[0]],
                                   (float)luts[1][(pixel >> shifts[1]) & masks[1]],
                                   (float)luts[2][(pixel >> shifts[2]) & masks[2]]);
-            srVector3T<float> rgb(DotProduct(yuvToRGB[0], yuv), DotProduct(yuvToRGB[1], yuv),
-                                  DotProduct(yuvToRGB[2], yuv));
+            srVector3T<float> rgb(glm::dot(yuvToRGB[0].glmValue(), yuv.glmValue()),
+                                  glm::dot(yuvToRGB[1].glmValue(), yuv.glmValue()),
+                                  glm::dot(yuvToRGB[2].glmValue(), yuv.glmValue()));
             w8_ulong index = luts[1][(pixel >> shifts[1]) & masks[1]];
             dest[index] = luts[3][(pixel >> shifts[3]) & masks[3]] << 24 |
                           clampChannel(rgb.x) << 16 | clampChannel(rgb.y) << 8 |
@@ -799,8 +800,9 @@ void __cdecl readYUV(const srPixelConvert::ConversionInfo& info)
             srVector3T<float> yuv((float)luts[0][(pixel >> shifts[0]) & masks[0]],
                                   (float)luts[1][(pixel >> shifts[1]) & masks[1]],
                                   (float)luts[2][(pixel >> shifts[2]) & masks[2]]);
-            srVector3T<float> rgb(DotProduct(yuvToRGB[0], yuv), DotProduct(yuvToRGB[1], yuv),
-                                  DotProduct(yuvToRGB[2], yuv));
+            srVector3T<float> rgb(glm::dot(yuvToRGB[0].glmValue(), yuv.glmValue()),
+                                  glm::dot(yuvToRGB[1].glmValue(), yuv.glmValue()),
+                                  glm::dot(yuvToRGB[2].glmValue(), yuv.glmValue()));
             w8_ulong index = luts[1][(pixel >> shifts[1]) & masks[1]];
             dest[index] = luts[3][(pixel >> shifts[3]) & masks[3]] << 24 |
                           clampChannel(rgb.x) << 16 | clampChannel(rgb.y) << 8 |
@@ -817,8 +819,9 @@ void __cdecl readYUV(const srPixelConvert::ConversionInfo& info)
             srVector3T<float> yuv((float)luts[0][(pixel >> shifts[0]) & masks[0]],
                                   (float)luts[1][(pixel >> shifts[1]) & masks[1]],
                                   (float)luts[2][(pixel >> shifts[2]) & masks[2]]);
-            srVector3T<float> rgb(DotProduct(yuvToRGB[0], yuv), DotProduct(yuvToRGB[1], yuv),
-                                  DotProduct(yuvToRGB[2], yuv));
+            srVector3T<float> rgb(glm::dot(yuvToRGB[0].glmValue(), yuv.glmValue()),
+                                  glm::dot(yuvToRGB[1].glmValue(), yuv.glmValue()),
+                                  glm::dot(yuvToRGB[2].glmValue(), yuv.glmValue()));
             w8_ulong index = luts[1][(pixel >> shifts[1]) & masks[1]];
             dest[index] = luts[3][(pixel >> shifts[3]) & masks[3]] << 24 |
                           clampChannel(rgb.x) << 16 | clampChannel(rgb.y) << 8 |
@@ -834,8 +837,9 @@ void __cdecl readYUV(const srPixelConvert::ConversionInfo& info)
             srVector3T<float> yuv((float)luts[0][(pixel >> shifts[0]) & masks[0]],
                                   (float)luts[1][(pixel >> shifts[1]) & masks[1]],
                                   (float)luts[2][(pixel >> shifts[2]) & masks[2]]);
-            srVector3T<float> rgb(DotProduct(yuvToRGB[0], yuv), DotProduct(yuvToRGB[1], yuv),
-                                  DotProduct(yuvToRGB[2], yuv));
+            srVector3T<float> rgb(glm::dot(yuvToRGB[0].glmValue(), yuv.glmValue()),
+                                  glm::dot(yuvToRGB[1].glmValue(), yuv.glmValue()),
+                                  glm::dot(yuvToRGB[2].glmValue(), yuv.glmValue()));
             w8_ulong index = luts[1][(pixel >> shifts[1]) & masks[1]];
             dest[index] = luts[3][(pixel >> shifts[3]) & masks[3]] << 24 |
                           clampChannel(rgb.x) << 16 | clampChannel(rgb.y) << 8 |
@@ -1271,15 +1275,22 @@ void __cdecl readBGRA(const srPixelConvert::ConversionInfo& info)
 // FUNCTION: SURRENDER 0x1000A9B0
 void __cdecl writeBGRX(const srPixelConvert::ConversionInfo& info)
 {
-    srMath::bitwiseAnd({static_cast<SRDWORD*>(info.dest), static_cast<std::size_t>(info.count)},
-                       static_cast<const SRDWORD*>(info.source), 0xffffff);
+    // SDL writes an opaque X byte; this storage format requires zero instead.
+    // SDL writes an opaque X byte; this storage format requires zero instead.
+    auto* destination = static_cast<unsigned char*>(info.dest);
+    const auto* source = static_cast<const unsigned char*>(info.source);
+    for (std::size_t index = 0; index < info.count; ++index) {
+        w8_ulong pixel;
+        std::memcpy(&pixel, source + index * sizeof(pixel), sizeof(pixel));
+        pixel &= 0x00ffffff;
+        std::memcpy(destination + index * sizeof(pixel), &pixel, sizeof(pixel));
+    }
 }
 
 // FUNCTION: SURRENDER 0x1000A9E0
 void __cdecl readBGRX(const srPixelConvert::ConversionInfo& info)
 {
-    srMath::bitwiseOr({static_cast<SRDWORD*>(info.dest), static_cast<std::size_t>(info.count)},
-                      static_cast<const SRDWORD*>(info.source), 0xff000000);
+    convertByteChannels(info, SDL_PIXELFORMAT_XRGB8888, SDL_PIXELFORMAT_ARGB8888);
 }
 
 /* format_table[srPixelConvert::SURFACE_RGBA32] write/read: rotate each BGRA pixel one byte lane so

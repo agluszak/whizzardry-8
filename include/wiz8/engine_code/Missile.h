@@ -1,3 +1,4 @@
+#include <vector>
 #pragma once
 
 unsigned char LoadMissileDatabase(void);
@@ -66,7 +67,7 @@ public:
     unsigned char unknown_0b4[0x24];
     W8AnimObj* emitters[2];
     float emitter_playback_scales[2];
-    W8GrowableVector<W8GrowableVector<stLight*>*> light_lists[2];
+    std::vector<std::vector<stLight*>*> light_lists[2];
 };
 
 W8_ABI_ASSERT(sizeof(W8MissileRep) == 0x108, "W8MissileRep_size_must_be_0x108");

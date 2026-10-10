@@ -4,23 +4,24 @@
 #include <array>
 #include <bit>
 #include <cstdint>
-
 #include "surrender/srGERD.h"
 
 #include "surrender/srColorSurface.h"
+
 #include "surrender/srCore.h"
 #include "surrender/srDebug.h"
 #include "surrender/srWindow.h"
 #include "surrender/srPalette.h"
-#include "surrender/srVectorMath.h"
-
 #include <ctype.h>
 #include <ostream>
+
 #include <memory>
 #include <vector>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include "surrender/srClip.h"
+#include <cassert>
 
 // GLOBAL: SURRENDER 0x100A4780
 srGERD* srGERD::first;
@@ -74,6 +75,44 @@ void srGERD::TexturePool::release(Texture* texture)
 // RECOMP: ??0MatrixStack@srGERD@@QAE@XZ
 srGERD::MatrixStack::MatrixStack() : depth(0) {}
 
+class srGERD::LockSurface : public srClassSupport<LockSurface, srColorSurfaceIFace, 0x3111> {
+public:
+    LockSurface(srGERD* gerd, const srPixelConvert::PixelFormat& format);
+    virtual ~LockSurface() override;
+    LockSurface& operator=(const LockSurface&) = default;
+    // FUNCTION: SURRENDER 0x1001F780
+    static const char* sGetClassName()
+    {
+        return "srGERD::Surface";
+    }
+    /* Cannot construct a LockSurface without the owning GERD and pixel format. */
+    virtual void getPixelColumn(w8_ulong* pixels, w8_long x, w8_long y0, w8_long y1) override;
+    virtual void setPixelColumn(const w8_ulong* pixels, w8_long x, w8_long y0, w8_long y1) override;
+    virtual void* getDataPtr() override;
+    virtual w8_long getDataSize() override;
+    virtual void setHLine(w8_long y, w8_long x0, w8_long x1, w8_ulong pixel) override;
+    virtual void getPixelRow(w8_ulong* pixels, w8_long y, w8_long x0, w8_long x1) override;
+    virtual void setPixelRow(const w8_ulong* pixels, w8_long y, w8_long x0, w8_long x1) override;
+    virtual void getPixelRowRaw(void* pixels, w8_long y, w8_long x0, w8_long x1) override;
+    virtual void setPixelRowRaw(const void* pixels, w8_long y, w8_long x0, w8_long x1) override;
+    void setScissor(w8_ulong left, w8_ulong top, w8_ulong right,
+                    w8_ulong bottom);
+
+private:
+    srGERD* gerd;
+    w8_ulong left;
+    w8_ulong top;
+    w8_ulong right;
+    w8_ulong bottom;
+    srColorSurface scratch;
+
+public:
+    /* Set by lockBuffer when the locked pixel format is 32-bit ARGB. */
+    unsigned char argb32;
+
+private:
+};
+
 // FUNCTION: SURRENDER 0x10019320
 srGERD::srGERD(srDD* device, const char* device_name)
     : dirty(0), state_flags(0), device{}, state{}, frame_statistics{}, statistics{},
@@ -99,12 +138,10 @@ srGERD::srGERD(srDD* device, const char* device_name)
         vertex_arrays.arrays[index] = 0;
     }
     for (auto& plane : state.clip_planes) {
-        plane = 0.0f;
+        plane = glm::vec4(0);
     }
-    for (auto& row : state.project_clip_near.vectors) {
-        row = 0.0f;
-    }
-    state.modelview_scale_type = static_cast<srMatrix4T<float>::e_scaleType>(0);
+    state.project_clip_near = glm::mat4(0);
+    state.modelview_scale_type = static_cast<srRendererDefs::e_scaleType>(0);
     state.max_modelview_scale = 0.0f;
     for (auto& color : global_palette) {
         color.blue = color.green = color.red = color.alpha = 0;
@@ -147,7 +184,7 @@ srGERD::srGERD(srDD* device, const char* device_name)
     display.gamma = 1.0f;
     display.swap_interval = 1;
     display.antialias = ANTIALIAS_NONE;
-    fog_color = 0.0f;
+    fog_color = glm::vec4(0);
     shader = srShader();
     texture_iface[0] = 0;
     texture_iface[1] = 0;
@@ -416,13 +453,13 @@ void srGERD::setWinding(e_winding winding)
 }
 
 // FUNCTION: SURRENDER 0x1001C3B0
-void srGERD::setAmbientLight(const srVector4T<float>& light)
+void srGERD::setAmbientLight(const glm::vec4& light)
 {
     ambient_light = light;
 }
 
 // FUNCTION: SURRENDER 0x1001C410
-void srGERD::getAmbientLight(srVector4T<float>& light)
+void srGERD::getAmbientLight(glm::vec4& light)
 {
     light = ambient_light;
 }
@@ -430,7 +467,7 @@ void srGERD::getAmbientLight(srVector4T<float>& light)
 // FUNCTION: SURRENDER 0x1001C480
 void srGERD::setAmbientLight(float red, float green, float blue, float alpha)
 {
-    srVector4T<float> light;
+    glm::vec4 light;
     light.x = red;
     light.y = green;
     light.z = blue;
@@ -475,15 +512,20 @@ w8_long srGERD::getPolygonOffset() const
 }
 
 // FUNCTION: SURRENDER 0x1001CA30
-void srGERD::setClearColor(const srVector4T<float>& color)
+void srGERD::setClearColor(const glm::vec4& color)
 {
-    clear_state.clear_values.color.SetSaturated(color);
+    {
+        const auto color_value = color;
+        (clear_state.clear_values.color) =
+            glm::mix(glm::clamp(color_value, float(0), float(1)), glm::vec4(0),
+                     glm::lessThanEqual(color_value, glm::vec4(0)));
+    }
 }
 
 // FUNCTION: SURRENDER 0x1001CB00
 void srGERD::setClearColor(float red, float green, float blue, float alpha)
 {
-    srVector4T<float> color;
+    glm::vec4 color;
     color.x = red;
     color.y = green;
     color.z = blue;
@@ -572,6 +614,18 @@ srGERD* srGERD::getNextOpen() const
     return next_open;
 }
 
+void srGERD::unbindTexture(const srTextureIFace* texture)
+{
+    for (srGERD* gerd = getFirstOpen(); gerd != 0; gerd = gerd->getNextOpen()) {
+        std::lock_guard access(gerd->state_section);
+        for (auto*& bound : gerd->texture_iface) {
+            if (bound == texture) {
+                bound = 0;
+            }
+        }
+    }
+}
+
 // FUNCTION: SURRENDER 0x10018330
 void srGERD::invalidateTexture(srTextureIFace* texture)
 {
@@ -651,7 +705,8 @@ void srGERD::invalidateTextureByFrameHandle(w8_ulong handle)
 {
     std::lock_guard access(state_section);
     if (handle != 0 && texture_hash_enabled) {
-        Texture* texture = texture_lookup.Lookup(&handle);
+        const auto entry = texture_lookup.find(handle);
+        Texture* texture = entry == texture_lookup.end() ? nullptr : entry->second;
         if (texture != 0) {
             invalidateTexture(*texture);
         }
@@ -679,7 +734,8 @@ void srGERD::invalidateResidentTexture(srTextureIFace* texture)
     std::lock_guard access(state_section);
     if (texture != 0) {
         w8_ulong handle = texture->getTextureFrameHandle();
-        Texture* found = texture_lookup.Lookup(&handle);
+        const auto entry = texture_lookup.find(handle);
+        Texture* found = entry == texture_lookup.end() ? nullptr : entry->second;
         if (found != 0) {
             invalidateResidentTexture(*found);
         }
@@ -705,7 +761,8 @@ void srGERD::setTextureSubImage(srTextureIFace* texture, w8_long mipmap, w8_long
         return;
     }
     w8_ulong handle = texture->getTextureFrameHandle();
-    Texture* resident = texture_lookup.Lookup(&handle);
+    const auto entry = texture_lookup.find(handle);
+    Texture* resident = entry == texture_lookup.end() ? nullptr : entry->second;
     if (resident != 0 && resident->device.first_level <= (w8_ulong)mipmap &&
         (w8_ulong)mipmap <= resident->device.last_level) {
         srTextureIFace::PartialRequest request;
@@ -743,10 +800,8 @@ void srGERD::setTextureSubImage(srTextureIFace* texture, w8_long mipmap, w8_long
         if (resident->surface_data.empty()) {
             std::vector<unsigned char> staging(
                 static_cast<std::size_t>(bytes_per_pixel) * level_height * level_width);
-            auto release_surface = [](srColorSurface* surface) { surface->release(); };
-            std::unique_ptr<srColorSurface, decltype(release_surface)> destination(
-                new srColorSurface(resident->pixel_format, staging.data(), level_width,
-                                   level_height, pitch), release_surface);
+            auto destination = std::make_unique<srColorSurface>(
+                resident->pixel_format, staging.data(), level_width, level_height, pitch);
             request.destination = destination.get();
             texture->getMipmapLevelPartial(request);
             destination.reset();
@@ -761,11 +816,11 @@ void srGERD::setTextureSubImage(srTextureIFace* texture, w8_long mipmap, w8_long
             }
             resident->device.levels[mipmap] = 0;
         } else {
-            request.destination =
-                new srColorSurface(resident->pixel_format, resident->device.levels[mipmap],
-                                   level_width, level_height, pitch);
+            auto destination = std::make_unique<srColorSurface>(
+                resident->pixel_format, resident->device.levels[mipmap],
+                level_width, level_height, pitch);
+            request.destination = destination.get();
             texture->getMipmapLevelPartial(request);
-            request.destination->release();
             getDD()->texSubImage(resident->device, mipmap, request.destination_x,
                                  request.destination_y, request.source_right,
                                  request.source_bottom);
@@ -821,7 +876,7 @@ void srGERD::pushMatrix()
 // FUNCTION: SURRENDER 0x10023560
 void srGERD::popMatrix()
 {
-    srMatrix4T<float>* matrix = &state.matrix_current[state.matrix_mode];
+    glm::mat4* matrix = &state.matrix_current[state.matrix_mode];
     MatrixStack& stack = state.matrix_stacks[state.matrix_mode];
     if (stack.depth != 0) {
         stack.depth--;
@@ -1266,7 +1321,7 @@ void srGERD::performPickTest(const PickInput& input)
         return;
     }
     pick_vertices.resize(input.vertex_count);
-    srVector4T<float>* vertices = pick_vertices.data();
+    glm::vec4* vertices = pick_vertices.data();
     for (w8_ulong index = 0; index < input.vertex_count; index++) {
         float inv_w = 1.0f / input.positions[index].w;
         vertices[index].w = inv_w < 0.0f ? -1.0f : 1.0f;
@@ -1282,9 +1337,9 @@ void srGERD::performPickTest(const PickInput& input)
         for (w8_ulong index = 0; index < input.triangle_count; index++) {
             w8_ulong triangle_index = input.indices[index];
             const srVector3i& triangle = input.triangles[triangle_index];
-            const srVector4T<float>* corner0 = &vertices[input.vertices[triangle.x]];
-            const srVector4T<float>* corner1 = &vertices[input.vertices[triangle.y]];
-            const srVector4T<float>* corner2 = &vertices[input.vertices[triangle.z]];
+            const glm::vec4* corner0 = &vertices[input.vertices[triangle.x]];
+            const glm::vec4* corner1 = &vertices[input.vertices[triangle.y]];
+            const glm::vec4* corner2 = &vertices[input.vertices[triangle.z]];
             float v0x = corner0->x;
             float v0y = corner0->y;
             float v0z = corner0->z;
@@ -1385,28 +1440,23 @@ void srGERD::resetTexture()
 }
 
 // FUNCTION: SURRENDER 0x100213A0
-srMatrix4T<float>::e_scaleType srGERD::getModelViewScaleType()
+srRendererDefs::e_scaleType srGERD::getModelViewScaleType()
 {
     checkViewStateChanges();
     return state.modelview_scale_type;
 }
 
 // FUNCTION: SURRENDER 0x100213C0
-void srGERD::getNormalMatrix(srMatrix4T<float>& matrix)
+void srGERD::getNormalMatrix(glm::mat4& matrix)
 {
     checkViewStateChanges();
-    if ((enable_flags.value & (1UL << ENABLE_REVERSE_NORMALS)) != 0) {
-        matrix.vectors[0] = -state.normal_matrix.vectors[0];
-        matrix.vectors[1] = -state.normal_matrix.vectors[1];
-        matrix.vectors[2] = -state.normal_matrix.vectors[2];
-        matrix.vectors[3] = state.normal_matrix.vectors[3];
-        return;
-    }
     matrix = state.normal_matrix;
+    if ((enable_flags.value & (1UL << ENABLE_REVERSE_NORMALS)) != 0)
+        matrix = glm::mat4(-glm::mat3(matrix));
 }
 
 // FUNCTION: SURRENDER 0x100214F0
-void srGERD::getProjectClipNearMatrix(srMatrix4T<float>& matrix)
+void srGERD::getProjectClipNearMatrix(glm::mat4& matrix)
 {
     checkViewStateChanges();
     matrix = state.project_clip_near;
@@ -1415,39 +1465,9 @@ void srGERD::getProjectClipNearMatrix(srMatrix4T<float>& matrix)
 // FUNCTION: SURRENDER 0x10022190
 void srGERD::ortho(const Frustum& frustum)
 {
-    srMatrix4T<double> ortho_matrix;
-    ortho_matrix.vectors[0].x = 2.0 / (frustum.right - frustum.left);
-    ortho_matrix.vectors[0].w = -((frustum.right + frustum.left) / (frustum.right - frustum.left));
-    ortho_matrix.vectors[1].y = 2.0 / (frustum.top - frustum.bottom);
-    ortho_matrix.vectors[1].w = -((frustum.bottom + frustum.top) / (frustum.top - frustum.bottom));
-    ortho_matrix.vectors[2].z = -2.0 / (frustum.far_plane - frustum.near_plane);
-    ortho_matrix.vectors[2].w =
-        -((frustum.near_plane + frustum.far_plane) / (frustum.far_plane - frustum.near_plane));
-    srMatrix4T<float>& matrix = state.matrix_current[state.matrix_mode];
-    matrix.vectors[0].w = matrix.vectors[0].x * ortho_matrix.vectors[0].w +
-                          matrix.vectors[0].y * ortho_matrix.vectors[1].w +
-                          matrix.vectors[0].z * ortho_matrix.vectors[2].w + matrix.vectors[0].w;
-    matrix.vectors[0].x *= ortho_matrix.vectors[0].x;
-    matrix.vectors[0].y *= ortho_matrix.vectors[1].y;
-    matrix.vectors[0].z *= ortho_matrix.vectors[2].z;
-    matrix.vectors[1].w = matrix.vectors[1].x * ortho_matrix.vectors[0].w +
-                          matrix.vectors[1].y * ortho_matrix.vectors[1].w +
-                          matrix.vectors[1].z * ortho_matrix.vectors[2].w + matrix.vectors[1].w;
-    matrix.vectors[1].x *= ortho_matrix.vectors[0].x;
-    matrix.vectors[1].y *= ortho_matrix.vectors[1].y;
-    matrix.vectors[1].z *= ortho_matrix.vectors[2].z;
-    matrix.vectors[2].w = matrix.vectors[2].x * ortho_matrix.vectors[0].w +
-                          matrix.vectors[2].y * ortho_matrix.vectors[1].w +
-                          matrix.vectors[2].z * ortho_matrix.vectors[2].w + matrix.vectors[2].w;
-    matrix.vectors[2].x *= ortho_matrix.vectors[0].x;
-    matrix.vectors[2].y *= ortho_matrix.vectors[1].y;
-    matrix.vectors[2].z *= ortho_matrix.vectors[2].z;
-    matrix.vectors[3].w = matrix.vectors[3].x * ortho_matrix.vectors[0].w +
-                          matrix.vectors[3].y * ortho_matrix.vectors[1].w +
-                          matrix.vectors[3].z * ortho_matrix.vectors[2].w + matrix.vectors[3].w;
-    matrix.vectors[3].x *= ortho_matrix.vectors[0].x;
-    matrix.vectors[3].y *= ortho_matrix.vectors[1].y;
-    matrix.vectors[3].z *= ortho_matrix.vectors[2].z;
+    auto& current = state.matrix_current[state.matrix_mode];
+    current *= glm::ortho(float(frustum.left), float(frustum.right), float(frustum.bottom),
+                          float(frustum.top), float(frustum.near_plane), float(frustum.far_plane));
     setMatrixDirty();
 }
 
@@ -1468,69 +1488,14 @@ void srGERD::ortho(double left, double right, double bottom, double top, double 
 // FUNCTION: SURRENDER 0x100223A0
 void srGERD::rotate(double angle, const srVector3T<double>& axis)
 {
-    double length_sq = axis.LengthSquared();
-    if (length_sq != 0.0) {
-        srMatrix4T<double> rotation;
-        srVector3T<double> unit_axis;
-        if (length_sq != 1.0) {
-            double inverse = 1.0 / sqrt(length_sq);
-            unit_axis = srVector3T<double>(axis.x * inverse, axis.y * inverse, axis.z * inverse);
-        } else {
-            unit_axis = axis;
-        }
-        double sine = sin(angle);
-        double cosine = cos(angle);
-        double complement = 1.0 - cosine;
-        rotation.vectors[0].x = unit_axis.x * unit_axis.x * complement + cosine;
-        rotation.vectors[0].y = unit_axis.x * unit_axis.y * complement - unit_axis.z * sine;
-        rotation.vectors[0].z = unit_axis.x * unit_axis.z * complement + unit_axis.y * sine;
-        rotation.vectors[1].x = unit_axis.x * unit_axis.y * complement + unit_axis.z * sine;
-        rotation.vectors[1].y = unit_axis.y * unit_axis.y * complement + cosine;
-        rotation.vectors[1].z = unit_axis.y * unit_axis.z * complement - unit_axis.x * sine;
-        rotation.vectors[2].x = unit_axis.x * unit_axis.z * complement - unit_axis.y * sine;
-        rotation.vectors[2].y = unit_axis.y * unit_axis.z * complement + unit_axis.x * sine;
-        rotation.vectors[2].z = unit_axis.z * unit_axis.z * complement + cosine;
-        srMatrix4T<float>& matrix = state.matrix_current[state.matrix_mode];
-        float x = matrix.vectors[0].x;
-        float y = matrix.vectors[0].y;
-        float z = matrix.vectors[0].z;
-        matrix.vectors[0].x =
-            rotation.vectors[0].x * x + rotation.vectors[1].x * y + rotation.vectors[2].x * z;
-        matrix.vectors[0].y =
-            rotation.vectors[0].y * x + rotation.vectors[1].y * y + rotation.vectors[2].y * z;
-        matrix.vectors[0].z =
-            rotation.vectors[0].z * x + rotation.vectors[1].z * y + rotation.vectors[2].z * z;
-        x = matrix.vectors[1].x;
-        y = matrix.vectors[1].y;
-        z = matrix.vectors[1].z;
-        matrix.vectors[1].x =
-            rotation.vectors[0].x * x + rotation.vectors[1].x * y + rotation.vectors[2].x * z;
-        matrix.vectors[1].y =
-            rotation.vectors[0].y * x + rotation.vectors[1].y * y + rotation.vectors[2].y * z;
-        matrix.vectors[1].z =
-            rotation.vectors[0].z * x + rotation.vectors[1].z * y + rotation.vectors[2].z * z;
-        x = matrix.vectors[2].x;
-        y = matrix.vectors[2].y;
-        z = matrix.vectors[2].z;
-        matrix.vectors[2].x =
-            rotation.vectors[0].x * x + rotation.vectors[1].x * y + rotation.vectors[2].x * z;
-        matrix.vectors[2].y =
-            rotation.vectors[0].y * x + rotation.vectors[1].y * y + rotation.vectors[2].y * z;
-        matrix.vectors[2].z =
-            rotation.vectors[0].z * x + rotation.vectors[1].z * y + rotation.vectors[2].z * z;
-        x = matrix.vectors[3].x;
-        y = matrix.vectors[3].y;
-        z = matrix.vectors[3].z;
-        matrix.vectors[3].x =
-            rotation.vectors[0].x * x + rotation.vectors[1].x * y + rotation.vectors[2].x * z;
-        matrix.vectors[3].y =
-            rotation.vectors[0].y * x + rotation.vectors[1].y * y + rotation.vectors[2].y * z;
-        matrix.vectors[3].z =
-            rotation.vectors[0].z * x + rotation.vectors[1].z * y + rotation.vectors[2].z * z;
-        setMatrixDirty();
+    const glm::vec3 direction(axis.x, axis.y, axis.z);
+    if (glm::dot(direction, direction) == 0) {
+        loadIdentity();
         return;
     }
-    loadIdentity();
+    auto& current = state.matrix_current[state.matrix_mode];
+    current = glm::rotate(current, float(angle), direction);
+    setMatrixDirty();
 }
 
 // FUNCTION: SURRENDER 0x100226F0
@@ -1542,19 +1507,8 @@ void srGERD::rotate(double angle, const srVector3T<float>& axis)
 // FUNCTION: SURRENDER 0x10022780
 void srGERD::scale(const srVector3T<double>& factors)
 {
-    srMatrix4T<float>& matrix = state.matrix_current[state.matrix_mode];
-    matrix.vectors[0].x *= factors.x;
-    matrix.vectors[1].x *= factors.x;
-    matrix.vectors[2].x *= factors.x;
-    matrix.vectors[3].x *= factors.x;
-    matrix.vectors[0].y *= factors.y;
-    matrix.vectors[1].y *= factors.y;
-    matrix.vectors[2].y *= factors.y;
-    matrix.vectors[3].y *= factors.y;
-    matrix.vectors[0].z *= factors.z;
-    matrix.vectors[1].z *= factors.z;
-    matrix.vectors[2].z *= factors.z;
-    matrix.vectors[3].z *= factors.z;
+    auto& current = state.matrix_current[state.matrix_mode];
+    current = glm::scale(current, glm::vec3(factors.x, factors.y, factors.z));
     setMatrixDirty();
 }
 
@@ -1567,15 +1521,8 @@ void srGERD::scale(double x, double y, double z)
 // FUNCTION: SURRENDER 0x10022960
 void srGERD::translate(const srVector3T<double>& offset)
 {
-    srMatrix4T<float>& matrix = state.matrix_current[state.matrix_mode];
-    matrix.vectors[0].w = matrix.vectors[0].x * offset.x + matrix.vectors[0].y * offset.y +
-                          matrix.vectors[0].z * offset.z + matrix.vectors[0].w;
-    matrix.vectors[1].w = matrix.vectors[1].x * offset.x + matrix.vectors[1].y * offset.y +
-                          matrix.vectors[1].z * offset.z + matrix.vectors[1].w;
-    matrix.vectors[2].w = matrix.vectors[2].x * offset.x + matrix.vectors[2].y * offset.y +
-                          matrix.vectors[2].z * offset.z + matrix.vectors[2].w;
-    matrix.vectors[3].w = matrix.vectors[3].x * offset.x + matrix.vectors[3].y * offset.y +
-                          matrix.vectors[3].z * offset.z + matrix.vectors[3].w;
+    auto& current = state.matrix_current[state.matrix_mode];
+    current = glm::translate(current, glm::vec3(offset.x, offset.y, offset.z));
     setMatrixDirty();
 }
 
@@ -1594,27 +1541,22 @@ void srGERD::translate(double x, double y, double z)
 // FUNCTION: SURRENDER 0x100231D0
 void srGERD::loadIdentity()
 {
-    srMatrix4T<float>& matrix = state.matrix_current[state.matrix_mode];
-    if (matrix.vectors[0].x != 1.0f || matrix.vectors[1].y != 1.0f || matrix.vectors[2].z != 1.0f ||
-        matrix.vectors[3].w != 1.0f || matrix.vectors[0].y != 0.0f || matrix.vectors[0].z != 0.0f ||
-        matrix.vectors[0].w != 0.0f || matrix.vectors[1].x != 0.0f || matrix.vectors[1].z != 0.0f ||
-        matrix.vectors[1].w != 0.0f || matrix.vectors[2].x != 0.0f || matrix.vectors[2].y != 0.0f ||
-        matrix.vectors[2].w != 0.0f || matrix.vectors[3].x != 0.0f || matrix.vectors[3].y != 0.0f ||
-        matrix.vectors[3].z != 0.0f) {
-        matrix.SetIdentity();
+    auto& current = state.matrix_current[state.matrix_mode];
+    if (current != glm::mat4(1)) {
+        current = glm::mat4(1);
         setMatrixDirty();
     }
 }
 
 // FUNCTION: SURRENDER 0x10023320
-void srGERD::getMatrix(e_matrixMode mode, srMatrix4T<float>& matrix)
+void srGERD::getMatrix(e_matrixMode mode, glm::mat4& matrix)
 {
     checkViewStateChanges();
     matrix = state.matrix_current[mode];
 }
 
 // FUNCTION: SURRENDER 0x10023510
-void srGERD::getInverseModelViewMatrix(srMatrix4T<float>& matrix)
+void srGERD::getInverseModelViewMatrix(glm::mat4& matrix)
 {
     checkViewStateChanges();
     matrix = state.inverse_modelview;
@@ -1686,47 +1628,9 @@ void srGERD::accumClear()
 /* Locked-buffer surface created by lockBuffer. It keeps its own scissor rect and proxies pixel
    access through device bufferOp commands, staging through a 1-pixel-high srColorSurface scratch
    buffer when the locked format is not 32-bit ARGB. */
-class srGERD::LockSurface : public srClassSupport<LockSurface, srColorSurfaceIFace, 0x3111> {
-public:
-    LockSurface(srGERD* gerd, const srPixelConvert::PixelFormat& format);
-    virtual ~LockSurface() override;
-    LockSurface& operator=(const LockSurface&) = default;
-    // FUNCTION: SURRENDER 0x1001F780
-    static const char* sGetClassName()
-    {
-        return "srGERD::Surface";
-    }
-    /* Cannot construct a LockSurface without the owning GERD and pixel format. */
-    virtual srClass* vInstance() override;
-    virtual void getPixelColumn(w8_ulong* pixels, w8_long x, w8_long y0, w8_long y1) override;
-    virtual void setPixelColumn(const w8_ulong* pixels, w8_long x, w8_long y0, w8_long y1) override;
-    virtual void* getDataPtr() override;
-    virtual w8_long getDataSize() override;
-    virtual void setHLine(w8_long y, w8_long x0, w8_long x1, w8_ulong pixel) override;
-    virtual void getPixelRow(w8_ulong* pixels, w8_long y, w8_long x0, w8_long x1) override;
-    virtual void setPixelRow(const w8_ulong* pixels, w8_long y, w8_long x0, w8_long x1) override;
-    virtual void getPixelRowRaw(void* pixels, w8_long y, w8_long x0, w8_long x1) override;
-    virtual void setPixelRowRaw(const void* pixels, w8_long y, w8_long x0, w8_long x1) override;
-    void setScissor(w8_ulong left, w8_ulong top, w8_ulong right,
-                    w8_ulong bottom);
-
-private:
-    srGERD* gerd;
-    w8_ulong left;
-    w8_ulong top;
-    w8_ulong right;
-    w8_ulong bottom;
-    srColorSurface* scratch;
-
-public:
-    /* Set by lockBuffer when the locked pixel format is 32-bit ARGB. */
-    unsigned char argb32;
-
-private:
-};
-
 // FUNCTION: SURRENDER 0x100205D0
 srGERD::LockSurface::LockSurface(srGERD* gerd, const srPixelConvert::PixelFormat& format)
+    : scratch(format, std::max(gerd->getWidth(), gerd->getHeight()), 1)
 {
     SurfaceDesc description{};
     description.width = gerd->getWidth();
@@ -1739,23 +1643,12 @@ srGERD::LockSurface::LockSurface(srGERD* gerd, const srPixelConvert::PixelFormat
     top = 0;
     right = 0;
     bottom = 0;
-    /* One row tall and as wide as the longest scissor axis. */
-    w8_ulong side =
-        (w8_long)description.width < (w8_long)description.height ? description.height : description.width;
-    scratch = new srColorSurface(format, side, 1);
     argb32 = 0;
 }
 
 // FUNCTION: SURRENDER 0x1001F610
 srGERD::LockSurface::~LockSurface()
 {
-    scratch->release();
-}
-
-// FUNCTION: SURRENDER 0x1001F770
-srClass* srGERD::LockSurface::vInstance()
-{
-    return 0;
 }
 
 // FUNCTION: SURRENDER 0x1001F750
@@ -1787,8 +1680,8 @@ void srGERD::LockSurface::setHLine(w8_long y, w8_long x0, w8_long x1, w8_ulong p
     }
     /* Convert the pixel through the scratch surface, then hand the device a
        pointer to the converted value. */
-    scratch->setPixel(0, 0, pixel);
-    w8_ulong converted = scratch->getPixelRaw(0, 0);
+    scratch.setPixel(0, 0, pixel);
+    w8_ulong converted = scratch.getPixelRaw(0, 0);
     srDD::BufferCommand command;
     command.flags = 0;
     command.opcode = 4;
@@ -1827,9 +1720,9 @@ void srGERD::LockSurface::getPixelRow(w8_ulong* pixels, w8_long y, w8_long x0, w
         gerd->getDD()->bufferOp(command);
         return;
     }
-    command.data = scratch->getDataPtr();
+    command.data = scratch.getDataPtr();
     gerd->getDD()->bufferOp(command);
-    scratch->getPixelRow(pixels, 0, 0, count);
+    scratch.getPixelRow(pixels, 0, 0, count);
 }
 
 // FUNCTION: SURRENDER 0x10020840
@@ -1860,8 +1753,8 @@ void srGERD::LockSurface::setPixelRow(const w8_ulong* pixels, w8_long y, w8_long
         gerd->getDD()->bufferOp(command);
         return;
     }
-    scratch->setPixelRow(pixels, 0, 0, count);
-    command.data = scratch->getDataPtr();
+    scratch.setPixelRow(pixels, 0, 0, count);
+    command.data = scratch.getDataPtr();
     gerd->getDD()->bufferOp(command);
 }
 
@@ -1945,9 +1838,9 @@ void srGERD::LockSurface::getPixelColumn(w8_ulong* pixels, w8_long x, w8_long y0
         gerd->getDD()->bufferOp(command);
         return;
     }
-    command.data = scratch->getDataPtr();
+    command.data = scratch.getDataPtr();
     gerd->getDD()->bufferOp(command);
-    scratch->getPixelRow(pixels, 0, 0, count);
+    scratch.getPixelRow(pixels, 0, 0, count);
 }
 
 // FUNCTION: SURRENDER 0x10020AF0
@@ -1978,8 +1871,8 @@ void srGERD::LockSurface::setPixelColumn(const w8_ulong* pixels, w8_long x, w8_l
         gerd->getDD()->bufferOp(command);
         return;
     }
-    scratch->setPixelRow(pixels, 0, 0, count);
-    command.data = scratch->getDataPtr();
+    scratch.setPixelRow(pixels, 0, 0, count);
+    command.data = scratch.getDataPtr();
     gerd->getDD()->bufferOp(command);
 }
 
@@ -2082,18 +1975,14 @@ void srGERD::applyViewStateChanges()
     if ((this->dirty & DIRTY_PROJECTION) != 0) {
         classifyMatrix(MATRIX_PROJECTION);
         state.project_clip_near = state.matrix_current[MATRIX_PROJECTION];
-        srMatrix4T<float>& projection = state.matrix_current[MATRIX_PROJECTION];
-        if (((projection.vectors[3].x != 0.0f) || (projection.vectors[3].y != 0.0f) ||
-             (projection.vectors[3].z != 0.0f)) &&
-            ((projection.vectors[3].w + projection.vectors[2].w != 0.0f) &&
-             (fabs((projection.vectors[3].z + projection.vectors[2].z) /
-                   (projection.vectors[3].w + projection.vectors[2].w)) != 1.0))) {
-            float scale = (float)fabs((projection.vectors[3].z + projection.vectors[2].z) /
-                                      (projection.vectors[3].w + projection.vectors[2].w));
-            state.project_clip_near.vectors[0] *= scale;
-            state.project_clip_near.vectors[1] *= scale;
-            state.project_clip_near.vectors[2] *= scale;
-            state.project_clip_near.vectors[3] *= scale;
+        glm::mat4& projection = state.matrix_current[MATRIX_PROJECTION];
+        if (((projection[0][3] != 0.0f) || (projection[1][3] != 0.0f) ||
+             (projection[2][3] != 0.0f)) &&
+            ((projection[3][3] + projection[3][2] != 0.0f) &&
+             (fabs((projection[2][3] + projection[2][2]) / (projection[3][3] + projection[3][2])) != 1.0))) {
+            float scale = (float)fabs((projection[2][3] + projection[2][2]) /
+                                      (projection[3][3] + projection[3][2]));
+            state.project_clip_near *= scale;
         }
         if ((state_flags & STATE_CLOSING_WINDOW) == 0) {
             getDD()->setProjectionMatrix(state.project_clip_near,
@@ -2150,147 +2039,55 @@ void srGERD::classifyMatrix(e_matrixMode mode)
 {
     statistics.matrix_classifications += 1;
     if (mode == MATRIX_MODELVIEW) {
-        srMatrix4T<float>* modelview = &state.matrix_current[MATRIX_MODELVIEW];
-        state.matrix_class[MATRIX_MODELVIEW] = srMatrix4T<float>::TYPE_GENERAL;
-        srMatrix4T<float>* inverse = &state.inverse_modelview;
-        double length0 = modelview->vectors[2].x * modelview->vectors[2].x +
-                         modelview->vectors[1].x * modelview->vectors[1].x +
-                         modelview->vectors[0].x * modelview->vectors[0].x;
-        double length1 = modelview->vectors[2].y * modelview->vectors[2].y +
-                         modelview->vectors[1].y * modelview->vectors[1].y +
-                         modelview->vectors[0].y * modelview->vectors[0].y;
-        double length2 = modelview->vectors[2].z * modelview->vectors[2].z +
-                         modelview->vectors[1].z * modelview->vectors[1].z +
-                         modelview->vectors[0].z * modelview->vectors[0].z;
-        if (fabs(length0 - length1) <= 1e-05 && fabs(length0 - length2) <= 1e-05) {
-            if (fabs(length0 - 1.0) > 1e-05) {
-                state.modelview_scale_type = srMatrix4T<float>::SCALE_TYPE_UNIFORM;
-                state.max_modelview_scale = (float)sqrt(length0);
-                length0 = 1.0 / length0;
-                inverse->vectors[0].x = length0 * modelview->vectors[0].x;
-                inverse->vectors[1].x = length0 * modelview->vectors[0].y;
-                inverse->vectors[2].x = length0 * modelview->vectors[0].z;
-                inverse->vectors[0].y = length0 * modelview->vectors[1].x;
-                inverse->vectors[1].y = length0 * modelview->vectors[1].y;
-                inverse->vectors[2].y = length0 * modelview->vectors[1].z;
-                inverse->vectors[0].z = length0 * modelview->vectors[2].x;
-                inverse->vectors[1].z = length0 * modelview->vectors[2].y;
-                inverse->vectors[2].z = length0 * modelview->vectors[2].z;
-                float scale = state.max_modelview_scale;
-                state.normal_matrix.vectors[0].x = scale * inverse->vectors[0].x;
-                state.normal_matrix.vectors[0].y = scale * inverse->vectors[1].x;
-                state.normal_matrix.vectors[0].z = scale * inverse->vectors[2].x;
-                state.normal_matrix.vectors[1].x = scale * inverse->vectors[0].y;
-                state.normal_matrix.vectors[1].y = scale * inverse->vectors[1].y;
-                state.normal_matrix.vectors[1].z = scale * inverse->vectors[2].y;
-                state.normal_matrix.vectors[2].x = scale * inverse->vectors[0].z;
-                state.normal_matrix.vectors[2].y = scale * inverse->vectors[1].z;
-                state.normal_matrix.vectors[2].z = scale * inverse->vectors[2].z;
-            } else {
-                state.modelview_scale_type = srMatrix4T<float>::SCALE_TYPE_UNIT;
-                state.max_modelview_scale = 1.0f;
-                inverse->vectors[0].x = modelview->vectors[0].x;
-                state.normal_matrix.vectors[0].x = modelview->vectors[0].x;
-                inverse->vectors[1].x = modelview->vectors[0].y;
-                state.normal_matrix.vectors[0].y = modelview->vectors[0].y;
-                inverse->vectors[2].x = modelview->vectors[0].z;
-                state.normal_matrix.vectors[0].z = modelview->vectors[0].z;
-                inverse->vectors[0].y = modelview->vectors[1].x;
-                state.normal_matrix.vectors[1].x = modelview->vectors[1].x;
-                inverse->vectors[1].y = modelview->vectors[1].y;
-                state.normal_matrix.vectors[1].y = modelview->vectors[1].y;
-                inverse->vectors[2].y = modelview->vectors[1].z;
-                state.normal_matrix.vectors[1].z = modelview->vectors[1].z;
-                inverse->vectors[0].z = modelview->vectors[2].x;
-                state.normal_matrix.vectors[2].x = modelview->vectors[2].x;
-                inverse->vectors[1].z = modelview->vectors[2].y;
-                state.normal_matrix.vectors[2].y = modelview->vectors[2].y;
-                inverse->vectors[2].z = modelview->vectors[2].z;
-                state.normal_matrix.vectors[2].z = modelview->vectors[2].z;
-            }
-            inverse->vectors[0].w = -(modelview->vectors[0].w * inverse->vectors[0].x +
-                                      modelview->vectors[1].w * inverse->vectors[0].y +
-                                      modelview->vectors[2].w * inverse->vectors[0].z);
-            inverse->vectors[1].w = -(inverse->vectors[1].x * modelview->vectors[0].w +
-                                      inverse->vectors[1].y * modelview->vectors[1].w +
-                                      inverse->vectors[1].z * modelview->vectors[2].w);
-            inverse->vectors[2].w = -(inverse->vectors[2].x * modelview->vectors[0].w +
-                                      inverse->vectors[2].y * modelview->vectors[1].w +
-                                      inverse->vectors[2].z * modelview->vectors[2].w);
-            inverse->vectors[3].x = 0.0f;
-            inverse->vectors[3].y = 0.0f;
-            inverse->vectors[3].z = 0.0f;
-            inverse->vectors[3].w = 1.0f;
-            return;
-        }
-        float inv0 = (float)(1.0f / sqrt(length0));
-        float inv1 = (float)(1.0f / sqrt(length1));
-        float inv2 = (float)(1.0f / sqrt(length2));
-        if (length0 < length1) {
-            length0 = length1;
-        }
-        if (length0 < length2) {
-            length0 = length2;
-        }
-        state.modelview_scale_type = srMatrix4T<float>::SCALE_TYPE_NON_UNIFORM;
-        state.max_modelview_scale = (float)sqrt(length0);
-        inverse->Inverse(*modelview);
-        srMatrix4T<float> normalized = *modelview;
-        normalized.vectors[0].x *= inv0;
-        normalized.vectors[0].y *= inv1;
-        normalized.vectors[0].z *= inv2;
-        normalized.vectors[1].x *= inv0;
-        normalized.vectors[1].y *= inv1;
-        normalized.vectors[1].z *= inv2;
-        normalized.vectors[2].x *= inv0;
-        normalized.vectors[2].y *= inv1;
-        normalized.vectors[2].z *= inv2;
-        normalized.vectors[3].x *= inv0;
-        normalized.vectors[3].y *= inv1;
-        normalized.vectors[3].z *= inv2;
-        srMatrix4T<float> adjugate;
-        adjugate.Inverse(normalized);
-        state.normal_matrix.vectors[0].x = adjugate.vectors[0].x;
-        state.normal_matrix.vectors[0].y = adjugate.vectors[1].x;
-        state.normal_matrix.vectors[0].z = adjugate.vectors[2].x;
-        state.normal_matrix.vectors[1].x = adjugate.vectors[0].y;
-        state.normal_matrix.vectors[1].y = adjugate.vectors[1].y;
-        state.normal_matrix.vectors[1].z = adjugate.vectors[2].y;
-        state.normal_matrix.vectors[2].x = adjugate.vectors[0].z;
-        state.normal_matrix.vectors[2].y = adjugate.vectors[1].z;
-        state.normal_matrix.vectors[2].z = adjugate.vectors[2].z;
+        const auto& modelview = state.matrix_current[MATRIX_MODELVIEW];
+        glm::mat3 basis(modelview);
+        const glm::vec3 lengths(glm::length(basis[0]), glm::length(basis[1]),
+                                glm::length(basis[2]));
+        const glm::vec3 squared = lengths * lengths;
+        state.matrix_class[MATRIX_MODELVIEW] = srRendererDefs::MATRIX_TYPE_GENERAL;
+        state.inverse_modelview = glm::inverse(modelview);
+        const bool uniform =
+            std::abs(squared.x - squared.y) <= 1e-5f && std::abs(squared.x - squared.z) <= 1e-5f;
+        state.modelview_scale_type = !uniform ? srRendererDefs::SCALE_TYPE_NON_UNIFORM
+                                     : std::abs(squared.x - 1) > 1e-5f
+                                         ? srRendererDefs::SCALE_TYPE_UNIFORM
+                                         : srRendererDefs::SCALE_TYPE_UNIT;
+        state.max_modelview_scale = glm::max(lengths.x, glm::max(lengths.y, lengths.z));
+        // Lighting expects a transform with model scaling removed.
+        for (int column = 0; column < 3; ++column)
+            basis[column] /= lengths[column];
+        state.normal_matrix = glm::mat4(glm::transpose(glm::inverse(basis)));
         return;
     }
-    srMatrix4T<float>& matrix = state.matrix_current[mode];
+    glm::mat4& matrix = state.matrix_current[mode];
     w8_ulong mask = 0;
     w8_ulong bit = 1;
     for (w8_long row = 0; row < 4; row++) {
-        if (matrix.vectors[row].x == 0.0f) {
+        if (matrix[0][row] == 0.0f) {
             mask |= bit;
         }
-        if (matrix.vectors[row].y == 0.0f) {
+        if (matrix[1][row] == 0.0f) {
             mask |= bit * 2;
         }
-        if (matrix.vectors[row].z == 0.0f) {
+        if (matrix[2][row] == 0.0f) {
             mask |= bit * 4;
         }
-        if (matrix.vectors[row].w == 0.0f) {
+        if (matrix[3][row] == 0.0f) {
             mask |= bit * 8;
         }
         bit *= 0x10;
     }
-    srMatrix4T<float>::e_type type;
-    if (mask == 0x7bde && matrix.vectors[0].x == 1.0f && matrix.vectors[1].y == 1.0f &&
-        matrix.vectors[2].z == 1.0f && matrix.vectors[3].w == 1.0f) {
-        type = srMatrix4T<float>::TYPE_IDENTITY;
+    srRendererDefs::e_matrixType type;
+    if (mask == 0x7bde && matrix[0][0] == 1.0f && matrix[1][1] == 1.0f && matrix[2][2] == 1.0f && matrix[3][3] == 1.0f) {
+        type = srRendererDefs::MATRIX_TYPE_IDENTITY;
     } else if ((mask & 0xb39a) == 0xb39a) {
-        type = srMatrix4T<float>::TYPE_PERSPECTIVE;
+        type = srRendererDefs::MATRIX_TYPE_PERSPECTIVE;
     } else if ((mask & 0x7356) == 0x7356) {
-        type = srMatrix4T<float>::TYPE_ORTHOGRAPHIC;
-    } else if ((mask & 0x7000) == 0x7000 && matrix.vectors[3].w == 1.0f) {
-        type = srMatrix4T<float>::TYPE_AFFINE;
+        type = srRendererDefs::MATRIX_TYPE_ORTHOGRAPHIC;
+    } else if ((mask & 0x7000) == 0x7000 && matrix[3][3] == 1.0f) {
+        type = srRendererDefs::MATRIX_TYPE_AFFINE;
     } else {
-        type = srMatrix4T<float>::TYPE_GENERAL;
+        type = srRendererDefs::MATRIX_TYPE_GENERAL;
     }
     state.matrix_class[mode] = type;
 }
@@ -2339,30 +2136,23 @@ srGERD::e_matrixMode srGERD::getMatrixMode() const
 }
 
 // FUNCTION: SURRENDER 0x10023350
-void srGERD::getMatrix(srMatrix4T<float>& matrix)
+void srGERD::getMatrix(glm::mat4& matrix)
 {
     checkViewStateChanges();
     matrix = state.matrix_current[state.matrix_mode];
 }
 
 // FUNCTION: SURRENDER 0x10023390
-void srGERD::getMatrix(e_matrixMode mode, srMatrix4T<double>& matrix)
+void srGERD::getMatrix(e_matrixMode mode, glm::dmat4& matrix)
 {
     checkViewStateChanges();
-    const srMatrix4T<float>& current = state.matrix_current[mode];
-    srMatrix4T<double> result;
-    result = current;
-    matrix = result;
+    matrix = glm::dmat4(state.matrix_current[mode]);
 }
 
 // FUNCTION: SURRENDER 0x10023450
-void srGERD::getMatrix(srMatrix4T<double>& matrix)
+void srGERD::getMatrix(glm::dmat4& matrix)
 {
-    checkViewStateChanges();
-    const srMatrix4T<float>& current = state.matrix_current[state.matrix_mode];
-    srMatrix4T<double> result;
-    result = current;
-    matrix = result;
+    getMatrix(state.matrix_mode, matrix);
 }
 
 // FUNCTION: SURRENDER 0x10021380
@@ -2373,96 +2163,49 @@ float srGERD::getMaxModelViewScale()
 }
 
 // FUNCTION: SURRENDER 0x10021D20
-void srGERD::pushMultMatrix(const srMatrix4x3T<float>& matrix)
+void srGERD::pushMultMatrix(const glm::mat4x3& matrix)
 {
     pushMatrix();
-    srMatrix4T<float>& current = state.matrix_current[state.matrix_mode];
-    for (int row = 0; row != 3; ++row) {
-        float x = current.vectors[row].x;
-        float y = current.vectors[row].y;
-        float z = current.vectors[row].z;
-        current.vectors[row].w = matrix.rows[0].w * x + matrix.rows[2].w * z +
-                                 matrix.rows[1].w * y + current.vectors[row].w;
-        current.vectors[row].x = matrix.rows[0].x * x + matrix.rows[2].x * z + matrix.rows[1].x * y;
-        current.vectors[row].y = matrix.rows[1].y * y + matrix.rows[0].y * x + matrix.rows[2].y * z;
-        current.vectors[row].z = matrix.rows[0].z * x + matrix.rows[2].z * z + matrix.rows[1].z * y;
-    }
-    setMatrixDirty();
+    multMatrix(glm::mat4(matrix));
 }
 
 // FUNCTION: SURRENDER 0x10022C50
-void srGERD::multMatrix(const srMatrix4T<float>& matrix)
+void srGERD::multMatrix(const glm::mat4& matrix)
 {
     assertContext();
-    srMatrix4T<float>& current = state.matrix_current[state.matrix_mode];
-    for (int row = 0; row != 4; ++row) {
-        float x = current.vectors[row].x;
-        float y = current.vectors[row].y;
-        float z = current.vectors[row].z;
-        float w = current.vectors[row].w;
-        current.vectors[row].x = matrix.vectors[1].x * y + matrix.vectors[2].x * z +
-                                 x * matrix.vectors[0].x + matrix.vectors[3].x * w;
-        current.vectors[row].y = x * matrix.vectors[0].y + y * matrix.vectors[1].y +
-                                 matrix.vectors[2].y * z + matrix.vectors[3].y * w;
-        current.vectors[row].z = matrix.vectors[1].z * y + z * matrix.vectors[2].z +
-                                 w * matrix.vectors[3].z + x * matrix.vectors[0].z;
-        current.vectors[row].w = matrix.vectors[0].w * x + matrix.vectors[1].w * y +
-                                 w * matrix.vectors[3].w + z * matrix.vectors[2].w;
-    }
+    state.matrix_current[state.matrix_mode] *= matrix;
     setMatrixDirty();
 }
 
 // FUNCTION: SURRENDER 0x10022F10
-void srGERD::multMatrix(const srMatrix4T<double>& matrix)
+void srGERD::multMatrix(const glm::dmat4& matrix)
 {
-    assertContext();
-    srMatrix4T<float>& current = state.matrix_current[state.matrix_mode];
-    current.MultiplyBy(matrix);
-    setMatrixDirty();
+    multMatrix(glm::mat4(matrix));
 }
 
 // FUNCTION: SURRENDER 0x10022A70
-void srGERD::loadMatrix(const srMatrix4T<double>& matrix)
+void srGERD::loadMatrix(const glm::dmat4& matrix)
 {
-    srMatrix4T<float> converted;
-    converted = matrix;
-    state.matrix_current[state.matrix_mode] = converted;
-    setMatrixDirty();
+    loadMatrix(glm::mat4(matrix));
 }
 
 // FUNCTION: SURRENDER 0x10022B20
-void srGERD::loadMatrix(const srMatrix4T<float>& matrix)
+void srGERD::loadMatrix(const glm::mat4& matrix)
 {
     state.matrix_current[state.matrix_mode] = matrix;
     setMatrixDirty();
 }
 
 // FUNCTION: SURRENDER 0x10022B50
-void srGERD::loadMatrix(const srMatrix3T<double>& matrix)
+void srGERD::loadMatrix(const glm::dmat3& matrix)
 {
-    srMatrix4T<float>& current = state.matrix_current[state.matrix_mode];
-    current.vectors[0].x = (float)matrix.vectors[0].x;
-    current.vectors[0].y = (float)matrix.vectors[0].y;
-    current.vectors[0].z = (float)matrix.vectors[0].z;
-    current.vectors[0].w = 0.0f;
-    current.vectors[1].x = (float)matrix.vectors[1].x;
-    current.vectors[1].y = (float)matrix.vectors[1].y;
-    current.vectors[1].z = (float)matrix.vectors[1].z;
-    current.vectors[1].w = 0.0f;
-    current.vectors[2].x = (float)matrix.vectors[2].x;
-    current.vectors[2].y = (float)matrix.vectors[2].y;
-    current.vectors[2].z = (float)matrix.vectors[2].z;
-    current.vectors[2].w = 0.0f;
-    current.vectors[3].Set(0.0f, 0.0f, 0.0f, 1.0f);
-    setMatrixDirty();
+    loadMatrix(glm::mat4(matrix));
 }
 
 // FUNCTION: SURRENDER 0x10022BD0
-void srGERD::loadMatrix(const srMatrix3T<float>& matrix)
+void srGERD::loadMatrix(const glm::mat3& matrix)
 {
-    srMatrix4T<float>& current = state.matrix_current[state.matrix_mode];
-    current.Set(matrix, srVector3T<float>(0.0f, 0.0f, 0.0f));
-    setMatrixDirty();
+    loadMatrix(glm::mat4(matrix));
 }
 
 // FUNCTION: SURRENDER 0x10022840
@@ -2474,22 +2217,7 @@ void srGERD::scale(const srVector3T<float>& factors)
 // FUNCTION: SURRENDER 0x100228C0
 void srGERD::scale(double factor)
 {
-    if (factor != 1.0) {
-        srMatrix4T<float>& current = state.matrix_current[state.matrix_mode];
-        current.vectors[0].x = (float)(current.vectors[0].x * factor);
-        current.vectors[1].x = (float)(current.vectors[1].x * factor);
-        current.vectors[2].x = (float)(current.vectors[2].x * factor);
-        current.vectors[3].x = (float)(current.vectors[3].x * factor);
-        current.vectors[0].y = (float)(current.vectors[0].y * factor);
-        current.vectors[1].y = (float)(current.vectors[1].y * factor);
-        current.vectors[2].y = (float)(current.vectors[2].y * factor);
-        current.vectors[3].y = (float)(current.vectors[3].y * factor);
-        current.vectors[0].z = (float)(current.vectors[0].z * factor);
-        current.vectors[1].z = (float)(current.vectors[1].z * factor);
-        current.vectors[2].z = (float)(current.vectors[2].z * factor);
-        current.vectors[3].z = (float)(current.vectors[3].z * factor);
-        setMatrixDirty();
-    }
+    scale(factor, factor, factor);
 }
 
 // FUNCTION: SURRENDER 0x10022730
@@ -2501,32 +2229,12 @@ void srGERD::rotate(double angle, double x, double y, double z)
 // FUNCTION: SURRENDER 0x10021DF0
 void srGERD::frustum(const Frustum& bounds)
 {
-    if (0.0 < bounds.near_plane && 0.0 < bounds.far_plane) {
-        srMatrix4T<float>& current = state.matrix_current[state.matrix_mode];
-        srMatrix4T<double> projection;
-        double double_near = bounds.near_plane + bounds.near_plane;
-        projection.vectors[3].w = 0.0;
-        projection.vectors[2].w = -1.0;
-        projection.vectors[0].x = double_near / (bounds.right - bounds.left);
-        double scale_y = double_near / (bounds.top - bounds.bottom);
-        double m22 =
-            -((bounds.far_plane + bounds.near_plane) / (bounds.far_plane - bounds.near_plane));
-        double m20 = (bounds.right + bounds.left) / (bounds.right - bounds.left);
-        double m21 = (bounds.bottom + bounds.top) / (bounds.top - bounds.bottom);
-        double m32 =
-            -((bounds.far_plane * bounds.near_plane + bounds.far_plane * bounds.near_plane) /
-              (bounds.far_plane - bounds.near_plane));
-        for (int row = 0; row != 4; ++row) {
-            float z = current.vectors[row].z;
-            current.vectors[row].z = (current.vectors[row].y * (float)m21 +
-                                      current.vectors[row].x * (float)m20 + z * (float)m22) -
-                                     current.vectors[row].w;
-            current.vectors[row].w = (float)m32 * z;
-            current.vectors[row].x = current.vectors[row].x * (float)projection.vectors[0].x;
-            current.vectors[row].y = current.vectors[row].y * (float)scale_y;
-        }
-        setMatrixDirty();
-    }
+    if (bounds.near_plane <= 0 || bounds.far_plane <= 0)
+        return;
+    auto& current = state.matrix_current[state.matrix_mode];
+    current *= glm::frustum(float(bounds.left), float(bounds.right), float(bounds.bottom),
+                            float(bounds.top), float(bounds.near_plane), float(bounds.far_plane));
+    setMatrixDirty();
 }
 
 // FUNCTION: SURRENDER 0x10021FF0
@@ -2546,56 +2254,45 @@ void srGERD::frustum(double left, double right, double bottom, double top, doubl
 // FUNCTION: SURRENDER 0x10022060
 void srGERD::perspective(double fov_y, double aspect, double near_plane, double far_plane)
 {
-    if (0.0 < near_plane && 0.0 < far_plane) {
-        srMatrix4T<float>& current = state.matrix_current[state.matrix_mode];
-        double scale_y = 1.0 / tan(fov_y * 0.5);
-        double scale_x = scale_y / aspect;
-        float m22 = (float)((near_plane + far_plane) / (near_plane - far_plane));
-        double m32 = (near_plane * far_plane + near_plane * far_plane) / (near_plane - far_plane);
-        for (int row = 0; row != 4; ++row) {
-            float z = current.vectors[row].z;
-            current.vectors[row].x = (float)(current.vectors[row].x * scale_x);
-            current.vectors[row].y = (float)(current.vectors[row].y * scale_y);
-            current.vectors[row].z = (float)(z * m22 - current.vectors[row].w);
-            current.vectors[row].w = (float)(z * m32);
-        }
-        setMatrixDirty();
-    }
+    if (near_plane <= 0 || far_plane <= 0)
+        return;
+    auto& current = state.matrix_current[state.matrix_mode];
+    current *= glm::perspective(float(fov_y), float(aspect), float(near_plane), float(far_plane));
+    setMatrixDirty();
 }
 
 // FUNCTION: SURRENDER 0x1001B820
 void srGERD::applyClipPlaneChanges()
 {
-    const srMatrix4T<float>& projection = state.matrix_current[MATRIX_PROJECTION];
-    float slope = (projection.vectors[2].w + projection.vectors[3].w) /
-                  (projection.vectors[2].z + projection.vectors[3].z);
-    float bottom = projection.vectors[0].w + 1.0f;
-    float near_left = -((bottom * projection.vectors[3].w +
-                         (projection.vectors[0].z - 1.0f) * projection.vectors[3].z * slope) /
-                        projection.vectors[0].x);
-    float top = projection.vectors[1].w + 1.0f;
-    float near_top = -((top * projection.vectors[3].w +
-                        (projection.vectors[1].z - 1.0f) * projection.vectors[3].z * slope) /
-                       projection.vectors[1].y);
-    state.clip_planes[0].Set(slope, 0.0f, near_left, 0.0f);
-    state.clip_planes[1].Set(
+    const glm::mat4& projection = state.matrix_current[MATRIX_PROJECTION];
+    float slope = (projection[3][2] + projection[3][3]) / (projection[2][2] + projection[2][3]);
+    float bottom = projection[3][0] + 1.0f;
+    float near_left = -((bottom * projection[3][3] + (projection[2][0] - 1.0f) * projection[2][3] * slope) /
+          projection[0][0]);
+    float top = projection[3][1] + 1.0f;
+    float near_top = -((top * projection[3][3] + (projection[2][1] - 1.0f) * projection[2][3] * slope) /
+          projection[1][1]);
+    state.clip_planes[0] = glm::vec4(slope, 0.0f, near_left, 0.0f);
+    state.clip_planes[1] =
+        glm::vec4(
         -slope, 0.0f,
-        -(((projection.vectors[0].w - 1.0f) * projection.vectors[3].w) / bottom +
-          ((projection.vectors[0].z + 1.0f) * projection.vectors[3].z) /
-              (1.0f - projection.vectors[0].z)) *
+        -(((projection[3][0] - 1.0f) * projection[3][3]) / bottom +
+                    ((projection[2][0] + 1.0f) * projection[2][3]) /
+              (1.0f - projection[2][0])) *
             near_left,
         0.0f);
-    state.clip_planes[2].Set(0.0f, -slope,
-                             -(((projection.vectors[1].w - 1.0f) * projection.vectors[3].w) / top +
-                               ((projection.vectors[1].z + 1.0f) * projection.vectors[3].z) /
-                                   (1.0f - projection.vectors[1].z)) *
+    state.clip_planes[2] =
+        glm::vec4(0.0f, -slope,
+                             -(((projection[3][1] - 1.0f) * projection[3][3]) / top +
+                    ((projection[2][1] + 1.0f) * projection[2][3]) /
+                                   (1.0f - projection[2][1])) *
                                  near_top,
                              0.0f);
-    state.clip_planes[3].Set(0.0f, slope, near_top, 0.0f);
-    state.clip_planes[4].Set(0.0f, 0.0f, -1.0f, slope);
-    state.clip_planes[5].Set(0.0f, 0.0f, 1.0f,
-                             (projection.vectors[2].w - projection.vectors[3].w) /
-                                 (projection.vectors[2].z - projection.vectors[3].z));
+    state.clip_planes[3] = glm::vec4(0.0f, slope, near_top, 0.0f);
+    state.clip_planes[4] = glm::vec4(0.0f, 0.0f, -1.0f, slope);
+    state.clip_planes[5] =
+        glm::vec4(0.0f, 0.0f, 1.0f,
+                             (projection[3][2] - projection[3][3]) / (projection[2][2] - projection[2][3]));
     for (int plane = 0; plane != 4; ++plane) {
         float length = sqrt(state.clip_planes[plane].z * state.clip_planes[plane].z +
                             state.clip_planes[plane].y * state.clip_planes[plane].y +
@@ -2630,7 +2327,7 @@ void srGERD::getViewPort(w8_ulong& x, w8_ulong& y, w8_ulong& width,
 }
 
 // FUNCTION: SURRENDER 0x1001C010
-void srGERD::pushClipPlane(const srVector4T<float>& plane, e_clipMode mode)
+void srGERD::pushClipPlane(const glm::vec4& plane, e_clipMode mode)
 {
     if ((w8_ulong)state.clip_plane_count < 0x1a) {
         checkClipPlaneChanges();
@@ -2642,19 +2339,18 @@ void srGERD::pushClipPlane(const srVector4T<float>& plane, e_clipMode mode)
         float y = plane.y * inverse_length;
         float z = plane.z * inverse_length;
         float w = inverse_length * plane.w;
-        srVector4T<float>& eye_plane = state.clip_planes[state.clip_plane_count + 6];
+        glm::vec4& eye_plane = state.clip_planes[state.clip_plane_count + 6];
         eye_plane.x =
-            x * state.inverse_modelview.vectors[0].x + y * state.inverse_modelview.vectors[1].x +
-            z * state.inverse_modelview.vectors[2].x + w * state.inverse_modelview.vectors[3].x;
-        eye_plane.y =
-            x * state.inverse_modelview.vectors[0].y + y * state.inverse_modelview.vectors[1].y +
-            z * state.inverse_modelview.vectors[2].y + w * state.inverse_modelview.vectors[3].y;
+            x * state.inverse_modelview[0][0] + y * state.inverse_modelview[0][1] +
+                      z * state.inverse_modelview[0][2] + w * state.inverse_modelview[0][3];
+        eye_plane.y = x * state.inverse_modelview[1][0] + y * state.inverse_modelview[1][1] +
+                      z * state.inverse_modelview[1][2] + w * state.inverse_modelview[1][3];
         eye_plane.z =
-            x * state.inverse_modelview.vectors[0].z + y * state.inverse_modelview.vectors[1].z +
-            z * state.inverse_modelview.vectors[2].z + w * state.inverse_modelview.vectors[3].z;
+            x * state.inverse_modelview[2][0] + y * state.inverse_modelview[2][1] +
+                      z * state.inverse_modelview[2][2] + w * state.inverse_modelview[2][3];
         eye_plane.w =
-            x * state.inverse_modelview.vectors[0].w + y * state.inverse_modelview.vectors[1].w +
-            z * state.inverse_modelview.vectors[2].w + w * state.inverse_modelview.vectors[3].w;
+            x * state.inverse_modelview[3][0] + y * state.inverse_modelview[3][1] +
+                      z * state.inverse_modelview[3][2] + w * state.inverse_modelview[3][3];
         state.clip_modes[state.clip_plane_count] = static_cast<unsigned char>(mode);
         state.clip_mask |= bit;
         if (mode == 1) {
@@ -2759,8 +2455,8 @@ void srGERD::popVertexProcessor()
 // FUNCTION: SURRENDER 0x1001C640
 void srGERD::setFogColor(const srVector3T<float>& color)
 {
-    srVector4T<float> clamped;
-    clamped.Set(color.x, color.y, color.z, 0.0f);
+    glm::vec4 clamped;
+    clamped = glm::vec4(color.x, color.y, color.z, 0.0f);
     setFogColor(clamped);
 }
 
@@ -2768,10 +2464,14 @@ void srGERD::setFogColor(const srVector3T<float>& color)
    anything else becomes 0. The color only updates (and dirties state) when a clamped component
    differs. */
 // FUNCTION: SURRENDER 0x1001C6B0
-void srGERD::setFogColor(const srVector4T<float>& color)
+void srGERD::setFogColor(const glm::vec4& color)
 {
-    srVector4T<float> clamped;
-    clamped.SetSaturated(color);
+    glm::vec4 clamped;
+    {
+        const auto color_value = color;
+        clamped = glm::mix(glm::clamp(color_value, float(0), float(1)), glm::vec4(0),
+                           glm::lessThanEqual(color_value, glm::vec4(0)));
+    }
     if (clamped.x != fog_color.x || clamped.y != fog_color.y || clamped.z != fog_color.z ||
         clamped.w != fog_color.w) {
         flushImmediateRenderers();
@@ -2781,7 +2481,7 @@ void srGERD::setFogColor(const srVector4T<float>& color)
 }
 
 // FUNCTION: SURRENDER 0x1001C680
-void srGERD::getFogColor(srVector4T<float>& color) const
+void srGERD::getFogColor(glm::vec4& color) const
 {
     color = fog_color;
 }
@@ -2789,7 +2489,7 @@ void srGERD::getFogColor(srVector4T<float>& color) const
 // FUNCTION: SURRENDER 0x1001C440
 void srGERD::setAmbientLight(const srVector3T<float>& light)
 {
-    srVector4T<float> expanded;
+    glm::vec4 expanded;
     expanded.x = light.x;
     expanded.w = 0.0f;
     expanded.y = light.y;
@@ -2809,9 +2509,9 @@ srGERD::e_visibility srGERD::testBoundingSphere(const srVector3T<float>& center,
     statistics.sphere_tests++;
     checkViewStateChanges();
     checkClipPlaneChanges();
-    const srMatrix4T<float>& modelview = state.matrix_current[MATRIX_MODELVIEW];
-    float eye_z = modelview.vectors[2].z * center.z + modelview.vectors[2].y * center.y +
-                  modelview.vectors[2].x * center.x + modelview.vectors[2].w;
+    const glm::mat4& modelview = state.matrix_current[MATRIX_MODELVIEW];
+    float eye_z = modelview[2][2] * center.z + modelview[1][2] * center.y +
+                  modelview[0][2] * center.x + modelview[3][2];
     float negative_radius = -(radius * state.max_modelview_scale);
     if (eye_z * state.clip_planes[4].z + state.clip_planes[4].w <= negative_radius) {
         return VISIBILITY_OUTSIDE;
@@ -2819,16 +2519,16 @@ srGERD::e_visibility srGERD::testBoundingSphere(const srVector3T<float>& center,
     if (eye_z * state.clip_planes[5].z + state.clip_planes[5].w <= negative_radius) {
         return VISIBILITY_OUTSIDE;
     }
-    float eye_x = modelview.vectors[0].x * center.x + modelview.vectors[0].z * center.z +
-                  modelview.vectors[0].y * center.y + modelview.vectors[0].w;
+    float eye_x = modelview[0][0] * center.x + modelview[2][0] * center.z +
+                  modelview[1][0] * center.y + modelview[3][0];
     if (eye_x * state.clip_planes[0].x + eye_z * state.clip_planes[0].z <= negative_radius) {
         return VISIBILITY_OUTSIDE;
     }
     if (eye_z * state.clip_planes[1].z + eye_x * state.clip_planes[1].x <= negative_radius) {
         return VISIBILITY_OUTSIDE;
     }
-    float eye_y = modelview.vectors[1].z * center.z + modelview.vectors[1].y * center.y +
-                  modelview.vectors[1].x * center.x + modelview.vectors[1].w;
+    float eye_y = modelview[2][1] * center.z + modelview[1][1] * center.y +
+                  modelview[0][1] * center.x + modelview[3][1];
     if (eye_z * state.clip_planes[2].z + eye_y * state.clip_planes[2].y <= negative_radius) {
         return VISIBILITY_OUTSIDE;
     }
@@ -2843,7 +2543,7 @@ srGERD::e_visibility srGERD::testBoundingSphere(const srVector3T<float>& center,
             }
             w8_ulong bit = 1UL << index;
             if ((remaining & bit) != 0) {
-                const srVector4T<float>& plane = state.clip_planes[index];
+                const glm::vec4& plane = state.clip_planes[index];
                 if (eye_z * plane.z + eye_x * plane.x + eye_y * plane.y + plane.w <=
                     negative_radius) {
                     return VISIBILITY_OUTSIDE;
@@ -2862,9 +2562,9 @@ srGERD::e_visibility srGERD::testBoundingBox(const srVector3T<float>& minimum,
 {
     statistics.box_tests++;
     checkViewStateChanges();
-    srMatrix4T<float> combined = state.matrix_current[MATRIX_PROJECTION];
-    combined.MultiplyBy(state.matrix_current[MATRIX_MODELVIEW]);
-    if (srMath::srTestBoundingBox(combined, minimum, maximum) != 0) {
+    glm::mat4 combined = state.matrix_current[MATRIX_PROJECTION];
+    combined = combined * state.matrix_current[MATRIX_MODELVIEW];
+    if (srRender::testBoundingBox(combined, minimum, maximum)) {
         statistics.box_visible++;
         return static_cast<e_visibility>(1);
     }
@@ -2872,10 +2572,11 @@ srGERD::e_visibility srGERD::testBoundingBox(const srVector3T<float>& minimum,
 }
 
 // FUNCTION: SURRENDER 0x100235F0
-srVector4T<float> srGERD::getEyeSpaceLocation(const srVector3T<float>& object_location)
+glm::vec4 srGERD::getEyeSpaceLocation(const srVector3T<float>& object_location)
 {
     checkViewStateChanges();
-    return state.matrix_current[MATRIX_MODELVIEW].Transform(object_location);
+    return glm::vec4{state.matrix_current[MATRIX_MODELVIEW] *
+                             glm::vec4(object_location.glmValue(), 1)};
 }
 
 // FUNCTION: SURRENDER 0x1001DDF0
@@ -2883,13 +2584,13 @@ void srGERD::getEyeSpaceBounds(srVector3T<float>& center, float& radius,
                                const srVector3T<float>& object_center, float object_radius)
 {
     checkViewStateChanges();
-    const srMatrix4T<float>& modelview = state.matrix_current[MATRIX_MODELVIEW];
-    center.x = modelview.vectors[0].x * object_center.x + modelview.vectors[0].y * object_center.y +
-               modelview.vectors[0].z * object_center.z + modelview.vectors[0].w;
-    center.z = modelview.vectors[2].y * object_center.y + modelview.vectors[2].z * object_center.z +
-               modelview.vectors[2].x * object_center.x + modelview.vectors[2].w;
-    center.y = modelview.vectors[1].y * object_center.y + modelview.vectors[1].z * object_center.z +
-               modelview.vectors[1].x * object_center.x + modelview.vectors[1].w;
+    const glm::mat4& modelview = state.matrix_current[MATRIX_MODELVIEW];
+    center.x = modelview[0][0] * object_center.x + modelview[1][0] * object_center.y +
+               modelview[2][0] * object_center.z + modelview[3][0];
+    center.z = modelview[1][2] * object_center.y + modelview[2][2] * object_center.z +
+               modelview[0][2] * object_center.x + modelview[3][2];
+    center.y = modelview[1][1] * object_center.y + modelview[2][1] * object_center.z +
+               modelview[0][1] * object_center.x + modelview[3][1];
     radius = object_radius * state.max_modelview_scale;
 }
 
@@ -2984,7 +2685,7 @@ void srGERD::deleteTexture(Texture& texture)
     if (&texture == texture_deleted) {
         texture_deleted = texture.next;
     }
-    texture_lookup.Remove(&texture.id);
+    texture_lookup.erase(texture.id);
     getDD()->deleteTexture(texture.device);
     texture.name.clear();
     texture.device.resident_data = 0;
@@ -3038,7 +2739,7 @@ srGERD::Texture* srGERD::allocTexture(w8_ulong id)
     Texture* texture = texture_pool.allocate();
     texture->id = id;
     texture->palette = 0;
-    texture_lookup.Insert(&texture->id, &texture);
+    texture_lookup.emplace(texture->id, texture);
     texture->next = texture_head;
     texture->prev = 0;
     if (texture_head != 0) {
@@ -3112,9 +2813,9 @@ void srGERD::changeTexture(srTextureIFace* texture, w8_ulong stage, int apply_pa
     } else {
         w8_ulong id = texture->getTextureFrameHandle();
         if (id != 0) {
-            int slot = texture_lookup.FindNextEntry(&id, -1);
-            if (slot != -1) {
-                found = texture_lookup.entries[slot].value;
+            const auto entry = texture_lookup.find(id);
+            if (entry != texture_lookup.end()) {
+                found = entry->second;
                 if (found != 0) {
                     goto bound;
                 }
@@ -3136,7 +2837,7 @@ bound:
     if (found->palette != 0 && found->palette != this->palette) {
         ++statistics.palette_binds;
         invalidatePalette();
-        srPalette* palette = found->palette;
+        auto palette = found->palette;
         device_palette.flags = 0;
         device_palette.data = palette->getPaletteDataPtr();
         w8_ulong size = palette->getPaletteSize();
@@ -3302,7 +3003,7 @@ void srGERD::initDDInfo()
 // FUNCTION: SURRENDER 0x1001C3E0
 void srGERD::initLights()
 {
-    ambient_light.Set(0.2f, 0.2f, 0.2f, 1.0f);
+    ambient_light = glm::vec4(0.2f, 0.2f, 0.2f, 1.0f);
 }
 
 // FUNCTION: SURRENDER 0x10021BE0
@@ -3310,12 +3011,12 @@ void srGERD::initMatrices()
 {
     state.matrix_mode = MATRIX_MODELVIEW;
     for (w8_long i = 0; i < 2; i++) {
-        state.matrix_current[i].SetIdentity();
-        state.matrix_class[i] = srMatrix4T<float>::TYPE_IDENTITY;
+        state.matrix_current[i] = glm::mat4(1);
+        state.matrix_class[i] = srRendererDefs::MATRIX_TYPE_IDENTITY;
         state.matrix_stacks[i].depth = 0;
     }
-    state.normal_matrix.SetIdentity();
-    state.inverse_modelview.SetIdentity();
+    state.normal_matrix = glm::mat4(1);
+    state.inverse_modelview = glm::mat4(1);
 }
 
 // FUNCTION: SURRENDER 0x1001CD60
@@ -3471,7 +3172,7 @@ void srGERD::dumpTextureCache(std::ostream& stream)
     }
     srStreamPrintf(stream, "GERD Texture cache:\n\n");
     srStreamPrintf(stream, "Cached textures:          %d\n", count);
-    srStreamPrintf(stream, "Hash table size           %d\n", texture_lookup.bucket_count);
+    srStreamPrintf(stream, "Hash table buckets        %zu\n", texture_lookup.bucket_count());
     srStreamPrintf(stream, "GERD Cache memory used:   %d kB\n", (texture_cache_used + 0x3ff) >> 10);
     if (texture_cache_size == 0) {
         srStreamPrintf(stream, "Max cache size:           infinite\n");
@@ -3598,7 +3299,7 @@ srColorSurfaceIFace* srGERD::lockBuffer()
     checkViewStateChanges();
     srPixelConvert::PixelFormat format;
     getPixelFormat(format);
-    lock_surface = new LockSurface(this, format);
+    lock_surface = std::make_unique<LockSurface>(this, format);
     lock_surface->setScissor(state.scissor.left, state.scissor.top, state.scissor.right,
                              state.scissor.bottom);
     if (format.color_model == srPixelConvert::COLOR_RGB &&
@@ -3608,15 +3309,14 @@ srColorSurfaceIFace* srGERD::lockBuffer()
         format.alpha_shift == 0x18) {
         lock_surface->argb32 = 1;
     }
-    return lock_surface;
+    return lock_surface.get();
 }
 
 // FUNCTION: SURRENDER 0x10020F30
 void srGERD::unlockBuffer()
 {
     if (lock_surface != 0) {
-        lock_surface->release();
-        lock_surface = 0;
+        lock_surface.reset();
         _unlockBuffer();
     }
 }
@@ -3816,7 +3516,7 @@ void srGERD::closeTexCache()
         markTextureAsDeleted(*texture_default);
         deleteTexture(*texture_default);
         texture_default = 0;
-        texture_lookup.Clear();
+        texture_lookup.clear();
         texture_deleted = 0;
         texture_head = 0;
         texture_cache_used = 0;
@@ -3828,7 +3528,7 @@ void srGERD::closeTexCache()
 void srGERD::initTexCache()
 {
     if (texture_hash_enabled == 0) {
-        texture_lookup.Clear();
+        texture_lookup.clear();
         texture_head = 0;
         texture_deleted = 0;
         texture_cache_used = 0;
@@ -4018,16 +3718,18 @@ srGERD::Texture* srGERD::createNewTexture(srTextureIFace* texture)
     evaluateTextureDimensions(result->device, dimensions);
     evaluateTexturePixelFormat(*result, dimensions);
     allocTextureData(*result);
-    srTextureIFace::MultiRequest request;
+    srTextureIFace::MultiRequest request{};
+    std::unique_ptr<srColorSurface> surfaces[12];
     request.mipmap_level = (w8_long)result->device.first_level;
     request.last_level = result->device.last_level;
     w8_ulong width = result->device.width;
     w8_ulong height = result->device.height;
     w8_long level = request.mipmap_level;
     for (; level <= (w8_long)request.last_level; ++level) {
-        srColorSurface* surface =
-            new srColorSurface(result->pixel_format, result->device.levels[level], width, height,
-                               (w8_ulong)(result->pixel_format.pixel_size + 1) * width);
+        surfaces[level] = std::make_unique<srColorSurface>(
+            result->pixel_format, result->device.levels[level], width, height,
+            (w8_ulong)(result->pixel_format.pixel_size + 1) * width);
+        auto* surface = surfaces[level].get();
         request.destinations[level] = surface;
         if (result->palette != 0) {
             surface->setPalette(result->palette);
@@ -4037,9 +3739,7 @@ srGERD::Texture* srGERD::createNewTexture(srTextureIFace* texture)
         height >>= 1;
     }
     texture->getMipmapData(request);
-    for (level = request.mipmap_level; level <= (w8_long)request.last_level; ++level) {
-        request.destinations[level]->release();
-    }
+
     result->device.resident_data = 0;
     result->device.priority = texture->getPriority();
     ++statistics.textures_created;
@@ -4092,7 +3792,7 @@ w8_long srGERD::getTextureReduction() const
 // FUNCTION: SURRENDER 0x10017B70
 void srGERD::invalidateResidentPalette(srPalette* palette)
 {
-    if (palette != 0 && palette == this->palette) {
+    if (palette != 0 && palette == this->palette.get()) {
         this->palette = 0;
         dirty |= DIRTY_TEXTURE0;
         dirty |= DIRTY_TEXTURE1;
@@ -4105,7 +3805,7 @@ int srGERD::isTextureCached(srTextureIFace* texture) const
     std::lock_guard access(state_section);
     if (texture != 0) {
         w8_ulong handle = texture->getTextureFrameHandle();
-        return texture_lookup.Lookup(&handle) != 0;
+        return texture_lookup.contains(handle);
     }
     return 0;
 }
@@ -4116,7 +3816,8 @@ int srGERD::isTextureResident(srTextureIFace* texture) const
     std::lock_guard access(state_section);
     if (texture != 0 && isWindowOpen() != 0) {
         w8_ulong handle = texture->getTextureFrameHandle();
-        Texture* resident = texture_lookup.Lookup(&handle);
+        const auto entry = texture_lookup.find(handle);
+        Texture* resident = entry == texture_lookup.end() ? nullptr : entry->second;
         if (resident != 0 && resident->device.resident_data != 0 &&
             resident->device.resident_size != 0) {
             return 1;
@@ -4133,7 +3834,8 @@ int srGERD::getTextureInfo(srTextureIFace* texture, TextureInfo& info)
         return 0;
     }
     w8_ulong handle = texture->getTextureFrameHandle();
-    Texture* resident = texture_lookup.Lookup(&handle);
+    const auto entry = texture_lookup.find(handle);
+    Texture* resident = entry == texture_lookup.end() ? nullptr : entry->second;
     if (resident != 0) {
         info.pixel_format = resident->pixel_format;
         info.width = resident->device.width;
@@ -4275,7 +3977,7 @@ srGERD::e_polygonMode srGERD::getPolygonMode() const
 }
 
 // FUNCTION: SURRENDER 0x1001C8F0
-void srGERD::getClearAccum(srVector4T<float>& color) const
+void srGERD::getClearAccum(glm::vec4& color) const
 {
     color = clear_state.clear_values.accum;
 }
@@ -4283,7 +3985,7 @@ void srGERD::getClearAccum(srVector4T<float>& color) const
 // FUNCTION: SURRENDER 0x1001C920
 void srGERD::setClearAccum(float red, float green, float blue, float alpha)
 {
-    srVector4T<float> color;
+    glm::vec4 color;
     color.x = red;
     color.y = green;
     color.z = blue;
@@ -4292,7 +3994,7 @@ void srGERD::setClearAccum(float red, float green, float blue, float alpha)
 }
 
 // FUNCTION: SURRENDER 0x1001C960
-void srGERD::setClearAccum(const srVector4T<float>& color)
+void srGERD::setClearAccum(const glm::vec4& color)
 {
     clear_state.clear_values.accum = color;
     float* clear = &clear_state.clear_values.accum.x;
@@ -4323,7 +4025,7 @@ void srGERD::setClearAccum(const srVector4T<float>& color)
 }
 
 // FUNCTION: SURRENDER 0x1001CB40
-void srGERD::getClearColor(srVector4T<float>& color) const
+void srGERD::getClearColor(glm::vec4& color) const
 {
     color = clear_state.clear_values.color;
 }
@@ -4564,10 +4266,10 @@ void srGERD::setFogPointer(w8_long components, srRendererDefs::e_type type, w8_u
 // FUNCTION: SURRENDER 0x10020550
 void srGERD::initClearColors()
 {
-    srVector4T<float> color;
-    color.Set(0.0f, 0.0f, 0.0f, 0.0f);
+    glm::vec4 color;
+    color = glm::vec4(0.0f, 0.0f, 0.0f, 0.0f);
     setClearAccum(color);
-    color.Set(0.0f, 0.0f, 0.0f, 0.0f);
+    color = glm::vec4(0.0f, 0.0f, 0.0f, 0.0f);
     setClearColor(color);
     setClearDepth(1.0);
     setClearStencil(0);
@@ -4729,8 +4431,8 @@ void srGERD::accumulate(e_accum operation, float scale)
             }
             for (w8_long y = 0; y < height; y++) {
                 surface->getPixelRow(
-                    reinterpret_cast<w8_ulong*>(
-                        pixels), // reinterpret-ok: ARGB row buffer through the dword pixel-row ABI
+                    reinterpret_cast<w8_ulong*>(pixels), // reinterpret-ok: ARGB row buffer
+                                                         // through the dword pixel-row ABI
                     state.scissor.top + y, state.scissor.left, state.scissor.right);
                 for (w8_long x = 0; x < width; x++) {
                     row[x].red = row[x].red + table[pixels[x].blue];
@@ -4749,8 +4451,8 @@ void srGERD::accumulate(e_accum operation, float scale)
             }
             for (w8_long y = 0; y < height; y++) {
                 surface->getPixelRow(
-                    reinterpret_cast<w8_ulong*>(
-                        pixels), // reinterpret-ok: ARGB row buffer through the dword pixel-row ABI
+                    reinterpret_cast<w8_ulong*>(pixels), // reinterpret-ok: ARGB row buffer
+                                                         // through the dword pixel-row ABI
                     state.scissor.top + y, state.scissor.left, state.scissor.right);
                 for (w8_long x = 0; x < width; x++) {
                     row[x].red = table[pixels[x].blue];
@@ -4805,8 +4507,8 @@ void srGERD::accumulate(e_accum operation, float scale)
                     pixels[x].alpha = table[((unsigned short)row[x].alpha) >> 7];
                 }
                 surface->setPixelRow(
-                    reinterpret_cast<const w8_ulong*>(
-                        pixels), // reinterpret-ok: ARGB row buffer through the dword pixel-row ABI
+                    reinterpret_cast<const w8_ulong*>(pixels), // reinterpret-ok: ARGB row buffer
+                                                               // through the dword pixel-row ABI
                     state.scissor.top + y, state.scissor.left, state.scissor.right);
                 row += getWidth();
             }
@@ -4819,4 +4521,21 @@ void srGERD::accumulate(e_accum operation, float scale)
     if (surface != 0) {
         unlockBuffer();
     }
+}
+
+// FUNCTION: SURRENDER 0x10068700
+bool srRender::testBoundingBox(const glm::mat4& matrix, const srVector3& minimum,
+                               const srVector3& maximum)
+{
+    std::array<glm::vec4, 8> corners;
+    for (unsigned i = 0; i < corners.size(); ++i)
+        corners[i] =
+            matrix * glm::vec4(i & 1 ? maximum.x : minimum.x, i & 2 ? maximum.y : minimum.y,
+                               i & 4 ? maximum.z : minimum.z, 1);
+    std::array<SRBYTE, 8> flags;
+    clipFlags(flags, corners);
+    SRBYTE outside = 0x3f;
+    for (const auto flag : flags)
+        outside &= flag;
+    return outside == 0;
 }

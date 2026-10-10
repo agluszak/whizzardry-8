@@ -1,7 +1,8 @@
 #include "wiz8/level_specific_code/MartensBluff2.h"
 #include "wiz8/engine_code/Trigger.hpp"
 #include "wiz8/engine_code/World.h"
-#include "wiz8/3d_code/IList.h"
+#include <vector>
+#include <algorithm>
 #include "wiz8/cursor.h"
 #include "wiz8/engine_code/Environment.h"
 #include "wiz8/engine_code/GDProp.h"
@@ -111,7 +112,7 @@ void MartensBluff2Setup(void)
             if (quest_state == 2) {
                 if (FindEntityByName("Ravenz", &position, 0, 0)) {
                     group = SpawnMonsters(0x183, 1, &position, 0, true, false, false);
-                    location_id = IListGetAt(group->monsters, 0);
+                    location_id = group->MemberLocationId(0);
                     if (location_id != 0) {
                         info = MonsterGetScriptPartByLocationIndex(MonsterGetIndexByLocationID(
                             0x1d2, MARTENSBLUFF2_CPP, location_id, true));
@@ -150,17 +151,19 @@ static void FireTrapLauncher(const char* name, W8SpellEffectDefinition* effect)
     srVector3T<float> position;
     srVector3T<float> offset;
     srVector3T<float> direction;
-    srMatrix3T<float> rotation;
+    glm::mat3 rotation;
     float angle;
     W8Missile* missile;
 
     if (FindEntityByName(name, &position, &angle, &direction)) {
         offset.Set(0.0, 0.0, 15000.0);
-        rotation.SetIdentity();
+        rotation = glm::mat3(1);
         if (angle != 0.0) {
-            rotation.RotateAroundAxis(sin(angle), cos(angle), direction);
-        }
-        offset = position + rotation.Transform(offset);
+            rotation *=
+                glm::mat3_cast(glm::angleAxis(float(std::atan2(sin(angle), cos(angle))),
+                                              normalizedOrZero(glm::vec3(direction.glmValue()))));
+            }
+            offset = position + srVector3T<float>{rotation * offset.glmValue()};
         missile = FireMissile(0, &position, &offset, 0, 0, 1, 50000.0f);
         missile->SetEffectDefinition(effect);
         CreateAndPlaySoundNode("Data\\Sound\\Combat\\Blow_Gun_Attack_01.wav", position, 1.0f,
@@ -177,7 +180,7 @@ bool TriggerArrowTrap(Trigger* pTrigger)
     srVector3T<float> position;
     srVector3T<float> offset;
     srVector3T<float> direction;
-    srMatrix3T<float> rotation;
+    glm::mat3 rotation;
     float angle;
     W8Missile* missile;
 
@@ -190,9 +193,10 @@ bool TriggerArrowTrap(Trigger* pTrigger)
     FireTrapLauncher("Arrowlauncher3", &effect);
     if (FindEntityByName("Arrowlauncher4", &position, &angle, &direction)) {
         offset.Set(0.0, 0.0, 15000.0);
-        rotation.SetIdentity();
-        rotation.RotateAroundAxis(angle, direction);
-        offset = rotation.Transform(offset) + position;
+        rotation = glm::mat3(1);
+        rotation *= glm::mat3_cast(
+            glm::angleAxis(float(angle), normalizedOrZero(glm::vec3(direction.glmValue()))));
+        offset = rotation * offset.glmValue() + position.glmValue();
         missile = FireMissile(0, &position, &offset, 0, 0, 1, 50000.0f);
         missile->SetEffectDefinition(&effect);
         CreateAndPlaySoundNode("Data\\Sound\\Combat\\Blow_Gun_Attack_01.wav", position, 1.0f,
@@ -222,7 +226,7 @@ void MartensBluff2Spikeball(int command)
     srVector3T<float> position;
     srVector3T<float> offset;
     srVector3T<float> direction;
-    srMatrix3T<float> rotation;
+    glm::mat3 rotation;
     float angle;
     W8Missile* missile;
 
@@ -249,7 +253,7 @@ void MartensBluff2Spikeball(int command)
         }
         if (g_spikeball_gate == 0) {
             g_spikeball_gate = new W8IntervalGate(2.0f, false, true);
-            g_master_functions->Add(MartensBluff2Spikeball);
+            g_master_functions.push_back(MartensBluff2Spikeball);
         }
     }
     g_remove_current_master_function = false;
@@ -267,11 +271,13 @@ void MartensBluff2Spikeball(int command)
             FireTrapLauncher("Spikeball-launcher3", &effect);
             if (FindEntityByName("Spikeball-launcher4", &position, &angle, &direction)) {
                 offset.Set(0.0, 0.0, 15000.0);
-                rotation.SetIdentity();
+                rotation = glm::mat3(1);
                 if (angle != 0.0) {
-                    rotation.RotateAroundAxis(sin(angle), cos(angle), direction);
+                    rotation *= glm::mat3_cast(
+                        glm::angleAxis(float(std::atan2(sin(angle), cos(angle))),
+                                       normalizedOrZero(glm::vec3(direction.glmValue()))));
                 }
-                offset = rotation.Transform(offset) + position;
+                offset = rotation * offset.glmValue() + position.glmValue();
                 missile = FireMissile(0, &position, &offset, 0, 0, 1, 50000.0f);
                 missile->SetEffectDefinition(&effect);
                 CreateAndPlaySoundNode("Data\\Sound\\Combat\\Blow_Gun_Attack_01.wav", position,
@@ -354,7 +360,7 @@ bool MartensBluff2PerfumeBox(Trigger* pTrigger)
     quest_state = 2;
     if (FindEntityByName("Ravenz", &position, 0, 0)) {
         group = SpawnMonsters(0x183, 1, &position, 0, true, false, false);
-        location_id = IListGetAt(group->monsters, 0);
+        location_id = group->MemberLocationId(0);
         if (location_id != 0) {
             info = MonsterGetScriptPartByLocationIndex(
                 MonsterGetIndexByLocationID(0x1d2, MARTENSBLUFF2_CPP, location_id, true));
@@ -480,7 +486,7 @@ void MartensBluff2MonsterCrusher(int command)
             }
             g_crusher_active = true;
             g_crusher_state = 1;
-            g_master_functions->Add(MartensBluff2MonsterCrusher);
+            g_master_functions.push_back(MartensBluff2MonsterCrusher);
         }
         if (command != 1 && GetLocationVarValueByName("RavenQuest") != 0) {
             g_running_trigger_from_script = true;
@@ -586,7 +592,7 @@ bool MartensBluff2StoneIdol(Trigger* pTrigger)
     }
     BeginSurprise();
     MartensBluff2IdolGas(1);
-    g_master_functions->Add(MartensBluff2IdolGas);
+    g_master_functions.push_back(MartensBluff2IdolGas);
     pTrigger->flags &= ~W8_TRIGGER_ENABLED;
     g_running_trigger_from_script = true;
     SetFact(W8_FACT_QUEST_MARTEN_IDOL, 1, false);
@@ -731,5 +737,5 @@ void MartensBluff2IdolGasVictim(void)
     }
 }
 
-/* srMatrix3T<float>::RotateAroundAxis(double, ...) emitted out-of-line for the
+/* glm::mat3::RotateAroundAxis(double, ...) emitted out-of-line for the
    arrow trap's rotation math; the primary is in srMath.h. */

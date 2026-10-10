@@ -5,10 +5,11 @@
 
 #include "surrender/srCore.h"
 #include "surrender/srDebug.h"
-#include "surrender/srVectorMath.h"
 #include "surrender/srVertexPipe.h"
-
 #include <ostream>
+#include "surrender/srMath.h"
+
+#include <cassert>
 
 // FUNCTION: SURRENDER 0x1004C0E0
 void srFog::setDensity(float density)
@@ -108,23 +109,27 @@ void srFog::process(srVertexPipe& pipe)
                         std::copy_n(distances, count, values);
                     }
                 } else {
-                    srMath::add({values, static_cast<std::size_t>(count)}, -start, distances);
+                    for (std::size_t i = 0; i < count; ++i)
+                        values[i] = (-start) + distances[i];
                 }
                 if (scale != 1.0f) {
                     if (scale == 0.0f) {
                         std::fill_n(values, count, 0.0f);
                     } else {
-                        srMath::mul({values, static_cast<std::size_t>(count)}, scale, values);
+                        for (std::size_t i = 0; i < count; ++i)
+                            values[i] = scale * values[i];
                     }
                 }
-                srMath::clampUnit({values, static_cast<std::size_t>(count)}, values);
+                for (std::size_t i = 0; i < count; ++i)
+                    values[i] = glm::clamp(values[i], 0.0f, 1.0f);
             }
             density = this->density;
             if ((count != 0) && (density != 1.0f)) {
                 if (density == 0.0f) {
                     std::fill_n(values, count, 0.0f);
                 } else {
-                    srMath::mul({values, static_cast<std::size_t>(count)}, density, values);
+                    for (std::size_t i = 0; i < count; ++i)
+                        values[i] = density * values[i];
                 }
             }
             pipe.applyFog(values);
@@ -139,11 +144,13 @@ void srFog::process(srVertexPipe& pipe)
                 if (density == 0.0f) {
                     std::fill_n(fog, count, 0.0f);
                 } else {
-                    srMath::mul({fog, static_cast<std::size_t>(count)}, density, fog);
+                    for (std::size_t i = 0; i < count; ++i)
+                        fog[i] = density * fog[i];
                 }
             }
             if ((count != 0) && (this->density != 0.0f)) {
-                srMath::add({fog, static_cast<std::size_t>(count)}, this->density, fog);
+                for (std::size_t i = 0; i < count; ++i)
+                    fog[i] = (this->density) + fog[i];
             }
         }
     }
@@ -173,12 +180,6 @@ void srFog::dump(std::ostream& stream)
     stream.width(0x20);
     stream << "Fog end: " << fog_end << '\n';
     srSetStreamFlags(stream, flags & 0x7fff);
-}
-
-// FUNCTION: SURRENDER 0x1004C1B0
-srClass* srFog::vInstance()
-{
-    return new srFog;
 }
 
 // FUNCTION: SURRENDER 0x1004C350

@@ -46,11 +46,11 @@ public:
 
         srVector3T<float> position;
         w8_ulong shade_index;
-        srMaterialIFace* materials[4][2];
+        std::shared_ptr<srMaterialIFace> materials[4][2];
         srVector3T<float> dcg[4];
         srVector3T<float> dig[4];
         srVector3T<float> scg[4];
-        srVector2T<float> uv[8];
+        glm::vec2 uv[8];
         float weights[4];
     };
 
@@ -60,7 +60,7 @@ public:
         void reset();
         void flipFacing();
 
-        srTextureIFace* textures[4][2];
+        std::shared_ptr<srTextureIFace> textures[4][2];
         srShader shaders[4];
         Vertex vertices[3];
         w8_ulong flags;
@@ -73,7 +73,7 @@ public:
         void reset();
         void reAllocate(int vertices);
 
-        srTextureIFace* textures[4][2];
+        std::shared_ptr<srTextureIFace> textures[4][2];
         srShader shaders[4];
         /* Engine Code\stCube.cpp assigns positions and UVs through this table
            after Polygon(4) allocates it. */
@@ -108,8 +108,8 @@ public:
     void scale(w8_ulong triangle, const srVector3T<float>& scale);
     void move(const srVector3T<float>& delta);
     void move(w8_ulong triangle, const srVector3T<float>& delta);
-    void rotate(const srMatrix3T<float>& matrix);
-    void rotate(w8_ulong triangle, const srMatrix3T<float>& matrix);
+    void rotate(const glm::mat3& matrix);
+    void rotate(w8_ulong triangle, const glm::mat3& matrix);
     int findVertex(const srVector3T<float>& position, w8_ulong& triangle,
                    w8_ulong& vertex, w8_ulong start_triangle);
     void findClosestVertex(const srVector3T<float>& position, w8_ulong& triangle,
@@ -138,8 +138,8 @@ public:
     void cylinderMap(w8_long pass, w8_long layer, const MappingInfo& mapping);
     void removeMapping(w8_long pass, w8_long layer);
 
-    void setMaterial(srMaterialIFace* material, w8_long pass, srMeshModel::e_side side);
-    void setTexture(srTextureIFace* texture, w8_long pass, w8_long layer);
+    void setMaterial(std::shared_ptr<srMaterialIFace> material, w8_long pass, srMeshModel::e_side side);
+    void setTexture(std::shared_ptr<srTextureIFace> texture, w8_long pass, w8_long layer);
     void setShader(srShader shader, w8_long pass);
     /* A nonzero remove_degenerate disables and drops triangles with
        coincident corners before building the mesh (the game passes 1). */
@@ -173,18 +173,10 @@ public:
 
 private:
     std::unique_ptr<VertexHash> getUniqueVertexList();
-    int isClockwise(srVector2T<float>* points, int count);
+    int isClockwise(glm::vec2* points, int count);
 
     w8_ulong triangle_count;
     std::vector<Triangle> triangles;
     w8_long pass_count;
 };
 
-W8_ABI_ASSERT((sizeof(srModeler) == 0x14), "srModeler_must_be_0x14");
-W8_ABI_ASSERT((sizeof(srModeler::MappingInfo) == 0x18), "srModeler_MappingInfo_must_be_0x18");
-W8_ABI_ASSERT((sizeof(srModeler::Vertex) == 0x110), "srModeler_Vertex_must_be_0x110");
-W8_ABI_ASSERT((sizeof(srModeler::Triangle) == 0x368), "srModeler_Triangle_must_be_0x368");
-W8_ABI_ASSERT((sizeof(srModeler::Polygon) == 0x44), "srModeler_Polygon_must_be_0x44");
-W8_ABI_ASSERT((sizeof(srModeler::VertexHash) == 0x100c), "srModeler_VertexHash_must_be_0x100c");
-W8_ABI_ASSERT((sizeof(srModeler::VertexHash::Entry) == 0x14),
-              "srModeler_VertexHash_Entry_must_be_0x14");

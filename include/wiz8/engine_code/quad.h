@@ -1,16 +1,18 @@
 #pragma once
 
+#include <vector>
+struct W8QuadObject;
+
 #include "surrender/srMath.h"
 
-#include "wiz8/3d_code/IList.h"
-#include "wiz8/3d_code/PList.h"
+#include <algorithm>
 
 class srModelInstance;
 class srScene;
 
 struct W8QuadCell {
-    W8IList* polygon_indices;
-    W8PList* objects;
+    std::vector<int>* polygon_indices;
+    std::vector<W8QuadObject*>* objects;
     unsigned int dirty_stamp;
     bool occupied;
     unsigned char padding_0d[3];
@@ -28,7 +30,7 @@ W8_ABI_ASSERT(sizeof(W8QuadRow) == 0x8, "W8QuadRow_must_be_0x8");
 struct W8Quad {
     unsigned int row_count;
     unsigned int column_count;
-    srVector2T<float> origin;
+    glm::vec2 origin;
     float cell_size;
     W8QuadRow* rows;
     unsigned int dirty;

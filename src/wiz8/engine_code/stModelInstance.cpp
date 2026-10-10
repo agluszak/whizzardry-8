@@ -12,14 +12,15 @@
 #include "surrender/srMaterial.h"
 #include "surrender/srNode.h"
 #include "surrender/srTriMeshPipeline.h"
-#include "surrender/srVectorMath.h"
 #include "wiz8/engine_code/Octree.h"
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/sr_api.h"
-
 #include <math.h>
 #include <new>
+
 #include <string.h>
+#include "surrender/srMath.h"
+#include <cassert>
 
 #define ST_MODEL_INSTANCE_CPP "C:\\Projects\\Wizardry 8\\Engine Code\\stModelInstance.cpp"
 
@@ -32,7 +33,6 @@ extern float g_monster_light_scale;
 static std::vector<srVector3T<float>> g_vertex_scratch;
 
 // VTABLE: WIZ8 0x005ec89c srClassSupport<srModelInstance, class srNode, 4352>
-// VTABLE: WIZ8 0x005ec88c srModel::Client
 // class srClassSupport<stModelInstance2D, class srModelInstance, 65541>
 /* Find the animated texture assigned to polygons whose runtime name begins
    with "mouth". Damage-stage instances use the stage-specific texture table;
@@ -44,36 +44,32 @@ stTextureAnim* stModelInstance::FindMouthTexture()
 
     if (damage_stage == -1) {
         while (mesh != 0) {
-            srPtr<srTextureIFace>* textures = mesh->getPolyTexture(0, 0, 0);
+            std::shared_ptr<srTextureIFace>* textures = mesh->getPolyTexture(0, 0, 0);
 
             if (textures != 0) {
                 for (int polygon = 0; polygon < mesh->polygon_count; ++polygon) {
-                    srTextureIFace* texture = textures[polygon].get();
-
-                    if (texture != 0 && texture->getClassID() == stTextureAnim::CLASS_ID &&
-                        _strnicmp(texture->getName().c_str(), "mouth", 5) == 0) {
-                        return static_cast<stTextureAnim*>(texture);
+                    auto* animation = sr_cast<stTextureAnim>(textures[polygon]);
+                    if (animation != 0 && _strnicmp(animation->getName().c_str(), "mouth", 5) == 0) {
+                        return animation;
                     }
                 }
             }
-            mesh = mesh->next;
+            mesh = mesh->Next();
         }
     } else {
         while (mesh != 0) {
-            srPtr<srTextureIFace>* textures =
+            std::shared_ptr<srTextureIFace>* textures =
                 mesh->GetTextureTable(damage_stage_tables[damage_stage]);
 
             if (textures != 0) {
                 for (int polygon = 0; polygon < mesh->polygon_count; ++polygon) {
-                    srTextureIFace* texture = textures[polygon].get();
-
-                    if (texture != 0 && texture->getClassID() == stTextureAnim::CLASS_ID &&
-                        _strnicmp(texture->getName().c_str(), "mouth", 5) == 0) {
-                        return static_cast<stTextureAnim*>(texture);
+                    auto* animation = sr_cast<stTextureAnim>(textures[polygon]);
+                    if (animation != 0 && _strnicmp(animation->getName().c_str(), "mouth", 5) == 0) {
+                        return animation;
                     }
                 }
             }
-            mesh = mesh->next;
+            mesh = mesh->Next();
         }
     }
     return 0;
@@ -126,7 +122,7 @@ int stModelInstance::AddDamageStage(const char* name)
     int stage = static_cast<int>(damage_stage_tables.size());
     int base_table = stage > 0 ? damage_stage_tables[0] : -1;
     damage_stage_tables.push_back(mesh->CreateSkinTable(name, base_table));
-    for (mesh = mesh->next; mesh != 0; mesh = mesh->next) {
+    for (mesh = mesh->Next(); mesh != 0; mesh = mesh->Next()) {
         mesh->CreateSkinTable(name, base_table);
     }
     return stage;
@@ -148,29 +144,25 @@ int stModelInstance::AddExistingDamageStage(const char* name)
 }
 
 // FUNCTION: WIZ8 0x004807b0
-unsigned char stModelInstance::ReplaceDamageStageTexture(int stage, const char* old_name,
-                                                         srTextureIFace* replacement)
+unsigned char stModelInstance::ReplaceDamageStageTexture(
+    int stage, const char* old_name, const std::shared_ptr<srTextureIFace>& replacement)
 {
     stMeshModel* mesh = static_cast<stMeshModel*>(getModel());
     bool replaced = false;
 
-    if (replacement != 0) {
-        if (replacement->getClassID() == stTextureAnim::CLASS_ID) {
-            static_cast<stTextureAnim*>(replacement)->Prepare();
-        }
-        replacement->getClassID();
+    if (auto* animation = sr_cast<stTextureAnim>(replacement)) {
+        animation->Prepare();
     }
 
-    for (; mesh != 0; mesh = mesh->next) {
-        srPtr<srTextureIFace>* textures = mesh->GetTextureTable(damage_stage_tables[stage]);
+    for (; mesh != 0; mesh = mesh->Next()) {
+        std::shared_ptr<srTextureIFace>* textures = mesh->GetTextureTable(damage_stage_tables[stage]);
         if (textures == 0) {
             continue;
         }
 
         for (int polygon = 0; polygon < mesh->polygon_count; ++polygon) {
             srTextureIFace* texture = textures[polygon].get();
-            if (texture == 0 || (texture->getClassID() != stTextureFile::CLASS_ID &&
-                                 texture->getClassID() != stTextureAnim::CLASS_ID)) {
+            if (!sr_cast<stTextureFile>(texture) && !sr_cast<stTextureAnim>(texture)) {
                 continue;
             }
 
@@ -206,29 +198,12 @@ stModelInstance2D::stModelInstance2D(srNode* parent)
     overlay_scene_flag = 0;
     render_state.glow_enabled = false;
     render_state.render_depth = 2000;
-    glow_color_base = 0;
-    glow_color_peak = 0;
-    m_pGlowMaterial = 0;
     if (parent != 0) {
         setParent(parent, 1);
     }
 }
 
-// FUNCTION: WIZ8 0x0047F410
-stModelInstance2D::~stModelInstance2D()
-{
-    if (glow_color_base != 0) {
-        std::free(glow_color_base);
-    }
-    if (glow_color_peak != 0) {
-        std::free(glow_color_peak);
-    }
-    if (m_pGlowMaterial != 0) {
-        m_pGlowMaterial->release();
-    }
-}
-
-/* Deliberately not a whole srVector4T<float> assignment. Retail
+/* Deliberately not a whole glm::vec4 assignment. Retail
    copies the 2D fields around the parent/state work and leaves the upper two
    bytes of state untouched; GrCycle's separate whole-block copy is a
    different operation. */
@@ -247,27 +222,23 @@ stModelInstance2D& stModelInstance2D::operator=(const stModelInstance2D& other)
     }
     render_state.glow_enabled = other.render_state.glow_enabled;
     render_state.render_depth = other.render_state.render_depth;
-    if (other.glow_color_base != 0) {
-        glow_color_base =
-            static_cast<srVector4T<float>*>(std::malloc(sizeof(srVector4T<float>)));
-        *glow_color_base = *other.glow_color_base;
+    if (other.glow_color_base) {
+        glow_color_base = other.glow_color_base;
     }
-    if (other.glow_color_peak != 0) {
-        glow_color_peak =
-            static_cast<srVector4T<float>*>(std::malloc(sizeof(srVector4T<float>)));
-        *glow_color_peak = *other.glow_color_peak;
+    if (other.glow_color_peak) {
+        glow_color_peak = other.glow_color_peak;
     }
     return *this;
 }
 
 // FUNCTION: WIZ8 0x0047F3A0
-void stModelInstance2D::SetModel(srModel* model)
+void stModelInstance2D::SetModel(std::shared_ptr<srModel> model)
 {
     setModel(model);
     if (model != 0) {
         /* Retail enables the auto-sphere and auto-box skip flags separately. */
-        static_cast<srMeshModel*>(model)->enable(srMeshModel::CONTROL_SKIP_AUTO_SPHERE);
-        static_cast<srMeshModel*>(model)->enable(srMeshModel::CONTROL_SKIP_AUTO_BOX);
+        static_cast<srMeshModel*>(model.get())->enable(srMeshModel::CONTROL_SKIP_AUTO_SPHERE);
+        static_cast<srMeshModel*>(model.get())->enable(srMeshModel::CONTROL_SKIP_AUTO_BOX);
     }
 }
 
@@ -277,10 +248,10 @@ static void ApplyModelViewMatrix(srModelInstance* instance, srGERD* renderer, fl
     if ((instance->alignment_flags.value & 1) == 0) {
         instance->applyWorldSpaceMatrix(*renderer);
     } else {
-        srMatrix4T<float> view;
+        glm::mat4 view;
         srVector3T<double> world_location;
         srVector3T<double> world_scale;
-        srVector4T<float> transformed_location;
+        glm::vec4 transformed_location;
         srVector3T<float> translation;
         float basis_x;
         float basis_y;
@@ -296,48 +267,16 @@ static void ApplyModelViewMatrix(srModelInstance* instance, srGERD* renderer, fl
         location = world_location;
         srVector3T<float> scale;
         scale = world_scale;
-        /* Retail expands the view transform, the column lengths and the
-           handedness test inline here: every row sums y, z, x before the
-           translation; the column lengths start from a different pair each;
-           the handedness test is the first column dotted with the cross of the
-           other two, summed from the z term. Retail also rounds the cross's x
-           and y to float before the dot product. */
-        const srVector4T<float>* rows = view.vectors;
-        transformed_location.Set(
-            ((rows[0].y * location.y + rows[0].z * location.z) + rows[0].x * location.x) +
-                rows[0].w,
-            ((rows[1].y * location.y + rows[1].z * location.z) + rows[1].x * location.x) +
-                rows[1].w,
-            ((rows[2].y * location.y + rows[2].z * location.z) + rows[2].x * location.x) +
-                rows[2].w,
-            ((rows[3].y * location.y + rows[3].z * location.z) + rows[3].x * location.x) +
-                rows[3].w);
-
-        srVector3T<float> column_x(rows[0].x, rows[1].x, rows[2].x);
-        srVector3T<float> column_y(rows[0].y, rows[1].y, rows[2].y);
-        srVector3T<float> column_z(rows[0].z, rows[1].z, rows[2].z);
-        basis_x = static_cast<float>(
-            sqrt((column_x.y * column_x.y + column_x.z * column_x.z) + column_x.x * column_x.x));
-        basis_y = static_cast<float>(
-            sqrt((column_y.z * column_y.z + column_y.x * column_y.x) + column_y.y * column_y.y));
-        basis_z = static_cast<float>(
-            sqrt((column_z.x * column_z.x + column_z.y * column_z.y) + column_z.z * column_z.z));
-
-        float normal_x = column_y.y * column_z.z - column_y.z * column_z.y;
-        float normal_y = column_y.z * column_z.x - column_y.x * column_z.z;
-        if ((column_x.z * (column_y.x * column_z.y - column_y.y * column_z.x) +
-             column_x.y * normal_y) +
-                column_x.x * normal_x >
-            g_double_zero) {
-            basis_x = -basis_x;
-            basis_y = -basis_y;
-            basis_z = -basis_z;
-        }
-        /* Retail narrows the world scale to float and rounds each product to float. */
-        scale *= srVector3T<float>(basis_x, basis_y, basis_z);
+        transformed_location = view * glm::vec4(location.glmValue(), 1);
+        const glm::mat3 view_basis(view);
+        glm::vec3 basis(glm::length(view_basis[0]), glm::length(view_basis[1]),
+                        glm::length(view_basis[2]));
+        if (glm::determinant(view_basis) > 0)
+            basis = -basis;
+        scale *= srVector3(basis);
 
         renderer->loadIdentity();
-        translation = transformed_location.xyz();
+        translation = glm::vec3(transformed_location);
         renderer->translate(translation);
         if (align_angle != g_float_zero) {
             renderer->rotate(align_angle, align_axis);
@@ -355,10 +294,10 @@ static void ApplyModelViewMatrix2D(srModelInstance* instance, srGERD* renderer, 
     if ((instance->alignment_flags.value & 1) == 0) {
         instance->applyWorldSpaceMatrix(*renderer);
     } else {
-        srMatrix4T<float> view;
+        glm::mat4 view;
         srVector3T<double> world_location;
         srVector3T<double> world_scale;
-        srVector4T<float> transformed_location;
+        glm::vec4 transformed_location;
         srVector3T<float> translation;
         srVector3T<float> basis;
 
@@ -372,40 +311,16 @@ static void ApplyModelViewMatrix2D(srModelInstance* instance, srGERD* renderer, 
         location = world_location;
         srVector3T<float> scale;
         scale = world_scale;
-        /* Retail expands the view transform, the column lengths and the
-           handedness test inline here, each with its own association: rows 1-3
-           sum z, y, x before the translation and row 0 sums x, z, y; every column
-           length sums x, y, z; the determinant expands down the first column as
-           (m10 * b + m20 * a) + m00 * c and is compared before any rounding. */
-        const srVector4T<float>* rows = view.vectors;
-        transformed_location.Set(
-            ((rows[0].x * location.x + rows[0].z * location.z) + rows[0].y * location.y) +
-                rows[0].w,
-            ((rows[1].z * location.z + rows[1].y * location.y) + rows[1].x * location.x) +
-                rows[1].w,
-            ((rows[2].z * location.z + rows[2].y * location.y) + rows[2].x * location.x) +
-                rows[2].w,
-            ((rows[3].z * location.z + rows[3].y * location.y) + rows[3].x * location.x) +
-                rows[3].w);
-
-        basis.x = static_cast<float>(
-            sqrt((rows[0].x * rows[0].x + rows[1].x * rows[1].x) + rows[2].x * rows[2].x));
-        basis.y = static_cast<float>(
-            sqrt((rows[0].y * rows[0].y + rows[1].y * rows[1].y) + rows[2].y * rows[2].y));
-        basis.z = static_cast<float>(
-            sqrt((rows[0].z * rows[0].z + rows[1].z * rows[1].z) + rows[2].z * rows[2].z));
-
-        if ((rows[1].x * (rows[0].z * rows[2].y - rows[0].y * rows[2].z) +
-             rows[2].x * (rows[0].y * rows[1].z - rows[0].z * rows[1].y)) +
-                rows[0].x * (rows[1].y * rows[2].z - rows[1].z * rows[2].y) >
-            g_double_zero) {
+        transformed_location = view * glm::vec4(location.glmValue(), 1);
+        const glm::mat3 view_basis(view);
+        basis = glm::vec3(glm::length(view_basis[0]), glm::length(view_basis[1]),
+                          glm::length(view_basis[2]));
+        if (glm::determinant(view_basis) > 0)
             basis = -basis;
-        }
-        /* Retail narrows the world scale to float and rounds each product to float. */
         scale *= basis;
 
         renderer->loadIdentity();
-        translation = transformed_location.xyz();
+        translation = glm::vec3(transformed_location);
         renderer->translate(translation);
         if (align_angle != g_float_zero) {
             renderer->rotate(align_angle, align_axis);
@@ -431,16 +346,10 @@ void stModelInstance2D::process(const ProcessInfo& info, e_processType)
     model->getTriMesh(mesh);
 
     if (render_state.glow_enabled) {
-        if (m_pGlowMaterial == 0) {
-            m_pGlowMaterial = new stMaterial;
-            if (m_pGlowMaterial == 0) {
-                srAssertFail("m_pGlowMaterial", ST_MODEL_INSTANCE_CPP, 926, 0);
-            }
+        if (glow_material == 0) {
+            glow_material = std::make_shared<stMaterial>();
             if (mesh.materials[0][0] != 0) {
-                *m_pGlowMaterial = *mesh.materials[0][0];
-            }
-            if (m_pGlowMaterial == 0) {
-                goto render_mesh;
+                glow_material->srMaterial::operator=(*mesh.materials[0][0]);
             }
         }
 
@@ -450,16 +359,15 @@ void stModelInstance2D::process(const ProcessInfo& info, e_processType)
                      g_camera_angle_period)));
         float base_weight = g_float_one - glow_weight;
         /* Each weighted colour is rounded to float before the sum. */
-        srVector4T<float> emissive =
+        glm::vec4 emissive =
             *glow_color_base * base_weight + *glow_color_peak * glow_weight;
         emissive.w = g_float_one;
-        m_pGlowMaterial->setEmissive(emissive);
-        mesh.materials[0][0] = m_pGlowMaterial;
+        glow_material->setEmissive(emissive);
+        mesh.materials[0][0] = glow_material;
         mesh.shaders[0].value = (mesh.shaders[0].value & ~srShader::MASK_GRADIENT_MODULATE) |
                                 srShader::MASK_GRADIENT_ADD;
     }
 
-render_mesh:
     model->renderTriMesh(*renderer, mesh);
     renderer->popMatrix();
 }
@@ -469,9 +377,8 @@ render_mesh:
 // FUNCTION: WIZ8 0x00480EB0
 void stModelInstance2D::SetGlowEnabled(bool enable)
 {
-    if (!enable && m_pGlowMaterial != 0) {
-        m_pGlowMaterial->release();
-        m_pGlowMaterial = 0;
+    if (!enable) {
+        glow_material.reset();
     }
     render_state.glow_enabled = enable;
 }
@@ -502,40 +409,20 @@ unsigned short stModelInstance2D::GetScaledHeight()
     return static_cast<unsigned short>(render_state.height * scale_z);
 }
 
-/* Lazily allocate the two glow-color vectors and copy the supplied pair; the
-   process pass blends between them into the material's emissive term. */
+/* The process pass blends between the two glow colors into the material's
+   emissive term. */
 // FUNCTION: WIZ8 0x00480FF0
-void stModelInstance2D::SetGlowColors(srVector4T<float>* first, srVector4T<float>* second)
+void stModelInstance2D::SetGlowColors(const glm::vec4& first, const glm::vec4& second)
 {
-    if (glow_color_base == 0) {
-        glow_color_base =
-            static_cast<srVector4T<float>*>(std::malloc(sizeof(srVector4T<float>)));
-    }
-    *glow_color_base = *first;
-    if (glow_color_peak == 0) {
-        glow_color_peak =
-            static_cast<srVector4T<float>*>(std::malloc(sizeof(srVector4T<float>)));
-    }
-    *glow_color_peak = *second;
-}
-
-// FUNCTION: WIZ8 0x00481E30
-srClass* stModelInstance2D::vInstance()
-{
-    return new stModelInstance2D(0);
-}
-
-// FUNCTION: WIZ8 0x00481DD0
-srClass* stModelInstance::vInstance()
-{
-    return new stModelInstance(0);
+    glow_color_base = first;
+    glow_color_peak = second;
 }
 
 // FUNCTION: WIZ8 0x0047EC80
 stModelInstance::stModelInstance(srNode* parent)
     : srClassSupport<stModelInstance, srModelInstance, 0x10004>(static_cast<srNode*>(0))
 {
-    highlight_colour.Set(0.0f, 0.0f, 0.0f, 0.0f);
+    highlight_colour = glm::vec4(0.0f, 0.0f, 0.0f, 0.0f);
     render_flags = 0;
     mesh_index = -1;
     frame_index = 0;
@@ -544,7 +431,6 @@ stModelInstance::stModelInstance(srNode* parent)
         setParent(parent, 1);
     }
     damage_stage = -1;
-    highlight_material = 0;
     light_scale = 1.0f;
     diffuse_scale_enabled = false;
     diffuse_scale = 0.0f;
@@ -557,7 +443,7 @@ stModelInstance::stModelInstance(srNode* parent)
 stModelInstance& stModelInstance::operator=(const stModelInstance& other)
 {
     srModelInstance::operator=(other);
-    highlight_colour.Set(0.0f, 0.0f, 0.0f, 0.0f);
+    highlight_colour = glm::vec4(0.0f, 0.0f, 0.0f, 0.0f);
     render_flags = other.render_flags;
     mesh_index = other.mesh_index;
     frame_index = other.frame_index;
@@ -565,7 +451,7 @@ stModelInstance& stModelInstance::operator=(const stModelInstance& other)
     damage_stage_tables = other.damage_stage_tables;
     damage_stage = other.damage_stage;
     highlight_pass_mode = other.highlight_pass_mode;
-    highlight_material = 0;
+    highlight_material.reset();
     light_scale = other.light_scale;
     diffuse_scale = 0.0f;
     diffuse_scale_enabled = false;
@@ -573,25 +459,6 @@ stModelInstance& stModelInstance::operator=(const stModelInstance& other)
     emissive_override = other.emissive_override;
     frame_interpolation = 0.0f;
     return *this;
-}
-
-/* Retail touches the incoming model's class id before delegating to the
-   srModel::Client base setter. */
-// FUNCTION: WIZ8 0x0047F0C0
-void stModelInstance::setModel(srModel* model)
-{
-    if (model != 0) {
-        model->getClassID();
-    }
-    srModelInstance::setModel(model);
-}
-
-// FUNCTION: WIZ8 0x0047EF70
-stModelInstance::~stModelInstance()
-{
-    if (highlight_material != 0) {
-        highlight_material->release();
-    }
 }
 
 /* Apply the instance transform for the render pass. Unaligned instances take
@@ -652,12 +519,12 @@ void stModelInstance::RenderMeshes(srGERD& renderer)
     // c-style-cast-ok: the pick key is an opaque void* token
     SetPickKey((render_flags & RENDER_NO_PICK) != 0 ? (void*)0 : (void*)this);
 
-    srVector4T<float> ambient;
+    glm::vec4 ambient;
     renderer.getAmbientLight(ambient);
     srVector3T<float> ambient_color;
-    ambient_color = ambient.xyz();
+    ambient_color = glm::vec3(ambient);
 
-    srVector4T<float> light;
+    glm::vec4 light;
     if (!model->vertex_lighting_ready) {
         light.w = 1.0f;
         light.x =
@@ -667,16 +534,16 @@ void stModelInstance::RenderMeshes(srGERD& renderer)
         light.z =
             (ambient_color.z * light_scale.z + g_environment_offset.z) * g_monster_light_scale;
     } else {
-        light.Set(0.0f, 0.0f, 0.0f, 0.0f);
+        light = glm::vec4(0.0f, 0.0f, 0.0f, 0.0f);
     }
     renderer.setAmbientLight(light);
 
     if (highlight_colour.x != g_float_zero || highlight_colour.y != g_float_zero ||
         highlight_colour.z != g_float_zero || highlight_colour.w != g_float_zero) {
         if (highlight_material == 0) {
-            highlight_material = new srMaterial;
-            srVector4T<float> zero;
-            zero.Set(0.0f, 0.0f, 0.0f, 0.0f);
+            highlight_material = std::make_shared<srMaterial>();
+            glm::vec4 zero;
+            zero = glm::vec4(0.0f, 0.0f, 0.0f, 0.0f);
             highlight_material->setAmbient(zero);
             highlight_material->setDiffuse(zero);
             highlight_material->setSpecular(zero);
@@ -713,7 +580,7 @@ void stModelInstance::RenderMeshes(srGERD& renderer)
         if (g_render_unlit) {
             mesh.dig[0] = 0;
         }
-        srPtr<srTextureIFace>*(*poly_textures)[2] = mesh.poly_textures;
+        std::shared_ptr<srTextureIFace>*(*poly_textures)[2] = mesh.poly_textures;
         if (poly_textures != 0 && mesh.active_polygons == 0) {
             w8_long active_count;
             w8_ulong* active;
@@ -761,7 +628,7 @@ void stModelInstance::RenderMeshes(srGERD& renderer)
         first_pass = false;
         srNode* previous = child;
         if (child == 0 || child->testFlag(FLAG_TERMINATE) == 0) {
-            model = model->next;
+            model = model->Next();
             if (previous != 0) {
                 child = previous->first_child_;
             }
@@ -797,7 +664,7 @@ void stModelInstance::RenderMeshes(srGERD& renderer)
                         mesh.dig[1] = model->GetVertexNormals(frame_index, true);
                         poly_normals = model->GetPolygonNormals(frame_index, true);
                     }
-                    srPtr<srTextureIFace>*(*poly_textures)[2] = mesh.poly_textures;
+                    std::shared_ptr<srTextureIFace>*(*poly_textures)[2] = mesh.poly_textures;
                     if (poly_textures != 0 && mesh.active_polygons == 0) {
                         w8_long active_count;
                         w8_ulong* active;
@@ -832,9 +699,8 @@ void stModelInstance::RenderMeshes(srGERD& renderer)
                             std::fill_n(g_vertex_scratch.data(), mesh.vertex_count,
                                         srVector3T<float>(0.0f, 0.0f, 0.0f));
                         } else {
-                            srMath::mul({g_vertex_scratch.data(),
-                                         static_cast<std::size_t>(mesh.vertex_count)},
-                                        offsets, mesh.normals);
+                            for (std::size_t i = 0; i < mesh.vertex_count; ++i)
+                                (g_vertex_scratch.data())[i] = offsets * mesh.normals[i];
                         }
                     }
                     std::transform(g_vertex_scratch.begin(), g_vertex_scratch.end(),
@@ -860,7 +726,7 @@ void stModelInstance::RenderMeshes(srGERD& renderer)
             if (child != 0 && child->testFlag(FLAG_TERMINATE) != 0) {
                 break;
             }
-            model = model->next;
+            model = model->Next();
             if (previous != 0) {
                 child = previous->first_child_;
             }
@@ -875,78 +741,32 @@ void stModelInstance::RenderMeshes(srGERD& renderer)
 // GLOBAL: WIZ8 0x005EC8E0
 const float g_shadow_extrusion_pitch_scale = 1.0f / 1500.0f;
 
-/* Shared shadow-quad mesh built on first use: two upright triangles on a
-   500-unit ground span, lit by a dedicated material so the extruded shadow
-   pass submits through the ordinary TriMesh pipeline. */
-// GLOBAL: WIZ8 0x0065A14C
-static srMeshModel::TriMesh* g_shadow_mesh;
+/* Shared shadow quad: two upright triangles on a 500-unit ground span, lit by
+   a dedicated material so the extruded shadow pass submits through the
+   ordinary TriMesh pipeline. */
+static const srVector3i g_shadow_triangles[2] = {{0, 1, 2}, {3, 4, 5}};
+static const srVector3T<float> g_shadow_positions[6] = {
+    {-250.0f, 250.0f, 0.0f}, {0.0f, -250.0f, 0.0f}, {250.0f, 250.0f, 0.0f},
+    {0.0f, 250.0f, -250.0f}, {0.0f, -250.0f, 0.0f}, {0.0f, 250.0f, 250.0f}};
 
-// FUNCTION: WIZ8 0x004813F0
-static void BuildShadowMesh()
+static stMaterial& ShadowMaterial()
 {
-    stMaterial* material = new stMaterial;
-    srShader shader;
-    shader.value = 0x44b3;
-    if (g_shadow_mesh == 0) {
-        g_shadow_mesh = new srMeshModel::TriMesh;
-        if (g_shadow_mesh != 0) {
-            if (material != 0) {
-                srVector4T<float> color;
-                color.Set(1.0f, 1.0f, 1.0f, 1.0f);
-                material->setAmbient(color);
-                color.Set(0.0f, 0.0f, 0.0f, 0.0f);
-                material->setSpecular(color);
-                material->parms.shininess = 1.0f;
-                material->dirty = 1;
-                color.Set(0.0f, 0.0f, 0.0f, 0.0f);
-                material->setEmissive(color);
-                color.Set(1.0f, 1.0f, 1.0f, 0.0f);
-                material->setDiffuse(color);
-                material->m_surface_flags = 0;
-            }
-            srVector3i* triangles = static_cast<srVector3i*>(std::malloc(2 * sizeof(*triangles)));
-            g_shadow_mesh->poly_vertices = triangles;
-            triangles[0].x = 0;
-            triangles[0].y = 1;
-            triangles[0].z = 2;
-            triangles[1].x = 3;
-            triangles[1].y = 4;
-            triangles[1].z = 5;
-            srVector3T<float>* positions = static_cast<srVector3T<float>*>(
-                std::malloc(6 * sizeof(*positions)));
-            g_shadow_mesh->positions = positions;
-            positions[0].Set(-250.0f, 250.0f, 0.0f);
-            positions[1].Set(0.0f, -250.0f, 0.0f);
-            positions[2].Set(250.0f, 250.0f, 0.0f);
-            positions[3].Set(0.0f, 250.0f, -250.0f);
-            positions[4].Set(0.0f, -250.0f, 0.0f);
-            positions[5].Set(0.0f, 250.0f, 250.0f);
-            g_shadow_mesh->normals = 0;
-            g_shadow_mesh->control_flags = 0;
-            g_shadow_mesh->control_flags |= (1UL << srMeshModel::CONTROL_SKIP_AUTO_BOX);
-            g_shadow_mesh->control_flags |= (1UL << srMeshModel::CONTROL_SKIP_AUTO_SPHERE);
-            g_shadow_mesh->control_flags |= (1UL << srMeshModel::CONTROL_NO_FRONT_CULL);
-            g_shadow_mesh->polygon_count = 2;
-            g_shadow_mesh->vertex_count = 6;
-            g_shadow_mesh->bounds_maximum = 500.0f;
-            g_shadow_mesh->bounds_minimum.SetZero();
-            g_shadow_mesh->bounds_center = 250.0f;
-            g_shadow_mesh->bounds_radius = 250.0f;
-            g_shadow_mesh->pass_count = 1;
-            g_shadow_mesh->shaders[0] = shader;
-            g_shadow_mesh->poly_equations = 0;
-            g_shadow_mesh->texcoords[0][0] = 0;
-            g_shadow_mesh->materials[0][0] = material;
-            g_shadow_mesh->textures[0][0] = 0;
-            g_shadow_mesh->poly_shaders[0] = 0;
-            g_shadow_mesh->poly_uv[0] = 0;
-            g_shadow_mesh->active_polygons = 0;
-            g_shadow_mesh->dcg[0] = 0;
-            g_shadow_mesh->dig[0] = 0;
-            g_shadow_mesh->scg[0] = 0;
-            g_shadow_mesh->sort_bias = 0.0f;
-        }
-    }
+    static const std::unique_ptr<stMaterial> material = [] {
+        auto created = std::make_unique<stMaterial>();
+        glm::vec4 color;
+        color = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f);
+        created->setAmbient(color);
+        color = glm::vec4(0.0f, 0.0f, 0.0f, 0.0f);
+        created->setSpecular(color);
+        created->parms.shininess = 1.0f;
+        created->dirty = 1;
+        created->setEmissive(color);
+        color = glm::vec4(1.0f, 1.0f, 1.0f, 0.0f);
+        created->setDiffuse(color);
+        created->m_surface_flags = 0;
+        return created;
+    }();
+    return *material;
 }
 
 /* Submit the shared shadow-quad mesh extruded over the source mesh's height:
@@ -955,12 +775,6 @@ static void BuildShadowMesh()
 // FUNCTION: WIZ8 0x004811D0
 void stModelInstance::RenderShadow(srGERD& renderer, srMeshModel::TriMesh& mesh)
 {
-    if (g_shadow_mesh == 0) {
-        BuildShadowMesh();
-        if (g_shadow_mesh == 0) {
-            return;
-        }
-    }
     float height = mesh.bounds_maximum.y - mesh.bounds_minimum.y;
     renderer.pushEnable();
     renderer.setCullMode(srGERD::CULL_NONE);
@@ -978,11 +792,11 @@ void stModelInstance::RenderShadow(srGERD& renderer, srMeshModel::TriMesh& mesh)
     renderer.scale(scale, scale, scale);
 
     srTriMeshPipeline* pipeline = srTriMeshPipeline::Get(&renderer);
-    pipeline->triangle_count = g_shadow_mesh->polygon_count;
-    pipeline->triangles = g_shadow_mesh->poly_vertices;
-    pipeline->vertex_count = g_shadow_mesh->vertex_count;
-    pipeline->positions = g_shadow_mesh->positions;
-    pipeline->vertex_extras = g_shadow_mesh->normals;
+    pipeline->triangle_count = std::size(g_shadow_triangles);
+    pipeline->triangles = g_shadow_triangles;
+    pipeline->vertex_count = std::size(g_shadow_positions);
+    pipeline->positions = g_shadow_positions;
+    pipeline->vertex_extras = nullptr;
     pipeline->records.resize(2);
     pipeline->passes.resize(2);
     pipeline->PrepareSlot();
@@ -990,9 +804,11 @@ void stModelInstance::RenderShadow(srGERD& renderer, srMeshModel::TriMesh& mesh)
     pipeline->current_pass->shaders = 0;
     pipeline->current_pass->texture_tables[0] = 0;
     pipeline->current_pass->texture_tables[1] = 0;
-    pipeline->material = g_shadow_mesh->materials[0][0];
+    pipeline->material = &ShadowMaterial();
     pipeline->current_record->material = pipeline->material;
-    pipeline->SetFlags(g_shadow_mesh->shaders[0]);
+    srShader shader;
+    shader.value = 0x44b3;
+    pipeline->SetFlags(shader);
     ++pipeline->slot_count;
     pipeline->PrepareSlot();
     pipeline->FlushIfCurrent();

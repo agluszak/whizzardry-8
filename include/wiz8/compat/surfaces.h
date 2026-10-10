@@ -19,7 +19,7 @@ struct CpuSurface
     SDLSurfaceOwner surface{nullptr, SDL_DestroySurface};
     UINT32 redMask = 0, greenMask = 0, blueMask = 0, alphaMask = 0;
     std::optional<SurfaceColorKey> sourceKey, destinationKey;
-    std::optional<std::vector<SGPRect>> clipRegions;
+    std::optional<std::vector<SDL_Rect>> clipRegions;
     bool locked = false;
 };
 
@@ -31,9 +31,9 @@ struct SurfaceLock
 
 std::unique_ptr<CpuSurface> CreateCpuSurface(UINT16 width, UINT16 height, UINT8 bits,
     UINT32 red = 0, UINT32 green = 0, UINT32 blue = 0, UINT32 alpha = 0);
-SurfaceLock LockCpuSurface(CpuSurface& surface, const SGPRect* region = nullptr);
+SurfaceLock LockCpuSurface(CpuSurface& surface, const SDL_Rect* region = nullptr);
 void UnlockCpuSurface(CpuSurface& surface);
-void SetSurfaceClipRegions(CpuSurface& surface, std::span<const SGPRect> rectangles);
-void FillCpuSurface(CpuSurface& destination, UINT32 color, const SGPRect* rectangle = nullptr);
-void BlitCpuSurface(CpuSurface& destination, const SGPRect* destinationRect, CpuSurface& source,
-    const SGPRect* sourceRect = nullptr, bool sourceKey = false, bool destinationKey = false);
+void SetSurfaceClipRegions(CpuSurface& surface, std::span<const SDL_Rect> rectangles);
+void FillCpuSurface(CpuSurface& destination, UINT32 color, const SDL_Rect* rectangle = nullptr);
+void BlitCpuSurface(CpuSurface& destination, const SDL_Rect* destinationRect, CpuSurface& source,
+    const SDL_Rect* sourceRect = nullptr, bool sourceKey = false, bool destinationKey = false);

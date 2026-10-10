@@ -1,5 +1,7 @@
 #pragma once
 
+#include <memory>
+
 #include "wiz8/filesystem.h"
 
 /* Reads g_environment_lighting_mode: 2 while the day/night cycle
@@ -12,7 +14,8 @@ unsigned char GetEnvironmentFlag(void); /* 0x00482A10 */
 #include "Types.h"
 #include "surrender/srVertexProcessor.h"
 #include "wiz8/layouts/world.h"
-#include "wiz8/vector.h"
+#include <vector>
+#include <algorithm>
 
 class stTextureAnim;
 
@@ -143,14 +146,14 @@ extern W8Prop* g_sun_prop;
    SkyGrad0000.ifl, Skytop0000.ifl and Horizon0000.ifl. The registration loop
    and the per-frame animation both walk one contiguous base, so they are one
    array rather than three globals. */
-extern stTextureAnim* g_sky_gradient_animations[3];
+extern std::weak_ptr<stTextureAnim> g_sky_gradient_animations[3];
 /* Midpoint of the Sun and Moon, which the active prop orbits and the inactive
    one rests at. */
 extern srVector3T<float> g_celestial_origin;
 
 /* The registered environment lights, ambient-filled by ApplyEnvironmentColour.
    The vector count occupies 0x0065B99C. */
-extern W8Vector<stLight*> g_environment_lights;
+extern std::vector<stLight*> g_environment_lights;
 
 void SetGameTimeDays(int value);
 void AdvanceEnvironmentTime(int elapsed); /* 0x00482A20 */

@@ -1,7 +1,7 @@
 #include "wiz8/level_specific_code/Ascension.h"
 #include "wiz8/level_specific_code/MasterFunctionList.h"
-#include "wiz8/3d_code/IList.h"
-#include "wiz8/3d_code/PList.h"
+#include <vector>
+#include <algorithm>
 #include "wiz8/engine_code/IntervalGate.h"
 #include "wiz8/engine_code/Monster.h"
 #include "wiz8/engine_code/Prop.h"
@@ -169,7 +169,7 @@ void AscensionAvalanche(bool command)
         srVector3T<float> position;
         srVector3T<float> trigger_position;
 
-        position = GetWorld()->camera->getLocation();
+        position = glm::vec3(GetWorld()->camera->getLocation());
         FindTriggerByName("ASC40")->GetPosition(&trigger_position);
         if ((position - trigger_position).Length() < g_double_twenty_five_hundred) {
             SetFact(W8_FACT_LANDSLIDE_RAPAX_SIDE, 1, false);
@@ -181,7 +181,7 @@ void AscensionAvalanche(bool command)
                 SetFact(W8_FACT_LANDSLIDE_WILD_SIDE, 1, false);
             }
         }
-        g_master_functions->Add(AscensionLandShaker);
+        g_master_functions.push_back(AscensionLandShaker);
     }
 }
 
@@ -410,8 +410,7 @@ bool AscensionPath1Camera(Trigger* pTrigger)
     if (GetLocationVarIDByName("AP_DSSpawned") == -1) {
         return false;
     }
-    // c-style-cast-ok: ILLength consumes the W8PList monster list; the same historical C-style spelling appears in Health Stamina Mana.cpp.
-    for (index = 0; index < PLLength(gXStatus.plsMonsterList); ++index) {
+    for (index = 0; index < gXStatus.monsters.size(); ++index) {
         W8MonsterInfo* info = MonsterGetScriptPartByLocationIndex(index);
 
         if (info->fActive && info->fInCombat && info->ubDisposition == W8_DISPOSITION_HOSTILE &&

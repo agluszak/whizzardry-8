@@ -564,7 +564,7 @@ void W8CharacterStatsPage::Refresh()
 {
     UpdateRowValues();
     if (m_character->iRace != W8_RACE_NONE || m_character->iProfession != W8_PROFESSION_NONE) {
-        for (int index = 0; index < m_entries.GetCount(); ++index) {
+        for (int index = 0; index < static_cast<int>(m_entries.size()); ++index) {
             if (!m_rows_initialized) {
                 m_entries[index]->SetEnabled(true);
             }
@@ -583,7 +583,7 @@ void W8CharacterStatsPage::Accept()
     Invalidate(0);
     m_dirty = true;
     m_screen->UpdateNavigation(this);
-    for (int index = 0; index < m_entries.GetCount(); ++index) {
+    for (int index = 0; index < static_cast<int>(m_entries.size()); ++index) {
         m_entries[index]->UpdateButtons();
     }
 }
@@ -602,7 +602,7 @@ void W8CharacterStatsPage::GetNavigationState(bool* next_enabled, bool* exit_ena
     *exit_enabled =
         m_creation_state->attribute_points_remaining < m_creation_state->attribute_points_total;
     if (*next_enabled != nav_next_state) {
-        for (int index = 0; index < m_entries.GetCount(); ++index) {
+        for (int index = 0; index < static_cast<int>(m_entries.size()); ++index) {
             m_entries[index]->SetIncrementAllowed(!*next_enabled);
         }
         nav_next_state = *next_enabled;
@@ -680,7 +680,7 @@ void W8CharacterStatsPage::SetRowControlsActive(W8CharacterStatsRow* row, bool a
     } else {
         m_gender_row->m_increment->SetActive(active);
     }
-    for (int entry_index = 0; entry_index < m_entries.GetCount(); ++entry_index) {
+    for (int entry_index = 0; entry_index < static_cast<int>(m_entries.size()); ++entry_index) {
         m_entries[entry_index]->SetHelpActive(active);
     }
     for (int control_index = 0; control_index < 5; ++control_index) {

@@ -2,7 +2,8 @@
 
 #include <stddef.h>
 #include "wiz8/file_time.h"
-#include "wiz8/vector.h"
+#include <vector>
+#include <algorithm>
 
 bool VerifyDataSubdirs(void);
 bool FindStartupQuickSave(char* slot_name);
@@ -44,7 +45,7 @@ W8_ABI_ASSERT(offsetof(W8SaveSlot, screenshot) == 0xa8, "W8SaveSlot_screenshot_o
 
 void CaptureSaveScreenshot(W8SaveScreenshot* screenshot);
 void FillCurrentSaveSlot(W8SaveSlot* slot);
-bool EnumerateSaveSlots(W8GrowableVector<W8SaveSlot*>* slots);
+bool EnumerateSaveSlots(std::vector<W8SaveSlot*>& slots);
 
 bool SaveGame(const char* name, W8SaveScreenshot* screenshot);
 
@@ -74,13 +75,10 @@ bool LoadStatusHeader(W8Chunk* chunk);
 bool SaveStatusHeader(W8Chunk* chunks);
 /* The per-level item-section reader and the already-open level-status scan. */
 bool LoadItemStatus(W8Chunk* chunk, int level);
-bool MeasureLevelStatusChunks(W8Chunk* chunk, int level, unsigned int* empty_percent);
 
 extern bool g_save_pending;
 
-/* Mark a matching char payload consumed in Saves\\CurrentGame.SAV. */
-bool MarkCurrentGameCharacterChunkConsumed(const char* path);
-/* Append one character record to Saves\\CurrentGame.SAV. `slot` is unused. */
+/* Replace one character record in Saves\\CurrentGame.SAV. `slot` is unused. */
 bool SaveCharacterToCurrentGame(const char* path, int slot, W8Character* character);
 bool LoadCharacterFromCurrentGame(const char* path, W8Character* character);
 /* Deferred main-game autosave: notice first, then SaveGame on the next tick. */

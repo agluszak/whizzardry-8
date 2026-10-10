@@ -1,11 +1,19 @@
 #include "wiz8/application.h"
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/compat/unaligned.h"
+#include <algorithm>
 #include <cstdio>
+#include <algorithm>
 #include <cstdlib>
 #include <cstring>
+#include <limits>
+#include <memory>
+#include <stdexcept>
+#include <string>
+#include <vector>
 
 #include "surrender/srCamera.h"
+
 #include "surrender/srMath.h"
 #include "surrender/srScene.h"
 #include "surrender/srShader.h"
@@ -13,7 +21,6 @@
 #include "wiz8/engine_code/Octree.h"
 #include "wiz8/engine_code/OctMeshModel.h"
 #include "wiz8/location_variables.h"
-#include "wiz8/startup_world.h"
 #include "wiz8/engine_code/3d.h"
 #include "wiz8/engine_code/GameData.h"
 #include "wiz8/engine_code/GDCamera.h"
@@ -48,17 +55,18 @@
 #include "wiz8/engine_code/materials.h"
 #include "wiz8/engine_code/stCube.h"
 #include "wiz8/layouts/screen_state.h"
-#include "wiz8/3d_code/IList.h"
-#include "wiz8/3d_code/PList.h"
+#include <vector>
+#include <algorithm>
 #include "wiz8/engine_code/Environment.h"
 #include "wiz8/engine_code/PathAI.h"
 #include "wiz8/engine_code/Quality.h"
 #include "wiz8/engine_code/stLight.hpp"
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "input.h"
-
 #include <math.h>
+
 #include <time.h>
+#include <glm/gtc/matrix_transform.hpp>
 #include "surrender/srModelInstance.h"
 
 #define OCTREE_CPP "C:\\Projects\\Wizardry 8\\Engine Code\\Octree.cpp"
@@ -91,7 +99,7 @@ void W8Octree::UpdatePathVisualization()
 }
 
 // GLOBAL: WIZ8 0x00659760
-static int g_octree_query_slot;
+static W8OctreeIndex::iterator g_octree_query_slot;
 // GLOBAL: WIZ8 0x00659766
 static unsigned short g_octree_query_id;
 
@@ -204,10 +212,10 @@ void W8Octree::UpdateCameraVisibility()
     view.horizontal_fov = static_cast<float>(world->camera->getHorizontalFOV());
     view.vertical_fov = static_cast<float>(world->camera->getVerticalFOV());
 
-    srMatrix3T<float> rotation;
+    glm::mat3 rotation;
     world->camera->getRotation(rotation);
-    view.rotation_column0.Set(rotation.vectors[0].x, rotation.vectors[1].x, rotation.vectors[2].x);
-    view.rotation_column1.Set(rotation.vectors[0].y, rotation.vectors[1].y, rotation.vectors[2].y);
+    view.rotation_column0.Set(rotation[0][0], rotation[0][1], rotation[0][2]);
+    view.rotation_column1.Set(rotation[1][0], rotation[1][1], rotation[1][2]);
 
     srVector3T<double> dof = world->camera->getWorldSpaceDOF();
     view.camera_dof = dof;
@@ -393,7 +401,7 @@ void W8Octree::UpdateVisibility()
    does (0x0042FD40 reads [array + bit*4 - 8], 0x0042FD8C reads
    [array + bit*4 - 4]), so it stays. */
 // FUNCTION: WIZ8 0x0042f9a0
-int W8Octree::CollectModelsNearPoint(W8GrowableVector<stModelInstance*>* out,
+int W8Octree::CollectModelsNearPoint(std::vector<stModelInstance*>& out,
                                      const srVector3T<float>* point, float radius,
                                      unsigned int flags, bool only_accumulated)
 {
@@ -473,7 +481,7 @@ int W8Octree::CollectModelsNearPoint(W8GrowableVector<stModelInstance*>* out,
                     W8BoundingBox bounds;
                     model->getBoundingBox(bounds.minimum, bounds.maximum);
                     if (SphereNearBounds(point, radius, &bounds)) {
-                        out->Add(instance);
+                        out.push_back(instance);
                     }
                 }
             }
@@ -502,14 +510,14 @@ int W8Octree::CollectModelsNearPoint(W8GrowableVector<stModelInstance*>* out,
                             (center.y - point->y) * (center.y - point->y) +
                             (center.z - point->z) * (center.z - point->z) <
                         sphere_radius * sphere_radius) {
-                        out->Add(static_cast<stModelInstance*>(instance));
+                        out.push_back(static_cast<stModelInstance*>(instance));
                     }
                 }
             }
             bit = m_linked_props->NextSetBit(false);
         }
     }
-    return out->count;
+    return static_cast<int>(out.size());
 }
 
 /* Add every particle and prop linked to one mesh to the live visibility sets.
@@ -594,9 +602,9 @@ short W8Octree::ProjectLinkedRegionsForLocation(srVector3T<float>* location,
             }
             ++match_count;
             unsigned int key = region_index;
-            for (int slot = m_pRegionLinks->FindNextEntry(&key, -1); slot != -1;
-                 slot = m_pRegionLinks->FindNextEntry(&key, slot)) {
-                m_projected_regions->Set(m_pRegionLinks->entries[slot].value);
+            for (auto slot = m_pRegionLinks->equal_range(key).first; slot != m_pRegionLinks->end();
+                 slot = NextIndexValue(*m_pRegionLinks, key, slot)) {
+                m_projected_regions->Set(slot->second);
                 m_projected_regions_valid = true;
             }
         }
@@ -633,9 +641,9 @@ short W8Octree::ProjectLinkedRegionsForLocation(srVector3T<float>* location,
         m_projected_regions_valid = false;
         match_count = 1;
         unsigned int key = region_index;
-        for (int slot = m_pRegionLinks->FindNextEntry(&key, -1); slot != -1;
-             slot = m_pRegionLinks->FindNextEntry(&key, slot)) {
-            m_projected_regions->Set(m_pRegionLinks->entries[slot].value);
+        for (auto slot = m_pRegionLinks->equal_range(key).first; slot != m_pRegionLinks->end();
+             slot = NextIndexValue(*m_pRegionLinks, key, slot)) {
+            m_projected_regions->Set(slot->second);
             m_projected_regions_valid = true;
         }
     }
@@ -728,10 +736,10 @@ unsigned char W8Octree::CollectVisibleRegions(srVector3T<float>* location, srVec
         if (level == m_spatial.m_leaf_level) {
             unsigned int key =
                 ((m_region_mask * 0x100 + link_cell.x) * 0x100 + link_cell.y) * 0x100 + link_cell.z;
-            int slot = m_pRegionLinks->FindNextEntry(&key, -1);
-            while (slot != -1) {
-                m_projected_regions->Set(m_pRegionLinks->entries[slot].value);
-                slot = m_pRegionLinks->FindNextEntry(&key, slot);
+            auto slot = m_pRegionLinks->equal_range(key).first;
+            while (slot != m_pRegionLinks->end()) {
+                m_projected_regions->Set(slot->second);
+                slot = NextIndexValue(*m_pRegionLinks, key, slot);
                 m_projected_regions_valid = true;
             }
         }
@@ -902,28 +910,22 @@ void W8Octree::CollectVisibleCells()
 }
 
 // FUNCTION: WIZ8 0x004329a0
-static unsigned char FindNextLevelFile(char* name)
+static unsigned char FindNextLevelFile(std::string* name)
 {
     if (name == 0) {
         g_octree_file_search_active = 0;
         g_octree_file_search.clear();
         return 0;
     }
-
-    if (g_octree_file_search_active == 0) {
-        char pattern[256];
-        char extension[52];
-
-        strcpy(pattern, name);
-        char* extension_start = strrchr(pattern, '.');
-        extension[0] = '\0';
-        if (extension_start != 0) {
-            strcpy(extension, extension_start);
-            *extension_start = '\0';
+    if (!g_octree_file_search_active) {
+        std::string search = *name;
+        const auto extension_start = search.find_last_of('.');
+        const auto extension = extension_start == std::string::npos ? std::string{} : search.substr(extension_start);
+        if (extension_start != std::string::npos) {
+            search.resize(extension_start);
         }
-        strcat(pattern, g_octree_file_search_wildcard);
-        strcat(pattern, extension);
-        std::string search(pattern);
+        search += g_octree_file_search_wildcard;
+        search += extension;
         const auto separator = search.find_last_of("\\/");
         g_octree_file_search = wiz8::list_directory(
             separator == std::string::npos ? "." : search.substr(0, separator),
@@ -933,97 +935,73 @@ static unsigned char FindNextLevelFile(char* name)
     } else {
         g_octree_file_search_active = ++g_octree_file_search_index < g_octree_file_search.size();
     }
-    if (g_octree_file_search_active == 0) {
+    if (!g_octree_file_search_active) {
         g_octree_file_search.clear();
         return 0;
     }
-
-    char* separator = strrchr(name, '\\');
-    if (separator != 0) {
-        separator[1] = '\0';
-    }
-    strcat(name, g_octree_file_search[g_octree_file_search_index].c_str());
-    return g_octree_file_search_active;
+    const auto separator = name->find_last_of("\\/");
+    name->resize(separator == std::string::npos ? 0 : separator + 1);
+    *name += g_octree_file_search[g_octree_file_search_index];
+    return 1;
 }
 
 // FUNCTION: WIZ8 0x00432b80
 bool W8Octree::LoadPointFiles(const char* level_name)
 try
 {
-    char name[256];
-    strcpy(name, level_name);
-    char* extension = strrchr(name, '.');
-    if (extension != 0) {
-        *extension = '\0';
+    std::string stem = level_name;
+    if (const auto extension = stem.find_last_of('.'); extension != std::string::npos) {
+        stem.resize(extension);
     }
-    strcat(name, g_octree_point_extension);
+    stem += g_octree_point_extension;
+    std::string name = std::move(stem);
 
     FindNextLevelFile(0);
-    bool first = true;
-    unsigned char read_ok = 0;
-    while (FindNextLevelFile(name) != 0) {
-        if (first) {
-            first = false;
-        } else {
-            m_points_dirty = true;
-        }
-        std::unique_ptr<wiz8::File> file = [&]() { try { return wiz8::open_file(name, wiz8::OpenMode::read); } catch (const std::exception&) { return std::unique_ptr<wiz8::File>{}; } }();
-        if (file == 0) {
+    std::unique_ptr<srVector3T<float>[]> points;
+    unsigned int count = 0;
+    unsigned int files = 0;
+    while (FindNextLevelFile(&name) != 0) {
+        auto file = wiz8::open_file(name);
+        file->read_exact(&count, sizeof(count));
+        const auto bytes = std::uint64_t{count} * sizeof(srVector3T<float>);
+        if (bytes > static_cast<std::uint64_t>(file->size() - file->tell()) ||
+            std::uint64_t{count} + 1 > std::numeric_limits<std::size_t>::max() / sizeof(srVector3T<float>)) {
             return false;
         }
-        if ((file->read(&m_point_count, 4).bytes == static_cast<std::size_t>(4)) == 0) {
-            if (file) file->close();
-            file.reset();
-            return false;
-        }
-        m_sample_points = new srVector3T<float>[m_point_count + 1];
-        if (m_sample_points == 0) {
-            if (file) file->close();
-            file.reset();
-            return false;
-        }
-        read_ok = (file->read(m_sample_points, m_point_count * sizeof(srVector3T<float>)).bytes == static_cast<std::size_t>(m_point_count * sizeof(srVector3T<float>)));
-        if (file) file->close();
-        file.reset();
+        auto next = std::make_unique<srVector3T<float>[]>(std::size_t{count} + 1);
+        file->read_exact(next.get(), static_cast<std::size_t>(bytes));
+        points = std::move(next);
+        ++files;
     }
-    if (read_ok != 0) {
-        return read_ok;
+    if (files == 0) {
+        return false;
     }
     delete[] m_sample_points;
-    m_point_count = 0;
-    return false;
+    m_sample_points = points.release();
+    m_point_count = count;
+    m_points_dirty |= files > 1;
+    return true;
 }
 catch (const std::exception&) { return false; }
 
-/* Write the octree's point array to a companion file.
-
-   The level path supplies the base name and its existing extension is
-   replaced with the point-file extension. Writes target the mutable overlay.
-   The count precedes the records, and the result reports either write. */
+/* Write the octree's point count and records to the mutable overlay. */
 // FUNCTION: WIZ8 0x00432d60
 BOOLEAN W8Octree::SavePoints(char* path)
 try
 {
-    char name[256];
-    unsigned char result = 0;
-
-    strcpy(name, path);
-    char* extension = strrchr(name, '.');
-    if (extension != 0) {
-        *extension = '\0';
+    if (m_point_count == 0 || m_sample_points == 0) {
+        return false;
     }
-    strcat(name, g_octree_point_extension);
-    std::unique_ptr<wiz8::File> file = [&]() { try { return wiz8::open_file(name, wiz8::OpenMode::replace); } catch (const std::exception&) { return std::unique_ptr<wiz8::File>{}; } }();
-    if (file != 0) {
-        if (m_point_count != 0 && m_sample_points != 0) {
-            file->write(&m_point_count, 4);
-            file->write(m_sample_points, m_point_count * sizeof(srVector3T<float>));
-            result = true;
-            if (file) file->close();
-            file.reset();
-        }
+    std::string name = path;
+    if (const auto extension = name.find_last_of('.'); extension != std::string::npos) {
+        name.resize(extension);
     }
-    return result;
+    name += g_octree_point_extension;
+    auto file = wiz8::open_file(name, wiz8::OpenMode::replace);
+    file->write(&m_point_count, sizeof(m_point_count));
+    file->write(m_sample_points, std::size_t{m_point_count} * sizeof(srVector3T<float>));
+    file->close();
+    return true;
 }
 catch (const std::exception&) { return false; }
 
@@ -1031,62 +1009,32 @@ catch (const std::exception&) { return false; }
 bool W8Octree::ReadRegionLinkFile(const char* level_name)
 try
 {
-    unsigned int count = 0;
-    unsigned int* keys = 0;
-    unsigned short* values = 0;
-    std::unique_ptr<wiz8::File> file = 0;
-    bool result = false;
-    char name[256];
-
-    strcpy(name, level_name);
-    char* extension = strrchr(name, '.');
-    if (extension != 0) {
-        *extension = '\0';
+    std::string name = level_name;
+    if (const auto extension = name.find_last_of('.'); extension != std::string::npos) {
+        name.resize(extension);
     }
-    strcat(name, g_region_link_extension);
-    if ([&]() { const auto status = wiz8::file_status(name); return status && status->info.type == SDL_PATHTYPE_FILE; }() == 0) {
+    name += g_region_link_extension;
+    auto file = wiz8::open_file(name);
+    unsigned int count;
+    file->read_exact(&count, sizeof(count));
+    const auto bytes = std::uint64_t{count} * (sizeof(unsigned int) + sizeof(unsigned short));
+    if (bytes > static_cast<std::uint64_t>(file->size() - file->tell()) ||
+        std::uint64_t{count} > std::numeric_limits<std::size_t>::max() / sizeof(unsigned int)) {
         return false;
     }
-    file = [&]() { try { return wiz8::open_file(name, wiz8::OpenMode::read); } catch (const std::exception&) { return std::unique_ptr<wiz8::File>{}; } }();
-    if (file == 0) {
-        return false;
-    }
-    if ((file->read(&count, 4).bytes == static_cast<std::size_t>(4)) == 0) {
-        return false;
-    }
-
-    keys = static_cast<unsigned int*>(malloc(count * sizeof(unsigned int)));
-    values = static_cast<unsigned short*>(malloc(count * sizeof(*values)));
-    if (keys == 0 || values == 0) {
-        if (file) file->close();
-        file.reset();
-        free(keys);
-        free(values);
-        return false;
-    }
-    if ((file->read(keys, count * 4).bytes == static_cast<std::size_t>(count * 4)) == 0 || (file->read(values, count * 2).bytes == static_cast<std::size_t>(count * 2)) == 0) {
-        if (file) file->close();
-        file.reset();
-        free(keys);
-        free(values);
-        return false;
-    }
+    std::vector<unsigned int> keys(count);
+    std::vector<unsigned short> values(count);
+    file->read_exact(keys.data(), keys.size() * sizeof(keys[0]));
+    file->read_exact(values.data(), values.size() * sizeof(values[0]));
     if (m_pRegionLinks == 0) {
-        m_pRegionLinks = new W8HashTable<unsigned int, unsigned short>;
+        m_pRegionLinks = new std::unordered_multimap<unsigned int, unsigned short>;
     }
     for (unsigned int index = 0; index < count; ++index) {
-        m_pRegionLinks->Remove(&keys[index], &values[index]);
-        m_pRegionLinks->Insert(&keys[index], &values[index]);
+        RemoveIndexValue(*m_pRegionLinks, keys[index], values[index]);
+        InsertIndexValue(*m_pRegionLinks, keys[index], values[index]);
     }
-    result = true;
-    if (file) file->close();
-    file.reset();
-    free(keys);
-    free(values);
-    if (result) {
-        m_region_links_ready = true;
-    }
-    return result;
+    m_region_links_ready = true;
+    return true;
 }
 catch (const std::exception&) { return false; }
 
@@ -1138,11 +1086,11 @@ void W8Octree::RecordRegionMeshLinks(unsigned int region_key)
     char text[256];
     do {
         unsigned short mesh = static_cast<unsigned short>(bit - 1);
-        int slot = m_pRegionLinks->FindNextEntry(&region_key, -1);
-        while (slot != -1 && m_pRegionLinks->entries[slot].value != mesh) {
-            slot = m_pRegionLinks->FindNextEntry(&region_key, slot);
+        auto slot = m_pRegionLinks->equal_range(region_key).first;
+        while (slot != m_pRegionLinks->end() && slot->second != mesh) {
+            slot = NextIndexValue(*m_pRegionLinks, region_key, slot);
         }
-        if (slot == -1) {
+        if (slot == m_pRegionLinks->end()) {
             if (!reported) {
                 if (region_key < m_spatial.m_region_count) {
                     sprintf(text, "Pre-generated Region %d linked to meshes: ", region_key);
@@ -1156,7 +1104,7 @@ void W8Octree::RecordRegionMeshLinks(unsigned int region_key)
             }
             sprintf(text, "%d, ", mesh);
             NoOp();
-            m_pRegionLinks->Insert(&region_key, &mesh);
+            InsertIndexValue(*m_pRegionLinks, region_key, mesh);
         }
         bit = m_projected_regions->NextSetBit(false);
     } while (bit != 0);
@@ -1179,15 +1127,15 @@ unsigned int W8Octree::SampleRegionLinks(const srVector3T<float>* point, bool de
 {
     bool linked = false;
     W8World* world = GetWorld();
-    W8Vector<stModelInstance*> meshes(5);
-    W8GrowableVector<int> cells;
+    std::vector<stModelInstance*> meshes;
+    std::vector<int> cells;
     view.camera_location = *point;
     view.far_clip = m_spatial.m_extent;
     char text[104];
     sprintf(text, "Sample point: %f, %f, %f, Links Found: ", point->x, point->y, point->z);
     NoOp();
     srVector3T<double> location;
-    location.SetFromFloat(point);
+    location = glm::dvec3(point->glmValue());
     world->camera->setLocation(location);
     view.horizontal_fov = static_cast<float>(world->camera->getHorizontalFOV());
     view.vertical_fov = static_cast<float>(world->camera->getVerticalFOV());
@@ -1210,23 +1158,22 @@ unsigned int W8Octree::SampleRegionLinks(const srVector3T<float>* point, bool de
         double sin_tilt = sin(g_region_link_camera_tilt);
         for (int direction = 0; direction < samples; ++direction) {
             float angle = direction * view.horizontal_fov;
-            srMatrix3T<float> frame;
-            frame.SetIdentity();
-            if (angle != g_double_zero) {
-                frame.RotateAboutY(sin(angle), cos(angle));
-            }
-            frame.RotateAboutX(sin_tilt, cos_tilt);
+            glm::mat3 frame;
+            frame = glm::mat3(1);
+            frame *= glm::mat3_cast(glm::angleAxis(float(angle), glm::vec3(0, 1, 0)));
+            frame *= glm::mat3_cast(
+                glm::angleAxis(float(std::atan2(sin_tilt, cos_tilt)), glm::vec3(1, 0, 0)));
             world->camera->setRotation(frame);
-            view.rotation_column0.x = frame.vectors[0].x;
+            view.rotation_column0.x = frame[0][0];
             srVector3T<float> unit;
             unit.Set(1.0, 0.0, 0.0);
-            view.rotation_column0.y = DotProduct(frame.vectors[1], unit);
-            view.rotation_column0.z = DotProduct(frame.vectors[2], unit);
-            float right_y = frame.vectors[0].y;
+            view.rotation_column0.y = glm::dot(glm::row(frame, 1), unit.glmValue());
+            view.rotation_column0.z = glm::dot(glm::row(frame, 2), unit.glmValue());
+            float right_y = frame[1][0];
             unit.Set(0.0, 1.0, 0.0);
             view.rotation_column1.x = right_y;
-            view.rotation_column1.y = DotProduct(frame.vectors[1], unit);
-            view.rotation_column1.z = DotProduct(frame.vectors[2], unit);
+            view.rotation_column1.y = glm::dot(glm::row(frame, 1), unit.glmValue());
+            view.rotation_column1.z = glm::dot(glm::row(frame, 2), unit.glmValue());
             srVector3T<double> dof = world->camera->getWorldSpaceDOF();
             view.camera_dof = dof;
             m_current_regions->ClearAll();
@@ -1236,15 +1183,15 @@ unsigned int W8Octree::SampleRegionLinks(const srVector3T<float>* point, bool de
             if (bit != 0) {
                 do {
                     unsigned int cell = static_cast<unsigned int>(bit - 1);
-                    meshes.Add(
+                    meshes.push_back(
                         static_cast<stModelInstance*>(g_world->psrMeshes[m_pSubmeshes[cell].mesh]));
                     if (!m_projected_regions->Test(cell)) {
-                        int slot = m_pRegionLinks->FindNextEntry(&key, -1);
-                        while (slot != -1 && m_pRegionLinks->entries[slot].value !=
+                        auto slot = m_pRegionLinks->equal_range(key).first;
+                        while (slot != m_pRegionLinks->end() && slot->second !=
                                                  static_cast<unsigned short>(cell)) {
-                            slot = m_pRegionLinks->FindNextEntry(&key, slot);
+                            slot = NextIndexValue(*m_pRegionLinks, key, slot);
                         }
-                        if (slot == -1) {
+                        if (slot == m_pRegionLinks->end()) {
                             if (cell != 0) {
                                 m_pSubmeshes[cell].flags |= 0x28;
                                 srNode* node = g_world->psrMeshes[m_pSubmeshes[cell].mesh];
@@ -1255,7 +1202,7 @@ unsigned int W8Octree::SampleRegionLinks(const srVector3T<float>* point, bool de
                                     }
                                 }
                             }
-                            cells.Add(static_cast<int>(cell));
+                            cells.push_back(static_cast<int>(cell));
                             all_known = false;
                         } else {
                             goto known;
@@ -1270,14 +1217,14 @@ unsigned int W8Octree::SampleRegionLinks(const srVector3T<float>* point, bool de
                                 node->setFlag(srNode::FLAG_TERMINATE);
                             }
                         }
-                        cells.Add(0);
+                        cells.push_back(0);
                     }
                     bit = m_current_regions->NextSetBit(false);
                 } while (bit != 0);
                 if (!all_known) {
                     BeginRenderProbe();
-                    for (int i = 0; i < meshes.GetCount(); ++i) {
-                        stModelInstance* mesh = *meshes.GetAt(i);
+                    for (int i = 0; i < static_cast<int>(meshes.size()); ++i) {
+                        stModelInstance* mesh = meshes[i];
                         if (mesh != 0) {
                             unsigned int faces = MeasureNodeRender(mesh);
                             all_known = 9 < faces;
@@ -1290,7 +1237,7 @@ unsigned int W8Octree::SampleRegionLinks(const srVector3T<float>* point, bool de
                                 child = child->first_child_;
                             }
                             if (!all_known) {
-                                unsigned int candidate = *cells.GetAt(i);
+                                unsigned int candidate = cells[i];
                                 if (candidate != 0) {
                                     m_pSubmeshes[candidate].flags &= 0xfffffff7;
                                     srNode* node = g_world->psrMeshes[m_pSubmeshes[candidate].mesh];
@@ -1299,14 +1246,14 @@ unsigned int W8Octree::SampleRegionLinks(const srVector3T<float>* point, bool de
                                         node->setFlag(srNode::FLAG_TERMINATE);
                                     }
                                 }
-                                cells.SetAt(i, 0);
+                                cells[i] = 0;
                             }
                         }
                     }
-                    for (int index = 0; index < meshes.GetCount(); ++index) {
-                        stModelInstance* mesh = *meshes.GetAt(index);
+                    for (int index = 0; index < static_cast<int>(meshes.size()); ++index) {
+                        stModelInstance* mesh = meshes[index];
                         if (mesh != 0) {
-                            unsigned int cell = static_cast<unsigned int>(*cells.GetAt(index));
+                            unsigned int cell = static_cast<unsigned int>(cells[index]);
                             if (cell != 0) {
                                 unsigned int faces = MeasureNodeRender(mesh);
                                 if (9 < faces) {
@@ -1360,8 +1307,8 @@ void W8Octree::BuildRegionLinks(bool rebuild_all)
     bool aborted = false;
     unsigned int last_key = 0;
     time_t started = time(0);
-    W8HashTable<unsigned int, unsigned short>* links =
-        new W8HashTable<unsigned int, unsigned short>;
+    std::unordered_multimap<unsigned int, unsigned short>* links =
+        new std::unordered_multimap<unsigned int, unsigned short>;
     unsigned short z_step = rebuild_all ? 1 : 3;
     float stride = z_step * m_region_cell;
     unsigned short rows =
@@ -1375,7 +1322,7 @@ void W8Octree::BuildRegionLinks(bool rebuild_all)
     SetViewportMode(0);
     SetWorldScaledViewport(0, 0, 0x140, 0xf0);
     srVector3T<float> saved_location;
-    srMatrix3T<float> saved_rotation;
+    glm::mat3 saved_rotation;
     world->camera->getLocation(saved_location);
     world->camera->getRotation(saved_rotation);
     g_light_update_flags &= ~1u;
@@ -1394,8 +1341,8 @@ void W8Octree::BuildRegionLinks(bool rebuild_all)
             node->setFlag(srNode::FLAG_TERMINATE);
         }
     }
-    links->Clear();
-    W8HashTable<unsigned int, unsigned short>* saved_links = m_pRegionLinks;
+    links->clear();
+    std::unordered_multimap<unsigned int, unsigned short>* saved_links = m_pRegionLinks;
     m_pRegionLinks = links;
     if (rows != 0) {
         for (unsigned short x_index = 0; x_index < rows; ++x_index) {
@@ -1459,7 +1406,7 @@ void W8Octree::BuildRegionLinks(bool rebuild_all)
     }
     g_render_untextured = false;
     EnableAllRenderOptions();
-    W8HashTable<unsigned int, unsigned short>* stale;
+    std::unordered_multimap<unsigned int, unsigned short>* stale;
     if (!rebuild_all) {
         if (!aborted) {
             for (unsigned int point_index = 0; point_index < m_point_count; ++point_index) {
@@ -1483,22 +1430,22 @@ void W8Octree::BuildRegionLinks(bool rebuild_all)
         m_point_count = 0;
     }
     world->camera->setViewPlane(saved_width, saved_height);
-    unsigned int camera_count = PLLength(world->plsCameras);
+    unsigned int camera_count = (world->plsCameras ? world->plsCameras->size() : 0);
     if (!aborted && world->plsCameras != 0 && camera_count != 0) {
         for (int camera_index = 0; camera_index < static_cast<int>(camera_count); ++camera_index) {
             W8CameraPath* entry = GetWorldCameraPath(world, camera_index);
             if (entry != 0 && entry->path != 0) {
-                for (int node_index = 0; node_index < entry->path->nodes->GetCount();
+                for (int node_index = 0; node_index < static_cast<int>(entry->path->nodes->size());
                      ++node_index) {
                     unsigned int key =
-                        SampleRegionLinks(*entry->path->nodes->GetAt(node_index), true, true, 0);
+                        SampleRegionLinks((*entry->path->nodes)[node_index], true, true, 0);
                     RecordRegionMeshLinks(key);
                 }
             }
         }
     }
     srVector3T<double> restore_location;
-    restore_location.SetFromFloat(&saved_location);
+    restore_location = glm::dvec3(saved_location.glmValue());
     world->camera->setLocation(restore_location);
     world->camera->setRotation(saved_rotation);
     g_light_update_flags |= 1u;
@@ -1550,83 +1497,47 @@ void W8Octree::BuildRegionLinks(bool rebuild_all)
 BOOLEAN W8Octree::SaveRegionLinks(char* path)
 try
 {
-    unsigned char result = 1;
-    unsigned int* keys = 0;
-    unsigned short* values = 0;
-    std::unique_ptr<wiz8::File> file = 0;
-
-    if (m_pRegionLinks == 0) {
-        return 0;
+    if (m_pRegionLinks == 0 || path == 0 || m_pRegionLinks->empty()) {
+        return false;
     }
-    if (path == 0) {
-        return 0;
+    std::string name = path;
+    if (const auto extension = name.find_last_of('.'); extension != std::string::npos) {
+        name.resize(extension);
     }
-    unsigned int capacity = m_pRegionLinks->bucket_count;
-    if (capacity == 0) {
-        return 0;
-    }
-    char name[256];
-    strcpy(name, path);
-    char* extension = strrchr(name, '.');
-    if (extension != 0) {
-        *extension = '\0';
-    }
-    strcat(name, g_region_link_extension);
-    file = [&]() { try { return wiz8::open_file(name, wiz8::OpenMode::replace); } catch (const std::exception&) { return std::unique_ptr<wiz8::File>{}; } }();
-    if (file == 0) {
-        goto cleanup;
-    }
-    keys = static_cast<unsigned int*>(malloc(capacity * sizeof(unsigned int)));
-    values = static_cast<unsigned short*>(malloc(capacity * sizeof(*values)));
-    if (keys == 0 || values == 0) {
-        result = 0;
-        goto cleanup;
-    }
-    {
-        unsigned int count = 0;
-        for (unsigned int key = 1; key < m_spatial.m_region_count; ++key) {
-            for (int slot = m_pRegionLinks->FindNextEntry(&key, -1); slot != -1;
-                 slot = m_pRegionLinks->FindNextEntry(&key, slot)) {
-                keys[count] = key;
-                values[count] = m_pRegionLinks->entries[slot].value;
-                ++count;
-            }
+    name += g_region_link_extension;
+    std::vector<unsigned int> keys;
+    std::vector<unsigned short> values;
+    for (unsigned int key = 1; key < m_spatial.m_region_count; ++key) {
+        for (auto slot = m_pRegionLinks->equal_range(key).first; slot != m_pRegionLinks->end();
+             slot = NextIndexValue(*m_pRegionLinks, key, slot)) {
+            keys.push_back(key);
+            values.push_back(slot->second);
         }
-        unsigned int extent = 1;
-        for (unsigned short level = 0; level < m_spatial.m_leaf_level; ++level) {
-            extent *= 2;
-        }
-        unsigned int base = m_region_mask * 0x1000000;
-        for (unsigned int x = 0; x < extent; ++x) {
-            for (unsigned int y = 0; y < extent; ++y) {
-                for (unsigned int z = 0; z < extent; ++z) {
-                    unsigned int key = (x << 16) + (y << 8) + z + base;
-                    for (int slot = m_pRegionLinks->FindNextEntry(&key, -1); slot != -1;
-                         slot = m_pRegionLinks->FindNextEntry(&key, slot)) {
-                        keys[count] = key;
-                        values[count] = m_pRegionLinks->entries[slot].value;
-                        ++count;
-                    }
+    }
+    const unsigned int extent = m_spatial.m_region_cells_per_axis;
+    const unsigned int base = m_region_mask * 0x1000000;
+    for (unsigned int x = 0; x < extent; ++x) {
+        for (unsigned int y = 0; y < extent; ++y) {
+            for (unsigned int z = 0; z < extent; ++z) {
+                unsigned int key = (x << 16) + (y << 8) + z + base;
+                for (auto slot = m_pRegionLinks->equal_range(key).first; slot != m_pRegionLinks->end();
+             slot = NextIndexValue(*m_pRegionLinks, key, slot)) {
+                    keys.push_back(key);
+                    values.push_back(slot->second);
                 }
             }
         }
-        if ((file->write(&count, 4), true) == 0) {
-            return 0;
-        }
-        unsigned char wrote_keys = (file->write(keys, count * 4), true);
-        unsigned char wrote_values = (file->write(values, count * 2), true);
-        result = wrote_keys | wrote_values;
     }
-cleanup:
-    if (file) file->close();
-    file.reset();
-    if (keys != 0) {
-        free(keys);
+    if (keys.size() > std::numeric_limits<unsigned int>::max()) {
+        return false;
     }
-    if (values != 0) {
-        free(values);
-    }
-    return result;
+    const unsigned int count = keys.size();
+    auto file = wiz8::open_file(name, wiz8::OpenMode::replace);
+    file->write(&count, sizeof(count));
+    file->write(keys.data(), keys.size() * sizeof(keys[0]));
+    file->write(values.data(), values.size() * sizeof(values[0]));
+    file->close();
+    return true;
 }
 catch (const std::exception&) { return false; }
 
@@ -1714,7 +1625,7 @@ int W8Octree::CountBadRegionMeshLinks(W8OctSpatialState* spatial)
                     srVector3T<float> maximum;
                     minimum.x = minimum.y = minimum.z = 1.0e7f;
                     maximum.x = maximum.y = maximum.z = -1.0e7f;
-                    for (; model != 0; model = model->next) {
+                    for (; model != 0; model = model->Next()) {
                         srVector3T<float> box_minimum;
                         srVector3T<float> box_maximum;
                         model->getBoundingBox(box_minimum, box_maximum);
@@ -1835,7 +1746,7 @@ unsigned char W8Octree::PrepareNavigatorTarget(W8NavigatorMovementState* movemen
     }
     srVector3T<float> delta = movement->target_position - movement->position;
     delta.y = 0.0f;
-    if (delta.xz().Length() < NAVIGATOR_MINIMUM_HORIZONTAL_DISTANCE) {
+    if (glm::length(((delta.xz()))) < NAVIGATOR_MINIMUM_HORIZONTAL_DISTANCE) {
         return 0;
     }
     if ((movement->attachment->flags & W8_NAV_ATTACHMENT_FOLLOW_PATH) == 0) {
@@ -1952,12 +1863,6 @@ unsigned char W8Octree::LinkNavigatorTarget(W8NavigatorMovementState* movement,
 
 // GLOBAL: WIZ8 0x005ebcd0
 const float g_octree_cell_scale = 100.0f;
-/* 0x00659888 accumulates every byte the loader reads, and 0x00652DB0 caches the
-   game-data block LoadWorld hands back through its out parameter. */
-
-// GLOBAL: WIZ8 0x00659888
-w8_ulong g_octree_bytes_read;
-
 /* Follow one child bit per axis and level through the compact 9-word branch
    records.  Zero is the missing-child sentinel; live leaves start at one. */
 // FUNCTION: WIZ8 0x00433660
@@ -2593,10 +2498,10 @@ unsigned char W8OctreeObjectRegistry::MoveObjectToCell(W8OctreeObjectKind kind, 
     int object_value = static_cast<int>(object_key);
     int cell_value = static_cast<int>(cell_key);
 
-    by_object->Remove(&object_key, &cell_value);
-    by_object->Insert(&object_key, &cell_value);
-    by_cell->Remove(&cell_key, &object_value);
-    by_cell->Insert(&cell_key, &object_value);
+    RemoveIndexValue(*by_object, object_key, cell_value);
+    InsertIndexValue(*by_object, object_key, cell_value);
+    RemoveIndexValue(*by_cell, cell_key, object_value);
+    InsertIndexValue(*by_cell, cell_key, object_value);
     return 1;
 }
 
@@ -2605,18 +2510,16 @@ unsigned char W8OctreeObjectRegistry::UnregisterObject(W8OctreeObjectKind kind, 
 {
     unsigned int object_key = PackOctreeObjectKey(kind, id);
     int object_value = static_cast<int>(object_key);
-    bool removed = false;
-
-    int slot = by_object->FindNextEntry(&object_key, -1);
-    while (slot != -1) {
-        unsigned int cell_key = static_cast<unsigned int>(by_object->entries[slot].value);
-        by_object->RemoveAt(slot);
-        by_cell->Remove(&cell_key, &object_value);
-        removed = true;
-        // Retail traverses from the removed slot after its link became a free-list link.
-        slot = by_object->FindNextEntry(&object_key, slot);
+    const auto slot = by_object->equal_range(object_key).first;
+    if (slot == by_object->end()) {
+        return 0;
     }
-    return removed;
+    const auto cell_key = static_cast<unsigned int>(slot->second);
+    by_object->erase(slot);
+    RemoveIndexValue(*by_cell, cell_key, object_value);
+    // Retail advances through the erased slot's free-list link and normally
+    // ends here. Preserve the single-pair removal without dereferencing erase.
+    return 1;
 }
 
 /* Record that one object now occupies one cell.
@@ -2635,7 +2538,7 @@ unsigned char W8OctreeObjectRegistry::RegisterObjectCell(W8OctreeObjectKind kind
                                                          const srVector3T<int>* point)
 {
     unsigned int object_key = PackOctreeObjectKey(kind & 0xffff, id);
-    int occupied = by_object->Lookup(&object_key);
+    int occupied = LookupIndexValue(*by_object, object_key);
 
     if (occupied != 0) {
         /* Retail only recognizes a repeat of (0,0,z): x is not decoded,
@@ -2646,26 +2549,26 @@ unsigned char W8OctreeObjectRegistry::RegisterObjectCell(W8OctreeObjectKind kind
         }
         unsigned int occupied_key = static_cast<unsigned int>(occupied);
         int object_value = static_cast<int>(object_key);
-        by_object->Remove(&object_key);
-        by_cell->Remove(&occupied_key, &object_value);
+        RemoveIndexValue(*by_object, object_key);
+        RemoveIndexValue(*by_cell, occupied_key, object_value);
     } else if (static_cast<short>(kind) == W8_OCTREE_KIND_LOCATION) {
         unsigned int cell_key = PackOctreeCellKey(point->x, point->y, point->z);
         int cell_value = static_cast<int>(cell_key);
         unsigned int tagged_key = PackOctreeObjectKey(W8_OCTREE_KIND_NAVIGATOR, id);
         int tagged_value = static_cast<int>(tagged_key);
-        by_object->Remove(&tagged_key, &cell_value);
-        by_object->Insert(&tagged_key, &cell_value);
-        by_cell->Remove(&cell_key, &tagged_value);
-        by_cell->Insert(&cell_key, &tagged_value);
+        RemoveIndexValue(*by_object, tagged_key, cell_value);
+        InsertIndexValue(*by_object, tagged_key, cell_value);
+        RemoveIndexValue(*by_cell, cell_key, tagged_value);
+        InsertIndexValue(*by_cell, cell_key, tagged_value);
     }
 
     unsigned int cell_key = PackOctreeCellKey(point->x, point->y, point->z);
     int cell_value = static_cast<int>(cell_key);
     int object_value = static_cast<int>(object_key);
-    by_object->Remove(&object_key, &cell_value);
-    by_object->Insert(&object_key, &cell_value);
-    by_cell->Remove(&cell_key, &object_value);
-    by_cell->Insert(&cell_key, &object_value);
+    RemoveIndexValue(*by_object, object_key, cell_value);
+    InsertIndexValue(*by_object, object_key, cell_value);
+    RemoveIndexValue(*by_cell, cell_key, object_value);
+    InsertIndexValue(*by_cell, cell_key, object_value);
     return 1;
 }
 
@@ -2710,11 +2613,11 @@ void W8Octree::AddCollidablePropBounds(int index, const W8BoundingBox* bounds)
                 int cell_value = static_cast<int>(cell_key);
                 int prop_value = static_cast<int>(prop_key);
                 by_prop = object_registry->by_object;
-                by_prop->Remove(&prop_key, &cell_value);
-                by_prop->Insert(&prop_key, &cell_value);
+                RemoveIndexValue(*by_prop, prop_key, cell_value);
+                InsertIndexValue(*by_prop, prop_key, cell_value);
                 by_cell = object_registry->by_cell;
-                by_cell->Remove(&cell_key, &prop_value);
-                by_cell->Insert(&cell_key, &prop_value);
+                RemoveIndexValue(*by_cell, cell_key, prop_value);
+                InsertIndexValue(*by_cell, cell_key, prop_value);
             }
         }
     }
@@ -2979,9 +2882,9 @@ unsigned char W8Octree::TestProbeResult(W8OctreeTrace* trace)
             !m_pAlphaBits->Test(mesh_index)) {
             stMeshModel* model =
                 static_cast<stMeshModel*>(g_world->psrMeshes[mesh_index]->getModel());
-            const srVector4T<float>* planes = model->getPolyEq();
+            const glm::vec4* planes = model->getPolyEq();
             unsigned int polygon = m_aulGDObjs[index] & 0xffff;
-            const srVector4T<float>* plane = planes + polygon;
+            const glm::vec4* plane = planes + polygon;
             float t;
             float distance;
             srVector3T<float> point;
@@ -3088,7 +2991,7 @@ w8_ulong* W8Octree::CollectPolygonsNearPoint(srVector3T<float>* center, float ra
     for (index = 0; index < m_gd_result_count; ++index) {
         unsigned int mesh_index = m_aulGDObjs[index] >> 0x10;
         stMeshModel* model = 0;
-        const srVector4T<float>* plane = 0;
+        const glm::vec4* plane = 0;
         if (mesh_index < m_meshCount && g_world->psrMeshes[mesh_index] != 0 &&
             !m_pAlphaBits->Test(mesh_index)) {
             model = static_cast<stMeshModel*>(g_world->psrMeshes[mesh_index]->getModel());
@@ -3102,7 +3005,7 @@ w8_ulong* W8Octree::CollectPolygonsNearPoint(srVector3T<float>* center, float ra
         }
         if (m_aulGDObjs[index] != 0) {
             srVector3T<float> normal;
-            normal = plane->xyz();
+            normal = glm::vec3((*plane));
             const srVector3i* poly_vertex = model->getPolyVertex() + (m_aulGDObjs[index] & 0xffff);
             const srVector3T<float>* vertices = model->getVertexLoc();
             srVector3T<float> triangle[3];
@@ -3125,7 +3028,7 @@ w8_ulong* W8Octree::CollectPolygonsNearPoint(srVector3T<float>* center, float ra
     }
     m_aulGDObjs[count] = 0;
     if (count != 0) {
-        QuickSort(m_aulGDObjs, 0, count - 1);
+        std::sort(m_aulGDObjs, m_aulGDObjs + count);
     }
     return m_aulGDObjs;
 }
@@ -3189,439 +3092,254 @@ bool W8Octree::SetPathStem(const char* path)
 
 /* Read one .oct file into a fresh octree.
 
-   The original name is the image's own: fourteen assertions in this body spell
-   it ReadOctFile. The shape is one block repeated for every table the file
-   carries - allocate, read, accumulate the byte count, and on either failure
-   copy a message into the local buffer and stop advancing. fSuccess threading
-   is what makes the failures cascade rather than each one returning; the flag
-   at +0x000 bit 31 is the load error the caller tests.
+   ReadOctFile is the recovered name. Counts are checked before allocation,
+   and exact-read failures set the load error bit tested by LoadWorld. Members
+   retain ownership of partial loads for the normal destructor cleanup.
 
    A null path builds an empty octree, and a level whose preprocessed files
    cannot be built runs on the LVL file alone with the same error bit set. */
 // FUNCTION: WIZ8 0x0042bc10
 W8Octree::W8Octree(const char* path, W8GameData** game_data)
 {
-    W8OctFileHeader header;
-    char acMessage[256];
-    std::unique_ptr<wiz8::File> hOctFile;
-    unsigned int uiRead;
-    int uiTerminator;
-    unsigned char fSuccess;
-    unsigned char fLoaded;
-    unsigned int index;
-    unsigned int limit;
-    W8GameData* pGameData = 0;
-    int asset_status;
-
     Reset();
-    if (path == 0) {
-        Initialize(0);
-        return;
+    if (game_data != 0) {
+        *game_data = 0;
     }
-    asset_status = CheckLevelAssetSet(path);
-    if (asset_status < 0) {
-        goto failed;
-    }
-    if (asset_status > 0 && BuildPreprocessedFiles(path) == 0) {
-        g_octree = 0;
-        m_spatial.flags |= 0x80000000;
-        ReportStartupMessage("Cannot find or build current preprocessed files.");
-        ReportStartupMessage("Attempting to run with LVL file only -- SOME FEATURES DISABLED.");
-        ReportStartupMessage(0);
-        return;
-    }
-    hOctFile = [&]() { try { return wiz8::open_file(const_cast<char*>(path), wiz8::OpenMode::read); } catch (const std::exception&) { return std::unique_ptr<wiz8::File>{}; } }();
-    if (hOctFile == 0) {
-        srAssertFail("hOctFile", OCTREE_CPP, 0xa3, "ReadOctFile: Couldn't open octree file.");
-    }
-    fSuccess = ((uiRead = hOctFile->read(&header, sizeof(header)).bytes) == static_cast<std::size_t>(sizeof(header)));
-    g_octree_bytes_read += uiRead;
-    fLoaded = 0;
-    if (fSuccess != 0) {
-        fSuccess = ((uiRead = hOctFile->read(&uiTerminator, 4).bytes) == static_cast<std::size_t>(4));
-        if (fSuccess == 0 || uiTerminator != -1) {
-            srAssertFail("fSuccess && (uiTerminator==0xffffffff)", OCTREE_CPP, 0xac,
-                         "ReadOctFile: Header of Oct file longer than expected.");
+    try {
+        if (path == 0) {
+            Initialize(0);
+            return;
         }
-        fLoaded = 0;
-        if (fSuccess != 0) {
-            Initialize(&header);
-            SetPathStem(path);
+        const int asset_status = CheckLevelAssetSet(path);
+        if (asset_status < 0) {
+            throw std::runtime_error("Octree assets unavailable.");
+        }
+        if (asset_status > 0 && !BuildPreprocessedFiles(path)) {
+            ReportStartupMessage("Cannot find or build current preprocessed files.");
+            ReportStartupMessage("Attempting to run with LVL file only -- SOME FEATURES DISABLED.");
+            ReportStartupMessage(0);
+            throw std::runtime_error("Could not build octree assets.");
+        }
+        auto hOctFile = wiz8::open_file(path);
+        W8OctFileHeader header;
+        hOctFile->read_exact(&header, sizeof(header));
+        unsigned int uiTerminator;
+        hOctFile->read_exact(&uiTerminator, sizeof(uiTerminator));
+        if (uiTerminator != 0xffffffff || header.version != W8OctFileHeader::VERSION) {
+            throw std::runtime_error("Invalid octree header.");
+        }
 
-            m_branches = static_cast<W8OctPreTreeBranch*>(
-                malloc((header.m_branch_count + 2) * sizeof(W8OctPreTreeBranch)));
-            if (m_branches == 0) {
-                fSuccess = 0;
-                strcpy(acMessage, "ReadOctFile: Couldn't allocate octree nodes.");
-            } else {
-                fSuccess = ((uiRead = hOctFile->read(m_branches, header.m_branch_count * sizeof(W8OctPreTreeBranch)).bytes) == static_cast<std::size_t>(header.m_branch_count * sizeof(W8OctPreTreeBranch)));
-                if (fSuccess == 0) {
-                    strcpy(acMessage, "ReadOctFile: Couldn't read octree nodes.");
-                }
-            }
-            g_octree_bytes_read += uiRead;
-            fLoaded = 0;
-            if (fSuccess != 0) {
-                m_leaves = static_cast<W8OctPreTreeLeaf*>(
-                    malloc((header.m_leaf_count + 2) * sizeof(W8OctPreTreeLeaf)));
-                if (m_leaves == 0) {
-                    fSuccess = 0;
-                    strcpy(acMessage, "ReadOctFile: Couldn't allocate octree leaves.");
-                } else {
-                    fSuccess = ((uiRead = hOctFile->read(m_leaves, header.m_leaf_count * sizeof(W8OctPreTreeLeaf)).bytes) == static_cast<std::size_t>(header.m_leaf_count * sizeof(W8OctPreTreeLeaf)));
-                    if (fSuccess == 0) {
-                        strcpy(acMessage, "ReadOctFile: Couldn't read octree leaves.");
-                    }
-                }
-                g_octree_bytes_read += uiRead;
-                fLoaded = 0;
-                if (fSuccess != 0) {
-                    m_polygon_index_stream = static_cast<w8_ulong*>(
-                        malloc(header.m_leaf_polygon_stream_len * sizeof(*m_polygon_index_stream) + 2 * sizeof(*m_polygon_index_stream)));
-                    if (m_polygon_index_stream == 0) {
-                        fLoaded = 0;
-                        strcpy(acMessage,
-                               "ReadOctFile: Couldn't allocate polygon index list for leaves.");
-                    } else {
-                        fLoaded = ((uiRead = hOctFile->read(m_polygon_index_stream, header.m_leaf_polygon_stream_len * 4).bytes) == static_cast<std::size_t>(header.m_leaf_polygon_stream_len * 4));
-                        if (fLoaded == 0) {
-                            strcpy(acMessage,
-                                   "ReadOctFile: Couldn't read polygon index list for leaves.");
-                        }
-                    }
-                    g_octree_bytes_read += uiRead;
-                }
+        const auto remaining = static_cast<std::uint64_t>(hOctFile->size() - hOctFile->tell());
+        const auto grid_yz = std::uint64_t{header.m_grid_dims.y} * header.m_grid_dims.z;
+        if (header.m_grid_dims.x == 0 || header.m_grid_dims.y == 0 || header.m_grid_dims.z == 0 ||
+            grid_yz > std::numeric_limits<int>::max() ||
+            grid_yz > static_cast<unsigned int>(std::numeric_limits<int>::max()) / header.m_grid_dims.x ||
+            header.m_depth >= 31 || header.m_leaf_level > 8 ||
+            header.m_prop_count > 0xffff || header.m_particle_count > 0xffff ||
+            header.m_path_nodes > std::numeric_limits<int>::max() ||
+            header.m_surface_count > std::numeric_limits<int>::max() ||
+            header.m_mesh_total > header.m_submesh_count ||
+            header.m_submesh_count >= std::numeric_limits<unsigned int>::max() ||
+            (header.m_gd_surface_stream_len != 0 && game_data == 0)) {
+            throw std::runtime_error("Octree dimensions or counts exceed runtime limits.");
+        }
+        const std::size_t grid_count = grid_yz * header.m_grid_dims.x;
+        const auto required =
+            std::uint64_t{header.m_branch_count} * sizeof(W8OctPreTreeBranch) +
+            std::uint64_t{header.m_leaf_count} * sizeof(W8OctPreTreeLeaf) +
+            std::uint64_t{header.m_leaf_polygon_stream_len} * sizeof(w8_ulong) +
+            (grid_count < 250000 ? grid_count * sizeof(w8_ulong) : 0) +
+            std::uint64_t{header.m_polygon_count} * sizeof(w8_ulong) +
+            std::uint64_t{header.m_region_list_len} * sizeof(unsigned short) +
+            std::uint64_t{header.m_gd_surface_stream_len} * sizeof(w8_ulong) +
+            std::uint64_t{header.m_trigger_count} * sizeof(unsigned short) +
+            (header.m_region_count > 1 ? std::uint64_t{header.m_region_count} * sizeof(W8OctRegionVolume) : 0) +
+            (header.m_submesh_count != 0 ? (std::uint64_t{header.m_submesh_count} + 1) * sizeof(W8OctSubmesh) : 0) +
+            std::uint64_t{header.m_path_nodes} * sizeof(W8FilePathNode) +
+            3 * sizeof(uiTerminator);
+        if (required > remaining) {
+            throw std::runtime_error("Octree tables exceed file size.");
+        }
+        for (const auto count : {std::uint64_t{header.m_polygon_count},
+                                 std::uint64_t{header.m_surface_count},
+                                 std::uint64_t{header.m_submesh_count} + 1}) {
+            const auto whole_words = static_cast<std::uint64_t>(static_cast<float>(count) / 32.0f);
+            if (whole_words * 32 > count || count - whole_words * 32 >= 32) {
+                throw std::runtime_error("Octree count exceeds BitArray sizing precision.");
             }
         }
-    }
-
-    limit = m_leaf_grid_dimensions.x * m_leaf_grid_dimensions.y * m_leaf_grid_dimensions.z;
-    if (fLoaded != 0 && limit < 250000) {
-        m_leaf_lookup = static_cast<w8_ulong*>(malloc(limit * sizeof(w8_ulong)));
-        if (m_leaf_lookup == 0) {
-            strcpy(acMessage, "ReadOctFile: Couldn't allocate Leaf grid.");
-            goto finish;
+        if ((std::uint64_t{header.m_branch_count} + 2) > std::numeric_limits<std::size_t>::max() / sizeof(W8OctPreTreeBranch) ||
+            (std::uint64_t{header.m_leaf_count} + 2) > std::numeric_limits<std::size_t>::max() / sizeof(W8OctPreTreeLeaf) ||
+            (std::uint64_t{header.m_submesh_count} + 1) > std::numeric_limits<std::size_t>::max() / sizeof(W8OctSubmesh) ||
+            (std::uint64_t{header.m_polygon_count} + 2) > std::numeric_limits<std::size_t>::max() / sizeof(w8_ulong) ||
+            (std::uint64_t{header.m_leaf_polygon_stream_len} + 2) > std::numeric_limits<std::size_t>::max() / sizeof(w8_ulong) ||
+            (std::uint64_t{header.m_gd_surface_stream_len} + 2) > std::numeric_limits<std::size_t>::max() / sizeof(w8_ulong) ||
+            (std::uint64_t{header.m_region_list_len} + 2) > std::numeric_limits<std::size_t>::max() / sizeof(unsigned short) ||
+            (std::uint64_t{header.m_trigger_count} + 2) > std::numeric_limits<std::size_t>::max() / sizeof(unsigned short)) {
+            throw std::runtime_error("Octree allocation exceeds address space.");
         }
-        fLoaded = [&]() { const auto result = hOctFile->read(m_leaf_lookup, m_leaf_grid_dimensions.x * m_leaf_grid_dimensions.y *
-                               m_leaf_grid_dimensions.z * 4); *(&uiRead) = result.bytes; return result.bytes == static_cast<std::size_t>(m_leaf_grid_dimensions.x * m_leaf_grid_dimensions.y *
-                               m_leaf_grid_dimensions.z * 4); }();
-        if (fLoaded == 0) {
-            strcpy(acMessage, "ReadOctFile: Couldn't read leaf grid.");
-        }
-        g_octree_bytes_read += uiRead;
-    } else {
-        m_leaf_lookup = 0;
-    }
 
-    fSuccess = 0;
-    if (fLoaded != 0) {
-        m_aulPolyLookup = static_cast<w8_ulong*>(malloc(header.m_polygon_count * sizeof(*m_aulPolyLookup) + 2 * sizeof(*m_aulPolyLookup)));
-        if (m_aulPolyLookup == 0) {
-            fSuccess = 0;
-            strcpy(acMessage, "ReadOctFile: Couldn't allocate Poly Lookup table.");
-        } else {
-            fLoaded = ((uiRead = hOctFile->read(m_aulPolyLookup, header.m_polygon_count * 4).bytes) == static_cast<std::size_t>(header.m_polygon_count * 4));
-            if (fLoaded == 0) {
-                strcpy(acMessage, "ReadOctFile: Couldn't read Poly Lookup table.");
+        Initialize(&header);
+        if (!SetPathStem(path)) {
+            throw std::runtime_error("Could not store octree path.");
+        }
+        m_branches = static_cast<W8OctPreTreeBranch*>(
+            malloc((std::size_t{header.m_branch_count} + 2) * sizeof(W8OctPreTreeBranch)));
+        m_leaves = static_cast<W8OctPreTreeLeaf*>(
+            malloc((std::size_t{header.m_leaf_count} + 2) * sizeof(W8OctPreTreeLeaf)));
+        m_polygon_index_stream = static_cast<w8_ulong*>(
+            malloc((std::size_t{header.m_leaf_polygon_stream_len} + 2) * sizeof(w8_ulong)));
+        m_aulPolyLookup = static_cast<w8_ulong*>(
+            malloc((std::size_t{header.m_polygon_count} + 2) * sizeof(w8_ulong)));
+        if (!m_branches || !m_leaves || !m_polygon_index_stream || !m_aulPolyLookup) {
+            throw std::bad_alloc();
+        }
+        hOctFile->read_exact(m_branches, std::size_t{header.m_branch_count} * sizeof(W8OctPreTreeBranch));
+        hOctFile->read_exact(m_leaves, std::size_t{header.m_leaf_count} * sizeof(W8OctPreTreeLeaf));
+        hOctFile->read_exact(m_polygon_index_stream, std::size_t{header.m_leaf_polygon_stream_len} * sizeof(w8_ulong));
+        if (grid_count < 250000) {
+            m_leaf_lookup = static_cast<w8_ulong*>(malloc(grid_count * sizeof(w8_ulong)));
+            if (!m_leaf_lookup) {
+                throw std::bad_alloc();
             }
-            g_octree_bytes_read += uiRead;
-            fSuccess = 0;
-            if (fLoaded != 0) {
-                if (header.m_region_list_len != 0) {
-                    m_region_index_stream =
-                        static_cast<unsigned short*>(malloc(header.m_region_list_len * sizeof(*m_region_index_stream) + 2 * sizeof(*m_region_index_stream)));
-                    if (m_region_index_stream == 0) {
-                        fSuccess = 0;
-                        strcpy(acMessage, "ReadOctFile: Couldn't allocate region list.");
-                        goto finish;
-                    }
-                    fLoaded = ((uiRead = hOctFile->read(m_region_index_stream, header.m_region_list_len * 2).bytes) == static_cast<std::size_t>(header.m_region_list_len * 2));
-                    if (fLoaded == 0) {
-                        strcpy(acMessage, "ReadOctFile: Couldn't read region list.");
-                    }
-                    g_octree_bytes_read += uiRead;
-                }
-                fSuccess = 0;
-                if (fLoaded != 0) {
-                    if (header.m_gd_surface_stream_len != 0) {
-                        m_gd_surface_index_stream = static_cast<w8_ulong*>(
-                            malloc(header.m_gd_surface_stream_len * sizeof(*m_gd_surface_index_stream) + 2 * sizeof(*m_gd_surface_index_stream)));
-                        if (m_gd_surface_index_stream == 0) {
-                            fSuccess = 0;
-                            strcpy(acMessage, "ReadOctFile: Couldn't allocate GD Poly list.");
-                            goto finish;
-                        }
-                        fLoaded = ((uiRead = hOctFile->read(m_gd_surface_index_stream, header.m_gd_surface_stream_len * 4).bytes) == static_cast<std::size_t>(header.m_gd_surface_stream_len * 4));
-                        if (fLoaded == 0) {
-                            strcpy(acMessage, "ReadOctFile: Couldn't read GD Poly list.");
-                        }
-                        g_octree_bytes_read += uiRead;
-                    }
-                    fSuccess = 0;
-                    if (fLoaded != 0) {
-                        if (header.m_trigger_count != 0) {
-                            m_trigger_indices = static_cast<unsigned short*>(
-                                malloc(header.m_trigger_count * sizeof(*m_trigger_indices) + 2 * sizeof(*m_trigger_indices)));
-                            if (m_trigger_indices == 0) {
-                                fSuccess = 0;
-                                strcpy(acMessage, "ReadOctFile: Couldn't allocate Trigger list.");
-                                goto finish;
-                            }
-                            fLoaded = ((uiRead = hOctFile->read(m_trigger_indices, header.m_trigger_count * 2).bytes) == static_cast<std::size_t>(header.m_trigger_count * 2));
-                            if (fLoaded == 0) {
-                                strcpy(acMessage, "ReadOctFile: Couldn't read Trigger list.");
-                            }
-                            g_octree_bytes_read += uiRead;
-                        }
-                        fSuccess = 0;
-                        if (fLoaded != 0) {
-                            if (header.m_region_count > 1) {
-                                m_spatial.m_region_volumes = static_cast<W8OctRegionVolume*>(malloc(
-                                    (header.m_region_count + 2) * sizeof(W8OctRegionVolume)));
-                                if (m_spatial.m_region_volumes == 0) {
-                                    fSuccess = 0;
-                                    strcpy(acMessage,
-                                           "ReadOctFile: Couldn't allocate region array.");
-                                    goto finish;
-                                }
-                                fLoaded = ((uiRead = hOctFile->read(m_spatial.m_region_volumes, header.m_region_count * sizeof(W8OctRegionVolume)).bytes) == static_cast<std::size_t>(header.m_region_count * sizeof(W8OctRegionVolume)));
-                                if (fLoaded == 0) {
-                                    strcpy(acMessage, "ReadOctFile: Couldn't read region array.");
-                                }
-                                g_octree_bytes_read += uiRead;
-                            }
-                            fSuccess = 0;
-                            if (fLoaded != 0) {
-                                fLoaded = ((uiRead = hOctFile->read(&uiTerminator, 4).bytes) == static_cast<std::size_t>(4));
-                                if (fLoaded == 0 || uiTerminator != -1) {
-                                    srAssertFail("fSuccess && (uiTerminator==0xffffffff)",
-                                                 OCTREE_CPP, 0x15f,
-                                                 "ReadOctFile: PreRegions longer than expected.");
-                                }
-                                fSuccess = 0;
-                                if (fLoaded != 0) {
-                                    if (header.m_submesh_count != 0) {
-                                        m_pSubmeshes = static_cast<W8OctSubmesh*>(malloc(
-                                            (header.m_submesh_count + 1) * sizeof(W8OctSubmesh)));
-                                        if (m_pSubmeshes == 0) {
-                                            fLoaded = 0;
-                                            strcpy(acMessage,
-                                                   "ReadOctFile: Couldn't allocate submesh array.");
-                                        } else {
-                                            fLoaded = [&]() { const auto result = hOctFile->read(m_pSubmeshes, (header.m_submesh_count + 1) *
-                                                                   sizeof(W8OctSubmesh)); *(&uiRead) = result.bytes; return result.bytes == static_cast<std::size_t>((header.m_submesh_count + 1) *
-                                                                   sizeof(W8OctSubmesh)); }();
-                                            if (fLoaded == 0) {
-                                                strcpy(acMessage,
-                                                       "ReadOctFile: Couldn't read submesh array.");
-                                            }
-                                            g_octree_bytes_read += uiRead;
-                                            if (fLoaded != 0) {
-                                                unsigned int* scan;
-                                                unsigned int remaining;
-
-                                                limit = 0;
-                                                scan = &m_pSubmeshes[0].polygon_count;
-                                                remaining = header.m_submesh_count + 1;
-                                                do {
-                                                    if (limit < *scan) {
-                                                        limit = *scan;
-                                                    }
-                                                    scan += 4;
-                                                    --remaining;
-                                                } while (remaining != 0);
-                                                ++limit;
-                                                if (limit > 9999) {
-                                                    srAssertFail("(i2 < 10000)", OCTREE_CPP, 0x179,
-                                                                 0);
-                                                }
-                                                g_octree_storage_ = static_cast<unsigned int*>(
-                                                    malloc(limit * sizeof(unsigned int)));
-                                                if (g_octree_storage_ == 0) {
-                                                    fLoaded = 0;
-                                                    strcpy(acMessage,
-                                                           "ReadOctFile: Couldn't allocate polygon "
-                                                           "index list for regions.");
-                                                } else {
-                                                    for (index = 0; index < limit; ++index) {
-                                                        g_octree_storage_[index] = index;
-                                                    }
-                                                }
-                                            }
-                                        }
-                                        if (m_meshCount != 0) {
-                                            m_pAlphaBits = new BitArray(m_meshCount);
-                                            if (m_pAlphaBits == 0) {
-                                                srAssertFail(
-                                                    "m_pAlphaBits", OCTREE_CPP, 0x18a,
-                                                    "ReadOctFile: Failure allocating Alpha Bits.");
-                                            }
-                                            if (m_pAlphaBits->Load(hOctFile.get()) == 0) {
-                                                srAssertFail(
-                                                    "m_pAlphaBits->Load(hOctFile)", OCTREE_CPP,
-                                                    0x18b,
-                                                    "ReadOctFile: Failure reading Alpha Bits.");
-                                            }
-                                        }
-                                        if (fLoaded != 0 && m_ulNumParticles != 0) {
-                                            m_pusMeshParticleLookup = static_cast<unsigned short*>(
-                                                malloc(m_meshCount * sizeof(unsigned short) + sizeof(unsigned short)));
-                                            if (m_pusMeshParticleLookup == 0) {
-                                                srAssertFail(
-                                                    "m_pusMeshParticleLookup", OCTREE_CPP, 0x191,
-                                                    "ReadOctFile: Couldn't allocate Mesh Particle "
-                                                    "Lookup Table.");
-                                            }
-                                            fLoaded = ((uiRead = hOctFile->read(m_pusMeshParticleLookup, m_meshCount * 2 + 2).bytes) == static_cast<std::size_t>(m_meshCount * 2 + 2));
-                                            if (fLoaded == 0) {
-                                                strcpy(acMessage, "ReadOctFile: Couldn't read Mesh "
-                                                                  "Particle Lookup Table.");
-                                            }
-                                            g_octree_bytes_read += uiRead;
-                                            m_pusMeshParticles = static_cast<unsigned short*>(
-                                                malloc(m_usMeshParticlesLen * sizeof(*m_pusMeshParticles)));
-                                            if (m_pusMeshParticles == 0) {
-                                                srAssertFail(
-                                                    "m_pusMeshParticles", OCTREE_CPP, 0x198,
-                                                    "ReadOctFile: Couldn't allocate Mesh Particle "
-                                                    "Link Table.");
-                                            }
-                                            fLoaded = ((uiRead = hOctFile->read(m_pusMeshParticles, m_usMeshParticlesLen * 2).bytes) == static_cast<std::size_t>(m_usMeshParticlesLen * 2));
-                                            if (fLoaded == 0) {
-                                                strcpy(acMessage, "ReadOctFile: Couldn't read Mesh "
-                                                                  "Particle Link Table.");
-                                            }
-                                        }
-                                        if (fLoaded != 0 && m_ulNumProps != 0) {
-                                            m_pusMeshPropLookup = static_cast<unsigned short*>(
-                                                malloc(m_meshCount * sizeof(unsigned short) + sizeof(unsigned short)));
-                                            if (m_pusMeshPropLookup == 0) {
-                                                srAssertFail(
-                                                    "m_pusMeshPropLookup", OCTREE_CPP, 0x1a1,
-                                                    "ReadOctFile: Couldn't allocate Mesh Prop "
-                                                    "Lookup Table.");
-                                            }
-                                            fLoaded = ((uiRead = hOctFile->read(m_pusMeshPropLookup, m_meshCount * 2 + 2).bytes) == static_cast<std::size_t>(m_meshCount * 2 + 2));
-                                            if (fLoaded == 0) {
-                                                strcpy(acMessage, "ReadOctFile: Couldn't read Mesh "
-                                                                  "Prop Lookup Table.");
-                                            }
-                                            g_octree_bytes_read += uiRead;
-                                            m_pusMeshProps = static_cast<unsigned short*>(
-                                                malloc(m_usMeshPropsLen * sizeof(*m_pusMeshProps)));
-                                            if (m_pusMeshProps == 0) {
-                                                srAssertFail(
-                                                    "m_pusMeshProps", OCTREE_CPP, 0x1a8,
-                                                    "ReadOctFile: Couldn't allocate Mesh Prop Link "
-                                                    "Table.");
-                                            }
-                                            fLoaded = ((uiRead = hOctFile->read(m_pusMeshProps, m_usMeshPropsLen * 2).bytes) == static_cast<std::size_t>(m_usMeshPropsLen * 2));
-                                            if (fLoaded == 0) {
-                                                strcpy(acMessage, "ReadOctFile: Couldn't read Mesh "
-                                                                  "Prop Link Table.");
-                                            }
-                                        }
-                                    }
-                                    fSuccess = 0;
-                                    if (fLoaded != 0) {
-                                        fLoaded = ((uiRead = hOctFile->read(&uiTerminator, 4).bytes) == static_cast<std::size_t>(4));
-                                        if (fLoaded == 0 || uiTerminator != -1) {
-                                            srAssertFail(
-                                                "fSuccess && (uiTerminator==0xffffffff)",
-                                                OCTREE_CPP, 0x1b2,
-                                                "ReadOctFile: Mesh, Prop, and Particle data longer "
-                                                "than expected.");
-                                        }
-                                        fSuccess = 0;
-                                        if (fLoaded != 0) {
-                                            if (header.m_path_nodes != 0) {
-                                                pathing = new W8PathingService();
-                                                if (pathing == 0) {
-                                                    goto finish;
-                                                }
-                                                pathing->ConfigureForLevel(
-                                                    header.m_path_nodes, header.m_region_cell,
-                                                    header.m_path_clearance, header.m_bounds,
-                                                    m_owned_0c0);
-                                                fLoaded = pathing->ReadPathNodes(hOctFile.get());
-                                            }
-                                            fSuccess = 0;
-                                            if (fLoaded != 0) {
-                                                if (m_ulNumProps != 0 &&
-                                                    header.m_prop_sun_bits != 0) {
-                                                    m_pPropSunBits = new BitArray(m_ulNumProps);
-                                                    if (m_pPropSunBits == 0) {
-                                                        srAssertFail(
-                                                            "m_pPropSunBits", OCTREE_CPP, 0x1c5,
-                                                            "ReadOctFile: Couldn't allocate Prop "
-                                                            "Sun Bits.");
-                                                    }
-                                                    if (m_pPropSunBits->Load(hOctFile.get()) == 0) {
-                                                        srAssertFail(
-                                                            "m_pPropSunBits->Load(hOctFile)",
-                                                            OCTREE_CPP, 0x1c6,
-                                                            "ReadOctFile: Failure reading Prop Sun "
-                                                            "Bits.");
-                                                    }
-                                                }
-                                                fSuccess =
-                                                    ((uiRead = hOctFile->read(&uiTerminator, 4).bytes) == static_cast<std::size_t>(4));
-                                                if (fSuccess == 0) {
-                                                    strcpy(acMessage,
-                                                           "ReadOctFile: Couldn't read octree file "
-                                                           "terminator.");
-                                                }
-                                                if (uiTerminator != -1) {
-                                                    strcpy(acMessage,
-                                                           "ReadOctFile: Octree file longer than "
-                                                           "expected.");
-                                                    fSuccess = 0;
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
+            hOctFile->read_exact(m_leaf_lookup, grid_count * sizeof(w8_ulong));
+        }
+        hOctFile->read_exact(m_aulPolyLookup, std::size_t{header.m_polygon_count} * sizeof(w8_ulong));
+        if (header.m_region_list_len != 0) {
+            m_region_index_stream = static_cast<unsigned short*>(
+                malloc((std::size_t{header.m_region_list_len} + 2) * sizeof(unsigned short)));
+            if (!m_region_index_stream) {
+                throw std::bad_alloc();
+            }
+            hOctFile->read_exact(m_region_index_stream, std::size_t{header.m_region_list_len} * sizeof(unsigned short));
+        }
+        if (header.m_gd_surface_stream_len != 0) {
+            m_gd_surface_index_stream = static_cast<w8_ulong*>(
+                malloc((std::size_t{header.m_gd_surface_stream_len} + 2) * sizeof(w8_ulong)));
+            if (!m_gd_surface_index_stream) {
+                throw std::bad_alloc();
+            }
+            hOctFile->read_exact(m_gd_surface_index_stream, std::size_t{header.m_gd_surface_stream_len} * sizeof(w8_ulong));
+        }
+        if (header.m_trigger_count != 0) {
+            m_trigger_indices = static_cast<unsigned short*>(
+                malloc((std::size_t{header.m_trigger_count} + 2) * sizeof(unsigned short)));
+            if (!m_trigger_indices) {
+                throw std::bad_alloc();
+            }
+            hOctFile->read_exact(m_trigger_indices, std::size_t{header.m_trigger_count} * sizeof(unsigned short));
+        }
+        if (header.m_region_count > 1) {
+            m_spatial.m_region_volumes = static_cast<W8OctRegionVolume*>(
+                malloc((std::size_t{header.m_region_count} + 2) * sizeof(W8OctRegionVolume)));
+            if (!m_spatial.m_region_volumes) {
+                throw std::bad_alloc();
+            }
+            hOctFile->read_exact(m_spatial.m_region_volumes, std::size_t{header.m_region_count} * sizeof(W8OctRegionVolume));
+        }
+        hOctFile->read_exact(&uiTerminator, sizeof(uiTerminator));
+        if (uiTerminator != 0xffffffff) {
+            throw std::runtime_error("Invalid octree region terminator.");
+        }
+        if (header.m_submesh_count != 0) {
+            m_pSubmeshes = static_cast<W8OctSubmesh*>(
+                malloc((std::size_t{header.m_submesh_count} + 1) * sizeof(W8OctSubmesh)));
+            if (!m_pSubmeshes) {
+                throw std::bad_alloc();
+            }
+            hOctFile->read_exact(m_pSubmeshes, (std::size_t{header.m_submesh_count} + 1) * sizeof(W8OctSubmesh));
+            unsigned int limit = 0;
+            for (std::size_t index = 0; index <= header.m_submesh_count; ++index) {
+                limit = std::max(limit, m_pSubmeshes[index].polygon_count);
+            }
+            if (limit >= 9999) {
+                throw std::runtime_error("Octree submesh polygon count exceeds scratch capacity.");
+            }
+            ++limit;
+            g_octree_storage_ = static_cast<unsigned int*>(malloc(std::size_t{limit} * sizeof(unsigned int)));
+            if (!g_octree_storage_) {
+                throw std::bad_alloc();
+            }
+            for (unsigned int index = 0; index < limit; ++index) {
+                g_octree_storage_[index] = index;
+            }
+            if (m_meshCount != 0) {
+                m_pAlphaBits = new BitArray(m_meshCount);
+                if (!m_pAlphaBits->Load(hOctFile.get())) {
+                    throw std::runtime_error("Could not read octree alpha bits.");
                 }
             }
-        }
-    }
-
-finish:
-    SetOctreeGameData(0);
-    *game_data = 0;
-    if (fSuccess != 0 && header.m_gd_surface_stream_len != 0) {
-        pGameData = new W8GameData(hOctFile.get(), false);
-        if (pGameData == 0) {
-            strcpy(acMessage, "ReadOctFile: Octree file longer than expected.");
-            fSuccess = 0;
-        } else {
-            fSuccess = ((uiRead = hOctFile->read(&uiTerminator, 4).bytes) == static_cast<std::size_t>(4));
-            if (fSuccess == 0 || uiTerminator != -1) {
-                srAssertFail("fSuccess && (uiTerminator==0xffffffff)", OCTREE_CPP, 0x1e2,
-                             "ReadOctFile: GameData portion of Oct file longer than expected.");
+            if (m_ulNumParticles != 0) {
+                m_pusMeshParticleLookup = static_cast<unsigned short*>(
+                    malloc((std::size_t{m_meshCount} + 1) * sizeof(unsigned short)));
+                m_pusMeshParticles = static_cast<unsigned short*>(
+                    malloc(std::size_t{m_usMeshParticlesLen} * sizeof(unsigned short)));
+                if (!m_pusMeshParticleLookup || (m_usMeshParticlesLen != 0 && !m_pusMeshParticles)) {
+                    throw std::bad_alloc();
+                }
+                hOctFile->read_exact(m_pusMeshParticleLookup, (std::size_t{m_meshCount} + 1) * sizeof(unsigned short));
+                hOctFile->read_exact(m_pusMeshParticles, std::size_t{m_usMeshParticlesLen} * sizeof(unsigned short));
+            }
+            if (m_ulNumProps != 0) {
+                m_pusMeshPropLookup = static_cast<unsigned short*>(
+                    malloc((std::size_t{m_meshCount} + 1) * sizeof(unsigned short)));
+                m_pusMeshProps = static_cast<unsigned short*>(
+                    malloc(std::size_t{m_usMeshPropsLen} * sizeof(unsigned short)));
+                if (!m_pusMeshPropLookup || (m_usMeshPropsLen != 0 && !m_pusMeshProps)) {
+                    throw std::bad_alloc();
+                }
+                hOctFile->read_exact(m_pusMeshPropLookup, (std::size_t{m_meshCount} + 1) * sizeof(unsigned short));
+                hOctFile->read_exact(m_pusMeshProps, std::size_t{m_usMeshPropsLen} * sizeof(unsigned short));
             }
         }
-    }
-    if (hOctFile) hOctFile->close();
-    hOctFile.reset();
-    if (fSuccess != 0) {
+        hOctFile->read_exact(&uiTerminator, sizeof(uiTerminator));
+        if (uiTerminator != 0xffffffff) {
+            throw std::runtime_error("Invalid octree mesh terminator.");
+        }
+        if (header.m_path_nodes != 0) {
+            pathing = new W8PathingService;
+            pathing->ConfigureForLevel(header.m_path_nodes, header.m_region_cell,
+                                      header.m_path_clearance, header.m_bounds, m_owned_0c0);
+            if (!pathing->ReadPathNodes(hOctFile.get())) {
+                throw std::runtime_error("Could not read octree path nodes.");
+            }
+        }
+        if (m_ulNumProps != 0 && header.m_prop_sun_bits != 0) {
+            m_pPropSunBits = new BitArray(m_ulNumProps);
+            if (!m_pPropSunBits->Load(hOctFile.get())) {
+                throw std::runtime_error("Could not read octree prop sun bits.");
+            }
+        }
+        hOctFile->read_exact(&uiTerminator, sizeof(uiTerminator));
+        if (uiTerminator != 0xffffffff) {
+            throw std::runtime_error("Invalid octree terminator.");
+        }
+        std::unique_ptr<W8GameData> pGameData;
+        if (header.m_gd_surface_stream_len != 0) {
+            pGameData = std::make_unique<W8GameData>(hOctFile.get(), false);
+            hOctFile->read_exact(&uiTerminator, sizeof(uiTerminator));
+            if (uiTerminator != 0xffffffff) {
+                throw std::runtime_error("Invalid octree GameData terminator.");
+            }
+            pGameData->octree = this;
+        }
+        SetOctreeGameData(pGameData.get());
+        if (game_data != 0) {
+            *game_data = pGameData.release();
+        }
         g_octree = this;
-        pGameData->octree = this;
-        *game_data = pGameData;
-        SetOctreeGameData(pGameData);
         m_region_links_ready = ReadRegionLinkFile(m_owned_0c0);
         LoadPointFiles(m_owned_0c0);
         if (pathing != 0) {
             pathing->ReadWaypointFile();
         }
         return;
+    } catch (const std::exception&) {
+        SetOctreeGameData(0);
+        g_octree = 0;
+        g_pathing = 0;
+        m_spatial.flags |= 0x80000000;
     }
-failed:
-    g_octree = 0;
-    m_spatial.flags |= 0x80000000;
 }
 
 /* Answer whether this level's OCT/PVL/WGD/LVL set is present, current, and
@@ -3630,65 +3348,48 @@ failed:
 // FUNCTION: WIZ8 0x0042ccc0
 int CheckLevelAssetSet(const char* level_path)
 {
-    unsigned short version;
-    char copy[260];
-    char pvl_path[260];
-    char wgd_path[260];
-    char lvl_path[260];
-    int rebuild = 0;
-    std::unique_ptr<wiz8::File> file;
-    char* extension;
-
     if (g_octree_disabled) {
         return -1;
     }
-
-    strcpy(copy, level_path);
-    TrimAndLowercaseString(copy);
-    if (strstr(copy, "sky") != 0) {
+    std::string copy = level_path;
+    TrimAndLowercaseString(copy.data());
+    if (strstr(copy.c_str(), "sky") != 0) {
         return -1;
     }
-    if ([&]() { const auto status = wiz8::file_status("CD.ROM"); return status && status->info.type == SDL_PATHTYPE_FILE; }() != 0) {
+    const auto cd = wiz8::file_status("CD.ROM");
+    if (cd && cd->info.type == SDL_PATHTYPE_FILE) {
         return 0;
     }
 
-    strcpy(copy, level_path);
-    extension = strrchr(copy, '.');
-    if (extension != 0) {
-        *extension = '\0';
+    std::string stem = level_path;
+    if (const auto extension = stem.find_last_of('.'); extension != std::string::npos) {
+        stem.resize(extension);
     }
-    sprintf(pvl_path, "%s.PVL", copy);
-    if ([&]() { const auto status = wiz8::file_status(const_cast<char*>(level_path)); return status && status->info.type == SDL_PATHTYPE_FILE; }() != 0 && [&]() { const auto status = wiz8::file_status(pvl_path); return status && status->info.type == SDL_PATHTYPE_FILE; }() != 0 &&
-        (file = [&]() { try { return wiz8::open_file(const_cast<char*>(level_path), wiz8::OpenMode::read); } catch (const std::exception&) { return std::unique_ptr<wiz8::File>{}; } }()) != 0 &&
-        (file->read(&version, 2).bytes == static_cast<std::size_t>(2)) != 0) {
-        if (version < W8OctFileHeader::VERSION) {
-            if (g_octree_disabled) {
-                return -1;
-            }
+    const auto oct = wiz8::file_status(level_path);
+    const auto pvl = wiz8::file_status(stem + ".PVL");
+    int rebuild = 1;
+    unsigned short version = 0;
+    if (oct && oct->info.type == SDL_PATHTYPE_FILE &&
+        pvl && pvl->info.type == SDL_PATHTYPE_FILE) {
+        try {
+            auto file = wiz8::open_file(level_path);
+            file->read_exact(&version, sizeof(version));
+            rebuild = version < W8OctFileHeader::VERSION;
+        } catch (const std::exception&) {
             rebuild = 1;
-            if (file) file->close();
-            file.reset();
-        } else {
-            if (version > W8OctFileHeader::VERSION) {
-                if (file) file->close();
-                file.reset();
-                ShutdownWithErrorBox(
-                    "EXE OUT OF DATE: Program is older than File version--There is a new "
-                    "executable available.");
-            }
-            if (file) file->close();
-            file.reset();
         }
-    } else {
-        rebuild = 1;
+        if (version > W8OctFileHeader::VERSION) {
+            ShutdownWithErrorBox(
+                "EXE OUT OF DATE: Program is older than File version--There is a new "
+                "executable available.");
+        }
     }
-
-    sprintf(lvl_path, "%s.LVL", copy);
-    if ([&]() { const auto status = wiz8::file_status(lvl_path); return status && status->info.type == SDL_PATHTYPE_FILE; }() == 0) {
+    const auto lvl = wiz8::file_status(stem + ".LVL");
+    if (!lvl || lvl->info.type != SDL_PATHTYPE_FILE) {
         return -rebuild;
     }
-    sprintf(wgd_path, "%s.WGD", copy);
-    if ([&]() { const auto status = wiz8::file_status(wgd_path); return status && status->info.type == SDL_PATHTYPE_FILE; }() == 0) {
+    const auto wgd = wiz8::file_status(stem + ".WGD");
+    if (!wgd || wgd->info.type != SDL_PATHTYPE_FILE) {
         ReportStartupMessage(
             "Could not find WGD file. Cannot find or build current preprocessed files.");
         ReportStartupMessage("Attempting to run with LVL file only -- NO COLLISION DATA.");
@@ -3696,16 +3397,22 @@ int CheckLevelAssetSet(const char* level_path)
         return -rebuild;
     }
 
-    if ([&]() { const auto a = wiz8::file_status(const_cast<char*>(level_path)), b = wiz8::file_status(pvl_path); if (!a || !b) return false; const auto at = wiz8::file_time_from_sdl(a->info.modify_time).ticks(), bt = wiz8::file_time_from_sdl(b->info.modify_time).ticks(); return at < bt && (bt - at) / 10000000 >= 0; }() == 0) {
-        if ([&]() { const auto a = wiz8::file_status(pvl_path), b = wiz8::file_status(wgd_path); if (!a || !b) return false; const auto at = wiz8::file_time_from_sdl(a->info.modify_time).ticks(), bt = wiz8::file_time_from_sdl(b->info.modify_time).ticks(); return at < bt && (bt - at) / 10000000 >= 10; }() == 0 &&
-            [&]() { const auto a = wiz8::file_status(pvl_path), b = wiz8::file_status(lvl_path); if (!a || !b) return false; const auto at = wiz8::file_time_from_sdl(a->info.modify_time).ticks(), bt = wiz8::file_time_from_sdl(b->info.modify_time).ticks(); return at < bt && (bt - at) / 10000000 >= 10; }() == 0) {
+    const auto oct_time = oct ? wiz8::file_time_from_sdl(oct->info.modify_time).ticks() : 0;
+    const auto pvl_time = pvl ? wiz8::file_time_from_sdl(pvl->info.modify_time).ticks() : 0;
+    const auto wgd_time = wiz8::file_time_from_sdl(wgd->info.modify_time).ticks();
+    const auto lvl_time = wiz8::file_time_from_sdl(lvl->info.modify_time).ticks();
+    constexpr std::uint64_t tolerance = 10 * 10000000;
+    if (oct && pvl && oct_time < pvl_time) {
+        if (wgd_time <= oct_time || wgd_time - oct_time < tolerance) {
+            return lvl_time > oct_time && lvl_time - oct_time >= tolerance ? 1 : rebuild;
+        }
+    } else if (pvl) {
+        if ((wgd_time <= pvl_time || wgd_time - pvl_time < tolerance) &&
+            (lvl_time <= pvl_time || lvl_time - pvl_time < tolerance)) {
             return rebuild;
         }
-    } else if ([&]() { const auto a = wiz8::file_status(const_cast<char*>(level_path)), b = wiz8::file_status(wgd_path); if (!a || !b) return false; const auto at = wiz8::file_time_from_sdl(a->info.modify_time).ticks(), bt = wiz8::file_time_from_sdl(b->info.modify_time).ticks(); return at < bt && (bt - at) / 10000000 >= 10; }() == 0) {
-        if ([&]() { const auto a = wiz8::file_status(const_cast<char*>(level_path)), b = wiz8::file_status(lvl_path); if (!a || !b) return false; const auto at = wiz8::file_time_from_sdl(a->info.modify_time).ticks(), bt = wiz8::file_time_from_sdl(b->info.modify_time).ticks(); return at < bt && (bt - at) / 10000000 >= 10; }() == 0) {
-            return rebuild;
-        }
-        return 1;
+    } else {
+        return rebuild;
     }
     return 1;
 }
@@ -3899,8 +3606,8 @@ void W8Octree::Initialize(const W8OctFileHeader* header)
         m_owned_19c = new BitArray(header->m_polygon_count);
 
         object_registry = new W8OctreeObjectRegistry;
-        m_pRegionLinks = new W8HashTable<unsigned int, unsigned short>;
-        m_pRegionLinks->Clear();
+        m_pRegionLinks = new std::unordered_multimap<unsigned int, unsigned short>;
+        m_pRegionLinks->clear();
 
         unsigned int visited_size = header->m_region_id_bound + 1;
         m_pfRegsVisited = static_cast<unsigned char*>(malloc(visited_size));
@@ -3999,7 +3706,7 @@ W8Octree::~W8Octree()
     }
 
     if (m_pRegionLinks != 0) {
-        m_pRegionLinks->Clear();
+        m_pRegionLinks->clear();
         delete m_pRegionLinks;
         m_pRegionLinks = 0;
     }
@@ -4081,12 +3788,7 @@ W8Octree::~W8Octree()
     }
     g_octree_storage_ = 0;
     g_octree = 0;
-    srMaterialIFace* default_material = g_oct_mesh_default_material;
-    delete default_material;
-    g_oct_mesh_default_material = 0;
-    g_oct_mesh_default_texture = 0;
-    delete g_oct_mesh_default_shader;
-    g_oct_mesh_default_shader = 0;
+    ReleaseOctMeshDefaults();
     delete m_pPropSunBits;
     m_pPropSunBits = 0;
 }
@@ -4252,7 +3954,7 @@ unsigned char W8Octree::TestBoxOccupied(const srVector3T<float>* lower,
         static_cast<unsigned int>(QueryObjects(&objects, lower, upper, W8_OCTREE_KIND_SURFACE, -1));
     unsigned int index;
     for (index = 0; index < count; ++index) {
-        W8GDSurface* surface = g_octree_game_data->m_pSurfaces + objects[index];
+        W8GDSurface* surface = g_octree_game_data->m_pSurfaces.data() + objects[index];
         srVector3T<float> bounds[2];
         srVector3T<float> triangle[3];
         bounds[0] = *lower;
@@ -4283,7 +3985,7 @@ unsigned char W8Octree::TestBoxOccupied(const srVector3T<float>* lower,
     count =
         static_cast<unsigned int>(QueryObjects(&objects, lower, upper, W8_OCTREE_KIND_PROP, -1));
     for (index = 0; index < count; ++index) {
-        W8Prop* prop = *g_world->collidable_props->GetAt(objects[index]);
+        W8Prop* prop = (*g_world->collidable_props)[objects[index]];
         if (prop->GetActivationState() != 0 && prop->m_gd_prop != 0) {
             GDProp* gd_prop = prop->m_gd_prop;
             for (int surface_index = 0; surface_index < gd_prop->m_surface_count; ++surface_index) {
@@ -4362,7 +4064,8 @@ unsigned int W8Octree::CollectObjectsInCell(const srVector3T<int>* cell, unsigne
 {
     unsigned int found = 0;
     unsigned int leaf_index;
-    int slot;
+    W8OctreeIndex::iterator slot;
+
 
     switch (kind) {
     case W8_OCTREE_KIND_SURFACE:
@@ -4392,14 +4095,13 @@ unsigned int W8Octree::CollectObjectsInCell(const srVector3T<int>* cell, unsigne
         if (W8_OCTREE_KIND_LOCATION < kind) {
             if (cell != 0) {
                 g_octree_query_cell = PackOctreeCellKey(cell->x, cell->y, cell->z);
-                g_octree_query_slot = -1;
+                g_octree_query_slot = object_registry->by_cell->end();
             }
-            slot =
-                object_registry->by_cell->FindNextEntry(&g_octree_query_cell, g_octree_query_slot);
+            slot = NextIndexValue(*object_registry->by_cell, g_octree_query_cell, g_octree_query_slot);
             g_octree_query_slot = slot;
-            if (slot >= 0) {
+            if (slot != object_registry->by_cell->end()) {
                 unsigned int packed =
-                    static_cast<unsigned int>(object_registry->by_cell->entries[slot].value);
+                    static_cast<unsigned int>(slot->second);
                 g_octree_query_id = static_cast<unsigned short>(packed);
                 while (m_gd_result_count < 10000) {
                     short entry_kind = static_cast<short>(OctreeKeyKind(packed));
@@ -4409,14 +4111,13 @@ unsigned int W8Octree::CollectObjectsInCell(const srVector3T<int>* cell, unsigne
                         g_octree_state[m_gd_result_count] = g_octree_query_id - 1;
                         ++m_gd_result_count;
                     }
-                    slot = object_registry->by_cell->FindNextEntry(&g_octree_query_cell,
-                                                                   g_octree_query_slot);
+                    slot = NextIndexValue(*object_registry->by_cell, g_octree_query_cell, g_octree_query_slot);
                     g_octree_query_slot = slot;
-                    if (slot < 0) {
+                    if (slot == object_registry->by_cell->end()) {
                         return 0;
                     }
                     packed =
-                        static_cast<unsigned int>(object_registry->by_cell->entries[slot].value);
+                        static_cast<unsigned int>(slot->second);
                     g_octree_query_id = static_cast<unsigned short>(packed);
                 }
             }
@@ -4428,13 +4129,13 @@ unsigned int W8Octree::CollectObjectsInCell(const srVector3T<int>* cell, unsigne
     case W8_OCTREE_KIND_LOCATION:
         if (cell != 0) {
             g_octree_query_cell = PackOctreeCellKey(cell->x, cell->y, cell->z);
-            g_octree_query_slot = -1;
+            g_octree_query_slot = object_registry->by_cell->end();
         }
-        slot = object_registry->by_cell->FindNextEntry(&g_octree_query_cell, g_octree_query_slot);
+        slot = NextIndexValue(*object_registry->by_cell, g_octree_query_cell, g_octree_query_slot);
         g_octree_query_slot = slot;
-        if (slot >= 0) {
+        if (slot != object_registry->by_cell->end()) {
             unsigned int packed =
-                static_cast<unsigned int>(object_registry->by_cell->entries[slot].value);
+                static_cast<unsigned int>(slot->second);
             g_octree_query_id = static_cast<unsigned short>(packed);
             while (m_gd_result_count < 10000) {
                 if ((static_cast<unsigned short>(OctreeKeyKind(packed)) == kind) &&
@@ -4442,13 +4143,12 @@ unsigned int W8Octree::CollectObjectsInCell(const srVector3T<int>* cell, unsigne
                     g_octree_state[m_gd_result_count] = g_octree_query_id - 1;
                     ++m_gd_result_count;
                 }
-                slot = object_registry->by_cell->FindNextEntry(&g_octree_query_cell,
-                                                               g_octree_query_slot);
+                slot = NextIndexValue(*object_registry->by_cell, g_octree_query_cell, g_octree_query_slot);
                 g_octree_query_slot = slot;
-                if (slot < 0) {
+                if (slot == object_registry->by_cell->end()) {
                     return 0;
                 }
-                packed = static_cast<unsigned int>(object_registry->by_cell->entries[slot].value);
+                packed = static_cast<unsigned int>(slot->second);
                 g_octree_query_id = static_cast<unsigned short>(packed);
             }
         }
@@ -4540,7 +4240,7 @@ unsigned int W8Octree::AdvanceNavigator(W8NavigatorMovementState* movement, floa
     }
     vecDir = movement->target_position - movement->position;
     vecDir.y = 0.0f;
-    distance = vecDir.xz().Length();
+    distance = glm::length(((vecDir.xz())));
     step = g_game_time_accumulator->GetFrameDelta() * movement->movement_scale * g_rate *
            g_world_scale;
     if (step >= distance) {
@@ -4548,7 +4248,7 @@ unsigned int W8Octree::AdvanceNavigator(W8NavigatorMovementState* movement, floa
     } else {
         reached = false;
     }
-    if (((vecDir.x * vecDir.x + vecDir.z * vecDir.z)) != g_double_zero) {
+    if ((vecDir.x * vecDir.x + vecDir.z * vecDir.z) != g_double_zero) {
         vecDir.SetLength(step);
     }
     vecPos = vecDir + movement->position;
@@ -4607,57 +4307,51 @@ void W8Octree::AdjustPortalDestination(srVector3T<float>* destination,
 /* Release the location-variable names and empty their parallel value and
    level vectors. Trigger.cpp creates the names as copied character arrays. */
 
-/* The .oct writers stage at most 0x100 records through a stack buffer per
-   FileWrite call. */
-
-template <class Vector>
-static BOOLEAN WriteStagedVectorArray(wiz8::File* file, const Vector* values, int count)
-{
-    Vector staging[0x100];
-    int written = 0;
-    int chunk_count;
-    int index;
-    BOOLEAN success = TRUE;
-
-    while (success && written < count) {
-        chunk_count = count - written;
-        if (chunk_count > 0x100) {
-            chunk_count = 0x100;
-        }
-        if (chunk_count != 0) {
-            for (index = 0; index < chunk_count; ++index) {
-                staging[index] = values[written + index];
-            }
-            written += chunk_count;
-            success &= (file->write(staging, chunk_count * sizeof(staging[0])), true);
-        }
-    }
-    return success;
-}
-
 // FUNCTION: WIZ8 0x004372E0
-BOOLEAN WriteVector4Array(wiz8::File* file, const srVector4T<float>* values, int count)
+BOOLEAN WriteVector4Array(wiz8::File* file, const glm::vec4* values, int count)
+try
 {
-    return WriteStagedVectorArray(file, values, count);
+    if (count < 0) {
+        return false;
+    }
+    file->write(values, static_cast<std::size_t>(count) * sizeof(glm::vec4));
+    return true;
 }
+catch (const std::exception&) { return false; }
 
 // FUNCTION: WIZ8 0x00437390
 BOOLEAN WriteVector3Array(wiz8::File* file, const srVector3T<float>* values, int count)
-{
-    return WriteStagedVectorArray(file, values, count);
-}
-
-// FUNCTION: WIZ8 0x00437430
-BOOLEAN WriteVector2Array(wiz8::File* file, const srVector2T<float>* values, int count)
-{
-    return WriteStagedVectorArray(file, values, count);
-}
-
-// FUNCTION: WIZ8 0x004374C0
-bool ReadVector4Array(wiz8::File* file, srVector4T<float>* values, int count)
 try
 {
-    return (file->read(values, count * sizeof(srVector4T<float>)).bytes == static_cast<std::size_t>(count * sizeof(srVector4T<float>))) & 1;
+    if (count < 0) {
+        return false;
+    }
+    file->write(values, static_cast<std::size_t>(count) * sizeof(srVector3T<float>));
+    return true;
+}
+catch (const std::exception&) { return false; }
+
+// FUNCTION: WIZ8 0x00437430
+BOOLEAN WriteVector2Array(wiz8::File* file, const glm::vec2* values, int count)
+try
+{
+    if (count < 0) {
+        return false;
+    }
+    file->write(values, static_cast<std::size_t>(count) * sizeof(glm::vec2));
+    return true;
+}
+catch (const std::exception&) { return false; }
+
+// FUNCTION: WIZ8 0x004374C0
+bool ReadVector4Array(wiz8::File* file, glm::vec4* values, int count)
+try
+{
+    if (count < 0) {
+        return false;
+    }
+    file->read_exact(values, static_cast<std::size_t>(count) * sizeof(glm::vec4));
+    return true;
 }
 catch (const std::exception&) { return false; }
 
@@ -4665,15 +4359,23 @@ catch (const std::exception&) { return false; }
 bool ReadVector3Array(wiz8::File* file, void* values, int count)
 try
 {
-    return (file->read(values, count * sizeof(srVector3T<float>)).bytes == static_cast<std::size_t>(count * sizeof(srVector3T<float>))) & 1;
+    if (count < 0) {
+        return false;
+    }
+    file->read_exact(values, static_cast<std::size_t>(count) * sizeof(srVector3T<float>));
+    return true;
 }
 catch (const std::exception&) { return false; }
 
 // FUNCTION: WIZ8 0x00437510
-bool ReadVector2Array(wiz8::File* file, srVector2T<float>* values, int count)
+bool ReadVector2Array(wiz8::File* file, glm::vec2* values, int count)
 try
 {
-    return (file->read(values, count * sizeof(srVector2T<float>)).bytes == static_cast<std::size_t>(count * sizeof(srVector2T<float>))) & 1;
+    if (count < 0) {
+        return false;
+    }
+    file->read_exact(values, static_cast<std::size_t>(count) * sizeof(glm::vec2));
+    return true;
 }
 catch (const std::exception&) { return false; }
 
@@ -4684,7 +4386,7 @@ float PointToSegmentDistance(srVector3T<float>* point, const srVector3T<float>* 
     srVector3T<float> direction = *to - *from;
     srVector3T<float> offset = *point - *from;
     srVector3T<float> remaining = offset;
-    float t = DotProduct(offset, direction) / direction.LengthSquared();
+    float t = glm::dot(offset.glmValue(), direction.glmValue()) / direction.LengthSquared();
     if (g_double_zero < t) {
         if (t <= g_double_one) {
             remaining -= direction * t;
@@ -4718,8 +4420,7 @@ float PointToSegmentDistance(srVector3T<float>* point, const srVector3T<float>* 
 }
 
 // FUNCTION: WIZ8 0x00437760
-float PointToSegmentDistance2D(srVector2T<float>* point, const srVector2T<float>* from,
-                               const srVector2T<float>* to, bool clamp_point, float* out_t)
+float PointToSegmentDistance2D(glm::vec2* point, const glm::vec2* from, const glm::vec2* to, bool clamp_point, float* out_t)
 {
     float dx = to->x - from->x;
     float dy = to->y - from->y;
@@ -4740,7 +4441,7 @@ float PointToSegmentDistance2D(srVector2T<float>* point, const srVector2T<float>
             if (static_cast<float>(g_double_one) < t) {
                 *point = *to;
             } else {
-                point->Set(dx * t + from->x, dy * t + from->y);
+                (*point) = glm::vec2(dx * t + from->x, dy * t + from->y);
             }
         } else {
             *point = *from;

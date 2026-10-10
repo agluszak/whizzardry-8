@@ -13,12 +13,12 @@
 extern "C" {
 #endif
 
-extern SGPRect ClippingRect;
+extern SDL_Rect ClippingRect;
 
-extern void SetClippingRect(SGPRect* clip);
-void GetClippingRect(SGPRect* clip);
+extern void SetClippingRect(SDL_Rect* clip);
+void GetClippingRect(SDL_Rect* clip);
 
-BOOLEAN BltIsClipped(HVOBJECT hSrcVObject, INT32 iX, INT32 iY, UINT16 usIndex, SGPRect* clipregion);
+BOOLEAN BltIsClipped(HVOBJECT hSrcVObject, INT32 iX, INT32 iY, UINT16 usIndex, SDL_Rect* clipregion);
 
 // Per-pixel operation applied by BltSpriteTo16BPPBuffer to each opaque sprite
 // pixel. MonoShadow additionally paints mono_background into transparent
@@ -32,7 +32,7 @@ enum class SpriteDrawOp { Transparent, Shadow, MonoShadow };
 // SpriteDrawOp::MonoShadow.
 BOOLEAN BltSpriteTo16BPPBuffer(UINT16* pBuffer, UINT32 uiDestPitchBYTES,
                                const SpriteFrame& frame, const UINT16* palette, INT32 iX, INT32 iY,
-                               const SGPRect* clipregion, bool fMirror, SpriteDrawOp op,
+                               const SDL_Rect* clipregion, bool fMirror, SpriteDrawOp op,
                                UINT16 mono_foreground = 0, UINT16 mono_background = 0,
                                UINT16 mono_shadow = 0);
 
@@ -51,15 +51,15 @@ BOOLEAN Blt16BPPTo16BPPMirror(UINT16* pDest, UINT32 uiDestPitch, UINT16* pSrc, U
                               INT32 iDestXPos, INT32 iDestYPos, INT32 iSrcXPos, INT32 iSrcYPos,
                               UINT32 uiWidth, UINT32 uiHeight);
 
-BOOLEAN Blt16BPPBufferPixelateRectWithColor(UINT16* pBuffer, UINT32 uiDestPitchBYTES, SGPRect* area,
+BOOLEAN Blt16BPPBufferPixelateRectWithColor(UINT16* pBuffer, UINT32 uiDestPitchBYTES, SDL_Rect* area,
                                             UINT8 Pattern[8][8], UINT16 usColor);
 //A wrapper for the Blt16BPPBufferPixelateRect that automatically passes a hatch pattern.
-BOOLEAN Blt16BPPBufferHatchRect(UINT16* pBuffer, UINT32 uiDestPitchBYTES, SGPRect* area);
-BOOLEAN Blt16BPPBufferShadowRect(UINT16* pBuffer, UINT32 uiDestPitchBYTES, SGPRect* area);
+BOOLEAN Blt16BPPBufferHatchRect(UINT16* pBuffer, UINT32 uiDestPitchBYTES, SDL_Rect* area);
+BOOLEAN Blt16BPPBufferShadowRect(UINT16* pBuffer, UINT32 uiDestPitchBYTES, SDL_Rect* area);
 
 BOOLEAN Blt8BPPDataSubTo16BPPBuffer(UINT16* pBuffer, UINT32 uiDestPitchBYTES,
                                     HVSURFACE hSrcVSurface, UINT8* pSrcBuffer, UINT32 uiSrcPitch,
-                                    INT32 iX, INT32 iY, SGPRect* pRect);
+                                    INT32 iX, INT32 iY, SDL_Rect* pRect);
 
 // ATE: New blitters for showing an outline at color 254
 

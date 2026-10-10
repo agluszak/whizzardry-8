@@ -239,7 +239,7 @@ INT32 MSYS_GetBtnUserData(GUI_BUTTON* b, INT32 index);
 void MarkButtonsDirty(
     void); // Function to mark buttons dirty ( all will redraw at next RenderButtons )
 // DB 98-05-05
-BOOLEAN GetButtonArea(INT32 iButtonID, SGPRect* pRect);
+BOOLEAN GetButtonArea(INT32 iButtonID, SDL_Rect* pRect);
 // DB 99-01-13
 INT32 GetButtonWidth(INT32 iButtonID);
 INT32 GetButtonHeight(INT32 iButtonID);

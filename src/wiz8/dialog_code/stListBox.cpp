@@ -24,17 +24,17 @@ void W8ListBoxDialog::TextAreaButtonCallback(GUI_BUTTON* button, INT32 reason)
             srAssertFail("pDialog", "C:\\Projects\\Wizardry 8\\Dialog Code\\stListBox.cpp", 0x2f5,
                          0);
         }
-        SGPPoint cursor;
+        SDL_Point cursor;
         SGPMouseGetPos(&cursor);
         /* Retail read this top edge uninitialized when the area button is
            absent (the leftover argument slot); natively it starts at zero. */
         int top = 0;
         if (dialog->m_area_button != -1) {
-            SGPRect area;
+            SDL_Rect area;
             GetButtonArea(dialog->m_area_button, &area);
-            top = area.iTop;
+            top = area.y;
         }
-        int line = (cursor.iY - top) / static_cast<int>(static_cast<unsigned int>(
+        int line = (cursor.y - top) / static_cast<int>(static_cast<unsigned int>(
                                           GetFontHeight(g_dialog_interface_font))) +
                    dialog->m_first_visible_line;
         if (line == dialog->m_selected_line) {
@@ -123,24 +123,25 @@ void W8ListBoxDialog::SliderTrackButtonCallback(GUI_BUTTON* button, INT32 reason
             srAssertFail("pDialog", "C:\\Projects\\Wizardry 8\\Dialog Code\\stListBox.cpp", 0x398,
                          0);
         }
-        SGPPoint cursor;
+        SDL_Point cursor;
         SGPMouseGetPos(&cursor);
         /* Retail read both track edges uninitialized when the text-area
            button is absent (the leftover argument slots); natively they start at zero. */
         int top = 0;
         int bottom = 0;
         if (dialog->m_third_text_button != -1) {
-            SGPRect area;
+            SDL_Rect area;
             GetButtonArea(dialog->m_third_text_button, &area);
-            top = area.iTop + GetButtonHeight(dialog->m_up_button);
-            bottom = area.iBottom - GetButtonHeight(dialog->m_down_button);
+            top = area.y + GetButtonHeight(dialog->m_up_button);
+            bottom = (area.y + area.h) - GetButtonHeight(dialog->m_down_button);
         }
-        if (cursor.iY < top) {
-            cursor.iY = top;
+        if (cursor.y < top) {
+            cursor.y = top;
         }
-        if (cursor.iY > bottom) {
-            cursor.iY = bottom;
+        if (cursor.y > bottom) {
+            cursor.y = bottom;
         }
-        dialog->SetCurrentLine((cursor.iY - top) * dialog->m_lines.GetCount() / (bottom - top));
+        dialog->SetCurrentLine((cursor.y - top) * static_cast<int>(dialog->m_lines.size()) /
+                               (bottom - top));
     }
 }

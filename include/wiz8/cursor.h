@@ -21,7 +21,7 @@ void BlitToMouseCursor(UINT32 video_object, UINT16 region, UINT16 x, UINT16 y);
 void RefreshMouseCursorTexture(void);
 BOOLEAN ResizeMouseCursorSurface(int width, int height);      /* 0x00427c90 */
 void SetMouseCursorHotspot(short hotspot_x, short hotspot_y); /* 0x00427f00 */
-void SetMouseCursorTexture(srTextureIFace* texture);          /* 0x00429170 */
+void SetMouseCursorTexture(std::shared_ptr<srTextureIFace> texture);          /* 0x00429170 */
 void SyncSystemCursor(void);                                  /* 0x00428340 */
 
 /* Indices into the 17-slot main-game cursor table that SetTargetCursor takes.
@@ -52,10 +52,9 @@ unsigned int GetMillisecondsSinceCursorMove(void);
 /* 0x00428520: whether the current cursor hotspot is inside the inclusive
    rectangle (left, top, right, bottom). */
 bool IsCursorInRectangle(int left, int top, int right, int bottom);
-unsigned char GetCursorPositionInViewport(srVector3T<float>* position);
-/* 0x004282F0: the tracked cursor position in pixel-scale units
-   (hotspot + size scaled by g_scale_x/g_scale_y), z left zero. */
-void GetCursorScaledPosition(srVector3T<float>* position);
+unsigned char GetCursorPositionInViewport(glm::vec2* position);
+/* The tracked cursor tip in normalized screen coordinates. */
+glm::vec2 GetCursorScaledPosition();
 void UpdateHeldItemCursor(void);
 void ClearHeldItemDisplay(void);
 void SetItemCursor(int overlay_video_object); /* 0x0055F160 */

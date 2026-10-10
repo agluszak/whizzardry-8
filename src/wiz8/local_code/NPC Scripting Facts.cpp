@@ -204,7 +204,6 @@ void HandleFactChange(W8FactId fact_id, unsigned char value)
         if (value != 0) {
             npc = GetNpcStateByKind(0x20);
             if (npc != 0) {
-                ReleaseNpcScriptFile(npc->script_file);
                 ReloadNpcScriptResources(npc);
                 if (!npc->is_grouped) {
                     CancelNpcDialogue();
@@ -929,8 +928,7 @@ void HandleScriptedNpcDeath(unsigned int monster_list_index)
     } else if (g_status.endgame3_queued != 0) {
         QueueNpcMessageLine(W8_NPC_MSG_PHOONZANG_NOTICE, 0);
     }
-    for (unsigned int entry_index = 0; entry_index < PLLength(gXStatus.plsMonsterList);
-         ++entry_index) {
+    for (unsigned int entry_index = 0; entry_index < gXStatus.monsters.size(); ++entry_index) {
         W8MonsterInfo* entry = MonsterGetScriptPartByLocationIndex(entry_index);
         if (entry->fActive && entry->ubDisposition == W8_DISPOSITION_HOSTILE &&
             !entry->p3D->IsDying()) {

@@ -1,3 +1,4 @@
+#include <vector>
 #pragma once
 
 #include "wiz8/monster_actions.h"
@@ -16,8 +17,6 @@ struct W8MonsterInfo;
 struct W8MonsterRecord;
 struct W8CombatSlot;
 struct W8MonsterGroup;
-template <class T> class W8GrowableVector;
-
 /* The timed sight service: clears the sight-dirty flag, refreshes what
    monsters can see, and reruns group detection in combat when allowed. */
 void UpdateMonsterSight(void);
@@ -105,7 +104,7 @@ bool MonsterHasNoVisibleEnemy(W8MonsterInfo* monster_info, bool party_only);
    monster; the monster's action fields carry the spell while the probe runs
    and are restored after. */
 void CollectMonsterSpellTargets(W8MonsterInfo* monster_info, int spell_id,
-                                W8GrowableVector<W8CombatSlot>* targets);
+                                std::vector<W8CombatSlot>& targets);
 /* Whether at least half of the group's live in-combat members the caster is
    hostile to accept the spell. */
 bool MonsterGroupHalfSpellTargetsValid(W8MonsterInfo* monster_info, int spell_id,

@@ -23,7 +23,6 @@ public:
     /* Empty derived destruction is the implicit srNode-base teardown. */
 
     virtual void dump(std::ostream& stream) override;
-    virtual srClass* vInstance() override;
     virtual void traverse(TraverseInfo& info) override;
     virtual void process(const ProcessInfo& info, e_processType type) override;
     virtual void updateBounds() override;
@@ -43,7 +42,6 @@ private:
     /* updateBounds stores the inverse of this node's world matrix here;
        getChildBoundingBox composes it with each child's world matrix to bring
        child bounding boxes into bounder space. */
-    srMatrix4T<float> inverse_world;
+    glm::mat4 inverse_world;
 };
 
-W8_ABI_ASSERT((sizeof(srBounder) == 0x1a8), "srBounder_must_be_0x1a8");

@@ -39,27 +39,27 @@ inline void DrawCampValueBar(unsigned int value, unsigned int base, int left, in
         extra = value - base;
         missing = 0;
     }
-    SGPRect saved_clip;
+    SDL_Rect saved_clip;
     GetClippingRect(&saved_clip);
-    SGPRect clip;
-    clip.iTop = 0;
-    clip.iBottom = 0x1e0;
+    SDL_Rect clip;
+    clip.y = 0;
+    clip.h = 0x1e0;
     if (filled != 0) {
-        clip.iLeft = left;
-        clip.iRight = left + filled;
+        clip.x = left;
+        clip.w = filled;
         SetClippingRect(&clip);
         DrawCatalogImageAndInvalidate(FRAME_BUFFER, 0x143, 0, 0, left, top, VO_BLT_SRCTRANSPARENCY,
                                       0);
     }
     if (extra != 0) {
-        clip.iLeft = left + filled;
-        clip.iRight = left + filled + extra;
+        clip.x = left + filled;
+        clip.w = extra;
         SetClippingRect(&clip);
         DrawCatalogImageAndInvalidate(FRAME_BUFFER, 0x143, 0, 1, left, top, VO_BLT_SRCTRANSPARENCY,
                                       0);
     } else if (missing != 0) {
-        clip.iLeft = left + filled;
-        clip.iRight = left + filled + missing;
+        clip.x = left + filled;
+        clip.w = missing;
         SetClippingRect(&clip);
         DrawCatalogImageAndInvalidate(FRAME_BUFFER, 0x143, 0, 2, left, top, VO_BLT_SRCTRANSPARENCY,
                                       0);
