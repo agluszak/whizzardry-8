@@ -276,6 +276,7 @@ try
     g_missile_table_count = count;
     return true;
 }
+catch (const std::exception&) { return false; }
 
 /* Release the one allocation that owns every runtime missile-table row. */
 // FUNCTION: WIZ8 0x004a5760

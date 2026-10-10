@@ -31,6 +31,9 @@ else()
 endif()
 add_compile_options(-Wdeprecated -Wimplicit-fallthrough -Wno-unused-parameter
     $<$<COMPILE_LANGUAGE:CXX>:-Wsuggest-override>)
+# Check view bounds in Debug builds on libstdc++ versions that otherwise leave
+# these checks disabled. This does not change the container ABI.
+add_compile_definitions($<$<CONFIG:Debug>:_GLIBCXX_ASSERTIONS>)
 
 find_package(SDL3 3.4 CONFIG REQUIRED)
 find_package(SDL3_image 3.4 CONFIG REQUIRED)
