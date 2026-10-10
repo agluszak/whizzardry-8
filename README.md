@@ -72,7 +72,7 @@ disc drives. The launcher writes diagnostics to the user root.
 The CTest suite covers portable file/SLF operations, SDL events/timers,
 CRT and pointer semantics, serialization, compression, image decoding/virtual
 transfers, CPU surfaces, pixel/blitter differentials, offline/positional audio,
-debug allocation/container ownership, movie decoding and SurRender interfaces.
+typed ownership/lifetimes, fatal assertions, movie decoding and SurRender interfaces.
 GPU tests need a working
 display/Vulkan driver; `native_events` uses SDL's dummy driver.
 CI builds Linux with native Clang; the first-party host-width wide-string import

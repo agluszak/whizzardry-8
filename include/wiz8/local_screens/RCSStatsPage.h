@@ -20,6 +20,7 @@ struct W8CampEffectEntry {
     int turns;       /* remaining turns; 9999 is permanent */
     int lines;       /* rendered height in 0xe-pixel lines */
 };
+W8_ABI_ASSERT(sizeof(W8CampEffectEntry) == 0x18, "W8CampEffectEntry_size");
 
 /* Camp stats page (page 1) and skills page (page 2) machinery. The scrollbar and
    the three toggle buttons drive the stats page's condition/equipment effect
