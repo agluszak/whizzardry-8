@@ -1,5 +1,6 @@
 #include "surrender/srPixelConvert.h"
 #include "surrender/srColorSurface.h"
+#include "wiz8/sr_api.h"
 #include <SDL3/SDL_surface.h>
 #include <algorithm>
 #include <cstdio>
@@ -139,6 +140,7 @@ int main()
         CHECK(SDL_ConvertPixels(65536, 1, SDL_PIXELFORMAT_XRGB1555, packed.data(), 65536 * 2,
                                 SDL_PIXELFORMAT_ARGB8888, sdlOutput.data(), 65536 * 4));
         CHECK(output != sdlOutput); // Rounded channel expansion is not SDL's bit replication.
+        CHECK(srInit());
         for (auto format : {srPixelConvert::SURFACE_RGB332, srPixelConvert::SURFACE_ARGB1555,
                             srPixelConvert::SURFACE_RGB24, srPixelConvert::SURFACE_ARGB32}) {
             srColorSurface actual(format, 7, 5), expected(format, 7, 5);
@@ -156,6 +158,7 @@ int main()
                 for (int x = 0; x < 7; ++x)
                     CHECK(actual.getPixelRaw(x, y) == expected.getPixelRaw(x, y));
         }
+        CHECK(srExit());
         puts("Pixel conversions: exact SDL byte channels, alpha, in-place rotation and exhaustive "
              "custom RGB555 passed");
         return 0;
