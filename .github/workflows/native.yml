@@ -1,6 +1,8 @@
 name: Native
 
 on:
+  push:
+    branches: [main]
   pull_request:
 
 jobs:
@@ -48,8 +50,10 @@ jobs:
           key: linux-ccache-${{ github.run_id }}
           restore-keys: |
             linux-ccache-
+      - name: Reset compiler cache statistics
+        run: ccache --zero-stats
       - name: Configure
-        run: cmake --preset linux -DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
+        run: cmake --preset linux -DCMAKE_BUILD_TYPE=Debug -DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
       - name: Build native game and fixtures
         run: cmake --build --preset linux --parallel "$(nproc)"
       - name: Test native contracts
