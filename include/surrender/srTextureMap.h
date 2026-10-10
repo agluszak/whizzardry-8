@@ -4,12 +4,12 @@
 #include "srTexture.h"
 
 // VTABLE: SURRENDER 0x100775BC
-// class srClassSupport<srTextureMap, srTexture, 0, 8465>
+// class srClassSupport<srTextureMap, srTexture, 8465>
 
 // VTABLE: SURRENDER 0x10077578 srTextureMap
 // class srTextureMap
 class SR_DLL_IMPORT srTextureMap
-    : public srClassSupport<srTextureMap, srTexture, 0, 0x2111> {
+    : public srClassSupport<srTextureMap, srTexture, 0x2111> {
 public:
     srTextureMap(srColorSurfaceIFace* surface = 0);
 

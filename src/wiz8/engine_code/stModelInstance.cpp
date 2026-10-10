@@ -31,9 +31,9 @@ extern float g_monster_light_scale;
 // GLOBAL: WIZ8 0x0065A148
 static std::vector<srVector3T<float>> g_vertex_scratch;
 
-// VTABLE: WIZ8 0x005ec89c srClassSupport<srModelInstance, class srNode, 0, 4352>
+// VTABLE: WIZ8 0x005ec89c srClassSupport<srModelInstance, class srNode, 4352>
 // VTABLE: WIZ8 0x005ec88c srModel::Client
-// class srClassSupport<stModelInstance2D, class srModelInstance, 0, 65541>
+// class srClassSupport<stModelInstance2D, class srModelInstance, 65541>
 /* Find the animated texture assigned to polygons whose runtime name begins
    with "mouth". Damage-stage instances use the stage-specific texture table;
    ordinary instances use the mesh's active polygon texture table. */
@@ -196,7 +196,7 @@ unsigned char stModelInstance::ReplaceDamageStageTexture(int stage, const char* 
    ordinary stModelInstance.cpp definition, not a header/template emission. */
 // FUNCTION: WIZ8 0x0047F0F0
 stModelInstance2D::stModelInstance2D(srNode* parent)
-    : srClassSupport<stModelInstance2D, srModelInstance, false, 0x10005>(static_cast<srNode*>(0))
+    : srClassSupport<stModelInstance2D, srModelInstance, 0x10005>(static_cast<srNode*>(0))
 {
     render_state.display_state = 0;
     render_state.width = 0;
@@ -533,7 +533,7 @@ srClass* stModelInstance::vInstance()
 
 // FUNCTION: WIZ8 0x0047EC80
 stModelInstance::stModelInstance(srNode* parent)
-    : srClassSupport<stModelInstance, srModelInstance, false, 0x10004>(static_cast<srNode*>(0))
+    : srClassSupport<stModelInstance, srModelInstance, 0x10004>(static_cast<srNode*>(0))
 {
     highlight_colour.Set(0.0f, 0.0f, 0.0f, 0.0f);
     render_flags = 0;

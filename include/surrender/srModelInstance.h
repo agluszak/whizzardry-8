@@ -6,12 +6,12 @@
 #include <math.h>
 
 // VTABLE: SURRENDER 0x10077194
-// class srClassSupport<srModelInstance, srNode, 0, 4352>
+// class srClassSupport<srModelInstance, srNode, 4352>
 
 // VTABLE: SURRENDER 0x10077150 srModel::Client
-// VTABLE: SURRENDER 0x10077160 srClassSupport<srModelInstance, srNode, 0, 4352>
+// VTABLE: SURRENDER 0x10077160 srClassSupport<srModelInstance, srNode, 4352>
 // class srModelInstance
-class srModelInstance : public srClassSupport<srModelInstance, srNode, 0, 0x1100>,
+class srModelInstance : public srClassSupport<srModelInstance, srNode, 0x1100>,
                                       public srModel::Client {
 public:
     SR_DLL_IMPORT srModelInstance(srNode* parent = 0);

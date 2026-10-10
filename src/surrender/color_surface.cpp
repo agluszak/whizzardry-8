@@ -76,7 +76,7 @@ srColorSurfaceIFace::srColorSurfaceIFace()
 
 // FUNCTION: SURRENDER 0x1005A120
 srColorSurfaceIFace::srColorSurfaceIFace(const srColorSurfaceIFace& other)
-    : srClassSupport<srColorSurfaceIFace, srClass, true, 0x3100>()
+    : srClassSupport<srColorSurfaceIFace, srClass, 0x3100>()
 {
     *this = other;
 }
@@ -1186,7 +1186,7 @@ srColorSurface& srColorSurface::operator=(const srColorSurface& other)
 }
 
 srColorSurface::srColorSurface(const srColorSurface& other)
-    : srClassSupport<srColorSurface, srColorSurfaceIFace, 0, 0x3110>()
+    : srClassSupport<srColorSurface, srColorSurfaceIFace, 0x3110>()
 {
     *this = other;
 }

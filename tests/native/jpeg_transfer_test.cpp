@@ -60,7 +60,7 @@ static void jpegTests()
             p[0] = 20 + 40 * x + 60 * y;
             p[1] = p[0] + 20; p[2] = p[0] + 60; p[3] = 40;
         }
-    auto source = owned(SR_NEW(srColorSurface)(srPixelConvert::SURFACE_BGRA32, pixels.data(), 3, 2, 16));
+    auto source = owned(new srColorSurface(srPixelConvert::SURFACE_BGRA32, pixels.data(), 3, 2, 16));
     const auto rgb = encode(*source);
     CHECK(rgb == encode(*source, 100));
     CHECK(rgb == encode(*source, 200));
@@ -137,7 +137,7 @@ static void pitchTests()
         for (unsigned y = 0; y < 2; ++y)
             for (unsigned x = 0; x < row_bytes; ++x) src[y * src_pitch + x] = 20 * y + x;
         srImage::Surface view(SDL_CreateSurfaceFrom(3, 2, format.sdl, src.data(), src_pitch), SDL_DestroySurface);
-        auto destination = owned(SR_NEW(srColorSurface)(format.sr, dst.data(), 3, 2, dst_pitch));
+        auto destination = owned(new srColorSurface(format.sr, dst.data(), 3, 2, dst_pitch));
         CHECK(view && destination);
         for (bool mirror : {false, true}) {
             CHECK(srImage::copyRows(*view, *destination, format.bytes, mirror));

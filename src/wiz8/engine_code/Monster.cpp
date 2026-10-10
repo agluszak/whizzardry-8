@@ -4972,7 +4972,7 @@ void W8Monster::SpawnDamageNumber(unsigned int amount)
     }
 
     srColorSurface* surface =
-        SR_NEW(srColorSurface)(srPixelConvert::SURFACE_ARGB1555, 0x100, 0x100);
+        new srColorSurface(srPixelConvert::SURFACE_ARGB1555, 0x100, 0x100);
     surface->fill(0);
     unsigned char* data = static_cast<unsigned char*>(surface->getDataPtr());
     if (data != 0) {
@@ -5024,7 +5024,7 @@ void W8Monster::SpawnDamageNumber(unsigned int amount)
             m_pRep->linked_runtime_objects.Add(poster);
 
             particle = new stParticle(g_world->dynamic_scene, 0xa);
-            material = SR_NEW(srMaterial);
+            material = new srMaterial;
             colour.Set(0.0f, 0.0f, 0.0f, 1.0f);
             material->setEmissive(colour);
             material->setDiffuse(colour);

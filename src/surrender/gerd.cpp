@@ -10,7 +10,6 @@
 #include "surrender/srColorSurface.h"
 #include "surrender/srCore.h"
 #include "surrender/srDebug.h"
-#include "surrender/srDebugDD.h"
 #include "surrender/srWindow.h"
 #include "surrender/srPalette.h"
 #include "surrender/srVectorMath.h"
@@ -89,8 +88,6 @@ srGERD::srGERD(srDD* device, const char* device_name)
     this->device.dd = device;
     this->device.window = 0;
     this->device.back_buffer_type = static_cast<e_backBuffer>(0);
-    this->device.debug_dd = 0;
-    this->device.real_dd = 0;
     vertex_arrays_dirty = 0xffffffff;
     vertex_arrays.clip.value = srRendererDefs::FRUSTUM_CLIP_MASK;
     vertex_arrays.count = 0;
@@ -195,7 +192,7 @@ srGERD::srGERD(srDD* device, const char* device_name)
     }
     prev_open = 0;
     next_open = 0;
-    srCore.getRegistry()->registerInstance(sGetClassNode(), this);
+    sGetClassNode();
     setName(this->device.driver_info.name);
 }
 
@@ -203,9 +200,6 @@ srGERD::srGERD(srDD* device, const char* device_name)
 srGERD::~srGERD()
 {
     deleteRenderers();
-    if (isEnabled(ENABLE_DEBUG_DD)) {
-        toggle(ENABLE_DEBUG_DD);
-    }
     deleteContext();
     delete device.dd;
     if (prev != 0) {
@@ -217,7 +211,6 @@ srGERD::~srGERD()
     if (this == first) {
         first = next;
     }
-    srCore.getRegistry()->unregisterInstance(sGetClassNode(), this);
 }
 
 // FUNCTION: SURRENDER 0x1001B010
@@ -339,20 +332,6 @@ void srGERD::toggle(e_enable option)
     if (option == ENABLE_POSITIONAL_0) {
         dirty |= DIRTY_FRAME_ENABLE;
         return;
-    }
-    if (option == ENABLE_DEBUG_DD) {
-        if ((enable_flags.value & (1UL << ENABLE_DEBUG_DD)) == 0) {
-            device.dd = device.real_dd;
-            if (device.debug_dd != 0) {
-                delete device.debug_dd;
-            }
-            device.real_dd = 0;
-            device.debug_dd = 0;
-            return;
-        }
-        device.real_dd = device.dd;
-        device.debug_dd = new srDebugDD(device.real_dd);
-        device.dd = device.debug_dd;
     }
 }
 
@@ -1699,7 +1678,7 @@ void srGERD::accumClear()
 }
 
 // VTABLE: SURRENDER 0x10076728
-// class srClassSupport<srGERD::LockSurface, srColorSurfaceIFace, 0, 12561>
+// class srClassSupport<srGERD::LockSurface, srColorSurfaceIFace, 12561>
 
 // VTABLE: SURRENDER 0x100767F8
 // class srGERD::LockSurface
@@ -1707,7 +1686,7 @@ void srGERD::accumClear()
 /* Locked-buffer surface created by lockBuffer. It keeps its own scissor rect and proxies pixel
    access through device bufferOp commands, staging through a 1-pixel-high srColorSurface scratch
    buffer when the locked format is not 32-bit ARGB. */
-class srGERD::LockSurface : public srClassSupport<LockSurface, srColorSurfaceIFace, false, 0x3111> {
+class srGERD::LockSurface : public srClassSupport<LockSurface, srColorSurfaceIFace, 0x3111> {
 public:
     LockSurface(srGERD* gerd, const srPixelConvert::PixelFormat& format);
     virtual ~LockSurface() override;
@@ -3470,30 +3449,6 @@ void srGERD::dump(std::ostream& stream, const srFlags<e_info>& info)
             stream << "Function calls to DD            : "
                    << statistics.device_calls / statistics.elapsed << std::endl;
         }
-        if ((info.value & INFO_DEBUG_DD) != 0 &&
-            (enable_flags.value & (1UL << ENABLE_DEBUG_DD)) != 0 && device.debug_dd != 0) {
-            double total = 0.0;
-            srStreamPrintf(stream, "\nFunction                        Calls/sec  Time used\n");
-            srStreamPrintf(stream,
-                           "---------------------------------------------------------------\n");
-            for (w8_long i = 0; i < 0x2b; i++) {
-                w8_ulong calls = device.debug_dd->call_counts[i];
-                double used = device.debug_dd->call_times[i] - calls * device.debug_dd->time_scale;
-                if (used <= 0.0) {
-                    used = 0.0;
-                }
-                if (calls != 0) {
-                    char text[36];
-                    sprintf(text, "%.2f", calls / statistics.elapsed);
-                    double percent = used / statistics.elapsed * 100.0;
-                    srStreamPrintf(stream, "%-32s%-10s %.3f%%\n", srDebugDD::funcName[i], text,
-                                   percent);
-                    total += percent;
-                }
-            }
-            srStreamPrintf(stream, "\nTotal:                                     %.2f%%\n\n",
-                           total);
-        }
     }
     if ((info.value & INFO_TEXTURE_CACHE) == 0) {
         return;
@@ -4679,7 +4634,7 @@ srRegistry::ClassNode* srGERD::sGetClassNode()
     srRegistry* registry = srCore.getRegistry();
     srRegistry::ClassNode* node = registry->getClassNode(0x4000);
     if (node == 0) {
-        node = registry->registerClass("srGERD", srRuntimeClass::sGetClassNode(), 0x4000, 1);
+        node = registry->registerClass("srGERD", srRuntimeClass::sGetClassNode(), 0x4000);
     }
     return node;
 }

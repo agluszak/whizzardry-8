@@ -14,9 +14,9 @@ const double g_motion_full_turn_radians = 6.2831852;
 
 /* The srLight copy inlined into MonsterLight's copy constructor instantiates
    srClassSupport<srLight> here; its tables are only transient vptrs there. */
-// VTABLE: WIZ8 0x005ECD18 srClassSupport<srIlluminator, class srNode, 0, 4608>
+// VTABLE: WIZ8 0x005ECD18 srClassSupport<srIlluminator, class srNode, 4608>
 // VTABLE: WIZ8 0x005ECD0C srVertexProcessor
-// class srClassSupport<srLight, class srIlluminator, 0, 4640>
+// class srClassSupport<srLight, class srIlluminator, 4640>
 
 /* Monster's fixed light is a regular srLight specialization.  Its two colours
    are retained for the optional cycle, while the first colour is also the

@@ -45,7 +45,7 @@
 
 // FUNCTION: WIZ8 0x004B9C00
 stLevel::stLevel(srNode* parent)
-    : srClassSupport<stLevel, srNode, false, 0x10007>(static_cast<srNode*>(0))
+    : srClassSupport<stLevel, srNode, 0x10007>(static_cast<srNode*>(0))
 {
     if (parent != 0) {
         setParent(parent, 1);
@@ -467,7 +467,7 @@ try
     (pInfo->hFile->read(&version, sizeof(version)).bytes == static_cast<std::size_t>(sizeof(version)));
     plane.Set(0.0f, 1.0f, 0.0f, 0.0f);
     for (index = 0; index < count; ++index) {
-        clip_plane = SR_NEW(srClipPlane)(pWorld->static_scene);
+        clip_plane = new srClipPlane(pWorld->static_scene);
         if (clip_plane == 0) {
             srAssertFail("psrClipPlane", READ_LEVEL_CPP, 0x5ae,
                          "out of memory creating clip plane");

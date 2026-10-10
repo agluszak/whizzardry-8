@@ -8258,7 +8258,7 @@ unsigned char UpdateSurpriseFade(void)
         if (gXStatus.surprise_phase == 0) {
             w8_long pitch;
             void* pixels = LockCatalogFrameSurface(0x1e0, 0, &pitch);
-            srColorSurface* surface = SR_NEW(srColorSurface)(srPixelConvert::SURFACE_ARGB1555,
+            srColorSurface* surface = new srColorSurface(srPixelConvert::SURFACE_ARGB1555,
                                                              pixels, 0x280, 0x1e0, pitch);
             g_surprise_snapshot_surface = surface;
             g_surprise_snapshot_overlay = new stSurface2D(g_surprise_snapshot_surface, 0x280, 0x1e0,

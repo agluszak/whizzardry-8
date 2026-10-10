@@ -9,6 +9,7 @@
 #include "wiz8/engine_code/World.h"
 #include "wiz8/engine_code/game_timer.h"
 #include "wiz8/engine_code/stTextureAnim.h"
+#include "wiz8/engine_code/materials.h"
 #include "wiz8/float_constants.h"
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/layouts/screen_state.h"
@@ -376,8 +377,8 @@ void SetSkyEnabled(bool enabled)
             return;
         }
 
-        g_environment_object0 = SR_NEW(srFog)(g_world->static_scene);
-        g_environment_object1 = SR_NEW(srFog)(g_world->dynamic_scene);
+        g_environment_object0 = new srFog(g_world->static_scene);
+        g_environment_object1 = new srFog(g_world->dynamic_scene);
         g_environment_object0->density = 1.0f;
         g_environment_object1->density = 1.0f;
 
@@ -802,12 +803,8 @@ void ApplyEnvironmentColour(W8World* world, float intensity, const EnvironmentCo
     }
     {
         srRegistry* registry = srCore.getRegistry();
-        srRegistry::ClassNode* node = registry->getClassNode(0x10002);
+        srRegistry::ClassNode* node = stMaterial::sGetClassNode();
 
-        if (node == 0) {
-            node = registry->registerClass(
-                "stMaterial", srClientSupport<srMaterial, 8720>::sGetClassNode(), 0x10002, 0);
-        }
         srMaterial* material = static_cast<srMaterial*>(
             registry->find(node, "AnimatedCloudMaterial", static_cast<const srRuntimeClass*>(0)));
         if (material != 0) {
@@ -941,12 +938,8 @@ void InitializeLevelEnvironment(void)
             for (int index = 0; index < 3; ++index) {
                 const char* name = g_sky_gradient_names[index];
                 srRegistry* registry = srCore.getRegistry();
-                srRegistry::ClassNode* node = registry->getClassNode(0x10000);
+                srRegistry::ClassNode* node = stTextureAnim::sGetClassNode();
 
-                if (node == 0) {
-                    node = registry->registerClass("stTextureAnim", stTextureAnim::sGetClassNode(),
-                                                   0x10000, 0);
-                }
                 stTextureAnim* animation = static_cast<stTextureAnim*>(
                     registry->find(node, name, static_cast<const srRuntimeClass*>(0)));
 

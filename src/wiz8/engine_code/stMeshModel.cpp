@@ -42,7 +42,7 @@ static int g_decompressed_mesh_byte_limit = 0x800000;
 
 // FUNCTION: WIZ8 0x00470B00
 stMeshModel::stMeshModel(w8_long polygons, w8_long vertices)
-    : srClassSupport<stMeshModel, srMeshModel, false, 0x10003>(polygons, vertices)
+    : srClassSupport<stMeshModel, srMeshModel, 0x10003>(polygons, vertices)
 {
     duplicate_on_reuse = 1;
     vertex_lighting_ready = false;

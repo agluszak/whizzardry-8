@@ -1260,10 +1260,10 @@ void SetMonsterSpellIcon(W8Monster* pMonster, W8MonsterSpellIconId iIcon, bool a
 // VTABLE: WIZ8 0x005ecfb0
 // class stSound3D
 // VTABLE: WIZ8 0x005ecfe4
-// class srClassSupport<stSound3D,srNode,0,65547>
+// class srClassSupport<stSound3D,srNode,65547>
 // FUNCTION: WIZ8 0x004AE6D0
 stSound3D::stSound3D(const char* name, srNode* parent)
-    : srClassSupport<stSound3D, srNode, 0, 0x1000b>(static_cast<srNode*>(0))
+    : srClassSupport<stSound3D, srNode, 0x1000b>(static_cast<srNode*>(0))
 {
     if (parent != 0) {
         setParent(parent, 0);

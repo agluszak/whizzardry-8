@@ -5,11 +5,11 @@
 class srGERD;
 
 // VTABLE: SURRENDER 0x10076E74
-// class srClassSupport<srCamera, srNode, 0, 5120>
+// class srClassSupport<srCamera, srNode, 5120>
 
 // VTABLE: SURRENDER 0x10076E40 srCamera
 // class srCamera
-class SR_DLL_IMPORT srCamera : public srClassSupport<srCamera, srNode, 0, 0x1400> {
+class SR_DLL_IMPORT srCamera : public srClassSupport<srCamera, srNode, 0x1400> {
 public:
     enum e_project { PROJECT_PERSPECTIVE = 0, PROJECT_ORTHOGRAPHIC = 1 };
 
