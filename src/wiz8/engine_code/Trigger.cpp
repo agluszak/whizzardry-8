@@ -133,6 +133,16 @@ Trigger* FindTriggerByName(const char* name)
     return 0;
 }
 
+Trigger* FindRequiredTriggerByName(const char* name, std::source_location caller)
+{
+    Trigger* trigger = FindTriggerByName(name);
+    if (trigger == nullptr) {
+        srAssertFail("required trigger", caller.file_name(), caller.line(),
+                     fmt::format("Missing trigger '{}'! It's not in the LVL file!", name));
+    }
+    return trigger;
+}
+
 /* Resolve the trigger that drives a prop's use action. A kind-one or kind-two
    trigger without type-10 action data is followed along its recipient chain —
    each step picks the first recipient that is not the link we came from — until

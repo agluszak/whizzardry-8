@@ -15,6 +15,11 @@
 #include "wiz8/npc_interaction.h"
 #include "wiz8/local_screens/NPCInteractionSubscreen.h"
 #include "wiz8/npc_script_file.h"
+#include "wiz8/asset_paths.h"
+#include "wiz8/engine_code/AnimObj.h"
+#include "wiz8/engine_code/Spells.h"
+#include "wiz8/engine_code/World.h"
+#include "temporary_directory.h"
 #include "local_code/NPCScripting.h"
 #include "surrender/srPixelConvert.h"
 
@@ -123,4 +128,76 @@ TEST_CASE("resource_lifecycle_test")
 {
     REQUIRE(shutdown_survivors()); REQUIRE(shutdown_survivors()); REQUIRE(npc_script_teardown()); REQUIRE(queued_state_teardown());
     std::puts("ok: detached resource destruction, interrupted scenes, and reinitialization");
+}
+
+struct SpellVisualFixture
+{
+    ScopedTemporaryDirectory directory{"wiz8-spell-visuals"};
+    w8_native::Roots previous_roots = w8_native::path_roots();
+    W8World* previous_world = GetWorld();
+    W8World world{};
+    std::vector<W8SpellVisual*> visuals;
+
+    SpellVisualFixture()
+    {
+        REQUIRE(srInit());
+        std::filesystem::create_directory(directory.path / "assets");
+        std::filesystem::create_directory(directory.path / "user");
+        w8_native::configure_paths({(directory.path / "assets").string(),
+                                   (directory.path / "user").string(), {"", "", ""}});
+        world.spell_visuals = &visuals;
+        SetCurrentWorld(&world);
+    }
+
+    ~SpellVisualFixture()
+    {
+        DestroyAllSpellVisuals(&world);
+        SetCurrentWorld(previous_world);
+        w8_native::configure_paths(previous_roots);
+        srExit();
+    }
+};
+
+TEST_CASE_METHOD(SpellVisualFixture, "Spell visual fallback and registration", "[resources][spell]")
+{
+    W8SpellVisual named, generic;
+    named.mode = generic.mode = W8_SPELL_VISUAL_EXPLOSION;
+    const int first_cycle = W8_SPELL_VISUAL_EXPLOSION * 7;
+    generic.host->emitters[first_cycle + 1] = new W8AnimObj;
+    RegisterGrCycle("Named", &named);
+    RegisterGrCycle("Generic", &generic);
+    const srVector3T<float> position{11, 22, 33};
+
+    // Missing resources and resources without a supported cycle both use Generic.
+    for (const char* name : {"Missing", "Named"}) {
+        std::unique_ptr<W8SpellVisual> visual(SpawnSpellEffect(&position, name, 4, 17, 23));
+        REQUIRE(visual);
+        REQUIRE(visual->host->pending_cycle == first_cycle + 1);
+        REQUIRE(std::string_view(visual->GetRegisteredName()) == "Generic");
+        REQUIRE(visual->effect_value == 17);
+        REQUIRE(visual->flags0 == 23);
+        REQUIRE(visual->host->billboard);
+        REQUIRE(visual->GetPosition() == position);
+        REQUIRE(visuals == std::vector<W8SpellVisual*>{visual.get()});
+    }
+    REQUIRE(visuals.empty());
+    REQUIRE(FindFirstGrCycleByName("Named") == &named);
+
+    // A supported named cycle takes precedence over the fallback.
+    named.host->emitters[first_cycle + 2] = new W8AnimObj;
+    std::unique_ptr<W8SpellVisual> visual(SpawnSpellEffect(&position, "Named", 4, 31, 47));
+    REQUIRE(visual);
+    REQUIRE(visual->host->pending_cycle == first_cycle + 2);
+    REQUIRE(std::string_view(visual->GetRegisteredName()) == "Named");
+}
+
+TEST_CASE_METHOD(SpellVisualFixture, "Missing spell visual fallback", "[resources][spell]")
+{
+    srVector3T<float> position{1, 2, 3};
+    glm::mat3 rotation{1};
+    REQUIRE(SpawnSpellEffect(&position, "Missing", 1, 0, 0) == nullptr);
+    REQUIRE(SpawnCameraSpellEffect("Missing", 1, 0, 0) == nullptr);
+    REQUIRE(CreateAttachedSpellEffect("Missing", 1, nullptr, 0, 0) == nullptr);
+    REQUIRE(CreateAimedSpellEffect("Missing", 1, &position, &rotation, 0, 0) == nullptr);
+    REQUIRE(visuals.empty());
 }

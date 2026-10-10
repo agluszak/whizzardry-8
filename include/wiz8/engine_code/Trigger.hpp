@@ -1,5 +1,6 @@
 #pragma once
 
+#include <source_location>
 #include "surrender/srMath.h"
 #include "surrender/srTypeRegistry.h"
 #include "wiz8/sr_api.h"
@@ -312,6 +313,8 @@ void InitializeStateDrivenPropVariables(Trigger* trigger);
 W8_ABI_ASSERT(sizeof(Trigger) == 0x38c, "Trigger_must_be_0x38c");
 
 Trigger* FindTriggerByName(const char* name);
+Trigger* FindRequiredTriggerByName(const char* name,
+    std::source_location caller = std::source_location::current());
 
 inline void RunNamedTrigger(const char* name, int source)
 {

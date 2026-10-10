@@ -103,11 +103,7 @@ bool OnCrankTriggerActivated(Trigger* trigger)
         return true;
     }
     if (value >= 100 && value < 1000) {
-        pFlagTrigger = FindTriggerByName("flag");
-        if (pFlagTrigger == 0) {
-            srAssertFail("pFlagTrigger", MTGIGASOUTER_CPP, 0x54,
-                         "Missing trigger 'flag'! It's not in the LVL file!");
-        }
+        pFlagTrigger = FindRequiredTriggerByName("flag");
         prop = pFlagTrigger->GetProp();
         prop->GetPosition(&position);
         position.y = LIFT_PARKED_Y;
@@ -157,11 +153,7 @@ void ControlLiftGate(int command)
         if (command != static_cast<int>(0xEFFFFFFF)) {
             value = command;
         }
-        pFlagTrigger = FindTriggerByName("flag");
-        if (pFlagTrigger == 0) {
-            srAssertFail("pFlagTrigger", MTGIGASOUTER_CPP, 0x95,
-                         "Missing trigger 'flag'! It's not in the LVL file!");
-        }
+        pFlagTrigger = FindRequiredTriggerByName("flag");
         g_lift_prop = pFlagTrigger->GetProp();
         g_lift_prop->GetPosition(&position);
         if (value < 100) {

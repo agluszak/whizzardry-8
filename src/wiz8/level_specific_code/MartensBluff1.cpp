@@ -467,11 +467,7 @@ bool MartensBluff1TeleportState(int new_state)
     Trigger* pOldButtonTrigger;
     int state;
 
-    pTelTrigger = FindTriggerByName("MR109");
-    if (pTelTrigger == 0) {
-        srAssertFail("pTelTrigger", MARTENSBLUFF1_CPP, 0x2f9,
-                     "Missing trigger 'MR109'! It's not in the LVL file!");
-    }
+    pTelTrigger = FindRequiredTriggerByName("MR109");
     if (GetLocationVarIDByName("TeleporterState") == -1) {
         CreateLocationVar("TeleporterState", 0);
         return false;
@@ -486,32 +482,16 @@ bool MartensBluff1TeleportState(int new_state)
     g_teleport_running = true;
     switch (state - 1) {
     case 0:
-        pOldButtonTrigger = FindTriggerByName("ButtonGigas");
-        if (pOldButtonTrigger == 0) {
-            srAssertFail("pOldButtonTrigger", MARTENSBLUFF1_CPP, 0x30b,
-                         "Missing trigger 'ButtonGigas'! It's not in the LVL file!");
-        }
+        pOldButtonTrigger = FindRequiredTriggerByName("ButtonGigas");
         break;
     case 1:
-        pOldButtonTrigger = FindTriggerByName("ButtonTrang");
-        if (pOldButtonTrigger == 0) {
-            srAssertFail("pOldButtonTrigger", MARTENSBLUFF1_CPP, 0x310,
-                         "Missing trigger 'ButtonTrang'! It's not in the LVL file!");
-        }
+        pOldButtonTrigger = FindRequiredTriggerByName("ButtonTrang");
         break;
     case 2:
-        pOldButtonTrigger = FindTriggerByName("ButtonRift");
-        if (pOldButtonTrigger == 0) {
-            srAssertFail("pOldButtonTrigger", MARTENSBLUFF1_CPP, 0x315,
-                         "Missing trigger 'ButtonRift'! It's not in the LVL file!");
-        }
+        pOldButtonTrigger = FindRequiredTriggerByName("ButtonRift");
         break;
     case 3:
-        pOldButtonTrigger = FindTriggerByName("ButtonMaten");
-        if (pOldButtonTrigger == 0) {
-            srAssertFail("pOldButtonTrigger", MARTENSBLUFF1_CPP, 0x31a,
-                         "Missing trigger 'ButtonMaten'! It's not in the LVL file!");
-        }
+        pOldButtonTrigger = FindRequiredTriggerByName("ButtonMaten");
         break;
     default:
         goto set_state;
@@ -532,11 +512,7 @@ bool MartensBluff1WireTrigger(Trigger* pTrigger)
     Trigger* pTelTrigger;
 
     g_trigger_feedback = true;
-    pTelTrigger = FindTriggerByName("MR109");
-    if (pTelTrigger == 0) {
-        srAssertFail("pTelTrigger", MARTENSBLUFF1_CPP, 0x329,
-                     "Missing trigger 'MR109'! It's not in the LVL file!");
-    }
+    pTelTrigger = FindRequiredTriggerByName("MR109");
     if (GetLocationVarIDByName("TeleporterState") == -1) {
         CreateLocationVar("TeleporterState", 1);
     } else {
@@ -546,11 +522,7 @@ bool MartensBluff1WireTrigger(Trigger* pTrigger)
         SetTriggerVariableByName("TeleporterState", 1);
     }
     g_teleport_running = true;
-    pTelTrigger = FindTriggerByName("ButtonGigas");
-    if (pTelTrigger == 0) {
-        srAssertFail("pTelTrigger", MARTENSBLUFF1_CPP, 0x336,
-                     "Missing trigger 'ButtonGigas'! It's not in the LVL file!");
-    }
+    pTelTrigger = FindRequiredTriggerByName("ButtonGigas");
     pTelTrigger->Run(-1);
     g_teleport_running = false;
     return true;
