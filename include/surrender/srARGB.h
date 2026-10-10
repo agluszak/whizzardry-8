@@ -14,4 +14,3 @@ public:
     unsigned char alpha;
 };
 
-W8_ABI_ASSERT(sizeof(srARGB) == 4, "srARGB_must_be_4");

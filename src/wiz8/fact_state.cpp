@@ -61,7 +61,6 @@ void LoadFactState(wiz8::File* save_handle)
     if (GetFact(W8_FACT_RFS81_HAS_BEEN_FIXED)) {
         npc = GetNpcStateByKind(0x20);
         if (npc && npc->has_monster) {
-            ReleaseNpcScriptFile(npc->script_file);
             ReloadNpcScriptResources(npc);
         }
     }

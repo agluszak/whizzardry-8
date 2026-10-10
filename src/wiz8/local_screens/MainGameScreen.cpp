@@ -3471,7 +3471,7 @@ unsigned char MainGameScreenLeave(int leaving)
 
     if (static_cast<unsigned char>(leaving)) {
         for (index = 0; index < 17; ++index) {
-            ReleaseRendererObject(g_main_game_resource_slots[index].object);
+            g_main_game_resource_slots[index].object.reset();
         }
     }
 
@@ -3874,7 +3874,7 @@ void DrawMainGameScreen(void)
         }
         if (g_node_cull_pending) {
             for (node = g_world->level->first_child_; node != 0; node = node->next_sibling_) {
-                if (node->getClassID() == stModelInstance::CLASS_ID) {
+                if (sr_cast<stModelInstance>(node)) {
                     node->clearFlag(srNode::FLAG_DISABLE);
                 }
             }
@@ -3882,7 +3882,7 @@ void DrawMainGameScreen(void)
         RenderFrame();
         if (g_node_cull_pending) {
             for (node = g_world->level->first_child_; node != 0; node = node->next_sibling_) {
-                if (node->getClassID() == stModelInstance::CLASS_ID) {
+                if (sr_cast<stModelInstance>(node)) {
                     if (MeasureNodeRenderWithoutPositionalOption(node) == 0) {
                         node->setFlag(srNode::FLAG_DISABLE);
                     } else {
@@ -7184,12 +7184,10 @@ void LoadMainGameCursorResources(void)
                                           static_cast<unsigned short>(frame));
             slot->size_x = properties.usWidth;
             slot->size_y = properties.usHeight;
-            stTextureAnim* animation =
+            slot->object =
                 VideoVObjectToTextureAnim(video_object, static_cast<unsigned short>(frame),
                                           static_cast<unsigned short>(slot->frame_count), true);
-            slot->object = animation;
-            animation->addReference();
-            animation->animation_mode = W8_TEXTURE_ANIM_MANUAL;
+            slot->object->animation_mode = W8_TEXTURE_ANIM_MANUAL;
         }
     }
 }
@@ -8142,7 +8140,7 @@ const float g_fade_resume_scale = -500.0f;
 // GLOBAL: WIZ8 0x0068edca
 static bool g_surprise_fade_in;
 // GLOBAL: WIZ8 0x0068edf0
-static srColorSurfaceIFace* g_surprise_snapshot_surface;
+static std::shared_ptr<srColorSurfaceIFace> g_surprise_snapshot_surface;
 // GLOBAL: WIZ8 0x0068edf4
 static stSurface2D* g_surprise_snapshot_overlay;
 // GLOBAL: WIZ8 0x0068edf8
@@ -8216,7 +8214,7 @@ void ReverseSurpriseFade(void)
 void DestroySurpriseFade(void)
 {
     ReleaseRendererObject(g_surprise_snapshot_overlay);
-    ReleaseRendererObject(g_surprise_snapshot_surface);
+    g_surprise_snapshot_surface.reset();
     ReleaseRendererObject(g_surprise_fade_node);
     SetFullscreenSceneLast(1);
     g_world_render_enabled = 1;
@@ -8255,7 +8253,7 @@ unsigned char UpdateSurpriseFade(void)
         if (gXStatus.surprise_phase == 0) {
             w8_long pitch;
             void* pixels = LockCatalogFrameSurface(0x1e0, 0, &pitch);
-            srColorSurface* surface = new srColorSurface(srPixelConvert::SURFACE_ARGB1555,
+            auto surface = std::make_shared<srColorSurface>(srPixelConvert::SURFACE_ARGB1555,
                                                              pixels, 0x280, 0x1e0, pitch);
             g_surprise_snapshot_surface = surface;
             g_surprise_snapshot_overlay = new stSurface2D(g_surprise_snapshot_surface, 0x280, 0x1e0,
@@ -8265,10 +8263,9 @@ unsigned char UpdateSurpriseFade(void)
             g_world_render_enabled = 0;
             g_surprise_fade_tick_base = w8_get_ticks();
         } else {
-            g_surprise_snapshot_overlay->release();
+            delete g_surprise_snapshot_overlay;
             g_surprise_snapshot_overlay = 0;
-            g_surprise_snapshot_surface->release();
-            g_surprise_snapshot_surface = 0;
+            g_surprise_snapshot_surface.reset();
             g_world_render_enabled = 1;
         }
         return done;
@@ -8278,7 +8275,7 @@ unsigned char UpdateSurpriseFade(void)
             g_surprise_fade_node->setFlag(srNode::FLAG_DISABLE);
             return done;
         }
-        g_surprise_fade_node->release();
+        delete g_surprise_fade_node;
         g_surprise_fade_node = 0;
         SetFullscreenSceneLast(1);
     }

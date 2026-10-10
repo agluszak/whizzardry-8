@@ -170,7 +170,7 @@ struct W8EnvironRecord {
 
     unsigned char RescaleToReference(const W8EnvironRecord* reference);
     /* 0x00421800: store `motion` / scale as the per-frame vector. */
-    void SetScaledMotion(const srVector3T<float>* motion);
+    void SetScaledMotion(const glm::vec3& motion);
     /* 0x00421850: add vector * scale into `position`. */
     void AddScaledMotion(srVector3T<float>* position);
 };
@@ -415,7 +415,7 @@ void SetCameraOrientation(W8CameraAngleRecord angle, W8CameraAngleRecord pitch,
 int GetCameraYawAndRotation(glm::mat3* rotation);
 /* 0x00421440: project `vector` onto `onto` in place; fails on a degenerate
    target direction. */
-unsigned char ProjectVectorOntoVector(srVector3T<float>* vector, const srVector3T<float>* onto);
+glm::vec3 ProjectVectorOntoVector(const glm::vec3& vector, const glm::vec3& onto);
 /* 0x00421570: restore a saved yaw/pitch into the game camera, reading the
    world camera node's current rotation first and fetching the updated matrix
    (both into the same dead local in retail). */

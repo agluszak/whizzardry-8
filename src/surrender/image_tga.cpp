@@ -89,7 +89,7 @@ inline bool validatePixels(SDL_IOStream* io, unsigned start, Uint64 pixels,
 }
 } // namespace tga
 
-srColorSurface* loadTga(SDL_IOStream* source)
+std::unique_ptr<srColorSurface> loadTga(SDL_IOStream* source)
 {
     if (!srCore.isInitialized()) return nullptr;
     try {
@@ -121,7 +121,7 @@ srColorSurface* loadTga(SDL_IOStream* source)
         if (SDL_SeekIO(source, 18 + prefix[0], SDL_IO_SEEK_SET) < 0 ||
             (has_palette && SDL_ReadIO(source, palette_data.data(), palette_data.size()) != palette_data.size()))
             return nullptr;
-        srPalette* core_palette = nullptr;
+        std::shared_ptr<srPalette> core_palette;
         if (indexed && !has_palette) {
             core_palette = srCore.getPalette();
             if (!core_palette) return nullptr;
@@ -160,10 +160,7 @@ srColorSurface* loadTga(SDL_IOStream* source)
             depth == 16 ? ((descriptor & 15) ? srPixelConvert::SURFACE_ARGB1555 : srPixelConvert::SURFACE_RGB555) :
             depth == 24 ? srPixelConvert::SURFACE_BGR24 :
             (descriptor & 15) ? srPixelConvert::SURFACE_BGRA32 : srPixelConvert::SURFACE_BGRX32;
-        auto* surface = new srColorSurface(format, width, height);
-        std::unique_ptr<srColorSurface, void(*)(srColorSurface*)> owned(surface, [](srColorSurface* p) {
-            if (p) p->release();
-        });
+        auto surface = std::make_unique<srColorSurface>(format, width, height);
         if (!surface || !copyRows(*decoded, *surface, bytes, descriptor & 0x10)) return nullptr;
         if (indexed) {
             if (core_palette) {
@@ -184,16 +181,12 @@ srColorSurface* loadTga(SDL_IOStream* source)
                     for (unsigned x = 0; x < width; ++x)
                         if (row[x] < origin || row[x] >= origin + count) return nullptr;
                 }
-                auto* matching = srPalette::findMatchingPalette(colors.data(), origin + count);
-                if (!matching) {
-                    matching = new srPalette(colors.data(), origin + count);
-                    matching->autoRelease();
-                    matching->setName("TGA-importer generated palette");
-                }
-                surface->setPalette(matching);
+                auto generated = std::make_shared<srPalette>(colors.data(), origin + count);
+                generated->setName("TGA-importer generated palette");
+                surface->setPalette(std::move(generated));
             }
         }
-        return owned.release();
+        return surface;
     } catch (...) { return nullptr; }
 }
 } // namespace srImage

@@ -416,6 +416,8 @@ void ReloadNpcScriptResources(W8NpcState* npc)
     }
     sprintf(script_name, prefix, name);
     sprintf(resource_name, "Data\\NPC Scripts\\%s.nsf", script_name);
+    ReleaseNpcScriptFile(npc->script_file);
+    npc->script_file = nullptr;
     npc->script_file = LoadNpcScriptFile(resource_name);
     if (npc->script_file != 0) {
         W8Monster* monster = GetNpcMonster(npc);

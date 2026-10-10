@@ -55,12 +55,6 @@ stLevel::stLevel(srNode* parent)
     m_render_exclusion_mask = 0;
 }
 
-// FUNCTION: WIZ8 0x004BA3D0
-srClass* stLevel::vInstance()
-{
-    return new stLevel(0);
-}
-
 // FUNCTION: WIZ8 0x004BA0E0
 void stLevel::traverse(TraverseInfo& info)
 {
@@ -134,7 +128,7 @@ void stLevel::process(const ProcessInfo& info, e_processType)
                 mesh.shaders[0].value &= 0xffff7fff;
                 mesh.poly_shaders[0] = 0;
             }
-            srPtr<srTextureIFace>*(*poly_textures)[2] = mesh.poly_textures;
+            std::shared_ptr<srTextureIFace>*(*poly_textures)[2] = mesh.poly_textures;
             if (poly_textures != 0 && mesh.active_polygons == 0) {
                 w8_long active_count;
                 w8_ulong* active = model->GetActivePolygons(&active_count, -1, false);
@@ -159,7 +153,7 @@ void stLevel::process(const ProcessInfo& info, e_processType)
             if (linked_child != 0 && linked_child->testFlag(FLAG_TERMINATE) != 0) {
                 break;
             }
-            model = model->next;
+            model = model->Next();
             if (linked_child != 0) {
                 linked_child = linked_child->first_child_;
             }
@@ -327,16 +321,16 @@ try
 
         if (light != 0) {
             if (_strnicmp(light->getName().c_str(), "Sun", 3) == 0) {
-                light->diffuse.SetZero();
-                light->ambient = record.colour;
+                light->diffuse = glm::vec3(0);
+                light->ambient = record.colour.glmValue();
                 light->setGroupMask(light->getGroupMask() | 4);
                 AddEnvironmentLight(light);
             } else {
-                light->diffuse = record.colour;
-                light->ambient.SetZero();
+                light->diffuse = record.colour.glmValue();
+                light->ambient = glm::vec3(0);
             }
 
-            light->specular.SetZero();
+            light->specular = glm::vec3(0);
             ConfigureWorldLight(light, record.range * g_world_scale);
             light->intensity = record.intensity;
             light->setLocation(record.location.x * g_world_scale, record.location.y * g_world_scale,
@@ -802,14 +796,9 @@ unsigned char ReadWorldParticles(W8ReadLevelInfo* pInfo, srNode* pScene,
 try
 {
     W8LevelParticleRecord record;
-    srMaterialIFace* material;
-    srTextureIFace* texture;
-    srShader render_flags;
     int count;
     int index;
 
-    material = 0;
-    texture = 0;
     (pInfo->hFile->read(&count, sizeof(count)).bytes == static_cast<std::size_t>(sizeof(count)));
     for (index = 0; index < count; ++index) {
         unsigned char version;
@@ -962,12 +951,10 @@ try
         particle->emission_limit = record.emission_limit;
         particle->release_when_done = false;
 
-        LoadMaterial(pInfo->bitmap_folder, &record.material, &material, &texture, &render_flags, 1);
-        particle->SetMaterial(material);
-        srShader shader;
-        shader.value = render_flags.value;
-        particle->SetRenderFlags(shader);
-        particle->SetTexture(texture);
+        W8MeshMaterial material = LoadMaterial(pInfo->bitmap_folder, record.material);
+        particle->SetMaterial(std::move(material.material));
+        particle->SetRenderFlags(material.render_flags);
+        particle->SetTexture(std::move(material.texture));
 
         if (strncmp(record.name, "CLOUD", 5) == 0) {
             srVector3T<double> current = particle->getLocation();
@@ -1051,11 +1038,11 @@ try
 
     level_mesh = 0;
     if (world->update_mesh_source != 0) {
-        world->update_mesh_source->release();
+        delete world->update_mesh_source;
     }
     if (world->psrMeshes != 0) {
         while (world->psrMeshes[0] != 0) {
-            world->psrMeshes[0]->release();
+            delete world->psrMeshes[0];
             world->psrMeshes[0] = 0;
         }
         if (world->octree == 0) {
@@ -1198,7 +1185,7 @@ try
                 srModelInstance* instance = prop->ToggleRepAnimation(animation_index);
                 stMeshModel* mesh = static_cast<stMeshModel*>(instance->getModel());
 
-                for (; mesh != 0; mesh = mesh->next) {
+                for (; mesh != 0; mesh = mesh->Next()) {
                     if (!AnimationIsRunning(animation)) {
                         mesh->GetVertexSunlight(true);
                         SetModelInstanceChainExclusionMask(instance, 5);
@@ -1206,19 +1193,17 @@ try
                         SetModelInstanceChainExclusionMask(instance, 4);
                     }
 
-                    srMaterialIFace* material_iface = mesh->getMaterial(0, srMeshModel::SIDE_FRONT);
-                    if (material_iface != 0) {
-                        srMaterial* material = static_cast<srMaterial*>(material_iface);
-                        srMaterial* copy = static_cast<srMaterial*>(material->clone());
+                    auto* material = sr_cast<stMaterial>(mesh->getMaterial(0, srMeshModel::SIDE_FRONT));
+                    if (material != 0) {
+                        auto copy = std::make_shared<stMaterial>(*material);
                         copy->setName("Unsunlit Prop Material");
-                        copy->autoRelease();
                         copy->parms.ambient = glm::vec4(0.0f);
                         copy->dirty = 1;
                         copy->parms.emissive.x += g_environment_offset.x;
                         copy->parms.emissive.y += g_environment_offset.y;
                         copy->parms.emissive.z += g_environment_offset.z;
                         copy->dirty = 1;
-                        mesh->setMaterial(copy, 0, srMeshModel::SIDE_FRONT);
+                        mesh->setMaterial(std::move(copy), 0, srMeshModel::SIDE_FRONT);
                     }
                 }
             }

@@ -65,7 +65,7 @@ bool SwampGasPlane(Trigger* pTrigger)
         SwampGasFireSpawn(pTrigger);
         return false;
     }
-    position = GetWorld()->camera->getLocation();
+    position = glm::vec3(GetWorld()->camera->getLocation());
     PointCastSpell(position, W8_SPELL_NOXIOUS_FUMES, 4);
     return true;
 }
@@ -81,7 +81,7 @@ bool SwampFirePlane(Trigger* pTrigger)
         SwampGasFireSpawn(pTrigger);
         return false;
     }
-    position = GetWorld()->camera->getLocation();
+    position = glm::vec3(GetWorld()->camera->getLocation());
     PointCastSpell(position, W8_SPELL_FIREBALL, 4);
     return true;
 }

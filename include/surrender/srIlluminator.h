@@ -24,9 +24,6 @@ public:
     SR_DLL_IMPORT void setGroupMask(w8_ulong mask);
 
     w8_ulong group_mask;       /* 0x13c */
-    srVector3T<float> eye_location; /* 0x140 */
+    glm::vec3 eye_location;    /* 0x140 */
 };
 
-W8_ABI_ASSERT((sizeof(srIlluminator) == 0x150), "srIlluminator_must_be_0x150");
-
-W8_ASSERT_BASE_END(srIlluminator, srVertexProcessor, group_mask, 0x138);

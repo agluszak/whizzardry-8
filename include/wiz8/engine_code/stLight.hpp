@@ -83,7 +83,7 @@ public:
         return false;
     }
 
-    void GetInterpolatedColor(float blend, srVector3T<float>* out) const;
+    glm::vec3 GetInterpolatedColor(float blend) const;
 
     /* flags bits 0-1 select the update mode (0 oscillating intensity, 1
        flicker, 3 one-way ramp); bit 3 lerps diffuse toward the target color,
@@ -178,6 +178,7 @@ class stLight : public srClassSupport<stLight, srLight, 0x10006> {
     friend class Trigger;
 
 public:
+    virtual ~stLight() override; /* 0x0049C430 */
     static const char* sGetClassName()
     {
         return "stLight";
@@ -187,11 +188,7 @@ public:
     explicit stLight(srNode* parent);         /* 0x0049C2C0 */
     stLight& operator=(const stLight& other); /* 0x0049C690 */
 
-protected:
-    virtual ~stLight() override; /* 0x0049C430 */
-
 public:
-    virtual srClass* vInstance() override;                      /* 0x0049E3A0 */
     virtual void traverse(srNode::TraverseInfo& info) override; /* 0x0049C7A0 */
     virtual void process(const srNode::ProcessInfo& info,
                          srNode::e_processType type) override; /* 0x0049C8D0 */

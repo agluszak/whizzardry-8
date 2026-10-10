@@ -19,6 +19,7 @@
 #include "wiz8/layouts/npc_state.h"
 #include "wiz8/local_code/NPCScripting.h"
 #include "wiz8/message_box.h"
+#include "soundman.h"
 
 // GLOBAL: WIZ8 0x0068C430
 W8NpcScriptingState g_npc_scripting;
@@ -55,6 +56,35 @@ bool IsPartySlotEligible(int slot)
 // FUNCTION: WIZ8 0x00524c50
 void ClearNpcMessageQueue(void)
 {
-    wiz8::remove_all_and_delete_in_order(g_npc_scripting.message_lines);
+
+    if (g_npc_scripting.voice_playing) {
+        g_npc_scripting.voice_playing = false;
+        g_npc_scripting.stopping_voice_playback = true;
+        SoundStop(g_npc_scripting.voice_handle);
+    }
+    FreeMouthGapTrack(&g_npc_scripting.gap_track);
+    for (auto* line : g_npc_scripting.message_lines) {
+        // These payloads have not been handed to a portrait bubble yet.
+        switch (line->type) {
+        case W8_NPC_MSG_SKILL_NOTICES:
+            delete line->extra.skill_notices;
+            delete[] line->payload.text;
+            break;
+        case W8_NPC_MSG_PORTRAIT_EXTRA:
+            delete line->extra.experience;
+            delete[] line->payload.text;
+            break;
+        case W8_NPC_MSG_LEVEL_UP:
+            delete line->extra.level_up_slot;
+            delete[] line->payload.text;
+            break;
+        case W8_NPC_MSG_PORTRAIT_MESSAGE:
+            delete[] line->payload.text;
+            break;
+        default:
+            break;
+        }
+        delete line;
+    }
     g_npc_scripting = {};
 }

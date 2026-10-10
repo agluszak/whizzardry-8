@@ -46,22 +46,18 @@ void __cdecl srAssertFail(const char* expression, const char* path, w8_long line
 namespace {
 struct Registered : srClassSupport<Registered, srClass, 0x7ff001> {
     static const char* sGetClassName() { return "Registry ownership fixture"; }
-    srClass* vInstance() override { return new Registered; }
 };
 
 struct Inherited : srClassSupport<Inherited, Registered, 0x7ff002> {
     static const char* sGetClassName() { return "Inherited registry fixture"; }
-    srClass* vInstance() override { return new Inherited; }
 };
 
 struct IndexedDerived : srClassSupport<IndexedDerived, Registered, 0x7ff003> {
     static const char* sGetClassName() { return "Indexed derived registry fixture"; }
-    srClass* vInstance() override { return new IndexedDerived; }
 };
 
 struct Branch : srClassSupport<Branch, srClass, 0x7ff004> {
     static const char* sGetClassName() { return "Sibling registry fixture"; }
-    srClass* vInstance() override { return new Branch; }
 };
 
 void growth()
@@ -281,29 +277,6 @@ void class_tree()
     CHECK(registry.isDerivedOrSame(nodes.front(), parent));
 }
 
-void intrusive_references()
-{
-    auto* registry = srCore.getRegistry();
-    auto* node = Registered::sGetClassNode();
-    const auto before = registry->getNumberOfInstances(node, 0);
-    auto* object = new Registered;
-    object->setName("reference lifetime");
-    const auto id = object->getID();
-    CHECK(object->getReferenceCount() == 1);
-    object->addReference();
-    CHECK(object->getReferenceCount() == 2);
-    CHECK(!object->release());
-    CHECK(registry->find(node, id) == object);
-    CHECK(object->release());
-    CHECK(registry->find(node, id) == nullptr);
-    CHECK(registry->find(node, "reference lifetime", nullptr) == nullptr);
-    CHECK(registry->getNumberOfInstances(node, 0) == before);
-    object = new Registered;
-    object->autoRelease();
-    CHECK(object->getReferenceCount() == 0);
-    CHECK(object->release());
-    CHECK(registry->getNumberOfInstances(node, 0) == before);
-}
 } // namespace
 
 int main()
@@ -316,7 +289,6 @@ int main()
         growth();
         renaming();
         inherited_and_relative();
-        intrusive_references();
         previous_id = srCore.getRegistry()->allocateID();
         CHECK(srExit());
     }

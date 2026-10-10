@@ -32,9 +32,7 @@ void srIlluminator::process(const ProcessInfo& info, e_processType type)
         srVector3T<float> origin;
         origin.SetZero();
         const glm::vec4 location = renderer->getEyeSpaceLocation(origin);
-        eye_location.x = location.x;
-        eye_location.y = location.y;
-        eye_location.z = location.z;
+        eye_location = glm::vec3(location);
         renderer->popMatrix();
         renderer->pushVertexProcessor(*this);
         return;

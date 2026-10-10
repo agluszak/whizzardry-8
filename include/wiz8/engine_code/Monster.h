@@ -4,6 +4,7 @@
 #include <vector>
 struct W8MonsterSpellIcon;
 
+#include <memory>
 #include "wiz8/monster_spell_icons.h"
 #include "wiz8/monster_actions.h"
 #include <stddef.h>
@@ -301,7 +302,7 @@ public:
     unsigned char padding_22f;
     CycleCallback cycle_callback;
     int callback_cycle;
-    stScript* script;
+    std::shared_ptr<stScript> script;
     int script_line;
     W8MonsterScriptCommand script_wait;
     std::vector<unsigned char> script_conditions;

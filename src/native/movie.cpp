@@ -56,14 +56,12 @@ struct W8NativeVideo::State
     std::unique_ptr<w8_native::MovieAudio> voice;
     std::deque<Frame> queued;
     Frame current{};
-    srColorSurface* presentation_surface = nullptr;
+    std::shared_ptr<srColorSurface> presentation_surface;
     stSurface2D* presentation_tiles = nullptr;
     ~State()
     {
         if (presentation_tiles)
-            presentation_tiles->release();
-        if (presentation_surface)
-            presentation_surface->release();
+            delete presentation_tiles;
         voice.reset();
         swr_free(&resample);
         sws_freeContext(scale);
@@ -358,7 +356,7 @@ void W8NativeVideo::present(CpuSurface* target)
     description.height = target->surface->h;
     if (!state->presentation_surface)
     {
-        state->presentation_surface = new srColorSurface(srPixelConvert::SURFACE_RGB555,
+        state->presentation_surface = std::make_shared<srColorSurface>(srPixelConvert::SURFACE_RGB555,
                                                          description.width, description.height);
         state->presentation_tiles = new stSurface2D(
             state->presentation_surface, description.width, description.height, nullptr, 128);

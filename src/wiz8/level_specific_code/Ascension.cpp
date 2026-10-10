@@ -169,7 +169,7 @@ void AscensionAvalanche(bool command)
         srVector3T<float> position;
         srVector3T<float> trigger_position;
 
-        position = GetWorld()->camera->getLocation();
+        position = glm::vec3(GetWorld()->camera->getLocation());
         FindTriggerByName("ASC40")->GetPosition(&trigger_position);
         if ((position - trigger_position).Length() < g_double_twenty_five_hundred) {
             SetFact(W8_FACT_LANDSLIDE_RAPAX_SIDE, 1, false);

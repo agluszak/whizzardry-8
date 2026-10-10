@@ -1,8 +1,7 @@
 #pragma once
 
-#include "surrender/srTypeRegistry.h"
 #include <vector>
-#include <algorithm>
+#include <string>
 
 struct stScriptLine {
     char* text;
@@ -14,26 +13,26 @@ struct stScriptLabel {
     int line;
 };
 
-/* Owns parsed script lines and labels. Clear frees the records and their text. */
-class stScript : public srClassSupport<stScript, srClass, 0x1000d> {
+/* Owns parsed script lines and labels. */
+class stScript {
 public:
-    static const char* sGetClassName()
+    ~stScript();
+
+    const std::string& getName() const
     {
-        return "stScript";
+        return name;
     }
-
-    virtual ~stScript() override;
-
-    stScript& operator=(const stScript&) = default;
-    virtual srClass* vInstance() override;
+    void setName(std::string name)
+    {
+        this->name = std::move(name);
+    }
 
     int FindLabelLine(const char* label) const;
     int GetSourceLine(int line) const;
     unsigned char Load(const char* path);
     void Clear();
 
+    std::string name;
     std::vector<stScriptLine*> lines;   /* 0x18 */
     std::vector<stScriptLabel*> labels; /* 0x28 */
 };
-
-W8_ABI_ASSERT(sizeof(stScript) == 0x38, "stScript_must_be_0x38");

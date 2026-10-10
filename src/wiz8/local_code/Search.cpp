@@ -197,7 +197,11 @@ void W8Searchable::GetPosition(srVector3T<float>* position)
 }
 
 // FUNCTION: WIZ8 0x005171b0
-void ClearSearchables() { g_searchables.clear(); }
+void ClearSearchables()
+{
+    g_search_view.items.clear();
+    wiz8::remove_all_and_delete_in_order(g_searchables);
+}
 
 /* The 500ms search sweep: while nothing is interacting or surprising the
    party, walk the in-view searchables, pick the best searcher for each, queue

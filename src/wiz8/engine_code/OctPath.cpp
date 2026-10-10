@@ -5178,31 +5178,24 @@ stModelInstance* W8PathingService::EnsurePathVisualization()
 {
     const int polygon_count = 0x3138;
     const int vertex_count = 0x30d4;
-    stMeshModel* model = new stMeshModel(polygon_count, vertex_count);
+    auto model = std::make_shared<stMeshModel>(polygon_count, vertex_count);
     int index;
-
-    if (model == 0) {
-        srAssertFail("pstMeshModel", OCTPATH_CPP, 0x11e9,
-                     "CreateWayPointMesh::Read -- Could not create pstMeshModel.\n");
-    }
-    model->autoRelease();
     model->flags &= ~W8_MESH_SORTED_RENDERING;
-    model->setShader(*g_oct_mesh_default_shader, 0);
+    model->setShader(g_oct_mesh_default.render_flags, 0);
     model->setName("WayPoint Mesh");
-    model->duplicate_on_reuse = 0;
 
     srVector3i* polygons = model->getPolyVertex();
-    srPtr<srTextureIFace>* textures = model->getPolyTexture(0, 0, 1);
+    std::shared_ptr<srTextureIFace>* textures = model->getPolyTexture(0, 0, 1);
     glm::vec2* texture_coordinates = model->getVertexTexCoords(0, 0, 1);
-    srPtr<srMaterialIFace>* materials = model->getVertexMaterial(0, srMeshModel::SIDE_FRONT, 1);
+    std::shared_ptr<srMaterialIFace>* materials = model->getVertexMaterial(0, srMeshModel::SIDE_FRONT, 1);
     w8_ulong* shade_indices = model->getVertexShadeIndex(1);
 
     for (index = 0; index < polygon_count; ++index) {
-        textures[index] = g_oct_mesh_default_texture;
+        textures[index] = g_oct_mesh_default.texture;
     }
     for (index = 0; index < vertex_count; ++index) {
         texture_coordinates[index] = glm::vec2(0);
-        materials[index] = g_oct_mesh_default_material;
+        materials[index] = g_oct_mesh_default.material;
         shade_indices[index] = index;
     }
 

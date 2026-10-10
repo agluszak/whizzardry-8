@@ -14,4 +14,3 @@ public:
 };
 #pragma pack(pop)
 
-W8_ABI_ASSERT(sizeof(srStat) == 0x24, "srStat_must_be_0x24");

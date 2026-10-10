@@ -1268,12 +1268,6 @@ stSound3D::~stSound3D()
     wiz8::erase_first(g_sound3d_instances, this);
 }
 
-// FUNCTION: WIZ8 0x004AE8B0
-srClass* stSound3D::vInstance()
-{
-    return new stSound3D(0, 0);
-}
-
 // FUNCTION: WIZ8 0x004AEBF0
 unsigned char stSound3D::Play(bool loop, bool release_when_done)
 {
@@ -1374,7 +1368,7 @@ void Update3DSounds()
                     bool dead = sound->auto_release;
                     sound->sound_handle = -1;
                     if (dead) {
-                        sound->release();
+                        delete sound;
                         --count;
                         --index;
                     }

@@ -371,7 +371,7 @@ try
     wiz8::DiskFileTime creation_time;
     wiz8::DiskFileTime access_time;
     wiz8::DiskFileTime write_time;
-    srColorSurface* surface;
+    std::unique_ptr<srColorSurface> surface;
     char path[260];
     bool generated;
     short cursor;
@@ -433,13 +433,13 @@ try
         bounds.top = 0;
         bounds.right = 0x280;
         bounds.bottom = 0x1e0;
-        surface = new srColorSurface(srPixelConvert::SURFACE_ARGB1555, screenshot->pixels, 0x50,
+        surface = std::make_unique<srColorSurface>(srPixelConvert::SURFACE_ARGB1555, screenshot->pixels, 0x50,
                                      0x3c, 0xa0);
         SetRendererAutoFlipEnabled(false);
-        screenshot->capture_result = RenderWorldToSurface(surface, &bounds, true);
+        screenshot->capture_result = RenderWorldToSurface(surface.get(), &bounds, true);
         RenderFrame();
         SetRendererAutoFlipEnabled(true);
-        surface->release();
+        surface.reset();
     }
     chunks.OpenChunk(0x544f4853, 0); /* SHOT */
     chunks.Write(screenshot, 0x2588, 0);
@@ -1636,7 +1636,7 @@ catch (const std::exception&) { return false; }
 void CaptureSaveScreenshot(W8SaveScreenshot* screenshot)
 {
     W8ScreenRect rect;
-    srColorSurface* surface;
+    std::unique_ptr<srColorSurface> surface;
 
     screenshot->version = 1.0f;
     rect.top = 0;
@@ -1644,12 +1644,11 @@ void CaptureSaveScreenshot(W8SaveScreenshot* screenshot)
     rect.right = 640;
     rect.bottom = 480;
     surface =
-        new srColorSurface(srPixelConvert::SURFACE_ARGB1555, screenshot->pixels, 0x50, 0x3c, 0xa0);
+        std::make_unique<srColorSurface>(srPixelConvert::SURFACE_ARGB1555, screenshot->pixels, 0x50, 0x3c, 0xa0);
     SetRendererAutoFlipEnabled(false);
-    screenshot->capture_result = RenderWorldToSurface(surface, &rect, true);
+    screenshot->capture_result = RenderWorldToSurface(surface.get(), &rect, true);
     RenderFrame();
     SetRendererAutoFlipEnabled(true);
-    surface->release();
 }
 
 /* Save-slot bookkeeping from the same established

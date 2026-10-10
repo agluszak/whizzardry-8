@@ -204,7 +204,6 @@ void HandleFactChange(W8FactId fact_id, unsigned char value)
         if (value != 0) {
             npc = GetNpcStateByKind(0x20);
             if (npc != 0) {
-                ReleaseNpcScriptFile(npc->script_file);
                 ReloadNpcScriptResources(npc);
                 if (!npc->is_grouped) {
                     CancelNpcDialogue();

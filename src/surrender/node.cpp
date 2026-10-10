@@ -246,8 +246,8 @@ int srNode::setParent(srNode* parent, int preserve_world_transform)
     }
     if (preserve_world_transform != 0) {
         getWorldSpaceRotation(rotation);
-        location = getWorldSpaceLocation().glmValue();
-        scale = getWorldSpaceScale().glmValue();
+        location = getWorldSpaceLocation();
+        scale = getWorldSpaceScale();
     }
     unlink();
     if (parent != 0 || ((parent = srCore.getRootNode()) != this && parent != 0)) {
@@ -482,12 +482,6 @@ int srNode::testFlag(e_flag flag) const
     return (flags.value & (1 << flag)) != 0;
 }
 
-// FUNCTION: SURRENDER 0x10051CD0
-srClass* srNode::vInstance()
-{
-    return new srNode(0);
-}
-
 // FUNCTION: SURRENDER 0x10051D30
 const char* srNode::sGetClassName()
 {
@@ -508,9 +502,7 @@ void srNode::setWSDirty()
 // FUNCTION: SURRENDER 0x10051DB0
 double srNode::getDistance(const srNode& node) const
 {
-    srVector3T<double> other = node.getWorldSpaceLocation();
-    srVector3T<double> offset = getWorldSpaceLocation() - other;
-    return offset.Length();
+    return glm::distance(getWorldSpaceLocation(), node.getWorldSpaceLocation());
 }
 
 // FUNCTION: SURRENDER 0x100536B0
@@ -582,7 +574,7 @@ double srNode::getLocationZ() const
 }
 
 // FUNCTION: SURRENDER 0x10053DA0
-srVector3T<double> srNode::getLocation() const
+glm::dvec3 srNode::getLocation() const
 {
     return location;
 }
@@ -606,7 +598,7 @@ void srNode::getRotation(glm::dmat3& rotation) const
 }
 
 // FUNCTION: SURRENDER 0x10053E90
-srVector3T<double> srNode::getScale() const
+glm::dvec3 srNode::getScale() const
 {
     return scale;
 }
@@ -701,14 +693,12 @@ void srNode::getWorldSpaceCoordinates(glm::mat3& rotation, srVector3T<float>& lo
 {
     checkTransformation();
     getWorldSpaceRotation(rotation);
-    srVector3T<double> ws_location = getWorldSpaceLocation();
-    location = glm::vec3(ws_location.glmValue());
-    srVector3T<double> ws_scale = getWorldSpaceScale();
-    scale = glm::vec3(ws_scale.glmValue());
+    location = glm::vec3(getWorldSpaceLocation());
+    scale = glm::vec3(getWorldSpaceScale());
 }
 
 // FUNCTION: SURRENDER 0x10054F70
-srVector3T<double> srNode::getWorldSpaceLocation() const
+glm::dvec3 srNode::getWorldSpaceLocation() const
 {
     checkTransformation();
     return world_transform0[3];
@@ -733,14 +723,14 @@ void srNode::getWorldSpaceRotation(glm::mat3& rotation) const
 }
 
 // FUNCTION: SURRENDER 0x10055210
-srVector3T<double> srNode::getWorldSpaceDOF() const
+glm::dvec3 srNode::getWorldSpaceDOF() const
 {
     checkTransformation();
     return normalizedOrZero(world_transform0[2]);
 }
 
 // FUNCTION: SURRENDER 0x100552B0
-srVector3T<double> srNode::getWorldSpaceScale() const
+glm::dvec3 srNode::getWorldSpaceScale() const
 {
     checkTransformation();
     return {glm::length(world_transform0[0]), glm::length(world_transform0[1]),
@@ -813,31 +803,6 @@ void srNode::applyWorldSpaceMatrix(srGERD& renderer)
     checkTransformation();
     renderer.matrixMode(srGERD::MATRIX_MODELVIEW);
     renderer.pushMultMatrix(world_transform1);
-}
-
-// FUNCTION: SURRENDER 0x100505B0
-srNode* srNode::cloneHierarchy(srNode* parent)
-{
-    srNode* node = static_cast<srNode*>(vClone());
-    node->setParent(parent, 0);
-    if (first_child_ != 0) {
-        first_child_->cloneHierarchyInternal(node);
-    }
-    return node;
-}
-
-// FUNCTION: SURRENDER 0x10050560
-srNode* srNode::cloneHierarchyInternal(srNode* parent)
-{
-    if (next_sibling_ != 0) {
-        next_sibling_->cloneHierarchyInternal(parent);
-    }
-    srNode* node = static_cast<srNode*>(vClone());
-    node->setParent(parent, 0);
-    if (first_child_ != 0) {
-        first_child_->cloneHierarchyInternal(node);
-    }
-    return node;
 }
 
 // FUNCTION: SURRENDER 0x10050A30
@@ -1128,7 +1093,7 @@ void srNode::pitchAt(const srVector3T<double>& target, double amount)
 {
     glm::dmat3 rotation;
     getWorldSpaceRotation(rotation);
-    const auto direction = normalizedOrZero(target.glmValue() - getWorldSpaceLocation().glmValue());
+    const auto direction = normalizedOrZero(target.glmValue() - getWorldSpaceLocation());
     const double angle =
         -std::atan2(glm::dot(rotation[1], direction), glm::dot(rotation[2], direction)) * amount;
     rotation *= glm::mat3_cast(glm::angleAxis(angle, glm::dvec3(1, 0, 0)));
@@ -1147,7 +1112,7 @@ void srNode::yawAt(const srVector3T<double>& target, double amount)
 {
     glm::dmat3 rotation;
     getWorldSpaceRotation(rotation);
-    const auto direction = normalizedOrZero(target.glmValue() - getWorldSpaceLocation().glmValue());
+    const auto direction = normalizedOrZero(target.glmValue() - getWorldSpaceLocation());
     const double angle =
         std::atan2(glm::dot(rotation[0], direction), glm::dot(rotation[2], direction)) * amount;
     rotation *= glm::mat3_cast(glm::angleAxis(angle, glm::dvec3(0, 1, 0)));

@@ -39,8 +39,8 @@ MonsterLight::MonsterLight(srNode* parent, bool cycle_color, float range,
     far_start = 0.0;
     safe_range = 5000.0f;
     setLinearAttenuation(range, 0.0019569471f);
-    specular.SetZero();
-    diffuse = *first_color;
+    specular = glm::vec3(0);
+    diffuse = first_color->glmValue();
     setFlag(srNode::FLAG_DISABLE);
     m_start_time = g_game_time_accumulator->GetElapsed();
 }
@@ -95,11 +95,7 @@ void MonsterLight::Update(const srVector3T<float>* position)
         float first_weight =
             static_cast<float>(sin((cycle - whole) * g_motion_full_turn_radians) + g_float_one) *
             g_float_half;
-        float second_weight = g_float_one - first_weight;
-
-        diffuse.x = m_color_first.x * first_weight + m_color_second.x * second_weight;
-        diffuse.y = m_color_first.y * first_weight + m_color_second.y * second_weight;
-        diffuse.z = m_color_first.z * first_weight + m_color_second.z * second_weight;
+        diffuse = glm::mix(m_color_second.glmValue(), m_color_first.glmValue(), first_weight);
     }
 
     srVector3T<double> location;

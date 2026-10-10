@@ -1,9 +1,10 @@
 #pragma once
 
+#include <memory>
+
 #include "srColorSurfaceIFace.h"
 #include "srPalette.h"
 #include "srPixelConvert.h"
-#include "srPtr.h"
 #include "srTypeRegistry.h"
 
 class srFilter;
@@ -16,25 +17,22 @@ public:
     /* srGERD::setTextureDefaultCompression remaps DEFAULT (4) to 0; the
        srTexture ctor seeds Dimensions::compression with DEFAULT. */
     enum e_compression { COMPRESSION_DEFAULT = 4 };
-    /* srTexture::getDimensions copies this block wholesale; palette is assigned through
-       srPtr::operator=, so the output object must be constructed. */
+    /* Copies retain shared palette ownership; the output object must be constructed. */
     struct Dimensions {
         w8_ulong width;
         w8_ulong height;
-        srPtr<srPalette> palette;
+        std::shared_ptr<srPalette> palette;
         srPixelConvert::PixelFormat format;
         w8_ulong hints;
         e_compression compression;
         srFilter* filter;
     };
-    W8_ABI_ASSERT(sizeof(Dimensions) == 0x2c, "srTextureIFace_Dimensions_must_be_0x2c");
     struct MultiRequest {
         w8_long mipmap_level;
         /* Last mipmap level filled; iterated level <= last_level. */
         w8_ulong last_level;
         srColorSurfaceIFace* destinations[12];
     };
-    W8_ABI_ASSERT(sizeof(MultiRequest) == 0x38, "srTextureIFace_MultiRequest_must_be_0x38");
     /* srGERD::setTextureSubImage packs the level-0 dimensions and the target
        mipmap level ahead of the clipped destination rect. */
     struct PartialRequest {
@@ -65,7 +63,6 @@ public:
         w8_ulong packed_state;
         float mipmap_bias;
     };
-    W8_ABI_ASSERT(sizeof(Parameters) == 0x08, "srTextureIFace_Parameters_must_be_0x08");
     /* srTexture::dump: NONE / FASTEST / GOOD / BEST, else DEFAULT.
        setTextureDefaultMagFilter remaps DEFAULT (4) to GOOD. */
     enum e_filter {
@@ -104,8 +101,7 @@ public:
         return "srTextureIFace";
     }
 
-    /* Slot 8. Slot 6 is srClass::vInstance; slot 7 is clone. srTextureFile's
-       17-slot vftable (0 through 16) is this interface exactly. */
+    /* srTextureFile's vftable is this interface exactly. */
     virtual w8_ulong getTextureFrameHandle() = 0;
     virtual float getPriority() = 0;
     virtual void getDimensions(Dimensions& dimensions) = 0;
@@ -114,6 +110,7 @@ public:
     virtual void getTextureParms(Parameters& parameters) = 0;
     virtual const char* getTextureName();
     virtual void invalidate() = 0;
+    ~srTextureIFace() override;
 
 protected:
     virtual void setupDefaultValues() = 0;

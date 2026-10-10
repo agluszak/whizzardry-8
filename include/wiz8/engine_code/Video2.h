@@ -1,3 +1,4 @@
+#include <memory>
 /* Modified for the Wizardry 8 reconstruction, 2026-09-10.
    Reconstructed Wizardry Video2 interface.
    Remove the artificial SGP C boundary and unused local configuration include, 2026-10-04.
@@ -98,9 +99,10 @@ class srNode;
 class srTextureIFace;
 class stModelInstance2D;
 template <class T> class srVector3T;
-srNode* MakePosterQuad(srTextureIFace* texture, float width, float height, bool additive);
+srNode* MakePosterQuad(std::shared_ptr<srTextureIFace> texture, float width, float height,
+                       bool additive);
 /* 0x00425190: build a 2D marker model instance over a texture. */
-stModelInstance2D* CreateSpriteFromTexture(srTextureIFace* texture, double width, double height,
+stModelInstance2D* CreateSpriteFromTexture(std::shared_ptr<srTextureIFace> texture, double width, double height,
                                            bool keep_aspect, bool overlay);
 /* 0x00426F80: render the world into a caller-owned color surface through a
    scissored viewport, then blit the locked frame buffer onto the target. */
@@ -148,7 +150,7 @@ void DrawVideoInspector(int left, unsigned int top);
 unsigned int MeasureNodeRenderWithoutPositionalOption(srNode* node);
 /* 0x00424EB0: build the 2D polygon-brush model instance over a surface;
    RenderAutomapMarkers' item-marker factory calls it cross-TU. */
-srModelInstance* MakePolygonBrush(srNode* parent, srColorSurfaceIFace* surface, double width,
+srModelInstance* MakePolygonBrush(srNode* parent, std::shared_ptr<srColorSurfaceIFace> surface, double width,
                                   double height, float mapping_x, float mapping_y,
                                   float mapping_width, float mapping_height, unsigned char overlay);
 /* 0x00484A40: blit one frame of a video object into a color surface. */
@@ -159,7 +161,7 @@ BOOLEAN BlitHVObjectToColorSurface(HVOBJECT object, UINT16 region, srColorSurfac
                                    int x, int y);
 class stTextureAnim;
 /* 0x00428E90: build an stTextureAnim whose frames are VObject subimages. */
-stTextureAnim* VideoVObjectToTextureAnim(HVOBJECT object, unsigned short start_frame,
+std::shared_ptr<stTextureAnim> VideoVObjectToTextureAnim(HVOBJECT object, unsigned short start_frame,
                                          unsigned short frame_count, bool use_argb1555);
 /* 0x00428A90: mark the primary renderer mode word dirty. */
 void SetOverlayRenderMode(void);
@@ -203,9 +205,9 @@ extern srScene* g_scene_prerender1;
 extern srScene* g_scene_overlay0;
 extern srScene* g_scene_overlay1;
 extern srScene* g_scene_square;
-extern srColorSurface* g_primary_color_surface;
+extern std::shared_ptr<srColorSurface> g_primary_color_surface;
 void DrawColorSurface(srColorSurface* surface, int x, int y);
-srNode* VideoMakePoster(srColorSurfaceIFace* surface, float width, float height,
+srNode* VideoMakePoster(std::shared_ptr<srColorSurfaceIFace> surface, float width, float height,
                         bool additive); /* 0x00424A90 */
 extern srCamera* g_overlay_camera;
 extern srCamera* g_square_camera;
@@ -215,8 +217,8 @@ extern srGERD* g_gerd;
 extern srGERD* g_secondary_gerd;
 extern CpuSurface* g_primary_surface;
 extern stSurface2D* g_surface_node;
-extern srMaterial* g_blit_material;
-extern srColorSurface* g_mouse_surface;
+extern std::shared_ptr<srMaterial> g_blit_material;
+extern std::shared_ptr<srColorSurface> g_mouse_surface;
 extern srNode* g_surface_nodes[0x12c0];
 extern unsigned char g_block[0x12c0];
 extern srModelInstance* g_current_model_instance;
@@ -271,7 +273,7 @@ unsigned char FinishVideoPresentation(void);
 void PublishLightDirection(const EnvironmentColour* direction);
 void GetWorldColour(EnvironmentColour* colour); /* 0x00427290 */
 srVector3T<float>* __fastcall SaturateColor(srVector3T<float>* color);
-void ReleaseObject(srClass* object);
+void ReleaseObject(stModelInstance2D* object);
 void Initialize16BitPixelFormatMasks(void);
 unsigned char CreateWizardryWindow(void);
 unsigned char InitializePrimaryCpuSurface(void);
@@ -296,14 +298,11 @@ void SetDisplayGamma(float value);
 unsigned int GetTotalPhysicalMemory(void);
 int GetRendererFamily(void);
 
-/* Shared owned-slot teardown. Keep the slot live across release: callbacks
-   may change it, and clearing still follows the release exactly once. */
+/* Delete a scene object and clear the slot that owned it. */
 template <class T> inline void ReleaseRendererObject(T*& object)
 {
-    if (object != 0) {
-        object->release();
-        object = 0;
-    }
+    delete object;
+    object = nullptr;
 }
 
 #endif

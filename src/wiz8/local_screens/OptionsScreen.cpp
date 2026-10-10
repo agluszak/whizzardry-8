@@ -628,10 +628,9 @@ void W8OptionsSaveRow::Redraw(bool full_redraw)
     if (m_save->screenshot.capture_result == 0) {
         DrawCatalogImage(FRAME_BUFFER, 0xf6, 0, 0, x + 6, y + 6, VO_BLT_SRCTRANSPARENCY, 0);
     } else {
-        srColorSurface* portrait = new srColorSurface(srPixelConvert::SURFACE_ARGB1555,
+        auto portrait = std::make_unique<srColorSurface>(srPixelConvert::SURFACE_ARGB1555,
                                                       m_save->screenshot.pixels, 0x50, 0x3c, 0xa0);
-        DrawColorSurface(portrait, x + 6, y + 6);
-        portrait->release();
+        DrawColorSurface(portrait.get(), x + 6, y + 6);
     }
 
     const wchar_t* level_name = m_save->level_id == 0x38
@@ -1335,6 +1334,7 @@ W8OptionsScreen::~W8OptionsScreen()
     int index;
     SelectPanel(-1, true);
     wiz8::remove_all_and_delete(m_save_slots);
+    if (m_controls) m_controls->DestroyAllControls();
     delete m_controls;
     delete m_menu_set;
     delete m_menu_selection;

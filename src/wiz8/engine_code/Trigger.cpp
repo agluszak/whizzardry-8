@@ -1052,7 +1052,7 @@ bool Trigger::PlayActionSound(const char* sound_name, int volume)
         if (sound->Play(false, true) != 0) {
             return true;
         }
-        sound->release();
+        delete sound;
     }
     return false;
 }
@@ -3659,12 +3659,6 @@ bool Trigger::SelectAction()
     return result;
 }
 
-// FUNCTION: WIZ8 0x0043bc10
-srClass* Trigger::vInstance()
-{
-    return new Trigger;
-}
-
 // FUNCTION: WIZ8 0x0043bca0
 Trigger::~Trigger()
 {
@@ -3717,10 +3711,7 @@ int ResetNextTriggerId(void)
 void DestroyAllWorldTriggers(W8World* world)
 {
     if (world != 0 && world->triggers != 0) {
-        wiz8::clear_and_dispose(*world->triggers, [](auto* value) {
-            if (value) value->release();
-        });
-        world->triggers->clear();
+        wiz8::remove_all_and_delete_in_order(*world->triggers);
     }
 }
 

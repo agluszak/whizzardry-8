@@ -7,6 +7,7 @@
 #include "wiz8/local_screens/AutomapScreen.h"
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/monster_generators.h"
+#include "wiz8/local_code/MonsterGenerator.h"
 #include "wiz8/engine_code/Environment.h"
 #include "wiz8/engine_code/Video2.h"
 #include <cstdlib>
@@ -230,9 +231,9 @@ unsigned char LoadWorld(W8World* world, char* level_file_name, const char* level
     SetSceneAmbientLightWhite(world->static_scene);
     world->camera = CreateOrSetGameCamera(world->static_scene, 0);
     world->camera_light = CreateRangedWorldLight(world, "CameraLight");
-    world->camera_light->ambient.SetZero();
-    world->camera_light->diffuse.Set(1.0f, 0.85f, 0.39f);
-    world->camera_light->specular.SetZero();
+    world->camera_light->ambient = glm::vec3(0);
+    world->camera_light->diffuse = glm::vec3(1.0f, 0.85f, 0.39f);
+    world->camera_light->specular = glm::vec3(0);
     world->camera_light->intensity = 1.0f;
     world->camera_light->setGroupMask(2);
     ConfigureWorldLight(world->camera_light, 4000.0f);
@@ -454,6 +455,10 @@ void DestroyWorldCollections(W8World* world)
         return;
     }
 
+    if (world->monster_generators) {
+        wiz8::remove_all_and_delete_in_order(*world->monster_generators);
+    }
+
     if (world->plsMonsters != 0) {
         wiz8::remove_all_and_delete_in_order(*world->plsMonsters);
         delete world->plsMonsters;
@@ -508,7 +513,7 @@ void DestroyWorldCollections(W8World* world)
         RenderFrame();
 
     if (world->particles != 0) {
-        wiz8::clear_and_dispose(*world->particles, [](auto* value) { value->release(); });
+        wiz8::remove_all_and_delete_in_order(*world->particles);
     }
     if (world->named_positions != 0) {
         wiz8::remove_all_and_delete_in_order(*world->named_positions);
