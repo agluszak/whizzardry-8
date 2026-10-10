@@ -1450,6 +1450,33 @@ void StartMonsterAttackCycle(W8MonsterInfo* monster_info, W8AttackMode action_de
     StartMonsterCycle(monster_info, cycle, W8_ANIMATION_PLAY_ONCE);
 }
 
+/* Release queued casualty notices and reset the attack result. */
+static void DrainCombatDeathReports(W8SpellEffectResult* report)
+{
+    W8SpellDamageReport* entry;
+    while (!report->reports.empty()) {
+        entry = report->reports[0];
+        report->reports.erase(report->reports.begin());
+        if (entry != nullptr) {
+            if (entry->kind == 1) {
+                PostCharacterNotice(
+                    entry->value,
+                    fmt::format(
+                        "{}!",
+                        g_localized_strings[g_condition_notices[W8_CONDITION_DEAD].singular]));
+            } else if (entry->kind == 3) {
+                ShowNotice(
+                    W8_FONT_PALETTE_RUST,
+                    fmt::format(
+                        "{} {}!", entry->text,
+                        g_localized_strings[g_condition_notices[W8_CONDITION_DEAD].singular]));
+            }
+            free(entry);
+        }
+    }
+    *report = {};
+}
+
 /* Announce a character's attack on the combat log: the swings line, the
    damage notices, what the target suffered unless it died, and the casualty
    list - then wipe the record clean for the next attack. */
@@ -1458,7 +1485,6 @@ void ReportCharacterAttackResult(int party_slot, W8SpellEffectResult* report)
 {
     W8MonsterInfo* monster_info;
     w8_unaligned_uint* condition_turns;
-    W8SpellDamageReport* entry;
     unsigned int condition;
 
     if (report->condition_counts[W8_CONDITION_DEAD] > 0) {
@@ -1545,27 +1571,7 @@ void ReportCharacterAttackResult(int party_slot, W8SpellEffectResult* report)
             }
         }
     }
-    while (!report->reports.empty()) {
-        entry = report->reports[0];
-        report->reports.erase(report->reports.begin());
-        if (entry != nullptr) {
-            if (entry->kind == 1) {
-                PostCharacterNotice(
-                    entry->value,
-                    fmt::format(
-                        "{}!",
-                        g_localized_strings[g_condition_notices[W8_CONDITION_DEAD].singular]));
-            } else if (entry->kind == 3) {
-                ShowNotice(
-                    W8_FONT_PALETTE_RUST,
-                    fmt::format(
-                        "{} {}!", entry->text,
-                        g_localized_strings[g_condition_notices[W8_CONDITION_DEAD].singular]));
-            }
-            free(entry);
-        }
-    }
-    *report = {};
+    DrainCombatDeathReports(report);
 }
 
 static int GetCombatFumbleChance(const std::vector<W8CombatSlot>& targets, int attack_score)
@@ -2027,7 +2033,6 @@ invalid_target:
 void ReportMonsterAttackResult(W8MonsterInfo* monster_info, W8SpellEffectResult* report)
 {
     w8_unaligned_uint* condition_turns;
-    W8SpellDamageReport* entry;
     unsigned int condition;
 
     if (report->condition_counts[W8_CONDITION_DEAD] > 0) {
@@ -2109,27 +2114,7 @@ void ReportMonsterAttackResult(W8MonsterInfo* monster_info, W8SpellEffectResult*
             }
         }
     }
-    while (!report->reports.empty()) {
-        entry = report->reports[0];
-        report->reports.erase(report->reports.begin());
-        if (entry != nullptr) {
-            if (entry->kind == 1) {
-                PostCharacterNotice(
-                    entry->value,
-                    fmt::format(
-                        "{}!",
-                        g_localized_strings[g_condition_notices[W8_CONDITION_DEAD].singular]));
-            } else if (entry->kind == 3) {
-                ShowNotice(
-                    W8_FONT_PALETTE_RUST,
-                    fmt::format(
-                        "{} {}!", entry->text,
-                        g_localized_strings[g_condition_notices[W8_CONDITION_DEAD].singular]));
-            }
-            free(entry);
-        }
-    }
-    *report = {};
+    DrainCombatDeathReports(report);
 }
 
 /* Begin one of the monster's attacks for the round: validate the state, rate
