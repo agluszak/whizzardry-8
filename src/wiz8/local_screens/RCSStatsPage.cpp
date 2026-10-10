@@ -389,7 +389,10 @@ unsigned int CountEquipItemPenalties(int slot)
 /* Descriptive name for appending an effect and updating both category counts. */
 static void AddCampEffectEntry(W8CampScreenState* screen, W8CampEffectEntry* entry)
 {
-    screen->effect_list = AddtoList(screen->effect_list, entry, ListSize(screen->effect_list));
+    auto list = AddtoList(screen->effect_list, entry, ListSize(screen->effect_list));
+    if (!list)
+        return;
+    screen->effect_list = list;
     if (entry->beneficial != 0) {
         ++screen->effect_beneficial_count;
     }
