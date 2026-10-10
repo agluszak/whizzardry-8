@@ -16,7 +16,6 @@
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/sr_api.h"
 #include "wiz8/video_object_catalog.h"
-#include "wiz8/wiz8_windows.h"
 #include "wiz8/dialog_code/DialogInterface.h"
 #include "wiz8/dialog_code/MessageDialogBase.h"
 #include "wiz8/utility.h"
@@ -229,7 +228,7 @@ static bool HandleDeveloperModeKey(const InputAtom* input)
 // FUNCTION: WIZ8 0x005bcbf0
 void MainMenuScreenFrame()
 {
-    POINT point;
+    SGPPoint point;
     InputAtom input;
 
     if (g_dev_mode) {
@@ -254,7 +253,7 @@ void MainMenuScreenFrame()
         ProcessMessageBoxInput();
     } else {
         SGPMouseGetPos(&point);
-        g_main_menu_hover_region = UpdateRegionMousePosition(point.x, point.y);
+        g_main_menu_hover_region = UpdateRegionMousePosition(point.iX, point.iY);
         while (DequeueEvent(&input) == 1) {
             if (!DispatchRegionInput(&input) && input.usEvent == KEY_DOWN) {
                 if (HandleDeveloperModeKey(&input)) {

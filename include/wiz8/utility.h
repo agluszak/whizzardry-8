@@ -3,7 +3,6 @@
 
 #include "wiz8/local_code/ControlsRect.h"
 #include <wchar.h>
-#include "wiz8/wiz8_windows.h"
 #include "wiz8/application.h"
 
 #include "wiz8/dice.h"
@@ -38,7 +37,7 @@ wchar_t* FormatUnsignedIntegerWithCommas(wchar_t* output, unsigned int value);
 char* TitleCaseString(char* string);
 float ShortestAngleDistance(float first, float second);
 void UnionScreenRects(const W8ScreenRect* first, const W8ScreenRect* second, W8ScreenRect* result);
-bool ScreenPointInRect(const W8ScreenRect* rect, const POINT* point);
+bool ScreenPointInRect(const W8ScreenRect* rect, const SGPPoint* point);
 void AdjustByteByPercent(unsigned char* value, unsigned int percent);
 void AdjustIntegerByPercent(unsigned int* value, unsigned int percent);
 float NormalizeAngle(float angle);

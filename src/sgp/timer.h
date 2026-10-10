@@ -1,31 +1,12 @@
-/* Modified for the Wizardry 8 reconstruction: 2026-10-06, 2026-10-07.
+/* Modified for the Wizardry 8 reconstruction: 2026-10-06, 2026-10-10.
    Distributed under the accompanying SFI Source Code license agreement. */
-#ifndef __TIMER_
-#define __TIMER_
+#pragma once
 
 #include "Types.h"
 
-typedef UINT32 TIMER;
-
-#define MILLISECONDS(a) (a)
-#define SECONDS(a) ((a) / 1000)
-#define MINUTES(a) (SECOND((a)) / 60)
-#define HOURS(a) (MINUTES((a)) / 60)
-#define DAYS(a) (HOURS((a)) / 24)
-
-#ifdef __cplusplus
-extern "C" {
-#endif
-
-BOOLEAN InitializeClockManager(void);
-void UpdateClockManager(void);
-void ShutdownClockManager(void);
-TIMER GetClock(void);
-TIMER SetCountdownClock(UINT32 TimeToElapse);
-UINT32 ClockIsTicking(TIMER uiTimer);
-
-#ifdef __cplusplus
+/* Countdowns are stored as 64-bit w8_get_ticks deadline stamps. */
+inline uint64_t TimeUntilDeadline(uint64_t deadline)
+{
+    const int64_t remaining = int64_t(deadline - w8_get_ticks());
+    return remaining > 0 ? uint64_t(remaining) : 0;
 }
-#endif
-
-#endif

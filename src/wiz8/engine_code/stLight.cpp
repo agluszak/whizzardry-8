@@ -16,7 +16,6 @@
 
 #include "wiz8/filesystem.h"
 
-#include "wiz8/wiz8_windows.h"
 #include <new>
 #include <stdlib.h>
 #include <string.h>
@@ -61,7 +60,7 @@ stLight::stLight(srNode* parent)
     m_level = 0;
     m_definition = 0;
     m_unknown_238 = 0;
-    m_level_time = m_path_time = GetTickCount() * 0.001f;
+    m_level_time = m_path_time = w8_get_ticks() * 0.001f;
 }
 
 /* Exactly two owned members. The definition is released through its own
@@ -104,7 +103,7 @@ stLight& stLight::operator=(const stLight& other)
     m_path_index = other.m_path_index;
     m_path_direction = other.m_path_direction;
     m_level = other.m_level;
-    m_level_time = m_path_time = GetTickCount() * 0.001f;
+    m_level_time = m_path_time = w8_get_ticks() * 0.001f;
     m_prop = other.m_prop;
     m_save_marked = other.m_save_marked;
     return *this;
@@ -257,7 +256,7 @@ void stLight::Update()
         return;
     }
 
-    w8_ulong ticks = GetTickCount();
+    w8_ulong ticks = w8_get_ticks();
     W8PathAI* path = path_ai;
     float seconds = ticks * g_float_one_thousandth;
     stParametricLightDefinition* definition =
@@ -401,7 +400,7 @@ void stLight::Reset()
     }
 
     m_level = 0;
-    m_path_time = GetTickCount() * 0.001f;
+    m_path_time = w8_get_ticks() * 0.001f;
     m_level_time = m_path_time;
 }
 

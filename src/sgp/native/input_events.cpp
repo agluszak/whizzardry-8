@@ -1,7 +1,6 @@
 #include "wiz8/application.h"
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/engine_code/GameData.h"
-#include "timer.h"
 #include <stdexcept>
 
 #include "native/input_events.h"
@@ -16,7 +15,7 @@ namespace
 bool restore_pending = false;
 SDL_Window* input_window = nullptr;
 SDL_Keymod current_modifiers = SDL_KMOD_NONE;
-POINT mouse_position{};
+SGPPoint mouse_position{};
 bool focused = false;
 float wheel_remainder = 0;
 
@@ -34,19 +33,19 @@ void set_mouse_position(float x, float y)
     int width = 0, height = 0;
     if (!SDL_GetWindowSize(input_window, &width, &height) || width <= 0 || height <= 0)
         return;
-    mouse_position.x = std::clamp(int(std::floor(x * 640 / width)), 0, 639);
-    mouse_position.y = std::clamp(int(std::floor(y * 480 / height)), 0, 479);
-    gusMouseXPos = mouse_position.x;
-    gusMouseYPos = mouse_position.y;
+    mouse_position.iX = std::clamp(int(std::floor(x * 640 / width)), 0, 639);
+    mouse_position.iY = std::clamp(int(std::floor(y * 480 / height)), 0, 479);
+    gusMouseXPos = mouse_position.iX;
+    gusMouseYPos = mouse_position.iY;
 }
 UINT32 packed_mouse_position()
 {
-    return (UINT32(mouse_position.y) << 16) | UINT32(mouse_position.x);
+    return (UINT32(mouse_position.iY) << 16) | UINT32(mouse_position.iX);
 }
 void set_modifiers(SDL_Keymod value)
 {
     const SDL_Keymod masks[] = {SDL_KMOD_SHIFT, SDL_KMOD_CTRL, SDL_KMOD_ALT};
-    const UINT keys[] = {VK_SHIFT, VK_CONTROL, VK_MENU};
+    const UINT32 keys[] = {VK_SHIFT, VK_CONTROL, VK_MENU};
     for (size_t i = 0; i < 3; ++i)
     {
         bool before = (current_modifiers & masks[i]) != 0, after = (value & masks[i]) != 0;
@@ -60,7 +59,7 @@ void set_modifiers(SDL_Keymod value)
     }
     current_modifiers = value;
 }
-UINT game_key(SDL_Keycode key, bool& extended)
+UINT32 game_key(SDL_Keycode key, bool& extended)
 {
     if (key >= SDLK_A && key <= SDLK_Z)
         return key - SDLK_A + 'A';
@@ -202,26 +201,26 @@ void SetInputWindow(SDL_Window* window)
     focused = window && (SDL_GetWindowFlags(window) & SDL_WINDOW_INPUT_FOCUS);
     mouse_position = {};
 }
-void GetGameMousePosition(POINT* point)
+void GetGameMousePosition(SGPPoint* point)
 {
     if (point)
-        *point = focused ? mouse_position : POINT{};
+        *point = focused ? mouse_position : SGPPoint{};
 }
-bool SetGameCursorRect(const RECT* rect)
+bool SetGameCursorRect(const SGPRect* rect)
 {
     if (!input_window)
         return false;
     if (!rect)
         return SDL_SetWindowMouseRect(input_window, nullptr);
-    if (!focused || rect->left < 0 || rect->top < 0 || rect->right <= rect->left ||
-        rect->bottom <= rect->top || rect->right > 640 || rect->bottom > 480)
+    if (!focused || rect->iLeft < 0 || rect->iTop < 0 || rect->iRight <= rect->iLeft ||
+        rect->iBottom <= rect->iTop || rect->iRight > 640 || rect->iBottom > 480)
         return false;
     int width, height;
     if (!SDL_GetWindowSize(input_window, &width, &height))
         return false;
-    int left = rect->left * width / 640, top = rect->top * height / 480;
-    SDL_Rect native{left, top, rect->right * width / 640 - left,
-                    rect->bottom * height / 480 - top};
+    int left = rect->iLeft * width / 640, top = rect->iTop * height / 480;
+    SDL_Rect native{left, top, rect->iRight * width / 640 - left,
+                    rect->iBottom * height / 480 - top};
     return SDL_SetWindowMouseRect(input_window, &native);
 }
 bool WarpGameMouse(SDL_Window* window, int x, int y)
@@ -261,7 +260,7 @@ void HandleInputEvent(const SDL_Event& event)
     {
         set_modifiers(event.key.mod);
         bool extended = false;
-        UINT key = game_key(event.key.key, extended);
+        UINT32 key = game_key(event.key.key, extended);
         if (!key || key == VK_SHIFT || key == VK_CONTROL || key == VK_MENU)
             break;
         UINT32 flags = 1 | (extended ? 0x01000000u : 0);
@@ -407,6 +406,5 @@ bool PumpGameEvents(bool wait)
         HandleGameEvent(event);
         received = true;
     }
-    UpdateClockManager();
     return received;
 }

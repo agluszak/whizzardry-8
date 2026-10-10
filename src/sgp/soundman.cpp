@@ -12,7 +12,7 @@
 #include <string.h>
 #include "soundman.h"
 #include "wiz8/filesystem.h"
-#include "wiz8/compat/kernel32.h"
+#include "Types.h"
 
 #include <wiz8/native_audio.h>
 #include <algorithm>
@@ -43,7 +43,8 @@ struct CachedSound
     UINT32 uiSize = 0, uiFlags = 0, uiSpeed = 0, uiCacheHits = 0;
     std::shared_ptr<MIX_Mixer> owner;
     w8_native::Audio audio;
-    UINT32 uiTimeNext = 0, uiTimeMin = 0, uiTimeMax = 0;
+    uint64_t uiTimeNext = 0;
+    UINT32 uiTimeMin = 0, uiTimeMax = 0;
     UINT32 uiSpeedMin = 0, uiSpeedMax = 0, uiVolMin = 0, uiVolMax = 0;
     UINT32 uiPanMin = 0, uiPanMax = 0, uiPriority = 0, uiInstances = 0, uiMaxInstances = 0;
 };
@@ -56,7 +57,8 @@ struct SoundChannel
     UINT32 uiSample = NO_SAMPLE, uiSoundID = NO_SAMPLE, uiPriority = PRIORITY_MAX;
     void (*EOSCallback)(void*) = nullptr;
     void* pCallbackData = nullptr;
-    UINT32 uiTimeStamp = 0, uiFadeVolume = 0, uiFadeRate = 0, uiFadeTime = 0;
+    uint64_t uiTimeStamp = 0, uiFadeTime = 0;
+    UINT32 uiFadeVolume = 0, uiFadeRate = 0;
     UINT32 volume = 127, playbackRate = 44100;
     Sint64 duration = -1;
     BOOLEAN fMusic = FALSE, fStopAtZero = TRUE;
@@ -282,7 +284,7 @@ UINT32 SoundPlayRandom(STR pFilename, RANDOMPARMS* pParms)
             pSampleList[uiSample].uiInstances = 0;
 
             pSampleList[uiSample].uiTimeNext =
-                GetTickCount() + pSampleList[uiSample].uiTimeMin +
+                w8_get_ticks() + pSampleList[uiSample].uiTimeMin +
                 (pSampleList[uiSample].uiTimeMax > pSampleList[uiSample].uiTimeMin ? Random(pSampleList[uiSample].uiTimeMax - pSampleList[uiSample].uiTimeMin) : 0);
             return (uiSample);
         }
@@ -376,7 +378,7 @@ BOOLEAN SoundStopGroup(UINT32 uiPriority)
 // FUNCTION: WIZ8 0x00409120
 void SoundSetDefaultVolume(UINT32 uiVolume)
 {
-    guiSoundDefaultVolume = __min(uiVolume, 127);
+    guiSoundDefaultVolume = std::min(uiVolume, 127u);
 }
 
 // SoundSetFadeVolume
@@ -394,7 +396,7 @@ BOOLEAN SoundSetFadeVolume(UINT32 uiSoundID, UINT32 uiVolume, UINT32 uiRate, BOO
     UINT32 uiSound, uiVolCap, uiVolumeDiff;
 
     if (fSoundSystemInit) {
-        uiVolCap = __min(uiVolume, 127);
+        uiVolCap = std::min(uiVolume, 127u);
 
         if ((uiSound = SoundGetIndexByID(uiSoundID)) != NO_SAMPLE) {
             uiVolumeDiff = abs(static_cast<int>(uiVolCap - SoundGetVolumeIndex(uiSound)));
@@ -405,7 +407,7 @@ BOOLEAN SoundSetFadeVolume(UINT32 uiSoundID, UINT32 uiVolume, UINT32 uiRate, BOO
             pSoundList[uiSound].uiFadeVolume = uiVolCap;
             pSoundList[uiSound].fStopAtZero = fStopAtZero;
             pSoundList[uiSound].uiFadeRate = uiRate / uiVolumeDiff;
-            pSoundList[uiSound].uiFadeTime = GetTickCount();
+            pSoundList[uiSound].uiFadeTime = w8_get_ticks();
 
             return (TRUE);
         }
@@ -512,7 +514,7 @@ BOOLEAN SoundRandomShouldPlay(UINT32 uiSample)
 {
     if (uiSample >= SOUND_MAX_CACHED) return FALSE;
     if (pSampleList[uiSample].uiFlags & SAMPLE_RANDOM)
-        if (pSampleList[uiSample].uiTimeNext <= GetTickCount())
+        if (pSampleList[uiSample].uiTimeNext <= w8_get_ticks())
             if (pSampleList[uiSample].uiInstances < pSampleList[uiSample].uiMaxInstances)
                 return (TRUE);
 
@@ -543,7 +545,7 @@ UINT32 SoundStartRandom(UINT32 uiSample)
 
         if ((uiSoundID = SoundStartSample(uiSample, uiChannel, &spParms)) != SOUND_ERROR) {
             pSampleList[uiSample].uiTimeNext =
-                GetTickCount() + pSampleList[uiSample].uiTimeMin +
+                w8_get_ticks() + pSampleList[uiSample].uiTimeMin +
                 (pSampleList[uiSample].uiTimeMax > pSampleList[uiSample].uiTimeMin ? Random(pSampleList[uiSample].uiTimeMax - pSampleList[uiSample].uiTimeMin) : 0);
             pSampleList[uiSample].uiInstances++;
             return (uiSoundID);
@@ -605,7 +607,7 @@ BOOLEAN SoundServiceStreams(void)
         auto& channel = pSoundList[index];
         if (!channel.track) continue;
         if (!SoundIndexIsPlaying(index)) { SoundStopIndex(index); continue; }
-        const auto time = GetTickCount();
+        const auto time = w8_get_ticks();
         if (channel.volume == channel.uiFadeVolume || time - channel.uiFadeTime < channel.uiFadeRate) continue;
         const auto volume = channel.volume < channel.uiFadeVolume ? channel.volume + 1 : channel.volume - 1;
         if (volume == 0 && channel.fStopAtZero) SoundStopIndex(index);
@@ -628,17 +630,14 @@ BOOLEAN SoundServiceStreams(void)
 UINT32 SoundGetPosition(UINT32 uiSoundID)
 {
     //UINT32 uiSound, uiFreq=0, uiPosition=0, uiBytesPerSample=0, uiFormat=0;
-    UINT32 uiSound, uiTime, uiPosition;
+    UINT32 uiSound;
+    uint64_t uiTime, uiPosition;
 
     if (fSoundSystemInit) {
         if ((uiSound = SoundGetIndexByID(uiSoundID)) != NO_SAMPLE) {
 
-            uiTime = GetTickCount();
-            // check for rollover
-            if (uiTime < pSoundList[uiSound].uiTimeStamp)
-                uiPosition = (0 - pSoundList[uiSound].uiTimeStamp) + uiTime;
-            else
-                uiPosition = (uiTime - pSoundList[uiSound].uiTimeStamp);
+            uiTime = w8_get_ticks();
+            uiPosition = uiTime - pSoundList[uiSound].uiTimeStamp;
 
             return (uiPosition);
         }
@@ -897,7 +896,7 @@ void SoundResetChannel(UINT32 index)
     channel.track.reset();
     channel.input.reset();
     channel = SoundChannel{};
-    channel.uiTimeStamp = GetTickCount();
+    channel.uiTimeStamp = w8_get_ticks();
 }
 
 UINT32 SoundGetFreeChannel(void)
@@ -997,7 +996,7 @@ static UINT32 StartTrack(UINT32 index, UINT32 sample, const Parameters* paramete
     if (!ok) { SoundResetChannel(index); return SOUND_ERROR; }
     channel.uiSample = sample;
     channel.uiSoundID = SoundGetUniqueID();
-    channel.uiTimeStamp = GetTickCount();
+    channel.uiTimeStamp = w8_get_ticks();
     channel.fLooping = loops == 0;
     if (sample < SOUND_MAX_CACHED)
     {
@@ -1383,7 +1382,7 @@ UINT32 Sound3DStartRandom(UINT32 uiSample, SOUND3DPOS* pPos)
 
         if ((uiSoundID = Sound3DStartSample(uiSample, uiChannel, &sp3DParms)) != SOUND_ERROR) {
             pSampleList[uiSample].uiTimeNext =
-                GetTickCount() + pSampleList[uiSample].uiTimeMin +
+                w8_get_ticks() + pSampleList[uiSample].uiTimeMin +
                 (pSampleList[uiSample].uiTimeMax > pSampleList[uiSample].uiTimeMin ? Random(pSampleList[uiSample].uiTimeMax - pSampleList[uiSample].uiTimeMin) : 0);
             pSampleList[uiSample].uiInstances++;
             return (uiSoundID);

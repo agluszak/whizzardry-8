@@ -162,7 +162,7 @@ int main(int argc, char** argv)
         printf("retail cursor: %u GPU pixels\n", cursor_pixels);
         CHECK(cursor_pixels > 5);
 
-        HWND persistent_window = ghWindow;
+        SDL_Window* persistent_window = ghWindow;
         {
             std::vector<uint16_t> movie_pixels;
             {
@@ -219,7 +219,7 @@ int main(int argc, char** argv)
         ShutdownVideoObjectManager();
         ShutdownVideoSurfaceManager();
         ShutdownVideoScenes();
-        HWND window = ghWindow;
+        SDL_Window* window = ghWindow;
         srExit();
         ReleasePrimaryCpuSurface();
         W8DestroyGameWindow(window);

@@ -1,20 +1,16 @@
 #pragma once
-#include "compat/kernel32.h"
+#include "Types.h"
 #include "compat/surfaces.h"
+struct SDL_Window;
 class srDD;
 class srGERD;
-HWND W8CreateGameWindow(int width, int height, bool fullscreen);
-void W8DestroyGameWindow(HWND window);
-bool W8ConfigureGameWindow(HWND window, bool fullscreen, int width, int height);
+SDL_Window* W8CreateGameWindow(int width, int height, bool fullscreen);
+void W8DestroyGameWindow(SDL_Window* window);
+bool W8ConfigureGameWindow(SDL_Window* window, bool fullscreen, int width, int height);
 srDD* W8CreateNativeRenderDevice();
-BOOL W8VideoGetClientRect(HWND window, RECT* rect);
-BOOL W8VideoGetWindowRect(HWND window, RECT* rect);
-BOOL W8VideoClientToScreen(HWND window, POINT* point);
-BOOL W8VideoWarpMouse(HWND window, int x, int y);
-BOOL W8VideoShowCursor(BOOL visible);
-BOOL W8VideoShowWindow(HWND window, int command);
-BOOL W8VideoRaiseWindow(HWND window);
-BOOL W8VideoCloseWindow(HWND window);
+/* Fills rect with the game's fixed 640x480 client space; real window scaling
+   happens in the SDL input adapters. */
+bool W8VideoGetClientRect(SDL_Window* window, SGPRect* rect);
 unsigned int W8TotalPhysicalMemory();
 bool W8HasEnoughSaveSpace();
 

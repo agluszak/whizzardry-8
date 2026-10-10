@@ -5,7 +5,6 @@
 #ifndef WIZ8_VIDEO2_H
 #define WIZ8_VIDEO2_H
 
-#include "wiz8/wiz8_windows.h"
 #include "compat/surfaces.h"
 
 #include "Types.h"
@@ -20,7 +19,8 @@
 #define MAX_CURSOR_HEIGHT 64
 #define VIDEO_NO_CURSOR 0xFFFF
 
-extern HWND ghWindow;
+struct SDL_Window;
+extern SDL_Window* ghWindow;
 
 extern BOOLEAN InitializeVideoManager(void);
 extern void ShutdownVideoManager(void);
@@ -51,7 +51,7 @@ CHAR8* VideoGetConfigFile(void);
 void VideoSetConfigFile(const CHAR8* path);
 int VideoDumpMemoryLeaks(void);
 BOOLEAN CheckCdPresent(void);
-void VideoGetClientRect(RECT* rect);
+void VideoGetClientRect(SGPRect* rect);
 void VideoToolTip(CHAR16* text);
 extern INT32 g_help_box_width;
 extern INT32 g_help_box_height;
@@ -68,7 +68,7 @@ static __inline INT32 VideoGetToolTipHeight(void)
 void VideoPositionToolTip(INT32 x, INT32 y);
 void VideoRemoveToolTip(void);
 
-void SGPMouseGetPos(POINT* point);
+void SGPMouseGetPos(SGPPoint* point);
 
 /* Tooltip ownership query: nonzero while a VideoToolTip object is alive. */
 bool HasScreenTransitionObjects(void); /* 0x004297D0 */

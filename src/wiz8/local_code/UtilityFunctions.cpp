@@ -317,10 +317,10 @@ void UnionScreenRects(const W8ScreenRect* first, const W8ScreenRect* second, W8S
 }
 
 // FUNCTION: WIZ8 0x00517e70
-bool ScreenPointInRect(const W8ScreenRect* rect, const POINT* point)
+bool ScreenPointInRect(const W8ScreenRect* rect, const SGPPoint* point)
 {
-    if (rect != 0 && point != 0 && point->x >= rect->left && point->x < rect->right &&
-        point->y >= rect->top && point->y < rect->bottom) {
+    if (rect != 0 && point != 0 && point->iX >= rect->left && point->iX < rect->right &&
+        point->iY >= rect->top && point->iY < rect->bottom) {
         return true;
     }
     return false;
@@ -783,17 +783,17 @@ void RenderMessageBox(void)
 // FUNCTION: WIZ8 0x00518b30
 void ProcessMessageBoxInput(void)
 {
-    POINT point;
+    SGPPoint point;
     InputAtom input;
     SGPMouseGetPos(&point);
-    MSYS_SGP_Mouse_Handler_Hook(MOUSE_POS, point.x, point.y, gfLeftButtonState, gfRightButtonState);
+    MSYS_SGP_Mouse_Handler_Hook(MOUSE_POS, point.iX, point.iY, gfLeftButtonState, gfRightButtonState);
     while (DequeueEvent(&input) == 1) {
         switch (input.usEvent) {
         case LEFT_BUTTON_DOWN:
         case LEFT_BUTTON_UP:
         case RIGHT_BUTTON_DOWN:
         case RIGHT_BUTTON_UP:
-            MSYS_SGP_Mouse_Handler_Hook(input.usEvent, point.x, point.y, gfLeftButtonState,
+            MSYS_SGP_Mouse_Handler_Hook(input.usEvent, point.iX, point.iY, gfLeftButtonState,
                                         gfRightButtonState);
             break;
         case KEY_DOWN:

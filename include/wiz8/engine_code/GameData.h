@@ -10,7 +10,6 @@
 
 #include "Types.h"
 #include "wiz8/engine_code/IntervalGate.h"
-#include "wiz8/wiz8_windows.h"
 
 namespace wiz8 { class File; }
 

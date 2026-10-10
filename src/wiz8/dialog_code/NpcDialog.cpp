@@ -1,5 +1,4 @@
 #include "wiz8/dialog_code/DialogInterface.h"
-#include "wiz8/wiz8_windows.h"
 #include "vsurface.h"
 #include "wiz8/dialog_code/NpcDialog.h"
 #include "wiz8/engine_code/Video2.h"
@@ -210,11 +209,11 @@ void W8NpcDialog::Draw()
 // FUNCTION: WIZ8 0x005DAE90
 bool W8NpcDialog::ProcessInput()
 {
-    POINT mouse;
+    SGPPoint mouse;
     InputAtom input;
 
     SGPMouseGetPos(&mouse);
-    MSYS_SGP_Mouse_Handler_Hook(MOUSE_POS, mouse.x, mouse.y, gfLeftButtonState, gfRightButtonState);
+    MSYS_SGP_Mouse_Handler_Hook(MOUSE_POS, mouse.iX, mouse.iY, gfLeftButtonState, gfRightButtonState);
     while (DequeueEvent(&input) == TRUE) {
         if ((input.usEvent != KEY_DOWN && input.usEvent != KEY_REPEAT) ||
             static_cast<char>(HandleTextInput(&input)) == 0) {
@@ -224,7 +223,7 @@ bool W8NpcDialog::ProcessInput()
                 g_npc_dialog->m_keep_open = false;
                 return true;
             }
-            DispatchDialogMouseInput(input.usEvent, mouse.x, mouse.y);
+            DispatchDialogMouseInput(input.usEvent, mouse.iX, mouse.iY);
         }
     }
     return m_keep_open;

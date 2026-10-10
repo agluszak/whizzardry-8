@@ -3,7 +3,6 @@
 #include <stddef.h>
 
 #include "wiz8/regions.h"
-#include "wiz8/wiz8_windows.h"
 #include "wiz8/video_object_catalog.h"
 #include "vobject_blitters.h"
 

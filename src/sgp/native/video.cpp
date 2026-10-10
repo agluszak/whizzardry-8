@@ -8,11 +8,7 @@
 #include <climits>
 #include <filesystem>
 #include <sstream>
-namespace
-{
-SDL_Window* native(HWND window) { return reinterpret_cast<SDL_Window*>(window); }
-} // namespace
-HWND W8CreateGameWindow(int width, int height, bool fullscreen)
+SDL_Window* W8CreateGameWindow(int width, int height, bool fullscreen)
 {
     SDL_Window* window = SDL_CreateWindow("Whizzardry 8", std::max(width, 640),
                                           std::max(height, 480), SDL_WINDOW_RESIZABLE);
@@ -20,62 +16,37 @@ HWND W8CreateGameWindow(int width, int height, bool fullscreen)
         return nullptr;
     SDL_SetWindowMinimumSize(window, 640, 480);
     SDL_SetWindowAspectRatio(window, 4.f / 3.f, 4.f / 3.f);
-    HWND handle = reinterpret_cast<HWND>(window);
-    if (!W8ConfigureGameWindow(handle, fullscreen, width, height))
+    if (!W8ConfigureGameWindow(window, fullscreen, width, height))
     {
         SDL_DestroyWindow(window);
         return nullptr;
     }
     SetInputWindow(window);
-    return handle;
+    return window;
 }
-void W8DestroyGameWindow(HWND window)
+void W8DestroyGameWindow(SDL_Window* window)
 {
     if (!window)
         return;
     SetInputWindow(nullptr);
-    SDL_DestroyWindow(native(window));
+    SDL_DestroyWindow(window);
 }
-bool W8ConfigureGameWindow(HWND window, bool fullscreen, int width, int height)
+bool W8ConfigureGameWindow(SDL_Window* window, bool fullscreen, int width, int height)
 {
     return window && width >= 640 && height >= 480 &&
-           SDL_SetWindowSize(native(window), width, height) &&
-           SDL_SetWindowFullscreen(native(window), fullscreen) && SDL_SyncWindow(native(window));
+           SDL_SetWindowSize(window, width, height) &&
+           SDL_SetWindowFullscreen(window, fullscreen) && SDL_SyncWindow(window);
 }
 srDD* W8CreateNativeRenderDevice() { return srCreateSDLGPUDevice(); }
-BOOL W8VideoGetClientRect(HWND window, RECT* rect)
+bool W8VideoGetClientRect(SDL_Window* window, SGPRect* rect)
 {
     if (!window || !rect)
-        return FALSE;
+        return false;
     /* Recovered cursor/viewport logic operates in the 640x480 design space.
        SDL event and warp adapters perform the actual window scaling. */
     *rect = {0, 0, 640, 480};
-    return TRUE;
+    return true;
 }
-BOOL W8VideoClientToScreen(HWND window, POINT* point) { return window && point; }
-BOOL W8VideoGetWindowRect(HWND window, RECT* rect)
-{
-    if (!window || !rect)
-        return FALSE;
-    int x, y, width, height;
-    if (!SDL_GetWindowPosition(native(window), &x, &y) ||
-        !SDL_GetWindowSize(native(window), &width, &height))
-        return FALSE;
-    *rect = {x, y, x + width, y + height};
-    return TRUE;
-}
-BOOL W8VideoWarpMouse(HWND window, int x, int y) { return WarpGameMouse(native(window), x, y); }
-BOOL W8VideoShowCursor(BOOL visible) { return visible ? SDL_ShowCursor() : SDL_HideCursor(); }
-BOOL W8VideoShowWindow(HWND window, int command)
-{
-    if (!window)
-        return FALSE;
-    if (command == 6)
-        return SDL_MinimizeWindow(native(window));
-    return SDL_ShowWindow(native(window)) && SDL_RestoreWindow(native(window));
-}
-BOOL W8VideoRaiseWindow(HWND window) { return window && SDL_RaiseWindow(native(window)); }
-BOOL W8VideoCloseWindow(HWND window) { return window && SDL_HideWindow(native(window)); }
 unsigned int W8TotalPhysicalMemory()
 {
     const int megabytes = SDL_GetSystemRAM();

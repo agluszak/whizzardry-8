@@ -1,4 +1,3 @@
-#include "wiz8/wiz8_windows.h"
 #include "wiz8/spell_ids.h"
 #include "wiz8/local_screens/RCSItemsPage.h"
 #include "wiz8/integer_constants.h"

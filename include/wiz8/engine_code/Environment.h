@@ -103,7 +103,7 @@ void RefreshFogRanges(void);
 
 void SetViewDistance(float distance);
 unsigned char InitializeEnvironmentColours(void);
-extern unsigned int g_frame_tick;
+extern uint64_t g_frame_tick;
 extern float g_frame_elapsed;
 
 /* The environment's lighting mode: 2 while the per-frame day/night cycle runs,

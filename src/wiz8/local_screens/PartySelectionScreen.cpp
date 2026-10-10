@@ -384,9 +384,9 @@ void W8PartySelectionListControl::OnMouseLeave(int event)
 // FUNCTION: WIZ8 0x005c00e0
 void W8PartySelectionListControl::OnMouseMove(int)
 {
-    POINT point;
+    SGPPoint point;
     SGPMouseGetPos(&point);
-    int hovered = (point.x - m_pPanel->m_bounds.top - m_top) / 0x0e + m_first_visible;
+    int hovered = (point.iX - m_pPanel->m_bounds.top - m_top) / 0x0e + m_first_visible;
     if (hovered != m_hovered) {
         m_hovered = hovered;
         Invalidate(false);
@@ -396,9 +396,9 @@ void W8PartySelectionListControl::OnMouseMove(int)
 // FUNCTION: WIZ8 0x005c0140
 void W8PartySelectionListControl::OnLeftButtonUp(int event)
 {
-    POINT point;
+    SGPPoint point;
     SGPMouseGetPos(&point);
-    int selection = (point.y - m_pPanel->m_bounds.top - m_top) / 0x0e + m_first_visible;
+    int selection = (point.iY - m_pPanel->m_bounds.top - m_top) / 0x0e + m_first_visible;
     if (selection != m_selection) {
         m_selection = selection;
         Invalidate(static_cast<unsigned char>(event));
@@ -2073,8 +2073,8 @@ unsigned char PartySelectionScreenLeave(int leaving)
 // FUNCTION: WIZ8 0x005c3120
 void PartySelectionScreenFrame(void)
 {
-    POINT point;
-    POINT current;
+    SGPPoint point;
+    SGPPoint current;
     InputAtom input;
 
     if (g_dev_mode) {
@@ -2095,11 +2095,11 @@ void PartySelectionScreenFrame(void)
     }
     if (controller->m_input_handler) {
         SGPMouseGetPos(&current);
-        MSYS_SGP_Mouse_Handler_Hook(MOUSE_POS, static_cast<unsigned short>(current.x),
-                                    static_cast<unsigned short>(current.y), gfLeftButtonState,
+        MSYS_SGP_Mouse_Handler_Hook(MOUSE_POS, static_cast<unsigned short>(current.iX),
+                                    static_cast<unsigned short>(current.iY), gfLeftButtonState,
                                     gfRightButtonState);
     }
-    UpdateRegionMousePosition(point.x, point.y);
+    UpdateRegionMousePosition(point.iX, point.iY);
     while (DequeueEvent(&input) == 1) {
         if (!DispatchRegionInput(&input) &&
             (!controller->m_input_handler || !controller->m_input_handler->HandleInput(&input)) &&

@@ -1,4 +1,3 @@
-#include "wiz8/wiz8_windows.h"
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/sgp_text.h"
 #include "wiz8/local_screens/NPCInteractionSubscreen.h"
@@ -477,11 +476,11 @@ unsigned char JournalScreenLeave(int)
 // FUNCTION: WIZ8 0x005be110
 void JournalScreenFrame(void)
 {
-    POINT point;
+    SGPPoint point;
     InputAtom input;
 
     SGPMouseGetPos(&point);
-    UpdateRegionMousePosition(point.x, point.y);
+    UpdateRegionMousePosition(point.iX, point.iY);
     while (DequeueEvent(&input) == 1) {
         if (!DispatchRegionInput(&input) && input.usEvent == KEY_DOWN) {
             if (input.usParam == VK_ESCAPE) {

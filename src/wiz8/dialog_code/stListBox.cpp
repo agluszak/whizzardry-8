@@ -24,7 +24,7 @@ void W8ListBoxDialog::TextAreaButtonCallback(GUI_BUTTON* button, INT32 reason)
             srAssertFail("pDialog", "C:\\Projects\\Wizardry 8\\Dialog Code\\stListBox.cpp", 0x2f5,
                          0);
         }
-        POINT cursor;
+        SGPPoint cursor;
         SGPMouseGetPos(&cursor);
         /* Retail read this top edge uninitialized when the area button is
            absent (the leftover argument slot); natively it starts at zero. */
@@ -34,7 +34,7 @@ void W8ListBoxDialog::TextAreaButtonCallback(GUI_BUTTON* button, INT32 reason)
             GetButtonArea(dialog->m_area_button, &area);
             top = area.iTop;
         }
-        int line = (cursor.y - top) / static_cast<int>(static_cast<unsigned int>(
+        int line = (cursor.iY - top) / static_cast<int>(static_cast<unsigned int>(
                                           GetFontHeight(g_dialog_interface_font))) +
                    dialog->m_first_visible_line;
         if (line == dialog->m_selected_line) {
@@ -123,7 +123,7 @@ void W8ListBoxDialog::SliderTrackButtonCallback(GUI_BUTTON* button, INT32 reason
             srAssertFail("pDialog", "C:\\Projects\\Wizardry 8\\Dialog Code\\stListBox.cpp", 0x398,
                          0);
         }
-        POINT cursor;
+        SGPPoint cursor;
         SGPMouseGetPos(&cursor);
         /* Retail read both track edges uninitialized when the text-area
            button is absent (the leftover argument slots); natively they start at zero. */
@@ -135,12 +135,12 @@ void W8ListBoxDialog::SliderTrackButtonCallback(GUI_BUTTON* button, INT32 reason
             top = area.iTop + GetButtonHeight(dialog->m_up_button);
             bottom = area.iBottom - GetButtonHeight(dialog->m_down_button);
         }
-        if (cursor.y < top) {
-            cursor.y = top;
+        if (cursor.iY < top) {
+            cursor.iY = top;
         }
-        if (cursor.y > bottom) {
-            cursor.y = bottom;
+        if (cursor.iY > bottom) {
+            cursor.iY = bottom;
         }
-        dialog->SetCurrentLine((cursor.y - top) * dialog->m_lines.GetCount() / (bottom - top));
+        dialog->SetCurrentLine((cursor.iY - top) * dialog->m_lines.GetCount() / (bottom - top));
     }
 }

@@ -445,7 +445,7 @@ void stModelInstance2D::process(const ProcessInfo& info, e_processType)
         }
 
         float glow_weight = static_cast<float>(
-            fabs(sin(((GetTickCount() % render_state.render_depth) /
+            fabs(sin(((w8_get_ticks() % render_state.render_depth) /
                       static_cast<double>(static_cast<int>(render_state.render_depth))) *
                      g_camera_angle_period)));
         float base_weight = g_float_one - glow_weight;

@@ -1,4 +1,3 @@
-#include "wiz8/wiz8_windows.h"
 #include "wiz8/engine_code/3d.h"
 #include "wiz8/engine_code/3dapi.h"
 #include "wiz8/engine_code/AmbientSound.h"

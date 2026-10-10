@@ -10,6 +10,7 @@
 #include "wiz8/local_code/ConditionsAndEnchantments.h"
 #include "wiz8/local_code/PC_Item.h"
 #include "wiz8/item_video_object_vector.h"
+#include <algorithm>
 #include "wiz8/layouts/item_tables.h"
 #include "wiz8/local_code/Strings.h"
 #include "wiz8/local_code/TextBuffer.h"
@@ -537,8 +538,8 @@ void W8SplitItemDialog::OnSplitDecrement(W8DialogButton* button)
         return;
     }
     dialog = static_cast<W8SplitItemDialog*>(button->m_owner);
-    dialog->split_count = __max(0, dialog->split_count - 1);
-    dialog->m_remaining = __min(dialog->m_stack_total, dialog->m_remaining + 1);
+    dialog->split_count = std::max(0, dialog->split_count - 1);
+    dialog->m_remaining = std::min(dialog->m_stack_total, dialog->m_remaining + 1);
     dialog->UpdateTotals();
 }
 
@@ -551,8 +552,8 @@ void W8SplitItemDialog::OnSplitIncrement(W8DialogButton* button)
         return;
     }
     dialog = static_cast<W8SplitItemDialog*>(button->m_owner);
-    dialog->m_remaining = __max(0, dialog->m_remaining - 1);
-    dialog->split_count = __min(dialog->m_stack_total, dialog->split_count + 1);
+    dialog->m_remaining = std::max(0, dialog->m_remaining - 1);
+    dialog->split_count = std::min(dialog->m_stack_total, dialog->split_count + 1);
     dialog->UpdateTotals();
 }
 
@@ -565,8 +566,8 @@ void W8SplitItemDialog::OnSplitDecrementMany(W8DialogButton* button)
         return;
     }
     dialog = static_cast<W8SplitItemDialog*>(button->m_owner);
-    dialog->split_count = __max(0, dialog->split_count - 5);
-    dialog->m_remaining = __min(dialog->m_stack_total, dialog->m_remaining + 5);
+    dialog->split_count = std::max(0, dialog->split_count - 5);
+    dialog->m_remaining = std::min(dialog->m_stack_total, dialog->m_remaining + 5);
     dialog->UpdateTotals();
 }
 
@@ -579,8 +580,8 @@ void W8SplitItemDialog::OnSplitIncrementMany(W8DialogButton* button)
         return;
     }
     dialog = static_cast<W8SplitItemDialog*>(button->m_owner);
-    dialog->m_remaining = __max(0, dialog->m_remaining - 5);
-    dialog->split_count = __min(dialog->m_stack_total, dialog->split_count + 5);
+    dialog->m_remaining = std::max(0, dialog->m_remaining - 5);
+    dialog->split_count = std::min(dialog->m_stack_total, dialog->split_count + 5);
     dialog->UpdateTotals();
 }
 
@@ -614,8 +615,8 @@ void W8SplitItemDialog::OnCancel(W8DialogButton* button)
 void W8SplitItemDialog::OnCountFieldClick(W8DialogButton* button)
 {
     W8SplitItemDialog* dialog;
-    POINT mouse;
-    POINT point;
+    SGPPoint mouse;
+    SGPPoint point;
 
     if (button == 0) {
         return;
@@ -625,13 +626,13 @@ void W8SplitItemDialog::OnCountFieldClick(W8DialogButton* button)
     if (dialog->m_count_input == 0) {
         return;
     }
-    point.x = mouse.x - dialog->m_x;
-    point.y = mouse.y - dialog->m_y;
+    point.iX = mouse.iX - dialog->m_x;
+    point.iY = mouse.iY - dialog->m_y;
     if (!ScreenPointInRect(&g_split_count_field_bounds, &point)) {
         return;
     }
-    point.x -= g_split_count_field_bounds.left;
-    point.y -= g_split_count_field_bounds.top;
+    point.iX -= g_split_count_field_bounds.left;
+    point.iY -= g_split_count_field_bounds.top;
     dialog->m_count_input->SetActive(true, &point);
     dialog->m_active_input = dialog->m_count_input;
 }

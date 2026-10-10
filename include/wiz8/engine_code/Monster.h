@@ -271,9 +271,9 @@ public:
     unsigned char padding_1fe[2];
     /* 0x200/0x204: the 120 ms clock and the last frame of the random mouth
        flicker used while the gap track reports the mouth closed. */
-    int mouth_frame_clock;
+    int64_t mouth_frame_clock;
     int mouth_frame;
-    unsigned int talk_start;
+    uint64_t talk_start;
     unsigned int talk_duration;
     int talk_state;
     /* 0x214: the current mouth state the dialogue update copies out of the
