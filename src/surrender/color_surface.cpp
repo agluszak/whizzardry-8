@@ -16,6 +16,21 @@
 #include "surrender/srFilter.h"
 #include "surrender/srPalette.h"
 
+/* Blend a straight-alpha source pixel into an ARGB destination pixel. */
+static void BlendArgbPixel(unsigned char* dest, const unsigned char* source, double alpha)
+{
+    if (source[3] == 0 || !(0.0 < alpha))
+        return;
+    if (1.0 < alpha)
+        alpha = 1.0;
+    const double blend = source[3] * 0.00392156862745098 * alpha;
+    const double inverse = 1.0 - blend;
+    dest[2] = (unsigned char)srFloatToInt(dest[2] * inverse + source[2] * blend);
+    dest[1] = (unsigned char)srFloatToInt(dest[1] * inverse + source[1] * blend);
+    dest[0] = (unsigned char)srFloatToInt(dest[0] * inverse + source[0] * blend);
+    dest[3] = (unsigned char)srFloatToInt(blend * 255.0 + dest[3] * inverse);
+}
+
 // FUNCTION: SURRENDER 0x100571F0
 srColorSurfaceIFace::srColorSurfaceIFace()
     : width(0), height(0), pitch(0), clamp_modes(0), filter(nullptr)
@@ -2852,22 +2867,7 @@ void srColorSurfaceIFace::composite(w8_long x, w8_long y, srColorSurfaceIFace& s
                                     (unsigned char*)&temp[(source_bottom - source_y - r) * span +
                                                           i];
                                 unsigned char* dest_pixel = (unsigned char*)&row[i];
-                                double blend = alpha;
-                                if ((source_pixel[3] != 0) && (0.0 < alpha)) {
-                                    if (1.0 < alpha) {
-                                        blend = 1.0;
-                                    }
-                                    blend = source_pixel[3] * 0.00392156862745098 * blend;
-                                    double inverse = 1.0 - blend;
-                                    dest_pixel[2] = (unsigned char)srFloatToInt(
-                                        dest_pixel[2] * inverse + source_pixel[2] * blend);
-                                    dest_pixel[1] = (unsigned char)srFloatToInt(
-                                        dest_pixel[1] * inverse + source_pixel[1] * blend);
-                                    dest_pixel[0] = (unsigned char)srFloatToInt(
-                                        dest_pixel[0] * inverse + source_pixel[0] * blend);
-                                    dest_pixel[3] = (unsigned char)srFloatToInt(
-                                        blend * 255.0 + dest_pixel[3] * inverse);
-                                }
+                                BlendArgbPixel(dest_pixel, source_pixel, alpha);
                             }
                             setPixelRow(row, y, x, dest_span + source_right);
                             y = y + 1;
@@ -2893,16 +2893,7 @@ void srColorSurfaceIFace::composite(w8_long x, w8_long y, srColorSurfaceIFace& s
                                     if (alpha_byte == 0xff) {
                                         row[i] = source_row[i];
                                     } else {
-                                        double blend = alpha_byte * 0.00392156862745098;
-                                        double inverse = 1.0 - blend;
-                                        dest_pixel[2] = (unsigned char)srFloatToInt(
-                                            dest_pixel[2] * inverse + source_pixel[2] * blend);
-                                        dest_pixel[1] = (unsigned char)srFloatToInt(
-                                            dest_pixel[1] * inverse + source_pixel[1] * blend);
-                                        dest_pixel[0] = (unsigned char)srFloatToInt(
-                                            dest_pixel[0] * inverse + source_pixel[0] * blend);
-                                        dest_pixel[3] = (unsigned char)srFloatToInt(
-                                            blend * 255.0 + dest_pixel[3] * inverse);
+                                        BlendArgbPixel(dest_pixel, source_pixel, 1.0);
                                     }
                                 }
                             }
@@ -2916,22 +2907,7 @@ void srColorSurfaceIFace::composite(w8_long x, w8_long y, srColorSurfaceIFace& s
                             for (w8_long i = 0; i < span; i++) {
                                 unsigned char* source_pixel = (unsigned char*)&source_row[i];
                                 unsigned char* dest_pixel = (unsigned char*)&row[i];
-                                double blend = alpha;
-                                if ((source_pixel[3] != 0) && (0.0 < alpha)) {
-                                    if (1.0 < alpha) {
-                                        blend = 1.0;
-                                    }
-                                    blend = source_pixel[3] * 0.00392156862745098 * blend;
-                                    double inverse = 1.0 - blend;
-                                    dest_pixel[2] = (unsigned char)srFloatToInt(
-                                        dest_pixel[2] * inverse + source_pixel[2] * blend);
-                                    dest_pixel[1] = (unsigned char)srFloatToInt(
-                                        dest_pixel[1] * inverse + source_pixel[1] * blend);
-                                    dest_pixel[0] = (unsigned char)srFloatToInt(
-                                        dest_pixel[0] * inverse + source_pixel[0] * blend);
-                                    dest_pixel[3] = (unsigned char)srFloatToInt(
-                                        blend * 255.0 + dest_pixel[3] * inverse);
-                                }
+                                BlendArgbPixel(dest_pixel, source_pixel, alpha);
                             }
                             setPixelRow(row, y, x, dest_span + source_right);
                             y = y + 1;
