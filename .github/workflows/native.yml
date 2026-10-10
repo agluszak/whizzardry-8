@@ -43,6 +43,8 @@ jobs:
           sudo apt-get install -y \
             ./libsdl3-mixer0_3.2.4+ds-1_amd64.deb \
             ./libsdl3-mixer-dev_3.2.4+ds-1_amd64.deb
+      - name: Select software Vulkan driver
+        run: echo "VK_DRIVER_FILES=/usr/share/vulkan/icd.d/lvp_icd.json" >> "$GITHUB_ENV"
       - name: Create cache directories
         run: mkdir -p "$CCACHE_DIR"
       - uses: actions/cache/restore@0400d5f644dc74513175e3cd8d07132dd4860809 # v4.2.4
@@ -69,7 +71,7 @@ jobs:
             -DCMAKE_C_FLAGS="-fsanitize=address,undefined -fno-omit-frame-pointer" \
             -DCMAKE_CXX_FLAGS="-fsanitize=address,undefined -fno-omit-frame-pointer" \
             -DCMAKE_EXE_LINKER_FLAGS="-fsanitize=address,undefined"
-          cmake --build build/sanitized --target native_loader_records_test native_save_records_test native_runtime_test native_vector_math_test --parallel "$(nproc)"
+          cmake --build build/sanitized --target native_loader_records_test native_save_records_test native_runtime_test native_vector_math_test native_gpu_lifecycle --parallel "$(nproc)"
           ctest --test-dir build/sanitized -R '^native_(loader_records|save_records|vector_math)$' --output-on-failure
       # The canonical GOG installer is stored in the decomp project's private
       # wiz8-ci-inputs release. Never put decrypted game files in Actions cache.
@@ -158,7 +160,9 @@ jobs:
         env:
           ASAN_OPTIONS: detect_leaks=1
           UBSAN_OPTIONS: halt_on_error=1:print_stacktrace=1
-        run: ctest --test-dir build/sanitized -L runtime --output-on-failure
+        run: |
+          SDL_VIDEODRIVER=offscreen build/sanitized/tests/native_gpu_lifecycle
+          ctest --test-dir build/sanitized -L runtime --output-on-failure
 
       - name: Remove decrypted game assets
         if: always() && steps.game-assets.outputs.enabled == 'true'
