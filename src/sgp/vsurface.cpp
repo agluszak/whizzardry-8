@@ -27,7 +27,6 @@ BOOLEAN FillSurface(HVSURFACE hDestVSurface, blt_vs_fx* pBltFx);
 BOOLEAN FillSurfaceRect(HVSURFACE hDestVSurface, blt_vs_fx* pBltFx);
 BOOLEAN BltVSurfaceUsingSDL(HVSURFACE hDestVSurface, HVSURFACE hSrcVSurface, UINT32 fBltFlags,
                            INT32 iDestX, INT32 iDestY, SDL_Rect* SrcRect);
-BOOLEAN GetVSurfaceRect(HVSURFACE hVSurface, SDL_Rect* pRect);
 
 void DeletePrimaryVideoSurfaces();
 // LOCAL global variables
@@ -304,43 +303,12 @@ BOOLEAN ColorFillVideoSurfaceArea(UINT32 uiDestVSurface, INT32 iDestX1, INT32 iD
         return FALSE;
     }
 
-    BltFx.ColorFill = Color16BPP;
-    BltFx.DestRegion = 0;
-    // Clip fill region coords
-
     GetClippingRect(&Clip);
-
-    if (iDestX1 < Clip.x)
-        iDestX1 = Clip.x;
-
-    if (iDestX1 > (Clip.x + Clip.w))
-        return (FALSE);
-
-    if (iDestX2 > (Clip.x + Clip.w))
-        iDestX2 = (Clip.x + Clip.w);
-
-    if (iDestX2 < Clip.x)
-        return (FALSE);
-
-    if (iDestY1 < Clip.y)
-        iDestY1 = Clip.y;
-
-    if (iDestY1 > (Clip.y + Clip.h))
-        return (FALSE);
-
-    if (iDestY2 > (Clip.y + Clip.h))
-        iDestY2 = (Clip.y + Clip.h);
-
-    if (iDestY2 < Clip.y)
-        return (FALSE);
-
-    if ((iDestX2 <= iDestX1) || (iDestY2 <= iDestY1))
-        return (FALSE);
-
     BltFx.FillRect = {iDestX1, iDestY1, iDestX2 - iDestX1, iDestY2 - iDestY1};
-    BltFx.SrcRect = BltFx.FillRect;
-
-    return (FillSurfaceRect(hDestVSurface, &BltFx));
+    if (!SDL_GetRectIntersection(&BltFx.FillRect, &Clip, &BltFx.FillRect))
+        return FALSE;
+    BltFx.ColorFill = Color16BPP;
+    return FillSurfaceRect(hDestVSurface, &BltFx);
 }
 // Fills an rectangular area with a specified image value.
 
@@ -628,32 +596,15 @@ BOOLEAN GetVSurfaceRegion(HVSURFACE hVSurface, UINT16 usIndex, VSURFACE_REGION* 
     return TRUE;
 }
 
-BOOLEAN GetVSurfaceRect(HVSURFACE hVSurface, SDL_Rect* pRect)
-{
-    Assert(hVSurface != nullptr);
-    Assert(pRect != nullptr);
-
-    *pRect = {0, 0, hVSurface->usWidth, hVSurface->usHeight};
-
-    return (TRUE);
-}
-
-// *******************************************************************
-// Blitting Functions
-// *******************************************************************
-
-// Ordinary same-depth blits use SDL.
-// Will drop down into user-defined blitter if 8->16 BPP blitting is being done
-
 // FUNCTION: WIZ8 0x00403b10
 BOOLEAN BltVideoSurfaceToVideoSurface(HVSURFACE hDestVSurface, HVSURFACE hSrcVSurface,
                                       UINT16 usIndex, INT32 iDestX, INT32 iDestY, INT32 fBltFlags,
                                       blt_vs_fx* pBltFx)
 {
     VSURFACE_REGION aRegion;
-    SDL_Rect SrcRect, DestRect;
+    SDL_Rect SrcRect;
     UINT16 *pDestSurface16, *pSrcSurface16;
-    UINT32 uiSrcPitch, uiDestPitch, uiWidth, uiHeight;
+    UINT32 uiSrcPitch, uiDestPitch;
 
     // Assertions
     Assert(hDestVSurface != nullptr);
@@ -720,44 +671,13 @@ BOOLEAN BltVideoSurfaceToVideoSurface(HVSURFACE hDestVSurface, HVSURFACE hSrcVSu
     // Once here, assert valid Src
     Assert(hSrcVSurface != nullptr);
 
-    // clipping -- added by DB
-    GetVSurfaceRect(hDestVSurface, &DestRect);
-    uiWidth = SrcRect.w;
-    uiHeight = SrcRect.h;
+    const SDL_Rect bounds{0, 0, hDestVSurface->usWidth, hDestVSurface->usHeight};
+    const SDL_Rect destination{iDestX, iDestY, SrcRect.w, SrcRect.h};
+    if (!SDL_HasRectIntersection(&destination, &bounds))
+        return FALSE;
 
-    // check for position entirely off the screen
-    if (iDestX >= (DestRect.x + DestRect.w))
-        return (FALSE);
-    if (iDestY >= (DestRect.y + DestRect.h))
-        return (FALSE);
-    if ((iDestX + (INT32)uiWidth) < (INT32)DestRect.x)
-        return (FALSE);
-    if ((iDestY + (INT32)uiHeight) < (INT32)DestRect.y)
-        return (FALSE);
-
-    // DB The mirroring stuff has to do it's own clipping because
-    // it needs to invert some of the numbers
-    if (!(fBltFlags & VS_BLT_MIRROR_Y)) {
-        if ((iDestX + (INT32)uiWidth) >= (INT32)(DestRect.x + DestRect.w)) {
-            SrcRect.w -= ((iDestX + uiWidth) - (DestRect.x + DestRect.w));
-            uiWidth -= ((iDestX + uiWidth) - (DestRect.x + DestRect.w));
-        }
-        if ((iDestY + (INT32)uiHeight) >= (INT32)(DestRect.y + DestRect.h)) {
-            SrcRect.h -= ((iDestY + uiHeight) - (DestRect.y + DestRect.h));
-            uiHeight -= ((iDestY + uiHeight) - (DestRect.y + DestRect.h));
-        }
-        if (iDestX < DestRect.x) {
-            SrcRect.x += (DestRect.x - iDestX); SrcRect.w -= (DestRect.x - iDestX);
-            uiWidth -= (DestRect.x - iDestX);
-            iDestX = DestRect.x;
-        }
-        if (iDestY < (INT32)DestRect.y) {
-            SrcRect.y += (DestRect.y - iDestY); SrcRect.h -= (DestRect.y - iDestY);
-            uiHeight -= (DestRect.y - iDestY);
-            iDestY = DestRect.y;
-        }
-    }
-
+    // Ordinary blits clip once in BltVSurfaceUsingSDL; mirrored blits retain
+    // their own coordinate mapping and clipping.
     // Same-depth operations use the SDL surface path.
     // First check BPP values for compatibility
     if (hDestVSurface->ubBitDepth == 16 && hSrcVSurface->ubBitDepth == 16) {
@@ -776,7 +696,7 @@ BOOLEAN BltVideoSurfaceToVideoSurface(HVSURFACE hDestVSurface, HVSURFACE hSrcVSu
             }
 
             Blt16BPPTo16BPPMirror(pDestSurface16, uiDestPitch, pSrcSurface16, uiSrcPitch, iDestX,
-                                  iDestY, SrcRect.x, SrcRect.y, uiWidth, uiHeight);
+                                  iDestY, SrcRect.x, SrcRect.y, SrcRect.w, SrcRect.h);
             UnLockVideoSurfaceBuffer(hSrcVSurface);
             UnLockVideoSurfaceBuffer(hDestVSurface);
             return (TRUE);
@@ -905,37 +825,12 @@ BOOLEAN InternalShadowVideoSurfaceRect(UINT32 uiDestVSurface, INT32 X1, INT32 Y1
 #endif
     CHECKF(GetVideoSurface(&hVSurface, uiDestVSurface));
 
-    if (X1 < 0)
-        X1 = 0;
-
-    if (X2 < 0)
-        return (FALSE);
-
-    if (Y2 < 0)
-        return (FALSE);
-
-    if (Y1 < 0)
-        Y1 = 0;
-
-    if (X2 >= hVSurface->usWidth)
-        X2 = hVSurface->usWidth - 1;
-
-    if (Y2 >= hVSurface->usHeight)
-        Y2 = hVSurface->usHeight - 1;
-
-    if (X1 >= hVSurface->usWidth)
-        return (FALSE);
-
-    if (Y1 >= hVSurface->usHeight)
-        return (FALSE);
-
-    if ((X2 - X1) <= 0)
-        return (FALSE);
-
-    if ((Y2 - Y1) <= 0)
-        return (FALSE);
-
+    // The shadow blitter adds the final pixel on each axis; keep its inclusive
+    // endpoint convention while intersecting the edge-based area here.
+    const SDL_Rect bounds{0, 0, hVSurface->usWidth - 1, hVSurface->usHeight - 1};
     area = {X1, Y1, X2 - X1, Y2 - Y1};
+    if (!SDL_GetRectIntersection(&area, &bounds, &area))
+        return FALSE;
 
     // Lock video surface
     pBuffer = (UINT16*)LockVideoSurface(uiDestVSurface, &uiPitch);
