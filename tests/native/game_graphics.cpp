@@ -71,7 +71,7 @@ int main(int argc, char** argv)
         g_fullscreen = 0;
         Initialize16BitPixelFormatMasks();
         CHECK(CreateWizardryWindow());
-        CHECK(InitializePrimaryDirectDrawSurface());
+        CHECK(InitializePrimaryCpuSurface());
         CHECK(InitializeVideoDevice());
         CHECK(InitializeRendererSceneObjects());
         auto* targa = srCore.getSurfaceIOManager()->importSurface(
@@ -222,8 +222,7 @@ int main(int argc, char** argv)
         ShutdownVideoScenes();
         HWND window = ghWindow;
         srExit();
-        auto surface = GetFrameBufferObject();
-        DDReleaseSurface(nullptr, &surface);
+        ReleasePrimaryCpuSurface();
         W8DestroyGameWindow(window);
         ShutdownInputManager();
         ShutDownFileDatabase();

@@ -24,13 +24,11 @@ set(SURRENDER_SOURCES
     image_io.cpp
     light.cpp
     material.cpp
-    memory_pool.cpp
     mesh_model.cpp
     triangle_culler.cpp
     model.cpp
     model_instance.cpp
     modeler.cpp
-    mutex.cpp
     node.cpp
     scene.cpp
     stream.cpp
@@ -41,14 +39,14 @@ set(SURRENDER_SOURCES
     texture.cpp
     texture_file.cpp
     texture_map.cpp
-    scheduler.cpp
     statistics.cpp
-    thread.cpp
     timer.cpp
     variable_timer.cpp
     triangulator.cpp
     type_registry.cpp
     video_manager.cpp
+    ../srext_jpegimporter/plugin.cpp
+    ../srext_jpegimporter/surface_transfer.cpp
     window.cpp
     window_out.cpp
     vector_processor.cpp
@@ -56,7 +54,6 @@ set(SURRENDER_SOURCES
 
 add_library(SURRENDER STATIC ${SURRENDER_SOURCES})
 target_compile_definitions(SURRENDER PRIVATE SURRENDER_BUILD)
-find_package(SDL3_image CONFIG REQUIRED)
 target_link_libraries(SURRENDER PRIVATE wiz8_native_settings SDL3::SDL3 SDL3_image::SDL3_image)
 if(UNIX AND NOT APPLE)
     target_link_options(SURRENDER PRIVATE -Wl,--no-undefined)

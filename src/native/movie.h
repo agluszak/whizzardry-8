@@ -2,7 +2,7 @@
 #include <cstdint>
 #include <memory>
 #include <vector>
-struct IDirectDrawSurface2;
+struct CpuSurface;
 struct W8NativeVideo
 {
     enum Result
@@ -22,7 +22,7 @@ struct W8NativeVideo
     void open(const char* path);
     Result update(double elapsed);
     Result update_now();
-    void present(IDirectDrawSurface2* target);
+    void present(CpuSurface* target);
     const Frame& frame() const;
     unsigned decoded_frames() const;
     uint64_t decoded_audio_frames() const;

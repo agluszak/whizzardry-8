@@ -3,7 +3,7 @@
 #include <memory>
 namespace w8_native
 {
-/* A movie-owned PCM voice on the same engine as recovered soundman. */
+// Movie-owned queued PCM on soundman's mixer, with silence during underruns.
 class MovieAudio
 {
   public:

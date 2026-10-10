@@ -4,7 +4,6 @@
 
 #include "srGlobalRecycler.h"
 #include "srHeap.h"
-#include "srScheduler.h"
 #include "srStatisticsManager.h"
 #include "srVariableTimer.h"
 
@@ -49,12 +48,6 @@ public:
     SR_DLL_IMPORT srModelIOManager* getModelIOManager() const;
     SR_DLL_IMPORT srPalette* getPalette() const;
     SR_DLL_IMPORT srNode* getRootNode() const;
-    // FUNCTION: SURRENDER 0x100156A0
-    // RECOMP: ?getScheduler@srCore@@QBEPAVsrScheduler@@XZ
-    srScheduler* getScheduler() const
-    {
-        return scheduler;
-    }
     // FUNCTION: SURRENDER 0x100156B0
     // RECOMP: ?getStatisticsManager@srCore@@QBEPAVsrStatisticsManager@@XZ
     srStatisticsManager* getStatisticsManager() const
@@ -95,7 +88,6 @@ private:
 
     static SR_DLL_IMPORT int initialized;
 
-    srScheduler* scheduler;
     srGlobalRecycler* global_recycler;
     srVariableTimer* timer;
     srColorSurfaceIFace* surface;

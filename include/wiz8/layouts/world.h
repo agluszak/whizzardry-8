@@ -31,12 +31,15 @@ struct W8GameData;
    serialized padding. */
 typedef float W8CameraAngleRecord[6];
 
+#pragma pack(push, 1)
 struct W8WorldCameraState {
     srVector3T<float> position;
     W8CameraAngleRecord pitch;
     W8CameraAngleRecord yaw;
 };
+#pragma pack(pop)
 static_assert(sizeof(W8WorldCameraState) == 0x3c, "W8WorldCameraState_size");
+static_assert(alignof(W8WorldCameraState) == 1);
 
 /* Engine Code\3dapi.cpp. CreateWorld allocates and zeroes exactly 0xdc bytes;
    the list/vector setup and teardown routines prove the owned fields below. */

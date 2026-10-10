@@ -13,75 +13,61 @@
 #include "FileMan.h"
 #include "LibraryDataBase.h"
 #include "DEBUG.H"
-#include "MemMan.h"
-#include "compat/audio.h"
-#include <stdexcept>
+#include <wiz8/native_audio.h>
+#include <algorithm>
+#include <cmath>
+#include <string>
 #include "random.h"
 
 // Uncomment this to disable the startup of sound hardware
 //#define SOUND_DISABLE
-
-#pragma pack(push, 1)
-
-// WAV file chunk definitions
-typedef struct {
-    // General chunk header
-    CHAR8 cTag[4];
-    UINT32 uiChunkSize;
-} WAVCHUNK;
-
-typedef struct {
-    // WAV header
-    CHAR8 cRiff[4];     // "RIFF"
-    UINT32 uiChunkSize; // Chunk length
-    CHAR8 cFileType[4]; // "WAVE"
-} WAVRIFF;
-
-typedef struct {
-    // FMT chunk
-    CHAR8 cFormat[4];     // "FMT "
-    UINT32 uiChunkSize;   // Chunk length
-    UINT16 uiStereo;      // 1 if stereo, 0 if mono (Not reliable, use channels instead)
-    UINT16 uiChannels;    // number of channels used 1=mono, 2=stereo, etc.
-    UINT32 uiSpeed;       // Sampling Rate (speed)
-    UINT32 uiBytesSec;    // Number of bytes per sec
-    UINT16 uiBytesSample; // Number of bytes per sample (1 = 8 bit mono,
-                          // 2 = 8 bit stereo or 16 bit mono, 4 = 16 bit stereo
-    UINT16 uiBitsSample;  // bits per sample
-} WAVFMT;
-
-typedef struct {
-    // Data chunk
-    CHAR8 cName[4];     // "DATA"
-    UINT32 uiChunkSize; // Chunk length
-} WAVDATA;
-
-#pragma pack(pop)
-
-#define WAV_CHUNK_RIFF 0
-#define WAV_CHUNK_FMT 1
-#define WAV_CHUNK_DATA 2
-
-#define NUM_WAV_CHUNKS 3
-
-CHAR8* cWAVChunks[3] = {"RIFF", "FMT ", "DATA"};
 
 // global settings
 #define SOUND_MAX_CACHED 128 // number of cache slots
 
 #define SOUND_MAX_CHANNELS 32 // number of mixer channels
 
-#pragma message("TEMP!")
 
 #define SOUND_DEFAULT_MEMORY (8048 * 1024) // default memory limit
 #define SOUND_DEFAULT_THRESH (256 * 8024)  // size for sample to be double-buffered
-#define SOUND_DEFAULT_STREAM (64 * 1024)   // double-buffered buffer size
 
 // playing/random value to indicate default
 #define SOUND_PARMS_DEFAULT 0xffffffff
 
-// Sound status flags
-#define SOUND_CALLBACK 0x00000008
+
+
+struct CachedSound
+{
+    CHAR8 pName[128]{};
+    UINT32 uiSize = 0, uiFlags = 0, uiSpeed = 0, uiCacheHits = 0;
+    std::shared_ptr<MIX_Mixer> owner;
+    w8_native::Audio audio;
+    UINT32 uiTimeNext = 0, uiTimeMin = 0, uiTimeMax = 0;
+    UINT32 uiSpeedMin = 0, uiSpeedMax = 0, uiVolMin = 0, uiVolMax = 0;
+    UINT32 uiPanMin = 0, uiPanMax = 0, uiPriority = 0, uiInstances = 0, uiMaxInstances = 0;
+};
+struct SoundChannel
+{
+    std::shared_ptr<MIX_Mixer> owner;
+    // Track destruction synchronizes with mixing before closing its input.
+    w8_native::AudioInput input;
+    w8_native::Track track;
+    UINT32 uiSample = NO_SAMPLE, uiSoundID = NO_SAMPLE, uiPriority = PRIORITY_MAX;
+    void (*EOSCallback)(void*) = nullptr;
+    void* pCallbackData = nullptr;
+    UINT32 uiTimeStamp = 0, uiFadeVolume = 0, uiFadeRate = 0, uiFadeTime = 0;
+    UINT32 volume = 127, playbackRate = 44100;
+    Sint64 duration = -1;
+    BOOLEAN fMusic = FALSE, fStopAtZero = TRUE;
+    bool spatial = false, fLooping = false;
+    SOUND3DPOS position{};
+};
+struct Listener
+{
+    FLOAT x = 0, y = 0, z = 0;
+    FLOAT faceX = 0, faceY = 0, faceZ = -1, upX = 0, upY = 1, upZ = 0;
+    FLOAT velocityX = 0, velocityY = 0, velocityZ = 0;
+} listener;
 
 // Local Function Prototypes
 BOOLEAN SoundInitCache(void);
@@ -93,9 +79,7 @@ UINT32 SoundLoadDisk(STR pFilename);
 UINT32 SoundGetEmptySample(void);
 UINT32 SoundFreeSampleIndex(UINT32 uiSample);
 UINT32 SoundGetIndexByID(UINT32 uiSoundID);
-static HDIGDRIVER SoundInitDriver(UINT32 uiRate, UINT16 uiBits, UINT16 uiChans);
 BOOLEAN SoundInitHardware(void);
-BOOLEAN SoundGetDriverName(HDIGDRIVER DIG, CHAR8* cBuf);
 UINT32 SoundGetFreeChannel(void);
 UINT32 SoundStartSample(UINT32 uiSample, UINT32 uiChannel, SOUNDPARMS* pParms);
 UINT32 SoundStartStream(STR pFilename, UINT32 uiChannel, SOUNDPARMS* pParms);
@@ -119,11 +103,6 @@ UINT32 guiSoundMemoryUsed = 0; // Memory currently in use
 // GLOBAL: WIZ8 0x005ff64c
 UINT32 guiSoundCacheThreshold = SOUND_DEFAULT_THRESH; // Double-buffered threshold
 
-// GLOBAL: WIZ8 0x006e4104
-HDIGDRIVER hSoundDriver; // Sound driver handle
-// GLOBAL: WIZ8 0x005ff650
-BOOLEAN fDirectSound = TRUE; // Using Direct Sound
-
 // Local module variables
 // GLOBAL: WIZ8 0x00650e50
 BOOLEAN fSoundSystemInit = FALSE; // Startup called T/F
@@ -132,39 +111,21 @@ BOOLEAN gfEnableStartup = TRUE; // Allow hardware to starup
 
 // Sample cache list for files loaded
 // GLOBAL: WIZ8 0x006e4aa0
-SAMPLETAG pSampleList[SOUND_MAX_CACHED];
+CachedSound pSampleList[SOUND_MAX_CACHED];
 // Sound channel list for output channels
 // GLOBAL: WIZ8 0x006e4120
-SOUNDTAG pSoundList[SOUND_MAX_CHANNELS];
+SoundChannel pSoundList[SOUND_MAX_CHANNELS];
 
-// 3D sound globals
-// GLOBAL: WIZ8 0x00650e54
-CHAR8* gpProviderName = NULL;
-// GLOBAL: WIZ8 0x00650e58
-HPROVIDER gh3DProvider = 0;
-// GLOBAL: WIZ8 0x00650e5c
-H3DPOBJECT gh3DListener = 0;
-// GLOBAL: WIZ8 0x005ff652
-BOOLEAN gfUsingEAX = TRUE;
-// GLOBAL: WIZ8 0x00650e60
-UINT32 guiRoomTypeIndex = 0;
-
-// GLOBAL: WIZ8 0x005ff654
-CHAR8* pEAXRoomTypes[EAXROOMTYPE_NUM_TYPES] = {
-    // None
-    "PLAIN",
-
-    // S,M,L Cave
-    "STONECORRIDOR", "CAVE", "CONCERTHALL",
-
-    // S,M,L Room
-    "LIVINGROOM", "ROOM", "AUDITORIUM",
-
-    // Flat open, valley
-    "CITY", "MOUNTAINS",
-
-    // Swimming
-    "UNDERWATER"};
+static std::string ResolveSoundPath(const char* path)
+{
+    if (!path || !*path) return {};
+    std::string filename(path);
+    strupr(filename.data());
+    if (FileExists(filename.data())) return filename;
+    if (filename.ends_with(".WAV")) filename.replace(filename.size() - 4, 4, ".MP3");
+    else if (filename.ends_with(".MP3")) filename.replace(filename.size() - 4, 4, ".WAV");
+    return filename;
+}
 
 // High Level Interface
 
@@ -185,26 +146,17 @@ void SoundEnableSound(BOOLEAN fEnable)
 // FUNCTION: WIZ8 0x004086d0
 BOOLEAN InitializeSoundManager(void)
 {
-
-    if (fSoundSystemInit)
-        ShutdownSoundManager();
-
-    memset(pSoundList, 0, sizeof(pSoundList));
-
+    ShutdownSoundManager();
+    for (auto& channel : pSoundList) channel = SoundChannel{};
+    listener = Listener{};
 #ifndef SOUND_DISABLE
-    if (gfEnableStartup && SoundInitHardware())
-        fSoundSystemInit = TRUE;
+    fSoundSystemInit = gfEnableStartup && SoundInitHardware();
 #endif
-
     guiSoundMemoryLimit = SOUND_DEFAULT_MEMORY;
     SoundInitCache();
     guiSoundMemoryUsed = 0;
     guiSoundCacheThreshold = SOUND_DEFAULT_THRESH;
-
-    if (gpProviderName && !gh3DProvider)
-        Sound3DInitProvider(gpProviderName);
-
-    return (TRUE);
+    return TRUE;
 }
 
 // ShutdownSoundManager
@@ -214,19 +166,10 @@ BOOLEAN InitializeSoundManager(void)
 // FUNCTION: WIZ8 0x00408850
 void ShutdownSoundManager(void)
 {
-    if (fSoundSystemInit) {
-        for (UINT32 channel = 0; channel < SOUND_MAX_CHANNELS; ++channel) {
-            /* Retail shutdown does not dispatch EOS callbacks into game state. */
-            pSoundList[channel].EOSCallback = NULL;
-            SoundStopIndex(channel);
-        }
-        SoundEmptyCache();
-        if (gh3DProvider) AIL_close_3D_provider(gh3DProvider);
-        gh3DProvider = 0;
-        gh3DListener = NULL;
-        if (hSoundDriver) AIL_close_digital_driver(hSoundDriver);
-        hSoundDriver = NULL;
-    }
+    for (auto& channel : pSoundList) channel.EOSCallback = nullptr;
+    for (UINT32 index = 0; index < SOUND_MAX_CHANNELS; ++index) SoundStopIndex(index);
+    for (UINT32 index = 0; index < SOUND_MAX_CACHED; ++index) SoundFreeSampleIndex(index);
+    w8_native::shutdown_audio();
     fSoundSystemInit = FALSE;
 }
 
@@ -241,44 +184,15 @@ void ShutdownSoundManager(void)
 //	!!Note:  Can no longer play streamed files
 
 // FUNCTION: WIZ8 0x00408860
-UINT32 SoundPlay(STR pFilename, SOUNDPARMS* pParms)
+UINT32 SoundPlay(STR path, SOUNDPARMS* parameters)
 {
-    UINT32 uiSample, uiChannel;
-    CHAR8 filename[260];
-
-    if (fSoundSystemInit) {
-        if (!SoundPlayStreamed(pFilename)) {
-            strcpy(filename, pFilename);
-            strupr(filename);
-            if (!FileExists(filename)) {
-                if (strstr(filename, ".WAV")) {
-                    filename[strlen(filename) - 4] = 0;
-                    strcat(filename, ".MP3");
-                } else if (strstr(filename, ".MP3")) {
-                    filename[strlen(filename) - 4] = 0;
-                    strcat(filename, ".WAV");
-                }
-            }
-            if ((uiSample = SoundLoadSample(filename)) != NO_SAMPLE) {
-                if ((uiChannel = SoundGetFreeChannel()) != SOUND_ERROR) {
-                    return (SoundStartSample(uiSample, uiChannel, pParms));
-                }
-            }
-        } else {
-            //Trying to play a sound which is bigger then the 'guiSoundCacheThreshold'
-
-            // This line was causing a page fault in the Wiz 8 project, so
-            // I changed it to the second line, which works OK. -- DB
-
-            //DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String("\n*******\nSoundPlay():  ERROR:  trying to play %s which is bigger then the 'guiSoundCacheThreshold', use SoundPlayStreamedFile() instead\n", pFilename ) );
-
-            FastDebugMsg(String("SoundPlay: ERROR: Trying to play %s sound is too lardge to load "
-                                "into cache, use SoundPlayStreamedFile() instead\n",
-                                pFilename));
-        }
-    }
-
-    return (SOUND_ERROR);
+    if (!fSoundSystemInit) return SOUND_ERROR;
+    auto filename = ResolveSoundPath(path);
+    if (filename.empty() || SoundPlayStreamed(filename.data())) return SOUND_ERROR;
+    const auto sample = SoundLoadSample(filename.data());
+    if (sample == NO_SAMPLE) return SOUND_ERROR;
+    const auto channel = SoundGetFreeChannel();
+    return channel == SOUND_ERROR ? SOUND_ERROR : SoundStartSample(sample, channel, parameters);
 }
 
 // SoundPlayStreamedFile
@@ -291,42 +205,13 @@ UINT32 SoundPlay(STR pFilename, SOUNDPARMS* pParms)
 //						If an error occured, SOUND_ERROR will be returned
 
 // FUNCTION: WIZ8 0x00408ad0
-UINT32 SoundPlayStreamedFile(STR pFilename, SOUNDPARMS* pParms)
+UINT32 SoundPlayStreamedFile(STR path, SOUNDPARMS* parameters)
 {
-    UINT32 uiChannel;
-    CHAR8 filename[260];
-    HWFILE hFile;
-
-    if (fSoundSystemInit) {
-        if ((uiChannel = SoundGetFreeChannel()) != SOUND_ERROR) {
-            strcpy(filename, pFilename);
-            strupr(filename);
-            if (!FileExists(filename)) {
-                if (strstr(filename, ".WAV")) {
-                    filename[strlen(filename) - 4] = 0;
-                    strcat(filename, ".MP3");
-                } else if (strstr(filename, ".MP3")) {
-                    filename[strlen(filename) - 4] = 0;
-                    strcat(filename, ".WAV");
-                }
-            }
-            //Open the file
-            hFile = FileOpen(filename, FILE_ACCESS_READ | FILE_OPEN_EXISTING, FALSE);
-            if (!hFile) {
-                FastDebugMsg(String("\n*******\nSoundPlayStreamedFile():  ERROR:  Couldnt open "
-                                    "'%s' in SoundPlayStreamedFile()\n",
-                                    pFilename));
-                return (SOUND_ERROR);
-            }
-
-            /* The native decoder opens a bounded stream through the recovered
-               file database, preserving the SLF entry's length and offset. */
-            FileClose(hFile);
-            return SoundStartStream(filename, uiChannel, pParms);
-        }
-    }
-
-    return (SOUND_ERROR);
+    if (!fSoundSystemInit) return SOUND_ERROR;
+    auto filename = ResolveSoundPath(path);
+    if (filename.empty()) return SOUND_ERROR;
+    const auto channel = SoundGetFreeChannel();
+    return channel == SOUND_ERROR ? SOUND_ERROR : SoundStartStream(filename.data(), channel, parameters);
 }
 
 // SoundPlayRandom
@@ -343,9 +228,9 @@ UINT32 SoundPlayStreamedFile(STR pFilename, SOUNDPARMS* pParms)
 // FUNCTION: WIZ8 0x00408d60
 UINT32 SoundPlayRandom(STR pFilename, RANDOMPARMS* pParms)
 {
-    UINT32 uiSample, uiTicks;
+    UINT32 uiSample;
 
-    if (fSoundSystemInit) {
+    if (fSoundSystemInit && pParms && pParms->uiTimeMin != SOUND_PARMS_DEFAULT) {
         if ((uiSample = SoundLoadSample(pFilename)) != NO_SAMPLE) {
             pSampleList[uiSample].uiFlags |= (SAMPLE_RANDOM | SAMPLE_LOCKED);
 
@@ -395,10 +280,9 @@ UINT32 SoundPlayRandom(STR pFilename, RANDOMPARMS* pParms)
 
             pSampleList[uiSample].uiInstances = 0;
 
-            uiTicks = GetTickCount();
             pSampleList[uiSample].uiTimeNext =
                 GetTickCount() + pSampleList[uiSample].uiTimeMin +
-                Random(pSampleList[uiSample].uiTimeMax - pSampleList[uiSample].uiTimeMin);
+                (pSampleList[uiSample].uiTimeMax > pSampleList[uiSample].uiTimeMin ? Random(pSampleList[uiSample].uiTimeMax - pSampleList[uiSample].uiTimeMin) : 0);
             return (uiSample);
         }
     }
@@ -429,24 +313,10 @@ BOOLEAN SoundIsPlaying(UINT32 uiSoundID)
 // UINT32 uiSound             - Channel number of sound
 // Created:  2/24/00 Derek Beland
 
-BOOLEAN SoundIndexIsPlaying(UINT32 uiSound)
+BOOLEAN SoundIndexIsPlaying(UINT32 index)
 {
-    INT32 iStatus = SMP_DONE;
-
-    if (fSoundSystemInit) {
-        if (pSoundList[uiSound].hMSS != NULL)
-            iStatus = AIL_sample_status(pSoundList[uiSound].hMSS);
-
-        if (pSoundList[uiSound].hMSSStream != NULL)
-            iStatus = AIL_stream_status(pSoundList[uiSound].hMSSStream);
-
-        if (pSoundList[uiSound].hM3D != NULL)
-            iStatus = AIL_3D_sample_status(pSoundList[uiSound].hM3D);
-
-        return ((iStatus != SMP_DONE) && (iStatus != SMP_STOPPED));
-    }
-
-    return (FALSE);
+    return fSoundSystemInit && index < SOUND_MAX_CHANNELS && pSoundList[index].track &&
+           MIX_TrackPlaying(pSoundList[index].track.get());
 }
 
 // SoundStop
@@ -484,8 +354,7 @@ BOOLEAN SoundStopGroup(UINT32 uiPriority)
 
     if (fSoundSystemInit) {
         for (uiCount = 0; uiCount < SOUND_MAX_CHANNELS; uiCount++) {
-            if ((pSoundList[uiCount].hMSS != NULL) || (pSoundList[uiCount].hMSSStream != NULL) ||
-                (pSoundList[uiCount].hM3D != NULL)) {
+            if (pSoundList[uiCount].track) {
                 if (pSoundList[uiCount].uiPriority == uiPriority) {
                     SoundStop(pSoundList[uiCount].uiSoundID);
                     fStopped = TRUE;
@@ -552,13 +421,12 @@ BOOLEAN SoundSetFadeVolume(UINT32 uiSoundID, UINT32 uiVolume, UINT32 uiRate, BOO
 // FUNCTION: WIZ8 0x00409210
 BOOLEAN SoundSetVolume(UINT32 uiSoundID, UINT32 uiVolume)
 {
-    UINT32 uiSound, uiVolCap;
+    UINT32 uiSound;
 
     if (fSoundSystemInit) {
-        uiVolCap = __min(uiVolume, 127);
 
         if ((uiSound = SoundGetIndexByID(uiSoundID)) != NO_SAMPLE) {
-            pSoundList[uiSound].uiFadeVolume = uiVolume;
+            pSoundList[uiSound].uiFadeVolume = std::min(uiVolume, 127u);
             return (SoundSetVolumeIndex(uiSound, uiVolume));
         }
     }
@@ -573,26 +441,14 @@ BOOLEAN SoundSetVolume(UINT32 uiSoundID, UINT32 uiVolume)
 // UINT32 uiVolume            - New volume 0-127
 // Created:  3/17/00 Derek Beland
 
-BOOLEAN SoundSetVolumeIndex(UINT32 uiChannel, UINT32 uiVolume)
+BOOLEAN SoundSetVolumeIndex(UINT32 index, UINT32 volume)
 {
-    UINT32 uiVolCap;
-
-    if (fSoundSystemInit) {
-        uiVolCap = __min(uiVolume, 127);
-
-        if (pSoundList[uiChannel].hMSS != NULL)
-            AIL_set_sample_volume(pSoundList[uiChannel].hMSS, uiVolCap);
-
-        if (pSoundList[uiChannel].hMSSStream != NULL)
-            AIL_set_stream_volume(pSoundList[uiChannel].hMSSStream, uiVolCap);
-
-        if (pSoundList[uiChannel].hM3D != NULL)
-            AIL_set_3D_sample_volume(pSoundList[uiChannel].hM3D, uiVolCap);
-
-        return (TRUE);
-    }
-
-    return (FALSE);
+    if (!fSoundSystemInit || index >= SOUND_MAX_CHANNELS || !pSoundList[index].track) return FALSE;
+    auto& channel = pSoundList[index];
+    const UINT32 clamped = std::min(volume, 127u);
+    if (!MIX_SetTrackGain(channel.track.get(), float(clamped) / 127)) return FALSE;
+    channel.volume = clamped;
+    return TRUE;
 }
 
 // SoundGetVolume
@@ -618,20 +474,9 @@ UINT32 SoundGetVolume(UINT32 uiSoundID)
 // UINT32 uiChannel           - Channel
 // Created:  3/17/00 Derek Beland
 
-UINT32 SoundGetVolumeIndex(UINT32 uiChannel)
+UINT32 SoundGetVolumeIndex(UINT32 index)
 {
-    if (fSoundSystemInit) {
-        if (pSoundList[uiChannel].hMSS != NULL)
-            return ((UINT32)AIL_sample_volume(pSoundList[uiChannel].hMSS));
-
-        if (pSoundList[uiChannel].hMSSStream != NULL)
-            return ((UINT32)AIL_stream_volume(pSoundList[uiChannel].hMSSStream));
-
-        if (pSoundList[uiChannel].hM3D != NULL)
-            return ((UINT32)AIL_3D_sample_volume(pSoundList[uiChannel].hM3D));
-    }
-
-    return (SOUND_ERROR);
+    return index < SOUND_MAX_CHANNELS && pSoundList[index].track ? pSoundList[index].volume : SOUND_ERROR;
 }
 
 // SoundServiceRandom
@@ -664,9 +509,7 @@ BOOLEAN SoundServiceRandom(void)
 // FUNCTION: WIZ8 0x00409360
 BOOLEAN SoundRandomShouldPlay(UINT32 uiSample)
 {
-    UINT32 uiTicks;
-
-    uiTicks = GetTickCount();
+    if (uiSample >= SOUND_MAX_CACHED) return FALSE;
     if (pSampleList[uiSample].uiFlags & SAMPLE_RANDOM)
         if (pSampleList[uiSample].uiTimeNext <= GetTickCount())
             if (pSampleList[uiSample].uiInstances < pSampleList[uiSample].uiMaxInstances)
@@ -682,6 +525,7 @@ BOOLEAN SoundRandomShouldPlay(UINT32 uiSample)
 // FUNCTION: WIZ8 0x004093b0
 UINT32 SoundStartRandom(UINT32 uiSample)
 {
+    if (!fSoundSystemInit || uiSample >= SOUND_MAX_CACHED || !pSampleList[uiSample].audio) return SOUND_ERROR;
     UINT32 uiChannel, uiSoundID;
     SOUNDPARMS spParms;
 
@@ -690,16 +534,16 @@ UINT32 SoundStartRandom(UINT32 uiSample)
 
         //		spParms.uiSpeed=pSampleList[uiSample].uiSpeedMin+Random(pSampleList[uiSample].uiSpeedMax-pSampleList[uiSample].uiSpeedMin);
         spParms.uiVolume = pSampleList[uiSample].uiVolMin +
-                           Random(pSampleList[uiSample].uiVolMax - pSampleList[uiSample].uiVolMin);
+                           (pSampleList[uiSample].uiVolMax > pSampleList[uiSample].uiVolMin ? Random(pSampleList[uiSample].uiVolMax - pSampleList[uiSample].uiVolMin) : 0);
         spParms.uiPan = pSampleList[uiSample].uiPanMin +
-                        Random(pSampleList[uiSample].uiPanMax - pSampleList[uiSample].uiPanMin);
+                        (pSampleList[uiSample].uiPanMax > pSampleList[uiSample].uiPanMin ? Random(pSampleList[uiSample].uiPanMax - pSampleList[uiSample].uiPanMin) : 0);
         spParms.uiLoop = 1;
         spParms.uiPriority = pSampleList[uiSample].uiPriority;
 
         if ((uiSoundID = SoundStartSample(uiSample, uiChannel, &spParms)) != SOUND_ERROR) {
             pSampleList[uiSample].uiTimeNext =
                 GetTickCount() + pSampleList[uiSample].uiTimeMin +
-                Random(pSampleList[uiSample].uiTimeMax - pSampleList[uiSample].uiTimeMin);
+                (pSampleList[uiSample].uiTimeMax > pSampleList[uiSample].uiTimeMin ? Random(pSampleList[uiSample].uiTimeMax - pSampleList[uiSample].uiTimeMin) : 0);
             pSampleList[uiSample].uiInstances++;
             return (uiSoundID);
         }
@@ -723,7 +567,7 @@ BOOLEAN SoundStopAllRandom(void)
 
     // Stop all currently playing random sounds
     for (uiChannel = 0; uiChannel < SOUND_MAX_CHANNELS; uiChannel++) {
-        if ((pSoundList[uiChannel].hMSS != NULL) || (pSoundList[uiChannel].hM3D != NULL)) {
+        if (pSoundList[uiChannel].track) {
             uiSample = pSoundList[uiChannel].uiSample;
 
             // if this was a random sample, decrease the iteration count
@@ -753,50 +597,23 @@ BOOLEAN SoundStopAllRandom(void)
 // FUNCTION: WIZ8 0x004095b0
 BOOLEAN SoundServiceStreams(void)
 {
-    UINT32 uiCount, uiSpeed, uiBuffLen, uiBytesPerSample;
-    UINT8* pBuffer;
-    void* pData;
-
-    if (fSoundSystemInit) {
-        for (uiCount = 0; uiCount < SOUND_MAX_CHANNELS; uiCount++) {
-            if (pSoundList[uiCount].hMSSStream != NULL) {
-                if (AIL_service_stream(pSoundList[uiCount].hMSSStream, 0)) {
-                    if (pSoundList[uiCount].uiFlags & SOUND_CALLBACK) {
-                        throw std::runtime_error("Miles raw-buffer stream callbacks are unsupported");
-                    }
-                }
-            }
-
-            if (pSoundList[uiCount].hMSS || pSoundList[uiCount].hMSSStream ||
-                pSoundList[uiCount].hM3D) {
-                // If a sound has a handle, but isn't playing, stop it and free up the handle
-                if (!SoundIsPlaying(pSoundList[uiCount].uiSoundID))
-                    SoundStopIndex(uiCount);
-                else { // Check the volume fades on currently playing sounds
-                    UINT32 uiVolume = SoundGetVolumeIndex(uiCount);
-                    UINT32 uiTime = GetTickCount();
-
-                    if ((uiVolume != pSoundList[uiCount].uiFadeVolume) &&
-                        (uiTime >=
-                         (pSoundList[uiCount].uiFadeTime + pSoundList[uiCount].uiFadeRate))) {
-                        if (uiVolume < pSoundList[uiCount].uiFadeVolume)
-                            SoundSetVolumeIndex(uiCount, ++uiVolume);
-                        else if (uiVolume > pSoundList[uiCount].uiFadeVolume) {
-                            uiVolume--;
-                            if (!uiVolume && pSoundList[uiCount].fStopAtZero)
-                                SoundStopIndex(uiCount);
-                            else
-                                SoundSetVolumeIndex(uiCount, uiVolume);
-                        }
-
-                        pSoundList[uiCount].uiFadeTime = uiTime;
-                    }
-                }
-            }
+    if (!fSoundSystemInit) return TRUE;
+    for (UINT32 index = 0; index < SOUND_MAX_CHANNELS; ++index)
+    {
+        auto& channel = pSoundList[index];
+        if (!channel.track) continue;
+        if (!SoundIndexIsPlaying(index)) { SoundStopIndex(index); continue; }
+        const auto time = GetTickCount();
+        if (channel.volume == channel.uiFadeVolume || time - channel.uiFadeTime < channel.uiFadeRate) continue;
+        const auto volume = channel.volume < channel.uiFadeVolume ? channel.volume + 1 : channel.volume - 1;
+        if (volume == 0 && channel.fStopAtZero) SoundStopIndex(index);
+        else
+        {
+            SoundSetVolumeIndex(index, volume);
+            channel.uiFadeTime = time;
         }
     }
-
-    return (TRUE);
+    return TRUE;
 }
 
 // SoundGetPosition
@@ -835,31 +652,17 @@ UINT32 SoundGetPosition(UINT32 uiSoundID)
 //  Created on:     7/23/99
 
 // FUNCTION: WIZ8 0x00409840
-BOOLEAN SoundGetMilliSecondPosition(UINT32 uiSoundID, UINT32* puiTotalMilliseconds,
-                                    UINT32* puiCurrentMilliseconds)
+BOOLEAN SoundGetMilliSecondPosition(UINT32 id, UINT32* total, UINT32* current)
 {
-    UINT32 uiSound;
-
-    if (fSoundSystemInit) {
-        uiSound = SoundGetIndexByID(uiSoundID);
-        if (uiSound != NO_SAMPLE) {
-            if (pSoundList[uiSound].hMSS != NULL) {
-                AIL_sample_ms_position(pSoundList[uiSound].hMSS, (S32*)puiTotalMilliseconds,
-                                       (S32*)puiCurrentMilliseconds);
-                return TRUE;
-            }
-
-            if (pSoundList[uiSound].hMSSStream != NULL) {
-                AIL_stream_ms_position(pSoundList[uiSound].hMSSStream, (S32*)puiTotalMilliseconds,
-                                       (S32*)puiCurrentMilliseconds);
-                return TRUE;
-            }
-        }
-    }
-
-    *puiTotalMilliseconds = 0;
-    *puiCurrentMilliseconds = 0;
-    return FALSE;
+    if (!total || !current) return FALSE;
+    *total = *current = 0;
+    const auto index = SoundGetIndexByID(id);
+    if (!fSoundSystemInit || index == NO_SAMPLE || !pSoundList[index].track) return FALSE;
+    const auto& channel = pSoundList[index];
+    const auto position = MIX_GetTrackPlaybackPosition(channel.track.get());
+    *total = UINT32(std::max<Sint64>(0, MIX_TrackFramesToMS(channel.track.get(), channel.duration)));
+    *current = UINT32(std::max<Sint64>(0, MIX_TrackFramesToMS(channel.track.get(), position)));
+    return TRUE;
 }
 
 // Cacheing Subsystem
@@ -869,10 +672,8 @@ BOOLEAN SoundGetMilliSecondPosition(UINT32 uiSoundID, UINT32* puiTotalMillisecon
 
 BOOLEAN SoundInitCache(void)
 {
-
-    memset(pSampleList, 0, sizeof(pSampleList));
-
-    return (TRUE);
+    for (auto& sound : pSampleList) sound = CachedSound{};
+    return TRUE;
 }
 
 // SoundSetCacheThreshold
@@ -935,10 +736,11 @@ UINT32 SoundLoadSample(STR pFilename)
 
 UINT32 SoundGetCached(STR pFilename)
 {
+    if (!pFilename || !*pFilename) return NO_SAMPLE;
     UINT32 uiCount;
 
     for (uiCount = 0; uiCount < SOUND_MAX_CACHED; uiCount++) {
-        if (_stricmp(pSampleList[uiCount].pName, pFilename) == 0)
+        if (pSampleList[uiCount].audio && _stricmp(pSampleList[uiCount].pName, pFilename) == 0)
             return (uiCount);
     }
 
@@ -952,71 +754,32 @@ UINT32 SoundGetCached(STR pFilename)
 //						in the cache.
 
 // FUNCTION: WIZ8 0x00409970
-UINT32 SoundLoadDisk(STR pFilename)
+UINT32 SoundLoadDisk(STR filename)
 {
-    HWFILE hFile;
-    UINT32 uiSize, uiSample;
-    BOOLEAN fRemoved = TRUE;
-
-    Assert(pFilename != NULL);
-
-    if ((hFile = FileOpen(pFilename, FILE_ACCESS_READ, FALSE)) != 0) {
-        uiSize = FileGetSize(hFile);
-
-        // if insufficient memory, start unloading old samples until either
-        // there's nothing left to unload, or we fit
-        fRemoved = TRUE;
-        while (((uiSize + guiSoundMemoryUsed) > guiSoundMemoryLimit) && (fRemoved))
-            fRemoved = SoundCleanCache();
-
-        // if we still don't fit
-        if ((uiSize + guiSoundMemoryUsed) > guiSoundMemoryLimit) {
-            FastDebugMsg(String("SoundLoadDisk:  ERROR:  trying to play %s, not enough memory\n",
-                                pFilename));
-            FileClose(hFile);
-            return (NO_SAMPLE);
-        }
-
-        // if all the sample slots are full, unloading one
-        if ((uiSample = SoundGetEmptySample()) == NO_SAMPLE) {
-            SoundCleanCache();
-            uiSample = SoundGetEmptySample();
-        }
-
-        // if we still don't have a sample slot
-        if (uiSample == NO_SAMPLE) {
-            FastDebugMsg(String(
-                "SoundLoadDisk:  ERROR: Trying to play %s, sound channels are full\n", pFilename));
-            FileClose(hFile);
-            return (NO_SAMPLE);
-        }
-
-        memset(&pSampleList[uiSample], 0, sizeof(SAMPLETAG));
-
-        if ((pSampleList[uiSample].pData = AIL_mem_alloc_lock(uiSize)) == NULL) {
-            FastDebugMsg(String("SoundLoadDisk:  ERROR: Trying to play %s, AIL channels are full\n",
-                                pFilename));
-            FileClose(hFile);
-            return (NO_SAMPLE);
-        }
-
-        guiSoundMemoryUsed += uiSize;
-
-        FileRead(hFile, pSampleList[uiSample].pData, uiSize, NULL);
-        FileClose(hFile);
-
-        strcpy(pSampleList[uiSample].pName, pFilename);
-        strupr(pSampleList[uiSample].pName);
-        pSampleList[uiSample].uiSize = uiSize;
-        pSampleList[uiSample].uiFlags |= SAMPLE_ALLOCATED;
-
-        /*		if(!strstr(pFilename, ".MP3"))
-			SoundProcessWAVHeader(uiSample);
-*/
-        return (uiSample);
-    }
-
-    return (NO_SAMPLE);
+    if (!fSoundSystemInit || !filename || strlen(filename) >= sizeof(CachedSound::pName)) return NO_SAMPLE;
+    auto input = w8_native::open_audio_input(filename);
+    if (!input) return NO_SAMPLE;
+    const Sint64 size = SDL_GetIOSize(input.get());
+    if (size <= 0 || size > guiSoundMemoryLimit) return NO_SAMPLE;
+    while (uint64_t(size) + guiSoundMemoryUsed > guiSoundMemoryLimit)
+        if (!SoundCleanCache()) return NO_SAMPLE;
+    auto index = SoundGetEmptySample();
+    if (index == NO_SAMPLE && SoundCleanCache()) index = SoundGetEmptySample();
+    if (index == NO_SAMPLE) return NO_SAMPLE;
+    w8_native::Audio audio(MIX_LoadAudio_IO(w8_native::audio_mixer(), input.get(), false, false));
+    SDL_AudioSpec format{};
+    if (!audio || !MIX_GetAudioFormat(audio.get(), &format)) return NO_SAMPLE;
+    auto& sound = pSampleList[index];
+    sound = CachedSound{};
+    std::copy_n(filename, strlen(filename) + 1, sound.pName);
+    strupr(sound.pName);
+    sound.uiSize = UINT32(size);
+    sound.uiSpeed = UINT32(format.freq);
+    sound.uiFlags = SAMPLE_ALLOCATED;
+    sound.owner = w8_native::retain_audio_mixer();
+    sound.audio = std::move(audio);
+    guiSoundMemoryUsed += sound.uiSize;
+    return index;
 }
 
 // SoundCleanCache
@@ -1031,7 +794,7 @@ BOOLEAN SoundCleanCache(void)
         if ((pSampleList[uiCount].uiFlags & SAMPLE_ALLOCATED) &&
             !(pSampleList[uiCount].uiFlags & SAMPLE_LOCKED)) {
             if ((uiLowestHits == NO_SAMPLE) ||
-                (uiLowestHitsCount < pSampleList[uiCount].uiCacheHits)) {
+                (uiLowestHitsCount > pSampleList[uiCount].uiCacheHits)) {
                 if (!SoundSampleIsPlaying(uiCount)) {
                     uiLowestHits = uiCount;
                     uiLowestHitsCount = pSampleList[uiCount].uiCacheHits;
@@ -1085,19 +848,15 @@ UINT32 SoundGetEmptySample(void)
 //		Frees up a sample referred to by it's index slot number.
 //	Returns:	Slot number if something was free, NO_SAMPLE otherwise.
 
-UINT32 SoundFreeSampleIndex(UINT32 uiSample)
+UINT32 SoundFreeSampleIndex(UINT32 index)
 {
-    if (pSampleList[uiSample].uiFlags & SAMPLE_ALLOCATED) {
-        if (pSampleList[uiSample].pData != NULL) {
-            guiSoundMemoryUsed -= pSampleList[uiSample].uiSize;
-            AIL_mem_free_lock(pSampleList[uiSample].pData);
-        }
-
-        memset(&pSampleList[uiSample], 0, sizeof(SAMPLETAG));
-        return (uiSample);
-    }
-
-    return (NO_SAMPLE);
+    if (index >= SOUND_MAX_CACHED || !(pSampleList[index].uiFlags & SAMPLE_ALLOCATED)) return NO_SAMPLE;
+    // SDL_mixer retains assigned audio; detach the cache index before a slot is reused.
+    for (auto& channel : pSoundList)
+        if (channel.uiSample == index) channel.uiSample = NO_SAMPLE;
+    guiSoundMemoryUsed -= pSampleList[index].uiSize;
+    pSampleList[index] = CachedSound{};
+    return index;
 }
 
 // SoundGetIndexByID
@@ -1106,6 +865,7 @@ UINT32 SoundFreeSampleIndex(UINT32 uiSample)
 
 UINT32 SoundGetIndexByID(UINT32 uiSoundID)
 {
+    if (uiSoundID == NO_SAMPLE) return NO_SAMPLE;
     UINT32 uiCount;
 
     for (uiCount = 0; uiCount < SOUND_MAX_CHANNELS; uiCount++) {
@@ -1116,107 +876,12 @@ UINT32 SoundGetIndexByID(UINT32 uiSoundID)
     return (NO_SAMPLE);
 }
 
-// SoundInitHardware
-//		Initializes the sound hardware through Windows/DirectX. THe highest possible
-//	mixing rate and capabilities set are searched out and used.
-//	Returns:	TRUE if the hardware was initialized, FALSE otherwise.
+// Initialize the shared native mixer, or an offline mixer in the test harness.
 
 // FUNCTION: WIZ8 0x00409c50
 BOOLEAN SoundInitHardware(void)
 {
-    CHAR8 cDriverName[128];
-
-    // Try to start up the Miles Sound System
-    if (!AIL_startup())
-        return (FALSE);
-
-    // Initialize the driver handle
-    hSoundDriver = NULL;
-
-    // Set up preferences, to try to use DirectSound and to set the
-    // maximum number of handles that we are allowed to allocate. Note
-    // that this is not the number we may have playing at one time--
-    // that number is set by SOUND_MAX_CHANNELS
-    AIL_set_preference(DIG_MIXER_CHANNELS, SOUND_MAX_CHANNELS);
-
-    fDirectSound = TRUE;
-
-    AIL_set_preference(DIG_USE_WAVEOUT, NO);
-    // startup with DirectSound
-    if (hSoundDriver == NULL)
-        hSoundDriver = SoundInitDriver(44100, 16, 2);
-    if (hSoundDriver == NULL)
-        hSoundDriver = SoundInitDriver(44100, 8, 2);
-    if (hSoundDriver == NULL)
-        hSoundDriver = SoundInitDriver(22050, 8, 2);
-    if (hSoundDriver == NULL)
-        hSoundDriver = SoundInitDriver(11025, 8, 1);
-
-    if (hSoundDriver) {
-        // Detect if the driver is emulated or not
-        SoundGetDriverName(hSoundDriver, cDriverName);
-        _strlwr(cDriverName);
-        // If it is, we don't want to use it, since the extra
-        // code layer can slow us down by up to 40% under NT
-        if (strstr(cDriverName, "emulated")) {
-            AIL_close_digital_driver(hSoundDriver);
-            hSoundDriver = NULL;
-        }
-    }
-
-    // nothing in DirectSound worked, so try waveOut
-    if (hSoundDriver == NULL) {
-        fDirectSound = FALSE;
-        AIL_set_preference(DIG_USE_WAVEOUT, YES);
-    }
-
-    if (hSoundDriver == NULL)
-        hSoundDriver = SoundInitDriver(44100, 16, 2);
-    if (hSoundDriver == NULL)
-        hSoundDriver = SoundInitDriver(44100, 8, 2);
-    if (hSoundDriver == NULL)
-        hSoundDriver = SoundInitDriver(22050, 8, 2);
-    if (hSoundDriver == NULL)
-        hSoundDriver = SoundInitDriver(11025, 8, 1);
-
-    if (hSoundDriver != NULL) {
-        memset(pSoundList, 0, sizeof(pSoundList));
-
-        return (TRUE);
-    }
-
-    return (FALSE);
-}
-
-// SoundInitDriver
-//		Tries to initialize the sound driver using the specified settings.
-//	Returns:	Pointer to the driver if successful, NULL otherwise.
-
-static HDIGDRIVER SoundInitDriver(UINT32 uiRate, UINT16 uiBits, UINT16 uiChans)
-{
-    HDIGDRIVER DIG;
-    CHAR8 cBuf[128];
-
-    DIG = AIL_open_digital_driver(uiRate, uiBits, uiChans, 0);
-    if (DIG == NULL)
-        return NULL;
-    memset(cBuf, 0, sizeof(cBuf));
-    AIL_digital_configuration(DIG, 0, 0, cBuf);
-    return DIG;
-}
-
-// SoundGetDriverName
-//		Returns the name of the AIL device.
-//	Returns:	TRUE or FALSE if the string was filled.
-
-BOOLEAN SoundGetDriverName(HDIGDRIVER DIG, CHAR8* cBuf)
-{
-    if (DIG) {
-        cBuf[0] = '\0';
-        AIL_digital_configuration(DIG, NULL, NULL, cBuf);
-        return (TRUE);
-    } else
-        return (FALSE);
+    return w8_native::initialize_audio();
 }
 
 // SoundGetFreeChannel
@@ -1224,47 +889,27 @@ BOOLEAN SoundGetDriverName(HDIGDRIVER DIG, CHAR8* cBuf)
 //	Returns:	Index of a sound channel if one was found, SOUND_ERROR if not.
 
 // FUNCTION: WIZ8 0x00409f30
-void SoundResetChannel(UINT32 channel)
+void SoundResetChannel(UINT32 index)
 {
-    pSoundList[channel].pSample = 0;
-    pSoundList[channel].uiSample = NO_SAMPLE;
-    pSoundList[channel].hMSS = 0;
-    pSoundList[channel].hMSSStream = 0;
-    pSoundList[channel].hM3D = 0;
-    pSoundList[channel].uiFlags = 0;
-    pSoundList[channel].uiSoundID = NO_SAMPLE;
-    pSoundList[channel].uiPriority = PRIORITY_MAX;
-    pSoundList[channel].pCallback = 0;
-    pSoundList[channel].pData = 0;
-    pSoundList[channel].EOSCallback = 0;
-    pSoundList[channel].pCallbackData = 0;
-    pSoundList[channel].uiTimeStamp = GetTickCount();
-    pSoundList[channel].fLooping = 0;
-    pSoundList[channel].hFile = 0xffffffff;
-    pSoundList[channel].fMusic = 0;
-    pSoundList[channel].fStopAtZero = 1;
-    pSoundList[channel].uiFadeVolume = 0;
-    pSoundList[channel].uiFadeRate = 0;
-    pSoundList[channel].uiFadeTime = 0;
+    auto& channel = pSoundList[index];
+    channel.track.reset();
+    channel.input.reset();
+    channel = SoundChannel{};
+    channel.uiTimeStamp = GetTickCount();
 }
 
 UINT32 SoundGetFreeChannel(void)
 {
-    UINT32 uiCount;
-
-    for (uiCount = 0; uiCount < SOUND_MAX_CHANNELS; uiCount++) {
-        if (!SoundIsPlaying(pSoundList[uiCount].uiSoundID)) {
-            SoundStopIndex(uiCount);
-        }
-
-        if ((pSoundList[uiCount].hMSS == NULL) && (pSoundList[uiCount].hMSSStream == NULL) &&
-            (pSoundList[uiCount].hM3D == NULL)) {
-            SoundResetChannel(uiCount);
-            return (uiCount);
+    for (UINT32 index = 0; index < SOUND_MAX_CHANNELS; ++index)
+    {
+        if (!SoundIndexIsPlaying(index)) SoundStopIndex(index);
+        if (!pSoundList[index].track)
+        {
+            SoundResetChannel(index);
+            return index;
         }
     }
-
-    return (SOUND_ERROR);
+    return SOUND_ERROR;
 }
 
 // SoundStartSample
@@ -1274,105 +919,107 @@ UINT32 SoundGetFreeChannel(void)
 //	Returns:	Unique sound ID if successful, SOUND_ERROR if not.
 
 // FUNCTION: WIZ8 0x00409fe0
-UINT32 SoundStartSample(UINT32 uiSample, UINT32 uiChannel, SOUNDPARMS* pParms)
+
+static bool UpdateSpatial(SoundChannel& channel)
 {
-    UINT32 uiSoundID, uiVolume;
-    CHAR8 AILString[200];
+    const auto& p = channel.position;
+    const float dx = p.flX - listener.x, dy = p.flY - listener.y, dz = p.flZ - listener.z;
+    const float distance = std::sqrt(dx * dx + dy * dy + dz * dz);
+    float rightX = listener.faceY * listener.upZ - listener.faceZ * listener.upY;
+    float rightY = listener.faceZ * listener.upX - listener.faceX * listener.upZ;
+    float rightZ = listener.faceX * listener.upY - listener.faceY * listener.upX;
+    const float length = std::sqrt(rightX * rightX + rightY * rightY + rightZ * rightZ);
+    if (length > 0) { rightX /= length; rightY /= length; rightZ /= length; }
+    const float pan = distance > 0 ? std::clamp((dx * rightX + dy * rightY + dz * rightZ) / distance, -1.0f, 1.0f) : 0;
+    // Update3DSounds and ambient sound servicing supply falloff and camera-relative coordinates.
+    // Preserve the old backend's disabled distance model and 20% opposite-ear floor.
+    const MIX_StereoGains gains{distance > 0 ? std::max(0.2f, (1 - pan) * 0.5f) : 1,
+                                distance > 0 ? std::max(0.2f, (1 + pan) * 0.5f) : 1};
+    const float sourceAlong = distance > 0 ? -(dx * p.flVelX + dy * p.flVelY + dz * p.flVelZ) / distance : 0;
+    const float listenerAlong = distance > 0 ? -(dx * listener.velocityX + dy * listener.velocityY + dz * listener.velocityZ) / distance : 0;
+    const float doppler = (343.3f - std::min(listenerAlong, 343.0f)) / (343.3f - std::min(sourceAlong, 343.0f));
+    const auto naturalRate = MIX_TrackMSToFrames(channel.track.get(), 1000);
+    return naturalRate > 0 && MIX_SetTrackStereo(channel.track.get(), &gains) &&
+           MIX_SetTrackFrequencyRatio(channel.track.get(), std::clamp(float(channel.playbackRate) / naturalRate * doppler, 0.01f, 100.0f));
+}
 
-    if (!fSoundSystemInit)
-        return (SOUND_ERROR);
+static UINT32 RandomRange(UINT32 minimum, UINT32 maximum)
+{
+    return minimum + (maximum > minimum ? Random(maximum - minimum) : 0);
+}
 
-    if ((pSoundList[uiChannel].hMSS = AIL_allocate_sample_handle(hSoundDriver)) == NULL) {
-        sprintf(AILString, "Sample Error: %s", AIL_last_error());
-        FastDebugMsg(AILString);
-        return (SOUND_ERROR);
+template<class Parameters>
+static UINT32 StartTrack(UINT32 index, UINT32 sample, const Parameters* parameters, const SOUND3DPOS* position = nullptr)
+{
+    auto& channel = pSoundList[index];
+    const auto naturalRate = MIX_TrackMSToFrames(channel.track.get(), 1000);
+    if (naturalRate <= 0) { SoundResetChannel(index); return SOUND_ERROR; }
+    UINT32 rate = UINT32(naturalRate);
+    if (sample < SOUND_MAX_CACHED && (pSampleList[sample].uiFlags & SAMPLE_RANDOM))
+    {
+        const auto& cached = pSampleList[sample];
+        if (cached.uiSpeedMin != SOUND_PARMS_DEFAULT && cached.uiSpeedMax != SOUND_PARMS_DEFAULT)
+            rate = RandomRange(cached.uiSpeedMin, cached.uiSpeedMax);
     }
-
-    AIL_init_sample(pSoundList[uiChannel].hMSS);
-
-    if (!AIL_set_named_sample_file(pSoundList[uiChannel].hMSS, pSampleList[uiSample].pName,
-                                   pSampleList[uiSample].pData, pSampleList[uiSample].uiSize, 0)) {
-        AIL_release_sample_handle(pSoundList[uiChannel].hMSS);
-        pSoundList[uiChannel].hMSS = NULL;
-
-        sprintf(AILString, "AIL Set Sample Error: %s", AIL_last_error());
-        DbgMessage(TOPIC_GAME, DBG_LEVEL_0, AILString);
-        return (SOUND_ERROR);
+    else if (parameters && parameters->uiSpeed != SOUND_PARMS_DEFAULT) rate = parameters->uiSpeed;
+    if (parameters && parameters->uiPitchBend != SOUND_PARMS_DEFAULT)
+    {
+        const auto bend = uint64_t(rate) * parameters->uiPitchBend / 100;
+        if (bend <= UINT32_MAX / 2)
+            rate = UINT32(std::clamp<int64_t>(int64_t(rate) + int64_t(Random(UINT32(bend * 2))) - int64_t(bend), 1, UINT32_MAX));
     }
-
-    // Store the natural playback rate before we modify it below
-    pSampleList[uiSample].uiSpeed = AIL_sample_playback_rate(pSoundList[uiChannel].hMSS);
-
-    if (pSampleList[uiSample].uiFlags & SAMPLE_RANDOM) {
-        if ((pSampleList[uiSample].uiSpeedMin != SOUND_PARMS_DEFAULT) &&
-            (pSampleList[uiSample].uiSpeedMin != SOUND_PARMS_DEFAULT)) {
-            UINT32 uiSpeed =
-                pSampleList[uiSample].uiSpeedMin +
-                Random(pSampleList[uiSample].uiSpeedMax - pSampleList[uiSample].uiSpeedMin);
-
-            AIL_set_sample_playback_rate(pSoundList[uiChannel].hMSS, uiSpeed);
-        }
-    } else {
-        if ((pParms != NULL) && (pParms->uiSpeed != SOUND_PARMS_DEFAULT)) {
-            Assert((pParms->uiSpeed > 0) && (pParms->uiSpeed <= 60000));
-            AIL_set_sample_playback_rate(pSoundList[uiChannel].hMSS, pParms->uiSpeed);
-        }
-    }
-
-    if ((pParms != NULL) && (pParms->uiPitchBend != SOUND_PARMS_DEFAULT)) {
-        UINT32 uiRate = AIL_sample_playback_rate(pSoundList[uiChannel].hMSS);
-        UINT32 uiBend = uiRate * pParms->uiPitchBend / 100;
-        AIL_set_sample_playback_rate(pSoundList[uiChannel].hMSS,
-                                     uiRate + (Random(uiBend * 2) - uiBend));
-    }
-
-    if ((pParms != NULL) && (pParms->uiVolume != SOUND_PARMS_DEFAULT))
-        uiVolume = pParms->uiVolume;
+    channel.playbackRate = rate;
+    channel.spatial = position != nullptr;
+    if (position) channel.position = *position;
+    const UINT32 volume = parameters && parameters->uiVolume != SOUND_PARMS_DEFAULT ? parameters->uiVolume : guiSoundDefaultVolume;
+    const UINT32 loops = parameters && parameters->uiLoop != SOUND_PARMS_DEFAULT ? parameters->uiLoop : 1;
+    channel.uiFadeVolume = std::min(volume, 127u);
+    channel.uiPriority = parameters && parameters->uiPriority != SOUND_PARMS_DEFAULT ? parameters->uiPriority : PRIORITY_MAX;
+    const auto options = SDL_CreateProperties();
+    bool ok = options && SoundSetVolumeIndex(index, volume) &&
+              SDL_SetNumberProperty(options, MIX_PROP_PLAY_LOOPS_NUMBER, loops == 0 ? -1 : Sint64(loops) - 1);
+    if (channel.spatial) ok = ok && UpdateSpatial(channel);
     else
-        uiVolume = guiSoundDefaultVolume;
-
-    AIL_set_sample_volume(pSoundList[uiChannel].hMSS, uiVolume);
-    pSoundList[uiChannel].uiFadeVolume = uiVolume;
-
-    if ((pParms != NULL) && (pParms->uiLoop != SOUND_PARMS_DEFAULT)) {
-        AIL_set_sample_loop_count(pSoundList[uiChannel].hMSS, pParms->uiLoop);
-
-        // If looping infinately, lock the sample so it can't be unloaded
-        // and mark it as a looping sound
-        if (pParms->uiLoop == 0) {
-            pSampleList[uiSample].uiFlags |= SAMPLE_LOCKED;
-            pSoundList[uiChannel].fLooping = TRUE;
+    {
+        ok = ok && rate > 0 && MIX_SetTrackFrequencyRatio(channel.track.get(), float(rate) / naturalRate);
+        if constexpr (requires { parameters->uiPan; })
+        {
+            const auto pan = parameters && parameters->uiPan != SOUND_PARMS_DEFAULT ? std::min(parameters->uiPan, 127u) : 64;
+            const float offset = std::clamp(float(int(pan) - 64) / 63, -1.0f, 1.0f);
+            const MIX_StereoGains gains{1 - std::max(0.0f, offset), 1 + std::min(0.0f, offset)};
+            ok = ok && MIX_SetTrackStereo(channel.track.get(), &gains);
         }
     }
-
-    if ((pParms != NULL) && (pParms->uiPan != SOUND_PARMS_DEFAULT))
-        AIL_set_sample_pan(pSoundList[uiChannel].hMSS, pParms->uiPan);
-
-    if ((pParms != NULL) && (pParms->uiPriority != SOUND_PARMS_DEFAULT))
-        pSoundList[uiChannel].uiPriority = pParms->uiPriority;
-    else
-        pSoundList[uiChannel].uiPriority = PRIORITY_MAX;
-
-    if ((pParms != NULL) && ((w8_ulong_ptr)pParms->EOSCallback != (w8_ulong_ptr)-1)) {
-        pSoundList[uiChannel].EOSCallback = pParms->EOSCallback;
-        pSoundList[uiChannel].pCallbackData = pParms->pCallbackData;
-    } else {
-        pSoundList[uiChannel].EOSCallback = NULL;
-        pSoundList[uiChannel].pCallbackData = NULL;
+    ok = ok && MIX_PlayTrack(channel.track.get(), options);
+    SDL_DestroyProperties(options);
+    if (!ok) { SoundResetChannel(index); return SOUND_ERROR; }
+    channel.uiSample = sample;
+    channel.uiSoundID = SoundGetUniqueID();
+    channel.uiTimeStamp = GetTickCount();
+    channel.fLooping = loops == 0;
+    if (sample < SOUND_MAX_CACHED)
+    {
+        ++pSampleList[sample].uiCacheHits;
+        if (channel.fLooping) pSampleList[sample].uiFlags |= SAMPLE_LOCKED;
     }
+    if (parameters && reinterpret_cast<w8_ulong_ptr>(parameters->EOSCallback) != w8_ulong_ptr(-1))
+    {
+        channel.EOSCallback = parameters->EOSCallback;
+        channel.pCallbackData = parameters->pCallbackData;
+    }
+    return channel.uiSoundID;
+}
 
-    uiSoundID = SoundGetUniqueID();
-    pSoundList[uiChannel].uiSoundID = uiSoundID;
-    pSoundList[uiChannel].uiSample = uiSample;
-    pSoundList[uiChannel].uiTimeStamp = GetTickCount();
-    pSoundList[uiChannel].uiFadeVolume = SoundGetVolumeIndex(uiChannel);
-
-    pSoundList[uiChannel].fMusic = FALSE;
-    pSampleList[uiSample].uiCacheHits++;
-
-    AIL_start_sample(pSoundList[uiChannel].hMSS);
-
-    return (uiSoundID);
+UINT32 SoundStartSample(UINT32 sample, UINT32 index, SOUNDPARMS* parameters)
+{
+    if (!fSoundSystemInit || index >= SOUND_MAX_CHANNELS || sample >= SOUND_MAX_CACHED || !pSampleList[sample].audio) return SOUND_ERROR;
+    auto& channel = pSoundList[index];
+    channel.owner = w8_native::retain_audio_mixer();
+    channel.track.reset(MIX_CreateTrack(w8_native::audio_mixer()));
+    if (!channel.track || !MIX_SetTrackAudio(channel.track.get(), pSampleList[sample].audio.get()))
+    { SoundResetChannel(index); return SOUND_ERROR; }
+    channel.duration = MIX_GetAudioDuration(pSampleList[sample].audio.get());
+    return StartTrack(index, sample, parameters);
 }
 
 // SoundStartStream
@@ -1382,73 +1029,23 @@ UINT32 SoundStartSample(UINT32 uiSample, UINT32 uiChannel, SOUNDPARMS* pParms)
 //	Returns:	Unique sound ID if successful, SOUND_ERROR if not.
 
 // FUNCTION: WIZ8 0x0040a2e0
-UINT32 SoundStartStream(STR pFilename, UINT32 uiChannel, SOUNDPARMS* pParms)
+UINT32 SoundStartStream(STR filename, UINT32 index, SOUNDPARMS* parameters)
 {
-    UINT32 uiSoundID, uiSpeed;
-    CHAR8 AILString[200];
-
-    if (!fSoundSystemInit)
-        return (SOUND_ERROR);
-
-    if ((pSoundList[uiChannel].hMSSStream =
-             AIL_open_stream(hSoundDriver, pFilename, SOUND_DEFAULT_STREAM)) == NULL) {
-        SoundCleanCache();
-        pSoundList[uiChannel].hMSSStream =
-            AIL_open_stream(hSoundDriver, pFilename, SOUND_DEFAULT_STREAM);
-    }
-
-    if (pSoundList[uiChannel].hMSSStream == NULL) {
-        sprintf(AILString, "Stream Error: %s", AIL_last_error());
-        DbgMessage(TOPIC_GAME, DBG_LEVEL_0, AILString);
-        return (SOUND_ERROR);
-    }
-
-    if ((pParms != NULL) && (pParms->uiSpeed != SOUND_PARMS_DEFAULT))
-        uiSpeed = pParms->uiSpeed;
-    else
-        uiSpeed = AIL_stream_playback_rate(pSoundList[uiChannel].hMSSStream);
-
-    if ((pParms != NULL) && (pParms->uiPitchBend != SOUND_PARMS_DEFAULT)) {
-        UINT32 uiBend = uiSpeed * pParms->uiPitchBend / 100;
-        uiSpeed += (Random(uiBend * 2) - uiBend);
-    }
-
-    AIL_set_stream_playback_rate(pSoundList[uiChannel].hMSSStream, uiSpeed);
-
-    if ((pParms != NULL) && (pParms->uiVolume != SOUND_PARMS_DEFAULT))
-        AIL_set_stream_volume(pSoundList[uiChannel].hMSSStream, pParms->uiVolume);
-    else
-        AIL_set_stream_volume(pSoundList[uiChannel].hMSSStream, guiSoundDefaultVolume);
-
-    if (pParms != NULL) {
-        if (pParms->uiLoop != SOUND_PARMS_DEFAULT)
-            AIL_set_stream_loop_count(pSoundList[uiChannel].hMSSStream, pParms->uiLoop);
-    }
-
-    if ((pParms != NULL) && (pParms->uiPan != SOUND_PARMS_DEFAULT))
-        AIL_set_stream_pan(pSoundList[uiChannel].hMSSStream, pParms->uiPan);
-
-    AIL_start_stream(pSoundList[uiChannel].hMSSStream);
-
-    uiSoundID = SoundGetUniqueID();
-    pSoundList[uiChannel].uiSoundID = uiSoundID;
-    if (pParms)
-        pSoundList[uiChannel].uiPriority = pParms->uiPriority;
-    else
-        pSoundList[uiChannel].uiPriority = SOUND_PARMS_DEFAULT;
-
-    if ((pParms != NULL) && ((w8_ulong_ptr)pParms->EOSCallback != (w8_ulong_ptr)-1)) {
-        pSoundList[uiChannel].EOSCallback = pParms->EOSCallback;
-        pSoundList[uiChannel].pCallbackData = pParms->pCallbackData;
-    } else {
-        pSoundList[uiChannel].EOSCallback = NULL;
-        pSoundList[uiChannel].pCallbackData = NULL;
-    }
-
-    pSoundList[uiChannel].uiTimeStamp = GetTickCount();
-    pSoundList[uiChannel].uiFadeVolume = SoundGetVolumeIndex(uiChannel);
-
-    return (uiSoundID);
+    if (!fSoundSystemInit || index >= SOUND_MAX_CHANNELS) return SOUND_ERROR;
+    auto& channel = pSoundList[index];
+    channel.owner = w8_native::retain_audio_mixer();
+    channel.input = w8_native::open_audio_input(filename);
+    if (!channel.input) return SOUND_ERROR;
+    std::unique_ptr<MIX_AudioDecoder, decltype(&MIX_DestroyAudioDecoder)> decoder(
+        MIX_CreateAudioDecoder_IO(channel.input.get(), false, 0), MIX_DestroyAudioDecoder);
+    if (!decoder) { SoundResetChannel(index); return SOUND_ERROR; }
+    channel.duration = SDL_GetNumberProperty(MIX_GetAudioDecoderProperties(decoder.get()), MIX_PROP_METADATA_DURATION_FRAMES_NUMBER, -1);
+    decoder.reset();
+    channel.track.reset(MIX_CreateTrack(w8_native::audio_mixer()));
+    if (SDL_SeekIO(channel.input.get(), 0, SDL_IO_SEEK_SET) != 0 || !channel.track ||
+        !MIX_SetTrackIOStream(channel.track.get(), channel.input.get(), false))
+    { SoundResetChannel(index); return SOUND_ERROR; }
+    return StartTrack(index, NO_SAMPLE, parameters);
 }
 
 // SoundGetUniqueID
@@ -1493,74 +1090,29 @@ BOOLEAN SoundPlayStreamed(STR pFilename)
 //	Returns:	TRUE if the sample was stopped, FALSE if it could not be found.
 
 // FUNCTION: WIZ8 0x0040a5c0
-BOOLEAN SoundStopIndex(UINT32 uiChannel)
+BOOLEAN SoundStopIndex(UINT32 index)
 {
-    UINT32 uiSample;
-
-    if (fSoundSystemInit) {
-        if (uiChannel != NO_SAMPLE) {
-            if (pSoundList[uiChannel].hMSS != NULL) {
-                AIL_stop_sample(pSoundList[uiChannel].hMSS);
-                AIL_release_sample_handle(pSoundList[uiChannel].hMSS);
-                pSoundList[uiChannel].hMSS = NULL;
-                uiSample = pSoundList[uiChannel].uiSample;
-
-                // if this was a random sample, decrease the iteration count
-                if (pSampleList[uiSample].uiFlags & SAMPLE_RANDOM)
-                    pSampleList[uiSample].uiInstances--;
-
-                if (pSoundList[uiChannel].EOSCallback != NULL)
-                    pSoundList[uiChannel].EOSCallback(pSoundList[uiChannel].pCallbackData);
-
-                if (pSoundList[uiChannel].fLooping && !SoundSampleIsInUse(uiChannel))
-                    SoundRemoveSampleFlags(uiSample, SAMPLE_LOCKED);
-
-                pSoundList[uiChannel].uiSample = NO_SAMPLE;
-            }
-
-            if (pSoundList[uiChannel].hMSSStream != NULL) {
-                AIL_close_stream(pSoundList[uiChannel].hMSSStream);
-                pSoundList[uiChannel].hMSSStream = NULL;
-                if (pSoundList[uiChannel].EOSCallback != NULL)
-                    pSoundList[uiChannel].EOSCallback(pSoundList[uiChannel].pCallbackData);
-
-                pSoundList[uiChannel].uiSample = NO_SAMPLE;
-            }
-
-            if (pSoundList[uiChannel].hM3D != NULL) {
-                AIL_stop_3D_sample(pSoundList[uiChannel].hM3D);
-                AIL_release_3D_sample_handle(pSoundList[uiChannel].hM3D);
-                pSoundList[uiChannel].hM3D = NULL;
-                uiSample = pSoundList[uiChannel].uiSample;
-
-                // if this was a random sample, decrease the iteration count
-                if (pSampleList[uiSample].uiFlags & SAMPLE_RANDOM)
-                    pSampleList[uiSample].uiInstances--;
-
-                if (pSoundList[uiChannel].EOSCallback != NULL)
-                    pSoundList[uiChannel].EOSCallback(pSoundList[uiChannel].pCallbackData);
-
-                if (pSoundList[uiChannel].fLooping && !SoundSampleIsInUse(uiChannel))
-                    SoundRemoveSampleFlags(uiSample, SAMPLE_LOCKED);
-
-                pSoundList[uiChannel].uiSample = NO_SAMPLE;
-            }
-
-            pSoundList[uiChannel].fMusic = FALSE;
-            return (TRUE);
+    if (index >= SOUND_MAX_CHANNELS || !pSoundList[index].track) return FALSE;
+    auto& channel = pSoundList[index];
+    const auto sample = channel.uiSample;
+    const bool looping = channel.fLooping;
+    const auto callback = channel.EOSCallback;
+    void* data = channel.pCallbackData;
+    SoundResetChannel(index);
+    if (sample < SOUND_MAX_CACHED)
+    {
+        auto& cached = pSampleList[sample];
+        if ((cached.uiFlags & SAMPLE_RANDOM) && cached.uiInstances) --cached.uiInstances;
+        if (looping && !(cached.uiFlags & SAMPLE_RANDOM))
+        {
+            bool inUse = false;
+            for (const auto& other : pSoundList) inUse |= other.uiSample == sample && other.fLooping;
+            if (!inUse) cached.uiFlags &= ~SAMPLE_LOCKED;
         }
     }
-
-    return (FALSE);
-}
-
-// SoundGetDriverHandle
-//	Returns:	Pointer to the current sound driver
-
-// FUNCTION: WIZ8 0x0040a8a0
-HDIGDRIVER SoundGetDriverHandle(void)
-{
-    return (hSoundDriver);
+    // Dispatch only on the game thread, after clearing state: callback reentry is safe.
+    if (callback) callback(data);
+    return TRUE;
 }
 
 // FUNCTIONS TO SET / RESET SAMPLE FLAGS
@@ -1568,7 +1120,7 @@ HDIGDRIVER SoundGetDriverHandle(void)
 void SoundSetSampleFlags(UINT32 uiSample, UINT32 uiFlags)
 {
     // CHECK FOR VALUE SAMPLE
-    if ((pSampleList[uiSample].uiFlags & SAMPLE_ALLOCATED)) {
+    if (uiSample < SOUND_MAX_CACHED && (pSampleList[uiSample].uiFlags & SAMPLE_ALLOCATED)) {
         // SET
         pSampleList[uiSample].uiFlags |= uiFlags;
     }
@@ -1587,16 +1139,9 @@ void SoundRemoveSampleFlags(UINT32 uiSample, UINT32 uiFlags)
 // SoundSampleIsInUse
 //	Returns:	TRUE if the sample index is currently being played by the system.
 
-BOOLEAN SoundSampleIsInUse(UINT32 uiSample)
+BOOLEAN SoundSampleIsInUse(UINT32 sample)
 {
-    UINT32 uiCount;
-
-    for (uiCount = 0; uiCount < SOUND_MAX_CHANNELS; uiCount++) {
-        if ((pSoundList[uiCount].uiSample == uiSample) && SoundIsPlaying(uiCount))
-            return (TRUE);
-    }
-
-    return (FALSE);
+    return SoundSampleIsPlaying(sample);
 }
 
 // SoundFileIsPlaying
@@ -1653,8 +1198,7 @@ BOOLEAN SoundStopMusic(void)
 
     if (fSoundSystemInit) {
         for (uiCount = 0; uiCount < SOUND_MAX_CHANNELS; uiCount++) {
-            if ((pSoundList[uiCount].hMSS != NULL) || (pSoundList[uiCount].hMSSStream != NULL) ||
-                (pSoundList[uiCount].hM3D != NULL)) {
+            if (pSoundList[uiCount].track) {
                 if (pSoundList[uiCount].fMusic) {
                     SoundStop(pSoundList[uiCount].uiSoundID);
                     fStopped = TRUE;
@@ -1667,75 +1211,6 @@ BOOLEAN SoundStopMusic(void)
 }
 // New 3D Sound Code
 
-// Sound3DSetProvider
-// Sets the name of the 3D provider to initialize with.
-// Returns nothing.
-// CHAR8 *pProviderName       - Pointer to provider name
-// Created:  8/17/99 Derek Beland
-
-// FUNCTION: WIZ8 0x0040aad0
-void Sound3DSetProvider(CHAR8* pProviderName)
-{
-    Assert(pProviderName);
-
-    if (pProviderName) {
-        static CHAR8 native_provider[] = "miniaudio spatial";
-        gpProviderName = native_provider;
-    }
-}
-
-// Sound3DInitProvider
-// Attempt
-// Returns BOOLEAN            -
-// CHAR8 *pProviderName       -
-// Created:  8/17/99 Derek Beland
-
-BOOLEAN Sound3DInitProvider(CHAR8* pProviderName)
-{
-    HPROENUM hEnum = HPROENUM_FIRST;
-    HPROVIDER hProvider = 0;
-    BOOLEAN fDone = FALSE;
-    CHAR8* pName;
-    INT32 iResult;
-
-    // 3D sound providers depend on the 2D sound system being initialized first
-    if (!fSoundSystemInit || !pProviderName)
-        return (FALSE);
-
-    // We're already booted up
-    if (gh3DProvider)
-        return (TRUE);
-
-    while (!fDone) {
-        if (!AIL_enumerate_3D_providers(&hEnum, &hProvider, &pName))
-            fDone = TRUE;
-        else if (hProvider) {
-            if (strcmp(pProviderName, pName) == 0) {
-                fDone = TRUE;
-                if (AIL_open_3D_provider(hProvider) == M3D_NOERR) {
-                    gh3DProvider = hProvider;
-
-                    // Create a "listener" which represents our position in space
-                    gh3DListener = AIL_open_3D_listener(gh3DProvider);
-                    if (!gh3DListener) {
-                        AIL_close_3D_provider(gh3DProvider);
-                        return (FALSE);
-                    }
-                    Sound3DSetListener(0.0f, 0.0f, 0.0f);
-
-                    AIL_3D_provider_attribute(gh3DProvider, "EAX environment selection", &iResult);
-                    gfUsingEAX = iResult != -1;
-
-                    return (TRUE);
-                }
-            }
-        }
-    }
-
-    // We didn't find a provider with a matching name that would boot up
-    return (FALSE);
-}
-
 // Sound3DSetPosition
 // Sets the 3-space position of a sound sample.
 // Returns nothing.
@@ -1746,17 +1221,13 @@ BOOLEAN Sound3DInitProvider(CHAR8* pProviderName)
 // Created:  8/17/99 Derek Beland
 
 // FUNCTION: WIZ8 0x0040ab20
-void Sound3DSetPosition(UINT32 uiSample, FLOAT flX, FLOAT flY, FLOAT flZ)
+void Sound3DSetPosition(UINT32 id, FLOAT x, FLOAT y, FLOAT z)
 {
-    UINT32 uiChannel;
-
-    if (fSoundSystemInit && gh3DProvider) {
-        if ((uiChannel = SoundGetIndexByID(uiSample)) != NO_SAMPLE) {
-            if (pSoundList[uiChannel].hM3D != NULL) {
-                AIL_set_3D_position(pSoundList[uiChannel].hM3D, flX, flY, flZ);
-            }
-        }
-    }
+    const auto index = SoundGetIndexByID(id);
+    if (index == NO_SAMPLE || !pSoundList[index].track || !pSoundList[index].spatial) return;
+    auto& channel = pSoundList[index];
+    channel.position.flX = x; channel.position.flY = y; channel.position.flZ = z;
+    UpdateSpatial(channel);
 }
 
 // Sound3DSetListener
@@ -1767,14 +1238,25 @@ void Sound3DSetPosition(UINT32 uiSample, FLOAT flX, FLOAT flY, FLOAT flZ)
 // FLOAT flZ                  - Z coordinate
 // Created:  8/17/99 Derek Beland
 
-void Sound3DSetListener(FLOAT flX, FLOAT flY, FLOAT flZ)
+void Sound3DSetListener(FLOAT x, FLOAT y, FLOAT z)
 {
-    if (fSoundSystemInit && gh3DListener)
-        AIL_set_3D_position(gh3DListener, flX, flY, flZ);
+    listener.x = x; listener.y = y; listener.z = z;
+    for (auto& channel : pSoundList) if (channel.track && channel.spatial) UpdateSpatial(channel);
+}
+void Sound3DSetListenerOrientation(FLOAT faceX, FLOAT faceY, FLOAT faceZ, FLOAT upX, FLOAT upY, FLOAT upZ)
+{
+    listener.faceX = faceX; listener.faceY = faceY; listener.faceZ = faceZ;
+    listener.upX = upX; listener.upY = upY; listener.upZ = upZ;
+    for (auto& channel : pSoundList) if (channel.track && channel.spatial) UpdateSpatial(channel);
+}
+void Sound3DSetListenerVelocity(FLOAT x, FLOAT y, FLOAT z)
+{
+    listener.velocityX = x; listener.velocityY = y; listener.velocityZ = z;
+    for (auto& channel : pSoundList) if (channel.track && channel.spatial) UpdateSpatial(channel);
 }
 
 // Sound3DSetDirection
-// Sets the orientation of the listener. The inputs are two vectors that are *always* at
+// Sets the orientation of a source. The inputs are two vectors that are *always* at
 // right angles to each other. The first is the facing vector, and the second is the up
 // vector, which points out of the top of the listeners head.
 // Returns nothing.
@@ -1787,19 +1269,14 @@ void Sound3DSetListener(FLOAT flX, FLOAT flY, FLOAT flZ)
 // Created:  8/17/99 Derek Beland
 
 // FUNCTION: WIZ8 0x0040ab80
-void Sound3DSetDirection(UINT32 uiSample, FLOAT flXFace, FLOAT flYFace, FLOAT flZFace, FLOAT flXUp,
-                         FLOAT flYUp, FLOAT flZUp)
+void Sound3DSetDirection(UINT32 id, FLOAT faceX, FLOAT faceY, FLOAT faceZ, FLOAT upX, FLOAT upY, FLOAT upZ)
 {
-    UINT32 uiChannel;
-
-    if (fSoundSystemInit && gh3DProvider) {
-        if ((uiChannel = SoundGetIndexByID(uiSample)) != NO_SAMPLE) {
-            if (pSoundList[uiChannel].hM3D != NULL) {
-                AIL_set_3D_orientation(pSoundList[uiChannel].hM3D, flXFace, flYFace, flZFace, flXUp,
-                                       flYUp, flZUp);
-            }
-        }
-    }
+    const auto index = SoundGetIndexByID(id);
+    if (index == NO_SAMPLE || !pSoundList[index].spatial) return;
+    auto& p = pSoundList[index].position;
+    p.flFaceX = faceX; p.flFaceY = faceY; p.flFaceZ = faceZ;
+    p.flUpX = upX; p.flUpY = upY; p.flUpZ = upZ;
+    // Sources are omnidirectional, as in the previous backend (no source cone).
 }
 
 // Sound3DSetEnvironment
@@ -1810,15 +1287,9 @@ void Sound3DSetDirection(UINT32 uiSample, FLOAT flXFace, FLOAT flYFace, FLOAT fl
 // Created:  8/17/99 Derek Beland
 
 // FUNCTION: WIZ8 0x0040b210
-void Sound3DSetEnvironment(INT32 iEnvironment)
+void Sound3DSetEnvironment(INT32)
 {
-    CHAR8 cRoomName[128];
-
-    if (gh3DProvider && gfUsingEAX && guiRoomTypeIndex != iEnvironment) {
-        sprintf(cRoomName, "EAX_ENVIRONMENT_%s", pEAXRoomTypes[iEnvironment]);
-        AIL_set_3D_provider_preference(gh3DProvider, cRoomName, &iEnvironment);
-        guiRoomTypeIndex = iEnvironment;
-    }
+    // The previous native backend had no environmental reverb either.
 }
 
 // Sound3DPlay
@@ -1833,7 +1304,7 @@ UINT32 Sound3DPlay(STR pFilename, SOUND3DPARMS* pParms)
 {
     UINT32 uiSample, uiChannel;
 
-    if (fSoundSystemInit && gh3DProvider) {
+    if (fSoundSystemInit) {
         if ((uiSample = SoundLoadSample(pFilename)) != NO_SAMPLE) {
             if ((uiChannel = SoundGetFreeChannel()) != SOUND_ERROR) {
                 return (Sound3DStartSample(uiSample, uiChannel, pParms));
@@ -1853,111 +1324,16 @@ UINT32 Sound3DPlay(STR pFilename, SOUND3DPARMS* pParms)
 //	Returns:	Unique sound ID if successful, SOUND_ERROR if not.
 
 // FUNCTION: WIZ8 0x0040ad40
-UINT32 Sound3DStartSample(UINT32 uiSample, UINT32 uiChannel, SOUND3DPARMS* pParms)
+UINT32 Sound3DStartSample(UINT32 sample, UINT32 index, SOUND3DPARMS* parameters)
 {
-    UINT32 uiSoundID, uiVolume;
-    CHAR8 AILString[200];
-
-    if (!fSoundSystemInit || !gh3DProvider)
-        return (SOUND_ERROR);
-
-    // Stereo samples have no purpose in 3D, nor MP3 files
-    if (pSampleList[uiSample].fStereo || strstr(pSampleList[uiSample].pName, ".MP3"))
-        return (SOUND_ERROR);
-
-    if ((pSoundList[uiChannel].hM3D = AIL_allocate_3D_sample_handle(gh3DProvider)) == NULL) {
-        sprintf(AILString, "AIL3D Error: %s", AIL_last_error());
-        DbgMessage(TOPIC_GAME, DBG_LEVEL_0, AILString);
-        return (SOUND_ERROR);
-    }
-
-    if (!W8AudioSetSpatialFile(pSoundList[uiChannel].hM3D, pSampleList[uiSample].pData,
-                               pSampleList[uiSample].uiSize)) {
-        AIL_release_3D_sample_handle(pSoundList[uiChannel].hM3D);
-        pSoundList[uiChannel].hM3D = NULL;
-
-        sprintf(AILString, "AIL3D Set Sample Error: %s", AIL_last_error());
-        DbgMessage(TOPIC_GAME, DBG_LEVEL_0, AILString);
-        return (SOUND_ERROR);
-    }
-
-    // Store the natural playback rate before we modify it below
-    pSampleList[uiSample].uiSpeed = AIL_3D_sample_playback_rate(pSoundList[uiChannel].hM3D);
-
-    if (pSampleList[uiSample].uiFlags & SAMPLE_RANDOM) {
-        if ((pSampleList[uiSample].uiSpeedMin != SOUND_PARMS_DEFAULT) &&
-            (pSampleList[uiSample].uiSpeedMax != SOUND_PARMS_DEFAULT)) {
-            UINT32 uiSpeed =
-                pSampleList[uiSample].uiSpeedMin +
-                Random(pSampleList[uiSample].uiSpeedMax - pSampleList[uiSample].uiSpeedMin);
-
-            AIL_set_3D_sample_playback_rate(pSoundList[uiChannel].hM3D, uiSpeed);
-        }
-    } else {
-        if ((pParms != NULL) && (pParms->uiSpeed != SOUND_PARMS_DEFAULT))
-            AIL_set_3D_sample_playback_rate(pSoundList[uiChannel].hM3D, pParms->uiSpeed);
-    }
-
-    if ((pParms != NULL) && (pParms->uiPitchBend != SOUND_PARMS_DEFAULT)) {
-        UINT32 uiRate = AIL_3D_sample_playback_rate(pSoundList[uiChannel].hM3D);
-        UINT32 uiBend = uiRate * pParms->uiPitchBend / 100;
-        AIL_set_3D_sample_playback_rate(pSoundList[uiChannel].hM3D,
-                                        uiRate + (Random(uiBend * 2) - uiBend));
-    }
-
-    if ((pParms != NULL) && (pParms->uiVolume != SOUND_PARMS_DEFAULT))
-        uiVolume = pParms->uiVolume;
-    else
-        uiVolume = guiSoundDefaultVolume;
-
-    AIL_set_3D_sample_volume(pSoundList[uiChannel].hM3D, uiVolume);
-    pSoundList[uiChannel].uiFadeVolume = uiVolume;
-
-    if ((pParms != NULL) && (pParms->uiLoop != SOUND_PARMS_DEFAULT)) {
-        AIL_set_3D_sample_loop_count(pSoundList[uiChannel].hM3D, pParms->uiLoop);
-
-        // If looping infinately, lock the sample so it can't be unloaded
-        // and mark it as a looping sound
-        if (pParms->uiLoop == 0) {
-            pSampleList[uiSample].uiFlags |= SAMPLE_LOCKED;
-            pSoundList[uiChannel].fLooping = TRUE;
-        }
-    }
-
-    if ((pParms != NULL) && (pParms->uiPriority != SOUND_PARMS_DEFAULT))
-        pSoundList[uiChannel].uiPriority = pParms->uiPriority;
-    else
-        pSoundList[uiChannel].uiPriority = PRIORITY_MAX;
-
-    if ((pParms != NULL) && ((w8_ulong_ptr)pParms->EOSCallback != (w8_ulong_ptr)-1)) {
-        pSoundList[uiChannel].EOSCallback = pParms->EOSCallback;
-        pSoundList[uiChannel].pCallbackData = pParms->pCallbackData;
-    } else {
-        pSoundList[uiChannel].EOSCallback = NULL;
-        pSoundList[uiChannel].pCallbackData = NULL;
-    }
-
-    AIL_set_3D_position(pSoundList[uiChannel].hM3D, pParms->Pos.flX, pParms->Pos.flY,
-                        pParms->Pos.flZ);
-    AIL_set_3D_velocity_vector(pSoundList[uiChannel].hM3D, pParms->Pos.flVelX, pParms->Pos.flVelY,
-                               pParms->Pos.flVelZ);
-    AIL_set_3D_orientation(pSoundList[uiChannel].hM3D, pParms->Pos.flFaceX, pParms->Pos.flFaceY,
-                           pParms->Pos.flFaceZ, pParms->Pos.flUpX, pParms->Pos.flUpY,
-                           pParms->Pos.flUpZ);
-    //	AIL_set_3D_sample_distances(pSoundList[uiChannel].hM3D, pParms->Pos.flFalloffMax, pParms->Pos.flFalloffMin);
-    AIL_set_3D_sample_distances(pSoundList[uiChannel].hM3D, 99999999.9f, 99999999.9f);
-
-    uiSoundID = SoundGetUniqueID();
-    pSoundList[uiChannel].uiSoundID = uiSoundID;
-    pSoundList[uiChannel].uiSample = uiSample;
-    pSoundList[uiChannel].uiTimeStamp = GetTickCount();
-
-    pSoundList[uiChannel].fMusic = FALSE;
-    pSampleList[uiSample].uiCacheHits++;
-
-    AIL_start_3D_sample(pSoundList[uiChannel].hM3D);
-
-    return (uiSoundID);
+    if (!fSoundSystemInit || !parameters || index >= SOUND_MAX_CHANNELS || sample >= SOUND_MAX_CACHED || !pSampleList[sample].audio) return SOUND_ERROR;
+    auto& channel = pSoundList[index];
+    channel.owner = w8_native::retain_audio_mixer();
+    channel.track.reset(MIX_CreateTrack(w8_native::audio_mixer()));
+    if (!channel.track || !MIX_SetTrackAudio(channel.track.get(), pSampleList[sample].audio.get()))
+    { SoundResetChannel(index); return SOUND_ERROR; }
+    channel.duration = MIX_GetAudioDuration(pSampleList[sample].audio.get());
+    return StartTrack(index, sample, parameters, &parameters->Pos);
 }
 
 // Sound3DStartRandom
@@ -1967,6 +1343,7 @@ UINT32 Sound3DStartSample(UINT32 uiSample, UINT32 uiChannel, SOUND3DPARMS* pParm
 // FUNCTION: WIZ8 0x0040b040
 UINT32 Sound3DStartRandom(UINT32 uiSample, SOUND3DPOS* pPos)
 {
+    if (!fSoundSystemInit || uiSample >= SOUND_MAX_CACHED || !pSampleList[uiSample].audio) return SOUND_ERROR;
     UINT32 uiChannel, uiSoundID;
     SOUND3DPARMS sp3DParms;
 
@@ -2004,7 +1381,7 @@ UINT32 Sound3DStartRandom(UINT32 uiSample, SOUND3DPOS* pPos)
         if ((uiSoundID = Sound3DStartSample(uiSample, uiChannel, &sp3DParms)) != SOUND_ERROR) {
             pSampleList[uiSample].uiTimeNext =
                 GetTickCount() + pSampleList[uiSample].uiTimeMin +
-                Random(pSampleList[uiSample].uiTimeMax - pSampleList[uiSample].uiTimeMin);
+                (pSampleList[uiSample].uiTimeMax > pSampleList[uiSample].uiTimeMin ? Random(pSampleList[uiSample].uiTimeMax - pSampleList[uiSample].uiTimeMin) : 0);
             pSampleList[uiSample].uiInstances++;
             return (uiSoundID);
         }

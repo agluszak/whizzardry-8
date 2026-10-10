@@ -1,4 +1,5 @@
 #include "image_io.h"
+#include "../srext_jpegimporter/plugin_classes.h"
 
 #include "surrender/srBinIStream.h"
 #include "surrender/srBinOStream.h"
@@ -115,8 +116,8 @@ private:
 };
 
 struct ImageHandlers {
-    ImageHandler jpeg{"jpg"};
-    ImageHandler targa{"tga"};
+    srJPEGImporter jpeg;
+    srTGAImporter targa;
     ImageHandler bmp{"bmp"};
     ImageHandler pcx{"pcx"};
 };

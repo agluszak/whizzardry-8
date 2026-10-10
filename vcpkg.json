@@ -12,7 +12,15 @@
     {
       "name": "sdl3-image",
       "default-features": false,
-      "features": ["jpeg"]
+      "features": [
+        "jpeg"
+      ]
+    },
+    {
+      "name": "sdl3-mixer",
+      "features": [
+        "mpg123"
+      ]
     },
     {
       "name": "ffmpeg",
@@ -25,7 +33,6 @@
       ]
     },
     "zlib",
-    "miniaudio",
     {
       "name": "glslang",
       "features": [

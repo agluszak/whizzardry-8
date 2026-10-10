@@ -5,7 +5,6 @@
 
 #include "surrender/srCore.h"
 #include "surrender/srStreamFlags.h"
-#include "surrender/srBinIAsyncStream.h"
 #include "surrender/srColorSurface.h"
 #include "surrender/srDebug.h"
 #include "surrender/srExponentTable.h"
@@ -16,13 +15,10 @@
 #include "surrender/srImporter.h"
 #include "surrender/srIStreamOpener.h"
 #include "surrender/srMaterial.h"
-#include "surrender/srMemoryPool.h"
-#include "surrender/srMutex.h"
 #include "surrender/srPalette.h"
 #include "surrender/srPixelConvert.h"
 #include "surrender/srScene.h"
 #include "surrender/srTextureMap.h"
-#include "surrender/srThread.h"
 #include "surrender/srTriMeshPipeline.h"
 #include "surrender/srTypeRegistry.h"
 #include "surrender/srVectorProcessor.h"
@@ -101,8 +97,6 @@ int __cdecl srInit()
         }
         srCore.texture = new srTextureMap(srCore.surface);
         srCore.texture->setName("SurRender default texture");
-        srDebugPrintf(0xfe, "srInit() -- initializing scheduler\n");
-        srCore.scheduler = new srScheduler;
         srDebugPrintf(0xfe, "srInit() -- done\n");
         srCore.initialized = 1;
     }
@@ -156,8 +150,6 @@ int __cdecl srExit()
 {
     if (srCore.initialized != 0) {
         srDebugPrintf(0xfe, "srExit() -- shutting down SurRender\n");
-        delete srCore.scheduler;
-        srCore.scheduler = 0;
         srGERD::releaseAll();
         srCachedExponentTable::freeAll();
         srCore.root_node->release();
@@ -288,7 +280,6 @@ srCore::srCore()
     strcat(copyright_, ") (c) Hybrid Holding Ltd. 1994-1999");
     multi_thread = 0;
     global_recycler = 0;
-    scheduler = 0;
     texture = 0;
     surface = 0;
     surface_io_manager = 0;
@@ -309,7 +300,6 @@ void srCore::reset()
 {
     multi_thread = 0;
     global_recycler = 0;
-    scheduler = 0;
     texture = 0;
     surface = 0;
     surface_io_manager = 0;

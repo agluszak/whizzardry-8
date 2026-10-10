@@ -299,7 +299,7 @@ int srNode::setParent(srNode* parent, int preserve_world_transform)
     }
     notifyDependent();
     setWSDirty();
-    if (testNotify(static_cast<e_notify>(1)) != 0) {
+    if (testNotify(NOTIFY_TRANSFORM_DIRTY) != 0) {
         updateTransformation();
     }
     return 1;
@@ -478,7 +478,7 @@ void srNode::setScale(double scale)
 // FUNCTION: SURRENDER 0x10051A90
 void srNode::checkTransformation() const
 {
-    if ((notifications.value & 2) != 0) {
+    if (testNotify(NOTIFY_TRANSFORM_DIRTY) != 0) {
         updateTransformation();
     }
 }
@@ -525,8 +525,8 @@ void srNode::setWSDirty()
     /* The dirty fan-out to parents and children can rewrite the notification word, so the
        positional bit is saved first and restored after. */
     int bounds_dirty = notifications.value & (1 << NOTIFY_BOUNDS_DIRTY);
-    notifyParents(srFlags<e_notify>(1));
-    notifyChildren(srFlags<e_notify>(2));
+    notifyParents(srFlags<e_notify>(1u << NOTIFY_BOUNDS_DIRTY));
+    notifyChildren(srFlags<e_notify>(1u << NOTIFY_TRANSFORM_DIRTY));
     notifications.set(NOTIFY_BOUNDS_DIRTY, bounds_dirty);
 }
 
@@ -873,7 +873,7 @@ void srNode::getWorldSpaceMatrix(srMatrix4T<float>& matrix) const
 // FUNCTION: SURRENDER 0x10054920
 void srNode::updateTransformation() const
 {
-    notifications.value &= ~2;
+    notifications.value &= ~(1u << NOTIFY_TRANSFORM_DIRTY);
     srNode* parent = parent_;
     if (parent == 0) {
         if (testFlag(FLAG_IGNORE_TRANSFORM) == 0) {
@@ -884,7 +884,7 @@ void srNode::updateTransformation() const
             world_transform0.SetIdentity();
         }
     } else if (testFlag(FLAG_IGNORE_TRANSFORM) == 0) {
-        if ((parent->notifications.value & 2) != 0) {
+        if (parent->testNotify(NOTIFY_TRANSFORM_DIRTY) != 0) {
             parent->updateTransformation();
         }
         /* Retail writes the parent * local product out element by element (columns

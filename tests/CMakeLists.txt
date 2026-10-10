@@ -2,6 +2,10 @@ add_executable(native_compression_test "${PROJECT_SOURCE_DIR}/tests/native/compr
 target_link_libraries(native_compression_test PRIVATE WIZ8_SGP)
 add_test(NAME native_compression COMMAND native_compression_test)
 
+add_executable(native_images_test native/images_test.cpp)
+target_link_libraries(native_images_test PRIVATE WIZ8_SGP)
+add_test(NAME native_images COMMAND native_images_test)
+
 add_executable(native_files_test "${PROJECT_SOURCE_DIR}/tests/native/files_test.cpp")
 target_link_libraries(native_files_test PRIVATE WIZ8_GAME_CORE WIZ8_SGP SURRENDER)
 add_test(NAME native_files COMMAND native_files_test)
@@ -45,18 +49,64 @@ elseif(UNIX)
 endif()
 add_test(NAME native_save_records COMMAND native_save_records_test)
 
-add_executable(native_jpeg_transfer_test "${PROJECT_SOURCE_DIR}/tests/native/jpeg_transfer_test.cpp"
-    "${PROJECT_SOURCE_DIR}/src/srext_jpegimporter/plugin.cpp" "${PROJECT_SOURCE_DIR}/src/srext_jpegimporter/surface_transfer.cpp")
+add_executable(native_jpeg_transfer_test "${PROJECT_SOURCE_DIR}/tests/native/jpeg_transfer_test.cpp")
 target_include_directories(native_jpeg_transfer_test PRIVATE "${PROJECT_SOURCE_DIR}/src/srext_jpegimporter")
-target_link_libraries(native_jpeg_transfer_test PRIVATE SURRENDER wiz8_native_settings)
+target_compile_definitions(native_jpeg_transfer_test PRIVATE WIZ8_IMAGE_IMPORT_FIXTURE_DIR="${PROJECT_SOURCE_DIR}/tests/native/image_import")
+target_link_libraries(native_jpeg_transfer_test PRIVATE SURRENDER wiz8_native_settings SDL3_image::SDL3_image)
 add_test(NAME native_jpeg_transfer COMMAND native_jpeg_transfer_test)
+
+add_executable(native_virtual_image_transfer_test native/image_import/virtual_transfer_test.cpp)
+target_include_directories(native_virtual_image_transfer_test PRIVATE "${PROJECT_SOURCE_DIR}/src/srext_jpegimporter")
+target_compile_definitions(native_virtual_image_transfer_test PRIVATE WIZ8_IMAGE_IMPORT_FIXTURE_DIR="${PROJECT_SOURCE_DIR}/tests/native/image_import")
+target_link_libraries(native_virtual_image_transfer_test PRIVATE WIZ8_GAME_CORE WIZ8_SGP WIZ8_GAME_CORE SDL3_image::SDL3_image)
+if(APPLE)
+    target_link_options(native_virtual_image_transfer_test PRIVATE -Wl,-dead_strip)
+elseif(UNIX)
+    target_link_options(native_virtual_image_transfer_test PRIVATE -Wl,--gc-sections -Wl,-z,start-stop-gc)
+endif()
+add_test(NAME native_virtual_image_transfer COMMAND native_virtual_image_transfer_test)
+
+add_executable(native_surface_test native/surface_test.cpp)
+target_link_libraries(native_surface_test PRIVATE WIZ8_SGP)
+add_test(NAME native_surfaces COMMAND native_surface_test)
+
+add_executable(native_pixel_convert_test native/pixel_convert_test.cpp)
+target_link_libraries(native_pixel_convert_test PRIVATE SURRENDER wiz8_native_settings SDL3::SDL3)
+add_test(NAME native_pixel_convert COMMAND native_pixel_convert_test)
+
+add_executable(native_container_test native/container_test.cpp native/allocation_failures.cpp)
+target_link_libraries(native_container_test PRIVATE WIZ8_SGP)
+add_test(NAME native_containers COMMAND native_container_test)
+
+add_executable(native_debug_container_test native/container_test.cpp native/allocation_failures.cpp
+    "${PROJECT_SOURCE_DIR}/src/sgp/Container.cpp")
+target_compile_definitions(native_debug_container_test PRIVATE _DEBUG _ITERATOR_DEBUG_LEVEL=0)
+target_link_libraries(native_debug_container_test PRIVATE wiz8_native_settings)
+add_test(NAME native_debug_containers COMMAND native_debug_container_test)
+
+include(CheckLinkerFlag)
+check_linker_flag(CXX "-Wl,--wrap=malloc,--wrap=realloc" WIZ8_TEST_WRAP_C_ALLOCATIONS)
+foreach(mode debug extreme)
+    add_executable(native_${mode}_memory_test native/memory_test.cpp native/allocation_failures.cpp
+        "${PROJECT_SOURCE_DIR}/src/sgp/MemMan.cpp")
+    target_link_libraries(native_${mode}_memory_test PRIVATE wiz8_native_settings)
+    target_compile_definitions(native_${mode}_memory_test PRIVATE _DEBUG _ITERATOR_DEBUG_LEVEL=0)
+    if(mode STREQUAL "extreme")
+        target_compile_definitions(native_${mode}_memory_test PRIVATE EXTREME_MEMORY_DEBUGGING)
+    endif()
+    if(WIZ8_TEST_WRAP_C_ALLOCATIONS)
+        target_compile_definitions(native_${mode}_memory_test PRIVATE WIZ8_TEST_WRAP_C_ALLOCATIONS)
+        target_link_options(native_${mode}_memory_test PRIVATE -Wl,--wrap=malloc,--wrap=realloc)
+    endif()
+    add_test(NAME native_${mode}_memory COMMAND native_${mode}_memory_test)
+endforeach()
 
 add_executable(native_blitter_test "${PROJECT_SOURCE_DIR}/tests/native/blitter_test.cpp")
 target_link_libraries(native_blitter_test PRIVATE WIZ8_SGP)
 add_test(NAME native_blitters COMMAND native_blitter_test
     "${PROJECT_SOURCE_DIR}/tests/native/blitters_expected.txt")
 
-# Check first-party objects, not SDL/miniaudio's statically linked host-width code.
+# Check first-party objects, not SDL's statically linked host-width code.
 if(UNIX)
     add_test(NAME native_no_glibc_wide_strings
         COMMAND "${CMAKE_COMMAND}" "-DNM=${CMAKE_NM}"
@@ -98,6 +148,7 @@ elseif(UNIX)
     target_link_options(native_movie_test PRIVATE -Wl,--gc-sections -Wl,-z,start-stop-gc)
 endif()
 add_test(NAME native_movies COMMAND native_movie_test)
+set_tests_properties(native_audio native_movies PROPERTIES ENVIRONMENT "SDL_AUDIO_DRIVER=wiz8-offline")
 
 # Installed level/character integration; supplied assets and a display are required.
 add_executable(native_world_graphics "${PROJECT_SOURCE_DIR}/tests/native/world_graphics.cpp")

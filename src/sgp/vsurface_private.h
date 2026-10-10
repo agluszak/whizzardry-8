@@ -19,7 +19,7 @@ extern "C" {
 //
 // ***********************************************************************
 
-HVSURFACE CreateVideoSurfaceFromDDSurface(LPDIRECTDRAWSURFACE2 lpDDSurface);
+HVSURFACE CreateVideoSurfaceFromCpuSurface(CpuSurface* surface);
 
 #ifdef __cplusplus
 }

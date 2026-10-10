@@ -2544,26 +2544,24 @@ void GetCameraPosition(srVector3T<float>* position)
 // FUNCTION: WIZ8 0x004213A0
 void GetCameraOrientation(W8CameraAngleRecord angle, W8CameraAngleRecord pitch)
 {
-    int i;
-
-    for (i = 0; i < 6; ++i) {
-        angle[i] = 0.0f;
-    }
-    for (i = 0; i < 6; ++i) {
-        pitch[i] = 0.0f;
-    }
-    *angle = g_gd_camera->m_yaw;
-    *pitch = g_gd_camera->m_pitch;
+    W8CameraAngleRecord yaw_values = {}, pitch_values = {};
+    yaw_values[0] = g_gd_camera->m_yaw;
+    pitch_values[0] = g_gd_camera->m_pitch;
+    memcpy(angle, yaw_values, sizeof(yaw_values));
+    memcpy(pitch, pitch_values, sizeof(pitch_values));
 }
 
 // FUNCTION: WIZ8 0x004213E0
 void SetCameraOrientation(W8CameraAngleRecord angle, W8CameraAngleRecord pitch,
                           srMatrix3T<float>* rotation)
 {
-    g_gd_camera->SetYaw(*angle);
-    g_gd_camera->SetPitch(*pitch);
-    *angle = g_gd_camera->m_yaw;
-    *pitch = g_gd_camera->m_pitch;
+    float yaw_value, pitch_value;
+    memcpy(&yaw_value, angle, sizeof(yaw_value));
+    memcpy(&pitch_value, pitch, sizeof(pitch_value));
+    g_gd_camera->SetYaw(yaw_value);
+    g_gd_camera->SetPitch(pitch_value);
+    memcpy(angle, &g_gd_camera->m_yaw, sizeof(yaw_value));
+    memcpy(pitch, &g_gd_camera->m_pitch, sizeof(pitch_value));
     if (rotation != 0) {
         g_gd_camera->GetRotationMatrix(rotation);
     }

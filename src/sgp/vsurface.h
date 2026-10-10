@@ -7,6 +7,8 @@
 #include "Container.h"
 #include "himage.h"
 #include "vobject.h"
+#include "compat/surfaces.h"
+#include <array>
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 //
@@ -56,7 +58,7 @@ typedef struct {
 //
 
 #define VSURFACE_DEFAULT_MEM_USAGE                                                                 \
-    0x00000001 // Default mem usage is same as DD, try video and then try system. Will usually work
+    0x00000001 // CPU memory is the native default
 #define VSURFACE_VIDEO_MEM_USAGE                                                                   \
     0x00000002 // Will force surface into video memory and will fail if it can't
 #define VSURFACE_SYSTEM_MEM_USAGE                                                                  \
@@ -89,21 +91,17 @@ typedef struct {
 // This structure is a video Surface. Contains a HLIST of regions
 //
 
-typedef struct {
+typedef struct SGPVSurface {
     UINT16 usHeight;  // Height of Video Surface
     UINT16 usWidth;   // Width of Video Surface
-    UINT8 ubBitDepth; // BPP ALWAYS 16!
-    PTR pSurfaceData; // A void pointer, but for this implementation, is really a lpDirectDrawSurface;
-    PTR pSurfaceData1; // Direct Draw One Interface
-    PTR pSavedSurfaceData1; // A void pointer, but for this implementation, is really a lpDirectDrawSurface;
-    // pSavedSurfaceData is used to hold all video memory Surfaces so that they my be restored
-    PTR pSavedSurfaceData; // A void pointer, but for this implementation, is really a lpDirectDrawSurface;
-    // pSavedSurfaceData is used to hold all video memory Surfaces so that they my be restored
-    UINT32 fFlags;             // Used to describe memory usage, etc
-    PTR pPalette;              // A void pointer, but for this implementation a DDPalette
-    UINT16* p16BPPPalette;     // A 16BPP palette used for 8->16 blits
-    COLORVAL TransparentColor; // Defaults to 0,0,0
-    PTR pClipper;              // A void pointer encapsolated as a clipper Surface
+    UINT8 ubBitDepth; // 8 or 16 bits per pixel
+    std::unique_ptr<CpuSurface> ownedSurface;
+    CpuSurface* surface = nullptr; // Borrowed only for the reserved frame buffer.
+    UINT32 fFlags;
+    std::array<SGPPaletteEntry, 256> palette{};
+    bool hasPalette = false;
+    UINT16* p16BPPPalette;
+    COLORVAL TransparentColor;
     HLIST RegionList;          // A List of regions within the video Surface
 
 } SGPVSurface, *HVSURFACE;
@@ -204,7 +202,7 @@ void UnLockVideoSurfaceBuffer(HVSURFACE hVSurface);
 BOOLEAN SetVideoSurfaceDataFromHImage(HVSURFACE hVSurface, HIMAGE hImage, UINT16 usX, UINT16 usY,
                                       SGPRect* pSrcRect);
 
-// Sets Transparency color into HVSurface and the underlying DD surface
+// Sets the packed source color key
 BOOLEAN SetVideoSurfaceTransparencyColor(HVSURFACE hVSurface, COLORVAL TransColor);
 
 // Sets HVSurface palette, creates if nessessary. Also sets 16BPP palette
@@ -213,7 +211,7 @@ BOOLEAN SetVideoSurfacePalette(HVSURFACE hVSurface, SGPPaletteEntry* pSrcPalette
 // Used if it's in video memory, will re-load backup copy
 //BOOLEAN RestoreVideoSurface( HVSurface hVSurface );
 
-// Deletes all data, including palettes, regions, DD Surfaces
+// Deletes all data, including palettes, regions and the owned SDL surface
 BOOLEAN DeleteVideoSurface(HVSURFACE hVSurface);
 BOOLEAN DeleteVideoSurfaceFromIndex(UINT32 uiIndex);
 
