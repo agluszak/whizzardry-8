@@ -32,7 +32,6 @@ public:
 
 
     virtual void dump(std::ostream& stream) override;
-    virtual srClass* vInstance() override;
     virtual void process(const ProcessInfo& info, e_processType type) override;
 
     void flipHorizontal();

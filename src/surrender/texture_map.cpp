@@ -86,8 +86,3 @@ void srTextureMap::dump(std::ostream& stream)
     stream.flags(static_cast<std::ios::fmtflags>(flags & 0x7fff));
 }
 
-// FUNCTION: SURRENDER 0x10060780
-srClass* srTextureMap::vInstance()
-{
-    return new srTextureMap(nullptr);
-}

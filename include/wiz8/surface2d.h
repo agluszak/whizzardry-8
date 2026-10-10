@@ -1,6 +1,7 @@
 #pragma once
 
 #include <memory>
+#include <vector>
 
 #include "surrender/srColorSurface.h"
 #include "surrender/srNode.h"
@@ -18,7 +19,6 @@ public:
     stTexture2D();
     virtual ~stTexture2D() override;
     stTexture2D& operator=(const stTexture2D&) = default;
-    virtual srClass* vInstance() override;
     virtual w8_ulong getTextureFrameHandle() override;
     virtual void getMipmapData(MultiRequest& request) override;
     virtual void getMipmapLevelPartial(PartialRequest& request) override;
@@ -48,8 +48,7 @@ public:
     }
 
     stSurface2D(std::shared_ptr<srColorSurfaceIFace> surface, int width, int height, srNode* parent, int tile_size);
-    virtual ~stSurface2D() override;
-    stSurface2D& operator=(const stSurface2D&) = default;
+
     virtual void traverse(TraverseInfo& info) override;
     virtual void process(const ProcessInfo& info, e_processType type) override;
 
@@ -69,10 +68,9 @@ public:
     int tile_size;                       /* 0x144 */
     int columns;                         /* 0x148 */
     int rows;                            /* 0x14c */
-    int tile_count;                      /* 0x150 */
     int width;                           /* 0x154 */
     int height;                          /* 0x158 */
-    stTexture2D** tiles;                 /* 0x15c */
+    std::vector<std::unique_ptr<stTexture2D>> tiles;
     float tile_u;                        /* 0x160 */
     float tile_v;                        /* 0x164 */
     int field_168;
@@ -82,5 +80,4 @@ public:
     int texture_update_flags;
 };
 
-W8_ABI_ASSERT((sizeof(stTexture2D) == 0x6c), "stTexture2D_must_be_0x6c");
-W8_ABI_ASSERT((sizeof(stSurface2D) == 0x198), "stSurface2D_must_be_0x198");
+

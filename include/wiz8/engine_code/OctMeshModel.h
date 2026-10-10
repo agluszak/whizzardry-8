@@ -1,6 +1,9 @@
 #pragma once
 
 #include <memory>
+#include <vector>
+
+#include "wiz8/engine_code/materials.h"
 
 #include "wiz8/filesystem.h"
 
@@ -20,8 +23,7 @@ class OctMeshModel {
 public:
     OctMeshModel();  /* 0x0049E4C0 */
     ~OctMeshModel(); /* 0x0049E500 */
-    std::unique_ptr<stMeshModel> Read(wiz8::File* file, srMaterialIFace** materials, srTextureIFace** textures,
-                      srShader* render_flags, int material_count);
+    std::unique_ptr<stMeshModel> Read(wiz8::File* file, const std::vector<W8MeshMaterial>& materials);
     bool Write(wiz8::File* hFile); /* 0x0049E5D0 */
 
     short version;
@@ -49,7 +51,5 @@ W8_ABI_ASSERT(sizeof(OctMeshModel) == 0x48, "OctMeshModel_size_must_be_0x48");
 
 /* The first Read call snapshots material/texture/render-flag zero as the
    shared default rendering state for the path and trace meshes. */
-extern stMaterial* g_oct_mesh_default_material;
-extern srTextureIFace* g_oct_mesh_default_texture;
-extern srShader* g_oct_mesh_default_shader;
+extern W8MeshMaterial g_oct_mesh_default;
 void ReleaseOctMeshDefaults();

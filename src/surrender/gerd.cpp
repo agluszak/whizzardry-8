@@ -85,7 +85,6 @@ public:
         return "srGERD::Surface";
     }
     /* Cannot construct a LockSurface without the owning GERD and pixel format. */
-    virtual srClass* vInstance() override;
     virtual void getPixelColumn(w8_ulong* pixels, w8_long x, w8_long y0, w8_long y1) override;
     virtual void setPixelColumn(const w8_ulong* pixels, w8_long x, w8_long y0, w8_long y1) override;
     virtual void* getDataPtr() override;
@@ -610,6 +609,18 @@ srGERD* srGERD::getFirstOpen()
 srGERD* srGERD::getNextOpen() const
 {
     return next_open;
+}
+
+void srGERD::unbindTexture(const srTextureIFace* texture)
+{
+    for (srGERD* gerd = getFirstOpen(); gerd != 0; gerd = gerd->getNextOpen()) {
+        std::lock_guard access(gerd->state_section);
+        for (auto*& bound : gerd->texture_iface) {
+            if (bound == texture) {
+                bound = 0;
+            }
+        }
+    }
 }
 
 // FUNCTION: SURRENDER 0x10018330
@@ -1748,12 +1759,6 @@ srGERD::LockSurface::LockSurface(srGERD* gerd, const srPixelConvert::PixelFormat
 // FUNCTION: SURRENDER 0x1001F610
 srGERD::LockSurface::~LockSurface()
 {
-}
-
-// FUNCTION: SURRENDER 0x1001F770
-srClass* srGERD::LockSurface::vInstance()
-{
-    return 0;
 }
 
 // FUNCTION: SURRENDER 0x1001F750

@@ -1304,12 +1304,6 @@ void srColorSurface::setPixelReadFunc(srPixelConvert::ConversionFunc function)
     }
 }
 
-// FUNCTION: SURRENDER 0x1005DDB0
-srClass* srColorSurface::vInstance()
-{
-    return new srColorSurface(pixel_format, 1, 1);
-}
-
 // FUNCTION: SURRENDER 0x1005DE20
 const char* srColorSurface::sGetClassName()
 {
@@ -1390,6 +1384,14 @@ int srColorSurface::changePixelFormat(const srPixelConvert::PixelFormat& format,
     return 1;
 }
 
+/* Indexed pixels copy verbatim only between equal palettes. */
+static bool samePalette(srPalette* first, srPalette* second)
+{
+    return first == second ||
+           (first && second && first->getPaletteSize() == second->getPaletteSize() &&
+            first->matchPalette(second->getPaletteDataPtr(), second->getPaletteSize()));
+}
+
 // FUNCTION: SURRENDER 0x1005C4D0
 int srColorSurface::isCompatible(srColorSurfaceIFace& source)
 {
@@ -1398,7 +1400,7 @@ int srColorSurface::isCompatible(srColorSurfaceIFace& source)
     }
     if (pixel_format == source.pixel_format) {
         if (pixel_format.color_model == srPixelConvert::COLOR_INDEXED &&
-            source.getPalette() != getPalette()) {
+            !samePalette(getPalette().get(), source.getPalette().get())) {
             return 0;
         }
         return source.getDataPtr() != 0;

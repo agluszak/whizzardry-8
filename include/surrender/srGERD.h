@@ -20,7 +20,7 @@
 #include "srDD.h"
 #include "srTriMeshPipeline.h"
 #include "srColorSurfaceIFace.h"
-#include "srPtr.h"
+#include <memory>
 #include "srARGB.h"
 class srColorSurface;
 class srModelInstance;
@@ -566,6 +566,8 @@ public:
     void invalidateResidentTexture(srTextureIFace* texture);
     void invalidateTextureCache();
     void invalidateTexture(srTextureIFace* texture);
+    /* Clears every open renderer's binding of a texture being destroyed. */
+    static void unbindTexture(const srTextureIFace* texture);
     void invalidateTextureByFrameHandle(w8_ulong handle);
     w8_ulong getTextureCacheSize() const;
     void setTextureCacheSize(w8_ulong bytes);
@@ -1070,8 +1072,9 @@ private:
     w8_long polygon_offset;
     srVector4T<float> fog_color;
     srShader shader;
-    /* Texture interfaces requested through setTexture for stages 0/1. */
-    srPtr<srTextureIFace> texture_iface[2];
+    /* Borrowed texture interfaces requested through setTexture for stages 0/1;
+       a texture clears its bindings when destroyed. */
+    srTextureIFace* texture_iface[2];
     /* Live textures keyed by the texture interface's frame handle. */
     std::unordered_map<w8_ulong, Texture*> texture_lookup;
     TexturePool texture_pool;

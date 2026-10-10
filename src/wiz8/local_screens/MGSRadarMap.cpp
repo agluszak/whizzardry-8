@@ -171,7 +171,7 @@ static stModelInstance2D* AcquireRadarBlip(int sector, bool lit)
             first.x = g_radar_blip_colors[group][0];
             first.y = g_radar_blip_colors[group][1];
             first.z = g_radar_blip_colors[group][2];
-            icon->SetGlowColors(&first, &second);
+            icon->SetGlowColors(first, second);
             icon->render_state.render_depth = 1000;
         }
     }
@@ -199,7 +199,7 @@ void ReleaseRadarMap(void)
         while (pool->count != 0) {
             stModelInstance2D* icon = pool->RemoveAt(0);
             if (icon != 0) {
-                icon->release();
+                delete icon;
             }
         }
     }

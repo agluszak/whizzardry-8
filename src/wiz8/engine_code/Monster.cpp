@@ -51,6 +51,7 @@
 #include "wiz8/engine_code/stTextureAnim.h"
 #include "wiz8/engine_code/stTextureFile.h"
 #include "wiz8/engine_code/stScript.h"
+#include "wiz8/resource_cache.h"
 #include "wiz8/engine_code/stSound3D.h"
 #include "wiz8/engine_code/World.h"
 #include "wiz8/layouts/game_status.h"
@@ -1275,7 +1276,7 @@ W8Monster::~W8Monster()
     }
     UnregisterGrCycle(this);
     delete m_pRep;
-    ReleaseRendererObject(script);
+    script.reset();
     runtime_flags &= ~W8_MONSTER_SCRIPT_WAIT;
     script_line = 0;
     script_wait = MONSCR_NONE;
@@ -1666,16 +1667,15 @@ bool W8Monster::EvaluateScriptCondition(const char* expression)
     return false;
 }
 
-/* Replace the current Monster script with an existing named runtime object or
-   load it from the Monster script directory on first use. Registry ownership
-   is balanced the same way on both paths: a newly loaded script is marked for
-   automatic release, then the Monster takes its own reference. */
+/* Monster scripts are shared by name while any monster runs them. */
+static ResourceCache<stScript> g_monster_scripts;
+
+/* Replace the current Monster script with a loaded one of the same name, or
+   load it from the Monster script directory. */
 // FUNCTION: WIZ8 0x004C7F10
 bool W8Monster::SetScript(std::string script_name, bool reset_orders)
 {
-    srRegistry* registry;
-
-    ReleaseRendererObject(script);
+    script.reset();
     runtime_flags &= ~W8_MONSTER_SCRIPT_WAIT;
     script_line = 0;
     script_wait = MONSCR_NONE;
@@ -1684,26 +1684,18 @@ bool W8Monster::SetScript(std::string script_name, bool reset_orders)
         orders_finished = false;
     }
 
-    registry = srCore.getRegistry();
-    script = static_cast<stScript*>(registry->find(stScript::sGetClassNode(), script_name, 0));
+    script = g_monster_scripts.find(script_name);
     if (script == 0) {
-        /* Retail builds the path only on a registry miss. */
+        /* Retail builds the path only on a cache miss. */
         const std::string path = "Data\\Monsters\\Scripts\\" + script_name;
-        script = new stScript;
-        if (script != 0) {
-            if (script->Load(path.c_str()) != 0) {
-                script->setName(script_name);
-                script->autoRelease();
-            } else {
-                script->release();
-                script = 0;
-            }
+        auto loaded = std::make_shared<stScript>();
+        if (loaded->Load(path.c_str()) == 0) {
+            return false;
         }
+        loaded->setName(script_name);
+        g_monster_scripts.insert(script_name, loaded);
+        script = std::move(loaded);
     }
-    if (script == 0) {
-        return false;
-    }
-    script->addReference();
     return true;
 }
 
@@ -2296,7 +2288,7 @@ void W8Monster::ProcessScript()
                     if (distance != 0.0f)
                         sound->falloff = distance;
                     if (sound->Play(false, false) == 0) {
-                        sound->release();
+                        delete sound;
                         sound = 0;
                     } else {
                         script_wait = MONSCR_PLAY;
@@ -2441,8 +2433,7 @@ void W8Monster::ProcessScript()
     }
 
     if (script != 0 && script_line >= script->lines.GetCount() && script_wait == MONSCR_NONE) {
-        script->release();
-        script = 0;
+        script.reset();
         runtime_flags &= ~W8_MONSTER_SCRIPT_WAIT;
         script_line = 0;
         script_wait = MONSCR_NONE;
@@ -2499,7 +2490,7 @@ bool W8Monster::CanContinueScript()
         if (sound->IsPlaying()) {
             return false;
         }
-        sound->release();
+        delete sound;
         sound = 0;
         break;
     default:
@@ -4865,7 +4856,7 @@ bool W8Monster::ReplaceSkinTexture(int stage, const char* old_name, const char* 
     bool replaced = false;
 
     sprintf(path, "Data\\Monsters\\Bitmaps\\%s", new_name);
-    srTextureIFace* texture = LoadTextureFromPath(path, 0, true);
+    std::shared_ptr<srTextureIFace> texture = LoadTextureFromPath(path, 0, true);
     if (texture == 0) {
         ShutdownWithErrorBox(FormatString("Missing skin texture: %s", new_name));
         return false;
@@ -4984,7 +4975,6 @@ void W8Monster::SpawnDamageNumber(unsigned int amount)
         srMatrix3T<double> world;
         stModelInstance* poster;
         stParticle* particle;
-        srMaterial* material;
         srShader shader;
         float distance;
         float scale;
@@ -5022,12 +5012,11 @@ void W8Monster::SpawnDamageNumber(unsigned int amount)
             m_pRep->linked_runtime_objects.Add(poster);
 
             particle = new stParticle(g_world->dynamic_scene, 0xa);
-            material = new srMaterial;
+            auto material = std::make_shared<srMaterial>();
             colour.Set(0.0f, 0.0f, 0.0f, 1.0f);
             material->setEmissive(colour);
             material->setDiffuse(colour);
-            particle->SetMaterial(material);
-            material->release();
+            particle->SetMaterial(std::move(material));
             particle->SetTexture(
                 LoadTextureFromFolder("Data\\Monsters\\Bitmaps\\", "BloodParticle.tga", true));
             shader.value = 0x100c4b3;
@@ -5207,35 +5196,26 @@ void W8Monster::ApplyRepresentationScale()
 /* Build a floating icon item from a bitmap path: clamp-wrapped texture, a
    500-unit-wide poster quad relocated 250 units up the Y axis with alignment
    enabled, wrapped in a W8Item whose mesh attachment and bounds are refreshed
-   for the world. Returns 0 when the texture or quad could not be made. */
+   for the world. */
 // FUNCTION: WIZ8 0x004C5500
 W8Item* CreateMonsterIconItem(W8World* world, const char* path, int flag)
 {
-    stTextureFile* texture = new stTextureFile(path, 0);
+    auto texture = std::make_shared<stTextureFile>(path, 0);
     texture->setWrapS(srTextureIFace::WRAP_CLAMP);
     texture->setWrapT(srTextureIFace::WRAP_CLAMP);
-    if (texture != 0) {
-        texture->loadSurface();
-        texture->autoRelease();
-        stModelInstance* instance =
-            static_cast<stModelInstance*>(MakePosterQuad(texture, 500.0f, 0.0f, true));
-        if (instance != 0) {
-            srVector3T<float> offset(0.0f, 250.0f, 0.0f);
-            static_cast<srMeshModel*>(instance->getModel())->relocateVertices(offset);
-            instance->setAlignment(1);
-            W8Item* item = new W8Item();
-            if (item != 0) {
-                W8ItemRep* rep = static_cast<W8ItemRep*>(item->m_pRep);
-                rep->flags |= 0x40;
-                rep->m_psrMesh = instance;
-                rep->RefreshBounds();
-                item->AttachMesh(world);
-                instance->light_scale.SetZero();
-                return item;
-            }
-        }
-    }
-    return 0;
+    texture->loadSurface();
+    auto* instance = static_cast<stModelInstance*>(MakePosterQuad(texture, 500.0f, 0.0f, true));
+    srVector3T<float> offset(0.0f, 250.0f, 0.0f);
+    static_cast<srMeshModel*>(instance->getModel())->relocateVertices(offset);
+    instance->setAlignment(1);
+    W8Item* item = new W8Item();
+    W8ItemRep* rep = static_cast<W8ItemRep*>(item->m_pRep);
+    rep->flags |= 0x40;
+    rep->m_psrMesh = instance;
+    rep->RefreshBounds();
+    item->AttachMesh(world);
+    instance->light_scale.SetZero();
+    return item;
 }
 
 // FUNCTION: WIZ8 0x004C5810

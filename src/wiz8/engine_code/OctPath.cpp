@@ -5184,22 +5184,21 @@ stModelInstance* W8PathingService::EnsurePathVisualization()
     auto model = std::make_shared<stMeshModel>(polygon_count, vertex_count);
     int index;
     model->flags &= ~W8_MESH_SORTED_RENDERING;
-    model->setShader(*g_oct_mesh_default_shader, 0);
+    model->setShader(g_oct_mesh_default.render_flags, 0);
     model->setName("WayPoint Mesh");
-    model->setReusable(false);
 
     srVector3i* polygons = model->getPolyVertex();
-    srPtr<srTextureIFace>* textures = model->getPolyTexture(0, 0, 1);
+    std::shared_ptr<srTextureIFace>* textures = model->getPolyTexture(0, 0, 1);
     srVector2T<float>* texture_coordinates = model->getVertexTexCoords(0, 0, 1);
-    srPtr<srMaterialIFace>* materials = model->getVertexMaterial(0, srMeshModel::SIDE_FRONT, 1);
+    std::shared_ptr<srMaterialIFace>* materials = model->getVertexMaterial(0, srMeshModel::SIDE_FRONT, 1);
     w8_ulong* shade_indices = model->getVertexShadeIndex(1);
 
     for (index = 0; index < polygon_count; ++index) {
-        textures[index] = g_oct_mesh_default_texture;
+        textures[index] = g_oct_mesh_default.texture;
     }
     for (index = 0; index < vertex_count; ++index) {
         texture_coordinates[index].SetZero();
-        materials[index] = g_oct_mesh_default_material;
+        materials[index] = g_oct_mesh_default.material;
         shade_indices[index] = index;
     }
 

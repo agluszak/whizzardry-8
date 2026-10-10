@@ -8,7 +8,7 @@
 #include "srMaterial.h"
 #include "srMath.h"
 #include "srModel.h"
-#include "srPtr.h"
+#include <memory>
 #include "srShader.h"
 #include "srTexture.h"
 #include "srTypeRegistry.h"
@@ -60,11 +60,11 @@ public:
         srVector3T<float>* dig[4]{};
         srVector4T<float>* dcg[4]{};
         srVector4T<float>* scg[4]{};
-        srMaterial* materials[4][2]{};
-        srTextureIFace* textures[4][2]{};
+        std::shared_ptr<srMaterial> materials[4][2];
+        std::shared_ptr<srTextureIFace> textures[4][2];
         srShader shaders[4];
-        srPtr<srMaterialIFace>* vertex_materials[4][2]{};
-        srPtr<srTextureIFace>* poly_textures[4][2]{};
+        std::shared_ptr<srMaterialIFace>* vertex_materials[4][2]{};
+        std::shared_ptr<srTextureIFace>* poly_textures[4][2]{};
         srShader* poly_shaders[4]{};
         srVector3i* poly_uv[4]{};
         srVector3T<float> bounds_minimum{0.0f, 0.0f, 0.0f};
@@ -100,7 +100,6 @@ public:
 
     SR_DLL_IMPORT virtual void dump(std::ostream& stream) override;
     SR_DLL_IMPORT virtual void verify(srRuntimeClass::e_verify mode) override;
-    SR_DLL_IMPORT virtual srClass* vInstance() override;
     SR_DLL_IMPORT virtual int getBoundingSphere(srVector3T<float>& center, float& radius) override;
     SR_DLL_IMPORT virtual int getBoundingBox(srVector3T<float>& minimum,
                                              srVector3T<float>& maximum) override;
@@ -110,11 +109,11 @@ public:
     SR_DLL_IMPORT virtual void getTriMesh(TriMesh& mesh);
     SR_DLL_IMPORT virtual const TriMesh& getTriMesh();
     SR_DLL_IMPORT virtual void renderTriMesh(class srGERD& renderer, const TriMesh& mesh);
-    SR_DLL_IMPORT srPtr<srTextureIFace>* getPolyTexture(w8_long polygon, w8_long layer, int table);
+    SR_DLL_IMPORT std::shared_ptr<srTextureIFace>* getPolyTexture(w8_long polygon, w8_long layer, int table);
     SR_DLL_IMPORT srVector3i* getPolyVertex();
     SR_DLL_IMPORT srVector3i* getPolyUVIndex(w8_long layer, int table);
     SR_DLL_IMPORT srVector2T<float>* getVertexTexCoords(w8_long vertex, w8_long layer, int table);
-    SR_DLL_IMPORT srPtr<srMaterialIFace>* getVertexMaterial(w8_long vertex, e_side side, int table);
+    SR_DLL_IMPORT std::shared_ptr<srMaterialIFace>* getVertexMaterial(w8_long vertex, e_side side, int table);
     SR_DLL_IMPORT w8_ulong* getVertexShadeIndex(int table);
     SR_DLL_IMPORT srVector3T<float>* getVertexNormal();
     SR_DLL_IMPORT srVector4T<float>* getPolyEq();
@@ -123,8 +122,8 @@ public:
     srVector4T<float>* getVertexDCG(w8_long vertex, int table);
     SR_DLL_IMPORT srMaterialIFace* getMaterial(w8_long polygon, e_side side) const;
     SR_DLL_IMPORT srTextureIFace* getTexture(w8_long polygon, w8_long layer) const;
-    SR_DLL_IMPORT void setMaterial(srMaterialIFace* material, w8_long polygon, e_side side);
-    SR_DLL_IMPORT void setTexture(srTextureIFace* texture, w8_long polygon, w8_long layer);
+    SR_DLL_IMPORT void setMaterial(std::shared_ptr<srMaterialIFace> material, w8_long polygon, e_side side);
+    SR_DLL_IMPORT void setTexture(std::shared_ptr<srTextureIFace> texture, w8_long polygon, w8_long layer);
     // FUNCTION: SURRENDER 0x10041710 SYMBOL
     // RECOMP: ?setDirty@srMeshModel@@QAEXW4e_flags@1@@Z
     void setDirty(e_flags flag)
@@ -133,9 +132,6 @@ public:
         if ((dirty_flags.value & mask) == 0) {
             dirty_flags.set(flag, 1);
             dirty_flags.set(DIRTY_TRI_MESH, 1);
-            if (flag == DIRTY_BOUNDS) {
-                updateAllClients(Client::UPDATE_BOUNDS);
-            }
         }
     }
     // FUNCTION: SURRENDER 0x10041750 SYMBOL
@@ -201,14 +197,14 @@ protected:
 
 public:
     /* setMaterial indexes [pass][side]. */
-    std::array<std::array<srPtr<srMaterialIFace>, 2>, MAX_PASSES> materials;
-    std::array<std::array<srPtr<srTextureIFace>, 2>, MAX_PASSES> textures;
+    std::array<std::array<std::shared_ptr<srMaterialIFace>, 2>, MAX_PASSES> materials;
+    std::array<std::array<std::shared_ptr<srTextureIFace>, 2>, MAX_PASSES> textures;
     std::array<srShader, MAX_PASSES> shaders;
     /* Empty vectors are absent tables, even if a previous resize retained capacity. Accessors
        allocate only on demand and return nullptr for absent tables, not vector::data(). */
-    std::array<std::array<std::vector<srPtr<srTextureIFace>>, 2>, MAX_PASSES> poly_textures;
+    std::array<std::array<std::vector<std::shared_ptr<srTextureIFace>>, 2>, MAX_PASSES> poly_textures;
     std::array<std::vector<srShader>, MAX_PASSES> poly_shaders;
-    std::array<std::array<std::vector<srPtr<srMaterialIFace>>, 2>, MAX_PASSES> vertex_materials;
+    std::array<std::array<std::vector<std::shared_ptr<srMaterialIFace>>, 2>, MAX_PASSES> vertex_materials;
     std::vector<srVector3i> poly_vertices;
     std::array<std::vector<srVector3i>, MAX_PASSES> poly_uv_indices;
     std::vector<srVector4T<float>> poly_equations;

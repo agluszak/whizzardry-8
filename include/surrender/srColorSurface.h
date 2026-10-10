@@ -29,7 +29,6 @@ public:
     static SR_DLL_IMPORT const char* sGetClassName();
 
     virtual SR_DLL_IMPORT void dump(std::ostream& stream) override;
-    virtual SR_DLL_IMPORT srClass* vInstance() override;
 
     virtual SR_DLL_IMPORT w8_ulong getPixelRaw(w8_long x, w8_long y) override;
     virtual SR_DLL_IMPORT void setPixelRaw(w8_long x, w8_long y, w8_ulong pixel) override;

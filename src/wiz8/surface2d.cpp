@@ -23,12 +23,6 @@ stTexture2D::~stTexture2D()
     invalidateFrameHandle(frame_handle);
 }
 
-// FUNCTION: WIZ8 0x0047DE60
-srClass* stTexture2D::vInstance()
-{
-    return new stTexture2D;
-}
-
 // FUNCTION: WIZ8 0x0047DE50
 w8_ulong stTexture2D::getTextureFrameHandle()
 {
@@ -72,20 +66,17 @@ stSurface2D::stSurface2D(std::shared_ptr<srColorSurfaceIFace> source, int source
       vertex_array_mask(1 << srRendererDefs::VERTEX_ARRAY_TEXCOORD0),
       shader_bits(0x100a017), tile_size(tile_extent),
       columns((source_width + tile_extent - 1) / tile_extent),
-      rows((source_height + tile_extent - 1) / tile_extent), tile_count(columns * rows),
-      width(source_width), height(source_height), tiles(new stTexture2D*[tile_count]),
+      rows((source_height + tile_extent - 1) / tile_extent),
+      width(source_width), height(source_height),
       tile_u(tile_extent / static_cast<float>(source_width)),
       tile_v(tile_extent / static_cast<float>(source_height)), field_168(0), field_16c(1.0f),
       scale(0.0f), texture_update_flags(0)
 {
-    int row;
-    int column;
-    int index = 0;
-
     setParent(parent, 1);
-    for (row = 0; row != rows; ++row) {
-        for (column = 0; column != columns; ++column) {
-            stTexture2D* texture = new stTexture2D;
+    tiles.reserve(columns * rows);
+    for (int row = 0; row != rows; ++row) {
+        for (int column = 0; column != columns; ++column) {
+            auto& texture = tiles.emplace_back(std::make_unique<stTexture2D>());
             texture->surface = source;
             texture->texture_dimensions_.width = tile_extent;
             texture->texture_dimensions_.height = tile_extent;
@@ -95,7 +86,6 @@ stSurface2D::stSurface2D(std::shared_ptr<srColorSurfaceIFace> source, int source
             texture->bottom = texture->top + tile_extent;
             texture->setWrapS(srTextureIFace::WRAP_CLAMP);
             texture->setWrapT(srTextureIFace::WRAP_CLAMP);
-            tiles[index++] = texture;
         }
     }
     texture_coordinates[0][0] = 0.0f;
@@ -106,15 +96,6 @@ stSurface2D::stSurface2D(std::shared_ptr<srColorSurfaceIFace> source, int source
     texture_coordinates[2][1] = 1.0f;
     texture_coordinates[3][0] = 1.0f;
     texture_coordinates[3][1] = 1.0f;
-}
-
-// FUNCTION: WIZ8 0x0047DFF0
-stSurface2D::~stSurface2D()
-{
-    int index;
-    for (index = 0; index < tile_count; ++index)
-        tiles[index]->release();
-    delete[] tiles;
 }
 
 // FUNCTION: WIZ8 0x004D6540
@@ -184,7 +165,7 @@ void stSurface2D::DrawTiles(srGERD* renderer)
             vertices[10] = bottom;
             vertices[11] = -0.1f;
 
-            renderer->setTexture(tiles[index++], 0);
+            renderer->setTexture(tiles[index++].get(), 0);
             renderer->setVertexPointer(3, srRendererDefs::TYPE_FLOAT, 0xc, vertices, 4);
             renderer->drawArrays(srRendererDefs::PRIMITIVE_TRIANGLE_STRIP, 0, 4);
         }
@@ -210,9 +191,8 @@ void stSurface2D::setScale(float new_scale)
 
 void stSurface2D::invalidateTiles()
 {
-    int index;
-    for (index = 0; index != tile_count; ++index) {
-        tiles[index]->invalidate();
+    for (auto& tile : tiles) {
+        tile->invalidate();
     }
 }
 
@@ -221,17 +201,17 @@ void stSurface2D::setAlphaTestEnabled(bool enabled)
 {
     if (!enabled) {
         shader_bits &= ~srShader::MASK_ALPHATEST;
-        for (int index = 0; index < tile_count; ++index) {
-            tiles[index]->disableHint(srTextureIFace::HINT_ONE_BIT_ALPHA);
-            tiles[index]->enableHint(srTextureIFace::HINT_NO_ALPHA);
-            tiles[index]->invalidate();
+        for (auto& tile : tiles) {
+            tile->disableHint(srTextureIFace::HINT_ONE_BIT_ALPHA);
+            tile->enableHint(srTextureIFace::HINT_NO_ALPHA);
+            tile->invalidate();
         }
     } else {
         shader_bits |= srShader::MASK_ALPHATEST;
-        for (int index = 0; index < tile_count; ++index) {
-            tiles[index]->disableHint(srTextureIFace::HINT_NO_ALPHA);
-            tiles[index]->enableHint(srTextureIFace::HINT_ONE_BIT_ALPHA);
-            tiles[index]->invalidate();
+        for (auto& tile : tiles) {
+            tile->disableHint(srTextureIFace::HINT_NO_ALPHA);
+            tile->enableHint(srTextureIFace::HINT_ONE_BIT_ALPHA);
+            tile->invalidate();
         }
     }
 }
@@ -249,8 +229,8 @@ void stSurface2D::updateRectangle(srGERD* renderer, void*, w8_long, int left, in
 
     while (y < bottom) {
         stTexture2D* texture = 0;
-        for (int index = 0; index != tile_count; ++index) {
-            stTexture2D* candidate = tiles[index];
+        for (auto& tile : tiles) {
+            stTexture2D* candidate = tile.get();
             if (candidate->left <= x && x < candidate->right && candidate->top <= y &&
                 y < candidate->bottom) {
                 texture = candidate;

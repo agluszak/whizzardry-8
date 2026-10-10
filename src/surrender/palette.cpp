@@ -333,30 +333,6 @@ int srPalette::matchPalette(const srARGB* const colors, w8_long color_count) con
     return 1;
 }
 
-// FUNCTION: SURRENDER 0x100041A0
-std::shared_ptr<srPalette> srPalette::findMatchingPalette(const srARGB* const colors, w8_long color_count)
-{
-    auto* registry = srCore.getRegistry();
-    auto* node = srPalette::sGetClassNode();
-    srPalette* borrowed_match = nullptr;
-    for (srPalette* palette = nullptr;
-         (palette = static_cast<srPalette*>(registry->findExact(node, palette))) != nullptr;) {
-        if (palette->matchPalette(colors, color_count)) {
-            if (auto owner = palette->weak_from_this().lock()) return owner;
-            if (!borrowed_match) borrowed_match = palette;
-        }
-    }
-    // Stack/unique palettes are valid matches, but their lifetime cannot be
-    // extended by the registry. Return an owned value copy rather than adopt
-    // their address or silently pretend that no matching palette exists.
-    if (borrowed_match) {
-        auto owned = std::make_shared<srPalette>(nullptr, borrowed_match->getPaletteSize());
-        *owned = *borrowed_match;
-        return owned;
-    }
-    return nullptr;
-}
-
 // FUNCTION: SURRENDER 0x10004210
 void srPalette::releaseQuantizer()
 {
@@ -520,12 +496,6 @@ const srARGB* srPalette::getPaletteDataPtr()
 const char* srPalette::sGetClassName()
 {
     return "srPalette";
-}
-
-// FUNCTION: SURRENDER 0x10004970
-srClass* srPalette::vInstance()
-{
-    return new srPalette(0, 1);
 }
 
 // FUNCTION: SURRENDER 0x100067D0

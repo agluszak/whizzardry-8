@@ -368,12 +368,6 @@ const char* srMaterial::sGetClassName()
     return "srMaterial";
 }
 
-// FUNCTION: SURRENDER 0x100343C0
-srClass* srMaterial::vInstance()
-{
-    return new srMaterial;
-}
-
 // FUNCTION: SURRENDER 0x10034640
 srVector4T<float> srMaterial::getAmbient() const
 {

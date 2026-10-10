@@ -87,12 +87,6 @@ void srCamera::processPush(srGERD* renderer)
     renderer->setEnvironmentScaleFactor(environment_near_scale, environment_far_scale);
 }
 
-// FUNCTION: SURRENDER 0x10048030
-srClass* srCamera::vInstance()
-{
-    return new srCamera(static_cast<srNode*>(0));
-}
-
 // FUNCTION: SURRENDER 0x100482E0
 void srCamera::processPop(srGERD* renderer)
 {

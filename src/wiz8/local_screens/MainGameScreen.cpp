@@ -3470,7 +3470,7 @@ unsigned char MainGameScreenLeave(int leaving)
 
     if (static_cast<unsigned char>(leaving)) {
         for (index = 0; index < 17; ++index) {
-            ReleaseRendererObject(g_main_game_resource_slots[index].object);
+            g_main_game_resource_slots[index].object.reset();
         }
     }
 
@@ -3876,7 +3876,7 @@ void DrawMainGameScreen(void)
         }
         if (g_node_cull_pending) {
             for (node = g_world->level->first_child_; node != 0; node = node->next_sibling_) {
-                if (node->getClassID() == stModelInstance::CLASS_ID) {
+                if (sr_cast<stModelInstance>(node)) {
                     node->clearFlag(srNode::FLAG_DISABLE);
                 }
             }
@@ -3884,7 +3884,7 @@ void DrawMainGameScreen(void)
         RenderFrame();
         if (g_node_cull_pending) {
             for (node = g_world->level->first_child_; node != 0; node = node->next_sibling_) {
-                if (node->getClassID() == stModelInstance::CLASS_ID) {
+                if (sr_cast<stModelInstance>(node)) {
                     if (MeasureNodeRenderWithoutPositionalOption(node) == 0) {
                         node->setFlag(srNode::FLAG_DISABLE);
                     } else {
@@ -7185,12 +7185,10 @@ void LoadMainGameCursorResources(void)
                                           static_cast<unsigned short>(frame));
             slot->size_x = properties.usWidth;
             slot->size_y = properties.usHeight;
-            stTextureAnim* animation =
+            slot->object =
                 VideoVObjectToTextureAnim(video_object, static_cast<unsigned short>(frame),
                                           static_cast<unsigned short>(slot->frame_count), true);
-            slot->object = animation;
-            animation->addReference();
-            animation->animation_mode = W8_TEXTURE_ANIM_MANUAL;
+            slot->object->animation_mode = W8_TEXTURE_ANIM_MANUAL;
         }
     }
 }
@@ -8266,7 +8264,7 @@ unsigned char UpdateSurpriseFade(void)
             g_world_render_enabled = 0;
             g_surprise_fade_tick_base = w8_get_ticks();
         } else {
-            g_surprise_snapshot_overlay->release();
+            delete g_surprise_snapshot_overlay;
             g_surprise_snapshot_overlay = 0;
             g_surprise_snapshot_surface.reset();
             g_world_render_enabled = 1;
@@ -8278,7 +8276,7 @@ unsigned char UpdateSurpriseFade(void)
             g_surprise_fade_node->setFlag(srNode::FLAG_DISABLE);
             return done;
         }
-        g_surprise_fade_node->release();
+        delete g_surprise_fade_node;
         g_surprise_fade_node = 0;
         SetFullscreenSceneLast(1);
     }

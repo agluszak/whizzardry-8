@@ -58,7 +58,6 @@ static int checkConsumers() try
     // preserve index zero, and keep existing indices across growth and clear.
     srGERD::Renderer::TextureSetCache cache;
     struct Texture : srTexture {
-        srClass* vInstance() override { return new Texture; }
         void invalidate() override {}
         void setupDefaultValues() override {}
     } textures[2];

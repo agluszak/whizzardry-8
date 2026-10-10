@@ -11,6 +11,7 @@
 class SR_DLL_IMPORT srTextureMap
     : public srClassSupport<srTextureMap, srTexture, 0x2111> {
 public:
+    virtual ~srTextureMap() override;
     srTextureMap(std::shared_ptr<srColorSurfaceIFace> surface = {});
 
     // FUNCTION: SURRENDER 0x10060770 SYMBOL
@@ -22,11 +23,7 @@ public:
     srTextureMap& operator=(const srTextureMap& other);
     virtual void dump(std::ostream& stream) override;
 
-protected:
-    virtual ~srTextureMap() override;
-
 public:
-    virtual srClass* vInstance() override;
     virtual w8_ulong getTextureFrameHandle() override;
     virtual void getMipmapData(MultiRequest& request) override;
     void setSurfacePtr(std::shared_ptr<srColorSurfaceIFace> surface);

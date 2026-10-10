@@ -57,14 +57,6 @@ stMeshModel::stMeshModel(w8_long polygons, w8_long vertices)
     automap_filter_active = false;
 }
 
-void stMeshModel::setReusable(bool reusable)
-{
-    if (reusable && weak_from_this().expired()) {
-        throw std::logic_error("A reusable mesh must have shared ownership");
-    }
-    reusable_ = reusable;
-}
-
 // FUNCTION: WIZ8 0x00470ED0
 stMeshModel::~stMeshModel()
 {
@@ -118,7 +110,6 @@ stMeshModel& stMeshModel::operator=(const stMeshModel& other)
     flags = other.flags;
     ambient_color = other.ambient_color;
     vertex_light_table = other.vertex_light_table;
-    reusable_ = false; // A clone gets a new owner before it can be cached.
     vertex_lighting_ready = other.vertex_lighting_ready;
     vertex_compression_scale = other.vertex_compression_scale;
     automap_filter_active = other.automap_filter_active;
@@ -127,12 +118,6 @@ stMeshModel& stMeshModel::operator=(const stMeshModel& other)
         next->previous = this;
     }
     return *this;
-}
-
-// FUNCTION: WIZ8 0x004748c0
-srClass* stMeshModel::vInstance()
-{
-    return new stMeshModel(0, 0);
 }
 
 // FUNCTION: WIZ8 0x00471dd0
@@ -263,7 +248,7 @@ const srMeshModel::TriMesh& stMeshModel::getTriMesh()
     srVector3T<float>* dig;
     srVector3T<float>* lights;
     float* sunlight;
-    srPtr<srMaterialIFace>* vertex_materials;
+    std::shared_ptr<srMaterialIFace>* vertex_materials;
     int count;
     int index;
     int run;
@@ -356,15 +341,14 @@ const srMeshModel::TriMesh& stMeshModel::getTriMesh()
                     run = 1;
                     if (next_index < vertex_location_count) {
                         do {
-                            if (static_cast<srMaterialIFace*>(vertex_materials[index]) !=
-                                static_cast<srMaterialIFace*>(vertex_materials[next_index])) {
+                            if (vertex_materials[index] != vertex_materials[next_index]) {
                                 break;
                             }
                             ++run;
                             ++next_index;
                         } while (next_index < vertex_location_count);
                     }
-                    material_iface = vertex_materials[index];
+                    material_iface = vertex_materials[index].get();
                     if (material_iface != 0) {
                         material = static_cast<srMaterial*>(material_iface);
                         scaled = material->parms.ambient.xyz();
@@ -582,7 +566,7 @@ void stMeshModel::RenderTriMeshWithEquations(srGERD& renderer, const TriMesh& me
                     }
 
                     if (mesh.vertex_materials[pass][side] == 0) {
-                        srMaterialIFace* material = mesh.materials[pass][side];
+                        srMaterialIFace* material = mesh.materials[pass][side].get();
                         pipeline->material = material;
                         pipeline->current_record->material = material;
                     } else {
@@ -617,7 +601,7 @@ void stMeshModel::RenderTriMeshWithEquations(srGERD& renderer, const TriMesh& me
 
                     for (int layer = 0; layer < 2; ++layer) {
                         if (mesh.poly_textures[pass][layer] == 0) {
-                            srTextureIFace* texture = mesh.textures[pass][layer];
+                            srTextureIFace* texture = mesh.textures[pass][layer].get();
                             (&pipeline->texture0)[layer] = texture;
                             pipeline->current_pass->textures[layer] = texture;
                         } else {
@@ -867,7 +851,7 @@ int stMeshModel::FindSkinTable(std::string_view name)
 }
 
 // FUNCTION: WIZ8 0x00473720
-srPtr<srTextureIFace>* stMeshModel::GetTextureTable(int table)
+std::shared_ptr<srTextureIFace>* stMeshModel::GetTextureTable(int table)
 {
     auto skin = std::find_if(skins.begin(), skins.end(),
                             [table](const auto& skin) { return skin.id == table; });

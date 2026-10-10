@@ -36,12 +36,6 @@ srTextureFile::~srTextureFile()
     invalidate();
 }
 
-// FUNCTION: SURRENDER 0x1005FF20
-srClass* srTextureFile::vInstance()
-{
-    return new srTextureFile({}, 0);
-}
-
 // FUNCTION: SURRENDER 0x1005F9F0
 const std::string& srTextureFile::getFileName() const
 {

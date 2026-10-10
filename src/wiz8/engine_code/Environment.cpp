@@ -178,8 +178,8 @@ void AdvanceEnvironmentTime(int elapsed)
 
     unsigned int phase = ((g_status.game_time_ms / 1000U) << 8) / 86400U;
     for (int index = 0; index < 3; ++index) {
-        if (g_sky_gradient_animations[index] != 0) {
-            g_sky_gradient_animations[index]->frame = static_cast<int>(phase);
+        if (auto animation = g_sky_gradient_animations[index].lock()) {
+            animation->frame = static_cast<int>(phase);
         }
     }
 }
@@ -671,9 +671,9 @@ void RefreshFogRanges(void)
 // FUNCTION: WIZ8 0x004826b0
 void ResetEnvironment(void)
 {
-    g_sky_gradient_animations[0] = 0;
-    g_sky_gradient_animations[1] = 0;
-    g_sky_gradient_animations[2] = 0;
+    g_sky_gradient_animations[0].reset();
+    g_sky_gradient_animations[1].reset();
+    g_sky_gradient_animations[2].reset();
     g_sun_prop = 0;
     g_moon_prop = 0;
     g_celestial_orbit_radius = -1.0f;
@@ -801,12 +801,7 @@ void ApplyEnvironmentColour(W8World* world, float intensity, const EnvironmentCo
         light->ambient = scaled;
     }
     {
-        srRegistry* registry = srCore.getRegistry();
-        srRegistry::ClassNode* node = stMaterial::sGetClassNode();
-
-        srMaterial* material = static_cast<srMaterial*>(
-            registry->find(node, "AnimatedCloudMaterial", static_cast<const srRuntimeClass*>(0)));
-        if (material != 0) {
+        if (auto material = g_materials.find("AnimatedCloudMaterial")) {
             double brightness =
                 g_double_one - fabs(g_status.game_time_ms - g_half_day_ms) * g_inverse_half_day_ms;
 
@@ -936,12 +931,7 @@ void InitializeLevelEnvironment(void)
             g_celestial_origin = midpoint;
             for (int index = 0; index < 3; ++index) {
                 const char* name = g_sky_gradient_names[index];
-                srRegistry* registry = srCore.getRegistry();
-                srRegistry::ClassNode* node = stTextureAnim::sGetClassNode();
-
-                stTextureAnim* animation = static_cast<stTextureAnim*>(
-                    registry->find(node, name, static_cast<const srRuntimeClass*>(0)));
-
+                std::shared_ptr<stTextureAnim> animation = g_texture_animations.find(name);
                 g_sky_gradient_animations[index] = animation;
                 if (animation != 0) {
                     animation->animation_mode = W8_TEXTURE_ANIM_MANUAL;

@@ -61,7 +61,7 @@ struct W8NativeVideo::State
     ~State()
     {
         if (presentation_tiles)
-            presentation_tiles->release();
+            delete presentation_tiles;
         voice.reset();
         swr_free(&resample);
         sws_freeContext(scale);

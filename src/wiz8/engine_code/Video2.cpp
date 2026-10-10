@@ -191,7 +191,7 @@ srCamera* g_square_camera;
 // GLOBAL: WIZ8 0x659688
 std::shared_ptr<srColorSurface> g_mouse_surface;
 // GLOBAL: WIZ8 0x65967c
-srMaterial* g_blit_material;
+std::shared_ptr<srMaterial> g_blit_material;
 // GLOBAL: WIZ8 0x654adc
 srNode* g_surface_nodes[0x12c0];
 // GLOBAL: WIZ8 0x6595dc
@@ -244,7 +244,7 @@ srScene* g_cursor_scene;
 // GLOBAL: WIZ8 0x65968c
 srMeshModel* g_cursor_model;
 // GLOBAL: WIZ8 0x659690
-srTexture* g_cursor_texture;
+std::shared_ptr<srTexture> g_cursor_texture;
 // GLOBAL: WIZ8 0x659694
 srModelInstance* g_cursor_node;
 // GLOBAL: WIZ8 0x659698
@@ -438,7 +438,7 @@ void ShutdownVideoScenes(void)
     ReleaseRendererObject(g_scene_prerender1);
     ReleaseRendererObject(g_render_object0);
     ReleaseRendererObject(g_render_object1);
-    ReleaseRendererObject(g_blit_material);
+    g_blit_material.reset();
     g_mouse_surface.reset();
     g_primary_color_surface.reset();
 }
@@ -1182,7 +1182,6 @@ srModelInstance* MakePolygonBrush(srNode* parent, std::shared_ptr<srColorSurface
                                   float mapping_width, float mapping_height, unsigned char overlay)
 {
     std::shared_ptr<srMeshModel> model;
-    srTextureMap* texture;
     stModelInstance2D* instance;
     srVector3T<float> scale;
     srShader shader;
@@ -1203,8 +1202,7 @@ srModelInstance* MakePolygonBrush(srNode* parent, std::shared_ptr<srColorSurface
     if (!surface) {
         shader.value &= ~srShader::MASK_TEXTURING;
     } else {
-        texture = new srTextureMap();
-        texture->autoRelease();
+        auto texture = std::make_shared<srTextureMap>();
         texture->setName("Video2DMakePolygonBrush");
         texture->setSurfacePtr(surface);
         texture->setCorrection(srTextureIFace::CORRECTION_FASTEST);
@@ -1213,11 +1211,11 @@ srModelInstance* MakePolygonBrush(srNode* parent, std::shared_ptr<srColorSurface
         texture->setMipmap(srTextureIFace::MIPMAP_NONE);
         texture->setWrapS(srTextureIFace::WRAP_CLAMP);
         texture->setWrapT(srTextureIFace::WRAP_CLAMP);
-        model->setMaterial(g_blit_material, 0, srMeshModel::SIDE_FRONT);
-        model->setTexture(texture, 0, 0);
         texture->enableHint(overlay ? srTextureIFace::HINT_ONE_BIT_ALPHA
                                     : srTextureIFace::HINT_NO_ALPHA);
         texture->enableHint(srTextureIFace::HINT_NO_MIPMAPS);
+        model->setMaterial(g_blit_material, 0, srMeshModel::SIDE_FRONT);
+        model->setTexture(std::move(texture), 0, 0);
     }
     model->setShader(shader, 0);
 
@@ -1230,7 +1228,8 @@ srModelInstance* MakePolygonBrush(srNode* parent, std::shared_ptr<srColorSurface
 }
 
 // FUNCTION: WIZ8 0x00425190
-stModelInstance2D* CreateSpriteFromTexture(srTextureIFace* texture, double width, double height,
+stModelInstance2D* CreateSpriteFromTexture(std::shared_ptr<srTextureIFace> texture, double width,
+                                           double height,
                                            bool keep_aspect, bool overlay)
 {
     srShader shader;
@@ -1257,7 +1256,7 @@ stModelInstance2D* CreateSpriteFromTexture(srTextureIFace* texture, double width
         shader.value &= ~srShader::MASK_TEXTURING;
     } else {
         model->setMaterial(g_blit_material, 0, srMeshModel::SIDE_FRONT);
-        model->setTexture(texture, 0, 0);
+        model->setTexture(std::move(texture), 0, 0);
     }
     model->setShader(shader, 0);
 
@@ -1341,8 +1340,7 @@ BOOLEAN ResizeMouseCursorSurface(int width, int height)
     if (!g_mouse_surface->resize(extent, extent)) {
         return FALSE;
     }
-    g_cursor_node->release();
-    g_cursor_texture->release();
+    delete g_cursor_node;
     mapping_scale = g_surface_scale / extent;
     g_cursor_node = MakePolygonBrush(g_cursor_scene, g_mouse_surface, extent / 640.0,
                                      extent / 480.0, mapping_scale, mapping_scale, 1.0f, 1.0f, 1);
@@ -1352,10 +1350,9 @@ BOOLEAN ResizeMouseCursorSurface(int width, int height)
     g_cursor_model->enable(srMeshModel::CONTROL_SORTED_RENDERING);
     g_cursor_model->setSortBias(-100000.0f);
     g_cursor_model->setName("Mouse Cursor Mesh");
-    g_cursor_texture = static_cast<srTexture*>(g_cursor_model->getTexture(0, 0));
+    g_cursor_texture = std::static_pointer_cast<srTexture>(g_cursor_model->textures[0][0]);
     g_cursor_texture->setWrapS(srTextureIFace::WRAP_CLAMP);
     g_cursor_texture->setWrapT(srTextureIFace::WRAP_CLAMP);
-    g_cursor_texture->addReference();
     return TRUE;
 }
 
@@ -1419,7 +1416,6 @@ void BlitToMouseCursor(UINT32 video_object, UINT16 region, UINT16 x, UINT16 y)
 // FUNCTION: WIZ8 0x00427ff0
 void RefreshMouseCursorTexture(void)
 {
-    g_mouse_surface->touch();
     g_cursor_texture->invalidate();
 }
 
@@ -1597,9 +1593,6 @@ unsigned char InitializeMouseCursorScene(void)
         return 0;
     }
     ClearMouseSurface();
-    if (g_cursor_texture) {
-        g_cursor_texture->release();
-    }
     g_cursor_node =
         MakePolygonBrush(g_cursor_scene, g_mouse_surface, 0.2, 0.26666666666666666,
                          g_surface_scale / 128.0f, g_surface_scale / 128.0f, 1.0f, 1.0f, 1);
@@ -1608,10 +1601,9 @@ unsigned char InitializeMouseCursorScene(void)
         g_cursor_model = static_cast<srMeshModel*>(g_cursor_node->getModel());
         g_cursor_model->enable(srMeshModel::CONTROL_SORTED_RENDERING);
         g_cursor_model->setSortBias(-100000.0f);
-        g_cursor_texture = static_cast<srTexture*>(g_cursor_model->getTexture(0, 0));
+        g_cursor_texture = std::static_pointer_cast<srTexture>(g_cursor_model->textures[0][0]);
         g_cursor_texture->setWrapS(srTextureIFace::WRAP_CLAMP);
         g_cursor_texture->setWrapT(srTextureIFace::WRAP_CLAMP);
-        g_cursor_texture->addReference();
         PositionMouseCursor(640, 480, true);
     }
     return 1;
@@ -1660,7 +1652,7 @@ void ReleaseSurfaceNode(srNode* node)
             texture->invalidate();
         }
     }
-    node->release();
+    delete node;
 }
 
 // FUNCTION: WIZ8 0x004259b0
@@ -1687,7 +1679,7 @@ static void InvalidateDirtyTile(int cell, unsigned int flags)
                 texture->invalidate();
             }
         }
-        node->release();
+        delete node;
         int start = (position_y >> 3) * 0x50 + (position_x >> 3);
         for (int row = rows; row != 0; --row) {
             int row_cell = start;
@@ -2001,36 +1993,24 @@ INT32 g_help_box_width;
 // GLOBAL: WIZ8 0x00654acc
 INT32 g_help_box_height;
 
-// GLOBAL: WIZ8 0x00654aac
-int g_screen_transition_object_count;
-// GLOBAL: WIZ8 0x00654ab4
-srClass** g_screen_transition_objects;
+/* Live tooltip sprites, left to right. */
+static std::vector<stModelInstance2D*> g_tooltip_nodes;
 
 // FUNCTION: WIZ8 0x00429770
 void VideoRemoveToolTip(void)
 {
-    int index;
-    srClass* object;
-
-    while (g_screen_transition_object_count != 0) {
-        object = g_screen_transition_objects[0];
-        if (g_screen_transition_object_count > 0) {
-            for (index = 0; index < g_screen_transition_object_count - 1; ++index) {
-                g_screen_transition_objects[index] = g_screen_transition_objects[index + 1];
-            }
-            --g_screen_transition_object_count;
-        }
-        object->release();
+    for (auto* node : g_tooltip_nodes) {
+        delete node;
     }
+    g_tooltip_nodes.clear();
 }
 
 // FUNCTION: WIZ8 0x00424A90
 srNode* VideoMakePoster(std::shared_ptr<srColorSurfaceIFace> surface, float width, float height, bool additive)
 {
     srTextureIFace::e_hint hint;
-    srTextureMap* texture = new srTextureMap();
+    auto texture = std::make_shared<srTextureMap>();
     texture->setMipmapBias(-8.0f);
-    texture->autoRelease();
     texture->setName("VideoMakePoster");
     texture->setSurfacePtr(surface);
     texture->setWrapS(srTextureIFace::WRAP_CLAMP);
@@ -2041,7 +2021,7 @@ srNode* VideoMakePoster(std::shared_ptr<srColorSurfaceIFace> surface, float widt
         hint = srTextureIFace::HINT_ONE_BIT_ALPHA;
     }
     texture->enableHint(hint);
-    return MakePosterQuad(texture, width, height, additive);
+    return MakePosterQuad(std::move(texture), width, height, additive);
 }
 
 void PresentMenuOverlayFrame(void)
@@ -2086,7 +2066,7 @@ unsigned char InitializeRendererSceneObjects(void)
 {
     SurfaceLock surface_description{};
     srCamera::Rect view;
-    srMaterial* material;
+    std::shared_ptr<srMaterial> material;
     srVector4T<float> material_value;
     char renderer_name[128];
 
@@ -2156,7 +2136,7 @@ unsigned char InitializeRendererSceneObjects(void)
     g_square_camera->setViewPlane(view, 1.0);
     g_square_camera->setEnvironmentRange(0.0f, 0.0f);
 
-    material = new srMaterial;
+    material = std::make_shared<srMaterial>();
     g_blit_material = material;
     material->setName("Blit Rect Material");
     material_value = 1.0f;
@@ -2216,17 +2196,15 @@ void PurgeInactiveSceneInstances(srScene* scene)
     node = scene->first_child_;
     while (node) {
         srNode* next = node->next_sibling_;
-        w8_ulong class_id = node->getClassID();
-        unsigned char display_state = 0;
-        if (class_id == 0x10004) {
+        unsigned char display_state = 3;
+        if (auto* instance = sr_cast<stModelInstance>(node)) {
             /* Retail also applies the 2D byte test to 3D highlight alpha.
                This representation read does not establish a 3D state member. */
-            memcpy(&display_state, &static_cast<stModelInstance*>(node)->highlight_colour.w,
-                   sizeof(display_state));
-        } else if (class_id == 0x10005) {
-            display_state = static_cast<stModelInstance2D*>(node)->displayState();
+            memcpy(&display_state, &instance->highlight_colour.w, sizeof(display_state));
+        } else if (auto* sprite = sr_cast<stModelInstance2D>(node)) {
+            display_state = sprite->displayState();
         }
-        if ((class_id == 0x10004 || class_id == 0x10005) && display_state != 3) {
+        if (display_state != 3) {
             ReleaseSurfaceNode(node);
         }
         node = next;
@@ -2271,14 +2249,14 @@ unsigned char EnableCursorScene(void)
    mode when overlay_scene_flag bit 0 says otherwise. Recovered callers pass
    stModelInstance2D sprites (highlight / formation board). */
 // FUNCTION: WIZ8 0x004257F0
-void ReleaseObject(srClass* object)
+void ReleaseObject(stModelInstance2D* object)
 {
-    if ((static_cast<stModelInstance2D*>(object)->overlay_scene_flag & 1) != 0) {
+    if ((object->overlay_scene_flag & 1) != 0) {
         SetOverlayRenderMode();
     } else {
         SetRendererModePair();
     }
-    object->release();
+    delete object;
 }
 
 /* Rotate a 2D sprite node by `degrees` about z and dirty the renderer mode
@@ -2310,12 +2288,12 @@ void SetRendererModePair(void)
 /* Install a texture (often an stTextureAnim) on the mouse-cursor mesh. A null
    argument reuses the current cursor texture. */
 // FUNCTION: WIZ8 0x00429170
-void SetMouseCursorTexture(srTextureIFace* texture)
+void SetMouseCursorTexture(std::shared_ptr<srTextureIFace> texture)
 {
     if (texture == 0) {
         texture = g_cursor_texture;
     }
-    g_cursor_model->setTexture(texture, 0, 0);
+    g_cursor_model->setTexture(std::move(texture), 0, 0);
     g_cursor_model->setDirty(srMeshModel::DIRTY_TRI_MESH);
 }
 
@@ -2334,7 +2312,7 @@ void SetOverlayViewport(const int* value)
 // FUNCTION: WIZ8 0x004297D0
 bool HasScreenTransitionObjects(void)
 {
-    return g_screen_transition_object_count != 0;
+    return !g_tooltip_nodes.empty();
 }
 
 // FUNCTION: WIZ8 0x004297e0
@@ -2354,14 +2332,6 @@ void SetFullscreenSceneLast(unsigned char value)
 bool HasEnoughFreeDiskSpace(void)
 {
     return W8HasEnoughSaveSpace();
-}
-
-// FUNCTION: WIZ8 0x00429AF0
-void __fastcall ReleaseOwnedClass(srClass** owner)
-{
-    if (*owner) {
-        (*owner)->release();
-    }
 }
 
 // FUNCTION: WIZ8 0x00427a30
@@ -2468,8 +2438,6 @@ void SaveJpegScreenshot(void)
 int g_help_box_x;
 // GLOBAL: WIZ8 0x00654abc
 int g_help_box_y;
-// GLOBAL: WIZ8 0x00654ab0
-int g_screen_transition_object_capacity;
 
 // GLOBAL: WIZ8 0x005ebe88
 const double g_inverse_screen_height = 0.0020833333333333333;
@@ -2679,8 +2647,7 @@ stModelInstance2D* CreateColoredPolygonSprite(int width, int height, const srVec
     g_modeler->convert(*model, 1);
     g_modeler->discard();
 
-    srMaterial* material = new srMaterial();
-    material->autoRelease();
+    auto material = std::make_shared<srMaterial>();
     material->setEmissive(*color);
     srVector4T<float> zero;
     zero.Set(0.0f, 0.0f, 0.0f, 0.0f);
@@ -2689,7 +2656,7 @@ stModelInstance2D* CreateColoredPolygonSprite(int width, int height, const srVec
     material->parms.shininess = 1.0f;
     material->parms.diffuse.w = 1.0f;
     material->dirty = 1;
-    model->setMaterial(material, 0, srMeshModel::SIDE_FRONT);
+    model->setMaterial(std::move(material), 0, srMeshModel::SIDE_FRONT);
 
     stModelInstance2D* instance = new stModelInstance2D(g_scene_user);
     instance->setName("Video2DPolyColored");
@@ -2734,12 +2701,11 @@ void SetModelInstance2DDisplayState(stModelInstance2D* object, unsigned char sta
 // FUNCTION: WIZ8 0x00429210
 void VideoPositionToolTip(INT32 x, INT32 y)
 {
-    if (g_screen_transition_object_count > 0) {
+    if (!g_tooltip_nodes.empty()) {
         INT32 offset = x;
-        for (int index = 0; index < g_screen_transition_object_count; ++index) {
-            srNode* node = static_cast<srNode*>(g_screen_transition_objects[index]);
+        for (auto* node : g_tooltip_nodes) {
             PositionToolTipNode(node, offset, y, true);
-            offset += static_cast<stModelInstance2D*>(node)->GetScaledWidth();
+            offset += node->GetScaledWidth();
         }
         g_help_box_y = y;
         g_help_box_x = x;
@@ -2873,7 +2839,7 @@ srModelInstance* Video2DRectToPolygon(const W8ControlsRect* rect, void* source, 
 // FUNCTION: WIZ8 0x00429290
 void VideoToolTip(CHAR16* text)
 {
-    if (g_screen_transition_object_count != 0) {
+    if (!g_tooltip_nodes.empty()) {
         return;
     }
     auto surface = std::make_unique<srColorSurface>(srPixelConvert::SURFACE_ARGB1555, 0xfeUL, 0xfeUL);
@@ -2916,34 +2882,15 @@ void VideoToolTip(CHAR16* text)
     srModelInstance* node =
         Video2DRectToPolygon(&rect, data, static_cast<int>(surface->getPitch()), g_cursor_scene, 1);
     if (node != 0) {
-        int count = g_screen_transition_object_count;
-        bool append = true;
-        if (g_screen_transition_object_capacity < count + 1) {
-            srClass** objects = new srClass*[count + 1];
-            if (objects == 0) {
-                append = false;
-            } else {
-                for (int index = 0; index < count; ++index) {
-                    objects[index] = g_screen_transition_objects[index];
-                }
-                delete[] g_screen_transition_objects;
-                g_screen_transition_objects = objects;
-                g_screen_transition_object_capacity = count + 1;
-            }
-        }
-        if (append) {
-            g_screen_transition_objects[count] = static_cast<srClass*>(node);
-            g_screen_transition_object_count = count + 1;
-        }
+        g_tooltip_nodes.push_back(static_cast<stModelInstance2D*>(node));
     }
 
     int position_y = g_cursor_height - g_help_box_height;
     int position_x = g_cursor_width;
     int offset = position_x;
-    for (int index = 0; index < g_screen_transition_object_count; ++index) {
-        srNode* object = static_cast<srNode*>(g_screen_transition_objects[index]);
-        PositionToolTipNode(object, offset, position_y, true);
-        offset += static_cast<stModelInstance2D*>(object)->GetScaledWidth();
+    for (auto* node : g_tooltip_nodes) {
+        PositionToolTipNode(node, offset, position_y, true);
+        offset += node->GetScaledWidth();
     }
     g_help_box_x = position_x;
     g_help_box_y = position_y;
@@ -2995,7 +2942,7 @@ unsigned int GetTotalPhysicalMemory(void)
    at start_frame. use_argb1555 selects SURFACE_ARGB1555 versus SURFACE_RGB555 for
    each frame surface. The setName string is the retail identity. */
 // FUNCTION: WIZ8 0x00428E90
-stTextureAnim* VideoVObjectToTextureAnim(HVOBJECT object, unsigned short start_frame,
+std::shared_ptr<stTextureAnim> VideoVObjectToTextureAnim(HVOBJECT object, unsigned short start_frame,
                                          unsigned short frame_count, bool use_argb1555)
 {
     ETRLEObject properties;
@@ -3008,8 +2955,7 @@ stTextureAnim* VideoVObjectToTextureAnim(HVOBJECT object, unsigned short start_f
         return 0;
     }
 
-    stTextureAnim* animation = new stTextureAnim;
-    animation->autoRelease();
+    auto animation = std::make_shared<stTextureAnim>();
     animation->setName("VideoVObjecttoTextureAnim");
     animation->setMipmapBias(-8.0f);
 
@@ -3048,8 +2994,7 @@ stTextureAnim* VideoVObjectToTextureAnim(HVOBJECT object, unsigned short start_f
             surface->setName("VideoVObjecttoTextureAnim:srColorSurface");
             surface->fill(0);
             if (BlitHVObjectToColorSurface(object, frame, surface.get(), 0, 0)) {
-                srTextureMap* texture = new srTextureMap();
-                texture->autoRelease();
+                auto texture = std::make_shared<srTextureMap>();
                 texture->setName("VideoVObjecttoTextureAnim");
                 texture->setMipmapBias(-8.0f);
                 texture->setSurfacePtr(surface);
@@ -3062,7 +3007,7 @@ stTextureAnim* VideoVObjectToTextureAnim(HVOBJECT object, unsigned short start_f
                 texture->setMipmap(srTextureIFace::MIPMAP_NONE);
                 texture->enableHint(use_argb1555 ? srTextureIFace::HINT_ONE_BIT_ALPHA
                                                  : srTextureIFace::HINT_NO_ALPHA);
-                animation->AddTexture(texture);
+                animation->AddTexture(std::move(texture));
             }
         }
         ++frame;
@@ -3216,17 +3161,13 @@ void EndRenderProbe(void)
    ??_GsrColorSurface thunk, not the support-class deleting destructor. */
 
 // FUNCTION: WIZ8 0x00424BA0
-srNode* MakePosterQuad(srTextureIFace* texture, float width, float height, bool additive)
+srNode* MakePosterQuad(std::shared_ptr<srTextureIFace> texture, float width, float height,
+                       bool additive)
 {
     srShader shader;
-    std::shared_ptr<srPalette> palette;
     srTextureIFace::Dimensions dimensions;
-    srPixelConvert::PixelFormat format;
-    format.fourcc = 0;
     dimensions.width = 64;
     dimensions.height = 64;
-    palette = srCore.getPalette();
-    srPixelConvert::mapPixelFormat(srPixelConvert::SURFACE_ARGB4444, format);
 
     auto model = std::make_shared<stMeshModel>(0, 0);
     float extent_w = g_float_one / dimensions.width * g_surface_scale;
@@ -3249,7 +3190,7 @@ srNode* MakePosterQuad(srTextureIFace* texture, float width, float height, bool 
         model->enable(srMeshModel::CONTROL_SORTED_RENDERING);
     }
     model->setMaterial(g_blit_material, 0, srMeshModel::SIDE_FRONT);
-    model->setTexture(texture, 0, 0);
+    model->setTexture(std::move(texture), 0, 0);
     model->setShader(shader, 0);
 
     stModelInstance* instance = new stModelInstance(static_cast<srNode*>(0));
@@ -3259,22 +3200,6 @@ srNode* MakePosterQuad(srTextureIFace* texture, float width, float height, bool 
     }
     instance->render_flags |= stModelInstance::RENDER_NO_PICK;
     return instance;
-}
-
-/* Exception-scope cleanup for the small MakePosterQuad local whose managed
-   pointer lives at +0x08 (the palette slot). */
-struct Video2PosterQuadInfo {
-    w8_ulong width;
-    w8_ulong height;
-    srClass* pointer;
-};
-
-// FUNCTION: WIZ8 0x00424EA0
-void __fastcall ReleaseOwnedMember(Video2PosterQuadInfo* object)
-{
-    if (object->pointer != 0) {
-        object->pointer->release();
-    }
 }
 
 // FUNCTION: WIZ8 0x00425590

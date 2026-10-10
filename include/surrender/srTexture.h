@@ -6,6 +6,7 @@
 class SR_DLL_IMPORT srTexture
     : public srClassSupport<srTexture, srTextureIFace, 0x2110> {
 public:
+    virtual ~srTexture() override;
     static const char* sGetClassName();
     /* Copies share the palette stored in Dimensions. */
 
@@ -48,7 +49,6 @@ public:
 protected:
     friend class stSurface2D;
     srTexture();
-    virtual ~srTexture() override;
     static w8_ulong getNewFrameHandle();
     /* Allocates count consecutive frame handles and returns the first. */
     static w8_ulong getNewFrameHandles(w8_ulong count);

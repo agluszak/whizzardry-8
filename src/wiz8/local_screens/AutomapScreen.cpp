@@ -313,7 +313,7 @@ static void ClearAutomapMarkers()
 {
     while (g_automap_markers->GetCount()) {
         srClass* object = *g_automap_markers->GetAt(0);
-        object->release();
+        delete object;
         g_automap_markers->Remove(object);
     }
 }
@@ -1039,7 +1039,7 @@ unsigned char AutomapScreenLeave(int)
     if (clipping_plane) {
         g_world->level->setParent(g_world->static_scene, 1);
         g_world->dynamic_scene->setParent(g_world->static_scene, 1);
-        clipping_plane->release();
+        delete clipping_plane;
     }
     gfTrackMousePos = 0;
     g_automap_surface.reset();
@@ -1061,7 +1061,7 @@ unsigned char AutomapScreenLeave(int)
     }
     while (g_automap_created_layers.GetCount()) {
         if (*g_automap_created_layers.GetAt(0))
-            (*g_automap_created_layers.GetAt(0))->release();
+            delete *g_automap_created_layers.GetAt(0);
         g_automap_created_layers.RemoveAt(0);
     }
     return 1;
@@ -1797,10 +1797,9 @@ W8AutomapNote* FindAutomapNoteUnderCursor(void)
 }
 
 /* Descriptive name for the common marker-texture loading operation. */
-static stTextureFile* LoadAutomapMarkerTexture(const char* path)
+static std::shared_ptr<stTextureFile> LoadAutomapMarkerTexture(const char* path)
 {
-    stTextureFile* texture = new stTextureFile(path, 0);
-    texture->autoRelease();
+    auto texture = std::make_shared<stTextureFile>(path, 0);
     texture->enableHint(srTextureIFace::HINT_ONE_BIT_ALPHA);
     texture->enableHint(srTextureIFace::HINT_NO_MIPMAPS);
     texture->setMipmap(srTextureIFace::MIPMAP_NONE);
@@ -1813,7 +1812,7 @@ static stTextureFile* LoadAutomapMarkerTexture(const char* path)
 
 static void CreateAutomapMarkerSprite(const char* path, stModelInstance2D*& marker)
 {
-    stTextureFile* texture = LoadAutomapMarkerTexture(path);
+    std::shared_ptr<stTextureFile> texture = LoadAutomapMarkerTexture(path);
     srColorSurface* surface = texture->getSurface();
     if (surface != 0) {
         marker = CreateSpriteFromTexture(texture, surface->getWidth() * g_viewport_x_scale,
@@ -1833,7 +1832,8 @@ void CreateAutomapMarkerSprites(void)
         g_automap_markers = new W8Vector<srClass*>(5);
     }
     if (g_automap_party_marker == 0) {
-        stTextureFile* texture = LoadAutomapMarkerTexture("Data\\Automap\\map_partymarker_a.tga");
+        std::shared_ptr<stTextureFile> texture =
+            LoadAutomapMarkerTexture("Data\\Automap\\map_partymarker_a.tga");
         srColorSurface* surface = texture->getSurface();
         if (surface != 0) {
             g_automap_party_marker =
@@ -1848,7 +1848,7 @@ void CreateAutomapMarkerSprites(void)
             srVector4T<float> second;
             first.Set(0.0f, 0.25f, 0.0f, 1.0f);
             second.Set(0.0f, 0.75f, 0.0f, 1.0f);
-            g_automap_party_marker->SetGlowColors(&first, &second);
+            g_automap_party_marker->SetGlowColors(first, second);
             g_automap_party_marker->render_state.render_depth = 2000;
         }
     }
@@ -2075,7 +2075,7 @@ stModelInstance2D* CreateAutomapItemMarker(int item_id)
     srVector4T<float> second;
     second.Set(0.0f, 0.0f, 1.0f, 1.0f);
     first.Set(0.0f, 0.0f, 0.25f, 1.0f);
-    marker->SetGlowColors(&first, &second);
+    marker->SetGlowColors(first, second);
     marker->setRenderDepth(2000);
     ScaleAutomapMarker(marker, factor);
     return marker;
@@ -2097,7 +2097,7 @@ stModelInstance2D* CreateAutomapMonsterMarker(int type)
         *marker = *g_automap_friendly_marker;
         second.Set(0.0f, 0.5f, 0.0f, 1.0f);
         first.Set(0.0f, 0.0f, 0.0f, 1.0f);
-        marker->SetGlowColors(&first, &second);
+        marker->SetGlowColors(first, second);
         break;
     }
     case 1: {
@@ -2106,7 +2106,7 @@ stModelInstance2D* CreateAutomapMonsterMarker(int type)
         *marker = *g_automap_neutral_marker;
         second.Set(0.25f, 0.25f, 0.0f, 1.0f);
         first.Set(0.0f, 0.0f, 0.0f, 1.0f);
-        marker->SetGlowColors(&first, &second);
+        marker->SetGlowColors(first, second);
         break;
     }
     case 2: {
@@ -2115,7 +2115,7 @@ stModelInstance2D* CreateAutomapMonsterMarker(int type)
         *marker = *g_automap_hostile_marker;
         second.Set(0.5f, 0.0f, 0.0f, 1.0f);
         first.Set(0.0f, 0.0f, 0.0f, 1.0f);
-        marker->SetGlowColors(&first, &second);
+        marker->SetGlowColors(first, second);
         break;
     }
     }
@@ -2148,7 +2148,7 @@ stModelInstance2D* CreateAutomapTextMarker(void)
     srVector4T<float> second;
     second.Set(1.0f, 0.4f, 0.0f, 1.0f);
     first.Set(0.0f, 0.0f, 0.0f, 1.0f);
-    marker->SetGlowColors(&first, &second);
+    marker->SetGlowColors(first, second);
     marker->setRenderDepth(2000);
     return marker;
 }

@@ -80,12 +80,6 @@ void stTextureFile::setupDefaultValues()
     setupDefaultValuesFromSurface(surface.get());
 }
 
-// FUNCTION: WIZ8 0x0047C7A0
-srClass* stTextureFile::vInstance()
-{
-    return new stTextureFile(0, 0);
-}
-
 // FUNCTION: WIZ8 0x0047C830
 void stTextureFile::setFileName(const char* file_name)
 {

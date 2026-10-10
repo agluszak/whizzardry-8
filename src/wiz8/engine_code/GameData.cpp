@@ -1413,39 +1413,39 @@ stModelInstance* W8GameData::CreateTraceModel()
     }
     mesh->flags &= ~W8_MESH_SORTED_RENDERING;
     srVector3i* poly_vertices = mesh->getPolyVertex();
-    srPtr<srTextureIFace>* poly_textures = mesh->getPolyTexture(0, 0, 1);
+    std::shared_ptr<srTextureIFace>* poly_textures = mesh->getPolyTexture(0, 0, 1);
     srVector3T<float>* vertex_locs = mesh->getVertexLoc();
     srVector2T<float>* texcoords = mesh->getVertexTexCoords(0, 0, 1);
-    srPtr<srMaterialIFace>* vertex_materials =
+    std::shared_ptr<srMaterialIFace>* vertex_materials =
         mesh->getVertexMaterial(0, srMeshModel::SIDE_FRONT, 1);
     w8_ulong* shade_indices = mesh->getVertexShadeIndex(1);
     int vertex = 0;
     for (int index = 0; index < m_iNumSurfaces; ++index) {
         W8GDSurface* surface = m_pSurfaces + index;
-        poly_textures[index] = g_oct_mesh_default_texture;
+        poly_textures[index] = g_oct_mesh_default.texture;
         if ((surface->flags & W8_GD_SURFACE_WALKABLE) != 0) {
             selected.Set(vertex);
             selected.Set(vertex + 1);
             selected.Set(vertex + 2);
         }
         texcoords[vertex].SetZero();
-        vertex_materials[vertex] = g_oct_mesh_default_material;
+        vertex_materials[vertex] = g_oct_mesh_default.material;
         poly_vertices[index].x = vertex;
         shade_indices[vertex] = vertex;
         vertex_locs[vertex] = m_pVertices[surface->vertex_indices[0]];
         texcoords[vertex + 1].SetZero();
-        vertex_materials[vertex + 1] = g_oct_mesh_default_material;
+        vertex_materials[vertex + 1] = g_oct_mesh_default.material;
         poly_vertices[index].y = vertex + 1;
         shade_indices[vertex + 1] = vertex + 1;
         vertex_locs[vertex + 1] = m_pVertices[surface->vertex_indices[1]];
         texcoords[vertex + 2].SetZero();
-        vertex_materials[vertex + 2] = g_oct_mesh_default_material;
+        vertex_materials[vertex + 2] = g_oct_mesh_default.material;
         poly_vertices[index].z = vertex + 2;
         shade_indices[vertex + 2] = vertex + 2;
         vertex_locs[vertex + 2] = m_pVertices[surface->vertex_indices[2]];
         vertex += 3;
     }
-    mesh->setShader(*g_oct_mesh_default_shader, 0);
+    mesh->setShader(g_oct_mesh_default.render_flags, 0);
     mesh->setDirty(srMeshModel::DIRTY_TRI_MESH);
     srVector3T<float>* normals = mesh->getVertexNormal();
     srVector3T<float>* dig = mesh->getVertexDIG(0, 1);
@@ -1473,7 +1473,6 @@ stModelInstance* W8GameData::CreateTraceModel()
         }
     }
     mesh->setName("GameData Mesh");
-    mesh->setReusable(false);
     mesh->flags &= ~W8_MESH_VERTEX_LIGHTING_DIRTY;
     stModelInstance* instance = CreateModelInstance(mesh);
     instance->setName("GameData Mesh");

@@ -14,9 +14,29 @@ struct SortPair {
     w8_ulong key;
 };
 
-static void markTransitions(w8_ulong* output, const w8_ulong* indices,
-                            const w8_ulong* table, w8_ulong bit, w8_ulong count,
-                            w8_ulong initialized);
+
+/* Mark `bit` in output wherever the indexed table value changes between adjacent entries; when
+   `initialized` is zero the output chunk is cleared first. */
+template <class Lookup>
+static void markTransitions(w8_ulong* output, const w8_ulong* indices, Lookup lookup,
+                            w8_ulong bit, w8_ulong count, w8_ulong initialized)
+{
+    if (initialized == 0) {
+        std::fill_n(output, count, 0);
+    }
+    if (count == 0) {
+        return;
+    }
+    auto previous = lookup(indices[0]);
+    output[0] |= bit;
+    for (w8_ulong index = 1; index < count; ++index) {
+        auto value = lookup(indices[index]);
+        if (value != previous) {
+            output[index] |= bit;
+            previous = value;
+        }
+    }
+}
 
 static void sortPairs(SortPair* pairs, w8_ulong count)
 {
@@ -367,6 +387,9 @@ void srGERD::Renderer::assignTextureSets(w8_ulong* texture_set, const w8_ulong* 
         }
         return;
     }
+    const auto texture0 = [&](w8_ulong polygon) { return pass->texture_tables[0][polygon].get(); };
+    const auto texture1 = [&](w8_ulong polygon) { return pass->texture_tables[1][polygon].get(); };
+    const auto shader = [&](w8_ulong polygon) { return pass->shaders[polygon].value; };
     w8_ulong set = texture_sets.intern(key);
     w8_ulong done = 0;
     while (done < count) {
@@ -378,22 +401,15 @@ void srGERD::Renderer::assignTextureSets(w8_ulong* texture_set, const w8_ulong* 
         w8_ulong* out = texture_set + done;
         w8_ulong initialized = 0;
         if ((mask & TABLE_TEXTURE0) != 0) {
-            markTransitions(out, chunk_indices,
-                            static_cast<const w8_ulong*>(pass->texture_tables[0]),
-                            TABLE_TEXTURE0, chunk, initialized);
+            markTransitions(out, chunk_indices, texture0, TABLE_TEXTURE0, chunk, initialized);
             initialized = 1;
         }
         if ((mask & TABLE_TEXTURE1) != 0) {
-            markTransitions(out, chunk_indices,
-                            static_cast<const w8_ulong*>(pass->texture_tables[1]),
-                            TABLE_TEXTURE1, chunk, initialized);
+            markTransitions(out, chunk_indices, texture1, TABLE_TEXTURE1, chunk, initialized);
             initialized += 1;
         }
         if ((mask & TABLE_SHADER) != 0) {
-            markTransitions(out, chunk_indices,
-                            reinterpret_cast<const w8_ulong*>(pass->shaders), TABLE_SHADER,
-                            chunk,
-                            initialized); // reinterpret-ok: packed srShader words.
+            markTransitions(out, chunk_indices, shader, TABLE_SHADER, chunk, initialized);
         }
         if (chunk != 0) {
             for (w8_ulong index = 0; index < chunk; index++) {
@@ -401,15 +417,10 @@ void srGERD::Renderer::assignTextureSets(w8_ulong* texture_set, const w8_ulong* 
                 if (changed != 0) {
                     w8_ulong vertex = chunk_indices[index];
                     if ((changed & TABLE_TEXTURE0) != 0) {
-                        /* reinterpret-ok: the stage-0 table entries are the
-                           texture interface pointers the key stores. */
-                        key.texture0 = reinterpret_cast<srTextureIFace* const*>(
-                            pass->texture_tables[0])[vertex];
+                        key.texture0 = texture0(vertex);
                     }
                     if ((changed & TABLE_TEXTURE1) != 0) {
-                        /* reinterpret-ok: same table form for stage 1. */
-                        key.texture1 = reinterpret_cast<srTextureIFace* const*>(
-                            pass->texture_tables[1])[vertex];
+                        key.texture1 = texture1(vertex);
                     }
                     if ((changed & TABLE_SHADER) != 0) {
                         key.shader = pass->shaders[vertex];
@@ -996,50 +1007,6 @@ void srGERD::Renderer::render(const TriInput& input)
     }
     expandTriangles(*batch, sorted != 0);
     first_vertex = -1;
-}
-
-/* Mark `bit` in output wherever the indexed table value changes between adjacent entries; when
-   `initialized` is zero the output chunk is cleared first. */
-// FUNCTION: SURRENDER 0x100278E0
-static void markTransitions(w8_ulong* output, const w8_ulong* indices,
-                            const w8_ulong* table, w8_ulong bit, w8_ulong count,
-                            w8_ulong initialized)
-{
-    if (initialized == 0 && count != 0) {
-        std::fill_n(output, count, 0);
-    }
-    w8_ulong previous = table[indices[0]];
-    output[0] |= bit;
-    w8_ulong index = 0;
-    for (; index < (count & ~3UL); index += 4) {
-        w8_ulong value = table[indices[index]];
-        if (value != previous) {
-            output[index] |= bit;
-            previous = value;
-        }
-        value = table[indices[index + 1]];
-        if (value != previous) {
-            output[index + 1] |= bit;
-            previous = value;
-        }
-        value = table[indices[index + 2]];
-        if (value != previous) {
-            output[index + 2] |= bit;
-            previous = value;
-        }
-        value = table[indices[index + 3]];
-        if (value != previous) {
-            output[index + 3] |= bit;
-            previous = value;
-        }
-    }
-    for (; index < count; index++) {
-        w8_ulong value = table[indices[index]];
-        if (value != previous) {
-            output[index] |= bit;
-            previous = value;
-        }
-    }
 }
 
 // FUNCTION: SURRENDER 0x10027CF0

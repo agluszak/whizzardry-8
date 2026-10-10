@@ -14,7 +14,7 @@
 #include "wiz8/utility.h"
 #include "wiz8/virtual_file.h"
 #include "surrender/srMaterial.h"
-#include "surrender/srPtr.h"
+#include <memory>
 #include "surrender/srTexture.h"
 
 #include <stdlib.h>
@@ -23,26 +23,14 @@
    (lines 0x1ad and 0x1d2); the constructor and destructor immediately before
    it are the preceding attribution gap and stay here provisionally. */
 
-/* The first Read captures material[0], texture[0] and the render flags as
-   the default shader state later consumed by the path visualization and
-   trace models in OctPath.cpp and GameData.cpp. */
-// GLOBAL: WIZ8 0x00652dbc
-stMaterial* g_oct_mesh_default_material;
-// GLOBAL: WIZ8 0x00652dc0
-srTextureIFace* g_oct_mesh_default_texture;
-// GLOBAL: WIZ8 0x00652dc4
-srShader* g_oct_mesh_default_shader;
+/* The first Read captures a copy of material 0, its texture and render flags as
+   the default state later used by the path visualization and trace models in
+   OctPath.cpp and GameData.cpp. */
+W8MeshMaterial g_oct_mesh_default;
 
 void ReleaseOctMeshDefaults()
 {
-    auto* material = g_oct_mesh_default_material;
-    auto* texture = g_oct_mesh_default_texture;
-    g_oct_mesh_default_material = nullptr;
-    g_oct_mesh_default_texture = nullptr;
-    delete g_oct_mesh_default_shader;
-    g_oct_mesh_default_shader = nullptr;
-    if (material) material->release();
-    if (texture) texture->release();
+    g_oct_mesh_default = {};
 }
 
 /* The loader verifies every array the same way: a null getter result and a
@@ -221,17 +209,15 @@ bool OctMeshModel::Write(wiz8::File* hFile)
 }
 
 // FUNCTION: WIZ8 0x0049E9A0
-std::unique_ptr<stMeshModel> OctMeshModel::Read(wiz8::File* file, srMaterialIFace** materials, srTextureIFace** textures,
-                                srShader* render_flags, int material_count)
+std::unique_ptr<stMeshModel> OctMeshModel::Read(wiz8::File* file,
+                                                const std::vector<W8MeshMaterial>& materials)
 {
-    if (g_oct_mesh_default_material == 0) {
-        g_oct_mesh_default_material = new stMaterial;
-        g_oct_mesh_default_material->srMaterialIFace::operator=(*materials[0]);
-        g_oct_mesh_default_texture = textures[0];
-        if (g_oct_mesh_default_texture) g_oct_mesh_default_texture->addReference();
-        delete g_oct_mesh_default_shader;
-        g_oct_mesh_default_shader = new srShader;
-        *g_oct_mesh_default_shader = render_flags[0];
+    const int material_count = static_cast<int>(materials.size());
+    if (g_oct_mesh_default.material == 0) {
+        /* Retail copies only the base identity (the name) of material 0. */
+        auto material = std::make_shared<stMaterial>();
+        material->srClass::operator=(*materials[0].material);
+        g_oct_mesh_default = {std::move(material), materials[0].texture, materials[0].render_flags};
     }
 
     unsigned char read_ok = 1;
@@ -288,7 +274,7 @@ std::unique_ptr<stMeshModel> OctMeshModel::Read(wiz8::File* file, srMaterialIFac
     int selected_material = m_material_index;
     int index;
     if (m_material_index < 0) {
-        srPtr<srMaterialIFace>* vertex_materials =
+        std::shared_ptr<srMaterialIFace>* vertex_materials =
             model->getVertexMaterial(0, srMeshModel::SIDE_FRONT, 1);
         if (vertex_materials == 0) {
             ShutdownWithErrorBox("OctMeshModel::Read -- Could not get vertex material array.\n");
@@ -302,10 +288,10 @@ std::unique_ptr<stMeshModel> OctMeshModel::Read(wiz8::File* file, srMaterialIFac
             if (material_index < 0 || material_index >= material_count) {
                 throw std::runtime_error("Invalid mesh vertex material index");
             }
-            vertex_materials[index] = materials[material_index];
+            vertex_materials[index] = materials[material_index].material;
         }
     } else {
-        model->setMaterial(materials[m_material_index], 0, srMeshModel::SIDE_FRONT);
+        model->setMaterial(materials[m_material_index].material, 0, srMeshModel::SIDE_FRONT);
     }
 
     poly_uv_index = model->getPolyUVIndex(0, 1);
@@ -318,7 +304,7 @@ std::unique_ptr<stMeshModel> OctMeshModel::Read(wiz8::File* file, srMaterialIFac
                   "OctMeshModel::Read -- Could not get poly-vertex array.\n",
                   "OctMeshModel::Read -- Could not read m_psrPolyVertex.\n");
 
-    srPtr<srTextureIFace>* polygon_textures = model->getPolyTexture(0, 0, 1);
+    std::shared_ptr<srTextureIFace>* polygon_textures = model->getPolyTexture(0, 0, 1);
     if (polygon_textures == 0) {
         ShutdownWithErrorBox("OctMeshModel::Read -- Could not get poly texture array.\n");
     }
@@ -330,7 +316,7 @@ std::unique_ptr<stMeshModel> OctMeshModel::Read(wiz8::File* file, srMaterialIFac
         if (texture_index < 0 || texture_index >= material_count) {
             throw std::runtime_error("Invalid mesh polygon texture index");
         }
-        polygon_textures[index] = textures[texture_index];
+        polygon_textures[index] = materials[texture_index].texture;
     }
 
     vertex_normals = model->getVertexNormal();
@@ -371,8 +357,9 @@ std::unique_ptr<stMeshModel> OctMeshModel::Read(wiz8::File* file, srMaterialIFac
         ShutdownWithErrorBox("Mesh Model in .pvl file is wrong length.");
     }
 
-    model->setShader(render_flags[selected_material], 0);
-    if ((render_flags[selected_material].value & 0x6000) == 0x4000) {
+    const srShader render_flags = materials.at(selected_material).render_flags;
+    model->setShader(render_flags, 0);
+    if ((render_flags.value & 0x6000) == 0x4000) {
         if (unweighted) {
             ShutdownWithErrorBox("OctMeshModel::Read -- Wrong shader type.\n");
         } else {

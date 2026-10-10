@@ -83,7 +83,6 @@ bool recursiveSceneGraph()
 
 class TestMaterial : public srMaterialIFace {
 public:
-    srClass* vInstance() override { return new TestMaterial; }
     void getMaterialInfo(srVertexProcessor::MaterialInfo& info) override
     {
         info.diffuse = info.ambient = info.specular = info.emissive = 0.0f;
@@ -144,25 +143,21 @@ public:
 
 bool processorOwnership()
 {
-    srPtr<TestMaterial> first_material;
-    first_material = new TestMaterial;
-    first_material->release(); // srPtr owns the retained reference.
-    srPtr<TestMaterial> second_material;
-    second_material = new TestMaterial;
-    second_material->release();
+    auto first_material = std::make_shared<TestMaterial>();
+    auto second_material = std::make_shared<TestMaterial>();
     ScratchProbe probe;
     Counter active;
     Counter inactive;
     inactive.enabled = false;
     std::array<srVector3, 65> positions;
     std::array<w8_ulong, 65> indices;
-    std::array<srPtr<srMaterialIFace>, 65> materials;
+    std::array<std::shared_ptr<srMaterialIFace>, 65> materials;
     std::array<srVector4, 65> eye_locations;
     std::array<unsigned char, 65> attributes{};
     for (w8_ulong i = 0; i < positions.size(); ++i) {
         positions[i].Set(0, 0, static_cast<float>(i + 1));
         indices[i] = i;
-        materials[i] = i == 0 ? first_material.get() : second_material.get();
+        materials[i] = i == 0 ? first_material : second_material;
     }
     srMatrix4 identity;
     identity.SetIdentity();

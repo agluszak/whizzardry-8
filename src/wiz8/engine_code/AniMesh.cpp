@@ -449,7 +449,7 @@ unsigned char UnloadAniMesh(W8AniMesh* mesh, bool force)
         return 0;
     }
     if (mesh->flags.single_instance) {
-        mesh->meshes[0]->release();
+        delete mesh->meshes[0];
     } else {
         if (!mesh->flags.frame_count_loaded) {
             if (LoadAniMesh(0, mesh, true) == 0) {
@@ -466,7 +466,7 @@ unsigned char UnloadAniMesh(W8AniMesh* mesh, bool force)
 
             instance->setParent(0, 1);
             instance->setFlag(srNode::FLAG_DISABLE);
-            instance->release();
+            delete instance;
         }
     }
     g_animesh_cache_bytes -= mesh->loaded_bytes;

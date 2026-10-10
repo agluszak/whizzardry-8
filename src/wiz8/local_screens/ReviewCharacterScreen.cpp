@@ -2620,7 +2620,7 @@ unsigned char UpdateScreenFade(void)
             RenderFrame();
             RenderFrame();
         }
-        g_fade_overlay->release();
+        delete g_fade_overlay;
         SetFullscreenSceneLast(0);
         if (g_fade_callback != 0) {
             g_fade_callback();

@@ -39,7 +39,6 @@ public:
     // the inherited support-class copy constructor cannot construct owned state.
     stMeshModel(const stMeshModel&) = delete;
     stMeshModel& operator=(const stMeshModel& other);
-    virtual srClass* vInstance() override; /* 0x004748c0 */
     virtual int getBoundingSphere(srVector3T<float>& center,
                                   float& radius) override; /* 0x00471dd0 */
     virtual int getBoundingBox(srVector3T<float>& minimum,
@@ -63,7 +62,7 @@ public:
     short* GetVertex(unsigned int frame); /* 0x00471AA0 */
     int FindSkinTable(std::string_view name);
     int CreateSkinTable(std::string_view name, int base_table);
-    srPtr<srTextureIFace>* GetTextureTable(int table); /* 0x00473720 */
+    std::shared_ptr<srTextureIFace>* GetTextureTable(int table); /* 0x00473720 */
     /* Active-polygon index list for a texture table; writes the count through
        `count_out`. Null draws all polygons, non-null with count zero draws none. */
     w8_ulong* GetActivePolygons(w8_long* count_out, int table, bool flag);
@@ -100,14 +99,6 @@ public:
     std::vector<srVector3T<float> > vertex_lights[2];
     /* Per-vertex sunlight intensity, filled with 1.0f on demand. */
     std::vector<float> vertex_sunlight;
-    // Reuse is enabled only after the mesh head has a shared owner.
-    bool canReuse() const { return reusable_; }
-    void setReusable(bool reusable);
-
-private:
-    bool reusable_ = false;
-
-public:
     /* Set once both vertex lights and sunlight exist. */
     bool vertex_lighting_ready;
     unsigned char padding_3ce[2];
@@ -129,7 +120,7 @@ public:
     struct Skin {
         int id;
         std::string name;
-        std::vector<srPtr<srTextureIFace>> textures;
+        std::vector<std::shared_ptr<srTextureIFace>> textures;
         // An absent selection draws all polygons; an engaged empty selection
         // draws none. The checked bit distinguishes that from a pending scan.
         std::optional<std::vector<w8_ulong>> active_polygons;

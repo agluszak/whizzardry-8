@@ -19,9 +19,9 @@
 /* The SR.DLL registry string is the original runtime class identity. */
 
 // GLOBAL: WIZ8 0x006834cc
-static srTexture* g_ground_shadow_texture;
+static std::shared_ptr<srTexture> g_ground_shadow_texture;
 // GLOBAL: WIZ8 0x006834d0
-static srMaterial* g_ground_shadow_material;
+static std::shared_ptr<srMaterial> g_ground_shadow_material;
 /* A default-constructed srShader: retail's dynamic initializer (0x004D61A0)
    stores the srShader default 0x0100241b before the constructor masks in
    the shadow bits, so the 0x13 bits survive into the shadow shader. */
@@ -101,14 +101,12 @@ stGroundShadow::stGroundShadow(srNode* parent)
     if (g_ground_shadow_texture == 0) {
         g_ground_shadow_texture =
             LoadTextureFromFolder("Data\\Monsters\\Bitmaps\\", "Shadow.tga", true);
-        g_ground_shadow_texture->addReference();
         g_ground_shadow_texture->setMipmap(srTextureIFace::MIPMAP_NONE);
         g_ground_shadow_texture->setWrapS(srTextureIFace::WRAP_CLAMP);
         g_ground_shadow_texture->setWrapT(srTextureIFace::WRAP_CLAMP);
 
-        srMaterial* material = new srMaterial;
-        g_ground_shadow_material = material;
-        material->setMapper(&g_ground_shadow_material_parameters);
+        g_ground_shadow_material = std::make_shared<srMaterial>();
+        g_ground_shadow_material->setMapper(&g_ground_shadow_material_parameters);
         g_ground_shadow_shader.value = (g_ground_shadow_shader.value & 0xfeff9277UL) | 0x00808260UL;
     }
 }
@@ -225,8 +223,3 @@ void stGroundShadow::renderGroundShadow(srGERD* renderer)
     renderer->setPolygonOffset(saved_offset);
 }
 
-// FUNCTION: WIZ8 0x004d6bf0
-srClass* stGroundShadow::vInstance()
-{
-    return new stGroundShadow(0);
-}

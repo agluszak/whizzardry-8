@@ -33,7 +33,6 @@ public:
     srFog& operator=(const srFog&) = default;
 
 public:
-    virtual SR_DLL_IMPORT srClass* vInstance() override;
 
     using srClassSupport<srFog, srIlluminator, 0x1210>::process;
     virtual SR_DLL_IMPORT int isActive(srVertexPipe& pipe) override;

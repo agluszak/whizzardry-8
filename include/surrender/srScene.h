@@ -30,7 +30,6 @@ public:
     srScene& operator=(const srScene& other);
 
     virtual void dump(std::ostream& stream) override;
-    virtual srClass* vInstance() override;
     virtual void traverse(TraverseInfo& info) override;
     virtual void process(const ProcessInfo& info, e_processType type) override;
 

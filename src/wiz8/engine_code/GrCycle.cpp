@@ -563,7 +563,7 @@ W8GrCycle::~W8GrCycle()
 
             if (owner == 0 || owner->active_particle_count == 0) {
                 if (event->m_pstParticles != 0) {
-                    event->m_pstParticles->release();
+                    delete event->m_pstParticles;
                 }
                 delete event;
             } else {
@@ -578,7 +578,7 @@ W8GrCycle::~W8GrCycle()
         m_plsParticles = 0;
     }
     if (m_ground_shadow != 0) {
-        m_ground_shadow->release();
+        delete m_ground_shadow;
     }
 }
 

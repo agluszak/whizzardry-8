@@ -21,7 +21,7 @@ void BlitToMouseCursor(UINT32 video_object, UINT16 region, UINT16 x, UINT16 y);
 void RefreshMouseCursorTexture(void);
 BOOLEAN ResizeMouseCursorSurface(int width, int height);      /* 0x00427c90 */
 void SetMouseCursorHotspot(short hotspot_x, short hotspot_y); /* 0x00427f00 */
-void SetMouseCursorTexture(srTextureIFace* texture);          /* 0x00429170 */
+void SetMouseCursorTexture(std::shared_ptr<srTextureIFace> texture);          /* 0x00429170 */
 void SyncSystemCursor(void);                                  /* 0x00428340 */
 
 /* Indices into the 17-slot main-game cursor table that SetTargetCursor takes.

@@ -321,12 +321,9 @@ unsigned char LoadSkyWorld(int level, W8LevelInfo* info)
     position.SetZero();
     static_cast<srNode*>(sky_world->camera)->setLocation(position);
 
-    stMaterial* material = new stMaterial;
-    if (material == 0) {
-        srAssertFail("pMat", LEVELS_CPP, 899, 0);
-    }
+    auto material = std::make_shared<stMaterial>();
     material->setName("AnimatedCloudMaterial");
-    material->autoRelease();
+    g_materials.insert("AnimatedCloudMaterial", material);
     srVector4T<float> colour;
     colour.Set(1.0f, 1.0f, 1.0f, 1.0f);
     material->setAmbient(colour);
@@ -341,8 +338,7 @@ unsigned char LoadSkyWorld(int level, W8LevelInfo* info)
     material->setMapper(&g_material_mapper);
 
     for (srNode* node = sky_world->level->first_child_; node != 0; node = node->next_sibling_) {
-        if (node->getClassID() == stModelInstance::CLASS_ID) {
-            srModelInstance* instance = static_cast<srModelInstance*>(node);
+        if (auto* instance = sr_cast<stModelInstance>(node)) {
             srMeshModel* mesh = static_cast<srMeshModel*>(instance->getModel());
 
             mesh->enable(srMeshModel::CONTROL_SKIP_AUTO_SPHERE); /* CONTROL_SKIP_AUTO_SPHERE */
@@ -503,7 +499,7 @@ unsigned char LoadLevel(int requested_level, int entrance, bool restoring_game)
         ForwardDestroyWorld(GetWorld());
         SetCurrentWorld(0);
     }
-    ReleaseRetainedMaterials();
+    ReleaseReadMeshScratch();
     InvalidateRendererTextureCache();
     SetCurrentWorld(CreateWorld());
 
@@ -697,7 +693,7 @@ unsigned char UnloadLevel(const char* save_directory)
         ForwardDestroyWorld(world);
         SetCurrentWorld(0);
     }
-    ReleaseRetainedMaterials();
+    ReleaseReadMeshScratch();
 
     if (g_world_cleanup_flag) {
         RenderFrame();
@@ -721,7 +717,7 @@ unsigned char UnloadLevel(const char* save_directory)
         srClass* next = static_cast<srClass*>(
             registry->find(srClipPlane::sGetClassNode(),
                            static_cast<const srRuntimeClass*>(clip_plane)));
-        clip_plane->release();
+        delete clip_plane;
         clip_plane = next;
     }
     return 1;

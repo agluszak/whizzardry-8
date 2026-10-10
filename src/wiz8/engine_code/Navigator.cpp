@@ -504,7 +504,7 @@ W8Navigator::~W8Navigator()
         g_octree->UnregisterLocationObject(movement.location_id, W8_OCTREE_KIND_NAVIGATOR);
     }
     if (node != 0) {
-        node->release();
+        delete node;
     }
 }
 

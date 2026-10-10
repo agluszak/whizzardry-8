@@ -529,7 +529,7 @@ void DestroyWorldCollections(W8World* world)
 
     if (world->particles != 0) {
         while (world->particles->GetCount() != 0) {
-            (*world->particles->GetAt(0))->release();
+            delete *world->particles->GetAt(0);
             world->particles->RemoveAt(0);
         }
     }

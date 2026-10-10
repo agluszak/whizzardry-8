@@ -65,16 +65,16 @@ srShader srMeshModel::getShader(w8_long pass) const
 srMaterialIFace* srMeshModel::getMaterial(w8_long pass, e_side side) const
 {
     if (pass >= 0 && pass < 4 && (int)side >= 0 && (int)side < 2) {
-        return materials[pass][side];
+        return materials[pass][side].get();
     }
     return 0;
 }
 
 // FUNCTION: SURRENDER 0x100402E0
-void srMeshModel::setMaterial(srMaterialIFace* material, w8_long pass, e_side side)
+void srMeshModel::setMaterial(std::shared_ptr<srMaterialIFace> material, w8_long pass, e_side side)
 {
     if (pass >= 0 && pass < 4 && (int)side >= 0 && (int)side < 2) {
-        materials[pass][side] = material;
+        materials[pass][side] = std::move(material);
         setDirty(DIRTY_TRI_MESH);
     }
 }
@@ -83,16 +83,16 @@ void srMeshModel::setMaterial(srMaterialIFace* material, w8_long pass, e_side si
 srTextureIFace* srMeshModel::getTexture(w8_long pass, w8_long layer) const
 {
     if (pass >= 0 && pass < 4 && layer >= 0 && layer < 2) {
-        return textures[pass][layer];
+        return textures[pass][layer].get();
     }
     return 0;
 }
 
 // FUNCTION: SURRENDER 0x10040360
-void srMeshModel::setTexture(srTextureIFace* texture, w8_long pass, w8_long layer)
+void srMeshModel::setTexture(std::shared_ptr<srTextureIFace> texture, w8_long pass, w8_long layer)
 {
     if (pass >= 0 && pass < 4 && layer >= 0 && layer < 2) {
-        textures[pass][layer] = texture;
+        textures[pass][layer] = std::move(texture);
         setDirty(DIRTY_TRI_MESH);
     }
 }
@@ -213,7 +213,7 @@ srVector3i* srMeshModel::getPolyVertex()
 }
 
 // FUNCTION: SURRENDER 0x10040430
-srPtr<srMaterialIFace>* srMeshModel::getVertexMaterial(w8_long vertex, e_side side, int table)
+std::shared_ptr<srMaterialIFace>* srMeshModel::getVertexMaterial(w8_long vertex, e_side side, int table)
 {
     if (vertex < 0 || vertex > 3 || (int)side < 0 || (int)side > 1) {
         return 0;
@@ -227,7 +227,7 @@ srPtr<srMaterialIFace>* srMeshModel::getVertexMaterial(w8_long vertex, e_side si
 }
 
 // FUNCTION: SURRENDER 0x10040560
-srPtr<srTextureIFace>* srMeshModel::getPolyTexture(w8_long polygon, w8_long layer, int table)
+std::shared_ptr<srTextureIFace>* srMeshModel::getPolyTexture(w8_long polygon, w8_long layer, int table)
 {
     if (polygon < 0 || polygon > 3 || layer < 0 || layer > 1) {
         return 0;
@@ -440,7 +440,6 @@ void srMeshModel::calculateBounds()
             } while (count != 0);
         }
         bounds_radius = sqrtf(bounds_radius) * 1.00001f;
-        updateAllClients(Client::UPDATE_BOUNDS);
         dirty_flags.value &= ~(1UL << DIRTY_BOUNDS);
     }
 }
@@ -740,12 +739,12 @@ void srMeshModel::updateTriMesh()
     tri_mesh.normals = getVertexNormal();
     for (w8_long pass = 0; pass < 4; pass++) {
         for (w8_long side = 0; side < 2; side++) {
-            tri_mesh.materials[pass][side] = static_cast<srMaterial*>(materials[pass][side].get());
+            tri_mesh.materials[pass][side] = std::static_pointer_cast<srMaterial>(materials[pass][side]);
             tri_mesh.vertex_materials[pass][side] =
                 getVertexMaterial(pass, static_cast<e_side>(side), 0);
         }
         for (w8_long layer = 0; layer < 2; layer++) {
-            tri_mesh.textures[pass][layer] = (srTextureIFace*)textures[pass][layer];
+            tri_mesh.textures[pass][layer] = textures[pass][layer];
             tri_mesh.poly_textures[pass][layer] = getPolyTexture(pass, layer, 0);
             tri_mesh.texcoords[pass][layer] = getVertexTexCoords(pass, layer, 0);
         }
@@ -776,7 +775,6 @@ void srMeshModel::setBounds(const srVector3T<float>& minimum, const srVector3T<f
     bounds_center = center;
     bounds_radius = radius;
     clearDirty(DIRTY_BOUNDS);
-    updateAllClients(Client::UPDATE_BOUNDS);
     setDirty(DIRTY_TRI_MESH);
 }
 
@@ -832,12 +830,6 @@ srVector4T<float>* srMeshModel::getVertexDCG(w8_long vertex, int table)
         setDirty(DIRTY_TRI_MESH);
     }
     return slot.empty() ? nullptr : slot.data();
-}
-
-// FUNCTION: SURRENDER 0x10041B00
-srClass* srMeshModel::vInstance()
-{
-    return new srMeshModel(0, 0);
 }
 
 // FUNCTION: SURRENDER 0x1003CEA0
@@ -1306,7 +1298,7 @@ void srMeshModel::dump(std::ostream& stream)
     for (pass = 0; pass < 4; ++pass) {
         srShader* shaders = getPolyShader(pass, 0);
         srVector3i* uv = getPolyUVIndex(pass, 0);
-        srPtr<srTextureIFace>* textures[2];
+        std::shared_ptr<srTextureIFace>* textures[2];
         bool defined = false;
         for (stage = 0; stage < 2; ++stage) {
             textures[stage] = getPolyTexture(pass, stage, 0);
@@ -1351,8 +1343,8 @@ void srMeshModel::dump(std::ostream& stream)
         for (stage = 0; stage < 2; ++stage) {
             uvs[stage] = getVertexTexCoords(pass, stage, 0);
         }
-        srPtr<srMaterialIFace>* front = getVertexMaterial(pass, SIDE_FRONT, 0);
-        srPtr<srMaterialIFace>* back = getVertexMaterial(pass, SIDE_BACK, 0);
+        std::shared_ptr<srMaterialIFace>* front = getVertexMaterial(pass, SIDE_FRONT, 0);
+        std::shared_ptr<srMaterialIFace>* back = getVertexMaterial(pass, SIDE_BACK, 0);
         bool defined = dig != 0 || scg != 0 || dcg != 0 || front != 0 || back != 0;
         for (stage = 0; stage < 2; ++stage) {
             if (uvs[stage] != 0) {
@@ -1410,7 +1402,7 @@ void srMeshModel::dump(std::ostream& stream)
             }
             for (stage = 0; stage < 2; ++stage) {
                 if (getPolyTexture(pass, stage, 0) != 0) {
-                    srPtr<srTextureIFace>* textures = getPolyTexture(pass, stage, 1);
+                    std::shared_ptr<srTextureIFace>* textures = getPolyTexture(pass, stage, 1);
                     if (textures[polygon] != textures[polygon - 1]) {
                         shared = 0;
                     }
@@ -1437,7 +1429,7 @@ void srMeshModel::dump(std::ostream& stream)
         }
         for (stage = 0; stage < 2; ++stage) {
             if (getPolyTexture(pass, stage, 0) != 0) {
-                srPtr<srTextureIFace>* textures = getPolyTexture(pass, stage, 1);
+                std::shared_ptr<srTextureIFace>* textures = getPolyTexture(pass, stage, 1);
                 changes = 1;
                 for (polygon = 1; polygon < polygon_count; ++polygon) {
                     if (textures[polygon] != textures[polygon - 1]) {
@@ -1449,7 +1441,7 @@ void srMeshModel::dump(std::ostream& stream)
         }
         for (side = 0; side < 2; ++side) {
             if (getVertexMaterial(pass, static_cast<e_side>(side), 0) != 0) {
-                srPtr<srMaterialIFace>* materials =
+                std::shared_ptr<srMaterialIFace>* materials =
                     getVertexMaterial(pass, static_cast<e_side>(side), 1);
                 changes = 1;
                 for (vertex = 1; vertex < vertex_location_count; ++vertex) {
@@ -1906,7 +1898,7 @@ void srMeshModel::renderTriMesh(srGERD& renderer, const TriMesh& mesh)
                     }
 
                     if (mesh.vertex_materials[pass][material_side] == 0) {
-                        srMaterialIFace* material = mesh.materials[pass][material_side];
+                        srMaterialIFace* material = mesh.materials[pass][material_side].get();
                         pipeline->material = material;
                         pipeline->current_record->material = material;
                     } else {
@@ -1937,7 +1929,7 @@ void srMeshModel::renderTriMesh(srGERD& renderer, const TriMesh& mesh)
 
                     for (w8_long layer = 0; layer < 2; ++layer) {
                         if (mesh.poly_textures[pass][layer] == 0) {
-                            srTextureIFace* texture = mesh.textures[pass][layer];
+                            srTextureIFace* texture = mesh.textures[pass][layer].get();
                             (&pipeline->texture0)[layer] = texture;
                             pipeline->current_pass->textures[layer] = texture;
                         } else {

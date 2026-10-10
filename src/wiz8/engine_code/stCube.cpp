@@ -143,9 +143,8 @@ W8WorldCursorNode* CreateWorldCursorCube(void)
     vertices[3].position = nnn;
     modeller.addPolygon(polygon);
 
-    srMaterial* material = new srMaterial;
+    auto material = std::make_shared<srMaterial>();
     material->setName("Cube Number Material");
-    material->autoRelease();
 
     srVector4T<float> colour;
     colour = 1.0f;
@@ -159,7 +158,7 @@ W8WorldCursorNode* CreateWorldCursorCube(void)
     material->parms.diffuse.w = 0.35f;
     material->parms.shininess = 1.0f;
     material->dirty = 1;
-    modeller.setMaterial(material, 0, srMeshModel::SIDE_FRONT);
+    modeller.setMaterial(std::move(material), 0, srMeshModel::SIDE_FRONT);
 
     srShader shader;
     shader.value = 0x0100c5b3; /* packed srShader: LEQUAL, color write, dst 1-srcA, fog, modulate */
@@ -180,15 +179,14 @@ W8WorldCursorNode* CreateWorldCursorCube(void)
     surface->fill(pixel);
     surface->setFilter(&srBoxFilter);
 
-    srTextureMap* texture = new srTextureMap();
-    texture->autoRelease();
+    auto texture = std::make_shared<srTextureMap>();
     texture->setSurfacePtr(surface);
     texture->setMipmap(srTextureIFace::MIPMAP_NONE);
 
     srVector3T<float> scale(500.0f, 500.0f, 500.0f);
     modeller.scale(scale);
     modeller.convert(*model, 1);
-    model->setTexture(texture, 0, 0);
+    model->setTexture(std::move(texture), 0, 0);
 
     model->setDirty(srMeshModel::DIRTY_TRI_MESH);
     model->setDirty(srMeshModel::DIRTY_BOUNDS);
@@ -226,7 +224,7 @@ void DestroyWorldCursorCube(W8WorldCursorNode* entry)
         }
         entry->userdata_size = 0;
         entry->node->setParent(0, 1);
-        entry->node->release();
+        delete entry->node;
         g_world_cursor_nodes.Remove(entry);
         delete entry;
     }

@@ -12,16 +12,8 @@ class srColorSurfaceIFace;
 // class srClassSupport<srPalette, srClass, 10496>
 
 // VTABLE: SURRENDER 0x100753CC srPalette
-class srPalette : public srClassSupport<srPalette, srClass, 0x2900>,
-                  public std::enable_shared_from_this<srPalette> {
-protected:
-    bool hasIntrusiveOwnership() const override { return false; }
+class srPalette : public srClassSupport<srPalette, srClass, 0x2900> {
 public:
-    void addReference() const = delete;
-    int release() const = delete;
-    w8_long getReferenceCount() const = delete;
-    void autoRelease() = delete;
-
     /* Two-level lookup: lut_rg[(g<<8)|r] selects a palette row, lut_rgb[(row<<8)|b] yields the
        index. */
     class Quantizer {
@@ -189,16 +181,12 @@ public:
     };
 
     static SR_DLL_IMPORT const char* sGetClassName();
-    // Reuses shared matches; returns a value copy of a borrowed/unique match.
-    static SR_DLL_IMPORT std::shared_ptr<srPalette> findMatchingPalette(const srARGB* const colors,
-                                                        w8_long color_count);
 
     SR_DLL_IMPORT srPalette(srARGB* colors = 0, w8_long color_count = 1);
 
     SR_DLL_IMPORT srPalette& operator=(const srPalette& other);
 
     virtual SR_DLL_IMPORT void dump(std::ostream& stream) override;
-    virtual SR_DLL_IMPORT srClass* vInstance() override;
 
     SR_DLL_IMPORT srARGB getColor(w8_long index) const;
     SR_DLL_IMPORT const srARGB* getPaletteDataPtr();

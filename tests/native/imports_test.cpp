@@ -9,6 +9,7 @@
 #include "surrender/srLight.h"
 #include "surrender/srMaterial.h"
 #include "surrender/srMeshModel.h"
+#include "surrender/srModelInstance.h"
 #include "surrender/srModeler.h"
 #include "surrender/srQuadWord.h"
 #include "surrender/srScene.h"
@@ -129,39 +130,19 @@ static int surface_storage()
     return 0;
 }
 
-// Clients retain shared model owners, while the reverse list is borrowed.
+// Instances, including copies, share ownership of their model.
 static int shared_model_lifetimes()
 {
     auto model = std::make_shared<srMeshModel>(0, 0);
     std::weak_ptr<srModel> lifetime = model;
-    srModel::Client first;
-    first.setModel(model);
-    CHECK(model->getFirstClient() == &first);
-    {
-        srModel::Client copy(first);
-        srModel::Client assigned;
-        assigned = first;
-        CHECK(model->getFirstClient() == &assigned);
-        CHECK(assigned.getNextClient() == &copy);
-        CHECK(copy.getNextClient() == &first);
-        CHECK(first.getPrevClient() == &copy);
-        const auto& self = assigned;
-        assigned = self;
-        CHECK(model->getFirstClient() == &assigned);
-        copy.setModel(nullptr);
-        CHECK(copy.getNextClient() == nullptr && copy.getPrevClient() == nullptr);
-        CHECK(assigned.getNextClient() == &first && first.getPrevClient() == &assigned);
-        auto replacement = std::make_shared<srMeshModel>(0, 0);
-        assigned.setModel(replacement);
-        CHECK(model->getFirstClient() == &first && first.getPrevClient() == nullptr);
-        CHECK(replacement->getFirstClient() == &assigned);
-        first.setModel(first.getSharedModel());
-        CHECK(model->getFirstClient() == &first);
-    }
-    model.reset();
+    auto* first = new srModelInstance(nullptr);
+    first->setModel(std::move(model));
+    auto* copy = new srModelInstance(nullptr);
+    *copy = *first;
+    CHECK(copy->getModel() == first->getModel());
+    delete first;
     CHECK(!lifetime.expired());
-    CHECK(first.getNextClient() == nullptr && first.getPrevClient() == nullptr);
-    first.setModel(nullptr);
+    delete copy;
     CHECK(lifetime.expired());
     return 0;
 }
@@ -185,9 +166,6 @@ static int shared_surface_lifetimes()
         palette_lifetime = palette;
         srPalette borrowed;
         borrowed = *palette;
-        auto matching = srPalette::findMatchingPalette(palette->getPaletteDataPtr(), 7);
-        CHECK(matching == palette);
-        CHECK(!matching.owner_before(palette) && !palette.owner_before(matching));
         auto surface = std::make_shared<srColorSurface>(srPixelConvert::SURFACE_P8, 2, 2);
         surface->setPalette(palette);
         surface_lifetime = surface;
@@ -195,7 +173,6 @@ static int shared_surface_lifetimes()
         second = first;
         first.getDimensions(dimensions);
         surface.reset();
-        matching.reset();
         palette.reset();
         first.setSurfacePtr(nullptr);
         CHECK(!surface_lifetime.expired());

@@ -2,6 +2,7 @@
 #include "surrender/srDD_SDLGPU.h"
 #include "surrender/srGERD.h"
 #include "surrender/srMeshModel.h"
+#include "surrender/srTextureMap.h"
 #include "surrender/srTriMeshPipeline.h"
 #include "surrender/srVectorMath.h"
 
@@ -164,10 +165,8 @@ static bool uvGrowth()
 
 static bool copyAndReset()
 {
-    auto* material = srCore.getMaterial();
-    auto* texture = srCore.getTexture();
-    const auto material_references = material->getReferenceCount();
-    const auto texture_references = texture->getReferenceCount();
+    auto material = std::make_shared<srMaterial>();
+    auto texture = std::make_shared<srTextureMap>();
     {
         srMeshModel source(1, 3);
         source.getVertexLoc()[1].Set(1, 2, 3);
@@ -181,8 +180,6 @@ static bool copyAndReset()
         source.setSortBias(0.25f);
         source.setPassCount(3);
         const auto view = source.getTriMesh();
-        CHECK(material->getReferenceCount() == material_references + 2);
-        CHECK(texture->getReferenceCount() == texture_references + 2);
         srMeshModel copy(source);
         CHECK(copy.getID() != source.getID());
         CHECK(copy.getUVCount() == 7 && copy.getSortBias() == 0.25f && copy.getPassCount() == 3);
@@ -193,8 +190,8 @@ static bool copyAndReset()
         CHECK(copied_view.positions[1] == srVector3T<float>(1, 2, 3));
         CHECK(copied_view.texcoords[2][0][6].x == 0.5f);
         CHECK(copy.getVertexDIG(0, 0) == nullptr && copy.getPolyShader(0, 0) == nullptr);
-        CHECK(material->getReferenceCount() == material_references + 4);
-        CHECK(texture->getReferenceCount() == texture_references + 4);
+        CHECK(copy.getVertexMaterial(1, srMeshModel::SIDE_BACK, 0)[2] == material);
+        CHECK(copy.getPolyTexture(1, 0, 0)[0] == texture);
 
         srMeshModel assigned(5, 10);
         assigned.getVertexDIG(0, 1);
@@ -210,8 +207,8 @@ static bool copyAndReset()
         copy.reset(2, 4);
         CHECK(copy.getVertexCount() == 4 && copy.getUVCount() == 4 && copy.getPolygonCount() == 2);
         CHECK(copy.getPassCount() == 1 && copy.getActivePolygonCount() == 2);
-        CHECK(copy.getSortBias() == 0.25f && copy.getMaterial(0, srMeshModel::SIDE_FRONT) == material);
-        CHECK(copy.getTexture(0, 0) == texture);
+        CHECK(copy.getSortBias() == 0.25f && copy.getMaterial(0, srMeshModel::SIDE_FRONT) == material.get());
+        CHECK(copy.getTexture(0, 0) == texture.get());
         CHECK(copy.vertex_locations.empty() && copy.vertex_locations.capacity() == 0);
         CHECK(copy.texcoords[2][0].empty() && copy.texcoords[2][0].capacity() == 0);
         CHECK(copy.tri_mesh.positions == nullptr && copy.tri_mesh.texcoords[2][0] == nullptr);
@@ -224,8 +221,7 @@ static bool copyAndReset()
         CHECK(assigned.getTriMesh().texcoords[2][0][6].x == 0.5f);
         CHECK(source.getTriMesh().poly_vertices == nullptr && source.getTriMesh().positions == nullptr);
     }
-    CHECK(material->getReferenceCount() == material_references);
-    CHECK(texture->getReferenceCount() == texture_references);
+    CHECK(material.use_count() == 1 && texture.use_count() == 1);
     return true;
 }
 

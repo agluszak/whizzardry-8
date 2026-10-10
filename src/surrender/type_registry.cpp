@@ -4,19 +4,14 @@
 #include <algorithm>
 #include <atomic>
 #include <utility>
-#include <stdexcept>
 #include <ostream>
 #include <string.h>
 
 #define SRRUNTIMECLASS_CPP "srRuntimeClass.cpp"
-#define SRCLASS_CPP "srClass.cpp"
 
 namespace {
 std::atomic<w8_ulong> next_instance_id{1};
 }
-
-// GLOBAL: SURRENDER 0x100A45AC
-w8_ulong srClass::_timestampCtr;
 
 // FUNCTION: SURRENDER 0x10011790
 const std::string& srRuntimeClass::getName() const
@@ -170,9 +165,6 @@ srRegistry::ClassNode* srRuntimeClass::getClassNode() const
 void srClass::verify(srRuntimeClass::e_verify mode)
 {
     srRuntimeClass::verify(mode);
-    if (reference_count < 0) {
-        srAssertFail("_refCount >= 0", SRCLASS_CPP, 0x3f, 0);
-    }
 }
 
 // FUNCTION: SURRENDER 0x1000E080
@@ -201,7 +193,7 @@ srClass* srClass::find(const srClass* relative_to)
     return static_cast<srClass*>(srCore.getRegistry()->find(sGetClassNode(), relative_to));
 }
 
-/* Assigns only the instance name; the reference count, timestamp and update link are left alone. */
+/* Assigns only the instance name. */
 // FUNCTION: SURRENDER 0x1000E110
 srClass& srClass::operator=(const srClass& other)
 {
@@ -212,15 +204,9 @@ srClass& srClass::operator=(const srClass& other)
 }
 
 // FUNCTION: SURRENDER 0x1000E130
-srClass::srClass() : reference_count(1)
+srClass::srClass()
 {
     sGetClassNode();
-    touch();
-}
-
-// FUNCTION: SURRENDER 0x1000E1A0
-srClass::~srClass()
-{
 }
 
 // FUNCTION: SURRENDER 0x1000E200
@@ -234,43 +220,10 @@ srRegistry::ClassNode* srClass::sGetClassNode()
     return node;
 }
 
-// FUNCTION: SURRENDER 0x1000E5E0
-void srClass::touch()
-{
-    timestamp = ++_timestampCtr;
-}
-
-// FUNCTION: SURRENDER 0x1000E5F0
-w8_ulong srClass::getTimestamp() const
-{
-    return timestamp;
-}
-
-// FUNCTION: SURRENDER 0x1000E600
-w8_ulong srClass::allocateTimeStamps(w8_ulong count) const
-{
-    w8_ulong first = _timestampCtr;
-    _timestampCtr += count;
-    return first + 1;
-}
-
 // FUNCTION: SURRENDER 0x1000E620
 void srClass::dump(std::ostream& stream)
 {
     srRuntimeClass::dump(stream);
-    std::ios::fmtflags flags = stream.flags();
-    stream.setf(std::ios::left, std::ios::adjustfield);
-    stream.width(0x20);
-    stream << "  Timestamp: " << getTimestamp() << '\n';
-    stream.width(0x20);
-    stream << "  Reference count: " << getReferenceCount() << '\n';
-    stream.flags(flags);
-}
-
-// FUNCTION: SURRENDER 0x1000E850
-srClass* srClass::instance()
-{
-    return vInstance();
 }
 
 // FUNCTION: SURRENDER 0x1000E870
@@ -492,52 +445,4 @@ void srRegistry::dumpClassHierarchy(std::ostream& stream)
         for (auto* child : node->children) self(self, child, indent + 2);
     };
     for (auto* child : root.children) dump(dump, child, 0);
-}
-
-// FUNCTION: SURRENDER 0x1000E240
-void srClass::requireIntrusiveOwnership() const
-{
-    if (!hasIntrusiveOwnership()) {
-        throw std::logic_error("Intrusive ownership is forbidden for this resource");
-    }
-}
-
-void srClass::addReference() const
-{
-    requireIntrusiveOwnership();
-    ++reference_count;
-}
-
-// FUNCTION: SURRENDER 0x1000E250
-void srClass::autoRelease()
-{
-    requireIntrusiveOwnership();
-    if (reference_count == 1) {
-        reference_count = 0;
-    }
-}
-
-// FUNCTION: SURRENDER 0x1000E260
-int srClass::release() const
-{
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wtautological-compare"
-    if (this == 0) {
-#pragma clang diagnostic pop
-        return 1;
-    }
-
-    requireIntrusiveOwnership();
-    if (--reference_count <= 0) {
-        delete this;
-        return 1;
-    }
-    return 0;
-}
-
-// FUNCTION: SURRENDER 0x1000E840
-w8_long srClass::getReferenceCount() const
-{
-    requireIntrusiveOwnership();
-    return reference_count;
 }

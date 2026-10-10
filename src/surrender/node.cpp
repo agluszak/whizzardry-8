@@ -505,12 +505,6 @@ int srNode::testFlag(e_flag flag) const
     return (flags.value & (1 << flag)) != 0;
 }
 
-// FUNCTION: SURRENDER 0x10051CD0
-srClass* srNode::vInstance()
-{
-    return new srNode(0);
-}
-
 // FUNCTION: SURRENDER 0x10051D30
 const char* srNode::sGetClassName()
 {
@@ -962,31 +956,6 @@ void srNode::applyWorldSpaceMatrix(srGERD& renderer)
     checkTransformation();
     renderer.matrixMode(srGERD::MATRIX_MODELVIEW);
     renderer.pushMultMatrix(world_transform1);
-}
-
-// FUNCTION: SURRENDER 0x100505B0
-srNode* srNode::cloneHierarchy(srNode* parent)
-{
-    srNode* node = static_cast<srNode*>(vClone());
-    node->setParent(parent, 0);
-    if (first_child_ != 0) {
-        first_child_->cloneHierarchyInternal(node);
-    }
-    return node;
-}
-
-// FUNCTION: SURRENDER 0x10050560
-srNode* srNode::cloneHierarchyInternal(srNode* parent)
-{
-    if (next_sibling_ != 0) {
-        next_sibling_->cloneHierarchyInternal(parent);
-    }
-    srNode* node = static_cast<srNode*>(vClone());
-    node->setParent(parent, 0);
-    if (first_child_ != 0) {
-        first_child_->cloneHierarchyInternal(node);
-    }
-    return node;
 }
 
 // FUNCTION: SURRENDER 0x10050A30

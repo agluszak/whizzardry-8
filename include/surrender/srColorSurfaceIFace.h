@@ -18,14 +18,7 @@ struct W8TgaHeader;
 
 class srColorSurfaceIFace
     : public srClassSupport<srColorSurfaceIFace, srClass, 0x3100> {
-protected:
-    bool hasIntrusiveOwnership() const override { return false; }
 public:
-    void addReference() const = delete;
-    int release() const = delete;
-    w8_long getReferenceCount() const = delete;
-    void autoRelease() = delete;
-
     struct Rectangle {
         w8_long left;
         w8_long top;

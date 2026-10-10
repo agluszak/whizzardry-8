@@ -99,9 +99,10 @@ class stModelInstance2D;
 template <class T> class srVector2T;
 template <class T> class srVector3T;
 template <class T> class srVector4T;
-srNode* MakePosterQuad(srTextureIFace* texture, float width, float height, bool additive);
+srNode* MakePosterQuad(std::shared_ptr<srTextureIFace> texture, float width, float height,
+                       bool additive);
 /* 0x00425190: build a 2D marker model instance over a texture. */
-stModelInstance2D* CreateSpriteFromTexture(srTextureIFace* texture, double width, double height,
+stModelInstance2D* CreateSpriteFromTexture(std::shared_ptr<srTextureIFace> texture, double width, double height,
                                            bool keep_aspect, bool overlay);
 /* 0x00426F80: render the world into a caller-owned color surface through a
    scissored viewport, then blit the locked frame buffer onto the target. */
@@ -160,7 +161,7 @@ BOOLEAN BlitHVObjectToColorSurface(HVOBJECT object, UINT16 region, srColorSurfac
                                    int x, int y);
 class stTextureAnim;
 /* 0x00428E90: build an stTextureAnim whose frames are VObject subimages. */
-stTextureAnim* VideoVObjectToTextureAnim(HVOBJECT object, unsigned short start_frame,
+std::shared_ptr<stTextureAnim> VideoVObjectToTextureAnim(HVOBJECT object, unsigned short start_frame,
                                          unsigned short frame_count, bool use_argb1555);
 /* 0x00428A90: mark the primary renderer mode word dirty. */
 void SetOverlayRenderMode(void);
@@ -216,7 +217,7 @@ extern srGERD* g_gerd;
 extern srGERD* g_secondary_gerd;
 extern CpuSurface* g_primary_surface;
 extern stSurface2D* g_surface_node;
-extern srMaterial* g_blit_material;
+extern std::shared_ptr<srMaterial> g_blit_material;
 extern std::shared_ptr<srColorSurface> g_mouse_surface;
 extern srNode* g_surface_nodes[0x12c0];
 extern unsigned char g_block[0x12c0];
@@ -272,7 +273,7 @@ unsigned char FinishVideoPresentation(void);
 void PublishLightDirection(const EnvironmentColour* direction);
 void GetWorldColour(EnvironmentColour* colour); /* 0x00427290 */
 srVector3T<float>* __fastcall SaturateColor(srVector3T<float>* color);
-void ReleaseObject(srClass* object);
+void ReleaseObject(stModelInstance2D* object);
 void Initialize16BitPixelFormatMasks(void);
 unsigned char CreateWizardryWindow(void);
 unsigned char InitializePrimaryCpuSurface(void);
@@ -297,14 +298,11 @@ void SetDisplayGamma(float value);
 unsigned int GetTotalPhysicalMemory(void);
 int GetRendererFamily(void);
 
-/* Shared owned-slot teardown. Keep the slot live across release: callbacks
-   may change it, and clearing still follows the release exactly once. */
+/* Delete a scene object and clear the slot that owned it. */
 template <class T> inline void ReleaseRendererObject(T*& object)
 {
-    if (object != 0) {
-        object->release();
-        object = 0;
-    }
+    delete object;
+    object = nullptr;
 }
 
 #endif

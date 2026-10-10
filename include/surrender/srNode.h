@@ -64,6 +64,12 @@ public:
     enum e_notify { NOTIFY_BOUNDS_DIRTY = 0, NOTIFY_TRANSFORM_DIRTY = 1 };
 
     SR_DLL_IMPORT srNode(srNode* parent = 0);
+    /* Copies the transform under the default parent; links are not copied. */
+    srNode(const srNode& other) : srNode(nullptr)
+    {
+        *this = other;
+    }
+    virtual SR_DLL_IMPORT ~srNode() override;
 
     SR_DLL_IMPORT srNode& operator=(const srNode& other);
 
@@ -71,11 +77,7 @@ public:
 
     virtual SR_DLL_IMPORT void dump(std::ostream& stream) override;
 
-protected:
-    virtual SR_DLL_IMPORT ~srNode() override;
-
 public:
-    virtual SR_DLL_IMPORT srClass* vInstance() override;
     virtual SR_DLL_IMPORT void traverse(TraverseInfo& info);
     virtual SR_DLL_IMPORT void process(const ProcessInfo& info, e_processType type);
     virtual SR_DLL_IMPORT void getLocalBounds(BoundInfo& bounds);
@@ -88,7 +90,6 @@ protected:
     SR_DLL_IMPORT int testNotify(e_notify notification) const;
 
 public:
-    SR_DLL_IMPORT srNode* cloneHierarchy(srNode* parent);
     SR_DLL_IMPORT void dumpHierarchy(std::ostream& stream, w8_long indent) const;
     SR_DLL_IMPORT srNode* findChild(std::string_view name) const;
     SR_DLL_IMPORT srNode* findChildByNameAndType(std::string_view name, w8_ulong class_id) const;
@@ -192,7 +193,6 @@ public:
 
 private:
     SR_DLL_IMPORT void checkTransformation() const;
-    SR_DLL_IMPORT srNode* cloneHierarchyInternal(srNode* parent);
     SR_DLL_IMPORT srNode* findChildByNameAndTypeInternal(std::string_view name, w8_ulong class_id);
     SR_DLL_IMPORT srNode* findChildInternal(std::string_view name);
     SR_DLL_IMPORT srNode* findParentByTypeInternal(w8_ulong class_id);

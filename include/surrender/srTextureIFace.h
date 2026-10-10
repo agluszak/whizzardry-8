@@ -104,8 +104,7 @@ public:
         return "srTextureIFace";
     }
 
-    /* Slot 8. Slot 6 is srClass::vInstance; slot 7 is clone. srTextureFile's
-       17-slot vftable (0 through 16) is this interface exactly. */
+    /* srTextureFile's vftable is this interface exactly. */
     virtual w8_ulong getTextureFrameHandle() = 0;
     virtual float getPriority() = 0;
     virtual void getDimensions(Dimensions& dimensions) = 0;
@@ -114,6 +113,7 @@ public:
     virtual void getTextureParms(Parameters& parameters) = 0;
     virtual const char* getTextureName();
     virtual void invalidate() = 0;
+    ~srTextureIFace() override;
 
 protected:
     virtual void setupDefaultValues() = 0;

@@ -1,5 +1,7 @@
 #pragma once
 
+#include <memory>
+#include <optional>
 #include <vector>
 #include "surrender/srMeshModel.h"
 #include "surrender/srModelInstance.h"
@@ -9,15 +11,14 @@
 
 class srGERD;
 class srMaterial;
+class stMaterial;
 class srTextureIFace;
 class stTextureAnim;
 
 /* Engine Code\stModelInstance.cpp. */
 // VTABLE: WIZ8 0x005ec7d0 stModelInstance
-// VTABLE: WIZ8 0x005ec7c0 stModelInstance::srModel::Client
 /* The following are the construction-phase tables for the support base. */
 // VTABLE: WIZ8 0x005ec814 srClassSupport<stModelInstance,srModelInstance,65540>
-// VTABLE: WIZ8 0x005ec804 srClassSupport<stModelInstance,srModelInstance,65540>::srModel::Client
 class stModelInstance : public srClassSupport<stModelInstance, srModelInstance, 0x10004> {
 public:
     enum { RENDER_LIGHTING_BAKED = 0x02u, RENDER_SHADOW = 0x08u, RENDER_NO_PICK = 0x10u };
@@ -29,10 +30,6 @@ public:
 
     explicit stModelInstance(srNode* parent);                 /* 0x0047EC80 */
     stModelInstance& operator=(const stModelInstance& other); /* 0x0047EDF0 */
-    /* Overrides the srModel::Client slot on the secondary base; retail calls
-       the model's class-id getter before forwarding to the base setter. */
-    virtual void setModel(std::shared_ptr<srModel> model) override; /* 0x0047F0C0 */
-    virtual srClass* vInstance() override;
 
     /* Queues opaque models ahead of their siblings and sorted-rendering
        models after them. */
@@ -50,15 +47,14 @@ public:
     int AddExistingDamageStage(const char* name);
     int FindDamageStage(const char* name);
     unsigned char ReplaceDamageStageTexture(int stage, const char* old_name,
-                                            srTextureIFace* replacement);
-    virtual ~stModelInstance() override; /* 0x0047EF70 */
+                                            const std::shared_ptr<srTextureIFace>& replacement);
 
 public:
     w8_ulong overlay_scene_flag;
     srVector4T<float> highlight_colour;
     /* Lazily built highlight material; RenderMeshes fills it from the
        render-state RGBA and installs it as the pass material. */
-    srMaterial* highlight_material;
+    std::shared_ptr<srMaterial> highlight_material;
     w8_ulong render_flags;
     w8_long mesh_index;
     unsigned int frame_index;
@@ -74,15 +70,11 @@ public:
     float frame_interpolation;
 };
 
-W8_ABI_ASSERT(offsetof(stModelInstance, highlight_colour) == 0x164,
-              "stModelInstance_render_state_offset");
-W8_ABI_ASSERT(sizeof(stModelInstance) == 0x1b0, "stModelInstance_size_must_be_0x1b0");
 
 /* Concrete 2D model instance. Slot 5 and the secondary slot-0 adjustor are
    SYNTHETIC compiler-generated deleting destructors; no source body owns
    either address. */
 // VTABLE: WIZ8 0x005ec858 srClassSupport<srModelInstance, class srNode, 4352>
-// VTABLE: WIZ8 0x005ec848 srModel::Client
 class stModelInstance2D
     : public srClassSupport<stModelInstance2D, srModelInstance, 0x10005> {
 public:
@@ -96,12 +88,11 @@ public:
     stModelInstance2D& operator=(const stModelInstance2D& other); /* 0x0047F290 */
     void SetModel(std::shared_ptr<srModel> model);                                /* 0x0047F3A0 */
 
-    srClass* vInstance() override;                                      /* 0x00481E30 */
     void process(const ProcessInfo& info, e_processType type) override; /* 0x00480920 */
     unsigned short GetScaledWidth();                                    /* 0x00480EF0 */
     unsigned short GetScaledHeight();                                   /* 0x00480F70 */
     void SetGlowEnabled(bool enable);                                   /* 0x00480EB0 */
-    void SetGlowColors(srVector4T<float>* first, srVector4T<float>* second);
+    void SetGlowColors(const srVector4T<float>& first, const srVector4T<float>& second);
 
     unsigned char displayState() const
     {
@@ -117,9 +108,9 @@ public:
         render_state.position_y = 0;
         render_state.display_state = 0;
         render_state.glow_enabled = false;
-        glow_color_base = 0;
-        glow_color_peak = 0;
-        m_pGlowMaterial = 0;
+        glow_color_base.reset();
+        glow_color_peak.reset();
+        glow_material.reset();
     }
     void setRenderDepth(w8_ulong depth)
     {
@@ -128,12 +119,9 @@ public:
 
     w8_ulong overlay_scene_flag;
     W8ModelInstance2DRenderState render_state;
-    srVector4T<float>* glow_color_base;
-    srVector4T<float>* glow_color_peak;
-    srMaterial* m_pGlowMaterial;
-    virtual ~stModelInstance2D() override; /* 0x0047F410 */
+    std::optional<srVector4T<float>> glow_color_base;
+    std::optional<srVector4T<float>> glow_color_peak;
+    /* Lazily copied from the mesh material while the glow is enabled. */
+    std::shared_ptr<stMaterial> glow_material;
 };
 
-W8_ABI_ASSERT(offsetof(stModelInstance2D, render_state) == 0x164,
-              "stModelInstance2D_render_state_offset");
-W8_ABI_ASSERT(sizeof(stModelInstance2D) == 0x180, "stModelInstance2D_must_be_0x180");

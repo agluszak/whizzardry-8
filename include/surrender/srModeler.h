@@ -46,7 +46,7 @@ public:
 
         srVector3T<float> position;
         w8_ulong shade_index;
-        srMaterialIFace* materials[4][2];
+        std::shared_ptr<srMaterialIFace> materials[4][2];
         srVector3T<float> dcg[4];
         srVector3T<float> dig[4];
         srVector3T<float> scg[4];
@@ -60,7 +60,7 @@ public:
         void reset();
         void flipFacing();
 
-        srTextureIFace* textures[4][2];
+        std::shared_ptr<srTextureIFace> textures[4][2];
         srShader shaders[4];
         Vertex vertices[3];
         w8_ulong flags;
@@ -73,7 +73,7 @@ public:
         void reset();
         void reAllocate(int vertices);
 
-        srTextureIFace* textures[4][2];
+        std::shared_ptr<srTextureIFace> textures[4][2];
         srShader shaders[4];
         /* Engine Code\stCube.cpp assigns positions and UVs through this table
            after Polygon(4) allocates it. */
@@ -138,8 +138,8 @@ public:
     void cylinderMap(w8_long pass, w8_long layer, const MappingInfo& mapping);
     void removeMapping(w8_long pass, w8_long layer);
 
-    void setMaterial(srMaterialIFace* material, w8_long pass, srMeshModel::e_side side);
-    void setTexture(srTextureIFace* texture, w8_long pass, w8_long layer);
+    void setMaterial(std::shared_ptr<srMaterialIFace> material, w8_long pass, srMeshModel::e_side side);
+    void setTexture(std::shared_ptr<srTextureIFace> texture, w8_long pass, w8_long layer);
     void setShader(srShader shader, w8_long pass);
     /* A nonzero remove_degenerate disables and drops triangles with
        coincident corners before building the mesh (the game passes 1). */

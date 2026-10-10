@@ -4,7 +4,7 @@
 #include <vector>
 #include "srMaterialIFace.h"
 #include "srMath.h"
-#include "srPtr.h"
+#include <memory>
 #include "srShader.h"
 #include "srTextureIFace.h"
 #include "srVertexPipe.h"
@@ -21,10 +21,9 @@ public:
     struct Pass {
         srTextureIFace* textures[2]{};
         srShader shader;
-        /* Borrowed per-stage srPtr<srTextureIFace> or stTextureAnim* tables.
-           The renderer reads pointer-sized entries without owning the tables. FlushSlots consumes
-           them synchronously in Renderer::render before unlockRenderer queues owned render data. */
-        void* texture_tables[2]{};
+        /* Borrowed per-polygon texture tables. FlushSlots consumes them synchronously in
+           Renderer::render before unlockRenderer queues owned render data. */
+        const std::shared_ptr<srTextureIFace>* texture_tables[2]{};
         const srShader* shaders = nullptr;
         const srVector2T<float>* texcoords = nullptr;
         /* The mesh's per-triangle poly-UV corner source table. */

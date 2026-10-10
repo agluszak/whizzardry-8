@@ -34,6 +34,7 @@ W8_ABI_ASSERT(sizeof(srVertexArray) == 0x20, "srVertexArray_must_be_0x20");
 // VTABLE: SURRENDER 0x10076c74 srVertexProcessor
 class srVertexProcessor {
 public:
+    virtual ~srVertexProcessor() {}
     struct MaterialInfo {
         // FUNCTION: WIZ8 0x00424A80
         inline MaterialInfo() : disabled_channels(0) {}
@@ -65,7 +66,6 @@ public:
 
 protected:
     // FUNCTION: WIZ8 0x0042A360
-    virtual ~srVertexProcessor() {}
 
 public:
     // The provider's base vtable contains these bodies, not _purecall.

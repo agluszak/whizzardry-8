@@ -23,6 +23,7 @@ std::unique_ptr<srColorSurface> __stdcall LoadSurface(wiz8::File* handle, w8_lon
    +0x54..+0x60 match SR; has_alpha is Wizardry-only (SR sizeof 0x64). */
 class stTextureFile : public srClassSupport<stTextureFile, srTexture, 0x10001> {
 public:
+    virtual ~stTextureFile() override;          /* 0x0047C8E0 */
     static const char* sGetClassName()
     {
         return "stTextureFile";
@@ -59,14 +60,12 @@ public:
     void releaseSurface(); /* 0x0047BBD0 */
 
     virtual void dump(std::ostream& stream) override;
-    virtual srClass* vInstance() override;                      /* 0x0047C7A0 */
     virtual w8_ulong getTextureFrameHandle() override;     /* 0x0047C5F0 */
     virtual void getMipmapData(MultiRequest& request) override; /* 0x0047CA50 */
     virtual void getMipmapLevelPartial(PartialRequest& request) override;
     virtual void invalidate() override; /* 0x0047C8B0 */
 
 protected:
-    virtual ~stTextureFile() override;          /* 0x0047C8E0 */
     virtual void setupDefaultValues() override; /* 0x0047C600 */
 
 private:

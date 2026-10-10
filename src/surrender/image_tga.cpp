@@ -181,12 +181,9 @@ std::unique_ptr<srColorSurface> loadTga(SDL_IOStream* source)
                     for (unsigned x = 0; x < width; ++x)
                         if (row[x] < origin || row[x] >= origin + count) return nullptr;
                 }
-                auto matching = srPalette::findMatchingPalette(colors.data(), origin + count);
-                if (!matching) {
-                    matching = std::make_shared<srPalette>(colors.data(), origin + count);
-                    matching->setName("TGA-importer generated palette");
-                }
-                surface->setPalette(matching);
+                auto generated = std::make_shared<srPalette>(colors.data(), origin + count);
+                generated->setName("TGA-importer generated palette");
+                surface->setPalette(std::move(generated));
             }
         }
         return surface;

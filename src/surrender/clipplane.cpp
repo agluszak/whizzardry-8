@@ -104,8 +104,3 @@ srVector4T<float> srClipPlane::getClipPlane() const
     return clip_plane_;
 }
 
-// FUNCTION: SURRENDER 0x1004A160
-srClass* srClipPlane::vInstance()
-{
-    return new srClipPlane(static_cast<srNode*>(0));
-}

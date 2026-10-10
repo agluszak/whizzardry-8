@@ -98,21 +98,19 @@ bool LoadAnimated(const std::filesystem::path& path)
     srModelInstance* first = nullptr;
     CHECK(ReadSingleLevelMesh(&info, &first, 0, 0, "animated fixture", true));
     CHECK(first);
-    auto model = std::static_pointer_cast<stMeshModel>(first->getSharedModel());
+    auto* model = static_cast<stMeshModel*>(first->getModel());
     CHECK(model->frames.size() == 2);
     CHECK(model->GetVertexLocations(0, true, 0)[1].x == 1.0f);
     CHECK(model->GetVertexLocations(1, true, 0)[1].x == 3.0f);
     srModelInstance* second = nullptr;
-    // The first load left the stream at EOF. Reuse must share the registered
-    // model without trying to read it again or creating a second control block.
+    // The first load left the stream at EOF. Reuse must share the cached
+    // model without trying to read it again.
     CHECK(ReadSingleLevelMesh(&info, &second, 0, 0, "animated fixture", true));
-    CHECK(second && second->getSharedModel() == model);
-    first->release();
-    second->release();
-    model.reset();
+    CHECK(second && second->getModel() == model);
+    delete first;
+    delete second;
     CHECK(g_mesh_models.empty() && g_decompressed_mesh_bytes == 0);
     ReleaseReadMeshScratch();
-    ReleaseRetainedMaterials();
     return true;
 }
 
@@ -128,27 +126,20 @@ bool LoadCycles(const std::filesystem::path& path)
         srModelInstance* instances[4]{};
         CHECK(ReadMultipleLevelMeshes(&info, instances, 4, "serialized linked mesh"));
         CHECK(instances[0] && instances[1] && !instances[2] && !instances[3]);
-        auto owner = instances[0]->getSharedModel();
-        auto* head = static_cast<stMeshModel*>(owner.get());
-        CHECK(head->canReuse());
+        auto* head = static_cast<stMeshModel*>(instances[0]->getModel());
         CHECK(head->next && head->next->next && !head->next->next->next);
         CHECK(head->next->previous == head && head->next->next->previous == head->next.get());
         CHECK(head->getPolyVertex()[0].x == 0 && head->getPolyVertex()[0].z == 2);
         CHECK(head->getVertexLoc()[1].x == 1);
         CHECK(head->next->vertex_location_count == 3);
-        std::weak_ptr<srModel> lifetime = owner;
-        owner.reset();
-        instances[0]->release();
-        instances[1]->release();
-        CHECK(lifetime.expired());
-        // Later loads reuse the registered default snapshot. Releasing the
-        // octree's ownership before the cache must leave its material alive.
+        delete instances[0];
+        delete instances[1];
+        CHECK(g_mesh_models.empty());
+        // Later loads reuse the default snapshot taken by the first read.
         if (cycle == 2) {
-            CHECK(g_oct_mesh_default_material->getReferenceCount() == 2);
             ReleaseOctMeshDefaults();
         }
         ReleaseReadMeshScratch();
-        ReleaseRetainedMaterials();
         CHECK(srCore.getRegistry()->getNumberOfInstances(stMaterial::sGetClassNode(), 0) == (cycle == 2 ? 0 : 1));
     }
     return true;
@@ -179,7 +170,6 @@ int main()
         ok = ok && !instances[0] && !instances[1];
     }
     ReleaseReadMeshScratch();
-    ReleaseRetainedMaterials();
     ReleaseOctMeshDefaults();
     std::filesystem::remove_all(directory);
     srExit();

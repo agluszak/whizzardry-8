@@ -1318,7 +1318,7 @@ void srModeler::autoSmooth(double threshold, int smooth)
 }
 
 // FUNCTION: SURRENDER 0x1003BB40
-void srModeler::setMaterial(srMaterialIFace* material, w8_long pass, srMeshModel::e_side side)
+void srModeler::setMaterial(std::shared_ptr<srMaterialIFace> material, w8_long pass, srMeshModel::e_side side)
 {
     if (0 <= pass && pass < 4 &&
         (side == srMeshModel::SIDE_FRONT || side == srMeshModel::SIDE_BACK)) {
@@ -1333,7 +1333,7 @@ void srModeler::setMaterial(srMaterialIFace* material, w8_long pass, srMeshModel
 }
 
 // FUNCTION: SURRENDER 0x1003BBC0
-void srModeler::setTexture(srTextureIFace* texture, w8_long pass, w8_long layer)
+void srModeler::setTexture(std::shared_ptr<srTextureIFace> texture, w8_long pass, w8_long layer)
 {
     if (0 <= pass && pass < 4 && 0 <= layer && layer < 2) {
         Triangle* triangle = triangles.data();
@@ -1399,7 +1399,7 @@ void srModeler::convert(srMeshModel& model, int remove_degenerate)
         srShader shader;
         Triangle* triangle = triangles.data();
         shader = triangle->shaders[pass];
-        srTextureIFace* texture[2];
+        std::shared_ptr<srTextureIFace> texture[2];
         texture[0] = triangle->textures[pass][0];
         texture[1] = triangle->textures[pass][1];
         if (1 < count) {
@@ -1431,7 +1431,7 @@ void srModeler::convert(srMeshModel& model, int remove_degenerate)
         }
         for (layer = 0; layer < 2; ++layer) {
             if (same_texture[layer] == 0) {
-                srPtr<srTextureIFace>* table = model.getPolyTexture(pass, layer, 1);
+                std::shared_ptr<srTextureIFace>* table = model.getPolyTexture(pass, layer, 1);
                 triangle = triangles.data();
                 for (index = count; index != 0; --index) {
                     *table = triangle->textures[pass][layer];
@@ -1442,8 +1442,8 @@ void srModeler::convert(srMeshModel& model, int remove_degenerate)
         }
         same_uv[0] = 1;
         same_uv[1] = 1;
-        srMaterialIFace* material_front = 0;
-        srMaterialIFace* material_back = 0;
+        std::shared_ptr<srMaterialIFace> material_front;
+        std::shared_ptr<srMaterialIFace> material_back;
         for (index = 0; index < unique; ++index) {
             vertex = hash->entries[index].vertex;
             if (index == 0) {
@@ -1517,7 +1517,7 @@ void srModeler::convert(srMeshModel& model, int remove_degenerate)
         model.setMaterial(material_back, pass, srMeshModel::SIDE_BACK);
         for (side = 0; side < 2; ++side) {
             if (same_material[side] == 0) {
-                srPtr<srMaterialIFace>* table =
+                std::shared_ptr<srMaterialIFace>* table =
                     model.getVertexMaterial(pass, static_cast<srMeshModel::e_side>(side), 1);
                 if (unique != 0) {
                     entry = hash->entries.data();

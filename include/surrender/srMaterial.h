@@ -32,7 +32,6 @@ public:
 
     virtual void dump(std::ostream& stream) override;
     virtual void verify(srRuntimeClass::e_verify mode) override;
-    virtual srClass* vInstance() override;
 
     virtual void getMaterialInfo(srVertexProcessor::MaterialInfo& info) override;
     virtual void preProcess(srVertexPipe& pipe) override;

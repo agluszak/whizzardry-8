@@ -6,7 +6,7 @@
 #include "srCore.h"
 #include "srFlags.h"
 #include "srMath.h"
-#include "srPtr.h"
+#include <memory>
 #include "srVertexProcessor.h"
 
 class srMaterialIFace;
@@ -117,7 +117,7 @@ public:
         const srVector4T<float>* spec_for_specular = nullptr;
         const float* alpha_source = nullptr;
         const srVector2T<float>* st_source[2]{};
-        const srPtr<srMaterialIFace>* materials = nullptr;
+        const std::shared_ptr<srMaterialIFace>* materials = nullptr;
         void* user[12]{};
     };
 
