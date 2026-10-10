@@ -31,8 +31,9 @@ jobs:
         run: |
           set -euo pipefail
           jscpd="$RUNNER_TEMP/clone-tools/node_modules/.bin/jscpd"
-          mkdir -p scan-reports/jscpd-exact scan-reports/jscpd-fuzzy
+          mkdir -p scan-reports/jscpd-exact scan-reports/jscpd-identifiers scan-reports/jscpd-fuzzy
           "$jscpd" src include --mode weak --min-tokens 90 --min-lines 12 --cross-formats "cpp,c" --reporters json,html --output scan-reports/jscpd-exact --summary --summary-top 20 --no-tips
+          "$jscpd" src include --mode weak --min-tokens 90 --min-lines 12 --cross-formats "cpp,c" --ignore-identifiers --max-gap-lines 5 --reporters json,html --output scan-reports/jscpd-identifiers --summary --summary-top 20 --no-tips
           "$jscpd" src include --mode weak --min-tokens 90 --min-lines 12 --cross-formats "cpp,c" --ignore-identifiers --ignore-literals --max-gap-lines 5 --reporters json,html --output scan-reports/jscpd-fuzzy --summary --summary-top 20 --no-tips
       - name: PMD CPD exact and renamed
         shell: bash
@@ -41,8 +42,9 @@ jobs:
           pmd="$RUNNER_TEMP/pmd-bin-7.27.0/bin/pmd"
           mkdir -p scan-reports/pmd
           "$pmd" cpd --language cpp --minimum-tokens 90 --dir src --dir include --format xml --report-file scan-reports/pmd/exact.xml --no-fail-on-violation --no-fail-on-error
+          "$pmd" cpd --language cpp --minimum-tokens 90 --dir src --dir include --ignore-identifiers --format xml --report-file scan-reports/pmd/identifiers.xml --no-fail-on-violation --no-fail-on-error
           "$pmd" cpd --language cpp --minimum-tokens 90 --dir src --dir include --ignore-identifiers --ignore-literals --format xml --report-file scan-reports/pmd/fuzzy.xml --no-fail-on-violation --no-fail-on-error
-      - name: Summarize top clones in job log
+      - name: Summarize filtered candidates
         if: always()
         shell: bash
         run: |
@@ -50,38 +52,45 @@ jobs:
           import json
           from pathlib import Path
           import xml.etree.ElementTree as ET
-          def jscpd(name):
-              path = Path("scan-reports") / name / "jscpd-report.json"
-              if not path.exists():
-                  print(name, "MISSING")
-                  return
-              d = json.loads(path.read_text())
-              pairs = d.get("duplicates", [])
-              print(f"\\n=== {name}: {len(pairs)} pairs ===")
-              print("statistics:", json.dumps(d.get("statistics", {}), separators=(",", ":"))[:1500])
-              def line_count(p):
-                  a, b = p.get("firstFile", {}), p.get("secondFile", {})
-                  return max((a.get("end", {}).get("line", 0)-a.get("start", {}).get("line", 0)),(b.get("end", {}).get("line", 0)-b.get("start", {}).get("line", 0)))
-              for c in sorted(pairs, key=line_count, reverse=True)[:40]:
-                  a,b=c.get("firstFile",{}),c.get("secondFile",{})
-                  fmt=lambda x: f'{x.get("name")}:{x.get("start",{}).get("line")}-{x.get("end",{}).get("line")}'
-                  print(f'  {line_count(c)} lines {c.get("kind")} {c.get("similarity", "")} {fmt(a)}  <>  {fmt(b)}')
-          def pmd(name):
-              path=Path("scan-reports/pmd")/(name+".xml")
-              if not path.exists():
-                  print(name, "MISSING")
-                  return
-              root=ET.parse(path).getroot()
-              x=root.findall(".//{*}duplication")
-              print(f"\\n=== PMD {name}: {len(x)} clone groups ===")
-              for c in sorted(x,key=lambda e:int(e.get("lines","0")),reverse=True)[:40]:
-                  files=c.findall("{*}file")
-                  f=" <> ".join(f'{Path(s.get("path","")).as_posix()}:{s.get("line")}' for s in files[:5])
-                  print(f'  {c.get("lines")} lines; {c.get("tokens")} tokens; {len(files)} copies: {f}')
-          for name in ("jscpd-exact","jscpd-fuzzy"):
-              jscpd(name)
-          for name in ("exact","fuzzy"):
-              pmd(name)
+          def interesting(a,b):
+              names=(a,b)
+              return all(x.endswith('.cpp') for x in names) and not any(
+                  x in a or x in b for x in ('English.cpp', 'core.cpp', 'QuoteManager.cpp'))
+          for mode in ('jscpd-exact','jscpd-identifiers','jscpd-fuzzy'):
+              p=Path('scan-reports')/mode/'jscpd-report.json'
+              if not p.exists():
+                  print(mode, 'MISSING')
+                  continue
+              d=json.loads(p.read_text())
+              allpairs=d.get('duplicates',[])
+              filtered=[x for x in allpairs if interesting(x['firstFile']['name'],x['secondFile']['name'])
+                  and x['firstFile']['start']>60 and x['secondFile']['start']>60
+                  and (x['firstFile']['name']!=x['secondFile']['name']
+                       or x['firstFile']['end']<x['secondFile']['start']
+                       or x['secondFile']['end']<x['firstFile']['start'])]
+              print('===',mode,'total',len(allpairs),'filtered',len(filtered))
+              print('total stats:',d.get('statistics',{}).get('total',{}))
+              for x in sorted(filtered,key=lambda c:(c['lines'],c['tokens']),reverse=True)[:30]:
+                  a,b=x['firstFile'],x['secondFile']
+                  print(f"{x['lines']:>3}L {x['tokens']:>5}T {x['kind']} {a['name']}:{a['start']}-{a['end']} <> {b['name']}:{b['start']}-{b['end']}")
+          for mode in ('exact','identifiers','fuzzy'):
+              p=Path('scan-reports/pmd')/(mode+'.xml')
+              if not p.exists():
+                  print(mode,'MISSING')
+                  continue
+              groups=ET.parse(p).getroot().findall('.//{*}duplication')
+              print('=== PMD',mode,'total',len(groups))
+              filtered=[]
+              for x in groups:
+                  fs=x.findall('{*}file')
+                  names=[f.get('path','').split('/src/')[-1] for f in fs]
+                  if len(fs)>8 or len(fs)<2 or not interesting(names[0],names[1]):
+                      continue
+                  if int(fs[0].get('line','0'))<=60 or int(fs[1].get('line','0'))<=60:continue
+                  filtered.append((x,names))
+              for x,names in sorted(filtered,key=lambda r:(int(r[0].get('lines',0)),int(r[0].get('tokens',0))),reverse=True)[:30]:
+                  fs=x.findall('{*}file')
+                  print(x.get('lines'),'L',x.get('tokens'),'T',len(fs),'copies',' <> '.join(f"{names[i]}:{z.get('line')}-{z.get('endline')}" for i,z in enumerate(fs[:3])))
           PY
       - uses: actions/upload-artifact@v4
         if: always()
