@@ -761,6 +761,9 @@ void SaveFixtureScenario(const fs::path& output)
 /* Main menu -> Load Game -> the fixture save -> its party and position. */
 void LoadGameScenario(const fs::path& fixture)
 {
+    /* Construct Game first so a missing WIZ8_ASSET_ROOT skips rather than
+       failing on the absent fixture when save-fixture itself skipped. */
+    Game game(false);
     srVector3T<float> anchor{};
     int level = -1;
     unsigned experience = 0;
@@ -768,7 +771,6 @@ void LoadGameScenario(const fs::path& fixture)
     REQUIRE("fixture", metadata >> anchor.x >> anchor.y >> anchor.z >> level >> experience);
     REQUIRE("fixture", std::isfinite(anchor.x) && std::isfinite(anchor.y) && std::isfinite(anchor.z));
     REQUIRE("fixture", fs::is_regular_file(fixture / "Fixture.SAV"));
-    Game game(false);
     game.install(fixture / "Fixture.SAV", "Saves/Fixture.SAV");
     ReachMainMenu(game);
     game.click("load-game", RegionByCallback(MainMenuLoadGame));
