@@ -14,6 +14,7 @@
 #include "surrender/srDD_SDLGPU.h"
 #include "surrender/srGERD.h"
 #include "surrender/srMaterialIFace.h"
+#include "surrender/srMaterial.h"
 #include "surrender/srNode.h"
 #include "surrender/srVertexPipe.h"
 #include "surrender/srMath.h"
@@ -215,6 +216,91 @@ bool processorOwnership()
     return true;
 }
 
+class SeedMaterialChannels : public srVertexProcessor {
+public:
+    int isActive(srVertexPipe&) override { return 1; }
+    void process(srVertexPipe& pipe) override
+    {
+        auto* diffuse = pipe.getDiffuse();
+        auto* specular = pipe.getSpecular();
+        auto* alpha = pipe.getAlpha();
+        for (w8_ulong i = 0; i < pipe.getVertexCount(); ++i) {
+            diffuse[i] = glm::vec4(0.25f);
+            specular[i] = glm::vec4(0.5f);
+            alpha[i] = 0.8f;
+        }
+    }
+};
+
+bool materialChannelOperations()
+{
+    // Cross the 64-vertex batch boundary for every combination of material operations.
+    std::array<srVector3, 65> positions;
+    std::array<w8_ulong, 65> indices;
+    std::array<glm::vec4, 65> eye, diffuse, specular;
+    std::array<unsigned char, 65> attributes{};
+    for (unsigned i = 0; i < positions.size(); ++i) {
+        positions[i].Set(0, 0, float(i + 1));
+        indices[i] = i;
+    }
+    srVertexArray arrays{};
+    arrays.eye_locations = eye.data();
+    arrays.diffuse = diffuse.data();
+    arrays.specular = specular.data();
+    arrays.attributes = attributes.data();
+    glm::mat4 identity(1);
+    SeedMaterialChannels seed;
+    srVertexProcessor* processor = &seed;
+    srMaterial material;
+    material.setSpecular(glm::vec4(1));
+    srVertexPipe::Record record{};
+    record.material = &material;
+    record.channels = ~((1u << srVertexProcessor::CHANNEL_DIFFUSE) |
+                        (1u << srVertexProcessor::CHANNEL_SPECULAR) |
+                        (1u << srVertexProcessor::CHANNEL_ALPHA) |
+                        (1u << srVertexProcessor::CHANNEL_LIGHT_DIFFUSE) |
+                        (1u << srVertexProcessor::CHANNEL_LIGHT_AMBIENT));
+    srVertexPipe::Input input{};
+    input.vertex_count = positions.size();
+    input.active_vertices = indices.data();
+    input.direct_vertex_indices = 1;
+    input.positions = positions.data();
+    input.model_view = input.normal_matrix = &identity;
+    input.vertex_arrays = &arrays;
+    input.records = {&record, 1};
+    input.processors = &processor;
+    input.processor_count = 1;
+    input.environment_maximum = 100;
+    input.environment_inverse_scale = 1;
+    srVertexPipe pipe;
+    for (unsigned operations = 0; operations < 32; ++operations) {
+        for (unsigned bit = 0; bit < 5; ++bit) {
+            auto operation = static_cast<srMaterial::e_oper>(bit);
+            if (operations & (1u << bit)) material.enable(operation);
+            else material.disable(operation);
+        }
+        pipe.process(input);
+        float diffuse_value = 0.25f, specular_value = 0.5f;
+        if (operations & (1u << srMaterial::OPER_DIFFUSE_SPECULAR)) {
+            std::swap(diffuse_value, specular_value);
+        } else if (operations & (1u << srMaterial::OPER_DIFFUSE)) {
+            specular_value = diffuse_value;
+        } else if (operations & (1u << srMaterial::OPER_SPECULAR)) {
+            diffuse_value = specular_value;
+        }
+        for (unsigned i = 0; i < positions.size(); ++i) {
+            CAPTURE(operations, i);
+            const float depth = 1 - float(i + 1) / 100;
+            const float color_scale = operations & (1u << srMaterial::OPER_DEPTH_CUE) ? depth : 1;
+            const float alpha_scale = operations & (1u << srMaterial::OPER_ALPHA) ? depth : 1;
+            REQUIRE(std::abs(diffuse[i].x - diffuse_value * color_scale) < 1e-6f);
+            REQUIRE(std::abs(specular[i].x - specular_value * color_scale) < 1e-6f);
+            REQUIRE(std::abs(diffuse[i].w - 0.8f * alpha_scale) < 1e-6f);
+        }
+    }
+    return true;
+}
+
 bool rendererOwnership()
 {
     {
@@ -365,6 +451,7 @@ TEST_CASE("renderer_ownership_test")
         REQUIRE(recursiveSceneGraph());
         REQUIRE(processorOwnership());
         REQUIRE(rendererOwnership());
+        REQUIRE(materialChannelOperations());
         REQUIRE(pipelineRecordTexcoords());
         REQUIRE(srExit());
         REQUIRE(srGERD::getFirst() == nullptr);

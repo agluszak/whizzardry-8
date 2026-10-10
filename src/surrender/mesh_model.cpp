@@ -1013,85 +1013,11 @@ void srMeshModel::dump(std::ostream& stream)
     stream << "  Sort bias: " << sort_bias << '\n';
     stream.width(0x20);
     stream << "  Flags: ";
-    if (dirty_flags.value == 0) {
-        stream << "[NONE]";
-    } else {
-        stream << '[';
-        bool first = true;
-        const char* names = s_flag_names0;
-        const char* name = names;
-        for (w8_ulong bit = 0; bit < 0x20; ++bit) {
-            if ((dirty_flags.value & (1 << bit)) == 0) {
-                if (name != 0) {
-                    while (*name != 0 && *name != ',') {
-                        ++name;
-                    }
-                    if (*name == ',') {
-                        ++name;
-                    }
-                }
-            } else {
-                if (first) {
-                    first = false;
-                } else {
-                    stream << ',';
-                }
-                if (name == 0 || *name == 0) {
-                    stream << bit;
-                } else {
-                    while (*name != 0 && *name != ',') {
-                        stream << *name;
-                        ++name;
-                    }
-                    if (*name == ',') {
-                        ++name;
-                    }
-                }
-            }
-        }
-        stream << ']';
-    }
+    srDumpFlags(stream, dirty_flags.value, s_flag_names0);
     stream << '\n';
     stream.width(0x20);
     stream << "  Control flags: ";
-    if (render_control.value == 0) {
-        stream << "[NONE]";
-    } else {
-        stream << '[';
-        bool first = true;
-        const char* names = s_control_names;
-        const char* name = names;
-        for (w8_ulong bit = 0; bit < 0x20; ++bit) {
-            if ((render_control.value & (1 << bit)) == 0) {
-                if (name != 0) {
-                    while (*name != 0 && *name != ',') {
-                        ++name;
-                    }
-                    if (*name == ',') {
-                        ++name;
-                    }
-                }
-            } else {
-                if (first) {
-                    first = false;
-                } else {
-                    stream << ',';
-                }
-                if (name == 0 || *name == 0) {
-                    stream << bit;
-                } else {
-                    while (*name != 0 && *name != ',') {
-                        stream << *name;
-                        ++name;
-                    }
-                    if (*name == ',') {
-                        ++name;
-                    }
-                }
-            }
-        }
-        stream << ']';
-    }
+    srDumpFlags(stream, render_control.value, s_control_names);
     stream << "\n\n";
     stream << "  Materials, textures, shaders\n";
     stream << "  ----------------------------\n";
@@ -1644,6 +1570,91 @@ srTriMeshPipeline* srTriMeshPipeline::Get(srGERD* renderer)
     return pipe;
 }
 
+void srTriMeshPipeline::SetMeshBounds(const srMeshModel::TriMesh& mesh)
+{
+    if ((mesh.control_flags & (1UL << srMeshModel::CONTROL_SKIP_AUTO_BOX)) == 0) {
+        bounds_minimum = mesh.bounds_minimum;
+        bounds_maximum = mesh.bounds_maximum;
+        if (bounds_source == srTriMeshPipeline::BOUNDS_FROM_VERTICES) {
+            bounds_source = srTriMeshPipeline::BOUNDS_BOX;
+        }
+    }
+    if ((mesh.control_flags & (1UL << srMeshModel::CONTROL_SKIP_AUTO_SPHERE)) == 0) {
+        bounds_center = mesh.bounds_center;
+        bounds_radius = mesh.bounds_radius;
+        bounds_source = srTriMeshPipeline::BOUNDS_SPHERE;
+    }
+}
+
+void srTriMeshPipeline::AppendMeshPass(const srMeshModel::TriMesh& mesh, w8_long pass,
+                                       w8_long material_side, srShader pass_shader)
+{
+    current_record->flags = 0;
+    current_pass->shaders = 0;
+    current_pass->texture_tables[0] = 0;
+    current_pass->texture_tables[1] = 0;
+
+    if (mesh.dig[pass] != 0) {
+        current_record->color_source.colors = mesh.dig[pass];
+        current_record->color_source.format =
+            srVertexPipe::Record::ColorSource::FORMAT_VECTOR3;
+        current_record->flags |= srVertexPipe::Record::HAS_COLORS;
+    }
+    if (mesh.dcg[pass] != 0) {
+        current_record->spec_for_diffuse = mesh.dcg[pass];
+        current_record->flags |=
+            srVertexPipe::Record::HAS_DIFFUSE_MULTIPLIERS;
+    }
+    if (mesh.scg[pass] != 0) {
+        current_record->spec_for_specular = mesh.scg[pass];
+        current_record->flags |=
+            srVertexPipe::Record::HAS_SPECULAR_MULTIPLIERS;
+    }
+
+    if (mesh.vertex_materials[pass][material_side] == 0) {
+        material = mesh.materials[pass][material_side].get();
+        current_record->material = material;
+    } else {
+        current_record->materials =
+            mesh.vertex_materials[pass][material_side];
+        current_record->flags |=
+            srVertexPipe::Record::HAS_VERTEX_MATERIALS;
+    }
+
+    if (mesh.poly_uv[pass] != 0) {
+        current_pass->poly_uv = mesh.poly_uv[pass];
+    }
+
+    if (mesh.poly_shaders[pass] == 0) {
+        SetFlags(pass_shader);
+    } else {
+        current_pass->shaders = mesh.poly_shaders[pass];
+    }
+
+    if (mesh.texcoords[pass][0] != 0) {
+        current_record->st_source[0] = mesh.texcoords[pass][0];
+        current_record->flags |= srVertexPipe::Record::HAS_TEXCOORD0;
+    }
+    if (mesh.texcoords[pass][1] != 0) {
+        current_record->flags |= srVertexPipe::Record::HAS_TEXCOORD1;
+        current_record->st_source[1] = mesh.texcoords[pass][1];
+    }
+
+    for (w8_long layer = 0; layer < 2; ++layer) {
+        if (mesh.poly_textures[pass][layer] == 0) {
+            srTextureIFace* texture = mesh.textures[pass][layer].get();
+            (layer == 0 ? texture0 : texture1) = texture;
+            current_pass->textures[layer] = texture;
+        } else {
+            current_pass->texture_tables[layer] =
+                mesh.poly_textures[pass][layer];
+        }
+    }
+
+    ++slot_count;
+    PrepareSlot();
+}
+
 // FUNCTION: SURRENDER 0x1003CA80
 void srMeshModel::renderTriMesh(srGERD& renderer, const TriMesh& mesh)
 {
@@ -1676,18 +1687,7 @@ void srMeshModel::renderTriMesh(srGERD& renderer, const TriMesh& mesh)
                         static_cast<w8_ulong>(mesh.active_polygon_count);
                 }
 
-                if ((mesh.control_flags & (1UL << srMeshModel::CONTROL_SKIP_AUTO_BOX)) == 0) {
-                    pipeline->bounds_minimum = mesh.bounds_minimum;
-                    pipeline->bounds_maximum = mesh.bounds_maximum;
-                    if (pipeline->bounds_source == srTriMeshPipeline::BOUNDS_FROM_VERTICES) {
-                        pipeline->bounds_source = srTriMeshPipeline::BOUNDS_BOX;
-                    }
-                }
-                if ((mesh.control_flags & (1UL << srMeshModel::CONTROL_SKIP_AUTO_SPHERE)) == 0) {
-                    pipeline->bounds_center = mesh.bounds_center;
-                    pipeline->bounds_radius = mesh.bounds_radius;
-                    pipeline->bounds_source = srTriMeshPipeline::BOUNDS_SPHERE;
-                }
+                pipeline->SetMeshBounds(mesh);
 
                 material_side = side;
                 if (side == 1) {
@@ -1711,71 +1711,7 @@ void srMeshModel::renderTriMesh(srGERD& renderer, const TriMesh& mesh)
                 }
 
                 for (w8_long pass = 0; pass < mesh.pass_count; ++pass) {
-                    pipeline->current_record->flags = 0;
-                    pipeline->current_pass->shaders = 0;
-                    pipeline->current_pass->texture_tables[0] = 0;
-                    pipeline->current_pass->texture_tables[1] = 0;
-
-                    if (mesh.dig[pass] != 0) {
-                        pipeline->current_record->color_source.colors = mesh.dig[pass];
-                        pipeline->current_record->color_source.format =
-                            srVertexPipe::Record::ColorSource::FORMAT_VECTOR3;
-                        pipeline->current_record->flags |= srVertexPipe::Record::HAS_COLORS;
-                    }
-                    if (mesh.dcg[pass] != 0) {
-                        pipeline->current_record->spec_for_diffuse = mesh.dcg[pass];
-                        pipeline->current_record->flags |=
-                            srVertexPipe::Record::HAS_DIFFUSE_MULTIPLIERS;
-                    }
-                    if (mesh.scg[pass] != 0) {
-                        pipeline->current_record->spec_for_specular = mesh.scg[pass];
-                        pipeline->current_record->flags |=
-                            srVertexPipe::Record::HAS_SPECULAR_MULTIPLIERS;
-                    }
-
-                    if (mesh.vertex_materials[pass][material_side] == 0) {
-                        srMaterialIFace* material = mesh.materials[pass][material_side].get();
-                        pipeline->material = material;
-                        pipeline->current_record->material = material;
-                    } else {
-                        pipeline->current_record->materials =
-                            mesh.vertex_materials[pass][material_side];
-                        pipeline->current_record->flags |=
-                            srVertexPipe::Record::HAS_VERTEX_MATERIALS;
-                    }
-
-                    if (mesh.poly_uv[pass] != 0) {
-                        pipeline->current_pass->poly_uv = mesh.poly_uv[pass];
-                    }
-
-                    if (mesh.poly_shaders[pass] == 0) {
-                        pipeline->SetFlags(mesh.shaders[pass]);
-                    } else {
-                        pipeline->current_pass->shaders = mesh.poly_shaders[pass];
-                    }
-
-                    if (mesh.texcoords[pass][0] != 0) {
-                        pipeline->current_record->st_source[0] = mesh.texcoords[pass][0];
-                        pipeline->current_record->flags |= srVertexPipe::Record::HAS_TEXCOORD0;
-                    }
-                    if (mesh.texcoords[pass][1] != 0) {
-                        pipeline->current_record->flags |= srVertexPipe::Record::HAS_TEXCOORD1;
-                        pipeline->current_record->st_source[1] = mesh.texcoords[pass][1];
-                    }
-
-                    for (w8_long layer = 0; layer < 2; ++layer) {
-                        if (mesh.poly_textures[pass][layer] == 0) {
-                            srTextureIFace* texture = mesh.textures[pass][layer].get();
-                            (&pipeline->texture0)[layer] = texture;
-                            pipeline->current_pass->textures[layer] = texture;
-                        } else {
-                            pipeline->current_pass->texture_tables[layer] =
-                                mesh.poly_textures[pass][layer];
-                        }
-                    }
-
-                    ++pipeline->slot_count;
-                    pipeline->PrepareSlot();
+                    pipeline->AppendMeshPass(mesh, pass, material_side, mesh.shaders[pass]);
                 }
 
                 pipeline->FlushIfCurrent();

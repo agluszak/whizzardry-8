@@ -1,0 +1,29 @@
+{
+  "path": [
+    "src"
+  ],
+  "pattern": "**/*.{cpp,c,h,hpp}",
+  "ignore": [
+    "**/vendor/**",
+    "**/build*/**"
+  ],
+  "mode": "weak",
+  "minTokens": 80,
+  "minLines": 10,
+  "ignoreIdentifiers": true,
+  "ignoreLiterals": true,
+  "maxGapLines": 2,
+  "similarity": 0.8,
+  "minNodes": 30,
+  "semantic": {
+    "scope": "same",
+    "sameThreshold": 0.6375,
+    "enabled": false
+  },
+  "reporters": [
+    "ai",
+    "json"
+  ],
+  "output": "build/jscpd",
+  "noColors": true
+}

@@ -1,7 +1,7 @@
 #include "wiz8/level_specific_code/MtGigas2.h"
 
 #include <vector>
-
+#include "wiz8/level_specific_code/MtGigasOuter.h"
 #include "wiz8/level_specific_code/MasterFunctionList.h"
 #include "wiz8/location_variables.h"
 #include "wiz8/engine_code/Trigger.hpp"
@@ -239,13 +239,7 @@ bool MtGigas2Lift3(Trigger* pTrigger)
     if (gXStatus.fNpcDialogueMode) {
         return false;
     }
-    W8NpcState* npc = GetNpcStateByKind(0x5c);
-    W8ItemInstance* item = 0;
-
-    if (g_status.item_in_cursor) {
-        item = &g_status.item_in_hand;
-    }
-    QueueNpcScriptNotice(npc, item, -1, false, 0);
+    QueueNpcHeldItemNotice(0x5c);
     g_trigger_feedback = true;
     return false;
 }
@@ -258,13 +252,7 @@ bool MtGigas2TopDoor1(Trigger* pTrigger)
     if (gXStatus.fNpcDialogueMode) {
         return false;
     }
-    W8NpcState* npc = GetNpcStateByKind(0x5f);
-    W8ItemInstance* item = 0;
-
-    if (g_status.item_in_cursor) {
-        item = &g_status.item_in_hand;
-    }
-    QueueNpcScriptNotice(npc, item, -1, false, 0);
+    QueueNpcHeldItemNotice(0x5f);
     g_trigger_feedback = true;
     return false;
 }
@@ -366,18 +354,10 @@ static void MtGigas2UmpaniAlarm(int command)
 {
     srVector3T<float> position;
 
-    g_remove_current_master_function = false;
+    if (PrepareUmpaniAlarmCommand(command, "UmpaniAlarm", g_mt_gigas_alarm_gate)) {
+        return;
+    }
     if (command != 0) {
-        if (GetLocationVarIDByName("UmpaniAlarm") == -1) {
-            CreateLocationVar("UmpaniAlarm", 0x1e);
-        }
-        if (command == -1) {
-            SetTriggerVariableByName(
-                "UmpaniAlarm", g_mt_gigas_alarm_gate != 0
-                                   ? static_cast<int>(g_mt_gigas_alarm_gate->GetElapsedSeconds())
-                                   : 0);
-            return;
-        }
         if (g_mt_gigas_alarm_gate != 0 || g_mt_gigas_alarm_sound != 0) {
             return;
         }

@@ -601,46 +601,30 @@ void W8AssayDialog::OnMouseWheel(int delta)
     m_scroll_bar.ScrollBy(delta);
 }
 
+void W8AssayDialog::ShowTab(bool professions)
+{
+    m_buttons[2]->SetPressed(professions);
+    m_buttons[3]->SetPressed(!professions);
+    gXStatus.assay_professions_tab = professions;
+    m_buttons[0]->SetVisible(professions);
+    SetProfessionIconsVisible(professions);
+    m_buttons[1]->SetVisible(!professions);
+    SetRaceIconsVisible(!professions);
+    for (int i = 0; i < 4; ++i) {
+        m_buttons[i]->m_dirty = true;
+    }
+}
+
 // FUNCTION: WIZ8 0x005d9620
 void W8AssayDialog::ShowPrimaryTab()
 {
-    if (m_buttons[2]->IsPressed() == 0) {
-        m_buttons[2]->SetPressed(true);
-        m_buttons[2]->m_dirty = true;
-    }
-    if (m_buttons[3]->IsPressed() != 0) {
-        m_buttons[3]->SetPressed(false);
-        m_buttons[3]->m_dirty = true;
-    }
-    gXStatus.assay_professions_tab = true;
-    m_buttons[0]->SetVisible(true);
-    SetProfessionIconsVisible(true);
-    m_buttons[1]->SetVisible(false);
-    SetRaceIconsVisible(false);
-    m_buttons[0]->m_dirty = true;
-    m_buttons[1]->m_dirty = true;
-    m_buttons[3]->m_dirty = true;
+    ShowTab(true);
 }
 
 // FUNCTION: WIZ8 0x005d96a0
 void W8AssayDialog::ShowSecondaryTab()
 {
-    if (m_buttons[3]->IsPressed() == 0) {
-        m_buttons[3]->SetPressed(true);
-        m_buttons[3]->m_dirty = true;
-    }
-    if (m_buttons[2]->IsPressed() != 0) {
-        m_buttons[2]->SetPressed(false);
-        m_buttons[2]->m_dirty = true;
-    }
-    gXStatus.assay_professions_tab = false;
-    m_buttons[0]->SetVisible(false);
-    SetProfessionIconsVisible(false);
-    m_buttons[1]->SetVisible(true);
-    SetRaceIconsVisible(true);
-    m_buttons[0]->m_dirty = true;
-    m_buttons[1]->m_dirty = true;
-    m_buttons[2]->m_dirty = true;
+    ShowTab(false);
 }
 
 // FUNCTION: WIZ8 0x005d9760

@@ -204,6 +204,8 @@ static bool pipelineSlots()
     auto* textures = mesh.getPolyTexture(0, 0, 1);
     auto* indices = mesh.getPolyUVIndex(0, 1);
     srShader shader;
+    auto submitted = mesh.getTriMesh();
+    submitted.poly_shaders[0] = &shader;
     for (unsigned slot = 0; slot < 96; ++slot) {
         REQUIRE(pipeline->current_record == &pipeline->records[slot]);
         REQUIRE(pipeline->current_pass == &pipeline->passes[slot]);
@@ -212,13 +214,7 @@ static bool pipelineSlots()
         REQUIRE((pipeline->current_record->spec_for_diffuse == nullptr &&
               pipeline->current_record->alpha_source == nullptr));
         REQUIRE(pipeline->current_pass->poly_uv == nullptr);
-        pipeline->current_record->st_source[0] = uv;
-        pipeline->current_record->flags = srVertexPipe::Record::HAS_TEXCOORD0;
-        pipeline->current_pass->poly_uv = indices;
-        pipeline->current_pass->texture_tables[0] = textures;
-        pipeline->current_pass->shaders = &shader;
-        ++pipeline->slot_count;
-        pipeline->PrepareSlot();
+        pipeline->AppendMeshPass(submitted, 0, srMeshModel::SIDE_FRONT, srShader());
         for (unsigned previous = 0; previous <= slot; ++previous) {
             REQUIRE(pipeline->records[previous].st_source[0] == uv);
             REQUIRE(pipeline->passes[previous].poly_uv == indices);
@@ -234,6 +230,28 @@ static bool pipelineSlots()
     REQUIRE((pipeline->current_pass->texture_tables[0] == nullptr && pipeline->current_pass->shaders == nullptr));
     REQUIRE(pipeline->current_record->materials == nullptr);
     REQUIRE(pipeline->bounds_minimum == srVector3T<float>(0, 0, 0));
+    // A per-polygon shader table wins over the caller's uniform override.
+    srShader override_shader;
+    override_shader.value ^= srShader::PASS_MASK;
+    pipeline->AppendMeshPass(submitted, 0, srMeshModel::SIDE_FRONT, override_shader);
+    REQUIRE(pipeline->passes[0].shaders == &shader);
+    submitted.poly_shaders[0] = nullptr;
+    pipeline->AppendMeshPass(submitted, 0, srMeshModel::SIDE_FRONT, override_shader);
+    REQUIRE(pipeline->passes[1].shaders == nullptr);
+    REQUIRE(pipeline->passes[1].shader.value == override_shader.value);
+
+    // Sphere bounds take precedence when both automatic bounds are enabled.
+    for (unsigned box = 0; box < 2; ++box) {
+        for (unsigned sphere = 0; sphere < 2; ++sphere) {
+            pipeline->Reset(&renderer);
+            submitted.control_flags =
+                (box ? 0 : 1u << srMeshModel::CONTROL_SKIP_AUTO_BOX) |
+                (sphere ? 0 : 1u << srMeshModel::CONTROL_SKIP_AUTO_SPHERE);
+            pipeline->SetMeshBounds(submitted);
+            REQUIRE(pipeline->bounds_source == (sphere ? srTriMeshPipeline::BOUNDS_SPHERE :
+                box ? srTriMeshPipeline::BOUNDS_BOX : srTriMeshPipeline::BOUNDS_FROM_VERTICES));
+        }
+    }
     return true;
 }
 

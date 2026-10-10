@@ -27,6 +27,8 @@ enum W8NpcDispositionBand {
     W8_NPC_BAND_HOSTILE = 2
 };
 
+void QueueNpcHeldItemNotice(int npc_kind);
+
 struct W8Chunk;
 class W8Monster;
 class Trigger;

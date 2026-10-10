@@ -13,3 +13,7 @@ void ControlCampAlarm(int command);               /* 0x004DC3D0 */
 bool OnSentryTriggerActivated(Trigger* trigger);  /* 0x004DC600 */
 bool OnEwaxxDoor03Activated(Trigger* trigger);    /* 0x004DC640 */
 bool OnDummyTriggerActivated(Trigger* trigger);   /* 0x004DC670 */
+
+class W8IntervalGate;
+// Initialize the saved countdown; return true when the save command is handled.
+bool PrepareUmpaniAlarmCommand(int command, const char* variable, W8IntervalGate* gate);

@@ -401,10 +401,7 @@ void AimByKind(int actor, W8TargetKind kind, W8TargetingContext context)
 {
     W8CombatSlot target;
 
-    memset(&target, 0, sizeof(target));
-    target.iMonsterID = BAD_INDEX;
-    target.iChar = BAD_INDEX;
-    target.iGroupID = BAD_INDEX;
+    ResetCombatSlot(&target);
     target.iType = kind;
     AimAtTarget(actor, &target, context);
 }
@@ -414,9 +411,7 @@ void AimAtCharacter(int actor, int character_slot, W8TargetingContext context)
 {
     W8CombatSlot target;
 
-    memset(&target, 0, sizeof(target));
-    target.iMonsterID = BAD_INDEX;
-    target.iGroupID = BAD_INDEX;
+    ResetCombatSlot(&target);
     target.iChar = character_slot;
     target.iType = W8_TARGET_KIND_CHARACTER;
     AimAtTarget(actor, &target, context);
@@ -427,9 +422,7 @@ void AimAtCharacterIndirect(int actor, int character_slot, W8TargetingContext co
 {
     W8CombatSlot target;
 
-    memset(&target, 0, sizeof(target));
-    target.iMonsterID = BAD_INDEX;
-    target.iGroupID = BAD_INDEX;
+    ResetCombatSlot(&target);
     target.iChar = character_slot;
     target.iType = W8_TARGET_KIND_CHARACTER_INDIRECT;
     AimAtTarget(actor, &target, context);
@@ -443,10 +436,7 @@ void AimAtPlace(int actor)
     W8CombatSlot target;
     srVector3T<float> position;
 
-    memset(&target, 0, sizeof(target));
-    target.iMonsterID = BAD_INDEX;
-    target.iChar = BAD_INDEX;
-    target.iGroupID = BAD_INDEX;
+    ResetCombatSlot(&target);
     target.iType = W8_TARGET_KIND_PLACE;
     GetWorldCursorTargetPosition(&position);
     AimAtTarget(actor, &target, W8_TARGETING_CONTEXT_CURRENT);
@@ -461,10 +451,7 @@ void AimAtGroundTarget(int party_slot)
     W8CombatSlot target;
     srVector3T<float> position;
 
-    memset(&target, 0, sizeof(target));
-    target.iMonsterID = BAD_INDEX;
-    target.iChar = BAD_INDEX;
-    target.iGroupID = BAD_INDEX;
+    ResetCombatSlot(&target);
     target.iType = W8_TARGET_KIND_PLACE;
     GetCameraForwardPoint(GetGroundTargetRange(), &position);
     target.point = position;
@@ -479,9 +466,7 @@ void SetTargetToCharacter(int character_slot, bool in_combat)
 {
     W8CombatSlot target;
 
-    memset(&target, 0, sizeof(target));
-    target.iMonsterID = BAD_INDEX;
-    target.iGroupID = BAD_INDEX;
+    ResetCombatSlot(&target);
     target.iType = W8_TARGET_KIND_CHARACTER;
     target.iChar = character_slot;
     ApplyTarget(&target, in_combat);
@@ -492,9 +477,7 @@ void SetTargetToMonster(int monster_id, bool in_combat)
 {
     W8CombatSlot target;
 
-    memset(&target, 0, sizeof(target));
-    target.iChar = BAD_INDEX;
-    target.iGroupID = BAD_INDEX;
+    ResetCombatSlot(&target);
     target.iType = W8_TARGET_KIND_MONSTER;
     target.iMonsterID = monster_id;
     ApplyTarget(&target, in_combat);
@@ -505,9 +488,7 @@ void SetTargetToGroup(int group_id, bool in_combat)
 {
     W8CombatSlot target;
 
-    memset(&target, 0, sizeof(target));
-    target.iMonsterID = BAD_INDEX;
-    target.iChar = BAD_INDEX;
+    ResetCombatSlot(&target);
     target.iType = W8_TARGET_KIND_GROUP;
     target.iGroupID = group_id;
     ApplyTarget(&target, in_combat);
@@ -1936,10 +1917,7 @@ void PopulateTargetMarkerForCurrentAction(const srVector3T<float>* position,
     source.iChar = party_slot;
 
     W8CombatSlot target;
-    memset(&target, 0, sizeof(target));
-    target.iChar = BAD_INDEX;
-    target.iMonsterID = BAD_INDEX;
-    target.iGroupID = BAD_INDEX;
+    ResetCombatSlot(&target);
     target.iType = W8_TARGET_KIND_PLACE;
     target.point = *position;
 
@@ -2564,9 +2542,7 @@ void AimAtMonsterGroupMember(int party_slot, W8MonsterGroup* group)
         return;
     }
 
-    memset(&target, 0, sizeof(target));
-    target.iChar = BAD_INDEX;
-    target.iGroupID = BAD_INDEX;
+    ResetCombatSlot(&target);
     target.iType = W8_TARGET_KIND_MONSTER;
     target.iMonsterID = picked;
     AimAtTarget(party_slot, &target, W8_TARGETING_CONTEXT_CURRENT);

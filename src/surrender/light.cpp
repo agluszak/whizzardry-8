@@ -13,6 +13,7 @@
 #include "surrender/srLight.h"
 #include "surrender/srStreamFlags.h"
 #include "surrender/srCore.h"
+#include "surrender/srDebug.h"
 #include "surrender/srGERD.h"
 #include "surrender/srVertexPipe.h"
 #include "surrender/srMath.h"
@@ -137,40 +138,7 @@ void srLight::dump(std::ostream& stream)
     srSetStreamFlags(stream, (flags & 0xfffffe7fL) | 0x40);
     stream.width(0x20);
     stream << "  Control flags: ";
-    if (enable_flags == 0) {
-        stream << "[NONE]";
-    } else {
-        stream << '[';
-        bool first = true;
-        const char* names = s_light_flag_names;
-        for (w8_ulong index = 0; index < 0x20; ++index) {
-            if ((enable_flags & (1ul << index)) == 0) {
-                if (names != 0) {
-                    while (*names != '\0' && *names != ',') {
-                        ++names;
-                    }
-                }
-            } else {
-                if (first) {
-                    first = false;
-                } else {
-                    stream << ',';
-                }
-                if (names == 0 || *names == '\0') {
-                    stream << index;
-                } else {
-                    while (*names != '\0' && *names != ',') {
-                        stream << *names;
-                        ++names;
-                    }
-                }
-            }
-            if (names != 0 && *names == ',') {
-                ++names;
-            }
-        }
-        stream << ']';
-    }
+    srDumpFlags(stream, enable_flags, s_light_flag_names);
     stream << '\n';
     stream.width(0x20);
     stream << "  Intensity: " << intensity << '\n';

@@ -103,6 +103,13 @@ std::vector<W8NpcState*> g_npc_states;
 static std::vector<W8NpcState*> g_retired_npc_states;
 
 /* Whether the NPC's database record names a trade pool. */
+void QueueNpcHeldItemNotice(int npc_kind)
+{
+    auto* npc = GetNpcStateByKind(npc_kind);
+    auto* item = g_status.item_in_cursor ? &g_status.item_in_hand : nullptr;
+    QueueNpcScriptNotice(npc, item, -1, false, 0);
+}
+
 // FUNCTION: WIZ8 0x0050aa00
 bool NpcRecordHasTradePool(W8NpcState* npc)
 {

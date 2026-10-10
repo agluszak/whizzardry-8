@@ -170,117 +170,50 @@ void srMaterial::preProcess(srVertexPipe& pipe)
 // FUNCTION: SURRENDER 0x10033C90
 void srMaterial::postProcess(srVertexPipe& pipe)
 {
-    w8_ulong operations;
-    w8_ulong vertex_count;
-    w8_ulong blend;
-    glm::vec4* color;
-    float* channel;
+    if (mapper != nullptr && mapper->isActive(pipe)) {
+        mapper->process(pipe);
+    }
+    const auto operations = this->operations.value;
+    bool depth_cue = (operations & (1u << OPER_DEPTH_CUE)) != 0;
+    const auto cueColor = [&](bool specular) {
+        const float* depth = pipe.getDepthCue();
+        glm::vec4* color = specular ? pipe.getSpecular() : pipe.getDiffuse();
+        for (w8_ulong i = 0; i < pipe.vertex_count; ++i) {
+            color[i] *= depth[i];
+        }
+    };
 
-    if (mapper != 0) {
-        if (mapper->isActive(pipe) != 0) {
-            mapper->process(pipe);
+    if ((operations & (1u << OPER_DIFFUSE_SPECULAR)) != 0) {
+        pipe.swapDiffuseAndSpecular();
+    } else if ((operations & (1u << OPER_DIFFUSE)) != 0) {
+        if (depth_cue) {
+            cueColor(false);
+            depth_cue = false;
+        }
+        pipe.copyDiffuseToSpecular();
+        pipe.enableChannel(srVertexProcessor::CHANNEL_SPECULAR);
+    } else if ((operations & (1u << OPER_SPECULAR)) != 0) {
+        if (depth_cue) {
+            cueColor(true);
+            depth_cue = false;
+        }
+        pipe.copySpecularToDiffuse();
+        pipe.enableChannel(srVertexProcessor::CHANNEL_DIFFUSE);
+    }
+    if (depth_cue) {
+        if ((pipe.channel_mask & (1u << srVertexProcessor::CHANNEL_DIFFUSE)) != 0) {
+            cueColor(false);
+        }
+        if ((pipe.channel_mask & (1u << srVertexProcessor::CHANNEL_SPECULAR)) != 0) {
+            cueColor(true);
         }
     }
-    operations = this->operations.value;
-    vertex_count = pipe.vertex_count;
-    blend = operations & (1UL << OPER_DEPTH_CUE);
-    if (operations != 0) {
-        if ((operations & (1UL << OPER_DIFFUSE_SPECULAR)) == 0) {
-            if ((operations & (1UL << OPER_DIFFUSE)) == 0) {
-                if ((operations & (1UL << OPER_SPECULAR)) == 0) {
-                    goto channels_done;
-                }
-                if (blend != 0) {
-                    if ((pipe.scratch.flags & srVertexPipe::Scratch::READY_DEPTH_CUE) == 0) {
-                        pipe.setupDepthCue();
-                    }
-                    srCore.getStatisticsManager()->statistics.specular_operations +=
-                        pipe.vertex_count;
-                    if ((pipe.lazy_setup_mask & (1UL << srVertexProcessor::CHANNEL_SPECULAR)) ==
-                        0) {
-                        pipe.setupSpecular();
-                    }
-                    color = pipe.vertex_array->specular + pipe.batch_base + pipe.sub_batch_offset;
-                    if (vertex_count != 0) {
-                        for (std::size_t i = 0; i < vertex_count; ++i)
-                            color[i] = color[i] *
-                                       (pipe.scratch.depth_cue + pipe.sub_batch_offset)[i];
-                    }
-                    blend = 0;
-                }
-                pipe.copySpecularToDiffuse();
-                pipe.enableChannel(srVertexProcessor::CHANNEL_DIFFUSE);
-            } else {
-                if (blend != 0) {
-                    if ((pipe.scratch.flags & srVertexPipe::Scratch::READY_DEPTH_CUE) == 0) {
-                        pipe.setupDepthCue();
-                    }
-                    srCore.getStatisticsManager()->statistics.diffuse_operations +=
-                        pipe.vertex_count;
-                    if ((pipe.lazy_setup_mask & (1UL << srVertexProcessor::CHANNEL_DIFFUSE)) == 0) {
-                        pipe.setupDiffuse();
-                    }
-                    color = pipe.vertex_array->diffuse + pipe.batch_base + pipe.sub_batch_offset;
-                    if (vertex_count != 0) {
-                        for (std::size_t i = 0; i < vertex_count; ++i)
-                            color[i] = color[i] *
-                                       (pipe.scratch.depth_cue + pipe.sub_batch_offset)[i];
-                    }
-                    blend = 0;
-                }
-                pipe.copyDiffuseToSpecular();
-                pipe.enableChannel(srVertexProcessor::CHANNEL_SPECULAR);
-            }
-        } else {
-            pipe.swapDiffuseAndSpecular();
-        }
-    }
-channels_done:
-    if (blend != 0) {
-        if ((pipe.channel_mask & (1UL << srVertexProcessor::CHANNEL_DIFFUSE)) != 0) {
-            if ((pipe.scratch.flags & srVertexPipe::Scratch::READY_DEPTH_CUE) == 0) {
-                pipe.setupDepthCue();
-            }
-            srCore.getStatisticsManager()->statistics.diffuse_operations += pipe.vertex_count;
-            if ((pipe.lazy_setup_mask & (1UL << srVertexProcessor::CHANNEL_DIFFUSE)) == 0) {
-                pipe.setupDiffuse();
-            }
-            color = pipe.vertex_array->diffuse + pipe.batch_base + pipe.sub_batch_offset;
-            if (vertex_count != 0) {
-                for (std::size_t i = 0; i < vertex_count; ++i)
-                    color[i] =
-                        color[i] * (pipe.scratch.depth_cue + pipe.sub_batch_offset)[i];
-            }
-        }
-        if ((pipe.channel_mask & (1UL << srVertexProcessor::CHANNEL_SPECULAR)) != 0) {
-            if ((pipe.scratch.flags & srVertexPipe::Scratch::READY_DEPTH_CUE) == 0) {
-                pipe.setupDepthCue();
-            }
-            srCore.getStatisticsManager()->statistics.specular_operations += pipe.vertex_count;
-            if ((pipe.lazy_setup_mask & (1UL << srVertexProcessor::CHANNEL_SPECULAR)) == 0) {
-                pipe.setupSpecular();
-            }
-            color = pipe.vertex_array->specular + pipe.batch_base + pipe.sub_batch_offset;
-            if (vertex_count != 0) {
-                for (std::size_t i = 0; i < vertex_count; ++i)
-                    color[i] =
-                        color[i] * (pipe.scratch.depth_cue + pipe.sub_batch_offset)[i];
-            }
-        }
-    }
-    if ((this->operations.value & (1UL << OPER_ALPHA)) != 0 &&
-        (pipe.channel_mask & (1UL << srVertexProcessor::CHANNEL_ALPHA)) != 0) {
-        if ((pipe.scratch.flags & srVertexPipe::Scratch::READY_DEPTH_CUE) == 0) {
-            pipe.setupDepthCue();
-        }
-        srCore.getStatisticsManager()->statistics.alpha_operations += pipe.vertex_count;
-        if ((pipe.lazy_setup_mask & (1UL << srVertexProcessor::CHANNEL_ALPHA)) == 0) {
-            pipe.setupAlpha();
-        }
-        channel = pipe.scratch.alpha + pipe.sub_batch_offset;
-        if (vertex_count != 0) {
-            for (std::size_t i = 0; i < vertex_count; ++i)
-                channel[i] = channel[i] * (pipe.scratch.depth_cue + pipe.sub_batch_offset)[i];
+    if ((operations & (1u << OPER_ALPHA)) != 0 &&
+        (pipe.channel_mask & (1u << srVertexProcessor::CHANNEL_ALPHA)) != 0) {
+        const float* depth = pipe.getDepthCue();
+        float* alpha = pipe.getAlpha();
+        for (w8_ulong i = 0; i < pipe.vertex_count; ++i) {
+            alpha[i] *= depth[i];
         }
     }
 }
@@ -328,44 +261,7 @@ void srMaterial::dump(std::ostream& stream)
     stream << "  Translucency: " << parms.translucency << '\n';
     stream.width(0x20);
     stream << "  Op. Control Flags: ";
-    if (operations.value == 0) {
-        stream << "<NONE>";
-    } else {
-        stream << '[';
-        bool first = true;
-        const char* names = s_oper_names;
-        const char* name = names;
-        for (w8_ulong bit = 0; bit < 0x20; ++bit) {
-            if ((operations.value & (1 << bit)) == 0) {
-                if (name != 0) {
-                    while (*name != 0 && *name != ',') {
-                        ++name;
-                    }
-                    if (*name == ',') {
-                        ++name;
-                    }
-                }
-            } else {
-                if (first) {
-                    first = false;
-                } else {
-                    stream << ',';
-                }
-                if (name == 0 || *name == 0) {
-                    stream << bit;
-                } else {
-                    while (*name != 0 && *name != ',') {
-                        stream << *name;
-                        ++name;
-                    }
-                    if (*name == ',') {
-                        ++name;
-                    }
-                }
-            }
-        }
-        stream << ']';
-    }
+    srDumpFlags(stream, operations.value, s_oper_names);
     stream << '\n';
     stream.width(0x20);
     stream << "  Texture mapper: " << mapper << '\n';
@@ -523,6 +419,57 @@ const char* srMaterialIFace::sGetClassName()
     return "srMaterialIFace";
 }
 
+static void dumpDetailAlpha(std::ostream& stream, w8_ulong value)
+{
+    switch (value) {
+    case srShader::DETAILALPHA_DISABLE:
+        stream << "DETAILALPHA_DISABLE";
+        break;
+    case srShader::DETAILALPHA_DETAIL:
+        stream << "DETAILALPHA_DETAIL";
+        break;
+    case srShader::DETAILALPHA_SCALE:
+        stream << "DETAILALPHA_SCALE";
+        break;
+    case srShader::DETAILALPHA_INVSCALE:
+        stream << "DETAILALPHA_INVSCALE";
+        break;
+    }
+}
+
+static void dumpDetailColor(std::ostream& stream, w8_ulong value)
+{
+    switch (value) {
+    case srShader::DETAILCOLOR_DISABLE:
+        stream << "DETAILCOLOR_DISABLE";
+        break;
+    case srShader::DETAILCOLOR_DETAIL:
+        stream << "DETAILCOLOR_DETAIL";
+        break;
+    case srShader::DETAILCOLOR_SCALE:
+        stream << "DETAILCOLOR_SCALE";
+        break;
+    case srShader::DETAILCOLOR_INVSCALE:
+        stream << "DETAILCOLOR_INVSCALE";
+        break;
+    case srShader::DETAILCOLOR_ADD:
+        stream << "DETAILCOLOR_ADD";
+        break;
+    case srShader::DETAILCOLOR_SUB:
+        stream << "DETAILCOLOR_SUB";
+        break;
+    case srShader::DETAILCOLOR_SUBR:
+        stream << "DETAILCOLOR_SUBR";
+        break;
+    case srShader::DETAILCOLOR_BLEND:
+        stream << "DETAILCOLOR_BLEND";
+        break;
+    case srShader::DETAILCOLOR_DETAILBLEND:
+        stream << "DETAILCOLOR_DETAILBLEND";
+        break;
+    }
+}
+
 // FUNCTION: SURRENDER 0x10034DB0
 std::ostream& operator<<(std::ostream& stream, const srShader& shader)
 {
@@ -571,95 +518,13 @@ std::ostream& operator<<(std::ostream& stream, const srShader& shader)
         break;
     }
     stream << '/';
-    switch ((shader.value >> srShader::DETAILALPHA0_SHIFT) & 0x7) {
-    case srShader::DETAILALPHA_DISABLE:
-        stream << "DETAILALPHA_DISABLE";
-        break;
-    case srShader::DETAILALPHA_DETAIL:
-        stream << "DETAILALPHA_DETAIL";
-        break;
-    case srShader::DETAILALPHA_SCALE:
-        stream << "DETAILALPHA_SCALE";
-        break;
-    case srShader::DETAILALPHA_INVSCALE:
-        stream << "DETAILALPHA_INVSCALE";
-        break;
-    }
+    dumpDetailAlpha(stream, (shader.value >> srShader::DETAILALPHA0_SHIFT) & 0x7);
     stream << '/';
-    switch ((shader.value >> srShader::DETAILCOLOR0_SHIFT) & 0xf) {
-    case srShader::DETAILCOLOR_DISABLE:
-        stream << "DETAILCOLOR_DISABLE";
-        break;
-    case srShader::DETAILCOLOR_DETAIL:
-        stream << "DETAILCOLOR_DETAIL";
-        break;
-    case srShader::DETAILCOLOR_SCALE:
-        stream << "DETAILCOLOR_SCALE";
-        break;
-    case srShader::DETAILCOLOR_INVSCALE:
-        stream << "DETAILCOLOR_INVSCALE";
-        break;
-    case srShader::DETAILCOLOR_ADD:
-        stream << "DETAILCOLOR_ADD";
-        break;
-    case srShader::DETAILCOLOR_SUB:
-        stream << "DETAILCOLOR_SUB";
-        break;
-    case srShader::DETAILCOLOR_SUBR:
-        stream << "DETAILCOLOR_SUBR";
-        break;
-    case srShader::DETAILCOLOR_BLEND:
-        stream << "DETAILCOLOR_BLEND";
-        break;
-    case srShader::DETAILCOLOR_DETAILBLEND:
-        stream << "DETAILCOLOR_DETAILBLEND";
-        break;
-    }
+    dumpDetailColor(stream, (shader.value >> srShader::DETAILCOLOR0_SHIFT) & 0xf);
     stream << '/';
-    switch (shader.value >> srShader::DETAILALPHA1_SHIFT) {
-    case srShader::DETAILALPHA_DISABLE:
-        stream << "DETAILALPHA_DISABLE";
-        break;
-    case srShader::DETAILALPHA_DETAIL:
-        stream << "DETAILALPHA_DETAIL";
-        break;
-    case srShader::DETAILALPHA_SCALE:
-        stream << "DETAILALPHA_SCALE";
-        break;
-    case srShader::DETAILALPHA_INVSCALE:
-        stream << "DETAILALPHA_INVSCALE";
-        break;
-    }
+    dumpDetailAlpha(stream, shader.value >> srShader::DETAILALPHA1_SHIFT);
     stream << '/';
-    switch ((shader.value >> srShader::DETAILCOLOR1_SHIFT) & 0xf) {
-    case srShader::DETAILCOLOR_DISABLE:
-        stream << "DETAILCOLOR_DISABLE";
-        break;
-    case srShader::DETAILCOLOR_DETAIL:
-        stream << "DETAILCOLOR_DETAIL";
-        break;
-    case srShader::DETAILCOLOR_SCALE:
-        stream << "DETAILCOLOR_SCALE";
-        break;
-    case srShader::DETAILCOLOR_INVSCALE:
-        stream << "DETAILCOLOR_INVSCALE";
-        break;
-    case srShader::DETAILCOLOR_ADD:
-        stream << "DETAILCOLOR_ADD";
-        break;
-    case srShader::DETAILCOLOR_SUB:
-        stream << "DETAILCOLOR_SUB";
-        break;
-    case srShader::DETAILCOLOR_SUBR:
-        stream << "DETAILCOLOR_SUBR";
-        break;
-    case srShader::DETAILCOLOR_BLEND:
-        stream << "DETAILCOLOR_BLEND";
-        break;
-    case srShader::DETAILCOLOR_DETAILBLEND:
-        stream << "DETAILCOLOR_DETAILBLEND";
-        break;
-    }
+    dumpDetailColor(stream, (shader.value >> srShader::DETAILCOLOR1_SHIFT) & 0xf);
     stream << '/';
     switch ((shader.value >> srShader::ALPHATEST_SHIFT) & 0x1) {
     case srShader::ALPHATEST_DISABLE:

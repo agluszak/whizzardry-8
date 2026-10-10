@@ -119,13 +119,7 @@ try
 {
     auto handle = wiz8::open_file("Data\\Databases\\FACT.DBS", wiz8::OpenMode::read);
     unsigned int count;
-    handle->read_exact(&count, sizeof(count));
-    if (count > std::size(g_fact_values) ||
-        count > (handle->size() - handle->tell()) / std::int64_t(wiz8::retail::kFactDatabaseRecordBytes)) {
-        return 0;
-    }
-    auto records = count ? std::make_unique<W8FactDatabaseRecord[]>(count) : nullptr;
-    for (unsigned i = 0; i < count; ++i) wiz8::retail::read_exact(*handle, records[i]);
+    auto records = wiz8::retail::read_database<W8FactDatabaseRecord>(*handle, count, std::size(g_fact_values));
     fact_records = std::move(records);
     g_fact_records = fact_records.get();
     gXStatus.uiFactsInDatabase = count;
@@ -147,12 +141,7 @@ try
 {
     auto handle = wiz8::open_file("Data\\Databases\\LEVELS.DBS", wiz8::OpenMode::read);
     unsigned int count;
-    handle->read_exact(&count, sizeof(count));
-    if (count > (handle->size() - handle->tell()) / std::int64_t(wiz8::retail::kLevelDatabaseRecordBytes)) {
-        return 0;
-    }
-    auto records = count ? std::make_unique<W8LevelDatabaseRecord[]>(count) : nullptr;
-    for (unsigned i = 0; i < count; ++i) wiz8::retail::read_exact(*handle, records[i]);
+    auto records = wiz8::retail::read_database<W8LevelDatabaseRecord>(*handle, count);
     level_records = std::move(records);
     g_level_records = level_records.get();
     gXStatus.uiLevelsInDatabase = count;

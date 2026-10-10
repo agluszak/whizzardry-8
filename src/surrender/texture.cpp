@@ -5,6 +5,7 @@
 
 #include "surrender/srTexture.h"
 #include "surrender/srCore.h"
+#include "surrender/srDebug.h"
 #include "surrender/srGERD.h"
 #include "surrender/srPixelConvert.h"
 #include "compat/compiler.h"
@@ -20,45 +21,6 @@ static const char* s_flag_names3;
 // GLOBAL: SURRENDER 0x100A4A1C
 // srTexture::_frameHandle
 w8_ulong srTexture::_frameHandle;
-
-/* Same comma-separated bit-name walker srNode::dump uses; each TU keeps its
-   own copy. */
-static void dumpFlags(std::ostream& stream, w8_ulong flags, const char* names)
-{
-    if (flags == 0) {
-        stream << "[NONE]";
-        return;
-    }
-    stream << '[';
-    bool first = true;
-    for (w8_ulong bit = 0; bit < 0x20; ++bit) {
-        if ((flags & (1 << bit)) != 0) {
-            if (first) {
-                first = false;
-            } else {
-                stream << ',';
-            }
-            if (names == 0 || *names == 0) {
-                stream << bit;
-            } else {
-                while (*names != 0 && *names != ',') {
-                    stream << *names++;
-                }
-                if (*names == ',') {
-                    ++names;
-                }
-            }
-        } else if (names != 0) {
-            while (*names != 0 && *names != ',') {
-                ++names;
-            }
-            if (*names == ',') {
-                ++names;
-            }
-        }
-    }
-    stream << ']';
-}
 
 // FUNCTION: SURRENDER 0x1005EDE0
 const char* srTexture::sGetClassName()
@@ -106,6 +68,22 @@ srTexture& srTexture::operator=(const srTexture& other)
     return *this;
 }
 
+static const char* filterName(srTexture::e_filter filter)
+{
+    switch (filter) {
+    case srTexture::FILTER_NONE:
+        return "NONE";
+    case srTexture::FILTER_FASTEST:
+        return "FASTEST";
+    case srTexture::FILTER_GOOD:
+        return "GOOD";
+    case srTexture::FILTER_BEST:
+        return "BEST";
+    default:
+        return "DEFAULT";
+    }
+}
+
 // FUNCTION: SURRENDER 0x1005E690
 void srTexture::dump(std::ostream& stream)
 {
@@ -140,43 +118,11 @@ void srTexture::dump(std::ostream& stream)
     stream << name << '\n';
     stream.width(0x20);
     stream << "  Mag. filter: ";
-    switch (mag_filter) {
-    case FILTER_NONE:
-        name = "NONE";
-        break;
-    case FILTER_FASTEST:
-        name = "FASTEST";
-        break;
-    case FILTER_GOOD:
-        name = "GOOD";
-        break;
-    case FILTER_BEST:
-        name = "BEST";
-        break;
-    default:
-        name = "DEFAULT";
-        break;
-    }
+    name = filterName(mag_filter);
     stream << name << '\n';
     stream.width(0x20);
     stream << "  Min. filter: ";
-    switch (min_filter) {
-    case FILTER_NONE:
-        name = "NONE";
-        break;
-    case FILTER_FASTEST:
-        name = "FASTEST";
-        break;
-    case FILTER_GOOD:
-        name = "GOOD";
-        break;
-    case FILTER_BEST:
-        name = "BEST";
-        break;
-    default:
-        name = "DEFAULT";
-        break;
-    }
+    name = filterName(min_filter);
     stream << name << '\n';
     stream.width(0x20);
     stream << "  Mipmap: ";
@@ -219,7 +165,7 @@ void srTexture::dump(std::ostream& stream)
     stream << getPriority() << '\n';
     stream.width(0x20);
     stream << "  Flags: ";
-    dumpFlags(stream, texture_flags_, s_flag_names3);
+    srDumpFlags(stream, texture_flags_, s_flag_names3);
     stream << '\n';
     stream.flags(static_cast<std::ios::fmtflags>(flags & 0x7fff));
 }

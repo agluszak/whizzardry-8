@@ -12,6 +12,43 @@
 #include "compat/compiler.h"
 #include "compat/native.h"
 
+void srDumpFlags(std::ostream& stream, w8_ulong flags, const char* names)
+{
+    if (flags == 0) {
+        stream << "[NONE]";
+        return;
+    }
+    stream << '[';
+    bool first = true;
+    for (w8_ulong bit = 0; bit < 0x20; ++bit) {
+        if ((flags & (w8_ulong{1} << bit)) != 0) {
+            if (first) {
+                first = false;
+            } else {
+                stream << ',';
+            }
+            if (names == 0 || *names == 0) {
+                stream << bit;
+            } else {
+                while (*names != 0 && *names != ',') {
+                    stream << *names++;
+                }
+                if (*names == ',') {
+                    ++names;
+                }
+            }
+        } else if (names != 0) {
+            while (*names != 0 && *names != ',') {
+                ++names;
+            }
+            if (*names == ',') {
+                ++names;
+            }
+        }
+    }
+    stream << ']';
+}
+
 // GLOBAL: SURRENDER 0x100A0280
 static srAssertHandler srAssertFunc = 0;
 
