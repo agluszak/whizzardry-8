@@ -403,26 +403,30 @@ void srBinFStream::close()
     try { if (file) file->close(); }
     catch (const std::exception&) { setState(SR_STREAM_ERROR); file.reset(); return; }
     file.reset();
-    path = 0;
+    path.clear();
     setState(SR_STREAM_STATE_2);
 }
 
 // FUNCTION: SURRENDER 0x1002F010
 const char* srBinFStream::getPath() const
 {
-    return path.data();
+    return path.c_str();
 }
 
 // FUNCTION: SURRENDER 0x1002F020
 void srBinFStream::setPath(const char* path)
 {
-    this->path = path;
+    this->path = path != nullptr ? path : "";
 }
 
 // FUNCTION: SURRENDER 0x1002F0A0
 void srBinFStream::mopen(const char* path, e_mode mode, int search_paths)
 {
     if (!isOpen()) {
+        if (path == nullptr || *path == '\0') {
+            setState(SR_STREAM_ERROR);
+            return;
+        }
         wiz8::OpenMode intent;
         switch (mode) {
         case SR_MODE_READ: intent = wiz8::OpenMode::read; break;

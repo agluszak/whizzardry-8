@@ -2,6 +2,8 @@
 
 #include "srBinFStream.h"
 
+#include <string>
+
 class srIStreamOpener {
 public:
     class Opener {
@@ -47,8 +49,7 @@ private:
     W8_ABI_ASSERT(sizeof(StreamType) == 0x10, "srIStreamOpener_StreamType_must_be_0x10");
 
     SR_DLL_IMPORT Opener* findOpener(const char* extension);
-    SR_DLL_IMPORT srBinIStream* open(const char* path, const char* extension);
-    SR_DLL_IMPORT void parsePrefix(char** prefix, char** path, const char* input);
+    SR_DLL_IMPORT srBinIStream* open(const std::string& prefix, std::string path);
 
     w8_long count;
     StreamType* first;

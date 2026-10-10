@@ -3,10 +3,10 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <string>
 
 #include "surrender/srDebug.h"
 #include "surrender/srHash.h"
-#include "surrender/srString.h"
 
 namespace {
 /* The provider's name hash. */
@@ -347,12 +347,9 @@ void srConfig::append(const char* name, const char* value)
 {
     if (name != 0 && value != 0) {
         const char* existing = get(name);
-        srInlineString previous;
-        if (existing != 0) {
-            previous = existing;
-        }
-        srInlineString suffix(value);
-        set(name, (previous + suffix).data());
+        std::string combined = existing != nullptr ? existing : "";
+        combined += value;
+        set(name, combined.c_str());
     }
 }
 
@@ -438,32 +435,6 @@ int srConfig::exists(const char* name) const
     }
     Index::NameEntry* node = getIndex()->find(name);
     return node != 0 && node->entry != 0;
-}
-
-/* Provider empty-state initialization, shared by the header-defined methods. */
-// FUNCTION: SURRENDER 0x10004150
-void srInlineString::init()
-{
-    inline_[0] = '\0';
-    data_ = inline_;
-    size_ = 1;
-}
-
-// FUNCTION: SURRENDER 0x10012C80
-void srInlineString::reset()
-{
-    if (data_ != inline_) {
-        srHeap.free(data_);
-    }
-    init();
-}
-
-// FUNCTION: SURRENDER 0x10012CB0
-srInlineString operator+(const srInlineString& left, const srInlineString& right)
-{
-    srInlineString result(left);
-    result += right.data_;
-    return result;
 }
 
 // FUNCTION: SURRENDER 0x10012F10

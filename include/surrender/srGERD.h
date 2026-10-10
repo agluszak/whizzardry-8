@@ -2,7 +2,8 @@
 
 #include "srArray.h"
 #include "srHash.h"
-#include "srStringTable.h"
+#include <string>
+#include <vector>
 #include "srTexture.h"
 #include "srTypeRegistry.h"
 #include "srVertexPipe.h"
@@ -348,7 +349,7 @@ public:
     virtual srRegistry::ClassNode* getClassNode() const override;
     virtual void dump(std::ostream& stream) override;
     void dump(std::ostream& stream, const srFlags<e_info>& info);
-    static srGERD* loadDevice(srStringTable& devices, w8_ulong index);
+    static srGERD* loadDevice(const std::vector<std::string>& devices, w8_ulong index);
     static srGERD* loadDevice(const char* name, const char* path, w8_ulong device);
     static srGERD* loadDeviceWithFileName(const char* filename, w8_ulong device);
     static srGERD* getFirst();
@@ -593,7 +594,7 @@ public:
     static srGERD* getGERD(w8_ulong index);
     /* Scan provider libraries for devices. */
     static void loadDevices(const char* path);
-    static void scanDevices(const char* path, srStringTable& devices);
+    static void scanDevices(const char* path, std::vector<std::string>& devices);
     /* Releases every GERD on the global list. */
     static void releaseAll();
     const char* getErrorString(e_error error);

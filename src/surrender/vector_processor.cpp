@@ -7,7 +7,6 @@
 #include "surrender/srDebug.h"
 #include "surrender/srDebugVP.h"
 #include "surrender/srDynamicLibrary.h"
-#include "surrender/srStringTable.h"
 #include "surrender/srSystem.h"
 #include "surrender/srVP_generic.h"
 
@@ -235,18 +234,15 @@ w8_long srVectorProcessor::getID(const char* filename)
 // FUNCTION: SURRENDER 0x10064AB0
 int srVectorProcessor::loadBest(const char* path)
 {
-    srStringTable libraries;
+    std::vector<std::string> libraries;
     w8_long best = 0;
-    w8_long count;
-    int index;
 
     install(0);
     srSystem::scanLibraries(libraries, path, "srVP_*");
-    count = libraries.getCount();
-    for (index = 0; index < count; ++index) {
-        w8_long id = getID(libraries.getString(index));
+    for (const auto& library : libraries) {
+        w8_long id = getID(library.c_str());
         if (best <= id) {
-            if (load(libraries.getString(index)) != 0) {
+            if (load(library.c_str()) != 0) {
                 best = id;
             }
         }

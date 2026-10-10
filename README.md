@@ -85,6 +85,11 @@ its respective focused checks. The movie fixture can be regenerated with
 
 ## Source and format conventions
 
+Use `std::string` for owning text (UTF-8 for Unicode), `std::string_view` for
+borrowed read-only text, and `std::filesystem::path` for native host paths.
+Pass `.c_str()` at C-string boundaries; serialized buffers and two-byte game
+text retain their format-defined representation.
+
 The original game has a 32-bit data model, two-byte strings and packed binary
 records. Native storage may use 64-bit pointers, but saved pointer words and
 format-defined sizes must preserve their serialized layout. `w8_long` and

@@ -2,7 +2,6 @@
 #include "surrender/srCore.h"
 #include "surrender/srExtension.h"
 #include "surrender/srIStreamOpener.h"
-#include "surrender/srString.h"
 #include "wiz8/virtual_file.h"
 #include "wiz8/virtual_file_stream.h"
 #include "FileMan.h"
@@ -12,19 +11,7 @@
 // FUNCTION: WIZ8 0x0047CBD0
 W8VirtualFileBinIStream::W8VirtualFileBinIStream(const char* path) : m_hFile(0)
 {
-    srInlineString normalized(path);
-    {
-        srInlineString backslash("\\");
-        srInlineString slash("/");
-
-        w8_long index;
-        while ((index = normalized.find(slash, 0)) != -1) {
-            normalized.erase(index, index + slash.size() - 1);
-            normalized.insert(backslash, index);
-        }
-    }
-
-    m_hFile = FileOpen(normalized.data(), 0x41, 0);
+    m_hFile = FileOpen(path, 0x41, 0);
     if (m_hFile != 0) {
         setState(SR_STREAM_OK);
     } else {

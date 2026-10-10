@@ -22,7 +22,6 @@
 #include "surrender/srPalette.h"
 #include "surrender/srPixelConvert.h"
 #include "surrender/srScene.h"
-#include "surrender/srString.h"
 #include "surrender/srTextureMap.h"
 #include "surrender/srThread.h"
 #include "surrender/srTriMeshPipeline.h"

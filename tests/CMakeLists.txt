@@ -3,8 +3,12 @@ target_link_libraries(native_compression_test PRIVATE WIZ8_SGP)
 add_test(NAME native_compression COMMAND native_compression_test)
 
 add_executable(native_files_test "${PROJECT_SOURCE_DIR}/tests/native/files_test.cpp")
-target_link_libraries(native_files_test PRIVATE WIZ8_SGP SURRENDER)
+target_link_libraries(native_files_test PRIVATE WIZ8_GAME_CORE WIZ8_SGP SURRENDER)
 add_test(NAME native_files COMMAND native_files_test)
+
+add_executable(native_strings_test native/strings_test.cpp)
+target_link_libraries(native_strings_test PRIVATE SURRENDER wiz8_native_settings)
+add_test(NAME native_strings COMMAND native_strings_test)
 
 add_executable(native_events_test "${PROJECT_SOURCE_DIR}/tests/native/events_test.cpp")
 target_link_libraries(native_events_test PRIVATE WIZ8_SGP SDL3::SDL3)

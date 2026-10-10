@@ -222,7 +222,7 @@ BOOLEAN FileDelete(STR filename)
     catch (...) { return FALSE; }
 }
 
-HWFILE FileOpen(STR filename, UINT32 options, BOOLEAN delete_on_close)
+HWFILE FileOpen(const char* filename, UINT32 options, BOOLEAN delete_on_close)
 {
     if (!filename)
         return 0;

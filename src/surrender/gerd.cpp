@@ -7,7 +7,6 @@
 #include "surrender/srDebug.h"
 #include "surrender/srDebugDD.h"
 #include "surrender/srDynamicLibrary.h"
-#include "surrender/srStringTable.h"
 #include "surrender/srSystem.h"
 #include "surrender/srThread.h"
 #include "surrender/srWindow.h"
@@ -3772,38 +3771,30 @@ srGERD* srGERD::loadDevice(const char* name, const char* path, w8_ulong device)
 // FUNCTION: SURRENDER 0x10018BC0
 void srGERD::loadDevices(const char* path)
 {
-    srStringTable libraries;
-    w8_ulong count = srSystem::scanLibraries(libraries, path, "srDD*");
-    for (w8_ulong index = 0; index < count; index++) {
+    std::vector<std::string> libraries;
+    srSystem::scanLibraries(libraries, path, "srDD*");
+    for (const auto& library : libraries) {
         w8_ulong device = 0;
-        while (loadDeviceWithFileName(libraries.getString(index), device) != 0) {
+        while (loadDeviceWithFileName(library.c_str(), device) != 0) {
             device++;
         }
     }
 }
 
 // FUNCTION: SURRENDER 0x10018DA0
-srGERD* srGERD::loadDevice(srStringTable& devices, w8_ulong index)
+srGERD* srGERD::loadDevice(const std::vector<std::string>& devices, w8_ulong index)
 {
-    const char* string = devices.getString(index);
-    if (string == 0) {
+    if (index >= devices.size()) {
         return 0;
     }
-    char* filename = new char[strlen(string) + 1];
-    strcpy(filename, string);
+    std::string filename = devices[index];
     w8_ulong device = 0;
-    char* open = strchr(filename, '(');
-    if (open != 0) {
-        *open = '\0';
-        char* close = strchr(open + 1, ')');
-        if (close != 0) {
-            *close = '\0';
-        }
-        device = atoi(open + 1);
+    const auto open = filename.find('(');
+    if (open != std::string::npos) {
+        device = atoi(filename.c_str() + open + 1);
+        filename.resize(open);
     }
-    srGERD* result = loadDeviceWithFileName(filename, device);
-    delete[] filename;
-    return result;
+    return loadDeviceWithFileName(filename.c_str(), device);
 }
 
 // FUNCTION: SURRENDER 0x100191E0
@@ -4464,21 +4455,19 @@ void srGERD::initGlobalPalette()
 }
 
 // FUNCTION: SURRENDER 0x10018C70
-void srGERD::scanDevices(const char* path, srStringTable& devices)
+void srGERD::scanDevices(const char* path, std::vector<std::string>& devices)
 {
-    srStringTable libraries;
-    char entry[512];
-    w8_ulong count = srSystem::scanLibraries(libraries, path, "srDD*");
-    for (w8_ulong index = 0; index < count; ++index) {
-        void* library = srDynamicLibrary::load(libraries.getString(index));
+    std::vector<std::string> libraries;
+    srSystem::scanLibraries(libraries, path, "srDD*");
+    for (const auto& filename : libraries) {
+        void* library = srDynamicLibrary::load(filename.c_str());
         w8_ulong device = 0;
-        srGERD* gerd = loadDeviceWithFileName(libraries.getString(index), device);
+        srGERD* gerd = loadDeviceWithFileName(filename.c_str(), device);
         while (gerd != 0) {
-            sprintf(entry, "%s(%ld)", libraries.getString(index), (long)device);
-            devices.addString(entry);
+            devices.push_back(filename + "(" + std::to_string(device) + ")");
             delete gerd;
             device++;
-            gerd = loadDeviceWithFileName(libraries.getString(index), device);
+            gerd = loadDeviceWithFileName(filename.c_str(), device);
         }
         if (library != 0) {
             srDynamicLibrary::free(library);

@@ -48,12 +48,6 @@ public:
     /* Copy construction and destruction are consistent with ordinary member
        lifecycle. The default constructor initializes stream state. */
 
-#if !defined(SURRENDER_BUILD)
-    srBinOMStream(const srBinOMStream& stream);
-    virtual ~srBinOMStream() override {}
-    srBinOMStream& operator=(const srBinOMStream& stream);
-#endif
-
     void* getPtr();
     virtual w8_ulong getSize() override;
     virtual srBinStream& seek(w8_ulong position, srBinStream::e_seekDir direction) override;
