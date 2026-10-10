@@ -337,6 +337,32 @@ int main() try
     CHECK(creation.dwLowDateTime == 0 && creation.dwHighDateTime == 0);
     CHECK(modified.dwLowDateTime == 0xd53e8001u && modified.dwHighDateTime == 0x019db1deu);
     FileClose(archived);
+    // Regular and bounded entries share ownership, not cursor or access state.
+    {
+        const auto first = open_game_file("Data\\archiveonly.bin");
+        const auto second = open_game_file("Data\\archiveonly.bin");
+        const auto regular = open_game_file("Saves\\CurrentGame.SAV");
+        CHECK(first && second && regular && first != second && second != regular && first != regular);
+        std::unique_ptr<wiz8::File> independent(OpenLibraryStream(first));
+        CHECK(independent);
+        CHECK(FileSeek(first, 3, FILE_SEEK_FROM_START));
+        CHECK(FileGetPos(second) == 0 && read_bytes(second, 4) == "arch");
+        CHECK(read_bytes(first, 5) == "hive!");
+        CHECK(FileSeek(first, UINT32(-1), FILE_SEEK_FROM_CURRENT));
+        CHECK(FileGetPos(first) == 7);
+        CHECK(!FileSeek(first, 2, FILE_SEEK_FROM_CURRENT) && FileGetPos(first) == 7);
+        CHECK(!FileSeek(second, 9, FILE_SEEK_FROM_END) && FileGetPos(second) == 4);
+        const auto id = GetLibraryIDFromFileName(const_cast<char*>("Data\\archiveonly.bin"));
+        CHECK(CloseLibrary(id));
+        CHECK(!FileSeek(first, 0, FILE_SEEK_FROM_START));
+        CHECK(!FileSeek(second, 0, FILE_SEEK_FROM_START));
+        CHECK(read_bytes(regular, 4) == "user");
+        char payload[8];
+        CHECK(independent->read(payload, sizeof(payload)).bytes == sizeof(payload));
+        CHECK(std::string(payload, sizeof(payload)) == "archive!");
+        FileClose(regular);
+        CHECK(OpenLibrary(id));
+    }
     file = open_game_file("Data\\Override.bin");
     CHECK(file && read_bytes(file, 6) == "loose!");
     FileClose(file);
@@ -358,16 +384,15 @@ int main() try
     LibraryHeaderStruct library{};
     char invalid_path[] = "Data\\InvalidEntry.slf";
     CHECK(!InitializeLibrary(invalid_path, &library, FALSE));
-    archived = open_game_file("Data\\archiveonly.bin");
-    CHECK(archived);
-    auto& archive_stream = *gFileDataBase.pLibraries[DB_EXTRACT_LIBRARY(archived)].hLibraryHandle;
+    const auto library_id = GetLibraryIDFromFileName(const_cast<char*>("Data\\archiveonly.bin"));
+    CHECK(library_id >= 0);
+    auto& archive_stream = *gFileDataBase.pLibraries[library_id].hLibraryHandle;
     const auto archive_path = archive_stream.physical_path();
-    // Release the stream before editing the fixture, retaining cached entries and cursors.
+    // Retain cached entries, but release all streams before changing the backing file.
     archive_stream.close();
     fs::resize_file(archive_path, sizeof(LIBHEADER) + 3);
     archive_stream = std::move(*wiz8::open_host_file(archive_path));
-    CHECK(read_bytes(archived, 4, false).empty() && FileGetPos(archived) == 0);
-    FileClose(archived);
+    CHECK(!open_game_file("Data\\archiveonly.bin"));
     archive_stream.close();
     fixture(archive_path, archive_bytes);
     archive_stream = std::move(*wiz8::open_host_file(archive_path));
@@ -378,14 +403,17 @@ int main() try
     std::vector<HWFILE> readers;
     for (unsigned i = 0; i < 45; ++i)
     {
-        file = open_game_file("Saves\\CurrentGame.SAV");
+        file = open_game_file(i % 2 ? "Data\\archiveonly.bin" : "Saves\\CurrentGame.SAV");
         CHECK(file);
+        CHECK(std::find(readers.begin(), readers.end(), file) == readers.end());
+        CHECK(read_bytes(file, 4) == (i % 2 ? "arch" : "user"));
         readers.push_back(file);
     }
     for (std::size_t i = 0; i < readers.size(); i += 2)
         FileClose(readers[i]);
     ShutdownFileManager();
-    CHECK(gFileDataBase.RealFiles.iNumFilesOpen == 0);
+    for (const auto handle : readers)
+        CHECK(!FileSeek(handle, 0, FILE_SEEK_FROM_START));
     CHECK(ShutDownFileDatabase());
     CHECK(InitializeFileDatabase());
     file = open_game_file("Saves\\DatabaseTemporary.SAV", FILE_ACCESS_WRITE | FILE_CREATE_NEW, true);
