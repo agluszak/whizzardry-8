@@ -7,7 +7,6 @@
 #include "surrender/srStreamFlags.h"
 #include "surrender/srBinIAsyncStream.h"
 #include "surrender/srColorSurface.h"
-#include "surrender/srConfig.h"
 #include "surrender/srDebug.h"
 #include "surrender/srExponentTable.h"
 #include "image_io.h"
@@ -67,9 +66,6 @@ int __cdecl srInit()
 {
     if (srCore.initialized == 0) {
         srCore.reset();
-        if (srConfig.exists("DEBUG_LEVEL") != 0) {
-            srCore.debug_level = atoi(srConfig.get("DEBUG_LEVEL"));
-        }
         srDebugPrintf(0xfe, "srInit() -- initializing SurRender\n");
         srCore.global_recycler = new srGlobalRecycler;
         srCore.registry_ = new srRegistry;
@@ -77,8 +73,6 @@ int __cdecl srInit()
         _srLibraryInit();
         srCore.multi_thread = srCore.timer->fastThreads();
         srVectorProcessor::initBaseVP();
-        srCore.memory_allocator = new srMemoryAllocator;
-        srCore.file_manager = srCore.default_file_manager = new srFileManager;
         srCore.statistics_manager = new srStatisticsManager;
         srCore.statistics_manager->reset();
         srCore.setFilter(0);
@@ -181,10 +175,6 @@ int __cdecl srExit()
         srCore.registry_ = 0;
         srExitImageIO();
         srCore.initialized = 0;
-        delete srCore.default_file_manager;
-        srCore.default_file_manager = 0;
-        delete srCore.memory_allocator;
-        srCore.memory_allocator = 0;
         delete srCore.surface_io_manager;
         srCore.surface_io_manager = 0;
         delete srCore.video_manager;
@@ -205,8 +195,6 @@ int __cdecl srExit()
         srCore.global_recycler = 0;
         srCore.reset();
         srVectorProcessor::release();
-        srDebugPrintf(0xfe, "srExit() -- cleaning up config system.\n");
-        srConfig.removeAll();
         delete srTriMeshPipeline::pipe;
         srTriMeshPipeline::pipe = 0;
         _srLibraryExit();
@@ -235,15 +223,6 @@ void srCore::setFilter(srFilter* filter)
         return;
     }
     this->filter = &srTriangleFilter;
-}
-
-// FUNCTION: SURRENDER 0x10015B30
-void srCore::setFileManager(srFileManager* manager)
-{
-    if (manager == 0) {
-        manager = default_file_manager;
-    }
-    file_manager = manager;
 }
 
 // FUNCTION: SURRENDER 0x10015B50
@@ -276,12 +255,6 @@ srHierarchyIOManager* srCore::getHierarchyIOManager() const
     return hierarchy_io_manager;
 }
 
-// FUNCTION: SURRENDER 0x10015B10
-srMemoryAllocator* srCore::getMemoryAllocator() const
-{
-    return memory_allocator;
-}
-
 // FUNCTION: SURRENDER 0x10015AC0
 srIStreamOpener* srCore::getIStreamOpener() const
 {
@@ -292,12 +265,6 @@ srIStreamOpener* srCore::getIStreamOpener() const
 srNode* srCore::getRootNode() const
 {
     return root_node;
-}
-
-// FUNCTION: SURRENDER 0x10015B20
-srFileManager* srCore::getFileManager() const
-{
-    return file_manager;
 }
 
 // FUNCTION: SURRENDER 0x10015A60
@@ -330,9 +297,6 @@ srCore::srCore()
     hierarchy_io_manager = 0;
     filter = 0;
     root_node = 0;
-    memory_allocator = 0;
-    default_file_manager = 0;
-    file_manager = 0;
     palette = 0;
     timer = 0;
     registry_ = 0;
@@ -354,9 +318,6 @@ void srCore::reset()
     hierarchy_io_manager = 0;
     filter = 0;
     root_node = 0;
-    memory_allocator = 0;
-    default_file_manager = 0;
-    file_manager = 0;
     palette = 0;
     timer = 0;
     registry_ = 0;

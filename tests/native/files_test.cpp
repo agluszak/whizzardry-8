@@ -322,11 +322,38 @@ int main() try
         input.close();
         input.open(nullptr);
         CHECK(!input.isOpen() && std::string(input.getPath()).empty());
+        input.open("Data/missing-renderer.bin");
+        CHECK(!input.isOpen() && !input.good() && std::string(input.getPath()).empty());
+        input.open("");
+        CHECK(!input.isOpen() && !input.good());
         srBinOFStream output("Saves\\Renderer.SAV");
         CHECK(output.isOpen());
         output.write("renderer save", 13);
         output.close();
         CHECK(contents(user / "Saves" / "Renderer.SAV") == "renderer save");
+
+        fixture(assets / "data" / "RendererUpdate.bin", "asset bytes");
+        srBinIOFStream update("C:\\data\\rendererupdate.bin");
+        CHECK(update.isOpen() && update.good());
+        update.write("USER!", 5);
+        update.seek(0);
+        update.read(directory, 11);
+        CHECK(update.good() && !memcmp(directory, "USER! bytes", 11));
+        update.close();
+        CHECK(contents(assets / "data" / "RendererUpdate.bin") == "asset bytes");
+        input.open("Data/RENDERERUPDATE.BIN");
+        CHECK(input.isOpen() && input.good());
+        input.read(directory, 11);
+        CHECK(input.good() && !memcmp(directory, "USER! bytes", 11));
+        input.close();
+
+        srBinIFStream disc_input("D:\\levels\\levels.slf");
+        CHECK(disc_input.isOpen() && disc_input.good());
+        disc_input.read(directory, 10);
+        CHECK(disc_input.good() && !memcmp(directory, "disc bytes", 10));
+        srBinOFStream disc_output("D:/Levels/LEVELS.SLF");
+        CHECK(!disc_output.isOpen() && !disc_output.good());
+        CHECK(contents(disc / "Levels" / "LEVELS.SLF") == "disc bytes");
     }
     std::vector<std::string> table{"existing"};
     CHECK(srSystem::scanFiles(table, "Data\\*.SLF") == 1);

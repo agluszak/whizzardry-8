@@ -2,7 +2,6 @@ set(SURRENDER_SOURCES
     bounder.cpp
     camera.cpp
     clipplane.cpp
-    config.cpp
     core.cpp
     debug.cpp
     debug_dd.cpp
