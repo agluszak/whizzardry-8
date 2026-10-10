@@ -63,62 +63,6 @@ stMeshModel::~stMeshModel()
     std::erase(g_mesh_models, this);
 }
 
-stMeshModel& stMeshModel::operator=(const stMeshModel& other)
-{
-    if (this == &other) {
-        return *this;
-    }
-    // Prepare independent ownership before replacing this registered model.
-    // In particular, a registry clone must not share the owned successor chain
-    // or count the source's decompressed allocations a second time.
-    auto copied_frames = other.frames;
-    auto copied_skins = other.skins;
-    auto copied_mappings = other.mapped_vertices;
-    auto copied_lerp = other.lerp_buffer;
-    auto copied_automap = other.automap_polygons;
-    auto copied_lights_0 = other.vertex_lights[0];
-    auto copied_lights_1 = other.vertex_lights[1];
-    auto copied_sunlight = other.vertex_sunlight;
-    std::vector<std::unique_ptr<stMeshModel>> copied_parts;
-    for (const auto& part : other.parts) {
-        copied_parts.push_back(std::make_unique<stMeshModel>(0, 0));
-        *copied_parts.back() = *part;
-    }
-    srMeshModel::operator=(other);
-    if (frames.empty() && !copied_frames.empty()) {
-        g_mesh_models.push_back(this);
-    } else if (copied_frames.empty()) {
-        std::erase(g_mesh_models, this);
-    }
-    ReleaseDecompressedFrames();
-    frames = std::move(copied_frames);
-    for (const auto& frame : frames) {
-        for (const auto* cache : {&frame.locations, &frame.vertex_normals, &frame.polygon_normals}) {
-            if (*cache) {
-                g_decompressed_mesh_bytes += (*cache)->capacity() * sizeof(srVector3T<float>);
-            }
-        }
-    }
-    skins = std::move(copied_skins);
-    mapped_vertices = std::move(copied_mappings);
-    lerp_buffer = std::move(copied_lerp);
-    automap_polygons = std::move(copied_automap);
-    vertex_lights[0] = std::move(copied_lights_0);
-    vertex_lights[1] = std::move(copied_lights_1);
-    vertex_sunlight = std::move(copied_sunlight);
-    flags = other.flags;
-    ambient_color = other.ambient_color;
-    vertex_light_table = other.vertex_light_table;
-    vertex_lighting_ready = other.vertex_lighting_ready;
-    vertex_compression_scale = other.vertex_compression_scale;
-    automap_filter_active = other.automap_filter_active;
-    parts.clear();
-    for (auto& part : copied_parts) {
-        AddPart(std::move(part));
-    }
-    return *this;
-}
-
 // FUNCTION: WIZ8 0x00471dd0
 int stMeshModel::getBoundingSphere(srVector3T<float>& center, float& radius)
 {

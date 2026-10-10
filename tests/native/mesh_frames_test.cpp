@@ -22,7 +22,7 @@
     } while (0)
 
 static_assert(!std::is_copy_constructible_v<stMeshModel>);
-static_assert(std::is_copy_assignable_v<stMeshModel>); // Registry clone assigns a fresh instance.
+static_assert(!std::is_copy_assignable_v<stMeshModel>);
 static_assert(std::is_nothrow_move_constructible_v<stMeshModel::Frame>);
 static_assert(std::is_nothrow_move_constructible_v<stMeshModel::Skin>);
 
@@ -219,7 +219,7 @@ static bool eviction_and_borrowed_outputs()
     return true;
 }
 
-static bool cloned_ownership()
+static bool part_ownership()
 {
     const auto registered = g_mesh_models.size();
     const int initial_bytes = g_decompressed_mesh_bytes;
@@ -231,25 +231,8 @@ static bool cloned_ownership()
         original.AddPart(std::make_unique<stMeshModel>(0, 1));
         original.parts[0]->InitializeVertexFrames(1);
         original.parts[0]->GetVertexLocations(0, true, 0.0f);
-        auto clone = std::make_unique<stMeshModel>(0, 0);
-        *clone = original;
-        CHECK(clone->parts[0] != original.parts[0] && clone->parts[0]->head == clone.get());
-        CHECK(clone->head == nullptr);
-        CHECK(clone->GetVertex(0) != original.GetVertex(0));
-        CHECK(clone->GetVertexLocations(0, true, 0.0f) != original.GetVertexLocations(0, true, 0.0f));
-        clone->GetVertex(0)[0] = 9;
-        clone->GetVertexLocations(0, false, 0.0f)[0].x = 11.0f;
-        CHECK(original.GetVertex(0)[0] == 3);
-        CHECK(original.GetVertexLocations(0, true, 0.0f)[0].x == 3.0f);
-        CHECK(g_mesh_models.size() == registered + 4);
-        CHECK(g_decompressed_mesh_bytes == initial_bytes + 4 * sizeof(srVector3T<float>));
-        CHECK(clone->ReleaseDecompressedFrames() == sizeof(srVector3T<float>));
-        CHECK(original.frames[0].locations);
-        *clone = static_cast<const stMeshModel&>(*clone);
-        CHECK(g_mesh_models.size() == registered + 4);
-        stMeshModel empty(0, 0);
-        *clone = empty;
-        CHECK(clone->frames.empty() && clone->parts.empty());
+        CHECK(original.head == nullptr && original.parts[0]->head == &original);
+        CHECK(original.Next() == original.parts[0].get() && original.parts[0]->Next() == nullptr);
         CHECK(g_mesh_models.size() == registered + 2);
         CHECK(g_decompressed_mesh_bytes == initial_bytes + 2 * sizeof(srVector3T<float>));
     }
@@ -352,18 +335,6 @@ static bool skins_and_automap()
             CHECK(mesh.FindSkinTable(cycle + '0') == -1 && mesh.FindSkinTable(cycle + '1') == -1);
             CHECK(mesh.FindSkinTable("") == 3); // Empty names must not underflow during cycle removal.
             CHECK(mesh.FindSkinTable("SECOND1") == second);
-            {
-                auto clone = std::make_unique<stMeshModel>(0, 0);
-                *clone = mesh;
-                CHECK(clone->GetTextureTable(second) != second_textures);
-                CHECK(clone->GetTextureTable(second)[0] == second_textures[0]);
-                auto* cloned_selection = clone->GetActivePolygons(&count, second, true);
-                CHECK(cloned_selection != selection && count == 2);
-                clone->GetTextureTable(second)[0] = nullptr;
-                CHECK(second_textures[0] == blank);
-                clone->RemoveSkinTablesForCycle("second");
-                CHECK(clone->FindSkinTable("second1") == -1 && mesh.FindSkinTable("second1") == second);
-            }
 
             const std::array<std::string_view, 1> excluded{visible->getName()};
             mesh.ApplyAutomapPolygonFilter(excluded);
@@ -403,7 +374,7 @@ int main()
         return 1;
     }
     const bool passed = frame_storage() && writable_and_empty_caches() &&
-                        eviction_and_borrowed_outputs() && cloned_ownership() && loaded_model_ownership() && skins_and_automap();
+                        eviction_and_borrowed_outputs() && part_ownership() && loaded_model_ownership() && skins_and_automap();
     const bool drained = g_mesh_models.empty() && g_decompressed_mesh_bytes == 0;
     srExit();
     if (!passed || !drained) {

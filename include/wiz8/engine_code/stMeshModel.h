@@ -35,10 +35,8 @@ public:
 
     stMeshModel(w8_long polygons, w8_long vertices);
     virtual ~stMeshModel() override;       /* 0x00470ED0 */
-    // The registry's clone callback assigns into an already registered instance;
-    // the inherited support-class copy constructor cannot construct owned state.
     stMeshModel(const stMeshModel&) = delete;
-    stMeshModel& operator=(const stMeshModel& other);
+    stMeshModel& operator=(const stMeshModel&) = delete;
     virtual int getBoundingSphere(srVector3T<float>& center,
                                   float& radius) override; /* 0x00471dd0 */
     virtual int getBoundingBox(srVector3T<float>& minimum,

@@ -23,8 +23,7 @@ public:
        renderTriMesh uses the corresponding CONTROL_FRONT/BACK bits. */
     enum e_side : int { SIDE_FRONT = 0, SIDE_BACK = 1 };
     /* Bit indices into dirty_flags. calculateBounds, calculatePolygonNormals,
-       calculateVertexNormals and updateTriMesh clear bits 0, 1, 2 and 3.
-       Raising the bounds bit notifies model clients. */
+       calculateVertexNormals and updateTriMesh clear bits 0, 1, 2 and 3. */
     enum e_flags {
         DIRTY_BOUNDS = 0,
         DIRTY_POLYGON_NORMALS = 1,
@@ -77,7 +76,7 @@ public:
     };
 
     SR_DLL_IMPORT srMeshModel(w8_long polygons = 0, w8_long vertices = 0);
-    srMeshModel(const srMeshModel& other);
+    srMeshModel(const srMeshModel&) = delete;
 
     SR_DLL_IMPORT void reset(w8_long polygons, w8_long vertices);
     SR_DLL_IMPORT void scale(const srVector3T<float>& scale);
@@ -90,7 +89,7 @@ public:
     void scaleToMaxRadius(double radius);
     void flipFaces();
     w8_long findClosestVertex(const srVector3T<float>& point);
-    SR_DLL_IMPORT srMeshModel& operator=(const srMeshModel& other);
+    srMeshModel& operator=(const srMeshModel&) = delete;
 
     // FUNCTION: SURRENDER 0x10041AF0
     static const char* sGetClassName()

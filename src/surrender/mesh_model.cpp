@@ -327,13 +327,6 @@ srMeshModel::srMeshModel(w8_long polygons, w8_long vertices)
     reset(polygons, vertices);
 }
 
-/* Construct/register a fresh model before assigning its state: registry identity and model clients
-   are not copyable mesh data, and the cached view must refer to this model's own tables. */
-srMeshModel::srMeshModel(const srMeshModel& other) : srMeshModel()
-{
-    *this = other;
-}
-
 // FUNCTION: SURRENDER 0x1003D2C0
 void srMeshModel::reset(w8_long polygons, w8_long vertices)
 {
@@ -368,46 +361,6 @@ void srMeshModel::reset(w8_long polygons, w8_long vertices)
     render_control.value |= 1UL << CONTROL_FRONT;
     render_control.value |= 1UL << CONTROL_SKIP_AUTO_BOX;
     setDirtyAll();
-}
-
-/* Containers copy their own elements, including absent optional tables. The cached borrowed
-   view is invalidated rather than copied; the destination keeps its identity and model clients. */
-// FUNCTION: SURRENDER 0x1003D5D0
-srMeshModel& srMeshModel::operator=(const srMeshModel& other)
-{
-    if (this != &other) {
-        srModel::operator=(other);
-        reset(other.polygon_count, other.vertex_location_count);
-        dirty_flags = other.dirty_flags;
-        render_control = other.render_control;
-        pass_count = other.pass_count;
-        uv_count = other.uv_count;
-        sort_bias = other.sort_bias;
-        dirty_flags.value |= (1UL << DIRTY_TRI_MESH);
-        bounds_minimum = other.bounds_minimum;
-        bounds_maximum = other.bounds_maximum;
-        bounds_center = other.bounds_center;
-        bounds_radius = other.bounds_radius;
-        active_polygon_count = other.active_polygon_count;
-        active_polygons = other.active_polygons;
-        poly_vertices = other.poly_vertices;
-        poly_equations = other.poly_equations;
-        vertex_locations = other.vertex_locations;
-        vertex_normals = other.vertex_normals;
-        vertex_shade_indices = other.vertex_shade_indices;
-        materials = other.materials;
-        vertex_materials = other.vertex_materials;
-        textures = other.textures;
-        poly_textures = other.poly_textures;
-        texcoords = other.texcoords;
-        shaders = other.shaders;
-        poly_shaders = other.poly_shaders;
-        poly_uv_indices = other.poly_uv_indices;
-        dig = other.dig;
-        dcg = other.dcg;
-        scg = other.scg;
-    }
-    return *this;
 }
 
 // FUNCTION: SURRENDER 0x1003E120
