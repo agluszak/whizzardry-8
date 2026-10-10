@@ -35,7 +35,7 @@ static std::string contents(const fs::path& path)
     std::ifstream file(path, std::ios::binary);
     return std::string(std::istreambuf_iterator<char>(file), {});
 }
-static HWFILE open(const char* path, UINT32 options = FILE_ACCESS_READ, bool temporary = false)
+static HWFILE open_game_file(const char* path, UINT32 options = FILE_ACCESS_READ, bool temporary = false)
 {
     std::string name(path);
     return FileOpen(name.data(), options, temporary);
@@ -121,9 +121,9 @@ int main()
     CHECK(InitializeFileManager(nullptr));
     CHECK(InitializeFileDatabase());
 
-    HWFILE file = open("DATA\\mixedcase.bin");
+    HWFILE file = open_game_file("DATA\\mixedcase.bin");
     CHECK(file && FileGetSize(file) == 12);
-    HWFILE independent = open("C:/data/MixedCase.BIN");
+    HWFILE independent = open_game_file("C:/data/MixedCase.BIN");
     CHECK(independent && independent != file);
     CHECK(read_bytes(file, 64, false) == "retail bytes");
     CHECK(FileCheckEndOfFile(file) && FileGetPos(file) == 12);
@@ -144,10 +144,10 @@ int main()
     CHECK(!FileRead(file, nullptr, 1, &count) && count == 0);
     CHECK(!FileRead(UINT32(-1), nullptr, 0, &count) && count == 0);
     CHECK(!FileSeek(0, 0, FILE_SEEK_FROM_START) && FileGetPos(0) == -1);
-    CHECK(!open("Data", FILE_ACCESS_READ) && !FileExistsNoDB(const_cast<char*>("Data")));
-    CHECK(!open("missing\\new.sav", FILE_ACCESS_WRITE | FILE_CREATE_NEW));
+    CHECK(!open_game_file("Data", FILE_ACCESS_READ) && !FileExistsNoDB(const_cast<char*>("Data")));
+    CHECK(!open_game_file("missing\\new.sav", FILE_ACCESS_WRITE | FILE_CREATE_NEW));
 
-    file = open("Data\\MixedCase.BIN", FILE_ACCESS_READWRITE | FILE_OPEN_EXISTING);
+    file = open_game_file("Data\\MixedCase.BIN", FILE_ACCESS_READWRITE | FILE_OPEN_EXISTING);
     CHECK(file);
     write_bytes(file, "native");
     CHECK(FileSeek(file, 0, FILE_SEEK_FROM_START));
@@ -155,7 +155,7 @@ int main()
     FileClose(file);
     CHECK(contents(assets / "data" / "MixedCase.BIN") == "retail bytes");
     CHECK(FileDelete(const_cast<char*>("Data\\mixedcase.bin")));
-    file = open("Data\\MixedCase.BIN");
+    file = open_game_file("Data\\MixedCase.BIN");
     CHECK(read_bytes(file, 12) == "retail bytes");
     FileClose(file);
     CHECK(!FileDelete(const_cast<char*>("Data\\MixedCase.BIN")));
@@ -164,17 +164,17 @@ int main()
     CHECK(FileGetAttributes(const_cast<char*>("Data\\ReadOnly.bin")) & FILE_ATTRIBUTES_READONLY);
     CHECK(FileClearAttributes(const_cast<char*>("Data\\ReadOnly.bin")));
     CHECK(!(FileGetAttributes(const_cast<char*>("Data\\ReadOnly.bin")) & FILE_ATTRIBUTES_READONLY));
-    file = open("Data\\ReadOnly.bin", FILE_ACCESS_WRITE | FILE_OPEN_EXISTING);
+    file = open_game_file("Data\\ReadOnly.bin", FILE_ACCESS_WRITE | FILE_OPEN_EXISTING);
     CHECK(file);
     write_bytes(file, "unlocked");
     FileClose(file);
     CHECK(contents(assets / "data" / "ReadOnly.bin") == "locked");
     CHECK(!FileOpenHost(assets / "data" / "ReadOnly.bin", FILE_ACCESS_WRITE));
-    file = open("D:/levels/levels.slf");
+    file = open_game_file("D:/levels/levels.slf");
     CHECK(file && read_bytes(file, 10) == "disc bytes");
     FileClose(file);
     for (UINT32 mode : {FILE_OPEN_EXISTING, FILE_CREATE_ALWAYS, FILE_OPEN_ALWAYS, FILE_ACCESS_APPEND})
-        CHECK(!open("D:\\Levels\\LEVELS.SLF", FILE_ACCESS_WRITE | mode));
+        CHECK(!open_game_file("D:\\Levels\\LEVELS.SLF", FILE_ACCESS_WRITE | mode));
     CHECK(!FileClearAttributes(const_cast<char*>("D:\\Levels\\LEVELS.SLF")));
     CHECK(!FileDelete(const_cast<char*>("D:\\Levels\\LEVELS.SLF")));
 
@@ -182,38 +182,38 @@ int main()
     CHECK(DirectoryExists(saves) && MakeFileManDirectory(saves));
     CHECK(MakeFileManDirectory(characters) && DirectoryExists(characters));
     CHECK(FileGetAttributes(saves) & FILE_ATTRIBUTES_DIRECTORY);
-    file = open("Saves\\CurrentGame.SAV");
+    file = open_game_file("Saves\\CurrentGame.SAV");
     CHECK(file && read_bytes(file, 9) == "user save");
     FileClose(file);
-    CHECK(!open("Saves\\currentgame.sav", FILE_ACCESS_WRITE | FILE_CREATE_NEW));
+    CHECK(!open_game_file("Saves\\currentgame.sav", FILE_ACCESS_WRITE | FILE_CREATE_NEW));
     fs::permissions(user / "Saves" / "CurrentGame.SAV", fs::perms::owner_read,
                     fs::perm_options::replace);
     CHECK(FileClearAttributes(const_cast<char*>("Saves\\CurrentGame.SAV")));
     CHECK((fs::status(user / "Saves" / "CurrentGame.SAV").permissions() & fs::perms::owner_write) !=
           fs::perms::none);
     CHECK(contents(user / "Saves" / "CurrentGame.SAV") == "user save");
-    CHECK(!open("Saves\\missing.sav", FILE_ACCESS_WRITE | FILE_TRUNCATE_EXISTING));
-    file = open("Saves\\SGP.SAV", FILE_ACCESS_WRITE | FILE_CREATE_ALWAYS | FILE_TRUNCATE_EXISTING);
+    CHECK(!open_game_file("Saves\\missing.sav", FILE_ACCESS_WRITE | FILE_TRUNCATE_EXISTING));
+    file = open_game_file("Saves\\SGP.SAV", FILE_ACCESS_WRITE | FILE_CREATE_ALWAYS | FILE_TRUNCATE_EXISTING);
     CHECK(file);
     write_bytes(file, "sgp save");
     CHECK(!FileRead(file, &count, sizeof(count), nullptr));
     FileClose(file);
-    file = open("Saves\\SGP.SAV", FILE_ACCESS_READWRITE | FILE_ACCESS_APPEND);
+    file = open_game_file("Saves\\SGP.SAV", FILE_ACCESS_READWRITE | FILE_ACCESS_APPEND);
     CHECK(file && FileSeek(file, 0, FILE_SEEK_FROM_START));
     write_bytes(file, " appended");
     FileClose(file);
     CHECK(contents(user / "Saves" / "SGP.SAV") == "sgp save appended");
-    file = open("Saves\\Installed.SAV", FILE_ACCESS_READWRITE | FILE_ACCESS_APPEND);
+    file = open_game_file("Saves\\Installed.SAV", FILE_ACCESS_READWRITE | FILE_ACCESS_APPEND);
     CHECK(file);
     write_bytes(file, "+user");
     FileClose(file);
     CHECK(contents(assets / "Saves" / "Installed.SAV") == "installed save");
     CHECK(contents(user / "Saves" / "Installed.SAV") == "installed save+user");
-    file = open("Saves\\SGP.SAV", FILE_ACCESS_WRITE | FILE_TRUNCATE_EXISTING);
+    file = open_game_file("Saves\\SGP.SAV", FILE_ACCESS_WRITE | FILE_TRUNCATE_EXISTING);
     CHECK(file && FileGetSize(file) == 0);
     write_bytes(file, "replacement");
     FileClose(file);
-    file = open("Saves\\SGP.SAV", FILE_ACCESS_WRITE | FILE_CREATE_ALWAYS);
+    file = open_game_file("Saves\\SGP.SAV", FILE_ACCESS_WRITE | FILE_CREATE_ALWAYS);
     CHECK(file && FileGetSize(file) == 0);
     FileClose(file);
     CHECK(contents(user / "Saves" / "CurrentGame.SAV") == "user save");
@@ -230,23 +230,23 @@ int main()
     CHECK(FileCopy(const_cast<char*>("Data\\MixedCase.BIN"),
                    const_cast<char*>("Saves\\Backup.SAV"), FALSE));
     CHECK(contents(user / "Saves" / "Backup.SAV") == "retail bytes");
-    file = open("Saves\\Temporary.SAV", FILE_ACCESS_WRITE | FILE_CREATE_NEW, true);
+    file = open_game_file("Saves\\Temporary.SAV", FILE_ACCESS_WRITE | FILE_CREATE_NEW, true);
     CHECK(file);
     write_bytes(file, "temporary");
     CHECK(w8_native::change_directory("Data") == 0);
     FileClose(file);
     CHECK(w8_native::change_directory("C:\\") == 0);
     CHECK(!FileExists(const_cast<char*>("Saves\\Temporary.SAV")));
-    CHECK(!open("Saves\\SGP.SAV", FILE_ACCESS_WRITE | FILE_ACCESS_APPEND | FILE_TRUNCATE_EXISTING));
-    CHECK(!open("Saves\\SGP.SAV", FILE_ACCESS_READ | FILE_ACCESS_APPEND));
-    file = open("Saves\\NewAppend.SAV", FILE_ACCESS_WRITE | FILE_ACCESS_APPEND | FILE_CREATE_NEW);
+    CHECK(!open_game_file("Saves\\SGP.SAV", FILE_ACCESS_WRITE | FILE_ACCESS_APPEND | FILE_TRUNCATE_EXISTING));
+    CHECK(!open_game_file("Saves\\SGP.SAV", FILE_ACCESS_READ | FILE_ACCESS_APPEND));
+    file = open_game_file("Saves\\NewAppend.SAV", FILE_ACCESS_WRITE | FILE_ACCESS_APPEND | FILE_CREATE_NEW);
     CHECK(file);
     write_bytes(file, "first");
     CHECK(FileSeek(file, 0, FILE_SEEK_FROM_START));
     write_bytes(file, "+second");
     FileClose(file);
     CHECK(contents(user / "Saves" / "NewAppend.SAV") == "first+second");
-    file = open("Saves\\Sparse.SAV", FILE_ACCESS_READWRITE | FILE_CREATE_NEW);
+    file = open_game_file("Saves\\Sparse.SAV", FILE_ACCESS_READWRITE | FILE_CREATE_NEW);
     CHECK(file && FileSeek(file, UINT32_MAX, FILE_SEEK_FROM_START));
     CHECK(FileGetPos(file) == -1); // SGP exposes signed 32-bit positions.
     write_bytes(file, "x");
@@ -262,16 +262,16 @@ int main()
     CHECK(file && read_bytes(file, 14) == "unicode import");
     FileClose(file);
     const auto host_text = wiz8::path_to_utf8(unicode);
-    CHECK(!open(host_text.c_str()));
-    CHECK(!open("C:\\..\\outside.sav", FILE_ACCESS_WRITE | FILE_CREATE_ALWAYS));
-    CHECK(!open("Saves\\..\\..\\outside.sav", FILE_ACCESS_WRITE | FILE_CREATE_ALWAYS));
-    CHECK(!open("Saves\\part:stream", FILE_ACCESS_WRITE | FILE_CREATE_ALWAYS));
+    CHECK(!open_game_file(host_text.c_str()));
+    CHECK(!open_game_file("C:\\..\\outside.sav", FILE_ACCESS_WRITE | FILE_CREATE_ALWAYS));
+    CHECK(!open_game_file("Saves\\..\\..\\outside.sav", FILE_ACCESS_WRITE | FILE_CREATE_ALWAYS));
+    CHECK(!open_game_file("Saves\\part:stream", FILE_ACCESS_WRITE | FILE_CREATE_ALWAYS));
     const auto outside = root / "outside";
     fixture(outside / "untouched.sav", "outside");
     std::error_code symlink_error;
     fs::create_directory_symlink(outside, user / "Escape", symlink_error);
     if (!symlink_error) {
-        CHECK(!open("Escape\\untouched.sav", FILE_ACCESS_WRITE | FILE_CREATE_ALWAYS));
+        CHECK(!open_game_file("Escape\\untouched.sav", FILE_ACCESS_WRITE | FILE_CREATE_ALWAYS));
         CHECK(!FileCopy(const_cast<char*>("Saves\\CurrentGame.SAV"),
                        const_cast<char*>("Escape\\untouched.sav"), FALSE));
         CHECK(contents(outside / "untouched.sav") == "outside");
@@ -279,7 +279,7 @@ int main()
     symlink_error.clear();
     fs::create_directory_symlink(assets, user / "AssetLink", symlink_error);
     if (!symlink_error) {
-        CHECK(!open("AssetLink\\data\\MixedCase.BIN", FILE_ACCESS_WRITE));
+        CHECK(!open_game_file("AssetLink\\data\\MixedCase.BIN", FILE_ACCESS_WRITE));
         CHECK(!FileDelete(const_cast<char*>("AssetLink\\data\\MixedCase.BIN")));
     } else fprintf(stderr, "Asset symlink checks unavailable: %s\n", symlink_error.message().c_str());
 
@@ -323,7 +323,7 @@ int main()
 
     CHECK(FileExists(const_cast<char*>("Data\\archiveonly.bin")));
     CHECK(!FileExistsNoDB(const_cast<char*>("Data\\archiveonly.bin")));
-    HWFILE archived = open("Data\\archiveonly.bin");
+    HWFILE archived = open_game_file("Data\\archiveonly.bin");
     CHECK(archived && FileGetSize(archived) == 8);
     // Library reads are entry-bounded: an oversized request is rejected whole.
     CHECK(read_bytes(archived, 9, false).empty() && FileGetPos(archived) == 0);
@@ -337,7 +337,7 @@ int main()
     CHECK(creation.dwLowDateTime == 0 && creation.dwHighDateTime == 0);
     CHECK(modified.dwLowDateTime == 0xd53e8001u && modified.dwHighDateTime == 0x019db1deu);
     FileClose(archived);
-    file = open("Data\\Override.bin");
+    file = open_game_file("Data\\Override.bin");
     CHECK(file && read_bytes(file, 6) == "loose!");
     FileClose(file);
 
@@ -358,7 +358,7 @@ int main()
     LibraryHeaderStruct library{};
     char invalid_path[] = "Data\\InvalidEntry.slf";
     CHECK(!InitializeLibrary(invalid_path, &library, FALSE));
-    archived = open("Data\\archiveonly.bin");
+    archived = open_game_file("Data\\archiveonly.bin");
     CHECK(archived);
     fs::resize_file(assets / "data" / "DATA.SLF", sizeof(LIBHEADER) + 3);
     CHECK(read_bytes(archived, 4, false).empty() && FileGetPos(archived) == 0);
@@ -371,7 +371,7 @@ int main()
     std::vector<HWFILE> readers;
     for (unsigned i = 0; i < 45; ++i)
     {
-        file = open("Saves\\CurrentGame.SAV");
+        file = open_game_file("Saves\\CurrentGame.SAV");
         CHECK(file);
         readers.push_back(file);
     }
@@ -381,7 +381,7 @@ int main()
     CHECK(gFileDataBase.RealFiles.iNumFilesOpen == 0);
     CHECK(ShutDownFileDatabase());
     CHECK(InitializeFileDatabase());
-    file = open("Saves\\DatabaseTemporary.SAV", FILE_ACCESS_WRITE | FILE_CREATE_NEW, true);
+    file = open_game_file("Saves\\DatabaseTemporary.SAV", FILE_ACCESS_WRITE | FILE_CREATE_NEW, true);
     CHECK(file);
     write_bytes(file, "delete on database shutdown");
     CHECK(ShutDownFileDatabase());
