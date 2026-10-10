@@ -67,7 +67,6 @@
 
 #include "timer.h"
 
-#include "wiz8/wiz8_windows.h"
 #include "wiz8/filesystem.h"
 #include "wiz8/file_time.h"
 #include <memory>
@@ -217,18 +216,6 @@ try
 }
 catch (const std::exception&) { return false; }
 
-static void SetSaveSlotCalendar(SYSTEMTIME& destination, const wiz8::CivilTime& time)
-{
-    destination.wYear = static_cast<std::uint16_t>(time.year);
-    destination.wMonth = static_cast<std::uint16_t>(time.month);
-    destination.wDay = static_cast<std::uint16_t>(time.day);
-    destination.wDayOfWeek = static_cast<std::uint16_t>(time.day_of_week);
-    destination.wHour = static_cast<std::uint16_t>(time.hour);
-    destination.wMinute = static_cast<std::uint16_t>(time.minute);
-    destination.wSecond = static_cast<std::uint16_t>(time.second);
-    destination.wMilliseconds = static_cast<std::uint16_t>(time.fraction_100ns / 10000);
-}
-
 // FUNCTION: WIZ8 0x00511df0
 void FillCurrentSaveSlot(W8SaveSlot* slot)
 {
@@ -238,11 +225,11 @@ void FillCurrentSaveSlot(W8SaveSlot* slot)
     slot->game_time_days = g_status.game_time_days;
     slot->iron_man = g_status.iron_man;
     const auto now = wiz8::current_local_time();
-    SetSaveSlotCalendar(slot->timestamp,
-        {now.year, static_cast<unsigned>(now.month), static_cast<unsigned>(now.day),
-         static_cast<unsigned>(now.hour), static_cast<unsigned>(now.minute),
-         static_cast<unsigned>(now.second), static_cast<unsigned>(now.nanosecond / 100),
-         static_cast<unsigned>(now.day_of_week)});
+    slot->timestamp = {
+        now.year, static_cast<unsigned>(now.month), static_cast<unsigned>(now.day),
+        static_cast<unsigned>(now.hour), static_cast<unsigned>(now.minute),
+        static_cast<unsigned>(now.second), static_cast<unsigned>(now.nanosecond / 100),
+        static_cast<unsigned>(now.day_of_week)};
     CaptureSaveScreenshot(&slot->screenshot);
     slot->version_major = 1;
     slot->version_minor = 2;
@@ -303,16 +290,16 @@ try
                     swprintf(slot->name, L"%hs", stem.c_str());
                     const auto local_time = wiz8::file_time_with_legacy_local_bias(
                         wiz8::file_time_from_sdl(metadata->info.modify_time), utc_offset);
-                    slot->local_write_time.dwLowDateTime = local_time.low;
-                    slot->local_write_time.dwHighDateTime = local_time.high;
-                    SetSaveSlotCalendar(slot->timestamp, wiz8::file_time_to_utc(local_time));
+                    slot->local_write_time = local_time;
+                    slot->timestamp = wiz8::file_time_to_utc(local_time);
                     slot->level_id = status.current_level;
                     slot->game_time_ms = status.game_time_ms;
                     slot->iron_man = status.iron_man;
                     slot->game_time_days = status.game_time_days;
                     int position;
                     for (position = first; position < slots->GetCount(); ++position) {
-                        if ((wiz8::DiskFileTime{(&slot->local_write_time)->dwLowDateTime, (&slot->local_write_time)->dwHighDateTime}.ticks() < wiz8::DiskFileTime{(&(*slots->GetAt(position))->local_write_time)->dwLowDateTime, (&(*slots->GetAt(position))->local_write_time)->dwHighDateTime}.ticks() ? -1 : wiz8::DiskFileTime{(&slot->local_write_time)->dwLowDateTime, (&slot->local_write_time)->dwHighDateTime}.ticks() > wiz8::DiskFileTime{(&(*slots->GetAt(position))->local_write_time)->dwLowDateTime, (&(*slots->GetAt(position))->local_write_time)->dwHighDateTime}.ticks() ? 1 : 0) > 0) {
+                        if (slot->local_write_time.ticks() >
+                            (*slots->GetAt(position))->local_write_time.ticks()) {
                             break;
                         }
                     }
@@ -1559,7 +1546,7 @@ catch (const std::exception&) { return false; }
    comparison spells them. */
 enum { W8_SAVE_TAG_CHAR = 0x52414843, W8_SAVE_TAG_LVLS = 0x534c564c };
 
-/* Find a live CHAR chunk in Saves\\CurrentGame.SAV whose 64-byte name matches
+/* Find a live char chunk in Saves\\CurrentGame.SAV whose 64-byte name matches
    and mark it consumed so a later append can supersede it. */
 // FUNCTION: WIZ8 0x005154a0
 bool MarkCurrentGameCharacterChunkConsumed(const char* path)
@@ -1590,8 +1577,8 @@ try
 catch (const std::exception&) { return false; }
 
 /* Append one character record to Saves\\CurrentGame.SAV. Retail writes the
-   64-byte name, size and body without opening a CHAR chunk header first; the
-   matching load walk still keys on CHAR tags produced by other writers. */
+   64-byte name, size and body without opening a char chunk header first; the
+   matching load walk still keys on char tags produced by other writers. */
 // FUNCTION: WIZ8 0x005155b0
 bool SaveCharacterToCurrentGame(const char* path, int /*slot*/, W8Character* character)
 try
@@ -1615,7 +1602,7 @@ try
 }
 catch (const std::exception&) { return false; }
 
-/* Load one character record from a CHAR chunk in Saves\\CurrentGame.SAV. */
+/* Load one character record from a char chunk in Saves\\CurrentGame.SAV. */
 // FUNCTION: WIZ8 0x005156c0
 bool LoadCharacterFromCurrentGame(const char* path, W8Character* character)
 try
@@ -1684,7 +1671,7 @@ bool g_save_pending;
    literals, so it is a mutable character array rather than a string literal;
    this build initialises it to "SAV". */
 /* 0x0061A134/0x0061A138: the mask pair SaveGame XORs the iron-man save file's
-   creation FILETIME with before storing it in the status block. */
+   creation file time with before storing it in the status block. */
 
 // GLOBAL: WIZ8 0x0061A144
 char g_save_extension[] = "SAV";
@@ -2296,7 +2283,7 @@ try
            unsigned counter rather than the function's signed `index`. */
         for (unsigned int line = 0; line < g_status.text_box_lines_shown[box]; ++line) {
             g_message_storage[box][line].clock =
-                GetTickCount() + (g_message_storage[box][line].saved_remaining_ms);
+                w8_get_ticks() + (g_message_storage[box][line].saved_remaining_ms);
         }
     }
     gXStatus.gameplay_timer->Restart();

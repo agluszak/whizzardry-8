@@ -8,7 +8,6 @@
 
 #include <string>
 #include <chrono>
-#include <thread>
 
 namespace {
 /* Database strings can start at odd byte offsets in packed retail records. */
@@ -77,11 +76,6 @@ uint64_t w8_clock_us(void)
 uint32_t w8_get_ticks(void)
 {
     return uint32_t(w8_clock_us() / 1000);
-}
-
-void w8_sleep(uint32_t milliseconds)
-{
-    std::this_thread::sleep_for(std::chrono::milliseconds(milliseconds));
 }
 
 char* w8_strupr(char* text)

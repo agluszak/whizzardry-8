@@ -24,7 +24,6 @@
 #include "wiz8/regions.h"
 #include "wiz8/sr_api.h"
 #include "wiz8/utility.h"
-#include "wiz8/wiz8_windows.h"
 #include "timer.h"
 
 #include <string.h>
@@ -254,7 +253,7 @@ void ApplyCurrentCursor(void)
                               g_main_game_resource_slots[gXStatus.iCurrentCursor].hotspot_y);
     }
     if (g_main_game_resource_slots[gXStatus.iCurrentCursor].frame_count > 1) {
-        gXStatus.current_cursor_time = GetTickCount() + (0xfa);
+        gXStatus.current_cursor_time = w8_get_ticks() + (0xfa);
     }
 }
 
@@ -369,7 +368,7 @@ void InitializeMainGameLevelBlock(void)
     g_level_block->camera_motion_flags = 0;
     g_level_block->highlighted_item = -1;
     g_level_block->selected_item = -1;
-    g_level_block->clock = GetTickCount();
+    g_level_block->clock = w8_get_ticks();
     g_level_block->portrait_flash = 0;
     for (slot = 0; slot < 8; ++slot) {
         g_level_block->portrait_refresh_pending[slot] = 0;
@@ -380,18 +379,18 @@ void InitializeMainGameLevelBlock(void)
     previous_mode = g_settings.main_ui_mode;
     g_settings.main_ui_mode = W8_MAIN_UI_MODE_NONE;
     ApplyMainGameModeFlag(previous_mode, true);
-    g_level_block->character_update_timer = GetTickCount() + (0);
-    g_level_block->world_update_timer = GetTickCount() + (0);
-    g_level_block->countdown0 = GetTickCount() + (60000);
-    g_level_block->countdown1 = GetTickCount() + (0);
-    g_level_block->countdown2 = GetTickCount() + (0xfa);
+    g_level_block->character_update_timer = w8_get_ticks() + (0);
+    g_level_block->world_update_timer = w8_get_ticks() + (0);
+    g_level_block->countdown0 = w8_get_ticks() + (60000);
+    g_level_block->countdown1 = w8_get_ticks() + (0);
+    g_level_block->countdown2 = w8_get_ticks() + (0xfa);
     g_level_block->flag4 = true;
     g_level_block->text_box_visible = true;
     g_level_block->dialogue_text_input_open = false;
     g_level_block->mipe_editing = false;
     g_level_block->dialogue_text_input = 0;
     g_level_block->value_278 = 0;
-    g_level_block->tick = GetTickCount();
+    g_level_block->tick = w8_get_ticks();
     g_level_block->group_list_rows = 0;
     g_level_block->group_list_width = 0;
     DisableRegionInput(0xe5);
@@ -401,7 +400,7 @@ void InitializeMainGameLevelBlock(void)
     g_level_block->value_2b0 = 0;
     g_level_block->text_lines[4 + g_status.text_line_cursor] = FindStoppedTextLine();
     g_level_block->refresh_combat_panel = 1;
-    g_level_block->combat_panel_timer = GetTickCount() + (0);
+    g_level_block->combat_panel_timer = w8_get_ticks() + (0);
     g_level_block->refresh_party_panel = 1;
     g_level_block->text_scroll_drag_idle = 1;
     SetTextBoxRegionBounds(0xa8, 0x16e, 0x1c4, 0x1ba);
@@ -422,16 +421,16 @@ void InitializeMainGameLevelBlock(void)
     g_level_block->tooltip_pending = false;
     g_level_block->tooltip_subject = -1;
     g_level_block->tooltip_kind = -1;
-    g_level_block->countdown3 = GetTickCount() + (0);
+    g_level_block->countdown3 = w8_get_ticks() + (0);
     g_level_block->combat_slot = -1;
     g_level_block->keyboard_menu_open = false;
     g_level_block->hover_combat_slot = -1;
     g_level_block->cursor_grace = 0;
-    g_level_block->countdown4 = GetTickCount() + (0);
+    g_level_block->countdown4 = w8_get_ticks() + (0);
     g_level_block->portrait_right_hold_armed = false;
     g_level_block->formation_board_alternate = 0;
     g_level_block->radar_map_alternate = 0;
     g_level_block->review_transition_active = false;
-    g_level_block->countdown5 = GetTickCount() + (0);
+    g_level_block->countdown5 = w8_get_ticks() + (0);
     ResetMessageStorage();
 }

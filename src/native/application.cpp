@@ -4,7 +4,6 @@
 #include "wiz8/engine_code/Video2.h"
 #include "input.h"
 
-#include "compat/kernel32.h"
 #include "compat/video.h"
 #include "Font.h"
 #include "vobject.h"

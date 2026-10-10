@@ -1,7 +1,6 @@
 #include "wiz8/local_screens/MGSPartyMovement.h"
 
 #include "timer.h"
-#include "wiz8/wiz8_windows.h"
 #include "vobject_blitters.h"
 #include "wiz8/engine_code/GameData.h"
 #include "wiz8/engine_code/Levels.h"
@@ -243,7 +242,7 @@ void DrawPartyMovementGauge(short right, short image, bool panel_live, int capti
         timer_length = 0x5a;
     }
     if (rearm) {
-        g_party_movement_animation_clock = GetTickCount() + (timer_length);
+        g_party_movement_animation_clock = w8_get_ticks() + (timer_length);
     }
     if (!panel_live) {
         if (advanced) {

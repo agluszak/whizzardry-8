@@ -77,7 +77,6 @@
 
 #include "wiz8/filesystem.h"
 
-#include "wiz8/wiz8_windows.h"
 #include <stdio.h>
 #include <string.h>
 #include <wchar.h>
@@ -210,8 +209,8 @@ static void ShowNpcScriptNoticeBubble(const wchar_t* text)
     SetNpcQuoteBubbleVisible(true, text, 0, -1, 0x47);
     g_npc_scripting.voice_playing = false;
     g_npc_scripting.message_duration_ms = 2000;
-    g_npc_scripting.last_tick = GetTickCount();
-    g_npc_scripting.message_started_at = GetTickCount();
+    g_npc_scripting.last_tick = w8_get_ticks();
+    g_npc_scripting.message_started_at = w8_get_ticks();
 }
 
 /* Resolve an NPC-name, named-person, or region keyword to the quote id the
@@ -435,17 +434,17 @@ void ReloadNpcScriptResources(W8NpcState* npc)
 // FUNCTION: WIZ8 0x00524DA0
 void UpdateNpcDialogueVoiceAndCursor(void)
 {
-    DWORD tick_count;
+    UINT32 tick_count;
     W8Monster* monster;
 
     if (g_npc_scripting.portrait_message_active) {
-        tick_count = GetTickCount();
+        tick_count = w8_get_ticks();
         if (g_npc_scripting.message_duration_ms < tick_count - g_npc_scripting.message_started_at) {
             FinishNpcVoicePlayback(true);
         }
     } else if (g_npc_scripting.quote_active != 0) {
         if (!g_npc_scripting.voice_playing) {
-            tick_count = GetTickCount();
+            tick_count = w8_get_ticks();
             if (g_npc_scripting.message_duration_ms <
                 tick_count - g_npc_scripting.message_started_at) {
                 FinishNpcVoicePlayback(true);
@@ -593,7 +592,7 @@ static void NpcVoiceEosCallback(void* callback_data)
     if (!g_npc_scripting.stopping_voice_playback) {
         FinishNpcVoicePlayback(false);
         g_npc_scripting.quote_active = 1;
-        g_npc_scripting.message_started_at = GetTickCount();
+        g_npc_scripting.message_started_at = w8_get_ticks();
         g_npc_scripting.message_duration_ms = 700;
     }
 }
@@ -667,7 +666,7 @@ static void SpeakNpcSubquote(W8NpcScriptQuote* quote, unsigned char subquote_ind
             g_npc_scripting.portrait_message_active = true;
             SetNpcQuoteBubbleVisible(true, display_text, 0, -1, -1);
             g_npc_scripting.message_duration_ms = wcslen(display_text) * 60 + 2000;
-            g_npc_scripting.message_started_at = GetTickCount();
+            g_npc_scripting.message_started_at = w8_get_ticks();
             return;
         }
         ShowNotice(W8_FONT_PALETTE_TEXT_BOX, display_text, 0, GetTextBoxScrollRange());
@@ -749,11 +748,11 @@ static void SpeakNpcSubquote(W8NpcScriptQuote* quote, unsigned char subquote_ind
         if (monster != 0) {
             monster->StartTalking(true);
         }
-        g_npc_scripting.last_tick = GetTickCount();
+        g_npc_scripting.last_tick = w8_get_ticks();
         if (g_npc_scripting.voice_handle == SOUND_ERROR) {
             g_npc_scripting.voice_playing = false;
             g_npc_scripting.message_duration_ms = wcslen(display_text) * 60 + 2000;
-            g_npc_scripting.message_started_at = GetTickCount();
+            g_npc_scripting.message_started_at = w8_get_ticks();
             entry = GetNpcGroupEntry(g_npc_scripting.npc);
             if (entry != 0) {
                 SetPartyPortraitEventState(g_npc_scripting.npc->group_index, true,
@@ -850,7 +849,7 @@ void FinishNpcVoicePlayback(bool resume_script)
 void TryFinishNpcVoicePlayback(bool force)
 {
     if (g_status.world_cursor_gate == 0 || g_status.current_level != 4) {
-        if (!force && GetTickCount() - g_npc_scripting.last_tick <= 500) {
+        if (!force && w8_get_ticks() - g_npc_scripting.last_tick <= 500) {
             return;
         }
         FinishNpcVoicePlayback(true);
@@ -1513,7 +1512,7 @@ void ProcessMessageBoxQueue(void)
         SetNpcQuoteBubbleVisible(true, gppStringList[string_index], 0, -1, -1);
         g_npc_scripting.message_duration_ms =
             ComputePortraitMessageDuration(gppStringList[string_index]);
-        g_npc_scripting.message_started_at = GetTickCount();
+        g_npc_scripting.message_started_at = w8_get_ticks();
         break;
     }
     case W8_NPC_MSG_SKILL_NOTICES: {
@@ -1527,7 +1526,7 @@ void ProcessMessageBoxQueue(void)
                                      W8_QUOTE_NOTICE_SKILL_INCREASE, line->extra, -1);
             g_npc_scripting.message_duration_ms =
                 ComputePortraitMessageDuration(line->payload.text);
-            g_npc_scripting.message_started_at = GetTickCount();
+            g_npc_scripting.message_started_at = w8_get_ticks();
         }
         delete[] line->payload.text;
         break;
@@ -1545,7 +1544,7 @@ void ProcessMessageBoxQueue(void)
         g_npc_scripting.portrait_message_active = true;
         SetNpcQuoteBubbleVisible(true, line->payload.text, 0, -1, -1);
         g_npc_scripting.message_duration_ms = ComputePortraitMessageDuration(line->payload.text);
-        g_npc_scripting.message_started_at = GetTickCount();
+        g_npc_scripting.message_started_at = w8_get_ticks();
         delete[] line->payload.text;
         break;
     case W8_NPC_MSG_CLEAR_NPC_COMBAT:
@@ -1566,7 +1565,7 @@ void ProcessMessageBoxQueue(void)
         SetNpcQuoteBubbleVisible(true, line->payload.text, 0, -1, -1, W8_QUOTE_NOTICE_EXPERIENCE,
                                  line->extra, -1);
         g_npc_scripting.message_duration_ms = ComputePortraitMessageDuration(line->payload.text);
-        g_npc_scripting.message_started_at = GetTickCount();
+        g_npc_scripting.message_started_at = w8_get_ticks();
         delete[] line->payload.text;
         break;
     case W8_NPC_MSG_LEVEL_UP: {
@@ -1582,7 +1581,7 @@ void ProcessMessageBoxQueue(void)
                                      line->extra, -1);
             g_npc_scripting.message_duration_ms =
                 ComputePortraitMessageDuration(line->payload.text);
-            g_npc_scripting.message_started_at = GetTickCount();
+            g_npc_scripting.message_started_at = w8_get_ticks();
             delete[] line->payload.text;
         }
         break;
@@ -2593,7 +2592,7 @@ void NpcScriptHenchmanDeparted(W8Monster* monster)
 // FUNCTION: WIZ8 0x0052A190
 void NpcScriptSavantHackDone(W8Monster* monster)
 {
-    g_status.savant_hack_tick = GetTickCount();
+    g_status.savant_hack_tick = w8_get_ticks();
 }
 
 // FUNCTION: WIZ8 0x0052A1A0

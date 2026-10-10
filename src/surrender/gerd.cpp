@@ -3372,7 +3372,7 @@ void srGERD::dump(std::ostream& stream, const srFlags<e_info>& info)
     }
     if ((info.value & INFO_DEVICE) != 0) {
         stream << "Renderers used     : " << renderers.size() << std::endl;
-        /* reinterpret-ok: retail streams the HWND-valued handle through
+        /* reinterpret-ok: retail streams the SDL_Window*-valued handle through
            operator<<(const void*). */
         stream << "Window handle      : " << reinterpret_cast<const void*>(getWindowHandle())
                << std::endl;

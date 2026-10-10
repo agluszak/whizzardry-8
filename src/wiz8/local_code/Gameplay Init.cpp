@@ -408,11 +408,11 @@ void ResetGameplaySlot(unsigned int slot)
     record->previous_portrait_pose = -1;
     record->portrait_pose_dirty = false;
     record->portrait_frame_dirty = false;
-    record->portrait_frame_clock = GetTickCount() + (0);
+    record->portrait_frame_clock = w8_get_ticks() + (0);
     record->voice_time_remaining_ms = 0;
-    record->portrait_pose_clock = GetTickCount() + (0);
-    record->portrait_idle_clock = GetTickCount() + (Random(5000) + 5000);
-    record->portrait_fx_clock = GetTickCount() + (0);
+    record->portrait_pose_clock = w8_get_ticks() + (0);
+    record->portrait_idle_clock = w8_get_ticks() + (Random(5000) + 5000);
+    record->portrait_fx_clock = w8_get_ticks() + (0);
     record->damage_splat_active = false;
     record->damage_splat_death_variant = false;
     record->dead_portrait_revealed = false;
@@ -436,7 +436,7 @@ void ResetGameplaySlot(unsigned int slot)
     record->combat_portrait_dirty = false;
     record->acting_portrait_pulse = 0;
     record->level_up_ready = false;
-    record->acting_portrait_pulse_clock = GetTickCount() + (0);
+    record->acting_portrait_pulse_clock = w8_get_ticks() + (0);
 }
 
 /* The static initializer constructs the manager's entries and vector before

@@ -5,7 +5,6 @@
 #include "Types.h"
 #include <stdio.h>
 #include <stdarg.h>
-#include "compat/kernel32.h"
 #include <stdarg.h>
 #include <wchar.h>
 #include <algorithm>

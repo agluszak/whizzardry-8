@@ -1,7 +1,7 @@
 #pragma once
 
 #include <stddef.h>
-#include "wiz8/wiz8_windows.h"
+#include "wiz8/file_time.h"
 #include "wiz8/vector.h"
 
 bool VerifyDataSubdirs(void);
@@ -24,8 +24,8 @@ W8_ABI_ASSERT(sizeof(W8SaveScreenshot) == 0x2588, "W8SaveScreenshot_must_be_0x25
    the Options controller. The SHOT chunk occupies the embedded screenshot. */
 struct W8SaveSlot {
     wchar_t name[64];
-    FILETIME local_write_time;
-    SYSTEMTIME timestamp;
+    wiz8::DiskFileTime local_write_time;
+    wiz8::CivilTime timestamp;
     int game_time_days;
     unsigned int game_time_ms;
     int level_id;
@@ -78,7 +78,7 @@ bool MeasureLevelStatusChunks(W8Chunk* chunk, int level, unsigned int* empty_per
 
 extern bool g_save_pending;
 
-/* Mark a matching CHAR payload consumed in Saves\\CurrentGame.SAV. */
+/* Mark a matching char payload consumed in Saves\\CurrentGame.SAV. */
 bool MarkCurrentGameCharacterChunkConsumed(const char* path);
 /* Append one character record to Saves\\CurrentGame.SAV. `slot` is unused. */
 bool SaveCharacterToCurrentGame(const char* path, int slot, W8Character* character);

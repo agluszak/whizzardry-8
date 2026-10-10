@@ -234,14 +234,14 @@ public:
        lights carrying it so their toggled state persists in savegames. */
     bool m_save_marked; /* 0x23a */
     unsigned char m_padding_23b;
-    /* GetTickCount()/1000 timestamp of the last intensity/color update. */
+    /* w8_get_ticks()/1000 timestamp of the last intensity/color update. */
     float m_level_time;
     /* Current 0..1 sweep level driving intensity and the color lerp. */
     float m_level;
     W8PathAI* path_ai; /* 0x244 */
     /* Current path entry index, advanced by m_path_direction. */
     int m_path_index;
-    /* GetTickCount()/1000 timestamp of the last path advance. */
+    /* w8_get_ticks()/1000 timestamp of the last path advance. */
     float m_path_time;
     /* Path step direction, +1 or -1 under the ping-pong flag. */
     int m_path_direction;

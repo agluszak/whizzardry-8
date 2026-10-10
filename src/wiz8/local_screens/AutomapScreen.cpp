@@ -1,4 +1,3 @@
-#include "wiz8/wiz8_windows.h"
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/engine_code/BitArray.h"
 #include "wiz8/engine_code/stHash.hpp"
@@ -40,7 +39,6 @@
 #include "wiz8/video_object_catalog.h"
 #include "wiz8/item_video_object_vector.h"
 #include "wiz8/xstatus.h"
-#include "wiz8/wiz8_windows.h"
 #include "wiz8/regions.h"
 #include "wiz8/engine_code/Spells.h"
 #include "wiz8/local_code/Magic.h"
@@ -673,7 +671,7 @@ unsigned char AutomapScreenEnter(void)
             return 0;
         memset(g_automap_state, 0, sizeof(W8AutomapState));
     }
-    g_automap_state->blink_time = GetTickCount();
+    g_automap_state->blink_time = w8_get_ticks();
     g_automap_viewport.left = 12;
     g_automap_viewport.top = 32;
     g_automap_viewport.right = 467;
@@ -865,9 +863,9 @@ void AutomapScreenFrame(void)
                 g_automap_cursor_inside = false;
                 SetAutomapToolCursor(g_automap_tool);
             }
-            POINT point;
+            SGPPoint point;
             SGPMouseGetPos(&point);
-            MSYS_SGP_Mouse_Handler_Hook(MOUSE_POS, point.x, point.y, gfLeftButtonState,
+            MSYS_SGP_Mouse_Handler_Hook(MOUSE_POS, point.iX, point.iY, gfLeftButtonState,
                                         gfRightButtonState);
             unsigned short reason;
             switch (input.usEvent) {
@@ -887,7 +885,7 @@ void AutomapScreenFrame(void)
             default:
                 continue;
             }
-            MSYS_SGP_Mouse_Handler_Hook(reason, point.x, point.y, gfLeftButtonState,
+            MSYS_SGP_Mouse_Handler_Hook(reason, point.iX, point.iY, gfLeftButtonState,
                                         gfRightButtonState);
             continue;
         }
@@ -998,10 +996,10 @@ void AutomapScreenFrame(void)
     }
     if (moved)
         SetAutomapCameraPoint(&g_automap_position);
-    if (GetTickCount() - g_automap_state->blink_time > 500) {
+    if (w8_get_ticks() - g_automap_state->blink_time > 500) {
         if (g_automap_state->blink_enabled)
             DrawVideoInspector(0xdc, 0x32);
-        g_automap_state->blink_time = GetTickCount();
+        g_automap_state->blink_time = w8_get_ticks();
     }
     RenderAutomapFrame();
 }

@@ -9,7 +9,6 @@
 #include "wiz8/sr_api.h"
 #include "surrender/srCore.h"
 #include "surrender/srGERD.h"
-#include "wiz8/wiz8_windows.h"
 #include "surrender/srMaterial.h"
 #include "surrender/srTriangleCuller.h"
 
@@ -52,7 +51,7 @@ stMeshModel::stMeshModel(w8_long polygons, w8_long vertices)
     ambient_color = -1.0f;
     vertex_light_table = 0;
     vertex_compression_scale = 1.0f;
-    last_decompress_release_tick = GetTickCount();
+    last_decompress_release_tick = w8_get_ticks();
     render_control.value &= ~0x10UL;
     setDirty(DIRTY_BOUNDS);
     automap_filter_active = false;
@@ -634,7 +633,7 @@ void stMeshModel::RenderTriMeshWithEquations(srGERD& renderer, const TriMesh& me
         }
 
         renderer.popEnable();
-        last_decompress_release_tick = GetTickCount();
+        last_decompress_release_tick = w8_get_ticks();
     }
 }
 
@@ -816,7 +815,7 @@ int stMeshModel::ReleaseDecompressedFrames()
             }
         }
     }
-    last_decompress_release_tick = GetTickCount();
+    last_decompress_release_tick = w8_get_ticks();
     g_decompressed_mesh_bytes -= released;
     return released;
 }
@@ -992,7 +991,7 @@ unsigned char stMeshModel::AllocateFrameBuffers(unsigned int uiFrame, unsigned c
     allocate(frame.locations, vertex_location_count, W8_MESH_FRAME_LOCATIONS);
     allocate(frame.vertex_normals, vertex_location_count, W8_MESH_FRAME_VERTEX_NORMALS);
     allocate(frame.polygon_normals, polygon_count, W8_MESH_FRAME_POLYGON_NORMALS);
-    last_decompress_release_tick = GetTickCount();
+    last_decompress_release_tick = w8_get_ticks();
     return 1;
 }
 

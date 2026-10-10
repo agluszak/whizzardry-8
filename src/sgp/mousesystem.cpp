@@ -10,7 +10,6 @@
 //  Re-Written by Kris Morness, since...
 
 #include "Types.h"
-#include "compat/kernel32.h"
 #include <stdio.h>
 #include <memory.h>
 #include <algorithm>
@@ -536,7 +535,7 @@ void MSYS_UpdateMouseRegion(void)
                         //Kris: Nov 31, 1999 -- Added support for double click events.
                         //This is where double clicks are checked and passed down.
                         if (ButtonReason == MSYS_CALLBACK_REASON_LBUTTON_DWN) {
-                            UINT32 uiCurrTime = GetTickCount();
+                            UINT32 uiCurrTime = w8_get_ticks();
                             if (gpRegionLastLButtonDown == MSYS_CurrRegion &&
                                 gpRegionLastLButtonUp == MSYS_CurrRegion &&
                                 uiCurrTime <=
@@ -549,10 +548,10 @@ void MSYS_UpdateMouseRegion(void)
                                 guiRegionLastLButtonDownTime = 0;
                             } else { //First click, record time and region pointer (to check if 2nd click detected later)
                                 gpRegionLastLButtonDown = MSYS_CurrRegion;
-                                guiRegionLastLButtonDownTime = GetTickCount();
+                                guiRegionLastLButtonDownTime = w8_get_ticks();
                             }
                         } else if (ButtonReason == MSYS_CALLBACK_REASON_LBUTTON_UP) {
-                            UINT32 uiCurrTime = GetTickCount();
+                            UINT32 uiCurrTime = w8_get_ticks();
                             if (gpRegionLastLButtonDown == MSYS_CurrRegion &&
                                 uiCurrTime <=
                                     guiRegionLastLButtonDownTime +
@@ -881,7 +880,7 @@ void RenderFastHelp()
     if (!gfRenderHilights)
         return;
 
-    iCurrentClock = GetTickCount();
+    iCurrentClock = w8_get_ticks();
     iTimeDifferential = iCurrentClock - iLastClock;
     if (iTimeDifferential < 0)
         iTimeDifferential += 0x7fffffff;
@@ -903,7 +902,7 @@ void RenderFastHelp()
                 if (MSYS_CurrRegion->uiFlags & MSYS_MOUSE_IN_AREA &&
                     !MSYS_CurrRegion->ButtonState) // & (MSYS_LEFT_BUTTON|MSYS_RIGHT_BUTTON)) )
                 {
-                    MSYS_CurrRegion->FastHelpTimer -= (INT16)max(iTimeDifferential, 0);
+                    MSYS_CurrRegion->FastHelpTimer -= (INT16)std::max(iTimeDifferential, 0);
 
                     if (MSYS_CurrRegion->FastHelpTimer < 0) {
                         MSYS_CurrRegion->FastHelpTimer = 0;

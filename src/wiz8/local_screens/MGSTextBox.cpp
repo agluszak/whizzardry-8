@@ -279,7 +279,7 @@ static void AppendNoticeLine(unsigned char font_palette, const wchar_t* text, sh
         if (delay > 60000) {
             delay = 60000;
         }
-        last->clock = GetTickCount() + (delay);
+        last->clock = w8_get_ticks() + (delay);
     }
 }
 
@@ -935,7 +935,7 @@ void AdvanceNoticeLine(short text_box)
     if (delay > 60000) {
         delay = 60000;
     }
-    record->clock = GetTickCount() + (delay);
+    record->clock = w8_get_ticks() + (delay);
     unsigned int shown = ++g_status.text_box_lines_shown[text_box];
     if (g_level_block->text_scroll_drag_idle) {
         if (gXStatus.fNpcDialogueMode && g_npc_interaction_state->text_box_collapsed) {
@@ -1619,7 +1619,7 @@ unsigned char TextBoxBodyRegionEvent(const InputAtom* event, W8Region* region)
 // FUNCTION: WIZ8 0x0058EFD0
 unsigned char TextBoxChannelTabRegionEvent(const InputAtom* event, W8Region* region)
 {
-    POINT mouse_pos;
+    SGPPoint mouse_pos;
 
     PushButtonSoundScheme(0, true);
     SGPMouseGetPos(&mouse_pos);

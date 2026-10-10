@@ -335,14 +335,14 @@ bool W8MessageDialogBase::HandleInput(const InputAtom* input)
 // FUNCTION: WIZ8 0x005d3080
 bool W8MessageDialogBase::ProcessInput()
 {
-    POINT mouse;
+    SGPPoint mouse;
     InputAtom input;
 
     SGPMouseGetPos(&mouse);
-    MSYS_SGP_Mouse_Handler_Hook(MOUSE_POS, mouse.x, mouse.y, gfLeftButtonState, gfRightButtonState);
+    MSYS_SGP_Mouse_Handler_Hook(MOUSE_POS, mouse.iX, mouse.iY, gfLeftButtonState, gfRightButtonState);
 
     while (DequeueEvent(&input)) {
-        if (!DispatchDialogMouseInput(input.usEvent, mouse.x, mouse.y)) {
+        if (!DispatchDialogMouseInput(input.usEvent, mouse.iX, mouse.iY)) {
             return HandleInput(&input);
         }
     }

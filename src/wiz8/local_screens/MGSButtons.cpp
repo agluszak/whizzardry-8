@@ -238,7 +238,7 @@ void OpenSubMenuPanel(short notification)
         DestroySubMenuControls();
     }
     SetSubMenuButtonTooltips(0);
-    g_submenu_clock = GetTickCount() + (0);
+    g_submenu_clock = w8_get_ticks() + (0);
     g_submenu_close_pending = false;
     RequestRedraw(W8_MAIN_REDRAW_LAYOUT);
 }
@@ -428,7 +428,7 @@ static void MainGameCombatConfirmButton(W8DialogButton* button)
     if (TimeUntilDeadline(g_combat_state->combat_ui_timer) == 0) {
         return;
     }
-    g_combat_state->combat_ui_timer = GetTickCount() + (0);
+    g_combat_state->combat_ui_timer = w8_get_ticks() + (0);
 }
 
 // FUNCTION: WIZ8 0x00597ED0
@@ -1280,7 +1280,7 @@ void UpdateSubMenuAutoClose(void)
                              gpSubMenuPanel->m_bounds.top + 0x1c)) {
     check_clock:
         if (!g_submenu_close_pending) {
-            g_submenu_clock = GetTickCount() + (500);
+            g_submenu_clock = w8_get_ticks() + (500);
             g_submenu_close_pending = true;
             return;
         }
@@ -1288,7 +1288,7 @@ void UpdateSubMenuAutoClose(void)
             DestroySubMenuControls();
         }
     } else if (g_submenu_close_pending) {
-        g_submenu_clock = GetTickCount() + (0);
+        g_submenu_clock = w8_get_ticks() + (0);
         g_submenu_close_pending = false;
     }
 }

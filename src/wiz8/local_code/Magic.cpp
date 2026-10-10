@@ -2183,7 +2183,7 @@ static bool CheckAndRestartSpellCooldown(int spell_id)
             if (TimeUntilDeadline(gXStatus.spell_cooldown_clocks[index]) != 0) {
                 affected = false;
             }
-            gXStatus.spell_cooldown_clocks[index] = GetTickCount() + (180000);
+            gXStatus.spell_cooldown_clocks[index] = w8_get_ticks() + (180000);
             break;
         }
     }

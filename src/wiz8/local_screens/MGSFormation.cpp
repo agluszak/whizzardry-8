@@ -319,7 +319,7 @@ void OpenFormationPanel(void)
         g_formation_active_cell = -1;
         g_formation_drag_cell = -1;
         g_formation_drag_slot = -1;
-        g_formation_drag_clock = GetTickCount() + (0);
+        g_formation_drag_clock = w8_get_ticks() + (0);
         gXStatus.fReviewCharacterMode = true;
         RegionSetEnable(0x1b);
         RequestRedraw(W8_MAIN_REDRAW_SUBMENU_BUTTONS);
@@ -489,7 +489,7 @@ unsigned char FormationCellRegionEvent(const InputAtom* event, W8Region* region)
                 g_formation_cell_controls[region->callback_id]->OnLeftButtonDown(0);
                 g_formation_cell_overlays[region->callback_id]->Invalidate(false);
                 region->flags |= W8_REGION_LEFT_BUTTON_HELD;
-                g_formation_drag_clock = GetTickCount() + (0xfa);
+                g_formation_drag_clock = w8_get_ticks() + (0xfa);
                 return 1;
             }
             if (event->usEvent != LEFT_BUTTON_UP) {
@@ -551,7 +551,7 @@ unsigned char FormationActionRegionEvent(const InputAtom* event, W8Region* regio
 // FUNCTION: WIZ8 0x005b2d70
 unsigned char FormationBackgroundRegionEvent(const InputAtom* event, W8Region*)
 {
-    POINT point;
+    SGPPoint point;
     if (!gXStatus.fReviewCharacterMode) {
         return 0;
     }
@@ -564,7 +564,7 @@ unsigned char FormationBackgroundRegionEvent(const InputAtom* event, W8Region*)
         }
         return 1;
     case MOUSE_POS:
-        if ((point.x < 234 || point.x > 406 || point.y < 80 || point.y > 252) &&
+        if ((point.iX < 234 || point.iX > 406 || point.iY < 80 || point.iY > 252) &&
             g_formation_drag_cell != -1) {
             DropFormationSlot(-1);
         }
@@ -578,7 +578,7 @@ unsigned char FormationBackgroundRegionEvent(const InputAtom* event, W8Region*)
 // FUNCTION: WIZ8 0x005b2e10
 static void BeginFormationDrag(const InputAtom*)
 {
-    POINT point;
+    SGPPoint point;
     unsigned short region;
     unsigned int video_object;
     int sprite;
@@ -598,7 +598,7 @@ static void BeginFormationDrag(const InputAtom*)
                      static_cast<short>(
                          g_formation_cell_overlays[g_formation_drag_cell]->m_alternateNormalSprite),
                      0, 0, VO_BLT_SRCTRANSPARENCY, 0);
-    WarpSystemCursor(point.x - 0x10, point.y - 0x10);
+    WarpSystemCursor(point.iX - 0x10, point.iY - 0x10);
     RefreshMouseCursorTexture();
     gXStatus.iCurrentCursor = W8_CURSOR_INVALID_TARGET;
     ResetFormationCellControls(g_formation_drag_cell);

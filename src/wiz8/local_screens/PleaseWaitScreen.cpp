@@ -8,7 +8,6 @@
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/engine_code/World.h"
 #include "wiz8/engine_code/Levels.h"
-#include "wiz8/wiz8_windows.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/layouts/screen_state.h"
 #include "wiz8/local_code/Gameloop.h"
@@ -141,7 +140,7 @@ unsigned char PleaseWaitScreenEnter(void)
     SetPrimarySurfaceTextureHint2Enabled(false);
     DisableCursorScene();
     g_load_descriptor->caption_y = 0;
-    g_load_descriptor->entered_tick = GetTickCount();
+    g_load_descriptor->entered_tick = w8_get_ticks();
     g_swap_disc_dialog_poll_count = 0;
     return 1;
 }
@@ -160,7 +159,7 @@ static bool PleaseWaitScreenEnsureLevelArchive(int level)
         if (IsLevelCdMissing(level)) {
             g_load_descriptor->waiting = true;
             g_load_descriptor->parameter = level;
-            g_load_descriptor->entered_tick = GetTickCount();
+            g_load_descriptor->entered_tick = w8_get_ticks();
             if (!g_swap_disc_dialog) {
                 g_swap_disc_dialog = new W8MessageDialogBase;
                 g_swap_disc_dialog->SetBackground("Data\\Dialogs\\DialogBackground.sti", 0);
@@ -218,7 +217,7 @@ void PleaseWaitScreenFrame(void)
                 RenderFrame();
                 return;
             }
-        } else if (GetTickCount() - g_load_descriptor->entered_tick > 200) {
+        } else if (w8_get_ticks() - g_load_descriptor->entered_tick > 200) {
             if (!IsLevelCdMissing(g_load_descriptor->parameter)) {
                 g_load_descriptor->waiting = false;
                 wiz8::refresh_asset_archives();
@@ -227,7 +226,7 @@ void PleaseWaitScreenFrame(void)
                 g_swap_disc_dialog->is_open = true;
                 g_swap_disc_dialog_poll_count = 0;
             }
-            g_load_descriptor->entered_tick = GetTickCount();
+            g_load_descriptor->entered_tick = w8_get_ticks();
         }
         RenderFrame();
         return;
@@ -292,7 +291,7 @@ void PleaseWaitScreenFrame(void)
         if (g_load_descriptor->save_payload) {
             delete g_load_descriptor->save_payload;
         }
-        while (GetTickCount() - g_load_descriptor->entered_tick < 500) {
+        while (w8_get_ticks() - g_load_descriptor->entered_tick < 500) {
         }
         break;
     }
@@ -352,7 +351,7 @@ void UpdatePleaseWaitLoadFrame(void)
 
     SoundServiceStreams();
     ServiceMusicPlaylist();
-    tick = GetTickCount();
+    tick = w8_get_ticks();
     if (tick - g_load_descriptor->entered_tick > 499) {
         g_load_descriptor->caption_y = (g_load_descriptor->caption_y + 1) % 0x18;
         g_load_descriptor->entered_tick = tick;

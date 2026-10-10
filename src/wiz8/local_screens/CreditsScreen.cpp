@@ -9,7 +9,6 @@
 #include "wiz8/video_object_catalog.h"
 #include "wiz8/fonts.h"
 #include "wiz8/virtual_file.h"
-#include "wiz8/wiz8_windows.h"
 
 #include "wiz8/filesystem.h"
 #include "Font.h"
@@ -129,7 +128,7 @@ try
     g_credit_line = 0;
     g_credit_elapsed_steps = 0;
     g_credit_y = 0x1df;
-    g_credit_started_at = GetTickCount();
+    g_credit_started_at = w8_get_ticks();
     g_credit_redraw = true;
     return 1;
 }
@@ -159,18 +158,18 @@ unsigned char CreditsScreenLeave(int)
 // FUNCTION: WIZ8 0x005bc530
 void CreditsScreenFrame(void)
 {
-    POINT point;
+    SGPPoint point;
     InputAtom input;
 
     SGPMouseGetPos(&point);
-    UpdateRegionMousePosition(point.x, point.y);
+    UpdateRegionMousePosition(point.iX, point.iY);
     while (DequeueEvent(&input) == 1) {
         if (!DispatchRegionInput(&input) && input.usEvent == KEY_DOWN) {
             RequestScreenTransition();
         }
     }
 
-    int steps = (GetTickCount() - g_credit_started_at) / 35 - g_credit_elapsed_steps;
+    int steps = (w8_get_ticks() - g_credit_started_at) / 35 - g_credit_elapsed_steps;
     if (steps >= 1) {
         g_credit_elapsed_steps += steps;
         g_credit_redraw = true;

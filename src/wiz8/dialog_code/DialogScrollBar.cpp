@@ -191,16 +191,16 @@ void W8DialogScrollBar::ScrollToMouse()
 {
     if (m_view_height / m_entry_height < m_entry_count && m_entry_count != -1 &&
         m_first_visible_entry != -1) {
-        POINT mouse;
+        SGPPoint mouse;
         SGPMouseGetPos(&mouse);
-        if (mouse.y < m_track_bounds.top)
-            mouse.y = m_track_bounds.top;
-        if (mouse.y > m_track_bounds.bottom)
-            mouse.y = m_track_bounds.bottom;
+        if (mouse.iY < m_track_bounds.top)
+            mouse.iY = m_track_bounds.top;
+        if (mouse.iY > m_track_bounds.bottom)
+            mouse.iY = m_track_bounds.bottom;
         int top = m_track_bounds.top;
         int range = m_track_bounds.bottom - top - GetButtonHeight(m_thumb_button);
         m_first_visible_entry =
-            (m_entry_count - m_view_height / m_entry_height) * (mouse.y - top) / range;
+            (m_entry_count - m_view_height / m_entry_height) * (mouse.iY - top) / range;
         if (m_on_scroll) {
             m_on_scroll(this, m_first_visible_entry);
         }

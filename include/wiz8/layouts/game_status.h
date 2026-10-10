@@ -177,7 +177,7 @@ struct W8GlobalStatus {
        the level-4 setup; the setup skips its work while this or world_suspended
        holds. */
     bool cc_arena_spawned;
-    /* 0x4973/0x4977: GetTickCount stamps. NpcScriptSavantHackDone writes the
+    /* 0x4973/0x4977: w8_get_ticks stamps. NpcScriptSavantHackDone writes the
        first; UpdateNpcEvents retires NPC 0x1b3 fifty ticks later and starts
        the second, which gates monster group 0x1b6's Bela cycle after five
        seconds. */

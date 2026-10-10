@@ -2362,7 +2362,7 @@ void AnnounceMonsterAttack(W8MonsterInfo* monster_info, W8MonsterRecord* record,
    bonus, the attack-mode term, the caught-unaware and natural-attack bonuses,
    the fatigue penalty - halved for modern weapons - and a repick-count
    surprise term. When the flag is clear the target's armour class and the
-   INT/DEX/SPEED/SENSES differential count too; a blinded attacker caps at ten
+   int/DEX/SPEED/SENSES differential count too; a blinded attacker caps at ten
    unless a trait lets it fight blind. Finally the difficulty scaler runs. */
 // FUNCTION: WIZ8 0x00541c00
 static int GetTargetAttackAttributes(int party_slot, int hand, W8AttackMode attack_mode,

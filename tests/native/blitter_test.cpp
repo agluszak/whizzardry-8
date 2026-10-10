@@ -3,7 +3,7 @@
 // The same inputs run against the legacy assembly and the native C++ paths.
 // --capture emits per-case hashes of every destination byte, the return value
 // and the caller's rectangle (some legacy blitters modify it).
-#include "compat/kernel32.h"
+#include "Types.h"
 #include "vobject_blitters.h"
 #include <stdint.h>
 #include <algorithm>

@@ -87,7 +87,6 @@
 #include "wiz8/music_playlist.h"
 #include "wiz8/layouts/npc_state.h"
 #include "wiz8/local_code/NPCScripting.h"
-#include "wiz8/wiz8_windows.h"
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -1455,7 +1454,7 @@ void W8Monster::Update()
             switch (cycle) {
             case W8_MONSTER_CYCLE_TALK:
                 if (Query(W8_MONSTER_QUERY_CYCLE_COMPLETE) != 0) {
-                    if (talk_duration < GetTickCount() - talk_start && IsCycleSupported(0x17)) {
+                    if (talk_duration < w8_get_ticks() - talk_start && IsCycleSupported(0x17)) {
                         m_pRep->pending_cycle = 0x17;
                     } else {
                         m_pRep->pending_cycle = 0x18;
@@ -1474,7 +1473,7 @@ void W8Monster::Update()
                            pending_subcycle, so TALK keeps the current frame
                            (clamped by ApplyPendingCycle) instead of frame 0. */
                         talk_state = 0x17;
-                        talk_start = GetTickCount();
+                        talk_start = w8_get_ticks();
                         talk_duration = Random(2000) + 2000;
                         m_pRep->pending_cycle = 0x18;
                         m_pRep->frame_direction = W8_ANIMATION_FORWARD;
@@ -2849,10 +2848,10 @@ void W8Monster::StartTalking(bool animate_mouth)
     if (m_pRep != 0) {
         talking = true;
         this->animate_mouth = animate_mouth;
-        mouth_frame_clock = GetTickCount();
+        mouth_frame_clock = w8_get_ticks();
         mouth_open = 0;
         talk_state = -1;
-        talk_start = GetTickCount();
+        talk_start = w8_get_ticks();
         talk_duration = Random(2000) + 2000;
         m_pRep->pending_cycle = 0x18;
         m_pRep->pending_behaviour = W8_ANIMATION_PLAY_ONCE;
@@ -3260,9 +3259,9 @@ void W8Monster::UpdateRepresentation(W8World* world)
                 mouth->animation_mode = W8_TEXTURE_ANIM_MANUAL;
                 mouth->SetFrame(0);
             }
-        } else if (GetTickCount() - mouth_frame_clock > 120) {
+        } else if (w8_get_ticks() - mouth_frame_clock > 120) {
             unsigned short frame;
-            mouth_frame_clock = GetTickCount();
+            mouth_frame_clock = w8_get_ticks();
             do {
                 frame = static_cast<unsigned short>(Random(6));
                 if (frame > 3) {
@@ -3452,7 +3451,7 @@ void W8Monster::SetCycle(signed char cycle)
         subcycle = 0;
     } else if (m_pRep->forced_subcycle == -1 || count <= m_pRep->forced_subcycle) {
         if ((runtime_flags & W8_MONSTER_KEEP_SUBCYCLE) == 0) {
-            subcycle = static_cast<signed char>(GetTickCount() % count);
+            subcycle = static_cast<signed char>(w8_get_ticks() % count);
         } else {
             runtime_flags &= ~W8_MONSTER_KEEP_SUBCYCLE;
             subcycle = m_pRep->current_subcycle;

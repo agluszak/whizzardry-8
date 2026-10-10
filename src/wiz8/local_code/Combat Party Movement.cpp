@@ -87,7 +87,7 @@ void UpdateActivePartyMovement(void)
         g_level_block->move_percent_shown = g_level_block->move_percent;
     }
     if (g_settings.continuous_combat != 0) {
-        g_combat_state->party_movement_clock = GetTickCount() + (1000);
+        g_combat_state->party_movement_clock = w8_get_ticks() + (1000);
     }
 
 check_completion:
@@ -462,7 +462,7 @@ void FinishPartyMovementAction(void)
     EnableFreeTurnButton();
     InvalidatePartyMovementPanel();
     if (g_settings.continuous_combat != 0) {
-        g_combat_state->party_movement_clock = GetTickCount() + (1000);
+        g_combat_state->party_movement_clock = w8_get_ticks() + (1000);
     }
     TurnPartyTo(g_status.party_heading);
     g_combat_state->uiCurrentPartyActionStatus = W8_PARTY_ACTION_IN_PROGRESS;

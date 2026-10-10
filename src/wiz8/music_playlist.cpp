@@ -4,7 +4,6 @@
 #include "wiz8/local_code/Configuration.h"
 #include "wiz8/music_playlist.h"
 #include "wiz8/regions.h"
-#include "wiz8/wiz8_windows.h"
 #include "random.h"
 #include "soundman.h"
 
@@ -79,7 +78,7 @@ unsigned char InitializeMusicPlaylist(void)
     if (g_music_playlist) {
         g_music_playlist->setName("Music Playlist");
     }
-    g_music_playlist_tick = GetTickCount();
+    g_music_playlist_tick = w8_get_ticks();
     g_music_pause_min_seconds = 0;
     g_music_pause_max_seconds = 0;
     g_music_pause_chance_percent = 0;
@@ -134,14 +133,14 @@ void ServiceMusicPlaylist(void)
     if (g_music_sample_handle != -1 && SoundIsPlaying(g_music_sample_handle) != 0) {
         return;
     }
-    if (GetTickCount() <= g_music_playlist_tick) {
+    if (w8_get_ticks() <= g_music_playlist_tick) {
         return;
     }
 
     if (!g_music_force_next && !gXStatus.fCombatMode &&
         Random(100) <= static_cast<unsigned int>(g_music_pause_chance_percent)) {
         g_music_playlist_tick =
-            GetTickCount() + g_music_pause_min_seconds * 1000 +
+            w8_get_ticks() + g_music_pause_min_seconds * 1000 +
             Random(g_music_pause_max_seconds * 1000 - g_music_pause_min_seconds * 1000);
         return;
     }
@@ -236,7 +235,7 @@ unsigned char StartMusicResource(const char* resource, int fade, unsigned char r
         return 1;
     }
 
-    g_music_playlist_tick = GetTickCount() - 1;
+    g_music_playlist_tick = w8_get_ticks() - 1;
     g_music_pause_min_seconds = 0;
     g_music_pause_max_seconds = 0;
     g_music_pause_chance_percent = 0;
