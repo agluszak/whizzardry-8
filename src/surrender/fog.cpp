@@ -182,11 +182,5 @@ void srFog::dump(std::ostream& stream)
     srSetStreamFlags(stream, flags & 0x7fff);
 }
 
-// FUNCTION: SURRENDER 0x1004C1B0
-srClass* srFog::vInstance()
-{
-    return new srFog;
-}
-
 // FUNCTION: SURRENDER 0x1004C350
 srFog::~srFog() {}

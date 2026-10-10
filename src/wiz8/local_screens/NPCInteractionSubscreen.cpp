@@ -495,6 +495,7 @@ void ResetMainScreenStateBlock(void)
 {
     int unset = -1;
 
+    ClearNpcDialogueTranscript();
     *g_npc_interaction_state = {};
     g_npc_interaction_state->dialogue_category_filter = unset;
     g_npc_interaction_state->transcript_sorted = false;

@@ -10,37 +10,35 @@
 
 /* Preserve partial state and unchecked reads/allocations on failure. */
 
-/* Free each record's string table and the first entry's sub-entry array. The
-   header, name, quotes array, and remaining entry allocations are left for
-   the caller; NPC rebinding overwrites the pointer without releasing them. */
+// Each loaded script owns its header, name, quotes, entries, and text arrays.
 // FUNCTION: WIZ8 0x0055a0a0
 void ReleaseNpcScriptFile(W8NpcScriptFile* file)
 {
-    W8NpcScriptQuote* record;
-    unsigned int index;
-    unsigned int string_index;
-
-    if (file == 0) {
-        return;
-    }
-    if (file->quote_count == 0) {
-        return;
-    }
-    for (index = 0; index < file->quote_count; ++index) {
-        record = file->quotes + index;
-        if (record == 0) {
-            continue;
-        }
-        if (record->entries != 0 && record->entries->sub_entries != 0) {
-            free(record->entries->sub_entries);
-        }
-        if (record->subquotes != 0) {
-            for (string_index = 0; string_index < record->subquote_count; ++string_index) {
-                free(record->subquotes[string_index]);
+    if (!file) return;
+    if (file->quotes) {
+        for (unsigned int index = 0; index < file->quote_count; ++index) {
+            auto& quote = file->quotes[index];
+            if (quote.entries) {
+                for (unsigned int entry_index = 0; entry_index < quote.entry_count; ++entry_index) {
+                    auto& entry = quote.entries[entry_index];
+                    if (entry.sub_entries) {
+                        for (unsigned int sub = 0; sub < entry.sub_entry_count; ++sub)
+                            free(entry.sub_entries[sub].text);
+                        free(entry.sub_entries);
+                    }
+                }
+                free(quote.entries);
             }
-            free(record->subquotes);
+            if (quote.subquotes) {
+                for (unsigned int sub = 0; sub < quote.subquote_count; ++sub)
+                    free(quote.subquotes[sub]);
+                free(quote.subquotes);
+            }
         }
+        free(file->quotes);
     }
+    free(file->name);
+    free(file);
 }
 
 // FUNCTION: WIZ8 0x0055a140
@@ -59,17 +57,19 @@ try
     int sub_index;
     wchar_t wide[2000];
 
-    ((transferred = handle->read(record, sizeof(*record)).bytes) == static_cast<std::size_t>(sizeof(*record)));
+    W8NpcScriptQuote disk_record{};
+    transferred = handle->read(&disk_record, sizeof(disk_record)).bytes;
     if (transferred != sizeof(*record)) {
         return 0;
     }
 
-    const bool has_subquotes = W8SerializedPointerPresent(record->subquotes);
+    const bool has_subquotes = W8SerializedPointerPresent(disk_record.subquotes);
+    *record = disk_record;
     record->subquotes = 0;
     record->entries = 0;
     if (has_subquotes) {
         ((transferred = handle->read(record, 1).bytes) == static_cast<std::size_t>(1));
-        record->subquotes = static_cast<char**>(malloc(record->subquote_count * sizeof(char*)));
+        record->subquotes = static_cast<char**>(calloc(record->subquote_count, sizeof(char*)));
         for (index = 0; index < record->subquote_count; ++index) {
             ((transferred = handle->read(&length, 2).bytes) == static_cast<std::size_t>(2));
             record->subquotes[index] = 0;
@@ -102,10 +102,12 @@ try
 
     for (index = 0; index < record->entry_count; ++index) {
         entry = &record->entries[index];
-        ((transferred = handle->read(entry, sizeof(*entry)).bytes) == static_cast<std::size_t>(sizeof(*entry)));
+        W8NpcQuoteEntry disk_entry{};
+        transferred = handle->read(&disk_entry, sizeof(disk_entry)).bytes;
         if (transferred != sizeof(*entry)) {
             return 0;
         }
+        *entry = disk_entry;
         disk_sub_count = entry->sub_entry_count;
         entry->sub_entries = 0;
         if (disk_sub_count != 0) {
@@ -118,11 +120,13 @@ try
             memset(entry->sub_entries, 0, disk_sub_count * sizeof(*entry->sub_entries));
             for (sub_index = 0; sub_index < entry->sub_entry_count; ++sub_index) {
                 sub_entry = entry->sub_entries + sub_index;
-                ((transferred = handle->read(sub_entry, 8).bytes) == static_cast<std::size_t>(8));
+                W8NpcQuoteSubEntry disk_sub_entry{};
+                transferred = handle->read(&disk_sub_entry, 8).bytes;
                 if (transferred != 8) {
                     return 0;
                 }
-                const bool has_text = W8SerializedPointerPresent(sub_entry->text);
+                const bool has_text = W8SerializedPointerPresent(disk_sub_entry.text);
+                *sub_entry = disk_sub_entry;
                 sub_entry->text = 0;
                 if (has_text) {
                     ((transferred = handle->read(&length, 2).bytes) == static_cast<std::size_t>(2));
@@ -147,10 +151,7 @@ try
 }
 catch (const std::exception&) { return false; }
 
-/* Load the whole file: the fixed header, the optional length-prefixed name, then
-   one 0x0c-byte record per header count. Every failure returns without releasing
-   what it already allocated, which is the original's behaviour and not an
-   omission here. */
+/* Load into a single owner so short reads also release partially initialized records. */
 // FUNCTION: WIZ8 0x0055a480
 W8NpcScriptFile* LoadNpcScriptFile(char* path)
 {
@@ -166,17 +167,14 @@ W8NpcScriptFile* LoadNpcScriptFile(char* path)
     if (handle == 0) {
         return 0;
     }
-    file = static_cast<W8NpcScriptFile*>(malloc(sizeof(W8NpcScriptFile)));
-    if (file == 0) {
-        return 0;
-    }
-    ((transferred = handle->read(file, sizeof(*file)).bytes) == static_cast<std::size_t>(sizeof(*file)));
-    if (transferred != sizeof(*file)) {
-        return 0;
-    }
-    const bool has_name = W8SerializedPointerPresent(file->name);
-    file->name = 0;
-    file->quotes = 0;
+    W8NpcScriptFile header{};
+    if (handle->read(&header, sizeof(header)).bytes != sizeof(header)) return nullptr;
+    const bool has_name = W8SerializedPointerPresent(header.name);
+    file = static_cast<W8NpcScriptFile*>(calloc(1, sizeof(W8NpcScriptFile)));
+    if (!file) return nullptr;
+    std::unique_ptr<W8NpcScriptFile, decltype(&ReleaseNpcScriptFile)> owner(file, &ReleaseNpcScriptFile);
+    memcpy(file->unknown_00, header.unknown_00, sizeof(file->unknown_00));
+    file->quote_count = header.quote_count;
     if (has_name) {
         ((transferred = handle->read(&length, 2).bytes) == static_cast<std::size_t>(2));
         if (transferred != 2) {
@@ -195,7 +193,7 @@ W8NpcScriptFile* LoadNpcScriptFile(char* path)
             file->name[length] = 0;
         }
     }
-    quotes = static_cast<W8NpcScriptQuote*>(malloc(file->quote_count * sizeof(W8NpcScriptQuote)));
+    quotes = static_cast<W8NpcScriptQuote*>(calloc(file->quote_count, sizeof(W8NpcScriptQuote)));
     file->quotes = quotes;
     if (quotes == 0) {
         return 0;
@@ -207,5 +205,5 @@ W8NpcScriptFile* LoadNpcScriptFile(char* path)
     }
     if (handle) handle->close();
     handle.reset();
-    return file;
+    return owner.release();
 }

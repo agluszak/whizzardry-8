@@ -333,24 +333,6 @@ int srPalette::matchPalette(const srARGB* const colors, w8_long color_count) con
     return 1;
 }
 
-// FUNCTION: SURRENDER 0x100041A0
-srPalette* srPalette::findMatchingPalette(const srARGB* const colors, w8_long color_count)
-{
-    srPalette* palette = 0;
-    while (true) {
-        srRegistry* registry = srCore.getRegistry();
-        srRegistry::ClassNode* node = srPalette::sGetClassNode();
-        palette = static_cast<srPalette*>(registry->findExact(node, palette));
-        if (palette == 0) {
-            break;
-        }
-        if (palette->matchPalette(colors, color_count) != 0) {
-            return palette;
-        }
-    }
-    return 0;
-}
-
 // FUNCTION: SURRENDER 0x10004210
 void srPalette::releaseQuantizer()
 {
@@ -514,12 +496,6 @@ const srARGB* srPalette::getPaletteDataPtr()
 const char* srPalette::sGetClassName()
 {
     return "srPalette";
-}
-
-// FUNCTION: SURRENDER 0x10004970
-srClass* srPalette::vInstance()
-{
-    return new srPalette(0, 1);
 }
 
 // FUNCTION: SURRENDER 0x100067D0
@@ -741,10 +717,9 @@ void srPalette::Sampler::addSurfaces(srColorSurfaceIFace** surfaces, w8_long sur
 void srPalette::Sampler::addSurface(const char* name, w8_long weight)
 {
     if ((name != 0) && (*name != '\0')) {
-        srColorSurfaceIFace* surface = srImage::load(name);
+        auto surface = srImage::load(name);
         if (surface != 0) {
             addSurface(*surface, weight);
-            surface->release();
         }
     }
 }
@@ -796,7 +771,7 @@ void srPalette::Sampler::dump(std::ostream& stream)
 }
 
 // FUNCTION: SURRENDER 0x10006190
-srPalette* srPalette::Sampler::createOptimalPalette()
+std::shared_ptr<srPalette> srPalette::Sampler::createOptimalPalette()
 {
     Optimizer::PaletteInfo info;
     info.color_count = color_count;
@@ -821,7 +796,7 @@ srPalette* srPalette::Sampler::createOptimalPalette()
             break;
         }
     }
-    srPalette* palette = Optimizer::createOptimalPalette(info);
+    auto palette = Optimizer::createOptimalPalette(info);
     if ((sample_bits != 8) && (output_palette_size > 0)) {
         for (index = 0; index < output_palette_size; ++index) {
             const srARGB* color = mask_colors + index;
@@ -915,7 +890,7 @@ void srPalette::Optimizer::findOptimalColor(Node* node, const LUT& lut)
 /* Hash entries link 5-5-5 quantized colors inside the two 0x8000-bucket
    tables; leaf bucket nodes then anchor the octree's deepest level. */
 // FUNCTION: SURRENDER 0x10005690
-srPalette* srPalette::Optimizer::createOptimalPalette(const PaletteInfo& info)
+std::shared_ptr<srPalette> srPalette::Optimizer::createOptimalPalette(const PaletteInfo& info)
 {
     if ((info.colors == 0) || (info.color_count < 1) || (info.palette_size < 1) ||
         ((info.mask_count != 0) && ((info.mask_flags == 0) || (info.mask_colors == 0)))) {
@@ -1133,5 +1108,5 @@ srPalette* srPalette::Optimizer::createOptimalPalette(const PaletteInfo& info)
         }
     }
 
-    return new srPalette(palette_colors.data(), info.palette_size);
+    return std::make_shared<srPalette>(palette_colors.data(), info.palette_size);
 }

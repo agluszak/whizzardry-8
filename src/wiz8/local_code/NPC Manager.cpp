@@ -591,8 +591,6 @@ bool RecruitNpcIntoParty(W8NpcState* npc)
     npc->is_present = false;
     npc->event_pending = 0;
     npc->pending_restore = false;
-    ReleaseNpcScriptFile(npc->script_file);
-    npc->script_file = 0;
     ReloadNpcScriptResources(npc);
 
     /* Retail writes the race into this initially populated list, then tests

@@ -1,4 +1,7 @@
 #include "wiz8/engine_code/stMeshModel.h"
+#include "wiz8/engine_code/ReadMesh.h"
+#include "wiz8/engine_code/materials.h"
+#include "surrender/srModelInstance.h"
 #include "wiz8/sr_api.h"
 
 #include <algorithm>
@@ -19,7 +22,7 @@
     } while (0)
 
 static_assert(!std::is_copy_constructible_v<stMeshModel>);
-static_assert(std::is_copy_assignable_v<stMeshModel>); // Registry clone assigns a fresh instance.
+static_assert(!std::is_copy_assignable_v<stMeshModel>);
 static_assert(std::is_nothrow_move_constructible_v<stMeshModel::Frame>);
 static_assert(std::is_nothrow_move_constructible_v<stMeshModel::Skin>);
 
@@ -216,7 +219,7 @@ static bool eviction_and_borrowed_outputs()
     return true;
 }
 
-static bool cloned_ownership()
+static bool part_ownership()
 {
     const auto registered = g_mesh_models.size();
     const int initial_bytes = g_decompressed_mesh_bytes;
@@ -225,27 +228,11 @@ static bool cloned_ownership()
         original.InitializeVertexFrames(1);
         original.GetVertex(0)[0] = 3;
         original.GetVertexLocations(0, true, 0.0f);
-        original.LinkTo(new stMeshModel(0, 1));
-        original.next->InitializeVertexFrames(1);
-        original.next->GetVertexLocations(0, true, 0.0f);
-        std::unique_ptr<stMeshModel> clone(static_cast<stMeshModel*>(original.clone()));
-        CHECK(clone->next != original.next && clone->next->previous == clone.get());
-        CHECK(clone->previous == nullptr);
-        CHECK(clone->GetVertex(0) != original.GetVertex(0));
-        CHECK(clone->GetVertexLocations(0, true, 0.0f) != original.GetVertexLocations(0, true, 0.0f));
-        clone->GetVertex(0)[0] = 9;
-        clone->GetVertexLocations(0, false, 0.0f)[0].x = 11.0f;
-        CHECK(original.GetVertex(0)[0] == 3);
-        CHECK(original.GetVertexLocations(0, true, 0.0f)[0].x == 3.0f);
-        CHECK(g_mesh_models.size() == registered + 4);
-        CHECK(g_decompressed_mesh_bytes == initial_bytes + 4 * sizeof(srVector3T<float>));
-        CHECK(clone->ReleaseDecompressedFrames() == sizeof(srVector3T<float>));
-        CHECK(original.frames[0].locations);
-        *clone = static_cast<const stMeshModel&>(*clone);
-        CHECK(g_mesh_models.size() == registered + 4);
-        stMeshModel empty(0, 0);
-        *clone = empty;
-        CHECK(clone->frames.empty() && clone->next == nullptr);
+        original.AddPart(std::make_unique<stMeshModel>(0, 1));
+        original.parts[0]->InitializeVertexFrames(1);
+        original.parts[0]->GetVertexLocations(0, true, 0.0f);
+        CHECK(original.head == nullptr && original.parts[0]->head == &original);
+        CHECK(original.Next() == original.parts[0].get() && original.parts[0]->Next() == nullptr);
         CHECK(g_mesh_models.size() == registered + 2);
         CHECK(g_decompressed_mesh_bytes == initial_bytes + 2 * sizeof(srVector3T<float>));
     }
@@ -254,10 +241,50 @@ static bool cloned_ownership()
     return true;
 }
 
+// Different materials sharing a shader take the per-vertex table path;
+// another shader adds a uniquely owned successor to the shared mesh head.
+static bool loaded_model_ownership()
+{
+    std::vector<W8MeshMaterial> materials(3);
+    for (auto& material : materials) {
+        material.material = std::make_shared<stMaterial>();
+        material.render_flags.value = 0x251b;
+    }
+    materials[2].render_flags.value = 0x2517;
+    W8ReadMeshFace faces[3]{};
+    for (int face = 0; face < 3; ++face) {
+        faces[face].material_index = face;
+        for (int corner = 0; corner < 3; ++corner) {
+            faces[face].vertices[corner] = face * 3 + corner;
+        }
+    }
+    W8GrowableVector<short> mapped_values, mapped_keys;
+    unsigned int mesh_count = 0;
+    std::vector<std::vector<int>> maps;
+    auto model = BuildSingleLevelMesh(3, faces, 9, materials, &mesh_count, maps, &mapped_values,
+                                     &mapped_keys);
+    CHECK(model && mesh_count == 2 && maps.size() == 2);
+    CHECK(model->parts.size() == 1 && model->parts[0]->head == model.get());
+    CHECK(model->getVertexMaterial(0, srMeshModel::SIDE_FRONT, 0)[0] == materials[0].material);
+    CHECK(model->parts[0]->getMaterial(0, srMeshModel::SIDE_FRONT) == materials[2].material.get());
+    std::weak_ptr<srModel> lifetime = model;
+    auto* first = new srModelInstance(nullptr);
+    first->setModel(std::move(model));
+    auto* second = new srModelInstance(nullptr);
+    *second = *first;
+    delete first;
+    CHECK(!lifetime.expired());
+    delete second;
+    CHECK(lifetime.expired());
+    for (const auto& material : materials) {
+        CHECK(material.material.use_count() == 1);
+    }
+    return true;
+}
+
 class TestTexture : public srTexture {
 public:
     inline static int destroyed = 0;
-    srClass* vInstance() override { return new TestTexture; }
     void invalidate() override {}
     void setupDefaultValues() override {}
     ~TestTexture() override { ++destroyed; }
@@ -267,14 +294,11 @@ static bool skins_and_automap()
 {
     const int destroyed = TestTexture::destroyed;
     {
-        srPtr<srTextureIFace> blank, visible;
-        blank = new TestTexture;
-        blank->release(); // srPtr acquired its own reference; release the constructor's reference.
-        visible = new TestTexture;
-        visible->release();
+        std::shared_ptr<srTextureIFace> blank = std::make_shared<TestTexture>();
+        std::shared_ptr<srTextureIFace> visible = std::make_shared<TestTexture>();
         blank->setName("bLaNk-body");
         visible->setName(std::string(600, 'V')); // No fixed-size texture-name copies.
-        const int references = blank->getReferenceCount();
+
         {
             stMeshModel mesh(3, 1);
             auto* base = mesh.getPolyTexture(0, 0, 1);
@@ -289,7 +313,7 @@ static bool skins_and_automap()
             CHECK(mesh.CreateSkinTable(cycle + '0', -1) == -1);
             const int second = mesh.CreateSkinTable("second1", first);
             auto* second_textures = mesh.GetTextureTable(second);
-            CHECK(second == 1 && second_textures[0] == blank.get());
+            CHECK(second == 1 && second_textures[0] == blank);
             const int third = mesh.CreateSkinTable("third2", second);
             w8_long count = -1;
             CHECK(mesh.GetActivePolygons(&count, second, false) == nullptr && count == 0);
@@ -311,17 +335,6 @@ static bool skins_and_automap()
             CHECK(mesh.FindSkinTable(cycle + '0') == -1 && mesh.FindSkinTable(cycle + '1') == -1);
             CHECK(mesh.FindSkinTable("") == 3); // Empty names must not underflow during cycle removal.
             CHECK(mesh.FindSkinTable("SECOND1") == second);
-            {
-                std::unique_ptr<stMeshModel> clone(static_cast<stMeshModel*>(mesh.clone()));
-                CHECK(clone->GetTextureTable(second) != second_textures);
-                CHECK(clone->GetTextureTable(second)[0] == second_textures[0].get());
-                auto* cloned_selection = clone->GetActivePolygons(&count, second, true);
-                CHECK(cloned_selection != selection && count == 2);
-                clone->GetTextureTable(second)[0] = static_cast<srTextureIFace*>(nullptr);
-                CHECK(second_textures[0] == blank.get());
-                clone->RemoveSkinTablesForCycle("second");
-                CHECK(clone->FindSkinTable("second1") == -1 && mesh.FindSkinTable("second1") == second);
-            }
 
             const std::array<std::string_view, 1> excluded{visible->getName()};
             mesh.ApplyAutomapPolygonFilter(excluded);
@@ -349,7 +362,7 @@ static bool skins_and_automap()
             CHECK(mesh.FindMappedIndex(10) == 9 && mesh.mapped_vertices.size() == 1);
             CHECK(mesh.FindMappedIndex(-1) == -1 && mesh.FindMappedIndex(11) == -1);
         }
-        CHECK(blank->getReferenceCount() == references);
+        CHECK(blank.use_count() == 1);
     }
     CHECK(TestTexture::destroyed == destroyed + 2);
     return true;
@@ -361,7 +374,7 @@ int main()
         return 1;
     }
     const bool passed = frame_storage() && writable_and_empty_caches() &&
-                        eviction_and_borrowed_outputs() && cloned_ownership() && skins_and_automap();
+                        eviction_and_borrowed_outputs() && part_ownership() && loaded_model_ownership() && skins_and_automap();
     const bool drained = g_mesh_models.empty() && g_decompressed_mesh_bytes == 0;
     srExit();
     if (!passed || !drained) {

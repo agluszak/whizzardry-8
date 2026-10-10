@@ -17,11 +17,7 @@
     throw std::runtime_error(#e); } } while (0)
 using Bytes = std::vector<unsigned char>;
 namespace fs = std::filesystem;
-using Surface = std::unique_ptr<srColorSurfaceIFace, void(*)(srColorSurfaceIFace*)>;
-static Surface own(srColorSurfaceIFace* p)
-{
-    return {p, [](srColorSurfaceIFace* s) { if (s) s->release(); }};
-}
+using Surface = std::unique_ptr<srColorSurfaceIFace>;
 static void write(const fs::path& path, const Bytes& bytes)
 {
     fs::create_directories(path.parent_path());
@@ -77,7 +73,7 @@ static void checkTga(const char* name, bool succeeds)
     std::string path(name);
     auto handle = [&]() { try { return wiz8::open_file(path.data(), wiz8::OpenMode::read); } catch (const std::exception&) { return std::unique_ptr<wiz8::File>{}; } }();
     CHECK(handle);
-    auto surface = own(LoadSurface(handle.get(), nullptr));
+    auto surface = LoadSurface(handle.get(), nullptr);
     CHECK(bool(surface) == succeeds);
     if (surface) {
         const unsigned char expected[] = {0, 0, 0x03, 0xfc, 0xe0, 0x03, 0x1f, 0, 0, 0x7c, 0xff, 0xff};
@@ -95,14 +91,14 @@ static void runtimeImages()
 {
     for (const char* name : {"C:/DATA/loose.jpeg", "Data/archive.jpg", "Data/zażółć-雪.jpeg",
                              "D:/Data/disc.jpg", "E:/data/DISC.JPG", "F:/data/disc.jpg"}) {
-        auto surface = own(srImage::load(name));
+        auto surface = srImage::load(name);
         checkGray(surface.get());
         srColorSurfaceIFace::SurfaceDesc desc;
         srImage::describe(desc, name);
         CHECK(desc.width == 3 && desc.height == 2);
     }
     for (const char* name : {"C:/data/LOOSE.tga", "Data/ARCHIVE.TGA"}) {
-        auto surface = own(srImage::load(name));
+        auto surface = srImage::load(name);
         CHECK(surface && surface->getWidth() == 3 && surface->getHeight() == 2);
         srColorSurfaceIFace::SurfaceDesc desc;
         srImage::describe(desc, name);
@@ -115,7 +111,7 @@ static void runtimeImages()
     for (const char* name : {"Data/Broken.jpg", "Data/Broken.tga", "Data/missing.jpeg",
                              "jpg://Data/archive.jpg", "tga://Data/archive.tga", "file://Data/archive.jpg"}) {
         bool rejected = false;
-        try { auto surface = own(srImage::load(name)); }
+        try { auto surface = srImage::load(name); }
         catch (const std::exception&) { rejected = true; }
         CHECK(rejected);
         rejected = false;
@@ -123,16 +119,16 @@ static void runtimeImages()
         catch (const std::exception&) { rejected = true; }
         CHECK(rejected);
     }
-    auto surface = own(srImage::load("Data/archive.jpg"));
+    auto surface = srImage::load("Data/archive.jpg");
     srImage::save("C:/capture.jpeg", *surface, 35);
-    auto capture = own(srImage::load("C:/capture.jpeg"));
+    auto capture = srImage::load("C:/capture.jpeg");
     CHECK(capture && capture->getWidth() == 3 && capture->getHeight() == 2);
     for (const char* name : {"capture.png", "capture.bmp"}) {
         auto output = wiz8::open_file(name, wiz8::OpenMode::replace);
         srImage::save(name, *output, *surface);
         CHECK(output->is_open() && output->size() > 0);
         output->close();
-        auto decoded = own(srImage::load(name));
+        auto decoded = srImage::load(name);
         CHECK(decoded && decoded->getWidth() == 3 && decoded->getHeight() == 2);
         for (unsigned y = 0; y < 2; ++y)
             for (unsigned x = 0; x < 3; ++x)
@@ -146,7 +142,7 @@ static void checkUninitialized()
     CHECK(!srImage::load("archive.jpg", *file) && file->tell() == 9);
     CHECK(!srImage::loadTga(*file) && file->tell() == 9);
     bool rejected = false;
-    try { auto surface = own(srImage::load("Data/archive.jpg")); }
+    try { auto surface = srImage::load("Data/archive.jpg"); }
     catch (const std::runtime_error&) { rejected = true; }
     CHECK(rejected);
 }
@@ -174,7 +170,7 @@ int main() try
     {
         for (const char* name : {"C:/DATA/loose.jpeg", "D:/Data/disc.jpg", "E:/data/DISC.JPG", "F:/data/disc.jpg"}) {
             auto stream = wiz8::open_file(name);
-            auto surface = own(srImage::load(name, *stream));
+            auto surface = srImage::load(name, *stream);
             checkGray(surface.get());
             stream->seek(0, wiz8::SeekOrigin::begin);
             unsigned char byte = 0; stream->read_exact(&byte, 1);
@@ -184,7 +180,7 @@ int main() try
         first->seek(9, wiz8::SeekOrigin::begin);
         srColorSurfaceIFace::SurfaceDesc desc;
         CHECK(srImage::describe(desc, "archive.jpg", *first) && first->tell() == 9);
-        auto surface = own(srImage::load("archive.jpg", *second));
+        auto surface = srImage::load("archive.jpg", *second);
         checkGray(surface.get());
         CHECK(first->tell() == 9 && first->is_open());
         auto broken = wiz8::open_file("Data/Broken.jpg");

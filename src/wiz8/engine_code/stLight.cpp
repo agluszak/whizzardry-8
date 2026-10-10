@@ -450,12 +450,6 @@ void LoadLightStates(wiz8::File* handle)
 /* The registry base's own destructor, emitted out of line here rather than
    inlined the way 0x0049C430 expands it. */
 
-// FUNCTION: WIZ8 0x0049E3A0
-srClass* stLight::vInstance()
-{
-    return new stLight(0);
-}
-
 /* Test a point against the six inward-facing planes of one region volume. */
 // FUNCTION: WIZ8 0x0049e460
 bool W8OctRegionVolume::ContainsPoint(const srVector3T<float>* point) const

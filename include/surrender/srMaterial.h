@@ -32,7 +32,6 @@ public:
 
     virtual void dump(std::ostream& stream) override;
     virtual void verify(srRuntimeClass::e_verify mode) override;
-    virtual srClass* vInstance() override;
 
     virtual void getMaterialInfo(srVertexProcessor::MaterialInfo& info) override;
     virtual void preProcess(srVertexPipe& pipe) override;
@@ -111,4 +110,3 @@ public:
     int dirty;                             /* 0x74 */
 };
 
-W8_ABI_ASSERT((sizeof(srMaterial) == 0x78), "srMaterial_must_be_0x78");

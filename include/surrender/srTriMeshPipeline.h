@@ -4,7 +4,7 @@
 #include <vector>
 #include "srMaterialIFace.h"
 #include "srMath.h"
-#include "srPtr.h"
+#include <memory>
 #include "srShader.h"
 #include "srTextureIFace.h"
 #include "srVertexPipe.h"
@@ -16,20 +16,20 @@ class srMaterialIFace;
 class srTriMeshPipeline {
 public:
     enum { FRUSTUM_CLIPPING = 1u, LIMIT_VERTEX_BATCHES = 2u };
-    using Record = srVertexPipe::Record;
 
     struct Pass {
         srTextureIFace* textures[2]{};
         srShader shader;
-        /* Borrowed per-stage srPtr<srTextureIFace> or stTextureAnim* tables.
-           The renderer reads pointer-sized entries without owning the tables. FlushSlots consumes
-           them synchronously in Renderer::render before unlockRenderer queues owned render data. */
-        void* texture_tables[2]{};
+        /* Borrowed per-polygon texture tables. FlushSlots consumes them synchronously in
+           Renderer::render before unlockRenderer queues owned render data. */
+        const std::shared_ptr<srTextureIFace>* texture_tables[2]{};
         const srShader* shaders = nullptr;
         const glm::vec2* texcoords = nullptr;
         /* The mesh's per-triangle poly-UV corner source table. */
         const srVector3i* poly_uv = nullptr;
     };
+    enum e_boundsSource { BOUNDS_FROM_VERTICES = 0, BOUNDS_SPHERE = 1, BOUNDS_BOX = 2 };
+    using Record = srVertexPipe::Record;
 
     static srTriMeshPipeline* Get(srGERD* renderer);
     void SetFlags(srShader shader);
@@ -68,7 +68,6 @@ public:
     srVector3T<float> bounds_maximum;
     srVector3T<float> bounds_center;
     float bounds_radius;
-    enum e_boundsSource { BOUNDS_FROM_VERTICES = 0, BOUNDS_SPHERE = 1, BOUNDS_BOX = 2 };
     e_boundsSource bounds_source;
     w8_ulong unknown_70;
     srShader shader;
@@ -93,4 +92,3 @@ private:
     srTriMeshPipeline();
 };
 
-W8_ABI_ASSERT(sizeof(srTriMeshPipeline) == 0xac, "srTriMeshPipeline_must_be_0xac");

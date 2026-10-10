@@ -207,7 +207,6 @@ public:
     Trigger();
     virtual ~Trigger() override;
     Trigger& operator=(const Trigger&) = default;
-    virtual srClass* vInstance() override;
 
     static Trigger* CreateAndLoadLevelTrigger(wiz8::File* handle, W8World* world);
 

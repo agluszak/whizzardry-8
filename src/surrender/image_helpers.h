@@ -9,7 +9,7 @@
 namespace srImage {
 using Surface = std::unique_ptr<SDL_Surface, decltype(&SDL_DestroySurface)>;
 
-srColorSurface* loadTga(SDL_IOStream* source);
+std::unique_ptr<srColorSurface> loadTga(SDL_IOStream* source);
 
 inline bool copyRows(const SDL_Surface& source, srColorSurfaceIFace& destination,
                      unsigned bytes_per_pixel, bool mirror = false)

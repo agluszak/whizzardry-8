@@ -565,7 +565,7 @@ W8GrCycle::~W8GrCycle()
 
             if (owner == 0 || owner->active_particle_count == 0) {
                 if (event->m_pstParticles != 0) {
-                    event->m_pstParticles->release();
+                    delete event->m_pstParticles;
                 }
                 delete event;
             } else {
@@ -580,7 +580,7 @@ W8GrCycle::~W8GrCycle()
         m_plsParticles = 0;
     }
     if (m_ground_shadow != 0) {
-        m_ground_shadow->release();
+        delete m_ground_shadow;
     }
 }
 
@@ -1121,7 +1121,7 @@ void W8GrCycle::UpdateParticleAttachments()
                     if (vertex != -1) {
                         break;
                     }
-                    scan = scan->next;
+                    scan = scan->Next();
                 } while (scan != 0);
                 pMeshModel = scan;
             }
@@ -1535,7 +1535,7 @@ int FindMappedIndexInMeshChain(stMeshModel** mesh, int key)
         if (result != -1) {
             break;
         }
-        current = current->next;
+        current = current->Next();
     }
 
     *mesh = current;

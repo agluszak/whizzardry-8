@@ -1,7 +1,11 @@
 #pragma once
 
 #include "surrender/srMaterial.h"
+#include "surrender/srShader.h"
+#include "wiz8/resource_cache.h"
 #include "wiz8/texture_animation.h"
+
+#include <memory>
 
 class srMaterialIFace;
 class srMeshModel;
@@ -37,19 +41,12 @@ public:
     }
 
     stMaterial();
-    virtual srClass* vInstance() override;
-    virtual srClass* vClone() override;
     virtual void getMaterialInfo(srVertexProcessor::MaterialInfo& info) override;
-
-protected:
-    virtual ~stMaterial() override;
 
 public:
     stMaterial& operator=(const stMaterial&) = default;
     int m_surface_flags; /* 0x78 */
 };
-
-W8_ABI_ASSERT((sizeof(stMaterial) == 0x7C), "stMaterial_must_be_0x7c");
 
 #pragma pack(push, 1)
 
@@ -77,7 +74,7 @@ struct W8MaterialRecord {
 
 #pragma pack(pop)
 
-W8_ABI_ASSERT(sizeof(W8MaterialRecord) == 0x12a, "W8MaterialRecord_size_must_be_0x12a");
+static_assert(sizeof(W8MaterialRecord) == 0x12a, "W8MaterialRecord is a serialized record");
 
 /* Per-draw material override switches consumed by stMaterial::getMaterialInfo;
    stModelInstance's mesh submit arms them around each chained model. */
@@ -86,20 +83,31 @@ extern float g_material_diffuse_scale;
 extern bool g_material_emissive_override_enabled;
 extern float g_material_emissive_override;
 
-unsigned char LoadMaterial(const char* bitmap_folder, const W8MaterialRecord* source,
-                           srMaterialIFace** material, srTextureIFace** texture,
-                           srShader* render_flags, int);
-srTexture* LoadTextureFromFolder(const char* folder, const char* name, bool required);
-stTextureAnim* LoadAnimatedTexture(const char* folder, const char* name,
-                                   const W8MaterialRecord* source, bool required);
+class stTextureFile;
+
+/* Loaded resources by name; each lives while something renders with it. */
+extern ResourceCache<stMaterial> g_materials;
+extern ResourceCache<stTextureFile> g_texture_files;
+extern ResourceCache<stTextureAnim> g_texture_animations;
+
+/* A level material's shared render state. */
+struct W8MeshMaterial {
+    std::shared_ptr<srMaterialIFace> material;
+    std::shared_ptr<srTextureIFace> texture;
+    srShader render_flags;
+};
+
+W8MeshMaterial LoadMaterial(const char* bitmap_folder, const W8MaterialRecord& source);
+std::shared_ptr<srTexture> LoadTextureFromFolder(const char* folder, const char* name, bool required);
+std::shared_ptr<stTextureAnim> LoadAnimatedTexture(const char* folder, const char* name,
+                                                   const W8MaterialRecord* source, bool required);
 bool MeshHasAnimatedTexture(srMeshModel* model);
 void SetModelAnimatedTextureFrame(srModelInstance* instance, int frame);
 stTextureAnim* GetModelAnimatedTexture(srModelInstance* instance);
 
-unsigned char CreateDefaultMaterial(srMaterialIFace** material, srTextureIFace** texture,
-                                    srShader* render_flags);
-srTextureIFace* LoadTextureFromPath(const char* path, const W8MaterialRecord* source,
-                                    bool required);
+W8MeshMaterial CreateDefaultMaterial();
+std::shared_ptr<srTextureIFace> LoadTextureFromPath(const char* path, const W8MaterialRecord* source,
+                                                    bool required);
 
 struct W8OctPreTreeVertex;
 struct W8OctRegionPolygon;

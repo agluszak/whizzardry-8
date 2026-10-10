@@ -26,7 +26,7 @@ srModelInstance& srModelInstance::operator=(const srModelInstance& other)
     if (this != &other) {
         srNode::operator=(other);
         alignment_flags = other.alignment_flags;
-        setModel(other.getModel());
+        model_ = other.model_;
         align_angle = other.align_angle;
         align_axis = other.align_axis;
         exclusion_mask = other.exclusion_mask;
@@ -36,12 +36,6 @@ srModelInstance& srModelInstance::operator=(const srModelInstance& other)
 
 // FUNCTION: SURRENDER 0x1004FA40
 srModelInstance::~srModelInstance() {}
-
-// FUNCTION: SURRENDER 0x1004FF80
-srClass* srModelInstance::vInstance()
-{
-    return new srModelInstance(static_cast<srNode*>(0));
-}
 
 // FUNCTION: SURRENDER 0x1004F3A0
 void srModelInstance::traverse(TraverseInfo& info)
@@ -68,14 +62,6 @@ void srModelInstance::getLocalBounds(BoundInfo& bounds)
     bounds.state = 1;
     model->getBoundingBox(bounds.minimum, bounds.maximum);
     model->getBoundingSphere(bounds.center, bounds.radius);
-}
-
-// FUNCTION: SURRENDER 0x1004F320
-void srModelInstance::updateClient(srModel::Client::e_update update)
-{
-    if (update == srModel::Client::UPDATE_BOUNDS) {
-        notifyParents(srFlags<e_notify>(0));
-    }
 }
 
 // FUNCTION: SURRENDER 0x1004F4B0

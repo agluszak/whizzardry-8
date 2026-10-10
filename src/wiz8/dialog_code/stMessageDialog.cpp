@@ -1,3 +1,4 @@
+#include <vector>
 #include "wiz8/dialog_code/DialogButton.h"
 #include "wiz8/dialog_code/MessageDialogBase.h"
 #include "wiz8/sgp_text.h"
@@ -162,11 +163,8 @@ unsigned int W8MessageDialogBase::WrapMessage(const wchar_t* message)
     unsigned int maximum_width = static_cast<unsigned int>(m_width) + 0xf;
     unsigned int index;
 
-    remaining = new wchar_t[wcslen(message) + 1];
-    if (!remaining) {
-        srAssertFail("pRemainingText", "C:\\Projects\\Wizardry 8\\Dialog Code\\stMessageDialog.cpp",
-                     0xd5, 0);
-    }
+    std::vector<wchar_t> storage(wcslen(message) + 1);
+    remaining = storage.data();
     wcscpy(remaining, message);
     for (index = 0; index < 32; ++index) {
         wcscpy(lines[index], L"");

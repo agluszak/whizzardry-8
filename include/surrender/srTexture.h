@@ -6,9 +6,9 @@
 class SR_DLL_IMPORT srTexture
     : public srClassSupport<srTexture, srTextureIFace, 0x2110> {
 public:
+    virtual ~srTexture() override;
     static const char* sGetClassName();
-    /* The copy body is consistent with ordinary member copy-construction;
-       in particular Dimensions' srPtr palette is addref'd as a fresh member. */
+    /* Copies share the palette stored in Dimensions. */
 
     srTexture& operator=(const srTexture& other);
     virtual void dump(std::ostream& stream) override;
@@ -49,7 +49,6 @@ public:
 protected:
     friend class stSurface2D;
     srTexture();
-    virtual ~srTexture() override;
     static w8_ulong getNewFrameHandle();
     /* Allocates count consecutive frame handles and returns the first. */
     static w8_ulong getNewFrameHandles(w8_ulong count);
@@ -64,4 +63,3 @@ protected:
     w8_ulong texture_flags_;   /* 0x50 */
 };
 
-W8_ABI_ASSERT((sizeof(srTexture) == 0x54), "srTexture_must_be_0x54");

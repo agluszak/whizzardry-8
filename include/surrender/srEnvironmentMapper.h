@@ -9,4 +9,3 @@ public:
     virtual void process(srVertexPipe& pipe) override;
 };
 
-W8_ABI_ASSERT((sizeof(srEnvironmentMapper) == 0x04), "srEnvironmentMapper_must_be_0x04");

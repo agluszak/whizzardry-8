@@ -99,7 +99,7 @@ public:
         void addSurface(const char* name, w8_long weight);
         void addSurface(srColorSurfaceIFace& surface, w8_long weight);
         void addSurfaces(srColorSurfaceIFace** surfaces, w8_long surface_count, w8_long weight);
-        srPalette* createOptimalPalette();
+        std::shared_ptr<srPalette> createOptimalPalette();
         void dump(std::ostream& stream);
 
     private:
@@ -135,7 +135,7 @@ public:
             w8_long mask_count;                   /* 0x14 */
         };
 
-        static srPalette* createOptimalPalette(const PaletteInfo& info);
+        static std::shared_ptr<srPalette> createOptimalPalette(const PaletteInfo& info);
 
     private:
         struct HashEntry {
@@ -175,21 +175,15 @@ public:
         static void findOptimalColor(Node* node, const LUT& lut);
         static void setupLUT(LUT& lut, const srARGB& color);
 
-        W8_ABI_ASSERT(sizeof(Node) == 0x48, "OptimizerNode_must_be_0x48");
-        W8_ABI_ASSERT(sizeof(Leaf) == 0x10, "OptimizerLeaf_must_be_0x10");
-        W8_ABI_ASSERT(sizeof(LUT) == 0x1810, "OptimizerLUT_must_be_0x1810");
     };
 
     static SR_DLL_IMPORT const char* sGetClassName();
-    static SR_DLL_IMPORT srPalette* findMatchingPalette(const srARGB* const colors,
-                                                        w8_long color_count);
 
     SR_DLL_IMPORT srPalette(srARGB* colors = 0, w8_long color_count = 1);
 
     SR_DLL_IMPORT srPalette& operator=(const srPalette& other);
 
     virtual SR_DLL_IMPORT void dump(std::ostream& stream) override;
-    virtual SR_DLL_IMPORT srClass* vInstance() override;
 
     SR_DLL_IMPORT srARGB getColor(w8_long index) const;
     SR_DLL_IMPORT const srARGB* getPaletteDataPtr();
@@ -204,7 +198,7 @@ public:
                                  w8_long color_count);
     SR_DLL_IMPORT void update();
 
-protected:
+public:
     // FUNCTION: SURRENDER 0x10004610
     virtual SR_DLL_IMPORT ~srPalette() override = default;
 
@@ -217,6 +211,3 @@ private:
     std::unique_ptr<Quantizer> quantizer;
 };
 
-W8_ABI_ASSERT(sizeof(srPalette::Quantizer) == 0x21918, "Quantizer_must_be_0x21918");
-W8_ABI_ASSERT(sizeof(srPalette::Sampler) == 0x20530, "Sampler_must_be_0x20530");
-W8_ABI_ASSERT(sizeof(srPalette) == 0x28, "srPalette_must_be_0x28");

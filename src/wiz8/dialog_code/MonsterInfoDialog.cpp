@@ -434,7 +434,7 @@ bool W8MonsterInfoDialog::PopulateText()
                     g_world_cursor_scale),
             5, 0xf, 0);
         leader_info = MonsterInfoFromID(0x1d6, MONSTER_INFO_DIALOG_CPP, leader_location_id, true);
-        script = leader_info->p3D->script;
+        script = leader_info->p3D->script.get();
         m_text_area.AddEntry(L"Leader's Current Script",
                              FormatWideString(L"<%S>", script != 0 ? script->getName().c_str() : ""), 5, 0xf,
                              0);

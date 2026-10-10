@@ -1,9 +1,14 @@
 #pragma once
 
+#include <vector>
+
+#include <memory>
+
 #include "wiz8/filesystem.h"
 
 #include "surrender/srMath.h"
 struct W8MaterialRecord;
+struct W8MeshMaterial;
 
 #include "wiz8/vector.h"
 
@@ -27,7 +32,6 @@ class stMeshModel;
 class srMeshModel;
 class srClass;
 
-bool IsTextureInReadMeshScratch(const srTextureIFace* texture);
 unsigned char ReadSingleLevelMesh(W8ReadLevelInfo* info, srModelInstance** instance,
                                   int unused_first, int unused_second, const char* name,
                                   bool load_materials);
@@ -35,23 +39,14 @@ unsigned char ReadMultipleLevelMeshes(W8ReadLevelInfo* info, srModelInstance** i
                                       w8_ulong count, const char* name);
 unsigned char SkipSingleLevelMesh(W8ReadLevelInfo* info);
 void ReleaseReadMeshScratch();
-void ReleaseRetainedMaterials();
-bool IsReadMeshMaterial(const srClass* material);
 unsigned char ReadSingleLevelMeshBody(W8ReadLevelInfo* info, srModelInstance** instance, int, int,
                                       const char* name, bool load_materials);
-stMeshModel*
-BuildSingleLevelMesh(int face_count, W8ReadMeshFace* faces, int vertex_count, int material_count,
-                     srMaterialIFace** materials, srTextureIFace** textures, srShader* render_flags,
-                     unsigned int* mesh_count, int*** vertex_maps, unsigned int* vertex_map_count,
+std::shared_ptr<stMeshModel>
+BuildSingleLevelMesh(int face_count, W8ReadMeshFace* faces, int vertex_count,
+                     const std::vector<W8MeshMaterial>& materials, unsigned int* mesh_count, std::vector<std::vector<int>>& vertex_maps,
                      W8GrowableVector<short>* mapped_values, W8GrowableVector<short>* mapped_keys);
 
-enum {
-    W8_MESH_ORDER_POLYGONS = 1UL,
-    W8_MESH_ORDER_VERTICES = 2UL,
-    W8_MESH_ORDER_TRIANGLE_STRIPS = 4UL
-};
-
-void OptimizeMeshOrder(srMeshModel* model, w8_ulong flags);
+void OptimizeMeshOrder(srMeshModel* model);
 
 void ClearMaterialRecordPadding(W8MaterialRecord* material);
 void ReadMeshTransform(wiz8::File* file, srVector3T<float>* location, glm::mat3* rotation,
