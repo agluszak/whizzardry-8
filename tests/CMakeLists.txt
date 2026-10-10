@@ -31,7 +31,7 @@ endforeach()
 set_tests_properties(native_renderer_ownership PROPERTIES TIMEOUT 15)
 
 add_executable(native_mesh_frames_test native/mesh_frames_test.cpp)
-target_link_libraries(native_mesh_frames_test PRIVATE WIZ8_GAME_CORE WIZ8_SGP WIZ8_GAME_CORE)
+target_link_libraries(native_mesh_frames_test PRIVATE WIZ8_GAME_CORE)
 if(APPLE)
     target_link_options(native_mesh_frames_test PRIVATE -Wl,-dead_strip)
 elseif(UNIX)
