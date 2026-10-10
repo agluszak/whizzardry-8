@@ -1120,7 +1120,6 @@ bool InitializeMonsterManagerState(void)
 // FUNCTION: WIZ8 0x004e3820
 unsigned char ShutdownMonsterManager(void)
 {
-    W8MonsterRecord** slot;
 
     if (gXStatus.plsMonsterGroupList == 0) {
         srAssertFail("gXStatus.plsMonsterGroupList != NULL", MONSTER_MANAGER_CPP, 0x5c, 0);

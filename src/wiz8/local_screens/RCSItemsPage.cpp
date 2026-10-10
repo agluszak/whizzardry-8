@@ -1122,7 +1122,6 @@ void DrawCampItemIcons(void)
 {
     unsigned int index;
     unsigned int count;
-    int row;
     int y;
     const W8CampScreenRegion* region;
     W8ItemInstance* item;

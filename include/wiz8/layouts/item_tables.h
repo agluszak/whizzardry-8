@@ -187,8 +187,8 @@ struct W8ItemDatabaseRecord {
     char sound_name[0x28];        /* 0x0e5: played when the item's spell is cast */
 }; /* 0x10d */
 
-static_assert(sizeof(W8ItemDatabaseRecord) == 0x10d, "W8ItemDatabaseRecord_size_must_be_0x10d");
-static_assert(sizeof(W8ItemTableRecord) == 0x1f1, "W8ItemTableRecord_size_must_be_0x1f1");
+W8_ABI_ASSERT(sizeof(W8ItemDatabaseRecord) == 0x10d, "W8ItemDatabaseRecord_size_must_be_0x10d");
+W8_ABI_ASSERT(sizeof(W8ItemTableRecord) == 0x1f1, "W8ItemTableRecord_size_must_be_0x1f1");
 
 #pragma pack(pop)
 

@@ -246,7 +246,7 @@ void ResetGameStatus(bool release)
 // FUNCTION: WIZ8 0x0054afd0
 void InitializeGameplayRuntimeObjects(void)
 {
-    memset(&gXStatus, 0, sizeof(gXStatus));
+    gXStatus = {};
     gXStatus.character_event_queue = new W8CharacterEventQueue();
     gXStatus.gameplay_timer = new W8GameTimer(300.0f, 0);
 }
@@ -375,7 +375,7 @@ void ResetGameplaySlot(unsigned int slot)
     W8MonsterManagerEntry* record = &gXStatus.monster_manager_entries[slot];
     int tier;
 
-    memset(record, 0, sizeof(W8MonsterManagerEntry));
+    *record = {};
     record->portrait_event_active = false;
     record->voice_sound_handle = SOUND_ERROR;
     record->previous_portrait_frame = -1;

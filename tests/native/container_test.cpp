@@ -176,7 +176,7 @@ static void borrowed_data_and_shutdown()
         unsigned& destructions;
         ~Borrowed() { ++destructions; }
     };
-    auto owned = std::make_unique<Borrowed>(Borrowed{destructions});
+    auto owned = std::make_unique<Borrowed>(destructions);
     destructions = 0;
     struct Entry { Borrowed* pointer; unsigned value; } entry{owned.get(), 42};
     auto list = CreateList(1, sizeof(Entry));

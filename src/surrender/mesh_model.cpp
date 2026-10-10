@@ -19,7 +19,6 @@
 #include <ostream>
 #include <stdio.h>
 #include <string.h>
-#pragma intrinsic(memset)
 
 /* Flag-name tables dump walks while printing the render_control and dirty_flags bits. Nothing sets
    them, so dump prints numeric bit indices. */
@@ -672,7 +671,6 @@ void srMeshModel::relocateVertices(const srVector3T<float>& offset)
    effect, and none of the plain float formulations tried reproduced it. So
    the sums are doubles (what the 53-bit stack holds), and float
    consistency keeps the one explicit rounding of the y sum. */
-#pragma optimize("p", on)
 // FUNCTION: SURRENDER 0x1003E9B0
 void srMeshModel::centerVertices()
 {
@@ -696,7 +694,6 @@ void srMeshModel::centerVertices()
         relocateVertices(offset);
     }
 }
-#pragma optimize("", on)
 
 // FUNCTION: SURRENDER 0x1003EA90
 double srMeshModel::getAverageRadius()

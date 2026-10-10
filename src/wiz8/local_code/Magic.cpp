@@ -1086,7 +1086,7 @@ bool CanCharacterLearnSpell(W8Character* character, int spell_id)
 
     spellbook_skill = GetBestSpellbookSkillForSpell(character, spell_id, false, false, 0);
     skill_ceiling =
-        (character->skills[W8_SKILL_FIRE_MAGIC + g_spell_records[spell_id].realm].points / 10 +
+        (character->skills[static_cast<int>(W8_SKILL_FIRE_MAGIC) + g_spell_records[spell_id].realm].points / 10 +
          character->skills[spellbook_skill].level) /
             15 +
         1;
@@ -1122,7 +1122,7 @@ void LearnSpell(W8Character* character, int spell_id, bool announce)
 
     character->spell_learned[spell_id] = 1;
     realm = g_spell_records[spell_id].realm;
-    ++character->skill_unlocks[W8_SKILL_FIRE_MAGIC + realm];
+    ++character->skill_unlocks[static_cast<int>(W8_SKILL_FIRE_MAGIC) + realm];
     character->skill_unlocks[W8_SKILL_IRON_WILL] = RebuildRealmSpellPointCeilings(character);
 
     if (!announce) {
@@ -1179,7 +1179,7 @@ void LearnSpellFromItem(W8Character* character, W8ItemInstance* item)
     usage_points = g_spell_records[spell_id].spell_level;
     PracticeCharacterSkill(character, W8_SKILL_ARTIFACTS, usage_points * 2, false);
     PracticeCharacterSkill(
-        character, static_cast<W8Skill>(W8_SKILL_FIRE_MAGIC + g_spell_records[spell_id].realm),
+        character, static_cast<W8Skill>(static_cast<int>(W8_SKILL_FIRE_MAGIC) + g_spell_records[spell_id].realm),
         usage_points, false);
     for (skill_id = W8_SKILL_SPELLBOOK_WIZARDRY; skill_id < W8_SKILL_FIRE_MAGIC; ++skill_id) {
         if (g_spell_records[spell_id].wizardry_spell != 0) {
@@ -1488,7 +1488,7 @@ unsigned int GetSpellCastingSkillLevel(const W8Character* character, W8Skill spe
                                        W8SpellRealm realm)
 {
     return (character->skills[spellbook_skill].level +
-            character->skills[W8_SKILL_FIRE_MAGIC + realm].level * 4) /
+            character->skills[static_cast<int>(W8_SKILL_FIRE_MAGIC) + realm].level * 4) /
            5;
 }
 
@@ -2447,7 +2447,7 @@ bool SpellAffectedTarget(W8Character* character, int spell_id, W8CombatSlot* aim
         if (g_combat_state != 0 && gXStatus.hostile_monster_count > 0) {
             return true;
         }
-        // fall through
+        [[fallthrough]];
     case W8_SPELL_LIGHT:
     case W8_SPELL_DETECT_SECRETS:
     case W8_SPELL_CHAMELEON:
@@ -2532,7 +2532,7 @@ int ExecuteCharacterSpellCast(int party_slot, int spell_id, unsigned int power_l
             clamp_power = false;
             break;
         }
-        // fall through
+        [[fallthrough]];
     case W8_SPELL_POWER_SELECTABLE:
         recast = false;
         clamp_power = true;
@@ -3176,7 +3176,7 @@ int CastSpellFromSource(int spell_id, W8TargetSource* source, W8CombatSlot* targ
                 srAssertFail("pSource->iType == SOURCE_TYPE_CHAR", MAGIC_CPP, 0x8c2, 0);
             }
             message = 0x1aa;
-            // fall through
+            [[fallthrough]];
         case 3:
             if (source->iType != W8_TARGET_SOURCE_CHARACTER) {
                 srAssertFail("pSource->iType == SOURCE_TYPE_CHAR", MAGIC_CPP, 0x8c6, 0);
@@ -3354,6 +3354,7 @@ void PrepareSpellTarget(int spell_id, W8TargetSource* source, W8CombatSlot* targ
         if (spell_id == W8_SPELL_MINDREAD) {
             return;
         }
+        [[fallthrough]];
     case 1:
     case 4:
         RedirectBackfiredSpellTarget(source, target);

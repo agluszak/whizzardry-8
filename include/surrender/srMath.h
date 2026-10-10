@@ -1216,10 +1216,10 @@ template <class T> srVector3T<T> srMatrix4x3T<T>::TransformPoint(const srVector3
     return result;
 }
 
-static_assert(sizeof(srMatrix4x3T<float>) == 0x30, "srMatrix4x3T_float_must_be_0x30");
-static_assert(sizeof(srMatrix4x3T<double>) == 0x60, "srMatrix4x3T_double_must_be_0x60");
-static_assert(sizeof(srMatrix2T<float>) == 0x10, "srMatrix2T_float_must_be_0x10");
-static_assert(sizeof(srMatrix2T<double>) == 0x20, "srMatrix2T_double_must_be_0x20");
+W8_ABI_ASSERT(sizeof(srMatrix4x3T<float>) == 0x30, "srMatrix4x3T_float_must_be_0x30");
+W8_ABI_ASSERT(sizeof(srMatrix4x3T<double>) == 0x60, "srMatrix4x3T_double_must_be_0x60");
+W8_ABI_ASSERT(sizeof(srMatrix2T<float>) == 0x10, "srMatrix2T_float_must_be_0x10");
+W8_ABI_ASSERT(sizeof(srMatrix2T<double>) == 0x20, "srMatrix2T_double_must_be_0x20");
 
 class srVector2i {
 public:
@@ -1244,7 +1244,7 @@ public:
     int w;
 };
 
-static_assert(sizeof(srVector4i) == 0x10, "srVector4i_must_be_0x10");
+W8_ABI_ASSERT(sizeof(srVector4i) == 0x10, "srVector4i_must_be_0x10");
 
 class srQuaternion {
 public:
@@ -1252,4 +1252,4 @@ public:
     srVector3T<float> v;
 };
 
-static_assert(sizeof(srQuaternion) == 0x10, "srQuaternion_must_be_0x10");
+W8_ABI_ASSERT(sizeof(srQuaternion) == 0x10, "srQuaternion_must_be_0x10");

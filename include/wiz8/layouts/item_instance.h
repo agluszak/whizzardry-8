@@ -35,6 +35,6 @@ struct W8ItemInstance {
 
 #pragma pack(pop)
 
-static_assert(sizeof(W8ItemInstance) == 0x0c, "W8ItemInstance_must_be_0x0c");
+W8_ABI_ASSERT(sizeof(W8ItemInstance) == 0x0c, "W8ItemInstance_must_be_0x0c");
 
 #endif

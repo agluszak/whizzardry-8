@@ -344,7 +344,6 @@ void UpdateWorldSpellVisuals(W8World* world)
     if (world == 0) {
         srAssertFail("pWorld", "C:\\Projects\\Wizardry 8\\Engine Code\\Spells.cpp", 0x130, 0);
     }
-    srVector3T<double> camera_location = world->camera->getLocation();
     int index = 0;
     int count = world->spell_visuals->GetCount();
     while (index < count) {

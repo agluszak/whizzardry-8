@@ -605,12 +605,12 @@ static void RebuildSpellCastingList(int spell_id)
         gpSCSV->uiSpells[index] = 0;
         gpSCSV->alt_colors[index] = 0xff;
     }
-    if (gpSCSV->caster->skill_unlocks[W8_SKILL_FIRE_MAGIC + realm] != 0) {
+    if (gpSCSV->caster->skill_unlocks[static_cast<int>(W8_SKILL_FIRE_MAGIC) + realm] != 0) {
         pass = 0;
         do {
             index = 0;
             while (index <
-                   static_cast<int>(gpSCSV->caster->skill_unlocks[W8_SKILL_FIRE_MAGIC + realm])) {
+                   static_cast<int>(gpSCSV->caster->skill_unlocks[static_cast<int>(W8_SKILL_FIRE_MAGIC) + realm])) {
                 int id = gpSCSV->learned.spell_ids_by_realm[realm][index];
                 gpSCSV->override_spell = id;
                 spell = &g_spell_records[id];

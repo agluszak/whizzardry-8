@@ -27,8 +27,8 @@ void W8ListBoxDialog::TextAreaButtonCallback(GUI_BUTTON* button, INT32 reason)
         POINT cursor;
         SGPMouseGetPos(&cursor);
         /* Retail read this top edge uninitialized when the area button is
-           absent (the leftover argument slot); the recovery keeps that read. */
-        int top;
+           absent (the leftover argument slot); natively it starts at zero. */
+        int top = 0;
         if (dialog->m_area_button != -1) {
             SGPRect area;
             GetButtonArea(dialog->m_area_button, &area);
@@ -126,9 +126,9 @@ void W8ListBoxDialog::SliderTrackButtonCallback(GUI_BUTTON* button, INT32 reason
         POINT cursor;
         SGPMouseGetPos(&cursor);
         /* Retail read both track edges uninitialized when the text-area
-           button is absent (the leftover argument slots); the recovery keeps that read. */
-        int top;
-        int bottom;
+           button is absent (the leftover argument slots); natively they start at zero. */
+        int top = 0;
+        int bottom = 0;
         if (dialog->m_third_text_button != -1) {
             SGPRect area;
             GetButtonArea(dialog->m_third_text_button, &area);

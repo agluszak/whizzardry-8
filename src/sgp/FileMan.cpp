@@ -188,7 +188,7 @@ void ShutdownFileManager()
     UnRegisterDebugTopic(TOPIC_FILE_MANAGER, "File Manager");
 }
 
-BOOLEAN FileExistsNoDB(STR filename)
+BOOLEAN FileExistsNoDB(const char* filename)
 {
     if (!filename)
         return FALSE;
@@ -200,7 +200,7 @@ BOOLEAN FileExistsNoDB(STR filename)
     catch (...) { return FALSE; }
 }
 
-BOOLEAN FileExists(STR filename)
+BOOLEAN FileExists(const char* filename)
 {
     if (!filename)
         return FALSE;
@@ -214,7 +214,7 @@ BOOLEAN FileExists(STR filename)
     catch (...) { return FALSE; }
 }
 
-BOOLEAN FileDelete(STR filename)
+BOOLEAN FileDelete(const char* filename)
 {
     if (!filename)
         return FALSE;
@@ -471,7 +471,7 @@ void GetFileClose(GETFILESTRUCT* result)
     result->iFindHandle = -1;
 }
 
-BOOLEAN FileCopy(STR source, STR destination, BOOLEAN fail_if_exists)
+BOOLEAN FileCopy(const char* source, const char* destination, BOOLEAN fail_if_exists)
 {
     if (!source || !destination)
         return FALSE;

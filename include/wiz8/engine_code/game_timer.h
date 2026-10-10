@@ -72,5 +72,5 @@ public:
 
 W8GameTimer* CreateGameTimer(float duration, unsigned char raw_time);
 
-static_assert(sizeof(W8GameTimer::Flags) == 2, "W8GameTimer_flags_size");
+W8_ABI_ASSERT(sizeof(W8GameTimer::Flags) == 2, "W8GameTimer_flags_size");
 W8_ABI_ASSERT(sizeof(W8GameTimer) == 0x24, "W8GameTimer_must_be_0x24");

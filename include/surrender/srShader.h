@@ -18,10 +18,6 @@ public:
     // RECOMP: ??0srShader@@QAE@XZ
     srShader() : value(0x0100241b) {}
 
-    // FUNCTION: SURRENDER 0x1003B930
-    // FUNCTION: WIZ8 0x0041CF80
-    srShader(const srShader& other) : value(other.value) {}
-
     enum e_pass {
         PASS_NEVER = 0,
         PASS_LESS = 1,

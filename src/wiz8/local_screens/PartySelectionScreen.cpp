@@ -577,7 +577,7 @@ W8_ABI_ASSERT(sizeof(W8PartySelectionOptionPanel) == 0x98, "W8PartySelectionOpti
    and independently observed owned state through +0x6c. The address-qualified
    name does not claim a source-era screen name. */
 // VTABLE: WIZ8 0x005ef4cc
-class W8PartySelectionController : public W8TextControl::Listener,
+class W8PartySelectionController final : public W8TextControl::Listener,
                                    public W8PartySelectionListSelectionListener,
                                    public W8PartySelectionDecisionListener {
 public:
@@ -1665,7 +1665,7 @@ void W8PartySelectionController::OnPrimary(W8TextControl* control)
                                  true, W8_PARTY_CONFIRM_PROCEED_TO_OPTIONS);
                 return;
             }
-            /* fall through */
+            [[fallthrough]];
         case W8_PARTY_SELECT_IMPORT:
             m_previous_mode = m_mode;
             SetSelection(-1, true, true);

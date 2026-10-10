@@ -35,8 +35,8 @@ extern "C" {
 
 // Some GUI_BUTTON system defines
 #define BUTTON_USE_DEFAULT -1
-#define BUTTON_NO_FILENAME NULL
-#define BUTTON_NO_CALLBACK NULL
+#define BUTTON_NO_FILENAME nullptr
+#define BUTTON_NO_CALLBACK nullptr
 #define BUTTON_NO_IMAGE -1
 #define BUTTON_NO_SLOT -1
 
@@ -148,7 +148,7 @@ typedef struct _GUI_BUTTON {
 
 extern GUI_BUTTON* ButtonList[MAX_BUTTONS]; // Button System's Main Button List
 
-#define GetButtonPtr(x) (((x >= 0) && (x < MAX_BUTTONS)) ? ButtonList[x] : NULL)
+#define GetButtonPtr(x) (((x >= 0) && (x < MAX_BUTTONS)) ? ButtonList[x] : nullptr)
 
 // Struct definition for the QuickButton pictures.
 typedef struct {

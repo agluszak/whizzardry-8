@@ -32,9 +32,9 @@ enum W8ParticleFlutterMode {
    falls back to timed expiry if no texture-frame bank exists. */
 enum W8ParticleExpiryMode { W8_PARTICLE_EXPIRY_TIMED = 0, W8_PARTICLE_EXPIRY_TEXTURE = 1 };
 enum W8ParticleUpdateFlags { W8_PARTICLE_ACTIVE_TRIANGLES_DIRTY = 2 };
-static_assert(sizeof(W8ParticleExpiryMode) == 4, "W8ParticleExpiryMode_size");
-static_assert(sizeof(W8ParticleBoundsMode) == 4, "W8ParticleBoundsMode_size");
-static_assert(sizeof(W8ParticleEmissionMode) == 4, "W8ParticleEmissionMode_size");
-static_assert(sizeof(W8ParticleDirectionMode) == 4, "W8ParticleDirectionMode_size");
-static_assert(sizeof(W8ParticleSpeedMode) == 4, "W8ParticleSpeedMode_size");
-static_assert(sizeof(W8ParticleFlutterMode) == 4, "W8ParticleFlutterMode_size");
+W8_ABI_ASSERT(sizeof(W8ParticleExpiryMode) == 4, "W8ParticleExpiryMode_size");
+W8_ABI_ASSERT(sizeof(W8ParticleBoundsMode) == 4, "W8ParticleBoundsMode_size");
+W8_ABI_ASSERT(sizeof(W8ParticleEmissionMode) == 4, "W8ParticleEmissionMode_size");
+W8_ABI_ASSERT(sizeof(W8ParticleDirectionMode) == 4, "W8ParticleDirectionMode_size");
+W8_ABI_ASSERT(sizeof(W8ParticleSpeedMode) == 4, "W8ParticleSpeedMode_size");
+W8_ABI_ASSERT(sizeof(W8ParticleFlutterMode) == 4, "W8ParticleFlutterMode_size");

@@ -124,7 +124,7 @@ struct W8CharacterStatsRecord {
     unsigned char enabled;
     unsigned char pad_0f;
 };
-static_assert(sizeof(W8CharacterStatsRecord) == 0x10, "W8CharacterStatsRecord_size");
+W8_ABI_ASSERT(sizeof(W8CharacterStatsRecord) == 0x10, "W8CharacterStatsRecord_size");
 
 /* The stats value control: it carries the record currently shown and the
    record to fall back to when the character has none. */
@@ -155,7 +155,7 @@ W8_ABI_ASSERT(sizeof(W8CharacterStatsRowListener) == 0x4, "W8CharacterStatsRowLi
 
 /* A stats-page value row: a decrement arrow, an increment arrow and a value
    control whose current index indexes the row's 0x10-byte record table. */
-class W8CharacterStatsRow : public W8TextControl::Listener {
+class W8CharacterStatsRow final : public W8TextControl::Listener {
 public:
     W8CharacterStatsRow();
     ~W8CharacterStatsRow()
@@ -245,7 +245,7 @@ struct W8CharacterSpellEntry {
     bool fSelectable;
     bool selected;
 };
-static_assert(sizeof(W8CharacterSpellEntry) == 0xc, "W8CharacterSpellEntry_size");
+W8_ABI_ASSERT(sizeof(W8CharacterSpellEntry) == 0xc, "W8CharacterSpellEntry_size");
 
 class W8CharacterSpellListListener {
 public:
@@ -301,7 +301,6 @@ private:
     bool m_force_redraw;
     bool m_show_fifth_category;
     bool nav_next_state;
-    unsigned char padding_077;
 };
 W8_ABI_ASSERT(sizeof(W8CharacterSkillsPage) == 0x78, "W8CharacterSkillsPage_size");
 
@@ -337,7 +336,6 @@ private:
     bool m_animation_active;
     bool m_description_dirty;
     bool m_portrait_dirty;
-    unsigned char pad_0ff;
 };
 W8_ABI_ASSERT(sizeof(W8CharacterPersonalityPage) == 0x100, "W8CharacterPersonalityPage_size");
 
@@ -403,7 +401,7 @@ public:
 };
 W8_ABI_ASSERT(sizeof(W8CharacterPageHost) == 0x4, "W8CharacterPageHost_size");
 
-class W8CharacterScreen : public W8CharacterPageHost, public W8TextControl::Listener {
+class W8CharacterScreen final : public W8CharacterPageHost, public W8TextControl::Listener {
 public:
     W8CharacterScreen(int mode, W8Character* character);
     void BuildControls();

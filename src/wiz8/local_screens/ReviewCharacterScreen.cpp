@@ -2773,8 +2773,8 @@ void ShowEndingScreen(void)
 {
     int fade_to_black;
     bool schedule_fade;
-    char* music;
-    char* sound;
+    const char* music;
+    const char* sound;
     int image;
     wchar_t text[512];
     W8ControlsRect bounds;

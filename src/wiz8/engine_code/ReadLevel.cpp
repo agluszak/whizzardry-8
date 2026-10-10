@@ -183,7 +183,7 @@ struct W8LevelItemRecord {
     char item_name[20];
 };
 
-static_assert(sizeof(W8LevelItemRecord) == 0x30, "W8LevelItemRecord_size_must_be_0x30");
+W8_ABI_ASSERT(sizeof(W8LevelItemRecord) == 0x30, "W8LevelItemRecord_size_must_be_0x30");
 
 struct W8LevelLightRecord {
     short version;
@@ -196,7 +196,7 @@ struct W8LevelLightRecord {
     float range;
 };
 
-static_assert(sizeof(W8LevelLightRecord) == 0x28, "W8LevelLightRecord_size_must_be_0x28");
+W8_ABI_ASSERT(sizeof(W8LevelLightRecord) == 0x28, "W8LevelLightRecord_size_must_be_0x28");
 
 } // namespace
 
@@ -348,21 +348,21 @@ static unsigned char ReadWorldLights(W8World* world, int hFile)
 // FUNCTION: WIZ8 0x004BC9D0
 unsigned char ReadWorldEnvironment(W8ReadLevelInfo* pInfo, W8World* pWorld)
 {
-    /* Retail read these uninitialised when a FileRead chain short-circuited; the recovery keeps
-       that read. */
+    /* Retail read these uninitialised when a FileRead chain short-circuited;
+       natively the scalars start at zero. */
     srVector3T<float> environment_range;
     EnvironmentColour white;
     srVector3T<float> position;
     srVector3T<float> axis;
     srMatrix3T<float> rotation;
-    float intensity;
-    float view_distance;
-    float angle;
+    float intensity = 0.0f;
+    float view_distance = 0.0f;
+    float angle = 0.0f;
     float distance_scale;
-    unsigned char camera_mode;
-    unsigned char has_light_colours;
-    unsigned char has_environment_colours;
-    unsigned char fog_enabled;
+    unsigned char camera_mode = 0;
+    unsigned char has_light_colours = 0;
+    unsigned char has_environment_colours = 0;
+    unsigned char fog_enabled = 0;
     bool success;
 
     success = FileRead(pInfo->hFile, &fog_enabled, sizeof(fog_enabled), 0) &&

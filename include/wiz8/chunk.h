@@ -10,7 +10,7 @@ struct W8ChunkHead {
     int extent; /* 0x08 */
 };
 
-static_assert(sizeof(W8ChunkHead) == 0x0c, "W8ChunkHead_size_must_be_0x0c");
+W8_ABI_ASSERT(sizeof(W8ChunkHead) == 0x0c, "W8ChunkHead_size_must_be_0x0c");
 
 /* Local Code\chunk.cpp. The constructor at 0x0055BCE0 initializes this complete
    0x48-byte object: the asserted direction state, one head-pointer vector and
@@ -27,11 +27,11 @@ struct W8Chunk {
 
     W8Chunk();
 
-    bool OpenRead(char* path);
-    bool OpenExistingRiff(char* path, unsigned int flags);
-    bool OpenWrite(char* path);
-    bool OpenReadWrite(char* path);
-    bool OpenAppend(char* path);
+    bool OpenRead(const char* path);
+    bool OpenExistingRiff(const char* path, unsigned int flags);
+    bool OpenWrite(const char* path);
+    bool OpenReadWrite(const char* path);
+    bool OpenAppend(const char* path);
     void Close();
     bool CopyCurrentChunkFrom(W8Chunk* source);
     bool SkipCurrentChunk();

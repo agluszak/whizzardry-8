@@ -16,7 +16,7 @@ struct W8ReadMeshFace {
 };
 #pragma pack(pop)
 
-static_assert(sizeof(W8ReadMeshFace) == 0x29, "W8ReadMeshFace_size_must_be_0x29");
+W8_ABI_ASSERT(sizeof(W8ReadMeshFace) == 0x29, "W8ReadMeshFace_size_must_be_0x29");
 class srMaterialIFace;
 class srModelInstance;
 class srTextureIFace;

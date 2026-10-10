@@ -41,7 +41,6 @@ struct W8OctRegionVolume {
    them. W8Octree releases its region allocation separately. */
 struct W8OctSpatialState {
     explicit W8OctSpatialState(const W8OctSpatialState* source = 0);
-    ~W8OctSpatialState();
 
     void SetChildBounds(const W8OctSpatialState* parent, int x, int y, int z)
     {
@@ -72,7 +71,6 @@ struct W8OctSpatialState {
     unsigned short m_depth;
     unsigned short m_region_count;
     unsigned short m_item_limit;
-    unsigned char padding_4a[6];
     /* Packed auto-region cell coordinate bound per axis, derived from the
        leaf level when a loaded octree is initialized. */
     unsigned short m_region_cells_per_axis;
@@ -84,7 +82,6 @@ struct W8OctSpatialState {
     /* Auto-region id allocator bound: each new region takes this value and
        bumps it; m_region_count mirrors it during the build. */
     unsigned short m_region_id_bound;
-    unsigned short padding_5a;
     W8OctRegionVolume* m_region_volumes;
     /* Maximum vertex distance from its region's center across the
        auto-regions. */
@@ -94,7 +91,6 @@ struct W8OctSpatialState {
     w8_ulong m_leaf_grid_stride_x;
     w8_ulong m_leaf_grid_stride_y;
     unsigned short m_level_kind;
-    unsigned short padding_6e;
     float m_node_extent;
     /* Emitted submesh record bound: the build packs kind-0 then kind-1
        records beneath it. */

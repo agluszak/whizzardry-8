@@ -38,9 +38,9 @@ struct W8Wiz7Character {
     unsigned char unknown_23c[0xc];
 };
 
-static_assert(sizeof(W8Wiz7Character) == 0x248, "W8Wiz7Character_must_be_0x248");
+W8_ABI_ASSERT(sizeof(W8Wiz7Character) == 0x248, "W8Wiz7Character_must_be_0x248");
 
-static_assert(sizeof(W8Wiz7Character) == 0x248, "W8Wiz7Character_must_be_0x248");
+W8_ABI_ASSERT(sizeof(W8Wiz7Character) == 0x248, "W8Wiz7Character_must_be_0x248");
 
 /* Local Code\Party Import.cpp: the Wizardry 7 character-import conversions. */
 void ConvertAttribute(W8Character* character, const W8Wiz7Character* imported);

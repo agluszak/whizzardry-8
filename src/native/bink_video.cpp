@@ -16,8 +16,7 @@ bool copy(const W8NativeVideo::Frame& frame, CpuSurface* target)
     SurfaceLock description{};
     description.width = target->surface->w;
     description.height = target->surface->h;
-    if (description.width < unsigned(frame.width) ||
-        description.height < unsigned(frame.height) ||
+    if (description.width < frame.width || description.height < frame.height ||
         SDL_BYTESPERPIXEL(target->surface->format) != 2 ||
         target->redMask != 0x7c00 ||
         target->greenMask != 0x3e0 ||
@@ -34,7 +33,7 @@ bool copy(const W8NativeVideo::Frame& frame, CpuSurface* target)
 }
 
 } // namespace
-W8BinkVideo::W8BinkVideo() : m_handle(nullptr), unknown_04{}, m_target(nullptr)
+W8BinkVideo::W8BinkVideo() : m_handle(nullptr), m_target(nullptr)
 {
 }
 W8BinkVideo::~W8BinkVideo()

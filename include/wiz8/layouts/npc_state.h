@@ -128,6 +128,6 @@ struct W8NpcState {
 
 #pragma pack(pop)
 
-static_assert(sizeof(W8NpcState) == 0x13d, "W8NpcState_size");
+W8_ABI_ASSERT(sizeof(W8NpcState) == 0x13d, "W8NpcState_size");
 
 #endif

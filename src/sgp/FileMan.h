@@ -87,9 +87,9 @@ extern "C" {
 
 extern BOOLEAN InitializeFileManager(STR strIndexFilename);
 extern void ShutdownFileManager(void);
-extern BOOLEAN FileExists(STR strFilename);
-extern BOOLEAN FileExistsNoDB(STR strFilename);
-extern BOOLEAN FileDelete(STR strFilename);
+extern BOOLEAN FileExists(const char* strFilename);
+extern BOOLEAN FileExistsNoDB(const char* strFilename);
+extern BOOLEAN FileDelete(const char* strFilename);
 extern HWFILE FileOpen(const char* strFilename, UINT32 uiOptions, BOOLEAN fDeleteOnClose);
 extern void FileClose(HWFILE);
 
@@ -115,7 +115,7 @@ BOOLEAN GetFileFirst(CHAR8* pSpec, GETFILESTRUCT* pGFStruct);
 BOOLEAN GetFileNext(GETFILESTRUCT* pGFStruct);
 void GetFileClose(GETFILESTRUCT* pGFStruct);
 
-BOOLEAN FileCopy(STR strSrcFile, STR strDstFile, BOOLEAN fFailIfExists);
+BOOLEAN FileCopy(const char* strSrcFile, const char* strDstFile, BOOLEAN fFailIfExists);
 //Added by Kris Morness
 UINT32 FileGetAttributes(STR filename);
 BOOLEAN FileClearAttributes(STR filename);

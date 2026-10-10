@@ -540,6 +540,7 @@ void W8Navigator::SetNavigationMode(int mode)
         SetPathAI(path);
         /* Falls into mode four's body: the retail block ends where mode four's
            jump-table entry lands. */
+        [[fallthrough]];
     case 4:
         SetPitchRollEnabled(false, false);
         break;

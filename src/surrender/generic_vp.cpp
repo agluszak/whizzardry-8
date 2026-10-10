@@ -5,8 +5,6 @@
 
 #include <string.h>
 
-#pragma intrinsic(memset)
-
 // FUNCTION: SURRENDER 0x10065880
 const char* srVP_generic::getName()
 {

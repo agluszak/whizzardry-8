@@ -15,7 +15,7 @@ protected:
     float exponent_;
 };
 
-static_assert((sizeof(srExponentTable) == 0x1004), "srExponentTable_must_be_0x1004");
+W8_ABI_ASSERT((sizeof(srExponentTable) == 0x1004), "srExponentTable_must_be_0x1004");
 
 /* Process-wide doubly linked freelist of up to 0x10 exponent tables. get() bumps a reference count
    and reuses the last result; the renderer releases tables back to the pool instead of deleting

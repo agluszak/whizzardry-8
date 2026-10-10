@@ -59,8 +59,5 @@ void ClearNpcMessageQueue(void)
     for (index = 0; index < g_npc_scripting.message_lines.GetCount(); ++index) {
         delete *g_npc_scripting.message_lines.GetAt(index);
     }
-    g_npc_scripting.message_lines.Clear();
-    /* Retail clears all 0xcc bytes, including both vectors' vfptrs and
-       storage pointers (see docs/retail-bugs.md). */
-    memset(&g_npc_scripting, 0, sizeof(g_npc_scripting));
+    g_npc_scripting = {};
 }

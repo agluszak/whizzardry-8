@@ -239,7 +239,7 @@ unsigned short g_generic_item_name_notice[W8_GENERIC_ITEM_NAME_COUNT] = {
 // GLOBAL: WIZ8 0x0068C0B4
 static wchar_t g_item_display_name_buffer[42];
 
-static_assert(sizeof(W8ItemVideoObjectEntry) == 8, "W8ItemVideoObjectEntry_must_be_8");
+W8_ABI_ASSERT(sizeof(W8ItemVideoObjectEntry) == 8, "W8ItemVideoObjectEntry_must_be_8");
 W8_ABI_ASSERT(sizeof(W8ItemVideoObjectCache) == 0x0c, "W8ItemVideoObjectCache_must_be_0x0c");
 
 // GLOBAL: WIZ8 0x0068EC68
@@ -2880,7 +2880,7 @@ void SetHandType(W8Character* character, W8EquipSlot slot)
                         .unidentified_name_index != 0x83) {
                 break;
             }
-            /* fall through */
+            [[fallthrough]];
         case W8_ITEM_EQUIP_CLASS_AMMUNITION:
             wield_kind = 3;
             break;

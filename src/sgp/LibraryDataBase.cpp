@@ -17,10 +17,10 @@
 
 CHAR8 gzCdDirectory[SGPFILENAME_LEN];
 
-static_assert(sizeof(LIBHEADER) == 532);
-static_assert(sizeof(DIRENTRY) == 280);
-static_assert(offsetof(LIBHEADER, iReserved) == 528);
-static_assert(offsetof(DIRENTRY, sFileTime) == 268);
+W8_ABI_ASSERT(sizeof(LIBHEADER) == 532, "LIBHEADER_size");
+W8_ABI_ASSERT(sizeof(DIRENTRY) == 280, "DIRENTRY_size");
+W8_ABI_ASSERT(offsetof(LIBHEADER, iReserved) == 528, "LIBHEADER_iReserved");
+W8_ABI_ASSERT(offsetof(DIRENTRY, sFileTime) == 268, "DIRENTRY_sFileTime");
 
 namespace
 {
@@ -325,7 +325,7 @@ BOOLEAN InitializeLibrary(STR name, LibraryHeaderStruct* library, BOOLEAN on_cd)
     }
 }
 
-BOOLEAN CheckIfFileExistInLibrary(STR name)
+BOOLEAN CheckIfFileExistInLibrary(const char* name)
 {
     return GetLibraryIDFromFileName(name) != -1;
 }

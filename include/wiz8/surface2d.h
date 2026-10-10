@@ -15,6 +15,7 @@ public:
 
     stTexture2D();
     virtual ~stTexture2D() override;
+    stTexture2D& operator=(const stTexture2D&) = default;
     virtual srClass* vInstance() override;
     virtual w8_ulong getTextureFrameHandle() override;
     virtual void getMipmapData(MultiRequest& request) override;
@@ -46,6 +47,7 @@ public:
 
     stSurface2D(srColorSurfaceIFace* surface, int width, int height, srNode* parent, int tile_size);
     virtual ~stSurface2D() override;
+    stSurface2D& operator=(const stSurface2D&) = default;
     virtual void traverse(TraverseInfo& info) override;
     virtual void process(const ProcessInfo& info, e_processType type) override;
 

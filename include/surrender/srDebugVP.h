@@ -535,6 +535,6 @@ private:
     void resetInternalStatistics();
 };
 
-static_assert(sizeof(srDebugVP::e_command) == 4, "srDebugVP_command_size");
+W8_ABI_ASSERT(sizeof(srDebugVP::e_command) == 4, "srDebugVP_command_size");
 
 W8_ABI_ASSERT((sizeof(srDebugVP) == 0x1678), "srDebugVP_must_be_0x1678");

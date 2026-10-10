@@ -881,7 +881,7 @@ void SetCameraLightMode(int mode)
                 camera_light->intensity = intensity;
                 return;
             }
-            /* fall through */
+            [[fallthrough]];
         case 2:
             camera_light->setFlag(srNode::FLAG_DISABLE);
             return;

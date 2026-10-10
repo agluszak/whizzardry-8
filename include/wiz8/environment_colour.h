@@ -25,4 +25,4 @@ struct EnvironmentColour : public srVector3T<float> {
     void Set(double red_value, double green_value, double blue_value);
 };
 
-static_assert(sizeof(EnvironmentColour) == 0x0c, "EnvironmentColour_must_be_0x0c");
+W8_ABI_ASSERT(sizeof(EnvironmentColour) == 0x0c, "EnvironmentColour_must_be_0x0c");

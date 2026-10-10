@@ -27,8 +27,8 @@ public:
     srDummyStreamBuf();
 
 private:
-    virtual int overflow(int ch);
-    virtual int underflow();
+    int overflow(int ch) override;
+    int underflow() override;
 
     /* The copy constructor reinitializes a fresh stream buffer rather than copying get/put state. */
     srDummyStreamBuf(const srDummyStreamBuf& other);

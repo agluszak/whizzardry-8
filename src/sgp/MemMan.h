@@ -60,9 +60,9 @@ extern void ShutdownMemoryManager(void);
 // A non-null special pointer records externally managed memory; special free only untracks it.
 void DumpMemoryInfoIntoFile(UINT8* filename, BOOLEAN fAppend);
 BOOLEAN _AddAndRecordMemAlloc(UINT32 size, UINT32 uiLineNum, UINT8* pSourceFile);
-#define MemAlloc(size) MemAllocXDebug((size), __FILE__, __LINE__, NULL)
-#define MemFree(ptr) MemFreeXDebug((ptr), __FILE__, __LINE__, NULL)
-#define MemRealloc(ptr, size) MemReallocXDebug((ptr), (size), __FILE__, __LINE__, NULL)
+#define MemAlloc(size) MemAllocXDebug((size), __FILE__, __LINE__, nullptr)
+#define MemFree(ptr) MemFreeXDebug((ptr), __FILE__, __LINE__, nullptr)
+#define MemRealloc(ptr, size) MemReallocXDebug((ptr), (size), __FILE__, __LINE__, nullptr)
 extern PTR MemAllocXDebug(UINT32 size, const char* szCodeString, INT32 iLineNum, void* pSpecial);
 extern void MemFreeXDebug(PTR ptr, const char* szCodeString, INT32 iLineNum, void* pSpecial);
 extern PTR MemReallocXDebug(PTR ptr, UINT32 size, const char* szCodeString, INT32 iLineNum,

@@ -10,8 +10,8 @@
 #include "vobject_blitters.h"
 #include "vsurface.h"
 
-static_assert(sizeof(W8VideoObjectSlot) == 8, "W8VideoObjectSlot_size_must_be_8");
-static_assert(sizeof(W8VideoFrame) == 0x3c, "W8VideoFrame_size_must_be_0x3c");
+W8_ABI_ASSERT(sizeof(W8VideoObjectSlot) == 8, "W8VideoObjectSlot_size_must_be_8");
+W8_ABI_ASSERT(sizeof(W8VideoFrame) == 0x3c, "W8VideoFrame_size_must_be_0x3c");
 
 /* The retail catalog's omitted fields - the loaded flag, its alignment bytes
    and the handle - are zero in the data image; only the path and mode are

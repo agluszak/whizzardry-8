@@ -891,8 +891,8 @@ unsigned char ReadSingleLevelMeshBody(W8ReadLevelInfo* info, srModelInstance** i
         signed char mapping_count;
         success = FileRead(file, &mapping_count, sizeof(mapping_count), 0);
         for (short index = 0; index < mapping_count; ++index) {
-            short value;
-            short key;
+            short value = 0;
+            short key = 0;
             /* Retail 0x00485e06/0x00485e1b: the mapping key (the vertex
                marker id GetCycleMappedPosition asks for) comes first in the
                file, then the original vertex index. */
@@ -1029,7 +1029,7 @@ unsigned char ReadSingleLevelMeshBody(W8ReadLevelInfo* info, srModelInstance** i
             for (int index = 0; index < model->vertex_location_count; ++index) {
                 model_vertices[index] = vertices[vertex_maps[mesh_index][index]];
             }
-            OptimizeMeshOrder(model, ~0UL);
+            OptimizeMeshOrder(model, ~w8_ulong{0});
         }
     } else {
         for (short frame = 0; frame < frame_count; ++frame) {
@@ -1227,12 +1227,12 @@ void ReleaseReadMeshScratch()
 unsigned char SkipSingleLevelMesh(W8ReadLevelInfo* info)
 {
     /* Retail read count/group_count uninitialised when a FileRead
-       short-circuited; the recovery keeps that read. */
+       short-circuited; natively count starts at zero. */
     int version;
     int vertex_count;
     int face_count;
     unsigned char flags = 0;
-    unsigned char count;
+    unsigned char count = 0;
     short item_count;
     short index;
     unsigned char success = 1;

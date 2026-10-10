@@ -630,8 +630,8 @@ bool LoadWorldTriggers(W8World* world, int hFile)
 
     for (;;) {
         /* Retail read `tag` (and the tag-5 name/id below) uninitialised when a
-           FileRead short-circuited; the recovery keeps that read. */
-        char tag;
+           FileRead short-circuited; natively it starts at zero. */
+        char tag = 0;
 
         if (finished || trigger_count <= index) {
             return header_ok;
@@ -1347,11 +1347,11 @@ W8TriggerActionData* ReadDoorTriggerActionData(int handle)
 // FUNCTION: WIZ8 0x00441a20
 Trigger* Trigger::CreateAndLoadLevelTrigger(int handle, W8World* world)
 {
-    /* Retail read these uninitialised when the FileRead chain short-circuited; the recovery keeps
-       that read. */
+    /* Retail read these uninitialised when the FileRead chain short-circuited;
+       natively they start at zero. */
     Trigger* trigger = 0;
-    unsigned char record_version;
-    unsigned char record_type;
+    unsigned char record_version = 0;
+    unsigned char record_type = 0;
     if (handle == 0) {
         srAssertFail("hFile", "C:\\Projects\\Wizardry 8\\Engine Code\\Trigger.cpp", 0xca3, 0);
     }
@@ -2306,9 +2306,9 @@ void Trigger::RunDestination(const char* destination)
     srVector3T<float> source_position;
     srMatrix3T<float> rotation;
     /* Retail's named-entity path reads saved storage for these integers;
-       authored initialization remains unresolved. */
+       natively a named entity stays in the current level. */
     int location_id;
-    int entrance;
+    int entrance = 0;
     int current_location;
     float angle;
     bool named_entity;
@@ -2319,6 +2319,7 @@ void Trigger::RunDestination(const char* destination)
 
     ResetInactiveLevelDataVectors();
     current_location = g_status.current_level;
+    location_id = current_location;
     named_entity =
         FindEntityByName(destination, &destination_position, &angle, &destination_direction);
     if (!named_entity) {
@@ -3844,7 +3845,7 @@ bool LoadLocationVariables(int handle)
     for (index = 0; index < variable_count; ++index) {
         int value;
         char name[0x80];
-        int level;
+        int level = 0;
         char* copy;
 
         if (!read_ok) {

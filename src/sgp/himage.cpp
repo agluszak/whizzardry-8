@@ -233,7 +233,7 @@ HIMAGE CreateImage(SGPFILENAME ImageFile, UINT16 fContents)
 try
 {
     if (!ImageFile)
-        return NULL;
+        return nullptr;
     std::string path(ImageFile);
     const auto slash = path.find_last_of("/\\");
     auto dot = path.find_last_of('.');
@@ -243,7 +243,7 @@ try
         dot = path.size() - 4;
     }
     if (path.size() >= sizeof(SGPFILENAME))
-        return NULL;
+        return nullptr;
     const auto extension = path.substr(dot + 1);
     UINT32 iFileLoader = UNKNOWN_FILE_READER;
     if (_stricmp(extension.c_str(), "PCX") == 0)
@@ -255,14 +255,14 @@ try
     else if (_stricmp(extension.c_str(), "JPG") == 0 || _stricmp(extension.c_str(), "JPEG") == 0)
         iFileLoader = JPEG_FILE_READER;
     if (iFileLoader == UNKNOWN_FILE_READER)
-        return NULL;
+        return nullptr;
 
     // Determine if resource exists before creating image structure
     if (!FileExists(path.data())) {
         //If in debig, make fatal!
         DbgMessage(TOPIC_HIMAGE, DBG_LEVEL_2,
                    String("Resource file %s does not exist.", ImageFile));
-        return (NULL);
+        return (nullptr);
     }
 
     // Create memory for image structure
@@ -270,7 +270,7 @@ try
         static_cast<image_type*>(MemAlloc(sizeof(image_type))), DestroyImage);
 
     if (!hImage)
-        return NULL;
+        return nullptr;
     // Initialize some values
     memset(hImage.get(), 0, sizeof(image_type));
 
@@ -279,7 +279,7 @@ try
     hImage->iFileLoader = iFileLoader;
 
     if (!LoadImageData(hImage.get(), fContents)) {
-        return (NULL);
+        return (nullptr);
     }
 
     // All is fine, image is loaded and allocated, return pointer
@@ -287,13 +287,13 @@ try
 }
 catch (...)
 {
-    return NULL;
+    return nullptr;
 }
 
 // FUNCTION: WIZ8 0x0040f9f0
 BOOLEAN DestroyImage(HIMAGE hImage)
 {
-    Assert(hImage != NULL);
+    Assert(hImage != nullptr);
 
     // First delete contents
     ReleaseImageData(hImage, IMAGE_ALLDATA); //hImage->fFlags );
@@ -308,18 +308,18 @@ BOOLEAN DestroyImage(HIMAGE hImage)
 BOOLEAN ReleaseImageData(HIMAGE hImage, UINT16 fContents)
 {
 
-    Assert(hImage != NULL);
+    Assert(hImage != nullptr);
 
     if ((fContents & IMAGE_PALETTE) && (hImage->fFlags & IMAGE_PALETTE)) {
         //Destroy palette
-        if (hImage->pPalette != NULL) {
+        if (hImage->pPalette != nullptr) {
             MemFree(hImage->pPalette);
-            hImage->pPalette = NULL;
+            hImage->pPalette = nullptr;
         }
 
-        if (hImage->pui16BPPPalette != NULL) {
+        if (hImage->pui16BPPPalette != nullptr) {
             MemFree(hImage->pui16BPPPalette);
-            hImage->pui16BPPPalette = NULL;
+            hImage->pui16BPPPalette = nullptr;
         }
 
         // Remove contents flag
@@ -328,9 +328,9 @@ BOOLEAN ReleaseImageData(HIMAGE hImage, UINT16 fContents)
 
     if ((fContents & IMAGE_BITMAPDATA) && (hImage->fFlags & IMAGE_BITMAPDATA)) {
         //Destroy image data
-        Assert(hImage->pImageData != NULL);
+        Assert(hImage->pImageData != nullptr);
         MemFree(hImage->pImageData);
-        hImage->pImageData = NULL;
+        hImage->pImageData = nullptr;
         if (hImage->usNumberOfObjects > 0) {
             MemFree(hImage->pETRLEObject);
         }
@@ -340,7 +340,7 @@ BOOLEAN ReleaseImageData(HIMAGE hImage, UINT16 fContents)
 
     if ((fContents & IMAGE_APPDATA) && (hImage->fFlags & IMAGE_APPDATA)) {
         // get rid of the APP DATA
-        if (hImage->pAppData != NULL) {
+        if (hImage->pAppData != nullptr) {
             MemFree(hImage->pAppData);
             hImage->fFlags &= (~IMAGE_APPDATA);
         }
@@ -353,7 +353,7 @@ BOOLEAN LoadImageData(HIMAGE hImage, UINT16 fContents)
 {
     BOOLEAN fReturnVal = FALSE;
 
-    Assert(hImage != NULL);
+    Assert(hImage != nullptr);
 
     // Switch on file loader
     switch (hImage->iFileLoader) {
@@ -384,7 +384,7 @@ BOOLEAN CopyImageToBuffer(HIMAGE hImage, UINT32 fBufferType, BYTE* pDestBuf, UIN
                           UINT16 usDestHeight, UINT16 usX, UINT16 usY, SGPRect* srcRect)
 {
     // Use blitter based on type of image
-    Assert(hImage != NULL);
+    Assert(hImage != nullptr);
 
     if (hImage->ubBitDepth == 8 && fBufferType == BUFFER_8BPP) {
 #ifndef NO_ZLIB_COMPRESSION
@@ -442,21 +442,8 @@ BOOLEAN Copy8BPPCompressedImageTo8BPPBuffer(HIMAGE hImage, BYTE* pDestBuf, UINT1
                                             UINT16 usDestHeight, UINT16 usX, UINT16 usY,
                                             SGPRect* srcRect)
 {
-    UINT32 uiNumLines;
-    UINT32 uiLineSize;
-    UINT32 uiCnt;
-
-    UINT8* pDest;
-    UINT32 uiDestStart;
-
-    UINT8* pScanLine;
-
-    PTR pDecompPtr;
-    UINT32 uiDecompressed;
-
-    // Assertions
-    Assert(hImage != NULL);
-    Assert(hImage->pCompressedImageData != NULL);
+    Assert(hImage != nullptr);
+    Assert(hImage->pCompressedImageData != nullptr);
 
     // Validations
     CHECKF(usX >= 0);
@@ -466,58 +453,8 @@ BOOLEAN Copy8BPPCompressedImageTo8BPPBuffer(HIMAGE hImage, BYTE* pDestBuf, UINT1
     CHECKF(srcRect->iRight > srcRect->iLeft);
     CHECKF(srcRect->iBottom > srcRect->iTop);
 
-    DbgMessage(TOPIC_HIMAGE, DBG_LEVEL_3, "8BPP to 8BPP Compressed Blitter Called!");
-    // determine where to start Copying and rectangle size
-    uiDestStart = usY * usDestWidth + usX;
-    uiNumLines = srcRect->iBottom - srcRect->iTop;
-    uiLineSize = srcRect->iRight - srcRect->iLeft;
-
-    Assert(usDestWidth >= uiLineSize);
-    Assert(usDestHeight >= uiNumLines);
-
-    pDest = (UINT8*)pDestBuf + uiDestStart;
-
-    // Copying a portion of a compressed image is rather messy
-    // because we have to decompress past all the data we want
-    // to skip.
-
-    // To keep memory requirements small and regular, we will
-    // decompress one scanline at a time even if none of the data will
-    // be blitted (but stop when the bottom line of the rectangle
-    // to blit has been done).
-
-    // initialize the decompression routines
-    std::unique_ptr<void, decltype(&DecompressFini)> decompressor(
-        DecompressInit((BYTE*)hImage->pCompressedImageData, hImage->usWidth * hImage->usHeight),
-        DecompressFini);
-    pDecompPtr = decompressor.get();
-    CHECKF(pDecompPtr);
-
-    // Allocate memory for one scanline
-    ImageMemory<UINT8> scanline(static_cast<UINT8*>(MemAlloc(hImage->usWidth)));
-    pScanLine = scanline.get();
-    CHECKF(pScanLine);
-
-    // go past all the scanlines we don't need to process
-    for (uiCnt = 0; uiCnt < (UINT32)srcRect->iTop; uiCnt++) {
-        uiDecompressed = Decompress(pDecompPtr, pScanLine, hImage->usWidth);
-        Assert(uiDecompressed == hImage->usWidth);
-    }
-
-    // now we start Copying
-    for (uiCnt = 0; uiCnt < uiNumLines - 1; uiCnt++) {
-        // decompress a scanline
-        uiDecompressed = Decompress(pDecompPtr, pScanLine, hImage->usWidth);
-        Assert(uiDecompressed == hImage->usWidth);
-        // and blit
-        //		memcpy( pDest, pScanLine + srcRect->iLeft, uiLineSize );
-        pDest += usDestWidth;
-    }
-    // decompress the last scanline and blit
-    uiDecompressed = Decompress(pDecompPtr, pScanLine, hImage->usWidth);
-    Assert(uiDecompressed == hImage->usWidth);
-    //	memcpy( pDest, pScanLine + srcRect->iLeft, uiLineSize );
-
+    /* Retail decompressed scanlines through the requested rectangle into a
+       scratch line but never copied them: its memcpy calls are commented out. */
     return (TRUE);
 }
 
@@ -539,13 +476,12 @@ BOOLEAN Copy8BPPCompressedImageTo16BPPBuffer(HIMAGE hImage, BYTE* pDestBuf, UINT
     UINT8* pScanLineTemp;
 
     PTR pDecompPtr;
-    UINT32 uiDecompressed;
 
     UINT16* p16BPPPalette;
 
     // Assertions
-    Assert(hImage != NULL);
-    Assert(hImage->pCompressedImageData != NULL);
+    Assert(hImage != nullptr);
+    Assert(hImage->pCompressedImageData != nullptr);
     DbgMessage(TOPIC_HIMAGE, DBG_LEVEL_3, "Start check");
     // Validations
     CHECKF(usX >= 0);
@@ -593,16 +529,14 @@ BOOLEAN Copy8BPPCompressedImageTo16BPPBuffer(HIMAGE hImage, BYTE* pDestBuf, UINT
     // go past all the scanlines we don't need to process
     for (uiLine = 0; uiLine < (UINT32)srcRect->iTop; uiLine++) {
         DbgMessage(TOPIC_HIMAGE, DBG_LEVEL_3, "Skipping scanline");
-        uiDecompressed = Decompress(pDecompPtr, pScanLine, hImage->usWidth);
-        Assert(uiDecompressed == hImage->usWidth);
+        Decompress(pDecompPtr, pScanLine, hImage->usWidth);
     }
 
     DbgMessage(TOPIC_HIMAGE, DBG_LEVEL_3, "Actually Copying");
     // now we start Copying
     for (uiLine = 0; uiLine < uiNumLines - 1; uiLine++) {
         // decompress a scanline
-        uiDecompressed = Decompress(pDecompPtr, pScanLine, hImage->usWidth);
-        Assert(uiDecompressed == hImage->usWidth);
+        Decompress(pDecompPtr, pScanLine, hImage->usWidth);
 
         // set pointers and blit
         pDestTemp = pDest;
@@ -640,8 +574,8 @@ BOOLEAN Copy8BPPImageTo8BPPBuffer(HIMAGE hImage, BYTE* pDestBuf, UINT16 usDestWi
     UINT8 *pDest, *pSrc;
 
     // Assertions
-    Assert(hImage != NULL);
-    Assert(hImage->p16BPPData != NULL);
+    Assert(hImage != nullptr);
+    Assert(hImage->p16BPPData != nullptr);
 
     // Validations
     CHECKF(usX >= 0);
@@ -683,8 +617,8 @@ BOOLEAN Copy16BPPImageTo16BPPBuffer(HIMAGE hImage, BYTE* pDestBuf, UINT16 usDest
     UINT32 cnt;
     UINT16 *pDest, *pSrc;
 
-    Assert(hImage != NULL);
-    Assert(hImage->p16BPPData != NULL);
+    Assert(hImage != nullptr);
+    Assert(hImage->p16BPPData != nullptr);
 
     // Validations
     CHECKF(usX >= 0);
@@ -731,11 +665,11 @@ BOOLEAN Copy8BPPImageTo16BPPBuffer(HIMAGE hImage, BYTE* pDestBuf, UINT16 usDestW
     p16BPPPalette = hImage->pui16BPPPalette;
 
     // Assertions
-    Assert(p16BPPPalette != NULL);
-    Assert(hImage != NULL);
+    Assert(p16BPPPalette != nullptr);
+    Assert(hImage != nullptr);
 
     // Validations
-    CHECKF(hImage->p16BPPData != NULL);
+    CHECKF(hImage->p16BPPData != nullptr);
     CHECKF(usX >= 0);
     CHECKF(usX < usDestWidth);
     CHECKF(usY >= 0);
@@ -784,12 +718,12 @@ UINT16* Create16BPPPalette(SGPPaletteEntry* pPalette)
     UINT32 cnt;
     UINT8 r, g, b;
 
-    Assert(pPalette != NULL);
+    Assert(pPalette != nullptr);
 
     p16BPPPalette = (UINT16*)MemAlloc(sizeof(UINT16) * 256);
 
     if (!p16BPPPalette)
-        return NULL;
+        return nullptr;
 
     for (cnt = 0; cnt < 256; cnt++) {
         r = pPalette[cnt].peRed;
@@ -858,7 +792,7 @@ UINT16* Create16BPPPaletteShaded(SGPPaletteEntry* pPalette, UINT32 rscale, UINT3
     UINT32 rmod, gmod, bmod;
     UINT8 r, g, b;
 
-    Assert(pPalette != NULL);
+    Assert(pPalette != nullptr);
 
     p16BPPPalette = (UINT16*)MemAlloc(sizeof(UINT16) * 256);
 
@@ -958,8 +892,8 @@ UINT16 Get16BPPColor(UINT32 RGBValue)
 BOOLEAN GetETRLEImageData(HIMAGE hImage, ETRLEData* pBuffer)
 {
     // Assertions
-    Assert(hImage != NULL);
-    Assert(pBuffer != NULL);
+    Assert(hImage != nullptr);
+    Assert(pBuffer != nullptr);
 
     // Create memory for data
     pBuffer->usNumberOfObjects = hImage->usNumberOfObjects;
@@ -967,7 +901,7 @@ BOOLEAN GetETRLEImageData(HIMAGE hImage, ETRLEData* pBuffer)
     // Create buffer for objects
     pBuffer->pETRLEObject =
         (ETRLEObject*)MemAlloc(sizeof(ETRLEObject) * pBuffer->usNumberOfObjects);
-    CHECKF(pBuffer->pETRLEObject != NULL);
+    CHECKF(pBuffer->pETRLEObject != nullptr);
 
     // Copy into buffer
     memcpy(pBuffer->pETRLEObject, hImage->pETRLEObject,
@@ -975,7 +909,7 @@ BOOLEAN GetETRLEImageData(HIMAGE hImage, ETRLEData* pBuffer)
 
     // Allocate memory for pixel data
     pBuffer->pPixData = MemAlloc(hImage->uiSizePixData);
-    CHECKF(pBuffer->pPixData != NULL);
+    CHECKF(pBuffer->pPixData != nullptr);
 
     pBuffer->uiSizePixData = hImage->uiSizePixData;
 

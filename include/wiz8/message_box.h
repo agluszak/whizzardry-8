@@ -20,8 +20,8 @@ struct W8SkillNoticePayload {
     signed char skills[8];
 };
 
-static_assert(sizeof(W8ExperienceNoticePayload) == 8, "W8ExperienceNoticePayload_size");
-static_assert(sizeof(W8SkillNoticePayload) == 0x11, "W8SkillNoticePayload_size");
+W8_ABI_ASSERT(sizeof(W8ExperienceNoticePayload) == 8, "W8ExperienceNoticePayload_size");
+W8_ABI_ASSERT(sizeof(W8SkillNoticePayload) == 0x11, "W8SkillNoticePayload_size");
 
 /* The tagged dword payloads carried at W8MessageBoxLine::payload and
    ::extra. Which member is live is selected by the line's `type` (or by the
@@ -144,7 +144,7 @@ struct W8MessageBoxLine {
 };
 
 W8_ABI_ASSERT(sizeof(W8MessageBoxLine) == 0x24, "W8MessageBoxLine_must_be_0x24");
-static_assert(offsetof(W8MessageBoxLine, quote_entry) == 0x08, "W8MessageBoxLine_quote_entry");
+W8_ABI_ASSERT(offsetof(W8MessageBoxLine, quote_entry) == 0x08, "W8MessageBoxLine_quote_entry");
 W8_ABI_ASSERT(offsetof(W8MessageBoxLine, type) == 0x0c, "W8MessageBoxLine_type");
 W8_ABI_ASSERT(offsetof(W8MessageBoxLine, payload) == 0x10, "W8MessageBoxLine_payload");
 W8_ABI_ASSERT(offsetof(W8MessageBoxLine, continuation_quote) == 0x14,

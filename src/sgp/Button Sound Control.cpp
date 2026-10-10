@@ -16,7 +16,7 @@ void SpecifyButtonSoundScheme(INT32 iButtonID, INT8 bSoundScheme)
 
 void PlayButtonSound(INT32 iButtonID, INT32 iSoundType)
 {
-    if (ButtonList[iButtonID] == NULL) {
+    if (ButtonList[iButtonID] == nullptr) {
         return;
     }
 

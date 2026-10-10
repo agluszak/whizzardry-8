@@ -69,7 +69,7 @@ enum W8CampItemFilter {
    W8CampStatsRange and W8CampStatsControls are authored in RCSStatsPage.cpp
    (declared in RCSStatsPage.h). */
 // VTABLE: WIZ8 0x005eed08
-class W8CampItemRange : public W8CampRangeListener {
+class W8CampItemRange final : public W8CampRangeListener {
 public:
     W8CampItemRange();
     ~W8CampItemRange()
@@ -80,7 +80,7 @@ public:
 };
 
 // VTABLE: WIZ8 0x005ef298
-class W8CampSpellRange : public W8CampRangeListener {
+class W8CampSpellRange final : public W8CampRangeListener {
 public:
     explicit W8CampSpellRange(W8SpellRealm realm);
     ~W8CampSpellRange();
@@ -197,12 +197,12 @@ struct W8CampScreenState {
     unsigned char padding_d51[3];
 };
 W8_ABI_ASSERT(sizeof(W8CampScreenState) == 0xd54, "W8CampScreenState_size");
-static_assert(offsetof(W8CampScreenState, learned_spells) == 0x100,
+W8_ABI_ASSERT(offsetof(W8CampScreenState, learned_spells) == 0x100,
               "W8CampScreenState_learned_spells_offset");
-static_assert(offsetof(W8CampScreenState, learned_spells) + offsetof(W8LearnedSpellState, scroll) ==
+W8_ABI_ASSERT(offsetof(W8CampScreenState, learned_spells) + offsetof(W8LearnedSpellState, scroll) ==
                   0x4c0,
               "W8CampScreenState_spell_scroll_offset");
-static_assert(offsetof(W8CampScreenState, learned_spells) +
+W8_ABI_ASSERT(offsetof(W8CampScreenState, learned_spells) +
                       offsetof(W8LearnedSpellState, learned_total) ==
                   0x4d8,
               "W8CampScreenState_learned_total_offset");

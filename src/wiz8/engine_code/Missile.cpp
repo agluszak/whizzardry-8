@@ -399,7 +399,6 @@ void UpdateWorldMissiles(W8World* world)
     if (world == 0) {
         srAssertFail("pWorld", MISSILE_CPP, 200, 0);
     }
-    srVector3T<double> camera_location = world->camera->getLocation();
     int index = 0;
     int count = world->missiles->GetCount();
     while (index < count) {
@@ -922,7 +921,7 @@ W8Missile::W8Missile()
     }
 
     memset(&definition, 0, sizeof(definition));
-    memset(&result, 0, sizeof(result));
+    result = {};
     ResetCombatSlot(&combat_slot);
 }
 
@@ -946,7 +945,7 @@ W8Missile::W8Missile(const W8Missile& other)
     m_pRep = static_cast<W8MissileRep*>(other.m_pRep->Clone());
 
     memset(&definition, 0, sizeof(definition));
-    memset(&result, 0, sizeof(result));
+    result = {};
     ResetCombatSlot(&combat_slot);
 }
 

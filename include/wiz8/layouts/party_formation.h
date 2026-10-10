@@ -26,7 +26,7 @@ struct W8PartyFormationState {
 
 #pragma pack(pop)
 
-static_assert(sizeof(W8PartyFormationPosition) == 0x0c, "W8PartyFormationPosition_must_be_0x0c");
-static_assert(sizeof(W8PartyFormationState) == 0x84, "W8PartyFormationState_must_be_0x84");
+W8_ABI_ASSERT(sizeof(W8PartyFormationPosition) == 0x0c, "W8PartyFormationPosition_must_be_0x0c");
+W8_ABI_ASSERT(sizeof(W8PartyFormationState) == 0x84, "W8PartyFormationState_must_be_0x84");
 
 #endif

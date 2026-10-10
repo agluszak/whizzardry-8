@@ -95,7 +95,7 @@ struct W8PortraitGroup {
     int count;
     int portraits[14];
 };
-static_assert(sizeof(W8PortraitGroup) == 0x3c, "W8PortraitGroup_size");
+W8_ABI_ASSERT(sizeof(W8PortraitGroup) == 0x3c, "W8PortraitGroup_size");
 // GLOBAL: WIZ8 0x00648950
 static W8PortraitGroup g_portrait_groups[12] = {
     {14, {0, 1, 2, 3, 76, 4, 5, 6, 7, 8, 9, 77, 10, 11}},
@@ -125,7 +125,7 @@ struct W8CampEffectEntry {
     int turns;       /* remaining turns; 9999 is permanent */
     int lines;       /* rendered height in 0xe-pixel lines */
 };
-static_assert(sizeof(W8CampEffectEntry) == 0x18, "W8CampEffectEntry_size");
+W8_ABI_ASSERT(sizeof(W8CampEffectEntry) == 0x18, "W8CampEffectEntry_size");
 
 // FUNCTION: WIZ8 0x005c4430
 W8CampStatsRange::W8CampStatsRange()

@@ -86,7 +86,7 @@ struct W8LevelFileMesh {
     float lod_scale;                         /* flags & 1 && lod_mode > 1 */
 };
 
-static_assert(sizeof(srVector3T<float>) == 0xc, "Level mesh position record size");
+W8_ABI_ASSERT(sizeof(srVector3T<float>) == 0xc, "Level mesh position record size");
 W8_ABI_ASSERT(offsetof(W8LevelFileMesh, pstVertices) == 0x4c, "Level mesh position pointer offset");
 
 /* The 0x3c-byte serialized block covering stParametricLightDefinition fields
@@ -172,7 +172,7 @@ struct W8LevelFileMonster {
     W8LevelFilePathNode* MonPath; /* num_mon_path records */
 };
 // ReadLevelFile transfers only this prefix; MonPath is installed afterwards.
-static_assert(offsetof(W8LevelFileMonster, MonPath) == 0x22,
+W8_ABI_ASSERT(offsetof(W8LevelFileMonster, MonPath) == 0x22,
               "W8LevelFileMonster_serialized_prefix");
 
 struct W8LevelFileTriggerPosition { /* 0x1c: placement_kind == 1 payload */

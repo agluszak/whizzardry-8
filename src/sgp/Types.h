@@ -62,10 +62,6 @@ typedef CHAR8 SGPFILENAME[SGPFILENAME_LEN];
 
 #define ST_EPSILON 0.00001 // define a sir-tech epsilon value
 
-#ifndef NULL
-#define NULL 0
-#endif
-
 typedef struct {
     INT32 iLeft;
     INT32 iTop;

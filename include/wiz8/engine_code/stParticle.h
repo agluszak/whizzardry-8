@@ -47,6 +47,7 @@ protected:
     virtual ~stParticle() override; /* 0x00498A20 */
 
 public:
+    stParticle& operator=(const stParticle&) = default;
     unsigned int requires_sorted_renderer;
     unsigned char padding_13c[4];
     double particle_size; /* 0x140: billboard quad scale from particle_size */

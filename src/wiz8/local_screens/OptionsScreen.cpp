@@ -408,6 +408,7 @@ void W8OptionsSaveLoadPanel::OnDialogClosed(bool accepted, int value)
                 g_options_screen->ShowNotification(this, false, 0x82e, 0);
                 return;
             }
+            [[fallthrough]];
         }
         case 2:
             SaveSelectedSave();

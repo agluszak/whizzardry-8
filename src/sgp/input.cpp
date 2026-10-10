@@ -137,7 +137,7 @@ BOOLEAN InitializeInputManager(void)
     gusMouseYPos = 240;
     // Initialize the string input mechanism
     gfCurrentStringInputState = FALSE;
-    gpCurrentStringDescriptor = NULL;
+    gpCurrentStringDescriptor = nullptr;
     // Activate the hook functions for both keyboard and Mouse
     return TRUE;
 }
@@ -179,7 +179,7 @@ void QueueEvent(UINT16 ubInputEvent, UINT32 usParam, UINT32 uiParam)
         guiRightButtonRepeatTimer = 0;
     }
 
-    if ((ubInputEvent == LEFT_BUTTON_UP)) {
+    if (ubInputEvent == LEFT_BUTTON_UP) {
         // Do we have a double click
         if ((uiTimer - guiSingleClickTimer) < DBL_CLK_TIME) {
             guiSingleClickTimer = 0;
@@ -394,10 +394,9 @@ void KeyUp(UINT32 usParam, UINT32 uiParam)
 
 BOOLEAN CharacterIsValid(UINT16 usCharacter, UINT16* pFilter)
 {
-    UINT32 uiIndex, uiEndIndex;
+    UINT32 uiIndex;
 
-    if (pFilter != NULL) {
-        uiEndIndex = *pFilter;
+    if (pFilter != nullptr) {
         for (uiIndex = 1; uiIndex <= *pFilter; uiIndex++) {
             if (usCharacter == *(pFilter + uiIndex)) {
                 return TRUE;
@@ -414,11 +413,11 @@ void RedirectToString(UINT16 usInputCharacter)
 {
     UINT16 usIndex;
 
-    if (gpCurrentStringDescriptor != NULL) {
+    if (gpCurrentStringDescriptor != nullptr) {
         // Handle the new character input
         switch (usInputCharacter) {
         case ENTER: // ENTER is pressed, the last character field should be set to ENTER
-            if (gpCurrentStringDescriptor->pNextString != NULL) {
+            if (gpCurrentStringDescriptor->pNextString != nullptr) {
                 gpCurrentStringDescriptor->fFocus = FALSE;
                 gpCurrentStringDescriptor = gpCurrentStringDescriptor->pNextString;
                 gpCurrentStringDescriptor->fFocus = TRUE;
@@ -436,12 +435,12 @@ void RedirectToString(UINT16 usInputCharacter)
             break;
         case TAB:
             if (gfShiftState) {
-                if (gpCurrentStringDescriptor->pPreviousString == NULL)
+                if (gpCurrentStringDescriptor->pPreviousString == nullptr)
                     return;
                 gpCurrentStringDescriptor->fFocus = FALSE;
                 gpCurrentStringDescriptor = gpCurrentStringDescriptor->pPreviousString;
             } else {
-                if (gpCurrentStringDescriptor->pNextString == NULL)
+                if (gpCurrentStringDescriptor->pNextString == nullptr)
                     return;
                 gpCurrentStringDescriptor->fFocus = FALSE;
                 gpCurrentStringDescriptor = gpCurrentStringDescriptor->pNextString;
@@ -450,7 +449,7 @@ void RedirectToString(UINT16 usInputCharacter)
             gpCurrentStringDescriptor->usLastCharacter = 0;
             break;
         case 0x26: // The UPARROW was pressed, the last character field should be set to UPARROW
-            if (gpCurrentStringDescriptor->pPreviousString != NULL) {
+            if (gpCurrentStringDescriptor->pPreviousString != nullptr) {
                 gpCurrentStringDescriptor->fFocus = FALSE;
                 gpCurrentStringDescriptor = gpCurrentStringDescriptor->pPreviousString;
                 gpCurrentStringDescriptor->fFocus = TRUE;
@@ -458,7 +457,7 @@ void RedirectToString(UINT16 usInputCharacter)
             }
             break;
         case 0x28: // The DNARROW was pressed, the last character field should be set to DNARROW
-            if (gpCurrentStringDescriptor->pNextString != NULL) {
+            if (gpCurrentStringDescriptor->pNextString != nullptr) {
                 gpCurrentStringDescriptor->fFocus = FALSE;
                 gpCurrentStringDescriptor = gpCurrentStringDescriptor->pNextString;
                 gpCurrentStringDescriptor->fFocus = TRUE;
@@ -580,7 +579,7 @@ void RedirectToString(UINT16 usInputCharacter)
 // FUNCTION: WIZ8 0x00402750
 void FreeMouseCursor(void)
 {
-    SetGameCursorRect(NULL);
+    SetGameCursorRect(nullptr);
     fCursorWasClipped = FALSE;
 }
 

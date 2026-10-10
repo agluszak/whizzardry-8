@@ -542,12 +542,12 @@ void srRuntimeClass::dump(std::ostream& stream)
     stream.setf(std::ios::left, std::ios::adjustfield);
     stream.width(0x20);
     // c-style-cast-ok: the id prints as a pointer.
-    stream << "Class Id: " << (void*)getClassID() << '\n';
+    stream << "Class Id: " << reinterpret_cast<void*>(static_cast<uintptr_t>(getClassID())) << '\n';
     stream.width(0x20);
     stream << "Class name: " << getClassName() << '\n';
     stream.width(0x20);
     // c-style-cast-ok: the id prints as a pointer.
-    stream << "Instance Id code: " << (void*)getID() << '\n';
+    stream << "Instance Id code: " << reinterpret_cast<void*>(static_cast<uintptr_t>(getID())) << '\n';
     stream.width(0x20);
     stream << "Instance name: " << getName() << '\n';
     stream.width(0x20);

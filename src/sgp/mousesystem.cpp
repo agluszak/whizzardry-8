@@ -30,9 +30,9 @@
 //Records and stores the last place the user clicked.  These values are compared to the current
 //click to determine if a double click event has been detected.
 // GLOBAL: WIZ8 0x00650E6C
-MOUSE_REGION* gpRegionLastLButtonDown = NULL;
+MOUSE_REGION* gpRegionLastLButtonDown = nullptr;
 // GLOBAL: WIZ8 0x00650E70
-MOUSE_REGION* gpRegionLastLButtonUp = NULL;
+MOUSE_REGION* gpRegionLastLButtonUp = nullptr;
 // GLOBAL: WIZ8 0x00650E74
 UINT32 guiRegionLastLButtonDownTime = 0;
 
@@ -60,7 +60,7 @@ BOOLEAN MSYS_UseMouseHandlerHook = FALSE;
 // GLOBAL: WIZ8 0x00650e8a
 BOOLEAN MSYS_Mouse_Grabbed = FALSE;
 // GLOBAL: WIZ8 0x00650e8c
-MOUSE_REGION* MSYS_GrabRegion = NULL;
+MOUSE_REGION* MSYS_GrabRegion = nullptr;
 
 // GLOBAL: WIZ8 0x006e4100
 UINT16 gusClickedIDNumber;
@@ -68,12 +68,12 @@ UINT16 gusClickedIDNumber;
 BOOLEAN gfClickedModeOn = FALSE;
 
 // GLOBAL: WIZ8 0x00650e94
-MOUSE_REGION* MSYS_RegList = NULL;
+MOUSE_REGION* MSYS_RegList = nullptr;
 
 // GLOBAL: WIZ8 0x00650e98
-MOUSE_REGION* MSYS_PrevRegion = NULL;
+MOUSE_REGION* MSYS_PrevRegion = nullptr;
 // GLOBAL: WIZ8 0x00650e9c
-MOUSE_REGION* MSYS_CurrRegion = NULL;
+MOUSE_REGION* MSYS_CurrRegion = nullptr;
 
 //When set, the fast help text will be instantaneous, if consecutive regions with help text are
 //hilighted.  It is set, whenever the timer for the first help button expires, and the mode is
@@ -112,8 +112,8 @@ MOUSE_REGION MSYS_SystemBaseRegion = {MSYS_ID_SYSTEM,
                                       0,
                                       -1,
                                       MSYS_NO_CALLBACK,
-                                      NULL,
-                                      NULL};
+                                      nullptr,
+                                      nullptr};
 
 // GLOBAL: WIZ8 0x00650ea0
 BOOLEAN gfRefreshUpdate = FALSE;
@@ -138,7 +138,7 @@ INT32 MSYS_Init(void)
 #ifdef MOUSESYSTEM_DEBUGGING
     gfIgnoreShutdownAssertions = FALSE;
 #endif
-    if (MSYS_RegList != NULL)
+    if (MSYS_RegList != nullptr)
         MSYS_TrashRegList();
 
     MSYS_CurrentID = MSYS_ID_SYSTEM;
@@ -149,12 +149,12 @@ INT32 MSYS_Init(void)
     MSYS_CurrentButtons = 0;
     MSYS_Action = MSYS_NO_ACTION;
 
-    MSYS_PrevRegion = NULL;
+    MSYS_PrevRegion = nullptr;
     MSYS_SystemInitialized = TRUE;
     MSYS_UseMouseHandlerHook = FALSE;
 
     MSYS_Mouse_Grabbed = FALSE;
-    MSYS_GrabRegion = NULL;
+    MSYS_GrabRegion = nullptr;
 
     // Setup the system's background region
     MSYS_SystemBaseRegion.IDNumber = MSYS_ID_SYSTEM;
@@ -181,8 +181,8 @@ INT32 MSYS_Init(void)
     MSYS_SystemBaseRegion.FastHelpText = 0;
     MSYS_SystemBaseRegion.FastHelpRect = -1;
 
-    MSYS_SystemBaseRegion.next = NULL;
-    MSYS_SystemBaseRegion.prev = NULL;
+    MSYS_SystemBaseRegion.next = nullptr;
+    MSYS_SystemBaseRegion.prev = nullptr;
 
     // Add the base region to the list
     MSYS_AddRegionToList(&MSYS_SystemBaseRegion);
@@ -321,7 +321,7 @@ INT32 MSYS_GetNewID(void)
         while (!done) {
             found = FALSE;
             node = MSYS_RegList;
-            while (node != NULL && !found) {
+            while (node != nullptr && !found) {
                 if (node->IDNumber == Current)
                     found = TRUE;
             }
@@ -371,8 +371,8 @@ void MSYS_AddRegionToList(MOUSE_REGION* region)
     // Set an ID number!
     region->IDNumber = (UINT16)MSYS_GetNewID();
 
-    region->next = NULL;
-    region->prev = NULL;
+    region->next = nullptr;
+    region->prev = nullptr;
 
     if (!MSYS_RegList) { // Null list, so add it straight up.
         MSYS_RegList = region;
@@ -380,7 +380,7 @@ void MSYS_AddRegionToList(MOUSE_REGION* region)
         // Walk down list until we find place to insert (or at end of list)
         curr = MSYS_RegList;
         done = FALSE;
-        while ((curr->next != NULL) && !done) {
+        while ((curr->next != nullptr) && !done) {
             if (curr->PriorityLevel <= region->PriorityLevel)
                 done = TRUE;
             else
@@ -392,7 +392,7 @@ void MSYS_AddRegionToList(MOUSE_REGION* region)
             region->next = curr->next;
             curr->next = region;
             region->prev = curr;
-            if (region->next != NULL)
+            if (region->next != nullptr)
                 region->next->prev = region;
         } else {
             // Add before curr node
@@ -400,7 +400,7 @@ void MSYS_AddRegionToList(MOUSE_REGION* region)
             region->prev = curr->prev;
 
             curr->prev = region;
-            if (region->prev != NULL)
+            if (region->prev != nullptr)
                 region->prev->next = region;
 
             if (MSYS_RegList == curr) // Make sure if adding at start, to adjust the list pointer
@@ -442,23 +442,23 @@ void MSYS_DeleteRegionFromList(MOUSE_REGION* region)
     // Remove a node from the list
     if (MSYS_RegList == region) { // First node on list, adjust main pointer.
         MSYS_RegList = region->next;
-        if (MSYS_RegList != NULL)
-            MSYS_RegList->prev = NULL;
-        region->next = region->prev = NULL;
+        if (MSYS_RegList != nullptr)
+            MSYS_RegList->prev = nullptr;
+        region->next = region->prev = nullptr;
     } else {
         if (region->prev)
             region->prev->next = region->next;
         // If not last node in list, adjust following node's ->prev entry.
         if (region->next)
             region->next->prev = region->prev;
-        region->prev = region->next = NULL;
+        region->prev = region->next = nullptr;
     }
 
     // Did we delete a grabbed region?
     if (MSYS_Mouse_Grabbed) {
         if (MSYS_GrabRegion == region) {
             MSYS_Mouse_Grabbed = FALSE;
-            MSYS_GrabRegion = NULL;
+            MSYS_GrabRegion = nullptr;
         }
     }
 
@@ -467,7 +467,7 @@ void MSYS_DeleteRegionFromList(MOUSE_REGION* region)
         // Yup, so let's reset the ID values!
         MSYS_CurrentID = MSYS_ID_BASE;
         MSYS_ScanForID = FALSE;
-    } else if (MSYS_RegList == NULL) {
+    } else if (MSYS_RegList == nullptr) {
         // Ack, we actually emptied the list, so let's reset for re-init possibilities
         MSYS_CurrentID = MSYS_ID_SYSTEM;
         MSYS_ScanForID = FALSE;
@@ -571,7 +571,7 @@ void MSYS_UpdateMouseRegion(void)
                 // Addition Oct 10/1997 Carter, patch for mouse cursor
                 // start at region and find another region encompassing
                 pTempRegion = MSYS_CurrRegion->next;
-                while ((pTempRegion != NULL) && (!fFound)) {
+                while ((pTempRegion != nullptr) && (!fFound)) {
                     if ((pTempRegion->uiFlags & MSYS_REGION_ENABLED) &&
                         (pTempRegion->RegionTopLeftX <= MSYS_CurrentMX) &&
                         (pTempRegion->RegionTopLeftY <= MSYS_CurrentMY) &&
@@ -673,8 +673,8 @@ void MSYS_UpdateMouseRegion(void)
                                         MSYS_DOUBLECLICK_DELAY) { //Sequential left click on same button within the maximum time allowed for a double click
                                 //Double click check succeeded, set flag and reset double click globals.
                                 ButtonReason |= MSYS_CALLBACK_REASON_LBUTTON_DOUBLECLICK;
-                                gpRegionLastLButtonDown = NULL;
-                                gpRegionLastLButtonUp = NULL;
+                                gpRegionLastLButtonDown = nullptr;
+                                gpRegionLastLButtonUp = nullptr;
                                 guiRegionLastLButtonDownTime = 0;
                             } else { //First click, record time and region pointer (to check if 2nd click detected later)
                                 gpRegionLastLButtonDown = MSYS_CurrRegion;
@@ -688,8 +688,8 @@ void MSYS_UpdateMouseRegion(void)
                                         MSYS_DOUBLECLICK_DELAY) { //Double click is Left down, then left up, then left down.  We have just detected the left up here (step 2).
                                 gpRegionLastLButtonUp = MSYS_CurrRegion;
                             } else { //User released mouse outside of current button, so kill any chance of a double click happening.
-                                gpRegionLastLButtonDown = NULL;
-                                gpRegionLastLButtonUp = NULL;
+                                gpRegionLastLButtonDown = nullptr;
+                                gpRegionLastLButtonUp = nullptr;
                                 guiRegionLastLButtonDownTime = 0;
                             }
                         }
@@ -725,7 +725,7 @@ void MSYS_UpdateMouseRegion(void)
         }
         MSYS_PrevRegion = MSYS_CurrRegion;
     } else
-        MSYS_PrevRegion = NULL;
+        MSYS_PrevRegion = nullptr;
 }
 
 //	MSYS_DefineRegion
@@ -777,12 +777,12 @@ void MSYS_DefineRegion(MOUSE_REGION* region, UINT16 tlx, UINT16 tly, UINT16 brx,
     region->ButtonState = 0;
 
     //Init fasthelp
-    region->FastHelpText = NULL;
+    region->FastHelpText = nullptr;
     region->FastHelpTimer = 0;
 
-    region->next = NULL;
-    region->prev = NULL;
-    region->HelpDoneCallback = NULL;
+    region->next = nullptr;
+    region->prev = nullptr;
+    region->HelpDoneCallback = nullptr;
 
     //Add region to system list
     MSYS_AddRegionToList(region);
@@ -816,16 +816,16 @@ void MSYS_RemoveRegion(MOUSE_REGION* region)
             VideoRemoveToolTip();
         MemFree(region->FastHelpText);
     }
-    region->FastHelpText = NULL;
+    region->FastHelpText = nullptr;
 
     MSYS_DeleteRegionFromList(region);
 
     //if the previous region is the one that we are deleting, reset the previous region
     if (MSYS_PrevRegion == region)
-        MSYS_PrevRegion = NULL;
+        MSYS_PrevRegion = nullptr;
     //if the current region is the one that we are deleting, then clear it.
     if (MSYS_CurrRegion == region)
-        MSYS_CurrRegion = NULL;
+        MSYS_CurrRegion = nullptr;
 
     //dirty our update flag
     gfRefreshUpdate = TRUE;
@@ -926,7 +926,7 @@ void MSYS_ReleaseMouse(MOUSE_REGION* region)
 
     if (MSYS_Mouse_Grabbed == TRUE) {
         MSYS_Mouse_Grabbed = FALSE;
-        MSYS_GrabRegion = NULL;
+        MSYS_GrabRegion = nullptr;
         MSYS_UpdateMouseRegion();
     }
 }
@@ -953,7 +953,7 @@ void SetRegionFastHelpText(MOUSE_REGION* region, CHAR16* szText)
     if (region->FastHelpText)
         MemFree(region->FastHelpText);
 
-    region->FastHelpText = NULL;
+    region->FastHelpText = nullptr;
     //	region->FastHelpTimer = 0;
     if (!(region->uiFlags & MSYS_REGION_EXISTS)) {
         return;

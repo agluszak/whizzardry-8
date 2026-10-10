@@ -49,7 +49,7 @@ unsigned char W8Chunk::Write(const void* buffer, unsigned int size, unsigned int
     return result;
 }
 
-bool W8Chunk::OpenExistingRiff(char* path, unsigned int flags)
+bool W8Chunk::OpenExistingRiff(const char* path, unsigned int flags)
 {
     if (m_hFile != 0) {
         return false;
@@ -72,13 +72,13 @@ bool W8Chunk::OpenExistingRiff(char* path, unsigned int flags)
 }
 
 // FUNCTION: WIZ8 0x0055c000
-bool W8Chunk::OpenRead(char* path)
+bool W8Chunk::OpenRead(const char* path)
 {
     return OpenExistingRiff(path, FILE_ACCESS_READ | FILE_OPEN_EXISTING);
 }
 
 // FUNCTION: WIZ8 0x0055be30
-bool W8Chunk::OpenWrite(char* path)
+bool W8Chunk::OpenWrite(const char* path)
 {
     if (m_hFile != 0) {
         return false;
@@ -97,7 +97,7 @@ bool W8Chunk::OpenWrite(char* path)
    read so the file sits at the end of the group; the original child count is
    then pushed onto the write-side progress stack before writing is armed. */
 // FUNCTION: WIZ8 0x0055be80
-bool W8Chunk::OpenAppend(char* path)
+bool W8Chunk::OpenAppend(const char* path)
 {
     W8ChunkHead* head;
     int child_count;
@@ -132,7 +132,7 @@ bool W8Chunk::OpenAppend(char* path)
 }
 
 // FUNCTION: WIZ8 0x0055c080
-bool W8Chunk::OpenReadWrite(char* path)
+bool W8Chunk::OpenReadWrite(const char* path)
 {
     return OpenExistingRiff(path, FILE_ACCESS_READWRITE | FILE_OPEN_EXISTING);
 }

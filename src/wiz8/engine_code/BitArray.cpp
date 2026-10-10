@@ -47,7 +47,6 @@ void BitArray::SetSize(unsigned int new_bit_count)
 {
     int whole_words;
     unsigned int spill;
-    unsigned int index;
 
     cursor_base = 0;
     cursor_bit = 0;

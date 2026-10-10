@@ -593,7 +593,7 @@ void W8Prop::UpdatePropAnimation()
         return;
     }
     if (rep->animation_playing == 0 && rep->random_play &&
-        rand() * (1.0f / RAND_MAX) < rep->play_chance) {
+        rand() * (1.0f / static_cast<float>(RAND_MAX)) < rep->play_chance) {
         if (rep->frame_direction == W8_ANIMATION_FORWARD_COMPLETE) {
             rep->subcycle = rep->first_frame;
             rep->frame_direction = W8_ANIMATION_FORWARD;

@@ -38,8 +38,8 @@ struct W8WorldCameraState {
     W8CameraAngleRecord yaw;
 };
 #pragma pack(pop)
-static_assert(sizeof(W8WorldCameraState) == 0x3c, "W8WorldCameraState_size");
-static_assert(alignof(W8WorldCameraState) == 1);
+W8_ABI_ASSERT(sizeof(W8WorldCameraState) == 0x3c, "W8WorldCameraState_size");
+W8_ABI_ASSERT(alignof(W8WorldCameraState) == 1, "W8WorldCameraState_alignment");
 
 /* Engine Code\3dapi.cpp. CreateWorld allocates and zeroes exactly 0xdc bytes;
    the list/vector setup and teardown routines prove the owned fields below. */

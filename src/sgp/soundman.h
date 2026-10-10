@@ -103,8 +103,8 @@ extern BOOLEAN SoundEmptyCache(void);
 extern BOOLEAN SoundSampleIsInUse(UINT32 uiSample);
 
 // Play/service sample functions
-extern UINT32 SoundPlay(STR pFilename, SOUNDPARMS* pParms);
-extern UINT32 SoundPlayStreamedFile(STR pFilename, SOUNDPARMS* pParms);
+extern UINT32 SoundPlay(const char* pFilename, SOUNDPARMS* pParms);
+extern UINT32 SoundPlayStreamedFile(const char* pFilename, SOUNDPARMS* pParms);
 
 extern UINT32 SoundPlayRandom(STR pFilename, RANDOMPARMS* pParms);
 extern BOOLEAN SoundRandomShouldPlay(UINT32 uiSample);

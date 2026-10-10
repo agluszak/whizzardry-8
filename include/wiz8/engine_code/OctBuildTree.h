@@ -36,8 +36,6 @@ struct W8OctBuildNode {
         void** surface_arrays[8]; /* elements follow the insert mode */
         unsigned short* region_arrays[8];
     };
-    w8_ulong padding_20;
-    w8_ulong padding_24;
     unsigned short region;
     unsigned short leaf_kind;
     unsigned short provisional_region;

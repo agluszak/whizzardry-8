@@ -60,7 +60,7 @@ struct W8OctreeTrace {
     void Reseed(const srVector3T<float>* from, const srVector3T<float>* to); /* 0x00457700 */
 };
 
-static_assert(sizeof(W8OctreeTrace) == 0x30, "W8OctreeTrace_must_be_0x30");
+W8_ABI_ASSERT(sizeof(W8OctreeTrace) == 0x30, "W8OctreeTrace_must_be_0x30");
 /* Bulk .oct vector I/O. Writers stage at most 0x100 records per FileWrite;
    the raw twelve-byte reader serves float vectors and polygon index triples. */
 BOOLEAN WriteVector4Array(int file, const srVector4T<float>* values, int count);
@@ -138,7 +138,7 @@ struct W8OctSubmesh {
     unsigned int polygon_count;
 };
 
-static_assert(sizeof(W8OctSubmesh) == 0x10, "W8OctSubmesh_must_be_0x10");
+W8_ABI_ASSERT(sizeof(W8OctSubmesh) == 0x10, "W8OctSubmesh_must_be_0x10");
 
 /* The object classes the octree tracks. Kind 3 is not dynamic: it names the
    static GD-surface polygon streams stored inside each leaf record. The
@@ -224,7 +224,7 @@ struct W8OctreeWalk {
     int error_reset1;     /* 0x3c */
 };
 
-static_assert(sizeof(W8OctreeWalk) == 0x40, "W8OctreeWalk_must_be_0x40");
+W8_ABI_ASSERT(sizeof(W8OctreeWalk) == 0x40, "W8OctreeWalk_must_be_0x40");
 
 /* The two compact records stored in an OCT file.  A branch is its two shorts
    followed by eight child indices; a leaf retains offsets into the region and
@@ -248,8 +248,8 @@ struct W8OctPreTreeLeaf {
     w8_ulong kind_offsets[6];
 };
 
-static_assert(sizeof(W8OctPreTreeBranch) == 0x24, "W8OctPreTreeBranch_must_be_0x24");
-static_assert(sizeof(W8OctPreTreeLeaf) == 0x28, "W8OctPreTreeLeaf_must_be_0x28");
+W8_ABI_ASSERT(sizeof(W8OctPreTreeBranch) == 0x24, "W8OctPreTreeBranch_must_be_0x24");
+W8_ABI_ASSERT(sizeof(W8OctPreTreeLeaf) == 0x28, "W8OctPreTreeLeaf_must_be_0x28");
 
 /* The camera snapshot and visibility frustum W8Octree keeps for one frame.
    Reset (0x0042D1D6) clears the whole record with one 47-dword rep stosd,
@@ -272,7 +272,7 @@ struct W8OctreeView {
     W8Plane frustum_planes[6];
 };
 
-static_assert(sizeof(W8OctreeView) == 0xbc, "W8OctreeView_must_be_0xbc");
+W8_ABI_ASSERT(sizeof(W8OctreeView) == 0xbc, "W8OctreeView_must_be_0xbc");
 
 class W8Octree {
 public:

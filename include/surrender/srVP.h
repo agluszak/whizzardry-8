@@ -402,4 +402,4 @@ protected:
 
 inline srVP::~srVP() {} // pure virtual destructor body
 
-static_assert((sizeof(srVP) == 0x440), "srVP_must_be_0x440");
+W8_ABI_ASSERT((sizeof(srVP) == 0x440), "srVP_must_be_0x440");

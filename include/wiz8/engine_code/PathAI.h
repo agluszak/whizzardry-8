@@ -19,7 +19,7 @@ class W8AnimRepBase;
    recovered payload; only the path and missile domains are named. */
 typedef unsigned char W8AIRecordKind;
 enum { W8_AI_RECORD_PATH = 0, W8_AI_RECORD_MISSILE = 3 };
-static_assert(sizeof(W8AIRecordKind) == 1, "W8AIRecordKind_size");
+W8_ABI_ASSERT(sizeof(W8AIRecordKind) == 1, "W8AIRecordKind_size");
 
 struct W8AIRecord {
     W8AIRecordKind kind; /* 0x00 */

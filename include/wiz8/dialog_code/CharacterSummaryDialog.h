@@ -33,10 +33,8 @@ private:
     bool HandleInputEvent(const InputAtom* input);
 
     bool m_voice_started;
-    unsigned char pad_055[3];
     W8TextBuffer* m_quote_text;
     W8DialogNumericInput* m_numeric_input;
-    void* m_field_060;
     int m_remaining;
     int m_taken;
     int m_total;
@@ -48,7 +46,6 @@ private:
     /* Select the original character instead of the temporary party-slot copy. */
     unsigned char m_use_original_character;
     bool m_portrait_clock_started;
-    unsigned char pad_1afa[2];
     TIMER m_portrait_clock;
 };
 

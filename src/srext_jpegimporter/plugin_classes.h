@@ -9,13 +9,13 @@ public:
     srJPEGImporter();
     virtual ~srJPEGImporter();
 
-    virtual const char* getTypeName() const;
-    virtual int getSurfaceDesc(srColorSurfaceIFace::SurfaceDesc& description, srBinIStream& stream,
-                               const srSurfaceIOManager::ImportInfo& options);
-    virtual srColorSurfaceIFace* importSurface(srBinIStream& stream,
-                                               const srSurfaceIOManager::ImportInfo& options);
-    virtual void exportSurface(srBinOStream& stream, srColorSurfaceIFace& surface,
-                               const srSurfaceIOManager::ExportInfo& options);
+    const char* getTypeName() const override;
+    int getSurfaceDesc(srColorSurfaceIFace::SurfaceDesc& description, srBinIStream& stream,
+                       const srSurfaceIOManager::ImportInfo& options) override;
+    srColorSurfaceIFace* importSurface(srBinIStream& stream,
+                                       const srSurfaceIOManager::ImportInfo& options) override;
+    void exportSurface(srBinOStream& stream, srColorSurfaceIFace& surface,
+                       const srSurfaceIOManager::ExportInfo& options) override;
 };
 
 class srTGAImporter : public srSurfaceIOManager::SurfaceImporter {

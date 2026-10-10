@@ -64,27 +64,27 @@ struct W8MessageStorageDiskRecord {
     unsigned char trailing_bytes[8];
 };
 
-static_assert(sizeof(W8MessageStorageDiskRecord) == 0x24,
+W8_ABI_ASSERT(sizeof(W8MessageStorageDiskRecord) == 0x24,
               "W8MessageStorageDiskRecord_must_be_0x24");
-static_assert(offsetof(W8MessageStorageDiskRecord, character_count) == 0x00,
+W8_ABI_ASSERT(offsetof(W8MessageStorageDiskRecord, character_count) == 0x00,
               "W8MessageStorageDiskRecord_count_offset");
-static_assert(offsetof(W8MessageStorageDiskRecord, font_palette) == 0x04,
+W8_ABI_ASSERT(offsetof(W8MessageStorageDiskRecord, font_palette) == 0x04,
               "W8MessageStorageDiskRecord_byte_fields_offset");
-static_assert(offsetof(W8MessageStorageDiskRecord, highlight_stop) == 0x07,
+W8_ABI_ASSERT(offsetof(W8MessageStorageDiskRecord, highlight_stop) == 0x07,
               "W8MessageStorageDiskRecord_last_byte_field_offset");
-static_assert(offsetof(W8MessageStorageDiskRecord, clock) == 0x08,
+W8_ABI_ASSERT(offsetof(W8MessageStorageDiskRecord, clock) == 0x08,
               "W8MessageStorageDiskRecord_scalar_fields_offset");
-static_assert(offsetof(W8MessageStorageDiskRecord, saved_remaining_ms) == 0x0c,
+W8_ABI_ASSERT(offsetof(W8MessageStorageDiskRecord, saved_remaining_ms) == 0x0c,
               "W8MessageStorageDiskRecord_saved_remaining_ms_offset");
-static_assert(offsetof(W8MessageStorageDiskRecord, link) == 0x10,
+W8_ABI_ASSERT(offsetof(W8MessageStorageDiskRecord, link) == 0x10,
               "W8MessageStorageDiskRecord_link_offset");
-static_assert(offsetof(W8MessageStorageDiskRecord, length) == 0x14,
+W8_ABI_ASSERT(offsetof(W8MessageStorageDiskRecord, length) == 0x14,
               "W8MessageStorageDiskRecord_length_offset");
-static_assert(offsetof(W8MessageStorageDiskRecord, serialized_entries_18_bits) == 0x18,
+W8_ABI_ASSERT(offsetof(W8MessageStorageDiskRecord, serialized_entries_18_bits) == 0x18,
               "W8MessageStorageDiskRecord_entries_bits_offset");
-static_assert(offsetof(W8MessageStorageDiskRecord, trailing_bytes) == 0x1c,
+W8_ABI_ASSERT(offsetof(W8MessageStorageDiskRecord, trailing_bytes) == 0x1c,
               "W8MessageStorageDiskRecord_trailing_offset");
-static_assert(sizeof(w8_ulong) == 4, "W8MessageStorageDiskRecord_requires_32_bit_words");
+W8_ABI_ASSERT(sizeof(w8_ulong) == 4, "W8MessageStorageDiskRecord_requires_32_bit_words");
 W8_ABI_ASSERT(sizeof(W8PList*) == sizeof(w8_ulong),
               "W8MessageStorageDiskRecord_requires_32_bit_live_pointers");
 

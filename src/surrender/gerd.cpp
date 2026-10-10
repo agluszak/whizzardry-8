@@ -13,6 +13,7 @@
 #include "surrender/srVectorProcessor.h"
 
 #include <ctype.h>
+#include <new>
 #include <ostream>
 #include <memory>
 #include <vector>
@@ -881,7 +882,7 @@ void srGERD::setMatrixDirty()
     if (state.matrix_mode == MATRIX_PROJECTION) {
         dirty |= DIRTY_CLIP_PLANES;
     }
-    dirty |= 1 << (state.matrix_mode + DIRTY_MATRIX_SHIFT);
+    dirty |= 1 << (static_cast<int>(state.matrix_mode) + DIRTY_MATRIX_SHIFT);
 }
 
 // FUNCTION: SURRENDER 0x1001D2D0
@@ -1756,6 +1757,7 @@ class srGERD::LockSurface : public srClassSupport<LockSurface, srColorSurfaceIFa
 public:
     LockSurface(srGERD* gerd, const srPixelConvert::PixelFormat& format);
     virtual ~LockSurface() override;
+    LockSurface& operator=(const LockSurface&) = default;
     // FUNCTION: SURRENDER 0x1001F780
     static const char* sGetClassName()
     {
@@ -1788,7 +1790,6 @@ public:
     unsigned char argb32;
 
 private:
-    unsigned char unknown_5d_[3];
 };
 
 // FUNCTION: SURRENDER 0x100205D0
@@ -3071,6 +3072,7 @@ void srGERD::deleteTexture(Texture& texture)
     texture.palette = 0;
     texture.id = 0;
     texture.device.reset();
+    texture.~Texture();
     texture_pool.release(&texture);
 }
 
@@ -3110,8 +3112,7 @@ srGERD::Texture* srGERD::findLowestPriority()
 // FUNCTION: SURRENDER 0x10028990
 srGERD::Texture* srGERD::allocTexture(w8_ulong id)
 {
-    Texture* texture = texture_pool.allocate();
-    memset(texture, 0, offsetof(Texture, unknown_a4));
+    Texture* texture = new (texture_pool.allocate()) Texture{};
     texture->id = id;
     texture->palette = 0;
     texture_lookup.Insert(&texture->id, &texture);

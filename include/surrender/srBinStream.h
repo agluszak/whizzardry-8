@@ -37,6 +37,8 @@ public:
 
 protected:
     srBinStream();
+    srBinStream(const srBinStream&) = default;
+    srBinStream& operator=(const srBinStream&) = default;
 
     bool byteOrderMatch() const;
     static void byteSwap(unsigned char* data, int size);
@@ -44,7 +46,6 @@ protected:
 private:
     e_state state;
     bool exceptions0;
-    unsigned char padding_09_[3];
     e_byteOrder byte_order;
 };
 

@@ -92,8 +92,6 @@ void W8Octree::UpdatePathVisualization()
 
 // GLOBAL: WIZ8 0x00659760
 static int g_octree_query_slot;
-// GLOBAL: WIZ8 0x00659764
-static unsigned short g_octree_query_kind;
 // GLOBAL: WIZ8 0x00659766
 static unsigned short g_octree_query_id;
 
@@ -4389,7 +4387,6 @@ unsigned int W8Octree::CollectObjectsInCell(const srVector3T<int>* cell, unsigne
             if (slot >= 0) {
                 unsigned int packed =
                     static_cast<unsigned int>(object_registry->by_cell->entries[slot].value);
-                g_octree_query_kind = static_cast<unsigned short>(OctreeKeyKind(packed));
                 g_octree_query_id = static_cast<unsigned short>(packed);
                 while (m_gd_result_count < 10000) {
                     short entry_kind = static_cast<short>(OctreeKeyKind(packed));
@@ -4407,13 +4404,12 @@ unsigned int W8Octree::CollectObjectsInCell(const srVector3T<int>* cell, unsigne
                     }
                     packed =
                         static_cast<unsigned int>(object_registry->by_cell->entries[slot].value);
-                    g_octree_query_kind = static_cast<unsigned short>(OctreeKeyKind(packed));
                     g_octree_query_id = static_cast<unsigned short>(packed);
                 }
             }
             break;
         }
-        /* fall through */
+        [[fallthrough]];
     case W8_OCTREE_KIND_PROP:
     case W8_OCTREE_KIND_WAYPOINT:
     case W8_OCTREE_KIND_LOCATION:
@@ -4426,7 +4422,6 @@ unsigned int W8Octree::CollectObjectsInCell(const srVector3T<int>* cell, unsigne
         if (slot >= 0) {
             unsigned int packed =
                 static_cast<unsigned int>(object_registry->by_cell->entries[slot].value);
-            g_octree_query_kind = static_cast<unsigned short>(OctreeKeyKind(packed));
             g_octree_query_id = static_cast<unsigned short>(packed);
             while (m_gd_result_count < 10000) {
                 if ((static_cast<unsigned short>(OctreeKeyKind(packed)) == kind) &&
@@ -4441,7 +4436,6 @@ unsigned int W8Octree::CollectObjectsInCell(const srVector3T<int>* cell, unsigne
                     return 0;
                 }
                 packed = static_cast<unsigned int>(object_registry->by_cell->entries[slot].value);
-                g_octree_query_kind = static_cast<unsigned short>(OctreeKeyKind(packed));
                 g_octree_query_id = static_cast<unsigned short>(packed);
             }
         }

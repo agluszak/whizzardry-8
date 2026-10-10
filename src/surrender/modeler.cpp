@@ -965,7 +965,6 @@ void srModeler::addPolygon(const Polygon& polygon)
 {
     Triangle triangle;
     int count = polygon.vertex_count;
-    int index;
     if (count < 3) {
         return;
     }

@@ -184,7 +184,7 @@ void ShutdownSoundManager(void)
 //	!!Note:  Can no longer play streamed files
 
 // FUNCTION: WIZ8 0x00408860
-UINT32 SoundPlay(STR path, SOUNDPARMS* parameters)
+UINT32 SoundPlay(const char* path, SOUNDPARMS* parameters)
 {
     if (!fSoundSystemInit) return SOUND_ERROR;
     auto filename = ResolveSoundPath(path);
@@ -205,7 +205,7 @@ UINT32 SoundPlay(STR path, SOUNDPARMS* parameters)
 //						If an error occured, SOUND_ERROR will be returned
 
 // FUNCTION: WIZ8 0x00408ad0
-UINT32 SoundPlayStreamedFile(STR path, SOUNDPARMS* parameters)
+UINT32 SoundPlayStreamedFile(const char* path, SOUNDPARMS* parameters)
 {
     if (!fSoundSystemInit) return SOUND_ERROR;
     auto filename = ResolveSoundPath(path);

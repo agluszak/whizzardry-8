@@ -79,7 +79,6 @@ private:
     srColorSurface* surface;
     w8_ulong frame_handle;
     bool has_alpha;
-    unsigned char padding_65[3];
 };
 
 W8_ABI_ASSERT(sizeof(stTextureFile) == 0x68, "stTextureFile_must_be_0x68");

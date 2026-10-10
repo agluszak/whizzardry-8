@@ -11,7 +11,6 @@
    into point_1 without a float rounding of its own. The double locals hold
    exactly what the 53-bit x87 stack holds, and float consistency keeps VC6
    from dropping the float roundings or reassociating the sums. */
-#pragma optimize("p", on)
 // FUNCTION: SURRENDER 0x10029740
 srVector4 srTriangleCuller::transformClipPlane(const srVector4& plane, const srMatrix4& matrix,
                                                srMatrix4::e_scaleType scale_type)
@@ -79,7 +78,6 @@ srVector4 srTriangleCuller::transformClipPlane(const srVector4& plane, const srM
     }
     return result;
 }
-#pragma optimize("", on)
 
 // FUNCTION: SURRENDER 0x10029BF0
 int srTriangleCuller::setClipFlags(w8_ulong* clip_flags, float* distances,

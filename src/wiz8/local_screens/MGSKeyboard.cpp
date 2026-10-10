@@ -272,7 +272,6 @@ void DispatchMGSCommand(W8MGSCommand command)
                     return;
                 }
             }
-            ClearRecordModeValue();
             ShowMainGameNoticeLine(gppStringList[0x779], OnLeaveGameConfirmClosed, true, true);
         }
         InvalidateRegion(0xa8, 0x16e, 0x1c4, 0x1ba, 0);

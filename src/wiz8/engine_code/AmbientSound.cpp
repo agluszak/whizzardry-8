@@ -474,7 +474,6 @@ int PlayFootstep(signed char surface, signed char material, W8FootstepKind kind)
     char path[260];
     SOUNDPARMS options;
     int attempts = 0;
-    int index;
 
     if (GetRenderOptionState(W8_RENDER_OPTION_FOOTSTEP_SOUND) == 0) {
         return -1;
