@@ -9,7 +9,7 @@ cmake --build --preset linux-dev --target Wiz8Native --parallel 8
 ```
 
 The normal `linux` preset remains a Release build. Stable PCHs are enabled
-by default; CI additionally enables unity builds for clean-runner performance.
+by default. Unity remains opt-in for game-only builds with `BUILD_TESTING=OFF`.
 CI's uninstrumented build stays Debug; its ASan build uses `RelWithDebInfo`
 with `-O1 -g1`.
 The latter runs optimized sanitizer code without paying the full `-O2`
@@ -68,3 +68,9 @@ source edit recompiles the entire unity batch. The workflow
 `.github/workflows/compile-benchmarks.yml` supports manual benchmarking
 of all four variants without a compiler cache. Do not interpret the
 single-sample timing as a stable statistical estimate.
+
+Unity builds with `BUILD_TESTING=ON` are intentionally rejected for now:
+several focused tests provide replacement definitions that depend on normal
+static-archive object boundaries, whereas unity grouping merges unrelated
+implementations into the same archive member. CI tests therefore build with
+PCH enabled but unity disabled.

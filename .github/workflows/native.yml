@@ -67,7 +67,7 @@ jobs:
             build_type=RelWithDebInfo
           fi
           cmake --preset "${{ matrix.preset }}" -DCMAKE_BUILD_TYPE="$build_type" \
-            -DWIZ8_UNITY_BUILD=ON -DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
+            -DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
       - name: Build native game and fixtures
         run: cmake --build --preset ${{ matrix.preset }} --parallel "$(nproc)"
       # The canonical GOG installer is stored in the decomp project's private

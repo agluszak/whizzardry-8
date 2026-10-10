@@ -89,6 +89,11 @@ target_include_directories(wiz8_filesystem PUBLIC "${PROJECT_SOURCE_DIR}/include
 target_link_libraries(wiz8_filesystem PUBLIC SDL3::SDL3 Threads::Threads fmt::fmt utf8cpp utf8proc)
 target_compile_features(wiz8_filesystem PUBLIC cxx_std_23)
 include(CTest)
+if(WIZ8_UNITY_BUILD AND BUILD_TESTING)
+    message(FATAL_ERROR
+        "Unity build requires BUILD_TESTING=OFF: focused tests provide overlapping "
+        "symbols that rely on normal object-file archive boundaries")
+endif()
 if(BUILD_TESTING)
     target_compile_definitions(wiz8_filesystem PRIVATE WIZ8_FILE_FAULTS)
     target_include_directories(wiz8_filesystem PRIVATE "${PROJECT_SOURCE_DIR}/tests/native")
