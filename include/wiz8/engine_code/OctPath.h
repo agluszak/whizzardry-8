@@ -7,7 +7,6 @@
 #include "surrender/srMath.h"
 #include "wiz8/engine_code/BitArray.h"
 #include "wiz8/engine_code/path_open_set.h"
-#include "wiz8/engine_code/indexed_sort.h"
 #include "wiz8/index_algorithms.h"
 #include "wiz8/geometry.h"
 

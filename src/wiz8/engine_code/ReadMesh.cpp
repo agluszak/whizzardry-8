@@ -21,6 +21,10 @@
 #include "surrender/srNode.h"
 #include "surrender/srVectorMath.h"
 
+#include <algorithm>
+#include <ranges>
+#include <span>
+#include <tuple>
 #include <stdlib.h>
 #include <math.h>
 #include <string.h>
@@ -160,9 +164,6 @@ struct W8MeshStripBuilder {
     std::unordered_multimap<unsigned int, W8MeshStripPolygon*> edges;
 };
 
-/* The paired-sort templates live in indexed_sort.h so every octree TU sees the
-   same definitions; the marker pairs below bind this file's emissions. */
-
 /* The names below are recomp pairing selectors, not original symbol or
    argument-type evidence. BuildSingleLevelMesh's local type bank calls the
    srShader default constructor at 0x0048869d and Grow initializes fresh words
@@ -183,11 +184,15 @@ static void SortGroupsByKey(w8_ulong* order, w8_ulong* keys, w8_ulong* groups,
     unsigned int start = 0;
     for (index = 1; index < static_cast<w8_ulong>(count); ++index) {
         if (groups[index] != groups[index - 1]) {
-            SortByKey(order + start, keys + start, index - start);
+            std::ranges::sort(
+                std::views::zip(std::span(keys + start, index - start), std::span(order + start, index - start)), {},
+                [](const auto& entry) { return std::get<0>(entry); });
             start = index;
         }
     }
-    SortByKey(order + start, keys + start, count - start);
+    std::ranges::sort(
+        std::views::zip(std::span(keys + start, count - start), std::span(order + start, count - start)), {},
+        [](const auto& entry) { return std::get<0>(entry); });
 
     int group = 0;
     groups[0] = 0;
@@ -336,7 +341,9 @@ static W8MeshOrder* ComputeMeshOrder(W8MeshOrderInfo* info, w8_ulong flags)
                     for (index = 0; index < builder.count; ++index) {
                         neighbors[index] = builder.CountNeighbors(index);
                     }
-                    SortByKey(builder.polygons, neighbors, builder.count);
+                    std::ranges::sort(
+                        std::views::zip(std::span(neighbors, builder.count), std::span(builder.polygons, builder.count)), {},
+                        [](const auto& entry) { return std::get<0>(entry); });
                     builder.BuildEdgeTable();
                     delete[] neighbors;
 
@@ -411,11 +418,15 @@ static W8MeshOrder* ComputeMeshOrder(W8MeshOrderInfo* info, w8_ulong flags)
         unsigned int start = 0;
         for (index = 1; index < static_cast<w8_ulong>(info->vertex_count); ++index) {
             if (vertex_groups[index] != vertex_groups[index - 1]) {
-                SortByKey(order->vertices + start, first_use + start, index - start);
+                std::ranges::sort(
+                    std::views::zip(std::span(first_use + start, index - start), std::span(order->vertices + start, index - start)), {},
+                    [](const auto& entry) { return std::get<0>(entry); });
                 start = index;
             }
         }
-        SortByKey(order->vertices + start, first_use + start, info->vertex_count - start);
+        std::ranges::sort(
+        std::views::zip(std::span(first_use + start, info->vertex_count - start), std::span(order->vertices + start, info->vertex_count - start)), {},
+        [](const auto& entry) { return std::get<0>(entry); });
 
         delete[] remapped;
         delete[] inverse;

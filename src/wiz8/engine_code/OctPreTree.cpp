@@ -1,4 +1,8 @@
 #include "wiz8/utility.h"
+#include <algorithm>
+#include <ranges>
+#include <span>
+#include <tuple>
 #include <cstdlib>
 
 #include "wiz8/engine_code/OctPreTree.h"
@@ -40,9 +44,6 @@ const float g_region_axis_alignment_threshold = 0.9998999834060669f;
 
 // GLOBAL: WIZ8 0x00659c74
 OctPreTree* g_oct_pre_tree = 0;
-
-/* Paired item/key sorts shared through indexed_sort.h; these emissions are this
-   file's unsigned long and unsigned short instantiations. */
 
 /* The build-time runtime tree extends the ordinary 0x29c octree with transfer
    bookkeeping and one separately owned pointer vector.  Its only recovered
@@ -836,10 +837,12 @@ w8_ulong OctPreTree::SplitMeshes(W8OctPreTreeGeometry* geometry, W8OctSubmeshBui
             }
             record->vertex_count = vertex_count;
 
-            QuickSortByKey(record->m_polygon_ids, keys, 0,
-                           static_cast<int>(record->m_polygon_count) - 1);
-            QuickSortByKey(record->m_poly_vertices, scratch, 0,
-                           static_cast<int>(record->m_polygon_count) - 1);
+            std::ranges::sort(
+                std::views::zip(std::span(keys, record->m_polygon_count), std::span(record->m_polygon_ids, record->m_polygon_count)), {},
+                [](const auto& entry) { return std::get<0>(entry); });
+            std::ranges::sort(
+                std::views::zip(std::span(scratch, record->m_polygon_count), std::span(record->m_poly_vertices, record->m_polygon_count)), {},
+                [](const auto& entry) { return std::get<0>(entry); });
 
             for (w8_ulong i = 0; i < vertex_count; ++i) {
                 w8_ulong material = geometry->m_vertices[vertex_ids[i]].m_material;
@@ -847,10 +850,16 @@ w8_ulong OctPreTree::SplitMeshes(W8OctPreTreeGeometry* geometry, W8OctSubmeshBui
                 keys[i] = material;
                 order[i] = i;
             }
-            QuickSortByKey(vertex_ids, scratch, 0, static_cast<int>(vertex_count) - 1);
+            std::ranges::sort(
+                std::views::zip(std::span(scratch, vertex_count), std::span(vertex_ids, vertex_count)), {},
+                [](const auto& entry) { return std::get<0>(entry); });
             memcpy(scratch, order, vertex_count * sizeof(*scratch));
-            QuickSortByKey(scratch, keys, 0, static_cast<int>(vertex_count) - 1);
-            QuickSortByKey(order, scratch, 0, static_cast<int>(vertex_count) - 1);
+            std::ranges::sort(
+                std::views::zip(std::span(keys, vertex_count), std::span(scratch, vertex_count)), {},
+                [](const auto& entry) { return std::get<0>(entry); });
+            std::ranges::sort(
+                std::views::zip(std::span(scratch, vertex_count), std::span(order, vertex_count)), {},
+                [](const auto& entry) { return std::get<0>(entry); });
 
             for (w8_ulong face = 0; face < record->m_polygon_count; ++face) {
                 for (int c = 0; c < 3; ++c) {

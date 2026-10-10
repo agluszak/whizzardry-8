@@ -1,6 +1,7 @@
 #include "wiz8/application.h"
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/compat/unaligned.h"
+#include <algorithm>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -3107,7 +3108,7 @@ w8_ulong* W8Octree::CollectPolygonsNearPoint(srVector3T<float>* center, float ra
     }
     m_aulGDObjs[count] = 0;
     if (count != 0) {
-        QuickSort(m_aulGDObjs, 0, count - 1);
+        std::sort(m_aulGDObjs, m_aulGDObjs + count);
     }
     return m_aulGDObjs;
 }

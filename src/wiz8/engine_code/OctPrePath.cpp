@@ -8,6 +8,7 @@
 #include "wiz8/vector.h"
 #include "wiz8/sr_api.h"
 
+#include <algorithm>
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -566,7 +567,7 @@ unsigned char PrePathing::CreateAutomapNodes(W8LevelFile* level)
         for (i = 0; i < static_cast<unsigned int>(level->num_automap_nodes); ++i) {
             level->automap_nodes[i] = *node_keys.GetAt(i);
         }
-        QuickSort(level->automap_nodes, 0, level->num_automap_nodes - 1);
+        std::sort(level->automap_nodes, level->automap_nodes + level->num_automap_nodes);
     }
     for (i = 1; i < static_cast<unsigned int>(path_node_count); ++i) {
         path_node_list[i] = 0;

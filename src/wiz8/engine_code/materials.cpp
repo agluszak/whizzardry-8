@@ -18,7 +18,6 @@
 #include "wiz8/engine_code/Octree.h"
 #include "wiz8/engine_code/ReadLevel.h"
 #include "wiz8/engine_code/ReadMesh.h"
-#include "wiz8/engine_code/indexed_sort.h"
 #include "wiz8/index_algorithms.h"
 #include "wiz8/engine_code/stTextureAnim.h"
 #include "wiz8/engine_code/stTextureFile.h"

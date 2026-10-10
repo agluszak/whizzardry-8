@@ -5,7 +5,6 @@
 #include "surrender/srMath.h"
 #include "wiz8/engine_code/BitArray.h"
 #include "wiz8/engine_code/OctPreTree.h"
-#include "wiz8/engine_code/indexed_sort.h"
 #include "wiz8/index_algorithms.h"
 #include "wiz8/geometry.h"
 #include "wiz8/vector.h"

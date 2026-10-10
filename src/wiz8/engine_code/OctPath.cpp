@@ -49,6 +49,10 @@
 #include "input.h"
 #include "wiz8/application.h"
 
+#include <algorithm>
+#include <ranges>
+#include <span>
+#include <tuple>
 #include <ctype.h>
 #include <math.h>
 #include <stdio.h>
@@ -1473,7 +1477,9 @@ unsigned short W8PathingService::RecurseTargetLinks(unsigned short waypoint)
             edge = link->next;
         } while (edge != 0);
     }
-    QuickSortByKey(candidates, keys, 0, static_cast<int>(count) - 1);
+    std::ranges::sort(
+        std::views::zip(std::span(keys, count), std::span(candidates, count)), {},
+        [](const auto& entry) { return std::get<0>(entry); });
     m_visited_path_nodes->Set(waypoint);
     if (count != 0) {
         for (index = 0; index < count; ++index) {
@@ -1657,7 +1663,9 @@ unsigned short W8PathingService::RecursePatrolLinks(unsigned short waypoint)
             link = m_pEdges[link].next;
         } while (link != 0);
         if (1 < count) {
-            QuickSortByKey(links, keys, 0, static_cast<int>(count) - 1);
+            std::ranges::sort(
+                std::views::zip(std::span(keys, count), std::span(links, count)), {},
+                [](const auto& entry) { return std::get<0>(entry); });
         }
     }
     m_visited_path_nodes->Set(waypoint);
@@ -5346,7 +5354,9 @@ short W8PathingService::CollectPathVisualization(const srVector3T<float>* positi
                 static_cast<unsigned int>(static_cast<int>((*position - *candidate).Length()));
         }
 
-        QuickSortByKey(waypoints, distances, 0, static_cast<int>(waypoint_count) - 1);
+        std::ranges::sort(
+            std::views::zip(std::span(distances, waypoint_count), std::span(waypoints, waypoint_count)), {},
+            [](const auto& entry) { return std::get<0>(entry); });
     }
 
     for (unsigned int visible_index = 0; visible_index < waypoint_count; ++visible_index) {
@@ -5469,7 +5479,9 @@ void W8PathingService::SetWaypointLinkFlags(unsigned short waypoint, unsigned in
                         distances[index] = 0xffffffff;
                     }
                 }
-                QuickSortByKey(objects, distances, 0, static_cast<int>(count) - 1);
+                std::ranges::sort(
+                    std::views::zip(std::span(distances, count), std::span(objects, count)), {},
+                    [](const auto& entry) { return std::get<0>(entry); });
                 for (index = 0; index < count; ++index) {
                     if (distances[index] == 0xffffffff) {
                         return;
