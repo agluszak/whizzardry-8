@@ -1477,6 +1477,19 @@ static void DrainCombatDeathReports(W8SpellEffectResult* report)
     *report = {};
 }
 
+/* Both attack result paths announce target conditions in the same way. */
+static void AnnounceCombatTargetCondition(const W8SpellEffectResult* report,
+                                          unsigned int condition, W8MonsterInfo* monster_info)
+{
+    const std::string& name = g_localized_strings[g_condition_notices[condition].singular];
+    if (report->target.iType == W8_TARGET_KIND_MONSTER) {
+        ShowNotice(W8_FONT_PALETTE_RUST,
+                   fmt::format("{} {}!", GetMonsterName(monster_info, nullptr, 0), name));
+    } else if (report->target.iType == W8_TARGET_KIND_CHARACTER) {
+        PostCharacterNotice(report->target.iChar, fmt::format("{}!", name));
+    }
+}
+
 /* Announce a character's attack on the combat log: the swings line, the
    damage notices, what the target suffered unless it died, and the casualty
    list - then wipe the record clean for the next attack. */
@@ -1554,19 +1567,7 @@ void ReportCharacterAttackResult(int party_slot, W8SpellEffectResult* report)
             for (condition = 0; condition < W8_CONDITION_COUNT; ++condition) {
                 if (report->condition_counts[condition] > 0 && condition != W8_CONDITION_DRAINED &&
                     condition != W8_CONDITION_MISSING) {
-                    if (report->target.iType == W8_TARGET_KIND_MONSTER) {
-                        ShowNotice(
-                            W8_FONT_PALETTE_RUST,
-                            fmt::format(
-                                "{} {}!", GetMonsterName(monster_info, nullptr, 0),
-                                g_localized_strings[g_condition_notices[condition].singular]));
-                    } else if (report->target.iType == W8_TARGET_KIND_CHARACTER) {
-                        PostCharacterNotice(
-                            report->target.iChar,
-                            fmt::format(
-                                "{}!",
-                                g_localized_strings[g_condition_notices[condition].singular]));
-                    }
+                    AnnounceCombatTargetCondition(report, condition, monster_info);
                 }
             }
         }
@@ -2097,19 +2098,7 @@ void ReportMonsterAttackResult(W8MonsterInfo* monster_info, W8SpellEffectResult*
                             GetConditionRecordFlag(report->target.iChar, W8_DEPENDENCE_SWALLOWED)) {
                             PostCharacterNotice(report->target.iChar, g_localized_strings[0x1d5]);
                         }
-                    } else if (report->target.iType == W8_TARGET_KIND_MONSTER) {
-                        ShowNotice(
-                            W8_FONT_PALETTE_RUST,
-                            fmt::format(
-                                "{} {}!", GetMonsterName(monster_info, nullptr, 0),
-                                g_localized_strings[g_condition_notices[condition].singular]));
-                    } else if (report->target.iType == W8_TARGET_KIND_CHARACTER) {
-                        PostCharacterNotice(
-                            report->target.iChar,
-                            fmt::format(
-                                "{}!",
-                                g_localized_strings[g_condition_notices[condition].singular]));
-                    }
+                    } else AnnounceCombatTargetCondition(report, condition, monster_info);
                 }
             }
         }
