@@ -4323,41 +4323,28 @@ void srGERD::accumulate(e_accum operation, float scale)
     {
         short addend = accumConvert(scale);
         switch (operation) {
-        case ACCUM_LOAD: {
-            short table[256];
-            for (w8_long i = 0; i < 256; i++) {
-                table[i] = (short)(w8_long)(i * (scale * (32767.0f / 255.0f)));
-            }
-            for (w8_long y = 0; y < height; y++) {
-                surface->getPixelRow(
-                    reinterpret_cast<w8_ulong*>(pixels), // reinterpret-ok: ARGB row buffer
-                                                         // through the dword pixel-row ABI
-                    state.scissor.top + y, state.scissor.left, state.scissor.right);
-                for (w8_long x = 0; x < width; x++) {
-                    row[x].red = row[x].red + table[pixels[x].blue];
-                    row[x].green = row[x].green + table[pixels[x].green];
-                    row[x].blue = row[x].blue + table[pixels[x].red];
-                    row[x].alpha = row[x].alpha + table[pixels[x].alpha];
-                }
-                row += getWidth();
-            }
-            break;
-        }
+        case ACCUM_LOAD:
         case ACCUM_ACCUMULATE: {
             short table[256];
-            for (w8_long i = 0; i < 256; i++) {
+            for (w8_long i = 0; i < 256; ++i)
                 table[i] = (short)(w8_long)(i * (scale * (32767.0f / 255.0f)));
-            }
-            for (w8_long y = 0; y < height; y++) {
+
+            for (w8_long y = 0; y < height; ++y) {
                 surface->getPixelRow(
-                    reinterpret_cast<w8_ulong*>(pixels), // reinterpret-ok: ARGB row buffer
-                                                         // through the dword pixel-row ABI
+                    reinterpret_cast<w8_ulong*>(pixels), // reinterpret-ok: packed ARGB row
                     state.scissor.top + y, state.scissor.left, state.scissor.right);
-                for (w8_long x = 0; x < width; x++) {
-                    row[x].red = table[pixels[x].blue];
-                    row[x].green = table[pixels[x].green];
-                    row[x].blue = table[pixels[x].red];
-                    row[x].alpha = table[pixels[x].alpha];
+                for (w8_long x = 0; x < width; ++x) {
+                    if (operation == ACCUM_LOAD) {
+                        row[x].red += table[pixels[x].blue];
+                        row[x].green += table[pixels[x].green];
+                        row[x].blue += table[pixels[x].red];
+                        row[x].alpha += table[pixels[x].alpha];
+                    } else {
+                        row[x].red = table[pixels[x].blue];
+                        row[x].green = table[pixels[x].green];
+                        row[x].blue = table[pixels[x].red];
+                        row[x].alpha = table[pixels[x].alpha];
+                    }
                 }
                 row += getWidth();
             }
