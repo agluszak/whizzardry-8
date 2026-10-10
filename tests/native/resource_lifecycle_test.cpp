@@ -75,38 +75,26 @@ static bool shutdown_survivors()
 
 static bool npc_script_teardown()
 {
-    auto* file = static_cast<W8NpcScriptFile*>(std::calloc(1, sizeof(W8NpcScriptFile)));
-    std::unique_ptr<W8NpcScriptFile, decltype(&ReleaseNpcScriptFile)> owner(file, &ReleaseNpcScriptFile);
-    CHECK(file);
-    file->name = static_cast<char*>(std::calloc(8, 1));
-    file->quote_count = 2;
-    file->quotes = static_cast<W8NpcScriptQuote*>(std::calloc(2, sizeof(W8NpcScriptQuote)));
-    CHECK(file->quotes);
-    for (int index = 0; index != 2; ++index) {
-        auto& quote = file->quotes[index];
+    auto owner = std::make_unique<W8NpcScriptFile>();
+    owner->name.assign(80, 'n');
+    owner->quote_count = 2;
+    owner->quotes.resize(2);
+    for (auto& quote : owner->quotes) {
         quote.subquote_count = 2;
-        quote.subquotes = static_cast<char**>(std::calloc(2, sizeof(char*)));
-        CHECK(quote.subquotes);
-        for (int text = 0; text != 2; ++text)
-            quote.subquotes[text] = static_cast<char*>(std::calloc(8, 1));
+        quote.subquotes.assign(2, std::string(80, 'q'));
         quote.entry_count = 2;
-        quote.entries = static_cast<W8NpcQuoteEntry*>(std::calloc(2, sizeof(W8NpcQuoteEntry)));
-        CHECK(quote.entries);
-        for (int entry = 0; entry != 2; ++entry) {
-            auto& record = quote.entries[entry];
-            record.sub_entry_count = 2;
-            record.sub_entries = static_cast<W8NpcQuoteSubEntry*>(std::calloc(2, sizeof(W8NpcQuoteSubEntry)));
-            CHECK(record.sub_entries);
-            for (int sub = 0; sub != 2; ++sub)
-                record.sub_entries[sub].text = static_cast<char*>(std::calloc(8, 1));
+        quote.entries.resize(2);
+        for (auto& entry : quote.entries) {
+            entry.sub_entry_count = 2;
+            entry.sub_entries.resize(2);
+            for (auto& sub : entry.sub_entries) sub.text.assign(80, 's');
         }
     }
-    owner.reset();
-    file = static_cast<W8NpcScriptFile*>(std::calloc(1, sizeof(W8NpcScriptFile)));
-    owner.reset(file);
-    CHECK(file);
-    file->name = static_cast<char*>(std::calloc(8, 1));
+    ReleaseNpcScriptFile(owner.release());
+    owner = std::make_unique<W8NpcScriptFile>();
+    owner->name.assign(80, 'n');
     // Zero-quote scripts still own their name and header.
+
     return true;
 }
 
@@ -119,20 +107,19 @@ static bool queued_state_teardown()
         queue.vector0.Add(new W8CharacterEvent(nullptr, 0, 0, 0, 0));
         queue.vector1.Add(new W8CharacterEvent(nullptr, 0, 0, 0, 0));
     } // Every pending vector is owning, even when no frame dispatched it.
-    AddDialogueTranscriptKeyword(L"Monastery", 0);
-    AddDialogueTranscriptKeyword(L"Arnika", 0);
+    AddDialogueTranscriptKeyword("Monastery", 0);
+    AddDialogueTranscriptKeyword("Arnika", 0);
     CHECK(g_npc_interaction_state->dialogue_transcript.GetCount() == 2);
     ClearNpcDialogueTranscript();
     ClearNpcDialogueTranscript();
     CHECK(g_npc_interaction_state->dialogue_transcript.GetCount() == 0);
     for (auto kind : {W8_NPC_MSG_PORTRAIT_MESSAGE, W8_NPC_MSG_PORTRAIT_EXTRA,
                       W8_NPC_MSG_SKILL_NOTICES, W8_NPC_MSG_LEVEL_UP}) {
-        W8MessageBoxPayload text{}, extra{};
-        text.text = new wchar_t[8]{};
+        W8MessageBoxPayload extra{};
         if (kind == W8_NPC_MSG_PORTRAIT_EXTRA) extra.experience = new W8ExperienceNoticePayload{};
         if (kind == W8_NPC_MSG_SKILL_NOTICES) extra.skill_notices = new W8SkillNoticePayload{};
         if (kind == W8_NPC_MSG_LEVEL_UP) extra.level_up_slot = new int{};
-        AddMessageBoxLine(kind, text, extra);
+        AddTextMessageBoxLine(kind, std::string(80, 't'), extra);
     }
     ClearNpcMessageQueue();
     ClearNpcMessageQueue();
