@@ -17,7 +17,6 @@
 
 #include "Types.h"
 #include <stdlib.h>
-#include <malloc.h>
 #include <stdio.h>
 #include "compat/kernel32.h"
 #include "MemMan.h"

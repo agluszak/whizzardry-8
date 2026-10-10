@@ -75,7 +75,7 @@
 #include "wiz8/file_time.h"
 #include <memory>
 #include <string>
-#include <malloc.h>
+#include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
 #include "wiz8/layouts/game_status.h"
