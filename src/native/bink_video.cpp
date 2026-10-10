@@ -46,8 +46,7 @@ unsigned char W8BinkVideo::Open(const char* path, int flags)
     // Retail can open the next intro on the same owner. Stop the old audio first.
     delete m_handle;
     m_handle = nullptr;
-    WIZ8_TEST_HOOK(if (g_runtime_test_hooks.skip_movies) return 0;
-                   g_runtime_test_hooks.movie_clock = 0;)
+    WIZ8_TEST_HOOK(if (g_runtime_test_hooks.skip_movies) return 0;)
     try
     {
         if (!path || flags)
@@ -69,11 +68,7 @@ unsigned char W8BinkVideo::UpdateFrame()
         return 0;
     try
     {
-        W8NativeVideo::Result result;
-        WIZ8_TEST_HOOK(if (g_runtime_test_hooks.movie_step_seconds > 0) result = m_handle->update(
-                           g_runtime_test_hooks.movie_clock += g_runtime_test_hooks.movie_step_seconds);
-                       else)
-        result = m_handle->update_now();
+        auto result = m_handle->update_now();
         if (result == W8NativeVideo::Done)
             return 1;
         if (result == W8NativeVideo::FrameReady)

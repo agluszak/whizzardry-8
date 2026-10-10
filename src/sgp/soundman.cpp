@@ -572,7 +572,8 @@ BOOLEAN SoundStopAllRandom(void)
             uiSample = pSoundList[uiChannel].uiSample;
 
             // if this was a random sample, decrease the iteration count
-            if (pSampleList[uiSample].uiFlags & SAMPLE_RANDOM)
+            // (streams such as music have no cached sample)
+            if (uiSample < SOUND_MAX_CACHED && (pSampleList[uiSample].uiFlags & SAMPLE_RANDOM))
                 SoundStopIndex(uiChannel);
         }
     }

@@ -4,6 +4,8 @@
 #include <limits.h>
 #include <wctype.h>
 
+#include "wiz8/runtime_test_hooks.h"
+
 #include <string>
 #include <chrono>
 #include <thread>
@@ -65,10 +67,16 @@ struct Output {
 
 extern "C" {
 
+uint64_t w8_clock_us(void)
+{
+    WIZ8_TEST_HOOK(if (g_runtime_test_hooks.virtual_clock) return g_runtime_test_hooks.clock_us;)
+    using namespace std::chrono;
+    return uint64_t(duration_cast<microseconds>(steady_clock::now().time_since_epoch()).count());
+}
+
 uint32_t w8_get_ticks(void)
 {
-    using namespace std::chrono;
-    return uint32_t(duration_cast<milliseconds>(steady_clock::now().time_since_epoch()).count());
+    return uint32_t(w8_clock_us() / 1000);
 }
 
 void w8_sleep(uint32_t milliseconds)

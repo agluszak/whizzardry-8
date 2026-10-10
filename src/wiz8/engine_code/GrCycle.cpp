@@ -616,6 +616,11 @@ void W8GrCycle::TickAnimation(float scale)
 
             rate = GetCurrentAnimationScale() * scale;
             progress = elapsed * rate * g_float_one_thousandth;
+            /* A non-finite or negative rate would convert to a frame count the
+               countdown loop below never reaches zero from. */
+            if (!(progress >= 0.0f && progress < 1.0e6f)) {
+                progress = 0.0f;
+            }
             frames = static_cast<int>(progress);
             frame_fraction = progress - frames;
 

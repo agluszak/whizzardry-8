@@ -76,6 +76,9 @@ unsigned char IntroScreenEnter(void)
     if (!gpVideo->Open(path, 0)) {
         delete gpVideo;
         gpVideo = 0;
+        /* Hand presentation back, or a failed race intro leaves rendering off
+           for the rest of the game. */
+        FinishVideoPresentation();
     }
     return 1;
 }

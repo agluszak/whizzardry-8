@@ -1,7 +1,7 @@
 /* Modified for the Wizardry 8 reconstruction: 2026-10-09.
    Distributed under the accompanying SFI Source Code license agreement. */
 #include "timer.h"
-#include <SDL3/SDL_timer.h>
+#include "compat/kernel32.h"
 
 UINT32 guiStartupTime;
 UINT32 guiCurrentTime;
@@ -13,11 +13,11 @@ bool running = false;
 void UpdateClockManager()
 {
     if (running)
-        guiCurrentTime = UINT32(SDL_GetTicks()) - guiStartupTime;
+        guiCurrentTime = w8_get_ticks() - guiStartupTime;
 }
 BOOLEAN InitializeClockManager()
 {
-    guiStartupTime = UINT32(SDL_GetTicks());
+    guiStartupTime = w8_get_ticks();
     guiCurrentTime = 0;
     running = true;
     return TRUE;
