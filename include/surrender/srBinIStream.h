@@ -13,7 +13,9 @@ public:
 #if !defined(SURRENDER_BUILD)
     srBinIStream() {}
     srBinIStream(const srBinIStream& stream);
+#endif
     virtual ~srBinIStream() override {}
+#if !defined(SURRENDER_BUILD)
     srBinIStream& operator=(const srBinIStream& stream);
 #endif
 
