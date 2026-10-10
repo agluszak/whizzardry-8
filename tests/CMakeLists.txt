@@ -22,11 +22,11 @@ add_test(NAME native_compression COMMAND native_compression_test)
 
 add_executable(native_images_test native/images_test.cpp)
 target_link_libraries(native_images_test PRIVATE WIZ8_GAME_CORE)
-add_test(NAME native_images COMMAND native_images_test)
+catch_discover_tests(native_images_test TEST_PREFIX "native_images/")
 
 add_executable(native_files_test "${PROJECT_SOURCE_DIR}/tests/native/files_test.cpp")
 target_link_libraries(native_files_test PRIVATE WIZ8_GAME_CORE SURRENDER)
-add_test(NAME native_files COMMAND native_files_test)
+catch_discover_tests(native_files_test TEST_PREFIX "native_files/")
 
 add_executable(native_strings_test native/strings_test.cpp)
 target_link_libraries(native_strings_test PRIVATE SURRENDER wiz8_native_settings)
