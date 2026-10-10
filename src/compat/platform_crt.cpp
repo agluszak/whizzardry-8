@@ -3,10 +3,15 @@
 #include "compat/platform.h"
 
 #include <cerrno>
+#ifdef _WIN32
+#include <io.h>
+#else
 #include <unistd.h>
+#endif
 
 #undef fopen
 #undef rename
+#undef _access
 
 extern "C"
 {
@@ -52,9 +57,9 @@ extern "C"
         const std::string path = w8_native::read_path(input);
         if (path.empty())
             return -1;
-        int native = F_OK;
+        int native = 0;
         if (mode & 4)
-            native |= R_OK;
+            native |= 4;
         if (mode & 2)
         {
             struct stat status;
@@ -73,7 +78,11 @@ extern "C"
                 return -1;
             }
         }
+#ifdef _WIN32
+        return _access(path.c_str(), native);
+#else
         return access(path.c_str(), native);
+#endif
     }
     int w8_chmod(const char* path, int mode)
     {

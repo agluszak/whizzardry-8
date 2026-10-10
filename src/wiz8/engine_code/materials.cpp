@@ -1855,7 +1855,6 @@ void W8Octree::OctBuildOptions(char* stem)
     int line;
     int index;
     short length;
-    MSG message;
 
     colour_saved.SetZero();
     colour_backup.SetZero();
@@ -1943,15 +1942,13 @@ void W8Octree::OctBuildOptions(char* stem)
                 gprintfDirty(1, 0x184 + line * 0xd, Wiz8ToSgpWideText(g_format_s), wide[line]);
             }
             InvalidateRegion(0, 0x183, 0x27f, 0x1df, 4);
-            while (DequeueEvent(&atom) == 0) {
+            while (gfProgramIsRunning && DequeueEvent(&atom) == 0) {
                 RenderFrame();
                 RenderFrame();
-                W8WaitMessage();
-                if (W8PeekMessage(&message, (HWND)0, 0, 0, 0) != 0 &&
-                    W8GetMessage(&message, (HWND)0, 0, 0) != 0) {
-                    W8TranslateMessage(&message);
-                    W8DispatchMessage(&message);
-                }
+                PumpGameEvents(true);
+            }
+            if (!gfProgramIsRunning) {
+                goto accepted;
             }
             if (atom.usEvent != KEY_DOWN) {
                 continue;

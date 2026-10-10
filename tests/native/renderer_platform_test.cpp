@@ -59,7 +59,9 @@ int main()
     CHECK(!srDynamicLibrary::load(nullptr));
     void* library = srDynamicLibrary::load(WIZ8_PLATFORM_LIBRARY);
     CHECK(library);
-    CHECK(srDynamicLibrary::getFunction(library, "w8_wcscmp"));
+    auto symbol = reinterpret_cast<int (*)()>(
+        srDynamicLibrary::getFunction(library, "w8_loader_fixture_symbol"));
+    CHECK(symbol && symbol() == 42);
     CHECK(!srDynamicLibrary::getFunction(library, "missing_native_fixture_symbol"));
     CHECK(srDynamicLibrary::free(library));
     puts("ok: renderer monotonic clock, recursive mutex, worker and shared-object loading");

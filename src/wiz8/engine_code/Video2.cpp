@@ -1,4 +1,5 @@
 #include "wiz8/xstatus.h"
+#include "native/input_events.h"
 #ifdef WIZ8_RUNTIME_TESTS
 #include "runtime_instrumentation.h"
 #endif
@@ -72,7 +73,6 @@
 #define GetClientRect W8VideoGetClientRect
 #define GetWindowRect W8VideoGetWindowRect
 #define ClientToScreen W8VideoClientToScreen
-#define GetCursorPos W8GetMousePosition
 #define SetCursorPos(x, y) W8VideoWarpMouse(ghWindow, x, y)
 #define ShowCursor W8VideoShowCursor
 #define ShowWindow W8VideoShowWindow
@@ -151,7 +151,6 @@ HINSTANCE g_app_instance;
 // GLOBAL: WIZ8 0x659620
 unsigned short g_show_command;
 // GLOBAL: WIZ8 0x6595f8
-WNDPROC g_window_proc;
 // GLOBAL: WIZ8 0x659710
 bool g_video_active;
 // GLOBAL: WIZ8 0x65970e
@@ -357,8 +356,7 @@ void ResetVideoFrameState(void)
    original working directory. Each gate that fails returns straight out with
    the callee's own false still in AL. */
 // FUNCTION: WIZ8 0x00421bb0
-unsigned char InitializeVideoManager(HINSTANCE instance, unsigned short show_command,
-                                     void* window_proc)
+unsigned char InitializeVideoManager(HINSTANCE instance, unsigned short show_command)
 {
     unsigned int active;
     g_world_pick_enabled = true;
@@ -371,7 +369,6 @@ unsigned char InitializeVideoManager(HINSTANCE instance, unsigned short show_com
     g_page_full_redraw[1] = 0;
     g_app_instance = instance;
     g_show_command = show_command;
-    g_window_proc = (WNDPROC)window_proc;
     Initialize16BitPixelFormatMasks();
     if (!CreateWizardryWindow()) {
         return 0;
@@ -533,7 +530,7 @@ void Initialize16BitPixelFormatMasks(void)
 // FUNCTION: WIZ8 0x00425ec0
 unsigned char CreateWizardryWindow(void)
 {
-    ghWindow = W8CreateGameWindow(g_window_proc, g_screen_width, g_screen_height, g_fullscreen != 0);
+    ghWindow = W8CreateGameWindow(g_screen_width, g_screen_height, g_fullscreen != 0);
     return ghWindow != 0;
 }
 
@@ -1625,7 +1622,7 @@ void SyncSystemCursor(void)
     POINT top_left;
     POINT bottom_right;
 
-    GetCursorPos(&cursor);
+    GetGameMousePosition(&cursor);
     if (!g_fullscreen) {
         GetClientRect(ghWindow, &client);
         top_left.x = client.left;

@@ -49,7 +49,6 @@ RECT rcWindow;
 UINT32 giStartMem;
 
 // GLOBAL: WIZ8 0x006f0620
-UINT32 guiMouseWheelMsg; // For mouse wheel messages
 
 // GLOBAL: WIZ8 0x006f0630
 BOOLEAN gfApplicationActive;
@@ -123,7 +122,7 @@ BOOLEAN InitializeStandardGamingPlatform(HINSTANCE hInstance, int sCommandShow)
 
     FastDebugMsg("Initializing Video Manager");
     // Initialize DirectDraw (DirectX 2)
-    if (InitializeVideoManager(hInstance, (UINT16)sCommandShow, (void*)WindowProcedure) ==
+    if (InitializeVideoManager(hInstance, (UINT16)sCommandShow) ==
         FALSE) { // We were unable to initialize the video manager
         FastDebugMsg("FAILED : Initializing Video Manager");
         return FALSE;
@@ -182,7 +181,6 @@ BOOLEAN InitializeStandardGamingPlatform(HINSTANCE hInstance, int sCommandShow)
     }
 
     // Register mouse wheel message
-    guiMouseWheelMsg = WM_MOUSEWHEEL;
 
     gfGameInitialized = TRUE;
 

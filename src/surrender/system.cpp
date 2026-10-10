@@ -4,14 +4,9 @@
 #include "compat/platform.h"
 #include "platform_paths.h"
 
-#include <dirent.h>
 #include <string>
-#include <fnmatch.h>
-#include <limits.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/stat.h>
-#include <unistd.h>
 
 w8_long srSystem::scanFiles(srStringTable& files, const char* path)
 {
@@ -97,8 +92,8 @@ void srSystem::makePath(char* path, const char* drive, const char* directory, co
 char* srSystem::fullPath(char* absolute_path, const char* path, w8_ulong size)
 {
     if (absolute_path == 0) {
-        absolute_path = new char[PATH_MAX];
-        size = PATH_MAX;
+        absolute_path = new char[4096];
+        size = 4096;
     }
     const std::string full = w8_native::full_path(path);
     if (full.empty()) return 0;

@@ -13,9 +13,7 @@ typedef void* LPSECURITY_ATTRIBUTES;
 typedef void* LPOVERLAPPED;
 typedef FILETIME* LPFILETIME;
 typedef SYSTEMTIME* LPSYSTEMTIME;
-typedef MSG* LPMSG;
 typedef DWORD LCID;
-typedef void (CALLBACK* TIMERPROC)(HWND, UINT, UINT_PTR, DWORD);
 
 typedef struct _WIN32_FIND_DATAA {
     DWORD dwFileAttributes;
@@ -89,23 +87,6 @@ typedef struct _WIN32_FIND_DATAA {
 #define LOCALE_SYSTEM_DEFAULT 0x0800
 
 /* Message values used by the recovered game loop and native SDL bridge. */
-#define WM_QUIT 0x0012
-#define WM_CLOSE 0x0010
-#define WM_SIZE 0x0005
-#define WM_ACTIVATEAPP 0x001C
-#define WM_KEYDOWN 0x0100
-#define WM_KEYUP 0x0101
-#define WM_SYSKEYDOWN 0x0104
-#define WM_SYSKEYUP 0x0105
-#define WM_TIMER 0x0113
-#define WM_MOUSEMOVE 0x0200
-#define WM_LBUTTONDOWN 0x0201
-#define WM_LBUTTONUP 0x0202
-#define WM_RBUTTONDOWN 0x0204
-#define WM_RBUTTONUP 0x0205
-#define WM_MOUSEWHEEL 0x020A
-#define PM_NOREMOVE 0
-#define PM_REMOVE 1
 #define WHEEL_DELTA 120
 
 HANDLE W8CreateFile(LPCSTR path, DWORD access, DWORD share, LPSECURITY_ATTRIBUTES security,
@@ -150,17 +131,3 @@ int W8GetDateFormat(LCID locale, DWORD flags, const SYSTEMTIME* date, LPCSTR for
                     LPSTR buffer, int size);
 DWORD W8FormatMessage(DWORD flags, LPCVOID source, DWORD message, DWORD language,
                        LPSTR buffer, DWORD size, va_list* arguments);
-
-/* The shell implements these through SDL. Shared game code retains its
-   existing wait/peek/dispatch protocol until that shell is ported. */
-BOOL W8WaitMessage(void);
-BOOL W8PeekMessage(LPMSG message, HWND window, UINT first, UINT last, UINT remove);
-BOOL W8GetMessage(LPMSG message, HWND window, UINT first, UINT last);
-BOOL W8TranslateMessage(const MSG* message);
-LRESULT W8DispatchMessage(const MSG* message);
-UINT_PTR W8SetTimer(HWND window, UINT_PTR id, UINT interval, TIMERPROC callback);
-BOOL W8KillTimer(HWND window, UINT_PTR id);
-/* SDL input uses game-client coordinates, matching SGPMouseGetPos. */
-void W8GetMousePosition(POINT* point);
-BOOL W8ClipCursor(const RECT* rect);
-BOOL W8MinimizeWindow(HWND window);

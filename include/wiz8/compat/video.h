@@ -3,7 +3,7 @@
 #include "compat/surfaces.h"
 class srDD;
 class srGERD;
-HWND W8CreateGameWindow(WNDPROC procedure, int width, int height, bool fullscreen);
+HWND W8CreateGameWindow(int width, int height, bool fullscreen);
 void W8DestroyGameWindow(HWND window);
 bool W8ConfigureGameWindow(HWND window, bool fullscreen, int width, int height);
 srDD* W8CreateNativeRenderDevice();

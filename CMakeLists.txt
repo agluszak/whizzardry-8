@@ -76,19 +76,22 @@ target_include_directories(wiz8_native_settings INTERFACE
 )
 target_link_libraries(wiz8_native_settings INTERFACE Threads::Threads ${CMAKE_DL_LIBS})
 
-# One process-wide owner for roots, file handles and CRT compatibility. Sharing
-# this library avoids separate overlay state in the game and SurRender on macOS.
-add_library(wiz8_compat SHARED
+# One process-wide owner for roots, file handles, CRT and SDL state in the executable.
+add_library(wiz8_compat STATIC
     src/compat/native_crt.cpp
     src/compat/platform_paths.cpp
     src/compat/platform_crt.cpp
     src/compat/platform_files.cpp
     src/compat/platform_system.cpp
-    src/compat/platform_events.cpp
 )
 target_compile_options(wiz8_compat PRIVATE ${WIZ8_COMPAT_OPTIONS})
 target_include_directories(wiz8_compat PRIVATE "${PROJECT_SOURCE_DIR}/include/wiz8")
 target_link_libraries(wiz8_compat PRIVATE Threads::Threads SDL3::SDL3)
+if(WIN32)
+    # Keep host SDK declarations out of the transitional game vocabulary.
+    add_library(wiz8_os STATIC src/compat/platform_fs_windows.cpp)
+    target_link_libraries(wiz8_compat PRIVATE wiz8_os)
+endif()
 if(UNIX AND NOT APPLE)
     target_link_options(wiz8_compat PRIVATE -Wl,--no-undefined)
 endif()

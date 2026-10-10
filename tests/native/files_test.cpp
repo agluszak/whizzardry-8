@@ -7,7 +7,7 @@
 #include <string>
 #include <thread>
 #include <ctime>
-#include <unistd.h>
+#include "temporary_directory.h"
 
 #include "compat/platform.h"
 #include "platform_paths.h"
@@ -18,6 +18,14 @@
 #include "surrender/srStringTable.h"
 
 namespace fs = std::filesystem;
+void reset_timezone()
+{
+#ifdef _WIN32
+    _tzset();
+#else
+    tzset();
+#endif
+}
 #define CHECK(expression)                                                                          \
     do                                                                                             \
     {                                                                                              \
@@ -85,19 +93,19 @@ static void make_slf(const fs::path& path)
 }
 int main()
 {
-    char temporary[] = "/tmp/wiz8-files-XXXXXX";
-    CHECK(mkdtemp(temporary));
+    const auto temporary = make_temporary_directory("wiz8-files");
     fs::path root(temporary), assets = root / "assets", user = root / "user", disc = root / "disc";
     fixture(assets / "data" / "MixedCase.BIN", "retail bytes");
     fixture(assets / "data" / "Override.bin", "loose!");
     fixture(assets / "data" / "NoExtension", "plain");
     fixture(assets / "data" / "ReadOnly.bin", "locked");
-    CHECK(::chmod((assets / "data" / "ReadOnly.bin").c_str(), 0444) == 0);
+    fs::permissions(assets / "data" / "ReadOnly.bin", fs::perms::owner_read |
+                    fs::perms::group_read | fs::perms::others_read);
     fixture(disc / "Levels" / "LEVELS.SLF", "disc archive");
     make_slf(assets / "data" / "DATA.SLF");
-    CHECK(W8SetEnvironmentVariable("WIZ8_ASSET_ROOT", assets.c_str()));
-    CHECK(W8SetEnvironmentVariable("WIZ8_USER_ROOT", user.c_str()));
-    CHECK(W8SetEnvironmentVariable("WIZ8_CD1_ROOT", disc.c_str()));
+    CHECK(W8SetEnvironmentVariable("WIZ8_ASSET_ROOT", assets.string().c_str()));
+    CHECK(W8SetEnvironmentVariable("WIZ8_USER_ROOT", user.string().c_str()));
+    CHECK(W8SetEnvironmentVariable("WIZ8_CD1_ROOT", disc.string().c_str()));
     const auto configured = w8_native::path_roots();
     CHECK(configured.assets == assets && configured.user == user && configured.discs[0] == disc);
     w8_native::configure_paths({assets.string(), user.string(), {disc.string(), "", ""}});
@@ -165,7 +173,7 @@ int main()
     CHECK(W8GetLastError() == ERROR_PATH_NOT_FOUND);
     CHECK(!W8CopyFile("Saves\\CurrentGame.SAV", "Saves\\CurrentGame.SAV", 0));
     CHECK(contents(user / "Saves" / "CurrentGame.SAV") == "save payload");
-    CHECK(::symlink(assets.c_str(), (user / "AssetLink").c_str()) == 0);
+    fs::create_directory_symlink(assets, user / "AssetLink");
     CHECK(open_file("AssetLink\\data\\MixedCase.BIN", GENERIC_WRITE) == INVALID_HANDLE_VALUE);
     CHECK(W8GetLastError() == ERROR_ACCESS_DENIED);
 
@@ -269,27 +277,41 @@ int main()
     CHECK(!W8GetEnvironmentVariable("WIZ8_TEST_VARIABLE", path, sizeof(path)) &&
           W8GetLastError() == ERROR_ENVVAR_NOT_FOUND);
     CHECK(W8SetEnvironmentVariable("TZ", "UTC0"));
-    tzset();
+    reset_timezone();
     FILETIME epoch{0xd53e8000u, 0x019db1deu}, local;
     SYSTEMTIME date;
     CHECK(W8FileTimeToSystemTime(&epoch, &date));
     CHECK(date.wYear == 1970 && date.wMonth == 1 && date.wDay == 1 && date.wDayOfWeek == 4);
+    FILETIME origin{};
+    CHECK(W8FileTimeToSystemTime(&origin, &date));
+    CHECK(date.wYear == 1601 && date.wMonth == 1 && date.wDay == 1 && date.wDayOfWeek == 1);
+    CHECK(W8FileTimeToSystemTime(&epoch, &date));
     CHECK(W8FileTimeToLocalFileTime(&epoch, &local) && !W8CompareFileTime(&epoch, &local));
     CHECK(W8GetDateFormat(LOCALE_SYSTEM_DEFAULT, 0, &date, "dddd',' MMMM dd',' yyyy", path,
                           sizeof(path)));
     CHECK(!strcmp(path, "Thursday, January 01, 1970"));
     CHECK(W8SetEnvironmentVariable("TZ", "EST5"));
-    tzset();
+    reset_timezone();
     CHECK(W8FileTimeToLocalFileTime(&epoch, &local));
     CHECK(W8FileTimeToSystemTime(&local, &date) && date.wYear == 1969 && date.wHour == 19);
     CHECK(W8SetEnvironmentVariable("TZ", "EST5EDT,M3.2.0,M11.1.0"));
-    tzset();
+    reset_timezone();
     CHECK(W8FileTimeToLocalFileTime(&epoch, &local));
     const time_t now = time(nullptr);
     tm current;
+#ifdef _WIN32
+    CHECK(localtime_s(&current, &now) == 0);
+#else
     CHECK(localtime_r(&now, &current));
+#endif
     uint64_t expected = (uint64_t(epoch.dwHighDateTime) << 32) | epoch.dwLowDateTime;
+#ifdef _WIN32
+    long timezone, dst_bias;
+    CHECK(_get_timezone(&timezone) == 0 && _get_dstbias(&dst_bias) == 0);
+    expected -= int64_t(timezone + (current.tm_isdst > 0 ? dst_bias : 0)) * 10000000;
+#else
     expected += int64_t(current.tm_gmtoff) * 10000000;
+#endif
     CHECK(local.dwLowDateTime == DWORD(expected) && local.dwHighDateTime == DWORD(expected >> 32));
     DWORD root_error = W8GetLastError();
     std::thread other(
@@ -353,6 +375,8 @@ int main()
     }
     CHECK(contents(assets / "data" / "MixedCase.BIN") == "retail bytes");
     CHECK(contents(assets / "data" / "ReadOnly.bin") == "locked");
+    fs::permissions(assets / "data" / "ReadOnly.bin", fs::perms::owner_write,
+                    fs::perm_options::add);
     fs::remove_all(root);
     puts("ok: native paths, file handles, mapped/streamed SLF, loose overrides and SGP saves");
 }

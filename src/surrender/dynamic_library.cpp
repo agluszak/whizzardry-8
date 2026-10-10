@@ -2,17 +2,18 @@
 #include "surrender/srDynamicLibrary.h"
 #include "surrender/srPlugin.h"
 
-#include <dlfcn.h>
+#include <SDL3/SDL_loadso.h>
 #include <string>
 
-#if defined(__APPLE__)
+#if defined(_WIN32)
+#define SR_LIBRARY_EXTENSION ".dll"
+#elif defined(__APPLE__)
 #define SR_LIBRARY_EXTENSION ".dylib"
 #else
 #define SR_LIBRARY_EXTENSION ".so"
 #endif
 
-/* Native plug-ins are shared objects. Built-in components register directly
-   and do not pass through here. */
+/* Built-in components register directly; native plug-ins use SDL's loader. */
 namespace {
 std::string libraryName(const char* name)
 {
@@ -25,10 +26,11 @@ std::string libraryName(const char* name)
     return filename;
 }
 
-__attribute__((constructor)) void libraryInit()
+struct LibraryInitializer
 {
-    _srLibraryInit();
-}
+    LibraryInitializer() { _srLibraryInit(); }
+};
+LibraryInitializer library_initializer;
 } // namespace
 
 srDynamicLibrary::Compatibility srDynamicLibrary::checkCompatibility(const char* name)
@@ -48,7 +50,7 @@ void* srDynamicLibrary::load(const char* name)
     if (name == 0) {
         return 0;
     }
-    return dlopen(libraryName(name).c_str(), RTLD_NOW | RTLD_LOCAL);
+    return SDL_LoadObject(libraryName(name).c_str());
 }
 
 int srDynamicLibrary::free(void* library)
@@ -56,7 +58,8 @@ int srDynamicLibrary::free(void* library)
     if (library == 0) {
         return 0;
     }
-    return dlclose(library) == 0;
+    SDL_UnloadObject(static_cast<SDL_SharedObject*>(library));
+    return 1;
 }
 
 void* srDynamicLibrary::getFunction(void* library, const char* function_name)
@@ -64,7 +67,8 @@ void* srDynamicLibrary::getFunction(void* library, const char* function_name)
     if (library == 0 || function_name == 0) {
         return 0;
     }
-    return dlsym(library, function_name);
+    return reinterpret_cast<void*>(
+        SDL_LoadFunction(static_cast<SDL_SharedObject*>(library), function_name));
 }
 
 int srDynamicLibrary::testDependencies(const char*)

@@ -12,8 +12,9 @@
 #include <cstdio>
 #include <cstring>
 #include <filesystem>
+#include <fstream>
 #include <stdexcept>
-#include <unistd.h>
+#include "temporary_directory.h"
 #include <vector>
 #define CHECK(x)                                                                                   \
     do                                                                                             \
@@ -26,24 +27,20 @@
     } while (0)
 std::vector<unsigned char> read(const char* path)
 {
-    FILE* file = fopen(path, "rb");
+    std::ifstream file(path, std::ios::binary | std::ios::ate);
     if (!file)
         throw std::runtime_error("Missing test fixture");
-    fseek(file, 0, SEEK_END);
-    std::vector<unsigned char> bytes(ftell(file));
-    rewind(file);
-    if (fread(bytes.data(), 1, bytes.size(), file) != bytes.size())
+    std::vector<unsigned char> bytes(static_cast<size_t>(file.tellg()));
+    file.seekg(0);
+    if (!file.read(reinterpret_cast<char*>(bytes.data()), bytes.size()))
         throw std::runtime_error("Short fixture");
-    fclose(file);
     return bytes;
 }
 void write(const std::filesystem::path& path, const std::vector<unsigned char>& bytes)
 {
-    FILE* file = fopen(path.c_str(), "wb");
-    if (!file)
+    std::ofstream file(path, std::ios::binary);
+    if (!file.write(reinterpret_cast<const char*>(bytes.data()), bytes.size()))
         throw std::runtime_error("Cannot create fixture");
-    fwrite(bytes.data(), 1, bytes.size(), file);
-    fclose(file);
 }
 struct Temporary
 {
@@ -77,8 +74,7 @@ int main(int argc, char** argv)
 {
     try
     {
-        char temporary[] = "/tmp/wiz8-movie-XXXXXX";
-        CHECK(mkdtemp(temporary));
+        const auto temporary = make_temporary_directory("wiz8-movie");
         Temporary fixture{temporary};
         auto assets = fixture.path / "assets", user = fixture.path / "user";
         std::filesystem::create_directories(assets / "Data");

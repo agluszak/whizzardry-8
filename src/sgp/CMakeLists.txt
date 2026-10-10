@@ -15,7 +15,7 @@ add_library(WIZ8_SGP STATIC
     native/video.cpp
     vsurface.cpp
     sgp.cpp
-    native/window_procedure.cpp
+    native/application.cpp
     Font.cpp
     mousesystem.cpp
     "Button System.cpp"

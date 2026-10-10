@@ -1,9 +1,9 @@
+#include "sgp.h"
 #include "wiz8/compat/unaligned.h"
 #include "wiz8/wiz8_windows.h"
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
-#include <sys/stat.h>
 
 #include "surrender/srCamera.h"
 #include "surrender/srHeap.h"
@@ -1408,11 +1408,13 @@ void W8Octree::BuildRegionLinks(bool rebuild_all)
                       point.z < m_spatial.m_working_maximum.z)) {
                     continue;
                 }
-                MSG message;
-                if (W8PeekMessage(&message, 0, 0, 0, 0) != 0 &&
-                    W8GetMessage(&message, 0, 0, 0) != 0) {
-                    W8TranslateMessage(&message);
-                    W8DispatchMessage(&message);
+                const bool received_events = PumpGameEvents();
+                if (!gfProgramIsRunning) {
+                    aborted = true;
+                    g_build_level_links = false;
+                    break;
+                }
+                if (received_events) {
                     InputAtom input;
                     if (DequeueEvent(&input) != 0 && input.usEvent == KEY_DOWN) {
                         if (input.usParam == VK_RETURN) {
@@ -1510,8 +1512,10 @@ void W8Octree::BuildRegionLinks(bool rebuild_all)
     if (aborted) {
         stale = m_pRegionLinks;
         m_pRegionLinks = saved_links;
-        CreateMessageBox(FormatWideString(L"  Linking Aborted!  "), g_small_font, 1, true, false,
-                         0);
+        if (gfProgramIsRunning) {
+            CreateMessageBox(FormatWideString(L"  Linking Aborted!  "), g_small_font, 1, true,
+                             false, 0);
+        }
     } else {
         SaveRegionLinks(m_owned_0c0);
         if (hours == 0) {

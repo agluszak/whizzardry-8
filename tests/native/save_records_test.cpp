@@ -17,7 +17,7 @@
 #include <cstring>
 #include <filesystem>
 #include <fstream>
-#include <unistd.h>
+#include "temporary_directory.h"
 
 extern W8GrowableVector<W8NpcState*>* g_npc_states;
 
@@ -39,8 +39,7 @@ template <class T> static void write(std::ofstream& out, const T& value)
 
 int main()
 {
-    char temporary[] = "/tmp/wiz8-save-records-XXXXXX";
-    CHECK(mkdtemp(temporary));
+    const auto temporary = make_temporary_directory("wiz8-save-records");
     const auto path = std::filesystem::path(temporary) / "npc.bin";
     W8NpcDatabaseRecord database[3] = {};
     g_npc_records = database;

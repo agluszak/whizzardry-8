@@ -57,7 +57,7 @@ set(SURRENDER_SOURCES
     vector_processor.cpp
 )
 
-add_library(SURRENDER SHARED ${SURRENDER_SOURCES})
+add_library(SURRENDER STATIC ${SURRENDER_SOURCES})
 target_compile_definitions(SURRENDER PRIVATE SURRENDER_BUILD)
 target_link_libraries(SURRENDER PRIVATE wiz8_native_settings SDL3::SDL3)
 if(UNIX AND NOT APPLE)

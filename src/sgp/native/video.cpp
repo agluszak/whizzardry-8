@@ -1,6 +1,6 @@
 #include "compat/video.h"
 #include "compat/platform.h"
-#include "platform_events.h"
+#include "native/input_events.h"
 #include "platform_paths.h"
 #include "surrender/srDD_SDLGPU.h"
 #include <SDL3/SDL.h>
@@ -8,8 +8,11 @@
 #include <climits>
 #include <filesystem>
 #include <fstream>
-#include <strings.h>
+#ifdef _WIN32
+#include "platform_fs_windows.h"
+#else
 #include <unistd.h>
+#endif
 #if defined(__APPLE__)
 #include <sys/sysctl.h>
 #endif
@@ -17,7 +20,7 @@ namespace
 {
 SDL_Window* native(HWND window) { return reinterpret_cast<SDL_Window*>(window); }
 } // namespace
-HWND W8CreateGameWindow(WNDPROC procedure, int width, int height, bool fullscreen)
+HWND W8CreateGameWindow(int width, int height, bool fullscreen)
 {
     if (!SDL_Init(SDL_INIT_VIDEO))
         return nullptr;
@@ -27,21 +30,20 @@ HWND W8CreateGameWindow(WNDPROC procedure, int width, int height, bool fullscree
         return nullptr;
     SDL_SetWindowMinimumSize(window, 640, 480);
     SDL_SetWindowAspectRatio(window, 4.f / 3.f, 4.f / 3.f);
-    HWND handle = w8_native::attach_window(window, procedure, 640, 480);
-    if (!handle || !W8ConfigureGameWindow(handle, fullscreen, width, height))
+    HWND handle = reinterpret_cast<HWND>(window);
+    if (!W8ConfigureGameWindow(handle, fullscreen, width, height))
     {
-        if (handle)
-            w8_native::detach_window(handle);
         SDL_DestroyWindow(window);
         return nullptr;
     }
+    SetInputWindow(window);
     return handle;
 }
 void W8DestroyGameWindow(HWND window)
 {
     if (!window)
         return;
-    w8_native::detach_window(window);
+    SetInputWindow(nullptr);
     SDL_DestroyWindow(native(window));
 }
 bool W8ConfigureGameWindow(HWND window, bool fullscreen, int width, int height)
@@ -72,7 +74,7 @@ BOOL W8VideoGetWindowRect(HWND window, RECT* rect)
     *rect = {x, y, x + width, y + height};
     return TRUE;
 }
-BOOL W8VideoWarpMouse(HWND window, int x, int y) { return w8_native::warp_mouse(window, x, y); }
+BOOL W8VideoWarpMouse(HWND window, int x, int y) { return WarpGameMouse(native(window), x, y); }
 BOOL W8VideoShowCursor(BOOL visible) { return visible ? SDL_ShowCursor() : SDL_HideCursor(); }
 BOOL W8VideoShowWindow(HWND window, int command)
 {
@@ -86,7 +88,9 @@ BOOL W8VideoRaiseWindow(HWND window) { return window && SDL_RaiseWindow(native(w
 BOOL W8VideoCloseWindow(HWND window) { return window && SDL_HideWindow(native(window)); }
 unsigned int W8TotalPhysicalMemory()
 {
-#if defined(__APPLE__)
+#if defined(_WIN32)
+    uint64_t bytes = uint64_t(SDL_GetSystemRAM()) * 1024 * 1024;
+#elif defined(__APPLE__)
     uint64_t bytes = 0;
     size_t size = sizeof(bytes);
     if (sysctlbyname("hw.memsize", &bytes, &size, nullptr, 0))
@@ -101,7 +105,9 @@ unsigned int W8TotalPhysicalMemory()
 }
 int W8UsedPageFileBytes()
 {
-#if defined(__APPLE__)
+#if defined(_WIN32)
+    return std::min<uint64_t>(w8_native::committed_memory(), INT_MAX);
+#elif defined(__APPLE__)
     xsw_usage usage{};
     size_t size = sizeof(usage);
     if (sysctlbyname("vm.swapusage", &usage, &size, nullptr, 0))
@@ -154,10 +160,10 @@ int W8ReadProfileInt(const char* path, const char* section, const char* key, int
             continue;
         }
         auto separator = line.find('=');
-        if (separator == std::string::npos || strcasecmp(current.c_str(), section))
+        if (separator == std::string::npos || stricmp(current.c_str(), section))
             continue;
         auto name = trim(line.substr(0, separator));
-        if (!strcasecmp(name.c_str(), key))
+        if (!stricmp(name.c_str(), key))
             return atoi(line.c_str() + separator + 1);
     }
     return fallback;

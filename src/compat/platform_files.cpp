@@ -6,17 +6,45 @@
 #include <cerrno>
 #include <climits>
 #include <fcntl.h>
-#include <sys/mman.h>
 #include <sys/stat.h>
+#include <filesystem>
+#ifdef _WIN32
+#include <io.h>
+#include "platform_fs_windows.h"
+#define stat _stat64
+#define fstat _fstat64
+#define open w8_native::open_shared_file
+#define read _read
+#define write _write
+#define close _close
+#define lseek _lseeki64
+#define ftruncate truncate_file_native
+#define unlink _unlink
+#define mkdir(path, mode) _mkdir(path)
+#define O_CLOEXEC (_O_BINARY | _O_NOINHERIT)
+#else
+#include <sys/mman.h>
 #include <unistd.h>
+#endif
 
 #include "compat/platform.h"
 #include "platform_paths.h"
 
 #undef rename
+#undef _chmod
 
 namespace
 {
+#ifdef _WIN32
+int truncate_file_native(int fd, int64_t size)
+{
+    const auto error = _chsize_s(fd, size);
+    if (!error)
+        return 0;
+    errno = error;
+    return -1;
+}
+#endif
 thread_local DWORD last_error = ERROR_SUCCESS;
 std::mutex files_lock;
 uintptr_t next_handle = 1;
@@ -25,8 +53,8 @@ struct File
     int fd;
     DWORD access, share;
     std::string path;
-    dev_t device;
-    ino_t inode;
+    uint64_t device;
+    uint64_t inode;
     bool delete_on_close;
 };
 struct Mapping
@@ -68,7 +96,9 @@ DWORD error_code(int value)
     case ENOMEM:
         return ERROR_NOT_ENOUGH_MEMORY;
     case ENOSPC:
+#ifdef EDQUOT
     case EDQUOT:
+#endif
         return ERROR_DISK_FULL;
     case ENAMETOOLONG:
         return ERROR_FILENAME_EXCED_RANGE;
@@ -110,7 +140,14 @@ FILETIME file_time(time_t seconds, long nanoseconds)
 }
 void times(const struct stat& status, FILETIME* creation, FILETIME* access, FILETIME* write)
 {
-#ifdef __APPLE__
+#ifdef _WIN32
+    if (creation)
+        *creation = file_time(status.st_ctime, 0);
+    if (access)
+        *access = file_time(status.st_atime, 0);
+    if (write)
+        *write = file_time(status.st_mtime, 0);
+#elif defined(__APPLE__)
     if (creation)
         *creation = file_time(status.st_birthtimespec.tv_sec, status.st_birthtimespec.tv_nsec);
     if (access)
@@ -134,12 +171,18 @@ DWORD attributes(const struct stat& status)
         result |= FILE_ATTRIBUTE_READONLY;
     return result;
 }
-bool sharing(const struct stat& status, DWORD access, DWORD share, bool deleting = false)
+bool sharing(const struct stat& status, const std::string& path, DWORD access, DWORD share,
+             bool deleting = false)
 {
     for (const auto& item : files)
     {
         const File& file = item.second;
-        if (status.st_dev != file.device || status.st_ino != file.inode)
+#ifdef _WIN32
+        std::error_code error;
+        if (!std::filesystem::equivalent(path, file.path, error))
+#else
+        if (uint64_t(status.st_dev) != file.device || uint64_t(status.st_ino) != file.inode)
+#endif
             continue;
         if (deleting && !(file.share & FILE_SHARE_DELETE))
             return false;
@@ -169,7 +212,7 @@ bool mutable_file(const char* input, std::string& path, struct stat& status)
         failure(ERROR_ACCESS_DENIED);
         return false;
     }
-    if (!sharing(status, 0, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, true))
+    if (!sharing(status, path, 0, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, true))
     {
         failure(ERROR_SHARING_VIOLATION);
         return false;
@@ -267,7 +310,7 @@ HANDLE W8CreateFile(LPCSTR input, DWORD access, DWORD share, LPSECURITY_ATTRIBUT
         failure(ERROR_ACCESS_DENIED);
         return INVALID_HANDLE_VALUE;
     }
-    if (exists && !sharing(status, access, share, (flags & FILE_FLAG_DELETE_ON_CLOSE) != 0))
+    if (exists && !sharing(status, path, access, share, (flags & FILE_FLAG_DELETE_ON_CLOSE) != 0))
     {
         failure(ERROR_SHARING_VIOLATION);
         return INVALID_HANDLE_VALUE;
@@ -301,7 +344,7 @@ HANDLE W8CreateFile(LPCSTR input, DWORD access, DWORD share, LPSECURITY_ATTRIBUT
         posix_failure();
         return INVALID_HANDLE_VALUE;
     }
-    if (!sharing(status, access, share, (flags & FILE_FLAG_DELETE_ON_CLOSE) != 0))
+    if (!sharing(status, path, access, share, (flags & FILE_FLAG_DELETE_ON_CLOSE) != 0))
     {
         close(fd);
         failure(ERROR_SHARING_VIOLATION);
@@ -316,7 +359,11 @@ HANDLE W8CreateFile(LPCSTR input, DWORD access, DWORD share, LPSECURITY_ATTRIBUT
         return INVALID_HANDLE_VALUE;
     }
     if (!exists && (flags & FILE_ATTRIBUTE_READONLY))
+#ifdef _WIN32
+        _chmod(path.c_str(), status.st_mode & _S_IREAD);
+#else
         fchmod(fd, status.st_mode & ~(S_IWUSR | S_IWGRP | S_IWOTH));
+#endif
     HANDLE result = handle();
     files.emplace(result, File{fd, access, share, path, status.st_dev, status.st_ino,
                                (flags & FILE_FLAG_DELETE_ON_CLOSE) != 0});
@@ -339,7 +386,7 @@ BOOL W8ReadFile(HANDLE id, LPVOID buffer, DWORD size, LPDWORD count, LPOVERLAPPE
         return failure(ERROR_INVALID_PARAMETER);
     if (!(it->second.access & GENERIC_READ))
         return failure(ERROR_ACCESS_DENIED);
-    ssize_t result;
+    int64_t result;
     do
     {
         result = read(it->second.fd, buffer, size);
@@ -365,7 +412,7 @@ BOOL W8WriteFile(HANDLE id, LPCVOID buffer, DWORD size, LPDWORD count, LPOVERLAP
         return failure(ERROR_ACCESS_DENIED);
     while (*count < size)
     {
-        ssize_t result =
+        int64_t result =
             write(it->second.fd, static_cast<const char*>(buffer) + *count, size - *count);
         if (result < 0 && errno == EINTR)
             continue;
@@ -388,7 +435,13 @@ BOOL W8CloseHandle(HANDLE id)
         bool still_open = false, deleting = value.delete_on_close;
         for (auto& item : files)
         {
-            if (item.second.device == value.device && item.second.inode == value.inode)
+#ifdef _WIN32
+            std::error_code error;
+            const bool same_file = std::filesystem::equivalent(item.second.path, value.path, error);
+#else
+            const bool same_file = item.second.device == value.device && item.second.inode == value.inode;
+#endif
+            if (same_file)
             {
                 still_open = true;
                 item.second.delete_on_close |= deleting;
@@ -424,7 +477,7 @@ DWORD W8SetFilePointer(HANDLE id, LONG low, PLONG high, DWORD method)
     }
     int64_t distance =
         high ? int64_t((uint64_t(uint32_t(*high)) << 32) | uint32_t(low)) : int64_t(low);
-    off_t origin = method == FILE_BEGIN     ? 0
+    int64_t origin = method == FILE_BEGIN     ? 0
                    : method == FILE_CURRENT ? lseek(it->second.fd, 0, SEEK_CUR)
                                             : 0;
     struct stat status;
@@ -453,7 +506,7 @@ DWORD W8SetFilePointer(HANDLE id, LONG low, PLONG high, DWORD method)
         failure(ERROR_INVALID_PARAMETER);
         return INVALID_SET_FILE_POINTER;
     }
-    off_t result = lseek(it->second.fd, position, SEEK_SET);
+    int64_t result = lseek(it->second.fd, position, SEEK_SET);
     if (result < 0)
     {
         posix_failure();
@@ -541,7 +594,11 @@ HANDLE W8CreateFileMapping(HANDLE id, LPSECURITY_ATTRIBUTES security, DWORD prot
         failure(ERROR_INVALID_PARAMETER);
         return nullptr;
     }
+#ifdef _WIN32
+    int fd = _dup(it->second.fd);
+#else
     int fd = fcntl(it->second.fd, F_DUPFD_CLOEXEC, 0);
+#endif
     if (fd < 0)
     {
         posix_failure();
@@ -573,8 +630,13 @@ LPVOID W8MapViewOfFile(HANDLE id, DWORD access, DWORD high, DWORD low, SIZE_T si
     }
     if (!size)
         size = it->second.size - offset;
+#ifdef _WIN32
+    void* view = w8_native::map_file_readonly(it->second.fd, offset, size);
+    if (!view)
+#else
     void* view = mmap(nullptr, size, PROT_READ, MAP_SHARED, it->second.fd, off_t(offset));
     if (view == MAP_FAILED)
+#endif
     {
         posix_failure();
         return nullptr;
@@ -588,7 +650,11 @@ BOOL W8UnmapViewOfFile(LPCVOID view)
     auto it = views.find(view);
     if (it == views.end())
         return failure(ERROR_INVALID_PARAMETER);
+#ifdef _WIN32
+    int result = w8_native::unmap_file(view) ? 0 : -1;
+#else
     int result = munmap(const_cast<void*>(view), it->second);
+#endif
     if (result == 0)
         views.erase(it);
     return result == 0 ? 1 : posix_failure();
@@ -616,12 +682,16 @@ BOOL W8SetFileAttributes(LPCSTR input, DWORD value)
     std::string path = w8_native::write_path(input, true);
     if (path.empty())
         return posix_failure();
-    mode_t permissions = status.st_mode & 07777;
+    int permissions = status.st_mode & 07777;
     if (value & FILE_ATTRIBUTE_READONLY)
         permissions &= ~(S_IWUSR | S_IWGRP | S_IWOTH);
     else
         permissions |= S_IWUSR;
+#ifdef _WIN32
+    return _chmod(path.c_str(), permissions & (_S_IREAD | _S_IWRITE)) == 0 ? 1 : posix_failure();
+#else
     return chmod(path.c_str(), permissions) == 0 ? 1 : posix_failure();
+#endif
 }
 BOOL W8CreateDirectory(LPCSTR input, LPSECURITY_ATTRIBUTES security)
 {
@@ -674,6 +744,14 @@ BOOL W8CopyFile(LPCSTR source, LPCSTR destination, BOOL fail_if_exists)
         }
         else
         {
+#ifdef _WIN32
+            if (!w8_native::copy_file_times(files.at(input).fd, files.at(output).fd) ||
+                _chmod(files.at(output).path.c_str(), status.st_mode & (_S_IREAD | _S_IWRITE)) != 0)
+            {
+                result = posix_failure();
+                saved = last_error;
+            }
+#else
 #ifdef __APPLE__
             timespec timestamps[] = {status.st_atimespec, status.st_mtimespec};
 #else
@@ -685,6 +763,7 @@ BOOL W8CopyFile(LPCSTR source, LPCSTR destination, BOOL fail_if_exists)
                 result = posix_failure();
                 saved = last_error;
             }
+#endif
         }
     }
     if (!W8CloseHandle(output) && result)

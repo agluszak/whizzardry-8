@@ -5893,7 +5893,6 @@ unsigned int W8PathingService::EditWaypointLinkFlags(const char* title, unsigned
     EnvironmentColour colour_saved;
     EnvironmentColour colour_backup;
     InputAtom atom;
-    MSG message;
     char* lines[9];
     unsigned short* wide[9];
     char groups[32];
@@ -6022,13 +6021,12 @@ unsigned int W8PathingService::EditWaypointLinkFlags(const char* title, unsigned
             do {
                 RenderFrame();
                 RenderFrame();
-                W8WaitMessage();
-                if (W8PeekMessage(&message, (HWND)0, 0, 0, 0) != 0 &&
-                    W8GetMessage(&message, (HWND)0, 0, 0) != 0) {
-                    W8TranslateMessage(&message);
-                    W8DispatchMessage(&message);
-                }
-            } while (DequeueEvent(&atom) == 0);
+                PumpGameEvents(true);
+            } while (gfProgramIsRunning && DequeueEvent(&atom) == 0);
+        }
+        if (!gfProgramIsRunning) {
+            direction = 0;
+            break;
         }
         if (atom.usEvent != KEY_DOWN) {
             continue;

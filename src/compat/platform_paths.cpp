@@ -4,7 +4,7 @@
 #include <filesystem>
 #include <mutex>
 #include <cerrno>
-#include <unistd.h>
+#include <SDL3/SDL_filesystem.h>
 
 namespace fs = std::filesystem;
 namespace w8_native
@@ -42,11 +42,19 @@ std::string absolute(const std::string& path)
         errno = error.value();
         return "";
     }
-    return canonical.string();
+    return canonical.generic_string();
 }
 bool within(const std::string& path, const std::string& base)
 {
-    return !base.empty() && (path == base || path.rfind(base + "/", 0) == 0);
+    if (base.empty())
+        return false;
+#ifdef _WIN32
+    const std::string name = folded(path), root = folded(base);
+#else
+    const std::string& name = path;
+    const std::string& root = base;
+#endif
+    return name == root || name.rfind(root.back() == '/' ? root : root + "/", 0) == 0;
 }
 void validate_roots()
 {
@@ -62,11 +70,26 @@ void initialize()
         return;
     roots.assets = environment("WIZ8_ASSET_ROOT");
     if (roots.assets.empty())
+#ifdef _WIN32
+    {
+        const char* base = SDL_GetBasePath();
+        roots.assets = base ? base : ".";
+    }
+#else
         roots.assets = ".";
+#endif
     roots.assets = absolute(roots.assets);
     roots.user = environment("WIZ8_USER_ROOT");
     if (roots.user.empty())
     {
+#ifdef _WIN32
+        char* pref = SDL_GetPrefPath("Whizzardry", "whizzardry8");
+        if (pref)
+        {
+            roots.user = pref;
+            SDL_free(pref);
+        }
+#else
         roots.user = environment("XDG_DATA_HOME");
         if (roots.user.empty())
         {
@@ -87,6 +110,7 @@ void initialize()
         }
         if (!roots.user.empty())
             roots.user += "/whizzardry8";
+#endif
     }
     if (!roots.user.empty())
         roots.user = absolute(roots.user);
@@ -117,6 +141,38 @@ Path parse(const char* input)
         return path;
     }
     std::string text(input);
+#ifdef _WIN32
+    /* Keep game C:\ paths virtual. C:/host paths in a configured root use
+       that root's overlay policy; other existing host paths are imports. */
+    if (text.size() > 2 && text[1] == ':' && text[2] == '/')
+    {
+        const std::string host = absolute(text);
+        if (host.empty())
+        {
+            path.drive = -1;
+            return path;
+        }
+        const std::string bases[] = {roots.assets, roots.user, roots.discs[0], roots.discs[1],
+                                     roots.discs[2]};
+        for (int i = 0; i < 5; ++i)
+        {
+            if (!within(host, bases[i]))
+                continue;
+            path.drive = i < 2 ? 0 : i - 1;
+            const size_t prefix = bases[i].size() + (bases[i].back() == '/' ? 0 : 1);
+            path.relative = folded(host) == folded(bases[i]) ? "" : host.substr(prefix);
+            return path;
+        }
+        std::error_code error;
+        const fs::path parent = fs::path(host).parent_path();
+        if (fs::exists(host, error) ||
+            (parent != parent.root_path() && fs::exists(parent, error)))
+        {
+            path.physical = host;
+            return path;
+        }
+    }
+#endif
     /* Explicit POSIX paths are allowed for imports and renderer search paths.
        Paths within a configured root retain that root's write policy. */
     if (text[0] == '/')
@@ -230,6 +286,11 @@ std::string locate(const std::string& root, const std::string& relative)
     }
     return cursor.string();
 }
+std::string locate_physical(const std::string& path)
+{
+    const fs::path physical(path);
+    return locate(physical.root_path().string(), physical.relative_path().generic_string());
+}
 bool exists(const std::string& path)
 {
     std::error_code error;
@@ -240,7 +301,7 @@ std::string read(const Path& path)
     if (path.drive < 0)
         return "";
     if (!path.physical.empty())
-        return locate("/", path.physical.substr(1));
+        return locate_physical(path.physical);
     if (path.drive != 0)
     {
         const auto& root = roots.discs[path.drive - 1];
@@ -309,7 +370,7 @@ std::string write_path(const char* input, bool preserve)
     if (path.drive < 0)
         return "";
     if (!path.physical.empty())
-        return locate("/", path.physical.substr(1));
+        return locate_physical(path.physical);
     if (path.drive != 0 || roots.user.empty())
     {
         errno = EACCES;
@@ -399,7 +460,7 @@ int change_directory(const char* input)
     }
     const std::string full = full_path(input);
     /* Explicit external directories use the host CWD for host relative I/O. */
-    if (full.empty() || full[0] == '/')
+    if (full.empty() || !parse(input).physical.empty())
     {
         errno = ENOTSUP;
         return -1;

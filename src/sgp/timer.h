@@ -7,8 +7,6 @@
 
 typedef UINT32 TIMER;
 
-#define MAIN_TIMER_ID 1
-
 #define MILLISECONDS(a) (a)
 #define SECONDS(a) ((a) / 1000)
 #define MINUTES(a) (SECOND((a)) / 60)
@@ -20,6 +18,7 @@ extern "C" {
 #endif
 
 BOOLEAN InitializeClockManager(void);
+void UpdateClockManager(void);
 void ShutdownClockManager(void);
 TIMER GetClock(void);
 TIMER SetCountdownClock(UINT32 TimeToElapse);

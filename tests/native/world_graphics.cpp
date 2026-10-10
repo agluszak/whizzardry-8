@@ -32,7 +32,7 @@
 #include <filesystem>
 #include <stdexcept>
 #include <vector>
-#include <unistd.h>
+#include "temporary_directory.h"
 
 static void Check(bool condition, const char* expression)
 {
@@ -72,13 +72,13 @@ static void SaveFrame(const char* path, const std::vector<unsigned int>& pixels)
 
 int main(int argc, char** argv)
 {
-    char temporary[] = "/tmp/wiz8-world-XXXXXX";
+    std::string temporary;
     bool have_overlay = false;
     int result = 1;
     try
     {
         CHECK(argc >= 2); // Character basename under installed Saves/Characters.
-        CHECK(mkdtemp(temporary));
+        temporary = make_temporary_directory("wiz8-world");
         have_overlay = true;
         auto roots = w8_native::path_roots();
         roots.user = temporary;

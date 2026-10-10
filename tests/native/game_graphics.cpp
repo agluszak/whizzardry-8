@@ -15,10 +15,9 @@
 #include <SDL3/SDL.h>
 #include <cstdio>
 #include <cstring>
-#include <dlfcn.h>
 #include <exception>
 #include <filesystem>
-#include <unistd.h>
+#include "temporary_directory.h"
 #include <vector>
 #define CHECK(x)                                                                                   \
     do                                                                                             \
@@ -31,7 +30,6 @@
     } while (0)
 void PresentMenuOverlayFrame();
 extern unsigned char g_fullscreen;
-extern WNDPROC g_window_proc;
 extern srScene* g_cursor_scene;
 unsigned char InitializeMouseCursorScene();
 void PositionMouseCursor(int, int, bool);
@@ -49,8 +47,7 @@ int main(int argc, char** argv)
 {
     try
     {
-        char temporary[] = "/tmp/wiz8-graphics-XXXXXX";
-        CHECK(mkdtemp(temporary));
+        const auto temporary = make_temporary_directory("wiz8-graphics");
         FixtureRoot fixture{temporary};
         auto roots = w8_native::path_roots();
         roots.user = temporary;
@@ -67,22 +64,15 @@ int main(int argc, char** argv)
         CHECK(InitializeFileDatabase());
         CHECK(InitializeInputManager());
         g_fullscreen = 0;
-        g_window_proc = NativeInputWindowProcedure;
         Initialize16BitPixelFormatMasks();
         CHECK(CreateWizardryWindow());
         CHECK(InitializePrimaryDirectDrawSurface());
         CHECK(InitializeVideoDevice());
         CHECK(InitializeRendererSceneObjects());
-        void* renderer_library = dlopen(WIZ8_RENDERER_LIBRARY, RTLD_NOW | RTLD_NOLOAD);
-        CHECK(renderer_library);
-        auto renderer_pipeline = reinterpret_cast<srTriMeshPipeline* (*)(srGERD*)>(
-            dlsym(renderer_library, "_ZN17srTriMeshPipeline3GetEP6srGERD"));
-        CHECK(renderer_pipeline && renderer_pipeline != &srTriMeshPipeline::Get);
-        CHECK(!renderer_pipeline(nullptr) && !srTriMeshPipeline::Get(nullptr));
+        CHECK(!srTriMeshPipeline::Get(nullptr));
         auto pipeline = srTriMeshPipeline::Get(g_gerd);
-        CHECK(pipeline && renderer_pipeline(g_gerd) == pipeline);
+        CHECK(pipeline);
         pipeline->Flush();
-        dlclose(renderer_library);
         CHECK(InitializeVideoSurfaceManager());
         CHECK(InitializeVideoObjectManager());
         VOBJECT_DESC image{};
@@ -107,9 +97,9 @@ int main(int argc, char** argv)
         unsigned colored = 0, matched = 0, cursor_pixels = 0;
         for (int frame = 0; frame < 3; ++frame)
         {
-            MSG message;
-            while (W8PeekMessage(&message, nullptr, 0, 0, PM_REMOVE))
-                W8DispatchMessage(&message);
+            SDL_Event event;
+            while (SDL_PollEvent(&event))
+                HandleInputEvent(event);
             auto error = g_gerd->beginFrame();
             if (error != srGERD::ERROR_NONE)
                 fprintf(stderr, "begin frame %d: %d %s window %llu open %d\n", frame, int(error),

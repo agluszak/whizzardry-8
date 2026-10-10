@@ -2,10 +2,13 @@
 #include <atomic>
 #include <cerrno>
 #include <ctime>
+#include <chrono>
+#include <filesystem>
 #include <limits>
 #include <string>
-#include <sys/statvfs.h>
+#ifndef _WIN32
 #include <unistd.h>
+#endif
 #ifdef __APPLE__
 #include <mach-o/dyld.h>
 #endif
@@ -32,6 +35,25 @@ bool unix_time(const FILETIME* input, time_t& seconds, unsigned& milliseconds)
     milliseconds = unsigned(ticks % 10000000 / 10000);
     return true;
 }
+void utc_system_time(int64_t seconds, unsigned milliseconds, SYSTEMTIME* output)
+{
+    const int64_t days = seconds >= 0 ? seconds / 86400 : (seconds - 86399) / 86400;
+    const unsigned remainder = unsigned(seconds - days * 86400);
+    const int64_t civil_days = days + 719468;
+    const int64_t era = (civil_days >= 0 ? civil_days : civil_days - 146096) / 146097;
+    const unsigned day_of_era = unsigned(civil_days - era * 146097);
+    const unsigned year_of_era = (day_of_era - day_of_era / 1460 + day_of_era / 36524 -
+                                  day_of_era / 146096) / 365;
+    const unsigned day_of_year = day_of_era - (365 * year_of_era + year_of_era / 4 -
+                                              year_of_era / 100);
+    const unsigned march_month = (5 * day_of_year + 2) / 153;
+    const unsigned day = day_of_year - (153 * march_month + 2) / 5 + 1;
+    const unsigned month = march_month < 10 ? march_month + 3 : march_month - 9;
+    const int64_t year = year_of_era + era * 400 + (month <= 2);
+    *output = {uint16_t(year), uint16_t(month), uint16_t(((days + 4) % 7 + 7) % 7),
+               uint16_t(day), uint16_t(remainder / 3600), uint16_t(remainder / 60 % 60),
+               uint16_t(remainder % 60), uint16_t(milliseconds)};
+}
 int drive(const char* root)
 {
     std::string path = w8_native::full_path(root ? root : "\\");
@@ -56,13 +78,12 @@ BOOL W8FileTimeToSystemTime(const FILETIME* input, LPSYSTEMTIME output)
 {
     time_t seconds;
     unsigned milliseconds;
-    tm value;
-    if (!output || !unix_time(input, seconds, milliseconds) || !gmtime_r(&seconds, &value))
+    if (!output || !unix_time(input, seconds, milliseconds))
     {
         w8_set_error(ERROR_INVALID_PARAMETER);
         return 0;
     }
-    system_time(value, milliseconds, output);
+    utc_system_time(seconds, milliseconds, output);
     return 1;
 }
 BOOL W8FileTimeToLocalFileTime(const FILETIME* input, LPFILETIME output)
@@ -71,16 +92,42 @@ BOOL W8FileTimeToLocalFileTime(const FILETIME* input, LPFILETIME output)
     unsigned milliseconds;
     tm local;
     const time_t now = time(nullptr);
-    if (!output || input == output || !unix_time(input, seconds, milliseconds) ||
-        !localtime_r(&now, &local))
+    if (!output || input == output || !unix_time(input, seconds, milliseconds))
     {
         w8_set_error(ERROR_INVALID_PARAMETER);
         return 0;
     }
-    /* Win32 applies the current timezone/DST bias, even to a historical file
-       time. tm_gmtoff is present on both supported POSIX platforms. */
+#ifdef _WIN32
+    const bool converted = localtime_s(&local, &now) == 0;
+#else
+    const bool converted = localtime_r(&now, &local) != nullptr;
+#endif
+    if (!converted)
+    {
+        w8_set_error(ERROR_INVALID_PARAMETER);
+        return 0;
+    }
+    /* Use the current timezone/DST bias, even for a historical file time. */
     uint64_t original = (uint64_t(input->dwHighDateTime) << 32) | input->dwLowDateTime;
-    uint64_t shifted = original + int64_t(local.tm_gmtoff) * 10000000;
+#ifdef _WIN32
+    tm utc;
+    if (gmtime_s(&utc, &now) != 0)
+    {
+        w8_set_error(ERROR_INVALID_PARAMETER);
+        return 0;
+    }
+    utc.tm_isdst = local.tm_isdst;
+    const time_t local_interpretation = mktime(&utc);
+    if (local_interpretation == time_t(-1))
+    {
+        w8_set_error(ERROR_INVALID_PARAMETER);
+        return 0;
+    }
+    int64_t bias = int64_t(difftime(now, local_interpretation));
+#else
+    int64_t bias = local.tm_gmtoff;
+#endif
+    uint64_t shifted = original + bias * 10000000;
     *output = {DWORD(shifted), DWORD(shifted >> 32)};
     return 1;
 }
@@ -91,11 +138,17 @@ void W8GetLocalTime(LPSYSTEMTIME output)
         w8_set_error(ERROR_INVALID_PARAMETER);
         return;
     }
-    timespec now;
-    clock_gettime(CLOCK_REALTIME, &now);
+    const auto now = std::chrono::system_clock::now();
+    const auto seconds = std::chrono::system_clock::to_time_t(now);
+    const auto milliseconds = std::chrono::duration_cast<std::chrono::milliseconds>(
+        now.time_since_epoch()).count() % 1000;
     tm local;
-    localtime_r(&now.tv_sec, &local);
-    system_time(local, now.tv_nsec / 1000000, output);
+#ifdef _WIN32
+    localtime_s(&local, &seconds);
+#else
+    localtime_r(&seconds, &local);
+#endif
+    system_time(local, unsigned(milliseconds), output);
 }
 UINT W8SetErrorMode(UINT mode) { return error_mode.exchange(mode); }
 UINT W8GetDriveType(LPCSTR root)
@@ -141,7 +194,7 @@ BOOL W8GetVolumeInformation(LPCSTR root, LPSTR label, DWORD label_size, LPDWORD 
     }
     const std::string name = index == 0 ? "WHIZZARDRY" : "WIZ8_" + std::to_string(index);
     if (!copy_string(name, label, label_size) ||
-        !copy_string(index == 0 ? "POSIX" : "CDFS", file_system, fs_size))
+        !copy_string(index == 0 ? "W8FS" : "CDFS", file_system, fs_size))
     {
         w8_set_error(ERROR_INSUFFICIENT_BUFFER);
         return 0;
@@ -164,28 +217,30 @@ BOOL W8GetDiskFreeSpace(LPCSTR root, LPDWORD sectors, LPDWORD bytes, LPDWORD fre
         return 0;
     }
     auto roots = w8_native::path_roots();
-    std::string path = index == 0 ? roots.user : roots.discs[index - 1];
+    std::filesystem::path path = index == 0 ? roots.user : roots.discs[index - 1];
     /* A not-yet-created user directory uses its nearest existing ancestor. */
-    struct statvfs status;
-    while (statvfs(path.c_str(), &status) != 0)
+    std::error_code error;
+    auto space = std::filesystem::space(path, error);
+    while (error)
     {
-        size_t slash = path.find_last_of('/');
-        if (slash == std::string::npos || path == "/")
+        const auto parent = path.parent_path();
+        if (parent == path || parent.empty())
         {
             w8_set_error(ERROR_PATH_NOT_FOUND);
             return 0;
         }
-        path = slash == 0 ? "/" : path.substr(0, slash);
+        path = parent;
+        error.clear();
+        space = std::filesystem::space(path, error);
     }
-    uint64_t block = status.f_frsize ? status.f_frsize : status.f_bsize;
     if (bytes)
         *bytes = 512;
     if (sectors)
-        *sectors = DWORD((block + 511) / 512);
+        *sectors = 8;
     if (free_count)
-        *free_count = index == 0 ? DWORD(std::min<uint64_t>(status.f_bavail, UINT32_MAX)) : 0;
+        *free_count = index == 0 ? DWORD(std::min<uint64_t>(space.available / 4096, UINT32_MAX)) : 0;
     if (total)
-        *total = DWORD(std::min<uint64_t>(status.f_blocks, UINT32_MAX));
+        *total = DWORD(std::min<uint64_t>(space.capacity / 4096, UINT32_MAX));
     return 1;
 }
 DWORD W8GetEnvironmentVariable(LPCSTR name, LPSTR buffer, DWORD size)
@@ -219,7 +274,12 @@ BOOL W8SetEnvironmentVariable(LPCSTR name, LPCSTR value)
         w8_set_error(ERROR_INVALID_PARAMETER);
         return 0;
     }
-    if ((value ? setenv(name, value, 1) : unsetenv(name)) != 0)
+#ifdef _WIN32
+    const int result = _putenv_s(name, value ? value : "");
+#else
+    const int result = value ? setenv(name, value, 1) : unsetenv(name);
+#endif
+    if (result != 0)
     {
         w8_set_error(ERROR_NOT_ENOUGH_MEMORY);
         return 0;
@@ -239,7 +299,15 @@ DWORD W8GetModuleFileName(HMODULE module, LPSTR buffer, DWORD size)
         return 0;
     }
     char path[4096];
-#ifdef __APPLE__
+#ifdef _WIN32
+    char* program = nullptr;
+    if (_get_pgmptr(&program) != 0 || !program)
+    {
+        w8_set_error(ERROR_FILE_NOT_FOUND);
+        return 0;
+    }
+    snprintf(path, sizeof(path), "%s", program);
+#elif defined(__APPLE__)
     uint32_t capacity = sizeof(path);
     if (_NSGetExecutablePath(path, &capacity) != 0)
     {
@@ -257,6 +325,11 @@ DWORD W8GetModuleFileName(HMODULE module, LPSTR buffer, DWORD size)
 #endif
     /* The virtual executable lives at the asset root, as retail assumes. */
     const char* name = strrchr(path, '/');
+#ifdef _WIN32
+    const char* backslash = strrchr(path, '\\');
+    if (backslash && (!name || backslash > name))
+        name = backslash;
+#endif
     std::string virtual_path = std::string("C:\\") + (name ? name + 1 : path);
     size_t count = std::min<size_t>(virtual_path.size(), size - 1);
     memcpy(buffer, virtual_path.data(), count);

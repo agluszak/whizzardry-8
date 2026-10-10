@@ -2,10 +2,11 @@
    string functions declared in compat/native.h. */
 #include <errno.h>
 #include <limits.h>
-#include <unistd.h>
 #include <wctype.h>
 
 #include <string>
+#include <chrono>
+#include <thread>
 
 namespace {
 /* Database strings can start at odd byte offsets in packed retail records. */
@@ -63,6 +64,17 @@ struct Output {
 } // namespace
 
 extern "C" {
+
+uint32_t w8_get_ticks(void)
+{
+    using namespace std::chrono;
+    return uint32_t(duration_cast<milliseconds>(steady_clock::now().time_since_epoch()).count());
+}
+
+void w8_sleep(uint32_t milliseconds)
+{
+    std::this_thread::sleep_for(std::chrono::milliseconds(milliseconds));
+}
 
 char* w8_strupr(char* text)
 {

@@ -1,6 +1,6 @@
 #pragma once
 
-/* Native (non-Windows) lane.  Maps Microsoft compiler keywords and CRT
+/* Native lane. Maps Microsoft compiler keywords and CRT
    spellings onto standard equivalents or onto w8_* implementations with the
    Microsoft semantics the recovered code expects.  Windows API calls do not
    belong here: each one is replaced at its use or wrapped in compat/platform.h.
@@ -17,8 +17,14 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#ifndef _WIN32
 #include <strings.h>
+#endif
 #include <sys/stat.h>
+#ifdef _WIN32
+#include <io.h>
+#include <direct.h>
+#endif
 #include <wchar.h>
 #include <wctype.h>
 #ifdef __cplusplus
@@ -31,6 +37,7 @@
 #include <string>
 #endif
 
+#ifndef _WIN32
 #define __cdecl
 #define __stdcall
 #define __fastcall
@@ -45,6 +52,10 @@
 #define _vsnprintf vsnprintf
 #define _finite(value) isfinite(value)
 #define _isnan(value) isnan(value)
+#else
+#define stricmp _stricmp
+#define strnicmp _strnicmp
+#endif
 
 #define _MAX_PATH 260
 #define _MAX_DRIVE 3
@@ -112,8 +123,17 @@ int w8_vswprintf(wchar_t* buffer, const wchar_t* format, va_list arguments);
 #define _chdir w8_chdir
 #define _getcwd w8_getcwd
 #define _splitpath w8_splitpath
+#ifndef _WIN32
 #define _S_IREAD S_IRUSR
 #define _S_IWRITE S_IWUSR
+#else
+#define S_IRUSR _S_IREAD
+#define S_IWUSR _S_IWRITE
+#define S_IWGRP 0
+#define S_IWOTH 0
+#define S_ISREG(mode) (((mode) & _S_IFMT) == _S_IFREG)
+#define S_ISDIR(mode) (((mode) & _S_IFMT) == _S_IFDIR)
+#endif
 
 #define wcslen w8_wcslen
 #define wcscpy w8_wcscpy

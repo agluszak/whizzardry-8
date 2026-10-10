@@ -75,7 +75,6 @@
 #include <malloc.h>
 #include <stdio.h>
 #include <string.h>
-#include <sys/stat.h>
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/local_code/SpellEffect.h"
 #include "wiz8/character_event_queue.h"

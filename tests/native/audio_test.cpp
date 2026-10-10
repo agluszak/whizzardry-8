@@ -11,7 +11,8 @@
 #include <cstdio>
 #include <cstring>
 #include <filesystem>
-#include <unistd.h>
+#include <fstream>
+#include "temporary_directory.h"
 #include <vector>
 #define CHECK(x)                                                                                   \
     do                                                                                             \
@@ -57,13 +58,11 @@ static std::vector<unsigned char> wav()
         word(bytes, unsigned(short(std::sin(i * 2 * 3.14159265 * 440 / 44100) * 12000)), 2);
     return bytes;
 }
-static void write(const char* name, const std::vector<unsigned char>& bytes)
+static void write(const std::filesystem::path& name, const std::vector<unsigned char>& bytes)
 {
-    FILE* file = fopen(name, "wb");
-    if (!file)
+    std::ofstream file(name, std::ios::binary);
+    if (!file.write(reinterpret_cast<const char*>(bytes.data()), bytes.size()))
         abort();
-    fwrite(bytes.data(), 1, bytes.size(), file);
-    fclose(file);
 }
 static std::vector<float> mix(size_t frames)
 {
@@ -81,8 +80,7 @@ static double energy(const std::vector<float>& values, int channel)
 }
 int main(int argc, char**)
 {
-    char temporary[] = "/tmp/wiz8-audio-XXXXXX";
-    CHECK(mkdtemp(temporary));
+    const auto temporary = make_temporary_directory("wiz8-audio");
     auto asset = std::filesystem::path(temporary) / "assets",
          user = std::filesystem::path(temporary) / "user";
     std::filesystem::create_directories(asset);
@@ -90,7 +88,7 @@ int main(int argc, char**)
     w8_native::configure_paths({asset.string(), user.string(), {}});
     std::filesystem::copy_file(WIZ8_AUDIO_TEST_MP3, asset / "fallback.mp3");
     auto wave = wav();
-    write((asset / "tone.wav").c_str(), wave);
+    write(asset / "tone.wav", wave);
     std::filesystem::create_directories(asset / "Data");
     LIBHEADER header{};
     strcpy(header.sLibName, "Data.slf");
@@ -106,7 +104,7 @@ int main(int argc, char**)
     archive.insert(archive.end(), wave.begin(), wave.end());
     archive.insert(archive.end(), reinterpret_cast<unsigned char*>(&entry),
                    reinterpret_cast<unsigned char*>(&entry) + sizeof(entry));
-    write((asset / "Data" / "DATA.SLF").c_str(), archive);
+    write(asset / "Data" / "DATA.SLF", archive);
     CHECK(InitializeMemoryManager());
     CHECK(InitializeFileManager(nullptr));
     CHECK(InitializeFileDatabase());

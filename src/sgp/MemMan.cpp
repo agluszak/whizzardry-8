@@ -10,14 +10,18 @@
 
 #include "Types.h"
 #include "compat/kernel32.h"
-#if defined(__APPLE__)
+#if defined(_WIN32)
+#include "platform_fs_windows.h"
+#elif defined(__APPLE__)
 #include <malloc/malloc.h>
 #define _msize malloc_size
 #else
 #include <malloc.h>
 #define _msize malloc_usable_size
 #endif
+#ifndef _WIN32
 #include <unistd.h>
+#endif
 #include <malloc.h>
 #include <stdlib.h>
 #include <string.h>
@@ -262,11 +266,15 @@ PTR MemReallocReal(PTR ptr, UINT32 uiSize, const char* pcFile, INT32 iLine)
 UINT32 MemGetFree(void)
 {
     /* Retail reports MEMORYSTATUS::dwAvailPhys, a 32-bit byte count. */
+#ifdef _WIN32
+    unsigned long long available = w8_native::available_physical_memory();
+#else
     unsigned long long available = (unsigned long long)sysconf(_SC_PAGESIZE);
 #if defined(_SC_AVPHYS_PAGES)
     available *= (unsigned long long)sysconf(_SC_AVPHYS_PAGES);
 #else
     available *= (unsigned long long)sysconf(_SC_PHYS_PAGES);
+#endif
 #endif
     return available > 0xffffffffull ? 0xffffffffu : (UINT32)available;
 }
