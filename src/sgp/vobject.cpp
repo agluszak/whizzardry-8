@@ -27,9 +27,6 @@
 // Defines
 // *******************************************************************************
 
-#define COMPRESS_TRANSPARENT 0x80
-#define COMPRESS_RUN_MASK 0x7F
-
 // *******************************************************************************
 // External Functions and variables
 // *******************************************************************************
@@ -249,14 +246,15 @@ HVOBJECT CreateVideoObject(VOBJECT_DESC* VObjectDesc)
     }
     if (imageOwner) {
         owner->pETRLEObject = std::move(hImage->pETRLEObject);
-        owner->pPixData = std::move(hImage->pImageData);
     } else {
         owner->pETRLEObject = hImage->pETRLEObject;
-        owner->pPixData = hImage->pImageData;
     }
-    // Ordinary draws use decoded SDL surfaces; undecodable data keeps
-    // the streaming blitters.
-    DecodeVideoObjectSprites(owner.get());
+    // ETRLE data decodes once here; the compressed bytes are never kept
+    // on the video object.
+    if (!DecodeVideoObjectSprites(owner.get(), hImage->pImageData.data(),
+                                  static_cast<UINT32>(hImage->pImageData.size()))) {
+        return nullptr;
+    }
     return owner.release();
 }
 
@@ -525,10 +523,6 @@ UINT16 SetObjectShade(HVOBJECT pObj, UINT32 uiShade)
 BOOLEAN GetETRLEPixelValue(UINT8* pDest, HVOBJECT hVObject, UINT16 usETRLEIndex, UINT16 usX,
                            UINT16 usY)
 {
-    UINT8* pCurrent;
-    UINT16 usLoopX = 0;
-    UINT16 usLoopY = 0;
-    UINT16 ubRunLength;
     ETRLEObject* pETRLEObject;
 
     // Do a bunch of checks
@@ -540,53 +534,13 @@ BOOLEAN GetETRLEPixelValue(UINT8* pDest, HVOBJECT hVObject, UINT16 usETRLEIndex,
     CHECKF(usX < pETRLEObject->usWidth);
     CHECKF(usY < pETRLEObject->usHeight);
 
-    // Both transparent runs and a literal index 0 read back as zero in the
-    // decoded surface, which is exactly the value this routine returns.
+    // Transparent runs decode to index 0, which is also what a literal
+    // index 0 reads back as, so a plain pixel read is the whole query.
     if (usETRLEIndex < hVObject->sprites.size() && hVObject->sprites[usETRLEIndex]) {
         const SDL_Surface* sprite = hVObject->sprites[usETRLEIndex].get();
         *pDest = static_cast<const UINT8*>(sprite->pixels)[usY * sprite->pitch + usX];
         return (TRUE);
     }
-
-    // Assuming everything's okay, go ahead and look...
-    pCurrent = &(hVObject->pPixData.data())[pETRLEObject->uiDataOffset];
-
-    // Skip past all uninteresting scanlines
-    while (usLoopY < usY) {
-        while (*pCurrent != 0) {
-            if (*pCurrent & COMPRESS_TRANSPARENT) {
-                pCurrent++;
-            } else {
-                pCurrent += *pCurrent & COMPRESS_RUN_MASK;
-            }
-        }
-        usLoopY++;
-    }
-
-    // Now look in this scanline for the appropriate byte
-    do {
-        ubRunLength = *pCurrent & COMPRESS_RUN_MASK;
-
-        if (*pCurrent & COMPRESS_TRANSPARENT) {
-            if (usLoopX + ubRunLength >= usX) {
-                *pDest = 0;
-                return (TRUE);
-            } else {
-                pCurrent++;
-            }
-        } else {
-            if (usLoopX + ubRunLength >= usX) {
-                // skip to the correct byte; skip at least 1 to get past the byte defining the run
-                pCurrent += (usX - usLoopX) + 1;
-                *pDest = *pCurrent;
-                return (TRUE);
-            } else {
-                pCurrent += ubRunLength + 1;
-            }
-        }
-        usLoopX += ubRunLength;
-    } while (usLoopX < usX);
-    // huh???
     return (FALSE);
 }
 

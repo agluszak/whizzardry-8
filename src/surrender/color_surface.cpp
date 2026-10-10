@@ -1,5 +1,4 @@
 #include "surrender/srMath.h"
-#include <SDL3/SDL_surface.h>
 #include <algorithm>
 #include <cstdlib>
 #include <cstring>
@@ -19,25 +18,6 @@
 /* srColorSurface surface-flag names; never assigned, so dump reports numeric bit indices. */
 // GLOBAL: SURRENDER 0x100A4A10
 static const char* s_flag_names2;
-
-// The byte-depth-preserving SDL format for viewing a raw surface buffer; the
-// channel layout is irrelevant for copies and raw-value fills, but BGR24
-// keeps the little-endian byte order of the packed pixel value.
-static SDL_PixelFormat viewFormat(srPixelConvert::e_pixelSize size)
-{
-    switch (size) {
-    case srPixelConvert::PIXEL_SIZE_8:
-        return SDL_PIXELFORMAT_INDEX8;
-    case srPixelConvert::PIXEL_SIZE_16:
-        return SDL_PIXELFORMAT_RGB565;
-    case srPixelConvert::PIXEL_SIZE_24:
-        return SDL_PIXELFORMAT_BGR24;
-    default:
-        return SDL_PIXELFORMAT_ARGB8888;
-    }
-}
-
-using SurfaceView = std::unique_ptr<SDL_Surface, decltype(&SDL_DestroySurface)>;
 
 /* Comma-separated bit-name walker shared by the sr dumps; each TU keeps its own
    copy. */
@@ -1963,15 +1943,10 @@ void srColorSurface::setHLine(w8_long y, w8_long x_start, w8_long x_end, w8_ulon
         if (x_start < x_hi) {
             setPixel(x_start, y, pixel);
             w8_ulong raw = getPixelRaw(x_start, y);
-            const SurfaceView view{
-                SDL_CreateSurfaceFrom(static_cast<int>(width), static_cast<int>(height),
-                                      viewFormat(pixel_format.pixel_size), getDataPtr(),
-                                      static_cast<int>(pitch)),
-                SDL_DestroySurface};
-            if (view) {
-                const SDL_Rect run{static_cast<int>(x_start), static_cast<int>(y),
-                                   static_cast<int>(x_hi - x_start), 1};
-                SDL_FillSurfaceRect(view.get(), &run, raw);
+            const w8_long bpp = pixel_format.pixel_size + 1;
+            unsigned char* out = (unsigned char*)getDataPtr() + pitch * y + (x_start + 1) * bpp;
+            for (w8_long col = x_start + 1; col < x_hi; ++col, out += bpp) {
+                std::memcpy(out, &raw, bpp);
             }
         }
     }
@@ -1999,15 +1974,10 @@ void srColorSurface::setVLine(w8_long x, w8_long y_start, w8_long y_end, w8_ulon
         if (y_start < y_hi) {
             setPixel(x, y_start, pixel);
             w8_ulong raw = getPixelRaw(x, y_start);
-            const SurfaceView view{
-                SDL_CreateSurfaceFrom(static_cast<int>(width), static_cast<int>(height),
-                                      viewFormat(pixel_format.pixel_size), getDataPtr(),
-                                      static_cast<int>(pitch)),
-                SDL_DestroySurface};
-            if (view) {
-                const SDL_Rect run{static_cast<int>(x), static_cast<int>(y_start), 1,
-                                   static_cast<int>(y_hi - y_start)};
-                SDL_FillSurfaceRect(view.get(), &run, raw);
+            const w8_long bpp = pixel_format.pixel_size + 1;
+            unsigned char* out = (unsigned char*)getDataPtr() + pitch * (y_start + 1) + x * bpp;
+            for (w8_long row = y_start + 1; row < y_hi; ++row, out += pitch) {
+                std::memcpy(out, &raw, bpp);
             }
         }
     }
@@ -2022,14 +1992,14 @@ void srColorSurface::fill(w8_ulong pixel)
     }
     setPixel(0, 0, pixel);
     w8_ulong raw = getPixelRaw(0, 0);
-    // A byte-depth-matched SDL view turns the raw-pattern fill into an
-    // ordinary SDL_FillSurfaceRect; the color is the packed pixel value.
-    const SurfaceView view{SDL_CreateSurfaceFrom(static_cast<int>(width), static_cast<int>(height),
-                                                 viewFormat(pixel_format.pixel_size), getDataPtr(),
-                                                 static_cast<int>(pitch)),
-                           SDL_DestroySurface};
-    if (view) {
-        SDL_FillSurfaceRect(view.get(), nullptr, raw);
+    const w8_long bpp = pixel_format.pixel_size + 1;
+    unsigned char* out = (unsigned char*)getDataPtr();
+    for (w8_long row = 0; row < height; ++row) {
+        unsigned char* run = out;
+        for (w8_long col = 0; col < width; ++col, run += bpp) {
+            std::memcpy(run, &raw, bpp);
+        }
+        out += pitch;
     }
 }
 
@@ -2074,30 +2044,19 @@ void srColorSurface::blit(w8_long x, w8_long y, srColorSurfaceIFace& source, w8_
             }
             if (source_x < x_end && source_y < y_end) {
                 if (&source != this) {
-                    // Ordinary compatible copy: the byte-depth views make it
-                    // a plain SDL blit. Self-blits keep the retail overlap
-                    // paths below.
-                    const SurfaceView dest_view{
-                        SDL_CreateSurfaceFrom(static_cast<int>(width), static_cast<int>(height),
-                                              viewFormat(pixel_format.pixel_size), getDataPtr(),
-                                              static_cast<int>(pitch)),
-                        SDL_DestroySurface};
-                    const SurfaceView src_view{
-                        SDL_CreateSurfaceFrom(static_cast<int>(source.width),
-                                              static_cast<int>(source.height),
-                                              viewFormat(pixel_format.pixel_size),
-                                              source.getDataPtr(),
-                                              static_cast<int>(source.pitch)),
-                        SDL_DestroySurface};
-                    if (dest_view && src_view) {
-                        const SDL_Rect src_rect{static_cast<int>(source_x),
-                                                static_cast<int>(source_y),
-                                                static_cast<int>(x_end - source_x),
-                                                static_cast<int>(y_end - source_y)};
-                        SDL_Rect dst_rect{static_cast<int>(x), static_cast<int>(y),
-                                          static_cast<int>(x_end - source_x),
-                                          static_cast<int>(y_end - source_y)};
-                        SDL_BlitSurface(src_view.get(), &src_rect, dest_view.get(), &dst_rect);
+                    // Ordinary compatible copy between different surfaces.
+                    // Self-blits keep the retail overlap paths below.
+                    int bpp = pixel_format.pixel_size + 1;
+                    w8_ulong row_bytes = (x_end - source_x) * bpp;
+                    unsigned char* dest =
+                        (unsigned char*)getDataPtr() + pitch * y + bpp * x;
+                    const unsigned char* src =
+                        (const unsigned char*)source.getDataPtr() +
+                        source.pitch * source_y + bpp * source_x;
+                    for (w8_long row = source_y; row < y_end; ++row) {
+                        std::memcpy(dest, src, row_bytes);
+                        src += source.pitch;
+                        dest += pitch;
                     }
                     return;
                 }
@@ -2201,21 +2160,24 @@ void srColorSurface::copyNoScaling(srColorSurfaceIFace& source)
         }
         return;
     }
-    // Same pixel format and different storage: an ordinary SDL blit.
-    const SurfaceView dest_view{
-        SDL_CreateSurfaceFrom(static_cast<int>(width), static_cast<int>(height),
-                              viewFormat(pixel_format.pixel_size), getDataPtr(),
-                              static_cast<int>(pitch)),
-        SDL_DestroySurface};
-    const SurfaceView src_view{
-        SDL_CreateSurfaceFrom(static_cast<int>(source.width), static_cast<int>(source.height),
-                              viewFormat(pixel_format.pixel_size), source.getDataPtr(),
-                              static_cast<int>(source.pitch)),
-        SDL_DestroySurface};
-    if (dest_view && src_view && getDataPtr() != source.getDataPtr()) {
-        const SDL_Rect rect{0, 0, static_cast<int>(width), static_cast<int>(height)};
-        SDL_Rect at{0, 0, static_cast<int>(width), static_cast<int>(height)};
-        SDL_BlitSurface(src_view.get(), &rect, dest_view.get(), &at);
+    unsigned char* dest = (unsigned char*)getDataPtr();
+    unsigned char* src = (unsigned char*)source.getDataPtr();
+    w8_long dest_pitch = pitch;
+    w8_long source_pitch = source.pitch;
+    if (dest_pitch == source_pitch && dest_pitch == (pixel_format.pixel_size + 1) * width) {
+        w8_long size = getDataSize();
+        if (size != 0 && dest != src) {
+            std::memcpy(dest, src, size);
+        }
+    } else {
+        w8_long row_bytes = (pixel_format.pixel_size + 1) * width;
+        for (w8_long row = height; row != 0; --row) {
+            if (row_bytes != 0 && dest != src) {
+                std::memcpy(dest, src, row_bytes);
+            }
+            dest += dest_pitch;
+            src += source_pitch;
+        }
     }
 }
 

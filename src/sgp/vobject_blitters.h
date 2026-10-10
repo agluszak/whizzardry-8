@@ -18,11 +18,11 @@ void GetClippingRect(SGPRect* clip);
 
 BOOLEAN BltIsClipped(HVOBJECT hSrcVObject, INT32 iX, INT32 iY, UINT16 usIndex, SGPRect* clipregion);
 
-// Decode every ETRLE frame of hVObject into the INDEX8 SDL surfaces stored
-// on the object. Ordinary sprite draws blit those surfaces directly; frames
-// that contain a literal index 0 inside an opaque run are flagged in
-// spriteLiteralZero and keep the streaming blitters.
-BOOLEAN DecodeVideoObjectSprites(HVOBJECT hVObject);
+// Decode every ETRLE frame of hVObject once from the compressed source data
+// into the INDEX8 SDL surfaces stored on the object; frames whose opaque runs
+// contain a literal index 0 also get an explicit opacity mask. The object
+// keeps only the decoded representation. Returns FALSE on malformed data.
+BOOLEAN DecodeVideoObjectSprites(HVOBJECT hVObject, const UINT8* data, UINT32 size);
 
 // 8-Bit to 8-Bit Blitters
 

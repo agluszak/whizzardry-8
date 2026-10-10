@@ -85,16 +85,14 @@ typedef struct TAG_HVOBJECT {
     std::shared_ptr<UINT16[]> ownedPalette;
     UINT16* p16BPPPalette; // Borrowed palette view; font drawing may temporarily override it.
 
-    std::vector<UINT8> pPixData; // ETRLE pixel data
     std::vector<ETRLEObject> pETRLEObject; // Object offset data etc
-    // Each ETRLE frame decoded to an INDEX8 SDL surface at load. Transparent
-    // runs decode to index 0, which is also the SDL color key used by the
-    // ordinary sprite draws. Frames whose opaque runs contain a literal
-    // index 0 cannot be told apart from transparent runs in this form and set
-    // spriteLiteralZero so callers keep the streaming blitters.
+    // Each ETRLE frame decoded once to an INDEX8 SDL surface at load;
+    // transparent runs decode to index 0. A frame whose opaque runs contain a
+    // literal index 0 gets an explicit per-pixel opacity mask in spriteMasks
+    // (1 = opaque) so transparency is never ambiguous; all other frames leave
+    // their mask empty. The compressed source bytes are not retained.
     std::vector<SDLSurfaceOwner> sprites;
-    std::vector<SDLSurfaceOwner> spritesMirrored;
-    std::vector<UINT8> spriteLiteralZero;
+    std::vector<std::vector<UINT8>> spriteMasks;
     std::vector<SixteenBPPObjectInfo> p16BPPObject;
     std::array<std::shared_ptr<UINT16[]>, HVOBJECT_SHADE_TABLES> pShades; // Shading tables
     UINT16* pShadeCurrent;
