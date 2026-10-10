@@ -813,14 +813,8 @@ void RenderScene(srScene* scene, srCamera* camera, const int* viewport, bool pre
 #endif
     }
     if (!preserve_fog) {
-        srVector3T<float> fog;
-        if (g_world == 0) {
-            fog.SetZero();
-        } else {
-            g_world->static_scene->getFogColor(fog);
-            SaturateColor(&fog);
-        }
-        scene->setFogColor(fog);
+        const auto fog = g_world ? g_world->static_scene->getFogColor() : glm::vec3(0);
+        scene->setFogColor(glm::clamp(fog, 0.0f, 1.0f));
     }
     scene->render(*g_gerd, camera);
     g_gerd->flushRenderers();
@@ -903,12 +897,8 @@ void RenderFrame(void)
         if (!IsSkyEnabled()) {
             GetWorldLightValue(g_world, &clear_color);
         } else {
-            {
-                const auto color_value = (g_world->static_scene->getFogColor()).glmValue();
-                static_cast<srVector3T<float>&>(clear_color) =
-                    glm::mix(glm::clamp(color_value, float(0), float(1)), glm::vec3(0),
-                             glm::lessThanEqual(color_value, glm::vec3(0)));
-            }
+            static_cast<srVector3&>(clear_color) =
+                glm::clamp(g_world->static_scene->getFogColor(), 0.0f, 1.0f);
         }
     }
 
@@ -1128,10 +1118,10 @@ void PublishLightDirection(const EnvironmentColour* direction)
         g_gerd->setFogColor(*direction);
     }
     if (g_world != 0) {
-        g_world->static_scene->setFogColor(*direction);
+        g_world->static_scene->setFogColor(direction->glmValue());
     }
     if (g_secondary_world != 0) {
-        g_secondary_world->static_scene->setFogColor(*direction);
+        g_secondary_world->static_scene->setFogColor(direction->glmValue());
     }
 }
 
@@ -1152,13 +1142,8 @@ void SetRendererAutoFlipEnabled(bool enabled)
 void GetWorldColour(EnvironmentColour* colour)
 {
     if (g_world != 0) {
-        const srVector3T<float> fog = g_world->static_scene->getFogColor();
-        {
-            const auto color_value = fog.glmValue();
-            static_cast<srVector3T<float>&>(*colour) =
-                glm::mix(glm::clamp(color_value, float(0), float(1)), glm::vec3(0),
-                         glm::lessThanEqual(color_value, glm::vec3(0)));
-        }
+        static_cast<srVector3&>(*colour) =
+            glm::clamp(g_world->static_scene->getFogColor(), 0.0f, 1.0f);
         return;
     }
     colour->SetZero();

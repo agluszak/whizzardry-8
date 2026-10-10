@@ -1420,79 +1420,16 @@ void UpdateAutomapBounds(void)
 void LightAutomapCell(const srVector3T<float>* position)
 {
     std::vector<stModelInstance*> instances;
-    std::vector<float> distances;
-    std::vector<srVector3T<float>> vertices;
-    float range = g_automap_range;
-
-    if (g_world->octree->CollectModelsNearPoint(instances, position, range, 0, false) != 0) {
-        for (stModelInstance* instance : instances) {
-            if (instance == 0) {
-                continue;
-            }
-            stMeshModel* model = static_cast<stMeshModel*>(instance->getModel());
-            srVector3T<float> location;
-            location = glm::vec3(instance->getLocation());
-            srVector3T<float> minimum;
-            srVector3T<float> maximum;
-            model->getBoundingBox(minimum, maximum);
-            minimum += location;
-            maximum += location;
-            bool inside =
-                (minimum - *position).Length() <= range && (maximum - *position).Length() <= range;
-            while (model != 0) {
-                srVector3T<float>* lights = model->GetVertexLights(true, -1);
-                srVector3T<float>* source = model->getVertexLoc();
-                int count = model->vertex_location_count;
-                if (inside) {
-                    std::fill_n(lights, count, srVector3T<float>(1.0f, 1.0f, 1.0f));
-                } else {
-                    distances.resize(count);
-                    vertices.resize(count);
-                    srVector3T<float>* transformed = vertices.data();
-                    if (IsZeroVector(position) != 0) {
-                        std::copy_n(source, count, transformed);
-                    } else {
-                        srVector3T<float> offset = -*position;
-                        OffsetVertices(transformed, source, &offset, count);
-                    }
-                    if (count != 0) {
-                        for (int i = 0; i < count; ++i)
-                            distances[i] = vertices[i].Length();
-                    }
-                    float* distance = distances.data();
-                    if (count != 0) {
-                        srVector3T<float>* light = lights;
-                        unsigned int vertex = 0;
-                        while (vertex < static_cast<unsigned int>(count)) {
-                            unsigned int lit = vertex;
-                            while (lit < static_cast<unsigned int>(count) &&
-                                   *distance <= g_automap_range) {
-                                ++lit;
-                                ++distance;
-                            }
-                            unsigned int lit_count = lit - vertex;
-                            if (lit_count != 0) {
-                                std::fill_n(light, lit_count,
-                                            srVector3T<float>(1.0f, 1.0f, 1.0f));
-                                light += lit_count;
-                                vertex = lit;
-                            }
-                            unsigned int dark = vertex;
-                            while (dark < static_cast<unsigned int>(count) &&
-                                   *distance > g_automap_range) {
-                                ++dark;
-                                ++distance;
-                            }
-                            if (dark - vertex != 0) {
-                                light += dark - vertex;
-                                vertex = dark;
-                            }
-                        }
-                    }
-                }
-                model = model->Next();
-            }
-        }
+    if (!g_world->octree->CollectModelsNearPoint(instances, position, g_automap_range, 0, false))
+        return;
+    const auto center = position->glmValue();
+    for (auto* instance : instances) {
+        if (!instance)
+            continue;
+        glm::mat4 world;
+        instance->getWorldSpaceMatrix(world);
+        for (auto* mesh = static_cast<stMeshModel*>(instance->getModel()); mesh; mesh = mesh->Next())
+            mesh->RevealVerticesNear(center, g_automap_range, world);
     }
 }
 

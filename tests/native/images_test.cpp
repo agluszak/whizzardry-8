@@ -281,6 +281,26 @@ int main() try
         rgb555();
     }
 
+    {
+        std::array<SGPPaletteEntry, 256> palette{};
+        palette[0] = {0, 0, 0, 255};
+        palette[1] = {1, 1, 1, 255};
+        palette[2] = {255, 0, 0, 0};
+        palette[255] = {17, 121, 244, 0};
+        const auto packed_palette = Create16BPPPalette(palette.data());
+        CHECK(packed_palette[0] == 0 && packed_palette[1] == 1 && packed_palette[2] == 0x7c00);
+        const auto shaded = Create16BPPPaletteShaded(palette.data(), 384, 0, 128, FALSE);
+        CHECK(shaded[0] == 0 && shaded[255] == 0x0c0f);
+        const auto mono = Create16BPPPaletteShaded(palette.data(), 384, 0, 128, TRUE);
+        CHECK(mono[0] == 0 && mono[255] == 0x4c06);
+        const auto clamped = Create16BPPPaletteShaded(palette.data(), 4096, 4096, 4096, FALSE);
+        CHECK(clamped[255] == 0x7fff);
+        gusAlphaMask = 0x8000;
+        const auto opaque = Create16BPPPalette(palette.data());
+        CHECK(opaque[0] == 0 && opaque[1] == 0x8001 && opaque[2] == 0xfc00);
+        rgb555();
+    }
+
     const UINT16 packed[]{0, 1, 0x7c00, 0x03e0, 0x001f, 0x8000};
     const UINT8 rgb[]{0, 0, 0, 1, 1, 1, 255, 0, 0, 0, 255, 0, 0, 0, 255, 23, 45, 67};
     {

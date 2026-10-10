@@ -33,15 +33,8 @@ public:
 
     void disable(e_enable option);
     void enable(e_enable option);
-    void getAmbientLight(srVector3T<float>& color) const;
-    srVector3T<float> getAmbientLight() const;
-    // FUNCTION: SURRENDER 0x10056C70 SYMBOL
-    // RECOMP: ?getFogColor@srScene@@QBEXAAV?$srVector3T@M@@@Z
-    void getFogColor(srVector3T<float>& color) const
-    {
-        color = fog_color;
-    }
-    srVector3T<float> getFogColor() const;
+    glm::vec3 getAmbientLight() const;
+    glm::vec3 getFogColor() const;
     void getStatistics(Statistics& statistics);
     int isEnabled(e_enable option) const;
     void render(srGERD& renderer, class srCamera* camera);
@@ -52,11 +45,10 @@ public:
         return "srScene";
     }
     void setAmbientLight(float red, float green, float blue);
-    void setAmbientLight(const srVector3T<float>& color);
+    void setAmbientLight(const glm::vec3& color);
     void setFogColor(float red, float green, float blue);
     // FUNCTION: SURRENDER 0x10056D40 SYMBOL
-    // RECOMP: ?setFogColor@srScene@@QAEXABV?$srVector3T@M@@@Z
-    void setFogColor(const srVector3T<float>& color)
+    void setFogColor(const glm::vec3& color)
     {
         fog_color = color;
     }
@@ -65,7 +57,7 @@ protected:
     srFlags<e_enable> enabled;       /* 0x138 */
     Statistics statistics;           /* 0x140 */
     TraverseInfo traversal;          /* 0x158 (renderer at 0x170) */
-    srVector3T<float> ambient_light; /* 0x174 */
-    srVector3T<float> fog_color;     /* 0x180 */
+    glm::vec3 ambient_light;         /* 0x174 */
+    glm::vec3 fog_color;             /* 0x180 */
 };
 

@@ -9,6 +9,7 @@
 #include "wiz8/float_constants.h"
 
 #include "surrender/srCamera.h"
+#include "surrender/srBoundingBox.h"
 
 #include <float.h>
 #include <math.h>
@@ -108,24 +109,7 @@ float ItemDistanceToCamera(W8World* world, W8Item* item)
 bool PointInsideBounds(const srVector3T<float>* point, const srVector3T<float>* minimum,
                        const srVector3T<float>* maximum)
 {
-    if (point->x >= minimum->x && point->x <= maximum->x && point->y >= minimum->y &&
-        point->y <= maximum->y && point->z >= minimum->z && point->z <= maximum->z) {
-        return true;
-    }
-    return false;
-}
-
-/* Per-axis overlap test for two axis-aligned bounds. */
-// FUNCTION: WIZ8 0x004BE8D0
-bool BoundsOverlap(const srVector3T<float>* first_minimum, const srVector3T<float>* first_maximum,
-                   const srVector3T<float>* second_minimum, const srVector3T<float>* second_maximum)
-{
-    if (first_maximum->x >= second_minimum->x && second_maximum->x >= first_minimum->x &&
-        first_maximum->y >= second_minimum->y && second_maximum->y >= first_minimum->y &&
-        first_maximum->z >= second_minimum->z && second_maximum->z >= first_minimum->z) {
-        return true;
-    }
-    return false;
+    return srBoundingBox{minimum->glmValue(), maximum->glmValue()}.contains(point->glmValue());
 }
 
 /* Project one world point through the active world's camera and report
