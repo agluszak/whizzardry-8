@@ -1,6 +1,8 @@
+#include <string_view>
+#include "wiz8/unicode.h"
+#include <string>
 #include "wiz8/spell_ids.h"
 #include "wiz8/conditions.h"
-#include "wiz8/sgp_text.h"
 #include "line.h"
 #include "wiz8/integer_constants.h"
 #include "wiz8/local_screens/MGSFormation.h"
@@ -215,7 +217,7 @@ bool g_mouselook_left_held;
 bool g_node_cull_pending;
 
 // GLOBAL: WIZ8 0x006480f4
-static wchar_t g_format_mouselook_angles[] = L"%.3f, %.3f";
+static char g_format_mouselook_angles[] = "%.3f, %.3f";
 
 // GLOBAL: WIZ8 0x0068f2c8
 static unsigned int g_main_game_text_panel_region_set;
@@ -250,31 +252,31 @@ static char g_trap_inspection_sound[] = "Data\\Sound\\Misc\\Trap Inspection.wav"
 static char g_trap_sprung_sound[] = "Data\\Sound\\Misc\\Trap Sprung.wav";
 
 // GLOBAL: WIZ8 0x0064bab0
-wchar_t g_format_d_percent[] = L"%d%%";
+char g_format_d_percent[] = "%d%%";
 
 // GLOBAL: WIZ8 0x006068e4
-wchar_t g_format_s[] = L"%s";
+char g_format_s[] = "%s";
 
 // GLOBAL: WIZ8 0x00648170
-static wchar_t g_format_d_s_paren_d_slash_d_slash_d[] = L"%d %s (%d/%d/%d)";
+static char g_format_d_s_paren_d_slash_d_slash_d[] = "%d %s (%d/%d/%d)";
 
 // GLOBAL: WIZ8 0x006481b4
-wchar_t g_format_s_colon_s_paren_d[] = L"%s: %s (%d)";
+char g_format_s_colon_s_paren_d[] = "%s: %s (%d)";
 
 // GLOBAL: WIZ8 0x0064808c
-static wchar_t g_format_enter_test_level[] = L"Enter test level %c ?";
+static char g_format_enter_test_level[] = "Enter test level %c ?";
 // GLOBAL: WIZ8 0x006480b8
-static wchar_t g_text_enter_default_level[] = L"Enter default level ?";
+static char g_text_enter_default_level[] = "Enter default level ?";
 // GLOBAL: WIZ8 0x006480e4
-static wchar_t g_format_s_s_question[] = L"%s %s?";
+static char g_format_s_s_question[] = "%s %s?";
 
 // GLOBAL: WIZ8 0x0061A700
-wchar_t g_format_s_paren_d[] = L"%s (%d)";
+char g_format_s_paren_d[] = "%s (%d)";
 
 // GLOBAL: WIZ8 0x0061c3e0
-wchar_t g_format_s_colon_s[] = L"%s: %s";
+char g_format_s_colon_s[] = "%s: %s";
 // GLOBAL: WIZ8 0x0064da8c
-wchar_t g_format_s_spaced_colon[] = L"%s :  ";
+char g_format_s_spaced_colon[] = "%s :  ";
 
 // GLOBAL: WIZ8 0x005ec258
 const float g_float_one_fiftieth = 0.019999999552965164f;
@@ -769,30 +771,30 @@ W8LockInfoPanel::W8LockInfoPanel(int tumbler_count) : Controls(0x17, 0x166, 0, 0
     bounds.top = m_bounds.top + 7;
     bounds.right = m_bounds.left + 0xb4;
     bounds.bottom = m_bounds.top + 0x11;
-    m_text0 = new W8TextBuffer(&bounds, 0, g_wiz_text_font_secondary, g_W8TextBufferAlignCenter, 4);
+    m_text0 = new W8TextBuffer(&bounds, {}, g_wiz_text_font_secondary, g_W8TextBufferAlignCenter, 4);
     bounds.top += 0xe;
     bounds.bottom += 0xe;
-    m_text1 = new W8TextBuffer(&bounds, gppStringList[0x7a9], g_wiz_text_font_secondary,
+    m_text1 = new W8TextBuffer(&bounds, g_localized_strings[0x7a9], g_wiz_text_font_secondary,
                                g_W8TextBufferAlignLeft, 4);
     bounds.top += 0xe;
     bounds.bottom += 0xe;
-    m_text3 = new W8TextBuffer(&bounds, gppStringList[0x7aa], g_wiz_text_font_secondary,
+    m_text3 = new W8TextBuffer(&bounds, g_localized_strings[0x7aa], g_wiz_text_font_secondary,
                                g_W8TextBufferAlignLeft, 4);
     bounds.top += 0xe;
     bounds.bottom += 0xe;
-    m_text5 = new W8TextBuffer(&bounds, gppStringList[0x7ab], g_wiz_text_font_secondary,
+    m_text5 = new W8TextBuffer(&bounds, g_localized_strings[0x7ab], g_wiz_text_font_secondary,
                                g_W8TextBufferAlignLeft, 4);
     bounds.left = m_bounds.left + 0x98;
     bounds.top = m_bounds.top + 0x15;
     bounds.right = m_bounds.left + 0xb5;
     bounds.bottom = m_bounds.top + 0x1f;
-    m_text2 = new W8TextBuffer(&bounds, 0, g_wiz_text_font_secondary, g_W8TextBufferAlignCenter, 4);
+    m_text2 = new W8TextBuffer(&bounds, {}, g_wiz_text_font_secondary, g_W8TextBufferAlignCenter, 4);
     bounds.top += 0xe;
     bounds.bottom += 0xe;
-    m_text4 = new W8TextBuffer(&bounds, 0, g_wiz_text_font_secondary, g_W8TextBufferAlignCenter, 4);
+    m_text4 = new W8TextBuffer(&bounds, {}, g_wiz_text_font_secondary, g_W8TextBufferAlignCenter, 4);
     bounds.top += 0xe;
     bounds.bottom += 0xe;
-    m_text = new W8TextBuffer(&bounds, 0, g_wiz_text_font_secondary, g_W8TextBufferAlignCenter, 4);
+    m_text = new W8TextBuffer(&bounds, {}, g_wiz_text_font_secondary, g_W8TextBufferAlignCenter, 4);
     SetEnabled(true);
     Invalidate(0);
 }
@@ -828,7 +830,7 @@ void W8LockInfoPanel::RefreshInfo()
     } else {
         m_text2->SetFontStateIndex(-1);
         m_text2->SetText(
-            FormatWideString(g_format_d_percent, character->skills[W8_SKILL_LOCKS_TRAPS].level),
+            FormatText(g_format_d_percent, character->skills[W8_SKILL_LOCKS_TRAPS].level),
             g_wiz_text_font_secondary);
     }
     if (!IsPartySlotEligible(g_status.selected_character) || character->spell_learned[0x27] != 1) {
@@ -841,7 +843,7 @@ void W8LockInfoPanel::RefreshInfo()
                     .level;
         book = character->skills[book_skill].level;
         m_text4->SetFontStateIndex(-1);
-        m_text4->SetText(FormatWideString(g_format_d_percent, (book + realm * 4) / 5),
+        m_text4->SetText(FormatText(g_format_d_percent, (book + realm * 4) / 5),
                          g_wiz_text_font_secondary);
     }
     if (IsPartySlotEligible(g_status.selected_character) && character->stamina > 0x4f &&
@@ -852,7 +854,7 @@ void W8LockInfoPanel::RefreshInfo()
                  IntegerPower(2, divisor - 2);
         if (static_cast<int>(figure) > -1) {
             m_text->SetFontStateIndex(-1);
-            m_text->SetText(FormatWideString(g_format_d_percent, figure),
+            m_text->SetText(FormatText(g_format_d_percent, figure),
                             g_wiz_text_font_secondary);
             goto done;
         }
@@ -1047,7 +1049,7 @@ void W8LockInteraction::Process()
             }
         }
         SoundPlay(s_lock_picking_success, 0);
-        ShowNotice(W8_FONT_PALETTE_BEIGE, gppStringList[0x7ac]);
+        ShowNotice(W8_FONT_PALETTE_BEIGE, g_localized_strings[0x7ac]);
         BeginUnlock();
         break;
     }
@@ -1176,7 +1178,7 @@ void W8LockInteraction::ResolvePick()
         }
     }
     SoundPlay(s_lock_picking_success, 0);
-    ShowNotice(W8_FONT_PALETTE_BEIGE, gppStringList[0x7ac]);
+    ShowNotice(W8_FONT_PALETTE_BEIGE, g_localized_strings[0x7ac]);
     BeginUnlock();
 }
 
@@ -1203,12 +1205,12 @@ void W8LockInteraction::AttemptForce()
             if (static_cast<int>(Random(100)) < static_cast<int>(chance)) {
                 SoundPlay(s_lock_forcing_success, 0);
                 ShowString(
-                    FormatWideString(g_format_s_space_s, character->name, gppStringList[0x7ae]));
+                    FormatText(g_format_s_space_s, character->name, g_localized_strings[0x7ae]));
                 BeginUnlock();
                 return;
             }
             SoundPlay(s_lock_forcing_fail, 0);
-            ShowString(FormatWideString(g_format_s_space_s, character->name, gppStringList[0x7ad]));
+            ShowString(FormatText(g_format_s_space_s, character->name, g_localized_strings[0x7ad]));
             if (!IsPartySlotEligible(g_status.selected_character)) {
                 level = -1;
             } else if (!character->skills[W8_SKILL_LOCKS_TRAPS].active &&
@@ -1349,7 +1351,7 @@ void CastSpellAtLockInteraction(unsigned int level, int flag, int backfire)
         return;
     }
     if (!gXStatus.fLockInteractMode) {
-        ShowNotice(W8_FONT_PALETTE_BEIGE, gppStringList[0x7af]);
+        ShowNotice(W8_FONT_PALETTE_BEIGE, g_localized_strings[0x7af]);
         return;
     }
     g_lock_interaction->ApplyKnockKnock(level, flag, backfire);
@@ -1414,7 +1416,7 @@ void W8MainGameTextKeyHandler::Redraw(bool full_redraw)
             colour = GetFontObject(g_wiz_text_font_secondary)->ownedPalette.get();
         }
         SetFontObjectPalette16BPP(g_wiz_text_font_secondary, colour);
-        gprintf(left, top, Wiz8ToSgpWideText(g_format_s), gppStringList[m_line_string_ids[line]]);
+        gprintf(left, top, g_format_s, g_localized_strings[m_line_string_ids[line]]);
         top += 0xe;
     }
     SetFontObjectPalette16BPP(g_wiz_text_font_secondary, GetFontObject(g_wiz_text_font_secondary)->ownedPalette.get());
@@ -1581,7 +1583,7 @@ void W8MainGameTextEntry::Redraw(bool full_redraw)
     }
 }
 
-void W8MainGameTextPanel::BeginProgress(const wchar_t* text, float duration, float hold)
+void W8MainGameTextPanel::BeginProgress(std::string_view text, float duration, float hold)
 {
     m_progress_display = true;
     m_text_buffer.SetText(text, g_wiz_text_font_secondary);
@@ -1775,30 +1777,30 @@ W8MainGameStatusPanel::W8MainGameStatusPanel() : Controls(0x17, 0x166, 0, 0, 0x1
     bounds.top = m_bounds.top + 7;
     bounds.right = m_bounds.left + 0xb4;
     bounds.bottom = m_bounds.top + 0x11;
-    m_text = new W8TextBuffer(&bounds, 0, g_wiz_text_font_secondary, g_W8TextBufferAlignCenter, 4);
+    m_text = new W8TextBuffer(&bounds, {}, g_wiz_text_font_secondary, g_W8TextBufferAlignCenter, 4);
     bounds.top += 0xe;
     bounds.bottom += 0xe;
-    m_text0 = new W8TextBuffer(&bounds, gppStringList[0x7a9], g_wiz_text_font_secondary,
+    m_text0 = new W8TextBuffer(&bounds, g_localized_strings[0x7a9], g_wiz_text_font_secondary,
                                g_W8TextBufferAlignLeft, 4);
     bounds.top += 0xe;
     bounds.bottom += 0xe;
-    m_text2 = new W8TextBuffer(&bounds, gppStringList[0x7aa], g_wiz_text_font_secondary,
+    m_text2 = new W8TextBuffer(&bounds, g_localized_strings[0x7aa], g_wiz_text_font_secondary,
                                g_W8TextBufferAlignLeft, 4);
     bounds.top += 0xe;
     bounds.bottom += 0xe;
-    m_text4 = new W8TextBuffer(&bounds, gppStringList[0x7b0], g_wiz_text_font_secondary,
+    m_text4 = new W8TextBuffer(&bounds, g_localized_strings[0x7b0], g_wiz_text_font_secondary,
                                g_W8TextBufferAlignLeft, 4);
     bounds.left = m_bounds.left + 0x98;
     bounds.top = m_bounds.top + 0x15;
     bounds.right = m_bounds.left + 0xb5;
     bounds.bottom = m_bounds.top + 0x1f;
-    m_text1 = new W8TextBuffer(&bounds, 0, g_wiz_text_font_secondary, g_W8TextBufferAlignCenter, 4);
+    m_text1 = new W8TextBuffer(&bounds, {}, g_wiz_text_font_secondary, g_W8TextBufferAlignCenter, 4);
     bounds.top += 0xe;
     bounds.bottom += 0xe;
-    m_text3 = new W8TextBuffer(&bounds, 0, g_wiz_text_font_secondary, g_W8TextBufferAlignCenter, 4);
+    m_text3 = new W8TextBuffer(&bounds, {}, g_wiz_text_font_secondary, g_W8TextBufferAlignCenter, 4);
     bounds.top += 0xe;
     bounds.bottom += 0xe;
-    m_text5 = new W8TextBuffer(&bounds, 0, g_wiz_text_font_secondary, g_W8TextBufferAlignCenter, 4);
+    m_text5 = new W8TextBuffer(&bounds, {}, g_wiz_text_font_secondary, g_W8TextBufferAlignCenter, 4);
     m_target = 0;
     SetEnabled(true);
     Invalidate(0);
@@ -1834,7 +1836,7 @@ void W8MainGameStatusPanel::RefreshStatusTexts()
         m_text1->SetText(g_dash, g_wiz_text_font_secondary);
     } else {
         m_text1->SetFontStateIndex(m_target < 1 ? -1 : 3);
-        m_text1->SetText(FormatWideString(g_format_d_percent, level), g_wiz_text_font_secondary);
+        m_text1->SetText(FormatText(g_format_d_percent, level), g_wiz_text_font_secondary);
     }
     if (!IsPartySlotEligible(g_status.selected_character) || character->spell_learned[0x27] != 1) {
         m_text3->SetFontStateIndex(0);
@@ -1846,7 +1848,7 @@ void W8MainGameStatusPanel::RefreshStatusTexts()
                     .level;
         book = character->skills[book_skill].level;
         m_text3->SetFontStateIndex(-1);
-        m_text3->SetText(FormatWideString(g_format_d_percent, (book + realm * 4) / 5),
+        m_text3->SetText(FormatText(g_format_d_percent, (book + realm * 4) / 5),
                          g_wiz_text_font_secondary);
     }
     if (IsPartySlotEligible(g_status.selected_character) && character->spell_learned[0x12] == 1) {
@@ -1856,7 +1858,7 @@ void W8MainGameStatusPanel::RefreshStatusTexts()
                                            g_spell_records[W8_SPELL_DIVINE_TRAP].realm);
         if (static_cast<int>(figure) >= 0) {
             m_text5->SetFontStateIndex(-1);
-            m_text5->SetText(FormatWideString(g_format_d_percent, figure),
+            m_text5->SetText(FormatText(g_format_d_percent, figure),
                              g_wiz_text_font_secondary);
             m_text0->SetGeometryDirty();
             m_text2->SetGeometryDirty();
@@ -2001,7 +2003,7 @@ void W8MainGameScreen::SelectTextEntry(int index)
     m_action_controls[3]->SetEnabled(false);
     m_action_controls[4]->SetEnabled(false);
     m_action_panel->Invalidate(0);
-    m_text_panel->BeginProgress(gppStringList[0x7b5], duration, hold);
+    m_text_panel->BeginProgress(g_localized_strings[0x7b5], duration, hold);
     m_sound_handle = static_cast<int>(
         SoundPlay((STR)g_trap_sounds[index] /* c-style-cast-ok: SGP STR boundary */, 0));
 }
@@ -2075,7 +2077,7 @@ void W8MainGameScreen::OnPrimary(W8TextControl* control)
     m_action_controls[3]->SetEnabled(false);
     m_action_controls[4]->SetEnabled(false);
     m_action_panel->Invalidate(0);
-    m_text_panel->BeginProgress(gppStringList[0x7b6], duration, hold);
+    m_text_panel->BeginProgress(g_localized_strings[0x7b6], duration, hold);
     m_sound_handle = static_cast<int>(SoundPlayStreamedFile(
         (STR)g_trap_inspection_sound /* c-style-cast-ok: SGP STR boundary */, 0));
 }
@@ -2559,21 +2561,21 @@ void W8NpcDialogueTextController::Redraw()
 }
 
 // FUNCTION: WIZ8 0x0055E0C0
-unsigned char W8NpcDialogueTextController::AddTranscriptEntry(const wchar_t* text,
+unsigned char W8NpcDialogueTextController::AddTranscriptEntry(std::string_view text,
                                                               signed char category, char mark)
 {
-    wchar_t existing[200];
+    std::string existing;
     int index;
     int added;
 
     for (index = 0; index < text_area.m_all_lines.GetCount(); ++index) {
         text_area.GetEntry(index);
         text_area.CopyEntryText(index, existing);
-        if (CompareWideTextIgnoreAsciiCase(existing, text) == 0) {
+        if (CompareTextIgnoreAsciiCase(existing, text) == 0) {
             return 0;
         }
     }
-    added = text_area.AddEntry(0, text, 0, 7, category);
+    added = text_area.AddEntry({}, text, 0, 7, category);
     InvalidateLayout();
     if (mark != 0) {
         text_area.SetEntryMarked(added, true);
@@ -2582,7 +2584,7 @@ unsigned char W8NpcDialogueTextController::AddTranscriptEntry(const wchar_t* tex
         for (index = 0; index < text_area.m_all_lines.GetCount(); ++index) {
             text_area.GetEntry(index);
             text_area.CopyEntryText(index, existing);
-            if (CompareWideTextIgnoreAsciiCase(existing, L" [No Keywords]") == 0) {
+            if (CompareTextIgnoreAsciiCase(existing, " [No Keywords]") == 0) {
                 text_area.RemoveEntry(index);
                 Invalidate(0);
                 break;
@@ -2812,7 +2814,7 @@ void W8NpcDialogueTextController::RestoreTranscriptEntries()
             static_cast<W8NpcDialogueTextController*>(g_npc_interaction_state->dialogue_panels[2]);
         controller->SetTranscriptCategoryFilter(g_npc_interaction_state->dialogue_category_filter);
         SyncDialogueCategoryButtons();
-        AddTranscriptEntry(L" [No Keywords]", W8_DIALOGUE_CATEGORY_ALL, 0);
+        AddTranscriptEntry(" [No Keywords]", W8_DIALOGUE_CATEGORY_ALL, 0);
     }
 }
 
@@ -2924,7 +2926,7 @@ unsigned char MainGameScreenEnter(void)
         DisableSky();
     }
     if (TakePendingSaveFlag()) {
-        ShowNotice(W8_FONT_PALETTE_BEIGE, gppStringList[0x782]);
+        ShowNotice(W8_FONT_PALETTE_BEIGE, g_localized_strings[0x782]);
     }
     if (g_settings.difficulty != difficulty) {
         g_settings.difficulty = difficulty;
@@ -2939,7 +2941,7 @@ unsigned char MainGameScreenEnter(void)
             display_mode = 0x7fa;
             break;
         }
-        ShowNoticef(W8_FONT_PALETTE_BEIGE, gppStringList[0x78c], gppStringList[display_mode]);
+        ShowNoticef(W8_FONT_PALETTE_BEIGE, g_localized_strings[0x78c], g_localized_strings[display_mode]);
     }
     ResetTransientRenderScenes();
     MoveTimer(4);
@@ -3330,7 +3332,7 @@ render_world:
                 unsigned char frame = monster->m_pRep->subcycle;
                 const char* cycle = g_cycle_names[monster->Query(W8_MONSTER_QUERY_CYCLE)].name;
                 unsigned char subcycles = static_cast<unsigned char>(monster->GetNumSubCycles());
-                gprintfDirty(0x122, 0x159, const_cast<CHAR16*>(L"%2d/%2d %hs"), frame, subcycles,
+                gprintfDirty(0x122, 0x159, const_cast<char*>("%2d/%2d %s"), frame, subcycles,
                              cycle);
             }
         }
@@ -3851,7 +3853,7 @@ void DrawMainGameScreen(void)
             ClearSurfaceRect(0xdc, 0x1e, 0x154, 0x26);
             SetFont(g_smfnt_font);
             SetFontObjectPalette16BPP(g_smfnt_font, GetFontObject(g_smfnt_font)->ownedPalette.get());
-            gprintfDirty(0xdc, 0x1e, Wiz8ToSgpWideText(g_format_mouselook_angles),
+            gprintfDirty(0xdc, 0x1e, g_format_mouselook_angles,
                          g_mouselook_pending_pitch, g_mouselook_pending_yaw);
         }
         if (w8_get_ticks() - g_level_block->tick > 499) {
@@ -3954,7 +3956,7 @@ void RedrawCombatMonsterList(void)
     unsigned short* palette;
     unsigned int monster_index;
     W8MonsterInfo* monster_info;
-    wchar_t* scratch_text;
+    std::string scratch_text;
 
     live_row_count = 0;
     max_text_width = 0;
@@ -3974,11 +3976,7 @@ void RedrawCombatMonsterList(void)
             do {
                 monster_group = GetMonsterGroupByListIndex(group_list_index);
                 if (IsMonsterGroupLive(monster_group)) {
-                    swprintf(scratch_text, g_format_d_s_paren_d_slash_d_slash_d,
-                             monster_group->member_count, GetMonsterGroupName(monster_group),
-                             monster_group->active_member_count,
-                             monster_group->selectable_member_count,
-                             monster_group->visible_member_count);
+                    scratch_text = FormatText(g_format_d_s_paren_d_slash_d_slash_d, monster_group->member_count, GetMonsterGroupName(monster_group), monster_group->active_member_count, monster_group->selectable_member_count, monster_group->visible_member_count);
                     text_width = StringPixLength(scratch_text, g_wiz_text_font_secondary);
                     is_action_group = false;
                     if (monster_group->group_id == g_level_block->action_group) {
@@ -4019,7 +4017,7 @@ void RedrawCombatMonsterList(void)
                         }
                     }
                     SetFontObjectPalette16BPP(g_wiz_text_font_secondary, palette);
-                    gprintfDirty(0xfa, row_y, Wiz8ToSgpWideText(g_format_s), scratch_text);
+                    gprintfDirty(0xfa, row_y, g_format_s, scratch_text);
                     row_y += 0xb;
                     ++live_row_count;
                     if (max_text_width < static_cast<unsigned int>(text_width)) {
@@ -4225,7 +4223,7 @@ void DrawHighlightOverlay(unsigned int party_slot, int row_count, unsigned int m
 {
     SetMainGameMode(W8_MAIN_GAME_HIGHLIGHT_OVERLAY);
 
-    wchar_t* name = g_status.buffers.Char[party_slot].name;
+    std::string name = g_status.buffers.Char[party_slot].name;
     int width = StringPixLength(name, g_wiz_text_font);
     if (min_width < static_cast<unsigned int>(width)) {
         width = StringPixLength(name, g_wiz_text_font);
@@ -4305,7 +4303,7 @@ void DrawHighlightOverlay(unsigned int party_slot, int row_count, unsigned int m
     int font_height = GetFontHeight(g_wiz_text_font);
     int name_width = StringPixLength(name, g_wiz_text_font);
     gprintf(left + static_cast<int>(panel_width >> 1) - name_width / 2,
-            (0xc - font_height) / 2 + top + 6, Wiz8ToSgpWideText(g_format_s), name);
+            (0xc - font_height) / 2 + top + 6, g_format_s, name);
     SetFontObjectPalette16BPP(g_wiz_text_font, GetFontObject(g_wiz_text_font)->ownedPalette.get());
 
     row_y_pos = top + 0x12;
@@ -4372,10 +4370,9 @@ static void DrawPortraitConditionRow(int condition, int text_x, int row_y, unsig
 {
     DrawCatalogImage(FRAME_BUFFER, condition + 0xb6, 0, 0, text_x, row_y, VO_BLT_SRCTRANSPARENCY,
                      0);
-    swprintf(g_level_block->text_paint_scratch, g_format_s,
-             gppStringList[g_condition_notices[condition].name]);
+    wiz8::text::copy(g_level_block->text_paint_scratch, FormatText(g_format_s, g_localized_strings[g_condition_notices[condition].name]));
     int text_width = StringPixLength(g_level_block->text_paint_scratch, g_wiz_text_font);
-    gprintf(((width >> 1) - text_width / 2) + 0x1a + text_x, row_y, Wiz8ToSgpWideText(g_format_s),
+    gprintf(((width >> 1) - text_width / 2) + 0x1a + text_x, row_y, g_format_s,
             g_level_block->text_paint_scratch);
 }
 
@@ -4383,10 +4380,9 @@ static void DrawPortraitEnchantmentRow(const W8Character* character, int slot, i
                                        int row_y, unsigned int width)
 {
     DrawCatalogImage(FRAME_BUFFER, slot + 0xc9, 0, 0, text_x, row_y, VO_BLT_SRCTRANSPARENCY, 0);
-    swprintf(g_level_block->text_paint_scratch, g_format_s_paren_d,
-             gppStringList[g_enchantment_notices[slot]], character->enchantments[slot].power);
+    wiz8::text::copy(g_level_block->text_paint_scratch, FormatText(g_format_s_paren_d, g_localized_strings[g_enchantment_notices[slot]], character->enchantments[slot].power));
     int text_width = StringPixLength(g_level_block->text_paint_scratch, g_wiz_text_font);
-    gprintf(((width >> 1) - text_width / 2) + 0x1a + text_x, row_y, Wiz8ToSgpWideText(g_format_s),
+    gprintf(((width >> 1) - text_width / 2) + 0x1a + text_x, row_y, g_format_s,
             g_level_block->text_paint_scratch);
 }
 
@@ -4401,9 +4397,9 @@ void DrawPortraitVitalsOverlay(int party_slot)
     int realm_icons[6] = {0x193, 0x194, 0x195, 0x196, 0x197, 0x198};
     W8Character* character = &g_status.buffers.Char[party_slot];
 
-    swprintf(g_level_block->text_paint_scratch, g_format_s_colon, gppStringList[0x282]);
+    wiz8::text::copy(g_level_block->text_paint_scratch, FormatText(g_format_s_colon, g_localized_strings[0x282]));
     unsigned int label_width = StringPixLength(g_level_block->text_paint_scratch, g_wiz_text_font);
-    swprintf(g_level_block->text_paint_scratch, g_format_s_colon, gppStringList[0x283]);
+    wiz8::text::copy(g_level_block->text_paint_scratch, FormatText(g_format_s_colon, g_localized_strings[0x283]));
     int width = StringPixLength(g_level_block->text_paint_scratch, g_wiz_text_font);
     if (label_width < static_cast<unsigned int>(width)) {
         width = StringPixLength(g_level_block->text_paint_scratch, g_wiz_text_font);
@@ -4414,11 +4410,9 @@ void DrawPortraitVitalsOverlay(int party_slot)
     }
     label_width += 10;
 
-    swprintf(g_level_block->text_paint_scratch, g_format_d_slash_d, character->hp_current,
-             character->uiHPMax);
+    wiz8::text::copy(g_level_block->text_paint_scratch, FormatText(g_format_d_slash_d, character->hp_current, character->uiHPMax));
     unsigned int value_width = StringPixLength(g_level_block->text_paint_scratch, g_wiz_text_font);
-    swprintf(g_level_block->text_paint_scratch, g_format_d_slash_d, character->stamina,
-             character->uiStaminaMax);
+    wiz8::text::copy(g_level_block->text_paint_scratch, FormatText(g_format_d_slash_d, character->stamina, character->uiStaminaMax));
     width = StringPixLength(g_level_block->text_paint_scratch, g_wiz_text_font);
     if (value_width < static_cast<unsigned int>(width)) {
         width = StringPixLength(g_level_block->text_paint_scratch, g_wiz_text_font);
@@ -4426,9 +4420,7 @@ void DrawPortraitVitalsOverlay(int party_slot)
     }
     int realm;
     for (realm = 0; realm < W8_SPELL_REALM_COUNT; ++realm) {
-        swprintf(g_level_block->text_paint_scratch, g_format_d_slash_d,
-                 GetCharacterRealmSpellPoints(character, static_cast<W8SpellRealm>(realm)),
-                 character->sp_max[realm]);
+        wiz8::text::copy(g_level_block->text_paint_scratch, FormatText(g_format_d_slash_d, GetCharacterRealmSpellPoints(character, static_cast<W8SpellRealm>(realm)), character->sp_max[realm]));
         width = StringPixLength(g_level_block->text_paint_scratch, g_wiz_text_font);
         if (label_width < static_cast<unsigned int>(width)) {
             width = StringPixLength(g_level_block->text_paint_scratch, g_wiz_text_font);
@@ -4442,22 +4434,20 @@ void DrawPortraitVitalsOverlay(int party_slot)
     int text_x = g_level_block->dialogue_text_x;
     int row_y = g_level_block->dialogue_row_y;
 
-    swprintf(g_level_block->text_paint_scratch, g_format_s_colon, gppStringList[0x282]);
+    wiz8::text::copy(g_level_block->text_paint_scratch, FormatText(g_format_s_colon, g_localized_strings[0x282]));
     gprintf(text_x, row_y, g_level_block->text_paint_scratch);
-    swprintf(g_level_block->text_paint_scratch, g_format_d_slash_d, character->hp_current,
-             character->uiHPMax);
+    wiz8::text::copy(g_level_block->text_paint_scratch, FormatText(g_format_d_slash_d, character->hp_current, character->uiHPMax));
     unsigned int value_center = (text_width - label_width) >> 1;
     width = StringPixLength(g_level_block->text_paint_scratch, g_wiz_text_font);
-    gprintf(value_center - width / 2 + text_x + label_width, row_y, Wiz8ToSgpWideText(g_format_s),
+    gprintf(value_center - width / 2 + text_x + label_width, row_y, g_format_s,
             g_level_block->text_paint_scratch);
     row_y += 0x12;
 
-    swprintf(g_level_block->text_paint_scratch, g_format_s_colon, gppStringList[0x283]);
+    wiz8::text::copy(g_level_block->text_paint_scratch, FormatText(g_format_s_colon, g_localized_strings[0x283]));
     gprintf(text_x, row_y, g_level_block->text_paint_scratch);
-    swprintf(g_level_block->text_paint_scratch, g_format_d_slash_d, character->stamina,
-             character->uiStaminaMax);
+    wiz8::text::copy(g_level_block->text_paint_scratch, FormatText(g_format_d_slash_d, character->stamina, character->uiStaminaMax));
     width = StringPixLength(g_level_block->text_paint_scratch, g_wiz_text_font);
-    gprintf(value_center - width / 2 + text_x + label_width, row_y, Wiz8ToSgpWideText(g_format_s),
+    gprintf(value_center - width / 2 + text_x + label_width, row_y, g_format_s,
             g_level_block->text_paint_scratch);
     row_y += 0x12;
 
@@ -4465,13 +4455,11 @@ void DrawPortraitVitalsOverlay(int party_slot)
         DrawCatalogImage(FRAME_BUFFER, realm_icons[realm], 0,
                          static_cast<short>(g_spell_realm_animations[realm].initial_frame), text_x,
                          row_y, VO_BLT_SRCTRANSPARENCY, 0);
-        swprintf(g_level_block->text_paint_scratch, g_format_d_slash_d,
-                 GetCharacterRealmSpellPoints(character, static_cast<W8SpellRealm>(realm)),
-                 character->sp_max[realm]);
+        wiz8::text::copy(g_level_block->text_paint_scratch, FormatText(g_format_d_slash_d, GetCharacterRealmSpellPoints(character, static_cast<W8SpellRealm>(realm)), character->sp_max[realm]));
         int text_y = (0x12 - GetFontHeight(g_wiz_text_font)) / 2 + row_y;
         width = StringPixLength(g_level_block->text_paint_scratch, g_wiz_text_font);
         gprintf(value_center - width / 2 + text_x + label_width, text_y,
-                Wiz8ToSgpWideText(g_format_s), g_level_block->text_paint_scratch);
+                g_format_s, g_level_block->text_paint_scratch);
         row_y += 0x12;
     }
 }
@@ -4487,8 +4475,7 @@ static int MeasurePortraitConditions(const W8Character* character, unsigned int&
     }
     for (condition = W8_CONDITION_COUNT - 1; condition > 0; --condition) {
         if (character->uiCondition[condition] != 0) {
-            swprintf(g_level_block->text_paint_scratch, g_format_s,
-                     gppStringList[g_condition_notices[condition].name]);
+            wiz8::text::copy(g_level_block->text_paint_scratch, FormatText(g_format_s, g_localized_strings[g_condition_notices[condition].name]));
             int width = StringPixLength(g_level_block->text_paint_scratch, g_wiz_text_font);
             if (max_width < static_cast<unsigned int>(width)) {
                 width = StringPixLength(g_level_block->text_paint_scratch, g_wiz_text_font);
@@ -4511,9 +4498,7 @@ static int MeasurePortraitEnchantments(const W8Character* character, unsigned in
     }
     for (slot = 7; slot > 0; --slot) {
         if (character->enchantments[slot].turns != 0) {
-            swprintf(g_level_block->text_paint_scratch, g_format_s_paren_d,
-                     gppStringList[g_enchantment_notices[slot]],
-                     character->enchantments[slot].power);
+            wiz8::text::copy(g_level_block->text_paint_scratch, FormatText(g_format_s_paren_d, g_localized_strings[g_enchantment_notices[slot]], character->enchantments[slot].power));
             int width = StringPixLength(g_level_block->text_paint_scratch, g_wiz_text_font);
             if (max_width < static_cast<unsigned int>(width)) {
                 width = StringPixLength(g_level_block->text_paint_scratch, g_wiz_text_font);
@@ -4571,7 +4556,7 @@ void DrawPortraitStatusOverlay(int party_slot)
     if (0x14 < row_count) {
         row_count = 0x14;
         truncated = true;
-        int width = StringPixLength(gppStringList[0x7d8], g_wiz_text_font);
+        int width = StringPixLength(g_localized_strings[0x7d8], g_wiz_text_font);
         if (max_width < static_cast<unsigned int>(width - 0x1a)) {
             width = StringPixLength(g_level_block->text_paint_scratch, g_wiz_text_font);
             max_width = width - 0x1a;
@@ -4593,11 +4578,10 @@ void DrawPortraitStatusOverlay(int party_slot)
     }
     for (slot = 7; slot > 0; --slot) {
         if (rows_drawn == 0x13 && truncated) {
-            swprintf(g_level_block->text_paint_scratch, g_format_s, gppStringList[0x7d8],
-                     character->enchantments[slot].power);
+            wiz8::text::copy(g_level_block->text_paint_scratch, FormatText(g_format_s, g_localized_strings[0x7d8], character->enchantments[slot].power));
             int width = StringPixLength(g_level_block->text_paint_scratch, g_wiz_text_font);
             gprintf((((text_width - width) + 0x1a) >> 1) + text_x, row_y,
-                    Wiz8ToSgpWideText(g_format_s), g_level_block->text_paint_scratch);
+                    g_format_s, g_level_block->text_paint_scratch);
             return;
         }
         if (character->enchantments[slot].turns != 0) {
@@ -4644,7 +4628,7 @@ void RequestRedrawCombatBar(void)
    current), then create the kind-1 message dialog, size it, and install the
    caller's destroy callback as the modal owner. */
 // FUNCTION: WIZ8 0x00569A50
-void ShowMainGameNoticeLine(wchar_t* text, W8DialogDestroyCallback callback, bool confirmation,
+void ShowMainGameNoticeLine(std::string_view text, W8DialogDestroyCallback callback, bool confirmation,
                             bool cancel)
 {
     W8MessageDialogBase* dialog;
@@ -4856,12 +4840,11 @@ void RequestLevelTransition(int level, int entry, unsigned char flag)
     g_level_block->pending_entry_id = entry;
     if (flag != 0) {
         if (normalized < 0x2f) {
-            swprintf(g_level_block->text_paint_scratch, g_format_s_s_question, gppStringList[0x799],
-                     gppStringList[g_level_name_indices[normalized]]);
+            wiz8::text::copy(g_level_block->text_paint_scratch, FormatText(g_format_s_s_question, g_localized_strings[0x799], g_localized_strings[g_level_name_indices[normalized]]));
         } else if (normalized == 0x38) {
-            wcscpy(g_level_block->text_paint_scratch, g_text_enter_default_level);
+            strcpy(g_level_block->text_paint_scratch, g_text_enter_default_level);
         } else {
-            swprintf(g_level_block->text_paint_scratch, g_format_enter_test_level, normalized + 2);
+            wiz8::text::copy(g_level_block->text_paint_scratch, FormatText(g_format_enter_test_level, normalized + 2));
         }
         if (QueueNpcDepartureEvents(normalized)) {
             WorldSetCameraLocation(g_world, &g_trigger_camera);
@@ -5384,7 +5367,7 @@ unsigned char PortraitSelectRegionEvent(const InputAtom* event, W8Region* region
     W8TargetNeed needed;
     W8ActionKind action_kind;
     unsigned int us_event;
-    const wchar_t* help_text;
+    std::string help_text;
 
     if (slot == static_cast<short>(gXStatus.review_character_slot)) {
         return 0;
@@ -5474,7 +5457,7 @@ unsigned char PortraitSelectRegionEvent(const InputAtom* event, W8Region* region
                                         &g_status.buffers.Char[g_status.selected_character],
                                         g_character_event_kind2, 0, g_character_event_no_flags,
                                         g_character_event_full_volume);
-                                    ShowNotice(W8_FONT_PALETTE_BEIGE, gppStringList[0x7dc]);
+                                    ShowNotice(W8_FONT_PALETTE_BEIGE, g_localized_strings[0x7dc]);
                                 } else {
                                     AimAtCharacter(g_status.selected_character, slot,
                                                    W8_TARGETING_CONTEXT_CURRENT);
@@ -5562,9 +5545,9 @@ unsigned char PortraitSelectRegionEvent(const InputAtom* event, W8Region* region
                         if (!g_status.item_in_cursor ||
                             gXStatus.iCurrentCursor != W8_CURSOR_INVALID_TARGET ||
                             gXStatus.dragged_item == &g_status.item_in_hand) {
-                            help_text = gppStringList[0x1d];
+                            help_text = g_localized_strings[0x1d];
                         } else {
-                            help_text = gppStringList[0x1e];
+                            help_text = g_localized_strings[0x1e];
                         }
                         SetRegionHelpText(help_text);
                     }
@@ -5902,15 +5885,15 @@ unsigned char PartyCombatActionRegionEvent(const InputAtom* event, W8Region* reg
             if (row->action == W8_ACTION_CAST_SPELL) {
                 EnableRegionHelpFlag(region);
                 SetRegionHelpText(
-                    FormatWideString(g_format_s_colon_s_paren_d, gppStringList[0x68],
+                    FormatText(g_format_s_colon_s_paren_d, g_localized_strings[0x68],
                                      g_spell_records[row->action_detail0].display_name,
                                      row->action_detail1.spell.power_level));
                 return 0;
             }
             if (row->action == W8_ACTION_USE_ITEM) {
                 EnableRegionHelpFlag(region);
-                SetRegionHelpText(FormatWideString(
-                    g_format_s_colon_s, gppStringList[0x69],
+                SetRegionHelpText(FormatText(
+                    g_format_s_colon_s, g_localized_strings[0x69],
                     FormatItemDisplayName(row->action_detail1.item_use.item, false)));
                 return 0;
             }
@@ -6177,7 +6160,7 @@ unsigned char WorldViewRegionEvent(const InputAtom* event, W8Region* region)
                     CanPartyMemberAimAtMonster(g_status.selected_character, 2, monster_info,
                                                W8_TARGETING_CONTEXT_CURRENT, false)) {
                     if ((GetMonsterDataForInfo(monster_info)->flags & W8_MONSTER_FLAG_NPC) == 0) {
-                        ShowNotice(W8_FONT_PALETTE_BEIGE, gppStringList[0x7de]);
+                        ShowNotice(W8_FONT_PALETTE_BEIGE, g_localized_strings[0x7de]);
                     } else {
                         W8ItemInstance* item = 0;
                         if (g_status.item_in_cursor) {
@@ -6190,13 +6173,13 @@ unsigned char WorldViewRegionEvent(const InputAtom* event, W8Region* region)
                             QueueNpcScriptNotice(npc, item, -1, false, 0);
                             SetCombatSelection(-1);
                         } else {
-                            ShowNotice(W8_FONT_PALETTE_BEIGE, gppStringList[0x7de]);
+                            ShowNotice(W8_FONT_PALETTE_BEIGE, g_localized_strings[0x7de]);
                         }
                     }
                 }
             }
         } else if (!g_combat_state->round_active && !gXStatus.fPartyMovementMode) {
-            ShowNotice(W8_FONT_PALETTE_BEIGE, gppStringList[0x7dd]);
+            ShowNotice(W8_FONT_PALETTE_BEIGE, g_localized_strings[0x7dd]);
             assign = false;
         } else if (gfKeyState[VK_SHIFT] != 0) {
             for (slot = 0; slot < 8; ++slot) {
@@ -6602,19 +6585,19 @@ void SetCombatSelection(int value)
         if (current != -1 && !TimeUntilDeadline(g_level_block->countdown1) &&
             !HasScreenTransitionObjects()) {
             SDL_Point point;
-            wchar_t text[290];
-            wchar_t health[32];
+            std::string text;
+            std::string health;
 
             SGPMouseGetPos(&point);
             unsigned int monster_index = MonsterGetIndexByLocationID(
                 0x1d38, MAIN_GAME_SCREEN_CPP, g_level_block->highlighted_item, true);
             W8MonsterInfo* monster_info = MonsterGetScriptPartByLocationIndex(monster_index);
             if (monster_info != 0) {
-                wcscpy(text, GetMonsterName(monster_info, 0, 0));
-                wcscat(text, L" (");
-                FormatMonsterHealth(monster_info, health);
-                wcscat(text, health);
-                wcscat(text, L")");
+                text = GetMonsterName(monster_info, 0, 0);
+                text += " (";
+                health = FormatMonsterHealth(monster_info);
+                text += health;
+                text += ")";
                 VideoToolTip(text);
                 PositionSelectionToolTip(point);
             }
@@ -6718,7 +6701,7 @@ void SetCombatTarget(int value)
         SGPMouseGetPos(&point);
         item = ItemInfo(ItemIndex(g_level_block->selected_item));
         if (item != 0) {
-            wchar_t* text = FormatItemDisplayName(&item->item, true);
+            auto text = FormatItemDisplayName(&item->item, true);
 
             VideoToolTip(text);
             PositionSelectionToolTip(point);
@@ -6780,9 +6763,8 @@ static void DrawMainGamePrompt(void)
         bounds.top = 0x13f;
         bounds.right = 0x1cf;
         bounds.bottom = 0x153;
-        buffer = new W8TextBuffer(&bounds, 0, g_W8TextBufferAlignMiddle | g_W8TextBufferAlignCenter,
-                                  0, 4);
-        buffer->RenderString(gppStringList[gXStatus.fCombatMode ? 0x780 : 0x77f],
+        buffer = new W8TextBuffer(&bounds, {}, g_W8TextBufferAlignMiddle | g_W8TextBufferAlignCenter, 0, 4);
+        buffer->RenderString(g_localized_strings[gXStatus.fCombatMode ? 0x780 : 0x77f],
                              g_wiz_text_font_secondary, false, FRAME_BUFFER);
         delete buffer;
     }
@@ -7335,7 +7317,7 @@ void OpenMonsterInfoDialog(int location_id)
         return;
     }
     W8MonsterInfoDialog* dialog = new W8MonsterInfoDialog(location_id);
-    dialog->SetText(&g_empty_wide_string);
+    dialog->SetText(&g_empty_text);
     dialog->m_destroy_callback = InvalidateMainGameScreen;
     g_modal_owner = dialog;
     ActivateDialogRegion(0x138);
@@ -7357,7 +7339,7 @@ void OpenAssayDialog(W8ItemInstance* item, int character_slot)
     } else {
         dialog = new W8AssayDialog(item, 0);
     }
-    dialog->SetText(&g_empty_wide_string);
+    dialog->SetText(&g_empty_text);
     dialog->SetOrigin(g_info_dialog_x, 0x48);
     dialog->m_destroy_callback = InvalidateMainGameScreen;
     g_modal_owner = dialog;
@@ -7465,11 +7447,9 @@ void W8NpcDialogueTextController::SaveTranscriptEntries()
 
     ClearNpcDialogueTranscript();
     for (index = 0; index < text_area.m_all_lines.GetCount(); ++index) {
-        record =
-            static_cast<W8DialogueTranscriptRecord*>(malloc(sizeof(W8DialogueTranscriptRecord)));
-        memset(record, 0, sizeof(W8DialogueTranscriptRecord));
+        record = new W8DialogueTranscriptRecord{};
         entry = text_area.GetEntry(index);
-        entry->CopyTextTo(record->text);
+        record->text = entry->GetText();
         record->category = entry->m_category;
         g_npc_interaction_state->dialogue_transcript.Add(record);
     }
@@ -7693,7 +7673,7 @@ void ShowNpcTradeItemNotice(W8ItemInstance* item)
         ShowNotice(font_palette, FormatItemDisplayName(item, true), 2);
         return;
     }
-    swprintf(g_level_block->text_paint_scratch, L"%d%s", price, gppStringList[0x797]);
+    wiz8::text::copy(g_level_block->text_paint_scratch, FormatText("%d%s", price, g_localized_strings[0x797]));
     ShowNotice(font_palette, FormatItemDisplayName(item, true), 2,
                GetTextBoxScrollRange() -
                    StringPixLength(g_level_block->text_paint_scratch, GetTextBoxFont()));
@@ -7760,9 +7740,9 @@ static void ShowNpcPlayerTradeItem(W8ItemInstance* item, bool acceptable, unsign
             CalculateNpcTradeStackPrice(g_npc_interaction_state->dialogue_npc, item->iItemNo,
                                         W8_TRADE_PRICE_PARTY_SELLS, count, item->identified);
         if (acceptable) {
-            swprintf(g_level_block->text_paint_scratch, L"%d%s", price, gppStringList[0x797]);
+            wiz8::text::copy(g_level_block->text_paint_scratch, FormatText("%d%s", price, g_localized_strings[0x797]));
         } else {
-            swprintf(g_level_block->text_paint_scratch, L"---");
+            wiz8::text::copy(g_level_block->text_paint_scratch, FormatText("---"));
         }
         ShowNotice(font_palette, FormatItemDisplayName(item, true), 2,
                    GetTextBoxScrollRange() -
@@ -7783,9 +7763,8 @@ void PopulateNpcTradeList(void)
     ResetNpcDialogueItemEditor();
     EnableNpcTradeFilterButtons();
     if (g_npc_interaction_state->trade_mode == W8_NPC_TRADE_GIVE) {
-        swprintf(g_level_block->text_paint_scratch, L"%d%s", g_status.party_gold,
-                 gppStringList[0x797]);
-        ShowNotice(W8_FONT_PALETTE_TEXT_BOX, gppStringList[0x72d], 2,
+        wiz8::text::copy(g_level_block->text_paint_scratch, FormatText("%d%s", g_status.party_gold, g_localized_strings[0x797]));
+        ShowNotice(W8_FONT_PALETTE_TEXT_BOX, g_localized_strings[0x72d], 2,
                    GetTextBoxScrollRange() -
                        StringPixLength(g_level_block->text_paint_scratch, GetTextBoxFont()));
         AppendTextBoxLine(g_level_block->text_paint_scratch, 2);
@@ -7871,7 +7850,7 @@ void OpenNpcTradeQuantityDialog(void)
             new W8SplitItemDialog(g_item_split_inventory_mode, g_npc_interaction_state->trade_item,
                                   g_npc_interaction_state->trade_quantity);
     }
-    dialog->SetText(&g_empty_wide_string);
+    dialog->SetText(&g_empty_text);
     dialog->SetOrigin(g_split_dialog_x, g_split_dialog_y);
     dialog->m_destroy_callback = NpcTradeSplitDialogResult;
     OpenModal(dialog);
@@ -7939,14 +7918,14 @@ bool ValidateNpcTradeSelection(void)
 // FUNCTION: WIZ8 0x005AE2A0
 bool AttemptNpcItemTrade(W8ItemInstance* item, unsigned char quantity, int index)
 {
-    wchar_t text[200];
+    std::string text;
     char result;
     W8Character* character = &g_status.buffers.Char[g_status.selected_character];
 
     result = AttemptNpcItemTheft(character, g_npc_interaction_state->dialogue_npc, item->iItemNo,
                                  quantity);
     if (result == W8_ITEM_THEFT_SUCCEEDED) {
-        swprintf(text, gppStringList[0x74d], character->name, GetItemDisplayName(item));
+        text = FormatText(g_localized_strings[0x74d], character->name, GetItemDisplayName(item));
         DisplayNpcQuote(text, true);
         if (g_item_records[item->iItemNo].identify_difficulty != 0 && quantity == 1) {
             AddNpcTopic(g_npc_interaction_state->dialogue_npc, item->iItemNo);
@@ -7975,7 +7954,7 @@ bool AttemptNpcItemTrade(W8ItemInstance* item, unsigned char quantity, int index
         return true;
     }
     if (result == W8_ITEM_THEFT_FAILED) {
-        swprintf(text, gppStringList[0x74f], character->name);
+        text = FormatText(g_localized_strings[0x74f], character->name);
         DisplayNpcQuote(text, false);
         return false;
     }
@@ -7996,7 +7975,7 @@ bool AttemptNpcItemTrade(W8ItemInstance* item, unsigned char quantity, int index
 // FUNCTION: WIZ8 0x0055E490
 void W8NpcDialogueTextController::SelectTranscriptKeywordAtPoint(int x, int y)
 {
-    wchar_t keyword[200];
+    std::string keyword;
     unsigned int hit;
 
     if (g_npc_interaction_state->modal_dialog_open) {

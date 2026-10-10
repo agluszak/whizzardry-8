@@ -1,3 +1,6 @@
+#include <string_view>
+#include "wiz8/unicode.h"
+#include "wiz8/retail_text_records.h"
 #include "wiz8/filesystem.h"
 #include "wiz8/engine_code/AnimRep.hpp"
 #include "wiz8/float_constants.h"
@@ -505,7 +508,7 @@ bool LoadSpellVisualResource(const W8GrCycleLoadContext* context, const char* na
     unsigned char more = 1;
     bool success = true;
     char path[100];
-    sprintf(path, "data\\Spells\\%s.mls", name);
+    snprintf(path, sizeof(path), "data\\Spells\\%s.mls", name);
     std::unique_ptr<wiz8::File> handle = [&]() { try { return wiz8::open_file(path, wiz8::OpenMode::read); } catch (const std::exception&) { return std::unique_ptr<wiz8::File>{}; } }();
     *visual = 0;
     if (handle == 0) {
@@ -577,7 +580,7 @@ bool LoadSpellVisualResource(const W8GrCycleLoadContext* context, const char* na
             sscanf(line, "%s %s %d %s %s", pac_command, pac_name, &frame, pac_value, loop_name);
             index = FindSpellCycleByName(pac_name);
             if (*visual != 0 && (*visual)->IsCycleSupported(static_cast<signed char>(index))) {
-                sprintf(wave_path, "Data\\Spells\\Sounds\\%s.WAV", pac_value);
+                snprintf(wave_path, sizeof(wave_path), "Data\\Spells\\Sounds\\%s.WAV", pac_value);
                 event = CreateSoundEvent(sound_type, index, frame, 0, wave_path,
                                          _stricmp(loop_name, "LOOP") == 0);
                 if (event != 0) {
@@ -591,7 +594,7 @@ bool LoadSpellVisualResource(const W8GrCycleLoadContext* context, const char* na
         handle.reset();
         if (*visual == 0) {
             srAssertFail("*ppSpell", "C:\\Projects\\Wizardry 8\\Engine Code\\Spells.cpp", 0x365,
-                         FormatString("Spell %s missing cycle of type %d", name, group));
+                         FormatText("Spell %s missing cycle of type %d", name, group));
         }
         (*visual)->host->billboard = false;
         (*visual)->host->pending_behaviour = W8_ANIMATION_PLAY_ONCE;
@@ -716,10 +719,10 @@ int W8SpellVisual::QueryHostStateByKind(int arg_kind)
    The visual joins the world's list, is positioned, and carries the caller's
    two extra arguments. The power level picks the EXPLOSION row. */
 // FUNCTION: WIZ8 0x004ad430
-W8SpellVisual* SpawnSpellEffect(const srVector3T<float>* position, const char* resource_name,
+W8SpellVisual* SpawnSpellEffect(const srVector3T<float>* position, std::string_view resource_name,
                                 int power_level, int value, int flags)
 {
-    if (resource_name == 0 || strlen(resource_name) == 0) {
+    if (resource_name.empty()) {
         srAssertFail("pMLS && strlen(pMLS)", "C:\\Projects\\Wizardry 8\\Engine Code\\Spells.cpp",
                      0x8b4, 0);
     }
@@ -730,9 +733,9 @@ W8SpellVisual* SpawnSpellEffect(const srVector3T<float>* position, const char* r
     bool loaded = false;
     int cycle = -1;
 
-    if (resource_name != 0) {
+    if (!resource_name.empty()) {
         loaded =
-            LoadSpellVisualResource(&context, resource_name, W8_SPELL_VISUAL_EXPLOSION, &visual, 1);
+            LoadSpellVisualResource(&context, std::string(resource_name).c_str(), W8_SPELL_VISUAL_EXPLOSION, &visual, 1);
     }
     if (loaded) {
         visual->SetNavigationMode(4);
@@ -772,9 +775,9 @@ W8SpellVisual* SpawnSpellEffect(const srVector3T<float>* position, const char* r
    visual is placed at the camera and turned to face the camera's yaw/pitch;
    the power level picks the FLASH row. */
 // FUNCTION: WIZ8 0x004ad080
-W8SpellVisual* SpawnCameraSpellEffect(const char* name, int power_level, int value, int flags)
+W8SpellVisual* SpawnCameraSpellEffect(std::string_view name, int power_level, int value, int flags)
 {
-    if (name == 0 || strlen(name) == 0) {
+    if (name.empty()) {
         srAssertFail("pMLS && strlen(pMLS)", "C:\\Projects\\Wizardry 8\\Engine Code\\Spells.cpp",
                      0x879, 0);
     }
@@ -785,8 +788,8 @@ W8SpellVisual* SpawnCameraSpellEffect(const char* name, int power_level, int val
     W8SpellVisual* generic;
     int cycle = -1;
 
-    if (name != 0) {
-        if (LoadSpellVisualResource(&context, name, W8_SPELL_VISUAL_FLASH, &visual, 1)) {
+    if (!name.empty()) {
+        if (LoadSpellVisualResource(&context, std::string(name).c_str(), W8_SPELL_VISUAL_FLASH, &visual, 1)) {
             visual->SetNavigationMode(4);
             visual->active = false;
             visual->SetPitchRollEnabled(true, true);
@@ -839,10 +842,10 @@ placed:
    larger bound extent. Requires a monster; falls back to the Generic
    resource like above. The power level picks the TARGET row. */
 // FUNCTION: WIZ8 0x004ad630
-W8SpellVisual* CreateMonsterSpellEffect(const char* mls_name, int power_level, W8Monster* monster,
+W8SpellVisual* CreateMonsterSpellEffect(std::string_view mls_name, int power_level, W8Monster* monster,
                                         int value, int flags)
 {
-    if (mls_name == 0 || strlen(mls_name) == 0) {
+    if (mls_name.empty()) {
         srAssertFail("pMLS && strlen(pMLS)", "C:\\Projects\\Wizardry 8\\Engine Code\\Spells.cpp",
                      0x8e9, 0);
     }
@@ -856,8 +859,8 @@ W8SpellVisual* CreateMonsterSpellEffect(const char* mls_name, int power_level, W
     W8SpellVisual* generic;
     int cycle = -1;
 
-    if (mls_name != 0) {
-        if (LoadSpellVisualResource(&context, mls_name, W8_SPELL_VISUAL_TARGET, &visual, 1)) {
+    if (!mls_name.empty()) {
+        if (LoadSpellVisualResource(&context, std::string(mls_name).c_str(), W8_SPELL_VISUAL_TARGET, &visual, 1)) {
             visual->SetNavigationMode(4);
             visual->active = false;
             visual->SetPitchRollEnabled(true, true);
@@ -910,7 +913,7 @@ placed:
     return visual;
 }
 
-static W8SpellVisual* CreateConeSpellVisual(const char* mls_name, int power_level, int value,
+static W8SpellVisual* CreateConeSpellVisual(std::string_view mls_name, int power_level, int value,
                                             int flags)
 {
     W8GrCycleLoadContext context;
@@ -920,8 +923,8 @@ static W8SpellVisual* CreateConeSpellVisual(const char* mls_name, int power_leve
     W8SpellVisual* generic;
     int cycle = -1;
 
-    if (mls_name != 0) {
-        if (LoadSpellVisualResource(&context, mls_name, W8_SPELL_VISUAL_CONE, &visual, 1)) {
+    if (!mls_name.empty()) {
+        if (LoadSpellVisualResource(&context, std::string(mls_name).c_str(), W8_SPELL_VISUAL_CONE, &visual, 1)) {
             visual->SetNavigationMode(4);
             visual->active = false;
             visual->SetPitchRollEnabled(true, true);
@@ -962,10 +965,10 @@ selected:
    the camera's rotation. Falls back to the Generic resource like above. The
    power level picks the CONE row. */
 // FUNCTION: WIZ8 0x004ad8a0
-W8SpellVisual* CreateAttachedSpellEffect(const char* mls_name, int power_level, W8Monster* parent,
+W8SpellVisual* CreateAttachedSpellEffect(std::string_view mls_name, int power_level, W8Monster* parent,
                                          int value, int flags)
 {
-    if (mls_name == 0 || strlen(mls_name) == 0) {
+    if (mls_name.empty()) {
         srAssertFail("pMLS && strlen(pMLS)", "C:\\Projects\\Wizardry 8\\Engine Code\\Spells.cpp",
                      0x93f, 0);
     }
@@ -1008,11 +1011,11 @@ W8SpellVisual* CreateAttachedSpellEffect(const char* mls_name, int power_level, 
    helpers. The supplied transform is fixed: mode-3 updates do not re-follow
    the monster or camera. */
 // FUNCTION: WIZ8 0x004adb20
-W8SpellVisual* CreateAimedSpellEffect(const char* mls_name, int power_level,
+W8SpellVisual* CreateAimedSpellEffect(std::string_view mls_name, int power_level,
                                       srVector3T<float>* position, glm::mat3* rotation,
                                       int value, int flags)
 {
-    if (mls_name == 0 || strlen(mls_name) == 0) {
+    if (mls_name.empty()) {
         srAssertFail("pMLS && strlen(pMLS)", "C:\\Projects\\Wizardry 8\\Engine Code\\Spells.cpp",
                      0x991, 0);
     }
@@ -1224,7 +1227,7 @@ void SetMonsterSpellIcon(W8Monster* pMonster, W8MonsterSpellIconId iIcon, bool a
         pSpellMI = static_cast<W8MonsterSpellIcon*>(malloc(sizeof(*pSpellMI)));
         pSpellMI->icon = SPELL_ICON_DRAINED;
         pSpellMI->psrBMO = 0;
-        sprintf(path, "%s\\%s_A.TGA", "Data\\Icons\\MonsterSpells",
+        snprintf(path, sizeof(path), "%s\\%s_A.TGA", "Data\\Icons\\MonsterSpells",
                 g_monster_spell_icon_names[iIcon]);
         pSpellMI->icon = iIcon;
         pSpellMI->psrBMO = CreateMonsterIconItem(g_world, path, 1);
@@ -1256,7 +1259,7 @@ stSound3D::stSound3D(const char* name, srNode* parent)
         setParent(parent, 0);
     }
     wave_name = 0;
-    if (name != 0) {
+    if (name != nullptr) {
         wave_name = static_cast<char*>(malloc(strlen(name) + 1));
         strcpy(wave_name, name);
     }
@@ -1271,7 +1274,7 @@ stSound3D::stSound3D(const char* name, srNode* parent)
 // FUNCTION: WIZ8 0x004AEAA0
 stSound3D::~stSound3D()
 {
-    if (wave_name != 0) {
+    if (wave_name != nullptr) {
         free(wave_name);
     }
     if (sound_handle != -1) {
@@ -1548,7 +1551,7 @@ try
         }
         ok = false;
         if ((handle->seek(0x101, wiz8::SeekOrigin::current), true) &&
-            (handle->read(&g_spell_records[index], sizeof(W8SpellRuntimeRecord)).bytes == static_cast<std::size_t>(sizeof(W8SpellRuntimeRecord)))) {
+            (wiz8::retail::read(*handle, g_spell_records[index]).bytes == wiz8::retail::kSpellRuntimeRecordBytes)) {
             ok = true;
         }
     }

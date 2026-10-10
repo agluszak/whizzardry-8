@@ -72,12 +72,12 @@ static void BeginPartyCamping()
     }
     if (!AnyCharacterEngaged()) {
         gXStatus.surprise_unengaged = true;
-        ShowNotice(W8_FONT_PALETTE_BEIGE, gppStringList[0x794]);
+        ShowNotice(W8_FONT_PALETTE_BEIGE, g_localized_strings[0x794]);
     } else {
         gXStatus.surprise_unengaged = false;
-        ShowNoticef(W8_FONT_PALETTE_BEIGE, gppStringList[0x790], 8);
+        ShowNoticef(W8_FONT_PALETTE_BEIGE, g_localized_strings[0x790], 8);
     }
-    SetNpcQuoteBubbleVisible(false, 0, 0, -1, 0xffffffff);
+    SetNpcQuoteBubbleVisible(false, {}, 0, -1, 0xffffffff);
     BeginSurprise();
     gXStatus.fSurprisePossible = true;
     EnableRegionInput(0x137);
@@ -199,7 +199,7 @@ void RequestCamp(void)
         return;
     }
     if (gXStatus.fCombatMode) {
-        ShowNotice(W8_FONT_PALETTE_BEIGE, gppStringList[0x774]);
+        ShowNotice(W8_FONT_PALETTE_BEIGE, g_localized_strings[0x774]);
         return;
     }
     if (!HasLevelDataVector() && HasLevelWalkableContact()) {
@@ -212,7 +212,7 @@ void RequestCamp(void)
         BeginPartyCamping();
         return;
     }
-    ShowNotice(W8_FONT_PALETTE_BEIGE, gppStringList[0x796]);
+    ShowNotice(W8_FONT_PALETTE_BEIGE, g_localized_strings[0x796]);
 }
 
 /* Complete the pending character events, reset the occupied slots' portrait
@@ -295,7 +295,7 @@ void UpdateSurpriseMode(void)
 void AcknowledgeSurprise(void)
 {
     if (gXStatus.surprise_unengaged && !gXStatus.fCombatMode) {
-        ShowNotice(W8_FONT_PALETTE_BEIGE, gppStringList[0x794]);
+        ShowNotice(W8_FONT_PALETTE_BEIGE, g_localized_strings[0x794]);
         return;
     }
     ResolveSurpriseHold();
@@ -327,19 +327,19 @@ void EndSurprise(void)
     ClearActiveRegionIfMatches(0x137);
     DisableRegionInput(0x137);
 
-    const wchar_t* text;
+    std::string text;
     if (!gXStatus.surprise_unengaged) {
         if (gXStatus.surprise_deadline_turns == 0) {
-            text = gppStringList[0x793];
+            text = g_localized_strings[0x793];
         } else if (gXStatus.surprise_deadline_turns <
                    static_cast<unsigned int>(g_status.world_clock)) {
-            text = gppStringList[0x791];
+            text = g_localized_strings[0x791];
         } else {
-            text = gppStringList[0x792];
+            text = g_localized_strings[0x792];
         }
     } else {
         gXStatus.surprise_unengaged = false;
-        text = AnyCharacterEngaged() ? gppStringList[0x795] : gppStringList[0x792];
+        text = AnyCharacterEngaged() ? g_localized_strings[0x795] : g_localized_strings[0x792];
     }
     ShowNotice(W8_FONT_PALETTE_BEIGE, text);
 
@@ -385,8 +385,8 @@ void ResolveSurpriseWake(void)
                 static_cast<int>(Random(100)) - 0x14 -
                 static_cast<int>(character->attributes[W8_ATTRIBUTE_SENSES].effective * 0x46 / 100);
             if (roll < 1) {
-                PostCharacterNotice(slot, gppStringList[0x243],
-                                    gppStringList[g_condition_notices[W8_CONDITION_ASLEEP].name]);
+                PostCharacterNotice(slot, g_localized_strings[0x243],
+                                    g_localized_strings[g_condition_notices[W8_CONDITION_ASLEEP].name]);
             } else {
                 SetCharacterCondition(slot, W8_CONDITION_ASLEEP, roll / 0x1e + 1, 0, 0, 0);
             }
@@ -484,7 +484,7 @@ static bool AgePartyEffectSlot(W8EffectSlot* slot, unsigned int minutes)
         slot->duration -= minutes;
         return false;
     }
-    ShowNoticef(W8_FONT_PALETTE_BEIGE, gppStringList[0x1b4],
+    ShowNoticef(W8_FONT_PALETTE_BEIGE, g_localized_strings[0x1b4],
                 g_spell_records[slot->effect_id].display_name);
     if (GetViewDistance() != g_encounter_culling_rate) {
         SoundPlay("Data\\Sound\\Misc\\Spell Expiry.wav", 0);
@@ -649,8 +649,8 @@ void GameTurnsPassedChar(int party_slot, unsigned int minutes)
                     ++character->attributes[attribute].change_counter;
                     ApplyAttributeChange(character, static_cast<W8Attribute>(attribute));
                     PostCharacterNotice(
-                        party_slot, gppStringList[0x270],
-                        gppStringList[g_character_description_first_ids[attribute]]);
+                        party_slot, g_localized_strings[0x270],
+                        g_localized_strings[g_character_description_first_ids[attribute]]);
                 }
                 break;
             }
@@ -663,9 +663,9 @@ void GameTurnsPassedChar(int party_slot, unsigned int minutes)
                     character->uiHPMax -= loss;
                     character->hp_adjustment -= loss;
                     if (loss == 1) {
-                        PostCharacterNotice(party_slot, gppStringList[0x26e]);
+                        PostCharacterNotice(party_slot, g_localized_strings[0x26e]);
                     } else {
-                        PostCharacterNotice(party_slot, gppStringList[0x26f], loss);
+                        PostCharacterNotice(party_slot, g_localized_strings[0x26f], loss);
                     }
                     unsigned int current = character->hp_current;
                     if (1 < current) {
@@ -685,7 +685,7 @@ void GameTurnsPassedChar(int party_slot, unsigned int minutes)
                     unsigned int loss = Random(4) + 1;
                     character->uiStaminaMax -= loss;
                     character->fatigue_penalty += loss;
-                    PostCharacterNotice(party_slot, gppStringList[0x271], loss);
+                    PostCharacterNotice(party_slot, g_localized_strings[0x271], loss);
                     int stamina = character->stamina;
                     if (1 < stamina) {
                         if (loss >= stamina - 1U) {
@@ -1321,7 +1321,7 @@ void UpdateCampFatigue(int ticks)
             }
             if (!g_status.party_fatigued) {
                 g_status.party_fatigued = true;
-                ShowNotice(W8_FONT_PALETTE_WHITE, gppStringList[0x1da]);
+                ShowNotice(W8_FONT_PALETTE_WHITE, g_localized_strings[0x1da]);
             }
         }
     }

@@ -1,9 +1,13 @@
+#include <utf8.h>
+#include <string>
 #include "random.h"
+#include "wiz8/unicode.h"
+#include <vector>
+#include <span>
 #include "wiz8/compat/unaligned.h"
 #include "wiz8/3d_code/PList.h"
 #include "wiz8/3d_code/IList.h"
 #include "wiz8/local_screens/MGSTextBox.h"
-#include "wiz8/sgp_text.h"
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/local_screens/MGSUseItemSelect.h"
 #include "wiz8/local_screens/MGSSpellCasting.h"
@@ -42,7 +46,6 @@
 #include <stdio.h>
 #include <stddef.h>
 #include <string.h>
-#include <wchar.h>
 // GLOBAL: WIZ8 0x0068f2d4
 W8MainGameScreen* g_main_game_screen;
 
@@ -57,7 +60,7 @@ struct W8MessageStorageDiskRecord {
     unsigned char highlight_color;
     unsigned char highlight_start;
     unsigned char highlight_stop;
-    uint64_t clock;
+    std::uint32_t clock; // Retail stores 32 bits; live deadlines use the native 64-bit clock.
     UINT32 saved_remaining_ms;
     int link;
     int length;
@@ -65,30 +68,27 @@ struct W8MessageStorageDiskRecord {
     unsigned char trailing_bytes[8];
 };
 
-W8_ABI_ASSERT(sizeof(W8MessageStorageDiskRecord) == 0x24,
+static_assert(sizeof(W8MessageStorageDiskRecord) == 0x24,
               "W8MessageStorageDiskRecord_must_be_0x24");
-W8_ABI_ASSERT(offsetof(W8MessageStorageDiskRecord, character_count) == 0x00,
+static_assert(offsetof(W8MessageStorageDiskRecord, character_count) == 0x00,
               "W8MessageStorageDiskRecord_count_offset");
-W8_ABI_ASSERT(offsetof(W8MessageStorageDiskRecord, font_palette) == 0x04,
+static_assert(offsetof(W8MessageStorageDiskRecord, font_palette) == 0x04,
               "W8MessageStorageDiskRecord_byte_fields_offset");
-W8_ABI_ASSERT(offsetof(W8MessageStorageDiskRecord, highlight_stop) == 0x07,
+static_assert(offsetof(W8MessageStorageDiskRecord, highlight_stop) == 0x07,
               "W8MessageStorageDiskRecord_last_byte_field_offset");
-W8_ABI_ASSERT(offsetof(W8MessageStorageDiskRecord, clock) == 0x08,
+static_assert(offsetof(W8MessageStorageDiskRecord, clock) == 0x08,
               "W8MessageStorageDiskRecord_scalar_fields_offset");
-W8_ABI_ASSERT(offsetof(W8MessageStorageDiskRecord, saved_remaining_ms) == 0x0c,
+static_assert(offsetof(W8MessageStorageDiskRecord, saved_remaining_ms) == 0x0c,
               "W8MessageStorageDiskRecord_saved_remaining_ms_offset");
-W8_ABI_ASSERT(offsetof(W8MessageStorageDiskRecord, link) == 0x10,
+static_assert(offsetof(W8MessageStorageDiskRecord, link) == 0x10,
               "W8MessageStorageDiskRecord_link_offset");
-W8_ABI_ASSERT(offsetof(W8MessageStorageDiskRecord, length) == 0x14,
+static_assert(offsetof(W8MessageStorageDiskRecord, length) == 0x14,
               "W8MessageStorageDiskRecord_length_offset");
-W8_ABI_ASSERT(offsetof(W8MessageStorageDiskRecord, serialized_entries_18_bits) == 0x18,
+static_assert(offsetof(W8MessageStorageDiskRecord, serialized_entries_18_bits) == 0x18,
               "W8MessageStorageDiskRecord_entries_bits_offset");
-W8_ABI_ASSERT(offsetof(W8MessageStorageDiskRecord, trailing_bytes) == 0x1c,
+static_assert(offsetof(W8MessageStorageDiskRecord, trailing_bytes) == 0x1c,
               "W8MessageStorageDiskRecord_trailing_offset");
-W8_ABI_ASSERT(sizeof(w8_ulong) == 4, "W8MessageStorageDiskRecord_requires_32_bit_words");
-W8_ABI_ASSERT(sizeof(W8PList*) == sizeof(w8_ulong),
-              "W8MessageStorageDiskRecord_requires_32_bit_live_pointers");
-
+static_assert(sizeof(w8_ulong) == 4, "W8MessageStorageDiskRecord_requires_32_bit_words");
 // GLOBAL: WIZ8 0x0069b7b8
 static unsigned char g_text_box_mode;
 // GLOBAL: WIZ8 0x0069b7bc
@@ -105,35 +105,28 @@ static int g_text_box_value = W8_FONT_PALETTE_BEIGE;
 // GLOBAL: WIZ8 0x0068f2d8
 W8MessageStorageRecord g_message_storage[4][0x15e];
 
-static void AppendNoticeLine(unsigned char font_palette, const wchar_t* text, short text_box,
+static void AppendNoticeLine(unsigned char font_palette, std::string_view text, short text_box,
                              int wrapped_line);
 
 // FUNCTION: WIZ8 0x0058fdd0
-static int GetNextNoticeWord(int cursor, const wchar_t* text, W8NoticeWord* word)
+static int GetNextNoticeWord(int cursor, const char* text, W8NoticeWord* word)
 {
-    wchar_t buffer[150];
-    int length = 0;
-    buffer[0] = 0;
-    while (text[cursor] == L' ') {
+    const std::string_view value(text);
+    while (static_cast<std::size_t>(cursor) < value.size() && value[cursor] == ' ') {
         ++cursor;
     }
-    if (text[cursor] == 0) {
+    if (static_cast<std::size_t>(cursor) >= value.size()) {
         return -1;
     }
-    word->start = static_cast<short>(cursor);
-    // SGP's read-only font API predates const-correct declarations.
-    word->x_start =
-        StringPixLengthArg(g_level_block->text_box_font, cursor, const_cast<wchar_t*>(text));
-    while (text[cursor] != L' ' && text[cursor] != 0) {
-        buffer[length++] = text[cursor++];
-    }
-    if (length != 0) {
-        word->end = static_cast<short>(cursor - 1);
-        buffer[length] = 0;
-        word->x_end = StringPixLength(buffer, g_level_block->text_box_font) + word->x_start;
-        return cursor;
-    }
-    return -1;
+    const auto start = static_cast<std::size_t>(cursor);
+    auto end = value.find(' ', start);
+    if (end == std::string_view::npos) end = value.size();
+    word->start = start;
+    word->end = end - 1;
+    word->x_start = StringPrefixPixelWidth(value, start, g_level_block->text_box_font);
+    word->x_end = word->x_start + StringPixLength(value.substr(start, end - start),
+                                                g_level_block->text_box_font);
+    return static_cast<int>(end);
 }
 
 /* Rebuild every stored line's word list from its string - used when the text
@@ -153,7 +146,7 @@ void W8MessageStorageRecord::RebuildEntries()
     }
     int cursor = 0;
     W8NoticeWord word;
-    while ((cursor = GetNextNoticeWord(cursor, wString, &word)) != -1) {
+    while ((cursor = GetNextNoticeWord(cursor, text.c_str(), &word)) != -1) {
         W8NoticeWord* stored = static_cast<W8NoticeWord*>(malloc(sizeof(W8NoticeWord)));
         *stored = word;
         stored->keyword = W8_NOTICE_WORD_NORMAL;
@@ -171,7 +164,7 @@ void ResetMessageStorage(void)
     for (row = 0; row < 4; ++row) {
         for (index = 0; index < 0x15e; ++index) {
             W8MessageStorageRecord* record = &g_message_storage[row][index];
-            if (record->wString == 0) {
+            if (record->text.empty()) {
                 continue;
             }
             record->RebuildEntries();
@@ -217,7 +210,7 @@ static short ResolveNoticeTextBox(short text_box)
 }
 
 // FUNCTION: WIZ8 0x0058af60
-static void AppendNoticeLine(unsigned char font_palette, const wchar_t* text, short text_box,
+static void AppendNoticeLine(unsigned char font_palette, std::string_view text, short text_box,
                              int wrapped_line)
 {
     text_box = ResolveNoticeTextBox(text_box);
@@ -229,10 +222,7 @@ static void AppendNoticeLine(unsigned char font_palette, const wchar_t* text, sh
     }
     if (g_status.text_box_lines_used[text_box] == 350) {
         W8MessageStorageRecord* first = &g_message_storage[text_box][0];
-        if (first->wString) {
-            free(first->wString);
-            first->wString = 0;
-        }
+        first->text.clear();
         if (first->entries) {
             W8PList* entries = first->entries;
             int count = PLLength(entries);
@@ -243,8 +233,11 @@ static void AppendNoticeLine(unsigned char font_palette, const wchar_t* text, sh
             PLDestroy(first->entries);
             first->entries = 0;
         }
-        memmove(first, first + 1, 349 * sizeof(*first));
-        memset(first + 349, 0, sizeof(*first));
+        for (int i = 0; i < 349; ++i) {
+            first[i] = std::move(first[i + 1]);
+            first[i + 1].entries = nullptr;
+        }
+        first[349] = {};
         --g_status.text_box_lines_used[text_box];
         if (g_status.text_box_lines_shown[text_box] != 0) {
             --g_status.text_box_lines_shown[text_box];
@@ -255,12 +248,9 @@ static void AppendNoticeLine(unsigned char font_palette, const wchar_t* text, sh
     }
     unsigned int index = g_status.text_box_lines_used[text_box]++;
     W8MessageStorageRecord* record = &g_message_storage[text_box][index];
-    record->wString = static_cast<wchar_t*>(malloc((wcslen(text) + 1) * sizeof(wchar_t)));
-    if (record->wString) {
-        wcscpy(record->wString, text);
-        record->entries = 0;
-        record->RebuildEntries();
-    }
+    record->text.assign(text);
+    record->entries = nullptr;
+    record->RebuildEntries();
     record->font_palette = font_palette;
     record->highlight_color = 0xff;
     record->link = wrapped_line;
@@ -275,7 +265,7 @@ static void AppendNoticeLine(unsigned char font_palette, const wchar_t* text, sh
         g_level_block->text_lines[3] = g_status.text_box_lines_used[3];
         W8MessageStorageRecord* last = &g_message_storage[3][g_status.text_box_lines_shown[3] - 1];
         unsigned int delay =
-            g_settings.text_display_delay_ms * (wcslen(last->wString) * 100 / 20 + 100) / 100;
+            g_settings.text_display_delay_ms * (wiz8::text::grapheme_count(last->text) * 100 / 20 + 100) / 100;
         if (delay > 60000) {
             delay = 60000;
         }
@@ -314,9 +304,11 @@ void SetTextBoxRegionBounds(int left, int top, int right, int bottom)
 }
 
 // FUNCTION: WIZ8 0x0058ac00
-void ShowNotice(unsigned int font_palette, const wchar_t* text, short text_box,
+void ShowNotice(unsigned int font_palette, std::string_view text_view, short text_box,
                 unsigned int wrap_width, bool force_dialog)
 {
+    const std::string owned_text(text_view);
+    const char* text = owned_text.c_str();
     IsMipeActive();
     if (g_level_block != 0 && (g_current_screen_state.id == W8_SCREEN_MAIN_GAME ||
                                (g_current_screen_state.id == W8_SCREEN_CAMP && !force_dialog) ||
@@ -334,67 +326,28 @@ void ShowNotice(unsigned int font_palette, const wchar_t* text, short text_box,
             g_status.long_quote = 0;
         }
         g_level_block->text_lines[8 + text_box] = 0;
-        if (static_cast<unsigned int>(StringPixLength(const_cast<wchar_t*>(text),
+        if (static_cast<unsigned int>(StringPixLength(const_cast<char*>(text),
                                                       g_level_block->text_box_font)) < wrap_width) {
             AppendNoticeLine(static_cast<unsigned char>(font_palette), text, text_box, 0);
         } else {
-            wchar_t line[4096];
-            bool more = true;
+            std::string_view remaining(text_view);
             int line_index = 0;
-            /* This repeated default-box selection is present in the retail
-               wrapping path as well as the unwrapped entry above. */
-            text_box = ResolveNoticeTextBox(text_box);
-            while (more) {
-                int words = 0;
-                wchar_t* output = line;
-                for (;;) {
-                    const wchar_t* word_start = text;
-                    wchar_t* output_start = output;
-                    *output = *text;
-                    output[1] = 0;
-                    if (*text == L'\n') {
-                        ++text;
-                        *output = 0;
+            while (!remaining.empty()) {
+                std::size_t end = 0, last_space = 0;
+                while (end < remaining.size() && remaining[end] != '\n') {
+                    const auto next = wiz8::text::next_grapheme(remaining, end);
+                    if (StringPixLength(remaining.substr(0, next), g_level_block->text_box_font) >= wrap_width && end) {
+                        if (last_space) end = last_space;
                         break;
                     }
-                    bool wrapped = false;
-                    for (;;) {
-                        if (static_cast<unsigned int>(StringPixLength(
-                                line, g_level_block->text_box_font)) >= wrap_width &&
-                            words != 0) {
-                            text = word_start;
-                            *output_start = 0;
-                            wrapped = true;
-                            break;
-                        }
-                        ++text;
-                        ++output;
-                        if (*text == L' ' || *text == L'\t' || *text == 0 || *text == L'\n') {
-                            break;
-                        }
-                        *output = *text;
-                        output[1] = 0;
-                    }
-                    if (wrapped) {
-                        break;
-                    }
-                    if (*text == 0) {
-                        more = false;
-                        break;
-                    }
-                    ++words;
+                    end = next;
+                    if (end < remaining.size() && (remaining[end] == ' ' || remaining[end] == '\t')) last_space = end;
                 }
-                AppendNoticeLine(static_cast<unsigned char>(font_palette), line, text_box,
-                                 line_index);
-                ++line_index;
-                if (more) {
-                    if (line_index == 1) {
-                        g_level_block->text_lines[8 + text_box] += wcslen(line);
-                    } else {
-                        g_level_block->text_lines[8 + text_box] = ~0U;
-                    }
-                }
-                line[0] = 0;
+                const auto line = remaining.substr(0, end);
+                AppendNoticeLine(static_cast<unsigned char>(font_palette), line, text_box, line_index++);
+                remaining.remove_prefix(end);
+                if (!remaining.empty() && remaining.front() == '\n') remaining.remove_prefix(1);
+                if (!remaining.empty()) g_level_block->text_lines[8 + text_box] = line_index == 1 ? line.size() : ~0U;
             }
         }
         if (g_status.quote_audit && g_notice_line_count > 7) {
@@ -431,11 +384,9 @@ void ReleaseMessageStorage(void)
     for (int row = 0; row < 4; ++row) {
         for (int index = 0; index < 0x15e; ++index) {
             W8MessageStorageRecord* record = &g_message_storage[row][index];
-            if (record->wString) {
-                free(record->wString);
-            }
+            record->text.clear();
             record->ClearEntries();
-            memset(record, 0, sizeof(*record));
+            *record = {};
         }
     }
 }
@@ -466,23 +417,31 @@ unsigned char SaveMessageStorage(wiz8::File* file)
         for (index = 0; index < g_status.text_box_lines_used[region]; ++index) {
             live_record = &g_message_storage[region][index];
             disk_record.character_count =
-                live_record->wString != 0
-                    ? static_cast<w8_ulong>(wcslen(live_record->wString) + 1)
+                !live_record->text.empty()
+                    ? static_cast<w8_ulong>(wiz8::text::to_utf16(live_record->text).size() + 1)
                     : 0;
             disk_record.font_palette = live_record->font_palette;
             disk_record.highlight_color = live_record->highlight_color;
-            disk_record.highlight_start = live_record->highlight_start;
-            disk_record.highlight_stop = live_record->highlight_stop;
-            disk_record.clock = live_record->clock;
+            disk_record.highlight_start = static_cast<unsigned char>(std::min<std::size_t>(255, wiz8::text::to_utf16(
+                std::string_view(live_record->text).substr(0, live_record->highlight_start)).size()));
+            disk_record.highlight_stop = static_cast<unsigned char>(std::min<std::size_t>(255, wiz8::text::to_utf16(
+                std::string_view(live_record->text).substr(0, live_record->highlight_stop)).size()));
+            disk_record.clock = static_cast<std::uint32_t>(live_record->clock);
             disk_record.saved_remaining_ms = live_record->saved_remaining_ms;
             disk_record.link = live_record->link;
-            disk_record.length = live_record->length;
+            disk_record.length = live_record->length < 0 ? -1 : static_cast<int>(
+                wiz8::text::to_utf16(std::string_view(live_record->text).substr(
+                    0, live_record->length)).size());
             memcpy(&disk_record.serialized_entries_18_bits, &live_record->entries,
                    sizeof(disk_record.serialized_entries_18_bits));
             memcpy(disk_record.trailing_bytes, live_record->unknown_1c,
                    sizeof(disk_record.trailing_bytes));
             file->write(&disk_record, sizeof(disk_record));
-            file->write(live_record->wString, disk_record.character_count * 2);
+            if (disk_record.character_count) {
+                std::vector<std::byte> bytes(static_cast<std::size_t>(disk_record.character_count) * 2);
+                wiz8::text::to_utf16le(live_record->text, bytes);
+                file->write(bytes.data(), bytes.size());
+            }
         }
     }
     return 1;
@@ -503,8 +462,6 @@ try
     int format;
     unsigned int region;
     unsigned int index;
-    unsigned int size;
-    wchar_t* text;
 
     ReleaseMessageStorage();
     file->read_exact(&format, 4);
@@ -514,6 +471,7 @@ try
         } else {
             file->read_exact(&g_status.text_box_lines_used[region], 4);
         }
+        if (g_status.text_box_lines_used[region] > 0x15e) return 0;
         for (index = 0; index < g_status.text_box_lines_used[region]; ++index) {
             file->read_exact(&disk_record, sizeof(disk_record));
             live_record = &g_message_storage[region][index];
@@ -528,12 +486,22 @@ try
             live_record->entries = 0;
             memcpy(live_record->unknown_1c, disk_record.trailing_bytes,
                    sizeof(live_record->unknown_1c));
-            size = disk_record.character_count * 2;
-            text = static_cast<wchar_t*>(malloc(disk_record.character_count * sizeof(*text)));
-            live_record->wString = text;
-            if (text != 0) {
-                file->read_exact(text, size);
-            }
+            if (disk_record.character_count > 100000) return 0;
+            std::vector<std::byte> bytes(static_cast<std::size_t>(disk_record.character_count) * 2);
+            file->read_exact(bytes.data(), bytes.size());
+            auto decoded = wiz8::text::from_utf16le(bytes);
+            auto byte_offset = [&](std::size_t units) {
+                std::size_t offset = 0, count = 0;
+                while (offset < decoded.size() && count < units) {
+                    auto cp = wiz8::text::next(decoded, offset);
+                    count += cp > 0xffff ? 2 : 1;
+                }
+                return offset;
+            };
+            live_record->highlight_start = byte_offset(disk_record.highlight_start);
+            live_record->highlight_stop = byte_offset(disk_record.highlight_stop);
+            if (disk_record.length >= 0) live_record->length = byte_offset(disk_record.length);
+            live_record->text = std::move(decoded);
         }
     }
     return 1;
@@ -570,28 +538,18 @@ void RedrawTextBox(void)
 }
 
 // FUNCTION: WIZ8 0x0058ab60
-void FormatNotice(int channel, short text_box, const wchar_t* format, ...)
+void FormatNoticeText(int channel, short text_box, std::string text)
 {
-    wchar_t text[4096];
-    va_list arguments;
-    va_start(arguments, format);
-    vswprintf(text, format, arguments);
-    va_end(arguments);
 
     text_box = ResolveNoticeTextBox(text_box);
     ShowNotice(channel, text, text_box);
 }
 
 // FUNCTION: WIZ8 0x0058aad0
-void ShowNoticef(unsigned int font_palette, const wchar_t* format, ...)
+void ShowNoticefText(unsigned int font_palette, std::string text)
 {
-    wchar_t text[4096];
-    va_list arguments;
     short text_box;
 
-    va_start(arguments, format);
-    vswprintf(text, format, arguments);
-    va_end(arguments);
 
     text_box = ResolveNoticeTextBox(-1);
     ShowNotice(font_palette, text, text_box);
@@ -627,35 +585,14 @@ void ScrollTextBoxToCursor(void)
    optional second argument is the box, -1 for the one the current game mode
    posts to. */
 // FUNCTION: WIZ8 0x0058B300
-void AppendTextBoxLine(const wchar_t* text, ...)
+void AppendTextBoxLine(std::string_view text, short text_box)
 {
-    va_list arguments;
-    va_start(arguments, text);
-    short text_box = static_cast<short>(va_arg(arguments, int));
-    va_end(arguments);
-
     text_box = ResolveNoticeTextBox(text_box);
-    W8MessageStorageRecord* line =
-        &g_message_storage[text_box][g_status.text_box_lines_used[text_box] - 1];
-    if (line->wString == 0) {
-        srAssertFail("pTextLine->wString != NULL", MGS_TEXT_BOX_CPP, 0x223, 0);
-    }
-    line->length = wcslen(line->wString);
-    wchar_t* previous = line->wString;
-    line->wString = static_cast<wchar_t*>(
-        malloc((wcslen(previous) + wcslen(text)) * sizeof(wchar_t) + sizeof(wchar_t)));
-    if (line->wString != 0) {
-        wcscpy(line->wString, previous);
-        wcscat(line->wString, text);
-        free(previous);
-    } else {
-        line->wString = previous;
-    }
+    auto& line = g_message_storage[text_box][g_status.text_box_lines_used[text_box] - 1];
+    line.length = line.text.size();
+    line.text.append(text);
 }
 
-/* Re-scroll the dialogue text box to the cursor's shown line. While the
-   dormant dialogue input owns that box its line count shifts the target; the
-   margin is one line in quiet modes and seven under an overlay. */
 // FUNCTION: WIZ8 0x0058BA60
 void ScrollDialogueTextBoxToLine(void)
 {
@@ -694,7 +631,7 @@ void ScrollDialogueTextBoxToLine(void)
    begins: a span ending before it recolours the previous row alone, one
    crossing it is cut in two, and one past it moves down by the split. */
 // FUNCTION: WIZ8 0x0058b410
-void HighlightTextBoxRange(unsigned char color, unsigned char start, unsigned char stop,
+void HighlightTextBoxRange(unsigned char color, std::size_t start, std::size_t stop,
                            short text_box)
 {
     W8MessageStorageRecord* line;
@@ -711,8 +648,8 @@ void HighlightTextBoxRange(unsigned char color, unsigned char start, unsigned ch
         srAssertFail("gStatus.uiTextBoxLinesUsed[iTextBuffer] > 0", MGS_TEXT_BOX_CPP, 0x261, 0);
     }
     line = &g_message_storage[text_box][g_status.text_box_lines_used[text_box] - 1];
-    if (!(line->wString != 0)) {
-        srAssertFail("pTextLine->wString != NULL", MGS_TEXT_BOX_CPP, 0x263, 0);
+    if (!(!line->text.empty())) {
+        srAssertFail("pTextLine->text != NULL", MGS_TEXT_BOX_CPP, 0x263, 0);
     }
     if (g_level_block->text_lines[8 + text_box] == static_cast<unsigned int>(-1)) {
         return;
@@ -736,7 +673,7 @@ void HighlightTextBoxRange(unsigned char color, unsigned char start, unsigned ch
             previous->highlight_stop = stop;
             return;
         }
-        previous->highlight_stop = static_cast<unsigned char>(wcslen(previous->wString));
+        previous->highlight_stop = previous->text.size();
         line->highlight_start = 0;
     }
     line->highlight_stop = stop - g_level_block->text_lines[8 + text_box];
@@ -749,9 +686,9 @@ void HighlightTextBoxRange(unsigned char color, unsigned char start, unsigned ch
    highlight span and clock. With the merge mode off the text posts as a new
    line instead. A -1 box means the one the current game mode posts to. */
 // FUNCTION: WIZ8 0x005905F0
-void AppendToLastTextLine(const wchar_t* text, short text_box)
+void AppendToLastTextLine(std::string_view text, short text_box)
 {
-    size_t length = wcslen(text);
+    size_t length = text.size();
     if (g_current_screen_state.id != W8_SCREEN_MAIN_GAME &&
         g_current_screen_state.id != W8_SCREEN_CAMP) {
         return;
@@ -766,21 +703,16 @@ void AppendToLastTextLine(const wchar_t* text, short text_box)
         srAssertFail("gStatus.uiTextBoxLinesUsed[iTextBuffer] > 0", MGS_TEXT_BOX_CPP, 0xf92, 0);
     }
     W8MessageStorageRecord* line = &g_message_storage[text_box][*lines_used - 1];
-    if (!(line->wString != 0)) {
-        srAssertFail("pTextLine->wString != NULL", MGS_TEXT_BOX_CPP, 0xf94, 0);
+    if (!(!line->text.empty())) {
+        srAssertFail("pTextLine->text != NULL", MGS_TEXT_BOX_CPP, 0xf94, 0);
     }
-    wchar_t* merged = static_cast<wchar_t*>(operator new((length + wcslen(line->wString)) * sizeof(*merged) + sizeof(*merged)));
-    wcscpy(merged, line->wString);
-    wcscat(merged, text);
+    const auto merged = FormatText("%s%s", line->text, text);
     unsigned char channel = line->font_palette;
     int link = line->link;
     unsigned char color = line->highlight_color;
-    unsigned char stop = line->highlight_stop;
-    unsigned char start = line->highlight_start;
-    if (line->wString) {
-        free(line->wString);
-        line->wString = 0;
-    }
+    std::size_t stop = line->highlight_stop;
+    std::size_t start = line->highlight_start;
+    line->text.clear();
     line->ClearEntries();
     if (g_status.text_box_lines_shown[text_box] == *lines_used) {
         if (!(g_status.text_box_lines_shown[text_box] > 0)) {
@@ -796,8 +728,8 @@ void AppendToLastTextLine(const wchar_t* text, short text_box)
     }
     if (link != 0) {
         W8MessageStorageRecord* last = &g_message_storage[text_box][*lines_used - 1];
-        if (!(last->wString != 0)) {
-            srAssertFail("pTextLine->wString != NULL", MGS_TEXT_BOX_CPP, 0xfbd, 0);
+        if (!(!last->text.empty())) {
+            srAssertFail("pTextLine->text != NULL", MGS_TEXT_BOX_CPP, 0xfbd, 0);
         }
         int propagated = 0;
         if (last->link != -1 && last->link + 1 > 0) {
@@ -850,17 +782,16 @@ int GetTextBoxVisibleLineCount(void)
     return 7;
 }
 
-static void PostCharacterNoticeText(int party_slot, int context, const wchar_t* text)
+static void PostCharacterNoticeText(int party_slot, int context, std::string_view text)
 {
-    wchar_t separator[2];
-    wcscpy(separator,
-           (text[0] == L'\'' || text[0] == L':') ? &g_empty_wide_string : g_W8TextSeparator);
-    FormatNotice(W8_FONT_PALETTE_WHITE, context, L"%s%s%s", g_status.buffers.Char[party_slot].name,
+    std::string separator;
+    separator = (text[0] == '\'' || text[0] == ':') ? &g_empty_text : g_W8TextSeparator;
+    FormatNotice(W8_FONT_PALETTE_WHITE, context, "%s%s%s", g_status.buffers.Char[party_slot].name,
                  separator, text);
-    int stop = wcslen(g_status.buffers.Char[party_slot].name);
-    if (text[0] == L'\'') {
+    int stop = g_status.buffers.Char[party_slot].name.size();
+    if (text[0] == '\'') {
         ++stop;
-        if (text[1] == L's') {
+        if (text[1] == 's') {
             ++stop;
         }
     }
@@ -868,29 +799,17 @@ static void PostCharacterNoticeText(int party_slot, int context, const wchar_t* 
 }
 
 // FUNCTION: WIZ8 0x00590950
-void PostCharacterNotice(int party_slot, const wchar_t* format, ...)
+void PostCharacterNoticeFormatted(int party_slot, std::string text)
 {
-    wchar_t text[4096];
-    va_list arguments;
-
-    va_start(arguments, format);
-    vswprintf(text, format, arguments);
-    va_end(arguments);
-
     PostCharacterNoticeText(party_slot, -1, text);
 }
 
 /* PostCharacterNotice with an explicit context instead of the automatic -1
    box; the weapon-set swap paths post it under the dialogue context. */
 // FUNCTION: WIZ8 0x00590A40
-void PostCharacterNoticeInContext(int party_slot, int context, const wchar_t* format, ...)
+void PostCharacterNoticeInContextText(int party_slot, int context, std::string text)
 {
-    wchar_t text[4096];
-    va_list arguments;
 
-    va_start(arguments, format);
-    vswprintf(text, format, arguments);
-    va_end(arguments);
 
     PostCharacterNoticeText(party_slot, context, text);
 }
@@ -931,7 +850,7 @@ void AdvanceNoticeLine(short text_box)
     W8MessageStorageRecord* record =
         &g_message_storage[text_box][g_status.text_box_lines_shown[text_box]];
     unsigned int delay =
-        g_settings.text_display_delay_ms * (wcslen(record->wString) * 100 / 20 + 100) / 100;
+        g_settings.text_display_delay_ms * (wiz8::text::grapheme_count(record->text) * 100 / 20 + 100) / 100;
     if (delay > 60000) {
         delay = 60000;
     }
@@ -1078,12 +997,12 @@ static void DrawDialogueTextCursor(int x, int y)
     }
 
     int x_offset = 0;
-    if (line == 1 && input->first_line_prefix != 0) {
+    if (line == 1 && !input->first_line_prefix.empty()) {
         x_offset = StringPixLength(input->first_line_prefix, g_level_block->text_box_font);
     }
     unsigned int start = input->line_offsets[line - 1];
     x_offset +=
-        StringNPixLength(input->text + start, input->cursor - start, g_level_block->text_box_font);
+        StringPrefixPixelWidth(std::string_view(input->text).substr(start), input->cursor - start, g_level_block->text_box_font);
 
     int y_line = y + (line - hidden - 1) * 0xb;
     char* screen = static_cast<char*>(LockPrimarySurface(&pitch));
@@ -1105,47 +1024,25 @@ static void DrawDialogueTextCursor(int x, int y)
 // FUNCTION: WIZ8 0x0058CA30
 void DrawDialogueTextInputLines(int x, int y, unsigned int first_line)
 {
-    W8DialogueTextState* input = g_level_block->dialogue_text_input;
-    wchar_t* string = input->text + input->line_offsets[first_line];
-    int max_width = 0;
-    int x_start = x;
-    int y_start = y;
-    unsigned int line = first_line;
-    bool clipped = false;
+    auto* input = g_level_block->dialogue_text_input;
+    const int first_y = y;
+    int maximum_width = 0;
+    for (std::size_t line = first_line; line < input->line_offsets.size(); ++line) {
+        auto start = input->line_offsets[line];
+        auto end = line + 1 < input->line_offsets.size() ? input->line_offsets[line + 1] : input->text.size();
+        auto text = std::string_view(input->text).substr(start, end - start);
+        int draw_x = x;
+        if (line == 0 && !input->first_line_prefix.empty()) {
+            gprintf(draw_x, y, "%s", input->first_line_prefix);
+            draw_x += StringPixLength(input->first_line_prefix, g_level_block->text_box_font);
+        }
+        gprintf(draw_x, y, "%s", text);
+        maximum_width = std::max(maximum_width, draw_x - x + StringPixLength(text, g_level_block->text_box_font));
+        y += 11;
+        if (y >= g_level_block->text_box_bottom) break;
+    }
+    InvalidateRegion(x, first_y, x + maximum_width, y, 0);
 
-    if (input->first_line_prefix != 0 && first_line == 0) {
-        gprintf(x, y, Wiz8ToSgpWideText(g_format_s), input->first_line_prefix);
-        x += StringPixLength(input->first_line_prefix, g_level_block->text_box_font);
-    }
-    for (; line < input->line_count - 1; ++line) {
-        wchar_t* next = input->text + input->line_offsets[line + 1];
-        wchar_t saved = *next;
-        *next = 0;
-        gprintf(x, y, Wiz8ToSgpWideText(g_format_s), string);
-        int width = StringPixLength(string, g_level_block->text_box_font);
-        if (max_width < width) {
-            max_width = StringPixLength(string, g_level_block->text_box_font);
-        }
-        input->text[input->line_offsets[line + 1]] = saved;
-        y += 0xb;
-        if (y >= g_level_block->text_box_bottom) {
-            clipped = true;
-            break;
-        }
-        if (x != x_start) {
-            x = x_start;
-        }
-        string = input->text + input->line_offsets[line + 1];
-    }
-    if (!clipped) {
-        gprintf(x, y, Wiz8ToSgpWideText(g_format_s), string);
-        ++line;
-        int width = StringPixLength(string, g_level_block->text_box_font);
-        if (max_width < width) {
-            max_width = StringPixLength(string, g_level_block->text_box_font);
-        }
-    }
-    InvalidateRegion(x, y_start, x + max_width, y_start + line * 0xb, 0);
 }
 
 /* Repaint the dormant typed-dialogue editor over the text box: the wrapped
@@ -1189,65 +1086,12 @@ void RedrawDialogueTextInput(void)
     }
 }
 
-// FUNCTION: WIZ8 0x0058D7E0
-bool GrowDialogueTextBuffer(void)
-{
-    if (!g_level_block->dialogue_text_input_open) {
-        return false;
-    }
-    if (g_level_block->dialogue_text_input == 0) {
-        return false;
-    }
-    if (g_level_block->dialogue_text_input->text_capacity + 0x400 > 0x3ff8) {
-        return false;
-    }
-
-    wchar_t* previous = g_level_block->dialogue_text_input->text;
-    g_level_block->dialogue_text_input->text_capacity += 0x400;
-    g_level_block->dialogue_text_input->text =
-        new wchar_t[g_level_block->dialogue_text_input->text_capacity];
-    if (g_level_block->dialogue_text_input->text == 0) {
-        g_level_block->dialogue_text_input->text = previous;
-        g_level_block->dialogue_text_input->text_capacity -= 0x400;
-        return false;
-    }
-    wcscpy(g_level_block->dialogue_text_input->text, previous);
-    delete[] previous;
-    return true;
-}
-
-// FUNCTION: WIZ8 0x0058D890
-bool GrowDialogueLineOffsets(void)
-{
-    if (!g_level_block->dialogue_text_input_open) {
-        return false;
-    }
-    if (g_level_block->dialogue_text_input == 0) {
-        return false;
-    }
-
-    unsigned int* previous = g_level_block->dialogue_text_input->line_offsets;
-    g_level_block->dialogue_text_input->line_capacity += 0x20;
-    g_level_block->dialogue_text_input->line_offsets =
-        new unsigned int[g_level_block->dialogue_text_input->line_capacity];
-    if (g_level_block->dialogue_text_input->line_offsets == 0) {
-        g_level_block->dialogue_text_input->line_offsets = previous;
-        g_level_block->dialogue_text_input->line_capacity -= 0x20;
-        return false;
-    }
-    memcpy(g_level_block->dialogue_text_input->line_offsets, previous,
-           g_level_block->dialogue_text_input->line_count * sizeof(unsigned int));
-    delete[] previous;
-    return true;
-}
-
+// Retail allocation routines 0x0058D7E0 / 0x0058D890 are replaced by
+// std::string and std::vector ownership, with no engine capacity bookkeeping.
 // FUNCTION: WIZ8 0x0058D940
 void ReleaseDialogueTextInput(void)
 {
     if (g_level_block->dialogue_text_input != 0) {
-        delete[] g_level_block->dialogue_text_input->text;
-        delete[] g_level_block->dialogue_text_input->line_offsets;
-        delete[] g_level_block->dialogue_text_input->first_line_prefix;
         delete g_level_block->dialogue_text_input;
         g_level_block->dialogue_text_input = 0;
     }
@@ -1271,166 +1115,52 @@ void InvalidateDialogueTextCursor(void)
 }
 
 // FUNCTION: WIZ8 0x0058DCA0
-static void RewrapDialogueTextFromLine(unsigned int line)
+static void RewrapDialogueTextFromLine(unsigned int)
 {
-    do {
-        unsigned int start = g_level_block->dialogue_text_input->line_offsets[line - 1];
-        int width = 0;
-        if (line == 1 && g_level_block->dialogue_text_input->first_line_prefix != 0) {
-            width = StringPixLength(g_level_block->dialogue_text_input->first_line_prefix,
-                                    g_level_block->text_box_font);
+    auto& input = *g_level_block->dialogue_text_input;
+    input.line_offsets = {0};
+    auto line_start = std::size_t{0};
+    auto last_break = std::size_t{0};
+    for (std::size_t position = 0; position < input.text.size();) {
+        auto end = wiz8::text::next_grapheme(input.text, position);
+        auto width = StringPixLength(std::string_view(input.text).substr(line_start, end - line_start), g_level_block->text_box_font);
+        if (line_start == 0) width += StringPixLength(input.first_line_prefix, g_level_block->text_box_font);
+        if (width > static_cast<int>(input.wrap_width) && position > line_start) {
+            line_start = last_break > line_start ? last_break : position;
+            input.line_offsets.push_back(line_start);
         }
-        g_level_block->dialogue_text_input->line_count = line;
-
-        size_t word_length = wcscspn(g_level_block->dialogue_text_input->text + start, L" ");
-        width += StringPixLengthArg(g_level_block->text_box_font, word_length + 1,
-                                    g_level_block->dialogue_text_input->text + start);
-        if (static_cast<unsigned int>(width) > g_level_block->dialogue_text_input->wrap_width) {
-            return;
-        }
-
-        for (;;) {
-            start += word_length;
-            if (g_level_block->dialogue_text_input->text[start] == 0) {
-                return;
-            }
-            ++start;
-            word_length = wcscspn(g_level_block->dialogue_text_input->text + start, L" ");
-            width += StringNPixLength(g_level_block->dialogue_text_input->text + start,
-                                      word_length + 1, g_level_block->text_box_font);
-            if (static_cast<unsigned int>(width) > g_level_block->dialogue_text_input->wrap_width) {
-                break;
-            }
-        }
-
-        if (g_level_block->dialogue_text_input->line_count ==
-                g_level_block->dialogue_text_input->line_capacity &&
-            !GrowDialogueLineOffsets()) {
-            return;
-        }
-        g_level_block->dialogue_text_input->line_offsets[line] = start;
-        ++g_level_block->dialogue_text_input->line_count;
-
-        if (g_level_block->dialogue_text_input->cursor >
-                g_level_block->dialogue_text_input->line_offsets[line] &&
-            !IsNpcDialogueTextInputActive()) {
-            ScrollTextBoxTo(GetTextBoxLineCount(g_status.text_line_cursor) -
-                            GetTextBoxVisibleLineCount());
-        }
-        ++line;
-    } while (true);
-}
-
-static bool DialogueCursorJoinsPreviousLine()
-{
-    unsigned int line = FindDialogueTextLine(g_level_block->dialogue_text_input);
-    if (line > 1) {
-        unsigned int previous_start = g_level_block->dialogue_text_input->line_offsets[line - 1];
-        return wcscspn(g_level_block->dialogue_text_input->text + previous_start, L" ") >=
-               g_level_block->dialogue_text_input->cursor - previous_start;
+        if (input.text[position] == ' ') last_break = end;
+        position = end;
     }
-    return false;
+    input.line_count = input.line_offsets.size();
 }
 
 // FUNCTION: WIZ8 0x0058D9C0
-static void InsertDialogueTextCharacter(wchar_t character)
+static void InsertDialogueTextCharacter(char32_t character)
 {
-    if (!g_level_block->dialogue_text_input_open) {
-        return;
-    }
-    if (g_level_block->dialogue_text_input == 0) {
-        return;
-    }
-
-    size_t length = wcslen(g_level_block->dialogue_text_input->text);
-    if (g_level_block->dialogue_text_input->text_capacity < length + 2 &&
-        !GrowDialogueTextBuffer()) {
-        return;
-    }
-
-    unsigned int line = FindDialogueTextLine(g_level_block->dialogue_text_input);
-    unsigned int shown = g_status.text_box_lines_shown[g_status.text_line_cursor];
-    unsigned int scroll = g_level_block->text_lines[g_status.text_line_cursor];
-    if (shown < scroll && shown + line < scroll) {
-        ScrollTextBoxTo(shown + line - 1);
-    } else if (shown - scroll + line > 7) {
-        ScrollTextBoxTo(shown - 8 + line);
-    }
-
-    bool joins_previous_line = false;
-    if (character == L' ') {
-        joins_previous_line = DialogueCursorJoinsPreviousLine();
-    }
-
-    for (int index = static_cast<int>(length);
-         index >= static_cast<int>(g_level_block->dialogue_text_input->cursor); --index) {
-        g_level_block->dialogue_text_input->text[index + 1] =
-            g_level_block->dialogue_text_input->text[index];
-    }
-
-    if (joins_previous_line) {
-        g_level_block->dialogue_text_input->text[g_level_block->dialogue_text_input->cursor++] =
-            character;
-        RewrapDialogueTextFromLine(--line);
-    } else {
-        g_level_block->dialogue_text_input->text[g_level_block->dialogue_text_input->cursor++] =
-            character;
-        if (line < g_level_block->dialogue_text_input->line_count) {
-            RewrapDialogueTextFromLine(line);
-        } else {
-            int width = 0;
-            if (line == 1 && g_level_block->dialogue_text_input->first_line_prefix != 0) {
-                width = StringPixLength(g_level_block->dialogue_text_input->first_line_prefix,
-                                        g_level_block->text_box_font);
-            }
-            width += StringPixLength(g_level_block->dialogue_text_input->text +
-                                         g_level_block->dialogue_text_input->line_offsets[line - 1],
-                                     g_level_block->text_box_font);
-            if (static_cast<unsigned int>(width) > g_level_block->dialogue_text_input->wrap_width) {
-                RewrapDialogueTextFromLine(line);
-            }
-        }
-    }
+    if (!g_level_block->dialogue_text_input_open || !g_level_block->dialogue_text_input) return;
+    auto& input = *g_level_block->dialogue_text_input;
+    std::string bytes;
+    utf8::append(character, std::back_inserter(bytes));
+    input.text.insert(input.cursor, bytes);
+    input.cursor += bytes.size();
+    RewrapDialogueTextFromLine(1);
     InvalidateDialogueTextCursor();
 }
 
 // FUNCTION: WIZ8 0x0058E010
 void DeleteDialogueTextCharacter(unsigned int key)
 {
-    size_t length = wcslen(g_level_block->dialogue_text_input->text);
-
-    if (key == 8) {
-        if (g_level_block->dialogue_text_input->cursor != 0) {
-            unsigned int line = FindDialogueTextLine(g_level_block->dialogue_text_input);
-            bool joins_previous_line = DialogueCursorJoinsPreviousLine();
-            for (unsigned int index = g_level_block->dialogue_text_input->cursor; index <= length;
-                 ++index) {
-                g_level_block->dialogue_text_input->text[index - 1] =
-                    g_level_block->dialogue_text_input->text[index];
-            }
-            --g_level_block->dialogue_text_input->cursor;
-            if (joins_previous_line) {
-                RewrapDialogueTextFromLine(--line);
-            } else if (line != g_level_block->dialogue_text_input->line_count) {
-                RewrapDialogueTextFromLine(line);
-            }
-        }
-    } else if (key == 0x2e) {
-        if (g_level_block->dialogue_text_input->cursor < length) {
-            unsigned int line = FindDialogueTextLine(g_level_block->dialogue_text_input);
-            bool joins_previous_line = DialogueCursorJoinsPreviousLine();
-            for (unsigned int index = g_level_block->dialogue_text_input->cursor; index < length;
-                 ++index) {
-                g_level_block->dialogue_text_input->text[index] =
-                    g_level_block->dialogue_text_input->text[index + 1];
-            }
-            if (joins_previous_line) {
-                RewrapDialogueTextFromLine(--line);
-            } else if (line != g_level_block->dialogue_text_input->line_count) {
-                RewrapDialogueTextFromLine(line);
-            }
-        }
+    auto& input = *g_level_block->dialogue_text_input;
+    if (key == 8 && input.cursor) {
+        const auto previous = wiz8::text::previous_grapheme(input.text, input.cursor);
+        input.text.erase(previous, input.cursor - previous);
+        input.cursor = previous;
+    } else if (key == 0x2e && input.cursor < input.text.size()) {
+        const auto next = wiz8::text::next_grapheme(input.text, input.cursor);
+        input.text.erase(input.cursor, next - input.cursor);
     }
+    RewrapDialogueTextFromLine(1);
     InvalidateDialogueTextCursor();
 }
 
@@ -1680,6 +1410,10 @@ unsigned char HandleDialogueTextInput(const InputAtom* input_event)
     }
 
     W8DialogueTextState* input = g_level_block->dialogue_text_input;
+    if ((input_event->uiParam & NATIVE_TEXT_INPUT_FLAG) != 0) {
+        if (input_event->usParam >= 32) InsertDialogueTextCharacter(input_event->usParam);
+        return 1;
+    }
     unsigned int key = input_event->usParam;
     switch (key) {
     case 8:
@@ -1700,10 +1434,10 @@ unsigned char HandleDialogueTextInput(const InputAtom* input_event)
         RedrawTextBox();
         return 1;
     case 0x20:
-        InsertDialogueTextCharacter(L' ');
+        InsertDialogueTextCharacter(' ');
         return 1;
     case 0x23: {
-        size_t length = wcslen(input->text);
+        size_t length = input->text.size();
         if (input->cursor < length) {
             input->cursor = length;
             InvalidateDialogueTextCursor();
@@ -1718,13 +1452,13 @@ unsigned char HandleDialogueTextInput(const InputAtom* input_event)
         return 1;
     case 0x25:
         if (input->cursor != 0) {
-            --input->cursor;
+            input->cursor = wiz8::text::previous_grapheme(input->text, input->cursor);
             InvalidateDialogueTextCursor();
         }
         return 1;
     case 0x27:
-        if (input->cursor < wcslen(input->text)) {
-            ++input->cursor;
+        if (input->cursor < input->text.size()) {
+            input->cursor = wiz8::text::next_grapheme(input->text, input->cursor);
             InvalidateDialogueTextCursor();
         }
         return 1;
@@ -1732,12 +1466,12 @@ unsigned char HandleDialogueTextInput(const InputAtom* input_event)
         break;
     }
 
-    wchar_t character = TranslateKeyToCharacter(
+    char character = TranslateKeyToCharacter(
         static_cast<unsigned short>(key), static_cast<unsigned char>(input_event->usKeyState));
-    if ((character >= L'0' && character <= L'9') || (character >= L'A' && character <= L'Z') ||
-        (character >= L'a' && character <= L'z') || (character >= L'!' && character <= L'/') ||
-        (character >= L':' && character <= L'@') || (character >= L'[' && character <= L'_') ||
-        (character >= L'{' && character <= L'}')) {
+    if ((character >= '0' && character <= '9') || (character >= 'A' && character <= 'Z') ||
+        (character >= 'a' && character <= 'z') || (character >= '!' && character <= '/') ||
+        (character >= ':' && character <= '@') || (character >= '[' && character <= '_') ||
+        (character >= '{' && character <= '}')) {
         InsertDialogueTextCharacter(character);
         return 1;
     }
@@ -1766,14 +1500,9 @@ static void DrawNoticeWordOverlays(W8MessageStorageRecord* line, int x, int y);
 
 static void DrawMessageLineText(const W8MessageStorageRecord* line, int x, int y)
 {
-    if (line->length == -1) {
-        gprintfDirty(x, y, Wiz8ToSgpWideText(g_format_s), line->wString);
-    } else {
-        wchar_t* scratch = g_level_block->text_paint_scratch;
-        wcsncpy(scratch, line->wString, line->length);
-        scratch[line->length] = 0;
-        gprintfDirty(x, y, Wiz8ToSgpWideText(g_format_s), scratch);
-    }
+    auto text = std::string_view(line->text);
+    if (line->length >= 0) text = text.substr(0, wiz8::text::byte_prefix(text, line->length));
+    gprintfDirty(x, y, "%s", text);
 }
 
 /* Paint one message-storage line at (x, y). hovered_line / selected_line
@@ -1784,115 +1513,31 @@ static void DrawMessageLineText(const W8MessageStorageRecord* line, int x, int y
 static void DrawTextBoxLine(W8MessageStorageRecord* line, int x, int y, bool hovered_line,
                             bool selected_line, bool skip_invalidate)
 {
-    unsigned short* palette;
-    int draw_x;
-    int length;
-    int width;
-    wchar_t* scratch = g_level_block->text_paint_scratch;
-
-    if (line->wString == 0) {
-        srAssertFail("pTextLine->wString != NULL", MGS_TEXT_BOX_CPP, 0x584, 0);
-    }
-    if (skip_invalidate) {
-        DrawNoticeWordOverlays(line, x, y);
-        return;
-    }
-
-    palette = g_font_state_palettes[W8_FONT_PALETTE_BLUE].get();
-    if (!selected_line) {
-        if (hovered_line) {
-            palette = g_font_state_palettes[W8_FONT_PALETTE_RED].get();
-            if (line->font_palette != W8_FONT_PALETTE_YELLOW) {
-                palette = g_font_state_palettes[W8_FONT_PALETTE_YELLOW].get();
-            }
-            SetFontObjectPalette16BPP(g_level_block->text_box_font, palette);
-            DrawMessageLineText(line, x, y);
-        } else if (line->highlight_color == 0xff) {
-            if (line->font_palette < W8_FONT_PALETTE_TEXT_BOX) {
-                palette = g_font_state_palettes[line->font_palette].get();
-            } else {
-                palette = g_level_block->palette;
-            }
-            SetFontObjectPalette16BPP(g_level_block->text_box_font, palette);
-            DrawMessageLineText(line, x, y);
-        } else {
-            draw_x = x;
-            if (line->highlight_start != 0) {
-                if (line->font_palette < W8_FONT_PALETTE_TEXT_BOX) {
-                    palette = g_font_state_palettes[line->font_palette].get();
-                } else {
-                    palette = g_level_block->palette;
-                }
-                SetFontObjectPalette16BPP(g_level_block->text_box_font, palette);
-                wcsncpy(scratch, line->wString, line->highlight_start);
-                scratch[line->highlight_start] = 0;
-                gprintfDirty(draw_x, y, Wiz8ToSgpWideText(g_format_s), scratch);
-                draw_x += StringPixLength(Wiz8ToSgpWideText(scratch), g_level_block->text_box_font);
-            }
-            if (line->highlight_stop < line->highlight_start) {
-                srAssertFail("pTextLine->ubStopChar >= pTextLine->ubStartChar", MGS_TEXT_BOX_CPP,
-                             0x5da, 0);
-            }
-            if (line->length == -1 ||
-                line->highlight_stop <= static_cast<unsigned int>(line->length)) {
-                length = line->highlight_stop - line->highlight_start;
-            } else {
-                length = line->length - line->highlight_start;
-            }
-            if (length > 0) {
-                if (line->highlight_color < 0xf) {
-                    palette = g_font_state_palettes[line->highlight_color].get();
-                } else {
-                    palette = g_level_block->palette;
-                }
-                SetFontObjectPalette16BPP(g_level_block->text_box_font, palette);
-                wcsncpy(scratch, line->wString + line->highlight_start, length);
-                scratch[length] = 0;
-                gprintfDirty(draw_x, y, Wiz8ToSgpWideText(g_format_s), scratch);
-                draw_x += StringPixLength(Wiz8ToSgpWideText(scratch), g_level_block->text_box_font);
-            }
-            if (wcslen(line->wString) < line->highlight_stop) {
-                srAssertFail(
-                    "wcslen(pTextLine->wString) >= pTextLine->ubStopChar", MGS_TEXT_BOX_CPP, 0x5ef,
-                    FormatString("DrawTextMessage: ERROR - String %ls, length %d, StopChar %d",
-                                 line->wString, wcslen(line->wString), line->highlight_stop));
-            }
-            if (line->length == -1) {
-                length = static_cast<int>(wcslen(line->wString)) - line->highlight_stop;
-            } else {
-                length = line->length - line->highlight_stop;
-            }
-            if (length > 0) {
-                unsigned char palette_index;
-                if (line->length == -1 ||
-                    line->highlight_stop <= static_cast<unsigned int>(line->length)) {
-                    palette_index = line->font_palette;
-                } else {
-                    palette_index = line->highlight_color;
-                }
-                if (palette_index < W8_FONT_PALETTE_TEXT_BOX) {
-                    palette = g_font_state_palettes[palette_index].get();
-                } else {
-                    palette = g_level_block->palette;
-                }
-                SetFontObjectPalette16BPP(g_level_block->text_box_font, palette);
-                wcsncpy(scratch, line->wString + line->highlight_stop, length);
-                scratch[length] = 0;
-                gprintfDirty(draw_x, y, Wiz8ToSgpWideText(g_format_s), scratch);
-            }
-        }
-    } else {
-        SetFontObjectPalette16BPP(g_level_block->text_box_font, palette);
-        DrawMessageLineText(line, x, y);
-    }
-
-    if (line->length != -1) {
-        wcscpy(scratch, line->wString + line->length);
-        width = StringPixLength(Wiz8ToSgpWideText(scratch), g_level_block->text_box_font);
-        gprintfDirty(g_level_block->text_box_right - width, y, Wiz8ToSgpWideText(g_format_s),
-                     scratch);
-        DrawNoticeWordOverlays(line, x, y);
-        return;
+    if (skip_invalidate) { DrawNoticeWordOverlays(line, x, y); return; }
+    auto text = std::string_view(line->text);
+    auto foreground = selected_line ? W8_FONT_PALETTE_BLUE : hovered_line ? W8_FONT_PALETTE_YELLOW : line->font_palette;
+    auto set_palette = [&](unsigned int index) {
+        SetFontObjectPalette16BPP(g_level_block->text_box_font,
+            index < W8_FONT_PALETTE_TEXT_BOX ? g_font_state_palettes[index].get() : g_level_block->palette);
+    };
+    auto draw = [&](std::string_view span, unsigned int palette) {
+        set_palette(palette);
+        gprintfDirty(x, y, "%s", span);
+        x += StringPixLength(span, g_level_block->text_box_font);
+    };
+    auto end = line->length < 0 ? text.size() : wiz8::text::byte_prefix(text, line->length);
+    auto visible = text.substr(0, end);
+    if (!selected_line && !hovered_line && line->highlight_color != 0xff) {
+        auto start = wiz8::text::byte_prefix(visible, line->highlight_start);
+        auto stop = std::max(start, wiz8::text::byte_prefix(visible, line->highlight_stop));
+        draw(visible.substr(0, start), foreground);
+        draw(visible.substr(start, stop - start), line->highlight_color);
+        draw(visible.substr(stop), foreground);
+    } else draw(visible, foreground);
+    if (line->length >= 0) {
+        const auto suffix = text.substr(end);
+        set_palette(foreground);
+        gprintfDirty(g_level_block->text_box_right - StringPixLength(suffix, g_level_block->text_box_font), y, "%s", suffix);
     }
     DrawNoticeWordOverlays(line, x, y);
 }
@@ -1964,16 +1609,16 @@ void RedrawTextBoxBody(bool skip_invalidate)
         line_index = static_cast<int>(scroll + row);
         if (static_cast<unsigned int>(line_index) < 0x15e) {
             line = &g_message_storage[text_box][line_index];
-            if (line->wString == 0) {
-                srAssertFail("pTextLine->wString != NULL", MGS_TEXT_BOX_CPP, 0x43d, 0);
+            if (line->text.empty()) {
+                srAssertFail("pTextLine->text != NULL", MGS_TEXT_BOX_CPP, 0x43d, 0);
             }
-            if (line->wString != 0) {
+            if (!line->text.empty()) {
                 if (text_box == 3 || !g_level_block->text_box_visible) {
                     x = g_level_block->text_box_left;
                 } else {
                     x = g_level_block->text_box_left +
                         ((g_level_block->text_box_right - g_level_block->text_box_left) / 2 -
-                         StringPixLength(Wiz8ToSgpWideText(line->wString),
+                         StringPixLength(line->text,
                                          g_level_block->text_box_font) /
                              2);
                 }
@@ -2164,7 +1809,7 @@ void SetKnockKnockTarget(int target, int /*flag*/, int /*backfire*/)
     W8MainGameScreen* screen = g_main_game_screen;
 
     if (!gXStatus.fTrapInteractMode) {
-        ShowNotice(W8_FONT_PALETTE_BEIGE, L"You can't cast Knock Knock here!");
+        ShowNotice(W8_FONT_PALETTE_BEIGE, "You can't cast Knock Knock here!");
         return;
     }
     screen->m_target_difficulty = target;
@@ -2255,10 +1900,9 @@ void SetSelectedTextLine(int line, int index)
 static void DrawNoticeWordOverlay(const W8MessageStorageRecord* line, W8NoticeWord* word, int x,
                                   int y)
 {
-    wchar_t word_text[100];
-    memset(word_text, 0, sizeof(word_text));
-    wcsncpy(word_text, line->wString + word->start, word->end - word->start + 1);
-    gprintfDirty(word->x_start + x, y, Wiz8ToSgpWideText(g_format_s), Wiz8ToSgpWideText(word_text));
+    std::string word_text;
+    word_text = line->text.substr(word->start, word->end - word->start + 1);
+    gprintfDirty(word->x_start + x, y, g_format_s, word_text);
     word->redraw = false;
 }
 
@@ -2331,7 +1975,7 @@ static int GetNoticeLineLeft(int text_box, int line)
     } else {
         x_base = g_level_block->text_box_left +
                  ((g_level_block->text_box_right - g_level_block->text_box_left) / 2 -
-                  StringPixLength(Wiz8ToSgpWideText(g_message_storage[text_box][line].wString),
+                  StringPixLength(g_message_storage[text_box][line].text,
                                   g_level_block->text_box_font) /
                       2);
     }
@@ -2397,27 +2041,18 @@ W8NoticeWord* HitTestNoticeWord(int text_box, unsigned short x, unsigned short y
 }
 
 // FUNCTION: WIZ8 0x00590560
-void CopyNoticeWordText(const W8NoticeWord* word, wchar_t* text, unsigned int size, int text_box,
-                        int line)
+std::string CopyNoticeWordText(const W8NoticeWord* word, int text_box, int line)
 {
-    memset(text, 0, size);
-    wcsncpy(text, g_message_storage[text_box][line].wString + word->start,
-            word->end - word->start + 1);
+    return g_message_storage[text_box][line].text.substr(word->start, word->end - word->start + 1);
 }
 
 // FUNCTION: WIZ8 0x00590b40
-void PostMonsterNotice(W8MonsterInfo* monster_info, const wchar_t* format, ...)
+void PostMonsterNoticeText(W8MonsterInfo* monster_info, std::string text)
 {
-    wchar_t separator[2];
-    wchar_t text[4096];
-    va_list arguments;
-    va_start(arguments, format);
-    vswprintf(text, format, arguments);
-    va_end(arguments);
+    std::string separator;
 
-    wcscpy(separator,
-           text[0] == L'\'' || text[0] == L':' ? &g_empty_wide_string : g_W8TextSeparator);
-    ShowNoticef(W8_FONT_PALETTE_RUST, L"%s%s%s", GetMonsterName(monster_info, 0, 0), separator,
+    separator = text[0] == '\'' || text[0] == ':' ? &g_empty_text : g_W8TextSeparator;
+    ShowNoticef(W8_FONT_PALETTE_RUST, "%s%s%s", GetMonsterName(monster_info, 0, 0), separator,
                 text);
 }
 
@@ -2429,7 +2064,7 @@ void PostMonsterNotice(W8MonsterInfo* monster_info, const wchar_t* format, ...)
 // FUNCTION: WIZ8 0x00590BD0
 void RefreshTextBoxMode(unsigned short mode)
 {
-    wchar_t merged[500];
+    std::string merged;
     W8MessageStorageRecord* line;
     unsigned int last_line;
     unsigned int group_lines;
@@ -2465,19 +2100,19 @@ void RefreshTextBoxMode(unsigned short mode)
     line = &g_message_storage[text_box][first_line];
     length = 0;
     for (index = first_line; index <= last_line; index++, line++) {
-        if (line->wString == 0) {
-            srAssertFail("pTextLine->wString != NULL", MGS_TEXT_BOX_CPP, 0x10ad, 0);
+        if (line->text.empty()) {
+            srAssertFail("pTextLine->text != NULL", MGS_TEXT_BOX_CPP, 0x10ad, 0);
         }
         if (index == first_line) {
-            wcscpy(merged, line->wString);
-            length = wcslen(line->wString);
+            merged = line->text;
+            length = line->text.size();
         } else {
-            if (wcslen(line->wString) + 1 + length > 499) {
+            if (line->text.size() + 1 + length > 499) {
                 break;
             }
-            wcscat(merged, g_W8TextSeparator);
-            wcscat(merged, line->wString);
-            length += 1 + wcslen(line->wString);
+            merged += g_W8TextSeparator;
+            merged += line->text;
+            length += 1 + line->text.size();
         }
     }
     ShowNoticeLine(merged, 0, true, false);

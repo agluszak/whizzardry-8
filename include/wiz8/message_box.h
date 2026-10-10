@@ -1,3 +1,4 @@
+#include <string>
 #pragma once
 
 #include <stddef.h>
@@ -25,14 +26,11 @@ W8_ABI_ASSERT(sizeof(W8SkillNoticePayload) == 0x11, "W8SkillNoticePayload_size")
 
 /* The tagged dword payloads carried at W8MessageBoxLine::payload and
    ::extra. Which member is live is selected by the line's `type` (or by the
-   quote-bubble notice kind the payload is handed to). Empty payloads carry
-   a null text pointer. */
+   quote-bubble notice kind the payload is handed to). Text is owned separately by the line; empty payloads carry zero. */
 // union-ok: W8MessageBoxLine::type selects the live member; producers store one member per kind and consumers delete the owned one, so the variants share storage with mutually exclusive lifecycles.
 union W8MessageBoxPayload {
-    /* Owned wide text (delete[]) for the PORTRAIT_*, SKILL_NOTICES and
-       LEVEL_UP kinds. FINISH_ACTION and RESET_LEVEL_STATE use argument
-       as their zero/nonzero flag. */
-    wchar_t* text;
+    /* FINISH_ACTION and RESET_LEVEL_STATE use argument as their flag. */
+
     W8ItemInstance* item;                  /* payload: REMOVE_SCRIPT_ITEM */
     int argument;                          /* payload: QueueNpcMessageLine tag */
     W8SkillNoticePayload* skill_notices;   /* extra: SKILL_NOTICES; delete */
@@ -56,7 +54,7 @@ enum W8NpcMessageKind {
     W8_NPC_MSG_FOCUS_NPC = 6,            /* argument: npc kind to switch dialogue to */
     W8_NPC_MSG_GROUP_ACTION = 7,         /* argument: NPC party slot to dismiss */
     W8_NPC_MSG_JOURNAL_QUOTE = 8,        /* quote bubble + journal-entry.wav */
-    W8_NPC_MSG_PORTRAIT_STRING = 9,      /* argument: gppStringList index */
+    W8_NPC_MSG_PORTRAIT_STRING = 9,      /* argument: g_localized_strings index */
     W8_NPC_MSG_SPAWN_ALFIE_CHAOS = 0x0a, /* SpawnAlfieChaos(text) */
     W8_NPC_MSG_SPAWN_ALFIE_LIFE = 0x0b,  /* SpawnAlfieLife */
     W8_NPC_MSG_SPAWN_ALFIE_KNOW = 0x0c,  /* SpawnAlfieKnow */
@@ -122,7 +120,9 @@ enum W8NpcMessageKind {
    an owned wide string in `text` or a tagged int/pointer in `argument` (same
    dword). `quote_entry` is only live for QUOTE_ENTRY and is always a
    W8NpcQuoteEntry*. */
+#pragma pack(push, 8)
 struct W8MessageBoxLine {
+    std::string text;
     int quote_index;   /* 0x00: QUOTE script quote; -1 otherwise */
     bool mark_pending; /* 0x04: QUOTE records quote_index pending */
     /* 0x08: QUOTE_ENTRY only; producers always store a W8NpcQuoteEntry*. */
@@ -143,6 +143,7 @@ struct W8MessageBoxLine {
     W8NpcState* npc; /* 0x20: speaking NPC, copied from g_npc_scripting.npc */
 };
 
+#pragma pack(pop)
 W8_ABI_ASSERT(sizeof(W8MessageBoxLine) == 0x24, "W8MessageBoxLine_must_be_0x24");
 W8_ABI_ASSERT(offsetof(W8MessageBoxLine, quote_entry) == 0x08, "W8MessageBoxLine_quote_entry");
 W8_ABI_ASSERT(offsetof(W8MessageBoxLine, type) == 0x0c, "W8MessageBoxLine_type");
@@ -157,3 +158,5 @@ W8_ABI_ASSERT(offsetof(W8MessageBoxLine, npc) == 0x20, "W8MessageBoxLine_npc");
 void AddMessageBoxLine(W8NpcMessageKind kind, W8MessageBoxPayload payload,
                        W8MessageBoxPayload extra);
 bool IsMessageBoxLineQueueEmpty(void);
+
+void AddTextMessageBoxLine(W8NpcMessageKind kind, std::string text, W8MessageBoxPayload extra);

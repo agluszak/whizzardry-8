@@ -1,3 +1,7 @@
+#include <vector>
+#include <string_view>
+#include <optional>
+#include <string>
 #pragma once
 
 #include "wiz8/filesystem.h"
@@ -74,7 +78,7 @@ public:
 W8_ABI_ASSERT(sizeof(W8NpcTypedDialoguePanel) == 0x4c, "W8NpcTypedDialoguePanel_size");
 
 struct W8PendingNoticeLine {
-    wchar_t* text;
+    std::string text;
     int npc_kind;
 };
 
@@ -87,7 +91,7 @@ struct W8PendingNotice {
     unsigned char force;
 };
 extern W8PendingNotice g_pending_notice;
-extern wchar_t g_dialogue_empty_text[4];
+extern std::string g_dialogue_empty_text;
 
 /* W8NpcInteractionState::trade_mode - the active tab of the option/trade
    layouts. The StringData.DAT captions the tabs and headers load are
@@ -119,7 +123,7 @@ enum W8DialogueCategory {
 
 /* One saved transcript keyword. */
 struct W8DialogueTranscriptRecord {
-    wchar_t text[100];
+    std::string text;
     signed char category;
 };
 W8_ABI_ASSERT(sizeof(W8DialogueTranscriptRecord) == 0xca, "W8DialogueTranscriptRecord_size");
@@ -311,7 +315,8 @@ void ResetMainScreenStateBlock(void);
    element zero is English_Keywords.txt and element one the translated list.
    A file list holds one line list per line, and a line list one malloc'd wide
    word per '/'-separated field. */
-extern W8GrowableVector<W8GrowableVector<W8GrowableVector<wchar_t*>*>*> g_keyword_lists;
+using KeywordFile = std::vector<std::vector<std::string>>;
+extern std::vector<KeywordFile> g_keyword_lists;
 /* Both files are loaded and the tables are usable. Raised once the
    second file loads and lowered whenever the tables are released. */
 extern bool g_keyword_lists_loaded;
@@ -321,18 +326,17 @@ void ReloadKeywordLists(void);
 /* Release every file list, its lines and its words. */
 void ClearKeywordLists(void);
 /* Load one keyword file into a file list. */
-unsigned char LoadKeywordFile(const char* path,
-                              W8GrowableVector<W8GrowableVector<wchar_t*>*>* file);
+bool LoadKeywordFile(std::string_view path, KeywordFile& file);
 /* Copy the next '/'-terminated field out of a keyword line into
    the caller's buffer and return the cursor past it, or null at the end. */
-wchar_t* ParseKeywordToken(wchar_t* line, wchar_t* field);
+
 void SyncDialogueNpcState(void);
 /* Store a transcript keyword, inferring its category when category is -1. */
-void AddDialogueTranscriptKeyword(const wchar_t* name, signed char category);
-bool IsDialoguePlaceKeyword(const wchar_t* name);
-void SetNpcQuoteBubbleVisible(bool visible, const wchar_t* text, W8NpcScriptQuote* quote,
+void AddDialogueTranscriptKeyword(std::string_view name, signed char category);
+bool IsDialoguePlaceKeyword(std::string_view name);
+void SetNpcQuoteBubbleVisible(bool visible, std::string_view text, W8NpcScriptQuote* quote,
                               int quote_id, unsigned int font_palette);
-void SetNpcQuoteBubbleVisible(bool visible, const wchar_t* text, W8NpcScriptQuote* quote,
+void SetNpcQuoteBubbleVisible(bool visible, std::string_view text, W8NpcScriptQuote* quote,
                               int quote_id, unsigned int font_palette,
                               W8NpcQuoteNoticeKind notice_kind, W8MessageBoxPayload payload,
                               int npc_kind);
@@ -373,7 +377,7 @@ void ShowNpcDialogueTopicMenu(void);
 void HandleNpcDialogueDeparture(unsigned char value);
 unsigned char HandleNpcDialogueItem(W8ItemInstance* item);
 unsigned char AcceptNpcDialogueItem(W8NpcState* npc, W8ItemInstance* item, int mode);
-void TranslateDialogueKeyword(const wchar_t* source, wchar_t* destination);
+std::string TranslateDialogueKeyword(std::string_view source);
 void ResetNpcDialogueItemEditor(void);
 void SetNpcDialogueHidden(char value);
 /* While NPC script deferral holds character events, drain Escape / click so
@@ -382,7 +386,7 @@ void DrainNpcDialogueDeferralInput(void);
 /* When world_cursor_gate is set, discard queued input after a mouse-position hook so
    the world-cursor gate does not process stale events. */
 void FlushInputWhileWorldCursorGate(void);
-void HandleNpcDialogueReply(wchar_t* text, bool echo);
+void HandleNpcDialogueReply(std::string_view text, bool echo);
 void HandleNpcDialogueInput(void);
 void OpenNpcDialog(W8NpcQuoteEntry* request, int aux_data);
 void OnNpcDialogClosed(W8DialogBase* dialog);
@@ -390,7 +394,7 @@ void ConfirmNpcTradePurchase(void);
 /* Learn one keyword into the dialogue transcript. category -1
    auto-classifies the text against items, NPC/named-monster names and the
    place-name table; a nonzero play_chime rings the keyword chime. */
-void AddNpcDialogueKeyword(wchar_t* text, signed char category, int play_chime);
+void AddNpcDialogueKeyword(std::string text, signed char category, int play_chime);
 void ClearNpcDialogueTranscript(void);
 void CloseNpcDialogueForCamp(void);
 void OpenNpcDialogueOptionLayout(void);
@@ -418,9 +422,9 @@ void RecordLevelEntryDialogueState(void);
 unsigned char IsNpcDialogueCursorActive(void);
 /* Forward a portrait pick into an active NPC dialogue. */
 void TryNpcDialoguePickpocket(int party_slot);
-void ShortenTextToWidth(wchar_t* output, const wchar_t* text, unsigned int width, int font);
+std::string ShortenTextToWidth(std::string_view text, unsigned int width, int font);
 unsigned char NpcQuoteBubbleRegionEvent(const InputAtom* event, W8Region* region);
-void SetDialogueFieldKeyword(wchar_t* keyword, bool append);
+void SetDialogueFieldKeyword(std::string keyword, bool append);
 void ActivateNpcDialoguePanels(bool active);
 bool HasNpcDialogueDirtyPanels(void);
 unsigned char NpcDialogueTextBoxRegionEvent(const InputAtom* event, W8Region* region);

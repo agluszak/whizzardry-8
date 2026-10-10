@@ -1,5 +1,5 @@
+#include <string_view>
 #include "wiz8/dialog_code/DialogBase.h"
-#include "wiz8/sgp_text.h"
 #include "wiz8/dialog_code/DialogButton.h"
 #include "wiz8/dialog_code/ButtonUserData.h"
 #include "wiz8/local_code/ButtonSound.h"
@@ -128,10 +128,10 @@ void W8DialogButton::SetTooltipEnabled(bool enabled)
         if (m_tooltip_index != W8_DIALOG_BUTTON_NO_TOOLTIP && g_settings.tooltips_enabled) {
             SetButtonFastHelpText(m_button_handle,
 
-                                  gppStringList[m_tooltip_index]);
+                                  g_localized_strings[m_tooltip_index]);
         }
     } else {
-        SetButtonFastHelpText(m_button_handle, 0);
+        SetButtonFastHelpText(m_button_handle, {});
     }
 }
 
@@ -143,7 +143,7 @@ void W8DialogButton::SetTooltipIndex(int tooltip_index)
         if (g_settings.tooltips_enabled) {
             SetButtonFastHelpText(m_button_handle,
 
-                                  gppStringList[tooltip_index]);
+                                  g_localized_strings[tooltip_index]);
         }
     }
 }
@@ -221,12 +221,12 @@ bool W8DialogButton::ConfigureVObjButton(HVOBJECT object, int base_frame,
 }
 
 // FUNCTION: WIZ8 0x005DB350
-bool W8DialogButton::ConfigureTextButton(const wchar_t* text, unsigned int font, short fore_color,
+bool W8DialogButton::ConfigureTextButton(std::string_view text, unsigned int font, short fore_color,
                                          short shadow_color, short x, short y, short width,
                                          short height, W8DialogButtonCallback left_callback,
                                          int user_data)
 {
-    INT32 handle = CreateTextButton(const_cast<wchar_t*>(text), font, fore_color, shadow_color, -1,
+    INT32 handle = CreateTextButton(text, font, fore_color, shadow_color, -1,
                                     x, y, width, height, BUTTON_NO_TOGGLE, MSYS_PRIORITY_HIGHEST,
                                     DialogButtonCallback, DialogButtonCallback);
     m_button_handle = handle;
@@ -250,7 +250,7 @@ bool W8DialogButton::Configure(const char* image_path, int gray_frame, int off_n
                                W8DialogButtonCallback right_callback,
                                W8DialogButtonCallback double_click_callback)
 {
-    m_image_handle = LoadButtonImage(Wiz8ToSgpText(image_path), gray_frame, off_normal_frame,
+    m_image_handle = LoadButtonImage(image_path, gray_frame, off_normal_frame,
                                      off_hover_frame, on_normal_frame, on_hover_frame);
     if (m_image_handle != -1) {
         m_button_handle = QuickCreateButton(m_image_handle, 0, 0, BUTTON_NO_TOGGLE, priority,
@@ -272,7 +272,7 @@ bool W8DialogButton::Configure(const char* image_path, int gray_frame, int off_n
         if (tooltip_index != W8_DIALOG_BUTTON_NO_TOOLTIP && g_settings.tooltips_enabled) {
             SetButtonFastHelpText(m_button_handle,
 
-                                  gppStringList[tooltip_index]);
+                                  g_localized_strings[tooltip_index]);
         }
         m_dirty = true;
         return true;

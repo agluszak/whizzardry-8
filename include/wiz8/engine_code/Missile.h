@@ -1,3 +1,4 @@
+#include <string>
 #pragma once
 
 unsigned char LoadMissileDatabase(void);
@@ -168,7 +169,7 @@ extern unsigned int g_missile_table_count;
 struct W8MissileTableRecord {
     /* The retained database row starts with a UTF-16 name, independently
        visible in all 36 canonical MissileTables.dbs rows. */
-    wchar_t display_name[128];
+    std::string display_name;
     /* 0x100: the GrCycle resource name the launcher loads through the
        "Data\\Missiles" script path. */
     char cycle_name[0x40];

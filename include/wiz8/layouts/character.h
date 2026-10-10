@@ -1,6 +1,8 @@
 #ifndef WIZ8_LAYOUTS_CHARACTER_H
 #define WIZ8_LAYOUTS_CHARACTER_H
 
+#include <string>
+
 #include "wiz8/attack_modes.h"
 #include "wiz8/character_skills.h"
 #include "wiz8/conditions.h"
@@ -30,8 +32,8 @@ struct W8Enchantment {
     unsigned int turns;
 }; /* 0x0c */
 
-/* The game's wide text format: fixed-size UINT16 arrays stored inline in
-   records and manipulated through the CRT wide-string functions. */
+/* Runtime names own UTF-8 strings. retail_text_records.h encodes the
+   10/6-unit UTF-16LE fields separately and preserves the following unknown bytes. */
 
 /* Base attributes and their effective values after equipment and effects. */
 struct W8CharacterAttribute {
@@ -123,15 +125,16 @@ struct W8CharacterConditionRecord {
 }; /* 0x11 */
 W8_ABI_ASSERT(sizeof(W8CharacterConditionRecord) == 0x11, "W8CharacterConditionRecord_size");
 
+#pragma pack(push, 8)
 struct W8Character {
     /* 0x0000: SaveCharacter stamps 1 here before writing the record, so the
        leading dword is a saved-record version rather than runtime state. */
     unsigned int record_version;
     bool fInParty; /* 0x0004 */
-    /* 0x0005: the character's name, also the stem of its "%ls.CHR" file. */
-    wchar_t name[10];
-    wchar_t name_part_2[6]; /* 0x0019: rendered as the parenthesized name */
-    unsigned char unknown_0025[0x44];
+    /* 0x0005: the character's name, also the stem of its "%s.CHR" file. */
+    std::string name;
+    std::string name_part_2; /* 0x0019: rendered as the parenthesized name */
+    unsigned char unknown_0025[0x44]; // Unidentified retail data, preserved verbatim.
     /* 0x0069 and 0x006d: the current profession and the one the character
        started in. The level band subtracts a base only while the two agree. */
     W8Profession iProfession;         /* 0x0069 */
@@ -311,9 +314,10 @@ struct W8Character {
     unsigned char magic_bonus_pool;
     /* 0x1861: the anchor above has been set. Recall does nothing without it. */
     bool has_saved_location;
-}; /* 0x1862 */
+};
+#pragma pack(pop) /* 0x1862 */
 
-W8_ABI_ASSERT(sizeof(W8Character) == 0x1862, "W8Character_must_be_0x1862");
+
 
 enum W8SkillImportPolicy {
     W8_SKILL_IMPORT_POLICY_0 = 0,

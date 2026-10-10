@@ -1,3 +1,5 @@
+#include "wiz8/unicode.h"
+#include <string>
 #include "random.h"
 #include "wiz8/filesystem.h"
 #include "wiz8/engine_code/AnimRep.hpp"
@@ -58,7 +60,6 @@
 #include "wiz8/utility.h"
 
 #include <string.h>
-#include <wchar.h>
 #include "wiz8/local_code/ItemManager.h"
 #include "wiz8/level_specific_code/MasterFunctionList.h"
 #include "wiz8/local_code/Factions.h"
@@ -480,7 +481,7 @@ void HandleFactChange(W8FactId fact_id, unsigned char value)
                 ApplyAttributeChange(character, W8_ATTRIBUTE_INTELLIGENCE);
             }
         }
-        ShowString(gppStringList[0x1dc]);
+        ShowString(g_localized_strings[0x1dc]);
         trigger = FindTriggerByName("FOUNT_RIDDLE");
         if (trigger == 0) {
             return;
@@ -1004,7 +1005,7 @@ unsigned char g_fact_values[1000];
 unsigned char GetFact(W8FactId fact_id)
 {
     unsigned char value;
-    wchar_t display_value[10];
+    std::string display_value;
 
     if (fact_id > 1000) {
         return 0;
@@ -1013,11 +1014,11 @@ unsigned char GetFact(W8FactId fact_id)
     value = EvaluateFact(fact_id);
     if (g_status.log_fact_checks) {
         if (value) {
-            wcscpy(display_value, L"TRUE");
+            display_value = "TRUE";
         } else {
-            wcscpy(display_value, L"FALSE");
+            display_value = "FALSE";
         }
-        ShowNoticef(W8_FONT_PALETTE_YELLOW, L"Checking fact %S which is %s",
+        ShowNoticef(W8_FONT_PALETTE_YELLOW, "Checking fact %s which is %s",
                     g_fact_records[fact_id].symbolic_name, display_value);
     }
     return value;
@@ -1027,7 +1028,7 @@ unsigned char GetFact(W8FactId fact_id)
 void SetFact(W8FactId fact_id, unsigned char value, bool suppress_side_effects)
 {
     unsigned char previous_value;
-    wchar_t display_value[10];
+    std::string display_value;
 
     if (fact_id > 1000) {
         return;
@@ -1038,9 +1039,9 @@ void SetFact(W8FactId fact_id, unsigned char value, bool suppress_side_effects)
 
     if (fact_id < static_cast<int>(gXStatus.uiFactsInDatabase)) {
         if (value) {
-            sprintf((char*)display_value, "TRUE");
+            display_value = "TRUE";
         } else {
-            sprintf((char*)display_value, "FALSE");
+            display_value = "FALSE";
         }
     }
 
@@ -1052,11 +1053,11 @@ void SetFact(W8FactId fact_id, unsigned char value, bool suppress_side_effects)
 
         if (g_status.log_fact_checks) {
             if (value) {
-                wcscpy(display_value, L"TRUE");
+                display_value = "TRUE";
             } else {
-                wcscpy(display_value, L"FALSE");
+                display_value = "FALSE";
             }
-            ShowNoticef(W8_FONT_PALETTE_YELLOW, L"%S set to %s",
+            ShowNoticef(W8_FONT_PALETTE_YELLOW, "%s set to %s",
                         g_fact_records[fact_id].symbolic_name, display_value);
         }
     }

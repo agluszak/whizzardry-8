@@ -1,3 +1,5 @@
+#include <string>
+#include <vector>
 #pragma once
 
 #include "Types.h"
@@ -72,29 +74,29 @@ static const unsigned int W8_MAIN_REDRAW_ALL = 0xffffffffU;
 #pragma pack(push, 1)
 /* The dormant typed-dialogue input state hung off the level block: a plain
    heap object, not an srClass derivative. */
+#pragma pack(push, 8)
 struct W8DialogueTextState {
-    wchar_t* text;                 /* 0x00: owned editable buffer */
-    wchar_t* first_line_prefix;    /* 0x04: owned, measured before line one */
+    std::string text;                 /* 0x00: owned editable buffer */
+    std::string first_line_prefix;    /* 0x04: owned, measured before line one */
     void (*completion_callback)(); /* 0x08: invoked before the input closes */
-    unsigned int* line_offsets;    /* 0x0c: owned offsets into text */
+    std::vector<std::size_t> line_offsets{0};    /* 0x0c: owned offsets into text */
     unsigned int line_count;       /* 0x10 */
-    unsigned int text_capacity;    /* 0x14: characters, grown by 0x400 */
-    unsigned int line_capacity;    /* 0x18: entries, grown by 0x20 */
     int notice_channel;            /* 0x1c: passed to the completed notice */
     short text_box;                /* 0x20: text box whose scroll is replaced */
     short unknown_22;              /* 0x22: never read */
     unsigned int wrap_width;       /* 0x24: pixel budget and notice width */
-    unsigned int cursor;           /* 0x28: insertion point in text */
+    std::size_t cursor;           /* 0x28: insertion point in text */
     unsigned char cursor_dirty;    /* 0x2c: repaint just the dialogue cursor */
     bool dirty;                    /* 0x2d: cursor/text redraw pending */
     unsigned char padding_2e[2];
     unsigned int saved_scroll_line; /* 0x30: restored when input closes */
 };
+#pragma pack(pop)
 
 struct W8LevelRuntimeBlock {
     /* 0x000: notice/list paint scratch. DrawTextBoxLine and the monster-list
-       formatter reuse the leading 0xf0 bytes as wchar_t storage. */
-    wchar_t text_paint_scratch[0xf0 / sizeof(wchar_t)];
+       formatter reuse the leading 0xf0 bytes as char storage. */
+    char text_paint_scratch[0xf0 / sizeof(char)];
     bool message_box_pending; /* 0x0f0: message box lived last frame; render deferred */
     unsigned char flags[3];
     unsigned int redraw_flags; /* 0x0f4 */

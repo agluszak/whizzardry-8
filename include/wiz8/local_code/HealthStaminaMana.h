@@ -2,7 +2,6 @@
 
 #include "wiz8/layouts/gameplay_databases.h"
 
-#include <wchar.h>
 
 #include "surrender/srMath.h"
 #include "wiz8/layouts/targeting.h"
@@ -60,11 +59,11 @@ unsigned int ApplyDamageToMonster(W8MonsterInfo* monster_info, unsigned int amou
    shield/notice strings and the poison suffix, and keeps a sleeping character
    asleep. `announce` gates the damage notice, `short_notice` selects the terse
    ShowNoticef form over the verbose PostCharacterNotice one, and `detailed`
-   selects the named FormatWideString form. */
+   selects the named FormatText form. */
 unsigned int ApplyDamageToCharacter(int party_slot, unsigned int amount, bool quiet, bool announce,
                                     bool short_notice, W8SpellEffectResult* result_stats,
                                     bool detailed);
-extern wchar_t g_poison_suffix[];
+extern char g_poison_suffix[];
 /* How a monster answers being struck - the struck cycle, a
    possible condition knock-on, and the hostility check toward the attacker. */
 void MonsterReactsToBeingStruck(W8MonsterInfo* monster_info, W8TargetSource* attacker, bool quiet);

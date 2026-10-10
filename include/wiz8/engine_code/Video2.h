@@ -1,3 +1,4 @@
+#include <string_view>
 /* Modified for the Wizardry 8 reconstruction, 2026-09-10.
    Reconstructed Wizardry Video2 interface.
    Remove the artificial SGP C boundary and unused local configuration include, 2026-10-04.
@@ -54,7 +55,7 @@ void VideoSetConfigFile(const CHAR8* path);
 int VideoDumpMemoryLeaks(void);
 BOOLEAN CheckCdPresent(void);
 void VideoGetClientRect(SDL_Rect* rect);
-void VideoToolTip(CHAR16* text);
+void VideoToolTip(std::string_view text);
 extern INT32 g_help_box_width;
 extern INT32 g_help_box_height;
 /* DisplayFastHelp in mousesystem.cpp and the product region code both access

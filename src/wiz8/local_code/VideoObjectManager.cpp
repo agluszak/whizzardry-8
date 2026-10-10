@@ -849,7 +849,7 @@ void EnsureCatalogFrameLoaded(int object, int frame)
                 srAssertFail("VideoObjectsInitialized()", VIDEO_OBJECT_MANAGER_CPP, 0xdd, 0);
             }
             srAssertFail("fReturnCode", VIDEO_OBJECT_MANAGER_CPP, 0x68,
-                         FormatString("LoadVideoObject: ERROR - Add %s failed, type %d",
+                         FormatText("LoadVideoObject: ERROR - Add %s failed, type %d",
                                       record->path, record->storage_kind));
         }
         record->handle = handle;

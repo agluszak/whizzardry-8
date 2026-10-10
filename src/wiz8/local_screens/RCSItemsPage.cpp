@@ -54,7 +54,6 @@
 #include "line.h"
 
 #include <new>
-#include <wchar.h>
 #include "wiz8/local_screens/OptionsScreen.h"
 
 /* Retail Local Screens\RCSItemsPage.cpp - the items page of the camp
@@ -147,7 +146,7 @@ void OpenItemInfoDialog(W8ItemInstance* item, W8DialogDestroyCallback destroy_ca
     } else {
         dialog = new W8AssayDialog(item, g_review_character);
     }
-    dialog->SetText(&g_empty_wide_string);
+    dialog->SetText(&g_empty_text);
     dialog->SetOrigin(g_info_dialog_x, g_info_dialog_y);
     dialog->m_destroy_callback = destroy_callback;
     DisplayCampDialog(dialog);
@@ -270,7 +269,7 @@ void OpenSplitStackDialog(W8ItemInstance* item)
         g_item_records[item->iItemNo].quantity_kind == W8_ITEM_QUANTITY_STACK) {
         g_split_item_source = item;
         dialog = new W8SplitItemDialog(g_item_split_inventory_mode, item, -1);
-        dialog->SetText(&g_empty_wide_string);
+        dialog->SetText(&g_empty_text);
         dialog->SetOrigin(g_split_dialog_x, g_split_dialog_y);
         dialog->m_destroy_callback = SplitStackDialogResult;
         DisplayCampDialog(dialog);
@@ -323,7 +322,7 @@ void MergeItemStacksWithHeld(W8ItemInstance* item)
 // FUNCTION: WIZ8 0x005BA620
 void ReportCastResult(int party_slot)
 {
-    wchar_t* text;
+    std::string text;
     W8Character* character;
     int result;
 
@@ -332,15 +331,15 @@ void ReportCastResult(int party_slot)
     character = g_status.buffers.Char + party_slot;
     if (result == 0) {
         SoundPlay("Data\\Sound\\Misc\\Spell Fizzle 01.wav", 0);
-        text = FormatWideString(gppStringList[0x1be], character->name, 0, 1, 0);
+        text = FormatText(g_localized_strings[0x1be], character->name, 0, 1, 0);
         ShowCampNoticeLine(text, 0, true, false);
     } else if (result == 1) {
         SoundPlay("Data\\Sound\\Misc\\GeneralMagic.wav", 0);
-        text = FormatWideString(gppStringList[0x1bd], character->name, 0, 1, 0);
+        text = FormatText(g_localized_strings[0x1bd], character->name, 0, 1, 0);
         ShowCampNoticeLine(text, 0, true, false);
     } else if (result == 2) {
         SoundPlay("Data\\Sound\\Misc\\GeneralMagic.wav", 0);
-        text = FormatWideString(gppStringList[0x1bc], character->name, 0, 1, 0);
+        text = FormatText(g_localized_strings[0x1bc], character->name, 0, 1, 0);
         ShowCampNoticeLine(text, 0, true, false);
     }
     g_camp_screen->redraw_flags |= W8_CAMP_REDRAW_ALL;
@@ -494,7 +493,7 @@ void SplitStackDialogResult(W8DialogBase* dialog)
         if (destination == 0 &&
             (character == 0 || !AddItemToCharacter(character, &split, false, false, false)) &&
             !AddItemToParty(&split, false, false)) {
-            ShowCampNoticeLine(gppStringList[0x915], 0, true, false);
+            ShowCampNoticeLine(g_localized_strings[0x915], 0, true, false);
             g_status.item_in_hand.stack_count = remaining;
             if (ResolvePendingCampCharacter(true) && DropItemInHand(0)) {
                 SetCampItemActionMode(W8_CAMP_ITEM_ACTION_NONE);
@@ -650,11 +649,11 @@ void UnequipBothHands(void)
 
     if (gXStatus.fCombatMode && !g_combat_state->round_active && !gXStatus.fPartyMovementMode &&
         g_combat_state->equip_phase == 0) {
-        ShowCampNoticeLine(gppStringList[0x903], 0, true, false);
+        ShowCampNoticeLine(g_localized_strings[0x903], 0, true, false);
         return;
     }
     if (!IsPartySlotEligible(giReviewCharSlot)) {
-        ShowCampNoticeLine(gppStringList[0x917], 0, true, false);
+        ShowCampNoticeLine(g_localized_strings[0x917], 0, true, false);
         return;
     }
     character = g_status.buffers.Char + giReviewCharSlot;
@@ -668,7 +667,7 @@ void UnequipBothHands(void)
         g_camp_screen->redraw_flags |= W8_CAMP_REDRAW_CHARACTER_INFO;
         return;
     }
-    ShowCampNoticeLine(gppStringList[0x916], 0, true, false);
+    ShowCampNoticeLine(g_localized_strings[0x916], 0, true, false);
 }
 
 // FUNCTION: WIZ8 0x005BB140
@@ -870,7 +869,7 @@ unsigned char EquipSlotRegionHandler(const InputAtom* event, W8Region* region)
     int slot;
     int delay;
     W8ItemInstance* item;
-    wchar_t* name;
+    std::string name;
 
     slot = region->callback_id;
     item = g_review_character->EquippedItem + slot;
@@ -905,13 +904,11 @@ unsigned char EquipSlotRegionHandler(const InputAtom* event, W8Region* region)
             EnableRegionHelpFlag(region);
             if (item->iItemNo != -1) {
                 name = FormatItemDisplayName(item, false);
-                swprintf(g_camp_screen->text_buffer, L"%s (%s)", name,
-                         gppStringList[g_equip_slot_label_ids[slot]]);
+                g_camp_screen->text_buffer = FormatText("%s (%s)", name, g_localized_strings[g_equip_slot_label_ids[slot]]);
                 SetRegionHelpText(g_camp_screen->text_buffer);
                 return 1;
             }
-            swprintf(g_camp_screen->text_buffer, g_format_s,
-                     gppStringList[g_equip_slot_label_ids[slot]]);
+            g_camp_screen->text_buffer = FormatText(g_format_s, g_localized_strings[g_equip_slot_label_ids[slot]]);
             SetRegionHelpText(g_camp_screen->text_buffer);
             return 1;
         }
@@ -934,12 +931,10 @@ unsigned char EquipSlotRegionHandler(const InputAtom* event, W8Region* region)
                 SetRegionHelpDelay(delay);
                 SetRegionHelpForceEnabled(true);
                 if (item->iItemNo == -1) {
-                    swprintf(g_camp_screen->text_buffer, g_format_s,
-                             gppStringList[g_equip_slot_label_ids[slot]]);
+                    g_camp_screen->text_buffer = FormatText(g_format_s, g_localized_strings[g_equip_slot_label_ids[slot]]);
                 } else {
                     name = FormatItemDisplayName(item, false);
-                    swprintf(g_camp_screen->text_buffer, L"%s (%s)", name,
-                             gppStringList[g_equip_slot_label_ids[slot]]);
+                    g_camp_screen->text_buffer = FormatText("%s (%s)", name, g_localized_strings[g_equip_slot_label_ids[slot]]);
                 }
                 SetRegionHelpText(g_camp_screen->text_buffer);
             }
@@ -1084,7 +1079,7 @@ unsigned char PanelTabRegionHandler(const InputAtom* event, W8Region* region)
 void SetItemTooltip(W8ItemInstance* item, W8Region* region)
 {
     int delay;
-    wchar_t* name;
+    std::string name;
     const W8ItemDatabaseRecord* record;
 
     delay = g_settings.tooltip_delay_ms;
@@ -1095,7 +1090,7 @@ void SetItemTooltip(W8ItemInstance* item, W8Region* region)
     SetRegionHelpForceEnabled(true);
     EnableRegionHelpFlag(region);
     name = FormatItemDisplayName(item, false);
-    wcscpy(g_camp_screen->text_buffer, name);
+    g_camp_screen->text_buffer = name;
     record = g_item_records + item->iItemNo;
     if (record->category == W8_ITEM_CATEGORY_SPELL_SOURCE) {
         if (record->spell_id == W8_SPELL_NONE) {
@@ -1104,9 +1099,9 @@ void SetItemTooltip(W8ItemInstance* item, W8Region* region)
         }
         if (g_review_character->spell_learned[record->spell_id] == 1 &&
             (item->identified || item->spell_hint)) {
-            wcscat(g_camp_screen->text_buffer, L" (");
-            wcscat(g_camp_screen->text_buffer, gppStringList[0x930]);
-            wcscat(g_camp_screen->text_buffer, L")");
+            g_camp_screen->text_buffer += " (";
+            g_camp_screen->text_buffer += g_localized_strings[0x930];
+            g_camp_screen->text_buffer += ")";
         }
     }
     SetRegionHelpText(g_camp_screen->text_buffer);
@@ -1170,7 +1165,7 @@ void DrawCampItemIcons(void)
 // FUNCTION: WIZ8 0x005bbf40
 static void DrawCampItemLabel(W8ItemInstance* item, int left, int top, char flag)
 {
-    wchar_t* name;
+    std::string name;
     W8ControlsRect bounds;
     W8TextBuffer* text;
     int width;
@@ -1179,7 +1174,7 @@ static void DrawCampItemLabel(W8ItemInstance* item, int left, int top, char flag
     char* buffer;
 
     name = FormatItemDisplayName(item, false);
-    wcscpy(g_camp_screen->text_buffer, name);
+    g_camp_screen->text_buffer = name;
     bounds.left = left;
     bounds.top = top;
     bounds.right = left + 0xfa;

@@ -1,3 +1,6 @@
+#include <string_view>
+#include <string>
+#include "wiz8/unicode.h"
 #include "soundman.h"
 #include "Font.h"
 #include "Types.h"
@@ -46,7 +49,6 @@
 #include <string.h>
 #include <ctype.h>
 #include <stdio.h>
-#include <wchar.h>
 #include <wiz8/filesystem.h>
 
 // GLOBAL: WIZ8 0x0069C130
@@ -56,9 +58,9 @@ void MSYS_SGP_Mouse_Handler_Hook(unsigned short event, unsigned short x, unsigne
                                  char right_button, char left_button);
 
 /* Shared zero-initialized wide string: binary-wide DATA references read it as
-   empty text and as a swprintf format argument. No recovered writer exists. */
+   empty text and as a sprintf format argument. No recovered writer exists. */
 // GLOBAL: WIZ8 0x00689b34
-wchar_t g_empty_wide_string;
+char g_empty_text;
 
 /* Suppress hover sounds on the registered options-row children. */
 // GLOBAL: WIZ8 0x005ed590
@@ -71,7 +73,7 @@ W8OptionsValues g_options_values;
 // GLOBAL: WIZ8 0x0069c254
 W8OptionsScreen* g_options_screen;
 // GLOBAL: WIZ8 0x0069c1cc
-wchar_t g_options_last_save_name[64];
+std::string g_options_last_save_name;
 
 // GLOBAL: WIZ8 0x0064d72c
 static int g_last_options_panel = 5;
@@ -282,8 +284,7 @@ void W8OptionsSaveLoadPanel::Populate()
     int selected = 0;
     if (m_panel == 11 && g_options_last_save_name[0] != 0) {
         for (int index = 1; index < g_options_screen->m_save_slots.GetCount(); ++index) {
-            if (wcscmp(g_options_last_save_name,
-                       (*g_options_screen->m_save_slots.GetAt(index))->name) == 0) {
+            if (strcmp(g_options_last_save_name.c_str(), (*g_options_screen->m_save_slots.GetAt(index))->name.c_str()) == 0) {
                 page = (index - 1) / 5;
                 selected = (index - 1) % 5;
             }
@@ -384,7 +385,7 @@ void W8OptionsSaveLoadPanel::OnDialogClosed(bool accepted, int value)
             selected_slot = m_current;
         } else if (value == 3) {
             selected_slot = m_current * 5 + m_selection.m_selectedIndex;
-            wcscpy((*g_options_screen->m_save_slots.GetAt(selected_slot))->name, m_previous_name);
+            (*g_options_screen->m_save_slots.GetAt(selected_slot))->name = m_previous_name;
             W8OptionsSaveRow* row = *m_rows.GetAt(m_selection.m_selectedIndex);
             row->SetSave(*g_options_screen->m_save_slots.GetAt(selected_slot));
             if (g_options_screen->m_text_editor != 0 || m_panel != 12 ||
@@ -402,7 +403,7 @@ void W8OptionsSaveLoadPanel::OnDialogClosed(bool accepted, int value)
             return;
         case 3: {
             char path[260];
-            sprintf(path, "%s\\%s.%s", "Saves", ConvertWideStringToString(m_previous_name), g_save_extension);
+            wiz8::text::copy(path, FormatText("%s\\%s.%s", "Saves", m_previous_name, g_save_extension));
             if (wiz8::remove_file(path) == 0) {
                 g_options_screen->ShowNotification(this, false, 0x82e, 0);
                 return;
@@ -439,10 +440,10 @@ void W8OptionsSaveLoadPanel::OnTextEditComplete(W8OptionsTextEditor*, unsigned c
     }
 
     W8SaveSlot* slot = *g_options_screen->m_save_slots.GetAt(selected_slot);
-    wcscpy(m_previous_name, slot->name);
-    Get16BitStringFromField(0, slot->name);
-    if (wcslen(slot->name) == 0) {
-        wcscpy(slot->name, m_previous_name);
+    m_previous_name = slot->name;
+    slot->name = GetTextFromField(0);
+    if (slot->name.size() == 0) {
+        slot->name = m_previous_name;
         g_options_screen->ShowNotification(this, false, 0x82a, 4);
         return;
     }
@@ -450,7 +451,7 @@ void W8OptionsSaveLoadPanel::OnTextEditComplete(W8OptionsTextEditor*, unsigned c
     W8OptionsSaveRow* row = *m_rows.GetAt(m_selection.m_selectedIndex);
     row->SetSave(slot);
     if (m_current == 0 && m_selection.m_selectedIndex == 0) {
-        if (SaveSlotFileExists(ConvertWideStringToString(slot->name)) == 0) {
+        if (SaveSlotFileExists(slot->name) == 0) {
             SaveSelectedSave();
         } else {
             g_options_screen->ShowNotification(this, true, 0x829, 2);
@@ -499,7 +500,7 @@ void W8OptionsSaveLoadPanel::DeleteSelectedSave()
     int selected_slot = m_current * 5 + 1 + m_selection.m_selectedIndex;
     W8SaveSlot* slot = *g_options_screen->m_save_slots.GetAt(selected_slot);
     char path[260];
-    sprintf(path, "%s\\%s.%s", "Saves", ConvertWideStringToString(slot->name), g_save_extension);
+    wiz8::text::copy(path, FormatText("%s\\%s.%s", "Saves", slot->name, g_save_extension));
     if (wiz8::remove_file(path) == 0) {
         g_options_screen->ShowNotification(this, false, 0x82f, 0);
         return;
@@ -544,7 +545,7 @@ void W8OptionsSaveLoadPanel::LoadSelectedSave()
         RequestScreenTransition();
         g_pending_screen_state.mode = 1;
         g_pending_screen_state.parameter = slot->level_id;
-        strcpy(g_pending_screen_state.name, ConvertWideStringToString(slot->name));
+        wiz8::text::copy(g_pending_screen_state.name, slot->name);
         SetPendingScreenState(W8_SCREEN_PLEASE_WAIT);
     }
 }
@@ -554,13 +555,13 @@ void W8OptionsSaveLoadPanel::SaveSelectedSave()
 {
     int selected_slot = m_current * 5 + m_selection.m_selectedIndex;
     W8SaveSlot* slot = *g_options_screen->m_save_slots.GetAt(selected_slot);
-    if (wcslen(slot->name) == 0) {
+    if (slot->name.size() == 0) {
         g_options_screen->ShowNotification(this, false, 0x82a, 0);
         return;
     }
 
     char path[260];
-    sprintf(path, "%s\\%s.%s", "Saves", ConvertWideStringToString(slot->name), g_save_extension);
+    wiz8::text::copy(path, FormatText("%s\\%s.%s", "Saves", slot->name, g_save_extension));
     if ([&]() { const auto status = wiz8::file_status(path); return status && status->info.type == SDL_PATHTYPE_FILE; }() != 0 && wiz8::remove_file(path) == 0) {
         g_options_screen->ShowNotification(this, false, 0x82e, 0);
         return;
@@ -568,14 +569,14 @@ void W8OptionsSaveLoadPanel::SaveSelectedSave()
     SetLastSaveName(slot->name);
     RequestScreenTransition();
     g_pending_screen_state.mode = 2;
-    strcpy(g_pending_screen_state.name, ConvertWideStringToString(slot->name));
+    wiz8::text::copy(g_pending_screen_state.name, slot->name);
     g_pending_screen_state.parameter_3 =
         new W8SaveScreenshot(g_options_screen->m_save_slots[0]->screenshot);
     SetPendingScreenState(W8_SCREEN_PLEASE_WAIT);
 }
 
 W8OptionsButton::W8OptionsButton(Controls* owner, int left, int top, int right, int bottom,
-                                 const wchar_t* text)
+                                 std::string_view text)
     : W8TextControl(owner, 0xffffffff, left, top, right, bottom, -1, -1, -1, -1, -1, -1, -1)
 {
     m_textBuffer.SetLayoutMode(g_W8TextBufferAlignTop);
@@ -584,7 +585,7 @@ W8OptionsButton::W8OptionsButton(Controls* owner, int left, int top, int right, 
 
 W8OptionsKeyButton::W8OptionsKeyButton(Controls* owner, int top, W8MGSCommand primary_binding,
                                        W8MGSCommand secondary_binding)
-    : W8OptionsButton(owner, 100, top, 0x15e, top + 22, &g_empty_wide_string),
+    : W8OptionsButton(owner, 100, top, 0x15e, top + 22, &g_empty_text),
       m_primary_binding(primary_binding), m_secondary_binding(secondary_binding)
 {
     AddLayoutFlags(g_W8TextControlLayoutLatchedImage | g_W8TextControlLayoutToggle);
@@ -633,30 +634,28 @@ void W8OptionsSaveRow::Redraw(bool full_redraw)
         portrait->release();
     }
 
-    const wchar_t* level_name = m_save->level_id == 0x38
+    std::string level_name = m_save->level_id == 0x38
                                     ? g_default_level
-                                    : gppStringList[g_level_name_indices[m_save->level_id]];
-    wchar_t timestamp[32];
-    swprintf(timestamp, L"%d-%2.2d-%2.2d %2d:%2.2d", m_save->timestamp.year,
-             m_save->timestamp.month, m_save->timestamp.day, m_save->timestamp.hour,
-             m_save->timestamp.minute);
+                                    : g_localized_strings[g_level_name_indices[m_save->level_id]];
+    std::string timestamp;
+    timestamp = FormatText("%d-%2.2d-%2.2d %2d:%2.2d", m_save->timestamp.year, m_save->timestamp.month, m_save->timestamp.day, m_save->timestamp.hour, m_save->timestamp.minute);
 
     SetFont(g_wiz_text_font_secondary);
     int text_x = x + 0x5e;
     if (m_save->version_major + m_save->version_minor * 0.1f + m_save->version_patch * 0.01f <=
         1.24f) {
-        gprintf(text_x, y + 9, L"%s", level_name);
-        gprintf(text_x, y + 0x16, L"%s %3d, %2d:%2.2d", gppStringList[0x826],
+        gprintf(text_x, y + 9, "%s", level_name);
+        gprintf(text_x, y + 0x16, "%s %3d, %2d:%2.2d", g_localized_strings[0x826],
                 m_save->game_time_days, m_save->game_time_ms / 3600000,
                 (m_save->game_time_ms / 60000) % 60);
-        gprintf(text_x, y + 0x23, L"%s", timestamp);
+        gprintf(text_x, y + 0x23, "%s", timestamp);
     } else {
-        gprintf(text_x, y + 9, L"%s", gppStringList[0x830]);
-        gprintf(text_x, y + 0x16, L"%s", gppStringList[0x831]);
+        gprintf(text_x, y + 9, "%s", g_localized_strings[0x830]);
+        gprintf(text_x, y + 0x16, "%s", g_localized_strings[0x831]);
     }
-    gprintf(text_x, y + 0x34, L"%s", m_save->name);
+    gprintf(text_x, y + 0x34, "%s", m_save->name);
     if (m_save->iron_man) {
-        gprintf(x + 0x156, y + 9, L"%s", gppStringList[0x827]);
+        gprintf(x + 0x156, y + 9, "%s", g_localized_strings[0x827]);
     }
 }
 
@@ -688,7 +687,7 @@ void W8OptionsSaveRow::OnLeftButtonDoubleClick(int event)
 
 // FUNCTION: WIZ8 0x005a9820
 void W8OptionsScreen::BeginSaveNameEdit(W8OptionsTextEditor::Listener* listener, int row,
-                                        const wchar_t* text)
+                                        std::string_view text)
 {
     W8OptionsTextEditor* editor = new W8OptionsTextEditor;
     InitTextInputModeWithScheme(1);
@@ -759,9 +758,9 @@ void W8OptionsKeyButton::SetKey(unsigned short key)
 // FUNCTION: WIZ8 0x005a7e40
 void W8OptionsKeyButton::SetKeyText(unsigned short key)
 {
-    wchar_t character[2] = {0, 0};
+    std::string character;
     int index = 0;
-    const wchar_t* text;
+    std::string text;
 
     if (g_options_key_names[0].key != key) {
         W8OptionsKeyName* name = g_options_key_names;
@@ -775,20 +774,20 @@ void W8OptionsKeyButton::SetKeyText(unsigned short key)
         } while (name->key != key);
     }
 
-    text = gppStringList[g_options_key_names[index].label];
-    if (text == 0) {
+    text = g_localized_strings[g_options_key_names[index].label];
+    if (text.empty()) {
     translate_key:
         character[0] = TranslateKeyToCharacter(key, 0);
         if (character[0] == 0) {
-            m_textBuffer.SetText(gppStringList[0x86d], g_options_detail_font);
+            m_textBuffer.SetText(g_localized_strings[0x86d], g_options_detail_font);
             return;
         }
-        character[0] = static_cast<wchar_t>(toupper(character[0]));
+        character[0] = static_cast<char>(toupper(character[0]));
         text = character;
     }
 
     if (m_secondary_binding != W8_MGS_COMMAND_NONE && key != 0) {
-        text = FormatWideString(L"(%s) %s", gppStringList[0x89d], text);
+        text = FormatText("(%s) %s", g_localized_strings[0x89d], text);
     }
     m_textBuffer.SetText(text, g_options_detail_font);
 }
@@ -802,7 +801,7 @@ void W8OptionsKeyboardPanel::Populate()
     W8ControlsRect title_bounds = {m_bounds.left + 30, m_bounds.top + m_content_top,
                                    m_bounds.right - 30, m_bounds.top + m_content_top + 22};
     W8TextBuffer* title =
-        new W8TextBuffer(&title_bounds, gppStringList[page.title], g_options_detail_font,
+        new W8TextBuffer(&title_bounds, g_localized_strings[page.title], g_options_detail_font,
                          g_W8TextBufferAlignTop | g_W8TextBufferAlignCenter, 4);
     m_text_buffers.Add(title);
     m_content_top += 44;
@@ -817,7 +816,7 @@ void W8OptionsKeyboardPanel::Populate()
         W8ControlsRect label_bounds = {m_bounds.left + 20, m_bounds.top + m_content_top,
                                        m_bounds.right, m_bounds.top + m_content_top + 22};
         W8TextBuffer* label =
-            new W8TextBuffer(&label_bounds, gppStringList[row->label], g_options_detail_font,
+            new W8TextBuffer(&label_bounds, g_localized_strings[row->label], g_options_detail_font,
                              g_W8TextBufferAlignTop | g_W8TextBufferAlignLeft, 4);
         m_text_buffers.Add(label);
 
@@ -829,7 +828,7 @@ void W8OptionsKeyboardPanel::Populate()
         W8MGSCommand binding = row->primary_binding;
         ++row;
         if (binding == page.last_binding) {
-            wchar_t* reset_text = gppStringList[0x833];
+            std::string reset_text = g_localized_strings[0x833];
             short text_width = StringPixLength(reset_text, g_options_detail_font);
             int left = (m_bounds.right - (text_width + 20) - m_bounds.left) / 2;
             W8OptionsButton* reset =
@@ -1276,7 +1275,7 @@ void W8OptionsUnavailablePanel::Populate()
     m_content_top += 44;
     W8ControlsRect bounds = {m_bounds.left + 30, m_bounds.top + m_content_top, m_bounds.right - 30,
                              m_bounds.bottom};
-    W8TextBuffer* text = new W8TextBuffer(&bounds, gppStringList[m_message], g_options_detail_font,
+    W8TextBuffer* text = new W8TextBuffer(&bounds, g_localized_strings[m_message], g_options_detail_font,
                                           g_W8TextBufferAlignTop | g_W8TextBufferAlignCenter, 4);
     m_text_buffers.Add(text);
     (*m_text_buffers.GetAt(0))->SetLineHeight(22);
@@ -1700,7 +1699,7 @@ W8OptionsCheckbox* W8OptionsPanel::AddCheckbox(int label, int* value)
 {
     W8ControlsRect bounds = {m_bounds.left + 20, m_bounds.top + m_content_top, m_bounds.right,
                              m_bounds.top + m_content_top + 22};
-    W8TextBuffer* text = new W8TextBuffer(&bounds, gppStringList[label], g_options_detail_font,
+    W8TextBuffer* text = new W8TextBuffer(&bounds, g_localized_strings[label], g_options_detail_font,
                                           g_W8TextBufferAlignTop | g_W8TextBufferAlignLeft, 4);
     m_text_buffers.Add(text);
     W8OptionsCheckbox* checkbox = new W8OptionsCheckbox(this, m_content_top, value);
@@ -1713,7 +1712,7 @@ W8TextControl* W8OptionsPanel::AddChoiceButton(int label)
 {
     W8ControlsRect bounds = {m_bounds.left, m_bounds.top + m_content_top, m_bounds.left + 0x147,
                              m_bounds.top + m_content_top + 22};
-    W8TextBuffer* text = new W8TextBuffer(&bounds, gppStringList[label], g_options_detail_font,
+    W8TextBuffer* text = new W8TextBuffer(&bounds, g_localized_strings[label], g_options_detail_font,
                                           g_W8TextBufferAlignTop | g_W8TextBufferAlignRight, 4);
     m_text_buffers.Add(text);
     W8TextControl* button = new W8TextControl(this, 0xffffffff, 0x151, m_content_top + 1, 0, 0,
@@ -1728,7 +1727,7 @@ W8OptionsSlider* W8OptionsPanel::AddSlider(int label, float* value, bool alterna
 {
     W8ControlsRect bounds = {m_bounds.left + 20, m_bounds.top + m_content_top, m_bounds.right,
                              m_bounds.top + m_content_top + 22};
-    W8TextBuffer* text = new W8TextBuffer(&bounds, gppStringList[label], g_options_detail_font,
+    W8TextBuffer* text = new W8TextBuffer(&bounds, g_localized_strings[label], g_options_detail_font,
                                           g_W8TextBufferAlignTop | g_W8TextBufferAlignLeft, 4);
     m_text_buffers.Add(text);
     W8OptionsSlider* slider = new W8OptionsSlider(this, m_content_top, value, alternate);
@@ -1741,7 +1740,7 @@ void W8OptionsPanel::AddChoices(int label, int count, const int* choices, int* v
 {
     W8ControlsRect bounds = {m_bounds.left + 20, m_bounds.top + m_content_top, m_bounds.right,
                              m_bounds.top + m_content_top + 22};
-    W8TextBuffer* text = new W8TextBuffer(&bounds, gppStringList[label], g_options_detail_font,
+    W8TextBuffer* text = new W8TextBuffer(&bounds, g_localized_strings[label], g_options_detail_font,
                                           g_W8TextBufferAlignTop | g_W8TextBufferAlignLeft, 4);
     m_text_buffers.Add(text);
     W8OptionsSelection* selection = new W8OptionsSelection(value);
@@ -1829,7 +1828,7 @@ W8OptionsMenuSet::W8OptionsMenuSet(unsigned int* shared_region_set)
     m_next = new W8TextControl(this, 0xffffffff, 0x11f, 3, 0, 0, 0xf4, 0, 4, 6, 5, -1, 7);
     m_next->m_listener = this;
 
-    m_page_text = new W8TextBuffer(&m_bounds, &g_empty_wide_string, g_options_detail_font,
+    m_page_text = new W8TextBuffer(&m_bounds, &g_empty_text, g_options_detail_font,
                                    g_W8TextBufferAlignCenter | g_W8TextBufferAlignMiddle, 4);
 }
 
@@ -1928,9 +1927,9 @@ void W8OptionsMenuSet::UpdateMenuSet()
     if (m_fEnabled) {
         m_next->SetEnabled(current < count - 1);
         m_previous->SetEnabled(current > 0);
-        wchar_t text[0x10];
+        std::string text;
 
-        swprintf(text, L"%d / %d", current + 1, count);
+        text = FormatText("%d / %d", current + 1, count);
         m_page_text->SetText(text, g_options_detail_font);
     }
     Invalidate(0);
@@ -2124,15 +2123,13 @@ void OptionsScreenFrame()
 }
 
 // FUNCTION: WIZ8 0x005A9E70
-void SetLastSaveName(const wchar_t* target)
+void SetLastSaveName(std::string_view target)
 {
-    wcsncpy(g_options_last_save_name, target, 0x40);
-    reinterpret_cast<char*>(g_options_last_save_name)[0x7e] =
-        0; // reinterpret-ok: raw byte view of the wide name buffer
+    g_options_last_save_name = target;
 }
 
 // FUNCTION: WIZ8 0x005A9E90
-wchar_t* GetLastSaveName(void)
+std::string_view GetLastSaveName(void)
 {
     return g_options_last_save_name;
 }

@@ -7,7 +7,7 @@
 #include "input.h"
 
 /* The single-space separator wrapped notice lines are re-joined with. */
-extern wchar_t g_W8TextSeparator[];
+extern char g_W8TextSeparator[];
 
 // VTABLE: WIZ8 0x005ed5b0
 // class W8Vector<W8Widget*>

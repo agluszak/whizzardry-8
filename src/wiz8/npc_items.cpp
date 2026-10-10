@@ -814,7 +814,7 @@ bool CompleteNpcItemPurchase(W8NpcState* npc, int index, unsigned char quantity,
             }
         }
         if (!AddItemToPartyOrDrop(&hand, false) && !g_status.item_in_cursor) {
-            DisplayNpcQuote(gppStringList[0x6b1], false);
+            DisplayNpcQuote(g_localized_strings[0x6b1], false);
         }
         moved += unit;
         if (quantity <= moved) {

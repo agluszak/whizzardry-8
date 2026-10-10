@@ -1,3 +1,4 @@
+#include <string_view>
 #include <SDL3/SDL_log.h>
 /* Modified for the Wizardry 8 reconstruction: 2026-10-03, 2026-10-06, 2026-10-07, 2026-10-09.
    Distributed under the accompanying SFI Source Code license agreement. */
@@ -119,9 +120,9 @@ CachedSound pSampleList[SOUND_MAX_CACHED];
 // GLOBAL: WIZ8 0x006e4120
 SoundChannel pSoundList[SOUND_MAX_CHANNELS];
 
-static std::string ResolveSoundPath(const char* path)
+static std::string ResolveSoundPath(std::string_view path)
 {
-    if (!path || !*path) return {};
+    if (path.empty()) return {};
     std::string filename(path);
     strupr(filename.data());
     if ([&]() { const auto status = wiz8::file_status(filename.data()); return status && status->info.type == SDL_PATHTYPE_FILE; }()) return filename;
@@ -187,7 +188,7 @@ void ShutdownSoundManager(void)
 //	!!Note:  Can no longer play streamed files
 
 // FUNCTION: WIZ8 0x00408860
-UINT32 SoundPlay(const char* path, SOUNDPARMS* parameters)
+UINT32 SoundPlay(std::string_view path, SOUNDPARMS* parameters)
 {
     if (!fSoundSystemInit) return SOUND_ERROR;
     auto filename = ResolveSoundPath(path);
@@ -208,7 +209,7 @@ UINT32 SoundPlay(const char* path, SOUNDPARMS* parameters)
 //						If an error occured, SOUND_ERROR will be returned
 
 // FUNCTION: WIZ8 0x00408ad0
-UINT32 SoundPlayStreamedFile(const char* path, SOUNDPARMS* parameters)
+UINT32 SoundPlayStreamedFile(std::string_view path, SOUNDPARMS* parameters)
 {
     if (!fSoundSystemInit) return SOUND_ERROR;
     auto filename = ResolveSoundPath(path);

@@ -8,17 +8,11 @@
    (lower 0x004E3820). */
 
 // FUNCTION: WIZ8 0x004E3620
-void FormatVersionBanner(char* out, bool with_title, bool with_build, bool with_date)
+std::string FormatVersionBanner(bool with_title, bool with_build, bool with_date)
 {
-    out[0] = '\0';
-    if (with_title) {
-        strcat(out, "Wizardry 8 ");
-    }
-    strcat(out, FormatString("v%d.%d.%d", 1, 2, 4));
-    if (with_build) {
-        strcat(out, FormatString(" (build %d)", 0xdb));
-    }
-    if (with_date) {
-        strcat(out, FormatString(" %s", "2001/12/24 15:36"));
-    }
+    std::string text = with_title ? "Wizardry 8 " : "";
+    text += FormatText("v%d.%d.%d", 1, 2, 4);
+    if (with_build) text += FormatText(" (build %d)", 0xdb);
+    if (with_date) text += " 2001/12/24 15:36";
+    return text;
 }

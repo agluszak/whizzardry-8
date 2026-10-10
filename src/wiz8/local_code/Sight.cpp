@@ -268,7 +268,7 @@ void ReleaseMonToMonVisibilityInfoAbout(int location_id)
                     PLRemoveAt(monster_info->plsVisMonToMon, index));
                 if (visibility == 0) {
                     srAssertFail("pVisibility != NULL", SIGHT_CPP, 968,
-                                 FormatString("ReleaseMonToMonVisibilityInfoAbout: ERROR - "
+                                 FormatText("ReleaseMonToMonVisibilityInfoAbout: ERROR - "
                                               "PLRemoveAt failed, index %d",
                                               index));
                 }
@@ -290,7 +290,7 @@ void ReleaseMonToMonVisibilityList(W8MonsterInfo* monster_info)
         visibility = static_cast<W8VisibilityRecord*>(PLRemoveAt(monster_info->plsVisMonToMon, 0));
         if (visibility == 0) {
             srAssertFail("pVisibility != NULL", SIGHT_CPP, 990,
-                         FormatString("ReleaseMonToMonVisibilityList: ERROR - PLRemoveAt failed"));
+                         FormatText("ReleaseMonToMonVisibilityList: ERROR - PLRemoveAt failed"));
         }
         free(visibility);
     }
@@ -843,7 +843,7 @@ void UpdateMonsterSight(W8MonsterInfo* monster_info, bool direction, bool use_bo
                         if (!gXStatus.fSurprisePossible &&
                             (g_sight_fade_in_tick == 0 || now - g_sight_fade_in_tick > 199)) {
                             g_sight_fade_in_tick = now;
-                            ShowNotice(W8_FONT_PALETTE_WHITE, gppStringList[0x1dd]);
+                            ShowNotice(W8_FONT_PALETTE_WHITE, g_localized_strings[0x1dd]);
                         }
                     }
                     monster_info->party_threat.sight_state = W8_SIGHT_SEEN;
@@ -862,7 +862,7 @@ void UpdateMonsterSight(W8MonsterInfo* monster_info, bool direction, bool use_bo
                 if (!gXStatus.fSurprisePossible &&
                     (g_sight_fade_out_tick == 0 || now - g_sight_fade_out_tick > 199)) {
                     g_sight_fade_out_tick = now;
-                    ShowNotice(W8_FONT_PALETTE_WHITE, gppStringList[0x1de]);
+                    ShowNotice(W8_FONT_PALETTE_WHITE, g_localized_strings[0x1de]);
                 }
             }
             if (monster_info->party_threat.last_seen_clock == 0) {

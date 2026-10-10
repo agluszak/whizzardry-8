@@ -1,3 +1,4 @@
+#include "wiz8/unicode.h"
 #include "wiz8/utility.h"
 #include "wiz8/engine_code/stLight.hpp"
 #include "wiz8/engine_code/LevelFile.h"
@@ -271,7 +272,7 @@ W8LevelFile* ReadLevelFile(wiz8::File* hFile)
             W8LevelFileNamedPosition* pPosition = pLevel->pNamedPositions + i;
             ReportBuildStatus(
                 5,
-                FormatString("Named Position: %s (%f, %f, %f)\n", pPosition->name,
+                FormatText("Named Position: %s (%f, %f, %f)\n", pPosition->name,
                            pPosition->position.x, pPosition->position.y, pPosition->position.z));
         }
     }
@@ -873,14 +874,14 @@ try
         }
         ReportBuildStatus(
             5,
-            FormatString(
+            FormatText(
                 "Switch Trigger: %s, recipients: %s\n",
                 pSwitch->name, pSwitch->recipients));
         if (pSwitch->version > 1) {
             fSuccess &= (hFile->read(&pSwitch->minimum_range, 4).bytes == static_cast<std::size_t>(4));
             fSuccess &= (hFile->read(pSwitch->surface_id, sizeof(pSwitch->surface_id)).bytes == static_cast<std::size_t>(sizeof(pSwitch->surface_id)));
             ReportBuildStatus(
-                5, FormatString("Switch Trigger name: %s\n", pSwitch->surface_id));
+                5, FormatText("Switch Trigger name: %s\n", pSwitch->surface_id));
         }
         if (pSwitch->version > 2) {
             fSuccess &= (hFile->read(&pSwitch->has_door_trigger, 1).bytes == static_cast<std::size_t>(1));
@@ -921,7 +922,7 @@ try
         fSuccess &= (hFile->read(pInvis->recipients, sizeof(pInvis->recipients)).bytes == static_cast<std::size_t>(sizeof(pInvis->recipients)));
         ReportBuildStatus(
             5,
-            FormatString(
+            FormatText(
                 "Invisible Trigger: %s, recipients: %s\n",
                 pInvis->name, pInvis->recipients));
         if (pInvis->version > 1) {
@@ -1007,7 +1008,7 @@ try
         if (pSound->version > 3) {
             fSuccess &= (hFile->read(pSound->name, sizeof(pSound->name)).bytes == static_cast<std::size_t>(sizeof(pSound->name)));
             ReportBuildStatus(
-                5, FormatString("Sound Trigger: %s\n",
+                5, FormatText("Sound Trigger: %s\n",
                               pSound->name));
         }
         if (pSound->version > 4) {
@@ -1201,7 +1202,7 @@ try
     }
     ReportBuildStatus(
         5,
-        FormatString("Super Trigger: %s, recipients: %s\n", pSuper->name, pSuper->recipients));
+        FormatText("Super Trigger: %s, recipients: %s\n", pSuper->name, pSuper->recipients));
     if (pSuper->version >= 2) {
         fSuccess &= (hFile->read(pSuper->size, sizeof(pSuper->size)).bytes == static_cast<std::size_t>(sizeof(pSuper->size)));
         fSuccess &= (hFile->read(&pSuper->direction, 4).bytes == static_cast<std::size_t>(4));
@@ -1963,7 +1964,7 @@ W8LevelFileProp* ReadPropsFile(wiz8::File* hFile, int count)
         if (pProp->version >= 7) {
             fSuccess &= (hFile->read(pProp->name, sizeof(pProp->name)).bytes == static_cast<std::size_t>(sizeof(pProp->name)));
             ReportBuildStatus(
-                5, FormatString("Prop: %s\n",
+                5, FormatText("Prop: %s\n",
                               pProp->name));
         }
         if (fSuccess == 0) {
@@ -1977,7 +1978,7 @@ W8LevelFileProp* ReadPropsFile(wiz8::File* hFile, int count)
                 if (pProp->usFrame_Pos == 0) {
                     srAssertFail(
                         "pProps[i1].usFrame_Pos", LEVELFILE_CPP, 0x91f,
-                        FormatString("Could not allocate %d segments for prop '%s'!",
+                        FormatText("Could not allocate %d segments for prop '%s'!",
                                    static_cast<int>(pProp->num_frame_pos), pProp->name));
                 }
                 fSuccess &= (hFile->read(pProp->usFrame_Pos, pProp->num_frame_pos << 2).bytes == static_cast<std::size_t>(pProp->num_frame_pos << 2));
@@ -2113,7 +2114,7 @@ try
     }
     ReportBuildStatus(
         5,
-        FormatString("Particle System: %s, Position %f, %f, %f\n", pSystem->particle.name,
+        FormatText("Particle System: %s, Position %f, %f, %f\n", pSystem->particle.name,
                    pSystem->particle.location.x * g_world_scale,
                    pSystem->particle.location.y * g_world_scale,
                    pSystem->particle.location.z * g_world_scale));

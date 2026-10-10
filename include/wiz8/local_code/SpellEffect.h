@@ -1,3 +1,4 @@
+#include <string>
 #ifndef WIZ8_LOCAL_CODE_SPELL_EFFECT_H
 #define WIZ8_LOCAL_CODE_SPELL_EFFECT_H
 
@@ -19,7 +20,7 @@ class W8Missile;
 struct W8SpellDamageReport {
     int kind;
     int value;
-    wchar_t text[50];
+    std::string text;
 };
 
 W8_ABI_ASSERT(sizeof(W8SpellDamageReport) == 0x6c, "W8SpellDamageReport_must_be_0x6c");

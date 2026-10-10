@@ -50,7 +50,7 @@ enum { W8_DEGREES_PER_TURN = 360, W8_DEGREES_PER_QUADRANT = 90 };
 
 #define FORMATION_CPP "C:\\Projects\\Wizardry 8\\Local Code\\Formation & Facing.cpp"
 
-extern wchar_t g_formation_row_names[5][20];
+extern char g_formation_row_names[5][20];
 
 /* Copy a party formation state. The 0x84-byte structure is copied as 33
    dwords via REP MOVSD. */
@@ -113,7 +113,7 @@ void ReconcilePartyFormation(W8PartyFormationState* edited, W8PartyFormationStat
             continue;
         }
         if (edited_position->bQuadrant != live_position->bQuadrant) {
-            PostCharacterNotice(slot, gppStringList[0x248]);
+            PostCharacterNotice(slot, g_localized_strings[0x248]);
         }
         row = live_position->bQuadrant;
         if (working.ubQuadrantOccupants[row] < 3) {
@@ -134,7 +134,7 @@ void ReconcilePartyFormation(W8PartyFormationState* edited, W8PartyFormationStat
             SetFormationPosition(&working, slot, row, column, false, false, false);
             working.positions[slot].facing = live_position->facing;
             if (edited_position->bQuadrant != row) {
-                PostCharacterNotice(slot, gppStringList[0x249], &g_formation_row_names[row][0]);
+                PostCharacterNotice(slot, g_localized_strings[0x249], &g_formation_row_names[row][0]);
             }
         } else {
             signed char new_rows[3] = {4, 2, 3};
@@ -146,7 +146,7 @@ void ReconcilePartyFormation(W8PartyFormationState* edited, W8PartyFormationStat
                 for (column = 0; column < 3; ++column) {
                     if (working.bOccupantChar[new_row][column] == -1) {
                         SetFormationPosition(&working, slot, new_row, column, false, false, true);
-                        PostCharacterNotice(slot, gppStringList[0x24a],
+                        PostCharacterNotice(slot, g_localized_strings[0x24a],
                                             &g_formation_row_names[new_row][0]);
                         placed = true;
                         break;
@@ -243,7 +243,7 @@ void RestoreCombatFormation(void)
                sizeof(W8PartyFormationState));
         RefreshFormationBoard();
         RefreshRadarMap();
-        ShowNotice(W8_FONT_PALETTE_WHITE, gppStringList[0x24b], 0);
+        ShowNotice(W8_FONT_PALETTE_WHITE, g_localized_strings[0x24b], 0);
     }
 }
 
@@ -452,8 +452,8 @@ bool IsPartyLookingAt(W8MonsterInfo* monster_info, srVector3T<float> point)
 
 /* The five formation rows' display names, indexed by row. */
 // GLOBAL: WIZ8 0x00649e54
-wchar_t g_formation_row_names[5][20] = {
-    L"Front", L"Right", L"Rear", L"Left", L"Center",
+char g_formation_row_names[5][20] = {
+    "Front", "Right", "Rear", "Left", "Center",
 };
 
 /* Make room in `row` for one more character and return the column it should
@@ -606,11 +606,11 @@ void SetFormationPosition(W8PartyFormationState* formation, int slot, signed cha
         }
         if (announce) {
             if (new_row != -1) {
-                PostCharacterNotice(slot, gppStringList[0x24c], &g_formation_row_names[new_row][0]);
+                PostCharacterNotice(slot, g_localized_strings[0x24c], &g_formation_row_names[new_row][0]);
                 return;
             }
             if (old_row != -1) {
-                PostCharacterNotice(slot, gppStringList[0x24d], &g_formation_row_names[old_row][0]);
+                PostCharacterNotice(slot, g_localized_strings[0x24d], &g_formation_row_names[old_row][0]);
             }
         }
     }
@@ -678,7 +678,7 @@ void SeatFormationSlotInRow(W8PartyFormationState* formation, int slot, int row)
         SetFormationPosition(formation, slot, row, seat, false, true, true);
         return;
     }
-    PostCharacterNotice(slot, gppStringList[0x24e], &g_formation_row_names[row][0]);
+    PostCharacterNotice(slot, g_localized_strings[0x24e], &g_formation_row_names[row][0]);
 }
 
 /* Swap two party slots' formation positions: the second takes the first's
@@ -717,7 +717,7 @@ void SwapFormationSlots(W8PartyFormationState* formation, int slot_a, int slot_b
             SetFormationPosition(formation, slot_a, row, seat, false, true, true);
             return;
         }
-        PostCharacterNotice(slot_a, gppStringList[0x24e], &g_formation_row_names[row][0]);
+        PostCharacterNotice(slot_a, g_localized_strings[0x24e], &g_formation_row_names[row][0]);
     }
 }
 

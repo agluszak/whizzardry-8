@@ -1,3 +1,4 @@
+#include "wiz8/unicode.h"
 #include "wiz8/utility.h"
 #include "wiz8/engine_code/3d.h"
 #include "wiz8/float_constants.h"
@@ -222,7 +223,7 @@ try
         handle = opened.get();
         if (handle == 0) {
             srAssertFail("0", ANI_MESH_CPP, 0x199,
-                         FormatString("Couldn't open %s", mesh->filename));
+                         FormatText("Couldn't open %s", mesh->filename));
             return 0;
         }
     }
@@ -403,7 +404,7 @@ try
         handle = opened.get();
         if (handle == 0) {
             srAssertFail("fi.hFile", ANI_MESH_CPP, 0x23f,
-                         FormatString("Couldn't open %s", mesh->filename));
+                         FormatText("Couldn't open %s", mesh->filename));
             return 0;
         }
     }

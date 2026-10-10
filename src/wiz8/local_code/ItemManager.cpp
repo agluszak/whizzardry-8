@@ -1,3 +1,4 @@
+#include "wiz8/unicode.h"
 #include "wiz8/local_code/ItemManager.h"
 #include "wiz8/local_code/PC_Item.h"
 #include "wiz8/layouts/game_status.h"
@@ -314,16 +315,16 @@ void FreeWorldItemGroup(W8WorldItem* item)
 int FindItemRecordByName(const char* name)
 {
     int index;
-    const char* internal_name;
+    std::string internal_name;
 
     for (index = 0; index < static_cast<int>(gXStatus.uiItemsInDatabase); ++index) {
         internal_name = g_item_records[index].internal_name;
         if (internal_name[0] == 0) {
-            if (_stricmp(ConvertWideStringToString(g_item_records[index].display_name), name) ==
+            if (_stricmp(g_item_records[index].display_name.c_str(), name) ==
                 0) {
                 return index;
             }
-        } else if (_stricmp(internal_name, name) == 0) {
+        } else if (CompareTextIgnoreAsciiCase(internal_name, name) == 0) {
             return index;
         }
     }
@@ -445,8 +446,8 @@ W8WorldItem* ItemInfo(unsigned int item_list_index)
     item = GetWorldItemListEntry(item_list_index);
     if (item == 0) {
         srAssertFail("pItemInfo != NULL", ITEM_MANAGER_CPP, 965,
-                     FormatString("ItemInfo: ERROR - PLGet failed, index %d, pList %d",
-                                  item_list_index, gXStatus.plsItemList));
+                     FormatText("ItemInfo: ERROR - PLGet failed, index %d, pList %p",
+                                  item_list_index, static_cast<const void*>(gXStatus.plsItemList)));
     }
     return item;
 }
@@ -462,7 +463,7 @@ unsigned int ItemIndex(int runtime_id)
         }
     }
     srAssertFail("FALSE", ITEM_MANAGER_CPP, 992,
-                 FormatString("ItemIndex: ERROR - ItemID %d not found", runtime_id));
+                 FormatText("ItemIndex: ERROR - ItemID %d not found", runtime_id));
     return 0;
 }
 
@@ -647,7 +648,7 @@ void ActivateItem(W8WorldItem* item)
     W8ReadLevelInfo info;
     char zItemName[0x3c];
     char zItemFullPath[0x38];
-    const char* name;
+    std::string name;
     srRegistry::ClassNode* node;
     srNode* sun;
     stModelInstance* mesh;
@@ -664,27 +665,22 @@ void ActivateItem(W8WorldItem* item)
     info.bitmap_folder = "Data\\Items3D\\Bitmaps";
 
     name = g_item_records[item->item.iItemNo].internal_name;
-    if (strlen(name) == 0) {
+    if (name.empty()) {
         name =
             g_item_model_fallback_names[g_item_records[item->item.iItemNo].unidentified_name_index];
     }
-    strcpy(zItemName, name);
+    wiz8::text::copy(zItemName, name);
     if (strstr(zItemName, ".ITM") != 0) {
-        sprintf(zItemFullPath, "%s\\%s", "Data\\Items3D", zItemName);
+        wiz8::text::copy(zItemFullPath, FormatText("%s\\%s", "Data\\Items3D", zItemName));
     } else {
-        sprintf(zItemFullPath, "%s\\%s.ITM", "Data\\Items3D", zItemName);
+        wiz8::text::copy(zItemFullPath, FormatText("%s\\%s.ITM", "Data\\Items3D", zItemName));
     }
     if (![&]() { const auto status = wiz8::file_status(zItemFullPath); return status && status->info.type == SDL_PATHTYPE_FILE; }()) {
         strcpy(zItemName, "questionmark");
-        sprintf(zItemFullPath, "%s\\%s.ITM", "Data\\Items3D", zItemName);
-        if (![&]() {
-                const auto status = wiz8::file_status(zItemFullPath);
-                return status && status->info.type == SDL_PATHTYPE_FILE;
-            }()) {
-            srAssertFail("[&]() { const auto status = wiz8::file_status(zItemFullPath); return "
-                         "status && status->info.type == SDL_PATHTYPE_FILE; }()",
-                         ITEM_MANAGER_CPP, 0x1ed,
-                         FormatString("ActivateItem: ERROR - missing ITM file %s, item %d",
+        wiz8::text::copy(zItemFullPath, FormatText("%s\\%s.ITM", "Data\\Items3D", zItemName));
+        if (![&]() { const auto status = wiz8::file_status(zItemFullPath); return status && status->info.type == SDL_PATHTYPE_FILE; }()) {
+            srAssertFail("[&]() { const auto status = wiz8::file_status(zItemFullPath); return status && status->info.type == SDL_PATHTYPE_FILE; }()", ITEM_MANAGER_CPP, 0x1ed,
+                         FormatText("ActivateItem: ERROR - missing ITM file %s, item %d",
                                       zItemFullPath, item->item.iItemNo));
         }
     }
@@ -694,7 +690,7 @@ void ActivateItem(W8WorldItem* item)
     item->p3D = entity;
     if (!loaded) {
         srAssertFail("fSuccess", ITEM_MANAGER_CPP, 0x1f2,
-                     FormatString("ActivateItem: ERROR - ItemRead %s failed", zItemName));
+                     FormatText("ActivateItem: ERROR - ItemRead %s failed", zItemName));
     }
     if (ItemHasFlags(item, W8_WORLD_ITEM_RADAR_BLIP_LIT)) {
         item->p3D->LightRadarBlip();
@@ -1030,8 +1026,8 @@ unsigned char ReleaseItemLists(void)
         item = GetWorldItemListEntry(0);
         if (item == 0) {
             srAssertFail("pItemInfo != NULL", ITEM_MANAGER_CPP, 0x3c5,
-                         FormatString("ItemInfo: ERROR - PLGet failed, index %d, pList %d", 0,
-                                      gXStatus.plsItemList));
+                         FormatText("ItemInfo: ERROR - PLGet failed, index %d, pList %p", 0,
+                                      static_cast<const void*>(gXStatus.plsItemList)));
         }
         if (item->sector_id >= 0) {
             RemoveItemFromSector(item->sector_id, item);
@@ -1349,7 +1345,7 @@ void DropMonsterLoot(W8MonsterInfo* monster_info, int value)
             W8NpcState* npc = GetNpcStateForMonsterInfo(monster_info, true);
             if (npc == 0) {
                 srAssertFail("pNPC", ITEM_MANAGER_CPP, 1459,
-                             FormatString("Monster %S marked as NPC with no NPC data", record));
+                             FormatText("Monster %s marked as NPC with no NPC data", record->name0));
             }
             for (index = 0; index < 40; ++index) {
                 if (npc->item_ids[index] != -1 && npc->item_weights[index] == 0) {

@@ -1,3 +1,5 @@
+#include "wiz8/utility.h"
+#include "wiz8/unicode.h"
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/xstatus.h"
 #include "wiz8/engine_code/stScript.h"
@@ -200,7 +202,7 @@ unsigned char StartMusicResource(const char* resource, int fade, unsigned char r
         RequestExitScreen();
     }
 
-    sprintf(path, "Data\\Music\\%s", resource);
+    wiz8::text::copy(path, FormatText("Data\\Music\\%s", resource));
     _strupr(path);
     g_music_fade = static_cast<unsigned char>(fade);
 

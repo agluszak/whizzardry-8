@@ -1,3 +1,4 @@
+#include <string>
 #ifndef WIZ8_CHARACTER_EVENT_QUEUE_H
 #define WIZ8_CHARACTER_EVENT_QUEUE_H
 
@@ -74,7 +75,7 @@ struct W8CharacterEvent {
 
     void Complete(); /* 0x0052CED0 */
 
-    wchar_t* GetQuoteText(); /* 0x0052D240 */
+    std::string GetQuoteText(); /* 0x0052D240 */
 
     unsigned char Dispatch(); /* 0x0052CA60 */
 

@@ -1,3 +1,5 @@
+#include "wiz8/unicode.h"
+#include <string>
 #include "wiz8/fonts.h"
 #include "wiz8/local_code/Search.h"
 #include "wiz8/integer_constants.h"
@@ -214,7 +216,7 @@ void RunSearchPulse(void)
             !gXStatus.fTrapInteractMode && !gXStatus.fTrapInteract) {
             if ((g_level_data->flags & W8_LEVEL_FLAG_FAST_MOVEMENT) != 0 &&
                 g_status.search_mode != 0) {
-                ShowNotice(W8_FONT_PALETTE_BEIGE, gppStringList[W8_NOTICE_SEARCH_SPECIAL_LEVEL]);
+                ShowNotice(W8_FONT_PALETTE_BEIGE, g_localized_strings[W8_NOTICE_SEARCH_SPECIAL_LEVEL]);
             }
             W8SearchableView* view = CollectSearchablesInView();
             bool found = false;
@@ -248,9 +250,9 @@ void RunSearchPulse(void)
                                         folder = "Test";
                                     }
                                     char path[512];
-                                    sprintf(path, "Data\\Messages\\%s.msg", folder);
-                                    wchar_t text[0x7ce];
-                                    if (GetStringFromStringDatabase(path, message, text, 0, 0) !=
+                                    wiz8::text::copy(path, FormatText("Data\\Messages\\%s.msg", folder));
+                                    std::string text;
+                                    if ((!(text = GetStringFromStringDatabase(path, message, 0, 0)).empty()) !=
                                         0) {
                                         ShowString(text);
                                     }
@@ -385,15 +387,15 @@ void ToggleSearchMode(void)
 {
     if (g_status.search_mode != 0) {
         g_status.search_mode = 0;
-        ShowNotice(W8_FONT_PALETTE_BEIGE, gppStringList[W8_NOTICE_SEARCH_MODE_OFF]);
+        ShowNotice(W8_FONT_PALETTE_BEIGE, g_localized_strings[W8_NOTICE_SEARCH_MODE_OFF]);
         return;
     }
     if (!gXStatus.fCombatMode) {
         g_status.search_mode = 1;
-        ShowNotice(W8_FONT_PALETTE_BEIGE, gppStringList[W8_NOTICE_SEARCH_MODE_ON]);
+        ShowNotice(W8_FONT_PALETTE_BEIGE, g_localized_strings[W8_NOTICE_SEARCH_MODE_ON]);
         g_search_pulse_clock = w8_get_ticks() + (0x1f4);
         ClearActiveWorldCursorNode();
     } else {
-        ShowNotice(W8_FONT_PALETTE_BEIGE, gppStringList[W8_NOTICE_SEARCH_BLOCKED_COMBAT]);
+        ShowNotice(W8_FONT_PALETTE_BEIGE, g_localized_strings[W8_NOTICE_SEARCH_BLOCKED_COMBAT]);
     }
 }

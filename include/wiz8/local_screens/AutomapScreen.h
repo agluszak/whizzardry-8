@@ -1,3 +1,4 @@
+#include <string>
 #pragma once
 
 #include "wiz8/filesystem.h"
@@ -16,7 +17,7 @@ extern float g_automap_grid_cell_size;
 struct W8AutomapNote {
     glm::vec2 position;
     int layer;
-    wchar_t* text;
+    std::string text;
 };
 W8_ABI_ASSERT(sizeof(W8AutomapNote) == 0x10, "W8AutomapNote_size");
 

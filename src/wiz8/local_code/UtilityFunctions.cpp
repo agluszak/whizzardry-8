@@ -1,5 +1,6 @@
+#include <string_view>
+#include <string>
 #include "wiz8/utility.h"
-#include "wiz8/sgp_text.h"
 #include "wiz8/xstatus.h"
 #include "wiz8/layouts/character.h"
 #include "wiz8/character_skills.h"
@@ -32,7 +33,6 @@
 #include <float.h>
 #include <stdio.h>
 #include <string.h>
-#include <wchar.h>
 #include <stdlib.h>
 #include "wiz8/layouts/game_status.h"
 
@@ -59,10 +59,7 @@ static unsigned int g_message_box_shade;
 // GLOBAL: WIZ8 0x0068c0b0
 static bool g_message_box_accepted;
 // GLOBAL: WIZ8 0x0068BFD0
-static thread_local char g_format_string_buffer[8][512];
-static thread_local unsigned int g_format_string_index;
 // GLOBAL: WIZ8 0x00689FD0
-static wchar_t g_wide_string_buffer[4096];
 
 // FUNCTION: WIZ8 0x00517950
 void SetDice(W8Dice* dice, unsigned char count, unsigned char sides, short base)
@@ -172,78 +169,12 @@ int CompareSignedDescending(const void* first, const void* second)
     return 0;
 }
 
-// FUNCTION: WIZ8 0x00517a70
-char* FormatString(const char* format, ...)
-{
-    char* buffer = g_format_string_buffer[g_format_string_index++ % 8];
-    va_list arguments;
-    va_start(arguments, format);
-    vsnprintf(buffer, sizeof(g_format_string_buffer[0]), format, arguments);
-    va_end(arguments);
-    return buffer;
-}
-
-// FUNCTION: WIZ8 0x00517a90
-wchar_t* FormatWideString(const wchar_t* format, ...)
-{
-    va_list arguments;
-
-    va_start(arguments, format);
-    vswprintf(g_wide_string_buffer, format, arguments);
-    return g_wide_string_buffer;
-}
-
-// FUNCTION: WIZ8 0x00517ab0
-wchar_t* ConvertStringToWide(const char* string)
-{
-    swprintf(g_wide_string_buffer, g_combat_log_format, string);
-    return g_wide_string_buffer;
-}
-
-// FUNCTION: WIZ8 0x00517ad0
-char* ConvertWideStringToString(const wchar_t* string)
-{
-    char* output = reinterpret_cast<char*>(g_wide_string_buffer);
-    if (wcstombs(output, string, sizeof(g_wide_string_buffer) - 1) == static_cast<size_t>(-1)) {
-        output[0] = 0;
-    }
-    output[sizeof(g_wide_string_buffer) - 1] = 0;
-    return output;
-}
-
 // FUNCTION: WIZ8 0x00517af0
-wchar_t* FormatUnsignedIntegerWithCommas(wchar_t* output, unsigned int value)
+std::string FormatUnsignedIntegerWithCommas(unsigned int value)
 {
-    bool first_group = true;
-    wchar_t group[10];
-    unsigned int divisor;
-    int exponent;
-
-    wcscpy(output, &g_empty_wide_string);
-    exponent = 9;
-    do {
-        unsigned int threshold;
-
-        divisor = IntegerPower(10, exponent);
-        threshold = exponent > 0 ? divisor : 0;
-
-        if (value >= threshold) {
-            unsigned int group_value;
-
-            if (!first_group) {
-                wcscat(output, L",");
-            }
-            group_value = value / divisor;
-            swprintf(group, first_group ? g_format_d : L"%03d", group_value);
-            wcscat(output, group);
-            value -= divisor * group_value;
-            first_group = false;
-        } else if (!first_group) {
-            wcscat(output, L",000");
-        }
-        exponent -= 3;
-    } while (exponent >= 0);
-    return output;
+    auto text = std::to_string(value);
+    for (std::size_t i = text.size(); i > 3; ) { i -= 3; text.insert(i, ","); }
+    return text;
 }
 
 // FUNCTION: WIZ8 0x00517bd0
@@ -327,13 +258,9 @@ bool ScreenPointInRect(const W8ScreenRect* rect, const SDL_Point* point)
 }
 
 // FUNCTION: WIZ8 0x00517ea0
-void StripMonsterNameSuffix(wchar_t* name)
+void StripMonsterNameSuffix(std::string& name)
 {
-    wchar_t* suffix = wcschr(name, L'#');
-
-    if (suffix != 0) {
-        *suffix = L'\0';
-    }
+    if (const auto suffix = name.find('#'); suffix != std::string::npos) name.resize(suffix);
 }
 
 // FUNCTION: WIZ8 0x00517ec0
@@ -355,7 +282,7 @@ unsigned int CharacterPointerToPartySlot(const W8Character* character)
     }
 
     srAssertFail("FALSE", "C:\\Projects\\Wizardry 8\\Local Code\\UtilityFunctions.cpp", 0x1d1,
-                 FormatString("PCPtrToPCSlot: ERROR - no match on ptr %d", character));
+                 FormatText("PCPtrToPCSlot: ERROR - no match on ptr %p", static_cast<const void*>(character)));
     return 0;
 }
 
@@ -546,14 +473,9 @@ retry:
 }
 
 // FUNCTION: WIZ8 0x005182e0
-void FormatDebugMessage(int channel, const char* format, ...)
+void DebugMessage(int channel, std::string_view message)
 {
-    char message[200];
-    va_list arguments;
-
-    (void)channel;
-    va_start(arguments, format);
-    vsprintf(message, format, arguments);
+    (void)channel; (void)message; // The recovered diagnostic sink is inactive.
 }
 
 // FUNCTION: WIZ8 0x00518310
@@ -569,27 +491,18 @@ int RPCPtrToPCSlot(const W8MonsterManagerEntry* rpc)
         ++slot;
     }
     srAssertFail("FALSE", "C:\\Projects\\Wizardry 8\\Local Code\\UtilityFunctions.cpp", 0x385,
-                 FormatString("RPCPtrToPCSlot: ERROR - no match on ptr %d", rpc));
+                 FormatText("RPCPtrToPCSlot: ERROR - no match on ptr %p", static_cast<const void*>(rpc)));
     return 0;
 }
 
 // FUNCTION: WIZ8 0x005184b0
 void FreeStringTable(void)
 {
-    if (gppStringList != 0) {
-        for (int index = 0; index < giStringListLen; ++index) {
-            if (gppStringList[index] != 0) {
-                free(gppStringList[index]);
-            }
-        }
-        free(gppStringList);
-        gppStringList = 0;
-        giStringListLen = 0;
-    }
+    ReleaseLocalizedStrings();
 }
 
 // FUNCTION: WIZ8 0x00518510
-bool CreateMessageBox(wchar_t* text, int font, unsigned int shade, bool has_accept, bool has_cancel,
+bool CreateMessageBox(std::string_view text, int font, unsigned int shade, bool has_accept, bool has_cancel,
                       void (*callback)(void))
 {
     SDL_Rect rect;
@@ -607,9 +520,7 @@ bool CreateMessageBox(wchar_t* text, int font, unsigned int shade, bool has_acce
     } else if (width < 0x64) {
         width = 0x78;
     }
-    g_message_box_background_image = LoadGenericButtonImages(
-        0, Wiz8ToSgpText(DEFAULT_GENERIC_BUTTON_OFF), 0, Wiz8ToSgpText(DEFAULT_GENERIC_BUTTON_ON),
-        0, Wiz8ToSgpText("Data\\Dialogs\\DialogBackground.STI"), 0, 0, 0);
+    g_message_box_background_image = LoadGenericButtonImages({}, DEFAULT_GENERIC_BUTTON_OFF, {}, DEFAULT_GENERIC_BUTTON_ON, {}, "Data\\Dialogs\\DialogBackground.STI", 0, 0, 0);
     int yloc = (0x1e0 - height) / 2;
     g_message_box_background_button = CreateTextButton(
         text, static_cast<unsigned short>(font), 0xff, 0, g_message_box_background_image,
@@ -620,7 +531,7 @@ bool CreateMessageBox(wchar_t* text, int font, unsigned int shade, bool has_acce
     SpecifyButtonMultiColorFont(g_message_box_background_button, 1);
     if (has_accept) {
         strcpy(filename, "Data\\Message Box\\Ok.sti");
-        g_message_box_accept_image = LoadButtonImage(Wiz8ToSgpText(filename), 0, 1, 2, 3, 4);
+        g_message_box_accept_image = LoadButtonImage(filename, 0, 1, 2, 3, 4);
         if (g_message_box_accept_image < 0) {
             return false;
         }
@@ -635,7 +546,7 @@ bool CreateMessageBox(wchar_t* text, int font, unsigned int shade, bool has_acce
     }
     if (has_cancel) {
         strcpy(filename, "Data\\Message Box\\Cancel.sti");
-        g_message_box_cancel_image = LoadButtonImage(Wiz8ToSgpText(filename), 0, 1, 2, 3, 4);
+        g_message_box_cancel_image = LoadButtonImage(filename, 0, 1, 2, 3, 4);
         if (g_message_box_cancel_image < 0) {
             return false;
         }

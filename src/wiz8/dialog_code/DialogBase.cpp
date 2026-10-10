@@ -1,5 +1,4 @@
 #include "wiz8/cursor.h"
-#include "wiz8/sgp_text.h"
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/dialog_code/DialogBase.h"
 #include "wiz8/dialog_code/DialogButton.h"
@@ -47,7 +46,7 @@ W8DialogBase::W8DialogBase()
     m_resource = -1;
     m_dirty_flags = 0;
     m_error = 0;
-    m_text = 0;
+    m_text.clear();
     m_font = g_dialog_interface_font;
     m_foreground = g_dialog_font_foreground;
     m_background = g_dialog_font_background;
@@ -101,21 +100,9 @@ void W8DialogBase::Draw()
 }
 
 // FUNCTION: WIZ8 0x005dc940
-void W8DialogBase::SetText(const wchar_t* text)
+void W8DialogBase::SetText(std::string_view text)
 {
-    if (m_text) {
-        free(m_text);
-        m_text = 0;
-    }
-    if (text) {
-        if (wcslen(text) != 0) {
-            m_text = static_cast<wchar_t*>(malloc((wcslen(text) + 1) * sizeof(wchar_t)));
-            wcscpy(m_text, text);
-        }
-    }
-    if (m_resource != -1) {
-        SpecifyButtonText(m_resource, const_cast<wchar_t*>(text));
-    }
+    m_text.assign(text);
     m_dirty_flags |= W8_DIALOG_DIRTY_REDRAW;
 }
 
@@ -177,19 +164,13 @@ int W8DialogBase::CreateControls()
         return m_error = 4;
     }
     if (m_border == -1) {
-        m_border = LoadGenericButtonImages(0, Wiz8ToSgpText("Data\\Dialogs\\DialogBorder.STI"), 0,
-                                           Wiz8ToSgpText("Data\\Dialogs\\DialogBorder.STI"), 0,
-                                           Wiz8ToSgpText(m_background_path),
-                                           static_cast<short>(m_background_flags), 0, 0);
+        m_border = LoadGenericButtonImages({}, "Data\\Dialogs\\DialogBorder.STI", {}, "Data\\Dialogs\\DialogBorder.STI", {}, m_background_path, static_cast<short>(m_background_flags), 0, 0);
         if (m_border == -1) {
             return m_error = 4;
         }
     }
     m_resource =
-        CreateTextButton(0, m_font, m_foreground, m_background, m_border, static_cast<short>(m_x),
-                         static_cast<short>(m_y), static_cast<short>(m_width),
-                         static_cast<short>(m_height), BUTTON_NO_TOGGLE | BUTTON_IGNORE_CLICKS,
-                         MSYS_PRIORITY_HIGHEST - 2, BUTTON_NO_CALLBACK, BUTTON_NO_CALLBACK);
+        CreateTextButton({}, m_font, m_foreground, m_background, m_border, static_cast<short>(m_x), static_cast<short>(m_y), static_cast<short>(m_width), static_cast<short>(m_height), BUTTON_NO_TOGGLE | BUTTON_IGNORE_CLICKS, MSYS_PRIORITY_HIGHEST - 2, BUTTON_NO_CALLBACK, BUTTON_NO_CALLBACK);
     if (m_resource != -1) {
         SpecifyButtonTextOffsets(m_resource, 3, 3, 1);
         SpecifyButtonMultiColorFont(m_resource, g_dialog_font_enabled);
@@ -205,10 +186,7 @@ void W8DialogBase::DestroyControls()
 {
     ReleaseDialogButtonHandle(m_resource);
     ReleaseDialogBorderImage(m_border);
-    if (m_text) {
-        free(m_text);
-        m_text = 0;
-    }
+    m_text.clear();
     if (m_background_path) {
         free(m_background_path);
         m_background_path = 0;

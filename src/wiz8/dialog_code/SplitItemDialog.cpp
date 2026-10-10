@@ -1,3 +1,4 @@
+#include <string>
 #include "wiz8/dialog_code/DialogInterface.h"
 #include "wiz8/dialog_code/DialogFactoryDialogs.h"
 
@@ -26,7 +27,6 @@
 
 #include <ctype.h>
 #include <stdlib.h>
-#include <wchar.h>
 #include "wiz8/dialog_code/AssayDialog.h"
 #include "wiz8/local_screens/CharacterScreen.h"
 
@@ -230,7 +230,7 @@ bool W8SplitItemDialog::CreateTextBuffers()
 {
     int count;
     int index;
-    const wchar_t* header;
+    std::string header;
     W8ControlsRect bounds;
 
     count = 0;
@@ -244,7 +244,7 @@ bool W8SplitItemDialog::CreateTextBuffers()
         bounds.top = g_split_text_bounds[index].top + m_y;
         bounds.right = g_split_text_bounds[index].right + m_x;
         bounds.bottom = g_split_text_bounds[index].bottom + m_y;
-        m_texts[index] = new W8TextBuffer(&bounds, gppStringList[g_split_text_string_ids[index]],
+        m_texts[index] = new W8TextBuffer(&bounds, g_localized_strings[g_split_text_string_ids[index]],
                                           g_wiz_text_font_secondary,
                                           g_W8TextBufferAlignMiddle | g_W8TextBufferAlignCenter, 4);
         if (m_texts[index] == 0) {
@@ -259,19 +259,19 @@ bool W8SplitItemDialog::CreateTextBuffers()
         m_texts[11]->SetLayoutMode(g_W8TextBufferAlignRight | g_W8TextBufferAlignMiddle);
         m_texts[13]->SetLayoutMode(g_W8TextBufferAlignRight | g_W8TextBufferAlignMiddle);
         if (m_mode == W8_ITEM_SPLIT_SELL) {
-            m_texts[1]->SetText(gppStringList[274], g_wiz_text_font_secondary);
-            header = gppStringList[268];
+            m_texts[1]->SetText(g_localized_strings[274], g_wiz_text_font_secondary);
+            header = g_localized_strings[268];
         } else {
-            m_texts[1]->SetText(gppStringList[275], g_wiz_text_font_secondary);
-            header = gppStringList[276];
+            m_texts[1]->SetText(g_localized_strings[275], g_wiz_text_font_secondary);
+            header = g_localized_strings[276];
         }
         m_texts[0]->SetText(header, g_wiz_text_font_secondary);
     }
     m_texts[3]->SetText(FormatItemDisplayName(m_item, false), g_wiz_text_font_secondary);
     m_texts[5]->SetText(
-        FormatWideString(
-            L"%s (%s)", gppStringList[g_equip_class_name_ids[GetItemEquipClass(m_item)]],
-            gppStringList[g_generic_item_name_notice[GetItemUnidentifiedNameIndex(m_item)]]),
+        FormatText(
+            "%s (%s)", g_localized_strings[g_equip_class_name_ids[GetItemEquipClass(m_item)]],
+            g_localized_strings[g_generic_item_name_notice[GetItemUnidentifiedNameIndex(m_item)]]),
         g_wiz_text_font_secondary);
     return true;
 }
@@ -361,7 +361,7 @@ void W8SplitItemDialog::Draw()
 void W8SplitItemDialog::UpdateCostLabels()
 {
     W8ItemInstance stack;
-    wchar_t text[34];
+    std::string text;
     int remaining_price;
     int split_price;
 
@@ -403,11 +403,11 @@ void W8SplitItemDialog::UpdateCostLabels()
         remaining_price = GetItemStackValue(m_item);
         split_price = remaining_price;
     }
-    swprintf(text, g_format_d, remaining_price);
+    text = FormatText(g_format_d, remaining_price);
     m_texts[11]->SetText(text, g_wiz_text_font_secondary);
     m_buttons[8]->m_dirty = true;
     m_texts[11]->SetGeometryDirty();
-    swprintf(text, g_format_d, split_price);
+    text = FormatText(g_format_d, split_price);
     m_texts[13]->SetText(text, g_wiz_text_font_secondary);
     m_buttons[9]->m_dirty = true;
     m_texts[13]->SetGeometryDirty();
@@ -458,11 +458,11 @@ void W8SplitItemDialog::UpdateAcceptButton()
    split-count button callbacks. */
 void W8SplitItemDialog::UpdateTotals()
 {
-    wchar_t text[34];
+    std::string text;
 
     UpdateArrowStates();
     UpdateAcceptButton();
-    swprintf(text, g_format_d, m_remaining);
+    text = FormatText(g_format_d, m_remaining);
     m_texts[2]->SetText(text, g_wiz_text_font_secondary);
     m_buttons[2]->m_dirty = true;
     m_texts[2]->SetGeometryDirty();
@@ -470,14 +470,12 @@ void W8SplitItemDialog::UpdateTotals()
     m_buttons[3]->m_dirty = true;
     m_count_input->m_dirty = true;
     m_count_input->m_button->m_dirty = true;
-    swprintf(text, g_assay_format,
-             static_cast<double>(GetItemUnitWeight(m_item) * m_remaining) *
+    text = FormatText(g_assay_format, static_cast<double>(GetItemUnitWeight(m_item) * m_remaining) *
                  g_item_weight_display_scale);
     m_texts[7]->SetText(text, g_wiz_text_font_secondary);
     m_buttons[4]->m_dirty = true;
     m_texts[7]->SetGeometryDirty();
-    swprintf(text, g_assay_format,
-             static_cast<double>(GetItemUnitWeight(m_item) * split_count) *
+    text = FormatText(g_assay_format, static_cast<double>(GetItemUnitWeight(m_item) * split_count) *
                  g_item_weight_display_scale);
     m_texts[9]->SetText(text, g_wiz_text_font_secondary);
     m_buttons[5]->m_dirty = true;

@@ -1,6 +1,8 @@
 #ifndef WIZ8_LAYOUTS_ITEM_TABLES_H
 #define WIZ8_LAYOUTS_ITEM_TABLES_H
 
+#include <string>
+
 #include "wiz8/attack_modes.h"
 #include "wiz8/dice.h"
 
@@ -99,8 +101,9 @@ enum W8ItemCategory {
     W8_ITEM_CATEGORY_CASTER_ITEM_8 = 8
 };
 
+#pragma pack(push, 8)
 struct W8ItemDatabaseRecord {
-    wchar_t display_name[30]; /* 0x000 */
+    std::string display_name; /* 0x000 */
     /* 0x03c: the item number the Wizardry 7 import matches imported item ids
        against (Party Import.cpp). */
     short legacy_item_number;
@@ -158,7 +161,7 @@ struct W8ItemDatabaseRecord {
     unsigned int value;                          /* 0x086 */
     unsigned short weight;                       /* 0x08a */
     unsigned char binds_on_equip;                /* 0x08c */
-    char internal_name[0x20];                    /* 0x08d .. 0x0ac */
+    std::string internal_name;                    /* 0x08d .. 0x0ac */
     /* 0x0ad: extra swings the weapon grants when the wielder starts an
        attack. */
     int swings_bonus;
@@ -183,11 +186,12 @@ struct W8ItemDatabaseRecord {
     /* 0x0cc: the missile table entry the item fires; the missile resolver
        bounds it against g_missile_table_count. */
     signed char missile_type;
-    char video_object_name[0x18]; /* 0x0cd: the item image */
-    char sound_name[0x28];        /* 0x0e5: played when the item's spell is cast */
-}; /* 0x10d */
+    std::string video_object_name; /* 0x0cd: the item image */
+    std::string sound_name;        /* 0x0e5: played when the item's spell is cast */
+};
+#pragma pack(pop) /* 0x10d */
 
-W8_ABI_ASSERT(sizeof(W8ItemDatabaseRecord) == 0x10d, "W8ItemDatabaseRecord_size_must_be_0x10d");
+
 W8_ABI_ASSERT(sizeof(W8ItemTableRecord) == 0x1f1, "W8ItemTableRecord_size_must_be_0x1f1");
 
 #pragma pack(pop)

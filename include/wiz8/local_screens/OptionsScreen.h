@@ -1,3 +1,5 @@
+#include <string_view>
+#include <string>
 #pragma once
 
 #include "wiz8/engine_code/Quality.h"
@@ -246,7 +248,7 @@ public:
 // VTABLE: WIZ8 0x005eee80
 class W8OptionsButton : public W8TextControl {
 public:
-    W8OptionsButton(Controls* owner, int left, int top, int right, int bottom, const wchar_t* text);
+    W8OptionsButton(Controls* owner, int left, int top, int right, int bottom, std::string_view text);
     virtual void Redraw(bool full_redraw) override;
     virtual void OnMouseEnter(int event) override;
     virtual void OnMouseLeave(int event) override;
@@ -333,7 +335,7 @@ public:
     W8ControlSelection m_selection;
     W8TextControl* m_delete_button;
     W8TextControl* m_action_button;
-    wchar_t m_previous_name[64];
+    std::string m_previous_name;
     int m_editing_row;
 };
 
@@ -417,7 +419,7 @@ public:
     void Redraw();
     void ShowNotification(W8DialogCloseListener* listener, bool allow_cancel, int message,
                           int value);
-    void BeginSaveNameEdit(W8OptionsTextEditor::Listener* listener, int row, const wchar_t* text);
+    void BeginSaveNameEdit(W8OptionsTextEditor::Listener* listener, int row, std::string_view text);
     virtual void OnSelectionChanged(W8ControlSelection* control, int selected) override;
     virtual void OnPrimary(W8TextControl* control) override;
     virtual void OnSecondary(W8TextControl*) override {}
@@ -442,14 +444,14 @@ W8_ABI_ASSERT(sizeof(W8OptionsScreen) == 0x64, "W8OptionsScreen_must_be_0x64");
 W8_ASSERT_BASE_END(W8OptionsScreen, W8DialogCloseListener, m_save_slots, 0x8);
 
 extern W8OptionsScreen* g_options_screen;
-extern wchar_t g_options_last_save_name[64];
+extern std::string g_options_last_save_name;
 
-void SetLastSaveName(const wchar_t* target);
-wchar_t* GetLastSaveName(void);
+void SetLastSaveName(std::string_view target);
+std::string_view GetLastSaveName(void);
 
 unsigned char OptionsScreenInitialize(void);
 unsigned char OptionsScreenEnter(void);
 void OptionsScreenFrame(void);
 unsigned char OptionsScreenLeave(int leaving);
 unsigned char OptionsScreenFinalize(void);
-extern wchar_t g_empty_wide_string;
+extern char g_empty_text;

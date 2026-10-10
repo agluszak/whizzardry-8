@@ -49,6 +49,21 @@ FetchContent_Declare(glm
     URL_HASH SHA256=6775e47231a446fd086d660ecc18bcd076531cfedd912fbd66e576b118607001
 )
 FetchContent_MakeAvailable(glm)
+# Native text facilities: typed runtime printf formatting, Unicode conversion,
+# and Unicode grapheme boundaries. Pin downloads to reproducible releases.
+set(FMT_TEST OFF CACHE BOOL "" FORCE)
+set(UTF8_TESTS OFF CACHE BOOL "" FORCE)
+set(UTF8PROC_ENABLE_TESTING OFF CACHE BOOL "" FORCE)
+FetchContent_Declare(fmt
+    URL https://codeload.github.com/fmtlib/fmt/tar.gz/refs/tags/11.2.0
+    URL_HASH SHA256=bc23066d87ab3168f27cef3e97d545fa63314f5c79df5ea444d41d56f962c6af)
+FetchContent_Declare(utf8cpp
+    URL https://codeload.github.com/nemtrif/utfcpp/tar.gz/refs/tags/v4.0.6
+    URL_HASH SHA256=6920a6a5d6a04b9a89b2a89af7132f8acefd46e0c2a7b190350539e9213816c0)
+FetchContent_Declare(utf8proc
+    URL https://codeload.github.com/JuliaStrings/utf8proc/tar.gz/refs/tags/v2.10.0
+    URL_HASH SHA256=6f4f1b639daa6dca9f80bc5db1233e9cbaa31a67790887106160b33ef743f136)
+FetchContent_MakeAvailable(fmt utf8cpp utf8proc)
 
 # No forced CRT vocabulary or short-wchar options at the portable API boundary.
 add_library(wiz8_filesystem STATIC
@@ -56,9 +71,10 @@ add_library(wiz8_filesystem STATIC
     src/platform/filesystem.cpp
     src/platform/slf.cpp
     src/platform/file_time.cpp
+    src/platform/unicode.cpp
 )
 target_include_directories(wiz8_filesystem PUBLIC "${PROJECT_SOURCE_DIR}/include")
-target_link_libraries(wiz8_filesystem PUBLIC SDL3::SDL3 Threads::Threads)
+target_link_libraries(wiz8_filesystem PUBLIC SDL3::SDL3 Threads::Threads fmt::fmt utf8cpp utf8proc)
 target_compile_features(wiz8_filesystem PUBLIC cxx_std_23)
 include(CTest)
 if(BUILD_TESTING)
@@ -81,14 +97,14 @@ target_compile_definitions(wiz8_native_settings INTERFACE NDEBUG)
 if(CMAKE_CXX_COMPILER_FRONTEND_VARIANT STREQUAL "MSVC")
     set(WIZ8_COMPAT_OPTIONS
         "/FI${PROJECT_SOURCE_DIR}/include/wiz8/compat/compiler.h"
-        /clang:-fsigned-char /clang:-fno-builtin-wcslen)
+        /clang:-fsigned-char)
     set(WIZ8_GAME_OPTIONS
         ${WIZ8_COMPAT_OPTIONS} /clang:-fwrapv /clang:-fno-strict-aliasing
         $<$<COMPILE_LANGUAGE:CXX>:/GR->)
 else()
     set(WIZ8_COMPAT_OPTIONS
         "SHELL:-include ${PROJECT_SOURCE_DIR}/include/wiz8/compat/compiler.h"
-        -fsigned-char -fshort-wchar -fno-builtin-wcslen)
+        -fsigned-char)
     set(WIZ8_GAME_OPTIONS
         ${WIZ8_COMPAT_OPTIONS} -fwrapv -fno-strict-aliasing
         $<$<COMPILE_LANGUAGE:CXX>:-fno-rtti>)
@@ -102,9 +118,9 @@ target_include_directories(wiz8_native_settings INTERFACE
 )
 target_link_libraries(wiz8_native_settings INTERFACE glm::glm-header-only Threads::Threads ${CMAKE_DL_LIBS})
 
-# Two-byte wide-string CRT support; filesystem ownership lives in wiz8_filesystem.
+# Remaining narrow CRT spelling helpers; Unicode lives at format boundaries.
 add_library(wiz8_compat STATIC
-    src/compat/native_crt.cpp
+    src/compat/native_helpers.cpp
 )
 target_compile_options(wiz8_compat PRIVATE ${WIZ8_COMPAT_OPTIONS})
 target_include_directories(wiz8_compat PRIVATE "${PROJECT_SOURCE_DIR}/include/wiz8" "${PROJECT_SOURCE_DIR}/include")

@@ -1,3 +1,4 @@
+#include <string>
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/integer_constants.h"
 #include "wiz8/layouts/combat_state.h"
@@ -78,7 +79,7 @@ static int g_use_item_hover_row;
 // GLOBAL: WIZ8 0x0069BF38
 static bool g_use_item_commit_active;
 // GLOBAL: WIZ8 0x0064C7DC
-static wchar_t g_format_s_paren_question[] = L"%s (?)";
+static char g_format_s_paren_question[] = "%s (?)";
 
 void UpdateUseItemScrollButtons(void);
 static void RebuildUseItemSelectList(int mode, W8ItemInstance* select);
@@ -116,7 +117,7 @@ static void CreateUseItemSelectControls(void)
     g_use_item_select_scroll_buttons[1]->m_primaryActivationCallback = UseItemSelectScrollDown;
     g_use_item_select_scroll_buttons[2]->m_textBuffer.SetLayoutMode(g_W8TextBufferAlignMiddle |
                                                                     g_W8TextBufferAlignCenter);
-    g_use_item_select_scroll_buttons[2]->m_textBuffer.SetText(gppStringList[0x77a],
+    g_use_item_select_scroll_buttons[2]->m_textBuffer.SetText(g_localized_strings[0x77a],
                                                               g_wiz_text_font_secondary);
     panel = g_use_item_select_panels[2];
     g_use_item_select_controls[0] =
@@ -569,7 +570,7 @@ static void RebuildUseItemSelectList(int mode, W8ItemInstance* select)
 // FUNCTION: WIZ8 0x0059D450
 static bool AppendUseItemListEntry(W8ItemInstance* item, W8ItemInstance* select, unsigned char pass)
 {
-    wchar_t* text;
+    std::string text;
     unsigned int color;
     short count;
     bool charged;
@@ -632,7 +633,7 @@ static bool AppendUseItemListEntry(W8ItemInstance* item, W8ItemInstance* select,
         if (!item->identified) {
             ShowNotice(
                 0xf,
-                FormatWideString(g_format_s_paren_question, FormatItemDisplayName(item, false)), 2);
+                FormatText(g_format_s_paren_question, FormatItemDisplayName(item, false)), 2);
             ++g_use_item_list_count;
             return true;
         }
@@ -649,9 +650,9 @@ static bool AppendUseItemListEntry(W8ItemInstance* item, W8ItemInstance* select,
         return true;
     }
     if (count == -1) {
-        text = FormatWideString(g_format_s_paren_question, FormatItemDisplayName(item, false));
+        text = FormatText(g_format_s_paren_question, FormatItemDisplayName(item, false));
     } else if (count > 1 || charged) {
-        text = FormatWideString(g_format_s_paren_d, FormatItemDisplayName(item, false), count);
+        text = FormatText(g_format_s_paren_d, FormatItemDisplayName(item, false), count);
     } else {
         text = FormatItemDisplayName(item, false);
     }
@@ -713,7 +714,7 @@ void OpenUseItemAssayDialog(W8ItemInstance* item)
 
     g_saved_target_cursor = gXStatus.iCurrentCursor;
     dialog = new W8AssayDialog(item, &g_status.buffers.Char[g_use_item_owner_index]);
-    dialog->SetText(&g_empty_wide_string);
+    dialog->SetText(&g_empty_text);
     dialog->SetOrigin(g_info_dialog_x, 0x48);
     dialog->m_destroy_callback = RestoreTargetCursor;
     OpenModal(dialog);
@@ -912,8 +913,8 @@ void SelectUseItemLine(int iTextLine)
 // FUNCTION: WIZ8 0x0059DFA0
 void UpdateUseItemDetailPanel(W8ItemInstance* item)
 {
-    wchar_t text[0x20];
-    const wchar_t* value;
+    std::string text;
+    std::string value;
     short count;
     bool charges = false;
 
@@ -939,9 +940,9 @@ void UpdateUseItemDetailPanel(W8ItemInstance* item)
         break;
     }
     if (count == -1) {
-        value = L"?";
+        value = "?";
     } else if (count > 1 || charges) {
-        swprintf(text, g_format_d, count);
+        text = FormatText(g_format_d, count);
         value = text;
     } else {
         value = g_dialogue_empty_text;

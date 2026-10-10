@@ -1,3 +1,4 @@
+#include <string_view>
 #pragma once
 #include "wiz8/layouts/screen_state.h"
 #include "wiz8/dialog_code/DialogBase.h"
@@ -19,5 +20,5 @@ void RequestExitScreen(void);
 unsigned char ExitScreenEnter(void);
 void ExitScreenFrame(void);
 /* Dispatch one already-built line to the active screen. */
-void ShowNoticeLine(wchar_t* text, W8DialogDestroyCallback callback, bool confirmation,
+void ShowNoticeLine(std::string_view text, W8DialogDestroyCallback callback, bool confirmation,
                     bool cancel);

@@ -1,3 +1,4 @@
+#include <string>
 #include "wiz8/engine_code/AnimRep.hpp"
 #include "timer.h"
 #include "wiz8/monster_cycles.h"
@@ -64,7 +65,6 @@
 #include <new>
 #include <stdlib.h>
 #include <string.h>
-#include <wchar.h>
 #include "wiz8/local_code/ThingEditorShared.h"
 // GLOBAL: WIZ8 0x005ed4f0
 const float g_monster_record_float_scale = 20.0f;
@@ -352,10 +352,10 @@ void RecordMonsterKill(W8MonsterInfo* monster_info, bool announce)
     }
     W8MonsterRecord* record = gXStatus.monster_record_cache[monster_species];
     if (record == 0) {
-        record = static_cast<W8MonsterRecord*>(malloc(sizeof(W8MonsterRecord)));
+        record = new W8MonsterRecord{};
         if (record != 0) {
             if (!LoadMonsterDatabaseRecord(monster_species, record)) {
-                free(record);
+                delete record;
                 record = 0;
             } else {
                 gXStatus.monster_record_cache[monster_species] = record;
@@ -380,8 +380,8 @@ void RecordMonsterKill(W8MonsterInfo* monster_info, bool announce)
     }
     if (announce && !monster_info->death_processed &&
         monster_info->party_threat.sight_state != W8_SIGHT_UNSEEN) {
-        ShowNoticef(notice_channel, L"%s %s!", GetMonsterName(monster_info, 0, 0),
-                    gppStringList[g_condition_notices[W8_CONDITION_DEAD].singular]);
+        ShowNoticef(notice_channel, "%s %s!", GetMonsterName(monster_info, 0, 0),
+                    g_localized_strings[g_condition_notices[W8_CONDITION_DEAD].singular]);
     }
     ReleaseMonsterConditionBindings(monster_info);
     if (monster_info->summoned == W8_MONSTER_SUMMON_FRIENDLY) {
@@ -443,7 +443,7 @@ done:
         if (experience == 0) {
             experience = record->experience;
             if (experience == 0) {
-                FormatDebugMessage(0, "DATA ERROR: %s is worth 0 XPs", record);
+                FormatDebugMessage(0, "DATA ERROR: %s is worth 0 XPs", record->name0);
             }
         }
         g_combat_state->experience_pool += experience;
@@ -476,7 +476,7 @@ unsigned int MonsterGetIndexByLocationID(int caller_line, const char* caller_fil
 
     if (assert_on_failure) {
         srAssertFail("FALSE", MONSTER_MANAGER_CPP, 0x5c1,
-                     FormatString("MonsterIndex: ID %d not found (%s line %d)", location_id,
+                     FormatText("MonsterIndex: ID %d not found (%s line %d)", location_id,
                                   caller_file, caller_line));
     }
     return 0xffffffff;
@@ -486,7 +486,7 @@ unsigned int MonsterGetIndexByLocationID(int caller_line, const char* caller_fil
 W8MonsterInfo* MonsterGetScriptPartByLocationIndex(unsigned int monster_list_index)
 {
     W8MonsterInfo* result;
-    const char* detail;
+    std::string detail;
     int line;
 
     if (monster_list_index < 10000 || monster_list_index >= 20000) {
@@ -498,8 +498,8 @@ W8MonsterInfo* MonsterGetScriptPartByLocationIndex(unsigned int monster_list_ind
         if (result != 0) {
             return result;
         }
-        detail = FormatString("MonsterInfo: ERROR - PLGet failed, index %d, pList %d",
-                              monster_list_index, gXStatus.plsMonsterList);
+        detail = FormatText("MonsterInfo: ERROR - PLGet failed, index %d, pList %p",
+                              monster_list_index, static_cast<const void*>(gXStatus.plsMonsterList));
         line = 0x5de;
     } else {
         if (monster_list_index - 10000 >= PLLength(gXStatus.plsUnbornMonsterList)) {
@@ -511,8 +511,8 @@ W8MonsterInfo* MonsterGetScriptPartByLocationIndex(unsigned int monster_list_ind
         if (result != 0) {
             return result;
         }
-        detail = FormatString("MonsterInfo: ERROR - PLGet failed, index %d, pList %d",
-                              monster_list_index, gXStatus.plsMonsterList);
+        detail = FormatText("MonsterInfo: ERROR - PLGet failed, index %d, pList %p",
+                              monster_list_index, static_cast<const void*>(gXStatus.plsMonsterList));
         line = 0x5d5;
     }
     srAssertFail("pMonsterInfo != NULL", MONSTER_MANAGER_CPP, line, detail);
@@ -529,12 +529,12 @@ W8MonsterRecord* MonsterDBFromSpecies(unsigned int monster_species)
     }
     record = gXStatus.monster_record_cache[monster_species];
     if (record == 0) {
-        record = static_cast<W8MonsterRecord*>(malloc(sizeof(W8MonsterRecord)));
+        record = new W8MonsterRecord{};
         if (record == 0) {
             return 0;
         }
         if (!LoadMonsterDatabaseRecord(monster_species, record)) {
-            free(record);
+            delete record;
             return 0;
         }
         gXStatus.monster_record_cache[monster_species] = record;
@@ -564,7 +564,7 @@ W8MonsterInfo* MonsterInfoFromID(int caller_line, const char* caller_file, int l
     }
     if (monster == 0 && assert_on_failure) {
         srAssertFail("FALSE", MONSTER_MANAGER_CPP, 0x626,
-                     FormatString("MonsterInfoFromID: ID %d not found (%s line %d)", location_id,
+                     FormatText("MonsterInfoFromID: ID %d not found (%s line %d)", location_id,
                                   caller_file, caller_line));
     }
     return monster;
@@ -695,7 +695,7 @@ void ProcessMonstersAtCombatEnd(bool forced_cleanup)
             monster_info->uiCondition[W8_CONDITION_DEAD] == 0 &&
             monster_info->summoned != W8_MONSTER_SUMMON_NONE) {
             if (!forced_cleanup) {
-                FormatNotice(W8_FONT_PALETTE_RUST, 0, gppStringList[W8_NOTICE_MONSTER_SLAIN],
+                FormatNotice(W8_FONT_PALETTE_RUST, 0, g_localized_strings[W8_NOTICE_MONSTER_SLAIN],
                              GetMonsterName(monster_info, 0, 0));
             }
             ReleaseMonsterConditionBindings(monster_info);
@@ -1145,7 +1145,7 @@ unsigned char ShutdownMonsterManager(void)
     // Direct member access retains the packed cache's alignment information.
     for (int index = 0; index < MAX_MONSTERS_IN_DATABASE; ++index) {
         if (gXStatus.monster_record_cache[index] != 0) {
-            free(gXStatus.monster_record_cache[index]);
+            delete gXStatus.monster_record_cache[index];
             gXStatus.monster_record_cache[index] = 0;
         }
     }
@@ -1318,7 +1318,7 @@ void MonsterInfoLeaveCombat(W8MonsterInfo* monster_info)
 // FUNCTION: WIZ8 0x004e6c10
 void TogglePartyCombatStance(void)
 {
-    const wchar_t* message;
+    std::string message;
 
     if (!g_status.game_started) {
         g_settings.continuous_combat = (g_settings.continuous_combat == 0);
@@ -1333,7 +1333,7 @@ void TogglePartyCombatStance(void)
         if (g_current_screen_state.id != W8_SCREEN_MAIN_GAME) {
             return;
         }
-        message = gppStringList[W8_NOTICE_COMBAT_STANCE_RELAXED];
+        message = g_localized_strings[W8_NOTICE_COMBAT_STANCE_RELAXED];
     } else {
         g_settings.continuous_combat = 1;
         if (gXStatus.fCombatMode && g_combat_state->combat_ready) {
@@ -1343,7 +1343,7 @@ void TogglePartyCombatStance(void)
         if (g_current_screen_state.id != W8_SCREEN_MAIN_GAME) {
             return;
         }
-        message = gppStringList[W8_NOTICE_COMBAT_STANCE_READY];
+        message = g_localized_strings[W8_NOTICE_COMBAT_STANCE_READY];
     }
     ShowNotice(W8_FONT_PALETTE_BEIGE, message);
     if (g_current_screen_state.id == W8_SCREEN_MAIN_GAME) {
@@ -1370,7 +1370,7 @@ void ToggleCombatMode(void)
     }
     if (gXStatus.hostile_monster_count != 0 || g_combat_state->enemies_engaged) {
         if (g_combat_state->round_count != 0) {
-            ShowNotice(W8_FONT_PALETTE_BEIGE, gppStringList[W8_NOTICE_COMBAT_CANNOT_END]);
+            ShowNotice(W8_FONT_PALETTE_BEIGE, g_localized_strings[W8_NOTICE_COMBAT_CANNOT_END]);
             return;
         }
         for (group_list_index = 0; group_list_index < PLLength(gXStatus.plsMonsterGroupList);
@@ -1378,7 +1378,7 @@ void ToggleCombatMode(void)
             monster_group = GetMonsterGroupByListIndex(group_list_index);
             if (monster_group->members_active && monster_group->fInCombat &&
                 MonsterGroupCanEngage(monster_group)) {
-                ShowNotice(W8_FONT_PALETTE_BEIGE, gppStringList[W8_NOTICE_COMBAT_CANNOT_END]);
+                ShowNotice(W8_FONT_PALETTE_BEIGE, g_localized_strings[W8_NOTICE_COMBAT_CANNOT_END]);
                 return;
             }
         }
@@ -1387,17 +1387,17 @@ void ToggleCombatMode(void)
         if ((missile == g_combat_state->engaged_missile ||
              g_missile_table[missile->missile_table_index].spell_missile != 0) &&
             missile->BlocksEndingCombat()) {
-            ShowNotice(W8_FONT_PALETTE_BEIGE, gppStringList[W8_NOTICE_COMBAT_CANNOT_END_ENGAGED]);
+            ShowNotice(W8_FONT_PALETTE_BEIGE, g_localized_strings[W8_NOTICE_COMBAT_CANNOT_END_ENGAGED]);
             return;
         }
     }
     if (g_combat_state->execution_active != 0) {
-        ShowNotice(W8_FONT_PALETTE_BEIGE, gppStringList[W8_NOTICE_COMBAT_CANNOT_END_PENDING],
+        ShowNotice(W8_FONT_PALETTE_BEIGE, g_localized_strings[W8_NOTICE_COMBAT_CANNOT_END_PENDING],
                    W8_NOTICE_TEXT_BOX_AUTOMATIC, W8_NOTICE_WRAP_AUTOMATIC, true);
         return;
     }
     EndCombat(false);
-    ShowNotice(W8_FONT_PALETTE_BEIGE, gppStringList[W8_NOTICE_COMBAT_ENDED]);
+    ShowNotice(W8_FONT_PALETTE_BEIGE, g_localized_strings[W8_NOTICE_COMBAT_ENDED]);
     if (g_level_block->combat_end_notification != -1) {
         DestroySubMenuControls();
     }
@@ -1419,7 +1419,7 @@ void StartMonsterCycle(W8MonsterInfo* monster_info, int cycle, int behavior)
 {
     W8Monster* monster = monster_info->p3D;
     unsigned char pending;
-    const char* detail;
+    std::string detail;
     int line;
 
     if (static_cast<signed char>(behavior) == W8_ANIMATION_NEVER_STOP &&
@@ -1438,8 +1438,8 @@ void StartMonsterCycle(W8MonsterInfo* monster_info, int cycle, int behavior)
             }
             srAssertFail(
                 "FALSE", MONSTER_MANAGER_CPP, 0x497,
-                FormatString(
-                    "%ls starting new cycle (%s) with an uninterruptable cycle pending (%s)!",
+                FormatText(
+                    "%s starting new cycle (%s) with an uninterruptable cycle pending (%s)!",
                     GetMonsterName(monster_info, 0, 0),
                     g_cycle_names[static_cast<signed char>(cycle)].name,
                     g_cycle_names[static_cast<signed char>(pending)].name));
@@ -1455,7 +1455,7 @@ void StartMonsterCycle(W8MonsterInfo* monster_info, int cycle, int behavior)
             MonsterSubmitTargetValue(monster);
             return;
         }
-        detail = 0;
+        detail.clear();
         line = 0x4a4;
     }
     srAssertFail("FALSE", MONSTER_MANAGER_CPP, line, detail);
@@ -1549,7 +1549,7 @@ void ProcessMonsterManagerFrame(void)
    wide characters apart. A monster with no group at all is a bug unless it is
    already dying, and says so on the debug channel rather than asserting. */
 // FUNCTION: WIZ8 0x004e5150
-wchar_t* GetMonsterName(W8MonsterInfo* monster_info, W8MonsterRecord* record,
+std::string GetMonsterName(W8MonsterInfo* monster_info, W8MonsterRecord* record,
                         unsigned char name_form)
 {
     W8MonsterGroup* monster_group;
@@ -1558,8 +1558,7 @@ wchar_t* GetMonsterName(W8MonsterInfo* monster_info, W8MonsterRecord* record,
         record = GetMonsterDataForInfo(monster_info);
     }
     if (record->record_id == W8_MONSTER_RECORD_ALTERNATE_NAME) {
-        swprintf(g_status.monster_name_buffer, g_format_al_s,
-                 g_status.buffers.Char[g_status.sedexus_party_slot].name);
+        g_status.monster_name_buffer = FormatText(g_format_al_s, g_status.buffers.Char[g_status.sedexus_party_slot].name);
         return g_status.monster_name_buffer;
     }
     if (monster_info->monster_group_id == 0) {
@@ -1573,10 +1572,10 @@ wchar_t* GetMonsterName(W8MonsterInfo* monster_info, W8MonsterRecord* record,
             srAssertFail("pMonsterGroup", MONSTER_MANAGER_CPP, 0x54d, 0);
         }
         if (monster_group->alternate_name) {
-            return record->name0 + name_form * 24;
+            return (name_form ? record->name1 : record->name0);
         }
     }
-    return record->name2 + name_form * 24;
+    return (name_form ? record->name3 : record->name2);
 }
 
 // FUNCTION: WIZ8 0x004EFB60
@@ -1618,7 +1617,7 @@ unsigned int GetBestPartySkillLevel(W8Skill skill_index, int* party_slot)
    records can suppress exact values, and ordinary monsters expose current and
    maximum HP independently at knowledge thresholds ten and five. */
 // FUNCTION: WIZ8 0x004e52c0
-void FormatMonsterHealth(W8MonsterInfo* monster_info, wchar_t* health_text)
+std::string FormatMonsterHealth(W8MonsterInfo* monster_info)
 {
     bool suppress_exact_health = false;
     unsigned int health_knowledge;
@@ -1658,22 +1657,10 @@ void FormatMonsterHealth(W8MonsterInfo* monster_info, wchar_t* health_text)
         }
     }
 
-    if (g_dev_mode) {
-        wcscpy(health_text, FormatWideString(g_format_d_slash_d, monster_info->hp_current,
-                                             monster_info->uiHPMax));
-        return;
-    }
-    if (health_knowledge < 10 || suppress_exact_health) {
-        wcscpy(health_text, L"?");
-    } else {
-        wcscpy(health_text, FormatWideString(g_format_d, monster_info->hp_current));
-    }
-    wcscat(health_text, L"/");
-    if (health_knowledge > 4 && !suppress_exact_health) {
-        wcscat(health_text, FormatWideString(g_format_d, monster_info->uiHPMax));
-        return;
-    }
-    wcscat(health_text, L"?");
+    if (g_dev_mode) return FormatText(g_format_d_slash_d, monster_info->hp_current, monster_info->uiHPMax);
+    const auto current = health_knowledge < 10 || suppress_exact_health ? "?" : FormatText(g_format_d, monster_info->hp_current);
+    const auto maximum = health_knowledge < 5 || suppress_exact_health ? "?" : FormatText(g_format_d, monster_info->uiHPMax);
+    return FormatText("%s/%s", current, maximum);
 }
 
 // FUNCTION: WIZ8 0x004e4ab0
@@ -1719,28 +1706,28 @@ void DetectMonsterGroups(void)
                 }
             }
             if (best_slot != -1) {
-                PostCharacterNotice(best_slot, gppStringList[0x1ca], GetMonsterGroupName(group));
+                PostCharacterNotice(best_slot, g_localized_strings[0x1ca], GetMonsterGroupName(group));
                 group->alternate_name = true;
                 bool vowel;
-                switch (towupper(*GetMonsterGroupName(group))) {
-                case L'A':
-                case L'E':
-                case L'I':
-                case L'O':
-                case L'U':
+                switch (toupper(static_cast<unsigned char>(GetMonsterGroupName(group).front()))) {
+                case 'A':
+                case 'E':
+                case 'I':
+                case 'O':
+                case 'U':
                     vowel = true;
                     break;
                 default:
                     vowel = false;
                     break;
                 }
-                wchar_t* article;
+                std::string article;
                 if (group->member_count == 1) {
-                    article = vowel ? gppStringList[0x1cc] : gppStringList[0x1cb];
+                    article = vowel ? g_localized_strings[0x1cc] : g_localized_strings[0x1cb];
                 } else {
-                    article = gppStringList[0x1cd];
+                    article = g_localized_strings[0x1cd];
                 }
-                ShowNoticef(W8_FONT_PALETTE_WHITE, L"%s %s!", article, GetMonsterGroupName(group));
+                ShowNoticef(W8_FONT_PALETTE_WHITE, "%s %s!", article, GetMonsterGroupName(group));
                 noticed = true;
             }
         }

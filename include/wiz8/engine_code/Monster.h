@@ -1,3 +1,4 @@
+#include <string_view>
 #ifndef WIZ8_ENGINE_CODE_MONSTER_H
 #define WIZ8_ENGINE_CODE_MONSTER_H
 
@@ -366,7 +367,7 @@ W8MonsterCycle ParseMonsterCycleName(const char* name, signed char* subcycle = 0
 unsigned char ReadOrCloneMonsterCycles(const W8GrCycleLoadContext* context,
                                        const char* monster_name, W8Monster** monster,
                                        int load_value, int location_id);
-unsigned char MonsterReadAllCycles(const W8GrCycleLoadContext* context, const char* monster_name,
+unsigned char MonsterReadAllCycles(const W8GrCycleLoadContext* context, std::string_view monster_name,
                                    W8Monster** monster, int load_value, int location_id);
 unsigned short ChooseDifferentMonsterDirection(unsigned short previous_direction);
 

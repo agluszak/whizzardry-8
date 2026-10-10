@@ -1,3 +1,6 @@
+#include "input.h"
+#include <string_view>
+#include "wiz8/unicode.h"
 #include "wiz8/engine_code/AnimRep.hpp"
 #include "wiz8/engine_code/SoundEvent.h"
 #include "wiz8/engine_code/GrObject.h"
@@ -281,7 +284,7 @@ try
 
     std::unique_ptr<wiz8::File> handle = [&]() { try { return wiz8::open_file(mon_path, wiz8::OpenMode::read); } catch (const std::exception&) { return std::unique_ptr<wiz8::File>{}; } }();
     if (handle == 0) {
-        ShutdownWithErrorBox(FormatString("Couldn't open %s", mon_path));
+        ShutdownWithErrorBox(FormatText("Couldn't open %s", mon_path));
     }
 
     info.world = context->world;
@@ -301,7 +304,7 @@ try
     if (!success) {
         srAssertFail(
             "fSuccess", "C:\\Projects\\Wizardry 8\\Engine Code\\GrCycle.cpp", 0x198,
-            FormatString("GrCycle::Read: ERROR - Read %s in %s failed", mon_path, bitmap_path));
+            FormatText("GrCycle::Read: ERROR - Read %s in %s failed", mon_path, bitmap_path));
     }
     return success;
 } catch (const std::exception&) {
@@ -1429,12 +1432,12 @@ bool W8GrCycle::IsSoleRegisteredCycleForName() const
 }
 
 // FUNCTION: WIZ8 0x004a87a0
-W8GrCycle* FindFirstGrCycleByName(const char* name)
+W8GrCycle* FindFirstGrCycleByName(std::string_view name)
 {
     int name_index;
 
     for (name_index = 0; name_index < g_grcycle_names.GetCount(); ++name_index) {
-        if (_stricmp(name, *g_grcycle_names.GetAt(name_index)) == 0) {
+        if (CompareTextIgnoreAsciiCase(name, *g_grcycle_names.GetAt(name_index)) == 0) {
             W8GrowableVector<W8GrCycle*>* cycles = *g_grcycles_by_name.GetAt(name_index);
             if (cycles->GetCount() == 0) {
                 srAssertFail("plsCyclesOfThisName->Length()",
@@ -1479,7 +1482,7 @@ void RegisterGrCycle(const char* name, W8GrCycle* cycle)
     int name_index;
 
     for (name_index = 0; name_index < g_grcycle_names.GetCount(); ++name_index) {
-        if (_stricmp(name, *g_grcycle_names.GetAt(name_index)) == 0) {
+        if (CompareTextIgnoreAsciiCase(name, *g_grcycle_names.GetAt(name_index)) == 0) {
             W8GrowableVector<W8GrCycle*>* cycles = *g_grcycles_by_name.GetAt(name_index);
             if (cycles->GetCount() == 0) {
                 srAssertFail("plsCyclesOfThisName->Length()",

@@ -1,3 +1,5 @@
+#include "wiz8/utility.h"
+#include "wiz8/unicode.h"
 #include "wiz8/engine_code/Quality.h"
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/sr_api.h"

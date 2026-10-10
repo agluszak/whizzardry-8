@@ -170,7 +170,7 @@ INT32 MSYS_Init(void)
     MSYS_SystemBaseRegion.ButtonCallback = MSYS_NO_CALLBACK;
 
     MSYS_SystemBaseRegion.FastHelpTimer = 0;
-    MSYS_SystemBaseRegion.FastHelpText = 0;
+    MSYS_SystemBaseRegion.FastHelpText.clear();
     MSYS_SystemBaseRegion.FastHelpRect = -1;
 
 
@@ -401,7 +401,7 @@ void MSYS_UpdateMouseRegion(void)
 
         if (MSYS_PrevRegion != MSYS_CurrRegion) {
             //Remove the help text for the previous region if one is currently being displayed.
-            if (MSYS_PrevRegion->FastHelpText) {
+            if (!MSYS_PrevRegion->FastHelpText.empty()) {
                 //ExecuteMouseHelpEndCallBack( MSYS_PrevRegion );
 
                 MSYS_PrevRegion->uiFlags &= (~MSYS_GOT_BACKGROUND);
@@ -434,7 +434,7 @@ void MSYS_UpdateMouseRegion(void)
             //Kris -- October 27, 1997
             //Implemented gain mouse region
             if (MSYS_CurrRegion->uiFlags & MSYS_MOVE_CALLBACK) {
-                if (MSYS_CurrRegion->FastHelpText &&
+                if (!MSYS_CurrRegion->FastHelpText.empty() &&
                     !(MSYS_CurrRegion->uiFlags & MSYS_FASTHELP_RESET)) {
                     //ExecuteMouseHelpEndCallBack( MSYS_CurrRegion );
                     MSYS_CurrRegion->FastHelpTimer = gsFastHelpDelay;
@@ -645,7 +645,7 @@ void MSYS_DefineRegion(MOUSE_REGION* region, UINT16 tlx, UINT16 tly, UINT16 brx,
     region->ButtonState = 0;
 
     //Init fasthelp
-    region->FastHelpText = nullptr;
+    region->FastHelpText.clear();
     region->FastHelpTimer = 0;
 
     region->HelpDoneCallback = nullptr;
@@ -677,12 +677,12 @@ void MSYS_RemoveRegion(MOUSE_REGION* region)
 #endif
 
     // Get rid of the FastHelp text (if applicable)
-    if (region->FastHelpText) {
+    if (!region->FastHelpText.empty()) {
         if (region->uiFlags & MSYS_FASTHELP)
             VideoRemoveToolTip();
-        region->FastHelpText.reset();
+        region->FastHelpText.clear();
     }
-    region->FastHelpText = nullptr;
+    region->FastHelpText.clear();
 
     MSYS_DeleteRegionFromList(region);
 
@@ -809,26 +809,23 @@ void MSYS_ReleaseMouse(MOUSE_REGION* region)
 */
 
 // FUNCTION: WIZ8 0x0040c040
-void SetRegionFastHelpText(MOUSE_REGION* region, CHAR16* szText)
+void SetRegionFastHelpText(MOUSE_REGION* region, std::string_view szText)
 {
     Assert(region);
 
     //	region->FastHelpTimer = 0;
     if (!(region->uiFlags & MSYS_REGION_EXISTS)) {
-        region->FastHelpText.reset();
+        region->FastHelpText.clear();
         return;
-        //AssertMsg( 0, FormatString( "Attempting to set fast help text, \"%S\" to an inactive region.", szText ) );
+        //AssertMsg( 0, FormatText( "Attempting to set fast help text, \"%s\" to an inactive region.", szText ) );
     }
 
-    if (!szText || !wcslen(szText)) {
-        region->FastHelpText.reset();
+    if (szText.empty()) {
+        region->FastHelpText.clear();
         return; //blank (or clear)
     }
 
-    // Allocate memory for the button's FastHelp text string...
-    auto text = std::make_unique<CHAR16[]>(wcslen(szText) + 1);
-    wcscpy(text.get(), szText);
-    region->FastHelpText = std::move(text);
+    region->FastHelpText = szText;
 
     // ATE: We could be replacing already existing, active text
     // so let's remove the region so it be rebuilt...
@@ -846,7 +843,7 @@ void DisplayFastHelp(MOUSE_REGION* region)
     INT32 iX, iY, iW, iH;
 
     if (region->uiFlags & MSYS_FASTHELP) {
-        VideoToolTip(region->FastHelpText.get());
+        VideoToolTip(region->FastHelpText);
 
         iW = VideoGetToolTipWidth();
         iH = VideoGetToolTipHeight();
@@ -884,7 +881,7 @@ void RenderFastHelp()
     iTimeDifferential = iCurrentClock - iLastClock;
     iLastClock = iCurrentClock;
 
-    if (MSYS_CurrRegion && MSYS_CurrRegion->FastHelpText && gfShowFastHelp) {
+    if (MSYS_CurrRegion && !MSYS_CurrRegion->FastHelpText.empty() && gfShowFastHelp) {
         if (!MSYS_CurrRegion->FastHelpTimer) {
             if (MSYS_CurrRegion->uiFlags & (MSYS_ALLOW_DISABLED_FASTHELP | MSYS_REGION_ENABLED)) {
                 if (MSYS_CurrRegion->uiFlags & MSYS_MOUSE_IN_AREA) {

@@ -1,3 +1,4 @@
+#include <string>
 #include "wiz8/fonts.h"
 #include "wiz8/local_code/GameplayCode.h"
 #include "wiz8/integer_constants.h"
@@ -47,7 +48,6 @@
 #include "wiz8/dialog_code/SpellInfoDialog.h"
 #include "wiz8/engine_code/GameData.h"
 
-#include <wchar.h>
 #include <string.h>
 #include <math.h>
 
@@ -210,9 +210,9 @@ static unsigned char MonsterGroupCalcDefaultDisposition(W8MonsterGroup* monster_
             0x75a, MONSTER_GROUP_CPP, IListGetAt(monster_group->monsters, 0), true));
         if (npc_record == 0) {
             srAssertFail("FALSE", MONSTER_GROUP_CPP, 0x75d,
-                         FormatString("MonsterGroupCalcDefaultDisposition: Monster species %d(%ls) "
+                         FormatText("MonsterGroupCalcDefaultDisposition: Monster species %d(%s) "
                                       "NPC data not found",
-                                      monster_group->monster_id, record));
+                                      monster_group->monster_id, record->name0));
         } else {
             switch (GetNpcDispositionBand(npc_record)) {
             case W8_NPC_BAND_FRIENDLY:
@@ -331,7 +331,7 @@ void RefreshMonsterGroupHostility(W8MonsterGroup* monster_group)
 W8MonsterGroup* GetMonsterGroupByListIndex(unsigned int group_list_index)
 {
     W8MonsterGroup* result;
-    const char* detail;
+    std::string detail;
     int line;
 
     if (group_list_index < W8_ENCOUNTER_GROUP_INDEX_BIAS ||
@@ -344,8 +344,8 @@ W8MonsterGroup* GetMonsterGroupByListIndex(unsigned int group_list_index)
         if (result != 0) {
             return result;
         }
-        detail = FormatString("GroupInfo: ERROR - PLGet failed, index %d, pList %d",
-                              group_list_index, gXStatus.plsMonsterGroupList);
+        detail = FormatText("GroupInfo: ERROR - PLGet failed, index %d, pList %p",
+                              group_list_index, static_cast<const void*>(gXStatus.plsMonsterGroupList));
         line = 0x3dc;
     } else {
         if (group_list_index - W8_ENCOUNTER_GROUP_INDEX_BIAS >=
@@ -356,8 +356,8 @@ W8MonsterGroup* GetMonsterGroupByListIndex(unsigned int group_list_index)
         if (result != 0) {
             return result;
         }
-        detail = FormatString("GroupInfo: ERROR - PLGet failed, index %d, pList %d",
-                              group_list_index, gXStatus.plsMonsterGroupList);
+        detail = FormatText("GroupInfo: ERROR - PLGet failed, index %d, pList %p",
+                              group_list_index, static_cast<const void*>(gXStatus.plsMonsterGroupList));
         line = 0x3d1;
     }
     srAssertFail("pMonsterGroup != NULL", MONSTER_GROUP_CPP, line, detail);
@@ -391,7 +391,7 @@ unsigned int GetMonsterGroupIndexByID(int caller_line, const char* caller_file, 
 
     if (assert_on_failure) {
         srAssertFail("FALSE", MONSTER_GROUP_CPP, 0x3b2,
-                     FormatString("GroupIndex: ID %d not found (%s line %d)", group_id, caller_file,
+                     FormatText("GroupIndex: ID %d not found (%s line %d)", group_id, caller_file,
                                   caller_line));
     }
     return 0xffffffff;
@@ -681,7 +681,7 @@ void RetireMonsterGroupAndAllies(W8MonsterGroup* monster_group)
 
    Its opening assertion is followed immediately by MonsterGroupGetRecord's own. */
 // FUNCTION: WIZ8 0x00510280
-wchar_t* GetMonsterGroupName(W8MonsterGroup* monster_group)
+std::string GetMonsterGroupName(W8MonsterGroup* monster_group)
 {
     W8MonsterRecord* record;
     unsigned int name_form;
@@ -692,14 +692,13 @@ wchar_t* GetMonsterGroupName(W8MonsterGroup* monster_group)
     record = MonsterGroupGetRecord(monster_group);
     name_form = monster_group->member_count != W8_MONSTER_GROUP_SINGULAR;
     if (record->record_id == W8_MONSTER_RECORD_ALTERNATE_NAME) {
-        swprintf(g_status.monster_name_buffer, g_format_al_s,
-                 g_status.buffers.Char[g_status.sedexus_party_slot].name);
+        g_status.monster_name_buffer = FormatText(g_format_al_s, g_status.buffers.Char[g_status.sedexus_party_slot].name);
         return g_status.monster_name_buffer;
     }
     if (monster_group->alternate_name) {
-        return record->name0 + name_form * W8_MONSTER_NAME_STRIDE;
+        return (name_form ? record->name1 : record->name0);
     }
-    return record->name2 + name_form * W8_MONSTER_NAME_STRIDE;
+    return (name_form ? record->name3 : record->name2);
 }
 
 /* Takes a whole group out of combat: every member leaves individually, the
@@ -1094,8 +1093,8 @@ W8MonsterGroup* CreateGroup(unsigned int monster_id, unsigned int count,
     SetMonsterGroupHostility(group, MonsterGroupCalcDefaultDisposition(group), false);
 
     if (announce_spawn && g_dev_mode) {
-        const wchar_t* verb = count == 1 ? L"appears" : L"appear";
-        ShowNoticef(W8_FONT_PALETTE_RUST, L"%d %s %s nearby!", count,
+        const char* verb = count == 1 ? "appears" : "appear";
+        ShowNoticef(W8_FONT_PALETTE_RUST, "%d %s %s nearby!", count,
                     GetMonsterGroupName(group), verb);
     }
 
@@ -1560,15 +1559,15 @@ void ShowMonsterGroupInfoNotice(int group_id)
 {
     W8MonsterGroup* group = GetMonsterGroupByListIndex(
         GetMonsterGroupIndexByID(0x801, MONSTER_GROUP_CPP, group_id, true));
-    const wchar_t* name = GetMonsterGroupName(group);
+    auto name = GetMonsterGroupName(group);
 
     ShowNoticef(W8_FONT_PALETTE_BEIGE, g_format_d_s, group->member_count, name);
     if (!group->alternate_name) {
-        ShowNotice(W8_FONT_PALETTE_BEIGE, gppStringList[0x1c5]);
+        ShowNotice(W8_FONT_PALETTE_BEIGE, g_localized_strings[0x1c5]);
     }
-    ShowNoticef(W8_FONT_PALETTE_BEIGE, gppStringList[0x1c6], group->active_member_count);
-    ShowNoticef(W8_FONT_PALETTE_BEIGE, gppStringList[0x1c7], group->selectable_member_count);
-    ShowNoticef(W8_FONT_PALETTE_BEIGE, gppStringList[0x1c8], group->visible_member_count);
+    ShowNoticef(W8_FONT_PALETTE_BEIGE, g_localized_strings[0x1c6], group->active_member_count);
+    ShowNoticef(W8_FONT_PALETTE_BEIGE, g_localized_strings[0x1c7], group->selectable_member_count);
+    ShowNoticef(W8_FONT_PALETTE_BEIGE, g_localized_strings[0x1c8], group->visible_member_count);
 }
 
 /* Flags every live member of the group for removal, then recurses into each

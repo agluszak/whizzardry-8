@@ -1,7 +1,8 @@
+#include <string_view>
+#include <string>
 #include <new>
 #include "wiz8/spell_ids.h"
 #include "wiz8/conditions.h"
-#include "wiz8/sgp_text.h"
 #include "soundman.h"
 #include "wiz8/integer_constants.h"
 #include "wiz8/local_code/Magic.h"
@@ -73,7 +74,6 @@
 
 #include <stdlib.h>
 #include <string.h>
-#include <wchar.h>
 #include "line.h"
 #include "wiz8/local_screens/RCSCommon.h"
 #include "wiz8/layouts/game_status.h"
@@ -186,7 +186,7 @@ int g_attribute_label_ids[7] = {0x924, 0x925, 0x926, 0x927, 0x928, 0x92a, 0x929}
 
 /* The help-line weight breakdown, "<personal>: n, <party>: n". */
 // GLOBAL: WIZ8 0x0064DD4C
-wchar_t g_format_s_colon_d_s_colon_d[] = L"%s: %d, %s: %d";
+char g_format_s_colon_d_s_colon_d[] = "%s: %d, %s: %d";
 
 // GLOBAL: WIZ8 0x0064CBF0
 W8CampScreenRegion g_camp_screen_regions[12] = {
@@ -207,13 +207,13 @@ W8CampScreenRegion g_camp_screen_regions[12] = {
    formats - zero-padded cost, plain number, plain string and the realm label
    prefix. */
 // GLOBAL: WIZ8 0x0064DD14
-wchar_t g_format[] = L"%3.3d";
+char g_format[] = "%3.3d";
 // GLOBAL: WIZ8 0x0064DD20
-wchar_t g_format_d0[] = L"%3d";
+char g_format_d0[] = "%3d";
 // GLOBAL: WIZ8 0x0064DD28
-wchar_t g_format_s0[] = L"%s:";
+char g_format_s0[] = "%s:";
 // GLOBAL: WIZ8 0x00648164
-wchar_t g_format_s_colon[] = L"%s: ";
+char g_format_s_colon[] = "%s: ";
 
 /* Enable or disable the six spell-realm scrollbars together. While enabling, a
    realm whose learned spells fit the eight visible rows keeps its bar off. */
@@ -301,18 +301,18 @@ void DrawCampSpellPages(void)
                                           VO_BLT_SRCTRANSPARENCY, 0);
             SetFontObjectPalette16BPP(g_wiz_text_font_secondary,
                                       g_font_state_palettes[W8_FONT_PALETTE_GREEN].get());
-            gprintf(left + 0x1b, top + 8, Wiz8ToSgpWideText(g_format_s0), gppStringList[0x8c7]);
-            gprintf(left + 0x72, top + 8, gppStringList[0x8c9]);
+            gprintf(left + 0x1b, top + 8, g_format_s0, g_localized_strings[0x8c7]);
+            gprintf(left + 0x72, top + 8, g_localized_strings[0x8c9]);
             SetFontObjectPalette16BPP(g_wiz_text_font_secondary, GetFontObject(g_wiz_text_font_secondary)->ownedPalette.get());
-            width = StringPixLengthArg(g_wiz_text_font_secondary, wcslen(gppStringList[0x8c7]) + 2,
-                                       Wiz8ToSgpWideText(g_format_s_colon), gppStringList[0x8c7]);
-            gprintf(left + 0x1b + width, top + 8, Wiz8ToSgpWideText(g_format_d0),
+            width = StringPixLength(FormatText(g_format_s_colon, g_localized_strings[0x8c7]),
+                                    g_wiz_text_font_secondary);
+            gprintf(left + 0x1b + width, top + 8, g_format_d0,
                     character->skills[W8_SKILL_FIRE_MAGIC + realm].level);
             width = StringPixLengthArg(
-                g_wiz_text_font_secondary, 7, Wiz8ToSgpWideText(g_format_d_slash_d),
+                g_wiz_text_font_secondary, 7, g_format_d_slash_d,
                 GetCharacterRealmSpellPoints(character, static_cast<W8SpellRealm>(realm)),
                 character->sp_max[realm]);
-            gprintf(left + 0xc8 - width, top + 8, Wiz8ToSgpWideText(g_format_d_slash_d),
+            gprintf(left + 0xc8 - width, top + 8, g_format_d_slash_d,
                     GetCharacterRealmSpellPoints(character, static_cast<W8SpellRealm>(realm)),
                     character->sp_max[realm]);
             visible = character->skill_unlocks[0x1c + realm];
@@ -337,11 +337,11 @@ void DrawCampSpellPages(void)
                 }
                 SetFontObjectPalette16BPP(g_wiz_text_font_secondary, palette);
                 width =
-                    StringPixLengthArg(g_wiz_text_font_secondary, 3, Wiz8ToSgpWideText(g_format),
+                    StringPixLengthArg(g_wiz_text_font_secondary, 3, g_format,
                                        g_spell_records[spell_id].spell_point_cost);
-                gprintf(left + 0x1c, row_top, Wiz8ToSgpWideText(g_format_s),
+                gprintf(left + 0x1c, row_top, g_format_s,
                         g_spell_records[spell_id].display_name);
-                gprintf(left + 0xb1 - width, row_top, Wiz8ToSgpWideText(g_format_d0),
+                gprintf(left + 0xb1 - width, row_top, g_format_d0,
                         g_spell_records[spell_id].spell_point_cost);
                 row_top += 0xd;
             }
@@ -379,18 +379,17 @@ void DrawCampResistances(void)
 {
     W8Character* character = g_review_character;
     const W8SpellRealmAnimation* animation;
-    wchar_t* text;
+    std::string text;
     int index;
     int left;
     int top;
     int width;
 
     DrawCatalogImageAndInvalidate(FRAME_BUFFER, 0x140, 0, 0, 0x136, 0, VO_BLT_SRCTRANSPARENCY, 0);
-    text = gppStringList[0x8ca];
+    text = g_localized_strings[0x8ca];
     width = StringPixLengthArg(
-        g_wiz_text_font_secondary, wcslen(text),
-        reinterpret_cast< // reinterpret-ok: SGP's historical UINT16 text ABI stores wchar_t data
-            CHAR16*>(text));
+        g_wiz_text_font_secondary, text.size(),
+        text);
     gprintf((0x134 - width) / 2 + 0x144, 0x1e, text);
     for (index = 0; index < 6; ++index) {
         animation = &g_spell_realm_animations[index];
@@ -400,9 +399,9 @@ void DrawCampResistances(void)
                          VO_BLT_SRCTRANSPARENCY, 0);
         DrawCampValueBar(character->resistances[index].total, character->resistances[index].base,
                          left + 0x18, top + 4);
-        width = StringPixLengthArg(g_wiz_text_font_secondary, 5, Wiz8ToSgpWideText(g_format_d),
+        width = StringPixLengthArg(g_wiz_text_font_secondary, 5, g_format_d,
                                    character->resistances[index].total);
-        gprintf(left + 0x93 - width, top + 3, Wiz8ToSgpWideText(g_format_d),
+        gprintf(left + 0x93 - width, top + 3, g_format_d,
                 character->resistances[index].total);
     }
 }
@@ -492,7 +491,7 @@ unsigned char SpellListRegionHandler(const InputAtom* event, W8Region* region)
 void OpenSpellInfoDialog(unsigned int spell_id)
 {
     W8SpellInfoDialog* dialog = new W8SpellInfoDialog(spell_id);
-    dialog->SetText(&g_empty_wide_string);
+    dialog->SetText(&g_empty_text);
     DisplayCampDialog(dialog);
 }
 
@@ -570,28 +569,28 @@ void DrawCampCharacterInfo(void)
             SetClippingRect(&previous_clip);
         }
     }
-    DrawRcsText(gppStringList[0x91b], 0x159, 10, 0xce,
+    DrawRcsText(g_localized_strings[0x91b], 0x159, 10, 0xce,
                 g_W8TextBufferAlignMiddle | g_W8TextBufferAlignCenter);
-    DrawRcsText(gppStringList[0x91c], 0x15e, 0x18, 0x65,
+    DrawRcsText(g_localized_strings[0x91c], 0x15e, 0x18, 0x65,
                 g_W8TextBufferAlignLeft | g_W8TextBufferAlignMiddle);
-    DrawRcsText(gppStringList[0x91d], 0x15e, 0x26, 0x65,
+    DrawRcsText(g_localized_strings[0x91d], 0x15e, 0x26, 0x65,
                 g_W8TextBufferAlignLeft | g_W8TextBufferAlignMiddle);
-    FormatUnsignedIntegerWithCommas(state->text_buffer, character->experience);
+    state->text_buffer = FormatUnsignedIntegerWithCommas(character->experience);
     DrawRcsText(state->text_buffer, 0x1c0, 0x18, 0x67,
                 g_W8TextBufferAlignMiddle | g_W8TextBufferAlignCenter);
-    FormatUnsignedIntegerWithCommas(state->text_buffer, character->experience_goal);
+    state->text_buffer = FormatUnsignedIntegerWithCommas(character->experience_goal);
     DrawRcsText(state->text_buffer, 0x1c0, 0x26, 0x67,
                 g_W8TextBufferAlignMiddle | g_W8TextBufferAlignCenter);
-    DrawRcsText(gppStringList[0x91e], 0x144, 0x3a, 0x45,
+    DrawRcsText(g_localized_strings[0x91e], 0x144, 0x3a, 0x45,
                 g_W8TextBufferAlignLeft | g_W8TextBufferAlignMiddle);
-    DrawRcsText(gppStringList[0x91f], 0x144, 0x48, 0x45,
+    DrawRcsText(g_localized_strings[0x91f], 0x144, 0x48, 0x45,
                 g_W8TextBufferAlignLeft | g_W8TextBufferAlignMiddle);
-    DrawRcsText(gppStringList[0x920], 0x144, 0x56, 0x45,
+    DrawRcsText(g_localized_strings[0x920], 0x144, 0x56, 0x45,
                 g_W8TextBufferAlignLeft | g_W8TextBufferAlignMiddle);
-    swprintf(state->text_buffer, g_format_d_slash_d, character->hp_current, character->uiHPMax);
+    state->text_buffer = FormatText(g_format_d_slash_d, character->hp_current, character->uiHPMax);
     DrawRcsText(state->text_buffer, 0x18d, 0x3a, 0x2c,
                 g_W8TextBufferAlignMiddle | g_W8TextBufferAlignCenter);
-    swprintf(state->text_buffer, g_format_d_slash_d, character->stamina, character->uiStaminaMax);
+    state->text_buffer = FormatText(g_format_d_slash_d, character->stamina, character->uiStaminaMax);
     DrawRcsText(state->text_buffer, 0x18d, 0x48, 0x2c,
                 g_W8TextBufferAlignMiddle | g_W8TextBufferAlignCenter);
     if (character->load_category != 0) {
@@ -599,22 +598,19 @@ void DrawCampCharacterInfo(void)
             g_wiz_text_font_secondary,
             g_font_state_palettes[g_load_category_palettes[character->load_category]].get());
     }
-    swprintf(state->text_buffer, g_format_d_slash_d, character->total_carried_weight / 10,
-             character->carrying_capacity / 10);
+    state->text_buffer = FormatText(g_format_d_slash_d, character->total_carried_weight / 10, character->carrying_capacity / 10);
     DrawRcsTextJustified(state->text_buffer, 0x18d, 0x56, 0x2c, 0xc,
                          g_W8TextBufferAlignMiddle | g_W8TextBufferAlignCenter);
-    swprintf(state->text_buffer, g_format_s_colon_d_s_colon_d, gppStringList[0x8c0],
-             character->inventory_weight / 10, gppStringList[0x8c1],
-             character->party_weight_share / 10);
+    state->text_buffer = FormatText(g_format_s_colon_d_s_colon_d, g_localized_strings[0x8c0], character->inventory_weight / 10, g_localized_strings[0x8c1], character->party_weight_share / 10);
     g_camp_help_text->SetRegionHelp(state->text_buffer);
     SetFontObjectPalette16BPP(g_wiz_text_font_secondary, GetFontObject(g_wiz_text_font_secondary)->ownedPalette.get());
-    DrawRcsText(gppStringList[0x921], 0x144, 0x72, 0x75,
+    DrawRcsText(g_localized_strings[0x921], 0x144, 0x72, 0x75,
                 g_W8TextBufferAlignMiddle | g_W8TextBufferAlignCenter);
     top = 0x3a;
     for (index = 0; index < 7; ++index) {
-        DrawRcsText(gppStringList[g_attribute_label_ids[index]], 0x1c2, top, 0x4c,
+        DrawRcsText(g_localized_strings[g_attribute_label_ids[index]], 0x1c2, top, 0x4c,
                     g_W8TextBufferAlignLeft | g_W8TextBufferAlignMiddle);
-        swprintf(state->text_buffer, g_format_d, character->attributes[index].effective);
+        state->text_buffer = FormatText(g_format_d, character->attributes[index].effective);
         DrawRcsText(state->text_buffer, 0x212, top, 0x14,
                     g_W8TextBufferAlignMiddle | g_W8TextBufferAlignCenter);
         top += 0xe;
@@ -625,9 +621,7 @@ void DrawCampCharacterInfo(void)
         if (character->sp_max[realm] == 0) {
             frame = g_spell_realm_animations[realm].frame_count;
         } else {
-            swprintf(state->text_buffer, g_format_d_slash_d,
-                     GetCharacterRealmSpellPoints(character, static_cast<W8SpellRealm>(realm)),
-                     character->sp_max[realm]);
+            state->text_buffer = FormatText(g_format_d_slash_d, GetCharacterRealmSpellPoints(character, static_cast<W8SpellRealm>(realm)), character->sp_max[realm]);
             DrawTallRcsText(state->text_buffer, 0x242, top, 0x32,
                             g_W8TextBufferAlignMiddle | g_W8TextBufferAlignCenter);
             frame = g_spell_realm_animations[realm].initial_frame;
@@ -636,14 +630,14 @@ void DrawCampCharacterInfo(void)
                                       0x22d, top, VO_BLT_SRCTRANSPARENCY, 0);
         top += 0x18;
     }
-    DrawRcsText(gppStringList[0x922], 0x144, 0x80, 0x45,
+    DrawRcsText(g_localized_strings[0x922], 0x144, 0x80, 0x45,
                 g_W8TextBufferAlignLeft | g_W8TextBufferAlignMiddle);
-    swprintf(state->text_buffer, g_format_d, character->armor_class_total);
+    state->text_buffer = FormatText(g_format_d, character->armor_class_total);
     DrawRcsText(state->text_buffer, 0x18d, 0x80, 0x2c,
                 g_W8TextBufferAlignMiddle | g_W8TextBufferAlignCenter);
-    DrawRcsText(gppStringList[0x923], 0x144, 0x8e, 0x45,
+    DrawRcsText(g_localized_strings[0x923], 0x144, 0x8e, 0x45,
                 g_W8TextBufferAlignLeft | g_W8TextBufferAlignMiddle);
-    swprintf(state->text_buffer, g_format_d, character->armor_class_average);
+    state->text_buffer = FormatText(g_format_d, character->armor_class_average);
     DrawRcsText(state->text_buffer, 0x18d, 0x8e, 0x2c,
                 g_W8TextBufferAlignMiddle | g_W8TextBufferAlignCenter);
     InvalidateCampPanel();
@@ -666,7 +660,7 @@ void DrawCampBackpackItems(void)
     if ((state->item_redraw_flags & W8_CAMP_ITEM_REDRAW_BACKPACK_HEADER) != 0) {
         DrawCatalogImageAndInvalidate(FRAME_BUFFER, 0x114, 0, 1, 0, 0xa5, VO_BLT_SRCTRANSPARENCY,
                                       0);
-        DrawRcsBoldText(gppStringList[0x92b], 0xc, 0xae, 0x5d,
+        DrawRcsBoldText(g_localized_strings[0x92b], 0xc, 0xae, 0x5d,
                         g_W8TextBufferAlignMiddle | g_W8TextBufferAlignCenter);
     }
     for (slot = 0; slot < 8; ++slot) {
@@ -776,7 +770,7 @@ void DrawCampEquipmentItems(void)
         default:
             goto no_armor_label;
         }
-        swprintf(state->text_buffer, g_format_d, character->armor_class_by_location[frame]);
+        state->text_buffer = FormatText(g_format_d, character->armor_class_by_location[frame]);
         DrawCatalogImageAndInvalidate(FRAME_BUFFER, 0x11c, 0, 0, region->x + 2, region->y + 1,
                                       VO_BLT_SRCTRANSPARENCY, 0);
         DrawRcsText(state->text_buffer, region->x + 2, region->y + 2, 0x11,
@@ -847,9 +841,9 @@ void DrawCampItemPool(void)
         return;
     }
     if ((state->item_redraw_flags & W8_CAMP_ITEM_REDRAW_POOL_HEADER) != 0) {
-        DrawRcsBoldText(gppStringList[0x92c], 0x1e6, 0xae, 0x8d,
+        DrawRcsBoldText(g_localized_strings[0x92c], 0x1e6, 0xae, 0x8d,
                         g_W8TextBufferAlignMiddle | g_W8TextBufferAlignCenter);
-        FormatUnsignedIntegerWithCommas(state->text_buffer, g_status.party_gold);
+        state->text_buffer = FormatUnsignedIntegerWithCommas(g_status.party_gold);
         DrawRcsText(state->text_buffer, 0x229, 0x1a9, 0x30,
                     g_W8TextBufferAlignMiddle | g_W8TextBufferAlignCenter);
     }
@@ -917,7 +911,7 @@ void DrawCampItemQuantity(W8ItemInstance* item, int left, int top, int width)
     switch (g_item_records[item->iItemNo].quantity_kind) {
     case W8_ITEM_QUANTITY_STACK:
         if (item->stack_count > 1) {
-            swprintf(state->text_buffer, g_format_d, item->stack_count);
+            state->text_buffer = FormatText(g_format_d, item->stack_count);
             DrawRcsText(state->text_buffer, left, top, width,
                         g_W8TextBufferAlignMiddle | g_W8TextBufferAlignRight);
         }
@@ -927,9 +921,9 @@ void DrawCampItemQuantity(W8ItemInstance* item, int left, int top, int width)
         SetFontObjectPalette16BPP(g_wiz_text_font_secondary,
                                   g_font_state_palettes[W8_FONT_PALETTE_BLUE].get());
         if (!item->identified) {
-            swprintf(state->text_buffer, L"?");
+            state->text_buffer = FormatText("?");
         } else {
-            swprintf(state->text_buffer, g_format_d, item->uses_or_charges);
+            state->text_buffer = FormatText(g_format_d, item->uses_or_charges);
         }
         height = GetFontHeight(g_wiz_text_font_secondary);
         DrawRcsTextJustified(state->text_buffer, left, top, width, height,
@@ -938,7 +932,7 @@ void DrawCampItemQuantity(W8ItemInstance* item, int left, int top, int width)
     case W8_ITEM_QUANTITY_SHOTS:
         SetFontObjectPalette16BPP(g_wiz_text_font_secondary,
                                   g_font_state_palettes[W8_FONT_PALETTE_YELLOW].get());
-        swprintf(state->text_buffer, g_format_d, item->uses_or_charges);
+        state->text_buffer = FormatText(g_format_d, item->uses_or_charges);
         height = GetFontHeight(g_wiz_text_font_secondary);
         DrawRcsTextJustified(state->text_buffer, left, top, width, height,
                              g_W8TextBufferAlignMiddle | g_W8TextBufferAlignRight);
@@ -1018,51 +1012,51 @@ void W8CampCharacterInfo::Redraw()
     if (!redraw)
         return;
     InvalidateCampPanel();
-    DrawRcsText(gppStringList[0x935], 0x15e, 0x84, 0x4e,
+    DrawRcsText(g_localized_strings[0x935], 0x15e, 0x84, 0x4e,
                 g_W8TextBufferAlignMiddle | g_W8TextBufferAlignLeft);
-    swprintf(g_camp_screen->text_buffer, L"%d", g_review_character->kill_count);
+    g_camp_screen->text_buffer = FormatText("%d", g_review_character->kill_count);
     DrawRcsText(g_camp_screen->text_buffer, 0x1ae, 0x84, 0x20,
                 g_W8TextBufferAlignCenter | g_W8TextBufferAlignMiddle);
-    DrawRcsText(gppStringList[0x936], 0x15e, 0x92, 0x4e,
+    DrawRcsText(g_localized_strings[0x936], 0x15e, 0x92, 0x4e,
                 g_W8TextBufferAlignMiddle | g_W8TextBufferAlignLeft);
-    swprintf(g_camp_screen->text_buffer, L"%d", g_review_character->death_count);
+    g_camp_screen->text_buffer = FormatText("%d", g_review_character->death_count);
     DrawRcsText(g_camp_screen->text_buffer, 0x1ae, 0x92, 0x20,
                 g_W8TextBufferAlignCenter | g_W8TextBufferAlignMiddle);
     if (m_combat_view) {
-        DrawRcsText(gppStringList[0x8b0], 0x15b, 10, 0x11d,
+        DrawRcsText(g_localized_strings[0x8b0], 0x15b, 10, 0x11d,
                     g_W8TextBufferAlignCenter | g_W8TextBufferAlignMiddle);
-        DrawRcsText(gppStringList[0x8b1], 0x15e, 0x30, 0x4e,
+        DrawRcsText(g_localized_strings[0x8b1], 0x15e, 0x30, 0x4e,
                     g_W8TextBufferAlignMiddle | g_W8TextBufferAlignLeft);
-        swprintf(g_camp_screen->text_buffer, L"%d", g_review_character->initiative);
+        g_camp_screen->text_buffer = FormatText("%d", g_review_character->initiative);
         DrawRcsText(g_camp_screen->text_buffer, 0x1ae, 0x30, 0x20,
                     g_W8TextBufferAlignCenter | g_W8TextBufferAlignMiddle);
         if (g_review_character->EquippedItem[W8_EQUIP_SLOT_PRIMARY_WEAPON].iItemNo == -1 &&
             g_review_character->EquippedItem[W8_EQUIP_SLOT_SECONDARY_WEAPON].iItemNo == -1) {
-            DrawRcsText(gppStringList[0x8b5], 0x1d6, 0x22, 0x50,
+            DrawRcsText(g_localized_strings[0x8b5], 0x1d6, 0x22, 0x50,
                         g_W8TextBufferAlignCenter | g_W8TextBufferAlignMiddle);
-            DrawRcsText(gppStringList[0x8b4], 0x228, 0x22, 0x50,
+            DrawRcsText(g_localized_strings[0x8b4], 0x228, 0x22, 0x50,
                         g_W8TextBufferAlignCenter | g_W8TextBufferAlignMiddle);
         } else {
-            DrawRcsText(gppStringList[0x8b2], 0x1d6, 0x22, 0x50,
+            DrawRcsText(g_localized_strings[0x8b2], 0x1d6, 0x22, 0x50,
                         g_W8TextBufferAlignCenter | g_W8TextBufferAlignMiddle);
-            DrawRcsText(gppStringList[0x8b3], 0x228, 0x22, 0x50,
+            DrawRcsText(g_localized_strings[0x8b3], 0x228, 0x22, 0x50,
                         g_W8TextBufferAlignCenter | g_W8TextBufferAlignMiddle);
         }
-        DrawRcsText(gppStringList[0x8b6], 0x1f8, 0x30, 0x5e,
+        DrawRcsText(g_localized_strings[0x8b6], 0x1f8, 0x30, 0x5e,
                     g_W8TextBufferAlignCenter | g_W8TextBufferAlignMiddle);
-        DrawRcsText(gppStringList[0x8bd], 0x1f8, 0x3e, 0x5e,
+        DrawRcsText(g_localized_strings[0x8bd], 0x1f8, 0x3e, 0x5e,
                     g_W8TextBufferAlignCenter | g_W8TextBufferAlignMiddle);
-        DrawRcsText(gppStringList[0x8bc], 0x1f8, 0x4c, 0x5e,
+        DrawRcsText(g_localized_strings[0x8bc], 0x1f8, 0x4c, 0x5e,
                     g_W8TextBufferAlignCenter | g_W8TextBufferAlignMiddle);
-        DrawRcsText(gppStringList[0x8ba], 0x1f8, 0x5a, 0x5e,
+        DrawRcsText(g_localized_strings[0x8ba], 0x1f8, 0x5a, 0x5e,
                     g_W8TextBufferAlignCenter | g_W8TextBufferAlignMiddle);
-        DrawRcsText(gppStringList[0x8bb], 0x1f8, 0x68, 0x5e,
+        DrawRcsText(g_localized_strings[0x8bb], 0x1f8, 0x68, 0x5e,
                     g_W8TextBufferAlignCenter | g_W8TextBufferAlignMiddle);
-        DrawRcsText(gppStringList[0x8b7], 0x1f8, 0x76, 0x5e,
+        DrawRcsText(g_localized_strings[0x8b7], 0x1f8, 0x76, 0x5e,
                     g_W8TextBufferAlignCenter | g_W8TextBufferAlignMiddle);
-        DrawRcsText(gppStringList[0x8b8], 0x1f8, 0x84, 0x5e,
+        DrawRcsText(g_localized_strings[0x8b8], 0x1f8, 0x84, 0x5e,
                     g_W8TextBufferAlignCenter | g_W8TextBufferAlignMiddle);
-        DrawRcsText(gppStringList[0x8b9], 0x1f8, 0x92, 0x5e,
+        DrawRcsText(g_localized_strings[0x8b9], 0x1f8, 0x92, 0x5e,
                     g_W8TextBufferAlignCenter | g_W8TextBufferAlignMiddle);
         bool unknown_partner =
             ItemHasSingledOutGenericName(
@@ -1077,20 +1071,20 @@ void W8CampCharacterInfo::Redraw()
                 (!g_review_character->EquippedItem[hand + 6].identified ||
                  (hand == 0 && unknown_partner))) {
                 for (int row = 0; row < 8; ++row) {
-                    DrawRcsText(L"?", x, 0x30 + row * 14, 0x20,
+                    DrawRcsText("?", x, 0x30 + row * 14, 0x20,
                                 g_W8TextBufferAlignCenter | g_W8TextBufferAlignMiddle);
                 }
-                wcscpy(g_camp_screen->text_buffer, gppStringList[0x95c]);
-                wcscat(g_camp_screen->text_buffer, L"?");
-                wcscat(g_camp_screen->text_buffer, gppStringList[0x95b]);
-                wcscat(g_camp_screen->text_buffer, L"?");
-                wcscat(g_camp_screen->text_buffer, gppStringList[0x95a]);
-                wcscat(g_camp_screen->text_buffer, L"?");
+                g_camp_screen->text_buffer = g_localized_strings[0x95c];
+                g_camp_screen->text_buffer += "?";
+                g_camp_screen->text_buffer += g_localized_strings[0x95b];
+                g_camp_screen->text_buffer += "?";
+                g_camp_screen->text_buffer += g_localized_strings[0x95a];
+                g_camp_screen->text_buffer += "?";
                 m_values[hand + 2]->SetRegionHelp(g_camp_screen->text_buffer);
-                wcscpy(g_camp_screen->text_buffer, gppStringList[0x959]);
-                wcscat(g_camp_screen->text_buffer, L"?");
-                wcscat(g_camp_screen->text_buffer, gppStringList[0x95a]);
-                wcscat(g_camp_screen->text_buffer, L"?");
+                g_camp_screen->text_buffer = g_localized_strings[0x959];
+                g_camp_screen->text_buffer += "?";
+                g_camp_screen->text_buffer += g_localized_strings[0x95a];
+                g_camp_screen->text_buffer += "?";
                 m_values[hand]->SetRegionHelp(g_camp_screen->text_buffer);
                 continue;
             }
@@ -1107,47 +1101,45 @@ void W8CampCharacterInfo::Redraw()
             int skill_bonus =
                 (attack->attack_score < 0 ? attack->attack_score - 2 : attack->attack_score + 2) /
                 5;
-            swprintf(g_camp_screen->text_buffer, L"%+d",
-                     attack->damage_bonus + g_review_character->bonus.damage_bonus);
+            g_camp_screen->text_buffer = FormatText("%+d", attack->damage_bonus + g_review_character->bonus.damage_bonus);
             DrawRcsText(g_camp_screen->text_buffer, x, 0x30, 0x20,
                         g_W8TextBufferAlignCenter | g_W8TextBufferAlignMiddle);
-            swprintf(g_camp_screen->text_buffer, L"%d-%d", minimum, maximum);
+            g_camp_screen->text_buffer = FormatText("%d-%d", minimum, maximum);
             DrawRcsText(g_camp_screen->text_buffer, x, 0x3e, 0x20,
                         g_W8TextBufferAlignCenter | g_W8TextBufferAlignMiddle);
-            wcscpy(g_camp_screen->text_buffer, gppStringList[0x95c]);
-            wcscat(g_camp_screen->text_buffer, FormatWideString(L" %d, ", dice.Minimum()));
-            wcscat(g_camp_screen->text_buffer, gppStringList[0x95b]);
-            wcscat(g_camp_screen->text_buffer, FormatWideString(L" %d, ", dice.Maximum()));
-            wcscat(g_camp_screen->text_buffer, gppStringList[0x95a]);
-            wcscat(g_camp_screen->text_buffer, FormatWideString(L" %+d%%", damage_bonus));
+            g_camp_screen->text_buffer = g_localized_strings[0x95c];
+            g_camp_screen->text_buffer += FormatText(" %d, ", dice.Minimum());
+            g_camp_screen->text_buffer += g_localized_strings[0x95b];
+            g_camp_screen->text_buffer += FormatText(" %d, ", dice.Maximum());
+            g_camp_screen->text_buffer += g_localized_strings[0x95a];
+            g_camp_screen->text_buffer += FormatText(" %+d%%", damage_bonus);
             m_values[hand + 2]->SetRegionHelp(g_camp_screen->text_buffer);
-            swprintf(g_camp_screen->text_buffer, L"%d", skill_bonus + hit_bonus);
+            g_camp_screen->text_buffer = FormatText("%d", skill_bonus + hit_bonus);
             DrawRcsText(g_camp_screen->text_buffer, x, 0x4c, 0x20,
                         g_W8TextBufferAlignCenter | g_W8TextBufferAlignMiddle);
-            wcscpy(g_camp_screen->text_buffer, gppStringList[0x959]);
-            wcscat(g_camp_screen->text_buffer, FormatWideString(L" %d, ", skill_bonus));
-            wcscat(g_camp_screen->text_buffer, gppStringList[0x95a]);
-            wcscat(g_camp_screen->text_buffer, FormatWideString(L" %+d", hit_bonus));
+            g_camp_screen->text_buffer = g_localized_strings[0x959];
+            g_camp_screen->text_buffer += FormatText(" %d, ", skill_bonus);
+            g_camp_screen->text_buffer += g_localized_strings[0x95a];
+            g_camp_screen->text_buffer += FormatText(" %+d", hit_bonus);
             m_values[hand]->SetRegionHelp(g_camp_screen->text_buffer);
-            swprintf(g_camp_screen->text_buffer, L"%d", attack->attacks);
+            g_camp_screen->text_buffer = FormatText("%d", attack->attacks);
             DrawRcsText(g_camp_screen->text_buffer, x, 0x5a, 0x20,
                         g_W8TextBufferAlignCenter | g_W8TextBufferAlignMiddle);
-            swprintf(g_camp_screen->text_buffer, L"%d", attack->swings);
+            g_camp_screen->text_buffer = FormatText("%d", attack->swings);
             DrawRcsText(g_camp_screen->text_buffer, x, 0x68, 0x20,
                         g_W8TextBufferAlignCenter | g_W8TextBufferAlignMiddle);
-            swprintf(g_camp_screen->text_buffer, L"%+d", hit_bonus);
+            g_camp_screen->text_buffer = FormatText("%+d", hit_bonus);
             DrawRcsText(g_camp_screen->text_buffer, x, 0x76, 0x20,
                         g_W8TextBufferAlignCenter | g_W8TextBufferAlignMiddle);
-            swprintf(g_camp_screen->text_buffer, L"%+d",
-                     attack->attack_bonus + g_review_character->bonus.attack_bonus);
+            g_camp_screen->text_buffer = FormatText("%+d", attack->attack_bonus + g_review_character->bonus.attack_bonus);
             DrawRcsText(g_camp_screen->text_buffer, x, 0x84, 0x20,
                         g_W8TextBufferAlignCenter | g_W8TextBufferAlignMiddle);
-            swprintf(g_camp_screen->text_buffer, L"%+d%%", damage_bonus);
+            g_camp_screen->text_buffer = FormatText("%+d%%", damage_bonus);
             DrawRcsText(g_camp_screen->text_buffer, x, 0x92, 0x20,
                         g_W8TextBufferAlignCenter | g_W8TextBufferAlignMiddle);
         }
     } else {
-        DrawRcsText(gppStringList[0x8be], 0x15b, 10, 0x11d,
+        DrawRcsText(g_localized_strings[0x8be], 0x15b, 10, 0x11d,
                     g_W8TextBufferAlignCenter | g_W8TextBufferAlignMiddle);
         for (unsigned int component = 0; component < 12; ++component) {
             if (component == 11 &&
@@ -1156,18 +1148,18 @@ void W8CampCharacterInfo::Redraw()
             int y = (component % 6) * 14 + 0x22;
             int label_x = component / 6 ? 0x1ef : 0x15e;
             int value_x = component / 6 ? 600 : 0x1c7;
-            DrawRcsText(gppStringList[g_camp_armor_class_labels[component]], label_x, y, 0x67,
+            DrawRcsText(g_localized_strings[g_camp_armor_class_labels[component]], label_x, y, 0x67,
                         g_W8TextBufferAlignMiddle | g_W8TextBufferAlignLeft);
             int value = g_review_character->armor_class_components[component];
             if (value) {
-                swprintf(g_camp_screen->text_buffer, L"%+d", value);
+                g_camp_screen->text_buffer = FormatText("%+d", value);
                 DrawRcsText(g_camp_screen->text_buffer, value_x, y, 0x20,
                             g_W8TextBufferAlignCenter | g_W8TextBufferAlignMiddle);
             }
         }
-        DrawRcsText(gppStringList[0x8bf], 0x1da, 0x84, 0x7c,
+        DrawRcsText(g_localized_strings[0x8bf], 0x1da, 0x84, 0x7c,
                     g_W8TextBufferAlignMiddle | g_W8TextBufferAlignLeft);
-        swprintf(g_camp_screen->text_buffer, L"%d%%", g_review_character->damage_reduction);
+        g_camp_screen->text_buffer = FormatText("%d%%", g_review_character->damage_reduction);
         DrawRcsText(g_camp_screen->text_buffer, 600, 0x84, 0x20,
                     g_W8TextBufferAlignCenter | g_W8TextBufferAlignMiddle);
     }
@@ -1340,8 +1332,7 @@ unsigned char CampScreenEnter(void)
             for (int slot = 0; slot < 8; ++slot) {
                 if (g_status.buffers.XChar[slot].fOccupied && IsPartySlotEligible(slot) &&
                     g_status.buffers.XChar[slot].pending_action == W8_ACTION_EQUIP) {
-                    swprintf(g_camp_screen->text_buffer, L"%s %s", g_status.buffers.Char[slot].name,
-                             gppStringList[0x919]);
+                    g_camp_screen->text_buffer = FormatText("%s %s", g_status.buffers.Char[slot].name, g_localized_strings[0x919]);
                     goto show_equip_message;
                 }
             }
@@ -1352,18 +1343,16 @@ unsigned char CampScreenEnter(void)
                     g_status.buffers.XChar[slot].pending_action == W8_ACTION_EQUIP) {
                     ++count;
                     if (count == 1) {
-                        swprintf(g_camp_screen->text_buffer, L"%s",
-                                 g_status.buffers.Char[slot].name);
+                        g_camp_screen->text_buffer = FormatText("%s", g_status.buffers.Char[slot].name);
                     } else {
                         if (count == g_combat_state->equip_pending) {
-                            wcscat(g_camp_screen->text_buffer, L" ");
-                            wcscat(g_camp_screen->text_buffer,
-                                   FormatWideString(gppStringList[0x918],
-                                                    g_status.buffers.Char[slot].name));
+                            g_camp_screen->text_buffer += " ";
+                            g_camp_screen->text_buffer += FormatText(g_localized_strings[0x918],
+                                                    g_status.buffers.Char[slot].name);
                             goto show_equip_message;
                         }
-                        wcscat(g_camp_screen->text_buffer, L", ");
-                        wcscat(g_camp_screen->text_buffer, g_status.buffers.Char[slot].name);
+                        g_camp_screen->text_buffer += ", ";
+                        g_camp_screen->text_buffer += g_status.buffers.Char[slot].name;
                     }
                 }
             }
@@ -1421,8 +1410,8 @@ void CampScreenFrame(void)
                     } else {
                         SelectCampCharacter(CharacterPointerToPartySlot(g_camp_character));
                         if (!IsPartySlotEligible(giReviewCharSlot)) {
-                            wchar_t* text =
-                                FormatWideString(gppStringList[0x931], g_camp_character->name);
+                            std::string text =
+                                FormatText(g_localized_strings[0x931], g_camp_character->name);
                             ShowCampNoticeLine(text, 0, true, false);
                         } else {
                             QueueCharacterEvent(g_camp_character, g_effect36, 0, g_effect_argument0,
@@ -1438,7 +1427,7 @@ void CampScreenFrame(void)
                 }
             } else if (input.usParam == 'X' && gfKeyState[VK_MENU] && !gfKeyState[VK_CONTROL] &&
                        !gfKeyState[VK_SHIFT]) {
-                ShowCampNoticeLine(gppStringList[0x832], OnQuitGameDialogClosed, true, true);
+                ShowCampNoticeLine(g_localized_strings[0x832], OnQuitGameDialogClosed, true, true);
             }
         }
     }
@@ -1515,7 +1504,7 @@ void DismissSelectedPartyCharacter(void)
                                 g_character_event_full_volume);
             return;
         }
-        wchar_t* text = FormatWideString(gppStringList[0x931], g_camp_character->name);
+        std::string text = FormatText(g_localized_strings[0x931], g_camp_character->name);
         ShowCampNoticeLine(text, 0, true, false);
         return;
     }
@@ -1754,18 +1743,18 @@ void DrawCampRegenStats(void)
     SetFont(g_calligraphy_font);
     SetObjectShade(GetFontObject(g_calligraphy_font), 4);
     SetObjectShade(GetFontObject(g_calligraphy_font), 0);
-    gprintfDirty(0x14a, 5, gppStringList[0x8ce]);
+    gprintfDirty(0x14a, 5, g_localized_strings[0x8ce]);
     SetObjectShade(GetFontObject(g_calligraphy_font), 4);
-    gprintfDirty(0x221, 5, L"%6.3f", g_review_character->health_regen_rate);
+    gprintfDirty(0x221, 5, "%6.3f", g_review_character->health_regen_rate);
     SetObjectShade(GetFontObject(g_calligraphy_font), 0);
-    gprintfDirty(0x14a, 0x14, gppStringList[0x8cd]);
+    gprintfDirty(0x14a, 0x14, g_localized_strings[0x8cd]);
     SetObjectShade(GetFontObject(g_calligraphy_font), 4);
-    gprintfDirty(0x221, 0x14, L"%6.3f", g_review_character->stamina_regen_rate);
+    gprintfDirty(0x221, 0x14, "%6.3f", g_review_character->stamina_regen_rate);
     SetObjectShade(GetFontObject(g_calligraphy_font), 0);
-    gprintfDirty(0x14a, 0x23, gppStringList[0x8d0]);
+    gprintfDirty(0x14a, 0x23, g_localized_strings[0x8d0]);
     SetObjectShade(GetFontObject(g_calligraphy_font), 4);
     for (index = 0; index < 6; ++index) {
-        gprintfDirty(index * 0x14 + 0x1fe, 0x23, L"%6.3f/",
+        gprintfDirty(index * 0x14 + 0x1fe, 0x23, "%6.3f/",
                      g_review_character->spell_regen_rates[index * 2]);
     }
 }
@@ -1850,7 +1839,7 @@ void DisplayCampDialog(W8DialogBase* dialog)
 }
 
 // FUNCTION: WIZ8 0x005a4c00
-void ShowCampNoticeLine(const wchar_t* text, W8DialogDestroyCallback callback, bool confirmation,
+void ShowCampNoticeLine(std::string_view text, W8DialogDestroyCallback callback, bool confirmation,
                         bool cancel)
 {
     W8MessageDialogBase* dialog =
@@ -1874,7 +1863,7 @@ static void SelectPendingCampCharacter()
         QueueCharacterEvent(g_camp_character, g_effect36, 0, g_effect_argument0,
                             g_character_event_full_volume);
     } else {
-        wchar_t* text = FormatWideString(gppStringList[0x931], g_camp_character->name);
+        std::string text = FormatText(g_localized_strings[0x931], g_camp_character->name);
         ShowCampNoticeLine(text, 0, true, false);
     }
 }
@@ -1915,7 +1904,7 @@ void HandleCampItemClick(W8ItemInstance* item, unsigned int slot_index, W8ItemOr
     W8ItemInstance* paired;
     W8Character* character;
     W8NpcState* npc;
-    wchar_t* text;
+    std::string text;
 
     if (item == 0) {
         srAssertFail("pPCItem != NULL",
@@ -1953,33 +1942,33 @@ void HandleCampItemClick(W8ItemInstance* item, unsigned int slot_index, W8ItemOr
         return;
     }
     if (!g_status.game_started) {
-        text = gppStringList[0x900];
+        text = g_localized_strings[0x900];
         ShowCampNoticeLine(text, 0, true, false);
         return;
     }
     character = &g_status.buffers.Char[giReviewCharSlot];
     if (character->uiCondition[W8_CONDITION_MISSING] != 0 &&
         (origin == W8_ITEM_ORIGIN_EQUIPPED || origin == W8_ITEM_ORIGIN_BACKPACK)) {
-        text = gppStringList[0x907];
+        text = g_localized_strings[0x907];
         ShowCampNoticeLine(text, 0, true, false);
         return;
     }
     if (character->uiCondition[W8_CONDITION_WEBBED] != 0 &&
         (origin == W8_ITEM_ORIGIN_EQUIPPED || origin == W8_ITEM_ORIGIN_BACKPACK)) {
-        text = gppStringList[0x908];
+        text = g_localized_strings[0x908];
         ShowCampNoticeLine(text, 0, true, false);
         return;
     }
     if (character->uiCondition[W8_CONDITION_TURNCOAT] != 0 &&
         (origin == W8_ITEM_ORIGIN_EQUIPPED || origin == W8_ITEM_ORIGIN_BACKPACK)) {
-        text = gppStringList[0x909];
+        text = g_localized_strings[0x909];
         ShowCampNoticeLine(text, 0, true, false);
         return;
     }
     if (character->highest_condition >= W8_CONDITION_TURNCOAT &&
         origin != W8_ITEM_ORIGIN_PARTY_POOL && g_status.item_in_cursor &&
         gXStatus.held_item_source != giReviewCharSlot) {
-        text = gppStringList[0x901];
+        text = g_localized_strings[0x901];
         ShowCampNoticeLine(text, 0, true, false);
         return;
     }
@@ -2102,7 +2091,7 @@ void HandleCampItemClick(W8ItemInstance* item, unsigned int slot_index, W8ItemOr
        bound mark; the next click then unequips them. */
     if (item->iItemNo != -1 && origin == W8_ITEM_ORIGIN_EQUIPPED) {
         if (!CanUnequipSlotItem(g_review_character, equip_slot)) {
-            text = gppStringList[0x90b];
+            text = g_localized_strings[0x90b];
             ShowCampNoticeLine(text, 0, true, false);
             if (item->bound) {
                 return;
@@ -2146,7 +2135,7 @@ void HandleCampItemClick(W8ItemInstance* item, unsigned int slot_index, W8ItemOr
                         changed = true;
                         RebuildCampItemList();
                     } else {
-                        text = gppStringList[0x90c];
+                        text = g_localized_strings[0x90c];
                         ShowCampNoticeLine(text, 0, true, false);
                     }
                 } else if (slot_index < g_status.party_item_count) {
@@ -2186,7 +2175,7 @@ void HandleCampItemClick(W8ItemInstance* item, unsigned int slot_index, W8ItemOr
                         paired_slot = GetPairedEquipSlot(equip_slot);
                         paired = &g_review_character->EquippedItem[paired_slot];
                         if (!CanUnequipSlotItem(g_review_character, paired_slot)) {
-                            text = gppStringList[0x916];
+                            text = g_localized_strings[0x916];
                             ShowCampNoticeLine(text, 0, true, false);
                             if (paired->bound) {
                                 return;
@@ -2222,13 +2211,13 @@ void HandleCampItemClick(W8ItemInstance* item, unsigned int slot_index, W8ItemOr
                                         GetNpcState(
                                             g_status.buffers.XChar[giReviewCharSlot].npc_index),
                                         paired)) {
-                                    text = gppStringList[0x90c];
+                                    text = g_localized_strings[0x90c];
                                     ShowCampNoticeLine(text, 0, true, false);
                                     return;
                                 }
                             }
                             if (!AddItemToParty(paired, false, true)) {
-                                text = gppStringList[0x90c];
+                                text = g_localized_strings[0x90c];
                                 ShowCampNoticeLine(text, 0, true, false);
                                 return;
                             }
@@ -2354,7 +2343,7 @@ void TakeItemUnitToHand(W8ItemInstance* item, unsigned short slot, W8ItemOrigin 
 bool ResolvePendingCampCharacter(bool force)
 {
     unsigned int slot;
-    wchar_t* text;
+    std::string text;
 
     if (g_camp_character_pending && (g_camp_character != g_review_character || force)) {
         slot = CharacterPointerToPartySlot(g_camp_character);
@@ -2364,7 +2353,7 @@ bool ResolvePendingCampCharacter(bool force)
                                 g_character_event_full_volume);
             return false;
         }
-        text = FormatWideString(gppStringList[0x931], g_camp_character->name);
+        text = FormatText(g_localized_strings[0x931], g_camp_character->name);
         ShowCampNoticeLine(text, 0, true, false);
         return false;
     }
@@ -2395,7 +2384,7 @@ void MarkCampCharacterPending(W8ItemInstance* item)
 // FUNCTION: WIZ8 0x005A6090
 bool IsCampActionAllowed(int party_slot)
 {
-    const wchar_t* message;
+    std::string message;
     W8PartySlotRow* row;
     W8Character* character;
 
@@ -2410,31 +2399,31 @@ bool IsCampActionAllowed(int party_slot)
         if (g_combat_state->equip_phase != 0) {
             return true;
         }
-        message = gppStringList[0x90a];
+        message = g_localized_strings[0x90a];
     } else {
         row = &g_status.buffers.XChar[party_slot];
         if (g_combat_state->equip_phase == 0) {
             if (g_combat_state->characters[party_slot].dead) {
                 if (row->pending_action == W8_ACTION_EQUIP) {
-                    message = gppStringList[0x903];
+                    message = g_localized_strings[0x903];
                 } else if (row->action == W8_ACTION_EQUIP) {
-                    message = gppStringList[0x904];
+                    message = g_localized_strings[0x904];
                 } else {
-                    message = gppStringList[0x902];
+                    message = g_localized_strings[0x902];
                 }
             } else if (row->action == W8_ACTION_EQUIP) {
-                message = gppStringList[0x903];
+                message = g_localized_strings[0x903];
             } else {
-                message = gppStringList[0x902];
+                message = g_localized_strings[0x902];
             }
         } else {
             if (row->pending_action == W8_ACTION_EQUIP) {
                 return true;
             }
             if (row->action == W8_ACTION_EQUIP) {
-                message = gppStringList[0x904];
+                message = g_localized_strings[0x904];
             } else {
-                message = gppStringList[0x902];
+                message = g_localized_strings[0x902];
             }
         }
     }
@@ -2682,10 +2671,10 @@ void PumpReviewTransition(void)
         return;
     }
     if (g_ending_autosave) {
-        if (FindFreeEndingSaveName(name)) {
-            SaveGame(name, 0);
+        if (auto name = FindFreeEndingSaveName()) {
+            SaveGame(name->c_str(), 0);
             SetMainMenuMessage(
-                FormatWideString(L"%s %S.%S", gppStringList[0x78b], name, g_save_extension));
+                FormatText("%s %s.%s", g_localized_strings[0x78b], *name, g_save_extension));
         }
         g_ending_autosave = false;
     }
@@ -2714,17 +2703,17 @@ void PumpReviewTransition(void)
 // FUNCTION: WIZ8 0x005A6A70
 void DrawPartyDeathScreen(void)
 {
-    const wchar_t* text;
+    std::string text;
 
     DrawCatalogImageAndInvalidate(FRAME_BUFFER, 0x1df, 0, 0, 0, 0, VO_BLT_SRCTRANSPARENCY, 0);
     if (gXStatus.party_moving) {
-        text = gppStringList[0x777];
+        text = g_localized_strings[0x777];
     } else {
-        text = gppStringList[0x778];
+        text = g_localized_strings[0x778];
     }
     SetFont(g_level_load_font);
-    gprintf(0x276 - StringPixLength(const_cast<wchar_t*>(text), g_level_load_font), 0x1c7,
-            const_cast<wchar_t*>(text));
+    gprintf(0x276 - StringPixLength(text, g_level_load_font), 0x1c7,
+            text);
     SetRadarMapVisible(false);
     SetFormationBoardVisible(false);
     VideoRemoveToolTip();
@@ -2768,7 +2757,7 @@ void ShowEndingScreen(void)
     const char* music;
     const char* sound;
     int image;
-    wchar_t text[512];
+    std::string text;
     W8ControlsRect bounds;
     SOUNDPARMS parms;
 
@@ -2780,20 +2769,20 @@ void ShowEndingScreen(void)
     if (GetFact(W8_FACT_ENDGAME_JOIN_SAVANT) != 0) {
         image = 0x1e1;
         schedule_fade = false;
-        wcscpy(text, gppStringList[0x787]);
+        text = g_localized_strings[0x787];
         sound = "Data\\Sound\\NPCs\\VOC_ENDGAME1\\VOC_ENDGAME1_005.mp3";
     } else if (GetFact(W8_FACT_QUE_ENDGAME2) != 0) {
         image = 0x1e2;
-        wcscpy(text, gppStringList[0x788]);
+        text = g_localized_strings[0x788];
         sound = "Data\\Sound\\NPCs\\VOC_ENDGAME2\\VOC_ENDGAME2_005.mp3";
     } else if (GetFact(W8_FACT_ENDGAME_SAVANT_PHOON_SPLIT) != 0) {
         image = 0x1e2;
-        wcscpy(text, gppStringList[0x789]);
+        text = g_localized_strings[0x789];
         sound = "Data\\Sound\\NPCs\\VOC_ENDGAME3\\VOC_ENDGAME3_000.mp3";
     } else if (GetFact(W8_FACT_ENDING_BOFFO_ONE) != 0) {
         image = 0x1e3;
         fade_to_black = 1;
-        wcscpy(text, gppStringList[0x78a]);
+        text = g_localized_strings[0x78a];
         sound = "Data\\Sound\\NPCs\\VOC_ENDGAME4\\VOC_ENDGAME4_000.mp3";
         music = "CombatLose.MPL";
         g_ending_screen = false;
@@ -2801,7 +2790,7 @@ void ShowEndingScreen(void)
     } else {
         image = 0x1df;
         sound = "";
-        text[0] = 0;
+        text.clear();
     }
     DrawCatalogImageAndInvalidate(FRAME_BUFFER, image, 0, 0, 0, 0, VO_BLT_SRCTRANSPARENCY, 0);
     bounds.left = 0x46;

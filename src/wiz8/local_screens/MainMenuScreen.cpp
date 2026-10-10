@@ -1,3 +1,5 @@
+#include <string_view>
+#include <string>
 #include "wiz8/local_code/LoadSaveGame.h"
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/regions.h"
@@ -30,7 +32,6 @@
 #include "mousesystem.h"
 #include "vsurface.h"
 
-#include <wchar.h>
 
 /* The screen's own state. */
 // GLOBAL: WIZ8 0x0069c4ba
@@ -48,7 +49,7 @@ unsigned int g_main_menu_overlay_surface;
 // GLOBAL: WIZ8 0x0069c4b0
 unsigned int g_main_menu_hover_region;
 // GLOBAL: WIZ8 0x0069c4bc
-wchar_t* g_pending_main_menu_message;
+std::string g_pending_main_menu_message;
 // GLOBAL: WIZ8 0x0069c4c0
 W8MessageDialogBase* g_main_menu_dialog;
 
@@ -144,11 +145,11 @@ unsigned char MainMenuScreenInitialize(void)
 // FUNCTION: WIZ8 0x005bc810
 unsigned char MainMenuScreenEnter(void)
 {
-    char text[64];
-    wchar_t wide[64];
+    std::string text;
+    std::string wide;
     unsigned short colour;
     W8MessageDialogBase* dialog;
-    wchar_t* pending;
+    std::string_view pending;
     short measured;
 
     ResetVideoFrameState();
@@ -171,8 +172,8 @@ unsigned char MainMenuScreenEnter(void)
     DrawMainMenuItem(5, 0);
     DrawMainMenuItem(g_main_menu_selected_item, 1);
 
-    FormatVersionBanner(text, false, false, false);
-    wcscpy(wide, ConvertStringToWide(text));
+    text = FormatVersionBanner(false, false, false);
+    wide = text;
     SetFont(g_wiz_text_font_secondary);
     SetFontObjectPalette16BPP(g_wiz_text_font_secondary,
                               g_font_state_palettes[W8_FONT_PALETTE_WHITE].get());
@@ -192,20 +193,19 @@ unsigned char MainMenuScreenEnter(void)
     UpdateHeldItemCursor();
 
     pending = g_pending_main_menu_message;
-    if (pending != 0) {
+    if (!pending.empty()) {
         dialog = static_cast<W8MessageDialogBase*>(CreateDialogByKind(W8_DIALOG_MESSAGE));
         dialog->SetClientExtent(0xfa, 200);
         dialog->SetMessage(pending, 1, 0x32, true, false, true, true, 0, 0x15e);
         SetDialogDestroyCallback(dialog, 0);
         g_main_menu_dialog = dialog;
-        delete[] g_pending_main_menu_message;
-        g_pending_main_menu_message = 0;
+        g_pending_main_menu_message.clear();
         return 1;
     }
     if (!HasEnoughFreeDiskSpace() && !g_main_menu_warning_shown) {
         dialog = static_cast<W8MessageDialogBase*>(CreateDialogByKind(W8_DIALOG_MESSAGE));
         dialog->SetClientExtent(0xfa, 200);
-        dialog->SetMessage(gppStringList[0x7ee], 1, 0x32, true, false, true, true, 0, 0x15e);
+        dialog->SetMessage(g_localized_strings[0x7ee], 1, 0x32, true, false, true, true, 0, 0x15e);
         SetDialogDestroyCallback(dialog, 0);
         g_main_menu_warning_shown = true;
         g_main_menu_dialog = dialog;
@@ -261,7 +261,7 @@ void MainMenuScreenFrame()
                         SetFont(g_wiz_text_font_secondary);
                         SetFontObjectPalette16BPP(g_wiz_text_font_secondary,
                                                   GetFontObject(g_wiz_text_font_secondary)->ownedPalette.get());
-                        gprintfDirty(5, 5, L"Developer mode enabled.");
+                        gprintfDirty(5, 5, "Developer mode enabled.");
                     }
                 } else {
                     switch (input.usParam) {
@@ -371,10 +371,9 @@ unsigned char MainMenuScreenLeave(int)
 }
 
 // FUNCTION: WIZ8 0x005bd010
-void SetMainMenuMessage(const wchar_t* message)
+void SetMainMenuMessage(std::string_view message)
 {
-    g_pending_main_menu_message = new wchar_t[wcslen(message) + 1];
-    wcscpy(g_pending_main_menu_message, message);
+    g_pending_main_menu_message = message;
 }
 
 static void UpdateMainMenuItem(const InputAtom* event, W8Region* region, short item)

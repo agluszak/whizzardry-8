@@ -1,6 +1,8 @@
 #ifndef WIZ8_LAYOUTS_GAMEPLAY_DATABASES_H
 #define WIZ8_LAYOUTS_GAMEPLAY_DATABASES_H
 
+#include <string>
+
 #include "compat/ptr32.h"
 #include "wiz8/attack_modes.h"
 #include "wiz8/spell_ids.h"
@@ -9,12 +11,11 @@
 
 #include "wiz8/layouts/plist.h"
 #include "wiz8/dice.h"
-#include <wchar.h>
 
 /*
- * The on-disk gameplay records. Everything here is a file format read by
- * seeking to a record index and fixed stride, so the sizes are part of the
- * format rather than incidental layout.
+ * Runtime views of gameplay database records. Text is decoded UTF-8.
+ * Offsets in comments describe the retail file, not these runtime views.
+ * retail_text_records.h owns the UTF-16LE fields and disk strides.
  */
 
 /* The fifteen professions, in the game's fixed class order. A character's
@@ -190,8 +191,9 @@ enum W8SpellTargetType {
 };
 
 /* One spell, as the database holds it at run time. */
+#pragma pack(push, 8)
 struct W8SpellRuntimeRecord {
-    char database_name[64]; /* 0x000 */
+    std::string database_name; /* 0x000 */
     unsigned char unknown_040[4];
     /* 0x044: base duration the spell-info dialog prints. */
     int duration;
@@ -203,8 +205,8 @@ struct W8SpellRuntimeRecord {
     unsigned char unknown_055;
     int spell_level;              /* 0x056: zero through seven */
     unsigned char wizardry_spell; /* 0x05a */
-    char resource_name[64];       /* 0x05b: visual/MLS resource basename */
-    wchar_t display_name[64];     /* 0x09b */
+    std::string resource_name;       /* 0x05b: visual/MLS resource basename */
+    std::string display_name;     /* 0x09b */
     unsigned char unknown_11b[4];
     unsigned char divinity_spell; /* 0x11f */
     unsigned char psionics_spell; /* 0x120 */
@@ -242,29 +244,30 @@ struct W8SpellRuntimeRecord {
     unsigned char unknown_145[2];
     /* 0x147: SpellInfoDialog prints the effect-dice line when this is set. */
     int show_effect_dice;
-    char sound_name[0x74]; /* 0x14b: relative to Data\Spells\Sounds */
-}; /* 0x1bf */
-W8_ABI_ASSERT(sizeof(W8SpellRuntimeRecord) == 0x1bf, "W8SpellRuntimeRecord_size");
-W8_ABI_ASSERT(offsetof(W8SpellRuntimeRecord, duration) == 0x044, "W8SpellRuntimeRecord_duration");
-W8_ABI_ASSERT(offsetof(W8SpellRuntimeRecord, duration_per_level) == 0x04d,
-              "W8SpellRuntimeRecord_duration_per_level");
-W8_ABI_ASSERT(offsetof(W8SpellRuntimeRecord, show_effect_dice) == 0x147,
-              "W8SpellRuntimeRecord_show_effect_dice");
+    std::string sound_name; /* 0x14b: relative to Data\Spells\Sounds */
+};
+#pragma pack(pop) /* 0x1bf */
 
+
+
+
+
+#pragma pack(push, 8)
 struct W8FactDatabaseRecord {
     W8FactId identifier;      /* 0x000 */
-    char symbolic_name[0x32]; /* 0x004 .. 0x035 */
+    std::string symbolic_name; /* 0x004 .. 0x035 */
     /* 0x036: the journal shades this fact's text when its value is true. */
     unsigned char highlight_when_true;
     /* 0x037: the visibility level the journal entry needs. */
     signed char visibility;
     /* 0x038 and 0x100: the alternate and normal journal descriptions, wide,
        selected by the fact's current value. */
-    wchar_t alternate_description[0x64];
-    wchar_t description[0x6c];
-}; /* 0x1d8 */
+    std::string alternate_description;
+    std::string description;
+};
+#pragma pack(pop) /* 0x1d8 */
 
-W8_ABI_ASSERT(sizeof(W8FactDatabaseRecord) == 0x1d8, "W8FactDatabaseRecord_size_must_be_0x1d8");
+
 
 /* One optional NPC stock-rule entry appended after its database record: an
    item id, the configured quantity and a keep flag. The NPC restocks only
@@ -277,10 +280,11 @@ struct W8NpcItemStockRule {
 
 /* The RPC-character block a record with has_group carries; it is expanded
    into a W8Character when the NPC joins. */
+#pragma pack(push, 8)
 struct W8NpcCharacterTemplate {
-    wchar_t name[10];       /* 0x000, record 0x0c4 */
-    wchar_t name_part_2[6]; /* 0x014, record 0x0d8 */
-    unsigned char unknown_01a[0x44];
+    std::string name;       /* 0x000, record 0x0c4 */
+    std::string name_part_2; /* 0x014, record 0x0d8 */
+    unsigned char unknown_01a[0x44]; // Unidentified retail data, preserved verbatim.
     W8Profession
         profession;     /* 0x064, record 0x128: index into profession_levels[W8_PROFESSION_COUNT] */
     W8Race race;        /* 0x068, record 0x12c */
@@ -297,11 +301,13 @@ struct W8NpcCharacterTemplate {
     signed char gender; /* 0x1f6, record 0x2ba: copied into the character's own sex field */
     short wanted_item_ids[3];
     unsigned char unknown_1fd[9];
-}; /* 0x206, record 0x0c4..0x2c9 */
+};
+#pragma pack(pop) /* 0x206, record 0x0c4..0x2c9 */
 
-W8_ABI_ASSERT(sizeof(W8NpcCharacterTemplate) == 0x206, "W8NpcCharacterTemplate_size_must_be_0x206");
+
 
 /* One Data\Databases\NPC.DBS record. */
+#pragma pack(push, 8)
 struct W8NpcDatabaseRecord {
     unsigned short
         version; /* 0x000: two in the corpus; the rule tail loads only when this exceeds 1 */
@@ -310,7 +316,7 @@ struct W8NpcDatabaseRecord {
     short trade_pool;
     /* 0x004: the wide source name the level-entry rebinding prefixes with an
        underscore to build the NPC's trigger name. */
-    wchar_t source_name[0x28];
+    std::string source_name;
     /* 0x054: monster-bound NPC: no standalone runtime node is created, its
        state comes through the monster binding, and releasing the binding
        marks it unavailable. */
@@ -355,13 +361,13 @@ struct W8NpcDatabaseRecord {
        pair copied into the runtime state's pending restore. */
     char restore_level;
     unsigned char unknown_071[3];
-    char restore_entity_name[0x29];
+    std::string restore_entity_name;
     /* 0x09d: set when the record carries no appended item-stock
        rules; the load path reads them only while this is clear. */
     unsigned char no_item_stock;
     /* 0x09e: what the NPC is called, unless a fact substitutes another name.
        The wide RPC-character name at 0x0c4 bounds the string extent. */
-    char display_name[0x26];
+    std::string display_name;
     W8NpcCharacterTemplate character; /* 0x0c4 */
     W8_PTR32(W8PList) item_stock_rules; /* 0x2ca: W8NpcItemStockRule* elements */
     /* 0x2ce/0x2d2: the trade price factors. CalculateTradeStackPrice adds the
@@ -381,18 +387,18 @@ struct W8NpcDatabaseRecord {
     unsigned char combat_script_notice_enabled;       /* 0x2ef: hostile-NPC combat notice */
     unsigned char allow_dismissed_departure_dialogue; /* 0x2f0: permits dismissed-NPC dialogue */
     unsigned char unknown_2f1[0x18];
-}; /* 0x309 */
+};
+#pragma pack(pop) /* 0x309 */
 
-W8_ABI_ASSERT(sizeof(W8NpcDatabaseRecord) == 0x309, "W8NpcDatabaseRecord_size_must_be_0x309");
-W8_ABI_ASSERT(offsetof(W8NpcDatabaseRecord, combat_script_notice_enabled) == 0x2ef,
-              "W8NpcDatabaseRecord_combat_script_notice_offset");
-W8_ABI_ASSERT(offsetof(W8NpcDatabaseRecord, allow_dismissed_departure_dialogue) == 0x2f0,
-              "W8NpcDatabaseRecord_dialogue_departure_script_offset");
+
+
+
 
 /* One Data\Databases\LEVELS.DBS record. The loader retains the disk row;
    all 60 canonical rows begin with a terminated UTF-16 display name. */
+#pragma pack(push, 8)
 struct W8LevelDatabaseRecord {
-    wchar_t display_name[30];
+    std::string display_name;
     /* 0x3c..0x50: the per-level random-encounter budget parameters, all five
        read by UpdateRandomEncounterBudget and the sixth by the culling pass. */
     int maximum_random_encounters; /* 0x3c */
@@ -405,13 +411,12 @@ struct W8LevelDatabaseRecord {
        and monster-generator duration. */
     float gameplay_time_scale;
     unsigned char unknown_058[0x80];
-}; /* 0xd8 */
+};
+#pragma pack(pop) /* 0xd8 */
 
-W8_ABI_ASSERT(offsetof(W8LevelDatabaseRecord, maximum_random_encounters) == 0x3c,
-              "W8LevelDatabaseRecord_encounter_budget_offset");
-W8_ABI_ASSERT(sizeof(W8LevelDatabaseRecord) == 0xd8, "W8LevelDatabaseRecord_size_must_be_0xd8");
-W8_ABI_ASSERT(offsetof(W8LevelDatabaseRecord, gameplay_time_scale) == 0x54,
-              "W8LevelDatabaseRecord_gameplay_time_scale_offset");
+
+
+
 
 /* The one monster record whose alternate name is used in place of its own. */
 enum { W8_MONSTER_RECORD_ALTERNATE_NAME = 397 };
@@ -450,11 +455,12 @@ enum W8MonsterRecordFlag {
     W8_MONSTER_FLAG_ALTERNATE_NAME = 0x10
 };
 
+#pragma pack(push, 8)
 struct W8MonsterRecord {
-    wchar_t name0[24]; /* 0x000: suffix after '#' removed at load */
-    wchar_t name1[24]; /* 0x030: suffix after '#' removed at load */
-    wchar_t name2[24]; /* 0x060: suffix after '#' removed at load */
-    wchar_t name3[24]; /* 0x090: suffix after '#' removed at load */
+    std::string name0; /* 0x000: suffix after '#' removed at load */
+    std::string name1; /* 0x030: suffix after '#' removed at load */
+    std::string name2; /* 0x060: suffix after '#' removed at load */
+    std::string name3; /* 0x090: suffix after '#' removed at load */
     /* Cosmic Forge's Monster Editor exposes this byte as 'Can open doors'. */
     unsigned char can_open_doors;
     /* 0x0c1: rolled by the group-attack summon to size the spawned group. */
@@ -523,7 +529,7 @@ struct W8MonsterRecord {
     unsigned int experience; /* 0x181: base experience value */
     unsigned char unknown_185[2];
     short record_id;       /* 0x187: equals the zero-based database index */
-    char cycle_name[0x30]; /* 0x189: GrCycle lookup key */
+    std::string cycle_name; /* 0x189: GrCycle lookup key */
     /* 0x1b9: prefer ranged actions instead of closing/backing off. */
     unsigned char prefer_ranged_actions;
     float combat_move_range; /* 0x1ba: designer-facing combat movement range */
@@ -538,7 +544,7 @@ struct W8MonsterRecord {
     /* Cosmic Forge's Remains column consumes this as a narrow item-model
        name. The canonical rows contain creaturegoo, plantgoo or an empty
        string. It precedes the treasure entries rather than belonging to them. */
-    char remains_model_name[0x30];
+    std::string remains_model_name;
     /* 0x1f3: the monster's treasure table. DropMonsterLoot fires each slot
        whose count is nonzero once Random(100) stays under its chance, rolling
        the slot dice for the drop count; type 0 creates the item id directly,
@@ -576,22 +582,18 @@ struct W8MonsterRecord {
        name. */
     int sp_budget;
     unsigned char unknown_273[0x24];
-}; /* 0x297 */
+};
+#pragma pack(pop) /* 0x297 */
 
-W8_ABI_ASSERT(sizeof(W8MonsterRecord) == 0x297, "W8MonsterRecord_size_must_be_0x297");
-W8_ABI_ASSERT(offsetof(W8MonsterRecord, flags) == 0xd0, "W8MonsterRecord_flags_offset");
-W8_ABI_ASSERT(offsetof(W8MonsterRecord, stamina_dice) == 0xda,
-              "W8MonsterRecord_stamina_dice_offset");
-W8_ABI_ASSERT(offsetof(W8MonsterRecord, remains_model_name) == 0x1c3,
-              "W8MonsterRecord_remains_model_name_offset");
-W8_ABI_ASSERT(offsetof(W8MonsterRecord, treasure) == 0x1f3, "W8MonsterRecord_treasure_offset");
-W8_ABI_ASSERT(offsetof(W8MonsterRecord, treasure.gold_dice) == 0x243,
-              "W8MonsterRecord_gold_dice_offset");
-W8_ABI_ASSERT(offsetof(W8MonsterRecord, attack_body_part_chances) == 0x157,
-              "W8MonsterRecord_attack_body_part_chances");
-W8_ABI_ASSERT(offsetof(W8MonsterRecord, effective_level) == 0x24f,
-              "W8MonsterRecord_effective_level");
-W8_ABI_ASSERT(offsetof(W8MonsterRecord, display_level) == 0x251, "W8MonsterRecord_display_level");
+
+
+
+
+
+
+
+
+
 
 #pragma pack(pop)
 

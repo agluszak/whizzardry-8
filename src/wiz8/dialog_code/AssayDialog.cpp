@@ -1,5 +1,6 @@
+#include <string_view>
+#include <string>
 #include "wiz8/xstatus.h"
-#include <wchar.h>
 #include "wiz8/dialog_code/AssayDialog.h"
 #include "wiz8/dialog_code/SpellInfoDialog.h"
 #include "wiz8/layouts/character.h"
@@ -78,9 +79,9 @@ unsigned short g_equip_class_name_ids[32] = {
     1087, 1088, 1089, 1090, 1091, 1092, 1093, 1094, 1095, 1096, 1097, 1098, 1099, 1100, 1101, 1102,
     1103, 1104, 1105, 1106, 1107, 1108, 1109, 1110, 1111, 1112, 1114, 1115, 1116, 1117, 1118, 1119};
 // GLOBAL: WIZ8 0x0064fbb4
-wchar_t g_assay_format[] = L"%.1f";
+char g_assay_format[] = "%.1f";
 // GLOBAL: WIZ8 0x0064fbc0
-static wchar_t g_assay_format_1f_1f_s[] = L"%.1f (%.1f %s)";
+static char g_assay_format_1f_1f_s[] = "%.1f (%.1f %s)";
 /* String-list label ids indexed by W8ItemDatabaseRecord::flags bit. */
 // GLOBAL: WIZ8 0x0061e938
 static unsigned short g_item_flag_name_ids[8] = {
@@ -92,7 +93,7 @@ static unsigned short g_quantity_kind_name_ids[7] = {
     1264, 1265, 1266, 1267, 1268, 0, 1269,
 };
 // GLOBAL: WIZ8 0x0069c818
-static wchar_t g_assay_entry_text[0x101];
+static std::string g_assay_entry_text;
 
 // STRING: WIZ8 0x0064FAE4
 #define ASSAY_DIALOG_CPP "C:\\Projects\\Wizardry 8\\Dialog Code\\AssayDialog.cpp"
@@ -169,11 +170,9 @@ void W8AssayDialog::DestroyControls()
     DestroyDialogTextBuffers(m_text_buffers, W8_ASSAY_TEXT_BUFFER_COUNT);
 }
 
-static void AppendAssayEntryText(const wchar_t* text)
+static void AppendAssayEntryText(std::string_view text)
 {
-    if (wcslen(text) + 1 + wcslen(g_assay_entry_text) < 0x101) {
-        wcscat(g_assay_entry_text, text);
-    }
+    g_assay_entry_text += text;
 }
 
 static int AppendAssayRequirements(const W8ItemRequirement* requirement, int count)
@@ -183,11 +182,11 @@ static int AppendAssayRequirements(const W8ItemRequirement* requirement, int cou
             if (count != 0) {
                 AppendAssayEntryText(g_comma_space);
             }
-            wchar_t* text =
-                gppStringList[g_character_description_first_ids[static_cast<signed char>(
+            std::string text =
+                g_localized_strings[g_character_description_first_ids[static_cast<signed char>(
                     requirement->stat_id)]];
             AppendAssayEntryText(text);
-            text = FormatWideString(L" %d", requirement->minimum);
+            text = FormatText(" %d", requirement->minimum);
             AppendAssayEntryText(text);
             ++count;
         }
@@ -200,14 +199,14 @@ bool W8AssayDialog::PopulateText()
 {
     W8ControlsRect bounds;
     const W8ItemDatabaseRecord* record;
-    const wchar_t* text;
+    std::string text;
     unsigned short slot_mask;
     unsigned int bit;
     int index;
     int count;
-    wchar_t modifier_text[0x100];
+    std::string modifier_text;
     char path[0x200];
-    wchar_t description[0x7d0];
+    std::string description;
 
     bounds.left = m_x + g_assay_text_area_offsets.left;
     bounds.top = m_y + g_assay_text_area_offsets.top;
@@ -218,21 +217,21 @@ bool W8AssayDialog::PopulateText()
     record = &g_item_records[m_item->iItemNo];
     if (m_item->identified && record->damage_dice.count + record->damage_dice.base > 0) {
         if (!ItemHasSingledOutGenericName(m_item->iItemNo) || record->damage_dice.base == 0) {
-            text = FormatWideString(L"%d - %d", record->damage_dice.Minimum(),
+            text = FormatText("%d - %d", record->damage_dice.Minimum(),
                                     record->damage_dice.Maximum());
         } else {
-            text = FormatWideString(L"%+d%%", record->damage_dice.base * 10);
+            text = FormatText("%+d%%", record->damage_dice.base * 10);
         }
-        m_text_area.AddEntry(gppStringList[0x8e8], text, 10, 0xf, 0);
+        m_text_area.AddEntry(g_localized_strings[0x8e8], text, 10, 0xf, 0);
     }
     if (record->attack_hit_bonus != 0 && m_item->identified) {
-        m_text_area.AddEntry(gppStringList[0x8b7],
-                             FormatWideString(g_format_plus_d, record->attack_hit_bonus), 10, 0xf,
+        m_text_area.AddEntry(g_localized_strings[0x8b7],
+                             FormatText(g_format_plus_d, record->attack_hit_bonus), 10, 0xf,
                              0);
     }
     if (record->attack_damage_bonus != 0 && m_item->identified) {
-        m_text_area.AddEntry(gppStringList[0x8b1],
-                             FormatWideString(g_format_plus_d, record->attack_damage_bonus), 10,
+        m_text_area.AddEntry(g_localized_strings[0x8b1],
+                             FormatText(g_format_plus_d, record->attack_damage_bonus), 10,
                              0xf, 0);
     }
     slot_mask = GetItemEquipSlotMask(m_item->iItemNo, true, true, true, true);
@@ -240,104 +239,104 @@ bool W8AssayDialog::PopulateText()
     for (bit = 0; bit < 12; ++bit) {
         if (bit != 8 && bit != 9 && (slot_mask & (1 << bit)) != 0) {
             if (count == 0) {
-                wcscpy(g_assay_entry_text, &g_empty_wide_string);
+                g_assay_entry_text = &g_empty_text;
             } else {
                 AppendAssayEntryText(g_comma_space);
             }
-            text = gppStringList[g_equip_slot_label_ids[bit]];
+            text = g_localized_strings[g_equip_slot_label_ids[bit]];
             AppendAssayEntryText(text);
             ++count;
         }
     }
     if (count != 0) {
-        m_text_area.AddEntry(gppStringList[0x8e5], g_assay_entry_text, 10, 0xf, 0);
+        m_text_area.AddEntry(g_localized_strings[0x8e5], g_assay_entry_text, 10, 0xf, 0);
     }
     if (GetItemDefaultEquipSlot(m_item->iItemNo) != -1 &&
         g_item_records[m_item->iItemNo].equip_class != W8_ITEM_EQUIP_CLASS_AMMUNITION) {
         unsigned int palette;
         if (!m_item->bound) {
-            text = gppStringList[0x8fc];
+            text = g_localized_strings[0x8fc];
             palette = 0xf;
         } else if (record->binds_on_equip == 0) {
-            text = gppStringList[0x8fb];
+            text = g_localized_strings[0x8fb];
             palette = 0xf;
         } else if (!m_item->bind_announced) {
-            text = gppStringList[0x8fa];
+            text = g_localized_strings[0x8fa];
             palette = 0;
         } else {
-            text = gppStringList[0x8f9];
+            text = g_localized_strings[0x8f9];
             palette = 0xf;
         }
-        m_text_area.AddEntry(gppStringList[0x8fd], text, 10, palette, 0);
+        m_text_area.AddEntry(g_localized_strings[0x8fd], text, 10, palette, 0);
     }
     count = 0;
     for (bit = 0; bit < 8; ++bit) {
         if ((1 << bit) == W8_ITEM_FLAG_TWO_HANDED &&
             (record->flags & W8_ITEM_FLAG_TWO_HANDED) != 0) {
             if (count == 0) {
-                wcscpy(g_assay_entry_text, &g_empty_wide_string);
+                g_assay_entry_text = &g_empty_text;
             } else {
                 AppendAssayEntryText(g_comma_space);
             }
-            text = gppStringList[g_item_flag_name_ids[bit]];
+            text = g_localized_strings[g_item_flag_name_ids[bit]];
             AppendAssayEntryText(text);
             ++count;
         }
     }
     if (count != 0) {
-        m_text_area.AddEntry(gppStringList[0x913], g_assay_entry_text, 10, 0xf, 0);
+        m_text_area.AddEntry(g_localized_strings[0x913], g_assay_entry_text, 10, 0xf, 0);
     }
     if (m_item->identified) {
         count = 0;
         for (index = 0; index < 0x10; ++index) {
             if (record->missile_values[index] != 0) {
                 if (count == 0) {
-                    wcscpy(g_assay_entry_text, &g_empty_wide_string);
+                    g_assay_entry_text = &g_empty_text;
                 } else {
                     AppendAssayEntryText(g_comma_space);
                 }
-                text = gppStringList[g_attack_effect_name_ids[index]];
+                text = g_localized_strings[g_attack_effect_name_ids[index]];
                 AppendAssayEntryText(text);
-                AppendAssayEntryText(L" ");
-                text = FormatWideString(g_format_d_percent, record->missile_values[index]);
+                AppendAssayEntryText(" ");
+                text = FormatText(g_format_d_percent, record->missile_values[index]);
                 AppendAssayEntryText(text);
                 ++count;
                 if (index == 2) {
-                    AppendAssayEntryText(L" (");
-                    text = gppStringList[0x8d5];
+                    AppendAssayEntryText(" (");
+                    text = g_localized_strings[0x8d5];
                     AppendAssayEntryText(text);
-                    text = FormatWideString(L" %d)", record->missile_magnitude);
+                    text = FormatText(" %d)", record->missile_magnitude);
                     AppendAssayEntryText(text);
                 }
             }
         }
         if (count != 0) {
-            m_text_area.AddEntry(gppStringList[0x8d6], g_assay_entry_text, 10, 0xf, 0);
+            m_text_area.AddEntry(g_localized_strings[0x8d6], g_assay_entry_text, 10, 0xf, 0);
         }
         if (record->slays_kind != 0xff) {
-            m_text_area.AddEntry(gppStringList[0x8d8],
-                                 gppStringList[g_special_category_name_ids[record->slays_kind]], 10,
+            m_text_area.AddEntry(g_localized_strings[0x8d8],
+                                 g_localized_strings[g_special_category_name_ids[record->slays_kind]], 10,
                                  0xf, 0);
         }
         if (record->equip_class == W8_ITEM_EQUIP_CLASS_SHIELD && m_character != 0 &&
             IsItemWornByCharacter(m_character, m_item)) {
             m_text_area.AddEntry(
-                gppStringList[0x8df],
-                FormatWideString(L"%+d, %+d %s", record->armor_class_bonus,
+                g_localized_strings[0x8df],
+                FormatText("%+d, %+d %s", record->armor_class_bonus,
                                  m_character->armor_class_components[W8_AC_COMPONENT_SHIELD] -
                                      record->armor_class_bonus,
-                                 gppStringList[0x428]),
+                                 g_localized_strings[0x428]),
                 10, 0xf, 0);
         } else if (record->armor_class_bonus != 0) {
-            m_text_area.AddEntry(gppStringList[0x8df],
-                                 FormatWideString(g_format_plus_d, record->armor_class_bonus), 10,
+            m_text_area.AddEntry(g_localized_strings[0x8df],
+                                 FormatText(g_format_plus_d, record->armor_class_bonus), 10,
                                  0xf, 0);
         }
     }
     if (record->property != 0) {
         m_text_area.AddEntry(
-            gppStringList[0x8e9],
-            gppStringList[g_item_use_messages[W8_ITEM_PROPERTY_MESSAGE_FIRST + record->property]],
+            g_localized_strings[0x8e9],
+            g_localized_strings[g_item_use_messages[W8_ITEM_PROPERTY_MESSAGE_FIRST + record->property]],
             10, 0xf, 0);
     }
     switch (record->equip_class) {
@@ -347,158 +346,150 @@ bool W8AssayDialog::PopulateText()
     case W8_ITEM_EQUIP_CLASS_RANGED_WEAPON:
     case W8_ITEM_EQUIP_CLASS_BOMB:
     case W8_ITEM_EQUIP_CLASS_POWDER:
-        m_text_area.AddEntry(gppStringList[0x8e7],
-                             gppStringList[g_spell_range_name_ids[record->range_category]], 10, 0xf,
+        m_text_area.AddEntry(g_localized_strings[0x8e7],
+                             g_localized_strings[g_spell_range_name_ids[record->range_category]], 10, 0xf,
                              0);
     }
     W8Skill presentation_skill = GetItemSpellPresentation(record);
     if (presentation_skill == W8_SKILL_NONE) {
         if (record->weapon_skill != W8_SKILL_NONE) {
-            m_text_area.AddEntry(gppStringList[0x8c8],
-                                 gppStringList[g_character_skill_name_ids[record->weapon_skill]],
+            m_text_area.AddEntry(g_localized_strings[0x8c8],
+                                 g_localized_strings[g_character_skill_name_ids[record->weapon_skill]],
                                  10, 0xf, 0);
         }
     } else {
         if (record->weapon_skill == W8_SKILL_NONE) {
-            text = gppStringList[g_character_skill_name_ids[presentation_skill]];
+            text = g_localized_strings[g_character_skill_name_ids[presentation_skill]];
         } else {
-            text = FormatWideString(
-                L"%s, %s", gppStringList[g_character_skill_name_ids[presentation_skill]],
-                gppStringList[g_character_skill_name_ids[record->weapon_skill]]);
+            text = FormatText(
+                "%s, %s", g_localized_strings[g_character_skill_name_ids[presentation_skill]],
+                g_localized_strings[g_character_skill_name_ids[record->weapon_skill]]);
         }
-        m_text_area.AddEntry(gppStringList[0x8c8], text, 10, 0xf, 0);
+        m_text_area.AddEntry(g_localized_strings[0x8c8], text, 10, 0xf, 0);
     }
     count = 0;
     for (bit = 0; bit < 9; ++bit) {
         if ((record->attack_flags & (1 << bit)) != 0) {
             if (count == 0) {
-                wcscpy(g_assay_entry_text, &g_empty_wide_string);
+                g_assay_entry_text = &g_empty_text;
             } else {
                 AppendAssayEntryText(g_comma_space);
             }
-            text = gppStringList[g_attack_flag_name_ids[bit][0]];
+            text = g_localized_strings[g_attack_flag_name_ids[bit][0]];
             AppendAssayEntryText(text);
             ++count;
         }
     }
     if (count != 0) {
-        m_text_area.AddEntry(gppStringList[0x8d7], g_assay_entry_text, 10, 0xf, 0);
+        m_text_area.AddEntry(g_localized_strings[0x8d7], g_assay_entry_text, 10, 0xf, 0);
     }
     if ((m_item->identified || m_item->spell_hint) && record->spell_id != W8_SPELL_NONE) {
         if (record->equip_class == W8_ITEM_EQUIP_CLASS_INSTRUMENT ||
             record->equip_class == W8_ITEM_EQUIP_CLASS_GADGET ||
             record->equip_class == W8_ITEM_EQUIP_CLASS_SPELLBOOK) {
-            text = FormatWideString(g_format_s, g_spell_records[record->spell_id].display_name);
+            text = FormatText(g_format_s, g_spell_records[record->spell_id].display_name);
         } else {
-            text = FormatWideString(L"%s (Pwr %d)", g_spell_records[record->spell_id].display_name,
+            text = FormatText("%s (Pwr %d)", g_spell_records[record->spell_id].display_name,
                                     record->spell_power);
         }
-        m_text_area.AddEntry(gppStringList[0x8ea], text, 10, 0xf, 0);
+        m_text_area.AddEntry(g_localized_strings[0x8ea], text, 10, 0xf, 0);
         if (record->equip_class == W8_ITEM_EQUIP_CLASS_SPELLBOOK) {
             m_text_area.AddEntry(
-                gppStringList[0x8eb],
-                FormatWideString(g_format_d, g_spell_records[record->spell_id].spell_level), 10,
+                g_localized_strings[0x8eb],
+                FormatText(g_format_d, g_spell_records[record->spell_id].spell_level), 10,
                 0xf, 0);
         }
     }
     if (m_item->identified) {
         if (record->quantity_kind == W8_ITEM_QUANTITY_CHARGES) {
-            m_text_area.AddEntry(gppStringList[g_quantity_kind_name_ids[record->quantity_kind]],
-                                 FormatWideString(g_format_d, m_item->uses_or_charges), 10, 0xf, 0);
+            m_text_area.AddEntry(g_localized_strings[g_quantity_kind_name_ids[record->quantity_kind]],
+                                 FormatText(g_format_d, m_item->uses_or_charges), 10, 0xf, 0);
         }
         if (record->quantity_kind == W8_ITEM_QUANTITY_USES ||
             record->quantity_kind == W8_ITEM_QUANTITY_SHOTS) {
-            m_text_area.AddEntry(gppStringList[g_quantity_kind_name_ids[record->quantity_kind]],
-                                 FormatWideString(g_format_d_slash_d, m_item->uses_or_charges,
+            m_text_area.AddEntry(g_localized_strings[g_quantity_kind_name_ids[record->quantity_kind]],
+                                 FormatText(g_format_d_slash_d, m_item->uses_or_charges,
                                                   record->initial_quantity.Maximum()),
                                  10, 0xf, 0);
         }
         if (record->health_regen_bonus > 0) {
-            m_text_area.AddEntry(gppStringList[0x8d9],
-                                 FormatWideString(g_format_plus_d, record->health_regen_bonus), 10,
+            m_text_area.AddEntry(g_localized_strings[0x8d9],
+                                 FormatText(g_format_plus_d, record->health_regen_bonus), 10,
                                  0xf, 0);
         }
         if (record->health_regen_bonus < 0) {
-            m_text_area.AddEntry(gppStringList[0x8da],
-                                 FormatWideString(g_format_d, record->health_regen_bonus), 10, 0xf,
+            m_text_area.AddEntry(g_localized_strings[0x8da],
+                                 FormatText(g_format_d, record->health_regen_bonus), 10, 0xf,
                                  0);
         }
         if (record->stamina_regen_bonus > 0) {
-            m_text_area.AddEntry(gppStringList[0x8db],
-                                 FormatWideString(g_format_plus_d, record->stamina_regen_bonus), 10,
+            m_text_area.AddEntry(g_localized_strings[0x8db],
+                                 FormatText(g_format_plus_d, record->stamina_regen_bonus), 10,
                                  0xf, 0);
         }
         if (record->stamina_regen_bonus < 0) {
-            m_text_area.AddEntry(gppStringList[0x8dc],
-                                 FormatWideString(g_format_d, record->stamina_regen_bonus), 10, 0xf,
+            m_text_area.AddEntry(g_localized_strings[0x8dc],
+                                 FormatText(g_format_d, record->stamina_regen_bonus), 10, 0xf,
                                  0);
         }
         if (record->spell_regen_bonus > 0) {
-            m_text_area.AddEntry(gppStringList[0x8dd],
-                                 FormatWideString(g_format_plus_d, record->spell_regen_bonus), 10,
+            m_text_area.AddEntry(g_localized_strings[0x8dd],
+                                 FormatText(g_format_plus_d, record->spell_regen_bonus), 10,
                                  0xf, 0);
         }
         if (record->spell_regen_bonus < 0) {
-            m_text_area.AddEntry(gppStringList[0x8de],
-                                 FormatWideString(g_format_d, record->spell_regen_bonus), 10, 0xf,
+            m_text_area.AddEntry(g_localized_strings[0x8de],
+                                 FormatText(g_format_d, record->spell_regen_bonus), 10, 0xf,
                                  0);
         }
         if (record->modifier_0b3_index != -1 && record->modifier_0b3_value > 0) {
-            swprintf(modifier_text, L"%s %+d",
-                     gppStringList[g_character_description_first_ids[record->modifier_0b3_index]],
-                     record->modifier_0b3_value);
-            m_text_area.AddEntry(gppStringList[0x8c3], modifier_text, 10, 0xf, 0);
+            modifier_text = FormatText("%s %+d", g_localized_strings[g_character_description_first_ids[record->modifier_0b3_index]], record->modifier_0b3_value);
+            m_text_area.AddEntry(g_localized_strings[0x8c3], modifier_text, 10, 0xf, 0);
         }
         if (record->modifier_0b3_index != -1 && record->modifier_0b3_value < 0) {
-            swprintf(modifier_text, L"%s %d",
-                     gppStringList[g_character_description_first_ids[record->modifier_0b3_index]],
-                     record->modifier_0b3_value);
-            m_text_area.AddEntry(gppStringList[0x8c4], modifier_text, 10, 0xf, 0);
+            modifier_text = FormatText("%s %d", g_localized_strings[g_character_description_first_ids[record->modifier_0b3_index]], record->modifier_0b3_value);
+            m_text_area.AddEntry(g_localized_strings[0x8c4], modifier_text, 10, 0xf, 0);
         }
         if (record->modifier_0b1_index != -1 && record->modifier_0b1_value > 0) {
-            swprintf(modifier_text, L"%s %+d",
-                     gppStringList[g_character_skill_name_ids[record->modifier_0b1_index]],
-                     record->modifier_0b1_value);
-            m_text_area.AddEntry(gppStringList[0x8c5], modifier_text, 10, 0xf, 0);
+            modifier_text = FormatText("%s %+d", g_localized_strings[g_character_skill_name_ids[record->modifier_0b1_index]], record->modifier_0b1_value);
+            m_text_area.AddEntry(g_localized_strings[0x8c5], modifier_text, 10, 0xf, 0);
         }
         if (record->modifier_0b1_index != -1 && record->modifier_0b1_value < 0) {
-            swprintf(modifier_text, L"%s %d",
-                     gppStringList[g_character_skill_name_ids[record->modifier_0b1_index]],
-                     record->modifier_0b1_value);
-            m_text_area.AddEntry(gppStringList[0x8c6], modifier_text, 10, 0xf, 0);
+            modifier_text = FormatText("%s %d", g_localized_strings[g_character_skill_name_ids[record->modifier_0b1_index]], record->modifier_0b1_value);
+            m_text_area.AddEntry(g_localized_strings[0x8c6], modifier_text, 10, 0xf, 0);
         }
         count = 0;
         for (index = 0; index < 6; ++index) {
             if (record->resistance_bonus[index] > 0) {
                 if (count == 0) {
-                    wcscpy(g_assay_entry_text, &g_empty_wide_string);
+                    g_assay_entry_text = &g_empty_text;
                 } else {
                     AppendAssayEntryText(g_comma_space);
                 }
-                text = FormatWideString(g_format_d_percent, record->resistance_bonus[index]);
+                text = FormatText(g_format_d_percent, record->resistance_bonus[index]);
                 AppendAssayEntryText(text);
-                AppendAssayEntryText(L" vs. ");
-                text = gppStringList[g_realm_message_offsets[index]];
+                AppendAssayEntryText(" vs. ");
+                text = g_localized_strings[g_realm_message_offsets[index]];
                 AppendAssayEntryText(text);
                 ++count;
             }
         }
         if (count != 0) {
-            m_text_area.AddEntry(gppStringList[0x8cb], g_assay_entry_text, 10, 0xf, 0);
+            m_text_area.AddEntry(g_localized_strings[0x8cb], g_assay_entry_text, 10, 0xf, 0);
         }
     }
     if (record->gender_mask != 3) {
         if (record->gender_mask == 0) {
-            text = gppStringList[0x912];
+            text = g_localized_strings[0x912];
         } else if (record->gender_mask != 1) {
-            text = gppStringList[0x911];
+            text = g_localized_strings[0x911];
         } else {
-            text = gppStringList[0x910];
+            text = g_localized_strings[0x910];
         }
-        m_text_area.AddEntry(gppStringList[0x8f3], text, 10, 0xf, 0);
+        m_text_area.AddEntry(g_localized_strings[0x8f3], text, 10, 0xf, 0);
     }
     count = 0;
-    wcscpy(g_assay_entry_text, &g_empty_wide_string);
+    g_assay_entry_text = &g_empty_text;
     count = AppendAssayRequirements(record->attribute_requirements, count);
     count = AppendAssayRequirements(record->skill_requirements, count);
     if (record->category == W8_ITEM_CATEGORY_CASTER_ITEM_6 ||
@@ -510,34 +501,34 @@ bool W8AssayDialog::PopulateText()
             AppendAssayEntryText(g_comma_space);
         }
         if (record->category == W8_ITEM_CATEGORY_CASTER_ITEM_6) {
-            text = gppStringList[0x8fe];
+            text = g_localized_strings[0x8fe];
         } else {
-            text = gppStringList[0x8ff];
+            text = g_localized_strings[0x8ff];
         }
         AppendAssayEntryText(text);
-        text = FormatWideString(L" %ld", GetMinimumCasterLevelForSpell(record->spell_id));
+        text = FormatText(" %d", GetMinimumCasterLevelForSpell(record->spell_id));
         AppendAssayEntryText(text);
     }
     if (count != 0) {
-        m_text_area.AddEntry(gppStringList[0x8f4], g_assay_entry_text, 10, 0xf, 0);
+        m_text_area.AddEntry(g_localized_strings[0x8f4], g_assay_entry_text, 10, 0xf, 0);
     }
     if (record->equip_class == W8_ITEM_EQUIP_CLASS_SPELLBOOK &&
         (m_item->identified || m_item->spell_hint) && m_character != 0) {
         if (m_character->spell_learned[record->spell_id] == 1) {
-            m_text_area.AddEntry(0, gppStringList[0x8ed], 10, 1, 0);
+            m_text_area.AddEntry({}, g_localized_strings[0x8ed], 10, 1, 0);
         } else if (!CanCharacterLearnSpell(m_character, record->spell_id) &&
                    CanCastFromItem(m_character, m_item)) {
-            m_text_area.AddEntry(0, gppStringList[0x8ec], 10, 0, 0);
+            m_text_area.AddEntry({}, g_localized_strings[0x8ec], 10, 0, 0);
         }
     }
     if (record->maximum_quantity != 0) {
-        m_text_area.AddEntry(gppStringList[0x8f8],
-                             FormatWideString(g_format_d, record->maximum_quantity), 10, 0xf, 0);
+        m_text_area.AddEntry(g_localized_strings[0x8f8],
+                             FormatText(g_format_d, record->maximum_quantity), 10, 0xf, 0);
     }
     strcpy(path, "Data\\Databases\\ItemDesc.dbs");
-    GetStringFromStringDatabase(path, m_item->iItemNo, description, 0, 0);
-    if (wcslen(description) != 0 && m_item->identified) {
-        m_text_area.AddEntry(gppStringList[0x90f], description, 10, 0xf, 0);
+    (!(description = GetStringFromStringDatabase(path, m_item->iItemNo, 0, 0)).empty());
+    if (description.size() != 0 && m_item->identified) {
+        m_text_area.AddEntry(g_localized_strings[0x90f], description, 10, 0xf, 0);
     }
     m_text_area.m_dirty = true;
     return true;
@@ -832,7 +823,7 @@ bool W8AssayDialog::CreateTextBuffers()
     W8ControlsRect bounds;
     W8ItemInstance* item;
     unsigned char equip_class;
-    wchar_t* text;
+    std::string text;
 
     for (index = 0; index < W8_ASSAY_TEXT_BUFFER_COUNT; ++index) {
         bounds.left = m_x + g_assay_text_buffer_offsets[index].left;
@@ -840,7 +831,7 @@ bool W8AssayDialog::CreateTextBuffers()
         bounds.right = m_x + g_assay_text_buffer_offsets[index].right;
         bounds.bottom = m_y + g_assay_text_buffer_offsets[index].bottom;
         m_text_buffers[index] = new W8TextBuffer(
-            &bounds, gppStringList[g_assay_text_buffer_string_ids[index]],
+            &bounds, g_localized_strings[g_assay_text_buffer_string_ids[index]],
             g_wiz_text_font_secondary, g_W8TextBufferAlignMiddle | g_W8TextBufferAlignCenter, 4);
         if (m_text_buffers[index] == 0) {
             DestroyDialogTextBuffers(m_text_buffers, W8_ASSAY_TEXT_BUFFER_COUNT);
@@ -850,18 +841,18 @@ bool W8AssayDialog::CreateTextBuffers()
 
     m_text_buffers[0]->SetText(FormatItemDisplayName(m_item, false), g_wiz_text_font_secondary);
     equip_class = GetItemEquipClass(m_item);
-    m_text_buffers[2]->SetText(gppStringList[g_equip_class_name_ids[equip_class]],
+    m_text_buffers[2]->SetText(g_localized_strings[g_equip_class_name_ids[equip_class]],
                                g_wiz_text_font_secondary);
     item = m_item;
     if (g_item_records[item->iItemNo].quantity_kind == W8_ITEM_QUANTITY_STACK &&
         item->stack_count > 1) {
         unsigned int unit_weight = GetItemUnitWeight(item);
-        text = FormatWideString(g_assay_format_1f_1f_s,
+        text = FormatText(g_assay_format_1f_1f_s,
                                 GetItemStackWeight(m_item) * g_item_weight_display_scale,
-                                unit_weight * g_item_weight_display_scale, gppStringList[0x117]);
+                                unit_weight * g_item_weight_display_scale, g_localized_strings[0x117]);
     } else {
         text =
-            FormatWideString(g_assay_format, GetItemUnitWeight(item) * g_item_weight_display_scale);
+            FormatText(g_assay_format, GetItemUnitWeight(item) * g_item_weight_display_scale);
     }
     m_text_buffers[4]->SetText(text, g_wiz_text_font_secondary);
     return true;

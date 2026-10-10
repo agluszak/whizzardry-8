@@ -1,3 +1,5 @@
+#include <string_view>
+#include <string>
 #pragma once
 
 #include "Types.h"
@@ -141,7 +143,7 @@ enum W8CampItemRedrawFlag {
 /* malloc(0xd54) in Camp entry owns the record. Suspension destroys this UI;
    the screen-state stack retains the arguments needed to recreate it. */
 struct W8CampScreenState {
-    wchar_t text_buffer[120];
+    std::string text_buffer;
     W8CampPage page;
     unsigned int hover_region;
     unsigned int redraw_flags;
@@ -231,7 +233,7 @@ extern W8TextControl* g_camp_action_buttons[2];
 extern W8TextControl* g_camp_item_filter_buttons[7];
 extern Controls* g_camp_item_filter_panel;
 extern unsigned int g_camp_secondary_region_set;
-/* One gppStringList id per primary attribute row; defined in
+/* One g_localized_strings id per primary attribute row; defined in
    ReviewCharacterScreen.cpp, drawn by RCSStatsPage.cpp's stats page. */
 extern int g_attribute_label_ids[7];
 
@@ -302,7 +304,7 @@ bool IsEquippableItemClass(W8ItemInstance* item);
    finishes; `fade_to_black` selects the alpha ramp. */
 void BeginScreenFade(int fade_to_black, int fade_out, int duration, void (*callback)(void),
                      bool fullscreen_scene_last, char render_each_tick);
-extern wchar_t g_format_s0[];
+extern char g_format_s0[];
 unsigned char UpdateScreenFade(void);
 void BeginPartyDeath(void);
 void PumpReviewTransition(void);
@@ -312,6 +314,6 @@ void EndReviewTransition(void);
 void ShowEndingScreen(void);
 void BeginEndgameSequence(void);
 /* Camp and main-game notice dialogs ShowNoticeLine forwards into. */
-void ShowCampNoticeLine(const wchar_t* text, W8DialogDestroyCallback callback, bool confirmation,
+void ShowCampNoticeLine(std::string_view text, W8DialogDestroyCallback callback, bool confirmation,
                         bool cancel);
 void HandleCampItemClick(W8ItemInstance* item, unsigned int slot_index, W8ItemOrigin origin);

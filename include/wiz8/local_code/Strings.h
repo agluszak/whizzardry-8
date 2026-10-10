@@ -1,9 +1,12 @@
 #pragma once
 
-#include <wchar.h>
+#include <string>
+#include <string_view>
+#include <vector>
 
-void LoadLocalizedStrings(const char* path);
+void ReleaseLocalizedStrings();
+void LoadLocalizedStrings(std::string_view path);
 
 /* Local Code\Strings.cpp owns the decoded game string table. */
-extern wchar_t** gppStringList;
+extern std::vector<std::string> g_localized_strings;
 extern int giStringListLen;

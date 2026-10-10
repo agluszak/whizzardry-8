@@ -108,7 +108,7 @@ void W8StatInfoDialogBase::DrawTitle()
 {
     SetFont(g_wiz_text_font_secondary);
     SetFontObjectPalette16BPP(g_wiz_text_font_secondary, GetFontObject(g_wiz_text_font_secondary)->ownedPalette.get());
-    wchar_t* title = gppStringList[m_title_id];
+    std::string title = g_localized_strings[m_title_id];
     INT16 width = StringPixLength(title, g_wiz_text_font_secondary);
     gprintf(m_x + 0xe + (0x112 - width) / 2, m_y + 0x11, g_format_s, title);
 }
@@ -153,8 +153,8 @@ bool W8StatInfoDialogBase::PopulateText()
     bounds.bottom = m_y + 0xdf;
     textarea.Configure(&bounds, g_wiz_text_font_secondary, 0);
     textarea.SetEntrySpacing(0);
-    textarea.AddEntry(gppStringList[0x155], gppStringList[m_detail_id], 10, 0xf, 0);
-    textarea.AddEntry(0, &g_empty_wide_string, 10, 0xf, 0);
+    textarea.AddEntry(g_localized_strings[0x155], g_localized_strings[m_detail_id], 10, 0xf, 0);
+    textarea.AddEntry({}, &g_empty_text, 10, 0xf, 0);
     return true;
 }
 
@@ -199,25 +199,25 @@ W8SkillInfoDialog::~W8SkillInfoDialog()
 bool W8SkillInfoDialog::PopulateText()
 {
     W8StatInfoDialogBase::PopulateText();
-    textarea.AddEntry(gppStringList[0x156], &g_empty_wide_string, 10, 0xf, 0);
+    textarea.AddEntry(g_localized_strings[0x156], &g_empty_text, 10, 0xf, 0);
     W8SkillAttributes* skill = &g_skill_attributes[m_skill];
-    textarea.AddEntry(0, gppStringList[g_character_description_first_ids[skill->attribute_1]], 10,
+    textarea.AddEntry({}, g_localized_strings[g_character_description_first_ids[skill->attribute_1]], 10,
                       0xf, 0);
     if (skill->attribute_1 != skill->attribute_2) {
-        textarea.AddEntry(0, gppStringList[g_character_description_first_ids[skill->attribute_2]],
+        textarea.AddEntry({}, g_localized_strings[g_character_description_first_ids[skill->attribute_2]],
                           10, 0xf, 0);
     }
     if (m_first) {
-        textarea.AddEntry(0, &g_empty_wide_string, 10, 0xf, 0);
-        textarea.AddEntry(0, gppStringList[0x157], 10, 5, 0);
+        textarea.AddEntry({}, &g_empty_text, 10, 0xf, 0);
+        textarea.AddEntry({}, g_localized_strings[0x157], 10, 5, 0);
     }
     if (m_second) {
-        textarea.AddEntry(0, &g_empty_wide_string, 10, 0xf, 0);
-        textarea.AddEntry(0, gppStringList[0x158], 10, 0xb, 0);
+        textarea.AddEntry({}, &g_empty_text, 10, 0xf, 0);
+        textarea.AddEntry({}, g_localized_strings[0x158], 10, 0xb, 0);
     }
     if (m_bonus) {
-        textarea.AddEntry(0, &g_empty_wide_string, 10, 0xf, 0);
-        textarea.AddEntry(0, FormatWideString(gppStringList[0x159], 0x19), 10, 3, 0);
+        textarea.AddEntry({}, &g_empty_text, 10, 0xf, 0);
+        textarea.AddEntry({}, FormatText(g_localized_strings[0x159], 0x19), 10, 3, 0);
     }
     return true;
 }

@@ -1,3 +1,5 @@
+#include "wiz8/unicode.h"
+#include "wiz8/utility.h"
 #include "wiz8/engine_code/OctPath.h"
 #include "wiz8/engine_code/GDProp.h"
 #include "wiz8/engine_code/LevelFile.h"

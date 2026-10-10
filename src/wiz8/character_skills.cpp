@@ -1,3 +1,5 @@
+#include <utf8.h>
+#include "wiz8/unicode.h"
 #include "random.h"
 #include "wiz8/local_code/GameplayCode.h"
 #include "wiz8/local_code/PC_Item.h"
@@ -32,12 +34,11 @@
 #include "wiz8/xstatus.h"
 #include <stdio.h>
 #include <string.h>
-#include <wchar.h>
 
 /* Original translation-unit ownership is unknown; surrounding anchors do not resolve it. */
 
 // GLOBAL: WIZ8 0x0061ec94
-static wchar_t g_format_s_possessive[] = L"%s's";
+static char g_format_s_possessive[] = "%s's";
 
 unsigned int GetCharacterSkillNoticeValue(W8Character* character, W8Skill skill_id)
 {
@@ -55,47 +56,22 @@ void PostSkillIncreaseNotices(const W8SkillNoticePayload* notices)
         W8Skill skill = static_cast<W8Skill>(notices->skills[index]);
         W8Character* character = &g_status.buffers.Char[slot];
         unsigned int value = GetCharacterSkillNoticeValue(character, skill);
-        PostCharacterNotice(slot, gppStringList[0x1d9],
-                            gppStringList[g_character_skill_name_ids[skill]], value);
+        PostCharacterNotice(slot, g_localized_strings[0x1d9],
+                            g_localized_strings[g_character_skill_name_ids[skill]], value);
     }
 }
 
 // FUNCTION: WIZ8 0x00554170
-void AppendSkillIncreaseNoticeText(wchar_t* text, unsigned int* length, int party_slot,
-                                   bool continue_line, W8Skill skill_id)
+std::string FormatSkillIncreaseNoticeText(int party_slot, bool continue_line, W8Skill skill_id)
 {
-    unsigned int skill_level;
-    W8Character* character = &g_status.buffers.Char[party_slot];
-
-    if (continue_line) {
-        text[*length] = L' ';
-        *length += 1;
-        text[*length] = L'\n';
-        *length += 1;
-        text[*length] = L' ';
-        *length += 1;
-    }
-    text[*length] = L' ';
-    *length += 1;
-    text[*length] = 0xb4; /* font glyph */
-    *length += 1;
-    text[*length] = GetPartyOrderTextColor(
-        static_cast<signed char>(g_status.buffers.XChar[party_slot].party_order_index));
-    *length += 1;
-    text[*length] = L' ';
-    *length += 1;
-    swprintf(text + *length, g_format_s_possessive, character->name);
-    *length = static_cast<unsigned int>(wcslen(text));
-    text[*length] = L' ';
-    *length += 1;
-    text[*length] = 0xb5; /* font glyph */
-    *length += 1;
-    text[*length] = L' ';
-    *length += 1;
-    skill_level = GetCharacterSkillNoticeValue(character, skill_id);
-    swprintf(text + *length, gppStringList[0x1db],
-             gppStringList[g_character_skill_name_ids[skill_id]], skill_level);
-    *length = static_cast<unsigned int>(wcslen(text));
+    auto* character = &g_status.buffers.Char[party_slot];
+    std::string text = continue_line ? " \n  " : " ";
+    utf8::append(0xb4, std::back_inserter(text));
+    utf8::append(GetPartyOrderTextColor(static_cast<signed char>(g_status.buffers.XChar[party_slot].party_order_index)), std::back_inserter(text));
+    text += " " + FormatText(g_format_s_possessive, character->name) + " ";
+    utf8::append(0xb5, std::back_inserter(text));
+    text += " " + FormatText(g_localized_strings[0x1db], g_localized_strings[g_character_skill_name_ids[skill_id]], GetCharacterSkillNoticeValue(character, skill_id));
+    return text;
 }
 
 // FUNCTION: WIZ8 0x005542E0
@@ -103,7 +79,7 @@ void FlushDeferredSkillNotices(void)
 {
     int count;
     bool have_line;
-    wchar_t* text;
+    std::string text;
     W8SkillNoticePayload* extra;
     int slot;
     unsigned int skill_id;
@@ -115,8 +91,7 @@ void FlushDeferredSkillNotices(void)
     if (!gXStatus.deferred_skill_notices) {
         return;
     }
-    text = new wchar_t[0x200];
-    memset(text, 0, 0x400);
+    text.clear();
     extra = new W8SkillNoticePayload;
     for (slot = 0; slot < 8; ++slot) {
         W8Character* character = &g_status.buffers.Char[slot];
@@ -131,36 +106,31 @@ void FlushDeferredSkillNotices(void)
             extra->party_slots[count] = static_cast<signed char>(slot);
             extra->skills[count] = static_cast<signed char>(skill_id);
             ++count;
-            AppendSkillIncreaseNoticeText(text, &length, slot, have_line,
-                                          static_cast<W8Skill>(skill_id));
+            text += FormatSkillIncreaseNoticeText(slot, have_line, static_cast<W8Skill>(skill_id));
             have_line = true;
             if (count == 8) {
                 extra->count = 8;
-                W8MessageBoxPayload skill_notices_payload;
-                skill_notices_payload.text = text;
+
                 W8MessageBoxPayload skill_notices_extra;
                 skill_notices_extra.skill_notices = extra;
-                AddMessageBoxLine(W8_NPC_MSG_SKILL_NOTICES, skill_notices_payload,
+                AddTextMessageBoxLine(W8_NPC_MSG_SKILL_NOTICES, std::move(text),
                                   skill_notices_extra);
                 count = 0;
                 length = 0;
                 have_line = false;
-                text = new wchar_t[0x200];
-                memset(text, 0, 0x400);
+                text.clear();
                 extra = new W8SkillNoticePayload;
             }
         }
     }
     if (!have_line) {
-        delete[] text;
         delete extra;
     } else {
         extra->count = static_cast<signed char>(count);
-        W8MessageBoxPayload skill_notices_payload;
-        skill_notices_payload.text = text;
+
         W8MessageBoxPayload skill_notices_extra;
         skill_notices_extra.skill_notices = extra;
-        AddMessageBoxLine(W8_NPC_MSG_SKILL_NOTICES, skill_notices_payload, skill_notices_extra);
+        AddTextMessageBoxLine(W8_NPC_MSG_SKILL_NOTICES, std::move(text), skill_notices_extra);
     }
     for (slot = 0; slot < 8; ++slot) {
         memset(&gXStatus.monster_manager_entries[slot].skill_notice_pending[0], 0, W8_SKILL_COUNT);
@@ -314,7 +284,7 @@ void CheatDeathRevive(int party_slot)
 {
     W8Character* character = &g_status.buffers.Char[party_slot];
 
-    PostCharacterNotice(party_slot, gppStringList[0x173]);
+    PostCharacterNotice(party_slot, g_localized_strings[0x173]);
     SetCharacterCondition(party_slot, W8_CONDITION_UNCONSCIOUS,
                           character->uiCondition[W8_CONDITION_UNCONSCIOUS] -
                               static_cast<int>(ScaleValueByProfessionLevel(
@@ -394,7 +364,7 @@ void BrewAlchemistPotion(W8Character* character)
         if (item.stack_count > 1) {
             item.stack_count = 1;
         }
-        ShowNoticef(slot, gppStringList[0x183], character->name,
+        ShowNoticef(slot, g_localized_strings[0x183], character->name,
                     FormatItemDisplayName(&item, true));
         StoreItemWithCharacterOrParty(character, &item, false, false, false);
         made = 1;
@@ -547,10 +517,10 @@ void ApplyAttributeChange(W8Character* character, W8Attribute attribute)
             }
             if (g_current_screen_state.id == W8_SCREEN_MAIN_GAME) {
                 ShowMainGameNoticeLine(
-                    FormatWideString(gppStringList[0x1d6],
-                                     gppStringList[g_character_description_first_ids[attribute]],
+                    FormatText(g_localized_strings[0x1d6],
+                                     g_localized_strings[g_character_description_first_ids[attribute]],
                                      character->name,
-                                     gppStringList[g_character_skill_name_ids[skill_id]]),
+                                     g_localized_strings[g_character_skill_name_ids[skill_id]]),
                     0, true, false);
             }
         }
@@ -707,19 +677,17 @@ void PracticeCharacterSkill(W8Character* character, W8Skill skill_id, int usage_
                 if (!gXStatus.fCombatMode && !IsModalOpen() && !gXStatus.item_pick_pending &&
                     g_current_screen_state.id == W8_SCREEN_MAIN_GAME && IsScreenIdle() &&
                     !suppress_notification) {
-                    wchar_t* text = new wchar_t[0x200];
-                    memset(text, 0, 0x400);
+                    std::string text;
                     unsigned int length = 0;
-                    AppendSkillIncreaseNoticeText(text, &length, slot, false, skill_id);
+                    text += FormatSkillIncreaseNoticeText(slot, false, skill_id);
                     W8SkillNoticePayload* extra = new W8SkillNoticePayload;
                     extra->count = 1;
                     extra->party_slots[0] = static_cast<signed char>(slot);
                     extra->skills[0] = static_cast<signed char>(skill_id);
-                    W8MessageBoxPayload skill_notices_payload;
-                    skill_notices_payload.text = text;
+
                     W8MessageBoxPayload skill_notices_extra;
                     skill_notices_extra.skill_notices = extra;
-                    AddMessageBoxLine(W8_NPC_MSG_SKILL_NOTICES, skill_notices_payload,
+                    AddTextMessageBoxLine(W8_NPC_MSG_SKILL_NOTICES, std::move(text),
                                       skill_notices_extra);
                     return;
                 }

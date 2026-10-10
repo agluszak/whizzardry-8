@@ -1,3 +1,6 @@
+#include "wiz8/unicode.h"
+#include <string>
+#include <string>
 #include "random.h"
 #include "wiz8/conditions.h"
 #include "wiz8/fonts.h"
@@ -71,7 +74,6 @@
 #include "wiz8/character_skills.h"
 #include <stdlib.h>
 #include <string.h>
-#include <wchar.h>
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/local_screens/Screens.h"
 
@@ -199,7 +201,7 @@ W8EquipSlot GetPairedEquipSlot(W8EquipSlot equip_slot)
 /* No weapon skill at all, which GetItemEquipSlotMask treats as a data error. */
 enum { W8_WEAPON_SKILL_NONE = -1 };
 
-/* The gppStringList message each item use kind shows for whatever the item
+/* The g_localized_strings message each item use kind shows for whatever the item
    was used on, read at every other entry. The last six ids, from
    W8_ITEM_PROPERTY_MESSAGE_FIRST, are the item property labels. */
 // GLOBAL: WIZ8 0x0061e956
@@ -209,7 +211,7 @@ unsigned short g_item_use_messages[25] = {
 };
 /* One lazily built generic name per unidentified-name index. */
 // GLOBAL: WIZ8 0x0068C108
-wchar_t* g_generic_item_names[W8_GENERIC_ITEM_NAME_COUNT];
+std::string g_generic_item_names[W8_GENERIC_ITEM_NAME_COUNT];
 // GLOBAL: WIZ8 0x00616e84
 W8Skill g_item_spell_presentation[11] = {
     W8_SKILL_NONE,        W8_SKILL_ARTIFACTS,      W8_SKILL_ARTIFACTS, W8_SKILL_NONE,
@@ -238,7 +240,6 @@ unsigned short g_generic_item_name_notice[W8_GENERIC_ITEM_NAME_COUNT] = {
 };
 /* Shared scratch returned by the item-name formatter. */
 // GLOBAL: WIZ8 0x0068C0B4
-static wchar_t g_item_display_name_buffer[42];
 
 W8_ABI_ASSERT(sizeof(W8ItemVideoObjectEntry) == 8, "W8ItemVideoObjectEntry_must_be_8");
 W8_ABI_ASSERT(sizeof(W8ItemVideoObjectCache) == 0x0c, "W8ItemVideoObjectCache_must_be_0x0c");
@@ -421,7 +422,7 @@ int W8ItemVideoObjectCache::GetOrCreateVideoObject(int item_id)
 {
     W8ItemVideoObjectEntry* entry = data + item_id;
     const W8ItemDatabaseRecord* record = &g_item_records[item_id];
-    const char* name = record->video_object_name;
+    std::string_view name = record->video_object_name;
     int object;
     int frame;
 
@@ -436,7 +437,7 @@ int W8ItemVideoObjectCache::GetOrCreateVideoObject(int item_id)
     if (name[0] == '\0') {
         name = g_item_video_object_fallback_names[record->unidentified_name_index];
     }
-    sprintf(g_video_frames[object].path, "%s\\%s", "Data\\Items", name);
+    wiz8::text::copy(g_video_frames[object].path, FormatText("%s\\%s", "Data\\Items", name));
     if (strstr(g_video_frames[object].path, ".sti") == 0) {
         strcat(g_video_frames[object].path, ".sti");
     }
@@ -459,31 +460,28 @@ unsigned char g_party_has_slope_override_item;
    generic unidentified names are allocated once, while this returned buffer
    is shared by the quantity and plain-name forms. */
 // FUNCTION: WIZ8 0x0051b5c0
-wchar_t* FormatItemDisplayName(const W8ItemInstance* item, bool include_quantity)
+std::string FormatItemDisplayName(const W8ItemInstance* item, bool include_quantity)
 {
-    wchar_t* name;
+    std::string name;
     unsigned int name_index;
 
     if (item->identified) {
         name = g_item_records[item->iItemNo].display_name;
     } else {
         name_index = g_item_records[item->iItemNo].unidentified_name_index;
-        if (g_generic_item_names[name_index] == 0) {
-            name = static_cast<wchar_t*>(malloc(60 * sizeof(*name)));
+        if (g_generic_item_names[name_index].empty()) {
+            name = FormatText(g_localized_strings[0x1e7],
+                     g_localized_strings[g_generic_item_name_notice[name_index]]);
             g_generic_item_names[name_index] = name;
-            swprintf(name, gppStringList[0x1e7],
-                     gppStringList[g_generic_item_name_notice[name_index]]);
         }
         name = g_generic_item_names[name_index];
     }
 
     if (include_quantity && item->stack_count > 1) {
-        swprintf(g_item_display_name_buffer, L"%s (%d)", name,
-                 static_cast<unsigned int>(item->stack_count));
+        return FormatText("%s (%d)", name, static_cast<unsigned int>(item->stack_count));
     } else {
-        swprintf(g_item_display_name_buffer, L"%s", name);
+        return FormatText("%s", name);
     }
-    return g_item_display_name_buffer;
 }
 
 /* The equipment class an item belongs to, or zero when the caller has no
@@ -563,8 +561,8 @@ unsigned short GetItemEquipSlotMask(int item_id, bool primary_off_hand_free,
     case W8_ITEM_EQUIP_CLASS_RANGED_WEAPON:
         if (g_item_records[item_id].weapon_skill == W8_WEAPON_SKILL_NONE) {
             FormatDebugMessage(0,
-                               "ERROR - Item %ls is a weapon without a skill specified -> Charles",
-                               &g_item_records[item_id]);
+                               "ERROR - Item %s is a weapon without a skill specified -> Charles",
+                               g_item_records[item_id].display_name);
             return 0;
         }
         if ((g_item_records[item_id].flags & W8_ITEM_FLAG_TWO_HANDED) != 0) {
@@ -684,12 +682,12 @@ bool CompatiblePartnerItems(int ranged_item_id, int other_item_id)
 {
     if (static_cast<unsigned int>(ranged_item_id) >= gXStatus.uiItemsInDatabase) {
         srAssertFail("uiRangedItem < gXStatus.uiItemsInDatabase", PC_ITEM_CPP, 0x3fd,
-                     FormatString("CompatiblePartnerItems: ERROR - Illegal RANGED item index %d",
+                     FormatText("CompatiblePartnerItems: ERROR - Illegal RANGED item index %d",
                                   ranged_item_id));
     }
     if (static_cast<unsigned int>(other_item_id) >= gXStatus.uiItemsInDatabase) {
         srAssertFail("uiOtherItem < gXStatus.uiItemsInDatabase", PC_ITEM_CPP, 0x3fe,
-                     FormatString("CompatiblePartnerItems: ERROR - Illegal OTHER item index %d",
+                     FormatText("CompatiblePartnerItems: ERROR - Illegal OTHER item index %d",
                                   other_item_id));
     }
 
@@ -1039,21 +1037,20 @@ W8ItemEquipSlotGroup GetItemEquipSlotGroup(int item_id)
    unidentified one is called by the generic name its index shares, built once
    on first use and kept. */
 // FUNCTION: WIZ8 0x0051b7b0
-wchar_t* GetItemDisplayName(const W8ItemInstance* item)
+std::string GetItemDisplayName(const W8ItemInstance* item)
 {
     unsigned int name_index;
-    wchar_t* built;
+    std::string built;
 
     if (item->identified) {
         return g_item_records[item->iItemNo].display_name;
     }
 
     name_index = g_item_records[item->iItemNo].unidentified_name_index;
-    if (g_generic_item_names[name_index] == 0) {
-        built = static_cast<wchar_t*>(malloc(60 * sizeof(*built)));
+    if (g_generic_item_names[name_index].empty()) {
+        built = FormatText(g_localized_strings[0x1e7],
+                 g_localized_strings[g_generic_item_name_notice[name_index]]);
         g_generic_item_names[name_index] = built;
-        swprintf(built, gppStringList[0x1e7],
-                 gppStringList[g_generic_item_name_notice[name_index]]);
     }
     return g_generic_item_names[name_index];
 }
@@ -1125,26 +1122,26 @@ unsigned char UseItem(W8Character* character, W8ItemInstance* item, int* out_use
     unsigned char used;
 
     if (!CanCharacterUseItem(character, item->iItemNo)) {
-        PostCharacterNotice(party_slot, gppStringList[0x164], GetItemDisplayName(item));
+        PostCharacterNotice(party_slot, g_localized_strings[0x164], GetItemDisplayName(item));
         *out_uses = -1;
         return 0;
     }
     if (!CanCharacterActivateItem(character, item)) {
-        PostCharacterNotice(party_slot, gppStringList[0x165], GetItemDisplayName(item));
+        PostCharacterNotice(party_slot, g_localized_strings[0x165], GetItemDisplayName(item));
         *out_uses = -1;
         return 0;
     }
 
     if (record->quantity_kind == W8_ITEM_QUANTITY_CHARGES && item->uses_or_charges == 0) {
-        PostCharacterNotice(party_slot, gppStringList[0x1f1], GetItemDisplayName(item));
+        PostCharacterNotice(party_slot, g_localized_strings[0x1f1], GetItemDisplayName(item));
         event_type = g_special_event13;
     } else if (record->quantity_kind == W8_ITEM_QUANTITY_SHOTS && item->uses_or_charges == 0) {
-        PostCharacterNotice(party_slot, gppStringList[0x1f2], GetItemDisplayName(item));
+        PostCharacterNotice(party_slot, g_localized_strings[0x1f2], GetItemDisplayName(item));
         event_type = g_effect26;
     } else {
         if (record->equip_class == W8_ITEM_EQUIP_CLASS_INSTRUMENT &&
             character->uiCondition[W8_CONDITION_SILENCED] != 0) {
-            PostCharacterNotice(party_slot, gppStringList[0x166]);
+            PostCharacterNotice(party_slot, g_localized_strings[0x166]);
             *out_uses = -1;
             return 0;
         }
@@ -1200,7 +1197,7 @@ unsigned char UseItem(W8Character* character, W8ItemInstance* item, int* out_use
             } while (power != 0);
 
             if (power == 0) {
-                PostCharacterNotice(party_slot, gppStringList[0x1f3], GetItemDisplayName(item));
+                PostCharacterNotice(party_slot, g_localized_strings[0x1f3], GetItemDisplayName(item));
                 PracticeCharacterSkill(character, skill, 1, false);
                 *out_uses = fatigue_cost;
                 return 0;
@@ -1246,15 +1243,15 @@ unsigned char UseItem(W8Character* character, W8ItemInstance* item, int* out_use
 
         if (TargetSourceIsCharacter(&target, 0)) {
             PostCharacterNotice(target.iChar, g_format_s_space_s,
-                                gppStringList[g_item_use_messages[record->category * 2]],
+                                g_localized_strings[g_item_use_messages[record->category * 2]],
                                 GetItemDisplayName(item));
         } else if (TargetSourceIsMonster(&target, 0)) {
             ShowNoticef(
-                9, L"%s %s %s",
+                9, "%s %s %s",
                 GetMonsterName(MonsterGetScriptPartByLocationIndex(MonsterGetIndexByLocationID(
                                    0x91d, PC_ITEM_CPP, target.iMonsterID, true)),
                                0, 0),
-                gppStringList[g_item_use_messages[record->category * 2]], GetItemDisplayName(item));
+                g_localized_strings[g_item_use_messages[record->category * 2]], GetItemDisplayName(item));
         } else {
             srAssertFail("FALSE", PC_ITEM_CPP, 0x924, 0);
         }
@@ -1263,8 +1260,8 @@ unsigned char UseItem(W8Character* character, W8ItemInstance* item, int* out_use
             SetTextBoxMode(1, -1);
         }
         if (record->spell_id == W8_SPELL_NONE) {
-            char* message =
-                FormatString("UseItem: ERROR - Usable item %d doesn't do anything!", item->iItemNo);
+            std::string message =
+                FormatText("UseItem: ERROR - Usable item %d doesn't do anything!", item->iItemNo);
             srAssertFail("FALSE", PC_ITEM_CPP, 0x934, message);
             used = 0;
             fatigue_cost = 0;
@@ -1347,7 +1344,7 @@ bool MergeItems(W8Character* character, W8ItemInstance* destination)
         srAssertFail("pIntoPCItem->iItemNo != -1", PC_ITEM_CPP, 2923, 0);
     }
     if (!destination->identified || !held->identified) {
-        ShowCampNoticeLine(gppStringList[0x163], 0, true, false);
+        ShowCampNoticeLine(g_localized_strings[0x163], 0, true, false);
         return false;
     }
 
@@ -1431,9 +1428,9 @@ bool MergeItems(W8Character* character, W8ItemInstance* destination)
             return stacked;
         }
         if (!found) {
-            ShowCampNoticeLine(gppStringList[0x161], 0, true, false);
+            ShowCampNoticeLine(g_localized_strings[0x161], 0, true, false);
         } else {
-            ShowCampNoticeLine(FormatWideString(gppStringList[0x162], character->name), 0, true,
+            ShowCampNoticeLine(FormatText(g_localized_strings[0x162], character->name), 0, true,
                                false);
         }
     }
@@ -1496,7 +1493,7 @@ bool AddItemToCharacter(W8Character* character, W8ItemInstance* item, bool equip
         }
     }
 
-    wchar_t* display_name = FormatItemDisplayName(item, true);
+    std::string display_name = FormatItemDisplayName(item, true);
     if (g_item_records[item->iItemNo].quantity_kind == W8_ITEM_QUANTITY_STACK && !skip_stacking) {
         unsigned int index;
         for (index = 0; index < 12; ++index) {
@@ -1535,7 +1532,7 @@ bool AddItemToCharacter(W8Character* character, W8ItemInstance* item, bool equip
         g_camp_screen->item_redraw_flags |= W8_CAMP_ITEM_REDRAW_BACKPACK_CELL_FIRST << stored_index;
     }
     if (announce) {
-        PostCharacterNotice(CharacterPointerToPartySlot(character), gppStringList[0x1e8],
+        PostCharacterNotice(CharacterPointerToPartySlot(character), g_localized_strings[0x1e8],
                             display_name);
     }
     /* Retail always reports the backpack cell at the stored index, even when
@@ -1658,7 +1655,7 @@ static void DropUnstoredCharacterItem(W8ItemInstance* item)
     if ((g_item_records[g_status.item_in_hand.iItemNo].flags & W8_ITEM_FLAG_NO_DISCARD) == 0) {
         DropHeldItem(0);
     } else {
-        ShowNoticeLine(gppStringList[0x4ef], 0, true, false);
+        ShowNoticeLine(g_localized_strings[0x4ef], 0, true, false);
     }
     if (was_in_cursor) {
         g_status.item_in_hand = saved_hand;
@@ -1685,7 +1682,7 @@ void StashDepartingCharacterItems(W8Character* character)
              character->uiCondition[W8_CONDITION_DEAD] != 0) &&
             !AddItemToParty(item, false, false)) {
             DropUnstoredCharacterItem(item);
-            ShowNoticef(W8_FONT_PALETTE_RED, gppStringList[0x7d3], &g_item_records[item_id]);
+            ShowNoticef(W8_FONT_PALETTE_RED, g_localized_strings[0x7d3], g_item_records[item_id].display_name);
         }
     }
 
@@ -1694,7 +1691,7 @@ void StashDepartingCharacterItems(W8Character* character)
         item_id = character->EquippedItem[slot].iItemNo;
         if (item_id != -1 && !AddItemToParty(item, false, false)) {
             DropUnstoredCharacterItem(item);
-            ShowNoticef(W8_FONT_PALETTE_RED, gppStringList[0x7d3], &g_item_records[item_id]);
+            ShowNoticef(W8_FONT_PALETTE_RED, g_localized_strings[0x7d3], g_item_records[item_id].display_name);
         }
     }
 }
@@ -1712,16 +1709,8 @@ void InitializeItemVideoObjects(void)
 // FUNCTION: WIZ8 0x0051b580
 void ReleaseGenericItemNames(void)
 {
-    wchar_t** name;
-
     g_item_video_objects.Clear();
-    for (name = g_generic_item_names; name < g_generic_item_names + W8_GENERIC_ITEM_NAME_COUNT;
-         ++name) {
-        if (*name != 0) {
-            free(*name);
-            *name = 0;
-        }
-    }
+    for (auto& name : g_generic_item_names) name.clear();
 }
 
 /* Hand the item in hand to a party member. It is first offered to everybody who
@@ -1789,9 +1778,9 @@ bool GiveHeldItemToCharacterOrParty(int uiChar, bool party_first)
     }
 
     if (!IsPartySlotEligible(uiChar) && !party_first) {
-        ShowNoticeLine(gppStringList[0x1f5], 0, true, false);
+        ShowNoticeLine(g_localized_strings[0x1f5], 0, true, false);
     } else {
-        ShowNoticeLine(gppStringList[0x90c], 0, true, false);
+        ShowNoticeLine(g_localized_strings[0x90c], 0, true, false);
     }
     return stored;
 }
@@ -1839,7 +1828,7 @@ bool GiveItemToCharacterOrParty(int uiChar, W8ItemInstance* item, bool party_fir
 bool DropItemInHand(int unused)
 {
     if ((g_item_records[g_status.item_in_hand.iItemNo].flags & W8_ITEM_FLAG_NO_DISCARD) != 0) {
-        ShowNoticeLine(gppStringList[0x4ef], 0, true, false);
+        ShowNoticeLine(g_localized_strings[0x4ef], 0, true, false);
         return false;
     }
     DropHeldItem(unused);
@@ -1956,7 +1945,7 @@ void AddPartyGold(int amount, bool announce)
 
     if (announce) {
         ShowNotice(
-            8, FormatWideString(L"%s %d %s.", gppStringList[0x15f], amount, gppStringList[0x160]));
+            8, FormatText("%s %d %s.", g_localized_strings[0x15f], amount, g_localized_strings[0x160]));
         if (!SoundFileIsPlaying(sound_path)) {
             SoundPlay(sound_path, 0);
         }
@@ -1973,7 +1962,7 @@ void ReplaceOrCreateItem(W8ItemInstance* item, int item_id, bool maximum_quantit
     if (static_cast<unsigned int>(item_id) >= gXStatus.uiItemsInDatabase) {
         srAssertFail(
             "uiItemNo < gXStatus.uiItemsInDatabase", PC_ITEM_CPP, 564,
-            FormatString("InitNewItem: error, invalid item # %ld specified", item_id));
+            FormatText("InitNewItem: error, invalid item # %d specified", item_id));
     }
 
     EmptyItemRecord(item, 0, true);
@@ -2024,7 +2013,7 @@ void BindEquippedItem(W8Character* character, W8EquipSlot equip_slot)
     }
     if (g_equip_slot_icons[equip_slot] != -1 && !item->bound) {
         item->bound = true;
-        ShowNoticef(W8_FONT_PALETTE_WHITE, gppStringList[0x1ea], FormatItemDisplayName(item, true));
+        ShowNoticef(W8_FONT_PALETTE_WHITE, g_localized_strings[0x1ea], FormatItemDisplayName(item, true));
     }
 }
 
@@ -2267,7 +2256,7 @@ void EquipMatchingPartnerItem(W8Character* character, W8ItemInstance* item, int 
     }
 
     SwapItemInstances(pair, &character->EquippedItem[equip_slot], character, true);
-    PostCharacterNotice(CharacterPointerToPartySlot(character), gppStringList[0x1d4]);
+    PostCharacterNotice(CharacterPointerToPartySlot(character), g_localized_strings[0x1d4]);
 }
 
 /* Where one item id sits on a character. The worn slots are searched first and
@@ -2580,7 +2569,7 @@ void BindEveryPartyItem(void)
     unsigned int party_slot;
 
     if (gXStatus.fCombatMode && !g_combat_state->round_active && !gXStatus.fPartyMovementMode) {
-        ShowNotice(W8_FONT_PALETTE_BEIGE, gppStringList[W8_NOTICE_WEAPON_SWAP_BLOCKED_COMBAT]);
+        ShowNotice(W8_FONT_PALETTE_BEIGE, g_localized_strings[W8_NOTICE_WEAPON_SWAP_BLOCKED_COMBAT]);
         return;
     }
     for (party_slot = 0; party_slot < 8; ++party_slot) {
@@ -2588,7 +2577,7 @@ void BindEveryPartyItem(void)
             BindCharacterItems(party_slot, false);
         }
     }
-    ShowNotice(W8_FONT_PALETTE_WHITE, gppStringList[0x1ed]);
+    ShowNotice(W8_FONT_PALETTE_WHITE, g_localized_strings[0x1ed]);
 }
 
 /* Order two pool entries. Both have to hold something, and they are compared
@@ -2738,7 +2727,7 @@ bool MergeItemStacks(W8ItemInstance* destination, W8ItemInstance* source, bool* 
     if (destination->stack_count > record->maximum_quantity) {
         srAssertFail(
             "FALSE", PC_ITEM_CPP, 3371,
-            FormatString("StackItemsIfPossible: ERROR - slot holds %d when max is %d, item %d(%ls)",
+            FormatText("StackItemsIfPossible: ERROR - slot holds %d when max is %d, item %d(%s)",
                          destination->stack_count, record->maximum_quantity, destination->iItemNo,
                          FormatItemDisplayName(destination, true)));
         destination->stack_count = record->maximum_quantity;
@@ -2854,8 +2843,8 @@ void SetHandType(W8Character* character, W8EquipSlot slot)
         hand = 0;
     } else {
         if (slot != W8_EQUIP_SLOT_SECONDARY_WEAPON) {
-            char* message =
-                FormatString("SetHandType: ERROR: uiSlot %d is not a hand/weapon slot!", slot);
+            std::string message =
+                FormatText("SetHandType: ERROR: uiSlot %d is not a hand/weapon slot!", slot);
             srAssertFail("FALSE", PC_ITEM_CPP, 3690, message);
             return;
         }
@@ -2888,7 +2877,7 @@ void SetHandType(W8Character* character, W8EquipSlot slot)
             wield_kind = 2;
             break;
         default: {
-            char* message = FormatString("SetHandType: ERROR: invalid item %d type %d in hand %d!",
+            std::string message = FormatText("SetHandType: ERROR: invalid item %d type %d in hand %d!",
                                          item_id, g_item_records[item_id].equip_class, hand);
             srAssertFail("FALSE", PC_ITEM_CPP, 3731, message);
             return;
@@ -3227,14 +3216,14 @@ bool ValidateItemSpellUse(int character_index, W8ItemInstance* item,
         record->equip_class == W8_ITEM_EQUIP_CLASS_OTHER || CanCastFromItem(character, item)) {
         if (gXStatus.fCombatMode || gXStatus.fCampMode || gXStatus.fLockInteract ||
             gXStatus.fTrapInteract) {
-            ShowNoticeLine(gppStringList[0x7a6], callback, true, false);
+            ShowNoticeLine(g_localized_strings[0x7a6], callback, true, false);
             return true;
         }
         return false;
     }
     if (character->uiCondition[W8_CONDITION_SILENCED] != 0 &&
         record->equip_class == W8_ITEM_EQUIP_CLASS_INSTRUMENT) {
-        ShowNoticeLine(gppStringList[0x7a7], callback, true, false);
+        ShowNoticeLine(g_localized_strings[0x7a7], callback, true, false);
         return true;
     }
     if (gXStatus.fItemSelectMode) {
@@ -3243,12 +3232,12 @@ bool ValidateItemSpellUse(int character_index, W8ItemInstance* item,
                                             ItemClassNormalizesTarget(record));
         SetUseItemSelectOverrideItem(0);
         if (!has_target) {
-            ShowNoticeLine(gppStringList[0x7a8], callback, true, false);
+            ShowNoticeLine(g_localized_strings[0x7a8], callback, true, false);
             return true;
         }
     }
     if (!SpellUsableNow(record->spell_id, false)) {
-        ShowNoticeLine(gppStringList[0x7a6], callback, true, false);
+        ShowNoticeLine(g_localized_strings[0x7a6], callback, true, false);
         return true;
     }
     return false;
@@ -3321,7 +3310,7 @@ bool InsertItemIntoPartyPool(W8ItemInstance* item, int index)
 // FUNCTION: WIZ8 0x00521ef0
 bool AddItemToParty(W8ItemInstance* item, bool announce, bool skip_stacking)
 {
-    wchar_t* display_name = FormatItemDisplayName(item, true);
+    std::string display_name = FormatItemDisplayName(item, true);
     bool partially_merged = false;
     unsigned int index = 0;
     bool stored = false;
@@ -3354,7 +3343,7 @@ bool AddItemToParty(W8ItemInstance* item, bool announce, bool skip_stacking)
         g_camp_screen->item_redraw_flags |= W8_CAMP_ITEM_REDRAW_POOL;
     }
     if (announce) {
-        ShowNoticef(W8_FONT_PALETTE_WHITE, gppStringList[0x1e9], display_name);
+        ShowNoticef(W8_FONT_PALETTE_WHITE, g_localized_strings[0x1e9], display_name);
     }
     W8ItemInstance* stored_item = &g_status.party_item_pool[index];
     UpdateFactsAfterAcquiringItem(stored_item);
@@ -3416,15 +3405,15 @@ void UnequipUnusableItems(W8Character* character)
             }
         }
         if (unmet) {
-            PostCharacterNotice(party_slot, gppStringList[0x1ef],
-                                gppStringList[g_gender_name_message_rows[character->gender][2]],
+            PostCharacterNotice(party_slot, g_localized_strings[0x1ef],
+                                g_localized_strings[g_gender_name_message_rows[character->gender][2]],
                                 FormatItemDisplayName(item, true),
-                                gppStringList[g_gender_name_message_rows[character->gender][2]],
-                                gppStringList[message_id]);
+                                g_localized_strings[g_gender_name_message_rows[character->gender][2]],
+                                g_localized_strings[message_id]);
         } else {
-            PostCharacterNotice(party_slot, gppStringList[0x1f0],
-                                gppStringList[g_gender_name_message_rows[character->gender][2]],
-                                FormatItemDisplayName(item, true), item, 1);
+            PostCharacterNotice(party_slot, g_localized_strings[0x1f0],
+                                g_localized_strings[g_gender_name_message_rows[character->gender][2]],
+                                FormatItemDisplayName(item, true));
         }
 
         destination.iItemNo = -1;
@@ -3667,7 +3656,7 @@ void MergeMatchingPartnerItem(W8Character* character, W8ItemInstance* item)
     if (FindCharacterItemByDatabaseKind(character, g_compatible_partner_pairs[row][1], &partner,
                                         1)) {
         MergeItemUses(character, item, partner);
-        PostCharacterNotice(CharacterPointerToPartySlot(character), gppStringList[0x1d4]);
+        PostCharacterNotice(CharacterPointerToPartySlot(character), g_localized_strings[0x1d4]);
         return;
     }
 
@@ -3761,9 +3750,9 @@ int CastItemSpell(W8Character* character, W8ItemInstance* item, unsigned int pow
     target.spell_difficulty =
         static_cast<unsigned char>(GetSpellDifficulty(caster_figure, spell_id, power));
 
-    if (strlen(record->sound_name) != 0) {
+    if (record->sound_name.size() != 0) {
 
-        SoundPlay(FormatString(s_spell_sound_format, record->sound_name), 0);
+        SoundPlay(FormatText(s_spell_sound_format, record->sound_name), 0);
     }
 
     {
@@ -3776,7 +3765,7 @@ int CastItemSpell(W8Character* character, W8ItemInstance* item, unsigned int pow
 
     if (effect == 1) {
         if (g_settings.verbose_combat_messages != 0 || !item->identified) {
-            FormatNotice(W8_FONT_PALETTE_WHITE, -1, gppStringList[0x1f4], GetItemDisplayName(item),
+            FormatNotice(W8_FONT_PALETTE_WHITE, -1, g_localized_strings[0x1f4], GetItemDisplayName(item),
                          g_spell_records[spell_id].display_name, power);
             if (g_settings.verbose_combat_messages == 0) {
                 SetTextBoxMode(1, -1);
@@ -3785,7 +3774,7 @@ int CastItemSpell(W8Character* character, W8ItemInstance* item, unsigned int pow
         item->spell_hint = true;
     } else if (effect == 3) {
         PostCharacterNotice(
-            party_slot, FormatWideString(gppStringList[0x1a9], FormatItemDisplayName(item, false)));
+            party_slot, FormatText(g_localized_strings[0x1a9], FormatItemDisplayName(item, false)));
     }
 
     if (skill != W8_SKILL_NONE) {
@@ -3968,8 +3957,8 @@ void UpgradeProfessionClassItem(W8Character* character)
         }
         PostCharacterNotice(
             CharacterPointerToPartySlot(character),
-            FormatWideString(gppStringList[0x167],
-                             gppStringList[g_gender_name_message_rows[character->gender][3]]));
+            FormatText(g_localized_strings[0x167],
+                             g_localized_strings[g_gender_name_message_rows[character->gender][3]]));
         return;
     case 3:
     case 4:
@@ -4036,8 +4025,8 @@ void UpgradeProfessionClassItem(W8Character* character)
         found->iItemNo = item_id;
         PostCharacterNotice(
             CharacterPointerToPartySlot(character),
-            FormatWideString(gppStringList[message_id],
-                             gppStringList[g_gender_name_message_rows[character->gender][2]]));
+            FormatText(g_localized_strings[message_id],
+                             g_localized_strings[g_gender_name_message_rows[character->gender][2]]));
     }
 }
 
@@ -4112,7 +4101,7 @@ bool SwapWeaponSetSlots(int party_slot, bool announce, bool refresh)
         character->EquippedItem[W8_EQUIP_SLOT_ALTERNATE_PRIMARY_WEAPON].iItemNo == -1 &&
         character->EquippedItem[W8_EQUIP_SLOT_ALTERNATE_SECONDARY_WEAPON].iItemNo == -1) {
         if (announce) {
-            PostCharacterNoticeInContext(party_slot, notice_context, gppStringList[0x1eb]);
+            PostCharacterNoticeInContext(party_slot, notice_context, g_localized_strings[0x1eb]);
         }
         return false;
     }
@@ -4122,7 +4111,7 @@ bool SwapWeaponSetSlots(int party_slot, bool announce, bool refresh)
     if (!CanUnequipSlotItem(character, W8_EQUIP_SLOT_PRIMARY_WEAPON) ||
         !CanUnequipSlotItem(character, W8_EQUIP_SLOT_SECONDARY_WEAPON)) {
         if (announce) {
-            PostCharacterNoticeInContext(party_slot, notice_context, gppStringList[0x1ee]);
+            PostCharacterNoticeInContext(party_slot, notice_context, g_localized_strings[0x1ee]);
         }
         return false;
     }
@@ -4161,7 +4150,7 @@ bool SwapWeaponSetSlots(int party_slot, bool announce, bool refresh)
         RebuildEquipmentAndDerivedStatsForSlot(party_slot);
     }
     if (announce) {
-        PostCharacterNoticeInContext(party_slot, notice_context, gppStringList[0x1ec]);
+        PostCharacterNoticeInContext(party_slot, notice_context, g_localized_strings[0x1ec]);
     }
     return true;
 }
@@ -4176,13 +4165,13 @@ void BindCharacterItems(int party_slot, bool announce)
 {
     if (gXStatus.fCombatMode) {
         if (!g_combat_state->round_active && !gXStatus.fPartyMovementMode) {
-            ShowNotice(W8_FONT_PALETTE_BEIGE, gppStringList[W8_NOTICE_WEAPON_SWAP_BLOCKED_COMBAT]);
+            ShowNotice(W8_FONT_PALETTE_BEIGE, g_localized_strings[W8_NOTICE_WEAPON_SWAP_BLOCKED_COMBAT]);
             return;
         }
         if (g_combat_state->iActionChar == party_slot && g_combat_state->eCombatActionStatus == 2 &&
             (g_status.buffers.XChar[party_slot].pending_action == W8_ACTION_ATTACK ||
              g_status.buffers.XChar[party_slot].pending_action == W8_ACTION_BERSERK)) {
-            ShowNoticef(W8_FONT_PALETTE_WHITE, gppStringList[0x1f7],
+            ShowNoticef(W8_FONT_PALETTE_WHITE, g_localized_strings[0x1f7],
                         g_status.buffers.Char[party_slot].name);
             return;
         }

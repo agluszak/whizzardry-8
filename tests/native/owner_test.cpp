@@ -1,3 +1,4 @@
+#include "wiz8/fonts.h"
 #include "wiz8/local_code/Gameloop.h"
 #include "wiz8/local_screens/Screens.h"
 #include "wiz8/local_screens/ReviewCharacterScreen.h"
@@ -258,7 +259,7 @@ void region_registration_and_callback_lifetimes()
     MSYS_SGP_Mouse_Handler_Hook(LEFT_BUTTON_UP, 11, 11, false, false);
     MSYS_RemoveRegion(&first);
 
-    wchar_t label[] = L"nested";
+    char label[] = "nested";
     nested_outer = CreateTextButton(label, 0, 0, 0, -1, 0, 0, 40, 20,
                                    BUTTON_TOGGLE, MSYS_PRIORITY_NORMAL, nullptr, nested_click);
     nested_inner = CreateTextButton(label, 0, 0, 0, -1, 0, 20, 40, 20,
@@ -326,27 +327,27 @@ void buttons_and_regions()
     gpAnchoredButton = nullptr;
     ButtonList[0] = nullptr;
     for (unsigned repeat = 0; repeat < 32; ++repeat) {
-        wchar_t label[] = L"owned button";
+        char label[] = "owned button";
         const auto id = CreateTextButton(label, 0, 0, 0, -1, 0, 0, 40, 20,
                                          BUTTON_TOGGLE, MSYS_PRIORITY_NORMAL, nullptr, click);
         CHECK(id >= 0);
         auto* owned = ButtonList[id].get();
-        CHECK(owned && owned->string[0] == L'o');
-        label[0] = L'x';
-        CHECK(owned->string[0] == L'o');
-        SpecifyButtonText(id, owned->string.get());
-        CHECK(ButtonList[id].get() == owned && owned->string[0] == L'o');
-        wchar_t tooltip[] = L"tooltip";
+        CHECK(owned && owned->string[0] == 'o');
+        label[0] = 'x';
+        CHECK(owned->string[0] == 'o');
+        SpecifyButtonText(id, owned->string);
+        CHECK(ButtonList[id].get() == owned && owned->string[0] == 'o');
+        char tooltip[] = "tooltip";
         SetButtonFastHelpText(id, tooltip);
-        tooltip[0] = L'x';
-        CHECK(owned->Area.FastHelpText[0] == L't');
-        SetButtonFastHelpText(id, owned->Area.FastHelpText.get());
-        CHECK(owned->Area.FastHelpText[0] == L't');
-        SetButtonFastHelpText(id, nullptr);
-        CHECK(!owned->Area.FastHelpText);
+        tooltip[0] = 'x';
+        CHECK(owned->Area.FastHelpText[0] == 't');
+        SetButtonFastHelpText(id, owned->Area.FastHelpText);
+        CHECK(owned->Area.FastHelpText[0] == 't');
+        SetButtonFastHelpText(id, {});
+        CHECK(owned->Area.FastHelpText.empty());
         SetButtonFastHelpText(id, label);
-        SpecifyButtonText(id, nullptr);
-        CHECK(!owned->string);
+        SpecifyButtonText(id, {});
+        CHECK(owned->string.empty());
         RemoveButton(id);
         CHECK(!ButtonList[id]);
     }
@@ -460,25 +461,25 @@ void text_input_ownership()
     for (unsigned repeat = 0; repeat < 32; ++repeat) {
         InitTextInputMode();
         const auto first = AddTextInputField(0, 0, 80, 20, MSYS_PRIORITY_NORMAL,
-                                             L"alpha", 32, 0, 0);
+                                             "alpha", 32, 0, 0);
         const auto middle = AddTextInputField(0, 20, 80, 20, MSYS_PRIORITY_NORMAL,
-                                              L"beta", 32, 0, 0);
+                                              "beta", 32, 0, 0);
         const auto last = AddTextInputField(0, 40, 80, 20, MSYS_PRIORITY_NORMAL,
-                                            L"gamma", 32, 0, 0);
+                                            "gamma", 32, 0, 0);
         CHECK(first == 0 && middle == 1 && last == 2);
-        wchar_t text[33]{};
-        Get16BitStringFromField(first, text);
-        CHECK(text[0] == L'a' && GetTextInputFieldLength(first) == 5);
+        std::string text;
+        text = GetTextFromField(first);
+        CHECK(text[0] == 'a' && GetTextInputFieldByteLength(first) == 5);
         RemoveTextInputField(middle);
-        CHECK(GetTextInputFieldLength(last) == 5);
+        CHECK(GetTextInputFieldByteLength(last) == 5);
         InitTextInputMode();
         CHECK(AddTextInputField(0, 0, 80, 20, MSYS_PRIORITY_NORMAL,
-                                L"inner", 32, 0, 0) == 0);
+                                "inner", 32, 0, 0) == 0);
         KillTextInputMode();
-        Get16BitStringFromField(first, text);
-        CHECK(text[0] == L'a' && GetTextInputFieldLength(last) == 5);
+        text = GetTextFromField(first);
+        CHECK(text[0] == 'a' && GetTextInputFieldByteLength(last) == 5);
         CHECK(AddTextInputField(0, 60, 80, 20, MSYS_PRIORITY_NORMAL,
-                                L"delta", 32, 0, 0) == 3);
+                                "delta", 32, 0, 0) == 3);
         RemoveTextInputField(first);
         RemoveTextInputField(3);
         RemoveTextInputField(last);
@@ -492,12 +493,14 @@ void text_input_ownership()
 
 void formatted_strings()
 {
-    char* first = FormatString("%s %d", "first", 7);
-    char* second = FormatString("%s %d", "second", 9);
-    CHECK(strcmp(first, "first 7") == 0 && strcmp(second, "second 9") == 0);
-    std::string oversized(1024, 'x');
-    CHECK(strlen(FormatString("%s", oversized.c_str())) == 511);
-    CHECK(strcmp(FormatString("%d", 42), "42") == 0);
+    const auto first = FormatText("%s %d", "first", 7);
+    const auto second = FormatText("%s %d", "second", 9);
+    CHECK(first == "first 7" && second == "second 9");
+    const std::string long_text(1024, 'x');
+    CHECK(FormatText("%s", long_text) == long_text);
+    CHECK(FormatText("%d", 42) == "42");
+    CHECK(FormatText("%ls %hs", "é", "中") == "é 中");
+    CHECK(FormatText("100% literal") == "100% literal");
 }
 
 void button_image_fixture(const std::filesystem::path& root, std::string name, unsigned count = 9,
@@ -650,20 +653,20 @@ void generic_button_images()
     CHECK(FindFreeGenericSlot() == 1 && GenericButtonOnNormal[0]);
     CHECK(!GenericButtonOffHilite[0] && !GenericButtonOnHilite[0]);
     CHECK(UnloadGenericButtonImage(0));
-    UINT8 filename[] = "button.sti", missing[] = "missing.sti", short_image[] = "short.sti";
-    const auto load = [](const std::array<UINT8*, 6>& names) {
+    std::string_view filename = "button.sti", missing = "missing.sti", short_image = "short.sti";
+    const auto load = [](const std::array<std::string_view, 6>& names) {
         return LoadGenericButtonImages(names[2], names[0], names[3], names[1], names[4], names[5], 3, 4, 5);
     };
     for (size_t index = 0; index < 6; ++index) {
-        std::array<UINT8*, 6> names;
+        std::array<std::string_view, 6> names;
         names.fill(filename);
         names[index] = missing;
         CHECK(load(names) == -1 && FindFreeGenericSlot() == 0);
         CHECK(!GenericButtonOffNormal[0] && !GenericButtonOnNormal[0]);
     }
-    CHECK(load({nullptr, filename, nullptr, nullptr, nullptr, nullptr}) == -1);
-    CHECK(load({filename, nullptr, nullptr, nullptr, nullptr, nullptr}) == -1);
-    CHECK(load({short_image, filename, nullptr, nullptr, nullptr, nullptr}) == -1);
+    CHECK(load({std::string_view{}, filename, {}, {}, {}, {}}) == -1);
+    CHECK(load({filename, {}, {}, {}, {}, {}}) == -1);
+    CHECK(load({short_image, filename, {}, {}, {}, {}}) == -1);
     CHECK(FindFreeGenericSlot() == 0);
     CHECK(load({filename, filename, filename, filename, filename, filename}) == 0);
     CHECK(GenericButtonGrayed[0] && GenericButtonOffHilite[0] && GenericButtonOnHilite[0]);
@@ -673,13 +676,13 @@ void generic_button_images()
     CHECK(UnloadGenericButtonImage(0));
     CHECK(!GenericButtonBackground[0] && GenericButtonOffsetX[0] == 0);
     for (int slot = 0; slot < 40; ++slot) {
-        CHECK(load({filename, filename, nullptr, nullptr, nullptr, nullptr}) == slot);
+        CHECK(load({filename, filename, {}, {}, {}, {}}) == slot);
         CHECK(!GenericButtonGrayed[slot] && !GenericButtonBackground[slot]);
     }
-    CHECK(load({filename, filename, nullptr, nullptr, nullptr, nullptr}) == -1);
+    CHECK(load({filename, filename, {}, {}, {}, {}}) == -1);
     for (unsigned repeat = 0; repeat < 32; ++repeat) {
         CHECK(InitializeFontManager(CreateEnglishTransTable()));
-        CHECK(LoadFontFile(reinterpret_cast<const char*>(filename)) == 0);
+        CHECK(LoadFontFile(std::string(filename).c_str()) == 0);
         auto* font = GetFontObject(0);
         CHECK(font && font->ownedPalette && font->pETRLEObject.size() == 9);
         UINT16 borrowed[256]{};
@@ -689,6 +692,57 @@ void generic_button_images()
         ShutdownFontManager();
         ShutdownFontManager();
     }
+    CHECK(InitializeFontManager(std::vector<UINT16>{'?', 0x00e9, 0x4e2d, 'e', 0x0301, 'a', 'b', ' ', 'c'}));
+    CHECK(LoadFontFile(std::string(filename).c_str()) == 0);
+    CHECK(StringPixLength("é", 0) > 0);
+    CHECK(StringPixLengthArg(0, 1, "%s", "é中") == StringPixLength("é", 0));
+    CHECK(StringPixLengthArg(0, 2, "%s", "é中") == StringPixLength("é中", 0));
+    g_font12point1 = 0;
+    MSYS_Init();
+    InitTextInputMode();
+    const auto field = AddTextInputField(0, 0, 80, 20, MSYS_PRIORITY_NORMAL, "", 1000, 0x0f, 0);
+    SetActiveField(field);
+    const std::string clusters = "é👩‍👩‍👧‍👦中";
+    SetInputFieldText(field, clusters);
+    SetTextInputCursor(clusters.size());
+    InputAtom backspace{};
+    backspace.usEvent = KEY_DOWN;
+    backspace.usParam = 8;
+    CHECK(HandleTextInput(&backspace));
+    CHECK(GetTextFromField(field) == "é👩‍👩‍👧‍👦");
+    CHECK(HandleTextInput(&backspace));
+    CHECK(GetTextFromField(field) == "é");
+    CHECK(HandleTextInput(&backspace));
+    CHECK(GetTextFromField(field).empty());
+    InputAtom committed{};
+    committed.usEvent = KEY_DOWN;
+    committed.usParam = 0x4e2d;
+    committed.uiParam = NATIVE_TEXT_INPUT_FLAG;
+    CHECK(HandleTextInput(&committed));
+    CHECK(GetTextFromField(field) == "中");
+    committed.usParam = 0x1f600;
+    CHECK(HandleTextInput(&committed));
+    CHECK(GetTextFromField(field) == "中😀");
+    SetInputFieldText(field, "");
+    const std::array<char32_t, 7> family = {0x1f469, 0x200d, 0x1f469, 0x200d, 0x1f467, 0x200d, 0x1f466};
+    for (const auto scalar : family) {
+        committed.usParam = scalar;
+        CHECK(HandleTextInput(&committed));
+    }
+    CHECK(GetTextFromField(field) == "👩‍👩‍👧‍👦");
+    CHECK(HandleTextInput(&backspace));
+    CHECK(GetTextFromField(field).empty());
+    std::string long_text;
+    for (unsigned n = 0; n < 100; ++n) long_text += "中";
+    SetInputFieldText(field, long_text);
+    SetTextInputCursor(long_text.size());
+    CHECK(GetTextInputByteCursor() == 300);
+    CHECK(GetTextInputFieldByteLength(field) == 300);
+    CHECK(HandleTextInput(&backspace));
+    CHECK(GetTextInputByteCursor() == 297 && GetTextFromField(field).size() == 297);
+    KillTextInputMode();
+    MSYS_Shutdown();
+    ShutdownFontManager();
     ShutdownButtonImageManager();
     CHECK(FindFreeGenericSlot() == 0 && !GenericButtonOnNormal[39]);
 

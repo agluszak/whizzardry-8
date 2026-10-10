@@ -1,3 +1,4 @@
+#include <string_view>
 #pragma once
 
 #include "surrender/srMaterial.h"
@@ -107,8 +108,8 @@ struct W8OctRegionPolygon;
 extern W8OctPreTreeVertex* g_gd_vertices;
 extern W8OctRegionPolygon* g_gd_polygons;
 
-void ReportBuildStatus(short channel, const char* message);
-void ReportStartupMessage(const char* message);
+void ReportBuildStatus(short channel, std::string_view message);
+void ReportStartupMessage(std::string_view message);
 char* TrimAndLowercaseString(char* text);
 struct W8OctPreTreeVertex;
 struct W8OctRegionPolygon;

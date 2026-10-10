@@ -633,7 +633,7 @@ static void HandleMonsterPatrolFailure(W8MonsterInfo* monster_info)
         MarkMonsterGroupForRemoval(monster_info->monster_group_id);
     } else {
         if (g_dev_mode && gfCapturingVideo == 0) {
-            FormatDebugMessage(0, "%S %d can't path!", GetMonsterName(monster_info, 0, 0),
+            FormatDebugMessage(0, "%s %d can't path!", GetMonsterName(monster_info, 0, 0),
                                monster_info->location_id);
         }
         monster_info->pathing_cooldown = 0x14;
@@ -893,7 +893,7 @@ void UpdateMonsterAI(W8MonsterInfo* monster_info)
                 if (!MonsterIsCycleSupported(monster_info->p3D, W8_MONSTER_CYCLE_SPELL)) {
                     if (!g_spell_cycle_error_reported) {
                         FormatDebugMessage(0, "ERROR: %ls is missing a SPELL animation cycle",
-                                           record);
+                                           record->name0);
                         g_spell_cycle_error_reported = true;
                     }
                 } else {
@@ -989,7 +989,7 @@ members:
         if (record->spell_chance != 0) {
             if (!MonsterIsCycleSupported(member->p3D, W8_MONSTER_CYCLE_SPELL)) {
                 if (!g_spell_cycle_error_reported) {
-                    FormatDebugMessage(0, "ERROR: %ls is missing a SPELL animation cycle", record);
+                    FormatDebugMessage(0, "ERROR: %ls is missing a SPELL animation cycle", record->name0);
                     g_spell_cycle_error_reported = true;
                 }
             } else {
@@ -1610,8 +1610,8 @@ bool MonsterSpellTargetOK(W8MonsterInfo* monster_info, int spell_id, W8CombatSlo
                 if (record->spell_chance != 0) {
                     if (!MonsterIsCycleSupported(target->p3D, W8_MONSTER_CYCLE_SPELL)) {
                         if (!g_spell_cycle_error_reported) {
-                            FormatDebugMessage(0, "ERROR: %ls is missing a SPELL animation cycle",
-                                               record);
+                            FormatDebugMessage(0, "ERROR: %s is missing a SPELL animation cycle",
+                                               record->name0);
                             g_spell_cycle_error_reported = true;
                             return false;
                         }
@@ -2291,7 +2291,7 @@ bool CanMonsterFlee(W8MonsterInfo* monster_info, W8MonsterRecord* record, bool e
     }
     if (!MonsterIsCycleSupported(monster_info->p3D, 0x12)) {
         if (!g_special_attack_cycle_error_reported) {
-            FormatDebugMessage(0, "ERROR: %ls is missing a SPECIAL ATTACK animation cycle", record);
+            FormatDebugMessage(0, "ERROR: %ls is missing a SPECIAL ATTACK animation cycle", record->name0);
             g_special_attack_cycle_error_reported = true;
         }
         return false;

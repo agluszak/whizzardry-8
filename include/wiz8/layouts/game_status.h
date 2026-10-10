@@ -1,6 +1,8 @@
 #ifndef WIZ8_LAYOUTS_GAME_STATUS_H
 #define WIZ8_LAYOUTS_GAME_STATUS_H
 
+#include <string>
+
 #include "compat/ptr32.h"
 #include "wiz8/difficulty.h"
 #include "Types.h"
@@ -42,6 +44,7 @@ struct W8CharacterSpellUsageRecord {
     unsigned char unknown_0c[4];
 };
 
+#pragma pack(push, 8)
 struct W8GlobalStatus {
     W8StatusBuffers buffers;
     bool game_started; /* 0x000c */
@@ -142,7 +145,7 @@ struct W8GlobalStatus {
     /* 0x244b: the save file's creation-time pair XOR-masked by SaveGame's
        two data constants; both halves are written as dwords. */
     unsigned int save_filetime_xor[2];
-    wchar_t monster_name_buffer[22];
+    std::string monster_name_buffer;
     /* 0x247f: party slot selected by the Sedexus path before rpc_active
        is armed; later capture, fact and death handling reuse the same slot. */
     int sedexus_party_slot;
@@ -208,10 +211,9 @@ struct W8GlobalStatus {
     bool dev_flagged;
 };
 #pragma pack(pop)
+#pragma pack(pop)
 
-W8_ABI_ASSERT(offsetof(W8GlobalStatus, status_header_suffix) + sizeof(W8GlobalStatus::status_header_suffix) -
-              offsetof(W8GlobalStatus, status_header_prefix) == 0x100,
-              "W8GlobalStatus_status_header_size");
+
 
 extern W8GlobalStatus g_status;
 

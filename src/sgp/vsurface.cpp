@@ -945,9 +945,9 @@ void CheckValidVSurfaceIndex(UINT32 uiIndex)
             break;
         }
         if (uiIndex == 0xffffffff) {
-            AssertMsg(0, FormatString("Trying to %s with deleted index -1.", str));
+            AssertMsg(0, FormatText("Trying to %s with deleted index -1.", str));
         } else {
-            AssertMsg(0, FormatString("Trying to %s using a VOBJECT ID %d!", str, uiIndex));
+            AssertMsg(0, FormatText("Trying to %s using a VOBJECT ID %d!", str, uiIndex));
         }
     }
 }

@@ -1,5 +1,5 @@
+#include <string>
 #include "wiz8/dialog_code/DialogFactoryDialogs.h"
-#include "wiz8/sgp_text.h"
 #include "wiz8/dialog_code/ButtonUserData.h"
 #include "wiz8/dialog_code/DialogButton.h"
 #include "wiz8/dialog_code/DialogInterface.h"
@@ -33,13 +33,12 @@
 #include <ctype.h>
 #include <stdlib.h>
 #include <string.h>
-#include <wchar.h>
 
 void W8ListBoxDialog::ClearLines()
 {
     int line_count = m_lines.GetCount();
     for (int index = 0; index < line_count; ++index) {
-        wchar_t* line = *m_lines.GetAt(index);
+        char* line = *m_lines.GetAt(index);
         if (line != 0) {
             free(line);
         }
@@ -92,11 +91,11 @@ W8ListBoxDialog::~W8ListBoxDialog()
 }
 
 // FUNCTION: WIZ8 0x005cbd70
-void W8ListBoxDialog::SetText(const wchar_t* text)
+void W8ListBoxDialog::SetText(std::string_view text)
 {
     if (m_text_button != -1) {
-        SpecifyButtonText(m_text_button, const_cast<wchar_t*>(text));
-        W8DialogBase::SetText(0);
+        SpecifyButtonText(m_text_button, text);
+        W8DialogBase::SetText({});
         return;
     }
     W8DialogBase::SetText(text);
@@ -207,10 +206,7 @@ int W8ListBoxDialog::CreateControls()
     if (W8DialogBase::CreateControls() != 0) {
         return m_error;
     }
-    edge_inlay = LoadGenericButtonImages(0, Wiz8ToSgpText("Data\\Dialogs\\DialogEdge.STI"), 0,
-                                         Wiz8ToSgpText("Data\\Dialogs\\DialogEdge.STI"), 0,
-                                         Wiz8ToSgpText(m_background_path),
-                                         static_cast<short>(m_background_flags), 0, 0);
+    edge_inlay = LoadGenericButtonImages({}, "Data\\Dialogs\\DialogEdge.STI", {}, "Data\\Dialogs\\DialogEdge.STI", {}, m_background_path, static_cast<short>(m_background_flags), 0, 0);
     m_text_button =
         CreateTextButton(m_text, g_dialog_interface_font, g_dialog_font_foreground,
                          g_dialog_font_background, edge_inlay, static_cast<short>(m_x) + 9,
@@ -222,7 +218,7 @@ int W8ListBoxDialog::CreateControls()
         m_error = 7;
         return 7;
     }
-    if (m_text != 0) {
+    if (!m_text.empty()) {
         SetText(m_text);
     }
     if (m_text_button == -1) {
@@ -231,40 +227,33 @@ int W8ListBoxDialog::CreateControls()
     }
     SpecifyButtonMultiColorFont(m_text_button, g_dialog_font_enabled);
     area_inlay =
-        LoadGenericButtonImages(0, Wiz8ToSgpText("Data\\Dialogs\\DialogInlay.STI"), 0,
-                                Wiz8ToSgpText("Data\\Dialogs\\DialogInlay.STI"), 0,
-                                Wiz8ToSgpText("Data\\Dialogs\\DialogBackground_dark.STI"), 0, 3, 3);
+        LoadGenericButtonImages({}, "Data\\Dialogs\\DialogInlay.STI", {}, "Data\\Dialogs\\DialogInlay.STI", {}, "Data\\Dialogs\\DialogBackground_dark.STI", 0, 3, 3);
     if (area_inlay == -1) {
         m_error = 4;
         return 4;
     }
-    m_area_button = CreateTextButton(
-        0, g_dialog_interface_font, g_dialog_font_foreground, g_dialog_font_background, area_inlay,
-        static_cast<short>(m_x + (GetButtonX(m_text_button) - m_x)),
-        static_cast<short>(m_y +
-                           (GetButtonY(m_text_button) + GetButtonHeight(m_text_button) + 4 - m_y)),
-        static_cast<short>(GetButtonWidth(m_text_button)), 0x14, BUTTON_NO_TOGGLE,
-        MSYS_PRIORITY_HIGHEST - 1, TextAreaButtonCallback, TextAreaButtonCallback);
+    m_area_button = CreateTextButton({}, g_dialog_interface_font, g_dialog_font_foreground, g_dialog_font_background, area_inlay, static_cast<short>(m_x + (GetButtonX(m_text_button) - m_x)), static_cast<short>(m_y +
+                           (GetButtonY(m_text_button) + GetButtonHeight(m_text_button) + 4 - m_y)), static_cast<short>(GetButtonWidth(m_text_button)), 0x14, BUTTON_NO_TOGGLE, MSYS_PRIORITY_HIGHEST - 1, TextAreaButtonCallback, TextAreaButtonCallback);
     if (m_area_button == -1) {
         m_error = 7;
         return 7;
     }
     SetButtonUserDataPointer(m_area_button, this);
-    m_up_image = LoadButtonImage(Wiz8ToSgpText("Data\\Dialogs\\DialogUpArrow.STI"), 3, 0, 1, 2, 2);
+    m_up_image = LoadButtonImage("Data\\Dialogs\\DialogUpArrow.STI", 3, 0, 1, 2, 2);
     if (m_up_image != -1) {
         m_up_button =
             QuickCreateButton(m_up_image, 0, 0, BUTTON_NO_TOGGLE, MSYS_PRIORITY_HIGHEST - 1,
                               UpButtonCallback, UpButtonCallback);
     }
     m_down_image =
-        LoadButtonImage(Wiz8ToSgpText("Data\\Dialogs\\DialogDownArrow.STI"), 3, 0, 1, 2, 2);
+        LoadButtonImage("Data\\Dialogs\\DialogDownArrow.STI", 3, 0, 1, 2, 2);
     if (m_down_image != -1) {
         m_down_button =
             QuickCreateButton(m_down_image, 0, 0, BUTTON_NO_TOGGLE, MSYS_PRIORITY_HIGHEST - 1,
                               DownButtonCallback, DownButtonCallback);
     }
     m_slider_image =
-        LoadButtonImage(Wiz8ToSgpText("Data\\Dialogs\\DialogSlideBar.STI"), BUTTON_NO_IMAGE, 0,
+        LoadButtonImage("Data\\Dialogs\\DialogSlideBar.STI", BUTTON_NO_IMAGE, 0,
                         BUTTON_NO_IMAGE, BUTTON_NO_IMAGE, BUTTON_NO_IMAGE);
     if (m_slider_image != -1) {
         m_slider_button =
@@ -272,13 +261,13 @@ int W8ListBoxDialog::CreateControls()
                               BUTTON_NO_CALLBACK, BUTTON_NO_CALLBACK);
     }
     m_ok_image =
-        LoadButtonImage(Wiz8ToSgpText("Data\\Dialogs\\DialogConfirmation.STI"), 3, 0, 1, 2, 2);
+        LoadButtonImage("Data\\Dialogs\\DialogConfirmation.STI", 3, 0, 1, 2, 2);
     if (m_ok_image != -1) {
         m_ok_button = QuickCreateButton(m_ok_image, 0, 0, BUTTON_NO_TOGGLE, MSYS_PRIORITY_HIGHEST,
                                         OkButtonCallback, OkButtonCallback);
     }
     m_cancel_image =
-        LoadButtonImage(Wiz8ToSgpText("Data\\Dialogs\\DialogConfirmation.STI"), 7, 4, 5, 6, 6);
+        LoadButtonImage("Data\\Dialogs\\DialogConfirmation.STI", 7, 4, 5, 6, 6);
     if (m_cancel_image != -1) {
         m_cancel_button =
             QuickCreateButton(m_cancel_image, 0, 0, BUTTON_NO_TOGGLE, MSYS_PRIORITY_HIGHEST,
@@ -293,26 +282,13 @@ int W8ListBoxDialog::CreateControls()
         SetButtonUserDataPointer(m_slider_button, this);
         SetButtonUserDataPointer(m_ok_button, this);
         SetButtonUserDataPointer(m_cancel_button, this);
-        third_btn_inlay = LoadGenericButtonImages(
-            0, Wiz8ToSgpText("Data\\Dialogs\\DialogInlay.STI"), 0,
-            Wiz8ToSgpText("Data\\Dialogs\\DialogInlay.STI"), 0,
-            Wiz8ToSgpText("Data\\Dialogs\\DialogBackground_dark.STI"), 0, 3, 3);
+        third_btn_inlay = LoadGenericButtonImages({}, "Data\\Dialogs\\DialogInlay.STI", {}, "Data\\Dialogs\\DialogInlay.STI", {}, "Data\\Dialogs\\DialogBackground_dark.STI", 0, 3, 3);
         if (third_btn_inlay != -1) {
-            m_third_text_button = CreateTextButton(
-                0, g_dialog_interface_font, g_dialog_font_foreground, g_dialog_font_background,
-                third_btn_inlay, 0, 0, 1, 1, BUTTON_NO_TOGGLE, MSYS_PRIORITY_HIGHEST - 2,
-                SliderTrackButtonCallback, SliderTrackButtonCallback);
+            m_third_text_button = CreateTextButton({}, g_dialog_interface_font, g_dialog_font_foreground, g_dialog_font_background, third_btn_inlay, 0, 0, 1, 1, BUTTON_NO_TOGGLE, MSYS_PRIORITY_HIGHEST - 2, SliderTrackButtonCallback, SliderTrackButtonCallback);
             if (m_third_text_button != -1) {
                 SetButtonUserDataPointer(m_third_text_button, this);
-                m_second_text_button = CreateTextButton(
-                    0, g_dialog_interface_font, g_dialog_font_foreground, g_dialog_font_background,
-                    edge_inlay, static_cast<short>(m_x + 9),
-                    static_cast<short>((m_height - GetButtonHeight(m_ok_button) * 0x96 / 100) - 9 +
-                                       m_y),
-                    static_cast<short>(m_width - 0x12),
-                    static_cast<short>(GetButtonHeight(m_ok_button) * 0x96 / 100),
-                    BUTTON_NO_TOGGLE | BUTTON_IGNORE_CLICKS, MSYS_PRIORITY_HIGHEST - 1,
-                    BUTTON_NO_CALLBACK, BUTTON_NO_CALLBACK);
+                m_second_text_button = CreateTextButton({}, g_dialog_interface_font, g_dialog_font_foreground, g_dialog_font_background, edge_inlay, static_cast<short>(m_x + 9), static_cast<short>((m_height - GetButtonHeight(m_ok_button) * 0x96 / 100) - 9 +
+                                       m_y), static_cast<short>(m_width - 0x12), static_cast<short>(GetButtonHeight(m_ok_button) * 0x96 / 100), BUTTON_NO_TOGGLE | BUTTON_IGNORE_CLICKS, MSYS_PRIORITY_HIGHEST - 1, BUTTON_NO_CALLBACK, BUTTON_NO_CALLBACK);
                 SetButtonPosition(
                     m_cancel_button,
                     GetButtonX(m_second_text_button) - GetButtonWidth(m_cancel_button) +
@@ -441,7 +417,7 @@ void W8ListBoxDialog::Draw()
     }
     for (index = 0; index < static_cast<int>(visible_lines); ++index) {
         line = m_first_visible_line + index;
-        wchar_t* text = *m_lines.GetAt(line);
+        char* text = *m_lines.GetAt(line);
         if (line == m_selected_line) {
             ColorFillVideoSurfaceArea(
                 FRAME_BUFFER, m_x + 3 + dx,
@@ -661,7 +637,7 @@ bool W8SplitAmountDialog::CreateTextBuffers()
         bounds.right = g_split_amount_text_bounds[index].right + m_x;
         bounds.bottom = g_split_amount_text_bounds[index].bottom + m_y;
         m_text_buffers[index] = new W8TextBuffer(
-            &bounds, gppStringList[g_split_amount_string_ids[index]], g_wiz_text_font_secondary,
+            &bounds, g_localized_strings[g_split_amount_string_ids[index]], g_wiz_text_font_secondary,
             g_W8TextBufferAlignMiddle | g_W8TextBufferAlignRight, 4);
         if (m_text_buffers[index] == 0) {
             DestroyDialogTextBuffers(m_text_buffers, 3);
@@ -738,9 +714,9 @@ void W8SplitAmountDialog::Draw()
 // FUNCTION: WIZ8 0x005da000
 void W8SplitAmountDialog::UpdateTextBuffers()
 {
-    wchar_t text[12];
+    std::string text;
 
-    swprintf(text, g_format_d, m_remaining);
+    text = FormatText(g_format_d, m_remaining);
     m_text_buffers[2]->SetText(text, g_wiz_text_font_secondary);
     m_buttons[2]->m_dirty = true;
     m_text_buffers[2]->SetGeometryDirty();
@@ -1610,15 +1586,15 @@ void W8TriggerItemPickerDialog::Draw()
                          VO_BLT_SRCTRANSPARENCY, 0);
         SetFont(g_wiz_text_font);
         if (item->stack_count > 1) {
-            wchar_t* name = GetItemDisplayName(item);
-            gprintf(button->GetX() + 0x3c, button->GetY() + 6, L"%s(%d)", name, item->stack_count);
+            auto name = GetItemDisplayName(item);
+            gprintf(button->GetX() + 0x3c, button->GetY() + 6, "%s(%d)", name, item->stack_count);
         } else {
-            wchar_t* name = GetItemDisplayName(item);
+            auto name = GetItemDisplayName(item);
             gprintf(button->GetX() + 0x3c, button->GetY() + 6, name);
         }
         unsigned short weight = g_item_records[item->iItemNo].weight;
         gprintf(button->GetX() + 0x3c, button->GetY() + GetFontHeight(g_wiz_text_font) + 6,
-                L"%4.1f lbs", weight * 0.1f);
+                "%4.1f lbs", weight * 0.1f);
     }
 }
 

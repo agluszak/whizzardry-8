@@ -1,3 +1,4 @@
+#include "wiz8/unicode.h"
 #include "wiz8/local_code/GameplayDatabase.h"
 #include "wiz8/sr_api.h"
 #include "surrender/srGERD.h"
@@ -29,7 +30,7 @@ void LoadGameConfiguration(void)
     bool loaded = false;
     bool reset = true;
 
-    sprintf(path, "%s.%s", g_config_file_name, g_config_file_extension);
+    wiz8::text::copy(path, FormatText("%s.%s", g_config_file_name, g_config_file_extension));
     ResetMGSKeyboardBindings();
     if (file.OpenRead(path)) {
         int count = file.ChunkCount();
@@ -58,7 +59,7 @@ void LoadGameConfiguration(void)
         } else {
             srAssertFail(
                 "FALSE", "C:\\Projects\\Wizardry 8\\Local Code\\Configuration.cpp", 0xd9,
-                FormatString("LoadConfig: ERROR - Config file appears to be corrupted.  Delete %s",
+                FormatText("LoadConfig: ERROR - Config file appears to be corrupted.  Delete %s",
                              path));
         }
     }
@@ -81,7 +82,7 @@ try
     W8Chunk file;
     char path[60];
 
-    sprintf(path, "%s.%s", g_config_file_name, g_config_file_extension);
+    wiz8::text::copy(path, FormatText("%s.%s", g_config_file_name, g_config_file_extension));
     if (!file.OpenWrite(path)) {
         return false;
     }

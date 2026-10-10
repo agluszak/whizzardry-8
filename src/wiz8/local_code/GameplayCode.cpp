@@ -1,3 +1,5 @@
+#include <utf8.h>
+#include "wiz8/unicode.h"
 #include "wiz8/fonts.h"
 #include "wiz8/layouts/character.h"
 #include "wiz8/character_skills.h"
@@ -50,7 +52,6 @@
 #include <math.h>
 #include <new>
 #include <string.h>
-#include <wchar.h>
 
 #include "soundman.h"
 
@@ -261,31 +262,20 @@ void RefreshLevelUpReadyNotices(void)
                 gXStatus.level_up_notice = true;
                 if (*ready_flag == 0) {
                     if (row->portrait_advance == 0) {
-                        wchar_t* text;
+                        std::string text = " ";
+                        utf8::append(0xb4, std::back_inserter(text));
+                        utf8::append(GetPartyOrderTextColor(static_cast<signed char>(row->party_order_index)), std::back_inserter(text));
+                        text += " " + character->name + " ";
+                        utf8::append(0xb5, std::back_inserter(text));
+                        text += " ";
+                        text = FormatText(g_localized_strings[0x773], text);
                         int* extra;
-                        size_t length;
-
                         *ready_flag = 1;
-                        // The queued message releases this payload with delete[].
-                        text = new wchar_t[0x200];
-                        text[0] = L' ';
-                        text[1] = 0xb4;
-                        text[2] = GetPartyOrderTextColor(
-                            static_cast<signed char>(row->party_order_index));
-                        text[3] = L' ';
-                        swprintf(text + 4, g_format_s, character->name);
-                        length = wcslen(text);
-                        text[length] = L' ';
-                        text[length + 1] = 0xb5;
-                        text[length + 2] = L' ';
-                        swprintf(text + length + 3, gppStringList[0x773], text);
                         extra = new int;
                         *extra = party_slot;
-                        W8MessageBoxPayload level_up_payload;
-                        level_up_payload.text = text;
                         W8MessageBoxPayload level_up_extra;
                         level_up_extra.level_up_slot = extra;
-                        AddMessageBoxLine(W8_NPC_MSG_LEVEL_UP, level_up_payload, level_up_extra);
+                        AddTextMessageBoxLine(W8_NPC_MSG_LEVEL_UP, std::move(text), level_up_extra);
                         QueueNpcMessageLine(W8_NPC_MSG_PARTY_MEMBER_EVENT, party_slot);
                     } else {
                         *ready_flag = 1;
@@ -394,7 +384,7 @@ void HandleLevelOverride(float fall)
         SOUNDPARMS sound_parms;
         memset(&sound_parms, 0xff, sizeof(sound_parms));
         sound_parms.uiVolume = g_settings.sound_effects_volume;
-        ShowNotice(W8_FONT_PALETTE_WHITE, gppStringList[0x252]);
+        ShowNotice(W8_FONT_PALETTE_WHITE, g_localized_strings[0x252]);
         SoundPlay(s_fall_impact_wav, &sound_parms);
         W8Dice dice;
         SetDice(&dice, static_cast<unsigned char>(count), 6, 0);
@@ -1054,7 +1044,7 @@ int AddCharacterToParty(W8Character* character, int slot_kind)
     }
 
     W8Character* destination = &g_status.buffers.Char[slot];
-    memcpy(destination, character, sizeof(W8Character));
+    *destination = *character;
     destination->fInParty = true;
     ResetPartySlotRow(slot);
     ResetGameplaySlot(slot);
@@ -1073,7 +1063,7 @@ int AddCharacterToParty(W8Character* character, int slot_kind)
 
     if (g_status.game_started) {
         gXStatus.edited_formation.positions[slot].bOldQuadrant = 0xff;
-        PostCharacterNotice(slot, gppStringList[0x250]);
+        PostCharacterNotice(slot, g_localized_strings[0x250]);
     }
     ++g_status.total_member_count;
     if (slot_kind == -1) {
@@ -1124,7 +1114,7 @@ bool RemoveCharacterFromParty(int party_slot, bool save_character_data)
                              true);
     }
     if (g_status.game_started) {
-        PostCharacterNotice(party_slot, gppStringList[0x251]);
+        PostCharacterNotice(party_slot, g_localized_strings[0x251]);
     }
     g_status.party_order_slots[g_status.buffers.XChar[party_slot].party_order_index] = -1;
     --g_status.total_member_count;
@@ -1166,7 +1156,7 @@ unsigned char RecruitCharacterIntoParty(W8Character* character, W8Character* rec
         }
     }
     RemoveCharacterFromParty(slot, false);
-    memcpy(character, record, sizeof(W8Character));
+    *character = *record;
     character->fInParty = true;
     ResetPartySlotRow(slot);
     ResetGameplaySlot(slot);
@@ -1221,14 +1211,11 @@ void AwardPartyExperience(int amount, int alternate_message)
             gXStatus.level_up_notice = true;
         }
     }
-    wchar_t* text = new wchar_t[0x200];
-    swprintf(text, gppStringList[alternate_message ? 0x231 : 0x232], amount);
+    auto text = FormatText(g_localized_strings[alternate_message ? 0x231 : 0x232], amount);
     W8ExperienceNoticePayload* payload = new W8ExperienceNoticePayload;
     payload->amount = amount;
     payload->alternate_message = static_cast<unsigned char>(alternate_message);
-    W8MessageBoxPayload portrait_extra_payload;
-    portrait_extra_payload.text = text;
     W8MessageBoxPayload portrait_extra_extra;
     portrait_extra_extra.experience = payload;
-    AddMessageBoxLine(W8_NPC_MSG_PORTRAIT_EXTRA, portrait_extra_payload, portrait_extra_extra);
+    AddTextMessageBoxLine(W8_NPC_MSG_PORTRAIT_EXTRA, std::move(text), portrait_extra_extra);
 }

@@ -9,9 +9,11 @@ do not need the original compiler layout.
 - Separate save/asset records from runtime objects, then replace `W8_PTR32`
   and its process-wide pointer table with ordinary pointers and containers.
   Keep explicit fixed-width disk fields and round-trip fixtures.
-- Replace two-byte `wchar_t`/CRT substitution with explicit asset text decoding
-  and native strings. Remove `-fshort-wchar` only after migrating callers and
-  testing format boundaries, including existing `fgetws`/`swscanf` game calls.
+- Continue separating the remaining numeric save records and engine resource
+  identifiers from their runtime representations. Game text and editable
+  controls now own UTF-8 strings; retail UTF-16LE records have independent
+  layouts and explicit codecs. Native text input and grapheme traversal are
+  supported, while font coverage still depends on the installed retail fonts.
 - Remove `-fwrapv` and `-fno-strict-aliasing` after correcting the arithmetic
   and aliasing assumptions they currently protect.
 - Modernize remaining SurRender/SGP allocator, string, array and threading

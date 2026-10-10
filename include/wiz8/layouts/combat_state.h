@@ -1,3 +1,4 @@
+#include <string>
 #ifndef WIZ8_LAYOUTS_COMBAT_STATE_H
 #define WIZ8_LAYOUTS_COMBAT_STATE_H
 
@@ -27,7 +28,7 @@ enum W8MissileHitResult {
     W8_MISSILE_HIT_DEFLECTED = 2
 };
 
-#pragma pack(push, 1)
+#pragma pack(push, 8)
 /* One party slot row. */
 struct W8PartySlotRow {
     bool fOccupied; /* 0x00 */
@@ -220,8 +221,8 @@ struct W8CombatState {
     int experience_bonus;
     W8CombatCharacterRow characters[8]; /* 0x018, 0xd4 stride */
     /* 0x6b8: the attack announcement the monster-attack message builder
-       swprintf's into and ShowNotice displays; 0x78 wide chars. */
-    wchar_t attack_message[0x78];
+       sprintf's into and ShowNotice displays; 0x78 wide chars. */
+    std::string attack_message;
     /* 0x7a8: continuous-combat UI pacing; the confirm button resets it while
        TimeUntilDeadline reports it still running. */
     uint64_t combat_ui_timer;

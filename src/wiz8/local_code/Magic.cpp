@@ -1,3 +1,4 @@
+#include <string>
 #include "wiz8/compat/unaligned.h"
 #include "wiz8/engine_code/AnimRep.hpp"
 #include "wiz8/conditions.h"
@@ -60,8 +61,6 @@
 #include "wiz8/local_code/MonsterAI.h"
 #include "wiz8/engine_code/GameData.h"
 #include <cstdlib>
-
-#include <wchar.h>
 #include "wiz8/local_screens/OptionsScreen.h"
 #include "wiz8/local_screens/Screens.h"
 #include <glm/gtc/matrix_transform.hpp>
@@ -182,7 +181,7 @@ bool MonsterOKToCastSpell(W8MonsterInfo* monster_info, int spell_id, int)
 
     if (g_spell_records[spell_id].monster_castable == 0) {
         srAssertFail("FALSE", MAGIC_CPP, 1132,
-                     FormatString("MonsterOKToCastSpell: ERROR - spell not monster castable: %hs",
+                     FormatText("MonsterOKToCastSpell: ERROR - spell not monster castable: %s",
                                   g_spell_records[spell_id].display_name));
         return false;
     }
@@ -319,7 +318,7 @@ W8TargetNeed GetTargetNeededForSpellFriendly(int spell_id, bool normalize,
         default:
             srAssertFail(
                 "FALSE", MAGIC_CPP, 4851,
-                FormatString("GetTargetNeededForSpellFriendly: ERROR - Invalid spell target for %d",
+                FormatText("GetTargetNeededForSpellFriendly: ERROR - Invalid spell target for %d",
                              spell_id));
             break;
         }
@@ -351,7 +350,7 @@ W8TargetNeed GetTargetNeededForSpellHostile(int spell_id)
     default:
         srAssertFail(
             "FALSE", MAGIC_CPP, 4889,
-            FormatString("GetTargetNeededForSpellHostile: ERROR - Invalid spell target for %d",
+            FormatText("GetTargetNeededForSpellHostile: ERROR - Invalid spell target for %d",
                          spell_id));
         break;
     }
@@ -813,11 +812,11 @@ void FinishSpellEffect(W8SpellEffectEntry* effect)
             position = movement->position;
             position.y += movement->height_offset;
             position.y = SettlePositionToGround(&position, 0);
-            PostMonsterNotice(monster_info, gppStringList[0x195]);
+            PostMonsterNotice(monster_info, g_localized_strings[0x195]);
         } else {
             GetCameraPosition(&position);
             position.y -= g_default_world_height;
-            PostCharacterNotice(effect->target.iChar, gppStringList[0x195]);
+            PostCharacterNotice(effect->target.iChar, g_localized_strings[0x195]);
         }
         if (g_settings.verbose_combat_messages == 0) {
             SetTextBoxMode(1, -1);
@@ -1115,12 +1114,7 @@ unsigned short g_realm_message_offsets[W8_SPELL_REALM_COUNT] = {
 void LearnSpell(W8Character* character, int spell_id, bool announce)
 {
     W8SpellRealm realm;
-    wchar_t realm_name[0x62];
-    wchar_t* piece;
-    size_t name_length;
-    size_t spell_length;
-    size_t points_length;
-    wchar_t* line;
+    std::string realm_name;
 
     character->spell_learned[spell_id] = 1;
     realm = g_spell_records[spell_id].realm;
@@ -1131,22 +1125,11 @@ void LearnSpell(W8Character* character, int spell_id, bool announce)
         return;
     }
 
-    piece = FormatWideString(gppStringList[0x1b9], character->name);
-    name_length = wcslen(piece);
-    spell_length = wcslen(g_spell_records[spell_id].display_name);
-    wcscpy(realm_name, gppStringList[g_realm_message_offsets[realm]]);
-    piece = FormatWideString(gppStringList[0x1ba], realm_name, character->sp_max[realm]);
-    points_length = wcslen(piece);
-
-    line = new wchar_t[name_length + spell_length + 8 + points_length];
-    if (line == 0) {
-        srAssertFail("wTempMsg", MAGIC_CPP, 0xfdc, 0);
-    }
-    wcscpy(line, FormatWideString(gppStringList[0x1b9], character->name));
-    wcscat(line, L": \"");
-    wcscat(line, g_spell_records[spell_id].display_name);
-    wcscat(line, L"\" - ");
-    wcscat(line, FormatWideString(gppStringList[0x1ba], realm_name, character->sp_max[realm]));
+    realm_name = g_localized_strings[g_realm_message_offsets[realm]];
+    const std::string line = FormatText("%s: \"%s\" - %s",
+        FormatText(g_localized_strings[0x1b9], character->name),
+        g_spell_records[spell_id].display_name,
+        FormatText(g_localized_strings[0x1ba], realm_name, character->sp_max[realm]));
     ShowNoticeLine(line, 0, true, false);
 }
 
@@ -1173,7 +1156,7 @@ void LearnSpellFromItem(W8Character* character, W8ItemInstance* item)
     spell_id = g_item_records[item->iItemNo].spell_id;
 
     if (!CanCharacterLearnSpell(character, spell_id)) {
-        ShowNoticeLine(FormatWideString(gppStringList[0x1bb], character->name), 0, true, false);
+        ShowNoticeLine(FormatText(g_localized_strings[0x1bb], character->name), 0, true, false);
         return;
     }
 
@@ -1374,7 +1357,7 @@ unsigned int ChooseMonsterSpellPowerLevel(W8MonsterInfo* monster_info, W8Monster
 
         budget = monster_info->spell_points + record->sp_budget;
         if (record->sp_budget == 0) {
-            FormatDebugMessage(0, "DATA ERROR: Monster %ls casting spells with SP Budget of 0",
+            FormatDebugMessage(0, "DATA ERROR: Monster %s casting spells with SP Budget of 0",
                                GetMonsterName(monster_info, 0, 0));
         }
         if (static_cast<int>(budget) < 0) {
@@ -1478,7 +1461,7 @@ int PointCastSpell(srVector3T<float> position, int spell_id, unsigned int power_
         break;
     default:
         srAssertFail("FALSE", MAGIC_CPP, 0x56d,
-                     FormatString("PointCastSpell: ERROR - Invalid spell target for %d", spell_id));
+                     FormatText("PointCastSpell: ERROR - Invalid spell target for %d", spell_id));
         break;
     }
 
@@ -1557,7 +1540,7 @@ W8Skill GetBestSpellbookSkillForSpell(W8Character* character, int spell_id, bool
 
     if (best_skill == W8_SKILL_NONE) {
         srAssertFail("(iHighestSkill != SKILL_NONE)", MAGIC_CPP, 0xf29,
-                     FormatString("Failed on spell %ld, usability byte %ld", spell_id, book));
+                     FormatText("Failed on spell %d, usability byte %d", spell_id, book));
     }
     return best_skill;
 }
@@ -1881,7 +1864,7 @@ unsigned short g_name_prefix_messages[15] = {
    the party does not have is described by its name prefix instead. Everything
    else is a fixed word. */
 // FUNCTION: WIZ8 0x004f97a0
-wchar_t* SpellTargetString(const W8TargetSource* source, const W8CombatSlot* target)
+std::string SpellTargetString(const W8TargetSource* source, const W8CombatSlot* target)
 {
     unsigned short name_prefix;
 
@@ -1892,7 +1875,7 @@ wchar_t* SpellTargetString(const W8TargetSource* source, const W8CombatSlot* tar
     switch (target->iType) {
     case 0:
     case 6:
-        return &g_empty_wide_string;
+        return &g_empty_text;
 
     case 1:
     case 9:
@@ -1901,14 +1884,14 @@ wchar_t* SpellTargetString(const W8TargetSource* source, const W8CombatSlot* tar
         }
         if (!TargetSourceIsCharacter(source, 0) || source->name_known != 0 ||
             source->iChar != target->iChar) {
-            return FormatWideString(gppStringList[W8_MESSAGE_TARGET_AT / 4],
+            return FormatText(g_localized_strings[W8_MESSAGE_TARGET_AT / 4],
                                     g_status.buffers.Char[target->iChar].name);
         }
         name_prefix = g_name_prefix_messages[g_status.buffers.Char[target->iChar].gender * 4];
         break;
 
     case 2:
-        return gppStringList[W8_MESSAGE_TARGET_PARTY / 4];
+        return g_localized_strings[W8_MESSAGE_TARGET_PARTY / 4];
 
     case 3: {
         W8MonsterInfo* monster_info;
@@ -1921,7 +1904,7 @@ wchar_t* SpellTargetString(const W8TargetSource* source, const W8CombatSlot* tar
             MonsterGetIndexByLocationID(0xc0, MAGIC_CPP, target->iMonsterID, true));
         record = GetMonsterDataForInfo(monster_info);
         if (!TargetSourceIsMonster(source, 0) || source->iMonsterID != target->iMonsterID) {
-            return FormatWideString(gppStringList[W8_MESSAGE_TARGET_AT / 4],
+            return FormatText(g_localized_strings[W8_MESSAGE_TARGET_AT / 4],
                                     GetMonsterName(monster_info, record, 0));
         }
         name_prefix = g_name_prefix_messages[record->name_group * 4];
@@ -1929,29 +1912,29 @@ wchar_t* SpellTargetString(const W8TargetSource* source, const W8CombatSlot* tar
     }
 
     case 4:
-        return FormatWideString(
-            gppStringList[W8_MESSAGE_TARGET_AT / 4],
+        return FormatText(
+            g_localized_strings[W8_MESSAGE_TARGET_AT / 4],
             GetMonsterGroupName(GetMonsterGroupByListIndex(
                 GetMonsterGroupIndexByID(0xcf, MAGIC_CPP, target->iGroupID, true))));
 
     case W8_TARGET_KIND_ALL_ENEMIES:
-        return gppStringList[W8_MESSAGE_TARGET_PLACE / 4];
+        return g_localized_strings[W8_MESSAGE_TARGET_PLACE / 4];
 
     case 7:
-        return FormatWideString(gppStringList[W8_MESSAGE_TARGET_ITEM / 4],
+        return FormatText(g_localized_strings[W8_MESSAGE_TARGET_ITEM / 4],
                                 FormatItemDisplayName(target->pPCItem, false));
 
     case W8_TARGET_KIND_EIGHT:
-        return gppStringList[W8_MESSAGE_TARGET_DIRECTION / 4];
+        return g_localized_strings[W8_MESSAGE_TARGET_DIRECTION / 4];
 
     default:
         srAssertFail(
             "FALSE", MAGIC_CPP, 0xde,
-            FormatString("SpellTargetString: ERROR - Invalid target type %d", target->iType));
-        return gppStringList[W8_MESSAGE_TARGET_UNKNOWN / 4];
+            FormatText("SpellTargetString: ERROR - Invalid target type %d", target->iType));
+        return g_localized_strings[W8_MESSAGE_TARGET_UNKNOWN / 4];
     }
 
-    return FormatWideString(gppStringList[W8_MESSAGE_TARGET_AT / 4], gppStringList[name_prefix]);
+    return FormatText(g_localized_strings[W8_MESSAGE_TARGET_AT / 4], g_localized_strings[name_prefix]);
 }
 
 /* The two log lines a monster's cast is announced with: one that names the
@@ -1978,12 +1961,12 @@ unsigned int MonsterCastsSpell(W8MonsterInfo* monster_info, int spell_id, unsign
     SetTargetSourceToMonster(monster_info, &source);
 
     if (g_settings.verbose_combat_messages == 0) {
-        ShowNoticef(W8_FONT_PALETTE_RUST, gppStringList[W8_MESSAGE_MONSTER_CAST / 4],
+        ShowNoticef(W8_FONT_PALETTE_RUST, g_localized_strings[W8_MESSAGE_MONSTER_CAST / 4],
                     GetMonsterName(monster_info, record, 0), g_spell_records[spell_id].display_name,
                     SpellTargetString(&source, &monster_info->Target));
         SetTextBoxMode(1, 9);
     } else {
-        ShowNoticef(W8_FONT_PALETTE_RUST, gppStringList[W8_MESSAGE_MONSTER_CAST_VERBOSE / 4],
+        ShowNoticef(W8_FONT_PALETTE_RUST, g_localized_strings[W8_MESSAGE_MONSTER_CAST_VERBOSE / 4],
                     GetMonsterName(monster_info, record, 0), g_spell_records[spell_id].display_name,
                     power_level, SpellTargetString(&source, &monster_info->Target));
     }
@@ -1991,7 +1974,7 @@ unsigned int MonsterCastsSpell(W8MonsterInfo* monster_info, int spell_id, unsign
     record = GetMonsterDataForInfo(monster_info);
     budget = monster_info->spell_points + record->sp_budget;
     if (record->sp_budget == 0) {
-        FormatDebugMessage(0, "DATA ERROR: Monster %ls casting spells with SP Budget of 0",
+        FormatDebugMessage(0, "DATA ERROR: Monster %s casting spells with SP Budget of 0",
                            GetMonsterName(monster_info, 0, 0));
     }
     if (static_cast<int>(budget) < 0) {
@@ -2052,14 +2035,14 @@ void ReportSpellResult(W8SpellEffectEntry* effect)
 {
 
     if (GetTextBoxMode() != 0) {
-        AppendToLastTextLine(!effect->reported ? L" -- " : L", ", -1);
+        AppendToLastTextLine(!effect->reported ? " -- " : ", ", -1);
         SetTextBoxMode(1, -1);
     }
     if (effect->result.amount != 0) {
         if (effect->result.count == 1) {
-            AppendToLastTextLine(FormatWideString(gppStringList[0x19a], effect->result.amount), -1);
+            AppendToLastTextLine(FormatText(g_localized_strings[0x19a], effect->result.amount), -1);
         } else {
-            AppendToLastTextLine(FormatWideString(gppStringList[0x199], effect->result.count,
+            AppendToLastTextLine(FormatText(g_localized_strings[0x199], effect->result.count,
                                                   effect->result.amount / effect->result.count, -1),
                                  -1);
             SetTextBoxMode(1, -1);
@@ -2070,30 +2053,30 @@ void ReportSpellResult(W8SpellEffectEntry* effect)
     for (int condition = W8_CONDITION_DRAINED; condition < W8_CONDITION_COUNT; ++condition) {
         if (effect->result.condition_counts[condition] != 0) {
             if (effect->reported && GetTextBoxMode() != 0) {
-                AppendToLastTextLine(L", ", -1);
+                AppendToLastTextLine(", ", -1);
                 SetTextBoxMode(1, -1);
             }
             if (effect->result.condition_counts[condition] == 1) {
                 if (effect->target.iType == W8_TARGET_KIND_CHARACTER) {
                     AppendToLastTextLine(
-                        FormatWideString(L"%s %s", g_status.buffers.Char[effect->target.iChar].name,
-                                         gppStringList[g_condition_notices[condition].singular]),
+                        FormatText("%s %s", g_status.buffers.Char[effect->target.iChar].name,
+                                         g_localized_strings[g_condition_notices[condition].singular]),
                         -1);
                 } else if (effect->target.iType == W8_TARGET_KIND_MONSTER) {
                     W8MonsterInfo* monster_info =
                         MonsterInfoFromID(0x112a, MAGIC_CPP, effect->target.iMonsterID, true);
                     if (monster_info != 0) {
                         AppendToLastTextLine(
-                            FormatWideString(
-                                L"%s %s", GetMonsterName(monster_info, 0, 0),
-                                gppStringList[g_condition_notices[condition].singular]),
+                            FormatText(
+                                "%s %s", GetMonsterName(monster_info, 0, 0),
+                                g_localized_strings[g_condition_notices[condition].singular]),
                             -1);
                     }
                 }
             } else {
                 AppendToLastTextLine(
-                    FormatWideString(L"%ld %s", effect->result.condition_counts[condition],
-                                     gppStringList[g_condition_notices[condition].plural]),
+                    FormatText("%d %s", effect->result.condition_counts[condition],
+                                     g_localized_strings[g_condition_notices[condition].plural]),
                     -1);
             }
             SetTextBoxMode(1, -1);
@@ -2108,19 +2091,19 @@ void ReportSpellResult(W8SpellEffectEntry* effect)
             if (report->kind == 1) {
                 SetTextBoxMode(0, -1);
                 PostCharacterNotice(report->value, g_format_s_bang,
-                                    gppStringList[g_condition_notices[W8_CONDITION_DEAD].singular]);
+                                    g_localized_strings[g_condition_notices[W8_CONDITION_DEAD].singular]);
                 effect->reported = true;
             } else if (report->kind == 3) {
                 SetTextBoxMode(0, -1);
-                ShowNoticef(W8_FONT_PALETTE_RUST, L"%s %s!", report->text,
-                            gppStringList[g_condition_notices[W8_CONDITION_DEAD].singular]);
+                ShowNoticef(W8_FONT_PALETTE_RUST, "%s %s!", report->text,
+                            g_localized_strings[g_condition_notices[W8_CONDITION_DEAD].singular]);
                 effect->reported = true;
             }
             free(report);
         }
     }
     if (!effect->reported) {
-        AppendToLastTextLine(gppStringList[0x1a5], -1);
+        AppendToLastTextLine(g_localized_strings[0x1a5], -1);
     }
 }
 
@@ -2148,9 +2131,9 @@ bool ValidateSpellTarget(int party_slot, int spell_id, unsigned int power, bool 
         if (!item_cast) {
             PostCharacterNotice(
                 party_slot,
-                FormatWideString(gppStringList[0x1b7], g_spell_records[spell_id].display_name));
+                FormatText(g_localized_strings[0x1b7], g_spell_records[spell_id].display_name));
         } else {
-            PostCharacterNotice(party_slot, FormatWideString(gppStringList[0x1b8]));
+            PostCharacterNotice(party_slot, FormatText(g_localized_strings[0x1b8]));
         }
         valid = false;
     } else if (!skip_world_cursor && DispatchWorldCursorNodeCommand(0, 4, 1)) {
@@ -2558,11 +2541,11 @@ int ExecuteCharacterSpellCast(int party_slot, int spell_id, unsigned int power_l
             power_level = character->iSPLeft[realm] / sp_cost;
         }
     } else if (character->iSPLeft[realm] < static_cast<int>(sp_cost)) {
-        PostCharacterNotice(party_slot, gppStringList[0x18a], record->display_name);
+        PostCharacterNotice(party_slot, g_localized_strings[0x18a], record->display_name);
         return 0;
     }
     if (power_level == 0) {
-        PostCharacterNotice(party_slot, gppStringList[0x18a], record->display_name);
+        PostCharacterNotice(party_slot, g_localized_strings[0x18a], record->display_name);
         return 0;
     }
     if (!ValidateSpellTarget(party_slot, spell_id, power_level, false, false)) {
@@ -2591,15 +2574,15 @@ int ExecuteCharacterSpellCast(int party_slot, int spell_id, unsigned int power_l
     aim = &g_status.buffers.XChar[party_slot].target_out_of_combat;
     if (g_settings.verbose_combat_messages == 0) {
         if (!continue_cast) {
-            PostCharacterNotice(party_slot, gppStringList[0x18c], record->display_name,
+            PostCharacterNotice(party_slot, g_localized_strings[0x18c], record->display_name,
                                 SpellTargetString(&source, aim));
             SetTextBoxMode(1, 8);
         } else {
-            PostCharacterNotice(party_slot, gppStringList[0x18d]);
+            PostCharacterNotice(party_slot, g_localized_strings[0x18d]);
             SetTextBoxMode(1, 8);
         }
     } else {
-        PostCharacterNotice(party_slot, gppStringList[0x18b], record->display_name, power_level,
+        PostCharacterNotice(party_slot, g_localized_strings[0x18b], record->display_name, power_level,
                             SpellTargetString(&source, aim));
     }
     best_skill = GetBestSpellbookSkillForSpell(character, spell_id, true, true, power_level);
@@ -3157,9 +3140,9 @@ int CastSpellFromSource(int spell_id, W8TargetSource* source, W8CombatSlot* targ
             if (quiet) {
                 owner->reported = true;
             } else if (g_settings.verbose_combat_messages != 0) {
-                ShowNotice(W8_FONT_PALETTE_BEIGE, FormatWideString(gppStringList[0x197]));
+                ShowNotice(W8_FONT_PALETTE_BEIGE, FormatText(g_localized_strings[0x197]));
             } else {
-                AppendToLastTextLine(FormatWideString(L" -- %s", gppStringList[0x197]), -1);
+                AppendToLastTextLine(FormatText(" -- %s", g_localized_strings[0x197]), -1);
                 owner->reported = true;
             }
             if (caster_slot != -1) {
@@ -3189,16 +3172,16 @@ int CastSpellFromSource(int spell_id, W8TargetSource* source, W8CombatSlot* targ
                 message = 0x1ab;
             }
             if (g_settings.verbose_combat_messages != 0) {
-                PostCharacterNotice(source->iChar, FormatWideString(gppStringList[message]));
+                PostCharacterNotice(source->iChar, FormatText(g_localized_strings[message]));
             } else {
-                AppendToLastTextLine(FormatWideString(L" -- %s", gppStringList[message]), -1);
+                AppendToLastTextLine(FormatText(" -- %s", g_localized_strings[message]), -1);
             }
             break;
         default:
             if (g_settings.verbose_combat_messages != 0) {
-                ShowNotice(W8_FONT_PALETTE_BEIGE, FormatWideString(gppStringList[0x196]));
+                ShowNotice(W8_FONT_PALETTE_BEIGE, FormatText(g_localized_strings[0x196]));
             } else {
-                AppendToLastTextLine(FormatWideString(L" -- %s", gppStringList[0x196]), -1);
+                AppendToLastTextLine(FormatText(" -- %s", g_localized_strings[0x196]), -1);
             }
             break;
         }
@@ -3394,7 +3377,7 @@ void PrepareSpellTarget(int spell_id, W8TargetSource* source, W8CombatSlot* targ
         break;
     default:
         srAssertFail("FALSE", MAGIC_CPP, 0xd04,
-                     FormatString("SpellBackfires: ERROR - Invalid spell target type for spell %d",
+                     FormatText("SpellBackfires: ERROR - Invalid spell target type for spell %d",
                                   spell_id));
         return;
     }
@@ -3587,11 +3570,11 @@ void CheckSpellBackfire(int spell_id, W8TargetSource* source, W8CombatSlot* targ
         return;
     }
     if (TargetSourceIsCharacter(source, 0)) {
-        PostCharacterNotice(source->iChar, gppStringList[0x191]);
+        PostCharacterNotice(source->iChar, g_localized_strings[0x191]);
         return;
     }
     if (TargetSourceIsMonster(source, 0)) {
-        PostMonsterNotice(monster_info, gppStringList[0x191]);
+        PostMonsterNotice(monster_info, g_localized_strings[0x191]);
     }
 }
 
@@ -3639,7 +3622,7 @@ void PopulateSpellTargetMarkers(int spell_id, int power_level, W8TargetSource* s
         if (source->iMonsterID == -1) {
             FormatDebugMessage(
                 1,
-                "InvalidMagicSource: Spell %d(%ls), Target Type %d(char %d, monster ID %d, group "
+                "InvalidMagicSource: Spell %d(%s), Target Type %d(char %d, monster ID %d, group "
                 "ID %d), Source Type %d(char %d,ID %d)",
                 spell_id, g_spell_records[spell_id].display_name, target->iType, target->iChar,
                 target->iMonsterID, target->iGroupID, source->iType, source->iChar,
@@ -3686,7 +3669,7 @@ void PopulateSpellTargetMarkers(int spell_id, int power_level, W8TargetSource* s
             monster_markers->Add(target->iMonsterID);
         } else if (target_type == W8_TARGET_TYPE_ENEMY) {
             FormatDebugMessage(1,
-                               "InvalidMagicTarget: Spell %d(%ls), Target Type %d(char %d, monster "
+                               "InvalidMagicTarget: Spell %d(%s), Target Type %d(char %d, monster "
                                "ID %d, group ID %d), Source Type %d(char %d,ID %d)",
                                spell_id, g_spell_records[spell_id].display_name, target->iType,
                                target->iChar, target->iMonsterID, target->iGroupID, source->iType,
@@ -3702,7 +3685,7 @@ void PopulateSpellTargetMarkers(int spell_id, int power_level, W8TargetSource* s
             monster_markers->Add(target->iMonsterID);
         } else {
             FormatDebugMessage(1,
-                               "InvalidMagicTarget: Spell %d(%ls), Target Type %d(char %d, monster "
+                               "InvalidMagicTarget: Spell %d(%s), Target Type %d(char %d, monster "
                                "ID %d, group ID %d), Source Type %d(char %d,ID %d)",
                                spell_id, g_spell_records[spell_id].display_name, target->iType,
                                target->iChar, target->iMonsterID, target->iGroupID, source->iType,
@@ -3731,7 +3714,7 @@ void PopulateSpellTargetMarkers(int spell_id, int power_level, W8TargetSource* s
                 }
             } else if (monster_info->ubDisposition != W8_DISPOSITION_HOSTILE) {
                 FormatDebugMessage(1,
-                                   "InvalidMagicSource: Spell %d(%ls), Target Type %d(char %d, "
+                                   "InvalidMagicSource: Spell %d(%s), Target Type %d(char %d, "
                                    "monster ID %d, group ID %d), Source Type %d(char %d,ID %d)",
                                    spell_id, g_spell_records[spell_id].display_name, target->iType,
                                    target->iChar, target->iMonsterID, target->iGroupID,
@@ -3759,7 +3742,7 @@ void PopulateSpellTargetMarkers(int spell_id, int power_level, W8TargetSource* s
                 GetMonsterGroupIndexByID(0x99f, MAGIC_CPP, target->iGroupID, true));
             if (group == 0) {
                 FormatDebugMessage(1,
-                                   "InvalidMagicTarget: Spell %d(%ls), Target Type %d(char %d, "
+                                   "InvalidMagicTarget: Spell %d(%s), Target Type %d(char %d, "
                                    "monster ID %d, group ID %d), Source Type %d(char %d,ID %d)",
                                    spell_id, g_spell_records[spell_id].display_name, target->iType,
                                    target->iChar, target->iMonsterID, target->iGroupID,
@@ -3779,7 +3762,7 @@ void PopulateSpellTargetMarkers(int spell_id, int power_level, W8TargetSource* s
             marked = true;
         } else {
             FormatDebugMessage(1,
-                               "InvalidMagicTarget: Spell %d(%ls), Target Type %d(char %d, monster "
+                               "InvalidMagicTarget: Spell %d(%s), Target Type %d(char %d, monster "
                                "ID %d, group ID %d), Source Type %d(char %d,ID %d)",
                                spell_id, g_spell_records[spell_id].display_name, target->iType,
                                target->iChar, target->iMonsterID, target->iGroupID, source->iType,
@@ -3804,7 +3787,7 @@ void PopulateSpellTargetMarkers(int spell_id, int power_level, W8TargetSource* s
                 }
             } else {
                 FormatDebugMessage(1,
-                                   "InvalidMagicSource: Spell %d(%ls), Target Type %d(char %d, "
+                                   "InvalidMagicSource: Spell %d(%s), Target Type %d(char %d, "
                                    "monster ID %d, group ID %d), Source Type %d(char %d,ID %d)",
                                    spell_id, g_spell_records[spell_id].display_name, target->iType,
                                    target->iChar, target->iMonsterID, target->iGroupID,
@@ -3852,7 +3835,7 @@ void PopulateSpellTargetMarkers(int spell_id, int power_level, W8TargetSource* s
             if (monster_info->ubDisposition != W8_DISPOSITION_FRIENDLY &&
                 monster_info->ubDisposition != W8_DISPOSITION_HOSTILE) {
                 FormatDebugMessage(1,
-                                   "InvalidMagicSource: Spell %d(%ls), Target Type %d(char %d, "
+                                   "InvalidMagicSource: Spell %d(%s), Target Type %d(char %d, "
                                    "monster ID %d, group ID %d), Source Type %d(char %d,ID %d)",
                                    spell_id, g_spell_records[spell_id].display_name, target->iType,
                                    target->iChar, target->iMonsterID, target->iGroupID,

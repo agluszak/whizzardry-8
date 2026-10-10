@@ -117,12 +117,12 @@ bool Trynnie2MeatBox(Trigger* pTrigger)
 
     group = FindFirstMonsterByID(0x1d4);
     if (group == 0 || !g_status.item_in_cursor) {
-        ShowNotice(W8_FONT_PALETTE_TEXT_BOX, gppStringList[0x964]);
+        ShowNotice(W8_FONT_PALETTE_TEXT_BOX, g_localized_strings[0x964]);
         return true;
     }
     item_id = GetItemInHand();
     if (item_id != 0x1b4 && item_id != 0x1c2) {
-        ShowNotice(W8_FONT_PALETTE_TEXT_BOX, gppStringList[0x964]);
+        ShowNotice(W8_FONT_PALETTE_TEXT_BOX, g_localized_strings[0x964]);
         return true;
     }
     index = MonsterGetIndexByLocationID(0x68, TRYNNIE2_CPP, group->leader_location_id, true);
@@ -162,18 +162,18 @@ bool Trynnie2UseItem(W8ItemInstance* item)
         return false;
     }
     if (DispatchWorldCursorNodeCommand(0, 8, 0) == 0) {
-        ShowString(gppStringList[0x966]);
+        ShowString(g_localized_strings[0x966]);
         return true;
     }
     if (item->iItemNo == 0x1b3) {
-        ShowString(gppStringList[0x968]);
+        ShowString(g_localized_strings[0x968]);
     } else {
-        ShowString(gppStringList[0x967]);
+        ShowString(g_localized_strings[0x967]);
     }
     if (!g_status.use_item_latch) {
         g_status.use_item_latch = true;
     } else {
-        ShowString(gppStringList[0x969]);
+        ShowString(g_localized_strings[0x969]);
         if (FindEntityByName("NP_MysticalShaman", &position, 0, 0)) {
             SpawnMonsters(0xec, 1, &position, 0, true, false, false);
         }

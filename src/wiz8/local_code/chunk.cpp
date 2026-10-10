@@ -1,3 +1,4 @@
+#include <string_view>
 #include "wiz8/sr_api.h"
 #include "wiz8/chunk.h"
 #include "wiz8/virtual_file.h"
@@ -52,7 +53,7 @@ unsigned char W8Chunk::Write(const void* buffer, unsigned int size, unsigned int
     return true;
 }
 
-bool W8Chunk::OpenExistingRiff(const char* path, wiz8::OpenMode mode)
+bool W8Chunk::OpenExistingRiff(std::string_view path, wiz8::OpenMode mode)
 try
 {
     if (m_hFile != 0) {
@@ -83,13 +84,13 @@ catch (const std::exception&)
 }
 
 // FUNCTION: WIZ8 0x0055c000
-bool W8Chunk::OpenRead(const char* path)
+bool W8Chunk::OpenRead(std::string_view path)
 {
     return OpenExistingRiff(path, wiz8::OpenMode::read);
 }
 
 // FUNCTION: WIZ8 0x0055be30
-bool W8Chunk::OpenWrite(const char* path)
+bool W8Chunk::OpenWrite(std::string_view path)
 try
 {
     if (m_hFile != 0) {
@@ -116,7 +117,7 @@ catch (const std::exception&)
    read so the file sits at the end of the group; the original child count is
    then pushed onto the write-side progress stack before writing is armed. */
 // FUNCTION: WIZ8 0x0055be80
-bool W8Chunk::OpenAppend(const char* path)
+bool W8Chunk::OpenAppend(std::string_view path)
 {
     W8ChunkHead* head;
     int child_count;
@@ -152,7 +153,7 @@ bool W8Chunk::OpenAppend(const char* path)
 }
 
 // FUNCTION: WIZ8 0x0055c080
-bool W8Chunk::OpenReadWrite(const char* path)
+bool W8Chunk::OpenReadWrite(std::string_view path)
 {
     return OpenExistingRiff(path, wiz8::OpenMode::update);
 }
