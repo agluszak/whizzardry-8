@@ -547,8 +547,8 @@ BOOLEAN Copy8BPPImageTo8BPPBuffer(HIMAGE hImage, BYTE* pDestBuf, UINT16 usDestWi
     // Determine memcopy coordinates
     uiSrcStart = srcRect->iTop * hImage->usWidth + srcRect->iLeft;
     uiDestStart = usY * usDestWidth + usX;
-    uiNumLines = (srcRect->iBottom - srcRect->iTop) + 1;
-    uiLineSize = (srcRect->iRight - srcRect->iLeft) + 1;
+    uiNumLines = srcRect->iBottom - srcRect->iTop;
+    uiLineSize = srcRect->iRight - srcRect->iLeft;
 
     Assert(usDestWidth >= uiLineSize);
     Assert(usDestHeight >= uiNumLines);
@@ -590,8 +590,8 @@ BOOLEAN Copy16BPPImageTo16BPPBuffer(HIMAGE hImage, BYTE* pDestBuf, UINT16 usDest
     // Determine memcopy coordinates
     uiSrcStart = srcRect->iTop * hImage->usWidth + srcRect->iLeft;
     uiDestStart = usY * usDestWidth + usX;
-    uiNumLines = (srcRect->iBottom - srcRect->iTop) + 1;
-    uiLineSize = (srcRect->iRight - srcRect->iLeft) + 1;
+    uiNumLines = srcRect->iBottom - srcRect->iTop;
+    uiLineSize = srcRect->iRight - srcRect->iLeft;
 
     CHECKF(usDestWidth >= uiLineSize);
     CHECKF(usDestHeight >= uiNumLines);

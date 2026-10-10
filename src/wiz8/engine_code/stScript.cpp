@@ -53,7 +53,7 @@ try
     }
     return result;
 }
-catch (const std::exception&) { return false; }
+catch (const std::exception&) { *more = 0; return false; }
 
 // VTABLE: WIZ8 0x005ED328
 // class stScript
