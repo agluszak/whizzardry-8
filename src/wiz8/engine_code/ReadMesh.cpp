@@ -398,18 +398,8 @@ BuildSingleLevelMesh(int face_count, W8ReadMeshFace* faces, int vertex_count,
 // FUNCTION: WIZ8 0x00487E10
 static const std::vector<W8MeshMaterial>& ReadMeshMaterials(W8ReadLevelInfo* info)
 {
-    if (info == 0) {
-        return 0;
-    }
-    if (info->bitmap_folder == 0) {
-        return 0;
-    }
-    if (info->world == 0) {
-        return 0;
-    }
-    if (info->hFile == 0) {
-        return 0;
-    }
+    if (!info || !info->bitmap_folder || !info->world || !info->hFile)
+        throw std::invalid_argument("Missing mesh load context");
 
     short count = 0;
     short index;
