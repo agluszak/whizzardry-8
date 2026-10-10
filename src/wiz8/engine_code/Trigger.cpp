@@ -1198,7 +1198,7 @@ void InitializeStateDrivenPropVariables(Trigger* trigger)
             srAssertFail("m_bRepType == TRIGGER_REP_PROP", "..\\Engine Code\\Include\\Trigger.hpp",
                          0x3ed, 0);
         }
-        sprintf(name, "%s%d", trigger->m_pacStateToMod, slot);
+        snprintf(name, sizeof(name), "%s%d", trigger->m_pacStateToMod, slot);
         CreateLocationVar(name, slot == 0);
     }
 }
@@ -2270,12 +2270,12 @@ show_action_message:
 
         if (message_id != -1) {
             char path[512];
-            wchar_t text[1996];
+            char text[3 * (1996) + 1];
 
             if (level_folder == 0) {
                 level_folder = "";
             }
-            sprintf(path, "Data\\Messages\\%s.msg", level_folder);
+            snprintf(path, sizeof(path), "Data\\Messages\\%s.msg", level_folder);
             if (GetStringFromStringDatabase(path, message_id, text, 0, 0) != 0) {
                 ShowString(text);
             }
@@ -2499,7 +2499,7 @@ void Trigger::Run(int source)
             if (camera != -1) {
                 char name[24];
 
-                sprintf(name, "Camera0%d", camera);
+                snprintf(name, sizeof(name), "Camera0%d", camera);
                 UpdateCameraPathStateByName(m_pWorld, name, 1);
             }
             FinishAction();
@@ -2586,7 +2586,7 @@ void Trigger::Run(int source)
             }
             if (action_data != 0 && action_data->locked && action_data->item != -1) {
                 if (!FindItemOnParty(action_data->item, 0, 0, 2, 0)) {
-                    ShowNoticef(W8_FONT_PALETTE_BLUE, L"Your party doesn't have required key.");
+                    ShowNoticef(W8_FONT_PALETTE_BLUE, "Your party doesn't have required key.");
                     break;
                 }
                 action_data->locked = false;
@@ -2659,7 +2659,7 @@ void Trigger::Run(int source)
             }
             if (action_data != 0 && action_data->locked && action_data->item != -1) {
                 if (!FindItemOnParty(action_data->item, 0, 0, 2, 0)) {
-                    ShowNoticef(W8_FONT_PALETTE_BLUE, L"Your party doesn't have required key.");
+                    ShowNoticef(W8_FONT_PALETTE_BLUE, "Your party doesn't have required key.");
                     break;
                 }
                 action_data->locked = false;
@@ -3263,7 +3263,7 @@ void Trigger::Run(int source)
         if (m_pacStateToMod != 0) {
             char state_name[132];
 
-            sprintf(state_name, "%s%d", m_pacStateToMod,
+            snprintf(state_name, sizeof(state_name), "%s%d", m_pacStateToMod,
                     static_cast<int>(static_cast<signed char>(state_index)));
             SetTriggerVariableByName(state_name, 0);
         }
@@ -3272,7 +3272,7 @@ void Trigger::Run(int source)
         if (m_pacStateToMod != 0) {
             char state_name[132];
 
-            sprintf(state_name, "%s%d", m_pacStateToMod,
+            snprintf(state_name, sizeof(state_name), "%s%d", m_pacStateToMod,
                     static_cast<int>(static_cast<signed char>(state_index)));
             SetTriggerVariableByName(state_name, 1);
         }

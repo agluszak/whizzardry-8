@@ -1,10 +1,10 @@
 #pragma once
+#include <cstddef>
 
 #include "wiz8/filesystem.h"
 
 class Trigger;
 
-#include <wchar.h>
 #include "input.h"
 #include "timer.h"
 #include "wiz8/fonts.h"
@@ -37,12 +37,12 @@ struct W8MessageStorageRecord {
     void ClearEntries();
     void RebuildEntries();
 
-    wchar_t* wString;
+    char* wString;
     unsigned char font_palette;
     /* The recoloured span [start, stop) of this line. */
     unsigned char highlight_color;
-    unsigned char highlight_start;
-    unsigned char highlight_stop;
+    std::size_t highlight_start;
+    std::size_t highlight_stop;
     TIMER clock;
     /* SaveGame snapshots the unsigned milliseconds remaining from
        ClockIsTicking; load rearms the countdown with this duration. */
@@ -68,7 +68,7 @@ int GetTextBoxFont(void);
 void RedrawDialogueTextInput(void);
 /* Clear one text_lines slot on the level block. */
 void ClearTextLineEntry(int index);
-void FormatNotice(int channel, short text_box, const wchar_t* format, ...);
+void FormatNotice(int channel, short text_box, const char* format, ...);
 
 void ReleaseMessageStorage(void);
 /* The TEXT section pair - the four message-storage
@@ -96,7 +96,7 @@ void HighlightNoticeWordAt(int box, unsigned short x, unsigned short y);
    slot is written through line_out. */
 W8NoticeWord* HitTestNoticeWord(int text_box, unsigned short x, unsigned short y, int* line_out);
 /* Copy a word's text span out of its source line. */
-void CopyNoticeWordText(const W8NoticeWord* word, wchar_t* out, unsigned int capacity, int box,
+void CopyNoticeWordText(const W8NoticeWord* word, char* out, unsigned int capacity, int box,
                         int start);
 void ScrollTextBoxToCursor(void);
 unsigned char GetTextBoxMode(void);
@@ -115,15 +115,15 @@ void AttemptTrapDisarm(int level, int flag, char backfire);
 /* Merge text onto a box's last used line, re-posting the combined
    line so wrapping, highlighting and the link counts rebuild; -1 picks the box
    the current game mode writes to. */
-void AppendToLastTextLine(const wchar_t* text, short text_box);
+void AppendToLastTextLine(const char* text, short text_box);
 /* Wrapped line count of the notice ShowNotice last displayed;
    only maintained while game_status.quote_audit is raised. */
 extern int g_notice_line_count;
 /* The number of lines the notice pane can scroll. */
 int GetTextBoxScrollRange(void);
 /* The two variadic notice formatters. */
-void PostCharacterNotice(int party_slot, const wchar_t* format, ...);
-void PostMonsterNotice(W8MonsterInfo* monster_info, const wchar_t* format, ...);
+void PostCharacterNotice(int party_slot, const char* format, ...);
+void PostMonsterNotice(W8MonsterInfo* monster_info, const char* format, ...);
 void ScrollTextBoxTo(int line);
 void ScrollDialogueTextBoxToLine(void);
 void ScrollTextBoxUp(int lines);
@@ -144,7 +144,7 @@ void RedrawTextBoxBody(bool skip_invalidate);
 /* Redraw text-box scroll up/down buttons and thumb, then body. */
 void RedrawTextBoxScrollChrome(void);
 /* Append text to a box's current line; the box argument is optional. */
-void AppendTextBoxLine(const wchar_t* text, ...);
+void AppendTextBoxLine(const char* text, ...);
 
 bool CurrentTextLineHasContent(void);
 bool CurrentDialogueLineHasContent(void);
@@ -159,11 +159,11 @@ unsigned char LoadMessageStorage(wiz8::File* file);
 const short W8_NOTICE_TEXT_BOX_AUTOMATIC = -1;
 const unsigned int W8_NOTICE_WRAP_AUTOMATIC = ~0U;
 
-void ShowNotice(unsigned int font_palette, const wchar_t* text,
+void ShowNotice(unsigned int font_palette, const char* text,
                 short text_box = W8_NOTICE_TEXT_BOX_AUTOMATIC,
                 unsigned int wrap_width = W8_NOTICE_WRAP_AUTOMATIC, bool force_dialog = false);
 /* Vswprintf the format into a scratch buffer and ShowNotice it,
    choosing the text-box slot from the current dialogue/camp/combat mode. */
-void ShowNoticef(unsigned int font_palette, const wchar_t* format, ...);
+void ShowNoticef(unsigned int font_palette, const char* format, ...);
 
 void HighlightNoticeRow(int line);

@@ -19,7 +19,7 @@ class W8Missile;
 struct W8SpellDamageReport {
     int kind;
     int value;
-    wchar_t text[50];
+    char text[3 * (50) + 1];
 };
 
 W8_ABI_ASSERT(sizeof(W8SpellDamageReport) == 0x6c, "W8SpellDamageReport_must_be_0x6c");

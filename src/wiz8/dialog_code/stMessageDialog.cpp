@@ -14,7 +14,6 @@
 
 #include <ctype.h>
 #include <stdlib.h>
-#include <wchar.h>
 
 /* Dialog Code\stMessageDialog.cpp. SetMessage and WrapMessage assert this
    unit (lines 131 and 213); the two button callbacks are proven by their
@@ -61,8 +60,8 @@ void W8MessageDialogBase::Draw()
         SetFontForeground(g_dialog_font_foreground);
         SetFontBackground(g_dialog_font_background);
         for (index = 0; index < m_line_count; ++index) {
-            wchar_t* line = m_lines[index];
-            short width = StringPixLengthArg(g_dialog_interface_font, wcslen(line), line);
+            char* line = m_lines[index];
+            short width = StringPixLengthArg(g_dialog_interface_font, strlen(line), line);
             gprintf(m_x + (m_width - width) / 2, y, line);
             y += GetFontHeight(g_dialog_interface_font);
         }
@@ -79,7 +78,7 @@ void W8MessageDialogBase::Draw()
 }
 
 // FUNCTION: WIZ8 0x005d2800
-void W8MessageDialogBase::SetMessage(const wchar_t* message, int line_count,
+void W8MessageDialogBase::SetMessage(const char* message, int line_count,
                                      unsigned short characters_per_line, bool confirmation,
                                      bool cancel, bool size_to_message, bool wrap_message,
                                      int maximum_width, int maximum_height)
@@ -102,11 +101,11 @@ void W8MessageDialogBase::SetMessage(const wchar_t* message, int line_count,
     if (line_count == 1 && wrap_message) {
         line_count = WrapMessage(message);
     } else {
-        m_lines = static_cast<wchar_t**>(malloc(line_count * sizeof(wchar_t*)));
+        m_lines = static_cast<char**>(malloc(line_count * sizeof(char*)));
         for (index = 0; index < static_cast<unsigned int>(line_count); ++index) {
-            m_lines[index] = static_cast<wchar_t*>(
-                malloc(characters_per_line * sizeof(wchar_t) + sizeof(wchar_t)));
-            wcscpy(m_lines[index], message);
+            m_lines[index] = static_cast<char*>(
+                malloc(characters_per_line * sizeof(char) + sizeof(char)));
+            strcpy(m_lines[index], message);
             message += characters_per_line;
         }
     }
@@ -147,75 +146,75 @@ void W8MessageDialogBase::SetMessage(const wchar_t* message, int line_count,
 }
 
 // FUNCTION: WIZ8 0x005d2a50
-unsigned int W8MessageDialogBase::WrapMessage(const wchar_t* message)
+unsigned int W8MessageDialogBase::WrapMessage(const char* message)
 {
-    wchar_t lines[32][256];
-    wchar_t* remaining;
-    wchar_t* line;
+    char lines[32][256];
+    char* remaining;
+    char* line;
     unsigned int line_index = 0;
     unsigned int words_on_line = 0;
     /* 0x005D2BE8 sign-extends the word width into EAX, adds the running total and
        bounds it against m_width with JBE at 0x005D2BF2, so the running total is
        the unsigned operand. */
     unsigned int line_width = 0;
-    int space_width = StringPixLength(const_cast<wchar_t*>(L" "), g_dialog_interface_font);
+    int space_width = StringPixLength(const_cast<char*>(" "), g_dialog_interface_font);
     unsigned int maximum_width = static_cast<unsigned int>(m_width) + 0xf;
     unsigned int index;
 
-    remaining = new wchar_t[wcslen(message) + 1];
+    remaining = new char[strlen(message) + 1];
     if (!remaining) {
         srAssertFail("pRemainingText", "C:\\Projects\\Wizardry 8\\Dialog Code\\stMessageDialog.cpp",
                      0xd5, 0);
     }
-    wcscpy(remaining, message);
+    strcpy(remaining, message);
     for (index = 0; index < 32; ++index) {
-        wcscpy(lines[index], L"");
+        strcpy(lines[index], "");
     }
 
     line = lines[0];
-    size_t word_length = wcscspn(remaining, L" ");
-    while (remaining[word_length] != L'\0') {
-        remaining[word_length] = L'\0';
+    size_t word_length = strcspn(remaining, " ");
+    while (remaining[word_length] != '\0') {
+        remaining[word_length] = '\0';
         int word_width = StringPixLength(remaining, g_dialog_interface_font);
         if (line_width + word_width > maximum_width) {
             if (words_on_line != 0) {
                 ++line_index;
                 line = lines[line_index];
-                wcscpy(line, remaining);
+                strcpy(line, remaining);
                 line_width = word_width;
                 words_on_line = 1;
             } else {
-                wcscat(line, remaining);
+                strcat(line, remaining);
                 line_width += space_width + word_width;
                 ++words_on_line;
             }
         } else {
             if (words_on_line != 0) {
-                wcscat(line, L" ");
+                strcat(line, " ");
             }
-            wcscat(line, remaining);
+            strcat(line, remaining);
             line_width += space_width + word_width;
             ++words_on_line;
         }
         remaining += word_length + 1;
-        word_length = wcscspn(remaining, L" ");
+        word_length = strcspn(remaining, " ");
     }
 
     int word_width = StringPixLength(remaining, g_dialog_interface_font);
     if (line_width + word_width > static_cast<unsigned int>(m_width)) {
         ++line_index;
-        wcscpy(lines[line_index], remaining);
+        strcpy(lines[line_index], remaining);
     } else {
-        wcscat(lines[line_index], L" ");
-        wcscat(lines[line_index], remaining);
+        strcat(lines[line_index], " ");
+        strcat(lines[line_index], remaining);
     }
 
     unsigned int count = line_index + 1;
-    m_lines = static_cast<wchar_t**>(malloc(count * sizeof(wchar_t*)));
+    m_lines = static_cast<char**>(malloc(count * sizeof(char*)));
     for (index = 0; index < count; ++index) {
         m_lines[index] =
-            static_cast<wchar_t*>(malloc((wcslen(lines[index]) + 1) * sizeof(wchar_t)));
-        wcscpy(m_lines[index], lines[index]);
+            static_cast<char*>(malloc((strlen(lines[index]) + 1) * sizeof(char)));
+        strcpy(m_lines[index], lines[index]);
     }
     return count;
 }

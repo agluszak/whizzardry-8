@@ -175,7 +175,7 @@ bool W8DialogTextArea::ClearSelection()
 }
 
 // FUNCTION: WIZ8 0x005d2120
-bool W8DialogTextArea::CopyEntryText(unsigned int index, wchar_t* output)
+bool W8DialogTextArea::CopyEntryText(unsigned int index, char* output)
 {
     if (index >= static_cast<unsigned int>(m_all_lines.GetCount()))
         return false;
@@ -234,7 +234,7 @@ bool W8DialogTextArea::ClearPointSelection()
 }
 
 // FUNCTION: WIZ8 0x005d20f0
-bool W8DialogTextArea::CopyVisibleEntryText(unsigned int index, wchar_t* output)
+bool W8DialogTextArea::CopyVisibleEntryText(unsigned int index, char* output)
 {
     if (index >= static_cast<unsigned int>(m_visible_lines.GetCount()))
         return false;
@@ -307,7 +307,7 @@ void W8DialogTextArea::SetEntryMarked(int index, bool state)
 }
 
 // FUNCTION: WIZ8 0x005d16c0
-int W8DialogTextArea::AddEntry(const wchar_t* prefix, const wchar_t* text,
+int W8DialogTextArea::AddEntry(const char* prefix, const char* text,
                                unsigned int prefix_palette, unsigned int text_palette,
                                unsigned char category)
 {
@@ -350,8 +350,8 @@ void W8DialogTextArea::RemoveEntry(unsigned int index)
 // FUNCTION: WIZ8 0x005d21f0
 void W8DialogTextArea::RebuildVisibleEntries()
 {
-    wchar_t text[200];
-    wchar_t other[200];
+    char text[3 * (200) + 1];
+    char other[3 * (200) + 1];
     ClearEntryHighlight();
     ClearSelection();
     m_visible_lines.Clear();
@@ -366,7 +366,7 @@ void W8DialogTextArea::RebuildVisibleEntries()
                 int position;
                 for (position = 0; position < m_visible_lines.GetCount(); ++position) {
                     CopyVisibleEntryText(position, other);
-                    if (CompareWideTextIgnoreAsciiCase(text, other) < 0)
+                    if (CompareTextIgnoreAsciiCase(text, other) < 0)
                         break;
                 }
                 if (position == m_visible_lines.GetCount()) {

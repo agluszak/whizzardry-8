@@ -50,7 +50,7 @@ enum { W8_DEGREES_PER_TURN = 360, W8_DEGREES_PER_QUADRANT = 90 };
 
 #define FORMATION_CPP "C:\\Projects\\Wizardry 8\\Local Code\\Formation & Facing.cpp"
 
-extern wchar_t g_formation_row_names[5][20];
+extern char g_formation_row_names[5][20];
 
 /* Copy a party formation state. The 0x84-byte structure is copied as 33
    dwords via REP MOVSD. */
@@ -452,8 +452,8 @@ bool IsPartyLookingAt(W8MonsterInfo* monster_info, srVector3T<float> point)
 
 /* The five formation rows' display names, indexed by row. */
 // GLOBAL: WIZ8 0x00649e54
-wchar_t g_formation_row_names[5][20] = {
-    L"Front", L"Right", L"Rear", L"Left", L"Center",
+char g_formation_row_names[5][20] = {
+    "Front", "Right", "Rear", "Left", "Center",
 };
 
 /* Make room in `row` for one more character and return the column it should

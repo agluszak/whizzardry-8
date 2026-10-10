@@ -9,9 +9,10 @@ do not need the original compiler layout.
 - Separate save/asset records from runtime objects, then replace `W8_PTR32`
   and its process-wide pointer table with ordinary pointers and containers.
   Keep explicit fixed-width disk fields and round-trip fixtures.
-- Replace two-byte `wchar_t`/CRT substitution with explicit asset text decoding
-  and native strings. Remove `-fshort-wchar` only after migrating callers and
-  testing format boundaries, including existing `fgetws`/`swscanf` game calls.
+- Replace the remaining recovered UTF-8 C buffers with owning `std::string`
+  and borrowed `std::string_view` as runtime records are further separated.
+  UTF-16LE text decoding and record encoding are already explicit; the
+  short-wchar build mode and wide CRT substitutions have been removed.
 - Remove `-fwrapv` and `-fno-strict-aliasing` after correcting the arithmetic
   and aliasing assumptions they currently protect.
 - Modernize remaining SurRender/SGP allocator, string, array and threading

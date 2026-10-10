@@ -191,7 +191,7 @@ int main(int argc, char** argv)
         }
         if (argc > 3 && strcmp(argv[3], "save") == 0)
         {
-            CHECK(strcmp(ConvertWideStringToString(L"native-test"), "native-test") == 0);
+            CHECK(strcmp(CopyText("native-test"), "native-test") == 0);
             CHECK(SaveGame("native-test", nullptr));
             fprintf(stderr, "regression: save succeeded\n");
             CHECK(LoadGame("native-test"));

@@ -58,7 +58,6 @@
 #include "wiz8/utility.h"
 
 #include <string.h>
-#include <wchar.h>
 #include "wiz8/local_code/ItemManager.h"
 #include "wiz8/level_specific_code/MasterFunctionList.h"
 #include "wiz8/local_code/Factions.h"
@@ -1004,7 +1003,7 @@ unsigned char g_fact_values[1000];
 unsigned char GetFact(W8FactId fact_id)
 {
     unsigned char value;
-    wchar_t display_value[10];
+    char display_value[3 * (10) + 1];
 
     if (fact_id > 1000) {
         return 0;
@@ -1013,11 +1012,11 @@ unsigned char GetFact(W8FactId fact_id)
     value = EvaluateFact(fact_id);
     if (g_status.log_fact_checks) {
         if (value) {
-            wcscpy(display_value, L"TRUE");
+            strcpy(display_value, "TRUE");
         } else {
-            wcscpy(display_value, L"FALSE");
+            strcpy(display_value, "FALSE");
         }
-        ShowNoticef(W8_FONT_PALETTE_YELLOW, L"Checking fact %S which is %s",
+        ShowNoticef(W8_FONT_PALETTE_YELLOW, "Checking fact %s which is %s",
                     g_fact_records[fact_id].symbolic_name, display_value);
     }
     return value;
@@ -1027,7 +1026,7 @@ unsigned char GetFact(W8FactId fact_id)
 void SetFact(W8FactId fact_id, unsigned char value, bool suppress_side_effects)
 {
     unsigned char previous_value;
-    wchar_t display_value[10];
+    char display_value[3 * (10) + 1];
 
     if (fact_id > 1000) {
         return;
@@ -1052,11 +1051,11 @@ void SetFact(W8FactId fact_id, unsigned char value, bool suppress_side_effects)
 
         if (g_status.log_fact_checks) {
             if (value) {
-                wcscpy(display_value, L"TRUE");
+                strcpy(display_value, "TRUE");
             } else {
-                wcscpy(display_value, L"FALSE");
+                strcpy(display_value, "FALSE");
             }
-            ShowNoticef(W8_FONT_PALETTE_YELLOW, L"%S set to %s",
+            ShowNoticef(W8_FONT_PALETTE_YELLOW, "%s set to %s",
                         g_fact_records[fact_id].symbolic_name, display_value);
         }
     }

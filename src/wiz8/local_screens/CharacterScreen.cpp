@@ -51,7 +51,6 @@
 
 #include <new>
 #include <string.h>
-#include <wchar.h>
 
 #include "wiz8/filesystem.h"
 #include "wiz8/local_screens/OptionsScreen.h"
@@ -138,7 +137,7 @@ W8CharacterScreen::W8CharacterScreen(int mode, W8Character* character)
     if (m_mode == 3) {
         m_mode = 2;
         SoundPlay("Data\\Sound\\Misc\\GainLevel.wav", 0);
-        ShowMessage(FormatWideString(gppStringList[0xd9], m_character.name, 0, 0), 0, 0);
+        ShowMessage(FormatText(gppStringList[0xd9], m_character.name, 0, 0), 0, 0);
     }
     m_page_enabled[0] = m_mode != 1;
     m_page_enabled[1] = m_mode != 1;
@@ -250,7 +249,7 @@ void W8CharacterScreen::ShowSpellInfo(int value)
 {
     m_dialog_response = 0;
     m_dialog = new W8SpellInfoDialog(value);
-    m_dialog->SetText(&g_empty_wide_string);
+    m_dialog->SetText(&g_empty_text);
     ActivateDialogRegion(0x138);
 }
 
@@ -259,7 +258,7 @@ void W8CharacterScreen::ShowProfessionInfo(W8Profession profession)
 {
     m_dialog_response = 0;
     m_dialog = new W8ProfessionInfoDialog(profession);
-    m_dialog->SetText(&g_empty_wide_string);
+    m_dialog->SetText(&g_empty_text);
     ActivateDialogRegion(0x138);
 }
 
@@ -268,7 +267,7 @@ void W8CharacterScreen::ShowRaceInfo(W8Race race)
 {
     m_dialog_response = 0;
     m_dialog = new W8RaceInfoDialog(race);
-    m_dialog->SetText(&g_empty_wide_string);
+    m_dialog->SetText(&g_empty_text);
     ActivateDialogRegion(0x138);
 }
 
@@ -277,7 +276,7 @@ void W8CharacterScreen::ShowPrimaryAttributeInfo(W8Attribute attribute)
 {
     m_dialog_response = 0;
     m_dialog = new W8AttributeInfoDialog(attribute);
-    m_dialog->SetText(&g_empty_wide_string);
+    m_dialog->SetText(&g_empty_text);
     ActivateDialogRegion(0x138);
 }
 
@@ -286,7 +285,7 @@ void W8CharacterScreen::ShowSecondaryAttributeInfo(unsigned int attribute)
 {
     m_dialog_response = 0;
     m_dialog = new W8SecondaryAttributeInfoDialog(attribute);
-    m_dialog->SetText(&g_empty_wide_string);
+    m_dialog->SetText(&g_empty_text);
     ActivateDialogRegion(0x138);
 }
 
@@ -299,7 +298,7 @@ void W8CharacterScreen::ShowSkillInfo(W8Skill value)
     } else {
         m_dialog = new W8SkillInfoDialog(value, false, false, false);
     }
-    m_dialog->SetText(&g_empty_wide_string);
+    m_dialog->SetText(&g_empty_text);
     ActivateDialogRegion(0x138);
 }
 
@@ -340,7 +339,7 @@ void W8CharacterScreen::OnSecondary(W8TextControl*) {}
 // FUNCTION: WIZ8 0x005b09b0
 void W8CharacterScreen::ShowDescription(int first, int second)
 {
-    ShowMessage(FormatWideString(
+    ShowMessage(FormatText(
                     gppStringList[0x1d6], gppStringList[g_character_description_first_ids[first]],
                     m_character.name, gppStringList[g_character_skill_name_ids[second]]),
                 0, 0);
@@ -369,7 +368,7 @@ void W8CharacterScreen::AdvancePage(bool forward)
                 int value = ComputeRealmSkillDebt(m_original, &m_character);
                 if (value > 0) {
                     ShowMessage(
-                        FormatWideString(
+                        FormatText(
                             gppStringList[0xdb],
                             gppStringList[g_profession_name_message_ids[m_original->iProfession]],
                             gppStringList[g_profession_name_message_ids[m_character.iProfession]],
@@ -377,7 +376,7 @@ void W8CharacterScreen::AdvancePage(bool forward)
                         1, 4);
                 } else {
                     ShowMessage(
-                        FormatWideString(
+                        FormatText(
                             gppStringList[0xda],
                             gppStringList[g_profession_name_message_ids[m_original->iProfession]],
                             gppStringList[g_profession_name_message_ids[m_character.iProfession]]),
@@ -522,7 +521,7 @@ void W8CharacterScreen::DrawHeader()
         bounds.top += 0xe;
         text.SetLayoutBounds(&bounds, true, true);
         text.RenderString(
-            FormatWideString(L"%s %s",
+            FormatText("%s %s",
                              gppStringList[g_gender_name_message_rows[m_character.gender][0]],
                              gppStringList[g_race_name_message_ids[m_character.iRace]]),
             g_wiz_text_font_secondary, true, FRAME_BUFFER);
@@ -533,8 +532,8 @@ void W8CharacterScreen::DrawHeader()
         bounds.top += 0xe;
         text.SetLayoutBounds(&bounds, true, true);
         text.RenderString(
-            FormatWideString(
-                L"%s %d (%s)", gppStringList[0x6b9], m_character.uiExpLevel,
+            FormatText(
+                "%s %d (%s)", gppStringList[0x6b9], m_character.uiExpLevel,
                 gppStringList[g_profession_level_name_message_ids[m_character.iProfession]
                                                                  [m_character.level_band]]),
             g_wiz_text_font_secondary, true, FRAME_BUFFER);
@@ -604,7 +603,7 @@ void RefundCharacterScreenSkill(W8Skill skill_id)
 }
 
 // FUNCTION: WIZ8 0x005b1430
-void W8CharacterScreen::ShowMessage(wchar_t* text, int confirmation, int response)
+void W8CharacterScreen::ShowMessage(char* text, int confirmation, int response)
 {
     m_dialog_response = response;
     m_dialog = new W8MessageDialogBase;
@@ -639,7 +638,7 @@ void W8CharacterScreen::HandleDialogResult(int response, unsigned char accepted)
         case 5: {
             int value = ComputeStartingEquipmentCost(&m_character);
             int next_response;
-            wchar_t* format;
+            char* format;
             if (CanAffordStartingEquipment(&m_character)) {
                 format = gppStringList[0xd7];
                 next_response = 6;
@@ -647,7 +646,7 @@ void W8CharacterScreen::HandleDialogResult(int response, unsigned char accepted)
                 format = gppStringList[0xd8];
                 next_response = 7;
             }
-            ShowMessage(FormatWideString(format, value), 1, next_response);
+            ShowMessage(FormatText(format, value), 1, next_response);
             break;
         }
         case 6:
@@ -671,7 +670,7 @@ void W8CharacterScreen::HandleDialogResult(int response, unsigned char accepted)
 // FUNCTION: WIZ8 0x005b1670
 bool W8CharacterScreen::ValidateName()
 {
-    if (m_original != 0 && wcscmp(m_original->name, m_character.name) == 0) {
+    if (m_original != 0 && strcmp(m_original->name, m_character.name) == 0) {
         return true;
     }
     if (!g_status.game_started && !g_status.skip_loose_character_check) {
@@ -684,7 +683,7 @@ bool W8CharacterScreen::ValidateName()
     }
     for (int index = 0; index < W8_PARTY_SLOT_COUNT; ++index) {
         if (g_status.buffers.XChar[index].fOccupied &&
-            wcscmp(g_status.buffers.Char[index].name, m_character.name) == 0) {
+            strcmp(g_status.buffers.Char[index].name, m_character.name) == 0) {
             ShowMessage(gppStringList[0xd5], 0, 0);
             return false;
         }

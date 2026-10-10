@@ -61,7 +61,6 @@
 #include <algorithm>
 #include <vector>
 #include <stdlib.h>
-#include <wchar.h>
 #include <stdio.h>
 #include <string.h>
 #include <ctype.h>
@@ -682,13 +681,13 @@ unsigned char AutomapScreenEnter(void)
     g_automap_layers.Clear();
     g_automap_layers.Add(0);
     char layer_name[16];
-    sprintf(layer_name, "LAYER %d", layer_number);
+    snprintf(layer_name, sizeof(layer_name), "LAYER %d", layer_number);
     srClipPlane::ClientType* layer = static_cast<srClipPlane::ClientType*>(
         srCore.getRegistry()->find(srClipPlane::ClientType::sGetClassNode(), layer_name, 0));
     while (layer) {
         g_automap_layers.Add(layer);
         ++layer_number;
-        sprintf(layer_name, "LAYER %d", layer_number);
+        snprintf(layer_name, sizeof(layer_name), "LAYER %d", layer_number);
         layer = static_cast<srClipPlane::ClientType*>(
             srCore.getRegistry()->find(srClipPlane::ClientType::sGetClassNode(), layer_name, 0));
     }
@@ -760,7 +759,7 @@ unsigned char AutomapScreenEnter(void)
                     float height = static_cast<float>(atof(text + 6));
                     srClipPlane::ClientType* clip = SR_NEW(srClipPlane)(static_cast<srNode*>(0));
                     if (clip) {
-                        sprintf(layer_name, "LAYER %d", layer_number);
+                        snprintf(layer_name, sizeof(layer_name), "LAYER %d", layer_number);
                         clip->setName(layer_name);
                         srVector4T<float> plane;
                         plane.Set(0.0f, 1.0f, 0.0f, 0.0f);
@@ -832,15 +831,15 @@ void EnvironmentColour::Set(double red_value, double green_value, double blue_va
 }
 
 // FUNCTION: WIZ8 0x00581360
-W8AutomapNote* CreateAutomapNote(const srVector2T<float>* position, int layer, const wchar_t* text)
+W8AutomapNote* CreateAutomapNote(const srVector2T<float>* position, int layer, const char* text)
 {
-    if (text && wcslen(text) < 40 && g_automap_notes->GetCount() < 200) {
+    if (text && strlen(text) < 40 && g_automap_notes->GetCount() < 200) {
         W8AutomapNote* note = new W8AutomapNote;
         if (note) {
             note->position = *position;
             note->layer = layer;
-            note->text = static_cast<wchar_t*>(malloc(40 * sizeof(*note->text)));
-            wcscpy(note->text, text);
+            note->text = static_cast<char*>(malloc(40 * sizeof(*note->text)));
+            strcpy(note->text, text);
             g_automap_notes->Add(note);
             g_automap_redraw = true;
             return note;
@@ -906,7 +905,7 @@ void AutomapScreenFrame(void)
                     srVector2T<float> location;
                     location.Set((point.x - 0.5f) * g_automap_zoom + g_automap_position.x,
                                  g_automap_position.z - (point.y - 0.5f) * g_automap_zoom);
-                    g_automap_editing_note = CreateAutomapNote(&location, g_automap_layer, L"_");
+                    g_automap_editing_note = CreateAutomapNote(&location, g_automap_layer, "_");
                 }
             } else if (g_automap_tool == 3) {
                 W8AutomapNote* note = FindAutomapNoteUnderCursor();
@@ -1683,7 +1682,7 @@ bool SaveAutomapNotes(wiz8::File* handle)
             bool ok = (handle->write(&note->position.x, 4), true) != 0 &&
                       (handle->write(&note->position.y, 4), true) != 0 &&
                       (handle->write(&note->layer, 4), true) != 0;
-            int length = wcslen(note->text) + 1;
+            int length = strlen(note->text) + 1;
             if (!ok) {
                 return false;
             }
@@ -1728,7 +1727,7 @@ try
                           (handle->read(&position.y, 4).bytes == static_cast<std::size_t>(4)) != 0 &&
                           (handle->read(&layer, 4).bytes == static_cast<std::size_t>(4)) != 0 &&
                           (handle->read(&length, 4).bytes == static_cast<std::size_t>(4)) != 0;
-                wchar_t* text = static_cast<wchar_t*>(malloc(length * sizeof(*text)));
+                char* text = static_cast<char*>(malloc(length * sizeof(*text)));
                 if (!ok) {
                     return false;
                 }
@@ -2182,22 +2181,22 @@ unsigned char HandleAutomapNoteInput(const InputAtom* input)
     }
     unsigned short key = TranslateKeyToCharacter(input->usParam, input->usKeyState);
     ShowAutomapNoteTooltip(g_automap_editing_note);
-    unsigned int last = wcslen(g_automap_editing_note->text) - 1;
+    unsigned int last = strlen(g_automap_editing_note->text) - 1;
     if (isprint(key) != 0 && last <= 0x26) {
         g_automap_editing_note->text[last] = key;
-        g_automap_editing_note->text[last + 1] = L'_';
+        g_automap_editing_note->text[last + 1] = '_';
         g_automap_editing_note->text[last + 2] = 0;
         g_automap_redraw = true;
     } else {
         if (input->usParam == VK_BACK) {
             if (last != 0) {
-                g_automap_editing_note->text[last - 1] = L'_';
+                g_automap_editing_note->text[last - 1] = '_';
                 g_automap_editing_note->text[last] = 0;
             }
             g_automap_redraw = true;
         } else if (input->usParam == VK_RETURN) {
             g_automap_editing_note->text[last] = 0;
-            if (wcslen(g_automap_editing_note->text) == 0) {
+            if (strlen(g_automap_editing_note->text) == 0) {
                 g_automap_notes->Remove(g_automap_editing_note);
                 free(g_automap_editing_note->text);
                 delete g_automap_editing_note;

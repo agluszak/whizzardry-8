@@ -38,7 +38,6 @@
 #include "wiz8/filesystem.h"
 
 #include <string.h>
-#include <wchar.h>
 
 /* Retail Local Code\Party Import.cpp: converts imported Wizardry 7
    characters into the Wizardry 8 layout. */
@@ -258,8 +257,8 @@ void ImportWizardry7Character(W8Character* character, W8Wiz7Character* imported)
     int status;
 
     memset(character, 0, sizeof(W8Character));
-    swprintf(character->name, g_combat_log_format, TitleCaseString(imported->name));
-    wcscpy(character->name_part_2, character->name);
+    sprintf(character->name, g_combat_log_format, TitleCaseString(imported->name));
+    strcpy(character->name_part_2, character->name);
     character->iRace = static_cast<W8Race>(imported->race);
     character->gender = static_cast<W8Gender>(imported->gender);
     switch (imported->profession) {

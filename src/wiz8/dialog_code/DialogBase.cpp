@@ -102,20 +102,20 @@ void W8DialogBase::Draw()
 }
 
 // FUNCTION: WIZ8 0x005dc940
-void W8DialogBase::SetText(const wchar_t* text)
+void W8DialogBase::SetText(const char* text)
 {
     if (m_text) {
         free(m_text);
         m_text = 0;
     }
     if (text) {
-        if (wcslen(text) != 0) {
-            m_text = static_cast<wchar_t*>(malloc((wcslen(text) + 1) * sizeof(wchar_t)));
-            wcscpy(m_text, text);
+        if (strlen(text) != 0) {
+            m_text = static_cast<char*>(malloc((strlen(text) + 1) * sizeof(char)));
+            strcpy(m_text, text);
         }
     }
     if (m_resource != -1) {
-        SpecifyButtonText(m_resource, const_cast<wchar_t*>(text));
+        SpecifyButtonText(m_resource, const_cast<char*>(text));
     }
     m_dirty_flags |= W8_DIALOG_DIRTY_REDRAW;
 }

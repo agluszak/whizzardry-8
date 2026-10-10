@@ -19,5 +19,5 @@ void RequestExitScreen(void);
 unsigned char ExitScreenEnter(void);
 void ExitScreenFrame(void);
 /* Dispatch one already-built line to the active screen. */
-void ShowNoticeLine(wchar_t* text, W8DialogDestroyCallback callback, bool confirmation,
+void ShowNoticeLine(char* text, W8DialogDestroyCallback callback, bool confirmation,
                     bool cancel);

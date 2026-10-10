@@ -1,6 +1,6 @@
 #pragma once
 
-extern wchar_t g_format_S[];
+extern char g_format_S[];
 
 #include "wiz8/dialog_code/DialogBase.h"
 #include "wiz8/dialog_code/DialogButton.h"
@@ -46,6 +46,6 @@ private:
     unsigned short m_text_width; /* widest option text + 6 */
     unsigned char m_input_field; /* AddTextInputField id for opcode 0x13 */
     unsigned char unknown_079;
-    wchar_t m_input_text[251]; /* fills the 0x270-byte allocation */
+    char m_input_text[3 * (251) + 1]; /* fills the 0x270-byte allocation */
 };
 W8_ABI_ASSERT(sizeof(W8NpcDialog) == 0x270, "W8NpcDialog_size");

@@ -56,7 +56,6 @@
 
 #include <stdio.h>
 #include <stdlib.h>
-#include <wchar.h>
 
 
 /* The world-cursor node the party is standing in, tracked across the
@@ -301,7 +300,7 @@ static unsigned char WorldCursorNodeShowMessageOnce(int command, W8WorldCursorNo
     char* shown;
     int slot;
     char path[512];
-    wchar_t text[2048];
+    char text[3 * (2048) + 1];
 
     result = false;
     message_id = GetWorldCursorNodeParameter(node, 0);
@@ -335,7 +334,7 @@ command_check:
         if (folder == 0) {
             folder = "Test";
         }
-        sprintf(path, "Data\\Messages\\%s.msg", folder);
+        snprintf(path, sizeof(path), "Data\\Messages\\%s.msg", folder);
         if (GetStringFromStringDatabase(path, message_id, text, 0, 0) != 0) {
             ShowString(text);
         }
@@ -352,7 +351,7 @@ static unsigned char WorldCursorNodeShowContextMessage(int command, W8WorldCurso
     const char* folder;
     int message_id;
     char path[512];
-    wchar_t text[2046];
+    char text[3 * (2046) + 1];
 
     folder = GetLevelFolderName(GetLoadedLevelID());
     if (command != 4) {
@@ -363,9 +362,9 @@ static unsigned char WorldCursorNodeShowContextMessage(int command, W8WorldCurso
         if (folder == 0) {
             folder = "Test";
         }
-        sprintf(path, "Data\\Messages\\%s.msg", folder);
+        snprintf(path, sizeof(path), "Data\\Messages\\%s.msg", folder);
         if (GetStringFromStringDatabase(path, message_id, text, 0, 0) != 0) {
-            if (wcslen(text) != 0 && g_current_screen_state.id == W8_SCREEN_MAIN_GAME) {
+            if (strlen(text) != 0 && g_current_screen_state.id == W8_SCREEN_MAIN_GAME) {
                 ShowString(text);
             }
         }
@@ -380,7 +379,7 @@ static unsigned char WorldCursorNodeShowMessage(int command, W8WorldCursorNode* 
     const char* folder;
     int message_id;
     char path[512];
-    wchar_t text[2048];
+    char text[3 * (2048) + 1];
 
     folder = GetLevelFolderName(GetLoadedLevelID());
     if (command != 3) {
@@ -390,9 +389,9 @@ static unsigned char WorldCursorNodeShowMessage(int command, W8WorldCursorNode* 
     if (folder == 0) {
         folder = "Test";
     }
-    sprintf(path, "Data\\Messages\\%s.msg", folder);
+    snprintf(path, sizeof(path), "Data\\Messages\\%s.msg", folder);
     if (GetStringFromStringDatabase(path, message_id, text, 0, 0) != 0) {
-        if (wcslen(text) != 0) {
+        if (strlen(text) != 0) {
             ShowString(text);
         }
     }
@@ -587,13 +586,13 @@ unsigned char ShowLevelMessage(int message_id)
 {
     const char* folder;
     char path[512];
-    wchar_t text[2000];
+    char text[3 * (2000) + 1];
 
     folder = GetLevelFolderName(GetLoadedLevelID());
     if (folder == 0) {
         folder = "Test";
     }
-    sprintf(path, "Data\\Messages\\%s.msg", folder);
+    snprintf(path, sizeof(path), "Data\\Messages\\%s.msg", folder);
     if (GetStringFromStringDatabase(path, message_id, text, 0, 0) != 0) {
         ShowString(text);
         return 1;

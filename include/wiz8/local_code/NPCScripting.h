@@ -1,9 +1,9 @@
 #pragma once
 
-extern wchar_t g_format_al_s[];
+extern char g_format_al_s[];
 
-bool GetNpcScriptRegionName(int region, wchar_t* name);
-void StripNpcKeywordPunctuation(wchar_t* text);
+bool GetNpcScriptRegionName(int region, char* name);
+void StripNpcKeywordPunctuation(char* text);
 
 #include "wiz8/mouth_gap.h"
 #include "wiz8/message_box.h"
@@ -116,7 +116,7 @@ extern bool g_message_queue_idle;
    and EndScriptedPortraitPick clear. */
 
 void TryFinishNpcVoicePlayback(bool force);
-int FindNpcScriptQuoteByKeyword(wchar_t* keyword, short* entry_index, short* sub_entry_index);
+int FindNpcScriptQuoteByKeyword(char* keyword, short* entry_index, short* sub_entry_index);
 void RunNpcScriptLine(int script_line, bool force_npc_voice);
 void ProcessMessageBoxQueue(void);
 /* Execute a queued quote entry's deferred effect; the
@@ -144,8 +144,8 @@ bool IsSedexusCaptureActive(void);
 void QueueNpcMessageLine(W8NpcMessageKind kind, int argument);
 /* Resolves NPC-name, named-person, and region keywords to a quote
    id; returns -1 when nothing matches. */
-int FindNpcNameOrPlaceQuote(W8NpcState* npc, wchar_t* text);
-int FindNpcReplyQuote(wchar_t* text);
+int FindNpcNameOrPlaceQuote(W8NpcState* npc, char* text);
+int FindNpcReplyQuote(char* text);
 void RestoreCurrentNpcQuoteBubble(void);
 void RunNpcQuoteDeclineActions(int quote_index);
 void QueueNpcScriptLine(int quote, bool mark_pending, bool prepend, bool suppress_entries);
@@ -158,7 +158,7 @@ void BeginSedexusCapture(void);
 void CancelNpcDialogue(void);
 /* Show the NPC quote bubble for the formatted line; a nonzero
    second argument also plays the startup jingle. */
-void DisplayNpcQuote(const wchar_t* text, bool play_sound);
+void DisplayNpcQuote(const char* text, bool play_sound);
 /* Advance the dialogue NPC's refusal state - each stage queues a
    different quote until the third, which stays queued. */
 void QueueDialogueNpcRefusal(void);

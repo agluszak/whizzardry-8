@@ -33,7 +33,6 @@
 #include "timer.h"
 
 #include <new>
-#include <wchar.h>
 #include "wiz8/local_screens/IntroScreen.h"
 
 enum { W8_SCREEN_WIDTH = 640, W8_SCREEN_HEIGHT = 480, W8_HELP_MARGIN = 2 };
@@ -487,7 +486,7 @@ W8Region g_regions[1500] = {
 // GLOBAL: WIZ8 0x00689B3C
 unsigned int g_current_region_index;
 // GLOBAL: WIZ8 0x00689B40
-wchar_t* g_default_help_text;
+char* g_default_help_text;
 // GLOBAL: WIZ8 0x00689B44
 unsigned int g_captured_region_index;
 // GLOBAL: WIZ8 0x00689B4C
@@ -593,7 +592,7 @@ unsigned int UpdateRegionMousePosition(int x, int y)
         }
         if (previous_index != region_index) {
             region->flags |= W8_REGION_MOUSE_ENTER;
-            SetRegionHelpText(FormatWideString(L"Region %d", region_index));
+            SetRegionHelpText(FormatText("Region %d", region_index));
         }
         region->callback(&event, region);
         if (g_current_region_index != previous_index) {
@@ -759,7 +758,7 @@ void ShowRegionHelp(unsigned int region_index)
 {
     W8Region* region;
     unsigned int mode;
-    wchar_t* text;
+    char* text;
     POINT anchor;
     int width;
     int height;
@@ -1026,12 +1025,12 @@ void UpdateRegionHelp(void)
 }
 
 // FUNCTION: WIZ8 0x004f2750
-void SetRegionHelpText(const wchar_t* text)
+void SetRegionHelpText(const char* text)
 {
     ReleaseDefaultHelpText();
     if (text != 0) {
-        g_default_help_text = new wchar_t[wcslen(text) + 1];
-        wcscpy(g_default_help_text, text);
+        g_default_help_text = new char[strlen(text) + 1];
+        strcpy(g_default_help_text, text);
     } else {
         g_default_help_text = 0;
     }

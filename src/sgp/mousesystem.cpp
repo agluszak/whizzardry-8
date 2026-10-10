@@ -810,7 +810,7 @@ void MSYS_ReleaseMouse(MOUSE_REGION* region)
 */
 
 // FUNCTION: WIZ8 0x0040c040
-void SetRegionFastHelpText(MOUSE_REGION* region, CHAR16* szText)
+void SetRegionFastHelpText(MOUSE_REGION* region, char* szText)
 {
     Assert(region);
 
@@ -818,17 +818,17 @@ void SetRegionFastHelpText(MOUSE_REGION* region, CHAR16* szText)
     if (!(region->uiFlags & MSYS_REGION_EXISTS)) {
         region->FastHelpText.reset();
         return;
-        //AssertMsg( 0, FormatString( "Attempting to set fast help text, \"%S\" to an inactive region.", szText ) );
+        //AssertMsg( 0, FormatString( "Attempting to set fast help text, \"%s\" to an inactive region.", szText ) );
     }
 
-    if (!szText || !wcslen(szText)) {
+    if (!szText || !strlen(szText)) {
         region->FastHelpText.reset();
         return; //blank (or clear)
     }
 
     // Allocate memory for the button's FastHelp text string...
-    auto text = std::make_unique<CHAR16[]>(wcslen(szText) + 1);
-    wcscpy(text.get(), szText);
+    auto text = std::make_unique<char[]>(strlen(szText) + 1);
+    strcpy(text.get(), szText);
     region->FastHelpText = std::move(text);
 
     // ATE: We could be replacing already existing, active text

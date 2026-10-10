@@ -1,3 +1,4 @@
+#include "wiz8/unicode.h"
 #include <wiz8/filesystem.h>
 #include <sstream>
 #include <memory>
@@ -152,7 +153,7 @@ W8NpcInteractionState* g_npc_interaction_state = &g_npc_interaction_storage;
    list and element one the translated one; each file list holds one line list
    per line and each line list one word per field. */
 // GLOBAL: WIZ8 0x0068EE80
-W8GrowableVector<W8GrowableVector<W8GrowableVector<wchar_t*>*>*> g_keyword_lists;
+W8GrowableVector<W8GrowableVector<W8GrowableVector<char*>*>*> g_keyword_lists;
 /* Both keyword files are loaded and the tables are usable. */
 // GLOBAL: WIZ8 0x0068F0F8
 bool g_keyword_lists_loaded;
@@ -162,7 +163,7 @@ bool g_keyword_lists_loaded;
 bool g_pending_notice_queued;
 /* Empty wide string used to clear dialogue editor text. */
 // GLOBAL: WIZ8 0x0068EE58
-wchar_t g_dialogue_empty_text[4];
+char g_dialogue_empty_text[3 * (4) + 1];
 /* The queued NPC script notice; see the type comment in the
    header. */
 // GLOBAL: WIZ8 0x0068EE60
@@ -182,9 +183,9 @@ static int g_dialogue_fallback_ids0[5] = {0x760, 0x761, 0x762, 0x763, 0x764};
 // GLOBAL: WIZ8 0x00649F78
 static int g_dialogue_fallback_ids1[5] = {0x765, 0x766, 0x767, 0x768, 0x769};
 // GLOBAL: WIZ8 0x00649f8c
-const wchar_t* g_dialogue_person_keywords[] = {L"BALBRAK", L"BILDUBLU", L"EWAXX",  L"KUNAR",
-                                               L"PANRACK", L"RODAN",    L"RUBBLE", L"SAXX",
-                                               L"SPARKLE", L"YAMIR",    L""};
+const char* g_dialogue_person_keywords[] = {"BALBRAK", "BILDUBLU", "EWAXX",  "KUNAR",
+                                               "PANRACK", "RODAN",    "RUBBLE", "SAXX",
+                                               "SPARKLE", "YAMIR",    ""};
 
 static void DisableNpcTradeActions()
 {
@@ -204,7 +205,7 @@ void W8NpcTypedDialoguePanel::SetEnabled(bool enable)
         Controls::SetEnabled(enable);
         if (enable) {
             InitTextInputModeWithScheme(1);
-            AddTextInputField(0x1e5, 0x170, 0x7a, 0x12, 0x7f, &g_empty_wide_string, 0xbe, 0xf, 1);
+            AddTextInputField(0x1e5, 0x170, 0x7a, 0x12, 0x7f, &g_empty_text, 0xbe, 0xf, 1);
         } else {
             RemoveTextInputField(0);
         }
@@ -296,45 +297,45 @@ void W8NpcDialogueOptionsPanel::Redraw()
    that ends before any field, answers null; otherwise the returned cursor
    sits past the terminating slash so the next call continues the line. */
 // FUNCTION: WIZ8 0x0056be40
-wchar_t* ParseKeywordToken(wchar_t* line, wchar_t* field)
+char* ParseKeywordToken(char* line, char* field)
 {
-    wchar_t* cursor = line;
-    wchar_t* out = field;
+    char* cursor = line;
+    char* out = field;
     int length = 0;
 
     *out = 0;
-    while (*cursor == L' ' && *cursor != 0) {
+    while (*cursor == ' ' && *cursor != 0) {
         ++cursor;
     }
-    if (*cursor == L'/') {
+    if (*cursor == '/') {
         return 0;
     }
-    while (*cursor != 0 && *cursor != L'\n' && *cursor != L'\r') {
+    while (*cursor != 0 && *cursor != '\n' && *cursor != '\r') {
         *out = *cursor;
         ++cursor;
         ++length;
         ++out;
-        if (*cursor == L'/') {
+        if (*cursor == '/') {
             break;
         }
     }
     if (length == 0) {
         return 0;
     }
-    while (field[length - 1] == L' ') {
+    while (field[length - 1] == ' ') {
         --length;
         if (length < 1) {
             return 0;
         }
     }
     field[length] = 0;
-    if (*cursor == L'/') {
+    if (*cursor == '/') {
         ++cursor;
     }
     return cursor;
 }
 
-using KeywordLine = W8GrowableVector<wchar_t*>;
+using KeywordLine = W8GrowableVector<char*>;
 using KeywordFile = W8GrowableVector<KeywordLine*>;
 
 static void ReleaseKeywordLine(KeywordLine* line)
@@ -356,12 +357,12 @@ static void ReleaseKeywordFile(KeywordFile* file)
    resolved. A file that cannot be opened answers zero; otherwise every line
    adds a list, an empty one included, and the loader answers one. */
 // FUNCTION: WIZ8 0x0056bed0
-unsigned char LoadKeywordFile(const char* path, W8GrowableVector<W8GrowableVector<wchar_t*>*>* file)
+unsigned char LoadKeywordFile(const char* path, W8GrowableVector<W8GrowableVector<char*>*>* file)
 try
 {
-    wchar_t line[1000];
-    wchar_t field[1000];
-    wchar_t* cursor;
+    char line[3 * (1000) + 1];
+    char field[3 * (1000) + 1];
+    char* cursor;
     std::istringstream stream;
     try {
         auto input = wiz8::open_file(path);
@@ -376,19 +377,9 @@ try
         memset(line, 0, sizeof(line));
         if (bytes.find('\0') != std::string::npos)
             throw std::runtime_error("invalid keyword text");
-        const auto encoding = std::endian::native == std::endian::little ? "UTF-16LE" : "UTF-16BE";
-        auto handle = SDL_iconv_open(encoding, "");
-        if (!handle || handle == reinterpret_cast<SDL_iconv_t>(SDL_ICONV_ERROR))
-            throw std::runtime_error("unsupported keyword encoding");
-        std::unique_ptr<SDL_iconv_data_t, decltype(&SDL_iconv_close)> conversion(handle, SDL_iconv_close);
-        const char* input = bytes.data();
-        auto input_size = bytes.size();
-        char* output = reinterpret_cast<char*>(line);
-        auto output_size = sizeof(line) - sizeof(line[0]);
-        const auto result = SDL_iconv(conversion.get(), &input, &input_size, &output, &output_size);
-        if (result == SDL_ICONV_ERROR || result == SDL_ICONV_E2BIG ||
-            result == SDL_ICONV_EILSEQ || result == SDL_ICONV_EINVAL || input_size)
-            throw std::runtime_error("invalid keyword text");
+        if (bytes.size() >= sizeof(line) || wiz8::text::to_utf16(bytes).size() >= 1000)
+            throw std::runtime_error("keyword line too long");
+        std::memcpy(line, bytes.data(), bytes.size());
         return true;
     };
     try {
@@ -400,11 +391,11 @@ try
                 new KeywordLine, ReleaseKeywordLine);
             cursor = line + 11;
             while ((cursor = ParseKeywordToken(cursor, field)) != 0) {
-                const auto length = wcslen(field);
-                std::unique_ptr<wchar_t, decltype(&free)> word(
-                    static_cast<wchar_t*>(malloc((length + 1) * sizeof(wchar_t))), free);
+                const auto length = strlen(field);
+                std::unique_ptr<char, decltype(&free)> word(
+                    static_cast<char*>(malloc((length + 1) * sizeof(char))), free);
                 if (!word) throw std::bad_alloc();
-                wcscpy(word.get(), field);
+                strcpy(word.get(), field);
                 if (entry->Add(word.get()) < 0) throw std::bad_alloc();
                 (void)word.release();
             }
@@ -465,25 +456,25 @@ void ReloadKeywordLists(void)
    Element one holds the translated file when two loaded, falling back to the
    English list through GetAt's clamped read. */
 // FUNCTION: WIZ8 0x0056c440
-void TranslateDialogueKeyword(const wchar_t* source, wchar_t* destination)
+void TranslateDialogueKeyword(const char* source, char* destination)
 {
-    W8GrowableVector<W8GrowableVector<wchar_t*>*>* file;
-    W8GrowableVector<wchar_t*>* entry;
-    W8GrowableVector<wchar_t*>* english;
+    W8GrowableVector<W8GrowableVector<char*>*>* file;
+    W8GrowableVector<char*>* entry;
+    W8GrowableVector<char*>* english;
     int entry_index;
     int word_index;
 
     if (!g_keyword_lists_loaded) {
-        wcscpy(destination, source);
+        strcpy(destination, source);
         return;
     }
     file = *g_keyword_lists.GetAt(1);
     for (entry_index = 0; entry_index < file->count; ++entry_index) {
         entry = *file->GetAt(entry_index);
         for (word_index = 0; word_index < entry->count; ++word_index) {
-            if (CompareWideTextIgnoreAsciiCase(source, *entry->GetAt(word_index)) == 0) {
+            if (CompareTextIgnoreAsciiCase(source, *entry->GetAt(word_index)) == 0) {
                 english = *(*g_keyword_lists.GetAt(0))->GetAt(entry_index);
-                wcscpy(destination, *english->GetAt(word_index));
+                strcpy(destination, *english->GetAt(word_index));
                 return;
             }
         }
@@ -703,7 +694,7 @@ unsigned char OpenNpcDialoguePanel(W8NpcState* npc, W8ItemInstance* item, bool f
     W8MonsterInfo* dialogue_info;
     unsigned char band;
     bool greet;
-    wchar_t space[2];
+    char space[3 * (2) + 1];
     srVector3T<float> position;
 
     UpdateScreenOverlays(0);
@@ -821,7 +812,7 @@ unsigned char OpenNpcDialoguePanel(W8NpcState* npc, W8ItemInstance* item, bool f
     PauseMainGameWorld();
     RequestRedraw(W8_MAIN_REDRAW_LAYOUT);
     g_npc_interaction_state->text_box_collapsed = true;
-    swprintf(space, L" ");
+    snprintf(space, sizeof(space), " ");
     ShowNotice(W8_FONT_PALETTE_YELLOW, space, 3);
     return 1;
 }
@@ -1116,7 +1107,7 @@ static void OpenNpcDialogueLayout(W8NpcDialogueLayout layout)
 // FUNCTION: WIZ8 0x0056E510
 void ServiceNpcDialogue(void)
 {
-    wchar_t field_text[200];
+    char field_text[3 * (200) + 1];
     W8MonsterInfo* monster_info = GetNpcMonsterInfo(g_npc_interaction_state->dialogue_npc);
     if (monster_info != 0) {
         monster_info->p3D->UpdateAngles();
@@ -1127,7 +1118,7 @@ void ServiceNpcDialogue(void)
     if (g_npc_interaction_state->dialogue_hidden != 0 && gfRightButtonState != 0) {
         SetNpcDialogueHidden(0);
     }
-    Get16BitStringFromField(0, field_text);
+    GetTextFromField(0, field_text);
     if (g_npc_interaction_state->pending_layout != W8_DIALOGUE_LAYOUT_NONE) {
         g_level_block->text_box_visible = false;
         RegionSetEnable(0x15);
@@ -1142,7 +1133,7 @@ void ServiceNpcDialogue(void)
         g_npc_interaction_state->pending_layout = W8_DIALOGUE_LAYOUT_NONE;
     }
     if (g_npc_interaction_state->dialogue_layout == W8_DIALOGUE_LAYOUT_TRANSCRIPT) {
-        if (wcslen(field_text) == 0) {
+        if (strlen(field_text) == 0) {
             if (g_npc_interaction_state->dialogue_controls[W8_NPC_CONTROL_TEXT_12]->m_enabled) {
                 g_npc_interaction_state->dialogue_controls[W8_NPC_CONTROL_TEXT_12]->SetEnabled(
                     false);
@@ -1641,18 +1632,18 @@ void NpcDialogueTextBoxWheelAt(short x, unsigned short y, bool flag)
 
 static void SelectNpcDialogueKeyword(W8NoticeWord* word, int line)
 {
-    wchar_t word_text[200];
-    wchar_t field_text[200];
-    wchar_t combined[400];
+    char word_text[3 * (200) + 1];
+    char field_text[3 * (200) + 1];
+    char combined[3 * (400) + 1];
     word->keyword = W8_NOTICE_WORD_SELECTED;
     CopyNoticeWordText(word, word_text, 0xc8, 3, line);
-    Get16BitStringFromField(0, field_text);
+    GetTextFromField(0, field_text);
     StripNpcKeywordPunctuation(word_text);
-    if (wcslen(field_text) != 0) {
-        swprintf(combined, L"%s %s", field_text, word_text);
-        SetInputFieldStringWith16BitString(0, combined);
+    if (strlen(field_text) != 0) {
+        snprintf(combined, sizeof(combined), "%s %s", field_text, word_text);
+        SetInputFieldText(0, combined);
     } else {
-        SetInputFieldStringWith16BitString(0, word_text);
+        SetInputFieldText(0, word_text);
     }
     RedrawTextBoxBody(true);
 }
@@ -1663,7 +1654,7 @@ static void SelectNpcDialogueKeyword(W8NoticeWord* word, int line)
 // FUNCTION: WIZ8 0x0056F530
 void NpcDialogueTextBoxLeftUp(int x, int y)
 {
-    wchar_t word_text[200];
+    char word_text[3 * (200) + 1];
     int line;
     W8NoticeWord* word;
     int slot;
@@ -1677,7 +1668,7 @@ void NpcDialogueTextBoxLeftUp(int x, int y)
         if (gfKeyState[VK_SHIFT] == 0) {
             ResetUsedNoticeWords(3, true);
             word_text[0] = 0;
-            SetInputFieldStringWith16BitString(0, word_text);
+            SetInputFieldText(0, word_text);
         }
         SelectNpcDialogueKeyword(word, line);
         return;
@@ -1700,7 +1691,7 @@ void NpcDialogueTextBoxLeftUp(int x, int y)
 // FUNCTION: WIZ8 0x0056F6B0
 void NpcDialogueTextBoxRightUp(int x, int y)
 {
-    wchar_t word_text[200];
+    char word_text[3 * (200) + 1];
     int line;
     W8NoticeWord* word;
     int slot;
@@ -1719,7 +1710,7 @@ void NpcDialogueTextBoxRightUp(int x, int y)
             return;
         }
         dialog = new W8AssayDialog(item, &g_status.buffers.Char[g_status.selected_character]);
-        dialog->SetText(&g_empty_wide_string);
+        dialog->SetText(&g_empty_text);
         dialog->SetOrigin(g_info_dialog_x, 0x48);
         dialog->m_destroy_callback = OnNpcAssayDialogClosed;
         OpenModal(dialog);
@@ -1743,7 +1734,7 @@ void NpcDialogueTextBoxRightUp(int x, int y)
 // FUNCTION: WIZ8 0x0056F840
 void NpcDialogueTextBoxDoubleClick(int x, int y)
 {
-    wchar_t word_text[200];
+    char word_text[3 * (200) + 1];
     int line;
     W8NoticeWord* word;
     int slot;
@@ -1762,7 +1753,7 @@ void NpcDialogueTextBoxDoubleClick(int x, int y)
         if (gfKeyState[VK_SHIFT] == 0) {
             ResetUsedNoticeWords(3, true);
             word_text[0] = 0;
-            SetInputFieldStringWith16BitString(0, word_text);
+            SetInputFieldText(0, word_text);
         }
         if (word->keyword != W8_NOTICE_WORD_SELECTED) {
             SelectNpcDialogueKeyword(word, line);
@@ -1791,7 +1782,7 @@ void NpcDialogueTextBoxDoubleClick(int x, int y)
 
 static void ShowNpcTradeGold()
 {
-    wchar_t text[0x20];
+    char text[3 * (0x20) + 1];
 
     g_npc_interaction_state->dialogue_controls[W8_NPC_CONTROL_TEXT_37]->SetEnabled(true);
     static_cast<W8TextControl*>(g_npc_interaction_state->dialogue_controls[W8_NPC_CONTROL_TEXT_37])
@@ -1801,7 +1792,7 @@ static void ShowNpcTradeGold()
     g_npc_interaction_state->dialogue_controls[W8_NPC_CONTROL_TEXT_31]->SetEnabled(true);
     static_cast<W8TextControl*>(g_npc_interaction_state->dialogue_controls[W8_NPC_CONTROL_TEXT_36])
         ->m_textBuffer.SetText(gppStringList[0x72d], g_wiz_text_font_secondary);
-    swprintf(text, L"%dg", g_npc_interaction_state->trade_gold);
+    snprintf(text, sizeof(text), "%dg", g_npc_interaction_state->trade_gold);
     static_cast<W8TextControl*>(g_npc_interaction_state->dialogue_controls[W8_NPC_CONTROL_TEXT_35])
         ->m_textBuffer.SetText(text, g_wiz_text_font_secondary);
     g_npc_interaction_state->dialogue_panels[5]->Invalidate(0);
@@ -1814,8 +1805,8 @@ static void ShowNpcTradeGold()
 void UpdateNpcTradeSelection(int index, int increment, int commit)
 {
     W8ItemInstance* item;
-    wchar_t text[204];
-    wchar_t price_text[220];
+    char text[3 * (204) + 1];
+    char price_text[3 * (220) + 1];
     bool wants_item;
 
     SetSelectedTextLine(index, 2);
@@ -1868,7 +1859,7 @@ void UpdateNpcTradeSelection(int index, int increment, int commit)
                     g_npc_interaction_state->dialogue_controls[W8_NPC_CONTROL_TEXT_37])
                     ->m_textBuffer.SetGeometryDirty();
             }
-            swprintf(price_text, L"%dg",
+            snprintf(price_text, sizeof(price_text), "%dg",
                      CalculateNpcTradeStackPrice(g_npc_interaction_state->dialogue_npc,
                                                  g_npc_interaction_state->trade_item->iItemNo,
                                                  W8_TRADE_PRICE_PARTY_BUYS,
@@ -1891,14 +1882,14 @@ void UpdateNpcTradeSelection(int index, int increment, int commit)
                 W8_TRADE_PRICE_PARTY_SELLS, g_npc_interaction_state->trade_quantity,
                 g_npc_interaction_state->trade_item->identified);
             if (wants_item) {
-                swprintf(price_text, L"%dg", price);
+                snprintf(price_text, sizeof(price_text), "%dg", price);
             } else {
-                swprintf(price_text, L"---");
+                snprintf(price_text, sizeof(price_text), "---");
             }
             break;
         }
         case W8_NPC_TRADE_GIVE:
-            swprintf(price_text, L" ");
+            snprintf(price_text, sizeof(price_text), " ");
             break;
         default:
             return;
@@ -1928,9 +1919,9 @@ void ResetNpcDialogueItemEditor(void)
     static_cast<W8TextControl*>(g_npc_interaction_state->dialogue_controls[W8_NPC_CONTROL_TEXT_24])
         ->Invalidate(true);
     static_cast<W8TextControl*>(g_npc_interaction_state->dialogue_controls[W8_NPC_CONTROL_TEXT_35])
-        ->m_textBuffer.SetText(&g_empty_wide_string, g_wiz_text_font_secondary);
+        ->m_textBuffer.SetText(&g_empty_text, g_wiz_text_font_secondary);
     static_cast<W8TextControl*>(g_npc_interaction_state->dialogue_controls[W8_NPC_CONTROL_TEXT_36])
-        ->m_textBuffer.SetText(&g_empty_wide_string, g_wiz_text_font_secondary);
+        ->m_textBuffer.SetText(&g_empty_text, g_wiz_text_font_secondary);
     g_npc_interaction_state->dialogue_controls[W8_NPC_CONTROL_TEXT_31]->SetEnabled(false);
     g_npc_interaction_state->selected_trade_row = -1;
     g_npc_interaction_state->trade_quantity = 1;
@@ -2096,7 +2087,7 @@ void CloseNpcDialogueLayout(void)
     g_npc_interaction_state->dialogue_panels[4]->SetEnabled(false);
     g_npc_interaction_state->dialogue_controls[W8_NPC_CONTROL_TEXT_38]->SetActive(false);
     static_cast<W8TextControl*>(g_npc_interaction_state->dialogue_controls[W8_NPC_CONTROL_TEXT_38])
-        ->m_textBuffer.SetText(&g_empty_wide_string, g_wiz_text_bold_font);
+        ->m_textBuffer.SetText(&g_empty_text, g_wiz_text_bold_font);
     SetNpcDialogueLayoutMode(W8_DIALOGUE_LAYOUT_NONE);
 }
 
@@ -2196,11 +2187,11 @@ void OpenNpcDialogueTranscriptLayout(void)
     g_npc_interaction_state->dialogue_panels[6]->SetEnabled(true);
     g_npc_interaction_state->dialogue_controls[W8_NPC_CONTROL_TEXT_38]->SetActive(false);
     static_cast<W8TextControl*>(g_npc_interaction_state->dialogue_controls[W8_NPC_CONTROL_TEXT_38])
-        ->m_textBuffer.SetText(&g_empty_wide_string, g_wiz_text_bold_font);
+        ->m_textBuffer.SetText(&g_empty_text, g_wiz_text_bold_font);
     RegionSetEnable(0x18);
     RegionSetEnable(0x16);
     if (g_npc_interaction_state->dialogue_npc->name_style == 0x32) {
-        swprintf(g_status.monster_name_buffer, L"Al-%s",
+        sprintf(g_status.monster_name_buffer, "Al-%s",
                  g_status.buffers.Char[g_status.sedexus_party_slot].name);
         static_cast<W8TextControl*>(
             g_npc_interaction_state->dialogue_controls[W8_NPC_CONTROL_NPC_NAME])
@@ -2365,19 +2356,19 @@ void ScrollNpcDialogueDown(void)
 // FUNCTION: WIZ8 0x00571630
 void SubmitNpcDialogueKeyword(void)
 {
-    wchar_t keyword[200];
+    char keyword[3 * (200) + 1];
 
-    Get16BitStringFromField(0, keyword);
+    GetTextFromField(0, keyword);
     AddNpcDialogueKeyword(keyword, -1, 0);
 }
 
 // FUNCTION: WIZ8 0x00571660
-void AddNpcDialogueKeyword(wchar_t* text, signed char category, int play_chime)
+void AddNpcDialogueKeyword(char* text, signed char category, int play_chime)
 {
     W8NpcDialogueTextController* controller;
     unsigned int index;
 
-    if (wcslen(text) == 0) {
+    if (strlen(text) == 0) {
         return;
     }
     controller =
@@ -2385,7 +2376,7 @@ void AddNpcDialogueKeyword(wchar_t* text, signed char category, int play_chime)
     StripNpcKeywordPunctuation(text);
     if (category == W8_DIALOGUE_CATEGORY_ALL) {
         for (index = 0; index < gXStatus.uiItemsInDatabase; ++index) {
-            if (CompareWideTextIgnoreAsciiCase(text, g_item_records[index].display_name) == 0) {
+            if (CompareTextIgnoreAsciiCase(text, g_item_records[index].display_name) == 0) {
                 break;
             }
         }
@@ -2393,7 +2384,7 @@ void AddNpcDialogueKeyword(wchar_t* text, signed char category, int play_chime)
             category = W8_DIALOGUE_CATEGORY_ITEMS;
         } else {
             for (index = 0; index < gXStatus.uiNpcsInDatabase; ++index) {
-                if (CompareWideTextIgnoreAsciiCase(text, g_npc_records[index].source_name) == 0) {
+                if (CompareTextIgnoreAsciiCase(text, g_npc_records[index].source_name) == 0) {
                     break;
                 }
             }
@@ -2401,7 +2392,7 @@ void AddNpcDialogueKeyword(wchar_t* text, signed char category, int play_chime)
                 category = W8_DIALOGUE_CATEGORY_PEOPLE;
             } else {
                 for (index = 0; g_dialogue_person_keywords[index][0] != 0; ++index) {
-                    if (CompareWideTextIgnoreAsciiCase(text, g_dialogue_person_keywords[index]) ==
+                    if (CompareTextIgnoreAsciiCase(text, g_dialogue_person_keywords[index]) ==
                         0) {
                         break;
                     }
@@ -2412,7 +2403,7 @@ void AddNpcDialogueKeyword(wchar_t* text, signed char category, int play_chime)
                     for (index = 0;
                          index < static_cast<unsigned int>(g_dialogue_place_keyword_count);
                          ++index) {
-                        if (CompareWideTextIgnoreAsciiCase(
+                        if (CompareTextIgnoreAsciiCase(
                                 text, gppStringList[g_dialogue_place_keyword_ids[index]]) == 0) {
                             break;
                         }
@@ -2532,7 +2523,7 @@ static void ConfigureNpcTradeCommands()
 // FUNCTION: WIZ8 0x00571AA0
 void OpenNpcDialogueOptionLayout(void)
 {
-    wchar_t buffer[0x20];
+    char buffer[3 * (0x20) + 1];
     int index;
 
     g_npc_interaction_state->dialogue_layout = W8_DIALOGUE_LAYOUT_MAIN_TEXT_BOX;
@@ -2541,7 +2532,7 @@ void OpenNpcDialogueOptionLayout(void)
     }
     g_npc_interaction_state->dialogue_controls[W8_NPC_CONTROL_TEXT_38]->SetActive(false);
     static_cast<W8TextControl*>(g_npc_interaction_state->dialogue_controls[W8_NPC_CONTROL_TEXT_38])
-        ->m_textBuffer.SetText(&g_empty_wide_string, g_wiz_text_bold_font);
+        ->m_textBuffer.SetText(&g_empty_text, g_wiz_text_bold_font);
     g_npc_interaction_state->dialogue_panels[0]->SetEnabled(true);
     g_npc_interaction_state->dialogue_panels[1]->SetEnabled(true);
     g_npc_interaction_state->dialogue_panels[5]->SetEnabled(true);
@@ -2559,7 +2550,7 @@ void OpenNpcDialogueOptionLayout(void)
     g_npc_interaction_state->dialogue_controls[W8_NPC_CONTROL_TEXT_31]->SetEnabled(false);
     g_npc_interaction_state->dialogue_controls[W8_NPC_CONTROL_TEXT_31]
         ->m_primaryActivationCallback = ConfirmNpcTradeSlot;
-    swprintf(buffer, L"%dg", g_status.party_gold);
+    snprintf(buffer, sizeof(buffer), "%dg", g_status.party_gold);
     static_cast<W8TextControl*>(g_npc_interaction_state->dialogue_controls[W8_NPC_CONTROL_TEXT_33])
         ->m_textBuffer.SetText(buffer, g_wiz_text_font_secondary);
     g_npc_interaction_state->dialogue_controls[W8_NPC_CONTROL_TEXT_37]->SetEnabled(false);
@@ -2774,7 +2765,7 @@ void OpenNpcItemAssay(void)
                 ->m_imageObject != 0x1ac) {
         dialog = new W8AssayDialog(g_npc_interaction_state->trade_item,
                                    &g_status.buffers.Char[g_status.selected_character]);
-        dialog->SetText(&g_empty_wide_string);
+        dialog->SetText(&g_empty_text);
         dialog->SetOrigin(g_info_dialog_x, 0x48);
         dialog->m_destroy_callback = OnNpcAssayDialogClosed;
         OpenModal(dialog);
@@ -2845,7 +2836,7 @@ void OpenNpcGoldAmountDialog(void)
     }
     g_npc_interaction_state->dialogue_panels[1]->Invalidate(0);
     dialog = new W8SplitAmountDialog(g_status.party_gold);
-    dialog->SetText(&g_empty_wide_string);
+    dialog->SetText(&g_empty_text);
     dialog->SetOrigin(g_split_dialog_origin_x, g_split_dialog_origin_y);
     dialog->m_destroy_callback = OnNpcTradeSplitDialogDestroy;
     OpenModal(dialog);
@@ -2887,15 +2878,15 @@ static void HighlightNpcTradeQuantity()
    the click chime and the highlight tick. */
 static void ShowSelectedNpcTradeItem(const W8ItemInstance* item)
 {
-    wchar_t count_text[32];
-    const wchar_t* text;
+    char count_text[3 * (32) + 1];
+    const char* text;
     int image = g_item_video_objects.GetOrCreateVideoObject(item->iItemNo);
     static_cast<W8TextControl*>(g_npc_interaction_state->dialogue_controls[W8_NPC_CONTROL_TEXT_24])
         ->SetImage(image);
     if (item->stack_count < 2) {
         text = g_dialogue_empty_text;
     } else {
-        swprintf(count_text, L"%d", g_npc_interaction_state->trade_quantity);
+        snprintf(count_text, sizeof(count_text), "%d", g_npc_interaction_state->trade_quantity);
         text = count_text;
     }
     static_cast<W8TextControl*>(g_npc_interaction_state->dialogue_controls[W8_NPC_CONTROL_TEXT_24])
@@ -3112,7 +3103,7 @@ bool NpcTradeItemAllowed(W8ItemInstance* item)
 // FUNCTION: WIZ8 0x005732A0
 void OpenNpcDialogueMode5Layout(void)
 {
-    wchar_t buffer[0x20];
+    char buffer[3 * (0x20) + 1];
     int index;
 
     g_npc_interaction_state->dialogue_layout = W8_DIALOGUE_LAYOUT_TRADE;
@@ -3130,7 +3121,7 @@ void OpenNpcDialogueMode5Layout(void)
     g_npc_interaction_state->dialogue_controls[W8_NPC_CONTROL_TEXT_31]->SetEnabled(false);
     g_npc_interaction_state->dialogue_controls[W8_NPC_CONTROL_TEXT_31]
         ->m_primaryActivationCallback = ConfirmNpcTradeSlot;
-    swprintf(buffer, L"%dg", g_status.party_gold);
+    snprintf(buffer, sizeof(buffer), "%dg", g_status.party_gold);
     static_cast<W8TextControl*>(g_npc_interaction_state->dialogue_controls[W8_NPC_CONTROL_TEXT_33])
         ->m_textBuffer.SetText(buffer, g_wiz_text_font_secondary);
     g_npc_interaction_state->dialogue_controls[W8_NPC_CONTROL_TEXT_37]->SetEnabled(false);
@@ -3328,7 +3319,7 @@ void OpenNpcDialogueMode1Layout(void)
     g_npc_interaction_state->dialogue_panels[4]->SetEnabled(true);
     g_npc_interaction_state->dialogue_controls[W8_NPC_CONTROL_TEXT_38]->SetActive(false);
     static_cast<W8TextControl*>(g_npc_interaction_state->dialogue_controls[W8_NPC_CONTROL_TEXT_38])
-        ->m_textBuffer.SetText(&g_empty_wide_string, g_wiz_text_bold_font);
+        ->m_textBuffer.SetText(&g_empty_text, g_wiz_text_bold_font);
     RegionSetEnable(0x18);
     static_cast<W8TextControl*>(g_npc_interaction_state->dialogue_controls[W8_NPC_CONTROL_NPC_NAME])
         ->m_textBuffer.SetText(gppStringList[0x72f], g_wiz_text_bold_font);
@@ -3419,8 +3410,8 @@ void RequestNpcCharacterService(void)
 // FUNCTION: WIZ8 0x00573F80
 W8ItemInstance* GetNpcTradeSlotItem(int index)
 {
-    wchar_t count_text[32];
-    wchar_t* text;
+    char count_text[3 * (32) + 1];
+    char* text;
     W8Character* character;
     int image;
     int hit;
@@ -3447,7 +3438,7 @@ W8ItemInstance* GetNpcTradeSlotItem(int index)
                 if (character->EquippedItem[slot].stack_count < 2) {
                     text = g_dialogue_empty_text;
                 } else {
-                    swprintf(count_text, L"%d", character->EquippedItem[slot].stack_count);
+                    snprintf(count_text, sizeof(count_text), "%d", character->EquippedItem[slot].stack_count);
                     text = count_text;
                 }
                 static_cast<W8TextControl*>(
@@ -3473,7 +3464,7 @@ W8ItemInstance* GetNpcTradeSlotItem(int index)
                 if (character->backpack[slot].stack_count < 2) {
                     text = g_dialogue_empty_text;
                 } else {
-                    swprintf(count_text, L"%d", character->backpack[slot].stack_count);
+                    snprintf(count_text, sizeof(count_text), "%d", character->backpack[slot].stack_count);
                     text = count_text;
                 }
                 static_cast<W8TextControl*>(
@@ -3491,9 +3482,9 @@ W8ItemInstance* GetNpcTradeSlotItem(int index)
 }
 
 // FUNCTION: WIZ8 0x00574250
-void HandleNpcDialogueReply(wchar_t* text, bool echo)
+void HandleNpcDialogueReply(char* text, bool echo)
 {
-    wchar_t notice[200];
+    char notice[3 * (200) + 1];
     int line;
 
     if (g_npc_interaction_state->script_busy != 0) {
@@ -3503,7 +3494,7 @@ void HandleNpcDialogueReply(wchar_t* text, bool echo)
                 QueueNpcScriptLine(line, false, false, false);
             }
         } else {
-            if (CompareWideTextIgnoreAsciiCase(text, gppStringList[0x7df]) == 0) {
+            if (CompareTextIgnoreAsciiCase(text, gppStringList[0x7df]) == 0) {
                 if (static_cast<unsigned int>(g_npc_interaction_state->pending_price) >
                     g_status.party_gold) {
                     RunNpcScriptLine(0x14, false);
@@ -3523,7 +3514,7 @@ void HandleNpcDialogueReply(wchar_t* text, bool echo)
             }
         }
         if (echo) {
-            swprintf(notice, L"%s...", text);
+            snprintf(notice, sizeof(notice), "%s...", text);
             ShowNotice(W8_FONT_PALETTE_BRONZE, notice, 3, GetTextBoxScrollRange());
         }
         g_npc_interaction_state->script_busy = 0;
@@ -3533,20 +3524,20 @@ void HandleNpcDialogueReply(wchar_t* text, bool echo)
 /* Copy the next space-separated word of `text` into `word`. Returns the text
    after the word, or 0 when no word is left. Retail expands this inline at all
    five uses in HandleNpcDialogueInput and keeps no out-of-line copy. */
-static wchar_t* ReadNextWord(wchar_t* text, wchar_t* word)
+static char* ReadNextWord(char* text, char* word)
 {
-    wchar_t* out;
+    char* out;
     int length = 0;
 
     word[0] = 0;
-    while (*text == L' ' && *text != 0) {
+    while (*text == ' ' && *text != 0) {
         ++text;
     }
-    if (*text == L' ') {
+    if (*text == ' ') {
         return 0;
     }
     out = word;
-    while (*text != L' ' && *text != 0) {
+    while (*text != ' ' && *text != 0) {
         *out++ = *text++;
         ++length;
     }
@@ -3567,12 +3558,12 @@ static wchar_t* ReadNextWord(wchar_t* text, wchar_t* word)
 // FUNCTION: WIZ8 0x005743B0
 void HandleNpcDialogueInput(void)
 {
-    wchar_t field_text[200];
-    wchar_t word[200];
-    wchar_t buf[200];
-    wchar_t word2[200];
-    wchar_t notice[200];
-    wchar_t* cursor;
+    char field_text[3 * (200) + 1];
+    char word[3 * (200) + 1];
+    char buf[3 * (200) + 1];
+    char word2[3 * (200) + 1];
+    char notice[3 * (200) + 1];
+    char* cursor;
     int quote_id = -1;
     int second_quote_id = -1;
     bool show_fallback = true;
@@ -3582,10 +3573,10 @@ void HandleNpcDialogueInput(void)
     int word_count;
     int matches;
 
-    Get16BitStringFromField(0, field_text);
+    GetTextFromField(0, field_text);
     ClearActiveField();
     StripNpcKeywordPunctuation(field_text);
-    if (wcslen(field_text) == 0 && g_npc_interaction_state->script_busy == 0) {
+    if (strlen(field_text) == 0 && g_npc_interaction_state->script_busy == 0) {
         return;
     }
     if (g_npc_interaction_state->script_busy != 0) {
@@ -3603,28 +3594,28 @@ void HandleNpcDialogueInput(void)
     if (word_count > 2) {
         show_fallback = false;
     }
-    if (_wcsnicmp(field_text, gppStringList[0x76b], 4) == 0 ||
-        _wcsnicmp(field_text, gppStringList[0x76c], 7) == 0) {
+    if (_strnicmp(field_text, gppStringList[0x76b], 4) == 0 ||
+        _strnicmp(field_text, gppStringList[0x76c], 7) == 0) {
         RequestNpcJoinParty();
         return;
     }
     if (g_npc_interaction_state->where_is_query) {
-        const wchar_t* fmt;
-        if (_wcsnicmp(field_text, gppStringList[0x76d], 9) == 0 ||
-            _wcsnicmp(field_text, gppStringList[0x76e], 0xa) == 0 ||
-            _wcsnicmp(field_text, gppStringList[0x76f], 8) == 0) {
+        const char* fmt;
+        if (_strnicmp(field_text, gppStringList[0x76d], 9) == 0 ||
+            _strnicmp(field_text, gppStringList[0x76e], 0xa) == 0 ||
+            _strnicmp(field_text, gppStringList[0x76f], 8) == 0) {
             fmt = g_format_s;
         } else {
             fmt = gppStringList[0x76a];
         }
-        swprintf(buf, fmt, field_text);
+        snprintf(buf, sizeof(buf), fmt, field_text);
         quote = FindNpcScriptQuoteByKeyword(buf, 0, 0);
         if (quote != -1) {
             plain_text = false;
             quote_id = quote;
         }
     } else {
-        swprintf(buf, g_format_s, field_text);
+        snprintf(buf, sizeof(buf), g_format_s, field_text);
         quote = FindNpcScriptQuoteByKeyword(buf, 0, 0);
         if (quote != -1) {
             quote_id = quote;
@@ -3632,14 +3623,14 @@ void HandleNpcDialogueInput(void)
     }
 
     if (quote_id == -1) {
-        wcscpy(buf, field_text);
-        if (_wcsnicmp(buf, gppStringList[0x770], 0xb) == 0) {
-            wcscpy(field_text, buf + 0xb);
+        strcpy(buf, field_text);
+        if (_strnicmp(buf, gppStringList[0x770], 0xb) == 0) {
+            strcpy(field_text, buf + 0xb);
             show_fallback = false;
-        } else if (_wcsnicmp(buf, gppStringList[0x76d], 9) == 0 ||
-                   _wcsnicmp(buf, gppStringList[0x76e], 0xa) == 0 ||
-                   _wcsnicmp(buf, gppStringList[0x76f], 8) == 0) {
-            wcscpy(field_text, buf + 9);
+        } else if (_strnicmp(buf, gppStringList[0x76d], 9) == 0 ||
+                   _strnicmp(buf, gppStringList[0x76e], 0xa) == 0 ||
+                   _strnicmp(buf, gppStringList[0x76f], 8) == 0) {
+            strcpy(field_text, buf + 9);
             plain_text = false;
             show_fallback = false;
             quote_id = FindNpcNameOrPlaceQuote(g_npc_interaction_state->dialogue_npc, field_text);
@@ -3662,10 +3653,10 @@ void HandleNpcDialogueInput(void)
         cursor = field_text;
         word[0] = 0;
         while (cursor != 0) {
-            if (wcslen(word) == 0) {
+            if (strlen(word) == 0) {
                 cursor = ReadNextWord(cursor, word);
             } else {
-                wcscpy(word, word2);
+                strcpy(word, word2);
             }
             if (cursor == 0) {
                 break;
@@ -3674,7 +3665,7 @@ void HandleNpcDialogueInput(void)
             if (cursor == 0) {
                 break;
             }
-            swprintf(buf, g_format_s_space_s, word, word2);
+            snprintf(buf, sizeof(buf), g_format_s_space_s, word, word2);
             quote = FindNpcScriptQuoteByKeyword(buf, 0, 0);
             if (quote != -1) {
                 quote_id = quote;
@@ -3727,26 +3718,26 @@ void HandleNpcDialogueInput(void)
     }
     if (!echo && show_fallback) {
         unsigned int roll;
-        const wchar_t* fmt;
-        const wchar_t* text;
+        const char* fmt;
+        const char* text;
         if (plain_text) {
             roll = Random(5);
             if (roll == 2 || roll == 3 || roll == 4) {
-                fmt = L"%s %s?";
+                fmt = "%s %s?";
             } else {
-                fmt = L"%s %s.";
+                fmt = "%s %s.";
             }
             text = gppStringList[g_dialogue_fallback_ids0[roll]];
         } else {
             roll = Random(5);
             if (roll == 3 || roll == 4) {
-                fmt = L"%s %s?";
+                fmt = "%s %s?";
             } else {
-                fmt = L"%s %s.";
+                fmt = "%s %s.";
             }
             text = gppStringList[g_dialogue_fallback_ids1[roll]];
         }
-        swprintf(notice, fmt, text, field_text);
+        snprintf(notice, sizeof(notice), fmt, text, field_text);
         ShowNotice(W8_FONT_PALETTE_BRONZE, notice, 3, GetTextBoxScrollRange());
     } else {
         ShowNotice(W8_FONT_PALETTE_BRONZE, field_text, 3, GetTextBoxScrollRange());
@@ -3805,7 +3796,7 @@ void HandleNpcDialogueKeyEvent(const InputAtom* event)
             return;
         }
         if (EditingText()) {
-            SetInputFieldStringWith16BitString(0, &g_empty_wide_string);
+            SetInputFieldText(0, &g_empty_text);
             ClearActiveField();
             return;
         }
@@ -3880,26 +3871,26 @@ void HandleNpcDialogueKeyEvent(const InputAtom* event)
 }
 
 // FUNCTION: WIZ8 0x00574F90
-void SetDialogueFieldKeyword(wchar_t* keyword, bool append)
+void SetDialogueFieldKeyword(char* keyword, bool append)
 {
-    wchar_t field_text[200];
-    wchar_t combined[200];
+    char field_text[3 * (200) + 1];
+    char combined[3 * (200) + 1];
 
-    Get16BitStringFromField(0, field_text);
+    GetTextFromField(0, field_text);
     StripNpcKeywordPunctuation(keyword);
-    if (wcslen(field_text) != 0 && append) {
-        swprintf(combined, g_format_s_space_s, field_text, keyword);
-        SetInputFieldStringWith16BitString(0, combined);
+    if (strlen(field_text) != 0 && append) {
+        snprintf(combined, sizeof(combined), g_format_s_space_s, field_text, keyword);
+        SetInputFieldText(0, combined);
     } else {
-        SetInputFieldStringWith16BitString(0, keyword);
+        SetInputFieldText(0, keyword);
     }
 }
 
 // FUNCTION: WIZ8 0x00575020
-bool IsDialoguePlaceKeyword(const wchar_t* name)
+bool IsDialoguePlaceKeyword(const char* name)
 {
     for (int index = 0; index < g_dialogue_place_keyword_count; ++index) {
-        if (CompareWideTextIgnoreAsciiCase(
+        if (CompareTextIgnoreAsciiCase(
                 name, gppStringList[g_dialogue_place_keyword_ids[index]]) == 0) {
             return true;
         }
@@ -3961,7 +3952,7 @@ unsigned char SaveNpcDialogueTranscript(wiz8::File* file)
     for (index = 0; index < g_npc_interaction_state->dialogue_transcript.GetCount(); ++index) {
         W8DialogueTranscriptRecord* record =
             *g_npc_interaction_state->dialogue_transcript.GetAt(index);
-        text_length = wcslen(record->text);
+        text_length = strlen(record->text);
         (file->write(&text_length, 4), bytes_written = 4, true);
         (file->write(record, text_length * 2 + 2), bytes_written = text_length * 2 + 2, true);
         (file->write(&record->category, 1), bytes_written = 1, true);
@@ -4085,7 +4076,7 @@ void ConfirmNpcTradePurchase(void)
 unsigned char HandleNpcDialogueItem(W8ItemInstance* item)
 {
     W8MessageDialogBase* dialog;
-    wchar_t* message;
+    char* message;
     bool result;
     unsigned char flag;
     int fact_result;
@@ -4098,7 +4089,7 @@ unsigned char HandleNpcDialogueItem(W8ItemInstance* item)
         }
         dialog = static_cast<W8MessageDialogBase*>(CreateDialogByKind(W8_DIALOG_MESSAGE));
         dialog->SetClientExtent(0xfa, 200);
-        message = FormatWideString(gppStringList[0x7d6]);
+        message = FormatText(gppStringList[0x7d6]);
         dialog->SetMessage(message, 1, 0x32, true, true, true, true, 0, 0x15e);
         SetDialogDestroyCallback(dialog, OnNpcTradeDialogClosed);
         OpenModal(dialog);
@@ -4207,9 +4198,9 @@ void HandleNpcDialogueItemChoice(void)
 // FUNCTION: WIZ8 0x00575BC0
 void RefreshNpcTradePartyGold(void)
 {
-    wchar_t text[32];
+    char text[3 * (32) + 1];
 
-    swprintf(text, L"%dg", g_status.party_gold);
+    snprintf(text, sizeof(text), "%dg", g_status.party_gold);
     static_cast<W8TextControl*>(g_npc_interaction_state->dialogue_controls[W8_NPC_CONTROL_TEXT_33])
         ->m_textBuffer.SetText(text, g_wiz_text_font_secondary);
 }
@@ -4217,10 +4208,10 @@ void RefreshNpcTradePartyGold(void)
 // FUNCTION: WIZ8 0x00575C00
 void RefreshNpcTradePrice(void)
 {
-    wchar_t text[32];
+    char text[3 * (32) + 1];
 
     if (g_npc_interaction_state->trade_item != 0) {
-        swprintf(text, g_format_d, g_npc_interaction_state->trade_quantity);
+        snprintf(text, sizeof(text), g_format_d, g_npc_interaction_state->trade_quantity);
         static_cast<W8TextControl*>(
             g_npc_interaction_state->dialogue_controls[W8_NPC_CONTROL_TEXT_24])
             ->m_textBuffer.SetText(text, g_wiz_text_font_secondary);
@@ -4307,7 +4298,7 @@ void OpenNpcDialog(W8NpcQuoteEntry* request, int aux_data)
         SetNpcDialoguePanelVisible(0);
     }
     dialog = new W8NpcDialog(request, aux_data);
-    dialog->SetText(&g_empty_wide_string);
+    dialog->SetText(&g_empty_text);
     dialog->m_destroy_callback = OnNpcDialogClosed;
     OpenModal(dialog);
     g_npc_interaction_state->script_busy = 1;
@@ -4339,7 +4330,7 @@ void OpenNpcDialog(W8NpcQuoteEntry* request, int aux_data)
 }
 
 // FUNCTION: WIZ8 0x00576030
-void SetNpcQuoteBubbleVisible(bool visible, const wchar_t* text, W8NpcScriptQuote* quote,
+void SetNpcQuoteBubbleVisible(bool visible, const char* text, W8NpcScriptQuote* quote,
                               int quote_id, unsigned int font_palette)
 {
     W8MessageBoxPayload payload;
@@ -4349,7 +4340,7 @@ void SetNpcQuoteBubbleVisible(bool visible, const wchar_t* text, W8NpcScriptQuot
 }
 
 // FUNCTION: WIZ8 0x00576060
-void SetNpcQuoteBubbleVisible(bool visible, const wchar_t* text, W8NpcScriptQuote* quote,
+void SetNpcQuoteBubbleVisible(bool visible, const char* text, W8NpcScriptQuote* quote,
                               int quote_id, unsigned int font_palette,
                               W8NpcQuoteNoticeKind notice_kind, W8MessageBoxPayload payload,
                               int npc_kind)
@@ -4358,17 +4349,17 @@ void SetNpcQuoteBubbleVisible(bool visible, const wchar_t* text, W8NpcScriptQuot
         return;
     }
     if (visible) {
-        wchar_t normalized[2048];
-        wchar_t error_text[200];
+        char normalized[3 * (2048) + 1];
+        char error_text[3 * (200) + 1];
         unsigned short width;
         unsigned short height;
 
         CancelMouselook();
         memset(normalized, 0, sizeof(normalized));
-        wchar_t* output = normalized;
-        for (unsigned int index = 0; index < wcslen(text); ++index) {
-            if (text[index] == L'\n' && index > 0 && text[index - 1] != L' ') {
-                *output++ = L' ';
+        char* output = normalized;
+        for (unsigned int index = 0; index < strlen(text); ++index) {
+            if (text[index] == '\n' && index > 0 && text[index - 1] != ' ') {
+                *output++ = ' ';
             }
             *output++ = text[index];
         }
@@ -4376,11 +4367,11 @@ void SetNpcQuoteBubbleVisible(bool visible, const wchar_t* text, W8NpcScriptQuot
             -1, 0, 0, normalized, 280, 0, 0, 0, &width, &height, font_palette);
         if (g_npc_interaction_state->quote_bubble == -1) {
             if (g_npc_interaction_state->dialogue_npc != 0) {
-                swprintf(error_text,
-                         L"Error creating box - most likely text too large: NPC %s, quote %d",
+                snprintf(error_text, sizeof(error_text),
+                         "Error creating box - most likely text too large: NPC %s, quote %d",
                          g_npc_interaction_state->dialogue_npc->record->source_name, quote_id);
             } else {
-                swprintf(error_text, L"Error creating box - most likely text too large");
+                snprintf(error_text, sizeof(error_text), "Error creating box - most likely text too large");
             }
             g_npc_interaction_state->quote_bubble =
                 LayoutPortraitQuoteBubble(-1, 0, 0, error_text, 300, 0, 0, 0, &width, &height, -1);
@@ -4398,9 +4389,9 @@ void SetNpcQuoteBubbleVisible(bool visible, const wchar_t* text, W8NpcScriptQuot
         g_npc_interaction_state->quote_visible = true;
         if (notice_kind == W8_QUOTE_NOTICE_TEXT) {
             W8PendingNoticeLine* line = new W8PendingNoticeLine;
-            line->text = static_cast<wchar_t*>(malloc((wcslen(normalized) + 1) * sizeof(wchar_t)));
+            line->text = static_cast<char*>(malloc((strlen(normalized) + 1) * sizeof(char)));
             line->npc_kind = npc_kind;
-            wcscpy(line->text, normalized);
+            strcpy(line->text, normalized);
             g_npc_interaction_state->pending_notice_lines.Add(line);
         }
         g_npc_interaction_state->quote_notice_kind = notice_kind;
@@ -4504,7 +4495,7 @@ void DrawNpcQuoteBubble(void)
 // FUNCTION: WIZ8 0x005766B0
 void FlushPendingNoticeLines(void)
 {
-    wchar_t npc_name[100];
+    char npc_name[3 * (100) + 1];
     int index;
 
     for (index = 0; index < g_npc_interaction_state->pending_notice_lines.GetCount(); ++index) {
@@ -4513,7 +4504,7 @@ void FlushPendingNoticeLines(void)
             line->npc_kind != g_npc_interaction_state->last_notice_npc_kind) {
             W8NpcState* npc = GetNpcState(line->npc_kind);
             if (npc != 0) {
-                swprintf(npc_name, L"%s", npc->record->source_name);
+                snprintf(npc_name, sizeof(npc_name), "%s", npc->record->source_name);
                 ShowNotice(W8_FONT_PALETTE_GREEN, npc_name, 3);
                 g_npc_interaction_state->last_notice_npc_kind = line->npc_kind;
             }
@@ -4619,12 +4610,12 @@ void ResolveNpcPickpocket(int party_slot)
     W8Character* character = &g_status.buffers.Char[party_slot];
     unsigned int gold;
     W8ItemInstance item;
-    wchar_t text[200];
+    char text[3 * (200) + 1];
     int slot;
 
     switch (AttemptNpcPickpocket(character, g_npc_interaction_state->dialogue_npc, &item, &gold)) {
     case W8_PICKPOCKET_ITEM_TAKEN:
-        swprintf(text, gppStringList[0x74d], character->name, GetItemDisplayName(&item));
+        snprintf(text, sizeof(text), gppStringList[0x74d], character->name, GetItemDisplayName(&item));
         for (slot = 0; slot < 8; ++slot) {
             if (character->backpack[slot].iItemNo == -1) {
                 AddItemToCharacter(character, &item, false, false, false);
@@ -4636,12 +4627,12 @@ void ResolveNpcPickpocket(int party_slot)
         DisplayNpcQuote(text, true);
         return;
     case W8_PICKPOCKET_GOLD_TAKEN:
-        swprintf(text, gppStringList[0x74e], character->name, gold);
+        snprintf(text, sizeof(text), gppStringList[0x74e], character->name, gold);
         AddPartyGold(gold, false);
         DisplayNpcQuote(text, true);
         return;
     case W8_PICKPOCKET_FAILED:
-        swprintf(text, gppStringList[0x74f], character->name);
+        snprintf(text, sizeof(text), gppStringList[0x74f], character->name);
         DisplayNpcQuote(text, false);
         return;
     case W8_PICKPOCKET_CAUGHT:
@@ -4681,8 +4672,8 @@ void OnNpcDialogClosed(W8DialogBase* dialog)
 {
     W8NpcDialog* npc_dialog = static_cast<W8NpcDialog*>(dialog);
     W8NpcQuoteEntry* request = npc_dialog->m_message;
-    wchar_t field_text[200];
-    wchar_t entry_text[1020];
+    char field_text[3 * (200) + 1];
+    char entry_text[3 * (1020) + 1];
     int index;
 
     if (!gXStatus.fNpcDialogueMode || g_npc_interaction_state->scripted_dialogue) {
@@ -4698,14 +4689,14 @@ void OnNpcDialogClosed(W8DialogBase* dialog)
     if (request->kind == W8_NPC_ENTRY_OPTIONS) {
         for (index = 0; index < request->sub_entry_count; ++index) {
             if (index == npc_dialog->m_selected_option) {
-                swprintf(entry_text, L"%S", request->sub_entries[index].text);
+                snprintf(entry_text, sizeof(entry_text), "%s", request->sub_entries[index].text);
                 if (!gXStatus.fNpcDialogueMode || g_npc_interaction_state->scripted_dialogue) {
                     HandleNpcDialogueReply(entry_text, false);
                 } else {
-                    Get16BitStringFromField(0, field_text);
+                    GetTextFromField(0, field_text);
                     StripNpcKeywordPunctuation(entry_text);
-                    static_cast<void>(wcslen(field_text));
-                    SetInputFieldStringWith16BitString(0, entry_text);
+                    static_cast<void>(strlen(field_text));
+                    SetInputFieldText(0, entry_text);
                     HandleNpcDialogueInput();
                 }
                 break;
@@ -4714,27 +4705,27 @@ void OnNpcDialogClosed(W8DialogBase* dialog)
     } else if (request->kind == W8_NPC_ENTRY_PRICE_CHECK ||
                request->kind == W8_NPC_ENTRY_ALWAYS_PRICE_CHECK) {
         if (npc_dialog->m_selected_option == 0) {
-            wcscpy(entry_text, gppStringList[0x7df]);
+            strcpy(entry_text, gppStringList[0x7df]);
         } else {
-            wcscpy(entry_text, gppStringList[0x7e0]);
+            strcpy(entry_text, gppStringList[0x7e0]);
         }
         if (!gXStatus.fNpcDialogueMode || g_npc_interaction_state->scripted_dialogue) {
             HandleNpcDialogueReply(entry_text, false);
         } else {
-            Get16BitStringFromField(0, field_text);
+            GetTextFromField(0, field_text);
             StripNpcKeywordPunctuation(entry_text);
-            static_cast<void>(wcslen(field_text));
-            SetInputFieldStringWith16BitString(0, entry_text);
+            static_cast<void>(strlen(field_text));
+            SetInputFieldText(0, entry_text);
             HandleNpcDialogueInput();
         }
     } else if (request->kind == W8_NPC_ENTRY_KEYWORD_INPUT) {
         if (!gXStatus.fNpcDialogueMode || g_npc_interaction_state->scripted_dialogue) {
             HandleNpcDialogueReply(npc_dialog->m_input_text, false);
         } else {
-            Get16BitStringFromField(0, field_text);
+            GetTextFromField(0, field_text);
             StripNpcKeywordPunctuation(npc_dialog->m_input_text);
-            static_cast<void>(wcslen(field_text));
-            SetInputFieldStringWith16BitString(0, npc_dialog->m_input_text);
+            static_cast<void>(strlen(field_text));
+            SetInputFieldText(0, npc_dialog->m_input_text);
             HandleNpcDialogueInput();
         }
     }
@@ -4826,28 +4817,22 @@ void HandleNpcDialogueDeparture(unsigned char value)
 /* Shared by the main-game screen and dialog text entries; it lives with the
    main-game text helpers, not with UtilityFunctions.cpp. */
 // FUNCTION: WIZ8 0x00577410
-void ShortenTextToWidth(wchar_t* output, const wchar_t* text, unsigned int width, int font)
+void ShortenTextToWidth(char* output, const char* text, unsigned int width, int font)
 {
-    wchar_t buffer[200];
-    wcscpy(buffer, text);
-    if (static_cast<unsigned int>(StringPixLength(buffer, font)) < width) {
-        wcscpy(output, buffer);
+    std::string shortened(text);
+    if (static_cast<unsigned int>(StringPixLength(shortened.c_str(), font)) <= width) {
+        strcpy(output, shortened.c_str());
         return;
     }
-    for (int index = 0; index < static_cast<int>(wcslen(buffer)); ++index) {
-        if (width <= static_cast<unsigned int>(StringPixLengthArg(font, index + 1, buffer))) {
-            --index;
-            while (index >= 0) {
-                if (buffer[index] != L' ' && buffer[index - 1] != L' ') {
-                    buffer[index] = L'\0';
-                    swprintf(output, L"%s...", buffer);
-                    return;
-                }
-                --index;
-            }
+    while (!shortened.empty()) {
+        shortened.resize(wiz8::text::previous(shortened, shortened.size()));
+        const auto candidate = shortened + "...";
+        if (static_cast<unsigned int>(StringPixLength(candidate.c_str(), font)) <= width) {
+            strcpy(output, candidate.c_str());
             return;
         }
     }
+    *output = 0;
 }
 
 // FUNCTION: WIZ8 0x00577520
@@ -4886,22 +4871,22 @@ void FlushInputWhileWorldCursorGate(void)
 }
 
 // FUNCTION: WIZ8 0x005775d0
-void AddDialogueTranscriptKeyword(const wchar_t* name, signed char category)
+void AddDialogueTranscriptKeyword(const char* name, signed char category)
 {
-    wchar_t keyword[100];
-    wcscpy(keyword, name);
+    char keyword[3 * (100) + 1];
+    strcpy(keyword, name);
     StripNpcKeywordPunctuation(keyword);
     if (category == -1) {
         unsigned int index;
         for (index = 0; index < gXStatus.uiItemsInDatabase; ++index) {
-            if (CompareWideTextIgnoreAsciiCase(keyword, g_item_records[index].display_name) == 0) {
+            if (CompareTextIgnoreAsciiCase(keyword, g_item_records[index].display_name) == 0) {
                 category = W8_DIALOGUE_CATEGORY_ITEMS;
                 break;
             }
         }
         if (category == -1) {
             for (index = 0; index < gXStatus.uiNpcsInDatabase; ++index) {
-                if (CompareWideTextIgnoreAsciiCase(keyword, g_npc_records[index].source_name) ==
+                if (CompareTextIgnoreAsciiCase(keyword, g_npc_records[index].source_name) ==
                     0) {
                     category = W8_DIALOGUE_CATEGORY_PEOPLE;
                     break;
@@ -4910,7 +4895,7 @@ void AddDialogueTranscriptKeyword(const wchar_t* name, signed char category)
         }
         if (category == -1) {
             for (index = 0; g_dialogue_person_keywords[index][0] != 0; ++index) {
-                if (CompareWideTextIgnoreAsciiCase(keyword, g_dialogue_person_keywords[index]) ==
+                if (CompareTextIgnoreAsciiCase(keyword, g_dialogue_person_keywords[index]) ==
                     0) {
                     category = W8_DIALOGUE_CATEGORY_PEOPLE;
                     break;
@@ -4923,7 +4908,7 @@ void AddDialogueTranscriptKeyword(const wchar_t* name, signed char category)
         }
     }
     for (int index = 0; index < g_npc_interaction_state->dialogue_transcript.GetCount(); ++index) {
-        if (CompareWideTextIgnoreAsciiCase(
+        if (CompareTextIgnoreAsciiCase(
                 (*g_npc_interaction_state->dialogue_transcript.GetAt(index))->text, keyword) == 0) {
             return;
         }
@@ -4931,7 +4916,7 @@ void AddDialogueTranscriptKeyword(const wchar_t* name, signed char category)
     W8DialogueTranscriptRecord* record =
         static_cast<W8DialogueTranscriptRecord*>(malloc(sizeof(W8DialogueTranscriptRecord)));
     memset(record, 0, sizeof(*record));
-    wcscpy(record->text, keyword);
+    strcpy(record->text, keyword);
     record->category = category;
     g_npc_interaction_state->dialogue_transcript.Add(record);
 }
@@ -4939,7 +4924,7 @@ void AddDialogueTranscriptKeyword(const wchar_t* name, signed char category)
 // FUNCTION: WIZ8 0x005777c0
 void RecordLevelEntryDialogueState(void)
 {
-    wchar_t region_name[100];
+    char region_name[3 * (100) + 1];
     int region = GetLevelBand(g_status.current_level);
     if (GetNpcScriptRegionName(region, region_name)) {
         AddDialogueTranscriptKeyword(region_name, W8_DIALOGUE_CATEGORY_PLACES);
@@ -5047,9 +5032,9 @@ bool ProcessPendingEvent(void)
 // class W8Vector<W8DialogueTranscriptRecord*>
 
 // VTABLE: WIZ8 0x005ee9e0
-// class W8GrowableVector<W8GrowableVector<W8GrowableVector<wchar_t*>*>*>
+// class W8GrowableVector<W8GrowableVector<W8GrowableVector<char*>*>*>
 
-/* The keyword-list instantiations' wchar_t element type canonicalizes to
+/* The keyword-list instantiations' char element type canonicalizes to
    unsigned short under the VC6 ABI spelling used by the PDB names. */
 // VTABLE: WIZ8 0x005ee9fc
 // class W8GrowableVector<unsigned short*>

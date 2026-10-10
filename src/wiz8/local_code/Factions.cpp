@@ -149,7 +149,7 @@ static unsigned short g_faction_name_ids[W8_FACTION_COUNT] = {
 // FUNCTION: WIZ8 0x00535B40
 void SetFactionDispositionBand(signed char faction, signed char band)
 {
-    wchar_t notice[20];
+    char notice[3 * (20) + 1];
     W8FactionDisposition old_band;
     char palette;
 
@@ -168,10 +168,10 @@ void SetFactionDispositionBand(signed char faction, signed char band)
     if (band != old_band) {
         g_factions[faction].band_changed_clock = g_status.world_clock;
         if (band < old_band) {
-            swprintf(notice, gppStringList[0x245]);
+            snprintf(notice, sizeof(notice), gppStringList[0x245]);
             palette = 0;
         } else {
-            swprintf(notice, gppStringList[0x246]);
+            snprintf(notice, sizeof(notice), gppStringList[0x246]);
             palette = 5;
         }
         ShowNoticef(palette, gppStringList[0x247], gppStringList[g_faction_name_ids[faction]],
@@ -276,7 +276,7 @@ void RecordFactionOffense(signed char faction, unsigned int victim_location_inde
 // FUNCTION: WIZ8 0x00535EA0
 void AdjustFactionDisposition(signed char faction, char delta)
 {
-    wchar_t notice[20];
+    char notice[3 * (20) + 1];
     signed char score;
     signed char old_score;
     W8FactionDisposition old_band;
@@ -299,10 +299,10 @@ void AdjustFactionDisposition(signed char faction, char delta)
         g_factions[faction].band_changed_clock = g_status.world_clock;
     }
     if (g_factions[faction].disposition_score < old_score) {
-        swprintf(notice, gppStringList[0x245]);
+        snprintf(notice, sizeof(notice), gppStringList[0x245]);
         palette = 0;
     } else if (g_factions[faction].disposition_score > old_score) {
-        swprintf(notice, gppStringList[0x246]);
+        snprintf(notice, sizeof(notice), gppStringList[0x246]);
         palette = 5;
     } else {
         return;

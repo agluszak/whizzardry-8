@@ -284,24 +284,24 @@ static void ShowEffectIconHelp(const W8EffectSlot* slot, bool show_duration, int
     unsigned int duration = slot->duration;
     int effect_id = slot->effect_id;
     g_effect_icon_help_duration = duration;
-    wchar_t* name = FormatWideString(g_format_s_spaced_colon, records[effect_id].display_name);
-    unsigned int name_len = wcslen(name);
-    wchar_t* detail;
+    char* name = FormatText(g_format_s_spaced_colon, records[effect_id].display_name);
+    unsigned int name_len = strlen(name);
+    char* detail;
     if (show_duration) {
-        detail = FormatWideString(gppStringList[0x79c], amount, g_effect_icon_help_duration);
+        detail = FormatText(gppStringList[0x79c], amount, g_effect_icon_help_duration);
     } else {
-        detail = FormatWideString(gppStringList[0x79d], amount);
+        detail = FormatText(gppStringList[0x79d], amount);
     }
-    unsigned int detail_len = wcslen(detail);
-    wchar_t* text = static_cast<wchar_t*>(operator new((name_len + detail_len) * sizeof(*text) + sizeof(*text)));
+    unsigned int detail_len = strlen(detail);
+    char* text = static_cast<char*>(operator new((name_len + detail_len) * sizeof(*text) + sizeof(*text)));
     if (text == 0) {
         srAssertFail("pText", MGSSPELLICONS_CPP, assertion_line, 0);
     }
-    wcscpy(text, FormatWideString(g_format_s_colon, records[effect_id].display_name));
+    strcpy(text, FormatText(g_format_s_colon, records[effect_id].display_name));
     if (show_duration) {
-        wcscat(text, FormatWideString(gppStringList[0x79c], amount, g_effect_icon_help_duration));
+        strcat(text, FormatText(gppStringList[0x79c], amount, g_effect_icon_help_duration));
     } else {
-        wcscat(text, FormatWideString(gppStringList[0x79d], amount));
+        strcat(text, FormatText(gppStringList[0x79d], amount));
     }
     SetRegionHelpText(text);
     operator delete(text);

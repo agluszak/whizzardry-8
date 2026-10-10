@@ -75,7 +75,7 @@ struct W8CharacterEvent {
 
     void Complete(); /* 0x0052CED0 */
 
-    wchar_t* GetQuoteText(); /* 0x0052D240 */
+    char* GetQuoteText(); /* 0x0052D240 */
 
     unsigned char Dispatch(); /* 0x0052CA60 */
 

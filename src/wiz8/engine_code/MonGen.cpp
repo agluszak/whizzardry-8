@@ -395,7 +395,7 @@ unsigned char MonGen::GenerateEncounter(const srVector3T<float>* position)
     int count = RollEncounterGroupSize(record);
     if (count == 0) {
         srAssertFail("ulNumMonsters", MON_GEN_CPP, 0x17b,
-                     FormatString("Error in Monster DB: zero group size (%S)", record->name0));
+                     FormatString("Error in Monster DB: zero group size (%s)", record->name0));
     }
 
     group = CreateGroup(species, count, &spawn_position, false, false, true);
@@ -443,10 +443,10 @@ unsigned char MonGen::GenerateEncounter(const srVector3T<float>* position)
 
     if (g_dev_mode && gfCapturingVideo == 0 && g_current_screen_state.id != W8_SCREEN_PLEASE_WAIT) {
         W8MonsterRecord* group_record = MonsterGroupGetRecord(group);
-        const wchar_t* group_name =
+        const char* group_name =
             group->member_count == 1 ? group_record->name0 : group_record->name1;
-        const wchar_t* companion_word = companion_count == 1 ? L"chum" : L"chums";
-        ShowNoticef(W8_FONT_PALETTE_BROWN, L"MonGen (%S): spawned %d %s & %d %s (lvl %d)", name,
+        const char* companion_word = companion_count == 1 ? "chum" : "chums";
+        ShowNoticef(W8_FONT_PALETTE_BROWN, "MonGen (%s): spawned %d %s & %d %s (lvl %d)", name,
                     group->member_count, group_name, companion_count, companion_word,
                     *table->challenge_level.GetAt(selected_index));
     }

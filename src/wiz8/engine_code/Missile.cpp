@@ -63,7 +63,6 @@
 #include <math.h>
 #include <stdlib.h>
 #include <string.h>
-#include <wchar.h>
 
 #define MISSILE_CPP "C:\\Projects\\Wizardry 8\\Engine Code\\Missile.cpp"
 
@@ -538,7 +537,7 @@ unsigned char LoadMissileCycle(W8GrCycleLoadContext* context, const char* name,
     explode_ground = false;
     align_explosion = false;
     velocity = 15000.0f;
-    sprintf(path, "data\\Missiles\\%s.mls", name);
+    snprintf(path, sizeof(path), "data\\Missiles\\%s.mls", name);
     handle = [&]() { try { return wiz8::open_file(path, wiz8::OpenMode::read); } catch (const std::exception&) { return std::unique_ptr<wiz8::File>{}; } }();
     *ppMissile = 0;
     if (handle != 0) {
@@ -640,7 +639,7 @@ unsigned char LoadMissileCycle(W8GrCycleLoadContext* context, const char* name,
                             break;
                         }
                     }
-                    sprintf(wave_path, "Data\\Missiles\\Sounds\\%s.WAV", pacFileName);
+                    snprintf(wave_path, sizeof(wave_path), "Data\\Missiles\\Sounds\\%s.WAV", pacFileName);
                     sound = CreateSoundEvent(sound_kind, cycle, frame, 0, wave_path,
                                              _stricmp(pacLoop, "LOOP") == 0);
                     if (sound != 0) {
@@ -1255,7 +1254,7 @@ void W8Missile::DetonateMissileSpell()
 // FUNCTION: WIZ8 0x004a4ac0
 void W8Missile::AnnounceCollisionTarget()
 {
-    wchar_t text[120];
+    char text[3 * (120) + 1];
     unsigned char target_start;
     unsigned char target_stop;
     unsigned char source_color;
@@ -1264,21 +1263,21 @@ void W8Missile::AnnounceCollisionTarget()
     if (!gXStatus.fCombatMode) {
         return;
     }
-    swprintf(text, L"%s ", gppStringList[0x1bf]);
-    target_start = wcslen(text);
+    snprintf(text, sizeof(text), "%s ", gppStringList[0x1bf]);
+    target_start = strlen(text);
     if (combat_slot.iType == W8_TARGET_KIND_MONSTER) {
         unsigned int monster_list_index =
             MonsterGetIndexByLocationID(0x701, MISSILE_CPP, combat_slot.iMonsterID, true);
         W8MonsterInfo* monster_info = MonsterGetScriptPartByLocationIndex(monster_list_index);
-        wcscat(text, GetMonsterName(monster_info, 0, 0));
+        strcat(text, GetMonsterName(monster_info, 0, 0));
     } else {
-        wcscat(text, g_status.buffers.Char[combat_slot.iChar].name);
+        strcat(text, g_status.buffers.Char[combat_slot.iChar].name);
     }
-    target_stop = wcslen(text);
+    target_stop = strlen(text);
     source_color = GetSourceNoticeColor(&m_Source);
     target_color = GetTargetNoticeColor(&m_Source, &combat_slot);
-    wcscat(text, L" ");
-    wcscat(text, gppStringList[0x1c0]);
+    strcat(text, " ");
+    strcat(text, gppStringList[0x1c0]);
     ShowNotice(source_color, text);
     if (target_color != source_color) {
         HighlightTextBoxRange(target_color, target_start, target_stop, -1);

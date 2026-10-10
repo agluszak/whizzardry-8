@@ -2043,20 +2043,20 @@ void DrawVideoInspector(int left, unsigned int top)
         g_gerd->getStatistics(statistics);
         SetFont(g_smfnt_font);
         SetFontObjectPalette16BPP(g_smfnt_font, g_font_state_palettes[W8_FONT_PALETTE_YELLOW].get());
-        gprintfDirty(left, top, L"FR: %4.1f", g_frames_per_second);
+        gprintfDirty(left, top, "FR: %4.1f", g_frames_per_second);
         if (g_video_inspector_mode == 2) {
-            gprintfDirty(left, top + 0xa, L"OC: %d", g_world->level->m_submitted_polygons);
-            gprintfDirty(left, top + 0x14, L"PI: %d", statistics.input_triangles);
-            gprintfDirty(left, top + 0x1e, L"PO: %d", statistics.device_triangles);
-            gprintfDirty(left, top + 0x28, L"VI: %d", statistics.input_vertices);
-            gprintfDirty(left, top + 0x32, L"VO: %d", statistics.device_vertices);
-            gprintfDirty(left, top + 0x3c, L"DD: %d", statistics.device_calls);
-            gprintfDirty(left, top + 0x46, L"TC: %d", statistics.texture_binds);
-            gprintfDirty(left, top + 0x50, L"TT: %d", statistics.texture_transfer);
-            gprintfDirty(left, top + 0x5a, L"RM: %dK", g_gerd->getResidentTextureMemUsed() >> 10);
-            gprintfDirty(left, top + 0x64, L"TM: %dK", g_gerd->getTextureCacheUsed());
-            gprintfDirty(left, top + 0x6e, L"DR: %3d", GetCameraYawAndRotation(0));
-            gprintfDirty(left, top + 0x78, L"MM: %dK",
+            gprintfDirty(left, top + 0xa, "OC: %d", g_world->level->m_submitted_polygons);
+            gprintfDirty(left, top + 0x14, "PI: %d", statistics.input_triangles);
+            gprintfDirty(left, top + 0x1e, "PO: %d", statistics.device_triangles);
+            gprintfDirty(left, top + 0x28, "VI: %d", statistics.input_vertices);
+            gprintfDirty(left, top + 0x32, "VO: %d", statistics.device_vertices);
+            gprintfDirty(left, top + 0x3c, "DD: %d", statistics.device_calls);
+            gprintfDirty(left, top + 0x46, "TC: %d", statistics.texture_binds);
+            gprintfDirty(left, top + 0x50, "TT: %d", statistics.texture_transfer);
+            gprintfDirty(left, top + 0x5a, "RM: %dK", g_gerd->getResidentTextureMemUsed() >> 10);
+            gprintfDirty(left, top + 0x64, "TM: %dK", g_gerd->getTextureCacheUsed());
+            gprintfDirty(left, top + 0x6e, "DR: %3d", GetCameraYawAndRotation(0));
+            gprintfDirty(left, top + 0x78, "MM: %dK",
                          static_cast<unsigned int>(g_decompressed_mesh_bytes) >> 10);
             return;
         }
@@ -2070,9 +2070,9 @@ void DrawVideoInspector(int left, unsigned int top)
                 position.y = position.z * g_world_cursor_scale;
                 position.z = scaled;
             }
-            gprintfDirty(left, top + 0xa, L" X: %.2f", position.x);
-            gprintfDirty(left, top + 0x14, L" Y: %.2f", position.y);
-            gprintfDirty(left, top + 0x1e, L" Z: %.2f", position.z);
+            gprintfDirty(left, top + 0xa, " X: %.2f", position.x);
+            gprintfDirty(left, top + 0x14, " Y: %.2f", position.y);
+            gprintfDirty(left, top + 0x1e, " Z: %.2f", position.z);
         }
     }
 }
@@ -2983,7 +2983,7 @@ srModelInstance* Video2DRectToPolygon(const W8ControlsRect* rect, void* source, 
    tooltip objects and positions them above the cursor. Only one tooltip is
    alive at a time. */
 // FUNCTION: WIZ8 0x00429290
-void VideoToolTip(CHAR16* text)
+void VideoToolTip(char* text)
 {
     if (g_screen_transition_object_count != 0) {
         return;

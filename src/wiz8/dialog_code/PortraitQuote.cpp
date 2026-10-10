@@ -14,7 +14,6 @@
 
 #include <stdlib.h>
 #include <string.h>
-#include <wchar.h>
 
 enum {
     WRAPPED_TEXT_LEFT = 0x01,
@@ -43,7 +42,7 @@ struct W8PortraitQuoteBubble {
     bool has_resources;
     bool created;
     UINT32 flags; /* bit 0 selects the flat fill */
-    wchar_t* text;
+    char* text;
     UINT32 palette;
 };
 
@@ -72,14 +71,14 @@ static const char* g_quote_bubble_backgrounds[] = {
 static unsigned int g_quote_bubble_flags;
 
 static int MeasureWrappedText(int x, int y, unsigned int wrap_width, int line_spacing, int font,
-                              int alternate_font, const wchar_t* text, int, int, int,
+                              int alternate_font, const char* text, int, int, int,
                               unsigned int* out_edge);
 int DrawWrappedText(int x, int y, unsigned int wrap_width, int line_spacing, int font,
-                    unsigned char colour, const wchar_t* text, int background, int dirty,
+                    unsigned char colour, const char* text, int background, int dirty,
                     int flags);
 
 // FUNCTION: WIZ8 0x005d0590
-static int DrawWrappedTextLine(CHAR16* text, int x, int top, int width, int font,
+static int DrawWrappedTextLine(char* text, int x, int top, int width, int font,
                                unsigned char foreground, unsigned char background, bool dirty,
                                unsigned int flags)
 {
@@ -129,7 +128,7 @@ static int DrawWrappedTextLine(CHAR16* text, int x, int top, int width, int font
     return 1;
 }
 
-static void RenderWrappedTextLine(CHAR16* text, int x, int top, int width, int font,
+static void RenderWrappedTextLine(char* text, int x, int top, int width, int font,
                                   unsigned char foreground, unsigned char background, bool dirty,
                                   unsigned int flags)
 {
@@ -144,10 +143,10 @@ static void RenderWrappedTextLine(CHAR16* text, int x, int top, int width, int f
 
 // FUNCTION: WIZ8 0x005d0770
 int DrawWrappedText(int x, int y, unsigned int wrap_width, int line_spacing, int font,
-                    unsigned char colour, const wchar_t* text, int background, int dirty, int flags)
+                    unsigned char colour, const char* text, int background, int dirty, int flags)
 {
-    wchar_t line[0x80];
-    wchar_t word[0x40];
+    char line[3 * (0x80) + 1];
+    char word[3 * (0x40) + 1];
     unsigned int position = 0;
     unsigned int word_length = 0;
     unsigned int line_width = 0;
@@ -165,31 +164,31 @@ int DrawWrappedText(int x, int y, unsigned int wrap_width, int line_spacing, int
     GetFontHeight(font);
 
     for (;;) {
-        wchar_t ch = text[position];
-        if (ch != L' ' && ch != L'\0') {
+        char ch = text[position];
+        if (ch != ' ' && ch != '\0') {
             word[word_length++] = ch;
-        } else if ((word[0] < 0xb2 || word[0] > 0xb5) && word[0] != L'\n') {
-            word[word_length] = L'\0';
+        } else if ((word[0] < 0xb2 || word[0] > 0xb5) && word[0] != '\n') {
+            word[word_length] = '\0';
             unsigned int word_width = StringPixLength(word, active_font);
-            word[word_length++] = L' ';
-            word[word_length] = L'\0';
+            word[word_length++] = ' ';
+            word[word_length] = '\0';
             if ((wrap_width & 0xffff) < word_width + line_width) {
                 RenderWrappedTextLine(line, draw_x, draw_y, remaining_width, active_font,
                                       active_colour, static_cast<unsigned char>(background),
                                       section != 0, flags);
                 draw_y += GetFontHeight(active_font) + (line_spacing & 0xff);
                 ++line_count;
-                wcscpy(line, word);
+                strcpy(line, word);
                 line_width = StringPixLength(line, active_font);
                 remaining_width = wrap_width;
                 draw_x = x;
             } else {
                 line_width += StringPixLength(word, active_font);
-                wcscat(line, word);
+                strcat(line, word);
             }
             word_length = 0;
         } else {
-            if (word[0] == L'\n') {
+            if (word[0] == '\n') {
                 RenderWrappedTextLine(line, draw_x, draw_y, remaining_width, active_font,
                                       active_colour, static_cast<unsigned char>(background),
                                       section != 0, flags);
@@ -249,7 +248,7 @@ int DrawWrappedText(int x, int y, unsigned int wrap_width, int line_spacing, int
                 RenderWrappedTextLine(line, draw_x, draw_y, remaining_width, active_font,
                                       active_colour, static_cast<unsigned char>(background),
                                       section != 0, flags);
-                if (word[0] == 0xb4 && word[1] != L' ' && word[1] < 0x100) {
+                if (word[0] == 0xb4 && word[1] != ' ' && word[1] < 0x100) {
                     active_colour = static_cast<unsigned char>(word[1]);
                 }
                 int span = StringPixLength(line, active_font);
@@ -266,8 +265,8 @@ int DrawWrappedText(int x, int y, unsigned int wrap_width, int line_spacing, int
         }
 
         ++position;
-        if (ch == L'\0') {
-            wcscat(line, &g_empty_wide_string);
+        if (ch == '\0') {
+            strcat(line, &g_empty_text);
             RenderWrappedTextLine(line, draw_x, draw_y, remaining_width, active_font, active_colour,
                                   static_cast<unsigned char>(background), section != 0, flags);
             return (GetFontHeight(font) + (line_spacing & 0xff)) * line_count;
@@ -277,12 +276,12 @@ int DrawWrappedText(int x, int y, unsigned int wrap_width, int line_spacing, int
 
 // FUNCTION: WIZ8 0x005d0050
 static int MeasureWrappedText(int x, int y, unsigned int wrap_width, int line_spacing, int font,
-                              int alternate_font, const wchar_t* text, int, int, int,
+                              int alternate_font, const char* text, int, int, int,
                               unsigned int* out_edge)
 {
     /* Retail reserves 0x500 bytes for each buffer (0x140-dword clears). */
-    wchar_t line[0x280];
-    wchar_t word[0x280];
+    char line[3 * (0x280) + 1];
+    char word[3 * (0x280) + 1];
     unsigned int position = 0;
     unsigned int word_length = 0;
     unsigned int line_width = 0;
@@ -296,9 +295,9 @@ static int MeasureWrappedText(int x, int y, unsigned int wrap_width, int line_sp
     GetFontHeight(font);
 
     for (;;) {
-        wchar_t ch = text[position];
-        if (ch != L' ' && ch != L'\0') {
-            if (ch == L'\n') {
+        char ch = text[position];
+        if (ch != ' ' && ch != '\0') {
+            if (ch == '\n') {
                 GetFontHeight(active_font);
                 if (line_count == 1 && out_edge != 0) {
                     *out_edge = 0xffffffff;
@@ -311,11 +310,11 @@ static int MeasureWrappedText(int x, int y, unsigned int wrap_width, int line_sp
             } else {
                 word[word_length++] = ch;
             }
-        } else if ((word[0] < 0xb2 || word[0] > 0xb5) && word[0] != L'\n') {
-            word[word_length] = L'\0';
+        } else if ((word[0] < 0xb2 || word[0] > 0xb5) && word[0] != '\n') {
+            word[word_length] = '\0';
             unsigned int word_width = StringPixLength(word, active_font);
-            word[word_length++] = L' ';
-            word[word_length] = L'\0';
+            word[word_length++] = ' ';
+            word[word_length] = '\0';
             unsigned int next_width = word_width + line_width;
             if ((wrap_width & 0xffff) < next_width) {
                 GetFontHeight(active_font);
@@ -323,16 +322,16 @@ static int MeasureWrappedText(int x, int y, unsigned int wrap_width, int line_sp
                     *out_edge = next_width;
                 }
                 ++line_count;
-                wcscpy(line, word);
+                strcpy(line, word);
                 line_width = StringPixLength(line, active_font);
             } else {
                 line_width += StringPixLength(word, active_font);
-                wcscat(line, word);
+                strcat(line, word);
             }
             word_length = 0;
         } else {
             switch (word[0]) {
-            case L'\n':
+            case '\n':
                 GetFontHeight(active_font);
                 if (line_count == 1 && out_edge != 0) {
                     *out_edge = 0xffffffff;
@@ -389,7 +388,7 @@ static int MeasureWrappedText(int x, int y, unsigned int wrap_width, int line_sp
         }
 
         ++position;
-        if (ch == L'\0') {
+        if (ch == '\0') {
             return (GetFontHeight(font) + (line_spacing & 0xff)) * line_count;
         }
     }
@@ -422,13 +421,13 @@ unsigned char DrawPortraitQuoteBubble(int quote_handle, short x, short y, unsign
     return 1;
 }
 
-static short MeasurePortraitQuoteLine(wchar_t* text)
+static short MeasurePortraitQuoteLine(char* text)
 {
     short width = 0;
-    size_t remaining = wcslen(text);
+    size_t remaining = strlen(text);
     if (static_cast<int>(remaining) > 0) {
         do {
-            wchar_t ch = *text;
+            char ch = *text;
             if ((static_cast<unsigned short>(ch) < 0xb2 ||
                  static_cast<unsigned short>(ch) > 0xb5) &&
                 static_cast<unsigned short>(ch) > 10) {
@@ -442,7 +441,7 @@ static short MeasurePortraitQuoteLine(wchar_t* text)
 
 // FUNCTION: WIZ8 0x005cf6c0
 int LayoutPortraitQuoteBubble(int quote_handle, unsigned char background_index,
-                              unsigned char edge_index, const wchar_t* text, unsigned int max_width,
+                              unsigned char edge_index, const char* text, unsigned int max_width,
                               int margin_x, int margin_top, int margin_bottom,
                               unsigned short* out_width, unsigned short* out_height,
                               unsigned int font_palette)
@@ -451,8 +450,8 @@ int LayoutPortraitQuoteBubble(int quote_handle, unsigned char background_index,
     VSURFACE_DESC surface_desc;
     VSURFACE_DESC text_desc;
     VOBJECT_DESC object_desc;
-    wchar_t line[0x800];
-    const wchar_t* read;
+    char line[3 * (0x800) + 1];
+    const char* read;
     size_t remaining;
     int position;
     short line_width;
@@ -528,18 +527,18 @@ int LayoutPortraitQuoteBubble(int quote_handle, unsigned char background_index,
             g_current_portrait_quote->object_index = edge_index;
         }
     }
-    g_current_portrait_quote->text = static_cast<wchar_t*>(malloc(wcslen(text) * sizeof(*g_current_portrait_quote->text) + sizeof(*g_current_portrait_quote->text)));
-    wcscpy(g_current_portrait_quote->text, text);
+    g_current_portrait_quote->text = static_cast<char*>(malloc(strlen(text) * sizeof(*g_current_portrait_quote->text) + sizeof(*g_current_portrait_quote->text)));
+    strcpy(g_current_portrait_quote->text, text);
     g_current_portrait_quote->flags = g_quote_bubble_flags;
     position = 0;
     g_quote_bubble_flags = 0;
     max_line = 0xffffffff;
-    remaining = wcslen(text);
+    remaining = strlen(text);
     memset(line, 0, sizeof(line));
     if (remaining > 0) {
         read = text;
         do {
-            if (*read != L'\n') {
+            if (*read != '\n') {
                 line[position] = *read;
                 ++position;
             } else {
@@ -703,7 +702,7 @@ unsigned char ReleasePortraitQuoteBubble(int quote_handle)
 }
 
 // FUNCTION: WIZ8 0x005d0750
-const wchar_t* GetPortraitQuoteText(int quote_handle)
+const char* GetPortraitQuoteText(int quote_handle)
 {
     W8PortraitQuoteBubble* quote;
 

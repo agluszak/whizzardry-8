@@ -73,8 +73,8 @@ static const unsigned int W8_MAIN_REDRAW_ALL = 0xffffffffU;
 /* The dormant typed-dialogue input state hung off the level block: a plain
    heap object, not an srClass derivative. */
 struct W8DialogueTextState {
-    wchar_t* text;                 /* 0x00: owned editable buffer */
-    wchar_t* first_line_prefix;    /* 0x04: owned, measured before line one */
+    char* text;                 /* 0x00: owned editable buffer */
+    char* first_line_prefix;    /* 0x04: owned, measured before line one */
     void (*completion_callback)(); /* 0x08: invoked before the input closes */
     unsigned int* line_offsets;    /* 0x0c: owned offsets into text */
     unsigned int line_count;       /* 0x10 */
@@ -93,8 +93,8 @@ struct W8DialogueTextState {
 
 struct W8LevelRuntimeBlock {
     /* 0x000: notice/list paint scratch. DrawTextBoxLine and the monster-list
-       formatter reuse the leading 0xf0 bytes as wchar_t storage. */
-    wchar_t text_paint_scratch[0xf0 / sizeof(wchar_t)];
+       formatter reuse the leading 0xf0 bytes as char storage. */
+    char text_paint_scratch[0xf0 / sizeof(char)];
     bool message_box_pending; /* 0x0f0: message box lived last frame; render deferred */
     unsigned char flags[3];
     unsigned int redraw_flags; /* 0x0f4 */

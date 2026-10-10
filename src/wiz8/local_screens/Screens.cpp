@@ -314,7 +314,7 @@ void SetItemCursor(int overlay_video_object)
 
 /* Dispatch one already-built notice line to the camp or main-game dialog. */
 // FUNCTION: WIZ8 0x0055F260
-void ShowNoticeLine(wchar_t* text, W8DialogDestroyCallback callback, bool confirmation, bool cancel)
+void ShowNoticeLine(char* text, W8DialogDestroyCallback callback, bool confirmation, bool cancel)
 {
     switch (g_current_screen_state.id) {
     case W8_SCREEN_CAMP:

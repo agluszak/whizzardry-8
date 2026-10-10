@@ -1,3 +1,5 @@
+#include "wiz8/unicode.h"
+#include <vector>
 #include "wiz8/npc_script_file.h"
 #include "wiz8/virtual_file.h"
 #include "wiz8/layouts/gameplay_databases.h"
@@ -57,7 +59,6 @@ try
     unsigned int block_size;
     int index;
     int sub_index;
-    wchar_t wide[2000];
 
     ((transferred = handle->read(record, sizeof(*record)).bytes) == static_cast<std::size_t>(sizeof(*record)));
     if (transferred != sizeof(*record)) {
@@ -77,13 +78,12 @@ try
                 return 0;
             }
             if (length != 0) {
-                record->subquotes[index] = static_cast<char*>(malloc(length + 1));
-                if (record->subquotes[index] == 0) {
-                    return 0;
-                }
-                ((transferred = handle->read(wide, length * 2).bytes) == static_cast<std::size_t>(length * 2));
-                wide[length] = 0;
-                wcstombs(record->subquotes[index], wide, length + 1);
+                std::vector<std::byte> encoded(static_cast<std::size_t>(length) * 2);
+                handle->read_exact(encoded.data(), encoded.size());
+                const auto decoded = wiz8::text::from_utf16le(encoded);
+                record->subquotes[index] = static_cast<char*>(malloc(decoded.size() + 1));
+                if (!record->subquotes[index]) return 0;
+                memcpy(record->subquotes[index], decoded.c_str(), decoded.size() + 1);
             }
         }
     }

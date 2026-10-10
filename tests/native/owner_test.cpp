@@ -258,7 +258,7 @@ void region_registration_and_callback_lifetimes()
     MSYS_SGP_Mouse_Handler_Hook(LEFT_BUTTON_UP, 11, 11, false, false);
     MSYS_RemoveRegion(&first);
 
-    wchar_t label[] = L"nested";
+    char label[] = "nested";
     nested_outer = CreateTextButton(label, 0, 0, 0, -1, 0, 0, 40, 20,
                                    BUTTON_TOGGLE, MSYS_PRIORITY_NORMAL, nullptr, nested_click);
     nested_inner = CreateTextButton(label, 0, 0, 0, -1, 0, 20, 40, 20,
@@ -326,22 +326,22 @@ void buttons_and_regions()
     gpAnchoredButton = nullptr;
     ButtonList[0] = nullptr;
     for (unsigned repeat = 0; repeat < 32; ++repeat) {
-        wchar_t label[] = L"owned button";
+        char label[] = "owned button";
         const auto id = CreateTextButton(label, 0, 0, 0, -1, 0, 0, 40, 20,
                                          BUTTON_TOGGLE, MSYS_PRIORITY_NORMAL, nullptr, click);
         CHECK(id >= 0);
         auto* owned = ButtonList[id].get();
-        CHECK(owned && owned->string[0] == L'o');
-        label[0] = L'x';
-        CHECK(owned->string[0] == L'o');
+        CHECK(owned && owned->string[0] == 'o');
+        label[0] = 'x';
+        CHECK(owned->string[0] == 'o');
         SpecifyButtonText(id, owned->string.get());
-        CHECK(ButtonList[id].get() == owned && owned->string[0] == L'o');
-        wchar_t tooltip[] = L"tooltip";
+        CHECK(ButtonList[id].get() == owned && owned->string[0] == 'o');
+        char tooltip[] = "tooltip";
         SetButtonFastHelpText(id, tooltip);
-        tooltip[0] = L'x';
-        CHECK(owned->Area.FastHelpText[0] == L't');
+        tooltip[0] = 'x';
+        CHECK(owned->Area.FastHelpText[0] == 't');
         SetButtonFastHelpText(id, owned->Area.FastHelpText.get());
-        CHECK(owned->Area.FastHelpText[0] == L't');
+        CHECK(owned->Area.FastHelpText[0] == 't');
         SetButtonFastHelpText(id, nullptr);
         CHECK(!owned->Area.FastHelpText);
         SetButtonFastHelpText(id, label);
@@ -460,25 +460,25 @@ void text_input_ownership()
     for (unsigned repeat = 0; repeat < 32; ++repeat) {
         InitTextInputMode();
         const auto first = AddTextInputField(0, 0, 80, 20, MSYS_PRIORITY_NORMAL,
-                                             L"alpha", 32, 0, 0);
+                                             "alpha", 32, 0, 0);
         const auto middle = AddTextInputField(0, 20, 80, 20, MSYS_PRIORITY_NORMAL,
-                                              L"beta", 32, 0, 0);
+                                              "beta", 32, 0, 0);
         const auto last = AddTextInputField(0, 40, 80, 20, MSYS_PRIORITY_NORMAL,
-                                            L"gamma", 32, 0, 0);
+                                            "gamma", 32, 0, 0);
         CHECK(first == 0 && middle == 1 && last == 2);
-        wchar_t text[33]{};
-        Get16BitStringFromField(first, text);
-        CHECK(text[0] == L'a' && GetTextInputFieldLength(first) == 5);
+        char text[33]{};
+        GetTextFromField(first, text);
+        CHECK(text[0] == 'a' && GetTextInputFieldLength(first) == 5);
         RemoveTextInputField(middle);
         CHECK(GetTextInputFieldLength(last) == 5);
         InitTextInputMode();
         CHECK(AddTextInputField(0, 0, 80, 20, MSYS_PRIORITY_NORMAL,
-                                L"inner", 32, 0, 0) == 0);
+                                "inner", 32, 0, 0) == 0);
         KillTextInputMode();
-        Get16BitStringFromField(first, text);
-        CHECK(text[0] == L'a' && GetTextInputFieldLength(last) == 5);
+        GetTextFromField(first, text);
+        CHECK(text[0] == 'a' && GetTextInputFieldLength(last) == 5);
         CHECK(AddTextInputField(0, 60, 80, 20, MSYS_PRIORITY_NORMAL,
-                                L"delta", 32, 0, 0) == 3);
+                                "delta", 32, 0, 0) == 3);
         RemoveTextInputField(first);
         RemoveTextInputField(3);
         RemoveTextInputField(last);

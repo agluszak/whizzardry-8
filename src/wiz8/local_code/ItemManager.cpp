@@ -319,7 +319,7 @@ int FindItemRecordByName(const char* name)
     for (index = 0; index < static_cast<int>(gXStatus.uiItemsInDatabase); ++index) {
         internal_name = g_item_records[index].internal_name;
         if (internal_name[0] == 0) {
-            if (_stricmp(ConvertWideStringToString(g_item_records[index].display_name), name) ==
+            if (_stricmp(CopyText(g_item_records[index].display_name), name) ==
                 0) {
                 return index;
             }

@@ -141,7 +141,7 @@ void RebindMonsterGroupScripts(void);
 
 void DespawnMonsterGroup(W8MonsterGroup* monster_group);
 void ActivateGroupMembers(W8MonsterGroup* monster_group, W8MonsterActivationMode mode);
-wchar_t* GetMonsterGroupName(W8MonsterGroup* monster_group);
+char* GetMonsterGroupName(W8MonsterGroup* monster_group);
 void RefreshMonsterGroupAndAllies(W8MonsterGroup* monster_group);
 
 W8MonsterRecord* MonsterGroupGetRecord(W8MonsterGroup* group);

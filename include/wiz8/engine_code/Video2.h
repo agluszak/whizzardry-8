@@ -52,7 +52,7 @@ void VideoSetConfigFile(const CHAR8* path);
 int VideoDumpMemoryLeaks(void);
 BOOLEAN CheckCdPresent(void);
 void VideoGetClientRect(RECT* rect);
-void VideoToolTip(CHAR16* text);
+void VideoToolTip(char* text);
 extern INT32 g_help_box_width;
 extern INT32 g_help_box_height;
 /* DisplayFastHelp in mousesystem.cpp and the product region code both access

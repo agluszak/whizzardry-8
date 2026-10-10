@@ -35,7 +35,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <wchar.h>
 #include "wiz8/engine_code/GameData.h"
 #include "wiz8/engine_code/PolyPick.h"
 #include "wiz8/local_screens/CharacterScreen.h"
@@ -291,8 +290,8 @@ void DrawWorldCursorNodeLabel(W8WorldCursorNode* entry)
         SetFont(g_smfnt_font);
         SetFontObjectPalette16BPP(g_smfnt_font, GetFontObject(g_smfnt_font)->ownedPalette.get());
         for (int index = 0; index < 3; ++index) {
-            wchar_t text[20];
-            swprintf(text, g_format_d, entry->parameters[index]);
+            char text[3 * (20) + 1];
+            snprintf(text, sizeof(text), g_format_d, entry->parameters[index]);
             gprintf_buffer(data, surface->getPitch(), g_smfnt_font, 0,
                            GetFontHeight(g_smfnt_font) * index, text);
         }

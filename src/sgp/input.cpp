@@ -333,7 +333,7 @@ unsigned short TranslateCharacterToKey(unsigned short character)
 // FUNCTION: WIZ8 0x00402800
 BOOLEAN IsUppercaseWideChar(unsigned short character)
 {
-    if (character >= L'A' && character <= L'Z')
+    if (character >= 'A' && character <= 'Z')
         return TRUE;
     return FALSE;
 }
@@ -341,7 +341,7 @@ BOOLEAN IsUppercaseWideChar(unsigned short character)
 // FUNCTION: WIZ8 0x00402820
 BOOLEAN IsLowercaseWideChar(unsigned short character)
 {
-    if (character >= L'a' && character <= L'z')
+    if (character >= 'a' && character <= 'z')
         return TRUE;
     return FALSE;
 }
@@ -349,8 +349,8 @@ BOOLEAN IsLowercaseWideChar(unsigned short character)
 // FUNCTION: WIZ8 0x00402840
 BOOLEAN IsPunctuationWideChar(unsigned short character)
 {
-    if ((character >= L'!' && character <= L'/') || (character >= L':' && character <= L'@') ||
-        (character >= L'[' && character <= L'_') || (character >= L'{' && character <= L'}'))
+    if ((character >= '!' && character <= '/') || (character >= ':' && character <= '@') ||
+        (character >= '[' && character <= '_') || (character >= '{' && character <= '}'))
         return TRUE;
     return FALSE;
 }
@@ -358,8 +358,8 @@ BOOLEAN IsPunctuationWideChar(unsigned short character)
 // FUNCTION: WIZ8 0x00402880
 int ToUppercaseWideChar(int character)
 {
-    if ((unsigned short)character > L'`' && (unsigned short)character < L'{') {
-        character -= L'a' - L'A';
+    if ((unsigned short)character > '`' && (unsigned short)character < '{') {
+        character -= 'a' - 'A';
     }
     return character;
 }
@@ -367,20 +367,20 @@ int ToUppercaseWideChar(int character)
 // FUNCTION: WIZ8 0x004028A0
 int ToLowercaseWideChar(int character)
 {
-    if ((unsigned short)character > L'@' && (unsigned short)character < L'[') {
-        character += L'a' - L'A';
+    if ((unsigned short)character > '@' && (unsigned short)character < '[') {
+        character += 'a' - 'A';
     }
     return character;
 }
 
 // FUNCTION: WIZ8 0x00402920
-int CompareWideTextIgnoreAsciiCase(const wchar_t* first, const wchar_t* second)
+int CompareTextIgnoreAsciiCase(const char* first, const char* second)
 {
     unsigned short left;
     unsigned short right;
     do {
-        left = ToLowercaseWideChar(*first++);
-        right = ToLowercaseWideChar(*second++);
+        left = ToLowercaseWideChar(static_cast<unsigned char>(*first++));
+        right = ToLowercaseWideChar(static_cast<unsigned char>(*second++));
     } while (left != 0 && left == right);
     return (UINT32)left - (UINT32)right;
 }

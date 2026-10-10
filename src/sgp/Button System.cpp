@@ -887,7 +887,7 @@ void SetButtonPosition(INT32 iButtonID, INT16 x, INT16 y)
 
 //Creates a generic button with text on it.
 // FUNCTION: WIZ8 0x0040d350
-INT32 CreateTextButton(CHAR16* string, UINT32 uiFont, INT16 sForeColor, INT16 sShadowColor,
+INT32 CreateTextButton(char* string, UINT32 uiFont, INT16 sForeColor, INT16 sShadowColor,
                        INT16 GenImg, INT16 xloc, INT16 yloc, INT16 w, INT16 h, INT32 Type,
                        INT16 Priority, GUI_CALLBACK MoveCallback, GUI_CALLBACK ClickCallback)
 {
@@ -925,10 +925,10 @@ INT32 CreateTextButton(CHAR16* string, UINT32 uiFont, INT16 sForeColor, INT16 sS
 
     // Allocate memory for the button's text string...
     b->string = nullptr;
-    if (string && wcslen(string)) {
-        b->string = std::make_unique<CHAR16[]>(wcslen(string) + 1);
+    if (string && strlen(string)) {
+        b->string = std::make_unique<char[]>(strlen(string) + 1);
         AssertMsg(b->string, "Out of memory error:  Couldn't allocate string in CreateTextButton.");
-        wcscpy(b->string.get(), string);
+        strcpy(b->string.get(), string);
     }
 
     // Init the button structure variables
@@ -1137,7 +1137,7 @@ INT32 QuickCreateButton(UINT32 Image, INT16 xloc, INT16 yloc, INT32 Type, INT16 
 
 //New functions
 // FUNCTION: WIZ8 0x0040d850
-void SpecifyButtonText(INT32 iButtonID, CHAR16* string)
+void SpecifyButtonText(INT32 iButtonID, char* string)
 {
     GUI_BUTTON* b;
 
@@ -1146,10 +1146,10 @@ void SpecifyButtonText(INT32 iButtonID, CHAR16* string)
 
     b = ButtonList[iButtonID].get();
 
-    std::unique_ptr<CHAR16[]> text;
-    if (string && wcslen(string)) {
-        text = std::make_unique<CHAR16[]>(wcslen(string) + 1);
-        wcscpy(text.get(), string);
+    std::unique_ptr<char[]> text;
+    if (string && strlen(string)) {
+        text = std::make_unique<char[]>(strlen(string) + 1);
+        strcpy(text.get(), string);
         b->uiFlags |= BUTTON_DIRTY;
     }
     b->string = std::move(text);
@@ -1185,7 +1185,7 @@ void SpecifyButtonTextOffsets(INT32 iButtonID, INT8 bTextXOffset, INT8 bTextYOff
 //	SetButtonFastHelpText
 //	Set the text that will be displayed as the FastHelp
 // FUNCTION: WIZ8 0x0040d910
-void SetButtonFastHelpText(INT32 iButton, CHAR16* Text)
+void SetButtonFastHelpText(INT32 iButton, char* Text)
 {
     GUI_BUTTON* b;
     if (iButton < 0 || iButton > MAX_BUTTONS)

@@ -67,7 +67,7 @@ BOOLEAN IsLowercaseWideChar(UINT16 character);
 BOOLEAN IsPunctuationWideChar(UINT16 character);
 INT32 ToUppercaseWideChar(INT32 character);
 INT32 ToLowercaseWideChar(INT32 character);
-INT32 CompareWideTextIgnoreAsciiCase(const wchar_t* first, const wchar_t* second);
+INT32 CompareTextIgnoreAsciiCase(const char* first, const char* second);
 
 extern BOOLEAN InitializeInputManager(void);
 extern BOOLEAN DequeueEvent(InputAtom* Event);

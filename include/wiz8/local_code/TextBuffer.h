@@ -1,7 +1,6 @@
 #pragma once
 
 #include "wiz8/local_code/ControlsRect.h"
-#include <wchar.h>
 
 /* Shared declaration owner; implementation remains in Local Code\Controls.cpp. */
 
@@ -12,16 +11,16 @@ extern const unsigned int g_W8TextBufferAlignMiddle;
 extern const unsigned int g_W8TextBufferAlignTop;
 extern const unsigned int g_W8TextBufferAlignBottom;
 extern const unsigned int g_W8TextBufferNoWrap;
-extern wchar_t g_W8LineBreakCharacters[];
+extern char g_W8LineBreakCharacters[];
 
 // VTABLE: WIZ8 0x005ed5b8
 class W8TextBuffer {
 public:
     friend class W8DialogTextArea;
     W8TextBuffer();
-    W8TextBuffer(const W8ControlsRect* bounds, const wchar_t* text, int font,
+    W8TextBuffer(const W8ControlsRect* bounds, const char* text, int font,
                  unsigned int layout_mode, int render_mode);
-    void CopyTextTo(wchar_t* destination);
+    void CopyTextTo(char* destination);
     unsigned int GetLineHeight();
     int GetHorizontalPosition(int width);
     int GetVerticalPosition();
@@ -32,16 +31,16 @@ public:
     void RenderToTarget(int offset, bool force, unsigned int target);
     void UpdateLayout();
     void SetLayoutMode(unsigned int layout_mode);
-    void SetText(const wchar_t* text, int font);
+    void SetText(const char* text, int font);
     void SetLayoutBounds(const W8ControlsRect* bounds, bool copy_pending, bool update_layout);
 
-    void RenderString(const wchar_t* text, int font, bool force, unsigned int target)
+    void RenderString(const char* text, int font, bool force, unsigned int target)
     {
         SetText(text, font);
         RenderToTarget(0, force, target);
     }
 
-    void RenderString(const W8ControlsRect* bounds, const wchar_t* text, int font, bool force,
+    void RenderString(const W8ControlsRect* bounds, const char* text, int font, bool force,
                       unsigned int target)
     {
         SetLayoutBounds(bounds, true, true);
@@ -92,7 +91,7 @@ public:
 
 protected:
     unsigned int m_lineHeight; /* cached height, zero means query font */
-    wchar_t* m_buffer;         /* freed on teardown */
+    char* m_buffer;         /* freed on teardown */
     unsigned int m_layoutMode; /* 10 initially */
 public:
     unsigned int m_maxLineWidth;

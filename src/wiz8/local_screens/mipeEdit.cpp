@@ -23,17 +23,17 @@ static signed char g_mipe_edit_decimal = -1;
 
 /* Row labels for the prop field editor, one per W8MipeEditField label_index. */
 // GLOBAL: WIZ8 0x0064e004
-static wchar_t g_mipe_prop_labels[][0x80] = {
-    L"Open",   L"Lockable", L"Locked",   L"AutoLocking", L"One Way",
-    L"Secret", L"Found",    L"Jammable", L"Jammed",      L"Key",
+static char g_mipe_prop_labels[][0x80] = {
+    "Open",   "Lockable", "Locked",   "AutoLocking", "One Way",
+    "Secret", "Found",    "Jammable", "Jammed",      "Key",
 };
 
 /* Key names for the type-7 "Key" row, indexed by option_base + value. */
 // GLOBAL: WIZ8 0x0064ea04
-static wchar_t g_mipe_key_names[][0x80] = {
-    L"Any Key",
-    L"Master Key",
-    L"Gold Key",
+static char g_mipe_key_names[][0x80] = {
+    "Any Key",
+    "Master Key",
+    "Gold Key",
 };
 
 /* The door-prop field table: the nine W8DoorTriggerActionData bit fields
@@ -94,8 +94,8 @@ void HandleMipeEditPropKey(unsigned short key)
     if (key == 8) {
         if (state->edit_selection != -1) {
             field = &fields[static_cast<int>(state->edit_selection)];
-            if (field->type == 6 && field->text != 0 && static_cast<int>(wcslen(field->text)) > 0) {
-                field->text[wcslen(field->text) - 1] = 0;
+            if (field->type == 6 && field->text != 0 && static_cast<int>(strlen(field->text)) > 0) {
+                field->text[strlen(field->text) - 1] = 0;
             }
             MIPE_REDRAW_EDIT_FIELDS();
         }
@@ -106,10 +106,10 @@ void HandleMipeEditPropKey(unsigned short key)
         field = &fields[static_cast<int>(state->edit_selection)];
         if (field->type == 6) {
             if (field->text == 0) {
-                field->text = static_cast<wchar_t*>(malloc(0x80 * sizeof(*field->text)));
+                field->text = static_cast<char*>(malloc(0x80 * sizeof(*field->text)));
                 field->text[0] = 0;
             }
-            len = wcslen(field->text);
+            len = strlen(field->text);
             if (static_cast<int>(len) < 0x7e) {
                 if (key != 0x20 && gfKeyState[VK_SHIFT] == 0 && (key < 0x30 || key > 0x39)) {
                     key += 0x20;
@@ -220,28 +220,28 @@ static void DrawMipeEditFieldRow(W8MipeEditField* field, unsigned int palette, c
 {
     if (field->type == 1) {
         if (g_mipe_edit_decimal == 0) {
-            ShowNoticef(palette, L"%d) %s: %g.", static_cast<int>(row),
+            ShowNoticef(palette, "%d) %s: %g.", static_cast<int>(row),
                         g_mipe_prop_labels[field->label_index], field->float_value);
         } else {
-            ShowNoticef(palette, L"%d) %s: %g", static_cast<int>(row),
+            ShowNoticef(palette, "%d) %s: %g", static_cast<int>(row),
                         g_mipe_prop_labels[field->label_index], field->float_value);
         }
     } else if (field->type == 2 || field->type == 4) {
-        ShowNoticef(palette, L"%d) %s: %d", static_cast<int>(row),
+        ShowNoticef(palette, "%d) %s: %d", static_cast<int>(row),
                     g_mipe_prop_labels[field->label_index], field->value);
     } else if (field->type == 5) {
         if (field->value != 0) {
-            ShowNoticef(palette, L"%d) %s: true", static_cast<int>(row),
+            ShowNoticef(palette, "%d) %s: true", static_cast<int>(row),
                         g_mipe_prop_labels[field->label_index]);
         } else {
-            ShowNoticef(palette, L"%d) %s: false", static_cast<int>(row),
+            ShowNoticef(palette, "%d) %s: false", static_cast<int>(row),
                         g_mipe_prop_labels[field->label_index]);
         }
     } else if (field->type == 6) {
-        ShowNoticef(palette, L"%d) %s: %s", static_cast<int>(row),
+        ShowNoticef(palette, "%d) %s: %s", static_cast<int>(row),
                     g_mipe_prop_labels[field->label_index], field->text);
     } else if (field->type == 7) {
-        ShowNoticef(palette, L"%d) %s: %s", static_cast<int>(row),
+        ShowNoticef(palette, "%d) %s: %s", static_cast<int>(row),
                     g_mipe_prop_labels[field->label_index],
                     g_mipe_key_names[field->option_base + field->value]);
     }

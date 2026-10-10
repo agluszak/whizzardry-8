@@ -19,7 +19,7 @@ struct MonGen;
 enum { W8_MIPE_NO_GROUP = 1000000 };
 
 struct W8MipeMonsterEntry {
-    wchar_t name[24];
+    char name[3 * (24) + 1];
     unsigned char kind;
     bool selectable;
 };
@@ -36,7 +36,7 @@ struct W8MipeEditField {
     int label_index;
     signed char option_count;
     signed char option_base;
-    wchar_t* text;
+    char* text;
     float float_value;
     int value;
 };

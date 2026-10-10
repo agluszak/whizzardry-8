@@ -23,7 +23,7 @@ W8_ABI_ASSERT(sizeof(W8SaveScreenshot) == 0x2588, "W8SaveScreenshot_must_be_0x25
 /* Save-list entries are allocated as 0x2640 bytes by both the enumerator and
    the Options controller. The SHOT chunk occupies the embedded screenshot. */
 struct W8SaveSlot {
-    wchar_t name[64];
+    char name[3 * (64) + 1];
     FILETIME local_write_time;
     SYSTEMTIME timestamp;
     int game_time_days;
@@ -61,7 +61,7 @@ struct W8GlobalStatus;
 unsigned char SaveSlotFileExists(const char* slot_name);
 bool LoadCharacter(const char* name, W8Character* character, int slot, bool report_failure);
 void BuildCharacterFilePath(char* destination, const char* filename, int slot);
-void BuildCharacterPath(char* destination, const wchar_t* name, int slot);
+void BuildCharacterPath(char* destination, const char* name, int slot);
 bool SaveGameExists(void);
 void LoadGameStatus(W8Chunk* chunks, W8GlobalStatus* status);
 /* Load a save slot by name; the Please Wait screen drives it. */

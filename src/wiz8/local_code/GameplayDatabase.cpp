@@ -1,3 +1,4 @@
+#include "wiz8/retail_text_records.h"
 #include "wiz8/layouts/screen_state.h"
 #include "wiz8/local_screens/Screens.h"
 #include "wiz8/engine_code/Environment.h"
@@ -112,7 +113,7 @@ try
         return false;
     }
     for (index = 0; index < gXStatus.uiItemsInDatabase; ++index) {
-        if (!((transferred = handle->read(&g_item_records[index], sizeof(g_item_records[index])).bytes) == static_cast<std::size_t>(sizeof(g_item_records[index])))) {
+        if (!((transferred = wiz8::retail::read(*handle, g_item_records[index]).bytes) == wiz8::retail::size<W8ItemDatabaseRecord>)) {
             if (handle) handle->close();
             handle.reset();
             return false;
@@ -212,10 +213,10 @@ try
     if (!handle) {
         return false;
     }
-    if (!(handle->seek(uiMonsterIndex * sizeof(*record) + 4, wiz8::SeekOrigin::begin), true)) {
+    if (!(handle->seek(uiMonsterIndex * wiz8::retail::size<W8MonsterRecord> + 4, wiz8::SeekOrigin::begin), true)) {
         return false;
     }
-    if (!((bytes_read = handle->read(record, sizeof(*record)).bytes) == static_cast<std::size_t>(sizeof(*record)))) {
+    if (!((bytes_read = wiz8::retail::read(*handle, *record).bytes) == wiz8::retail::size<W8MonsterRecord>)) {
         if (handle) handle->close();
         handle.reset();
         return false;
@@ -307,7 +308,7 @@ try
             return false;
         }
         for (index = 0; index < gXStatus.uiMonstersInDatabase; ++index) {
-            if (!((transferred = handle->read(&block[index], sizeof(W8MonsterRecord)).bytes) == static_cast<std::size_t>(sizeof(W8MonsterRecord)))) {
+            if (!((transferred = wiz8::retail::read(*handle, block[index]).bytes) == wiz8::retail::size<W8MonsterRecord>)) {
                 if (handle) handle->close();
                 handle.reset();
                 free(block);
@@ -333,7 +334,6 @@ bool LoadMonsterDatabaseRange(unsigned int uiStartIndex, unsigned int uiEndIndex
 try
 {
     char path[60];
-    unsigned int bytes_read;
     std::unique_ptr<wiz8::File> handle;
 
     if (!(uiEndIndex < gXStatus.uiMonstersInDatabase)) {
@@ -347,13 +347,11 @@ try
     if (!handle) {
         return false;
     }
-    if (!(handle->seek(uiStartIndex * sizeof(*records) + 4, wiz8::SeekOrigin::begin), true)) {
+    if (!(handle->seek(uiStartIndex * wiz8::retail::size<W8MonsterRecord> + 4, wiz8::SeekOrigin::begin), true)) {
         return false; /* retail: failed seek leaves the handle open */
     }
-    if (!((bytes_read = handle->read(records, (uiEndIndex + 1) * sizeof(*records) - uiStartIndex * sizeof(*records)).bytes) == static_cast<std::size_t>((uiEndIndex + 1) * sizeof(*records) - uiStartIndex * sizeof(*records)))) {
-        if (handle) handle->close();
-        handle.reset();
-        return false;
+    for (unsigned int index = uiStartIndex; index <= uiEndIndex; ++index) {
+        if (wiz8::retail::read(*handle, records[index - uiStartIndex]).bytes != wiz8::retail::size<W8MonsterRecord>) return false;
     }
     if (handle) handle->close();
     handle.reset();

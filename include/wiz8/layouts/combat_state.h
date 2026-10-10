@@ -220,8 +220,8 @@ struct W8CombatState {
     int experience_bonus;
     W8CombatCharacterRow characters[8]; /* 0x018, 0xd4 stride */
     /* 0x6b8: the attack announcement the monster-attack message builder
-       swprintf's into and ShowNotice displays; 0x78 wide chars. */
-    wchar_t attack_message[0x78];
+       sprintf's into and ShowNotice displays; 0x78 wide chars. */
+    char attack_message[3 * (0x78) + 1];
     /* 0x7a8: continuous-combat UI pacing; the confirm button resets it while
        ClockIsTicking reports it still running. */
     TIMER combat_ui_timer;

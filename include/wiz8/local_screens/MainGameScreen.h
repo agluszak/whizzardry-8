@@ -22,12 +22,12 @@ void RefreshSelectedPartyPortrait(unsigned int party_slot);
 void ClearHighlightIfItIs(const int* item);
 
 #include "wiz8/layouts/main_game_screen.h"
-extern wchar_t g_format_s[];
-extern wchar_t g_format_d_percent[];
-extern wchar_t g_format_s_colon_s[];
-extern wchar_t g_format_s_colon_s_paren_d[];
-extern wchar_t g_format_s_spaced_colon[];
-extern wchar_t g_format_s_paren_d[];
+extern char g_format_s[];
+extern char g_format_d_percent[];
+extern char g_format_s_colon_s[];
+extern char g_format_s_colon_s_paren_d[];
+extern char g_format_s_spaced_colon[];
+extern char g_format_s_paren_d[];
 
 extern W8MainGameResourceSlot g_main_game_resource_slots[17];
 extern W8ScreenRect g_viewport_modes[];
@@ -104,7 +104,7 @@ class W8MainGameTextPanel : public Controls,
                             public W8TextControl::Listener,
                             public W8RangeListener {
 public:
-    void BeginProgress(const wchar_t* text, float duration, float hold);
+    void BeginProgress(const char* text, float duration, float hold);
 
     W8MainGameTextPanel();
     virtual ~W8MainGameTextPanel();
@@ -168,7 +168,7 @@ public:
     /* Add one keyword line to the transcript unless the text is already
        present; a nonzero mark puts the new entry in state 0x60, and any
        leftover "[No Keywords]" placeholder is removed afterwards. */
-    unsigned char AddTranscriptEntry(const wchar_t* text, signed char category, char mark);
+    unsigned char AddTranscriptEntry(const char* text, signed char category, char mark);
     /* Whether the expanded transcript's top edge reaches above the portrait
        band for an odd party slot (1 -> 0x67, 3 -> 0xbc, 5 -> 0x111, 7 ->
        always covered). Callers use it to skip portrait work on rows the
@@ -652,7 +652,7 @@ unsigned char MainGameScreenInitialize(void);
 unsigned char MainGameScreenEnter(void);
 void MainGameScreenFrame(void);
 unsigned char MainGameScreenLeave(int leaving);
-void ShowMainGameNoticeLine(wchar_t* text, W8DialogDestroyCallback callback, bool confirmation,
+void ShowMainGameNoticeLine(char* text, W8DialogDestroyCallback callback, bool confirmation,
                             bool cancel);
 
 unsigned char CombatBarRegionEvent(const InputAtom* event, struct W8Region* region);

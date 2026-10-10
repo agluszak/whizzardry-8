@@ -43,6 +43,7 @@ add_library(wiz8_filesystem STATIC
     src/platform/filesystem.cpp
     src/platform/slf.cpp
     src/platform/file_time.cpp
+    src/platform/unicode.cpp
 )
 target_include_directories(wiz8_filesystem PUBLIC "${PROJECT_SOURCE_DIR}/include")
 target_link_libraries(wiz8_filesystem PUBLIC SDL3::SDL3 Threads::Threads)
@@ -68,14 +69,14 @@ target_compile_definitions(wiz8_native_settings INTERFACE NDEBUG)
 if(CMAKE_CXX_COMPILER_FRONTEND_VARIANT STREQUAL "MSVC")
     set(WIZ8_COMPAT_OPTIONS
         "/FI${PROJECT_SOURCE_DIR}/include/wiz8/compat/compiler.h"
-        /clang:-fsigned-char /clang:-fno-builtin-wcslen)
+        /clang:-fsigned-char)
     set(WIZ8_GAME_OPTIONS
         ${WIZ8_COMPAT_OPTIONS} /clang:-fwrapv /clang:-fno-strict-aliasing
         $<$<COMPILE_LANGUAGE:CXX>:/GR->)
 else()
     set(WIZ8_COMPAT_OPTIONS
         "SHELL:-include ${PROJECT_SOURCE_DIR}/include/wiz8/compat/compiler.h"
-        -fsigned-char -fshort-wchar -fno-builtin-wcslen)
+        -fsigned-char)
     set(WIZ8_GAME_OPTIONS
         ${WIZ8_COMPAT_OPTIONS} -fwrapv -fno-strict-aliasing
         $<$<COMPILE_LANGUAGE:CXX>:-fno-rtti>)
@@ -89,9 +90,9 @@ target_include_directories(wiz8_native_settings INTERFACE
 )
 target_link_libraries(wiz8_native_settings INTERFACE Threads::Threads ${CMAKE_DL_LIBS})
 
-# Two-byte wide-string CRT support; filesystem ownership lives in wiz8_filesystem.
+# Remaining narrow CRT spelling helpers; Unicode lives at format boundaries.
 add_library(wiz8_compat STATIC
-    src/compat/native_crt.cpp
+    src/compat/native_helpers.cpp
 )
 target_compile_options(wiz8_compat PRIVATE ${WIZ8_COMPAT_OPTIONS})
 target_include_directories(wiz8_compat PRIVATE "${PROJECT_SOURCE_DIR}/include/wiz8" "${PROJECT_SOURCE_DIR}/include")

@@ -30,8 +30,8 @@ struct W8Enchantment {
     unsigned int turns;
 }; /* 0x0c */
 
-/* The game's wide text format: fixed-size UINT16 arrays stored inline in
-   records and manipulated through the CRT wide-string functions. */
+/* Runtime names are UTF-8 buffers. retail_text_records.h encodes the
+   10/40-unit UTF-16LE fields separately from this runtime layout. */
 
 /* Base attributes and their effective values after equipment and effects. */
 struct W8CharacterAttribute {
@@ -128,10 +128,9 @@ struct W8Character {
        leading dword is a saved-record version rather than runtime state. */
     unsigned int record_version;
     bool fInParty; /* 0x0004 */
-    /* 0x0005: the character's name, also the stem of its "%ls.CHR" file. */
-    wchar_t name[10];
-    wchar_t name_part_2[6]; /* 0x0019: rendered as the parenthesized name */
-    unsigned char unknown_0025[0x44];
+    /* 0x0005: the character's name, also the stem of its "%s.CHR" file. */
+    char name[3 * (10) + 1];
+    char name_part_2[3 * 40 + 1]; /* 0x0019: rendered as the parenthesized name */
     /* 0x0069 and 0x006d: the current profession and the one the character
        started in. The level band subtracts a base only while the two agree. */
     W8Profession iProfession;         /* 0x0069 */

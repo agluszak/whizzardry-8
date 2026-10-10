@@ -1,3 +1,6 @@
+#include "wiz8/unicode.h"
+#include <vector>
+#include <array>
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/local_screens/CreditsScreen.h"
 #include "wiz8/local_screens/Screens.h"
@@ -16,7 +19,6 @@
 #include "input.h"
 
 #include <stdlib.h>
-#include <wchar.h>
 
 // GLOBAL: WIZ8 0x0069C4A8
 static W8GrowableVector<W8CreditLine>* g_credit_lines;
@@ -35,43 +37,27 @@ static int g_credit_line;
    stream. Answers whether the line ended at a newline; trailing carriage
    returns are stripped. */
 // FUNCTION: WIZ8 0x004CEED0
-unsigned char ReadWideTextLine(wiz8::File* handle, wchar_t* destination, int capacity, unsigned char* more)
+unsigned char ReadRetailTextLine(wiz8::File* handle, char* destination, int capacity, unsigned char* more)
 try
 {
-    wchar_t* write = destination;
-    wchar_t current = 0;
-    int count = 0;
-    unsigned char ok;
-
-    *destination = 0;
+    if (capacity <= 0) return 0;
+    destination[0] = 0;
     *more = 1;
+    std::vector<std::byte> bytes;
     for (;;) {
-        unsigned int bytes_read;
-        ok = ((bytes_read = handle->read(&current, sizeof(current)).bytes) == static_cast<std::size_t>(sizeof(current)));
-        if (bytes_read == 0) {
-            ok = 0;
-            *more = 0;
-        } else if (ok == 0) {
-            *more = 0;
-        } else if (current == 10) {
-            break;
-        } else {
-            *write++ = current;
-            ++count;
-        }
-        if (count >= capacity - 1) {
-            ok = 0;
-            break;
-        }
-        if (ok == 0) {
-            break;
-        }
+        std::array<std::byte, 2> unit{};
+        auto result = handle->read(unit.data(), unit.size());
+        if (result.bytes == 0) { *more = 0; break; }
+        if (result.bytes != 2) { *more = 0; return 0; }
+        if (unit[0] == std::byte{10} && unit[1] == std::byte{}) break;
+        bytes.insert(bytes.end(), unit.begin(), unit.end());
+        if (bytes.size() > static_cast<std::size_t>(capacity) * 2) return 0;
     }
-    destination[count] = 0;
-    if (count != 0 && destination[count - 1] == 0xd) {
-        destination[count - 1] = 0;
-    }
-    return ok;
+    auto text = wiz8::text::from_utf16le(bytes);
+    if (!text.empty() && text.back() == '\r') text.pop_back();
+    if (text.size() >= static_cast<std::size_t>(capacity)) return 0;
+    wiz8::text::copy(destination, capacity, text);
+    return *more || !bytes.empty();
 }
 catch (const std::exception&) { return false; }
 
@@ -80,7 +66,7 @@ unsigned char CreditsScreenEnter(void)
 try
 {
     std::unique_ptr<wiz8::File> handle;
-    wchar_t line[128];
+    char line[3 * (128) + 1];
 
     SetViewport(0, 0, 0x280, 0x1e0);
     ResetRegions();
@@ -91,25 +77,25 @@ try
     handle = [&]() { try { return wiz8::open_file((char*)"Data\\Options\\Credits.txt", wiz8::OpenMode::read); } catch (const std::exception&) { return std::unique_ptr<wiz8::File>{}; } }();
     if (handle != 0) {
         unsigned char more;
-        handle->read_exact(line, sizeof(wchar_t));
+        handle->seek(2, wiz8::SeekOrigin::begin); // UTF-16LE BOM
         while (!(handle->tell() >= handle->size())) {
-            if (ReadWideTextLine(handle.get(), line, 128, &more) && line[0] != L'*') {
+            if (ReadRetailTextLine(handle.get(), line, sizeof(line), &more) && line[0] != '*') {
                 W8CreditLine entry = {0, 0, 0, 0, 0};
                 bool blank = false;
                 bool bold = false;
-                if (line[0] == L'!') {
+                if (line[0] == '!') {
                     bold = true;
                     entry.flags = 1;
-                    entry.primary = _wcsdup(line + 1);
+                    entry.primary = strdup(line + 1);
                 } else {
-                    wchar_t* separator = wcschr(line, L'&');
+                    char* separator = strchr(line, '&');
                     if (separator != 0) {
-                        separator[-1] = L'\0';
+                        separator[-1] = '\0';
                         entry.flags = 2;
-                        entry.secondary = _wcsdup(separator + 2);
-                        entry.primary = _wcsdup(line);
-                    } else if (line[0] != L'\0') {
-                        entry.primary = _wcsdup(line);
+                        entry.secondary = strdup(separator + 2);
+                        entry.primary = strdup(line);
+                    } else if (line[0] != '\0') {
+                        entry.primary = strdup(line);
                     } else {
                         blank = true;
                         entry.flags = 4;
@@ -197,11 +183,11 @@ void CreditsScreenFrame(void)
         if ((entry->flags & 4) == 0) {
             SetFont((entry->flags & 1) ? g_options_title_font : g_options_detail_font);
             if ((entry->flags & 2) == 0) {
-                gprintf((0x280 - entry->pixel_width) / 2, y, L"%s", entry->primary);
+                gprintf((0x280 - entry->pixel_width) / 2, y, "%s", entry->primary);
             } else {
-                gprintf(0x136 - entry->pixel_width, y, L"%s", entry->primary);
+                gprintf(0x136 - entry->pixel_width, y, "%s", entry->primary);
                 if (entry->secondary != 0) {
-                    gprintf(0x14a, y, L"%s", entry->secondary);
+                    gprintf(0x14a, y, "%s", entry->secondary);
                 }
             }
         }

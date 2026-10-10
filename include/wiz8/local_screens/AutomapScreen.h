@@ -16,7 +16,7 @@ extern float g_automap_grid_cell_size;
 struct W8AutomapNote {
     srVector2T<float> position;
     int layer;
-    wchar_t* text;
+    char* text;
 };
 W8_ABI_ASSERT(sizeof(W8AutomapNote) == 0x10, "W8AutomapNote_size");
 

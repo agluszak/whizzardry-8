@@ -35,17 +35,17 @@ public:
     void SetLineHeight(unsigned int height);
     bool SelectEntry(int index);
     bool ClearSelection();
-    bool CopyEntryText(unsigned int index, wchar_t* output);
+    bool CopyEntryText(unsigned int index, char* output);
     unsigned int HitTestEntry(int x, int y);
     bool UpdateSelectionFromPoint(int x, int y);
     bool ClearPointSelection();
-    bool CopyVisibleEntryText(unsigned int index, wchar_t* output);
+    bool CopyVisibleEntryText(unsigned int index, char* output);
     bool HighlightVisibleEntry(int index);
     bool ClearEntryHighlight();
     W8DialogTextEntry* GetEntry(unsigned int index);
     int GetOwningEntryIndex(int visible_index);
     void SetEntryMarked(int index, bool state);
-    int AddEntry(const wchar_t* prefix, const wchar_t* text, unsigned int prefix_palette,
+    int AddEntry(const char* prefix, const char* text, unsigned int prefix_palette,
                  unsigned int text_palette, unsigned char category);
     void RemoveEntry(unsigned int index);
     void RebuildVisibleEntries();

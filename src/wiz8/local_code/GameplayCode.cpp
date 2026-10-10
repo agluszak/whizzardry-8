@@ -50,7 +50,6 @@
 #include <math.h>
 #include <new>
 #include <string.h>
-#include <wchar.h>
 
 #include "soundman.h"
 
@@ -261,24 +260,24 @@ void RefreshLevelUpReadyNotices(void)
                 gXStatus.level_up_notice = true;
                 if (*ready_flag == 0) {
                     if (row->portrait_advance == 0) {
-                        wchar_t* text;
+                        char* text;
                         int* extra;
                         size_t length;
 
                         *ready_flag = 1;
                         // The queued message releases this payload with delete[].
-                        text = new wchar_t[0x200];
-                        text[0] = L' ';
+                        text = new char[0x200];
+                        text[0] = ' ';
                         text[1] = 0xb4;
                         text[2] = GetPartyOrderTextColor(
                             static_cast<signed char>(row->party_order_index));
-                        text[3] = L' ';
-                        swprintf(text + 4, g_format_s, character->name);
-                        length = wcslen(text);
-                        text[length] = L' ';
+                        text[3] = ' ';
+                        sprintf(text + 4, g_format_s, character->name);
+                        length = strlen(text);
+                        text[length] = ' ';
                         text[length + 1] = 0xb5;
-                        text[length + 2] = L' ';
-                        swprintf(text + length + 3, gppStringList[0x773], text);
+                        text[length + 2] = ' ';
+                        sprintf(text + length + 3, gppStringList[0x773], text);
                         extra = new int;
                         *extra = party_slot;
                         W8MessageBoxPayload level_up_payload;
@@ -1221,8 +1220,8 @@ void AwardPartyExperience(int amount, int alternate_message)
             gXStatus.level_up_notice = true;
         }
     }
-    wchar_t* text = new wchar_t[0x200];
-    swprintf(text, gppStringList[alternate_message ? 0x231 : 0x232], amount);
+    char* text = new char[0x200];
+    sprintf(text, gppStringList[alternate_message ? 0x231 : 0x232], amount);
     W8ExperienceNoticePayload* payload = new W8ExperienceNoticePayload;
     payload->amount = amount;
     payload->alternate_message = static_cast<unsigned char>(alternate_message);

@@ -110,10 +110,10 @@ void UpdateRcsLevelUpPanel(void);
 void CreateRcsDismissPanel(void);
 void DestroyRcsDismissPanel(void);
 void UpdateRcsDismissPanel(void);
-void DrawRcsText(const wchar_t* text, int left, int top, int width, unsigned int layout_mode);
-void DrawRcsBoldText(const wchar_t* text, int left, int top, int width, unsigned int layout_mode);
-void DrawTallRcsText(const wchar_t* text, int left, int top, int width, unsigned int layout_mode);
+void DrawRcsText(const char* text, int left, int top, int width, unsigned int layout_mode);
+void DrawRcsBoldText(const char* text, int left, int top, int width, unsigned int layout_mode);
+void DrawTallRcsText(const char* text, int left, int top, int width, unsigned int layout_mode);
 /* Like DrawRcsText but the box height is caller-provided and the
    text is rendered through mprintf with the current font. */
-void DrawRcsTextJustified(const wchar_t* text, int left, int top, int width, int height,
+void DrawRcsTextJustified(const char* text, int left, int top, int width, int height,
                           unsigned int layout_mode);

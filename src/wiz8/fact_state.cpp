@@ -25,7 +25,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <wchar.h>
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/local_screens/PartySelectionScreen.h"
 #include "wiz8/local_code/PartyImport.h"

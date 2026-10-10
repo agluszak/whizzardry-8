@@ -589,8 +589,8 @@ void SetMonsterCondition(int location_id, W8Condition condition, int duration, i
         return;
     }
     if (announce && (gXStatus.fCombatMode || monster_info->party_threat.visible_to_player)) {
-        wchar_t* name = GetMonsterName(monster_info, 0, 0);
-        ShowNoticef(W8_FONT_PALETTE_RUST, L"%s %s!", name,
+        char* name = GetMonsterName(monster_info, 0, 0);
+        ShowNoticef(W8_FONT_PALETTE_RUST, "%s %s!", name,
                     gppStringList[g_condition_notices[condition].singular]);
     }
     if (monster_info->p3D->IsCycleInterruptable(monster_info->p3D->m_pRep->pending_cycle)) {
@@ -806,7 +806,7 @@ unsigned char SetCharacterCondition(int party_slot, W8Condition condition, int d
         if (condition == W8_CONDITION_MISSING && alternate_missing_notice != 0) {
             PostCharacterNotice(party_slot, gppStringList[0x1d5]);
         } else {
-            PostCharacterNotice(party_slot, L"%s!",
+            PostCharacterNotice(party_slot, "%s!",
                                 gppStringList[g_condition_notices[condition].singular]);
         }
     }

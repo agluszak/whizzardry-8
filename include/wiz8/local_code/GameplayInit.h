@@ -21,4 +21,4 @@ void ResetForNewGame(void);
 void ResetGameplaySlot(unsigned int slot);
 void ResetGameplaySettings(void);
 
-void RunNewGameOpeningSequence(bool notify, const wchar_t* target);
+void RunNewGameOpeningSequence(bool notify, const char* target);

@@ -1,4 +1,5 @@
 #pragma once
+#include <span>
 
 #include "input.h"
 #include "mousesystem.h"
@@ -9,15 +10,15 @@ struct TEXTINPUTNODE;
 void InitTextInputMode(void);
 void InitTextInputModeWithScheme(int mode);
 void KillTextInputMode(void);
-char AddTextInputField(int left, int top, int width, int height, int priority, const wchar_t* text,
+char AddTextInputField(int left, int top, int width, int height, int priority, const char* text,
                        unsigned char capacity, short input_type,
                        unsigned char use_inactive_text_field_color);
 void RemoveTextInputField(int index);
 unsigned char GetTextInputFieldLength(unsigned char index);
 void SetActiveField(char index);
 short GetActiveTextInputField(void);
-void SetInputFieldStringWith16BitString(unsigned char field, wchar_t* text);
-void Get16BitStringFromField(unsigned char field, wchar_t* text);
+void SetInputFieldText(unsigned char field, char* text);
+void GetTextFromField(unsigned char field, std::span<char> text);
 void ClearActiveField(void);
 void SelectNextField(void);
 bool EditingText(void); /* 0x005D5A00 */
@@ -29,7 +30,7 @@ int GetTextInputCursor(void); /* 0x0055EF80 */
 void MouseMovedInTextRegionCallback(MOUSE_REGION* region, int reason);
 void MouseClickedInTextRegionCallback(MOUSE_REGION* region, int reason);
 void SetTextInputScheme(char mode);
-unsigned int CalculateCursorPos(int width, int cursor, const wchar_t* text, int* cursor_width,
+unsigned int CalculateCursorPos(int width, int cursor, const char* text, int* cursor_width,
                                 size_t* visible_count);
 void RenderBackgroundField(TEXTINPUTNODE* field);
 void RenderInactiveTextFieldNode(TEXTINPUTNODE* field);

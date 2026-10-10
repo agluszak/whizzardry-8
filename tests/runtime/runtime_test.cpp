@@ -395,7 +395,7 @@ std::string CreateCharacter(Game& game)
         game.key(key);
     const W8Character& typed = g_character_screen->m_character;
     std::string name;
-    for (wchar_t c : typed.name)
+    for (char c : typed.name)
     {
         if (!c)
             break;

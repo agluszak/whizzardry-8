@@ -8,33 +8,31 @@
 #include "wiz8/filesystem.h"
 #include "input.h"
 
-#include <wchar.h>
-#include <wctype.h>
 
 /* Local Code\InputMapper.cpp. MGSKeyboard::LoadDefaults at 0x0055D800
    asserts this unit (line 478); it is the only body placed here. */
 
 #pragma pack(push, 1)
 struct MGSKeyName {
-    const wchar_t* name;
+    const char* name;
     unsigned short key;
 };
 
 // GLOBAL: WIZ8 0x00647770
 static MGSKeyName g_mgs_key_names[] = {
-    {L"F1", 112},        {L"F2", 113},        {L"F3", 114},        {L"F4", 115},
-    {L"F5", 116},        {L"F6", 117},        {L"F7", 118},        {L"F8", 119},
-    {L"F9", 120},        {L"F10", 121},       {L"F11", 122},       {L"F12", 123},
-    {L"ESC", 27},        {L"TAB", 9},         {L"PAUSE", 19},      {L"NUM_LOCK", 144},
-    {L"BACKSPACE", 8},   {L"INSERT", 45},     {L"DEL", 46},        {L"KEY_END", 35},
-    {L"PGDN", 34},       {L"PGUP", 33},       {L"HOME", 36},       {L"ENTER", 13},
-    {L"SPACE", 32},      {L"DNARROW", 40},    {L"LEFTARROW", 37},  {L"RIGHTARROW", 39},
-    {L"UPARROW", 38},    {L"NUM_0", 96},      {L"NUM_1", 97},      {L"NUM_2", 98},
-    {L"NUM_3", 99},      {L"NUM_4", 100},     {L"NUM_5", 101},     {L"NUM_6", 102},
-    {L"NUM_7", 103},     {L"NUM_8", 104},     {L"NUM_9", 105},     {L"NUM_TIMES", 106},
-    {L"NUM_PLUS", 107},  {L"NUM_ENTER", 108}, {L"NUM_MINUS", 109}, {L"NUM_PERIOD", 110},
-    {L"NUM_SLASH", 111}, {L"SCRL_LOCK", 145}, {L"/", 191},         {L"-", 189},
-    {L".", 190}};
+    {"F1", 112},        {"F2", 113},        {"F3", 114},        {"F4", 115},
+    {"F5", 116},        {"F6", 117},        {"F7", 118},        {"F8", 119},
+    {"F9", 120},        {"F10", 121},       {"F11", 122},       {"F12", 123},
+    {"ESC", 27},        {"TAB", 9},         {"PAUSE", 19},      {"NUM_LOCK", 144},
+    {"BACKSPACE", 8},   {"INSERT", 45},     {"DEL", 46},        {"KEY_END", 35},
+    {"PGDN", 34},       {"PGUP", 33},       {"HOME", 36},       {"ENTER", 13},
+    {"SPACE", 32},      {"DNARROW", 40},    {"LEFTARROW", 37},  {"RIGHTARROW", 39},
+    {"UPARROW", 38},    {"NUM_0", 96},      {"NUM_1", 97},      {"NUM_2", 98},
+    {"NUM_3", 99},      {"NUM_4", 100},     {"NUM_5", 101},     {"NUM_6", 102},
+    {"NUM_7", 103},     {"NUM_8", 104},     {"NUM_9", 105},     {"NUM_TIMES", 106},
+    {"NUM_PLUS", 107},  {"NUM_ENTER", 108}, {"NUM_MINUS", 109}, {"NUM_PERIOD", 110},
+    {"NUM_SLASH", 111}, {"SCRL_LOCK", 145}, {"/", 191},         {"-", 189},
+    {".", 190}};
 #pragma pack(pop)
 
 // FUNCTION: WIZ8 0x0055D800
@@ -47,19 +45,19 @@ unsigned char MGSKeyboard::LoadDefaults(const char* path)
                      FormatString("Couldn't open keyboard init file %s", path));
     }
 
-    wchar_t line[200];
+    char line[3 * (200) + 1];
     unsigned char more;
     while (!(handle->tell() >= handle->size())) {
-        if (!ReadWideTextLine(handle.get(), line, 200, &more) || line[0] == L'*') {
+        if (!ReadRetailTextLine(handle.get(), line, 200, &more) || line[0] == '*') {
             continue;
         }
 
-        wchar_t* token = wcstok(line, L" \t\r\n");
-        if (token == 0 || wcslen(token) == 0 || !iswdigit(*token)) {
+        char* token = strtok(line, " \t\r\n");
+        if (token == 0 || strlen(token) == 0 || !isdigit(*token)) {
             continue;
         }
-        W8MGSCommand command = static_cast<W8MGSCommand>(_wtoi(token));
-        token = wcstok(0, L" \t\r\n");
+        W8MGSCommand command = static_cast<W8MGSCommand>(atoi(token));
+        token = strtok(0, " \t\r\n");
         if (token == 0) {
             continue;
         }
@@ -69,24 +67,24 @@ unsigned char MGSKeyboard::LoadDefaults(const char* path)
         for (index = 0;
              index < static_cast<int>(sizeof(g_mgs_key_names) / sizeof(g_mgs_key_names[0]));
              ++index) {
-            if (wcscmp(token, g_mgs_key_names[index].name) == 0) {
+            if (strcmp(token, g_mgs_key_names[index].name) == 0) {
                 key = g_mgs_key_names[index].key;
                 break;
             }
         }
         if (index == static_cast<int>(sizeof(g_mgs_key_names) / sizeof(g_mgs_key_names[0]))) {
-            if (wcslen(token) != 1 || (key = TranslateCharacterToKey(key)) == 0) {
+            if (strlen(token) != 1 || (key = TranslateCharacterToKey(key)) == 0) {
                 continue;
             }
         }
 
         unsigned short modifiers = 0;
-        while ((token = wcstok(0, L" \t\r\n")) != 0) {
-            if (wcscmp(token, L"SHIFT_DOWN") == 0) {
+        while ((token = strtok(0, " \t\r\n")) != 0) {
+            if (strcmp(token, "SHIFT_DOWN") == 0) {
                 modifiers |= SHIFT_DOWN;
-            } else if (wcscmp(token, L"CTRL_DOWN") == 0) {
+            } else if (strcmp(token, "CTRL_DOWN") == 0) {
                 modifiers |= CTRL_DOWN;
-            } else if (wcscmp(token, L"ALT_DOWN") == 0) {
+            } else if (strcmp(token, "ALT_DOWN") == 0) {
                 modifiers |= ALT_DOWN;
             }
         }

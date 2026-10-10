@@ -71,7 +71,6 @@
 #include "wiz8/character_skills.h"
 #include <stdlib.h>
 #include <string.h>
-#include <wchar.h>
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/local_screens/Screens.h"
 
@@ -209,7 +208,7 @@ unsigned short g_item_use_messages[25] = {
 };
 /* One lazily built generic name per unidentified-name index. */
 // GLOBAL: WIZ8 0x0068C108
-wchar_t* g_generic_item_names[W8_GENERIC_ITEM_NAME_COUNT];
+char* g_generic_item_names[W8_GENERIC_ITEM_NAME_COUNT];
 // GLOBAL: WIZ8 0x00616e84
 W8Skill g_item_spell_presentation[11] = {
     W8_SKILL_NONE,        W8_SKILL_ARTIFACTS,      W8_SKILL_ARTIFACTS, W8_SKILL_NONE,
@@ -238,7 +237,7 @@ unsigned short g_generic_item_name_notice[W8_GENERIC_ITEM_NAME_COUNT] = {
 };
 /* Shared scratch returned by the item-name formatter. */
 // GLOBAL: WIZ8 0x0068C0B4
-static wchar_t g_item_display_name_buffer[42];
+static char g_item_display_name_buffer[3 * (42) + 1];
 
 W8_ABI_ASSERT(sizeof(W8ItemVideoObjectEntry) == 8, "W8ItemVideoObjectEntry_must_be_8");
 W8_ABI_ASSERT(sizeof(W8ItemVideoObjectCache) == 0x0c, "W8ItemVideoObjectCache_must_be_0x0c");
@@ -459,9 +458,9 @@ unsigned char g_party_has_slope_override_item;
    generic unidentified names are allocated once, while this returned buffer
    is shared by the quantity and plain-name forms. */
 // FUNCTION: WIZ8 0x0051b5c0
-wchar_t* FormatItemDisplayName(const W8ItemInstance* item, bool include_quantity)
+char* FormatItemDisplayName(const W8ItemInstance* item, bool include_quantity)
 {
-    wchar_t* name;
+    char* name;
     unsigned int name_index;
 
     if (item->identified) {
@@ -469,19 +468,19 @@ wchar_t* FormatItemDisplayName(const W8ItemInstance* item, bool include_quantity
     } else {
         name_index = g_item_records[item->iItemNo].unidentified_name_index;
         if (g_generic_item_names[name_index] == 0) {
-            name = static_cast<wchar_t*>(malloc(60 * sizeof(*name)));
+            name = static_cast<char*>(malloc(60 * sizeof(*name)));
             g_generic_item_names[name_index] = name;
-            swprintf(name, gppStringList[0x1e7],
+            sprintf(name, gppStringList[0x1e7],
                      gppStringList[g_generic_item_name_notice[name_index]]);
         }
         name = g_generic_item_names[name_index];
     }
 
     if (include_quantity && item->stack_count > 1) {
-        swprintf(g_item_display_name_buffer, L"%s (%d)", name,
+        snprintf(g_item_display_name_buffer, sizeof(g_item_display_name_buffer), "%s (%d)", name,
                  static_cast<unsigned int>(item->stack_count));
     } else {
-        swprintf(g_item_display_name_buffer, L"%s", name);
+        snprintf(g_item_display_name_buffer, sizeof(g_item_display_name_buffer), "%s", name);
     }
     return g_item_display_name_buffer;
 }
@@ -563,7 +562,7 @@ unsigned short GetItemEquipSlotMask(int item_id, bool primary_off_hand_free,
     case W8_ITEM_EQUIP_CLASS_RANGED_WEAPON:
         if (g_item_records[item_id].weapon_skill == W8_WEAPON_SKILL_NONE) {
             FormatDebugMessage(0,
-                               "ERROR - Item %ls is a weapon without a skill specified -> Charles",
+                               "ERROR - Item %s is a weapon without a skill specified -> Charles",
                                &g_item_records[item_id]);
             return 0;
         }
@@ -1039,10 +1038,10 @@ W8ItemEquipSlotGroup GetItemEquipSlotGroup(int item_id)
    unidentified one is called by the generic name its index shares, built once
    on first use and kept. */
 // FUNCTION: WIZ8 0x0051b7b0
-wchar_t* GetItemDisplayName(const W8ItemInstance* item)
+char* GetItemDisplayName(const W8ItemInstance* item)
 {
     unsigned int name_index;
-    wchar_t* built;
+    char* built;
 
     if (item->identified) {
         return g_item_records[item->iItemNo].display_name;
@@ -1050,9 +1049,9 @@ wchar_t* GetItemDisplayName(const W8ItemInstance* item)
 
     name_index = g_item_records[item->iItemNo].unidentified_name_index;
     if (g_generic_item_names[name_index] == 0) {
-        built = static_cast<wchar_t*>(malloc(60 * sizeof(*built)));
+        built = static_cast<char*>(malloc(60 * sizeof(*built)));
         g_generic_item_names[name_index] = built;
-        swprintf(built, gppStringList[0x1e7],
+        sprintf(built, gppStringList[0x1e7],
                  gppStringList[g_generic_item_name_notice[name_index]]);
     }
     return g_generic_item_names[name_index];
@@ -1250,7 +1249,7 @@ unsigned char UseItem(W8Character* character, W8ItemInstance* item, int* out_use
                                 GetItemDisplayName(item));
         } else if (TargetSourceIsMonster(&target, 0)) {
             ShowNoticef(
-                9, L"%s %s %s",
+                9, "%s %s %s",
                 GetMonsterName(MonsterGetScriptPartByLocationIndex(MonsterGetIndexByLocationID(
                                    0x91d, PC_ITEM_CPP, target.iMonsterID, true)),
                                0, 0),
@@ -1433,7 +1432,7 @@ bool MergeItems(W8Character* character, W8ItemInstance* destination)
         if (!found) {
             ShowCampNoticeLine(gppStringList[0x161], 0, true, false);
         } else {
-            ShowCampNoticeLine(FormatWideString(gppStringList[0x162], character->name), 0, true,
+            ShowCampNoticeLine(FormatText(gppStringList[0x162], character->name), 0, true,
                                false);
         }
     }
@@ -1496,7 +1495,7 @@ bool AddItemToCharacter(W8Character* character, W8ItemInstance* item, bool equip
         }
     }
 
-    wchar_t* display_name = FormatItemDisplayName(item, true);
+    char* display_name = FormatItemDisplayName(item, true);
     if (g_item_records[item->iItemNo].quantity_kind == W8_ITEM_QUANTITY_STACK && !skip_stacking) {
         unsigned int index;
         for (index = 0; index < 12; ++index) {
@@ -1712,7 +1711,7 @@ void InitializeItemVideoObjects(void)
 // FUNCTION: WIZ8 0x0051b580
 void ReleaseGenericItemNames(void)
 {
-    wchar_t** name;
+    char** name;
 
     g_item_video_objects.Clear();
     for (name = g_generic_item_names; name < g_generic_item_names + W8_GENERIC_ITEM_NAME_COUNT;
@@ -1956,7 +1955,7 @@ void AddPartyGold(int amount, bool announce)
 
     if (announce) {
         ShowNotice(
-            8, FormatWideString(L"%s %d %s.", gppStringList[0x15f], amount, gppStringList[0x160]));
+            8, FormatText("%s %d %s.", gppStringList[0x15f], amount, gppStringList[0x160]));
         if (!SoundFileIsPlaying(sound_path)) {
             SoundPlay(sound_path, 0);
         }
@@ -1973,7 +1972,7 @@ void ReplaceOrCreateItem(W8ItemInstance* item, int item_id, bool maximum_quantit
     if (static_cast<unsigned int>(item_id) >= gXStatus.uiItemsInDatabase) {
         srAssertFail(
             "uiItemNo < gXStatus.uiItemsInDatabase", PC_ITEM_CPP, 564,
-            FormatString("InitNewItem: error, invalid item # %ld specified", item_id));
+            FormatString("InitNewItem: error, invalid item # %d specified", item_id));
     }
 
     EmptyItemRecord(item, 0, true);
@@ -2738,7 +2737,7 @@ bool MergeItemStacks(W8ItemInstance* destination, W8ItemInstance* source, bool* 
     if (destination->stack_count > record->maximum_quantity) {
         srAssertFail(
             "FALSE", PC_ITEM_CPP, 3371,
-            FormatString("StackItemsIfPossible: ERROR - slot holds %d when max is %d, item %d(%ls)",
+            FormatString("StackItemsIfPossible: ERROR - slot holds %d when max is %d, item %d(%s)",
                          destination->stack_count, record->maximum_quantity, destination->iItemNo,
                          FormatItemDisplayName(destination, true)));
         destination->stack_count = record->maximum_quantity;
@@ -3321,7 +3320,7 @@ bool InsertItemIntoPartyPool(W8ItemInstance* item, int index)
 // FUNCTION: WIZ8 0x00521ef0
 bool AddItemToParty(W8ItemInstance* item, bool announce, bool skip_stacking)
 {
-    wchar_t* display_name = FormatItemDisplayName(item, true);
+    char* display_name = FormatItemDisplayName(item, true);
     bool partially_merged = false;
     unsigned int index = 0;
     bool stored = false;
@@ -3785,7 +3784,7 @@ int CastItemSpell(W8Character* character, W8ItemInstance* item, unsigned int pow
         item->spell_hint = true;
     } else if (effect == 3) {
         PostCharacterNotice(
-            party_slot, FormatWideString(gppStringList[0x1a9], FormatItemDisplayName(item, false)));
+            party_slot, FormatText(gppStringList[0x1a9], FormatItemDisplayName(item, false)));
     }
 
     if (skill != W8_SKILL_NONE) {
@@ -3968,7 +3967,7 @@ void UpgradeProfessionClassItem(W8Character* character)
         }
         PostCharacterNotice(
             CharacterPointerToPartySlot(character),
-            FormatWideString(gppStringList[0x167],
+            FormatText(gppStringList[0x167],
                              gppStringList[g_gender_name_message_rows[character->gender][3]]));
         return;
     case 3:
@@ -4036,7 +4035,7 @@ void UpgradeProfessionClassItem(W8Character* character)
         found->iItemNo = item_id;
         PostCharacterNotice(
             CharacterPointerToPartySlot(character),
-            FormatWideString(gppStringList[message_id],
+            FormatText(gppStringList[message_id],
                              gppStringList[g_gender_name_message_rows[character->gender][2]]));
     }
 }

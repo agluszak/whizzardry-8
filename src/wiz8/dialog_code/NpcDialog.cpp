@@ -16,14 +16,13 @@
 #include "mousesystem_macros.h"
 #include "Font.h"
 
-#include <wchar.h>
 
 /* Dialog Code\NpcDialog.cpp. The NPC dialogue popup; see the header for the
    request-buffer layout. The option-list strings and the two price-check
    strings live in the gppStringList message table. */
 
 // GLOBAL: WIZ8 0x0061c4b4
-wchar_t g_format_S[] = L"%S";
+char g_format_S[] = "%s";
 
 /* The live popup; the constructor publishes it so the option callback and the
    Enter handling in ProcessInput can reach the active instance. */
@@ -31,7 +30,7 @@ wchar_t g_format_S[] = L"%S";
 static W8NpcDialog* g_npc_dialog;
 
 // GLOBAL: WIZ8 0x0064fc84
-static wchar_t g_format_s_dg[] = L"%s %dg";
+static char g_format_s_dg[] = "%s %dg";
 
 // FUNCTION: WIZ8 0x005DA6B0
 W8NpcDialog::W8NpcDialog(W8NpcQuoteEntry* message, int aux_data)
@@ -40,7 +39,7 @@ W8NpcDialog::W8NpcDialog(W8NpcQuoteEntry* message, int aux_data)
     short max_width = -1;
     short width = 0;
     int index;
-    wchar_t line[1024];
+    char line[3 * (1024) + 1];
 
     SetBackground("Data\\Dialogs\\DialogBackground.sti", 0);
     for (index = 0; index < 2; ++index) {
@@ -61,7 +60,7 @@ W8NpcDialog::W8NpcDialog(W8NpcQuoteEntry* message, int aux_data)
             m_compact_options = true;
         }
         for (index = 0; index < message->sub_entry_count; ++index) {
-            swprintf(line, g_format_S, message->sub_entries[index].text);
+            snprintf(line, sizeof(line), g_format_S, message->sub_entries[index].text);
             short length = StringPixLength(line, g_wiz_text_mono_font);
             if (max_width < length) {
                 max_width = length;
@@ -97,7 +96,7 @@ W8NpcDialog::~W8NpcDialog()
 int W8NpcDialog::CreateControls()
 {
     int index;
-    wchar_t line[1024];
+    char line[3 * (1024) + 1];
     W8ControlsRect bounds;
 
     W8DialogBase::CreateControls();
@@ -106,7 +105,7 @@ int W8NpcDialog::CreateControls()
             (m_width - static_cast<short>((m_text_width + 10) * m_message->sub_entry_count - 10)) /
             2;
         for (index = 0; index < m_message->sub_entry_count; ++index) {
-            swprintf(line, g_format_S, m_message->sub_entries[index].text);
+            snprintf(line, sizeof(line), g_format_S, m_message->sub_entries[index].text);
             m_buttons[index] = new W8DialogButton;
             m_buttons[index]->ConfigureTextButton(
                 line, g_wiz_text_mono_font, 4, 5, static_cast<short>(m_x + x),
@@ -132,7 +131,7 @@ int W8NpcDialog::CreateControls()
                                           static_cast<short>(m_x + x + m_text_width + 10),
                                           static_cast<short>(m_y + 0x1e), m_text_width, 0x14,
                                           OptionSelected, 1);
-        swprintf(line, gppStringList[0x7e5], g_npc_interaction_state->pending_price);
+        snprintf(line, sizeof(line), gppStringList[0x7e5], g_npc_interaction_state->pending_price);
         bounds.left = m_x + 10;
         bounds.top = m_y + 10;
         bounds.right = m_x + m_width - 10;
@@ -140,7 +139,7 @@ int W8NpcDialog::CreateControls()
         m_text_buffers[0] =
             new W8TextBuffer(&bounds, line, g_wiz_text_font_secondary,
                              g_W8TextBufferAlignMiddle | g_W8TextBufferAlignCenter, 4);
-        swprintf(line, g_format_s_dg, gppStringList[0x7e6], g_status.party_gold);
+        snprintf(line, sizeof(line), g_format_s_dg, gppStringList[0x7e6], g_status.party_gold);
         bounds.left = m_x + 10;
         bounds.top = m_y + 0x37;
         bounds.right = m_x + m_width - 10;
@@ -151,7 +150,7 @@ int W8NpcDialog::CreateControls()
     } else if (m_message->kind == W8_NPC_ENTRY_KEYWORD_INPUT) {
         SetTextInputScheme(1);
         m_input_field = AddTextInputField(m_x + (m_width - 0x8c) / 2, m_y + 0x23, 0x8c, 0x10, 0x7f,
-                                          &g_empty_wide_string, 0x28, 0xf, 1);
+                                          &g_empty_text, 0x28, 0xf, 1);
         SetActiveField(m_input_field);
         bounds.left = m_x + 10;
         bounds.top = m_y + 10;
@@ -220,7 +219,7 @@ bool W8NpcDialog::ProcessInput()
             static_cast<char>(HandleTextInput(&input)) == 0) {
             if (input.usEvent == KEY_DOWN && input.usParam == VK_RETURN &&
                 m_message->kind == W8_NPC_ENTRY_KEYWORD_INPUT) {
-                Get16BitStringFromField(m_input_field, m_input_text);
+                GetTextFromField(m_input_field, m_input_text);
                 g_npc_dialog->m_keep_open = false;
                 return true;
             }

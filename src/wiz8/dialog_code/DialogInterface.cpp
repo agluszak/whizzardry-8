@@ -28,7 +28,7 @@ unsigned char g_dialog_font_background = 255;
 W8DialogBase* CreateCharacterSummaryDialog(W8Character* character)
 {
     W8DialogBase* dialog = new W8CharacterSummaryDialog(character);
-    dialog->SetText(&g_empty_wide_string);
+    dialog->SetText(&g_empty_text);
     dialog->SetOrigin(0x87, 0xc0);
     return dialog;
 }
@@ -41,7 +41,7 @@ W8DialogBase* CreateDialogByKind(W8DialogKind kind)
     switch (kind) {
     case W8_DIALOG_BASIC:
         dialog = new W8DialogBase;
-        dialog->SetText(L"Test Dialog");
+        dialog->SetText("Test Dialog");
         dialog->SetOrigin(160, 120);
         dialog->SetExtent(320, 240);
         break;
@@ -53,13 +53,13 @@ W8DialogBase* CreateDialogByKind(W8DialogKind kind)
         return dialog;
     case W8_DIALOG_LIST_BOX:
         dialog = new W8ListBoxDialog;
-        dialog->SetText(L"ListBox Dialog");
+        dialog->SetText("ListBox Dialog");
         dialog->SetOrigin(200, 100);
         dialog->SetExtent(240, 280);
         break;
     case W8_DIALOG_SPLIT_AMOUNT:
         dialog = new W8SplitAmountDialog;
-        dialog->SetText(&g_empty_wide_string);
+        dialog->SetText(&g_empty_text);
         dialog->SetOrigin(159, 184);
         return dialog;
     default:
@@ -82,7 +82,7 @@ void ConfigureDialogFont(int font, BOOLEAN enabled, unsigned char foreground,
 #define DIALOG_INTERFACE_CPP "C:\\Projects\\Wizardry 8\\Dialog Code\\DialogInterface.cpp"
 
 // FUNCTION: WIZ8 0x005CF4F0
-void SetDialogPrompt(W8MessageDialogBase* dialog, wchar_t* text, int, int)
+void SetDialogPrompt(W8MessageDialogBase* dialog, char* text, int, int)
 {
     dialog->SetMessage(text, 1, 0x32, true, true, true, false, 0, 0);
 }
