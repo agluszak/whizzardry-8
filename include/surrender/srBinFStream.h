@@ -2,7 +2,8 @@
 
 #include "srBinIStream.h"
 #include "srBinOStream.h"
-#include "srString.h"
+
+#include <string>
 
 #include <wiz8/filesystem.h>
 
@@ -41,7 +42,7 @@ protected:
 private:
     void setPath(const char* path);
 
-    srInlineString path;
+    std::string path;
 };
 
 // VTABLE: SURRENDER 0x10076A70 srBinStream

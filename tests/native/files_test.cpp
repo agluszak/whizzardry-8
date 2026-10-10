@@ -7,7 +7,7 @@
 #include <SDL3/SDL_stdinc.h>
 #include "surrender/srSystem.h"
 #include "surrender/srBinFStream.h"
-#include "surrender/srStringTable.h"
+#include "wiz8/virtual_file_stream.h"
 #include "temporary_directory.h"
 
 #include <cstdio>
@@ -37,8 +37,7 @@ static std::string contents(const fs::path& path)
 }
 static HWFILE open_game_file(const char* path, UINT32 options = FILE_ACCESS_READ, bool temporary = false)
 {
-    std::string name(path);
-    return FileOpen(name.data(), options, temporary);
+    return FileOpen(path, options, temporary);
 }
 static void write_bytes(HWFILE file, const std::string& text)
 {
@@ -262,6 +261,9 @@ int main() try
     CHECK(file && read_bytes(file, 14) == "unicode import");
     FileClose(file);
     const auto host_text = wiz8::path_to_utf8(unicode);
+    std::vector<std::string> host_files;
+    CHECK(srSystem::scanFiles(host_files, host_text.c_str()) == 1);
+    CHECK(host_files == std::vector<std::string>{host_text});
     CHECK(!open_game_file(host_text.c_str()));
     CHECK(!open_game_file("C:\\..\\outside.sav", FILE_ACCESS_WRITE | FILE_CREATE_ALWAYS));
     CHECK(!open_game_file("Saves\\..\\..\\outside.sav", FILE_ACCESS_WRITE | FILE_CREATE_ALWAYS));
@@ -309,17 +311,46 @@ int main() try
     {
         srBinIFStream input("DATA\\mixedcase.bin");
         CHECK(input.isOpen());
+        CHECK(std::string(input.getPath()) == "DATA\\mixedcase.bin");
         input.read(directory, 12);
         CHECK(!memcmp(directory, "retail bytes", 12));
         input.close();
+        CHECK(!input.isOpen() && std::string(input.getPath()).empty());
+        input.close();
+        input.open("Data/MixedCase.BIN");
+        CHECK(input.isOpen() && std::string(input.getPath()) == "Data/MixedCase.BIN");
+        input.close();
+        input.open(nullptr);
+        CHECK(!input.isOpen() && std::string(input.getPath()).empty());
         srBinOFStream output("Saves\\Renderer.SAV");
         CHECK(output.isOpen());
         output.write("renderer save", 13);
         output.close();
         CHECK(contents(user / "Saves" / "Renderer.SAV") == "renderer save");
     }
-    srStringTable table;
+    std::vector<std::string> table{"existing"};
     CHECK(srSystem::scanFiles(table, "Data\\*.SLF") == 1);
+    CHECK(table.size() == 2 && table.front() == "existing");
+    CHECK(table.back() == "C:\\Data\\DATA.SLF");
+    CHECK(srSystem::scanFiles(table, "Data/", "*.SLF") == 1);
+    CHECK(table.size() == 3 && table[1] == table[2]);
+    CHECK(srSystem::scanFiles(table, nullptr) == 0);
+    CHECK(srSystem::scanFiles(table, "") == 0);
+    CHECK(srSystem::scanFiles(table, "Data/") == 0);
+    CHECK(srSystem::scanFiles(table, "Data", nullptr) == 0);
+    CHECK(srSystem::scanFiles(table, "Data/*.absent") == 0 && table.size() == 3);
+
+    for (const char* path : {"Data/archiveonly.bin", "Data\\archiveonly.bin",
+                             "C:/Data\\archiveonly.bin"}) {
+        W8VirtualFileBinIStream input(path);
+        CHECK(input.good() && input.getSize() == 8);
+        char bytes[8];
+        input.read(bytes, sizeof(bytes));
+        CHECK(input.good() && input.tell() == sizeof(bytes));
+        CHECK(!memcmp(bytes, "archive!", sizeof(bytes)));
+    }
+    CHECK(!W8VirtualFileBinIStream(nullptr).good());
+    CHECK(!W8VirtualFileBinIStream("").good());
 
     CHECK(FileExists(const_cast<char*>("Data\\archiveonly.bin")));
     CHECK(!FileExistsNoDB(const_cast<char*>("Data\\archiveonly.bin")));

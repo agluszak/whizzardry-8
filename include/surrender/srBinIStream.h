@@ -10,15 +10,6 @@
 // class srBinIStream
 class SR_DLL_IMPORT srBinIStream : public virtual srBinStream {
 public:
-#if !defined(SURRENDER_BUILD)
-    srBinIStream() {}
-    srBinIStream(const srBinIStream& stream);
-#endif
-    virtual ~srBinIStream() override {}
-#if !defined(SURRENDER_BUILD)
-    srBinIStream& operator=(const srBinIStream& stream);
-#endif
-
     unsigned short getChar();
     w8_ulong getDWord();
     double getDouble();
@@ -71,10 +62,6 @@ class SR_DLL_IMPORT srBinIMStream
     : public srBinIStream {
 public:
     srBinIMStream(const void* data, w8_ulong size);
-
-#if !defined(SURRENDER_BUILD)
-    virtual ~srBinIMStream() override {}
-#endif
 
     virtual w8_ulong getSize() override;
     virtual srBinStream& seek(w8_ulong position, srBinStream::e_seekDir direction) override;

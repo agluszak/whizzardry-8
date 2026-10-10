@@ -2,7 +2,6 @@
 
 #include "srArray.h"
 #include "srHash.h"
-#include "srStringTable.h"
 #include "srTexture.h"
 #include "srTypeRegistry.h"
 #include "srVertexPipe.h"
