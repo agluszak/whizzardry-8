@@ -103,9 +103,9 @@ struct W8CharacterEventQueue {
     /* 0x58: a five-second countdown armed by every successful Dispatch; while
        it ticks, active_event_type/active_party_slot still describe the last
        dispatched event for duplicate coalescing. */
-    TIMER recent_event_clock;
+    UINT32 recent_event_clock;
     int follow_up_flags;
-    TIMER follow_up_clock;
+    UINT32 follow_up_clock;
     /* 0x64: the party slot that spoke the last follow-up event; the response
        pick excludes it. */
     int follow_up_speaker_slot;

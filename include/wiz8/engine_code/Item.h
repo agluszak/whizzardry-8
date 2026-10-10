@@ -1,8 +1,8 @@
 #pragma once
 
-#include "timer.h"
 #include <stddef.h>
 
+#include "Types.h"
 #include "surrender/srMath.h"
 #include "surrender/srModelInstance.h"
 #include "wiz8/engine_code/AnimRep.hpp"
@@ -52,7 +52,7 @@ struct W8Item : public W8GrObject {
 
     Trigger* trigger;
     /* 0x1c: countdown clock; IsTicking reports whether it is running. */
-    TIMER countdown;
+    UINT32 countdown;
 
     void DetachMesh(W8World* world);
     void ApplyRepTransform();

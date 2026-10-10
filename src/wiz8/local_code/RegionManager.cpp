@@ -561,7 +561,7 @@ unsigned int UpdateRegionMousePosition(int x, int y)
     InputAtom event;
     unsigned int region_index;
 
-    event.uiTimeStamp = GetClock();
+    event.uiTimeStamp = GetTickCount();
     event.usKeyState = gfAltState | gfCtrlState | gfShiftState;
     event.usEvent = MOUSE_POS;
     event.uiParam = (static_cast<unsigned int>(static_cast<unsigned short>(y)) << 16) |
@@ -599,7 +599,7 @@ unsigned int UpdateRegionMousePosition(int x, int y)
         if (g_current_region_index != previous_index) {
             if (region->help_enabled &&
                 (g_settings.tooltips_enabled || g_region_help_force_enabled)) {
-                g_region_help_clock = SetCountdownClock(g_region_help_delay);
+                g_region_help_clock = GetTickCount() + (g_region_help_delay);
             }
             PlayButtonSound(0);
         }
@@ -636,7 +636,7 @@ unsigned int FindRegionAtPoint(unsigned short x, unsigned short y)
     InputAtom event;
     unsigned int region_index;
 
-    event.uiTimeStamp = GetClock();
+    event.uiTimeStamp = GetTickCount();
     event.usKeyState = gfAltState | gfCtrlState | gfShiftState;
     event.usEvent = MOUSE_POS;
     event.uiParam = (static_cast<unsigned int>(y) << 16) | x;
@@ -717,7 +717,7 @@ dispatch:
             region->flags &= ~W8_REGION_HELP_SHOWN;
         }
         if (region->help_enabled && (g_settings.tooltips_enabled || g_region_help_force_enabled)) {
-            g_region_help_clock = SetCountdownClock(g_region_help_delay);
+            g_region_help_clock = GetTickCount() + (g_region_help_delay);
         }
     }
 
@@ -824,7 +824,7 @@ void ActivateDialogRegion(unsigned int region_index)
 
     if (g_hover_region_index != 0) {
         InputAtom event;
-        event.uiTimeStamp = GetClock();
+        event.uiTimeStamp = GetTickCount();
         event.usKeyState = gfAltState | gfCtrlState | gfShiftState;
         event.usEvent = MOUSE_POS;
 
@@ -1015,12 +1015,12 @@ void UpdateRegionHelp(void)
     if (g_captured_region_index == 0) {
         if (g_current_region_index != 0 && g_regions[g_current_region_index].help_enabled &&
             (g_settings.tooltips_enabled || g_region_help_force_enabled) &&
-            ClockIsTicking(g_region_help_clock) == 0) {
+            TimeUntilDeadline(g_region_help_clock) == 0) {
             ShowRegionHelp(g_current_region_index);
         }
     } else if (g_regions[g_captured_region_index].help_enabled &&
                (g_settings.tooltips_enabled || g_region_help_force_enabled) &&
-               ClockIsTicking(g_region_help_clock) == 0) {
+               TimeUntilDeadline(g_region_help_clock) == 0) {
         ShowRegionHelp(g_captured_region_index);
     }
 }
@@ -1048,7 +1048,7 @@ void ResetRegionHelp(bool delayed)
         ShowRegionHelp(g_current_region_index);
     } else if (g_regions[g_current_region_index].help_enabled &&
                (g_settings.tooltips_enabled || g_region_help_force_enabled)) {
-        g_region_help_clock = SetCountdownClock(g_region_help_delay);
+        g_region_help_clock = GetTickCount() + (g_region_help_delay);
     }
 }
 
@@ -1141,7 +1141,7 @@ void ClearHotRegion(void)
     InputAtom event;
 
     SGPMouseGetPos(&mouse);
-    event.uiTimeStamp = GetClock();
+    event.uiTimeStamp = GetTickCount();
     event.usKeyState = gfAltState | gfCtrlState | gfShiftState;
     event.usEvent = MOUSE_POS;
     event.uiParam =

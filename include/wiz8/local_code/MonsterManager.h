@@ -1,13 +1,13 @@
 #ifndef WIZ8_LOCAL_CODE_MONSTER_MANAGER_H
 #define WIZ8_LOCAL_CODE_MONSTER_MANAGER_H
 
+#include "Types.h"
 #include "compat/ptr32.h"
 #include <stddef.h>
 
 #include "wiz8/monster_actions.h"
 #include "wiz8/sight_state.h"
 
-#include "timer.h"
 
 #include "surrender/srMath.h"
 #include "wiz8/3d_code/PList.h"
@@ -53,13 +53,13 @@ struct W8MonsterManagerEntry {
     W8CharacterEvent* active_character_event;
     int previous_portrait_frame;
     int portrait_frame;
-    TIMER portrait_frame_clock;
+    UINT32 portrait_frame_clock;
     unsigned int voice_time_remaining_ms;
     int previous_portrait_pose;
     int portrait_pose;
     int target_portrait_pose;
-    TIMER portrait_pose_clock;
-    TIMER portrait_idle_clock;
+    UINT32 portrait_pose_clock;
+    UINT32 portrait_idle_clock;
     bool portrait_pose_animation_active;
     bool portrait_pose_dirty;
     bool portrait_frame_dirty;
@@ -98,7 +98,7 @@ struct W8MonsterManagerEntry {
     int effect_icon_end_frame;
     /* The shared 100 ms frame clock both portrait animations tick on;
        the ticker rearms it whenever it expires. */
-    TIMER portrait_fx_clock;
+    UINT32 portrait_fx_clock;
     /* Set when the keyboard SELECT_PC command pins the pending portrait
        refresh, so the formation sync does not auto-release it. */
     bool portrait_refresh_pinned;
@@ -114,7 +114,7 @@ struct W8MonsterManagerEntry {
     bool combat_portrait_dirty;
     /* The acting combatant's portrait pulse - a countdown clock that rearms
        the 1..0xc brightness phase. */
-    TIMER acting_portrait_pulse_clock;
+    UINT32 acting_portrait_pulse_clock;
     unsigned short acting_portrait_pulse;
     W8GrowableVector<int> highlighted_monsters;
     /* The character has reached its experience goal; set once to post

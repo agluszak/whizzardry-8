@@ -1,7 +1,7 @@
 #pragma once
 
+#include "Types.h"
 #include "input.h"
-#include "timer.h"
 #include "wiz8/layouts/learned_spells.h"
 #include "wiz8/layouts/gameplay_databases.h"
 #include "wiz8/layouts/main_game_screen.h"
@@ -28,7 +28,7 @@ struct W8SpellCastingView {
     int iSpellPower;                    /* chosen power index, -1 when unset */
     W8SpellPowerClass iSpellPowerClass; /* the spell record's power class */
     unsigned int uiPowerLevels;         /* affordable power-level count */
-    TIMER realm_anim_timer;
+    UINT32 realm_anim_timer;
     unsigned int realm_anim_frame;
     W8LearnedSpellState learned;
     int uiSpellIndex; /* clicked list row */

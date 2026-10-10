@@ -407,7 +407,7 @@ try
     for (region = 0; region != 4; ++region) {
         for (index = 0; index < g_status.text_box_lines_shown[region]; ++index) {
             g_message_storage[region][index].saved_remaining_ms =
-                ClockIsTicking(g_message_storage[region][index].clock);
+                TimeUntilDeadline(g_message_storage[region][index].clock);
         }
     }
     gXStatus.gameplay_timer->Restart();
@@ -2296,7 +2296,7 @@ try
            unsigned counter rather than the function's signed `index`. */
         for (unsigned int line = 0; line < g_status.text_box_lines_shown[box]; ++line) {
             g_message_storage[box][line].clock =
-                SetCountdownClock(g_message_storage[box][line].saved_remaining_ms);
+                GetTickCount() + (g_message_storage[box][line].saved_remaining_ms);
         }
     }
     gXStatus.gameplay_timer->Restart();

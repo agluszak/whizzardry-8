@@ -273,22 +273,12 @@ int main()
     expect(events[0], KEY_DOWN, 'F');
     expect(events[1], KEY_UP, 'F');
 
-    CHECK(InitializeClockManager());
-    CHECK(GetClock() == 0);
-    PumpGameEvents(true);
-    CHECK(GetClock() > 0 && GetClock() < 1000);
-    UINT32 countdown = SetCountdownClock(100);
-    CHECK(ClockIsTicking(countdown) <= 100 && ClockIsTicking(countdown) > 0);
-    extern UINT32 guiCurrentTime;
-    guiCurrentTime = 0xfffffff0u;
-    countdown = SetCountdownClock(32);
-    CHECK(countdown == 16 && ClockIsTicking(countdown) == 32);
-    guiCurrentTime = 32;
-    CHECK(ClockIsTicking(countdown) == 0);
-    ShutdownClockManager();
-    SDL_Delay(10);
-    UpdateClockManager();
-    CHECK(guiCurrentTime == 32);
+    UINT32 countdown = GetTickCount() + 100;
+    CHECK(TimeUntilDeadline(countdown) <= 100 && TimeUntilDeadline(countdown) > 0);
+    CHECK(TimeUntilDeadline(GetTickCount() - 1) == 0);
+    /* Signed deadline math stays correct across the 32-bit tick wraparound. */
+    countdown = GetTickCount() + 0xfffffff0u;
+    CHECK(TimeUntilDeadline(countdown) == 0);
 
     suspensions = restorations = 0;
     clock_actions.clear();

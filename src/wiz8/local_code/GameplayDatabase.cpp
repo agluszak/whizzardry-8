@@ -48,7 +48,6 @@
 #include "wiz8/virtual_file.h"
 #include "wiz8/filesystem.h"
 #include "random.h"
-#include "timer.h"
 #include "wiz8/local_code/character_events.h"
 #include <stdio.h>
 #include <string.h>

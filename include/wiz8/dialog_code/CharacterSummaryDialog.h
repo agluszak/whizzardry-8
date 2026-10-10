@@ -1,6 +1,6 @@
 #pragma once
 
-#include "timer.h"
+#include "Types.h"
 #include "wiz8/layouts/character.h"
 #include "wiz8/character_event_queue.h"
 #include "wiz8/dialog_code/DialogBase.h"
@@ -46,7 +46,7 @@ private:
     /* Select the original character instead of the temporary party-slot copy. */
     unsigned char m_use_original_character;
     bool m_portrait_clock_started;
-    TIMER m_portrait_clock;
+    UINT32 m_portrait_clock;
 };
 
 W8_ABI_ASSERT(sizeof(W8CharacterSummaryDialog) == 0x1b00,

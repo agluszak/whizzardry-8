@@ -2,7 +2,6 @@ set_source_files_properties(engine_code/gap.c PROPERTIES LANGUAGE CXX)
 
 add_library(WIZ8_GAME_CORE STATIC
     ../sgp/vobject.cpp
-    ../sgp/timer.cpp
     ../sgp/input.cpp
     ../sgp/native/input_events.cpp
     ../sgp/soundman.cpp

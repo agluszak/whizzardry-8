@@ -1,9 +1,9 @@
 #ifndef WIZ8_XSTATUS_H
 #define WIZ8_XSTATUS_H
 
-#include "timer.h"
 #include <stddef.h>
 
+#include "Types.h"
 #include "wiz8/3d_code/PList.h"
 #include "wiz8/layouts/gameplay_databases.h"
 #include "wiz8/layouts/item_instance.h"
@@ -73,7 +73,7 @@ struct W8XStatus {
     W8CharacterEventQueue* character_event_queue;
     int iCurrentCursor;          /* 0x923 */
     int current_cursor_frame;    /* 0x927 */
-    TIMER current_cursor_time;   /* 0x92b */
+    UINT32 current_cursor_time;   /* 0x92b */
     W8TargetNeed iTargetingMode; /* 0x92f: 0x00683FE7 */
     /* 0x933: the formation screen's edit buffer - MGSFormation snapshots the
        live formation here on open, edits the copy, and either reconciles it
@@ -114,8 +114,8 @@ struct W8XStatus {
     W8ItemInstance* dragged_item;       /* 0x19ba: 0x00685072 */
     unsigned char dragged_item_origin;  /* 0x19be: 0x00685076 */
     signed char dragged_character_slot; /* 0x19bf: 0x00685077 */
-    TIMER spell_cooldown_clocks[14];    /* 0x19c0: 0x00685078 */
-    TIMER combat_countdown;             /* 0x19f8: 0x006850B0 */
+    UINT32 spell_cooldown_clocks[14];    /* 0x19c0: 0x00685078 */
+    UINT32 combat_countdown;             /* 0x19f8: 0x006850B0 */
     unsigned char combat_difficulty;    /* 0x19fc: 0x006850B4 */
     bool party_moving;                  /* 0x19fd: 0x006850B5 */
     int saved_encounter_budget;         /* 0x19fe: 0x006850B6 */

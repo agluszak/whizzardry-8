@@ -32,7 +32,7 @@ struct W8AIMissile : W8AIRecord {
        gravity. */
     float fall_speed;
     W8Missile* missile;
-    /* Half-tick baseline (getMsTime()>>1) the delta against the current
+    /* Half-tick baseline (milliseconds()>>1) the delta against the current
        half-tick is clamped to 0xfa. */
     int last_half_tick;
     float elapsed;

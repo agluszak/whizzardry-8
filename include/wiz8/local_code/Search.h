@@ -1,6 +1,6 @@
 #pragma once
 
-#include "timer.h"
+#include "Types.h"
 #include "wiz8/vector.h"
 #include "surrender/srMath.h"
 
@@ -46,7 +46,7 @@ W8_ABI_ASSERT(sizeof(W8SearchableView) == 0x14, "W8SearchableView_must_be_0x14")
 extern W8Vector<W8Searchable*> g_searchables;
 extern W8SearchableView g_search_view;
 /* 500ms pulse clock arming the search-mode sweep. */
-extern TIMER g_search_pulse_clock;
+extern UINT32 g_search_pulse_clock;
 
 void RegisterSearchableWorldItem(W8WorldItem* item);
 void RegisterSearchableTrigger(Trigger* trigger);
