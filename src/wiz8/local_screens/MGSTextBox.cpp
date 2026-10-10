@@ -775,14 +775,14 @@ int GetTextBoxVisibleLineCount(void)
 
 static void PostCharacterNoticeText(int party_slot, int context, std::string_view text)
 {
-    std::string separator;
-    separator = (text[0] == '\'' || text[0] == ':') ? &g_empty_text : g_W8TextSeparator;
+    const std::string_view separator = (text.starts_with("'") || text.starts_with(":"))
+                                          ? std::string_view{} : g_W8TextSeparator;
     FormatNotice(W8_FONT_PALETTE_WHITE, context, "%s%s%s", g_status.buffers.Char[party_slot].name,
                  separator, text);
     int stop = g_status.buffers.Char[party_slot].name.size();
-    if (text[0] == '\'') {
+    if (text.starts_with("'")) {
         ++stop;
-        if (text[1] == 's') {
+        if (text.starts_with("'s")) {
             ++stop;
         }
     }
@@ -2037,9 +2037,8 @@ std::string CopyNoticeWordText(const W8NoticeWord* word, int text_box, int line)
 // FUNCTION: WIZ8 0x00590b40
 void PostMonsterNoticeText(W8MonsterInfo* monster_info, std::string text)
 {
-    std::string separator;
-
-    separator = text[0] == '\'' || text[0] == ':' ? &g_empty_text : g_W8TextSeparator;
+    const std::string_view separator = (text.starts_with("'") || text.starts_with(":"))
+                                          ? std::string_view{} : g_W8TextSeparator;
     ShowNoticef(W8_FONT_PALETTE_RUST, "%s%s%s", GetMonsterName(monster_info, 0, 0), separator,
                 text);
 }

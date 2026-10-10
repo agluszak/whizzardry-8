@@ -222,7 +222,7 @@ INT32 LoadButtonImage(std::string_view filename, INT32 Grayed, INT32 OffNormal, 
     UINT32 MaxHeight, MaxWidth, ThisHeight, ThisWidth;
 
     AssertMsg(!filename.empty(), "Attempting to LoadButtonImage() with null filename.");
-    Assert(filename[0] != '\0');
+    Assert(!filename.empty() && filename.front() != '\0');
 
     // is there ANY file to open?
     if ((Grayed == BUTTON_NO_IMAGE) && (OffNormal == BUTTON_NO_IMAGE) &&

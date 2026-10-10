@@ -434,7 +434,7 @@ int W8ItemVideoObjectCache::GetOrCreateVideoObject(int item_id)
     }
     object = loaded_count + 0x291;
     frame = loaded_count + 0x1ec;
-    if (name[0] == '\0') {
+    if (name.empty()) {
         name = g_item_video_object_fallback_names[record->unidentified_name_index];
     }
     g_video_frames[object].path = FormatText("%s\\%s", "Data\\Items", name);
