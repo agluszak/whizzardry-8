@@ -47,7 +47,7 @@ W8Vector<W8Searchable*> g_searchables(5);
 // GLOBAL: WIZ8 0x00689fb8
 W8SearchableView g_search_view;
 // GLOBAL: WIZ8 0x00689fcc
-TIMER g_search_pulse_clock;
+UINT32 g_search_pulse_clock;
 
 /* 10000.0: the unit search radius PickBestSearcher scales by score, and the
    collector's outer range gate. */
@@ -207,8 +207,8 @@ void ClearSearchables()
 // FUNCTION: WIZ8 0x005171c0
 void RunSearchPulse(void)
 {
-    if (ClockIsTicking(g_search_pulse_clock) == 0) {
-        g_search_pulse_clock = SetCountdownClock(500);
+    if (TimeUntilDeadline(g_search_pulse_clock) == 0) {
+        g_search_pulse_clock = GetTickCount() + (500);
         if (GetEnvironmentFlag() != 0 && !gXStatus.world_update_blocked &&
             !gXStatus.fSurprisePossible && !gXStatus.fLockInteractMode && !gXStatus.fLockInteract &&
             !gXStatus.fTrapInteractMode && !gXStatus.fTrapInteract) {
@@ -391,7 +391,7 @@ void ToggleSearchMode(void)
     if (!gXStatus.fCombatMode) {
         g_status.search_mode = 1;
         ShowNotice(W8_FONT_PALETTE_BEIGE, gppStringList[W8_NOTICE_SEARCH_MODE_ON]);
-        g_search_pulse_clock = SetCountdownClock(0x1f4);
+        g_search_pulse_clock = GetTickCount() + (0x1f4);
         ClearActiveWorldCursorNode();
     } else {
         ShowNotice(W8_FONT_PALETTE_BEIGE, gppStringList[W8_NOTICE_SEARCH_BLOCKED_COMBAT]);

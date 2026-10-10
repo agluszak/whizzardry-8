@@ -13,7 +13,6 @@
 #include "mousesystem.h"
 #include "soundman.h"
 #include "random.h"
-#include "timer.h"
 #include "wiz8/filesystem.h"
 #include "wiz8/game_init.h"
 #include "wiz8/local_code/Gameloop.h"
@@ -84,7 +83,6 @@ wiz8::Application::Application(std::span<const std::string_view> arguments)
             throw std::runtime_error("Video initialization failed");
         if (!InitializeVideoObjectManager() || !InitializeVideoSurfaceManager())
             throw std::runtime_error("Video resource initialization failed");
-        InitializeClockManager();
         if (!InitializeFontManager(CreateEnglishTransTable()))
             throw std::runtime_error("Font initialization failed");
         if (!InitializeSoundManager())
@@ -147,7 +145,6 @@ void wiz8::Application::shutdown() noexcept
     ShutdownButtonSystem();
     MSYS_Shutdown();
     ShutdownFontManager();
-    ShutdownClockManager();
     ShutdownVideoSurfaceManager();
     ShutdownVideoObjectManager();
     ShutdownVideoManager();

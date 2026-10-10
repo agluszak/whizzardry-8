@@ -22,6 +22,7 @@
 #include "wiz8/engine_code/PolyPick.h"
 #include "wiz8/startup_world.h"
 #include "surrender/srMath.h"
+#include "timer.h"
 #include "wiz8/character_skills.h"
 #include "wiz8/local_code/CharGeneration.h"
 #include "wiz8/local_code/Combat.h"
@@ -2179,10 +2180,10 @@ static bool CheckAndRestartSpellCooldown(int spell_id)
     bool affected = true;
     for (unsigned int index = 0; index < 14; ++index) {
         if (g_cooldown_gated_spells[index] == spell_id) {
-            if (ClockIsTicking(gXStatus.spell_cooldown_clocks[index]) != 0) {
+            if (TimeUntilDeadline(gXStatus.spell_cooldown_clocks[index]) != 0) {
                 affected = false;
             }
-            gXStatus.spell_cooldown_clocks[index] = SetCountdownClock(180000);
+            gXStatus.spell_cooldown_clocks[index] = GetTickCount() + (180000);
             break;
         }
     }

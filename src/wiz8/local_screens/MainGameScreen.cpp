@@ -3025,21 +3025,21 @@ void TickAmbientFollowUpIdle(unsigned char input_handled)
         !gXStatus.fSurprisePossible) {
         if (input_handled == 0) {
             if (GetMillisecondsSinceCursorMove() > 60000) {
-                if (ClockIsTicking(g_level_block->countdown0) != 0) {
+                if (TimeUntilDeadline(g_level_block->countdown0) != 0) {
                     return;
                 }
                 gXStatus.character_event_queue->ProcessFollowUpEvents();
                 return;
             }
         } else {
-            g_level_block->countdown0 = SetCountdownClock(60000);
+            g_level_block->countdown0 = GetTickCount() + (60000);
         }
         if ((gXStatus.character_event_queue->follow_up_flags & 1) != 0) {
             gXStatus.character_event_queue->follow_up_flags &= ~3;
             return;
         }
     } else {
-        g_level_block->countdown0 = SetCountdownClock(60000);
+        g_level_block->countdown0 = GetTickCount() + (60000);
         if ((gXStatus.character_event_queue->follow_up_flags & 1) != 0) {
             gXStatus.character_event_queue->follow_up_flags &= ~3;
         }
@@ -3314,7 +3314,7 @@ render_world:
         if (gXStatus.iCurrentCursor != W8_CURSOR_NONE &&
             gXStatus.iCurrentCursor != W8_CURSOR_INVALID_TARGET &&
             g_main_game_resource_slots[gXStatus.iCurrentCursor].frame_count > 1 &&
-            !ClockIsTicking(gXStatus.current_cursor_time) && !IsWorldCursorVisible() &&
+            !TimeUntilDeadline(gXStatus.current_cursor_time) && !IsWorldCursorVisible() &&
             !g_mouselook_active) {
             ++gXStatus.current_cursor_frame;
             if (gXStatus.current_cursor_frame ==
@@ -3349,9 +3349,9 @@ render_world:
             gXStatus.hostile_monster_count) {
             StartCombat(0);
         }
-        if (!ClockIsTicking(g_level_block->character_update_timer)) {
+        if (!TimeUntilDeadline(g_level_block->character_update_timer)) {
             UpdateMonsterSight();
-            g_level_block->character_update_timer = SetCountdownClock(500);
+            g_level_block->character_update_timer = GetTickCount() + (500);
         }
         if (!gXStatus.world_update_blocked) {
             UpdateMonsterGroups(true);
@@ -3371,9 +3371,9 @@ render_world:
             }
         }
         if (gXStatus.fCombatMode && g_level_block->refresh_combat_panel &&
-            !ClockIsTicking(g_level_block->combat_panel_timer)) {
+            !TimeUntilDeadline(g_level_block->combat_panel_timer)) {
             RefreshMonsterTargetCounts();
-            g_level_block->combat_panel_timer = SetCountdownClock(500);
+            g_level_block->combat_panel_timer = GetTickCount() + (500);
             g_level_block->refresh_combat_panel = 0;
         }
         if (gXStatus.iTargetingMode == W8_TARGET_NEED_CONE) {
@@ -3386,10 +3386,10 @@ render_world:
                                        g_level_block->highlighted_item);
             g_level_block->refresh_party_panel = 0;
         }
-        if (!ClockIsTicking(g_level_block->world_update_timer)) {
+        if (!TimeUntilDeadline(g_level_block->world_update_timer)) {
             UpdateNearbyWorldItems();
             DetachAllWorldItems();
-            g_level_block->world_update_timer = SetCountdownClock(50);
+            g_level_block->world_update_timer = GetTickCount() + (50);
         }
         if (gXStatus.fSpellCastMode)
             CommitSpellCastingSelection();
@@ -3790,7 +3790,7 @@ void DrawMainGameScreen(void)
 
     SyncPartyFacingFromCamera();
     UpdateRadarBlips();
-    if (g_level_block->portrait_flash != 0 && ClockIsTicking(g_level_block->clock) == 0) {
+    if (g_level_block->portrait_flash != 0 && TimeUntilDeadline(g_level_block->clock) == 0) {
         g_level_block->portrait_flash = 0;
         RequestPartySlotRedraw(g_status.selected_character);
     }
@@ -4090,7 +4090,7 @@ void SelectPartyCharacter(int party_slot)
     if (previous != -1 && (gXStatus.fSpellCastMode || gXStatus.fItemSelectMode)) {
         ClearSlotTargeting(previous);
     }
-    g_level_block->clock = SetCountdownClock(500);
+    g_level_block->clock = GetTickCount() + (500);
     g_level_block->portrait_flash = 1;
     if (g_level_block != 0) {
         if (gXStatus.fCombatMode) {
@@ -4953,7 +4953,7 @@ void UpdateCombatPortraitStatus(void)
         if (row->fOccupied && character->hp_current > 0 &&
             character->highest_condition <= W8_CONDITION_UNCONSCIOUS) {
             if (g_combat_state->eCombatActionStatus == 0 || g_combat_state->iActionChar != slot ||
-                ClockIsTicking(g_combat_state->action_clock) > 800) {
+                TimeUntilDeadline(g_combat_state->action_clock) > 800) {
                 if (IsPartySlotEligible(slot)) {
                     if (combat_row->dead) {
                         status = 2;
@@ -4971,23 +4971,23 @@ void UpdateCombatPortraitStatus(void)
             alternate = image;
             if (status == 3) {
                 if (combat_row->combat_status == 3) {
-                    if (ClockIsTicking(entry->acting_portrait_pulse_clock) == 0) {
+                    if (TimeUntilDeadline(entry->acting_portrait_pulse_clock) == 0) {
                         ++entry->acting_portrait_pulse;
                         if (entry->acting_portrait_pulse == 0xc) {
                             entry->acting_portrait_pulse = 1;
-                            entry->acting_portrait_pulse_clock = SetCountdownClock(100);
+                            entry->acting_portrait_pulse_clock = GetTickCount() + (100);
                         } else if (entry->acting_portrait_pulse < 7) {
                             image = combat_row->portrait_image + 1;
-                            entry->acting_portrait_pulse_clock = SetCountdownClock(100);
+                            entry->acting_portrait_pulse_clock = GetTickCount() + (100);
                         } else {
                             image = combat_row->portrait_image - 1;
-                            entry->acting_portrait_pulse_clock = SetCountdownClock(100);
+                            entry->acting_portrait_pulse_clock = GetTickCount() + (100);
                         }
                     } else {
                         image = combat_row->portrait_image;
                     }
                 } else {
-                    entry->acting_portrait_pulse_clock = SetCountdownClock(100);
+                    entry->acting_portrait_pulse_clock = GetTickCount() + (100);
                     entry->acting_portrait_pulse = 1;
                 }
             } else {
@@ -5028,15 +5028,15 @@ void UpdateKeyboardMenu(void)
             }
             if (!KeyboardMenuContainsCursor()) {
                 g_level_block->cursor_grace = 1;
-                g_level_block->countdown3 = SetCountdownClock(0x258);
+                g_level_block->countdown3 = GetTickCount() + (0x258);
                 return;
             }
         } else {
             if (KeyboardMenuContainsCursor()) {
-                g_level_block->countdown3 = SetCountdownClock(0);
+                g_level_block->countdown3 = GetTickCount() + (0);
                 g_level_block->combat_slot = GetSelectedPartySlot();
                 g_level_block->cursor_grace = 0;
-            } else if (ClockIsTicking(g_level_block->countdown3) == 0) {
+            } else if (TimeUntilDeadline(g_level_block->countdown3) == 0) {
                 CloseKeyboardMenu();
             }
         }
@@ -5427,7 +5427,7 @@ unsigned char PortraitSelectRegionEvent(const InputAtom* event, W8Region* region
             if (g_level_block->portrait_refresh_pending[slot] == 0 &&
                 g_settings.main_ui_mode != W8_MAIN_UI_MODE_PORTRAITS &&
                 g_level_block->portrait_overlay_party_slot == -1 &&
-                ClockIsTicking(g_level_block->countdown5) == 0 &&
+                TimeUntilDeadline(g_level_block->countdown5) == 0 &&
                 (region->flags & W8_REGION_LEFT_BUTTON_HELD) != 0) {
                 g_level_block->portrait_overlay_party_slot = slot;
                 if (g_current_screen_state.id == W8_SCREEN_MAIN_GAME && g_level_block != 0) {
@@ -5442,7 +5442,7 @@ unsigned char PortraitSelectRegionEvent(const InputAtom* event, W8Region* region
             if (g_level_block->portrait_refresh_pending[slot] == 0 &&
                 g_settings.main_ui_mode != W8_MAIN_UI_MODE_PORTRAITS &&
                 g_level_block->portrait_overlay_party_slot == -1) {
-                g_level_block->countdown5 = SetCountdownClock(500);
+                g_level_block->countdown5 = GetTickCount() + (500);
                 return 1;
             }
         } else if (us_event == LEFT_BUTTON_UP) {
@@ -5537,7 +5537,7 @@ unsigned char PortraitSelectRegionEvent(const InputAtom* event, W8Region* region
         region->flags |= W8_REGION_RIGHT_BUTTON_HELD;
         if (!targeting && IsNpcDialogueCursorActive() == 0 && !gXStatus.scripted_scene &&
             !g_level_block->portrait_right_hold_armed) {
-            g_level_block->countdown4 = SetCountdownClock(1000);
+            g_level_block->countdown4 = GetTickCount() + (1000);
             g_level_block->portrait_right_hold_armed = true;
         }
     } else {
@@ -5546,7 +5546,7 @@ unsigned char PortraitSelectRegionEvent(const InputAtom* event, W8Region* region
                 return 0;
             }
             if (g_level_block->portrait_right_hold_armed &&
-                ClockIsTicking(g_level_block->countdown4) == 0) {
+                TimeUntilDeadline(g_level_block->countdown4) == 0) {
                 g_level_block->portrait_right_hold_armed = false;
                 OpenCharacterScreenForPartySlot(slot, false);
             }
@@ -5887,7 +5887,7 @@ unsigned char PartyCombatActionRegionEvent(const InputAtom* event, W8Region* reg
         if ((region->flags & W8_REGION_MOUSE_LEAVE) != 0) {
             if (!g_level_block->keyboard_menu_open) {
                 g_level_block->combat_slot = -1;
-                g_level_block->countdown3 = SetCountdownClock(0);
+                g_level_block->countdown3 = GetTickCount() + (0);
                 g_level_block->hover_combat_slot = -1;
             }
             g_level_block->combat_action_hover_party_slot = -1;
@@ -6604,7 +6604,7 @@ void SetCombatSelection(int value)
     int current = g_level_block->highlighted_item;
 
     if (value == current) {
-        if (current != -1 && !ClockIsTicking(g_level_block->countdown1) &&
+        if (current != -1 && !TimeUntilDeadline(g_level_block->countdown1) &&
             !HasScreenTransitionObjects()) {
             POINT point;
             wchar_t text[290];
@@ -6675,7 +6675,7 @@ void SetCombatSelection(int value)
     if (delay > 500) {
         delay = 500;
     }
-    g_level_block->countdown1 = SetCountdownClock(delay);
+    g_level_block->countdown1 = GetTickCount() + (delay);
 }
 
 /* The world-item twin of SetCombatSelection: a pick change drops the old
@@ -6712,10 +6712,10 @@ void SetCombatTarget(int value)
         if (delay > 500) {
             delay = 500;
         }
-        g_level_block->countdown1 = SetCountdownClock(delay);
+        g_level_block->countdown1 = GetTickCount() + (delay);
         return;
     }
-    if (current != -1 && !ClockIsTicking(g_level_block->countdown1) &&
+    if (current != -1 && !TimeUntilDeadline(g_level_block->countdown1) &&
         !HasScreenTransitionObjects()) {
         POINT point;
         W8WorldItem* item;

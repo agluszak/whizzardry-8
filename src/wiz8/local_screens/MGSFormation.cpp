@@ -52,7 +52,7 @@ static int g_formation_drag_slot;
 // GLOBAL: WIZ8 0x0069c304
 static int g_formation_cell_slots[15];
 // GLOBAL: WIZ8 0x0069c340
-static TIMER g_formation_drag_clock;
+static UINT32 g_formation_drag_clock;
 // GLOBAL: WIZ8 0x0069c380
 static int g_formation_drag_cell;
 
@@ -319,7 +319,7 @@ void OpenFormationPanel(void)
         g_formation_active_cell = -1;
         g_formation_drag_cell = -1;
         g_formation_drag_slot = -1;
-        g_formation_drag_clock = SetCountdownClock(0);
+        g_formation_drag_clock = GetTickCount() + (0);
         gXStatus.fReviewCharacterMode = true;
         RegionSetEnable(0x1b);
         RequestRedraw(W8_MAIN_REDRAW_SUBMENU_BUTTONS);
@@ -474,7 +474,7 @@ unsigned char FormationCellRegionEvent(const InputAtom* event, W8Region* region)
     if (event->usEvent < (LEFT_BUTTON_REPEAT + 1)) {
         if (event->usEvent == LEFT_BUTTON_REPEAT) {
             if ((region->flags & W8_REGION_LEFT_BUTTON_HELD) != 0 &&
-                ClockIsTicking(g_formation_drag_clock) == 0 && g_formation_drag_cell == -1 &&
+                TimeUntilDeadline(g_formation_drag_clock) == 0 && g_formation_drag_cell == -1 &&
                 g_formation_active_cell != -1) {
                 if (!CanHoldFormationPlace(g_formation_cell_slots[region->callback_id])) {
                     region->flags &= ~W8_REGION_LEFT_BUTTON_HELD;
@@ -489,7 +489,7 @@ unsigned char FormationCellRegionEvent(const InputAtom* event, W8Region* region)
                 g_formation_cell_controls[region->callback_id]->OnLeftButtonDown(0);
                 g_formation_cell_overlays[region->callback_id]->Invalidate(false);
                 region->flags |= W8_REGION_LEFT_BUTTON_HELD;
-                g_formation_drag_clock = SetCountdownClock(0xfa);
+                g_formation_drag_clock = GetTickCount() + (0xfa);
                 return 1;
             }
             if (event->usEvent != LEFT_BUTTON_UP) {

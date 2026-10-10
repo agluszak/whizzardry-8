@@ -67,7 +67,7 @@ void UpdateActivePartyMovement(void)
     if (HandlePartyMovement(&real_elapsed, &frame_elapsed) != 0) {
         gXStatus.party_move_distance += real_elapsed + frame_elapsed;
     } else if (g_settings.continuous_combat != 0 &&
-               ClockIsTicking(g_combat_state->party_movement_clock) == 0) {
+               TimeUntilDeadline(g_combat_state->party_movement_clock) == 0) {
         unsigned int step_count = g_settings.combat_delay_ms / 200 + 10;
         ClampUnsignedInteger(&step_count, 10, 60);
         gXStatus.party_move_distance += gXStatus.flPartyMoveDistLimit / step_count;
@@ -87,7 +87,7 @@ void UpdateActivePartyMovement(void)
         g_level_block->move_percent_shown = g_level_block->move_percent;
     }
     if (g_settings.continuous_combat != 0) {
-        g_combat_state->party_movement_clock = SetCountdownClock(1000);
+        g_combat_state->party_movement_clock = GetTickCount() + (1000);
     }
 
 check_completion:
@@ -462,7 +462,7 @@ void FinishPartyMovementAction(void)
     EnableFreeTurnButton();
     InvalidatePartyMovementPanel();
     if (g_settings.continuous_combat != 0) {
-        g_combat_state->party_movement_clock = SetCountdownClock(1000);
+        g_combat_state->party_movement_clock = GetTickCount() + (1000);
     }
     TurnPartyTo(g_status.party_heading);
     g_combat_state->uiCurrentPartyActionStatus = W8_PARTY_ACTION_IN_PROGRESS;

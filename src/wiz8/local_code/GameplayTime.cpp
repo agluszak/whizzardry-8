@@ -400,7 +400,7 @@ void ResolveSurpriseWake(void)
         W8MonsterManagerEntry* entry = &gXStatus.monster_manager_entries[slot];
         SetPortraitTargetPose(entry, 1);
         if (Random(2) != 0) {
-            entry->portrait_idle_clock = SetCountdownClock(Random(5000) + 5000);
+            entry->portrait_idle_clock = GetTickCount() + (Random(5000) + 5000);
         }
         entry->portrait_pose_dirty = true;
         RequestRedraw(1 << slot);

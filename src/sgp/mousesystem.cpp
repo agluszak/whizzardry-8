@@ -536,7 +536,7 @@ void MSYS_UpdateMouseRegion(void)
                         //Kris: Nov 31, 1999 -- Added support for double click events.
                         //This is where double clicks are checked and passed down.
                         if (ButtonReason == MSYS_CALLBACK_REASON_LBUTTON_DWN) {
-                            UINT32 uiCurrTime = GetClock();
+                            UINT32 uiCurrTime = GetTickCount();
                             if (gpRegionLastLButtonDown == MSYS_CurrRegion &&
                                 gpRegionLastLButtonUp == MSYS_CurrRegion &&
                                 uiCurrTime <=
@@ -549,10 +549,10 @@ void MSYS_UpdateMouseRegion(void)
                                 guiRegionLastLButtonDownTime = 0;
                             } else { //First click, record time and region pointer (to check if 2nd click detected later)
                                 gpRegionLastLButtonDown = MSYS_CurrRegion;
-                                guiRegionLastLButtonDownTime = GetClock();
+                                guiRegionLastLButtonDownTime = GetTickCount();
                             }
                         } else if (ButtonReason == MSYS_CALLBACK_REASON_LBUTTON_UP) {
-                            UINT32 uiCurrTime = GetClock();
+                            UINT32 uiCurrTime = GetTickCount();
                             if (gpRegionLastLButtonDown == MSYS_CurrRegion &&
                                 uiCurrTime <=
                                     guiRegionLastLButtonDownTime +
@@ -881,7 +881,7 @@ void RenderFastHelp()
     if (!gfRenderHilights)
         return;
 
-    iCurrentClock = GetClock();
+    iCurrentClock = GetTickCount();
     iTimeDifferential = iCurrentClock - iLastClock;
     if (iTimeDifferential < 0)
         iTimeDifferential += 0x7fffffff;

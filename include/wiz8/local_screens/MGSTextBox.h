@@ -1,12 +1,12 @@
 #pragma once
 
+#include "Types.h"
 #include "wiz8/filesystem.h"
 
 class Trigger;
 
 #include <wchar.h>
 #include "input.h"
-#include "timer.h"
 #include "wiz8/fonts.h"
 #include "wiz8/dialog_code/DialogBase.h"
 
@@ -43,9 +43,9 @@ struct W8MessageStorageRecord {
     unsigned char highlight_color;
     unsigned char highlight_start;
     unsigned char highlight_stop;
-    TIMER clock;
+    UINT32 clock;
     /* SaveGame snapshots the unsigned milliseconds remaining from
-       ClockIsTicking; load rearms the countdown with this duration. */
+       TimeUntilDeadline; load rearms the countdown with this duration. */
     UINT32 saved_remaining_ms;
     /* Continuation link count of a wrapped entry; -1 when unlinked. */
     int link;

@@ -124,7 +124,7 @@ void W8CharacterSummaryDialog::Draw()
     RenderPartyPortrait(m_character->portrait_index, m_x + 11, m_y + 11, 2, 1, 0);
     if (!m_portrait_clock_started) {
         m_portrait_clock_started = true;
-        m_portrait_clock = GetClock();
+        m_portrait_clock = GetTickCount();
     }
 }
 
@@ -176,7 +176,7 @@ bool W8CharacterSummaryDialog::ProcessInput()
 
     SGPMouseGetPos(&mouse);
     MSYS_SGP_Mouse_Handler_Hook(MOUSE_POS, mouse.x, mouse.y, gfLeftButtonState, gfRightButtonState);
-    if (!m_voice_started && m_portrait_clock + 750 < GetClock()) {
+    if (!m_voice_started && m_portrait_clock + 750 < GetTickCount()) {
         m_voice_started = true;
         W8Character* character = m_use_original_character ? m_character : g_status.buffers.Char;
         QueueCharacterEvent(character, g_effect0, 0, g_character_event_no_flags,

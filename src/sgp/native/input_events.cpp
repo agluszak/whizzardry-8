@@ -1,7 +1,6 @@
 #include "wiz8/application.h"
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/engine_code/GameData.h"
-#include "timer.h"
 #include <stdexcept>
 
 #include "native/input_events.h"
@@ -407,6 +406,5 @@ bool PumpGameEvents(bool wait)
         HandleGameEvent(event);
         received = true;
     }
-    UpdateClockManager();
     return received;
 }

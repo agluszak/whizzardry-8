@@ -1334,7 +1334,7 @@ unsigned char CampScreenEnter(void)
     g_camp_screen->character_info = new W8CampCharacterInfo;
     g_camp_screen->item_icons_drawn = false;
     ActivateCampPage();
-    g_camp_screen->animation_timer = SetCountdownClock(50);
+    g_camp_screen->animation_timer = GetTickCount() + (50);
     for (unsigned int animation = 0; animation < 6; ++animation) {
         g_camp_screen->animation_frames[animation] =
             Random(g_spell_realm_animations[animation].frame_count);
@@ -1447,7 +1447,7 @@ void CampScreenFrame(void)
         }
     }
     if (g_camp_screen->page == W8_CAMP_PAGE_SPELLS &&
-        !ClockIsTicking(g_camp_screen->animation_timer)) {
+        !TimeUntilDeadline(g_camp_screen->animation_timer)) {
         for (unsigned int realm = 0; realm < W8_SPELL_REALM_COUNT; ++realm) {
             ++g_camp_screen->animation_frames[realm];
             if (g_camp_screen->animation_frames[realm] ==
@@ -1455,11 +1455,11 @@ void CampScreenFrame(void)
                 g_camp_screen->animation_frames[realm] = 0;
             }
         }
-        g_camp_screen->animation_timer = SetCountdownClock(50);
+        g_camp_screen->animation_timer = GetTickCount() + (50);
         g_camp_screen->redraw_flags |= 0x10000;
     }
     if (g_camp_screen->page == W8_CAMP_PAGE_ITEMS && g_camp_screen->item_timer_active &&
-        !g_camp_screen->item_timer_expired && !ClockIsTicking(g_camp_screen->item_timer)) {
+        !g_camp_screen->item_timer_expired && !TimeUntilDeadline(g_camp_screen->item_timer)) {
         g_camp_screen->item_timer_expired = true;
         g_camp_screen->item_redraw_flags |= W8_CAMP_ITEM_REDRAW_EQUIPMENT;
     }
