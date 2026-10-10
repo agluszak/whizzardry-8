@@ -1740,7 +1740,7 @@ void W8OptionsPanel::AddChoices(int label, int count, const int* choices, int* v
 {
     AddOptionsLabel(*this, label);
     W8OptionsSelection* selection = new W8OptionsSelection(value);
-    m_option_selections.push_back(selection);
+    m_option_selections.emplace_back(selection);
     for (int index = 0; index < count; ++index) {
         selection->AddEntry(AddChoiceButton(choices[index]));
     }
