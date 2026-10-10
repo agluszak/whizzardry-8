@@ -198,14 +198,13 @@ void srVertexPipe::process(const Input& input)
         avt = input.active_vertices + batch_base;
         scratch.flags = 0;
         if (this->input->direct_vertex_indices == 0) {
-            srMath::transformIndexed(
-                {eye_space_locations + batch_base, static_cast<std::size_t>(batch_count)},
-                this->input->positions, {avt, static_cast<std::size_t>(batch_count)},
-                *this->input->model_view);
+            srMath::transformIndexed({eye_space_locations + batch_base, batch_count},
+                                     this->input->positions, {avt, batch_count},
+                                     *this->input->model_view);
         } else {
-            srMath::transform(
-                {eye_space_locations + batch_base, static_cast<std::size_t>(batch_count)},
-                this->input->positions + batch_base, *this->input->model_view);
+            srMath::transform({eye_space_locations + batch_base, batch_count},
+                              {this->input->positions + batch_base, batch_count},
+                              *this->input->model_view);
         }
         w8_ulong record_index;
         for (record_index = 0; record_index < input.record_count; ++record_index) {
@@ -279,9 +278,8 @@ void srVertexPipe::finishDiffuseAlpha()
         color.w = material_info.diffuse.w;
         color.SetSaturated(color);
         if ((current_record->flags & srVertexPipe::Record::HAS_DIFFUSE_MULTIPLIERS) != 0) {
-            srMath::mulIndexed({diffuse, static_cast<std::size_t>(vertex_count)}, color,
-                               current_record->spec_for_diffuse,
-                               {avt + sub_batch_offset, static_cast<std::size_t>(vertex_count)});
+            srMath::mulIndexed({diffuse, vertex_count}, color, current_record->spec_for_diffuse,
+                               {avt + sub_batch_offset, vertex_count});
             return;
         }
         if (vertex_count != 0) {
@@ -310,10 +308,9 @@ void srVertexPipe::finishDiffuseAlpha()
                 }
                 lazy_setup_mask |= (1UL << srVertexProcessor::CHANNEL_ALPHA);
             } else {
-                srMath::mulIndexed(
-                    {alpha, static_cast<std::size_t>(vertex_count)}, alpha,
-                    current_record->alpha_source,
-                    {avt + sub_batch_offset, static_cast<std::size_t>(vertex_count)});
+                srMath::mulIndexed({alpha, vertex_count}, {alpha, vertex_count},
+                                   current_record->alpha_source,
+                                   {avt + sub_batch_offset, vertex_count});
             }
         }
         if ((lazy_setup_mask & (1UL << srVertexProcessor::CHANNEL_ALPHA)) == 0) {
@@ -323,7 +320,7 @@ void srVertexPipe::finishDiffuseAlpha()
             } else if (opacity >= 1.0f) {
                 opacity = 1.0f;
             }
-            srMath::copyW({diffuse, static_cast<std::size_t>(vertex_count)}, opacity);
+            srMath::copyW({diffuse, vertex_count}, opacity);
         } else {
             srCore.getStatisticsManager()->statistics.alpha_operations += vertex_count;
             if ((lazy_setup_mask & (1UL << srVertexProcessor::CHANNEL_ALPHA)) == 0) {
@@ -331,30 +328,28 @@ void srVertexPipe::finishDiffuseAlpha()
             }
             alpha = scratch.alpha + sub_batch_offset;
             if ((channel_mask & (1UL << srVertexProcessor::CHANNEL_DIFFUSE)) == 0) {
-                srMath::clampUnit({alpha, static_cast<std::size_t>(vertex_count)}, alpha);
+                srMath::clampUnit({alpha, vertex_count}, {alpha, vertex_count});
             }
             float opacity = material_info.diffuse.w;
             if ((vertex_count != 0) && (opacity != 1.0f)) {
                 if (opacity == 0.0f) {
                     std::fill_n(alpha, vertex_count, 0.0f);
                 } else {
-                    srMath::mul({alpha, static_cast<std::size_t>(vertex_count)}, opacity, alpha);
+                    srMath::mul({alpha, vertex_count}, opacity, {alpha, vertex_count});
                 }
             }
-            srMath::copyW({diffuse, static_cast<std::size_t>(vertex_count)}, alpha);
+            srMath::copyW({diffuse, vertex_count}, {alpha, vertex_count});
         }
     }
     if (((channel_mask & (1UL << srVertexProcessor::CHANNEL_DIFFUSE)) != 0) &&
-        (vertex_count * 4 != 0)) {
-        srMath::clampUnit(
-            {reinterpret_cast<float*>(diffuse), static_cast<std::size_t>(vertex_count * 4)},
-            reinterpret_cast<const float*>(diffuse));
+        (vertex_count != 0)) {
+        srMath::clampUnit({diffuse, vertex_count}, {diffuse, vertex_count});
     }
     if (((current_record->flags & srVertexPipe::Record::HAS_DIFFUSE_MULTIPLIERS) != 0) &&
         (vertex_count != 0)) {
-        srMath::mulIndexed({diffuse, static_cast<std::size_t>(vertex_count)}, diffuse,
+        srMath::mulIndexed({diffuse, vertex_count}, {diffuse, vertex_count},
                            current_record->spec_for_diffuse,
-                           {avt + sub_batch_offset, static_cast<std::size_t>(vertex_count)});
+                           {avt + sub_batch_offset, vertex_count});
     }
 }
 
@@ -376,23 +371,23 @@ void srVertexPipe::finishSpecularFog()
     }
     if (specular == 0) {
         if ((lazy_setup_mask & (1UL << srVertexProcessor::CHANNEL_FOG)) == 0) {
-            srMath::copyW({destination, static_cast<std::size_t>(vertex_count)}, 0.0f);
+            srMath::copyW({destination, vertex_count}, 0.0f);
         } else {
             srCore.getStatisticsManager()->statistics.fog_operations += vertex_count;
             if ((lazy_setup_mask & (1UL << srVertexProcessor::CHANNEL_FOG)) == 0) {
                 setupFog();
             }
             float* fog = scratch.fog + sub_batch_offset;
-            srMath::clampUnit({fog, static_cast<std::size_t>(vertex_count)}, fog);
+            srMath::clampUnit({fog, vertex_count}, {fog, vertex_count});
             float scale = material_info.fog_scale;
             if ((vertex_count != 0) && (scale != 1.0f)) {
                 if (scale == 0.0f) {
                     std::fill_n(fog, vertex_count, 0.0f);
                 } else {
-                    srMath::mul({fog, static_cast<std::size_t>(vertex_count)}, scale, fog);
+                    srMath::mul({fog, vertex_count}, scale, {fog, vertex_count});
                 }
             }
-            srMath::copyW({destination, static_cast<std::size_t>(vertex_count)}, fog);
+            srMath::copyW({destination, vertex_count}, {fog, vertex_count});
         }
     } else {
         srCore.getStatisticsManager()->statistics.specular_operations += vertex_count;
@@ -410,23 +405,20 @@ void srVertexPipe::finishSpecularFog()
                 if (scale == 0.0f) {
                     std::fill_n(fog, vertex_count, 0.0f);
                 } else {
-                    srMath::mul({fog, static_cast<std::size_t>(vertex_count)}, scale, fog);
+                    srMath::mul({fog, vertex_count}, scale, {fog, vertex_count});
                 }
             }
-            srMath::copyW({destination, static_cast<std::size_t>(vertex_count)}, fog);
+            srMath::copyW({destination, vertex_count}, {fog, vertex_count});
         }
-        w8_ulong dword_count = vertex_count * 4;
-        if (dword_count != 0) {
-            srMath::clampUnit(
-                {reinterpret_cast<float*>(destination), static_cast<std::size_t>(dword_count)},
-                reinterpret_cast<const float*>(destination));
+        if (vertex_count != 0) {
+            srMath::clampUnit({destination, vertex_count}, {destination, vertex_count});
         }
     }
     if (((current_record->flags & srVertexPipe::Record::HAS_SPECULAR_MULTIPLIERS) != 0) &&
         (vertex_count != 0)) {
-        srMath::mulIndexed({destination, static_cast<std::size_t>(vertex_count)}, destination,
+        srMath::mulIndexed({destination, vertex_count}, {destination, vertex_count},
                            current_record->spec_for_specular,
-                           {avt + sub_batch_offset, static_cast<std::size_t>(vertex_count)});
+                           {avt + sub_batch_offset, vertex_count});
     }
 }
 
@@ -439,12 +431,11 @@ void srVertexPipe::setupEyeSpaceNormal()
         constant.Set(0.0f, 0.0f, -1.0f);
         std::fill_n(scratch.normals, batch_count, constant);
     } else if (input->direct_vertex_indices == 0) {
-        srMath::transformIndexed({scratch.normals, static_cast<std::size_t>(batch_count)}, normals,
-                                 {avt, static_cast<std::size_t>(batch_count)},
+        srMath::transformIndexed({scratch.normals, batch_count}, normals, {avt, batch_count},
                                  *input->normal_matrix);
     } else {
-        srMath::transform({scratch.normals, static_cast<std::size_t>(batch_count)},
-                          normals + batch_base, *input->normal_matrix);
+        srMath::transform({scratch.normals, batch_count}, {normals + batch_base, batch_count},
+                          *input->normal_matrix);
     }
     scratch.flags |= srVertexPipe::Scratch::READY_EYE_NORMALS;
 }
@@ -452,8 +443,8 @@ void srVertexPipe::setupEyeSpaceNormal()
 // FUNCTION: SURRENDER 0x1002B910
 void srVertexPipe::setupEyeSpaceDirAndDist()
 {
-    srMath::dir({scratch.dir, static_cast<std::size_t>(batch_count)}, scratch.dist,
-                eye_space_locations + batch_base);
+    srMath::dir({scratch.dir, batch_count}, {scratch.dist, batch_count},
+                {eye_space_locations + batch_base, batch_count});
     scratch.flags |= srVertexPipe::Scratch::READY_EYE_DIRECTION;
     scratch.flags |= srVertexPipe::Scratch::READY_EYE_DISTANCE;
 }
@@ -495,10 +486,9 @@ void srVertexPipe::applyFog(const float* values)
     float* fog = scratch.fog + sub_batch_offset;
     if ((lazy_setup_mask & (1UL << srVertexProcessor::CHANNEL_FOG)) != 0) {
         float one_minus[0x40];
-        srMath::sub({one_minus, static_cast<std::size_t>(vertex_count)}, 1.0f,
-                    const_cast<float*>(values));
-        srMath::axpy({fog, static_cast<std::size_t>(vertex_count)}, const_cast<float*>(values), fog,
-                     one_minus);
+        srMath::sub({one_minus, vertex_count}, 1.0f, {values, vertex_count});
+        srMath::axpy({fog, vertex_count}, {values, vertex_count}, {fog, vertex_count},
+                     {one_minus, vertex_count});
         return;
     }
     if ((vertex_count != 0) && (fog != values)) {
@@ -516,7 +506,8 @@ void srVertexPipe::applyDiffuseLight(const float* values, const srVector4T<float
     }
     srVector4T<float>* diffuse = vertex_array->diffuse + batch_base + sub_batch_offset;
     if (vertex_count != 0) {
-        srMath::axpy({diffuse, static_cast<std::size_t>(vertex_count)}, diffuse, light, values);
+        srMath::axpy({diffuse, vertex_count}, {diffuse, vertex_count}, light,
+                     {values, vertex_count});
     }
 }
 
@@ -584,7 +575,7 @@ void srVertexPipe::applyDiffuseLight(const srVector4T<float>& light)
         setupDiffuse();
     }
     srVector4T<float>* diffuse = vertex_array->diffuse + batch_base + sub_batch_offset;
-    srMath::add({diffuse, static_cast<std::size_t>(vertex_count)}, light, diffuse);
+    srMath::add({diffuse, vertex_count}, light, {diffuse, vertex_count});
 }
 
 // FUNCTION: SURRENDER 0x1002BF20
@@ -599,21 +590,18 @@ void srVertexPipe::Record::ColorSource::copyDiffuseColors(srVector4T<float>* des
         return;
     }
     if (format == FORMAT_ARGB) {
-        srMath::copyIndexed({destination, static_cast<std::size_t>(count)},
-                            static_cast<const srARGB*>(colors),
-                            {indices, static_cast<std::size_t>(count)});
+        srMath::copyIndexed({destination, count}, static_cast<const srARGB*>(colors),
+                            {indices, count});
         return;
     }
     if (format == FORMAT_VECTOR3) {
-        srMath::copyIndexed({destination, static_cast<std::size_t>(count)},
-                            static_cast<const srVector3*>(colors),
-                            {indices, static_cast<std::size_t>(count)});
+        srMath::copyIndexed({destination, count}, static_cast<const srVector3*>(colors),
+                            {indices, count});
         return;
     }
     if (format == FORMAT_VECTOR4) {
-        srMath::copyIndexed({destination, static_cast<std::size_t>(count)},
-                            static_cast<const srVector4*>(colors),
-                            {indices, static_cast<std::size_t>(count)});
+        srMath::copyIndexed({destination, count}, static_cast<const srVector4*>(colors),
+                            {indices, count});
     }
 }
 
@@ -637,7 +625,7 @@ void srVertexPipe::setupDiffuse()
             if ((((color.x != 0.0f) || (color.y != 0.0f)) ||
                  ((color.z != 0.0f) || (color.w != 0.0f))) &&
                 (vertex_count != 0)) {
-                srMath::add({diffuse, static_cast<std::size_t>(vertex_count)}, color, diffuse);
+                srMath::add({diffuse, vertex_count}, color, {diffuse, vertex_count});
             }
         }
         lazy_setup_mask |= (1UL << srVertexProcessor::CHANNEL_DIFFUSE);
@@ -678,9 +666,9 @@ void srVertexPipe::setupDepthCue()
     } else {
         if (count != 0) {
             if (maximum == 0.0f) {
-                srMath::neg({depth_cue, static_cast<std::size_t>(count)}, dist);
+                srMath::neg({depth_cue, count}, {dist, count});
             } else {
-                srMath::sub({depth_cue, static_cast<std::size_t>(count)}, maximum, dist);
+                srMath::sub({depth_cue, count}, maximum, {dist, count});
             }
         }
         float scale = 1.0f / (maximum - minimum);
@@ -689,21 +677,21 @@ void srVertexPipe::setupDepthCue()
                 if (scale == 0.0f) {
                     std::fill_n(depth_cue, count, 0.0f);
                 } else {
-                    srMath::mul({depth_cue, static_cast<std::size_t>(count)}, scale, depth_cue);
+                    srMath::mul({depth_cue, count}, scale, {depth_cue, count});
                 }
             }
-            srMath::clampUnit({depth_cue, static_cast<std::size_t>(count)}, depth_cue);
+            srMath::clampUnit({depth_cue, count}, {depth_cue, count});
         }
         float range = near_value - far_value;
         if (((range != 1.0f) && (count != 0)) && (range != 1.0f)) {
             if (range == 0.0f) {
                 std::fill_n(depth_cue, count, 0.0f);
             } else {
-                srMath::mul({depth_cue, static_cast<std::size_t>(count)}, range, depth_cue);
+                srMath::mul({depth_cue, count}, range, {depth_cue, count});
             }
         }
         if (((near_value != 1.0f) && (count != 0)) && (1.0f - near_value != 0.0f)) {
-            srMath::add({depth_cue, static_cast<std::size_t>(count)}, 1.0f - near_value, depth_cue);
+            srMath::add({depth_cue, count}, 1.0f - near_value, {depth_cue, count});
         }
     }
     scratch.flags |= srVertexPipe::Scratch::READY_DEPTH_CUE;
@@ -745,10 +733,9 @@ void srVertexPipe::setupST(w8_ulong index)
     if (((current_record->flags & (srVertexPipe::Record::HAS_TEXCOORD0 << index)) != 0)) {
         const srVector2T<float>* source = current_record->st_source[index];
         if (source != 0) {
-            srMath::copyIndexed({(&vertex_array->st0)[index] + batch_base + sub_batch_offset,
-                                 static_cast<std::size_t>(vertex_count)},
-                                reinterpret_cast<const srVector2*>(source),
-                                {avt + sub_batch_offset, static_cast<std::size_t>(vertex_count)});
+            srMath::copyIndexed(
+                {(&vertex_array->st0)[index] + batch_base + sub_batch_offset, vertex_count},
+                reinterpret_cast<const srVector2*>(source), {avt + sub_batch_offset, vertex_count});
         }
     }
     lazy_setup_mask |= 1 << (index + srVertexProcessor::CHANNEL_ST0);

@@ -521,8 +521,8 @@ void srMeshModel::calculateVertexNormals()
             }
         }
         if (vertex_location_count != 0) {
-            srMath::normalize({normals, static_cast<std::size_t>(vertex_location_count)}, normals,
-                              1.0f);
+            srMath::normalize({normals, static_cast<std::size_t>(vertex_location_count)},
+                              {normals, static_cast<std::size_t>(vertex_location_count)}, 1.0f);
         }
     }
 }
@@ -1569,8 +1569,7 @@ void srTriMeshPipeline::FlushSlots()
 
     if (bounds_source != srTriMeshPipeline::BOUNDS_SPHERE) {
         if (bounds_source == srTriMeshPipeline::BOUNDS_FROM_VERTICES && vertex_count != 0) {
-            srMath::minMax({positions, static_cast<std::size_t>(vertex_count)}, bounds_minimum,
-                           bounds_maximum);
+            srMath::minMax({positions, vertex_count}, bounds_minimum, bounds_maximum);
         }
 
         srVector3T<float> center;

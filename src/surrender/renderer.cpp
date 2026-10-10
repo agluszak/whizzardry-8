@@ -127,8 +127,7 @@ static void gatherIndexedTriangles(srVector3i* destination, const srVector3i* so
                                    const w8_ulong* indices, const w8_ulong* vertices,
                                    w8_ulong vertex_base, w8_ulong count)
 {
-    srMath::srCopyIndexedRemap({destination, static_cast<std::size_t>(count)}, source,
-                               {indices, static_cast<std::size_t>(count)}, vertices);
+    srMath::srCopyIndexedRemap({destination, count}, source, {indices, count}, vertices);
     if (vertex_base != 0) {
         /* reinterpret-ok: the triples rebase as flat dwords. */
         offsetIndices(reinterpret_cast<w8_ulong*>(destination),
@@ -560,12 +559,9 @@ void srGERD::Renderer::expandTriangles(const TriInput& input, int sorted)
                         arrays.specular, {remap, static_cast<std::size_t>(new_count)});
                     srMath::copyIndexed({arrays.st1 + base, static_cast<std::size_t>(new_count)},
                                         arrays.st1, {remap, static_cast<std::size_t>(new_count)});
-                    /* reinterpret-ok: the q stream is a dword stream to the
-                       indexed copy. */
-                    srMath::copyIndexed({reinterpret_cast<w8_ulong*>(arrays.q1 + base),
-                                         static_cast<std::size_t>(new_count)},
-                                        reinterpret_cast<const w8_ulong*>(arrays.q1),
-                                        {remap, static_cast<std::size_t>(new_count)});
+                    std::ranges::transform(
+                        std::span{remap, new_count}, arrays.q1 + base,
+                        [source = arrays.q1](auto index) { return source[index]; });
                     for (w8_ulong index = 0; index < new_count; index++) {
                         arrays.attributes[base + index] = arrays.attributes[remap[index]];
                     }
@@ -645,17 +641,15 @@ void srGERD::Renderer::transformVertices(const TriInput& input, unsigned char* c
         }
         if (chunk != 0 && mode != srMatrix4T<float>::TYPE_IDENTITY) {
             if (mode == srMatrix4T<float>::TYPE_ORTHOGRAPHIC) {
-                srMath::transformOrtho({write, static_cast<std::size_t>(chunk)}, write,
-                                       *input.project_clip_near);
+                srMath::transformOrtho({write, chunk}, {write, chunk}, *input.project_clip_near);
             } else if (mode == srMatrix4T<float>::TYPE_PERSPECTIVE) {
-                srMath::transformPerspective({write, static_cast<std::size_t>(chunk)}, write,
+                srMath::transformPerspective({write, chunk}, {write, chunk},
                                              *input.project_clip_near);
             } else {
-                srMath::transform({write, static_cast<std::size_t>(chunk)}, write,
-                                  *input.project_clip_near);
+                srMath::transform({write, chunk}, {write, chunk}, *input.project_clip_near);
             }
         }
-        srMath::srGetClipFlags({clip_flags + done, static_cast<std::size_t>(chunk)}, write);
+        srMath::srGetClipFlags({clip_flags + done, chunk}, {write, chunk});
         for (w8_ulong replica = 1; replica < input.record_count; replica++) {
             srVector4T<float>* destination = write + replica * input.vertex_count;
             if (chunk != 0 && destination != write) {
@@ -717,7 +711,8 @@ void srGERD::Renderer::drawImmediate()
         gerd->setTexture(texture0, 0);
         gerd->setTexture(texture1, 1);
         gerd->setShader(shader);
-        if (srMath::isEqual({texture_set, static_cast<std::size_t>(count)}, texture_set[0]) != 0) {
+        if (std::ranges::all_of(std::span{texture_set, count},
+                                [texture_set](auto id) { return id == texture_set[0]; })) {
             gerd->drawElements(srRendererDefs::PRIMITIVE_TRIANGLES, count * 3,
                                static_cast<srRendererDefs::e_indexType>(2), indices);
             return;
@@ -766,8 +761,8 @@ void srGERD::Renderer::drawSorted()
         gerd->setShader(shader);
         /* 0x200 index triples per submission chunk (0x1800 bytes). */
         std::array<srVector3i, 0x200> batch;
-        if (srMath::isEqual({texture_set, static_cast<std::size_t>(count)},
-                            texture_set[order[0]]) != 0) {
+        if (std::ranges::all_of(std::span{texture_set, count},
+                                [&](auto id) { return id == texture_set[order[0]]; })) {
             w8_ulong offset = 0;
             do {
                 w8_ulong chunk = count - offset;

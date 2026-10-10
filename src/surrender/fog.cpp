@@ -108,23 +108,27 @@ void srFog::process(srVertexPipe& pipe)
                         std::copy_n(distances, count, values);
                     }
                 } else {
-                    srMath::add({values, static_cast<std::size_t>(count)}, -start, distances);
+                    srMath::add({values, static_cast<std::size_t>(count)}, -start,
+                                {distances, static_cast<std::size_t>(count)});
                 }
                 if (scale != 1.0f) {
                     if (scale == 0.0f) {
                         std::fill_n(values, count, 0.0f);
                     } else {
-                        srMath::mul({values, static_cast<std::size_t>(count)}, scale, values);
+                        srMath::mul({values, static_cast<std::size_t>(count)}, scale,
+                                    {values, static_cast<std::size_t>(count)});
                     }
                 }
-                srMath::clampUnit({values, static_cast<std::size_t>(count)}, values);
+                srMath::clampUnit({values, static_cast<std::size_t>(count)},
+                                  {values, static_cast<std::size_t>(count)});
             }
             density = this->density;
             if ((count != 0) && (density != 1.0f)) {
                 if (density == 0.0f) {
                     std::fill_n(values, count, 0.0f);
                 } else {
-                    srMath::mul({values, static_cast<std::size_t>(count)}, density, values);
+                    srMath::mul({values, static_cast<std::size_t>(count)}, density,
+                                {values, static_cast<std::size_t>(count)});
                 }
             }
             pipe.applyFog(values);
@@ -139,11 +143,13 @@ void srFog::process(srVertexPipe& pipe)
                 if (density == 0.0f) {
                     std::fill_n(fog, count, 0.0f);
                 } else {
-                    srMath::mul({fog, static_cast<std::size_t>(count)}, density, fog);
+                    srMath::mul({fog, static_cast<std::size_t>(count)}, density,
+                                {fog, static_cast<std::size_t>(count)});
                 }
             }
             if ((count != 0) && (this->density != 0.0f)) {
-                srMath::add({fog, static_cast<std::size_t>(count)}, this->density, fog);
+                srMath::add({fog, static_cast<std::size_t>(count)}, this->density,
+                            {fog, static_cast<std::size_t>(count)});
             }
         }
     }
