@@ -1737,32 +1737,12 @@ bool GiveHeldItemToCharacterOrParty(int uiChar, bool party_first)
 {
     W8ItemInstance* item = &g_status.item_in_hand;
     bool stored = party_first;
-    bool identified = false;
-    unsigned int slot;
-
     if (!g_status.item_in_cursor) {
         srAssertFail("gStatus.fItemInCursor", PC_ITEM_CPP, 376, 0);
     }
 
-    /* Every member who is up and not too badly hurt gets an attempt at the
-       item, which is what practises the skill for them; the first one who
-       learns what it is bounds the loop's answer. */
-    if (!item->identified) {
-        for (slot = 0; slot < 8; ++slot) {
-            W8Character* character = &g_status.buffers.Char[slot];
-            if (!g_status.buffers.XChar[slot].fOccupied) {
-                continue;
-            }
-            if (character->hp_current == 0 || character->highest_condition >= W8_CONDITION_INSANE) {
-                continue;
-            }
-            if (!identified) {
-                identified = TryIdentifyItemFor(character, item);
-            } else {
-                TryIdentifyItemFor(character, item);
-            }
-        }
-    }
+    if (!item->identified)
+        PartyAttemptsToIdentifyItem(item);
 
     if (!g_status.game_started) {
         srAssertFail("gStatus.fGameStarted", PC_ITEM_CPP, 0x194, 0);
