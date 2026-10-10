@@ -559,12 +559,9 @@ void srGERD::Renderer::expandTriangles(const TriInput& input, int sorted)
                         arrays.specular, {remap, static_cast<std::size_t>(new_count)});
                     srMath::copyIndexed({arrays.st1 + base, static_cast<std::size_t>(new_count)},
                                         arrays.st1, {remap, static_cast<std::size_t>(new_count)});
-                    /* reinterpret-ok: the q stream is a dword stream to the
-                       indexed copy. */
-                    srMath::copyIndexed({reinterpret_cast<w8_ulong*>(arrays.q1 + base),
-                                         static_cast<std::size_t>(new_count)},
-                                        reinterpret_cast<const w8_ulong*>(arrays.q1),
-                                        {remap, static_cast<std::size_t>(new_count)});
+                    std::ranges::transform(
+                        std::span{remap, new_count}, arrays.q1 + base,
+                        [source = arrays.q1](auto index) { return source[index]; });
                     for (w8_ulong index = 0; index < new_count; index++) {
                         arrays.attributes[base + index] = arrays.attributes[remap[index]];
                     }

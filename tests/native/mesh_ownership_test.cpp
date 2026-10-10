@@ -59,12 +59,12 @@ static bool defaults()
 
 static bool zeroNormals()
 {
-    std::array<srVector4, 2> normals;
-    normals[0].Set(0, 0, 0, 0);
-    normals[1].Set(0, 0, 0, 2);
-    srMath::normalize(normals, normals.data(), 1.0f);
-    CHECK(normals[0].x == 0 && normals[0].y == 0 && normals[0].z == 0 && normals[0].w == 0);
-    CHECK(normals[1].x == 0 && normals[1].y == 0 && normals[1].z == 0 && normals[1].w == 1);
+    std::array<srVector3, 2> normals;
+    normals[0].Set(0, 0, 0);
+    normals[1].Set(0, 0, 2);
+    srMath::normalize(normals, normals, 1.0f);
+    CHECK(normals[0] == srVector3(0, 0, 0));
+    CHECK(normals[1] == srVector3(0, 0, 1));
     return true;
 }
 
