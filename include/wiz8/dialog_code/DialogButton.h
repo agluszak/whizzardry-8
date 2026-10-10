@@ -25,6 +25,8 @@ class W8DialogButton {
 public:
     W8DialogButton();
     virtual ~W8DialogButton();
+    W8DialogButton(const W8DialogButton&) = delete;
+    W8DialogButton& operator=(const W8DialogButton&) = delete;
     void Draw();
     void SetPosition(int x, int y);
     int GetWidth();
@@ -89,7 +91,8 @@ private:
     int m_on_normal_frame;
     int m_on_hover_frame;
     int m_image_handle;  /* loaded button-image handle */
-    int m_button_handle; /* SGP button handle */
+    int m_button_handle; /* transitional ID for old SGP utilities */
+    std::shared_ptr<GUI_BUTTON> m_button; /* owns the C++ button */
     int m_tooltip_index; /* g_localized_strings index, or -1 */
     W8DialogButtonCallback m_left_callback;
     W8DialogButtonCallback m_right_callback;
