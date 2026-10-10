@@ -39,44 +39,24 @@ void NativeBltSprite(const UINT8* pixels, int pitch, const UINT8* mask,
                      Opaque opaque, Transparent transparent)
 {
     const int x0 = src_step < 0 ? width - 1 - left : left;
-    pixels += top * pitch + x0;
-    if (mask)
-        mask += top * pitch + x0;
+    const UINT8* row = pixels + top * pitch + x0;
+    const UINT8* mrow = mask ? mask + top * pitch + x0 : nullptr;
     for (int y = 0; y < height; ++y) {
-        const UINT8* px = pixels;
-        const UINT8* mk = mask;
-        for (int x = 0; x < width; ++x) {
-            if (mk ? *mk : *px) {
-                opaque(dest, *px);
+        int sx = 0;
+        for (int x = 0; x < width; ++x, sx += src_step) {
+            const UINT8 index = row[sx];
+            if (mrow ? mrow[sx] : index) {
+                opaque(dest, index);
             } else {
                 transparent(dest);
             }
-            px += src_step;
-            if (mk)
-                mk += src_step;
             dest += dest_step;
         }
-        pixels += pitch;
-        if (mask)
-            mask += pitch;
+        row += pitch;
+        if (mrow)
+            mrow += pitch;
         dest += line_skip;
     }
-}
-
-// The decoded INDEX8 surface for a frame, or nullptr when the object was
-// not decoded (tests and objects built outside CreateVideoObject).
-SDL_Surface* SpriteSurface(const SGPVObject* object, UINT16 index)
-{
-    return index < object->sprites.size() ? object->sprites[index].get() : nullptr;
-}
-
-// The explicit opacity mask for a frame whose opaque runs wrote a literal
-// index 0, or nullptr when a nonzero pixel already means opaque.
-const UINT8* SpriteMask(const SGPVObject* object, UINT16 index)
-{
-    return index < object->spriteMasks.size() && !object->spriteMasks[index].empty()
-               ? object->spriteMasks[index].data()
-               : nullptr;
 }
 } // namespace
 
@@ -84,56 +64,57 @@ const UINT8* SpriteMask(const SGPVObject* object, UINT16 index)
 // GLOBAL: WIZ8 0x00600078
 SGPRect ClippingRect = {0, 0, 640, 480};
 
-// Decode every ETRLE frame once into an INDEX8 SDL surface. Transparent
-// runs decode to index 0. A frame whose opaque runs contain a literal
-// index 0 gets an explicit per-pixel opacity mask because index 0 alone
-// cannot tell it from a transparent run. Returns FALSE on malformed data.
-BOOLEAN DecodeVideoObjectSprites(HVOBJECT hVObject, const UINT8* data, UINT32 size)
+// Decode every ETRLE frame once into an INDEX8 SDL surface, each strictly
+// inside its own recorded byte range. Transparent runs decode to index 0.
+// A frame whose opaque runs contain a literal index 0 gets an explicit
+// per-pixel opacity mask because index 0 alone cannot tell it from a
+// transparent run. Returns FALSE on malformed data.
+BOOLEAN DecodeVideoObjectSprites(HVOBJECT hVObject, std::span<const ETRLEObject> frames,
+                                 const UINT8* data, UINT32 size)
 {
-    auto fail = [hVObject] {
-        hVObject->sprites.clear();
-        hVObject->spriteMasks.clear();
-        return (FALSE);
-    };
     hVObject->sprites.clear();
-    hVObject->spriteMasks.clear();
-    if (hVObject->pETRLEObject.empty()) {
-        return (TRUE);
+    if (!frames.empty() && data == nullptr) {
+        return (FALSE);
     }
-    if (data == nullptr || size == 0) {
-        return fail();
-    }
-    hVObject->sprites.reserve(hVObject->pETRLEObject.size());
-    for (size_t index = 0; index < hVObject->pETRLEObject.size(); ++index)
-        hVObject->sprites.emplace_back(nullptr, SDL_DestroySurface);
-    hVObject->spriteMasks.resize(hVObject->pETRLEObject.size());
-    const UINT8* const end = data + size;
-    for (size_t index = 0; index < hVObject->pETRLEObject.size(); ++index) {
-        const ETRLEObject& frame = hVObject->pETRLEObject[index];
+    hVObject->sprites.reserve(frames.size());
+    for (const ETRLEObject& frame : frames) {
+        SpriteFrame& out = hVObject->sprites.emplace_back();
+        out.sOffsetX = frame.sOffsetX;
+        out.sOffsetY = frame.sOffsetY;
+        out.usWidth = frame.usWidth;
+        out.usHeight = frame.usHeight;
         if (frame.usWidth == 0 || frame.usHeight == 0)
             continue;
-        if (frame.uiDataOffset >= size)
-            return fail();
-        SDLSurfaceOwner sprite{
-            SDL_CreateSurface(frame.usWidth, frame.usHeight, SDL_PIXELFORMAT_INDEX8),
-            SDL_DestroySurface};
-        if (!sprite) {
-            return fail();
-        }
+        if (frame.uiDataOffset >= size || frame.uiDataLength > size - frame.uiDataOffset)
+            return (FALSE);
+        out.surface.reset(SDL_CreateSurface(frame.usWidth, frame.usHeight,
+                                            SDL_PIXELFORMAT_INDEX8));
+        if (!out.surface)
+            return (FALSE);
         const UINT8* src = data + frame.uiDataOffset;
-        UINT8* row = static_cast<UINT8*>(sprite->pixels);
+        const UINT8* const end = src + frame.uiDataLength;
+        UINT8* row = static_cast<UINT8*>(out.surface->pixels);
         bool literal_zero = false;
         for (UINT32 y = 0; y < frame.usHeight; ++y) {
             UINT32 x = 0;
-            UINT8 control;
-            while (src < end && (control = *src++) != 0) {
+            for (;;) {
+                if (src >= end) {
+                    return (FALSE);
+                }
+                const UINT8 control = *src++;
+                if (control == 0) {
+                    break;
+                }
                 const UINT32 count = control & 0x7f;
-                if (x + count > frame.usWidth || (!(control & 0x80) && src + count > end)) {
-                    return fail();
+                if (count > frame.usWidth - x) {
+                    return (FALSE);
                 }
                 if (control & 0x80) {
                     x += count;
                 } else {
+                    if (count > static_cast<UINT32>(end - src)) {
+                        return (FALSE);
+                    }
                     for (UINT32 n = 0; n < count; ++n) {
                         const UINT8 value = *src++;
                         literal_zero |= (value == 0);
@@ -141,22 +122,18 @@ BOOLEAN DecodeVideoObjectSprites(HVOBJECT hVObject, const UINT8* data, UINT32 si
                     }
                 }
             }
-            if (control != 0) {
-                return fail();
-            }
-            row += sprite->pitch;
+            row += out.surface->pitch;
         }
         if (literal_zero) {
             // Index 0 is ambiguous in this frame: record an explicit opacity
             // mask so opaque zeros still draw their palette entry.
-            std::vector<UINT8>& mask = hVObject->spriteMasks[index];
-            mask.assign(static_cast<size_t>(sprite->pitch) * frame.usHeight, 0);
+            out.opacity.assign(static_cast<size_t>(out.surface->pitch) * frame.usHeight, 0);
             const UINT8* re = data + frame.uiDataOffset;
-            UINT8* mrow = mask.data();
+            UINT8* mrow = out.opacity.data();
             for (UINT32 y = 0; y < frame.usHeight; ++y) {
                 UINT32 x = 0;
                 UINT8 control;
-                while (re < end && (control = *re++) != 0) {
+                while ((control = *re++) != 0) {
                     const UINT32 count = control & 0x7f;
                     if (control & 0x80) {
                         x += count;
@@ -166,10 +143,9 @@ BOOLEAN DecodeVideoObjectSprites(HVOBJECT hVObject, const UINT8* data, UINT32 si
                             mrow[x++] = 1;
                     }
                 }
-                mrow += sprite->pitch;
+                mrow += out.surface->pitch;
             }
         }
-        hVObject->sprites[index] = std::move(sprite);
     }
     return (TRUE);
 }
@@ -199,7 +175,7 @@ BOOLEAN Blt8BPPDataTo8BPPBufferMonoShadowClip(UINT8* pBuffer, UINT32 uiDestPitch
     UINT32 usHeight, usWidth;
     UINT8 *DestPtr;
     UINT32 LineSkip;
-    ETRLEObject* pTrav;
+    const SpriteFrame* pTrav;
     INT32 iTempX, iTempY, LeftSkip, RightSkip, TopSkip, BottomSkip, BlitLength, BlitHeight;
     INT32 ClipX1, ClipY1, ClipX2, ClipY2;
 
@@ -208,7 +184,7 @@ BOOLEAN Blt8BPPDataTo8BPPBufferMonoShadowClip(UINT8* pBuffer, UINT32 uiDestPitch
     Assert(pBuffer != nullptr);
 
     // Get Offsets from Index into structure
-    pTrav = &(hSrcVObject->pETRLEObject[usIndex]);
+    pTrav = &hSrcVObject->sprites[usIndex];
     usHeight = (UINT32)pTrav->usHeight;
     usWidth = (UINT32)pTrav->usWidth;
 
@@ -255,11 +231,10 @@ BOOLEAN Blt8BPPDataTo8BPPBufferMonoShadowClip(UINT8* pBuffer, UINT32 uiDestPitch
         else if (ubBackground != 0) { *dest = ubBackground; }
     };
     auto transparent = [&](UINT8* dest) { if (ubBackground != 0) { *dest = ubBackground; } };
-    SDL_Surface* sprite = SpriteSurface(hSrcVObject, usIndex);
-    if (!sprite)
+    if (!pTrav->surface)
         return (TRUE);
-    NativeBltSprite(static_cast<const UINT8*>(sprite->pixels), sprite->pitch,
-                    SpriteMask(hSrcVObject, usIndex), DestPtr, LeftSkip, TopSkip, BlitLength,
+    NativeBltSprite(static_cast<const UINT8*>(pTrav->surface->pixels), pTrav->surface->pitch,
+                    pTrav->mask(), DestPtr, LeftSkip, TopSkip, BlitLength,
                     BlitHeight, 1, 1, LineSkip, opaque, transparent);
 
     return (TRUE);
@@ -280,7 +255,7 @@ BOOLEAN Blt8BPPDataTo8BPPBufferTransparentClip(UINT16* pBuffer, UINT32 uiDestPit
     UINT32 usHeight, usWidth;
     UINT8 *DestPtr;
     UINT32 LineSkip;
-    ETRLEObject* pTrav;
+    const SpriteFrame* pTrav;
     INT32 iTempX, iTempY, LeftSkip, RightSkip, TopSkip, BottomSkip, BlitLength, BlitHeight;
     INT32 ClipX1, ClipY1, ClipX2, ClipY2;
     UINT8* pPal8BPP;
@@ -290,7 +265,7 @@ BOOLEAN Blt8BPPDataTo8BPPBufferTransparentClip(UINT16* pBuffer, UINT32 uiDestPit
     Assert(pBuffer != nullptr);
 
     // Get Offsets from Index into structure
-    pTrav = &(hSrcVObject->pETRLEObject[usIndex]);
+    pTrav = &hSrcVObject->sprites[usIndex];
     usHeight = (UINT32)pTrav->usHeight;
     usWidth = (UINT32)pTrav->usWidth;
 
@@ -334,11 +309,10 @@ BOOLEAN Blt8BPPDataTo8BPPBufferTransparentClip(UINT16* pBuffer, UINT32 uiDestPit
 
     auto opaque = [&](UINT8* dest, UINT8 index) { *dest = pPal8BPP[index]; };
     auto transparent = [](UINT8*) {};
-    SDL_Surface* sprite = SpriteSurface(hSrcVObject, usIndex);
-    if (!sprite)
+    if (!pTrav->surface)
         return (TRUE);
-    NativeBltSprite(static_cast<const UINT8*>(sprite->pixels), sprite->pitch,
-                    SpriteMask(hSrcVObject, usIndex), DestPtr, LeftSkip, TopSkip, BlitLength,
+    NativeBltSprite(static_cast<const UINT8*>(pTrav->surface->pixels), pTrav->surface->pitch,
+                    pTrav->mask(), DestPtr, LeftSkip, TopSkip, BlitLength,
                     BlitHeight, 1, 1, LineSkip, opaque, transparent);
 
     return (TRUE);
@@ -358,7 +332,7 @@ BOOLEAN Blt8BPPDataTo8BPPBufferTransparent(UINT16* pBuffer, UINT32 uiDestPitchBY
     UINT32 usHeight, usWidth;
     UINT8 *DestPtr, *pPal8BPP;
     UINT32 LineSkip;
-    ETRLEObject* pTrav;
+    const SpriteFrame* pTrav;
     INT32 iTempX, iTempY;
 
     // Assertions
@@ -366,7 +340,7 @@ BOOLEAN Blt8BPPDataTo8BPPBufferTransparent(UINT16* pBuffer, UINT32 uiDestPitchBY
     Assert(pBuffer != nullptr);
 
     // Get Offsets from Index into structure
-    pTrav = &(hSrcVObject->pETRLEObject[usIndex]);
+    pTrav = &hSrcVObject->sprites[usIndex];
     usHeight = (UINT32)pTrav->usHeight;
     usWidth = (UINT32)pTrav->usWidth;
 
@@ -384,11 +358,10 @@ BOOLEAN Blt8BPPDataTo8BPPBufferTransparent(UINT16* pBuffer, UINT32 uiDestPitchBY
 
     auto opaque = [&](UINT8* dest, UINT8 index) { *dest = pPal8BPP[index]; };
     auto transparent = [](UINT8*) {};
-    SDL_Surface* sprite = SpriteSurface(hSrcVObject, usIndex);
-    if (!sprite)
+    if (!pTrav->surface)
         return (TRUE);
-    NativeBltSprite(static_cast<const UINT8*>(sprite->pixels), sprite->pitch,
-                    SpriteMask(hSrcVObject, usIndex), DestPtr, 0, 0, usWidth, usHeight, 1,
+    NativeBltSprite(static_cast<const UINT8*>(pTrav->surface->pixels), pTrav->surface->pitch,
+                    pTrav->mask(), DestPtr, 0, 0, usWidth, usHeight, 1,
                     1, LineSkip, opaque, transparent);
 
     return (TRUE);
@@ -408,7 +381,7 @@ BOOLEAN Blt8BPPDataTo8BPPBufferShadow(UINT16* pBuffer, UINT32 uiDestPitchBYTES,
     UINT32 usHeight, usWidth;
     UINT8 *DestPtr;
     UINT32 LineSkip;
-    ETRLEObject* pTrav;
+    const SpriteFrame* pTrav;
     INT32 iTempX, iTempY;
 
     // Assertions
@@ -416,7 +389,7 @@ BOOLEAN Blt8BPPDataTo8BPPBufferShadow(UINT16* pBuffer, UINT32 uiDestPitchBYTES,
     Assert(pBuffer != nullptr);
 
     // Get Offsets from Index into structure
-    pTrav = &(hSrcVObject->pETRLEObject[usIndex]);
+    pTrav = &hSrcVObject->sprites[usIndex];
     usHeight = (UINT32)pTrav->usHeight;
     usWidth = (UINT32)pTrav->usWidth;
 
@@ -433,11 +406,10 @@ BOOLEAN Blt8BPPDataTo8BPPBufferShadow(UINT16* pBuffer, UINT32 uiDestPitchBYTES,
 
     auto opaque = [](UINT8* dest, UINT8) { NativeWriteWord(dest, ShadeTable[NativeReadWord(dest)]); };
     auto transparent = [](UINT8*) {};
-    SDL_Surface* sprite = SpriteSurface(hSrcVObject, usIndex);
-    if (!sprite)
+    if (!pTrav->surface)
         return (TRUE);
-    NativeBltSprite(static_cast<const UINT8*>(sprite->pixels), sprite->pitch,
-                    SpriteMask(hSrcVObject, usIndex), DestPtr, 0, 0, usWidth, usHeight, 2,
+    NativeBltSprite(static_cast<const UINT8*>(pTrav->surface->pixels), pTrav->surface->pitch,
+                    pTrav->mask(), DestPtr, 0, 0, usWidth, usHeight, 2,
                     1, LineSkip, opaque, transparent);
 
     return (TRUE);
@@ -460,7 +432,7 @@ BOOLEAN Blt8BPPDataTo8BPPBufferShadowClip(UINT16* pBuffer, UINT32 uiDestPitchBYT
     UINT32 usHeight, usWidth;
     UINT8 *DestPtr;
     UINT32 LineSkip;
-    ETRLEObject* pTrav;
+    const SpriteFrame* pTrav;
     INT32 iTempX, iTempY, LeftSkip, RightSkip, TopSkip, BottomSkip, BlitLength, BlitHeight;
     INT32 ClipX1, ClipY1, ClipX2, ClipY2;
 
@@ -469,7 +441,7 @@ BOOLEAN Blt8BPPDataTo8BPPBufferShadowClip(UINT16* pBuffer, UINT32 uiDestPitchBYT
     Assert(pBuffer != nullptr);
 
     // Get Offsets from Index into structure
-    pTrav = &(hSrcVObject->pETRLEObject[usIndex]);
+    pTrav = &hSrcVObject->sprites[usIndex];
     usHeight = (UINT32)pTrav->usHeight;
     usWidth = (UINT32)pTrav->usWidth;
 
@@ -517,11 +489,10 @@ BOOLEAN Blt8BPPDataTo8BPPBufferShadowClip(UINT16* pBuffer, UINT32 uiDestPitchBYT
         NativeWriteWord(dest, NativeReadWord(pPal8BPP + NativeReadWord(dest)));
     };
     auto transparent = [](UINT8*) {};
-    SDL_Surface* sprite = SpriteSurface(hSrcVObject, usIndex);
-    if (!sprite)
+    if (!pTrav->surface)
         return (TRUE);
-    NativeBltSprite(static_cast<const UINT8*>(sprite->pixels), sprite->pitch,
-                    SpriteMask(hSrcVObject, usIndex), DestPtr, LeftSkip, TopSkip, BlitLength,
+    NativeBltSprite(static_cast<const UINT8*>(pTrav->surface->pixels), pTrav->surface->pitch,
+                    pTrav->mask(), DestPtr, LeftSkip, TopSkip, BlitLength,
                     BlitHeight, 2, 1, LineSkip, opaque, transparent);
 
     return (TRUE);
@@ -549,7 +520,7 @@ BOOLEAN Blt8BPPDataTo16BPPBufferMonoShadowClip(UINT16* pBuffer, UINT32 uiDestPit
     UINT32 usHeight, usWidth;
     UINT8 *DestPtr;
     UINT32 LineSkip;
-    ETRLEObject* pTrav;
+    const SpriteFrame* pTrav;
     INT32 iTempX, iTempY, LeftSkip, RightSkip, TopSkip, BottomSkip, BlitLength, BlitHeight;
     INT32 ClipX1, ClipY1, ClipX2, ClipY2;
 
@@ -558,7 +529,7 @@ BOOLEAN Blt8BPPDataTo16BPPBufferMonoShadowClip(UINT16* pBuffer, UINT32 uiDestPit
     Assert(pBuffer != nullptr);
 
     // Get Offsets from Index into structure
-    pTrav = &(hSrcVObject->pETRLEObject[usIndex]);
+    pTrav = &hSrcVObject->sprites[usIndex];
     usHeight = (UINT32)pTrav->usHeight;
     usWidth = (UINT32)pTrav->usWidth;
 
@@ -608,11 +579,10 @@ BOOLEAN Blt8BPPDataTo16BPPBufferMonoShadowClip(UINT16* pBuffer, UINT32 uiDestPit
     auto transparent = [&](UINT8* dest) {
         if (usBackground != 0) { NativeWriteWord(dest, usBackground); }
     };
-    SDL_Surface* sprite = SpriteSurface(hSrcVObject, usIndex);
-    if (!sprite)
+    if (!pTrav->surface)
         return (TRUE);
-    NativeBltSprite(static_cast<const UINT8*>(sprite->pixels), sprite->pitch,
-                    SpriteMask(hSrcVObject, usIndex), DestPtr, LeftSkip, TopSkip, BlitLength,
+    NativeBltSprite(static_cast<const UINT8*>(pTrav->surface->pixels), pTrav->surface->pitch,
+                    pTrav->mask(), DestPtr, LeftSkip, TopSkip, BlitLength,
                     BlitHeight, 2, 1, LineSkip, opaque, transparent);
 
     return (TRUE);
@@ -1020,7 +990,7 @@ BOOLEAN Blt8BPPDataTo16BPPBufferShadow(UINT16* pBuffer, UINT32 uiDestPitchBYTES,
     UINT32 usHeight, usWidth;
     UINT8 *DestPtr;
     UINT32 LineSkip;
-    ETRLEObject* pTrav;
+    const SpriteFrame* pTrav;
     INT32 iTempX, iTempY;
 
     // Assertions
@@ -1028,7 +998,7 @@ BOOLEAN Blt8BPPDataTo16BPPBufferShadow(UINT16* pBuffer, UINT32 uiDestPitchBYTES,
     Assert(pBuffer != nullptr);
 
     // Get Offsets from Index into structure
-    pTrav = &(hSrcVObject->pETRLEObject[usIndex]);
+    pTrav = &hSrcVObject->sprites[usIndex];
     usHeight = (UINT32)pTrav->usHeight;
     usWidth = (UINT32)pTrav->usWidth;
 
@@ -1045,11 +1015,10 @@ BOOLEAN Blt8BPPDataTo16BPPBufferShadow(UINT16* pBuffer, UINT32 uiDestPitchBYTES,
 
     auto opaque = [](UINT8* dest, UINT8) { NativeWriteWord(dest, ShadeTable[NativeReadWord(dest)]); };
     auto transparent = [](UINT8*) {};
-    SDL_Surface* sprite = SpriteSurface(hSrcVObject, usIndex);
-    if (!sprite)
+    if (!pTrav->surface)
         return (TRUE);
-    NativeBltSprite(static_cast<const UINT8*>(sprite->pixels), sprite->pitch,
-                    SpriteMask(hSrcVObject, usIndex), DestPtr, 0, 0, usWidth, usHeight, 2,
+    NativeBltSprite(static_cast<const UINT8*>(pTrav->surface->pixels), pTrav->surface->pitch,
+                    pTrav->mask(), DestPtr, 0, 0, usWidth, usHeight, 2,
                     1, LineSkip, opaque, transparent);
 
     return (TRUE);
@@ -1072,7 +1041,7 @@ BOOLEAN Blt8BPPDataTo16BPPBufferTransparent(UINT16* pBuffer, UINT32 uiDestPitchB
     UINT32 usHeight, usWidth;
     UINT8 *DestPtr;
     UINT32 LineSkip;
-    ETRLEObject* pTrav;
+    const SpriteFrame* pTrav;
     INT32 iTempX, iTempY;
 
     // Assertions
@@ -1080,7 +1049,7 @@ BOOLEAN Blt8BPPDataTo16BPPBufferTransparent(UINT16* pBuffer, UINT32 uiDestPitchB
     Assert(pBuffer != nullptr);
 
     // Get Offsets from Index into structure
-    pTrav = &(hSrcVObject->pETRLEObject[usIndex]);
+    pTrav = &hSrcVObject->sprites[usIndex];
     usHeight = (UINT32)pTrav->usHeight;
     usWidth = (UINT32)pTrav->usWidth;
 
@@ -1096,11 +1065,10 @@ BOOLEAN Blt8BPPDataTo16BPPBufferTransparent(UINT16* pBuffer, UINT32 uiDestPitchB
     p16BPPPalette = hSrcVObject->pShadeCurrent;
     LineSkip = (uiDestPitchBYTES - (usWidth * 2));
 
-    SDL_Surface* sprite = SpriteSurface(hSrcVObject, usIndex);
-    if (!sprite)
+    if (!pTrav->surface)
         return (TRUE);
-    NativeBltSprite(static_cast<const UINT8*>(sprite->pixels), sprite->pitch,
-                    SpriteMask(hSrcVObject, usIndex), DestPtr, 0, 0, usWidth, usHeight, 2, 1,
+    NativeBltSprite(static_cast<const UINT8*>(pTrav->surface->pixels), pTrav->surface->pitch,
+                    pTrav->mask(), DestPtr, 0, 0, usWidth, usHeight, 2, 1,
                     LineSkip,
         [&](UINT8* dest, UINT8 index) { NativeWriteWord(dest, p16BPPPalette[index]); },
         [](UINT8*) {});
@@ -1126,7 +1094,7 @@ BOOLEAN Blt8BPPDataTo16BPPBufferTransMirror(UINT16* pBuffer, UINT32 uiDestPitchB
 {
     UINT16* p16BPPPalette;
     UINT32 usHeight, usWidth;
-    ETRLEObject* pTrav;
+    const SpriteFrame* pTrav;
     INT32 iTempX, iTempY;
 
     // Assertions
@@ -1134,7 +1102,7 @@ BOOLEAN Blt8BPPDataTo16BPPBufferTransMirror(UINT16* pBuffer, UINT32 uiDestPitchB
     Assert(pBuffer != nullptr);
 
     // Get Offsets from Index into structure
-    pTrav = &(hSrcVObject->pETRLEObject[usIndex]);
+    pTrav = &hSrcVObject->sprites[usIndex];
     usHeight = (UINT32)pTrav->usHeight;
     usWidth = (UINT32)pTrav->usWidth;
 
@@ -1152,11 +1120,10 @@ BOOLEAN Blt8BPPDataTo16BPPBufferTransMirror(UINT16* pBuffer, UINT32 uiDestPitchB
     // Mirroring walks the decoded sprite right to left; no mirrored copy.
     // The mirrored span is [iX - sOffsetX, iTempX], so reject when that
     // left edge leaves the buffer.
-    SDL_Surface* sprite = SpriteSurface(hSrcVObject, usIndex);
-    if (!sprite || iX - pTrav->sOffsetX < 0)
+    if (!pTrav->surface || iX - pTrav->sOffsetX < 0)
         return (TRUE);
-    NativeBltSprite(static_cast<const UINT8*>(sprite->pixels), sprite->pitch,
-                    SpriteMask(hSrcVObject, usIndex),
+    NativeBltSprite(static_cast<const UINT8*>(pTrav->surface->pixels), pTrav->surface->pitch,
+                    pTrav->mask(),
                     (UINT8*)pBuffer + uiDestPitchBYTES * iTempY + (iX - pTrav->sOffsetX) * 2, 0, 0,
                     usWidth, usHeight, 2, -1, uiDestPitchBYTES - usWidth * 2,
         [&](UINT8* dest, UINT8 index) { NativeWriteWord(dest, p16BPPPalette[index]); },
@@ -1181,7 +1148,7 @@ BOOLEAN Blt8BPPDataTo16BPPBufferTransparentClip(UINT16* pBuffer, UINT32 uiDestPi
     UINT32 usHeight, usWidth;
     UINT8 *DestPtr;
     UINT32 LineSkip;
-    ETRLEObject* pTrav;
+    const SpriteFrame* pTrav;
     INT32 iTempX, iTempY, LeftSkip, RightSkip, TopSkip, BottomSkip, BlitLength, BlitHeight;
     INT32 ClipX1, ClipY1, ClipX2, ClipY2;
 
@@ -1190,7 +1157,7 @@ BOOLEAN Blt8BPPDataTo16BPPBufferTransparentClip(UINT16* pBuffer, UINT32 uiDestPi
     Assert(pBuffer != nullptr);
 
     // Get Offsets from Index into structure
-    pTrav = &(hSrcVObject->pETRLEObject[usIndex]);
+    pTrav = &hSrcVObject->sprites[usIndex];
     usHeight = (UINT32)pTrav->usHeight;
     usWidth = (UINT32)pTrav->usWidth;
 
@@ -1232,11 +1199,10 @@ BOOLEAN Blt8BPPDataTo16BPPBufferTransparentClip(UINT16* pBuffer, UINT32 uiDestPi
     p16BPPPalette = hSrcVObject->pShadeCurrent;
     LineSkip = (uiDestPitchBYTES - (BlitLength * 2));
 
-    SDL_Surface* sprite = SpriteSurface(hSrcVObject, usIndex);
-    if (!sprite)
+    if (!pTrav->surface)
         return (TRUE);
-    NativeBltSprite(static_cast<const UINT8*>(sprite->pixels), sprite->pitch,
-                    SpriteMask(hSrcVObject, usIndex), DestPtr, LeftSkip, TopSkip, BlitLength,
+    NativeBltSprite(static_cast<const UINT8*>(pTrav->surface->pixels), pTrav->surface->pitch,
+                    pTrav->mask(), DestPtr, LeftSkip, TopSkip, BlitLength,
                     BlitHeight, 2, 1, LineSkip,
         [&](UINT8* dest, UINT8 index) { NativeWriteWord(dest, p16BPPPalette[index]); },
         [](UINT8*) {});
@@ -1254,7 +1220,7 @@ BOOLEAN Blt8BPPDataTo16BPPBufferTransparentClip(UINT16* pBuffer, UINT32 uiDestPi
 BOOLEAN BltIsClipped(HVOBJECT hSrcVObject, INT32 iX, INT32 iY, UINT16 usIndex, SGPRect* clipregion)
 {
     UINT32 usHeight, usWidth;
-    ETRLEObject* pTrav;
+    const SpriteFrame* pTrav;
     INT32 iTempX, iTempY;
     INT32 ClipX1, ClipY1, ClipX2, ClipY2;
 
@@ -1262,7 +1228,7 @@ BOOLEAN BltIsClipped(HVOBJECT hSrcVObject, INT32 iX, INT32 iY, UINT16 usIndex, S
     Assert(hSrcVObject != nullptr);
 
     // Get Offsets from Index into structure
-    pTrav = &(hSrcVObject->pETRLEObject[usIndex]);
+    pTrav = &hSrcVObject->sprites[usIndex];
     usHeight = (UINT32)pTrav->usHeight;
     usWidth = (UINT32)pTrav->usWidth;
 
@@ -1314,7 +1280,7 @@ BOOLEAN Blt8BPPDataTo16BPPBufferShadowClip(UINT16* pBuffer, UINT32 uiDestPitchBY
     UINT32 usHeight, usWidth;
     UINT8 *DestPtr;
     UINT32 LineSkip;
-    ETRLEObject* pTrav;
+    const SpriteFrame* pTrav;
     INT32 iTempX, iTempY, LeftSkip, RightSkip, TopSkip, BottomSkip, BlitLength, BlitHeight;
     INT32 ClipX1, ClipY1, ClipX2, ClipY2;
 
@@ -1323,7 +1289,7 @@ BOOLEAN Blt8BPPDataTo16BPPBufferShadowClip(UINT16* pBuffer, UINT32 uiDestPitchBY
     Assert(pBuffer != nullptr);
 
     // Get Offsets from Index into structure
-    pTrav = &(hSrcVObject->pETRLEObject[usIndex]);
+    pTrav = &hSrcVObject->sprites[usIndex];
     usHeight = (UINT32)pTrav->usHeight;
     usWidth = (UINT32)pTrav->usWidth;
 
@@ -1366,11 +1332,10 @@ BOOLEAN Blt8BPPDataTo16BPPBufferShadowClip(UINT16* pBuffer, UINT32 uiDestPitchBY
 
     auto opaque = [](UINT8* dest, UINT8) { NativeWriteWord(dest, ShadeTable[NativeReadWord(dest)]); };
     auto transparent = [](UINT8*) {};
-    SDL_Surface* sprite = SpriteSurface(hSrcVObject, usIndex);
-    if (!sprite)
+    if (!pTrav->surface)
         return (TRUE);
-    NativeBltSprite(static_cast<const UINT8*>(sprite->pixels), sprite->pitch,
-                    SpriteMask(hSrcVObject, usIndex), DestPtr, LeftSkip, TopSkip, BlitLength,
+    NativeBltSprite(static_cast<const UINT8*>(pTrav->surface->pixels), pTrav->surface->pitch,
+                    pTrav->mask(), DestPtr, LeftSkip, TopSkip, BlitLength,
                     BlitHeight, 2, 1, LineSkip, opaque, transparent);
 
     return (TRUE);

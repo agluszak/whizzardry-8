@@ -1008,8 +1008,8 @@ void GetCatalogImagePosition(int object, int frame, int image, short* x, short* 
     }
     if (record->storage_kind == W8_VIDEO_STORAGE_OBJECT) {
         GetVideoObject(&video_object, record->handle);
-        *x = video_object->pETRLEObject[subimage].sOffsetX;
-        *y = video_object->pETRLEObject[subimage].sOffsetY;
+        *x = video_object->sprites[subimage].sOffsetX;
+        *y = video_object->sprites[subimage].sOffsetY;
     }
 }
 

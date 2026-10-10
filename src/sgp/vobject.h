@@ -77,6 +77,23 @@ typedef struct {
 #define VOBJECT_FLAG_SHADETABLE_SHARED 0x00000100
 
 // This structure is a video object.
+// One decoded sprite frame: INDEX8 pixels plus the placement metadata the
+// blitters need. Transparent runs decode to index 0; a frame whose opaque
+// runs contain a literal index 0 gets an explicit per-pixel opacity mask
+// (1 = opaque) so transparency is never ambiguous, and all other frames
+// leave the mask empty. The compressed source bytes are never retained.
+struct SpriteFrame {
+    SDLSurfaceOwner surface{nullptr, SDL_DestroySurface};
+    std::vector<UINT8> opacity;
+    INT16 sOffsetX = 0;
+    INT16 sOffsetY = 0;
+    UINT16 usHeight = 0;
+    UINT16 usWidth = 0;
+
+    // Explicit opacity for frames with a literal index 0, else nullptr.
+    const UINT8* mask() const { return opacity.empty() ? nullptr : opacity.data(); }
+};
+
 // The video object contains different data based on it's type, compressed or not
 typedef struct TAG_HVOBJECT {
     UINT32 fFlags;                  // Special flags
@@ -85,14 +102,7 @@ typedef struct TAG_HVOBJECT {
     std::shared_ptr<UINT16[]> ownedPalette;
     UINT16* p16BPPPalette; // Borrowed palette view; font drawing may temporarily override it.
 
-    std::vector<ETRLEObject> pETRLEObject; // Object offset data etc
-    // Each ETRLE frame decoded once to an INDEX8 SDL surface at load;
-    // transparent runs decode to index 0. A frame whose opaque runs contain a
-    // literal index 0 gets an explicit per-pixel opacity mask in spriteMasks
-    // (1 = opaque) so transparency is never ambiguous; all other frames leave
-    // their mask empty. The compressed source bytes are not retained.
-    std::vector<SDLSurfaceOwner> sprites;
-    std::vector<std::vector<UINT8>> spriteMasks;
+    std::vector<SpriteFrame> sprites;   // Decoded frames, one per ETRLE subimage
     std::vector<SixteenBPPObjectInfo> p16BPPObject;
     std::array<std::shared_ptr<UINT16[]>, HVOBJECT_SHADE_TABLES> pShades; // Shading tables
     UINT16* pShadeCurrent;
@@ -214,8 +224,8 @@ BOOLEAN BltVideoObjectToBuffer(UINT16* pBuffer, UINT32 uiDestPitchBYTES, HVOBJEC
 HVOBJECT GetPrimaryVideoObject();
 HVOBJECT GetBackBufferVideoObject();
 
-BOOLEAN GetVideoObjectETRLEProperties(HVOBJECT hVObject, ETRLEObject* pETRLEObject, UINT16 usIndex);
-BOOLEAN GetVideoObjectETRLEPropertiesFromIndex(UINT32 uiVideoObject, ETRLEObject* pETRLEObject,
+BOOLEAN GetVideoObjectETRLEProperties(HVOBJECT hVObject, ETRLEObject* sprites, UINT16 usIndex);
+BOOLEAN GetVideoObjectETRLEPropertiesFromIndex(UINT32 uiVideoObject, ETRLEObject* sprites,
                                                UINT16 usIndex);
 BOOLEAN GetVideoObjectETRLESubregionProperties(UINT32 uiVideoObject, UINT16 usIndex,
                                                UINT16* pusWidth, UINT16* pusHeight);

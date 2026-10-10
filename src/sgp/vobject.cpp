@@ -244,14 +244,10 @@ HVOBJECT CreateVideoObject(VOBJECT_DESC* VObjectDesc)
         owner->pShade8 = ubColorTables[DEFAULT_SHADE_LEVEL];
         owner->pGlow8 = ubColorTables[0];
     }
-    if (imageOwner) {
-        owner->pETRLEObject = std::move(hImage->pETRLEObject);
-    } else {
-        owner->pETRLEObject = hImage->pETRLEObject;
-    }
     // ETRLE data decodes once here; the compressed bytes are never kept
     // on the video object.
-    if (!DecodeVideoObjectSprites(owner.get(), hImage->pImageData.data(),
+    if (!DecodeVideoObjectSprites(owner.get(), hImage->pETRLEObject,
+                                  hImage->pImageData.data(),
                                   static_cast<UINT32>(hImage->pImageData.size()))) {
         return nullptr;
     }
@@ -523,34 +519,31 @@ UINT16 SetObjectShade(HVOBJECT pObj, UINT32 uiShade)
 BOOLEAN GetETRLEPixelValue(UINT8* pDest, HVOBJECT hVObject, UINT16 usETRLEIndex, UINT16 usX,
                            UINT16 usY)
 {
-    ETRLEObject* pETRLEObject;
-
     // Do a bunch of checks
     CHECKF(hVObject != nullptr);
-    CHECKF(usETRLEIndex < hVObject->pETRLEObject.size());
+    CHECKF(usETRLEIndex < hVObject->sprites.size());
 
-    pETRLEObject = &(hVObject->pETRLEObject[usETRLEIndex]);
+    const SpriteFrame& frame = hVObject->sprites[usETRLEIndex];
 
-    CHECKF(usX < pETRLEObject->usWidth);
-    CHECKF(usY < pETRLEObject->usHeight);
+    CHECKF(usX < frame.usWidth);
+    CHECKF(usY < frame.usHeight);
+    CHECKF(frame.surface);
 
     // Transparent runs decode to index 0, which is also what a literal
     // index 0 reads back as, so a plain pixel read is the whole query.
-    if (usETRLEIndex < hVObject->sprites.size() && hVObject->sprites[usETRLEIndex]) {
-        const SDL_Surface* sprite = hVObject->sprites[usETRLEIndex].get();
-        *pDest = static_cast<const UINT8*>(sprite->pixels)[usY * sprite->pitch + usX];
-        return (TRUE);
-    }
-    return (FALSE);
+    *pDest = static_cast<const UINT8*>(frame.surface->pixels)[usY * frame.surface->pitch + usX];
+    return (TRUE);
 }
 
 // FUNCTION: WIZ8 0x00406a10
 BOOLEAN GetVideoObjectETRLEProperties(HVOBJECT hVObject, ETRLEObject* pETRLEObject, UINT16 usIndex)
 {
     CHECKF(usIndex >= 0);
-    CHECKF(usIndex < hVObject->pETRLEObject.size());
+    CHECKF(usIndex < hVObject->sprites.size());
 
-    memcpy(pETRLEObject, &(hVObject->pETRLEObject[usIndex]), sizeof(ETRLEObject));
+    const SpriteFrame& frame = hVObject->sprites[usIndex];
+    *pETRLEObject = ETRLEObject{0, 0, frame.sOffsetX, frame.sOffsetY, frame.usHeight,
+                              frame.usWidth};
 
     return (TRUE);
 }

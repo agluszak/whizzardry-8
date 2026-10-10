@@ -136,17 +136,24 @@ void camp_effects()
     std::array<SGPPaletteEntry, 256> palette{};
     std::array<ETRLEObject, 12> images{};
     for (auto& image : images) { image.usWidth = 16; image.usHeight = 8; }
-    UINT8 pixels = 0;
     image_type image{};
     image.ubBitDepth = 8;
     image.fFlags = IMAGE_TRLECOMPRESSED;
     image.pPalette = std::make_unique<SGPPaletteEntry[]>(256);
     std::copy_n(palette.data(), palette.size(), image.pPalette.get());
-    image.pImageData.resize(1);
-    image.pImageData[0] = pixels;
+    // Each frame is eight scanlines of one transparent run of 16 then the
+    // row terminator: 0x90 0x00 repeated.
+    image.pImageData.resize(images.size() * 16);
 
     image.pETRLEObject.resize(images.size());
     std::copy_n(images.data(), images.size(), image.pETRLEObject.data());
+    for (std::size_t i = 0; i < images.size(); ++i) {
+        image.pETRLEObject[i].uiDataOffset = i * 16;
+        image.pETRLEObject[i].uiDataLength = 16;
+        for (unsigned row = 0; row < 8; ++row) {
+            image.pImageData[i * 16 + row * 2] = 0x90;
+        }
+    }
 
     VOBJECT_DESC desc{};
     desc.fCreateFlags = VOBJECT_CREATE_FROMHIMAGE;
@@ -377,9 +384,8 @@ void image_and_sprite_ownership()
     for (unsigned i = 0; i < ids.size(); ++i) {
         CHECK(AddVideoObject(&desc, &ids[i]));
         CHECK(GetVideoObject(&views[i], ids[i]));
-        CHECK(views[i]->sprites.size() == 1 && views[i]->sprites[0]);
-        CHECK(views[i]->sprites[0]->pixels != image.pImageData.data());
-        CHECK(views[i]->pETRLEObject.data() != image.pETRLEObject.data());
+        CHECK(views[i]->sprites.size() == 1 && views[i]->sprites[0].surface);
+        CHECK(views[i]->sprites[0].surface->pixels != image.pImageData.data());
         CHECK(views[i]->pPaletteEntry.get() != image.pPalette.get());
         (void)CreateObjectPaletteTables(views[i], HVOBJECT_GLOW_GREEN);
         CHECK(views[i]->pShades[0] && views[i]->pShades[15]);
@@ -395,8 +401,8 @@ void image_and_sprite_ownership()
     }
     image.pImageData[1] = 2;
     image.pETRLEObject[0].usWidth = 2;
-    CHECK(static_cast<UINT8*>(views[0]->sprites[0]->pixels)[0] == 1 &&
-          views[0]->pETRLEObject[0].usWidth == 1);
+    CHECK(static_cast<UINT8*>(views[0]->sprites[0].surface->pixels)[0] == 1 &&
+          views[0]->sprites[0].usWidth == 1);
     image.pETRLEObject[0].uiDataOffset = 0xffffffffu;
     CHECK(!CreateVideoObject(&desc));
     CHECK(image.pImageData[1] == 2 && image.pETRLEObject[0].uiDataOffset == 0xffffffffu);
@@ -409,8 +415,8 @@ void image_and_sprite_ownership()
     }
     HVOBJECT surviving = nullptr;
     CHECK(GetVideoObject(&surviving, ids[32]) && surviving == views[32]);
-    CHECK(static_cast<UINT8*>(surviving->sprites[0]->pixels)[0] == 1 &&
-          surviving->pETRLEObject[0].usWidth == 1);
+    CHECK(static_cast<UINT8*>(surviving->sprites[0].surface->pixels)[0] == 1 &&
+          surviving->sprites[0].usWidth == 1);
     UINT16 borrowed[256]{};
     surviving->p16BPPPalette = borrowed;
     CHECK(DestroyObjectPaletteTables(surviving));
@@ -610,9 +616,9 @@ void generic_button_images()
         desc.fCreateFlags = VOBJECT_CREATE_FROMFILE;
         desc.ImageFile = long_image_path;
         std::unique_ptr<SGPVObject> sprite(CreateVideoObject(&desc));
-        CHECK(sprite && sprite->pETRLEObject.size() == 3 && sprite->sprites.size() == 3);
-        CHECK(sprite->pETRLEObject[2].uiDataOffset == 6 &&
-              static_cast<UINT8*>(sprite->sprites[2]->pixels)[0] == 1);
+        CHECK(sprite && sprite->sprites.size() == 3);
+        CHECK(sprite->sprites[2].usWidth == 1 &&
+              static_cast<UINT8*>(sprite->sprites[2].surface->pixels)[0] == 1);
         CHECK(sprite->pPaletteEntry[1].peRed == 255);
     }
     for (bool corrupt_length : {false, true}) {
@@ -685,7 +691,7 @@ void generic_button_images()
         CHECK(InitializeFontManager(CreateEnglishTransTable()));
         CHECK(LoadFontFile(reinterpret_cast<const char*>(filename)) == 0);
         auto* font = GetFontObject(0);
-        CHECK(font && font->ownedPalette && font->pETRLEObject.size() == 9);
+        CHECK(font && font->ownedPalette && font->sprites.size() == 9);
         UINT16 borrowed[256]{};
         CHECK(SetFontObjectPalette16BPP(0, borrowed) == borrowed);
         CHECK(GetFontObjectPalette16BPP(0) == borrowed);

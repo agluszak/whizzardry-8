@@ -123,8 +123,7 @@ int main(int argc, char** argv)
         palette8[i] = static_cast<UINT8>(i * 73 + 11);
     }
     SGPVObject object = {};
-    object.pETRLEObject.resize(1);
-    auto& frame = object.pETRLEObject[0];
+    ETRLEObject frame{};
     object.pShade8 = palette8;
     object.pShadeCurrent = palette;
     ClippingRect = {0, 0, 640, static_cast<INT32>(rows)};
@@ -136,7 +135,8 @@ int main(int argc, char** argv)
         // The single decoded representation must produce the legacy assembly
         // bytes; data 1 carries literal index 0 in opaque runs and exercises
         // the explicit opacity mask.
-        if (!DecodeVideoObjectSprites(&object, encoded, sizeof(encoded))) return 3;
+        if (!DecodeVideoObjectSprites(&object, {&frame, 1}, encoded, sizeof(encoded)))
+            return 3;
         for (int variant = 0; variant < 8; ++variant) {
             // Whole, partial opaque/transparent runs, every clipped edge,
             // null/default clip rectangle and complete rejection.

@@ -276,7 +276,7 @@ void UnloadFont(UINT32 FontIndex)
 
 UINT32 GetWidth(HVOBJECT hSrcVObject, INT16 ssIndex)
 {
-    ETRLEObject* pTrav;
+    SpriteFrame* pTrav;
 
     // Assertions
     Assert(hSrcVObject != nullptr);
@@ -285,7 +285,7 @@ UINT32 GetWidth(HVOBJECT hSrcVObject, INT16 ssIndex)
     }
 
     // Get Offsets from Index into structure
-    pTrav = &(hSrcVObject->pETRLEObject[ssIndex]);
+    pTrav = &(hSrcVObject->sprites[ssIndex]);
     return ((UINT32)(pTrav->usWidth + pTrav->sOffsetX));
 }
 
@@ -415,13 +415,13 @@ void RestoreFontSettings(void)
 
 UINT32 GetHeight(HVOBJECT hSrcVObject, INT16 ssIndex)
 {
-    ETRLEObject* pTrav;
+    SpriteFrame* pTrav;
 
     // Assertions
     Assert(hSrcVObject != nullptr);
 
     // Get Offsets from Index into structure
-    pTrav = &(hSrcVObject->pETRLEObject[ssIndex]);
+    pTrav = &(hSrcVObject->sprites[ssIndex]);
     return ((UINT32)(pTrav->usHeight + pTrav->sOffsetY));
 }
 // GetFontHeight

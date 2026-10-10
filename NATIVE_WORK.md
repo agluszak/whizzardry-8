@@ -25,13 +25,12 @@ an installed game. Passing CTest alone does not establish complete gameplay.
 # CPU graphics classification
 
 SDL surfaces are the common CPU pixel representation. `CpuSurface` owns SGP
-frame buffers; `HVOBJECT::sprites` holds each ETRLE frame decoded once at
-`CreateVideoObject` into an INDEX8 `SDL_Surface`. The compressed bytes are
-never retained on the object: `pETRLEObject` keeps only frame metadata
-(dimensions, offsets). Transparent runs decode to index 0; a frame whose
-opaque runs contain a literal index 0 additionally gets an explicit
-per-pixel opacity mask in `spriteMasks`, so transparency is never
-ambiguous.
+frame buffers; `HVOBJECT::sprites` is a single vector of `SpriteFrame`
+decoded once at `CreateVideoObject` — each owns its INDEX8 `SDL_Surface`,
+dimensions, offsets, and (only for frames whose opaque runs contain a
+literal index 0) an explicit per-pixel opacity mask, so transparency is
+never ambiguous. The compressed bytes are never retained; decoding is
+bounded strictly by each frame's recorded `uiDataOffset`/`uiDataLength`.
 
 Every sprite blitter is the same mask-aware `NativeBltSprite` walker with
 an operation-specific opaque/transparent callback: 8/16-bit transparent

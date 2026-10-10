@@ -217,7 +217,7 @@ INT32 LoadButtonImage(UINT8* filename, INT32 Grayed, INT32 OffNormal, INT32 OffH
 {
     VOBJECT_DESC vo_desc;
     INT32 UseSlot;
-    ETRLEObject* pTrav;
+    SpriteFrame* pTrav;
     UINT32 MaxHeight, MaxWidth, ThisHeight, ThisWidth;
 
     AssertMsg(filename != BUTTON_NO_FILENAME, "Attempting to LoadButtonImage() with null filename.");
@@ -257,7 +257,7 @@ INT32 LoadButtonImage(UINT8* filename, INT32 Grayed, INT32 OffNormal, INT32 OffH
     // Fit the button size to the largest image in the set
     MaxWidth = MaxHeight = 0;
     if (Grayed != BUTTON_NO_IMAGE) {
-        pTrav = &(ButtonPictures[UseSlot].object()->pETRLEObject[Grayed]);
+        pTrav = &(ButtonPictures[UseSlot].object()->sprites[Grayed]);
         ThisHeight = (UINT32)(pTrav->usHeight + pTrav->sOffsetY);
         ThisWidth = (UINT32)(pTrav->usWidth + pTrav->sOffsetX);
 
@@ -268,7 +268,7 @@ INT32 LoadButtonImage(UINT8* filename, INT32 Grayed, INT32 OffNormal, INT32 OffH
     }
 
     if (OffNormal != BUTTON_NO_IMAGE) {
-        pTrav = &(ButtonPictures[UseSlot].object()->pETRLEObject[OffNormal]);
+        pTrav = &(ButtonPictures[UseSlot].object()->sprites[OffNormal]);
         ThisHeight = (UINT32)(pTrav->usHeight + pTrav->sOffsetY);
         ThisWidth = (UINT32)(pTrav->usWidth + pTrav->sOffsetX);
 
@@ -279,7 +279,7 @@ INT32 LoadButtonImage(UINT8* filename, INT32 Grayed, INT32 OffNormal, INT32 OffH
     }
 
     if (OffHilite != BUTTON_NO_IMAGE) {
-        pTrav = &(ButtonPictures[UseSlot].object()->pETRLEObject[OffHilite]);
+        pTrav = &(ButtonPictures[UseSlot].object()->sprites[OffHilite]);
         ThisHeight = (UINT32)(pTrav->usHeight + pTrav->sOffsetY);
         ThisWidth = (UINT32)(pTrav->usWidth + pTrav->sOffsetX);
 
@@ -290,7 +290,7 @@ INT32 LoadButtonImage(UINT8* filename, INT32 Grayed, INT32 OffNormal, INT32 OffH
     }
 
     if (OnNormal != BUTTON_NO_IMAGE) {
-        pTrav = &(ButtonPictures[UseSlot].object()->pETRLEObject[OnNormal]);
+        pTrav = &(ButtonPictures[UseSlot].object()->sprites[OnNormal]);
         ThisHeight = (UINT32)(pTrav->usHeight + pTrav->sOffsetY);
         ThisWidth = (UINT32)(pTrav->usWidth + pTrav->sOffsetX);
 
@@ -301,7 +301,7 @@ INT32 LoadButtonImage(UINT8* filename, INT32 Grayed, INT32 OffNormal, INT32 OffH
     }
 
     if (OnHilite != BUTTON_NO_IMAGE) {
-        pTrav = &(ButtonPictures[UseSlot].object()->pETRLEObject[OnHilite]);
+        pTrav = &(ButtonPictures[UseSlot].object()->sprites[OnHilite]);
         ThisHeight = (UINT32)(pTrav->usHeight + pTrav->sOffsetY);
         ThisWidth = (UINT32)(pTrav->usWidth + pTrav->sOffsetX);
 
@@ -332,7 +332,7 @@ INT32 UseVObjAsButtonImage(HVOBJECT hVObject, INT32 Grayed, INT32 OffNormal, INT
                            INT32 OnNormal, INT32 OnHilite)
 {
     INT32 UseSlot;
-    ETRLEObject* pTrav;
+    SpriteFrame* pTrav;
     UINT32 MaxHeight, MaxWidth, ThisHeight, ThisWidth;
 
     // Is button image index given valid?
@@ -366,7 +366,7 @@ INT32 UseVObjAsButtonImage(HVOBJECT hVObject, INT32 Grayed, INT32 OffNormal, INT
     // Fit the button size to the largest image in the set
     MaxWidth = MaxHeight = 0;
     if (Grayed != BUTTON_NO_IMAGE) {
-        pTrav = &(ButtonPictures[UseSlot].object()->pETRLEObject[Grayed]);
+        pTrav = &(ButtonPictures[UseSlot].object()->sprites[Grayed]);
         ThisHeight = (UINT32)(pTrav->usHeight + pTrav->sOffsetY);
         ThisWidth = (UINT32)(pTrav->usWidth + pTrav->sOffsetX);
 
@@ -377,7 +377,7 @@ INT32 UseVObjAsButtonImage(HVOBJECT hVObject, INT32 Grayed, INT32 OffNormal, INT
     }
 
     if (OffNormal != BUTTON_NO_IMAGE) {
-        pTrav = &(ButtonPictures[UseSlot].object()->pETRLEObject[OffNormal]);
+        pTrav = &(ButtonPictures[UseSlot].object()->sprites[OffNormal]);
         ThisHeight = (UINT32)(pTrav->usHeight + pTrav->sOffsetY);
         ThisWidth = (UINT32)(pTrav->usWidth + pTrav->sOffsetX);
 
@@ -388,7 +388,7 @@ INT32 UseVObjAsButtonImage(HVOBJECT hVObject, INT32 Grayed, INT32 OffNormal, INT
     }
 
     if (OffHilite != BUTTON_NO_IMAGE) {
-        pTrav = &(ButtonPictures[UseSlot].object()->pETRLEObject[OffHilite]);
+        pTrav = &(ButtonPictures[UseSlot].object()->sprites[OffHilite]);
         ThisHeight = (UINT32)(pTrav->usHeight + pTrav->sOffsetY);
         ThisWidth = (UINT32)(pTrav->usWidth + pTrav->sOffsetX);
 
@@ -399,7 +399,7 @@ INT32 UseVObjAsButtonImage(HVOBJECT hVObject, INT32 Grayed, INT32 OffNormal, INT
     }
 
     if (OnNormal != BUTTON_NO_IMAGE) {
-        pTrav = &(ButtonPictures[UseSlot].object()->pETRLEObject[OnNormal]);
+        pTrav = &(ButtonPictures[UseSlot].object()->sprites[OnNormal]);
         ThisHeight = (UINT32)(pTrav->usHeight + pTrav->sOffsetY);
         ThisWidth = (UINT32)(pTrav->usWidth + pTrav->sOffsetX);
 
@@ -410,7 +410,7 @@ INT32 UseVObjAsButtonImage(HVOBJECT hVObject, INT32 Grayed, INT32 OffNormal, INT
     }
 
     if (OnHilite != BUTTON_NO_IMAGE) {
-        pTrav = &(ButtonPictures[UseSlot].object()->pETRLEObject[OnHilite]);
+        pTrav = &(ButtonPictures[UseSlot].object()->sprites[OnHilite]);
         ThisHeight = (UINT32)(pTrav->usHeight + pTrav->sOffsetY);
         ThisWidth = (UINT32)(pTrav->usWidth + pTrav->sOffsetX);
 
@@ -1665,7 +1665,7 @@ void DrawIconOnButton(GUI_BUTTON* b)
     INT32 xp, yp, width, height, IconX, IconY;
     INT32 IconW, IconH;
     SGPRect NewClip, OldClip;
-    ETRLEObject* pTrav;
+    SpriteFrame* pTrav;
     HVOBJECT hvObject;
 
     // If there's an actual icon on this button, try to show it.
@@ -1722,10 +1722,10 @@ void DrawIconOnButton(GUI_BUTTON* b)
 
         // Get the width and height of the icon itself
         if (b->uiFlags & BUTTON_GENERIC)
-            pTrav = &(GenericButtonIcons[b->iIconID]->pETRLEObject[b->usIconIndex]);
+            pTrav = &(GenericButtonIcons[b->iIconID]->sprites[b->usIconIndex]);
         else {
             GetVideoObject(&hvObject, b->iIconID);
-            pTrav = &(hvObject->pETRLEObject[b->usIconIndex]);
+            pTrav = &(hvObject->sprites[b->usIconIndex]);
         }
         IconH = (UINT32)(pTrav->usHeight + pTrav->sOffsetY);
         IconW = (UINT32)(pTrav->usWidth + pTrav->sOffsetX);
@@ -1894,7 +1894,7 @@ void DrawGenericButton(GUI_BUTTON* b)
     UINT32 uiDestPitchBYTES;
     UINT8* pDestBuf;
     SGPRect ClipRect;
-    ETRLEObject* pTrav;
+    SpriteFrame* pTrav;
 
     // Select the graphics to use depending on the current state of the button
     if (b->uiFlags & BUTTON_ENABLED) {
@@ -1936,7 +1936,7 @@ void DrawGenericButton(GUI_BUTTON* b)
     // The 3x2 size was a bit limiting. JA2 should default to the original
     // size, unchanged
 
-    pTrav = &(BPic->pETRLEObject[0]);
+    pTrav = &(BPic->sprites[0]);
     iBorderHeight = (INT32)pTrav->usHeight;
     iBorderWidth = (INT32)pTrav->usWidth;
 
