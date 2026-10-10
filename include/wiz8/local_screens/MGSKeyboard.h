@@ -5,6 +5,7 @@
 #include "input.h"
 #include "wiz8/mgs_commands.h"
 #include "surrender/srMath.h"
+#include <memory>
 #include <vector>
 #include <unordered_map>
 
@@ -23,7 +24,7 @@ W8_ABI_ASSERT(sizeof(MGSKeyBinding) == 0x0a, "MGSKeyBinding_size");
 // VTABLE: WIZ8 0x005ee8f0
 class MGSKeyboard {
 public:
-    virtual ~MGSKeyboard();
+    virtual ~MGSKeyboard() = default;
 
     int FindBinding(W8MGSCommand command) const;
     /* Match a live InputAtom against the binding table; returns command or -1. */
@@ -36,7 +37,7 @@ public:
     unsigned char LoadDefaults(const char* path);
 
 private:
-  std::vector<MGSKeyBinding*> m_bindings;
+  std::vector<std::unique_ptr<MGSKeyBinding>> m_bindings;
   std::unordered_map<unsigned int, MGSKeyBinding*> m_command_index;
 };
 
