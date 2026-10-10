@@ -140,6 +140,10 @@ struct AudioFixture
         write(asset / "Data" / "DATA.SLF", archive);
 
         wiz8::mount_slf("Data\\Data.slf");
+    }
+
+    void checkArchiveStreams()
+    {
         {
             char packed[] = "data\\PACKED.WAV";
             auto entry = [&]() { try { return wiz8::open_file(packed, wiz8::OpenMode::read); } catch (const std::exception&) { return std::unique_ptr<wiz8::File>{}; } }();
@@ -162,6 +166,10 @@ struct AudioFixture
             REQUIRE(loose->read(bytes, sizeof(bytes)).bytes == sizeof(bytes));
             REQUIRE(std::memcmp(bytes, wave.data(), sizeof(bytes)) == 0);
         }
+    }
+
+    void startOfflineAudio()
+    {
         w8_native::audio_offline_for_test(true);
         REQUIRE(InitializeSoundManager());
     }
@@ -175,6 +183,8 @@ struct AudioFixture
 
 TEST_CASE_METHOD(AudioFixture, "Audio archives, tracks and combat sounds", "[audio][streams]")
 {
+    checkArchiveStreams();
+    startOfflineAudio();
     // Variant selection accepts a bounded, read-only name and does not append
     // into its backing storage or consume the characters beyond the view.
     const auto combat = asset / "Data" / "Sound" / "Combat";
@@ -233,6 +243,7 @@ TEST_CASE_METHOD(AudioFixture, "Audio archives, tracks and combat sounds", "[aud
 
 TEST_CASE_METHOD(AudioFixture, "Audio playback, spatialization and movie lifetime", "[audio][mixer]")
 {
+    startOfflineAudio();
     SOUNDPARMS options;
     memset(&options, 0xff, sizeof(options));
     unsigned callback_data = 0;
@@ -565,7 +576,7 @@ TEST_CASE_METHOD(AudioFixture, "Audio playback, spatialization and movie lifetim
 
 TEST_CASE_METHOD(AudioFixture, "Audio output device", "[.manual][audio]")
 {
-    ShutdownSoundManager();
+
     char path[] = "TONE.WAV";
     SOUNDPARMS options;
     UINT32 sound;
