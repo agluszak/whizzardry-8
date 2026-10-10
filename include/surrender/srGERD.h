@@ -786,6 +786,7 @@ private:
     void checkViewStateChanges();
     void checkClipPlaneChanges();
     void checkDrawStateChanges();
+    void prepareDrawState();
     void checkFrameStateChanges();
     void checkAllStateChanges();
     void recalcScissor();

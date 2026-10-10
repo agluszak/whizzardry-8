@@ -454,6 +454,16 @@ bool MonGen::CanGenerateEncounter(bool force)
     return Chance(chance) != 0;
 }
 
+/* Restore the level's encounter budget and population bounds. */
+static void ClampRandomEncounterLimits(const W8LevelDatabaseRecord& level)
+{
+    ClampInteger(&g_random_encounter_budget, level.minimum_encounter_budget,
+                 level.maximum_encounter_budget);
+    g_random_encounter_limit = g_random_encounter_budget;
+    ClampInteger(&g_random_encounter_limit, level.minimum_random_encounters,
+                 level.maximum_random_encounters);
+}
+
 /* Advances the random-encounter budget for the current level.
 
    Normally the budget grows by the time elapsed since the level was last
@@ -483,11 +493,7 @@ void UpdateRandomEncounterBudget(bool reset_budget)
         elapsed = W8_ENCOUNTER_STALE_SECONDS + 1;
     }
     level = &g_level_records[g_status.current_level];
-    ClampInteger(&g_random_encounter_budget, level->minimum_encounter_budget,
-                 level->maximum_encounter_budget);
-    g_random_encounter_limit = g_random_encounter_budget;
-    ClampInteger(&g_random_encounter_limit, level->minimum_random_encounters,
-                 level->maximum_random_encounters);
+    ClampRandomEncounterLimits(*level);
     if (elapsed > W8_ENCOUNTER_STALE_SECONDS) {
         RollRandomEncounters();
         return;
@@ -655,11 +661,7 @@ try
     }
 
     level = &g_level_records[g_status.current_level];
-    ClampInteger(&g_random_encounter_budget, level->minimum_encounter_budget,
-                 level->maximum_encounter_budget);
-    g_random_encounter_limit = g_random_encounter_budget;
-    ClampInteger(&g_random_encounter_limit, level->minimum_random_encounters,
-                 level->maximum_random_encounters);
+    ClampRandomEncounterLimits(*level);
     g_encounter_culling_time_seconds = level->encounter_culling_seconds;
     return success;
 } catch (const std::exception&) {
@@ -754,11 +756,7 @@ void UnregisterActiveEncounterGroup(W8MonsterGroup* group)
 
     W8LevelDatabaseRecord* level = &g_level_records[g_status.current_level];
     --g_random_encounter_budget;
-    ClampInteger(&g_random_encounter_budget, level->minimum_encounter_budget,
-                 level->maximum_encounter_budget);
-    g_random_encounter_limit = g_random_encounter_budget;
-    ClampInteger(&g_random_encounter_limit, level->minimum_random_encounters,
-                 level->maximum_random_encounters);
+    ClampRandomEncounterLimits(*level);
 }
 
 /* Register a live random-encounter leader exactly once. */

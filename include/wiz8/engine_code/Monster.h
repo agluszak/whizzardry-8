@@ -185,6 +185,7 @@ public:
     bool IsCycleInterruptable(signed char cycle);
     void ApplyRemovalStateEffects();
     void CollectModelInstances(std::vector<stModelInstance*>& instances);
+    void RefreshModelLightScale();
     void SetDamageStage(int stage);
     int GetDamageStageCount();
     bool ReplaceSkinTexture(int stage, const char* old_name, const char* new_name);
