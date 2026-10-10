@@ -1,6 +1,9 @@
 #pragma once
 
 #include "wiz8/filesystem.h"
+#include <memory>
+
+struct AudioClip;
 
 struct W8World;
 
@@ -11,8 +14,8 @@ struct W8AmbientSoundConfig {
     char wave_name[0x80];
 };
 
-/* Engine Code\AmbientSound.cpp. The allocation and release pair establishes
-   the complete 0x12c-byte object and four members used by its lifetime. */
+/* Engine Code\AmbientSound.cpp. Offsets below describe the retail object;
+   native emitters own their audio clip and no longer have that binary layout. */
 class W8AmbientSound {
 public:
     W8AmbientSound(); /* 0x00479040 */
@@ -46,7 +49,7 @@ public:
     unsigned char looping;       /* 0x0b9: continuous loop vs random one-shot */
     unsigned char padding_0ba[2];
     int sound_handle;      /* 0x0bc: live SGP voice id */
-    int sample_handle;     /* 0x0c0: registered SGP random sample */
+    std::shared_ptr<AudioClip> sample; // Shared with the cache and active tracks.
     unsigned char shared;  /* 0x0c4: shared 2D group sound; voices hand off by name */
     unsigned char bounded; /* 0x0c5: region test enabled (v2 trigger field) */
     unsigned char padding_0c6[2];
@@ -58,8 +61,6 @@ public:
     srVector3T<float> region_scale;  /* 0x0fc: per-axis region scale */
     W8GameTimer fade_timer;          /* 0x108 */
 };
-
-W8_ABI_ASSERT(sizeof(W8AmbientSound) == 0x12c, "W8AmbientSound_must_be_0x12c");
 
 /* Reverb environment id indexing g_footstep_surfaces; retail's range
    check admits 9, one past the table's last entry (the ids are byte-sized in

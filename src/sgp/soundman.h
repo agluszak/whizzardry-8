@@ -5,19 +5,18 @@
 #define __SOUNDMAN_
 
 #include "Types.h"
+#include <memory>
 
-#ifdef __cplusplus
-extern "C" {
-#endif
+struct AudioClip;
+// Owns decoded audio, not an entry in a numeric resource registry.
+using SoundClip = std::shared_ptr<AudioClip>;
 
 extern BOOLEAN gfEnableStartup;
 
 // Sample status flags
-#define SAMPLE_ALLOCATED 0x00000001
 #define SAMPLE_LOCKED 0x00000002
 #define SAMPLE_RANDOM 0x00000004
 #define SAMPLE_RANDOM_MANUAL 0x00000008
-#define SAMPLE_3D 0x00000010
 
 // Sound error values (they're all the same)
 #define NO_SAMPLE 0xffffffff
@@ -76,18 +75,6 @@ typedef struct {
     UINT32 uiMaxInstances;
 } RANDOMPARMS;
 
-// Structure definition for parameters to the random 3D sample playing
-//		function
-typedef struct {
-    UINT32 uiTimeMin, uiTimeMax;
-    UINT32 uiSpeedMin, uiSpeedMax;
-    UINT32 uiVolMin, uiVolMax;
-    UINT32 uiPriority;
-    UINT32 uiMaxInstances;
-
-    SOUND3DPOS Pos; // NOT optional, MUST be set
-} RANDOM3DPARMS;
-
 // Global startup/shutdown functions
 extern BOOLEAN InitializeSoundManager(void);
 extern void ShutdownSoundManager(void);
@@ -99,17 +86,16 @@ extern BOOLEAN SoundSetCacheThreshhold(UINT32 uiThreshold);
 extern void SoundSetDefaultVolume(UINT32 uiVolume);
 
 // Cache control functions
-extern UINT32 SoundLoadSample(STR pFilename);
+extern SoundClip SoundLoadSample(STR pFilename);
 extern BOOLEAN SoundEmptyCache(void);
-extern BOOLEAN SoundSampleIsInUse(UINT32 uiSample);
 
 // Play/service sample functions
 extern UINT32 SoundPlay(std::string_view pFilename, SOUNDPARMS* pParms);
 extern UINT32 SoundPlayStreamedFile(std::string_view pFilename, SOUNDPARMS* pParms);
 
-extern UINT32 SoundPlayRandom(STR pFilename, RANDOMPARMS* pParms);
-extern BOOLEAN SoundRandomShouldPlay(UINT32 uiSample);
-extern UINT32 SoundStartRandom(UINT32 uiSample);
+extern SoundClip SoundPlayRandom(STR pFilename, RANDOMPARMS* pParms);
+extern BOOLEAN SoundRandomShouldPlay(SoundClip uiSample);
+extern UINT32 SoundStartRandom(SoundClip uiSample);
 extern BOOLEAN SoundServiceStreams(void);
 extern BOOLEAN SoundServiceRandom(void);
 // Sound instance manipulation functions
@@ -129,8 +115,8 @@ extern BOOLEAN SoundGetMilliSecondPosition(UINT32 uiSoundID, UINT32* puiTotalMil
 
 // Sound instance group functions
 extern BOOLEAN SoundStopGroup(UINT32 uiPriority);
-extern void SoundSetSampleFlags(UINT32 uiSample, UINT32 uiFlags);
-extern void SoundRemoveSampleFlags(UINT32 uiSample, UINT32 uiFlags);
+extern void SoundSetSampleFlags(SoundClip uiSample, UINT32 uiFlags);
+extern void SoundRemoveSampleFlags(SoundClip uiSample, UINT32 uiFlags);
 
 extern void SoundEnableSound(BOOLEAN fEnable);
 
@@ -144,12 +130,7 @@ extern void Sound3DSetListenerOrientation(FLOAT faceX, FLOAT faceY, FLOAT faceZ,
 extern void Sound3DSetListenerVelocity(FLOAT x, FLOAT y, FLOAT z);
 extern void Sound3DSetEnvironment(INT32 iEnvironment);
 extern UINT32 Sound3DPlay(STR pFilename, SOUND3DPARMS* pParms);
-extern UINT32 Sound3DStartSample(UINT32 uiSample, UINT32 uiChannel, SOUND3DPARMS* pParms);
-extern UINT32 Sound3DPlayRandom(STR pFilename, RANDOM3DPARMS* pParms);
-extern UINT32 Sound3DStartRandom(UINT32 uiSample, SOUND3DPOS* Pos);
-// Status query functions
-#ifdef __cplusplus
-}
-#endif
+extern UINT32 Sound3DStartSample(SoundClip uiSample, UINT32 uiChannel, SOUND3DPARMS* pParms);
+extern UINT32 Sound3DStartRandom(SoundClip uiSample, SOUND3DPOS* Pos);
 
 #endif

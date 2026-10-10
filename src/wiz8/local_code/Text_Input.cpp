@@ -65,11 +65,6 @@ struct TEXTINPUTNODE {
     std::unique_ptr<TEXTINPUTNODE> next;
     TEXTINPUTNODE* prev;
 
-    ~TEXTINPUTNODE()
-    {
-        if (region.uiFlags & MSYS_REGION_EXISTS)
-            MSYS_RemoveRegion(&region);
-    }
 };
 
 /* 0x005D3520 allocates this record once per active input session, and

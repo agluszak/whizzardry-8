@@ -340,7 +340,7 @@ TEST_CASE_METHOD(AudioFixture, "Audio playback, spatialization and movie lifetim
     memset(&random, 0xff, sizeof(random));
     random.uiTimeMin = random.uiTimeMax = 0;
     auto random_id = SoundPlayRandom(path, &random);
-    REQUIRE(random_id != SOUND_ERROR);
+    REQUIRE(random_id != nullptr);
     REQUIRE(SoundRandomShouldPlay(random_id));
     REQUIRE(SoundStartRandom(random_id) != SOUND_ERROR);
     REQUIRE(!SoundRandomShouldPlay(random_id));
@@ -593,4 +593,51 @@ TEST_CASE_METHOD(AudioFixture, "Audio output device", "[.manual][audio]")
         ShutdownSoundManager();
 
     puts("ok: native output device opened and completed playback");
+}
+
+TEST_CASE_METHOD(AudioFixture, "Audio clips outlive cache entries without slot reuse", "[audio][ownership]")
+{
+    std::vector<SoundClip> clips;
+    for (unsigned i = 0; i < 140; ++i) {
+        auto name = "clip" + std::to_string(i) + ".wav";
+        write(asset / name, wave);
+        auto clip = SoundLoadSample(name.data());
+        REQUIRE(clip);
+        REQUIRE(SoundLoadSample(name.data()) == clip);
+        clips.push_back(std::move(clip));
+    }
+    std::weak_ptr<AudioClip> retained = clips.front();
+    REQUIRE(SoundEmptyCache());
+    REQUIRE_FALSE(retained.expired());
+    clips.clear();
+    REQUIRE(retained.expired());
+
+    char path[] = "tone.wav";
+    RANDOMPARMS random;
+    memset(&random, 0xff, sizeof(random));
+    random.uiTimeMin = random.uiTimeMax = 0;
+    auto clip = SoundPlayRandom(path, &random);
+    REQUIRE(clip);
+    REQUIRE(SoundEmptyCache());
+    // A retained emitter can still play its clip after the cache releases it.
+    const auto sound = SoundStartRandom(clip);
+    REQUIRE(sound != SOUND_ERROR);
+    retained = clip;
+    clip.reset();
+    REQUIRE_FALSE(retained.expired());
+    REQUIRE(SoundStop(sound));
+    REQUIRE(retained.expired());
+}
+
+TEST_CASE_METHOD(AudioFixture, "Owned clips retain the mixer across sound shutdown", "[audio][ownership]")
+{
+    char path[] = "tone.wav";
+    auto clip = SoundLoadSample(path);
+    REQUIRE(clip);
+    std::weak_ptr<AudioClip> lifetime = clip;
+    ShutdownSoundManager();
+    REQUIRE_FALSE(lifetime.expired());
+    REQUIRE(InitializeSoundManager());
+    clip.reset();
+    REQUIRE(lifetime.expired());
 }

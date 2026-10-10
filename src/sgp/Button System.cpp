@@ -772,10 +772,6 @@ void RemoveButton(INT32 iButtonID)
         UnloadButtonImage(b->ImageNum);
     }
 
-    // ...kill it!!!
-    MSYS_RemoveRegion(&b->Area);
-
-
     if (b == gpAnchoredButton)
         gpAnchoredButton = nullptr;
     if (b == gpPrevAnchoredButton)
@@ -1101,7 +1097,6 @@ INT32 QuickCreateButton(UINT32 Image, INT16 xloc, INT16 yloc, INT32 Type, INT16 
     } else
         b->MoveCallback = BUTTON_NO_CALLBACK;
 
-    b->Area = {};
     // Define a MOUSE_REGION for this QuickButton
     MSYS_DefineRegion(&b->Area, (UINT16)xloc, (UINT16)yloc,
                       (UINT16)(xloc + (INT16)ButtonPictures[Image].MaxWidth),
@@ -1190,8 +1185,8 @@ void QuickButtonCallbackMMove(MOUSE_REGION* reg, INT32 reason)
     iButtonID = MSYS_GetRegionUserData(reg, 0);
 
     sprintf(str,
-            "QuickButtonCallbackMMove: Mouse Region #%d (%d,%d to %d,%d) has invalid buttonID %d",
-            reg->IDNumber, reg->RegionTopLeftX, reg->RegionTopLeftY, reg->RegionBottomRightX,
+            "QuickButtonCallbackMMove: Mouse Region %p (%d,%d to %d,%d) has invalid buttonID %d",
+            static_cast<void*>(reg), reg->RegionTopLeftX, reg->RegionTopLeftY, reg->RegionBottomRightX,
             reg->RegionBottomRightY, iButtonID);
 
     AssertMsg(iButtonID >= 0, str);
@@ -1247,8 +1242,8 @@ void QuickButtonCallbackMButn(MOUSE_REGION* reg, INT32 reason)
     iButtonID = MSYS_GetRegionUserData(reg, 0);
 
     sprintf(str,
-            "QuickButtonCallbackMButn: Mouse Region #%d (%d,%d to %d,%d) has invalid buttonID %d",
-            reg->IDNumber, reg->RegionTopLeftX, reg->RegionTopLeftY, reg->RegionBottomRightX,
+            "QuickButtonCallbackMButn: Mouse Region %p (%d,%d to %d,%d) has invalid buttonID %d",
+            static_cast<void*>(reg), reg->RegionTopLeftX, reg->RegionTopLeftY, reg->RegionBottomRightX,
             reg->RegionBottomRightY, iButtonID);
 
     AssertMsg(iButtonID >= 0, str);

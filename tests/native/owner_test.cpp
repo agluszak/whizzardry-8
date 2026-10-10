@@ -250,12 +250,14 @@ void region_registration_and_callback_lifetimes()
     REQUIRE(MSYS_Init());
     MOUSE_REGION first{}, latest{}, temporary{};
     MSYS_DefineRegion(&first, 0, 0, 40, 40, MSYS_PRIORITY_NORMAL, nullptr, region_click);
-    const auto first_id = first.IDNumber;
-    for (unsigned registration = 0; registration < 65536; ++registration) {
-        MSYS_DefineRegion(&temporary, 0, 0, 40, 40, MSYS_PRIORITY_NORMAL, nullptr, region_click);
-        REQUIRE((temporary.IDNumber != 0 && temporary.IDNumber != first_id));
-        MSYS_RemoveRegion(&temporary);
-    }
+    {
+        MOUSE_REGION scoped{};
+        MSYS_DefineRegion(&scoped, 0, 0, 40, 40, MSYS_PRIORITY_HIGH, nullptr, region_click);
+        MSYS_SGP_Mouse_Handler_Hook(LEFT_BUTTON_DOWN, 10, 10, true, false);
+        REQUIRE(clicked_region == &scoped);
+    } // Registration and click capture expire with the control.
+    MSYS_SGP_Mouse_Handler_Hook(LEFT_BUTTON_UP, 10, 10, false, false);
+    REQUIRE(clicked_region == &first);
     MSYS_DefineRegion(&latest, 0, 0, 40, 40, MSYS_PRIORITY_NORMAL, nullptr, region_click);
     MSYS_SGP_Mouse_Handler_Hook(LEFT_BUTTON_DOWN, 10, 10, true, false);
     REQUIRE(clicked_region == &latest);

@@ -42,7 +42,7 @@ void StopAllAmbientSounds()
 // FUNCTION: WIZ8 0x00479040
 W8AmbientSound::W8AmbientSound()
     : volume_min(0), volume_max(0), current_volume(0), speed_min(0), speed_max(0), time_min(0),
-      time_max(0), radius(0), in_range(0), looping(0), sound_handle(-1), sample_handle(-1),
+      time_max(0), radius(0), in_range(0), looping(0), sound_handle(-1), sample(),
       shared(0), bounded(0), region_angle(0)
 {
     config.wave_name[0] = 0;
@@ -218,7 +218,7 @@ void W8AmbientSound::Service(bool entered)
         return;
     }
     if (looping == 0) {
-        if (sample_handle == -1) {
+        if (!sample) {
             RANDOMPARMS parms;
 
             memset(&parms, -1, sizeof(parms));
@@ -232,16 +232,16 @@ void W8AmbientSound::Service(bool entered)
             parms.uiTimeMax = time_max;
             parms.uiSpeedMin = speed_min;
             parms.uiSpeedMax = speed_max;
-            sample_handle = SoundPlayRandom(config.wave_name, &parms);
-            if (sample_handle != -1) {
-                SoundSetSampleFlags(sample_handle, 8);
+            sample = SoundPlayRandom(config.wave_name, &parms);
+            if (sample != nullptr) {
+                SoundSetSampleFlags(sample, 8);
             }
         }
-        if (sample_handle != -1) {
+        if (sample != nullptr) {
             unsigned char should_play;
 
             if (!entered) {
-                should_play = SoundRandomShouldPlay(sample_handle);
+                should_play = SoundRandomShouldPlay(sample);
             } else {
                 should_play = Random(3);
             }
@@ -291,7 +291,7 @@ void W8AmbientSound::Service(bool entered)
                                            (radius * g_ambient_sound_inner_radius_scale)) *
                         current_volume);
                 }
-                sound_handle = Sound3DStartRandom(sample_handle, &pos);
+                sound_handle = Sound3DStartRandom(sample, &pos);
             }
         }
         return;
@@ -568,8 +568,8 @@ void DestroyAmbientSound(W8AmbientSound* ambient)
     if (ambient->sound_handle != -1) {
         SoundStop(ambient->sound_handle);
     }
-    if (ambient->sample_handle != -1) {
-        SoundRemoveSampleFlags(ambient->sample_handle, 6);
+    if (ambient->sample != nullptr) {
+        SoundRemoveSampleFlags(ambient->sample, 6);
     }
     if (ambient->pacSoundName != 0) {
         delete[] ambient->pacSoundName;
