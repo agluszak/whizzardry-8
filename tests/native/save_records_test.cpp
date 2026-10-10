@@ -29,7 +29,7 @@
 #include <chrono>
 #include "temporary_directory.h"
 
-extern W8GrowableVector<W8NpcState*>* g_npc_states;
+extern std::vector<W8NpcState*>* g_npc_states;
 extern void SaveGlobalStatus(W8Chunk* chunks, W8GlobalStatus* status);
 
 #define CHECK(expression)                                                                          \
@@ -118,29 +118,29 @@ static void keyword_file_contracts()
     const char* translated = "Data/Strings/translated_Keywords.txt";
     write_keywords(english, "header\r\n01234567890  hello / world /\r\n01234567890bye/last");
     ReloadKeywordLists();
-    CHECK(!g_keyword_lists_loaded && g_keyword_lists.GetCount() == 0);
+    CHECK(!g_keyword_lists_loaded && static_cast<int>(g_keyword_lists.size()) == 0);
     write_keywords(translated, "header\n01234567890bonjour/monde/\n01234567890au revoir/final");
     ReloadKeywordLists();
-    CHECK(g_keyword_lists_loaded && g_keyword_lists.GetCount() == 2);
-    auto first = *g_keyword_lists.GetAt(0);
-    CHECK(first->GetCount() == 2);
-    auto row = *first->GetAt(0);
-    CHECK(row->GetCount() == 2 && !wcscmp(*row->GetAt(0), L"hello") &&
-          !wcscmp(*row->GetAt(1), L"world"));
-    row = *first->GetAt(1);
-    CHECK(row->GetCount() == 2 && !wcscmp(*row->GetAt(0), L"bye") &&
-          !wcscmp(*row->GetAt(1), L"last"));
+    CHECK(g_keyword_lists_loaded && static_cast<int>(g_keyword_lists.size()) == 2);
+    auto first = g_keyword_lists[0];
+    CHECK(static_cast<int>(first->size()) == 2);
+    auto row = (*first)[0];
+    CHECK(static_cast<int>(row->size()) == 2 && !wcscmp((*row)[0], L"hello") &&
+          !wcscmp((*row)[1], L"world"));
+    row = (*first)[1];
+    CHECK(static_cast<int>(row->size()) == 2 && !wcscmp((*row)[0], L"bye") &&
+          !wcscmp((*row)[1], L"last"));
     ClearKeywordLists();
-    CHECK(!g_keyword_lists_loaded && g_keyword_lists.GetCount() == 0);
+    CHECK(!g_keyword_lists_loaded && static_cast<int>(g_keyword_lists.size()) == 0);
     write_keywords(english, "header\n01234567890partial/row/\n01234567890" + std::string("\0bad", 4));
     ReloadKeywordLists();
-    CHECK(!g_keyword_lists_loaded && g_keyword_lists.GetCount() == 0);
+    CHECK(!g_keyword_lists_loaded && static_cast<int>(g_keyword_lists.size()) == 0);
     write_keywords(english, "header\n01234567890" + std::string(1000, 'x'));
     ReloadKeywordLists();
-    CHECK(!g_keyword_lists_loaded && g_keyword_lists.GetCount() == 0);
+    CHECK(!g_keyword_lists_loaded && static_cast<int>(g_keyword_lists.size()) == 0);
     CHECK(wiz8::remove_file(english));
     ReloadKeywordLists();
-    CHECK(!g_keyword_lists_loaded && g_keyword_lists.GetCount() == 0);
+    CHECK(!g_keyword_lists_loaded && static_cast<int>(g_keyword_lists.size()) == 0);
 }
 
 static void save_file_contracts(const std::filesystem::path& user)
@@ -384,10 +384,10 @@ int main()
         chunk.m_hFile = wiz8::open_host_file(path);
         CHECK(chunk.m_hFile != 0);
         LoadNpcStates(&chunk);
-        CHECK(g_npc_states->GetCount() == 3);
+        CHECK(static_cast<int>(g_npc_states->size()) == 3);
         for (unsigned int i = 0; i < 3; ++i)
         {
-            W8NpcState* npc = *g_npc_states->GetAt(i);
+            W8NpcState* npc = (*g_npc_states)[i];
             CHECK(npc->record == &database[i]);
             CHECK(npc->items == 0 && npc->script_file == 0);
             if (i < 2)

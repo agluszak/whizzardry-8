@@ -3,17 +3,18 @@
 #include "wiz8/filesystem.h"
 
 #include "wiz8/layouts/encounter_tables.h"
-#include "wiz8/vector.h"
+#include <vector>
+#include <algorithm>
 
 #pragma pack(push, 1)
 struct W8EncounterTableRuntime {
     ~W8EncounterTableRuntime();
 
-    W8GrowableVector<unsigned short> species_ids;    /* 0x000 */
-    W8GrowableVector<unsigned char> rarity_class;    /* 0x010: 3, 7, 20, or 70 */
-    W8GrowableVector<unsigned char> time_condition;  /* 0x020 */
-    W8GrowableVector<unsigned char> challenge_level; /* 0x030: 1 through 50 */
-    W8Vector<W8EncounterScriptName*> script_names;   /* 0x040 */
+    std::vector<unsigned short> species_ids;    /* 0x000 */
+    std::vector<unsigned char> rarity_class;    /* 0x010: 3, 7, 20, or 70 */
+    std::vector<unsigned char> time_condition;  /* 0x020 */
+    std::vector<unsigned char> challenge_level; /* 0x030: 1 through 50 */
+    std::vector<W8EncounterScriptName*> script_names;   /* 0x040 */
     char name[256];                                  /* 0x050 */
     unsigned int category;           /* 0x150: encounter category; MIPE filters on it */
     unsigned char version_two_flags; /* 0x154 */
@@ -27,8 +28,8 @@ W8_ABI_ASSERT(sizeof(W8EncounterTableRuntime) == 0x158,
 unsigned int InitializeEncounterTables(void);
 void UnloadEncounterTables(void);
 
-extern W8GrowableVector<W8EncounterTableRuntime*> g_encounter_tables;
-extern W8GrowableVector<char*> g_encounter_names;
+extern std::vector<W8EncounterTableRuntime*> g_encounter_tables;
+extern std::vector<char*> g_encounter_names;
 extern int g_encounter_tables_level;
 
 struct W8MonsterGroup;
@@ -59,7 +60,7 @@ void UpdateRandomEncounterBudget(bool reset_budget);
 
 extern int g_random_encounter_budget;
 extern int g_random_encounter_limit;
-extern W8GrowableVector<W8MonsterGroup*> g_active_groups;
+extern std::vector<W8MonsterGroup*> g_active_groups;
 extern unsigned char g_generator_save_flag;
 extern short g_generator_default_interval;
 extern short g_generator_interval_min;

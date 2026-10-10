@@ -5,7 +5,8 @@
 extern wchar_t g_default_level[];
 #include "wiz8/fact_state.h"
 #include "wiz8/layouts/screen_state.h"
-#include "wiz8/vector.h"
+#include <vector>
+#include <algorithm>
 
 #include "wiz8/local_code/TextBuffer.h"
 #include "wiz8/local_code/TextControl.h"
@@ -40,7 +41,7 @@ W8_ABI_ASSERT(sizeof(W8JournalEntry) == 0x0c, "W8JournalEntry_size");
 
 /* The fact journal, created lazily by the initializer below and
    appended to whenever a fact changes. */
-extern W8GrowableVector<W8JournalEntry>* g_fact_journal_entries;
+extern std::vector<W8JournalEntry>* g_fact_journal_entries;
 /* The "%d / %d" current-over-max format shared by journal pages
    and debug stat readouts. */
 extern wchar_t g_journal_page_format[];

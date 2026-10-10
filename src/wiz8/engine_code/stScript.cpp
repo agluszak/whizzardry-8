@@ -76,15 +76,24 @@ stScript::~stScript()
 // FUNCTION: WIZ8 0x004CF690
 void stScript::Clear()
 {
-    while (lines.GetCount() != 0) {
-        stScriptLine* line = lines.RemoveAt(0);
+    while (static_cast<int>(lines.size()) != 0) {
+        const auto removed_entry = lines[0];
+        lines.erase(lines.begin() + 0);
+        stScriptLine* line = removed_entry;
         if (line != 0) {
             free(line->text);
             delete line;
         }
     }
-    while (labels.GetCount() != 0) {
-        labels.RemoveAtAndDelete(0);
+    while (static_cast<int>(labels.size()) != 0) {
+        {
+            const auto erase_index = 0;
+            if (static_cast<std::size_t>(erase_index) < labels.size()) {
+                auto* object = labels[erase_index];
+                labels.erase(labels.begin() + erase_index);
+                delete object;
+            }
+        }
     }
 }
 
@@ -137,8 +146,8 @@ unsigned char stScript::Load(const char* path)
             token[length - 1] = 0;
             int index;
             bool add_label = true;
-            for (index = 0; index < labels.GetCount(); ++index) {
-                stScriptLabel* existing = *labels.GetAt(index);
+            for (index = 0; index < static_cast<int>(labels.size()); ++index) {
+                stScriptLabel* existing = labels[index];
                 if (_strnicmp(existing->name, token, 0x1f) == 0) {
                     if (existing->line != -1) {
                         add_label = false;
@@ -152,7 +161,7 @@ unsigned char stScript::Load(const char* path)
                     strncpy(label->name, token, 0x1f);
                     label->name[0x1f] = 0;
                     label->line = script_line;
-                    labels.Add(label);
+                    labels.push_back(label);
                 }
             }
             free(owned_text);
@@ -163,7 +172,7 @@ unsigned char stScript::Load(const char* path)
         if (line != 0) {
             line->text = owned_text;
             line->source_line = source_line;
-            lines.Add(line);
+            lines.push_back(line);
         }
         ++script_line;
     }
@@ -178,8 +187,8 @@ int stScript::FindLabelLine(const char* label) const
     int index;
 
     if (label != 0) {
-        for (index = 0; index < labels.GetCount(); ++index) {
-            stScriptLabel* entry = *labels.GetAt(index);
+        for (index = 0; index < static_cast<int>(labels.size()); ++index) {
+            stScriptLabel* entry = labels[index];
             if (_strnicmp(entry->name, label, 0x1f) == 0) {
                 return entry->line;
             }
@@ -198,10 +207,10 @@ int stScript::GetSourceLine(int line) const
     if (line < 0) {
         return -1;
     }
-    if (line >= lines.GetCount()) {
+    if (line >= static_cast<int>(lines.size())) {
         return -1;
     }
-    entry = *lines.GetAt(line);
+    entry = lines[line];
     if (entry != 0) {
         return entry->source_line;
     }

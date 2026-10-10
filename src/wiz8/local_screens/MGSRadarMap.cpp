@@ -28,7 +28,8 @@
 #include "wiz8/local_code/Magic.h"
 #include "wiz8/local_code/MagicEffects.h"
 #include "wiz8/startup_world.h"
-#include "wiz8/vector.h"
+#include <vector>
+#include <algorithm>
 #include "wiz8/video_object_catalog.h"
 #include "wiz8/xstatus.h"
 #include "wiz8/engine_code/GameData.h"
@@ -71,7 +72,7 @@ static stModelInstance2D* g_radar_compass = 0;
 // GLOBAL: WIZ8 0x0069c088
 static stModelInstance2D* g_radar_frame = 0;
 // GLOBAL: WIZ8 0x0069bf68
-static W8GrowableVector<stModelInstance2D*> g_radar_icon_pools[18];
+static std::vector<stModelInstance2D*> g_radar_icon_pools[18];
 // GLOBAL: WIZ8 0x0069c08c
 static int g_radar_icon_cursors[18];
 // GLOBAL: WIZ8 0x0069c0d4
@@ -100,12 +101,12 @@ static unsigned char PlaceRadarBlip(srVector3T<float>* delta, int group, bool li
 static void ResetRadarBlips()
 {
     for (int sector = 0; sector < 18; ++sector) {
-        W8GrowableVector<stModelInstance2D*>* pool = &g_radar_icon_pools[sector];
-        int count = pool->count;
+        std::vector<stModelInstance2D*>* pool = &g_radar_icon_pools[sector];
+        int count = static_cast<int>(pool->size());
 
         g_radar_icon_cursors[sector] = 0;
         for (int index = 0; index < count; ++index) {
-            (*pool->GetAt(index))->setFlag(srNode::FLAG_DISABLE);
+            ((*pool)[index])->setFlag(srNode::FLAG_DISABLE);
         }
     }
 }
@@ -138,17 +139,17 @@ void EnsureRadarMapOverlay(void)
 // FUNCTION: WIZ8 0x005a21b0
 static stModelInstance2D* AcquireRadarBlip(int sector, bool lit)
 {
-    W8GrowableVector<stModelInstance2D*>* pool = &g_radar_icon_pools[sector];
+    std::vector<stModelInstance2D*>* pool = &g_radar_icon_pools[sector];
     stModelInstance2D* icon;
     int cursor = g_radar_icon_cursors[sector];
 
-    if (cursor < pool->count) {
+    if (cursor < static_cast<int>(pool->size())) {
         g_radar_icon_cursors[sector] = cursor + 1;
-        icon = *pool->GetAt(cursor);
+        icon = (*pool)[cursor];
     } else {
         icon = new stModelInstance2D(0);
-        *icon = **pool->GetAt(0);
-        pool->Add(icon);
+        *icon = *(*pool)[0];
+        pool->push_back(icon);
     }
     if (icon != 0) {
         icon->clearFlag(srNode::FLAG_DISABLE);
@@ -194,10 +195,12 @@ void ReleaseRadarMap(void)
         g_radar_compass = 0;
     }
     for (int sector = 0; sector < 18; ++sector) {
-        W8GrowableVector<stModelInstance2D*>* pool = &g_radar_icon_pools[sector];
+        std::vector<stModelInstance2D*>* pool = &g_radar_icon_pools[sector];
 
-        while (pool->count != 0) {
-            stModelInstance2D* icon = pool->RemoveAt(0);
+        while (static_cast<int>(pool->size()) != 0) {
+            const auto removed_entry = (*pool)[0];
+            pool->erase(pool->begin() + 0);
+            stModelInstance2D* icon = removed_entry;
             if (icon != 0) {
                 icon->release();
             }
@@ -279,7 +282,7 @@ void RefreshRadarMap(void)
         color.z = g_radar_blip_colors[sector][2];
         color.w = 1.0f;
         icon = CreateColoredPolygonSprite(2, 2, &color, false);
-        g_radar_icon_pools[sector].Add(icon);
+        g_radar_icon_pools[sector].push_back(icon);
         icon->overlay_scene_flag |= 1;
     }
     UpdateRadarBlips();

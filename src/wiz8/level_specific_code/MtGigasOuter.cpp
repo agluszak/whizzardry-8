@@ -158,7 +158,7 @@ void ControlLiftGate(int command)
         g_lift_prop = pFlagTrigger->GetProp();
         g_lift_prop->GetPosition(&position);
         if (value < 100) {
-            g_master_functions->Add(ControlLiftGate);
+            g_master_functions->push_back(ControlLiftGate);
             if (g_lift_gate != 0) {
                 g_lift_gate->Arm();
             } else {
@@ -250,7 +250,7 @@ void ControlCampAlarm(int command)
         g_mt_gigas_outer_alarm_gate =
             new W8IntervalGate(static_cast<float>(static_cast<unsigned int>(command)), false, true);
         if (g_mt_gigas_outer_alarm_gate != 0) {
-            g_master_functions->Add(ControlCampAlarm);
+            g_master_functions->push_back(ControlCampAlarm);
         }
     }
     if (!g_mt_gigas_outer_alarm_gate->PollFinished()) {

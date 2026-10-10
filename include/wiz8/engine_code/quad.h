@@ -1,16 +1,19 @@
 #pragma once
 
+#include <vector>
+struct W8QuadObject;
+
 #include "surrender/srMath.h"
 
-#include "wiz8/3d_code/IList.h"
-#include "wiz8/3d_code/PList.h"
+#include <vector>
+#include <algorithm>
 
 class srModelInstance;
 class srScene;
 
 struct W8QuadCell {
-    W8IList* polygon_indices;
-    W8PList* objects;
+    std::vector<int>* polygon_indices;
+    std::vector<W8QuadObject*>* objects;
     unsigned int dirty_stamp;
     bool occupied;
     unsigned char padding_0d[3];

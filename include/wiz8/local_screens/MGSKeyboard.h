@@ -5,7 +5,8 @@
 #include "input.h"
 #include "wiz8/mgs_commands.h"
 #include "surrender/srMath.h"
-#include "wiz8/vector.h"
+#include <vector>
+#include <algorithm>
 #include "wiz8/index_algorithms.h"
 
 #pragma pack(push, 1)
@@ -36,7 +37,7 @@ public:
     unsigned char LoadDefaults(const char* path);
 
 private:
-    W8Vector<MGSKeyBinding*> m_bindings;
+    std::vector<MGSKeyBinding*> m_bindings;
     std::unordered_map<unsigned int, MGSKeyBinding*> m_command_index;
 };
 

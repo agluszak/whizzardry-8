@@ -5,7 +5,8 @@
 #include "wiz8/engine_code/materials.h"
 #include "wiz8/float_constants.h"
 #include "wiz8/local_screens/AutomapScreen.h"
-#include "wiz8/vector.h"
+#include <vector>
+#include <algorithm>
 #include "wiz8/sr_api.h"
 
 #include <algorithm>
@@ -522,7 +523,7 @@ int PrePathing::CreatePathNodeArray()
 unsigned char PrePathing::CreateAutomapNodes(W8LevelFile* level)
 {
     int last_percent = 0;
-    W8GrowableVector<int> node_keys;
+    std::vector<int> node_keys;
     std::unordered_map<unsigned int, unsigned char> used_keys;
     char message[0x400];
 
@@ -547,16 +548,16 @@ unsigned char PrePathing::CreateAutomapNodes(W8LevelFile* level)
                      (node->cell >> 0x10) * grid_scale);
         unsigned int key = AutomapNodeKey(&position);
         if (!used_keys.contains(key)) {
-            node_keys.Add(key);
+            node_keys.push_back(key);
             unsigned char present = 1;
             used_keys.emplace(key, present);
             ++created;
         }
     }
     used_keys.clear();
-    level->num_automap_nodes = node_keys.GetCount();
+    level->num_automap_nodes = static_cast<int>(node_keys.size());
     sprintf(message, "Creating Automap Nodes:  100%% Complete:  %d Automap Nodes created  \n",
-            node_keys.GetCount());
+            static_cast<int>(node_keys.size()));
     ReportStartupMessage(message);
     sprintf(message, "  %d Total Automap Nodes.\n", level->num_automap_nodes);
     ReportBuildStatus(6, message);
@@ -565,7 +566,7 @@ unsigned char PrePathing::CreateAutomapNodes(W8LevelFile* level)
         level->num_automap_nodes = 0;
     } else {
         for (i = 0; i < static_cast<unsigned int>(level->num_automap_nodes); ++i) {
-            level->automap_nodes[i] = *node_keys.GetAt(i);
+            level->automap_nodes[i] = node_keys[i];
         }
         std::sort(level->automap_nodes, level->automap_nodes + level->num_automap_nodes);
     }

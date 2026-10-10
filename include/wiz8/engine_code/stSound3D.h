@@ -2,14 +2,15 @@
 
 #include "surrender/srNode.h"
 #include "wiz8/geometry.h"
-#include "wiz8/vector.h"
+#include <vector>
+#include <algorithm>
 #include "soundman.h"
 
 #include <stdlib.h>
 #include <string.h>
 
 class stSound3D;
-extern W8GrowableVector<stSound3D*> g_sound3d_instances;
+extern std::vector<stSound3D*> g_sound3d_instances;
 
 /* General positional-audio node, recovered in src/wiz8/engine_code/Spells.cpp.
    That placement is provisional: the original-TU evidence has a gap over its
@@ -62,7 +63,7 @@ public:
         falloff = other.falloff;
         volume = other.volume;
         auto_release = other.auto_release;
-        g_sound3d_instances.Add(this);
+        g_sound3d_instances.push_back(this);
         return *this;
     }
 };

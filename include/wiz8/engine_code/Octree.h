@@ -7,7 +7,8 @@
 #include "wiz8/engine_code/OctPreTree.h"
 #include "wiz8/index_algorithms.h"
 #include "wiz8/geometry.h"
-#include "wiz8/vector.h"
+#include <vector>
+#include <algorithm>
 #include "Types.h"
 
 class GDProp;
@@ -449,7 +450,7 @@ public:
     void MarkMeshLinksVisible(unsigned int mesh);
     /* Collect the model instances whose bounds reach within `radius` of
        `point`, through the region cells and volumes the sphere touches. */
-    int CollectModelsNearPoint(W8GrowableVector<stModelInstance*>* out,
+    int CollectModelsNearPoint(std::vector<stModelInstance*>* out,
                                const srVector3T<float>* point, float radius, unsigned int flags,
                                bool only_accumulated); /* 0x0042F9A0 */
     unsigned char CollectVisibleRegions(srVector3T<float>* location, srVector3T<int>* cells,
@@ -624,7 +625,7 @@ public:
     float path_node_extent;
     /* The registered prop objects the path-bounds test collides against;
        0x0046BEC0 reads m_surface_count and the collidable flag on each. */
-    W8GrowableVector<GDProp*>* props;
+    std::vector<GDProp*>* props;
 
     /* Walks the `from`-`to` segment through the leaf grid, collecting each
        visited leaf's region-polygon ids and plane/slab-testing them. Answers

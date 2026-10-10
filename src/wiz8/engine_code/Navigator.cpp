@@ -8,7 +8,8 @@
 #include "wiz8/xstatus.h"
 #include "wiz8/float_constants.h"
 #include "surrender/srNode.h"
-#include "wiz8/3d_code/IList.h"
+#include <vector>
+#include <algorithm>
 #include "wiz8/engine_code/GameTimeAccumulator.h"
 #include "wiz8/engine_code/PathAI.h"
 #include "wiz8/engine_code/Octree.h"
@@ -41,7 +42,7 @@ const double g_double_twenty_five_hundred = 2500.0;
 namespace {
 
 // GLOBAL: WIZ8 0x00659b30
-W8GrowableVector<W8Navigator*> g_registered_navigators(5);
+std::vector<W8Navigator*> g_registered_navigators;
 
 } // namespace
 
@@ -183,7 +184,7 @@ W8Navigator::W8Navigator() : reactivated(0)
     linked_update_time = 0;
     movement.Reset();
     tracked_position.SetZero();
-    g_registered_navigators.Add(this);
+    g_registered_navigators.push_back(this);
     /* 0x004520A4 re-zeroes the movement target, the eight-byte collision margin
        and the target link immediately before the node allocation, so the retail
        constructor initialises that group twice. */
@@ -213,8 +214,8 @@ void SetNavigatorLinkMode(unsigned char mode)
     }
     g_navigator_link_mode = mode;
     if (mode == 0) {
-        for (int index = 0; index < g_registered_navigators.GetCount(); ++index) {
-            W8Navigator* navigator = *g_registered_navigators.GetAt(index);
+        for (int index = 0; index < static_cast<int>(g_registered_navigators.size()); ++index) {
+            W8Navigator* navigator = g_registered_navigators[index];
 
             navigator->halted = false;
             if (navigator->path_ai != 0) {
@@ -235,11 +236,11 @@ void SetNavigatorLinkMode(unsigned char mode)
                                                     false, true, false, false),
                          g_combat_inactive != 0)) {
                         navigator->linked_update_time = 0;
-                        g_navigator_group.Clear();
+                        g_navigator_group.clear();
                         navigator->CollectGroupNavigators(&g_navigator_group);
-                        for (int group_index = 0; group_index < g_navigator_group.GetCount();
+                        for (int group_index = 0; group_index < static_cast<int>(g_navigator_group.size());
                              ++group_index) {
-                            W8Navigator* group_navigator = *g_navigator_group.GetAt(group_index);
+                            W8Navigator* group_navigator = g_navigator_group[group_index];
 
                             group_navigator->movement.attachment->CopyPathFrom(
                                 navigator->movement.attachment);
@@ -254,8 +255,8 @@ void SetNavigatorLinkMode(unsigned char mode)
             }
         }
     } else {
-        for (int index = 0; index < g_registered_navigators.GetCount(); ++index) {
-            W8Navigator* navigator = *g_registered_navigators.GetAt(index);
+        for (int index = 0; index < static_cast<int>(g_registered_navigators.size()); ++index) {
+            W8Navigator* navigator = g_registered_navigators[index];
 
             NavigatorDefaultCallback(navigator);
             navigator->group_linked = false;
@@ -266,9 +267,9 @@ void SetNavigatorLinkMode(unsigned char mode)
 // FUNCTION: WIZ8 0x00453160
 void StopAllNavigators(void)
 {
-    int count = g_registered_navigators.GetCount();
+    int count = static_cast<int>(g_registered_navigators.size());
     for (int index = 0; index < count; ++index) {
-        W8Navigator* navigator = *g_registered_navigators.GetAt(index);
+        W8Navigator* navigator = g_registered_navigators[index];
         NavigatorDefaultCallback(navigator);
     }
 }
@@ -276,9 +277,9 @@ void StopAllNavigators(void)
 // FUNCTION: WIZ8 0x004531a0
 void ResumeAllNavigators(void)
 {
-    int count = g_registered_navigators.GetCount();
+    int count = static_cast<int>(g_registered_navigators.size());
     for (int index = 0; index < count; ++index) {
-        W8Navigator* navigator = *g_registered_navigators.GetAt(index);
+        W8Navigator* navigator = g_registered_navigators[index];
         navigator->halted = false;
         if (navigator->path_ai != 0) {
             PathAIResetTick(navigator->path_ai);
@@ -480,7 +481,7 @@ W8Navigator::W8Navigator(const W8Navigator& other)
     tracked_position.SetZero();
     node = new srNode(static_cast<srNode*>(0));
     node->setLocation(other.node->getLocation());
-    g_registered_navigators.Add(this);
+    g_registered_navigators.push_back(this);
 }
 
 /* Everything this navigator owns, in the order the retail body releases it.
@@ -495,7 +496,7 @@ W8Navigator::~W8Navigator()
     if (path_ai != 0) {
         DestroyOwnedPathAI(path_ai);
     }
-    g_registered_navigators.Remove(this);
+    if (const auto found = std::ranges::find(g_registered_navigators, this); found != g_registered_navigators.end()) g_registered_navigators.erase(found);
     delete owned_object;
     owned_object = 0;
     if (movement.location_id != 0 && g_octree != 0) {
@@ -619,9 +620,9 @@ void W8Navigator::ClearMovementStopped()
 {
     movement_stopped = false;
     if (g_combat_inactive != 0 && linked_navigator == 0) {
-        g_navigator_group.Clear();
+        g_navigator_group.clear();
         CollectGroupNavigators(&g_navigator_group);
-        for (int index = 0; index < g_navigator_group.GetCount(); ++index) {
+        for (int index = 0; index < static_cast<int>(g_navigator_group.size()); ++index) {
             g_navigator_group[index]->movement_stopped = false;
         }
     }
@@ -706,10 +707,10 @@ try
 void W8Navigator::CopyPathToGroup()
 {
     linked_update_time = 0;
-    g_navigator_group.Clear();
+    g_navigator_group.clear();
     CollectGroupNavigators(&g_navigator_group);
-    for (int index = 0; index < g_navigator_group.GetCount(); ++index) {
-        W8Navigator* navigator = *g_navigator_group.GetAt(index);
+    for (int index = 0; index < static_cast<int>(g_navigator_group.size()); ++index) {
+        W8Navigator* navigator = g_navigator_group[index];
         navigator->movement.attachment->CopyPathFrom(movement.attachment);
         navigator->patrol_home = patrol_home;
         navigator->movement.attachment->flags &=
@@ -884,7 +885,7 @@ float g_navigator_minimum_speed_mode23 = 0.8999999761581421f;
 // GLOBAL: WIZ8 0x006081f4
 float g_camera_sphere_radius_scale = 1.0f;
 // GLOBAL: WIZ8 0x00659bf8
-W8GrowableVector<W8Navigator*> g_navigator_group;
+std::vector<W8Navigator*> g_navigator_group;
 
 /* 0x005EC2A8: a quarter turn, shared with the world elevation helper. */
 // GLOBAL: WIZ8 0x005ec2a8
@@ -1575,10 +1576,10 @@ unsigned char W8Navigator::LinkToNavigator(W8Navigator* target, double separatio
         movement_stopped = false;
         result = 1;
         if (g_combat_inactive != 0 && linked_navigator == 0) {
-            g_navigator_group.Clear();
+            g_navigator_group.clear();
             CollectGroupNavigators(&g_navigator_group);
-            for (int index = 0; index < g_navigator_group.GetCount(); ++index) {
-                (*g_navigator_group.GetAt(index))->movement_stopped = false;
+            for (int index = 0; index < static_cast<int>(g_navigator_group.size()); ++index) {
+                (g_navigator_group[index])->movement_stopped = false;
             }
         }
     }
@@ -1954,7 +1955,7 @@ void W8Navigator::AimAtPosition(const srVector3T<float>* target)
 }
 
 // FUNCTION: WIZ8 0x00455140
-void W8Navigator::CollectGroupNavigators(W8GrowableVector<W8Navigator*>* navigators)
+void W8Navigator::CollectGroupNavigators(std::vector<W8Navigator*>* navigators)
 {
     W8MonsterInfo* monster_info;
     W8MonsterGroup* group;
@@ -1971,11 +1972,11 @@ void W8Navigator::CollectGroupNavigators(W8GrowableVector<W8Navigator*>* navigat
         GetMonsterGroupIndexByID(0xe7c, NAVIGATOR_CPP, monster_info->monster_group_id, true));
 
     for (member = 0; member < group->member_count; ++member) {
-        int location_id = IListGetAt(group->monsters, member);
+        int location_id = (group->monsters.operator->() && static_cast<std::size_t>(member) < group->monsters->size() ? (*group->monsters)[member] : -1);
         if (location_id != movement.location_id) {
             monster_info = MonsterGetScriptPartByLocationIndex(
                 MonsterGetIndexByLocationID(0xe82, NAVIGATOR_CPP, location_id, true));
-            navigators->Add(monster_info->p3D);
+            navigators->push_back(monster_info->p3D);
         }
     }
 
@@ -1985,8 +1986,8 @@ void W8Navigator::CollectGroupNavigators(W8GrowableVector<W8Navigator*>* navigat
                 0xe8a, NAVIGATOR_CPP, group->allied_group_ids[ally], true));
             for (member = 0; member < allied_group->member_count; ++member) {
                 monster_info = MonsterGetScriptPartByLocationIndex(MonsterGetIndexByLocationID(
-                    0xe8e, NAVIGATOR_CPP, IListGetAt(allied_group->monsters, member), true));
-                navigators->Add(monster_info->p3D);
+                    0xe8e, NAVIGATOR_CPP, (allied_group->monsters.operator->() && static_cast<std::size_t>(member) < allied_group->monsters->size() ? (*allied_group->monsters)[member] : -1), true));
+                navigators->push_back(monster_info->p3D);
             }
         }
     }
@@ -2131,10 +2132,10 @@ void W8Navigator::UpdateNavigation(unsigned char skip_movement, bool slowed)
                     movement_stopped = false;
                     if (g_combat_inactive != 0 && linked_navigator == 0) {
                         int index;
-                        g_navigator_group.Clear();
+                        g_navigator_group.clear();
                         CollectGroupNavigators(&g_navigator_group);
-                        for (index = 0; index < g_navigator_group.GetCount(); ++index) {
-                            (*g_navigator_group.GetAt(index))->movement_stopped = false;
+                        for (index = 0; index < static_cast<int>(g_navigator_group.size()); ++index) {
+                            (g_navigator_group[index])->movement_stopped = false;
                         }
                     }
                 }
@@ -2251,10 +2252,10 @@ int W8Navigator::ResolveMovement()
 
                 movement_stopped = false;
                 if (linked_navigator == 0) {
-                    g_navigator_group.Clear();
+                    g_navigator_group.clear();
                     CollectGroupNavigators(&g_navigator_group);
-                    for (index = 0; index < g_navigator_group.GetCount(); ++index) {
-                        (*g_navigator_group.GetAt(index))->movement_stopped = false;
+                    for (index = 0; index < static_cast<int>(g_navigator_group.size()); ++index) {
+                        (g_navigator_group[index])->movement_stopped = false;
                     }
                 }
                 halted = false;

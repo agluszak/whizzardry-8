@@ -42,7 +42,8 @@
 #include "wiz8/local_code/NPCManager.h"
 #include "wiz8/local_code/NPCScripting.h"
 #include "wiz8/npc_script_file.h"
-#include "wiz8/3d_code/PList.h"
+#include <vector>
+#include <algorithm>
 #include "wiz8/layouts/gameplay_databases.h"
 #include "wiz8/character_event_queue.h"
 #include "random.h"
@@ -53,7 +54,6 @@
 #include "wiz8/local_code/Targeting.h"
 #include "wiz8/utility.h"
 #include "wiz8/xstatus.h"
-#include "wiz8/3d_code/IList.h"
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/local_code/CombatRange.h"
 
@@ -102,7 +102,7 @@ void RefreshOutwardSightForAllMonsters(void)
 {
     unsigned int index;
 
-    for (index = 0; index < PLLength(gXStatus.plsMonsterList); ++index) {
+    for (index = 0; index < (gXStatus.plsMonsterList ? static_cast<unsigned int>(gXStatus.plsMonsterList->size()) : 0); ++index) {
         UpdateMonsterSight(MonsterGetScriptPartByLocationIndex(index), true, false);
     }
     if (gXStatus.fCombatMode) {
@@ -117,7 +117,7 @@ void RefreshInwardSightForAllMonsters(void)
 {
     unsigned int index;
 
-    for (index = 0; index < PLLength(gXStatus.plsMonsterList); ++index) {
+    for (index = 0; index < (gXStatus.plsMonsterList ? static_cast<unsigned int>(gXStatus.plsMonsterList->size()) : 0); ++index) {
         UpdateMonsterSight(MonsterGetScriptPartByLocationIndex(index), false, false);
     }
 }
@@ -131,7 +131,7 @@ void RefreshAllSight(void)
     unsigned int index;
 
     RefreshOutwardSightForAllMonsters();
-    for (index = 0; index < PLLength(gXStatus.plsMonsterList); ++index) {
+    for (index = 0; index < (gXStatus.plsMonsterList ? static_cast<unsigned int>(gXStatus.plsMonsterList->size()) : 0); ++index) {
         UpdateMonsterSight(MonsterGetScriptPartByLocationIndex(index), false, false);
     }
 }
@@ -252,24 +252,24 @@ void ReleaseMonToMonVisibilityInfoAbout(int location_id)
     W8MonsterInfo* monster_info;
     W8VisibilityRecord* visibility;
 
-    for (monster_index = 0; monster_index < PLLength(gXStatus.plsMonsterList); ++monster_index) {
+    for (monster_index = 0; monster_index < (gXStatus.plsMonsterList ? static_cast<unsigned int>(gXStatus.plsMonsterList->size()) : 0); ++monster_index) {
         monster_info = MonsterGetScriptPartByLocationIndex(monster_index);
         if (!monster_info->fActive) {
             continue;
         }
-        for (index = 0; index < static_cast<int>(PLLength(monster_info->plsVisMonToMon)); ++index) {
+        for (index = 0; index < static_cast<int>((monster_info->plsVisMonToMon.operator->() ? static_cast<unsigned int>(monster_info->plsVisMonToMon->size()) : 0)); ++index) {
             visibility =
-                static_cast<W8VisibilityRecord*>(PLGet(monster_info->plsVisMonToMon, index));
+                static_cast<W8VisibilityRecord*>((monster_info->plsVisMonToMon.operator->() && static_cast<std::size_t>(index) < monster_info->plsVisMonToMon->size() ? (*monster_info->plsVisMonToMon)[index] : nullptr));
             if (visibility == 0) {
                 return;
             }
             if (visibility->about_location_id == location_id) {
-                visibility = static_cast<W8VisibilityRecord*>(
-                    PLRemoveAt(monster_info->plsVisMonToMon, index));
+                visibility = (*monster_info->plsVisMonToMon)[index];
+                monster_info->plsVisMonToMon->erase(monster_info->plsVisMonToMon->begin() + index);
                 if (visibility == 0) {
                     srAssertFail("pVisibility != NULL", SIGHT_CPP, 968,
                                  FormatString("ReleaseMonToMonVisibilityInfoAbout: ERROR - "
-                                              "PLRemoveAt failed, index %d",
+                                              "missing removed entry, index %d",
                                               index));
                 }
                 free(visibility);
@@ -286,15 +286,18 @@ void ReleaseMonToMonVisibilityList(W8MonsterInfo* monster_info)
 {
     W8VisibilityRecord* visibility;
 
-    while (static_cast<int>(PLLength(monster_info->plsVisMonToMon)) > 0) {
-        visibility = static_cast<W8VisibilityRecord*>(PLRemoveAt(monster_info->plsVisMonToMon, 0));
+    while (static_cast<int>((monster_info->plsVisMonToMon.operator->() ? static_cast<unsigned int>(monster_info->plsVisMonToMon->size()) : 0)) > 0) {
+        const auto removed_entry = (*monster_info->plsVisMonToMon)[0];
+        monster_info->plsVisMonToMon->erase(monster_info->plsVisMonToMon->begin() + 0);
+        visibility = static_cast<W8VisibilityRecord*>(removed_entry);
         if (visibility == 0) {
             srAssertFail("pVisibility != NULL", SIGHT_CPP, 990,
-                         FormatString("ReleaseMonToMonVisibilityList: ERROR - PLRemoveAt failed"));
+                         FormatString("ReleaseMonToMonVisibilityList: ERROR - missing removed entry"));
         }
         free(visibility);
     }
-    if (PLDestroy(monster_info->plsVisMonToMon)) {
+    delete monster_info->plsVisMonToMon.operator->();
+    {
         monster_info->plsVisMonToMon = 0;
         ReleaseMonToMonVisibilityInfoAbout(monster_info->location_id);
     }
@@ -308,8 +311,8 @@ bool MonsterGroupHasVisibleThreat(W8MonsterGroup* group)
     unsigned int index;
     W8MonsterInfo* monster_info;
 
-    for (index = 0; index < ILLength(group->monsters); ++index) {
-        monster_info = MonsterInfoFromID(1120, SIGHT_CPP, IListGetAt(group->monsters, index), true);
+    for (index = 0; index < (group->monsters.operator->() ? static_cast<unsigned int>(group->monsters->size()) : 0); ++index) {
+        monster_info = MonsterInfoFromID(1120, SIGHT_CPP, (group->monsters.operator->() && static_cast<std::size_t>(index) < group->monsters->size() ? (*group->monsters)[index] : -1), true);
         if (monster_info->fActive && !monster_info->p3D->IsDying() &&
             monster_info->hp_current != 0 && monster_info->highest_condition < W8_CONDITION_BLIND &&
             monster_info->party_threat.sight_state == W8_SIGHT_SEEN) {
@@ -376,13 +379,13 @@ unsigned int AgeAllMonsterSight(void)
     if (steps == 0) {
         return 0;
     }
-    for (index = 0; index < PLLength(gXStatus.plsMonsterList); ++index) {
+    for (index = 0; index < (gXStatus.plsMonsterList ? static_cast<unsigned int>(gXStatus.plsMonsterList->size()) : 0); ++index) {
         monster_info = MonsterGetScriptPartByLocationIndex(index);
         if (monster_info->highest_condition < W8_CONDITION_DEAD) {
             AgeMonsterSight(monster_info, steps, 1);
         }
     }
-    return PLLength(gXStatus.plsMonsterList);
+    return (gXStatus.plsMonsterList ? static_cast<unsigned int>(gXStatus.plsMonsterList->size()) : 0);
 }
 
 /* What one monster has recorded about another, if anything. Both monsters have
@@ -401,8 +404,8 @@ W8VisibilityRecord* FindMonToMonVisibility(W8MonsterInfo* source, W8MonsterInfo*
         srAssertFail("pTargetMonsterInfo->fActive", SIGHT_CPP, 1021, 0);
     }
 
-    for (index = 0; index < static_cast<int>(PLLength(source->plsVisMonToMon)); ++index) {
-        visibility = static_cast<W8VisibilityRecord*>(PLGet(source->plsVisMonToMon, index));
+    for (index = 0; index < static_cast<int>((source->plsVisMonToMon.operator->() ? static_cast<unsigned int>(source->plsVisMonToMon->size()) : 0)); ++index) {
+        visibility = static_cast<W8VisibilityRecord*>((source->plsVisMonToMon.operator->() && static_cast<std::size_t>(index) < source->plsVisMonToMon->size() ? (*source->plsVisMonToMon)[index] : nullptr));
         if (visibility == 0) {
             srAssertFail("FALSE", SIGHT_CPP, 1030, 0);
         } else if (visibility->about_location_id == target->location_id) {
@@ -420,20 +423,20 @@ void ResetAndRefreshAllSight(void)
 {
     unsigned int index;
 
-    for (index = 0; index < PLLength(gXStatus.plsMonsterList); ++index) {
+    for (index = 0; index < (gXStatus.plsMonsterList ? static_cast<unsigned int>(gXStatus.plsMonsterList->size()) : 0); ++index) {
         W8MonsterInfo* monster_info = MonsterGetScriptPartByLocationIndex(index);
 
         memset(&monster_info->party_threat, 0, sizeof(monster_info->party_threat));
         memset(&monster_info->player_visibility, 0, sizeof(monster_info->player_visibility));
     }
-    for (index = 0; index < PLLength(gXStatus.plsMonsterList); ++index) {
+    for (index = 0; index < (gXStatus.plsMonsterList ? static_cast<unsigned int>(gXStatus.plsMonsterList->size()) : 0); ++index) {
         UpdateMonsterSight(MonsterGetScriptPartByLocationIndex(index), true, false);
     }
     if (gXStatus.fCombatMode) {
         RefreshFlaggedMainGameState();
         RefreshAllPartyTargets();
     }
-    for (index = 0; index < PLLength(gXStatus.plsMonsterList); ++index) {
+    for (index = 0; index < (gXStatus.plsMonsterList ? static_cast<unsigned int>(gXStatus.plsMonsterList->size()) : 0); ++index) {
         UpdateMonsterSight(MonsterGetScriptPartByLocationIndex(index), false, false);
     }
 }
@@ -482,7 +485,7 @@ void UpdateMonsterSight(W8MonsterInfo* monster_info, bool direction, bool use_bo
         if (!gXStatus.fCombatMode) {
             return;
         }
-        for (index = 0; index < PLLength(gXStatus.plsMonsterList); ++index) {
+        for (index = 0; index < (gXStatus.plsMonsterList ? static_cast<unsigned int>(gXStatus.plsMonsterList->size()) : 0); ++index) {
             W8MonsterInfo* other = MonsterGetScriptPartByLocationIndex(index);
 
             if (other != monster_info && other->fInCombat && other->fActive &&
@@ -491,10 +494,10 @@ void UpdateMonsterSight(W8MonsterInfo* monster_info, bool direction, bool use_bo
                 bool found = false;
                 unsigned int record_index;
 
-                for (record_index = 0; record_index < PLLength(monster_info->plsVisMonToMon);
+                for (record_index = 0; record_index < (monster_info->plsVisMonToMon.operator->() ? static_cast<unsigned int>(monster_info->plsVisMonToMon->size()) : 0);
                      ++record_index) {
                     entry = static_cast<W8VisibilityRecord*>(
-                        PLGet(monster_info->plsVisMonToMon, record_index));
+                        (monster_info->plsVisMonToMon.operator->() && static_cast<std::size_t>(record_index) < monster_info->plsVisMonToMon->size() ? (*monster_info->plsVisMonToMon)[record_index] : nullptr));
                     if (entry == 0) {
                         return;
                     }
@@ -510,9 +513,7 @@ void UpdateMonsterSight(W8MonsterInfo* monster_info, bool direction, bool use_bo
                     }
                     memset(entry, 0, sizeof(*entry));
                     entry->about_location_id = other->location_id;
-                    if (PLAdoptAppend(monster_info->plsVisMonToMon, entry) == -1) {
-                        return;
-                    }
+                    monster_info->plsVisMonToMon->push_back(entry);
                 }
                 {
                     W8Monster* other_monster = other->p3D;
@@ -938,10 +939,10 @@ bool MonsterGroupCanSeeGroup(W8MonsterGroup* source, W8MonsterGroup* target)
         if (!target_info->fActive) {
             srAssertFail("pTargetMonsterInfo->fActive", SIGHT_CPP, 0x3fd, 0);
         }
-        W8PList* visibility_list = source_info->plsVisMonToMon;
-        for (index = 0; index < static_cast<int>(PLLength(visibility_list)); ++index) {
+        std::vector<W8VisibilityRecord*>* visibility_list = source_info->plsVisMonToMon;
+        for (index = 0; index < static_cast<int>((visibility_list ? static_cast<unsigned int>(visibility_list->size()) : 0)); ++index) {
             visibility =
-                static_cast<W8VisibilityRecord*>(PLGet(source_info->plsVisMonToMon, index));
+                static_cast<W8VisibilityRecord*>((source_info->plsVisMonToMon.operator->() && static_cast<std::size_t>(index) < source_info->plsVisMonToMon->size() ? (*source_info->plsVisMonToMon)[index] : nullptr));
             if (visibility == 0) {
                 srAssertFail("FALSE", SIGHT_CPP, 0x406, 0);
             } else if (visibility->about_location_id == target_info->location_id) {

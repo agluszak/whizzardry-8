@@ -14,7 +14,9 @@
 #include "wiz8/local_code/Gameloop.h"
 #include "wiz8/local_screens/PleaseWaitScreen.h"
 #include "wiz8/virtual_file.h"
-#include "wiz8/vector.h"
+#include <vector>
+#include <algorithm>
+
 #include "wiz8/filesystem.h"
 
 #include "surrender/srCore.h"
@@ -29,11 +31,6 @@
 #include <string.h>
 #include <stdio.h>
 #include <glm/gtc/matrix_transform.hpp>
-
-static int operator==(const srShader& left, const srShader& right)
-{
-    return left.value == right.value;
-}
 
 // FUNCTION: WIZ8 0x004896C0
 void ReadMeshTransform(wiz8::File* file, srVector3T<float>* location, glm::mat3* rotation,
@@ -114,7 +111,7 @@ static srShader* g_multi_mesh_render_flags;
    Both retention passes store srTextureIFace pointers and release them
    through the inherited srClass interface. */
 // GLOBAL: WIZ8 0x0065b9d0
-static W8GrowableVector<srTextureIFace*> g_retained_textures(5);
+static std::vector<srTextureIFace*> g_retained_textures;
 
 namespace {
 
@@ -173,8 +170,8 @@ struct W8MeshStripBuilder {
    malloc/memset material table owns packed words and converts at shader API
    boundaries. */
 
-/* Stores the W8Vector<srMaterialIFace*> table 0x005ECA58, not a
-   W8GrowableVector<short> table. */
+/* Stores the std::vector<srMaterialIFace*> table 0x005ECA58, not a
+   std::vector<short> table. */
 
 /* Sorts each run of equal group ids by its key, then renumbers the groups so
    equal keys within a group stay together. */
@@ -492,14 +489,14 @@ stMeshModel*
 BuildSingleLevelMesh(int face_count, W8ReadMeshFace* faces, int vertex_count, int material_count,
                      srMaterialIFace** materials, srTextureIFace** textures, srShader* render_flags,
                      unsigned int* mesh_count, int*** vertex_maps, unsigned int* vertex_map_count,
-                     W8GrowableVector<short>* mapped_values, W8GrowableVector<short>* mapped_keys)
+                     std::vector<short>* mapped_values, std::vector<short>* mapped_keys)
 {
-    W8GrowableVector<srShader> polygon_types;
+    std::vector<srShader> polygon_types;
     std::unordered_map<unsigned int, int> vertex_indices[8];
-    W8GrowableVector<int> duplicated_from[8];
-    W8GrowableVector<int> duplicated_to[8];
-    W8GrowableVector<short> mapped_meshes;
-    W8GrowableVector<short> mapped_vertices;
+    std::vector<int> duplicated_from[8];
+    std::vector<int> duplicated_to[8];
+    std::vector<short> mapped_meshes;
+    std::vector<short> mapped_vertices;
     int capacities[8];
     int polygon_counts[8];
     int vertex_counts[8];
@@ -517,13 +514,13 @@ BuildSingleLevelMesh(int face_count, W8ReadMeshFace* faces, int vertex_count, in
     int type;
     int face_index;
 
-    for (int index = 0; index < mapped_values->GetCount(); ++index) {
-        mapped_meshes.Add(-1);
-        mapped_vertices.Add(-1);
+    for (int index = 0; index < static_cast<int>(mapped_values->size()); ++index) {
+        mapped_meshes.push_back(-1);
+        mapped_vertices.push_back(-1);
     }
 
     for (int material = 0; material < material_count; ++material) {
-        if (polygon_types.IndexOf(render_flags[material]) == -1) {
+        if ((std::ranges::find(polygon_types, render_flags[material].value, &srShader::value) == polygon_types.end())) {
             int capacity = 0;
             for (face_index = 0; face_index < face_count; ++face_index) {
                 W8ReadMeshFace& face = faces[face_index];
@@ -535,21 +532,21 @@ BuildSingleLevelMesh(int face_count, W8ReadMeshFace* faces, int vertex_count, in
                 }
             }
             if (capacity != 0) {
-                capacities[polygon_types.GetCount()] = capacity;
-                polygon_types.Add(render_flags[material]);
+                capacities[static_cast<int>(polygon_types.size())] = capacity;
+                polygon_types.push_back(render_flags[material]);
             }
         }
     }
 
     if (mesh_count != 0) {
-        *mesh_count = polygon_types.GetCount();
+        *mesh_count = static_cast<int>(polygon_types.size());
     }
-    *vertex_maps = static_cast<int**>(malloc(polygon_types.GetCount() * sizeof(int*)));
+    *vertex_maps = static_cast<int**>(malloc(static_cast<int>(polygon_types.size()) * sizeof(int*)));
     if (vertex_map_count != 0) {
-        *vertex_map_count = polygon_types.GetCount();
+        *vertex_map_count = static_cast<int>(polygon_types.size());
     }
 
-    for (type = 0; type < polygon_types.GetCount(); ++type) {
+    for (type = 0; type < static_cast<int>(polygon_types.size()); ++type) {
         polygon_counts[type] = 0;
         vertex_counts[type] = 0;
         extra_uv_counts[type] = 0;
@@ -570,7 +567,8 @@ BuildSingleLevelMesh(int face_count, W8ReadMeshFace* faces, int vertex_count, in
 
     for (face_index = 0; face_index < face_count; ++face_index) {
         W8ReadMeshFace& face = faces[face_index];
-        type = polygon_types.IndexOf(render_flags[face.material_index]);
+        const auto found = std::ranges::find(polygon_types, render_flags[face.material_index].value, &srShader::value);
+        type = (found == polygon_types.end() ? -1 : static_cast<int>(found - polygon_types.begin()));
         if (type < 0) {
             srAssertFail("iPolyType >=0", "C:\\Projects\\Wizardry 8\\Engine Code\\ReadMesh.cpp",
                          0x45b, 0);
@@ -593,10 +591,10 @@ BuildSingleLevelMesh(int face_count, W8ReadMeshFace* faces, int vertex_count, in
                 (*vertex_maps)[type][vertex] = original_vertex;
                 vertex_shades[type][vertex] = vertex;
                 ++vertex_counts[type];
-                for (int mapped = 0; mapped < mapped_values->GetCount(); ++mapped) {
+                for (int mapped = 0; mapped < static_cast<int>(mapped_values->size()); ++mapped) {
                     if ((*mapped_values)[mapped] == original_vertex) {
-                        mapped_vertices.SetAt(mapped, static_cast<short>(vertex));
-                        mapped_meshes.SetAt(mapped, static_cast<short>(type));
+                        mapped_vertices[mapped] = static_cast<short>(vertex);
+                        mapped_meshes[mapped] = static_cast<short>(type);
                         break;
                     }
                 }
@@ -624,8 +622,8 @@ BuildSingleLevelMesh(int face_count, W8ReadMeshFace* faces, int vertex_count, in
                 vertex_shades[type][vertex] = vertex;
                 (*vertex_maps)[type][vertex] = (*vertex_maps)[type][source_vertex];
                 vertex_uvs[type][vertex] = face.texture_coordinates[corner];
-                duplicated_from[type].Add(source_vertex);
-                duplicated_to[type].Add(vertex);
+                duplicated_from[type].push_back(source_vertex);
+                duplicated_to[type].push_back(vertex);
                 (corner == 0 ? split_poly.x : (corner == 1 ? split_poly.y : split_poly.z)) = vertex;
                 (corner == 0 ? split_shade.x : (corner == 1 ? split_shade.y : split_shade.z)) =
                     vertex;
@@ -637,7 +635,7 @@ BuildSingleLevelMesh(int face_count, W8ReadMeshFace* faces, int vertex_count, in
         }
     }
 
-    for (type = 0; type < polygon_types.GetCount(); ++type) {
+    for (type = 0; type < static_cast<int>(polygon_types.size()); ++type) {
         if (capacities[type] == 0) {
             continue;
         }
@@ -648,9 +646,9 @@ BuildSingleLevelMesh(int face_count, W8ReadMeshFace* faces, int vertex_count, in
                          "C:\\Projects\\Wizardry 8\\Engine Code\\ReadMesh.cpp", 0x4e7, 0);
         }
 
-        for (int mapped = 0; mapped < mapped_meshes.GetCount(); ++mapped) {
+        for (int mapped = 0; mapped < static_cast<int>(mapped_meshes.size()); ++mapped) {
             if (mapped_meshes[mapped] == type) {
-                for (int entry = 0; entry < mapped_values->GetCount(); ++entry) {
+                for (int entry = 0; entry < static_cast<int>(mapped_values->size()); ++entry) {
                     model->SetMappedVertex(mapped_vertices[entry], (*mapped_keys)[entry]);
                 }
                 break;
@@ -705,7 +703,7 @@ BuildSingleLevelMesh(int face_count, W8ReadMeshFace* faces, int vertex_count, in
         memcpy(model_shades, vertex_shades[type], vertex_counts[type] * sizeof(w8_ulong));
 
         srShader shader;
-        shader = *polygon_types.GetAt(type);
+        shader = polygon_types[type];
         model->setShader(shader, 0);
 
         free(polygon_shades[type]);
@@ -717,7 +715,7 @@ BuildSingleLevelMesh(int face_count, W8ReadMeshFace* faces, int vertex_count, in
         free(vertex_shades[type]);
 
         model->setDirtyAll();
-        if ((polygon_types.GetAt(type)->value & 0x6000) == 0x4000) {
+        if (((polygon_types.data() + type)->value & 0x6000) == 0x4000) {
             model->flags |= W8_MESH_SORTED_RENDERING;
             model->enable(srMeshModel::CONTROL_SORTED_RENDERING);
         } else {
@@ -847,8 +845,8 @@ try
 {
     /* Retail read mapping_count/value/key/compression_type uninitialised when
        a FileRead short-circuited; the recovery keeps that read. */
-    W8GrowableVector<short> mapped_values;
-    W8GrowableVector<short> mapped_keys;
+    std::vector<short> mapped_values;
+    std::vector<short> mapped_keys;
     int version = 0;
     int vertex_count = 0;
     int face_count = 0;
@@ -905,8 +903,8 @@ try
                 !(file->read(&value, sizeof(value)).bytes == static_cast<std::size_t>(sizeof(value)))) {
                 success = 0;
             }
-            mapped_values.Add(value);
-            mapped_keys.Add(key);
+            mapped_values.push_back(value);
+            mapped_keys.push_back(key);
         }
     }
     if (success == 0) {
@@ -1060,7 +1058,7 @@ try
     for (int index = 0; index < material_count; ++index) {
         srTextureIFace* texture = textures[index];
         if (texture != 0 && texture->getReferenceCount() == 0) {
-            g_retained_textures.Add(texture);
+            g_retained_textures.push_back(texture);
             texture->addReference();
         }
     }
@@ -1172,7 +1170,7 @@ try
     for (int index = 0; index < g_read_mesh_material_count; ++index) {
         srTextureIFace* texture = g_multi_mesh_textures[index];
         if (texture != 0 && texture->getReferenceCount() == 0) {
-            g_retained_textures.Add(texture);
+            g_retained_textures.push_back(texture);
             texture->addReference();
         }
     }
@@ -1186,9 +1184,9 @@ try
 // FUNCTION: WIZ8 0x00489920
 void ReleaseRetainedMaterials()
 {
-    while (g_retained_textures.GetCount() != 0) {
-        (*g_retained_textures.GetAt(0))->release();
-        g_retained_textures.RemoveAt(0);
+    while (static_cast<int>(g_retained_textures.size()) != 0) {
+        (g_retained_textures[0])->release();
+        g_retained_textures.erase(g_retained_textures.begin() + 0);
     }
 }
 

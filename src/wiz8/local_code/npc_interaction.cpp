@@ -56,8 +56,8 @@ void ClearNpcMessageQueue(void)
 {
     int index;
 
-    for (index = 0; index < g_npc_scripting.message_lines.GetCount(); ++index) {
-        delete *g_npc_scripting.message_lines.GetAt(index);
+    for (index = 0; index < static_cast<int>(g_npc_scripting.message_lines.size()); ++index) {
+        delete g_npc_scripting.message_lines[index];
     }
     g_npc_scripting = {};
 }

@@ -73,7 +73,8 @@ GDProp::~GDProp()
         free(m_path_waypoints);
     }
     if (m_supported_items != 0) {
-        PLDestroy(m_supported_items);
+        delete m_supported_items;
+
     }
 }
 
@@ -234,10 +235,10 @@ void GDProp::Initialize(srModelInstance* instance, bool attach, unsigned short p
     }
 
     if (m_supported_items != 0) {
-        unsigned int count = PLLength(m_supported_items);
+        unsigned int count = (m_supported_items ? static_cast<unsigned int>(m_supported_items->size()) : 0);
         for (unsigned int index = 0; index < count; ++index) {
             W8WorldItem* item =
-                static_cast<W8WorldItem*>(PLGet(m_supported_items, static_cast<int>(index)));
+                static_cast<W8WorldItem*>((m_supported_items && static_cast<int>(index) >= 0 && static_cast<int>(index) < static_cast<int>(m_supported_items->size()) ? (*m_supported_items)[static_cast<int>(index)] : nullptr));
             if (item != 0) {
                 SetWorldItemFalling(item, true);
             }
@@ -435,7 +436,7 @@ unsigned char GDProp::RegisterPathVertex(unsigned int index, const srVector2i* p
 void AddItemToSector(int sector, W8WorldItem* item)
 {
     if (item != 0 && sector >= 0) {
-        W8Prop* prop = *g_world->collidable_props->GetAt(sector);
+        W8Prop* prop = (*g_world->collidable_props)[sector];
         GDProp* gd = prop->m_gd_prop;
         if (gd == 0) {
             prop->BuildOrRefreshPathingRepresentation();
@@ -445,10 +446,10 @@ void AddItemToSector(int sector, W8WorldItem* item)
             }
         }
         if (gd->m_supported_items == 0) {
-            gd->m_supported_items = PLCreate();
+            gd->m_supported_items = new std::vector<W8WorldItem*>;
         }
-        if (gd->m_supported_items != 0 && PListIndexOf(gd->m_supported_items, item) < 0) {
-            PLAdoptAppend(gd->m_supported_items, item);
+        if (gd->m_supported_items != 0 && (std::ranges::find((*gd->m_supported_items), item) == gd->m_supported_items->end())) {
+            gd->m_supported_items->push_back(item);
         }
     }
 }
@@ -458,9 +459,9 @@ void AddItemToSector(int sector, W8WorldItem* item)
 void RemoveItemFromSector(int sector, W8WorldItem* item)
 {
     if (item != 0 && sector >= 0) {
-        W8Prop* prop = *g_world->collidable_props->GetAt(sector);
+        W8Prop* prop = (*g_world->collidable_props)[sector];
         if (prop != 0 && prop->m_gd_prop != 0 && prop->m_gd_prop->m_supported_items != 0) {
-            PListRemove(prop->m_gd_prop->m_supported_items, item);
+            if (const auto found = std::ranges::find((*prop->m_gd_prop->m_supported_items), item); found != prop->m_gd_prop->m_supported_items->end()) prop->m_gd_prop->m_supported_items->erase(found);
         }
     }
 }
@@ -469,7 +470,7 @@ void RemoveItemFromSector(int sector, W8WorldItem* item)
 // FUNCTION: WIZ8 0x004B7BA0
 bool GDProp::HasSupportedItems()
 {
-    if (m_supported_items != 0 && static_cast<int>(PLLength(m_supported_items)) > 0) {
+    if (m_supported_items != 0 && static_cast<int>((m_supported_items ? static_cast<unsigned int>(m_supported_items->size()) : 0)) > 0) {
         return true;
     }
     return false;

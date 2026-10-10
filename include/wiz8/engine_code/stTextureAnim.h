@@ -1,7 +1,8 @@
 #pragma once
 
 #include "surrender/srTexture.h"
-#include "wiz8/vector.h"
+#include <vector>
+#include <algorithm>
 #include "wiz8/texture_animation.h"
 
 enum W8TextureTriggerMode {
@@ -43,7 +44,7 @@ public:
     stTextureAnim& operator=(const stTextureAnim&) = default;
     void UpdateFrame();
 
-    W8Vector<srTextureIFace*>* textures;
+    std::vector<srTextureIFace*>* textures;
     int frame;
     int direction;
     W8TextureAnimationMode animation_mode;

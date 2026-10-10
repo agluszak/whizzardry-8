@@ -3,7 +3,8 @@
 extern bool g_npc_dialogue_closed;
 extern bool g_sea_caves_slope_override_enabled;
 
-#include "wiz8/vector.h"
+#include <vector>
+#include <algorithm>
 
 struct W8MonsterInfo;
 struct W8MonsterGroup;
@@ -16,7 +17,7 @@ typedef void (*W8MasterFunction)(int);
 
 /* The registered master functions, and the flag a callback sets to ask the
    dispatcher to drop it after this run. */
-extern W8Vector<W8MasterFunction>* g_master_functions;
+extern std::vector<W8MasterFunction>* g_master_functions;
 extern bool g_remove_current_master_function;
 extern bool g_running_trigger_from_script;
 

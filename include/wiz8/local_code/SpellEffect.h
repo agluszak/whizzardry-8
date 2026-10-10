@@ -5,7 +5,8 @@
 #include "wiz8/dice.h"
 #include "wiz8/layouts/character.h"
 #include "wiz8/layouts/targeting.h"
-#include "wiz8/vector.h"
+#include <vector>
+#include <algorithm>
 
 #include <stddef.h>
 #include <string.h>
@@ -57,7 +58,7 @@ struct W8SpellEffectResult {
     unsigned int amount;
     unsigned int count;
     unsigned int condition_counts[W8_CONDITION_COUNT];
-    W8Vector<W8SpellDamageReport*> reports;
+    std::vector<W8SpellDamageReport*> reports;
     /* The per-kind totals the notice pass folds into its messages;
        [3] and [4] are the running damage totals the character and monster
        damage paths add to. */
@@ -114,12 +115,12 @@ struct W8SpellEffectEntry {
        CollectHostileMonsters gathers at 0x0e0, and a second index list at
        0x0f0 used both as party-slot indices and as monster-manager entry
        indices depending on the effect path. */
-    W8GrowableVector<int> monster_ids;
-    W8GrowableVector<int> target_indices;
+    std::vector<int> monster_ids;
+    std::vector<int> target_indices;
     /* Spawned visuals and owned missiles. Their constructors
        install a base vector table followed by the derived table. */
-    W8Vector<W8SpellVisual*> spell_visuals;
-    W8Vector<W8Missile*> missiles;
+    std::vector<W8SpellVisual*> spell_visuals;
+    std::vector<W8Missile*> missiles;
     /* When the effect ends without having applied, the tick re-casts
        the spell from the stored source. CastSpellFromSource's `c` argument. */
     bool recast;
@@ -154,7 +155,7 @@ W8_ABI_ASSERT(offsetof(W8SpellEffectEntry, missiles) == 0x110, "W8SpellEffectEnt
 W8_ABI_ASSERT(offsetof(W8SpellEffectEntry, reported) == 0x124, "W8SpellEffectEntry_reported");
 W8_ABI_ASSERT(offsetof(W8SpellEffectEntry, result) == 0x126, "W8SpellEffectEntry_result");
 
-extern W8GrowableVector<W8SpellEffectEntry*> g_spell_effects;
+extern std::vector<W8SpellEffectEntry*> g_spell_effects;
 
 W8SpellEffectEntry* FindMonsterControlSpellEffect(void);
 void AddSpellEffect(W8SpellEffectEntry* effect);

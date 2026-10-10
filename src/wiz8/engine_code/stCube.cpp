@@ -4,7 +4,8 @@
 #include "wiz8/engine_code/World.h"
 #include "wiz8/engine_code/Monster.h"
 #include "wiz8/engine_code/GDCamera.h"
-#include "wiz8/3d_code/PList.h"
+#include <vector>
+#include <algorithm>
 #include "wiz8/engine_code/Environment.h"
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/local_screens/MainGameScreen.h"
@@ -18,7 +19,6 @@
 #include "wiz8/local_code/Controls.h"
 #include "wiz8/sr_api.h"
 #include "wiz8/utility.h"
-#include "wiz8/vector.h"
 #include "wiz8/geometry.h"
 #include "surrender/srNode.h"
 #include "surrender/srCamera.h"
@@ -59,7 +59,7 @@ unsigned char W8WorldCursorNode::GetLocation(srVector3T<float>* position)
    initializer at 0x0048D020 constructs it with capacity five and its
    destructor is run through atexit. */
 // GLOBAL: WIZ8 0x0065ba58
-W8GrowableVector<W8WorldCursorNode*> g_world_cursor_nodes(5);
+std::vector<W8WorldCursorNode*> g_world_cursor_nodes;
 
 /* The double selection range at 0x005ECAC8: node distances below it select the
    node. Read as 75000.0, not the zero a float view would give. */
@@ -215,7 +215,7 @@ W8WorldCursorNode* CreateWorldCursorCube(void)
     entry->userdata_size = 0;
     entry->name[0] = 0;
 
-    g_world_cursor_nodes.Add(entry);
+    g_world_cursor_nodes.push_back(entry);
     return entry;
 }
 
@@ -230,7 +230,7 @@ void DestroyWorldCursorCube(W8WorldCursorNode* entry)
         entry->userdata_size = 0;
         entry->node->setParent(0, 1);
         entry->node->release();
-        g_world_cursor_nodes.Remove(entry);
+        if (const auto found = std::ranges::find(g_world_cursor_nodes, entry); found != g_world_cursor_nodes.end()) g_world_cursor_nodes.erase(found);
         delete entry;
     }
 }
@@ -433,10 +433,10 @@ W8WorldCursorNode* FindNearestWorldCursorNode(int x, int y)
 {
     float nearest = 999999.0f;
     W8WorldCursorNode* result = 0;
-    int count = g_world_cursor_nodes.GetCount();
+    int count = static_cast<int>(g_world_cursor_nodes.size());
 
     for (int index = 0; index < count; ++index) {
-        W8WorldCursorNode* entry = *g_world_cursor_nodes.GetAt(index);
+        W8WorldCursorNode* entry = g_world_cursor_nodes[index];
         if (entry != 0 && entry->node != 0 && entry->node == GetPickedModelInstance()) {
             srVector3T<double> camera;
             g_world->camera->getLocation(camera);
@@ -503,8 +503,8 @@ unsigned int LoadWorldCursorNodeStates(wiz8::File* handle)
             int cube_index;
 
             handle->read_exact(name, sizeof(name));
-            for (cube_index = 0; cube_index < g_world_cursor_nodes.GetCount(); ++cube_index) {
-                W8WorldCursorNode* candidate = *g_world_cursor_nodes.GetAt(cube_index);
+            for (cube_index = 0; cube_index < static_cast<int>(g_world_cursor_nodes.size()); ++cube_index) {
+                W8WorldCursorNode* candidate = g_world_cursor_nodes[cube_index];
                 if (strcmp(candidate->name, name) == 0) {
                     cube = candidate;
                     break;
@@ -557,12 +557,12 @@ unsigned char SaveWorldCursorNodeStates(wiz8::File* handle)
     if (!(handle->write(&version, 4), true)) {
         return 0;
     }
-    count = g_world_cursor_nodes.GetCount();
+    count = static_cast<int>(g_world_cursor_nodes.size());
     if (!(handle->write(&count, 4), true)) {
         return 0;
     }
     for (index = 0; index < count && ok; ++index) {
-        node = *g_world_cursor_nodes.GetAt(index);
+        node = g_world_cursor_nodes[index];
         ok = (handle->write(node->name, sizeof(node->name)), true) &&
              (handle->write(&node->userdata_size, 4), true);
         if (node->userdata_size != 0) {
@@ -687,12 +687,12 @@ unsigned char SaveWorldCursorNodes(wiz8::File* handle)
         return 0;
     }
     handle->write(&gXStatus.mipe_cube_serial, 4);
-    count = g_world_cursor_nodes.GetCount();
+    count = static_cast<int>(g_world_cursor_nodes.size());
     if (!(handle->write(&count, 4), true)) {
         return 0;
     }
     for (index = 0; index < count && ok; ++index) {
-        node = *g_world_cursor_nodes.GetAt(index);
+        node = g_world_cursor_nodes[index];
         handle->write(node->name, sizeof(node->name));
         for (component = 0; component < 3 && ok; ++component) {
             ok = (handle->write(&node->parameters[component], 4), true);
@@ -714,13 +714,13 @@ unsigned char SaveWorldCursorNodes(wiz8::File* handle)
 // FUNCTION: WIZ8 0x0048ED00
 int GetWorldCursorNodeCount(void)
 {
-    return g_world_cursor_nodes.GetCount();
+    return static_cast<int>(g_world_cursor_nodes.size());
 }
 
 // FUNCTION: WIZ8 0x0048ED10
 W8WorldCursorNode* GetWorldCursorNode(int index)
 {
-    return *g_world_cursor_nodes.GetAt(index);
+    return g_world_cursor_nodes[index];
 }
 
 /* Attach or detach the node's scene node under the world's dynamic scene. */
@@ -751,10 +751,10 @@ void SetWorldCursorNodeName(W8WorldCursorNode* entry, const char* name)
 // FUNCTION: WIZ8 0x0048ED70
 void SetWorldCursorNodesVisible(bool visible)
 {
-    unsigned int count = g_world_cursor_nodes.GetCount();
+    unsigned int count = static_cast<int>(g_world_cursor_nodes.size());
 
     for (unsigned int index = 0; index < count; ++index) {
-        W8WorldCursorNode* entry = *g_world_cursor_nodes.GetAt(index);
+        W8WorldCursorNode* entry = g_world_cursor_nodes[index];
 
         if (entry != 0) {
             srNode* parent = 0;
@@ -773,11 +773,11 @@ void SetWorldCursorNodesVisible(bool visible)
 W8WorldCursorNode* FindWorldCursorNodeAtPoint(W8WorldCursorNode* after, srVector3T<float>* point)
 {
     unsigned int index = 0;
-    unsigned int count = g_world_cursor_nodes.GetCount();
+    unsigned int count = static_cast<int>(g_world_cursor_nodes.size());
 
     if (after != 0) {
         for (unsigned int i = 0; i < count; ++i) {
-            if (*g_world_cursor_nodes.GetAt(i) == after) {
+            if (g_world_cursor_nodes[i] == after) {
                 index = i + 1;
                 if (i == count - 1) {
                     return 0;
@@ -786,7 +786,7 @@ W8WorldCursorNode* FindWorldCursorNodeAtPoint(W8WorldCursorNode* after, srVector
         }
     }
     while (index < count) {
-        W8WorldCursorNode* entry = *g_world_cursor_nodes.GetAt(index);
+        W8WorldCursorNode* entry = g_world_cursor_nodes[index];
         if (entry->node != 0) {
             srNode::BoundInfo bounds;
             entry->node->getLocalBounds(bounds);
@@ -865,7 +865,7 @@ bool SelectWorldCursorNode(void)
         GetCameraPosition(&camera_position);
         camera_location = glm::dvec3(camera_position.glmValue());
         int selected = g_cursor_node_index;
-        if (selected >= 0 && selected < g_world_cursor_nodes.GetCount()) {
+        if (static_cast<std::size_t>(selected) < g_world_cursor_nodes.size()) {
             W8WorldCursorNode* entry = g_world_cursor_nodes[selected];
             srVector3T<double> target = entry->node->getLocation();
 
@@ -878,7 +878,7 @@ bool SelectWorldCursorNode(void)
                 }
             }
         }
-        int count = g_world_cursor_nodes.GetCount();
+        int count = static_cast<int>(g_world_cursor_nodes.size());
         for (int index = 0; index < count; ++index) {
             W8WorldCursorNode* entry = g_world_cursor_nodes[index];
             srVector3T<double> target = entry->node->getLocation();
@@ -903,7 +903,7 @@ bool SelectWorldCursorNode(void)
 // FUNCTION: WIZ8 0x0048DB30
 void ReleaseWorldCursorNodes(void)
 {
-    while (g_world_cursor_nodes.GetCount() != 0) {
+    while (static_cast<int>(g_world_cursor_nodes.size()) != 0) {
         W8WorldCursorNode* entry = g_world_cursor_nodes[0];
 
         DestroyWorldCursorCube(entry);

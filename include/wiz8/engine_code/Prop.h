@@ -5,7 +5,8 @@
 #include "wiz8/engine_code/AnimRep.hpp"
 #include "wiz8/engine_code/GrObject.h"
 #include "wiz8/engine_code/game_timer.h"
-#include "wiz8/vector.h"
+#include <vector>
+#include <algorithm>
 
 #include "surrender/srMath.h"
 
@@ -39,7 +40,7 @@ public:
     /* Default construction is inlined at Prop::Prop. */
     W8PropRepresentation()
         : animation(0), animation_speed(0.0f), frame_index(0), animation_running(0), random_play(0),
-          play_chance(0.5f), saved_subcycle(0), frame_steps(0), slots(5), footstep_surface(0xff),
+          play_chance(0.5f), saved_subcycle(0), frame_steps(0), slots(), footstep_surface(0xff),
           footstep_material(0xff)
     {
     }
@@ -67,7 +68,7 @@ public:
     unsigned char saved_subcycle; /* 0xac */
     unsigned char frame_steps;    /* 0xad */
     unsigned char padding_0ae[2];
-    W8Vector<W8PropAnimationSegment*> slots; /* 0xb0 */
+    std::vector<W8PropAnimationSegment*> slots; /* 0xb0 */
     unsigned char footstep_surface;          /* 0xc0 */
     unsigned char footstep_material;         /* 0xc1 */
     unsigned char padding_0c2[2];
@@ -157,7 +158,7 @@ public:
        `world` is accepted but never read. */
     bool IsPickedProp(W8World* world); /* 0x0044D680 */
     void GetBounds(srVector3T<float>* minimum, srVector3T<float>* maximum);
-    void CollectModelInstances(W8GrowableVector<stModelInstance*>* instances);
+    void CollectModelInstances(std::vector<stModelInstance*>* instances);
     /* Run trigger when its action is one of the missile-impact kinds
        (0x3a..0x3c); the record hands Run the missile's table index. */
     void RunMissileTrigger(W8AIMissile* record);

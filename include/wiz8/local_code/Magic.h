@@ -7,7 +7,8 @@
 #include "wiz8/layouts/gameplay_databases.h"
 #include "wiz8/layouts/character.h"
 #include "surrender/srMath.h"
-#include "wiz8/vector.h"
+#include <vector>
+#include <algorithm>
 
 struct W8TargetSource;
 struct W8CombatSlot;
@@ -89,8 +90,8 @@ W8Skill GetBestSpellbookSkillForSpell(W8Character* character, int spell_id, bool
 int CastSpellFromSource(int spell_id, W8TargetSource* source, W8CombatSlot* target,
                         unsigned int power_level, int power_cast_bonus, unsigned int failure_chance,
                         bool recast, int* out_power, int cast_kind,
-                        W8GrowableVector<int>* party_targets,
-                        W8GrowableVector<int>* monster_targets);
+                        std::vector<int>* party_targets,
+                        std::vector<int>* monster_targets);
 /* Assert and route the source/target pair a cast is about to
    use; some target kinds have their own placement pass. */
 void PrepareSpellTarget(int spell_id, W8TargetSource* source, W8CombatSlot* target);
@@ -99,11 +100,11 @@ void PrepareSpellTarget(int spell_id, W8TargetSource* source, W8CombatSlot* targ
    final flag enables radius highlighting rather than plain line-of-sight
    collection. */
 void PopulateSpellTargetMarkers(int spell_id, int power_level, W8TargetSource* source,
-                                W8CombatSlot* target, W8GrowableVector<int>* monster_markers,
-                                W8GrowableVector<int>* party_markers, int highlighting);
+                                W8CombatSlot* target, std::vector<int>* monster_markers,
+                                std::vector<int>* party_markers, int highlighting);
 /* Drop every marker that no longer names a live, targetable
    monster; a few spell ids prune on extra monster-record rules. */
-void PruneSpellTargetMarkers(int spell_id, W8GrowableVector<int>* monster_markers);
+void PruneSpellTargetMarkers(int spell_id, std::vector<int>* monster_markers);
 int GetProfessionCasterLevel(const W8Character* character, W8Profession profession_id);
 /* The highest power level this slot can afford to cast the spell
    at for its current target; zero when none is castable. */

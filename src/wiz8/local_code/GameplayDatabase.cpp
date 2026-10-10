@@ -18,7 +18,8 @@
 #include "wiz8/layouts/npc_state.h"
 #include "wiz8/local_code/NPCManager.h"
 #include "wiz8/local_code/NPCScripting.h"
-#include "wiz8/3d_code/PList.h"
+#include <vector>
+#include <algorithm>
 #include "wiz8/layouts/item_instance.h"
 #include "wiz8/layouts/gameplay_databases.h"
 #include "wiz8/local_code/MonsterManager.h"
@@ -44,7 +45,6 @@
 #include "wiz8/local_code/Targeting.h"
 #include "wiz8/utility.h"
 #include "wiz8/sr_api.h"
-#include "wiz8/vector.h"
 #include "wiz8/virtual_file.h"
 #include "wiz8/filesystem.h"
 #include "random.h"
@@ -373,12 +373,15 @@ void DestroyNpcDatabase(void)
     if (g_npc_records) {
         for (index = 0; index < gXStatus.uiNpcsInDatabase; ++index) {
             if (g_npc_records[index].item_stock_rules) {
-                W8PList* rules = g_npc_records[index].item_stock_rules;
-                while (PLLength(rules) != 0) {
-                    delete static_cast<W8NpcItemStockRule*>(PLRemoveAt(rules, 0));
+                std::vector<W8NpcItemStockRule*>* rules = g_npc_records[index].item_stock_rules;
+                while ((rules ? static_cast<unsigned int>(rules->size()) : 0) != 0) {
+                    const auto removed_entry = (*rules)[0];
+                    rules->erase(rules->begin() + 0);
+                    delete static_cast<W8NpcItemStockRule*>(removed_entry);
                 }
-                PListFreeData(rules);
-                PLDestroy(rules);
+                rules->clear();
+                delete rules;
+
                 g_npc_records[index].item_stock_rules = 0;
             }
         }

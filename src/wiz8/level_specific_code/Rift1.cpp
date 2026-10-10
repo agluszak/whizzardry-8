@@ -1,5 +1,6 @@
 #include "wiz8/level_specific_code/Rift1.h"
-#include "wiz8/3d_code/IList.h"
+#include <vector>
+#include <algorithm>
 #include "wiz8/engine_code/Monster.h"
 #include "wiz8/engine_code/World.h"
 #include "wiz8/fact_state.h"
@@ -64,7 +65,7 @@ bool Rift1Hotstuff(Trigger* pTrigger)
         if (FindEntityByName("Hotstuff", &position, 0, 0)) {
             group = SpawnMonsters(0x175, 1, &position, 0, true, false, false);
             if (group != 0) {
-                monster = GetMonsterByLocationID(IListGetAt(group->monsters, 0));
+                monster = GetMonsterByLocationID((group->monsters.operator->() && static_cast<std::size_t>(0) < group->monsters->size() ? (*group->monsters)[0] : -1));
                 if (monster != 0 && monster->SetScript("MoveLavalord.MSF", true)) {
                     BeginScriptedWorldAction();
                 }

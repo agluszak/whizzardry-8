@@ -160,5 +160,13 @@ types directly. The unused object update callback scheduler, device-call profili
 wrapper and video importer manager have been removed; game movies use the
 existing FFmpeg decoder.
 
+Gameplay and UI collections use typed standard vectors. Ordered erasure keeps
+list order and removes only the first matching entry. Pointer vectors borrow
+their elements; owning systems explicitly unlink and destroy objects, preserving
+destructor callbacks and pointee addresses across slot reallocation. Monster
+script conditions use addressable bytes rather than `std::vector<bool>` proxies.
+Journal loading resizes live entries before reading their unchanged file records;
+packed NPC/group pointer codecs retain their four-byte format fields.
+
 Third-party source licenses, including the SGP license, remain with
 their respective sources.

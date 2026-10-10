@@ -5,8 +5,8 @@
 #include "wiz8/engine_code/3d.h"
 #include "wiz8/engine_code/GDCamera.h"
 #include "wiz8/engine_code/Monster.h"
-#include "wiz8/3d_code/PList.h"
-#include "wiz8/3d_code/IList.h"
+#include <vector>
+#include <algorithm>
 #include "wiz8/local_code/Targeting.h"
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/cursor.h"
@@ -139,7 +139,7 @@ void InitializeWorldCursor(void)
             gp3DCursor->input_delta.z = 0;
             position = gp3DCursor->position;
             MonsterSetAdjustedPosition(gp3DCursor->monster, &position);
-            PLAdoptAppend(g_world->plsMonsters, gp3DCursor->monster);
+            g_world->plsMonsters->push_back(gp3DCursor->monster);
             UpdateCycleRepresentation(gp3DCursor->monster, g_world);
             MonsterSetActive(gp3DCursor->monster, false);
             gp3DCursor->light = CreateRangedWorldLight(g_world, "3D Cursor Light");
@@ -228,7 +228,7 @@ void ReleaseWorldCursor(void)
     delta = cursor->position - camera;
     g_cursor_projection_distance = delta.Length();
 
-    PListRemove(g_world->plsMonsters, cursor->monster);
+    if (const auto found = std::ranges::find((*g_world->plsMonsters), cursor->monster); found != g_world->plsMonsters->end()) g_world->plsMonsters->erase(found);
     DetachMonsterRepresentation(cursor->monster, g_world);
     DeleteMonster(cursor->monster);
     ReleaseRendererObject(cursor->particle);
@@ -266,7 +266,7 @@ void ShowWorldCursor(void)
     if (gp3DCursor != 0 && !gp3DCursor->enabled) {
         UpdateMonster(gp3DCursor->monster);
         UpdateCycleRepresentation(gp3DCursor->monster, g_world);
-        PLAdoptAppend(g_world->plsMonsters, gp3DCursor->monster);
+        g_world->plsMonsters->push_back(gp3DCursor->monster);
         gp3DCursor->enabled = true;
         if (gp3DCursor->particle != 0) {
             gp3DCursor->particle->SetActive(1);
@@ -291,7 +291,7 @@ void HideWorldCursor(void)
     }
     monster = cursor->monster;
     world = g_world;
-    PListRemove(world->plsMonsters, monster);
+    if (const auto found = std::ranges::find((*world->plsMonsters), monster); found != world->plsMonsters->end()) world->plsMonsters->erase(found);
     DetachMonsterRepresentation(monster, world);
     cursor->enabled = false;
     if (cursor->particle != 0) {
@@ -462,7 +462,7 @@ void BindCursorMonsterToGroup(void)
         }
         index = GetMonsterGroupIndexByID(0x237, CURSOR3D_CPP, gp3DCursor->monster_group_id, false);
         if (index == 0xffffffff) {
-            index = PLLength(gXStatus.plsMonsterGroupList);
+            index = (gXStatus.plsMonsterGroupList ? static_cast<unsigned int>(gXStatus.plsMonsterGroupList->size()) : 0);
             if (index == 0) {
                 return;
             }

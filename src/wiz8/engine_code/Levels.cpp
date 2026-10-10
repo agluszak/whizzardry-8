@@ -621,7 +621,12 @@ unsigned char LoadLevel(int requested_level, int entrance, bool restoring_game)
             ResetAndRefreshAllSight();
             AgeAllMonsterSight();
         }
-        g_spell_effects.RemoveAllAndDelete();
+        for (auto index = g_spell_effects.size(); index-- > 0;) {
+            if (index >= g_spell_effects.size()) continue;
+            auto* object = g_spell_effects[index];
+            g_spell_effects.erase(g_spell_effects.begin() + index);
+            delete object;
+        }
     } else {
         W8SpellEffectEntry* effect = FindMonsterControlSpellEffect();
 

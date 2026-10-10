@@ -26,7 +26,7 @@ stTextureAnim::stTextureAnim()
     trigger_mode = W8_TEXTURE_TRIGGER_CONTINUOUS;
     probability = -1.0f;
     running = false;
-    textures = new W8Vector<srTextureIFace*>;
+    textures = new std::vector<srTextureIFace*>;
 }
 
 // FUNCTION: WIZ8 0x00484E60
@@ -50,11 +50,11 @@ stTextureAnim::stTextureAnim(const stTextureAnim& other)
     trigger_mode = other.trigger_mode;
     probability = other.probability;
     running = other.running;
-    textures = new W8Vector<srTextureIFace*>;
+    textures = new std::vector<srTextureIFace*>;
 
-    for (i = 0; i < other.textures->GetCount(); ++i) {
-        srTextureIFace* texture = *other.textures->GetAt(i);
-        textures->Add(texture);
+    for (i = 0; i < static_cast<int>(other.textures->size()); ++i) {
+        srTextureIFace* texture = (*other.textures)[i];
+        textures->push_back(texture);
         texture->addReference();
     }
 }
@@ -66,9 +66,9 @@ stTextureAnim::~stTextureAnim()
         ReleaseReadMeshScratch();
     }
 
-    while (textures->GetCount() != 0) {
-        (*textures->GetAt(0))->release();
-        textures->RemoveAt(0);
+    while (static_cast<int>(textures->size()) != 0) {
+        ((*textures)[0])->release();
+        textures->erase(textures->begin() + 0);
     }
     delete textures;
 }
@@ -83,7 +83,7 @@ void stTextureAnim::SetFrame(int frame)
 // FUNCTION: WIZ8 0x00485420
 void stTextureAnim::AddTexture(srTextureIFace* texture)
 {
-    textures->Add(texture);
+    textures->push_back(texture);
     texture->addReference();
 }
 
@@ -99,7 +99,7 @@ void stTextureAnim::UpdateFrame()
     if (trigger_mode == W8_TEXTURE_TRIGGER_RANDOM_FRAME) {
         if (rand() / static_cast<float>(RAND_MAX) < probability) {
             this->frame =
-                static_cast<int>(rand() / static_cast<float>(RAND_MAX) * textures->GetCount());
+                static_cast<int>(rand() / static_cast<float>(RAND_MAX) * static_cast<int>(textures->size()));
         }
         return;
     }
@@ -111,17 +111,17 @@ void stTextureAnim::UpdateFrame()
             this->frame = 0;
             frame_tick = w8_get_ticks();
         }
-        if (!running || textures->GetCount() == 0) {
+        if (!running || static_cast<int>(textures->size()) == 0) {
             return;
         }
-    } else if (textures->GetCount() == 0) {
+    } else if (static_cast<int>(textures->size()) == 0) {
         return;
     }
 
     elapsed_frames =
         static_cast<int>((w8_get_ticks() - frame_tick) * frame_rate * g_float_one_thousandth);
     if (animation_mode == W8_TEXTURE_ANIM_LOOP) {
-        int frame = (direction * elapsed_frames) % textures->GetCount();
+        int frame = (direction * elapsed_frames) % static_cast<int>(textures->size());
         if (frame < this->frame) {
             this->frame = 0;
             running = false;
@@ -129,21 +129,21 @@ void stTextureAnim::UpdateFrame()
         }
         this->frame = frame;
     } else if (animation_mode == W8_TEXTURE_ANIM_PING_PONG) {
-        if ((elapsed_frames / textures->GetCount() & 1) != 0) {
+        if ((elapsed_frames / static_cast<int>(textures->size()) & 1) != 0) {
             direction = -1;
-            this->frame = textures->GetCount() - elapsed_frames % textures->GetCount() - 1;
+            this->frame = static_cast<int>(textures->size()) - elapsed_frames % static_cast<int>(textures->size()) - 1;
         } else {
             if (direction == -1) {
                 running = false;
                 return;
             }
             direction = 1;
-            this->frame = elapsed_frames % textures->GetCount();
+            this->frame = elapsed_frames % static_cast<int>(textures->size());
         }
     } else if (animation_mode == W8_TEXTURE_ANIM_PLAY_ONCE) {
-        if (elapsed_frames >= textures->GetCount()) {
+        if (elapsed_frames >= static_cast<int>(textures->size())) {
             running = false;
-            this->frame = textures->GetCount() - 1 < 0 ? 0 : textures->GetCount() - 1;
+            this->frame = static_cast<int>(textures->size()) - 1 < 0 ? 0 : static_cast<int>(textures->size()) - 1;
         } else {
             this->frame = elapsed_frames;
         }
@@ -157,7 +157,7 @@ int stTextureAnim::IsFinished() const
         return 0;
     }
 
-    int final_frame = textures->GetCount() - 1;
+    int final_frame = static_cast<int>(textures->size()) - 1;
     final_frame = final_frame < 0 ? 0 : final_frame;
     if (frame != final_frame) {
         return 0;
@@ -172,43 +172,43 @@ w8_ulong stTextureAnim::getTextureFrameHandle()
     if ((texture_flags_ & (1UL << FLAG_DIRTY_DEFAULTS)) != 0) {
         setupDefaultValues();
     }
-    return (*textures->GetAt(frame))->getTextureFrameHandle();
+    return ((*textures)[frame])->getTextureFrameHandle();
 }
 
 // FUNCTION: WIZ8 0x00484D60
 float stTextureAnim::getPriority()
 {
-    return (*textures->GetAt(frame))->getPriority();
+    return ((*textures)[frame])->getPriority();
 }
 
 // FUNCTION: WIZ8 0x00484D80
 void stTextureAnim::getDimensions(Dimensions& dimensions)
 {
-    (*textures->GetAt(frame))->getDimensions(dimensions);
+    ((*textures)[frame])->getDimensions(dimensions);
 }
 
 // FUNCTION: WIZ8 0x00484DB0
 void stTextureAnim::getMipmapData(MultiRequest& request)
 {
-    (*textures->GetAt(frame))->getMipmapData(request);
+    ((*textures)[frame])->getMipmapData(request);
 }
 
 // FUNCTION: WIZ8 0x00484DE0
 void stTextureAnim::getMipmapLevelPartial(PartialRequest& request)
 {
-    (*textures->GetAt(frame))->getMipmapLevelPartial(request);
+    ((*textures)[frame])->getMipmapLevelPartial(request);
 }
 
 // FUNCTION: WIZ8 0x00484E10
 void stTextureAnim::getTextureParms(Parameters& parameters)
 {
-    (*textures->GetAt(frame))->getTextureParms(parameters);
+    ((*textures)[frame])->getTextureParms(parameters);
 }
 
 // FUNCTION: WIZ8 0x00484E40
 const char* stTextureAnim::getTextureName()
 {
-    return (*textures->GetAt(frame))->getTextureName();
+    return ((*textures)[frame])->getTextureName();
 }
 
 void stTextureAnim::invalidate() {}
@@ -216,7 +216,7 @@ void stTextureAnim::invalidate() {}
 // FUNCTION: WIZ8 0x00485760
 void stTextureAnim::setupDefaultValues()
 {
-    srTextureIFace* texture = *textures->GetAt(0);
+    srTextureIFace* texture = (*textures)[0];
 
     if (texture != 0) {
         texture->getDimensions(texture_dimensions_);
@@ -231,7 +231,7 @@ void stTextureAnim::setupDefaultValues()
 // FUNCTION: WIZ8 0x004857B0
 unsigned char stTextureAnim::Prepare()
 {
-    srTextureIFace* texture = *textures->GetAt(0);
+    srTextureIFace* texture = (*textures)[0];
 
     if (texture != 0 && texture->getClassID() == stTextureFile::CLASS_ID) {
         texture->getTextureFrameHandle();

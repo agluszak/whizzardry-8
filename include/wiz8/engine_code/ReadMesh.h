@@ -5,7 +5,8 @@
 #include "surrender/srMath.h"
 struct W8MaterialRecord;
 
-#include "wiz8/vector.h"
+#include <vector>
+#include <algorithm>
 
 struct W8ReadLevelInfo;
 
@@ -43,7 +44,7 @@ stMeshModel*
 BuildSingleLevelMesh(int face_count, W8ReadMeshFace* faces, int vertex_count, int material_count,
                      srMaterialIFace** materials, srTextureIFace** textures, srShader* render_flags,
                      unsigned int* mesh_count, int*** vertex_maps, unsigned int* vertex_map_count,
-                     W8GrowableVector<short>* mapped_values, W8GrowableVector<short>* mapped_keys);
+                     std::vector<short>* mapped_values, std::vector<short>* mapped_keys);
 
 enum {
     W8_MESH_ORDER_POLYGONS = 1UL,

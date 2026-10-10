@@ -14,7 +14,8 @@
 #include "wiz8/regions.h"
 #include "wiz8/utility.h"
 #include "wiz8/sr_api.h"
-#include "wiz8/vector.h"
+#include <vector>
+#include <algorithm>
 #include "wiz8/video_object_catalog.h"
 #include "Font.h"
 #include "input.h"
@@ -174,11 +175,12 @@ void W8Widget::SetPanel(Controls* panel)
     int index;
 
     if (m_pPanel != 0) {
-        m_pPanel->m_controls.Remove(this);
+        if (const auto found = std::ranges::find(m_pPanel->m_controls, this); found != m_pPanel->m_controls.end()) m_pPanel->m_controls.erase(found);
     }
 
     m_pPanel = panel;
-    index = panel->m_controls.Add(this);
+    index = static_cast<int>(panel->m_controls.size());
+    panel->m_controls.push_back(this);
     if (panel->m_uiRegionSetId != 0 && m_region == -1) {
         unsigned int region = AddRegionToSet(panel->m_uiRegionSetId);
         SetRegion(region);
@@ -233,7 +235,8 @@ W8Widget::W8Widget(Controls* owner, unsigned int region, int left, int top, int 
     }
 
     holder = m_pPanel;
-    index = holder->m_controls.Add(this);
+    index = static_cast<int>(holder->m_controls.size());
+    holder->m_controls.push_back(this);
     if (holder->m_uiRegionSetId != 0 && m_region == -1) {
         taken = AddRegionToSet(holder->m_uiRegionSetId);
         SetRegion(taken);
@@ -256,7 +259,7 @@ unsigned char DispatchControlRegionEvent(const InputAtom* event, W8Region* regio
     unsigned short index = region->callback_id;
     unsigned short reason = event->usEvent;
 
-    widget = *owner->m_controls.GetAt(index);
+    widget = owner->m_controls[index];
     if (widget == 0) {
         srAssertFail("pControl", "C:\\Projects\\Wizardry 8\\Local Code\\Controls.cpp", 0x1AA, 0);
     }
@@ -1937,7 +1940,7 @@ void Controls::SetEnabled(bool enable)
     int index;
 
     m_fEnabled = enable;
-    for (index = 0; index < m_controls.GetCount(); ++index) {
+    for (index = 0; index < static_cast<int>(m_controls.size()); ++index) {
         W8Widget* control = ControlAt(index);
 
         control->SetActive(enable);
@@ -1947,13 +1950,18 @@ void Controls::SetEnabled(bool enable)
 // FUNCTION: WIZ8 0x004f2da0
 void Controls::RemoveControl(W8Widget* control)
 {
-    m_controls.Remove(control);
+    if (const auto found = std::ranges::find(m_controls, control); found != m_controls.end()) m_controls.erase(found);
 }
 
 // FUNCTION: WIZ8 0x004f2df0
 void Controls::DestroyAllControls()
 {
-    m_controls.RemoveAllAndDelete();
+    for (auto index = m_controls.size(); index-- > 0;) {
+        if (index >= m_controls.size()) continue;
+        auto* object = m_controls[index];
+        m_controls.erase(m_controls.begin() + index);
+        delete object;
+    }
 }
 
 /* Adds a rectangle to the panel's pending redraw. A null rectangle means the
@@ -2058,7 +2066,7 @@ void Controls::SetBounds(int left, int top, int new_right, int new_bottom)
     m_bounds.top = top;
     m_bounds.right = new_right;
     m_bounds.bottom = new_bottom;
-    for (index = 0; index < m_controls.GetCount(); ++index) {
+    for (index = 0; index < static_cast<int>(m_controls.size()); ++index) {
         ControlAt(index)->SetBounds(ControlAt(index)->m_left, ControlAt(index)->m_top,
                                     ControlAt(index)->m_right, ControlAt(index)->m_bottom);
     }
@@ -2128,7 +2136,9 @@ int W8ControlSelection::AddEntry(W8TextControl* entry)
 {
     entry->AddLayoutFlags(0x19);
     entry->m_listener = this;
-    return m_lsButtons.Add(entry);
+    const auto index = static_cast<int>(m_lsButtons.size());
+    m_lsButtons.push_back(entry);
+    return index;
 }
 
 /*
@@ -2147,7 +2157,7 @@ void W8ControlSelection::SetSelected(int iSelected)
     W8TextControl** entry;
     int previous;
 
-    if (iSelected >= m_lsButtons.GetCount()) {
+    if (iSelected >= static_cast<int>(m_lsButtons.size())) {
         srAssertFail("iSelected < m_lsButtons.Length()",
                      "C:\\Projects\\Wizardry 8\\Local Code\\Controls.cpp", 0xa77, 0);
     }
@@ -2156,12 +2166,12 @@ void W8ControlSelection::SetSelected(int iSelected)
         return;
     }
     if (previous != -1) {
-        entry = m_lsButtons.GetAt(previous);
+        entry = (m_lsButtons.data() + previous);
         (*entry)->DisableSecondaryState(false);
     }
     m_selectedIndex = iSelected;
     if (iSelected != -1) {
-        entry = m_lsButtons.GetAt(iSelected);
+        entry = (m_lsButtons.data() + iSelected);
         (*entry)->EnableSecondaryState(false);
     }
     if (m_selectionListener != 0) {
@@ -2174,7 +2184,8 @@ void W8ControlSelection::OnPrimary(W8TextControl* entry)
 {
     int iIndex;
 
-    iIndex = m_lsButtons.IndexOf(entry);
+    const auto found = std::ranges::find(m_lsButtons, entry);
+    iIndex = (found == m_lsButtons.end() ? -1 : static_cast<int>(found - m_lsButtons.begin()));
     if (iIndex == -1) {
         srAssertFail("iIndex != -1", "C:\\Projects\\Wizardry 8\\Local Code\\Controls.cpp", 0xa9e,
                      0);

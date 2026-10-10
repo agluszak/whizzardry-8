@@ -1,3 +1,4 @@
+#include <vector>
 #pragma once
 
 #include "wiz8/layouts/targeting.h"
@@ -10,8 +11,6 @@ struct W8TargetSource;
 struct W8CombatSlot;
 struct W8Character;
 union W8ActionDetailBlock;
-template <class T> class W8GrowableVector;
-
 /* Local Code\Combat Hostility.cpp: whether two monsters count as hostile to
    each other, and whether a spell can be aimed by monster AI. */
 W8Disposition MonsterHostility(W8MonsterInfo* first, W8MonsterInfo* second);
@@ -38,7 +37,7 @@ W8Disposition CharacterVsCharacterDisposition(int first, int second);
 W8Disposition GetOppositeDisposition(W8TargetSource* source);
 /* Run the listed monster ids (skipping the source itself) through
    MakeTargetGroupHostile so each one's group turns on the source. */
-void ProvokeListedMonsterGroups(W8TargetSource* source, W8GrowableVector<int>* monsters);
+void ProvokeListedMonsterGroups(W8TargetSource* source, std::vector<int>* monsters);
 W8Disposition MonsterVsCharDisposition(int character_slot, W8MonsterInfo* monster_info);
 /* Give every other same-faction group that can see this one its disposition -
    one group going hostile brings the rest of its faction with it. */

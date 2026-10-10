@@ -1,7 +1,11 @@
 #ifndef WIZ8_ENGINE_CODE_GDPROP_H
 #define WIZ8_ENGINE_CODE_GDPROP_H
 
-#include "wiz8/3d_code/PList.h"
+#include <vector>
+struct W8WorldItem;
+
+#include <vector>
+#include <algorithm>
 #include "wiz8/engine_code/OctPath.h"
 #include "wiz8/geometry.h"
 
@@ -120,7 +124,7 @@ private:
     srVector3T<float> m_bound_max;  /* 0x40 */
     W8PathGridBounds m_path_bounds; /* 0x4c */
     /* Owns the list buffer; item records belong to the world item list. */
-    W8PList* m_supported_items; /* 0x54 */
+    std::vector<W8WorldItem*>* m_supported_items; /* 0x54 */
 }; /* 0x58 */
 
 /* OctPreTree.cpp's per-prop path record element: the GDProp plus the frame

@@ -1,7 +1,8 @@
 #pragma once
 
 #include "surrender/srTypeRegistry.h"
-#include "wiz8/vector.h"
+#include <vector>
+#include <algorithm>
 
 struct stScriptLine {
     char* text;
@@ -34,8 +35,8 @@ public:
     unsigned char Load(const char* path);
     void Clear();
 
-    W8Vector<stScriptLine*> lines;   /* 0x18 */
-    W8Vector<stScriptLabel*> labels; /* 0x28 */
+    std::vector<stScriptLine*> lines;   /* 0x18 */
+    std::vector<stScriptLabel*> labels; /* 0x28 */
 };
 
 W8_ABI_ASSERT(sizeof(stScript) == 0x38, "stScript_must_be_0x38");

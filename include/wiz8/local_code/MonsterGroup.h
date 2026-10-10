@@ -1,3 +1,4 @@
+#include <vector>
 #ifndef WIZ8_LOCAL_CODE_MONSTER_GROUP_H
 #define WIZ8_LOCAL_CODE_MONSTER_GROUP_H
 
@@ -6,7 +7,6 @@
 #include "wiz8/monster_actions.h"
 #include "wiz8/local_code/Factions.h"
 
-struct W8IList;
 struct W8MonsterRecord;
 struct W8MonsterGroup;
 struct W8MonsterInfo;
@@ -20,7 +20,7 @@ bool DestroyMonsterGroup(W8MonsterGroup* monster_group, W8MonsterInfo* monster_i
 struct W8MonsterGroup {
     int group_id;              /* GroupIndex ID lookup key */
     unsigned int member_count; /* decremented when members leave */
-    W8_PTR32(struct W8IList) monsters;  /* fresh IList per live group */
+    W8_PTR32(std::vector<int>) monsters;  /* fresh IList per live group */
     /* Refreshed together by the targeting visibility pass. */
     int visible_member_count;
     int selectable_member_count;

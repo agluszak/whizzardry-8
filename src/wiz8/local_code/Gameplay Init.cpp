@@ -21,7 +21,8 @@
 #include "wiz8/layouts/npc_state.h"
 #include "wiz8/local_code/NPCManager.h"
 #include "wiz8/local_code/NPCScripting.h"
-#include "wiz8/3d_code/PList.h"
+#include <vector>
+#include <algorithm>
 #include "wiz8/layouts/item_instance.h"
 #include "wiz8/layouts/gameplay_databases.h"
 #include "wiz8/local_code/MonsterManager.h"
@@ -52,7 +53,6 @@
 #include "wiz8/local_code/Targeting.h"
 #include "wiz8/utility.h"
 #include "wiz8/sr_api.h"
-#include "wiz8/vector.h"
 #include "wiz8/virtual_file.h"
 #include "wiz8/filesystem.h"
 #include "random.h"
@@ -108,7 +108,7 @@ try
                 return 0;
             }
             if (entry_count > 0) {
-                g_npc_records[index].item_stock_rules = PLCreate();
+                g_npc_records[index].item_stock_rules = new std::vector<W8NpcItemStockRule*>;
                 for (entry = 0; entry < entry_count; ++entry) {
                     element = new W8NpcItemStockRule;
                     if (!element) {
@@ -122,7 +122,7 @@ try
                         handle.reset();
                         return 0;
                     }
-                    PListInsert(g_npc_records[index].item_stock_rules, entry, element);
+                    g_npc_records[index].item_stock_rules->insert(g_npc_records[index].item_stock_rules->begin() + entry, element);
                 }
             }
         }

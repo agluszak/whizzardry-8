@@ -226,8 +226,6 @@ void W8CharacterPageEntry::OnSecondary(W8TextControl* control)
 // VTABLE: WIZ8 0x005ef1e4 W8CharacterPage
 // class W8CharacterPage
 
-// VTABLE: WIZ8 0x005ef218 W8GrowableVector<W8CharacterPageEntry*>
-// class W8GrowableVector<W8CharacterPageEntry*>
 
 // FUNCTION: WIZ8 0x005afd90
 W8CharacterPage::W8CharacterPage(int catalog_object)
@@ -239,8 +237,15 @@ W8CharacterPage::W8CharacterPage(int catalog_object)
 W8CharacterPage::~W8CharacterPage()
 {
     DestroyAllControls();
-    while (m_entries.GetCount() > 0) {
-        m_entries.RemoveAtAndDelete(m_entries.GetCount() - 1);
+    while (static_cast<int>(m_entries.size()) > 0) {
+        {
+            const auto erase_index = static_cast<int>(m_entries.size()) - 1;
+            if (static_cast<std::size_t>(erase_index) < m_entries.size()) {
+                auto* object = m_entries[erase_index];
+                m_entries.erase(m_entries.begin() + erase_index);
+                delete object;
+            }
+        }
     }
 }
 
@@ -257,8 +262,8 @@ void W8CharacterPage::SetCharacter(W8Character* character, W8CharacterCreationSt
 void W8CharacterPage::Redraw()
 {
     Controls::Redraw();
-    for (int index = 0; index < m_entries.GetCount(); ++index) {
-        (*m_entries.GetAt(index))->Redraw();
+    for (int index = 0; index < static_cast<int>(m_entries.size()); ++index) {
+        (m_entries[index])->Redraw();
     }
 }
 
@@ -266,8 +271,8 @@ void W8CharacterPage::Redraw()
 void W8CharacterPage::Invalidate(const W8ControlsRect* rect)
 {
     Controls::Invalidate(rect);
-    for (int index = 0; index < m_entries.GetCount(); ++index) {
-        W8CharacterPageEntry* entry = *m_entries.GetAt(index);
+    for (int index = 0; index < static_cast<int>(m_entries.size()); ++index) {
+        W8CharacterPageEntry* entry = m_entries[index];
         entry->MarkDirty();
     }
 }
@@ -283,7 +288,7 @@ void W8CharacterPage::Prepare()
 // FUNCTION: WIZ8 0x005affc0
 void W8CharacterPage::AddEntry(W8CharacterPageEntry* entry)
 {
-    m_entries.Add(entry);
+    m_entries.push_back(entry);
 }
 
 void W8CharacterPage::HandleInput(InputAtom*) {}

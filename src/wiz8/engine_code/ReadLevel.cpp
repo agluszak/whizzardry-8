@@ -6,7 +6,9 @@
 #include <cstring>
 #include "wiz8/utility.h"
 #include "wiz8/geometry.h"
-#include "wiz8/3d_code/IList.h"
+#include <vector>
+#include <algorithm>
+
 #include "wiz8/engine_code/AnimObj.h"
 
 #include "wiz8/engine_code/PathAI.h"
@@ -208,14 +210,14 @@ void AssociateWorldLights(W8World* world)
 {
     int light_index;
 
-    for (light_index = 0; light_index < world->lights_to_update->GetCount(); ++light_index) {
-        stLight* light = *world->lights_to_update->GetAt(light_index);
+    for (light_index = 0; light_index < static_cast<int>(world->lights_to_update->size()); ++light_index) {
+        stLight* light = (*world->lights_to_update)[light_index];
         stLightDefinition* definition = light->m_definition;
 
         if (definition != 0 && definition->kind == W8_LIGHT_DEFINITION_PARAMETRIC &&
             (static_cast<stParametricLightDefinition*>(definition)->flags &
              W8_PARAM_LIGHT_FLICKER) != 0) {
-            int prop_count = PLLength(world->plsProps);
+            int prop_count = (world->plsProps ? static_cast<unsigned int>(world->plsProps->size()) : 0);
             int prop_index;
 
             for (prop_index = 0; prop_index < prop_count; ++prop_index) {
@@ -293,7 +295,7 @@ try
             } else {
                 light = CreateWorldLight(world, name);
                 light->m_definition = definition;
-                world->lights_to_update->Add(light);
+                world->lights_to_update->push_back(light);
                 if (path != 0) {
                     light->path_ai = path;
                 }
@@ -438,7 +440,7 @@ try
 static unsigned char ReadWorldClipPlanes(W8ReadLevelInfo* pInfo, W8World* pWorld)
 try
 {
-    W8GrowableVector<srClipPlane*> clip_planes(5);
+    std::vector<srClipPlane*> clip_planes;
     glm::vec4 plane;
     glm::vec4 serialized_position;
     srVector3T<double> position;
@@ -502,7 +504,7 @@ try
 {
     /* CollectModelInstances appends. The canonical body deliberately keeps
        this one vector across the complete prop loop. */
-    W8Vector<stModelInstance*> model_instances(5);
+    std::vector<stModelInstance*> model_instances;
     W8Prop* prop;
     W8BoundingBox bounds;
     int count;
@@ -535,10 +537,10 @@ try
                 }
                 g_octree->AddLoadedProp(prop);
             }
-            PLAdoptAppend(pWorld->plsProps, prop);
+            pWorld->plsProps->push_back(prop);
             if ((prop->flags & W8_PROP_COLLIDABLE) != 0) {
                 prop->GetBounds(&bounds.minimum, &bounds.maximum);
-                pWorld->collidable_props->Add(prop);
+                pWorld->collidable_props->push_back(prop);
                 if (pWorld->octree != 0) {
                     pWorld->octree->AddCollidablePropBounds(collidable_index, &bounds);
                     ++collidable_index;
@@ -548,8 +550,8 @@ try
 
         if (mark_model_instances && prop != 0) {
             prop->CollectModelInstances(&model_instances);
-            for (model_index = 0; model_index < model_instances.GetCount(); ++model_index) {
-                stModelInstance* instance = *model_instances.GetAt(model_index);
+            for (model_index = 0; model_index < static_cast<int>(model_instances.size()); ++model_index) {
+                stModelInstance* instance = model_instances[model_index];
                 if (instance != 0) {
                     instance->render_flags |= stModelInstance::RENDER_NO_PICK;
                 }
@@ -694,7 +696,7 @@ try
         if (group == 0) {
             continue;
         }
-        location_id = IListGetAt(group->monsters, 0);
+        location_id = (group->monsters.operator->() && static_cast<std::size_t>(0) < group->monsters->size() ? (*group->monsters)[0] : -1);
         monster_index = MonsterGetIndexByLocationID(0x315, READ_LEVEL_CPP, location_id, true);
         monster_info = MonsterGetScriptPartByLocationIndex(monster_index);
         ActivateMonster(monster_info, W8_MONSTER_LOAD_ALL_CYCLES);
@@ -783,7 +785,7 @@ try
         entry->path = 0;
         success = success && LoadPathAI(&entry->path, pInfo->hFile);
         PathAIEnableTimedMode(entry->path);
-        PLAdoptAppend(pWorld->plsCameras, entry);
+        pWorld->plsCameras->push_back(entry);
         entry->path->entry_index = index;
         PathAISetScale(entry->path, scale);
     }
@@ -794,7 +796,7 @@ try
 
 // FUNCTION: WIZ8 0x004BD0D0
 unsigned char ReadWorldParticles(W8ReadLevelInfo* pInfo, srNode* pScene,
-                                 W8GrowableVector<stParticle*>* pParticles)
+                                 std::vector<stParticle*>* pParticles)
 try
 {
     W8LevelParticleRecord record;
@@ -973,7 +975,7 @@ try
         } else if (g_octree != 0) {
             g_octree->AddLoadedParticle(particle);
         }
-        pParticles->Add(particle);
+        pParticles->push_back(particle);
     }
     return 1;
 } catch (const std::exception&) {
@@ -982,7 +984,7 @@ try
 
 // FUNCTION: WIZ8 0x004BDC90
 static unsigned char ReadNamedPositions(W8ReadLevelInfo* pInfo,
-                                        W8GrowableVector<W8NamedPosition*>* named_positions)
+                                        std::vector<W8NamedPosition*>* named_positions)
 try
 {
     wiz8::File* hFile;
@@ -1013,7 +1015,7 @@ try
         hFile->read_exact(&pNamedPos->direction.x, sizeof(pNamedPos->direction.x));
         hFile->read_exact(&pNamedPos->direction.y, sizeof(pNamedPos->direction.y));
         hFile->read_exact(&pNamedPos->direction.z, sizeof(pNamedPos->direction.z));
-        named_positions->Add(pNamedPos);
+        named_positions->push_back(pNamedPos);
     }
     return 1;
 } catch (const std::exception&) {
@@ -1182,7 +1184,7 @@ try
     CHECK_PVL_OFFSET("Wrong offset in .pvl file after automap nodes.");
 
     g_environment_offset = environment_offset;
-    prop_count = PLLength(world->plsProps);
+    prop_count = (world->plsProps ? static_cast<unsigned int>(world->plsProps->size()) : 0);
     for (index = 0; index < static_cast<int>(prop_count); ++index) {
         W8Prop* prop = GetWorldProp(world, index);
         W8AnimObj* animation = prop->Rep()->animation;

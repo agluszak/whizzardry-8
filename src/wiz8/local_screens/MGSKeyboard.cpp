@@ -76,10 +76,10 @@ MGSKeyboard::~MGSKeyboard()
 // FUNCTION: WIZ8 0x0055d260
 int MGSKeyboard::FindBinding(W8MGSCommand command) const
 {
-    int count = m_bindings.GetCount();
+    int count = static_cast<int>(m_bindings.size());
     int index;
     for (index = 0; index < count; ++index) {
-        MGSKeyBinding* binding = *m_bindings.GetAt(index);
+        MGSKeyBinding* binding = m_bindings[index];
         if (binding->command == command) {
             return index;
         }
@@ -90,10 +90,10 @@ int MGSKeyboard::FindBinding(W8MGSCommand command) const
 // FUNCTION: WIZ8 0x0055d2a0
 W8MGSCommand MGSKeyboard::FindCommandForEvent(const InputAtom* event) const
 {
-    int count = m_bindings.GetCount();
+    int count = static_cast<int>(m_bindings.size());
     int index;
     for (index = 0; index < count; ++index) {
-        MGSKeyBinding* binding = *m_bindings.GetAt(index);
+        MGSKeyBinding* binding = m_bindings[index];
         if (binding->active == event->usEvent && binding->modifiers == event->usKeyState &&
             binding->key == event->usParam) {
             return binding->command;
@@ -106,8 +106,8 @@ W8MGSCommand MGSKeyboard::FindCommandForEvent(const InputAtom* event) const
 MGSKeyBinding* MGSKeyboard::GetBinding(int index) const
 {
     if (index >= 0) {
-        MGSKeyBinding** binding = m_bindings.data;
-        if (index < m_bindings.GetCount()) {
+        MGSKeyBinding* const* binding = m_bindings.data();
+        if (index < static_cast<int>(m_bindings.size())) {
             binding += index;
         }
         return *binding;
@@ -152,7 +152,12 @@ void DrainInputEventQueue(void)
 // FUNCTION: WIZ8 0x0055D3F0
 void MGSKeyboard::Clear()
 {
-    m_bindings.RemoveAllAndDelete();
+    for (auto index = m_bindings.size(); index-- > 0;) {
+        if (index >= m_bindings.size()) continue;
+        auto* object = m_bindings[index];
+        m_bindings.erase(m_bindings.begin() + index);
+        delete object;
+    }
     m_command_index.clear();
 }
 
@@ -173,10 +178,18 @@ try
         int old_index = FindBinding(binding->command);
         if (old_index != -1) {
             unsigned int command = binding->command;
-            m_bindings.RemoveAtAndDelete(old_index);
+            {
+                const auto erase_index = old_index;
+                if (static_cast<std::size_t>(erase_index) < m_bindings.size()) {
+                    auto* object = m_bindings[erase_index];
+                    m_bindings.erase(m_bindings.begin() + erase_index);
+                    delete object;
+                }
+            }
             m_command_index.erase(command);
         }
-        if (m_bindings.Add(binding) != -1) {
+        m_bindings.push_back(binding);
+         {
             unsigned int command = binding->command;
             m_command_index.emplace(command, binding);
         }
@@ -188,10 +201,10 @@ catch (const std::exception&) { return false; }
 // FUNCTION: WIZ8 0x0055d7a0
 unsigned char MGSKeyboard::Save(wiz8::File* handle) const
 {
-    int count = m_bindings.GetCount();
+    int count = static_cast<int>(m_bindings.size());
     handle->write(&count, sizeof(count));
     for (int index = 0; index < count; ++index) {
-        handle->write(*m_bindings.GetAt(index), sizeof(MGSKeyBinding));
+        handle->write(m_bindings[index], sizeof(MGSKeyBinding));
     }
     return 1;
 }

@@ -14,8 +14,8 @@
 #include "wiz8/local_screens/OptionsScreen.h"
 #include "wiz8/local_code/Search.h"
 #include "wiz8/local_code/Configuration.h"
-#include "wiz8/3d_code/IList.h"
-#include "wiz8/3d_code/PList.h"
+#include <vector>
+#include <algorithm>
 #include "wiz8/engine_code/Navigator.h"
 #include "wiz8/engine_code/Monster.h"
 #include "wiz8/engine_code/stScript.h"
@@ -237,11 +237,11 @@ void FillCurrentSaveSlot(W8SaveSlot* slot)
 }
 
 // FUNCTION: WIZ8 0x00511e70
-bool EnumerateSaveSlots(W8GrowableVector<W8SaveSlot*>* slots)
+bool EnumerateSaveSlots(std::vector<W8SaveSlot*>* slots)
 try
 {
     W8Chunk chunks;
-    int first = slots->GetCount();
+    int first = static_cast<int>(slots->size());
     try {
         if (!wiz8::file_status("Saves")) return true;
         const auto utc_offset = wiz8::current_utc_offset_seconds();
@@ -297,13 +297,13 @@ try
                     slot->iron_man = status.iron_man;
                     slot->game_time_days = status.game_time_days;
                     int position;
-                    for (position = first; position < slots->GetCount(); ++position) {
+                    for (position = first; position < static_cast<int>(slots->size()); ++position) {
                         if (slot->local_write_time.ticks() >
-                            (*slots->GetAt(position))->local_write_time.ticks()) {
+                            (*slots)[position]->local_write_time.ticks()) {
                             break;
                         }
                     }
-                    if (!slots->InsertAt(position, slot)) return false;
+                    slots->insert(slots->begin() + position, slot);
                     (void)slot_owner.release();
                 }
             }
@@ -449,7 +449,7 @@ try
     chunks.OpenChunk(0x54584554, 0); /* TEXT */
     SaveMessageStorage(chunks.m_hFile.get());
     chunks.ReleaseCurrentChunk();
-    if (g_location_variable_values.GetCount() != 0) {
+    if (static_cast<int>(g_location_variable_values.size()) != 0) {
         chunks.OpenChunk(0x52415654, 0); /* TVAR */
         SaveLocationVariables(chunks.m_hFile.get());
         chunks.ReleaseCurrentChunk();
@@ -631,7 +631,7 @@ try
     chunks->ReleaseCurrentChunk();
 
     chunks->OpenChunk(0x4d455449, 0); /* ITEM */
-    count = PLLength(gXStatus.plsItemList);
+    count = (gXStatus.plsItemList ? static_cast<unsigned int>(gXStatus.plsItemList->size()) : 0);
     chunks->Write(&count, sizeof(count), 0);
     for (index = 0; index < count; ++index) {
         if (!SaveItemFile(chunks->m_hFile.get(), ItemInfo(index))) {
@@ -669,7 +669,7 @@ try
     SaveAutomapNotes(chunks->m_hFile.get());
     chunks->ReleaseCurrentChunk();
 
-    if (g_world->triggers->GetCount() != 0) {
+    if (static_cast<int>(g_world->triggers->size()) != 0) {
         chunks->OpenChunk(0x47495254, 0); /* TRIG */
         SaveWorldTriggers(g_world, chunks->m_hFile.get());
         chunks->ReleaseCurrentChunk();
@@ -724,12 +724,12 @@ try
     W8MonsterGroup* group;
 
     group_count =
-        PLLength(gXStatus.plsMonsterGroupList) + PLLength(gXStatus.plsMonsterGroupEncounterList);
-    monster_count = PLLength(gXStatus.plsMonsterList) + PLLength(gXStatus.plsUnbornMonsterList);
+        (gXStatus.plsMonsterGroupList ? static_cast<unsigned int>(gXStatus.plsMonsterGroupList->size()) : 0) + (gXStatus.plsMonsterGroupEncounterList ? static_cast<unsigned int>(gXStatus.plsMonsterGroupEncounterList->size()) : 0);
+    monster_count = (gXStatus.plsMonsterList ? static_cast<unsigned int>(gXStatus.plsMonsterList->size()) : 0) + (gXStatus.plsUnbornMonsterList ? static_cast<unsigned int>(gXStatus.plsUnbornMonsterList->size()) : 0);
     chunks->Write(&group_count, 4, 0);
     chunks->Write(&monster_count, 4, 0);
     for (index = 0; index < group_count; ++index) {
-        if (index < PLLength(gXStatus.plsMonsterGroupList)) {
+        if (index < (gXStatus.plsMonsterGroupList ? static_cast<unsigned int>(gXStatus.plsMonsterGroupList->size()) : 0)) {
             unsigned char encountered;
 
             group = GetMonsterGroupByListIndex(index);
@@ -740,13 +740,13 @@ try
             record_size = 0x12b;
             chunks->Write(&record_size, 4, 0);
             chunks->Write(group, record_size, 0);
-            encountered = PListIndexOf(gXStatus.plsMonsterGroupEncounterList, group) != -1;
+            encountered = (std::ranges::find((*gXStatus.plsMonsterGroupEncounterList), group) != gXStatus.plsMonsterGroupEncounterList->end());
             chunks->Write(&encountered, 1, 0);
         } else {
             unsigned char encountered;
 
             group =
-                GetMonsterGroupByListIndex(index - PLLength(gXStatus.plsMonsterGroupList) + 0x2710);
+                GetMonsterGroupByListIndex(index - (gXStatus.plsMonsterGroupList ? static_cast<unsigned int>(gXStatus.plsMonsterGroupList->size()) : 0) + 0x2710);
             if (group == 0) {
                 goto fail;
             }
@@ -754,17 +754,17 @@ try
             record_size = 0x12b;
             chunks->Write(&record_size, 4, 0);
             chunks->Write(group, record_size, 0);
-            encountered = PListIndexOf(gXStatus.plsMonsterGroupEncounterList, group) != -1;
+            encountered = (std::ranges::find((*gXStatus.plsMonsterGroupEncounterList), group) != gXStatus.plsMonsterGroupEncounterList->end());
             chunks->Write(&encountered, 1, 0);
         }
     }
     for (index = 0; index < monster_count; ++index) {
-        if (index < PLLength(gXStatus.plsMonsterList)) {
+        if (index < (gXStatus.plsMonsterList ? static_cast<unsigned int>(gXStatus.plsMonsterList->size()) : 0)) {
             if (!SaveMonsterRecord(chunks, index)) {
                 goto fail;
             }
         } else {
-            if (!SaveMonsterRecord(chunks, index - PLLength(gXStatus.plsMonsterList) + 0x2710)) {
+            if (!SaveMonsterRecord(chunks, index - (gXStatus.plsMonsterList ? static_cast<unsigned int>(gXStatus.plsMonsterList->size()) : 0) + 0x2710)) {
                 goto fail;
             }
         }
@@ -829,14 +829,14 @@ try
         chunks->Write(script_name, 0x40, 0);
         chunks->Write(&script_wait, 4, 0);
         chunks->Write(&script_line, 4, 0);
-        queue_count = info->p3D->script_conditions.GetCount();
+        queue_count = static_cast<int>(info->p3D->script_conditions.size());
         chunks->Write(&queue_count, 4, 0);
         for (i = 0; i < queue_count; ++i) {
-            script_flag = *info->p3D->script_conditions.GetAt(i);
+            script_flag = info->p3D->script_conditions[i];
             chunks->Write(&script_flag, 1, 0);
         }
     }
-    unborn = PListIndexOf(gXStatus.plsUnbornMonsterList, info) != -1;
+    unborn = (std::ranges::find((*gXStatus.plsUnbornMonsterList), info) != gXStatus.plsUnbornMonsterList->end());
     chunks->Write(&unborn, 1, 0);
     monster = info->p3D;
     monster->SaveMovementState(chunks->m_hFile.get());
@@ -854,10 +854,10 @@ try
     chunks->Write(&patrol_value, 4, 0);
     value = monster->patrol_index;
     chunks->Write(&value, 1, 0);
-    point_count = monster->vector.GetCount();
+    point_count = static_cast<int>(monster->vector.size());
     chunks->Write(&point_count, 4, 0);
     for (i = 0; i < point_count; ++i) {
-        point = *monster->vector.GetAt(i);
+        point = monster->vector[i];
         for (component = 0; component < 3; ++component) {
             chunks->Write(&point.x + component, 4, 0);
         }
@@ -1120,7 +1120,7 @@ try
         return false;
     }
     if (record->deleted == 0) {
-        group->monsters = ILCreate();
+        group->monsters = new std::vector<int>;
         if (group->monsters == 0) {
             free(group);
             return false;
@@ -1130,9 +1130,11 @@ try
         group->members_active = false;
         group->fInCombat = false;
         if (is_encounter) {
-            index = PLAdoptAppend(gXStatus.plsMonsterGroupEncounterList, group);
+            index = static_cast<int>(gXStatus.plsMonsterGroupEncounterList->size());
+            gXStatus.plsMonsterGroupEncounterList->push_back(group);
         } else {
-            index = PLAdoptAppend(gXStatus.plsMonsterGroupList, group);
+            index = static_cast<int>(gXStatus.plsMonsterGroupList->size());
+            gXStatus.plsMonsterGroupList->push_back(group);
         }
         if (index == -1) {
             free(group);
@@ -1162,8 +1164,8 @@ try
     W8MonsterRecord* record;
     W8MonsterGroup* monster_group;
     W8Monster* monster;
-    W8PList* plist;
-    W8GrowableVector<bool> script_conditions;
+    std::vector<W8MonsterInfo*>* plist;
+    std::vector<unsigned char> script_conditions;
     srVector3T<float> read_point;
     srVector3T<float> point;
     char script_name[0x40];
@@ -1203,7 +1205,7 @@ try
         chunk->Read(&queue_count, 4, 0);
         for (index = 0; index < queue_count; ++index) {
             chunk->Read(&script_flag, 1, 0);
-            script_conditions.Add(script_flag);
+            script_conditions.push_back(script_flag);
         }
     }
     monster_info->fActive = false;
@@ -1217,7 +1219,8 @@ try
     if (unborn != 0) {
         plist = gXStatus.plsUnbornMonsterList;
     }
-    list_index = PLAdoptAppend(plist, monster_info);
+    list_index = static_cast<int>(plist->size());
+    plist->push_back(monster_info);
     if (list_index == -1) {
         free(monster_info);
         return false;
@@ -1234,7 +1237,7 @@ try
             free(monster_info);
             return false;
         }
-        IListAdd(monster_group->monsters, monster_info->location_id);
+        monster_group->monsters->push_back(monster_info->location_id);
         if (static_cast<unsigned int>(monster_group->leader_location_id) ==
                 WIZ8_DEBUG_UNINITIALIZED_HEAP_PATTERN ||
             static_cast<unsigned int>(monster_group->leader_location_id) <
@@ -1300,7 +1303,7 @@ try
                 chunk->Read(&read_point.x + component, 4, 0);
             }
             point = read_point;
-            monster->vector.Add(point);
+            monster->vector.push_back(point);
         }
         if (record_version >= 4) {
             for (component = 0; component < 3; ++component) {
@@ -1326,9 +1329,9 @@ try
         monster->SetScript(script_name, false);
         monster->script_wait = script_wait;
         monster->script_line = script_line;
-        while (script_conditions.GetCount() != 0) {
-            monster->script_conditions.Add(*script_conditions.GetAt(0));
-            script_conditions.RemoveAt(0);
+        while (static_cast<int>(script_conditions.size()) != 0) {
+            monster->script_conditions.push_back(script_conditions[0]);
+            script_conditions.erase(script_conditions.begin() + 0);
         }
     }
     if (record->deleted != 0) {
@@ -1370,7 +1373,12 @@ void ResetLiveSessionForLoad(void)
     ResetMainGameScreenState();
     ClearNpcMessageQueue();
     ResetMainScreenStateBlock();
-    g_spell_effects.RemoveAllAndDelete();
+    for (auto index = g_spell_effects.size(); index-- > 0;) {
+        if (index >= g_spell_effects.size()) continue;
+        auto* object = g_spell_effects[index];
+        g_spell_effects.erase(g_spell_effects.begin() + index);
+        delete object;
+    }
     ReleaseAllTriggers();
     ResetGameplayStatusBlock();
 }
@@ -1453,8 +1461,8 @@ W8WorldItem* LoadItem(wiz8::File* handle, bool add_to_list)
         }
         if (previous != 0) {
             previous->next = item;
-        } else if (add_to_list && PLAdoptAppend(gXStatus.plsItemList, item) == -1) {
-            return 0;
+        } else if (add_to_list) {
+            gXStatus.plsItemList->push_back(item);
         }
         if (g_level_status_loading) {
             item->entity_flags &= ~W8_ITEM_ENTITY_RADAR_SEEN;
@@ -2125,7 +2133,7 @@ void SaveGlobalStatus(W8Chunk* chunks, W8GlobalStatus* status)
    inside is loaded and appended to the caller's vector. The scan stops once
    the level's group has been processed. */
 // FUNCTION: WIZ8 0x00516070
-bool LoadSavedLevelItems(int level, W8GrowableVector<W8WorldItem*>* items)
+bool LoadSavedLevelItems(int level, std::vector<W8WorldItem*>* items)
 try
 {
     W8Chunk chunk;
@@ -2165,7 +2173,7 @@ try
                                 W8WorldItem* item = LoadItem(chunk.m_hFile.get(), false);
 
                                 if (item != 0) {
-                                    items->Add(item);
+                                    items->push_back(item);
                                 }
                             }
                         }

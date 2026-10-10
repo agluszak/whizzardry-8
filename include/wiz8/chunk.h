@@ -2,7 +2,8 @@
 
 #include "wiz8/filesystem.h"
 
-#include "wiz8/vector.h"
+#include <vector>
+#include <algorithm>
 
 struct W8ChunkHead {
     unsigned int chunk_id; /* 0x00 */
@@ -16,16 +17,16 @@ W8_ABI_ASSERT(sizeof(W8ChunkHead) == 0x0c, "W8ChunkHead_size_must_be_0x0c");
 
 /* Local Code\chunk.cpp. The constructor at 0x0055BCE0 initializes this complete
    0x48-byte object: the asserted direction state, one head-pointer vector and
-   three W8GrowableVector<int> navigation stacks. W8Chunk itself removes and
+   three std::vector<int> navigation stacks. W8Chunk itself removes and
    deletes heads; the vector destructor releases only its backing storage. */
 struct W8Chunk {
     std::unique_ptr<wiz8::File> m_hFile;                            /* 0x00 */
     bool m_fWriting;                        /* 0x04 */
     unsigned char padding_05[3];            /* 0x05 */
-    W8Vector<W8ChunkHead*> m_heads;         /* 0x08 */
-    W8GrowableVector<int> m_group_counts;   /* 0x18 */
-    W8GrowableVector<int> m_offsets;        /* 0x28 */
-    W8GrowableVector<int> m_group_progress; /* 0x38 */
+    std::vector<W8ChunkHead*> m_heads;         /* 0x08 */
+    std::vector<int> m_group_counts;   /* 0x18 */
+    std::vector<int> m_offsets;        /* 0x28 */
+    std::vector<int> m_group_progress; /* 0x38 */
 
     W8Chunk();
     ~W8Chunk();

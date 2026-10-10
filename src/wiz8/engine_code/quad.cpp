@@ -26,11 +26,11 @@ void DestroyWorldQuad(W8Quad* quad)
 
         if (cells != 0) {
             if (cells->polygon_indices != 0) {
-                ILDestroy(cells->polygon_indices);
+                delete cells->polygon_indices;
+
             }
-            if (cells->objects != 0) {
-                PLDestroy(cells->objects);
-            }
+
+            delete cells->objects;
             free(cells);
         }
     }
@@ -97,7 +97,6 @@ W8Quad* BuildWorldQuad(srModelInstance* instance, int, float minimum_x, float mi
         memset(cells, 0, column_count * sizeof(W8QuadCell));
         for (column = 0; cells != 0 && column < column_count; ++column) {
             cells[column].polygon_indices = 0;
-            cells[column].objects = 0;
             cells[column].dirty_stamp = 0;
             cells[column].occupied = false;
         }
@@ -114,9 +113,9 @@ W8Quad* BuildWorldQuad(srModelInstance* instance, int, float minimum_x, float mi
 
         cell->occupied = true;
         if (cell->polygon_indices == 0) {
-            cell->polygon_indices = ILCreate();
+            cell->polygon_indices = new std::vector<int>;
         }
-        IListAdd(cell->polygon_indices, polygon);
+        cell->polygon_indices->push_back(polygon);
     }
 
     quad->cell_size = g_quad_cell_size;

@@ -45,7 +45,8 @@
 #include "wiz8/local_code/NPCManager.h"
 #include "wiz8/local_code/NPCScripting.h"
 #include "wiz8/npc_script_file.h"
-#include "wiz8/3d_code/PList.h"
+#include <vector>
+#include <algorithm>
 #include "wiz8/layouts/item_instance.h"
 #include "wiz8/layouts/gameplay_databases.h"
 #include "wiz8/layouts/game_status.h"
@@ -117,7 +118,7 @@ void ReleaseMonsterConditionBindings(W8MonsterInfo* monster_info)
                 }
             }
             if (!cleared && slot_kind == 0) {
-                for (unsigned int index = 0; index < PLLength(gXStatus.plsMonsterList); ++index) {
+                for (unsigned int index = 0; index < (gXStatus.plsMonsterList ? static_cast<unsigned int>(gXStatus.plsMonsterList->size()) : 0); ++index) {
                     W8MonsterInfo* bound = MonsterGetScriptPartByLocationIndex(index);
                     if (bound->elemental_summon == monster_info->location_id) {
                         bound->elemental_summon = -1;
@@ -1008,7 +1009,7 @@ void RemoveConditionFromEveryone(W8Condition condition)
 
     RemoveConditionFromParty(condition);
 
-    for (monster_index = 0; monster_index < PLLength(gXStatus.plsMonsterList); ++monster_index) {
+    for (monster_index = 0; monster_index < (gXStatus.plsMonsterList ? static_cast<unsigned int>(gXStatus.plsMonsterList->size()) : 0); ++monster_index) {
         monster_info = MonsterGetScriptPartByLocationIndex(monster_index);
         if (monster_info->uiCondition[condition] != 0) {
             ClearMonsterCondition(monster_info->location_id, condition);
@@ -1033,7 +1034,7 @@ void RemoveAllEnchantments(void)
                                               static_cast<W8EnchantmentSlot>(enchantment));
             }
         }
-        for (unsigned int index = 0; index < PLLength(gXStatus.plsMonsterList); ++index) {
+        for (unsigned int index = 0; index < (gXStatus.plsMonsterList ? static_cast<unsigned int>(gXStatus.plsMonsterList->size()) : 0); ++index) {
             W8MonsterInfo* monster_info = MonsterGetScriptPartByLocationIndex(index);
 
             if (monster_info->enchantments[enchantment].turns != 0) {

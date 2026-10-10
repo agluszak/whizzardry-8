@@ -5,7 +5,8 @@
 void SyncNpcDialogueTranscriptScrollButtons();
 
 #include "input.h"
-#include "wiz8/vector.h"
+#include <vector>
+#include <algorithm>
 #include "wiz8/layouts/item_instance.h"
 #include "wiz8/layouts/main_game_screen.h"
 #include "wiz8/layouts/npc_dialogue.h"
@@ -195,7 +196,7 @@ struct W8NpcInteractionState {
     /* Raised while the "Where Is" submit path runs, so the typed text is
        wrapped in the "Where is %s" template instead of a plain keyword lookup. */
     bool where_is_query;
-    W8Vector<W8DialogueTranscriptRecord*> dialogue_transcript;
+    std::vector<W8DialogueTranscriptRecord*> dialogue_transcript;
     bool transcript_sorted;
     /* The item a pending NPC notice carries; copied from g_pending_notice
        when the dialogue opens. */
@@ -224,7 +225,7 @@ struct W8NpcInteractionState {
     short quote_width;
     short quote_height;
     bool quote_visible;
-    W8Vector<W8PendingNoticeLine*> pending_notice_lines;
+    std::vector<W8PendingNoticeLine*> pending_notice_lines;
     /* The whole dialogue UI is parked (right-click hide) and the world input
        path is live until it is shown again. */
     unsigned char dialogue_hidden;
@@ -311,7 +312,7 @@ void ResetMainScreenStateBlock(void);
    element zero is English_Keywords.txt and element one the translated list.
    A file list holds one line list per line, and a line list one malloc'd wide
    word per '/'-separated field. */
-extern W8GrowableVector<W8GrowableVector<W8GrowableVector<wchar_t*>*>*> g_keyword_lists;
+extern std::vector<std::vector<std::vector<wchar_t*>*>*> g_keyword_lists;
 /* Both files are loaded and the tables are usable. Raised once the
    second file loads and lowered whenever the tables are released. */
 extern bool g_keyword_lists_loaded;
@@ -322,7 +323,7 @@ void ReloadKeywordLists(void);
 void ClearKeywordLists(void);
 /* Load one keyword file into a file list. */
 unsigned char LoadKeywordFile(const char* path,
-                              W8GrowableVector<W8GrowableVector<wchar_t*>*>* file);
+                              std::vector<std::vector<wchar_t*>*>* file);
 /* Copy the next '/'-terminated field out of a keyword line into
    the caller's buffer and return the cursor past it, or null at the end. */
 wchar_t* ParseKeywordToken(wchar_t* line, wchar_t* field);

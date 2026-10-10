@@ -1,5 +1,6 @@
 #include "wiz8/compat/unaligned.h"
-#include "wiz8/3d_code/PList.h"
+#include <vector>
+#include <algorithm>
 #include "wiz8/engine_code/3d.h"
 #include "wiz8/engine_code/GDCamera.h"
 #include "wiz8/engine_code/Item.h"
@@ -51,10 +52,10 @@ void UpdateWorldMonsters(W8World* world)
     srVector3T<float> position;
     position = camera_location;
 
-    unsigned int count = PLLength(world->plsMonsters);
+    unsigned int count = (world->plsMonsters ? static_cast<unsigned int>(world->plsMonsters->size()) : 0);
     UpdateNearestMonsterGroupMembers();
     for (int index = 0; index < static_cast<int>(count); ++index) {
-        W8Monster* monster = static_cast<W8Monster*>(PLGet(world->plsMonsters, index));
+        W8Monster* monster = static_cast<W8Monster*>((world->plsMonsters && static_cast<std::size_t>(index) < world->plsMonsters->size() ? (*world->plsMonsters)[index] : nullptr));
         if (monster != 0) {
             monster->DetachRepresentation(world);
             monster->SelectLOD(&position);
@@ -75,9 +76,9 @@ void DetachWorldItemMeshes(W8World* world)
     if (world->plsItems == 0) {
         srAssertFail("pWorld->plsItems", THREE_D_CPP, 0x136, 0);
     }
-    unsigned int count = PLLength(world->plsItems);
+    unsigned int count = (world->plsItems ? static_cast<unsigned int>(world->plsItems->size()) : 0);
     for (int index = 0; index < static_cast<int>(count); ++index) {
-        W8Item* item = static_cast<W8Item*>(PLGet(world->plsItems, index));
+        W8Item* item = static_cast<W8Item*>((world->plsItems && static_cast<std::size_t>(index) < world->plsItems->size() ? (*world->plsItems)[index] : nullptr));
         if (item != 0) {
             item->DetachMesh(world);
             item->UpdateAnimation();
@@ -93,18 +94,18 @@ void DetachWorldItemMeshes(W8World* world)
 // FUNCTION: WIZ8 0x0046e4a0
 void DestroyWorldLights(W8World* world)
 {
-    W8PList* lights = &world->transient_lights;
+    std::vector<stLight*>* lights = &world->transient_lights;
 
-    while (PLLength(lights) != 0) {
-        stLight* light = static_cast<stLight*>(PLGet(lights, 0));
+    while ((lights ? static_cast<unsigned int>(lights->size()) : 0) != 0) {
+        stLight* light = static_cast<stLight*>((lights && static_cast<std::size_t>(0) < lights->size() ? (*lights)[0] : nullptr));
         if (world == 0) {
             srAssertFail("pWorld", THREE_D_CPP, 0x278, 0);
         }
         if (light == 0) {
             srAssertFail("pLight", THREE_D_CPP, 0x279, 0);
         }
-        PListRemove(lights, light);
-        world->lights_to_update->Remove(light);
+        if (const auto found = std::ranges::find((*lights), light); found != lights->end()) lights->erase(found);
+        if (const auto found = std::ranges::find((*world->lights_to_update), light); found != world->lights_to_update->end()) world->lights_to_update->erase(found);
         if (light != 0) {
             light->release();
         }
@@ -645,7 +646,7 @@ stLight* CreateWorldLight(W8World* world, const char* name)
     light->enable_flags |= (1UL << srLight::ENABLE_BOUNDING_SPHERE);
 
     if (world != 0) {
-        PLAdoptAppend(&world->transient_lights, light);
+        world->transient_lights.push_back(light);
     }
     return light;
 }
@@ -677,7 +678,7 @@ stLight* CreateRangedWorldLight(W8World* world, const char* name)
     light->far_end = 1500.0;
     light->safe_range = 5000.0f;
     light->setLinearAttenuation(1500.0f, 0.0019569471f);
-    PLAdoptAppend(&world->transient_lights, light);
+    world->transient_lights.push_back(light);
     return light;
 }
 
@@ -692,8 +693,8 @@ void WorldRemoveLight(W8World* world, stLight* light)
     if (light == 0) {
         srAssertFail("pLight", THREE_D_CPP, 0x279, 0);
     }
-    PListRemove(&world->transient_lights, light);
-    world->lights_to_update->Remove(light);
+    if (const auto found = std::ranges::find(world->transient_lights, light); found != world->transient_lights.end()) world->transient_lights.erase(found);
+    if (const auto found = std::ranges::find((*world->lights_to_update), light); found != world->lights_to_update->end()) world->lights_to_update->erase(found);
     if (light != 0) {
         light->release();
     }
@@ -723,7 +724,7 @@ void WorldUpdateProps(W8World* world)
         srAssertFail("pWorld && pWorld->plsProps", "C:\\Projects\\Wizardry 8\\Engine Code\\3d.cpp",
                      0x158, 0);
     }
-    count = static_cast<int>(PLLength(world->plsProps));
+    count = static_cast<int>((world->plsProps ? static_cast<unsigned int>(world->plsProps->size()) : 0));
     for (index = 0; index < count; index++) {
         prop = GetWorldProp(world, index);
         if (prop) {
@@ -737,10 +738,10 @@ void WorldUpdateProps(W8World* world)
 // FUNCTION: WIZ8 0x0046df50
 void WorldUpdateLights(W8World* world)
 {
-    int count = world->lights_to_update->GetCount();
+    int count = static_cast<int>(world->lights_to_update->size());
 
     for (int index = 0; index < count; ++index) {
-        stLight** light = world->lights_to_update->GetAt(index);
+        stLight** light = (world->lights_to_update->data() + index);
         (*light)->Update();
     }
 }
@@ -752,19 +753,19 @@ void WorldUpdateLights(W8World* world)
 // FUNCTION: WIZ8 0x0046e580
 void AddMonsterToWorld(W8World*, W8Monster* monster)
 {
-    PLAdoptAppend(g_world->plsMonsters, monster);
+    g_world->plsMonsters->push_back(monster);
 }
 
 // FUNCTION: WIZ8 0x0046e5c0
 void AddItemToWorld(W8World*, W8Item* item)
 {
-    PLAdoptAppend(g_world->plsItems, item);
+    g_world->plsItems->push_back(item);
 }
 
 // FUNCTION: WIZ8 0x0046e5e0
 void RemoveItemFromWorld(W8World*, W8Item* item)
 {
-    PListRemove(g_world->plsItems, item);
+    if (const auto found = std::ranges::find((*g_world->plsItems), item); found != g_world->plsItems->end()) g_world->plsItems->erase(found);
 }
 
 /* How many props the world holds, and the one at a position - both answers
@@ -773,7 +774,7 @@ void RemoveItemFromWorld(W8World*, W8Item* item)
 // FUNCTION: WIZ8 0x0046e600
 int WorldGetPropCount(W8World*)
 {
-    return PLLength(g_world->plsProps);
+    return (g_world->plsProps ? static_cast<unsigned int>(g_world->plsProps->size()) : 0);
 }
 
 // FUNCTION: WIZ8 0x0046e620
@@ -946,7 +947,7 @@ double WorldGetFarClip(W8World* world)
 // FUNCTION: WIZ8 0x0046E5A0
 void RemoveMonsterFromWorldList(W8World*, W8Monster* monster)
 {
-    PListRemove(g_world->plsMonsters, monster);
+    if (const auto found = std::ranges::find((*g_world->plsMonsters), monster); found != g_world->plsMonsters->end()) g_world->plsMonsters->erase(found);
 }
 
 // FUNCTION: WIZ8 0x0046DC90

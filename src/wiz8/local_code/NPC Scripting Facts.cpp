@@ -929,7 +929,7 @@ void HandleScriptedNpcDeath(unsigned int monster_list_index)
     } else if (g_status.endgame3_queued != 0) {
         QueueNpcMessageLine(W8_NPC_MSG_PHOONZANG_NOTICE, 0);
     }
-    for (unsigned int entry_index = 0; entry_index < PLLength(gXStatus.plsMonsterList);
+    for (unsigned int entry_index = 0; entry_index < (gXStatus.plsMonsterList ? static_cast<unsigned int>(gXStatus.plsMonsterList->size()) : 0);
          ++entry_index) {
         W8MonsterInfo* entry = MonsterGetScriptPartByLocationIndex(entry_index);
         if (entry->fActive && entry->ubDisposition == W8_DISPOSITION_HOSTILE &&

@@ -49,8 +49,8 @@
 #include "wiz8/local_code/GameplayDatabase.h"
 #include "wiz8/engine_code/Monster.h"
 #include "wiz8/music_playlist.h"
-#include "wiz8/3d_code/IList.h"
-#include "wiz8/3d_code/PList.h"
+#include <vector>
+#include <algorithm>
 #include "wiz8/local_screens/CharacterScreen.h"
 #include "wiz8/string_database.h"
 #include "wiz8/local_code/Configuration.h"
@@ -166,7 +166,7 @@ unsigned int ApplyDamageToCharacter(int party_slot, unsigned int amount, bool qu
                 memset(report, 0, sizeof(W8SpellDamageReport));
                 report->kind = 1;
                 report->value = party_slot;
-                result_stats->reports.Add(report);
+                result_stats->reports.push_back(report);
             }
         }
         SetCharacterCondition(party_slot, W8_CONDITION_DEAD, W8_CONDITION_INDEFINITE, 0, 0,
@@ -332,7 +332,7 @@ void DamageMonstersInRadius(const srVector3T<float>& center, float radius, const
     srVector3T<float> location;
     srVector3T<float> offset;
 
-    for (index = 0; index < PLLength(gXStatus.plsMonsterList); ++index) {
+    for (index = 0; index < (gXStatus.plsMonsterList ? static_cast<unsigned int>(gXStatus.plsMonsterList->size()) : 0); ++index) {
         monster_info = MonsterGetScriptPartByLocationIndex(index);
         if (monster_info->fActive) {
             MonsterGetLocation(monster_info->p3D, &location);
@@ -423,7 +423,7 @@ unsigned int ApplyDamageToMonster(W8MonsterInfo* monster_info, unsigned int amou
                     memset(report, 0, sizeof(W8SpellDamageReport));
                     report->kind = 3;
                     wcscpy(report->text, GetMonsterName(monster_info, 0, 0));
-                    result_stats->reports.Add(report);
+                    result_stats->reports.push_back(report);
                 }
             }
             MonsterStartsDying(monster_info, result_stats == 0);

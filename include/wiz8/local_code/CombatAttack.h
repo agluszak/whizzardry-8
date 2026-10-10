@@ -1,5 +1,8 @@
 #pragma once
 
+#include <vector>
+struct W8CombatSlot;
+
 #include "wiz8/attack_modes.h"
 #include "wiz8/monster_cycles.h"
 #include "wiz8/dice.h"
@@ -140,11 +143,10 @@ int GetMonsterAttackScore(W8MonsterInfo* monster_info, W8MonsterAttack* attack,
    by the target's damage reduction, reporting the dice count. */
 int ResolveMonsterAttackDamage(W8MonsterInfo* monster_info, W8MonsterAttack* attack,
                                unsigned int* out_dice_count);
-struct W8PList;
 /* Build the candidate list the monster's fumbled or repicked
    attack chooses a new target from. */
 void BuildMonsterTargetList(W8MonsterInfo* monster_info, W8MonsterRecord* record,
-                            unsigned int attack, W8PList* out_list);
+                            unsigned int attack, std::vector<W8CombatSlot*>* out_list);
 /* Announce a friendly-fire strike and highlight the name on the
    other side's notice palette when the two sides differ. */
 void AnnounceAccidentalStrike(W8TargetSource* source, W8CombatSlot* target);
