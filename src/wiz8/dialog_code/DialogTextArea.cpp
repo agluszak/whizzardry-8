@@ -1,5 +1,4 @@
 #include <string>
-#include "wiz8/containers.h"
 #include <utility>
 #include "input.h"
 #include "wiz8/local_code/ControlsRect.h"
@@ -48,7 +47,7 @@ void W8DialogTextArea::Configure(const W8ControlsRect* bounds, int font, unsigne
     m_relayout_needed = true;
     m_behavior_flags = flags;
     m_font = font;
-    for (W8DialogTextEntry* entry : m_all_lines) {
+    for (const auto& entry : m_all_lines) {
         entry->m_pendingBounds = m_bounds;
     }
 }
@@ -282,7 +281,7 @@ W8DialogTextEntry* W8DialogTextArea::GetEntry(unsigned int index)
 {
     if (index >= m_all_lines.size())
         return 0;
-    return m_all_lines[index];
+    return m_all_lines[index].get();
 }
 
 // FUNCTION: WIZ8 0x005d2440
@@ -290,7 +289,7 @@ int W8DialogTextArea::GetOwningEntryIndex(int visible_index)
 {
     const auto* visible = m_visible_lines[visible_index];
     for (int index = 0; index < static_cast<int>(m_all_lines.size()); ++index) {
-        if (m_all_lines[index] == visible)
+        if (m_all_lines[index].get() == visible)
             return index;
     }
     return -1;
@@ -299,7 +298,7 @@ int W8DialogTextArea::GetOwningEntryIndex(int visible_index)
 // FUNCTION: WIZ8 0x005d24a0
 void W8DialogTextArea::SetEntryMarked(int index, bool state)
 {
-    W8DialogTextEntry* entry = m_all_lines[index];
+    W8DialogTextEntry* entry = m_all_lines[index].get();
     if (entry->m_marked != state) {
         entry->m_marked = state;
         entry->SetGeometryDirty();
@@ -316,13 +315,13 @@ int W8DialogTextArea::AddEntry(std::string_view prefix, std::string_view text,
     if (m_behavior_flags & g_W8DialogTextAreaNoWrap) {
         layout_mode |= g_dialog_text_layout_mask;
     }
-    W8DialogTextEntry* entry = new W8DialogTextEntry(
+    auto entry = std::make_unique<W8DialogTextEntry>(
         prefix, text, prefix_palette, text_palette, &m_bounds, m_font, category, layout_mode,
         m_behavior_flags & g_W8DialogTextAreaShortenText);
     if (m_line_height_override != -1)
         entry->SetLineHeight(m_line_height_override);
     int index = static_cast<int>(m_all_lines.size());
-    m_all_lines.push_back(entry);
+    m_all_lines.push_back(std::move(entry));
     m_relayout_needed = true;
     RebuildVisibleEntries();
     return index;
@@ -336,9 +335,7 @@ void W8DialogTextArea::RemoveEntry(unsigned int index)
             m_highlighted_entry = -1;
         if (m_all_lines[index]->m_selected)
             m_selected_visible_entry = -1;
-        auto* object = m_all_lines[index];
         m_all_lines.erase(m_all_lines.begin() + index);
-        delete object;
         if (m_first_visible_entry != 0 &&
             m_all_lines.size() <= static_cast<unsigned int>(m_first_visible_entry) &&
             !m_all_lines.empty()) {
@@ -362,7 +359,7 @@ void W8DialogTextArea::RebuildVisibleEntries()
         if (m_all_lines[index]->m_category == static_cast<unsigned char>(m_category_filter) ||
             m_category_filter == -1) {
             if (!m_sorted) {
-                m_visible_lines.push_back(m_all_lines[index]);
+                m_visible_lines.push_back(m_all_lines[index].get());
             } else {
                 CopyEntryText(index, text);
                 int position;
@@ -373,9 +370,9 @@ void W8DialogTextArea::RebuildVisibleEntries()
                         break;
                 }
                 if (position == static_cast<int>(m_visible_lines.size())) {
-                    m_visible_lines.push_back(m_all_lines[index]);
+                    m_visible_lines.push_back(m_all_lines[index].get());
                 } else {
-                    m_visible_lines.insert(m_visible_lines.begin() + position, m_all_lines[index]);
+                    m_visible_lines.insert(m_visible_lines.begin() + position, m_all_lines[index].get());
                 }
             }
         }
@@ -484,8 +481,3 @@ W8DialogTextArea::W8DialogTextArea()
     m_sorted = false;
 }
 
-// FUNCTION: WIZ8 0x005d1590
-W8DialogTextArea::~W8DialogTextArea()
-{
-    wiz8::remove_all_and_delete(m_all_lines);
-}

@@ -63,6 +63,7 @@ typedef struct _MOUSE_REGION {
     std::string FastHelpText; // Text string for the FastHelp (describes buttons if left there a while)
     INT32 FastHelpRect{};
     MOUSE_HELPTEXT_DONE_CALLBACK HelpDoneCallback{};
+    std::weak_ptr<void> dispatch_owner; // non-owning callback context
 
 } MOUSE_REGION;
 

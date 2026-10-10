@@ -1464,7 +1464,7 @@ void W8CharacterSkillsPage::UpdateEntries()
                     break;
                 }
             }
-            W8CharacterPageEntry* entry = m_entries[entry_index];
+            W8CharacterPageEntry* entry = m_entries[entry_index].get();
             ++category_count[category];
             if (category == 4)
                 m_show_fifth_category = true;

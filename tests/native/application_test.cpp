@@ -18,9 +18,7 @@ static void CheckStopped()
     REQUIRE(SDL_WasInit(0) == 0);
     REQUIRE((!gfProgramIsRunning && !gfGameInitialized && !gfApplicationActive));
     REQUIRE(ghWindow == nullptr);
-    REQUIRE(std::all_of(ButtonList.begin(), ButtonList.end(), [](const auto& button) {
-        return !button;
-    }));
+    REQUIRE(RegisteredButtonCount() == 0);
 }
 
 TEST_CASE("application_test")

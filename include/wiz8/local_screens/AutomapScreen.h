@@ -11,6 +11,7 @@ extern float g_automap_grid_cell_size;
 
 #include "surrender/srMath.h"
 #include <vector>
+#include <memory>
 #include <algorithm>
 
 /* One map note with owned UTF-8 text. */
@@ -27,7 +28,7 @@ void SetCurrentAutomapUiMode(W8MainUiMode value);
 void SetSavedAutomapUiMode(W8MainUiMode value);
 
 class W8DialogButton;
-extern W8DialogButton** g_automap_buttons;
+extern std::vector<std::unique_ptr<W8DialogButton>> g_automap_buttons;
 extern int g_automap_zoom_mode;
 
 extern bool g_mipe_menu_active;

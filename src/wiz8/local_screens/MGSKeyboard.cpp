@@ -1,6 +1,5 @@
 #include <fmt/format.h>
 #include "wiz8/unicode.h"
-#include "wiz8/containers.h"
 #include <utility>
 #include "wiz8/fonts.h"
 #include <stdio.h>
@@ -69,19 +68,13 @@
 // GLOBAL: WIZ8 0x0069b7e4
 MGSKeyboard* g_mgs_keyboard;
 
-// FUNCTION: WIZ8 0x0055D180
-MGSKeyboard::~MGSKeyboard()
-{
-    Clear();
-}
-
 // FUNCTION: WIZ8 0x0055d260
 int MGSKeyboard::FindBinding(W8MGSCommand command) const
 {
     int count = static_cast<int>(m_bindings.size());
     int index;
     for (index = 0; index < count; ++index) {
-        MGSKeyBinding* binding = m_bindings[index];
+        MGSKeyBinding* binding = m_bindings[index].get();
         if (binding->command == command) {
             return index;
         }
@@ -95,7 +88,7 @@ W8MGSCommand MGSKeyboard::FindCommandForEvent(const InputAtom* event) const
     int count = static_cast<int>(m_bindings.size());
     int index;
     for (index = 0; index < count; ++index) {
-        MGSKeyBinding* binding = m_bindings[index];
+        MGSKeyBinding* binding = m_bindings[index].get();
         if (binding->active == event->usEvent && binding->modifiers == event->usKeyState &&
             binding->key == event->usParam) {
             return binding->command;
@@ -112,9 +105,9 @@ MGSKeyBinding* MGSKeyboard::GetBinding(int index) const
     }
     // Preserve the binding table's fallback to its first entry.
     if (std::cmp_greater_equal(index, m_bindings.size())) {
-        return m_bindings.front();
+        return m_bindings.front().get();
     }
-    return m_bindings[index];
+    return m_bindings[index].get();
 }
 
 // FUNCTION: WIZ8 0x0055d320
@@ -157,8 +150,8 @@ void DrainInputEventQueue(void)
 // FUNCTION: WIZ8 0x0055D3F0
 void MGSKeyboard::Clear()
 {
-    wiz8::remove_all_and_delete(m_bindings);
     m_command_index.clear();
+    m_bindings.clear();
 }
 
 // FUNCTION: WIZ8 0x0055d590
@@ -172,18 +165,18 @@ try
     }
     handle->read_exact(&count, sizeof(count));
     for (int index = 0; index < count; ++index) {
-        MGSKeyBinding* binding = new MGSKeyBinding;
-        handle->read_exact(binding, sizeof(*binding));
+        auto binding = std::make_unique<MGSKeyBinding>();
+        handle->read_exact(binding.get(), sizeof(*binding));
 
         int old_index = FindBinding(binding->command);
         if (old_index != -1) {
-            auto* object = m_bindings[old_index];
-            m_bindings.erase(m_bindings.begin() + old_index);
-            delete object;
             m_command_index.erase(binding->command);
+            m_bindings.erase(m_bindings.begin() + old_index);
         }
-        m_bindings.push_back(binding);
-        m_command_index.emplace(binding->command, binding);
+        auto* borrowed = binding.get();
+        m_bindings.push_back(std::move(binding));
+        // Copy the packed disk field before unordered_map binds its arguments.
+        m_command_index.emplace(static_cast<unsigned int>(borrowed->command), borrowed);
     }
     return 1;
 }
@@ -195,7 +188,7 @@ unsigned char MGSKeyboard::Save(wiz8::File* handle) const
     int count = static_cast<int>(m_bindings.size());
     handle->write(&count, sizeof(count));
     for (int index = 0; index < count; ++index) {
-        handle->write(m_bindings[index], sizeof(MGSKeyBinding));
+        handle->write(m_bindings[index].get(), sizeof(MGSKeyBinding));
     }
     return 1;
 }
@@ -736,7 +729,7 @@ void CloseKeyboardMenu(void)
                          g_keyboard_menu_panel->m_bounds.top + 0x4a, 0);
     }
     DestroyControlPanel(g_keyboard_menu_panel);
-    DestroyTextControls(g_keyboard_menu_rows, 13);
+    for (auto& row : g_keyboard_menu_rows) row = nullptr;
     RequestRedraw(1 << g_selected_party_slot);
 }
 
@@ -776,7 +769,7 @@ unsigned char BuildKeyboardMenu(void)
             g_keyboard_menu_rows[row] = control;
             if (control == 0) {
                 DestroyControlPanel(g_keyboard_menu_panel);
-                DestroyTextControls(g_keyboard_menu_rows, 13);
+                for (auto& row : g_keyboard_menu_rows) row = nullptr;
                 return 0;
             }
             AssignKeyboardMenuCallback(menu, item, control);

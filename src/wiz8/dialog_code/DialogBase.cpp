@@ -43,14 +43,14 @@ void W8DialogBase::ScrollTextArea(W8DialogTextArea& area, int first_visible_line
 // FUNCTION: WIZ8 0x005dc7a0
 W8DialogBase::W8DialogBase()
 {
-    m_resource = -1;
+    m_resource.reset();
     m_dirty_flags = 0;
     m_error = 0;
     m_text.clear();
     m_font = g_dialog_interface_font;
     m_foreground = g_dialog_font_foreground;
     m_background = g_dialog_font_background;
-    m_border = -1;
+    m_border.reset();
     m_x = -1;
     m_y = -1;
     m_width = -1;
@@ -85,7 +85,7 @@ void W8DialogBase::Draw()
     if (!m_initialized) {
         CreateControls();
     }
-    if (m_error == 0 && m_resource != -1) {
+    if (m_error == 0 && m_resource) {
         if (m_width != GetButtonWidth(m_resource) || m_height != GetButtonHeight(m_resource)) {
             ResizeButton(m_resource, static_cast<short>(m_width), static_cast<short>(m_height));
         }
@@ -111,7 +111,7 @@ void W8DialogBase::SetOrigin(int x, int y)
 {
     m_x = x;
     m_y = y;
-    if (m_resource != -1) {
+    if (m_resource) {
         SetButtonPosition(m_resource, static_cast<short>(x), static_cast<short>(y));
     }
     m_dirty_flags |= W8_DIALOG_DIRTY_REDRAW;
@@ -163,15 +163,15 @@ int W8DialogBase::CreateControls()
     if (!m_background_path) {
         return m_error = 4;
     }
-    if (m_border == -1) {
+    if (!m_border) {
         m_border = LoadGenericButtonImages({}, "Data\\Dialogs\\DialogBorder.STI", {}, "Data\\Dialogs\\DialogBorder.STI", {}, m_background_path, static_cast<short>(m_background_flags), 0, 0);
-        if (m_border == -1) {
+        if (!m_border) {
             return m_error = 4;
         }
     }
     m_resource =
         CreateTextButton({}, m_font, m_foreground, m_background, m_border, static_cast<short>(m_x), static_cast<short>(m_y), static_cast<short>(m_width), static_cast<short>(m_height), BUTTON_NO_TOGGLE | BUTTON_IGNORE_CLICKS, MSYS_PRIORITY_HIGHEST - 2, BUTTON_NO_CALLBACK, BUTTON_NO_CALLBACK);
-    if (m_resource != -1) {
+    if (m_resource) {
         SpecifyButtonTextOffsets(m_resource, 3, 3, 1);
         SpecifyButtonMultiColorFont(m_resource, g_dialog_font_enabled);
         m_dirty_flags |= W8_DIALOG_DIRTY_REDRAW;
@@ -184,8 +184,8 @@ int W8DialogBase::CreateControls()
 // FUNCTION: WIZ8 0x005dcc30
 void W8DialogBase::DestroyControls()
 {
-    ReleaseDialogButtonHandle(m_resource);
-    ReleaseDialogBorderImage(m_border);
+    m_resource.reset();
+    m_border.reset();
     m_text.clear();
     if (m_background_path) {
         free(m_background_path);

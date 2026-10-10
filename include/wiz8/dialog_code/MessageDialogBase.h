@@ -40,13 +40,13 @@ public:
     bool is_open;  /* set, and gates the close path */
 
 protected:
-    short m_edge_image; /* 0x56 generic-button-image resource */
-    int m_message_button;
-    int m_confirm_button;
-    int m_confirm_image;
+    GenericButtonImage m_edge_image; /* 0x56 generic-button-image resource */
+    GUIButton m_message_button;
+    GUIButton m_confirm_button;
+    ButtonImage m_confirm_image;
     unsigned char unknown_064[0x10];
-    int m_cancel_button;
-    int m_cancel_image;
+    GUIButton m_cancel_button;
+    ButtonImage m_cancel_image;
     unsigned char unknown_07c[0x10];
     std::vector<std::string> m_lines;
     unsigned int m_line_count;

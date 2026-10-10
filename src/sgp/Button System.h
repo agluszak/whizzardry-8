@@ -14,10 +14,8 @@
 #include "vobject.h"
 #include "mousesystem.h"
 #include "soundman.h"
+#include <memory>
 
-#ifdef __cplusplus
-extern "C" {
-#endif
 
 // Moved here from Button System.c by DB 99/01/07
 // Names of the default generic button image files.
@@ -39,7 +37,6 @@ extern "C" {
 #define BUTTON_NO_FILENAME nullptr
 #define BUTTON_NO_CALLBACK nullptr
 #define BUTTON_NO_IMAGE -1
-#define BUTTON_NO_SLOT -1
 
 #define BUTTON_INIT 1
 #define BUTTON_WAS_CLICKED 2
@@ -60,8 +57,6 @@ extern "C" {
 #define BUTTON_MOVE_CALLBACK 0x00000010
 #define BUTTON_GENERIC 0x00000020
 #define BUTTON_HOT_SPOT 0x00000040
-#define BUTTON_SELFDELETE_IMAGE 0x00000080
-#define BUTTON_DELETION_PENDING 0x00000100
 #define BUTTON_ALLOW_DISABLED_CALLBACK 0x00000200
 #define BUTTON_DIRTY 0x00000400
 #define BUTTON_SAVEBACKGROUND 0x00000800
@@ -77,141 +72,6 @@ extern UINT32 ButtonDestBuffer;
 // GUI_BUTTON callback function type
 typedef void (*GUI_CALLBACK)(struct _GUI_BUTTON*, INT32);
 
-// GUI_BUTTON structure definitions.
-typedef struct _GUI_BUTTON {
-    INT32 IDNum;                // ID Number, contains it's own button number
-    UINT32 ImageNum;            // Image number to use (see DOCs for details)
-    MOUSE_REGION Area;          // Mouse System's mouse region to use for this button
-    GUI_CALLBACK ClickCallback; // Button Callback when button is clicked
-    GUI_CALLBACK MoveCallback;  // Button Callback when mouse moved on this region
-    INT16 Cursor;               // Cursor to use for this button
-    UINT32 uiFlags;             // Button state flags etc.( 32-bit )
-    UINT32 uiOldFlags;          // Old flags from previous render loop
-    INT16 XLoc;                 // Coordinates where button is on the screen
-    INT16 YLoc;
-    INT32 UserData[4]; // Place holder for user data etc.
-    INT16 Group;       // Group this button belongs to (see DOCs)
-    INT8 bDefaultStatus;
-    //Button disabled style
-    INT8 bDisabledStyle;
-    //For buttons with text
-    std::string string; //the string
-    UINT16 usFont;       //font for text
-    BOOLEAN fMultiColor; //font is a multi-color font
-    INT16 sForeColor;    //text colors if there is text
-    INT16 sShadowColor;
-    INT16 sForeColorDown; //text colors when button is down (optional)
-    INT16 sShadowColorDown;
-    INT16 sForeColorHilited; //text colors when button is down (optional)
-    INT16 sShadowColorHilited;
-    INT8 bJustification; // BUTTON_TEXT_LEFT, BUTTON_TEXT_CENTER, BUTTON_TEXT_RIGHT
-    INT8 bTextXOffset;
-    INT8 bTextYOffset;
-    INT8 bTextXSubOffSet;
-    INT8 bTextYSubOffSet;
-    BOOLEAN fShiftText;
-    INT16 sWrappedWidth;
-    //For buttons with icons (don't confuse this with quickbuttons which have up to 5 states )
-    INT32 iIconID;
-    INT16 usIconIndex;
-    INT8 bIconXOffset;   //-1 means horizontally centered
-    INT8 bIconYOffset;   //-1 means vertically centered
-    BOOLEAN fShiftImage; //if true, icon is shifted +1,+1 when button state is down.
-
-    bool ubToggleButtonOldState; // Varibles for new toggle buttons that work
-    bool ubToggleButtonActivated;
-
-    INT32 BackRect; // Handle to a Background Rectangle
-} GUI_BUTTON;
-
-#define MAX_BUTTONS 400
-
-extern std::array<std::unique_ptr<GUI_BUTTON>, MAX_BUTTONS> ButtonList; // Button System's Main Button List
-
-#define GetButtonPtr(x) (((x >= 0) && (x < MAX_BUTTONS)) ? ButtonList[x].get() : nullptr)
-
-// Struct definition for the QuickButton pictures.
-struct BUTTON_PICS {
-    std::unique_ptr<SGPVObject> ownedObject;
-    HVOBJECT borrowedObject = nullptr;
-    HVOBJECT object() const { return ownedObject ? ownedObject.get() : borrowedObject; }
-    INT32 Grayed;     // Index to use for a "Grayed-out" button
-    INT32 OffNormal;  // Index to use when button is OFF
-    INT32 OffHilite;  // Index to use when button is OFF w/ hilite on it
-    INT32 OnNormal;   // Index to use when button is ON
-    INT32 OnHilite;   // Index to use when button is ON w/ hilite on it
-    UINT32 MaxWidth;  // Width of largest image in use
-    UINT32 MaxHeight; // Height of largest image in use
-};
-
-#define MAX_BUTTON_PICS 256
-
-extern BUTTON_PICS ButtonPictures[MAX_BUTTON_PICS];
-
-// Function protos for button system
-BOOLEAN InitializeButtonImageManager(INT32 DefaultBuffer, INT32 DefaultPitch, INT32 DefaultBPP);
-void ShutdownButtonImageManager(void);
-BOOLEAN InitButtonSystem(void);
-void ShutdownButtonSystem(void);
-
-INT32 FindFreeButtonSlot(void);
-INT16 FindFreeGenericSlot(void);
-INT32 GetNextButtonNumber(void);
-
-// Now used by Wizardry -- DB
-void SetButtonFastHelpText(INT32 iButton, std::string_view Text);
-
-INT32 LoadButtonImage(std::string_view filename, INT32 Grayed, INT32 OffNormal, INT32 OffHilite,
-                      INT32 OnNormal, INT32 OnHilite);
-INT32 UseVObjAsButtonImage(HVOBJECT hVObject, INT32 Grayed, INT32 OffNormal, INT32 OffHilite,
-                           INT32 OnNormal, INT32 OnHilite);
-void UnloadButtonImage(INT32 Index);
-INT16 LoadGenericButtonImages(std::string_view GrayName, std::string_view OffNormName, std::string_view OffHiliteName,
-                              std::string_view OnNormName, std::string_view OnHiliteName, std::string_view BkGrndName,
-                              INT16 Index, INT16 OffsetX, INT16 OffsetY);
-BOOLEAN UnloadGenericButtonImage(INT16 GenImg);
-
-BOOLEAN DisableButton(INT32 iButtonID);
-void RemoveButton(INT32 iButtonID);
-void HideButton(INT32 iButtonID);
-void ShowButton(INT32 iButton);
-
-void RenderButtons(void);
-BOOLEAN DrawButton(INT32 iButtonID);
-void DrawButtonFromPtr(GUI_BUTTON* b);
-
-//Base button types
-void DrawGenericButton(GUI_BUTTON* b);
-void DrawQuickButton(GUI_BUTTON* b);
-void DrawCheckBoxButton(GUI_BUTTON* b);
-//Additional layers on buttons that can exist in any combination on generic or quick buttons
-//To do so, use the new specify functions below.
-void DrawIconOnButton(GUI_BUTTON* b);
-void DrawTextOnButton(GUI_BUTTON* b);
-
-extern BOOLEAN gfRenderHilights;
-#define EnableHilightsAndHelpText() gfRenderHilights = TRUE;
-#define DisableHilightsAndHelpText() gfRenderHilights = FALSE;
-
-//Providing you have allocated your own image, this is a somewhat simplified function.
-INT32 QuickCreateButton(UINT32 Image, INT16 xloc, INT16 yloc, INT32 Type, INT16 Priority,
-                        GUI_CALLBACK MoveCallback, GUI_CALLBACK ClickCallback);
-
-//A hybrid of QuickCreateButton.  Takes a lot less parameters, but makes more assumptions.  It self manages the
-//loading, and deleting of the image.  The size of the image determines the size of the button.  It also uses
-//the default move callback which emulates Win95.  Finally, it sets the priority to normal.  The function you
-//choose also determines the type of button (toggle, notoggle, or newtoggle)
-//Same as above, but accepts specify toggle type
-//Same as above, but accepts priority specification.
-INT32 CreateTextButton(std::string_view string, UINT32 uiFont, INT16 sForeColor, INT16 sShadowColor,
-                       INT16 GenImg, INT16 xloc, INT16 yloc, INT16 w, INT16 h, INT32 Type,
-                       INT16 Priority, GUI_CALLBACK MoveCallback, GUI_CALLBACK ClickCallback);
-//New functions
-void SpecifyButtonText(INT32 iButtonID, std::string_view string);
-void SpecifyButtonMultiColorFont(INT32 iButtonID, BOOLEAN fMultiColor);
-void SpecifyButtonTextOffsets(INT32 iButtonID, INT8 bTextXOffset, INT8 bTextYOffset,
-                              BOOLEAN fShiftText);
-
 enum {
     DEFAULT_STATUS_NONE,
     DEFAULT_STATUS_DARKBORDER, //shades the borders 2 pixels deep
@@ -226,35 +86,161 @@ enum //for use with SpecifyDisabledButtonStyle
     DISABLED_STYLE_SHADED   //always shades the disabled button 25% darker
 };
 
-//Note:  Text is always on top
-//If fShiftImage is true, then the image will shift down one pixel and right one pixel
-//just like the text does.
+// GUI_BUTTON structure definitions.
+struct ButtonGraphics;
+struct GenericButtonImages;
+using ButtonImage = std::shared_ptr<const ButtonGraphics>;
+using GenericButtonImage = std::shared_ptr<GenericButtonImages>;
 
-void SetButtonPosition(INT32 iButtonID, INT16 x, INT16 y);
-void ResizeButton(INT32 iButtonID, INT16 w, INT16 h);
+typedef struct _GUI_BUTTON {
+    ~_GUI_BUTTON();
+    _GUI_BUTTON() = default;
+    _GUI_BUTTON(const _GUI_BUTTON&) = delete;
+    _GUI_BUTTON& operator=(const _GUI_BUTTON&) = delete;
+
+    ButtonImage quick_image;
+    GenericButtonImage generic_image;
+    MOUSE_REGION Area = {};          // Mouse System's mouse region to use for this button
+    GUI_CALLBACK ClickCallback = nullptr; // Button Callback when button is clicked
+    GUI_CALLBACK MoveCallback = nullptr;  // Button Callback when mouse moved on this region
+    UINT32 uiFlags = BUTTON_DIRTY;             // Button state flags etc.( 32-bit )
+    UINT32 uiOldFlags = 0;          // Old flags from previous render loop
+    INT16 XLoc = 0;                 // Coordinates where button is on the screen
+    INT16 YLoc = 0;
+    void* callback_context = nullptr; // Non-owning; the UI owner owns this button.
+    INT32 UserData[4] = {}; // Numeric callback payloads.
+    INT8 bDefaultStatus = DEFAULT_STATUS_NONE;
+    //Button disabled style
+    INT8 bDisabledStyle = DISABLED_STYLE_DEFAULT;
+    //For buttons with text
+    std::string string; //the string
+    UINT16 usFont = 0;       //font for text
+    BOOLEAN fMultiColor = FALSE; //font is a multi-color font
+    INT16 sForeColor = 0;    //text colors if there is text
+    INT16 sShadowColor = -1;
+    INT16 sForeColorDown = -1; //text colors when button is down (optional)
+    INT16 sShadowColorDown = -1;
+    INT16 sForeColorHilited = -1; //text colors when button is down (optional)
+    INT16 sShadowColorHilited = -1;
+    INT8 bJustification = BUTTON_TEXT_CENTER; // BUTTON_TEXT_LEFT, BUTTON_TEXT_CENTER, BUTTON_TEXT_RIGHT
+    INT8 bTextXOffset = -1;
+    INT8 bTextYOffset = -1;
+    INT8 bTextXSubOffSet = 0;
+    INT8 bTextYSubOffSet = 0;
+    BOOLEAN fShiftText = TRUE;
+    INT16 sWrappedWidth = -1;
+
+    bool ubToggleButtonOldState = false; // Varibles for new toggle buttons that work
+    bool ubToggleButtonActivated = false;
+
+} GUI_BUTTON;
+
+
+using GUIButton = std::shared_ptr<GUI_BUTTON>;
+
+// The interface and screen own their buttons; only weak references are kept
+// by the renderer and mouse dispatcher.
+size_t RegisteredButtonCount();
+
+// Struct definition for the QuickButton pictures.
+struct ButtonGraphics {
+    // Each resource owns its decoded sprite sheet. Buttons may share the resource.
+    static ButtonImage Load(std::string_view filename, INT32 grayed, INT32 off_normal,
+                            INT32 off_hilite, INT32 on_normal, INT32 on_hilite);
+    HVOBJECT object() const { return ownedObject.get(); }
+private:
+    std::unique_ptr<SGPVObject> ownedObject;
+public:
+    INT32 Grayed;     // Index to use for a "Grayed-out" button
+    INT32 OffNormal;  // Index to use when button is OFF
+    INT32 OffHilite;  // Index to use when button is OFF w/ hilite on it
+    INT32 OnNormal;   // Index to use when button is ON
+    INT32 OnHilite;   // Index to use when button is ON w/ hilite on it
+    UINT32 MaxWidth;  // Width of largest image in use
+    UINT32 MaxHeight; // Height of largest image in use
+};
+
+
+struct GenericButtonImages {
+    // Off-normal, on-normal, grayed, off-highlight, on-highlight, background.
+    std::array<std::unique_ptr<SGPVObject>, 6> frames;
+    UINT16 fill_color = 0;
+    UINT16 background_frame = 0;
+    INT16 offset_x = 0;
+    INT16 offset_y = 0;
+};
+
+// Function protos for button system
+BOOLEAN InitializeButtonImageManager();
+void ShutdownButtonImageManager(void);
+BOOLEAN InitButtonSystem(void);
+void ShutdownButtonSystem(void);
+
+
+// Now used by Wizardry -- DB
+void SetButtonFastHelpText(const GUIButton& button, std::string_view Text);
+
+GenericButtonImage LoadGenericButtonImages(std::string_view GrayName, std::string_view OffNormName, std::string_view OffHiliteName,
+                              std::string_view OnNormName, std::string_view OnHiliteName, std::string_view BkGrndName,
+                              INT16 Index, INT16 OffsetX, INT16 OffsetY);
+
+BOOLEAN DisableButton(const GUIButton& button);
+void HideButton(const GUIButton& button);
+void ShowButton(const GUIButton& button);
+
+void RenderButtons(void);
+BOOLEAN DrawButton(const GUIButton& button);
+void DrawButtonFromPtr(GUI_BUTTON* b);
+
+//Base button types
+// Text can be overlaid on generic and quick buttons.
+void DrawTextOnButton(GUI_BUTTON* b);
+
+extern BOOLEAN gfRenderHilights;
+#define EnableHilightsAndHelpText() gfRenderHilights = TRUE;
+#define DisableHilightsAndHelpText() gfRenderHilights = FALSE;
+
+//Providing you have allocated your own image, this is a somewhat simplified function.
+GUIButton QuickCreateButton(ButtonImage Image, INT16 xloc, INT16 yloc, INT32 Type, INT16 Priority,
+                        GUI_CALLBACK MoveCallback, GUI_CALLBACK ClickCallback);
+
+//A hybrid of QuickCreateButton.  Takes a lot less parameters, but makes more assumptions.  It self manages the
+//loading, and deleting of the image.  The size of the image determines the size of the button.  It also uses
+//the default move callback which emulates Win95.  Finally, it sets the priority to normal.  The function you
+//choose also determines the type of button (toggle, notoggle, or newtoggle)
+//Same as above, but accepts specify toggle type
+//Same as above, but accepts priority specification.
+GUIButton CreateTextButton(std::string_view string, UINT32 uiFont, INT16 sForeColor, INT16 sShadowColor,
+                       GenericButtonImage GenImg, INT16 xloc, INT16 yloc, INT16 w, INT16 h, INT32 Type,
+                       INT16 Priority, GUI_CALLBACK MoveCallback, GUI_CALLBACK ClickCallback);
+//New functions
+void SpecifyButtonText(const GUIButton& button, std::string_view string);
+void SpecifyButtonMultiColorFont(const GUIButton& button, BOOLEAN fMultiColor);
+void SpecifyButtonTextOffsets(const GUIButton& button, INT8 bTextXOffset, INT8 bTextYOffset,
+                              BOOLEAN fShiftText);
+
+
+void SetButtonPosition(const GUIButton& button, INT16 x, INT16 y);
+void ResizeButton(const GUIButton& button, INT16 w, INT16 h);
 
 void QuickButtonCallbackMMove(MOUSE_REGION* reg, INT32 reason);
 void QuickButtonCallbackMButn(MOUSE_REGION* reg, INT32 reason);
 
-void MSYS_SetBtnUserData(INT32 iButtonNum, INT32 index, INT32 userdata);
+void MSYS_SetBtnUserData(const GUIButton& button, INT32 index, INT32 userdata);
 INT32 MSYS_GetBtnUserData(GUI_BUTTON* b, INT32 index);
 void MarkButtonsDirty(
     void); // Function to mark buttons dirty ( all will redraw at next RenderButtons )
 // DB 98-05-05
-BOOLEAN GetButtonArea(INT32 iButtonID, SDL_Rect* pRect);
+BOOLEAN GetButtonArea(const GUIButton& button, SDL_Rect* pRect);
 // DB 99-01-13
-INT32 GetButtonWidth(INT32 iButtonID);
-INT32 GetButtonHeight(INT32 iButtonID);
+INT32 GetButtonWidth(const GUIButton& button);
+INT32 GetButtonHeight(const GUIButton& button);
 
 // DB 99-08-27
-INT32 GetButtonX(INT32 iButtonID);
-INT32 GetButtonY(INT32 iButtonID);
+INT32 GetButtonX(const GUIButton& button);
+INT32 GetButtonY(const GUIButton& button);
 
 void BtnGenericMouseMoveButtonCallback(GUI_BUTTON* btn, INT32 reason);
 #define DEFAULT_MOVE_CALLBACK BtnGenericMouseMoveButtonCallback
-
-#ifdef __cplusplus
-}
-#endif
 
 #endif
