@@ -18,6 +18,7 @@
 #include "wiz8/sound_man.h"
 #include <vector>
 #include <algorithm>
+#include <ranges>
 #include "wiz8/location_variables.h"
 #include "wiz8/string_database.h"
 #include "wiz8/local_code/Strings.h"
@@ -93,21 +94,25 @@ int g_container_event = g_first_remapped_event + 14;
 // GLOBAL: WIZ8 0x005ec124
 const float g_trigger_progress_limit = 64.0f;
 
+/* Trigger names are stored uppercase. Like the retail instance registry, the
+   newest trigger wins when a name repeats. */
 // FUNCTION: WIZ8 0x00443780
 Trigger* FindTriggerByName(const char* name)
 {
-    char* uppercase_name;
-    Trigger* trigger = 0;
-
-    uppercase_name = static_cast<char*>(malloc(strlen(name) + 1));
-    if (uppercase_name != 0) {
-        strcpy(uppercase_name, name);
-        _strupr(uppercase_name);
-        trigger = static_cast<Trigger*>(
-            srCore.getRegistry()->find(Trigger::sGetClassNode(), uppercase_name, 0));
+    if (name == 0 || name[0] == 0) {
+        return 0;
     }
-    free(uppercase_name);
-    return trigger;
+    for (W8World* world : {g_world, g_secondary_world}) {
+        if (world == 0 || world->triggers == 0) {
+            continue;
+        }
+        for (Trigger* trigger : *world->triggers | std::views::reverse) {
+            if (_stricmp(trigger->name, name) == 0) {
+                return trigger;
+            }
+        }
+    }
+    return 0;
 }
 
 /* Resolve the trigger that drives a prop's use action. A kind-one or kind-two
@@ -2127,7 +2132,7 @@ void Trigger::FinishAction()
                     *comma = '\0';
                 }
 
-                stLight* light = FindLightByName(g_trigger_parse_buffer, 0);
+                stLight* light = FindLightByName(g_trigger_parse_buffer);
                 if (light != 0) {
                     light->m_save_marked = true;
                     if (light->testFlag(srNode::FLAG_DISABLE) == 0) {
@@ -2762,7 +2767,7 @@ void Trigger::Run(int source)
         char* recipient = m_pacRecipients;
 
         while (recipient != 0) {
-            stLight* light = FindLightByName(NextTriggerRecipient(&recipient), 0);
+            stLight* light = FindLightByName(NextTriggerRecipient(&recipient));
             if (light != 0) {
                 light->m_save_marked = true;
                 if (action == 4) {
@@ -3690,14 +3695,10 @@ Trigger::~Trigger()
     }
 }
 
-/* Resolves a light instance by name under the stLight class node. Retail
-   inlines stLight::sGetClassNode, so this emission carries the lazy
-   stLight->srLight->srNode registration walk before the registry find. */
 // FUNCTION: WIZ8 0x00445a10
-stLight* FindLightByName(const char* name, const srRuntimeClass* relative_to)
+stLight* FindLightByName(const char* name)
 {
-    return static_cast<stLight*>(
-        srCore.getRegistry()->find(stLight::sGetClassNode(), name, relative_to));
+    return FindWorldNode<stLight>(name);
 }
 
 // FUNCTION: WIZ8 0x00443a50

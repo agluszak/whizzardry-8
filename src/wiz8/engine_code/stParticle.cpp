@@ -58,17 +58,6 @@ void stParticle::SetRenderFlags(srShader flags)
     render_flags = flags;
 }
 
-// FUNCTION: WIZ8 0x0049ADB0
-stParticle* FindRegisteredParticle(const char* name)
-{
-    std::string uppercase_name = name;
-    for (char& character : uppercase_name) {
-        character = static_cast<char>(toupper(static_cast<unsigned char>(character)));
-    }
-    return static_cast<stParticle*>(
-        srCore.getRegistry()->find(stParticle::sGetClassNode(), uppercase_name, 0));
-}
-
 // FUNCTION: WIZ8 0x0049AE90
 void stParticle::SetParticleScale(float scale)
 {
@@ -91,28 +80,21 @@ void SaveParticleStates(wiz8::File* handle)
 
     handle->write(&version, sizeof(version));
 
-    stParticle* particle = static_cast<stParticle*>(srCore.getRegistry()->find(
-        stParticle::sGetClassNode(), static_cast<const srRuntimeClass*>(0)));
-    while (particle != 0) {
-        if (particle->persisted) {
-            ++count;
+    if (g_world != 0 && g_world->particles != 0) {
+        for (stParticle* particle : *g_world->particles) {
+            count += particle->persisted;
         }
-        particle = static_cast<stParticle*>(
-            srCore.getRegistry()->find(stParticle::sGetClassNode(), particle));
     }
-
     handle->write(&count, sizeof(count));
 
-    particle = static_cast<stParticle*>(srCore.getRegistry()->find(
-        stParticle::sGetClassNode(), static_cast<const srRuntimeClass*>(0)));
-    while (particle != 0) {
-        if (particle->persisted) {
-            strcpy(name, particle->getName().c_str());
-            handle->write(name, sizeof(name));
-            handle->write(&particle->emitting, sizeof(particle->emitting));
+    if (g_world != 0 && g_world->particles != 0) {
+        for (stParticle* particle : *g_world->particles) {
+            if (particle->persisted) {
+                strcpy(name, particle->getName().c_str());
+                handle->write(name, sizeof(name));
+                handle->write(&particle->emitting, sizeof(particle->emitting));
+            }
         }
-        particle = static_cast<stParticle*>(
-            srCore.getRegistry()->find(stParticle::sGetClassNode(), particle));
     }
 }
 
@@ -131,8 +113,7 @@ void LoadParticleStates(wiz8::File* handle)
         handle->read_exact(name, sizeof(name));
         handle->read_exact(&active, sizeof(active));
 
-        stParticle* particle = static_cast<stParticle*>(
-            srCore.getRegistry()->find(stParticle::sGetClassNode(), name, 0));
+        stParticle* particle = FindParticleByName(g_world, name);
         if (particle != 0) {
             particle->SetActive(active);
         }

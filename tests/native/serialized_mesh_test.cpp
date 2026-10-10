@@ -139,7 +139,9 @@ bool LoadCycles(const std::filesystem::path& path)
             ReleaseOctMeshDefaults();
         }
         ReleaseReadMeshScratch();
-        CHECK(srCore.getRegistry()->getNumberOfInstances(stMaterial::sGetClassNode(), 0) == (cycle == 2 ? 0 : 1));
+        // Released meshes drop their references; only the default snapshot may remain.
+        CHECK(cycle == 2 ? !g_oct_mesh_default.material
+                         : g_oct_mesh_default.material.use_count() == 1);
     }
     return true;
 }

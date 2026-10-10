@@ -46,13 +46,10 @@ static bool shutdown_survivors()
             throw std::runtime_error("Interrupted scene initialization");
         }
     };
-    auto* registry = srCore.getRegistry();
-    const auto before = registry->getNumberOfInstances(srRuntimeClass::sGetClassNode(), 0);
     try {
         auto scene = std::make_unique<InterruptedScene>(model);
         CHECK(false);
     } catch (const std::runtime_error&) {}
-    CHECK(registry->getNumberOfInstances(srRuntimeClass::sGetClassNode(), 0) == before);
 
     // These are the actual global owners used by mouse and automap rendering.
     CHECK(srExit());
@@ -61,14 +58,11 @@ static bool shutdown_survivors()
     CHECK(g_mouse_surface->getName() == "Detached mouse surface");
     g_automap_surface.reset(); // Destruction without a live registry.
     CHECK(srInit());
-    registry = srCore.getRegistry();
-    const auto baseline = registry->getNumberOfInstances(srRuntimeClass::sGetClassNode(), 0);
     model.reset();
-    survivor.reset(); // Old resources must not unregister from this registry.
+    survivor.reset();
     g_mouse_surface.reset();
     palette.reset();
     CHECK(g_mesh_models.empty() && g_decompressed_mesh_bytes == 0);
-    CHECK(registry->getNumberOfInstances(srRuntimeClass::sGetClassNode(), 0) == baseline);
     CHECK(srExit());
     return true;
 }

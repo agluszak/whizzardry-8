@@ -2,9 +2,6 @@
 #include "surrender/srClipPlane.h"
 #include "surrender/srFog.h"
 #include "surrender/srLight.h"
-#include "surrender/srMaterial.h"
-#include "surrender/srPalette.h"
-#include "surrender/srScene.h"
 
 #include <cstdio>
 #include <cstring>
@@ -17,22 +14,14 @@
     } \
 } while (0)
 
-static bool lookup()
+static bool identity()
 {
     CHECK(srInit() == 1);
     auto* registry = srCore.getRegistry();
-    auto* runtime = srRuntimeClass::sGetClassNode();
-    auto* nodes = srNode::sGetClassNode();
     auto* clips = srClipPlane::sGetClassNode();
-    const auto baseline = registry->getNumberOfInstances(runtime, 0);
-    w8_ulong deleted_id = 0;
     {
         srClipPlane first;
-        srClipPlane second;
-        srScene scene;
         srFog fog;
-        CHECK(registry->getNumberOfInstances(runtime, 0) == baseline + 4);
-        CHECK(registry->getNumberOfInstances(clips, 1) == 2);
         CHECK(first.getClassID() == 0x1500);
         CHECK(std::strcmp(first.getClassName(), "srClipPlane") == 0);
         CHECK(fog.getClassID() == 0x1210);
@@ -42,76 +31,21 @@ static bool lookup()
         CHECK(!first.matchClassID(0xffffffff));
         CHECK(registry->getClassID(clips) == 0x1500);
         CHECK(std::strcmp(registry->getClassName(clips), "srClipPlane") == 0);
+        CHECK(sr_cast<srClipPlane>(static_cast<srNode*>(&first)) == &first);
+        CHECK(sr_cast<srClipPlane>(static_cast<srNode*>(nullptr)) == nullptr);
 
-        first.setName("AutomapLayer");
-        second.setName("AutomapLayer");
-        scene.setName("AutomapLayer");
-        CHECK(registry->find(clips, "AutomapLayer", nullptr) == &second);
-        CHECK(registry->find(clips, "AutomapLayer", &second) == &first);
-        CHECK(registry->find(clips, "AutomapLayer", &first) == nullptr);
-        CHECK(registry->find(nodes, "AutomapLayer", nullptr) == &scene);
-        CHECK(registry->findExact(nodes, "AutomapLayer", nullptr) == nullptr);
-        CHECK(registry->findExact(clips, "AutomapLayer", nullptr) == &second);
-        CHECK(registry->find(clips, "automaplayer", nullptr) == nullptr);
-        CHECK(registry->find(clips, std::string_view{}, nullptr) == nullptr);
-        CHECK(registry->find(nullptr, "AutomapLayer", nullptr) == nullptr);
-
-        second.setName("RenamedLayer");
-        CHECK(registry->find(clips, "AutomapLayer", nullptr) == &first);
-        CHECK(registry->find(clips, "RenamedLayer", nullptr) == &second);
-        second.setName(second.getName());
-        CHECK(registry->find(clips, "RenamedLayer", nullptr) == &second);
-        second.setName("");
-        CHECK(!second.isNamed());
-        CHECK(registry->find(clips, "RenamedLayer", nullptr) == nullptr);
-        first.setName({});
-        CHECK(registry->find(clips, "AutomapLayer", nullptr) == nullptr);
-        CHECK(registry->find(nodes, "AutomapLayer", nullptr) == &scene);
         const std::string long_name(2048, 'x');
-        first.setName(long_name.c_str());
-        CHECK(registry->find(clips, long_name.c_str(), nullptr) == &first);
-
-        deleted_id = first.getID();
-        CHECK(deleted_id != second.getID());
-        CHECK(registry->find(nodes, deleted_id) == &first);
-        CHECK(registry->findExact(nodes, deleted_id) == nullptr);
-        CHECK(registry->findExact(clips, deleted_id) == &first);
-        CHECK(registry->find(clips, w8_ulong(0)) == nullptr);
-        CHECK(registry->find(clips, static_cast<const srRuntimeClass*>(nullptr)) == &second);
-        CHECK(registry->find(clips, &second) == &first);
-        CHECK(registry->find(clips, &first) == nullptr);
-        // Level cleanup saves the next object before releasing the current object.
-        auto* transient = new srClipPlane;
-        auto* next = registry->find(clips, transient);
-        const auto transient_id = transient->getID();
-        transient->setName("TransientLayer");
-        delete transient;
-        CHECK(next == &second);
-        CHECK(registry->find(clips, transient_id) == nullptr);
-        CHECK(registry->find(clips, "TransientLayer", nullptr) == nullptr);
+        first.setName(long_name);
         auto clone = std::make_unique<srClipPlane>(first);
-        CHECK(clone->getID() != first.getID());
         CHECK(clone->getClassID() == first.getClassID());
-        CHECK(registry->find(clips, long_name.c_str(), nullptr) == clone.get());
-        clone.reset();
-        CHECK(registry->find(clips, long_name.c_str(), nullptr) == &first);
+        CHECK(clone->getName() == long_name);
 
-        {
-            srLight source;
-            source.setName("CopiedLight");
-            srLight copy(source);
-            CHECK(copy.getID() != source.getID());
-            CHECK(copy.getClassID() == 0x1220);
-            CHECK(copy.getName() == source.getName());
-            CHECK(registry->find(srLight::sGetClassNode(), "CopiedLight", nullptr) == &copy);
-            CHECK(registry->getNumberOfInstances(runtime, 0) == baseline + 6);
-        }
-
+        srLight source;
+        source.setName("CopiedLight");
+        srLight copy(source);
+        CHECK(copy.getClassID() == 0x1220);
+        CHECK(copy.getName() == source.getName());
     }
-    CHECK(registry->getNumberOfInstances(runtime, 0) == baseline);
-    CHECK(registry->find(nodes, deleted_id) == nullptr);
-    CHECK(registry->getNumberOfInstances(clips, 1) == 0);
-    CHECK(registry->find(nodes, "AutomapLayer", nullptr) == nullptr);
     CHECK(srExit() == 1);
     return true;
 }
@@ -119,6 +53,6 @@ static bool lookup()
 int main()
 {
     // Metadata is owned by each runtime lifecycle, with no stale static cache.
-    if (!lookup() || !lookup()) return 1;
-    std::puts("ok: runtime lookup, format identity, rename, clone and cleanup");
+    if (!identity() || !identity()) return 1;
+    std::puts("ok: runtime format identity, names and clones");
 }

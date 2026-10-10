@@ -80,6 +80,15 @@ add_executable(native_pointer_test "${PROJECT_SOURCE_DIR}/tests/native/pointer_t
 target_link_libraries(native_pointer_test PRIVATE wiz8_native_settings)
 add_test(NAME native_pointer COMMAND native_pointer_test)
 
+add_executable(native_world_lookup_test "${PROJECT_SOURCE_DIR}/tests/native/world_lookup_test.cpp")
+target_link_libraries(native_world_lookup_test PRIVATE WIZ8_GAME_CORE)
+if(APPLE)
+    target_link_options(native_world_lookup_test PRIVATE -Wl,-dead_strip)
+elseif(UNIX)
+    target_link_options(native_world_lookup_test PRIVATE -Wl,--gc-sections -Wl,-z,start-stop-gc)
+endif()
+add_test(NAME native_world_lookup COMMAND native_world_lookup_test)
+
 add_executable(native_save_records_test "${PROJECT_SOURCE_DIR}/tests/native/save_records_test.cpp")
 target_link_libraries(native_save_records_test PRIVATE WIZ8_GAME_CORE SDL3::SDL3)
 if(APPLE)

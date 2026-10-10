@@ -3236,9 +3236,7 @@ void srColorSurface::dump(std::ostream& stream)
     stream.setf(std::ios::left, std::ios::adjustfield);
     if (getPalette() != 0) {
         stream.width(0x20);
-        stream << "  Palette: ";
-        getPalette()->getUniqueName(stream);
-        stream << '\n';
+        stream << "  Palette: " << getPalette()->getName() << '\n';
     }
     stream.flags(static_cast<std::ios::fmtflags>(flags & 0x7fff));
 }

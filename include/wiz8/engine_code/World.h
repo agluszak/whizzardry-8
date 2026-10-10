@@ -4,6 +4,9 @@
 
 #include "wiz8/layouts/world.h"
 
+#include <functional>
+#include <string_view>
+
 class srNode;
 class stParticle;
 class Trigger;
@@ -46,6 +49,21 @@ unsigned char FindNearbyFreePosition(float radius, srVector3T<float>* position, 
 W8_ABI_ASSERT(sizeof(W8World) == 0xdc, "W8World_must_be_0xdc");
 
 void SetSecondaryWorld(W8World* world);
+
+/* Scene nodes of the loaded worlds (the level world, then the sky world) that
+   derive from class_id. Lookups return the first match by exact name. */
+srNode* FindWorldNode(std::string_view name, w8_ulong class_id);
+void ForEachWorldNode(w8_ulong class_id, const std::function<void(srNode*)>& visit);
+
+template <class T> T* FindWorldNode(std::string_view name)
+{
+    return static_cast<T*>(FindWorldNode(name, T::CLASS_ID));
+}
+
+template <class T> void ForEachWorldNode(const std::function<void(T*)>& visit)
+{
+    ForEachWorldNode(T::CLASS_ID, [&](srNode* node) { visit(static_cast<T*>(node)); });
+}
 
 /* APST chunk: serialize every world prop's animation state. The record is a
    fixed 64-byte name plus the six rep bytes LoadAnimationState reads. */
