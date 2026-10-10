@@ -1,1101 +1,606 @@
-/* Modified for the Wizardry 8 reconstruction: 2026-10-03, 2026-10-06, 2026-10-07, 2026-10-09.
+/* Modified for the Wizardry 8 reconstruction: 2026-10-10.
    Distributed under the accompanying SFI Source Code license agreement. */
-// Filename :	FileMan.c
-//	Purpose :	function definitions for the memory manager
-// Modification history :
-//		24sep96:HJH		-> creation
-//    08Apr97:ARM   -> Assign return value from Push() calls back to HStack
-//                     handle, because it may possibly do a MemRealloc()
-//		29Dec97:Kris Morness
-//									-> Added functionality for setting file attributes which
-//									   allows for read-only attribute overriding
-//									-> Also added a simple function that clears all file attributes
-//										 to normal.
-//		5 Feb 98:Dave French -> extensive modification to support libraries
-//				Includes
-
-#include "Types.h"
-#include <stdlib.h>
-#include <malloc.h>
-#include <stdio.h>
-
-#include "compat/kernel32.h"
 #include "FileMan.h"
-#include "MemMan.h"
-#include "DbMan.h"
-#include "DEBUG.H"
-#include "RegInst.h"
-#include "Container.h"
 #include "LibraryDataBase.h"
-#include "compat/platform.h"
-//				Defines
+#include "DEBUG.H"
+#include "platform_paths.h"
+#include <wiz8/filesystem.h>
+#include <wiz8/file_time.h>
 
-#define FILENAME_LENGTH 600
+#include <algorithm>
+#include <array>
+#include <cstring>
+#include <limits>
+#include <memory>
+#include <string>
+#include <utility>
+#include <vector>
 
-#define CHECKF(exp)                                                                                \
-    if (!(exp)) {                                                                                  \
-        return (FALSE);                                                                            \
+DatabaseManagerHeaderStruct gFileDataBase{};
+
+namespace
+{
+struct SlotPolicy
+{
+    UINT32 access = 0;
+    std::string delete_on_close;
+};
+// Streams remain owned by the realloc-managed SGP slots, not a handle registry.
+std::vector<SlotPolicy> slot_policies;
+
+struct DirectorySearch
+{
+    bool active = false;
+    std::string directory;
+    std::vector<std::string> names;
+    std::size_t next = 0;
+};
+std::array<DirectorySearch, 20> searches;
+
+RealFileOpenStruct* real_slot(HWFILE file)
+{
+    const auto id = DB_EXTRACT_FILE_ID(file);
+    auto& real = gFileDataBase.RealFiles;
+    if (DB_EXTRACT_LIBRARY(file) != REAL_FILE_LIBRARY_ID || !id ||
+        !real.pRealFilesOpen || id >= UINT32(real.iSizeOfOpenFileArray))
+        return nullptr;
+    auto& slot = real.pRealFilesOpen[id];
+    return slot.uiFileID == file && slot.hRealFileHandle ? &slot : nullptr;
+}
+
+FileOpenStruct* library_slot(HWFILE file)
+{
+    const auto library = DB_EXTRACT_LIBRARY(file);
+    const auto id = DB_EXTRACT_FILE_ID(file);
+    if (!gFileDataBase.fInitialized || !gFileDataBase.pLibraries ||
+        library >= gFileDataBase.usNumberOfLibraries || !id)
+        return nullptr;
+    auto& entry = gFileDataBase.pLibraries[library];
+    if (!entry.fLibraryOpen || !entry.pOpenFiles || id >= UINT32(entry.iSizeOfOpenFileArray))
+        return nullptr;
+    auto& slot = entry.pOpenFiles[id];
+    return slot.uiFileID == file && slot.pFileHeader ? &slot : nullptr;
+}
+
+bool can_access(HWFILE file, UINT32 access)
+{
+    const auto id = DB_EXTRACT_FILE_ID(file);
+    return id < slot_policies.size() && (slot_policies[id].access & access) != 0;
+}
+
+wiz8::OpenMode open_mode(UINT32 options, bool exists)
+{
+    if (!(options & FILE_ACCESS_WRITE))
+        return wiz8::OpenMode::read;
+    if (options & FILE_ACCESS_APPEND)
+        return wiz8::OpenMode::append;
+    if (options & (FILE_CREATE_ALWAYS | FILE_TRUNCATE_EXISTING | FILE_CREATE_NEW))
+        return wiz8::OpenMode::replace;
+    return exists ? wiz8::OpenMode::update : wiz8::OpenMode::replace;
+}
+
+bool valid_options(UINT32 options, bool exists)
+{
+    if (!(options & FILE_ACCESS_READWRITE) ||
+        ((options & FILE_ACCESS_APPEND) &&
+         (!(options & FILE_ACCESS_WRITE) || (options & (FILE_CREATE_ALWAYS | FILE_TRUNCATE_EXISTING)))))
+        return false;
+    if ((options & FILE_CREATE_NEW) && exists)
+        return false;
+    // Chunk::OpenWrite combines CREATE_ALWAYS and TRUNCATE_EXISTING.
+    const bool create = options & (FILE_CREATE_NEW | FILE_CREATE_ALWAYS);
+    if (!create && (options & (FILE_OPEN_EXISTING | FILE_TRUNCATE_EXISTING)) && !exists)
+        return false;
+    if ((options & (FILE_CREATE_NEW | FILE_CREATE_ALWAYS | FILE_TRUNCATE_EXISTING)) &&
+        !(options & FILE_ACCESS_WRITE))
+        return false;
+    return true;
+}
+
+HWFILE register_stream(std::unique_ptr<wiz8::File> stream, SlotPolicy policy)
+{
+    const auto capacity = std::size_t(std::max(0, gFileDataBase.RealFiles.iSizeOfOpenFileArray)) +
+                          NUM_FILES_TO_ADD_AT_A_TIME;
+    slot_policies.resize(std::max(slot_policies.size(), capacity));
+    const HWFILE id = CreateRealFileHandle(stream.get());
+    if (id)
+    {
+        (void)stream.release();
+        slot_policies[DB_EXTRACT_FILE_ID(id)] = std::move(policy);
     }
-#define CHECKV(exp)                                                                                \
-    if (!(exp)) {                                                                                  \
-        return;                                                                                    \
+    return id;
+}
+
+UINT32 attributes(const wiz8::FileStatus& status, std::string_view name, bool enumeration)
+{
+    UINT32 bits = status.info.type == SDL_PATHTYPE_DIRECTORY
+                      ? (enumeration ? FILE_IS_DIRECTORY : FILE_ATTRIBUTES_DIRECTORY)
+                      : (enumeration ? FILE_IS_NORMAL : FILE_ATTRIBUTES_NORMAL);
+    if (!status.writable)
+        bits |= enumeration ? FILE_IS_READONLY : FILE_ATTRIBUTES_READONLY;
+    const auto slash = name.find_last_of("/\\");
+    const auto base = slash == std::string_view::npos ? name : name.substr(slash + 1);
+    if (!base.empty() && base.front() == '.')
+        bits |= enumeration ? FILE_IS_HIDDEN : FILE_ATTRIBUTES_HIDDEN;
+    return bits;
+}
+
+bool next_entry(DirectorySearch& search, GETFILESTRUCT& result)
+{
+    while (search.next < search.names.size())
+    {
+        const auto& name = search.names[search.next++];
+        const auto status = wiz8::file_status(search.directory + name);
+        if (!status)
+            continue;
+        if (name.size() >= sizeof(result.zFileName))
+            return false;
+        std::memcpy(result.zFileName, name.c_str(), name.size() + 1);
+        result.uiFileSize = UINT32(std::min<Uint64>(status->info.size,
+                                                   std::numeric_limits<UINT32>::max()));
+        result.uiFileAttribs = attributes(*status, name, true);
+        return true;
     }
-#define CHECKN(exp)                                                                                \
-    if (!(exp)) {                                                                                  \
-        return (NULL);                                                                             \
+    return false;
+}
+
+void store_time(SGP_FILETIME* output, wiz8::DiskFileTime value)
+{
+    if (output)
+    {
+        output->dwLowDateTime = value.low;
+        output->dwHighDateTime = value.high;
     }
-#define CHECKBI(exp)                                                                               \
-    if (!(exp)) {                                                                                  \
-        return (-1);                                                                               \
-    }
-//				Typedefs
+}
 
-typedef struct FMFileInfoTag {
-    CHAR strFilename[FILENAME_LENGTH];
-    UINT8 uiFileAccess;
-    UINT32 uiFilePosition;
-    HANDLE hFileHandle;
-    HDBFILE hDBFile;
+std::uint64_t ticks(const SGP_FILETIME& value)
+{
+    return wiz8::DiskFileTime{value.dwLowDateTime, value.dwHighDateTime}.ticks();
+}
+}
 
-} FMFileInfo; // for 'File Manager File Information'
-
-typedef struct FileSystemTag {
-    FMFileInfo* pFileInfo;
-    UINT32 uiNumHandles;
-    BOOLEAN fDebug;
-    BOOLEAN fDBInitialized;
-
-    CHAR* pcFileNames;
-    UINT32 uiNumFilesInDirectory;
-} FileSystem;
-//				Variables
-
-//The FileDatabaseHeader
-// GLOBAL: WIZ8 0x006eb720
-DatabaseManagerHeaderStruct gFileDataBase;
-
-//FileSystem gfs;
-
-// GLOBAL: WIZ8 0x006eb740
-WIN32_FIND_DATA Win32FindInfo[20];
-// GLOBAL: WIZ8 0x00650e08
-BOOLEAN fFindInfoInUse[20] = {FALSE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE,
-                              FALSE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE};
-// GLOBAL: WIZ8 0x005ff574
-HANDLE hFindInfoHandle[20] = {
-    INVALID_HANDLE_VALUE, INVALID_HANDLE_VALUE, INVALID_HANDLE_VALUE, INVALID_HANDLE_VALUE,
-    INVALID_HANDLE_VALUE, INVALID_HANDLE_VALUE, INVALID_HANDLE_VALUE, INVALID_HANDLE_VALUE,
-    INVALID_HANDLE_VALUE, INVALID_HANDLE_VALUE, INVALID_HANDLE_VALUE, INVALID_HANDLE_VALUE,
-    INVALID_HANDLE_VALUE, INVALID_HANDLE_VALUE, INVALID_HANDLE_VALUE, INVALID_HANDLE_VALUE,
-    INVALID_HANDLE_VALUE, INVALID_HANDLE_VALUE, INVALID_HANDLE_VALUE, INVALID_HANDLE_VALUE};
-//				Function Prototypes
-
-void W32toSGPFileFind(GETFILESTRUCT* pGFStruct, WIN32_FIND_DATA* pW32Struct);
-
-HWFILE CreateFileHandle(HANDLE hRealFile, BOOLEAN fDatabaseFile);
-void DestroyFileHandle(HWFILE hFile);
-//				Functions
-// FileSystemInit
-//		Starts up the file system.
-// Parameter List :
-// Return Value :
-// Modification history :
-//		24sep96:HJH		-> creation
-
-BOOLEAN InitializeFileManager(STR strIndexFilename)
+BOOLEAN InitializeFileManager(STR)
 {
     RegisterDebugTopic(TOPIC_FILE_MANAGER, "File Manager");
-    return (TRUE);
+    return TRUE;
 }
-// FileSystemShutdown
-//		Shuts down the file system.
-// Parameter List :
-// Return Value :
-// Modification history :
-//		24sep96:HJH		-> creation
-//		9 Feb 98	DEF - modified to work with the library system
 
-void ShutdownFileManager(void)
+void ShutdownFileManager()
 {
+    auto& real = gFileDataBase.RealFiles;
+    for (INT32 id = 1; real.pRealFilesOpen && id < real.iSizeOfOpenFileArray; ++id)
+        if (real.pRealFilesOpen[id].uiFileID)
+            FileClose(real.pRealFilesOpen[id].uiFileID);
+    slot_policies.clear();
+    for (auto& search : searches)
+        search = {};
     UnRegisterDebugTopic(TOPIC_FILE_MANAGER, "File Manager");
 }
-// FileDebug
-//		To set whether or not we should print debug info.
-// Parameter List :
-// Return Value :
-// Modification history :
-//		24sep96:HJH		-> creation
-// FileExists
-//		Checks if a file exists.
-// Parameter List :
-//		STR	-> name of file to check existence of
-// Return Value :
-//		BOOLEAN	-> TRUE if it exists
-//					-> FALSE if not
-// Modification history :
-//		24sep96:HJH		-> creation
-//		9 Feb 98	DEF - modified to work with the library system
 
-// FUNCTION: WIZ8 0x00404bf0
-BOOLEAN FileExists(STR strFilename)
+BOOLEAN FileExistsNoDB(STR filename)
 {
-    BOOLEAN fExists = FALSE;
-    FILE* file;
-    //HANDLE	hRealFile;
-
-    //open up the file to see if it exists on the disk
-    file = fopen(strFilename, "r");
-    //hRealFile = CreateFile( strFilename, GENERIC_READ, 0, NULL, OPEN_EXISTING,
-    //								FILE_FLAG_RANDOM_ACCESS, NULL );
-    if (file)
-    //if ( hRealFile != INVALID_HANDLE_VALUE )
+    if (!filename)
+        return FALSE;
+    try
     {
-        fExists = TRUE;
-        fclose(file);
-        //CloseHandle( hRealFile );
+        const auto status = wiz8::file_status(filename);
+        return status && status->info.type == SDL_PATHTYPE_FILE;
     }
-
-    //if the file wasnt on disk, check to see if its in a library
-    if (fExists == FALSE) {
-        //if the database is initialized
-        if (gFileDataBase.fInitialized)
-            fExists = CheckIfFileExistInLibrary(strFilename);
-    }
-
-    return (fExists);
+    catch (...) { return FALSE; }
 }
-// FileExistsNoDB
-//		Checks if a file exists, but doesn't check the database files.
-// Parameter List :
-//		STR	-> name of file to check existence of
-// Return Value :
-//		BOOLEAN	-> TRUE if it exists
-//					-> FALSE if not
-// Modification history :
-//		24sep96:HJH		-> creation
 
-// FUNCTION: WIZ8 0x00404c40
-BOOLEAN FileExistsNoDB(STR strFilename)
+BOOLEAN FileExists(STR filename)
 {
-    BOOLEAN fExists = FALSE;
-    FILE* file;
-    //HANDLE	hRealFile;
-
-    //open up the file to see if it exists on the disk
-    file = fopen(strFilename, "r");
-    //hRealFile = CreateFile( strFilename, GENERIC_READ, 0, NULL, OPEN_EXISTING,
-    //								FILE_FLAG_RANDOM_ACCESS, NULL );
-    if (file)
-    //if ( hRealFile != INVALID_HANDLE_VALUE )
+    if (!filename)
+        return FALSE;
+    try
     {
-        fExists = TRUE;
-        fclose(file);
-        //CloseHandle( hRealFile );
+        const auto status = wiz8::file_status(filename);
+        if (status)
+            return status->info.type == SDL_PATHTYPE_FILE;
+        return gFileDataBase.fInitialized && CheckIfFileExistInLibrary(filename);
     }
-
-    return (fExists);
+    catch (...) { return FALSE; }
 }
-// FileDelete
-//		Deletes a file.
-// Parameter List :
-//		STR	-> name of file to delete
-// Return Value :
-//		BOOLEAN	-> TRUE if successful
-//					-> FALSE if not
-// Modification history :
-//		24sep96:HJH		-> creation
 
-// FUNCTION: WIZ8 0x00404c70
-BOOLEAN FileDelete(STR strFilename)
+BOOLEAN FileDelete(STR filename)
 {
-    return (W8DeleteFile(strFilename));
+    if (!filename)
+        return FALSE;
+    try { return wiz8::remove_file(filename); }
+    catch (...) { return FALSE; }
 }
-// FileOpen
-//		Opens a file.
-// Parameter List :
-//		STR	   -> filename
-//		UIN32		-> access - read or write, or both
-//		BOOLEAN	-> delete on close
-// Return Value :
-//		HWFILE	-> handle of opened file
-// Modification history :
-//		24sep96:HJH		-> creation
-//		9 Feb 98	DEF - modified to work with the library system
 
-// FUNCTION: WIZ8 0x00404C80
-HWFILE FileOpen(STR strFilename, UINT32 uiOptions, BOOLEAN fDeleteOnClose)
+HWFILE FileOpen(STR filename, UINT32 options, BOOLEAN delete_on_close)
 {
-    HWFILE hFile;
-    HANDLE hRealFile;
-    DWORD dwAccess;
-    DWORD dwFlagsAndAttributes;
-    HDBFILE hDBFile;
-    BOOLEAN fExists;
-    DWORD dwCreationFlags;
-    HWFILE hLibFile;
-
-    hFile = 0;
-    hDBFile = 0;
-    dwCreationFlags = 0;
-
-    // check if the file exists - note that we use the function FileExistsNoDB
-    // because it doesn't check the databases, and we don't want to do that here
-    fExists = FileExistsNoDB(strFilename);
-
-    dwAccess = 0;
-    if (uiOptions & FILE_ACCESS_READ)
-        dwAccess |= GENERIC_READ;
-    if (uiOptions & FILE_ACCESS_WRITE)
-        dwAccess |= GENERIC_WRITE;
-
-    dwFlagsAndAttributes = FILE_FLAG_RANDOM_ACCESS;
-    if (fDeleteOnClose)
-        dwFlagsAndAttributes |= FILE_FLAG_DELETE_ON_CLOSE;
-
-    //if the file is on the disk
-    if (fExists) {
-        hRealFile =
-            W8CreateFile(strFilename, dwAccess, 0, NULL, OPEN_ALWAYS, dwFlagsAndAttributes, NULL);
-
-        if (hRealFile == INVALID_HANDLE_VALUE) {
-            return (0);
-        }
-
-        //create a file handle for the 'real file'
-        hFile = CreateRealFileHandle(hRealFile);
+    if (!filename)
+        return 0;
+    try
+    {
+        const auto status = wiz8::file_status(filename);
+        const bool exists = status.has_value();
+        if (!exists && !(options & FILE_ACCESS_WRITE) && !delete_on_close &&
+            valid_options(options, true) && gFileDataBase.fInitialized)
+            return OpenFileFromLibrary(filename);
+        if (!valid_options(options, exists) ||
+            (status && status->info.type != SDL_PATHTYPE_FILE))
+            return 0;
+        if (delete_on_close && !(options & FILE_ACCESS_WRITE) && (!status || !status->writable))
+            return 0;
+        SlotPolicy policy{options, delete_on_close ? w8_native::full_path(filename) : ""};
+        return register_stream(wiz8::open_file(filename, open_mode(options, exists)), std::move(policy));
     }
-
-    // if the file did not exist, try to open it from the database
-    else if (gFileDataBase.fInitialized) {
-        //if the file is to be opened for writing, return an error cause you cant write a file that is in the database library
-        if (fDeleteOnClose) {
-            return (0);
-        }
-
-        //if the file doesnt exist on the harddrive, but it is to be created, dont try to load it from the file database
-        if (uiOptions & FILE_ACCESS_WRITE) {
-            //if the files is to be written to
-            if ((uiOptions & FILE_CREATE_NEW) || (uiOptions & FILE_OPEN_ALWAYS) ||
-                (uiOptions & FILE_CREATE_ALWAYS) || (uiOptions & FILE_TRUNCATE_EXISTING)) {
-                hFile = 0;
-            }
-        }
-        //else if the file is to be opened using FILE_OPEN_EXISTING, and the file doesnt exists, fail out of the function)
-        //		else if( uiOptions & FILE_OPEN_EXISTING )
-        //		{
-        //fail out of the function
-        //			return( 0 );
-        //		}
-        else {
-            //If the file is in the library, get a handle to it.
-            hLibFile = OpenFileFromLibrary(strFilename);
-
-            //tried to open a file that wasnt in the database
-            if (!hLibFile)
-                return (0);
-            else
-                return (hLibFile); //return the file handle
-        }
-    }
-
-    if (!hFile) {
-        if (uiOptions & FILE_CREATE_NEW) {
-            dwCreationFlags = CREATE_NEW;
-        } else if (uiOptions & FILE_CREATE_ALWAYS) {
-            dwCreationFlags = CREATE_ALWAYS;
-        } else if (uiOptions & FILE_OPEN_EXISTING || uiOptions & FILE_ACCESS_READ) {
-            dwCreationFlags = OPEN_EXISTING;
-        } else if (uiOptions & FILE_OPEN_ALWAYS) {
-            dwCreationFlags = OPEN_ALWAYS;
-        } else if (uiOptions & FILE_TRUNCATE_EXISTING) {
-            dwCreationFlags = TRUNCATE_EXISTING;
-        } else {
-            dwCreationFlags = OPEN_ALWAYS;
-        }
-
-        hRealFile =
-            W8CreateFile(strFilename, dwAccess, 0, NULL, dwCreationFlags, dwFlagsAndAttributes, NULL);
-        if (hRealFile == INVALID_HANDLE_VALUE) {
-            UINT32 uiLastError = W8GetLastError();
-            char zString[1024];
-            W8FormatMessage(FORMAT_MESSAGE_FROM_SYSTEM, 0, uiLastError, 0, zString, 1024, NULL);
-
-            return (0);
-        }
-
-        hFile = CreateRealFileHandle(hRealFile);
-    }
-
-    if (!hFile)
-        return (0);
-
-    return (hFile);
+    catch (...) { return 0; }
 }
-// FileClose
-// Parameter List :
-//		HWFILE hFile	-> handle to file to close
-// Return Value :
-// Modification history :
-//		24sep96:HJH		-> creation
-//		9 Feb 98	DEF - modified to work with the library system
 
-// FUNCTION: WIZ8 0x00404e10
-void FileClose(HWFILE hFile)
+HWFILE FileOpenHost(const std::filesystem::path& path, UINT32 options)
 {
-    INT16 sLibraryID;
-    UINT32 uiFileNum;
-
-    GetLibraryAndFileIDFromLibraryFileHandle(hFile, &sLibraryID, &uiFileNum);
-
-    //if its the 'real file' library
-    if (sLibraryID == REAL_FILE_LIBRARY_ID) {
-        //if its not already closed
-        if (gFileDataBase.RealFiles.pRealFilesOpen != NULL &&
-            gFileDataBase.RealFiles.pRealFilesOpen[uiFileNum].uiFileID != 0) {
-            W8CloseHandle(gFileDataBase.RealFiles.pRealFilesOpen[uiFileNum].hRealFileHandle);
-            gFileDataBase.RealFiles.pRealFilesOpen[uiFileNum].uiFileID = 0;
-            gFileDataBase.RealFiles.pRealFilesOpen[uiFileNum].hRealFileHandle = 0;
-            gFileDataBase.RealFiles.iNumFilesOpen--;
-            if (gFileDataBase.RealFiles.iNumFilesOpen < 0) {
-                //if for some reason we are below 0, report an error ( should never be )
-                Assert(0);
-            }
-        }
-    } else {
-        //if the database is initialized
-        if (gFileDataBase.fInitialized)
-            CloseLibraryFile(sLibraryID, uiFileNum);
+    try
+    {
+        const auto status = wiz8::host_file_status(path);
+        if (!valid_options(options, status.has_value()) ||
+            (status && status->info.type != SDL_PATHTYPE_FILE))
+            return 0;
+        return register_stream(wiz8::open_host_file(path, open_mode(options, status.has_value())),
+                               SlotPolicy{options, {}});
     }
+    catch (...) { return 0; }
 }
-// FileRead
-//		To read a file.
-// Parameter List :
-//		HWFILE		-> handle to file to read from
-//		void	*	-> source buffer
-//		UINT32	-> num bytes to read
-//		UINT32	-> num bytes read
-// Return Value :
-//		BOOLEAN	-> TRUE if successful
-//					-> FALSE if not
-// Modification history :
-//		24sep96:HJH		-> creation
-//		08Dec97:ARM		-> return FALSE if bytes to read != bytes read
-//		9 Feb 98	DEF - modified to work with the library system
 
-// FUNCTION: WIZ8 0x00404ea0
-BOOLEAN FileRead(HWFILE hFile, PTR pDest, UINT32 uiBytesToRead, UINT32* puiBytesRead)
+void FileClose(HWFILE file)
 {
-    HANDLE hRealFile;
-    DWORD dwNumBytesToRead, dwNumBytesRead;
-    BOOLEAN fRet = FALSE;
-    INT16 sLibraryID;
-    UINT32 uiFileNum;
-
-    //init the variables
-    dwNumBytesToRead = dwNumBytesRead = 0;
-
-    GetLibraryAndFileIDFromLibraryFileHandle(hFile, &sLibraryID, &uiFileNum);
-
-    dwNumBytesToRead = (DWORD)uiBytesToRead;
-
-    //if its a real file, read the data from the file
-    if (sLibraryID == REAL_FILE_LIBRARY_ID) {
-        //if the file is opened
-        if (uiFileNum != 0) {
-            hRealFile = gFileDataBase.RealFiles.pRealFilesOpen[uiFileNum].hRealFileHandle;
-
-            fRet = W8ReadFile(hRealFile, pDest, dwNumBytesToRead, &dwNumBytesRead, NULL);
-            if (dwNumBytesToRead != dwNumBytesRead) {
-                UINT32 uiLastError = W8GetLastError();
-                char zString[1024];
-                W8FormatMessage(FORMAT_MESSAGE_FROM_SYSTEM, 0, uiLastError, 0, zString, 1024, NULL);
-
-                fRet = FALSE;
-            }
-
-            if (puiBytesRead)
-                *puiBytesRead = (UINT32)dwNumBytesRead;
-        }
-    } else {
-        //if the database is initialized
-        if (gFileDataBase.fInitialized) {
-            //if the library is open
-            if (IsLibraryOpened(sLibraryID)) {
-                //if the file is opened
-                if (gFileDataBase.pLibraries[sLibraryID].pOpenFiles[uiFileNum].uiFileID != 0) {
-                    //read the data from the library
-                    fRet = LoadDataFromLibrary(sLibraryID, uiFileNum, pDest, dwNumBytesToRead,
-                                               (UINT32*)&dwNumBytesRead);
-                    if (puiBytesRead) {
-                        *puiBytesRead = (UINT32)dwNumBytesRead;
-                    }
-                }
-            }
-        }
+    if (auto* slot = real_slot(file))
+    {
+        std::unique_ptr<wiz8::File> stream(slot->hRealFileHandle);
+        slot->hRealFileHandle = nullptr;
+        slot->uiFileID = 0;
+        --gFileDataBase.RealFiles.iNumFilesOpen;
+        const auto id = DB_EXTRACT_FILE_ID(file);
+        SlotPolicy policy;
+        if (id < slot_policies.size())
+            policy = std::exchange(slot_policies[id], {});
+        try { stream->close(); }
+        catch (...) { return; }
+        if (!policy.delete_on_close.empty())
+            FileDelete(policy.delete_on_close.data());
     }
-
-    return (fRet);
+    else if (library_slot(file))
+        CloseLibraryFile(INT16(DB_EXTRACT_LIBRARY(file)), DB_EXTRACT_FILE_ID(file));
 }
-// FileWrite
-//		To write a file.
-// Parameter List :
-//		HWFILE		-> handle to file to write to
-//		void	*	-> destination buffer
-//		UINT32	-> num bytes to write
-//		UINT32	-> num bytes written
-// Return Value :
-//		BOOLEAN	-> TRUE if successful
-//					-> FALSE if not
-// Modification history :
-//		24sep96:HJH		-> creation
-//		08Dec97:ARM		-> return FALSE if dwNumBytesToWrite != dwNumBytesWritten
-//		9 Feb 98	DEF - modified to work with the library system
 
-// FUNCTION: WIZ8 0x00404FB0
-BOOLEAN FileWrite(HWFILE hFile, PTR pDest, UINT32 uiBytesToWrite, UINT32* puiBytesWritten)
+BOOLEAN FileRead(HWFILE file, PTR destination, UINT32 bytes, UINT32* read)
 {
-    HANDLE hRealFile;
-    DWORD dwNumBytesToWrite, dwNumBytesWritten;
-    BOOLEAN fRet;
-    INT16 sLibraryID;
-    UINT32 uiFileNum;
-
-    GetLibraryAndFileIDFromLibraryFileHandle(hFile, &sLibraryID, &uiFileNum);
-
-    //if its a real file, read the data from the file
-    if (sLibraryID == REAL_FILE_LIBRARY_ID) {
-        dwNumBytesToWrite = (DWORD)uiBytesToWrite;
-
-        //get the real file handle to the file
-        hRealFile = gFileDataBase.RealFiles.pRealFilesOpen[uiFileNum].hRealFileHandle;
-
-        fRet = W8WriteFile(hRealFile, pDest, dwNumBytesToWrite, &dwNumBytesWritten, NULL);
-
-        if (dwNumBytesToWrite != dwNumBytesWritten)
-            fRet = FALSE;
-
-        if (puiBytesWritten)
-            *puiBytesWritten = (UINT32)dwNumBytesWritten;
-    } else {
-        //we cannot write to a library file
-        if (puiBytesWritten)
-            *puiBytesWritten = 0;
-        return (FALSE);
-    }
-
-    return (fRet);
-}
-// FileLoad
-//		To open, read, and close a file.
-// Parameter List :
-// Return Value :
-//		BOOLEAN	-> TRUE if successful
-//					-> FALSE if not
-// Modification history :
-//		24sep96:HJH		-> creation
-//		08Dec97:ARM		-> return FALSE if bytes to read != bytes read (CHECKF is inappropriate?)
-// FilePrintf
-//		To printf to a file.
-// Parameter List :
-//		HWFILE	-> handle to file to seek in
-//		...		-> arguments, 1st of which should be a string
-// Return Value :
-//		BOOLEAN	-> TRUE if successful
-//					-> FALSE if not
-// Modification history :
-//		24sep96:HJH		-> creation
-//		9 Feb 98	DEF - modified to work with the library system
-// FileSeek
-//		To seek to a position in a file.
-// Parameter List :
-//		HWFILE	-> handle to file to seek in
-//		UINT32	-> distance to seek
-//		UINT8		-> how to seek
-// Return Value :
-//		BOOLEAN	-> TRUE if successful
-//					-> FALSE if not
-// Modification history :
-//		24sep96:HJH		-> creation
-//		9 Feb 98	DEF - modified to work with the library system
-
-// FUNCTION: WIZ8 0x00405030
-BOOLEAN FileSeek(HWFILE hFile, UINT32 uiDistance, UINT8 uiHow)
-{
-    HANDLE hRealFile;
-    LONG lDistanceToMove;
-    DWORD dwMoveMethod;
-    INT32 iDistance = 0;
-
-    INT16 sLibraryID;
-    UINT32 uiFileNum;
-
-    GetLibraryAndFileIDFromLibraryFileHandle(hFile, &sLibraryID, &uiFileNum);
-
-    //if its a real file, read the data from the file
-    if (sLibraryID == REAL_FILE_LIBRARY_ID) {
-        //Get the handle to the real file
-        hRealFile = gFileDataBase.RealFiles.pRealFilesOpen[uiFileNum].hRealFileHandle;
-
-        iDistance = (INT32)uiDistance;
-
-        if (uiHow == FILE_SEEK_FROM_START)
-            dwMoveMethod = FILE_BEGIN;
-        else if (uiHow == FILE_SEEK_FROM_END) {
-            dwMoveMethod = FILE_END;
-            if (iDistance > 0)
-                iDistance = -(iDistance);
-        } else
-            dwMoveMethod = FILE_CURRENT;
-
-        lDistanceToMove = (LONG)uiDistance;
-
-        if (W8SetFilePointer(hRealFile, iDistance, NULL, dwMoveMethod) == 0xFFFFFFFF)
-            return (FALSE);
-    } else {
-        //if the database is initialized
-        if (gFileDataBase.fInitialized)
-            LibraryFileSeek(sLibraryID, uiFileNum, uiDistance, uiHow);
-    }
-
-    return (TRUE);
-}
-// FileGetPos
-//		To get the current position in a file.
-// Parameter List :
-//		HWFILE	-> handle to file
-// Return Value :
-//		INT32		-> current offset in file if successful
-//					-> -1 if not
-// Modification history :
-//		24sep96:HJH		-> creation
-//		9 Feb 98	DEF - modified to work with the library system
-
-// FUNCTION: WIZ8 0x004050d0
-INT32 FileGetPos(HWFILE hFile)
-{
-    HANDLE hRealFile;
-    UINT32 uiPositionInFile = 0;
-
-    INT16 sLibraryID;
-    UINT32 uiFileNum;
-
-    GetLibraryAndFileIDFromLibraryFileHandle(hFile, &sLibraryID, &uiFileNum);
-
-    //if its a real file, read the data from the file
-    if (sLibraryID == REAL_FILE_LIBRARY_ID) {
-        //Get the handle to the real file
-        hRealFile = gFileDataBase.RealFiles.pRealFilesOpen[uiFileNum].hRealFileHandle;
-
-        uiPositionInFile = W8SetFilePointer(hRealFile, 0, NULL, FILE_CURRENT);
-        if (uiPositionInFile == 0xFFFFFFFF) {
-            uiPositionInFile = 0;
+    if (read)
+        *read = 0;
+    if (bytes && !destination)
+        return FALSE;
+    try
+    {
+        if (auto* slot = real_slot(file))
+        {
+            if (!can_access(file, FILE_ACCESS_READ))
+                return FALSE;
+            const auto result = slot->hRealFileHandle->read(destination, bytes);
+            if (read)
+                *read = UINT32(result.bytes);
+            return result.bytes == bytes;
         }
-        return (uiPositionInFile);
-    } else {
-        //if the library is open
-        if (IsLibraryOpened(sLibraryID)) {
-            //check if the file is open
-            if (gFileDataBase.pLibraries[sLibraryID].pOpenFiles[uiFileNum].uiFileID != 0) {
-                uiPositionInFile =
-                    gFileDataBase.pLibraries[sLibraryID].pOpenFiles[uiFileNum].uiFilePosInFile;
-                return (uiPositionInFile);
-            }
+        if (library_slot(file))
+        {
+            UINT32 count = 0;
+            const bool success = LoadDataFromLibrary(INT16(DB_EXTRACT_LIBRARY(file)),
+                                                     DB_EXTRACT_FILE_ID(file), destination, bytes, &count);
+            if (read)
+                *read = count;
+            return success && count == bytes;
         }
     }
-
-    return (BAD_INDEX);
-}
-// FileGetSize
-//		To get the current file size.
-// Parameter List :
-//		HWFILE	-> handle to file
-// Return Value :
-//		INT32		-> file size in file if successful
-//					-> 0 if not
-// Modification history :
-//		24sep96:HJH		-> creation
-//		9 Feb 98	DEF - modified to work with the library system
-
-// FUNCTION: WIZ8 0x00405150
-UINT32 FileGetSize(HWFILE hFile)
-{
-    HANDLE hRealHandle;
-    UINT32 uiFileSize = 0xFFFFFFFF;
-
-    INT16 sLibraryID;
-    UINT32 uiFileNum;
-
-    GetLibraryAndFileIDFromLibraryFileHandle(hFile, &sLibraryID, &uiFileNum);
-
-    //if its a real file, read the data from the file
-    if (sLibraryID == REAL_FILE_LIBRARY_ID) {
-        //Get the handle to a real file
-        hRealHandle = gFileDataBase.RealFiles.pRealFilesOpen[uiFileNum].hRealFileHandle;
-
-        uiFileSize = W8GetFileSize(hRealHandle, NULL);
-    } else {
-        //if the library is open
-        if (IsLibraryOpened(sLibraryID))
-            uiFileSize = gFileDataBase.pLibraries[sLibraryID]
-                             .pOpenFiles[uiFileNum]
-                             .pFileHeader->uiFileLength;
-    }
-
-    if (uiFileSize == 0xFFFFFFFF)
-        return (0);
-    else
-        return (uiFileSize);
-}
-// FileDebugPrint
-//		To print the state of memory to output.
-// Parameter List :
-// Return Value :
-// Modification history :
-//		24sep96:HJH		-> creation
-// GetHandleToRealFile
-// Parameter List :
-// Return Value :
-// Modification history :
-//		24sep96:HJH		-> creation
-//		9 Feb 98	DEF - modified to work with the library system
-// CreateFileHandle
-// Parameter List :
-// Return Value :
-// Modification history :
-//		24sep96:HJH		-> creation
-// DestroyFileHandle
-// Parameter List :
-// Return Value :
-// Modification history :
-//		24sep96:HJH		-> creation
-// BuildFileDirectory
-// Parameter List :
-// Return Value :
-// Modification history :
-//		??nov96:HJH		-> creation
-// GetFilesInDirectory
-//		Gets the files in a directory and the subdirectories.
-// Parameter List :
-// Return Value :
-// Modification history :
-//		??nov96:HJH		-> creation
-
-// FUNCTION: WIZ8 0x004051d0
-BOOLEAN DirectoryExists(STRING512 pcDirectory)
-{
-    UINT32 uiAttribs;
-    DWORD uiLastError;
-
-    uiAttribs = W8GetFileAttributes(pcDirectory);
-
-    if (uiAttribs == 0xFFFFFFFF) {
-        // an error, make sure it's the right error
-        uiLastError = W8GetLastError();
-
-        if (uiLastError != ERROR_FILE_NOT_FOUND) {
-            FastDebugMsg(
-                String("DirectoryExists: ERROR - GetFileAttributes failed, error #%d on file %s",
-                       uiLastError, pcDirectory));
-        }
-    } else {
-        // something's there, make sure it's a directory
-        if (uiAttribs & FILE_ATTRIBUTE_DIRECTORY) {
-            return TRUE;
-        }
-    }
-
-    // this could also mean that the name given is that of a file, or that an error occurred
+    catch (...) {}
     return FALSE;
 }
 
-// FUNCTION: WIZ8 0x004051f0
-BOOLEAN MakeFileManDirectory(STRING512 pcDirectory)
+BOOLEAN FileWrite(HWFILE file, PTR source, UINT32 bytes, UINT32* written)
 {
-    return W8CreateDirectory(pcDirectory, NULL);
+    if (written)
+        *written = 0;
+    try
+    {
+        auto* slot = real_slot(file);
+        if (!slot || !can_access(file, FILE_ACCESS_WRITE))
+            return FALSE;
+        slot->hRealFileHandle->write(source, bytes);
+        if (written)
+            *written = bytes;
+        return TRUE;
+    }
+    catch (...) { return FALSE; }
 }
 
-// FUNCTION: WIZ8 0x00405200
-BOOLEAN GetExecutableDirectory(STRING512 pcDirectory)
+BOOLEAN FileSeek(HWFILE file, UINT32 distance, UINT8 how)
 {
-    SGPFILENAME ModuleFilename;
-    UINT32 cnt;
-
-    if (W8GetModuleFileName(NULL, ModuleFilename, sizeof(ModuleFilename)) == 0) {
-        return (FALSE);
-    }
-
-    // Now get directory
-    strcpy(pcDirectory, ModuleFilename);
-
-    for (cnt = strlen(pcDirectory) - 1; cnt >= 0; cnt--) {
-        if (pcDirectory[cnt] == '\\') {
-            pcDirectory[cnt] = '\0';
-            break;
+    if (how != FILE_SEEK_FROM_START && how != FILE_SEEK_FROM_CURRENT && how != FILE_SEEK_FROM_END)
+        return FALSE;
+    try
+    {
+        if (auto* slot = real_slot(file))
+        {
+            std::int64_t offset = how == FILE_SEEK_FROM_CURRENT ? std::int64_t(INT32(distance))
+                                                              : std::int64_t(distance);
+            auto origin = wiz8::SeekOrigin::begin;
+            if (how == FILE_SEEK_FROM_END)
+            {
+                origin = wiz8::SeekOrigin::end;
+                offset = -offset;
+            }
+            else if (how == FILE_SEEK_FROM_CURRENT)
+                origin = wiz8::SeekOrigin::current;
+            slot->hRealFileHandle->seek(offset, origin);
+            return TRUE;
         }
+        if (library_slot(file))
+            return LibraryFileSeek(INT16(DB_EXTRACT_LIBRARY(file)), DB_EXTRACT_FILE_ID(file), distance, how);
     }
-
-    return (TRUE);
+    catch (...) {}
+    return FALSE;
 }
 
-// FUNCTION: WIZ8 0x00405270
-BOOLEAN GetFileFirst(CHAR8* pSpec, GETFILESTRUCT* pGFStruct)
+INT32 FileGetPos(HWFILE file)
 {
-    INT32 x, iWhich = 0;
-    BOOLEAN fFound;
-
-    CHECKF(pSpec != NULL);
-    CHECKF(pGFStruct != NULL);
-
-    fFound = FALSE;
-    for (x = 0; x < 20 && !fFound; x++) {
-        if (!fFindInfoInUse[x]) {
-            iWhich = x;
-            fFound = TRUE;
+    try
+    {
+        if (auto* slot = real_slot(file))
+        {
+            const auto position = slot->hRealFileHandle->tell();
+            return position <= std::numeric_limits<INT32>::max() ? INT32(position) : BAD_INDEX;
         }
+        if (auto* slot = library_slot(file))
+            return slot->uiFilePosInFile <= UINT32(std::numeric_limits<INT32>::max())
+                       ? INT32(slot->uiFilePosInFile) : BAD_INDEX;
     }
-
-    if (!fFound)
-        return (FALSE);
-
-    pGFStruct->iFindHandle = iWhich;
-
-    hFindInfoHandle[iWhich] = W8FindFirstFile(pSpec, &Win32FindInfo[iWhich]);
-
-    if (hFindInfoHandle[iWhich] == INVALID_HANDLE_VALUE)
-        return (FALSE);
-    fFindInfoInUse[iWhich] = TRUE;
-
-    W32toSGPFileFind(pGFStruct, &Win32FindInfo[iWhich]);
-
-    return (TRUE);
+    catch (...) {}
+    return BAD_INDEX;
 }
 
-// FUNCTION: WIZ8 0x00405300
-BOOLEAN GetFileNext(GETFILESTRUCT* pGFStruct)
+UINT32 FileGetSize(HWFILE file)
 {
-    CHECKF(pGFStruct != NULL);
-
-    if (W8FindNextFile(hFindInfoHandle[pGFStruct->iFindHandle],
-                     &Win32FindInfo[pGFStruct->iFindHandle])) {
-        W32toSGPFileFind(pGFStruct, &Win32FindInfo[pGFStruct->iFindHandle]);
-        return (TRUE);
+    try
+    {
+        if (auto* slot = real_slot(file))
+        {
+            const auto size = slot->hRealFileHandle->size();
+            return size <= std::numeric_limits<UINT32>::max() ? UINT32(size) : 0;
+        }
+        if (auto* slot = library_slot(file))
+            return slot->pFileHeader->uiFileLength;
     }
-    return (FALSE);
+    catch (...) {}
+    return 0;
 }
 
-// FUNCTION: WIZ8 0x00405350
-void GetFileClose(GETFILESTRUCT* pGFStruct)
+BOOLEAN DirectoryExists(STRING512 directory)
 {
-    if (pGFStruct == NULL)
+    if (!directory)
+        return FALSE;
+    try
+    {
+        const auto status = wiz8::file_status(directory);
+        return status && status->info.type == SDL_PATHTYPE_DIRECTORY;
+    }
+    catch (...) { return FALSE; }
+}
+
+BOOLEAN MakeFileManDirectory(STRING512 directory)
+{
+    if (!directory)
+        return FALSE;
+    try { wiz8::create_directory(directory); return TRUE; }
+    catch (...) { return FALSE; }
+}
+
+BOOLEAN GetExecutableDirectory(STRING512 directory)
+{
+    if (!directory)
+        return FALSE;
+    try
+    {
+        const auto assets = w8_native::path_roots().assets;
+        if (assets.empty() || assets.size() >= sizeof(STRING512))
+            return FALSE;
+        std::memcpy(directory, assets.c_str(), assets.size() + 1);
+        return TRUE;
+    }
+    catch (...) { return FALSE; }
+}
+
+BOOLEAN GetFileFirst(CHAR8* spec, GETFILESTRUCT* result)
+{
+    if (!spec || !result)
+        return FALSE;
+    result->iFindHandle = -1;
+    try
+    {
+        const std::string path(spec);
+        const auto slash = path.find_last_of("/\\");
+        DirectorySearch search;
+        search.directory = slash == std::string::npos ? "" : path.substr(0, slash + 1);
+        const auto start = slash == std::string::npos && path.size() >= 2 && path[1] == ':' ? 2
+                          : slash == std::string::npos ? 0 : slash + 1;
+        if (start == 2 && slash == std::string::npos)
+            search.directory = path.substr(0, 2);
+        search.names = wiz8::list_directory(search.directory.empty() ? "." : search.directory,
+                                            path.substr(start));
+        search.directory = w8_native::full_path(search.directory.empty() ? "." : search.directory.c_str());
+        if (search.directory.empty())
+            return FALSE;
+        if (search.directory.back() != '\\')
+            search.directory += '\\';
+        for (std::size_t index = 0; index < searches.size(); ++index)
+            if (!searches[index].active)
+            {
+                if (!next_entry(search, *result))
+                    return FALSE;
+                search.active = true;
+                searches[index] = std::move(search);
+                result->iFindHandle = INT32(index);
+                return TRUE;
+            }
+    }
+    catch (...) {}
+    return FALSE;
+}
+
+BOOLEAN GetFileNext(GETFILESTRUCT* result)
+{
+    if (!result || result->iFindHandle < 0 || std::size_t(result->iFindHandle) >= searches.size())
+        return FALSE;
+    try
+    {
+        auto& search = searches[result->iFindHandle];
+        return search.active && next_entry(search, *result);
+    }
+    catch (...) { return FALSE; }
+}
+
+void GetFileClose(GETFILESTRUCT* result)
+{
+    if (!result || result->iFindHandle < 0 || std::size_t(result->iFindHandle) >= searches.size())
         return;
-
-    W8FindClose(hFindInfoHandle[pGFStruct->iFindHandle]);
-    hFindInfoHandle[pGFStruct->iFindHandle] = INVALID_HANDLE_VALUE;
-    fFindInfoInUse[pGFStruct->iFindHandle] = FALSE;
-
-    return;
+    searches[result->iFindHandle] = {};
+    result->iFindHandle = -1;
 }
 
-// FUNCTION: WIZ8 0x00405390
-void W32toSGPFileFind(GETFILESTRUCT* pGFStruct, WIN32_FIND_DATA* pW32Struct)
+BOOLEAN FileCopy(STR source, STR destination, BOOLEAN fail_if_exists)
 {
-    UINT32 uiAttribMask;
-
-    // Copy the filename
-    strcpy(pGFStruct->zFileName, pW32Struct->cFileName);
-
-    // Get file size
-    if (pW32Struct->nFileSizeHigh != 0)
-        pGFStruct->uiFileSize = 0xffffffff;
-    else
-        pGFStruct->uiFileSize = pW32Struct->nFileSizeLow;
-
-    // Copy the file attributes
-    pGFStruct->uiFileAttribs = 0;
-
-    for (uiAttribMask = 0x80000000; uiAttribMask > 0; uiAttribMask >>= 1) {
-        switch (pW32Struct->dwFileAttributes & uiAttribMask) {
-        case FILE_ATTRIBUTE_ARCHIVE:
-            pGFStruct->uiFileAttribs |= FILE_IS_ARCHIVE;
-            break;
-
-        case FILE_ATTRIBUTE_DIRECTORY:
-            pGFStruct->uiFileAttribs |= FILE_IS_DIRECTORY;
-            break;
-
-        case FILE_ATTRIBUTE_HIDDEN:
-            pGFStruct->uiFileAttribs |= FILE_IS_HIDDEN;
-            break;
-
-        case FILE_ATTRIBUTE_NORMAL:
-            pGFStruct->uiFileAttribs |= FILE_IS_NORMAL;
-            break;
-
-        case FILE_ATTRIBUTE_READONLY:
-            pGFStruct->uiFileAttribs |= FILE_IS_READONLY;
-            break;
-
-        case FILE_ATTRIBUTE_SYSTEM:
-            pGFStruct->uiFileAttribs |= FILE_IS_SYSTEM;
-            break;
-
-        case FILE_ATTRIBUTE_TEMPORARY:
-            pGFStruct->uiFileAttribs |= FILE_IS_TEMPORARY;
-            break;
-
-        case FILE_ATTRIBUTE_COMPRESSED:
-            pGFStruct->uiFileAttribs |= FILE_IS_COMPRESSED;
-            break;
-
-        case FILE_ATTRIBUTE_OFFLINE:
-            pGFStruct->uiFileAttribs |= FILE_IS_OFFLINE;
-            break;
-        }
+    if (!source || !destination)
+        return FALSE;
+    try
+    {
+        wiz8::copy_file(source, destination, fail_if_exists ? wiz8::CopyMode::fail_if_exists
+                                                         : wiz8::CopyMode::replace);
+        return TRUE;
     }
+    catch (...) { return FALSE; }
 }
 
-// FUNCTION: WIZ8 0x004054d0
-BOOLEAN FileCopy(STR strSrcFile, STR strDstFile, BOOLEAN fFailIfExists)
+UINT32 FileGetAttributes(STR filename)
 {
-    return (W8CopyFile(strSrcFile, strDstFile, fFailIfExists));
-
-    // Not needed, use Windows CopyFile
-}
-
-// FUNCTION: WIZ8 0x004054f0
-UINT32 FileGetAttributes(STR strFilename)
-{
-    UINT32 uiAttribs = 0;
-    UINT32 uiFileAttrib = 0;
-
-    uiAttribs = W8GetFileAttributes(strFilename);
-
-    if (uiAttribs == 0xFFFFFFFF)
-        return (uiAttribs);
-
-    if (uiAttribs & FILE_ATTRIBUTE_ARCHIVE)
-        uiFileAttrib |= FILE_ATTRIBUTES_ARCHIVE;
-
-    if (uiAttribs & FILE_ATTRIBUTE_HIDDEN)
-        uiFileAttrib |= FILE_ATTRIBUTES_HIDDEN;
-
-    if (uiAttribs & FILE_ATTRIBUTE_NORMAL)
-        uiFileAttrib |= FILE_ATTRIBUTES_NORMAL;
-
-    if (uiAttribs & FILE_ATTRIBUTE_OFFLINE)
-        uiFileAttrib |= FILE_ATTRIBUTES_OFFLINE;
-
-    if (uiAttribs & FILE_ATTRIBUTE_READONLY)
-        uiFileAttrib |= FILE_ATTRIBUTES_READONLY;
-
-    if (uiAttribs & FILE_ATTRIBUTE_SYSTEM)
-        uiFileAttrib |= FILE_ATTRIBUTES_SYSTEM;
-
-    if (uiAttribs & FILE_ATTRIBUTE_TEMPORARY)
-        uiFileAttrib |= FILE_ATTRIBUTES_TEMPORARY;
-
-    if (uiAttribs & FILE_ATTRIBUTE_DIRECTORY)
-        uiFileAttrib |= FILE_ATTRIBUTES_DIRECTORY;
-
-    return (uiFileAttrib);
-}
-
-// FUNCTION: WIZ8 0x00405550
-BOOLEAN FileClearAttributes(STR strFilename)
-{
-    return W8SetFileAttributes(strFilename, FILE_ATTRIBUTE_NORMAL);
-}
-
-//returns true if at end of file, else false
-// FUNCTION: WIZ8 0x00405570
-BOOLEAN FileCheckEndOfFile(HWFILE hFile)
-{
-    INT16 sLibraryID;
-    UINT32 uiFileNum;
-    HANDLE hRealFile;
-    //	UINT8		Data;
-    UINT32 uiNumberOfBytesRead = 0;
-    UINT32 uiOldFilePtrLoc = 0;
-    UINT32 uiEndOfFilePtrLoc = 0;
-    UINT32 temp = 0;
-
-    GetLibraryAndFileIDFromLibraryFileHandle(hFile, &sLibraryID, &uiFileNum);
-
-    //if its a real file, read the data from the file
-    if (sLibraryID == REAL_FILE_LIBRARY_ID) {
-        //Get the handle to the real file
-        hRealFile = gFileDataBase.RealFiles.pRealFilesOpen[uiFileNum].hRealFileHandle;
-
-        //Get the current position of the file pointer
-        uiOldFilePtrLoc = W8SetFilePointer(hRealFile, 0, NULL, FILE_CURRENT);
-
-        //Get the end of file ptr location
-        uiEndOfFilePtrLoc = W8SetFilePointer(hRealFile, 0, NULL, FILE_END);
-
-        //reset back to the original location
-        temp = W8SetFilePointer(hRealFile, -((INT32)(uiEndOfFilePtrLoc - uiOldFilePtrLoc)), NULL,
-                              FILE_END);
-
-        //if the 2 pointers are the same, we are at the end of a file
-        if (uiEndOfFilePtrLoc <= uiOldFilePtrLoc) {
-            return (1);
+    if (!filename)
+        return UINT32(-1);
+    try
+    {
+        const auto status = wiz8::file_status(filename);
+        if (!status)
+            return UINT32(-1);
+        auto bits = attributes(*status, filename, false);
+        if (status->writable)
+        {
+            const auto physical = w8_native::mutation_path(filename);
+            const auto permissions = std::filesystem::status(wiz8::path_from_utf8(physical)).permissions();
+            using P = std::filesystem::perms;
+            if ((permissions & (P::owner_write | P::group_write | P::others_write)) == P::none)
+                bits |= FILE_ATTRIBUTES_READONLY;
         }
+        return bits;
     }
+    catch (...) { return UINT32(-1); }
+}
 
-    //else it is a library file
-    else {
-        //if the database is initialized
-        if (gFileDataBase.fInitialized) {
-            //if the library is open
-            if (IsLibraryOpened(sLibraryID)) {
-                //if the file is opened
-                if (gFileDataBase.pLibraries[sLibraryID].pOpenFiles[uiFileNum].uiFileID != 0) {
-                    UINT32 uiLength; //uiOffsetInLibrary
-                                     //					HANDLE	hLibraryFile;
-                                     //					UINT32	uiNumBytesRead;
-                    UINT32 uiCurPos;
-
-                    uiLength = gFileDataBase.pLibraries[sLibraryID]
-                                   .pOpenFiles[uiFileNum]
-                                   .pFileHeader->uiFileLength;
-                    uiCurPos =
-                        gFileDataBase.pLibraries[sLibraryID].pOpenFiles[uiFileNum].uiFilePosInFile;
-
-                    //if we are trying to read more data then the size of the file, return an error
-                    if (uiCurPos >= uiLength) {
-                        return (TRUE);
-                    }
-                }
-            }
+BOOLEAN FileClearAttributes(STR filename)
+{
+    if (!filename)
+        return FALSE;
+    try
+    {
+        const auto status = wiz8::file_status(filename);
+        if (!status)
+            return FALSE;
+        if (status->info.type == SDL_PATHTYPE_DIRECTORY)
+            wiz8::create_directory(filename);
+        else if (!status->writable)
+        {
+            // Copying through owned streams creates a writable overlay even
+            // when the installed source has read-only host permissions.
+            wiz8::copy_file(filename, filename, wiz8::CopyMode::replace);
         }
+        const auto physical = w8_native::mutation_path(filename);
+        if (physical.empty())
+            return FALSE;
+        std::filesystem::permissions(wiz8::path_from_utf8(physical), std::filesystem::perms::owner_write,
+                                     std::filesystem::perm_options::add);
+        return TRUE;
     }
-
-    //we are not and the end of a file
-    return (0);
+    catch (...) { return FALSE; }
 }
 
-// FUNCTION: WIZ8 0x00405630
-BOOLEAN GetFileManFileTime(HWFILE hFile, SGP_FILETIME* pCreationTime,
-                           SGP_FILETIME* pLastAccessedTime, SGP_FILETIME* pLastWriteTime)
+BOOLEAN FileCheckEndOfFile(HWFILE file)
 {
-    HANDLE hRealFile;
-    INT16 sLibraryID;
-    UINT32 uiFileNum;
-
-    FILETIME sCreationUtcFileTime;
-    FILETIME sLastAccessedUtcFileTime;
-    FILETIME sLastWriteUtcFileTime;
-
-    //Initialize the passed in variables
-    memset(pCreationTime, 0, sizeof(SGP_FILETIME));
-    memset(pLastAccessedTime, 0, sizeof(SGP_FILETIME));
-    memset(pLastWriteTime, 0, sizeof(SGP_FILETIME));
-
-    GetLibraryAndFileIDFromLibraryFileHandle(hFile, &sLibraryID, &uiFileNum);
-
-    //if its a real file, read the data from the file
-    if (sLibraryID == REAL_FILE_LIBRARY_ID) {
-        //get the real file handle to the file
-        hRealFile = gFileDataBase.RealFiles.pRealFilesOpen[uiFileNum].hRealFileHandle;
-
-        //Gets the UTC file time for the 'real' file
-        W8GetFileTime(hRealFile, &sCreationUtcFileTime, &sLastAccessedUtcFileTime,
-                    &sLastWriteUtcFileTime);
-
-        //converts the creation UTC file time to the current time used for the file
-        W8FileTimeToLocalFileTime(&sCreationUtcFileTime, pCreationTime);
-
-        //converts the accessed UTC file time to the current time used for the file
-        W8FileTimeToLocalFileTime(&sLastAccessedUtcFileTime, pLastAccessedTime);
-
-        //converts the write UTC file time to the current time used for the file
-        W8FileTimeToLocalFileTime(&sLastWriteUtcFileTime, pLastWriteTime);
-    } else {
-        //if the database is initialized
-        if (gFileDataBase.fInitialized) {
-            //if the library is open
-            if (IsLibraryOpened(sLibraryID)) {
-                //if the file is opened
-                if (gFileDataBase.pLibraries[sLibraryID].pOpenFiles[uiFileNum].uiFileID != 0) {
-                    if (!GetLibraryFileTime(sLibraryID, uiFileNum, pLastWriteTime)) {
-                        return (FALSE);
-                    }
-                }
-            }
-        }
+    try
+    {
+        if (auto* slot = real_slot(file))
+            return slot->hRealFileHandle->tell() >= slot->hRealFileHandle->size();
+        if (auto* slot = library_slot(file))
+            return slot->uiFilePosInFile >= slot->pFileHeader->uiFileLength;
     }
-
-    return (TRUE);
+    catch (...) {}
+    return FALSE;
 }
 
-// FUNCTION: WIZ8 0x00405720
-INT32 CompareSGPFileTimes(SGP_FILETIME* pFirstFileTime, SGP_FILETIME* pSecondFileTime)
+BOOLEAN GetFileManFileTime(HWFILE file, SGP_FILETIME* creation, SGP_FILETIME* access, SGP_FILETIME* write)
 {
-    return (W8CompareFileTime(pFirstFileTime, pSecondFileTime));
-}
-// AddSubdirectoryToPath
-//		Puts a subdirectory of the current working directory into the current
-// task's system path.
-// Parameter List :
-// Return Value :
-// Modification history :
-//		10June98:DB		-> creation
-
-// FUNCTION: WIZ8 0x00405740
-BOOLEAN AddSubdirectoryToPath(CHAR8* subdirectory)
-{
-    char path[520];
-    CHAR environment[520];
-    unsigned int length;
-
-    if (subdirectory && strlen(subdirectory)) {
-        _getcwd(path, 0x208);
-        length = strlen(path);
-        if (path[length != 0 ? length - 1 : 0] != '\\') {
-            strcat(path, "\\");
+    store_time(creation, {});
+    store_time(access, {});
+    store_time(write, {});
+    try
+    {
+        if (auto* slot = real_slot(file))
+        {
+            const auto& stream = *slot->hRealFileHandle;
+            const auto info = stream.status().info;
+            const int offset = wiz8::current_utc_offset_seconds();
+            const auto convert = [offset](SDL_Time time)
+            {
+                return wiz8::file_time_with_legacy_local_bias(wiz8::file_time_from_sdl(time), offset);
+            };
+            // Readers use SDL metadata. Neither branch substitutes mtime for ctime.
+            store_time(creation, convert(stream.opened_writer_create_time().value_or(info.create_time)));
+            store_time(access, convert(info.access_time));
+            store_time(write, convert(info.modify_time));
+            return TRUE;
         }
-        strcat(path, subdirectory);
-        if (W8GetEnvironmentVariable("PATH", environment, 0x208)) {
-            strcat(environment, ";");
-            strcat(environment, path);
-            W8SetEnvironmentVariable("PATH", environment);
+        if (library_slot(file))
+        {
+            SGP_FILETIME disk{};
+            if (!GetLibraryFileTime(INT16(DB_EXTRACT_LIBRARY(file)), DB_EXTRACT_FILE_ID(file), &disk))
+                return FALSE;
+            if (write)
+                *write = disk;
             return TRUE;
         }
     }
+    catch (...) {}
     return FALSE;
 }
 
-// FUNCTION: WIZ8 0x004058a0
-BOOLEAN FileIsOlderThanFile(CHAR8* pcFileName1, CHAR8* pcFileName2, UINT32 ulNumSeconds)
+INT32 CompareSGPFileTimes(SGP_FILETIME* first, SGP_FILETIME* second)
 {
-    WIN32_FIND_DATA first;
-    WIN32_FIND_DATA second;
-    HANDLE search;
-    INT32 compared;
-    ULONGLONG difference;
+    if (!first || !second)
+        return 0;
+    const auto a = ticks(*first), b = ticks(*second);
+    return a < b ? -1 : a > b ? 1 : 0;
+}
 
-    // a failed search leaves the timestamps uninitialized
-    search = W8FindFirstFile(pcFileName1, &first);
-    W8FindClose(search);
-    search = W8FindFirstFile(pcFileName2, &second);
-    W8FindClose(search);
-
-    compared = W8CompareFileTime(&first.ftLastWriteTime, &second.ftLastWriteTime);
-    if (compared <= 0) {
-        if (ulNumSeconds == 0) {
-            if (compared != 0) {
-                return TRUE;
-            }
-        } else {
-            /* FILETIME counts 100ns units. */
-            difference = ((ULONGLONG)second.ftLastWriteTime.dwHighDateTime -
-                          first.ftLastWriteTime.dwHighDateTime) *
-                             0x100000000 -
-                         first.ftLastWriteTime.dwLowDateTime + second.ftLastWriteTime.dwLowDateTime;
-            if (difference / 10000000 >= ulNumSeconds) {
-                return TRUE;
-            }
-        }
+BOOLEAN FileIsOlderThanFile(CHAR8* first, CHAR8* second, UINT32 seconds)
+{
+    if (!first || !second)
+        return FALSE;
+    try
+    {
+        const auto a = wiz8::file_status(first), b = wiz8::file_status(second);
+        if (!a || !b || a->info.type != SDL_PATHTYPE_FILE || b->info.type != SDL_PATHTYPE_FILE)
+            return FALSE;
+        const auto at = wiz8::file_time_from_sdl(a->info.modify_time).ticks();
+        const auto bt = wiz8::file_time_from_sdl(b->info.modify_time).ticks();
+        return at < bt && (!seconds || (bt - at) / 10000000 >= seconds);
     }
-    return FALSE;
+    catch (...) { return FALSE; }
 }

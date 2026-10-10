@@ -24,6 +24,9 @@
 #include "Types.h"
 
 #include "compat/kernel32.h"
+#ifdef __cplusplus
+#include <filesystem>
+#endif
 
 //**************************************************************************
 //
@@ -36,6 +39,7 @@
 #define FILE_ACCESS_READ 0x01
 #define FILE_ACCESS_WRITE 0x02
 #define FILE_ACCESS_READWRITE 0x03
+#define FILE_ACCESS_APPEND 0x04 // Requires WRITE; incompatible with truncate/replace.
 
 #define FILE_CREATE_NEW 0x0010        // create new file. fail if exists
 #define FILE_CREATE_ALWAYS 0x0020     // create new file. overwrite existing
@@ -59,14 +63,15 @@
 #define FILE_IS_OFFLINE 256
 
 //File Attributes settings
-#define FILE_ATTRIBUTES_ARCHIVE FILE_ATTRIBUTE_ARCHIVE
-#define FILE_ATTRIBUTES_HIDDEN FILE_ATTRIBUTE_HIDDEN
-#define FILE_ATTRIBUTES_NORMAL FILE_ATTRIBUTE_NORMAL
-#define FILE_ATTRIBUTES_OFFLINE FILE_ATTRIBUTE_OFFLINE
-#define FILE_ATTRIBUTES_READONLY FILE_ATTRIBUTE_READONLY
-#define FILE_ATTRIBUTES_SYSTEM FILE_ATTRIBUTE_SYSTEM
-#define FILE_ATTRIBUTES_TEMPORARY FILE_ATTRIBUTE_TEMPORARY
-#define FILE_ATTRIBUTES_DIRECTORY FILE_ATTRIBUTE_DIRECTORY
+// Existing save callers consume these numeric attribute bits.
+#define FILE_ATTRIBUTES_ARCHIVE 0x20
+#define FILE_ATTRIBUTES_HIDDEN 0x02
+#define FILE_ATTRIBUTES_NORMAL 0x80
+#define FILE_ATTRIBUTES_OFFLINE 0x1000
+#define FILE_ATTRIBUTES_READONLY 0x01
+#define FILE_ATTRIBUTES_SYSTEM 0x04
+#define FILE_ATTRIBUTES_TEMPORARY 0x100
+#define FILE_ATTRIBUTES_DIRECTORY 0x10
 
 typedef FILETIME SGP_FILETIME;
 
@@ -99,7 +104,6 @@ BOOLEAN GetExecutableDirectory(STRING512 pcDirectory);
 BOOLEAN DirectoryExists(STRING512 pcDirectory);
 BOOLEAN MakeFileManDirectory(STRING512 pcDirectory);
 
-// WARNING: THESE DELETE ALL FILES IN THE DIRECTORY ( and all subdirectories if fRecursive is TRUE!! )
 typedef struct _GETFILESTRUCT_TAG {
     INT32 iFindHandle;
     CHAR8 zFileName[260]; // changed from UINT16, Alex Meduna, Mar-20'98
@@ -119,6 +123,9 @@ BOOLEAN FileClearAttributes(STR filename);
 //returns true if at end of file, else false
 BOOLEAN FileCheckEndOfFile(HWFILE hFile);
 
+// Real files use current timezone/DST and the writer's opening creation
+// snapshot, or SDL create_time for readers. POSIX ctime is not birth time.
+// SLF FILETIME values are already serialized; do not bias them again.
 BOOLEAN GetFileManFileTime(HWFILE hFile, SGP_FILETIME* pCreationTime,
                            SGP_FILETIME* pLastAccessedTime, SGP_FILETIME* pLastWriteTime);
 
@@ -132,16 +139,11 @@ INT32 CompareSGPFileTimes(SGP_FILETIME* pFirstFileTime, SGP_FILETIME* pSecondFil
 // files times may be slightly different due to SourceSafe of copying
 BOOLEAN FileIsOlderThanFile(CHAR8* pcFileName1, CHAR8* pcFileName2, UINT32 ulNumSeconds);
 
-//	Pass in the Fileman file handle of an OPEN file and it will return..
-//		if its a Real File, the return will be the handle of the REAL file
-//		if its a LIBRARY file, the return will be the handle of the LIBRARY
-BOOLEAN AddSubdirectoryToPath(CHAR8* pDirectory);
-
-//Gets the amount of free space on the hard drive that the main executeablt is runnning from
-//Gets the free hard drive space from the drive letter passed in.  It has to be the root dir.  ( eg. c:\ )
-
 #ifdef __cplusplus
 }
+
+// Explicit native imports; FileOpen accepts only virtual game paths.
+HWFILE FileOpenHost(const std::filesystem::path& path, UINT32 options);
 #endif
 
 #endif
