@@ -24,6 +24,7 @@
 #include "wiz8/engine_code/Levels.h"
 #include "wiz8/xstatus.h"
 #include "wiz8/float_constants.h"
+#include <glm/gtx/rotate_vector.hpp>
 #include "surrender/srNode.h"
 #include "surrender/srMaterial.h"
 #include "surrender/srShader.h"
@@ -101,7 +102,6 @@ void InitializeWorldCursor(void)
     srVector3T<float> camera_position;
     glm::vec4 colour;
     srShader shader;
-    srMaterial* material;
 
     DisableCursorScene();
     SetMouseCursorHotspot(0, 0);
@@ -145,16 +145,16 @@ void InitializeWorldCursor(void)
             gp3DCursor->light = CreateRangedWorldLight(g_world, "3D Cursor Light");
             gp3DCursor->light->intensity = 1.0f;
             ConfigureWorldLight(gp3DCursor->light, 2500.0f);
-            gp3DCursor->light->ambient.SetZero();
-            gp3DCursor->light->diffuse = 1.0f;
-            gp3DCursor->light->specular.SetZero();
+            gp3DCursor->light->ambient = glm::vec3(0);
+            gp3DCursor->light->diffuse = glm::vec3(1);
+            gp3DCursor->light->specular = glm::vec3(0);
             gp3DCursor->light->setLocation(1000.0, 0.0, 0.0);
             if (gp3DCursor->particle != 0) {
-                material = new srMaterial;
+                auto material = std::make_shared<srMaterial>();
                 colour = glm::vec4(0.0f, 0.0f, 0.0f, 1.0f);
                 material->setEmissive(colour);
                 material->setDiffuse(colour);
-                gp3DCursor->particle->SetMaterial(material);
+                gp3DCursor->particle->SetMaterial(std::move(material));
                 gp3DCursor->particle->SetTexture(
                     LoadTextureFromFolder("Data\\Monsters\\Bitmaps\\", "particle.tga", true));
                 shader.value = 0x100c433;
@@ -728,27 +728,15 @@ char MarchWorldCursorTarget(srVector3T<float>* target)
 // FUNCTION: WIZ8 0x00491EC0
 void UpdateWorldCursorPlacement(void)
 {
-    glm::mat3 rotation;
     srVector3T<float> camera(0.0f, 1.0f, 0.0f);
-    srVector3T<float> forward;
     srVector3T<float> target;
     W8WorldCursorState* cursor;
-    float cosine;
-    float sine;
-
-    rotation = glm::mat3(1);
-    if (g_gd_camera->m_yaw != g_double_zero) {
-        cosine = static_cast<float>(cos(g_gd_camera->m_yaw));
-        sine = static_cast<float>(sin(g_gd_camera->m_yaw));
-        rotation *=
-            glm::mat3_cast(glm::angleAxis(float(std::atan2(sine, cosine)), glm::vec3(0, 1, 0)));
-    }
     GetCameraPosition(&camera);
     camera.y -= g_default_world_height;
     cursor = gp3DCursor;
     cursor->last_published = -100000000.0f;
-    forward.Set(0.0, 0.0, g_cursor_projection_distance);
-    target = camera + srVector3T<float>{rotation * forward.glmValue()};
+    target = camera.glmValue() +
+             glm::rotateY(glm::vec3(0, 0, g_cursor_projection_distance), g_gd_camera->m_yaw);
     cursor->position = camera;
     cursor->track_ground = true;
     if (MarchWorldCursorTarget(&target) == 0) {

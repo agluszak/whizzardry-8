@@ -106,7 +106,7 @@ void DestroyWorldLights(W8World* world)
         PListRemove(lights, light);
         world->lights_to_update->Remove(light);
         if (light != 0) {
-            light->release();
+            delete light;
         }
     }
 }
@@ -119,8 +119,8 @@ void FinalizeStaticScene(srScene* scene)
     srNode* node;
 
     for (node = scene->first_child_; node != 0; node = node->next_sibling_) {
-        if (node->getClassID() == srLight::CLASS_ID) {
-            static_cast<srIlluminator*>(node)->setGroupMask(1);
+        if (auto* light = sr_cast<srLight>(node)) {
+            light->setGroupMask(1);
         }
     }
     if (g_world != 0 && g_world->camera_light != 0) {
@@ -142,7 +142,7 @@ unsigned char BakeInstanceVertexLighting(stModelInstance* instance, srNode* ligh
     bool locations_allocated = false;
     stMeshModel* mesh = static_cast<stMeshModel*>(instance->getModel());
     srVector3T<float> location;
-    location = instance->getWorldSpaceLocation();
+    location = glm::vec3(instance->getWorldSpaceLocation());
     srVector3T<float> minimum;
     srVector3T<float> maximum;
     mesh->getBoundingBox(minimum, maximum);
@@ -154,7 +154,7 @@ unsigned char BakeInstanceVertexLighting(stModelInstance* instance, srNode* ligh
     while (mesh != 0) {
         srVector3T<float>* vertex_lights = mesh->GetVertexLights(true, -1);
         mesh->GetVertexSunlight(true);
-        srPtr<srMaterialIFace>* vertex_materials =
+        std::shared_ptr<srMaterialIFace>* vertex_materials =
             mesh->getVertexMaterial(0, srMeshModel::SIDE_FRONT, 0);
         srMaterialIFace* material_iface = mesh->getMaterial(0, srMeshModel::SIDE_FRONT);
         glm::vec4 material_diffuse;
@@ -248,15 +248,14 @@ unsigned char BakeInstanceVertexLighting(stModelInstance* instance, srNode* ligh
 
         srNode* light_node = lights;
         while (light_node != 0) {
-            if (light_node->getClassID() == stLight::CLASS_ID &&
-                _strnicmp(light_node->getName().c_str(), "Sun", 3) != 0) {
-                stLight* light = static_cast<stLight*>(light_node);
+            stLight* light = sr_cast<stLight>(light_node);
+            if (light != 0 && _strnicmp(light->getName().c_str(), "Sun", 3) != 0) {
                 srVector3T<float> attenuation = light->opengl_attenuation;
                 float range =
                     static_cast<float>(g_light_range_attenuation_numerator /
                                        (attenuation.y * g_light_range_attenuation_denominator));
                 srVector3T<float> light_position;
-                light_position = light_node->getWorldSpaceLocation();
+                light_position = glm::vec3(light_node->getWorldSpaceLocation());
                 srVector3T<float> light_min(light_position.x - range, light_position.y - range,
                                             light_position.z - range);
                 srVector3T<float> light_max(light_position.x + range, light_position.y + range,
@@ -290,7 +289,7 @@ unsigned char BakeInstanceVertexLighting(stModelInstance* instance, srNode* ligh
                                 double contribution =
                                     -facing * intensity * (g_double_one - distance / range);
                                 if (vertex_materials != 0) {
-                                    srMaterialIFace* vertex_material = vertex_materials[index];
+                                    srMaterialIFace* vertex_material = vertex_materials[index].get();
                                     if (vertex_material != 0) {
                                         material_diffuse = static_cast<srMaterial*>(vertex_material)
                                                                ->parms.diffuse;
@@ -340,7 +339,7 @@ unsigned char BakeInstanceVertexLighting(stModelInstance* instance, srNode* ligh
             directions = 0;
             mesh->flags |= W8_MESH_VERTEX_LIGHTING_DIRTY;
         }
-        mesh = mesh->next;
+        mesh = mesh->Next();
     }
     return 1;
 }
@@ -355,8 +354,7 @@ unsigned char FinalizeWorldScenes(srNode* node, srNode* dynamic_scene)
         if (node->first_child_ != 0) {
             FinalizeWorldScenes(node->first_child_, dynamic_scene);
         }
-        if (node->getClassID() == stModelInstance::CLASS_ID) {
-            stModelInstance* instance = static_cast<stModelInstance*>(node);
+        if (auto* instance = sr_cast<stModelInstance>(node)) {
             BakeInstanceVertexLightingIfNeeded(instance, dynamic_scene);
         }
     }
@@ -385,8 +383,7 @@ unsigned char BakeInstanceVertexLightingIfNeeded(stModelInstance* instance, srNo
 void SetWorldMeshVertexLightTable(W8World* world, int table)
 {
     if (world->octree == 0) {
-        for (stMeshModel* model = static_cast<stMeshModel*>(world->update_mesh_source->getModel());
-             model != 0; model = model->next) {
+        for (stMeshModel* model : stMeshModel::Meshes(static_cast<stMeshModel*>(world->update_mesh_source->getModel()))) {
             model->vertex_light_table = table;
             model->flags |= W8_MESH_VERTEX_LIGHTING_DIRTY;
         }
@@ -394,8 +391,7 @@ void SetWorldMeshVertexLightTable(W8World* world, int table)
         for (unsigned int mesh = 0; mesh < world->octree->m_meshCount; ++mesh) {
             srModelInstance* instance = world->psrMeshes[mesh];
             if (instance != 0) {
-                for (stMeshModel* model = static_cast<stMeshModel*>(instance->getModel());
-                     model != 0; model = model->next) {
+                for (stMeshModel* model : stMeshModel::Meshes(static_cast<stMeshModel*>(instance->getModel()))) {
                     model->vertex_light_table = table;
                     model->flags |= W8_MESH_VERTEX_LIGHTING_DIRTY;
                 }
@@ -569,11 +565,9 @@ void ExpandBounds(srVector3T<float>* minimum, srVector3T<float>* maximum,
     maximum->z = maximum->z > candidate_maximum->z ? maximum->z : candidate_maximum->z;
 }
 
-/* Build the concrete first-party instance used for an already-created mesh.
-   Its model assignment goes through srModel::Client, exactly as the ordinary
-   SurRender ownership interface requires. */
+/* Build the concrete first-party instance used for an already-created mesh. */
 // FUNCTION: WIZ8 0x0046F5C0
-stModelInstance* CreateModelInstance(stMeshModel* model)
+stModelInstance* CreateModelInstance(std::shared_ptr<stMeshModel> model)
 {
     stModelInstance* instance;
 
@@ -603,7 +597,6 @@ stModelInstance* DuplicateModelInstance(stModelInstance* instance)
     }
     *copy = *instance;
     copy->setName("ST_CreateInstance");
-    copy->setModel(instance->getModel());
     return copy;
 }
 
@@ -695,7 +688,7 @@ void WorldRemoveLight(W8World* world, stLight* light)
     PListRemove(&world->transient_lights, light);
     world->lights_to_update->Remove(light);
     if (light != 0) {
-        light->release();
+        delete light;
     }
 }
 
@@ -802,10 +795,8 @@ void SetSceneMeshShaderBit3(srNode* node, int argument)
 {
     srShader shader;
     for (; node != 0; node = node->next_sibling_) {
-        if (node->getClassID() == stModelInstance::CLASS_ID) {
-            stModelInstance* instance = static_cast<stModelInstance*>(node);
-            for (stMeshModel* mesh = static_cast<stMeshModel*>(instance->getModel()); mesh != 0;
-                 mesh = mesh->next) {
+        if (auto* instance = sr_cast<stModelInstance>(node)) {
+            for (stMeshModel* mesh : stMeshModel::Meshes(static_cast<stMeshModel*>(instance->getModel()))) {
                 srShader* polygon_shader = mesh->getPolyShader(0, 0);
                 bool clear = argument == 0 || (mesh->flags & W8_MESH_SORTED_RENDERING) != 0;
 
@@ -841,10 +832,8 @@ void SetSceneMeshShaderLowBits(srNode* node, int argument)
 {
     srShader shader;
     for (; node != 0; node = node->next_sibling_) {
-        if (node->getClassID() == stModelInstance::CLASS_ID) {
-            stModelInstance* instance = static_cast<stModelInstance*>(node);
-            for (stMeshModel* mesh = static_cast<stMeshModel*>(instance->getModel()); mesh != 0;
-                 mesh = mesh->next) {
+        if (auto* instance = sr_cast<stModelInstance>(node)) {
+            for (stMeshModel* mesh : stMeshModel::Meshes(static_cast<stMeshModel*>(instance->getModel()))) {
                 if ((mesh->flags & W8_MESH_SORTED_RENDERING) != 0) {
                     continue;
                 }

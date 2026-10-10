@@ -201,6 +201,9 @@ void W8Searchable::GetPosition(srVector3T<float>* position)
 // FUNCTION: WIZ8 0x005171b0
 void ClearSearchables()
 {
+    g_search_view.items.Clear();
+    for (int index = 0; index < g_searchables.GetCount(); ++index)
+        delete *g_searchables.GetAt(index);
     g_searchables.Clear();
 }
 

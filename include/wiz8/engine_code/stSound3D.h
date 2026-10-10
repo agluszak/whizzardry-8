@@ -25,7 +25,6 @@ public:
     }
     stSound3D(const char* sound_name, srNode* parent); /* 0x004AE6D0 */
     virtual ~stSound3D() override;
-    virtual srClass* vInstance() override;
     bool IsPlaying(); /* 0x004AEC70 */
     void Stop();      /* 0x004AEC90 */
     /* loop forces the SGP voice to loop forever (AIL count 0); auto_release

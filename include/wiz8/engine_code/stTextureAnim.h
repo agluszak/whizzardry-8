@@ -1,7 +1,8 @@
 #pragma once
 
 #include "surrender/srTexture.h"
-#include "wiz8/vector.h"
+#include <memory>
+#include <vector>
 #include "wiz8/texture_animation.h"
 
 enum W8TextureTriggerMode {
@@ -20,7 +21,6 @@ public:
     stTextureAnim();                           /* 0x00484BE0 */
     stTextureAnim(const stTextureAnim& other); /* 0x00485070 */
 
-    virtual srClass* vInstance() override;                                /* 0x00484E60 */
     virtual w8_ulong getTextureFrameHandle() override;               /* 0x004856F0 */
     virtual float getPriority() override;                                 /* 0x00484D60 */
     virtual void getDimensions(Dimensions& dimensions) override;          /* 0x00484D80 */
@@ -31,28 +31,29 @@ public:
     virtual void invalidate() override;                                   /* 0x004023A0 */
 
     void SetFrame(int frame);
-    void AddTexture(srTextureIFace* texture);
+    void AddTexture(std::shared_ptr<srTextureIFace> texture);
     int IsFinished() const;
     unsigned char Prepare();
     virtual void setupDefaultValues() override; /* 0x00485760 */
-
-protected:
-    virtual ~stTextureAnim() override; /* 0x00485290 */
 
 public:
     stTextureAnim& operator=(const stTextureAnim&) = default;
     void UpdateFrame();
 
-    W8Vector<srTextureIFace*>* textures;
-    int frame;
-    int direction;
-    W8TextureAnimationMode animation_mode;
-    int initial_frame;
-    float frame_rate;
+    std::vector<std::shared_ptr<srTextureIFace>> textures;
+    int frame = 0;
+    int direction = 1;
+    W8TextureAnimationMode animation_mode = W8_TEXTURE_ANIM_LOOP;
+    int initial_frame = 0;
+    float frame_rate = 15.0f;
     w8_ulong frame_tick;
-    W8TextureTriggerMode trigger_mode;
-    float probability;
-    bool running;
-};
+    W8TextureTriggerMode trigger_mode = W8_TEXTURE_TRIGGER_CONTINUOUS;
+    float probability = -1.0f;
+    bool running = false;
 
-W8_ABI_ASSERT(sizeof(stTextureAnim) == 0x7c, "stTextureAnim_size_must_be_0x7c");
+private:
+    srTextureIFace& current()
+    {
+        return *textures[frame];
+    }
+};

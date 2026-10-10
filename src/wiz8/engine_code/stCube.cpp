@@ -86,7 +86,7 @@ W8WorldCursorNode* CreateWorldCursorCube(void)
 {
     srModeler modeller;
     srModeler::Polygon polygon(4);
-    stMeshModel* model = new stMeshModel(0, 0);
+    auto model = std::make_shared<stMeshModel>(0, 0);
     stModelInstance* instance = new stModelInstance(0);
     W8WorldCursorNode* entry = new W8WorldCursorNode;
     /* Polygon(4) already heap-allocates the modelled vertices; these four
@@ -145,9 +145,8 @@ W8WorldCursorNode* CreateWorldCursorCube(void)
     vertices[3].position = nnn;
     modeller.addPolygon(polygon);
 
-    srMaterial* material = new srMaterial;
+    auto material = std::make_shared<srMaterial>();
     material->setName("Cube Number Material");
-    material->autoRelease();
 
     glm::vec4 colour;
     colour = glm::vec4(1.0f);
@@ -161,18 +160,16 @@ W8WorldCursorNode* CreateWorldCursorCube(void)
     material->parms.diffuse.w = 0.35f;
     material->parms.shininess = 1.0f;
     material->dirty = 1;
-    modeller.setMaterial(material, 0, srMeshModel::SIDE_FRONT);
+    modeller.setMaterial(std::move(material), 0, srMeshModel::SIDE_FRONT);
 
     srShader shader;
     shader.value = 0x0100c5b3; /* packed srShader: LEQUAL, color write, dst 1-srcA, fog, modulate */
     modeller.setShader(shader, 0);
 
-    srColorSurface* surface =
-        new srColorSurface(srPixelConvert::SURFACE_ARGB1555, 0x20UL, 0x20UL);
+    auto surface = std::make_shared<srColorSurface>(srPixelConvert::SURFACE_ARGB1555, 0x20UL, 0x20UL);
     if (surface == 0) {
         srAssertFail("psrSurface", ST_CUBE_CPP, 0xac, 0);
     }
-    surface->autoRelease();
 
     w8_ulong pixel;
     unsigned char* bytes =
@@ -184,15 +181,14 @@ W8WorldCursorNode* CreateWorldCursorCube(void)
     surface->fill(pixel);
     surface->setFilter(&srBoxFilter);
 
-    srTextureMap* texture = new srTextureMap(static_cast<srColorSurfaceIFace*>(0));
-    texture->autoRelease();
+    auto texture = std::make_shared<srTextureMap>();
     texture->setSurfacePtr(surface);
     texture->setMipmap(srTextureIFace::MIPMAP_NONE);
 
     srVector3T<float> scale(500.0f, 500.0f, 500.0f);
     modeller.scale(scale);
     modeller.convert(*model, 1);
-    model->setTexture(texture, 0, 0);
+    model->setTexture(std::move(texture), 0, 0);
 
     model->setDirty(srMeshModel::DIRTY_TRI_MESH);
     model->setDirty(srMeshModel::DIRTY_BOUNDS);
@@ -200,7 +196,6 @@ W8WorldCursorNode* CreateWorldCursorCube(void)
     srVector3T<float> minimum;
     srVector3T<float> maximum;
     model->getBoundingBox(minimum, maximum);
-    model->autoRelease();
     model->setName("stCube");
     instance->setModel(model);
     entry->node = instance;
@@ -231,7 +226,7 @@ void DestroyWorldCursorCube(W8WorldCursorNode* entry)
         }
         entry->userdata_size = 0;
         entry->node->setParent(0, 1);
-        entry->node->release();
+        delete entry->node;
         g_world_cursor_nodes.Remove(entry);
         delete entry;
     }
@@ -701,7 +696,7 @@ unsigned char SaveWorldCursorNodes(wiz8::File* handle)
             ok = (handle->write(&node->parameters[component], 4), true);
         }
         node->node->getLocalBounds(bounds);
-        location = node->node->getLocation();
+        location = glm::vec3(node->node->getLocation());
         ok = ok && (handle->write(&bounds.minimum.x, 4), true) &&
              (handle->write(&bounds.minimum.y, 4), true) &&
              (handle->write(&bounds.minimum.z, 4), true) &&

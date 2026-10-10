@@ -195,8 +195,8 @@ try
                              "AnimObjReadFromFile: Where is the light list?");
             } else {
                 stLight* light = CreateWorldLight(0, "MonsterLight");
-                light->diffuse = color;
-                light->specular = srVector3T<float>(0.0f, 0.0f, 0.0f);
+                light->diffuse = color.glmValue();
+                light->specular = glm::vec3(0);
                 ConfigureWorldLight(light, range * g_world_scale);
                 light->intensity = intensity;
                 light->setLocation(position.x, position.y, position.z);

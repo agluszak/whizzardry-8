@@ -1,5 +1,4 @@
 #include "wiz8/engine_code/stScript.h"
-#include "surrender/srCore.h"
 #include "wiz8/sr_api.h"
 #include "wiz8/virtual_file.h"
 #include "wiz8/filesystem.h"
@@ -54,18 +53,6 @@ try
     return result;
 }
 catch (const std::exception&) { *more = 0; return false; }
-
-// VTABLE: WIZ8 0x005ED328
-// class stScript
-
-// VTABLE: WIZ8 0x005ED358
-// class srClassSupport<stScript,srClass,65549>
-
-// FUNCTION: WIZ8 0x004CF110
-srClass* stScript::vInstance()
-{
-    return new stScript;
-}
 
 // FUNCTION: WIZ8 0x004CF260
 stScript::~stScript()

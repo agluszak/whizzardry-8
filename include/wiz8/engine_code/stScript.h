@@ -1,6 +1,7 @@
 #pragma once
 
-#include "surrender/srTypeRegistry.h"
+#include <string>
+
 #include "wiz8/vector.h"
 
 struct stScriptLine {
@@ -17,25 +18,25 @@ struct stScriptLabel {
    growable-vector base table, then its W8Vector table, at +0x18 and +0x28.
    Load allocates eight-byte lines and 0x24-byte labels; Clear frees those
    pointed-to records before the vector storage. */
-class stScript : public srClassSupport<stScript, srClass, 0x1000d> {
+class stScript {
 public:
-    static const char* sGetClassName()
+    ~stScript();
+
+    const std::string& getName() const
     {
-        return "stScript";
+        return name;
     }
-
-    virtual ~stScript() override;
-
-    stScript& operator=(const stScript&) = default;
-    virtual srClass* vInstance() override;
+    void setName(std::string name)
+    {
+        this->name = std::move(name);
+    }
 
     int FindLabelLine(const char* label) const;
     int GetSourceLine(int line) const;
     unsigned char Load(const char* path);
     void Clear();
 
+    std::string name;
     W8Vector<stScriptLine*> lines;   /* 0x18 */
     W8Vector<stScriptLabel*> labels; /* 0x28 */
 };
-
-W8_ABI_ASSERT(sizeof(stScript) == 0x38, "stScript_must_be_0x38");

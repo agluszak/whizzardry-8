@@ -22,4 +22,3 @@ template <class Enum> void srFlags<Enum>::set(int bit, int on)
     value &= ~(1u << bit);
 }
 
-W8_ABI_ASSERT(sizeof(srFlags<int>) == 0x04, "srFlags_must_be_0x04");

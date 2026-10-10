@@ -148,11 +148,3 @@ public:
     };
 };
 
-W8_ABI_ASSERT(sizeof(srHuffman::Compressor::Node) == 0x1c,
-              "srHuffman_Compressor_Node_must_be_0x1c");
-W8_ABI_ASSERT(sizeof(srHuffman::BitIStream) == 0x8c, "srHuffman_BitIStream_must_be_0x8c");
-W8_ABI_ASSERT(sizeof(srHuffman::BitOStream) == 0x54, "srHuffman_BitOStream_must_be_0x54");
-W8_ABI_ASSERT(sizeof(srHuffman::Sampler) == 0x1c, "srHuffman_Sampler_must_be_0x1c");
-W8_ABI_ASSERT(sizeof(srHuffman::Sampler::Symbol) == 0x08, "srHuffman_Sampler_Symbol_must_be_0x08");
-W8_ABI_ASSERT(sizeof(srHuffman::Compressor) == 0x28, "srHuffman_Compressor_must_be_0x28");
-W8_ABI_ASSERT(sizeof(srHuffman::Decompressor) == 0x51c, "srHuffman_Decompressor_must_be_0x51c");

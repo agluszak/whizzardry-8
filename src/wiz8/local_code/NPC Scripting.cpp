@@ -398,6 +398,8 @@ void ReloadNpcScriptResources(W8NpcState* npc)
     }
     script_name = prefix + name;
     resource_name = fmt::format("Data\\NPC Scripts\\{}.nsf", script_name);
+    ReleaseNpcScriptFile(npc->script_file);
+    npc->script_file = nullptr;
     npc->script_file = LoadNpcScriptFile(resource_name);
     if (npc->script_file != 0) {
         W8Monster* monster = GetNpcMonster(npc);

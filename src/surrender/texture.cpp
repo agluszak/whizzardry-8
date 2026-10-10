@@ -442,6 +442,11 @@ void srTexture::getTextureParms(Parameters& parameters)
     parameters.mipmap_bias = mipmap_bias;
 }
 
+srTextureIFace::~srTextureIFace()
+{
+    srGERD::unbindTexture(this);
+}
+
 // FUNCTION: SURRENDER 0x1005F140
 const char* srTextureIFace::getTextureName()
 {

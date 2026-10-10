@@ -2,6 +2,7 @@
 #include "wiz8/unicode.h"
 #include <algorithm>
 #include <string_view>
+#include <vector>
 #include "wiz8/dialog_code/DialogButton.h"
 #include "wiz8/dialog_code/MessageDialogBase.h"
 #include "wiz8/dialog_code/DialogInterface.h"

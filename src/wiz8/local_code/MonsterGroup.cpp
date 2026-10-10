@@ -1280,7 +1280,7 @@ void ElectGroupLeaderMember(W8MonsterGroup* monster_group)
 done:
     W8MonsterInfo* leader_info =
         MonsterInfoFromID(0x454, MONSTER_GROUP_CPP, monster_group->leader_location_id, true);
-    stScript* script = old_monster->script;
+    stScript* script = old_monster->script.get();
     W8Monster* leader_monster = leader_info->p3D;
     if (script != 0) {
         leader_monster->SetScript(script->getName(), true);
@@ -1363,7 +1363,7 @@ void ElectAlliedLeaderGroup(W8MonsterGroup* monster_group, W8MonsterInfo* leader
         GetMonsterGroupIndexByID(0x2e4, MONSTER_GROUP_CPP, leader_group_id, true));
     W8MonsterInfo* new_leader_info =
         MonsterInfoFromID(0x2e7, MONSTER_GROUP_CPP, leader->leader_location_id, true);
-    stScript* script = leader_info->p3D->script;
+    stScript* script = leader_info->p3D->script.get();
     if (script != 0) {
         new_leader_info->p3D->SetScript(script->getName(), true);
     }

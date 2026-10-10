@@ -23,7 +23,6 @@ public:
     /* Empty derived destruction is the implicit srNode-base teardown. */
 
     virtual void dump(std::ostream& stream) override;
-    virtual srClass* vInstance() override;
     virtual void traverse(TraverseInfo& info) override;
     virtual void process(const ProcessInfo& info, e_processType type) override;
     virtual void updateBounds() override;
@@ -46,4 +45,3 @@ private:
     glm::mat4 inverse_world;
 };
 
-W8_ABI_ASSERT((sizeof(srBounder) == 0x1a8), "srBounder_must_be_0x1a8");

@@ -1,3 +1,4 @@
+#include "surrender/srBoundingBox.h"
 #include <algorithm>
 #include <cmath>
 #include <vector>
@@ -66,16 +67,16 @@ srShader srMeshModel::getShader(w8_long pass) const
 srMaterialIFace* srMeshModel::getMaterial(w8_long pass, e_side side) const
 {
     if (pass >= 0 && pass < 4 && (int)side >= 0 && (int)side < 2) {
-        return materials[pass][side];
+        return materials[pass][side].get();
     }
     return 0;
 }
 
 // FUNCTION: SURRENDER 0x100402E0
-void srMeshModel::setMaterial(srMaterialIFace* material, w8_long pass, e_side side)
+void srMeshModel::setMaterial(std::shared_ptr<srMaterialIFace> material, w8_long pass, e_side side)
 {
     if (pass >= 0 && pass < 4 && (int)side >= 0 && (int)side < 2) {
-        materials[pass][side] = material;
+        materials[pass][side] = std::move(material);
         setDirty(DIRTY_TRI_MESH);
     }
 }
@@ -84,16 +85,16 @@ void srMeshModel::setMaterial(srMaterialIFace* material, w8_long pass, e_side si
 srTextureIFace* srMeshModel::getTexture(w8_long pass, w8_long layer) const
 {
     if (pass >= 0 && pass < 4 && layer >= 0 && layer < 2) {
-        return textures[pass][layer];
+        return textures[pass][layer].get();
     }
     return 0;
 }
 
 // FUNCTION: SURRENDER 0x10040360
-void srMeshModel::setTexture(srTextureIFace* texture, w8_long pass, w8_long layer)
+void srMeshModel::setTexture(std::shared_ptr<srTextureIFace> texture, w8_long pass, w8_long layer)
 {
     if (pass >= 0 && pass < 4 && layer >= 0 && layer < 2) {
-        textures[pass][layer] = texture;
+        textures[pass][layer] = std::move(texture);
         setDirty(DIRTY_TRI_MESH);
     }
 }
@@ -214,7 +215,7 @@ srVector3i* srMeshModel::getPolyVertex()
 }
 
 // FUNCTION: SURRENDER 0x10040430
-srPtr<srMaterialIFace>* srMeshModel::getVertexMaterial(w8_long vertex, e_side side, int table)
+std::shared_ptr<srMaterialIFace>* srMeshModel::getVertexMaterial(w8_long vertex, e_side side, int table)
 {
     if (vertex < 0 || vertex > 3 || (int)side < 0 || (int)side > 1) {
         return 0;
@@ -228,7 +229,7 @@ srPtr<srMaterialIFace>* srMeshModel::getVertexMaterial(w8_long vertex, e_side si
 }
 
 // FUNCTION: SURRENDER 0x10040560
-srPtr<srTextureIFace>* srMeshModel::getPolyTexture(w8_long polygon, w8_long layer, int table)
+std::shared_ptr<srTextureIFace>* srMeshModel::getPolyTexture(w8_long polygon, w8_long layer, int table)
 {
     if (polygon < 0 || polygon > 3 || layer < 0 || layer > 1) {
         return 0;
@@ -327,13 +328,6 @@ srMeshModel::srMeshModel(w8_long polygons, w8_long vertices)
     reset(polygons, vertices);
 }
 
-/* Construct/register a fresh model before assigning its state: registry identity and model clients
-   are not copyable mesh data, and the cached view must refer to this model's own tables. */
-srMeshModel::srMeshModel(const srMeshModel& other) : srMeshModel()
-{
-    *this = other;
-}
-
 // FUNCTION: SURRENDER 0x1003D2C0
 void srMeshModel::reset(w8_long polygons, w8_long vertices)
 {
@@ -370,46 +364,6 @@ void srMeshModel::reset(w8_long polygons, w8_long vertices)
     setDirtyAll();
 }
 
-/* Containers copy their own elements, including absent optional tables. The cached borrowed
-   view is invalidated rather than copied; the destination keeps its identity and model clients. */
-// FUNCTION: SURRENDER 0x1003D5D0
-srMeshModel& srMeshModel::operator=(const srMeshModel& other)
-{
-    if (this != &other) {
-        srModel::operator=(other);
-        reset(other.polygon_count, other.vertex_location_count);
-        dirty_flags = other.dirty_flags;
-        render_control = other.render_control;
-        pass_count = other.pass_count;
-        uv_count = other.uv_count;
-        sort_bias = other.sort_bias;
-        dirty_flags.value |= (1UL << DIRTY_TRI_MESH);
-        bounds_minimum = other.bounds_minimum;
-        bounds_maximum = other.bounds_maximum;
-        bounds_center = other.bounds_center;
-        bounds_radius = other.bounds_radius;
-        active_polygon_count = other.active_polygon_count;
-        active_polygons = other.active_polygons;
-        poly_vertices = other.poly_vertices;
-        poly_equations = other.poly_equations;
-        vertex_locations = other.vertex_locations;
-        vertex_normals = other.vertex_normals;
-        vertex_shade_indices = other.vertex_shade_indices;
-        materials = other.materials;
-        vertex_materials = other.vertex_materials;
-        textures = other.textures;
-        poly_textures = other.poly_textures;
-        texcoords = other.texcoords;
-        shaders = other.shaders;
-        poly_shaders = other.poly_shaders;
-        poly_uv_indices = other.poly_uv_indices;
-        dig = other.dig;
-        dcg = other.dcg;
-        scg = other.scg;
-    }
-    return *this;
-}
-
 // FUNCTION: SURRENDER 0x1003E120
 void srMeshModel::calculateBounds()
 {
@@ -418,44 +372,18 @@ void srMeshModel::calculateBounds()
     bounds_center.SetZero();
     bounds_radius = 0.0f;
     if (vertex_location_count != 0) {
-        srVector3T<float>* vertices = getVertexLoc();
-        assert(vertex_location_count != 0);
-        auto lower = vertices[0].glmValue();
-        auto upper = lower;
-        for (std::size_t point_index = 1; point_index < vertex_location_count;
-             ++point_index) {
-            const auto& point = vertices[point_index];
-            const auto v = point.glmValue();
-            // Keep the comparison order for NaNs in recovered bounds.
-            for (int c = 0; c < 3; ++c) {
-                if (v[c] >= lower[c]) {
-                    if (v[c] > upper[c])
-                        upper[c] = v[c];
-                } else
-                    lower[c] = v[c];
-            }
+        const std::span<const srVector3> vertices(getVertexLoc(), vertex_location_count);
+        const auto box = boundingBox(vertices);
+        bounds_minimum = box.minimum;
+        bounds_maximum = box.maximum;
+        const auto center = box.center();
+        bounds_center = center;
+        float radius_squared = 0;
+        for (const auto& vertex : vertices) {
+            const auto offset = vertex.glmValue() - center;
+            radius_squared = glm::max(radius_squared, glm::dot(offset, offset));
         }
-        bounds_minimum = lower;
-        bounds_maximum = upper;
-        bounds_center.x = (bounds_minimum.x + bounds_maximum.x) * 0.5;
-        bounds_center.y = (bounds_minimum.y + bounds_maximum.y) * 0.5;
-        bounds_center.z = (bounds_minimum.z + bounds_maximum.z) * 0.5;
-        w8_long count = vertex_location_count;
-        if (0 < count) {
-            do {
-                float dy = vertices->y - bounds_center.y;
-                float dz = vertices->z - bounds_center.z;
-                float radius = (vertices->x - bounds_center.x) * (vertices->x - bounds_center.x) +
-                               dy * dy + dz * dz;
-                if (bounds_radius < radius) {
-                    bounds_radius = radius;
-                }
-                vertices = vertices + 1;
-                count = count - 1;
-            } while (count != 0);
-        }
-        bounds_radius = sqrtf(bounds_radius) * 1.00001f;
-        updateAllClients(Client::UPDATE_BOUNDS);
+        bounds_radius = std::sqrt(radius_squared) * 1.00001f;
         dirty_flags.value &= ~(1UL << DIRTY_BOUNDS);
     }
 }
@@ -468,79 +396,34 @@ void srMeshModel::calculatePolygonNormals()
     srVector3i* polygons = getPolyVertex();
     srVector3T<float>* vertices = getVertexLoc();
     for (w8_long polygon = 0; polygon < polygon_count; polygon++) {
-        const srVector3T<float>* v0 = vertices + polygons[polygon].x;
-        const srVector3T<float>* v1 = vertices + polygons[polygon].y;
-        const srVector3T<float>* v2 = vertices + polygons[polygon].z;
-        float x0 = v0->x;
-        float y0 = v0->y;
-        float z0 = v0->z;
-        float e1x = v1->x - x0;
-        float e1y = v1->y - y0;
-        float e1z = v1->z - z0;
-        float e2x = v2->x - x0;
-        float e2y = v2->y - y0;
-        float e2z = v2->z - z0;
-        float a = e2z * e1y - e2y * e1z;
-        float b = e2x * e1z - e2z * e1x;
-        float c = e2y * e1x - e2x * e1y;
-        equations[polygon].x = a;
-        equations[polygon].y = b;
-        equations[polygon].z = c;
-        equations[polygon].w = -(c * z0 + b * y0 + a * x0);
+        const auto first = vertices[polygons[polygon].x].glmValue();
+        const auto second = vertices[polygons[polygon].y].glmValue();
+        const auto third = vertices[polygons[polygon].z].glmValue();
+        const auto normal = glm::cross(second - first, third - first);
+        equations[polygon] = glm::vec4(normal, -glm::dot(normal, first));
     }
 }
 
 // FUNCTION: SURRENDER 0x1003E390
 void srMeshModel::calculateVertexNormals()
 {
-    if ((polygon_count != 0) && (vertex_location_count != 0)) {
-        if ((dirty_flags.value & (1UL << DIRTY_POLYGON_NORMALS)) != 0) {
-            calculatePolygonNormals();
-        }
-        dirty_flags.value &= ~(1UL << DIRTY_VERTEX_NORMALS);
-        glm::vec4* equations = getPolyEq();
-        srVector3T<float>* normals = getVertexNormal();
-        srVector3i* polygons = getPolyVertex();
-        w8_ulong* shade_indices = getVertexShadeIndex(0);
-        if (shade_indices == 0) {
-            std::fill_n(normals, vertex_location_count, srVector3T<float>(0.0f, 0.0f, 0.0f));
-            for (w8_long polygon = 0; polygon < polygon_count; polygon++) {
-                normals[polygons[polygon].x].x += equations[polygon].x;
-                normals[polygons[polygon].x].y += equations[polygon].y;
-                normals[polygons[polygon].x].z += equations[polygon].z;
-                normals[polygons[polygon].y].x += equations[polygon].x;
-                normals[polygons[polygon].y].y += equations[polygon].y;
-                normals[polygons[polygon].y].z += equations[polygon].z;
-                normals[polygons[polygon].z].x += equations[polygon].x;
-                normals[polygons[polygon].z].y += equations[polygon].y;
-                normals[polygons[polygon].z].z += equations[polygon].z;
-            }
-        } else {
-            std::vector<srVector3T<float>> smooth(vertex_location_count,
-                                                 srVector3T<float>(0.0f, 0.0f, 0.0f));
-            for (w8_long polygon = 0; polygon < polygon_count; polygon++) {
-                smooth[shade_indices[polygons[polygon].x]].x += equations[polygon].x;
-                smooth[shade_indices[polygons[polygon].x]].y += equations[polygon].y;
-                smooth[shade_indices[polygons[polygon].x]].z += equations[polygon].z;
-                smooth[shade_indices[polygons[polygon].y]].x += equations[polygon].x;
-                smooth[shade_indices[polygons[polygon].y]].y += equations[polygon].y;
-                smooth[shade_indices[polygons[polygon].y]].z += equations[polygon].z;
-                smooth[shade_indices[polygons[polygon].z]].x += equations[polygon].x;
-                smooth[shade_indices[polygons[polygon].z]].y += equations[polygon].y;
-                smooth[shade_indices[polygons[polygon].z]].z += equations[polygon].z;
-            }
-            if (vertex_location_count != 0) {
-                for (std::size_t i = 0; i < vertex_location_count; ++i)
-                    normals[i] = (smooth.data())[shade_indices[i]];
-            }
-        }
-        if (vertex_location_count != 0) {
-            for (std::size_t i = 0; i < vertex_location_count; ++i)
-                normals[i] = normals[i].Length() == 0.0f
-                                 ? normals[i].glmValue() * 0.0f
-                                 : glm::normalize(normals[i].glmValue()) * static_cast<float>(1.0f);
-        }
+    if (polygon_count == 0 || vertex_location_count == 0)
+        return;
+    if (dirty_flags.value & (1UL << DIRTY_POLYGON_NORMALS))
+        calculatePolygonNormals();
+    dirty_flags.value &= ~(1UL << DIRTY_VERTEX_NORMALS);
+    const auto* equations = getPolyEq();
+    const auto* polygons = getPolyVertex();
+    const auto* shade_indices = getVertexShadeIndex(0);
+    std::vector<glm::vec3> smooth(vertex_location_count, glm::vec3(0));
+    for (w8_long polygon = 0; polygon < polygon_count; ++polygon) {
+        const glm::vec3 normal(equations[polygon]);
+        for (const auto vertex : {polygons[polygon].x, polygons[polygon].y, polygons[polygon].z})
+            smooth[shade_indices ? shade_indices[vertex] : vertex] += normal;
     }
+    auto* normals = getVertexNormal();
+    for (std::size_t vertex = 0; vertex < vertex_location_count; ++vertex)
+        normals[vertex] = normalizedOrZero(smooth[shade_indices ? shade_indices[vertex] : vertex]);
 }
 
 // FUNCTION: SURRENDER 0x1003E690
@@ -581,34 +464,15 @@ void srMeshModel::relocateVertices(const srVector3T<float>& offset)
     setDirty(DIRTY_TRI_MESH);
 }
 
-/* Retail (0x1003E9B0) accumulates all three sums on the x87 stack. At the
-   end it spills only the y sum to float, then scales each sum by 1/count
-   and stores it as a float. That spill is a VC6 register-allocation side
-   effect, and none of the plain float formulations tried reproduced it. So
-   the sums are doubles (what the 53-bit stack holds), and float
-   consistency keeps the one explicit rounding of the y sum. */
 // FUNCTION: SURRENDER 0x1003E9B0
 void srMeshModel::centerVertices()
 {
-    if (vertex_location_count != 0) {
-        srVector3T<float>* vertices = getVertexLoc();
-        w8_long count = vertex_location_count;
-        double sum_x = 0.0;
-        double sum_y = 0.0;
-        double sum_z = 0.0;
-        for (w8_long index = 0; index < count; index++) {
-            sum_x += vertices[index].x;
-            sum_y += vertices[index].y;
-            sum_z += vertices[index].z;
-        }
-        float spilled_y = static_cast<float>(sum_y);
-        double inverse = 1.0 / count;
-        srVector3T<float> offset;
-        offset.x = static_cast<float>(-(sum_x * inverse));
-        offset.y = static_cast<float>(-(spilled_y * inverse));
-        offset.z = static_cast<float>(-(sum_z * inverse));
-        relocateVertices(offset);
-    }
+    if (vertex_location_count == 0)
+        return;
+    glm::dvec3 sum(0);
+    for (const auto& vertex : std::span(getVertexLoc(), vertex_location_count))
+        sum += glm::dvec3(vertex.glmValue());
+    relocateVertices(glm::vec3(-sum / double(vertex_location_count)));
 }
 
 // FUNCTION: SURRENDER 0x1003EA90
@@ -617,19 +481,10 @@ double srMeshModel::getAverageRadius()
     if (vertex_location_count == 0) {
         return 0.0;
     }
-    srVector3T<float>* vertices = getVertexLoc();
-    w8_long count = vertex_location_count;
-    double radius = 0.0;
-    if (0 < count) {
-        for (w8_long index = 0; index < count; index++) {
-            radius =
-                sqrt(vertices[index].x * vertices[index].x + vertices[index].z * vertices[index].z +
-                     vertices[index].y * vertices[index].y) +
-                radius;
-        }
-        return radius / count;
-    }
-    return 0.0 / count;
+    double radius = 0;
+    for (const auto& vertex : std::span(getVertexLoc(), vertex_location_count))
+        radius += vertex.Length();
+    return radius / vertex_location_count;
 }
 
 // FUNCTION: SURRENDER 0x1003EB20
@@ -747,12 +602,12 @@ void srMeshModel::updateTriMesh()
     tri_mesh.normals = getVertexNormal();
     for (w8_long pass = 0; pass < 4; pass++) {
         for (w8_long side = 0; side < 2; side++) {
-            tri_mesh.materials[pass][side] = static_cast<srMaterial*>(materials[pass][side].get());
+            tri_mesh.materials[pass][side] = std::static_pointer_cast<srMaterial>(materials[pass][side]);
             tri_mesh.vertex_materials[pass][side] =
                 getVertexMaterial(pass, static_cast<e_side>(side), 0);
         }
         for (w8_long layer = 0; layer < 2; layer++) {
-            tri_mesh.textures[pass][layer] = (srTextureIFace*)textures[pass][layer];
+            tri_mesh.textures[pass][layer] = textures[pass][layer];
             tri_mesh.poly_textures[pass][layer] = getPolyTexture(pass, layer, 0);
             tri_mesh.texcoords[pass][layer] = getVertexTexCoords(pass, layer, 0);
         }
@@ -783,7 +638,6 @@ void srMeshModel::setBounds(const srVector3T<float>& minimum, const srVector3T<f
     bounds_center = center;
     bounds_radius = radius;
     clearDirty(DIRTY_BOUNDS);
-    updateAllClients(Client::UPDATE_BOUNDS);
     setDirty(DIRTY_TRI_MESH);
 }
 
@@ -839,12 +693,6 @@ glm::vec4* srMeshModel::getVertexDCG(w8_long vertex, int table)
         setDirty(DIRTY_TRI_MESH);
     }
     return slot.empty() ? nullptr : slot.data();
-}
-
-// FUNCTION: SURRENDER 0x10041B00
-srClass* srMeshModel::vInstance()
-{
-    return new srMeshModel(0, 0);
 }
 
 // FUNCTION: SURRENDER 0x1003CEA0
@@ -1313,7 +1161,7 @@ void srMeshModel::dump(std::ostream& stream)
     for (pass = 0; pass < 4; ++pass) {
         srShader* shaders = getPolyShader(pass, 0);
         srVector3i* uv = getPolyUVIndex(pass, 0);
-        srPtr<srTextureIFace>* textures[2];
+        std::shared_ptr<srTextureIFace>* textures[2];
         bool defined = false;
         for (stage = 0; stage < 2; ++stage) {
             textures[stage] = getPolyTexture(pass, stage, 0);
@@ -1358,8 +1206,8 @@ void srMeshModel::dump(std::ostream& stream)
         for (stage = 0; stage < 2; ++stage) {
             uvs[stage] = getVertexTexCoords(pass, stage, 0);
         }
-        srPtr<srMaterialIFace>* front = getVertexMaterial(pass, SIDE_FRONT, 0);
-        srPtr<srMaterialIFace>* back = getVertexMaterial(pass, SIDE_BACK, 0);
+        std::shared_ptr<srMaterialIFace>* front = getVertexMaterial(pass, SIDE_FRONT, 0);
+        std::shared_ptr<srMaterialIFace>* back = getVertexMaterial(pass, SIDE_BACK, 0);
         bool defined = dig != 0 || scg != 0 || dcg != 0 || front != 0 || back != 0;
         for (stage = 0; stage < 2; ++stage) {
             if (uvs[stage] != 0) {
@@ -1417,7 +1265,7 @@ void srMeshModel::dump(std::ostream& stream)
             }
             for (stage = 0; stage < 2; ++stage) {
                 if (getPolyTexture(pass, stage, 0) != 0) {
-                    srPtr<srTextureIFace>* textures = getPolyTexture(pass, stage, 1);
+                    std::shared_ptr<srTextureIFace>* textures = getPolyTexture(pass, stage, 1);
                     if (textures[polygon] != textures[polygon - 1]) {
                         shared = 0;
                     }
@@ -1444,7 +1292,7 @@ void srMeshModel::dump(std::ostream& stream)
         }
         for (stage = 0; stage < 2; ++stage) {
             if (getPolyTexture(pass, stage, 0) != 0) {
-                srPtr<srTextureIFace>* textures = getPolyTexture(pass, stage, 1);
+                std::shared_ptr<srTextureIFace>* textures = getPolyTexture(pass, stage, 1);
                 changes = 1;
                 for (polygon = 1; polygon < polygon_count; ++polygon) {
                     if (textures[polygon] != textures[polygon - 1]) {
@@ -1456,7 +1304,7 @@ void srMeshModel::dump(std::ostream& stream)
         }
         for (side = 0; side < 2; ++side) {
             if (getVertexMaterial(pass, static_cast<e_side>(side), 0) != 0) {
-                srPtr<srMaterialIFace>* materials =
+                std::shared_ptr<srMaterialIFace>* materials =
                     getVertexMaterial(pass, static_cast<e_side>(side), 1);
                 changes = 1;
                 for (vertex = 1; vertex < vertex_location_count; ++vertex) {
@@ -1576,30 +1424,12 @@ void srTriMeshPipeline::FlushSlots()
 
     if (bounds_source != srTriMeshPipeline::BOUNDS_SPHERE) {
         if (bounds_source == srTriMeshPipeline::BOUNDS_FROM_VERTICES && vertex_count != 0) {
-            assert(vertex_count != 0);
-            auto lower = positions[0].glmValue();
-            auto upper = lower;
-            for (std::size_t point_index = 1; point_index < vertex_count; ++point_index) {
-                const auto& point = positions[point_index];
-                const auto v = point.glmValue();
-                // Keep the comparison order for NaNs in recovered bounds.
-                for (int c = 0; c < 3; ++c) {
-                    if (v[c] >= lower[c]) {
-                        if (v[c] > upper[c])
-                            upper[c] = v[c];
-                    } else
-                        lower[c] = v[c];
-                }
-            }
-            bounds_minimum = lower;
-            bounds_maximum = upper;
+            const auto box = boundingBox(std::span<const srVector3>(positions, vertex_count));
+            bounds_minimum = box.minimum;
+            bounds_maximum = box.maximum;
         }
 
-        srVector3T<float> center;
-        center.Set((bounds_minimum.x + bounds_maximum.x) * 0.5,
-                   (bounds_minimum.y + bounds_maximum.y) * 0.5,
-                   (bounds_minimum.z + bounds_maximum.z) * 0.5);
-        bounds_center = center;
+        bounds_center = (bounds_minimum + bounds_maximum) * 0.5f;
 
         bounds_radius = (bounds_center - bounds_minimum).Length() * 1.001f;
     }
@@ -1928,7 +1758,7 @@ void srMeshModel::renderTriMesh(srGERD& renderer, const TriMesh& mesh)
                     }
 
                     if (mesh.vertex_materials[pass][material_side] == 0) {
-                        srMaterialIFace* material = mesh.materials[pass][material_side];
+                        srMaterialIFace* material = mesh.materials[pass][material_side].get();
                         pipeline->material = material;
                         pipeline->current_record->material = material;
                     } else {
@@ -1959,7 +1789,7 @@ void srMeshModel::renderTriMesh(srGERD& renderer, const TriMesh& mesh)
 
                     for (w8_long layer = 0; layer < 2; ++layer) {
                         if (mesh.poly_textures[pass][layer] == 0) {
-                            srTextureIFace* texture = mesh.textures[pass][layer];
+                            srTextureIFace* texture = mesh.textures[pass][layer].get();
                             (&pipeline->texture0)[layer] = texture;
                             pipeline->current_pass->textures[layer] = texture;
                         } else {

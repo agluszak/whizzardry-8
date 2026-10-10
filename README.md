@@ -102,6 +102,13 @@ transfers, CPU surfaces, pixel/blitter differentials, offline/positional audio,
 typed ownership/lifetimes, fatal assertions, movie decoding and SurRender interfaces.
 GPU tests need a working
 display/Vulkan driver; `native_events` uses SDL's dummy driver.
+The `linux-asan` configure/build/test presets run the same suite with AddressSanitizer
+and leak detection. CI runs both presets with the encrypted licensed-asset workflow.
+The `resource-lifecycle` runtime scenario loads a retail level, renders linked meshes
+and animated textures, evicts and recreates resident textures, quick-loads twice,
+and shuts down with resources resident. Asset-independent fixtures also load serialized
+linked meshes and test interrupted initialization and destruction after `srExit()`.
+
 CI builds Linux with native Clang; the first-party host-width wide-string import
 check runs only on Unix. macOS, Windows and interactive graphics/gameplay remain
 unverified in CI.
@@ -169,9 +176,13 @@ iron-man timestamp validator currently exists. Cross-host birth-time identity
 and a full iron-man save/load roundtrip remain unverified.
 
 SurRender keeps its scene graph, mesh/material data, rendering pipeline and game
-format identities. Its remaining `srRegistry` facade provides named object reuse
-and typed iteration used by the game; standard maps own class metadata and index
-each live object once. Names are case-sensitive and may be shared. Name lookup
+format identities. Objects have ordinary C++ owners: scene nodes are owned by
+their parents, meshes by their model head, and shared materials, textures, models,
+palettes and surfaces by `std::shared_ptr`. Surface pixels live in SDL surfaces.
+Loaded materials, textures, monster scripts and level meshes are reused through
+name-keyed weak caches, not the registry. The remaining `srRegistry` facade
+provides the named lookup and typed iteration gameplay uses for scene objects;
+standard maps own class metadata and index each live object once. Names are case-sensitive and may be shared. Name lookup
 visits the most recently named object first, and instance iteration visits the
 most recently created object first, with optional exact-class filtering.
 Class IDs, class names and ancestry remain explicit format metadata; they are

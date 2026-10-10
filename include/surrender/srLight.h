@@ -59,24 +59,24 @@ public:
     void disable(e_enable option);
     void enable(e_enable option);
     int isEnabled(e_enable option) const;
-    srVector3T<float> getAmbient() const;
-    srVector3T<float> getDiffuse() const;
+    glm::vec3 getAmbient() const;
+    glm::vec3 getDiffuse() const;
     float getIntensity() const;
-    srVector3T<float> getSpecular() const;
+    glm::vec3 getSpecular() const;
     float getSpotAngle() const;
-    srVector3T<float> getSpotDirection() const;
+    glm::vec3 getSpotDirection() const;
     float getSpotExponent() const;
-    void setAmbient(const srVector3T<float>& color);
-    void setDiffuse(const srVector3T<float>& color);
+    void setAmbient(const glm::vec3& color);
+    void setDiffuse(const glm::vec3& color);
     void setIntensity(float intensity);
-    void setSpecular(const srVector3T<float>& color);
+    void setSpecular(const glm::vec3& color);
     void setSpotAngle(float angle);
-    void setSpotDirection(const srVector3T<float>& direction);
+    void setSpotDirection(const glm::vec3& direction);
     void setSpotExponent(float exponent);
     void setAttenuationModel(e_attenuationModel model);
     e_attenuationModel getAttenuationModel() const;
-    void setAttenuation(const srVector3T<float>& attenuation);
-    srVector3T<float> getAttenuation() const;
+    void setAttenuation(const glm::vec3& attenuation);
+    glm::vec3 getAttenuation() const;
     void getFarAttenuationRange(double& start, double& end) const;
     void getNearAttenuationRange(double& start, double& end) const;
     void setFarAttenuationRange(double start, double end);
@@ -95,12 +95,12 @@ public:
     float near_attenuation;  /* 0x180 */
     float far_attenuation;   /* 0x184 */
 
-    srVector3T<float> opengl_attenuation; /* 0x188 */
+    glm::vec3 opengl_attenuation;    /* 0x188 */
     w8_ulong enable_flags;           /* 0x194 */
-    srVector3T<float> ambient;            /* 0x198 */
-    srVector3T<float> diffuse;            /* 0x1a4 */
-    srVector3T<float> specular;           /* 0x1b0 */
-    srVector3T<float> spot_direction;     /* 0x1bc */
+    glm::vec3 ambient;               /* 0x198 */
+    glm::vec3 diffuse;               /* 0x1a4 */
+    glm::vec3 specular;              /* 0x1b0 */
+    glm::vec3 spot_direction;        /* 0x1bc */
     float spot_angle;                     /* 0x1c8 */
     float spot_exponent;                  /* 0x1cc */
     float intensity;                      /* 0x1d0 */
@@ -108,7 +108,7 @@ public:
     glm::vec4 scaled_ambient;     /* 0x1d8: ambient * intensity */
     glm::vec4 scaled_diffuse;     /* 0x1e8: diffuse * intensity */
     glm::vec4 scaled_specular;    /* 0x1f8: specular * intensity */
-    srVector3T<float> spot_direction_eye; /* 0x208 */
+    glm::vec3 spot_direction_eye; /* 0x208 */
     float spot_cutoff;                    /* 0x214: cos(spot_angle) */
     float attenuation_range;              /* 0x218: scaled far end */
     enum {
@@ -123,4 +123,3 @@ public:
     w8_ulong channel_mask;  /* 0x220 */
 };
 
-W8_ABI_ASSERT(sizeof(srLight) == 0x228, "srLight_must_be_0x228");

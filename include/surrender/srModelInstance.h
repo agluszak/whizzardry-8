@@ -8,12 +8,11 @@
 // VTABLE: SURRENDER 0x10077194
 // class srClassSupport<srModelInstance, srNode, 4352>
 
-// VTABLE: SURRENDER 0x10077150 srModel::Client
 // VTABLE: SURRENDER 0x10077160 srClassSupport<srModelInstance, srNode, 4352>
 // class srModelInstance
-class srModelInstance : public srClassSupport<srModelInstance, srNode, 0x1100>,
-                                      public srModel::Client {
+class srModelInstance : public srClassSupport<srModelInstance, srNode, 0x1100> {
 public:
+    SR_DLL_IMPORT virtual ~srModelInstance() override;
     SR_DLL_IMPORT srModelInstance(srNode* parent = 0);
 
     SR_DLL_IMPORT srModelInstance& operator=(const srModelInstance& other);
@@ -25,11 +24,19 @@ public:
     }
 
     SR_DLL_IMPORT virtual void dump(std::ostream& stream) override;
-    SR_DLL_IMPORT virtual srClass* vInstance() override;
     SR_DLL_IMPORT virtual void traverse(TraverseInfo& info) override;
     SR_DLL_IMPORT virtual void process(const ProcessInfo& info, e_processType type) override;
     SR_DLL_IMPORT virtual void getLocalBounds(BoundInfo& bounds) override;
-    SR_DLL_IMPORT virtual void updateClient(srModel::Client::e_update update) override;
+
+    // The instance shares ownership of its model; renderers borrow it.
+    srModel* getModel() const
+    {
+        return model_.get();
+    }
+    void setModel(std::shared_ptr<srModel> model)
+    {
+        model_ = std::move(model);
+    }
 
     double getAlignAngle() const;
     srVector3T<float> getAlignAxis() const;
@@ -43,12 +50,12 @@ public:
     srFlags<int> alignment_flags;
 
 protected:
-    SR_DLL_IMPORT virtual ~srModelInstance() override;
 
     srVector3T<float> align_axis;
     float align_angle;
     w8_ulong exclusion_mask;
+
+private:
+    std::shared_ptr<srModel> model_;
 };
 
-W8_ABI_ASSERT((sizeof(srModelInstance) == 0x160), "srModelInstance_must_be_0x160");
-W8_ASSERT_BASE_END(srModelInstance, srModel::Client, alignment_flags, 0x138);

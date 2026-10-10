@@ -197,7 +197,7 @@ float GetAniMeshFrameRadius(W8AniMesh* mesh, unsigned char frame)
 
                 model->getBoundingBox(model_minimum, model_maximum);
                 ExpandBounds(&minimum, &maximum, &model_minimum, &model_maximum);
-                model = model->next;
+                model = model->Next();
             } while (model != 0);
 
             return static_cast<float>((minimum - maximum).Length() * g_double_half);
@@ -334,7 +334,7 @@ try
 
                 frame_model->getBoundingBox(minimum, maximum);
                 ExpandBounds(&mesh->bounds_minimum, &mesh->bounds_maximum, &minimum, &maximum);
-                frame_model = frame_model->next;
+                frame_model = frame_model->Next();
             }
         }
     }
@@ -452,7 +452,7 @@ unsigned char UnloadAniMesh(W8AniMesh* mesh, bool force)
         return 0;
     }
     if (mesh->flags.single_instance) {
-        mesh->meshes[0]->release();
+        delete mesh->meshes[0];
     } else {
         if (!mesh->flags.frame_count_loaded) {
             if (LoadAniMesh(0, mesh, true) == 0) {
@@ -469,7 +469,7 @@ unsigned char UnloadAniMesh(W8AniMesh* mesh, bool force)
 
             instance->setParent(0, 1);
             instance->setFlag(srNode::FLAG_DISABLE);
-            instance->release();
+            delete instance;
         }
     }
     g_animesh_cache_bytes -= mesh->loaded_bytes;

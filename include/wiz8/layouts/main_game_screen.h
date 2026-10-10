@@ -12,13 +12,14 @@ class stTextureAnim;
 class stModelInstance2D;
 
 #include <cstddef>
+#include <memory>
 
 /* One animated cursor resource the main-game / camp screens can install. The
    object is an stTextureAnim; size and hotspot are the unsigned shorts
    ApplyCurrentCursor feeds to the mouse-cursor surface helpers. */
 struct W8MainGameResourceSlot {
     int image_id;             /* Historical offset 0x00: GetCatalogVideoObjectHandle / YOffset key */
-    stTextureAnim* object;    /* Historical offset 0x04: loaded cursor anim */
+    std::shared_ptr<stTextureAnim> object;    /* Historical offset 0x04: loaded cursor anim */
     unsigned int frame_count; /* Historical offset 0x08: frames appended into the anim */
     unsigned short size_x;    /* Historical offset 0x0c */
     unsigned short size_y;    /* Historical offset 0x0e */

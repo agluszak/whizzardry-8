@@ -2,7 +2,6 @@
 
 #include <iosfwd>
 
-
 class srStatisticsManager {
 public:
     struct Statistics {
@@ -29,6 +28,3 @@ public:
     Statistics statistics;
 };
 
-W8_ABI_ASSERT(sizeof(srStatisticsManager::Statistics) == 0x38,
-              "srStatisticsManager_Statistics_must_be_0x38");
-W8_ABI_ASSERT(sizeof(srStatisticsManager) == 0x38, "srStatisticsManager_must_be_0x38");

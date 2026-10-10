@@ -1,3 +1,4 @@
+#include <memory>
 #include <iostream>
 
 #include <thread>
@@ -58,19 +59,19 @@ int __cdecl srInit()
         srCore.statistics_manager = std::make_unique<srStatisticsManager>();
         srCore.statistics_manager->reset();
         srCore.setFilter(0);
-        srCore.palette = new srPalette(0, 0x100);
+        srCore.palette = std::make_shared<srPalette>(nullptr, 0x100);
         srCore.palette->setName("SurRender default palette");
-        srCore.root_node = new srScene(0);
+        srCore.root_node = std::make_unique<srScene>(nullptr);
         srCore.root_node->setName("SurRender root node");
-        srCore.material = new srMaterial;
+        srCore.material = std::make_unique<srMaterial>();
         srCore.material->setName("SurRender default material");
         srDebugPrintf(0xfe, "srInit() -- setting up default texture/surface\n");
-        srCore.surface = new srColorSurface(srPixelConvert::SURFACE_L8, 0x40, 0x40);
+        srCore.surface = std::make_shared<srColorSurface>(srPixelConvert::SURFACE_L8, 0x40, 0x40);
         srCore.surface->setName("SurRender default surface");
         for (int i = 0; i < 0x1000; ++i) {
             srCore.surface->setPixelRaw(i & 0x3f, i / 64, srLogo[i]);
         }
-        srCore.texture = new srTextureMap(srCore.surface);
+        srCore.texture = std::make_unique<srTextureMap>(srCore.surface);
         srCore.texture->setName("SurRender default texture");
         srDebugPrintf(0xfe, "srInit() -- done\n");
         srCore.initialized = 1;
@@ -120,16 +121,11 @@ int __cdecl srExit()
     if (srCore.initialized != 0) {
         srDebugPrintf(0xfe, "srExit() -- shutting down SurRender\n");
         srGERD::releaseAll();
-        srCore.root_node->release();
-        srCore.root_node = 0;
-        srCore.texture->release();
-        srCore.texture = 0;
-        srCore.surface->release();
-        srCore.surface = 0;
-        srCore.palette->release();
-        srCore.palette = 0;
-        srCore.material->release();
-        srCore.material = 0;
+        srCore.root_node.reset();
+        srCore.texture.reset();
+        srCore.surface.reset();
+        srCore.palette.reset();
+        srCore.material.reset();
         srCore.initialized = 0;
         srCore.statistics_manager.reset();
         srCore.timer.reset();
@@ -146,7 +142,7 @@ int __cdecl srExit()
 // FUNCTION: SURRENDER 0x10015a70
 srColorSurfaceIFace* srCore::getSurface() const
 {
-    return surface;
+    return surface.get();
 }
 
 // FUNCTION: SURRENDER 0x10015AD0
@@ -166,7 +162,7 @@ void srCore::setFilter(srFilter* filter)
 }
 
 // FUNCTION: SURRENDER 0x10015B50
-srPalette* srCore::getPalette() const
+std::shared_ptr<srPalette> srCore::getPalette() const
 {
     return palette;
 }
@@ -174,13 +170,13 @@ srPalette* srCore::getPalette() const
 // FUNCTION: SURRENDER 0x10015B00
 srNode* srCore::getRootNode() const
 {
-    return root_node;
+    return root_node.get();
 }
 
 // FUNCTION: SURRENDER 0x10015A60
 srTexture* srCore::getTexture() const
 {
-    return texture;
+    return texture.get();
 }
 
 /* The provider's process-wide core object. */
@@ -197,11 +193,11 @@ srCore::~srCore() = default;
 void srCore::reset()
 {
     multi_thread = 0;
-    texture = 0;
-    surface = 0;
+    texture.reset();
+    surface.reset();
     filter = 0;
-    root_node = 0;
-    palette = 0;
+    root_node.reset();
+    palette.reset();
     debug_level = 1;
     next_unique_id = 0;
 }

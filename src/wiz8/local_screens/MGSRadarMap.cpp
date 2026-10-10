@@ -18,6 +18,7 @@
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/engine_code/stModelInstance.h"
 #include "wiz8/float_constants.h"
+#include <glm/gtx/rotate_vector.hpp>
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/item_spawning.h"
 #include "wiz8/local_code/ControlsRect.h"
@@ -171,7 +172,7 @@ static stModelInstance2D* AcquireRadarBlip(int sector, bool lit)
             first.x = g_radar_blip_colors[group][0];
             first.y = g_radar_blip_colors[group][1];
             first.z = g_radar_blip_colors[group][2];
-            icon->SetGlowColors(&first, &second);
+            icon->SetGlowColors(first, second);
             icon->render_state.render_depth = 1000;
         }
     }
@@ -199,7 +200,7 @@ void ReleaseRadarMap(void)
         while (pool->count != 0) {
             stModelInstance2D* icon = pool->RemoveAt(0);
             if (icon != 0) {
-                icon->release();
+                delete icon;
             }
         }
     }
@@ -433,7 +434,6 @@ void UpdateRadarBlips(void)
 static unsigned char PlaceRadarBlip(srVector3T<float>* delta, int group, bool lit)
 {
     int ring = 0;
-    glm::mat3 rotation;
     int left;
     int top;
 
@@ -445,16 +445,8 @@ static unsigned char PlaceRadarBlip(srVector3T<float>* delta, int group, bool li
         ring = 1;
     }
 
-    rotation = glm::mat3(1);
-    double angle = g_radar_pi * g_float_inverse_half_turn_degrees * (0x168 - g_status.party_facing);
-    if (angle != g_double_zero) {
-        float cosine = static_cast<float>(cos(angle));
-        float sine = static_cast<float>(sin(angle));
-        rotation *=
-            glm::mat3_cast(glm::angleAxis(float(std::atan2(sine, cosine)), glm::vec3(0, 1, 0)));
-    }
-
-    (*delta) = rotation * (*delta).glmValue();
+    const float angle = glm::radians(static_cast<float>(360 - g_status.party_facing));
+    *delta = glm::rotateY(delta->glmValue(), angle);
     delta->y = 0.0f;
 
     float distance = delta->Length();

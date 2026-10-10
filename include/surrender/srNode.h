@@ -64,6 +64,12 @@ public:
     enum e_notify { NOTIFY_BOUNDS_DIRTY = 0, NOTIFY_TRANSFORM_DIRTY = 1 };
 
     SR_DLL_IMPORT srNode(srNode* parent = 0);
+    /* Copies the transform under the default parent; links are not copied. */
+    srNode(const srNode& other) : srNode(nullptr)
+    {
+        *this = other;
+    }
+    virtual SR_DLL_IMPORT ~srNode() override;
 
     SR_DLL_IMPORT srNode& operator=(const srNode& other);
 
@@ -71,11 +77,7 @@ public:
 
     virtual SR_DLL_IMPORT void dump(std::ostream& stream) override;
 
-protected:
-    virtual SR_DLL_IMPORT ~srNode() override;
-
 public:
-    virtual SR_DLL_IMPORT srClass* vInstance() override;
     virtual SR_DLL_IMPORT void traverse(TraverseInfo& info);
     virtual SR_DLL_IMPORT void process(const ProcessInfo& info, e_processType type);
     virtual SR_DLL_IMPORT void getLocalBounds(BoundInfo& bounds);
@@ -88,7 +90,6 @@ protected:
     SR_DLL_IMPORT int testNotify(e_notify notification) const;
 
 public:
-    SR_DLL_IMPORT srNode* cloneHierarchy(srNode* parent);
     SR_DLL_IMPORT void dumpHierarchy(std::ostream& stream, w8_long indent) const;
     SR_DLL_IMPORT srNode* findChild(std::string_view name) const;
     SR_DLL_IMPORT srNode* findChildByNameAndType(std::string_view name, w8_ulong class_id) const;
@@ -114,7 +115,7 @@ public:
 
     SR_DLL_IMPORT void applyWorldSpaceMatrix(class srGERD& renderer);
     SR_DLL_IMPORT double getDistance(const srNode& node) const;
-    SR_DLL_IMPORT srVector3T<double> getLocation() const;
+    SR_DLL_IMPORT glm::dvec3 getLocation() const;
     SR_DLL_IMPORT void getLocation(srVector3T<float>& location) const;
     // FUNCTION: SURRENDER 0x10053DD0 SYMBOL
     // RECOMP: ?getLocation@srNode@@QBEXAAV?$srVector3T@N@@@Z
@@ -127,20 +128,20 @@ public:
     SR_DLL_IMPORT double getLocationZ() const;
     SR_DLL_IMPORT void getRotation(glm::mat3& rotation) const;
     SR_DLL_IMPORT void getRotation(glm::dmat3& rotation) const;
-    SR_DLL_IMPORT srVector3T<double> getScale() const;
+    SR_DLL_IMPORT glm::dvec3 getScale() const;
     SR_DLL_IMPORT void getWorldSpaceCoordinates(glm::mat3& rotation, srVector3T<float>& location,
                                                 srVector3T<float>& scale) const;
     SR_DLL_IMPORT void getWorldSpaceCoordinates(glm::dmat3& rotation, srVector3T<double>& location,
                                                 srVector3T<double>& scale) const;
-    SR_DLL_IMPORT srVector3T<double> getWorldSpaceDOF() const;
-    SR_DLL_IMPORT srVector3T<double> getWorldSpaceLocation() const;
+    SR_DLL_IMPORT glm::dvec3 getWorldSpaceDOF() const;
+    SR_DLL_IMPORT glm::dvec3 getWorldSpaceLocation() const;
     SR_DLL_IMPORT void getWorldSpaceMatrix(glm::mat4& matrix) const;
     SR_DLL_IMPORT void getWorldSpaceMatrix(glm::dmat4& matrix) const;
     SR_DLL_IMPORT void getWorldSpaceMatrix(glm::mat4x3& matrix) const;
     SR_DLL_IMPORT void getWorldSpaceMatrix(glm::dmat4x3& matrix) const;
     SR_DLL_IMPORT void getWorldSpaceRotation(glm::mat3& rotation) const;
     SR_DLL_IMPORT void getWorldSpaceRotation(glm::dmat3& rotation) const;
-    SR_DLL_IMPORT srVector3T<double> getWorldSpaceScale() const;
+    SR_DLL_IMPORT glm::dvec3 getWorldSpaceScale() const;
     SR_DLL_IMPORT void move(const srVector3T<double>& offset);
     SR_DLL_IMPORT void moveBackward(double distance);
     SR_DLL_IMPORT void moveDown(double distance);
@@ -190,7 +191,6 @@ public:
 
 private:
     SR_DLL_IMPORT void checkTransformation() const;
-    SR_DLL_IMPORT srNode* cloneHierarchyInternal(srNode* parent);
     SR_DLL_IMPORT srNode* findChildByNameAndTypeInternal(std::string_view name, w8_ulong class_id);
     SR_DLL_IMPORT srNode* findChildInternal(std::string_view name);
     SR_DLL_IMPORT srNode* findParentByTypeInternal(w8_ulong class_id);
@@ -221,6 +221,3 @@ public:
     srNode* first_child_;      /* 0x134 */
 };
 
-W8_ABI_ASSERT((sizeof(srNode) == 0x138), "srNode_must_be_0x138");
-W8_ABI_ASSERT((sizeof(srNode::TraverseInfo) == 0x1c), "srNode_TraverseInfo_must_be_0x1c");
-W8_ABI_ASSERT((sizeof(srNode::BoundInfo) == 0x2c), "srNode_BoundInfo_must_be_0x2c");

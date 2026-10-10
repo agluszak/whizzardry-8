@@ -1,6 +1,7 @@
 #include <fmt/format.h>
 #include "wiz8/unicode.h"
 #include "wiz8/engine_code/Item.h"
+#include <glm/gtx/euler_angles.hpp>
 
 #include <math.h>
 #include <stdio.h>
@@ -160,7 +161,7 @@ W8ItemRep::W8ItemRep()
 W8ItemRep::~W8ItemRep()
 {
     if (m_psrMesh != 0) {
-        m_psrMesh->release();
+        delete m_psrMesh;
     }
 }
 
@@ -277,10 +278,7 @@ void W8Item::UpdateAnimation()
     if ((rep->flags & W8_ITEM_ENTITY_ROTATE) != 0 && gfKeyState[VK_CONTROL] == 0) {
         glm::mat3 rotation;
         m_pRep->GetRotation(&rotation);
-        double cosine = cos(-0.1963495375);
-        double sine = sin(-0.1963495375);
-        rotation *=
-            glm::mat3_cast(glm::angleAxis(float(std::atan2(sine, cosine)), glm::vec3(0, 1, 0)));
+        rotation *= glm::mat3(glm::eulerAngleY(-0.1963495375f));
         srNode* mesh = rep->m_psrMesh;
         m_pRep->SetRotation(&rotation);
         if (mesh->first_child_ == 0) {
@@ -348,15 +346,7 @@ unsigned char W8Item::GetSearchPosition(srVector3T<float>* location)
 // FUNCTION: WIZ8 0x0049FBF0
 void W8Item::SetYaw(float angle)
 {
-    glm::mat3 rotation;
-    rotation = glm::mat3(1);
-    double yaw = NormalizeAngle(angle);
-    if (yaw != 0.0) {
-        double cosine = cos(yaw);
-        double sine = sin(yaw);
-        rotation *=
-            glm::mat3_cast(glm::angleAxis(float(std::atan2(sine, cosine)), glm::vec3(0, 1, 0)));
-    }
+    glm::mat3 rotation(glm::eulerAngleY(static_cast<float>(NormalizeAngle(angle))));
     srNode* mesh = static_cast<W8ItemRep*>(m_pRep)->m_psrMesh;
     m_pRep->SetRotation(&rotation);
     if (mesh->first_child_ == 0) {

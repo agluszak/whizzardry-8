@@ -250,10 +250,7 @@ public:
     int y;
 };
 
-class srVector3i {
-public:
-    srVector3i() {}
-
+struct srVector3i {
     int x;
     int y;
     int z;

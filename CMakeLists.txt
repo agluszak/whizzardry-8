@@ -95,7 +95,7 @@ pkg_check_modules(FFMPEG REQUIRED IMPORTED_TARGET
 
 # Settings shared by every native component.
 add_library(wiz8_native_settings INTERFACE)
-target_compile_definitions(wiz8_native_settings INTERFACE NDEBUG)
+target_compile_definitions(wiz8_native_settings INTERFACE NDEBUG GLM_ENABLE_EXPERIMENTAL)
 # Keep the transitional source semantics with either Clang command-line frontend.
 if(CMAKE_CXX_COMPILER_FRONTEND_VARIANT STREQUAL "MSVC")
     set(WIZ8_COMPAT_OPTIONS

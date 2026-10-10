@@ -1,6 +1,5 @@
 #pragma once
 
-
 class srPalette;
 
 class srPixelConvert {
@@ -81,11 +80,6 @@ public:
     static SR_DLL_IMPORT void mapPixelFormat(e_surfaceType type, PixelFormat& format);
     static void selectFuncs(const PixelFormat& format, ConversionFunc& write, ConversionFunc& read);
 };
-
-W8_ABI_ASSERT(sizeof(srPixelConvert::PixelFormat) == 0x14,
-              "srPixelConvert_PixelFormat_must_be_0x14");
-W8_ABI_ASSERT(sizeof(srPixelConvert::ConversionInfo) == 0x14,
-              "srPixelConvert_ConversionInfo_must_be_0x14");
 
 /* Builds the conversion lookup tables (channel expansion/reduction ramps,
    dither cube, channel weights, decode/grayscale palettes) at library init. */

@@ -9,6 +9,7 @@
 #include <mutex>
 #include <string>
 #include <string_view>
+#include <type_traits>
 #include <unordered_map>
 #include <vector>
 
@@ -30,7 +31,7 @@ public:
     };
 
     srRegistry();
-    ~srRegistry() = default;
+    ~srRegistry();
     srRegistry(const srRegistry&) = delete;
     srRegistry& operator=(const srRegistry&) = delete;
 
@@ -98,18 +99,23 @@ public:
     SR_DLL_IMPORT int isNamed() const;
     SR_DLL_IMPORT int matchClassID(w8_ulong class_id) const;
 
+    virtual SR_DLL_IMPORT ~srRuntimeClass();
+
 protected:
     SR_DLL_IMPORT srRuntimeClass();
-    virtual SR_DLL_IMPORT ~srRuntimeClass();
+    /* A copy is a new registered object; identity is never copied or assigned. */
+    srRuntimeClass(const srRuntimeClass&) : srRuntimeClass() {}
+    srRuntimeClass& operator=(const srRuntimeClass&) { return *this; }
 
 private:
     static SR_DLL_IMPORT w8_ulong sGetClassID();
 
     friend class srRegistry;
+    // Borrowed registration, detached by registry teardown before metadata is freed.
+    srRegistry* registry_ = nullptr;
     std::string name;
     w8_ulong id;
 };
-
 
 class srClass : public srRuntimeClass {
 public:
@@ -131,39 +137,12 @@ public:
     virtual SR_DLL_IMPORT void verify(srRuntimeClass::e_verify mode) override;
 
 protected:
-    virtual SR_DLL_IMPORT ~srClass() override;
-
-public:
-    virtual srClass* vInstance() = 0;
-
-    /* Slot 7; clone is the nonvirtual forwarder onto it, as instance is onto vInstance. */
-    virtual srClass* vClone() = 0;
-
-    // FUNCTION: SURRENDER 0x1000E860 SYMBOL
-    // RECOMP: ?clone@srClass@@QAEPAV1@XZ
-    srClass* clone()
-    {
-        return vClone();
-    }
-    SR_DLL_IMPORT srClass* instance();
-    SR_DLL_IMPORT int release() const;
-    SR_DLL_IMPORT void addReference() const;
-    SR_DLL_IMPORT w8_long getReferenceCount() const;
-    SR_DLL_IMPORT void autoRelease();
-    SR_DLL_IMPORT void touch();
-    SR_DLL_IMPORT w8_ulong getTimestamp() const;
-
-protected:
     SR_DLL_IMPORT srClass();
-    SR_DLL_IMPORT w8_ulong allocateTimeStamps(w8_ulong count) const;
-
-private:
-    static SR_DLL_IMPORT w8_ulong _timestampCtr;
-
-    mutable w8_long reference_count;
-    w8_ulong timestamp;
+    srClass(const srClass& other) : srRuntimeClass(other)
+    {
+        *this = other;
+    }
 };
-
 
 /* Supplies format identity and cloning for a concrete scene/data type. */
 template <class Derived, class Base, w8_ulong ClassID>
@@ -204,18 +183,12 @@ public:
         sGetClassNode();
     }
 
-    /* Give the copy its own identity and scene links. Derived members are copied by
-       the concrete constructor after this base has been initialized. */
-    srClassSupport(const Derived& other) : Base()
-    {
-        sGetClassNode();
-        Base::operator=(other);
-    }
-
 public:
     /* Forwarding constructors. They are templates so that exporting an instantiation whose Base
        lacks a given constructor does not instantiate a forwarding body for it. */
-    template <class A0> explicit srClassSupport(A0 first_argument) : Base(first_argument)
+    template <class A0>
+        requires(!std::is_base_of_v<srClassSupport, A0>)
+    explicit srClassSupport(A0 first_argument) : Base(first_argument)
     {
         sGetClassNode();
     }
@@ -242,16 +215,16 @@ public:
     }
 
     srClassSupport& operator=(const srClassSupport&) = default;
-
-protected:
-    ~srClassSupport() override = default;
-
-public:
-    /* Slot 7 of every registry class; returns srClass* at every level. */
-    virtual srClass* vClone() override
-    {
-        Derived* copy = static_cast<Derived*>(this->vInstance());
-        *copy = *static_cast<const Derived*>(this);
-        return copy;
-    }
 };
+
+/* Exact-class downcast by format class ID; the engine builds without RTTI. */
+template <class T, class U> T* sr_cast(U* object)
+{
+    return object != nullptr && object->getClassID() == T::CLASS_ID ? static_cast<T*>(object)
+                                                                   : nullptr;
+}
+
+template <class T, class U> T* sr_cast(const std::shared_ptr<U>& object)
+{
+    return sr_cast<T>(object.get());
+}

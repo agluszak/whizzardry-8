@@ -1589,7 +1589,7 @@ try
             named = fmt::format("Prop: {}", prop->m_name);
             instance->setName(named.c_str());
             mesh_model = static_cast<stMeshModel*>(instance->getModel());
-            for (; mesh_model != 0; mesh_model = mesh_model->next) {
+            for (; mesh_model != 0; mesh_model = mesh_model->Next()) {
                 if (AnimationIsRunning(animation) == 0) {
                     mesh_model->GetVertexSunlight(true);
                 }
