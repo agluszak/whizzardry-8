@@ -289,52 +289,24 @@ BOOLEAN ReadEnvironmentColourTable(wiz8::File* file)
     return ReadColourTable(file, g_environment_colours0);
 }
 
+static void BuildColourRamp(EnvironmentColour (&colours)[256])
+{
+    for (int index = 0; index < 256; ++index) {
+        const float value = (index < 128 ? index : 255 - index) * (1.0f / 127.0f);
+        colours[index] = value;
+    }
+}
+
 // FUNCTION: WIZ8 0x00483210
 void BuildEnvironmentColourRamp(void)
 {
-    int index;
-    float value;
-
-    for (index = 0; index < 128; ++index) {
-        value = index * (1.0f / 127.0f);
-        g_environment_colours0[index] = value;
-        ClampEnvironmentComponent(g_environment_colours0[index].x);
-        ClampEnvironmentComponent(g_environment_colours0[index].y);
-        ClampEnvironmentComponent(g_environment_colours0[index].z);
-    }
-    for (; index < 256; ++index) {
-        value = (255 - index) * (1.0f / 127.0f);
-        g_environment_colours0[index] = value;
-        ClampEnvironmentComponent(g_environment_colours0[index].x);
-        ClampEnvironmentComponent(g_environment_colours0[index].y);
-        ClampEnvironmentComponent(g_environment_colours0[index].z);
-    }
+    BuildColourRamp(g_environment_colours0);
 }
 
 // FUNCTION: WIZ8 0x00483360
 void BuildLightColourRamp(void)
 {
-    int index;
-    float value;
-
-    for (index = 0; index < 128; ++index) {
-        value = index * (1.0f / 127.0f);
-        g_environment_colours1[index].x = value;
-        g_environment_colours1[index].y = value;
-        g_environment_colours1[index].z = value;
-        ClampEnvironmentComponent(g_environment_colours1[index].x);
-        ClampEnvironmentComponent(g_environment_colours1[index].y);
-        ClampEnvironmentComponent(g_environment_colours1[index].z);
-    }
-    for (; index < 256; ++index) {
-        value = (255 - index) * (1.0f / 127.0f);
-        g_environment_colours1[index].x = value;
-        g_environment_colours1[index].y = value;
-        g_environment_colours1[index].z = value;
-        ClampEnvironmentComponent(g_environment_colours1[index].x);
-        ClampEnvironmentComponent(g_environment_colours1[index].y);
-        ClampEnvironmentComponent(g_environment_colours1[index].z);
-    }
+    BuildColourRamp(g_environment_colours1);
 }
 
 /* Refresh the light direction from the day-phase table when the phase turns
