@@ -10,26 +10,26 @@
    `more`.  The terminator is not retained and CRLF is normalised by removing
    the CR after the loop. */
 // FUNCTION: WIZ8 0x004CEE40
-unsigned char ReadTextLine(wiz8::File* handle, char* destination, int capacity, unsigned char* more)
+bool ReadTextLine(wiz8::File* handle, char* destination, int capacity, bool& more)
 try
 {
-    unsigned char result;
+    bool result;
     unsigned int transferred;
     char character;
     int length = 0;
 
     destination[0] = 0;
-    *more = 1;
+    more = true;
 
     for (;;) {
         result = ((transferred = handle->read(&character, 1).bytes) == static_cast<std::size_t>(1));
         if (transferred == 0) {
             result = length != 0;
-            *more = 0;
+            more = false;
             break;
         }
-        if (result == 0) {
-            *more = 0;
+        if (!result) {
+            more = false;
         } else {
             if (character == '\n') {
                 break;
@@ -37,10 +37,10 @@ try
             destination[length++] = character;
         }
         if (length >= capacity - 1) {
-            result = 0;
+            result = false;
             break;
         }
-        if (result == 0) {
+        if (!result) {
             break;
         }
     }
@@ -51,7 +51,7 @@ try
     }
     return result;
 }
-catch (const std::exception&) { *more = 0; return false; }
+catch (const std::exception&) { more = false; return false; }
 
 // FUNCTION: WIZ8 0x004CF690
 void stScript::Clear()
@@ -61,23 +61,23 @@ void stScript::Clear()
 }
 
 // FUNCTION: WIZ8 0x004CF3B0
-unsigned char stScript::Load(const char* path)
+bool stScript::Load(const char* path)
 try
 {
-    unsigned char more = 1;
+    bool more = true;
     int source_line = 0;
     int script_line = 0;
     char buffer[256];
-    if (!path) return 0;
+    if (!path) return false;
     auto handle = wiz8::open_file(path);
 
     for (;;) {
-        if (more == 0) {
-            return 1;
+        if (!more) {
+            return true;
         }
-        while (ReadTextLine(handle.get(), buffer, sizeof(buffer), &more) == 0) {
-            if (more == 0) {
-                return 1;
+        while (!ReadTextLine(handle.get(), buffer, sizeof(buffer), more)) {
+            if (!more) {
+                return true;
             }
         }
 
@@ -109,7 +109,7 @@ try
     }
 }
 
-catch (const std::exception&) { return 0; }
+catch (const std::exception&) { return false; }
 
 /* The label table stores fixed 31-character, case-insensitive identifiers and
    the script line to resume at. A null query or a miss has the source's -1

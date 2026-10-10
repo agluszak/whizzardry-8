@@ -75,19 +75,8 @@ W8_ABI_ASSERT(sizeof(W8AIMissile) == 0x20, "W8AIMissile_must_be_0x20");
 // FUNCTION: WIZ8 0x004a53a0
 W8AIMissile* CopyAIMissile(const W8AIMissile* source)
 {
-    W8AIMissile* copy = static_cast<W8AIMissile*>(malloc(sizeof(W8AIMissile)));
-
-    if (copy == 0) {
-        srAssertFail("pAIMissile", MISSILE_CPP, 0x86d, 0);
-    }
-    copy->kind = source->kind;
-    copy->gravity = source->gravity;
-    copy->speed_per_step = source->speed_per_step;
-    copy->fall_speed = source->fall_speed;
-    copy->last_half_tick = source->last_half_tick;
-    copy->elapsed = source->elapsed;
-    copy->limit = source->limit;
-    copy->unknown_1c = source->unknown_1c;
+    auto* copy = new W8AIMissile(*source);
+    copy->missile = nullptr;
     return copy;
 }
 
@@ -461,7 +450,7 @@ unsigned char LoadMissileCycle(W8GrCycleLoadContext* context, const char* name,
     W8Missile* missile;
     W8AIMissile* ai;
     bool loaded;
-    unsigned char more;
+    bool more;
     bool gravity;
     bool align_camera;
     bool explode_ground;
@@ -476,7 +465,7 @@ unsigned char LoadMissileCycle(W8GrCycleLoadContext* context, const char* name,
     float seconds;
     float intensity;
     W8CameraShakeEffect* effect;
-    W8SoundEvent* sound;
+    std::unique_ptr<W8SoundEvent> sound;
     char path[100];
     char line[100];
     char pacName[52];
@@ -504,7 +493,7 @@ unsigned char LoadMissileCycle(W8GrCycleLoadContext* context, const char* name,
         return 1;
     }
     PauseSharedGameTimers();
-    more = 1;
+    more = true;
     loaded = true;
     gravity = false;
     align_camera = false;
@@ -517,10 +506,10 @@ unsigned char LoadMissileCycle(W8GrCycleLoadContext* context, const char* name,
     if (handle != 0) {
         for (;;) {
             do {
-                if (more == 0 || !loaded) {
+                if (!more || !loaded) {
                     goto close_file;
                 }
-                ReadTextLine(handle.get(), line, 100, &more);
+                ReadTextLine(handle.get(), line, 100, more);
             } while (line[0] == '#');
             pacName[0] = 0;
             pacFileName[0] = '\0';
@@ -617,7 +606,7 @@ unsigned char LoadMissileCycle(W8GrCycleLoadContext* context, const char* name,
                     sound = CreateSoundEvent(sound_kind, cycle, frame, 0, wave_path,
                                              _stricmp(pacLoop, "LOOP") == 0);
                     if (sound != 0) {
-                        (*ppMissile)->AddSoundEvent(sound);
+                        (*ppMissile)->AddSoundEvent(std::move(sound));
                     }
                 }
             } else {
@@ -705,24 +694,15 @@ W8Missile* CreateMissile(unsigned int missile_table_index, srVector3T<float>* so
         if (flight_speed == g_float_zero) {
             flight_speed = missile->lifetime;
         }
-        if (missile->m_pAI != 0) {
-            free(missile->m_pAI);
-        }
-        ai = static_cast<W8AIMissile*>(malloc(sizeof(W8AIMissile)));
-        if (ai != 0) {
-            float scale = flight_speed * g_float_one_thousandth;
-            memset(ai, 0, sizeof(W8AIMissile));
-            ai->speed_per_step = scale;
-            ai->kind = W8_AI_RECORD_MISSILE;
-            ai->gravity = missile->gravity;
-            ai->limit = limit;
-            ai->last_half_tick = g_shared_timer_base->milliseconds() >> 1;
-            ai->missile = missile;
-        }
+        ai = new W8AIMissile{};
+        DestroyAIRecord(missile->m_pAI);
+        ai->speed_per_step = flight_speed * g_float_one_thousandth;
+        ai->kind = W8_AI_RECORD_MISSILE;
+        ai->gravity = missile->gravity;
+        ai->limit = limit;
+        ai->last_half_tick = g_shared_timer_base->milliseconds() >> 1;
+        ai->missile = missile;
         missile->m_pAI = ai;
-        if (ai == 0) {
-            srAssertFail("pMissile->GrObject::GetAI()", MISSILE_CPP, 0x120, 0);
-        }
         ai->fall_speed = static_cast<float>(sin(-pitch) * flight_speed * g_float_one_thousandth);
         ai->limit = limit;
         missile->trace_mask = trace_mask;
@@ -999,7 +979,7 @@ void W8Missile::DestroyMissile()
         });
     }
     if (m_pAI != 0) {
-        free(m_pAI);
+        DestroyAIRecord(m_pAI);
         m_pAI = 0;
     }
     delete this;

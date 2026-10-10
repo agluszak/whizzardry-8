@@ -18,8 +18,7 @@ class W8AnimRepBase;
    operations on record-specific tails keep the concrete type. */
 /* The discriminator is a byte in the packed AI records. Kind 1 has no
    recovered payload; only the path and missile domains are named. */
-typedef unsigned char W8AIRecordKind;
-enum { W8_AI_RECORD_PATH = 0, W8_AI_RECORD_MISSILE = 3 };
+enum W8AIRecordKind : unsigned char { W8_AI_RECORD_PATH = 0, W8_AI_RECORD_MISSILE = 3 };
 W8_ABI_ASSERT(sizeof(W8AIRecordKind) == 1, "W8AIRecordKind_size");
 
 struct W8AIRecord {
@@ -36,26 +35,26 @@ struct W8PathAI : W8AIRecord {
     int entry_index;                     /* level camera/path entry index, assigned at load */
     std::vector<glm::mat3> rotations;
     std::vector<srVector3T<float>> scales;
-    unsigned char discrete_mode;
+    bool discrete_mode;
     unsigned int point_index;
     float interpolation_fraction;
     uint64_t last_update_tick;
     float speed;
     float distance_travelled;
     float total_length;
-    unsigned char looping;
-    unsigned char step_by_node;
-    unsigned char animated;
+    bool looping;
+    bool step_by_node;
+    bool animated;
     /* When set the emitter target is pitched upright (rotateX pi/2); camera
        paths raise it. */
-    unsigned char upright;
-    unsigned char timed;
+    bool upright;
+    bool timed;
 };
 
 
 /* Tagged-record dispatchers: the body switches on kind and hands the
    record to the path or missile implementation. */
-unsigned char PathAIUpdate(W8AIRecord* record, signed char direction);
+bool PathAIUpdate(W8AIRecord* record, signed char direction);
 void PathAIResetRecord(W8PathAI* path);
 W8AIRecordKind GetAIRecordKind(const W8AIRecord* record);
 void PathAIApplyToRep(W8AIRecord* record, W8AnimRepBase* representation);
@@ -64,27 +63,27 @@ void PathAIApplyToRep(W8AIRecord* record, W8AnimRepBase* representation);
    pass those node kinds interchangeably. */
 void PathAIApply(W8PathAI* path, srNode* node); /* 0x004AA520 */
 float PathAIGetScale(W8PathAI* path);           /* 0x004AAA50 */
+void DestroyAIRecord(W8AIRecord* record);
 void DestroyPathAI(W8PathAI* path);
 void PathAIClearOwned(W8PathAI* path);
-void PathAISetAnimated(W8PathAI* path, unsigned char value);
+void PathAISetAnimated(W8PathAI* path, bool value);
 void PathAIEnableTimedMode(W8PathAI* path);
 void PathAIResetTick(W8PathAI* path);
 float PathAIGetValue(W8PathAI* path);
-unsigned char PathAINextPoint(W8PathAI* path, srVector3T<float>* point);
+bool PathAINextPoint(W8PathAI* path, srVector3T<float>* point);
 bool PathAIIsComplete(W8PathAI* path);
 unsigned int PathAIEntryCount(W8PathAI* path);
 void PathAISetValue(W8PathAI* path, float value);
 void PathAIAdvanceNormalized(W8PathAI* path, float amount);
-unsigned char PathAITick(W8PathAI* path, signed char direction);
+bool PathAITick(W8PathAI* path, signed char direction);
 void PathAIPosition(W8PathAI* path, srVector3T<float>* value);
-void PathAISetLooping(W8PathAI* path, unsigned char value);
+void PathAISetLooping(W8PathAI* path, bool value);
 void PathAISetScale(W8PathAI* path, float value);
-void PathAISetDiscreteMode(W8PathAI* path, unsigned char value);
+void PathAISetDiscreteMode(W8PathAI* path, bool value);
 bool LoadPathAI(W8PathAI** path, wiz8::File* handle);
-unsigned char PathAIAddPoint(W8PathAI* path, const srVector3T<float>* point);
+void PathAIAddPoint(W8PathAI& path, const srVector3T<float>& point);
 
-/* Create an empty path. The legacy factory argument is unused. */
-W8PathAI* CreateRecord(int);
+W8PathAI* CreatePathAI();
 
 /* Release a path only when the AI record tag identifies a path. */
 void DestroyOwnedPathAI(W8PathAI* path);

@@ -636,12 +636,10 @@ void W8GrCycle::TickAnimation(float scale)
                     if (ApplyPendingCycle() != 0) {
                         frames = 0;
                     }
-                    if (m_plsSoundEvents != 0) {
-                        UpdateSoundEvents(m_plsSoundEvents, &position,
-                                          W8_SOUND_EVENT_FRAME | W8_SOUND_EVENT_FOOTSTEP,
-                                          representation->current_cycle, representation->subcycle,
-                                          representation->current_subcycle);
-                    }
+                    UpdateSoundEvents(sound_events, position,
+                                      W8_SOUND_EVENT_FRAME | W8_SOUND_EVENT_FOOTSTEP,
+                                      representation->current_cycle, representation->subcycle,
+                                      representation->current_subcycle);
                     if (m_plsShakeEvents != 0) {
                         TriggerShakeEffects(m_plsShakeEvents, representation->current_cycle,
                                             representation->subcycle,
@@ -693,12 +691,10 @@ unsigned char W8GrCycle::ApplyPendingCycle()
         }
 
         srVector3T<float> position = GetPosition();
-        if (m_plsSoundEvents != 0) {
-            UpdateSoundEvents(m_plsSoundEvents, &position,
-                              W8_SOUND_EVENT_FRAME | W8_SOUND_EVENT_CYCLE | W8_SOUND_EVENT_FOOTSTEP,
-                              representation->current_cycle, representation->subcycle,
-                              representation->current_subcycle);
-        }
+        UpdateSoundEvents(sound_events, position,
+                          W8_SOUND_EVENT_FRAME | W8_SOUND_EVENT_CYCLE | W8_SOUND_EVENT_FOOTSTEP,
+                          representation->current_cycle, representation->subcycle,
+                          representation->current_subcycle);
         if (m_plsShakeEvents != 0) {
             TriggerShakeEffects(m_plsShakeEvents, representation->current_cycle,
                                 representation->subcycle, representation->current_subcycle,

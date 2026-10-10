@@ -94,7 +94,7 @@ unsigned char LoadHitSoundDatabase(void)
     std::unique_ptr<wiz8::File> handle;
     int row = 0;
     int column = -1;
-    unsigned char more = 1;
+    bool more = true;
 
     memset(g_weapon_attack_sounds, 0, sizeof(g_weapon_attack_sounds));
     memset(g_material_impact_sounds, 0, sizeof(g_material_impact_sounds));
@@ -104,7 +104,7 @@ unsigned char LoadHitSoundDatabase(void)
     }
     while (row < 38 && more) {
         char* marker;
-        ReadTextLine(handle.get(), line, sizeof(line), &more);
+        ReadTextLine(handle.get(), line, sizeof(line), more);
         TrimHitSoundLine(line);
         marker = strchr(line, '#');
         if (marker) {
@@ -121,7 +121,7 @@ unsigned char LoadHitSoundDatabase(void)
     }
     row = 0;
     while (more) {
-        ReadTextLine(handle.get(), line, sizeof(line), &more);
+        ReadTextLine(handle.get(), line, sizeof(line), more);
         if (strchr(line, '#')) {
             ++column;
             row = 0;

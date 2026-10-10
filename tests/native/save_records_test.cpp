@@ -20,6 +20,11 @@
 #include "wiz8/npc_script_file.h"
 #include "wiz8/engine_code/stScript.h"
 #include "wiz8/engine_code/PathAI.h"
+#include "wiz8/engine_code/AnimObj.h"
+#include "wiz8/engine_code/ReadLevel.h"
+#include "wiz8/engine_code/GrObject.h"
+#include "wiz8/engine_code/SoundEvent.h"
+#include "wiz8/engine_code/Missile.h"
 #include "wiz8/monster_generators.h"
 #include "wiz8/spell_ids.h"
 #include "wiz8/xstatus.h"
@@ -225,6 +230,92 @@ static void path_record_contracts()
         CHECK(output == (count == 0 ? nullptr : &existing));
     }
     CHECK(wiz8::remove_file(filename));
+}
+
+static void animation_record_contracts()
+{
+    constexpr auto filename = "Data/animation-records.dat";
+    for (unsigned char flag : {0, 255}) {
+        {
+            auto file = wiz8::open_file(filename, wiz8::OpenMode::replace);
+            const unsigned char header[] = {11, 0, flag, 0, 0, 0, flag};
+            file->write(header, sizeof(header));
+            const float speed = 15, chance = 1;
+            file->write(&speed, sizeof(speed));
+            const unsigned char frames[] = {0, 1, flag};
+            file->write(frames, sizeof(frames));
+            file->write(&chance, sizeof(chance));
+            const unsigned char reserved[50]{};
+            file->write(reserved, sizeof(reserved));
+            const unsigned char count = 2;
+            file->write(&count, 1);
+            for (int i = 0; i < 2; ++i) {
+                const float bounds[] = {-1, -2, -3, 1, 2, 3};
+                file->write(bounds, sizeof(bounds));
+            }
+            const unsigned char zero = 0;
+            file->write(&zero, 1); // No lights.
+            if (!flag) file->write(&zero, 1); // No standalone path.
+            file->write(&zero, 1); // Version 10's reserved byte.
+        }
+        auto file = wiz8::open_file(filename);
+        W8ReadLevelInfo info{};
+        info.hFile = file.get();
+        auto animation = std::unique_ptr<W8AnimObj, decltype(&DestroyAnimObj)>(CreateAnimObj(), DestroyAnimObj);
+        CHECK(AnimObjReadFromFile(&info, animation.get(), 0, nullptr, 0));
+        CHECK(animation->animation_playing == (flag != 0));
+        CHECK(animation->random_play == (flag != 0));
+        CHECK(AnimationIsRunning(animation.get()) == (flag != 0));
+        CHECK(animation->frame_bounds.size() == 2);
+        srVector3T<float> minimum, maximum;
+        CHECK(AnimObjGetBounds(animation.get(), 0, 1, &minimum, &maximum));
+        CHECK(minimum.y == -1000 && maximum.z == 1500);
+        animation->path = CreatePathAI();
+        PathAIAddPoint(*animation->path, srVector3T<float>(1, 2, 3));
+        animation->paths[0].push_back(ClonePathAI(animation->path));
+        auto copy = std::unique_ptr<W8AnimObj, decltype(&DestroyAnimObj)>(CloneAnimObj(animation.get()), DestroyAnimObj);
+        CHECK(copy->frame_bounds.data() != animation->frame_bounds.data());
+        CHECK(copy->path != animation->path && copy->path->nodes[0].x == 1);
+        CHECK(copy->paths[0][0] != animation->paths[0][0]);
+        animation.reset();
+        CHECK(copy->paths[0][0]->nodes[0].z == 3);
+        CHECK(AnimObjGetBounds(copy.get(), 0, 0, &minimum, &maximum));
+        CHECK(minimum.x == -500 && maximum.x == 500);
+        copy->path_lists = true;
+        CHECK(!AnimObjGetBounds(copy.get(), 0, 2, &minimum, &maximum));
+    }
+    CHECK(wiz8::remove_file(filename));
+}
+
+static void graphical_object_ownership_contracts()
+{
+    W8GrObject original;
+    original.m_pAI = CreatePathAI();
+    PathAIAddPoint(*static_cast<W8PathAI*>(original.m_pAI), srVector3T<float>(1, 2, 3));
+    auto event = CreateSoundEvent(W8_SOUND_EVENT_FRAME, 1, 2, 3, "step.wav", true);
+    auto* first = event.get();
+    original.AddSoundEvent(std::move(event));
+    for (int i = 0; i < 20; ++i) {
+        original.AddSoundEvent(CreateSoundEvent(W8_SOUND_EVENT_CYCLE, i, 0, 0, "other.wav", false));
+    }
+    CHECK(original.sound_events.front().get() == first);
+    W8GrObject copy(original);
+    CHECK(copy.m_pAI != original.m_pAI);
+    CHECK(static_cast<W8PathAI*>(copy.m_pAI)->nodes[0].y == 2);
+    CHECK(copy.sound_events.size() == original.sound_events.size());
+    CHECK(copy.sound_events.front().get() != first);
+    CHECK(copy.sound_events.front()->wave_name == "step.wav");
+    CHECK(!copy.sound_events.front()->looping && copy.sound_events.front()->sound_handle == -1);
+    original.sound_events.clear();
+    CHECK(copy.sound_events.front()->wave_name == "step.wav");
+    W8GrObject missile;
+    auto* ai = new W8AIMissile{};
+    ai->kind = W8_AI_RECORD_MISSILE;
+    ai->speed_per_step = 5;
+    missile.m_pAI = ai;
+    W8GrObject missile_copy(missile);
+    auto* cloned = static_cast<W8AIMissile*>(missile_copy.m_pAI);
+    CHECK(cloned != ai && cloned->speed_per_step == 5 && !cloned->missile);
 }
 
 static void script_record_contracts()
@@ -694,6 +785,8 @@ int main()
     encounter_table_contracts();
     script_record_contracts();
     path_record_contracts();
+    animation_record_contracts();
+    graphical_object_ownership_contracts();
     wiz8::clear_asset_archives();
 
     std::filesystem::remove_all(root);

@@ -6824,7 +6824,7 @@ bool LoadPathParameters()
 {
     std::unique_ptr<wiz8::File> handle;
     int index;
-    unsigned char more = 1;
+    bool more = true;
     char line[128];
 
     handle = [&]() { try { return wiz8::open_file("Data\\Monsters\\pathparms.txt", wiz8::OpenMode::read); } catch (const std::exception&) { return std::unique_ptr<wiz8::File>{}; } }();
@@ -6833,12 +6833,12 @@ bool LoadPathParameters()
     }
     for (;;) {
         do {
-            if (more == 0) {
+            if (!more) {
                 if (handle) handle->close();
                 handle.reset();
                 return true;
             }
-            ReadTextLine(handle.get(), line, sizeof(line), &more);
+            ReadTextLine(handle.get(), line, sizeof(line), more);
         } while (line[0] == '#');
         for (index = 0; g_path_parameters[index].name != 0; ++index) {
             if (strncmp(line, g_path_parameters[index].name,

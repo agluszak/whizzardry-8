@@ -504,7 +504,7 @@ bool LoadSpellVisualResource(const W8GrCycleLoadContext* context, const char* na
 
     PauseSharedGameTimers();
 
-    unsigned char more = 1;
+    bool more = true;
     bool success = true;
     char path[100];
     sprintf(path, "data\\Spells\\%s.mls", name);
@@ -525,11 +525,11 @@ bool LoadSpellVisualResource(const W8GrCycleLoadContext* context, const char* na
         float intensity;
         float duration;
         float distance;
-        W8SoundEvent* event;
+        std::unique_ptr<W8SoundEvent> event;
         W8CameraShakeEffect* effect;
 
-        while (more != 0 && success) {
-            ReadTextLine(handle.get(), line, sizeof(line), &more);
+        while (more && success) {
+            ReadTextLine(handle.get(), line, sizeof(line), more);
             sscanf(line, "%s %s", pac_name, pac_value);
             if (strlen(line) <= 2) {
                 continue;
@@ -583,7 +583,7 @@ bool LoadSpellVisualResource(const W8GrCycleLoadContext* context, const char* na
                 event = CreateSoundEvent(sound_type, index, frame, 0, wave_path,
                                          _stricmp(loop_name, "LOOP") == 0);
                 if (event != 0) {
-                    (*visual)->AddSoundEvent(event);
+                    (*visual)->AddSoundEvent(std::move(event));
                 }
             }
         }

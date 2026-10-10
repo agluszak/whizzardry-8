@@ -1814,13 +1814,7 @@ void W8Prop::CollectModelInstances(std::vector<stModelInstance*>& instances)
         }
     } else if (AnimationIsRunning(animation) == 1) {
         for (int group = 0; group < 3; ++group) {
-            std::vector<W8AniMesh*>* meshes = animation->meshes[group];
-            if (meshes == 0) {
-                continue;
-            }
-            int mesh_count = (meshes ? meshes->size() : 0);
-            for (int index = 0; index < mesh_count; ++index) {
-                W8AniMesh* mesh = (*meshes)[index];
+            for (auto* mesh : animation->meshes[group]) {
                 if (mesh == 0) {
                     continue;
                 }

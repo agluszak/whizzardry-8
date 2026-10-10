@@ -536,8 +536,8 @@ void W8Navigator::SetNavigationMode(int mode)
     navigation_mode = mode;
     switch (mode) {
     case 1:
-        path = CreateRecord(0);
-        PathAISetAnimated(path, 1);
+        path = CreatePathAI();
+        PathAISetAnimated(path, true);
         SetPathAI(path);
         /* Falls into mode four's body: the retail block ends where mode four's
            jump-table entry lands. */
@@ -548,14 +548,14 @@ void W8Navigator::SetNavigationMode(int mode)
     case 2:
     case 3:
     case 5:
-        path = CreateRecord(0);
-        PathAISetAnimated(path, 1);
+        path = CreatePathAI();
+        PathAISetAnimated(path, true);
         SetPathAI(path);
         SetPitchRollEnabled(true, false);
         break;
     case 6:
-        path = CreateRecord(0);
-        PathAISetAnimated(path, 1);
+        path = CreatePathAI();
+        PathAISetAnimated(path, true);
         SetPathAI(path);
         SetPitchRollEnabled(true, true);
         break;
@@ -1750,10 +1750,7 @@ unsigned char W8Navigator::SetMovementTarget(const srVector3T<float>* target, bo
 void W8Navigator::AddPathPoint(const srVector3T<float>* position)
 {
     if (path_ai == 0) {
-        path_ai = CreateRecord(movement.location_id);
-        if (path_ai == 0) {
-            srAssertFail("pNavAI", NAVIGATOR_CPP, 0x6c7, 0);
-        }
+        path_ai = CreatePathAI();
     }
     flags &= 0x00ffffff;
     if (flags == 0) {
@@ -1764,10 +1761,10 @@ void W8Navigator::AddPathPoint(const srVector3T<float>* position)
         movement.target_position = *position;
         movement_target = *position;
         ClearMovementStopped();
-        PathAIAddPoint(path_ai, &movement.position);
+        PathAIAddPoint(*path_ai, movement.position);
         SetMovementTarget(&movement_target, false);
     }
-    PathAIAddPoint(path_ai, position);
+    PathAIAddPoint(*path_ai, *position);
 }
 
 // FUNCTION: WIZ8 0x004537c0

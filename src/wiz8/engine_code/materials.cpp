@@ -1562,7 +1562,7 @@ static unsigned char* ClassifyTextures(W8MaterialRecord* textures, int count, ch
     char texture[1024];
     char path[1024];
     char message[1024];
-    unsigned char more;
+    bool more;
     unsigned char* kinds;
     int missing;
     int index;
@@ -1630,7 +1630,7 @@ static unsigned char* ClassifyTextures(W8MaterialRecord* textures, int count, ch
                     ReportBuildStatus(5, message);
                 } else {
                     if (_stricmp(path + strlen(path) - 4, "ifl") == 0) {
-                        ReadTextLine(file.get(), texture, 0x3ff, &more);
+                        ReadTextLine(file.get(), texture, 0x3ff, more);
                         if (file) file->close();
                         file.reset();
                         sprintf(path, "%s%s", folder, texture);
@@ -2304,7 +2304,7 @@ std::shared_ptr<stTextureAnim> LoadAnimatedTexture(const char* folder, const cha
                                                    const W8MaterialRecord* source, bool required)
 {
     char buffer[_MAX_PATH];
-    unsigned char more = 1;
+    bool more = true;
     std::unique_ptr<wiz8::File> handle;
 
     strcpy(buffer, folder);
@@ -2318,15 +2318,15 @@ std::shared_ptr<stTextureAnim> LoadAnimatedTexture(const char* folder, const cha
     auto animation = std::make_shared<stTextureAnim>();
     animation->setName(name);
     g_texture_animations.insert(name, animation);
-    while (more != 0) {
-        ReadTextLine(handle.get(), buffer, 200, &more);
+    while (more) {
+        ReadTextLine(handle.get(), buffer, 200, more);
         if (strlen(buffer) <= 2) {
-            more = 0;
+            more = false;
         } else {
             if (auto texture = LoadTextureFromFolder(folder, buffer, required)) {
                 animation->AddTexture(std::move(texture));
             }
-            if (more != 0) {
+            if (more) {
                 continue;
             }
         }

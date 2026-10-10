@@ -27,7 +27,7 @@ public:
 
     int FindLabelLine(const char* label) const;
     int GetSourceLine(int line) const;
-    unsigned char Load(const char* path);
+    bool Load(const char* path);
     void Clear();
 
     std::string name;
