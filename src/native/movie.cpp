@@ -3,7 +3,7 @@
 #include "movie.h"
 #include "FileMan.h"
 #include "LibraryDataBase.h"
-#include "compat/platform.h"
+#include <wiz8/filesystem.h>
 #include "compat/surfaces.h"
 #include "native/movie_audio.h"
 #include "surrender/srGERD.h"
@@ -21,6 +21,7 @@ extern "C"
 #include <cmath>
 #include <cstring>
 #include <deque>
+#include <limits>
 #include <stdexcept>
 #include <string>
 
@@ -37,7 +38,7 @@ void check(int result, const char* operation)
 } // namespace
 struct W8NativeVideo::State
 {
-    HANDLE file = INVALID_HANDLE_VALUE;
+    std::unique_ptr<wiz8::File> file;
     uint64_t start = 0, length = 0, position = 0;
     AVIOContext* io = nullptr;
     AVFormatContext* format = nullptr;
@@ -74,40 +75,61 @@ struct W8NativeVideo::State
         if (io)
             av_freep(&io->buffer); // libavformat may replace the original AVIO buffer.
         avio_context_free(&io);
-        if (file != INVALID_HANDLE_VALUE)
-            W8CloseHandle(file);
+        file.reset();
     }
     static int read(void* opaque, uint8_t* bytes, int size)
     {
         auto& source = *static_cast<State*>(opaque);
+        if (size < 0)
+            return AVERROR(EINVAL);
+        if (!size)
+            return 0;
+        if (!source.file || source.position > source.length)
+            return AVERROR(EIO);
         if (source.position == source.length)
             return AVERROR_EOF;
-        DWORD count = 0;
-        if (!W8ReadFile(source.file, bytes,
-                        std::min<uint64_t>(size, source.length - source.position), &count, nullptr))
+        try
+        {
+            const auto result = source.file->read(
+                bytes, std::min<uint64_t>(size, source.length - source.position));
+            source.position += result.bytes;
+            return result.bytes ? int(result.bytes) : result.eof ? AVERROR_EOF : AVERROR(EIO);
+        }
+        catch (...)
+        {
             return AVERROR(EIO);
-        source.position += count;
-        return count ? int(count) : AVERROR_EOF;
+        }
     }
     static int64_t seek(void* opaque, int64_t offset, int whence)
     {
         auto& source = *static_cast<State*>(opaque);
+        const auto limit = uint64_t(std::numeric_limits<int64_t>::max());
+        if (source.length > limit || source.position > source.length ||
+            source.start > limit - source.length)
+            return AVERROR(EINVAL);
         if (whence & AVSEEK_SIZE)
-            return source.length;
+            return int64_t(source.length);
         whence &= ~AVSEEK_FORCE;
-        int64_t base = whence == SEEK_SET   ? 0
-                       : whence == SEEK_CUR ? source.position
-                       : whence == SEEK_END ? source.length
-                                            : -1;
+        const int64_t base = whence == SEEK_SET   ? 0
+                             : whence == SEEK_CUR ? int64_t(source.position)
+                             : whence == SEEK_END ? int64_t(source.length)
+                                                  : -1;
         if (base < 0 || offset < -base || offset > int64_t(source.length) - base)
             return AVERROR(EINVAL);
-        uint64_t target = base + offset, absolute = source.start + target;
-        LONG high = LONG(absolute >> 32);
-        DWORD low = W8SetFilePointer(source.file, LONG(absolute), &high, FILE_BEGIN);
-        if (low == INVALID_SET_FILE_POINTER && W8GetLastError())
+        const uint64_t target = base + offset;
+        try
+        {
+            if (!source.file ||
+                source.file->seek(int64_t(source.start + target), wiz8::SeekOrigin::begin) !=
+                    int64_t(source.start + target))
+                return AVERROR(EIO);
+            source.position = target;
+            return int64_t(target);
+        }
+        catch (...)
+        {
             return AVERROR(EIO);
-        source.position = target;
-        return target;
+        }
     }
     AVCodecContext* codec(int index)
     {
@@ -130,29 +152,32 @@ struct W8NativeVideo::State
     }
     void open(const char* path)
     {
-        HWFILE handle =
-            FileOpen(const_cast<char*>(path), FILE_ACCESS_READ | FILE_OPEN_EXISTING, FALSE);
-        if (!handle)
-            throw std::runtime_error(std::string("Cannot open movie: ") + path);
-        length = FileGetSize(handle);
-        if (DB_EXTRACT_LIBRARY(handle) == REAL_FILE_LIBRARY_ID)
+        if (!path)
+            throw std::runtime_error("Movie path is null");
+        const auto status = wiz8::file_status(path);
+        if (status)
         {
-            FileClose(handle);
-            file = W8CreateFile(path, GENERIC_READ, FILE_SHARE_READ, nullptr, OPEN_EXISTING, 0,
-                                nullptr);
+            file = wiz8::open_file(path);
+            length = file->size();
         }
         else
         {
-            file = OpenLibraryStream(handle);
-            FileClose(handle);
+            struct LibraryEntry
+            {
+                HWFILE file;
+                ~LibraryEntry() { if (file) FileClose(file); }
+            } entry{FileOpen(const_cast<char*>(path), FILE_ACCESS_READ | FILE_OPEN_EXISTING, FALSE)};
+            if (!entry.file)
+                throw std::runtime_error(std::string("Cannot open movie: ") + path);
+            length = FileGetSize(entry.file);
+            file.reset(OpenLibraryStream(entry.file));
         }
-        if (file == INVALID_HANDLE_VALUE)
+        if (!file)
             throw std::runtime_error("Cannot open movie stream");
-        LONG high = 0;
-        DWORD low = W8SetFilePointer(file, 0, &high, FILE_CURRENT);
-        if (low == INVALID_SET_FILE_POINTER && W8GetLastError())
-            throw std::runtime_error("Cannot locate movie stream");
-        start = (uint64_t(uint32_t(high)) << 32) | low;
+        start = file->tell();
+        const auto size = uint64_t(file->size());
+        if (start > size || length > size - start)
+            throw std::runtime_error("Movie stream exceeds its file");
         auto buffer = static_cast<unsigned char*>(av_malloc(32768));
         if (!buffer)
             throw std::bad_alloc();
@@ -290,8 +315,10 @@ W8NativeVideo::~W8NativeVideo() = default;
 void W8NativeVideo::open(const char* path)
 {
     state = std::make_unique<State>();
-    state->open(path);
-    state->fill(0.25);
+    auto next = std::make_unique<State>();
+    next->open(path);
+    next->fill(0.25);
+    state = std::move(next);
 }
 W8NativeVideo::Result W8NativeVideo::update(double elapsed)
 {
