@@ -308,21 +308,22 @@ void FlushPendingNoticeLines(void);
 /* Zero W8NpcInteractionState, write its reset values, and reload the
    keyword lists through the loader below. */
 void ResetMainScreenStateBlock(void);
-/* The dialogue keyword tables, one file list per language;
-   element zero is English_Keywords.txt and element one the translated list.
-   A file list holds one line list per line, and a line list one malloc'd wide
-   word per '/'-separated field. */
-extern std::vector<std::vector<std::vector<wchar_t*>*>*> g_keyword_lists;
+// Words include a null terminator for the game's 16-bit wchar_t text APIs.
+using KeywordWord = std::vector<wchar_t>;
+using KeywordLine = std::vector<KeywordWord>;
+using KeywordFile = std::vector<KeywordLine>;
+// English first, followed by the translated file.
+extern std::vector<KeywordFile> g_keyword_lists;
 /* Both files are loaded and the tables are usable. Raised once the
    second file loads and lowered whenever the tables are released. */
 extern bool g_keyword_lists_loaded;
 /* Replace the keyword lists with the contents of
    Data\Strings\English_Keywords.txt and Data\Strings\translated_Keywords.txt. */
 void ReloadKeywordLists(void);
-/* Release every file list, its lines and its words. */
+/* Clear the loaded keyword tables. */
 void ClearKeywordLists(void);
 /* Load one keyword file into a file list. */
-unsigned char LoadKeywordFile(const char* path, std::vector<std::vector<wchar_t*>*>* file);
+bool LoadKeywordFile(const char* path, KeywordFile& file);
 /* Copy the next '/'-terminated field out of a keyword line into
    the caller's buffer and return the cursor past it, or null at the end. */
 wchar_t* ParseKeywordToken(wchar_t* line, wchar_t* field);

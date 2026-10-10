@@ -362,7 +362,6 @@ void RunNewGameOpeningSequence(bool notify, const wchar_t* target)
     if (notify) {
         RequestScreenTransition();
     }
-    InitializeNpcStates();
     ResetNpcStates();
     InitializeFactJournal();
     ResetFactions();

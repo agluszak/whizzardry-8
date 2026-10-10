@@ -4,32 +4,30 @@
 
 #include "wiz8/layouts/encounter_tables.h"
 #include <vector>
+#include <string>
 #include <algorithm>
 
-#pragma pack(push, 1)
+// Runtime records own their storage; the database layout stays in layouts/.
+struct W8EncounterEntry {
+    unsigned short species;
+    unsigned char rarity_class;
+    unsigned char time_condition;
+    unsigned char challenge_level;
+    W8EncounterScriptName script;
+};
+
 struct W8EncounterTableRuntime {
-    ~W8EncounterTableRuntime();
-
-    std::vector<unsigned short> species_ids;          /* 0x000 */
-    std::vector<unsigned char> rarity_class;          /* 0x010: 3, 7, 20, or 70 */
-    std::vector<unsigned char> time_condition;        /* 0x020 */
-    std::vector<unsigned char> challenge_level;       /* 0x030: 1 through 50 */
-    std::vector<W8EncounterScriptName*> script_names; /* 0x040 */
-    char name[256];                                  /* 0x050 */
-    unsigned int category;           /* 0x150: encounter category; MIPE filters on it */
-    unsigned char version_two_flags; /* 0x154 */
-    unsigned char padding_155[3];    /* 0x155 */
-}; /* 0x158 */
-#pragma pack(pop)
-
-W8_ABI_ASSERT(sizeof(W8EncounterTableRuntime) == 0x158,
-              "W8EncounterTableRuntime_size_must_be_0x158");
+    std::vector<W8EncounterEntry> entries;
+    char name[256];
+    unsigned int category;
+    unsigned char version_two_flags;
+};
 
 unsigned int InitializeEncounterTables(void);
 void UnloadEncounterTables(void);
 
-extern std::vector<W8EncounterTableRuntime*> g_encounter_tables;
-extern std::vector<char*> g_encounter_names;
+extern std::vector<W8EncounterTableRuntime> g_encounter_tables;
+extern std::vector<std::string> g_encounter_names;
 extern int g_encounter_tables_level;
 
 struct W8MonsterGroup;

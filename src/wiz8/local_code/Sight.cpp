@@ -248,36 +248,9 @@ float ComputeSightThreshold(srVector3T<float> observer_position, srVector3T<floa
 // FUNCTION: WIZ8 0x00505ba0
 void ReleaseMonToMonVisibilityInfoAbout(int location_id)
 {
-    unsigned int monster_index;
-    int index;
-    W8MonsterInfo* monster_info;
-    W8VisibilityRecord* visibility;
-
-    for (monster_index = 0; monster_index < gXStatus.monsters.size(); ++monster_index) {
-        monster_info = MonsterGetScriptPartByLocationIndex(monster_index);
-        if (!monster_info->fActive) {
-            continue;
-        }
-        for (index = 0;
-             index < static_cast<int>(
-                         (monster_info->plsVisMonToMon ? monster_info->plsVisMonToMon->size() : 0));
-             ++index) {
-            visibility = (*monster_info->plsVisMonToMon)[index];
-            if (visibility == 0) {
-                return;
-            }
-            if (visibility->about_location_id == location_id) {
-                visibility = (*monster_info->plsVisMonToMon)[index];
-                monster_info->plsVisMonToMon->erase(monster_info->plsVisMonToMon->begin() + index);
-                if (visibility == 0) {
-                    srAssertFail("pVisibility != NULL", SIGHT_CPP, 968,
-                                 FormatString("ReleaseMonToMonVisibilityInfoAbout: ERROR - "
-                                              "missing removed entry, index %d",
-                                              index));
-                }
-                free(visibility);
-                break;
-            }
+    for (auto* monster : gXStatus.monsters) {
+        if (monster->fActive && monster->monster_visibility) {
+            monster->monster_visibility->erase(location_id);
         }
     }
 }
@@ -287,23 +260,9 @@ void ReleaseMonToMonVisibilityInfoAbout(int location_id)
 // FUNCTION: WIZ8 0x00505c80
 void ReleaseMonToMonVisibilityList(W8MonsterInfo* monster_info)
 {
-    W8VisibilityRecord* visibility;
-
-    while ((monster_info->plsVisMonToMon && !monster_info->plsVisMonToMon->empty())) {
-        visibility = (*monster_info->plsVisMonToMon)[0];
-        monster_info->plsVisMonToMon->erase(monster_info->plsVisMonToMon->begin());
-        if (visibility == 0) {
-            srAssertFail(
-                "pVisibility != NULL", SIGHT_CPP, 990,
-                FormatString("ReleaseMonToMonVisibilityList: ERROR - missing removed entry"));
-        }
-        free(visibility);
-    }
-    delete monster_info->plsVisMonToMon;
-    {
-        monster_info->plsVisMonToMon = 0;
-        ReleaseMonToMonVisibilityInfoAbout(monster_info->location_id);
-    }
+    delete monster_info->monster_visibility;
+    monster_info->monster_visibility = nullptr;
+    ReleaseMonToMonVisibilityInfoAbout(monster_info->location_id);
 }
 
 /* Whether a monster group still has anybody in it worth seeing: alive, not
@@ -391,32 +350,15 @@ unsigned int AgeAllMonsterSight(void)
     return gXStatus.monsters.size();
 }
 
-/* What one monster has recorded about another, if anything. Both monsters have
-   to be in the world - the two assertions name that field fActive - and a null
-   entry in the list is itself an error rather than an end marker. */
+/* The map owns records and keeps their addresses stable while other entries
+   are inserted or removed. A missing list or target has no visibility record. */
 // FUNCTION: WIZ8 0x00505d20
 W8VisibilityRecord* FindMonToMonVisibility(W8MonsterInfo* source, W8MonsterInfo* target)
 {
-    int index;
-    W8VisibilityRecord* visibility;
-
-    if (!source->fActive) {
-        srAssertFail("pSourceMonsterInfo->fActive", SIGHT_CPP, 1020, 0);
-    }
-    if (!target->fActive) {
-        srAssertFail("pTargetMonsterInfo->fActive", SIGHT_CPP, 1021, 0);
-    }
-
-    for (index = 0; source->plsVisMonToMon && std::cmp_less(index, source->plsVisMonToMon->size());
-         ++index) {
-        visibility = (*source->plsVisMonToMon)[index];
-        if (visibility == 0) {
-            srAssertFail("FALSE", SIGHT_CPP, 1030, 0);
-        } else if (visibility->about_location_id == target->location_id) {
-            return visibility;
-        }
-    }
-    return 0;
+    if (!source->monster_visibility) return nullptr;
+    auto& visibility = *source->monster_visibility;
+    auto found = visibility.find(target->location_id);
+    return found == visibility.end() ? nullptr : &found->second;
 }
 
 /* Bring every monster's sight up to date from a cleared starting state: the
@@ -494,33 +436,8 @@ void UpdateMonsterSight(W8MonsterInfo* monster_info, bool direction, bool use_bo
 
             if (other != monster_info && other->fInCombat && other->fActive &&
                 other->hp_current != 0) {
-                W8VisibilityRecord* entry = 0;
-                bool found = false;
-                unsigned int record_index;
-
-                for (record_index = 0;
-                     record_index <
-                     (monster_info->plsVisMonToMon ? monster_info->plsVisMonToMon->size() : 0);
-                     ++record_index) {
-                    entry = static_cast<W8VisibilityRecord*>(
-                        (*monster_info->plsVisMonToMon)[record_index]);
-                    if (entry == 0) {
-                        return;
-                    }
-                    if (entry->about_location_id == other->location_id) {
-                        found = true;
-                        break;
-                    }
-                }
-                if (!found) {
-                    entry = static_cast<W8VisibilityRecord*>(malloc(sizeof(*entry)));
-                    if (entry == 0) {
-                        return;
-                    }
-                    memset(entry, 0, sizeof(*entry));
-                    entry->about_location_id = other->location_id;
-                    monster_info->plsVisMonToMon->push_back(entry);
-                }
+                auto* entry = &(*monster_info->monster_visibility)[other->location_id];
+                entry->about_location_id = other->location_id;
                 {
                     W8Monster* other_monster = other->p3D;
                     float distance;
@@ -911,14 +828,12 @@ bool MonsterGroupCanSeeGroup(W8MonsterGroup* source, W8MonsterGroup* target)
 {
     W8MonsterInfo* source_info;
     W8MonsterInfo* target_info;
-    W8VisibilityRecord* visibility;
     W8VisibilityRecord record;
     W8Monster* source_monster;
     W8Monster* target_monster;
     W8World* world;
     float distance;
     double far_clip;
-    int index;
 
     source_info = MonsterGetScriptPartByLocationIndex(
         MonsterGetIndexByLocationID(0x47c, SIGHT_CPP, source->leader_location_id, true));
@@ -939,27 +854,8 @@ bool MonsterGroupCanSeeGroup(W8MonsterGroup* source, W8MonsterGroup* target)
             }
         }
     } else {
-        if (!source_info->fActive) {
-            srAssertFail("pSourceMonsterInfo->fActive", SIGHT_CPP, 0x3fc, 0);
-        }
-        if (!target_info->fActive) {
-            srAssertFail("pTargetMonsterInfo->fActive", SIGHT_CPP, 0x3fd, 0);
-        }
-        std::vector<W8VisibilityRecord*>* visibility_list = source_info->plsVisMonToMon;
-        for (index = 0; visibility_list && std::cmp_less(index, visibility_list->size()); ++index) {
-            visibility = (*source_info->plsVisMonToMon)[index];
-            if (visibility == 0) {
-                srAssertFail("FALSE", SIGHT_CPP, 0x406, 0);
-            } else if (visibility->about_location_id == target_info->location_id) {
-                if (visibility == 0) {
-                    return false;
-                }
-                if (visibility->sight_state != W8_SIGHT_SEEN) {
-                    return false;
-                }
-                return true;
-            }
-        }
+        const auto* visibility = FindMonToMonVisibility(source_info, target_info);
+        return visibility && visibility->sight_state == W8_SIGHT_SEEN;
     }
     return false;
 }

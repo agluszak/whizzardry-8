@@ -93,104 +93,56 @@ int g_encounter_culling_time_seconds = 180;
 const float g_generator_jitter_fraction = 0.20000000298023224f;
 
 // GLOBAL: WIZ8 0x0065ba20
-std::vector<W8EncounterTableRuntime*> g_encounter_tables;
+std::vector<W8EncounterTableRuntime> g_encounter_tables;
 // GLOBAL: WIZ8 0x0065ba38
-std::vector<char*> g_encounter_names;
+std::vector<std::string> g_encounter_names;
 // GLOBAL: WIZ8 0x0060a6bc
 int g_encounter_tables_level = -1;
 
 // FUNCTION: WIZ8 0x0048a7a0
 unsigned int InitializeEncounterTables(void)
+try
 {
-    std::unique_ptr<wiz8::File> handle = [&]() { try { return wiz8::open_file("Data\\Databases\\EncounterTables.dbs", wiz8::OpenMode::read); } catch (const std::exception&) { return std::unique_ptr<wiz8::File>{}; } }();
+    auto handle = wiz8::open_file("Data\\Databases\\EncounterTables.dbs");
+    UnloadEncounterTables();
+    std::vector<std::string> names;
+    std::vector<W8EncounterTableRuntime> tables;
     int name_count;
     int table_count;
-    int index;
-
-    if (!handle) {
-        return 0;
-    }
-    UnloadEncounterTables();
-    unsigned char success = (handle->read(&name_count, 4).bytes == static_cast<std::size_t>(4));
-    for (index = 0; index < name_count; ++index) {
-        if (!success) {
-            if (handle) handle->close();
-            handle.reset();
-            return 0;
-        }
-        char* name = new char[0x100];
-        success = (handle->read(name, 0x100).bytes == static_cast<std::size_t>(0x100));
-        g_encounter_names.push_back(name);
-    }
-    if (!success) {
-        if (handle) handle->close();
-        handle.reset();
-        return 0;
-    }
-    handle->read_exact(&table_count, 4);
-    for (index = 0; index < table_count; ++index) {
-        unsigned char record_kind;
+    handle->read_exact(&name_count, sizeof(name_count));
+    if (name_count < 0) return 0;
+    for (int index = 0; index < name_count; ++index) {
         char name[256];
-        unsigned int category;
-        unsigned short version;
-        unsigned char entry_count;
-        unsigned short species[256];
-        unsigned char rarity[256];
-        unsigned char time[256];
-        unsigned char challenge[256];
-
-        handle->read_exact(&record_kind, 1);
         handle->read_exact(name, sizeof(name));
-        handle->read_exact(&category, 4);
-        handle->read_exact(&version, 2);
-        handle->read_exact(&entry_count, 1);
-        W8EncounterTableRuntime* table = new W8EncounterTableRuntime;
-        if (!table) {
-            srAssertFail("pTable", "C:\\Projects\\Wizardry 8\\Engine Code\\MonGen.cpp", 0xd3,
-                         "Out of memory allocating monster generation table.");
-        }
-        handle->read_exact(species, entry_count * 2);
-        handle->read_exact(rarity, entry_count);
-        handle->read_exact(time, entry_count);
-        handle->read_exact(challenge, entry_count);
-        for (int entry = 0; entry < entry_count; ++entry) {
-            W8EncounterScriptName* script =
-                static_cast<W8EncounterScriptName*>(malloc(sizeof(W8EncounterScriptName)));
-            if (!script) {
-                srAssertFail("pScript", "C:\\Projects\\Wizardry 8\\Engine Code\\MonGen.cpp", 0xdd,
-                             0);
-            }
-            handle->read_exact(script, sizeof(*script));
-            table->species_ids.push_back(species[entry]);
-            table->rarity_class.push_back(rarity[entry]);
-            table->time_condition.push_back(time[entry]);
-            table->challenge_level.push_back(challenge[entry]);
-            table->script_names.push_back(script);
-        }
-        strcpy(table->name, name);
-        table->category = category;
-        g_encounter_tables.push_back(table);
-        if (version == 1) {
-            table->version_two_flags = 0;
-        } else {
-            unsigned char flags;
-            handle->read_exact(&flags, 1);
-            table->version_two_flags = flags;
-        }
+        names.emplace_back(name, std::find(std::begin(name), std::end(name), '\0'));
     }
+    handle->read_exact(&table_count, sizeof(table_count));
+    if (table_count < 0) return 0;
+    for (int index = 0; index < table_count; ++index) {
+        W8EncounterTableDiskHeader header;
+        handle->read_exact(&header, sizeof(header));
+        auto& table = tables.emplace_back();
+        memcpy(table.name, header.name, sizeof(table.name));
+        table.name[sizeof(table.name) - 1] = '\0';
+        table.category = header.unknown_101;
+        table.entries.resize(header.entry_count);
+        // The file stores columns; combine them into records at the boundary.
+        for (auto& entry : table.entries) handle->read_exact(&entry.species, sizeof(entry.species));
+        for (auto& entry : table.entries) handle->read_exact(&entry.rarity_class, 1);
+        for (auto& entry : table.entries) handle->read_exact(&entry.time_condition, 1);
+        for (auto& entry : table.entries) handle->read_exact(&entry.challenge_level, 1);
+        for (auto& entry : table.entries) {
+            handle->read_exact(&entry.script, sizeof(entry.script));
+            entry.script.value[sizeof(entry.script.value) - 1] = '\0';
+        }
+        if (header.version != 1) handle->read_exact(&table.version_two_flags, 1);
+    }
+    g_encounter_names = std::move(names);
+    g_encounter_tables = std::move(tables);
     g_encounter_tables_level = g_status.current_level;
-    if (handle) handle->close();
-    handle.reset();
     return 1;
 }
-
-// FUNCTION: WIZ8 0x0048ac60
-W8EncounterTableRuntime::~W8EncounterTableRuntime()
-{
-    for (auto* name : script_names) {
-        free(name);
-    }
-}
+catch (const std::exception&) { return 0; }
 
 // STRING: WIZ8 0x0060A6E0
 #define MON_GEN_CPP "C:\\Projects\\Wizardry 8\\Engine Code\\MonGen.cpp"
@@ -214,17 +166,16 @@ enum { W8_ENCOUNTER_STALE_SECONDS = 36000 };
    entry's challenge to stay within half the party's rounded average level and
    scales rarity down as that mismatch grows; when that leaves no candidate,
    retail falls back to raw rarity plus the day/night condition. A random
-   candidate is moved to slot zero because GenerateEncounter consumes slot zero. */
+   candidate is returned to GenerateEncounter. */
 // FUNCTION: WIZ8 0x0048B9A0
-int MonGen::SelectEncounterCandidates(W8EncounterTableRuntime* table, std::vector<int>& candidates)
+const W8EncounterEntry* MonGen::SelectEncounterCandidate(const W8EncounterTableRuntime& table)
 {
     int rarity_roll;
     int rarity_class;
     int night;
-    int index;
     float party_level;
 
-    candidates.clear();
+    std::vector<const W8EncounterEntry*> candidates;
     night = !(g_status.game_time_ms > 18000000 && g_status.game_time_ms <= 79200000);
 
     rarity_roll = Random(100);
@@ -239,12 +190,12 @@ int MonGen::SelectEncounterCandidates(W8EncounterTableRuntime* table, std::vecto
     }
 
     party_level = static_cast<float>(floor(GetAveragePartyMemberLevel() + 0.49f));
-    for (index = 0; index < static_cast<int>(table->species_ids.size()); ++index) {
-        float challenge = static_cast<float>(table->challenge_level[index]);
+    for (const auto& entry : table.entries) {
+        float challenge = static_cast<float>(entry.challenge_level);
         float difference = static_cast<float>(fabs(1.0f - challenge / party_level));
 
         if (difference < 0.5f) {
-            float adjusted = (table->rarity_class[index]) * (1.0f - difference * 1.8f);
+            float adjusted = (entry.rarity_class) * (1.0f - difference * 1.8f);
             int adjusted_class;
 
             if (adjusted <= 3.0f) {
@@ -257,29 +208,24 @@ int MonGen::SelectEncounterCandidates(W8EncounterTableRuntime* table, std::vecto
                 adjusted_class = 70;
             }
 
-            unsigned char time = table->time_condition[index];
+            unsigned char time = entry.time_condition;
             if (adjusted_class == rarity_class && (time == 2 || time == night)) {
-                candidates.push_back(index);
+                candidates.push_back(&entry);
             }
         }
     }
 
     if (candidates.empty()) {
-        for (index = 0; index < static_cast<int>(table->species_ids.size()); ++index) {
-            unsigned char time = table->time_condition[index];
-            if (table->rarity_class[index] == rarity_class && (time == 2 || time == night)) {
-                candidates.push_back(index);
+        for (const auto& entry : table.entries) {
+            unsigned char time = entry.time_condition;
+            if (entry.rarity_class == rarity_class && (time == 2 || time == night)) {
+                candidates.push_back(&entry);
             }
         }
     }
 
-    if (static_cast<int>(candidates.size()) > 1) {
-        const auto removed_index = Random(static_cast<int>(candidates.size()));
-        int selected = candidates[removed_index];
-        candidates.erase(candidates.begin() + removed_index);
-        candidates.insert(candidates.begin(), selected);
-    }
-    return static_cast<int>(candidates.size());
+    if (candidates.empty()) return nullptr;
+    return candidates[candidates.size() == 1 ? 0 : Random(static_cast<int>(candidates.size()))];
 }
 
 /* Bias the database's group-size dice by party-relative monster level and the
@@ -332,14 +278,12 @@ int MonGen::RollEncounterGroupSize(W8MonsterRecord* record)
 // FUNCTION: WIZ8 0x0048AD20
 unsigned char MonGen::GenerateEncounter(const srVector3T<float>* position)
 {
-    std::vector<int> candidates;
     W8EncounterCompanionRecord companion_records[2];
     bool companion_active[2] = {false, false};
     srVector3T<float> spawn_position;
     W8EncounterTableRuntime* table;
     W8MonsterRecord* record;
     W8MonsterGroup* group;
-    int selected_index;
     unsigned int species;
     const char* script;
     int encounter_weight;
@@ -350,14 +294,15 @@ unsigned char MonGen::GenerateEncounter(const srVector3T<float>* position)
         return 0;
     }
 
-    table = g_encounter_tables[encounter_table_index];
-    if (SelectEncounterCandidates(table, candidates) == 0) {
+    table = GetEncounterTable(encounter_table_index);
+    if (!table) return 0;
+    const auto* selected = SelectEncounterCandidate(*table);
+    if (!selected) {
         return 0;
     }
 
-    selected_index = candidates[0];
-    species = table->species_ids[selected_index];
-    script = table->script_names[selected_index]->value;
+    species = selected->species;
+    script = selected->script.value;
     spawn_position = *position;
     record = MonsterDBFromSpecies(species);
     if (record == 0) {
@@ -449,7 +394,7 @@ unsigned char MonGen::GenerateEncounter(const srVector3T<float>* position)
         const wchar_t* companion_word = companion_count == 1 ? L"chum" : L"chums";
         ShowNoticef(W8_FONT_PALETTE_BROWN, L"MonGen (%S): spawned %d %s & %d %s (lvl %d)", name,
                     group->member_count, group_name, companion_count, companion_word,
-                    table->challenge_level[selected_index]);
+                    selected->challenge_level);
     }
     return 1;
 }
@@ -650,8 +595,8 @@ MonGen* GetMonsterGenerator(int index)
 // FUNCTION: WIZ8 0x0048ad00
 W8EncounterTableRuntime* GetEncounterTable(int index)
 {
-    if (index < static_cast<int>(g_encounter_tables.size())) {
-        return g_encounter_tables[index];
+    if (index >= 0 && index < static_cast<int>(g_encounter_tables.size())) {
+        return &g_encounter_tables[index];
     }
     return 0;
 }
@@ -831,11 +776,7 @@ void RegisterActiveEncounterGroup(W8MonsterGroup* group)
 // FUNCTION: WIZ8 0x0048a710
 void UnloadEncounterTables(void)
 {
-    int index;
-    wiz8::remove_all_and_delete_in_order(g_encounter_tables);
-    for (index = 0; index < static_cast<int>(g_encounter_names.size()); ++index) {
-        delete[] g_encounter_names[index];
-    }
+    g_encounter_tables.clear();
     g_encounter_names.clear();
     g_encounter_tables_level = -1;
 }
@@ -1134,11 +1075,9 @@ void MonGen::SetName(const char* new_name)
 void MonGen::SetEncounterTable(int index)
 {
     encounter_table_index = index;
-    if (index < static_cast<int>(g_encounter_tables.size())) {
-        W8EncounterTableRuntime* table = g_encounter_tables[index];
-        if (table != 0 && _strnicmp(table->name, "HARASSMENT", 10) == 0) {
-            flags |= W8_MONGEN_STORY_GATED;
-        }
+    if (auto* table = GetEncounterTable(index);
+        table && _strnicmp(table->name, "HARASSMENT", 10) == 0) {
+        flags |= W8_MONGEN_STORY_GATED;
     }
 }
 
@@ -1148,7 +1087,7 @@ void MonGen::SetEncounterTable(int index)
 int FindEncounterTableByName(const char* name)
 {
     for (int index = 0; index < static_cast<int>(g_encounter_tables.size()); ++index) {
-        W8EncounterTableRuntime* table = g_encounter_tables[index];
+        W8EncounterTableRuntime* table = &g_encounter_tables[index];
         if (_strnicmp(table->name, name, strlen(name)) == 0) {
             return index;
         }

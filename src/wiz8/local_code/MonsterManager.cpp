@@ -229,10 +229,7 @@ void ActivateMonsterInWorld(W8MonsterInfo* monster_info)
             monster_info->p3D->SetDamageStage(damage_stage);
         }
     }
-    monster_info->plsVisMonToMon = new std::vector<W8VisibilityRecord*>;
-    if (monster_info->plsVisMonToMon == 0) {
-        srAssertFail("pMonsterInfo->plsVisMonToMon != NULL", MONSTER_MANAGER_CPP, 0x1de, 0);
-    }
+    monster_info->monster_visibility = new W8MonsterVisibility;
     RequestRefreshPartyState();
     RefreshFlaggedMainGameState();
     if (record->can_open_doors != 0) {

@@ -1,13 +1,13 @@
 #ifndef WIZ8_LOCAL_CODE_MONSTER_GENERATOR_H
 #define WIZ8_LOCAL_CODE_MONSTER_GENERATOR_H
 
-#include <vector>
 #include "wiz8/filesystem.h"
 
 #include "wiz8/geometry.h"
 #include "wiz8/engine_code/IntervalGate.h"
 
 struct W8EncounterTableRuntime;
+struct W8EncounterEntry;
 struct W8Item;
 struct W8MonsterRecord;
 struct MonGen {
@@ -30,8 +30,8 @@ struct MonGen {
     bool CanGenerateEncounter(bool force);
     /* Selects and spawns the encounter table entry at `position`. */
     unsigned char GenerateEncounter(const srVector3T<float>* position);
-    /* Build the candidate-entry list for the current rarity/time/party level. */
-    int SelectEncounterCandidates(W8EncounterTableRuntime* table, std::vector<int>& candidates);
+    /* Choose an entry for the current rarity/time/party level, or return null. */
+    const W8EncounterEntry* SelectEncounterCandidate(const W8EncounterTableRuntime& table);
     /* Difficulty-aware group-size roll for one monster database record. */
     int RollEncounterGroupSize(W8MonsterRecord* record);
     /* Arms or disarms the generator, loading its marker on the way in. */

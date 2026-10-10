@@ -166,6 +166,10 @@ Shared container helpers express first-match removal and owning teardown;
 they unlink before destruction so callbacks can safely remove other entries.
 Pointer vectors retain stable pointee addresses across slot reallocation.
 Combat fumble candidates are local vectors of values with automatic cleanup.
+Encounter tables own entry records instead of parallel vectors; selectors return
+the chosen record. Keyword files and journals own their data by value. Monster
+visibility uses a location-keyed map with stable record addresses. NPC slots
+remain stable across reuse, with shared lookup and teardown routines.
 Monster script conditions use addressable bytes rather than `std::vector<bool>` proxies.
 Journal loading resizes live entries before reading their unchanged file records;
 packed NPC/group pointer codecs retain their four-byte format fields.

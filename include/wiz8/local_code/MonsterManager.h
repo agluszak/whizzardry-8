@@ -1,6 +1,7 @@
 #ifndef WIZ8_LOCAL_CODE_MONSTER_MANAGER_H
 #define WIZ8_LOCAL_CODE_MONSTER_MANAGER_H
 
+#include <unordered_map>
 #include "Types.h"
 #include <vector>
 struct W8MonsterAction;
@@ -339,6 +340,8 @@ struct W8VisibilityRecord {
 };
 W8_ABI_ASSERT(sizeof(W8VisibilityRecord) == 0x31, "W8VisibilityRecord_size");
 
+using W8MonsterVisibility = std::unordered_map<int, W8VisibilityRecord>;
+
 struct W8MonsterInfo {
     int location_id;
     int monster_group_id;
@@ -405,7 +408,7 @@ struct W8MonsterInfo {
        other monster. The two release paths own it: one drops every record
        about a departing monster, the other empties and destroys the whole
        list. */
-    W8_PTR32(std::vector<W8VisibilityRecord*>) plsVisMonToMon;
+    W8_PTR32(W8MonsterVisibility) monster_visibility;
     W8CombatSlot Target;
     /* Summon marker - 0 ordinary, 1 friendly summon, 2 hostile summon;
        nonzero raises the summoned spell icon and feeds the slain cleanup. */

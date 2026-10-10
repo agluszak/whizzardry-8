@@ -2,6 +2,8 @@
 #include "wiz8/xstatus.h"
 #include "wiz8/local_code/Controls.h"
 #include "wiz8/local_code/MonsterGroup.h"
+#include "wiz8/local_code/MonsterManager.h"
+#include "wiz8/local_code/Sight.h"
 #include "wiz8/level_specific_code/MasterFunctionList.h"
 #include "wiz8/layouts/item_tables.h"
 #include "wiz8/npc_items.h"
@@ -254,9 +256,9 @@ static bool journalSerialization()
         auto file = wiz8::open_host_file(input_path);
         LoadJournalEntries(file.get());
     }
-    CHECK(g_fact_journal_entries && g_fact_journal_entries->size() == count);
+    CHECK(g_fact_journal_entries.size() == count);
     for (int i = 0; i < count; ++i) {
-        const auto& actual = (*g_fact_journal_entries)[i];
+        const auto& actual = g_fact_journal_entries[i];
         CHECK(actual.level == expected[i].level && actual.fact == expected[i].fact &&
               actual.alternate_text == expected[i].alternate_text);
     }
@@ -281,10 +283,37 @@ static bool journalSerialization()
         auto file = wiz8::open_host_file(input_path);
         LoadJournalEntries(file.get());
     }
-    CHECK(g_fact_journal_entries->empty());
-    delete g_fact_journal_entries;
-    g_fact_journal_entries = nullptr;
+    CHECK(g_fact_journal_entries.empty());
     std::filesystem::remove_all(root);
+    return true;
+}
+
+static bool visibilityRecordLifetime()
+{
+    W8MonsterInfo observer = {}, target = {};
+    observer.location_id = 100;
+    observer.fActive = true;
+    target.location_id = 200;
+    target.fActive = true;
+    CHECK(!FindMonToMonVisibility(&observer, &target));
+    observer.monster_visibility = new W8MonsterVisibility;
+    auto& records = *observer.monster_visibility;
+    auto& row = records[target.location_id];
+    row.about_location_id = target.location_id;
+    row.sight_state = W8_SIGHT_SEEN;
+    auto* original = FindMonToMonVisibility(&observer, &target);
+    CHECK(original == &row);
+    for (int id = 1000; id < 2000; ++id) records[id].about_location_id = id;
+    CHECK(FindMonToMonVisibility(&observer, &target) == original);
+    CHECK(original->sight_state == W8_SIGHT_SEEN);
+    gXStatus.monsters = {&observer, &target};
+    ReleaseMonToMonVisibilityList(&target);
+    CHECK(!FindMonToMonVisibility(&observer, &target));
+    CHECK(records.size() == 1000);
+    ReleaseMonToMonVisibilityList(&observer);
+    CHECK(!observer.monster_visibility);
+    ReleaseMonToMonVisibilityList(&observer);
+    gXStatus.monsters.clear();
     return true;
 }
 
@@ -292,7 +321,7 @@ int main()
 {
     return ownershipAndCallbacks() && gameplayCollectionLifetime() && masterFunctionMutation() &&
                    groupMemberLookup() && npcStockOrdering() && keyboardBindingReplacement() &&
-                   journalSerialization()
+                   journalSerialization() && visibilityRecordLifetime()
                ? 0
                : 1;
 }

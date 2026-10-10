@@ -641,7 +641,7 @@ template <class Entry> static void ShowMipeNamedTableRows(std::vector<W8MipeCate
 void ShowMipeEncounterCategory(void)
 {
     ResetEditorStatusLine(-1);
-    ShowNoticef(W8_FONT_PALETTE_PINK, L"Category: %S", g_encounter_names[g_mipe_category & 0xff]);
+    ShowNoticef(W8_FONT_PALETTE_PINK, L"Category: %S", g_encounter_names[g_mipe_category & 0xff].c_str());
     ShowMipeNamedTableRows<W8EncounterTableRuntime>(g_mipe_category_list);
 }
 
@@ -1846,7 +1846,7 @@ int HandleMonsterGeneratorEditKey(unsigned short key)
         g_mipe_mode = 0x17;
         ResetEditorStatusLine(-1);
         ShowNoticef(W8_FONT_PALETTE_PINK, L"Category: %S",
-                    g_encounter_names[g_mipe_category & 0xff]);
+                    g_encounter_names[g_mipe_category & 0xff].c_str());
         if (g_mipe_category_list == 0) {
             return 1;
         }

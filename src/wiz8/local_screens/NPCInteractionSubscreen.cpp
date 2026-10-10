@@ -151,7 +151,7 @@ W8NpcInteractionState* g_npc_interaction_state = &g_npc_interaction_storage;
    list and element one the translated one; each file list holds one line list
    per line and each line list one word per field. */
 // GLOBAL: WIZ8 0x0068EE80
-std::vector<std::vector<std::vector<wchar_t*>*>*> g_keyword_lists;
+std::vector<KeywordFile> g_keyword_lists;
 /* Both keyword files are loaded and the tables are usable. */
 // GLOBAL: WIZ8 0x0068F0F8
 bool g_keyword_lists_loaded;
@@ -333,31 +333,10 @@ wchar_t* ParseKeywordToken(wchar_t* line, wchar_t* field)
     return cursor;
 }
 
-using KeywordLine = std::vector<wchar_t*>;
-using KeywordFile = std::vector<KeywordLine*>;
-
-static void ReleaseKeywordLine(KeywordLine* line)
-{
-    for (int i = 0; i < static_cast<int>(line->size()); ++i)
-        free((*line)[i]);
-    delete line;
-}
-
-static void ReleaseKeywordFile(KeywordFile* file)
-{
-    for (int i = 0; i < static_cast<int>(file->size()); ++i)
-        ReleaseKeywordLine((*file)[i]);
-    delete file;
-}
-
-/* Load one keyword file into a file list: a fresh line list per line and a
-   malloc'd wide copy of every '/'-separated field. The header line is skipped,
-   and parsing starts eleven wide characters
-   into every line - retail's own offset, whose prefix meaning is not
-   resolved. A file that cannot be opened answers zero; otherwise every line
-   adds a list, an empty one included, and the loader answers one. */
+/* Skip the header and the eleven-character prefix on each keyword row.
+   Append only after the whole file has been parsed successfully. */
 // FUNCTION: WIZ8 0x0056bed0
-unsigned char LoadKeywordFile(const char* path, std::vector<std::vector<wchar_t*>*>* file)
+bool LoadKeywordFile(const char* path, KeywordFile& file)
 try
 {
     wchar_t line[1000];
@@ -392,42 +371,24 @@ try
             throw std::runtime_error("invalid keyword text");
         return true;
     };
-    try {
-        std::unique_ptr<KeywordFile, decltype(&ReleaseKeywordFile)> pending(
-            new KeywordFile, ReleaseKeywordFile);
-        read_line(); // Header row.
-        while (read_line()) {
-            std::unique_ptr<KeywordLine, decltype(&ReleaseKeywordLine)> entry(
-                new KeywordLine, ReleaseKeywordLine);
-            cursor = line + 11;
-            while ((cursor = ParseKeywordToken(cursor, field)) != 0) {
-                const auto length = wcslen(field);
-                std::unique_ptr<wchar_t, decltype(&free)> word(
-                    static_cast<wchar_t*>(malloc((length + 1) * sizeof(wchar_t))), free);
-                if (!word) throw std::bad_alloc();
-                wcscpy(word.get(), field);
-                entry->push_back(word.get());
-                (void)word.release();
-            }
-            pending->push_back(entry.get());
-            (void)entry.release();
+    KeywordFile pending;
+    read_line(); // Header row.
+    while (read_line()) {
+        auto& entry = pending.emplace_back();
+        cursor = line + 11;
+        while ((cursor = ParseKeywordToken(cursor, field)) != nullptr) {
+            entry.emplace_back(field, field + wcslen(field) + 1);
         }
-        file->reserve(file->size() + pending->size());
-        file->insert(file->end(), pending->begin(), pending->end());
-        pending->clear();
-    } catch (const std::exception&) { return 0; }
+    }
+    file.insert(file.end(), std::make_move_iterator(pending.begin()),
+                std::make_move_iterator(pending.end()));
     return 1;
 }
 catch (const std::exception&) { return false; }
 
-/* Release every keyword file list: its words through free, each line list and
-   each file list through its deleting destructor. The loaded flag is lowered
-   either way and the outer count is cleared. */
 // FUNCTION: WIZ8 0x0056c130
 void ClearKeywordLists(void)
 {
-    for (int i = 0; i < static_cast<int>(g_keyword_lists.size()); ++i)
-        ReleaseKeywordFile(g_keyword_lists[i]);
     g_keyword_lists.clear();
     g_keyword_lists_loaded = false;
 }
@@ -441,54 +402,36 @@ void ReloadKeywordLists(void)
 {
     ClearKeywordLists();
     try {
-        std::unique_ptr<KeywordFile, decltype(&ReleaseKeywordFile)> english(
-            new KeywordFile, ReleaseKeywordFile);
-        if (!LoadKeywordFile("Data\\Strings\\English_Keywords.txt", english.get())) return;
-        g_keyword_lists.push_back(english.get());
-        (void)english.release();
-        std::unique_ptr<KeywordFile, decltype(&ReleaseKeywordFile)> translated(
-            new KeywordFile, ReleaseKeywordFile);
-        if (!LoadKeywordFile("Data\\Strings\\translated_Keywords.txt", translated.get())) {
-            ClearKeywordLists();
+        std::vector<KeywordFile> files(2);
+        if (!LoadKeywordFile("Data\\Strings\\English_Keywords.txt", files[0]) ||
+            !LoadKeywordFile("Data\\Strings\\translated_Keywords.txt", files[1])) {
             return;
         }
-        g_keyword_lists.push_back(translated.get());
-        (void)translated.release();
+        g_keyword_lists = std::move(files);
         g_keyword_lists_loaded = true;
     } catch (const std::exception&) {
         ClearKeywordLists();
     }
 }
 
-/* Translate a typed dialogue keyword through the loaded tables. With no
-   tables loaded the input passes through verbatim; otherwise the active
-   language's list is scanned and the matching English field is copied out.
-   Element one holds the translated file when two loaded, falling back to the
-   English list through GetAt's clamped read. */
+/* Translate a matching keyword, leaving unmatched or unavailable translations
+   unchanged. Files with different row/word counts are also valid. */
 // FUNCTION: WIZ8 0x0056c440
 void TranslateDialogueKeyword(const wchar_t* source, wchar_t* destination)
 {
-    std::vector<std::vector<wchar_t*>*>* file;
-    std::vector<wchar_t*>* entry;
-    std::vector<wchar_t*>* english;
-    int entry_index;
-    int word_index;
-
-    if (!g_keyword_lists_loaded) {
-        wcscpy(destination, source);
-        return;
-    }
-    file = g_keyword_lists[1];
-    for (entry_index = 0; entry_index < static_cast<int>(file->size()); ++entry_index) {
-        entry = (*file)[entry_index];
-        for (word_index = 0; word_index < static_cast<int>(entry->size()); ++word_index) {
-            if (CompareWideTextIgnoreAsciiCase(source, (*entry)[word_index]) == 0) {
-                english = (*(g_keyword_lists[0]))[entry_index];
-                wcscpy(destination, (*english)[word_index]);
-                return;
+    if (g_keyword_lists_loaded) {
+        const auto& english = g_keyword_lists[0];
+        const auto& translated = g_keyword_lists[1];
+        for (std::size_t row = 0; row < std::min(english.size(), translated.size()); ++row) {
+            for (std::size_t word = 0; word < std::min(english[row].size(), translated[row].size()); ++word) {
+                if (CompareWideTextIgnoreAsciiCase(source, translated[row][word].data()) == 0) {
+                    wcscpy(destination, english[row][word].data());
+                    return;
+                }
             }
         }
     }
+    wcscpy(destination, source);
 }
 
 /* Reset the screen state block: zero its 0x268 bytes, write its reset values,

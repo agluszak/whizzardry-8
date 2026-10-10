@@ -66,25 +66,19 @@ std::unique_ptr<UINT16[]> g_journal_font_palette;
 // GLOBAL: WIZ8 0x0069C4D4
 W8JournalPanel* g_journal_panel;
 // GLOBAL: WIZ8 0x0069C4E4
-std::vector<W8JournalEntry>* g_journal_entries;
+std::vector<W8JournalEntry> g_journal_entries;
 // GLOBAL: WIZ8 0x0069C4DC
 unsigned int g_journal_region_set;
 // GLOBAL: WIZ8 0x0068de40
-std::vector<W8JournalEntry>* g_fact_journal_entries;
+std::vector<W8JournalEntry> g_fact_journal_entries;
 
 // GLOBAL: WIZ8 0x0068de44
 bool g_fact_notifications_suppressed;
 
-/* Create the fact journal on first use. An existing journal is only emptied,
-   which is what a new game does to the entries left by the previous one. */
 // FUNCTION: WIZ8 0x00558820
 void InitializeFactJournal(void)
 {
-    if (g_fact_journal_entries == 0) {
-        g_fact_journal_entries = new std::vector<W8JournalEntry>();
-    } else {
-        g_fact_journal_entries->clear();
-    }
+    g_fact_journal_entries.clear();
 }
 
 // FUNCTION: WIZ8 0x005588e0
@@ -99,14 +93,11 @@ void SetFactNotificationsSuppressed(bool suppressed)
 // FUNCTION: WIZ8 0x005588f0
 void RecordFactChangeForJournal(W8FactId fact_id)
 {
-    if (g_fact_journal_entries == 0) {
-        InitializeFactJournal();
-    }
     W8JournalEntry entry;
     entry.level = g_status.current_level;
     entry.fact = fact_id;
     entry.alternate_text = GetFact(fact_id);
-    g_fact_journal_entries->push_back(entry);
+    g_fact_journal_entries.push_back(entry);
 
     if (g_fact_notifications_suppressed) {
         return;
@@ -147,13 +138,10 @@ void SaveFactJournal(wiz8::File* file)
     int format = 1;
     int count;
 
-    if (g_fact_journal_entries == 0) {
-        InitializeFactJournal();
-    }
-    count = static_cast<int>(g_fact_journal_entries->size());
+    count = static_cast<int>(g_fact_journal_entries.size());
     file->write(&format, 4);
     file->write(&count, 4);
-    for (const auto& entry : *g_fact_journal_entries) {
+    for (const auto& entry : g_fact_journal_entries) {
         file->write(&entry, sizeof(entry));
     }
 }
@@ -168,8 +156,8 @@ void LoadJournalEntries(wiz8::File* file)
     InitializeFactJournal();
     file->read_exact(&format, 4);
     file->read_exact(&count, 4);
-    g_fact_journal_entries->resize(count);
-    for (auto& entry : *g_fact_journal_entries) {
+    g_fact_journal_entries.resize(count);
+    for (auto& entry : g_fact_journal_entries) {
         file->read_exact(&entry, sizeof(entry));
     }
 }
@@ -210,7 +198,7 @@ void DrawJournalLine(const wchar_t* text, int column, int y, int palette, bool c
 void W8JournalPanel::Refresh()
 {
     if (!m_alternate_mode) {
-        int last_page = (static_cast<int>(g_journal_entries->size()) - 1) / 12;
+        int last_page = (static_cast<int>(g_journal_entries.size()) - 1) / 12;
         int page_count = last_page + 1;
         if (page_count != g_journal_page_count || g_journal_page < 0 ||
             g_journal_page >= page_count) {
@@ -229,13 +217,13 @@ void W8JournalPanel::Refresh()
 
         int first = g_journal_page * 12;
         int last = first + 11;
-        if (last >= static_cast<int>(g_journal_entries->size())) {
-            last = static_cast<int>(g_journal_entries->size()) - 1;
+        if (last >= static_cast<int>(g_journal_entries.size())) {
+            last = static_cast<int>(g_journal_entries.size()) - 1;
         }
         int previous_level = -1;
         int y = 0x39;
         for (int index = first; index <= last; ++index, y += 0x1e) {
-            const W8JournalEntry* entry = &(*g_journal_entries)[index];
+            const W8JournalEntry* entry = &g_journal_entries[index];
             const W8FactDatabaseRecord* fact = &g_fact_records[entry->fact];
             int active = fact->highlight_when_true && GetFact(entry->fact);
             const wchar_t* description =
@@ -360,7 +348,7 @@ void W8JournalPanel::OnPrimary(W8TextControl* control)
             Refresh();
         }
     } else if (control == m_next) {
-        if (g_journal_page < (static_cast<int>(g_journal_entries->size()) - 1) / 12) {
+        if (g_journal_page < (static_cast<int>(g_journal_entries.size()) - 1) / 12) {
             ++g_journal_page;
             Refresh();
         }
@@ -413,14 +401,12 @@ unsigned char JournalScreenFinalize(void)
 unsigned char JournalScreenEnter(void)
 {
     int maximum_visibility;
-    int index;
 
     SetViewport(0, 0, 0x280, 0x1e0);
     SetPrimarySurfaceTextureHint2Enabled(false);
     MSYS_Init();
     ResetRegions();
     UpdateHeldItemCursor();
-    g_journal_entries = new std::vector<W8JournalEntry>();
     g_journal_panel = new W8JournalPanel(&g_journal_region_set);
 
     switch (g_settings.difficulty) {
@@ -435,14 +421,13 @@ unsigned char JournalScreenEnter(void)
         break;
     }
 
-    g_journal_entries->clear();
-    for (index = 0; index < static_cast<int>(g_fact_journal_entries->size()); ++index) {
-        W8JournalEntry entry = (*g_fact_journal_entries)[index];
+    g_journal_entries.clear();
+    for (const auto& entry : g_fact_journal_entries) {
         const W8FactDatabaseRecord* fact = &g_fact_records[entry.fact];
         const wchar_t* description =
             entry.alternate_text ? fact->alternate_description : fact->description;
         if ((g_journal_show_all || fact->visibility <= maximum_visibility) && *description != 0) {
-            g_journal_entries->push_back(entry);
+            g_journal_entries.push_back(entry);
         }
     }
     g_journal_panel->Refresh();
@@ -457,9 +442,7 @@ unsigned char JournalScreenLeave(int)
     ResetRegions();
     delete g_journal_panel;
     g_journal_panel = 0;
-    g_journal_entries->clear();
-    delete g_journal_entries;
-    g_journal_entries = 0;
+    g_journal_entries.clear();
     if (gXStatus.fCampMode) {
         SyncDialogueNpcState();
     }
@@ -482,7 +465,7 @@ void JournalScreenFrame(void)
                 --g_journal_page;
                 g_journal_panel->Refresh();
             } else if (input.usParam == VK_RIGHT &&
-                       g_journal_page < (static_cast<int>(g_journal_entries->size()) - 1) / 12) {
+                       g_journal_page < (static_cast<int>(g_journal_entries.size()) - 1) / 12) {
                 ++g_journal_page;
                 g_journal_panel->Refresh();
             }
