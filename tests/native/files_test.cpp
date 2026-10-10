@@ -1,7 +1,7 @@
 /* Asset, SLF and save contracts through the game file manager, not OS handles. */
 #include "FileMan.h"
 #include "LibraryDataBase.h"
-#include "platform_paths.h"
+#include <wiz8/asset_paths.h>
 #include <wiz8/filesystem.h>
 #include <wiz8/file_time.h>
 #include <SDL3/SDL_stdinc.h>
@@ -268,14 +268,20 @@ int main()
     CHECK(!open("Saves\\part:stream", FILE_ACCESS_WRITE | FILE_CREATE_ALWAYS));
     const auto outside = root / "outside";
     fixture(outside / "untouched.sav", "outside");
-    fs::create_directory_symlink(outside, user / "Escape");
-    fs::create_directory_symlink(assets, user / "AssetLink");
-    CHECK(!open("Escape\\untouched.sav", FILE_ACCESS_WRITE | FILE_CREATE_ALWAYS));
-    CHECK(!open("AssetLink\\data\\MixedCase.BIN", FILE_ACCESS_WRITE));
-    CHECK(!FileDelete(const_cast<char*>("AssetLink\\data\\MixedCase.BIN")));
-    CHECK(!FileCopy(const_cast<char*>("Saves\\CurrentGame.SAV"),
-                    const_cast<char*>("Escape\\untouched.sav"), FALSE));
-    CHECK(contents(outside / "untouched.sav") == "outside");
+    std::error_code symlink_error;
+    fs::create_directory_symlink(outside, user / "Escape", symlink_error);
+    if (!symlink_error) {
+        CHECK(!open("Escape\\untouched.sav", FILE_ACCESS_WRITE | FILE_CREATE_ALWAYS));
+        CHECK(!FileCopy(const_cast<char*>("Saves\\CurrentGame.SAV"),
+                       const_cast<char*>("Escape\\untouched.sav"), FALSE));
+        CHECK(contents(outside / "untouched.sav") == "outside");
+    } else fprintf(stderr, "Symlink checks unavailable: %s\n", symlink_error.message().c_str());
+    symlink_error.clear();
+    fs::create_directory_symlink(assets, user / "AssetLink", symlink_error);
+    if (!symlink_error) {
+        CHECK(!open("AssetLink\\data\\MixedCase.BIN", FILE_ACCESS_WRITE));
+        CHECK(!FileDelete(const_cast<char*>("AssetLink\\data\\MixedCase.BIN")));
+    } else fprintf(stderr, "Asset symlink checks unavailable: %s\n", symlink_error.message().c_str());
 
     char pattern[] = "dAtA\\*.*", no_match[] = "Data\\*.absent";
     const auto names = scan(pattern);

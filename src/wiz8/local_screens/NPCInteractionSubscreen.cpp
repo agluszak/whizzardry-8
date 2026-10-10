@@ -1,3 +1,6 @@
+#include <wiz8/filesystem.h>
+#include <sstream>
+#include <cuchar>
 #include "wiz8/wiz8_windows.h"
 #include "wiz8/spell_ids.h"
 #include "wiz8/conditions.h"
@@ -344,18 +347,37 @@ unsigned char LoadKeywordFile(const char* path, W8GrowableVector<W8GrowableVecto
     W8GrowableVector<wchar_t*>* entry;
     wchar_t* cursor;
     wchar_t* word;
-    FILE* stream;
+    std::istringstream stream;
     size_t length;
 
-    stream = fopen(path, "rb");
-    if (stream == 0) {
-        return 0;
-    }
-    memset(line, 0, sizeof(line));
-    fgetws(line, 1000, stream);
-    while (!feof(stream)) {
+    try {
+        auto input = wiz8::open_file(path);
+        if (input->size() > 16 * 1024 * 1024) return 0;
+        std::string text(static_cast<std::size_t>(input->size()), '\0');
+        if (input->read(text.data(), text.size()).bytes != text.size()) return 0;
+        stream.str(text);
+    } catch (const std::exception&) { return 0; }
+    auto read_line = [&]() {
+        std::string bytes;
+        if (!std::getline(stream, bytes)) return false;
         memset(line, 0, sizeof(line));
-        fgetws(line, 1000, stream);
+        std::mbstate_t state{};
+        std::size_t offset = 0, count = 0;
+        while (offset < bytes.size()) {
+            char16_t character;
+            const auto consumed = std::mbrtoc16(&character, bytes.data() + offset,
+                                                bytes.size() - offset, &state);
+            if (consumed == std::size_t(-1) || consumed == std::size_t(-2) ||
+                consumed == 0 || count + 1 >= std::size(line))
+                throw std::runtime_error("invalid keyword text");
+            line[count++] = static_cast<wchar_t>(character);
+            if (consumed != std::size_t(-3)) offset += consumed;
+        }
+        return true;
+    };
+    try {
+    read_line(); // Header row.
+    while (read_line()) {
         entry = new W8GrowableVector<wchar_t*>;
         cursor = line + 11;
         while ((cursor = ParseKeywordToken(cursor, field)) != 0) {
@@ -366,7 +388,8 @@ unsigned char LoadKeywordFile(const char* path, W8GrowableVector<W8GrowableVecto
         }
         file->Add(entry);
     }
-    fclose(stream);
+
+    } catch (const std::exception&) { return 0; }
     return 1;
 }
 

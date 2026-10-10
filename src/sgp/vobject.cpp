@@ -1,3 +1,5 @@
+#include <wiz8/filesystem.h>
+#include <sstream>
 /* Modified for the Wizardry 8 reconstruction: 2026-10-03, 2026-10-06, 2026-10-07.
    Distributed under the accompanying SFI Source Code license agreement. */
 #include <stdio.h>
@@ -944,7 +946,7 @@ typedef struct DUMPFILENAME {
 void DumpVObjectInfoIntoFile(UINT8* filename, BOOLEAN fAppend)
 {
     VOBJECT_NODE* curr;
-    FILE* fp;
+    std::ostringstream report;
     DUMPFILENAME *pName, *pCode;
     UINT32* puiCounter;
     UINT8 tempName[256];
@@ -955,12 +957,7 @@ void DumpVObjectInfoIntoFile(UINT8* filename, BOOLEAN fAppend)
         return;
     }
 
-    if (fAppend) {
-        fp = fopen(filename, "a");
-    } else {
-        fp = fopen(filename, "w");
-    }
-    Assert(fp);
+
 
     //Allocate enough strings and counters for each node.
     pName = (DUMPFILENAME*)MemAlloc(sizeof(DUMPFILENAME) * guiVObjectSize);
@@ -995,20 +992,26 @@ void DumpVObjectInfoIntoFile(UINT8* filename, BOOLEAN fAppend)
     }
 
     //Now dump the info.
-    fprintf(fp, "-----------------------------------------------\n");
-    fprintf(fp, "%d unique vObject names exist in %d VObjects\n", uiUniqueID, guiVObjectSize);
-    fprintf(fp, "-----------------------------------------------\n\n");
+    report << "-----------------------------------------------\n";
+    report << uiUniqueID << " unique vObject names exist in " << guiVObjectSize << "\n";
+    report << "-----------------------------------------------\n\n";
     for (i = 0; i < uiUniqueID; i++) {
-        fprintf(fp, "%d occurrences of %s\n", puiCounter[i], pName[i].str);
-        fprintf(fp, "%s\n\n", pCode[i].str);
+        report << puiCounter[i] << " occurrences of " << pName[i].str << "\n";
+        report << pCode[i].str << "\n\n";
     }
-    fprintf(fp, "\n-----------------------------------------------\n\n");
+    report << "\n-----------------------------------------------\n\n";
 
     //Free all memory associated with this operation.
     MemFree(pName);
     MemFree(pCode);
     MemFree(puiCounter);
-    fclose(fp);
+    try {
+        auto output = wiz8::open_file(reinterpret_cast<const char*>(filename),
+            fAppend ? wiz8::OpenMode::append : wiz8::OpenMode::replace);
+        const auto text = report.str();
+        output->write(text.data(), text.size());
+    } catch (const std::exception&) {}
+
 }
 
 //Debug wrapper for adding vObjects

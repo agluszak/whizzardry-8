@@ -32,12 +32,11 @@ find_package(Threads REQUIRED)
 
 # No forced CRT vocabulary or short-wchar options at the portable API boundary.
 add_library(wiz8_filesystem STATIC
-    src/compat/platform_paths.cpp
+    src/platform/asset_paths.cpp
     src/platform/filesystem.cpp
     src/platform/file_time.cpp
 )
-target_include_directories(wiz8_filesystem PUBLIC "${PROJECT_SOURCE_DIR}/include"
-    PRIVATE "${PROJECT_SOURCE_DIR}/src/compat")
+target_include_directories(wiz8_filesystem PUBLIC "${PROJECT_SOURCE_DIR}/include")
 target_link_libraries(wiz8_filesystem PUBLIC SDL3::SDL3 Threads::Threads)
 target_compile_features(wiz8_filesystem PUBLIC cxx_std_23)
 include(CTest)
@@ -98,25 +97,16 @@ target_include_directories(wiz8_native_settings INTERFACE
 )
 target_link_libraries(wiz8_native_settings INTERFACE Threads::Threads ${CMAKE_DL_LIBS})
 
-# One process-wide owner for roots, file handles, CRT and SDL state in the executable.
+# Two-byte wide-string CRT support; filesystem ownership lives in wiz8_filesystem.
 add_library(wiz8_compat STATIC
     src/compat/native_crt.cpp
-    src/compat/platform_crt.cpp
-    src/compat/platform_files.cpp
-    src/compat/platform_system.cpp
 )
 target_compile_options(wiz8_compat PRIVATE ${WIZ8_COMPAT_OPTIONS})
 target_include_directories(wiz8_compat PRIVATE "${PROJECT_SOURCE_DIR}/include/wiz8")
-target_link_libraries(wiz8_compat PRIVATE Threads::Threads SDL3::SDL3 wiz8_filesystem)
-if(WIN32)
-    # Keep host SDK declarations out of the transitional game vocabulary.
-    add_library(wiz8_os STATIC src/compat/platform_fs_windows.cpp)
-    target_link_libraries(wiz8_compat PRIVATE wiz8_os)
-endif()
+target_link_libraries(wiz8_compat PUBLIC wiz8_filesystem)
 if(UNIX AND NOT APPLE)
     target_link_options(wiz8_compat PRIVATE -Wl,--no-undefined)
 endif()
-target_include_directories(wiz8_native_settings INTERFACE "${PROJECT_SOURCE_DIR}/src/compat")
 target_link_libraries(wiz8_native_settings INTERFACE wiz8_compat)
 
 add_subdirectory(src/surrender)

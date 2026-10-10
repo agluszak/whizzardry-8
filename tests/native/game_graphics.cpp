@@ -1,9 +1,10 @@
+#include <wiz8/filesystem.h>
 /* Real SLF/STI -> recovered SGP surfaces -> recovered stSurface2D -> SDL GPU.
    Also checks a movie-owned surface and restoration of the game primary. */
 #include "LibraryDataBase.h"
 #include "compat/video.h"
 #include "native/input_events.h"
-#include "platform_paths.h"
+#include <wiz8/asset_paths.h>
 #include "sgp.h"
 #include "surrender/srGERD.h"
 #include "surrender/srTriMeshPipeline.h"
@@ -52,10 +53,10 @@ int main(int argc, char** argv)
         auto roots = w8_native::path_roots();
         roots.user = temporary;
         w8_native::configure_paths(roots);
-        FILE* config = fopen("C:\\3DVideo.CFG", "w");
-        CHECK(config);
-        fputs("SDLGPU\n640\n480\n16\nnone\n", config);
-        fclose(config);
+        auto config = wiz8::open_file("C:\\3DVideo.CFG", wiz8::OpenMode::replace);
+        const std::string settings = "SDLGPU\n640\n480\n16\nnone\n";
+        config->write(settings.data(), settings.size());
+        config->close();
         /* This standalone test owns SDL and DBus until process exit. */
         SDL_SetHint(SDL_HINT_SHUTDOWN_DBUS_ON_QUIT, "1");
         CHECK(SDL_Init(SDL_INIT_VIDEO));
@@ -134,17 +135,17 @@ int main(int argc, char** argv)
             }
         if (argc > 2)
         {
-            FILE* output = fopen(argv[2], "wb");
+            auto output = wiz8::open_host_file(argv[2], wiz8::OpenMode::replace);
             CHECK(output);
-            fprintf(output, "P6\n640 480\n255\n");
+            output->write("P6\n640 480\n255\n", 15);
             for (int y = 0; y < 480; ++y)
                 for (int x = 0; x < 640; ++x)
                 {
                     unsigned v = buffer->getPixel(x, y);
                     unsigned char rgb[] = {BYTE(v >> 16), BYTE(v >> 8), BYTE(v)};
-                    fwrite(rgb, 1, 3, output);
+                    output->write(rgb, 3);
                 }
-            fclose(output);
+            output->close();
         }
         g_gerd->unlockBuffer();
         printf("retail STI: %u colored pixels, %u match CPU RGB555 within 8 levels\n", colored,

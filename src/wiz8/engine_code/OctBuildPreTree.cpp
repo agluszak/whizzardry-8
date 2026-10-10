@@ -12,7 +12,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include "compat/kernel32.h"
-#include "compat/platform.h"
+#include <wiz8/filesystem.h>
 // GLOBAL: WIZ8 0x0065be60
 int g_build_node_instances;
 // GLOBAL: WIZ8 0x0065be58
@@ -583,15 +583,19 @@ unsigned short OctBuildPreTree::LoadRegionFile(const char* stem, srVector3T<floa
     spatial.m_region_id_bound = 0;
     char path[1024];
     sprintf(path, "%s.cub", stem);
-    HANDLE file = W8CreateFile(path, GENERIC_READ, 0, 0, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, 0);
-    if (file == 0 || file == (HANDLE)-1) {
+    std::unique_ptr<wiz8::File> file;
+    try { file = wiz8::open_file(path); }
+    catch (const std::exception&) {
         ReportBuildStatus(6, "\nWARNING: Could not find and\\or open region file.\n\n");
         return 0;
     }
     ReportBuildStatus(6, "\nReading Region File...\n");
-    DWORD read;
+    auto read = [&](void* data, std::size_t bytes) {
+        try { return file->read(data, bytes).bytes == bytes; }
+        catch (const std::exception&) { return false; }
+    };
     int count;
-    unsigned char ok = W8ReadFile(file, &count, 4, &read, 0) & 1;
+    bool ok = read(&count, 4);
     if (ok == 0) {
         return 0;
     }
@@ -600,33 +604,31 @@ unsigned short OctBuildPreTree::LoadRegionFile(const char* stem, srVector3T<floa
             ReportBuildStatus(7, "Wrong version for .cub file--get new plug-in!\n");
             return 0;
         }
-        ok &= W8ReadFile(file, &count, 4, &read, 0);
+        ok = read(&count, 4);
         if (ok == 0) {
             return 0;
         }
     }
-    if (count == 0 || 0xffff < count) {
+    if (count <= 0 || count >= 0xffff) {
         return 0;
     }
-    spatial.m_region_id_bound = static_cast<unsigned short>(count + 1);
-    spatial.m_region_volumes = static_cast<W8OctRegionVolume*>(
-        malloc((spatial.m_region_id_bound + 1) * sizeof(W8OctRegionVolume)));
-    if (spatial.m_region_volumes == 0) {
+    const auto bound = static_cast<unsigned short>(count + 1);
+    std::unique_ptr<W8OctRegionVolume, decltype(&free)> volumes(
+        static_cast<W8OctRegionVolume*>(calloc(bound + 1, sizeof(W8OctRegionVolume))), &free);
+    if (!volumes) {
         ReportBuildStatus(7, "ReadRegions: Could not allocate region list.\n");
         return 0;
     }
-    memset(spatial.m_region_volumes, 0,
-           (spatial.m_region_id_bound + 1) * sizeof(W8OctRegionVolume));
     /* Computed per region but never read: the retail outside-bounds flag is
        dead state kept for fidelity. */
     bool outside = false;
-    for (unsigned short region = 1; region < spatial.m_region_id_bound; ++region) {
+    for (unsigned short region = 1; region < bound; ++region) {
         W8CubRegionRecord record;
-        ok &= W8ReadFile(file, &record, 0x6a, &read, 0);
+        ok = read(&record, sizeof(record));
         if (ok == 0) {
             return 0;
         }
-        W8OctRegionVolume* volume = spatial.m_region_volumes + region;
+        W8OctRegionVolume* volume = volumes.get() + region;
         volume->value_10 = record.value_00;
         volume->m_polygon_count = 0;
         volume->m_region = region;
@@ -655,9 +657,11 @@ unsigned short OctBuildPreTree::LoadRegionFile(const char* stem, srVector3T<floa
         SortFrustumCorners(&volume->m_points[1]);
         BuildFrustumPlanes(&volume->m_points[1], volume->m_planes);
     }
-    W8CloseHandle(file);
+    file.reset();
     ReportBuildStatus(6, path);
-    spatial.m_region_count = spatial.m_region_id_bound;
+    spatial.m_region_volumes = volumes.release();
+    spatial.m_region_id_bound = bound;
+    spatial.m_region_count = bound;
     return spatial.m_region_id_bound;
 }
 

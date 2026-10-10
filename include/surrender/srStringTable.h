@@ -3,7 +3,9 @@
 #include "srArray.h"
 
 
-class srStringTable {
+#define SR_STRING_TABLE_API
+
+class SR_STRING_TABLE_API srStringTable {
 public:
     srStringTable();
 
@@ -29,3 +31,5 @@ private:
 };
 
 W8_ABI_ASSERT((sizeof(srStringTable) == 0x0c), "srStringTable_must_be_0x0c");
+
+#undef SR_STRING_TABLE_API

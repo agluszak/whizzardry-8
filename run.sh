@@ -19,12 +19,6 @@ build_dir=${WIZ8_BUILD_DIR:-"$repo_dir/build/$preset"}
 executable="$build_dir/Wiz8Native"
 if [[ -x "$executable.exe" ]]; then executable="$executable.exe"; fi
 asset_root=${WIZ8_ASSET_ROOT:-}
-if [[ $(uname -s) == Darwin ]]; then
-    user_root=${WIZ8_USER_ROOT:-"$HOME/Library/Application Support/whizzardry8"}
-else
-    user_root=${WIZ8_USER_ROOT:-"${XDG_DATA_HOME:-$HOME/.local/share}/whizzardry8"}
-fi
-
 if [[ ! -x "$executable" ]]; then
     printf 'Missing native executable: %s\nBuild it with: cmake --build %q\n' \
         "$executable" "$build_dir" >&2
@@ -38,6 +32,7 @@ build_dir=$(cd -- "$build_dir" && pwd)
 executable="$build_dir/$(basename -- "$executable")"
 WIZ8_ASSET_ROOT=$(cd -- "$asset_root" && pwd)
 export WIZ8_ASSET_ROOT
+user_root=${WIZ8_USER_ROOT:-$("$executable" --print-user-root)}
 mkdir -p -- "$user_root"
 WIZ8_USER_ROOT=$(cd -- "$user_root" && pwd)
 export WIZ8_USER_ROOT

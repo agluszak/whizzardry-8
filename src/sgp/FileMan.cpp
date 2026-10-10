@@ -3,7 +3,7 @@
 #include "FileMan.h"
 #include "LibraryDataBase.h"
 #include "DEBUG.H"
-#include "platform_paths.h"
+#include <wiz8/asset_paths.h>
 #include <wiz8/filesystem.h>
 #include <wiz8/file_time.h>
 

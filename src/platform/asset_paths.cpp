@@ -1,4 +1,4 @@
-#include "platform_paths.h"
+#include <wiz8/asset_paths.h>
 
 #include <algorithm>
 #include <filesystem>
@@ -362,7 +362,10 @@ std::string existing_legacy_user_root(const std::string& preferred)
         app = app.parent_path();
     const fs::path candidate = app.parent_path().parent_path() / "whizzardry8";
     std::error_code error;
-    if (app.parent_path().filename() == "Whizzardry" && fs::is_directory(candidate, error))
+    // Prefer the current root when both contain data; never strand newer saves.
+    const bool preferred_has_data = fs::is_directory(app, error) && !fs::is_empty(app, error);
+    if (!preferred_has_data && app.parent_path().filename() == "Whizzardry" &&
+        fs::is_directory(candidate, error) && !fs::is_empty(candidate, error))
         return absolute(utf8(candidate));
     return "";
 }
@@ -376,7 +379,7 @@ std::string host_read_path(const std::string& path)
         return "";
     }
     const std::string full = absolute(path);
-    return full.empty() ? "" : locate_physical(full);
+    return full;
 }
 std::string host_write_path(const std::string& path)
 {

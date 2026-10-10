@@ -1,5 +1,4 @@
 add_executable(portable_filesystem_test filesystem_test.cpp)
-target_include_directories(portable_filesystem_test PRIVATE "${PROJECT_SOURCE_DIR}/src/compat")
 target_link_libraries(portable_filesystem_test PRIVATE wiz8_filesystem)
 add_test(NAME portable_filesystem COMMAND portable_filesystem_test)
 add_test(NAME portable_default_roots COMMAND portable_filesystem_test default-roots)

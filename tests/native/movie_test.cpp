@@ -4,7 +4,7 @@
 #include "MemMan.h"
 #include "compat/surfaces.h"
 #include "native/audio_test.h"
-#include "platform_paths.h"
+#include <wiz8/asset_paths.h>
 #include "soundman.h"
 #include "wiz8/bink_video.h"
 #include <algorithm>

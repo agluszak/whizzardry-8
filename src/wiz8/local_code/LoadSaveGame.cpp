@@ -601,8 +601,9 @@ bool SaveLevelStatus(const char* path)
         chunk.Close();
         if (empty_percent > 0x32 && _stricmp(path, "Saves\\CurrentGame.SAV") == 0) {
             SaveGame("CleanUp", 0);
-            FileDelete("Saves\\CurrentGame.SAV");
-            rename("Saves\\CleanUp.SAV", "Saves\\CurrentGame.SAV");
+            if (FileCopy("Saves\\CleanUp.SAV", "Saves\\CurrentGame.SAV", FALSE)) {
+                FileDelete("Saves\\CleanUp.SAV");
+            }
             return false;
         }
         opened = chunk.OpenAppend(const_cast<char*>(path));
