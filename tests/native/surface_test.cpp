@@ -95,8 +95,8 @@ std::vector<BYTE> reference(CpuSurface& dest, const SDL_Rect& d, CpuSurface& sou
 
 void differential()
 {
-    const std::array<std::array<UINT32, 5>, 7> formats{{
-        {8, 0, 0, 0, 0}, {16, 0x7c00, 0x3e0, 0x1f, 0},
+    const std::array<std::array<UINT32, 5>, 8> formats{{
+        {8, 0, 0, 0, 0}, {24, 0xff0000, 0xff00, 0xff, 0}, {16, 0x7c00, 0x3e0, 0x1f, 0},
         {16, 0xf800, 0x7e0, 0x1f, 0}, {16, 0x1f, 0x3e0, 0x7c00, 0},
         {16, 0x3f, 0xfc0, 0xf000, 0},
         {32, 0xff0000, 0xff00, 0xff, 0xff000000}, {32, 0xff, 0xff00, 0xff0000, 0}

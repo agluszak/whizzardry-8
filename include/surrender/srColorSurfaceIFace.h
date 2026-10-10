@@ -6,7 +6,6 @@
 #include "srFilter.h"
 #include "srMath.h"
 #include "srPixelConvert.h"
-#include "srStat.h"
 #include "srTypeRegistry.h"
 
 class srColorSurface;
@@ -24,11 +23,6 @@ public:
         w8_long top;
         w8_long right;
         w8_long bottom;
-    };
-
-    struct BlitInfo {
-        Rectangle destination;
-        Rectangle source;
     };
 
     enum { CLAMP_HORIZONTAL = 0x01u, CLAMP_VERTICAL = 0x02u };
@@ -77,28 +71,16 @@ public:
     virtual SR_DLL_IMPORT void setHLine(w8_long y, w8_long x_start, w8_long x_end, w8_ulong pixel);
     virtual SR_DLL_IMPORT void setVLine(w8_long x, w8_long y_start, w8_long y_end, w8_ulong pixel);
     virtual SR_DLL_IMPORT void setLine(w8_long x0, w8_long y0, w8_long x1, w8_long y1, w8_ulong pixel);
-    virtual SR_DLL_IMPORT void composite(w8_long x, w8_long y, srColorSurfaceIFace& source, w8_long source_x,
-                                         w8_long source_y, w8_long width, w8_long height, double alpha);
     virtual SR_DLL_IMPORT void blit(w8_long x, w8_long y, srColorSurfaceIFace& source, w8_long source_x,
                                     w8_long source_y, w8_long width, w8_long height);
-    virtual SR_DLL_IMPORT void blit(const BlitInfo& info, srColorSurfaceIFace& source);
     virtual SR_DLL_IMPORT void copy(srColorSurfaceIFace& source);
     virtual SR_DLL_IMPORT void swapPixelRows(w8_long x0, w8_long y0, w8_long x1, w8_long y1, w8_long count);
     virtual SR_DLL_IMPORT void flipRectangle(const Rectangle& rectangle);
-    virtual SR_DLL_IMPORT void adjust(const glm::vec4& scale, const glm::vec4& offset,
-                                      const glm::vec4& gamma);
-    virtual SR_DLL_IMPORT void adjustSaturation(double saturation);
-    virtual SR_DLL_IMPORT void getChannelStatistics(srStat& statistics, srARGB::e_index channel);
-    virtual SR_DLL_IMPORT void remapPixels(const srARGB& from, const srARGB& to);
-    virtual SR_DLL_IMPORT void copyColorChannel(srARGB::e_index destination,
-                                                srARGB::e_index source);
-    virtual SR_DLL_IMPORT void flipColorChannels(srARGB::e_index first, srARGB::e_index second);
     virtual void getPixelRow(w8_ulong* pixels, w8_long y, w8_long x_start, w8_long x_end) = 0;
     virtual void setPixelRow(const w8_ulong* pixels, w8_long y, w8_long x_start, w8_long x_end) = 0;
     virtual void getPixelRowRaw(void* pixels, w8_long y, w8_long x_start, w8_long x_end) = 0;
     virtual void setPixelRowRaw(const void* pixels, w8_long y, w8_long x_start, w8_long x_end) = 0;
 
-    SR_DLL_IMPORT void addNoise(double amplitude, int monochrome);
     SR_DLL_IMPORT void clampCoordinates(w8_long& x, w8_long& y);
     SR_DLL_IMPORT void flipHorizontal();
     SR_DLL_IMPORT void flipVertical();
@@ -169,8 +151,7 @@ public:
 
 protected:
     virtual SR_DLL_IMPORT void copyNoScaling(srColorSurfaceIFace& source);
-    virtual SR_DLL_IMPORT void scaleHorizontal(srColorSurfaceIFace& source);
-    virtual SR_DLL_IMPORT void scaleVertical(srColorSurfaceIFace& source);
+    void scaleAxis(srColorSurfaceIFace& source, bool vertical);
     virtual SR_DLL_IMPORT void scaleFast(srColorSurfaceIFace& source);
     virtual SR_DLL_IMPORT void scale(srColorSurfaceIFace& source);
     virtual SR_DLL_IMPORT void magnify(srColorSurfaceIFace& source);

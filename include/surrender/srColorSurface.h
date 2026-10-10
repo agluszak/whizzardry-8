@@ -5,7 +5,7 @@
 #include "srColorSurfaceIFace.h"
 #include "srPalette.h"
 
-#include <SDL3/SDL_surface.h>
+#include "wiz8/compat/surfaces.h"
 
 // VTABLE: SURRENDER 0x100773A0
 // class srClassSupport<srColorSurface, srColorSurfaceIFace, 12560>
@@ -89,7 +89,6 @@ private:
                                          w8_ulong count);
     SR_DLL_IMPORT void convertFromARGB8888(void* pixels, const w8_ulong* source,
                                            w8_ulong count);
-    SR_DLL_IMPORT void reversePixels(void* pixels, w8_ulong count);
     SR_DLL_IMPORT int isCompatible(srColorSurfaceIFace& source);
 
     void allocate();
@@ -97,16 +96,9 @@ private:
     /* Caller memory or a shared surface cannot be reallocated. */
     bool hasFixedStorage() const;
 
-    struct SurfaceDeleter {
-        void operator()(SDL_Surface* surface) const
-        {
-            SDL_DestroySurface(surface);
-        }
-    };
-
     srPixelConvert::ConversionFunc pixel_write = nullptr;
     srPixelConvert::ConversionFunc pixel_read = nullptr;
     std::shared_ptr<srPalette> palette;
     /* SDL holds the pixels; pixel_format describes their channels. */
-    std::unique_ptr<SDL_Surface, SurfaceDeleter> storage;
+    SDLSurfaceOwner storage{nullptr, SDL_DestroySurface};
 };

@@ -1,4 +1,5 @@
 #include "surrender/srMath.h"
+#include "wiz8/compat/surfaces.h"
 #include <algorithm>
 #include <cstdlib>
 #include <cstring>
@@ -15,21 +16,6 @@
 #include "surrender/srCore.h"
 #include "surrender/srFilter.h"
 #include "surrender/srPalette.h"
-
-/* Blend a straight-alpha source pixel into an ARGB destination pixel. */
-static void BlendArgbPixel(unsigned char* dest, const unsigned char* source, double alpha)
-{
-    if (source[3] == 0 || !(0.0 < alpha))
-        return;
-    if (1.0 < alpha)
-        alpha = 1.0;
-    const double blend = source[3] * 0.00392156862745098 * alpha;
-    const double inverse = 1.0 - blend;
-    dest[2] = (unsigned char)srFloatToInt(dest[2] * inverse + source[2] * blend);
-    dest[1] = (unsigned char)srFloatToInt(dest[1] * inverse + source[1] * blend);
-    dest[0] = (unsigned char)srFloatToInt(dest[0] * inverse + source[0] * blend);
-    dest[3] = (unsigned char)srFloatToInt(blend * 255.0 + dest[3] * inverse);
-}
 
 // FUNCTION: SURRENDER 0x100571F0
 srColorSurfaceIFace::srColorSurfaceIFace()
@@ -665,174 +651,7 @@ void srColorSurfaceIFace::flipRectangle(const Rectangle& rectangle)
     }
 }
 
-// FUNCTION: SURRENDER 0x10057B80
-void srColorSurfaceIFace::addNoise(double amplitude, int monochrome)
-{
-    int magnitude = (int)fabs(amplitude * 255.0);
-    if (magnitude != 0) {
-        w8_long height = this->height;
-        w8_long width = this->width;
-        std::vector<srARGB> row_storage(width);
-        srARGB* row_colors = row_storage.data();
-        unsigned char* row = (unsigned char*)row_colors;
-        for (w8_long y = 0; y < height; ++y) {
-            getPixelRow((w8_ulong*)row, y, 0, width);
-            if (monochrome == 0) {
-                for (w8_long x = 0; x < width; ++x) {
-                    unsigned char* pixel = row + x * 4 + 3;
-                    for (int channel = 0; channel < 4; ++channel) {
-                        int value = *pixel + (rand() % (magnitude * 2) - magnitude);
-                        if (value < 0) {
-                            value = 0;
-                        } else if (0xff < value) {
-                            value = 0xff;
-                        }
-                        *pixel = (unsigned char)value;
-                        --pixel;
-                    }
-                }
-            } else {
-                for (w8_long x = 0; x < width; ++x) {
-                    int delta = rand() % (magnitude * 2) - magnitude;
-                    unsigned char* pixel = row + x * 4 + 3;
-                    for (int channel = 0; channel < 4; ++channel) {
-                        int value = *pixel + delta;
-                        if (value < 0) {
-                            value = 0;
-                        } else if (0xff < value) {
-                            value = 0xff;
-                        }
-                        *pixel = (unsigned char)value;
-                        --pixel;
-                    }
-                }
-            }
-            setPixelRow((const w8_ulong*)row, y, 0, width);
-        }
-    }
-}
 
-// FUNCTION: SURRENDER 0x10057EB0
-void srColorSurfaceIFace::adjustSaturation(double saturation)
-{
-    if (saturation != 1.0) {
-        w8_long height = this->height;
-        w8_long width = this->width;
-        std::vector<srARGB> row_storage(width);
-        srARGB* row_colors = row_storage.data();
-        unsigned char* row = (unsigned char*)row_colors;
-        for (w8_long y = 0; y < height; ++y) {
-            getPixelRow((w8_ulong*)row, y, 0, width);
-            unsigned char* pixel = row + 2;
-            for (w8_long x = 0; x < width; ++x) {
-                float red = pixel[0] * 0.003921569f;
-                float green = pixel[-1] * 0.003921569f;
-                float blue = pixel[-2] * 0.003921569f;
-                float alpha = pixel[1] * 0.003921569f;
-                float luminance = red * 0.2125f + green * 0.7154f + blue * 0.0721f;
-                double channel = alpha * 255.0;
-                if (0.0 < channel) {
-                    if (255.0 <= channel) {
-                        channel = 255.0;
-                    }
-                } else {
-                    channel = 0.0;
-                }
-                double value = ((red - luminance) * saturation + luminance) * 255.0;
-                pixel[1] = (unsigned char)srFloatToInt(channel);
-                if (0.0 < value) {
-                    if (255.0 <= value) {
-                        value = 255.0;
-                    }
-                } else {
-                    value = 0.0;
-                }
-                channel = ((green - luminance) * saturation + luminance) * 255.0;
-                pixel[0] = (unsigned char)srFloatToInt(value);
-                if (0.0 < channel) {
-                    if (255.0 <= channel) {
-                        channel = 255.0;
-                    }
-                } else {
-                    channel = 0.0;
-                }
-                value = ((blue - luminance) * saturation + luminance) * 255.0;
-                pixel[-1] = (unsigned char)srFloatToInt(channel);
-                if (0.0 < value) {
-                    if (255.0 <= value) {
-                        value = 255.0;
-                    }
-                } else {
-                    value = 0.0;
-                }
-                pixel[-2] = (unsigned char)srFloatToInt(value);
-                pixel += 4;
-            }
-            setPixelRow((const w8_ulong*)row, y, 0, width);
-        }
-    }
-}
-
-// FUNCTION: SURRENDER 0x10057D10
-void srColorSurfaceIFace::adjust(const glm::vec4& scale, const glm::vec4& offset,
-                                 const glm::vec4& gamma)
-{
-    w8_long height = this->height;
-    w8_long width = this->width;
-    const float* scale_v = &scale.x;
-    const float* offset_v = &offset.x;
-    const float* gamma_v = &gamma.x;
-    unsigned char lut[4][256];
-    for (int channel = 0; channel < 4; ++channel) {
-        for (int i = 0; i < 0x100; ++i) {
-            double value = scale_v[channel] * (offset_v[channel] * (i - 128.0) + 128.0) +
-                           gamma_v[channel] * 255.0 + 0.5;
-            if (value <= 0.0) {
-                value = 0.0;
-            } else if (value >= 255.0) {
-                value = 255.0;
-            }
-            lut[channel][i] = (unsigned char)(int)value;
-        }
-    }
-    std::vector<srARGB> row_storage(width);
-    srARGB* row_colors = row_storage.data();
-    unsigned char* row = (unsigned char*)row_colors;
-    for (w8_long y = 0; y < height; ++y) {
-        getPixelRow((w8_ulong*)row, y, 0, width);
-        for (w8_long x = 0; x < width; ++x) {
-            unsigned char* pixel = row + x * 4;
-            pixel[2] = lut[0][pixel[2]];
-            pixel[1] = lut[1][pixel[1]];
-            pixel[0] = lut[2][pixel[0]];
-            pixel[3] = lut[3][pixel[3]];
-        }
-        setPixelRow((const w8_ulong*)row, y, 0, width);
-    }
-}
-
-// FUNCTION: SURRENDER 0x1005B040
-void srColorSurfaceIFace::remapPixels(const srARGB& from, const srARGB& to)
-{
-    w8_long width = this->width;
-    w8_long height = this->height;
-    std::vector<srARGB> row_storage(width);
-    srARGB* row_colors = row_storage.data();
-    w8_ulong* row = (w8_ulong*)row_colors;
-    for (w8_long y = 0; y < height; ++y) {
-        getPixelRow(row, y, 0, width);
-        w8_long replaced = 0;
-        for (w8_long x = 0; x < width; ++x) {
-            if (row[x] == *(const w8_ulong*)&to) { /* reinterpret-ok: packed ARGB dword */
-                row[x] = *(const w8_ulong*)&from;  /* reinterpret-ok: packed ARGB dword */
-                ++replaced;
-            }
-        }
-        if (replaced != 0) {
-            setPixelRow(row, y, 0, width);
-        }
-    }
-}
 
 // FUNCTION: SURRENDER 0x10059690
 void srColorSurfaceIFace::scaleFast(srColorSurfaceIFace& source)
@@ -868,49 +687,6 @@ void srColorSurfaceIFace::scaleFast(srColorSurfaceIFace& source)
     }
 }
 
-// FUNCTION: SURRENDER 0x10059420
-void srColorSurfaceIFace::flipColorChannels(srARGB::e_index first, srARGB::e_index second)
-{
-    if ((int)first >= 0 && (int)first < 4 && (int)second >= 0 && (int)second < 4 &&
-        first != second) {
-        w8_long height = this->height;
-        w8_long width = this->width;
-        std::vector<srARGB> row_storage(width);
-        srARGB* row_colors = row_storage.data();
-        unsigned char* row = (unsigned char*)row_colors;
-        for (w8_long y = 0; y < height; ++y) {
-            getPixelRow((w8_ulong*)row, y, 0, width);
-            for (w8_long x = 0; x < width; ++x) {
-                unsigned char* pixel = row + x * 4;
-                unsigned char temp = pixel[3 - second];
-                pixel[3 - second] = pixel[3 - first];
-                pixel[3 - first] = temp;
-            }
-            setPixelRow((const w8_ulong*)row, y, 0, width);
-        }
-    }
-}
-
-// FUNCTION: SURRENDER 0x10059520
-void srColorSurfaceIFace::copyColorChannel(srARGB::e_index destination, srARGB::e_index source)
-{
-    if ((int)destination >= 0 && (int)destination < 4 && (int)source >= 0 && (int)source < 4 &&
-        destination != source) {
-        w8_long height = this->height;
-        w8_long width = this->width;
-        std::vector<srARGB> row_storage(width);
-        srARGB* row_colors = row_storage.data();
-        unsigned char* row = (unsigned char*)row_colors;
-        for (w8_long y = 0; y < height; ++y) {
-            getPixelRow((w8_ulong*)row, y, 0, width);
-            for (w8_long x = 0; x < width; ++x) {
-                unsigned char* pixel = row + x * 4;
-                pixel[3 - destination] = pixel[3 - source];
-            }
-            setPixelRow((const w8_ulong*)row, y, 0, width);
-        }
-    }
-}
 
 // FUNCTION: SURRENDER 0x10059600
 void srColorSurfaceIFace::copyNoScaling(srColorSurfaceIFace& source)
@@ -924,63 +700,6 @@ void srColorSurfaceIFace::copyNoScaling(srColorSurfaceIFace& source)
         for (w8_long y = 0; y < height; y++) {
             source.getPixelRow(row, y, 0, width);
             setPixelRow(row, y, 0, width);
-        }
-    }
-}
-
-// FUNCTION: SURRENDER 0x10059240
-void srColorSurfaceIFace::getChannelStatistics(srStat& statistics, srARGB::e_index channel)
-{
-    w8_long height = this->height;
-    w8_long width = this->width;
-    if ((int)channel >= 0 && (int)channel < 4) {
-        std::vector<srARGB> row_storage(width);
-        srARGB* row_colors = row_storage.data();
-        unsigned char* row = (unsigned char*)row_colors;
-        std::vector<int> histogram(0x100);
-        int i;
-        for (i = 0; i < 0x100; ++i) {
-            histogram[i] = 0;
-        }
-        for (w8_long y = 0; y < height; ++y) {
-            getPixelRow((w8_ulong*)row, y, 0, width);
-            for (w8_long x = 0; x < width; ++x) {
-                ++histogram[row[x * 4 + 3 - channel]];
-            }
-        }
-        statistics.count = 0;
-        statistics.mean = 0.0;
-        statistics.deviation = 0.0;
-        statistics.median = 0;
-        statistics.min = 0x100;
-        statistics.max = 0;
-        for (i = 0; i < 0x100; ++i) {
-            if (histogram[i] != 0) {
-                if (i < statistics.min) {
-                    statistics.min = i;
-                }
-                if (statistics.max < i) {
-                    statistics.max = i;
-                }
-            }
-        }
-        for (i = 0; i < 0x100; ++i) {
-            statistics.mean = (histogram[i] * i) + statistics.mean;
-            statistics.count = statistics.count + histogram[i];
-        }
-        statistics.mean = statistics.mean / statistics.count;
-        for (i = 0; i < 0x100; ++i) {
-            double difference = i - statistics.mean;
-            statistics.deviation = histogram[i] * difference * difference + statistics.deviation;
-        }
-        statistics.deviation = sqrt(statistics.deviation / statistics.count);
-        w8_long running = 0;
-        for (i = 0; i < 0x100; ++i) {
-            running += histogram[i];
-            statistics.median = i;
-            if (statistics.count / 2 < running) {
-                break;
-            }
         }
     }
 }
@@ -1010,11 +729,11 @@ void srColorSurfaceIFace::copy(srColorSurfaceIFace& source)
                 }
             }
             if (source_width == width) {
-                scaleVertical(source);
+                scaleAxis(source, true);
                 return;
             }
             if (source_height == height) {
-                scaleHorizontal(source);
+                scaleAxis(source, false);
                 return;
             }
             scale(source);
@@ -1032,8 +751,8 @@ void srColorSurfaceIFace::scale(srColorSurfaceIFace& source)
     srColorSurface scaled(srPixelConvert::SURFACE_BGRA32, width, source_height);
     srColorSurfaceIFace& scaled_iface = scaled;
     scaled_iface.copySurfaceParameters(source);
-    scaled_iface.scaleHorizontal(source);
-    scaleVertical(scaled);
+    scaled_iface.scaleAxis(source, false);
+    scaleAxis(scaled, true);
 }
 
 // FUNCTION: SURRENDER 0x1005AE10
@@ -1141,7 +860,7 @@ void srColorSurface::adopt(SDL_Surface* surface)
 
 void srColorSurface::allocate()
 {
-    adopt(SDL_CreateSurface(width, height, StorageFormat(pixel_format)));
+    adopt(CreateCpuStorage(width, height, StorageFormat(pixel_format)).release());
 }
 
 bool srColorSurface::hasFixedStorage() const
@@ -1178,7 +897,7 @@ srColorSurface::srColorSurface(srPixelConvert::e_surfaceType type, void* data,
     srPixelConvert::PixelFormat format;
     srPixelConvert::mapPixelFormat(type, format);
     init(format, arg_width, arg_height, arg_pitch);
-    adopt(SDL_CreateSurfaceFrom(arg_width, arg_height, StorageFormat(format), data, arg_pitch));
+    adopt(CreateCpuStorage(arg_width, arg_height, StorageFormat(format), data, arg_pitch).release());
     srPixelConvert::selectFuncs(format, pixel_write, pixel_read);
 }
 
@@ -1188,7 +907,7 @@ srColorSurface::srColorSurface(const srPixelConvert::PixelFormat& format, void* 
                                w8_ulong arg_pitch)
 {
     init(format, arg_width, arg_height, arg_pitch);
-    adopt(SDL_CreateSurfaceFrom(arg_width, arg_height, StorageFormat(format), data, arg_pitch));
+    adopt(CreateCpuStorage(arg_width, arg_height, StorageFormat(format), data, arg_pitch).release());
     srPixelConvert::selectFuncs(format, pixel_write, pixel_read);
 }
 
@@ -1207,7 +926,7 @@ srColorSurface& srColorSurface::operator=(const srColorSurface& other)
 {
     if (&other != this) {
         srColorSurfaceIFace::operator=(other);
-        adopt(SDL_DuplicateSurface(other.storage.get()));
+        adopt(CopyCpuStorage(*other.storage).release());
         palette = other.palette;
         pixel_write = other.pixel_write;
         pixel_read = other.pixel_read;
@@ -1514,56 +1233,9 @@ void srColorSurface::getPixelColumn(w8_ulong* pixels, w8_long x, w8_long y_start
             count = 0x100;
         }
         unsigned char* address = getAddress(x, y_start);
-        switch (pixel_format.pixel_size) {
-        case srPixelConvert::PIXEL_SIZE_8: {
-            for (w8_ulong i = 0; i < count; ++i) {
-                buffer[i] = *address;
-                address += pitch;
-            }
-            break;
-        }
-        case srPixelConvert::PIXEL_SIZE_16: {
-            if (count != 0) {
-                unsigned char* out = buffer;
-                w8_ulong i = count;
-                do {
-                    *(unsigned short*)out = *(unsigned short*)address;
-                    out += 2;
-                    address += pitch;
-                    --i;
-                } while (i != 0);
-            }
-            break;
-        }
-        case srPixelConvert::PIXEL_SIZE_24: {
-            if (count != 0) {
-                unsigned char* out = buffer;
-                w8_ulong i = count;
-                do {
-                    out[0] = address[0];
-                    out[1] = address[1];
-                    out[2] = address[2];
-                    out += 3;
-                    address += pitch;
-                    --i;
-                } while (i != 0);
-            }
-            break;
-        }
-        case srPixelConvert::PIXEL_SIZE_32: {
-            if (count != 0) {
-                unsigned char* out = buffer;
-                w8_ulong i = count;
-                do {
-                    *(w8_ulong*)out = *(w8_ulong*)address;
-                    out += 4;
-                    address += pitch;
-                    --i;
-                } while (i != 0);
-            }
-            break;
-        }
-        }
+        const unsigned bytes = pixel_format.pixel_size + 1;
+        for (w8_ulong i = 0; i < count; ++i, address += pitch)
+            std::memcpy(buffer + i * bytes, address, bytes);
         convertToARGB8888(pixels, (const void*)buffer, count);
         pixels += 0x100;
     }
@@ -1580,56 +1252,9 @@ void srColorSurface::setPixelColumn(const w8_ulong* pixels, w8_long x, w8_long y
         }
         convertFromARGB8888(buffer, pixels, count);
         unsigned char* address = getAddress(x, y_start);
-        switch (pixel_format.pixel_size) {
-        case srPixelConvert::PIXEL_SIZE_8: {
-            for (w8_ulong i = 0; i < count; ++i) {
-                *address = buffer[i];
-                address += pitch;
-            }
-            break;
-        }
-        case srPixelConvert::PIXEL_SIZE_16: {
-            if (count != 0) {
-                const unsigned char* in = buffer;
-                w8_ulong i = count;
-                do {
-                    *(unsigned short*)address = *(const unsigned short*)in;
-                    in += 2;
-                    address += pitch;
-                    --i;
-                } while (i != 0);
-            }
-            break;
-        }
-        case srPixelConvert::PIXEL_SIZE_24: {
-            if (count != 0) {
-                const unsigned char* in = buffer;
-                w8_ulong i = count;
-                do {
-                    address[0] = in[0];
-                    address[1] = in[1];
-                    address[2] = in[2];
-                    in += 3;
-                    address += pitch;
-                    --i;
-                } while (i != 0);
-            }
-            break;
-        }
-        case srPixelConvert::PIXEL_SIZE_32: {
-            if (count != 0) {
-                const unsigned char* in = buffer;
-                w8_ulong i = count;
-                do {
-                    *(w8_ulong*)address = *(const w8_ulong*)in;
-                    in += 4;
-                    address += pitch;
-                    --i;
-                } while (i != 0);
-            }
-            break;
-        }
-        }
+        const unsigned bytes = pixel_format.pixel_size + 1;
+        for (w8_ulong i = 0; i < count; ++i, address += pitch)
+            std::memcpy(address, buffer + i * bytes, bytes);
         pixels += 0x100;
     }
 }
@@ -1669,188 +1294,21 @@ void srColorSurface::setPixels(const w8_ulong* pixels, const srVector2i* positio
 // FUNCTION: SURRENDER 0x1005D830
 void srColorSurface::getPixelsRaw(void* pixels, const srVector2i* positions, w8_long count)
 {
-    unsigned char* out = (unsigned char*)pixels;
-    w8_ulong pixel_count = static_cast<w8_ulong>(count);
-    switch (pixel_format.pixel_size) {
-    case srPixelConvert::PIXEL_SIZE_8: {
-        for (w8_ulong i = 0; i < pixel_count; ++i, ++positions, ++out) {
-            *out = *getAddress(positions->x, positions->y);
-        }
-        break;
-    }
-    case srPixelConvert::PIXEL_SIZE_16: {
-        for (w8_ulong i = 0; i < pixel_count; ++i, ++positions, out += 2) {
-            *(unsigned short*)out = *(unsigned short*)getAddress(positions->x, positions->y);
-        }
-        break;
-    }
-    case srPixelConvert::PIXEL_SIZE_24: {
-        for (w8_ulong i = 0; i < pixel_count; ++i, ++positions, out += 3) {
-            const unsigned char* address = getAddress(positions->x, positions->y);
-            out[0] = address[0];
-            out[1] = address[1];
-            out[2] = address[2];
-        }
-        break;
-    }
-    case srPixelConvert::PIXEL_SIZE_32: {
-        for (w8_ulong i = 0; i < pixel_count; ++i, ++positions, out += 4) {
-            *(w8_ulong*)out = *(w8_ulong*)getAddress(positions->x, positions->y);
-        }
-        break;
-    }
-    }
+    auto* data = static_cast<unsigned char*>(pixels);
+    const unsigned bytes = pixel_format.pixel_size + 1;
+    for (w8_long i = 0; i < count; ++i)
+        std::memcpy(data + i * bytes, getAddress(positions[i].x, positions[i].y), bytes);
+
 }
 
 // FUNCTION: SURRENDER 0x1005D680
 void srColorSurface::setPixelsRaw(const void* pixels, const srVector2i* positions, w8_long count)
 {
-    const unsigned char* in = (const unsigned char*)pixels;
-    w8_ulong pixel_count = static_cast<w8_ulong>(count);
-    switch (pixel_format.pixel_size) {
-    case srPixelConvert::PIXEL_SIZE_8: {
-        for (w8_ulong i = 0; i < pixel_count; ++i, ++positions, ++in) {
-            *getAddress(positions->x, positions->y) = *in;
-        }
-        break;
-    }
-    case srPixelConvert::PIXEL_SIZE_16: {
-        for (w8_ulong i = 0; i < pixel_count; ++i, ++positions, in += 2) {
-            *(unsigned short*)getAddress(positions->x, positions->y) = *(const unsigned short*)in;
-        }
-        break;
-    }
-    case srPixelConvert::PIXEL_SIZE_24: {
-        for (w8_ulong i = 0; i < pixel_count; ++i, ++positions, in += 3) {
-            unsigned char* address = getAddress(positions->x, positions->y);
-            address[0] = in[0];
-            address[1] = in[1];
-            address[2] = in[2];
-        }
-        break;
-    }
-    case srPixelConvert::PIXEL_SIZE_32: {
-        for (w8_ulong i = 0; i < pixel_count; ++i, ++positions, in += 4) {
-            *(w8_ulong*)getAddress(positions->x, positions->y) = *(const w8_ulong*)in;
-        }
-        break;
-    }
-    }
-}
+    const auto* data = static_cast<const unsigned char*>(pixels);
+    const unsigned bytes = pixel_format.pixel_size + 1;
+    for (w8_long i = 0; i < count; ++i)
+        std::memcpy(getAddress(positions[i].x, positions[i].y), data + i * bytes, bytes);
 
-// FUNCTION: SURRENDER 0x1005E230
-static void reversePixelTriplets(unsigned char* pixels, w8_ulong count)
-{
-    w8_ulong half = count >> 1;
-    w8_ulong i = 0;
-    for (; i < (half & ~3UL); i += 4) {
-        /* reinterpret-ok: each 24-bit pixel record swaps its low word plus
-           high byte separately. */
-        unsigned short w = *reinterpret_cast<unsigned short*>(pixels + i * 3);
-        unsigned char b = pixels[i * 3 + 2];
-        *reinterpret_cast<unsigned short*>(pixels + i * 3) =
-            *reinterpret_cast<unsigned short*>(pixels + (count - 1 - i) * 3);
-        pixels[i * 3 + 2] = pixels[(count - 1 - i) * 3 + 2];
-        *reinterpret_cast<unsigned short*>(pixels + (count - 1 - i) * 3) = w;
-        pixels[(count - 1 - i) * 3 + 2] = b;
-        w = *reinterpret_cast<unsigned short*>(pixels + (i + 1) * 3);
-        b = pixels[(i + 1) * 3 + 2];
-        *reinterpret_cast<unsigned short*>(pixels + (i + 1) * 3) =
-            *reinterpret_cast<unsigned short*>(pixels + (count - 2 - i) * 3);
-        pixels[(i + 1) * 3 + 2] = pixels[(count - 2 - i) * 3 + 2];
-        *reinterpret_cast<unsigned short*>(pixels + (count - 2 - i) * 3) = w;
-        pixels[(count - 2 - i) * 3 + 2] = b;
-        w = *reinterpret_cast<unsigned short*>(pixels + (i + 2) * 3);
-        b = pixels[(i + 2) * 3 + 2];
-        *reinterpret_cast<unsigned short*>(pixels + (i + 2) * 3) =
-            *reinterpret_cast<unsigned short*>(pixels + (count - 3 - i) * 3);
-        pixels[(i + 2) * 3 + 2] = pixels[(count - 3 - i) * 3 + 2];
-        *reinterpret_cast<unsigned short*>(pixels + (count - 3 - i) * 3) = w;
-        pixels[(count - 3 - i) * 3 + 2] = b;
-        w = *reinterpret_cast<unsigned short*>(pixels + (i + 3) * 3);
-        b = pixels[(i + 3) * 3 + 2];
-        *reinterpret_cast<unsigned short*>(pixels + (i + 3) * 3) =
-            *reinterpret_cast<unsigned short*>(pixels + (count - 4 - i) * 3);
-        pixels[(i + 3) * 3 + 2] = pixels[(count - 4 - i) * 3 + 2];
-        *reinterpret_cast<unsigned short*>(pixels + (count - 4 - i) * 3) = w;
-        pixels[(count - 4 - i) * 3 + 2] = b;
-    }
-    for (; i < half; ++i) {
-        unsigned short w = *reinterpret_cast<unsigned short*>(pixels + i * 3);
-        unsigned char b = pixels[i * 3 + 2];
-        *reinterpret_cast<unsigned short*>(pixels + i * 3) =
-            *reinterpret_cast<unsigned short*>(pixels + (count - 1 - i) * 3);
-        pixels[i * 3 + 2] = pixels[(count - 1 - i) * 3 + 2];
-        *reinterpret_cast<unsigned short*>(pixels + (count - 1 - i) * 3) = w;
-        pixels[(count - 1 - i) * 3 + 2] = b;
-    }
-}
-
-// FUNCTION: SURRENDER 0x1005C150
-void srColorSurface::reversePixels(void* pixels, w8_ulong count)
-{
-    unsigned char* address = (unsigned char*)pixels;
-    switch (pixel_format.pixel_size) {
-    case srPixelConvert::PIXEL_SIZE_8: {
-        w8_ulong half = count >> 1;
-        w8_ulong i = 0;
-        for (; i < (half & ~3UL); i += 4) {
-            unsigned char t = address[i];
-            address[i] = address[count - 1 - i];
-            address[count - 1 - i] = t;
-            t = address[i + 1];
-            address[i + 1] = address[count - 2 - i];
-            address[count - 2 - i] = t;
-            t = address[i + 2];
-            address[i + 2] = address[count - 3 - i];
-            address[count - 3 - i] = t;
-            t = address[i + 3];
-            address[i + 3] = address[count - 4 - i];
-            address[count - 4 - i] = t;
-        }
-        for (; i < half; ++i) {
-            unsigned char t = address[i];
-            address[i] = address[count - 1 - i];
-            address[count - 1 - i] = t;
-        }
-        break;
-    }
-    case srPixelConvert::PIXEL_SIZE_16: {
-        w8_ulong half = count >> 1;
-        unsigned short* row = (unsigned short*)address;
-        w8_ulong i = 0;
-        for (; i < (half & ~3UL); i += 4) {
-            unsigned short t = row[i];
-            row[i] = row[count - 1 - i];
-            row[count - 1 - i] = t;
-            t = row[i + 1];
-            row[i + 1] = row[count - 2 - i];
-            row[count - 2 - i] = t;
-            t = row[i + 2];
-            row[i + 2] = row[count - 3 - i];
-            row[count - 3 - i] = t;
-            t = row[i + 3];
-            row[i + 3] = row[count - 4 - i];
-            row[count - 4 - i] = t;
-        }
-        for (; i < half; ++i) {
-            unsigned short t = row[i];
-            row[i] = row[count - 1 - i];
-            row[count - 1 - i] = t;
-        }
-        break;
-    }
-    case srPixelConvert::PIXEL_SIZE_24:
-        reversePixelTriplets(address, count);
-        break;
-    case srPixelConvert::PIXEL_SIZE_32:
-        if (count != 0) {
-            w8_ulong* row = reinterpret_cast<w8_ulong*>(address);
-            std::reverse(row, row + count);
-        }
-        break;
-        break;
-    }
 }
 
 // FUNCTION: SURRENDER 0x1005C0A0
@@ -1889,50 +1347,20 @@ void srColorSurface::swapPixelRows(w8_long x0, w8_long y0, w8_long x1, w8_long y
 // FUNCTION: SURRENDER 0x1005C2E0
 void srColorSurface::flipRectangle(const Rectangle& rectangle)
 {
-    w8_long x_lo = rectangle.left;
-    w8_long x_hi = rectangle.right;
-    bool flip_x = x_hi < x_lo;
-    if (flip_x) {
-        x_lo = rectangle.right;
-        x_hi = rectangle.left;
+    const SDL_Rect region{std::min(rectangle.left, rectangle.right),
+                          std::min(rectangle.top, rectangle.bottom),
+                          std::abs(rectangle.right - rectangle.left),
+                          std::abs(rectangle.bottom - rectangle.top)};
+    if (SDL_RectEmpty(&region) || region.x < 0 || region.y < 0 ||
+        region.x + region.w > width || region.y + region.h > height)
+        return;
+    const auto flip = SDL_FlipMode((rectangle.right < rectangle.left ? SDL_FLIP_HORIZONTAL : 0) |
+                                  (rectangle.bottom < rectangle.top ? SDL_FLIP_VERTICAL : 0));
+    if (flip != SDL_FLIP_NONE) {
+        auto surface = ShareCpuSurface(*storage);
+        FlipCpuSurface(surface, flip, &region);
     }
-    w8_long y_lo = rectangle.top;
-    w8_long y_hi = rectangle.bottom;
-    bool flip_y = y_hi < y_lo;
-    if (flip_y) {
-        y_lo = rectangle.bottom;
-        y_hi = rectangle.top;
-    }
-    if ((flip_x || flip_y) && x_lo >= 0 && y_lo >= 0 && x_hi <= this->width &&
-        y_hi <= this->height) {
-        w8_ulong width = x_hi - x_lo;
-        w8_ulong height = y_hi - y_lo;
-        if (width != 0 && height != 0) {
-            int bpp = pixel_format.pixel_size;
-            w8_long middle = y_lo + (w8_long)height / 2;
-            unsigned char* base = static_cast<unsigned char*>(getDataPtr()) + (bpp + 1) * x_lo;
-            w8_ulong mirror = height;
-            for (w8_long row = y_lo; row < middle; ++row) {
-                --mirror;
-                void* row_address = (void*)(pitch * row + base);
-                void* mirror_address = (void*)(pitch * mirror + base);
-                if (flip_y) {
-                    unsigned char* first = static_cast<unsigned char*>(row_address);
-                    unsigned char* second = static_cast<unsigned char*>(mirror_address);
-                    if (first != second) {
-                        std::swap_ranges(first, first + (bpp + 1) * width, second);
-                    }
-                }
-                if (flip_x) {
-                    reversePixels(row_address, width);
-                    reversePixels(mirror_address, width);
-                }
-            }
-            if (flip_x && (height & 1) != 0) {
-                reversePixels((void*)(pitch * middle + base), width);
-            }
-        }
-    }
+
 }
 
 // FUNCTION: SURRENDER 0x1005C560
@@ -1958,7 +1386,8 @@ void srColorSurface::setHLine(w8_long y, w8_long x_start, w8_long x_end, w8_ulon
             setPixel(x_start, y, pixel);
             w8_ulong raw = getPixelRaw(x_start, y);
             const SDL_Rect rect{x_start, y, x_hi - x_start, 1};
-            SDL_FillSurfaceRect(storage.get(), &rect, raw);
+            auto destination = ShareCpuSurface(*storage);
+            FillCpuSurface(destination, raw, &rect);
         }
     }
 }
@@ -1986,7 +1415,8 @@ void srColorSurface::setVLine(w8_long x, w8_long y_start, w8_long y_end, w8_ulon
             setPixel(x, y_start, pixel);
             w8_ulong raw = getPixelRaw(x, y_start);
             const SDL_Rect rect{x, y_start, 1, y_hi - y_start};
-            SDL_FillSurfaceRect(storage.get(), &rect, raw);
+            auto destination = ShareCpuSurface(*storage);
+            FillCpuSurface(destination, raw, &rect);
         }
     }
 }
@@ -2000,7 +1430,8 @@ void srColorSurface::fill(w8_ulong pixel)
     }
     setPixel(0, 0, pixel);
     w8_ulong raw = getPixelRaw(0, 0);
-    SDL_FillSurfaceRect(storage.get(), nullptr, raw);
+    auto destination = ShareCpuSurface(*storage);
+    FillCpuSurface(destination, raw);
 }
 
 // FUNCTION: SURRENDER 0x1005D220
@@ -2043,77 +1474,11 @@ void srColorSurface::blit(w8_long x, w8_long y, srColorSurfaceIFace& source, w8_
                 y_end = height - y + source_y;
             }
             if (source_x < x_end && source_y < y_end) {
-                if (&source != this) {
-                    // Ordinary compatible copy between different surfaces.
-                    // Self-blits keep the retail overlap paths below.
-                    int bpp = pixel_format.pixel_size + 1;
-                    w8_ulong row_bytes = (x_end - source_x) * bpp;
-                    unsigned char* dest =
-                        (unsigned char*)getDataPtr() + pitch * y + bpp * x;
-                    const unsigned char* src =
-                        (const unsigned char*)source.getDataPtr() +
-                        source.pitch * source_y + bpp * source_x;
-                    for (w8_long row = source_y; row < y_end; ++row) {
-                        std::memcpy(dest, src, row_bytes);
-                        src += source.pitch;
-                        dest += pitch;
-                    }
-                    return;
-                }
-                w8_long dest_pitch = pitch;
-                w8_long source_pitch = source.pitch;
-                int bpp = pixel_format.pixel_size + 1;
-                w8_ulong row_bytes = (x_end - source_x) * bpp;
-                unsigned char* dest = (unsigned char*)getDataPtr() + dest_pitch * y + bpp * x;
-                unsigned char* src =
-                    (unsigned char*)source.getDataPtr() + source_pitch * source_y + bpp * source_x;
-                if (source_y <= y) {
-                    if (source_y != y || source_x != x) {
-                        w8_long dest_right = (x - source_x) + x_end;
-                        if (source_y == y && ((source_x <= x && x < x_end) ||
-                                              (source_x <= dest_right && dest_right < x_end))) {
-                            std::vector<unsigned char> pixels(row_bytes);
-                            unsigned char* temp = pixels.data();
-                            for (w8_long row = source_y; row < y_end; ++row) {
-                                if (row_bytes != 0) {
-                                    if (temp != src) {
-                                        std::memcpy(temp, src, row_bytes);
-                                    }
-                                    if (dest != temp) {
-                                        std::memcpy(dest, temp, row_bytes);
-                                    }
-                                }
-                                dest += dest_pitch;
-                                src += source_pitch;
-                            }
-                            return;
-                        }
-                        w8_long rows = y_end - source_y;
-                        src += (rows - 1) * source_pitch;
-                        dest += (rows - 1) * dest_pitch;
-                        do {
-                            if (row_bytes != 0 && dest != src) {
-                                std::memcpy(dest, src, row_bytes);
-                            }
-                            dest -= dest_pitch;
-                            src -= source_pitch;
-                            --rows;
-                        } while (rows != 0);
-                        return;
-                    }
-                } else {
-                    if (source_y < y_end) {
-                        w8_long rows = y_end - source_y;
-                        do {
-                            if (row_bytes != 0 && dest != src) {
-                                std::memcpy(dest, src, row_bytes);
-                            }
-                            dest += dest_pitch;
-                            src += source_pitch;
-                            --rows;
-                        } while (rows != 0);
-                    }
-                }
+                auto destination = ShareCpuSurface(*storage);
+                auto input = ShareCpuSurface(*static_cast<srColorSurface&>(source).storage);
+                const SDL_Rect dest{x, y, x_end - source_x, y_end - source_y};
+                const SDL_Rect sample{source_x, source_y, dest.w, dest.h};
+                BlitCpuSurface(destination, &dest, input, &sample);
             }
         }
     }
@@ -2160,25 +1525,7 @@ void srColorSurface::copyNoScaling(srColorSurfaceIFace& source)
         }
         return;
     }
-    unsigned char* dest = (unsigned char*)getDataPtr();
-    unsigned char* src = (unsigned char*)source.getDataPtr();
-    w8_long dest_pitch = pitch;
-    w8_long source_pitch = source.pitch;
-    if (dest_pitch == source_pitch && dest_pitch == (pixel_format.pixel_size + 1) * width) {
-        w8_long size = getDataSize();
-        if (size != 0 && dest != src) {
-            std::memcpy(dest, src, size);
-        }
-    } else {
-        w8_long row_bytes = (pixel_format.pixel_size + 1) * width;
-        for (w8_long row = height; row != 0; --row) {
-            if (row_bytes != 0 && dest != src) {
-                std::memcpy(dest, src, row_bytes);
-            }
-            dest += dest_pitch;
-            src += source_pitch;
-        }
-    }
+    blit(0, 0, source, 0, 0, width, height);
 }
 
 // FUNCTION: SURRENDER 0x1005CC90
@@ -2188,338 +1535,78 @@ void srColorSurface::scaleFast(srColorSurfaceIFace& source)
         srColorSurfaceIFace::scaleFast(source);
         return;
     }
-    w8_long dest_width = width;
-    w8_long dest_height = height;
-    if (source.width == dest_width && source.height == dest_height) {
+    if (width <= 0 || height <= 0 || source.width <= 0 || source.height <= 0)
+        return;
+    auto destination = ShareCpuSurface(*storage);
+    auto input = ShareCpuSurface(*static_cast<srColorSurface&>(source).storage);
+    BlitCpuSurface(destination, nullptr, input);
+}
+
+// SDL does not implement SurRender's filter kernels, wrapping, or asymmetric
+// sample centers. Keep one separable resampler for both axes.
+void srColorSurfaceIFace::scaleAxis(srColorSurfaceIFace& source, bool vertical)
+{
+    const w8_long size = vertical ? height : width;
+    const w8_long sourceSize = vertical ? source.height : source.width;
+    const w8_long lines = vertical ? width : source.height;
+    if (size == sourceSize) {
         copyNoScaling(source);
         return;
     }
-    std::vector<w8_long> columns(dest_width);
-    unsigned char* dest = (unsigned char*)getDataPtr();
-    unsigned char* src = (unsigned char*)source.getDataPtr();
-    w8_long source_pitch = source.pitch;
-    srPixelConvert::e_pixelSize bpp = pixel_format.pixel_size;
-    w8_long dest_pitch = pitch;
-    double x_ratio = source.width / (double)dest_width;
-    double y_ratio = source.height / (double)dest_height;
-    for (w8_long i = 0; i < dest_width; ++i) {
-        columns[i] = source.getClampedX((w8_long)(i * x_ratio));
-    }
-    for (w8_long row = 0; row < dest_height; ++row) {
-        w8_long source_y = source.getClampedY((w8_long)(row * y_ratio));
-        const unsigned char* source_row = src + source_y * source_pitch;
-        switch (bpp) {
-        case srPixelConvert::PIXEL_SIZE_8: {
-            w8_long x = 0;
-            for (; x < (dest_width & ~3L); x += 4) {
-                dest[x] = source_row[columns[x]];
-                dest[x + 1] = source_row[columns[x + 1]];
-                dest[x + 2] = source_row[columns[x + 2]];
-                dest[x + 3] = source_row[columns[x + 3]];
-            }
-            for (; x < dest_width; ++x) {
-                dest[x] = source_row[columns[x]];
-            }
-            break;
-        }
-        case srPixelConvert::PIXEL_SIZE_16: {
-            unsigned short* out = (unsigned short*)dest;
-            const unsigned short* in = (const unsigned short*)source_row;
-            w8_long x = 0;
-            for (; x < (dest_width & ~3L); x += 4) {
-                out[x] = in[columns[x]];
-                out[x + 1] = in[columns[x + 1]];
-                out[x + 2] = in[columns[x + 2]];
-                out[x + 3] = in[columns[x + 3]];
-            }
-            for (; x < dest_width; ++x) {
-                out[x] = in[columns[x]];
-            }
-            break;
-        }
-        case srPixelConvert::PIXEL_SIZE_24: {
-            w8_long x = 0;
-            for (; x < (dest_width & ~3L); x += 4) {
-                const unsigned char* pixel = source_row + columns[x] * 3;
-                /* reinterpret-ok: the 24-bit pixel record copies its low word
-                   plus high byte separately. */
-                *reinterpret_cast<unsigned short*>(dest + x * 3) =
-                    *reinterpret_cast<const unsigned short*>(pixel);
-                dest[x * 3 + 2] = pixel[2];
-                pixel = source_row + columns[x + 1] * 3;
-                *reinterpret_cast<unsigned short*>(dest + x * 3 + 3) =
-                    *reinterpret_cast<const unsigned short*>(pixel);
-                dest[x * 3 + 5] = pixel[2];
-                pixel = source_row + columns[x + 2] * 3;
-                *reinterpret_cast<unsigned short*>(dest + x * 3 + 6) =
-                    *reinterpret_cast<const unsigned short*>(pixel);
-                dest[x * 3 + 8] = pixel[2];
-                pixel = source_row + columns[x + 3] * 3;
-                *reinterpret_cast<unsigned short*>(dest + x * 3 + 9) =
-                    *reinterpret_cast<const unsigned short*>(pixel);
-                dest[x * 3 + 11] = pixel[2];
-            }
-            for (; x < dest_width; ++x) {
-                const unsigned char* pixel = source_row + columns[x] * 3;
-                *reinterpret_cast<unsigned short*>(dest + x * 3) =
-                    *reinterpret_cast<const unsigned short*>(pixel);
-                dest[x * 3 + 2] = pixel[2];
-            }
-            break;
-        }
-        case srPixelConvert::PIXEL_SIZE_32:
-            for (w8_long x = 0; x < dest_width; ++x) {
-                reinterpret_cast<w8_ulong*>(dest)[x] =
-                    reinterpret_cast<const w8_ulong*>(source_row)[columns[x]];
-            }
-            break;
-        }
-        dest += dest_pitch;
-    }
-}
-
-/* The horizontal and vertical filters use the same two records: a source index plus a float weight,
-   and a count plus a pointer to those records. The names are descriptive. A zero total weight is
-   not guarded. */
-struct SampleWeight {
-    w8_long index;
-    float weight;
-};
-
-struct SampleContributions {
-    w8_long count;
-    SampleWeight* samples;
-
-    void append(w8_long index, double weight)
-    {
-        SampleWeight& sample = samples[count++];
-        sample.index = index;
-        sample.weight = static_cast<float>(weight);
-    }
-
-    void normalize(double total)
-    {
-        float scale = static_cast<float>(1.0 / total);
-        for (w8_long index = 0; index < count; ++index) {
-            samples[index].weight = scale * samples[index].weight;
-        }
-    }
-};
-
-// FUNCTION: SURRENDER 0x10059AC0
-void srColorSurfaceIFace::scaleHorizontal(srColorSurfaceIFace& source)
-{
-    w8_long height = source.height;
-    w8_long width = this->width;
-    w8_long source_width = source.width;
-    if (width != source_width) {
-        double support = source.filter->getSupport();
-        double scale = (double)width / source_width;
-        std::vector<SampleContributions> contributions(width);
-        SampleContributions* counts = contributions.data();
-        std::vector<srARGB> source_row_storage(source_width);
-        srARGB* source_row_colors = source_row_storage.data();
-        w8_ulong* source_row = (w8_ulong*)source_row_colors;
-        std::vector<srARGB> row_storage(width);
-        srARGB* row_colors = row_storage.data();
-        w8_ulong* row = (w8_ulong*)row_colors;
-        std::vector<glm::vec4> channel_vectors(source_width);
-        std::vector<SampleWeight> sample_storage;
-        SampleWeight* storage;
-        if (1.0 <= scale) {
-            w8_long entries = 1 - (w8_long)(support * -2.0);
-            sample_storage.resize(entries * width);
-            storage = sample_storage.data();
-            for (w8_long x = 0; x < width; x++) {
-                SampleContributions* entry = counts + x;
-                entry->count = 0;
-                entry->samples = storage + x * entries;
-                double center = x / scale - 0.5;
-                double total = 0.0;
-                w8_long first = (w8_long)ceil(center - support);
-                w8_long last = (w8_long)floor(center + support);
-                for (; first <= last; first++) {
-                    double weight = source.filter->getWeight(center - first);
-                    if (0.0 < weight) {
-                        w8_long index = source.getClampedX(first);
-                        entry->append(index, weight);
-                        total = weight + total;
-                    }
-                }
-                entry->normalize(total);
-            }
-        } else {
-            double scaled_support = support / scale;
-            double inverse = 1.0 / scale;
-            w8_long entries = 1 - (w8_long)(scaled_support * -2.0);
-            sample_storage.resize(entries * width);
-            storage = sample_storage.data();
-            for (w8_long x = 0; x < width; x++) {
-                SampleContributions* entry = counts + x;
-                entry->count = 0;
-                entry->samples = storage + x * entries;
-                double center = x / scale + 0.5;
-                double total = 0.0;
-                w8_long first = (w8_long)ceil(center - scaled_support);
-                w8_long last = (w8_long)floor(center + scaled_support);
-                for (; first <= last; first++) {
-                    double weight = source.filter->getWeight((center - first) / inverse) / inverse;
-                    if (0.0 < weight) {
-                        w8_long index = source.getClampedX(first);
-                        entry->append(index, weight);
-                        total = weight + total;
-                    }
-                }
-                entry->normalize(total);
-            }
-        }
-        for (w8_long y = 0; y < height; y++) {
-            source.getPixelRow(source_row, y, 0, source_width);
-            w8_long x;
-            for (x = 0; x < source_width; x++) {
-                channel_vectors[x].x = static_cast<float>(source_row_colors[x].alpha);
-                channel_vectors[x].y = static_cast<float>(source_row_colors[x].red);
-                channel_vectors[x].z = static_cast<float>(source_row_colors[x].green);
-                channel_vectors[x].w = static_cast<float>(source_row_colors[x].blue);
-            }
-            for (x = 0; x < width; x++) {
-                SampleContributions* entry = counts + x;
-                w8_long count = entry->count;
-                SampleWeight* slot = entry->samples;
-                float a = 0.0f;
-                float r = 0.0f;
-                float g = 0.0f;
-                float b = 0.0f;
-                for (; 0 < count; count--) {
-                    float weight = slot->weight;
-                    /* The weighted sample is a float vector temporary: retail rounds each
-                       product to float before accumulating (0x10059F22, 0x1005A6AF). */
-                    glm::vec4 weighted = channel_vectors[slot->index] * weight;
-                    ++slot;
-                    a = weighted.x + a;
-                    r = weighted.y + r;
-                    g = weighted.z + g;
-                    b = weighted.w + b;
-                }
-                row_colors[x].alpha = static_cast<unsigned char>(srFloatToInt(a));
-                row_colors[x].red = static_cast<unsigned char>(srFloatToInt(r));
-                row_colors[x].green = static_cast<unsigned char>(srFloatToInt(g));
-                row_colors[x].blue = static_cast<unsigned char>(srFloatToInt(b));
-            }
-            setPixelRow(row, y, 0, width);
-        }
+    if (size <= 0 || sourceSize <= 0)
         return;
-    }
-    copyNoScaling(source);
-}
-
-// FUNCTION: SURRENDER 0x1005A250
-void srColorSurfaceIFace::scaleVertical(srColorSurfaceIFace& source)
-{
-    w8_long width = this->width;
-    w8_long height = this->height;
-    w8_long source_height = source.height;
-    if (height != source_height) {
-        double support = source.filter->getSupport();
-        double scale = height / (double)source_height;
-        std::vector<SampleContributions> contributions(height);
-        SampleContributions* counts = contributions.data();
-        std::vector<srARGB> source_column_storage(source_height);
-        srARGB* source_column_colors = source_column_storage.data();
-        w8_ulong* source_column = (w8_ulong*)source_column_colors;
-        std::vector<srARGB> column_storage(height);
-        srARGB* column_colors = column_storage.data();
-        w8_ulong* column = (w8_ulong*)column_colors;
-        std::vector<glm::vec4> channel_vectors(source_height);
-        std::vector<SampleWeight> sample_storage;
-        SampleWeight* storage;
-        /* Unlike scaleHorizontal, both branches center the source window at y / scale + 0.5
-           (retail 0x1005A501 and 0x1005A3AD). */
-        if (1.0 <= scale) {
-            w8_long entries = 1 - (w8_long)(support * -2.0);
-            sample_storage.resize(entries * height);
-            storage = sample_storage.data();
-            for (w8_long y = 0; y < height; y++) {
-                SampleContributions* entry = counts + y;
-                entry->count = 0;
-                entry->samples = storage + y * entries;
-                double center = y / scale + 0.5;
-                double total = 0.0;
-                w8_long first = (w8_long)ceil(center - support);
-                w8_long last = (w8_long)floor(center + support);
-                for (; first <= last; first++) {
-                    double weight = source.filter->getWeight(center - first);
-                    if (0.0 < weight) {
-                        w8_long index = source.getClampedY(first);
-                        entry->append(index, weight);
-                        total = weight + total;
-                    }
-                }
-                entry->normalize(total);
-            }
-        } else {
-            double scaled_support = support / scale;
-            double inverse = 1.0 / scale;
-            w8_long entries = 1 - (w8_long)(scaled_support * -2.0);
-            sample_storage.resize(entries * height);
-            storage = sample_storage.data();
-            for (w8_long y = 0; y < height; y++) {
-                SampleContributions* entry = counts + y;
-                entry->count = 0;
-                entry->samples = storage + y * entries;
-                double center = y / scale + 0.5;
-                double total = 0.0;
-                w8_long first = (w8_long)ceil(center - scaled_support);
-                w8_long last = (w8_long)floor(center + scaled_support);
-                for (; first <= last; first++) {
-                    double weight = source.filter->getWeight((center - first) / inverse) / inverse;
-                    if (0.0 < weight) {
-                        w8_long index = source.getClampedY(first);
-                        entry->append(index, weight);
-                        total = weight + total;
-                    }
-                }
-                entry->normalize(total);
+    struct Sample { w8_long index; float weight; };
+    std::vector<std::vector<Sample>> contributions(size);
+    const double scale = double(size) / sourceSize;
+    const bool shrinking = scale < 1.0;
+    const double inverse = 1.0 / scale;
+    const double support = source.filter->getSupport() / (shrinking ? scale : 1.0);
+    for (w8_long position = 0; position < size; ++position) {
+        const double center = position / scale + (vertical || shrinking ? 0.5 : -0.5);
+        double total = 0.0;
+        auto& samples = contributions[position];
+        const w8_long first = w8_long(std::ceil(center - support));
+        const w8_long last = w8_long(std::floor(center + support));
+        for (w8_long i = first; i <= last; ++i) {
+            const double weight = shrinking ?
+                source.filter->getWeight((center - i) / inverse) / inverse :
+                source.filter->getWeight(center - i);
+            if (weight > 0.0) {
+                samples.push_back({vertical ? source.getClampedY(i) : source.getClampedX(i),
+                                   static_cast<float>(weight)});
+                total = weight + total;
             }
         }
-        for (w8_long x = 0; x < width; x++) {
-            source.getPixelColumn(source_column, x, 0, source_height);
-            w8_long y;
-            for (y = 0; y < source_height; y++) {
-                channel_vectors[y].x = static_cast<float>(source_column_colors[y].alpha);
-                channel_vectors[y].y = static_cast<float>(source_column_colors[y].red);
-                channel_vectors[y].z = static_cast<float>(source_column_colors[y].green);
-                channel_vectors[y].w = static_cast<float>(source_column_colors[y].blue);
-            }
-            for (y = 0; y < height; y++) {
-                SampleContributions* entry = counts + y;
-                w8_long count = entry->count;
-                SampleWeight* slot = entry->samples;
-                float a = 0.0f;
-                float r = 0.0f;
-                float g = 0.0f;
-                float b = 0.0f;
-                for (; 0 < count; count--) {
-                    float weight = slot->weight;
-                    /* The weighted sample is a float vector temporary: retail rounds each
-                       product to float before accumulating (0x10059F22, 0x1005A6AF). */
-                    glm::vec4 weighted = channel_vectors[slot->index] * weight;
-                    ++slot;
-                    a = weighted.x + a;
-                    r = weighted.y + r;
-                    g = weighted.z + g;
-                    b = weighted.w + b;
-                }
-                column_colors[y].alpha = static_cast<unsigned char>(srFloatToInt(a));
-                column_colors[y].red = static_cast<unsigned char>(srFloatToInt(r));
-                column_colors[y].green = static_cast<unsigned char>(srFloatToInt(g));
-                column_colors[y].blue = static_cast<unsigned char>(srFloatToInt(b));
-            }
-            setPixelColumn(column, x, 0, height);
-        }
-        return;
+        const float normalization = static_cast<float>(1.0 / total);
+        for (auto& sample : samples)
+            sample.weight *= normalization;
     }
-    copyNoScaling(source);
+    std::vector<w8_ulong> input(sourceSize), output(size);
+    std::vector<glm::vec4> channels(sourceSize);
+    for (w8_long line = 0; line < lines; ++line) {
+        if (vertical) source.getPixelColumn(input.data(), line, 0, sourceSize);
+        else source.getPixelRow(input.data(), line, 0, sourceSize);
+        for (w8_long i = 0; i < sourceSize; ++i) {
+            const auto pixel = input[i];
+            channels[i] = glm::vec4(pixel >> 24, (pixel >> 16) & 255,
+                                    (pixel >> 8) & 255, pixel & 255);
+        }
+        for (w8_long i = 0; i < size; ++i) {
+            glm::vec4 value(0.0f);
+            for (const auto& sample : contributions[i]) {
+                // Round the product to float before accumulation.
+                const glm::vec4 weighted = channels[sample.index] * sample.weight;
+                value = weighted + value;
+            }
+            const auto channel = [](float value) {
+                return w8_ulong(static_cast<unsigned char>(srFloatToInt(value)));
+            };
+            output[i] = channel(value.x) << 24 | channel(value.y) << 16 |
+                        channel(value.z) << 8 | channel(value.w);
+        }
+        if (vertical) setPixelColumn(output.data(), line, 0, size);
+        else setPixelRow(output.data(), line, 0, size);
+    }
 }
 
 // FUNCTION: SURRENDER 0x10058150
@@ -2598,326 +1685,6 @@ void srColorSurfaceIFace::blit(w8_long x, w8_long y, srColorSurfaceIFace& source
     }
 }
 
-// FUNCTION: SURRENDER 0x10058450
-void srColorSurfaceIFace::blit(const BlitInfo& info, srColorSurfaceIFace& source)
-{
-    if (info.destination.left == info.destination.right) {
-        return;
-    }
-    if (info.destination.top == info.destination.bottom) {
-        return;
-    }
-    if (info.source.left == info.source.right) {
-        return;
-    }
-    if (info.source.top == info.source.bottom) {
-        return;
-    }
-    int flip_h = info.destination.right < info.destination.left;
-    int flip_v = info.destination.bottom < info.destination.top;
-    if (info.source.right < info.source.left) {
-        flip_h = flip_h == 0;
-    }
-    if (info.source.bottom < info.source.top) {
-        flip_v = flip_v == 0;
-    }
-    Rectangle destination = info.destination;
-    w8_long source_left = info.source.left;
-    w8_long source_top = info.source.top;
-    w8_long source_right = info.source.right;
-    w8_long source_bottom = info.source.bottom;
-    if (source_right < source_left) {
-        w8_long swap = source_left;
-        source_left = source_right;
-        source_right = swap;
-    }
-    if (source_bottom < source_top) {
-        w8_long swap = source_top;
-        source_top = source_bottom;
-        source_bottom = swap;
-    }
-    if (destination.right < destination.left) {
-        w8_long swap = destination.left;
-        destination.left = destination.right;
-        destination.right = swap;
-    }
-    if (destination.bottom < destination.top) {
-        w8_long swap = destination.top;
-        destination.top = destination.bottom;
-        destination.bottom = swap;
-    }
-    if (width <= destination.left) {
-        return;
-    }
-    if (height <= destination.top) {
-        return;
-    }
-    if (destination.right < 1) {
-        return;
-    }
-    if (destination.bottom < 1) {
-        return;
-    }
-    if (source_left < 0) {
-        return;
-    }
-    if (source.width < source_right) {
-        return;
-    }
-    if (source_top < 0) {
-        return;
-    }
-    if (source.height < source_bottom) {
-        return;
-    }
-    int full_destination = 0;
-    if ((destination.left != 0) || (destination.top != 0) || (destination.right != width)) {
-        full_destination = 0;
-    } else {
-        full_destination = destination.bottom == height;
-    }
-    int full_source = 0;
-    if ((source_left == 0) && (source_top == 0) && (source_right == source.width) &&
-        (source_bottom == source.height)) {
-        full_source = 1;
-    }
-    int clipped = 0;
-    if ((destination.left < 0) || (width < destination.right) || (destination.top < 0) ||
-        (height < destination.bottom)) {
-        clipped = 1;
-    }
-    if ((full_destination != 0) && (full_source != 0)) {
-        copy(source);
-        Rectangle rectangle;
-        if (flip_h == 0) {
-            if (flip_v == 0) {
-                return;
-            }
-            rectangle.left = 0;
-            rectangle.top = height;
-            rectangle.right = width;
-            rectangle.bottom = 0;
-            flipRectangle(rectangle);
-            return;
-        }
-        if (flip_v != 0) {
-            rectangle.left = width;
-            rectangle.top = height;
-            rectangle.right = 0;
-            rectangle.bottom = 0;
-            flipRectangle(rectangle);
-            return;
-        }
-        rectangle.left = width;
-        rectangle.top = 0;
-        rectangle.right = 0;
-        rectangle.bottom = height;
-        flipRectangle(rectangle);
-        return;
-    }
-    w8_long destination_width = destination.right - destination.left;
-    w8_long source_width = source_right - source_left;
-    if (destination_width == source_width) {
-        if ((flip_h == 0) && (flip_v == 0)) {
-            blit(destination.left, destination.top, source, source_left, source_top, source_right,
-                 source_bottom);
-            return;
-        }
-        if (clipped == 0) {
-            blit(destination.left, destination.top, source, source_left, source_top, source_right,
-                 source_bottom);
-            Rectangle rectangle;
-            rectangle.left = destination.left;
-            rectangle.top = destination.top;
-            rectangle.right = destination.right;
-            rectangle.bottom = destination.bottom;
-            if (flip_h != 0) {
-                w8_long swap = rectangle.left;
-                rectangle.left = rectangle.right;
-                rectangle.right = swap;
-            }
-            if (flip_v != 0) {
-                w8_long swap = rectangle.top;
-                rectangle.top = rectangle.bottom;
-                rectangle.bottom = swap;
-            }
-            flipRectangle(rectangle);
-            return;
-        }
-    }
-    std::unique_ptr<srColorSurface> scaled_storage;
-    srColorSurfaceIFace* scaled = nullptr;
-    if ((full_source == 0) || (flip_h != 0) || (flip_v != 0)) {
-        srPixelConvert::PixelFormat format;
-        source.getPixelFormat(format);
-        scaled_storage =
-            std::make_unique<srColorSurface>(format, source_width, source_bottom - source_top);
-        scaled = scaled_storage.get();
-        srColorSurfaceIFace* scaled_iface = scaled;
-        scaled_iface->copySurfaceParameters(source);
-        scaled_iface->blit(0, 0, source, source_left, source_top, source_right, source_bottom);
-        Rectangle rectangle;
-        if (flip_h == 0) {
-            if (flip_v != 0) {
-                rectangle.left = 0;
-                rectangle.top = scaled->height;
-                rectangle.right = scaled->width;
-                rectangle.bottom = 0;
-                scaled->flipRectangle(rectangle);
-            }
-        } else {
-            if (flip_v == 0) {
-                rectangle.left = scaled->width;
-                rectangle.top = 0;
-                rectangle.right = 0;
-                rectangle.bottom = scaled->height;
-            } else {
-                rectangle.left = scaled->width;
-                rectangle.top = scaled->height;
-                rectangle.right = 0;
-                rectangle.bottom = 0;
-            }
-            scaled->flipRectangle(rectangle);
-        }
-    } else {
-        scaled = &source;
-    }
-    if (full_destination == 0) {
-        srPixelConvert::PixelFormat format = pixel_format;
-        srColorSurface temporary(format, destination_width, destination.bottom - destination.top);
-        srColorSurfaceIFace& temporary_iface = temporary;
-        temporary_iface.copySurfaceParameters(*this);
-        temporary.copy(*scaled);
-        blit(destination.left, destination.top, temporary, 0, 0, destination.right,
-             destination.bottom);
-    } else {
-        copy(*scaled);
-    }
-}
-
-// FUNCTION: SURRENDER 0x100589D0
-void srColorSurfaceIFace::composite(w8_long x, w8_long y, srColorSurfaceIFace& source, w8_long source_x,
-                                    w8_long source_y, w8_long source_right, w8_long source_bottom,
-                                    double alpha)
-{
-    w8_long width = this->width;
-    w8_long height = this->height;
-    w8_long source_height = source.height;
-    if (0.0 < alpha) {
-        if (1.0 <= alpha) {
-            alpha = 1.0;
-        }
-        if ((source.pixel_format.alpha_bits == 0) && (alpha == 1.0)) {
-            blit(x, y, source, source_x, source_y, source_right, source_bottom);
-            return;
-        }
-        if ((x < width) && (y < height)) {
-            if (x < 0) {
-                source_x = source_x - x;
-                x = 0;
-            }
-            if (y < 0) {
-                source_y = source_y - y;
-                y = 0;
-            }
-            if (source_x < 0) {
-                x = x - source_x;
-                source_x = 0;
-            }
-            if (source_y < 0) {
-                y = y - source_y;
-                source_y = 0;
-            }
-            if (source.width < source_right) {
-                source_right = source.width;
-            }
-            if (source_height < source_bottom) {
-                source_bottom = source_height;
-            }
-            if (((source_x < source.width) && (source_x < source_right)) &&
-                ((source_y < source_height) && (source_y < source_bottom))) {
-                w8_long dest_span = x - source_x;
-                if (width < dest_span + source_right) {
-                    source_right = (width - x) + source_x;
-                }
-                if (height < source_bottom + (y - source_y)) {
-                    source_bottom = (height - y) + source_y;
-                }
-                if ((source_x < source_right) && (source_y < source_bottom)) {
-                    if ((((&source == this) && (x < source_right) && (y < source_bottom)) &&
-                         (source_x < dest_span + source_right)) &&
-                        ((source_y < source_bottom + (y - source_y)) && (source_y <= y))) {
-                        w8_long rows = source_bottom - source_y;
-                        w8_long span = source_right - source_x;
-                        std::vector<srARGB> temp_storage(rows * span);
-                        srARGB* temp_colors = temp_storage.data();
-                        w8_ulong* temp = (w8_ulong*)temp_colors;
-                        std::vector<srARGB> row_storage(span);
-                        srARGB* row_colors = row_storage.data();
-                        w8_ulong* row = (w8_ulong*)row_colors;
-                        w8_long r;
-                        for (r = source_y; r < source_bottom; r++) {
-                            source.getPixelRow(temp + (r - source_y) * span, r, source_x,
-                                               source_right);
-                        }
-                        for (r = source_bottom - source_y; r != 0; r--) {
-                            getPixelRow(row, y, x, dest_span + source_right);
-                            for (w8_long i = 0; i < span; i++) {
-                                unsigned char* source_pixel =
-                                    (unsigned char*)&temp[(source_bottom - source_y - r) * span +
-                                                          i];
-                                unsigned char* dest_pixel = (unsigned char*)&row[i];
-                                BlendArgbPixel(dest_pixel, source_pixel, alpha);
-                            }
-                            setPixelRow(row, y, x, dest_span + source_right);
-                            y = y + 1;
-                        }
-                        return;
-                    }
-                    w8_long span = source_right - source_x;
-                    std::vector<srARGB> source_row_storage(span);
-                    srARGB* source_row_colors = source_row_storage.data();
-                    w8_ulong* source_row = (w8_ulong*)source_row_colors;
-                    std::vector<srARGB> row_storage(span);
-                    srARGB* row_colors = row_storage.data();
-                    w8_ulong* row = (w8_ulong*)row_colors;
-                    if (alpha == 1.0) {
-                        for (; source_y < source_bottom; source_y++) {
-                            getPixelRow(row, y, x, dest_span + source_right);
-                            source.getPixelRow(source_row, source_y, source_x, source_right);
-                            for (w8_long i = 0; i < span; i++) {
-                                unsigned char* source_pixel = (unsigned char*)&source_row[i];
-                                unsigned char* dest_pixel = (unsigned char*)&row[i];
-                                unsigned char alpha_byte = source_pixel[3];
-                                if (alpha_byte != 0) {
-                                    if (alpha_byte == 0xff) {
-                                        row[i] = source_row[i];
-                                    } else {
-                                        BlendArgbPixel(dest_pixel, source_pixel, 1.0);
-                                    }
-                                }
-                            }
-                            setPixelRow(row, y, x, dest_span + source_right);
-                            y = y + 1;
-                        }
-                    } else {
-                        for (; source_y < source_bottom; source_y++) {
-                            getPixelRow(row, y, x, dest_span + source_right);
-                            source.getPixelRow(source_row, source_y, source_x, source_right);
-                            for (w8_long i = 0; i < span; i++) {
-                                unsigned char* source_pixel = (unsigned char*)&source_row[i];
-                                unsigned char* dest_pixel = (unsigned char*)&row[i];
-                                BlendArgbPixel(dest_pixel, source_pixel, alpha);
-                            }
-                            setPixelRow(row, y, x, dest_span + source_right);
-                            y = y + 1;
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
 
 // FUNCTION: SURRENDER 0x1005A930
 void srColorSurfaceIFace::minify(srColorSurfaceIFace& source)

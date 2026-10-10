@@ -2,6 +2,7 @@
 #include <algorithm>
 #include <cstring>
 #include <stdexcept>
+#include <limits>
 
 namespace
 {
@@ -25,13 +26,13 @@ bool valid(const SDL_Rect& rect, const SDL_Surface& surface)
     const SDL_Rect limit = bounds(surface);
     return SDL_GetRectIntersection(&rect, &limit, &result) && SDL_RectsEqual(&result, &rect);
 }
-UINT32 pixel(const void* source, unsigned bytes)
+uint32_t pixel(const void* source, unsigned bytes)
 {
-    UINT32 value = 0;
+    uint32_t value = 0;
     memcpy(&value, source, bytes);
     return value;
 }
-bool inKey(UINT32 value, const SurfaceColorKey& key)
+bool inKey(uint32_t value, const SurfaceColorKey& key)
 {
     return value >= key.low && value <= key.high;
 }
@@ -55,8 +56,8 @@ void packedBlit(SDL_Surface& dest, const SDL_Rect& region, const SDL_Rect& mappi
         for (int x = region.x; x < region.x + region.w; ++x)
         {
             const int sx = sample.x + int(int64_t(x - mapping.x) * sample.w / mapping.w);
-            auto* output = static_cast<BYTE*>(dest.pixels) + size_t(y) * dest.pitch + x * bytes;
-            const UINT32 value = pixel(static_cast<const BYTE*>(source.pixels) +
+            auto* output = static_cast<uint8_t*>(dest.pixels) + size_t(y) * dest.pitch + x * bytes;
+            const uint32_t value = pixel(static_cast<const uint8_t*>(source.pixels) +
                                        size_t(sy) * source.pitch + sx * bytes, bytes);
             if ((sourceKey && inKey(value, *sourceKey)) ||
                 (destinationKey && !inKey(pixel(output, bytes), *destinationKey)))
@@ -67,18 +68,19 @@ void packedBlit(SDL_Surface& dest, const SDL_Rect& region, const SDL_Rect& mappi
 }
 } // namespace
 
-std::unique_ptr<CpuSurface> CreateCpuSurface(UINT16 width, UINT16 height, UINT8 bits,
-    UINT32 red, UINT32 green, UINT32 blue, UINT32 alpha)
+std::unique_ptr<CpuSurface> CreateCpuSurface(uint16_t width, uint16_t height, uint8_t bits,
+    uint32_t red, uint32_t green, uint32_t blue, uint32_t alpha)
 {
-    require(width && height && (bits == 8 || bits == 16 || bits == 32),
+    require(width && height && (bits == 8 || bits == 16 || bits == 24 || bits == 32),
             "CPU surface dimensions/format");
     auto result = std::make_unique<CpuSurface>();
     auto format = bits == 8 ? SDL_PIXELFORMAT_INDEX8 :
         SDL_GetPixelFormatForMasks(bits, red, green, blue, alpha);
     // Unknown packed masks still need raw storage, never SDL color conversion.
     if (format == SDL_PIXELFORMAT_UNKNOWN)
-        format = bits == 16 ? SDL_PIXELFORMAT_RGB565 : SDL_PIXELFORMAT_ARGB8888;
-    result->surface.reset(SDL_CreateSurface(width, height, format));
+        format = bits == 16 ? SDL_PIXELFORMAT_RGB565 :
+                 bits == 24 ? SDL_PIXELFORMAT_RGB24 : SDL_PIXELFORMAT_ARGB8888;
+    result->surface = CreateCpuStorage(width, height, format);
     sdl(bool(result->surface));
     sdl(SDL_SetSurfaceBlendMode(result->surface.get(), SDL_BLENDMODE_NONE));
     if (bits == 8)
@@ -101,10 +103,10 @@ SurfaceLock LockCpuSurface(CpuSurface& owner, const SDL_Rect* rect)
 {
     auto& surface = *owner.surface;
     const SDL_Rect region = rect ? *rect : bounds(surface);
-    require(!owner.locked && valid(region, surface), "CPU surface lock state/rectangle");
+    require(!owner.locked && !(surface.flags & SDL_SURFACE_LOCKED) && valid(region, surface), "CPU surface lock state/rectangle");
     sdl(SDL_LockSurface(&surface));
     owner.locked = true;
-    return {static_cast<BYTE*>(surface.pixels) + size_t(region.y) * surface.pitch +
+    return {static_cast<uint8_t*>(surface.pixels) + size_t(region.y) * surface.pitch +
             region.x * SDL_BYTESPERPIXEL(surface.format), surface.pitch,
             region.w, region.h};
 }
@@ -115,9 +117,10 @@ void UnlockCpuSurface(CpuSurface& surface)
     surface.locked = false;
 }
 
-void FillCpuSurface(CpuSurface& owner, UINT32 color, const SDL_Rect* rect)
+void FillCpuSurface(CpuSurface& owner, uint32_t color, const SDL_Rect* rect)
 {
-    require(!owner.locked, "CPU surface fill while locked");
+    require(!owner.locked && !(owner.surface->flags & SDL_SURFACE_LOCKED),
+            "CPU surface fill while locked");
     auto& dest = *owner.surface;
     const SDL_Rect d = rect ? *rect : bounds(dest);
     require(!SDL_RectEmpty(&d), "CPU surface fill rectangle");
@@ -139,6 +142,7 @@ void BlitCpuSurface(CpuSurface& output, const SDL_Rect* destRect, CpuSurface& in
     auto& dest = *output.surface;
     auto& source = *input.surface;
     require(!output.locked && !input.locked &&
+            !(dest.flags & SDL_SURFACE_LOCKED) && !(source.flags & SDL_SURFACE_LOCKED) &&
             SDL_BYTESPERPIXEL(dest.format) == SDL_BYTESPERPIXEL(source.format),
             "CPU surface blit state/format");
     const SDL_Rect d = destRect ? *destRect : bounds(dest);
@@ -154,15 +158,18 @@ void BlitCpuSurface(CpuSurface& output, const SDL_Rect* destRect, CpuSurface& in
     const auto* destinationKey = useDestinationKey ? &*output.destinationKey : nullptr;
     SDLSurfaceOwner snapshot{nullptr, SDL_DestroySurface};
     SDL_Surface* data = &source;
-    if (&output == &input)
+    const auto sourceBegin = reinterpret_cast<uintptr_t>(source.pixels);
+    const auto destBegin = reinterpret_cast<uintptr_t>(dest.pixels);
+    if (sourceBegin < destBegin + size_t(dest.pitch) * dest.h &&
+        destBegin < sourceBegin + size_t(source.pitch) * source.h)
     {
         snapshot.reset(SDL_CreateSurface(source.w, source.h, source.format));
         sdl(bool(snapshot));
         // DuplicateSurface converts indexed colors and rejects an all-white palette.
         // The snapshot must retain indices, alpha and every unused packed bit.
         for (int y = 0; y < source.h; ++y)
-            memcpy(static_cast<BYTE*>(snapshot->pixels) + y * snapshot->pitch,
-                   static_cast<const BYTE*>(source.pixels) + y * source.pitch,
+            memcpy(static_cast<uint8_t*>(snapshot->pixels) + y * snapshot->pitch,
+                   static_cast<const uint8_t*>(source.pixels) + y * source.pitch,
                    source.w * SDL_BYTESPERPIXEL(source.format));
         data = snapshot.get();
     }
@@ -174,7 +181,7 @@ void BlitCpuSurface(CpuSurface& output, const SDL_Rect* destRect, CpuSurface& in
     if (SDL_ISPIXELFORMAT_INDEXED(dest.format))
         sdl(SDL_SetSurfacePalette(view.get(), SDL_GetSurfacePalette(&dest)));
     const unsigned bytes = SDL_BYTESPERPIXEL(dest.format);
-    const UINT32 wordMask = bytes == 4 ? UINT32_MAX : (1u << (bytes * 8)) - 1;
+    const uint32_t wordMask = bytes == 4 ? UINT32_MAX : (1u << (bytes * 8)) - 1;
     const bool unusedBits = !SDL_ISPIXELFORMAT_INDEXED(dest.format) &&
         (output.redMask | output.greenMask | output.blueMask | output.alphaMask) != wordMask;
     const bool rawKey = sourceKey && (sourceKey->low != sourceKey->high ||
@@ -192,12 +199,12 @@ void BlitCpuSurface(CpuSurface& output, const SDL_Rect* destRect, CpuSurface& in
         {
             const float scaleX = float(s.w) / float(d.w);
             const float scaleY = float(s.h) / float(d.h);
-            const INT32 left = INT32((region.x - d.x) * scaleX);
-            const INT32 top = INT32((region.y - d.y) * scaleY);
+            const int32_t left = int32_t((region.x - d.x) * scaleX);
+            const int32_t top = int32_t((region.y - d.y) * scaleY);
             sample.x += left;
             sample.y += top;
-            sample.w -= INT32(((d.x + d.w) - (region.x + region.w)) * scaleX) + left;
-            sample.h -= INT32(((d.y + d.h) - (region.y + region.h)) * scaleY) + top;
+            sample.w -= int32_t(((d.x + d.w) - (region.x + region.w)) * scaleX) + left;
+            sample.h -= int32_t(((d.y + d.h) - (region.y + region.h)) * scaleY) + top;
         }
         const SDL_Rect mapping = output.clipRegions ? region : d;
         const bool scaled = mapping.w != sample.w || mapping.h != sample.h;
@@ -220,7 +227,7 @@ void BlitCpuSurface(CpuSurface& output, const SDL_Rect* destRect, CpuSurface& in
 
 void SetSurfaceClipRegions(CpuSurface& surface, std::span<const SDL_Rect> input)
 {
-    std::vector<INT32> edges;
+    std::vector<int32_t> edges;
     for (const SDL_Rect& rect : input)
     {
         if (SDL_RectEmpty(&rect))
@@ -232,11 +239,11 @@ void SetSurfaceClipRegions(CpuSurface& surface, std::span<const SDL_Rect> input)
     edges.erase(std::unique(edges.begin(), edges.end()), edges.end());
     surface.clipRegions.emplace();
     auto& rectangles = *surface.clipRegions;
-    std::vector<std::pair<INT32, INT32>> previous;
+    std::vector<std::pair<int32_t, int32_t>> previous;
     size_t previousStart = 0;
     for (size_t i = 1; i < edges.size(); ++i)
     {
-        std::vector<std::pair<INT32, INT32>> spans, merged;
+        std::vector<std::pair<int32_t, int32_t>> spans, merged;
         for (const SDL_Rect& rect : input)
             if (rect.y <= edges[i - 1] && (rect.y + rect.h) >= edges[i] && rect.w > 0)
                 spans.emplace_back(rect.x, (rect.x + rect.w));
@@ -262,4 +269,82 @@ void SetSurfaceClipRegions(CpuSurface& surface, std::span<const SDL_Rect> input)
         }
         previous = merged;
     }
+}
+
+CpuSurface ShareCpuSurface(SDL_Surface& surface)
+{
+    CpuSurface result;
+    ++surface.refcount;
+    result.surface.reset(&surface);
+    int bits;
+    SDL_GetMasksForPixelFormat(surface.format, &bits, &result.redMask, &result.greenMask,
+                              &result.blueMask, &result.alphaMask);
+    return result;
+}
+
+void ConvertCpuPixels(void* destination, const void* source, size_t count,
+                      SDL_PixelFormat sourceFormat, SDL_PixelFormat destinationFormat)
+{
+    if (!count)
+        return;
+    const unsigned sourceBytes = SDL_BYTESPERPIXEL(sourceFormat);
+    const unsigned destinationBytes = SDL_BYTESPERPIXEL(destinationFormat);
+    require(sourceBytes > 0 && sourceBytes <= 4 && destinationBytes > 0 && destinationBytes <= 4 &&
+            !SDL_ISPIXELFORMAT_FOURCC(sourceFormat) && !SDL_ISPIXELFORMAT_FOURCC(destinationFormat),
+            "CPU pixel conversion format");
+    if (count > size_t(std::numeric_limits<int>::max() / 4))
+        throw std::length_error("Pixel conversion row is too large");
+    const int sourcePitch = int(count) * SDL_BYTESPERPIXEL(sourceFormat);
+    const int destinationPitch = int(count) * SDL_BYTESPERPIXEL(destinationFormat);
+    std::vector<unsigned char> snapshot;
+    const auto src = reinterpret_cast<uintptr_t>(source);
+    const auto dst = reinterpret_cast<uintptr_t>(destination);
+    if (dst < src + sourcePitch && src < dst + destinationPitch) {
+        const auto* bytes = static_cast<const unsigned char*>(source);
+        snapshot.assign(bytes, bytes + sourcePitch);
+        source = snapshot.data();
+    }
+    sdl(SDL_ConvertPixels(int(count), 1, sourceFormat, source, sourcePitch,
+                         destinationFormat, destination, destinationPitch));
+}
+
+SDLSurfaceOwner CreateCpuStorage(int width, int height, SDL_PixelFormat format,
+                                 void* pixels, int pitch)
+{
+    SDLSurfaceOwner result{pitch >= 0 ? SDL_CreateSurfaceFrom(width, height, format, pixels, pitch) :
+                                   SDL_CreateSurface(width, height, format), SDL_DestroySurface};
+    sdl(bool(result));
+    sdl(SDL_SetSurfaceBlendMode(result.get(), SDL_BLENDMODE_NONE));
+    if (SDL_ISPIXELFORMAT_INDEXED(format))
+        sdl(SDL_CreateSurfacePalette(result.get()) != nullptr);
+    return result;
+}
+
+SDLSurfaceOwner CopyCpuStorage(SDL_Surface& source)
+{
+    auto result = CreateCpuStorage(source.w, source.h, source.format);
+    if (auto* palette = SDL_GetSurfacePalette(&source))
+        sdl(SDL_SetPaletteColors(SDL_GetSurfacePalette(result.get()), palette->colors,
+                                0, palette->ncolors));
+    auto destination = ShareCpuSurface(*result);
+    auto input = ShareCpuSurface(source);
+    BlitCpuSurface(destination, nullptr, input);
+    return result;
+}
+
+void FlipCpuSurface(CpuSurface& owner, SDL_FlipMode flip, const SDL_Rect* rectangle)
+{
+    auto& surface = *owner.surface;
+    const SDL_Rect region = rectangle ? *rectangle : bounds(surface);
+    require(!owner.locked && !(surface.flags & SDL_SURFACE_LOCKED) && valid(region, surface),
+            "CPU surface flip state/rectangle");
+    auto* pixels = static_cast<uint8_t*>(surface.pixels) + size_t(region.y) * surface.pitch +
+                   region.x * SDL_BYTESPERPIXEL(surface.format);
+    auto view = CreateCpuStorage(region.w, region.h, surface.format, pixels, surface.pitch);
+    // SDL's vertical flip swaps complete pitches. A subrectangle therefore needs
+    // isolated storage so pixels to either side of the region stay untouched.
+    auto storage = CopyCpuStorage(*view);
+    sdl(SDL_FlipSurface(storage.get(), flip));
+    auto flipped = ShareCpuSurface(*storage);
+    BlitCpuSurface(owner, &region, flipped);
 }
