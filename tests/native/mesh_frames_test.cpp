@@ -1,4 +1,5 @@
 #include <catch2/catch_test_macros.hpp>
+#include <catch2/catch_approx.hpp>
 #include "surrender_test_fixture.h"
 #include "wiz8/engine_code/stMeshModel.h"
 #include "wiz8/engine_code/ReadMesh.h"
@@ -20,11 +21,6 @@ static_assert(!std::is_copy_constructible_v<stMeshModel>);
 static_assert(!std::is_copy_assignable_v<stMeshModel>);
 static_assert(std::is_nothrow_move_constructible_v<stMeshModel::Frame>);
 static_assert(std::is_nothrow_move_constructible_v<stMeshModel::Skin>);
-
-static bool near(float left, float right)
-{
-    return std::abs(left - right) < 1e-6f;
-}
 
 static bool frame_storage()
 {
@@ -93,7 +89,8 @@ static bool frame_storage()
         REQUIRE(mesh.GetVertexNormals(0, true) == normals);
         REQUIRE(mesh.GetPolygonNormals(0, true) == polygon_normals);
         auto* lerp = mesh.GetVertexLocations(0, true, 0.25f);
-        REQUIRE((near(lerp[0].x, 0.5f) && near(lerp[1].x, 1.5f)));
+        REQUIRE(lerp[0].x == Catch::Approx(0.5f).margin(1e-6));
+        REQUIRE(lerp[1].x == Catch::Approx(1.5f).margin(1e-6));
         REQUIRE(mesh.GetVertexLocations(0, true, 1.0f) == lerp);
         REQUIRE(lerp[0] == srVector3T<float>(2.0f, 0.0f, 0.0f));
         REQUIRE(mesh.GetVertexLocations(1, true, 0.75f) == mesh.frames[1].locations->data());
@@ -113,7 +110,7 @@ static bool frame_storage()
         REQUIRE(std::equal(first.begin(), first.end(), compressed));
         REQUIRE(lerp == mesh.lerp_buffer.data()); // Explicit cache eviction does not evict interpolation.
         REQUIRE(mesh.GetVertexLocations(0, true, 0.25f) == lerp);
-        REQUIRE(near(lerp[0].x, 0.5f));
+        REQUIRE(lerp[0].x == Catch::Approx(0.5f).margin(1e-6));
         REQUIRE(mesh.GetVertex(2) == nullptr);
         REQUIRE(mesh.GetVertexLocations(2, true, 0.0f) == nullptr);
         REQUIRE(mesh.GetVertexNormals(2, true) == nullptr);
@@ -146,7 +143,9 @@ static bool writable_and_empty_caches()
         REQUIRE(locations[0] == srVector3T<float>(-8192.0f, 8191.75f, -0.25f));
         mesh.frames[0].compressed_vertex_normals = {128, 255, 127};
         auto* normals = mesh.GetVertexNormals(0, true);
-        REQUIRE((normals[0].x == -1.0f && near(normals[0].y, -1.0f / 127.0f) && normals[0].z == 1.0f));
+        REQUIRE(normals[0].x == -1.0f);
+        REQUIRE(normals[0].y == Catch::Approx(-1.0f / 127.0f).margin(1e-6));
+        REQUIRE(normals[0].z == 1.0f);
         REQUIRE(mesh.GetPolygonNormals(0, true) == nullptr);
         REQUIRE(mesh.frames[0].polygon_normals.has_value()); // Active zero-sized cache, not absent.
         REQUIRE(mesh.ReleaseDecompressedFrames() == 2 * sizeof(srVector3T<float>));
