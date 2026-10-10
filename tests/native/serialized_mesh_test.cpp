@@ -127,11 +127,11 @@ bool LoadCycles(const std::filesystem::path& path)
         CHECK(ReadMultipleLevelMeshes(&info, instances, 4, "serialized linked mesh"));
         CHECK(instances[0] && instances[1] && !instances[2] && !instances[3]);
         auto* head = static_cast<stMeshModel*>(instances[0]->getModel());
-        CHECK(head->next && head->next->next && !head->next->next->next);
-        CHECK(head->next->previous == head && head->next->next->previous == head->next.get());
+        CHECK(head->parts.size() == 2);
+        CHECK(head->parts[0]->head == head && head->parts[1]->head == head);
         CHECK(head->getPolyVertex()[0].x == 0 && head->getPolyVertex()[0].z == 2);
         CHECK(head->getVertexLoc()[1].x == 1);
-        CHECK(head->next->vertex_location_count == 3);
+        CHECK(head->parts[0]->vertex_location_count == 3);
         delete instances[0];
         delete instances[1];
         CHECK(g_mesh_models.empty());

@@ -730,7 +730,7 @@ void ResourceLifecycleScenario()
             auto* instance = world->psrMeshes[i];
             if (!instance) continue;
             auto* model = static_cast<stMeshModel*>(instance->getModel());
-            if (model && model->next) ++linked;
+            if (model && !model->parts.empty()) ++linked;
             if (model && MeshHasAnimatedTexture(model)) ++animated;
         }
         std::printf("resource-lifecycle: cycle %d, %u linked heads, %u animated textures\n",

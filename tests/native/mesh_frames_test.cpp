@@ -228,13 +228,13 @@ static bool cloned_ownership()
         original.InitializeVertexFrames(1);
         original.GetVertex(0)[0] = 3;
         original.GetVertexLocations(0, true, 0.0f);
-        original.LinkTo(std::make_unique<stMeshModel>(0, 1));
-        original.next->InitializeVertexFrames(1);
-        original.next->GetVertexLocations(0, true, 0.0f);
+        original.AddPart(std::make_unique<stMeshModel>(0, 1));
+        original.parts[0]->InitializeVertexFrames(1);
+        original.parts[0]->GetVertexLocations(0, true, 0.0f);
         auto clone = std::make_unique<stMeshModel>(0, 0);
         *clone = original;
-        CHECK(clone->next.get() != original.next.get() && clone->next->previous == clone.get());
-        CHECK(clone->previous == nullptr);
+        CHECK(clone->parts[0] != original.parts[0] && clone->parts[0]->head == clone.get());
+        CHECK(clone->head == nullptr);
         CHECK(clone->GetVertex(0) != original.GetVertex(0));
         CHECK(clone->GetVertexLocations(0, true, 0.0f) != original.GetVertexLocations(0, true, 0.0f));
         clone->GetVertex(0)[0] = 9;
@@ -249,7 +249,7 @@ static bool cloned_ownership()
         CHECK(g_mesh_models.size() == registered + 4);
         stMeshModel empty(0, 0);
         *clone = empty;
-        CHECK(clone->frames.empty() && clone->next == nullptr);
+        CHECK(clone->frames.empty() && clone->parts.empty());
         CHECK(g_mesh_models.size() == registered + 2);
         CHECK(g_decompressed_mesh_bytes == initial_bytes + 2 * sizeof(srVector3T<float>));
     }
@@ -281,9 +281,9 @@ static bool loaded_model_ownership()
     auto model = BuildSingleLevelMesh(3, faces, 9, materials, &mesh_count, maps, &mapped_values,
                                      &mapped_keys);
     CHECK(model && mesh_count == 2 && maps.size() == 2);
-    CHECK(model->next && model->next->previous == model.get());
+    CHECK(model->parts.size() == 1 && model->parts[0]->head == model.get());
     CHECK(model->getVertexMaterial(0, srMeshModel::SIDE_FRONT, 0)[0] == materials[0].material);
-    CHECK(model->next->getMaterial(0, srMeshModel::SIDE_FRONT) == materials[2].material.get());
+    CHECK(model->parts[0]->getMaterial(0, srMeshModel::SIDE_FRONT) == materials[2].material.get());
     std::weak_ptr<srModel> lifetime = model;
     auto* first = new srModelInstance(nullptr);
     first->setModel(std::move(model));

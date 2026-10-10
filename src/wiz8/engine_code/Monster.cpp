@@ -4424,7 +4424,7 @@ void W8Monster::GetMappedPosition(srVector3T<float>* position)
                     return;
                 }
             }
-            mesh = mesh->next.get();
+            mesh = mesh->Next();
         }
     }
 
@@ -4915,7 +4915,7 @@ void W8Monster::RemoveCycleSkinTables()
         CollectModelInstances(&instances);
         for (int index = 0; index < instances.GetCount(); ++index) {
             stMeshModel* mesh = static_cast<stMeshModel*>((*instances.GetAt(index))->getModel());
-            for (; mesh != 0; mesh = mesh->next.get()) {
+            for (; mesh != 0; mesh = mesh->Next()) {
                 mesh->RemoveSkinTablesForCycle(cycle_name);
             }
         }

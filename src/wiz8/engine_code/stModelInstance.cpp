@@ -53,7 +53,7 @@ stTextureAnim* stModelInstance::FindMouthTexture()
                     }
                 }
             }
-            mesh = mesh->next.get();
+            mesh = mesh->Next();
         }
     } else {
         while (mesh != 0) {
@@ -68,7 +68,7 @@ stTextureAnim* stModelInstance::FindMouthTexture()
                     }
                 }
             }
-            mesh = mesh->next.get();
+            mesh = mesh->Next();
         }
     }
     return 0;
@@ -121,7 +121,7 @@ int stModelInstance::AddDamageStage(const char* name)
     int stage = static_cast<int>(damage_stage_tables.size());
     int base_table = stage > 0 ? damage_stage_tables[0] : -1;
     damage_stage_tables.push_back(mesh->CreateSkinTable(name, base_table));
-    for (mesh = mesh->next.get(); mesh != 0; mesh = mesh->next.get()) {
+    for (mesh = mesh->Next(); mesh != 0; mesh = mesh->Next()) {
         mesh->CreateSkinTable(name, base_table);
     }
     return stage;
@@ -153,7 +153,7 @@ unsigned char stModelInstance::ReplaceDamageStageTexture(
         animation->Prepare();
     }
 
-    for (; mesh != 0; mesh = mesh->next.get()) {
+    for (; mesh != 0; mesh = mesh->Next()) {
         std::shared_ptr<srTextureIFace>* textures = mesh->GetTextureTable(damage_stage_tables[stage]);
         if (textures == 0) {
             continue;
@@ -683,7 +683,7 @@ void stModelInstance::RenderMeshes(srGERD& renderer)
         first_pass = false;
         srNode* previous = child;
         if (child == 0 || child->testFlag(FLAG_TERMINATE) == 0) {
-            model = model->next.get();
+            model = model->Next();
             if (previous != 0) {
                 child = previous->first_child_;
             }
@@ -782,7 +782,7 @@ void stModelInstance::RenderMeshes(srGERD& renderer)
             if (child != 0 && child->testFlag(FLAG_TERMINATE) != 0) {
                 break;
             }
-            model = model->next.get();
+            model = model->Next();
             if (previous != 0) {
                 child = previous->first_child_;
             }

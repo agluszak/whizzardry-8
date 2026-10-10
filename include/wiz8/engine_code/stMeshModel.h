@@ -44,8 +44,8 @@ public:
     virtual int getBoundingBox(srVector3T<float>& minimum,
                                srVector3T<float>& maximum) override; /* 0x00471d80 */
     virtual void getTriMesh(TriMesh& mesh) override;                 /* 0x004727e0 */
-    /* Recomputes the union bounds over every model in the previous/next chain
-       and pushes them to each member via srMeshModel::setBounds. */
+    /* Recomputes the union bounds over the head and its parts and pushes them
+       to each mesh via srMeshModel::setBounds. */
     void CalculateLinkedBounds();                 /* 0x00471e10 */
     virtual const TriMesh& getTriMesh() override; /* 0x00472270 */
     virtual void renderTriMesh(class srGERD& renderer,
@@ -58,7 +58,9 @@ public:
 
     int FindMappedIndex(short key); /* 0x004712D0 */
     void SetMappedVertex(short vertex, short key);
-    void LinkTo(std::unique_ptr<stMeshModel> other);      /* 0x00471D60 */
+    void AddPart(std::unique_ptr<stMeshModel> part);
+    /* The mesh submitted after this one in its model, or null. */
+    stMeshModel* Next() const;
     short* GetVertex(unsigned int frame); /* 0x00471AA0 */
     int FindSkinTable(std::string_view name);
     int CreateSkinTable(std::string_view name, int base_table);
@@ -76,7 +78,6 @@ public:
     unsigned char AllocateFrameBuffers(unsigned int uiFrame, unsigned char flags); /* 0x00471720 */
     srVector3T<float>* GetVertexLights(bool initialize, int table);                /* 0x00472100 */
     float* GetVertexSunlight(bool initialize);                                     /* 0x004721E0 */
-    void NotifyLinkedModel(stMeshModel* previous_model);
     void InitializeVertexFrames(int frames); /* 0x00473B00 */
     int ReleaseDecompressedFrames();         /* 0x004739E0 */
     void FinalizeVertexFrame(int frame);
@@ -89,8 +90,43 @@ public:
     void ClearAutomapPolygonFilter();
     void ApplyAutomapPolygonFilter(std::span<const std::string_view> excluded_textures);
 
-    std::unique_ptr<stMeshModel> next;     /* 0x398 */
-    stMeshModel* previous; /* 0x39c */
+    /* A model is a head mesh plus one part per further render state. The head
+       owns its parts; a part refers back to its head. */
+    std::vector<std::unique_ptr<stMeshModel>> parts;
+    stMeshModel* head = nullptr;
+
+    /* The head (or a lone mesh) followed by its parts, in submission order. */
+    class Meshes {
+    public:
+        explicit Meshes(stMeshModel* first) : first(first) {}
+        class iterator {
+        public:
+            stMeshModel* operator*() const
+            {
+                return index == 0 ? first : first->parts[index - 1].get();
+            }
+            iterator& operator++()
+            {
+                ++index;
+                return *this;
+            }
+            bool operator==(const iterator&) const = default;
+
+            stMeshModel* first;
+            std::size_t index;
+        };
+        iterator begin() const
+        {
+            return {first, 0};
+        }
+        iterator end() const
+        {
+            return {first, first ? first->parts.size() + 1 : 0};
+        }
+
+    private:
+        stMeshModel* first;
+    };
     unsigned int flags;
     srVector3T<float> ambient_color;
     int vertex_light_table;
@@ -136,7 +172,6 @@ public:
     bool automap_filter_active;
 };
 
-W8_ABI_ASSERT(sizeof(stMeshModel) == 0x464, "stMeshModel_size_must_be_0x464");
 
 /* Every mesh model whose frame storage has been initialized. */
 extern std::vector<stMeshModel*> g_mesh_models; /* 0x00659CB8 */

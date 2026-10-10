@@ -186,7 +186,6 @@ BuildSingleLevelMesh(int face_count, W8ReadMeshFace* faces, int vertex_count,
     std::array<std::vector<srVector3i>, 8> polygon_shades;
     std::array<std::vector<w8_ulong>, 8> vertex_shades;
     std::shared_ptr<stMeshModel> first_model;
-    stMeshModel* previous_model = 0;
     int type;
     int face_index;
 
@@ -377,13 +376,10 @@ BuildSingleLevelMesh(int face_count, W8ReadMeshFace* faces, int vertex_count,
         } else {
             model->flags &= ~W8_MESH_SORTED_RENDERING;
         }
-        if (previous_model != 0) {
-            previous_model->LinkTo(std::move(owned_model));
-            model->NotifyLinkedModel(previous_model);
-        }
-        previous_model = model;
         if (first_model == 0) {
             first_model = std::move(owned_model);
+        } else {
+            first_model->AddPart(std::move(owned_model));
         }
     }
     first_model->setDirty(srMeshModel::DIRTY_BOUNDS);
@@ -631,17 +627,18 @@ try
 
     if ((flags & W8_LEVEL_MESH_LOD_VERTICES) == 0) {
         int mesh_index = 0;
-        for (stMeshModel* model = first_model.get(); model != 0; model = model->next.get(), ++mesh_index) {
+        for (stMeshModel* model : stMeshModel::Meshes(first_model.get())) {
             srVector3T<float>* model_vertices = model->getVertexLoc();
             for (int index = 0; index < model->vertex_location_count; ++index) {
                 model_vertices[index] = vertices[vertex_maps[mesh_index][index]];
             }
             OptimizeMeshOrder(model);
+            ++mesh_index;
         }
     } else {
         for (short frame = 0; frame < frame_count; ++frame) {
             int mesh_index = 0;
-            for (stMeshModel* model = first_model.get(); model != 0; model = model->next.get(), ++mesh_index) {
+            for (stMeshModel* model : stMeshModel::Meshes(first_model.get())) {
                 model->InitializeVertexFrames(frame_count);
                 model->vertex_compression_scale = 500.0f / compression_scale;
                 short* model_vertices = model->GetVertex(frame);
@@ -652,6 +649,7 @@ try
                     model_vertices[index * 3 + 2] = compressed_vertices[frame][source * 3 + 2];
                 }
                 model->FinalizeVertexFrame(frame);
+                ++mesh_index;
             }
         }
     }
@@ -711,19 +709,19 @@ try
         if (g_current_screen_state.id == W8_SCREEN_PLEASE_WAIT) {
             UpdatePleaseWaitLoadFrame();
         }
-        auto owned_model =
-            reader.Read(info->hFile, materials);
+        auto owned_model = reader.Read(info->hFile, materials);
         stMeshModel* model = owned_model.get();
+        /* A linked mesh continues the model whose last mesh is its predecessor. */
         if (reader.m_link_index >= 0) {
             if (static_cast<unsigned int>(reader.m_link_index) >= mesh_index) {
                 throw std::runtime_error("Invalid linked mesh predecessor");
             }
-            auto* predecessor = meshes.at(reader.m_link_index);
-            if (predecessor->next) {
+            stMeshModel* predecessor = meshes[reader.m_link_index];
+            stMeshModel* head = predecessor->head ? predecessor->head : predecessor;
+            if (predecessor != (head->parts.empty() ? head : head->parts.back().get())) {
                 throw std::runtime_error("Duplicate linked mesh successor");
             }
-            predecessor->LinkTo(std::move(owned_model));
-            model->NotifyLinkedModel(predecessor);
+            head->AddPart(std::move(owned_model));
         } else {
             roots[mesh_index] = std::move(owned_model);
         }
@@ -735,7 +733,7 @@ try
     for (unsigned int mesh_index = 0; mesh_index < root_count; ++mesh_index) {
         stMeshModel* model = meshes[mesh_index];
         model->setName(name ? name : "");
-        if (model->previous == 0) {
+        if (model->head == nullptr) {
             stModelInstance* instance = CreateModelInstance(roots[mesh_index]);
             instance->setName("Multi Mesh Instance");
             instance->mesh_index = mesh_index;

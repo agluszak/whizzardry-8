@@ -88,7 +88,7 @@ void GDProp::PrepareGeometry(srModelInstance* instance)
     while (mesh != 0) {
         surface_count += mesh->polygon_count;
         vertex_count += mesh->vertex_location_count;
-        mesh = mesh->next.get();
+        mesh = mesh->Next();
     }
 
     if (m_surface_count != surface_count) {
@@ -194,7 +194,7 @@ void GDProp::Initialize(srModelInstance* instance, bool attach, unsigned short p
                 surface->contact_margin = 500.0f;
             }
         }
-        mesh = mesh->next.get();
+        mesh = mesh->Next();
     }
 
     W8PathingService* pathing = g_octree->pathing;

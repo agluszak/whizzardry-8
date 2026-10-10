@@ -326,7 +326,7 @@ unsigned char BakeInstanceVertexLighting(stModelInstance* instance, srNode* ligh
             directions = 0;
             mesh->flags |= W8_MESH_VERTEX_LIGHTING_DIRTY;
         }
-        mesh = mesh->next.get();
+        mesh = mesh->Next();
     }
     return 1;
 }
@@ -370,8 +370,7 @@ unsigned char BakeInstanceVertexLightingIfNeeded(stModelInstance* instance, srNo
 void SetWorldMeshVertexLightTable(W8World* world, int table)
 {
     if (world->octree == 0) {
-        for (stMeshModel* model = static_cast<stMeshModel*>(world->update_mesh_source->getModel());
-             model != 0; model = model->next.get()) {
+        for (stMeshModel* model : stMeshModel::Meshes(static_cast<stMeshModel*>(world->update_mesh_source->getModel()))) {
             model->vertex_light_table = table;
             model->flags |= W8_MESH_VERTEX_LIGHTING_DIRTY;
         }
@@ -379,8 +378,7 @@ void SetWorldMeshVertexLightTable(W8World* world, int table)
         for (unsigned int mesh = 0; mesh < world->octree->m_meshCount; ++mesh) {
             srModelInstance* instance = world->psrMeshes[mesh];
             if (instance != 0) {
-                for (stMeshModel* model = static_cast<stMeshModel*>(instance->getModel());
-                     model != 0; model = model->next.get()) {
+                for (stMeshModel* model : stMeshModel::Meshes(static_cast<stMeshModel*>(instance->getModel()))) {
                     model->vertex_light_table = table;
                     model->flags |= W8_MESH_VERTEX_LIGHTING_DIRTY;
                 }
@@ -785,8 +783,7 @@ void SetSceneMeshShaderBit3(srNode* node, int argument)
     srShader shader;
     for (; node != 0; node = node->next_sibling_) {
         if (auto* instance = sr_cast<stModelInstance>(node)) {
-            for (stMeshModel* mesh = static_cast<stMeshModel*>(instance->getModel()); mesh != 0;
-                 mesh = mesh->next.get()) {
+            for (stMeshModel* mesh : stMeshModel::Meshes(static_cast<stMeshModel*>(instance->getModel()))) {
                 srShader* polygon_shader = mesh->getPolyShader(0, 0);
                 bool clear = argument == 0 || (mesh->flags & W8_MESH_SORTED_RENDERING) != 0;
 
@@ -823,8 +820,7 @@ void SetSceneMeshShaderLowBits(srNode* node, int argument)
     srShader shader;
     for (; node != 0; node = node->next_sibling_) {
         if (auto* instance = sr_cast<stModelInstance>(node)) {
-            for (stMeshModel* mesh = static_cast<stMeshModel*>(instance->getModel()); mesh != 0;
-                 mesh = mesh->next.get()) {
+            for (stMeshModel* mesh : stMeshModel::Meshes(static_cast<stMeshModel*>(instance->getModel()))) {
                 if ((mesh->flags & W8_MESH_SORTED_RENDERING) != 0) {
                     continue;
                 }

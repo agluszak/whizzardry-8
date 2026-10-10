@@ -1714,7 +1714,7 @@ int W8Octree::CountBadRegionMeshLinks(W8OctSpatialState* spatial)
                     srVector3T<float> maximum;
                     minimum.x = minimum.y = minimum.z = 1.0e7f;
                     maximum.x = maximum.y = maximum.z = -1.0e7f;
-                    for (; model != 0; model = model->next.get()) {
+                    for (; model != 0; model = model->Next()) {
                         srVector3T<float> box_minimum;
                         srVector3T<float> box_maximum;
                         model->getBoundingBox(box_minimum, box_maximum);

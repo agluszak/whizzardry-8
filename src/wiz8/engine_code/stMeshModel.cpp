@@ -45,8 +45,6 @@ stMeshModel::stMeshModel(w8_long polygons, w8_long vertices)
     : srClassSupport<stMeshModel, srMeshModel, 0x10003>(polygons, vertices)
 {
     vertex_lighting_ready = false;
-    previous = 0;
-    next = 0;
     flags = W8_MESH_VERTEX_LIGHTING_DIRTY;
     ambient_color = -1.0f;
     vertex_light_table = 0;
@@ -80,10 +78,10 @@ stMeshModel& stMeshModel::operator=(const stMeshModel& other)
     auto copied_lights_0 = other.vertex_lights[0];
     auto copied_lights_1 = other.vertex_lights[1];
     auto copied_sunlight = other.vertex_sunlight;
-    std::unique_ptr<stMeshModel> linked;
-    if (other.next != nullptr) {
-        linked = std::make_unique<stMeshModel>(0, 0);
-        *linked = *other.next;
+    std::vector<std::unique_ptr<stMeshModel>> copied_parts;
+    for (const auto& part : other.parts) {
+        copied_parts.push_back(std::make_unique<stMeshModel>(0, 0));
+        *copied_parts.back() = *part;
     }
     srMeshModel::operator=(other);
     if (frames.empty() && !copied_frames.empty()) {
@@ -113,9 +111,9 @@ stMeshModel& stMeshModel::operator=(const stMeshModel& other)
     vertex_lighting_ready = other.vertex_lighting_ready;
     vertex_compression_scale = other.vertex_compression_scale;
     automap_filter_active = other.automap_filter_active;
-    next = std::move(linked);
-    if (next != nullptr) {
-        next->previous = this;
+    parts.clear();
+    for (auto& part : copied_parts) {
+        AddPart(std::move(part));
     }
     return *this;
 }
@@ -142,8 +140,8 @@ int stMeshModel::getBoundingBox(srVector3T<float>& minimum, srVector3T<float>& m
     return 1;
 }
 
-/* Recompute the linked group's union bounds: clear this model's cached box,
-   accumulate every frame's bounds from the whole previous/next chain, then
+/* Recompute the model's union bounds: clear this mesh's cached box,
+   accumulate every frame's bounds from the head and all parts, then
    push the resulting box, center and radius to each member. Models whose
    flags bit 2 is clear answer from the base-class bounding box; the rest
    decompress each frame's vertex table. */
@@ -155,17 +153,12 @@ void stMeshModel::CalculateLinkedBounds()
     bounds_center.SetZero();
     bounds_radius = 0;
 
-    stMeshModel* head = this;
-    while (head->previous != 0) {
-        head = head->previous;
-    }
-
-    stMeshModel* model;
+    stMeshModel* first = head ? head : this;
     srVector3T<float> minimum;
     srVector3T<float> maximum;
     minimum.SetZero();
     maximum.SetZero();
-    for (model = head; model != 0; model = model->next.get()) {
+    for (stMeshModel* model : Meshes(first)) {
         for (unsigned int frame = 0; frame < std::max(size_t{1}, model->frames.size()); ++frame) {
             srVector3T<float> frame_minimum;
             srVector3T<float> frame_maximum;
@@ -208,8 +201,7 @@ void stMeshModel::CalculateLinkedBounds()
     if (radius < minimum_distance) {
         radius = minimum_distance;
     }
-    head->setBounds(minimum, maximum, center, radius);
-    for (model = head->next.get(); model != 0; model = model->next.get()) {
+    for (stMeshModel* model : Meshes(first)) {
         model->setBounds(minimum, maximum, center, radius);
     }
 }
@@ -745,15 +737,20 @@ int stMeshModel::FindMappedIndex(short key)
     return entry != mapped_vertices.end() ? entry->second : -1;
 }
 
-/* Link one model onto another, setting both ends - so the two pointers are one
-   link rather than two independent  Unlinking passes nothing. */
-// FUNCTION: WIZ8 0x00471d60
-void stMeshModel::LinkTo(std::unique_ptr<stMeshModel> other)
+void stMeshModel::AddPart(std::unique_ptr<stMeshModel> part)
 {
-    if (other) {
-        other->previous = this;
+    part->head = this;
+    parts.push_back(std::move(part));
+}
+
+stMeshModel* stMeshModel::Next() const
+{
+    if (head == nullptr) {
+        return parts.empty() ? nullptr : parts.front().get();
     }
-    next = std::move(other);
+    auto found = std::find_if(head->parts.begin(), head->parts.end(),
+                              [this](const auto& part) { return part.get() == this; });
+    return found + 1 == head->parts.end() ? nullptr : (found + 1)->get();
 }
 
 /* One frame's compressed vertex table, refused outright when there is no
@@ -1201,4 +1198,3 @@ void stMeshModel::FinalizeVertexFrame(int frame)
 /* Retail ICF folds this empty thiscall onto W8OptionsGraphicsPanel::OnDragEnd
    at 0x005AA400 (OptionsScreen.cpp). This source function has no separately
    retained retail address, so it intentionally has no FUNCTION marker. */
-void stMeshModel::NotifyLinkedModel(stMeshModel*) {}

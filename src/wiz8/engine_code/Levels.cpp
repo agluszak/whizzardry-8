@@ -355,8 +355,7 @@ unsigned char LoadSkyWorld(int level, W8LevelInfo* info)
             srModelInstance* instance = prop->ToggleRepAnimation(0);
 
             if (instance != 0) {
-                for (stMeshModel* mesh = static_cast<stMeshModel*>(instance->getModel()); mesh != 0;
-                     mesh = mesh->next.get()) {
+                for (stMeshModel* mesh : stMeshModel::Meshes(static_cast<stMeshModel*>(instance->getModel()))) {
                     mesh->setMaterial(material, 0, srMeshModel::SIDE_FRONT);
                 }
             }
