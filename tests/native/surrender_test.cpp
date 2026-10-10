@@ -1,4 +1,4 @@
-#include "surrender/srBinIAsyncStream.h"
+#include "surrender/srBinFStream.h"
 #include "surrender/srBinOStream.h"
 #include "surrender/srClipPlane.h"
 #include "surrender/srCore.h"
@@ -41,7 +41,6 @@ static_assert(noncopyable<srVertexPipe>);
 static_assert(noncopyable<srBinIFStream>);
 static_assert(noncopyable<srBinOFStream>);
 static_assert(noncopyable<srBinIOFStream>);
-static_assert(noncopyable<srBinIAsyncStream>);
 
 struct IOManager : srIOManager {};
 static_assert(noncopyable<IOManager>);

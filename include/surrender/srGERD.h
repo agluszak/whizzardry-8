@@ -1,5 +1,7 @@
 #pragma once
 
+#include <thread>
+
 #include "srArray.h"
 #include "srHash.h"
 #include "srTexture.h"
@@ -1023,7 +1025,7 @@ private:
     RendererEntry* renderers;
     srCriticalSection* renderers_section;
     srCriticalSection* state_section;
-    w8_ulong owner_thread;
+    std::thread::id owner_thread;
     srFlags<e_enable> enable_flags;
     enum {
         DIRTY_FRAME_ENABLE = 0x1UL,

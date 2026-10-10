@@ -5,7 +5,6 @@
 #include "surrender/srCriticalSection.h"
 #include "surrender/srDebug.h"
 #include "surrender/srDebugDD.h"
-#include "surrender/srThread.h"
 #include "surrender/srWindow.h"
 #include "surrender/srHeap.h"
 #include "surrender/srPalette.h"
@@ -84,7 +83,7 @@ srGERD::MatrixStack::MatrixStack() : depth(0) {}
 srGERD::srGERD(srDD* device, const char* device_name)
     : dirty(0), state_flags(0), vertex_arrays_dirty(0)
 {
-    owner_thread = srThread::getHandle();
+    owner_thread = std::this_thread::get_id();
     this->device.dd = device;
     this->device.window = 0;
     this->device.back_buffer_type = static_cast<e_backBuffer>(0);
@@ -336,7 +335,7 @@ void srGERD::resetStatistics()
     srCriticalSectionAccess access(renderers_section);
     for (RendererEntry* entry = renderers; entry != 0; entry = entry->next) {
         while (entry->busy != 0) {
-            srThread::yield(0);
+            std::this_thread::yield();
         }
         entry->renderer->resetStatistics();
     }
@@ -634,7 +633,7 @@ void srGERD::invalidateTexture(Texture& texture)
 void srGERD::invalidateResidentTexture(Texture& texture)
 {
     if (texture.device.resident_data != 0) {
-        if (texture.surface_data == 0 || srThread::getHandle() != owner_thread) {
+        if (texture.surface_data == 0 || std::this_thread::get_id() != owner_thread) {
             invalidateTexture(texture);
         } else {
             getDD()->deleteTexture(texture.device);
@@ -912,13 +911,13 @@ void srGERD::applyFrameStateChanges()
 // FUNCTION: SURRENDER 0x10019A40
 void srGERD::flushRenderers()
 {
-    if (srThread::getHandle() == owner_thread) {
+    if (std::this_thread::get_id() == owner_thread) {
         flushImmediateRenderers();
         flushSort();
         srCriticalSectionAccess access(renderers_section);
         for (RendererEntry* entry = renderers; entry != 0; entry = entry->next) {
             while (entry->busy != 0) {
-                srThread::yield(0);
+                std::this_thread::yield();
             }
             entry->renderer->reset(0);
         }
@@ -928,12 +927,12 @@ void srGERD::flushRenderers()
 // FUNCTION: SURRENDER 0x10019AD0
 void srGERD::flushSort()
 {
-    if (srThread::getHandle() == owner_thread) {
+    if (std::this_thread::get_id() == owner_thread) {
         srCriticalSectionAccess access(renderers_section);
         for (RendererEntry* entry = renderers; entry != 0; entry = entry->next) {
             if (entry->renderer->sorted == 1) {
                 while (entry->busy != 0) {
-                    srThread::yield(0);
+                    std::this_thread::yield();
                 }
                 entry->renderer->submit();
             }
@@ -944,12 +943,12 @@ void srGERD::flushSort()
 // FUNCTION: SURRENDER 0x10019B60
 void srGERD::flushImmediateRenderers()
 {
-    if (srThread::getHandle() == owner_thread) {
+    if (std::this_thread::get_id() == owner_thread) {
         srCriticalSectionAccess access(renderers_section);
         for (RendererEntry* entry = renderers; entry != 0; entry = entry->next) {
             if (entry->renderer->sorted == 0) {
                 while (entry->busy != 0) {
-                    srThread::yield(0);
+                    std::this_thread::yield();
                 }
                 entry->renderer->submit();
             }
@@ -1013,7 +1012,7 @@ void srGERD::unlockRenderer(Renderer* renderer, int submit)
     for (RendererEntry* entry = renderers; entry != 0; entry = entry->next) {
         if (entry->renderer == renderer) {
             entry->busy = 0;
-            if (srThread::getHandle() == owner_thread &&
+            if (std::this_thread::get_id() == owner_thread &&
                 (submit != 0 || renderer->isBatchFull() != 0)) {
                 renderer->submit();
             }
@@ -1025,7 +1024,7 @@ void srGERD::unlockRenderer(Renderer* renderer, int submit)
 // FUNCTION: SURRENDER 0x10019E30
 void srGERD::flushNonBusyRenderers()
 {
-    if (srThread::getHandle() == owner_thread) {
+    if (std::this_thread::get_id() == owner_thread) {
         srCriticalSectionAccess access(renderers_section);
         for (RendererEntry* entry = renderers; entry != 0; entry = entry->next) {
             if (entry->busy == 0 && entry->renderer->isBatchFull() != 0) {

@@ -25,13 +25,11 @@ set(SURRENDER_SOURCES
     image_io.cpp
     light.cpp
     material.cpp
-    memory_pool.cpp
     mesh_model.cpp
     triangle_culler.cpp
     model.cpp
     model_instance.cpp
     modeler.cpp
-    mutex.cpp
     node.cpp
     scene.cpp
     stream.cpp
@@ -42,9 +40,7 @@ set(SURRENDER_SOURCES
     texture.cpp
     texture_file.cpp
     texture_map.cpp
-    scheduler.cpp
     statistics.cpp
-    thread.cpp
     timer.cpp
     variable_timer.cpp
     triangulator.cpp
