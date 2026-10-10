@@ -1,6 +1,6 @@
 #include "../../src/native/movie.h"
-#include "FileMan.h"
-#include "LibraryDataBase.h"
+#include "wiz8/filesystem.h"
+#include "wiz8/slf.h"
 #include "compat/surfaces.h"
 #include "native/audio_test.h"
 #include <wiz8/asset_paths.h>
@@ -82,12 +82,12 @@ int main(int argc, char** argv)
         auto encoded = read(WIZ8_MOVIE_FIXTURE), golden = read(WIZ8_MOVIE_GOLDEN);
         CHECK(golden.size() == 5 * 1536);
         write(assets / "Movie.mkv", encoded);
-        LIBHEADER header{};
+        wiz8::SlfHeader header{};
         strcpy(header.sLibName, "DATA.SLF");
         strcpy(header.sPathToLibrary, "Data\\");
         header.iEntries = header.iUsed = 2;
         header.iVersion = 0x200;
-        DIRENTRY entries[2]{};
+        wiz8::SlfEntry entries[2]{};
         strcpy(entries[0].sFileName, "Packed.mkv");
         entries[0].uiOffset = sizeof(header);
         entries[0].uiLength = encoded.size();
@@ -101,8 +101,8 @@ int main(int argc, char** argv)
         archive.insert(archive.end(), reinterpret_cast<unsigned char*>(entries),
                        reinterpret_cast<unsigned char*>(entries) + sizeof(entries));
         write(assets / "Data" / "DATA.SLF", archive);
-        CHECK(InitializeFileManager(nullptr));
-        CHECK(InitializeFileDatabase());
+
+        wiz8::mount_slf("Data\\Data.slf");
         w8_native::audio_offline_for_test(true);
         CHECK(InitializeSoundManager());
         double energy = 0;
@@ -230,8 +230,8 @@ int main(int argc, char** argv)
                    (unsigned long long)retail.decoded_audio_frames(), (unsigned long long)hash);
         }
         ShutdownSoundManager();
-        ShutDownFileDatabase();
-        ShutdownFileManager();
+        wiz8::clear_asset_archives();
+
         printf("movie: loose/SLF RGB555 golden frames, timed EOF, PCM audio, "
                "reopen and bounded failure passed\n");
         return 0;

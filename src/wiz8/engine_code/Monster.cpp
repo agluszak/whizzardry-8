@@ -83,7 +83,7 @@
 #include "surrender/srShader.h"
 #include "random.h"
 #include "Font.h"
-#include "FileMan.h"
+#include "wiz8/filesystem.h"
 #include "soundman.h"
 #include "wiz8/music_playlist.h"
 #include "wiz8/layouts/npc_state.h"
@@ -382,7 +382,7 @@ unsigned char ReadOrCloneMonsterCycles(const W8GrCycleLoadContext* context,
 
     char path[256];
     sprintf(path, "data\\Monsters\\%s.mls", monster_name);
-    int handle = FileOpen(path, FILE_ACCESS_READ | FILE_OPEN_EXISTING, 0);
+    std::unique_ptr<wiz8::File> handle = [&]() { try { return wiz8::open_file(path, wiz8::OpenMode::read); } catch (const std::exception&) { return std::unique_ptr<wiz8::File>{}; } }();
     if (handle == 0) {
         srAssertFail("hFile", MONSTER_CPP, 0x50f,
                      FormatString("Couldn't open %s", path));
@@ -404,9 +404,9 @@ unsigned char ReadOrCloneMonsterCycles(const W8GrCycleLoadContext* context,
     } else {
         char line[250];
         while (more != 0) {
-            ReadTextLine(handle, line, sizeof(line), &more);
+            ReadTextLine(handle.get(), line, sizeof(line), &more);
             while (line[0] == '\0' && more != 0) {
-                ReadTextLine(handle, line, sizeof(line), &more);
+                ReadTextLine(handle.get(), line, sizeof(line), &more);
             }
             if (line[0] == '\0' || line[0] == '#') {
                 continue;
@@ -673,7 +673,8 @@ unsigned char ReadOrCloneMonsterCycles(const W8GrCycleLoadContext* context,
                 }
             }
         }
-        FileClose(handle);
+        if (handle) handle->close();
+        handle.reset();
     }
 
     W8MonsterRep* representation = (*monster)->m_pRep;

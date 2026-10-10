@@ -35,7 +35,7 @@
 #include "wiz8/xstatus.h"
 
 #include "random.h"
-#include "FileMan.h"
+#include "wiz8/filesystem.h"
 
 #include <string.h>
 #include <wchar.h>
@@ -119,6 +119,7 @@ W8Wiz7Character g_imported_characters[6];
    the shared tag and the flag bits unpack into g_import_flags. */
 // FUNCTION: WIZ8 0x00558D00
 unsigned char LoadWizardry7ImportFile(char* path)
+try
 {
     unsigned int bytes_read;
     unsigned char header[0x34c];
@@ -129,40 +130,39 @@ unsigned char LoadWizardry7ImportFile(char* path)
     unsigned char skipped_section_4[0x14a];
     unsigned char skipped_section_5[0x344];
     unsigned char skipped_section_6[0x42];
-    HWFILE file;
+    std::unique_ptr<wiz8::File> file;
     int index;
 
     short record_skip;
     short bank_skip;
 
-    file = FileOpen(path, FILE_ACCESS_READ, 0);
+    file = [&]() { try { return wiz8::open_file(path, wiz8::OpenMode::read); } catch (const std::exception&) { return std::unique_ptr<wiz8::File>{}; } }();
     if (file == 0) {
         return 0;
     }
-    if (FileRead(file, header, 0x34c, &bytes_read) != 0) {
+    if (((bytes_read = file->read(header, 0x34c).bytes) == static_cast<std::size_t>(0x34c)) != 0) {
         // reinterpret-ok: raw serialized file image; unaligned header short
         record_skip = *reinterpret_cast<w8_unaligned_short*>(&header[0x2cc]);
         // reinterpret-ok: raw serialized file image; unaligned header short
         bank_skip = *reinterpret_cast<w8_unaligned_short*>(&header[0x2ce]);
-        if (FileSeek(file, record_skip * 6, FILE_SEEK_FROM_CURRENT) != 0 &&
-            FileSeek(file, bank_skip * 8, FILE_SEEK_FROM_CURRENT) != 0) {
+        if ((file->seek(record_skip * 6, wiz8::SeekOrigin::current), true) != 0 &&
+            (file->seek(bank_skip * 8, wiz8::SeekOrigin::current), true) != 0) {
             for (index = 0; index < 0x20; ++index) {
-                if (FileSeek(file, 0x100, FILE_SEEK_FROM_CURRENT) == 0) {
+                if ((file->seek(0x100, wiz8::SeekOrigin::current), true) == 0) {
                     goto fail;
                 }
             }
-            if (FileRead(file, party_block, 0x4c, &bytes_read) != 0 && party_block[0x25] != 0 &&
+            if (((bytes_read = file->read(party_block, 0x4c).bytes) == static_cast<std::size_t>(0x4c)) != 0 && party_block[0x25] != 0 &&
                 party_block[0x25] < 7 &&
-                FileRead(file, skipped_section_1, 0x80, &bytes_read) != 0 &&
-                FileRead(file, skipped_section_2, 0x90, &bytes_read) != 0 &&
-                FileRead(file, skipped_section_3, 0x68, &bytes_read) != 0 &&
-                FileRead(file, skipped_section_4, 0x14a, &bytes_read) != 0 &&
-                FileRead(file, skipped_section_5, 0x344, &bytes_read) != 0 &&
-                FileRead(file, skipped_section_6, 0x42, &bytes_read) != 0 &&
-                FileSeek(file, 100, FILE_SEEK_FROM_CURRENT) != 0) {
+                ((bytes_read = file->read(skipped_section_1, 0x80).bytes) == static_cast<std::size_t>(0x80)) != 0 &&
+                ((bytes_read = file->read(skipped_section_2, 0x90).bytes) == static_cast<std::size_t>(0x90)) != 0 &&
+                ((bytes_read = file->read(skipped_section_3, 0x68).bytes) == static_cast<std::size_t>(0x68)) != 0 &&
+                ((bytes_read = file->read(skipped_section_4, 0x14a).bytes) == static_cast<std::size_t>(0x14a)) != 0 &&
+                ((bytes_read = file->read(skipped_section_5, 0x344).bytes) == static_cast<std::size_t>(0x344)) != 0 &&
+                ((bytes_read = file->read(skipped_section_6, 0x42).bytes) == static_cast<std::size_t>(0x42)) != 0 &&
+                (file->seek(100, wiz8::SeekOrigin::current), true) != 0) {
                 for (index = 0; index < party_block[0x25]; ++index) {
-                    if (FileRead(file, &g_imported_characters[index],
-                                 sizeof(g_imported_characters[index]), &bytes_read) == 0) {
+                    if (((bytes_read = file->read(&g_imported_characters[index], sizeof(g_imported_characters[index])).bytes) == static_cast<std::size_t>(sizeof(g_imported_characters[index]))) == 0) {
                         goto fail;
                     }
                     if (index != 0 && g_imported_characters[index].party_tag !=
@@ -170,7 +170,8 @@ unsigned char LoadWizardry7ImportFile(char* path)
                         goto fail;
                     }
                 }
-                FileClose(file);
+                if (file) file->close();
+                file.reset();
                 g_import_character_count = party_block[0x25];
                 g_import_ending_record = party_block[0] == -1;
                 if (g_import_ending_record) {
@@ -214,9 +215,11 @@ unsigned char LoadWizardry7ImportFile(char* path)
         }
     }
 fail:
-    FileClose(file);
+    if (file) file->close();
+    file.reset();
     return 0;
 }
+catch (const std::exception&) { return false; }
 
 /* Apply the loaded Wizardry 7 import: reset the run, seed the party gold,
    mark the imported-party path and convert each record into a regular member.

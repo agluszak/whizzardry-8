@@ -1,5 +1,7 @@
 #pragma once
 
+#include "wiz8/filesystem.h"
+
 #include "wiz8/fact_state.h"
 #include "surrender/srMath.h"
 #include "wiz8/layouts/npc_state.h"
@@ -166,8 +168,8 @@ void TellNpcFact(W8NpcState* npc, short fact);
 struct W8Chunk;
 bool SaveNpcStates(W8Chunk* chunks);
 void LoadNpcStates(W8Chunk* chunks);
-bool SaveNpcItemLists(int file);
-bool LoadNpcItemLists(unsigned int file);
+bool SaveNpcItemLists(wiz8::File* file);
+bool LoadNpcItemLists(wiz8::File* file);
 char ScoreNpcTheft(W8Character* character, W8NpcState* npc, int item_id, int count);
 char AttemptNpcItemTheft(W8Character* character, W8NpcState* npc, int item_id, int count);
 void UpdateNpcPartyMember(int party_slot);

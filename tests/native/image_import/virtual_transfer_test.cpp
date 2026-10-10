@@ -2,8 +2,7 @@
 #include "wiz8/virtual_file_stream.h"
 #include "wiz8/engine_code/stTextureFile.h"
 #include "wiz8/sr_api.h"
-#include "FileMan.h"
-#include "LibraryDataBase.h"
+#include "wiz8/slf.h"
 #include "../temporary_directory.h"
 #include <wiz8/filesystem.h>
 #include <wiz8/asset_paths.h>
@@ -44,11 +43,11 @@ static Bytes tgaFixture()
 }
 static Bytes archive(const Bytes& jpeg, const Bytes& tga)
 {
-    LIBHEADER header{};
+    wiz8::SlfHeader header{};
     snprintf(header.sLibName, sizeof(header.sLibName), "%s", "Data.slf");
     snprintf(header.sPathToLibrary, sizeof(header.sPathToLibrary), "%s", "Data\\");
     header.iEntries = header.iUsed = 4; header.iVersion = 0x200;
-    DIRENTRY entries[4]{};
+    wiz8::SlfEntry entries[4]{};
     auto broken_jpeg = jpeg; broken_jpeg.resize(jpeg.size() - 2);
     auto broken_tga = tga; broken_tga.pop_back();
     const Bytes* payloads[] = {&broken_jpeg, &jpeg, &broken_tga, &tga};
@@ -75,9 +74,9 @@ static void checkGray(srColorSurfaceIFace* surface)
 static void checkTga(const char* name, bool succeeds)
 {
     std::string path(name);
-    const auto handle = FileOpen(path.data(), FILE_ACCESS_READ, FALSE);
+    auto handle = [&]() { try { return wiz8::open_file(path.data(), wiz8::OpenMode::read); } catch (const std::exception&) { return std::unique_ptr<wiz8::File>{}; } }();
     CHECK(handle);
-    auto surface = own(LoadSurface(handle, nullptr));
+    auto surface = own(LoadSurface(handle.get(), nullptr));
     CHECK(bool(surface) == succeeds);
     if (surface) {
         const unsigned char expected[] = {0, 0, 0x03, 0xfc, 0xe0, 0x03, 0x1f, 0, 0, 0x7c, 0xff, 0xff};
@@ -86,10 +85,10 @@ static void checkTga(const char* name, bool succeeds)
             CHECK(memcmp(static_cast<const unsigned char*>(surface->getDataPtr()) + y * surface->getPitch(),
                          expected + y * 6, 6) == 0);
     }
-    CHECK(FileGetSize(handle) > 0 && FileSeek(handle, 0, FILE_SEEK_FROM_START));
-    unsigned char signature = 255; UINT32 count = 0;
-    CHECK(FileRead(handle, &signature, 1, &count) && count == 1 && signature == 0);
-    FileClose(handle);
+    CHECK(handle->size() > 0 && (handle->seek(0, wiz8::SeekOrigin::begin), true));
+    unsigned char signature = 255; unsigned int count = 0;
+    CHECK(((count = handle->read(&signature, 1).bytes) == static_cast<std::size_t>(1)) && count == 1 && signature == 0);
+    handle.reset();
 }
 static void runtimeImporters()
 {
@@ -143,7 +142,8 @@ int main() try
     write(disc / "data" / "Disc.JPG", jpeg);
     fs::create_directories(user);
     w8_native::configure_paths({assets.string(), user.string(), {disc.string(), disc.string(), disc.string()}});
-    CHECK(InitializeFileManager(nullptr) && InitializeFileDatabase() && srInit());
+    wiz8::mount_slf("Data\\Data.slf");
+    CHECK(srInit());
     for (unsigned cycle = 0; cycle < 3; ++cycle) {
         runtimeImporters();
         CHECK(fs::exists(user / "capture.jpeg") && !fs::exists(assets / "capture.jpeg"));
@@ -178,9 +178,9 @@ int main() try
         CHECK(overlay.good() && !importer.importSurface(overlay, {}));
     }
     srExit();
-    ShutDownFileDatabase(); ShutdownFileManager();
+    wiz8::clear_asset_archives(); (void)0;
     fs::remove_all(root);
     puts("Virtual image streams: native registration/reinit/export, C-F, retail case folding, overlays, SLF bounds, independent cursors and borrowed handles passed");
     return 0;
 }
-catch (...) { srExit(); ShutDownFileDatabase(); ShutdownFileManager(); return 1; }
+catch (...) { srExit(); wiz8::clear_asset_archives(); (void)0; return 1; }

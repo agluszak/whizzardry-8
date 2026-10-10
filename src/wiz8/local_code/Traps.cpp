@@ -29,7 +29,7 @@
 #include "wiz8/string_database.h"
 #include "wiz8/local_code/Strings.h"
 #include "wiz8/sr_api.h"
-#include "FileMan.h"
+#include "wiz8/filesystem.h"
 #include "random.h"
 #include <ctype.h>
 #include <stdio.h>
@@ -84,36 +84,37 @@ void WriteRecordModeEntry(void)
     W8WorldCameraState state;
     char location_code[32];
     char line[1024];
-    HWFILE file;
+    std::unique_ptr<wiz8::File> file;
     unsigned int length;
 
-    file = FileOpen(s_data_notes_txt, FILE_ACCESS_WRITE | FILE_CREATE_ALWAYS, FALSE);
+    file = [&]() { try { return wiz8::open_file(s_data_notes_txt, wiz8::OpenMode::replace); } catch (const std::exception&) { return std::unique_ptr<wiz8::File>{}; } }();
     if (file != 0) {
-        FileSeek(file, 0, FILE_SEEK_FROM_END);
+        file->seek(-static_cast<std::int64_t>(0), wiz8::SeekOrigin::end);
         GetWorldCameraState(GetWorld(), &state);
         sprintf(line, s_record_mode_position_format, state.position.x, state.position.y,
                 state.position.z);
-        FileWrite(file, line, strlen(line), 0);
+        file->write(line, strlen(line));
         sprintf(line, s_record_mode_orientation_format, state.pitch[0], state.pitch[1],
                 state.pitch[2], state.pitch[3], state.pitch[4],
                 // reinterpret-ok: raw low byte of the angle record's trailing slot
                 *reinterpret_cast<unsigned int*>(&state.pitch[5]) & 0xff);
-        FileWrite(file, line, strlen(line), 0);
+        file->write(line, strlen(line));
         sprintf(line, s_record_mode_orientation_format, state.yaw[0], state.yaw[1], state.yaw[2],
                 state.yaw[3], state.yaw[4],
                 // reinterpret-ok: raw low byte of the angle record's trailing slot
                 *reinterpret_cast<unsigned int*>(&state.yaw[5]) & 0xff);
-        FileWrite(file, line, strlen(line), 0);
+        file->write(line, strlen(line));
         if (GetLevelLocationCode(g_status.current_level, location_code) == 0) {
             strcpy(location_code, s_record_mode_default_location);
         }
         length = strlen(location_code);
         location_code[length] = '\n';
-        FileWrite(file, location_code, length + 1, 0);
+        file->write(location_code, length + 1);
         length = strlen(g_record_mode_line);
         g_record_mode_line[length] = '\n';
-        FileWrite(file, g_record_mode_line, length + 1, 0);
-        FileClose(file);
+        file->write(g_record_mode_line, length + 1);
+        if (file) file->close();
+        file.reset();
     }
     ResetEditorStatusLine(-1);
 }
@@ -129,7 +130,7 @@ void ApplyRecordModeLine(void)
         WriteRecordModeEntry();
         return;
     }
-    if (FileDelete(s_data_notes_txt) == 0) {
+    if (wiz8::remove_file(s_data_notes_txt) == 0) {
         ResetEditorStatusLine(-1);
         strcpy(message, s_error_deleting_log_file);
     } else {

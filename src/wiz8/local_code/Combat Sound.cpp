@@ -10,7 +10,7 @@
 #include "wiz8/layouts/item_tables.h"
 #include "wiz8/sr_api.h"
 #include "wiz8/utility.h"
-#include "FileMan.h"
+#include "wiz8/filesystem.h"
 #include "random.h"
 #include "soundman.h"
 
@@ -43,8 +43,8 @@ void PlayCombatSound(char* sound_name, unsigned int variant_count, bool store_ha
         strcat(sound_name, FormatString("%d", Random(variant_count) + 1));
     }
     sprintf(zSoundFileName, "Data\\Sound\\Combat\\%s.wav", sound_name);
-    if (!FileExists(zSoundFileName)) {
-        srAssertFail("FileExists(zSoundFileName)", COMBAT_SOUND_CPP, 104,
+    if (![&]() { const auto status = wiz8::file_status(zSoundFileName); return status && status->info.type == SDL_PATHTYPE_FILE; }()) {
+        srAssertFail("[&]() { const auto status = wiz8::file_status(zSoundFileName); return status && status->info.type == SDL_PATHTYPE_FILE; }()", COMBAT_SOUND_CPP, 104,
                      FormatString("CombatSound: ERROR - Sound file %s not found", zSoundFileName));
     }
     if (volume > 0) {
@@ -91,20 +91,20 @@ unsigned char LoadHitSoundDatabase(void)
 {
     char path[] = "Data\\Databases\\HitSounds.txt";
     char line[256];
-    int handle;
+    std::unique_ptr<wiz8::File> handle;
     int row = 0;
     int column = -1;
     unsigned char more = 1;
 
     memset(g_weapon_attack_sounds, 0, sizeof(g_weapon_attack_sounds));
     memset(g_material_impact_sounds, 0, sizeof(g_material_impact_sounds));
-    handle = FileOpen(path, 0x41, 0);
+    handle = [&]() { try { return wiz8::open_file(path, wiz8::OpenMode::read); } catch (const std::exception&) { return std::unique_ptr<wiz8::File>{}; } }();
     if (!handle) {
         return 0;
     }
     while (row < 38 && more) {
         char* marker;
-        ReadTextLine(handle, line, sizeof(line), &more);
+        ReadTextLine(handle.get(), line, sizeof(line), &more);
         TrimHitSoundLine(line);
         marker = strchr(line, '#');
         if (marker) {
@@ -121,7 +121,7 @@ unsigned char LoadHitSoundDatabase(void)
     }
     row = 0;
     while (more) {
-        ReadTextLine(handle, line, sizeof(line), &more);
+        ReadTextLine(handle.get(), line, sizeof(line), &more);
         if (strchr(line, '#')) {
             ++column;
             row = 0;
@@ -141,7 +141,8 @@ unsigned char LoadHitSoundDatabase(void)
         }
         g_material_impact_sounds[row++][column] = DuplicateHitSound(line);
     }
-    FileClose(handle);
+    if (handle) handle->close();
+    handle.reset();
     // Several impact materials intentionally provide one catch-all sound rather than one
     // entry per weapon class.  The retail loader accepts EOF after any valid final entry.
     return 1;

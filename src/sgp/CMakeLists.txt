@@ -1,7 +1,6 @@
 # Native SGP: recovered shell, input, CPU surfaces and portable core.
 # Audio remains at the native media boundary.
 add_library(WIZ8_SGP STATIC
-    FileMan.cpp
     vobject.cpp
     timer.cpp
     input.cpp
@@ -16,8 +15,6 @@ add_library(WIZ8_SGP STATIC
     Font.cpp
     mousesystem.cpp
     "Button System.cpp"
-    LibraryDataBase.cpp
-    WizLibs.cpp
     line.cpp
     himage.cpp
     STCI.cpp

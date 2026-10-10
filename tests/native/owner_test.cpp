@@ -11,7 +11,7 @@
 #include "mousesystem_macros.h"
 #include "vsurface_private.h"
 #include "imgfmt.h"
-#include "FileMan.h"
+#include "wiz8/filesystem.h"
 #include "temporary_directory.h"
 #include "wiz8/asset_paths.h"
 #include "wiz8/text_input.h"
@@ -472,7 +472,7 @@ void generic_button_images()
     button_image_fixture(assets, "button.sti");
     button_image_fixture(assets, "short.sti", 8);
     w8_native::configure_paths({assets.string(), (root / "user").string(), {"", "", ""}});
-    CHECK(InitializeFileManager(nullptr));
+
     button_image_fixture(assets, "metadata.sti", 3, true);
     {
         char filename[] = "metadata.sti";
@@ -552,7 +552,7 @@ void generic_button_images()
     }
     ShutdownButtonImageManager();
     CHECK(FindFreeGenericSlot() == 0 && !GenericButtonOnNormal[39]);
-    ShutdownFileManager();
+
     std::filesystem::remove_all(root);
 }
 }

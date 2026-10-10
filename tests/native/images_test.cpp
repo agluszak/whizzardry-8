@@ -1,6 +1,5 @@
 #include "himage.h"
-#include "FileMan.h"
-#include "LibraryDataBase.h"
+#include "wiz8/slf.h"
 #include "temporary_directory.h"
 #include <wiz8/asset_paths.h>
 #include <wiz8/filesystem.h>
@@ -125,18 +124,18 @@ static Bytes rgb_pcx(const UINT8* rgb)
 
 static Bytes slf(const std::vector<std::pair<std::string, Bytes>>& files)
 {
-    static_assert(sizeof(LIBHEADER) == 532 && sizeof(DIRENTRY) == 280);
-    LIBHEADER header{};
+    static_assert(sizeof(wiz8::SlfHeader) == 532 && sizeof(wiz8::SlfEntry) == 280);
+    wiz8::SlfHeader header{};
     strcpy(header.sLibName, "Data.slf");
     strcpy(header.sPathToLibrary, "Data\\");
     header.iEntries = header.iUsed = files.size();
     header.iVersion = 0x200;
     Bytes bytes(reinterpret_cast<const UINT8*>(&header),
                 reinterpret_cast<const UINT8*>(&header) + sizeof(header));
-    std::vector<DIRENTRY> entries;
+    std::vector<wiz8::SlfEntry> entries;
     for (const auto& [name, data] : files)
     {
-        DIRENTRY entry{};
+        wiz8::SlfEntry entry{};
         CHECK(name.size() < sizeof(entry.sFileName));
         memcpy(entry.sFileName, name.c_str(), name.size() + 1);
         entry.uiOffset = bytes.size();
@@ -145,7 +144,7 @@ static Bytes slf(const std::vector<std::pair<std::string, Bytes>>& files)
         bytes.insert(bytes.end(), data.begin(), data.end());
     }
     const auto* directory = reinterpret_cast<const UINT8*>(entries.data());
-    bytes.insert(bytes.end(), directory, directory + entries.size() * sizeof(DIRENTRY));
+    bytes.insert(bytes.end(), directory, directory + entries.size() * sizeof(wiz8::SlfEntry));
     return bytes;
 }
 
@@ -204,8 +203,8 @@ int main() try
         {"Packed.tga", tga(24, false, true)}, {"Truncated.tga", truncated}}));
     w8_native::configure_paths({wiz8::path_to_utf8(assets), wiz8::path_to_utf8(user),
                                 {wiz8::path_to_utf8(disc), "", ""}});
-    CHECK(InitializeFileManager(nullptr));
-    CHECK(InitializeFileDatabase());
+
+    wiz8::mount_slf("Data\\Data.slf");
     rgb555();
 
     {
@@ -286,19 +285,19 @@ int main() try
         auto disc_image = load("D:\\DISC.TGA");
         CHECK(disc_image && !memcmp(disc_image->pImageData.get(), rgb, sizeof(rgb)));
         char entry[] = "Data\\Packed.pcx";
-        const auto first = FileOpen(entry, FILE_ACCESS_READ, FALSE);
-        const auto second = FileOpen(entry, FILE_ACCESS_READ, FALSE);
-        CHECK(first && second && FileSeek(first, 9, FILE_SEEK_FROM_START));
+        auto first = [&]() { try { return wiz8::open_file(entry, wiz8::OpenMode::read); } catch (const std::exception&) { return std::unique_ptr<wiz8::File>{}; } }();
+        auto second = [&]() { try { return wiz8::open_file(entry, wiz8::OpenMode::read); } catch (const std::exception&) { return std::unique_ptr<wiz8::File>{}; } }();
+        CHECK(first && second && (first->seek(9, wiz8::SeekOrigin::begin), true));
         auto image = load("C:\\data\\PACKED.PCX");
         CHECK(image);
         check_pcx(*image);
-        CHECK(FileGetPos(first) == 9 && FileGetPos(second) == 0);
+        CHECK(first->tell() == 9 && second->tell() == 0);
         auto tga_image = load("data\\packed.tga");
         CHECK(tga_image && !memcmp(tga_image->pImageData.get(), rgb, sizeof(rgb)));
         CHECK(!load("Data\\Truncated.tga")); // Must not read the next SLF record as image data.
-        CHECK(FileGetPos(first) == 9 && FileGetPos(second) == 0);
-        FileClose(first);
-        FileClose(second);
+        CHECK(first->tell() == 9 && second->tell() == 0);
+        first.reset();
+        second.reset();
     }
     {
         std::unique_ptr<SDL_Surface, decltype(&SDL_DestroySurface)> surface(
@@ -364,8 +363,8 @@ int main() try
     const std::string long_path(SGPFILENAME_LEN + 10, 'x');
     CHECK(!load(long_path.c_str()));
     CHECK(!CreateImage(nullptr, IMAGE_ALLDATA));
-    ShutdownFileManager();
-    CHECK(ShutDownFileDatabase());
+
+    wiz8::clear_asset_archives();
     fs::remove_all(root);
     puts("ok: SDL_image PCX/TGA/JPEG, palette/packed-pixel policy, orientation, bounded SLF and failures");
 }

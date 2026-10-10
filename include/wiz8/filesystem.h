@@ -2,6 +2,7 @@
 
 #include <SDL3/SDL_filesystem.h>
 #include <SDL3/SDL_iostream.h>
+#include "wiz8/file_time.h"
 
 #include <cstddef>
 #include <cstdint>
@@ -35,6 +36,12 @@ struct FileStatus
     bool writable = false;
     // Host permission bits, separate from immutable/overlay access policy.
     bool read_only = false;
+    bool archived = false;
+};
+
+struct FileTimes
+{
+    DiskFileTime created, accessed, modified;
 };
 
 // Owns one SDL stream. No shared cursor or global handle registry. Operations
@@ -49,6 +56,7 @@ public:
     File& operator=(const File&) = delete;
 
     ReadResult read(void* data, std::size_t bytes);
+    void read_exact(void* data, std::size_t bytes);
     void write(const void* data, std::size_t bytes);
     std::int64_t seek(std::int64_t offset, SeekOrigin origin);
     std::int64_t tell() const;
@@ -58,6 +66,7 @@ public:
     bool is_open() const noexcept;
     const std::filesystem::path& physical_path() const noexcept;
     FileStatus status() const;
+    FileTimes times() const;
 
     // SDL 3.4.12 create_time means POSIX ctime on Unix/macOS, birth on Windows.
     // A writer snapshots it immediately after open (before writes change ctime).
@@ -73,6 +82,12 @@ private:
     std::filesystem::path path_;
     bool writable_ = false;
     std::optional<SDL_Time> writer_create_time_;
+    struct Extent
+    {
+        std::int64_t offset, length;
+        DiskFileTime modified;
+    };
+    std::optional<Extent> extent_;
     friend std::unique_ptr<File> open_file(std::string_view, OpenMode);
     friend std::unique_ptr<File> open_host_file(const std::filesystem::path&, OpenMode);
 };
@@ -89,6 +104,13 @@ std::unique_ptr<File> open_file(std::string_view game_path, OpenMode mode = Open
 // Host writes to immutable roots or symlink aliases of them are rejected.
 std::unique_ptr<File> open_host_file(const std::filesystem::path& path,
                                      OpenMode mode = OpenMode::read);
+
+// Validates the complete directory before publishing entries. Mounted archives
+// contain no live streams; each open owns its own bounded cursor. Loose files
+// win over archives; patches win over base archives, later patches win ties.
+void mount_slf(std::string_view game_path, bool patch = false);
+void clear_asset_archives();
+void refresh_asset_archives();
 
 // Missing paths return nullopt; metadata/permission/I/O failures throw.
 std::optional<FileStatus> file_status(std::string_view game_path);

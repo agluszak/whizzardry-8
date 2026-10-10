@@ -31,7 +31,7 @@
 
 #include "Font.h"
 #include "soundman.h"
-#include "FileMan.h"
+#include "wiz8/filesystem.h"
 
 #include "input.h"
 #include "Types.h"
@@ -145,7 +145,7 @@ void RecordFactChangeForJournal(W8FactId fact_id)
 /* Write the fact journal into the open JRNL chunk: the entry count, a format
    dword, then each 0x0c-byte entry. */
 // FUNCTION: WIZ8 0x00558A90
-void SaveFactJournal(int file)
+void SaveFactJournal(wiz8::File* file)
 {
     int format = 1;
     int count;
@@ -155,10 +155,10 @@ void SaveFactJournal(int file)
         InitializeFactJournal();
     }
     count = g_fact_journal_entries->GetCount();
-    FileWrite(file, &format, 4, 0);
-    FileWrite(file, &count, 4, 0);
+    file->write(&format, 4);
+    file->write(&count, 4);
     for (index = 0; index < count; ++index) {
-        FileWrite(file, g_fact_journal_entries->GetAt(index), sizeof(W8JournalEntry), 0);
+        file->write(g_fact_journal_entries->GetAt(index), sizeof(W8JournalEntry));
     }
 }
 
@@ -167,20 +167,20 @@ void SaveFactJournal(int file)
    grows to the serialized count first; a failed grow leaves the count
    unstored, the same outcome a failed load leaves behind. */
 // FUNCTION: WIZ8 0x00558B20
-void LoadJournalEntries(unsigned int file)
+void LoadJournalEntries(wiz8::File* file)
 {
     int format;
     int count;
     int index;
 
     InitializeFactJournal();
-    FileRead(file, &format, 4, 0);
-    FileRead(file, &count, 4, 0);
+    file->read_exact(&format, 4);
+    file->read_exact(&count, 4);
     if (g_fact_journal_entries->Grow(count) != 0) {
         g_fact_journal_entries->count = count;
     }
     for (index = 0; index < count; ++index) {
-        FileRead(file, g_fact_journal_entries->GetAt(index), sizeof(W8JournalEntry), 0);
+        file->read_exact(g_fact_journal_entries->GetAt(index), sizeof(W8JournalEntry));
     }
 }
 

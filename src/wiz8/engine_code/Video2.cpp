@@ -545,6 +545,7 @@ unsigned char InitializePrimaryCpuSurface(void)
    five-line format emitted by 3DSetup.exe. */
 // FUNCTION: WIZ8 0x00422240
 unsigned char InitializeVideoDevice(void)
+try
 {
     std::istringstream config;
     char device[100] = "";
@@ -609,6 +610,7 @@ unsigned char InitializeVideoDevice(void)
     InitializeVirtualFileImageImporters();
     return 1;
 }
+catch (const std::exception&) { return false; }
 
 /* Applies the configured window style, asks SurRender for the matching display
    mode in fullscreen operation, and opens the renderer output window. */

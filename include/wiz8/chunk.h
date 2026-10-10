@@ -1,5 +1,7 @@
 #pragma once
 
+#include "wiz8/filesystem.h"
+
 #include "wiz8/vector.h"
 
 struct W8ChunkHead {
@@ -17,7 +19,7 @@ W8_ABI_ASSERT(sizeof(W8ChunkHead) == 0x0c, "W8ChunkHead_size_must_be_0x0c");
    three W8GrowableVector<int> navigation stacks. W8Chunk itself removes and
    deletes heads; the vector destructor releases only its backing storage. */
 struct W8Chunk {
-    int m_hFile;                            /* 0x00 */
+    std::unique_ptr<wiz8::File> m_hFile;                            /* 0x00 */
     bool m_fWriting;                        /* 0x04 */
     unsigned char padding_05[3];            /* 0x05 */
     W8Vector<W8ChunkHead*> m_heads;         /* 0x08 */
@@ -26,9 +28,10 @@ struct W8Chunk {
     W8GrowableVector<int> m_group_progress; /* 0x38 */
 
     W8Chunk();
+    ~W8Chunk();
 
     bool OpenRead(const char* path);
-    bool OpenExistingRiff(const char* path, unsigned int flags);
+    bool OpenExistingRiff(const char* path, wiz8::OpenMode mode);
     bool OpenWrite(const char* path);
     bool OpenReadWrite(const char* path);
     bool OpenAppend(const char* path);

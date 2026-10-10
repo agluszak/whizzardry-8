@@ -8,7 +8,7 @@
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/local_code/Strings.h"
 #include "wiz8/local_screens/MGSTextBox.h"
-#include "FileMan.h"
+#include "wiz8/filesystem.h"
 
 #include <stdio.h>
 #include <string.h>
@@ -313,22 +313,22 @@ void AdjustFactionDisposition(signed char faction, char delta)
 /* Write both faction tables into the open FATA chunk: the 21x21 relation
    matrix, then the 21 runtime disposition records. */
 // FUNCTION: WIZ8 0x00536030
-void SaveFactionState(int file)
+void SaveFactionState(wiz8::File* file)
 {
     unsigned int written;
 
-    FileWrite(file, g_faction_relations, sizeof(g_faction_relations), &written);
-    FileWrite(file, g_factions, sizeof(g_factions), &written);
+    file->write(g_faction_relations, sizeof(g_faction_relations)), written = sizeof(g_faction_relations);
+    file->write(g_factions, sizeof(g_factions)), written = sizeof(g_factions);
 }
 
 /* Read the relation matrix and runtime disposition records back from the open
    FATA chunk, then re-arm the brotherhood's fixed score. */
 // FUNCTION: WIZ8 0x00536070
-void LoadFactionState(int file)
+void LoadFactionState(wiz8::File* file)
 {
     unsigned int transferred;
 
-    FileRead(file, g_faction_relations, sizeof(g_faction_relations), &transferred);
-    FileRead(file, g_factions, sizeof(g_factions), &transferred);
+    ((transferred = file->read(g_faction_relations, sizeof(g_faction_relations)).bytes) == static_cast<std::size_t>(sizeof(g_faction_relations)));
+    ((transferred = file->read(g_factions, sizeof(g_factions)).bytes) == static_cast<std::size_t>(sizeof(g_factions)));
     g_factions[W8_FACTION_PARTY].disposition_score = 100;
 }

@@ -34,7 +34,6 @@
 #include "wiz8/utility.h"
 #include "wiz8/virtual_file.h"
 
-#include "FileMan.h"
 #include "Font.h"
 #include "input.h"
 #include "sgp.h"
@@ -230,7 +229,7 @@ const float g_weld_position_tolerance = 2.5f;
 // GLOBAL: WIZ8 0x005ECBBC
 const float g_material_opposed_normal_threshold = -0.995f;
 
-static unsigned char PreprocessLevel(int handle, char* stem);
+static unsigned char PreprocessLevel(wiz8::File* handle, char* stem);
 /* The following helpers retain distinct retail call boundaries. Their source
    names, internal linkage and placement here are provisional; lack of /Ob2
    PDB procedures does not establish that they were authored inline. */
@@ -255,7 +254,7 @@ char W8Octree::BuildPreprocessedFiles(const char* level_path)
     char line[1024];
     char* extension;
     unsigned char result;
-    unsigned int handle;
+    std::unique_ptr<wiz8::File> handle;
     int move_pvl;
     int move_oct;
 
@@ -274,34 +273,35 @@ char W8Octree::BuildPreprocessedFiles(const char* level_path)
     sprintf(line, "%s.log", stem);
     ReportBuildStatus(0, line);
     ReportBuildStatus(6, "Now chewing level.\n\n");
-    handle = FileOpen(level_name, FILE_ACCESS_READ, 0);
+    handle = [&]() { try { return wiz8::open_file(level_name, wiz8::OpenMode::read); } catch (const std::exception&) { return std::unique_ptr<wiz8::File>{}; } }();
     result = 0;
     if (handle == 0) {
         ReportBuildStatus(7, "Could not find and\\or open level file.\n");
     } else {
-        unsigned char built = PreprocessLevel(handle, stem);
-        FileClose(handle);
+        unsigned char built = PreprocessLevel(handle.get(), stem);
+        if (handle) handle->close();
+        handle.reset();
         if (built != 0) {
             sprintf(line, "%s.pvl", stem);
-            if (FileExists(line) != 0) {
-                FileClearAttributes(line);
-                FileDelete(line);
+            if ([&]() { const auto status = wiz8::file_status(line); return status && status->info.type == SDL_PATHTYPE_FILE; }() != 0) {
+                (wiz8::clear_read_only(line), true);
+                wiz8::remove_file(line);
             }
-            move_pvl = FileCopy("NewLevel.lvl", line, FALSE);
-            if (move_pvl) FileDelete("NewLevel.lvl");
+            move_pvl = (wiz8::copy_file("NewLevel.lvl", line, wiz8::CopyMode::replace), true);
+            if (move_pvl) wiz8::remove_file("NewLevel.lvl");
             sprintf(line, "%s.rlk", stem);
-            if (FileExists(line) != 0) {
+            if ([&]() { const auto status = wiz8::file_status(line); return status && status->info.type == SDL_PATHTYPE_FILE; }() != 0) {
                 ReportStartupMessage(
                     "LINK FILE (.RLK) FOUND! IF THE GEOMETRY HAS CHANGED, THE LINK FILE MAY BE "
                     "OBSOLETE!!!\n");
             }
             sprintf(line, "%s.oct", stem);
-            if (FileExists(line) != 0) {
-                FileClearAttributes(line);
-                FileDelete(line);
+            if ([&]() { const auto status = wiz8::file_status(line); return status && status->info.type == SDL_PATHTYPE_FILE; }() != 0) {
+                (wiz8::clear_read_only(line), true);
+                wiz8::remove_file(line);
             }
-            move_oct = FileCopy("NewLevel.oct", line, FALSE);
-            if (move_oct) FileDelete("NewLevel.oct");
+            move_oct = (wiz8::copy_file("NewLevel.oct", line, wiz8::CopyMode::replace), true);
+            if (move_oct) wiz8::remove_file("NewLevel.oct");
             result =
                 built & static_cast<unsigned char>(move_pvl) & static_cast<unsigned char>(move_oct);
             if (result == 0) {
@@ -322,7 +322,7 @@ char W8Octree::BuildPreprocessedFiles(const char* level_path)
    computes vertex lighting and sun visibility, sorts materials, splits
    vertices, writes NewLevel.lvl/.oct and releases everything it made. */
 // FUNCTION: WIZ8 0x00493120
-static unsigned char PreprocessLevel(int handle, char* stem)
+static unsigned char PreprocessLevel(wiz8::File* handle, char* stem)
 {
     char message[1024];
     char name[20];
@@ -353,7 +353,7 @@ static unsigned char PreprocessLevel(int handle, char* stem)
     int i;
     int j;
     int lit;
-    unsigned int file;
+    std::unique_ptr<wiz8::File> file;
     W8LevelFileMesh* mesh;
     W8LevelFileLight* src_light;
 
@@ -797,7 +797,7 @@ static unsigned char PreprocessLevel(int handle, char* stem)
                         sprintf(message, "Total duplicated vertices: %d\n",
                                 total_vertices - static_cast<int>(geometry.vertex_count));
                         ReportBuildStatus(6, message);
-                        file = FileOpen("NewLevel.lvl", 0x22, 0);
+                        file = [&]() { try { return wiz8::open_file("NewLevel.lvl", wiz8::OpenMode::replace); } catch (const std::exception&) { return std::unique_ptr<wiz8::File>{}; } }();
                         if (file == 0) {
                             ReportBuildStatus(7, "Could not open new level file.\n");
                             result = 0;
@@ -806,8 +806,9 @@ static unsigned char PreprocessLevel(int handle, char* stem)
                             level->mesh_count = tree->m_meshCount;
                             level->pModels = submeshes;
                             ReportBuildStatus(6, "\nWriting PVL File...\n");
-                            result = result & WriteLevelFile(file, handle, level);
-                            FileClose(file);
+                            result = result & WriteLevelFile(file.get(), handle, level);
+                            if (file) file->close();
+                            file.reset();
                             if (result != 0) {
                                 goto write_done;
                             }
@@ -816,7 +817,8 @@ static unsigned char PreprocessLevel(int handle, char* stem)
                     }
                 write_done:
                     if (file != 0) {
-                        FileClose(file);
+                        if (file) file->close();
+                        file.reset();
                     }
                     ReportStartupMessage("Cleaning up preprocessing data...");
                     geometry.Release();
@@ -888,6 +890,7 @@ void ReportBuildStatus(short channel, const char* message)
             sprintf(line, "ERROR: %s", message);
             log("\n\n");
             log(message);
+            if (g_log_file) g_log_file->close();
             g_log_file.reset();
         }
         ShutdownWithErrorBox(message);
@@ -927,6 +930,7 @@ void ReportBuildStatus(short channel, const char* message)
         break;
     case 8:
         if (g_log_file != 0) {
+            if (g_log_file) g_log_file->close();
             g_log_file.reset();
         }
         break;
@@ -1588,7 +1592,7 @@ static unsigned char* ClassifyTextures(W8MaterialRecord* textures, int count, ch
     unsigned char* kinds;
     int missing;
     int index;
-    int file;
+    std::unique_ptr<wiz8::File> file;
     unsigned char kind;
     stTextureFile* probe;
 
@@ -1602,7 +1606,7 @@ static unsigned char* ClassifyTextures(W8MaterialRecord* textures, int count, ch
         slash[1] = '\0';
     }
     strcat(folder, "Bitmaps\\");
-    if (DirectoryExists(folder) == 0) {
+    if ([&]() { const auto status = wiz8::file_status(folder); return status && status->info.type == SDL_PATHTYPE_DIRECTORY; }() == 0) {
         ReportBuildStatus(7, "Couldn't find bitmaps directory--cannot check texture types.\n\n");
         kinds = 0;
     } else {
@@ -1644,7 +1648,7 @@ static unsigned char* ClassifyTextures(W8MaterialRecord* textures, int count, ch
                 kind = 3;
             } else {
                 sprintf(path, "%s%s", folder, texture);
-                file = FileOpen(path, FILE_ACCESS_READ, 0);
+                file = [&]() { try { return wiz8::open_file(path, wiz8::OpenMode::read); } catch (const std::exception&) { return std::unique_ptr<wiz8::File>{}; } }();
                 if (file == 0) {
                     g_prop_sun_bits->Set(index);
                     ++missing;
@@ -1652,10 +1656,11 @@ static unsigned char* ClassifyTextures(W8MaterialRecord* textures, int count, ch
                     ReportBuildStatus(5, message);
                 } else {
                     if (_stricmp(path + strlen(path) - 4, "ifl") == 0) {
-                        ReadTextLine(file, texture, 0x3ff, &more);
-                        FileClose(file);
+                        ReadTextLine(file.get(), texture, 0x3ff, &more);
+                        if (file) file->close();
+                        file.reset();
                         sprintf(path, "%s%s", folder, texture);
-                        file = FileOpen(path, FILE_ACCESS_READ, 0);
+                        file = [&]() { try { return wiz8::open_file(path, wiz8::OpenMode::read); } catch (const std::exception&) { return std::unique_ptr<wiz8::File>{}; } }();
                     }
                     if (file == 0) {
                         g_prop_sun_bits->Set(index);
@@ -1663,7 +1668,8 @@ static unsigned char* ClassifyTextures(W8MaterialRecord* textures, int count, ch
                         sprintf(message, "Could not find texture file %s.\n", path);
                         ReportBuildStatus(5, message);
                     } else {
-                        FileClose(file);
+                        if (file) file->close();
+                        file.reset();
                         if (probe == 0) {
                             probe = new stTextureFile(path, 1);
                         } else {
@@ -2351,10 +2357,10 @@ srTexture* LoadTextureFromFolder(const char* folder, const char* name, bool requ
                 }
             }
         } else {
-            if (!FileExists(path)) {
+            if (![&]() { const auto status = wiz8::file_status(path); return status && status->info.type == SDL_PATHTYPE_FILE; }()) {
                 *extension = '\0';
                 strcat(extension, "jpg");
-                if (!FileExists(path)) {
+                if (![&]() { const auto status = wiz8::file_status(path); return status && status->info.type == SDL_PATHTYPE_FILE; }()) {
                     ShutdownWithErrorBox(
                         FormatString("Missing texture file: %s", path));
                 }
@@ -2377,12 +2383,12 @@ stTextureAnim* LoadAnimatedTexture(const char* folder, const char* name,
 {
     char buffer[_MAX_PATH];
     unsigned char more = 1;
-    int handle;
+    std::unique_ptr<wiz8::File> handle;
     stTextureAnim* animation;
 
     strcpy(buffer, folder);
     strcat(buffer, name);
-    handle = FileOpen(buffer, 0x41, 0);
+    handle = [&]() { try { return wiz8::open_file(buffer, wiz8::OpenMode::read); } catch (const std::exception&) { return std::unique_ptr<wiz8::File>{}; } }();
     if (handle == 0) {
         ShutdownWithErrorBox(
             FormatString("Cannot load/find material: %s", buffer));
@@ -2392,7 +2398,7 @@ stTextureAnim* LoadAnimatedTexture(const char* folder, const char* name,
     animation->autoRelease();
     animation->setName(name);
     while (more != 0) {
-        ReadTextLine(handle, buffer, 200, &more);
+        ReadTextLine(handle.get(), buffer, 200, &more);
         if (strlen(buffer) <= 2) {
             more = 0;
         } else {
@@ -2407,7 +2413,8 @@ stTextureAnim* LoadAnimatedTexture(const char* folder, const char* name,
         break;
     }
     animation->setupDefaultValues();
-    FileClose(handle);
+    if (handle) handle->close();
+    handle.reset();
     if (source != 0) {
         animation->animation_mode = source->animation_mode;
         int frame = source->animation_frame;

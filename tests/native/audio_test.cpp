@@ -1,7 +1,6 @@
 /* Native soundman -> SDL3_mixer, with deterministic offline mixing. */
 #include "native/audio_test.h"
-#include "FileMan.h"
-#include "LibraryDataBase.h"
+#include "wiz8/slf.h"
 #include <wiz8/native_audio.h>
 #include "native/movie_audio.h"
 #include <wiz8/filesystem.h>
@@ -121,12 +120,12 @@ int main(int argc, char**)
     write(asset / "stereo.wav", wav(true));
     write(asset / "bad.wav", {'n', 'o', 't', 'a', 'w', 'a', 'v'});
     std::filesystem::create_directories(asset / "Data");
-    LIBHEADER header{};
+    wiz8::SlfHeader header{};
     strcpy(header.sLibName, "Data.slf");
     strcpy(header.sPathToLibrary, "Data\\");
     header.iEntries = header.iUsed = 2;
     header.iVersion = 0x200;
-    DIRENTRY entries[2]{};
+    wiz8::SlfEntry entries[2]{};
     strcpy(entries[0].sFileName, "Packed.wav");
     entries[0].uiOffset = sizeof(header);
     entries[0].uiLength = wave.size();
@@ -139,26 +138,25 @@ int main(int argc, char**)
     archive.insert(archive.end(), reinterpret_cast<unsigned char*>(entries),
                    reinterpret_cast<unsigned char*>(entries) + sizeof(entries));
     write(asset / "Data" / "DATA.SLF", archive);
-    CHECK(InitializeFileManager(nullptr));
-    CHECK(InitializeFileDatabase());
+
+    wiz8::mount_slf("Data\\Data.slf");
     {
         char packed[] = "data\\PACKED.WAV";
-        const HWFILE entry = FileOpen(packed, FILE_ACCESS_READ | FILE_OPEN_EXISTING, FALSE);
+        auto entry = [&]() { try { return wiz8::open_file(packed, wiz8::OpenMode::read); } catch (const std::exception&) { return std::unique_ptr<wiz8::File>{}; } }();
         CHECK(entry);
-        std::unique_ptr<wiz8::File> first(OpenLibraryStream(entry)), second(OpenLibraryStream(entry));
-        FileClose(entry);
-        CHECK(first && second && first->tell() == sizeof(header) &&
-              second->tell() == sizeof(header));
+        auto first = wiz8::open_file(packed), second = wiz8::open_file(packed);
+        entry.reset();
+        CHECK(first && second && first->tell() == 0 && second->tell() == 0);
         auto loose = wiz8::open_file("C:\\TONE.wav");
         unsigned char bytes[64]{};
         CHECK(first->read(bytes, sizeof(bytes)).bytes == sizeof(bytes));
         CHECK(std::memcmp(bytes, wave.data(), sizeof(bytes)) == 0);
-        CHECK(second->tell() == sizeof(header) && loose->tell() == 0);
+        CHECK(second->tell() == 0 && loose->tell() == 0);
         CHECK(second->read(bytes, 32).bytes == 32);
         CHECK(std::memcmp(bytes, wave.data(), 32) == 0);
         first.reset();
-        CHECK(second->seek(sizeof(header) + wave.size() - 32, wiz8::SeekOrigin::begin) ==
-              int64_t(sizeof(header) + wave.size() - 32));
+        CHECK(second->seek(wave.size() - 32, wiz8::SeekOrigin::begin) ==
+              int64_t(wave.size() - 32));
         CHECK(second->read(bytes, 32).bytes == 32);
         CHECK(std::memcmp(bytes, wave.data() + wave.size() - 32, 32) == 0);
         CHECK(loose->read(bytes, sizeof(bytes)).bytes == sizeof(bytes));
@@ -541,14 +539,14 @@ int main(int argc, char**)
         options.uiLoop = 1;
         sound = SoundPlay(path, &options);
         CHECK(sound != SOUND_ERROR);
-        Sleep(250);
+        SDL_Delay(250);
         SoundServiceStreams();
         CHECK(!SoundIsPlaying(sound));
         ShutdownSoundManager();
         puts("ok: native output device opened and completed playback");
     }
-    ShutDownFileDatabase();
-    ShutdownFileManager();
+    wiz8::clear_asset_archives();
+
     std::filesystem::remove_all(temporary);
     puts("ok: native audio samples, streams, loops, pans, fades, callbacks, spatialization and "
          "lifetime");

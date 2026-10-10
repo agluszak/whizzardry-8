@@ -38,7 +38,7 @@
 #include "wiz8/monster_generators.h"
 #include "wiz8/regions.h"
 #include "Button System.h"
-#include "LibraryDataBase.h"
+
 #include <stdlib.h>
 
 /* GameloopExit names this unit; GameLoop is placed with that companion. */
@@ -114,7 +114,7 @@ void ShutdownGame(void)
     SaveGameConfiguration();
     ReleaseAllTriggers();
     FreeStringTable();
-    ShutDownFileDatabase();
+    (wiz8::clear_asset_archives(), true);
     DestroyGameplayObjects();
 }
 

@@ -5,7 +5,7 @@
 #include "wiz8/utility.h"
 #include "wiz8/virtual_file.h"
 
-#include "FileMan.h"
+#include "wiz8/filesystem.h"
 #include "input.h"
 
 #include <wchar.h>
@@ -41,7 +41,7 @@ static MGSKeyName g_mgs_key_names[] = {
 unsigned char MGSKeyboard::LoadDefaults(const char* path)
 {
     bool loaded_binding = false;
-    int handle = FileOpen((char*)path, FILE_ACCESS_READ, 0);
+    std::unique_ptr<wiz8::File> handle = [&]() { try { return wiz8::open_file((char*)path, wiz8::OpenMode::read); } catch (const std::exception&) { return std::unique_ptr<wiz8::File>{}; } }();
     if (handle == 0) {
         srAssertFail("hFile", "C:\\Projects\\Wizardry 8\\Local Code\\InputMapper.cpp", 478,
                      FormatString("Couldn't open keyboard init file %s", path));
@@ -49,8 +49,8 @@ unsigned char MGSKeyboard::LoadDefaults(const char* path)
 
     wchar_t line[200];
     unsigned char more;
-    while (!FileCheckEndOfFile(handle)) {
-        if (!ReadWideTextLine(handle, line, 200, &more) || line[0] == L'*') {
+    while (!(handle->tell() >= handle->size())) {
+        if (!ReadWideTextLine(handle.get(), line, 200, &more) || line[0] == L'*') {
             continue;
         }
 
@@ -108,6 +108,7 @@ unsigned char MGSKeyboard::LoadDefaults(const char* path)
         }
         loaded_binding = true;
     }
-    FileClose(handle);
+    if (handle) handle->close();
+    handle.reset();
     return loaded_binding;
 }

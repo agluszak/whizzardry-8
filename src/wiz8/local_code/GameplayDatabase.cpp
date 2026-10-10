@@ -46,7 +46,7 @@
 #include "wiz8/sr_api.h"
 #include "wiz8/vector.h"
 #include "wiz8/virtual_file.h"
-#include "FileMan.h"
+#include "wiz8/filesystem.h"
 #include "random.h"
 #include "timer.h"
 #include "wiz8/local_code/character_events.h"
@@ -89,19 +89,21 @@ unsigned int g_spell_database_version;
 
 // FUNCTION: WIZ8 0x0054a400
 bool InitializeItemDatabase(void)
+try
 {
     char path[60];
     unsigned int index;
     unsigned int transferred;
-    int handle;
+    std::unique_ptr<wiz8::File> handle;
 
     sprintf(path, "%s\\%s.%s", "Data\\Databases", "Items", "DBS");
-    handle = FileOpen(path, 1, 0);
+    handle = [&]() { try { return wiz8::open_file(path, wiz8::OpenMode::read); } catch (const std::exception&) { return std::unique_ptr<wiz8::File>{}; } }();
     if (!handle) {
         return false;
     }
-    if (!FileRead(handle, &gXStatus.uiItemsInDatabase, 4, &transferred)) {
-        FileClose(handle);
+    if (!((transferred = handle->read(&gXStatus.uiItemsInDatabase, 4).bytes) == static_cast<std::size_t>(4))) {
+        if (handle) handle->close();
+        handle.reset();
         return false;
     }
     g_item_records = static_cast<W8ItemDatabaseRecord*>(
@@ -110,15 +112,17 @@ bool InitializeItemDatabase(void)
         return false;
     }
     for (index = 0; index < gXStatus.uiItemsInDatabase; ++index) {
-        if (!FileRead(handle, &g_item_records[index], sizeof(g_item_records[index]),
-                      &transferred)) {
-            FileClose(handle);
+        if (!((transferred = handle->read(&g_item_records[index], sizeof(g_item_records[index])).bytes) == static_cast<std::size_t>(sizeof(g_item_records[index])))) {
+            if (handle) handle->close();
+            handle.reset();
             return false;
         }
     }
-    FileClose(handle);
+    if (handle) handle->close();
+    handle.reset();
     return true;
 }
+catch (const std::exception&) { return false; }
 
 /* ItemTables.DBS carries two arrays: category names, each a fixed 0x100-byte
    buffer, then the tables themselves. Both are arrays of pointers, cleared
@@ -127,19 +131,21 @@ bool InitializeItemDatabase(void)
    check rather than after; both are reproduced. */
 // FUNCTION: WIZ8 0x0054a510
 bool InitializeItemTables(void)
+try
 {
     char path[60];
     unsigned int index;
     unsigned int transferred;
-    int handle;
+    std::unique_ptr<wiz8::File> handle;
 
     sprintf(path, "%s\\%s.%s", "Data\\Databases", "ItemTables", "DBS");
-    handle = FileOpen(path, 1, 0);
+    handle = [&]() { try { return wiz8::open_file(path, wiz8::OpenMode::read); } catch (const std::exception&) { return std::unique_ptr<wiz8::File>{}; } }();
     if (!handle) {
         return false;
     }
-    if (!FileRead(handle, &gXStatus.uiItemTableCategories, 4, &transferred)) {
-        FileClose(handle);
+    if (!((transferred = handle->read(&gXStatus.uiItemTableCategories, 4).bytes) == static_cast<std::size_t>(4))) {
+        if (handle) handle->close();
+        handle.reset();
         return false;
     }
     if (gXStatus.uiItemTableCategories) {
@@ -151,11 +157,12 @@ bool InitializeItemTables(void)
         memset(g_item_table_category_names, 0, gXStatus.uiItemTableCategories * sizeof(*g_item_table_category_names));
         for (index = 0; index < gXStatus.uiItemTableCategories; ++index) {
             g_item_table_category_names[index] = static_cast<char*>(malloc(0x100));
-            FileRead(handle, g_item_table_category_names[index], 0x100, &transferred);
+            ((transferred = handle->read(g_item_table_category_names[index], 0x100).bytes) == static_cast<std::size_t>(0x100));
         }
     }
-    if (!FileRead(handle, &gXStatus.uiItemTablesInDatabase, 4, &transferred)) {
-        FileClose(handle);
+    if (!((transferred = handle->read(&gXStatus.uiItemTablesInDatabase, 4).bytes) == static_cast<std::size_t>(4))) {
+        if (handle) handle->close();
+        handle.reset();
         return false;
     }
     if (gXStatus.uiItemTablesInDatabase) {
@@ -172,50 +179,56 @@ bool InitializeItemTables(void)
             if (!g_item_tables[index]) {
                 return false;
             }
-            if (!FileRead(handle, g_item_tables[index]->name, sizeof(*g_item_tables[index]),
-                          &transferred)) {
-                FileClose(handle);
+            if (!((transferred = handle->read(g_item_tables[index]->name, sizeof(*g_item_tables[index])).bytes) == static_cast<std::size_t>(sizeof(*g_item_tables[index])))) {
+                if (handle) handle->close();
+                handle.reset();
                 return false;
             }
         }
     }
-    FileClose(handle);
+    if (handle) handle->close();
+    handle.reset();
     return true;
 }
+catch (const std::exception&) { return false; }
 
 /* Seeks straight to one record rather than holding the file open, and strips the
    four name fields afterwards. The failed seek leaves the handle open where
    every other failure closes it, as elsewhere in this unit. */
 // FUNCTION: WIZ8 0x0054a8a0
 bool LoadMonsterDatabaseRecord(unsigned int uiMonsterIndex, W8MonsterRecord* record)
+try
 {
     char path[60];
     unsigned int bytes_read;
-    int handle;
+    std::unique_ptr<wiz8::File> handle;
 
     if (!(uiMonsterIndex < gXStatus.uiMonstersInDatabase)) {
         srAssertFail("uiMonsterIndex < gXStatus.uiMonstersInDatabase", GAMEPLAY_DATABASE_CPP, 0x140,
                      0);
     }
     sprintf(path, "%s\\%s.%s", "Data\\Databases", "Monsters", "DBS");
-    handle = FileOpen(path, 1, 0);
+    handle = [&]() { try { return wiz8::open_file(path, wiz8::OpenMode::read); } catch (const std::exception&) { return std::unique_ptr<wiz8::File>{}; } }();
     if (!handle) {
         return false;
     }
-    if (!FileSeek(handle, uiMonsterIndex * sizeof(*record) + 4, 1)) {
+    if (!(handle->seek(uiMonsterIndex * sizeof(*record) + 4, wiz8::SeekOrigin::begin), true)) {
         return false;
     }
-    if (!FileRead(handle, record, sizeof(*record), &bytes_read)) {
-        FileClose(handle);
+    if (!((bytes_read = handle->read(record, sizeof(*record)).bytes) == static_cast<std::size_t>(sizeof(*record)))) {
+        if (handle) handle->close();
+        handle.reset();
         return false;
     }
-    FileClose(handle);
+    if (handle) handle->close();
+    handle.reset();
     StripMonsterNameSuffix(record->name0);
     StripMonsterNameSuffix(record->name1);
     StripMonsterNameSuffix(record->name2);
     StripMonsterNameSuffix(record->name3);
     return true;
 }
+catch (const std::exception&) { return false; }
 
 /* Unlike its fact and level siblings this one guards the free and then leaves
    the pointer dangling rather than clearing it. Both halves of that asymmetry
@@ -269,20 +282,22 @@ void DestroyItemTables(void)
    out-parameter. InitializeGame calls it with null just to publish the count. */
 // FUNCTION: WIZ8 0x0054a760
 bool LoadMonsterDatabase(W8MonsterRecord** records)
+try
 {
     char path[60];
     unsigned int transferred;
     unsigned int index;
     W8MonsterRecord* block;
-    int handle;
+    std::unique_ptr<wiz8::File> handle;
 
     sprintf(path, "%s\\%s.%s", "Data\\Databases", "Monsters", "DBS");
-    handle = FileOpen(path, 1, 0);
+    handle = [&]() { try { return wiz8::open_file(path, wiz8::OpenMode::read); } catch (const std::exception&) { return std::unique_ptr<wiz8::File>{}; } }();
     if (!handle) {
         return false;
     }
-    if (!FileRead(handle, &gXStatus.uiMonstersInDatabase, 4, &transferred)) {
-        FileClose(handle);
+    if (!((transferred = handle->read(&gXStatus.uiMonstersInDatabase, 4).bytes) == static_cast<std::size_t>(4))) {
+        if (handle) handle->close();
+        handle.reset();
         return false;
     }
     if (records) {
@@ -292,17 +307,20 @@ bool LoadMonsterDatabase(W8MonsterRecord** records)
             return false;
         }
         for (index = 0; index < gXStatus.uiMonstersInDatabase; ++index) {
-            if (!FileRead(handle, &block[index], sizeof(W8MonsterRecord), &transferred)) {
-                FileClose(handle);
+            if (!((transferred = handle->read(&block[index], sizeof(W8MonsterRecord)).bytes) == static_cast<std::size_t>(sizeof(W8MonsterRecord)))) {
+                if (handle) handle->close();
+                handle.reset();
                 free(block);
                 return false;
             }
         }
         *records = block;
     }
-    FileClose(handle);
+    if (handle) handle->close();
+    handle.reset();
     return true;
 }
+catch (const std::exception&) { return false; }
 
 /* The range sibling of LoadMonsterDatabaseRecord, named by its own assertion at
    GameplayDatabase.cpp line 378. It seeks to the first record and reads the
@@ -312,10 +330,11 @@ bool LoadMonsterDatabase(W8MonsterRecord** records)
 // FUNCTION: WIZ8 0x0054a9a0
 bool LoadMonsterDatabaseRange(unsigned int uiStartIndex, unsigned int uiEndIndex,
                               W8MonsterRecord* records)
+try
 {
     char path[60];
     unsigned int bytes_read;
-    int handle;
+    std::unique_ptr<wiz8::File> handle;
 
     if (!(uiEndIndex < gXStatus.uiMonstersInDatabase)) {
         srAssertFail("uiEndIndex < gXStatus.uiMonstersInDatabase", GAMEPLAY_DATABASE_CPP, 0x17a, 0);
@@ -324,22 +343,23 @@ bool LoadMonsterDatabaseRange(unsigned int uiStartIndex, unsigned int uiEndIndex
         srAssertFail("uiStartIndex <= uiEndIndex", GAMEPLAY_DATABASE_CPP, 0x17b, 0);
     }
     sprintf(path, "%s\\%s.%s", "Data\\Databases", "Monsters", "DBS");
-    handle = FileOpen(path, 1, 0);
+    handle = [&]() { try { return wiz8::open_file(path, wiz8::OpenMode::read); } catch (const std::exception&) { return std::unique_ptr<wiz8::File>{}; } }();
     if (!handle) {
         return false;
     }
-    if (!FileSeek(handle, uiStartIndex * sizeof(*records) + 4, 1)) {
+    if (!(handle->seek(uiStartIndex * sizeof(*records) + 4, wiz8::SeekOrigin::begin), true)) {
         return false; /* retail: failed seek leaves the handle open */
     }
-    if (!FileRead(handle, records,
-                  (uiEndIndex + 1) * sizeof(*records) - uiStartIndex * sizeof(*records),
-                  &bytes_read)) {
-        FileClose(handle);
+    if (!((bytes_read = handle->read(records, (uiEndIndex + 1) * sizeof(*records) - uiStartIndex * sizeof(*records)).bytes) == static_cast<std::size_t>((uiEndIndex + 1) * sizeof(*records) - uiStartIndex * sizeof(*records)))) {
+        if (handle) handle->close();
+        handle.reset();
         return false;
     }
-    FileClose(handle);
+    if (handle) handle->close();
+    handle.reset();
     return true;
 }
+catch (const std::exception&) { return false; }
 
 /* Retail emits this owning-list teardown out of line here and expands the same
    operation at the NPC-item sites.  The exact source boundary remains

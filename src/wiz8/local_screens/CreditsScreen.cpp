@@ -11,7 +11,7 @@
 #include "wiz8/virtual_file.h"
 #include "wiz8/wiz8_windows.h"
 
-#include "FileMan.h"
+#include "wiz8/filesystem.h"
 #include "Font.h"
 #include "input.h"
 
@@ -35,7 +35,8 @@ static int g_credit_line;
    stream. Answers whether the line ended at a newline; trailing carriage
    returns are stripped. */
 // FUNCTION: WIZ8 0x004CEED0
-unsigned char ReadWideTextLine(int handle, wchar_t* destination, int capacity, unsigned char* more)
+unsigned char ReadWideTextLine(wiz8::File* handle, wchar_t* destination, int capacity, unsigned char* more)
+try
 {
     wchar_t* write = destination;
     wchar_t current = 0;
@@ -46,7 +47,7 @@ unsigned char ReadWideTextLine(int handle, wchar_t* destination, int capacity, u
     *more = 1;
     for (;;) {
         unsigned int bytes_read;
-        ok = FileRead(handle, &current, sizeof(current), &bytes_read);
+        ok = ((bytes_read = handle->read(&current, sizeof(current)).bytes) == static_cast<std::size_t>(sizeof(current)));
         if (bytes_read == 0) {
             ok = 0;
             *more = 0;
@@ -72,11 +73,13 @@ unsigned char ReadWideTextLine(int handle, wchar_t* destination, int capacity, u
     }
     return ok;
 }
+catch (const std::exception&) { return false; }
 
 // FUNCTION: WIZ8 0x005bc130
 unsigned char CreditsScreenEnter(void)
+try
 {
-    int handle;
+    std::unique_ptr<wiz8::File> handle;
     wchar_t line[128];
 
     SetViewport(0, 0, 0x280, 0x1e0);
@@ -85,12 +88,12 @@ unsigned char CreditsScreenEnter(void)
     DisableCursorScene();
     g_credit_lines = new W8GrowableVector<W8CreditLine>();
 
-    handle = FileOpen((char*)"Data\\Options\\Credits.txt", FILE_ACCESS_READ, 0);
+    handle = [&]() { try { return wiz8::open_file((char*)"Data\\Options\\Credits.txt", wiz8::OpenMode::read); } catch (const std::exception&) { return std::unique_ptr<wiz8::File>{}; } }();
     if (handle != 0) {
         unsigned char more;
-        FileRead(handle, line, sizeof(wchar_t), 0);
-        while (!FileCheckEndOfFile(handle)) {
-            if (ReadWideTextLine(handle, line, 128, &more) && line[0] != L'*') {
+        handle->read_exact(line, sizeof(wchar_t));
+        while (!(handle->tell() >= handle->size())) {
+            if (ReadWideTextLine(handle.get(), line, 128, &more) && line[0] != L'*') {
                 W8CreditLine entry = {0, 0, 0, 0, 0};
                 bool blank = false;
                 bool bold = false;
@@ -120,7 +123,8 @@ unsigned char CreditsScreenEnter(void)
                 g_credit_lines->Add(entry);
             }
         }
-        FileClose(handle);
+        if (handle) handle->close();
+        handle.reset();
     }
     g_credit_line = 0;
     g_credit_elapsed_steps = 0;
@@ -129,6 +133,7 @@ unsigned char CreditsScreenEnter(void)
     g_credit_redraw = true;
     return 1;
 }
+catch (const std::exception&) { return false; }
 
 // FUNCTION: WIZ8 0x005bc420
 unsigned char CreditsScreenLeave(int)

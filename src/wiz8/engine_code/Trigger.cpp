@@ -53,7 +53,7 @@
 #include "wiz8/xstatus.h"
 #include "wiz8/save_game.h"
 #include "random.h"
-#include "FileMan.h"
+#include "wiz8/filesystem.h"
 #include "surrender/srCamera.h"
 #include "surrender/srCore.h"
 #include "surrender/srMath.h"
@@ -227,7 +227,7 @@ bool InsideDestinationTrigger(float x, float y, float z)
 }
 
 // FUNCTION: WIZ8 0x0043cb30
-void SaveTriggerRuntimeStates(W8World* world, int handle, bool restoring)
+void SaveTriggerRuntimeStates(W8World* world, wiz8::File* handle, bool restoring)
 {
     int trigger_count = world->triggers->GetCount();
     int saved_count = 0;
@@ -242,66 +242,55 @@ void SaveTriggerRuntimeStates(W8World* world, int handle, bool restoring)
         }
     }
 
-    FileWrite(handle, &version, sizeof(version), 0);
-    FileWrite(handle, &saved_count, sizeof(saved_count), 0);
-    FileWrite(handle, &restoring_value, sizeof(restoring_value), 0);
+    handle->write(&version, sizeof(version));
+    handle->write(&saved_count, sizeof(saved_count));
+    handle->write(&restoring_value, sizeof(restoring_value));
 
     for (index = 0; index < trigger_count; ++index) {
         Trigger* trigger = *world->triggers->GetAt(index);
         if (trigger->lock_state.lock_type != 0) {
-            FileWrite(handle, trigger->name, 0x80, 0);
-            FileWrite(handle, &version, sizeof(version), 0);
+            handle->write(trigger->name, 0x80);
+            handle->write(&version, sizeof(version));
             if (restoring) {
-                FileWrite(handle, &trigger->lock_state.lock_type,
-                          sizeof(trigger->lock_state.lock_type), 0);
-                FileWrite(handle, &trigger->lock_state.difficulty,
-                          sizeof(trigger->lock_state.difficulty), 0);
-                FileWrite(handle, &trigger->lock_state.device_state.completed,
-                          sizeof(trigger->lock_state.device_state.completed), 0);
-                FileWrite(handle, trigger->lock_state.device_state.pins,
-                          sizeof(trigger->lock_state.device_state.pins), 0);
-                FileWrite(handle, &trigger->lock_state.device_id,
-                          sizeof(trigger->lock_state.device_id), 0);
-                FileWrite(handle, &trigger->lock_state.key_id, sizeof(trigger->lock_state.key_id),
-                          0);
-                FileWrite(handle, &trigger->lock_state.lock_countdown,
-                          sizeof(trigger->lock_state.lock_countdown), 0);
+                handle->write(&trigger->lock_state.lock_type, sizeof(trigger->lock_state.lock_type));
+                handle->write(&trigger->lock_state.difficulty, sizeof(trigger->lock_state.difficulty));
+                handle->write(&trigger->lock_state.device_state.completed, sizeof(trigger->lock_state.device_state.completed));
+                handle->write(trigger->lock_state.device_state.pins, sizeof(trigger->lock_state.device_state.pins));
+                handle->write(&trigger->lock_state.device_id, sizeof(trigger->lock_state.device_id));
+                handle->write(&trigger->lock_state.key_id, sizeof(trigger->lock_state.key_id));
+                handle->write(&trigger->lock_state.lock_countdown, sizeof(trigger->lock_state.lock_countdown));
             } else {
-                FileWrite(handle, &trigger->lock_state.device_state.completed,
-                          sizeof(trigger->lock_state.device_state.completed), 0);
-                FileWrite(handle, trigger->lock_state.device_state.pins,
-                          sizeof(trigger->lock_state.device_state.pins), 0);
-                FileWrite(handle, &trigger->lock_state.lock_countdown,
-                          sizeof(trigger->lock_state.lock_countdown), 0);
-                FileWrite(handle, &trigger->lock_state.last_interaction_clock,
-                          sizeof(trigger->lock_state.last_interaction_clock), 0);
+                handle->write(&trigger->lock_state.device_state.completed, sizeof(trigger->lock_state.device_state.completed));
+                handle->write(trigger->lock_state.device_state.pins, sizeof(trigger->lock_state.device_state.pins));
+                handle->write(&trigger->lock_state.lock_countdown, sizeof(trigger->lock_state.lock_countdown));
+                handle->write(&trigger->lock_state.last_interaction_clock, sizeof(trigger->lock_state.last_interaction_clock));
             }
         }
     }
 }
 
-void W8LockState::ReadRuntimeRecord(int handle, int version, int restoring)
+void W8LockState::ReadRuntimeRecord(wiz8::File* handle, int version, int restoring)
 {
     int record_version;
 
     if (restoring == 0 && version > 1) {
-        FileRead(handle, &record_version, sizeof(record_version), 0);
-        FileRead(handle, &device_state.completed, sizeof(device_state.completed), 0);
-        FileRead(handle, device_state.pins, sizeof(device_state.pins), 0);
-        FileRead(handle, &lock_countdown, sizeof(lock_countdown), 0);
+        handle->read_exact(&record_version, sizeof(record_version));
+        handle->read_exact(&device_state.completed, sizeof(device_state.completed));
+        handle->read_exact(device_state.pins, sizeof(device_state.pins));
+        handle->read_exact(&lock_countdown, sizeof(lock_countdown));
         if (record_version > 1) {
-            FileRead(handle, &last_interaction_clock, sizeof(last_interaction_clock), 0);
+            handle->read_exact(&last_interaction_clock, sizeof(last_interaction_clock));
         }
     } else {
-        FileRead(handle, &record_version, sizeof(record_version), 0);
-        FileRead(handle, &lock_type, sizeof(lock_type), 0);
-        FileRead(handle, &difficulty, sizeof(difficulty), 0);
-        FileRead(handle, &device_state.completed, sizeof(device_state.completed), 0);
-        FileRead(handle, device_state.pins, sizeof(device_state.pins), 0);
-        FileRead(handle, &device_id, sizeof(device_id), 0);
-        FileRead(handle, &key_id, sizeof(key_id), 0);
+        handle->read_exact(&record_version, sizeof(record_version));
+        handle->read_exact(&lock_type, sizeof(lock_type));
+        handle->read_exact(&difficulty, sizeof(difficulty));
+        handle->read_exact(&device_state.completed, sizeof(device_state.completed));
+        handle->read_exact(device_state.pins, sizeof(device_state.pins));
+        handle->read_exact(&device_id, sizeof(device_id));
+        handle->read_exact(&key_id, sizeof(key_id));
         if (record_version > 1) {
-            FileRead(handle, &lock_countdown, sizeof(lock_countdown), 0);
+            handle->read_exact(&lock_countdown, sizeof(lock_countdown));
         }
     }
 }
@@ -312,16 +301,17 @@ void W8LockState::ReadRuntimeRecord(int handle, int version, int restoring)
    restoring, a state byte block is re-randomized and the type-10 action data is
    re-linked to the stored item. */
 // FUNCTION: WIZ8 0x0043ccf0
-bool LoadTriggerRuntimeStates(int handle)
+bool LoadTriggerRuntimeStates(wiz8::File* handle)
+try
 {
     int version;
     int saved_count;
     int restoring;
     int index = 0;
 
-    FileRead(handle, &version, sizeof(version), 0);
-    FileRead(handle, &saved_count, sizeof(saved_count), 0);
-    FileRead(handle, &restoring, sizeof(restoring), 0);
+    handle->read_exact(&version, sizeof(version));
+    handle->read_exact(&saved_count, sizeof(saved_count));
+    handle->read_exact(&restoring, sizeof(restoring));
     if (saved_count < 1) {
         return true;
     }
@@ -329,7 +319,7 @@ bool LoadTriggerRuntimeStates(int handle)
         char name[0x80];
         Trigger* trigger;
 
-        FileRead(handle, name, sizeof(name), 0);
+        handle->read_exact(name, sizeof(name));
         trigger = FindTriggerByName(name);
         if (trigger == 0) {
             Trigger* scratch = new Trigger;
@@ -359,13 +349,14 @@ bool LoadTriggerRuntimeStates(int handle)
         }
     }
 }
+catch (const std::exception&) { return false; }
 
 /* Serialize one trigger for the save file. The header carries a version byte
    and the action-state block; the action payload follows only when one is
    attached, with its flag bits packed and the timed-event delay resolved from
    the live event queue. Returns whether the header went out completely. */
 // FUNCTION: WIZ8 0x0043BE60
-bool Trigger::Save(int hFile)
+bool Trigger::Save(wiz8::File* hFile)
 {
     unsigned char version = 5;
     int trigger_count = g_world->triggers->GetCount();
@@ -381,25 +372,25 @@ bool Trigger::Save(int hFile)
     if (hFile == 0) {
         srAssertFail("hFile", "C:\\Projects\\Wizardry 8\\Engine Code\\Trigger.cpp", 0x183, 0);
     }
-    header_ok = FileWrite(hFile, &version, sizeof(version), 0) &&
-                FileWrite(hFile, &trigger_count, sizeof(trigger_count), 0) &&
-                FileWrite(hFile, name, 0x80, 0) && FileWrite(hFile, &flags, sizeof(flags), 0) &&
-                FileWrite(hFile, &state_index, sizeof(state_index), 0) &&
-                FileWrite(hFile, &state_direction, sizeof(state_direction), 0) &&
-                FileWrite(hFile, &action, sizeof(action), 0) &&
-                FileWrite(hFile, &action_state, sizeof(action_state), 0) &&
-                FileWrite(hFile, &required_item_id, sizeof(required_item_id), 0);
+    header_ok = (hFile->write(&version, sizeof(version)), true) &&
+                (hFile->write(&trigger_count, sizeof(trigger_count)), true) &&
+                (hFile->write(name, 0x80), true) && (hFile->write(&flags, sizeof(flags)), true) &&
+                (hFile->write(&state_index, sizeof(state_index)), true) &&
+                (hFile->write(&state_direction, sizeof(state_direction)), true) &&
+                (hFile->write(&action, sizeof(action)), true) &&
+                (hFile->write(&action_state, sizeof(action_state)), true) &&
+                (hFile->write(&required_item_id, sizeof(required_item_id)), true);
     action_data = m_pActionData;
     has_action_data = action_data != 0;
-    FileWrite(hFile, &has_action_data, sizeof(has_action_data), 0);
+    hFile->write(&has_action_data, sizeof(has_action_data));
     if (action_data != 0) {
         action_type = action_data->type;
-        FileWrite(hFile, &action_type, sizeof(action_type), 0);
+        hFile->write(&action_type, sizeof(action_type));
         if (action_type == W8_TRIGGER_PAYLOAD_DOOR) {
             action_flags = 0;
             progress_delay = 0;
             action_kind = 2;
-            FileWrite(hFile, &action_kind, sizeof(action_kind), 0);
+            hFile->write(&action_kind, sizeof(action_kind));
             if (static_cast<W8DoorTriggerActionData*>(action_data)->open) {
                 action_flags |= 1;
             }
@@ -430,7 +421,7 @@ bool Trigger::Save(int hFile)
             if (static_cast<W8DoorTriggerActionData*>(action_data)->item != 0) {
                 action_flags |= 0x200;
             }
-            FileWrite(hFile, &action_flags, sizeof(action_flags), 0);
+            hFile->write(&action_flags, sizeof(action_flags));
             if (m_lData1 != 0 && m_pEvent != 0 && g_timed_events.IndexOf(m_pEvent) != -1) {
                 float progress = m_pEvent->timer.GetProgress();
                 if (progress <= g_trigger_progress_limit) {
@@ -440,23 +431,23 @@ bool Trigger::Save(int hFile)
                     progress_delay = 64000;
                 }
             }
-            FileWrite(hFile, &progress_delay, 2, 0);
+            hFile->write(&progress_delay, 2);
             {
                 unsigned int item = static_cast<unsigned short>(
                     static_cast<W8DoorTriggerActionData*>(action_data)->item);
-                FileWrite(hFile, &item, 2, 0);
+                hFile->write(&item, 2);
             }
         }
     }
     has_world_item = world_item_group != 0;
-    FileWrite(hFile, &has_world_item, sizeof(has_world_item), 0);
+    hFile->write(&has_world_item, sizeof(has_world_item));
     if (has_world_item != 0) {
         SaveItemFile(hFile, world_item_group);
     }
-    FileWrite(hFile, &items_generated, sizeof(items_generated), 0);
-    FileWrite(hFile, &item_group_seed, sizeof(item_group_seed), 0);
-    FileWrite(hFile, &gold, sizeof(gold), 0);
-    FileWrite(hFile, &uses_remaining, sizeof(uses_remaining), 0);
+    hFile->write(&items_generated, sizeof(items_generated));
+    hFile->write(&item_group_seed, sizeof(item_group_seed));
+    hFile->write(&gold, sizeof(gold));
+    hFile->write(&uses_remaining, sizeof(uses_remaining));
     return header_ok;
 }
 
@@ -464,7 +455,8 @@ bool Trigger::Save(int hFile)
    of the trailing block is present; a type-10 action payload rebuilds its
    action data and re-queues the delayed timed event from the saved progress. */
 // FUNCTION: WIZ8 0x0043c1b0
-bool Trigger::Load(int hFile, char version)
+bool Trigger::Load(wiz8::File* hFile, char version)
+try
 {
     bool header_ok;
     unsigned char has_action_data;
@@ -475,18 +467,18 @@ bool Trigger::Load(int hFile, char version)
     if (hFile == 0) {
         srAssertFail("hFile", "C:\\Projects\\Wizardry 8\\Engine Code\\Trigger.cpp", 0x1f0, 0);
     }
-    header_ok = FileRead(hFile, &flags, sizeof(flags), 0) &&
-                FileRead(hFile, &state_index, sizeof(state_index), 0) &&
-                FileRead(hFile, &state_direction, sizeof(state_direction), 0) &&
-                FileRead(hFile, &action, sizeof(action), 0) &&
-                FileRead(hFile, &action_state, sizeof(action_state), 0) &&
-                FileRead(hFile, &required_item_id, sizeof(required_item_id), 0);
+    header_ok = (hFile->read(&flags, sizeof(flags)).bytes == static_cast<std::size_t>(sizeof(flags))) &&
+                (hFile->read(&state_index, sizeof(state_index)).bytes == static_cast<std::size_t>(sizeof(state_index))) &&
+                (hFile->read(&state_direction, sizeof(state_direction)).bytes == static_cast<std::size_t>(sizeof(state_direction))) &&
+                (hFile->read(&action, sizeof(action)).bytes == static_cast<std::size_t>(sizeof(action))) &&
+                (hFile->read(&action_state, sizeof(action_state)).bytes == static_cast<std::size_t>(sizeof(action_state))) &&
+                (hFile->read(&required_item_id, sizeof(required_item_id)).bytes == static_cast<std::size_t>(sizeof(required_item_id)));
     if ((flags & W8_TRIGGER_SEARCHED) != 0) {
         UnregisterSearchableTrigger(this);
     }
-    FileRead(hFile, &has_action_data, sizeof(has_action_data), 0);
+    hFile->read_exact(&has_action_data, sizeof(has_action_data));
     if (has_action_data != 0) {
-        FileRead(hFile, &action_type, sizeof(action_type), 0);
+        hFile->read_exact(&action_type, sizeof(action_type));
         if (action_type == W8_TRIGGER_PAYLOAD_DOOR) {
             W8DoorTriggerActionData* pDoor = new W8DoorTriggerActionData;
             unsigned short action_flags;
@@ -500,30 +492,30 @@ bool Trigger::Load(int hFile, char version)
             delete m_pActionData;
             m_pActionData = pDoor;
             pDoor->type = W8_TRIGGER_PAYLOAD_DOOR;
-            FileRead(hFile, &flag_mode, 1, 0);
+            hFile->read_exact(&flag_mode, 1);
             if (flag_mode == 1) {
-                FileRead(hFile, &flag, 1, 0);
+                hFile->read_exact(&flag, 1);
                 pDoor->open = (flag & 1) != 0;
-                FileRead(hFile, &flag, 1, 0);
+                hFile->read_exact(&flag, 1);
                 pDoor->lockable = (flag & 1) != 0;
-                FileRead(hFile, &flag, 1, 0);
+                hFile->read_exact(&flag, 1);
                 pDoor->locked = (flag & 1) != 0;
-                FileRead(hFile, &flag, 1, 0);
+                hFile->read_exact(&flag, 1);
                 pDoor->auto_locking = (flag & 1) != 0;
-                FileRead(hFile, &flag, 1, 0);
+                hFile->read_exact(&flag, 1);
                 pDoor->one_way = (flag & 1) != 0;
-                FileRead(hFile, &flag, 1, 0);
+                hFile->read_exact(&flag, 1);
                 pDoor->secret = (flag & 1) != 0;
-                FileRead(hFile, &flag, 1, 0);
+                hFile->read_exact(&flag, 1);
                 pDoor->found = (flag & 1) != 0;
-                FileRead(hFile, &flag, 1, 0);
+                hFile->read_exact(&flag, 1);
                 pDoor->jammable = (flag & 1) != 0;
-                FileRead(hFile, &flag, 1, 0);
+                hFile->read_exact(&flag, 1);
                 pDoor->jammed = (flag & 1) != 0;
             } else {
                 action_flags = 0;
                 progress_delay = 0;
-                FileRead(hFile, &action_flags, 2, 0);
+                hFile->read_exact(&action_flags, 2);
                 if ((action_flags & 1) != 0) {
                     pDoor->open = true;
                 } else {
@@ -569,7 +561,7 @@ bool Trigger::Load(int hFile, char version)
                 } else {
                     pDoor->jammed = false;
                 }
-                FileRead(hFile, &progress_delay, 2, 0);
+                hFile->read_exact(&progress_delay, 2);
                 if (m_lData1 != 0 && progress_delay != 0) {
                     if (m_pEvent == 0) {
                         float duration;
@@ -591,7 +583,7 @@ bool Trigger::Load(int hFile, char version)
                         g_timed_events.Add(m_pEvent);
                     }
                 }
-                FileRead(hFile, &item, 2, 0);
+                hFile->read_exact(&item, 2);
                 pDoor->item = static_cast<short>(item);
             }
         }
@@ -600,27 +592,29 @@ bool Trigger::Load(int hFile, char version)
     if (version > 1) {
         unsigned char has_world_item;
 
-        FileRead(hFile, &has_world_item, sizeof(has_world_item), 0);
+        hFile->read_exact(&has_world_item, sizeof(has_world_item));
         if (has_world_item != 0) {
             world_item_group = LoadItem(hFile, false);
         }
-        FileRead(hFile, &items_generated, sizeof(items_generated), 0);
-        FileRead(hFile, &item_group_seed, sizeof(item_group_seed), 0);
-        FileRead(hFile, &gold, sizeof(gold), 0);
-        FileRead(hFile, &uses_remaining, sizeof(uses_remaining), 0);
+        hFile->read_exact(&items_generated, sizeof(items_generated));
+        hFile->read_exact(&item_group_seed, sizeof(item_group_seed));
+        hFile->read_exact(&gold, sizeof(gold));
+        hFile->read_exact(&uses_remaining, sizeof(uses_remaining));
     }
     if (version == 3) {
-        FileSeek(hFile, 0x1d, FILE_SEEK_FROM_CURRENT);
+        hFile->seek(0x1d, wiz8::SeekOrigin::current);
     }
     return header_ok;
 }
+catch (const std::exception&) { return false; }
 
 /* Read every trigger record of the save file's trigger chunk. Tags 1-4 update
    the matching in-place trigger, tag 5 names its trigger and is consumed
    through a scratch trigger when the name is gone, and anything else pushes
    the tag byte back and ends the walk. */
 // FUNCTION: WIZ8 0x0043c860
-bool LoadWorldTriggers(W8World* world, int hFile)
+bool LoadWorldTriggers(W8World* world, wiz8::File* hFile)
+try
 {
     int trigger_count = world->triggers->GetCount();
     int index = 0;
@@ -635,14 +629,14 @@ bool LoadWorldTriggers(W8World* world, int hFile)
         if (finished || trigger_count <= index) {
             return header_ok;
         }
-        if (!header_ok || !FileRead(hFile, &tag, 1, 0)) {
+        if (!header_ok || !(hFile->read(&tag, 1).bytes == static_cast<std::size_t>(1))) {
             header_ok = false;
         } else {
             header_ok = true;
         }
         if (tag < 1 || tag > 5) {
             finished = true;
-            FileSeek(hFile, -1, FILE_SEEK_FROM_CURRENT);
+            hFile->seek(-1, wiz8::SeekOrigin::current);
         } else if (tag < 5) {
             Trigger* trigger = *world->triggers->GetAt(index);
 
@@ -656,8 +650,8 @@ bool LoadWorldTriggers(W8World* world, int hFile)
             char name[0x80] = {0};
             Trigger* trigger;
 
-            if (!header_ok || !FileRead(hFile, &trigger_id, sizeof(trigger_id), 0) ||
-                !FileRead(hFile, name, sizeof(name), 0)) {
+            if (!header_ok || !(hFile->read(&trigger_id, sizeof(trigger_id)).bytes == static_cast<std::size_t>(sizeof(trigger_id))) ||
+                !(hFile->read(name, sizeof(name)).bytes == static_cast<std::size_t>(sizeof(name)))) {
                 header_ok = false;
             } else {
                 header_ok = true;
@@ -683,11 +677,12 @@ bool LoadWorldTriggers(W8World* world, int hFile)
         }
     }
 }
+catch (const std::exception&) { return false; }
 
 /* Write every trigger of a world for the save file's trigger chunk. A trigger
    whose own serialization reports failure stops the walk. */
 // FUNCTION: WIZ8 0x0043C810
-void SaveWorldTriggers(W8World* world, int hFile)
+void SaveWorldTriggers(W8World* world, wiz8::File* hFile)
 {
     W8GrowableVector<Trigger*>* triggers = world->triggers;
 
@@ -699,7 +694,7 @@ void SaveWorldTriggers(W8World* world, int hFile)
 }
 
 // FUNCTION: WIZ8 0x0043d120
-void SaveTriggerActionData(W8World* world, int handle)
+void SaveTriggerActionData(W8World* world, wiz8::File* handle)
 {
     int trigger_count = world->triggers->GetCount();
     int saved_count = 0;
@@ -713,14 +708,14 @@ void SaveTriggerActionData(W8World* world, int handle)
         }
     }
 
-    FileWrite(handle, &version, sizeof(version), 0);
-    FileWrite(handle, &saved_count, sizeof(saved_count), 0);
+    handle->write(&version, sizeof(version));
+    handle->write(&saved_count, sizeof(saved_count));
 
     for (index = 0; index < trigger_count; ++index) {
         Trigger* trigger = *world->triggers->GetAt(index);
         if (trigger->inline_action_data[0] != '\0') {
-            FileWrite(handle, trigger->name, 0x80, 0);
-            FileWrite(handle, trigger->inline_action_data, sizeof(trigger->inline_action_data), 0);
+            handle->write(trigger->name, 0x80);
+            handle->write(trigger->inline_action_data, sizeof(trigger->inline_action_data));
         }
     }
 }
@@ -729,14 +724,15 @@ void SaveTriggerActionData(W8World* world, int handle)
    a version/count header, then per record the trigger name and its 0x100-byte
    payload. Records for missing triggers are skipped with a seek. */
 // FUNCTION: WIZ8 0x0043d1f0
-bool LoadTriggerActionData(int handle)
+bool LoadTriggerActionData(wiz8::File* handle)
+try
 {
     int version;
     int saved_count;
     int index = 0;
 
-    FileRead(handle, &version, sizeof(version), 0);
-    FileRead(handle, &saved_count, sizeof(saved_count), 0);
+    handle->read_exact(&version, sizeof(version));
+    handle->read_exact(&saved_count, sizeof(saved_count));
     if (saved_count < 1) {
         return true;
     }
@@ -744,12 +740,12 @@ bool LoadTriggerActionData(int handle)
         char name[0x80];
         Trigger* trigger;
 
-        FileRead(handle, name, sizeof(name), 0);
+        handle->read_exact(name, sizeof(name));
         trigger = FindTriggerByName(name);
         if (trigger != 0) {
-            FileRead(handle, trigger->inline_action_data, sizeof(trigger->inline_action_data), 0);
+            handle->read_exact(trigger->inline_action_data, sizeof(trigger->inline_action_data));
         } else {
-            FileSeek(handle, 0x100, FILE_SEEK_FROM_CURRENT);
+            handle->seek(0x100, wiz8::SeekOrigin::current);
         }
         ++index;
         if (saved_count <= index) {
@@ -757,6 +753,7 @@ bool LoadTriggerActionData(int handle)
         }
     }
 }
+catch (const std::exception&) { return false; }
 
 // VTABLE: WIZ8 0x005ec12c
 // class W8TriggerEvent
@@ -1291,7 +1288,7 @@ void Trigger::SetPosition(srVector3T<float>* position)
 }
 
 // FUNCTION: WIZ8 0x004417c0
-W8TriggerActionData* ReadDoorTriggerActionData(int handle)
+W8TriggerActionData* ReadDoorTriggerActionData(wiz8::File* handle)
 {
     W8DoorTriggerActionData* data = new W8DoorTriggerActionData;
 
@@ -1309,21 +1306,21 @@ W8TriggerActionData* ReadDoorTriggerActionData(int handle)
     unsigned char has_position;
     srVector3T<float> position;
     char linked_trigger[0x80];
-    FileRead(handle, &version, 1, 0);
-    FileRead(handle, &open, 1, 0);
-    FileRead(handle, &lockable, 1, 0);
-    FileRead(handle, &locked, 1, 0);
-    FileRead(handle, &auto_locking, 1, 0);
-    FileRead(handle, &one_way, 1, 0);
-    FileRead(handle, &secret, 1, 0);
-    FileRead(handle, &found, 1, 0);
-    FileRead(handle, &jammable, 1, 0);
-    FileRead(handle, &jammed, 1, 0);
-    FileRead(handle, &item, 2, 0);
-    FileRead(handle, &has_position, 1, 0);
-    FileRead(handle, &position, sizeof(position), 0);
+    handle->read_exact(&version, 1);
+    handle->read_exact(&open, 1);
+    handle->read_exact(&lockable, 1);
+    handle->read_exact(&locked, 1);
+    handle->read_exact(&auto_locking, 1);
+    handle->read_exact(&one_way, 1);
+    handle->read_exact(&secret, 1);
+    handle->read_exact(&found, 1);
+    handle->read_exact(&jammable, 1);
+    handle->read_exact(&jammed, 1);
+    handle->read_exact(&item, 2);
+    handle->read_exact(&has_position, 1);
+    handle->read_exact(&position, sizeof(position));
     position *= 500.0f;
-    FileRead(handle, linked_trigger, sizeof(linked_trigger), 0);
+    handle->read_exact(linked_trigger, sizeof(linked_trigger));
 
     data->open = (open & 1) != 0;
     data->lockable = (lockable & 1) != 0;
@@ -1344,7 +1341,7 @@ W8TriggerActionData* ReadDoorTriggerActionData(int handle)
 }
 
 // FUNCTION: WIZ8 0x00441a20
-Trigger* Trigger::CreateAndLoadLevelTrigger(int handle, W8World* world)
+Trigger* Trigger::CreateAndLoadLevelTrigger(wiz8::File* handle, W8World* world)
 {
     /* Retail read these uninitialised when the FileRead chain short-circuited;
        natively they start at zero. */
@@ -1354,8 +1351,8 @@ Trigger* Trigger::CreateAndLoadLevelTrigger(int handle, W8World* world)
     if (handle == 0) {
         srAssertFail("hFile", "C:\\Projects\\Wizardry 8\\Engine Code\\Trigger.cpp", 0xca3, 0);
     }
-    if (FileRead(handle, &record_version, 1, 0) != 0) {
-        FileRead(handle, &record_type, 1, 0);
+    if ((handle->read(&record_version, 1).bytes == static_cast<std::size_t>(1)) != 0) {
+        handle->read_exact(&record_type, 1);
     }
 
     if (record_type != 3) {
@@ -1386,19 +1383,19 @@ Trigger* Trigger::CreateAndLoadLevelTrigger(int handle, W8World* world)
         char recipients[0x100];
         char sound[0x80];
 
-        FileRead(handle, &version, 1, 0);
-        FileRead(handle, &byte0, 4, 0);
-        FileRead(handle, &byte1, 4, 0);
-        FileRead(handle, &animate_states, 4, 0);
-        FileRead(handle, &range, 4, 0);
-        FileRead(handle, &action, 4, 0);
-        FileRead(handle, &value_ac, 4, 0);
-        FileRead(handle, &animate_action, 4, 0);
-        FileRead(handle, &packed_flags, 1, 0);
-        FileRead(handle, &enabled, 1, 0);
-        FileRead(handle, trigger->name, sizeof(trigger->name), 0);
-        FileRead(handle, recipients, sizeof(recipients), 0);
-        FileRead(handle, sound, sizeof(sound), 0);
+        handle->read_exact(&version, 1);
+        handle->read_exact(&byte0, 4);
+        handle->read_exact(&byte1, 4);
+        handle->read_exact(&animate_states, 4);
+        handle->read_exact(&range, 4);
+        handle->read_exact(&action, 4);
+        handle->read_exact(&value_ac, 4);
+        handle->read_exact(&animate_action, 4);
+        handle->read_exact(&packed_flags, 1);
+        handle->read_exact(&enabled, 1);
+        handle->read_exact(trigger->name, sizeof(trigger->name));
+        handle->read_exact(recipients, sizeof(recipients));
+        handle->read_exact(sound, sizeof(sound));
         sprintf(trigger->action_data, "data\\sound\\%s", sound);
         _strupr(trigger->name);
         _strupr(recipients);
@@ -1407,8 +1404,8 @@ Trigger* Trigger::CreateAndLoadLevelTrigger(int handle, W8World* world)
             char surface_id[0x40];
             int id = -1;
 
-            FileRead(handle, &minimum_range, 4, 0);
-            FileRead(handle, surface_id, sizeof(surface_id), 0);
+            handle->read_exact(&minimum_range, 4);
+            handle->read_exact(surface_id, sizeof(surface_id));
             /* The id is the four characters after a leading NUL: retail stores
                a terminator at surface_id[5] before atoi. Retail 0x00441c99
                only requires the world's game data, not its build-time
@@ -1425,10 +1422,10 @@ Trigger* Trigger::CreateAndLoadLevelTrigger(int handle, W8World* world)
         }
         if (version > 2) {
             unsigned char has_action_data;
-            FileRead(handle, &has_action_data, 1, 0);
+            handle->read_exact(&has_action_data, 1);
             if (has_action_data != 0) {
                 unsigned char action_data_kind;
-                FileRead(handle, &action_data_kind, 1, 0);
+                handle->read_exact(&action_data_kind, 1);
                 if (action_data_kind == 1) {
                     trigger->m_pActionData = ReadDoorTriggerActionData(handle);
                     trigger->state_index =
@@ -1437,7 +1434,7 @@ Trigger* Trigger::CreateAndLoadLevelTrigger(int handle, W8World* world)
             }
         }
         if (version > 3) {
-            FileRead(handle, &action_value, 4, 0);
+            handle->read_exact(&action_value, 4);
         }
 
         trigger->trigger_kind = 1;
@@ -1493,23 +1490,22 @@ Trigger* Trigger::CreateAndLoadLevelTrigger(int handle, W8World* world)
         unsigned char keep_on_finish = 0;
         int value_ac = 0;
 
-        FileRead(handle, &version, 1, 0);
-        FileRead(handle, &range, 4, 0);
-        FileRead(handle, &x, 4, 0);
-        FileRead(handle, &y, 4, 0);
-        FileRead(handle, &z, 4, 0);
-        FileRead(handle, &action, 4, 0);
-        FileRead(handle, &value_c8, 4, 0);
-        FileRead(handle, &fire_linked, 1, 0);
-        FileRead(handle, &enabled, 1, 0);
-        FileRead(handle, trigger->name, sizeof(trigger->name), 0);
-        FileRead(handle, recipients, sizeof(recipients), 0);
+        handle->read_exact(&version, 1);
+        handle->read_exact(&range, 4);
+        handle->read_exact(&x, 4);
+        handle->read_exact(&y, 4);
+        handle->read_exact(&z, 4);
+        handle->read_exact(&action, 4);
+        handle->read_exact(&value_c8, 4);
+        handle->read_exact(&fire_linked, 1);
+        handle->read_exact(&enabled, 1);
+        handle->read_exact(trigger->name, sizeof(trigger->name));
+        handle->read_exact(recipients, sizeof(recipients));
         _strupr(trigger->name);
         _strupr(recipients);
         if (version > 1) {
-            FileRead(handle, &plane, 1, 0);
-            FileRead(handle, trigger->representation_vectors,
-                     sizeof(trigger->representation_vectors), 0);
+            handle->read_exact(&plane, 1);
+            handle->read_exact(trigger->representation_vectors, sizeof(trigger->representation_vectors));
             for (int vector = 0; vector < 4; ++vector) {
                 trigger->representation_vectors[vector] *= 500.0f;
             }
@@ -1517,12 +1513,12 @@ Trigger* Trigger::CreateAndLoadLevelTrigger(int handle, W8World* world)
         if (version > 2) {
             unsigned char unused;
             char action_string[0x80];
-            FileRead(handle, &trigger->angle, 4, 0);
-            FileRead(handle, &trigger->direction.x, 4, 0);
-            FileRead(handle, &trigger->direction.y, 4, 0);
-            FileRead(handle, &trigger->direction.z, 4, 0);
-            FileRead(handle, &unused, 1, 0);
-            FileRead(handle, action_string, sizeof(action_string), 0);
+            handle->read_exact(&trigger->angle, 4);
+            handle->read_exact(&trigger->direction.x, 4);
+            handle->read_exact(&trigger->direction.y, 4);
+            handle->read_exact(&trigger->direction.z, 4);
+            handle->read_exact(&unused, 1);
+            handle->read_exact(action_string, sizeof(action_string));
             if (action == 17) {
                 W8StringTriggerActionData* data = new W8StringTriggerActionData;
                 data->type = W8_TRIGGER_PAYLOAD_STRING;
@@ -1534,27 +1530,26 @@ Trigger* Trigger::CreateAndLoadLevelTrigger(int handle, W8World* world)
             }
         }
         if (version > 3) {
-            FileRead(handle, &keep_on_finish, 1, 0);
-            FileRead(handle, &value_ac, 4, 0);
+            handle->read_exact(&keep_on_finish, 1);
+            handle->read_exact(&value_ac, 4);
         }
         if (version > 4) {
             unsigned char has_legacy_geometry;
-            FileRead(handle, &has_legacy_geometry, 1, 0);
+            handle->read_exact(&has_legacy_geometry, 1);
             if (has_legacy_geometry != 0) {
                 unsigned char geometry_kind;
-                FileRead(handle, &geometry_kind, 1, 0);
+                handle->read_exact(&geometry_kind, 1);
                 if (geometry_kind == 2) {
                     unsigned char count;
                     srVector3T<float> legacy_vertices[36];
                     unsigned char legacy_flags[2];
-                    FileRead(handle, &count, 1, 0);
+                    handle->read_exact(&count, 1);
                     for (int index = 0; index < 36; ++index) {
-                        FileRead(handle, &legacy_vertices[index], sizeof(legacy_vertices[index]),
-                                 0);
+                        handle->read_exact(&legacy_vertices[index], sizeof(legacy_vertices[index]));
                         legacy_vertices[index] *= 500.0f;
                     }
-                    FileRead(handle, &legacy_flags[0], 1, 0);
-                    FileRead(handle, &legacy_flags[1], 1, 0);
+                    handle->read_exact(&legacy_flags[0], 1);
+                    handle->read_exact(&legacy_flags[1], 1);
                 }
             }
         }
@@ -1619,39 +1614,39 @@ Trigger* Trigger::CreateAndLoadLevelTrigger(int handle, W8World* world)
         region_min.x = region_min.y = region_min.z = 0.0f;
         region_max.x = region_max.y = region_max.z = 0.0f;
 
-        FileRead(handle, &version, 1, 0);
-        FileRead(handle, &volume_min, 4, 0);
-        FileRead(handle, &volume_max, 4, 0);
-        FileRead(handle, &speed_min, 4, 0);
-        FileRead(handle, &speed_max, 4, 0);
-        FileRead(handle, &time_min, 4, 0);
-        FileRead(handle, &time_max, 4, 0);
-        FileRead(handle, &unbounded, 4, 0);
-        FileRead(handle, &radius, 4, 0);
-        FileRead(handle, &position, sizeof(position), 0);
-        FileRead(handle, &region_u, sizeof(region_u), 0);
-        FileRead(handle, &region_v, sizeof(region_v), 0);
-        FileRead(handle, wave, sizeof(wave), 0);
+        handle->read_exact(&version, 1);
+        handle->read_exact(&volume_min, 4);
+        handle->read_exact(&volume_max, 4);
+        handle->read_exact(&speed_min, 4);
+        handle->read_exact(&speed_max, 4);
+        handle->read_exact(&time_min, 4);
+        handle->read_exact(&time_max, 4);
+        handle->read_exact(&unbounded, 4);
+        handle->read_exact(&radius, 4);
+        handle->read_exact(&position, sizeof(position));
+        handle->read_exact(&region_u, sizeof(region_u));
+        handle->read_exact(&region_v, sizeof(region_v));
+        handle->read_exact(wave, sizeof(wave));
         W8AmbientSoundConfig config;
         sprintf(config.wave_name, "data\\sound\\%s", wave);
         if (version > 1) {
             unsigned char has_position;
-            FileRead(handle, &has_position, 1, 0);
-            FileRead(handle, &looping, 1, 0);
+            handle->read_exact(&has_position, 1);
+            handle->read_exact(&looping, 1);
         }
         if (version > 2) {
-            FileRead(handle, &region_center, sizeof(region_center), 0);
-            FileRead(handle, &region_angle, 4, 0);
-            FileRead(handle, &region_min, sizeof(region_min), 0);
-            FileRead(handle, &region_max, sizeof(region_max), 0);
+            handle->read_exact(&region_center, sizeof(region_center));
+            handle->read_exact(&region_angle, 4);
+            handle->read_exact(&region_min, sizeof(region_min));
+            handle->read_exact(&region_max, sizeof(region_max));
             region_center *= 500.0f;
         }
         if (version > 3) {
-            FileRead(handle, name, sizeof(name), 0);
+            handle->read_exact(name, sizeof(name));
             optional_name = name;
         }
         if (version > 4) {
-            FileRead(handle, &shared, 1, 0);
+            handle->read_exact(&shared, 1);
         }
         position *= 500.0f;
         region_u *= 500.0f;
@@ -1688,44 +1683,44 @@ Trigger* Trigger::CreateAndLoadLevelTrigger(int handle, W8World* world)
         unsigned char flag0 = 0;
         unsigned char representation_kind = 0;
 
-        FileRead(handle, &version, 1, 0);
-        FileRead(handle, trigger->name, sizeof(trigger->name), 0);
-        FileRead(handle, &packed_flags, 1, 0);
-        FileRead(handle, &enabled, 1, 0);
-        FileRead(handle, &fire_linked, 1, 0);
-        FileRead(handle, &link_on_deactivate, 1, 0);
-        FileRead(handle, &keep_on_finish, 1, 0);
-        FileRead(handle, &flag, 1, 0);
-        FileRead(handle, &alternate_toggles, 1, 0);
-        FileRead(handle, &initial_action, 4, 0);
-        FileRead(handle, &alternate_action, 4, 0);
-        FileRead(handle, &fallback_action, 4, 0);
-        FileRead(handle, recipients, sizeof(recipients), 0);
-        FileRead(handle, &searchable, 1, 0);
-        FileRead(handle, location_variable, sizeof(location_variable), 0);
-        FileRead(handle, &consume_item, 1, 0);
-        FileRead(handle, &action_value, 4, 0);
-        FileRead(handle, &animate_action, 1, 0);
-        FileRead(handle, sound, sizeof(sound), 0);
+        handle->read_exact(&version, 1);
+        handle->read_exact(trigger->name, sizeof(trigger->name));
+        handle->read_exact(&packed_flags, 1);
+        handle->read_exact(&enabled, 1);
+        handle->read_exact(&fire_linked, 1);
+        handle->read_exact(&link_on_deactivate, 1);
+        handle->read_exact(&keep_on_finish, 1);
+        handle->read_exact(&flag, 1);
+        handle->read_exact(&alternate_toggles, 1);
+        handle->read_exact(&initial_action, 4);
+        handle->read_exact(&alternate_action, 4);
+        handle->read_exact(&fallback_action, 4);
+        handle->read_exact(recipients, sizeof(recipients));
+        handle->read_exact(&searchable, 1);
+        handle->read_exact(location_variable, sizeof(location_variable));
+        handle->read_exact(&consume_item, 1);
+        handle->read_exact(&action_value, 4);
+        handle->read_exact(&animate_action, 1);
+        handle->read_exact(sound, sizeof(sound));
         sprintf(trigger->action_data, "data\\sound\\%s", sound);
         _strupr(trigger->name);
         _strupr(recipients);
         _strupr(location_variable);
 
         if (version > 1) {
-            FileRead(handle, &trigger->m_lData1, 4, 0);
-            FileRead(handle, &trigger->m_lData2, 4, 0);
-            FileRead(handle, &trigger->m_lData3, 4, 0);
-            FileRead(handle, &representation_scale, 4, 0);
-            FileRead(handle, &initial_location_value, 1, 0);
-            FileRead(handle, &flag0, 1, 0);
-            FileRead(handle, &trigger->action_data_mode, 1, 0);
-            FileRead(handle, &trigger->sound_volume, 1, 0);
+            handle->read_exact(&trigger->m_lData1, 4);
+            handle->read_exact(&trigger->m_lData2, 4);
+            handle->read_exact(&trigger->m_lData3, 4);
+            handle->read_exact(&representation_scale, 4);
+            handle->read_exact(&initial_location_value, 1);
+            handle->read_exact(&flag0, 1);
+            handle->read_exact(&trigger->action_data_mode, 1);
+            handle->read_exact(&trigger->sound_volume, 1);
             int unused;
-            FileRead(handle, &unused, 4, 0);
-            FileRead(handle, &unused, 4, 0);
-            FileRead(handle, &unused, 4, 0);
-            FileRead(handle, &unused, 4, 0);
+            handle->read_exact(&unused, 4);
+            handle->read_exact(&unused, 4);
+            handle->read_exact(&unused, 4);
+            handle->read_exact(&unused, 4);
         }
 
         trigger->trigger_kind = ((packed_flags & 1) != 0 || searchable == 1) ? 1 : 2;
@@ -1795,12 +1790,12 @@ Trigger* Trigger::CreateAndLoadLevelTrigger(int handle, W8World* world)
         char required_states[0x100];
         char state_to_modify[0x100];
         unsigned char value_b4;
-        FileRead(handle, &value_b0, 1, 0);
-        FileRead(handle, &animate_states, 1, 0);
-        FileRead(handle, &value_b3, 1, 0);
-        FileRead(handle, required_states, sizeof(required_states), 0);
-        FileRead(handle, state_to_modify, sizeof(state_to_modify), 0);
-        FileRead(handle, &value_b4, 1, 0);
+        handle->read_exact(&value_b0, 1);
+        handle->read_exact(&animate_states, 1);
+        handle->read_exact(&value_b3, 1);
+        handle->read_exact(required_states, sizeof(required_states));
+        handle->read_exact(state_to_modify, sizeof(state_to_modify));
+        handle->read_exact(&value_b4, 1);
         _strupr(required_states);
         _strupr(state_to_modify);
         if (required_states[0] != 0) {
@@ -1835,15 +1830,15 @@ Trigger* Trigger::CreateAndLoadLevelTrigger(int handle, W8World* world)
         }
 
         int unused_value;
-        FileRead(handle, &trigger->range_minimum, 4, 0);
-        FileRead(handle, &trigger->range_maximum, 4, 0);
-        FileRead(handle, trigger->inline_action_data, sizeof(trigger->inline_action_data), 0);
-        FileRead(handle, &unused_value, 4, 0);
+        handle->read_exact(&trigger->range_minimum, 4);
+        handle->read_exact(&trigger->range_maximum, 4);
+        handle->read_exact(trigger->inline_action_data, sizeof(trigger->inline_action_data));
+        handle->read_exact(&unused_value, 4);
         _strupr(trigger->inline_action_data);
         trigger->range_minimum *= 500.0f;
         trigger->range_maximum *= 500.0f;
         if (version > 2) {
-            FileRead(handle, sound, sizeof(sound), 0);
+            handle->read_exact(sound, sizeof(sound));
             sprintf(trigger->alternate_action_data, "data\\sound\\%s", sound);
             if (flag0 != 0)
                 trigger->flags |= W8_TRIGGER_ALTERNATE_ACTION;
@@ -1852,36 +1847,35 @@ Trigger* Trigger::CreateAndLoadLevelTrigger(int handle, W8World* world)
         }
 
         if ((packed_flags & 1) == 0) {
-            FileRead(handle, &representation_kind, 1, 0);
+            handle->read_exact(&representation_kind, 1);
             if (representation_kind == 1) {
-                FileRead(handle, &trigger->position, sizeof(srVector3T<float>), 0);
-                FileRead(handle, &trigger->angle, 4, 0);
-                FileRead(handle, &trigger->direction, sizeof(srVector3T<float>), 0);
+                handle->read_exact(&trigger->position, sizeof(srVector3T<float>));
+                handle->read_exact(&trigger->angle, 4);
+                handle->read_exact(&trigger->direction, sizeof(srVector3T<float>));
                 trigger->position *= 500.0f;
                 trigger->flags |= W8_TRIGGER_POSITIONED;
             } else if (representation_kind == 2) {
-                FileRead(handle, trigger->representation_vectors,
-                         sizeof(trigger->representation_vectors), 0);
+                handle->read_exact(trigger->representation_vectors, sizeof(trigger->representation_vectors));
                 for (int vector = 0; vector < 4; ++vector) {
                     trigger->representation_vectors[vector] *= 500.0f;
                 }
             }
             unsigned char has_legacy_action;
-            FileRead(handle, &has_legacy_action, 1, 0);
+            handle->read_exact(&has_legacy_action, 1);
             if (has_legacy_action != 0) {
                 unsigned char legacy_kind;
                 float legacy_value;
-                FileRead(handle, &legacy_kind, 1, 0);
-                FileRead(handle, &legacy_value, 4, 0);
-                FileRead(handle, sound, sizeof(sound), 0);
+                handle->read_exact(&legacy_kind, 1);
+                handle->read_exact(&legacy_value, 4);
+                handle->read_exact(sound, sizeof(sound));
             }
         }
 
         unsigned char has_action_data;
-        FileRead(handle, &has_action_data, 1, 0);
+        handle->read_exact(&has_action_data, 1);
         if (has_action_data != 0) {
             unsigned char action_data_kind;
-            FileRead(handle, &action_data_kind, 1, 0);
+            handle->read_exact(&action_data_kind, 1);
             if (action_data_kind == 1) {
                 trigger->m_pActionData = ReadDoorTriggerActionData(handle);
                 trigger->state_index =
@@ -1890,13 +1884,13 @@ Trigger* Trigger::CreateAndLoadLevelTrigger(int handle, W8World* world)
                 unsigned char count;
                 srVector3T<float> legacy_vertices[36];
                 unsigned char legacy_flags[2];
-                FileRead(handle, &count, 1, 0);
+                handle->read_exact(&count, 1);
                 for (int index = 0; index < 36; ++index) {
-                    FileRead(handle, &legacy_vertices[index], sizeof(legacy_vertices[index]), 0);
+                    handle->read_exact(&legacy_vertices[index], sizeof(legacy_vertices[index]));
                     legacy_vertices[index] *= 500.0f;
                 }
-                FileRead(handle, &legacy_flags[0], 1, 0);
-                FileRead(handle, &legacy_flags[1], 1, 0);
+                handle->read_exact(&legacy_flags[0], 1);
+                handle->read_exact(&legacy_flags[1], 1);
             }
         }
 
@@ -3805,12 +3799,12 @@ int GetLocationVarValueByName(const char* name)
 
 /* Write the count then each location variable's value, name and level. */
 // FUNCTION: WIZ8 0x004441e0
-void SaveLocationVariables(int handle)
+void SaveLocationVariables(wiz8::File* handle)
 {
     int variable_count = g_location_variable_names.GetCount();
     bool written;
 
-    written = FileWrite(handle, &variable_count, sizeof(variable_count), 0) != 0;
+    written = (handle->write(&variable_count, sizeof(variable_count)), true) != 0;
     for (int index = 0; index < variable_count; ++index) {
         int value;
         char name[0x80];
@@ -3822,16 +3816,17 @@ void SaveLocationVariables(int handle)
         value = *g_location_variable_values.GetAt(index);
         strcpy(name, *g_location_variable_names.GetAt(index));
         level = *g_location_variable_levels.GetAt(index);
-        written = FileWrite(handle, &value, sizeof(value), 0) &&
-                  FileWrite(handle, name, sizeof(name), 0) &&
-                  FileWrite(handle, &level, sizeof(level), 0);
+        written = (handle->write(&value, sizeof(value)), true) &&
+                  (handle->write(name, sizeof(name)), true) &&
+                  (handle->write(&level, sizeof(level)), true);
     }
 }
 
 /* Read the location-variable count then each value/name/level record,
    appending a heap copy of the name to the variable vectors. */
 // FUNCTION: WIZ8 0x00444310
-bool LoadLocationVariables(int handle)
+bool LoadLocationVariables(wiz8::File* handle)
+try
 {
     /* Retail read these uninitialised when a FileRead short-circuited; the recovery keeps that
        read. */
@@ -3839,7 +3834,7 @@ bool LoadLocationVariables(int handle)
     int index;
     bool read_ok;
 
-    read_ok = FileRead(handle, &variable_count, sizeof(variable_count), 0) != 0;
+    read_ok = (handle->read(&variable_count, sizeof(variable_count)).bytes == static_cast<std::size_t>(sizeof(variable_count))) != 0;
     for (index = 0; index < variable_count; ++index) {
         int value;
         char name[0x80];
@@ -3849,9 +3844,9 @@ bool LoadLocationVariables(int handle)
         if (!read_ok) {
             break;
         }
-        read_ok = FileRead(handle, &value, sizeof(value), 0) &&
-                  FileRead(handle, name, sizeof(name), 0) &&
-                  FileRead(handle, &level, sizeof(level), 0);
+        read_ok = (handle->read(&value, sizeof(value)).bytes == static_cast<std::size_t>(sizeof(value))) &&
+                  (handle->read(name, sizeof(name)).bytes == static_cast<std::size_t>(sizeof(name))) &&
+                  (handle->read(&level, sizeof(level)).bytes == static_cast<std::size_t>(sizeof(level)));
         copy = new char[strlen(name) + 1];
         if (copy == 0) {
             srAssertFail("pacName", "C:\\Projects\\Wizardry 8\\Engine Code\\Trigger.cpp", 0x1143,
@@ -3864,6 +3859,7 @@ bool LoadLocationVariables(int handle)
     }
     return read_ok;
 }
+catch (const std::exception&) { return false; }
 
 // FUNCTION: WIZ8 0x004445b0
 void ReleaseAllTriggers(void)
