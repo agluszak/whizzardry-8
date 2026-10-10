@@ -19,7 +19,7 @@
 #include "wiz8/filesystem.h"
 #include "surrender/srCore.h"
 #include "surrender/srNode.h"
-#include "surrender/srVectorProcessor.h"
+#include "surrender/srVectorMath.h"
 
 #include <stdlib.h>
 #include <math.h>
@@ -311,9 +311,10 @@ static W8MeshOrder* ComputeMeshOrder(W8MeshOrderInfo* info, w8_ulong flags)
             w8_ulong* keys = new w8_ulong[info->polygon_count];
             for (unsigned int table = 0; table < info->polygon_key_count; ++table) {
                 if (info->polygon_count != 0) {
-                    srVectorProcessor::copyIndexed(
-                        keys, static_cast<const SRDWORD*>(info->polygon_keys[table]),
-                        order->polygons, info->polygon_count);
+                    srMath::copyIndexed(
+                        {keys, static_cast<std::size_t>(info->polygon_count)},
+                        static_cast<const SRDWORD*>(info->polygon_keys[table]),
+                        {order->polygons, static_cast<std::size_t>(info->polygon_count)});
                 }
                 SortGroupsByKey(order->polygons, keys, polygon_groups, info->polygon_count);
             }
@@ -379,9 +380,10 @@ static W8MeshOrder* ComputeMeshOrder(W8MeshOrderInfo* info, w8_ulong flags)
             w8_ulong* keys = new w8_ulong[info->vertex_count];
             for (unsigned int table = 0; table < info->vertex_key_count; ++table) {
                 if (info->vertex_count != 0) {
-                    srVectorProcessor::copyIndexed(
-                        keys, static_cast<const SRDWORD*>(info->vertex_keys[table]),
-                        order->vertices, info->vertex_count);
+                    srMath::copyIndexed(
+                        {keys, static_cast<std::size_t>(info->vertex_count)},
+                        static_cast<const SRDWORD*>(info->vertex_keys[table]),
+                        {order->vertices, static_cast<std::size_t>(info->vertex_count)});
                 }
                 SortGroupsByKey(order->vertices, keys, vertex_groups, info->vertex_count);
             }

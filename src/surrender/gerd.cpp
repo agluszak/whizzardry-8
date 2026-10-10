@@ -14,7 +14,7 @@
 #include "surrender/srDebugDD.h"
 #include "surrender/srWindow.h"
 #include "surrender/srPalette.h"
-#include "surrender/srVectorProcessor.h"
+#include "surrender/srVectorMath.h"
 
 #include <ctype.h>
 #include <ostream>
@@ -2918,7 +2918,7 @@ srGERD::e_visibility srGERD::testBoundingBox(const srVector3T<float>& minimum,
     checkViewStateChanges();
     srMatrix4T<float> combined = state.matrix_current[MATRIX_PROJECTION];
     combined.MultiplyBy(state.matrix_current[MATRIX_MODELVIEW]);
-    if (srVectorProcessor::vp->_srTestBoundingBox(combined, minimum, maximum) != 0) {
+    if (srMath::srTestBoundingBox(combined, minimum, maximum) != 0) {
         statistics.box_visible++;
         return static_cast<e_visibility>(1);
     }

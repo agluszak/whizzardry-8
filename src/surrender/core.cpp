@@ -18,7 +18,6 @@
 #include "surrender/srTextureMap.h"
 #include "surrender/srTriMeshPipeline.h"
 #include "surrender/srTypeRegistry.h"
-#include "surrender/srVectorProcessor.h"
 
 // FUNCTION: SURRENDER 0x10014FE0
 void __cdecl _srLibraryInit(void)
@@ -57,7 +56,6 @@ int __cdecl srInit()
         srCore.timer = new srVariableTimer;
         _srLibraryInit();
         srCore.multi_thread = srCore.timer->fastThreads();
-        srVectorProcessor::initBaseVP();
         srCore.statistics_manager = new srStatisticsManager;
         srCore.statistics_manager->reset();
         srCore.setFilter(0);
@@ -151,7 +149,6 @@ int __cdecl srExit()
         delete srCore.timer;
         srCore.timer = 0;
         srCore.reset();
-        srVectorProcessor::release();
         delete srTriMeshPipeline::pipe;
         srTriMeshPipeline::pipe = 0;
         srDebugPrintf(0xfe, "srExit() -- done\n");
@@ -272,11 +269,6 @@ void srCore::dump(std::ostream& stream)
     stream << "  RDTSC support: " << srBoolToString(timer->getRDTSCSupport()) << '\n';
     stream.width(0x18);
     stream << "  Multi-thread:  " << srBoolToString(multi_thread) << '\n';
-    if (srVectorProcessor::vp != 0) {
-        stream.width(0x18);
-        stream << "Vector Processor: " << srVectorProcessor::vp->getName();
-        srStreamPrintf(stream, " (API version %d.%02d)\n", 1, 0x19);
-    }
     srSetStreamFlags(stream, flags & 0x7fff);
 }
 
