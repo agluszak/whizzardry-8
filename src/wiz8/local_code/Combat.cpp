@@ -1,3 +1,5 @@
+#include <new>
+
 #include "wiz8/compat/unaligned.h"
 #include "wiz8/engine_code/AnimRep.hpp"
 #include "wiz8/conditions.h"
@@ -181,11 +183,10 @@ bool StartCombat(int surprise)
         SelectTextBox(1);
     }
     ResetEditorStatusLine(1);
-    g_combat_state = static_cast<W8CombatState*>(malloc(sizeof(W8CombatState)));
+    g_combat_state = new (std::nothrow) W8CombatState{};
     if (g_combat_state == 0) {
         return false;
     }
-    *g_combat_state = {};
     g_combat_state->round_count = 0;
     g_combat_state->combat_result = 0;
     g_combat_state->experience_pool = 0;
@@ -1146,7 +1147,7 @@ void EndCombat(bool forced_cleanup)
     if (!gXStatus.fNpcDialogueMode && !gXStatus.fSpellCastMode && !gXStatus.fItemSelectMode) {
         SelectTextBox(0);
     }
-    free(g_combat_state);
+    delete g_combat_state;
     g_combat_state = 0;
     SetCombatInactiveFlag(1);
     MonsterResumeAllNavigators();

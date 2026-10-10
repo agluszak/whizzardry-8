@@ -851,6 +851,13 @@ void CombatScenario()
     REQUIRE("leave-combat", !g_combat_state);
     REQUIRE("experience", g_status.buffers.Char[PremadeSlot()].experience == experience + reward);
     REQUIRE("kill-credit", g_status.buffers.Char[PremadeSlot()].kill_count == kills + 1);
+    game.command(W8_MGS_COMMAND_TOGGLE_COMBAT);
+    REQUIRE("reenter-combat", game.within_frames(4, [] { return gXStatus.fCombatMode != 0; }));
+    REQUIRE("reenter-combat", g_combat_state && g_combat_state->round_count == 0);
+    REQUIRE("reenter-combat", g_combat_state->attack_report.reports.GetCount() == 0);
+    game.command(W8_MGS_COMMAND_TOGGLE_COMBAT);
+    game.wait("leave-combat-again", [] { return gXStatus.fCombatMode == 0; }, 10);
+    REQUIRE("leave-combat-again", !g_combat_state);
     std::printf("combat: round, kill and exit after %lu frames\n", game.frames());
 }
 
