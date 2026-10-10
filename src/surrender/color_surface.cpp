@@ -2372,80 +2372,64 @@ static void BuildScaleContributions(srColorSurfaceIFace& source, srFilter& filte
     }
 }
 
+/* Apply the same axis-independent filtered resampling to rows and columns. */
+static void ScaleSurfaceAxis(srColorSurfaceIFace& destination, srColorSurfaceIFace& source,
+                             srFilter& filter, bool horizontal)
+{
+    const w8_long destination_count =
+        horizontal ? destination.getWidth() : destination.getHeight();
+    const w8_long source_count = horizontal ? source.getWidth() : source.getHeight();
+    const w8_long line_count = horizontal ? source.getHeight() : destination.getWidth();
+
+    std::vector<SampleContributions> contributions(destination_count);
+    std::vector<SampleWeight> weights;
+    BuildScaleContributions(source, filter, contributions, weights,
+                            destination_count, source_count, horizontal);
+
+    std::vector<srARGB> source_pixels(source_count);
+    std::vector<srARGB> destination_pixels(destination_count);
+    std::vector<glm::vec4> channels(source_count);
+    auto* source_words = reinterpret_cast<w8_ulong*>(source_pixels.data());
+    auto* destination_words = reinterpret_cast<w8_ulong*>(destination_pixels.data());
+
+    for (w8_long line = 0; line < line_count; ++line) {
+        if (horizontal)
+            source.getPixelRow(source_words, line, 0, source_count);
+        else
+            source.getPixelColumn(source_words, line, 0, source_count);
+
+        for (w8_long pixel = 0; pixel < source_count; ++pixel) {
+            channels[pixel].x = static_cast<float>(source_pixels[pixel].alpha);
+            channels[pixel].y = static_cast<float>(source_pixels[pixel].red);
+            channels[pixel].z = static_cast<float>(source_pixels[pixel].green);
+            channels[pixel].w = static_cast<float>(source_pixels[pixel].blue);
+        }
+        for (w8_long pixel = 0; pixel < destination_count; ++pixel)
+            destination_pixels[pixel] = BlendWeightedSamples(contributions[pixel], channels.data());
+
+        if (horizontal)
+            destination.setPixelRow(destination_words, line, 0, destination_count);
+        else
+            destination.setPixelColumn(destination_words, line, 0, destination_count);
+    }
+}
+
 // FUNCTION: SURRENDER 0x10059AC0
 void srColorSurfaceIFace::scaleHorizontal(srColorSurfaceIFace& source)
 {
-    w8_long height = source.height;
-    w8_long width = this->width;
-    w8_long source_width = source.width;
-    if (width != source_width) {
-        std::vector<SampleContributions> contributions(width);
-        SampleContributions* counts = contributions.data();
-        std::vector<srARGB> source_row_storage(source_width);
-        srARGB* source_row_colors = source_row_storage.data();
-        w8_ulong* source_row = (w8_ulong*)source_row_colors;
-        std::vector<srARGB> row_storage(width);
-        srARGB* row_colors = row_storage.data();
-        w8_ulong* row = (w8_ulong*)row_colors;
-        std::vector<glm::vec4> channel_vectors(source_width);
-        std::vector<SampleWeight> sample_storage;
-        BuildScaleContributions(source, *source.filter, contributions, sample_storage,
-                                width, source_width, true);
-        for (w8_long y = 0; y < height; y++) {
-            source.getPixelRow(source_row, y, 0, source_width);
-            w8_long x;
-            for (x = 0; x < source_width; x++) {
-                channel_vectors[x].x = static_cast<float>(source_row_colors[x].alpha);
-                channel_vectors[x].y = static_cast<float>(source_row_colors[x].red);
-                channel_vectors[x].z = static_cast<float>(source_row_colors[x].green);
-                channel_vectors[x].w = static_cast<float>(source_row_colors[x].blue);
-            }
-            for (x = 0; x < width; x++) {
-                row_colors[x] = BlendWeightedSamples(counts[x], channel_vectors.data());
-            }
-            setPixelRow(row, y, 0, width);
-        }
-        return;
-    }
-    copyNoScaling(source);
+    if (width != source.width)
+        ScaleSurfaceAxis(*this, source, *source.filter, true);
+    else
+        copyNoScaling(source);
 }
 
 // FUNCTION: SURRENDER 0x1005A250
 void srColorSurfaceIFace::scaleVertical(srColorSurfaceIFace& source)
 {
-    w8_long width = this->width;
-    w8_long height = this->height;
-    w8_long source_height = source.height;
-    if (height != source_height) {
-        std::vector<SampleContributions> contributions(height);
-        SampleContributions* counts = contributions.data();
-        std::vector<srARGB> source_column_storage(source_height);
-        srARGB* source_column_colors = source_column_storage.data();
-        w8_ulong* source_column = (w8_ulong*)source_column_colors;
-        std::vector<srARGB> column_storage(height);
-        srARGB* column_colors = column_storage.data();
-        w8_ulong* column = (w8_ulong*)column_colors;
-        std::vector<glm::vec4> channel_vectors(source_height);
-        std::vector<SampleWeight> sample_storage;
-        BuildScaleContributions(source, *source.filter, contributions, sample_storage,
-                                height, source_height, false);
-        for (w8_long x = 0; x < width; x++) {
-            source.getPixelColumn(source_column, x, 0, source_height);
-            w8_long y;
-            for (y = 0; y < source_height; y++) {
-                channel_vectors[y].x = static_cast<float>(source_column_colors[y].alpha);
-                channel_vectors[y].y = static_cast<float>(source_column_colors[y].red);
-                channel_vectors[y].z = static_cast<float>(source_column_colors[y].green);
-                channel_vectors[y].w = static_cast<float>(source_column_colors[y].blue);
-            }
-            for (y = 0; y < height; y++) {
-                column_colors[y] = BlendWeightedSamples(counts[y], channel_vectors.data());
-            }
-            setPixelColumn(column, x, 0, height);
-        }
-        return;
-    }
-    copyNoScaling(source);
+    if (height != source.height)
+        ScaleSurfaceAxis(*this, source, *source.filter, false);
+    else
+        copyNoScaling(source);
 }
 
 // FUNCTION: SURRENDER 0x10058150
