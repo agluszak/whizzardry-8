@@ -4,7 +4,6 @@
 #define _LIBRARY_DATABASE_H
 
 #include "Types.h"
-#include "compat/kernel32.h"
 #include "FileMan.h"
 
 namespace wiz8 { class File; }
@@ -35,7 +34,6 @@ typedef struct {
     BOOLEAN fOnCDrom; // A flag specifying if its a cdrom library ( not implemented yet )
     BOOLEAN
     fInitOnStart; // Flag specifying if the library is to Initialized at the begining of the game
-    BOOLEAN fMapFile; // Wizardry can memory map selected libraries
 
 } LibraryInitHeader;
 
@@ -60,12 +58,12 @@ typedef struct {
     STR pFileName;
     UINT32 uiFileLength;
     UINT32 uiFileOffset;
+    SGP_FILETIME sFileTime;
 } FileHeaderStruct;
 
 typedef struct {
     UINT32 uiFileID;                  // id of the file ( they start at 1 )
     UINT32 uiFilePosInFile;           // current position in the file
-    UINT32 uiActualPositionInLibrary; // Current File pointer position in actuall library
     FileHeaderStruct* pFileHeader;
 } FileOpenStruct;
 
@@ -75,15 +73,10 @@ typedef struct {
     UINT16 usNumberOfEntries;
     BOOLEAN fLibraryOpen;
     BOOLEAN fPatchLibrary;
-    //	BOOLEAN	fAnotherFileAlreadyOpenedLibrary;				//this variable is set when a file is opened from the library and reset when the file is close.  No 2 files can have access to the library at 1 time.
-    UINT32
-    uiIdOfOtherFileAlreadyOpenedLibrary; //this variable is set when a file is opened from the library and reset when the file is close.  No 2 files can have access to the library at 1 time.
     INT32 iNumFilesOpen;
     INT32 iSizeOfOpenFileArray;
     FileHeaderStruct* pFileHeader;
     FileOpenStruct* pOpenFiles;
-    HANDLE hFileMapping;
-    PTR pFileMapping;
 
     //
     //	Temp:	Total memory used for each library ( all memory allocated
@@ -151,6 +144,8 @@ extern DatabaseManagerHeaderStruct gFileDataBase;
 
 BOOLEAN InitializeLibrary(STR pLibraryName, LibraryHeaderStruct* pLibheader, BOOLEAN fCanBeOnCDrom);
 // Independent owned stream; callers should immediately adopt into unique_ptr.
+// Starts at the entry's physical offset. Caller enforces its entry length.
+// nullptr on failure; it remains usable after the database entry is closed.
 wiz8::File* OpenLibraryStream(HWFILE file);
 
 BOOLEAN InitializeFileDatabase(void);
@@ -160,7 +155,8 @@ BOOLEAN ShutDownFileDatabase();
 BOOLEAN CheckIfFileExistInLibrary(STR pFileName);
 INT16 GetLibraryIDFromFileName(STR pFileName);
 HWFILE OpenFileFromLibrary(STR pName);
-HWFILE CreateRealFileHandle(HANDLE hFile);
+// Takes ownership only on successful (nonzero) registration.
+HWFILE CreateRealFileHandle(wiz8::File* file);
 BOOLEAN CloseLibraryFile(INT16 sLibraryID, UINT32 uiFileID);
 BOOLEAN GetLibraryAndFileIDFromLibraryFileHandle(HWFILE hlibFile, INT16* pLibraryID,
                                                  UINT32* pFileNum);
