@@ -1,3 +1,8 @@
+#include <fmt/format.h>
+#include <fmt/printf.h>
+#include <string_view>
+#include "wiz8/unicode.h"
+#include "wiz8/retail_text_records.h"
 #include "wiz8/containers.h"
 #include "wiz8/compat/unaligned.h"
 #include "wiz8/engine_code/AnimRep.hpp"
@@ -64,7 +69,6 @@
 #include "wiz8/filesystem.h"
 
 #include <stdio.h>
-#include <wchar.h>
 #include <string.h>
 #include <stdlib.h>
 #include "wiz8/layouts/game_status.h"
@@ -429,10 +433,12 @@ void ReturnDismissedNpcItems(W8NpcState* npc, W8Character* character)
         }
     }
     if (returned) {
-        ShowNoticef(W8_FONT_PALETTE_RED, gppStringList[0x1fd], npc->record->source_name);
+        ShowNotice(W8_FONT_PALETTE_RED,
+                   fmt::sprintf(g_localized_strings[0x1fd], npc->record->source_name));
     }
     if (dropped) {
-        ShowNoticef(W8_FONT_PALETTE_RED, gppStringList[0x1fe], npc->record->source_name);
+        ShowNotice(W8_FONT_PALETTE_RED,
+                   fmt::sprintf(g_localized_strings[0x1fe], npc->record->source_name));
     }
 }
 
@@ -459,7 +465,7 @@ int DismissNpcFromParty(int party_slot, int /*unused*/, bool skip_spawn, bool ne
     ReleaseNpcScriptFile(npc->script_file);
     npc->script_file = 0;
     RemoveCharacterFromParty(party_slot, false);
-    memset(character, 0, sizeof(*character));
+    *character = W8Character{};
     memset(row, 0, sizeof(*row));
     gXStatus.monster_manager_entries[party_slot] = {};
     row->npc_index = -1;
@@ -473,7 +479,7 @@ int DismissNpcFromParty(int party_slot, int /*unused*/, bool skip_spawn, bool ne
                 break;
             }
         }
-        FreeIfNotNull(records);
+        delete[] records;
         if (species == gXStatus.uiMonstersInDatabase) {
             return 0;
         }
@@ -516,7 +522,7 @@ void UpdateNpcPartyMember(int party_slot)
     srVector3T<float> position;
 
     if (character->highest_condition == W8_CONDITION_DEAD) {
-        ShowNoticef(W8_FONT_PALETTE_RED, gppStringList[0x7d4], character->name);
+        ShowNotice(W8_FONT_PALETTE_RED, fmt::sprintf(g_localized_strings[0x7d4], character->name));
         StashDepartingCharacterItems(character);
         RemoveCharacterFromParty(party_slot, false);
         return;
@@ -526,7 +532,7 @@ void UpdateNpcPartyMember(int party_slot)
         return;
     }
     if (!ProbeNpcPlacementNearParty(party_slot, 0, &position)) {
-        ShowNoticef(W8_FONT_PALETTE_RED, gppStringList[0x7d5]);
+        ShowNotice(W8_FONT_PALETTE_RED, g_localized_strings[0x7d5]);
         return;
     }
     if (NpcOffersService(npc, GetLevelBand(g_status.current_level))) {
@@ -612,7 +618,7 @@ bool RecruitNpcIntoParty(W8NpcState* npc)
 // GLOBAL: WIZ8 0x00619F18
 char g_substituted_npc_name[] = "RFS81B";
 // GLOBAL: WIZ8 0x00689F60
-char g_npc_name_buffer[52];
+// The former fixed name scratch buffer is no longer needed by owned results.
 
 /* The name style that admits a substituted name: the unfixed RFS-81 record,
    renamed to RFS81B once the fix fact is set. */
@@ -798,11 +804,10 @@ void AddNpcTopic(W8NpcState* npc, int topic)
    party has learned it, copied into a shared buffer so the caller always gets
    a writable string; everything else is named by its record. */
 // FUNCTION: WIZ8 0x0050c770
-const char* GetNpcDisplayName(W8NpcState* npc)
+std::string GetNpcDisplayName(W8NpcState* npc)
 {
     if (npc->name_style == W8_NPC_RFS81_A && GetFact(W8_FACT_RFS81_HAS_BEEN_FIXED) != 0) {
-        strcpy(g_npc_name_buffer, g_substituted_npc_name);
-        return g_npc_name_buffer;
+        return g_substituted_npc_name;
     }
     return npc->record->display_name;
 }
@@ -810,19 +815,19 @@ const char* GetNpcDisplayName(W8NpcState* npc)
 /* The live NPC state whose display (or fact-substituted) name matches
    case-insensitively; released bindings and non-matches are skipped. */
 // FUNCTION: WIZ8 0x0050ADA0
-W8NpcState* FindNpcStateByName(const char* name)
+W8NpcState* FindNpcStateByName(std::string_view name)
 {
-    const char* candidate;
+    int index;
+    std::string candidate;
 
     for (auto* npc : g_npc_states) {
         if (npc->binding_unavailable == 0) {
             if (npc->name_style == W8_NPC_RFS81_A && GetFact(W8_FACT_RFS81_HAS_BEEN_FIXED) != 0) {
-                strcpy(g_npc_name_buffer, g_substituted_npc_name);
-                candidate = g_npc_name_buffer;
+                candidate = g_substituted_npc_name;
             } else {
                 candidate = npc->record->display_name;
             }
-            if (_stricmp(candidate, name) == 0) {
+            if (CompareTextIgnoreAsciiCase(candidate, name) == 0) {
                 return npc;
             }
         }
@@ -1169,9 +1174,9 @@ try
         npc = g_npc_states[index];
         chunks->Write(npc, sizeof(*npc), 0);
         if (npc->character != 0) {
-            size = sizeof(*npc->character);
+            size = wiz8::retail::kCharacterBytes;
             chunks->Write(&size, 4, 0);
-            chunks->Write(npc->character, size, 0);
+            wiz8::retail::write(*chunks, *npc->character);
         }
     }
     return SaveNpcItemLists(chunks->m_hFile.get());
@@ -1323,7 +1328,7 @@ bool InitializeNpcCharacter(W8NpcState* npc, W8Character* character)
         return false;
     }
     source = &record->character;
-    memset(character, 0, sizeof(*character));
+    *character = W8Character{};
     character->level_band_base = 0;
     character->attribute_point_deficit = 0;
     character->highest_condition = W8_CONDITION_NONE;
@@ -1336,8 +1341,8 @@ bool InitializeNpcCharacter(W8NpcState* npc, W8Character* character)
     for (index = 0; index < 8; ++index) {
         EmptyItemRecord(&character->backpack[index], 0, true);
     }
-    wcscpy(character->name, source->name);
-    wcscpy(character->name_part_2, source->name_part_2);
+    character->name = source->name;
+    character->name_part_2 = source->name_part_2;
     character->iProfession = source->profession;
     character->original_profession = source->profession;
     character->profession_levels[source->profession] = source->level;
@@ -1462,15 +1467,15 @@ void LoadNpcStates(W8Chunk* chunks)
         if (has_character) {
             npc->character = new W8Character;
             if (version < 3) {
-                memset(npc->character, 0, sizeof(*npc->character));
-                chunks->Read(npc->character, 0x185c, 0);
+                *npc->character = W8Character{};
+                wiz8::retail::read(*chunks, *npc->character, 0x185c);
             } else {
-                memset(npc->character, 0, sizeof(*npc->character));
+                *npc->character = W8Character{};
                 chunks->Read(&size, 4, 0);
-                if (size > sizeof(*npc->character)) {
+                if (size > wiz8::retail::kCharacterBytes) {
                     srAssertFail("uiSize <= sizeof(*pNode->pPCData)", NPC_MANAGER_CPP, 0x217, 0);
                 }
-                chunks->Read(npc->character, size, 0);
+                wiz8::retail::read(*chunks, *npc->character, size);
             }
         }
         if (npc->name_style == 0) {
@@ -2133,19 +2138,19 @@ void ApplyBoundNpcPenalty(W8Character* character, W8GameplayModifierBlock* targe
    for the level-entry pass. The runtime node is created when no state for the
    record kind exists. */
 // FUNCTION: WIZ8 0x0050C1C0
-void RestoreNamedNpcAtLevel(int kind, char level, const char* entity_name)
+void RestoreNamedNpcAtLevel(int kind, char level, std::string_view entity_name)
 {
     auto* npc = GetNpcStateByKind(kind);
     if (npc == 0) {
         npc = CreateNpcRuntimeNode(kind);
     }
     if (level == g_status.current_level) {
-        RestoreNpcMonster(npc, entity_name);
+        RestoreNpcMonster(npc, std::string(entity_name).c_str());
         npc->restored = false;
         return;
     }
     npc->pending_restore = true;
-    strcpy(npc->restore_entity_name, entity_name);
+    wiz8::text::write_utf8_field(entity_name, npc->restore_entity_name);
     npc->pending_restore_level = level;
 }
 
@@ -2248,7 +2253,7 @@ bool RestoreNpcMonster(W8NpcState* npc, const char* entity_name)
                 }
             }
         }
-        FreeIfNotNull(records);
+        delete[] records;
         if (index == gXStatus.uiMonstersInDatabase) {
             return false;
         }
@@ -2431,13 +2436,14 @@ void RebindNpcLevelTriggers(void)
         }
     }
 
-    for (npc_index = 0; npc_index < static_cast<unsigned int>(g_npc_states.size()); ++npc_index) {
+    for (npc_index = 0; npc_index < static_cast<unsigned int>(static_cast<int>(g_npc_states.size()));
+         ++npc_index) {
         W8NpcState* npc = g_npc_states[npc_index];
-        char trigger_name[40];
+        std::string trigger_name;
 
         if (npc->record->merchant != 0 || npc->record->voice_script != 0) {
-            sprintf(trigger_name, "_%S", npc->record->source_name);
-            Trigger* trigger = FindTriggerByName(trigger_name);
+            trigger_name = fmt::format("_{}", npc->record->source_name);
+            Trigger* trigger = FindTriggerByName(trigger_name.c_str());
 
             if (trigger != 0) {
                 trigger->activation_callback = NotifyNpcTriggerActivation;

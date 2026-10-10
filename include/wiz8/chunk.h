@@ -1,3 +1,4 @@
+#include <string_view>
 #pragma once
 
 #include "wiz8/filesystem.h"
@@ -31,11 +32,11 @@ struct W8Chunk {
     W8Chunk();
     ~W8Chunk();
 
-    bool OpenRead(const char* path);
-    bool OpenExistingRiff(const char* path, wiz8::OpenMode mode);
-    bool OpenWrite(const char* path);
-    bool OpenReadWrite(const char* path);
-    bool OpenAppend(const char* path);
+    bool OpenRead(std::string_view path);
+    bool OpenExistingRiff(std::string_view path, wiz8::OpenMode mode);
+    bool OpenWrite(std::string_view path);
+    bool OpenReadWrite(std::string_view path);
+    bool OpenAppend(std::string_view path);
     void Close();
     bool CopyCurrentChunkFrom(W8Chunk* source);
     bool SkipCurrentChunk();

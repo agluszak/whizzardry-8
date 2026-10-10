@@ -96,7 +96,7 @@ int main(int argc, char** argv)
         W8Character character{};
         CHECK(LoadCharacter(argv[1], &character, -1, false));
         CHECK(AddCharacterToParty(&character, -1) == 2);
-        RunNewGameOpeningSequence(false, nullptr);
+        RunNewGameOpeningSequence(false, {});
         // Bypass only the opening movie; use the normal new-game loading screen.
         g_pending_screen_state.mode = 0;
         SetPendingScreenState(W8_SCREEN_PLEASE_WAIT);
@@ -191,7 +191,6 @@ int main(int argc, char** argv)
         }
         if (argc > 3 && strcmp(argv[3], "save") == 0)
         {
-            CHECK(strcmp(ConvertWideStringToString(L"native-test"), "native-test") == 0);
             CHECK(SaveGame("native-test", nullptr));
             fprintf(stderr, "regression: save succeeded\n");
             CHECK(LoadGame("native-test"));

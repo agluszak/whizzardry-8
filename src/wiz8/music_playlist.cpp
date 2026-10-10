@@ -1,3 +1,6 @@
+#include <fmt/format.h>
+#include "wiz8/utility.h"
+#include "wiz8/unicode.h"
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/xstatus.h"
 #include "wiz8/engine_code/stScript.h"
@@ -191,7 +194,7 @@ void ServiceMusicPlaylist(void)
 // FUNCTION: WIZ8 0x0048FC10
 unsigned char StartMusicResource(const char* resource, int fade, unsigned char replace_current)
 {
-    char path[260];
+    std::string path;
 
     if (resource == 0) {
         return 0;
@@ -200,11 +203,11 @@ unsigned char StartMusicResource(const char* resource, int fade, unsigned char r
         RequestExitScreen();
     }
 
-    sprintf(path, "Data\\Music\\%s", resource);
-    _strupr(path);
+    path = fmt::format("Data\\Music\\{}", resource);
+    _strupr(path.data());
     g_music_fade = static_cast<unsigned char>(fade);
 
-    if (strstr(path, ".MPL") == 0) {
+    if (strstr(path.c_str(), ".MPL") == 0) {
         if (!g_music_playlist_active) {
             g_music_playlist->setName("");
         }
@@ -240,7 +243,7 @@ unsigned char StartMusicResource(const char* resource, int fade, unsigned char r
     g_music_pause_max_seconds = 0;
     g_music_pause_chance_percent = 0;
     g_music_playlist->Clear();
-    g_music_playlist->Load(path);
+    g_music_playlist->Load(path.c_str());
 
     if (g_music_playlist->lines.empty()) {
         return 0;

@@ -37,7 +37,7 @@ public:
 private:
     /* Write a digit character at the caret position and re-parse
        the text into m_value, rejecting results above m_maximum. */
-    void TypeDigit(wchar_t digit);
+    void TypeDigit(char digit);
     void NotifyValueChanged();
     /* VK_DELETE — remove the character right of the caret. */
     void DeleteForward();
@@ -71,7 +71,7 @@ public:
     virtual void DestroyControls() override;
     virtual void Draw() override;
     virtual W8DialogKind GetDialogType() override;
-    virtual void SetText(const wchar_t* text) override;
+    virtual void SetText(std::string_view text) override;
     virtual bool ProcessInput() override;
 
 private:
@@ -95,38 +95,38 @@ private:
 
 public:
     /* The displayed text lines; the dialog owns and frees each one. */
-  std::vector<wchar_t*> m_lines;
-  std::vector<void (*)(int)> m_field_064;
-  int m_field_074;
-  float m_field_078; /* 0.05 */
-  float m_field_07c; /* 0.2 */
-  float m_field_080; /* 0.9 */
-  float m_field_084; /* 0.75 */
-  int m_fill_colour; /* highlight fill colour */
-  int m_text_button;
-  int m_second_text_button;
-  short area_inlay;  /* DialogInlay inlay for m_area_button */
-  int m_area_button; /* scrolling text area */
-  int m_up_button;
-  int m_up_image;
-  int m_down_button;
-  int m_down_image;
-  int m_slider_button;
-  int m_slider_image;
-  short third_btn_inlay; /* DialogInlay inlay for m_third_text_button */
-  int m_third_text_button;
-  int m_ok_button;
-  int m_ok_image;
-  /* Click rectangles read by ProcessInput; nothing writes them. */
-  W8ControlsRect m_ok_rect;
-  int m_cancel_button;
-  int m_cancel_image;
-  W8ControlsRect m_cancel_rect;
-  bool m_scrollable; /* scrolling area is scrollable */
-  int m_first_visible_line;
-  int m_selected_line;
-  short edge_inlay; /* DialogEdge inlay for the text buttons */
-  short flags;
+    std::vector<char*> m_lines;
+    std::vector<void (*)(int)> m_field_064;
+    int m_field_074;
+    float m_field_078; /* 0.05 */
+    float m_field_07c; /* 0.2 */
+    float m_field_080; /* 0.9 */
+    float m_field_084; /* 0.75 */
+    int m_fill_colour; /* highlight fill colour */
+    int m_text_button;
+    int m_second_text_button;
+    short area_inlay;  /* DialogInlay inlay for m_area_button */
+    int m_area_button; /* scrolling text area */
+    int m_up_button;
+    int m_up_image;
+    int m_down_button;
+    int m_down_image;
+    int m_slider_button;
+    int m_slider_image;
+    short third_btn_inlay; /* DialogInlay inlay for m_third_text_button */
+    int m_third_text_button;
+    int m_ok_button;
+    int m_ok_image;
+    /* Click rectangles read by ProcessInput; nothing writes them. */
+    W8ControlsRect m_ok_rect;
+    int m_cancel_button;
+    int m_cancel_image;
+    W8ControlsRect m_cancel_rect;
+    bool m_scrollable; /* scrolling area is scrollable */
+    int m_first_visible_line;
+    int m_selected_line;
+    short edge_inlay; /* DialogEdge inlay for the text buttons */
+    short flags;
 };
 
 // VTABLE: WIZ8 0x005ef9f0

@@ -1,8 +1,8 @@
 #pragma once
 
+#include <string_view>
 #include "wiz8/layouts/targeting.h"
 
-extern wchar_t g_combat_log_format[];
 /* A friendly NPC's combat-entry script notice is still owed. */
 
 void ChooseAction(int party_slot, W8ActionKind action, int detail, const W8ActionDetailBlock* data,
@@ -86,7 +86,7 @@ bool CharacterCanSwitchTo(int party_slot, W8TargetingContext context, bool allow
                           bool allow_equipment_changes);
 bool TryCharacterAction(int party_slot, W8ActionKind action, bool commit);
 void NotifyNearbyMonsters(int what);
-void CombatLog(const char* format, ...);
+void CombatLog(std::string_view text);
 void BeginCombatRound(void);
 void EndMonsterTurn(W8MonsterInfo* monster_info);
 void EndMonsterAttack(W8MonsterInfo* monster_info);
@@ -98,4 +98,3 @@ void SetSlotAction(int party_slot, W8ActionKind action_kind, int action_detail);
 bool CanCharReBreathe(int party_slot);
 bool TryPanicWoundedCharacter(const W8CombatSlot* target);
 short GetCombatActionProgress(int* out_total);
-extern wchar_t g_format_s_bang[];

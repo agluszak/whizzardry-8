@@ -71,7 +71,7 @@ wiz8::Application::Application(std::span<const std::string_view> arguments)
         gfIgnoreMessages = FALSE;
         gfLoadAtStartup = gfUsingBoundsChecker = gfCapturingVideo = FALSE;
         gzStringDataOverride.clear();
-        gzErrorMsg[0] = '\0';
+        gzErrorMsg.clear();
         SoundEnableSound(TRUE);
         ParseArguments(arguments);
         wiz8::refresh_asset_archives();

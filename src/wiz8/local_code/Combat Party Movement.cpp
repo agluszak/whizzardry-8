@@ -368,7 +368,7 @@ void EndPartyMovementPhase(void)
         return;
     }
     if (!IsLevelMovementStopped()) {
-        ShowNotice(W8_FONT_PALETTE_WHITE, gppStringList[0x21c]);
+        ShowNotice(W8_FONT_PALETTE_WHITE, g_localized_strings[0x21c]);
     }
     ResetLevelDataVectors();
     DisableFreeTurnButton();
@@ -453,7 +453,7 @@ void FinishPartyMovementAction(void)
     }
     if (IsLevelMovementStopped() &&
         g_combat_state->uiCurrentPartyActionStatus == W8_PARTY_ACTION_PHASE_ENDED) {
-        ShowNotice(W8_FONT_PALETTE_WHITE, gppStringList[0x21d]);
+        ShowNotice(W8_FONT_PALETTE_WHITE, g_localized_strings[0x21d]);
     }
     SoundPlay("Data\\Sound\\Misc\\Movement_Bar_Pop_Up.wav", 0);
     ClearLevelMovementStopped();
@@ -475,7 +475,7 @@ void BeginPartyMovementPhase(void)
     if (g_combat_state->uiCurrentPartyAction == W8_PARTY_ACTION_WALK ||
         g_combat_state->uiCurrentPartyAction == W8_PARTY_ACTION_RUN) {
         gXStatus.fPartyMovementMode = true;
-        ShowNotice(W8_FONT_PALETTE_WHITE, gppStringList[0x21b]);
+        ShowNotice(W8_FONT_PALETTE_WHITE, g_localized_strings[0x21b]);
         gXStatus.party_move_distance = 0.0f;
     }
     FinishPartyMovementAction();

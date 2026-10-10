@@ -1,3 +1,5 @@
+#include <fmt/format.h>
+#include <fmt/printf.h>
 #include "wiz8/fonts.h"
 #include "wiz8/local_code/GroupAttacks.h"
 #include "wiz8/layouts/character.h"
@@ -117,7 +119,7 @@ void ResolveMonsterGroupAttack(int special_attack_kind, W8TargetSource* pSource,
     unsigned int uiDamage;
     int extra;
     bool resolved;
-    wchar_t* text;
+    std::string text;
 
     announce = static_cast<char>(g_settings.verbose_combat_messages);
     if (pSource->iType == W8_TARGET_SOURCE_CHARACTER) {
@@ -395,39 +397,38 @@ void ResolveMonsterGroupAttack(int special_attack_kind, W8TargetSource* pSource,
         }
         if (!announce) {
             if (uiHits[0] == 0) {
-                AppendToLastTextLine(gppStringList[0x1a5], -1);
+                AppendToLastTextLine(g_localized_strings[0x1a5], -1);
             } else {
                 for (i = 0; i < 2; ++i) {
                     if (uiHits[i] == 0) {
                         continue;
                     }
                     if (i == 1 && uiHits[0] != 0) {
-                        AppendToLastTextLine(L",", -1);
+                        AppendToLastTextLine(",", -1);
                     }
                     switch (g_special_attack_table[special_attack_kind][i]) {
                     case 1:
-                        text = FormatWideString(
-                            L"%ld %s", uiHits[i],
-                            gppStringList[g_condition_notices[g_special_attack_condition_table
-                                                                  [special_attack_kind][i]]
-                                              .plural],
-                            -1);
+                        text = fmt::format(
+                            "{:d} {}", uiHits[i],
+                            g_localized_strings[g_condition_notices[g_special_attack_condition_table
+                                                                        [special_attack_kind][i]]
+                                                    .plural]);
                         break;
                     case 2:
-                        text = FormatWideString(gppStringList[0x1c1], uiHits[i],
-                                                uiTotals[i] / uiHits[i], -1);
+                        text = fmt::sprintf(g_localized_strings[0x1c1], uiHits[i],
+                                            uiTotals[i] / uiHits[i], -1);
                         break;
                     case 3:
-                        text = FormatWideString(gppStringList[0x1c2], uiHits[i],
-                                                uiTotals[i] / uiHits[i], -1);
+                        text = fmt::sprintf(g_localized_strings[0x1c2], uiHits[i],
+                                            uiTotals[i] / uiHits[i], -1);
                         break;
                     case 4:
-                        text = FormatWideString(gppStringList[0x1c3], uiHits[i],
-                                                uiTotals[i] / uiHits[i], -1);
+                        text = fmt::sprintf(g_localized_strings[0x1c3], uiHits[i],
+                                            uiTotals[i] / uiHits[i], -1);
                         break;
                     case 5:
-                        text = FormatWideString(gppStringList[0x199], uiHits[i],
-                                                uiTotals[i] / uiHits[i], -1);
+                        text = fmt::sprintf(g_localized_strings[0x199], uiHits[i],
+                                            uiTotals[i] / uiHits[i], -1);
                         break;
                     default:
                         SetTextBoxMode(1, -1);
@@ -515,7 +516,7 @@ void SpawnSummonedMonsterGroup(int special_attack_kind, W8TargetSource* pSource,
     }
     if (!placed) {
         RemoveAllGroupMembers(group);
-        ShowNotice(W8_FONT_PALETTE_RUST, gppStringList[0x26a]);
+        ShowNotice(W8_FONT_PALETTE_RUST, g_localized_strings[0x26a]);
         return;
     }
     RefreshAllSight();

@@ -1,3 +1,4 @@
+#include <string_view>
 #pragma once
 
 /* Engine Code\GrCycle.cpp owns these declarations. The two bases keep their
@@ -202,7 +203,7 @@ W8_ASSERT_BASE_OFFSET(W8GrCycle, W8Navigator, navigation_mode, 0x18);
    durations. */
 extern const float g_float_one_thousandth;
 
-W8GrCycle* FindFirstGrCycleByName(const char* name);
+W8GrCycle* FindFirstGrCycleByName(std::string_view name);
 unsigned char UnregisterGrCycle(W8GrCycle* cycle);
 void RegisterGrCycle(const char* name, W8GrCycle* cycle);
 bool LoadGrCycle(const W8GrCycleLoadContext* context, const char* mon_name, W8GrCycle** cycle,

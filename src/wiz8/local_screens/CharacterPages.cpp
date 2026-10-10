@@ -1,3 +1,5 @@
+#include <fmt/format.h>
+#include <string_view>
 #include "wiz8/containers.h"
 #include "wiz8/layouts/character.h"
 #include "wiz8/character_skills.h"
@@ -62,15 +64,15 @@ W8CharacterPageEntry::W8CharacterPageEntry(Controls* owner, int x, int y, bool c
     m_y = owner->m_bounds.top + y;
     int split = m_x + (compact ? 0x6d : 0x78);
     W8ControlsRect bounds = {m_x + 5, m_y + 1, split, m_y + 0xd};
-    m_label = new W8TextBuffer(&bounds, 0, 0, 0, 4);
+    m_label = new W8TextBuffer(&bounds, {}, 0, 0, 4);
     m_label->SetLayoutMode(g_W8TextBufferAlignLeft);
     bounds.left = split;
     bounds.right = split + 0x17;
-    m_first_text = new W8TextBuffer(&bounds, 0, 0, 0, 4);
+    m_first_text = new W8TextBuffer(&bounds, {}, 0, 0, 4);
     m_first_text->SetLayoutMode(g_W8TextBufferAlignRight);
     bounds.left = split + 0x2a;
     bounds.right = split + 0x39;
-    m_second_text = new W8TextBuffer(&bounds, 0, 0, 0, 4);
+    m_second_text = new W8TextBuffer(&bounds, {}, 0, 0, 4);
     m_second_text->SetLayoutMode(g_W8TextBufferAlignRight);
 
     int relative_split = split - owner->m_bounds.left;
@@ -94,7 +96,7 @@ W8CharacterPageEntry::W8CharacterPageEntry(Controls* owner, int x, int y, bool c
 }
 
 // FUNCTION: WIZ8 0x005af9e0
-void W8CharacterPageEntry::SetContent(unsigned int id, const wchar_t* label, unsigned int* first,
+void W8CharacterPageEntry::SetContent(unsigned int id, std::string_view label, unsigned int* first,
                                       int* second, int* third, int help_id)
 {
     m_id = id;
@@ -143,8 +145,8 @@ void W8CharacterPageEntry::Redraw()
             DrawCatalogImageAndInvalidate(FRAME_BUFFER, 0x108, 0, 2, m_x, m_y,
                                           VO_BLT_SRCTRANSPARENCY, 0);
         }
-        m_first_text->SetText(FormatWideString(g_format_d, *m_first), g_wiz_text_font_secondary);
-        m_second_text->SetText(FormatWideString(g_format_d, *m_second), g_wiz_text_font_secondary);
+        m_first_text->SetText(fmt::format("{:d}", *m_first), g_wiz_text_font_secondary);
+        m_second_text->SetText(fmt::format("{:d}", *m_second), g_wiz_text_font_secondary);
         m_first_text->FillBounds(0x8000);
         m_second_text->FillBounds(0x8000);
         m_label->RenderToTarget(0, true, FRAME_BUFFER);

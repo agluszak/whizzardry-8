@@ -1,3 +1,7 @@
+#include <fmt/format.h>
+#include "input.h"
+#include <string_view>
+#include "wiz8/unicode.h"
 #include "wiz8/containers.h"
 #include "wiz8/engine_code/AnimRep.hpp"
 #include "wiz8/engine_code/SoundEvent.h"
@@ -283,7 +287,7 @@ try
 
     std::unique_ptr<wiz8::File> handle = [&]() { try { return wiz8::open_file(mon_path, wiz8::OpenMode::read); } catch (const std::exception&) { return std::unique_ptr<wiz8::File>{}; } }();
     if (handle == 0) {
-        ShutdownWithErrorBox(FormatString("Couldn't open %s", mon_path));
+        ShutdownWithErrorBox(fmt::format("Couldn't open {}", mon_path));
     }
 
     info.world = context->world;
@@ -303,7 +307,7 @@ try
     if (!success) {
         srAssertFail(
             "fSuccess", "C:\\Projects\\Wizardry 8\\Engine Code\\GrCycle.cpp", 0x198,
-            FormatString("GrCycle::Read: ERROR - Read %s in %s failed", mon_path, bitmap_path));
+            fmt::format("GrCycle::Read: ERROR - Read {} in {} failed", mon_path, bitmap_path));
     }
     return success;
 } catch (const std::exception&) {
@@ -1410,14 +1414,14 @@ bool W8GrCycle::IsSoleRegisteredCycleForName() const
 }
 
 // FUNCTION: WIZ8 0x004a87a0
-W8GrCycle* FindFirstGrCycleByName(const char* name)
+W8GrCycle* FindFirstGrCycleByName(std::string_view name)
 {
     int name_index;
 
     for (name_index = 0; name_index < static_cast<int>(g_grcycle_names.size()); ++name_index) {
-        if (_stricmp(name, g_grcycle_names[name_index]) == 0) {
+        if (CompareTextIgnoreAsciiCase(name, g_grcycle_names[name_index]) == 0) {
             std::vector<W8GrCycle*>* cycles = g_grcycles_by_name[name_index];
-            if (cycles->empty()) {
+            if (static_cast<int>(cycles->size()) == 0) {
                 srAssertFail("plsCyclesOfThisName->Length()",
                              "C:\\Projects\\Wizardry 8\\Engine Code\\GrCycle.cpp", 0x709, 0);
             }
@@ -1459,9 +1463,9 @@ void RegisterGrCycle(const char* name, W8GrCycle* cycle)
     int name_index;
 
     for (name_index = 0; name_index < static_cast<int>(g_grcycle_names.size()); ++name_index) {
-        if (_stricmp(name, g_grcycle_names[name_index]) == 0) {
+        if (CompareTextIgnoreAsciiCase(name, g_grcycle_names[name_index]) == 0) {
             std::vector<W8GrCycle*>* cycles = g_grcycles_by_name[name_index];
-            if (cycles->empty()) {
+            if (static_cast<int>(cycles->size()) == 0) {
                 srAssertFail("plsCyclesOfThisName->Length()",
                              "C:\\Projects\\Wizardry 8\\Engine Code\\GrCycle.cpp", 0x763, 0);
             }

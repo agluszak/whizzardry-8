@@ -434,7 +434,7 @@ static void AcceptFormationChanges(void)
         ReconcilePartyFormation(&gXStatus.edited_formation, &g_status.formation);
     } else if (memcmp(&g_status.formation, &gXStatus.edited_formation,
                       sizeof(W8PartyFormationState)) != 0) {
-        ShowNotice(W8_FONT_PALETTE_WHITE, gppStringList[0x7d9]);
+        ShowNotice(W8_FONT_PALETTE_WHITE, g_localized_strings[0x7d9]);
     }
     RefreshFormationBoard();
     RefreshRadarMap();
