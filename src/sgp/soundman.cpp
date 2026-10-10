@@ -294,11 +294,8 @@ UINT32 SoundPlay(STR pFilename, SOUNDPARMS* pParms)
 UINT32 SoundPlayStreamedFile(STR pFilename, SOUNDPARMS* pParms)
 {
     UINT32 uiChannel;
-    HANDLE hRealFileHandle;
-    CHAR8 pFileHandlefileName[128];
     CHAR8 filename[260];
     HWFILE hFile;
-    UINT32 uiRetVal = FALSE;
 
     if (fSoundSystemInit) {
         if ((uiChannel = SoundGetFreeChannel()) != SOUND_ERROR) {

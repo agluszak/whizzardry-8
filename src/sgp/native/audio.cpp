@@ -1,7 +1,7 @@
 #include "compat/audio.h"
 #include "FileMan.h"
 #include "LibraryDataBase.h"
-#include "compat/platform.h"
+#include <wiz8/filesystem.h>
 #include "miniaudio.h"
 #include "native/audio_test.h"
 #include "native/movie_audio.h"
@@ -11,6 +11,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <deque>
+#include <limits>
 #include <memory>
 #include <mutex>
 #include <stdexcept>
@@ -22,14 +23,14 @@ struct Source
 {
     ma_data_source_base base{};
     ma_decoder decoder{};
-    HANDLE file = INVALID_HANDLE_VALUE;
+    std::unique_ptr<wiz8::File> file;
     uint64_t start = 0, length = 0, position = 0;
     ma_uint32 channels = 0, rate = 0;
     ma_uint64 frames = 0;
     std::mutex decoder_mutex;
     std::vector<unsigned char> encoded;
     std::atomic<UINT32> loops{1};
-    bool initialized = false;
+    bool decoder_initialized = false, base_initialized = false;
 };
 struct Voice
 {
@@ -110,32 +111,57 @@ const ma_data_source_vtable source_table = {read_pcm,   seek_pcm, format_pcm, cu
                                             length_pcm, nullptr,  0};
 ma_result read_file(ma_decoder* decoder, void* output, size_t size, size_t* read)
 {
+    if (read)
+        *read = 0;
     auto& source = *static_cast<Source*>(decoder->pUserData);
-    DWORD count = 0;
-    DWORD request =
-        std::min<uint64_t>(std::min<uint64_t>(size, UINT32_MAX), source.length - source.position);
-    if (!W8ReadFile(source.file, output, request, &count, nullptr))
+    if (!size)
+        return MA_SUCCESS;
+    if (source.position > source.length || !source.file)
         return MA_IO_ERROR;
-    source.position += count;
-    *read = count;
-    return count ? MA_SUCCESS : MA_AT_END;
+    const auto request = std::min<uint64_t>(size, source.length - source.position);
+    if (!request)
+        return MA_AT_END;
+    try
+    {
+        const auto result = source.file->read(output, request);
+        source.position += result.bytes;
+        if (read)
+            *read = result.bytes;
+        return result.bytes ? MA_SUCCESS : result.eof ? MA_AT_END : MA_IO_ERROR;
+    }
+    catch (...)
+    {
+        return MA_IO_ERROR;
+    }
 }
 ma_result seek_file(ma_decoder* decoder, ma_int64 offset, ma_seek_origin origin)
 {
     auto& source = *static_cast<Source*>(decoder->pUserData);
-    int64_t base = origin == ma_seek_origin_start     ? 0
-                   : origin == ma_seek_origin_current ? source.position
-                                                      : source.length;
+    const auto limit = uint64_t(std::numeric_limits<int64_t>::max());
+    if (!source.file || source.length > limit || source.position > source.length ||
+        source.start > limit - source.length)
+        return MA_BAD_SEEK;
+    const int64_t base = origin == ma_seek_origin_start     ? 0
+                         : origin == ma_seek_origin_current ? int64_t(source.position)
+                         : origin == ma_seek_origin_end     ? int64_t(source.length)
+                                                           : -1;
+    if (base < 0)
+        return MA_BAD_SEEK;
     if (offset < -base || offset > int64_t(source.length) - base)
         return MA_BAD_SEEK;
-    uint64_t position = base + offset;
-    uint64_t absolute = source.start + position;
-    LONG high = LONG(absolute >> 32);
-    DWORD low = W8SetFilePointer(source.file, LONG(absolute), &high, FILE_BEGIN);
-    if (low == INVALID_SET_FILE_POINTER && W8GetLastError())
+    const uint64_t position = base + offset;
+    try
+    {
+        if (source.file->seek(int64_t(source.start + position), wiz8::SeekOrigin::begin) !=
+            int64_t(source.start + position))
+            return MA_BAD_SEEK;
+        source.position = position;
+        return MA_SUCCESS;
+    }
+    catch (...)
+    {
         return MA_BAD_SEEK;
-    source.position = position;
-    return MA_SUCCESS;
+    }
 }
 void clear(Voice& voice)
 {
@@ -144,18 +170,19 @@ void clear(Voice& voice)
         ma_sound_uninit(&voice.sound);
         voice.initialized = false;
     }
-    if (voice.source.initialized)
+    if (voice.source.decoder_initialized)
     {
         ma_decoder_uninit(&voice.source.decoder);
+        voice.source.decoder_initialized = false;
+    }
+    if (voice.source.base_initialized)
+    {
         ma_data_source_uninit(&voice.source.base);
-        voice.source.initialized = false;
+        voice.source.base_initialized = false;
     }
     voice.source.encoded.clear();
-    if (voice.source.file != INVALID_HANDLE_VALUE)
-    {
-        W8CloseHandle(voice.source.file);
-        voice.source.file = INVALID_HANDLE_VALUE;
-    }
+    voice.source.file.reset();
+    voice.source.start = voice.source.length = voice.source.position = 0;
 }
 } // namespace
 struct _SAMPLE : Voice
@@ -182,11 +209,12 @@ bool attach(Voice& voice, bool spatial, ma_result result)
 {
     if (record(result) != MA_SUCCESS)
         return false;
-    voice.source.initialized = true;
+    voice.source.decoder_initialized = true;
     auto config = ma_data_source_config_init();
     config.vtable = &source_table;
     if (record(ma_data_source_init(&config, &voice.source.base)) != MA_SUCCESS)
         return false;
+    voice.source.base_initialized = true;
     if (record(ma_decoder_get_data_format(&voice.source.decoder, nullptr, &voice.source.channels,
                                           &voice.source.rate, nullptr, 0)) != MA_SUCCESS)
         return false;
@@ -367,36 +395,46 @@ HSTREAM AIL_open_stream(HDIGDRIVER driver, const char* path, S32)
 {
     if (!driver || !path)
         return nullptr;
-    HWFILE file = FileOpen(const_cast<char*>(path), FILE_ACCESS_READ | FILE_OPEN_EXISTING, FALSE);
-    if (!file)
-        return nullptr;
-    auto stream = std::make_unique<_STREAM>();
-    stream->driver = driver;
-    stream->source.length = FileGetSize(file);
-    if (DB_EXTRACT_LIBRARY(file) == REAL_FILE_LIBRARY_ID)
+    try
     {
-        FileClose(file);
-        stream->source.file =
-            W8CreateFile(path, GENERIC_READ, FILE_SHARE_READ, nullptr, OPEN_EXISTING, 0, nullptr);
+        auto stream = std::make_unique<_STREAM>();
+        stream->driver = driver;
+        auto& source = stream->source;
+        const auto status = wiz8::file_status(path);
+        if (status)
+        {
+            source.file = wiz8::open_file(path);
+            source.length = source.file->size();
+        }
+        else
+        {
+            struct LibraryEntry
+            {
+                HWFILE file;
+                ~LibraryEntry() { if (file) FileClose(file); }
+            } entry{FileOpen(const_cast<char*>(path), FILE_ACCESS_READ | FILE_OPEN_EXISTING, FALSE)};
+            if (!entry.file)
+                return nullptr;
+            source.length = FileGetSize(entry.file);
+            source.file.reset(OpenLibraryStream(entry.file));
+        }
+        if (!source.file)
+            throw std::runtime_error("Cannot open audio stream");
+        source.start = source.file->tell();
+        const auto size = uint64_t(source.file->size());
+        if (source.start > size || source.length > size - source.start)
+            throw std::runtime_error("Audio stream exceeds its file");
+        auto config = ma_decoder_config_init(ma_format_f32, 0, 0);
+        if (!attach(*stream, false,
+                    ma_decoder_init(read_file, seek_file, &source, &config, &source.decoder)))
+            return nullptr;
+        return stream.release();
     }
-    else
+    catch (const std::exception& failure)
     {
-        stream->source.file = OpenLibraryStream(file);
-        FileClose(file);
+        snprintf(last_error, sizeof(last_error), "Audio stream: %s", failure.what());
+        return nullptr;
     }
-    if (stream->source.file == INVALID_HANDLE_VALUE)
-        return nullptr;
-    LONG high = 0;
-    DWORD low = W8SetFilePointer(stream->source.file, 0, &high, FILE_CURRENT);
-    if (low == INVALID_SET_FILE_POINTER && W8GetLastError())
-        return nullptr;
-    stream->source.start = (uint64_t(uint32_t(high)) << 32) | low;
-    auto config = ma_decoder_config_init(ma_format_f32, 0, 0);
-    if (!attach(*stream, false,
-                ma_decoder_init(read_file, seek_file, &stream->source, &config,
-                                &stream->source.decoder)))
-        return nullptr;
-    return stream.release();
 }
 void AIL_close_stream(HSTREAM stream)
 {
