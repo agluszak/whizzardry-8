@@ -10,6 +10,8 @@
 #include "wiz8/engine_code/IntervalGate.h"
 #include "wiz8/wiz8_windows.h"
 
+namespace wiz8 { class File; }
+
 /* Current-level movement state. Contact is refreshed by walkable-surface
    response; movement can stop at its distance limit or through a reset.
    Fast movement selects the running stamina/noise path. */
@@ -208,7 +210,7 @@ struct W8GameData {
     /* Reads one WGD vertex/polygon list: counts, the scaled vertex bank with
        unscaled bounds tracking, the face records, and — for the non-primary
        pass — the interface name and conditional-face records. */
-    unsigned char ReadWGDList(HANDLE file, int poly_type);
+    unsigned char ReadWGDList(wiz8::File& file, int poly_type);
     /* Builds m_pInterfaces/m_pStates/m_piCondPolys from the {interface id,
        surface index, group} triples collected by ReadWGDList. */
     void CompileGDInterfaces(const int* records, int count);

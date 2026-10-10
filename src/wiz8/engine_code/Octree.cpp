@@ -61,7 +61,6 @@
 #include <math.h>
 #include <time.h>
 #include "surrender/srModelInstance.h"
-#include "compat/platform.h"
 
 #define OCTREE_CPP "C:\\Projects\\Wizardry 8\\Engine Code\\Octree.cpp"
 
@@ -989,9 +988,8 @@ bool W8Octree::LoadPointFiles(const char* level_name)
 /* Write the octree's point array to a companion file.
 
    The level path supplies the base name and its existing extension is
-   replaced with the point-file extension. A read-only file is made writable
-   first. The count precedes the records, and the result reports either
-   write. */
+   replaced with the point-file extension. Writes target the mutable overlay.
+   The count precedes the records, and the result reports either write. */
 // FUNCTION: WIZ8 0x00432d60
 BOOLEAN W8Octree::SavePoints(char* path)
 {
@@ -1004,11 +1002,6 @@ BOOLEAN W8Octree::SavePoints(char* path)
         *extension = '\0';
     }
     strcat(name, g_octree_point_extension);
-    if (FileExists(name) != 0) {
-        if (_access(name, 2) != 0) {
-            _chmod(name, 0x180);
-        }
-    }
     int file = FileOpen(name, 2, 0);
     if (file != 0) {
         if (m_point_count != 0 && m_sample_points != 0) {
@@ -1466,10 +1459,7 @@ void W8Octree::BuildRegionLinks(bool rebuild_all)
         }
         strcat(point_path, g_octree_point_extension);
         if (FileExists(point_path)) {
-            if (_access(point_path, 2) != 0) {
-                _chmod(point_path, 0x180);
-            }
-            W8DeleteFile(point_path);
+            FileDelete(point_path);
         }
         delete[] m_sample_points;
         m_sample_points = 0;
@@ -1564,11 +1554,6 @@ BOOLEAN W8Octree::SaveRegionLinks(char* path)
         *extension = '\0';
     }
     strcat(name, g_region_link_extension);
-    if (FileExists(name) != 0) {
-        if (_access(name, 2) != 0) {
-            _chmod(name, 0x180);
-        }
-    }
     file = FileOpen(name, 2, 0);
     if (file == 0) {
         goto cleanup;
