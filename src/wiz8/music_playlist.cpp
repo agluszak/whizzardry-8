@@ -97,8 +97,8 @@ int AnalyzeMusicPlaylist(stScript* playlist, int* total_weight)
     bool found_unweighted = false;
 
     *total_weight = 0;
-    for (int index = 0; index < static_cast<int>(playlist->lines.size()); ++index) {
-        const char* line = playlist->lines[index].text.c_str();
+    for (const auto& entry : playlist->lines) {
+        const char* line = entry.text.c_str();
 
         if (line[0] == '#') {
             if (_strnicmp(line + 1, "PAUSEMIN=", 9) == 0) {

@@ -17,7 +17,6 @@ struct stScriptLabel {
 /* Owns parsed script lines and labels. */
 class stScript {
 public:
-
     const std::string& getName() const
     {
         return name;
@@ -29,7 +28,7 @@ public:
 
     int FindLabelLine(std::string_view label) const;
     int GetSourceLine(int line) const;
-    unsigned char Load(const char* path);
+    bool Load(const char* path);
     void Clear();
 
     std::string name;

@@ -695,7 +695,7 @@ unsigned short g_empty_ambient_name;
 unsigned char ReadAmbientSoundListFile(char* filename)
 {
     std::unique_ptr<wiz8::File> handle;
-    unsigned char more = 1;
+    bool more = true;
     char directory[260];
     char name[260];
     char path[260];
@@ -708,15 +708,15 @@ unsigned char ReadAmbientSoundListFile(char* filename)
     if (handle == 0) {
         return 0;
     }
-    ReadTextLine(handle.get(), directory, 100, &more);
-    while (more != 0) {
+    ReadTextLine(handle.get(), directory, 100, more);
+    while (more) {
         int index;
         for (index = 0; index < 10; ++index) {
             configured[index] = -1;
         }
         memset(&direct, -1, sizeof(direct));
         memset(line, 0, sizeof(line));
-        ReadTextLine(handle.get(), line, sizeof(line), &more);
+        ReadTextLine(handle.get(), line, sizeof(line), more);
         if (strlen(line) != 0) {
             sscanf(line, "%s %d %d %d %d %d %d %d", name, &configured[2], &configured[3],
                    &configured[4], &configured[5], &configured[0], &configured[1],

@@ -1,50 +1,44 @@
+#pragma once
+
+#include <memory>
+#include <string>
 #include <vector>
-struct W8AniMesh;
 #include "wiz8/filesystem.h"
-#ifndef WIZ8_ENGINE_CODE_ANI_MESH_H
-#define WIZ8_ENGINE_CODE_ANI_MESH_H
-
-#include <stddef.h>
-
 #include "surrender/srMath.h"
-#include <algorithm>
 
 class stModelInstance;
 struct W8ReadLevelInfo;
 struct W8World;
 
-/* Engine Code\AniMesh.cpp. The class name and string members are
-   assertion-backed. Construction, copying, unloading, and frame lookup prove
-   the remaining storage roles. */
 struct W8AniMesh {
+    W8AniMesh();
+    W8AniMesh(const W8AniMesh& other);
+    W8AniMesh& operator=(const W8AniMesh&) = delete;
+    ~W8AniMesh();
+
     struct State {
-        bool loaded : 1;
-        bool frame_count_loaded : 1;
-        bool radius_loaded : 1;
-        bool keep_loaded : 1;
-        bool cache_protected : 1;
-        bool single_instance : 1;
-        unsigned char reserved : 2;
+        bool loaded = false;
+        bool frame_count_loaded = false;
+        bool radius_loaded = false;
+        bool keep_loaded = false;
+        bool cache_protected = false;
+        bool single_instance = false;
     };
 
-    State flags;                      /* 0x00: runtime cache state, not a disk byte */
-    unsigned char frame_count;        /* 0x01 */
-    stModelInstance** meshes;         /* 0x04: ppsrMeshes */
-    glm::vec3 bounds_minimum;         /* 0x08 */
-    glm::vec3 bounds_maximum;         /* 0x14 */
-    float radius;                     /* 0x20 */
-    unsigned int loaded_bytes;        /* 0x24 */
-    signed char list_index;           /* 0x28 */
-    char* bitmap_directory;           /* 0x2c: strBitmapDir */
-    char* filename;                   /* 0x30: strFilename */
-    int file_offset;                  /* 0x34 */
-    W8World* world;                   /* 0x38 */
-    int last_used;                    /* 0x3c */
-}; /* 0x40 */
-
-W8_ABI_ASSERT(sizeof(W8AniMesh::State) == 1, "W8AniMesh_state_size");
-W8_ABI_ASSERT(offsetof(W8AniMesh, frame_count) == 1, "W8AniMesh_frame_count_offset");
-W8_ABI_ASSERT(sizeof(W8AniMesh) == 0x40, "W8AniMesh_minimum_size_must_be_0x40");
+    State flags{};
+    unsigned char frame_count{};
+    std::vector<std::unique_ptr<stModelInstance>> meshes;
+    glm::vec3 bounds_minimum{0, 0, 0};
+    glm::vec3 bounds_maximum{0, 0, 0};
+    float radius{};
+    unsigned int loaded_bytes{};
+    signed char list_index{};
+    std::string bitmap_directory;
+    std::string filename;
+    int file_offset{};
+    W8World* world{};
+    int last_used{};
+};
 
 extern int g_animesh_cache_stamp;
 extern int g_animesh_cache_bytes;
@@ -54,21 +48,18 @@ extern std::vector<W8AniMesh*> g_animesh_cache_list;
 
 void InitializeAniMeshCache(int primary_limit, int secondary_limit);
 void FreeAniMeshCache(void);
-W8AniMesh* CreateAniMesh();
-W8AniMesh* CopyAniMesh(const W8AniMesh* other);
+
 float GetAniMeshFrameRadius(W8AniMesh* mesh, unsigned char frame);
-unsigned char GetAniMeshBounds(W8AniMesh* mesh, srVector3T<float>* minimum,
+bool GetAniMeshBounds(W8AniMesh* mesh, srVector3T<float>* minimum,
                                srVector3T<float>* maximum);
-unsigned char LoadAniMesh(wiz8::File* file, W8AniMesh* mesh, bool load_all);
-unsigned char LoadAniMeshFromInfo(W8ReadLevelInfo* info, W8AniMesh* mesh, unsigned char load_all);
-unsigned char UnloadAniMesh(W8AniMesh* mesh, bool force);
+bool LoadAniMesh(wiz8::File* file, W8AniMesh* mesh, bool load_all);
+bool LoadAniMeshFromInfo(W8ReadLevelInfo* info, W8AniMesh* mesh, bool load_all);
+bool UnloadAniMesh(W8AniMesh* mesh, bool force);
 stModelInstance* GetAniMeshFrame(W8AniMesh* mesh, unsigned char frame);
-void DestroyAniMesh(W8AniMesh* mesh);
+
 unsigned char AniMeshValue(W8AniMesh* mesh);
 bool AniMeshRadius(W8AniMesh* mesh, float* radius);
 /* Two parameters, not three: the retail body reads its flag from the second
    stack slot, and GrCycle's 0x004A7470 pushes exactly the pair. */
 void SetAniMeshCacheProtected(W8AniMesh* mesh, bool enabled);
 void EnforceAniMeshMemoryLimit(W8AniMesh* current);
-
-#endif

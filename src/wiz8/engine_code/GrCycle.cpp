@@ -365,7 +365,7 @@ try
             srAssertFail("fSuccess", "C:\\Projects\\Wizardry 8\\Engine Code\\GrCycle.cpp", 0x1e6,
                          0);
         } else {
-            (*cycle)->m_pAI = path;
+            (*cycle)->m_pAI.reset(path);
         }
     }
 
@@ -640,12 +640,10 @@ void W8GrCycle::TickAnimation(float scale)
                     if (ApplyPendingCycle() != 0) {
                         frames = 0;
                     }
-                    if (m_plsSoundEvents != 0) {
-                        UpdateSoundEvents(m_plsSoundEvents, &position,
-                                          W8_SOUND_EVENT_FRAME | W8_SOUND_EVENT_FOOTSTEP,
-                                          representation->current_cycle, representation->subcycle,
-                                          representation->current_subcycle);
-                    }
+                    UpdateSoundEvents(sound_events, position,
+                                      W8_SOUND_EVENT_FRAME | W8_SOUND_EVENT_FOOTSTEP,
+                                      representation->current_cycle, representation->subcycle,
+                                      representation->current_subcycle);
                     if (m_plsShakeEvents != 0) {
                         TriggerShakeEffects(m_plsShakeEvents, representation->current_cycle,
                                             representation->subcycle,
@@ -697,12 +695,10 @@ unsigned char W8GrCycle::ApplyPendingCycle()
         }
 
         srVector3T<float> position = GetPosition();
-        if (m_plsSoundEvents != 0) {
-            UpdateSoundEvents(m_plsSoundEvents, &position,
-                              W8_SOUND_EVENT_FRAME | W8_SOUND_EVENT_CYCLE | W8_SOUND_EVENT_FOOTSTEP,
-                              representation->current_cycle, representation->subcycle,
-                              representation->current_subcycle);
-        }
+        UpdateSoundEvents(sound_events, position,
+                          W8_SOUND_EVENT_FRAME | W8_SOUND_EVENT_CYCLE | W8_SOUND_EVENT_FOOTSTEP,
+                          representation->current_cycle, representation->subcycle,
+                          representation->current_subcycle);
         if (m_plsShakeEvents != 0) {
             TriggerShakeEffects(m_plsShakeEvents, representation->current_cycle,
                                 representation->subcycle, representation->current_subcycle,
@@ -857,7 +853,7 @@ void W8GrCycle::ResetRepresentation()
     if (target == 0) {
         srAssertFail("pRep", "C:\\Projects\\Wizardry 8\\Engine Code\\GrCycle.cpp", 0x3ae, 0);
     }
-    PathAIResetRecord(static_cast<W8PathAI*>(m_pAI));
+    PathAIResetRecord(m_pAI.get());
     target->frame_direction = W8_ANIMATION_FORWARD;
     target->subcycle = 0;
     target->timer = g_shared_timer_base->milliseconds();
@@ -1275,7 +1271,7 @@ srModelInstance* W8GrCycle::SelectCycleFrameLod(signed char cycle, signed char f
     }
     if (m_pAI != 0) {
         target = GetRepresentation();
-        PathAIApplyToRep(m_pAI, target);
+        PathAIApplyToRep(m_pAI.get(), target);
     }
     target = GetRepresentation();
     return target->SetCycleFrameLod(cycle, frame, lod);
@@ -1284,10 +1280,7 @@ srModelInstance* W8GrCycle::SelectCycleFrameLod(signed char cycle, signed char f
 // FUNCTION: WIZ8 0x004a8400
 unsigned char W8GrCycle::ReplacePath(W8PathAI* path)
 {
-    if (m_pAI != 0) {
-        DestroyOwnedPathAI(static_cast<W8PathAI*>(m_pAI));
-    }
-    m_pAI = path;
+    m_pAI.reset(path);
     return 1;
 }
 

@@ -1394,10 +1394,10 @@ void W8Octree::BuildRegionLinks(bool rebuild_all)
         for (int camera_index = 0; camera_index < static_cast<int>(camera_count); ++camera_index) {
             W8CameraPath* entry = GetWorldCameraPath(world, camera_index);
             if (entry != 0 && entry->path != 0) {
-                for (int node_index = 0; node_index < static_cast<int>(entry->path->nodes->size());
+                for (int node_index = 0; node_index < static_cast<int>(entry->path->nodes.size());
                      ++node_index) {
                     unsigned int key =
-                        SampleRegionLinks((*entry->path->nodes)[node_index], true, true, 0);
+                        SampleRegionLinks(&entry->path->nodes[node_index], true, true, 0);
                     RecordRegionMeshLinks(key);
                 }
             }

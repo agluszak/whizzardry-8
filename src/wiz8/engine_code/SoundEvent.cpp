@@ -20,15 +20,10 @@
 
 #define SOUNDEVENT_CPP "C:\\Projects\\Wizardry 8\\Engine Code\\SoundEvent.cpp"
 
-/* Releases the two things a sound event owns: the copied wave name, and the
-   playing handle, but only when the event was created with the flag that says
-   it started one. */
+// Looping events own the voice they start.
 // FUNCTION: WIZ8 0x004d5770
 W8SoundEvent::~W8SoundEvent()
 {
-    if (m_pacWaveName != 0) {
-        delete[] m_pacWaveName;
-    }
     if (looping && sound_handle != -1) {
         SoundStop(sound_handle);
     }
@@ -37,42 +32,15 @@ W8SoundEvent::~W8SoundEvent()
 /* The wave name is copied into storage the event owns and its destructor
    releases. */
 // FUNCTION: WIZ8 0x004d57a0
-W8SoundEvent* CreateSoundEvent(W8SoundEventKind kind, int cycle, int frame, int subcycle,
-                               const char* wave_name, bool looping)
+W8SoundEvent::W8SoundEvent(W8SoundEventKind kind, int cycle, int frame, int subcycle,
+                         std::string wave_name, bool looping)
+    : kind(kind), cycle(cycle), frame(frame), subcycle(subcycle),
+      wave_name(std::move(wave_name)), looping(looping)
 {
-    W8SoundEvent* pSndEvent = new W8SoundEvent();
-
-    if (pSndEvent == 0) {
-        srAssertFail("pSndEvent", SOUNDEVENT_CPP, 0x70, "SoundEvent: Out of memory");
-    }
-    pSndEvent->kind = kind;
-    pSndEvent->cycle = cycle;
-    pSndEvent->frame = frame;
-    pSndEvent->subcycle = subcycle;
-    pSndEvent->m_pacWaveName = new char[strlen(wave_name) + 2];
-    pSndEvent->looping = looping;
-    if (pSndEvent->m_pacWaveName == 0) {
-        srAssertFail("pSndEvent->m_pacWaveName", SOUNDEVENT_CPP, 0x79, "SoundEvent: Out of memory");
-    }
-    strcpy(pSndEvent->m_pacWaveName, wave_name);
-    return pSndEvent;
 }
 
-/* Candidate list, chosen index, and previous choice. The list is reused for
-   every mask bit, so it is cleared before each scan instead of reallocated;
-   the static initializer constructs it with capacity five. */
-// GLOBAL: WIZ8 0x00683408
-std::vector<W8SoundEvent*> g_sound_event_candidates;
-
-/* The static initializer above emits this specialization's capacity ctor.
-   0x005ED098 is its construction-phase table; the final table and both
-   deleting destructors carry their markers in GrObject.cpp. */
-
-// GLOBAL: WIZ8 0x00683418
-static int g_selected_sound_event;
-
 // GLOBAL: WIZ8 0x0061095c
-static int g_last_sound_event = 0x1869f;
+static int g_last_sound_event = -1;
 
 // GLOBAL: WIZ8 0x00683420
 static int g_previous_footstep_variant;
@@ -81,87 +49,54 @@ static int g_previous_footstep_variant;
    own classification matches, then play one of them at random without
    repeating the previous choice for as long as a second candidate exists. */
 // FUNCTION: WIZ8 0x004d5890
-unsigned char UpdateSoundEvents(std::vector<W8SoundEvent*>* events,
-                                const srVector3T<float>* position, unsigned int event_mask,
-                                int cycle, int frame, int subcycle)
+void UpdateSoundEvents(const std::vector<std::unique_ptr<W8SoundEvent>>& events,
+                       const srVector3T<float>& position, unsigned int event_mask,
+                       int cycle, int frame, int subcycle)
 {
-    unsigned int bit = 1;
-
-    if (events == 0) {
-        return 0;
-    }
-    int count = static_cast<int>(events->size());
-    if (count == 0) {
-        return 0;
-    }
-    do {
-        if ((bit & event_mask) != 0) {
-            int candidate_count = 0;
-            int index;
-
-            g_sound_event_candidates.clear();
-            for (index = 0; index < count; ++index) {
-                W8SoundEvent* event = (*events)[index];
-                unsigned int kind = event->kind;
-
-                if ((bit & kind) == 0 || (event_mask & kind) == 0) {
-                    continue;
-                }
-                if (kind == W8_SOUND_EVENT_FRAME || kind == W8_SOUND_EVENT_FOOTSTEP) {
-                    if ((event->cycle != -1 && event->cycle != cycle) || event->frame != frame ||
-                        event->subcycle != subcycle) {
-                        continue;
-                    }
-                } else if (kind == W8_SOUND_EVENT_CYCLE) {
-                    if (event->cycle != cycle || event->subcycle != subcycle) {
-                        continue;
-                    }
-                }
-                g_sound_event_candidates.push_back(event);
-                candidate_count = static_cast<int>(g_sound_event_candidates.size());
+    std::vector<W8SoundEvent*> candidates;
+    for (unsigned int bit = 1; bit != 0; bit <<= 1) {
+        if ((bit & event_mask) == 0) continue;
+        candidates.clear();
+        for (const auto& event : events) {
+            const auto kind = event->kind;
+            if ((bit & kind) == 0) continue;
+            if (kind == W8_SOUND_EVENT_FRAME || kind == W8_SOUND_EVENT_FOOTSTEP) {
+                if ((event->cycle != -1 && event->cycle != cycle) || event->frame != frame ||
+                    event->subcycle != subcycle) continue;
+            } else if (kind == W8_SOUND_EVENT_CYCLE) {
+                if (event->cycle != cycle || event->subcycle != subcycle) continue;
             }
-            if (candidate_count != 0) {
-                W8SoundEvent* selected;
-
-                do {
-                    g_selected_sound_event = static_cast<int>(Random(candidate_count));
-                    if (static_cast<int>(g_sound_event_candidates.size()) < 2) {
-                        break;
-                    }
-                    candidate_count = static_cast<int>(g_sound_event_candidates.size());
-                } while (g_selected_sound_event == g_last_sound_event);
-                selected = g_sound_event_candidates[g_selected_sound_event];
-                if (selected->Play(event_mask, position, cycle, frame, subcycle)) {
-                    g_last_sound_event = g_selected_sound_event;
-                }
-            }
+            candidates.push_back(event.get());
         }
-        bit <<= 1;
-    } while (bit != 0);
-    return 1;
+        if (candidates.empty()) continue;
+        int selected;
+        do {
+            selected = static_cast<int>(Random(candidates.size()));
+        } while (candidates.size() > 1 && selected == g_last_sound_event);
+        if (candidates[selected]->Play(position, cycle)) g_last_sound_event = selected;
+    }
 }
 
 /* Resolve one event into a positional 3D play: decide the base volume from
    the event's own routing, rotate the listener offset into the camera frame,
    and let the ground/step branch rebuild the wave name before the play. */
 // FUNCTION: WIZ8 0x004d5a10
-unsigned char W8SoundEvent::Play(unsigned int mask, const srVector3T<float>* position, int cycle,
-                                 unsigned int frame, int subcycle)
+bool W8SoundEvent::Play(const srVector3T<float>& position, int cycle)
 {
     W8Monster* monster = 0;
     bool track_sound = false;
 
     if (IsSoundEffectsMuted() || !Chance(probability)) {
-        return 0;
+        return false;
     }
     float angle = -GetCameraYawRadians();
     unsigned int base_volume = 0x78;
     srVector3T<float> camera_position;
 
     GetCameraPosition(&camera_position);
-    srVector3T<float> camera_offset = camera_position - *position;
+    srVector3T<float> camera_offset = camera_position - position;
     if (camera_offset.Length() < falloff) {
-        if (kind == W8_SOUND_EVENT_FOOTSTEP || strstr(m_pacWaveName, "step") != 0 ||
+        if (kind == W8_SOUND_EVENT_FOOTSTEP || wave_name.contains("step") ||
             (location_id != 0 && cycle == 4)) {
             base_volume = footstep_volume;
             track_sound = true;
@@ -172,7 +107,7 @@ unsigned char W8SoundEvent::Play(unsigned int mask, const srVector3T<float>* pos
                 }
             }
         } else if (volume_min == 0 && volume_max == 0) {
-            if (strchr(m_pacWaveName, '+') != 0) {
+            if (wave_name.contains('+')) {
                 base_volume = 0x87;
             }
         } else {
@@ -185,7 +120,7 @@ unsigned char W8SoundEvent::Play(unsigned int mask, const srVector3T<float>* pos
         rotation = glm::mat3(1);
         rotation *= glm::mat3_cast(glm::angleAxis(float(angle), glm::vec3(0, 1, 0)));
 
-        srVector3T<float> offset = *position - camera_position;
+        srVector3T<float> offset = position - camera_position;
         srVector3T<float> transformed = rotation * offset.glmValue();
         float x = transformed.x;
         float y = transformed.y;
@@ -216,9 +151,6 @@ unsigned char W8SoundEvent::Play(unsigned int mask, const srVector3T<float>* pos
             options.Pos.uiVolume = event_volume;
 
             if (kind == W8_SOUND_EVENT_FOOTSTEP) {
-                if (position == 0) {
-                    srAssertFail("vPos", SOUNDEVENT_CPP, 0x121, 0);
-                }
                 int variant;
                 int attempts = 0;
                 do {
@@ -233,30 +165,26 @@ unsigned char W8SoundEvent::Play(unsigned int mask, const srVector3T<float>* pos
                 char path[260];
                 char surface;
                 char material;
-                GetGroundSurfaceInfo(position, &surface, &material);
+                GetGroundSurfaceInfo(&position, &surface, &material);
                 /* Retail hardcodes the surface to OutdoorsFlat here: the query
                    result that matters for the path is the material. */
                 BuildFootstepPath(path, W8_FOOTSTEP_SURFACE_OUTDOORS_FLAT, material,
                                   W8_FOOTSTEP_KIND_STEP, variant);
-                delete[] m_pacWaveName;
-                m_pacWaveName = new char[strlen(path) + 1];
-                strcpy(m_pacWaveName, path);
+                wave_name = path;
             }
-            char* marker = strchr(m_pacWaveName, '!');
-            options.uiPitchBend = marker != 0 ? 0 : 20;
-            marker = strchr(m_pacWaveName, '+');
-            if (marker != 0) {
+            options.uiPitchBend = wave_name.contains('!') ? 0 : 20;
+            if (wave_name.contains('+')) {
                 options.Pos.flFalloffMax += options.Pos.flFalloffMax;
                 options.Pos.flFalloffMin += options.Pos.flFalloffMin;
             }
-            sound_handle = Sound3DPlay(m_pacWaveName, &options);
+            sound_handle = Sound3DPlay(wave_name.data(), &options);
             if (sound_handle == -1) {
-                return 0;
+                return false;
             }
             if (track_sound && monster != 0) {
                 monster->TrackSoundHandle(sound_handle);
             }
         }
     }
-    return 1;
+    return true;
 }

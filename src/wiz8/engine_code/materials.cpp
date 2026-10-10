@@ -1552,7 +1552,7 @@ static unsigned char* ClassifyTextures(W8MaterialRecord* textures, int count, ch
     char texture[1024];
     std::string path;
     char message[1024];
-    unsigned char more;
+    bool more;
     unsigned char* kinds;
     int missing;
     int index;
@@ -1620,7 +1620,7 @@ static unsigned char* ClassifyTextures(W8MaterialRecord* textures, int count, ch
                     ReportBuildStatus(5, message);
                 } else {
                     if (path.size() >= 4 && SDL_strcasecmp(path.c_str() + path.size() - 4, ".ifl") == 0) {
-                        ReadTextLine(file.get(), texture, 0x3ff, &more);
+                        ReadTextLine(file.get(), texture, 0x3ff, more);
                         if (file) file->close();
                         file.reset();
                         path = fmt::format("{}{}", folder, texture);

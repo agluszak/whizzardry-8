@@ -83,7 +83,7 @@ W8Prop::W8Prop()
     }
 }
 
-/* Copy keeps animation through CloneAnimObj and rebuilds an empty slot vector
+/* Copy constructs an independent animation and rebuilds an empty slot vector
    with the source capacity.  Clone's vtable slot allocates 0xc4 and lands here. */
 // FUNCTION: WIZ8 0x0044ad10
 W8PropRepresentation::W8PropRepresentation(const W8PropRepresentation& other)
@@ -93,7 +93,7 @@ W8PropRepresentation::W8PropRepresentation(const W8PropRepresentation& other)
       frame_steps(other.frame_steps), slots(), footstep_surface(other.footstep_surface),
       footstep_material(other.footstep_material)
 {
-    animation = CloneAnimObj(other.animation);
+    animation = new W8AnimObj(*other.animation);
 }
 
 // FUNCTION: WIZ8 0x0044ae30
@@ -105,9 +105,7 @@ W8PropRepresentation::~W8PropRepresentation()
         delete slots[index];
     }
     slots.clear();
-    if (animation != 0) {
-        DestroyAnimObj(animation);
-    }
+    delete animation;
 }
 
 // FUNCTION: WIZ8 0x0044ef80
@@ -631,7 +629,7 @@ void W8Prop::UpdatePropAnimation()
             } else {
                 rep->frame_index = rep->subcycle;
             }
-            PathAISetValue(animation->path, static_cast<float>(rep->frame_index));
+            PathAISetValue(animation->path.get(), static_cast<float>(rep->frame_index));
         }
     }
     if (rep->animation_playing == 0) {
@@ -917,11 +915,11 @@ void W8Prop::ApplyAnimationFrame()
         if (mesh == 0) {
             srAssertFail("psrMesh", PROP_CPP, 0x581, 0);
         }
-        path = static_cast<W8PropRepresentation*>(m_pRep)->animation->path;
+        path = static_cast<W8PropRepresentation*>(m_pRep)->animation->path.get();
         if (path != 0) {
             PathAISetValue(
                 path, static_cast<float>(static_cast<W8PropRepresentation*>(m_pRep)->subcycle));
-            PathAIApply(static_cast<W8PropRepresentation*>(m_pRep)->animation->path, mesh);
+            PathAIApply(static_cast<W8PropRepresentation*>(m_pRep)->animation->path.get(), mesh);
         }
         return;
     }
@@ -1041,11 +1039,11 @@ void W8Prop::AttachAnimationInstances(W8World* world)
                 rotation = glm::mat3_cast(glm::normalize(interpolated_rotation));
             }
             animation_rotation = rotation;
-            current = *(*path->nodes)[Rep()->subcycle];
-            next_pos = *(*path->nodes)[next_frame];
+            current = path->nodes[Rep()->subcycle];
+            next_pos = path->nodes[next_frame];
             inv = g_float_one - anim_frame_fraction;
             position = current * inv + next_pos * anim_frame_fraction;
-            if (path->scales != 0) {
+            if (!path->scales.empty()) {
                 has_scales = true;
                 current_scale = path->scales[Rep()->subcycle];
                 next_scale = path->scales[next_frame];
@@ -1093,7 +1091,7 @@ void W8Prop::AttachAnimationInstances(W8World* world)
             instance->render_flags |= stModelInstance::RENDER_NO_PICK;
         }
         if (Rep()->animation->path != 0) {
-            PathAIApply(Rep()->animation->path, instance);
+            PathAIApply(Rep()->animation->path.get(), instance);
         } else {
             Rep()->GetLocation(&rep_position);
             Rep()->GetRotation(&rep_rotation);
@@ -1465,7 +1463,7 @@ try
             }
         }
         info->mesh_filename = 0;
-        mesh = CreateAniMesh();
+        mesh = new W8AniMesh;
         if (mesh == 0) {
             srAssertFail("pAniMesh", PROP_CPP, 0xd5, 0);
         }
@@ -1475,8 +1473,8 @@ try
             result = false;
             goto fail_with_result;
         }
-        animation = CreateAnimObj();
-        animation->entries[2] = mesh;
+        animation = new W8AnimObj;
+        animation->entries[2].reset(mesh);
         animation->group_count = 1;
         animation->animation_playing = b0;
         animation->frame_method = b1;
@@ -1565,7 +1563,7 @@ try
                 this->slots.push_back(slot);
             }
         }
-        animation = CreateAnimObj();
+        animation = new W8AnimObj;
         result = AnimObjReadFromFile(info, animation, 1, 0, 1);
         this->animation = animation;
         if (AnimationIsRunning(animation) == 1) {
@@ -1612,9 +1610,9 @@ try
         for (entry_index = 0; entry_index < list_count; ++entry_index) {
             W8PathAI* path = AnimObjListEntry(animation, 2, static_cast<signed char>(entry_index));
             if (path != 0) {
-                PathAISetLooping(path, 1);
-                PathAISetDiscreteMode(path, 1);
-                PathAISetScale(path, animation->playback_scale);
+                path->looping = true;
+                path->discrete_mode = true;
+                path->speed = animation->playback_scale;
             }
         }
     }
@@ -1772,7 +1770,7 @@ void W8Prop::CollectModelInstances(std::vector<stModelInstance*>& instances)
     }
     if (!AnimationIsRunning(animation)) {
         for (int group = 0; group < 3; ++group) {
-            W8AniMesh* mesh = animation->entries[group];
+            W8AniMesh* mesh = animation->entries[group].get();
             if (mesh == 0) {
                 continue;
             }
@@ -1787,13 +1785,8 @@ void W8Prop::CollectModelInstances(std::vector<stModelInstance*>& instances)
         }
     } else if (AnimationIsRunning(animation) == 1) {
         for (int group = 0; group < 3; ++group) {
-            std::vector<W8AniMesh*>* meshes = animation->meshes[group];
-            if (meshes == 0) {
-                continue;
-            }
-            int mesh_count = (meshes ? meshes->size() : 0);
-            for (int index = 0; index < mesh_count; ++index) {
-                W8AniMesh* mesh = (*meshes)[index];
+            for (const auto& owned_mesh : animation->meshes[group]) {
+                auto* mesh = owned_mesh.get();
                 if (mesh == 0) {
                     continue;
                 }

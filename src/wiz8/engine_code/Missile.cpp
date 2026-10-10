@@ -73,24 +73,12 @@
 
 #define MISSILE_CPP "C:\\Projects\\Wizardry 8\\Engine Code\\Missile.cpp"
 
-W8_ABI_ASSERT(sizeof(W8AIMissile) == 0x20, "W8AIMissile_must_be_0x20");
 
 // FUNCTION: WIZ8 0x004a53a0
-W8AIMissile* CopyAIMissile(const W8AIMissile* source)
+std::unique_ptr<W8AIRecord> W8AIMissile::Clone() const
 {
-    W8AIMissile* copy = static_cast<W8AIMissile*>(malloc(sizeof(W8AIMissile)));
-
-    if (copy == 0) {
-        srAssertFail("pAIMissile", MISSILE_CPP, 0x86d, 0);
-    }
-    copy->kind = source->kind;
-    copy->gravity = source->gravity;
-    copy->speed_per_step = source->speed_per_step;
-    copy->fall_speed = source->fall_speed;
-    copy->last_half_tick = source->last_half_tick;
-    copy->elapsed = source->elapsed;
-    copy->limit = source->limit;
-    copy->unknown_1c = source->unknown_1c;
+    auto copy = std::make_unique<W8AIMissile>(*this);
+    copy->missile = nullptr;
     return copy;
 }
 
@@ -446,7 +434,7 @@ unsigned char LoadMissileCycle(W8GrCycleLoadContext* context, const char* name,
     W8Missile* missile;
     W8AIMissile* ai;
     bool loaded;
-    unsigned char more;
+    bool more;
     bool gravity;
     bool align_camera;
     bool explode_ground;
@@ -461,7 +449,7 @@ unsigned char LoadMissileCycle(W8GrCycleLoadContext* context, const char* name,
     float seconds;
     float intensity;
     W8CameraShakeEffect* effect;
-    W8SoundEvent* sound;
+    std::unique_ptr<W8SoundEvent> sound;
     char path[100];
     char line[100];
     char pacName[52];
@@ -476,7 +464,7 @@ unsigned char LoadMissileCycle(W8GrCycleLoadContext* context, const char* name,
         if (missile == 0) {
             srAssertFail("pMissile", MISSILE_CPP, 0x3eb, 0);
         }
-        ai = static_cast<W8AIMissile*>(missile->m_pAI);
+        ai = static_cast<W8AIMissile*>(missile->m_pAI.get());
         if (ai->kind != W8_AI_RECORD_MISSILE) {
             srAssertFail("pAI->ubAIType == AI_TYPE_MISSILE", MISSILE_CPP, 0x3f1, 0);
         }
@@ -489,7 +477,7 @@ unsigned char LoadMissileCycle(W8GrCycleLoadContext* context, const char* name,
         return 1;
     }
     PauseSharedGameTimers();
-    more = 1;
+    more = true;
     loaded = true;
     gravity = false;
     align_camera = false;
@@ -502,10 +490,10 @@ unsigned char LoadMissileCycle(W8GrCycleLoadContext* context, const char* name,
     if (handle != 0) {
         for (;;) {
             do {
-                if (more == 0 || !loaded) {
+                if (!more || !loaded) {
                     goto close_file;
                 }
-                ReadTextLine(handle.get(), line, 100, &more);
+                ReadTextLine(handle.get(), line, 100, more);
             } while (line[0] == '#');
             pacName[0] = 0;
             pacFileName[0] = '\0';
@@ -599,10 +587,10 @@ unsigned char LoadMissileCycle(W8GrCycleLoadContext* context, const char* name,
                         }
                     }
                     snprintf(wave_path, sizeof(wave_path), "Data\\Missiles\\Sounds\\%s.WAV", pacFileName);
-                    sound = CreateSoundEvent(sound_kind, cycle, frame, 0, wave_path,
+                    sound = std::make_unique<W8SoundEvent>(sound_kind, cycle, frame, 0, wave_path,
                                              _stricmp(pacLoop, "LOOP") == 0);
                     if (sound != 0) {
-                        (*ppMissile)->AddSoundEvent(sound);
+                        (*ppMissile)->AddSoundEvent(std::move(sound));
                     }
                 }
             } else {
@@ -690,24 +678,13 @@ W8Missile* CreateMissile(unsigned int missile_table_index, srVector3T<float>* so
         if (flight_speed == g_float_zero) {
             flight_speed = missile->lifetime;
         }
-        if (missile->m_pAI != 0) {
-            free(missile->m_pAI);
-        }
-        ai = static_cast<W8AIMissile*>(malloc(sizeof(W8AIMissile)));
-        if (ai != 0) {
-            float scale = flight_speed * g_float_one_thousandth;
-            memset(ai, 0, sizeof(W8AIMissile));
-            ai->speed_per_step = scale;
-            ai->kind = W8_AI_RECORD_MISSILE;
-            ai->gravity = missile->gravity;
-            ai->limit = limit;
-            ai->last_half_tick = g_shared_timer_base->milliseconds() >> 1;
-            ai->missile = missile;
-        }
-        missile->m_pAI = ai;
-        if (ai == 0) {
-            srAssertFail("pMissile->GrObject::GetAI()", MISSILE_CPP, 0x120, 0);
-        }
+        ai = new W8AIMissile{};
+        ai->speed_per_step = flight_speed * g_float_one_thousandth;
+        ai->gravity = missile->gravity;
+        ai->limit = limit;
+        ai->last_half_tick = g_shared_timer_base->milliseconds() >> 1;
+        ai->missile = missile;
+        missile->m_pAI.reset(ai);
         ai->fall_speed = static_cast<float>(sin(-pitch) * flight_speed * g_float_one_thousandth);
         ai->limit = limit;
         missile->trace_mask = trace_mask;
@@ -774,7 +751,7 @@ W8MissileRep::W8MissileRep(const W8MissileRep& other)
             emitters[emitter] = 0;
             emitter_playback_scales[emitter] = 15.0f;
         } else {
-            emitters[emitter] = CloneAnimObj(other.emitters[emitter]);
+            emitters[emitter] = new W8AnimObj(*other.emitters[emitter]);
             emitter_playback_scales[emitter] = other.emitter_playback_scales[emitter];
         }
     }
@@ -810,7 +787,7 @@ unsigned char W8MissileRep::ReadCycleData(W8ReadLevelInfo* info, W8Missile* miss
     if (info == 0 || info->hFile == 0 || missile == 0) {
         srAssertFail("pInfo && pInfo->hFile && pMissile", MISSILE_CPP, 0x1df, 0);
     }
-    animation = CreateAnimObj();
+    animation = new W8AnimObj;
     success = AnimObjReadFromFile(info, animation, 1, lights, 1);
     emitter = static_cast<signed char>(animation->cycle);
 
@@ -958,7 +935,7 @@ void W8Missile::StartIfHostActive()
     }
     if (GetAnimationState(2) == 0 || !impacting) {
         if (m_pAI != 0) {
-            PathAIUpdate(m_pAI, 1);
+            PathAIUpdate(m_pAI.get(), 1);
         }
         W8GrCycle::TickAnimation(1.0f);
     } else {
@@ -983,10 +960,6 @@ void W8Missile::DestroyMissile()
             WorldRemoveLight(g_world, light);
         });
     }
-    if (m_pAI != 0) {
-        free(m_pAI);
-        m_pAI = 0;
-    }
     delete this;
 }
 
@@ -1009,7 +982,7 @@ W8MissileRep::~W8MissileRep()
 
     for (emitter = 0; emitter < 2; ++emitter) {
         if (emitters[emitter] != 0) {
-            DestroyAnimObj(emitters[emitter]);
+            delete emitters[emitter];
             emitters[emitter] = 0;
         }
     }
@@ -1063,7 +1036,7 @@ W8AniMesh* W8Missile::GetCurrentAniMesh()
     if (animation == 0) {
         srAssertFail("pao", MISSILE_CPP, 0x55e, 0);
     }
-    return animation->entries[m_pRep->m_bLOD];
+    return animation->entries[m_pRep->m_bLOD].get();
 }
 
 /* How many emitters the launcher has, counted by testing each for null rather

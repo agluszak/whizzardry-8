@@ -24,6 +24,15 @@
 #include "wiz8/local_code/LoadSaveGame.h"
 #include "wiz8/local_screens/NPCInteractionSubscreen.h"
 #include "wiz8/npc_script_file.h"
+#include "wiz8/engine_code/stScript.h"
+#include "wiz8/engine_code/PathAI.h"
+#include "wiz8/engine_code/AnimObj.h"
+#include "wiz8/engine_code/AniMesh.h"
+#include "wiz8/engine_code/stModelInstance.h"
+#include "wiz8/engine_code/ReadLevel.h"
+#include "wiz8/engine_code/GrObject.h"
+#include "wiz8/engine_code/SoundEvent.h"
+#include "wiz8/engine_code/Missile.h"
 #include "wiz8/monster_generators.h"
 #include "wiz8/spell_ids.h"
 #include "wiz8/xstatus.h"
@@ -334,6 +343,237 @@ static void keyword_file_contracts()
     REQUIRE(wiz8::remove_file(english));
     ReloadKeywordLists();
     REQUIRE((!g_keyword_lists_loaded && g_keyword_lists.size() == 0));
+}
+
+static void path_record_contracts()
+{
+    constexpr auto filename = "Data/path-records.bin";
+    auto write_header = [](wiz8::File& file, unsigned char version, int count) {
+        const unsigned char kind = 0;
+        const float position = 0;
+        const unsigned int unknown = 17;
+        file.write(&kind, 1);
+        file.write(&version, 1);
+        file.write(&position, 4);
+        file.write(&unknown, 4);
+        file.write(&count, 4);
+    };
+    for (unsigned char version : {1, 2}) {
+        {
+            auto file = wiz8::open_file(filename, wiz8::OpenMode::replace);
+            write_header(*file, version, 2);
+            for (int i = 0; i < 2; ++i) {
+                const float point[] = {static_cast<float>(i), 0, 0};
+                const float angle_axis[] = {0, 0, 1, 0};
+                const float scale[] = {2, 3, 4};
+                file->write(point, sizeof(point));
+                file->write(angle_axis, sizeof(angle_axis));
+                if (version == 2) file->write(scale, sizeof(scale));
+            }
+        }
+        auto file = wiz8::open_file(filename);
+        W8PathAI* loaded = nullptr;
+        REQUIRE((LoadPathAI(&loaded, file.get()) && loaded));
+        std::unique_ptr<W8PathAI> path(loaded);
+        REQUIRE((path->nodes.size() == 2 && path->rotations.size() == 2));
+        REQUIRE((path->nodes[1].x == 500 && path->total_length == 500));
+        REQUIRE((path->unknown_08 == 17 && path->rotations[0] == glm::mat3(1)));
+        REQUIRE((path->scales.size() == (version == 2 ? 2 : 0)));
+        if (version == 2) REQUIRE((path->scales[1].y == 3));
+        path->timed = true;
+        auto copy = std::make_unique<W8PathAI>(*path);
+        auto restarted = path->Clone();
+        REQUIRE((!static_cast<W8PathAI*>(restarted.get())->timed));
+        REQUIRE((copy->timed && copy->nodes.data() != path->nodes.data()));
+        REQUIRE((copy->rotations.data() != path->rotations.data()));
+        if (version == 2) REQUIRE((copy->scales.data() != path->scales.data()));
+        copy->nodes[0].x = 99;
+        REQUIRE((path->nodes[0].x == 0));
+        PathAIClearOwned(copy.get());
+        PathAIClearOwned(copy.get());
+        REQUIRE((copy->nodes.empty() && copy->rotations.empty() && copy->scales.empty()));
+        srVector3T<float> point;
+        copy->looping = true;
+        REQUIRE((!PathAINextPoint(copy.get(), &point)));
+        REQUIRE((PathAINextPoint(path.get(), &point) && point.x == 0));
+        REQUIRE((PathAINextPoint(path.get(), &point) && point.x == 500));
+        REQUIRE((!PathAINextPoint(path.get(), &point)));
+        path->animated = true;
+        path->point_index = 0;
+        path->interpolation_fraction = 0.25f;
+        PathAIPosition(path.get(), &point);
+        REQUIRE((point.x == 125));
+    }
+    for (int count : {-1, 0, 1}) {
+        {
+            auto file = wiz8::open_file(filename, wiz8::OpenMode::replace);
+            write_header(*file, 2, count); // No point payload: count 1 is truncated.
+        }
+        auto file = wiz8::open_file(filename);
+        W8PathAI existing{};
+        auto* output = &existing;
+        REQUIRE((LoadPathAI(&output, file.get()) == (count == 0)));
+        REQUIRE((output == (count == 0 ? nullptr : &existing)));
+    }
+    REQUIRE((wiz8::remove_file(filename)));
+}
+
+static void animation_record_contracts()
+{
+    constexpr auto filename = "Data/animation-records.dat";
+    for (unsigned char flag : {0, 255}) {
+        {
+            auto file = wiz8::open_file(filename, wiz8::OpenMode::replace);
+            const unsigned char header[] = {11, 0, flag, 0, 0, 0, flag};
+            file->write(header, sizeof(header));
+            const float speed = 15, chance = 1;
+            file->write(&speed, sizeof(speed));
+            const unsigned char frames[] = {0, 1, flag};
+            file->write(frames, sizeof(frames));
+            file->write(&chance, sizeof(chance));
+            const unsigned char reserved[50]{};
+            file->write(reserved, sizeof(reserved));
+            const unsigned char count = 2;
+            file->write(&count, 1);
+            for (int i = 0; i < 2; ++i) {
+                const float bounds[] = {-1, -2, -3, 1, 2, 3};
+                file->write(bounds, sizeof(bounds));
+            }
+            const unsigned char zero = 0;
+            file->write(&zero, 1); // No lights.
+            if (!flag) file->write(&zero, 1); // No standalone path.
+            file->write(&zero, 1); // Version 10's reserved byte.
+        }
+        auto file = wiz8::open_file(filename);
+        W8ReadLevelInfo info{};
+        info.hFile = file.get();
+        auto animation = std::make_unique<W8AnimObj>();
+        REQUIRE((AnimObjReadFromFile(&info, animation.get(), 0, nullptr, 0)));
+        REQUIRE((animation->animation_playing == (flag != 0)));
+        REQUIRE((animation->random_play == (flag != 0)));
+        REQUIRE((AnimationIsRunning(animation.get()) == (flag != 0)));
+        REQUIRE((animation->frame_bounds.size() == 2));
+        srVector3T<float> minimum, maximum;
+        REQUIRE((AnimObjGetBounds(animation.get(), 0, 1, &minimum, &maximum)));
+        REQUIRE((minimum.y == -1000 && maximum.z == 1500));
+        animation->path = std::make_unique<W8PathAI>();
+        PathAIAddPoint(*animation->path, srVector3T<float>(1, 2, 3));
+        animation->paths[0].push_back(std::make_unique<W8PathAI>(*animation->path));
+        animation->entries[0] = std::make_unique<W8AniMesh>();
+        animation->entries[0]->filename = std::string(300, 'x');
+        animation->entries[0]->bitmap_directory = "Textures/";
+        animation->entries[0]->meshes.resize(2); // Deferred frames have no instances yet.
+        animation->meshes[0].push_back(std::make_unique<W8AniMesh>(*animation->entries[0]));
+        auto copy = std::make_unique<W8AnimObj>(*animation);
+        REQUIRE((copy->entries[0] != animation->entries[0]));
+        REQUIRE((copy->meshes[0][0] != animation->meshes[0][0]));
+        REQUIRE((copy->entries[0]->meshes.size() == 2));
+        REQUIRE((copy->frame_bounds.data() != animation->frame_bounds.data()));
+        REQUIRE((copy->path != animation->path && copy->path->nodes[0].x == 1));
+        REQUIRE((copy->paths[0][0] != animation->paths[0][0]));
+        animation.reset();
+        REQUIRE((copy->entries[0]->filename == std::string(300, 'x')));
+        REQUIRE((copy->meshes[0][0]->bitmap_directory == "Textures/"));
+        REQUIRE((copy->paths[0][0]->nodes[0].z == 3));
+        REQUIRE((AnimObjGetBounds(copy.get(), 0, 0, &minimum, &maximum)));
+        REQUIRE((minimum.x == -500 && maximum.x == 500));
+        copy->path_lists = true;
+        REQUIRE((!AnimObjGetBounds(copy.get(), 0, 2, &minimum, &maximum)));
+    }
+    REQUIRE((wiz8::remove_file(filename)));
+}
+
+static void animated_mesh_cache_contracts()
+{
+    REQUIRE((g_animesh_cache_list.empty()));
+    const int old_limit = g_animesh_cache_limit;
+    const int old_bytes = g_animesh_cache_bytes;
+    {
+        W8AniMesh original;
+        REQUIRE((original.meshes.empty() && original.filename.empty()));
+        REQUIRE((original.bounds_minimum == glm::vec3(0)));
+        original.flags.loaded = true;
+        original.flags.keep_loaded = true;
+        original.flags.cache_protected = true;
+        original.loaded_bytes = 32;
+        g_animesh_cache_bytes += 32;
+        g_animesh_cache_list.push_back(&original);
+        {
+            W8AniMesh copy(original);
+            REQUIRE((g_animesh_cache_bytes == old_bytes + 64));
+            REQUIRE((g_animesh_cache_list.size() == 2));
+            g_animesh_cache_limit = old_bytes;
+            EnforceAniMeshMemoryLimit(&original); // All candidates protected: no invalid erase.
+            REQUIRE((copy.flags.loaded));
+            copy.flags.cache_protected = false;
+            EnforceAniMeshMemoryLimit(&original);
+            REQUIRE((!copy.flags.loaded && original.flags.loaded));
+            REQUIRE((g_animesh_cache_bytes == old_bytes + 32));
+            REQUIRE((g_animesh_cache_list.size() == 1));
+        }
+    }
+    REQUIRE((g_animesh_cache_bytes == old_bytes && g_animesh_cache_list.empty()));
+    g_animesh_cache_limit = old_limit;
+}
+
+static void graphical_object_ownership_contracts()
+{
+    W8GrObject original;
+    original.m_pAI = std::make_unique<W8PathAI>();
+    PathAIAddPoint(*static_cast<W8PathAI*>(original.m_pAI.get()), srVector3T<float>(1, 2, 3));
+    auto event = std::make_unique<W8SoundEvent>(W8_SOUND_EVENT_FRAME, 1, 2, 3, "step.wav", true);
+    auto* first = event.get();
+    original.AddSoundEvent(std::move(event));
+    for (int i = 0; i < 20; ++i) {
+        original.AddSoundEvent(std::make_unique<W8SoundEvent>(W8_SOUND_EVENT_CYCLE, i, 0, 0, "other.wav", false));
+    }
+    REQUIRE((original.sound_events.front().get() == first));
+    W8GrObject copy(original);
+    REQUIRE((copy.m_pAI != original.m_pAI));
+    REQUIRE((static_cast<W8PathAI*>(copy.m_pAI.get())->nodes[0].y == 2));
+    REQUIRE((copy.sound_events.size() == original.sound_events.size()));
+    REQUIRE((copy.sound_events.front().get() != first));
+    REQUIRE((copy.sound_events.front()->wave_name == "step.wav"));
+    REQUIRE((!copy.sound_events.front()->looping && copy.sound_events.front()->sound_handle == -1));
+    original.sound_events.clear();
+    REQUIRE((copy.sound_events.front()->wave_name == "step.wav"));
+    W8GrObject missile;
+    auto* ai = new W8AIMissile{};
+    REQUIRE((ai->kind == W8_AI_RECORD_MISSILE));
+    ai->speed_per_step = 5;
+    missile.m_pAI.reset(ai);
+    W8GrObject missile_copy(missile);
+    auto* cloned = static_cast<W8AIMissile*>(missile_copy.m_pAI.get());
+    REQUIRE((cloned != ai && cloned->speed_per_step == 5 && !cloned->missile));
+}
+
+static void script_record_contracts()
+{
+    constexpr auto path = "Data/script-records.txt";
+    const std::string prefix(31, 'x');
+    {
+        auto file = wiz8::open_file(path, wiz8::OpenMode::replace);
+        const auto text = "* comment\r\n\r\nStart:\r\n  MOVE 10\r\nstart:\nWAIT 5\n" +
+                          prefix + "first:\nEND\n" + prefix + "second:\nFINAL";
+        file->write(text.data(), text.size());
+    }
+    stScript script;
+    REQUIRE((script.Load(path)));
+    REQUIRE((script.lines.size() == 4 && script.labels.size() == 3));
+    REQUIRE((script.lines[0].text == "  MOVE 10" && script.lines[3].text == "FINAL"));
+    REQUIRE((script.FindLabelLine("START") == 0 && script.FindLabelLine(prefix + "first") == 2 && script.FindLabelLine(prefix + "second") == 3));
+    REQUIRE((script.FindLabelLine("missing") == -1 && script.FindLabelLine({}) == -1));
+    REQUIRE((script.GetSourceLine(0) == 4 && script.GetSourceLine(3) == 10));
+    REQUIRE((script.GetSourceLine(-1) == -1 && script.GetSourceLine(4) == -1));
+    // Copies own their text and remain valid after the original is cleared.
+    auto copy = script;
+    script.Clear();
+    script.Clear();
+    REQUIRE((script.lines.empty() && script.labels.empty()));
+    REQUIRE((copy.lines[0].text == "  MOVE 10" && copy.FindLabelLine("start") == 0));
+    REQUIRE((script.Load(path) && script.lines.size() == 4));
+    REQUIRE((wiz8::remove_file(path)));
+    REQUIRE((!script.Load(path)));
 }
 
 static void encounter_table_contracts()
@@ -987,6 +1227,11 @@ TEST_CASE("save_records_test")
     unicode_file_contracts();
     unicode_database_contracts();
     encounter_table_contracts();
+    script_record_contracts();
+    path_record_contracts();
+    animation_record_contracts();
+    graphical_object_ownership_contracts();
+    animated_mesh_cache_contracts();
     wiz8::clear_asset_archives();
 
     std::filesystem::remove_all(root);

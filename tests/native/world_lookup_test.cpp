@@ -145,11 +145,11 @@ bool nodes(const std::filesystem::path& directory)
 
 TEST_CASE("world_lookup_test")
 {
-    if (!srInit()) return 1;
+    REQUIRE(srInit());
     const std::filesystem::path directory = make_temporary_directory("wiz8-world-lookup");
     const bool passed = triggers() && nodes(directory);
     std::filesystem::remove_all(directory);
     srExit();
-    if (!passed) return 1;
+    REQUIRE(passed);
     std::puts("ok: world trigger, light, clip plane and particle lookups");
 }

@@ -73,9 +73,7 @@ stLight::stLight(srNode* parent)
 stLight::~stLight()
 {
     delete m_definition;
-    if (path_ai != 0) {
-        DestroyOwnedPathAI(path_ai);
-    }
+    delete path_ai;
 }
 
 /* Assignment deep-copies both owned members - the definition through its
@@ -97,7 +95,8 @@ stLight& stLight::operator=(const stLight& other)
     m_unknown_238 = other.m_unknown_238;
     m_direction = other.m_direction;
     if (other.path_ai != 0) {
-        path_ai = ClonePathAI(other.path_ai);
+        path_ai = new W8PathAI(*other.path_ai);
+        path_ai->timed = false;
     } else {
         path_ai = 0;
     }
@@ -323,20 +322,20 @@ void stLight::Update()
             }
         }
     }
-    if ((path == 0) || (PathAIEntryCount(path) == 0) ||
+    if ((path == 0) || (path->nodes.size() == 0) ||
         ((seconds - m_path_time) * definition->path_speed < g_float_one)) {
         return;
     }
     int index = static_cast<int>((seconds - m_path_time) * definition->path_speed);
     index = index * m_path_direction + m_path_index;
-    if (index < static_cast<int>(PathAIEntryCount(path))) {
+    if (index < static_cast<int>(path->nodes.size())) {
         if (index < 0) {
             m_path_direction = 1;
             index = 0;
         }
     } else if ((definition->flags & W8_PARAM_LIGHT_PING_PONG_PATH) != 0) {
         m_path_direction = -1;
-        index = static_cast<int>(PathAIEntryCount(path)) - 2;
+        index = static_cast<int>(path->nodes.size()) - 2;
     } else {
         index = 0;
     }

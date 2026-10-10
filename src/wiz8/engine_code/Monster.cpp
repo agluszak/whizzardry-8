@@ -334,7 +334,7 @@ unsigned char ReadOrCloneMonsterCycles(const W8GrCycleLoadContext* context,
 
     PauseSharedGameTimers();
 
-    unsigned char more = 1;
+    bool more = true;
     bool success = true;
     bool flies = false;
     bool swims = false;
@@ -404,10 +404,10 @@ unsigned char ReadOrCloneMonsterCycles(const W8GrCycleLoadContext* context,
         }
     } else {
         char line[250];
-        while (more != 0) {
-            ReadTextLine(handle.get(), line, sizeof(line), &more);
-            while (line[0] == '\0' && more != 0) {
-                ReadTextLine(handle.get(), line, sizeof(line), &more);
+        while (more) {
+            ReadTextLine(handle.get(), line, sizeof(line), more);
+            while (line[0] == '\0' && more) {
+                ReadTextLine(handle.get(), line, sizeof(line), more);
             }
             if (line[0] == '\0' || line[0] == '#') {
                 continue;
@@ -630,10 +630,11 @@ unsigned char ReadOrCloneMonsterCycles(const W8GrCycleLoadContext* context,
                         if (sound_type != W8_SOUND_EVENT_FOOTSTEP) {
                             snprintf(wave_path, sizeof(wave_path), "Data\\Sound\\Monsters\\%s.WAV", wave_name);
                         }
-                        last_sound = CreateSoundEvent(sound_type, sound_cycle, frame, subcycle - 1,
+                        auto sound = std::make_unique<W8SoundEvent>(sound_type, sound_cycle, frame, subcycle - 1,
                                                       wave_path, _stricmp(loop_name, "LOOP") == 0);
-                        if (last_sound != 0) {
-                            (*monster)->AddSoundEvent(last_sound);
+                        last_sound = sound.get();
+                        if (last_sound != nullptr) {
+                            (*monster)->AddSoundEvent(std::move(sound));
                             last_sound->location_id = location_id;
                             last_sound->volume_min =
                                 sound_type == W8_SOUND_EVENT_FOOTSTEP ? 0x23 : 0x7f;
@@ -1005,7 +1006,7 @@ unsigned char W8MonsterRep::ReadCycleData(W8ReadLevelInfo* info, W8Monster* mons
                      "C:\\Projects\\Wizardry 8\\Engine Code\\Monster.cpp", 0x22d, 0);
     }
 
-    animation = CreateAnimObj();
+    animation = new W8AnimObj;
     success = AnimObjReadFromFile(info, animation, load_all, lights, 0);
     if (cycle_index == W8_MONSTER_CYCLE_NONE) {
         cycle_index = static_cast<signed char>(animation->cycle);
@@ -1049,9 +1050,9 @@ unsigned char W8MonsterRep::ReadCycleData(W8ReadLevelInfo* info, W8Monster* mons
             for (entry = 0; entry < count; ++entry) {
                 W8PathAI* path = AnimObjListEntry(animation, list, entry);
                 if (path != 0) {
-                    PathAISetLooping(path, 1);
-                    PathAISetDiscreteMode(path, 1);
-                    PathAISetScale(path, animation->playback_scale);
+                    path->looping = true;
+                    path->discrete_mode = true;
+                    path->speed = animation->playback_scale;
                 }
             }
         }
@@ -1110,7 +1111,7 @@ W8MonsterRep::~W8MonsterRep()
         for (index = 0; index < count; ++index) {
             W8AnimObj* animation = animations[cycle][index];
             if (animation != 0) {
-                DestroyAnimObj(animation);
+                delete animation;
             }
         }
     }
@@ -1139,7 +1140,7 @@ void W8MonsterRep::CopyCycle(signed char cycle, const W8MonsterRep* other, signe
     int index;
 
     for (index = 0; index < static_cast<int>(other->animations[other_cycle].size()); ++index) {
-        animations[cycle].push_back(CloneAnimObj(other->animations[other_cycle][index]));
+        animations[cycle].push_back(new W8AnimObj(*other->animations[other_cycle][index]));
         animation_scales[cycle].push_back(other->animation_scales[other_cycle][index]);
     }
 
@@ -4099,25 +4100,10 @@ W8AniMesh* W8Monster::GetCurrentAniMesh()
 // FUNCTION: WIZ8 0x004c5870
 void MonsterSetLocationId(W8Monster* monster, int value)
 {
-    int index;
-    int count;
-
-    if (monster == 0) {
-        srAssertFail("pMonster", "C:\\Projects\\Wizardry 8\\Engine Code\\Monster.cpp", 0x125f, 0);
-    }
     monster->location_id = value;
     monster->movement.location_id = static_cast<unsigned short>(value);
-    if (monster->m_plsSoundEvents != 0) {
-        count = static_cast<int>(monster->m_plsSoundEvents->size());
-        index = 0;
-        if (count > 0) {
-            do {
-                int propagated_value = monster->location_id;
-                W8SoundEvent* event = (*monster->m_plsSoundEvents)[index];
-                ++index;
-                event->location_id = propagated_value;
-            } while (index < count);
-        }
+    for (const auto& event : monster->sound_events) {
+        event->location_id = value;
     }
 }
 
@@ -4438,7 +4424,7 @@ void MonsterSetHighlightColour(W8Monster* monster, glm::vec4 block)
 W8AIRecord* MonsterGetAIRecord(W8Monster* monster)
 {
     if (monster != 0) {
-        return monster->m_pAI;
+        return monster->m_pAI.get();
     }
     return 0;
 }
@@ -4765,7 +4751,7 @@ void W8Monster::CollectModelInstances(std::vector<stModelInstance*>& instances)
                 int list_index;
 
                 for (list_index = 0; list_index < 3; ++list_index) {
-                    W8AniMesh* mesh = animation->entries[list_index];
+                    W8AniMesh* mesh = animation->entries[list_index].get();
                     if (mesh != 0) {
                         int frame_count = AniMeshValue(mesh);
 
@@ -4784,21 +4770,12 @@ void W8Monster::CollectModelInstances(std::vector<stModelInstance*>& instances)
                 int list_index;
 
                 for (list_index = 0; list_index < 3; ++list_index) {
-                    std::vector<W8AniMesh*>* list = animation->meshes[list_index];
-                    if (list != 0) {
-                        int mesh_index;
-                        int mesh_count = (list ? list->size() : 0);
-
-                        for (mesh_index = 0; mesh_index < mesh_count; ++mesh_index) {
-                            W8AniMesh* mesh = (*list)[mesh_index];
-                            if (mesh != 0) {
-                                int frame;
-                                int frame_count = AniMeshValue(mesh);
-
-                                for (frame = 0; frame < frame_count; ++frame) {
-                                    instances.push_back(GetAniMeshFrame(mesh, frame));
-                                }
-                            }
+                    for (const auto& owned_mesh : animation->meshes[list_index]) {
+                        auto* mesh = owned_mesh.get();
+                        if (!mesh) continue;
+                        const int frame_count = AniMeshValue(mesh);
+                        for (int frame = 0; frame < frame_count; ++frame) {
+                            instances.push_back(GetAniMeshFrame(mesh, frame));
                         }
                     }
                 }

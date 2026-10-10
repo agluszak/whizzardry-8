@@ -1,3 +1,4 @@
+#include <memory>
 #include <utility>
 #include "wiz8/filesystem.h"
 #include "wiz8/compat/debug_heap.h"
@@ -21,30 +22,17 @@
 
 #define ANIM_OBJ_CPP "C:\\Projects\\Wizardry 8\\Engine Code\\AnimObj.cpp"
 
-/* The callee returns its byte value in an int-sized result; this wrapper is
-   the narrowing boundary, as shown by its explicit `and eax, 0xff`. */
-
 // FUNCTION: WIZ8 0x004a01a0
-W8AnimObj* CreateAnimObj()
-{
-    W8AnimObj* animation = static_cast<W8AnimObj*>(malloc(sizeof(W8AnimObj)));
-
-    if (animation == 0) {
-        srAssertFail("pao", ANIM_OBJ_CPP, 0x24, 0);
-    }
-    memset(animation, 0, sizeof(W8AnimObj));
-    return animation;
-}
+W8AnimObj::W8AnimObj() = default;
+W8AnimObj::~W8AnimObj() = default;
 
 // FUNCTION: WIZ8 0x004a05c0
-unsigned char AnimObjReadFromFile(W8ReadLevelInfo* info, W8AnimObj* animation, int load_all,
+bool AnimObjReadFromFile(W8ReadLevelInfo* info, W8AnimObj* animation, int load_all,
                                   std::vector<stLight*>* light_list, int)
 try
 {
-    /* Retail read `frames` uninitialised when its FileRead short-circuited; the recovery keeps
-       that read. */
     unsigned char version = 0;
-    unsigned char success;
+    bool success;
     unsigned char discarded[50];
     unsigned char channel_bytes[8];
     wiz8::File* handle;
@@ -54,13 +42,19 @@ try
         srAssertFail("pInfo && pInfo->hFile && pao", ANIM_OBJ_CPP, 0xef, 0);
     }
     handle = info->hFile;
+    const auto read_flag = [handle](bool& flag) {
+        unsigned char value;
+        handle->read_exact(&value, 1);
+        flag = value != 0;
+        return true;
+    };
     success = (handle->read(&version, 1).bytes == static_cast<std::size_t>(1));
     success = success && (handle->read(&animation->group_count, 1).bytes == static_cast<std::size_t>(1));
-    success = success && (handle->read(&animation->animation_playing, 1).bytes == static_cast<std::size_t>(1));
+    success = success && read_flag(animation->animation_playing);
     success = success && (handle->read(&animation->frame_method, 1).bytes == static_cast<std::size_t>(1));
     success = success && (handle->read(&animation->behaviour, 1).bytes == static_cast<std::size_t>(1));
     success = success && (handle->read(&animation->cycle, 1).bytes == static_cast<std::size_t>(1));
-    success = success && (handle->read(&animation->path_lists, 1).bytes == static_cast<std::size_t>(1));
+    success = success && read_flag(animation->path_lists);
 
     if (version < 3) {
         animation->playback_scale = 15.0f;
@@ -78,10 +72,10 @@ try
         success = success && (handle->read(&animation->end_frame, 1).bytes == static_cast<std::size_t>(1));
     }
     if (version < 6) {
-        animation->random_play = 0;
+        animation->random_play = false;
         animation->play_chance = 1.0f;
     } else {
-        success = success && (handle->read(&animation->random_play, 1).bytes == static_cast<std::size_t>(1));
+        success = success && read_flag(animation->random_play);
         success = success && (handle->read(&animation->play_chance, 4).bytes == static_cast<std::size_t>(4));
     }
     success = success && (handle->read(discarded, sizeof(discarded)).bytes == static_cast<std::size_t>(sizeof(discarded)));
@@ -95,23 +89,13 @@ try
     if (version > 6) {
         unsigned char frames;
         handle->read_exact(&frames, 1);
-        if (animation->pfKnownBBoxFrames == 0 && frames != 0) {
-            animation->pfKnownBBoxFrames = static_cast<unsigned char*>(malloc(frames));
-            animation->pvecBoundMin = new srVector3T<float>[frames];
-            animation->pvecBoundMax = new srVector3T<float>[frames];
-            if (animation->pfKnownBBoxFrames == 0 || animation->pvecBoundMin == 0 ||
-                animation->pvecBoundMax == 0) {
-                srAssertFail("pao->pfKnownBBoxFrames && pao->pvecBoundMin && "
-                             "pao->pvecBoundMax",
-                             ANIM_OBJ_CPP, 300, 0);
-            }
-            memset(animation->pfKnownBBoxFrames, 1, frames);
-            for (index = 0; index < frames; ++index) {
-                handle->read_exact(&animation->pvecBoundMin[index], sizeof(srVector3T<float>));
-                handle->read_exact(&animation->pvecBoundMax[index], sizeof(srVector3T<float>));
-                animation->pvecBoundMin[index] *= static_cast<float>(g_double_five_hundred);
-                animation->pvecBoundMax[index] *= static_cast<float>(g_double_five_hundred);
-            }
+        animation->frame_bounds.resize(frames);
+        for (auto& bounds : animation->frame_bounds) {
+            handle->read_exact(&bounds.minimum, sizeof(bounds.minimum));
+            handle->read_exact(&bounds.maximum, sizeof(bounds.maximum));
+            bounds.minimum *= static_cast<float>(g_double_five_hundred);
+            bounds.maximum *= static_cast<float>(g_double_five_hundred);
+            bounds.known = true;
         }
     }
 
@@ -209,7 +193,7 @@ try
         }
     }
 
-    if (animation->path_lists == 0 && version > 8) {
+    if (!animation->path_lists && version > 8) {
         unsigned char has_path;
         handle->read_exact(&has_path, 1);
         if (has_path != 0) {
@@ -218,11 +202,11 @@ try
             if (!success) {
                 srAssertFail("fSuccess", ANIM_OBJ_CPP, 0x1c5, 0);
             }
-            path->discrete_mode = 1;
-            PathAISetAnimated(path, 0);
-            PathAISetScale(path, animation->playback_scale);
-            animation->path = path;
-            animation->frame_count = static_cast<unsigned char>(path->nodes->size());
+            path->discrete_mode = true;
+            path->animated = false;
+            path->speed = animation->playback_scale;
+            animation->path.reset(path);
+            animation->frame_count = static_cast<unsigned char>(path->nodes.size());
         }
     }
     if (version > 9) {
@@ -230,27 +214,23 @@ try
         success = success && (handle->read(&ignored, 1).bytes == static_cast<std::size_t>(1));
     }
 
-    if (animation->path_lists == 0) {
+    if (!animation->path_lists) {
         int mesh_index;
         for (mesh_index = 0; mesh_index < static_cast<signed char>(animation->group_count);
              ++mesh_index) {
-            W8AniMesh* mesh = CreateAniMesh();
+            auto mesh = std::make_unique<W8AniMesh>();
             signed char channel = 0;
 
             success = success && (handle->read(&channel, 1).bytes == static_cast<std::size_t>(1));
             mesh->list_index = channel;
-            if (!LoadAniMeshFromInfo(info, mesh, load_all)) {
+            if (!LoadAniMeshFromInfo(info, mesh.get(), load_all)) {
                 animation->entries[channel] = 0;
             } else {
-                animation->entries[channel] = mesh;
+                animation->entries[channel] = std::move(mesh);
             }
         }
     } else {
         int group;
-        for (index = 0; index < 3; ++index) {
-            animation->meshes[index] = new std::vector<W8AniMesh*>;
-            animation->paths[index] = new std::vector<W8PathAI*>;
-        }
         for (group = 0; group < static_cast<signed char>(animation->group_count); ++group) {
             signed char entry_count;
             int entry;
@@ -259,7 +239,7 @@ try
                 srAssertFail("fSuccess", ANIM_OBJ_CPP, 0x200, 0);
             }
             for (entry = 0; entry < entry_count; ++entry) {
-                W8AniMesh* mesh = CreateAniMesh();
+                auto mesh = std::make_unique<W8AniMesh>();
                 W8PathAI* path = 0;
                 signed char channel;
                 const char* saved_filename;
@@ -270,37 +250,38 @@ try
                 mesh->list_index = channel;
                 saved_filename = info->mesh_filename;
                 info->mesh_filename = 0;
-                success = LoadAniMeshFromInfo(info, mesh, 1);
+                success = LoadAniMeshFromInfo(info, mesh.get(), 1);
                 info->mesh_filename = saved_filename;
                 if (!success) {
                     srAssertFail("fSuccess", ANIM_OBJ_CPP, 0x20f, 0);
                 }
-                animation->meshes[channel]->insert(animation->meshes[channel]->begin() + entry,
-                                                   mesh);
+                animation->meshes[channel].insert(animation->meshes[channel].begin() + entry,
+                                                   std::move(mesh));
                 success = LoadPathAI(&path, handle);
                 if (!success) {
                     srAssertFail("fSuccess", ANIM_OBJ_CPP, 0x217, 0);
                 }
-                animation->paths[channel]->insert(animation->paths[channel]->begin() + entry, path);
-                path->discrete_mode = 1;
-                PathAISetAnimated(path, 0);
-                PathAISetScale(path, animation->playback_scale);
-                animation->frame_count = static_cast<unsigned char>(path->nodes->size());
+                animation->paths[channel].insert(animation->paths[channel].begin() + entry,
+                                                 std::unique_ptr<W8PathAI>(path));
+                path->discrete_mode = true;
+                path->animated = false;
+                path->speed = animation->playback_scale;
+                animation->frame_count = static_cast<unsigned char>(path->nodes.size());
             }
         }
     }
 
     if (animation->end_frame == 0) {
-        W8AniMesh* mesh = animation->entries[2];
+        W8AniMesh* mesh = animation->entries[2].get();
         if (mesh == 0) {
-            mesh = animation->entries[1];
+            mesh = animation->entries[1].get();
         }
         if (mesh == 0) {
-            mesh = animation->entries[0];
+            mesh = animation->entries[0].get();
         }
         if (mesh == 0) {
             animation->end_frame = animation->start_frame;
-        } else if (animation->path_lists == 0) {
+        } else if (!animation->path_lists) {
             animation->end_frame = static_cast<unsigned char>(AniMeshValue(mesh) - 1);
         } else {
             animation->end_frame = animation->frame_count - 1;
@@ -310,88 +291,33 @@ try
 }
 catch (const std::exception&) { return false; }
 
-/* A deep copy of everything the record owns. Every mesh - the three entries and
-   every entry of the first list group - is rebuilt through CopyAniMesh,
-   every path of the second group through ClonePathAI, and each list
-   itself is a fresh PList. The three trailing allocations are sized from the
-   frame count, which comes from the third mesh entry unless flag_05 says to use
-   value_16 instead; +0x40 is one byte a frame and the other two a
-   srVector3T<float> each. */
+/* Clone owned meshes and paths; bounds copy as ordinary values. */
 // FUNCTION: WIZ8 0x004a0320
-W8AnimObj* CloneAnimObj(const W8AnimObj* source)
+W8AnimObj::W8AnimObj(const W8AnimObj& other)
+    : group_count(other.group_count), animation_playing(other.animation_playing),
+      frame_method(other.frame_method), behaviour(other.behaviour), cycle(other.cycle),
+      path_lists(other.path_lists), playback_scale(other.playback_scale),
+      random_play(other.random_play), play_chance(other.play_chance),
+      start_frame(other.start_frame), end_frame(other.end_frame), frame_count(other.frame_count),
+      frame_bounds(other.frame_bounds)
 {
-    W8AnimObj* copy = static_cast<W8AnimObj*>(malloc(sizeof(W8AnimObj)));
-    int index;
-    int entry;
-    int count;
-    int frames;
-
-    if (copy == 0) {
-        srAssertFail("pao", ANIM_OBJ_CPP, 0x24, 0);
-    }
-    memset(copy, 0, sizeof(W8AnimObj));
-    copy->group_count = source->group_count;
-    copy->animation_playing = source->animation_playing;
-    copy->frame_method = source->frame_method;
-    copy->behaviour = source->behaviour;
-    copy->cycle = source->cycle;
-    copy->path_lists = source->path_lists;
-    copy->playback_scale = source->playback_scale;
-    copy->random_play = source->random_play;
-    copy->play_chance = source->play_chance;
-    copy->start_frame = source->start_frame;
-    copy->end_frame = source->end_frame;
-    copy->frame_count = source->frame_count;
-    if (source->entries[0] != 0) {
-        copy->entries[0] = CopyAniMesh(source->entries[0]);
-    }
-    if (source->entries[1] != 0) {
-        copy->entries[1] = CopyAniMesh(source->entries[1]);
-    }
-    if (source->entries[2] != 0) {
-        copy->entries[2] = CopyAniMesh(source->entries[2]);
-    }
-    for (index = 0; index < 3; ++index) {
-        if (source->meshes[index] != 0) {
-            copy->meshes[index] = new std::vector<W8AniMesh*>;
-            count = static_cast<int>((source->meshes[index] ? source->meshes[index]->size() : 0));
-            for (entry = 0; entry < count; ++entry) {
-                copy->meshes[index]->push_back(
-                    CopyAniMesh(static_cast<W8AniMesh*>((*source->meshes[index])[entry])));
-            }
+    for (int group = 0; group < 3; ++group) {
+        if (other.entries[group]) entries[group] = std::make_unique<W8AniMesh>(*other.entries[group]);
+        meshes[group].reserve(other.meshes[group].size());
+        for (const auto& mesh : other.meshes[group]) {
+            meshes[group].push_back(mesh ? std::make_unique<W8AniMesh>(*mesh) : nullptr);
+        }
+        paths[group].reserve(other.paths[group].size());
+        for (const auto& source : other.paths[group]) {
+            auto copy = source ? std::make_unique<W8PathAI>(*source) : nullptr;
+            if (copy) copy->timed = false;
+            paths[group].push_back(std::move(copy));
         }
     }
-    for (index = 0; index < 3; ++index) {
-        if (source->paths[index] != 0) {
-            copy->paths[index] = new std::vector<W8PathAI*>;
-            count = static_cast<int>((source->paths[index] ? source->paths[index]->size() : 0));
-            for (entry = 0; entry < count; ++entry) {
-                copy->paths[index]->push_back(
-                    ClonePathAI(static_cast<W8PathAI*>((*source->paths[index])[entry])));
-            }
-        }
+    if (other.path) {
+        path = std::make_unique<W8PathAI>(*other.path);
+        path->timed = false;
     }
-    if (source->pfKnownBBoxFrames != 0) {
-        if (source == 0) {
-            srAssertFail("pao", ANIM_OBJ_CPP, 0x291, 0);
-        }
-        if (source->path_lists == 0) {
-            frames = AniMeshValue(source->entries[2]);
-        } else {
-            frames = source->frame_count;
-        }
-        if (frames != 0) {
-            copy->pfKnownBBoxFrames = static_cast<unsigned char*>(malloc(frames));
-            copy->pvecBoundMin = new srVector3T<float>[frames];
-            copy->pvecBoundMax = new srVector3T<float>[frames];
-            for (index = 0; index < frames; ++index) {
-                copy->pfKnownBBoxFrames[index] = source->pfKnownBBoxFrames[index];
-                copy->pvecBoundMin[index] = source->pvecBoundMin[index];
-                copy->pvecBoundMax[index] = source->pvecBoundMax[index];
-            }
-        }
-    }
-    return copy;
 }
 
 /* The animation's bounding box for one frame, cached per frame once computed.
@@ -403,7 +329,7 @@ W8AnimObj* CloneAnimObj(const W8AnimObj* source)
    below compares against the untransformed values instead. That is what the
    original does. */
 // FUNCTION: WIZ8 0x004a1710
-unsigned char AnimObjGetBounds(W8AnimObj* animation, signed char list_index, unsigned int frame,
+bool AnimObjGetBounds(W8AnimObj* animation, signed char list_index, unsigned int frame,
                                srVector3T<float>* minimum, srVector3T<float>* maximum)
 {
     glm::mat3 rotation;
@@ -414,67 +340,31 @@ unsigned char AnimObjGetBounds(W8AnimObj* animation, signed char list_index, uns
     srVector3T<float> mesh_minimum;
     srVector3T<float> mesh_maximum;
     stModelInstance* instance;
-    W8AniMesh* mesh;
     W8PathAI* path;
     unsigned int count;
     int index;
-    unsigned int frames;
 
     if (animation == 0) {
         srAssertFail("pao", ANIM_OBJ_CPP, 0x2ff, 0);
     }
-    if (animation->pfKnownBBoxFrames != 0 && animation->pfKnownBBoxFrames[frame & 0xff] != 0) {
-        *minimum = animation->pvecBoundMin[frame & 0xff];
-        *maximum = animation->pvecBoundMax[frame & 0xff];
-        return 1;
+    frame &= 0xff;
+    if (frame < animation->frame_bounds.size() && animation->frame_bounds[frame].known) {
+        const auto& bounds = animation->frame_bounds[frame];
+        *minimum = bounds.minimum;
+        *maximum = bounds.maximum;
+        return true;
     }
-    if (animation->path_lists == 0) {
-        if (animation == 0) {
-            srAssertFail("pao", ANIM_OBJ_CPP, 0x2bd, 0);
-        }
-        if (animation->path_lists == 0) {
-            mesh = animation->entries[list_index];
-        } else {
-            mesh = AnimObjEntry(animation, list_index, frame & 0xff);
-        }
-        return GetAniMeshBounds(mesh, minimum, maximum);
+    if (!animation->path_lists) {
+        return GetAniMeshBounds(animation->entries[list_index].get(), minimum, maximum);
     }
-    if (animation == 0) {
-        srAssertFail("pao", ANIM_OBJ_CPP, 0x291, 0);
+    if (frame >= animation->frame_count) return false;
+    if (animation->frame_bounds.size() < animation->frame_count) {
+        animation->frame_bounds.resize(animation->frame_count);
     }
-    if (animation->path_lists == 0) {
-        frames = AniMeshValue(animation->entries[list_index]);
-    } else {
-        frames = animation->frame_count;
-    }
-    if (animation->pfKnownBBoxFrames == 0) {
-        animation->pfKnownBBoxFrames = static_cast<unsigned char*>(malloc(frames));
-        animation->pvecBoundMin = new srVector3T<float>[frames];
-        animation->pvecBoundMax = new srVector3T<float>[frames];
-        if (animation->pfKnownBBoxFrames == 0 || animation->pvecBoundMin == 0 ||
-            animation->pvecBoundMax == 0) {
-            srAssertFail("pao->pfKnownBBoxFrames && pao->pvecBoundMin && "
-                         "pao->pvecBoundMax",
-                         ANIM_OBJ_CPP, 0x31e, 0);
-        }
-        memset(animation->pfKnownBBoxFrames, 0, frames);
-        for (index = 0; static_cast<unsigned int>(index) < frames; ++index) {
-            animation->pvecBoundMin[index] = 0.0f;
-            animation->pvecBoundMax[index] = 0.0f;
-        }
-    }
-    if (animation == 0) {
-        srAssertFail("pao", ANIM_OBJ_CPP, 0x2a7, 0);
-    }
-    if (animation->meshes[list_index] == 0) {
-        count = 0;
-    } else {
-        count = (animation->meshes[list_index] ? animation->meshes[list_index]->size() : 0);
-    }
-    if (AnimObjEntry(animation, list_index, 0) == 0) {
-        return 0;
-    }
-    GetAniMeshBounds(AnimObjEntry(animation, list_index, 0), minimum, maximum);
+    count = animation->meshes[list_index].size();
+    auto* first_mesh = AnimObjEntry(animation, list_index, 0);
+    if (!first_mesh) return false;
+    GetAniMeshBounds(first_mesh, minimum, maximum);
     for (index = 0; static_cast<unsigned int>(index) < count; ++index) {
         if (index != 0) {
             GetAniMeshBounds(AnimObjEntry(animation, list_index, index), &mesh_minimum,
@@ -523,10 +413,8 @@ unsigned char AnimObjGetBounds(W8AnimObj* animation, signed char list_index, uns
             }
         }
     }
-    animation->pvecBoundMin[frame & 0xff] = *minimum;
-    animation->pvecBoundMax[frame & 0xff] = *maximum;
-    animation->pfKnownBBoxFrames[frame & 0xff] = 1;
-    return 1;
+    animation->frame_bounds[frame] = {true, *minimum, *maximum};
+    return true;
 }
 
 /* Rotate, translate and scale the eight corners of a box and take the extent of
@@ -582,79 +470,8 @@ void TransformBounds(const glm::mat3* rotation, const srVector3T<float>* transla
     }
 }
 
-/* Everything an animation owns. The three mesh entries and the first list group
-   go back through the AniMesh destroy, the second list group through the PathAI
-   one, so the two groups hold different things - which is what the two release
-   calls establish. The lists themselves are destroyed with their contents; the
-   three trailing allocations are not lists at all and use two different
-   allocators. */
 // FUNCTION: WIZ8 0x004a01e0
-void DestroyAnimObj(W8AnimObj* animation)
-{
-    int index;
-    int entry;
-    int count;
 
-    if (animation->pfKnownBBoxFrames != 0) {
-        free(animation->pfKnownBBoxFrames);
-    }
-    /* entries and meshes are embedded arrays in the 0x4c layout, so a
-       pointer-style null test is always true. Keep the recovered shape until
-       a retail comparison says the outer tests were on the first slot. */
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wtautological-compare"
-    if (animation->entries != 0) {
-        if (animation->entries[0] != 0) {
-            DestroyAniMesh(animation->entries[0]);
-        }
-        if (animation->entries[1] != 0) {
-            DestroyAniMesh(animation->entries[1]);
-        }
-        if (animation->entries[2] != 0) {
-            DestroyAniMesh(animation->entries[2]);
-        }
-    }
-    if (animation->meshes != 0) {
-        for (index = 0; index < 3; ++index) {
-            std::vector<W8AniMesh*>* meshes = animation->meshes[index];
-            std::vector<W8PathAI*>* paths;
-
-            if (meshes != 0) {
-                count = static_cast<int>((meshes ? meshes->size() : 0));
-                for (entry = 0; entry < count; ++entry) {
-                    W8AniMesh* mesh = (*meshes)[entry];
-
-                    if (mesh != 0) {
-                        DestroyAniMesh(mesh);
-                    }
-                    count = static_cast<int>((meshes ? meshes->size() : 0));
-                }
-                delete meshes;
-            }
-            paths = animation->paths[index];
-            if (paths != 0) {
-                count = static_cast<int>((paths ? paths->size() : 0));
-                for (entry = 0; entry < count; ++entry) {
-                    W8PathAI* path = (*paths)[entry];
-
-                    if (path != 0) {
-                        DestroyPathAI(path);
-                    }
-                    count = static_cast<int>((paths ? paths->size() : 0));
-                }
-                delete paths;
-            }
-        }
-    }
-#pragma clang diagnostic pop
-    if (animation->pvecBoundMin != 0) {
-        delete[] animation->pvecBoundMin;
-    }
-    if (animation->pvecBoundMax != 0) {
-        delete[] animation->pvecBoundMax;
-    }
-    free(animation);
-}
 
 /* While the object is inactive the selected owned entry supplies the value;
    once active, AnimObj keeps the live value in its own byte at 0x16. */
@@ -664,8 +481,8 @@ unsigned int AnimObjValue(W8AnimObj* animation, signed char index)
     if (animation == 0) {
         srAssertFail("pao", ANIM_OBJ_CPP, 0x291, 0);
     }
-    if (animation->path_lists == 0) {
-        return AniMeshValue(animation->entries[index]);
+    if (!animation->path_lists) {
+        return AniMeshValue(animation->entries[index].get());
     }
     return animation->frame_count;
 }
@@ -673,16 +490,7 @@ unsigned int AnimObjValue(W8AnimObj* animation, signed char index)
 // FUNCTION: WIZ8 0x004a1620
 unsigned int AnimObjListCount(W8AnimObj* animation, signed char index)
 {
-    std::vector<W8AniMesh*>* list;
-
-    if (animation == 0) {
-        srAssertFail("pao", ANIM_OBJ_CPP, 0x2a7, 0);
-    }
-    list = animation->meshes[index];
-    if (list != 0) {
-        return list->size();
-    }
-    return 0;
+    return animation->meshes[index].size();
 }
 
 // FUNCTION: WIZ8 0x004a16c0
@@ -691,18 +499,18 @@ W8PathAI* AnimObjListEntry(W8AnimObj* animation, signed char list_index, signed 
     if (animation == 0) {
         srAssertFail("pao", ANIM_OBJ_CPP, 0x2d3, 0);
     }
-    if (animation->path_lists == 0) {
+    if (!animation->path_lists) {
         return 0;
     }
-    const auto* paths = animation->paths[list_index];
-    if (!paths || entry_index < 0 || std::cmp_greater_equal(entry_index, paths->size())) {
+    const auto& paths = animation->paths[list_index];
+    if (entry_index < 0 || std::cmp_greater_equal(entry_index, paths.size())) {
         return nullptr;
     }
-    return (*paths)[entry_index];
+    return paths[entry_index].get();
 }
 
 // FUNCTION: WIZ8 0x004a1dc0
-unsigned char AnimationIsRunning(W8AnimObj* animation)
+bool AnimationIsRunning(W8AnimObj* animation)
 {
     if (animation == 0) {
         srAssertFail("pao", ANIM_OBJ_CPP, 0x3b1, 0);
@@ -718,8 +526,8 @@ srModelInstance* AnimObjDispatch(W8AnimObj* animation, signed char list_index, u
     if (animation == 0) {
         srAssertFail("pao", ANIM_OBJ_CPP, 0x243, 0);
     }
-    if (animation->path_lists == 0) {
-        entry = animation->entries[list_index];
+    if (!animation->path_lists) {
+        entry = animation->entries[list_index].get();
         // reinterpret-ok: VC6 debug CRT freed-block poison is compared as a pointer; never
         // dereferenced.
         if (entry != reinterpret_cast<W8AniMesh*>(WIZ8_DEBUG_FREED_HEAP_PATTERN) && entry != 0) {
@@ -741,15 +549,14 @@ srModelInstance* AnimObjDispatchList(W8AnimObj* animation, signed char list_inde
                                      signed char entry_index)
 {
     W8AniMesh* entry;
-    std::vector<W8AniMesh*>* list;
 
     if (animation == 0) {
         srAssertFail("pao", ANIM_OBJ_CPP, 0x26c, 0);
     }
-    if (animation->path_lists == 1) {
-        list = animation->meshes[list_index];
-        if (list && entry_index >= 0 && std::cmp_less(entry_index, list->size())) {
-            entry = (*list)[entry_index];
+    if (animation->path_lists) {
+        const auto& list = animation->meshes[list_index];
+        if (entry_index >= 0 && std::cmp_less(entry_index, list.size())) {
+            entry = list[entry_index].get();
             if (entry != 0) {
                 entry->list_index = list_index;
                 return GetAniMeshFrame(entry, 0);
@@ -765,15 +572,15 @@ W8AniMesh* AnimObjEntry(W8AnimObj* animation, signed char list_index, unsigned i
     if (animation == 0) {
         srAssertFail("pao", ANIM_OBJ_CPP, 0x2bd, 0);
     }
-    if (animation->path_lists == 0) {
-        return animation->entries[list_index];
+    if (!animation->path_lists) {
+        return animation->entries[list_index].get();
     }
-    const auto* meshes = animation->meshes[list_index];
+    const auto& meshes = animation->meshes[list_index];
     const auto frame = entry_index & 0xff;
-    if (!meshes || frame >= meshes->size()) {
+    if (frame >= meshes.size()) {
         return nullptr;
     }
-    return (*meshes)[frame];
+    return meshes[frame].get();
 }
 
 // FUNCTION: WIZ8 0x004A2220

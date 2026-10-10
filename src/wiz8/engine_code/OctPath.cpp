@@ -6775,10 +6775,10 @@ bool LoadPathParameters()
 try
 {
     auto handle = wiz8::open_file("Data\\Monsters\\pathparms.txt");
-    unsigned char more = 1;
+    bool more = true;
     char line[128];
     while (more != 0) {
-        ReadTextLine(handle.get(), line, sizeof(line), &more);
+        ReadTextLine(handle.get(), line, sizeof(line), more);
         if (line[0] == '#') {
             continue;
         }

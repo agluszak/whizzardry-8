@@ -279,8 +279,8 @@ try
                         srAssertFail("fSuccess", READ_LEVEL_CPP, 532, 0);
                     }
                     path->discrete_mode = 1;
-                    PathAISetAnimated(path, 0);
-                    PathAISetScale(path, definition->path_speed);
+                    path->animated = false;
+                    path->speed = definition->path_speed;
                 }
             }
         }
@@ -719,10 +719,10 @@ try
                 active = false;
             }
             if (options[2] == '1') {
-                PathAISetAnimated(path, 1);
+                path->animated = true;
             }
             if (options[3] == '1') {
-                PathAISetLooping(path, 1);
+                path->looping = true;
             }
             if (!active) {
                 group->members_active = false;
@@ -784,7 +784,7 @@ try
         PathAIEnableTimedMode(entry->path);
         pWorld->plsCameras->push_back(entry);
         entry->path->entry_index = index;
-        PathAISetScale(entry->path, scale);
+        entry->path->speed = scale;
     }
     return 1;
 } catch (const std::exception&) {

@@ -495,7 +495,7 @@ void DestroyWorldCollections(W8World* world)
 
     if (world->plsCameras != 0) {
         wiz8::clear_and_dispose(*world->plsCameras, [](W8CameraPath* entry) {
-            DestroyPathAI(entry->path);
+            delete entry->path;
             free(entry);
         });
         delete world->plsCameras;
@@ -676,7 +676,7 @@ void UpdateWorldCameraAndPaths(W8World* world, unsigned int flags)
                 }
                 ApplyCameraRotation(&path_rotation);
                 if (path->discrete_mode != 0) {
-                    if (path->position >= static_cast<int>(path->nodes->size()) - g_float_one) {
+                    if (path->position >= static_cast<int>(path->nodes.size()) - g_float_one) {
                         UpdateCameraPathState(world, camera_path, 0);
                     }
                 } else if (path->position >= g_double_one) {
